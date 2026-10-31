@@ -1,4 +1,4 @@
-// 서버 화면(재생 · 대기열 · 곡 넣기)
+// 서버 화면(재생, 대기열, 곡 넣기)
 
 import { formatNumber } from "../../utils/locale.ts";
 
@@ -22,7 +22,7 @@ const addFirstOnly = "첫 곡만";
 const addFailed = "추가에 실패했어요.";
 const joinFailed = "참가에 실패했어요.";
 
-// 위 막대 · 재생 판
+// 위 막대, 재생 판
 const serverSettings = "서버 설정";
 const enlarge = "크게 보기";
 const enlargeArt = "앨범아트 크게 보기";

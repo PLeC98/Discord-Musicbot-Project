@@ -1,11 +1,11 @@
 // 재생목록 "더 넣기" 화면: 헤더 줄 아래 곡 수 메뉴, 곡 수를 입력하는 모달, 가져오는 동안의 화면.
-// 무엇을 선택할 수 있는지(선택지 · custom_id)는 usecases/playlist-more 가 정하고 여기서는 그린다
+// 무엇을 선택할 수 있는지(선택지, custom_id)는 usecases/playlist-more 가 정하고 여기서는 그린다
 
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { frame } from "./frame.ts";
 import * as moreText from "./text/ko/more.ts";
 
-/** 곡 수 메뉴. steps 는 단계 선택지, cap 은 가장 큰 선택지(all: 남은 곡 전부 · perClick: 출처의 한 번 상한에 걸렸다), remaining 은 남은 곡 수 */
+/** 곡 수 메뉴. steps 는 단계 선택지, cap 은 가장 큰 선택지(all: 남은 곡 전부, perClick: 출처의 한 번 상한에 걸렸다), remaining 은 남은 곡 수 */
 type MoreMenu = { customId: string; remaining: number; steps: number[]; cap: number; all: boolean; perClick: boolean };
 
 /** 헤더 줄과, 더 넣을 수 있으면 곡 수 메뉴 */
@@ -20,7 +20,7 @@ function moreView(head: string, menu: MoreMenu | null) {
   return container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select));
 }
 
-/** 가져오는 동안. done · want 를 주면 몇 곡째인지 */
+/** 가져오는 동안. done, want 를 주면 몇 곡째인지 */
 const fetchingView = (progress?: { done: number; want: number }) => frame({ body: progress ? moreText.fetchingCount(progress.done, progress.want) : moreText.fetching() });
 
 /** 곡 수를 입력하는 모달. max 는 입력할 수 있는 가장 큰 수, suggested 는 미리 입력해 둘 수 */

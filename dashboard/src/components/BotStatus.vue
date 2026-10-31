@@ -1,6 +1,6 @@
 <template>
-  <!-- 봇 상태 탭. 괜찮은가(요약) → 무엇에 기대는가(연결, 높이가 거의 고정이라 위에) → 지금 어떤가(흐름) → 무엇을 하는가(플레이어 · 프로세스, 흐름과 자주 같이 보고 서버 수만큼 길어져 아래에) → 어디에 쌓이는가(저장공간). 잘 안 바뀌는 환경 · 버전은 봇 정보 탭(BotInfo).
-       상태는 색 + 모양(✓ 동그라미 · ! 세모 · ✕ 동그라미) + 단어로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
+  <!-- 봇 상태 탭. 괜찮은가(요약) → 무엇에 기대는가(연결, 높이가 거의 고정이라 위에) → 지금 어떤가(흐름) → 무엇을 하는가(플레이어, 프로세스, 흐름과 자주 같이 보고 서버 수만큼 길어져 아래에) → 어디에 쌓이는가(저장공간). 잘 안 바뀌는 환경, 버전은 봇 정보 탭(BotInfo).
+       상태는 색 + 모양(✓ 동그라미, ! 세모, ✕ 동그라미) + 단어로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
   <!-- 저장공간 카드는 폭에 따라 두 위치 중 하나에 놓인다. 한 번 정의해 두고 부른다(VueUse createReusableTemplate) -->
   <DefineStorage>
     <BaseCard icon="hard_drive" :title="T.storage" data-at="storage">
@@ -10,13 +10,13 @@
       ></template>
       <div class="flex flex-col gap-3">
         <!-- 막대는 늘 쓴 만큼. 캐시는 한도까지 채우고 오래 안 들은 곡부터 삭제하므로 차 있는 것이 정상(경고하지 않는다).
-             순서는 오디오 캐시 · 캐시 파일 수 · 구분선 · 드라이브(오디오 캐시 · 기타 · 여유 공간 · 최소 여유로 나눈다) -->
+             순서는 오디오 캐시, 캐시 파일 수, 구분선, 드라이브(오디오 캐시, 기타, 여유 공간, 최소 여유로 나눈다) -->
         <div v-for="bar in storageBars" :key="bar.key" :class="bar.key === 'drive' && 'pt-3 border-t border-outline-variant/40'">
           <div class="flex items-baseline gap-2 text-sm">
             <span>{{ bar.label }}</span>
             <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[bar.level]">{{ bar.text }}</span>
           </div>
-          <!-- 나눈 막대: 오디오 캐시 · 기타 · 여유 공간 · 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px 을 띄우고, 아래에 같은 색 점으로 이름 · 크기 -->
+          <!-- 나눈 막대: 오디오 캐시, 기타, 여유 공간, 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px 을 띄우고, 아래에 같은 색 점으로 이름, 크기 -->
           <template v-if="bar.key === 'drive'">
             <div class="flex gap-0.5 h-2 mt-1">
               <div v-for="part in driveParts" :key="part.label" class="h-full rounded-full" :class="part.tone" :style="{ flexGrow: toGB(part.bytes), flexBasis: '0%', minWidth: '0.25rem' }" v-tooltip="part.tip"></div>
@@ -30,8 +30,8 @@
           <div v-else class="h-2 mt-1 rounded-full bg-(--store-free) overflow-hidden">
             <div class="h-full rounded-full" :class="bar.level === 'ok' ? 'bg-(--store-cache)' : LEVEL_BAR[bar.level]" :style="{ width: `${Math.max(2, bar.ratio * 100)}%` }"></div>
           </div>
-          <!-- 캐시 수: 오디오 캐시 · 캐시 파일 수 아래, 드라이브 구분선 위에 -->
-          <!-- 이름 · 수 행은 카드 아래 DB 표와 같은 모양. 표는 행마다 따로 폭을 잡는다(긴 값 하나가 모든 행의 이름 셀을 좁혀 이름이 접히지 않게, 이름은 접지 않고 값이 넘치면 자른다) -->
+          <!-- 캐시 수: 오디오 캐시, 캐시 파일 수 아래, 드라이브 구분선 위에 -->
+          <!-- 이름, 수 행은 카드 아래 DB 표와 같은 모양. 표는 행마다 따로 폭을 잡는다(긴 값 하나가 모든 행의 이름 셀을 좁혀 이름이 접히지 않게, 이름은 접지 않고 값이 넘치면 자른다) -->
           <div v-if="bar.key === 'files'" class="mt-3">
             <dl class="flex flex-col gap-1 text-sm">
               <div v-for="[k, v] in cacheCounts" :key="k" class="flex items-baseline justify-between gap-3">
@@ -53,12 +53,12 @@
   <div ref="root" class="flex flex-col gap-(--gap-in)">
     <!-- ① 요약 -->
     <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-3">
-      <!-- 좁으면(휴대폰) 마지막 갱신 · 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 영역이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라진다 -->
+      <!-- 좁으면(휴대폰) 마지막 갱신, 다시 시작이 아래 줄 오른쪽으로 내려간다. 한 줄에 두면 제목 영역이 몇 글자 폭으로 눌려 세로로 접히고 부제는 잘려 사라진다 -->
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span class="size-12 shrink-0 rounded-[30%] flex items-center justify-center" :class="LEVEL_BADGE[overallLevel]"><Icon :name="LEVEL_ICON[overallLevel]" :size="24" fill /></span>
         <div class="min-w-0 grow basis-44">
           <div class="font-round text-xl font-semibold">{{ overallLevel === "ok" ? T.allOk : T.needsAttention(attentionCount) }}</div>
-          <!-- 좁으면 자르지 않고 접는다(잘리면 실행 시간 · 서버 수가 보이지 않는다) -->
+          <!-- 좁으면 자르지 않고 접는다(잘리면 실행 시간, 서버 수가 보이지 않는다) -->
           <div class="text-sm text-on-surface-variant">
             {{ status.bot.tag }} · <template v-if="status.bot.status !== 0">{{ T.connecting }}</template
             >{{ T.runningFor(formatSpan(status.bot.uptime), status.bot.guilds) }}
@@ -99,12 +99,12 @@
          붙은 뒤로 더 넓어지면 둘이 임계값에서의 폭 비율대로 같이 늘어난다(flex 늘림 = 기준 폭) -->
     <div class="flex gap-(--gap-in) items-stretch">
       <BaseCard icon="hub" :title="T.links" data-at="links" class="flex-1 min-w-0" :style="storageBeside ? flexFromBase(LINK_CARD_REM) : undefined">
-        <!-- 왼쪽 열에 재생 · 유튜브(소리를 내는 데 쓰는 것), 오른쪽 열에 자동재생 -->
+        <!-- 왼쪽 열에 재생, 유튜브(소리를 내는 데 쓰는 것), 오른쪽 열에 자동재생 -->
         <div class="grid grid-cols-1 @3xl/card:grid-cols-2 gap-x-10 gap-y-4">
           <div v-for="(col, ci) in linkColumns" :key="ci" class="flex flex-col gap-4">
             <div v-for="group in col" :key="group.title">
-              <!-- 열: 이름 · 무엇(설명 · 모델 · 방식) · 마지막 성공 · 응답(실패면 오류). 쓰지 않는 곳도 같은 열(설명에 그 사실, 숫자 열은 -).
-                   좁은 카드(448px 미만, 휴대폰)는 설명 열이 남지 않아 행마다 두 줄: 위에 이름 · 마지막 성공 · 응답, 아래에 설명(이름 글자 위치부터). 헤더 · 행이 저마다 같은 세 열 격자 -->
+              <!-- 열: 이름, 무엇(설명, 모델, 방식), 마지막 성공, 응답(실패면 오류). 쓰지 않는 곳도 같은 열(설명에 그 사실, 숫자 열은 -).
+                   좁은 카드(448px 미만, 휴대폰)는 설명 열이 남지 않아 행마다 두 줄: 위에 이름, 마지막 성공, 응답, 아래에 설명(이름 글자 위치부터). 헤더, 행이 저마다 같은 세 열 격자 -->
               <div :class="LINK_GRID" class="items-center text-sm">
                 <span class="contents text-xs text-on-surface-variant" :class="LINK_NARROW"
                   ><span class="@md/card:col-span-2 pb-1">{{ group.title }}</span
@@ -121,8 +121,8 @@
                   <span class="text-xs nums text-right whitespace-nowrap" :class="LINK_TEXT[line.state]">{{ line.value || "-" }}</span>
                 </div>
               </div>
-              <!-- 유튜브 클라이언트(설정한 순서대로 시도): 유튜브의 하위라 테두리 상자로 묶는다. 제목 · 열 헤더는 윗선 위에 걸치고(윗선을 조각으로 그어 반투명 바탕에서도 글자 밑으로 선이 지나지 않게),
-                   이름 열은 바깥 이름 열에서 상자 여백 · 테두리만큼 줄여 막대가 바깥 설명 열과 같은 위치에서 시작한다 -->
+              <!-- 유튜브 클라이언트(설정한 순서대로 시도): 유튜브의 하위라 테두리 상자로 묶는다. 제목, 열 헤더는 윗선 위에 걸치고(윗선을 조각으로 그어 반투명 바탕에서도 글자 밑으로 선이 지나지 않게),
+                   이름 열은 바깥 이름 열에서 상자 여백, 테두리만큼 줄여 막대가 바깥 설명 열과 같은 위치에서 시작한다 -->
               <div v-if="group.youtube" class="mt-3">
                 <div class="flex items-center h-5 text-xs text-on-surface-variant">
                   <span :class="[CLIENT_BOX_EDGE, 'w-3 border-l rounded-tl-sm']"></span><span class="px-1">{{ T.clients }}</span
@@ -147,7 +147,7 @@
       <ReuseStorage v-if="storageBeside" class="min-w-0" :style="flexFromBase(STORAGE_CARD_REM)" />
     </div>
 
-    <!-- ③ 지금: 값 + 최근 15분 흐름. 지표 카드 여덟 개를 네 칸씩 두 줄(위: 재생 · 응답, 아래: 자원). 2열이면 둘씩 짝이 맞는다.
+    <!-- ③ 지금: 값 + 최근 15분 흐름. 지표 카드 여덟 개를 네 칸씩 두 줄(위: 재생, 응답, 아래: 자원). 2열이면 둘씩 짝이 맞는다.
          네 칸은 카드가 13rem(보조 텍스트를 한 줄에 두는 폭) 이상일 때부터, 410px 이하는 1열(2열이면 큰 숫자 옆에 보조 텍스트가 들어가지 않는다) -->
     <div class="grid grid-cols-1 min-[411px]:grid-cols-2 @4xl/content:grid-cols-4 gap-(--gap-in)">
       <section v-for="m in metrics" :key="m.title" :data-at="m.title" class="@container/metric pane rounded-(--r-window) px-4 py-3 flex flex-col gap-1">
@@ -168,7 +168,7 @@
           ><span v-if="m.unit" class="text-xs" :class="m.level === 'ok' && 'text-on-surface-variant'"
             ><span v-for="s in stepsOf(m.unit)" :key="s.cls" :class="s.cls">{{ s.text }}</span></span
           >
-          <!-- 보조 텍스트. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 베이스라인(last baseline)으로 맞춰, 큰 숫자 · 단위 · 보조 텍스트 아래 줄이 같은 선에 선다.
+          <!-- 보조 텍스트. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 베이스라인(last baseline)으로 맞춰, 큰 숫자, 단위, 보조 텍스트 아래 줄이 같은 선에 선다.
                둘째 선 표시(짧은 가로선)는 둘째 선의 값이 있는 줄에(markTop 이면 위 줄). 글 안의 줄바꿈은 그대로 줄을 나눈다. 툴팁은 숫자에만.
                늘 두 줄 높이(min-h-8)라 보조 텍스트가 한 줄인 카드도 두 줄인 옆 카드와 큰 숫자의 높이가 같다(큰 숫자가 작아지면 두 줄이 줄 높이를 정한다) -->
           <span class="ml-auto min-w-0 min-h-8 flex flex-col justify-end items-end text-right text-2xs @min-[10.14rem]/metric:text-xs text-on-surface-variant nums"
@@ -189,11 +189,11 @@
       </section>
     </div>
 
-    <!-- ④ 작업 · ⑤ 쌓이는 곳: 2열 격자. 첫 행에 활성 플레이어 · 자식 프로세스(같은 행이라 높이가 같다), 둘째 행에 인코딩 워커 · 저장공간(저장공간은 넓을 때 연결 카드 옆으로 간다).
+    <!-- ④ 작업, ⑤ 쌓이는 곳: 2열 격자. 첫 행에 활성 플레이어, 자식 프로세스(같은 행이라 높이가 같다), 둘째 행에 인코딩 워커, 저장공간(저장공간은 넓을 때 연결 카드 옆으로 간다).
          1열이 되면 DOM 순서 그대로 -->
     <div class="grid grid-cols-1 @4xl/content:grid-cols-2 gap-(--gap-in)">
       <BaseCard ref="playerCardEl" icon="graphic_eq" :title="T.playersTitle(status.players.voiceConnections)">
-        <!-- 상태 필터: M3 필터 칩(여럿 켜기). 오른쪽 끝에 검색. 연결된 서버 수는 카드 제목에, 청취자 · 대기열 합계는 카드 맨 아래(자식 프로세스 합계와 같은 모양) -->
+        <!-- 상태 필터: M3 필터 칩(여럿 켜기). 오른쪽 끝에 검색. 연결된 서버 수는 카드 제목에, 청취자, 대기열 합계는 카드 맨 아래(자식 프로세스 합계와 같은 모양) -->
         <div class="flex flex-wrap items-center gap-2 mb-2">
           <button v-for="f in playerFilters" :key="f.key" type="button" :aria-pressed="f.on" :class="[FILTER_CHIP, f.on ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="f.toggle()">
             {{ f.label }}<span class="nums font-semibold">{{ f.count }}</span>
@@ -232,12 +232,12 @@
           <span class="ml-auto shrink-0 nums">{{ T.playersTotal(status.players.listeners, status.players.queued) }}</span>
         </div>
       </BaseCard>
-      <!-- 넓을 때(2열)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0 · min-h-full). 넘치는 행은 목록 영역 안에서 스크롤된다.
+      <!-- 넓을 때(2열)는 옆 카드(활성 플레이어)의 높이를 따르고 제 높이로 행을 늘리지 않는다(h-0, min-h-full). 넘치는 행은 목록 영역 안에서 스크롤된다.
            1열일 때는 카드 높이를 활성 플레이어 카드와 같게(잰 높이 --player-card-h). 열 헤더는 스크롤되지 않게 따로 두고, 행과 같은 고정 열 폭으로 맞춘다 -->
       <BaseCard ref="processCardEl" icon="terminal" :title="T.processes" data-at="processes" class="flex flex-col h-(--player-card-h) @4xl/content:h-0 @4xl/content:min-h-full" :style="{ '--player-card-h': `${playerCardHeight}px` }">
         <template v-if="status.processes.total">
           <!-- 열 헤더를 누르면 그 열로 행을 정렬한다(다시 누르면 거꾸로). 정렬한 열은 글자를 진하게 하고 화살표를 붙인다(오른쪽 맞춤 열은 화살표가 앞) -->
-          <!-- 좁은 카드(448px 미만)는 PID · 실행 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(작업 열 폭이 모자란다) -->
+          <!-- 좁은 카드(448px 미만)는 PID, 실행 시간 열을 헤더에서 빼고 행 아래에 작게 둔다(작업 열 폭이 모자란다) -->
           <div :class="PROCESS_GRID" class="pb-1 text-xs text-on-surface-variant">
             <button v-for="c in PROCESS_COLUMNS" :key="c.key" type="button" class="flex items-center gap-1 min-w-0 cursor-pointer hover:text-on-surface" :class="[c.right && 'justify-end', processSort.key === c.key && 'text-on-surface font-semibold', (c.key === 'pid' || c.key === 'age') && '@max-md/card:hidden']" :aria-label="T.sortBy(c.label)" @click="sortProcessesBy(c.key)">
               <Icon v-if="c.right && processSort.key === c.key" :name="processSort.desc ? 'arrow_downward' : 'arrow_upward'" :size="14" /><span class="truncate">{{ c.label }}</span
@@ -259,7 +259,7 @@
                   <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000) }}</span>
                   <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
                   <span class="text-xs nums text-right">{{ p.memMb === null ? "—" : `${p.memMb} MB` }}</span>
-                  <!-- 좁은 카드: PID · 실행 시간을 아래 줄에 -->
+                  <!-- 좁은 카드: PID, 실행 시간을 아래 줄에 -->
                   <span class="@md/card:hidden col-span-full -mt-0.5 font-mono text-xs nums text-on-surface-variant" :class="p.stray && LEVEL_TEXT.warn">PID {{ p.pid }} · {{ formatDuration(p.ageMs / 1000) }}</span>
                 </div>
               </template>
@@ -279,8 +279,8 @@
           /></span>
         </div>
       </BaseCard>
-      <!-- 인코딩 워커: 인코딩 응답 시간 카드가 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생 · CPU(코어 하나 기준) · 응답 시간 p99 와 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms).
-           막대는 응답 시간이 응답 한도를 얼마나 쓰는지. 큐 깊이를 끝까지 올린 워커만 주의 · 문제로 칠한다(덜 올렸으면 풀이 더 올린다) -->
+      <!-- 인코딩 워커: 인코딩 응답 시간 카드가 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생, CPU(코어 하나 기준), 응답 시간 p99 와 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms).
+           막대는 응답 시간이 응답 한도를 얼마나 쓰는지. 큐 깊이를 끝까지 올린 워커만 주의, 문제로 칠한다(덜 올렸으면 풀이 더 올린다) -->
       <BaseCard icon="memory" :title="T.workers.title(status.encoding.workers.length)" data-at="workers">
         <div class="flex flex-col gap-3">
           <div v-for="w in workerRows" :key="w.n">
@@ -337,12 +337,12 @@ import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../u
 import { text } from "../text/index.ts";
 const T = text.status;
 
-// query: 목록(플레이어 · 자식 프로세스)의 구간 · 필터링 · 정렬. 바꾸면 운영자 패널이 바로 받는다
+// query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 바꾸면 운영자 패널이 바로 받는다
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
 const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 
-// ── 판정 · 모양 ──
+// ── 판정, 모양 ──
 type Level = "ok" | "warn" | "bad";
 const levelOf = (v: number, warn: number, bad: number): Level => (v >= bad ? "bad" : v >= warn ? "warn" : "ok");
 const LEVEL_ICON: Record<Level, IconName> = { ok: "check_circle", warn: "warning", bad: "cancel" };
@@ -354,7 +354,7 @@ const WARN_FILL = "bg-(--warn-ink)/15 text-(--warn-ink)";
 const LEVEL_BADGE: Record<Level, string> = { ok: "bg-primary-container text-on-primary-container", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 
-/** 기준(주의 · 문제). 핑 ms, 루프 지연 ms, heap · CPU · 디스크 % */
+/** 기준(주의, 문제). 핑 ms, 루프 지연 ms, heap, CPU, 디스크 % */
 // 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms 가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
 const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
@@ -371,7 +371,7 @@ const timeText = (ms: number) => {
 };
 const MB = 1024 ** 2;
 const toGB = (bytes: number) => bytes / 1024 ** 3;
-// 크기: 단위는 크기에 맞게(MB · GB · TB, src/ui/format 의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
+// 크기: 단위는 크기에 맞게(MB, GB, TB, src/ui/format 의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
 const sizeText = (bytes: number) => {
   const { value, unit } = scaledText(bytes, byteUnit, (n) => (n >= 100 ? 0 : 1));
   return `${value.replace(/\.0$/, "")} ${unit}`;
@@ -388,7 +388,7 @@ const sizePair = (part: number, whole: number, partDigits: number, wholeDigits =
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
 const downloadParts = (bps: number) => scaledText(toMBps(bps), byteRate, () => 1);
-// 업로드는 회선 속도처럼 비트로(kbps · Mbps · Gbps). kbps 는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
+// 업로드는 회선 속도처럼 비트로(kbps, Mbps, Gbps). kbps 는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
 const toMbps = (bps: number) => (bps * 8) / 1e6;
 const rateParts = (bps: number) => scaledText(toMbps(bps), bitRate, (n, unit) => (unit === "kbps" || n >= 100 ? 0 : 1));
 const rateText = (bps: number) => {
@@ -425,7 +425,7 @@ const sizePairShort = (part: number, whole: number) => {
   const { value, unit, per } = shortParts(whole, byteUnit, 1024, 4);
   return `${(part / per).toFixed(value.includes(".") ? 1 : 0)} / ${value} ${unit}`;
 };
-// 개수를 줄여서: 1000 부터 k · M 에 소수 한 자리(2,499 → 2.5k, 112,455,000 → 112.5M)
+// 개수를 줄여서: 1000 부터 k, M 에 소수 한 자리(2,499 → 2.5k, 112,455,000 → 112.5M)
 const countParts = (n: number) => scaledText(n, count, (_, unit) => (unit ? 1 : 0));
 const countText = (n: number) => {
   const { value, unit } = countParts(n);
@@ -434,7 +434,7 @@ const countText = (n: number) => {
 /** 시간을 정수 ms 로(초는 소수 한 자리 그대로) */
 const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
-// 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3px · 바깥 간격 2px · secondary,
+// 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3px, 바깥 간격 2px, secondary,
 // 나타날 때 600ms(long4) 중 1/4 은 0 → 8px 로 두꺼워지고 3/4 은 3px 로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
 const root = ref<HTMLElement | null>(null);
 // 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline 이 px 단위로 끊겨 버벅여 보인다
@@ -503,14 +503,14 @@ const historyMinutes = computed(() => Math.max(1, Math.round((props.status.histo
 
 // 카드 너비에 따라 바꿔 보일 글의 경계: 좁은 버전부터 넓은 버전까지의 클래스. 모바일 먼저라 기본은 가장 좁은 버전이고 카드 안쪽이 경계 이상이면 다음 버전.
 // 경계는 끝 줄 주석의 화면 폭(휴대폰, 사이드바를 접은 데스크톱 네 칸)에서의 카드 안쪽 너비다
-const AT_PHONE = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline"] as const; // 핑 · 루프 지연 · 인코딩 응답 시간(480px)
+const AT_PHONE = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline"] as const; // 핑, 루프 지연, 인코딩 응답 시간(480px)
 const AT_PING = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline"] as const; // 핑 보조 텍스트 두 줄(450px)
-const AT_BIG = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 업로드 큰 숫자(480px · 1220px)
-const AT_SYSTEM = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.21rem]/metric:hidden", "hidden @min-[13.21rem]/metric:inline"] as const; // 업로드 시스템(480px · 1195px)
-const AT_TODAY = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline"] as const; // 업 · 다운 오늘(480px · 1130px)
-const AT_HEAP = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline @min-[13.13rem]/metric:hidden", "hidden @min-[13.13rem]/metric:inline"] as const; // heap 보조 텍스트(450px · 1130px · 1190px)
-const AT_DOWNLOAD = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 다운로드 큰 숫자(420px · 1220px)
-const AT_SMALL = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline"] as const; // 재생 중 · 루프 지연 제목(420px)
+const AT_BIG = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 업로드 큰 숫자(480px, 1220px)
+const AT_SYSTEM = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[13.21rem]/metric:hidden", "hidden @min-[13.21rem]/metric:inline"] as const; // 업로드 시스템(480px, 1195px)
+const AT_TODAY = ["@min-[12.02rem]/metric:hidden", "hidden @min-[12.02rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline"] as const; // 업, 다운 오늘(480px, 1130px)
+const AT_HEAP = ["@min-[11.08rem]/metric:hidden", "hidden @min-[11.08rem]/metric:inline @min-[12.2rem]/metric:hidden", "hidden @min-[12.2rem]/metric:inline @min-[13.13rem]/metric:hidden", "hidden @min-[13.13rem]/metric:inline"] as const; // heap 보조 텍스트(450px, 1130px, 1190px)
+const AT_DOWNLOAD = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline @min-[13.6rem]/metric:hidden", "hidden @min-[13.6rem]/metric:inline"] as const; // 다운로드 큰 숫자(420px, 1220px)
+const AT_SMALL = ["@min-[10.14rem]/metric:hidden", "hidden @min-[10.14rem]/metric:inline"] as const; // 재생 중, 루프 지연 제목(420px)
 /** 카드 너비에 따라 바꿔 보일 글: 좁은 버전부터 넓은 버전까지와 그 버전들의 클래스(AT_…). tips: 버전마다 숫자의 툴팁 */
 type Stepped = { texts: string[]; at: readonly string[]; tips?: (string | null)[] };
 type Text = string | Stepped;
@@ -519,7 +519,7 @@ type Line = { label: string; num: Text };
 const stepsOf = (t: Text) => (typeof t === "string" ? [{ text: t, cls: "", tip: null }] : t.texts.map((text, i) => ({ text, cls: t.at[i], tip: t.tips?.[i] ?? null })));
 const lineOf = (t: Text | Line): Line => (typeof t === "object" && "label" in t ? t : { label: "", num: t });
 const TIP = "underline decoration-dotted underline-offset-2 cursor-help";
-// 줄여 쓴 글이 값을 알아볼 만큼 바꾸면 툴팁으로 가장 넓은 버전의 글: 단위가 바뀌었거나(k · M 포함) 같은 단위에서 5% 넘게 다를 때
+// 줄여 쓴 글이 값을 알아볼 만큼 바꾸면 툴팁으로 가장 넓은 버전의 글: 단위가 바뀌었거나(k, M 포함) 같은 단위에서 5% 넘게 다를 때
 const unitOf = (t: string) => /[^\d.,\s/]+$/.exec(t)?.[0] ?? "";
 const numsOf = (t: string) => (t.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((n) => Number(n.replace(/,/g, "")));
 function tipFor(shown: string, full: string) {
@@ -530,7 +530,7 @@ function tipFor(shown: string, full: string) {
 }
 /** 버전마다 가장 넓은 버전(마지막)과 비교해 툴팁을 단다 */
 const withTips = (s: Stepped): Stepped => ({ ...s, tips: s.texts.map((t) => tipFor(t, s.texts[s.texts.length - 1])) });
-/** 버전마다의 큰 숫자 · 단위를 큰 숫자(value) 필드와 단위(unit) 필드로 나눈다(툴팁은 큰 숫자에) */
+/** 버전마다의 큰 숫자, 단위를 큰 숫자(value) 필드와 단위(unit) 필드로 나눈다(툴팁은 큰 숫자에) */
 const splitSteps = (parts: { value: string; unit: string }[], at: readonly string[]) => {
   const text = (p: { value: string; unit: string }) => `${p.value} ${p.unit}`.trim();
   const full = text(parts[parts.length - 1]);
@@ -625,7 +625,7 @@ const metrics = computed<Metric[]>(() => {
 });
 
 // 인코딩 응답 시간: 가장 늦은 워커의 응답 시간 p99. 응답은 응답 한도((큐 깊이 − 1) × 20ms) 안에 와야 하고, 큐 깊이를 상한까지 올린 워커가 그 80%를 넘으면 주의, 한도를 넘기면 문제(누락 프레임).
-// 보조 텍스트는 최근 15분 누락 프레임 수(0 이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한 · 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
+// 보조 텍스트는 최근 15분 누락 프레임 수(0 이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한, 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
 const FRAME_MS = 20;
 /** 그래프 세로축의 상한을 정할 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
@@ -651,9 +651,9 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
   };
 }
 
-// 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한 · 켜진 뒤 누계.
+// 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한, 켜진 뒤 누계.
 // 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
-// 응답 시간: 카드 안쪽이 320px(휴대폰 386px) 보다 좁으면 재생 · 코어와 함께 오른쪽에 두 줄로 쌓고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms 를 정수로
+// 응답 시간: 카드 안쪽이 320px(휴대폰 386px) 보다 좁으면 재생, 코어와 함께 오른쪽에 두 줄로 쌓고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms 를 정수로
 const AT_WORKER = ["hidden @min-[20rem]/card:inline @min-[21rem]/card:hidden", "@min-[20rem]/card:hidden @min-[21rem]/card:inline"] as const;
 const wholeText = (ms: number) => {
   const { value, unit } = timeWhole(ms);
@@ -687,11 +687,11 @@ const LINK_WORD: Record<LinkState, string> = T.linkWords;
 const LINK_ICON: Record<LinkState, IconName> = { ok: "check_circle", slow: "warning", fail: "cancel", idle: "schedule", off: "block" };
 const LINK_ICON_FILLED: Record<LinkState, boolean> = { ok: true, slow: true, fail: true, idle: false, off: false };
 const LINK_TEXT: Record<LinkState, string> = { ok: "text-(--ok-ink)", slow: "text-(--warn-ink)", fail: "text-error", idle: "text-on-surface-variant", off: "text-on-surface-variant" };
-// 셀 너비를 그룹 · 열과 상관없이 고정해 이름 · 마지막 성공 · 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)
+// 셀 너비를 그룹, 열과 상관없이 고정해 이름, 마지막 성공, 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)
 /** 클라이언트 상자의 윗선 조각: 행 가운데 높이에서 시작해 아래로 이어진다 */
 const CLIENT_BOX_EDGE = "self-end h-2.5 border-t border-outline-variant/60";
 const LINK_GRID = "grid grid-cols-1 @md/card:grid-cols-[8.5rem_minmax(0,1fr)_6.5rem_3.5rem] gap-x-3";
-// 좁은 카드: 헤더 · 행마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents 로 바깥 네 열 격자에 그대로 든다
+// 좁은 카드: 헤더, 행마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents 로 바깥 네 열 격자에 그대로 든다
 const LINK_NARROW = "grid grid-cols-[minmax(0,1fr)_6.5rem_3.5rem] items-center gap-x-3 @md/card:contents";
 const COOKIE_WORD = T.cookieSources;
 /** whenFull: "마지막 성공"을 줄여 보였을 때(약 …)만 전체 길이 */
@@ -719,7 +719,7 @@ function sinceText(at: number): { short: string; full: string | null } {
   const short = T.ago(say(units.slice(top, top + 2)));
   return cut ? { short: T.about(short), full: T.ago(say(units)) } : { short, full: null };
 }
-// 마지막 성공 · 응답 셀이 비면 화면이 "-" 를 넣는다(설명 셀은 비워 둔다)
+// 마지막 성공, 응답 셀이 비면 화면이 "-" 를 넣는다(설명 셀은 비워 둔다)
 function toLinkLine(c: LinkRow): LinkLine {
   if (c.state === "off") return { name: c.name, state: c.state, detail: T.unused, when: "", value: "" };
   if (c.id === "discord") return { ...measuredLinkLine(c), detail: discordDetail() };
@@ -739,7 +739,7 @@ function measuredLinkLine(c: LinkRow): LinkLine {
 const linkGroups = computed(() => {
   const { links, youtube } = props.status;
   const of = (group: LinkRow["group"]) => links.filter((c) => c.group === group).map(toLinkLine);
-  // 쿠키는 부르는 곳이 아니라 파일 · 브라우저라 응답이 없다. 유효한지는 쓸 때만 알 수 있다
+  // 쿠키는 부르는 곳이 아니라 파일, 브라우저라 응답이 없다. 유효한지는 쓸 때만 알 수 있다
   const cookie: LinkLine = youtube.cookies === "none" ? { name: T.cookies, state: "off", detail: T.noCookies, when: "", value: "" } : { name: T.cookies, state: "ok", detail: COOKIE_WORD[youtube.cookies], when: "", value: "" };
   return [
     { title: T.groups.play, critical: true, items: of("play") },
@@ -758,7 +758,7 @@ const youtubeClients = computed(() =>
 );
 
 // ── ④ 작업 ──
-// 목록 둘은 서버가 필터링 · 정렬하고 보이는 구간만 준다. 행 높이: 플레이어 48px, 자식 프로세스는 좁은 카드(448px 미만) 48px · 넓으면 32px
+// 목록 둘은 서버가 필터링, 정렬하고 보이는 구간만 준다. 행 높이: 플레이어 48px, 자식 프로세스는 좁은 카드(448px 미만) 48px, 넓으면 32px
 const PLAYER_STATE_WORD: Record<PlayerState, string> = T.playerStates;
 const REM = rem(1);
 const playerListEl = ref<HTMLElement | null>(null);
@@ -775,7 +775,7 @@ const {
   request: (span: Span) => (query.value = { ...query.value, players: span }),
 });
 const playerSlots = computed(() => slotsOf<PlayerRow>(playerRange.value, props.status.players.from, props.status.players.rows, (row) => row.guildId));
-// 스페이서 높이만 바뀌어도(필터링된 수 · 받은 구간) 다시 잰다
+// 스페이서 높이만 바뀌어도(필터링된 수, 받은 구간) 다시 잰다
 const playerListOverflowing = useOverflowing(playerListEl, () => [playerTop.value, playerBottom.value]);
 // 더 있는 쪽 끝 반 줄(24px)을 페이드 처리한다(자식 프로세스 목록과 같다)
 const playerFade = useScrollFade(
@@ -784,12 +784,12 @@ const playerFade = useScrollFade(
   24,
   () => [playerTop.value, playerBottom.value],
 );
-// 필터 · 검색어를 바꾸면 처음부터
+// 필터, 검색어를 바꾸면 처음부터
 function filterPlayers(patch: Partial<Pick<StatusQuery, "states" | "q">>) {
   query.value = { ...query.value, ...patch, players: { ...query.value.players, from: 0 } };
   playerToTop();
 }
-// 검색: 서버 이름 · 곡 · 가수(한국어 조합 중 글자 · 초성도, rules/ko-search). 입력이 200ms 쉬면 보낸다
+// 검색: 서버 이름, 곡, 가수(한국어 조합 중 글자, 초성도, rules/ko-search). 입력이 200ms 쉬면 보낸다
 const playerTerm = ref(query.value.q);
 watchDebounced(playerTerm, (q) => filterPlayers({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
 function togglePlayerState(k: PlayerState) {
@@ -800,7 +800,7 @@ function togglePlayerState(k: PlayerState) {
 const playerFilters = computed(() => PLAYER_STATES.map((k) => ({ key: k, label: PLAYER_STATE_WORD[k], count: props.status.players.counts[k], on: query.value.states.includes(k), toggle: () => togglePlayerState(k) })));
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
-// 작업: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡 · 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
+// 작업: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡, 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
 const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground, "net-stats": T.jobs.netStats };
 function processJob(p: ProcessRow) {
   const helper = p.job && HELPER_JOB[p.job];
@@ -809,7 +809,7 @@ function processJob(p: ProcessRow) {
   const task = p.job === "prefetch" ? T.jobs.prefetch : p.job === "lookup" ? T.jobs.lookup : null;
   return [guild, task].filter(Boolean).join(" · ") || T.jobs.none;
 }
-// 열 헤더와 행이 따로라 열 폭을 고정한다: PID 5자리 · 프로그램(yt-dlp) · 작업 · 실행 시간(2:58:33) · 메모리(52 MB)
+// 열 헤더와 행이 따로라 열 폭을 고정한다: PID 5자리, 프로그램(yt-dlp), 작업, 실행 시간(2:58:33), 메모리(52 MB)
 const PROCESS_GRID = "grid grid-cols-[4rem_minmax(0,1fr)_3.5rem] @md/card:grid-cols-[3rem_4rem_minmax(0,1fr)_4rem_3.5rem] items-center gap-x-3";
 // 정렬(서버가 한다): 처음은 실행 시간이 긴 순서. 다른 열을 처음 누르면 수는 큰 것부터, 글은 가나다 순서
 const PROCESS_COLUMNS: Array<{ key: ProcessSort; label: string; right?: boolean; numeric?: boolean }> = [
@@ -865,7 +865,7 @@ const storageBars = computed(() => {
     { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
-// 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패 · 다운로드 멈춤 · 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
+// 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패, 다운로드 멈춤, 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
 const cacheCounts = computed<Array<[string, string]>>(() => {
   const { cache } = props.status.storage;
   return [
@@ -874,7 +874,7 @@ const cacheCounts = computed<Array<[string, string]>>(() => {
     [T.cacheCounts.failed, T.count(cache.failed)],
   ];
 });
-// 캐시 드라이브 막대의 조각: 오디오 캐시 · DB(같은 드라이브일 때만) · 기타 · 여유 공간 · 최소 여유
+// 캐시 드라이브 막대의 조각: 오디오 캐시, DB(같은 드라이브일 때만), 기타, 여유 공간, 최소 여유
 const driveParts = computed(() => {
   const { cache, disk, db } = props.status.storage;
   const dbHere = db.drive === disk.drive;
@@ -894,14 +894,14 @@ const dbRows = computed<Array<[string, string]>>(() => {
     [T.db.lookups, T.songCount(db.lookups)],
     [T.db.pins, T.songCount(db.pins)],
     [T.db.sponsor, T.songCount(db.sponsorSegments)],
-    // 재시작 때 복원할 세션(player_sessions). 나가며 남긴 것 · 복원하지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
+    // 재시작 때 복원할 세션(player_sessions). 나가며 남긴 것, 복원하지 않고 남긴 것도 세므로 "활성"을 붙이지 않는다
     [T.db.sessions, T.count(db.sessions)],
-    // 마지막으로 실제로 삭제한 정리: 언제 · 삭제한 수 · 비운 용량(정리는 시작 · 정기 간격 · 다운로드 뒤마다 돌고, 한도를 넘었을 때만 삭제한다)
+    // 마지막으로 실제로 삭제한 정리: 언제, 삭제한 수, 비운 용량(정리는 시작, 정기 간격, 다운로드 뒤마다 돌고, 한도를 넘었을 때만 삭제한다)
     [T.db.lastCleanup, cache.lastCleanup ? T.cleanup(sinceText(cache.lastCleanup.at).short, cache.lastCleanup.files, sizeText(cache.lastCleanup.bytes)) : "-"],
   ];
 });
 
-// ── ① 요약: 위 값들 중 주의 · 문제인 것(at: 누르면 갈 항목). 가장 나쁜 것이 전체 상태 ──
+// ── ① 요약: 위 값들 중 주의, 문제인 것(at: 누르면 갈 항목). 가장 나쁜 것이 전체 상태 ──
 const linkLevel = (state: LinkState, critical: boolean): Level => (state === "fail" ? (critical ? "bad" : "warn") : state === "slow" ? "warn" : "ok");
 const attention = computed(() => [
   ...metrics.value.filter((m) => m.level !== "ok").map((m) => ({ name: m.title, word: m.word, level: m.level, at: m.title })),

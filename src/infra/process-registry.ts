@@ -12,7 +12,7 @@ const log = logger.child({ category: "proc" });
 const IS_WIN = process.platform === "win32";
 
 /**
- * 자식 프로세스(yt-dlp · ffmpeg 등) 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
+ * 자식 프로세스(yt-dlp, ffmpeg 등) 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
  *
  * yt-dlp가 다운로드를 ffmpeg에 넘기므로 ffmpeg는 손자 프로세스다. 그냥 두면 봇을 내려도 남아서
  * 파일을 물고 방송을 계속 받아쓴다. Windows는 `taskkill /T`로, POSIX는 detached로 실행한
@@ -22,14 +22,14 @@ const IS_WIN = process.platform === "win32";
  *  1. pid > 1 인 정수. pid 0이면 `-0`이 되어 우리 자신의 프로세스 그룹이 죽는다.
  *  2. 이미 종료한 자식은 건너뛴다. OS가 PID를 재사용한다.
  *
- * 기동이 persistTo로 기록을 켜면 등록 · 해제마다 지금 목록을 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 적는다.
- * 실행마다 파일이 따로라 다른 실행의 기록을 덮지 않는다. 강제 종료 · 충돌로 이 정리를 못 하고 나가면
+ * 기동이 persistTo로 기록을 켜면 등록, 해제마다 지금 목록을 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 적는다.
+ * 실행마다 파일이 따로라 다른 실행의 기록을 덮지 않는다. 강제 종료, 충돌로 이 정리를 못 하고 나가면
  * 다음 기동이 그 파일로 남은 자식을 찾아 종료한다(infra/leftover-children). 내리지 못한 자식은 기록에 남긴다.
  */
 
 // spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 필드와 실행한 실행 파일
 type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
-/** guildId · job: 실행한 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
+/** guildId, job: 실행한 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
 type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number; startKey: string | null; guildId: string | null; job: Job | null };
 /**
  * 기록 파일의 모양. owner: 적은 봇 프로세스, children: 그때 살아 있던 자식.
@@ -42,7 +42,7 @@ const active = new Map<number, Entry>();
 let hooksInstalled = false;
 let recordFile: string | null = null;
 
-/** 실행 파일 이름(경로 · .exe 를 뗀 소문자) */
+/** 실행 파일 이름(경로, .exe 를 뗀 소문자) */
 const imageOf = (file: string | undefined) =>
   file
     ? path
@@ -54,7 +54,7 @@ const imageOf = (file: string | undefined) =>
 // 이 프로세스(봇). 기록 파일 이름에도 쓴다
 const SELF: Identity = { pid: process.pid, image: imageOf(process.execPath), startedAt: Math.round(Date.now() - process.uptime() * 1000), startKey: startKeyOf(process.pid) };
 
-// 지금 목록을 기록 파일에. 읽다 만 파일이 남지 않게 옆에 쓰고 옮긴다(정리는 *.json만 읽는다). 실패해도 등록 · 정리는 그대로 간다
+// 지금 목록을 기록 파일에. 읽다 만 파일이 남지 않게 옆에 쓰고 옮긴다(정리는 *.json만 읽는다). 실패해도 등록, 정리는 그대로 간다
 function save() {
   if (!recordFile) return;
   const record: Record = {
@@ -74,7 +74,7 @@ function save() {
 const recordNameOf = (owner: Identity) => `${owner.pid}-${owner.startedAt}.json`;
 
 /**
- * 기록을 켠다. 기동이 남은 자식을 정리한 뒤 한 번 부른다(테스트 · 스크립트는 켜지 않는다). 돌려주는 것은 이 실행의 기록 파일.
+ * 기록을 켠다. 기동이 남은 자식을 정리한 뒤 한 번 부른다(테스트, 스크립트는 켜지 않는다). 돌려주는 것은 이 실행의 기록 파일.
  * 끝날 때 자식을 내리고 자기 파일을 삭제하는 exit 훅도 여기서 건다(자식을 한 번도 띄우지 않은 실행도 파일을 남기지 않게)
  */
 function persistTo(dir: string): string {
@@ -103,7 +103,7 @@ function install() {
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
  * label 은 로그용 이름, group=true 면 detached 로 실행해 자체 프로세스 그룹을 가진 경우.
- * 서버 · 일은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
+ * 서버, 일은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
  * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
 function register(child: Tracked | null | undefined, label = "child", { group = false, job }: { group?: boolean; job?: Job } = {}): () => void {
@@ -147,7 +147,7 @@ function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
     // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝난 것이 있다(나머지는 내린다)
     const { error, status, stderr } = spawnSync("taskkill", [...batch.flatMap(({ pid }) => ["/PID", String(pid)]), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
     if (error || (status !== 0 && status !== 128)) {
-      // 배치의 어느 것이 실패했는지 알 수 없어 배치 전체를 기록에 남긴다(다음 기동이 이름 · 시작 시각을 맞춰 보고 다시 내린다)
+      // 배치의 어느 것이 실패했는지 알 수 없어 배치 전체를 기록에 남긴다(다음 기동이 이름, 시작 시각을 맞춰 보고 다시 내린다)
       failed.push(...batch);
       log.warn(`${batch.map(({ label, pid }) => `${label}#${pid}`).join(", ")} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
     }

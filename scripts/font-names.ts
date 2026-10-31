@@ -1,10 +1,10 @@
-// 글꼴(TrueType · OpenType 한 개, sfnt)의 name 테이블을 고친다. 글꼴을 만드는 스크립트(build-*-font)가 서브셋으로 나누기 전에 원본에 한 번 부른다.
-// 바꾸는 번호의 기록은 모든 플랫폼 · 언어에서 지우고 Windows 영어(3 · 1 · 0x409) 하나로 다시 쓴다. 빈 글은 그 번호를 지운다.
-// 다른 테이블은 그대로 옮기고 테이블 · 글꼴 체크섬을 다시 계산한다. 전자 서명(DSIG)은 고치면 맞지 않으므로 뺀다
+// 글꼴(TrueType, OpenType 한 개, sfnt)의 name 테이블을 고친다. 글꼴을 만드는 스크립트(build-*-font)가 서브셋으로 나누기 전에 원본에 한 번 부른다.
+// 바꾸는 번호의 기록은 모든 플랫폼, 언어에서 지우고 Windows 영어(3, 1, 0x409) 하나로 다시 쓴다. 빈 글은 그 번호를 지운다.
+// 다른 테이블은 그대로 옮기고 테이블, 글꼴 체크섬을 다시 계산한다. 전자 서명(DSIG)은 고치면 맞지 않으므로 뺀다
 
 import { decompress } from "wawoff2";
 
-/** OFL 이 권하는 라이선스 설명(13번) · 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
+/** OFL 이 권하는 라이선스 설명(13번), 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
 const OFL_NAMES: Record<number, string> = {
   13: "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
   14: "https://openfontlicense.org",

@@ -1,7 +1,7 @@
-// src/sources/youtube/equivalent.ts · src/autoplay/route.ts: 같은 곡 매칭을 부르는 두 곳의 검색 방식. 유튜브 매칭(스포티파이 곡 → 유튜브)과 자동재생(후보 → 유튜브)이
+// src/sources/youtube/equivalent.ts, src/autoplay/route.ts: 같은 곡 매칭을 부르는 두 곳의 검색 방식. 유튜브 매칭(스포티파이 곡 → 유튜브)과 자동재생(후보 → 유튜브)이
 // 같은 곡을 찾을 때 어떤 검색어를 몇 개씩 요청하는지 적어 둔다.
 //
-// 둘은 match.searchCandidates 의 이름 붙은 방식(exact · cheap)을 쓴다. 다른 까닭은 그 방식 표에 적었다
+// 둘은 match.searchCandidates 의 이름 붙은 방식(exact, cheap)을 쓴다. 다른 까닭은 그 방식 표에 적었다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +31,7 @@ function searcher(primaryHits: boolean) {
   return { asked, search };
 }
 
-test("검색어는 1차 여럿 · 2차 여럿이다(이 표의 전제)", () => {
+test("검색어는 1차 여럿, 2차 여럿이다(이 표의 전제)", () => {
   assert.ok(primary.length > 2, `1차 ${primary.length}개`);
   assert.ok(secondary.length > 0, `2차 ${secondary.length}개`);
 });
@@ -116,7 +116,7 @@ function racing(failing: string | null = null) {
   return { asked, search, peak: () => peak };
 }
 
-test("검색: exact 는 1차 · 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
+test("검색: exact 는 1차, 2차 검색어를 한꺼번에 묻고, 합친 차례는 검색어 차례다. 한 검색어가 실패해도 나머지로", async () => {
   const { search, peak } = racing(primary[1]);
   const found = (await searchCandidates(TARGET, search, "exact")).candidates;
   assert.equal(peak(), primary.length + secondary.length + 1, "아티스트 검색도 함께");

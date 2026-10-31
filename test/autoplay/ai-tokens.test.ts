@@ -95,7 +95,7 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
     widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
     return { took: performance.now() - started, widest };
   };
-  // 호스트마다 빠르기가 달라(커버리지 · 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
+  // 호스트마다 빠르기가 달라(커버리지, 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
   // 글자는 매번 바꾼다(gpt-tokenizer 가 병합 결과를 캐시해 같은 글은 두 번째가 빠르다. 아래 상한 테스트의 "가" 도 피한다)
   let result = { took: 0, widest: 0 };
   for (const [i, size] of [2000, 4000, 8000, 16000, 32000].entries()) {
@@ -123,7 +123,7 @@ test("어느 기준으로 셌는지 밝힌다", async () => {
   assert.equal(claude.exact, false);
 });
 
-// o200k_base 하나가 4o·4.1·o1·o3·5.x·6 을 다 덮어 OpenAI 계열은 추산이 아니다
+// o200k_base 하나가 4o, 4.1, o1, o3, 5.x, 6 을 다 덮어 OpenAI 계열은 추산이 아니다
 test("추산치인 것은 클로드뿐이다", async () => {
   assert.equal((await tokens.countMessages([{ content: "안녕" }], "tik")).exact, true);
   assert.equal((await tokens.countMessages([{ content: "안녕" }], "gemma")).exact, true);

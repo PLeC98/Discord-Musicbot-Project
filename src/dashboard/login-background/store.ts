@@ -1,7 +1,7 @@
-// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지 · 지금 배경 · 화면에서 거는 값 · 한도는 같은 위치의 index.json 에 둔다
-// (파비콘과 같은 까닭: 파일과 한 위치라 백업 · 이사 · 불러오기에서 함께 움직인다). 단계를 돌리는 일은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
+// 로그인 배경의 기록. 배경마다 폴더(database/dashboard/login-background/<id>/)에 파일을 두고, 무엇이 있는지, 지금 배경, 화면에서 거는 값, 한도는 같은 위치의 index.json 에 둔다
+// (파비콘과 같은 까닭: 파일과 한 위치라 백업, 이사, 불러오기에서 함께 움직인다). 단계를 돌리는 일은 runner.ts 가 하고, 여기는 기록과 그 규칙만 둔다.
 // 규칙: 새 배경은 썸네일이 생기면 로그인 화면에 걸린다(그 전에는 쓰던 배경 그대로). 이전 배경은 걸었던 것 중 지금 배경을 빼고 마지막으로 쓴 것이다.
-// 한도(보관 개수 · 최대 용량)는 다 인코딩한 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 삭제해 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
+// 한도(보관 개수, 최대 용량)는 다 인코딩한 기록 중 지금 배경을 뺀 것을 마지막으로 쓴 지 오래된 것부터 삭제해 지킨다(이전 배경은 가장 나중에 쓴 것이라 맨 마지막).
 // 이전 배경의 파일이 삭제돼도 그것을 보던 화면은 재생이 실패하면 배경 정보를 다시 읽어 지금 배경으로 넘어간다
 
 import crypto from "node:crypto";
@@ -46,7 +46,7 @@ type Kind = LoginBackgroundItem["kind"];
 type From = LoginBackgroundItem["from"];
 /** 크기 추산의 기록(편집을 적용하면 삭제한다) */
 type Estimate = { perSecond: number[]; stillBytes: number; crop: LoginBackgroundCrop; counted: [number, number] | null; encodeRatio: number; rough: boolean };
-/** 인코딩한 것: 정지 그림 폭 · 대표색 · 장면 색 · 코덱마다의 HLS 단계(공개 응답이 쓴다) */
+/** 인코딩한 것: 정지 그림 폭, 대표색, 장면 색, 코덱마다의 HLS 단계(공개 응답이 쓴다) */
 type Media = { stills: number[]; color: string | null; scenes: LoginBackgroundScene[]; rungs: Partial<Record<LoginBackgroundCodec, LoginBackgroundRung[]>> };
 /**
  * 배경 하나의 기록. link 는 링크로 다운로드할 때의 주소(다운로드 단계가 쓴다), appliedAt 은 편집을 적용한 때(0 이면 아직),
@@ -94,10 +94,10 @@ const cleanName = (raw: string, max = NAME_MAX) =>
     .replace(/[\p{Cc}\p{Cf}]/gu, "")
     .trim()
     .slice(0, max);
-/** 맞히기 어려운 배경 id(소문자 · 숫자 24자) */
+/** 맞히기 어려운 배경 id(소문자, 숫자 24자) */
 const newId = () => Array.from(crypto.randomBytes(24), (byte) => ID_CHARS[byte % ID_CHARS.length]).join("");
 
-/** 이 배경이 하는 단계. 다운로드 · 미리보기 · 썸네일 · 정지 그림 · 마무리는 모두, 장면 띠 · 장면 색 · 인코딩은 영상만, 고해상도 다운로드는 유튜브만 */
+/** 이 배경이 하는 단계. 다운로드, 미리보기, 썸네일, 정지 그림, 마무리는 모두, 장면 띠, 장면 색, 인코딩은 영상만, 고해상도 다운로드는 유튜브만 */
 function stagesOf(kind: Kind, from: From): LoginBackgroundStage[] {
   return LOGIN_BG_STAGES.filter((stage) => {
     if (stage === "highRes") return from === "youtube";
@@ -150,7 +150,7 @@ function isStored(value: unknown): value is Stored {
   return known && numbers && stages && isProblem(one.problem) && isPosition(one.position) && Array.isArray(one.media?.stills);
 }
 
-/** 저장 위치의 index.json 을 읽기만 한다(쓸 만한 형식 · 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
+/** 저장 위치의 index.json 을 읽기만 한다(쓸 만한 형식, 폴더가 있는 기록만). 다른 프로세스(전체 백업 명령)도 이것으로 읽는다 */
 function readIndex(folder = dir): Index {
   let raw: Partial<Index> | null = null;
   try {

@@ -5,7 +5,7 @@
 // 처음 한 번은 youtube-dl-exec 가 설치 때 다운로드한 것을 옮겨 온다. 그 경로는 npm install 이 stable 로 다시 덮어 쓰지 않는다.
 //
 // 목표 버전: .env 의 YTDLP_VERSION(고정) 이 있으면 그 버전, 없으면 YTDLP_CHANNEL 의 최신(GitHub 릴리스). 최신은 하루 한 번 본다.
-// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 다운로드해 교체한다 · notify 알린다 · off 보지 않는다).
+// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 다운로드해 교체한다, notify 알린다, off 보지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -36,7 +36,7 @@ const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으�
 // youtube-dl-exec 가 설치 때 다운로드한 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
 
-/** vendor/bin/yt-dlp/state.json. 현재 버전 · 이전 버전 · 최신을 마지막으로 확인한 시각 · 다운로드해 봤지만 목표가 아니었던 태그 */
+/** vendor/bin/yt-dlp/state.json. 현재 버전, 이전 버전, 최신을 마지막으로 확인한 시각, 다운로드해 봤지만 목표가 아니었던 태그 */
 type State = { version: string; previous: string | null; lastChecked: number; capped: string | null };
 /** 바이너리를 한 번 부른 결과 */
 type Ran = { status: number | null; stdout: string; stderr: string };
@@ -173,7 +173,7 @@ class YtdlpBinary {
   }
 
   /**
-   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치 · update:ytdlp)이다: 하루 한 번 · YTDLP_UPDATE · 다운로드해 봤던 태그를 보지 않고 다운로드한다.
+   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치, update:ytdlp)이다: 하루 한 번, YTDLP_UPDATE, 다운로드해 봤던 태그를 보지 않고 다운로드한다.
    * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 다운로드한 버전을 이어받는다). 알릴 것이 없으면 null
    */
   async check({ force = false } = {}): Promise<Outcome | null> {
@@ -240,7 +240,7 @@ class YtdlpBinary {
   }
 
   /**
-   * 지금 버전 · 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 시와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
+   * 지금 버전, 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 시와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
    * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 버전이 지금 버전이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 버전을 삭제할 수 있어 부르지 않는다.
    * 옛 버전으로 아직 돌고 있어 삭제하지 못한 것(Windows)은 다음에 삭제한다
    */

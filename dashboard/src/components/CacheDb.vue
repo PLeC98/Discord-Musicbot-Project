@@ -209,7 +209,7 @@ const PROBE_POLL_MS = 1500;
 const HINT_MS = 4000;
 const DEFAULT_WIDTH: Record<string, number> = { requestKey: 260, audioUrl: 260, audioKey: 200, title: 180, artist: 120, channel: 120, platform: 90, pinnedAt: 136, file: 84, status: 84, size: 76, plays: 64, requests: 64, duration: 64, lastPlayedAt: 136, downloadedAt: 136, ageMarkedAt: 136, markedAt: 136, check: 88, source: 88, videoId: 140 };
 
-// ── 테이블 · 필터 · 정렬 · 열 모양(열 너비 · 숨김 · 고정은 브라우저에 사람마다) ──────
+// ── 테이블, 필터, 정렬, 열 모양(열 너비, 숨김, 고정은 브라우저에 사람마다) ──────
 
 const table = ref<TrackCacheTable>("requests");
 const filters = reactive<Record<TrackCacheTable, Record<string, string>>>({ requests: {}, files: {}, age: {} });
@@ -310,7 +310,7 @@ async function loadAll() {
   for (let b = 0; b * BLOCK < matched.value && gen === generation; b++) if (!rows.has(b * BLOCK)) await loadBlock(b, gen);
 }
 
-/** 처음부터 다시 읽는다(테이블 · 필터 · 정렬이 바뀌었거나 새로고침) */
+/** 처음부터 다시 읽는다(테이블, 필터, 정렬이 바뀌었거나 새로고침) */
 async function reload() {
   if (!checkFilters()) return;
   generation++;
@@ -416,7 +416,7 @@ function say(text: string) {
 }
 const refocus = () => void nextTick(() => scroller.value?.focus({ preventScroll: true }));
 
-// ── 선택(셀 · 행). 행 번호로 든다 ──────────────────────────────────────────
+// ── 선택(셀, 행). 행 번호로 든다 ──────────────────────────────────────────
 
 type Pos = { r: number; i: number };
 const focus = ref<Pos | null>(null);
@@ -613,7 +613,7 @@ function isPinned(r: number): boolean {
   if (changes.pins.has(row.requestKey)) return true;
   return row.pinnedAt !== null && !changes.unpins.has(row.requestKey);
 }
-// 재생 음원 셀의 바뀐 값(지정 · 해제 · 자동 검색 결과 삭제). 안 바뀌었으면 null
+// 재생 음원 셀의 바뀐 값(지정, 해제, 자동 검색 결과 삭제). 안 바뀌었으면 null
 function changedAudio(one: TrackRequestRow): string | null {
   if (changes.pins.has(one.requestKey)) return changes.pins.get(one.requestKey)!.audioUrl;
   if (changes.unpins.has(one.requestKey)) return one.ledgerAudioUrl ?? T.values.none;
@@ -654,7 +654,7 @@ function cellClass(r: number, c: string) {
 }
 // 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 재생할 때 건너뛴다)
 const checkFailed = (one: TrackRequestRow) => !!one.check && !one.check.ok && (one.check.code !== "live" || one.pinnedAt !== null);
-// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패 · 원본이 바뀌었거나 없음
+// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원, 다운로드 실패, 원본이 바뀌었거나 없음
 function failing(row: AnyRow, c: string): boolean {
   if (table.value === "files") {
     const one = row as TrackFileRow;
@@ -670,7 +670,7 @@ function rowHeadClass(r: number) {
   if (rowSel.has(r)) return "bg-primary text-on-primary";
   return "bg-surface-container text-on-surface-variant";
 }
-// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패 · 재생 불가 까닭 · 원본 상태의 뜻
+// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패, 재생 불가 까닭, 원본 상태의 뜻
 function tipOf(r: number, c: string): string {
   const row = rowAt(r)!;
   const failure = failureOf(row, c);
@@ -690,7 +690,7 @@ function sourceTip(source: TrackFileRow["source"]): string {
   return source.state === "changed" ? T.tips.sourceChanged(stamp(source.at)) : T.tips.sourceOk(stamp(source.at));
 }
 
-// ── 셀 안 편집 · 셀 편집 창 ───────────────────────────────────────────────
+// ── 셀 안 편집, 셀 편집 창 ───────────────────────────────────────────────
 
 const editing = ref<{ r: number; c: string; value: string } | null>(null);
 const inlineInput = ref<HTMLInputElement[] | null>(null);
@@ -732,7 +732,7 @@ const focusInfo = computed(() => {
   if (!row || !column) return null;
   return { column, label: focus.value.r + 1, editable: editable(table.value, column) && !isDeleted(focus.value.r) };
 });
-// 재생 음원 셀: 지정을 해제하면 돌아갈 곳 · 요청 링크 그대로인지
+// 재생 음원 셀: 지정을 해제하면 돌아갈 곳, 요청 링크 그대로인지
 const paneNote = computed(() => {
   if (!focus.value || table.value !== "requests") return "";
   const row = rowAt(focus.value.r) as TrackRequestRow | undefined;
@@ -813,7 +813,7 @@ function onNewKey(event: KeyboardEvent, n: number) {
 }
 const isLink = (value: string) => /^https?:\/\//.test(value.trim());
 
-// ── 복사 · 붙여넣기: 브라우저의 copy · paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
+// ── 복사, 붙여넣기: 브라우저의 copy, paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
 
 let copyHeaders = false;
 /** 메뉴가 부른 복사의 글(열 이름 등). 있으면 셀 대신 이것을 넣는다 */
@@ -880,7 +880,7 @@ function menuPaste() {
 
 // ── 키 ──────────────────────────────────────────────────────────────────────
 
-// 카드 어디서든(필터 · 편집 창 안이어도): F5 새로고침 · Ctrl+S 저장 · Esc 메뉴 닫기
+// 카드 어디서든(필터, 편집 창 안이어도): F5 새로고침, Ctrl+S 저장, Esc 메뉴 닫기
 function onCardKey(event: KeyboardEvent) {
   const ctrl = event.ctrlKey || event.metaKey;
   if (event.key === "F5") {
@@ -934,7 +934,7 @@ function onKey(event: KeyboardEvent) {
   }
   onCellKey(event, focus.value);
 }
-// 셀에서의 편집 키: F2 · Enter 편집 · Esc 선택 풀기 · Delete 지우기
+// 셀에서의 편집 키: F2, Enter 편집, Esc 선택 풀기, Delete 지우기
 function onCellKey(event: KeyboardEvent, { r, i }: { r: number; i: number }) {
   const key = event.key;
   if (key === "F2" || key === "Enter") return void (event.preventDefault(), startEdit(r, shown.value[i]));
@@ -950,7 +950,7 @@ function onCellKey(event: KeyboardEvent, { r, i }: { r: number; i: number }) {
     else clearCells(selectedCells());
   }
 }
-/** 키보드로 옮긴 셀이 보이게 스크롤한다(고정한 열 · 행 번호 · 헤더에 가리지 않게) */
+/** 키보드로 옮긴 셀이 보이게 스크롤한다(고정한 열, 행 번호, 헤더에 가리지 않게) */
 function keepInView(r: number, i: number, toStart = false) {
   const el = scroller.value;
   if (!el) return;
@@ -967,7 +967,7 @@ function keepInView(r: number, i: number, toStart = false) {
   else if (right > el.scrollLeft + el.clientWidth) el.scrollLeft = right - el.clientWidth;
 }
 
-// ── 오른쪽 클릭 메뉴 · 단축키 도움말 ─────────────────────────────────────────
+// ── 오른쪽 클릭 메뉴, 단축키 도움말 ─────────────────────────────────────────
 
 type Item = { label: string; hint?: string; danger?: boolean; off?: boolean; run?: () => void } | "-";
 const menu = ref<{ x: number; y: number; items: Item[]; grid: boolean } | null>(null);
@@ -1077,7 +1077,7 @@ async function probe(keys: string[]) {
   }
 }
 let checkTimer = 0;
-// 확인 번호가 바뀌었으면 보이는 행의 확인 결과 · 원본만 다시 불러온다(다시 읽지 않아 선택 · 바꾼 것이 남는다)
+// 확인 번호가 바뀌었으면 보이는 행의 확인 결과, 원본만 다시 불러온다(다시 읽지 않아 선택, 바꾼 것이 남는다)
 async function refreshChecks(latest: number) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
@@ -1100,7 +1100,7 @@ function pollChecks() {
 
 // ── 변경 번호(탭이 보이는 동안 운영자 패널의 3초 읽기가 부른다) ─────────────
 
-/** 봇이 이 테이블들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 갱신한다 */
+/** 봇이 이 테이블들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것, 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 갱신한다 */
 async function checkChanged() {
   if (!loadedRevision.value) return;
   try {
@@ -1113,7 +1113,7 @@ async function checkChanged() {
 }
 defineExpose({ checkChanged });
 
-// ── 저장(저장 막대 · Ctrl+S) ─────────────────────────────────────────────────
+// ── 저장(저장 막대, Ctrl+S) ─────────────────────────────────────────────────
 
 const saving = ref(false);
 const dirty = computed(() => changeCount(changes) > 0);
@@ -1180,7 +1180,7 @@ function revert() {
 }
 useSaveTarget({ tab: "db", dirty, saving, save: () => save(), revert });
 
-// ── 시작 · 끝 ───────────────────────────────────────────────────────────────
+// ── 시작, 끝 ───────────────────────────────────────────────────────────────
 
 let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {

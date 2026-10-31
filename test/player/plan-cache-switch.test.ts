@@ -1,9 +1,9 @@
 // src/player/player.ts `_planCacheSwitch`: 스트림이 죽었을 때 캐시로 갭리스 전환을 예약하는 판정
 //
-// 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡·엉뚱한 위치로 갈아타거나,
+// 예약하지 '않아야' 하는 경우가 핵심이다. 잘못 예약하면 엉뚱한 곡, 엉뚱한 위치로 갈아타거나,
 // 이미 끝난 재생에 손을 대게 된다. 그럴 땐 아무것도 안 해야 기존 경로(Idle → play(위치))가 받는다.
 //
-// 프로토타입 메서드를 가짜 플레이어로 불러 실 오디오·음성 연결 없이 판정만 검증한다(playback-loop.test.ts와 같은 방식).
+// 프로토타입 메서드를 가짜 플레이어로 불러 실 오디오, 음성 연결 없이 판정만 검증한다(playback-loop.test.ts와 같은 방식).
 // 캐시 파일은 곡의 키 경로(임시 폴더)에 진짜로 둔다.
 
 import { test, after } from "node:test";
@@ -60,7 +60,7 @@ function fakePlayer({ track, startOffsetMs = 0 }: { track?: QueuedTrack; startOf
 }
 
 const TRACK = tracks.youtube("pcspcspcs01", { title: "곡", duration: 200 });
-// 스트림을 연 재생(곡 · 시작 위치 · 입력)
+// 스트림을 연 재생(곡, 시작 위치, 입력)
 const opened = (startOffsetMs = 0, input: InputHealth | null = null) => ({ track: TRACK, startOffsetMs, input });
 const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
 

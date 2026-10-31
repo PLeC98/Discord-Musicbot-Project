@@ -37,7 +37,7 @@ useCloseLayer(
 const large = computed(() => bigArt(props.track?.thumbnail, "large") ?? "");
 
 // 이미지 크기를 받은 뒤 원래 비율로 표시한다(네 방향 검은 띠는 뺀다: 프레임을 내용의 비율로 두고 가운데를 채운다).
-// 화면에 맞춰 키우되(폭 90% · 높이 65% 안) 이미지가 가진 픽셀(띠를 뺀 내용)의 1.5배까지만: 큰 이미지는 크게, 작은 이미지는 뭉개지지 않을 만큼
+// 화면에 맞춰 키우되(폭 90%, 높이 65% 안) 이미지가 가진 픽셀(띠를 뺀 내용)의 1.5배까지만: 큰 이미지는 크게, 작은 이미지는 뭉개지지 않을 만큼
 const UPSCALE_MAX = 1.5;
 const size = ref<{ w: number; h: number } | null>(null);
 watch(large, () => (size.value = null));

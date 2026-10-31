@@ -1,5 +1,5 @@
 <template>
-  <!-- 곡 추가(대기열 창 맨 위). 넣을 수 없으면 까닭(봇과 같은 문장), 넣은 결과 · 이어 넣을 재생목록 -->
+  <!-- 곡 추가(대기열 창 맨 위). 넣을 수 없으면 까닭(봇과 같은 문장), 넣은 결과, 이어 넣을 재생목록 -->
   <div class="shrink-0">
     <NoticeBox v-if="!player.botInVoice && !player.userInVoice" variant="gate" icon="headset_off" icon-class="text-on-surface-variant"
       ><span>{{ noticeText("must-be-in-voice").title }} {{ noticeText("must-be-in-voice").body }}</span></NoticeBox
@@ -71,7 +71,7 @@ const url = (path: string) => `/api/guilds/${props.guildId}/player/${path}?queue
 const query = ref("");
 const adding = ref(false);
 const joining = ref(false);
-// 넣은 결과: 실패 · 일부만 넣음(디스코드 담은 안내와 같은 경고) · 넣음
+// 넣은 결과: 실패, 일부만 넣음(디스코드 담은 안내와 같은 경고), 넣음
 const error = ref("");
 const warning = ref("");
 const info = ref("");
@@ -86,7 +86,7 @@ function clearResult() {
   info.value = "";
 }
 
-// 봇 재적 · 넣을 수 있는지가 바뀌면 직전 실패는 더 맞지 않는다(봇이 나가 넣기 입력란이 부르기 버튼으로 바뀌는 순간 등)
+// 봇 재적, 넣을 수 있는지가 바뀌면 직전 실패는 더 맞지 않는다(봇이 나가 넣기 입력란이 부르기 버튼으로 바뀌는 순간 등)
 watch(
   () => [props.player.botInVoice, props.player.canAdd],
   () => (error.value = ""),

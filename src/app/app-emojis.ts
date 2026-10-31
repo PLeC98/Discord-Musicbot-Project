@@ -2,7 +2,7 @@
 // 봇이 올린 것(작성자가 봇)만 건드린다: 운영자가 같은 이름으로 올린 이모지는 지우지 않고 그 아이콘은 유니코드로 둔다.
 // 같은지는 CDN 의 이미지와 비교한다(PNG 는 올린 바이트 그대로 돌아온다. 움직이는 GIF 는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 비교한다).
 // 이름은 앱 안에서 하나뿐이라 이미지가 바뀐 것은 임시 이름으로 올려 쓰는 쪽을 바꾸고 옛 것을 지운 뒤 이름을 되돌린다.
-// 기동 시에는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 비교 · 업로드는 백그라운드에서 한다. 운영자 색이 바뀌면 다시 동기화한다.
+// 기동 시에는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 비교, 업로드는 백그라운드에서 한다. 운영자 색이 바뀌면 다시 동기화한다.
 
 import type { Client } from "discord.js";
 import sharp from "sharp";
@@ -29,7 +29,7 @@ type Api = {
 type Image = { data: Buffer; animated: boolean };
 
 const CDN_TIMEOUT_MS = 15_000;
-/** 렌더링 · CDN 비교를 동시에 하는 수 */
+/** 렌더링, CDN 비교를 동시에 하는 수 */
 const COMPARE_AT_ONCE = 8;
 /** 움직이는 GIF 를 비교할 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
 const GIF_TOLERANCE = 12;
@@ -121,7 +121,7 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
   const mine = new Map(remote.filter((one) => one.mine).map((one) => [one.name, one]));
   const takenByOthers = new Set(remote.filter((one) => !one.mine).map((one) => one.name));
   const taken = new Set(remote.map((one) => one.name));
-  // 봇이 올린 것 중 이번에 쓰지 않는 것(옛 이미지 · 표에서 뺀 것 · 이름 바꾸다 남은 임시 이름)은 끝에 지운다
+  // 봇이 올린 것 중 이번에 쓰지 않는 것(옛 이미지, 표에서 뺀 것, 이름 바꾸다 남은 임시 이름)은 끝에 지운다
   const unused = new Set([...mine.values()].map((one) => one.id));
   const next = new Map<string, { id: string; animated: boolean }>();
   const renames: Array<{ id: string; name: string }> = [];
@@ -132,7 +132,7 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
     if (takenByOthers.has(entry.name)) skipped.push(entry.name);
     return !takenByOthers.has(entry.name);
   });
-  // 렌더링 · CDN 비교는 서로 기대지 않아 동시에(동기화 시간의 대부분이다), 업로드는 하나씩
+  // 렌더링, CDN 비교는 서로 기대지 않아 동시에(동기화 시간의 대부분이다), 업로드는 하나씩
   const checked = await mapLimit(entries, COMPARE_AT_ONCE, async (entry) => {
     const image = await imageOf(entry.spec, entry.tint);
     const existing = mine.get(entry.name);
@@ -213,7 +213,7 @@ class AppEmojis {
     this.running = (async () => {
       do {
         this.again = false;
-        // 실패하면 그때까지 실은 것(목록에서 불러온 id · 유니코드)으로 돈다. 아이콘이 옛 이미지 · 유니코드로 남으므로 알린다
+        // 실패하면 그때까지 실은 것(목록에서 불러온 id, 유니코드)으로 돈다. 아이콘이 옛 이미지, 유니코드로 남으므로 알린다
         await sync(this.api, { onChanged: this.onChanged, stale: () => this.again }).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
       } while (this.again);
     })().finally(() => (this.running = null));

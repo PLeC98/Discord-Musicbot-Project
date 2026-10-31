@@ -1,4 +1,4 @@
-// AI 사용량 통계의 계산(contract/ai-log 의 AiUsageReport). 요청 한 행씩의 가벼운 기록을 기간 · 날짜 · 모델 · 출처 · 서버로 묶는다.
+// AI 사용량 통계의 계산(contract/ai-log 의 AiUsageReport). 요청 한 행씩의 가벼운 기록을 기간, 날짜, 모델, 출처, 서버로 묶는다.
 // 봇의 통계 경로와 더미가 같이 부른다. Node 없는 모듈이다.
 
 import type { AiLogSource, AiUsageBucket, AiUsagePeriod, AiUsageReport } from "../dashboard/contract/ai-log.ts";

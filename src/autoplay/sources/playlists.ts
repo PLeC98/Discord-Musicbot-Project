@@ -1,4 +1,4 @@
-// 재생목록 소스(스포티파이 · 유튜브).
+// 재생목록 소스(스포티파이, 유튜브).
 
 import { rand } from "./http.ts";
 import * as Spotify from "../../sources/spotify.ts";
@@ -20,7 +20,7 @@ async function spotify(source: GenreSource): Promise<Candidate[]> {
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
-  // 목록을 불러오지 못하면 그 까닭(없는 · 비공개 목록, 네트워크)을 단 채로 던진다
+  // 목록을 불러오지 못하면 그 까닭(없는, 비공개 목록, 네트워크)을 단 채로 던진다
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
   if (!head) throw new Error("재생목록에 곡이 없습니다");
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다

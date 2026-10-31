@@ -21,7 +21,7 @@ test("비동기 테스트도 끝난 뒤에 되돌린다", async () => {
   assert.equal(config.bot.maxQueueSize, before);
 });
 
-test("던져도 되돌린다(동기 · 비동기)", async () => {
+test("던져도 되돌린다(동기, 비동기)", async () => {
   const before = config.sponsorblock.enabled;
   assert.throws(() =>
     withConfig({ sponsorblock: { enabled: !before } }, () => {

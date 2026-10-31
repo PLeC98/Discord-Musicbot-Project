@@ -2,7 +2,7 @@
 //   url   ffmpeg 에 주소를 준다. 받아서 파이프로 넘길 수 없는 것 전부다. HLS 재생목록과 DASH 세그먼트 목록은 안이
 //         상대 경로라 ffmpeg 가 기준 위치를 알아야 하고, 세그먼트도 스스로 받아 와야 한다. list 가 어느 목록인지 적는다
 //   file  캐시 파일
-//   pipe  한 번의 응답이 곧 음원인 것(yt-dlp 의 http · https, 방식을 모르는 직접 링크 · 인터넷 라디오)과 세그먼트 주소의 모양을 아는 세그먼트 목록
+//   pipe  한 번의 응답이 곧 음원인 것(yt-dlp 의 http, https, 방식을 모르는 직접 링크, 인터넷 라디오)과 세그먼트 주소의 모양을 아는 세그먼트 목록
 //         (유튜브 post_live 의 DASH 세그먼트. media/fragment-stream). 우리가 받아서 파이프로 넣는다
 // 라이브는 끝이 없어 캐시하지 않는다. 다운로드를 시작하면 파일이 무한히 분다.
 
@@ -10,7 +10,7 @@
 type StreamInfo = { protocol?: string | null; liveStatus?: string | null; fragments?: { base: string; count: number } | null; [field: string]: unknown };
 type Transport = { via: "url" | "file" | "pipe"; live: boolean; cacheable: boolean; list?: "hls" | "dash" | "other" };
 
-/** yt-dlp 가 알려 주는 전송 방식이 HLS 인가. `m3u8` · `m3u8_native` 둘 다 재생목록이라 주소로 열어야 한다 */
+/** yt-dlp 가 알려 주는 전송 방식이 HLS 인가. `m3u8`, `m3u8_native` 둘 다 재생목록이라 주소로 열어야 한다 */
 function isHlsStream(streamInfo: unknown): boolean {
   const protocol = streamInfo && typeof streamInfo === "object" && "protocol" in streamInfo ? streamInfo.protocol : null;
   return typeof protocol === "string" && protocol.startsWith("m3u8");

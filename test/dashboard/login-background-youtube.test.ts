@@ -1,5 +1,5 @@
 // src/dashboard/login-background/youtube.ts: 유튜브는 다운로드 대행: 다운로드 단계는 편집 창용 480p, 고해상도 다운로드 단계는 짧은 변 2160 이하의 가장 좋은 영상.
-// yt-dlp 는 실행하는 exec 만 가짜로 둔다(출력 템플릿대로 영상 · 정보 파일을 쓴다). 영상은 실제 ffmpeg 로 만든 표본(없으면 건너뛴다)
+// yt-dlp 는 실행하는 exec 만 가짜로 둔다(출력 템플릿대로 영상, 정보 파일을 쓴다). 영상은 실제 ffmpeg 로 만든 표본(없으면 건너뛴다)
 
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +35,7 @@ const opts = { skip: BIN ? false : "ffmpeg 바이너리 없음" };
 const signal = new AbortController().signal;
 const URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
-/** yt-dlp 가 다운로드한 것처럼: 출력 템플릿의 %(ext)s 를 mp4 로 영상 · 정보 파일을 쓴다. fail 이면 실패, skip 이면 아무것도 쓰지 않는다(라이브 건너뜀) */
+/** yt-dlp 가 다운로드한 것처럼: 출력 템플릿의 %(ext)s 를 mp4 로 영상, 정보 파일을 쓴다. fail 이면 실패, skip 이면 아무것도 쓰지 않는다(라이브 건너뜀) */
 let reply: { fail?: string; skip?: boolean; info?: object } = {};
 const calls: YtDlpFlags[] = [];
 
@@ -102,7 +102,7 @@ test("고해상도가 다운로드 단계에서 본 크기보다 작으면 그 �
   assert.equal(shortfall({ width: 0, height: 0 }, { width: 640, height: 360 }), null);
 });
 
-test("다운로드하지 못하면 background-link-failed(실패 · 라이브라 건너뜀)", async () => {
+test("다운로드하지 못하면 background-link-failed(실패, 라이브라 건너뜀)", async () => {
   for (const one of [{ fail: "ERROR: Video unavailable" }, { skip: true }]) {
     reply = one;
     const error = await receiveYoutube(job(youtubeItem())).then(

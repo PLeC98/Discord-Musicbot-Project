@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { shieldOf } from "../../src/ui/shield-svg.ts";
 
-test("원본에서 viewBox · 크기 · 경로 둘(바깥 테두리 · 안쪽 >>)만 꺼낸다. 편집기 속성 · 색은 따라오지 않는다", () => {
+test("원본에서 viewBox, 크기, 경로 둘(바깥 테두리, 안쪽 >>)만 꺼낸다. 편집기 속성, 색은 따라오지 않는다", () => {
   const shield = shieldOf(fs.readFileSync(path.join(import.meta.dirname, "../../data/discord-icons/skipIcon.svg"), "utf8"));
   assert.equal(shield.viewBox, "0 0 565.15 568");
   assert.deepEqual([shield.width, shield.height], [565.15, 568]);

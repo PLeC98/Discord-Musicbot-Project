@@ -1,5 +1,5 @@
-// 로그인 배경의 크기 계산: 정지 그림 폭 · 영상 단계 · 짧은 변을 맞춘 크기 · 원본을 고르게 만드는 필터. 미리보기 · 추산 · 인코딩이 같이 쓴다.
-// 영상 단계의 1080p · 4K 는 짧은 변 1080 · 2160 이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p 보다 작으면 원본 크기 하나
+// 로그인 배경의 크기 계산: 정지 그림 폭, 영상 단계, 짧은 변을 맞춘 크기, 원본을 고르게 만드는 필터. 미리보기, 추산, 인코딩이 같이 쓴다.
+// 영상 단계의 1080p, 4K 는 짧은 변 1080, 2160 이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p 보다 작으면 원본 크기 하나
 
 import { LOGIN_BG_WIDTHS, type LoginBackgroundCrop } from "../contract/login-background.ts";
 import type { Probed } from "./source.ts";
@@ -39,7 +39,7 @@ function stillWidths(width: number): number[] {
   return fit.length ? fit : [width];
 }
 
-/** AV1 · VP9 단계의 짧은 변: 4K 는 원본의 짧은 변이 2160 이상일 때만, 1080p 는 늘(원본이 작으면 원본 크기) */
+/** AV1, VP9 단계의 짧은 변: 4K 는 원본의 짧은 변이 2160 이상일 때만, 1080p 는 늘(원본이 작으면 원본 크기) */
 const rungShorts = (width: number, height: number) => (Math.min(width, height) >= UHD ? [FHD, UHD] : [FHD]);
 
 /** 읽을 구간(초). to 가 null 이면 끝까지 */
@@ -52,12 +52,12 @@ type Span = { from: number; to: number | null };
 const STACKED_FORMATS = ["webp_anim", "apng", "gif"];
 const stacked = (probed: Pick<Probed, "format">) => STACKED_FORMATS.includes(probed.format);
 /**
- * 풀어 낸 영상의 초당 프레임 수(인코딩의 키프레임 간격 · 목록의 프레임 수도 이것): 영상은 원본(30 이하),
+ * 풀어 낸 영상의 초당 프레임 수(인코딩의 키프레임 간격, 목록의 프레임 수도 이것): 영상은 원본(30 이하),
  * 움직이는 그림은 장면 길이가 제각각이라(같은 장면을 2초짜리 하나로 적는 등) 30 으로 고르게 편다
  */
 const frameRate = (probed: Pick<Probed, "format" | "fps">) => (stacked(probed) ? FPS_CAP : Math.min(probed.fps ?? FPS_CAP, FPS_CAP));
 
-/** 구간을 찾아가는 입력 인자(-i 앞): 영상은 -ss · -to, 움직이는 그림은 없다(sourceFilter 가 자른다) */
+/** 구간을 찾아가는 입력 인자(-i 앞): 영상은 -ss, -to, 움직이는 그림은 없다(sourceFilter 가 자른다) */
 function seekArgs(probed: Probed, span: Span): string[] {
   if (stacked(probed)) return [];
   return ["-ss", String(span.from), ...(span.to === null ? [] : ["-to", String(span.to)])];
@@ -72,7 +72,7 @@ function evenedSpan(probed: Probed, span?: Span): string | null {
 
 /**
  * 원본을 고르게 만드는 필터(처음 [0:v] 에 이어 붙인다): 움직이는 그림은 장면 간격을 고르게 펴 구간을 자르고(seekArgs), 투명은 검정 위에 얹고(투명은 지원하지 않는다),
- * HDR 은 SDR 로 톤 매핑하고, 초당 프레임 수를 frameRate 로, 크롭이 있으면 자른다. 크기 맞추기 · 픽셀 형식은 부르는 쪽이 분기마다 붙인다
+ * HDR 은 SDR 로 톤 매핑하고, 초당 프레임 수를 frameRate 로, 크롭이 있으면 자른다. 크기 맞추기, 픽셀 형식은 부르는 쪽이 분기마다 붙인다
  */
 function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null, span?: Span): string {
   const steps: string[] = [];

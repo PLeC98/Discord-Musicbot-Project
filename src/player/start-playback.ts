@@ -1,7 +1,7 @@
 // play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playback-input).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
 //   resolveSource  소리를 어디서 받나. 캐시 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
-//   commitPlaying  연 소리를 튼다. SponsorBlock · 볼륨 · 캐시 보호 · 재생 기록 · 멈춤 사유 · 위치 재개 정보 · 감시와 저장
+//   commitPlaying  연 소리를 튼다. SponsorBlock, 볼륨, 캐시 보호, 재생 기록, 멈춤 사유, 위치 재개 정보, 감시와 저장
 // 플레이어의 상태를 읽고 쓰므로 플레이어를 받는다.
 
 import logger from "../infra/log/logger.ts";
@@ -87,7 +87,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
-  // 같은 곡을 다시 열면(위치 이동 · 처음으로 · 한 곡 반복 · 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
+  // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
   let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previousResume, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
@@ -138,7 +138,7 @@ function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
 }
 
 // 지금 라이브인지는 yt-dlp 응답이 정본이다. 대기열에 추가될 때 방송 중이었어도 그사이 끝나
-// 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 추가된 것도 있다(재생목록 · 믹스).
+// 다시보기가 됐을 수 있고, 반대로 라이브인 줄 모르고 추가된 것도 있다(재생목록, 믹스).
 // 캐시 파일이 있다는 것은 끝이 있는 음원이라는 뜻이다. 라이브는 다운로드하지 않는다. 모르면 null
 function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   if (streamInfo && "liveStatus" in streamInfo) return streamInfo.liveStatus === "is_live";
@@ -213,7 +213,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   player.persistence.startStateSync();
   player.warmer.start();
-  // 지금 곡의 파일 태그 · 앨범아트를 먼저 찾게 한다(직접 링크만. 대기열은 예열의 틱이 넘긴다)
+  // 지금 곡의 파일 태그, 앨범아트를 먼저 찾게 한다(직접 링크만. 대기열은 예열의 틱이 넘긴다)
   embeddedArt.want([track], { first: true });
   await player.persistence.persistState(pb.startOffsetMs > 0 ? "resume-playback" : "play");
 
@@ -241,7 +241,7 @@ function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
   };
 }
 
-// 곡 끝 판정 · SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
+// 곡 끝 판정, SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
 function audioDurationSec(track: Pick<QueuedTrack, "audioUrl"> | null, streamInfo: Pick<StreamInfo, "duration"> | null, cacheFile: string | null): number | null {
   const key = audioKeyOf(track?.audioUrl);
   if (cacheFile && key) {

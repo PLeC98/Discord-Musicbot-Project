@@ -23,7 +23,7 @@ const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;
 
 /**
  * 정해진 계획을 ffmpeg 인자로. 출력은 언제나 `.opus`(ogg/opus). 캐시 파일명이 그 전제다.
- * 받은 파일의 태그는 버리고(-map_metadata -1) tags(제목 · 가수 · 앨범)만 적는다. pictureFile 이 있으면 그 ffmetadata 파일의 앨범아트 태그를 오디오 스트림에 붙인다.
+ * 받은 파일의 태그는 버리고(-map_metadata -1) tags(제목, 가수, 앨범)만 적는다. pictureFile 이 있으면 그 ffmetadata 파일의 앨범아트 태그를 오디오 스트림에 붙인다.
  * ffmpeg 는 Ogg 에 이미지 스트림을 쓰지 못해(Unsupported codec id) 앨범아트는 태그(METADATA_BLOCK_PICTURE)로만 들어간다
  */
 function argsFor(plan: CodecPlan, srcFile: string, outFile: string, { tags, pictureFile }: { tags?: Partial<TagInfo> | null; pictureFile?: string | null } = {}): string[] {
@@ -46,7 +46,7 @@ const pictureMetadata = (cover: Cover) => `;FFMETADATA1\n[STREAM]\nMETADATA_BLOC
  *
  * @param {string} srcFile  다운로드해 둔 원본(확장자 무관)
  * @param {string} outFile  만들 `.opus` 경로
- * @param cache  적을 태그 · 앨범아트. 앨범아트는 `<출력 이름>.meta`(임시 파일 정리가 알아보는 이름)에 적어 넘기고 지운다
+ * @param cache  적을 태그, 앨범아트. 앨범아트는 `<출력 이름>.meta`(임시 파일 정리가 알아보는 이름)에 적어 넘기고 지운다
  */
 async function toCacheOpus(srcFile: string, outFile: string, { tags, cover }: CacheTags = {}): Promise<Converted> {
   const info = await probeAudio(srcFile);

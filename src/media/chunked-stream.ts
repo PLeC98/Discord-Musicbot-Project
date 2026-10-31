@@ -4,7 +4,7 @@
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 // 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
-// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200) · 구간이 어긋나면 · 전체 크기가 다르면 이어받기를 그만둔다.
+// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
 // 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
@@ -62,7 +62,7 @@ type StreamStats = {
 };
 type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
-// 다시 요청해도 결과가 같은 실패. 4xx(만료·차단)와 구간 어긋남
+// 다시 요청해도 결과가 같은 실패. 4xx(만료, 차단)와 구간 어긋남
 function permanent(message: string): Error & { permanent: boolean } {
   return Object.assign(new Error(message), { permanent: true });
 }
@@ -72,13 +72,13 @@ function httpError(status: number): Error & { status: number } {
   return status >= 500 ? Object.assign(new Error(message), { status }) : Object.assign(permanent(message), { status });
 }
 
-/** 중간 바이트에서 시작한 첫 요청이 색인 탓으로 실패했다(Range 무시 · 416 · 구간 · 전체 크기가 다름 · 첫 바이트가 키프레임이 아님). 여는 쪽이 처음부터 다시 연다 */
+/** 중간 바이트에서 시작한 첫 요청이 색인 탓으로 실패했다(Range 무시, 416, 구간, 전체 크기가 다름, 첫 바이트가 키프레임이 아님). 여는 쪽이 처음부터 다시 연다 */
 const seekMismatch = <E extends Error>(err: E) => Object.assign(err, { seekMismatch: true });
 const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | null)?.seekMismatch === true;
 
 /**
  * 옵션:
- *  - url: 받을 주소(서명된 미디어 URL) · headers: yt-dlp가 준 요청 헤더
+ *  - url: 받을 주소(서명된 미디어 URL), headers: yt-dlp가 준 요청 헤더
  *  - totalBytes: 전체 길이. googlevideo는 URL의 clen 파라미터로 준다
  *  - chunkSize: 요청 하나의 크기 = 미리 받아 두는 양의 단위
  *  - onInterrupt: 재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
@@ -97,7 +97,7 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 파일 처음이 아닌 자리(expected > 0, 이어받기 · 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
+// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
 // 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range");
@@ -165,7 +165,7 @@ class ChunkedReader {
     this.first = first;
     this.verifying = expectStart !== null;
     this.pos = startByte;
-    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치 · 실패 횟수 · 이어받기 알림을 건드린다)
+    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치, 실패 횟수, 이어받기 알림을 건드린다)
     if (prefix?.length) {
       this.chunks.push(Buffer.from(prefix));
       this.queued += prefix.length;
@@ -242,7 +242,7 @@ class ChunkedReader {
     }
     const range = { Range: `bytes=${this.pos}-${this.target - 1}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
     const res = await fetchImpl(url, { headers: { ...headers, ...range }, signal });
-    // 위치를 옮긴 첫 요청이면 Range 무시(200) · 416 · 구간 어긋남은 색인 탓으로 본다(주소 탓의 403 · 404 는 아니다)
+    // 위치를 옮긴 첫 요청이면 Range 무시(200), 416, 구간 어긋남은 색인 탓으로 본다(주소 탓의 403, 404 는 아니다)
     const mid = !this.primed && this.o.startByte > 0;
     if (res.status === 206) {
       try {

@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts: yt-dlp 의 줄(곡 찾기 · 다운로드 · 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
+// src/sources/ytdlp-spawn.ts: yt-dlp 의 줄(곡 찾기, 다운로드, 미리 받기), 영상 정보 추출 세기, 멎은 다운로드 내리기.
 // 가짜 실행기(pid 없음)로 줄을 보고, 내리는 길은 말이 없는 진짜 자식 프로세스로 본다
 
 import fs from "node:fs";
@@ -84,7 +84,7 @@ test("곡 찾기는 상한까지만 돌고 나머지는 차례로. 실패해도 
   assert.equal(ytdlpLoad().lookup.running, 0);
 });
 
-test("다운로드 · 미리 받기는 곡 찾기를 막지 않는다", HELD, async () => {
+test("다운로드, 미리 받기는 곡 찾기를 막지 않는다", HELD, async () => {
   const { exec, started, finish } = heldExec();
   useExec(exec);
   useLaneSizes({ lookup: 1, background: 1 });
@@ -168,7 +168,7 @@ test("기다리다 끊기면 줄에서 빠진다", HELD, async () => {
   await holding;
 });
 
-test("유튜브 영상 정보 추출만 센다(검색 · 재생목록 펼치기 · 다른 사이트는 빼고)", HELD, async () => {
+test("유튜브 영상 정보 추출만 센다(검색, 재생목록 펼치기, 다른 사이트는 빼고)", HELD, async () => {
   useExec((() => Promise.resolve({ stdout: "{}", stderr: "" })) as unknown as Exec);
   const before = ytdlpLoad().extractedLastHour;
   await run("https://www.youtube.com/watch?v=dQw4w9WgXcQ", { dumpSingleJson: true });

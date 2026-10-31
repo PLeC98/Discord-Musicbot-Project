@@ -91,7 +91,7 @@ function genres(): GenresConfig {
   }
 }
 
-/** 지금 장르 문서가 검사를 못 지나는가(직전 설정 · 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
+/** 지금 장르 문서가 검사를 못 지나는가(직전 설정, 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
 function genresBroken() {
   genres();
   return reported !== "";
@@ -99,7 +99,7 @@ function genresBroken() {
 
 function checkedGenres(): GenresConfig {
   const loaded = documents.get("genres");
-  // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
+  // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
     throw Object.assign(new Error(["자동재생 장르 설정을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
@@ -170,7 +170,7 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   warnedKeys = key;
 }
 
-/** 보여 줄 이름(디스코드 메뉴 · 알림 · 화면). 없거나 모르는 장르면 식별자 그대로 */
+/** 보여 줄 이름(디스코드 메뉴, 알림, 화면). 없거나 모르는 장르면 식별자 그대로 */
 function labelOf(id: string): string {
   return genres().genres[id]?.label?.trim() || id;
 }

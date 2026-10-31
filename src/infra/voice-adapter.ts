@@ -13,7 +13,7 @@ const log = logger.child({ category: "voice" });
 // 게이트웨이로 보내는 것. 여기서 보는 필드만
 type GatewayPayload = { op?: number; d?: { channel_id?: string | null; [field: string]: unknown } };
 
-const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 이동 · 나가기
+const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가, 이동, 나가기
 const HOLD_MS = 300; // 붙잡는 시간. 닫힘과 상태 패킷은 보통 몇 ms 차이로 온다
 
 /** onRewrite: 붙잡은 참가 요청의 채널을 고쳤을 때, onSend: 참가 요청을 내보낼 때(고쳤는지와 함께) */

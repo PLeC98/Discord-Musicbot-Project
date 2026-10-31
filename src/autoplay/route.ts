@@ -91,7 +91,7 @@ const isDead = (url: string | null | undefined) => {
   return !!id && dead.has(id);
 };
 
-// 글자와 숫자만 남긴다. 소스마다 띄어쓰기·하이픈·장식 기호가 달라서, 공백만 정리해서는
+// 글자와 숫자만 남긴다. 소스마다 띄어쓰기, 하이픈, 장식 기호가 달라서, 공백만 정리해서는
 // 같은 곡을 놓친다: `Nan mo nee`/`Nanmonee`, `Laid-Back Journey`/`Laid Back Journey`,
 // `Happy☆Material`/`Happy Material`.
 // `[^a-z0-9]` 로 쓰면 일본어 제목이 통째로 빈 문자열이 되어 서로 다른 곡이 하나로 뭉개진다. \p{L}\p{N} 여야 한다.
@@ -132,7 +132,7 @@ function* byWeight(list: GenreSource[]): Generator<GenreSource> {
 /**
  * 이 후보를 무엇이라 부르나(요청 키). 링크 데이터가 이것으로 찾는다.
  * 소스가 곡 페이지를 주면 다듬은 그 주소(스포티파이 소스와 스포티파이 링크를 넣은 사용자가 같은 행을 쓴다),
- * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944 · vocadb:123 …),
+ * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944, vocadb:123 …),
  * 이름뿐이면 소스 이름을 붙인다(lastfm:가수|제목). 작품 페이지처럼 곡 여럿을 가리키는 주소는 쓰지 않는다.
  */
 function requestKeyOf(cand: Partial<Candidate>): string {
@@ -156,7 +156,7 @@ const videoIdOf = (video: Video) => (typeof video.id === "string" && video.id) |
  * 링크 데이터에는 요청 키로 행이 따로 생기고, 음원 파일은 영상 하나에 하나다. 스포티파이와 같은 방식이다.
  */
 function fromYouTube(video: Video, cand: Candidate): PickedTrack {
-  // 출처가 따로 있는 곡인가(Last.fm·LB Radio·VocaDB·AnimeThemes), 아니면 영상 자체가 출처인가(keyword·유튜브 재생목록)
+  // 출처가 따로 있는 곡인가(Last.fm, LB Radio, VocaDB, AnimeThemes), 아니면 영상 자체가 출처인가(keyword, 유튜브 재생목록)
   const sourced = !!cand.sourceUrl;
   const videoUrl = canonicalUrl(video.url);
 
@@ -168,7 +168,7 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
     audioUrl: videoUrl,
     platform: sourced ? cand.platform || "youtube" : "youtube",
     duration: Number(video.durationSec || video.duration) || 0,
-    // 썸네일은 소리를 따라간다. 영상으로 트니 그 영상의 썸네일을 쓰고, 없을 때만 출처 것(포스터 · 작은 PV 이미지)
+    // 썸네일은 소리를 따라간다. 영상으로 트니 그 영상의 썸네일을 쓰고, 없을 때만 출처 것(포스터, 작은 PV 이미지)
     thumbnail: artOfVideo(video) || cand.thumbnail || null,
     id: videoIdOf(video),
   };
@@ -181,9 +181,9 @@ function artOfVideo(video: Video): string | null {
 }
 
 /**
- * 소스가 준 음원 파일 하나(AnimeThemes · AnisongDB)를 재생 가능한 트랙으로.
+ * 소스가 준 음원 파일 하나(AnimeThemes, AnisongDB)를 재생 가능한 트랙으로.
  *
- * `DirectLink.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름 · 파일 태그, 아티스트 · 이미지는 비어 있다.
+ * `DirectLink.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름, 파일 태그, 아티스트, 이미지는 비어 있다.
  * 소스 API 에서 불러온 이름과 표지를 그대로 싣는다.
  */
 const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
@@ -202,7 +202,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   id: cand.sourceKey,
 });
 
-// 바깥 경계. 테스트는 이것을 넘겨 진짜 소스 · 검색 · 링크 데이터 · AI 보조를 부르지 않는다
+// 바깥 경계. 테스트는 이것을 넘겨 진짜 소스, 검색, 링크 데이터, AI 보조를 부르지 않는다
 const REAL: Deps = {
   search: (query, limit) => YouTube.search(query, limit),
   pinned: (requestKey) => pinnedSources.getPin(requestKey),
@@ -220,7 +220,7 @@ const REAL: Deps = {
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
 async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps, pick: AiPick) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
-  // searchCandidates 는 thumbnail 을 실어 와야 한다. Last.fm · LB Radio 는 표지를 안 주므로 영상 썸네일이 유일한 이미지다.
+  // searchCandidates 는 thumbnail 을 실어 와야 한다. Last.fm, LB Radio 는 표지를 안 주므로 영상 썸네일이 유일한 이미지다.
   // 빠지면 앨범아트 위치에 디스코드의 빈 이미지가, 대시보드에는 파일 아이콘이 표시된다.
   const { candidates } = await match.searchCandidates(target, search, "cheap");
   if (!candidates.length) return null;
@@ -284,7 +284,7 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
   const kind = candidateKind(cand);
   const { assist } = deps;
 
-  // 0) 운영자가 직접 지정한 음원. 링크 데이터 음원처럼 필터링(길이 · AI 보조)을 다시 하지 않는다(운영자가 선택한 것이다)
+  // 0) 운영자가 직접 지정한 음원. 링크 데이터 음원처럼 필터링(길이, AI 보조)을 다시 하지 않는다(운영자가 선택한 것이다)
   const pinned = fromPin(cand, deps.pinned?.(requestKeyOf(cand)) ?? null);
   if (pinned) return pinned;
 
@@ -313,7 +313,7 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
   return null;
 }
 
-/** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원 · 길이는 applyPin 이 정한다. 지정이 없으면 null */
+/** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원, 길이는 applyPin 이 정한다. 지정이 없으면 null */
 function fromPin(cand: Candidate, pin: Pin | null): PickedTrack | null {
   if (!pin) return null;
   const track = links.isYouTubeURL(pin.audioUrl) ? fromYouTube({ url: pin.audioUrl }, cand) : fromAudio({ ...cand, audioUrl: pin.audioUrl });

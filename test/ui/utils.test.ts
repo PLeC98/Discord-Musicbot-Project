@@ -26,7 +26,7 @@ test("formatDuration: 소수/문자열 입력도 안전", () => {
   assert.equal(formatDuration("abc"), "0:00", "비숫자는 0 취급");
 });
 
-// /search · /seek · /highlight · 조작 거절 · /cachestatus · /help · /system 이 같은 함수를 쓴다.
+// /search, /seek, /highlight, 조작 거절, /cachestatus, /help, /system 이 같은 함수를 쓴다.
 // 아래 기대값은 곳마다 보이던 표기 그대로다. 곳마다 보이는 표기를 바꾸지 않는다
 const SECS = [0, 0.4, 5, 59.9, 65, 3599, 3600, 3725.7, 86399, 86400, 90061, 360000, 400000.5];
 
@@ -37,7 +37,7 @@ test("formatDuration: 값이 없을 때의 문구는 부르는 쪽이 넘긴다(
   );
 });
 
-test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek · /highlight · 조작 거절)", () => {
+test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek, /highlight, 조작 거절)", () => {
   assert.deepEqual([0, 999, 1000, 65_500, 3_725_000, 90_061_000].map(formatMs), ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"]);
 });
 
@@ -58,7 +58,7 @@ test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰�
   assert.equal(formatSpan(400000, { days: false, withSeconds: true }), "111시간 6분 40초");
 });
 
-test("formatBytes: GB · TB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2 · /system 1), 1024 GB 부터 TB", () => {
+test("formatBytes: GB, TB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2, /system 1), 1024 GB 부터 TB", () => {
   const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3, 1023.9 * 1024 ** 3, 1024 ** 4, 97.23 * 1024 ** 4];
   assert.deepEqual(
     sizes.map((b) => formatBytes(b, { gbDigits: 2 })),
@@ -70,7 +70,7 @@ test("formatBytes: GB · TB 의 소수 자릿수만 부르는 쪽이 정한다(/
   );
 });
 
-test("byteUnit: 1024 배씩 KB · MB · GB · TB, KB 아래로는 내리지 않는다", () => {
+test("byteUnit: 1024 배씩 KB, MB, GB, TB, KB 아래로는 내리지 않는다", () => {
   assert.deepEqual(byteUnit(100), { n: 100 / 1024, unit: "KB", per: 1024 });
   assert.deepEqual(byteUnit(2 * 1024 ** 3), { n: 2, unit: "GB", per: 1024 ** 3 });
   assert.deepEqual(byteUnit(3 * 1024 ** 4), { n: 3, unit: "TB", per: 1024 ** 4 });

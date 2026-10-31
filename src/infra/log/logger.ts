@@ -1,4 +1,4 @@
-// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장·렌더·배포는 sink(LogManager)가 한다.
+// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장, 렌더, 배포는 sink(LogManager)가 한다.
 //
 //   logger.warn({ guildId }, "무언가 %s", x);
 //   const yt = logger.child({ category: "youtube" });
@@ -17,7 +17,7 @@ import { LEVELS, isLevel, levelNameOf, type LevelName } from "./levels.ts";
 
 type LogFn = (...args: unknown[]) => void;
 
-/** 레벨마다 찍는 함수 · 자식 만들기 · 레벨(읽으면 이름, 쓸 때는 레벨 이름 글자를 받고 모르는 이름은 무시한다) */
+/** 레벨마다 찍는 함수, 자식 만들기, 레벨(읽으면 이름, 쓸 때는 레벨 이름 글자를 받고 모르는 이름은 무시한다) */
 export interface Logger extends Record<LevelName, LogFn> {
   get level(): LevelName;
   set level(value: string);
@@ -44,7 +44,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
 
   const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}) };
 
-  // err 는 rec.err 에 stack 글로 남기고, 터미널 · SSE 에도 보이도록 msg 뒤에 붙인다
+  // err 는 rec.err 에 stack 글로 남기고, 터미널, SSE 에도 보이도록 msg 뒤에 붙인다
   const err = rec.err || rec.error;
   if (err instanceof Error) {
     const stack = err.stack || err.message;

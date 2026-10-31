@@ -1,5 +1,5 @@
 <template>
-  <!-- 설정(M3 대화상자). 밝기 · 테마 · 화면은 이 브라우저에만 기억하고, 로그인한 기기는 서버의 세션이라 창을 열 때 읽는다 -->
+  <!-- 설정(M3 대화상자). 밝기, 테마, 화면은 이 브라우저에만 기억하고, 로그인한 기기는 서버의 세션이라 창을 열 때 읽는다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">

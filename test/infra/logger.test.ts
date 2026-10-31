@@ -1,4 +1,4 @@
-// src/infra/log/logger.ts · sink.ts: logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
+// src/infra/log/logger.ts, sink.ts: logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test, mock } from "node:test";
@@ -99,7 +99,7 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(String(got[0].msg), /abcDEF123456/);
 });
 
-test("레드액션: msg 에 JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
+test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
@@ -143,7 +143,7 @@ test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다
   );
 });
 
-test("터미널 하한은 파일·대시보드에 영향을 주지 않는다", () => {
+test("터미널 하한은 파일, 대시보드에 영향을 주지 않는다", () => {
   const printed: number[] = [];
   const lm = new LogManager({ intercept: false, terminal: (rec) => printed.push(rec.level) });
   lm.setConsoleLevel("info");
@@ -165,8 +165,8 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   );
 });
 
-// 관리자 로그 스트림도 연결 상한 · 느린 소비자 처리를 둔다.
-// 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다.
+// 관리자 로그 스트림도 연결 상한, 느린 소비자 처리를 둔다.
+// 상한, 하트비트는 대시보드 SSE와 같은 설정을 쓴다.
 function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   const res = {
     writes: [] as string[],
@@ -324,7 +324,7 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
   assert.deepEqual(parsed, { id: 1, ts: 7, level: "error", text: "err" });
 });
 
-test("지난 1시간 경고 · 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
+test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
   const m = new LogManager({ intercept: false, maxLines: 2, terminal: () => {} });
   const at = Date.now();
   m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });

@@ -1,6 +1,6 @@
 // src/usecases/responders.ts: 곡 추가 결과를 알리는 매체별 어댑터.
 //
-// 코어의 출력은 "상호작용 응답" · "텍스트 채널" 말고 셋째(대시보드, silentResponder)도 있다. 대시보드가 별도 경로로 갈라지지 않게.
+// 코어의 출력은 "상호작용 응답", "텍스트 채널" 말고 셋째(대시보드, silentResponder)도 있다. 대시보드가 별도 경로로 갈라지지 않게.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

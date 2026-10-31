@@ -1,4 +1,4 @@
-// src/infra/http.ts · link-status.ts: 바깥 서비스로 나가는 요청은 한 클라이언트를 지나고, 서비스마다 부른 결과를 남긴다
+// src/infra/http.ts, link-status.ts: 바깥 서비스로 나가는 요청은 한 클라이언트를 지나고, 서비스마다 부른 결과를 남긴다
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ const fail = (error: Error) => async (): Promise<Response> => {
 };
 const outcomes = () => linkStatus("lastfm")?.recent.map((one) => [one.ok, one.error]);
 
-test("응답을 받으면 성공(4xx 포함), 5xx · 429 · 401 · 403 은 실패. 마지막 성공 때를 둔다", async () => {
+test("응답을 받으면 성공(4xx 포함), 5xx, 429, 401, 403 은 실패. 마지막 성공 때를 둔다", async () => {
   const http = httpFor("lastfm");
   assert.equal(linkStatus("lastfm"), null, "부르기 전에는 없다");
 
@@ -33,7 +33,7 @@ test("응답을 받으면 성공(4xx 포함), 5xx · 429 · 401 · 403 은 실�
   assert.ok(recent.every((one) => one.ms >= 0));
 });
 
-test("연결 실패 · 시간 초과는 까닭을 남기고 던진다. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
+test("연결 실패, 시간 초과는 까닭을 남기고 던진다. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
   const http = httpFor("lastfm");
   const refused = Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
   const timeout = Object.assign(new Error("timed out"), { name: "TimeoutError" });
@@ -63,7 +63,7 @@ test("서비스마다 따로, 최근 몇 번만 둔다", async () => {
   );
 });
 
-test("read는 응답을 읽어 판정한 대로 한 번만 남긴다: 판정 · 본문 읽기 실패 · 연결 실패. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
+test("read는 응답을 읽어 판정한 대로 한 번만 남긴다: 판정, 본문 읽기 실패, 연결 실패. 부른 쪽이 끊은 것은 남기지 않는다", async () => {
   const http = httpFor("lastfm");
   const judge = async (res: Response) => {
     const body = (await res.json()) as { ok?: boolean };

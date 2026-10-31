@@ -16,7 +16,7 @@ type Actor = { toString(): string };
 // 누가 했나 줄
 const who = (by: Actor) => `${controlText.requestedBy()} ${String(by)}`;
 
-/** 일시정지 · 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유 */
+/** 일시정지, 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유 */
 function paused(isPaused: boolean, track: Track, by: Actor, heldBy: Hold | null = null) {
   const t = controlText.paused(isPaused, track, heldBy);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
@@ -94,25 +94,25 @@ function removed(left: number, by: Actor) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 대기열 순서 바꾸기. from · to 는 사람이 센 위치(1부터) */
+/** 대기열 순서 바꾸기. from, to 는 사람이 센 위치(1부터) */
 function moved(track: Track, from: number, to: number, by: Actor) {
   const t = controlText.moved(track, from, to);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [`${t.by} ${String(by)}`], divider: true });
 }
 
-/** 볼륨. before · level 은 0 ~ VOLUME_MAX(rules/limits) */
+/** 볼륨. before, level 은 0 ~ VOLUME_MAX(rules/limits) */
 function volumeSet(before: number, level: number, by: Actor) {
   const t = controlText.volumeSet(before, level);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(초) · 대기열 곡 수 */
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡, 위치(초), 대기열 곡 수 */
 function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor, stayOff = false) {
   const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue }, stayOff);
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 24/7 켬 · 끔 · 지금 상태. channelId 는 자리 채널 */
+/** 24/7 켬, 끔, 지금 상태. channelId 는 자리 채널 */
 function stayOn(channelId: string, already: boolean, by: Actor) {
   const t = controlText.stayOn(DISCORD_LOOK.channel(channelId), already);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
@@ -122,7 +122,7 @@ function stayOff(already: boolean, by: Actor) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
 }
 
-/** 음성 채널에 들어왔다 · 이미 들어와 있다 */
+/** 음성 채널에 들어왔다, 이미 들어와 있다 */
 function joined() {
   const t = controlText.joined();
   return frame({ icon: t.icon, title: t.title, body: t.body });
@@ -132,7 +132,7 @@ function alreadyJoined(parked = false) {
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
-/** /join 이 저장한 세션을 복원하는 동안 · 복원했다 */
+/** /join 이 저장한 세션을 복원하는 동안, 복원했다 */
 const restoring = () => frame({ body: controlText.restoring() });
 function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);

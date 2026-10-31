@@ -11,7 +11,7 @@ import { rankCandidates, searchCandidates, type Target } from "./match.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
 
-/** 동등물을 찾을 곡. 찾으면 audioUrl · audioFoundBy 를 적는다 */
+/** 동등물을 찾을 곡. 찾으면 audioUrl, audioFoundBy 를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; [field: string]: unknown };
 /** 유튜브 검색. 여기서 읽는 필드만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean }> | null | undefined>;
@@ -43,7 +43,7 @@ function sharedBest(key: string | null, find: () => Promise<string | null>): { u
 
 /**
  * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.ts).
- * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치·정크를 타이브레이커로 삼아
+ * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치, 정크를 타이브레이커로 삼아
  * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl 과 audioFoundBy 를
  * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.
  * search: 유튜브 검색 함수(생략하면 YouTube.search).
@@ -52,7 +52,7 @@ function sharedBest(key: string | null, find: () => Promise<string | null>): { u
 async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.search(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
   if (track.audioUrl) return track.audioUrl;
 
-  // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드 · 직접 링크)
+  // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드, 직접 링크)
   if (!skipPin && pinnedSources.applyPin(track)) {
     log.debug(`직접 지정한 음원(검색 생략): "${logTitle(track.title)}" → ${track.audioUrl ?? "없음"}`);
     return track.audioUrl ?? null;

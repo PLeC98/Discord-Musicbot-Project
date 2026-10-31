@@ -1,5 +1,5 @@
-// src/dashboard/routes/player.ts · player-view.ts: 대시보드의 직접 링크 곡 앨범아트. 상태(player-view)에 이 봇의 이미지 주소를 싣고, 그 경로가 다시 인코딩한 JPEG 을 준다.
-// 그 서버의 지금 곡 · 대기열에서 찾은 이미지만, 통신 없이(메모리 · 캐시 파일). 시료는 ffmpeg 로 만든다(없으면 건너뛴다)
+// src/dashboard/routes/player.ts, player-view.ts: 대시보드의 직접 링크 곡 앨범아트. 상태(player-view)에 이 봇의 이미지 주소를 싣고, 그 경로가 다시 인코딩한 JPEG 을 준다.
+// 그 서버의 지금 곡, 대기열에서 찾은 이미지만, 통신 없이(메모리, 캐시 파일). 시료는 ffmpeg 로 만든다(없으면 건너뛴다)
 
 process.env.OWNER_ID = "owner";
 

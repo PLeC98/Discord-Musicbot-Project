@@ -1,10 +1,10 @@
 // src/autoplay/sources/anisongdb.ts: AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가, 목록 캐시, 후보 모양.
 //
 // 지키려는 계약:
-//  · 보내는 값은 소문자. 받은 값을 되보내면 422
-//  · 입력하지 않은 필드는 아예 뺀다. 빈 배열은 422
-//  · include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
-//  · 삽입곡은 기본으로 꺼져 있다
+// - 보내는 값은 소문자. 받은 값을 되보내면 422
+// - 입력하지 않은 필드는 아예 뺀다. 빈 배열은 422
+// - include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
+// - 삽입곡은 기본으로 꺼져 있다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────
 
-test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 있음", () => {
+test("아무것도 입력하지 않으면 OP/ED, standard, normal, 음원 있음", () => {
   const f = build({});
   assert.deepEqual(f.song_types, ["opening", "ending"], "삽입곡은 기본으로 끈다");
   assert.deepEqual(f.song_categories, ["standard"], "Instrumental 은 자동재생에 안 맞는다");
@@ -32,7 +32,7 @@ test("입력하지 않은 필드는 아예 없다. 빈 배열을 보내면 422�
   }
 });
 
-// 난이도 0·null 은 값이 아니라 결측이다. 켜면 그 곡들이 들어온다.
+// 난이도 0, null 은 값이 아니라 결측이다. 켜면 그 곡들이 들어온다.
 test("include_no_difficulty 를 켜지 않는다", () => {
   for (const source of [{}, { difficultyFrom: 50 }, { difficultyFrom: 0, difficultyTo: 100 }]) {
     const f = build(source);
@@ -91,7 +91,7 @@ test("분기만 입력하고 연도가 없으면 무시한다. 연도 없는 분
   assert.equal(build({ seasonFrom: "Summer" }).season, undefined);
 });
 
-// ── 장르·태그 ─────────────────────────────────────────────────────────────
+// ── 장르, 태그 ─────────────────────────────────────────────────────────────
 
 test("장르와 태그는 require_any 로 싣는다", () => {
   const f = build({ genres: ["Comedy", "Action"], tags: ["Idol", "School"] });
@@ -99,7 +99,7 @@ test("장르와 태그는 require_any 로 싣는다", () => {
   assert.deepEqual(f.tags, { require_any: ["Idol", "School"] });
 });
 
-// Idol·School 은 태그이고 장르가 아니다. 장르 필드에 넣으면 422 가 온다.
+// Idol, School 은 태그이고 장르가 아니다. 장르 필드에 넣으면 422 가 온다.
 // SPEC 의 enums 가 설정 시점에 잡는다.
 test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
   const { SPEC } = sources;
@@ -173,7 +173,7 @@ function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; 
 
 const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
 
-test("후보 모양: 음원 주소·출처·키", async () => {
+test("후보 모양: 음원 주소, 출처, 키", async () => {
   const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
   try {
     const [cand] = await sources.fetchFrom({ type: "anisongdb" });
@@ -189,7 +189,7 @@ test("후보 모양: 음원 주소·출처·키", async () => {
   }
 });
 
-// 같은 곡이 속편·OVA·극장판에 다시 쓰이고 그때마다 annSongId 가 다르다. annSongId 로 막으면 같은 곡이 여러 번 나온다.
+// 같은 곡이 속편, OVA, 극장판에 다시 쓰이고 그때마다 annSongId 가 다르다. annSongId 로 막으면 같은 곡이 여러 번 나온다.
 test("amqSongId 가 같으면 한 번만 낸다", async () => {
   const s = stub({ songs: [song({ annSongId: 10 }), song({ annSongId: 11 }), song({ amqSongId: 2, annSongId: 12 })] });
   try {

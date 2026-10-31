@@ -6,7 +6,7 @@
     <span :class="cell" :style="hourAt">{{ hh }}</span>
     <span :class="[cell, open ? 'opacity-100' : 'opacity-0']" :style="colonAt">:</span>
     <span :class="[cell, 'text-on-surface-variant']" :style="minuteAt">{{ mm }}</span>
-    <!-- 날짜: 두 줄(월 · 일 / 요일). 폭이 넓어질수록 "10/05" → "10월 5일" → "2026/10/05" → "2026년 10월 5일" -->
+    <!-- 날짜: 두 줄(월, 일 / 요일). 폭이 넓어질수록 "10/05" → "10월 5일" → "2026/10/05" → "2026년 10월 5일" -->
     <span class="absolute top-[0.1rem] flex flex-col font-sans font-medium text-xs leading-4 text-on-surface-variant whitespace-nowrap [font-variation-settings:normal] transition-opacity duration-300" :class="open ? 'opacity-100 delay-100' : 'opacity-0'" :style="dateAt">
       <span class="@min-[12.5rem]:hidden">{{ shortDate }}</span>
       <span class="hidden @min-[12.5rem]:inline @min-[13.75rem]:hidden">{{ month }} {{ day }}</span>

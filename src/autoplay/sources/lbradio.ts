@@ -48,7 +48,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title && !PLACEHOLDER.test(t.artist) && !PLACEHOLDER.test(t.title));
 }
 
-// MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 빈 값을 채운다.
+// MusicBrainz는 아티스트, 곡을 모를 때 정해진 이름으로 빈 값을 채운다.
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
 // 대괄호로 싸였다고 다 필터링하면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.

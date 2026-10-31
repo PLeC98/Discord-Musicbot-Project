@@ -89,7 +89,7 @@ test("사람의 멈춤이나 억제 사유가 하나라도 남아 있으면 계�
   assert.equal(p.audio.state.status, "paused");
 });
 
-test("멈춘 채 새 곡이 시작돼도(이동·다음 곡) 멈춘 상태를 지킨다", () => {
+test("멈춘 채 새 곡이 시작돼도(이동, 다음 곡) 멈춘 상태를 지킨다", () => {
   const p = makePlayer("idle");
   p.pause.setUser(true);
   p.audio.to("buffering");

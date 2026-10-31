@@ -40,7 +40,7 @@ test("확장자를 바꾼 형태로 쓰인 경우도 찾는다", () => {
   });
 });
 
-test("UTF-8로 읽는다 (일본어·한국어 제목이 목적이다)", () => {
+test("UTF-8로 읽는다 (일본어, 한국어 제목이 목적이다)", () => {
   withTemp((filepath) => {
     fs.writeFileSync(`${filepath}.info.json`, JSON.stringify({ title: "閃光 — 트와이스 テスト" }), "utf8");
     assert.equal(take.call(null, filepath).title, "閃光 — 트와이스 テスト");

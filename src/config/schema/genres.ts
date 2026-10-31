@@ -5,7 +5,7 @@ import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
 import { SELECT_MAX } from "../../rules/limits.ts";
 import { sourceUrl } from "../../rules/source-url.ts";
 
-// 이모지 한 글자인가. \p{RGI_Emoji}는 국기·키캡처럼 코드포인트가 여럿인 것도 하나로 센다.
+// 이모지 한 글자인가. \p{RGI_Emoji}는 국기, 키캡처럼 코드포인트가 여럿인 것도 하나로 센다.
 // g 플래그가 없어 test()에 상태가 남지 않는다.
 const ONE_EMOJI = /^\p{RGI_Emoji}$/v;
 
@@ -50,7 +50,7 @@ const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
 const genre = z.preprocess(
   plain,
   z.object({
-    // 보여 줄 이름(디스코드 메뉴 · 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
+    // 보여 줄 이름(디스코드 메뉴, 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
     label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비우지 않은 글(100자까지)이어야 합니다."),
     emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)), "{id}: emoji는 이모지 한 글자여야 합니다."),
     // 맨 위 keywords: 는 읽지 않고 sources 로 옮기라고 알린다(두 형식을 함께 받지 않는다)
@@ -78,7 +78,7 @@ const genres = z.preprocess(
     // 장르 선택은 디스코드 선택 메뉴 하나다
     if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여줍니다.` });
     for (const id of ids) {
-      // 키가 식별자다(주소 · 버튼 id · AI의 {{genre}}). 화면처럼 앞뒤 공백을 뺀 이름으로 본다
+      // 키가 식별자다(주소, 버튼 id, AI의 {{genre}}). 화면처럼 앞뒤 공백을 뺀 이름으로 본다
       if (!id.trim()) ctx.addIssue({ code: "custom", message: "장르 식별자가 비었습니다." });
       if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 순서가 어긋납니다. "${id}s"처럼 글자를 붙여 주세요.` });
       // 디스코드 선택지 값(식별자)은 100자까지

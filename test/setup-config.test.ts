@@ -1,4 +1,4 @@
-// src/config/env-file.ts(설치 · 진입 파일이 부른다): .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
+// src/config/env-file.ts(설치, 진입 파일이 부른다): .env 가 없으면 예시를 복사하고 무작위 비밀을 채운다. 있으면 손대지 않는다. 진입 파일은 그 뒤 읽는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -42,7 +42,7 @@ test("이미 있으면 손대지 않는다", () => {
   assert.equal(fs.readFileSync(target, "utf8"), "DISCORD_TOKEN=mine\n");
 });
 
-test("값을 넣어도 줄의 주석은 남는다. 값이 이미 있는 줄 · 다른 키는 그대로", () => {
+test("값을 넣어도 줄의 주석은 남는다. 값이 이미 있는 줄, 다른 키는 그대로", () => {
   const text = "SECRETS_KEY=        # 설명\nOTHER=1\nSESSION_SECRET=keep\n";
   assert.equal(fillLine(text, "SECRETS_KEY", "abc"), "SECRETS_KEY=abc  # 설명\nOTHER=1\nSESSION_SECRET=keep\n");
   assert.equal(fillLine(text, "SESSION_SECRET", "new"), text);

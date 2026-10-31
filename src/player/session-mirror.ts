@@ -71,7 +71,7 @@ class SessionPersistence {
   }
 
   /**
-   * 앞 플레이어가 남긴 세션(/leave · 음성 복구 포기 등)을 지우고 이 플레이어의 것으로 삼는다. 지운 곡 중 사람이 넣은 곡 수.
+   * 앞 플레이어가 남긴 세션(/leave, 음성 복구 포기 등)을 지우고 이 플레이어의 것으로 삼는다. 지운 곡 중 사람이 넣은 곡 수.
    * 새 플레이어의 증분 쓰기는 옛 행 위에 얹혀 메모리와 어긋나므로 첫 쓰기 전에 부른다. 이어 듣기는 /join 이 복원으로 한다
    */
   claimSaved(): number {
@@ -168,7 +168,7 @@ class SessionPersistence {
     this.resync();
   }
 
-  /** 곡의 필드(제목 · 가수 · 앨범 · 표시 길이)를 그 자리에서 고쳤다(다운로드 · 파일 태그). 사본은 다음 쓰기 · 주기 저장에서 통째로 다시 쓴다 */
+  /** 곡의 필드(제목, 가수, 앨범, 표시 길이)를 그 자리에서 고쳤다(다운로드, 파일 태그). 사본은 다음 쓰기, 주기 저장에서 통째로 다시 쓴다 */
   onTrackInfo() {
     this.dirty = true;
   }
@@ -200,7 +200,7 @@ class SessionPersistence {
     this.settingsTimer.unref?.();
   }
 
-  /** 세션 행 열(볼륨 · 반복 · 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
+  /** 세션 행 열(볼륨, 반복, 수동 멈춤 등)이 지난 저장과 다르면 쓴다. 설정 알림이 부르고, 주기 저장이 알림을 빠뜨린 길을 잡는다 */
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;
@@ -297,7 +297,7 @@ class SessionPersistence {
   }
 
   /**
-   * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂 · failed 틀 곡을 열지 못함(남은 곡은 대기열에) · empty 틀 곡이 없음.
+   * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂, failed 틀 곡을 열지 못함(남은 곡은 대기열에), empty 틀 곡이 없음.
    * announce 를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
    */
   async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "parked" | "failed" | "empty"> {
@@ -344,7 +344,7 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
-    // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림 · /join 응답이 말한다). 패널은 멈춘 곡으로
+    // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림, /join 응답이 말한다). 패널은 멈춘 곡으로
     if (player.lifecycle.parked) {
       await this._announceRestored(false);
       return "parked";
@@ -419,7 +419,7 @@ class SessionPersistence {
 
     if (announce && player.currentTrack) {
       try {
-        // 실제로 튼 곡과 위치(복원하던 곡을 곡 탓으로 넘겼으면 다른 곡 · 처음부터다)
+        // 실제로 튼 곡과 위치(복원하던 곡을 곡 탓으로 넘겼으면 다른 곡, 처음부터다)
         await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(player.getCurrentTime() / 1000), paused: player.pause.userPaused });
       } catch (error) {
         log.warn(`복원 알림을 보내지 못했습니다: ${messageOf(error)}`);

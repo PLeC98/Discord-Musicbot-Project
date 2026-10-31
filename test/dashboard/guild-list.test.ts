@@ -72,7 +72,7 @@ beforeEach(() => {
     g.members.cache.clear();
     g.asked.length = 0;
   }
-  // 디스코드의 답: u1 은 100 · 200 · 300 에 들었다(200 은 그 뒤 나갔다: 봇의 멤버 판정이 막는다)
+  // 디스코드의 답: u1 은 100, 200, 300 에 들었다(200 은 그 뒤 나갔다: 봇의 멤버 판정이 막는다)
   tokens.state.guilds.set("u1", ["100", "200", "300", "elsewhere"]);
   tokens.state.guilds.set("owner", []);
   tokens.signIn("u1");
@@ -102,7 +102,7 @@ test("사용자의 서버 목록에 없는 서버는 멤버 판정을 하지 않
   assert.deepEqual([guilds.get("200")?.asked, guilds.get("300")?.asked], [[], []]);
 });
 
-test("서버 목록을 받지 못하면(토큰 없음 · 401) 이미 확인한 서버만 보이고 재로그인 안내를 싣는다. 봇이 든 서버마다 묻지 않는다", async () => {
+test("서버 목록을 받지 못하면(토큰 없음, 401) 이미 확인한 서버만 보이고 재로그인 안내를 싣는다. 봇이 든 서버마다 묻지 않는다", async () => {
   guilds.get("100")?.members.cache.set("u2", { permissions: { has: () => false } });
   user = { id: "u2", username: "토큰 없음" };
   tokens.signIn("u2", { token: false });
@@ -128,7 +128,7 @@ test("목록을 받았으면 재로그인 안내가 없다", async () => {
   assert.equal((await get()).relogin, undefined);
 });
 
-test("지금 곡: 소리가 붙어 있을 때만 제목 · 가수 · 그림, 그 밖은 null", async () => {
+test("지금 곡: 소리가 붙어 있을 때만 제목, 가수, 그림, 그 밖은 null", async () => {
   players.clear();
   players.set("100", fakePlayer({ currentTrack: track, audioPlayer: { state: { status: AudioPlayerStatus.Playing } } }));
   // 곡을 여는 중(소리가 아직 없다)

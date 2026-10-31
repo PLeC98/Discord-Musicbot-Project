@@ -1,7 +1,7 @@
-// src/media/ffmpeg/exit.ts: ffmpeg 가 끝난 까닭(종료 코드 해독 · 남기는 방식)
+// src/media/ffmpeg/exit.ts: ffmpeg 가 끝난 까닭(종료 코드 해독, 남기는 방식)
 //
 // 지키는 것: Windows 의 부호 없는 32비트 코드를 부호 있는 AVERROR 로 되돌려 이름을 붙인다.
-// 우리가 출력을 닫아 생긴 종료(파이프 쓰기 실패 · 우리가 보낸 신호)만 정리로 보고,
+// 우리가 출력을 닫아 생긴 종료(파이프 쓰기 실패, 우리가 보낸 신호)만 정리로 보고,
 // 우리가 닫았더라도 다른 코드로 끝났으면 그 전에 이미 실패한 것으로 남긴다.
 
 import { test } from "node:test";
@@ -25,18 +25,18 @@ test("하위 8비트만 남는 OS 는 숫자 그대로 둔다", () => {
   assert.equal(exitText(234, null, "linux"), "234");
 });
 
-test("파이프 쓰기 실패: Windows 는 -22 · -32, 그 밖은 하위 8비트(234 · 224)", () => {
+test("파이프 쓰기 실패: Windows 는 -22, -32, 그 밖은 하위 8비트(234, 224)", () => {
   assert.equal(isPipeWriteFailure(EINVAL_WIN, "win32"), true);
   assert.equal(isPipeWriteFailure(INVALIDDATA_WIN, "win32"), false);
   assert.equal(isPipeWriteFailure(1, "win32"), false);
   assert.equal(isPipeWriteFailure(256 - 32, "linux"), true);
 });
 
-test("남기는 방식: 비정상 신호 · 봇이 직접 닫은 종료 · 자체 실패 · 정상", () => {
+test("남기는 방식: 비정상 신호, 봇이 직접 닫은 종료, 자체 실패, 정상", () => {
   const v = (code: number | null, signal: string | null, closedByUs: boolean) => exitVerdict({ code, signal, closedByUs, platform: "win32" });
   assert.equal(v(null, "SIGSEGV", false), "crash");
   assert.equal(v(null, "SIGSEGV", true), "crash");
-  // 스킵 · 위치 이동으로 우리가 닫았다
+  // 스킵, 위치 이동으로 우리가 닫았다
   assert.equal(v(EINVAL_WIN, null, true), "cleanup");
   assert.equal(v(null, "SIGKILL", true), "cleanup");
   assert.equal(v(0, null, true), "cleanup");
@@ -44,7 +44,7 @@ test("남기는 방식: 비정상 신호 · 봇이 직접 닫은 종료 · 자�
   assert.equal(v(INVALIDDATA_WIN, null, true), "failed");
   assert.equal(v(INVALIDDATA_WIN, null, false), "failed");
   assert.equal(v(1, null, false), "failed");
-  // 정상 종료 · 우리가 보낸 신호(HLS 세그먼트 건너뛰기 · 종료 정리)
+  // 정상 종료, 우리가 보낸 신호(HLS 세그먼트 건너뛰기, 종료 정리)
   assert.equal(v(0, null, false), "ok");
   assert.equal(v(null, "SIGKILL", false), "ok");
 });

@@ -1,6 +1,6 @@
-// src/player/idle-leave.ts · src/ui/now-playing-panel.ts: 곡이 없을 때 나갈 시각이 바뀌면 끝난 패널이 따라간다.
+// src/player/idle-leave.ts, src/ui/now-playing-panel.ts: 곡이 없을 때 나갈 시각이 바뀌면 끝난 패널이 따라간다.
 //
-// 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진 · 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
+// 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진, 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -70,7 +70,7 @@ test("혼자 남음이 대기열 소진보다 늦으면 대기열 소진 시각 
     assert.ok(near(told[0], start + EMPTY_MS));
   }));
 
-test("버릴 때 · 타이머가 없었을 때 · 재생 중일 때는 알리지 않는다", () =>
+test("버릴 때, 타이머가 없었을 때, 재생 중일 때는 알리지 않는다", () =>
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());
     const told = watch(idle);

@@ -1,4 +1,4 @@
-// dashboard/src/utils/prompt-file.ts: AI 판정 프롬프트 한 벌 내보내기 · 불러오기. 파일 형식, 다른 파일 거부, 망가진 섹션
+// dashboard/src/utils/prompt-file.ts: AI 판정 프롬프트 한 벌 내보내기, 불러오기. 파일 형식, 다른 파일 거부, 망가진 섹션
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ const SECTIONS = [
   { role: "user", name: "", text: "{{list}}" },
 ];
 
-test("내보낸 파일을 그대로 불러오면 같은 줄 형식 · 섹션이 된다", () => {
+test("내보낸 파일을 그대로 불러오면 같은 줄 형식, 섹션이 된다", () => {
   const { name, body } = promptFile("{{index}}. {{title}}", SECTIONS);
   assert.equal(name, "ai-prompt.json");
   assert.deepEqual(parsePromptFile(body), { lineFormat: "{{index}}. {{title}}", sections: SECTIONS, dropped: 0 });
@@ -21,7 +21,7 @@ test("프롬프트 파일이 아니면 null", () => {
   }
 });
 
-test("객체가 아닌 섹션만 빼고, 역할이 틀린 것은 남긴다(편집기 · 저장 검사가 잡는다)", () => {
+test("객체가 아닌 섹션만 빼고, 역할이 틀린 것은 남긴다(편집기, 저장 검사가 잡는다)", () => {
   const got = parsePromptFile(JSON.stringify({ musicbotPrompt: 1, sections: [{ role: "narrator", text: "x" }, null, "junk", [1], { role: "user", text: 5 }] }));
   assert.deepEqual(got, {
     lineFormat: "",

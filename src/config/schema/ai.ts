@@ -11,7 +11,7 @@ const SECRET_HEADER = "extra 에 비밀 헤더(Authorization, x-api-key, Cookie 
 
 /**
  * 줄 형식의 문제(글자 위치와 함께, 화면이 그 위치를 표시한다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
- * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration · unknownText)는 읽지 않는다
+ * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration, unknownText)는 읽지 않는다
  */
 function lineFormatProblems(format: string): Problem[] {
   if (!format.trim()) return [];
@@ -51,13 +51,13 @@ const aiFile = z.preprocess(
   z
     .looseObject({
       provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`),
-      // 켜고 끄기. 끄면(false) 선택한 프로바이더 · 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
+      // 켜고 끄기. 끄면(false) 선택한 프로바이더, 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
       enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
       // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
       timeoutMs: between("timeoutMs", 1000, 600000),
       batchSize: between("batchSize", 1, 50),
-      // 글자 "false" 는 참으로 읽힌다. 참 · 거짓으로만 받는다
+      // 글자 "false" 는 참으로 읽힌다. 참, 거짓으로만 받는다
       skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 합니다."),
       // 재시도. 빠진 필드의 기본값은 assist 의 DEFAULTS
       retries: between("retries", 0, 10),
@@ -87,13 +87,13 @@ const aiFile = z.preprocess(
           { error: "params는 모델 이름 아래에 필드를 적는 표여야 합니다." },
         )
         .nullish(),
-      // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
+      // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상, 이미지 모델도 섞여 나온다.
       hideModels: present((v) => Array.isArray(v) && v.every((one) => typeof one === "string"), 'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).'),
       // 대시보드에서 어느 섹션인지 알아보려고 붙이는 이름. 프롬프트 섹션에는 이름 필드가 없어 여기 두므로 순서가 섹션과 같아야 한다
       promptNames: present((v) => Array.isArray(v) && v.every((one) => one == null || typeof one === "string"), "promptNames는 글자 목록이어야 합니다."),
       list,
     })
-    // 켰는데 프로바이더가 없으면 알리고, 프로바이더를 골랐을 때만 주소 · 모델을 따진다
+    // 켰는데 프로바이더가 없으면 알리고, 프로바이더를 골랐을 때만 주소, 모델을 따진다
     .superRefine((data, ctx) => {
       if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 선택해야 합니다." });
       if (!data.provider || data.provider === "off") return;

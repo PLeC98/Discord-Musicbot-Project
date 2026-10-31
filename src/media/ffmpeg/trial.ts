@@ -1,4 +1,4 @@
-// ffmpeg 가 실제로 할 수 있는지 아주 작은 테스트로 본다. 목록(-encoders)에 있어도 장치 · 드라이버가 없으면 열 때 실패하므로 돌려 본다.
+// ffmpeg 가 실제로 할 수 있는지 아주 작은 테스트로 본다. 목록(-encoders)에 있어도 장치, 드라이버가 없으면 열 때 실패하므로 돌려 본다.
 // 인코더: 256×144 테스트 영상 8프레임을 인코딩하고 버린다(한 번에 0.1 ~ 0.5초, 없는 장치는 바로 오류). 애니메이션 WebP: 2프레임 이미지를 읽어 프레임 수를 센다(ffmpeg 9.0 아래는 한 프레임도 못 읽는다)
 
 import { runFfmpeg } from "./job.ts";
@@ -18,7 +18,7 @@ function reasonOf(stderr: string, encoder: string): string {
   return (own.length ? own.join(" ") : (lines.at(-1) ?? "")).slice(0, 300);
 }
 
-/** 그 인코더 · 옵션으로 테스트 영상을 인코딩해 본다. 실패하면 ffmpeg 가 낸 까닭 */
+/** 그 인코더, 옵션으로 테스트 영상을 인코딩해 본다. 실패하면 ffmpeg 가 낸 까닭 */
 async function tryEncoder(encoder: string, options: string[]): Promise<{ ok: true } | { ok: false; reason: string }> {
   const { code, stderr } = await runFfmpeg(["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=256x144:rate=30", "-frames:v", "8", "-c:v", encoder, ...options, "-f", "null", "-"], { timeoutMs: TRIAL_MS, label: "encoder-check" });
   return code === 0 ? { ok: true } : { ok: false, reason: reasonOf(stderr, encoder) || `끝난 코드 ${code ?? "없음"}` };

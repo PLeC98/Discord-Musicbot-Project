@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { setDocsRepo, docUrl } from "../../../dashboard/src/composables/docs.ts";
 
-test("GitHub · GitLab 은 기본 브랜치의 파일로 잇는다(끝의 / · .git 은 뗀다)", () => {
+test("GitHub, GitLab 은 기본 브랜치의 파일로 잇는다(끝의 /, .git 은 뗀다)", () => {
   setDocsRepo("https://github.com/PLeC98/Discord-Musicbot-Project.git");
   assert.equal(docUrl("docs/favicon.md"), "https://github.com/PLeC98/Discord-Musicbot-Project/blob/HEAD/docs/favicon.md");
   setDocsRepo("https://gitlab.com/someone/bot/");

@@ -1,5 +1,5 @@
-// 초기화(운영자 패널 백업 · 초기화 탭의 초기화 카드). /api/admin/reset. 모양은 contract/reset, 일은 dashboard/reset.
-// 여러 항목을 되돌릴 수 없이 한꺼번에 삭제하므로 삭제하는 요청(초기화 · 예약 취소)은 최근 로그인을 본다. 양을 읽는 것은 보지 않는다(탭을 열면 읽는다). 봇 전체 초기화는 봇 이름을 그대로 입력해야 받는다.
+// 초기화(운영자 패널 백업, 초기화 탭의 초기화 카드). /api/admin/reset. 모양은 contract/reset, 일은 dashboard/reset.
+// 여러 항목을 되돌릴 수 없이 한꺼번에 삭제하므로 삭제하는 요청(초기화, 예약 취소)은 최근 로그인을 본다. 양을 읽는 것은 보지 않는다(탭을 열면 읽는다). 봇 전체 초기화는 봇 이름을 그대로 입력해야 받는다.
 
 import express, { type Request } from "express";
 import logger from "../../infra/log/logger.ts";

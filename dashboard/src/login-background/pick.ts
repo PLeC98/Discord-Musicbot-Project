@@ -1,7 +1,7 @@
 // 로그인 배경의 영상을 무엇으로 틀지.
-// 코덱은 우리가, 해상도는 hls.js 가(화면 크기 × 배율 · 통신) 선택한다. 우리는 어느 목록(코덱)을 열지와 해상도 상한만 정한다.
-// 선택: powerEfficient ○ 인 단계 중 꽉 채웠을 때 필요한 세로 이상의 가장 낮은 해상도(없으면 가장 높은 것)를 먼저 정하고, 그 해상도에서 AV1 · VP9 · H.264 순서로 코덱.
-// H.264 720p(폴백)는 AV1 · VP9 에 ○ 가 없을 때만. ○ 가 없으면 디코딩할 수 있는 가장 낮은 단계. 선택한 해상도가 그 코덱의 가장 높은 단계보다 낮으면 상한을 건다.
+// 코덱은 우리가, 해상도는 hls.js 가(화면 크기 × 배율, 통신) 선택한다. 우리는 어느 목록(코덱)을 열지와 해상도 상한만 정한다.
+// 선택: powerEfficient ○ 인 단계 중 꽉 채웠을 때 필요한 세로 이상의 가장 낮은 해상도(없으면 가장 높은 것)를 먼저 정하고, 그 해상도에서 AV1, VP9, H.264 순서로 코덱.
+// H.264 720p(폴백)는 AV1, VP9 에 ○ 가 없을 때만. ○ 가 없으면 디코딩할 수 있는 가장 낮은 단계. 선택한 해상도가 그 코덱의 가장 높은 단계보다 낮으면 상한을 건다.
 // 내리기: 선택한 코덱에서 효과를 테마 색 전체 → 오버레이 색만 → 고정 순서로 빼고, 그 코덱의 낮은 해상도 상한 → H.264 720p → 정지 그림.
 // 블러가 강하면(화면 높이의 0.23% 이상) 4K 와 1080p 가 같아 보여 1080p 까지만 선택한다
 
@@ -9,11 +9,11 @@ import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundStream 
 
 /** 판정(MediaCapabilities.decodingInfo) */
 type Verdict = { supported: boolean; smooth: boolean; powerEfficient: boolean };
-/** 단계 하나(코덱 · 크기 · 2초 최대 · 판정에 넘길 형식) */
+/** 단계 하나(코덱, 크기, 2초 최대, 판정에 넘길 형식) */
 type Rung = { codec: LoginBackgroundCodec; width: number; height: number; type: string; bandwidth: number; frameRate: number };
-/** 효과: 테마 색 전체(장면마다) · 오버레이 색만 · 고정(대표색) */
+/** 효과: 테마 색 전체(장면마다), 오버레이 색만, 고정(대표색) */
 type Effect = "full" | "cover" | "fixed";
-/** 내려갈 순서의 한 단계. codec 이 null 이면 정지 그림, cap 이 null 이면 해상도는 hls.js 가 화면 크기 · 통신으로 */
+/** 내려갈 순서의 한 단계. codec 이 null 이면 정지 그림, cap 이 null 이면 해상도는 hls.js 가 화면 크기, 통신으로 */
 type Step = { codec: LoginBackgroundCodec | null; cap: number | null; effect: Effect };
 
 /** 블러 → 1080p 상한의 선(화면 높이에 대한 블러 반지름. 이보다 흐리면 4K 와 1080p 가 같아 보인다) */
@@ -51,7 +51,7 @@ function neededShort(frame: { width: number; height: number; dpr: number }, aspe
 /** 블러가 강해 1080p 까지만 선택하는가 */
 const blurCapped = (frame: { width: number; height: number }, blur: number) => (frame.width * blur) / 100 >= frame.height * BLUR_CAP_RATIO;
 
-/** 내려갈 순서. 첫 단계가 판정으로 선택한 코덱. reduced 면(움직임 줄이기 · 영상 없음) 정지 그림 하나 */
+/** 내려갈 순서. 첫 단계가 판정으로 선택한 코덱. reduced 면(움직임 줄이기, 영상 없음) 정지 그림 하나 */
 function ladderOf(rungs: Rung[], verdicts: Map<Rung, Verdict>, need: number, options: { reduced: boolean; capFhd: boolean }): Step[] {
   const still: Step = { codec: null, cap: null, effect: "fixed" };
   if (options.reduced) return [still];

@@ -1,4 +1,4 @@
-// src/media/chunked-stream.ts: Range 청크 수신 (완전성 / 수신·공급 분리 / 이어받기 / 중단 / 이상 응답)
+// src/media/chunked-stream.ts: Range 청크 수신 (완전성 / 수신, 공급 분리 / 이어받기 / 중단 / 이상 응답)
 //
 // 네트워크는 fetch를 주입해 흉내낸다. 실 소켓 없이 전부 검증한다.
 
@@ -260,7 +260,7 @@ test("조금씩이라도 받으면 실패 횟수가 초기화된다. 여러 번 
   assert.deepEqual(await collect(s), body);
 });
 
-test("4xx는 다시 요청하지 않는다 (만료·차단은 몇 번을 해도 같다)", async () => {
+test("4xx는 다시 요청하지 않는다 (만료, 차단은 몇 번을 해도 같다)", async () => {
   const body = makeBody(50_000);
   let requests = 0;
   const s = createChunkedStream({
@@ -483,7 +483,7 @@ test("첫 응답이 끊기면 받은 자리부터 끝까지 If-Range 를 달아 
   assert.equal(resumed.length, 1);
 });
 
-test("이을 때 200(파일이 바뀜 · Range 무시) · 416 · 전체 크기가 다르면 그만둔다(다시 요청하지 않는다)", async () => {
+test("이을 때 200(파일이 바뀜, Range 무시), 416, 전체 크기가 다르면 그만둔다(다시 요청하지 않는다)", async () => {
   const body = makeBody(40_000);
   const otherTotal: RangeFetch = async (url, opts) => {
     const res = await fakeFetch(body)(url, opts);
@@ -521,13 +521,13 @@ test("첫 Range 요청(유튜브)의 전체 크기는 어림값이라 보지 않
   assert.deepEqual(await collect(s), body);
 });
 
-// ── 위치를 옮긴 첫 요청(키프레임 바이트부터 · 헤더 먼저) ─────────────
+// ── 위치를 옮긴 첫 요청(키프레임 바이트부터, 헤더 먼저) ─────────────
 
 const HEAD = Buffer.from("MEDIA-HEADER");
 /** 키프레임 자리의 앞 4바이트를 확인한다 */
 const expectAt = (body: Buffer, at: number) => ({ bytes: 4, check: (head: Buffer) => Buffer.compare(head.subarray(0, 4), body.subarray(at, at + 4)) === 0 });
 
-test("startByte · prefix: 헤더를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
+test("startByte, prefix: 헤더를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
   const body = makeBody(50_000);
   const seen: Array<{ start: number }> = [];
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 30_000, prefix: HEAD, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
@@ -562,7 +562,7 @@ test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 p
   assert.equal(requests, 1);
 });
 
-test("위치를 옮긴 첫 요청의 Range 무시(200) · 416 · 전체 크기가 다름은 색인 탓, 403 · 네트워크는 아니다(네트워크는 지금처럼 다시 받는다)", async () => {
+test("위치를 옮긴 첫 요청의 Range 무시(200), 416, 전체 크기가 다름은 색인 탓, 403, 네트워크는 아니다(네트워크는 지금처럼 다시 받는다)", async () => {
   const body = makeBody(40_000);
   const open = (fetchImpl: RangeFetch, totalBytes = body.length) => openChunkedStream({ url: URL_, totalBytes, chunkSize: 8192, startByte: 20_000, fetchImpl, ...FAST });
   for (const status of [200, 416]) await assert.rejects(open(fakeFetch(body, { status })), (e: unknown) => isSeekMismatch(e), `HTTP ${status}`);
@@ -634,14 +634,14 @@ test("stats: URL의 expire로 만료까지 남은 초를 낸다", () => {
 
 // ── 인자 검증 ────────────────────────────────────────────────
 
-test("totalBytes·chunkSize가 올바르지 않으면 만들 때 거부한다", () => {
+test("totalBytes, chunkSize가 올바르지 않으면 만들 때 거부한다", () => {
   const base = {
     url: URL_,
     fetchImpl: async () => {
       throw new Error("부르지 않는다");
     },
   };
-  // 타입 밖 값(null · undefined)도 막는다
+  // 타입 밖 값(null, undefined)도 막는다
   for (const bad of [0, -1, NaN, null, undefined] as unknown as number[]) {
     assert.throws(() => createChunkedStream({ ...base, totalBytes: bad, chunkSize: 1024 }), /totalBytes/);
     assert.throws(() => createChunkedStream({ ...base, totalBytes: 1024, chunkSize: bad }), /chunkSize/);

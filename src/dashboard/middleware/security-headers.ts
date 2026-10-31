@@ -7,9 +7,9 @@
 //   COOP  OAuth를 팝업 방식으로 바꾸면 조용히 깨진다.
 // 끄는 설정이 켜는 설정보다 길어지므로 직접 쓴다.
 
-// img-src를 https: 전체로 여는 이유: 썸네일이 유튜브·스포티파이·사운드클라우드·디스코드
+// img-src를 https: 전체로 여는 이유: 썸네일이 유튜브, 스포티파이, 사운드클라우드, 디스코드
 // CDN에서 온다. 호스트 화이트리스트는 플랫폼이 CDN을 바꾸는 순간 이미지를 조용히 깨뜨린다.
-// blob: 은 화면이 앨범아트 · 봇 프로필 이미지를 블러 처리해 만든 배경 이미지다(dashboard/src/theme/art.ts). 빠지면 배경이 비어 보인다.
+// blob: 은 화면이 앨범아트, 봇 프로필 이미지를 블러 처리해 만든 배경 이미지다(dashboard/src/theme/art.ts). 빠지면 배경이 비어 보인다.
 // media-src 의 blob: 은 로그인 배경 영상이다: hls.js 가 MediaSource 를 blob: 주소로 영상에 붙인다. 빠지면 영상이 막혀 정지 그림만 보인다.
 // connect-src 의 디스코드 CDN 은 봇 정보 탭의 로고다: 봇 프로필 그림(움직이는 GIF)의 프레임을 풀려면 바이트를 fetch 해야 한다(<img> 를 캔버스에 그리면 첫 프레임만 나온다).
 //
@@ -23,7 +23,7 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction) {
   res.setHeader("Content-Security-Policy", CSP);
   res.setHeader("X-Content-Type-Options", "nosniff"); // 정적 파일을 서빙하므로 MIME 스니핑 차단
   res.setHeader("X-Frame-Options", "DENY"); // 대시보드가 iframe에 들어갈 용례 없음
-  res.setHeader("Referrer-Policy", "no-referrer"); // 외부 링크로 내부 주소·포트가 새지 않게
+  res.setHeader("Referrer-Policy", "no-referrer"); // 외부 링크로 내부 주소, 포트가 새지 않게
   next();
 }
 

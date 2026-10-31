@@ -1,5 +1,5 @@
-// src/rules/container-index.ts: 음원 앞부분의 인덱스(webm Cues · mp4 sidx)로 시간 → 바이트, 받기 시작할 키프레임 선택, 받은 첫 바이트 확인.
-// 실제 파일(ffmpeg 로 만든 webm · m4a, 유튜브와 같은 배치)과 손으로 만든 바이트(가장자리)를 함께 본다
+// src/rules/container-index.ts: 음원 앞부분의 인덱스(webm Cues, mp4 sidx)로 시간 → 바이트, 받기 시작할 키프레임 선택, 받은 첫 바이트 확인.
+// 실제 파일(ffmpeg 로 만든 webm, m4a, 유튜브와 같은 배치)과 손으로 만든 바이트(가장자리)를 함께 본다
 
 import path from "node:path";
 import os from "node:os";
@@ -61,7 +61,7 @@ for (const [name, file] of [
   });
 }
 
-test("실제 파일: 헤더는 첫 클러스터 · moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
+test("실제 파일: 헤더는 첫 클러스터, moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
   if (!webm || !m4a) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const w = indexOf(webm);
   const header = headerOf(webm, w);
@@ -154,7 +154,7 @@ test("webm: TimecodeScale 을 따른다", () => {
   );
 });
 
-test("webm: Cues 가 첫 클러스터 앞에 없거나 · 시각이 줄거나 · 자리가 파일 밖이거나 · 크기 모를 요소가 앞에 있으면 없음", () => {
+test("webm: Cues 가 첫 클러스터 앞에 없거나, 시각이 줄거나, 자리가 파일 밖이거나, 크기 모를 요소가 앞에 있으면 없음", () => {
   const noCues = Buffer.concat([el(0x1a45dfa3), el(0x18538067, el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1f43b675, uint(0xe7, 0)))]);
   const shrinking = makeWebm([
     { time: 4000, cluster: 2 },
@@ -185,7 +185,7 @@ function box(type: string, ...children: Buffer[]): Buffer {
   head.write(type, 4, "latin1");
   return Buffer.concat([head, body]);
 }
-/** sidx: version · timescale · EPT · first_offset · 항목[크기, 길이, 계층형] */
+/** sidx: version, timescale, EPT, first_offset, 항목[크기, 길이, 계층형] */
 function sidx({ version = 0, timescale = 1000, ept = 0, firstOffset = 0, refs }: { version?: number; timescale?: number; ept?: number; firstOffset?: number; refs: Array<[number, number, boolean?]> }): Buffer {
   const fixed = Buffer.alloc(version === 1 ? 28 : 20);
   fixed[0] = version;
@@ -241,7 +241,7 @@ test("mp4: 세그먼트 시작은 sidx 다음 바이트 + first_offset, version 
   }
 });
 
-test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 · moov 앞의 sidx · 세그먼트 뒤의 sidx 는 없음", () => {
+test("mp4: 계층형 sidx, timescale 0, 항목 없음, 끝이 파일 밖, moov 앞의 sidx, 세그먼트 뒤의 sidx 는 없음", () => {
   const ftyp = box("ftyp", Buffer.from("isom"));
   const moov = box("moov", Buffer.alloc(20));
   const cases: Array<[Buffer, RegExp]> = [
@@ -260,7 +260,7 @@ test("mp4: 계층형 sidx · timescale 0 · 항목 없음 · 끝이 파일 밖 �
 
 test("헤더: Segment 크기를 같은 너비의 크기 모름으로(4바이트 표기면 1F FF FF FF), 나머지 바이트는 그대로", () => {
   const body = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, 0)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
-  // Cues 의 자리(0)가 첫 클러스터를 가리키도록 Info · Cues 를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
+  // Cues 의 자리(0)가 첫 클러스터를 가리키도록 Info, Cues 를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
   const clusterAt = body.indexOf(Buffer.from("1f43b675", "hex"));
   const fixed = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, clusterAt)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
   const size4 = Buffer.alloc(4);
@@ -275,11 +275,11 @@ test("헤더: Segment 크기를 같은 너비의 크기 모름으로(4바이트 
   assert.equal(Buffer.compare(header.subarray(at + 4), file.subarray(at + 4, read.index.headerEnd)), 0);
 });
 
-// ── 시작점 · 조회 전 판정 ──
+// ── 시작점, 조회 전 판정 ──
 
 const synthetic = (points: Array<[number, number]>): ContainerIndex => ({ kind: "mp4", headerEnd: 100, segment: null, points: points.map(([ms, byte]) => ({ ms, byte, raw: ms })) });
 
-test("시작점: 목표보다 1초 넘게 앞선 마지막 키프레임. 첫 청크 안 · 앞에 없음 · 마지막이 곡 길이와 크게 다르면 없음", () => {
+test("시작점: 목표보다 1초 넘게 앞선 마지막 키프레임. 첫 청크 안, 앞에 없음, 마지막이 곡 길이와 크게 다르면 없음", () => {
   const index = synthetic([
     [0, 100],
     [10_000, 2_000_000],

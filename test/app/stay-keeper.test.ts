@@ -63,7 +63,7 @@ test("기동: 자리가 있고 붙어 있지 않은 서버만 하나씩, 사이 
   assert.ok(staySeats.seatOf("g1"), "자리는 남긴다");
 });
 
-test("끝난 실패(디스코드의 확답)는 자리를 끄고 알린다: 채널 없음 · 접근 없음 · 연결 · 말하기 권한 없음 · 붙기가 권한으로 거절됨", async () => {
+test("끝난 실패(디스코드의 확답)는 자리를 끄고 알린다: 채널 없음, 접근 없음, 연결, 말하기 권한 없음, 붙기가 권한으로 거절됨", async () => {
   const cases = [
     [guildOf("g1", { fetched: "gone" }), "머물던 음성 채널이 삭제돼서 상주 모드를 껐어요."],
     [guildOf("g1", { fetched: "denied" }), "<#vc1>에 들어갈 권한이 없어서 상주 모드를 껐어요."],
@@ -82,7 +82,7 @@ test("끝난 실패(디스코드의 확답)는 자리를 끄고 알린다: 채�
   assert.equal(staySeats.seatOf("g1"), null);
 });
 
-test("일시적 실패는 자리를 남기고 1 · 2 · 5 · 10 · 30분(이후 30분마다) 뒤 다시", async (t) => {
+test("일시적 실패는 자리를 남기고 1, 2, 5, 10, 30분(이후 30분마다) 뒤 다시", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   staySeats.set("g1", "vc1");
   const guild = guildOf("g1", { fetched: "fails" });

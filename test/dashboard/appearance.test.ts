@@ -1,4 +1,4 @@
-// src/dashboard/routes/appearance.ts · appearance.ts: 크기 슬롯마다 파비콘을 올리고 교체하고 삭제하며, 빈 슬롯은 가장 가까운 슬롯의 보관본으로(없으면 봇 프로필 이미지) 낸다
+// src/dashboard/routes/appearance.ts, appearance.ts: 크기 슬롯마다 파비콘을 올리고 교체하고 삭제하며, 빈 슬롯은 가장 가까운 슬롯의 보관본으로(없으면 봇 프로필 이미지) 낸다
 
 process.env.OWNER_ID = "owner";
 
@@ -57,7 +57,7 @@ const iconSize = async (size: number) => {
   const { width, height, format } = await sharp(Buffer.from(await res.arrayBuffer())).metadata();
   return [format, width, height];
 };
-/** 그 크기에 지금 내는 이미지의 왼쪽 위 한 점(빨강 쪽인지 파랑 쪽인지 · 투명한지) */
+/** 그 크기에 지금 내는 이미지의 왼쪽 위 한 점(빨강 쪽인지 파랑 쪽인지, 투명한지) */
 const iconPixel = async (size: number) => {
   const { data } = await sharp(Buffer.from(await (await fetch(`${base}/favicon/${size}`)).arrayBuffer()))
     .ensureAlpha()
@@ -72,7 +72,7 @@ beforeEach(() => {
   user = { id: "owner", username: "운영자" };
 });
 
-test("올린 그림이 없으면 봇 프로필 그림을 줄여 낸다. 매니페스트는 봇 이름 · 아이콘 셋", async () => {
+test("올린 그림이 없으면 봇 프로필 그림을 줄여 낸다. 매니페스트는 봇 이름, 아이콘 셋", async () => {
   assert.deepEqual(await iconSize(32), ["png", 32, 32]);
   assert.deepEqual(await iconSize(180), ["png", 180, 180]);
   assert.equal(avatarServed, 1, "프로필 그림은 한 번만 다운로드한다");
@@ -118,7 +118,7 @@ test("svg 는 그 슬롯 크기로 그려 두고(정사각형이 아니면 투�
   assert.equal((await slot(512)).sourceSide, 512, "svg 의 보관본은 512 로 그린다");
 });
 
-test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파일은 삭제한다. 교체 · 비우기(기록은 남는다) · 기록에서 삭제", async () => {
+test("기록: 새것부터 FAVICON_HISTORY 개까지 남고 넘친 그림의 파일은 삭제한다. 교체, 비우기(기록은 남는다), 기록에서 삭제", async () => {
   for (let i = 0; i <= FAVICON_HISTORY; i++) assert.equal((await put(32, await square(32 + i))).status, 200);
   const full = await slot(32);
   assert.equal(full.history.length, FAVICON_HISTORY);
@@ -166,7 +166,7 @@ test("다시 시작해도(폴더를 다시 읽어도) 남아 있고, 목록에 �
   assert.ok(!fs.existsSync(path.join(DIR, "zzzzzzzzzz.png")));
 });
 
-test("거절: 쓰지 않는 크기 · 그림이 아니거나 형식 밖 · 정사각형 아님 · 너무 작음", async () => {
+test("거절: 쓰지 않는 크기, 그림이 아니거나 형식 밖, 정사각형 아님, 너무 작음", async () => {
   assert.deepEqual(await codeOf(await put(64, await square(64))), [404, "route-not-found"]);
   assert.deepEqual(await codeOf(await put(32, Buffer.from("not an image"))), [400, "bad-image"]);
   assert.deepEqual(await codeOf(await put(32, await square(32, "gif"), "image/gif")), [400, "bad-image"]);
@@ -175,7 +175,7 @@ test("거절: 쓰지 않는 크기 · 그림이 아니거나 형식 밖 · 정�
   assert.ok((await state()).slots.every((one) => one.history.length === 0));
 });
 
-test("링크로 추가: 내부 주소 · http(s) 가 아닌 주소는 image-link-failed(까닭은 로그에만), 빈 본문은 bad-request", async () => {
+test("링크로 추가: 내부 주소, http(s) 가 아닌 주소는 image-link-failed(까닭은 로그에만), 빈 본문은 bad-request", async () => {
   for (const url of [`${base}/avatar.png`, "http://169.254.169.254/x.png", "ftp://example.com/x.png"]) assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, { url })), [502, "image-link-failed"], url);
   assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, {})), [400, "bad-request"]);
 });

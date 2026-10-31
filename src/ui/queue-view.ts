@@ -27,7 +27,7 @@ function queueInfoOf(player: { queue: Listed[] }): QueueInfo {
 
 /**
  * 대기열 한 페이지. 페이지 번호는 1 부터이고 범위를 넘으면 끝 페이지로 붙인다.
- * 페이지가 둘 이상이면 넘기기 버튼(이전 · 다음 쪽)을 단다. 넘기면 그때의 대기열로 다시 그린다
+ * 페이지가 둘 이상이면 넘기기 버튼(이전, 다음 쪽)을 단다. 넘기면 그때의 대기열로 다시 그린다
  */
 function queueView(info: QueueInfo, page = 1) {
   const pages = pagesOf(info);

@@ -1,11 +1,11 @@
 import { ref } from "vue";
 import { readStored, writeStored } from "../utils/storage.ts";
 
-// 설정 편집기에서 접어 둔 카드: 자동재생 장르 · 그 안의 출처 · AI 프롬프트 섹션.
+// 설정 편집기에서 접어 둔 카드: 자동재생 장르, 그 안의 출처, AI 프롬프트 섹션.
 //
-// 접은 것만 적는다. 새로 만든 장르·출처는 펼친 채로 나오고, 저장한 적 없는 것도 펼쳐진다.
+// 접은 것만 적는다. 새로 만든 장르, 출처는 펼친 채로 나오고, 저장한 적 없는 것도 펼쳐진다.
 // 위치(번호)로 기억한다. 이름으로 기억하면 이름을 고치는 순간 잃는다. 그래서 삭제하거나 순서를 바꾸면
-// 편집기가 새 순서를 알려(reorderGenres · reorderSources · reorderPrompts) 기억을 따라 옮긴다.
+// 편집기가 새 순서를 알려(reorderGenres, reorderSources, reorderPrompts) 기억을 따라 옮긴다.
 const STORE_KEY = "configGenres.folded";
 // 출처의 상세 설정을 펼쳐 둔 것. 접기와 반대로 펼친 것만 적는다(상세 설정은 접힌 채로 나온다).
 // 편집기 안에 두면 저장할 때 사라진다. 저장하면 장르 목록을 새로 불러와 편집기를 다시 그리기 때문이다.
@@ -64,7 +64,7 @@ function remap(ids: Set<string>, pick: Pick, order: number[]) {
   return next;
 }
 
-/** 접기 · 상세 펼침 기억을 함께 옮긴다 */
+/** 접기, 상세 펼침 기억을 함께 옮긴다 */
 function moveBoth(pick: Pick, order: number[]) {
   folded.value = remap(folded.value, pick, order);
   deepOpen.value = remap(deepOpen.value, pick, order);

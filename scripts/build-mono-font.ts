@@ -3,11 +3,11 @@
 //   node scripts/build-mono-font.ts <릴리스 zip>  다운로드해 둔 공식 릴리스 zip 으로 만든다
 //
 // 원본 TTF 는 굵기마다 4MB 남짓이고 공식 릴리스에는 웹 글꼴이 없다. 화면에 나온 글자의 서브셋만 다운로드하도록 woff2 서브셋으로 나눈다.
-// 서브셋 경계: 한글 · 라틴은 Pretendard 의 dynamic subset 경계를 그대로 빌린다(자주 쓰는 글자끼리 묶여 있어 한 화면의 한글이 적은 서브셋으로 끝난다).
-// 그 밖의 글자(한자 · 가나 일부 등)는 코드 순서로 묶는다. 결과: dashboard/src/assets/mono/(서브셋 · OFL.txt) · dashboard/src/mono.css(@font-face)
+// 서브셋 경계: 한글, 라틴은 Pretendard 의 dynamic subset 경계를 그대로 빌린다(자주 쓰는 글자끼리 묶여 있어 한 화면의 한글이 적은 서브셋으로 끝난다).
+// 그 밖의 글자(한자, 가나 일부 등)는 코드 순서로 묶는다. 결과: dashboard/src/assets/mono/(서브셋, OFL.txt), dashboard/src/mono.css(@font-face)
 //
-// D2Coding 은 예약된 글꼴 이름(Reserved Font Name) "D2Coding" · "D2Coding-Bold" 를 단 SIL OFL 1.1 이라 서브셋 수정본은 그 이름을 쓸 수 없다(OFL 조건 3).
-// 그래서 글꼴 안 이름(name 테이블의 패밀리 · 전체 · PostScript · 고유 ID)과 CSS 이름을 FAMILY 로 바꾼다. 저작권(0번) · 라이선스(13 · 14번)는 남긴다
+// D2Coding 은 예약된 글꼴 이름(Reserved Font Name) "D2Coding", "D2Coding-Bold" 를 단 SIL OFL 1.1 이라 서브셋 수정본은 그 이름을 쓸 수 없다(OFL 조건 3).
+// 그래서 글꼴 안 이름(name 테이블의 패밀리, 전체, PostScript, 고유 ID)과 CSS 이름을 FAMILY 로 바꾼다. 저작권(0번), 라이선스(13, 14번)는 남긴다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +32,7 @@ const WEIGHTS = [
   { weight: 700, style: "Bold", file: /^D2Coding\/D2CodingBold-Ver[\d.]+-\d+\.ttf$/ },
 ] as const;
 
-/** 원본 이름을 FAMILY 로. 1 패밀리 · 3 고유 ID · 4 전체 · 6 PostScript, 원본의 16 · 17(선호 패밀리) · 20(CID 이름)은 지운다 */
+/** 원본 이름을 FAMILY 로. 1 패밀리, 3 고유 ID, 4 전체, 6 PostScript, 원본의 16, 17(선호 패밀리), 20(CID 이름)은 지운다 */
 const renamed = (style: string) => ({ 1: FAMILY, 3: `${FAMILY} ${style}`, 4: style === "Regular" ? FAMILY : `${FAMILY} ${style}`, 6: `${FAMILY.replace(/ /g, "")}-${style}`, 16: "", 17: "", 20: "" });
 
 async function releaseZip(): Promise<Buffer> {

@@ -1,4 +1,4 @@
-// src/store/snapshots.ts: settings.db 스냅샷. 하루 한 번 · 불러오기 · 복원 전에 뜨고, 선택한 것을 다음 기동에 교체한다
+// src/store/snapshots.ts: settings.db 스냅샷. 하루 한 번, 불러오기, 복원 전에 뜨고, 선택한 것을 다음 기동에 교체한다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -47,7 +47,7 @@ test("뜬 스냅샷은 그때의 settings.db 다(뒤에 바꾼 것은 들어가�
   }
 });
 
-test("매일 것은 하루에 하나 · 7개, 불러오기 · 복원 · 초기화 전 것은 합쳐 5개까지 남긴다", async () => {
+test("매일 것은 하루에 하나, 7개, 불러오기, 복원, 초기화 전 것은 합쳐 5개까지 남긴다", async () => {
   for (let day = 1; day <= 9; day++) await snapshots.take("daily", new Date(2026, 9, day));
   for (let n = 0; n < 4; n++) await snapshots.take("before-import", new Date(2026, 9, 11, 8, 0, n));
   for (let n = 4; n < 7; n++) await snapshots.take("before-reset", new Date(2026, 9, 11, 8, 0, n));
@@ -96,7 +96,7 @@ test("예약을 취소하면 교체하지 않는다", async () => {
   stores.open(store.dir);
 });
 
-test("없는 이름 · 폴더 밖 이름 · 구조 버전이 다른 스냅샷은 예약하지 않는다", async () => {
+test("없는 이름, 폴더 밖 이름, 구조 버전이 다른 스냅샷은 예약하지 않는다", async () => {
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("settings-daily-1999-01-01.db")));
   assert.ok(failsWith("SNAPSHOT_NOT_FOUND", () => snapshots.stage("../settings.db")));
 

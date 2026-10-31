@@ -1,5 +1,5 @@
 // 멈춤 상태. 사람의 뜻(userPaused)과 지금 음성 상태에서 계산한 억제 사유(holds)를 따로 들고, 소리는 둘 중 하나라도 있으면 멈춘다.
-// 오디오를 멈추고 푸는 곳은 여기(apply) 하나다. 값이 바뀌면 플레이어가 준 콜백 하나로 알린다(로그 · 저장 알림 · 패널 갱신은 플레이어가 잇는다).
+// 오디오를 멈추고 푸는 곳은 여기(apply) 하나다. 값이 바뀌면 플레이어가 준 콜백 하나로 알린다(로그, 저장 알림, 패널 갱신은 플레이어가 잇는다).
 
 import { AudioPlayerStatus, type AudioPlayer } from "@discordjs/voice";
 import { heldBy, type Hold } from "../rules/holds.ts";
@@ -46,7 +46,7 @@ class PauseState {
     if (was !== on) this.#changed({ user: on, added: [], removed: [] });
   }
 
-  /** 억제 사유를 통째로 맞춘다. 더해진 것 · 빠진 것을 돌려준다 */
+  /** 억제 사유를 통째로 맞춘다. 더해진 것, 빠진 것을 돌려준다 */
   setHolds(next: Iterable<Hold>) {
     const want = new Set(next);
     const added = [...want].filter((one) => !this.#holds.has(one));
@@ -59,7 +59,7 @@ class PauseState {
 
   /**
    * 오디오를 지금 값에 맞춘다. 값이 그대로여도 부른다(어긋난 오디오를 바로잡는다).
-   * pause() 는 재생 중일 때만, unpause() 는 멈춘 상태일 때만 먹는다. 버퍼링 · 곡 없음 · AutoPaused 는 재생으로 넘어오는 순간 플레이어의 Playing 리스너가 다시 부른다
+   * pause() 는 재생 중일 때만, unpause() 는 멈춘 상태일 때만 먹는다. 버퍼링, 곡 없음, AutoPaused 는 재생으로 넘어오는 순간 플레이어의 Playing 리스너가 다시 부른다
    */
   apply() {
     const audio = this.#audio();

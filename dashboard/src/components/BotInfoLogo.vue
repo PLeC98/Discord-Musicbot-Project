@@ -17,16 +17,16 @@ import { useDocumentVisibility, useElementVisibility, useMediaQuery } from "@vue
 
 const props = defineProps<{ src: string | null }>();
 
-// 크기: 20줄 높이에 가로는 정사각형에 가장 가까운 칸 수(한 줄 17px · 한 칸 7px 이라 48칸). 그림은 칸마다 2 × 4 조각
+// 크기: 20줄 높이에 가로는 정사각형에 가장 가까운 칸 수(한 줄 17px, 한 칸 7px 이라 48칸). 그림은 칸마다 2 × 4 조각
 const ROWS = 20;
 const COLS = 48;
 const W = COLS * 2;
 const H = ROWS * 4;
 
 const LOGO = ["        ▄▄▄▄▄▄▄▄▄▄", "        █▀▀▀▀▀▀▀▀█", "        █        █", "        █        █", "        █        █", "    ▄▄▄▄█    ▄▄▄▄█", "   ██████   ██████", "   ▀████▀   ▀████▀"];
-// 위 다섯 줄(음표 머리 · 기둥)은 primary, 아래(음표 알)는 tertiary(fastfetch 로고의 두 색)
+// 위 다섯 줄(음표 머리, 기둥)은 primary, 아래(음표 알)는 tertiary(fastfetch 로고의 두 색)
 const LOGO_SPLIT = 5;
-// 블록 글자 → 칸을 채우는 면(전체 · 위 절반 · 아래 절반)
+// 블록 글자 → 칸을 채우는 면(전체, 위 절반, 아래 절반)
 const BLOCK: Record<string, string> = { "█": "bg-current", "▀": "bg-[linear-gradient(currentColor_50%,transparent_0)]", "▄": "bg-[linear-gradient(transparent_50%,currentColor_0)]" };
 
 type Picture = { image: ImageData; ms: number };
@@ -118,7 +118,7 @@ watch(
   { immediate: true },
 );
 
-// 재생: 보일 때만(탭 · 창이 가려지면 멈춘다), 움직임 줄이기면 첫 장면에 둔다
+// 재생: 보일 때만(탭, 창이 가려지면 멈춘다), 움직임 줄이기면 첫 장면에 둔다
 const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 const onScreen = useElementVisibility(rootEl);
 const pageVisible = useDocumentVisibility();

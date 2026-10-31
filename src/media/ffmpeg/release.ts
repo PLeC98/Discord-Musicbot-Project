@@ -4,7 +4,7 @@ const VARIANT = "lgpl"; // 오디오만 쓰므로 GPL 전용 코덱(x264/x265)�
 
 const RELEASES_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download";
 
-/** BtbN 빌드 하나. 자산 이름 조각 · 아카이브 확장자 · 실행 파일 이름 */
+/** BtbN 빌드 하나. 자산 이름 조각, 아카이브 확장자, 실행 파일 이름 */
 type Target = { slug: string; ext: string; bin: string };
 /** 선택한 자산 */
 type Asset = { assetName: string; sha256: string; version: string; branch: string };
@@ -20,7 +20,7 @@ const TARGETS: Record<string, Target | undefined> = {
 /**
  * 릴리스의 checksums.sha256에서 이 플랫폼이 쓸 자산을 선택한다.
  *
- * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1 · 9.0 · N-master). 그중
+ * 한 릴리스에는 ffmpeg 브랜치가 여럿 들어 있다(예: 8.1, 9.0, N-master). 그중
  * 릴리스 브랜치의 가장 높은 버전을 쓴다. N-master(`ffmpeg-N-126342-…`)는 이름에 브랜치가
  * 없어 제외되고, `-shared-`는 실행에 별도 라이브러리가 필요해 제외한다.
  *

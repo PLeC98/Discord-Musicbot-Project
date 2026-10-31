@@ -1,4 +1,4 @@
-// src/discord/events/interaction-create.ts: 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 핸들러 표로 선택한다.
+// src/discord/events/interaction-create.ts: 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼, 메뉴, 모달은 핸들러 표로 선택한다.
 // 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
 
 import { test } from "node:test";
@@ -49,7 +49,7 @@ test("상호작용 생성 이벤트로 불린다", () => {
   assert.equal(interactionCreate.name, Events.InteractionCreate);
 });
 
-test("슬래시 명령도 버튼 · 메뉴 · 모달도 아니면 지나간다", async () => {
+test("슬래시 명령도 버튼, 메뉴, 모달도 아니면 지나간다", async () => {
   const { it, sent, bot } = interaction({ chat: false });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent, []);
@@ -146,7 +146,7 @@ test("알리기가 실패해도 던지지 않는다", async () => {
   await interactionCreate.execute(bot, it);
 });
 
-// ── 버튼 · 메뉴 · 모달 ────────────────────────────────────────────────
+// ── 버튼, 메뉴, 모달 ────────────────────────────────────────────────
 
 function press({ customId = "x:1", replied = false, deferred = false, dead = false } = {}) {
   const sent: Sent[] = [];

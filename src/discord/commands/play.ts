@@ -16,7 +16,7 @@ import type { HelpEntry } from "../../ui/help-lines.ts";
 import type { GuildMember } from "discord.js";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 
-/** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름 · 설명 · 권한 · 넣을 위치만 다르다 */
+/** 곡을 찾아 넣는 명령. /play 와 /playfirst 는 이름, 설명, 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
   name: string;
   description: string;
@@ -41,7 +41,7 @@ function playCommand({ name, description, help, permission, insertFirst = false 
       const permErr = await permission(member);
       if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
-      // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내 · 메뉴로 고칠 수 있다
+      // "검색 중" 은 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
       await interaction.reply(reply(frame({ body: searchText.searching(query) })));
       // 여기서부터 던지면 "검색 중" 자리표시자를 오류로 바꾼다
       showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));

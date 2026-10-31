@@ -1,4 +1,4 @@
-// src/player/player.ts · src/usecases/controls.ts: 곡이 끝나는 길마다 무엇이 남나("트랙 종료" 줄 · 레지스트리 · 세션 저장).
+// src/player/player.ts, src/usecases/controls.ts: 곡이 끝나는 길마다 무엇이 남나("트랙 종료" 줄, 레지스트리, 세션 저장).
 // 진짜 오디오 플레이어는 stop() 안에서 곧바로 Idle 을 내보낸다. 하네스의 가짜는 내보내지 않으므로 여기서 그렇게 만든다.
 
 import { test, beforeEach } from "node:test";
@@ -84,10 +84,10 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 레지스트리에 남는다
   assert.deepEqual(lines, ['트랙 종료: "첫 곡" (youtube) | 원인=skip']);
 });
 
-// 모더레이터는 재적 · DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
+// 모더레이터는 재적, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
 const moderatorOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
 
-test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제 · 나갈 예약)", async () => {
+test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제, 나갈 예약)", async () => {
   const p = playingPlayer(yt("zzzzzzzzzzz", { title: "마지막 곡" }));
   p.queue = [];
   const lines = await endLines(async () => assert.equal((await controls.skip(p, moderatorOf(p))).ok, true));
@@ -138,7 +138,7 @@ test("혼자 남아 시간이 다 되면: 원인=inactivity-timeout, 곡 이름�
 });
 
 // ── 연달아 넘기기 ──────────────────────────────────────────────────
-// 앞 곡의 끝 처리는 다음 곡을 튼 뒤에도 잠깐(세션 저장 · SQLite 잠금) 이어진다. 그 사이 다음 곡을 넘겨도 그 곡의 끝을
+// 앞 곡의 끝 처리는 다음 곡을 튼 뒤에도 잠깐(세션 저장, SQLite 잠금) 이어진다. 그 사이 다음 곡을 넘겨도 그 곡의 끝을
 // "겹쳐 들어온 끝"으로 버리지 않는다(버리면 아무도 다음 곡을 틀지 않고 멎음 감시가 실패로 센다)
 
 // 첫 곡을 틀고 있고 대기열에 캐시된 두 곡이 있는 플레이어

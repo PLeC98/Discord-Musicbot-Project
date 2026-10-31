@@ -1,5 +1,5 @@
 <template>
-  <!-- 서버 관리 탭. 넓으면 2열(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
+  <!-- 서버 관리 탭. 넓으면 2열(왼쪽 전체 공지, 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
   <div class="grid grid-cols-1 @4xl/content:grid-cols-2 items-start gap-(--gap-in)">
     <!-- 카드 안 간격: 블록 사이 12px, 입력란 → 글자 수 4px, 라벨 → 미리보기 8px -->
     <BaseCard icon="campaign" :title="T.announce.title">
@@ -32,7 +32,7 @@
             <span class="nums" :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ formatNumber(length) }} / {{ formatNumber(ANNOUNCE_MAX) }}</span>
           </div>
         </div>
-        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠 · 이모지 제목 · 본문 · 푸터)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
+        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠, 이모지 제목, 본문, 푸터)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
         <div class="flex flex-col gap-2">
           <p class="text-xs text-on-surface-variant">{{ T.announce.preview }}</p>
           <div class="flex rounded-(--r-inner) bg-surface-container-highest overflow-hidden font-discord">
@@ -60,7 +60,7 @@
         <p class="text-sm text-on-surface-variant">{{ T.guilds.desc }}</p>
         <div class="flex flex-wrap items-center gap-2">
           <SearchInput v-model="term" :placeholder="T.guilds.search(list.total)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
-          <!-- 정렬 · 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
+          <!-- 정렬, 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
           <SelectPanel v-model:open="viewOpen" :summary="viewSummary" :muted="false" :count="0" :searchable="false" :empty="false" :rows="7" class="w-52 shrink-0">
             <p :class="SELECT_GROUP">{{ T.guilds.sort }}</p>
             <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="query.sort === o.value" :class="[SELECT_ROW, query.sort === o.value && SELECT_ROW_ON]" @click="setList({ sort: o.value })">{{ o.label }}</button>
@@ -143,7 +143,7 @@ const T = text.manage;
 // list: 쿼리로 필터링된 서버의 구간과 수, query: 그 쿼리(바꾸면 운영자 패널이 바로 받는다)
 const props = defineProps<{ list: AdminGuilds }>();
 const query = defineModel<GuildQuery>("query", { required: true });
-/** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
+/** changed: 서버에서 나갔다(목록, 봇 상태를 다시 읽는다) */
 const emit = defineEmits<{ changed: [] }>();
 
 // 다른 입력란과 같은 채운 입력란(모서리 12px, 포커스하면 테두리 primary)
@@ -152,7 +152,7 @@ const FIELD = "block w-full bg-surface-container-highest border border-transpare
 // ── 전체 공지 ──
 // 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
-// 종류 버튼 · 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
+// 종류 버튼, 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
 const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
 const KINDS = (Object.entries(KIND_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label, icon: KIND_ICON[value] }));
 const kind = ref<AnnounceKind>("maintenance");
@@ -176,7 +176,7 @@ function revealSpoiler(e: MouseEvent) {
   (e.target as HTMLElement).closest(".dmd-spoiler")?.classList.add("is-shown");
 }
 
-// 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B · 기울임 Ctrl+I · 밑줄 Ctrl+U · 링크 Ctrl+K)
+// 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B, 기울임 Ctrl+I, 밑줄 Ctrl+U, 링크 Ctrl+K)
 type Run = (text: string, start: number, end: number) => Edit;
 const tool = (icon: IconName, label: string, run: Run, key?: string) => ({ icon, label, tip: key ? `${label} (${key})` : label, run });
 const FORMAT_GROUPS = [
@@ -225,7 +225,7 @@ async function send() {
   try {
     const { data } = await axios.post<BroadcastReply>("/api/admin/broadcast", { message: message.value, type: kind.value }, { timeout: LIMIT.long });
     message.value = "";
-    // 몇 곳에 못 갔으면 경고로(보낸 곳 · 못 보낸 곳)
+    // 몇 곳에 못 갔으면 경고로(보낸 곳, 못 보낸 곳)
     if (data.failed) notify({ title: T.announce.partial.title, body: T.announce.partial.body(data.sent, data.failed), severity: "warning" });
     else notifyDone(T.announce.done, T.announce.doneBody(data.sent));
   } catch (e) {
@@ -238,7 +238,7 @@ async function send() {
 }
 
 // ── 참가 서버 ──
-// 필터링 · 정렬은 백엔드가 한다. 바꾸면 처음부터, 맨 위로
+// 필터링, 정렬은 백엔드가 한다. 바꾸면 처음부터, 맨 위로
 function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
   query.value = { ...query.value, ...patch, guilds: { ...query.value.guilds, from: 0 } };
   listToTop();
@@ -246,7 +246,7 @@ function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
 // 검색어는 입력이 200ms 쉬면 보낸다
 const term = ref(query.value.q);
 watchDebounced(term, (q) => setList({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
-// 정렬: 이름(기본) · 이름 역순 · 멤버 수(같으면 서버 ID)
+// 정렬: 이름(기본), 이름 역순, 멤버 수(같으면 서버 ID)
 const SORTS: Array<{ value: GuildSort; label: string }> = [
   { value: "name", label: T.guilds.sorts.name },
   { value: "name-desc", label: T.guilds.sorts.nameDesc },

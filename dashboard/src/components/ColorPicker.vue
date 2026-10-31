@@ -1,9 +1,9 @@
 <!--
-  색 선택. 견본 동그라미를 누르면 색 선택 창이 열린다. 창: 색 선택 영역(채도 · 밝기), 색상 막대, 값 입력란(HEX · RGB · HSV 중 선택한 형식). 값은 #RRGGBB(대문자)로 올린다.
-  브라우저의 색 선택(input type=color)은 브라우저 · 운영체제마다 모양이 달라 쓰지 않는다.
+  색 선택. 견본 동그라미를 누르면 색 선택 창이 열린다. 창: 색 선택 영역(채도, 밝기), 색상 막대, 값 입력란(HEX, RGB, HSV 중 선택한 형식). 값은 #RRGGBB(대문자)로 올린다.
+  브라우저의 색 선택(input type=color)은 브라우저, 운영체제마다 모양이 달라 쓰지 않는다.
 
   입력하다 만 값처럼 색이 아니면 fallback 색으로 보인다.
-  창 안에서는 HSV 를 그대로 들고 있다. #RRGGBB · RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
+  창 안에서는 HSV 를 그대로 들고 있다. #RRGGBB, RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
   검정까지 드래그했다 돌아오면 색상이 빨강으로 튄다. 바깥 값이 판의 색과 달라졌을 때만(글로 입력했을 때) 다시 읽는다.
 -->
 <template>
@@ -13,10 +13,10 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
-      <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low · 모서리 16px. 안쪽 둘레 12px, 맨 아래 "기본 색으로" 버튼(40px + 구분선) -->
+      <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low, 모서리 16px. 안쪽 둘레 12px, 맨 아래 "기본 색으로" 버튼(40px + 구분선) -->
       <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
         <div class="flex flex-col gap-3 p-3">
-          <!-- 채도(가로) · 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
+          <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
           <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
             <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
           </div>
@@ -66,7 +66,7 @@ const props = defineProps<{
   modelValue: string;
   /** 값이 없을 때의 색(기본값) */
   fallback: string;
-  /** 견본 동그라미 · 팝오버의 이름(툴팁 · 스크린 리더) */
+  /** 견본 동그라미, 팝오버의 이름(툴팁, 스크린 리더) */
   label: string;
 }>();
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
@@ -100,7 +100,7 @@ function set(next: Partial<Hsv>) {
   emit("update:modelValue", hex.value);
 }
 
-/** 다른 형식(HEX · RGB)으로 지정한 색. 검정 · 무채색이면 지금 색상을 남긴다 */
+/** 다른 형식(HEX, RGB)으로 지정한 색. 검정, 무채색이면 지금 색상을 남긴다 */
 function adopt(next: Hsv) {
   hsv.value = keepHue(next, hsv.value);
   emit("update:modelValue", hex.value);
@@ -119,7 +119,7 @@ function pickFormat(one: Format) {
   writeStored(FORMAT_KEY, one);
 }
 
-// HEX 입력란: 여섯 자리가 되면 바로 받는다(# 은 없어도 된다). 세 자리(#RGB)는 다 입력했을 때(Enter · 입력란을 떠날 때) 늘려 받고, 색이 아니면 지금 색으로 되돌린다
+// HEX 입력란: 여섯 자리가 되면 바로 받는다(# 은 없어도 된다). 세 자리(#RGB)는 다 입력했을 때(Enter, 입력란을 떠날 때) 늘려 받고, 색이 아니면 지금 색으로 되돌린다
 function typeHex(event: Event) {
   const typed = valueOf(event).trim().replace(/^#/, "");
   const parsed = typed.length === 6 ? parseHex(typed) : null;
@@ -133,7 +133,7 @@ function settleHex(event: Event) {
   input.value = hex.value;
 }
 
-// RGB(0~255) · HSV(색상 0~359 · 채도 · 밝기 0~100) 입력란
+// RGB(0~255), HSV(색상 0~359, 채도, 밝기 0~100) 입력란
 type ChannelKey = "r" | "g" | "b" | "h" | "s" | "v";
 type Channel = { key: ChannelKey; max: number; value: number };
 const channels = computed<Channel[]>(() => {
@@ -159,7 +159,7 @@ function setChannel(one: Channel, n: number) {
   return value;
 }
 
-// 숫자만 받고 넘치면 끝값으로. 지운 글자 · 줄인 값은 입력란에 바로 되돌린다(값이 같으면 Vue 가 다시 그리지 않는다)
+// 숫자만 받고 넘치면 끝값으로. 지운 글자, 줄인 값은 입력란에 바로 되돌린다(값이 같으면 Vue 가 다시 그리지 않는다)
 function typeChannel(event: Event, one: Channel) {
   const input = event.target as HTMLInputElement;
   const digits = input.value.replace(/\D/g, "");

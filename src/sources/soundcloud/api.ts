@@ -1,4 +1,4 @@
-// 사운드클라우드 곡 · 세트 · 스트림. 모두 yt-dlp 가 읽는다(run.ts).
+// 사운드클라우드 곡, 세트, 스트림. 모두 yt-dlp 가 읽는다(run.ts).
 
 import { readInfo } from "../ytdlp-info.ts";
 import { artOf } from "../../rules/track-art.ts";
@@ -14,7 +14,7 @@ const SET_BATCH = 10;
 
 /** 찾은 곡. 곡 모델(player/track)의 TrackInfo 와 같은 필드 */
 type ScTrack = { title: string | null; artist?: string; duration: number; thumbnail?: string | null; platform: "soundcloud"; id?: string; pageUrl: string; requestKey: string; audioUrl: string };
-/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 불러올 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기 · 지역 제한 등) */
+/** 세트 한 구간. total 은 세트 전체 곡 수, setId 는 이어 불러올 때 부를 숫자 id, skipped 는 받을 수 없어 뺀 곡 수(미리듣기, 지역 제한 등) */
 type ScSet = { title: string | null; setId: string | null; tracks: ScTrack[]; total: number | null; nextOffset: number; skipped: number };
 /** 곡 찾기가 받는 것. 짧은 링크는 풀어 봐야 곡인지 세트인지 안다 */
 type Found = { kind: "track"; track: ScTrack } | ({ kind: "set" } & ScSet);
@@ -28,7 +28,7 @@ const previewOnly = (item: YtInfo) => {
   return ids.length > 0 && ids.every((id) => /_preview$/.test(id));
 };
 
-// yt-dlp 가 준 곡 하나 → 곡. 링크는 곡 페이지(짧은 링크 · API 주소로 들어와도 같은 곡이면 같은 키)
+// yt-dlp 가 준 곡 하나 → 곡. 링크는 곡 페이지(짧은 링크, API 주소로 들어와도 같은 곡이면 같은 키)
 function trackOf(item: YtInfo): ScTrack | null {
   if (!item.webpage_url) return null;
   const link = canonicalUrl(item.webpage_url);
@@ -68,7 +68,7 @@ function setOf(info: YtInfo, offset: number): ScSet {
 /**
  * 곡 찾기. 곡 링크면 그 곡, 세트 링크면 offset 부터 한 구간(SET_BATCH 를 넘지 않는다). 짧은 링크는 yt-dlp 가 푼 결과로 구분한다.
  * 곡(과 곡인지 모르는 짧은 링크)은 mp3 까지 요청해 미리듣기를 원인으로 알리고, 세트는 AAC 만 요청해 API 요청을 줄인다(미리듣기도 받을 수 없는 곡으로 센다).
- * 실패는 이름을 단 오류로 던진다(없는 곡 · 세트, 지역 차단, 미리듣기, 요청 제한, 네트워크)
+ * 실패는 이름을 단 오류로 던진다(없는 곡, 세트, 지역 차단, 미리듣기, 요청 제한, 네트워크)
  */
 async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track" }: { offset?: number; limit?: number; what?: run.What } = {}, exec: RunYtDlp = youtubedl): Promise<Found> {
   const size = Math.max(1, Math.min(limit, SET_BATCH));
@@ -110,7 +110,7 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
 }
 
 /**
- * 캐시로 다운로드한다(extra 는 다운로드할 파일 · 변환 옵션). AAC 를 다운로드하고, AAC 가 없는 곡은 mp3 까지 요청해 미리듣기 조각이 아닌 것을 다운로드한다.
+ * 캐시로 다운로드한다(extra 는 다운로드할 파일, 변환 옵션). AAC 를 다운로드하고, AAC 가 없는 곡은 mp3 까지 요청해 미리듣기 조각이 아닌 것을 다운로드한다.
  * 미리듣기만 열린 곡은 다운로드할 것이 없어 "포맷 없음"으로 실패한다
  */
 async function download(url: string, extra: YtDlpFlags, exec: RunYtDlp = youtubedl) {

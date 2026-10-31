@@ -1,7 +1,7 @@
 // src/autoplay/route.ts: 소스가 준 후보를 재생할 수 있는 트랙으로 바꾸고, 소스를 훑어 한 곡을 고른다.
 //
 // 여기서 지키려는 것은 어느 필드가 찼는지가 길을 정한다는 규칙이다.
-// 바깥 경계(소스 · 유튜브 검색 · 링크 데이터 · AI 보조)는 넘겨 준다. 진짜로 부르지 않는다.
+// 바깥 경계(소스, 유튜브 검색, 링크 데이터, AI 보조)는 넘겨 준다. 진짜로 부르지 않는다.
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -62,7 +62,7 @@ test("유튜브 주소를 받았으면 검색하지 않는다", async () => {
   assert.equal(ytCalls.length, 0, "주소가 있으면 유튜브를 검색할 이유가 없다");
 });
 
-test("출처 · 영상 모두 제목이 없으면 곡 제목을 비워 둔다(null)", async () => {
+test("출처, 영상 모두 제목이 없으면 곡 제목을 비워 둔다(null)", async () => {
   const track = await resolved({ title: "", durationSec: 200, youtubeUrl: "https://youtu.be/abd", sourceKey: "vocadb:2" }, LIMITS);
   assert.equal(track.title, null);
 });
@@ -141,7 +141,7 @@ test("표시 이름은 소스 것을 앞세운다. 유튜브 채널명은 아티
   assert.equal(track.title, "Fever");
 });
 
-test("소스가 이름을 모르면 영상 쪽을 쓴다. 키워드·유튜브 재생목록이 그렇다", async () => {
+test("소스가 이름을 모르면 영상 쪽을 쓴다. 키워드, 유튜브 재생목록이 그렇다", async () => {
   const track = await resolved({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://youtu.be/z", sourceKey: "yt:z" }, LIMITS);
   assert.equal(track.title, "어느 영상");
 });
@@ -172,7 +172,7 @@ test("출처가 있는 곡은 주소도 platform도 출처 것이다. 소리만 
   assert.equal(audioKeyOf(track.audioUrl), "yt:4mMzhyUczic", "음원 파일은 영상 기준으로 함께 쓴다");
 });
 
-test("출처가 없으면 영상 자체가 출처다. 키워드·유튜브 재생목록", async () => {
+test("출처가 없으면 영상 자체가 출처다. 키워드, 유튜브 재생목록", async () => {
   const track = await resolved({ title: "어느 영상", durationSec: 200, youtubeUrl: "https://www.youtube.com/watch?v=abcdefg", sourceKey: "yt:abcdefg" }, LIMITS);
 
   assert.equal(track.platform, "youtube");
@@ -277,7 +277,7 @@ test("링크 데이터가 음원 파일을 가리키면(전에 음원으로 떨�
 
 // ── 썸네일 ────────────────────────────────────────────────────────────────
 
-// Last.fm·LB Radio는 표지를 안 주므로 유튜브 검색 결과의 썸네일이 유일한 이미지다. 후보로 옮길 때 빠뜨리지 않는다.
+// Last.fm, LB Radio는 표지를 안 주므로 유튜브 검색 결과의 썸네일이 유일한 이미지다. 후보로 옮길 때 빠뜨리지 않는다.
 test("소스가 표지를 안 주면 영상 썸네일을 쓴다", async () => {
   ytResults = [{ id: "v1", audioUrl: "https://www.youtube.com/watch?v=v1", title: "Song", artist: "Ch", duration: 240, thumbnail: "https://i.ytimg.com/vi/v1/hq.jpg" }];
 
@@ -353,7 +353,7 @@ test("고르기 하나의 판정은 모두 같은 고르기 표시를 받고, �
   assert.deepEqual(before, [false, true, true]);
 });
 
-// MusicBrainz는 모르는 아티스트·곡을 정해진 이름으로 채운다([no artist]·[unknown] 등).
+// MusicBrainz는 모르는 아티스트, 곡을 정해진 이름으로 채운다([no artist], [unknown] 등).
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
 // "대괄호로 싸인 것"을 전부 필터링하면 안 된다. `[Alexandros]`는 실존하는 밴드다.
@@ -456,7 +456,7 @@ test("출처 곡을 최근에 틀었으면 같은 영상을 다른 이름으로 
   assert.equal(reject({ title: "ファタール", youtubeUrl: "https://www.youtube.com/watch?v=fatalfatal1" }), true);
 });
 
-// 소스마다 띄어쓰기·하이픈·장식 기호를 다르게 적는다. 실제로 나온 쌍들이다.
+// 소스마다 띄어쓰기, 하이픈, 장식 기호를 다르게 적는다. 실제로 나온 쌍들이다.
 test("표기가 다른 같은 곡을 같다고 본다", () => {
   const same = [
     [
@@ -486,7 +486,7 @@ test("표기가 다른 같은 곡을 같다고 본다", () => {
   }
 });
 
-test("버전·참여 표기가 다르면 다른 곡이다. 너무 뭉개면 멀쩡한 곡이 사라진다", () => {
+test("버전, 참여 표기가 다르면 다른 곡이다. 너무 뭉개면 멀쩡한 곡이 사라진다", () => {
   const reject = route.rejector([
     { artist: "a", title: "Uragirimono no Requiem" },
     { artist: "b", title: "NEVER SAY GOODBYE" },
@@ -496,7 +496,7 @@ test("버전·참여 표기가 다르면 다른 곡이다. 너무 뭉개면 멀�
 });
 
 // 정규화에서 글자를 통째로 버리면 일본어 제목이 전부 빈 문자열이 되어 한 곡으로 뭉개진다.
-// 자동재생 소스 절반이 일본어 제목을 준다(Last.fm·LB Radio·VocaDB 계열).
+// 자동재생 소스 절반이 일본어 제목을 준다(Last.fm, LB Radio, VocaDB 계열).
 test("일본어 제목끼리 뭉개지지 않는다", () => {
   const reject = route.rejector([{ artist: "高橋洋子", title: "残酷な天使のテーゼ" }]);
   assert.equal(reject({ artist: "LiSA", title: "紅蓮華" }), false, "서로 다른 일본어 곡");
@@ -570,7 +570,7 @@ test("고를 때 키가 없는 소스는 부르지 않는다. 그런 소스뿐�
   assert.deepEqual(asked, ["lastfm"], "키가 있으면 부른다");
 });
 
-test("스포티파이 재생목록 소스는 키 없이도 쓴다(재생목록 · 아티스트는 익명 경로)", async () => {
+test("스포티파이 재생목록 소스는 키 없이도 쓴다(재생목록, 아티스트는 익명 경로)", async () => {
   await withConfig({ spotify: { clientId: null, clientSecret: null } }, () => {
     assert.equal(sources.usable("spotify"), true);
     assert.equal(sources.needsOf("spotify"), null);

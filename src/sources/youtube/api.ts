@@ -1,4 +1,4 @@
-// 유튜브 검색 · 정보 · 스트림 · 재생목록.
+// 유튜브 검색, 정보, 스트림, 재생목록.
 
 import logger from "../../infra/log/logger.ts";
 import { artOf, youtubeArt } from "../../rules/track-art.ts";
@@ -48,7 +48,7 @@ const idOf = (id: unknown) => (id == null ? undefined : String(id));
 
 /**
  * 표시용 제목. 라이브는 yt-dlp가 `title` 뒤에 조회 시각을 붙여 준다(예: `제목 2026-01-02 03:04`).
- * 조회할 때마다 달라지는 값이라 캐시·매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
+ * 조회할 때마다 달라지는 값이라 캐시, 매칭에도 나쁘다. `fulltitle`이 그게 빠진 원제이고,
  * 라이브가 아니면 둘이 같다.
  */
 function titleOf(item: Item): string | null {
@@ -63,7 +63,7 @@ function titleOf(item: Item): string | null {
 /**
  * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
  * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
- * 비디오 id는 11자, 채널은 UC…(24자)·/channel//@handle//playlist 형태.
+ * 비디오 id는 11자, 채널은 UC…(24자), /channel//@handle//playlist 형태.
  */
 function _isVideoEntry(item: Item): item is YtInfo {
   if (!item) return false;
@@ -76,7 +76,7 @@ function _isVideoEntry(item: Item): item is YtInfo {
 }
 
 // yt-dlp 가 준 영상 하나 → 곡의 공통 필드. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원).
-// 제목 · 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적어, 표시 문구가 매칭 검색어 · 중복 판정에 들어가지 않는다
+// 제목, 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적어, 표시 문구가 매칭 검색어, 중복 판정에 들어가지 않는다
 function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
   const link = canonicalUrl(url);
   return {
@@ -111,8 +111,8 @@ async function searchTrack(item: YtInfo) {
   return track;
 }
 
-// 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 실제 구현. getInfo · getStream · getPlaylist 도 같다
-// 찾은 것이 없으면 빈 배열, 찾지 못한 것(yt-dlp · 네트워크 실패)은 던진다. 오류의 이름은 yt-dlp 를 실행하는 곳이 붙였다
+// 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 실제 구현. getInfo, getStream, getPlaylist 도 같다
+// 찾은 것이 없으면 빈 배열, 찾지 못한 것(yt-dlp, 네트워크 실패)은 던진다. 오류의 이름은 yt-dlp 를 실행하는 곳이 붙였다
 async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
   if (links.isYouTubeURL(query)) {
     return [await getInfo(query)];
@@ -134,7 +134,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
   }
 
   const tracks = [];
-  // 비디오가 아닌 검색 결과(채널·재생목록·핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
+  // 비디오가 아닌 검색 결과(채널, 재생목록, 핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
   // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 1위가 된다).
   const videoEntries = results.entries
     .map(readInfo)
@@ -152,7 +152,7 @@ async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: R
   return tracks;
 }
 
-// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소 · 다운로드가 그대로 다시 쓴다(recent-info)
+// 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소, 다운로드가 그대로 다시 쓴다(recent-info)
 const extractInfo = (url: string, exec?: RunYtDlp) =>
   run.runYtDlp(
     url,
@@ -167,7 +167,7 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
     exec,
   );
 
-// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 원인을 알린다. 받은 정보는 재생 주소 · 다운로드가 다시 쓰게 둔다
+// 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 원인을 알린다. 받은 정보는 재생 주소, 다운로드가 다시 쓰게 둔다
 async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
   const raw = await extractInfo(url, exec);
   recentInfo.remember(raw);
@@ -191,8 +191,8 @@ async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: bool
 }
 
 /**
- * 재생용 스트림 서술자. 캐시된 영상 정보(곡 정보 · 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 부른다).
- * fresh: 캐시를 읽지도 쓰지도 않고 새로 추출한다(재생 테스트 · 다시 쓴 주소가 열리지 않았을 때)
+ * 재생용 스트림 서술자. 캐시된 영상 정보(곡 정보, 앞선 재생 주소)가 있으면 yt-dlp 없이 그것으로 만들고 reused 를 단다(열리지 않으면 재생 쪽이 fresh 로 다시 부른다).
+ * fresh: 캐시를 읽지도 쓰지도 않고 새로 추출한다(재생 테스트, 다시 쓴 주소가 열리지 않았을 때)
  */
 async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
   // 실패는 부르는 쪽(재생)이 한 번 남긴다
@@ -231,7 +231,7 @@ async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp
 }
 
 /**
- * 세그먼트 목록(방송이 끝나고 다시보기를 다 만들기 전의 유튜브 오디오)을 base · count 로. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`다.
+ * 세그먼트 목록(방송이 끝나고 다시보기를 다 만들기 전의 유튜브 오디오)을 base, count 로. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`다.
  * 세그먼트가 없으면 null. 모양이 다르면 던진다(첫 세그먼트만 틀고 끝난 것처럼 보이지 않게)
  */
 function fragmentsOf(info: YtInfo) {
@@ -261,7 +261,7 @@ function playlistTrack(entry: YtInfo) {
 
 // offset부터 limit개만 불러온다. 유튜브는 시작점까지 순서대로 넘겨 가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
-// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는 · 비공개 목록, 네트워크)은 던진다
+// 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 던진다
 async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   const info = readInfo(
     await exec(

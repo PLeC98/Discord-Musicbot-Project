@@ -8,7 +8,7 @@ import { tunablesChanged } from "../../src/config/tunables-changed.ts";
 import { signedInAs } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 
-test("SSE 연결 · 볼륨 · 곡 그림만 일반 API 한도에서 뺀다(그 경로가 따로 센다)", () => {
+test("SSE 연결, 볼륨, 곡 그림만 일반 API 한도에서 뺀다(그 경로가 따로 센다)", () => {
   const of = (url: string) => unlimited({ originalUrl: url });
   for (const url of ["/api/admin/logs/stream", "/api/admin/ai/logs/stream", "/api/guilds/events", "/api/guilds/123/player/events", "/api/guilds/123/player/volume", "/api/guilds/123/player/volume?queue=0", "/api/guilds/123/art/0123456789abcdef0123.jpg"]) assert.equal(of(url), true, url);
   for (const url of ["/api/guilds/123/player/skip", "/api/guilds/123/player", "/api/me", "/api/admin/logs", "/api/guilds/123/player/volume/x", "/api/guilds/123/art/a/b"]) assert.equal(of(url), false, url);
@@ -33,7 +33,7 @@ test("로그인한 사람마다 세고, 넘으면 문제 응답 429", async () =
 });
 
 // 운영 조절값을 저장하면 바로 먹는다. 한도는 요청마다 읽고, 창 길이가 바뀌면 제한기를 새로 만든다(센 수는 처음부터)
-test("한도 · 창 길이를 바꾸면 다시 시작하지 않고 먹는다", async () => {
+test("한도, 창 길이를 바꾸면 다시 시작하지 않고 먹는다", async () => {
   let limit = 1;
   let windowMs = 60_000;
   const app = express();

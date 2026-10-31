@@ -37,15 +37,15 @@ type RunOptions = SpawnOptions & { retry?: boolean; job?: Job };
 // 라이브러리가 내보내지만 타입에는 없는 것
 const { isJSON } = youtubedl as typeof youtubedl & { isJSON(text: string): boolean };
 
-/** yt-dlp 프로세스를 실행하는 것(라이브러리의 exec). Promise 가 stdout · stderr 를 준다 */
+/** yt-dlp 프로세스를 실행하는 것(라이브러리의 exec). Promise 가 stdout, stderr 를 준다 */
 type Exec = typeof youtubedl.exec;
-// 테스트는 useExec 로 가짜를 넘긴다(기본은 실제 실행). 응답 · 오류 형식 맞추기는 그대로 돈다
+// 테스트는 useExec 로 가짜를 넘긴다(기본은 실제 실행). 응답, 오류 형식 맞추기는 그대로 돈다
 let fake: Exec | null = null;
 function useExec(exec: Exec | null) {
   fake = exec;
 }
 
-// 파일로 다운로드하지 않는 호출(정보 · 검색 · 재생목록 · 스트림 주소)의 한도. 멈춘 yt-dlp 가 곡 추가를 끝없이 붙잡지 않게 넘으면 내린다.
+// 파일로 다운로드하지 않는 호출(정보, 검색, 재생목록, 스트림 주소)의 한도. 멈춘 yt-dlp 가 곡 추가를 끝없이 붙잡지 않게 넘으면 내린다.
 // 곡 추가 하나가 yt-dlp 를 여러 번 불러도 넉넉히 끝나는 값이다. 다운로드는 곡 길이만큼 걸려 걸지 않는다
 const INFO_TIMEOUT_MS = 90_000;
 let infoTimeoutMs = INFO_TIMEOUT_MS;
@@ -54,7 +54,7 @@ function useInfoTimeout(ms: number | null) {
   infoTimeoutMs = ms ?? INFO_TIMEOUT_MS;
 }
 
-// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 일(곡 찾기 · 검색 · 재생목록 · 재생 주소), background: 다운로드(파일로 받는 호출) · 미리 받기(prefetch 문맥).
+// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 일(곡 찾기, 검색, 재생목록, 재생 주소), background: 다운로드(파일로 받는 호출), 미리 받기(prefetch 문맥).
 // 오래 도는 뒤의 일이 앞의 일을 막지 않게 따로 센다. 슬롯은 실행하는 동안만 잡는다(재시도는 슬롯을 돌려주고 줄 맨 앞에 다시 선다)
 type Lane = "lookup" | "background";
 const GB = 1024 ** 3;
@@ -62,7 +62,7 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 /**
  * 자동 크기. 메모리는 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로.
  * 곡 찾기는 하나가 약 400MB(JS 과제를 푸는 node 포함)라 메모리의 1/4 를 넘지 않게 2GB 마다 하나, 2 ~ 8.
- * 다운로드 · 미리 받기는 하나가 그만큼에 변환 CPU 까지 들어 4GB 마다 하나, 2 ~ 4
+ * 다운로드, 미리 받기는 하나가 그만큼에 변환 CPU 까지 들어 4GB 마다 하나, 2 ~ 4
  */
 function autoSlots(constrained: number, total: number): Record<Lane, number> {
   const memory = constrained > 0 && constrained < total ? constrained : total;
@@ -102,7 +102,7 @@ function closeLanes() {
   for (const lane of Object.values(lanes)) lane.close(closed);
 }
 
-// 유튜브 영상 정보 추출(JS 과제를 푸는 호출: 곡 찾기 · 재생 주소 · 다운로드. 검색 · 재생목록 펼치기는 빼고)을 지난 1시간 센다.
+// 유튜브 영상 정보 추출(JS 과제를 푸는 호출: 곡 찾기, 재생 주소, 다운로드. 검색, 재생목록 펼치기는 빼고)을 지난 1시간 센다.
 // 로그인 없는 세션은 시간당 약 300편에서 막히기 시작한다(yt-dlp 위키). 가까워지면 한 번 알린다(내려갔다 다시 넘으면 또)
 const HOUR_MS = 3_600_000;
 const EXTRACTION_WARN = 250;
@@ -125,22 +125,22 @@ function countExtraction(url: string, flags: YtDlpFlags) {
   log.warn(`지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽었습니다. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작합니다`);
 }
 
-/** 봇 상태 탭: 줄마다 도는 수 · 크기 · 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
+/** 봇 상태 탭: 줄마다 도는 수, 크기, 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
 function ytdlpLoad(): { lookup: SlotStats; background: SlotStats; extractedLastHour: number; nearLimit: boolean } {
   const count = extractedLastHour();
   return { lookup: lanes.lookup.stats(), background: lanes.background.stats(), extractedLastHour: count, nearLimit: count >= EXTRACTION_WARN };
 }
 
-// 다운로드 감시: 다운로드 파일 그룹이 limitMs 동안 하나도 바뀌지 않으면(이름 · 크기 · 수정 시각) 내린다. 느려도 무엇이든 바뀌면 둔다.
-// 정상인데 아무것도 바뀌지 않는 구간(파일을 다 쓴 뒤 끝나기까지 · 앞 광고 기다림 · 다시 받기 전 쉬기)은 길어야 몇 분이다
+// 다운로드 감시: 다운로드 파일 그룹이 limitMs 동안 하나도 바뀌지 않으면(이름, 크기, 수정 시각) 내린다. 느려도 무엇이든 바뀌면 둔다.
+// 정상인데 아무것도 바뀌지 않는 구간(파일을 다 쓴 뒤 끝나기까지, 앞 광고 기다림, 다시 받기 전 쉬기)은 길어야 몇 분이다
 const STALL = { everyMs: 30_000, limitMs: 10 * 60_000 };
 let stall = STALL;
-/** 테스트가 감시 간격 · 한도를 줄인다. null 이면 원래대로 */
+/** 테스트가 감시 간격, 한도를 줄인다. null 이면 원래대로 */
 function useStallWatch(values: typeof STALL | null) {
   stall = values ?? STALL;
 }
 
-/** 다운로드 파일 그룹: output 의 이름으로 시작하는 .part · 조각 파일 · 중간 파일 · 결과 · .info.json. 템플릿(%(ext)s)이면 그 앞까지가 이름이다 */
+/** 다운로드 파일 그룹: output 의 이름으로 시작하는 .part, 조각 파일, 중간 파일, 결과, .info.json. 템플릿(%(ext)s)이면 그 앞까지가 이름이다 */
 function familyOf(output: string) {
   const base = path.basename(output);
   const template = base.indexOf("%(");
@@ -226,13 +226,13 @@ function execNow(): Exec {
 }
 
 /**
- * youtube-dl-exec의 드롭인 대체. 반환·예외 형식은 원본과 같다(성공 시 JSON이나 문자열, 실패 시 stderr를 담은 Error).
+ * youtube-dl-exec의 드롭인 대체. 반환, 예외 형식은 원본과 같다(성공 시 JSON이나 문자열, 실패 시 stderr를 담은 Error).
  * 원본은 Promise만 돌려줘 pid를 잡을 수 없어서, pid가 나오는 `.exec()`로 우회해 레지스트리에 등록한다.
  * yt-dlp 는 이것으로만 부른다. youtube-dl-exec 를 바로 부르면 실행한 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
  * 띄우기 전에 줄에서 슬롯을 기다린다(기다리는 시간은 한도에 들지 않는다). signal 이 끊기면 기다리다가도 빠진다.
  */
 async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ...opts }: RunOptions = {}): Promise<unknown> {
-  // 일은 받은 것 · 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
+  // 일은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
   const doing = job ?? currentJob() ?? (flags.output ? "play" : "lookup");
   const lane: Lane = flags.output || doing === "prefetch" ? "background" : "lookup";
   const leave = await enter(lane, retry ? RANK.retry : doing === "prefetch" ? RANK.prefetch : RANK.now, opts.signal ?? undefined);
@@ -283,7 +283,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
     const { stdout, stderr } = await sub;
     const out: unknown = isJSON(stdout) ? JSON.parse(stdout) : stdout;
     // 성공해도 stderr에 경고가 실려 온다("이 클라이언트는 POToken이 필요하다" 등).
-    // 호출부가 볼 수 있게 얹어 준다. 열거 불가라 직렬화·스프레드에는 안 섞인다.
+    // 호출부가 볼 수 있게 얹어 준다. 열거 불가라 직렬화, 스프레드에는 안 섞인다.
     if (stderr && out && typeof out === "object") Object.defineProperty(out, "_stderr", { value: stderr, enumerable: false });
     return out;
   } catch (error) {

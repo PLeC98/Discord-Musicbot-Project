@@ -38,7 +38,7 @@ test("입력 깨짐 표시가 있으면 스트림이 끝까지 읽혔어도 끊�
   assert.deepEqual(endVerdict(facts({ broken: "입력 스트림 오류: 끊김" })), { dropped: true, why: "입력 스트림 오류: 끊김" });
 });
 
-test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남 · 0 아님 · 깨짐)은 끊김", () => {
+test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남, 0 아님, 깨짐)은 끊김", () => {
   const live = { live: true, lengthMs: null };
   assert.deepEqual(endVerdict(facts({ ...live, exitCode: 0 })), { dropped: false, why: "방송이 끝남" });
   assert.equal(dropped({ ...live, exitCode: null }), true);

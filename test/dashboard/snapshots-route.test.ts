@@ -1,4 +1,4 @@
-// src/dashboard/routes/snapshots.ts: 백업 탭의 스냅샷 목록 · 복원 예약 · 예약 취소
+// src/dashboard/routes/snapshots.ts: 백업 탭의 스냅샷 목록, 복원 예약, 예약 취소
 
 process.env.OWNER_ID = "owner";
 
@@ -36,7 +36,7 @@ const call = async (method: string, route: string, body?: unknown) => {
   return { status: res.status, json: (await res.json()) as View };
 };
 
-test("목록 · 복원 예약 · 예약 취소", async () => {
+test("목록, 복원 예약, 예약 취소", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   const listed = await call("GET", "/");
   assert.deepEqual([listed.status, listed.json.rows.map((one) => one.name), listed.json.staged], [200, [name], null]);

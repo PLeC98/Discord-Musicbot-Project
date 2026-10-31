@@ -1,5 +1,5 @@
-// src/dashboard 의 운영자 경로 · 설정 내보내기 · 로그: 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키 · AI 키 · 버텍스 JSON · 쿠키)에 넣고,
-// 운영자가 부를 수 있는 읽기 경로 · 내보내기 파일 · 로그 어디에도 그 값이 나오지 않는지 본다. 끝 네 글자는 화면에 보이는 값이라 뺀 나머지로 본다.
+// src/dashboard 의 운영자 경로, 설정 내보내기, 로그: 비밀값 누출 테스트. 가짜 비밀값을 모든 위치(서비스 키, AI 키, 버텍스 JSON, 쿠키)에 넣고,
+// 운영자가 부를 수 있는 읽기 경로, 내보내기 파일, 로그 어디에도 그 값이 나오지 않는지 본다. 끝 네 글자는 화면에 보이는 값이라 뺀 나머지로 본다.
 // 읽기 경로는 라우터에서 읽어 모두 부른다(경로가 늘어도 이 테스트에 저절로 들어온다)
 
 process.env.OWNER_ID = "owner";
@@ -40,7 +40,7 @@ const appearance = await import("../../src/dashboard/appearance.ts");
 const { ARCHIVE_KINDS } = await import("../../src/dashboard/contract/settings-archive.ts");
 
 const store = openTempStore("secret-leak-");
-// 로그인 배경 기록 · 파비콘은 실제 저장 경로 대신 임시 폴더에서
+// 로그인 배경 기록, 파비콘은 실제 저장 경로 대신 임시 폴더에서
 const BACKGROUNDS = fs.mkdtempSync(path.join(os.tmpdir(), "secret-leak-bg-"));
 loginBackground._useDir(BACKGROUNDS);
 after(() => fs.rmSync(BACKGROUNDS, { recursive: true, force: true, maxRetries: 5 }));
@@ -79,7 +79,7 @@ let csrf = "";
 const server = await listenForFetch(createApp(fakeBot({ client }), { stream: createPlayerStream(), deployCommands: async () => ({ ok: true, skipped: false, count: 0, scope: "global", guildId: null, names: [] }), sessionMiddleware: signedIn }), "127.0.0.1");
 
 before(async () => {
-  // 소스 목록 · 자동완성이 바깥(AnimeThemes 등)에 요청하지 않게. 이 테스트는 바깥 상태에 기대지 않는다
+  // 소스 목록, 자동완성이 바깥(AnimeThemes 등)에 요청하지 않게. 이 테스트는 바깥 상태에 기대지 않는다
   sourcesHttp.useFetch(fake<typeof fetch>(async () => Promise.reject(new Error("테스트는 바깥에 나가지 않는다"))));
   base = baseUrl(server);
   csrf = ((await (await fetch(`${base}/api/csrf-token`)).json()) as { csrfToken: string }).csrfToken;
@@ -97,7 +97,7 @@ after(() => {
   store.close();
 });
 
-// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 요청하는 경로 · SSE 연결은 뺀다
+// 라우터의 GET 경로. 경로 변수는 테스트할 값으로 채우고, 바깥에 요청하는 경로, SSE 연결은 뺀다
 const MOUNTS: Array<[string, Router]> = [
   ["/api/admin", adminRouter],
   ["/api/admin/service-keys", serviceKeysRouter],
@@ -110,7 +110,7 @@ const MOUNTS: Array<[string, Router]> = [
   ["", publicLoginBackgroundRouter],
   ["/api", identityRouter],
 ];
-// 로그인 배경의 미리보기 · 장면 띠 · 공개 파일(정지 그림 · HLS)은 그 배경의 파일이다(배경이 있어야 답한다)
+// 로그인 배경의 미리보기, 장면 띠, 공개 파일(정지 그림, HLS)은 그 배경의 파일이다(배경이 있어야 답한다)
 // 내보내기 다운로드는 한 번 쓰는 티켓이 있어야 답한다(아래 내보내기 테스트가 따로 본다)
 const SKIP = new Set(["/api/admin/settings-archive/download/:ticket", "/api/admin/logs/stream", "/api/admin/source-suggest", "/api/admin/appearance/login-background/svg/preview", "/api/admin/appearance/login-background/svg/strip", "/login-background/svg/:file", "/login-background/svg/:codec/index.m3u8", "/login-background/svg/:codec/:short/:file"]);
 const FILL: Record<string, string[]> = { ":name": ["genres", "status", "ai"], ":id": ["svg"], ":size": ["32"] };
@@ -142,14 +142,14 @@ test("운영자의 모든 읽기 경로 응답에 비밀값이 없다", async ()
   assert.deepEqual(failed, [], "답이 와야 그 답을 본 것이다(거절 · 서버 오류면 내용을 보지 못한다)");
 });
 
-test("서비스 키 · AI 키 상태는 끝 네 글자까지만 보인다", async () => {
+test("서비스 키, AI 키 상태는 끝 네 글자까지만 보인다", async () => {
   const view = await (await fetch(`${base}/api/admin/service-keys`)).text();
   assert.ok(view.includes(SERVICE.lastfm.apiKey.slice(-4)), "끝 네 글자는 보인다(넣은 것을 알아보게)");
   leaksIn("서비스 키 상태", view);
 });
 
-// 나갈 요청을 미리 보여 주는 경로는 키 위치를 가린다. 보내는 경로(모델 목록 · 테스트)도 응답에 키를 싣지 않는다
-test("AI 미리보기 · 모델 묻기 · 테스트 응답에 키가 없다", async () => {
+// 나갈 요청을 미리 보여 주는 경로는 키 위치를 가린다. 보내는 경로(모델 목록, 테스트)도 응답에 키를 싣지 않는다
+test("AI 미리보기, 모델 묻기, 테스트 응답에 키가 없다", async () => {
   assist.useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 401, headers: new Headers(), text: async () => "unauthorized", json: async () => ({ error: "unauthorized" }) })));
   const post = (path: string, body: unknown) => fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body) });
   for (const provider of ["openai", "anthropic", "custom", "vertex"]) {
@@ -168,7 +168,7 @@ test("내보내기 파일(모든 종류, ZIP 의 모든 항목)에 비밀값이 
   }
 });
 
-test("지금까지의 로그(실시간 로그 · 로그 경로가 읽는 버퍼)에 비밀값이 없다", async () => {
+test("지금까지의 로그(실시간 로그, 로그 경로가 읽는 버퍼)에 비밀값이 없다", async () => {
   leaksIn("로그 버퍼", JSON.stringify(sink.buffer));
   leaksIn("최근 경고 · 오류", JSON.stringify(sink.recentProblems()));
 });

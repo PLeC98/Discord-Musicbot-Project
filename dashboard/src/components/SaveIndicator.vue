@@ -34,7 +34,7 @@ const CIRC = 2 * Math.PI * 17;
 const LABEL: Record<SaveState, string> = { idle: "", saving: text.editor.saving, done: text.editor.saved, error: text.editor.saveFailed };
 // 끝(done)은 기호가 아니라 그어 그리는 체크(템플릿의 SVG)
 const ICON: Record<Exclude<SaveState, "done">, IconName> = { idle: "save", saving: "save", error: "priority_high" };
-// 위 막대 버튼처럼 휴대폰 20px · 태블릿 · PC 16px(링 안에 들게 한 단계 작게)
+// 위 막대 버튼처럼 휴대폰 20px, 태블릿, PC 16px(링 안에 들게 한 단계 작게)
 const phone = useMediaQuery(PHONE_QUERY);
 const ICON_SIZE = computed(() => (phone.value ? 20 : 16));
 </script>

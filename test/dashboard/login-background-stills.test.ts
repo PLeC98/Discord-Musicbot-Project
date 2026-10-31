@@ -1,4 +1,4 @@
-// src/dashboard/login-background/stills.ts · tones.ts · rules/art-seed.ts: 썸네일 · 정지 그림(폭별 WebP, sRGB) · 대표색 · 장면 바뀜과 장면 색.
+// src/dashboard/login-background/stills.ts, tones.ts, rules/art-seed.ts: 썸네일, 정지 그림(폭별 WebP, sRGB), 대표색, 장면 바뀜과 장면 색.
 // 실제 ffmpeg 로 표본을 만든다(없으면 건너뛴다)
 
 import { test, before, after } from "node:test";
@@ -81,7 +81,7 @@ const job = (one: store.Stored) => ({ item: one, folder: store.folderOf(one.id),
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 const pixel = async (file: string) => [...(await sharp(file).raw().toBuffer()).subarray(0, 3)];
 
-test("대표색: 화면과 같은 계산(Celebi · Score). 무채색이면 COLORLESS(null)", () => {
+test("대표색: 화면과 같은 계산(Celebi, Score). 무채색이면 COLORLESS(null)", () => {
   const solid = (r: number, g: number, b: number) => Array.from({ length: 40 * 40 }, () => [r, g, b, 255]).flat();
   assert.match(hexOfSeed(seedOfPixels(solid(30, 90, 200)))!, /^#[0-9a-f]{6}$/);
   assert.equal(seedOfPixels(solid(128, 128, 128)), COLORLESS);
@@ -143,7 +143,7 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
   assert.equal(new Set(scenes.map((one) => one.color)).size, 3);
 });
 
-// 움직이는 WebP · APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
+// 움직이는 WebP, APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
 for (const name of ["cuts.webp", "cuts.png"]) {
   test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, opts, async () => {
     const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });
@@ -160,6 +160,6 @@ for (const name of ["cuts.webp", "cuts.png"]) {
   });
 }
 
-test("장면 바뀜 선택: 처음 · 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
+test("장면 바뀜 선택: 처음, 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
   assert.deepEqual(cutsOf([0.2, 1.5, 2.0, 2.4, 3.7, 9.8], 10), [1.5, 3.7]);
 });

@@ -10,7 +10,7 @@
             <p v-if="imagesOnly" class="text-sm text-tertiary">{{ S.imagesOnly }}</p>
           </div>
 
-          <!-- 버튼 영역: 가져오는 중이면 같은 위치 · 같은 높이에 진행(파일 이름 · 진행 막대 · 지금 하는 일 한 줄 · %)을 겹쳐 그린다(팝업 높이가 그대로).
+          <!-- 버튼 영역: 가져오는 중이면 같은 위치, 같은 높이에 진행(파일 이름, 진행 막대, 지금 하는 일 한 줄, %)을 겹쳐 그린다(팝업 높이가 그대로).
                미리보기가 생기면 카드가 이 팝업을 닫고 편집 창을 연다 -->
           <div class="grid grid-cols-[minmax(0,1fr)]">
             <section v-if="steps.length" class="[grid-area:1/1] min-w-0 flex flex-col justify-center gap-2 rounded-2xl bg-surface-container px-4" aria-live="polite">
@@ -101,7 +101,7 @@ useCloseLayer(
 );
 const emit = defineEmits<{ upload: []; link: [url: string]; use: [id: string]; remove: [id: string] }>();
 
-/** 영상 배경을 만들 인코더(H.264 · VP9)가 없다(테스트하는 중이면 아직 모른다) */
+/** 영상 배경을 만들 인코더(H.264, VP9)가 없다(테스트하는 중이면 아직 모른다) */
 const imagesOnly = computed(() => !!props.state && !props.state.checking && props.state.encoders.length > 0 && !props.state.encoders.some((one) => (one.codec === "h264" || one.codec === "vp9") && one.encoder));
 /** 보일 단계: 올리는 중이면 원본 업로드 하나(올린 몫), 봇이 받은 뒤면 그 배경의 편집 전 단계 */
 const steps = computed(() => {
@@ -115,7 +115,7 @@ const overall = computed(() => (steps.value.length ? steps.value.reduce((sum, on
 const readyOf = (bg: LoginBackgroundItem) => bg.phase === "ready";
 /** 실패한 까닭(봇 문장표의 문제 코드 안내) */
 const problemOf = (bg: LoginBackgroundItem) => (bg.problem ? noticeText(bg.problem).title : "");
-/** 지금 하는 일 한 줄(올리는 중 · 그 단계의 "…하는 중" 말) */
+/** 지금 하는 일 한 줄(올리는 중, 그 단계의 "…하는 중" 말) */
 const nowText = computed(() => {
   if (props.uploading) return S.uploading;
   const bg = props.pending;

@@ -20,7 +20,7 @@ test("라틴 용어는 단어 경계로 찾는다(부분 문자열로 찾지 않
   assert.equal(I.countVersion("Song (Live)", "x"), 1);
 });
 
-test("일본어·한국어 용어는 붙여쓰기라 부분 문자열로 찾는다", () => {
+test("일본어, 한국어 용어는 붙여쓰기라 부분 문자열로 찾는다", () => {
   assert.equal(I.countJunk("【歌ってみた】曲", "x"), 1);
   assert.equal(I.countVersion("곡 (한국어판)", "x"), 1);
 });
@@ -69,7 +69,7 @@ test("재배포 감점도 공식 채널이면 면제된다 (공식 Lyric Video�
 
 test("긴 쪽의 길이 감점이 짧은 쪽보다 약하다 (MV 인트로/아웃트로)", () => {
   const long = I.durationScore(250, 200); // MV
-  const short = I.durationScore(150, 200); // 클립·TV size
+  const short = I.durationScore(150, 200); // 클립, TV size
   assert.equal(long.score, W.durFarLong);
   assert.equal(short.score, W.durFar);
   assert.ok(long.score > short.score, "긴 쪽을 덜 의심한다");
@@ -81,7 +81,7 @@ test("명백한 불일치는 여전히 실격 수준", () => {
 
 // ── 확신도 ───────────────────────────────────────────────────
 
-test("버전·재배포가 걸린 후보에는 high를 주지 않는다", () => {
+test("버전, 재배포가 걸린 후보에는 high를 주지 않는다", () => {
   const version = rankCandidates([cand({ title: "곡 (English ver.)", channel: "아티스트" })], target);
   assert.notEqual(version.confidence, "high");
 
@@ -92,7 +92,7 @@ test("버전·재배포가 걸린 후보에는 high를 주지 않는다", () => 
   assert.equal(clean.confidence, "high");
 });
 
-test("아티스트 쪼개기: feat · ft · with 는 단어일 때만 나눈다", () => {
+test("아티스트 쪼개기: feat, ft, with 는 단어일 때만 나눈다", () => {
   assert.deepEqual(I.splitArtists("Daft Punk"), ["daft punk"]);
   assert.deepEqual(I.splitArtists("Drift"), ["drift"]);
   assert.deepEqual(I.splitArtists("Within Temptation"), ["within temptation"]);
@@ -111,7 +111,7 @@ test("버전 표기: 붙여 쓴 TVサイズ 를 떼고, 닫는 표시 없이 끝
 });
 
 // 공백 뒤의 맨 단어를 받으면 "Love on TV - Live" 를 TV 버전으로 본다
-test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다. 괄호 · 대시로 연 표시는 단어만으로도", () => {
+test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다. 괄호, 대시로 연 표시는 단어만으로도", () => {
   assert.equal(I.detectVersionKind("Love on TV - Live"), null);
   assert.equal(I.detectVersionKind("Life is Short - Live"), null);
   assert.equal(I.detectVersionKind("Idol TV size - Anime"), "tv");
@@ -124,13 +124,13 @@ test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다
 
 const ZWNJ = "‌"; // 보이지 않는 문자뿐인 채널 이름(실제 사례)
 
-test("길이 4초 안은 1초마다 덜 준다(같은 채널의 1초 차 · 3초 차를 가른다)", () => {
+test("길이 4초 안은 1초마다 덜 준다(같은 채널의 1초 차, 3초 차를 가른다)", () => {
   assert.equal(I.durationScore(200, 200).score, W.durNear);
   assert.equal(I.durationScore(203, 200).score, W.durNear - 3 * W.durNearPerSec);
   assert.ok(I.durationScore(201, 200).score > I.durationScore(203, 200).score);
 });
 
-test("채널 추정: 아티스트 검색의 앞 6개에서 3개 넘게 · 절반 넘게 나온 채널. 이름이 없는 결과는 세지 않는다", () => {
+test("채널 추정: 아티스트 검색의 앞 6개에서 3개 넘게, 절반 넘게 나온 채널. 이름이 없는 결과는 세지 않는다", () => {
   const ch = (...names: Array<string | null>) => names.map((channel) => ({ channel }));
   assert.equal(I.dominantChannel(ch("A", "B", "C", "D", "E", "F", "G", "G", "G", "G", "G", "G", "G")), null, "뒤쪽은 세지 않는다(전부 세면 G 가 절반을 넘는다)");
   assert.equal(I.dominantChannel(ch("A", "A", "A", "A", "B", "C")), "A");
@@ -157,7 +157,7 @@ test("아티스트 채널의 영상 중 이 곡일 수 있는 것: 그 채널이
   );
 });
 
-test("알아본 채널은 이름 그대로 견준다: 보이지 않는 이름끼리는 맞고, 빈 이름 · 없는 이름은 맞지 않는다", () => {
+test("알아본 채널은 이름 그대로 견준다: 보이지 않는 이름끼리는 맞고, 빈 이름, 없는 이름은 맞지 않는다", () => {
   const known = { ...target, artist: "x0o0x_", artistChannels: [ZWNJ] };
   assert.equal(I.artistChannelOf(ZWNJ, known).match, true);
   assert.equal(I.artistChannelOf("", { ...known, artistChannels: [""] }).match, false);
@@ -166,7 +166,7 @@ test("알아본 채널은 이름 그대로 견준다: 보이지 않는 이름끼
   assert.equal(I.artistChannelOf("x0o0x_", { ...known, artistChannels: [] }).match, true, "이름이 맞으면 알아본 채널과 상관없이");
 });
 
-test("아티스트 채널의 영상이 5 ~ 60초 길면 MV 인트로로 보고 길이를 '가까움'으로 친다. 남의 채널 · 짧은 쪽 · 60초 넘게는 아니다", () => {
+test("아티스트 채널의 영상이 5 ~ 60초 길면 MV 인트로로 보고 길이를 '가까움'으로 친다. 남의 채널, 짧은 쪽, 60초 넘게는 아니다", () => {
   const own = { channel: "아티스트" };
   assert.equal(scoreCandidate(cand({ ...own, durationSec: 240 }), target).breakdown.duration, W.durClose);
   assert.equal(scoreCandidate(cand({ ...own, durationSec: 261 }), target).breakdown.duration, W.durFarLong);

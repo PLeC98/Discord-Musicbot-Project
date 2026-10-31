@@ -1,8 +1,8 @@
-// 재생 조작 코어. 진입점(명령 · 버튼 · 대시보드)은 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
-// 전제 조건(플레이어가 있나 · 권한 · 곡 · 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
+// 재생 조작 코어. 진입점(명령, 버튼, 대시보드)은 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
+// 전제 조건(플레이어가 있나, 권한, 곡, 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
-//   공통 code: no-song(플레이어나 틀고 있는 곡이 없다) · 권한 판정이 막은 까닭의 코드(must-dj 등)
+//   공통 code: no-song(플레이어나 틀고 있는 곡이 없다), 권한 판정이 막은 까닭의 코드(must-dj 등)
 //
 // actor: 누가 시켰나. 디스코드 멤버(대시보드도 그 서버의 멤버로 조작한다)
 
@@ -66,7 +66,7 @@ async function permittedTrack(player: Player, actor: Actor, check?: Check, onTra
 type OnTrack = { onTrack?: number };
 
 /**
- * 사람의 멈춤을 뒤집는다. 억제 사유(서버 음소거 · 스테이지 청중 · 혼자 남음)는 보지 않는다:
+ * 사람의 멈춤을 뒤집는다. 억제 사유(서버 음소거, 스테이지 청중, 혼자 남음)는 보지 않는다:
  * 그 사유로 소리가 이미 멈춰 있어도 멈춰 두면 사유가 풀려도 멈춘 채로, 풀어 두면 사유가 풀리는 순간 이어 튼다.
  * heldBy: 지금 소리를 함께 멈추고 있는 억제 사유(결과 안내가 그 사유가 풀린 뒤를 말한다)
  */
@@ -132,7 +132,7 @@ async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack 
 }
 
 /**
- * 곡 안의 위치로. reason 은 로그에 남는 원인(seek · replay · highlight · dashboard).
+ * 곡 안의 위치로. reason 은 로그에 남는 원인(seek, replay, highlight, dashboard).
  * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
  * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
@@ -219,7 +219,7 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
 
 const isLoop = (mode: unknown): mode is Loop => mode === false || mode === "track" || mode === "queue";
 
-/** 반복 모드. mode: false(끔) · "track" · "queue". 진입점이 받은 값 그대로 온다 */
+/** 반복 모드. mode: false(끔), "track", "queue". 진입점이 받은 값 그대로 온다 */
 async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
@@ -259,7 +259,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   return done({ track, left: player.queue.length });
 }
 
-/** 대기열 안에서 옮기기. from · to 는 0부터 */
+/** 대기열 안에서 옮기기. from, to 는 0부터 */
 async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknown) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -346,7 +346,7 @@ async function autoplayBlocked(actor: Actor) {
   return permission ? fail(permission) : null;
 }
 
-/** 자동재생 켜기 · 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
+/** 자동재생 켜기, 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
 type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown };
 
 // 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다

@@ -1,6 +1,6 @@
 // src/sources/spotify.ts: Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다.
 //
-// fetch 만 가짜로 두고 토큰 발급 · 재사용 · 상태 추출 · 저장 · 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
+// fetch 만 가짜로 두고 토큰 발급, 재사용, 상태 추출, 저장, 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -103,7 +103,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
-// 익명 GraphQL 의 곡 · 앨범(getTrack · getAlbum). 가짜 쿼리로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
+// 익명 GraphQL 의 곡, 앨범(getTrack, getAlbum). 가짜 쿼리로 넘긴다(익명 토큰, 상태는 아래 테스트들이 본다)
 const gqlTrack = (id: string, name: string) => ({ uri: `spotify:track:${id}`, name, duration: { totalMilliseconds: 201500 }, artists: { items: [{ profile: { name: "가수" } }] } });
 const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op: string, _hash: string, vars: Record<string, unknown>) => {
   seen.push([op, vars]);
@@ -116,7 +116,7 @@ const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op:
   throw new Error(`모르는 쿼리 ${op}`);
 };
 
-test("키가 없으면 곡 · 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
+test("키가 없으면 곡, 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
   const seen: Array<[string, Record<string, unknown>]> = [];
   const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e1", undefined, { query: anonQuery(seen) })).tracks;
@@ -153,7 +153,7 @@ test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 �
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
-  // GraphQL 쿼리는 가짜로 넘긴다(익명 토큰 · 상태는 아래 테스트들이 본다)
+  // GraphQL 쿼리는 가짜로 넘긴다(익명 토큰, 상태는 아래 테스트들이 본다)
   const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
     assert.equal(op, "queryArtistOverview");
     assert.equal(vars.uri, "spotify:artist:ar1");
@@ -190,7 +190,7 @@ test("모르는 주소는 요청 없이 빈 결과", async () => {
   assert.equal(requests.length, 0);
 });
 
-// ── 익명 GraphQL: 상태 · 토큰 · 쿼리 ───────────────────────────────────
+// ── 익명 GraphQL: 상태, 토큰, 쿼리 ───────────────────────────────────
 
 const HOME = `<script id="appServerConfig" type="text">${Buffer.from(JSON.stringify({ clientVersion: "9.9.9" })).toString("base64")}</script><script src="https://open.spotifycdn.com/cdn/build/web-player/web-player.abc123.js"></script>`;
 const BUNDLE = `x={secret:'s3cr\\'et',version:12};"fetchPlaylist","query","${"a".repeat(64)}";"queryArtistOverview","query","${"b".repeat(64)}"`;
@@ -209,7 +209,7 @@ const anonRoutes = ({ tokenStatus = [200] } = {}): Route[] => {
   ];
 };
 
-test("익명 상태: 홈 · 번들에서 버전 · secret · 해시를 뽑아 DB 에 남기고, 다음에는 메모리에서", async () => {
+test("익명 상태: 홈, 번들에서 버전, secret, 해시를 뽑아 DB 에 남기고, 다음에는 메모리에서", async () => {
   routes = anonRoutes();
 
   const state = await graphql._ensureState(false);
@@ -249,7 +249,7 @@ test("익명 상태: 뽑기가 실패하면 저장값, 그것도 없으면 던�
   assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
 });
 
-test("익명 상태: 홈 · 번들이 오류이거나 secret 이 없으면 뽑기 실패다. 저장값을 새것으로 덮지 않는다", async () => {
+test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 뽑기 실패다. 저장값을 새것으로 덮지 않는다", async () => {
   routes = [() => reply("", { status: 500 })];
   await assert.rejects(graphql._ensureState(true), /홈 500/);
   assert.equal(externalCaches.getSpotifyAnonState(), null, "실패를 새 값으로 적지 않는다");
@@ -269,7 +269,7 @@ test("익명 상태: 홈 · 번들이 오류이거나 secret 이 없으면 뽑�
   assert.equal(kept.fetchedAt, fresh.fetchedAt, "저장값을 그대로 쓴다(새것으로 치지 않는다)");
 });
 
-test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. 토큰 · 해시 오류의 강제 뽑기는 예외", async () => {
+test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. 토큰, 해시 오류의 강제 뽑기는 예외", async () => {
   routes = anonRoutes();
   await graphql._ensureState(false);
   if (graphql._state) graphql._state.fetchedAt = 0; // 낡았다
@@ -318,7 +318,7 @@ test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받
   assert.equal(mints[0]?.init.headers?.["App-Platform"], "WebPlayer");
 });
 
-test("익명 토큰: 400 · 403 이면 secret 을 다시 뽑아 한 번 더", async () => {
+test("익명 토큰: 400, 403 이면 secret 을 다시 뽑아 한 번 더", async () => {
   routes = anonRoutes({ tokenStatus: [403, 200] });
 
   assert.equal(await graphql._token(), "A2");

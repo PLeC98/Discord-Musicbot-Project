@@ -1,4 +1,4 @@
-// src/store/tunables.ts · dashboard/routes/tunables.ts: 운영 조절값(일반 · 유튜브 · 디스플레이 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
+// src/store/tunables.ts, dashboard/routes/tunables.ts: 운영 조절값(일반, 유튜브, 디스플레이 탭). settings.db 의 문서에 두고 .env 와 같은 검사로 읽는다.
 // 저장하면 바로 먹고(기동 시 만든 것은 알림을 듣고 다시 만든다), 다시 시작해야 먹는 값은 기동 시 값으로 돈다. DB 에 틀린 값이 있어도 기동은 멈추지 않는다
 
 process.env.OWNER_ID = "owner";
@@ -77,7 +77,7 @@ test("다시 시작해야 먹는 값은 저장해도 기동 시 값으로 돌고
   assert.deepEqual(tunables.view().pending, []);
 });
 
-// 기동 시 만들어 둔 제한기 · 타이머는 이 알림을 듣고 다시 만든다. 듣는 쪽이 던져도 저장은 끝나고 로그에 남는다
+// 기동 시 만들어 둔 제한기, 타이머는 이 알림을 듣고 다시 만든다. 듣는 쪽이 던져도 저장은 끝나고 로그에 남는다
 test("저장하면 바뀌었다고 알리고, 듣는 쪽의 실패는 저장을 막지 않는다", async () => {
   const heard: number[] = [];
   const offHeard = onTunablesChanged(() => heard.push(config.dashboard.sse.heartbeatMs));
@@ -96,7 +96,7 @@ test("저장하면 바뀌었다고 알리고, 듣는 쪽의 실패는 저장을 
   }
 });
 
-test("틀린 값 · 모르는 이름은 필드마다 까닭과 함께 거절하고 아무것도 바꾸지 않는다", async () => {
+test("틀린 값, 모르는 이름은 필드마다 까닭과 함께 거절하고 아무것도 바꾸지 않는다", async () => {
   const res = await req<ProblemReply>("PUT", { values: { CACHE_MAX_FILES: "abc", YTDLP_PLAYER_CLIENTS: "web;x", NOPE: "1" }, revision: 0 });
   assert.equal(res.status, 400);
   assert.equal(res.json.code, "config-invalid");

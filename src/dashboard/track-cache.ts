@@ -1,4 +1,4 @@
-// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기 · 쓰기 · 값 검사. 모양은 contract/track-cache.
+// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기, 쓰기, 값 검사. 모양은 contract/track-cache.
 // 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 계산해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
 // 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
@@ -43,7 +43,7 @@ import type { LookupRow } from "../store/rows.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열> · /q · /sort, 쓰기면 /ops/<번호>/<필드>) */
+/** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
 type Refusal = { ok: false; code: Code; params?: Params; errors?: FieldProblem[] };
 
 const refusal = (code: Code, errors?: FieldProblem[], params?: Params): Refusal => ({ ok: false, code, ...(params ? { params } : {}), ...(errors ? { errors } : {}) });
@@ -75,7 +75,7 @@ function sourceOf(row: audioCache.AudioRow, check: sourceChecks.Check | undefine
   return { state: check.version === row.audio_version ? "same" : "changed", at: check.at };
 }
 
-// 요청 행의 링크 데이터 몫 · 직접 지정한 음원 몫
+// 요청 행의 링크 데이터 몫, 직접 지정한 음원 몫
 function requestCells(requestKey: string, led: LookupRow | undefined, pin: pinnedSources.Pin | undefined) {
   if (!led) return { requestKey, platform: inputKind(requestKey), title: null, artist: null, audioUrl: pin!.audioUrl, ledgerAudioUrl: null, pinnedAt: pin!.pinnedAt };
   return { requestKey, platform: led.platform, title: led.display_title, artist: led.display_artist, audioUrl: pin?.audioUrl ?? led.audio_url, ledgerAudioUrl: led.audio_url, pinnedAt: pin?.pinnedAt ?? null };
@@ -103,7 +103,7 @@ function requestRows(src: Sources): TrackRequestRow[] {
   return rows;
 }
 
-// 음원 키에서 주소. 유튜브 · 사운드클라우드는 다시 만들고(audioKeyOf 의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원 · 링크 데이터에서
+// 음원 키에서 주소. 유튜브, 사운드클라우드는 다시 만들고(audioKeyOf 의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원, 링크 데이터에서
 function urlsOfKeys(src: Sources): (audioKey: string) => string | null {
   const direct = new Map<string, string>();
   for (const url of [...src.ledger.map((row) => row.audio_url), ...src.pins.map((pin) => pin.audioUrl)]) {
@@ -143,7 +143,7 @@ function fileRows(src: Sources): TrackFileRow[] {
 const ageRows = (src: Sources): TrackAgeRow[] => [...src.age].map(([videoId, markedAt]) => ({ videoId, markedAt }));
 
 type AnyRow = TrackRequestRow | TrackFileRow | TrackAgeRow;
-// 셀의 원시 값(필터 · 정렬은 이것으로). 재생 테스트 · 원본은 결과 문자열, 정렬은 확인한 때
+// 셀의 원시 값(필터, 정렬은 이것으로). 재생 테스트, 원본은 결과 문자열, 정렬은 확인한 때
 function rawOf(row: AnyRow, column: string): string | number | null {
   if (column === "check") {
     const check = (row as TrackRequestRow).check;
@@ -177,7 +177,7 @@ function compare(a: string | number | null, b: string | number | null, dir: "asc
 }
 
 /**
- * URL 쿼리를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열 · 같은 키가 여럿 · 정렬 열이 겹치면 거절한다.
+ * URL 쿼리를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
  * 필터 식은 여기서 읽지 않는다(read 가 읽는다)
  */
 // 값 하나만 받는 키(없으면 fallback). 여럿이면 null
@@ -254,7 +254,7 @@ function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) =
   return { ok: true, matches: (row) => inColumns(row) && inAny(row) };
 }
 
-/** 표 하나의 구간. 필터 · 정렬은 메모리에서(SQL 을 만들지 않는다) */
+/** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다) */
 function read(query: TrackCacheQuery): { ok: true; page: TrackCachePage } | Refusal {
   const { table, offset, limit } = query;
   const matcher = matcherOf(query);

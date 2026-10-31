@@ -1,5 +1,5 @@
 <template>
-  <!-- 반복 전환 효과: 효과 선택(목록) · 길이(버튼 그룹, 없음이면 꺼짐) 한 줄. 로그인 배경 카드의 옵션 영역과 편집 창이 같이 쓴다 -->
+  <!-- 반복 전환 효과: 효과 선택(목록), 길이(버튼 그룹, 없음이면 꺼짐) 한 줄. 로그인 배경 카드의 옵션 영역과 편집 창이 같이 쓴다 -->
   <div class="flex flex-col gap-2 text-sm">
     <span>{{ C.seam }}</span>
     <div class="flex items-center gap-2">

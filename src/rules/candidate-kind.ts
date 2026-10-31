@@ -1,4 +1,4 @@
-// 판정: 자동재생 후보를 어느 경로로. 어느 필드가 찼는지가 정한다. 답: youtube · search · audio, 경로가 없으면 null.
+// 판정: 자동재생 후보를 어느 경로로. 어느 필드가 찼는지가 정한다. 답: youtube, search, audio, 경로가 없으면 null.
 //   youtube  유튜브 주소를 직접 받았다
 //   search   가수와 제목으로 유튜브에서 찾는다
 //   audio    음원을 직접 받았다

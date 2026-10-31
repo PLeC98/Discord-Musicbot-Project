@@ -1,7 +1,7 @@
 // 자동재생 AI 보조. 유튜브에서 찾아온 후보를 모델에게 한 번 더 물어본다.
 //
-// 소스가 아니라 후처리 필터다. 곡 이름만 아는 소스(키워드·Last.fm)에서만 쓸 곳이 있고,
-// 주소를 직접 주는 소스(VocaDB·AnimeThemes·재생목록)는 출처가 곧 정답이라 물을 것이 없다.
+// 소스가 아니라 후처리 필터다. 곡 이름만 아는 소스(키워드, Last.fm)에서만 쓸 곳이 있고,
+// 주소를 직접 주는 소스(VocaDB, AnimeThemes, 재생목록)는 출처가 곧 정답이라 물을 것이 없다.
 //
 // 없어도 되는 기능이다. 못 부르면 규칙이 선택한 것을 그대로 쓰고 재생은 멈추지 않는다.
 
@@ -103,12 +103,12 @@ const DEFAULT_SECTIONS: PromptSection[] = [
 ];
 
 // 업로더 이름은 일부러 안 넣는다.
-// 유튜브의 그 필드는 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`·`Radio Mix`).
+// 유튜브의 그 필드는 토픽 트랙에서만 진짜 아티스트고 나머지는 채널 이름이다(`Vevo`, `Radio Mix`).
 // 길이를 모르면 "길이=" 구간째 뺀다("0분"이라고 적으면 거짓을 알려 주는 것이고, "길이=" 만 남으면 모델이 더 헷갈린다)
 const DEFAULT_LINE = "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{/}}title={{title}}";
 
 const ROLES = new Set(["system", "user", "assistant"]);
-// 읽은 형식(줄 형식 · 프롬프트 섹션). 같은 글을 후보마다 다시 읽지 않게
+// 읽은 형식(줄 형식, 프롬프트 섹션). 같은 글을 후보마다 다시 읽지 않게
 const parsed = new Map<string, Node[]>();
 function nodesOf(text: string, names: Names): Node[] {
   const key = `${names === LINE_NAMES ? "line" : "prompt"}:${text}`;
@@ -134,7 +134,7 @@ const DEFAULTS = {
 } satisfies AiDefaults;
 
 /**
- * 기본값 위에 설정을 순서대로 얹는다. 기본값이 있는 필드를 비워 두면(null · "") 앞의 값을 쓴다.
+ * 기본값 위에 설정을 순서대로 얹는다. 기본값이 있는 필드를 비워 두면(null, "") 앞의 값을 쓴다.
  * 그대로 얹으면 비운 timeoutMs 가 Number(null) = 0 이 되어 부르자마자 끊긴다
  */
 function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>): AiSettings {
@@ -212,7 +212,7 @@ function settings(): AiSettings | null {
   const saved = aiConfig.ai();
   if (saved.enabled === false) return null;
   const one = withDefaults(saved as Partial<AiSettings>);
-  // 버텍스는 주소를 프로젝트·리전으로 조립하므로 baseUrl 이 없다
+  // 버텍스는 주소를 프로젝트, 리전으로 조립하므로 baseUrl 이 없다
   if (!live(one) || !one.model) return null;
   if (!specOf(one.provider)?.dialect?.startsWith("vertex") && !endpointOf(one)) return null;
   // 프롬프트는 딴 문서다("ai-prompt"). 설정 문서에는 안 섞는다
@@ -315,10 +315,10 @@ function readJson(text: string): { ok: true; value: unknown } | { ok: false } {
 /**
  * 추가 파라미터. 한 줄에 하나씩. 서비스마다 이름도 위치도 달라 글로 받는다.
  *
- *   key=value            그대로 (true · false · null · 숫자는 알아서 바꾼다)
+ *   key=value            그대로 (true, false, null, 숫자는 알아서 바꾼다)
  *   key="value"          따옴표로 두르면 숫자처럼 보여도 글자다
  *   a.b.c=value          점으로 안쪽 필드에 넣는다 (thinking.budget_tokens 처럼)
- *   key=json::{...}      JSON 으로 읽어 넣는다 (객체·배열)
+ *   key=json::{...}      JSON 으로 읽어 넣는다 (객체, 배열)
  *   header::Name=value   본문이 아니라 요청 헤더에 넣는다
  *   key={{none}}         그 값을 아예 안 보낸다 (header::Name={{none}} 이면 헤더를 뺀다)
  *   # 주석
@@ -360,7 +360,7 @@ function readExtraLine(line: string, out: Extra) {
   setPath(out.body, name, scalarOf(value));
 }
 
-// 값 글 → 값. 따옴표로 싸면 글자, true · false · null · 수는 그 값, 나머지는 글자
+// 값 글 → 값. 따옴표로 싸면 글자, true, false, null, 수는 그 값, 나머지는 글자
 function scalarOf(value: string): unknown {
   const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"));
   if (quoted && value.length >= 2) return value.slice(1, -1);
@@ -370,7 +370,7 @@ function scalarOf(value: string): unknown {
 }
 
 /**
- * 후보 한 줄(config/schema 의 검사 · 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
+ * 후보 한 줄(config/schema 의 검사, 대시보드 미리보기와 같은 해석기 rules/line-format). 길이 필드 이름은 후보(durationSec)와 트랙(duration)이 다르다. 둘 다 받는다.
  * 모르는 이름은 적힌 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 알 길이 없다. 검사가 표시한다)
  */
 function renderLine(list: ListFormat | undefined, cand: Judged, genre: string | undefined, i: number) {
@@ -422,7 +422,7 @@ const geminiAnswer = (json: Reply) => (json?.candidates?.[0]?.content?.parts || 
 
 /**
  * 저쪽 규격의 차이를 여기 한 곳에 모은다.
- * 규격마다 아래 것만 답하면 나머지 코드(판정·미리보기·테스트)는 그대로 돈다.
+ * 규격마다 아래 것만 답하면 나머지 코드(판정, 미리보기, 테스트)는 그대로 돈다.
  *
  *   chatUrl   생성 요청을 보낼 주소
  *   modelsUrl 모델 목록 주소 (없으면 목록을 못 불러오는 곳이다)
@@ -511,12 +511,12 @@ const DIALECTS: Record<string, Dialect> = {
   },
 
   /**
-   * 버텍스 AI. 제미니 네이티브이되 주소를 프로젝트·리전·모델로 조립한다(baseUrl이 없다).
+   * 버텍스 AI. 제미니 네이티브이되 주소를 프로젝트, 리전, 모델로 조립한다(baseUrl이 없다).
    * 인증도 API 키가 아니라 서비스 계정에서 받은 액세스 토큰이다(googleAuth).
    */
   vertex: {
     chatUrl: (one) => vertexChatUrl(one, vertexProject(one), one.model || ""),
-    // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트·리전이 붙지 않는 쪽이라
+    // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트, 리전이 붙지 않는 쪽이라
     // 생성 주소를 그대로 쓰면 404 다. API 버전이 나뉘어 있어 순서대로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
@@ -548,7 +548,7 @@ const ANTHROPIC_MAX_TOKENS = 1024;
 /**
  * 응답이 알려 준 실제 토큰 수. 없으면 null. 추산으로 메우지 않는다.
  *
- * 사고 토큰을 어디에 넣는지가 회사마다 다르다(OpenAI·앤트로픽은 출력 안, 제미니는 따로).
+ * 사고 토큰을 어디에 넣는지가 회사마다 다르다(OpenAI, 앤트로픽은 출력 안, 제미니는 따로).
  * 출력은 늘 사고까지 합친 값으로 맞춰 둔다. 화면이 규격을 알 필요가 없게. 입력은 캐시에서 읽은 것(cached)까지 합친 값이다
  */
 const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thoughtsInOutput = true, cached }: { thoughtsInOutput?: boolean; cached?: unknown } = {}): Usage | null => {
@@ -559,7 +559,7 @@ const pickUsage = (input: unknown, output: unknown, thoughts: unknown, { thought
   return { input, output: out, thoughts: think, cached: typeof cached === "number" ? cached : null };
 };
 
-/** 앤트로픽의 입력은 캐시 읽기 · 쓰기를 빼고 센다. 다른 곳처럼 합친 값으로 */
+/** 앤트로픽의 입력은 캐시 읽기, 쓰기를 빼고 센다. 다른 곳처럼 합친 값으로 */
 function anthropicInput(usage: NonNullable<Reply>["usage"]): number | undefined {
   if (typeof usage?.input_tokens !== "number") return undefined;
   return usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
@@ -680,7 +680,7 @@ function withExtra(body: Body, extra: Extra) {
 
 // gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
 // JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 위치의 그것만 공백으로 되돌린다.
-// 같은 위치에 오는 다른 폭의 공백(U+00A0 · U+3000)도 함께 본다.
+// 같은 위치에 오는 다른 폭의 공백(U+00A0, U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
 const despace = (text: string) => text.replace(ODD_SPACE, " ");
 
@@ -742,14 +742,14 @@ function arraysIn(text: string): string[] {
 
 /**
  * 판정 하나를 못 해 규칙만으로 선택한다. 재시도까지 모두 실패한 판정마다 한 줄(재시도 하나하나는 debug).
- * 켜 둔 기능이 한도 · 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다
+ * 켜 둔 기능이 한도, 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다
  */
 function skipped(error: unknown) {
   const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
   log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택합니다`);
 }
 
-/** 판정 하나(재시도 · 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
+/** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
 class AskFailure extends Error {
   reason: string;
   detail: string;
@@ -768,7 +768,7 @@ type Attempt = { ok: true; verdicts: Array<Verdict | null> } | { ok: false; reas
 // 판정 하나의 상한(totalTimeoutMs)으로 끊었을 때의 까닭. 부르기 한 번의 시간 초과와 구분한다
 const OVER_TOTAL = new Error("판정 상한");
 
-/** 리퀘스트 로그에 적을 것: 응답의 토큰 · 2xx 인데 판정을 읽지 못한 까닭 */
+/** 리퀘스트 로그에 적을 것: 응답의 토큰, 2xx 인데 판정을 읽지 못한 까닭 */
 function judgeCall(one: AiSettings, size: number): Pick<Call, "provider" | "model" | "tokensOf" | "explain"> {
   return {
     provider: String(one.provider),
@@ -792,7 +792,7 @@ async function attempt(one: AiSettings, request: Awaited<ReturnType<typeof build
     const call: Call = { source: "autoplay", attempt: calls, genre, candidates: request.size, ...judgeCall(one, request.size) };
     const { res, text: raw } = await sendLogged(send, call, request.url, { method: "POST", headers: request.headers, body: JSON.stringify(request.body), signal });
 
-    // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타 · 남은 토큰 없음 · 사용량 초과 …).
+    // 저쪽이 왜 거절했는지는 본문에만 있다(모델 이름 오타, 남은 토큰 없음, 사용량 초과 …).
     // 그대로 싣되 키는 가린다. 거절 응답에 보낸 값을 되비추는 서비스가 있다.
     if (!res.ok) {
       const text = mask(raw);
@@ -827,7 +827,7 @@ function waitBefore(one: AiSettings, used: number, failed: Attempt & { ok: false
 }
 
 /**
- * 후보 배치 하나를 판정한다. 실패하면 설정대로 다시 부르고(retries · 대기), 끝내 실패하면 AskFailure.
+ * 후보 배치 하나를 판정한다. 실패하면 설정대로 다시 부르고(retries, 대기), 끝내 실패하면 AskFailure.
  * 판정을 읽지 못한 답은 재시도와 따로 한 번만 곧바로 다시 묻는다. retries 를 0 으로 주면 한 번만 부른다
  */
 async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefined, { retries = Number(one.retries) }: { retries?: number } = {}) {
@@ -920,7 +920,7 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
 
 /**
  * 모델 목록만 불러온다(`GET {baseUrl}/models`). 추론을 안 돌리므로 토큰이 안 든다.
- * 주소·키·네트워크가 맞는지는 이것으로 다 알 수 있고, 불러온 목록은 화면의 모델 입력란을 채우는 데도 쓴다.
+ * 주소, 키, 네트워크가 맞는지는 이것으로 다 알 수 있고, 불러온 목록은 화면의 모델 입력란을 채우는 데도 쓴다.
  */
 async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
@@ -954,7 +954,7 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
     }
 
     // 이름을 코드에 적지 않는다. 대신 안 쓸 것을 설정에서 가린다. 저쪽 목록에는
-    // 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
+    // 영상, 이미지 모델이나 한참 옛 모델이 섞여 나온다.
     return { ok: true, url, status: res.status, ...visibleModels(all, one), response: text, tookMs: took };
   } catch (error) {
     return withPreset(one, { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) });
@@ -982,8 +982,8 @@ function visibleModels(all: string[], one: AiSettings) {
 }
 
 /**
- * 저쪽에 묻지 못했을 때(키가 없다 · 거절 · 닿지 못함) 다운로드해 둔 모델 프로필(config/ai-models)이 아는 모델로 목록을 채운다.
- * 확인 결과(ok · 까닭)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬 · custom)은 채울 것이 없다
+ * 저쪽에 묻지 못했을 때(키가 없다, 거절, 닿지 못함) 다운로드해 둔 모델 프로필(config/ai-models)이 아는 모델로 목록을 채운다.
+ * 확인 결과(ok, 까닭)는 그대로 둔다. 연결이 된 것처럼 보이면 안 된다. 프로필이 없는 곳(로컬, custom)은 채울 것이 없다
  */
 function withPreset(one: AiSettings, check: ModelsCheck): ModelsCheck {
   const registry = specOf(one.provider)?.registry;
@@ -1088,7 +1088,7 @@ function renderList(draft: Draft, cands: Judged[] | null | undefined, genre = "r
 
 /**
  * 선택한 후보들을 실제로 판정시킨다. 보기 곡이 아니라 진짜 곡으로.
- * 나간 것·온 것·곡별 판정을 같이 준다.
+ * 나간 것, 온 것, 곡별 판정을 같이 준다.
  */
 async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined, genre = "rock"): Promise<JudgeResult> {
   const one = withDefaults(draft);

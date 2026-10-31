@@ -1,13 +1,13 @@
 <template>
   <!-- 작은 흐름 그래프. 세로축은 0 부터 max 까지(부르는 쪽이 utils/units 의 axisMax 로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale 로 정한다.
-       기준(warn)이 있으면 점선으로 긋고 오른쪽 끝에 그 값을 적는다. 올리면 그 때의 시각 · 값을 보여 준다 -->
+       기준(warn)이 있으면 점선으로 긋고 오른쪽 끝에 그 값을 적는다. 올리면 그 때의 시각, 값을 보여 준다 -->
   <div class="relative select-none" role="img" :aria-label="summary" @pointermove="onMove" @pointerleave="hover = null">
     <div class="relative h-20">
       <span class="absolute left-0 top-1 text-2xs leading-none text-on-surface-variant nums">{{ fmt(max) }}</span>
       <!-- 경고 기준 숫자: 점선 오른쪽 끝 바로 위 -->
       <span v-if="warn !== undefined" class="absolute right-0 -translate-y-full pb-0.5 text-2xs leading-none text-(--warn-ink) nums" :style="{ top: `${(y(warn) / 40) * 100}%` }">{{ fmt(warn) }}</span>
       <svg viewBox="0 0 100 40" preserveAspectRatio="none" class="absolute inset-0 w-full h-full overflow-visible">
-        <!-- 위 끝(왼쪽 위 숫자가 가리키는 선) · 바닥(0) -->
+        <!-- 위 끝(왼쪽 위 숫자가 가리키는 선), 바닥(0) -->
         <line x1="0" x2="100" y1="2" y2="2" class="stroke-outline-variant" stroke-opacity="0.5" stroke-width="1" vector-effect="non-scaling-stroke" />
         <line x1="0" x2="100" y1="40" y2="40" class="stroke-outline-variant" stroke-width="1" vector-effect="non-scaling-stroke" />
         <line v-if="warn !== undefined" x1="0" x2="100" :y1="y(warn)" :y2="y(warn)" class="stroke-(--warn-ink)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" />
@@ -37,7 +37,7 @@ import { text } from "../text/index.ts";
 const T = text.status;
 
 const props = defineProps<{
-  /** 첫째 줄(굵게 · 면 채움) */
+  /** 첫째 줄(굵게, 면 채움) */
   values: number[];
   /** 둘째 줄(옅게). 예: 시스템 CPU 와 봇 CPU */
   second?: number[];

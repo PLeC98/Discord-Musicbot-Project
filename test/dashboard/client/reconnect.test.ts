@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { reopenDelay } from "../../../dashboard/src/utils/reconnect.ts";
 
-test("닫힐 때마다 2 · 5 · 15 · 30 · 60초로 늘리고 그 뒤로는 60초", () => {
+test("닫힐 때마다 2, 5, 15, 30, 60초로 늘리고 그 뒤로는 60초", () => {
   const middle = () => 0.5; // 지터 범위의 가운데라 간격이 그대로 나온다
   assert.deepEqual(
     [0, 1, 2, 3, 4, 5, 20].map((n) => reopenDelay(n, middle)),

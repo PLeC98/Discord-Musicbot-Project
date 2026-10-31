@@ -46,7 +46,7 @@ function targetOf(url: string): { key: string; url: string } {
 }
 
 /**
- * 재생 테스트 큐에 넣는다. keys 는 주소마다의 음원 키(쓰기 전 주소도 checking · checks 와 맞춰 보게)
+ * 재생 테스트 큐에 넣는다. keys 는 주소마다의 음원 키(쓰기 전 주소도 checking, checks 와 맞춰 보게)
  * @param by  로그에 남길 실행한 사람
  */
 function enqueue(audioUrls: string[], by: string): { ok: true; queued: TrackCacheProbeQueued } | Refusal {
@@ -74,7 +74,7 @@ const checking = () => [...(running ? [running] : []), ...queue.map((one) => one
 /** 리비전 번호와 확인 중인 것(탭이 보이는 동안의 3초 읽기) */
 const revision = (): TrackCacheRevision => ({ ...cacheRevision(), checking: checking() });
 
-/** 이 음원 키들의 확인 결과 · 캐시 파일의 원본. 결과가 없는 키는 빠진다 */
+/** 이 음원 키들의 확인 결과, 캐시 파일의 원본. 결과가 없는 키는 빠진다 */
 function checks(audioKeys: string[]): { ok: true; checks: TrackCacheChecks } | Refusal {
   if (audioKeys.length > TRACK_CACHE_PAGE_MAX) return { ok: false, code: "too-many-items", params: { max: TRACK_CACHE_PAGE_MAX } };
   const found = sourceChecks.checksOf(audioKeys);

@@ -1,6 +1,6 @@
-// 직접 링크를 재생 · 다운로드 입력으로 연다(sources/direct 의 open). 파일은 그 본문, HLS 는 세그먼트 스트림(media/fragment-stream).
-//   live       끝이 없다(인터넷 라디오 · 라이브 HLS). 캐시하지 않는다
-//   bounded    끝이 있고 크기 · 길이를 안다(크기를 알린 파일 · VOD HLS). 재생과 나란히 다운로드해도 된다
+// 직접 링크를 재생, 다운로드 입력으로 연다(sources/direct 의 open). 파일은 그 본문, HLS 는 세그먼트 스트림(media/fragment-stream).
+//   live       끝이 없다(인터넷 라디오, 라이브 HLS). 캐시하지 않는다
+//   bounded    끝이 있고 크기, 길이를 안다(크기를 알린 파일, VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
 
 import type { Readable } from "stream";
@@ -11,7 +11,7 @@ import { codedError } from "../rules/error-kind.ts";
 import { streamFragments } from "./fragment-stream.ts";
 import { readerOf, type RangeFetch } from "./chunked-stream.ts";
 
-/** 이어받을 재료: 전체 크기 · 처음 응답의 검사값(If-Range) · 가드를 지나는 Range 요청 */
+/** 이어받을 재료: 전체 크기, 처음 응답의 검사값(If-Range), 가드를 지나는 Range 요청 */
 type Resumable = { totalBytes: number; validator: string | null; fetch: RangeFetch };
 type DirectInput = Readable & {
   headers?: Record<string, unknown>;
@@ -39,7 +39,7 @@ function validatorOf(headers: Record<string, unknown> = {}): string | null {
 }
 
 /**
- * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드 · DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
+ * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
  * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 다시 받지 않는다
  */
 function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {

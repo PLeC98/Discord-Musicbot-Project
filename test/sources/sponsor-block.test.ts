@@ -1,4 +1,4 @@
-// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억 · DB 캐시 · 라이브 · 뒤에서 다시 받기) + 응답 구분.
+// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억, DB 캐시, 라이브, 뒤에서 다시 받기) + 응답 구분.
 // 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
@@ -65,7 +65,7 @@ function seg(category: string, start: number, end: number, actionType = "skip", 
   return { category, actionType, segment: [start, end], votes: 0, locked: 0, ...extra };
 }
 
-// 실제 경로(forTrack)로 조회한다. 서버 설정이 없어 기본 카테고리(music_offtopic · intro · outro)
+// 실제 경로(forTrack)로 조회한다. 서버 설정이 없어 기본 카테고리(music_offtopic, intro, outro)
 const ask = (videoId: string) => SponsorBlock.forTrack({ audioUrl: `https://youtu.be/${videoId}` }, "gAsk");
 // 뒤에서 도는 다시 받기가 끝나게 한 바퀴씩 넘긴다
 async function settle(rounds = 20) {
@@ -140,9 +140,9 @@ test("normalize: 잘못된 구간(끝<=시작, 비유한값) 제거", () => {
   assert.deepEqual(skipSegments[0], { start: 0, end: 8, categories: ["intro"] });
 });
 
-// ── forTrack: 기억 · DB 캐시 · 라이브 ──────────────────────────────────────────
+// ── forTrack: 기억, DB 캐시, 라이브 ──────────────────────────────────────────
 
-test("마스터 킬스위치 off면 조회 · 캐시 없이 null", async () => {
+test("마스터 킬스위치 off면 조회, 캐시 없이 null", async () => {
   config.sponsorblock.enabled = false;
   let called = false;
   net.fetch = async () => {
@@ -153,7 +153,7 @@ test("마스터 킬스위치 off면 조회 · 캐시 없이 null", async () => {
   assert.equal(called, false);
 });
 
-test("DB에 없으면 라이브를 기다려 받고, 받은 때 · 주소와 함께 저장한다", async () => {
+test("DB에 없으면 라이브를 기다려 받고, 받은 때, 주소와 함께 저장한다", async () => {
   stubFetch("vidLive", [seg("music_offtopic", 0, 21, "skip", { locked: 1, votes: 41 })]);
   const r = await ask("vidLive");
   assert.equal(r?.source, "live");
@@ -174,7 +174,7 @@ test("조회 실패 + DB에 없음 → none, 스킵 없음", async () => {
 });
 
 // 기동 뒤(기억이 빈 채로) DB의 받은 때로 판단한다. 오래돼도 재생은 기다리지 않는다
-test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시간 · 구간 있음 7일) 뒤에서 한 번 다시 받아 기억 · DB를 바꾼다", async (t) => {
+test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시간, 구간 있음 7일) 뒤에서 한 번 다시 받아 기억, DB를 바꾼다", async (t) => {
   const now = 50 * DAY;
   t.mock.timers.enable({ apis: ["Date"], now });
   externalCaches.setSponsorSegments("vidHasSegs", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 7 * DAY + HOUR, apiBase: BASE });
@@ -207,7 +207,7 @@ test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시�
   assert.equal(urls.length, 2, "새로 받은 답은 다시 조회하지 않는다");
 });
 
-test("다시 받다 실패하면 가진 답 · 받은 때를 지키고 30분 쉰 뒤 다시 조회한다", async (t) => {
+test("다시 받다 실패하면 가진 답, 받은 때를 지키고 30분 쉰 뒤 다시 조회한다", async (t) => {
   const now = 50 * DAY;
   t.mock.timers.enable({ apis: ["Date"], now });
   externalCaches.setSponsorSegments("vidStale", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 8 * DAY, apiBase: BASE });
@@ -266,7 +266,7 @@ test("다른 주소에서 받은 답(주소를 바꿨거나 주소를 모르는 
   assert.equal(externalCaches.getSponsorSegments("vidMoved")?.apiBase, "https://new-mirror.example");
 });
 
-test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억 · 저장하지 않는다", async () => {
+test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억, 저장하지 않는다", async () => {
   const late = gated(() => reply([{ videoID: "vidLate", segments: [seg("intro", 0, 5)] }]));
   const playing = ask("vidLate");
   await settle();
@@ -279,7 +279,7 @@ test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억 �
   assert.equal((await ask("vidLate"))?.skipSegments[0]?.end, 6, "다음 곡부터 다시 조회한다");
 });
 
-// ── 응답 구분: 구간 없음이라는 답 · 구간 API가 아닌 응답 · 실패 ─────────────────
+// ── 응답 구분: 구간 없음이라는 답, 구간 API가 아닌 응답, 실패 ─────────────────
 
 const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
 const notices = (from: number) =>
@@ -289,7 +289,7 @@ const notices = (from: number) =>
     .map((e) => [e.level, e.text]);
 const noneStored = (videoId: string) => externalCaches.getSponsorSegments(videoId) === null;
 
-test("404 + JSON 빈 배열 · 200 + 이 영상의 빈 구간 · 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
+test("404 + JSON 빈 배열, 200 + 이 영상의 빈 구간, 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
   resetLinks();
   const answers = [
     reply([], 404), // 그 접두어에 구간이 하나도 없다
@@ -334,7 +334,7 @@ test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기
   ]);
 });
 
-test("400 · 429 · 5xx · 연결 오류는 실패: 저장하지 않고 연결 실패로 남기되 주소 경고는 하지 않는다", async () => {
+test("400, 429, 5xx, 연결 오류는 실패: 저장하지 않고 연결 실패로 남기되 주소 경고는 하지 않는다", async () => {
   resetLinks();
   const from = sink.buffer.length;
   for (const status of [400, 429, 503]) {
@@ -411,7 +411,7 @@ test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 
   assert.equal(r?.skipSegments.length, 1);
   assert.equal(Reflect.get(track, "sponsor"), undefined, "곡에는 붙이지 않는다");
 
-  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 다시 조회하지 않는다
+  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작, 복원) 다시 조회하지 않는다
   net.fetch = async () => {
     throw new Error("should not be called");
   };

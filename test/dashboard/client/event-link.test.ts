@@ -84,7 +84,7 @@ function harness({ checks = [] as boolean[] } = {}) {
   return { link, sources, states, delays, pending, tick, checked };
 }
 
-test("닫히면(200 이 아닌 답) 2 · 5 · 15초로 늘려 가며 다시 열고, 열리면 간격을 처음부터", async () => {
+test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 열리면 간격을 처음부터", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();

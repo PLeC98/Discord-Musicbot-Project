@@ -3,7 +3,7 @@
 import ipaddr from "ipaddr.js";
 
 /**
- * 공인(global unicast) IP 인가. 그 밖(사설 · 루프백 · 링크로컬 · CGNAT · 예약 · 멀티캐스트 등)은 아니다.
+ * 공인(global unicast) IP 인가. 그 밖(사설, 루프백, 링크로컬, CGNAT, 예약, 멀티캐스트 등)은 아니다.
  * 읽지 못하면 아니다. IPv4 를 담은 IPv6(::ffff:x)는 안의 IPv4 로 본다.
  * 막을 대역을 적지 않고 공인 unicast 만 통과시키므로, 라이브러리가 새 특수 대역을 알면 따라 막힌다.
  */

@@ -1,6 +1,6 @@
 <template>
   <!-- 로그인 화면: 리싱한 Hyprland 의 잠금 화면(hyprlock) 스타일. 봇 정보 탭의 터미널과 같은 재료(활성 창 그라데이션 테두리).
-       위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 선택 · locked · 봇 상태와 짧은 날짜), 가운데 큰 시계 · 고리 두른 봇 프로필 이미지 · hyprlock 입력란 모양의 로그인 버튼(오른쪽 끝 화살표, Enter 로도),
+       위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 선택, locked, 봇 상태와 짧은 날짜), 가운데 큰 시계, 고리 두른 봇 프로필 이미지, hyprlock 입력란 모양의 로그인 버튼(오른쪽 끝 화살표, Enter 로도),
        아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지).
        배경: 운영자가 지정한 로그인 배경(GET /api/login-background)이 있으면 그것(LoginBackdrop, 화면 색도 그 배경의 색), 없으면 봇 프로필 이미지.
        preview 면(운영자 패널의 "로그인 화면으로 보기") 배경을 그리지 않는다(부르는 쪽이 고친 값으로 그린다) -->
@@ -9,9 +9,9 @@
     <LoginBackdrop v-if="background" :bg="background" :look="background.look" adaptive paint-theme @stale="loadBackground" />
 
     <!-- waybar: 떠 있는 섬 셋 -->
-    <!-- 세 열 격자(1fr · 가운데 · 1fr): 양옆 섬 폭이 달라도 가운데 섬이 화면 가운데 -->
+    <!-- 세 열 격자(1fr, 가운데, 1fr): 양옆 섬 폭이 달라도 가운데 섬이 화면 가운데 -->
     <header ref="headerEl" class="relative z-20 grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 text-sm font-mono whitespace-nowrap">
-      <!-- 왼쪽: 밝기(어두운 · 밝은 · 시스템)를 작업 공간 알약 모양으로. 선택한 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다 -->
+      <!-- 왼쪽: 밝기(어두운, 밝은, 시스템)를 작업 공간 알약 모양으로. 선택한 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다 -->
       <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']" role="radiogroup" :aria-label="text.shell.brightness">
         <button v-for="m in MODE_PILLS" :key="m.mode" type="button" role="radio" :aria-checked="mode === m.mode" :aria-label="m.label" v-tooltip="m.label" class="group/ws h-9 px-1 flex items-center cursor-pointer" @click="setMode(m.mode)">
           <span class="h-4 rounded-full flex items-center justify-center transition-[width,background-color] duration-300 spring" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
@@ -28,18 +28,18 @@
       </div>
     </header>
 
-    <!-- hyprlock: 봇 프로필 이미지 · 이름 · 로그인 버튼 그룹이 화면 정가운데(세 행 격자 1fr · 그룹 · 1fr), 시계는 격자 밖에서 화면 높이 18% 가 중심.
-         위 막대 · 아래 섬과 상관없이 화면 전체 기준이라 바깥에 깐다.
+    <!-- hyprlock: 봇 프로필 이미지, 이름, 로그인 버튼 그룹이 화면 정가운데(세 행 격자 1fr, 그룹, 1fr), 시계는 격자 밖에서 화면 높이 18% 가 중심.
+         위 막대, 아래 섬과 상관없이 화면 전체 기준이라 바깥에 깐다.
          낮은 화면(휴대폰 가로 등, 높이 512px 이하)은 공간이 없어 큰 시계를 빼고(위 막대 오른쪽이 날짜 대신 시각), 그룹은 휴대폰 크기, 실패는 대화상자로 -->
     <main class="absolute inset-0 grid grid-rows-[1fr_auto_1fr] justify-items-center px-5 text-center">
       <!-- 시계: 화면 높이 18% 를 중심으로 고정(그룹과의 간격은 화면 높이를 따른다). 위 행은 비워 둔다. 낮은 화면은 공간이 없어 뺀다.
            그 위치가 위 막대나 그룹과 겹치면(애매하게 낮은 화면) 둘 사이 가운데로 옮기고 줄인다. 반 넘게 줄여야 하면 숨긴다(fit).
-           글자는 좁은 화면 7xl · 넓은 화면 8xl · 높이가 넉넉하면(tall, 56rem 이상) 9xl -->
+           글자는 좁은 화면 7xl, 넓은 화면 8xl, 높이가 넉넉하면(tall, 56rem 이상) 9xl -->
       <div></div>
       <p v-if="!short" ref="clockEl" :style="clockStyle" :class="fit.clockHidden && 'invisible'" class="absolute inset-x-0 top-[18%] -translate-y-1/2 font-round font-semibold nums leading-none tracking-[-0.04em] text-7xl md:text-8xl tall:text-9xl text-on-surface drop-shadow-[0_2px_12px_rgb(0_0_0/0.25)]">{{ clock }}</p>
 
-      <!-- 프로필 이미지 · 이름 · 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
-           크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 이미지 · 이름 · 버튼 사이는 같은 간격 -->
+      <!-- 프로필 이미지, 이름, 로그인 버튼 그룹이 화면 정가운데. 고리는 활성 창 테두리와 같은 45도 그라데이션.
+           크기는 폭만이 아니라 높이도 본다: 낮은 화면(휴대폰 가로)은 폭이 넓어도 휴대폰 크기. 정가운데에서 화면 높이 3% 만큼 올린다(눈으로 맞춘 값). 이미지, 이름, 버튼 사이는 같은 간격 -->
       <div ref="groupEl" class="relative w-full flex flex-col items-center translate-y-[-3dvh]">
         <span class="rounded-full p-0.75 bg-[linear-gradient(45deg,var(--md-primary),var(--md-tertiary))]" :class="short ? 'size-22' : 'size-44 md:size-48'">
           <span class="size-full rounded-full overflow-hidden ring-3 ring-surface bg-primary-container text-on-primary-container flex items-center justify-center">
@@ -49,7 +49,7 @@
         </span>
         <p class="font-semibold" :class="short ? 'mt-3 text-title-lg' : 'mt-4 text-title-lg md:text-2xl'">{{ botName || "MusicBot" }}</p>
 
-        <!-- 입력란 모양의 로그인 버튼. 실패면 테두리가 오류 색으로 바뀌고 한 번 흔들린다(hyprlock 의 fail_color · fail_text) -->
+        <!-- 입력란 모양의 로그인 버튼. 실패면 테두리가 오류 색으로 바뀌고 한 번 흔들린다(hyprlock 의 fail_color, fail_text) -->
         <!-- 미리 보기(preview)는 모양만: 눌러도 로그인하러 가지 않는다 -->
         <a :href="preview ? undefined : '/auth/login'" class="state-layer relative w-full rounded-full pane flex items-center pr-2 no-underline text-on-surface" :class="[short ? 'mt-3 max-w-56 h-11 gap-2.5 pl-4' : 'mt-4 max-w-56 h-11 md:max-w-72 md:h-13 gap-2.5 md:gap-3 pl-4 md:pl-5', error ? 'fail-shake ring-2 ring-error' : 'term-border']">
           <DiscordMark :size="22" class="shrink-0 text-[#5865F2]" :class="short ? 'w-4.5 h-auto' : 'max-md:w-4.5 max-md:h-auto'" />
@@ -58,7 +58,7 @@
           <span class="shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center" :class="short ? 'size-8' : 'size-8 md:size-9'"><Icon name="arrow_forward" :size="20" /></span>
         </a>
 
-        <!-- 실패 까닭 · 안내. 그룹 밑에 띄워(absolute) 그룹의 가운데를 흔들지 않는다. 낮은 화면은 밑에 공간이 없어 실패는 대화상자로, 안내는 뺀다.
+        <!-- 실패 까닭, 안내. 그룹 밑에 띄워(absolute) 그룹의 가운데를 흔들지 않는다. 낮은 화면은 밑에 공간이 없어 실패는 대화상자로, 안내는 뺀다.
              아래 섬에 닿으면(애매하게 낮은 화면)도 같다: 위치를 재는 동안에도 크기가 남게 숨기기만 한다(fit) -->
         <div v-if="!short" ref="belowEl" class="absolute top-full inset-x-0 flex flex-col items-center" :class="!fit.belowFits && 'invisible'">
           <p v-if="error" class="mt-3 max-w-72 pane rounded-2xl px-4 py-3 text-body text-error whitespace-pre-line">
@@ -112,7 +112,7 @@ const NL = "\n";
 const ISLAND = "pane rounded-full h-9 px-4 flex items-center gap-2 text-on-surface";
 const LINK = "text-on-surface no-underline hover:underline";
 
-/** preview: 운영자 패널이 고친 값으로 배경을 따로 그린다(배경 · 봇 프로필 이미지를 깔지 않는다) */
+/** preview: 운영자 패널이 고친 값으로 배경을 따로 그린다(배경, 봇 프로필 이미지를 깔지 않는다) */
 const props = withDefaults(defineProps<{ preview?: boolean }>(), { preview: false });
 
 const route = useRoute();
@@ -124,7 +124,7 @@ const botAvatar = ref<string>();
 const botName = ref("");
 const sourceRepo = ref<string>();
 const projectRepo = ref<string>();
-// 고친 소스를 따로 공개했으면 수정본 · 원본 둘 다(라이선스 대화상자와 같은 기준)
+// 고친 소스를 따로 공개했으면 수정본, 원본 둘 다(라이선스 대화상자와 같은 기준)
 const modified = computed(() => isModifiedSource(sourceRepo.value, projectRepo.value));
 // 봇에 닿는지(봇 정보를 불러왔으면 online)
 const online = ref(true);
@@ -157,9 +157,9 @@ const MODE_PILLS: Array<{ mode: Mode; label: string; icon: IconName }> = [
 // 위 막대 오른쪽의 짧은 날짜("Fri 10/09"). 날짜는 여기에만 둔다. 잠금 화면 스타일이라 영어로 적는다(utils/locale 의 예외)
 const shortDate = computed(() => `${now.value.toLocaleDateString("en-US", { weekday: "short" })} ${two(now.value.getMonth() + 1)}/${two(now.value.getDate())}`);
 
-// 애매하게 낮은 화면(낮은 화면 기준보다는 높지만 시계 · 그룹 · 밑 안내 · 아래 섬이 다 들어가지 않는 높이)에서 겹치지 않게.
+// 애매하게 낮은 화면(낮은 화면 기준보다는 높지만 시계, 그룹, 밑 안내, 아래 섬이 다 들어가지 않는 높이)에서 겹치지 않게.
 // 넉넉하면 처음 위치 그대로. 시계는 위 막대와 그룹 사이에 들어가게 옮기고 줄이며(반 넘게 줄여야 하면 숨긴다),
-// 밑 안내가 아래 섬에 닿으면 실패는 대화상자로, Enter 안내는 숨긴다. 화면 · 그룹 크기가 바뀔 때마다 다시 잰다
+// 밑 안내가 아래 섬에 닿으면 실패는 대화상자로, Enter 안내는 숨긴다. 화면, 그룹 크기가 바뀔 때마다 다시 잰다
 const rootEl = ref<HTMLElement | null>(null);
 const headerEl = ref<HTMLElement | null>(null);
 const clockEl = ref<HTMLElement | null>(null);
@@ -224,7 +224,7 @@ onKeyStroke("Enter", () => !props.preview && login());
 const errorClosed = ref(false);
 
 onMounted(async () => {
-  // 틀 없이 연 미리 보기(meta.bare) · 운영자 패널 위에 연 미리 보기(preview)는 로그인했어도 둔다
+  // 틀 없이 연 미리 보기(meta.bare), 운영자 패널 위에 연 미리 보기(preview)는 로그인했어도 둔다
   if (user.isLoggedIn && !route.meta.bare && !props.preview) {
     await router.replace("/dashboard");
     return;
@@ -234,14 +234,14 @@ onMounted(async () => {
   try {
     const res = await axios.get<BotInfo>("/api/bot");
     botAvatar.value = res.data.avatarUrl ?? undefined;
-    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 프로필 이미지를 배경(쓰임 avatar: 원본 해상도, 옅은 블러 · 밝기 띠)과 색으로 깐다
+    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 프로필 이미지를 배경(쓰임 avatar: 원본 해상도, 옅은 블러, 밝기 띠)과 색으로 깐다
     await backgroundRead;
     if (!props.preview && !background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
     botName.value = res.data.name ?? "";
     sourceRepo.value = res.data.sourceRepo;
     projectRepo.value = res.data.projectRepo;
   } catch {
-    // 봇 프로필 이미지 · 이름은 꾸밈이다. 못 불러오면 기본 이미지로 두고 위 막대에 offline 을 표시한다
+    // 봇 프로필 이미지, 이름은 꾸밈이다. 못 불러오면 기본 이미지로 두고 위 막대에 offline 을 표시한다
     online.value = false;
   }
 });

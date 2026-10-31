@@ -45,7 +45,7 @@ let ready = true;
 const guilds = new Map<string, FakeGuild>();
 const client = { isReady: () => ready, guilds: { cache: guilds } };
 
-// 구독을 받으면 보기 권한 확인(canSee) · 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다
+// 구독을 받으면 보기 권한 확인(canSee), 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다
 const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string; guilds: Set<string> }> = [];
 const nudged: string[] = [];
 let full = false;
@@ -96,7 +96,7 @@ beforeEach(() => {
 const visible = (canSee: (guildId: string) => boolean, ids: string[]) => ids.filter((id) => canSee(id));
 const open = () => requestJson(base, "GET", "/api/guilds/events");
 
-test("사용자가 든 서버만 가져와 보인다. 든 적 없는 서버 · 봇이 없는 서버는 묻지도 않는다", async () => {
+test("사용자가 든 서버만 가져와 보인다. 든 적 없는 서버, 봇이 없는 서버는 묻지도 않는다", async () => {
   const { status } = await open();
   assert.equal(status, 200);
   assert.equal(subscribed[0].userId, "u1");
@@ -120,7 +120,7 @@ test("운영자도 참가한 서버만", async () => {
   assert.deepEqual(visible(subscribed[0].canSee, ["g1", "g2"]), []);
 });
 
-test("서버 목록을 받지 못하면(토큰 없음 · 거절) 이미 확인한 서버만 보이고, 봇이 든 서버마다 묻지 않는다", async () => {
+test("서버 목록을 받지 못하면(토큰 없음, 거절) 이미 확인한 서버만 보이고, 봇이 든 서버마다 묻지 않는다", async () => {
   user = { id: "u2", username: "토큰 없음" };
   guilds.get("g1")?.members.cache.set("u2", { id: "u2" });
   tokens.signIn("u2", { token: false });
@@ -179,7 +179,7 @@ test("게이트웨이에 재연결해 사용 불가 서버가 다시 사용 가�
   await open();
   const g1 = guilds.get("g1");
   assert.ok(g1);
-  // discord.js 가 GUILD_CREATE 에서 멤버 캐시를 비우고 봇 · 음성 채널 사람만 채운다
+  // discord.js 가 GUILD_CREATE 에서 멤버 캐시를 비우고 봇, 음성 채널 사람만 채운다
   g1.members.cache.clear();
   g1.fetched.length = 0;
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), [], "비운 캐시로는 보이지 않는다");

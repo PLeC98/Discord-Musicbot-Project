@@ -1,6 +1,6 @@
 // 운영 조절값(rules/tunables)을 settings.db 의 "tunables" 문서에서 꺼내 설정 객체에 올린다.
-// 기동 시 한 번(boot), 대시보드에서 저장할 때마다(save). 계산은 .env 와 같은 loadConfig 가 한다(검사 · 단위 · 다듬기가 하나).
-// 저장하면 설정 객체를 고치고 알린다(config/tunables-changed). 기동 시 만들어 둔 제한기 · 타이머가 듣고 다시 만든다.
+// 기동 시 한 번(boot), 대시보드에서 저장할 때마다(save). 계산은 .env 와 같은 loadConfig 가 한다(검사, 단위, 다듬기가 하나).
+// 저장하면 설정 객체를 고치고 알린다(config/tunables-changed). 기동 시 만들어 둔 제한기, 타이머가 듣고 다시 만든다.
 // 다시 시작해야 적용되는 값(restart)은 저장해도 기동 시 값으로 돈다. 저장하자마자 반쯤 적용되는 일(실행하지 않은 POToken 서버를 찾는 따위)이 없게.
 
 import logger from "../infra/log/logger.ts";
@@ -17,7 +17,7 @@ const DOC = "tunables";
 // 기동 시 올린 값. 다시 시작해야 적용되는 값은 이것으로 돈다
 let booted: Record<string, string> = {};
 
-/** 문서에서 아는 이름 · 문자열 값만 남긴다. 빈 문자열은 기본값이라 뺀다. 공백은 tunableValue 대로(텍스트 필드는 남긴다) */
+/** 문서에서 아는 이름, 문자열 값만 남긴다. 빈 문자열은 기본값이라 뺀다. 공백은 tunableValue 대로(텍스트 필드는 남긴다) */
 function shape(data: unknown): Record<string, string> {
   const source = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const out: Record<string, string> = {};
@@ -75,7 +75,7 @@ function effective(saved: Record<string, string>) {
 
 /**
  * 저장. values 는 필드 전부(빈 필드는 기본값), revision 은 화면이 읽은 번호.
- * 모르는 이름 · 틀린 값이면 CONFIG_INVALID(problems), 그사이 다른 저장이 있었으면 REVISION_CONFLICT 로 던진다
+ * 모르는 이름, 틀린 값이면 CONFIG_INVALID(problems), 그사이 다른 저장이 있었으면 REVISION_CONFLICT 로 던진다
  */
 function save(values: Record<string, unknown>, revision: number): TunablesView {
   const problems = problemsOf(values);
@@ -86,7 +86,7 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
   return { values: saved, revision: next, pending: pendingOf(saved) };
 }
 
-/** 저장 전 검사(모르는 이름 · 문자열이 아닌 값 · .env 와 같은 값 검사). 문제 줄들 */
+/** 저장 전 검사(모르는 이름, 문자열이 아닌 값, .env 와 같은 값 검사). 문제 줄들 */
 function problemsOf(values: Record<string, unknown>): string[] {
   const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);

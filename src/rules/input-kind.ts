@@ -1,5 +1,5 @@
 // 판정: 이 링크는 누가 다루나. 보는 것은 주소 문자열뿐이다.
-// 답: youtube · spotify · soundcloud · direct · search · unknown.
+// 답: youtube, spotify, soundcloud, direct, search, unknown.
 //   direct   알려진 사이트 밖의 http(s) 주소. 음원인지는 열어 본 응답으로 판정한다(sources/direct-open)
 //   search   링크가 아닌 글(검색어)
 //   unknown  알려진 사이트의 주소인데 우리가 다루지 않는 모양. 거절한다(주소 문자열을 검색어로 쓰면 엉뚱한 곡이 나온다)

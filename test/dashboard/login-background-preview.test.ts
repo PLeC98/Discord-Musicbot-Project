@@ -1,5 +1,5 @@
 // src/dashboard/login-background/preview.ts: 편집 창의 미리보기와 세트 크기 추산. 실제 ffmpeg 로 돌린다(없으면 건너뛴다).
-// 영상(보통 · 투명이 있는 GIF · HDR)은 480p 안쪽 H.264 미리보기와 초마다의 추산, 이미지는 WebP 미리보기와 정지 그림 세트의 추산. 크롭을 정하면 그 구간만 다시 센다
+// 영상(보통, 투명이 있는 GIF, HDR)은 480p 안쪽 H.264 미리보기와 초마다의 추산, 이미지는 WebP 미리보기와 정지 그림 세트의 추산. 크롭을 정하면 그 구간만 다시 센다
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -82,7 +82,7 @@ test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이�
   assert.deepEqual([estimate.crop, estimate.counted, estimate.rough], [{ x: 0, y: 0, w: 1, h: 1 }, null, false]);
 });
 
-test("투명이 있는 GIF · HDR 영상도 미리보기를 만든다", opts, async () => {
+test("투명이 있는 GIF, HDR 영상도 미리보기를 만든다", opts, async () => {
   for (const name of ["alpha.gif", "hdr.mp4"]) {
     const one = await made(name);
     await run(one);
@@ -102,7 +102,7 @@ test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 �
   const meta = await sharp(previewOf(one.id)!).metadata();
   assert.deepEqual([meta.format, meta.width, meta.height, meta.hasAlpha], ["webp", 1280, 640, false]);
   one.estimate = result.estimate!;
-  // 폭 2000: 1280 · 1920 두 장
+  // 폭 2000: 1280, 1920 두 장
   assert.ok(one.estimate.stillBytes > 0);
   const half = await recount({ item: one, folder: store.folderOf(one.id), crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, range: null, signal });
   assert.ok(half.stillBytes < one.estimate.stillBytes, `${half.stillBytes} < ${one.estimate.stillBytes}`);
@@ -128,7 +128,7 @@ test("장면 띠: 0.5초 간격(최대 160장)으로 높이 128 장면을 10열 
   const one = await made("clip.mp4");
   await run(one);
   const result = await strip({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
-  // 3초: 6장 · 0.5초, 16:9 미리보기라 셀 하나 228 × 128
+  // 3초: 6장, 0.5초, 16:9 미리보기라 셀 하나 228 × 128
   assert.deepEqual(result.strip, { count: 6, every: 0.5, columns: 10, width: 228, height: 128 });
   const meta = await sharp(stripOf(one.id)!).metadata();
   assert.deepEqual([meta.format, meta.width, meta.height], ["webp", 2280, 128]);

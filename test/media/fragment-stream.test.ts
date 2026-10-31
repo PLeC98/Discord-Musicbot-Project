@@ -47,7 +47,7 @@ test("위치는 그 위치가 든 세그먼트부터. 세그먼트 하나의 길
   assert.deepEqual(startOf({ base, count: 5 }, 10_000, 99_999), { index: 4, atMs: 8_000 }, "끝을 넘으면 마지막 세그먼트");
 });
 
-test("5xx · 네트워크 오류는 그 세그먼트만 다시 받는다", async () => {
+test("5xx, 네트워크 오류는 그 세그먼트만 다시 받는다", async () => {
   const { impl, asked } = fakeFetch((i, attempt) => (i === 1 && attempt === 0 ? 503 : i === 2 && attempt === 0 ? "throw" : "ok"));
   const s = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [1, 1] });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");

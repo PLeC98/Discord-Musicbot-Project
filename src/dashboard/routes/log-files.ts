@@ -1,4 +1,4 @@
-// 로그 파일 보기(/api/admin/logs/files · /file · /file/download). 운영자만. 모양은 contract/log-files, 읽기는 log-file-reader.
+// 로그 파일 보기(/api/admin/logs/files, /file, /file/download). 운영자만. 모양은 contract/log-files, 읽기는 log-file-reader.
 // 파일 이름은 목록의 이름만 받는다(경로를 받지 않는다). 파일 로그를 껐으면 목록이 비고 읽기는 log-file-not-found
 
 import path from "path";

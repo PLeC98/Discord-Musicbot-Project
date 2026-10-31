@@ -1,4 +1,4 @@
-// src/player/track-state.ts: 현재곡·대기열·기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
+// src/player/track-state.ts: 현재곡, 대기열, 기록 전이. 플레이어 없이 필드만 가진 객체로 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -78,7 +78,7 @@ test("rewind: 이전 곡을 맨 앞에, 중단된 현재곡을 그 뒤에 둔다
   assert.deepEqual(titles(none.queue), ["D"], "기록이 없으면 아무것도 바꾸지 않는다");
 });
 
-test("previousOf: 이전 곡을 누르면 틀 곡을 바꾸지 않고 본다(한곡 반복 · 고리에 지금 곡뿐이면 지금 곡, 대기열 반복은 대기열 끝, 아니면 기록 끝)", () => {
+test("previousOf: 이전 곡을 누르면 틀 곡을 바꾸지 않고 본다(한곡 반복, 고리에 지금 곡뿐이면 지금 곡, 대기열 반복은 대기열 끝, 아니면 기록 끝)", () => {
   const plain = make({ current: t("C"), queue: [t("D")], history: [t("A"), t("B")] });
   assert.equal(trackState.previousOf(plain)?.title, "B");
   assert.deepEqual([titles(plain.queue), titles(plain.previousTracks)], [["D"], ["A", "B"]], "바꾸지 않는다");
@@ -102,7 +102,7 @@ test("previousOf: 이전 곡을 누르면 틀 곡을 바꾸지 않고 본다(한
   assert.equal(trackState.previousOf(make({ history: [t("A")] })), null, "지금 곡이 없으면 없다");
 });
 
-test("removeAt·move: 범위 밖이면 null이고 아무것도 바꾸지 않는다", () => {
+test("removeAt, move: 범위 밖이면 null이고 아무것도 바꾸지 않는다", () => {
   const p = make({ queue: [t("A"), t("B"), t("C")] });
   assert.equal(trackState.removeAt(p, 3), null);
   assert.equal(trackState.move(p, 0, 3), null);
@@ -120,7 +120,7 @@ test("shuffle: 구성원은 그대로다", () => {
   assert.deepEqual(titles(p.queue).sort(), ["A", "B", "C", "D", "E"]);
 });
 
-test("clearQueue: 비운 개수를 돌려주고 현재곡·기록은 남긴다", () => {
+test("clearQueue: 비운 개수를 돌려주고 현재곡, 기록은 남긴다", () => {
   const p = make({ current: t("X"), queue: [t("A"), t("B")], history: [t("H")] });
   assert.equal(trackState.clearQueue(p), 2);
   assert.deepEqual(p.queue, []);
@@ -210,9 +210,9 @@ test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 
     trackState.shiftNext(p);
   };
   next("skip");
-  next("skip"); // 지금 C, 기록 A · B
+  next("skip"); // 지금 C, 기록 A, B
   trackState.rewindRing(p);
-  next("previous"); // 지금 B(고리로 되돌림), 기록은 그대로 A · B
+  next("previous"); // 지금 B(고리로 되돌림), 기록은 그대로 A, B
   p.loop = false;
   assert.equal(trackState.rewind(p), A, "기록 끝의 B 는 지금 곡이라 건너뛰고 A");
   next("previous");
@@ -228,9 +228,9 @@ test("rewind: 반복이 아니면 같은 곡이 대기열에 있어도 건드리
 });
 
 // ── 대기열 ID ─────────────────────────────────────────────────────
-// 대시보드가 빼기 · 옮기기 · "지금 곡이 이것일 때만"을 순번이 아니라 이 번호로 가리킨다
+// 대시보드가 빼기, 옮기기, "지금 곡이 이것일 때만"을 순번이 아니라 이 번호로 가리킨다
 
-test("대기열 ID: 들어오는 다섯 길(지금 곡 · 넣기 · 자동재생 앞 · 뒤에 잇기 · 복원)에서 찍고, 서로 다르다", () => {
+test("대기열 ID: 들어오는 다섯 길(지금 곡, 넣기, 자동재생 앞, 뒤에 잇기, 복원)에서 찍고, 서로 다르다", () => {
   const p = make({ current: t("R0"), queue: [t("R1")], history: [t("R2")] });
   trackState.setCurrent(p, t("C"));
   trackState.enqueue(p, [t("E1"), t("E2")]);
@@ -247,7 +247,7 @@ test("대기열 ID: 들어오는 다섯 길(지금 곡 · 넣기 · 자동재생
   assert.equal(new Set(entries).size, entries.length, "겹치지 않는다");
 });
 
-test("대기열 ID: 옮기기 · 섞기 · 되감기 · 반복으로 끝에 돌리기는 같은 번호, 복사해 넣은 곡은 새 번호", () => {
+test("대기열 ID: 옮기기, 섞기, 되감기, 반복으로 끝에 돌리기는 같은 번호, 복사해 넣은 곡은 새 번호", () => {
   const p = make();
   const a = t("A");
   const b = t("B");

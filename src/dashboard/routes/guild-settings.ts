@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할 · 전용 채널 · SponsorBlock · 재생목록 곡 수 · 연령 제한 콘텐츠를 재생할 곳). 모더레이터만(봇 운영자도 그 서버의 권한대로)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠를 재생할 곳). 모더레이터만(봇 운영자도 그 서버의 권한대로)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -25,7 +25,7 @@ type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
 /** 반영할 것. undefined 는 변경 없음, null 은 해제 */
 type SettingsPlan = { roles?: string[]; channel?: string | null; sponsor?: { enabled: boolean | null; categories: string[] | null }; playlistAdd?: number | null; agePlace?: AgePlace };
 
-// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할 · 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제
+// 본문을 이 서버에 맞춰 반영할 것으로. 서버에 없는 역할, 모르는 카테고리는 필터링하고, 받을 수 없는 값이면 그 문제
 function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, playlistAddMax, agePlace }: SettingsBody): SettingsPlan | { refused: Problem } {
   const plan: SettingsPlan = { playlistAdd: playlistAddMax, agePlace };
 
@@ -71,8 +71,8 @@ async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAd
 function createGuildSettingsRouter() {
   const router = express.Router();
 
-  // 서버 설정 조회. DJ 역할·봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-  // 조회·변경 모두 모더레이터 전용(일반 멤버는 ⚙ 진입 자체 불가).
+  // 서버 설정 조회. DJ 역할, 봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
+  // 조회, 변경 모두 모더레이터 전용(일반 멤버는 ⚙ 진입 자체 불가).
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -120,7 +120,7 @@ function createGuildSettingsRouter() {
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
   });
 
-  // 서버 설정 변경. 모더레이터만. /setting · /setchannel 과 같은 기준.
+  // 서버 설정 변경. 모더레이터만. /setting, /setchannel 과 같은 기준.
   // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);

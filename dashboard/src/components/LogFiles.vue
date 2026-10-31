@@ -1,10 +1,10 @@
 <template>
-  <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(헤더 · 필터 · 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
+  <!-- 로그 파일 보기. 실시간 로그 창과 같은 틀(헤더, 필터, 줄 영역). 실시간 로그의 "파일 보기"가 여는 페이지(views/LogFilesView)에 놓인다.
        배치는 카드 안쪽 폭(px)으로 바꾼다(사이드바를 접은 화면 = 화면 - 116, 1280 이상은 - 124):
-       1187 이상: 레벨 / 카테고리 · 태그 · 검색 … 날짜 · 시간(224) · 파일(256).
-       935 ~ 1186: 오른쪽이 한 열이 되어 날짜 · 시간(256)을 파일 위로(첫 줄 오른쪽까지).
-       934 이하: [필터 · 검색 … 날짜 · 시간 · 파일] 한 줄. 레벨 · 카테고리 · 태그는 필터 창에(선택하는 대로 반영).
-       804 이하는 날짜 · 시간을, 524 이하(사이드바를 편 820 · 휴대폰)는 파일까지 필터 창에(날짜 · 시간은 선택 창의 "적용"). 오른쪽이 다 빠지면 검색 입력란이 남은 폭을 다 쓴다 -->
+       1187 이상: 레벨 / 카테고리, 태그, 검색 … 날짜, 시간(224), 파일(256).
+       935 ~ 1186: 오른쪽이 한 열이 되어 날짜, 시간(256)을 파일 위로(첫 줄 오른쪽까지).
+       934 이하: [필터, 검색 … 날짜, 시간, 파일] 한 줄. 레벨, 카테고리, 태그는 필터 창에(선택하는 대로 반영).
+       804 이하는 날짜, 시간을, 524 이하(사이드바를 편 820, 휴대폰)는 파일까지 필터 창에(날짜, 시간은 선택 창의 "적용"). 오른쪽이 다 빠지면 검색 입력란이 남은 폭을 다 쓴다 -->
   <section ref="card" class="@container/card pane rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] -mb-(--player) flex flex-col gap-3 h-[calc(var(--desk-h)-var(--gap-out)*2)]">
     <PaneHeader icon="folder" :title="T.title">
       <!-- 실시간 로그처럼 제목 옆에 선택한 파일의 전체 줄 수(불러온 수가 아니라). 검색된 줄 수는 검색 입력란 안에 -->
@@ -53,11 +53,11 @@
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 max-w-72" />
       </div>
       <DateTimePicker v-model="at" class="[grid-area:when] w-64 @min-[1187px]/card:w-56" :ranges="ranges" @go="jump" />
-      <!-- 파일 칸 256px: 나올 수 있는 가장 넓은 시각 글("2000/04/04 AM 04:00:00 까지", 숫자 폭이 제각각인 글꼴에서 0 · 4 가 넓다)과 여백 · 꺾쇠가 들어간다 -->
+      <!-- 파일 칸 256px: 나올 수 있는 가장 넓은 시각 글("2000/04/04 AM 04:00:00 까지", 숫자 폭이 제각각인 글꼴에서 0, 4 가 넓다)과 여백, 꺾쇠가 들어간다 -->
       <SingleSelect v-model="file" class="[grid-area:file] w-64" :options="fileOptions" />
     </div>
 
-    <!-- 줄 영역: 위 · 아래 끝에 닿으면 앞 · 뒤의 줄을 저절로 이어 붙인다(그동안 그 끝에 "불러오는 중"). 스크롤바는 실시간 로그와 같다 -->
+    <!-- 줄 영역: 위, 아래 끝에 닿으면 앞, 뒤의 줄을 저절로 이어 붙인다(그동안 그 끝에 "불러오는 중"). 스크롤바는 실시간 로그와 같다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
       <p v-if="!enabled" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ T.off }}</p>
       <template v-else>
@@ -114,7 +114,7 @@ function toggleLevel(v: LevelName) {
   levelsOn.value = next;
 }
 const term = ref("");
-// 카테고리 · 태그: 그 파일에 나온 것(파일 목록이 준다). "" 이면 필터링하지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
+// 카테고리, 태그: 그 파일에 나온 것(파일 목록이 준다). "" 이면 필터링하지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
 const category = ref<OptionValue>("");
 const tag = ref<OptionValue>("");
 const categoryOptions = computed<Option[]>(() => (current.value?.categories ?? []).map((c) => ({ value: c, label: c, color: catColor(c) })));
@@ -128,7 +128,7 @@ const file = ref<OptionValue>("");
 const current = computed(() => files.value.find((f) => f.name === file.value));
 const latest = () => files.value.find((f) => f.current) ?? files.value[0];
 const fileOptions = computed<Option[]>(() => files.value.map((f) => ({ value: f.name, label: f.current ? T.latest : T.until(f.lastAt) })));
-// 날짜 · 시간은 파일마다의 기간에서 선택한다(로그가 없는 사이는 막힌다. 선택한 시각이 든 파일로 저절로 바꿔 연다). 빈 파일은 빼고
+// 날짜, 시간은 파일마다의 기간에서 선택한다(로그가 없는 사이는 막힌다. 선택한 시각이 든 파일로 저절로 바꿔 연다). 빈 파일은 빼고
 const ranges = computed(() => files.value.filter((f) => f.lines).map((f): [number, number] => [f.firstAt, f.lastAt]));
 // 시각이 든 파일: 그 기간 안이면 그 파일, 사이(파일을 떼어 낸 틈)면 그 뒤로 가장 먼저 끝난 파일
 const fileAt = (ms: number) => files.value.find((f) => f.lines && f.firstAt <= ms && ms <= f.lastAt) ?? [...files.value].sort((a, b) => a.lastAt - b.lastAt).find((f) => f.lastAt >= ms) ?? latest();
@@ -235,7 +235,7 @@ function onScroll() {
   else if (el.scrollHeight - el.scrollTop - el.clientHeight < 40 && later.value) void loadLater();
 }
 
-// ── 날짜 · 시간 ──
+// ── 날짜, 시간 ──
 const at = ref<number | null>(null);
 // 선택한 시각 둘레로. null(초기화)이면 최신 파일의 끝에서부터
 function jump(ms: number | null) {
@@ -247,7 +247,7 @@ function jump(ms: number | null) {
   void reload(ms == null ? {} : { at: ms });
 }
 
-// 파일 · 필터를 바꾸면 끝에서부터 다시. 날짜 · 시간으로 파일을 바꿀 때는 그쪽이 그 시각으로 읽으므로 한 번 건너뛴다
+// 파일, 필터를 바꾸면 끝에서부터 다시. 날짜, 시간으로 파일을 바꿀 때는 그쪽이 그 시각으로 읽으므로 한 번 건너뛴다
 let skipWatch = false;
 watch([file, levelsOn, category, tag], () => {
   if (skipWatch) return void (skipWatch = false);
@@ -260,7 +260,7 @@ watch(term, () => {
 });
 
 // ── 필터 창 ──
-// 안의 필터는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜 · 시간(카드 804px 이하) · 파일(524px 이하). 휴대폰은 둘 다 창 안에 있다
+// 안의 필터는 줄의 것과 같은 값을 바로 바꾼다. 필터 창이 맡은 것만 센다: 줄에서 빠진 날짜, 시간(카드 804px 이하), 파일(524px 이하). 휴대폰은 둘 다 창 안에 있다
 const sheetOpen = ref(false);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const card = ref<HTMLElement | null>(null);
@@ -269,14 +269,14 @@ const dateInside = computed(() => isPhone.value || cardWidth.value <= 804);
 const fileInside = computed(() => isPhone.value || cardWidth.value <= 524);
 const sameLevels = () => levelsOn.value.size === BASE_LEVELS.length && BASE_LEVELS.every((l) => levelsOn.value.has(l));
 const activeFilters = computed(() => Number(!sameLevels()) + Number(Boolean(category.value)) + Number(Boolean(tag.value)) + (fileInside.value ? Number(file.value !== latest()?.name) : 0) + (dateInside.value ? Number(at.value != null) : 0));
-// 초기화: 기본 레벨 · 모든 카테고리 · 모든 태그, 창 안에 있으면 최신 파일 · 파일 끝으로
+// 초기화: 기본 레벨, 모든 카테고리, 모든 태그, 창 안에 있으면 최신 파일, 파일 끝으로
 function resetFilters() {
   levelsOn.value = new Set(BASE_LEVELS);
   category.value = "";
   tag.value = "";
   if (fileInside.value) file.value = latest()?.name ?? "";
   if (!dateInside.value) return;
-  // 시각으로 옮겨 가 있었으면 파일 끝으로 돌아온다(파일 · 레벨이 그대로면 다시 읽기가 걸리지 않는다)
+  // 시각으로 옮겨 가 있었으면 파일 끝으로 돌아온다(파일, 레벨이 그대로면 다시 읽기가 걸리지 않는다)
   if (at.value != null) jump(null);
   at.value = null;
 }

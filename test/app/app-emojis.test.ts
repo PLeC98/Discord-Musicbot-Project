@@ -133,7 +133,7 @@ test("운영자가 같은 이름으로 올린 이모지는 건드리지 않고 �
   assert.equal(icon("pause"), "⏸️");
 });
 
-test("봇이 올렸는데 쓰지 않는 것(표에서 뺀 것 · 이름 바꾸다 남은 임시 이름)은 지운다", async () => {
+test("봇이 올렸는데 쓰지 않는 것(표에서 뺀 것, 이름 바꾸다 남은 임시 이름)은 지운다", async () => {
   const app = fakeApp([
     { id: "1", name: "old_icon", animated: false, mine: true },
     { id: "2", name: "pause_1", animated: false, mine: true },

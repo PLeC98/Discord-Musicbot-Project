@@ -1,5 +1,5 @@
-// 설정 파일 편집기 하나의 주고받기: 읽기 · 저장 · 되돌리기 · 저장하지 않은 편집 · 서버가 가리킨 문제.
-// 장르 · 상태 문구 · AI 설정 편집기가 같이 쓴다. 화면에 그릴 형태로 바꾸는 것(apply)과 보낼 형태(payload)는 편집기가 정한다
+// 설정 파일 편집기 하나의 주고받기: 읽기, 저장, 되돌리기, 저장하지 않은 편집, 서버가 가리킨 문제.
+// 장르, 상태 문구, AI 설정 편집기가 같이 쓴다. 화면에 그릴 형태로 바꾸는 것(apply)과 보낼 형태(payload)는 편집기가 정한다
 
 import { ref, computed, watch } from "vue";
 import axios from "axios";
@@ -32,7 +32,7 @@ type Options = {
 
 /**
  * /api/admin/config/<name> 으로 읽고 쓰는 것. 읽은 저장 번호를 들고 있다가 저장할 때 돌려보낸다
- * (그사이 다른 탭 · 다른 사람이 저장했으면 서버가 config-changed 로 거절한다)
+ * (그사이 다른 탭, 다른 사람이 저장했으면 서버가 config-changed 로 거절한다)
  */
 export const configFileIo = (name: string) => {
   let revision = 0;
@@ -54,7 +54,7 @@ export const configFileIo = (name: string) => {
 export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, readDefault, savedNote }: Options) {
   const snapshot = ref("");
   // 처음 불러오기 전에는 고친 것도 문제도 없다. 불러오기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
-  // 저장 막대 · 검사 오류 · 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사 · 빈 목록 안내를 가린다
+  // 저장 막대, 검사 오류, 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사, 빈 목록 안내를 가린다
   const loaded = ref(false);
   const saving = ref(false);
   const loadError = ref("");

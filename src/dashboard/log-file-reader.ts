@@ -1,12 +1,12 @@
 // 로그 파일 읽기(대시보드의 로그 파일 보기). 기록(infra/log/file.ts)이 남긴 NDJSON 을 실시간 로그와 같은 필드로 읽는다.
 //
-// 페이지는 파일 안의 바이트 위치로 넘긴다: 어느 위치 앞의 줄(before, 없으면 끝에서부터) · 어느 줄 뒤의 줄(after) · 시각 둘레(at).
+// 페이지는 파일 안의 바이트 위치로 넘긴다: 어느 위치 앞의 줄(before, 없으면 끝에서부터), 어느 줄 뒤의 줄(after), 시각 둘레(at).
 // 줄은 시간 순서라 시각은 위치를 반씩 좁혀 찾는다. 줄은 0x0A 로만 자른다(UTF-8 의 여러 바이트 글자 안에는 0x0A 가 없어 청크 경계에서 안전하다).
-// 쓰는 중이라 덜 된 마지막 줄 · 읽을 수 없는 줄은 건너뛴다.
+// 쓰는 중이라 덜 된 마지막 줄, 읽을 수 없는 줄은 건너뛴다.
 //
 // 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어진다(내용은 그대로). 그래서 파일을 첫 줄의 시각(since)으로 알아보고,
 // 보던 파일이 떼어졌으면 같은 첫 줄을 가진 떼어 낸 파일에서 이어 읽는다.
-// 파일마다 줄 수 · 카테고리 · 태그 · 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
+// 파일마다 줄 수, 카테고리, 태그, 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
 // 검색의 맞은 줄 수는 처음 받는 페이지마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번)
 
 import fs from "fs";
@@ -148,12 +148,12 @@ function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | nul
   }
 }
 
-// ── 파일 목록 · 훑기 ──
+// ── 파일 목록, 훑기 ──
 
 type Scan = { since: number; size: number; lines: number; firstAt: number; lastAt: number; categories: Set<string>; tags: Set<string> };
 const scans = new Map<string, Scan>();
 
-/** 파일을 훑어 줄 수 · 카테고리 · 태그 · 처음과 끝 시각을 센다. 지난번에 훑은 같은 파일이면 늘어난 부분만 */
+/** 파일을 훑어 줄 수, 카테고리, 태그, 처음과 끝 시각을 센다. 지난번에 훑은 같은 파일이면 늘어난 부분만 */
 function scan(file: string): Scan | null {
   return withFile(file, (fd, size) => {
     const since = firstTime(file);
@@ -194,7 +194,7 @@ function listLogFiles(file: string): LogFile[] {
     try {
       stat = fs.statSync(full);
     } catch (error) {
-      // 지금 파일이 아직 없다(기록 전) · 그새 삭제됐다
+      // 지금 파일이 아직 없다(기록 전), 그새 삭제됐다
       if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
       continue;
     }
@@ -316,7 +316,7 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   }
 }
 
-/** 다운로드의 한 줄: 화면과 같은 열(시각 · 레벨 · 카테고리 · 태그 · 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset 의 값) */
+/** 다운로드의 한 줄: 화면과 같은 열(시각, 레벨, 카테고리, 태그, 글). 시각은 보는 사람의 시간대로(offsetMin: Date.getTimezoneOffset 의 값) */
 function formatLogLine(line: FileLine, offsetMin: number): string {
   const d = new Date(line.ts - offsetMin * 60_000);
   const two = (n: number) => String(n).padStart(2, "0");

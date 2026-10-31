@@ -10,7 +10,7 @@ import Icon from "./BaseIcon.vue";
 import { docUrl } from "../composables/docs.ts";
 import { text } from "../text/index.ts";
 
-/** file: 저장소 안의 설명서(예: docs/favicon.md) · label: 버튼 글(없으면 "설명서") */
+/** file: 저장소 안의 설명서(예: docs/favicon.md), label: 버튼 글(없으면 "설명서") */
 const props = defineProps<{ file: string; label?: string }>();
 const url = computed(() => docUrl(props.file));
 </script>

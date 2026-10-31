@@ -24,7 +24,7 @@ test("모르는 값은 첫 글자만 올리고, 빈 값은 한 글자로", () =>
   assert.equal(labelOf("touhoudb"), "TouhouDB");
 });
 
-// platform 은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio"·"Vocadb"·"Lastfm" 처럼 아무도 안 쓰는 표기가 된다.
+// platform 은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio", "Vocadb", "Lastfm" 처럼 아무도 안 쓰는 표기가 된다.
 test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
   const label = labelOf;
 

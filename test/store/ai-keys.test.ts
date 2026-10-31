@@ -16,7 +16,7 @@ after(() => {
   store.close();
 });
 
-test("묶인 주소로만 나온다. 상태는 none · ok · moved", () => {
+test("묶인 주소로만 나온다. 상태는 none, ok, moved", () => {
   assert.equal(aiKeys.stateOf("openai", "https://api.openai.com/v1"), "none");
   aiKeys.put("openai", "sk-openai-0123456789", "https://api.openai.com/v1");
   assert.equal(aiKeys.read("openai", "https://api.openai.com/v1"), "sk-openai-0123456789");

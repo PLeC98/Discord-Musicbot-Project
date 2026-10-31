@@ -1,5 +1,5 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
-// 모으는 것(측정 · 최근 15분 · 게이트웨이 · 프로세스 메모리 · 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
+// 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
 
 import os from "node:os";
 import type { Client } from "discord.js";
@@ -40,7 +40,7 @@ function botStatus(client: Client, uptime: number) {
 }
 
 /**
- * query: 목록(플레이어 · 자식 프로세스)의 구간 · 필터링 · 정렬. viewer: 보는 운영자와 그 운영자의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
+ * query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. viewer: 보는 운영자와 그 운영자의 서버 목록(플레이어 행의 멤버 표시, 받지 못했으면 null),
  * stream: 대시보드 연결(연결 수), launcher: 다시 시작할 수 있는가
  */
 function adminStatus({ client, players, commands }: BotContext, query: StatusQuery, viewer: { id: string; memberIds: ReadonlySet<string> | null }, stream: Pick<PlayerStream, "subs">, launcher = false): AdminStatus {
@@ -58,7 +58,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     upload: uploadView(),
     activePlayers: players.size,
     players: playerRows(client, players, query, viewer.id, viewer.memberIds),
-    // 자식 프로세스. 오래 살아 있는 항목 · 플레이어 없는 서버의 재생 일이 새는 신호다
+    // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 일이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),
@@ -75,7 +75,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
   };
 }
 
-/** 모으기 시작한다(측정 · 최근 15분 · 프로세스 메모리 · 저장공간). 게이트웨이는 기동이 로그인 전에 듣는다 */
+/** 모으기 시작한다(측정, 최근 15분, 프로세스 메모리, 저장공간). 게이트웨이는 기동이 로그인 전에 듣는다 */
 function startStatus(bot: BotContext) {
   startStatusHistory(bot);
   watchProcesses();

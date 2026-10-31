@@ -17,8 +17,8 @@ import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
 type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null };
 
 /**
- * refused: 부르지 않았다 · already: 이미 그 채널에 있다 · joined: 붙어서 곡을 기다린다 ·
- * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 멈춰 뒀다) · restore-error: 복원하다가 오류가 나 플레이어를 버렸다
+ * refused: 부르지 않았다, already: 이미 그 채널에 있다, joined: 붙어서 곡을 기다린다,
+ * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 멈춰 뒀다), restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
 type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number; parked: boolean } | { kind: "restore-error" };
 
@@ -34,7 +34,7 @@ async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild,
   return attach(bot, guild, channel, textChannel, restoring);
 }
 
-/** 정한 채널에 붙인다(24/7 자리 지킴이). 부른 사람이 없어 봇의 권한 · 다른 채널만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널 */
+/** 정한 채널에 붙인다(24/7 자리 지킴이). 부른 사람이 없어 봇의 권한, 다른 채널만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널 */
 async function joinChannel(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, channel, textChannel = null }: { guild: Guild; channel: VoiceBasedChannel; textChannel?: GuildTextBasedChannel | null }): Promise<JoinResult> {
   const refused = refusal(guild, channel);
   if (refused) return { kind: "refused", code: refused };
@@ -45,14 +45,14 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다. 같은 세션을 기동 복원과 둘이 되살리지 않게
   await waitForRestore(guild.id);
 
-  // 이미 붙어 있음(붙는 중 · 끊겨 재연결하는 중 포함)
+  // 이미 붙어 있음(붙는 중, 끊겨 재연결하는 중 포함)
   const existing = bot.players.get(guild.id);
   if (existing?.voice.isAlive()) return { kind: "already", player: existing };
 
   // /leave 나 종료가 저장해 둔 세션
   const saved = sessions().load(guild.id);
 
-  // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머 · 상태 동기화 · 캐시 퇴거 보호가
+  // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머, 상태 동기화, 캐시 퇴거 보호가
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep", end: "replaced" });
 

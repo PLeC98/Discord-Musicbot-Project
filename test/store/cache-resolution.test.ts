@@ -1,4 +1,4 @@
-// src/store/track-lookup.ts · src/sources/youtube: 링크 데이터 조회/삭제 + 영상 내려감 판별(재생목록 항목의 유튜브 검색 스킵 + 죽은 캐시 재검색).
+// src/store/track-lookup.ts, src/sources/youtube: 링크 데이터 조회/삭제 + 영상 내려감 판별(재생목록 항목의 유튜브 검색 스킵 + 죽은 캐시 재검색).
 
 import os from "node:os";
 import path from "node:path";

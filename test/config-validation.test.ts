@@ -106,7 +106,7 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
   assert.match(problems[2], /LOG_LEVEL.*trace, debug, info, warn, error, fatal 중 하나/);
 });
 
-test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
+test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID, 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({ SECRETS_KEY: KEY });
   assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_ID, CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
   assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);

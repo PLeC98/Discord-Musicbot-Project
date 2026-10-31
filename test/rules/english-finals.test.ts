@@ -1,4 +1,4 @@
-// data/english-finals.json · src/rules/english-final.ts: 영어 끝소리 표. 발음 사전 전체를 들고 판정할 때와 단어마다 답이 같은지, 표가 지금 사전에서 만든 그대로인지 본다.
+// data/english-finals.json, src/rules/english-final.ts: 영어 끝소리 표. 발음 사전 전체를 들고 판정할 때와 단어마다 답이 같은지, 표가 지금 사전에서 만든 그대로인지 본다.
 // 사전 패키지(cmu-pronouncing-dictionary)는 표를 만들 때만 쓰는 개발 의존성이다
 
 import { test } from "node:test";
@@ -23,7 +23,7 @@ function withWholeDictionary(word: string): Final {
   return spellingFinal(lower);
 }
 
-// 조사 헬퍼가 조회하는 형태: 소문자 · 첫 글자만 대문자 · 다섯 글자 이하는 모두 대문자(약어)
+// 조사 헬퍼가 조회하는 형태: 소문자, 첫 글자만 대문자, 다섯 글자 이하는 모두 대문자(약어)
 const formsOf = (word: string) => [word, word[0].toUpperCase() + word.slice(1), ...(word.length <= 5 ? [word.toUpperCase()] : [])];
 
 test("사전의 모든 낱말에서 표의 답이 사전 전체의 답과 같다", () => {
@@ -33,7 +33,7 @@ test("사전의 모든 낱말에서 표의 답이 사전 전체의 답과 같다
   assert.deepEqual(differ.slice(0, 20), []);
 });
 
-test("사전에 없는 말(세 글자 이하 모든 조합)도 같다: 철자 어림 · 글자 이름", () => {
+test("사전에 없는 말(세 글자 이하 모든 조합)도 같다: 철자 어림, 글자 이름", () => {
   const letters = "abcdefghijklmnopqrstuvwxyz";
   const short = [...letters].flatMap((a) => [a, ...[...letters].flatMap((b) => [a + b, ...[...letters].map((c) => a + b + c)])]);
   const differ = short.flatMap(formsOf).filter((form) => englishFinal(form) !== withWholeDictionary(form));

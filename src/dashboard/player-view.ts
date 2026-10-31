@@ -26,7 +26,7 @@ function trackArtUrl(guildId: string | undefined, track: Pick<QueuedTrack, "thum
 function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): QueueTrackView {
   return {
     index: i,
-    // 대기열 ID. 빼기 · 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
+    // 대기열 ID. 빼기, 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
     entry: t.entry ?? null,
     title: t.title,
     artist: t.artist,
@@ -39,7 +39,7 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
   };
 }
 
-// 요청의 정수. parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
+// 요청의 정수. parseInt와 달리 "50junk", Infinity, 소수를 전부 NaN으로 거부
 function toInt(value: unknown) {
   const n = Number(value);
   return Number.isInteger(n) ? n : NaN;
@@ -56,7 +56,7 @@ function queueWindow(req: Request) {
 // 지금 곡
 function playingView(player: Player, track: QueuedTrack): PlayingView {
   return {
-    // 대기열 ID. 넘기기 · 이동이 보던 곡일 때만 하도록 실어 보낸다
+    // 대기열 ID. 넘기기, 이동이 보던 곡일 때만 하도록 실어 보낸다
     entry: track.entry ?? null,
     title: track.title,
     artist: track.artist,
@@ -86,7 +86,7 @@ function previousArt(player: Player) {
   return prev ? trackArtUrl(player.guild?.id, prev) : null;
 }
 
-// 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤 · 억제 사유로 보인다
+// 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤, 억제 사유로 보인다
 function pauseView(player: Player, paused: boolean, shown: boolean) {
   return { paused: shown && paused, userPaused: player.pause.userPaused, heldBy: shown ? player.pause.heldBy : null };
 }

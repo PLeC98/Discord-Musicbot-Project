@@ -1,5 +1,5 @@
-// src/dashboard/routes/login-background.ts · login-background/store.ts · runner.ts: 로그인 배경의 상태 기계.
-// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저 · 인코딩 순서 · 이전 배경 · 한도 · 막는 전이 · 실패 · 이어 하기를 본다
+// src/dashboard/routes/login-background.ts, login-background/store.ts, runner.ts: 로그인 배경의 상태 기계.
+// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저, 인코딩 순서, 이전 배경, 한도, 막는 전이, 실패, 이어 하기를 본다
 
 process.env.OWNER_ID = "owner";
 
@@ -120,7 +120,7 @@ test("올리면 편집 전 단계를 하고 편집을 기다린다. 편집은 �
   assert.deepEqual([s.current, s.shows, s.list[0].thumb], [id, "thumb", `/login-background/${id}/still-1280.webp`]);
 });
 
-test("편집 적용: 어림이 남은 저장 공간보다 크면 막는다(같은 크롭 · 잰 구간의 어림만 본다)", async () => {
+test("편집 적용: 어림이 남은 저장 공간보다 크면 막는다(같은 크롭, 잰 구간의 어림만 본다)", async () => {
   const id = await upload();
   await step(id);
   const huge = Number.MAX_SAFE_INTEGER / 100;
@@ -210,7 +210,7 @@ test("이전 배경이 삭제된 뒤 인코딩을 취소하면 봇 프로필 그
   assert.deepEqual([s.current, s.shows, s.list.length], [null, "none", 0]);
 });
 
-test("기록으로 교체 · 비우기", async () => {
+test("기록으로 교체, 비우기", async () => {
   const a = await ready("A");
   const b = await ready("B");
   assert.equal((await send("PUT", "/current", { id: a })).status, 200);
@@ -258,7 +258,7 @@ test("봇이 다시 시작하면 하던 단계부터 이어서 한다", async ()
   assert.equal((await item(b)).resumed, false);
 });
 
-test("요청 검사: 크롭 · 구간 · 썸네일 장면 · 영상 길이 · 한도 · 화면 값", async () => {
+test("요청 검사: 크롭, 구간, 썸네일 장면, 영상 길이, 한도, 화면 값", async () => {
   const id = await upload();
   await stepUntil(id, (one) => one.phase === "editing");
   const bad = [

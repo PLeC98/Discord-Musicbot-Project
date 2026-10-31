@@ -1,4 +1,4 @@
-// 설정 대화상자(계정 메뉴): 이 브라우저의 화면 설정 · 로그인한 기기
+// 설정 대화상자(계정 메뉴): 이 브라우저의 화면 설정, 로그인한 기기
 
 const title = "설정";
 const groupTheme = "테마";
@@ -14,7 +14,7 @@ const devices = {
   unknownDesc: "이 기능 전에 로그인한 뒤 쓰지 않은 세션",
   private: "내부망",
   now: "지금",
-  /** 브라우저 · OS. 하나만 알면 그것만 */
+  /** 브라우저, OS. 하나만 알면 그것만 */
   name: (browser: string | null, os: string | null) => [browser, os].filter(Boolean).join(" · "),
   signOut: "로그아웃",
   signOutOthers: "다른 기기 로그아웃",

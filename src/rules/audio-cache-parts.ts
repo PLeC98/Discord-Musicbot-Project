@@ -1,7 +1,7 @@
 // 오디오 캐시 초기화에서 선택하는 것. 봇(store/cache-db 의 테이블 구분)과 화면(contract/reset)이 같이 쓴다. Node 를 부르지 않는다.
 //   files     캐시 파일(오디오 파일과 그 행)
-//   ledger    곡 찾기 기록(링크 데이터 · 재생 테스트 결과)
-//   external  바깥 서비스 데이터(SponsorBlock 구간 · 연령 제한 · 스포티파이 익명 상태)
+//   ledger    곡 찾기 기록(링크 데이터, 재생 테스트 결과)
+//   external  바깥 서비스 데이터(SponsorBlock 구간, 연령 제한, 스포티파이 익명 상태)
 //   pins      직접 지정한 음원
 
 const AUDIO_CACHE_PARTS = ["files", "ledger", "external", "pins"] as const;

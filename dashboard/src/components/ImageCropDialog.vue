@@ -7,7 +7,7 @@
         <div role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-xl flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
-          <!-- 보는 창: 편집 창 폭 전체 · 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
+          <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
                둘레에 틈을 두어 이미지 가장자리에 붙은 핸들도 잘리지 않게 한다 -->
           <div ref="viewportEl" class="w-full" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
             <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
@@ -24,7 +24,7 @@
               </div>
             </div>
           </div>
-          <!-- 화면 확대: 작은 아이콘 · 슬라이더 · 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
+          <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
           <div class="flex items-center justify-center gap-3 text-on-surface-variant">
             <Icon name="image" :size="16" aria-hidden="true" />
             <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
@@ -71,7 +71,7 @@ const MAX_ZOOM = 5;
 
 const url = ref("");
 const natural = reactive({ width: 0, height: 0 });
-/** 화면에 보이는 이미지 크기. 대화상자 폭 · 화면 높이의 60% 안에 맞춘다 */
+/** 화면에 보이는 이미지 크기. 대화상자 폭, 화면 높이의 60% 안에 맞춘다 */
 const view = reactive({ width: 0, height: 0 });
 /** 선택한 영역(원본 px) */
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
@@ -105,7 +105,7 @@ watch(
       image = img;
       natural.width = img.naturalWidth;
       natural.height = img.naturalHeight;
-      // 보는 창 안쪽 폭(틈을 뺀 것) · 화면 높이의 60% 안에
+      // 보는 창 안쪽 폭(틈을 뺀 것), 화면 높이의 60% 안에
       const room = (viewportEl.value?.clientWidth ?? Math.min(524, innerWidth - 72)) - EDGE * 2;
       const k = Math.min(1, room / natural.width, (innerHeight * 0.6) / natural.height);
       view.width = Math.round(natural.width * k);
@@ -117,7 +117,7 @@ watch(
   { immediate: true },
 );
 
-// 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭 · 높이에 대한 비율로)
+// 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭, 높이에 대한 비율로)
 watch(zoom, async () => {
   const el = viewportEl.value;
   if (!el) return;

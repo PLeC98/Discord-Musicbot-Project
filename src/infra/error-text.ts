@@ -11,7 +11,7 @@ const PLAIN_NAMES = new Set(["Error", "Object"]);
 const SUMMARY_MAX = 300;
 
 /**
- * 오류 글. 메시지가 없으면 무슨 오류인지 알 수 있는 다음 것으로: 이름 · 코드 → 던진 자리(스택 첫 줄) → 객체의 내용(줄여서) → 값 그대로
+ * 오류 글. 메시지가 없으면 무슨 오류인지 알 수 있는 다음 것으로: 이름, 코드 → 던진 자리(스택 첫 줄) → 객체의 내용(줄여서) → 값 그대로
  */
 function messageOf(error: unknown): string {
   if (!error || typeof error !== "object") return typeof error === "string" && error ? error : `던진 값: ${String(error)}`;
@@ -19,7 +19,7 @@ function messageOf(error: unknown): string {
   return typeof message === "string" && message ? message : withoutMessage(error);
 }
 
-// 메시지가 없는 오류 · 객체
+// 메시지가 없는 오류, 객체
 function withoutMessage(error: object): string {
   const { name, stack } = error as { name?: unknown; stack?: unknown };
   const label = typeof name === "string" && name ? name : error.constructor?.name;

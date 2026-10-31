@@ -1,5 +1,5 @@
 // src/discord/gone-guilds.ts: 게이트웨이에서 새 세션을 시작할 때 READY 에 없는 서버(끊긴 동안 봇이 나간 서버)를 봇이 나간 서버와 같은 길로 정리한다.
-// 지키는 것: READY 에 없는 그 샤드의 서버만 GuildDelete 핸들러에 보내고 캐시(서버 · 그 채널)에서 뺀다. 사용 불가(unavailable) 서버(READY 에 있다) · 다른 샤드의 서버는 그대로.
+// 지키는 것: READY 에 없는 그 샤드의 서버만 GuildDelete 핸들러에 보내고 캐시(서버, 그 채널)에서 뺀다. 사용 불가(unavailable) 서버(READY 에 있다), 다른 샤드의 서버는 그대로.
 // READY 가 아닌 패킷은 보지 않는다. 잘못 지우면 저장된 세션까지 지우므로 빼는 서버를 info 로 남긴다
 
 import { test } from "node:test";
@@ -24,7 +24,7 @@ function setup(guilds: FakeGuild[]) {
   return { client, deleted };
 }
 
-test("READY 에 없는 서버는 GuildDelete 핸들러에 보내고 캐시(서버 · 채널)에서 뺀다. 사용 불가 서버도 READY 에는 있어 그대로", () => {
+test("READY 에 없는 서버는 GuildDelete 핸들러에 보내고 캐시(서버, 채널)에서 뺀다. 사용 불가 서버도 READY 에는 있어 그대로", () => {
   const { client, deleted } = setup([guild("kept"), guild("unavailable"), guild("gone")]);
   const from = sink.buffer.length;
   client.emit(Events.Raw, { t: "READY", d: { guilds: [{ id: "kept" }, { id: "unavailable", unavailable: true }] } }, 0);
@@ -44,7 +44,7 @@ test("다른 샤드의 서버는 그 샤드의 READY 가 본다", () => {
   assert.deepEqual([...client.guilds.cache.keys()], ["here", "other"]);
 });
 
-test("READY 가 아닌 패킷 · 서버 목록이 없는 패킷은 보지 않는다", () => {
+test("READY 가 아닌 패킷, 서버 목록이 없는 패킷은 보지 않는다", () => {
   const { client, deleted } = setup([guild("a")]);
   client.emit(Events.Raw, { t: "GUILD_CREATE", d: { id: "b" } }, 0);
   client.emit(Events.Raw, { t: "READY", d: {} }, 0);

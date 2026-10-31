@@ -19,7 +19,7 @@ const read = (file: string) => {
   }
 };
 
-/** .git 폴더. 워크트리 · 서브모듈이면 .git 은 "gitdir: …" 를 적은 파일이다 */
+/** .git 폴더. 워크트리, 서브모듈이면 .git 은 "gitdir: …" 를 적은 파일이다 */
 function gitDir(): string | null {
   const dotGit = path.join(PROJECT.root, ".git");
   const pointer = /^gitdir: (.+)$/m.exec(read(dotGit) ?? "")?.[1];

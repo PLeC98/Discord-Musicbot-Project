@@ -1,5 +1,5 @@
-// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
-// 내보내기 · 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
+// 설정 내보내기, 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
+// 내보내기, 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
 import crypto from "node:crypto";
 import express from "express";
@@ -31,12 +31,12 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류 · 캐시 파일까지(오디오 캐시) · 낸 사람 · 지나는 때 */
+/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 지나는 때 */
 const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만) · favicon(파비콘) · login-background(로그인 배경) · audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
+// kind: settings(봇 설정만), favicon(파비콘), login-background(로그인 배경), audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
 // 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다. 담을 수 없으면(캐시 파일이 너무 많다) 여기서 거절한다(다운로드 주소는 브라우저가 바로 열어 화면이 알릴 수 없다)
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");

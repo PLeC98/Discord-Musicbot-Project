@@ -3,7 +3,7 @@
 import { josa } from "../../../../src/rules/josa.ts";
 import { formatNumber } from "../../utils/locale.ts";
 
-/** 그래프 가로축의 왼쪽 끝 · 오른쪽 끝 */
+/** 그래프 가로축의 왼쪽 끝, 오른쪽 끝 */
 const minutesAgo = (minutes: number) => `${minutes}분 전`;
 const now = "지금";
 /** 그래프의 화면 읽기 요약. 값은 단위를 붙여 적은 글 */
@@ -100,11 +100,11 @@ const columns = { pid: "PID", label: "프로그램", job: "작업", age: "실행
 const sortBy = (label: string) => `${label}${josa(label, "으로")} 정렬`;
 const strayMore = (count: number) => `외 ${formatNumber(count)}개`;
 const strayTip = "플레이어가 없는 서버의 재생 작업을 하는 프로세스예요.\n종료에 실패한 잔류 프로세스일 수 있어요.";
-/** 작업: 봇 헬퍼는 이름, 서버의 작업은 서버 이름(다음 곡 · 자동 검색은 덧붙인다) */
+/** 작업: 봇 헬퍼는 이름, 서버의 작업은 서버 이름(다음 곡, 자동 검색은 덧붙인다) */
 const jobs = { potServer: "POToken 서버", ytdlpUpdate: "yt-dlp 업데이트", loginBackground: "로그인 배경", netStats: "시스템 업로드 측정", leftServer: "나간 서버", prefetch: "다음 곡", lookup: "자동 검색", none: "없음" };
 const noProcesses = "실행 중인 자식 프로세스가 없어요";
 const processesTotal = (count: number, byLabel: string) => `합계 ${count}개 (${byLabel})`;
-/** yt-dlp 줄: 곡 찾기 · 다운로드의 도는 수/크기와 기다리는 수 */
+/** yt-dlp 줄: 곡 찾기, 다운로드의 도는 수/크기와 기다리는 수 */
 const ytdlpLoad = (lookup: string, background: string, waiting: number) => `yt-dlp 곡 찾기 ${lookup} · 다운로드 ${background} · 기다림 ${formatNumber(waiting)}`;
 const ytdlpLoadTip = (count: number, reused: number, missed: number) => `지난 1시간 동안 유튜브 영상 정보를 ${formatNumber(count)}번 읽고, 캐시된 정보를 ${formatNumber(reused)}번 다시 썼어요.${missed ? ` 자리가 없어 밀려난 정보를 ${formatNumber(missed)}번 다시 읽었어요.` : ""}\n로그인 없이 쓰면 시간당 약 300번부터 막히기 시작해요.`;
 const extractions = "유튜브 영상 정보 읽기";

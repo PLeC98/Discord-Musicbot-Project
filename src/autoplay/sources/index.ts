@@ -5,9 +5,9 @@
 //   artist+title   → youtubeMatch로 찾는다 (durationSec이 있으면 길이 신호가 켜진다)
 //   audioUrl 있음  → 위가 안 되면 이것을 그대로 튼다
 //
-// `sourceUrl`·`platform`은 곡이 어디 것인가를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
+// `sourceUrl`, `platform`은 곡이 어디 것인가를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
 // 곳일 뿐이고, 표시 이름과 링크 데이터의 키는 출처 것이 된다(autoplay/route).
-// keyword·유튜브 재생목록은 영상 자체가 출처라 이 필드를 비워 둔다.
+// keyword, 유튜브 재생목록은 영상 자체가 출처라 이 필드를 비워 둔다.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
@@ -82,7 +82,7 @@ function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | nul
 }
 
 /**
- * 대시보드가 그릴 소스 목록. 검증 · 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
+ * 대시보드가 그릴 소스 목록. 검증, 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
  * 필수 여부는 need 에서 끌어온다.
  */
 async function catalog(): Promise<SourceTypeView[]> {

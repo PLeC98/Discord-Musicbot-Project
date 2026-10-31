@@ -1,5 +1,5 @@
 <template>
-  <!-- 서버 화면의 하이라이트로 가기 · 정지(진행 줄 끝 · 휴대폰 아래 줄 · 좁은 창의 표 행). 하이라이트는 곡에 있을 때만 -->
+  <!-- 서버 화면의 하이라이트로 가기, 정지(진행 줄 끝, 휴대폰 아래 줄, 좁은 창의 표 행). 하이라이트는 곡에 있을 때만 -->
   <button v-if="highlight" type="button" :class="[BTN, size, 'bg-surface-container-high']" :aria-label="T.toHighlight" v-tooltip="T.toHighlight" :disabled="!player.canControl || busy('highlight')" @click="emit('highlight')">
     <SponsorBlockIcon :size="iconSize" :style="{ color: 'var(--category-highlight-color)' }" />
   </button>

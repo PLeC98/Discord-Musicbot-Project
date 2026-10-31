@@ -1,4 +1,4 @@
-// AI 보조 설정과 프롬프트(settings.db 의 "ai" · "ai-prompt" 문서, config/documents). 키는 비밀 표에 있다(store/ai-keys).
+// AI 보조 설정과 프롬프트(settings.db 의 "ai", "ai-prompt" 문서, config/documents). 키는 비밀 표에 있다(store/ai-keys).
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });

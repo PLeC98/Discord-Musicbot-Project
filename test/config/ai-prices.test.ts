@@ -1,4 +1,4 @@
-// src/config/ai-prices.ts: AI 가격표. 모델 가격 · 요청 비용 계산 · 다운로드한 값표의 선택과 갱신
+// src/config/ai-prices.ts: AI 가격표. 모델 가격, 요청 비용 계산, 다운로드한 값표의 선택과 갱신
 
 import test from "node:test";
 import assert from "node:assert";
@@ -7,7 +7,7 @@ import * as prices from "../../src/config/ai-prices.ts";
 
 const book: prices.PriceBook = { providers: { openai: { "gpt-x": [2, 8, 0.5] }, openrouter: { "free/model:free": [0, 0, 0] } } };
 
-test("키가 없는 로컬은 0, 값표에 있으면 그 값, 없는 모델 · custom 은 가격 모름", () => {
+test("키가 없는 로컬은 0, 값표에 있으면 그 값, 없는 모델, custom 은 가격 모름", () => {
   assert.equal(prices.priceOf("ollama", "qwen3:8b", book), 0);
   assert.deepEqual(prices.priceOf("openai", "gpt-x", book), [2, 8, 0.5]);
   // 값표가 0 인 무료 모델은 0 달러다(가격 모름이 아니다)
@@ -26,7 +26,7 @@ test("비용: 캐시에서 읽은 입력은 캐시 값, 나머지 입력은 입�
   assert.equal(prices.costOf([2, 8, 0.5], null), 0);
 });
 
-test("다운로드한 값표에서 우리 프로바이더 몫의 가격 필드만 선택하고, 입력 · 출력 값이 없는 모델은 뺀다", () => {
+test("다운로드한 값표에서 우리 프로바이더 몫의 가격 필드만 선택하고, 입력, 출력 값이 없는 모델은 뺀다", () => {
   const got = prices.trim(
     {
       openai: { models: { "gpt-x": { cost: { input: 2, output: 8, cache_read: 0.5 } }, "gpt-nocache": { cost: { input: 1, output: 4 } }, "gpt-noprice": {} } },

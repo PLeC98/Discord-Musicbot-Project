@@ -1,5 +1,5 @@
 <template>
-  <!-- 디스코드 명령. 누르면 곧바로 하는 일이라 저장 막대와 상관없다. 항목마다 이름 · 설명, 오른쪽에 하기. 좁으면 버튼이 아래로 -->
+  <!-- 디스코드 명령. 누르면 곧바로 하는 일이라 저장 막대와 상관없다. 항목마다 이름, 설명, 오른쪽에 하기. 좁으면 버튼이 아래로 -->
   <BaseCard icon="terminal" :title="T.title">
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
       <div class="min-w-0 flex-1 basis-56">

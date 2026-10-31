@@ -1,4 +1,4 @@
-// src/dashboard/client-freshness.ts: 빌드해 둔 화면이 지금 소스보다 옛것인가. 임시 폴더에 가짜 저장소 · 빌드를 만든다
+// src/dashboard/client-freshness.ts: 빌드해 둔 화면이 지금 소스보다 옛것인가. 임시 폴더에 가짜 저장소, 빌드를 만든다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -43,7 +43,7 @@ test("빌드 뒤 고쳐지거나 사라진 화면 소스만 가리킨다. 목록
   assert.deepEqual(clientFreshness(dist, root), { state: "stale", changed: ["src/rules/controls.ts", "dashboard/src/gone.ts"] });
 });
 
-test("경고 문장: 새것이면 없고, 옛것이면 바뀐 수와 앞의 셋 · 다시 빌드할 명령", () => {
+test("경고 문장: 새것이면 없고, 옛것이면 바뀐 수와 앞의 셋, 다시 빌드할 명령", () => {
   assert.equal(freshnessWarning({ state: "fresh" }), null);
   assert.match(freshnessWarning({ state: "missing" }) ?? "", /빌드되지 않았습니다. pnpm run build:dashboard/);
   const stale = freshnessWarning({ state: "stale", changed: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"] }) ?? "";

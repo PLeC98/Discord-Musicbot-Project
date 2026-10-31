@@ -45,7 +45,7 @@ const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
 
-// 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user · holds 로 처음 상태를 준다
+// 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user, holds 로 처음 상태를 준다
 function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: boolean; holds?: Hold[] } & Record<string, unknown> = {}) {
   const calls: string[] = [];
   const audio = { state: { status: "playing" }, pause: () => true, unpause: () => true };
@@ -115,7 +115,7 @@ test("멈춤: 곡이 없으면 거절, 있으면 사람의 멈춤을 뒤집고 �
   assert.deepEqual(seen, ["refresh", "refresh"]);
 });
 
-test("억제 사유(서버 음소거 · 스테이지 청중 · 혼자 남음)로 멈춰 있어도 사람의 멈춤만 뒤집는다. 거절하지 않는다", async () => {
+test("억제 사유(서버 음소거, 스테이지 청중, 혼자 남음)로 멈춰 있어도 사람의 멈춤만 뒤집는다. 거절하지 않는다", async () => {
   // 억제로 멈춘 채 누르면 멈춰 둔다: 소리는 이미 멈춰 있고, 사유가 풀려도 멈춘 채로
   const muted = fakePlayer({ holds: ["mute"] });
   assert.deepEqual(await controls.pause(muted, DJ), { ok: true, userPaused: true, heldBy: "mute", track: muted.currentTrack });
@@ -153,7 +153,7 @@ test("정지: 세션을 삭제하고 끝난 패널(stop)로 버린다. 레지스
   assert.deepEqual(p.calls, ["dispose:remove:stop"]);
 });
 
-test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복 · 대기열 반복은 허용). 되돌아간 곡을 싣는다", async () => {
+test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한곡 반복, 대기열 반복은 허용). 되돌아간 곡을 싣는다", async () => {
   // 이전 곡으로 가면 그 곡이 대기열 맨 앞에 선다(trackState.rewind). 가짜는 그 위치를 미리 채워 둔다
   const now = track("지금");
   const back = track("전");
@@ -165,7 +165,7 @@ test("이전 곡: 기록이 없거나 틀고 있는 곡이 없으면 거절(한�
   assert.equal(codeOf(await controls.previous(fakePlayer({ currentTrack: null }), DJ)), "no-song");
 });
 
-test("위치 이동: 라이브 · 여는 중은 거절. 받아들이면 onAccepted 뒤에 옮긴다", async () => {
+test("위치 이동: 라이브, 여는 중은 거절. 받아들이면 onAccepted 뒤에 옮긴다", async () => {
   assert.equal(codeOf(await controls.seek(fakePlayer({ isLive: true }), DJ, 1000)), "live-no-seek");
   assert.equal(codeOf(await controls.seek(fakePlayer({ isPlayStarting: true }), DJ, 1000)), "still-starting");
 
@@ -254,14 +254,14 @@ test("반복: 모드 확인, 라이브가 있으면 켜기만 거절", async () 
   assert.equal((await controls.loop(live, DJ, false)).ok, true, "끄는 것은 언제나 통한다");
 });
 
-test("섞기 · 비우기: 곡 수가 모자라면 거절", async () => {
+test("섞기, 비우기: 곡 수가 모자라면 거절", async () => {
   assert.equal(codeOf(await controls.shuffle(fakePlayer({ queue: [track("a")] }), DJ)), "too-few-to-shuffle");
   assert.deepEqual(await controls.shuffle(fakePlayer(), DJ), { ok: true, count: 2 });
   assert.equal(codeOf(await controls.clear(fakePlayer({ queue: [] }), DJ)), "queue-empty");
   assert.equal(accepted(await controls.clear(fakePlayer(), DJ)).count, 2);
 });
 
-test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(넣은 사람은 DJ 가 아니어도 뺀다)", async () => {
+test("빼기: 빈 대기열, 범위 밖 거절, 권한은 그 곡을 보고(넣은 사람은 DJ 가 아니어도 뺀다)", async () => {
   assert.equal(codeOf(await controls.remove(fakePlayer({ queue: [] }), DJ, 0)), "queue-empty");
   assert.deepEqual(await controls.remove(fakePlayer(), DJ, 5), { ok: false, code: "bad-position", size: 2 });
   const p = fakePlayer({ queue: [track("남의 곡"), track("내 곡", { requestedBy: { id: "u9" } })] });
@@ -279,7 +279,7 @@ test("빼기: 빈 대기열 · 범위 밖 거절, 권한은 그 곡을 보고(�
   assert.deepEqual(gone.calls, [], "아무것도 빼지 않았다");
 });
 
-test("옮기기: 두 곡 미만 · 범위 밖 · 같은 위치 거절", async () => {
+test("옮기기: 두 곡 미만, 범위 밖, 같은 위치 거절", async () => {
   assert.equal(codeOf(await controls.move(fakePlayer({ queue: [track("a")] }), DJ, 0, 0)), "too-few-to-move");
   assert.equal(codeOf(await controls.move(fakePlayer(), DJ, 0, 2)), "bad-position");
   assert.equal(codeOf(await controls.move(fakePlayer(), DJ, 1, 1)), "same-position");
@@ -291,7 +291,7 @@ test("옮기기: 두 곡 미만 · 범위 밖 · 같은 위치 거절", async ()
 // 대기열 ID를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
 const entered = (title: string, entry: number, extra: Partial<QueuedTrack> = {}) => Object.defineProperty(track(title, extra), "entry", { value: entry, enumerable: false });
 
-test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기 · 이전 · 이동 · 처음부터 · 하이라이트를 하지 않는다", async () => {
+test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰기, 이전, 이동, 처음부터, 하이라이트를 하지 않는다", async () => {
   const now = entered("지금", 7);
   const of = (over: object = {}) => fakePlayer({ currentTrack: now, sponsor: { highlightAt: 30 }, ...over });
   const changed: Array<[string, (p: ReturnType<typeof fakePlayer>) => Promise<object>]> = [

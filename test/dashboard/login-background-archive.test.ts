@@ -1,5 +1,5 @@
 // src/dashboard/login-background/archive.ts: 로그인 배경 백업(설정 내보내기의 login-background 종류).
-// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일 · 빠진 파일 · 바깥을 가리키는 목록은 받지 않는다
+// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일, 빠진 파일, 바깥을 가리키는 목록은 받지 않는다
 
 process.env.OWNER_ID = "owner";
 
@@ -60,7 +60,7 @@ const webp = (width: number) =>
     .webp()
     .toBuffer();
 
-/** 다 만든 배경(파일까지). 원본 · 미리보기 같은 내지 않는 파일도 하나씩 둔다 */
+/** 다 만든 배경(파일까지). 원본, 미리보기 같은 내지 않는 파일도 하나씩 둔다 */
 async function made(kind: "image" | "video", name: string) {
   const one = store.create({ kind, from: "upload", name });
   const folder = store.folderOf(one.id);
@@ -115,7 +115,7 @@ const indexOf = (file: Buffer) =>
 /** 파일의 항목을 바꿔 다시 묶는다 */
 const rezip = (file: Buffer, change: (entries: Array<{ name: string; data: Buffer }>) => Array<{ name: string; data: Buffer }>) => zipped(change(unzip(file)));
 
-test("내보내기: 다 만든 배경의 내는 파일과 기록만. 만드는 중인 배경 · 원본은 담지 않고, 지금 배경이 만드는 중이면 그 전에 쓰던 배경을 지금 배경으로", async () => {
+test("내보내기: 다 만든 배경의 내는 파일과 기록만. 만드는 중인 배경, 원본은 담지 않고, 지금 배경이 만드는 중이면 그 전에 쓰던 배경을 지금 배경으로", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -147,7 +147,7 @@ test("자기 내보내기를 미리 보면 같다. 미리 보기 줄은 로그�
   assert.deepEqual([row.item, row.inFile, row.same, row.problems, row.count], ["login-background", true, true, [], 1]);
 });
 
-test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
+test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경, 화면 값, 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -200,7 +200,7 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
   assert.equal(again.row.same, true, "불러온 뒤에는 같다(id 가 아니라 만든 때 · 이름 · 파일로 본다)");
 });
 
-test("남이 준 파일: 모르는 파일 · 기록에 없는 배경 · 빠진 정지 그림 · 바깥을 가리키는 목록 · WebP 가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
+test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정지 그림, 바깥을 가리키는 목록, WebP 가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
   const one = await made("video", "영상");
   store.show(one.id);
   const file = await exported();

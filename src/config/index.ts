@@ -24,7 +24,7 @@ const ENV_PATH = PROJECT.env;
 // 대기열 상한. 0이면 끔. 켜면 하한이 있다: 그 아래는 사전 캐싱(앞 5곡) 버퍼밖에 안 된다
 const QUEUE_MAX_FLOOR = 25;
 
-// 쉼표로 구분한 문자열 → 아는 카테고리 배열(오타 · 모르는 값은 조용히 뺀다)
+// 쉼표로 구분한 문자열 → 아는 카테고리 배열(오타, 모르는 값은 조용히 뺀다)
 function parseSbCategories(raw: string | null) {
   const valid = new Set(SKIP_CATEGORIES);
   return [
@@ -40,7 +40,7 @@ function parseSbCategories(raw: string | null) {
 // 클라이언트 이름 모양. yt-dlp 추출기 인자(youtube:player_client=…)에 그대로 들어가므로 ; 같은 글자가 끼면 인자가 늘어난다
 const CLIENT_NAME = /^[a-z0-9_]+$/;
 
-// yt-dlp 재생 클라이언트 목록. 쉼표 구분, 공백 · 대소문자 정리, 중복은 한 번. 이름이 맞는지는 yt-dlp 가 판단한다
+// yt-dlp 재생 클라이언트 목록. 쉼표 구분, 공백, 대소문자 정리, 중복은 한 번. 이름이 맞는지는 yt-dlp 가 판단한다
 function parseClients(raw: string | null | undefined) {
   if (!raw) return [];
   const out: string[] = [];
@@ -77,7 +77,7 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
-// .env · 조절값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(조절값은 tuneProblems 에. 기동을 멈추지 않는다)
+// .env, 조절값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(조절값은 tuneProblems 에. 기동을 멈추지 않는다)
 function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
   // .env 의 값. 키가 없거나 공백뿐이면 def
   function env(key: string): string | null;
@@ -99,7 +99,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return def;
   }
 
-  // 참 · 거짓. true · false 만 받는다
+  // 참, 거짓. true, false 만 받는다
   function envBool(key: string, def: boolean) {
     const v = env(key);
     if (v === null) return def;
@@ -107,7 +107,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 합니다", def);
   }
 
-  // 조절값(rules/tunables)을 그 형식 · 범위 · 기본값으로 읽는다
+  // 조절값(rules/tunables)을 그 형식, 범위, 기본값으로 읽는다
   const tuneInt = (key: string) => {
     const spec = tunable(key);
     return envInt(key, Number(spec.def), { min: spec.min, max: spec.max });
@@ -200,7 +200,7 @@ function resolveFromRoot(p: string | null) {
   return path.isAbsolute(p) ? p : path.resolve(PROJECT.root, p);
 }
 
-/** 비면 기동을 멈추는 자격증명. 봇 로그인 · 명령 배포 · 대시보드 로그인(OAuth) */
+/** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
 // 대시보드로 옮긴 .env 키. 남아 있으면 경고만 한다
 const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
@@ -238,7 +238,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   if (envFileFound && missing.length) {
     problems.push(`비어 있는 필수 값: ${missing.join(", ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
   }
-  // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키 · 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
+  // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키, 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
   const remake = `만들기: ${SECRETS_KEY_COMMAND} 의 출력을 .env 의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 못 풀어 다시 입력해야 합니다.`;
   if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY 가 비어 있습니다(비밀값 암호화 키). ${remake}`);
@@ -259,7 +259,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   const config = {
     userAgents: USER_AGENTS,
 
-    // 토큰 · 클라이언트 id 는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
+    // 토큰, 클라이언트 id 는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
       token: env("DISCORD_TOKEN", ""),
       clientId: env("CLIENT_ID", ""),
@@ -267,10 +267,10 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       guildId: env("GUILD_ID"),
     },
 
-    // 비밀값 암호화 키(base64 32바이트). 응답 · 로그에 내보내지 않는다
+    // 비밀값 암호화 키(base64 32바이트). 응답, 로그에 내보내지 않는다
     secrets: { key: secretsKey },
 
-    // 바깥 서비스 키. 대시보드에서 입력해 비밀 표에 두고, 기동 · 저장 때 store/service-keys 가 여기에 올린다
+    // 바깥 서비스 키. 대시보드에서 입력해 비밀 표에 두고, 기동, 저장 때 store/service-keys 가 여기에 올린다
     spotify: {
       clientId: null as string | null,
       clientSecret: null as string | null,
@@ -322,11 +322,11 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       // 여러 개를 한 번에 넘기면 yt-dlp 가 전부 호출해 병합하므로 하나씩 넘긴다(sources/youtube).
       playerClients: envClients("YTDLP_PLAYER_CLIENTS"),
       // "최근 window회 중 fails회 실패"면 그 클라이언트를 제외하고 clientRetryMs 뒤에 다시 써 본다.
-      // 같은 클라이언트 · 같은 영상도 실행마다 결과가 달라 연속 실패가 아니라 빈도로 센다.
+      // 같은 클라이언트, 같은 영상도 실행마다 결과가 달라 연속 실패가 아니라 빈도로 센다.
       clientWindow: tuneInt("YTDLP_CLIENT_WINDOW"),
       clientFails: tuneInt("YTDLP_CLIENT_FAILS"),
       clientRetryMs: tuneInt("YTDLP_CLIENT_RETRY_MINUTES") * 60 * 1000,
-      // 동시에 도는 수(sources/ytdlp-spawn). lookup: 사용자가 기다리는 일, background: 다운로드 · 미리 받기. 0 이면 메모리로
+      // 동시에 도는 수(sources/ytdlp-spawn). lookup: 사용자가 기다리는 일, background: 다운로드, 미리 받기. 0 이면 메모리로
       lookupSlots: tuneInt("YTDLP_LOOKUP_SLOTS"),
       backgroundSlots: tuneInt("YTDLP_BACKGROUND_SLOTS"),
 
@@ -334,7 +334,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       channel: envEnum("YTDLP_CHANNEL", "nightly", YTDLP_CHANNELS),
       // 비우면 채널의 최신. 태그(그 채널 저장소의 릴리스 태그)면 그 버전으로 고정
       version: envYtdlpVersion("YTDLP_VERSION"),
-      // 새 버전을 보면: auto 다운로드해 교체한다 · notify 로그로 알린다 · off 보지 않는다
+      // 새 버전을 보면: auto 다운로드해 교체한다, notify 로그로 알린다, off 보지 않는다
       update: envEnum("YTDLP_UPDATE", "auto", YTDLP_UPDATE_MODES),
     },
 
@@ -351,7 +351,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   return { config, problems, warnings, tuneProblems };
 }
 
-// 대시보드 · 캐시 · SponsorBlock · 음성 상태 · 스트림 · 로그. 한 함수가 너무 길어 나눴다
+// 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그. 한 함수가 너무 길어 나눴다
 function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
@@ -369,15 +369,15 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       rateLimit: {
         windowMs: tuneInt("RATE_LIMIT_WINDOW_SEC") * 1000,
         apiMax: tuneInt("RATE_LIMIT_API_MAX"), // 로그인한 API(/api/*)
-        publicMax: tuneInt("RATE_LIMIT_PUBLIC_MAX"), // 로그인 없이 받는 것(화면 파일 · 파비콘 · 로그인 배경 · 오류 설명), IP 마다
-        queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue) · 캐시 DB 재생 테스트(POST /admin/track-cache/probe). 둘 다 yt-dlp 를 실행한다
+        publicMax: tuneInt("RATE_LIMIT_PUBLIC_MAX"), // 로그인 없이 받는 것(화면 파일, 파비콘, 로그인 배경, 오류 설명), IP 마다
+        queueMax: tuneInt("RATE_LIMIT_QUEUE_MAX"), // 곡 추가 (POST /player/queue), 캐시 DB 재생 테스트(POST /admin/track-cache/probe). 둘 다 yt-dlp 를 실행한다
         authWindowMs: tuneInt("RATE_LIMIT_AUTH_WINDOW_SEC") * 1000,
         authMax: tuneInt("RATE_LIMIT_AUTH_MAX"), // 로그인/OAuth (/auth/*)
       },
       // SSE 연결. 플레이어 상태가 바뀌면 넛지를 보낸다
       sse: {
         heartbeatMs: tuneInt("SSE_HEARTBEAT_SEC") * 1000, // 조용한 연결이 끊기지 않게 보내는 간격
-        maxPerUser: tuneInt("SSE_MAX_CONNECTIONS"), // 사용자당 동시 연결 상한(플레이어 · 로그 스트림이 따로 센다)
+        maxPerUser: tuneInt("SSE_MAX_CONNECTIONS"), // 사용자당 동시 연결 상한(플레이어, 로그 스트림이 따로 센다)
         coalesceMs: tuneInt("SSE_COALESCE_MS"), // 서버마다 이 시간 안의 넛지를 하나로 합친다
       },
     },
@@ -431,13 +431,13 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       chunkBytes: tuneInt("STREAM_CHUNK_KB") * 1024,
     },
 
-    // 로그. 파일(NDJSON)은 터미널 · 대시보드와 따로 디스크에 남긴다(사후 분석용).
+    // 로그. 파일(NDJSON)은 터미널, 대시보드와 따로 디스크에 남긴다(사후 분석용).
     logging: {
-      // 기록할 가장 낮은 레벨(터미널 · 파일 · 대시보드 모두).
+      // 기록할 가장 낮은 레벨(터미널, 파일, 대시보드 모두).
       // 조사용 로그는 debug 로 남겨 두고 필요할 때만 이 값을 낮춰 본다.
       level: envEnum("LOG_LEVEL", "info", LEVEL_NAMES),
       // 그중 터미널에 찍을 것. LOG_LEVEL=debug + LOG_CONSOLE_LEVEL=info 로 두면
-      // 파일·대시보드는 debug를 받고 터미널만 조용하다.
+      // 파일, 대시보드는 debug를 받고 터미널만 조용하다.
       consoleLevel: envEnum("LOG_CONSOLE_LEVEL", "", ["", ...LEVEL_NAMES]),
       // 기본은 켬. 원하지 않으면 false
       fileEnabled: env("LOG_FILE_ENABLED", "true") === "true",
@@ -451,7 +451,7 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
 
 // .env 가 있나는 문제 문장에만 쓴다(없으면 그 문제 하나만 알린다)
 const envFileFound = fs.existsSync(ENV_PATH);
-// 문제 · 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
+// 문제, 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
 
 /** 설정 */

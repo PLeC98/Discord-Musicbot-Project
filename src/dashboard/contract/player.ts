@@ -1,4 +1,4 @@
-// 서버와 화면이 주고받는 모양: 재생(/api/guilds/:id/player 아래). 서버는 dashboard/player-view · routes/player 가 만든다
+// 서버와 화면이 주고받는 모양: 재생(/api/guilds/:id/player 아래). 서버는 dashboard/player-view, routes/player 가 만든다
 
 import type { Loop } from "../../rules/loop-cycle.ts";
 import type { Hold } from "../../rules/holds.ts";
@@ -20,7 +20,7 @@ const QUEUE_WINDOW_MAX = 1000;
 /** 곡을 넣은 사람. 화면은 id 로 자기 곡인지만 본다 */
 type RequesterRef = { id: string | null } | null;
 
-/** 대기열의 한 곡. entry 는 대기열 ID(빼기 · 옮기기가 가리키는 것), index 는 지금 순번 */
+/** 대기열의 한 곡. entry 는 대기열 ID(빼기, 옮기기가 가리키는 것), index 는 지금 순번 */
 type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail" | "platform"> & {
   index: number;
   entry: number | null;
@@ -46,8 +46,8 @@ type PlayingView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail"
 };
 
 /**
- * 재생 상태. 조작은 모두 이 모양으로 답한다. boot · seq 는 만든 순서(늦게 온 옛 응답이 새 상태를 덮지 않게).
- * 플레이어가 없으면 볼륨 · 반복 · 기록 · 자동재생 필드가 없다
+ * 재생 상태. 조작은 모두 이 모양으로 답한다. boot, seq 는 만든 순서(늦게 온 옛 응답이 새 상태를 덮지 않게).
+ * 플레이어가 없으면 볼륨, 반복, 기록, 자동재생 필드가 없다
  */
 type PlayerState = {
   boot: number;
@@ -66,7 +66,7 @@ type PlayerState = {
   /** 이전 곡을 누르면 재생할 곡의 앨범아트(없거나 이전 곡이 없으면 null). 휴대폰에서 앨범아트를 밀 때 옆 카드에 미리 표시한다 */
   previousThumbnail?: string | null;
   autoplay?: boolean;
-  /** 자동재생 장르의 식별자 · 보여 줄 이름(꺼져 있으면 null) */
+  /** 자동재생 장르의 식별자, 보여 줄 이름(꺼져 있으면 null) */
   autoplayGenre?: string | null;
   autoplayGenreLabel?: string | null;
   /** 대기열에 라이브가 있다(반복을 켤 수 없다). 대기열 창 밖의 곡도 본다 */
@@ -79,10 +79,10 @@ type PlayerState = {
 /** 자동재생 장르. id 는 선택할 때 보내는 식별자, label 은 보여 줄 이름 */
 type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string | null }> };
 
-/** 봇 · 나의 음성 채널 */
+/** 봇, 나의 음성 채널 */
 type VoiceFlags = { botInVoice: boolean; userInVoice: boolean; sameVoice: boolean };
 
-/** 상태 읽기 · 부르기의 답. 재생 상태에 음성 채널과 이 사용자가 할 수 있는 것을 더한다(화면 표시용, 막는 것은 경로마다 서버가 다시 본다) */
+/** 상태 읽기, 부르기의 답. 재생 상태에 음성 채널과 이 사용자가 할 수 있는 것을 더한다(화면 표시용, 막는 것은 경로마다 서버가 다시 본다) */
 type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: boolean; canAdd: boolean; canManage: boolean; userId: string };
 
 /** 대기열 더 보기 */

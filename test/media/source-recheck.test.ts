@@ -1,4 +1,4 @@
-// src/media/source-recheck.ts: 캐시한 음원의 원본이 지금 어떤가(같음 · 바뀜 · 사라짐 · 모름). 잰 값으로(비공개 테스트 영상)
+// src/media/source-recheck.ts: 캐시한 음원의 원본이 지금 어떤가(같음, 바뀜, 사라짐, 모름). 잰 값으로(비공개 테스트 영상)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -6,7 +6,7 @@ import { recheck, type RecheckDeps } from "../../src/media/source-recheck.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 
 const fmt = (itag: number, lmt: string, dur: string, audio = true) => ({ format_id: String(itag), url: `https://rr1.googlevideo.com/videoplayback?itag=${itag}&lmt=${lmt}&dur=${dur}`, acodec: audio ? "opus" : "none", vcodec: audio ? "none" : "avc1" });
-// 편집 전 · 30초 자른 뒤 · 이어서 오디오만 넣은 뒤(길이 그대로)
+// 편집 전, 30초 자른 뒤, 이어서 오디오만 넣은 뒤(길이 그대로)
 const BEFORE = [fmt(251, "1788794896364049", "300.441"), fmt(140, "1788794897550774", "300.466"), fmt(160, "1788794908847489", "300.399", false)];
 const TRIMMED = [fmt(251, "1792606059000000", "270.341"), fmt(140, "1792606058000000", "270.373"), fmt(160, "1792606061000000", "270.333", false)];
 const RESOUNDED = [fmt(251, "1792606387000000", "270.341"), fmt(140, "1792606386000000", "270.373"), fmt(160, "1792606377000000", "270.333", false)];
@@ -50,7 +50,7 @@ test("사운드클라우드: 음원 파일 id 로 견주고, 미리듣기만 남
   assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id 와 견주지 않는다");
 });
 
-test("직접 링크: 헤더로 비교하고(ETag 우선), 404 · 410 · 웹 페이지는 사라짐, 403 · 5xx 는 모름", async () => {
+test("직접 링크: 헤더로 비교하고(ETag 우선), 404, 410, 웹 페이지는 사라짐, 403, 5xx 는 모름", async () => {
   const URL = "https://a.animethemes.moe/AttackNo1-ED1.ogg";
   const stored = { version: 'etag="472613ec";modified=Sun, 25 Jun 2023 04:33:06 GMT;length=2321206', durationSec: 1 };
   const head = (headers: Record<string, unknown>) => async () => ({ headers });

@@ -1,4 +1,4 @@
-// 앨범아트(파일 태그의 이미지)를 봇이 다시 인코딩한 JPEG 으로. 쓰는 쪽(캐시 파일 · 디스코드 · 대시보드)에는 이것만 간다.
+// 앨범아트(파일 태그의 이미지)를 봇이 다시 인코딩한 JPEG 으로. 쓰는 쪽(캐시 파일, 디스코드, 대시보드)에는 이것만 간다.
 // 외부 이미지라 읽기 전에 바이트 상한, 디코딩 전에 선언된 픽셀 상한(sharp 의 limitInputPixels)을 건다. 애니메이션은 첫 프레임, 투명한 곳은 검정(sharp 기본)
 
 import sharp from "sharp";
@@ -6,7 +6,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
-/** 긴 변 상한(px, 작으면 키우지 않는다) · JPEG 품질 */
+/** 긴 변 상한(px, 작으면 키우지 않는다), JPEG 품질 */
 const SIDE = 1000;
 const QUALITY = 85;
 /** 입력 이미지의 바이트 상한(file-tags 의 태그 읽기 상한과 같은 값) */
@@ -29,7 +29,7 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
 }
 
 /**
- * 캐시 파일 태그에서 꺼낸 앨범아트. bakeCover 결과 형식(JPEG · 긴 변 1000px 이하)이면 그대로, 아니면 다시 인코딩한다.
+ * 캐시 파일 태그에서 꺼낸 앨범아트. bakeCover 결과 형식(JPEG, 긴 변 1000px 이하)이면 그대로, 아니면 다시 인코딩한다.
  * 백업으로 불러온 남의 캐시 파일도 같은 확인을 지난다(누가 만든 파일인지 가리지 않는다)
  */
 async function checkCover(data: Uint8Array): Promise<Cover | null> {

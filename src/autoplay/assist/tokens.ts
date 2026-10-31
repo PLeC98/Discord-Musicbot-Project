@@ -2,8 +2,8 @@
  * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
  * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다
- *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩이다
- *   gemma   제미니·젬마. data/gemma-tokenizer.model (SentencePiece BPE)
+ *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o, 4.1, o1, o3, 5.x, 6 이 같은 인코딩이다
+ *   gemma   제미니, 젬마. data/gemma-tokenizer.model (SentencePiece BPE)
  *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자라, 저쪽 count_tokens 로 잰다(무료, 정확).
  *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산값이다
  * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")

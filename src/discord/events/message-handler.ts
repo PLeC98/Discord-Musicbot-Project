@@ -65,7 +65,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
         source: "전용채널",
       });
 
-      // 곡 찾기 · 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다
+      // 곡 찾기, 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
         const failed = addFailureMessage(result);

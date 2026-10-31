@@ -1,5 +1,5 @@
-// 재생목록 "더 넣기" 메뉴 · 모달 · 결과의 문구. 수는 여기서 자릿점을 찍는다.
-// 결과의 글(added · finished · progressed)은 대시보드도 받아 아이콘 없이 두고, 디스코드 메뉴가 resultMark 로 앞에 붙인다
+// 재생목록 "더 넣기" 메뉴, 모달, 결과의 문구. 수는 여기서 자릿점을 찍는다.
+// 결과의 글(added, finished, progressed)은 대시보드도 받아 아이콘 없이 두고, 디스코드 메뉴가 resultMark 로 앞에 붙인다
 
 import { josa } from "../../../rules/josa.ts";
 import { icon } from "../../icons.ts";

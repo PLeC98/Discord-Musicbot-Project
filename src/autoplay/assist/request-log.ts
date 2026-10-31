@@ -1,7 +1,7 @@
-// AI 리퀘스트 로그에 남기며 보낸다. AI 보조가 모델과 주고받는 곳(자동재생 판정 · 판정 테스트 · 연결 확인 · 모델 목록)이 모두 이것을 지난다.
+// AI 리퀘스트 로그에 남기며 보낸다. AI 보조가 모델과 주고받는 곳(자동재생 판정, 판정 테스트, 연결 확인, 모델 목록)이 모두 이것을 지난다.
 // 보내고, 본문 첫 청크가 온 때를 재고, 본문을 글로 다 읽은 뒤 기록하고 { res, text } 를 돌려준다(본문은 이미 읽었으니 부른 쪽은 text 를 쓴다).
-// 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값 · 주소 · 본문 · 응답). 비용은 그때의 값표로 센다(config/ai-prices).
-// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB 가 열려 있지 않으면(스크립트 · 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
+// 기록은 저장할 때 키를 가린다(assist/mask: 헤더 값, 주소, 본문, 응답). 비용은 그때의 값표로 센다(config/ai-prices).
+// 기록이 꺼져 있거나(AI_LOG_ENABLED) DB 가 열려 있지 않으면(스크립트, 테스트) 남기지 않는다. 기록이 실패해도 요청은 그대로 간다.
 
 import config from "../../config/index.ts";
 import * as requests from "../../store/ai-requests.ts";
@@ -118,7 +118,7 @@ function failureOf(status: number, text: string) {
   return detail ? `${key}: ${detail}` : key;
 }
 
-/** 보내고 기록한다. 닿지 못했으면(연결 실패 · 시간 초과) 기록한 뒤 그 오류를 그대로 던진다 */
+/** 보내고 기록한다. 닿지 못했으면(연결 실패, 시간 초과) 기록한 뒤 그 오류를 그대로 던진다 */
 async function sendLogged(send: Send, call: Call, url: string, init: RequestInit): Promise<{ res: Response; text: string }> {
   const started = Date.now();
   let res: Response | null = null;

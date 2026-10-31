@@ -1,4 +1,4 @@
-// src/player/voice-presence.ts: 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 억제 사유 맞추기).
+// src/player/voice-presence.ts: 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장, 채널 사라짐, 채널 이동, 억제 사유 맞추기).
 // 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 구분한다. 억제 사유 계산은 플레이어(syncHolds)와 rules/holds 테스트가 본다. 여기서는 무엇을 불렀는지만 본다.
 
 import { test, after } from "node:test";
@@ -105,7 +105,7 @@ test("봇이 처음 참가한 것은 옮겨진 것이 아니다", async () => {
   assert.deepEqual(calls, ["sync"]);
 });
 
-test("봇의 음소거 · 봇 채널의 사람 들고 남은 억제 사유를 맞춘다(패널 갱신은 바뀐 만큼 플레이어가)", async () => {
+test("봇의 음소거, 봇 채널의 사람 들고 남은 억제 사유를 맞춘다(패널 갱신은 바뀐 만큼 플레이어가)", async () => {
   const mute = setup();
   await onVoiceStateUpdate(mute.client, mute.players, mute.state(BOT, "vc1"), mute.state(BOT, "vc1", { serverMute: true }));
   assert.deepEqual(mute.calls, ["sync"]);

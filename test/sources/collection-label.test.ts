@@ -1,4 +1,4 @@
-// src/sources/lookup.ts · src/ui/added-notice.ts: 여러 곡을 담은 출처(재생목록·앨범·아티스트)를 구분해 대기열 추가를 안내한다
+// src/sources/lookup.ts, src/ui/added-notice.ts: 여러 곡을 담은 출처(재생목록, 앨범, 아티스트)를 구분해 대기열 추가를 안내한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -1,4 +1,4 @@
-// 재생 패널(지금 곡 · 끝난 패널)의 문구
+// 재생 패널(지금 곡, 끝난 패널)의 문구
 
 import { icon, type IconKey } from "../../icons.ts";
 
@@ -17,7 +17,7 @@ const jumpPlaceholder = () => "⏭ 이 곡 먼저 재생하기";
 const PAUSED = { mute: ["muted", "음소거됨"], stage: ["voice", "발언자 기다림"], alone: ["alone", "혼자 남음"], other: ["pause", "일시정지"] } as const satisfies Record<string, readonly [IconKey, string]>;
 /** 상태 줄의 멈춤 */
 const pausedStatus = (reason: keyof typeof PAUSED) => `${icon(PAUSED[reason][0])} ${PAUSED[reason][1]}`;
-/** 멈춘 까닭의 아이콘 · 글(대시보드 배지가 패널과 같은 말을 쓴다) */
+/** 멈춘 까닭의 아이콘, 글(대시보드 배지가 패널과 같은 말을 쓴다) */
 const pausedLabel = (reason: keyof typeof PAUSED) => ({ icon: PAUSED[reason][0], text: PAUSED[reason][1] });
 /** 억제 사유 옆에 붙이는 "사람이 멈춰 둠"(그 사유가 풀려도 멈춘 채) */
 const userPausedMark = () => "일시정지";
@@ -66,7 +66,7 @@ const CUT_OFF: Record<string, string> = {
   "channel-gone": "제가 있던 음성 채널이 사라졌어요. `/play`로 부르면 다시 올게요.",
   fault: "같은 오류가 반복되어 재생을 멈췄어요. 계속되면 봇 운영자에게 알려주세요.",
 };
-/** 전용 채널 밖에서 끊겨 끝났다는 안내. 알릴 까닭이 아니면(stop · leave 등) null */
+/** 전용 채널 밖에서 끊겨 끝났다는 안내. 알릴 까닭이 아니면(stop, leave 등) null */
 const cutOff = (cause: string): EndNotice | null => (CUT_OFF[cause] ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
 
 export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, pausedLabel, userPausedMark, queuedStatus, segmentsStatus, stayStatus, dashboardLink, idle, ended, cutOff };

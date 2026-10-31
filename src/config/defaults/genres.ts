@@ -1,5 +1,5 @@
-// 자동재생 장르 기본값. settings.db 에 "genres" 문서가 없을 때(새로 설치 · 삭제) 이것으로 시작한다(config/documents).
-// 필드의 뜻은 대시보드 자동재생 탭의 툴팁 · README 에 있다. 검사는 config/schema/genres(테스트가 이 값이 검사를 지나는지 본다)
+// 자동재생 장르 기본값. settings.db 에 "genres" 문서가 없을 때(새로 설치, 삭제) 이것으로 시작한다(config/documents).
+// 필드의 뜻은 대시보드 자동재생 탭의 툴팁, README 에 있다. 검사는 config/schema/genres(테스트가 이 값이 검사를 지나는지 본다)
 // 스포티파이는 공식 재생목록(37i9dQZ…)을 쓴다. EDM 의 예전 히트만 공식 목록이 없어 사용자 목록이다.
 // 목록이 사라지면 그 출처만 고를 때마다 경고를 남기고 다음 출처로 넘어간다(autoplay/route)
 

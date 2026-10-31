@@ -1,4 +1,4 @@
-// 봇 초대 화면 · 사이드바 ⊕
+// 봇 초대 화면, 사이드바 ⊕
 
 const title = "봇 초대";
 const count = (n: number) => `${n}곳`;

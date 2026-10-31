@@ -2,11 +2,11 @@
  * AI 보조가 실패한 요청을 다시 할지, 얼마나 기다릴지 정한다. 요청은 하지 않는다(index.ts 의 askBatch).
  */
 
-/** 거절 응답에서 읽는 필드. 규격마다 이름이 다르다(Google status · Anthropic type · OpenAI code) */
+/** 거절 응답에서 읽는 필드. 규격마다 이름이 다르다(Google status, Anthropic type, OpenAI code) */
 type ErrorBody = { error?: { status?: unknown; type?: unknown; code?: unknown; message?: unknown; details?: unknown } };
 type HeaderSource = { get(name: string): string | null } | null | undefined;
 
-// 풀릴 때까지 계속 실패하는 한도. 429 로 오지만 다시 해도 소용없다(Anthropic 지출 상한 · OpenAI 크레딧 소진)
+// 풀릴 때까지 계속 실패하는 한도. 429 로 오지만 다시 해도 소용없다(Anthropic 지출 상한, OpenAI 크레딧 소진)
 const EXHAUSTED = /enforced_spend_limit_reached|insufficient_quota/;
 
 function readBody(text: string): ErrorBody["error"] {
@@ -19,7 +19,7 @@ function readBody(text: string): ErrorBody["error"] {
 }
 
 /**
- * 거절 응답의 까닭. key 는 같은 실패끼리 같은 글이 되게 상태 코드와 오류 이름만(문구에는 요청 id · 초가 섞인다),
+ * 거절 응답의 까닭. key 는 같은 실패끼리 같은 글이 되게 상태 코드와 오류 이름만(문구에는 요청 id, 초가 섞인다),
  * detail 은 저쪽이 적어 보낸 문구
  */
 function summaryOf(status: number, text: string) {
@@ -32,7 +32,7 @@ function summaryOf(status: number, text: string) {
 /** 다시 해도 소용없는 한도 소진인가 */
 const exhausted = (text: string) => EXHAUSTED.test(text);
 
-// "34s" · "1.5s" (proto Duration)
+// "34s", "1.5s" (proto Duration)
 function durationMs(text: unknown) {
   const got = typeof text === "string" && /^(\d+(?:\.\d+)?)s$/.exec(text.trim());
   return got ? Math.round(Number(got[1]) * 1000) : null;
@@ -40,7 +40,7 @@ function durationMs(text: unknown) {
 
 /**
  * 저쪽이 기다리라고 한 시간(밀리초). 없으면 null.
- * Retry-After(초 또는 날짜) · retry-after-ms 헤더, 제미니 API 는 헤더 없이 본문의 RetryInfo.retryDelay 에 적는다. 여럿이면 긴 것
+ * Retry-After(초 또는 날짜), retry-after-ms 헤더, 제미니 API 는 헤더 없이 본문의 RetryInfo.retryDelay 에 적는다. 여럿이면 긴 것
  */
 function adviceMs(headers: HeaderSource, text: string, now = Date.now()) {
   const details = readBody(text)?.details;

@@ -84,7 +84,7 @@ test("쓰기 본문은 조작 200개를 싣는다(32kb 를 넘는다)", async ()
   assert.equal((res.json.results as unknown[]).length, 200);
 });
 
-test("값 검사 미리 보기 · 재생 테스트 · 번호 · 결과", async () => {
+test("값 검사 미리 보기, 재생 테스트, 번호, 결과", async () => {
   const inspected = await call("POST", "/inspect", { audioUrl: "https://youtu.be/ddddddddddd" });
   assert.deepEqual(inspected.json, { audio: { ok: true, canonical: "https://www.youtube.com/watch?v=ddddddddddd", kind: "youtube", audioKey: "yt:ddddddddddd" } });
 

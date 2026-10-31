@@ -9,7 +9,7 @@ type Fill = (path: PropertyKey[]) => Record<string, unknown>;
 
 const ALWAYS = { when: () => true }; // 필드 하나가 틀려도 교차 검사를 돌린다. 문제를 한 번에 다 알린다
 
-// 있으면(null · undefined 가 아니면) 조건을 본다
+// 있으면(null, undefined 가 아니면) 조건을 본다
 const present = (ok: (v: unknown) => boolean, message: Message) =>
   z
     .unknown()

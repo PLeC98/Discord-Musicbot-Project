@@ -1,4 +1,4 @@
-// 로그 레벨과 대시보드로 보내는 로그 한 줄. 로거 · 로그 저장(sink) · 설정 검사 · 대시보드 로그 화면이 같이 쓴다
+// 로그 레벨과 대시보드로 보내는 로그 한 줄. 로거, 로그 저장(sink), 설정 검사, 대시보드 로그 화면이 같이 쓴다
 
 /** 레벨 이름. 낮은 것부터(pino 와 같은 체계) */
 const LEVEL_NAMES = ["trace", "debug", "info", "warn", "error", "fatal"] as const;
@@ -17,7 +17,7 @@ type WireFields = Omit<WireEntry, "id">;
 const ANSI_RE = /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
 
 /**
- * 로그 레코드(pino JSON 부분집합: level 숫자 · time · msg · 바인딩)를 대시보드의 한 줄로. 가리기는 레코드를 남기기 전에 이미 했다.
+ * 로그 레코드(pino JSON 부분집합: level 숫자, time, msg, 바인딩)를 대시보드의 한 줄로. 가리기는 레코드를 남기기 전에 이미 했다.
  * 파일에서 읽은 레코드도 받으므로 바인딩의 모양을 확인한다
  */
 function wireFields(rec: { level: number; time: number; msg?: unknown; category?: unknown; sub?: unknown; tags?: unknown }): WireFields {

@@ -23,7 +23,7 @@ const seatOf = (guildId: string): Seat | null => seats.get(guildId) ?? null;
 /** 모든 자리 [서버 ID, 자리] */
 const all = (): Array<[string, Seat]> => [...seats.entries()];
 
-/** 자리를 적는다(켜기 · 옮겨짐을 따라감). DB 가 열려 있지 않으면 던진다 */
+/** 자리를 적는다(켜기, 옮겨짐을 따라감). DB 가 열려 있지 않으면 던진다 */
 function set(guildId: string, channelId: string, setBy: string | null = null) {
   const seat = { channelId, setBy: setBy ?? seats.get(guildId)?.setBy ?? null, setAt: Date.now() };
   conn()

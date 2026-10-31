@@ -39,7 +39,7 @@ test("사람이 멈추고 풀면 오디오가 따르고, 바뀐 때만 알린다
   ]);
 });
 
-test("억제 사유는 통째로 맞추고 더해진 것 · 빠진 것을 알린다", () => {
+test("억제 사유는 통째로 맞추고 더해진 것, 빠진 것을 알린다", () => {
   const { a, seen, state } = make();
   assert.deepEqual(state.setHolds(["mute", "alone"]), { added: ["mute", "alone"], removed: [] });
   assert.equal(a.state.status, "paused");
@@ -73,7 +73,7 @@ test("값이 그대로여도 오디오가 어긋났으면 바로잡는다", () =
   assert.equal(seen.length, 1);
 });
 
-test("버퍼링 · 곡 없음 · AutoPaused 에는 손대지 않는다(재생으로 넘어오는 순간 다시 맞춘다)", () => {
+test("버퍼링, 곡 없음, AutoPaused 에는 손대지 않는다(재생으로 넘어오는 순간 다시 맞춘다)", () => {
   for (const status of ["buffering", "idle", "autopaused"]) {
     const { a, state } = make(status);
     state.setUser(true);

@@ -58,7 +58,7 @@ test("세션 사용자가 지금 그 서버 멤버가 아니면 403", async () =
   assert.deepEqual(fetched, ["u1"], "세션 사용자 ID 로 서버에 묻는다");
 });
 
-test("멤버면 응답을 쓰지 않고 서버 · 플레이어 · 멤버를 돌려준다. 조작하는 사람은 그 멤버다", async () => {
+test("멤버면 응답을 쓰지 않고 서버, 플레이어, 멤버를 돌려준다. 조작하는 사람은 그 멤버다", async () => {
   const { req, res, sent, bot, g, player } = setup();
   const got = await openGuild(req, res, "g1");
   assert.deepEqual(sent, {});

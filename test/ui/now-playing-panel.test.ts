@@ -1,4 +1,4 @@
-// src/ui/now-playing-panel.ts: 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 추가의 순서는 test/usecases/queue-tracks-order.
+// src/ui/now-playing-panel.ts: 재생 패널 그리기, 끝난 패널, 진행 막대. 곡 추가의 순서는 test/usecases/queue-tracks-order.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -147,7 +147,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   assert.equal(files[0].name, "blank.png");
 });
 
-// 기본값 localhost · 사설 주소는 다른 사람이 열 수 없다
+// 기본값 localhost, 사설 주소는 다른 사람이 열 수 없다
 test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
   const mem = newManager();
   const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };

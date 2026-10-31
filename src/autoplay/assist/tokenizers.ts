@@ -105,7 +105,7 @@ function takeGemmaProblem() {
   return problem;
 }
 
-// 붙일 짝 하나. left · right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
+// 붙일 짝 하나. left, right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
 type Pair = { score: number; left: number; right: number; joined: string };
 // 점수가 높은 것, 같으면 왼쪽이 먼저
 const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score && a.left < b.left);

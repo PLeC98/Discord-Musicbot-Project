@@ -11,7 +11,7 @@ import * as helpText from "../../ui/text/ko/help.ts";
 import { helpSections } from "../../ui/help-lines.ts";
 import { LIFETIME, selfOnly, toSelf } from "../../ui/delivery.ts";
 
-// players: 지금 도는 서버 수 · commands: 켜진 명령(실행 목록)
+// players: 지금 도는 서버 수, commands: 켜진 명령(실행 목록)
 async function buildHelpEmbed(client: Client<true>, { players, commands }: Pick<BotContext, "players" | "commands">) {
   const guilds = client.guilds.cache.size;
   const users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);

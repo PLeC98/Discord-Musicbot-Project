@@ -1,4 +1,4 @@
-// src/config/documents.ts · store/settings-docs.ts: 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트).
+// src/config/documents.ts, store/settings-docs.ts: 설정 문서(장르, 상태 문구, AI 설정, 프롬프트).
 // 메모리에 들고 있다가 저장하면 settings.db 에 쓴다. 저장 번호가 다르면 거절하고, 함께 쓰는 문서는 한 트랜잭션이다.
 
 import { test, after, beforeEach } from "node:test";
@@ -56,7 +56,7 @@ test("낡은 번호로 저장하면 거절하고 아무것도 바꾸지 않는�
 });
 
 // AI 설정과 프롬프트는 화면의 저장 하나로 함께 바뀐다. 반만 쓰이면 둘이 어긋난다
-test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모리 · DB 모두)", () => {
+test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모리, DB 모두)", () => {
   documents.put("ai", { provider: "off", model: "처음" }, 0);
 
   // 다른 쪽이 그사이 DB 의 프롬프트를 고쳤다: 메모리는 번호 0 으로 알고 써서 DB 에서 걸린다
@@ -92,7 +92,7 @@ test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서
   assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3 에 이어서");
 });
 
-test("예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 기동 시 지금 기본값으로 바꿔 저장한다", () => {
+test("예전 기본값 그대로인 AI 줄 형식, 프롬프트는 기동 시 지금 기본값으로 바꿔 저장한다", () => {
   const legacyLine = LEGACY_LINE_FORMATS[0];
   documents.putAll([
     { name: "ai", data: { provider: "vertex", list: { lineFormat: legacyLine, unknownDuration: "hide", unknownText: "모름" } } },
@@ -115,7 +115,7 @@ test("예전 기본값 그대로인 AI 줄 형식 · 프롬프트는 기동 시 
   assert.deepEqual(documents.attach(settingsDocs), []);
 });
 
-test("운영자가 고친 줄 형식 · 프롬프트는 그대로 둔다", () => {
+test("운영자가 고친 줄 형식, 프롬프트는 그대로 둔다", () => {
   const mine = "{{index}}. 장르={{genre}} 제목={{title}}";
   const prompt = [
     { role: "system", text: `${LEGACY_PROMPTS[1]} 한 줄 더` },

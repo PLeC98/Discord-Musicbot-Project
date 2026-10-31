@@ -1,6 +1,6 @@
 <template>
   <!-- 돌려서 선택하는 휠(알람 앱처럼). 세 줄이 보이고 가운데가 선택한 값. 끝에서 처음으로 이어진다(같은 값을 다섯 벌 늘어놓고 가운데 벌로 되돌린다).
-       마우스 휠은 한 번 굴리면 step 만큼(OS · 브라우저의 스크롤 양과 상관없이). 가운데를 누르면 그 자리가 입력란이 되어 직접 입력한다(Enter · 다른 곳을 누르면 반영, Esc 는 취소) -->
+       마우스 휠은 한 번 굴리면 step 만큼(OS, 브라우저의 스크롤 양과 상관없이). 가운데를 누르면 그 자리가 입력란이 되어 직접 입력한다(Enter, 다른 곳을 누르면 반영, Esc 는 취소) -->
   <div class="relative select-none" :style="{ height: `${rowPx * 3}px` }">
     <!-- 가운데 띠 -->
     <div class="pointer-events-none absolute inset-x-0 rounded-(--r-row) bg-secondary-container" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }"></div>
@@ -37,7 +37,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
-/** count: 값의 수(0 ~ count-1, 시 24 · 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px · 글자 24px(남는 자리가 넓을 때) */
+/** count: 값의 수(0 ~ count-1, 시 24, 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
 const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; step?: number; big?: boolean }>(), { step: 1, big: false });
 const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 
@@ -119,7 +119,7 @@ function clickRow(i: number) {
   list.value?.scrollTo({ top: topOf(i), behavior: "smooth" });
 }
 
-// 마우스로 드래그(손가락 · 휠은 브라우저 스크롤이 한다)
+// 마우스로 드래그(손가락, 휠은 브라우저 스크롤이 한다)
 let dragging = false;
 let moved = false;
 let start = { y: 0, top: 0 };

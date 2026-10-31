@@ -1,4 +1,4 @@
-// src/sources/lookup.ts · spotify.ts · youtube: 여러 곡 출처는 필요한 구간만 받는다. 스포티파이 재생목록·앨범·인기곡, 유튜브 재생목록, 해석기 전달.
+// src/sources/lookup.ts, spotify.ts, youtube: 여러 곡 출처는 필요한 구간만 받는다. 스포티파이 재생목록, 앨범, 인기곡, 유튜브 재생목록, 해석기 전달.
 // 다 받은 뒤 대기열에서 자르지 않는다(1만 곡 재생목록이면 1분 넘게 걸린다).
 
 import { withConfig } from "../helpers/config.ts";
@@ -145,7 +145,7 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
   assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
 });
 
-test("유튜브 재생목록: 목록 · 곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", async () => {
+test("유튜브 재생목록: 목록, 곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", async () => {
   ytInfo = { entries: [{ id: "a" }, { id: "b", title: "B" }] };
   const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLy", { exec });
   assert.ok(r);
@@ -158,7 +158,7 @@ test("유튜브 재생목록: 목록 · 곡에 제목이 없으면 표시 문구
 
 // ── 해석기 ──
 
-test("해석기는 구간을 어댑터에 넘기고 총 곡 수·다음 위치를 싣는다", async () => {
+test("해석기는 구간을 어댑터에 넘기고 총 곡 수, 다음 위치를 싣는다", async () => {
   const seen: Array<Range | undefined> = [];
   const sources = {
     spotify: {

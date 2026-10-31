@@ -1,5 +1,5 @@
 // AI 판정 프롬프트 한 벌(후보 목록의 줄 형식 + 섹션들)을 파일로 주고받는 형식. 섹션은 줄 형식이 만든 {{list}} 를 쓰므로 함께 다닌다.
-// 파일은 { musicbotPrompt: 형식 번호, lineFormat, sections: [{ role, name, text }] }. 불러온 뒤에는 편집기 · 저장 검사(schema/ai · ai-prompt)가 평소처럼 본다
+// 파일은 { musicbotPrompt: 형식 번호, lineFormat, sections: [{ role, name, text }] }. 불러온 뒤에는 편집기, 저장 검사(schema/ai, ai-prompt)가 평소처럼 본다
 
 const FORMAT = 1;
 
@@ -12,7 +12,7 @@ function promptFile(lineFormat: string, sections: PromptFileSection[]): { name: 
 }
 
 /**
- * 프롬프트 파일이면 줄 형식과 섹션들, 아니면 null(JSON 이 아님 · 다른 파일 · 모르는 형식 번호).
+ * 프롬프트 파일이면 줄 형식과 섹션들, 아니면 null(JSON 이 아님, 다른 파일, 모르는 형식 번호).
  * 객체가 아닌 섹션만 뺀다(dropped). 역할이 맞지 않는 것 등은 남긴다. 편집기가 문제를 보이고 고치기 전에는 저장되지 않는다
  */
 function parsePromptFile(text: string): { lineFormat: string; sections: PromptFileSection[]; dropped: number } | null {

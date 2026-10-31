@@ -2,7 +2,7 @@
   문자열 목록을 칩으로 다룬다. 검색어와 제외 키워드가 같은 성질이라 한 곳에 모은다.
   Enter로 추가, 지우기 버튼 또는 빈 입력란에서 Backspace로 제거, 칩을 누르면 고친다.
 
-  suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그 · 가수). 후보는 돕는 것일 뿐이라
+  suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그, 가수). 후보는 돕는 것일 뿐이라
   목록에 없는 말도 Enter 로 추가할 수 있다. 저쪽이 느리거나 죽어 있어도 입력할 수 있어야 한다.
 -->
 <template>
@@ -88,7 +88,7 @@ const box = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
 const hits = ref<Suggestion[]>([]);
-// 후보 불러오기: idle(입력한 말이 없다) · loading · done · failed
+// 후보 불러오기: idle(입력한 말이 없다), loading, done, failed
 const state = ref("idle");
 const failReason = ref("");
 // 방향키로 선택한 후보. -1 이면 선택한 것이 없어 Enter 가 입력한 말을 그대로 추가한다
@@ -127,7 +127,7 @@ watch(entry, (text) => {
     state.value = failed ? "failed" : "done";
   }, SUGGEST_WAIT_MS);
 });
-// 입력란이 사라지면(장르 · 출처를 삭제) 기다리던 요청도 보내지 않는다
+// 입력란이 사라지면(장르, 출처를 삭제) 기다리던 요청도 보내지 않는다
 onUnmounted(() => clearTimeout(timer));
 
 // 방향키로 오르내리면 닫혀 있던 목록도 연다

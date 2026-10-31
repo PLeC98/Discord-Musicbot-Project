@@ -1,10 +1,10 @@
-// 직접 링크 곡의 파일 태그(제목 · 가수 · 앨범 · 앨범아트)를 찾아 기억한다. 디스코드 패널 · 대시보드가 앨범아트를, 플레이어가 곡 정보를 여기서 받는다.
+// 직접 링크 곡의 파일 태그(제목, 가수, 앨범, 앨범아트)를 찾아 기억한다. 디스코드 패널, 대시보드가 앨범아트를, 플레이어가 곡 정보를 여기서 받는다.
 //
 //   얻는 곳   캐시 파일의 태그(통신 없음) → 원본 링크의 헤더(SafeUrl, 곡 추가 때 읽은 것 포함). 캐시를 만들 때 넣은 것은 다운로드가 바로 알린다
 //   기억      결과는 음원 키마다(버전: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 앨범아트는 다시 인코딩한 JPEG 을 바이트 상한 안에서 LRU.
 //             밀려나도 사라지지 않는다: 결과는 다시 찾고, 앨범아트는 캐시 파일에서 다시 꺼낸다(원본에서만 얻은 앨범아트는 다시 찾을 때까지 없다)
 //   찾기      한 번에 둘(지금 곡이 먼저), 같은 키는 한 번만. 통신 실패는 몇 분 뒤 다시, "없음"은 캐시 파일이 생길 때 다시
-//   알림      찾으면(태그나 앨범아트가 있으면) onFound 로. 플레이어가 그 키의 곡에 반영하고 패널 · 대시보드를 새로 그린다(app/main 이 잇는다)
+//   알림      찾으면(태그나 앨범아트가 있으면) onFound 로. 플레이어가 그 키의 곡에 반영하고 패널, 대시보드를 새로 그린다(app/main 이 잇는다)
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,17 +23,17 @@ import { openFollowing, refusedByResponse, OPEN_ACCEPT } from "./direct-open.ts"
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
-/** 태그 읽기의 상한(앨범아트가 든 헤더 · 끝 moov 포함) */
+/** 태그 읽기의 상한(앨범아트가 든 헤더, 끝 moov 포함) */
 const TAG_LIMITS = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 /** 홉마다의 응답 대기 */
 const ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 원본을 열어 판정할 때(웹 페이지 · 재생목록도 받아 본다) */
+/** 원본을 열어 판정할 때(웹 페이지, 재생목록도 받아 본다) */
 const OPEN: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const PARALLEL = 2;
 const RETRY_MS = 5 * 60_000;
 /** 캐시 다운로드가 맡은 키를 다시 찾지 않는 시간(다운로드가 결과를 알리면 풀린다. 실패하면 이만큼 지나 풀린다) */
 const HOLD_MS = 10 * 60_000;
-/** 기억하는 결과 수 · 앨범아트 바이트 */
+/** 기억하는 결과 수, 앨범아트 바이트 */
 const KEEP_RESULTS = 5000;
 const KEEP_IMAGE_BYTES = 32 * 1024 * 1024;
 /** 원본을 여는 곳(SafeUrl). 테스트가 가짜를 넘긴다 */
@@ -52,7 +52,7 @@ const images = new Map<string, { jpeg: Buffer; audioKey: string }>();
 let imageBytes = 0;
 const queue: Array<{ audioKey: string; url: string }> = [];
 const running = new Set<string>();
-/** 곡 추가 때 읽기 · 원본 헤더 읽기를 끊는 함수(캐시 다운로드가 시작되면 부른다) */
+/** 곡 추가 때 읽기, 원본 헤더 읽기를 끊는 함수(캐시 다운로드가 시작되면 부른다) */
 const sourceReads = new Map<string, () => void>();
 /** 캐시 다운로드가 맡은 키 → 풀리는 시각. 그동안 원본을 다시 찾지 않는다(같은 파일로 연결이 셋 열리지 않게) */
 const holding = new Map<string, number>();
@@ -62,7 +62,7 @@ const EMPTY: TagInfo = { title: null, artist: null, album: null };
 const tagsOf = (tags: Tags | null): TagInfo => (tags ? { title: tags.title, artist: tags.artist, album: tags.album } : EMPTY);
 const fingerprintOf = (jpeg: Buffer) => crypto.createHash("sha1").update(jpeg).digest("hex").slice(0, 20);
 
-/** 이 키의 지금 버전. 캐시 파일이 있으면 그 다운로드 시각(비었으면 파일 크기 · 수정 시각), 없으면 원본 */
+/** 이 키의 지금 버전. 캐시 파일이 있으면 그 다운로드 시각(비었으면 파일 크기, 수정 시각), 없으면 원본 */
 function versionOf(audioKey: string): { version: string; file: string | null } {
   const row = audioCache.lookupByAudioKey(audioKey);
   if (row?.status !== "cached" || !row.file_path) return { version: "source", file: null };
@@ -146,14 +146,14 @@ async function find(audioKey: string, url: string) {
   }
   let opened;
   try {
-    // 단순 목록은 곡 추가 · 재생처럼 첫 주소를 따라간다
+    // 단순 목록은 곡 추가, 재생처럼 첫 주소를 따라간다
     opened = await openFollowing(url, { net: { getStream: (target, _deps, opts) => open(target, { accept: OPEN, ...opts }) }, accept: OPEN });
   } catch (error) {
-    // 음원이 아님 · 옛 SHOUTcast 는 다시 찾아도 같다
+    // 음원이 아님, 옛 SHOUTcast 는 다시 찾아도 같다
     if (refusedByResponse(error)) return settle(audioKey, "source", EMPTY, null);
     throw error;
   }
-  // HLS · 웹 페이지 · 이미지는 파일 태그가 없다
+  // HLS, 웹 페이지, 이미지는 파일 태그가 없다
   if (opened.kind !== "file") return settle(audioKey, "source", EMPTY, null);
   await readFromBody(audioKey, url, opened.body);
 }
@@ -191,7 +191,7 @@ function directKeyOf(track: Wanted): string | null {
 
 /**
  * 찾을 곡을 넘긴다(앞의 것이 먼저). first 면 기다리는 것보다 앞에(지금 곡).
- * 이미 아는 곡 · 찾는 중인 곡은 메모리에서 바로 건너뛴다(DB 를 보지 않는다)
+ * 이미 아는 곡, 찾는 중인 곡은 메모리에서 바로 건너뛴다(DB 를 보지 않는다)
  */
 function want(tracks: Iterable<Wanted | null | undefined>, { first = false } = {}) {
   const fresh: Array<{ audioKey: string; url: string }> = [];
@@ -234,7 +234,7 @@ async function imageOf(fingerprint: string): Promise<Buffer | null> {
   return null;
 }
 
-/** 캐시 파일을 막 만들었다(다운로드). 그 파일에 넣은 태그 · 앨범아트로 결과를 바로 채운다 */
+/** 캐시 파일을 막 만들었다(다운로드). 그 파일에 넣은 태그, 앨범아트로 결과를 바로 채운다 */
 function noteFile(audioKey: string, tags: TagInfo | null, cover: Cover | null) {
   holding.delete(audioKey);
   const { version } = versionOf(audioKey);

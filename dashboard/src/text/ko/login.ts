@@ -1,4 +1,4 @@
-// 로그인 화면. 잠금 화면 결이라 섬의 짧은 말(locked · online · press Enter to login · 소스 링크)은 디자인으로 영어이고 화면에 둔다
+// 로그인 화면. 잠금 화면 결이라 섬의 짧은 말(locked, online, press Enter to login, 소스 링크)은 디자인으로 영어이고 화면에 둔다
 
 const loginWithDiscord = "Discord로 로그인";
 const loginAgain = "다시 로그인";

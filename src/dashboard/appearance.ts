@@ -1,7 +1,7 @@
 // 파비콘. 운영자가 패널에서 크기 슬롯마다 올린 이미지를 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
-// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg · 메타데이터가 그대로 나가지 않게).
-// 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 이미지 · 기록)는 같은 폴더의 index.json:
-// 이미지와 한 폴더라 백업 · 이사 · 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 이미지와 어긋나지 않는다).
+// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg, 메타데이터가 그대로 나가지 않게).
+// 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 이미지, 기록)는 같은 폴더의 index.json:
+// 이미지와 한 폴더라 백업, 이사, 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 이미지와 어긋나지 않는다).
 // 그 크기를 낼 때: 그 슬롯의 지금 이미지 > 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘림 > 봇 프로필 이미지를 줄임
 
 import crypto from "crypto";
@@ -21,7 +21,7 @@ const INDEX = "index.json";
 const RASTERS = ["png", "webp", "jpeg"];
 /** 이미지 id(파일 이름에 그대로 쓴다) */
 const ID = /^[a-z0-9]{8,24}$/;
-/** 이 폴더에서 봇이 쓰는 파일: 목록 · 슬롯 크기 png · 보관본 png */
+/** 이 폴더에서 봇이 쓰는 파일: 목록, 슬롯 크기 png, 보관본 png */
 const FILE = /^(index\.json|[a-z0-9]{8,24}(\.reserve)?\.png)$/;
 
 /** 저장한 이미지 하나. reserveSide 는 보관본의 변 */
@@ -30,7 +30,7 @@ type Stored = FaviconImage & { reserveSide: number };
 type Slot = { current: string | null; history: Stored[] };
 /** index.json 의 형식(슬롯 크기 → 슬롯) */
 type Index = { slots: Record<string, Slot> };
-/** 올리기의 답: 됐거나, 거절(문제 코드 · 그 값) */
+/** 올리기의 답: 됐거나, 거절(문제 코드, 그 값) */
 type Added = { ok: true } | { ok: false; code: Code; params?: Params };
 type Refused = Extract<Added, { ok: false }>;
 
@@ -58,7 +58,7 @@ function isStored(value: unknown): value is Stored {
   return !!one && typeof one.id === "string" && ID.test(one.id) && isNum(one.bytes) && isNum(one.width) && isNum(one.height) && typeof one.vector === "boolean" && isNum(one.at) && isNum(one.reserveSide) && one.reserveSide > 0 && one.reserveSide <= FAVICON_RESERVE_SIDE;
 }
 
-/** index.json 을 슬롯으로 읽는다. 모르는 크기 · 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 이미지가 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
+/** index.json 을 슬롯으로 읽는다. 모르는 크기, 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 이미지가 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
 function slotsFrom(raw: unknown, has: (id: string) => boolean): Map<number, Slot> {
   const table = (raw as Partial<Index> | null)?.slots;
   return new Map(
@@ -116,7 +116,7 @@ const currentOf = (size: number) => {
   return slot.history.find((one) => one.id === slot.current) ?? null;
 };
 
-/** 받은 이미지를 본다(형식 · 래스터는 정사각형 · 변). 지나가면 그 크기의 png 와 보관본을 그린다 */
+/** 받은 이미지를 본다(형식, 래스터는 정사각형, 변). 지나가면 그 크기의 png 와 보관본을 그린다 */
 async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: Stored; png: Buffer; reserve: Buffer } | Refused> {
   const meta = await sharp(raw)
     .metadata()
@@ -144,7 +144,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
   }
 }
 
-/** 그 크기에 이미지를 올린다(정사각형 png · webp · jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 이미지로 쓰고, 기록을 넘친 옛 이미지는 삭제한다 */
+/** 그 크기에 이미지를 올린다(정사각형 png, webp, jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 이미지로 쓰고, 기록을 넘친 옛 이미지는 삭제한다 */
 async function addFavicon(size: number, raw: Buffer): Promise<Added> {
   const checked = await inspect(raw, size);
   if (!checked.ok) return checked;
@@ -274,12 +274,12 @@ function faviconSlots(hasAvatar: boolean): FaviconSlots {
 
 const faviconVersion = () => version;
 
-// ── 내보내기 · 불러오기 · 전체 백업 ──
+// ── 내보내기, 불러오기, 전체 백업 ──
 
 /** 이 폴더에서 봇이 쓰는 파일인지(전체 백업이 담을 것) */
 const isFaviconFile = (name: string) => FILE.test(name);
 
-/** 저장한 파일들: index.json 과 이미지마다 슬롯 크기 png · 보관본 png(이름은 저장된 그대로) */
+/** 저장한 파일들: index.json 과 이미지마다 슬롯 크기 png, 보관본 png(이름은 저장된 그대로) */
 function faviconFiles(): Array<{ name: string; data: Buffer }> {
   const map = loaded();
   const images = [...map.values()].flatMap((slot) => slot.history);
@@ -288,7 +288,7 @@ function faviconFiles(): Array<{ name: string; data: Buffer }> {
 
 /** 검사를 지나 저장할 모양: 슬롯들과 파일(다시 만든 png) */
 type Prepared = { slots: Map<number, Slot>; files: Map<string, Buffer> };
-/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 이미지 파일이 없음 · 이미지가 망가졌거나 크기가 맞지 않음 */
+/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음, 목록에 있는 이미지 파일이 없음, 이미지가 망가졌거나 크기가 맞지 않음 */
 type FaviconFault = "index" | "missing" | "broken";
 
 /** 이미지 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */

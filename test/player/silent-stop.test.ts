@@ -47,7 +47,7 @@ test("재생 중이면 무음을 흘려보내며 멈추고, Idle 이 오면 멈�
   assert.equal(player.isStopping, false);
 });
 
-test("버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다(무음은 재생 중에만 흘러간다)", () => {
+test("버퍼링, 일시정지 중이거나 force 면 바로 멈춘다(무음은 재생 중에만 흘러간다)", () => {
   for (const status of [AudioPlayerStatus.Buffering, AudioPlayerStatus.Paused, AudioPlayerStatus.AutoPaused]) {
     const { player, stops } = fakePlayer(status);
     player._stopWith("skip");

@@ -1,5 +1,5 @@
-// SQLite 파일 하나를 여는 래퍼. DB 파일마다(설정 · 실행 상태 · 캐시 · AI 리퀘스트 로그 · 로그인 세션) 이것으로 자기 파일을 정한다(stores.ts 가 함께 연다).
-// 불러와도 열리지 않는다. 열기 전에 get() 을 부르면 던진다(테스트 · 스크립트가 실제 DB 를 건드리지 않게).
+// SQLite 파일 하나를 여는 래퍼. DB 파일마다(설정, 실행 상태, 캐시, AI 리퀘스트 로그, 로그인 세션) 이것으로 자기 파일을 정한다(stores.ts 가 함께 연다).
+// 불러와도 열리지 않는다. 열기 전에 get() 을 부르면 던진다(테스트, 스크립트가 실제 DB 를 건드리지 않게).
 
 import Database from "better-sqlite3";
 import path from "path";
@@ -16,7 +16,7 @@ type Db = Database.Database;
 type OnMismatch = { lost: string } | { hint: (found: number, file: string) => string };
 
 type DbSpec = {
-  /** 로그 · 오류에 쓰는 이름 */
+  /** 로그, 오류에 쓰는 이름 */
   label: string;
   /** 기본 파일 이름(stores 가 폴더와 잇는다) */
   fileName: string;
@@ -44,7 +44,7 @@ class DbFile {
 
     const next = new Database(file);
     try {
-      // -wal · -shm 은 SQLite 가 본체와 같은 권한으로 만든다
+      // -wal, -shm 은 SQLite 가 본체와 같은 권한으로 만든다
       ownerOnly(file);
       next.pragma("journal_mode = WAL");
       next.pragma(`synchronous = ${this.spec.synchronous}`);

@@ -1,4 +1,4 @@
-// 안내(ui/text/notice 의 Notice)를 테스트에서 한 줄로 적는다: 경고 수준 · 헤더 줄(아이콘 + 제목), 본문은 다음 줄에
+// 안내(ui/text/notice 의 Notice)를 테스트에서 한 줄로 적는다: 경고 수준, 헤더 줄(아이콘 + 제목), 본문은 다음 줄에
 
 import { headOf } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";

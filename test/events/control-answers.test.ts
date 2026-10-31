@@ -1,4 +1,4 @@
-// src/discord/interactions/control-answers.ts: 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터 · 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
+// src/discord/interactions/control-answers.ts: 볼륨은 명령과 입력 창이 한 절차. 시간이 걸리는 조작(처음부터, 위치 이동)은 받아들이면 "하는 중" 을 Components V2 로 먼저 보내고 결과로 고친다.
 // 거절은 본인에게만 안내. 받아들인 뒤에 던지면 그 메시지를 안내로 바꾼다
 
 import { test, after } from "node:test";
@@ -131,7 +131,7 @@ test("받아들인 뒤에 던지면 하는 중 메시지를 안내로 바꾼다"
   assert.deepEqual(lifetimesOf(it), [LIFETIME.error], "오류로 바꾼 자리는 오류 수명");
 });
 
-test("수명: 조작 결과는 결과 수명, 정지 · 나가기는 더 오래", async () => {
+test("수명: 조작 결과는 결과 수명, 정지, 나가기는 더 오래", async () => {
   const volume = asked();
   await answerVolume(volume.it, player({ volume: 80, setVolume: (v: number) => v }).p, 35);
   assert.deepEqual(lifetimesOf(volume.it), [LIFETIME.result]);

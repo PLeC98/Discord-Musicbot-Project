@@ -1,4 +1,4 @@
-// src/dashboard/routes/auth.ts: 디스코드 OAuth 로그인 · 콜백 · 로그아웃.
+// src/dashboard/routes/auth.ts: 디스코드 OAuth 로그인, 콜백, 로그아웃.
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 세션은 express-session 의 메모리 저장소.
 
 import { test, after } from "node:test";
@@ -47,7 +47,7 @@ async function start(http: ReturnType<typeof fakeDiscord>, { store }: { store?: 
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
-  // 위험한 조작 경로 · 로그인한 지 오래된 것처럼 만들기(테스트만)
+  // 위험한 조작 경로, 로그인한 지 오래된 것처럼 만들기(테스트만)
   app.post("/risky", requireRecentLogin, (_req, res) => res.json({ ok: true }));
   app.post("/age-login", (req, res) => {
     req.session.loginAt = Date.now() - RECENT_LOGIN_MS - 1;

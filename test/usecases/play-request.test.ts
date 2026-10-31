@@ -1,6 +1,6 @@
 // src/usecases/add-tracks.ts: 곡 추가 경로의 단일 코어.
 //
-// 슬래시 명령 · 전용 채널 · 검색 선택 · 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
+// 슬래시 명령, 전용 채널, 검색 선택, 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +31,7 @@ const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });
 
-// 테스트마다 정하는 조회 · 모음 답
+// 테스트마다 정하는 조회, 모음 답
 let mockResolve: (query: string) => LookupResult = () => assert.fail("테스트가 조회 답을 정하지 않았다");
 let mockCollection: (range: Range) => Collection = () => assert.fail("테스트가 모음 답을 정하지 않았다");
 const resolverCalls: Array<{ query: string; context?: string | null; range?: Range }> = [];
@@ -658,7 +658,7 @@ async function continueWith({ state, count, size = 300, shift = 0, queued = 0, s
   return { result, progress, added: bot.embedCalls[0]?.trackData };
 }
 
-// 이어 넣은 결과(넣은 수 · 다음 위치). 넣기 전에 거절됐으면 실패
+// 이어 넣은 결과(넣은 수, 다음 위치). 넣기 전에 거절됐으면 실패
 function continued(r: CollectionResult) {
   if (!("added" in r)) assert.fail(`거절됨: ${r.code}`);
   return r;
@@ -666,7 +666,7 @@ function continued(r: CollectionResult) {
 
 const addedTitles = (trackData: TrackData | undefined) => trackData?.tracks.map((t) => t.title) ?? [];
 
-test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡을 넘겨준다", () =>
+test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치, 앵커, 남은 곡을 넘겨준다", () =>
   withLimits(250, 50, async () => {
     const { result, added } = await continueWith({ state: stateAt(50), count: 50 });
     assert.deepEqual(collectionCalls[0].range, { offset: 45, limit: 55 }, "앵커를 찾으려고 앞으로 더 받는다");
@@ -696,7 +696,7 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
     assert.equal(collectionCalls.length, 0);
   }));
 
-test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 불러올 수 없는 곡뿐이다(뺀 곡 수) · 불러온 곡이 없다", () =>
+test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다, 불러올 수 없는 곡뿐이다(뺀 곡 수), 불러온 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const bot = makeBot();
     assert.deepEqual(await continueCollection(bot, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });

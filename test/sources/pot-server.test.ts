@@ -1,5 +1,5 @@
 // src/sources/youtube/pot-server.ts: bgutil POToken 서버를 실행하고 지키기.
-// 프로세스 실행 · 설치 확인 · HTTP · 빈 포트는 가짜를 넘긴다.
+// 프로세스 실행, 설치 확인, HTTP, 빈 포트는 가짜를 넘긴다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -56,7 +56,7 @@ test("켜져 있어도 설치돼 있지 않으면 실행하지 않는다", async
   assert.equal(spawned.length, 0);
 });
 
-test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트 · 127.0.0.1 하나로 실행하고, /ping이 답하면 준비된 것이다", async () => {
+test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.1 하나로 실행하고, /ping이 답하면 준비된 것이다", async () => {
   const { spawn, spawned } = fakeSpawn();
   const pings: string[] = [];
   let up = 0;

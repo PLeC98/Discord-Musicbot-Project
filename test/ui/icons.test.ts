@@ -13,7 +13,7 @@ test("맞추기 전에는 유니코드", () => {
   assert.deepEqual(buttonEmoji("stop"), { name: "⏹️" });
 });
 
-test("맞춘 뒤에는 앱 이모지: 문장은 <:이름:id>, 움직이면 <a:…>, 버튼은 id · 이름 · 움직임", () => {
+test("맞춘 뒤에는 앱 이모지: 문장은 <:이름:id>, 움직이면 <a:…>, 버튼은 id, 이름, 움직임", () => {
   useUploaded(
     new Map([
       ["pause", { id: "1", animated: false }],

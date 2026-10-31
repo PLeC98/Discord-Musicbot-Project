@@ -1,12 +1,12 @@
 // 소리 입력 하나(소스)가 온전히 끝났는지. 곡 끝 판정이 본다.
-// 소스마다 하나다. 캐시로 갈아타면 재생이 가리키는 것이 새 소스의 것으로 바뀌고, 버린 소스에 늦게 온 종료 · 깨짐은 새 소스에 섞이지 않는다.
+// 소스마다 하나다. 캐시로 갈아타면 재생이 가리키는 것이 새 소스의 것으로 바뀌고, 버린 소스에 늦게 온 종료, 깨짐은 새 소스에 섞이지 않는다.
 
 import { exitText } from "./ffmpeg/exit.ts";
 
 type Exiting = { once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 
 class InputHealth {
-  kind: string; // 입력 구분(로그용). 파일 · HLS · 청크 · 직접 링크 등
+  kind: string; // 입력 구분(로그용). 파일, HLS, 청크, 직접 링크 등
   broken: string | null = null; // 처음 깨진 까닭. 온전하면 null
   exitCode: number | null = null; // ffmpeg 종료 코드. 신호로 죽었으면 -1, 아직 살아 있으면 null
   detail: () => string | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)

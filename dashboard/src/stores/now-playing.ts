@@ -46,7 +46,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
 
   const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
 
-  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
+  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한, 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
     data.value = withReadFields(data.value, next);
@@ -98,7 +98,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = { ...data.value, userPaused, paused };
     return send("pause", undefined, text.player.failed.pause);
   }
-  // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
+  // 넘기기, 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
   const skip = () => send("skip", onTrackOf(data.value), text.player.failed.skip);
   const previous = () => send("previous", onTrackOf(data.value), text.player.failed.previous);
   const shuffle = () => send("shuffle", undefined, text.player.failed.shuffle);
@@ -137,7 +137,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   function start() {
     if (++started > 1) return;
 
-    // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
+    // 대상 서버가 바뀌면(참가, 이동, 퇴장) 즉시 다시 읽는다
     stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
     // 목록 연결의 신호. 내 대상 서버의 변화만 필터링해 받는다.

@@ -1,5 +1,5 @@
 // src/dashboard/routes/reset.ts: 초기화 경로. 모두 최근 로그인, 봇 전체 초기화는 봇 이름을 그대로 입력해야 하고 예약한 복원을 취소한다.
-// 실행기로 켰으면 답을 보낸 뒤 다시 시작하고, 아니면 예약만 남는다(배너 · 예약 취소).
+// 실행기로 켰으면 답을 보낸 뒤 다시 시작하고, 아니면 예약만 남는다(배너, 예약 취소).
 
 process.env.OWNER_ID = "owner";
 
@@ -54,7 +54,7 @@ test("지우는 것은 최근 로그인만, 양을 읽는 것은 아니어도 �
   }
 });
 
-test("초기화 정보: 줄마다의 양 · 봇 이름 · 실행기 여부 · 예약", async () => {
+test("초기화 정보: 줄마다의 양, 봇 이름, 실행기 여부, 예약", async () => {
   pinnedSources.setPin("https://y/a", "https://soundcloud.com/a/b");
   const { status, json } = await call("GET");
   assert.equal(status, 200);

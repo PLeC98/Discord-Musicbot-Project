@@ -1,7 +1,7 @@
 // 조사 헬퍼(rules/josa)가 쓰는 한자 표(data/kanji-finals.json)를 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-kanji-finals.ts
 //
-// 원본은 유니코드 Unihan 데이터베이스의 일본어 읽기(kJapaneseOn 음독 · kJapaneseKun 훈독, 로마자)다.
+// 원본은 유니코드 Unihan 데이터베이스의 일본어 읽기(kJapaneseOn 음독, kJapaneseKun 훈독, 로마자)다.
 // 한자마다 읽기가 모두 ん(로마자 끝 N)으로 끝나면 "ㄴ 받침", 모두 아니면 "받침 없음"으로 나누고, 갈리면 표에 넣지 않는다
 // (그 한자로 끝나는 말은 조사를 괄호 형식으로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE 에 적는다.
 

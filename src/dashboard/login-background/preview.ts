@@ -1,6 +1,6 @@
 // 로그인 배경의 미리보기 단계: 편집 창이 표시할 미리보기와 세트 크기 추산.
 // 영상은 원본을 한 번 풀어 둘로 나눠 480p H.264 미리보기를 쓰고, 같은 장면을 1080p AV1 preset 12 crf 40 으로 인코딩해 버리며 패킷 크기만 받는다(framecrc, 디스크를 쓰지 않는다).
-// 초마다의 크기에 미리 잰 세트 비율을 곱해 둔다. 크롭을 정하면 그 크롭 · 구간만 다시 센다(recount).
+// 초마다의 크기에 미리 잰 세트 비율을 곱해 둔다. 크롭을 정하면 그 크롭, 구간만 다시 센다(recount).
 // 그림은 긴 변 1280 WebP 미리보기와, 가장 작은 폭을 실제로 인코딩해 넓이 비율로 늘린 정지 그림 세트의 추산
 
 import fs from "node:fs";
@@ -17,12 +17,12 @@ import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
 import { cropped, fitShort, scaleTo, seekArgs, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
 import type { LoginBackgroundCrop } from "../contract/login-background.ts";
 
-/** 미리보기 · 추산의 짧은 변 */
+/** 미리보기, 추산의 짧은 변 */
 const PREVIEW_SHORT = 480;
 const PROBE_SHORT = 1080;
 /** 그림 미리보기의 긴 변 */
 const PREVIEW_LONG = 1280;
-/** 세트(AV1 · VP9 단계)의 크기 / 추산의 크기. full 은 4K 까지, fhd 는 1080p 만(영상 5개로 잰 중앙값) */
+/** 세트(AV1, VP9 단계)의 크기 / 추산의 크기. full 은 4K 까지, fhd 는 1080p 만(영상 5개로 잰 중앙값) */
 const SET_RATIO = { full: 9.5, fhd: 3.1 };
 /** 세트를 인코딩하는 시간 / 추산 시간(영상 2개로 잰 거친 값에서 한 번 풀어 나눠 인코딩하는 이득을 뺐다) */
 const SET_TIME = { full: 20, fhd: 7 };
@@ -61,12 +61,12 @@ function perSecondOf(framecrc: string): number[] {
 /** 추산 크기 → 세트 크기(초마다). 4K 단계가 있을 크기면 4K 까지의 비율 */
 const toSet = (probe: number[], width: number, height: number) => probe.map((bytes) => Math.round(bytes * (Math.min(width, height) >= UHD ? SET_RATIO.full : SET_RATIO.fhd) + H264_BYTES_PER_SECOND));
 const setTime = (width: number, height: number) => (Math.min(width, height) >= UHD ? SET_TIME.full : SET_TIME.fhd);
-/** 정지 그림 세트(폭별)의 화소 수 · 크기 추산 */
+/** 정지 그림 세트(폭별)의 화소 수, 크기 추산 */
 const stillPixels = (width: number, height: number) => stillWidths(width).reduce((sum, w) => sum + w * Math.round((height * w) / width), 0);
 const stillBytesOf = (width: number, height: number, perPixel = STILL_BYTES_PER_PIXEL) => Math.round(stillPixels(width, height) * perPixel);
 
 /**
- * 추산을 잰 크기가 인코딩할 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 인코딩한다) 추산 크기 · 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 추산한다(화소 수에 비례한다고 친다)
+ * 추산을 잰 크기가 인코딩할 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 인코딩한다) 추산 크기, 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 추산한다(화소 수에 비례한다고 친다)
  */
 function upscale(item: Readonly<Stored>, probed: { width: number; height: number }, crop: LoginBackgroundCrop): number {
   const area = (size: { width: number; height: number }) => size.width * size.height;
@@ -129,7 +129,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const seconds = (Date.now() - started) / 1000;
   const scale = upscale(item, probed, FULL);
   const estimate: Estimate = {
-    // 비율 · 정지 그림은 인코딩할 원본의 크기로(유튜브는 480p 로 재고 고해상도로 인코딩한다)
+    // 비율, 정지 그림은 인코딩할 원본의 크기로(유튜브는 480p 로 재고 고해상도로 인코딩한다)
     perSecond: toSet(
       perSecondOf(run.stdout).map((bytes) => bytes * scale),
       item.width,
@@ -149,7 +149,7 @@ async function preview({ item, signal, progress }: StageJob): Promise<StageResul
   return item.kind === "image" ? previewOfImage(item) : previewOfVideo(item, signal, progress);
 }
 
-/** 크기 추산 다시 세기: 그 크롭 · 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 계산) */
+/** 크기 추산 다시 세기: 그 크롭, 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 계산) */
 const recount: Recounter = async ({ item, crop, range, signal }) => {
   const before = item.estimate;
   if (!before) throw codedError("background-failed", "어림이 없습니다");

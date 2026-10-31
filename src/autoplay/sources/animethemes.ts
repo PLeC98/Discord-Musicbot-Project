@@ -68,7 +68,7 @@ async function themesAtRandom(source: GenreSource): Promise<Theme[]> {
   return (await getJson<{ animethemes?: Theme[] } | null>("animethemes", url))?.animethemes || [];
 }
 
-// 연도·시즌·매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
+// 연도, 시즌, 매체는 animetheme 쪽에서 조용히 무시된다. anime 쪽에 걸어야 듣는다.
 // 시즌은 범위 문법이 없어 연도로만 자르고 양끝 시즌은 우리가 필터링한다.
 async function themesByAnime(source: GenreSource): Promise<Theme[]> {
   const url = `https://api.animethemes.moe/anime?${query({
@@ -89,14 +89,14 @@ async function themesByAnime(source: GenreSource): Promise<Theme[]> {
   });
 }
 
-// 방영 시기를 분기 수로. 양끝 시즌을 안 적었으면 그해 처음 · 끝
+// 방영 시기를 분기 수로. 양끝 시즌을 안 적었으면 그해 처음, 끝
 function seasonRange(source: GenreSource) {
   const from = source.yearFrom ? Number(source.yearFrom) * 4 + (SEASON_ORDER[source.seasonFrom ?? ""] ?? 0) : -Infinity;
   const to = source.yearTo ? Number(source.yearTo) * 4 + (SEASON_ORDER[source.seasonTo ?? ""] ?? 3) : Infinity;
   return { from, to };
 }
 
-// 그 작품의 주제가 중 종류(OP · ED)와 순번이 맞는 것
+// 그 작품의 주제가 중 종류(OP, ED)와 순번이 맞는 것
 function wantedThemes(anime: Anime, source: GenreSource): Theme[] {
   return (anime.animethemes || []).filter((theme) => (!source.themeType || theme.type === source.themeType) && (!source.sequence || theme.sequence === source.sequence)).map((theme) => ({ ...theme, anime }));
 }

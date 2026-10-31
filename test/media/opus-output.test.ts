@@ -3,7 +3,7 @@
 // 지키는 것: 청크 크기와 상관없이 3840바이트 프레임 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
 // 미리 만드는 것은 세션의 큐 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 청크의 callback 이 미뤄진다.
 // 볼륨은 바꾼 뒤 큐 깊이 + 1 패킷 안에 들린다. read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
-// 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류 · 세션 오류는 출력 스트림의 error 가 되며 위쪽 스트림까지 destroy 된다.
+// 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류, 세션 오류는 출력 스트림의 error 가 되며 위쪽 스트림까지 destroy 된다.
 // voice 의 실제 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩 오른다.
 
 import { test, after } from "node:test";
@@ -72,7 +72,7 @@ function manual(depth = 2) {
   return { open, stats, control, fail: (error: Error) => hooks?.onError(error) };
 }
 
-// 진폭이 일정한 사인파(왼쪽 · 오른쪽 같음)
+// 진폭이 일정한 사인파(왼쪽, 오른쪽 같음)
 function sine(frames: number, amplitude = 12000) {
   const buf = Buffer.alloc(frames * FRAME_BYTES);
   for (let i = 0, t = 0; i < buf.length; i += 4, t++) {
@@ -135,7 +135,7 @@ test("청크가 프레임 크기와 같아도(스플라이서) 읽지 않으면 
   output.destroy();
 });
 
-test("청크 크기와 상관없이 3840바이트 프레임 하나가 Buffer 패킷 하나가 된다(1바이트 · 홀수 크기 포함)", async () => {
+test("청크 크기와 상관없이 3840바이트 프레임 하나가 Buffer 패킷 하나가 된다(1바이트, 홀수 크기 포함)", async () => {
   for (const sizes of [[1], [3, 7, 4093], [FRAME_BYTES], [65536]]) {
     const output = attachOpusOutput(chunked(sine(10), sizes), { gain: 1, openEncoder: real });
     const packets = await readAll(output);

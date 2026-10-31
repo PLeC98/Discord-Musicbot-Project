@@ -1,4 +1,4 @@
-// 다 만든 배경의 폴더에 남는 파일의 형식: 정지 그림(still-<폭>.webp) · 코덱마다 목록(<코덱>/index.m3u8) · 단계마다 목록 · init · 세그먼트(<코덱>/<짧은 변>/…).
+// 다 만든 배경의 폴더에 남는 파일의 형식: 정지 그림(still-<폭>.webp), 코덱마다 목록(<코덱>/index.m3u8), 단계마다 목록, init, 세그먼트(<코덱>/<짧은 변>/…).
 // 공개 경로가 내는 파일이고, 백업이 담고 받는 파일이다(받은 문자열을 경로로 그대로 쓰지 않게 이 형식만)
 
 import fs from "node:fs";
@@ -9,7 +9,7 @@ import { LOGIN_BG_CODECS, type LoginBackgroundCodec } from "../contract/login-ba
 const log = logger.child({ category: "dashboard" });
 
 const STILL_FILE = /^still-(\d{2,4})\.webp$/;
-/** 단계 폴더(짧은 변) · 단계 안의 파일 */
+/** 단계 폴더(짧은 변), 단계 안의 파일 */
 const SHORT = /^\d{2,4}$/;
 const RUNG_FILE = /^(index\.m3u8|init\.mp4|seg-\d{3,6}\.m4s)$/;
 const PLAYLIST = "index.m3u8";
@@ -23,7 +23,7 @@ function isServed(parts: string[]): boolean {
   return parts.length === 3 && isCodec(parts[0]) && SHORT.test(parts[1]) && RUNG_FILE.test(parts[2]);
 }
 
-/** 폴더에 있는 내는 파일(/ 로 나눈 경로). 그 밖의 것(원본 · 임시 파일)은 뺀다 */
+/** 폴더에 있는 내는 파일(/ 로 나눈 경로). 그 밖의 것(원본, 임시 파일)은 뺀다 */
 function servedFiles(folder: string): string[] {
   const found: string[] = [];
   const walk = (parts: string[]) => {

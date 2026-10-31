@@ -64,7 +64,7 @@ function parseProcStatus(text: string) {
   return found ? Number(found[1]) : null;
 }
 
-// Linux: pid 마다 /proc 를 읽는다. 끝난 pid(ENOENT · ESRCH)는 빠진다
+// Linux: pid 마다 /proc 를 읽는다. 끝난 pid(ENOENT, ESRCH)는 빠진다
 async function fromProc(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string }> {
   const memory = new Map<number, number>();
   let failed: string | null = null;

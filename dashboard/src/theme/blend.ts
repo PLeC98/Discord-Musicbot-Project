@@ -1,5 +1,5 @@
 // 색 역할을 한 박자로 옮긴다. 모든 --md-* 를 같은 시계로, OKLab 에서 사이 값을 만들어 매 프레임 깐다.
-// (CSS 로 역할마다 번지게 하면 등록한 것 · 안 한 것의 박자가 어긋나고, 화면 통째로 겹쳐 넘기면 끝에서 튄다)
+// (CSS 로 역할마다 번지게 하면 등록한 것, 안 한 것의 박자가 어긋나고, 화면 통째로 겹쳐 넘기면 끝에서 튄다)
 
 import { labToRgb, rgbToLab, type Lab } from "./oklab.ts";
 
@@ -42,7 +42,7 @@ export function blendTo(target: Record<string, string>, duration: number) {
   const step = (time: number) => {
     // 프레임 시각은 그 프레임이 시작된 때라 start 보다 앞설 수 있다. 0 아래로 내려가면 첫 프레임이 반대쪽으로 튄다
     const t = Math.min(1, Math.max(0, (time - start) / duration));
-    // 색을 바꾸면 화면 전체를 다시 그린다. 120 · 144Hz 화면에서도 1초에 30번까지만 바꾼다(0.7초 동안 21단계, 느린 색 변화라 눈에 띄지 않는다)
+    // 색을 바꾸면 화면 전체를 다시 그린다. 120, 144Hz 화면에서도 1초에 30번까지만 바꾼다(0.7초 동안 21단계, 느린 색 변화라 눈에 띄지 않는다)
     if (t < 1 && time - last < MIN_STEP_MS) {
       frame = requestAnimationFrame(step);
       return;
@@ -60,7 +60,7 @@ export function blendTo(target: Record<string, string>, duration: number) {
   frame = requestAnimationFrame(step);
 }
 
-/** 바로 깐다(처음 · 움직임 줄이기) */
+/** 바로 깐다(처음, 움직임 줄이기) */
 export function setNow(target: Record<string, string>) {
   cancelAnimationFrame(frame);
   const root = document.documentElement;

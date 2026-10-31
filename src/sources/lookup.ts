@@ -48,7 +48,7 @@ function detectPlatform(query: string) {
 }
 
 /**
- * 봇이 다루지 않는 링크인가(유튜브 클립 · 채널 · 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
+ * 봇이 다루지 않는 링크인가(유튜브 클립, 채널, 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
  *
  * 이런 주소를 검색으로 흘리면 URL 문자열 자체가 검색어가 되어 엉뚱한 영상이 재생되기에 재생을 거절한다.
  * (클립은 유튜브가 없앤 기능이라 지원 대상이 아니다.)
@@ -57,7 +57,7 @@ function isUnsupportedLink(query: string): boolean {
   return inputKind(query) === "unknown";
 }
 
-/** 찾은 곡들과 그 출처. collection 은 여러 곡 출처의 종류("playlist" · "album" · "artist"). 한 곡이면 collection · total · nextOffset 이 null */
+/** 찾은 곡들과 그 출처. collection 은 여러 곡 출처의 종류("playlist", "album", "artist"). 한 곡이면 collection, total, nextOffset 이 null */
 type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; collectionId?: string | null; total: number | null; nextOffset: number | null; skipped?: number };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
@@ -76,13 +76,13 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
     if (!video) return single([]);
-    // yt-dlp 가 비공개 · 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
+    // yt-dlp 가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
     log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리합니다 (${video})`);
   }
   return single(await youtube.search(query, 1));
 }
 
-// 스포티파이 링크(곡 · 앨범 · 재생목록 · 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
+// 스포티파이 링크(곡, 앨범, 재생목록, 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
 async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
   const part = await spotify.getCollection(query, range);
   const { type } = links.parseSpotifyURL(query);
@@ -91,7 +91,7 @@ async function fromSpotify(query: string, range: Range, spotify: Sources["spotif
   return { tracks: part.tracks || [], isPlaylist, collection: type, total: part.total ?? null, nextOffset: part.nextOffset ?? null };
 }
 
-// 사운드클라우드 링크(곡 · 세트 · 짧은 링크). 세트는 한 구간만(출처가 10곡으로 자른다), 받을 수 없는 곡은 빼고 센다.
+// 사운드클라우드 링크(곡, 세트, 짧은 링크). 세트는 한 구간만(출처가 10곡으로 자른다), 받을 수 없는 곡은 빼고 센다.
 // 비밀 공유 세트는 숫자 id 만으로 다시 부를 수 없어 이어 불러오기를 권하지 않는다
 async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["soundcloud"]): Promise<Found> {
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
@@ -102,7 +102,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
 
-// 링크 종류마다 부르는 곳. 직접 링크는 tags 면 파일 태그(제목 · 가수 · 앨범)로 곡 정보를 고친다
+// 링크 종류마다 부르는 곳. 직접 링크는 tags 면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
 function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
   if (platform === "youtube") return fromYouTube(query, range, youtube);
   if (platform === "spotify") return fromSpotify(query, range, spotify);
@@ -110,11 +110,11 @@ function findOn(platform: string, query: string, range: Range, { youtube, spotif
   return direct.getInfo(query, tags ? { tags: applyTags } : {}).then(single); // getInfo 는 [곡] 또는 []
 }
 
-/** offset · limit: 여러 곡 출처에서 불러올 구간(한 곡이면 무시). tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
+/** offset, limit: 여러 곡 출처에서 불러올 구간(한 곡이면 무시). tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
 async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
   const platform = detectPlatform(query);
   if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
-  // 프로필 · 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
+  // 프로필, 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
   if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
   try {
     const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
@@ -126,7 +126,7 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   }
 }
 
-// 찾다가 던졌다. 열어 보니 받을 수 없는 직접 링크(음원이 아님 · 옛 SHOUTcast)는 실패가 아니라 그 원인으로 거절한다
+// 찾다가 던졌다. 열어 보니 받을 수 없는 직접 링크(음원이 아님, 옛 SHOUTcast)는 실패가 아니라 그 원인으로 거절한다
 function lookupFailed(error: unknown, context: string | null): LookupResult {
   const code = codeOf(error);
   if (code === "unsupported-link" || code === "shoutcast-v1") {
@@ -159,14 +159,14 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
 /**
  * 링크 데이터를 먼저 보는 곡 찾기. 링크 데이터에 있는 한 곡은 yt-dlp 호출 없이 바로 돌려준다.
  * 재생목록 URL은 링크 데이터를 건너뛴다: URL 정규화가 list=를 지우므로 기록된 한 영상이 재생목록 전체를 가릴 수 있다.
- * 사운드클라우드도 곡 링크만 링크 데이터를 본다(세트 · 곡인지 모르는 짧은 링크 · 모음은 건너뛴다).
+ * 사운드클라우드도 곡 링크만 링크 데이터를 본다(세트, 곡인지 모르는 짧은 링크, 모음은 건너뛴다).
  * 지원하지 않는 링크(유튜브 클립 등)도 건너뛴다. 검색으로 흘러 잘못 기록된 행이 있으면
  * 그 엉뚱한 영상을 그대로 돌려주기 때문이다. 같은 이유로 직접 링크는 음원이 요청 그대로인 행만 쓴다.
  */
 async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
   const soundcloud = links.parseSoundCloudURL(query);
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query) || (soundcloud !== null && soundcloud !== "track");
-  // 운영자가 직접 지정한 음원이 링크 데이터 · 원래 링크보다 앞선다. 원래 영상이 죽었어도 곡을 만든다.
+  // 운영자가 직접 지정한 음원이 링크 데이터, 원래 링크보다 앞선다. 원래 영상이 죽었어도 곡을 만든다.
   // 같은 skipCache 를 따른다(canonicalUrl 이 watch?v=X&list=Y 를 영상 하나로 줄여 재생목록이 지정 하나로 바뀌지 않게)
   const pin = skipCache ? null : pinnedSources.getPin(query);
   if (pin) return { success: true, isPlaylist: false, tracks: [await pinnedTrack(query, pin, context, sources)] };
@@ -179,8 +179,8 @@ async function resolveQuery(query: string, context?: string | null, range: Range
 }
 
 /**
- * 직접 지정한 음원으로 곡을 만든다. 곡 정보(요청 키 · 제목 · 아티스트)는 요청의 것이다: 링크 데이터가 기억하는 표시 정보, 없으면 원래 링크를 읽고,
- * 그것도 못 읽으면(원래 영상이 죽었다) 지정한 음원에서 읽은 제목. 음원 주소 · 길이 · 라이브 표시는 applyPin 이 정한다
+ * 직접 지정한 음원으로 곡을 만든다. 곡 정보(요청 키, 제목, 아티스트)는 요청의 것이다: 링크 데이터가 기억하는 표시 정보, 없으면 원래 링크를 읽고,
+ * 그것도 못 읽으면(원래 영상이 죽었다) 지정한 음원에서 읽은 제목. 음원 주소, 길이, 라이브 표시는 applyPin 이 정한다
  */
 async function pinnedTrack(query: string, pin: Pin, context: string | null | undefined, sources: Partial<Sources>): Promise<FoundTrack> {
   const known = trackLookup.displayOf(query);

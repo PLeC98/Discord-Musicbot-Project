@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 · 사용량 통계 읽기와 쓰기(ai-requests.db, store/ai-log-db).
+// AI 리퀘스트 로그, 사용량 통계 읽기와 쓰기(ai-requests.db, store/ai-log-db).
 // 쓰기 하나가 로그(requests)와 통계(usage) 한 행씩을 함께 쓴다. 열 하나가 너무 크면 앞뒤를 남기고 자른다(모델 목록 응답은 수백 KB 다).
 // 로그는 저장 용량을 넘으면 오래된 것부터 삭제한다(최근 KEEP_MIN_ROWS 행은 크기와 무관하게 남긴다). 통계는 삭제하지 않는다.
 // 새 행은 듣는 쪽(대시보드의 SSE 연결)에 알린다.
@@ -14,7 +14,7 @@ const MAX_FIELD_BYTES = 512 * 1024;
 /** 이만큼 쓸 때마다 저장 용량을 맞춘다(쓸 때마다 세면 큰 표에서 무겁다) */
 const ROTATE_EVERY = 20;
 
-/** 쓸 것. guildName · id · truncated · bytes 는 여기서 정하거나(크기) 읽을 때 붙인다(서버 이름) */
+/** 쓸 것. guildName, id, truncated, bytes 는 여기서 정하거나(크기) 읽을 때 붙인다(서버 이름) */
 type NewRecord = Omit<AiLogDetail, "id" | "truncated" | "bytes" | "guildName">;
 
 type RequestRow = {
@@ -138,7 +138,7 @@ function rowOf(one: NewRecord) {
   };
 }
 
-/** 한 행을 쓰고(로그 · 통계) 듣는 쪽에 알린다. 쓴 행을 돌려준다 */
+/** 한 행을 쓰고(로그, 통계) 듣는 쪽에 알린다. 쓴 행을 돌려준다 */
 function record(one: NewRecord, { maxBytes }: { maxBytes: number }): AiLogEntry {
   const row = rowOf(one);
   const t = one.tokens;
@@ -188,7 +188,7 @@ function list(query: AiLogQuery, { before, limit }: { before?: number; limit: nu
   if (query.result) where.push(query.result === "ok" ? "ok = 1" : "ok = 0");
   const q = query.q.trim();
   if (q) {
-    // 한국어 검색(조합 중인 글자 · 초성, 대소문자 무시, 화면의 실시간 필터 aiLogMatches 와 같다). % · _ 는 글자 그대로
+    // 한국어 검색(조합 중인 글자, 초성, 대소문자 무시, 화면의 실시간 필터 aiLogMatches 와 같다). %, _ 는 글자 그대로
     where.push("(ko_match(url, @q) OR ko_match(model, @q) OR ko_match(name, @q) OR ko_match(coalesce(error, ''), @q))");
     args.q = q;
   }
@@ -213,7 +213,7 @@ function one(id: number): AiLogDetail | null {
   return { ...toEntry(row), requestHeaders: row.request_headers, requestBody: row.request_body, response: row.response };
 }
 
-/** 남은 행 수 · 크기 */
+/** 남은 행 수, 크기 */
 function size(): { count: number; bytes: number } {
   const row = aiLogDb.get().prepare("SELECT COUNT(*) AS count, COALESCE(SUM(size_bytes), 0) AS bytes FROM requests").get() as { count: number; bytes: number };
   return row;
@@ -247,7 +247,7 @@ function earliestDay(): string | null {
   return (aiLogDb.get().prepare("SELECT MIN(day) AS day FROM usage").get() as { day: string | null }).day;
 }
 
-/** DB 가 열려 있는가(스크립트 · 테스트는 열지 않을 수 있다. 그때는 남기지 않는다) */
+/** DB 가 열려 있는가(스크립트, 테스트는 열지 않을 수 있다. 그때는 남기지 않는다) */
 const isOpen = () => aiLogDb.conn !== null;
 
 /** 새 행을 듣는다. 해제 함수를 돌려준다 */

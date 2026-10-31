@@ -4,7 +4,7 @@
 // 화면이 가운데 칸을 새 곡으로 그린다(옆 칸에 떠 있던 그림이라 다시 불러오지 않고 바로 그려진다). 넘기지 못했으면 띠가 돌아온다.
 // 드래그를 시작한 때부터 띠가 제자리로 돌아올 때까지는 holding 이다. 화면은 그동안 세 칸의 그림을 붙잡아 둔다(중간에 곡이 바뀌어도 미끄러지는 그림이 바뀌지 않게).
 // 가로로 움직이기 전에 세로로 먼저 움직이면 화면 스크롤에 넘긴다. 밀었으면 손을 떼며 오는 누름(크게 보기)은 받지 않는다(swiped).
-// 이전 · 다음 버튼도 go 로 같은 미끄러짐을 거쳐 넘긴다.
+// 이전, 다음 버튼도 go 로 같은 미끄러짐을 거쳐 넘긴다.
 
 import { computed, ref, type Ref } from "vue";
 
@@ -12,10 +12,10 @@ const SLOP = 8; // 이만큼(px) 움직여야 방향을 정한다
 const PASS = 0.3; // 폭의 이 비율을 넘기면 넘긴다
 const FLING = 0.5; // px/ms 이상으로 놓으면 거리와 상관없이
 const RESIST = 0.25; // 넘길 수 없는 쪽으로는 손가락 이동의 이 비율만 따라온다
-const SLIDE_MS = 250; // 띠가 옆 칸까지 · 제자리로 미끄러지는 시간(화면의 transition 과 같다)
+const SLIDE_MS = 250; // 띠가 옆 칸까지, 제자리로 미끄러지는 시간(화면의 transition 과 같다)
 const ANSWER_MS = 1000; // 넘기기 답을 이만큼까지 기다린다(늦으면 넘기지 못한 것으로)
 
-/** next · previous: 넘겼으면 true */
+/** next, previous: 넘겼으면 true */
 type Actions = { canNext: () => boolean; canPrevious: () => boolean; next: () => Promise<boolean>; previous: () => Promise<boolean> };
 
 /** el: 지금 칸. 옆 칸까지의 거리는 다음 칸(data-art-next)의 위치로 잰다 */
@@ -88,7 +88,7 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
     return slide(toNext);
   }
 
-  /** 버튼으로 넘기기: 미는 것과 같은 미끄러짐으로. 미는 중 · 미끄러지는 중이면 받지 않는다 */
+  /** 버튼으로 넘기기: 미는 것과 같은 미끄러짐으로. 미는 중, 미끄러지는 중이면 받지 않는다 */
   async function go(toNext: boolean) {
     if (holding.value || start) return;
     if (!(toNext ? act.canNext() : act.canPrevious())) return;

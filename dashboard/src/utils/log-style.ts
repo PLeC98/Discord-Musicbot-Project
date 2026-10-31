@@ -1,4 +1,4 @@
-// 로그 줄의 레벨 칩 · 색(실시간 로그와 로그 파일 보기가 같이 쓴다)
+// 로그 줄의 레벨 칩, 색(실시간 로그와 로그 파일 보기가 같이 쓴다)
 
 import type { LevelName } from "../../../src/infra/log/levels.ts";
 
@@ -11,7 +11,7 @@ const LEVEL_CHIPS: Array<{ value: LevelName; label: string }> = [
   { value: "debug", label: "DEBUG" },
   { value: "trace", label: "TRACE" },
 ];
-// 레벨 색은 테마와 상관없이 고정(style.css --log-*). 이름은 레벨 색, 글은 trace · debug 는 흐리게(같은 색), info · warn 은 보통 글자색, error · fatal 은 레벨 색
+// 레벨 색은 테마와 상관없이 고정(style.css --log-*). 이름은 레벨 색, 글은 trace, debug 는 흐리게(같은 색), info, warn 은 보통 글자색, error, fatal 은 레벨 색
 const LEVEL_TONE: Record<LevelName, string> = { trace: "text-(--log-trace)", debug: "text-(--log-debug)", info: "text-(--log-info)", warn: "text-(--log-warn)", error: "text-(--log-error)", fatal: "text-(--log-fatal)" };
 const TEXT_TONE: Record<LevelName, string> = { trace: "text-(--log-trace)", debug: "text-(--log-debug)", info: "text-on-surface", warn: "text-on-surface", error: "text-(--log-error)", fatal: "text-(--log-fatal) font-semibold" };
 

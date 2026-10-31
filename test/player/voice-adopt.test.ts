@@ -1,5 +1,5 @@
 // src/player/voice-adopt.ts: 세션 없이 음성 채널에 남은 봇을 기동 시 이어받는다.
-// 가짜 서버 · 플레이어로 어느 서버에 무엇을 했는지만 본다.
+// 가짜 서버, 플레이어로 어느 서버에 무엇을 했는지만 본다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +15,7 @@ after(() => store.close());
 
 const BOT = "bot1";
 
-// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null) · humans: 그 채널의 사람 수
+// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null), humans: 그 채널의 사람 수
 function guildWith(id: string, { botIn = "vc1" as string | null, humans = 1 } = {}) {
   const members = new Map<string, { user: { bot: boolean } }>([[BOT, { user: { bot: true } }]]);
   for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });

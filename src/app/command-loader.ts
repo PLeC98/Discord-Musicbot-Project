@@ -53,7 +53,7 @@ function definitions() {
   return enabledCommands().map((command) => command.data.toJSON());
 }
 
-// 명령 정의 + 배포 대상(앱 · 범위 · 서버)의 해시. 어느 하나라도 바뀌면 재배포한다
+// 명령 정의 + 배포 대상(앱, 범위, 서버)의 해시. 어느 하나라도 바뀌면 재배포한다
 function deployFingerprint(scope: string, guildId: string | null, commands: unknown[]) {
   const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
   return crypto.createHash("sha256").update(src).digest("hex");
@@ -86,8 +86,8 @@ const putCommands: PutCommands = async (route, body) => (await new REST().setTok
 
 type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
 
-// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록 · 수동 스크립트는 force 로 늘 등록한다.
-// hashPath · put 은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하지 않는다)
+// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록, 수동 스크립트는 force 로 늘 등록한다.
+// hashPath, put 은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하지 않는다)
 async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;

@@ -2,7 +2,7 @@
 
 import { PROMPT_NAMES, parseFormat, usesName } from "../../rules/line-format.ts";
 
-/** 프롬프트 섹션 하나. 역할(system · user · assistant)과 내용 */
+/** 프롬프트 섹션 하나. 역할(system, user, assistant)과 내용 */
 type PromptSection = { role: string; text: string };
 
 const AI_ROLES = ["system", "user", "assistant"];

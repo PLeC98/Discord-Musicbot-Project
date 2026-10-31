@@ -30,7 +30,7 @@ test("HLS 주소는 세그먼트를 건너뛴 줄을 보려고 warning 까지 �
   assert.equal(level(build({})), "error");
 });
 
-test("주소 분기는 읽기가 6초 멈추면 재연결한다(-rw_timeout, -i 앞). 파일 · 파이프 분기에는 없다", () => {
+test("주소 분기는 읽기가 6초 멈추면 재연결한다(-rw_timeout, -i 앞). 파일, 파이프 분기에는 없다", () => {
   for (const args of [build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } }), build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })]) {
     assert.equal(args[idx(args, "-rw_timeout") + 1], "6000000");
     assert.ok(idx(args, "-rw_timeout") < idx(args, "-i"), "입력 옵션이다");

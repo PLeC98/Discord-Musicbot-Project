@@ -82,7 +82,7 @@ test("다운로드가 실패해도 기다리던 쪽까지 같은 오류를 받�
   assert.equal(inFlight.size, 0);
 });
 
-test("임시 경로: 같은 폴더·.opus·부를 때마다 다르다", () => {
+test("임시 경로: 같은 폴더, .opus, 부를 때마다 다르다", () => {
   const a = tempPathFor(finalPath);
   const b = tempPathFor(finalPath);
   assert.notEqual(a, b);

@@ -22,7 +22,7 @@ function push(series: Series, value: number) {
   if (list.length > POINTS) list.shift();
 }
 
-/** 구간 하나: 지금 소리를 내는 플레이어 수 · 디스코드 지연 · 루프 지연 p99 · heap 사용률 · CPU · 다운로드 · 인코딩 워커 응답 시간 · 누락 프레임 · 업로드.
+/** 구간 하나: 지금 소리를 내는 플레이어 수, 디스코드 지연, 루프 지연 p99, heap 사용률, CPU, 다운로드, 인코딩 워커 응답 시간, 누락 프레임, 업로드.
  * 시스템 업로드를 받을 때까지 기다렸다 한꺼번에 넣는다(점들이 같은 구간을 가리키게) */
 async function sample(bot: BotContext, window: Window) {
   const upload = await closeUploadWindow();

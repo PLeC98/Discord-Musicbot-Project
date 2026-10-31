@@ -1,12 +1,12 @@
-// 후보 줄 형식 · 프롬프트의 플레이스홀더. RisuAI 의 CBS 템플릿을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기 · 검사)가 같이 부른다.
+// 후보 줄 형식, 프롬프트의 플레이스홀더. RisuAI 의 CBS 템플릿을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기, 검사)가 같이 부른다.
 //
-//   {{이름}} · {{이름::인자}}                       값으로 바뀐다. 모르는 이름은 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 모른다)
+//   {{이름}}, {{이름::인자}}                       값으로 바뀐다. 모르는 이름은 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 모른다)
 //   {{#if-exist 값}} … {{:else}} … {{/}}          값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤(없으면 아무것도). 닫기는 {{/if-exist}} 도. 겹쳐 쓸 수 있다
 //
-// 참 · 거짓을 구분하는 if 는 두지 않는다. 값이 모두 문자열(번호 · 장르 · 제목 · 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
+// 참, 거짓을 구분하는 if 는 두지 않는다. 값이 모두 문자열(번호, 장르, 제목, 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
 // 검사는 문제마다 글자 위치(at 부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 표시한다).
 
-/** 문제 하나. at 부터 end 앞까지가 그 위치(태그 하나 · 닫히지 않은 블록의 여는 태그) */
+/** 문제 하나. at 부터 end 앞까지가 그 위치(태그 하나, 닫히지 않은 블록의 여는 태그) */
 type Problem = { at: number; end: number; message: string };
 
 type Node = { kind: "text"; text: string } | { kind: "mark"; name: string; arg: string | null; raw: string; at: number } | { kind: "exist"; test: Node[]; then: Node[]; otherwise: Node[]; at: number; end: number };
@@ -19,7 +19,7 @@ type Names = Record<string, { arg: boolean }>;
 
 /** 후보 한 줄의 이름 */
 const LINE_NAMES: Names = { index: { arg: false }, genre: { arg: false }, title: { arg: false }, duration: { arg: true } };
-/** 프롬프트 섹션의 이름(목록 위치 · 장르는 한 요청에 하나라 프롬프트에서도 쓴다) */
+/** 프롬프트 섹션의 이름(목록 위치, 장르는 한 요청에 하나라 프롬프트에서도 쓴다) */
 const PROMPT_NAMES: Names = { list: { arg: false }, genre: { arg: false } };
 
 /** 옛 한글 이름 → 새 이름(남아 있으면 검사가 알린다) */
@@ -90,7 +90,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
   for (const frame of stack) problems.push({ at: frame.node.at, end: frame.node.end, message: `${EXIST} 블록을 닫는 {{/}} 가 없습니다.` });
   return root;
 
-  // 태그 하나. 블록 여닫기 · 그 밖은 이름
+  // 태그 하나. 블록 여닫기, 그 밖은 이름
   function tag(inner: string, raw: string, at: number, innerStart: number) {
     const word = inner.trim();
     const end = at + raw.length;
@@ -162,7 +162,7 @@ function usesName(nodes: Node[], name: string): boolean {
 }
 
 /**
- * 길이(초)를 형식대로. 모르면(0 이하 · 수가 아님) 빈 문자열. 형식 글자: h 시간 · m 전체 분 · mm 남은 분 두 자리 · s 전체 초 · ss 남은 초 두 자리,
+ * 길이(초)를 형식대로. 모르면(0 이하, 수가 아님) 빈 문자열. 형식 글자: h 시간, m 전체 분, mm 남은 분 두 자리, s 전체 초, ss 남은 초 두 자리,
  * 그 밖의 글자는 그대로. 형식이 없으면 m:ss(예: 3:05)
  */
 function formatDuration(seconds: number | null | undefined, format: string | null): string {

@@ -1,6 +1,6 @@
 <template>
-  <!-- 서버 화면의 조작 한 줄: [셔플] [이전] [재생] [다음] [반복]. spread 면 양끝까지 펼친다(좁은 창 · 휴대폰).
-       한 곡 반복 중에는 이전 곡 · 다음 곡 = 지금 곡 다시 시작이라 기록 · 대기열이 없어도 쓸 수 있다(utils/playback 의 규칙) -->
+  <!-- 서버 화면의 조작 한 줄: [셔플] [이전] [재생] [다음] [반복]. spread 면 양끝까지 펼친다(좁은 창, 휴대폰).
+       한 곡 반복 중에는 이전 곡, 다음 곡 = 지금 곡 다시 시작이라 기록, 대기열이 없어도 쓸 수 있다(utils/playback 의 규칙) -->
   <div class="flex items-center" :class="spread ? 'justify-between' : 'gap-2'">
     <button type="button" :class="[CTL_BTN, TOGGLE_BTN]" :aria-label="T.shuffle" v-tooltip="T.shuffle" :disabled="!shuffleEnabled(player) || busy('shuffle')" @click="emit('shuffle')"><Icon name="shuffle" :size="24" /></button>
     <button type="button" :class="[CTL_BTN, SIDE_BTN]" :aria-label="T.previous" v-tooltip="T.previous" :disabled="!previousEnabled(player) || busy('previous')" @click="emit('previous')"><Icon name="skip_previous" :size="32" fill /></button>
@@ -20,13 +20,13 @@ import { CTL_BTN, TOGGLE_BTN, TOGGLE_DOT, TOGGLE_ON } from "../utils/player-butt
 import { text } from "../text/index.ts";
 const T = text.player;
 
-// 이전 · 다음: 진한 색 48px · 아이콘 32px(셔플 · 반복보다 한 단계 크게)
+// 이전, 다음: 진한 색 48px, 아이콘 32px(셔플, 반복보다 한 단계 크게)
 const SIDE_BTN = "size-12 text-on-surface hover:not-disabled:scale-105";
 
 /** busy(조작 이름): 그 조작의 응답을 기다리는 중인지. playSize: 재생 버튼 크기(기본 64px) */
 const props = withDefaults(defineProps<{ player: PlayerSeen; busy: (key: string) => boolean; spread?: boolean; playSize?: string }>(), { spread: false, playSize: "size-16" });
 const emit = defineEmits<{ shuffle: []; previous: []; pause: []; skip: []; loop: [] }>();
 
-// 재생 버튼은 사람의 멈춤을 뒤집는다. 억제(음소거 · 혼자 남음 등)로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
+// 재생 버튼은 사람의 멈춤을 뒤집는다. 억제(음소거, 혼자 남음 등)로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
 const running = computed(() => Boolean(props.player.currentTrack) && !props.player.userPaused);
 </script>

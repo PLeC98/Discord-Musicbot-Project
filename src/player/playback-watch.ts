@@ -38,7 +38,7 @@ class PlaybackWatch {
 
   // ── 넘침 안전망 ──
 
-  /** 이 곡의 넘침 안전망을 건다. 위치로 보므로 일시정지 · 버퍼링과 어긋나지 않는다 */
+  /** 이 곡의 넘침 안전망을 건다. 위치로 보므로 일시정지, 버퍼링과 어긋나지 않는다 */
   startOverflow() {
     this.stopOverflow();
     this.overflowTimer = setInterval(() => this.checkOverflow(), OVERFLOW_CHECK_MS);
@@ -47,7 +47,7 @@ class PlaybackWatch {
 
   checkOverflow(): void {
     const player = this.player;
-    // 트는 음원의 길이를 모르면(라이브 · 다운로드 전의 직접 링크) 넘었는지 판정할 수 없다. 표시 길이는 쓰지 않는다
+    // 트는 음원의 길이를 모르면(라이브, 다운로드 전의 직접 링크) 넘었는지 판정할 수 없다. 표시 길이는 쓰지 않는다
     const lengthMs = player.isLive ? null : (player.playback?.lengthMs ?? null);
     if (!lengthMs) return;
     const at = player.getCurrentTime();
@@ -102,7 +102,7 @@ class PlaybackWatch {
     this.idleTimer = null;
     // 실패로 멈춰 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
     if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
-    // 곡을 여는 중 · 끝 처리 중 · 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
+    // 곡을 여는 중, 끝 처리 중, 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();
     wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냅니다: ${player._trackLabel()}`);
     this.armIdle(); // 넘긴 곡도 틀지 못하면 다시 본다

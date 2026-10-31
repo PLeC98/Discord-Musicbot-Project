@@ -1,4 +1,4 @@
-// src/rules/vendor-updates.ts: 따로 받는 도구(ffmpeg · bgutil)의 새 버전 판정과 기본값 고치기(scripts/check-vendor-updates.ts 가 쓴다)
+// src/rules/vendor-updates.ts: 따로 받는 도구(ffmpeg, bgutil)의 새 버전 판정과 기본값 고치기(scripts/check-vendor-updates.ts 가 쓴다)
 
 import test from "node:test";
 import assert from "node:assert";
@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { auditCounts, compareVersions, isMonthEndBuild, newerFfmpegRelease, newerRelease, rewriteConstant } from "../../src/rules/vendor-updates.ts";
 
-test("월말 autobuild 만 고른다: 윤년 2월 · 30일 달 · 형식 밖은 아니다", () => {
+test("월말 autobuild 만 고른다: 윤년 2월, 30일 달, 형식 밖은 아니다", () => {
   assert.equal(isMonthEndBuild("autobuild-2026-09-30-13-08"), true);
   assert.equal(isMonthEndBuild("autobuild-2028-02-29-12-00"), true);
   assert.equal(isMonthEndBuild("autobuild-2026-02-28-12-00"), true);

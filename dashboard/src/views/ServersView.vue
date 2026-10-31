@@ -1,7 +1,7 @@
 <template>
-  <!-- 모든 서버. 서버마다 같은 크기의 카드: 아이콘 · 이름 · 상태, 그 아래 지금 곡 한 줄. 내가 듣는 서버는 맨 앞에 두고 테두리로 구분한다 -->
+  <!-- 모든 서버. 서버마다 같은 크기의 카드: 아이콘, 이름, 상태, 그 아래 지금 곡 한 줄. 내가 듣는 서버는 맨 앞에 두고 테두리로 구분한다 -->
   <div class="min-h-full px-(--gap-out) pt-2 md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
-    <!-- 바탕화면 둥근 모서리 쪽으로 글을 조금 안쪽으로 민다(위 · 옆 막대의 곡선과 맞춘다. 휴대폰도 위 모서리가 둥글어 같다) -->
+    <!-- 바탕화면 둥근 모서리 쪽으로 글을 조금 안쪽으로 민다(위, 옆 막대의 곡선과 맞춘다. 휴대폰도 위 모서리가 둥글어 같다) -->
     <header class="flex items-center justify-between gap-4 h-12 md:h-(--strip) mb-1 md:mb-0 px-[calc((var(--r-desk)-var(--gap-out))/2)]">
       <div class="flex items-baseline gap-3 min-w-0">
         <h1 class="text-xl md:text-lg font-semibold">{{ T.title }}</h1>
@@ -68,7 +68,7 @@ import { text } from "../text/index.ts";
 import { openLoginWindow } from "../composables/session.ts";
 const T = text.servers;
 
-// 목록 데이터·SSE·폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
+// 목록 데이터, SSE, 폴링은 막대와 공유하는 guilds 스토어가 담당 (구독 카운팅으로 연결 단일화)
 const store = useGuildsStore();
 const user = useUserStore();
 const guilds = computed(() => store.guilds);

@@ -1,6 +1,6 @@
 // src/ui/mentions.ts: 외부에서 받은 문자열이 디스코드 메시지에 안전하게 실리는지.
 //
-// 트랙 제목 · 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone 이 봇 명의의 대규모 멘션으로 나가거나
+// 트랙 제목, 직접 링크 파일명은 남이 정할 수 있다. 제목의 @everyone 이 봇 명의의 대규모 멘션으로 나가거나
 // `[클릭](https://evil.example)` 이 안내 문구 안에서 진짜 링크로 렌더링되면 곡 하나로 피싱 링크를 심을 수 있다.
 
 import { test } from "node:test";
@@ -57,7 +57,7 @@ test("멘션 문자열은 텍스트로 보존된다. 차단은 allowedMentions�
   assert.ok(escapeMd(EVIL_MENTION).includes("@everyone"));
 });
 
-test("빈 값·비문자열에도 안전하다", () => {
+test("빈 값, 비문자열에도 안전하다", () => {
   for (const v of [null, undefined, 0, {}]) {
     assert.equal(typeof escapeMd(v), "string");
   }

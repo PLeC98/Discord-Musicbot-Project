@@ -77,7 +77,7 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("system").setDescription("봇의 시스템 정보를 보여줘요"),
 
   async execute(interaction, bot) {
-    // 호스트 CPU · 메모리 정보가 나간다. 디스코드 권한으로는 나타낼 수 없는 봇 운영자(OWNER_ID) 전용
+    // 호스트 CPU, 메모리 정보가 나간다. 디스코드 권한으로는 나타낼 수 없는 봇 운영자(OWNER_ID) 전용
     if (interaction.user.id !== config.dashboard.ownerId) {
       return noticeSelf(interaction, errors.notice("must-owner"));
     }

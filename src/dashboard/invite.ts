@@ -49,7 +49,7 @@ type ManagedGuild = { id: string; name: string; icon: string | null };
 
 const manages = (g: UserGuild) => g.owner || new PermissionsBitField(BigInt(g.permissions)).has(PermissionFlagsBits.ManageGuild);
 
-/** 사용자가 관리하는 서버. 받기 · 캐시 · 거절은 user-guilds 의 userGuilds 와 같다 */
+/** 사용자가 관리하는 서버. 받기, 캐시, 거절은 user-guilds 의 userGuilds 와 같다 */
 async function managedGuilds(key: string, token: string, options: Parameters<typeof userGuilds>[2] = {}) {
   const guilds = await userGuilds(key, token, options);
   return guilds.filter(manages).map(({ id, name, icon }) => ({ id, name, icon }));

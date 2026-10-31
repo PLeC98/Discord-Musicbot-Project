@@ -1,4 +1,4 @@
-// 캐시된 유튜브 영상 정보. 곡 정보 · 재생 주소가 추출한 것을 재생 주소 · 다운로드가 다시 쓴다(같은 영상을 짧은 사이에 다시 추출하지 않게).
+// 캐시된 유튜브 영상 정보. 곡 정보, 재생 주소가 추출한 것을 재생 주소, 다운로드가 다시 쓴다(같은 영상을 짧은 사이에 다시 추출하지 않게).
 // 봇 전체에 하나. 줄인 JSON 문자열로 두고 꺼낼 때마다 새로 파싱한 사본을 준다. 곡을 다 다운로드하기 전에 주소가 만료될 것은 꺼내지 않는다(rules/stream-reuse).
 // 그 곡의 다운로드가 끝나면 지운다(youtube/ytdlp-run 의 downloadAudio). 크기 합이 상한을 넘으면 만료된 것 → 가장 오래 남은 것을 밀어낸다.
 // 주소는 추출한 IP 에 묶인다(열리지 않으면 재생 쪽이 새로 추출한다)
@@ -14,7 +14,7 @@ const GB = 1024 ** 3;
 const HOUR_MS = 3_600_000;
 /** 줄여도 이보다 크면 캐시하지 않는다 */
 const ENTRY_MAX = 256 * 1024;
-/** 맨 위에서 뺄 것(재생 주소 · 다운로드가 읽지 않는다). 쿠키는 메모리 · 다운로드에 넘기는 파일에 남기지 않는다 */
+/** 맨 위에서 뺄 것(재생 주소, 다운로드가 읽지 않는다). 쿠키는 메모리, 다운로드에 넘기는 파일에 남기지 않는다 */
 const DROP = ["automatic_captions", "subtitles", "thumbnails", "heatmap", "description", "chapters", "tags", "categories", "cookies"];
 
 /** 상한: 메모리 1GB 마다 2MB, 8 ~ 64MB. 프로세스에 걸린 상한(컨테이너)이 있으면 그것으로 */
@@ -50,7 +50,7 @@ function withoutCookie(headers: unknown): unknown {
   return Object.fromEntries(Object.entries(headers).filter(([name]) => name.toLowerCase() !== "cookie"));
 }
 
-/** 캐시할 만한 것이면 줄인 사본, 아니면 null(재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 세그먼트 목록) */
+/** 캐시할 만한 것이면 줄인 사본, 아니면 null(재생목록, 라이브, 예약 방송, 주소 없음, 만료 모름, 세그먼트 목록) */
 function trimmed(info: Info): Info | null {
   if (info._type === "playlist" || info.is_live === true || info.live_status === "is_live" || info.live_status === "is_upcoming") return null;
   if (typeof info.url !== "string" || !expireOf(info.url)) return null;
@@ -71,7 +71,7 @@ function drop(id: string) {
   bytes -= entry.text.length;
 }
 
-// 1시간 지난 개수 기록 · 밀려난 기록을 버린다
+// 1시간 지난 개수 기록, 밀려난 기록을 버린다
 function prune(now: number) {
   for (const list of [reusedAt, missedAt]) while (list.length && list[0] <= now - HOUR_MS) list.shift();
   for (const [id, at] of evicted) {
@@ -130,7 +130,7 @@ function forget(id: string) {
   drop(id);
 }
 
-/** 봇 상태 탭: 지난 1시간 다시 쓴 수 · 밀려난 뒤 필요해져 놓친 수 */
+/** 봇 상태 탭: 지난 1시간 다시 쓴 수, 밀려난 뒤 필요해져 놓친 수 */
 function reuseLoad(): { reused: number; missed: number } {
   prune(Date.now());
   return { reused: reusedAt.length, missed: missedAt.length };

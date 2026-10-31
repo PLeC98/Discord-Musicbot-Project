@@ -14,7 +14,7 @@ import type { Notices, NoticeCode } from "../player/events.ts";
 
 type Shown = { view: ContainerBuilder; ms: number };
 
-// 오류 · 경고 안내는 그 수준의 수명으로
+// 오류, 경고 안내는 그 수준의 수명으로
 const shown = (notice: Notice): Shown => ({ view: noticeFrame(notice), ms: noticeMs(notice) });
 
 // 안내 본문 끝에 한 줄을 더한다

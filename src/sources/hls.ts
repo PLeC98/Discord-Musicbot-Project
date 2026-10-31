@@ -1,5 +1,5 @@
 // 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
-// 모든 요청(상위 · 하위 목록 · 세그먼트 · 초기화 세그먼트 · 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
+// 모든 요청(상위, 하위 목록, 세그먼트, 초기화 세그먼트, 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
 //   상위 목록   오디오 전용 하위 목록이 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
 //   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
@@ -35,7 +35,7 @@ type Hls = {
 };
 type HlsOptions = { net?: StreamNet; sleep?: (ms: number) => Promise<void> };
 
-/** 목록 · 키는 작다 */
+/** 목록, 키는 작다 */
 const LIST_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024 * 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 /** 세그먼트 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다) */
@@ -47,9 +47,9 @@ const RELOAD_FAILURES = 3;
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** 다시 받아도 같은 실패(4xx · 상한 · DRM) */
+/** 다시 받아도 같은 실패(4xx, 상한, DRM) */
 const permanent = (error: Error) => Object.assign(error, { permanent: true });
-/** 가드가 막은 요청(내부 주소 · 크기 상한 · 받는 형식)과 4xx 로 거절한 요청은 다시 받지 않는다 */
+/** 가드가 막은 요청(내부 주소, 크기 상한, 받는 형식)과 4xx 로 거절한 요청은 다시 받지 않는다 */
 async function settled<T>(request: Promise<T>): Promise<T> {
   try {
     return await request;
@@ -109,7 +109,7 @@ function sequenceIv(sequence: number): Buffer {
   return iv;
 }
 
-/** AES-128-CBC 복호화. 실패하면(키 · IV 가 틀림) 다시 받아도 같다 */
+/** AES-128-CBC 복호화. 실패하면(키, IV 가 틀림) 다시 받아도 같다 */
 function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
   try {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
@@ -120,7 +120,7 @@ function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
 }
 
 /**
- * HLS 를 연다. text · url 은 여는 함수(direct-open)가 받은 목록과 그 마지막 주소.
+ * HLS 를 연다. text, url 은 여는 함수(direct-open)가 받은 목록과 그 마지막 주소.
  * 목록이 아니거나 받을 하위 목록이 없거나 DRM 이면 unsupported-link, 하위 목록을 받지 못하면 SafeUrl 의 오류를 던진다
  */
 async function openHls(text: string, url: string, { net = { getStream: SafeUrl.getStream }, sleep = realSleep }: HlsOptions = {}): Promise<Hls> {

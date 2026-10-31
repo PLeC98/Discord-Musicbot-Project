@@ -40,7 +40,7 @@ const playlistAdd = {
   custom: "직접 입력",
   unit: "곡",
   invalid: (min: number, max: number) => `${min}~${max}곡 사이의 정수로 입력해 주세요.`,
-  /** 지금 값 안내: 앞 · 값 · 뒤로 나눠 값만 굵게 그린다 */
+  /** 지금 값 안내: 앞, 값, 뒤로 나눠 값만 굵게 그린다 */
   effectiveBefore: "재생목록을 넣으면 한 번에 ",
   effectiveAfter: (min: number, max: number) => `씩 들어가요 · ${min}~${max}곡 · 디스코드에서는 `,
 };

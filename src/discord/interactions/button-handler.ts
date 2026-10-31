@@ -48,7 +48,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () => config.sponsorblock.enabled };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
-// 재적 · 계층 검사는 핸들러가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
+// 재적, 계층 검사는 핸들러가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   if (!player) return noticeSelf(interaction, errors.notice("no-song"));
@@ -130,7 +130,7 @@ async function handleSystemRefresh(interaction: Press, { players }: BotContext) 
   return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
-// 검색 결과 선택 · 취소. 검색한 사람만 누를 수 있다. 선택한 영상은 다시 찾는다(다운로드해 둔 곡이면 캐시에서)
+// 검색 결과 선택, 취소. 검색한 사람만 누를 수 있다. 선택한 영상은 다시 찾는다(다운로드해 둔 곡이면 캐시에서)
 async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   const { member, guild } = interaction;
   const { action, rest } = partsOf(interaction.customId);
@@ -147,7 +147,7 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   }
   if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
 
-  // 곡 추가 경로. /play · /search 와 같은 검사
+  // 곡 추가 경로. /play, /search 와 같은 검사
   const permErr = checkAdd(member) || checkSummon(member);
   if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
@@ -174,11 +174,11 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   });
   if (!result.success) return await noticeInstead(interaction, addFailureMessage(result));
 
-  // "곡을 추가하는 중" 자리표시자(본인)를 치운다. 담은 안내 · 패널은 채널에 따로 갔다
+  // "곡을 추가하는 중" 자리표시자(본인)를 치운다. 담은 안내, 패널은 채널에 따로 갔다
   await responder.dismissPlaceholder();
 }
 
-// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색 · 새로고침 · 대기열 넘기기)과 재생 패널의 버튼.
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색, 새로고침, 대기열 넘기기)과 재생 패널의 버튼.
 const routes: Route[] = [
   route("button", customId(SEARCH, ""), handleSearchInteraction),
   route("button", customId(HELP, "refresh"), handleHelpRefresh),

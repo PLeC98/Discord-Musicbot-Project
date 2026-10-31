@@ -1,5 +1,5 @@
-// /nowplaying 의 화면. 재생 패널과 같은 머리(현재 재생 중 · 곡 링크 · 아티스트와 앨범 · 곡 그림)에 진행 막대, 그 아래 작은 글씨 두 묶음:
-// 이 곡(상태 · 요청 · 출처 · 음원)과 이어질 것(다음 곡 · 대기열 · 자동재생). 재생 패널과는 따로 그린다
+// /nowplaying 의 화면. 재생 패널과 같은 머리(현재 재생 중, 곡 링크, 아티스트와 앨범, 곡 그림)에 진행 막대, 그 아래 작은 글씨 두 묶음:
+// 이 곡(상태, 요청, 출처, 음원)과 이어질 것(다음 곡, 대기열, 자동재생). 재생 패널과는 따로 그린다
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
@@ -27,7 +27,7 @@ function audioHost(url: string) {
   return host;
 }
 
-/** 이 곡: 상태(멈춘 까닭 포함) · 요청 · 출처 · 음원(요청 그대로가 아닐 때) */
+/** 이 곡: 상태(멈춘 까닭 포함), 요청, 출처, 음원(요청 그대로가 아닐 때) */
 function aboutTrack(player: Player, track: QueuedTrack) {
   const T = infoText.nowPlaying();
   const held = player.pause?.heldBy;
@@ -47,7 +47,7 @@ function nextValue(player: Player) {
   return `[${songTitle(next.title)}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
 }
 
-/** 이어질 것: 다음 곡 · 대기열(곡 수 · 남은 길이) · 자동재생(켜져 있을 때만) */
+/** 이어질 것: 다음 곡, 대기열(곡 수, 남은 길이), 자동재생(켜져 있을 때만) */
 function whatsNext(player: Player) {
   const T = infoText.nowPlaying();
   const queue = player.queue ?? [];

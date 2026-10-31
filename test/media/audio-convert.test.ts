@@ -161,7 +161,7 @@ test("probe 파싱: 읽을 것이 없으면 전부 null", () => {
 });
 
 // ffmpeg 가 태그를 단 mp3 를 열 때의 헤더. 태그는 읽지 않는다(파일 태그는 sources/file-tags)
-test("probe 파싱: 태그 블록이 있어도 길이 · 코덱을 읽는다", () => {
+test("probe 파싱: 태그 블록이 있어도 길이, 코덱을 읽는다", () => {
   const info = parseProbeOutput(`Input #0, mp3, from 'tagged.mp3':
   Metadata:
     title           : 노래 제목 : 콜론

@@ -1,6 +1,6 @@
-// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로) · 인코딩 단계(AV1 · VP9 의 1080p · 4K) · 마무리 단계(원본 삭제).
-// 모두 30fps 이하 · 키프레임 2초 · lanczos, HLS(fMP4, 2초 세그먼트)로 코덱 · 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
-// 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss · -to, 움직이는 그림은 필터에서. ladder 의 seekArgs · sourceFilter, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
+// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로), 인코딩 단계(AV1, VP9 의 1080p, 4K), 마무리 단계(원본 삭제).
+// 모두 30fps 이하, 키프레임 2초, lanczos, HLS(fMP4, 2초 세그먼트)로 코덱, 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
+// 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss, -to, 움직이는 그림은 필터에서. ladder 의 seekArgs, sourceFilter, 다시 인코딩이라 정확하다). 코어는 80% 로 묶는다(infra/cpu-affinity).
 // 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(나누면 빠르지만 메모리가 더 든다).
 // AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts).
 // 나눠 인코딩하다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 테스트하고 남은 단계를 따로 인코딩한다.
@@ -27,7 +27,7 @@ import { formatBytes } from "../../ui/format.ts";
 /** H.264 단계의 짧은 변 */
 const H264_SHORT = 720;
 
-/** 단계 하나: 코덱 · 짧은 변(폴더 이름) · 크기 · 인코더와 그 옵션 */
+/** 단계 하나: 코덱, 짧은 변(폴더 이름), 크기, 인코더와 그 옵션 */
 type Shape = { codec: LoginBackgroundCodec; short: number; width: number; height: number };
 type Plan = Shape & { encoder: string; options: string[] };
 
@@ -43,7 +43,7 @@ function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number,
   return ["-c:v", "libopenh264", "-profile:v", "high", "-coder", "cabac", "-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51", "-pix_fmt", "yuv420p", ...gop];
 }
 
-/** 원본(자른 크기)에서 이 코덱의 단계 크기들. AV1 · VP9 는 1080p 와 4K(원본 짧은 변이 2160 이상일 때만, 1080p 보다 작으면 원본 크기 하나), H.264 는 720p */
+/** 원본(자른 크기)에서 이 코덱의 단계 크기들. AV1, VP9 는 1080p 와 4K(원본 짧은 변이 2160 이상일 때만, 1080p 보다 작으면 원본 크기 하나), H.264 는 720p */
 function shapesFor(codecs: readonly LoginBackgroundCodec[], size: { width: number; height: number }): Shape[] {
   return codecs.flatMap((codec) => {
     const shorts = codec === "h264" ? [H264_SHORT] : Math.min(size.width, size.height) >= UHD ? [FHD, UHD] : [FHD];
@@ -63,7 +63,7 @@ function plansFor(codecs: readonly LoginBackgroundCodec[], size: { width: number
   });
 }
 
-/** 지금 도는 인코딩(봇 전체에서 하나): 시작한 때 · 인코딩한 영상 초 */
+/** 지금 도는 인코딩(봇 전체에서 하나): 시작한 때, 인코딩한 영상 초 */
 let baking: (Omit<LoginBackgroundBake, "cores" | "speed"> & { startedAt: number; done: number }) | null = null;
 /** 속도를 내기 전에 기다리는 시간(ffmpeg 를 실행하고 원본을 여는 몫) */
 const SPEED_AFTER_MS = 3_000;
@@ -164,7 +164,7 @@ function codecString(init: Buffer): string {
   throw codedError("background-failed", "초기화 세그먼트에서 코덱을 읽지 못했습니다");
 }
 
-/** 인코딩한 단계의 목록 값: 2초 최대(세그먼트마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH) · 평균 · 코덱 문자열 */
+/** 인코딩한 단계의 목록 값: 2초 최대(세그먼트마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH), 평균, 코덱 문자열 */
 function rungOf(dir: string, plan: Shape, fps: number): LoginBackgroundRung & { average: number } {
   const playlist = fs.readFileSync(path.join(dir, "index.m3u8"), "utf8");
   const segments = [...playlist.matchAll(/#EXTINF:([\d.]+),\s*\n([^\n#]+)/g)].map((m) => ({ seconds: Number(m[1]), bytes: fs.statSync(path.join(dir, m[2].trim())).size }));
@@ -195,7 +195,7 @@ function writeMasters(item: Readonly<store.Stored>, shapes: Shape[], fps: number
  * 이 단계들을 인코딩한다(끝난 것은 건너뛴다). 안 되는 것만 끄고 나머지는 이어 간다:
  * 나눠 인코딩하기가 실패하면 인코더를 다시 테스트하고 남은 것을 따로. 따로 인코딩하다 실패해도 다시 테스트해서, 다른 인코더가 선택되면 그것으로,
  * 쓸 인코더가 없어졌으면 그 코덱은 빼고 이어 간다. 같은 인코더가 다시 선택되면 인코더 탓이 아니라(원본 등) 실패로 둔다.
- * 인코더가 하나도 없으면 이 단계는 아무것도 만들지 않고 끝난다(로그인 화면은 남은 코덱 · 정지 그림으로)
+ * 인코더가 하나도 없으면 이 단계는 아무것도 만들지 않고 끝난다(로그인 화면은 남은 코덱, 정지 그림으로)
  */
 async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBackgroundCodec[]): Promise<StageResult> {
   await encodersReady();
@@ -244,10 +244,10 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
 
 /** H.264 단계(720p 하나, 먼저 따로: 로그인 화면이 저화질 영상으로 바뀐다) */
 const h264 = (job: StageJob) => encodePlans(job, ["h264"]);
-/** 인코딩 단계(AV1 · VP9) */
+/** 인코딩 단계(AV1, VP9) */
 const encode = (job: StageJob) => encodePlans(job, ["av1", "vp9"]);
 
-/** 마무리 단계: 원본 · 편집 창의 미리보기 · 장면 띠 · 다운로드하다 남은 것을 삭제한다(인코딩한 것과 정지 그림만 남는다) */
+/** 마무리 단계: 원본, 편집 창의 미리보기, 장면 띠, 다운로드하다 남은 것을 삭제한다(인코딩한 것과 정지 그림만 남는다) */
 async function drop({ item }: StageJob): Promise<StageResult> {
   const folder = store.folderOf(item.id);
   for (const name of fs.readdirSync(folder)) {

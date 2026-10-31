@@ -1,4 +1,4 @@
-// src/sources/youtube/recent-info.ts: 받아 둔 유튜브 영상 정보. 줄이기 · 캐시하지 않는 것 · 꺼내기(만료 · 사본) · 상한과 밀어내기 · 개수
+// src/sources/youtube/recent-info.ts: 받아 둔 유튜브 영상 정보. 줄이기, 캐시하지 않는 것, 꺼내기(만료, 사본), 상한과 밀어내기, 개수
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -29,7 +29,7 @@ const info = (id: string, extra: Record<string, unknown> = {}) => ({
 
 beforeEach(() => useRecentInfo(null));
 
-test("줄이기: 소리만 있는 포맷과 고른 포맷만, 자막 · 썸네일 목록 · 설명 · 쿠키는 뺀다. 나머지는 그대로", () => {
+test("줄이기: 소리만 있는 포맷과 고른 포맷만, 자막, 썸네일 목록, 설명, 쿠키는 뺀다. 나머지는 그대로", () => {
   const out = trimmed(info("a", { format_id: "18" }))!;
   assert.deepEqual(
     (out.formats as Array<{ format_id: string }>).map((f) => f.format_id),
@@ -41,7 +41,7 @@ test("줄이기: 소리만 있는 포맷과 고른 포맷만, 자막 · 썸네�
   assert.equal(out.title, "영상 a");
 });
 
-test("캐시하지 않는 것: 재생목록 · 라이브 · 예약 방송 · 주소 없음 · 만료 모름 · 세그먼트 목록 · 너무 큰 것", () => {
+test("캐시하지 않는 것: 재생목록, 라이브, 예약 방송, 주소 없음, 만료 모름, 세그먼트 목록, 너무 큰 것", () => {
   const cases: Array<[string, Record<string, unknown>]> = [
     ["p", { _type: "playlist" }],
     ["l", { is_live: true }],

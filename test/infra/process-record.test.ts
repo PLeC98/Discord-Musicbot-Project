@@ -1,4 +1,4 @@
-// src/infra/process-registry.ts의 기록 파일: 기동이 켜면 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 등록 · 해제마다 살아 있는 자식을 적는다.
+// src/infra/process-registry.ts의 기록 파일: 기동이 켜면 이 실행의 파일(<폴더>/<pid>-<시작 시각>.json)에 등록, 해제마다 살아 있는 자식을 적는다.
 // 켜기 전에는 쓰지 않는다. 이 파일은 프로세스마다 따로 돌아 레지스트리의 켜짐이 다른 테스트에 새지 않는다
 
 import { test, after } from "node:test";
@@ -12,7 +12,7 @@ import type { ChildRecord } from "../../src/infra/process-registry.ts";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "child-record-"));
 after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-// 살아 있는 것처럼 보이는 자식(종료 코드 · 신호가 아직 없다). 실제 프로세스가 아니다
+// 살아 있는 것처럼 보이는 자식(종료 코드, 신호가 아직 없다). 실제 프로세스가 아니다
 const fakeChild = (pid: number, spawnfile: string) => ({ pid, exitCode: null, signalCode: null, spawnfile });
 
 test("켜기 전에는 등록해도 쓰지 않는다", () => {

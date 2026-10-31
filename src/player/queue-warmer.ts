@@ -23,10 +23,10 @@ type WarmerDeps = {
   isBusy(track: QueuedTrack): boolean;
   keyOf(track: QueuedTrack | null | undefined): string | null;
   setProtection(guildId: string, keys: string[]): void;
-  /** 직접 링크 곡의 파일 태그 · 앨범아트를 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
+  /** 직접 링크 곡의 파일 태그, 앨범아트를 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
   wantArt?(tracks: Array<QueuedTrack | null>): void;
 };
-/** 파일 태그 · 앨범아트를 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
+/** 파일 태그, 앨범아트를 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
 const ART_WINDOW = 1000;
 
 /**
@@ -148,7 +148,7 @@ class QueueWarmer {
   /**
    * 내려간 영상을 선택한 자동재생 곡을 대기열에서 빼고 다른 곡으로 채운다.
    *
-   * 소스 DB(VocaDB·LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
+   * 소스 DB(VocaDB, LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
    * 않으면 다음 선택에서 같은 것을 또 선택한다.
    *
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.

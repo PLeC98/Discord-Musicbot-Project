@@ -114,7 +114,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   changed(req, res, `"${name}"${josa(name, "을")} 올렸습니다(${formatBytes(saved.bytes)})`);
 });
 
-// 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림 · 영상
+// 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림, 영상
 loginBackgroundRouter.post("/link", (req, res) => {
   const body = parse(BackgroundLinkBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
@@ -126,7 +126,7 @@ loginBackgroundRouter.post("/link", (req, res) => {
   changed(req, res, `링크로 추가했습니다(${url})`);
 });
 
-// 편집 창의 미리보기(영상 480p · 그림). 원본과 함께 삭제하므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
+// 편집 창의 미리보기(영상 480p, 그림). 원본과 함께 삭제하므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
 loginBackgroundRouter.get("/:id/preview", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
@@ -155,7 +155,7 @@ loginBackgroundRouter.put("/:id/estimate", (req, res) => {
   reply(res);
 });
 
-// 편집 적용(편집을 기다리는 배경에 한 번만). 구간은 영상 길이 안, 그림은 구간 · 썸네일 장면이 없다
+// 편집 적용(편집을 기다리는 배경에 한 번만). 구간은 영상 길이 안, 그림은 구간, 썸네일 장면이 없다
 loginBackgroundRouter.put("/:id/edit", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
@@ -186,7 +186,7 @@ loginBackgroundRouter.put("/:id/position", (req, res) => {
   changed(req, res, `"${one.name}" 의 보일 위치를 ${body.value.x}%, ${body.value.y}%로 바꿨습니다`);
 });
 
-// 편집 취소 · 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
+// 편집 취소, 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
 loginBackgroundRouter.post("/:id/cancel", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;

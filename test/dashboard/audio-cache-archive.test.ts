@@ -1,4 +1,4 @@
-// src/dashboard/audio-cache-archive.ts: 오디오 캐시 내보내기 · 불러오기. 내보낸 것을 비운 캐시에 합쳐 되돌리고, 있는 것은 이 봇의 것을 두며(직접 지정한 음원은 덮는다),
+// src/dashboard/audio-cache-archive.ts: 오디오 캐시 내보내기, 불러오기. 내보낸 것을 비운 캐시에 합쳐 되돌리고, 있는 것은 이 봇의 것을 두며(직접 지정한 음원은 덮는다),
 // 캐시 상한 안에서 퇴거 점수가 낮은 것부터 불러온다. 내보내는 동안 담을 파일은 지킨다. 받은 이름이 아니라 키로 이 봇의 자리에 둔다.
 
 process.env.OWNER_ID = "owner";
@@ -78,7 +78,7 @@ async function importAll(file: Buffer, items = "audio-files,audio-ledger,audio-p
   return { status: res.status, json: (await res.json()) as { added?: Record<string, number> } };
 }
 
-test("내보내기: settings.json · 캐시 파일 · 마지막의 행 목록. 캐시 파일 제외면 행 목록만(링크 데이터는 그대로)", async () => {
+test("내보내기: settings.json, 캐시 파일, 마지막의 행 목록. 캐시 파일 제외면 행 목록만(링크 데이터는 그대로)", async () => {
   seedFile("yt:aaaaaaaaaa1", 300, 2, 1000);
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "하나");
   ledger("https://open.spotify.com/track/x", yt("aaaaaaaaaa2"), "파일 없는 곡");
@@ -107,7 +107,7 @@ test("담기 전에 사라진 캐시 파일은 건너뛰고 행 목록에서도 
   );
 });
 
-test("되돌리기: 비운 캐시에 파일 · 재생 기록 · 링크 데이터 · 직접 지정한 음원 · 연령 제한 · SponsorBlock 이 돌아온다", async () => {
+test("되돌리기: 비운 캐시에 파일, 재생 기록, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock 이 돌아온다", async () => {
   seedFile("yt:aaaaaaaaaa1", 300, 4, 5000);
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "하나");
   pinnedSources.setPin("https://open.spotify.com/track/p", "https://soundcloud.com/a/b", 77);
@@ -165,7 +165,7 @@ test("합치기: 이 봇의 링크 데이터를 두고(같은 음원이면 확�
   assert.equal(pinnedSources.getPin("https://open.spotify.com/track/p")?.audioUrl, "https://soundcloud.com/from/file");
 });
 
-test("캐시 상한: 넘는 것은 불러오지 않고, 퇴거 점수가 낮은(자주 · 최근 튼) 것부터 불러온다", async () => {
+test("캐시 상한: 넘는 것은 불러오지 않고, 퇴거 점수가 낮은(자주, 최근 튼) 것부터 불러온다", async () => {
   const now = Date.now();
   seedFile("yt:aaaaaaaaaa1", 100, 0, now - 90 * 86_400_000);
   seedFile("yt:aaaaaaaaaa2", 100, 30, now);
@@ -188,7 +188,7 @@ test("캐시 상한: 넘는 것은 불러오지 않고, 퇴거 점수가 낮은(
   );
 });
 
-test("내보내는 동안 담을 파일은 지킨다(퇴거 · 삭제가 지우지 않는다). 끝나면 푼다", async () => {
+test("내보내는 동안 담을 파일은 지킨다(퇴거, 삭제가 지우지 않는다). 끝나면 푼다", async () => {
   seedFile("yt:aaaaaaaaaa1", 100, 1, 1);
   const downloadedAt = audioCache.lookupByAudioKey("yt:aaaaaaaaaa1")!.downloaded_at;
   const { release } = archive.build("audio-cache");

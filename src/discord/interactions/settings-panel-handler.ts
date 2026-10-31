@@ -10,9 +10,9 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeInstead, noticeSelf } from "../../ui/delivery.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 
-// /setting 한 화면(DJ 역할 · SponsorBlock · 연령 제한 콘텐츠) 처리. 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다.
+// /setting 한 화면(DJ 역할, SponsorBlock, 연령 제한 콘텐츠) 처리. 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다.
 // 저장 전의 선택을 들고 있지 않는다(저장 버튼이 없다). 본인에게만 보인 화면이라 호출자만 조작한다.
-// 봇 전체에서 SponsorBlock · 연령 제한 콘텐츠를 껐으면 그 부분이 없다. 화면을 띄운 뒤에 껐으면 누른 것은 저장하지 않고 다시 그린다
+// 봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 부분이 없다. 화면을 띄운 뒤에 껐으면 누른 것은 저장하지 않고 다시 그린다
 
 /** 지금 값으로 그릴 것. 서버에 없는 역할은 뺀다 */
 async function panelView(guild: Guild): Promise<screens.PanelView> {
@@ -46,7 +46,7 @@ async function saveSponsorCategories(interaction: StringSelectMenuInteraction<"c
 
 const AGE_BUTTONS: Record<string, AgePlace> = { "setting:age-channel": "channel", "setting:age-all": "all" };
 
-// 버튼: SponsorBlock 켜기 · 끄기(setting:sb-toggle), 연령 제한 콘텐츠를 틀 곳(setting:age-*), 닫기(setting:close)
+// 버튼: SponsorBlock 켜기, 끄기(setting:sb-toggle), 연령 제한 콘텐츠를 틀 곳(setting:age-*), 닫기(setting:close)
 async function pressButton(interaction: ButtonInteraction<"cached">) {
   const guild = interaction.guild;
   // 닫기: 본인에게만 보인 화면을 바로 지운다

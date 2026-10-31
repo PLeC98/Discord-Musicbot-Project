@@ -42,7 +42,7 @@ function save(text: unknown): boolean {
 
 /**
  * 쓸 수 있는 쿠키가 있는가(저장했고 지금 키로 복호화된다).
- * DB 를 열기 전(기동 전 · 테스트)에는 없는 것으로 본다. 곡 찾기 실패의 안내에도 쓰는 판정이라 던지면 원래 오류를 덮는다
+ * DB 를 열기 전(기동 전, 테스트)에는 없는 것으로 본다. 곡 찾기 실패의 안내에도 쓰는 판정이라 던지면 원래 오류를 덮는다
  */
 function ready() {
   return settingsDb.isOpen() && secrets.read(NAME).state === "ok";

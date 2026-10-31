@@ -81,7 +81,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
@@ -99,7 +99,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   );
 });
 
-test("레지스트리에 없는 음성 연결도 나감 없이 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {
+test("레지스트리에 없는 음성 연결도 나감 없이 정리한다. 저장, 상태 지우기, 정리가 실패해도 끝까지 간다", async () => {
   const { steps, proc, exited } = setup({ saveFails: true, status: async () => Promise.reject(new Error("권한 없음")) });
   proc.emit("SIGHUP");
   assert.equal(await exited, 0);
@@ -147,7 +147,7 @@ test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다
   assert.equal(steps.filter((s) => s.startsWith("save:")).length, 1);
 });
 
-test("기동이 실패하면 기동 실패로 적고, 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 받은 코드로 나간다", async () => {
+test("기동이 실패하면 기동 실패로 적고, 봇, POToken 서버, 자식 프로세스, 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 받은 코드로 나간다", async () => {
   const steps: string[] = [];
   const exited = new Promise((resolve) => {
     stopFailedStart(

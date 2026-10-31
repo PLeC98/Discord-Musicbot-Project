@@ -1,4 +1,4 @@
-// 설정 문서(장르 · 상태 문구 · AI 설정 · 프롬프트, config/documents)를 테스트가 정한다.
+// 설정 문서(장르, 상태 문구, AI 설정, 프롬프트, config/documents)를 테스트가 정한다.
 // 저장소를 붙이지 않은 메모리 문서라 실제 settings.db 를 건드리지 않는다. 기본값은 새로 설치했을 때와 같다(config/defaults).
 //
 //   useDefaultDocuments();                         // 테스트 파일 맨 위에서

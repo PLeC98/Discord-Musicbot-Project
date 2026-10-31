@@ -1,5 +1,5 @@
 // 가상 스크롤: 긴 목록을 보이는 만큼만 받고 그린다(행 높이가 정해진 목록). 서버가 필터링한 수(total)와 받은 구간(have)을 주면,
-// 스크롤 위치로 보이는 행을 계산해 위아래 한 화면씩 오버스캔으로 그리고, 나머지는 위 · 아래 스페이서로 높이만 채운다.
+// 스크롤 위치로 보이는 행을 계산해 위아래 한 화면씩 오버스캔으로 그리고, 나머지는 위, 아래 스페이서로 높이만 채운다.
 // 보이는 행이 받은 구간을 벗어나면 100ms 쉬었다 그 둘레를 받는다(request). 아직 받지 못한 자리는 화면이 스켈레톤 행으로 그린다
 
 import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
@@ -34,7 +34,7 @@ export function drawnRows(vis: Rows | null, total: number, keep: number | null, 
   return keep === null || keep >= total ? { from: around.from, to } : { from: Math.min(around.from, keep), to: Math.max(to, keep + 1) };
 }
 
-/** 그릴 구간의 자리마다 번호와 받은 행(받지 못한 자리는 row 가 null 이라 화면이 스켈레톤 행으로 그린다). from · rows: 받은 구간 */
+/** 그릴 구간의 자리마다 번호와 받은 행(받지 못한 자리는 row 가 null 이라 화면이 스켈레톤 행으로 그린다). from, rows: 받은 구간 */
 export function slotsOf<T>(range: { from: number; to: number }, from: number, rows: readonly T[], keyOf: (row: T, index: number) => string | number) {
   return Array.from({ length: range.to - range.from }, (_, k) => {
     const index = range.from + k;
@@ -44,10 +44,10 @@ export function slotsOf<T>(range: { from: number; to: number }, from: number, ro
 }
 
 /**
- * el: 스크롤 영역. rowHeight: 행 높이(px). total: 필터링된 수. have: 받은 구간(시작 · 받은 행 수). request: 그 구간을 받게 한다(다 받아 둔 목록은 없다).
+ * el: 스크롤 영역. rowHeight: 행 높이(px). total: 필터링된 수. have: 받은 구간(시작, 받은 행 수). request: 그 구간을 받게 한다(다 받아 둔 목록은 없다).
  * keep: 구간 밖이어도 그려 둘 행(드래그 중인 행. 드래그하는 동안 자동 스크롤로 구간이 옮겨 가도 그 행까지 이어 그린다).
  * 영역이 숨어 높이가 0 이면(v-show 로 숨은 탭) 행을 그리지도 받게 하지도 않는다(스페이서로 높이만).
- * 돌려주는 것: 그릴 구간 [from, to), 위 · 아래 스페이서 높이, 맨 위로(필터링 · 정렬을 바꿨을 때)
+ * 돌려주는 것: 그릴 구간 [from, to), 위, 아래 스페이서 높이, 맨 위로(필터링, 정렬을 바꿨을 때)
  */
 export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () => number; total: () => number; have: () => Span; request?: (span: Span) => void; keep?: () => number | null }) {
   const scrollTop = ref(0);
@@ -77,7 +77,7 @@ export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () 
     },
     { flush: "post", immediate: true },
   );
-  // 필터링된 수가 줄면(나가기 · 필터링으로 서버가 구간을 당겼다) 브라우저가 스크롤 위치를 당긴다. 스크롤 알림에 기대지 않고 그린 뒤 다시 읽는다
+  // 필터링된 수가 줄면(나가기, 필터링으로 서버가 구간을 당겼다) 브라우저가 스크롤 위치를 당긴다. 스크롤 알림에 기대지 않고 그린 뒤 다시 읽는다
   watch(() => [opts.total(), opts.rowHeight()], measure, { flush: "post" });
 
   const rows = computed(() => visibleRows(scrollTop.value, viewHeight.value, opts.rowHeight(), opts.total()));

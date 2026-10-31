@@ -1,4 +1,4 @@
-// src/dashboard/track-cache.ts: 캐시 DB 화면의 읽기 · 쓰기 · 값 검사. 표 셋은 cache.db 의 표를 음원 키로 이은 것이고,
+// src/dashboard/track-cache.ts: 캐시 DB 화면의 읽기, 쓰기, 값 검사. 표 셋은 cache.db 의 표를 음원 키로 이은 것이고,
 // 쓰기는 모두 검사한 뒤 조작마다 화면이 본 값(expect)과 대조해 결과를 낸다. 바뀜 번호는 cache-db 의 트리거가 센다.
 
 import fs from "node:fs";
@@ -38,22 +38,22 @@ beforeEach(() => {
   for (const table of ["track_lookup", "pinned_sources", "audio_cache", "age_restricted", "source_checks"]) store.db().prepare(`DELETE FROM ${table}`).run();
   ledger(yt("aaaaaaaaaa1"), yt("aaaaaaaaaa1"), "youtube", "하나");
   file("yt:aaaaaaaaaa1", { size: 5 * MB, plays: 3, last: 3000 });
-  // 스포티파이 · Last.fm 이 같은 음원(캐시 파일 하나를 함께 씀)
+  // 스포티파이, Last.fm 이 같은 음원(캐시 파일 하나를 함께 씀)
   ledger(SPOTIFY, yt("aaaaaaaaaa2"), "spotify", "둘");
   ledger(LASTFM, yt("aaaaaaaaaa2"), "lastfm", "둘");
   file("yt:aaaaaaaaaa2", { size: 2 * MB, plays: 9, last: 1000 });
   // 직접 지정한 음원만(링크 데이터 없음)
   pinnedSources.setPin(SPOTIFY_PIN_ONLY, SC, 500);
   sourceChecks.recordCheck(audioKeyOf(SC)!, { ok: true, at: 600 });
-  // 지정한 행: 링크 데이터의 자동 결과는 그대로, 쓰는 음원은 지정한 것(연령 제한 · 실패한 재생 테스트)
+  // 지정한 행: 링크 데이터의 자동 결과는 그대로, 쓰는 음원은 지정한 것(연령 제한, 실패한 재생 테스트)
   ledger(yt("aaaaaaaaaa3"), yt("aaaaaaaaaa3"), "youtube", "셋");
   pinnedSources.setPin(yt("aaaaaaaaaa3"), yt("aaaaaaaaaa4"), 700);
   store.db().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES ('aaaaaaaaaa4', 800)").run();
   sourceChecks.recordCheck("yt:aaaaaaaaaa4", { ok: false, code: "unavailable-contents", at: 900 });
-  // 자동재생 키 · 직접 링크 음원
+  // 자동재생 키, 직접 링크 음원
   ledger("amq:1", DIRECT, "anisongdb", "넷");
   file(audioKeyOf(DIRECT)!, { status: "error", size: null as unknown as number, plays: 0, downloaded: null });
-  // 요청이 가리키지 않는 파일 · 되돌릴 수 없는 직접 링크 파일 · 연령 제한만
+  // 요청이 가리키지 않는 파일, 되돌릴 수 없는 직접 링크 파일, 연령 제한만
   file("yt:aaaaaaaaaa5", { plays: 2, last: 2000 });
   file("dl:0123456789abcdef0123456789abcdef");
   store.db().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES ('aaaaaaaaaa9', 50)").run();
@@ -70,7 +70,7 @@ function page(q: TrackCacheQuery) {
 const requests = (q = query("requests")) => page(q).rows as TrackRequestRow[];
 const byKey = (rows: TrackRequestRow[], key: string) => rows.find((row) => row.requestKey === key)!;
 
-test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원의 음원 키로 캐시 파일 · 연령 제한 · 재생 테스트에 잇는다", () => {
+test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원의 음원 키로 캐시 파일, 연령 제한, 재생 테스트에 잇는다", () => {
   const rows = requests();
   assert.equal(rows.length, 6);
 
@@ -106,7 +106,7 @@ test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크�
   assert.equal(more.find((row) => row.audioKey === "sc:on.soundcloud.com/x")?.audioUrl, "https://on.soundcloud.com/x");
 });
 
-test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐시 파일과 다르면 바뀜 · 견줄 버전이 없으면 재생 가능", () => {
+test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐시 파일과 다르면 바뀜, 견줄 버전이 없으면 재생 가능", () => {
   store.db().prepare("UPDATE audio_cache SET audio_version = 'lmt:1' WHERE audio_key = 'yt:aaaaaaaaaa1'").run();
   const source = () => (page(query("files")).rows as TrackFileRow[]).find((row) => row.audioKey === "yt:aaaaaaaaaa1")!.source;
   assert.equal(source(), null, "확인하지 않았다");
@@ -131,7 +131,7 @@ test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐
   assert.deepEqual(source(), { state: "ok", at: 600 });
 });
 
-test("필터 · 아무 열 · 정렬(빈 값은 뒤로, 키가 끝 기준) · 구간", () => {
+test("필터, 아무 열, 정렬(빈 값은 뒤로, 키가 끝 기준), 구간", () => {
   assert.deepEqual(
     requests(query("requests", { filters: { size: ">=2MB" } })).map((row) => row.requestKey),
     [LASTFM, SPOTIFY, yt("aaaaaaaaaa1")].sort(),
@@ -167,7 +167,7 @@ test("필터 식이 틀리면 그 열을 가리켜 거절한다", () => {
   assert.equal(result.code, "bad-filter");
 });
 
-test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열 · 같은 키 여럿 · 겹친 정렬 · 구간 밖을 거절한다", () => {
+test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열, 같은 키 여럿, 겹친 정렬, 구간 밖을 거절한다", () => {
   const sent = query("files", { filters: { title: "a", size: ">1MB" }, q: "x", sort: [{ column: "plays", dir: "desc" }], offset: 10, limit: 20 });
   assert.deepEqual(trackCache.queryOf(trackCacheSearch(sent)), { ok: true, query: sent });
 
@@ -189,7 +189,7 @@ test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열 · 같은 키 �
   assert.deepEqual(refused("table=age&sort=markedAt:asc&sort=videoId:asc"), ["bad-request", "/sort"]);
 });
 
-test("바뀜 번호: 화면의 표에 쓰면 오르고, 재생 테스트 결과는 따로, 다른 표 · 맞는 행이 없는 쓰기는 올리지 않는다. 캐시 초기화 뒤에도 남는다", async () => {
+test("바뀜 번호: 화면의 표에 쓰면 오르고, 재생 테스트 결과는 따로, 다른 표, 맞는 행이 없는 쓰기는 올리지 않는다. 캐시 초기화 뒤에도 남는다", async () => {
   const start = cacheRevision();
   externalCaches.setSponsorSegments("aaaaaaaaaa1", [], { fetchedAt: 1, apiBase: "https://sb.example" });
   store.db().prepare("UPDATE track_lookup SET platform = 'x' WHERE request_key = 'none'").run();
@@ -239,7 +239,7 @@ test("쓰기: 하나라도 값이 틀리면 아무것도 쓰지 않고 조작 �
   assert.ok(!many.ok && many.code === "too-many-file-deletes" && many.params?.max === 100);
 });
 
-test("쓰기: 조작마다 본 값과 대조한다(됨 · 바뀜 · 없음), 새 행 · 음원은 다듬어 적는다", async () => {
+test("쓰기: 조작마다 본 값과 대조한다(됨, 바뀜, 없음), 새 행, 음원은 다듬어 적는다", async () => {
   const result = await trackCache.write(
     [
       { op: "pin", requestKey: "https://youtu.be/ccccccccccc?si=share", audioUrl: "https://www.youtube.com/watch?v=ddddddddddd&list=PL9", expect: null },
@@ -278,7 +278,7 @@ test("쓰기: 조작마다 본 값과 대조한다(됨 · 바뀜 · 없음), 새
   assert.equal(pinnedSources.getPin(SPOTIFY_PIN_ONLY)?.audioUrl, yt("eeeeeeeeeee"));
 });
 
-test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중 · 바뀜 · 없음을 알린다(지운 바이트는 싣지 않는다)", async () => {
+test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중, 바뀜, 없음을 알린다(지운 바이트는 싣지 않는다)", async () => {
   const target = audioCache.getFilePath("yt:fffffffffff");
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   fs.writeFileSync(target, "x");
@@ -304,7 +304,7 @@ test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중 · 바뀜
   }
 });
 
-test("값 검사 미리 보기: 저장될 형식 · 종류 · 음원 키, 아니면 막힌 까닭", () => {
+test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키, 아니면 막힌 까닭", () => {
   assert.deepEqual(trackCache.inspect({ requestKey: "https://youtu.be/ccccccccccc?si=x", audioUrl: "https://www.youtube.com/watch?v=ddddddddddd&list=PL" }), {
     request: { ok: true, canonical: yt("ccccccccccc"), platform: "youtube" },
     audio: { ok: true, canonical: yt("ddddddddddd"), kind: "youtube", audioKey: "yt:ddddddddddd" },

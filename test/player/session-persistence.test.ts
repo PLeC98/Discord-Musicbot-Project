@@ -1,4 +1,4 @@
-// src/player/session-mirror.ts · src/store/player-sessions.ts: 트랙 변경을 DB로 옮기는 미러, 세션 행, 복원.
+// src/player/session-mirror.ts, src/store/player-sessions.ts: 트랙 변경을 DB로 옮기는 미러, 세션 행, 복원.
 // 임시 DB로 열어 운영 DB(database/cache.db)는 건드리지 않는다.
 
 import { sessions, type RestoredSession } from "../../src/store/player-sessions.ts";
@@ -379,14 +379,14 @@ test("복원: 재생 중이던 세션은 그대로 재생하고 설정을 복원
   assert.equal(p.autoplay, "rock");
 });
 
-test("복원: 억제 사유(혼자 남음 · 음소거)는 비우지 않고 지금 음성 상태로 다시 맞춘다", async () => {
+test("복원: 억제 사유(혼자 남음, 음소거)는 비우지 않고 지금 음성 상태로 다시 맞춘다", async () => {
   const p = await restore(makeRecord(), (q) => q.pause.setHolds(["mute"]));
   assert.deepEqual([...p.pause.holds], ["mute"], "지금 상태의 계산이라 비울 까닭이 없다");
   assert.ok(p.syncs >= 1, "붙은 뒤 맞춘다");
   assert.deepEqual(p.calls, [["play", 30_000, false]]);
 });
 
-test("복원: 대기열 ID는 저장한 그대로(다시 시작하기 전에 화면이 보낸 빼기 · 옮기기도 같은 곡에 닿는다), 열거되지 않는 필드로", async () => {
+test("복원: 대기열 ID는 저장한 그대로(다시 시작하기 전에 화면이 보낸 빼기, 옮기기도 같은 곡에 닿는다), 열거되지 않는 필드로", async () => {
   const record = makeRecord({}, { title: "곡", url: "https://y/1", duration: 100, entry: 41 });
   Object.assign(record, {
     queue: [
@@ -587,7 +587,7 @@ test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다
   assert.ok(playing.sent[0].content.startsWith("### 🔄 봇이 복구됐어요\n기록된 마지막 재생 상태를 이어갈게요."), playing.sent[0].content);
 });
 
-test("복원: 무엇이 됐나를 돌려준다(이어 틂 · 틀 곡을 열지 못함 · 틀 곡 없음)", async () => {
+test("복원: 무엇이 됐나를 돌려준다(이어 틂, 틀 곡을 열지 못함, 틀 곡 없음)", async () => {
   const { sp } = makeRestorePlayer();
   assert.equal(await sp.restoreFromState(makeRecord()), "restored");
 
@@ -681,7 +681,7 @@ test("넘겨받기: 사람이 넣은 곡만 센다(봇이 고른 자동재생 �
   assert.equal(p.trackSink.claimSaved(), 0);
 });
 
-test("넘겨받지 않은 플레이어는 남의 세션을 지우지 않는다(버릴 때 비우기 · 세션 지우기 · 틀 곡 없는 저장)", () => {
+test("넘겨받지 않은 플레이어는 남의 세션을 지우지 않는다(버릴 때 비우기, 세션 지우기, 틀 곡 없는 저장)", () => {
   const { p, sp } = makePlayer();
   leftBehind(p.guild.id);
 

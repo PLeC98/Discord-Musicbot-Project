@@ -75,7 +75,7 @@ adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) =
   res.status(204).end();
 });
 
-// 봇 · Node · 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
+// 봇, Node, 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
 // 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 조회하지 않는다
 adminRouter.get("/status", requireOwner, async (req, res) => {
   const query = statusQueryOf(req.query);
@@ -203,7 +203,7 @@ adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
   return sendProblem(res, "deploy-failed", {}, { detail: messageOf(r.error), discordCode: codeOf(r.error) ?? null });
 });
 
-// ── 설정 문서(장르 · 상태 문구 · AI 설정, settings.db) ──
+// ── 설정 문서(장르, 상태 문구, AI 설정, settings.db) ──
 //
 // 사람이 손으로 고치는 파일이 아니라 대시보드가 고치는 문서다(config/documents). 저장 번호로 두 탭이 서로 덮지 않게 한다.
 
@@ -214,14 +214,14 @@ const CONFIG_NAMES = Object.keys(VALIDATORS);
 const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: genreConfig.tidyGenres };
 
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 필드를 받고, 지금 쓸 수 있는가.
-// 검증·실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
+// 검증, 실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
 adminRouter.get("/source-types", requireOwner, async (req, res) => {
   // AnimeThemes 연도 범위를 그쪽에 조회해 채우므로 비동기다(하루에 한 번만 조회하고 캐시한다)
   res.json({ types: await autoplaySources.catalog() } satisfies SourceTypes);
 });
 
-// 소스 편집기의 자동완성(VocaDB 계열의 태그 · 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
+// 소스 편집기의 자동완성(VocaDB 계열의 태그, 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
 // 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
 const SUGGEST_TERM_MAX = 100;
 adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
@@ -246,7 +246,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
   // 키 값은 절대 안 내려간다. 프로바이더마다 상태만 알린다(주소는 저장된 설정으로 계산한다)
   res.json({
     ...keysReply(aiConfig.ai()),
-    // 주소·키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
+    // 주소, 키 필요 여부는 서버가 안다. 화면이 베껴 두면 한쪽만 고치게 된다
     providers: Object.entries(assist.PROVIDER_SPECS).map(([value, spec]) => ({ value, ...spec })),
     pingText: assist.PING_TEXT,
     defaultSections: assist.DEFAULT_SECTIONS,
@@ -260,7 +260,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
 // 로그에도 이름만 남긴다.
 /**
  * 그 모델이 받는 필드. 프로필(config/ai-models)이 정한다.
- * 화면은 여기서 받은 위젯·그룹 그대로 그린다.
+ * 화면은 여기서 받은 위젯, 그룹 그대로 그린다.
  */
 adminRouter.get("/ai/fields", requireOwner, (req, res) => {
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
@@ -329,7 +329,7 @@ async function refreshPrices() {
   }
 }
 
-/** 모델 프로필 · 가격표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
+/** 모델 프로필, 가격표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
     const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
@@ -351,7 +351,7 @@ adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
   res.json({ candidates: await assist.candidatesFromUrls(urls) } satisfies CandidatesReply);
 });
 
-/** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식·장르를 고치는 대로 다시 그린다. */
+/** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */
 adminRouter.post("/ai/judge/lines", requireOwner, (req, res) => {
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one: { error?: unknown; title?: unknown } | null) => one && !one.error && one.title).slice(0, 20);
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "rock")) } satisfies LinesReply);
@@ -364,7 +364,7 @@ adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
 });
 
 // 키를 입력하고 삭제한다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 삭제한다), 돌려주는 것은 상태다.
-// 키는 화면이 지금 적어 둔 설정(data: 주소 · 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
+// 키는 화면이 지금 적어 둔 설정(data: 주소, 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
 adminRouter.put("/ai/keys", requireOwner, requireRecentLogin, (req, res) => {
   const keys: unknown = req.body?.keys;
   const draft = (req.body?.data && typeof req.body.data === "object" ? req.body.data : {}) as Record<string, unknown>;
@@ -454,7 +454,7 @@ adminRouter.put("/ai/settings", requireOwner, (req, res) => {
 // 유튜브 쿠키. 연령 제한 영상에만 쓰이고, 유튜브가 브라우저 쪽에서 세션을 돌리면 만료 시각과
 // 무관하게 무효가 된다. 그때마다 여기서 덮어쓴다(비밀 표에 암호화, store/cookie-jar).
 //
-// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력 · 삭제는 최근 로그인만
+// 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력, 삭제는 최근 로그인만
 function cookieState(): CookieState {
   return { source: YouTube.cookieSource(), hasFile: cookieJar.ready() };
 }

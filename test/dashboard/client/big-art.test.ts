@@ -1,4 +1,4 @@
-// dashboard/src/utils/big-art.ts: 크게 그릴 앨범아트 주소. 출처의 큰 이미지부터, 대체 이미지 · 못 불러온 것은 기억해 다음 크기로
+// dashboard/src/utils/big-art.ts: 크게 그릴 앨범아트 주소. 출처의 큰 이미지부터, 대체 이미지, 못 불러온 것은 기억해 다음 크기로
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { bigArt, noteArt } from "../../../dashboard/src/utils/big-art.ts";
 const SMALL = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 const event = (type: "load" | "error", src: string, naturalWidth = 1280) => ({ type, target: { getAttribute: () => src, naturalWidth } }) as unknown as Event;
 
-test("큰 칸은 유튜브 1280×720(large) · 480×360(standard) 주소를 쓰고, 그 밖의 출처는 그대로", () => {
+test("큰 칸은 유튜브 1280×720(large), 480×360(standard) 주소를 쓰고, 그 밖의 출처는 그대로", () => {
   assert.equal(bigArt(SMALL("aaaaaaaaaaa"), "large"), "https://i.ytimg.com/vi/aaaaaaaaaaa/maxresdefault.jpg");
   assert.equal(bigArt(SMALL("aaaaaaaaaaa"), "standard"), "https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg");
   assert.equal(bigArt("https://example.com/cover.jpg", "large"), "https://example.com/cover.jpg");

@@ -1,4 +1,4 @@
-// src/dashboard/problem.ts: 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양 · 상태 · 값 필드, 요청 제한의 Retry-After, 코드 설명 주소
+// src/dashboard/problem.ts: 대시보드 HTTP 오류 응답(RFC 9457). 본문의 모양, 상태, 값 필드, 요청 제한의 Retry-After, 코드 설명 주소
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -11,12 +11,12 @@ import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 import { fake } from "../helpers/fake.ts";
 import { rateLimit, type RateLimitInfo } from "express-rate-limit";
 
-test("본문: type 은 /problems/<코드>, code 는 같은 코드, 상태 · 제목은 목록의 것", () => {
+test("본문: type 은 /problems/<코드>, code 는 같은 코드, 상태, 제목은 목록의 것", () => {
   assert.deepEqual(problemBody("queue-full", { max: 100 }), { type: "/problems/queue-full", code: "queue-full", status: 409, title: "Queue is full", max: 100 });
   for (const code of Object.keys(PROBLEMS) as Array<keyof typeof PROBLEMS>) assert.equal(problemBody(code).type, `/problems/${problemBody(code).code}`, code);
 });
 
-test("본문: 값은 그 코드가 목록에 적은 것만 싣고, 이번 일의 것(detail · errors · 확장 필드)은 그대로", () => {
+test("본문: 값은 그 코드가 목록에 적은 것만 싣고, 이번 일의 것(detail, errors, 확장 필드)은 그대로", () => {
   assert.deepEqual(problemBody("no-song-result", { max: 100, skipped: 3 }), { type: "/problems/no-song-result", code: "no-song-result", status: 404, title: "No track found" });
   assert.deepEqual(problemBody("nothing-playable", { skipped: 3, max: 100 }).skipped, 3);
   assert.equal("max" in problemBody("nothing-playable", { skipped: 3, max: 100 }), false);

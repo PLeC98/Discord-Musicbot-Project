@@ -1,5 +1,5 @@
 // OS의 프로세스 목록을 한 번에 읽는다. 남은 자식 정리(infra/leftover-children)와 기록(infra/process-registry)이 쓴다.
-// Windows는 CIM, Linux는 /proc을 직접(셸 없이, BusyBox · slim 이미지에도 있다), 그 밖은 ps.
+// Windows는 CIM, Linux는 /proc을 직접(셸 없이, BusyBox, slim 이미지에도 있다), 그 밖은 ps.
 // 읽지 못하면 null이다. 빈 목록("조회했는데 없다")과 구분하는 것이 이 모듈이 하는 일이다
 
 import { spawnSync } from "node:child_process";
@@ -9,7 +9,7 @@ import { consoleText } from "./console-text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
- * OS가 아는 프로세스. image: 실행 파일 이름(경로 · .exe를 뗀 소문자).
+ * OS가 아는 프로세스. image: 실행 파일 이름(경로, .exe를 뗀 소문자).
  * startedAt: 시작 시각(ms, 벽시계). startKey: 시계와 상관없는 시작 키(Linux: 부팅 id와 부팅 뒤 클럭 틱). 없으면 null.
  * pgid: 프로세스 그룹(POSIX). Windows는 null
  */
@@ -50,13 +50,13 @@ function readText(file: string) {
 // /proc의 클럭 틱 단위(USER_HZ). 커널이 사용자 공간에 늘 100으로 보인다
 const TICKS_PER_SECOND = 100;
 
-/** /proc/<pid>/stat 한 줄. comm은 괄호 안이고 공백 · 괄호가 들어갈 수 있어 마지막 ")" 뒤부터 나눈다 */
+/** /proc/<pid>/stat 한 줄. comm은 괄호 안이고 공백, 괄호가 들어갈 수 있어 마지막 ")" 뒤부터 나눈다 */
 function parseStat(pid: number, text: string): Proc | null {
   const open = text.indexOf("(");
   const close = text.lastIndexOf(")");
   if (open < 0 || close < open) return null;
   const rest = text.slice(close + 2).split(" ");
-  // rest[0]이 3번째 필드(state). ppid 4 · pgrp 5 · starttime 22
+  // rest[0]이 3번째 필드(state). ppid 4, pgrp 5, starttime 22
   const ppid = Number(rest[1]);
   const pgid = Number(rest[2]);
   const ticks = rest[19];
@@ -123,7 +123,7 @@ function psSnapshot(): Proc[] | null {
   return out.length ? out : null;
 }
 
-// 실행하지 못했거나 · 시간을 넘겼거나 · 0이 아닌 코드로 끝났으면 읽지 못한 것이다
+// 실행하지 못했거나, 시간을 넘겼거나, 0이 아닌 코드로 끝났으면 읽지 못한 것이다
 function succeeded(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }) {
   if (result.error) log.warn(`프로세스 목록을 읽지 못했습니다(${what}): ${result.error.message}`);
   else if (result.status !== 0) {
@@ -140,7 +140,7 @@ function snapshotProcesses(platform: NodeJS.Platform = process.platform): Proc[]
   return psSnapshot();
 }
 
-/** 그 프로세스의 시계와 상관없는 시작 키(Linux). 다른 OS · 읽지 못하면 null */
+/** 그 프로세스의 시계와 상관없는 시작 키(Linux). 다른 OS, 읽지 못하면 null */
 function startKeyOf(pid: number): string | null {
   if (process.platform !== "linux") return null;
   const text = readText(`/proc/${pid}/stat`);

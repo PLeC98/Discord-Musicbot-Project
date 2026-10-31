@@ -1,7 +1,7 @@
 <template>
-  <!-- 라이선스(M3 대화상자, 설정 대화상자와 같은 모양): 이 봇(AGPL · 소스 코드 링크) · 포크해 온 원본(MIT) · 화면이 내보내는 글꼴 · 이미지 · 라이브러리 · 봇이 함께 배포하는 데이터(data/).
+  <!-- 라이선스(M3 대화상자, 설정 대화상자와 같은 모양): 이 봇(AGPL, 소스 코드 링크), 포크해 온 원본(MIT), 화면이 내보내는 글꼴, 이미지, 라이브러리, 봇이 함께 배포하는 데이터(data/).
        이 봇의 소스는 로그인 화면과 같은 기준: 운영자가 고친 소스(SOURCE_REPO_URL)가 원본 프로젝트와 다르면 둘 다, 같으면 하나. 주소를 못 불러오면 링크 없이 알린다.
-       행을 누르면 그 저장소 · 웹사이트를 새 창으로 연다 -->
+       행을 누르면 그 저장소, 웹사이트를 새 창으로 연다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
@@ -91,7 +91,7 @@ const GROUPS = [
   { title: T.groupData, items: DATA_FILES },
 ];
 
-// 봇 이름 · 소스 저장소(AGPL 의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
+// 봇 이름, 소스 저장소(AGPL 의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
 const botName = ref("");
 const sourceRepo = ref("");
 const projectRepo = ref("");

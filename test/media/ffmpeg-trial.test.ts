@@ -1,4 +1,4 @@
-// src/media/ffmpeg/trial.ts · src/dashboard/login-background/encoders.ts: 작은 테스트 인코딩으로 쓸 수 있는 인코더를 선택한다.
+// src/media/ffmpeg/trial.ts, src/dashboard/login-background/encoders.ts: 작은 테스트 인코딩으로 쓸 수 있는 인코더를 선택한다.
 // 실제 ffmpeg 를 돌린다(없으면 건너뛴다). 어느 인코더가 있는지는 빌드마다 달라 "선택한 것은 후보 안, 선택하지 못하면 까닭"만 본다
 
 import fs from "node:fs";
@@ -24,7 +24,7 @@ test("까닭: 그 인코더의 줄만 앞의 [이름 @ 주소] 를 떼고 잇는
   assert.equal(reasonOf("first\nUnknown encoder 'nope'\n", "nope"), "Unknown encoder 'nope'");
 });
 
-test("테스트 인코딩: 되는 인코더 · 없는 인코더", opts, async () => {
+test("테스트 인코딩: 되는 인코더, 없는 인코더", opts, async () => {
   assert.deepEqual(await tryEncoder("rawvideo", []), { ok: true });
   const bad = await tryEncoder("no-such-encoder", []);
   assert.equal(bad.ok, false);

@@ -1,5 +1,5 @@
-// src/sources/soundcloud.ts: 사운드클라우드 출처. yt-dlp 는 실행하는 exec 만 가짜로 둔다(응답 · 오류 모양 맞추기는 진짜가 돈다).
-// 응답 모양은 실제 응답(곡 · 세트 · 미리듣기 · 지역 제한)을 따른다.
+// src/sources/soundcloud.ts: 사운드클라우드 출처. yt-dlp 는 실행하는 exec 만 가짜로 둔다(응답, 오류 모양 맞추기는 진짜가 돈다).
+// 응답 모양은 실제 응답(곡, 세트, 미리듣기, 지역 제한)을 따른다.
 
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -33,7 +33,7 @@ const preview = [{ format_id: "http_mp3_1_0_preview" }];
 const item = (slug: string, extra: Record<string, unknown> = {}) => ({ id: 2000000000 + slug.length, title: `SC ${slug}`, uploader: "올린 사람", webpage_url: `https://soundcloud.com/artist/${slug}`, duration: 139.671, thumbnail: "https://i1.sndcdn.com/a.jpg", formats: aac, ...extra });
 const GEO = "ERROR: [soundcloud] This video is not available from your location due to geo restriction\nYou might want to use a VPN or a proxy server (with --proxy) to workaround.";
 
-test("곡 링크: 곡 찾기용 포맷(aac · mp3)만 묻고, 공통 옵션만 쓴다", async () => {
+test("곡 링크: 곡 찾기용 포맷(aac, mp3)만 묻고, 공통 옵션만 쓴다", async () => {
   respond = () => ({ json: item("one") });
   const found = await SoundCloud.find("https://m.soundcloud.com/artist/one?in=a/sets/b");
   assert.equal(found.kind, "track");
@@ -55,7 +55,7 @@ test("곡 링크: 곡 찾기용 포맷(aac · mp3)만 묻고, 공통 옵션만 �
   assert.equal(flags.noWarnings, undefined, "경고를 끄지 않는다");
 });
 
-test("짧은 링크 · API 주소로 들어와도 곡 페이지 주소가 키다", async () => {
+test("짧은 링크, API 주소로 들어와도 곡 페이지 주소가 키다", async () => {
   respond = () => ({ json: item("two") });
   const found = await SoundCloud.find("https://on.soundcloud.com/AbCd");
   assert.equal(found.kind === "track" && found.track.requestKey, "https://soundcloud.com/artist/two");
@@ -66,7 +66,7 @@ test("미리듣기만 열린 곡은 틀지 않는다(이름을 단 오류)", asy
   await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only" && errorKind(e) === "sc-preview-only");
 });
 
-test("곡 링크의 실패는 까닭의 이름을 단다: 없음 · 지역 제한 · 요청 제한 · 네트워크", async () => {
+test("곡 링크의 실패는 까닭의 이름을 단다: 없음, 지역 제한, 요청 제한, 네트워크", async () => {
   const cases: Array<[string, string, "track" | "set"]> = [
     ["ERROR: [soundcloud] artist/gone: Unable to download JSON metadata: HTTP Error 404: Not Found (caused by <HTTPError 404: Not Found>)", "unavailable-contents", "track"],
     ["ERROR: [soundcloud:set] artist/sets/gone: Unable to download JSON metadata: HTTP Error 404: Not Found", "unavailable-playlist", "set"],
@@ -190,7 +190,7 @@ test("세트 읽기는 한 번에 하나씩, 곡 하나는 기다리지 않는�
 });
 
 // 요청 제한에 걸린 곡은 받을 수 없는 곡이 아니다. 받을 수 없는 곡으로 세면 까닭이 묻힌다
-test("세트 읽기 중 요청 제한(403 · 429)이 섞이면 뺀 곡으로 세지 않고 요청 제한으로 알린다", async () => {
+test("세트 읽기 중 요청 제한(403, 429)이 섞이면 뺀 곡으로 세지 않고 요청 제한으로 알린다", async () => {
   respond = () => ({
     json: { _type: "playlist", id: "1", playlist_count: 3, entries: [item("a"), null, null] },
     fail: "ERROR: [soundcloud] 2: Unable to download JSON metadata: HTTP Error 429: Too Many Requests\nERROR: [soundcloud] 3: Unable to download JSON metadata: HTTP Error 429: Too Many Requests",
@@ -202,7 +202,7 @@ test("곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다
   assert.equal(trackOf({ webpage_url: "https://soundcloud.com/a/b" })?.title, null);
 });
 
-test("연결 기록: 답을 받았으면 성공(없는 곡 · 포맷 없음 포함), 막힘 · 그 밖의 실패는 실패", async () => {
+test("연결 기록: 답을 받았으면 성공(없는 곡, 포맷 없음 포함), 막힘, 그 밖의 실패는 실패", async () => {
   resetLinks();
   respond = () => ({ json: item("ok") });
   await SoundCloud.find("https://soundcloud.com/artist/ok");

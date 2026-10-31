@@ -1,9 +1,9 @@
-// src/store/cookie-jar.ts · sources/youtube: 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp 를 돌릴 때만 그 실행의 파일로 복호화한다.
+// src/store/cookie-jar.ts, sources/youtube: 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp 를 돌릴 때만 그 실행의 파일로 복호화한다.
 //
 // 계약:
-//  · 있는지는 물어볼 때마다 본다(대시보드로 교체하면 바로 반영). 빈 글은 없는 것이다
-//  · 붙여넣은 내용을 그대로 둔다(탭 문자 · LF). 평상시에는 붙이지 않는다(연령 제한 폴백 전용)
-//  · 실행마다 따로 파일. yt-dlp 가 고친 쿠키는 되담되, 그사이 새로 입력한 쿠키는 덮지 않는다. 파일은 끝나면 삭제한다
+// - 있는지는 물어볼 때마다 본다(대시보드로 교체하면 바로 반영). 빈 글은 없는 것이다
+// - 붙여넣은 내용을 그대로 둔다(탭 문자, LF). 평상시에는 붙이지 않는다(연령 제한 폴백 전용)
+// - 실행마다 따로 파일. yt-dlp 가 고친 쿠키는 되담되, 그사이 새로 입력한 쿠키는 덮지 않는다. 파일은 끝나면 삭제한다
 
 import os from "node:os";
 import path from "node:path";
@@ -66,7 +66,7 @@ test("연령 제한 콘텐츠를 끄면 입력한 쿠키는 남아도 붙이지 
   documents._use("age-content", { enabled: true, changedAt: 3 });
 });
 
-test("실행마다 파일로 풀어 넘기고 끝나면 삭제한다. 탭 문자 · LF · 끝 개행을 지킨다", async () => {
+test("실행마다 파일로 풀어 넘기고 끝나면 삭제한다. 탭 문자, LF, 끝 개행을 지킨다", async () => {
   cookieJar.save(SAMPLE.replace(/\n/g, "\r\n"));
   let seen = "";
   let given: unknown;
@@ -124,7 +124,7 @@ test("꺼지다 남은 쿠키 파일은 기동 시 치운다. 다른 파일은 �
   fs.rmSync(path.join(TMP, "other.txt"));
 });
 
-test("상태 응답은 방식만 알리고 값 · 경로는 싣지 않는다", () => {
+test("상태 응답은 방식만 알리고 값, 경로는 싣지 않는다", () => {
   cookieJar.save(SAMPLE);
   const snap = YouTube.statusSnapshot();
   assert.equal(snap.cookies, "file");

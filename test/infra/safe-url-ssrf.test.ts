@@ -1,10 +1,10 @@
 // src/infra/safe-url.ts: SSRF 방어가 실제로 버티는지 공격해 본다.
 //
 // CodeQL이 이 파일을 js/request-forgery(critical)로 지적한다. "URL이 사용자 입력에 의존한다"는
-// 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속·홉별 재검증)를 CodeQL이 추적하지
+// 사실이지만 그게 이 모듈의 존재 이유다. 실제 방어(IP 핀 접속, 홉별 재검증)를 CodeQL이 추적하지
 // 못하는 것인지, 아니면 진짜 구멍이 있는지 확인한다.
 //
-// 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 요청 함수 자체(고정 접속 · 리다이렉트 · 시간 제한 · 프록시)는
+// 요청 함수와 DNS 해석을 가짜로 넘겨 네트워크 없이 검증한다. 요청 함수 자체(고정 접속, 리다이렉트, 시간 제한, 프록시)는
 // 맨 아래에서 로컬 서버로 진짜 소켓을 연다.
 
 import dns from "dns";
@@ -20,7 +20,7 @@ type Reply = Incoming;
 const reply = (status: number, headers: Record<string, string> = {}): Reply => ({ status, headers, body: Readable.from([]) });
 const AUDIO = { "content-type": "audio/mpeg" };
 
-// ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head · getStream 에 넘긴다 ─────────────
+// ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head, getStream 에 넘긴다 ─────────────
 const calls: Outgoing[] = [];
 let responder: (request: Outgoing, n: number) => Reply = () => reply(200, AUDIO);
 // 기본은 실제 해석에 위임
@@ -221,7 +221,7 @@ test("getBuffer: 조건에 맞으면 본문을 다 받고, 홉마다의 대기�
   assert.equal(calls[0].timeoutMs, 1000);
 });
 
-test("getBuffer: 같은 방어를 지나고(내부 주소 · 리다이렉트로 내부), 부른 쪽의 Content-Type · 크기 상한을 지킨다", async () => {
+test("getBuffer: 같은 방어를 지나고(내부 주소, 리다이렉트로 내부), 부른 쪽의 Content-Type, 크기 상한을 지킨다", async () => {
   await rejects(getBuffer("http://127.0.0.1/a.png"));
   responder = redirectTo("http://10.0.0.1/a.png");
   await rejects(getBuffer("https://1.1.1.1/a.png"), /차단된 IP/);
@@ -253,7 +253,7 @@ test("2xx 가 아닌 응답은 실패로 끊는다. 받는 쪽이 가르게 상�
   await assert.rejects(getStream("https://1.1.1.1/x.mp3"), (e: { status?: number }) => e.status === 416);
 });
 
-test("getStream 구간: 끝이 있는 구간 · 끝없는 구간, If-Range 는 구간과 함께만", async () => {
+test("getStream 구간: 끝이 있는 구간, 끝없는 구간, If-Range 는 구간과 함께만", async () => {
   lookupImpl = async () => [{ address: "1.1.1.1", family: 4 }];
   responder = () => reply(206, { ...AUDIO, "content-range": "bytes 616-121705/999999" });
   const asked = async (opts: Parameters<typeof safeUrl.getStream>[2]) => {

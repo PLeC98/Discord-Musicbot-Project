@@ -14,7 +14,7 @@ const log = logger.child({ category: "track" });
 
 /**
  * 요청하는 포맷(yt-dlp 의 soundcloud:formats). 뒤의 수는 곡 하나의 API 요청 수.
- *   play         재생 · 캐시 다운로드 · 세트 읽기. AAC 160k 가 SoundCloud 가 권하는 것이다(mp3 · opus 는 공식 API 에서 없앤다고 발표했다). 요청 3
+ *   play         재생, 캐시 다운로드, 세트 읽기. AAC 160k 가 SoundCloud 가 권하는 것이다(mp3, opus 는 공식 API 에서 없앤다고 발표했다). 요청 3
  *   progressive  HLS 를 못 여는 ffmpeg. 파일 하나로 다운로드하는 mp3. 요청 2
  *   lookup       곡 링크 찾기. 미리듣기는 mp3 조각만 있어 aac 만 요청하면 "포맷 없음"이 된다. mp3 까지 요청해야 미리듣기(_preview)와 다른 실패를 구분한다. AAC 가 없는 곡도 이것으로 튼다. 요청 4
  */
@@ -31,9 +31,9 @@ const textOf = (error: unknown) => {
 };
 
 /**
- * 사운드클라우드 실패의 이름. yt-dlp 를 실행하는 곳이 붙인 이름(지역 차단 · 네트워크 · 429 등) 위에 사운드클라우드만의 뜻을 얹는다.
- *   no-formats  요청한 포맷이 없거나 선택할 것이 없다(부르는 쪽이 구분한다: 미리듣기 · AAC 없는 곡). 유튜브의 "클라이언트 탓"과 뜻이 다르다
- *   404         없거나 비공개인 곡 · 세트
+ * 사운드클라우드 실패의 이름. yt-dlp 를 실행하는 곳이 붙인 이름(지역 차단, 네트워크, 429 등) 위에 사운드클라우드만의 뜻을 얹는다.
+ *   no-formats  요청한 포맷이 없거나 선택할 것이 없다(부르는 쪽이 구분한다: 미리듣기, AAC 없는 곡). 유튜브의 "클라이언트 탓"과 뜻이 다르다
+ *   404         없거나 비공개인 곡, 세트
  *   403         사운드클라우드가 요청이 몰린 IP 를 막았다(client_id 가 낡은 경우는 yt-dlp 가 새로 받아 한 번 더 요청한다)
  */
 function nameOf(error: unknown, what: What): string | null {
@@ -46,7 +46,7 @@ function nameOf(error: unknown, what: What): string | null {
 }
 
 // 여러 곡 중 일부를 불러오지 못하면 yt-dlp 는 1 로 끝나지만 JSON 은 끝까지 낸다(못 불러온 곡은 null). 그 JSON 이면 쓴다.
-// 다만 요청 제한(403 · 429)에 걸린 곡이 섞였으면 쓰지 않는다. 그 곡들은 받을 수 없는 곡이 아니라 막힌 것이다
+// 다만 요청 제한(403, 429)에 걸린 곡이 섞였으면 쓰지 않는다. 그 곡들은 받을 수 없는 곡이 아니라 막힌 것이다
 function partialPlaylist(error: unknown): unknown {
   const stdout = (error as { stdout?: unknown } | null)?.stdout;
   if (typeof stdout !== "string" || !stdout.trim()) return null;
@@ -59,7 +59,7 @@ function partialPlaylist(error: unknown): unknown {
   }
 }
 
-// 세트 읽기는 한 번에 하나씩(곡마다 요청이 들어 10곡이면 요청 30). 여러 서버가 동시에 추가해도 겹치지 않게. 곡 하나(재생 · 캐시 다운로드)는 막지 않는다
+// 세트 읽기는 한 번에 하나씩(곡마다 요청이 들어 10곡이면 요청 30). 여러 서버가 동시에 추가해도 겹치지 않게. 곡 하나(재생, 캐시 다운로드)는 막지 않는다
 let setReads: Promise<unknown> = Promise.resolve();
 function oneAtATime<T>(job: () => Promise<T>): Promise<T> {
   const turn = setReads.then(job, job);
@@ -72,7 +72,7 @@ function flagsFor(formats: Formats, extra: YtDlpFlags = {}): YtDlpFlags {
   return baseOptions({ extractorArgs: `soundcloud:formats=${FORMATS[formats]}`, ...extra });
 }
 
-// 곡 쪽의 원인(없는 곡 · 선택할 포맷 없음)은 사운드클라우드가 답한 것이라 연결은 성공으로 친다
+// 곡 쪽의 원인(없는 곡, 선택할 포맷 없음)은 사운드클라우드가 답한 것이라 연결은 성공으로 친다
 const TRACK_SIDE = new Set(["unavailable-contents", "unavailable-playlist", "no-formats"]);
 
 /**
@@ -95,7 +95,7 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
     const name = partial ? null : nameOf(error, what);
     record("soundcloud", { ok: Boolean(partial) || TRACK_SIDE.has(name ?? ""), ms: ms(), error: name ?? "error" });
     if (partial) {
-      // 곡마다의 원인(지역 제한 · 포맷 없음 등). 사용자 안내는 개수만 알리므로 원인은 여기 로그로 남긴다
+      // 곡마다의 원인(지역 제한, 포맷 없음 등). 사용자 안내는 개수만 알리므로 원인은 여기 로그로 남긴다
       const reasons = [
         ...new Set(
           textOf(error)

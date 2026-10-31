@@ -16,8 +16,8 @@ const on = defineModel<boolean>({ default: false });
 
 <style scoped>
 /* 치수: M3 규격값(Compose SwitchTokens)에 배율 --switch-scale(style.css)을 곱하고 정수 px 로 반올림한다.
-   크기(트랙 · 핸들)는 2px 단위(짝수라야 핸들이 트랙 가운데에 정확히 놓인다), 위치는 1px 단위.
-   규격값: 트랙 52×32 · 테두리 2(굵기는 배율 없이), 핸들 꺼짐 16 · 켜짐 24 · 누르는 동안 28,
+   크기(트랙, 핸들)는 2px 단위(짝수라야 핸들이 트랙 가운데에 정확히 놓인다), 위치는 1px 단위.
+   규격값: 트랙 52×32, 테두리 2(굵기는 배율 없이), 핸들 꺼짐 16, 켜짐 24, 누르는 동안 28,
    핸들 가운데는 꺼짐 = 테두리 안쪽 왼쪽에서 12, 켜짐 = 테두리 안쪽 오른쪽에서 14(트랙 폭이 반올림돼도 오른쪽 틈이 규격대로), 올리면 둘레 40 원형 상태 표시 */
 .sw {
   --sw-w: round(calc(3.25rem * var(--switch-scale)), 2px);
@@ -42,7 +42,7 @@ const on = defineModel<boolean>({ default: false });
   height: var(--size);
   left: calc(var(--hc) - var(--size) / 2);
 }
-/* 상태 표시(올리면 8% · 누르면 10%, 켜짐은 primary · 꺼짐은 on-surface) */
+/* 상태 표시(올리면 8%, 누르면 10%, 켜짐은 primary, 꺼짐은 on-surface) */
 .sw-handle::before {
   content: "";
   position: absolute;
@@ -65,7 +65,7 @@ const on = defineModel<boolean>({ default: false });
 .sw[data-live]:has(input:active) .sw-handle::before {
   opacity: 0.1;
 }
-/* 올리거나 누르면 핸들 색: 켜짐 primary-container · 꺼짐 on-surface-variant */
+/* 올리거나 누르면 핸들 색: 켜짐 primary-container, 꺼짐 on-surface-variant */
 .sw[data-live]:is(:hover, :has(input:active)) .sw-handle {
   background: var(--md-on-surface-variant);
 }

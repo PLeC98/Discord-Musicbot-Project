@@ -15,7 +15,7 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("아는 디스코드 오류: 못 답한 · 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
+test("아는 디스코드 오류: 못 답한, 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
   assert.equal(knownDiscordError({ code: 10062 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 40060 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
@@ -67,7 +67,7 @@ test("안전 종료: 플레이어 없음도 exit 호출", () => {
 
 // ── 새어 나온 오류 핸들러 ──
 
-// 핸들러를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
+// 핸들러를 건 클라이언트, 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
 function installed() {
   const faults: string[] = [];
   const exits: number[] = [];

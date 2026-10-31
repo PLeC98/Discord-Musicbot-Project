@@ -1,4 +1,4 @@
-// src/sources/direct-tags.ts · direct.ts 의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
+// src/sources/direct-tags.ts, direct.ts 의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
 // 담을 때 GET 하나: 1.5초 안에 읽으면 그 곡으로, 아니면 파일 이름으로 담고 마저 읽어 고친다. 고친 것은 링크 데이터에 확인된 제목으로 적는다
 
 import fs from "node:fs";
@@ -128,7 +128,7 @@ test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같
   assert.equal(row(FILE)?.display_title, "늦은 제목");
 });
 
-test("getInfo: 라디오 · 태그를 읽지 않는 부름(라디오 확인 · 직접 지정한 음원)은 헤더만 보고 끊는다", async () => {
+test("getInfo: 라디오, 태그를 읽지 않는 부름(라디오 확인, 직접 지정한 음원)은 헤더만 보고 끊는다", async () => {
   const body = Buffer.from("ID3 아무 바이트");
   const radio = netOf(body, { headers: { "content-type": "audio/mpeg", "icy-name": "라디오" } });
   let called = false;
@@ -163,7 +163,7 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
   ]);
 });
 
-test("음원이 아닌 직접 링크(웹 페이지 · 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
+test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
   const page = netOf(Buffer.from("<!doctype html><p>로그인</p>"), { headers: { "content-type": "text/html" } });
   await assert.rejects(DirectLink.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
   const direct = {

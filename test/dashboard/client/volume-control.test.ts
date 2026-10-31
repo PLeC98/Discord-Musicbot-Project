@@ -1,4 +1,4 @@
-// dashboard/src/composables/volume-control.ts: 볼륨 슬라이더가 언제 보내는지. 서버가 받아들인 값 · 보내는 중인 값으로 구분한다
+// dashboard/src/composables/volume-control.ts: 볼륨 슬라이더가 언제 보내는지. 서버가 받아들인 값, 보내는 중인 값으로 구분한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -62,7 +62,7 @@ test("서버가 이미 받아들인 값이면 보내지 않는다(바깥에서 �
   await settle();
   assert.deepEqual(sent, []);
 
-  server.value = 70; // 다른 화면 · 디스코드에서 바꿨다
+  server.value = 70; // 다른 화면, 디스코드에서 바꿨다
   control.change(70);
   await settle();
   assert.deepEqual(sent, []);

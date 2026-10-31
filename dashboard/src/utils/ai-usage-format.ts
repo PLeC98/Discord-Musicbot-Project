@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 · 사용량 통계의 표시 형식: 걸린 시간 · 비용 · 토큰 · 짧은 주소 · 원문 펴기
+// AI 리퀘스트 로그, 사용량 통계의 표시 형식: 걸린 시간, 비용, 토큰, 짧은 주소, 원문 펴기
 
 import { formatNumber } from "./locale.ts";
 import { time } from "./units.ts";
@@ -28,7 +28,7 @@ export function shortUrl(url: string): string {
   }
 }
 
-/** JSON 이면 들여 써서 편다. 아니면 그대로(잘린 원문 · 글 응답) */
+/** JSON 이면 들여 써서 편다. 아니면 그대로(잘린 원문, 글 응답) */
 export function prettyJson(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return raw;

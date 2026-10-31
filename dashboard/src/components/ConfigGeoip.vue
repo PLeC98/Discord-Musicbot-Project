@@ -1,5 +1,5 @@
 <template>
-  <!-- 로그인 기기 접속 지역 카드 안(ConfigTunables 의 in-geoip 슬롯): 현재 버전 · 업데이트 확인(새 버전이 있으면 업데이트 버튼, 없으면 "이미 최신") · 다운로드 진행. 누르면 바로 하는 일이라 저장 막대와 상관없다 -->
+  <!-- 로그인 기기 접속 지역 카드 안(ConfigTunables 의 in-geoip 슬롯): 현재 버전, 업데이트 확인(새 버전이 있으면 업데이트 버튼, 없으면 "이미 최신"), 다운로드 진행. 누르면 바로 하는 일이라 저장 막대와 상관없다 -->
   <div class="flex flex-col gap-2">
     <p class="text-sm text-on-surface-variant">{{ !state ? "" : !state.enabled ? T.off : state.version ? T.version(state.version, mb(state.bytes)) : T.noVersion }}</p>
     <div v-if="state?.job === 'downloading'" class="flex flex-col gap-1">
@@ -74,7 +74,7 @@ async function update() {
 }
 
 onMounted(refresh);
-// 켜기 · 자동 업데이트를 저장하면 다시 읽는다(켜면 서버가 곧바로 한 번 확인한다)
+// 켜기, 자동 업데이트를 저장하면 다시 읽는다(켜면 서버가 곧바로 한 번 확인한다)
 watch(
   () => [saved.value.GEOIP_ENABLED, saved.value.GEOIP_AUTO_UPDATE],
   () => void refresh(),

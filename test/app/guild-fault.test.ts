@@ -29,7 +29,7 @@ test("곡이 있으면 세션을 저장하고 채널에 남긴 채 버린 뒤 �
   assert.deepEqual(steps, ["dispose:save:stay:-:fault-restart", "restore:g1"]);
 });
 
-test("플레이어가 없으면(명령 · 화면 쪽) 로그만. 지킬 곡이 없으면 평소처럼 버린다", async () => {
+test("플레이어가 없으면(명령, 화면 쪽) 로그만. 지킬 곡이 없으면 평소처럼 버린다", async () => {
   const none = world();
   await none.fault("g9", new Error("버그"), "시험");
   assert.deepEqual(none.steps, []);

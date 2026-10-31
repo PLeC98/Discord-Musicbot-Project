@@ -1,23 +1,23 @@
 <!--
-  AI 보조 설정 (운영자 패널). 여기는 목록 · 상세 레이아웃과 대화상자, 카드는 ConfigAI* 컴포넌트, 상태 · 동작은 composables/ai-editor.
+  AI 보조 설정 (운영자 패널). 여기는 목록, 상세 레이아웃과 대화상자, 카드는 ConfigAI* 컴포넌트, 상태, 동작은 composables/ai-editor.
 
-  설정과 **프롬프트**는 settings.db 의 딴 문서("ai" · "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
+  설정과 **프롬프트**는 settings.db 의 딴 문서("ai", "ai-prompt")다. 저장은 한 요청으로 둘을 함께 한다.
 
   키는 쓰기 전용이다. 프로바이더마다 따로 비밀 테이블에 암호화해 두고, 입력할 수는 있어도
   화면으로 되읽지는 못한다. 값을 내려보내면 XSS 하나로 새어 나간다.
-  키는 입력할 때 화면에 입력된 주소(custom 의 주소 · 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
+  키는 입력할 때 화면에 입력된 주소(custom 의 주소, 버텍스의 리전)에 묶인다. 저장된 주소가 다르면 쓰이지 않는다(moved).
 
   미리보기는 **보내지 않고 만들기만** 한다. 테스트는 설정한 엔드포인트로 **실제로 보낸다**.
   조립은 봇이 쓰는 코드를 그대로 부르므로, 보이는 것과 나가는 것이 어긋날 수 없다.
 -->
 <template>
-  <!-- 목록 · 상세(자동재생 · 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
+  <!-- 목록, 상세(자동재생, 상태 문구와 같은 레이아웃, composables/list-detail 의 배치). 선택한 것은 주소 ?ai=(2열이면 선택한 것이 없을 때 모델) -->
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="problems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ problems.join(NL) }}</NoticeBox>
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
 
     <div ref="paneEl" :class="paneClass">
-      <!-- 목록: 모델 · 프롬프트(후보 목록 · 판정 프롬프트 · 판정 테스트를 그 안에 모아서) · 고급 설정 · 리퀘스트 로그 · 사용량 통계. 프로바이더를 선택하지 않았으면 프롬프트만 막는다 -->
+      <!-- 목록: 모델, 프롬프트(후보 목록, 판정 프롬프트, 판정 테스트를 그 안에 모아서), 고급 설정, 리퀘스트 로그, 사용량 통계. 프로바이더를 선택하지 않았으면 프롬프트만 막는다 -->
       <BaseCard v-if="showList" icon="campaign" :title="T.title" :class="listCardClass">
         <template #actions><BaseSwitch v-model="aiOn" :label="T.enable" /></template>
         <!-- 무엇을 하는지 한 줄, 자세한 것은 툴팁 -->
@@ -38,18 +38,18 @@
       <div v-if="showDetail" class="flex flex-col gap-(--gap-in) min-w-0">
         <ConfigAIModel v-if="view === 'model'" />
 
-        <!-- ── 프롬프트: 후보 목록 형식 · 판정 프롬프트 · 판정 테스트(맨 아래: 프롬프트를 깎으면서 쓴다) ── -->
+        <!-- ── 프롬프트: 후보 목록 형식, 판정 프롬프트, 판정 테스트(맨 아래: 프롬프트를 깎으면서 쓴다) ── -->
         <template v-if="view === 'prompt'">
           <ConfigAIList />
           <ConfigAIPrompt />
           <ConfigAIJudge />
         </template>
 
-        <!-- ── 리퀘스트 로그 · 사용량 통계: 탭이 보일 때만 읽는다(로그는 SSE 연결도 그때만) ── -->
+        <!-- ── 리퀘스트 로그, 사용량 통계: 탭이 보일 때만 읽는다(로그는 SSE 연결도 그때만) ── -->
         <ConfigAILog v-if="view === 'log'" :active="active" />
         <ConfigAIUsage v-if="view === 'usage'" :active="active" />
 
-        <!-- ── 고급 설정: 요청 · 재시도 ── -->
+        <!-- ── 고급 설정: 요청, 재시도 ── -->
         <ConfigAIAdvanced v-if="view === 'advanced'" />
       </div>
     </div>
@@ -152,7 +152,7 @@ const TJ = text.ai.judge;
 const TR = text.ai.prompt;
 const T = text.ai;
 
-// 상태 · 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
+// 상태, 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
 const { loadError, NL, draft, sections, paid, paidUrl, paidUrlError, pingText, shown, on, aiOn, listMarked, shownSections, boxes, showRawRequest, problems, copy, judgeUsable, providerOptions, runPaid } = provideAiEditor();
 useCloseLayer(
   computed(() => paid.value != null),
@@ -171,7 +171,7 @@ const router = useRouter();
 // 프로바이더를 선택하지 않아도 여는 것(고급 설정에는 리퀘스트 로그의 기록 설정도 있다)
 const ALWAYS_OPEN: readonly string[] = ["model", "advanced", "log", "usage"];
 
-// ── 목록 · 상세. 주소 ?ai= 에 선택한 항목(model · prompt · advanced · log · usage). 2열이면 선택한 것이 없을 때 모델 ──
+// ── 목록, 상세. 주소 ?ai= 에 선택한 항목(model, prompt, advanced, log, usage). 2열이면 선택한 것이 없을 때 모델 ──
 const ITEMS = [
   { id: "model", label: T.items.model, icon: "model_training" },
   { id: "prompt", label: T.items.prompt, icon: "terminal" },

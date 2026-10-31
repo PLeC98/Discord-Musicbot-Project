@@ -117,7 +117,7 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  /** 그 사용자의 살아 있는 세션들(세션 id · 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개) */
+  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개) */
   sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData }> {
     const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
     return rows.flatMap(({ sid, data }) => {
@@ -148,7 +148,7 @@ class SqliteSessionStore extends Store {
     return this.db.prepare("UPDATE sessions SET discord_token = ? WHERE sid = ?").run(secrets.sealBlob(TOKEN_PURPOSE, token, sid), sid).changes > 0;
   }
 
-  /** 토큰. 없거나 복호화되지 않으면(다른 SECRETS_KEY · 다른 행에서 옮김) null */
+  /** 토큰. 없거나 복호화되지 않으면(다른 SECRETS_KEY, 다른 행에서 옮김) null */
   readDiscordToken(sid: string) {
     const blob = this.db.prepare("SELECT discord_token FROM sessions WHERE sid = ? AND expires_at > ?").pluck().get(sid, Date.now()) as Buffer | null | undefined;
     return blob ? secrets.openBlob(TOKEN_PURPOSE, blob, sid) : null;

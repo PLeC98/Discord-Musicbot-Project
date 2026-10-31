@@ -9,7 +9,7 @@
     :class="[wide ? 'w-full p-1.5 pr-3 rounded-full gap-3' : labeled ? 'w-full rounded-full py-1 pl-1.5 pr-3.5 gap-3 -my-1' : 'rounded-full gap-3', open && (wide || labeled) ? 'bg-on-surface/8' : '', !wide && !compact && !labeled ? 'mx-auto' : '']"
     @click="toggle"
   >
-    <!-- labeled: 펼친 세로 막대. 캡슐 안 여백은 위아래 4px · 왼쪽 6px(옆을 조금 길게). 위아래 여백만큼 바깥으로 넘쳐(-my-1) 접었을 때와 높이가 같다(시계 · 프로필 이미지가 움직이지 않는다) -->
+    <!-- labeled: 펼친 세로 막대. 캡슐 안 여백은 위아래 4px, 왼쪽 6px(옆을 조금 길게). 위아래 여백만큼 바깥으로 넘쳐(-my-1) 접었을 때와 높이가 같다(시계, 프로필 이미지가 움직이지 않는다) -->
     <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="rounded-full shrink-0" :class="compact ? 'size-9' : 'size-12'" />
     <span v-else class="rounded-full shrink-0 bg-tertiary-container text-on-tertiary-container font-round font-semibold flex items-center justify-center" :class="compact ? 'size-9 text-body' : 'size-12 text-title'">{{ initial }}</span>
     <span v-if="labeled" class="flex-1 min-w-0 text-left whitespace-nowrap">
@@ -26,7 +26,7 @@
   </button>
 
   <!-- 레일이 overflow-hidden 이라 메뉴를 안에 두면 잘린다. body 로 빼고 좌표로 붙인다(트리거가 아래쪽이면 위로, 위쪽이면 아래로).
-       휴대폰은 사이드 드로어(App.vue, 오버레이 250 · 드로어 260) 안에서 열므로 그보다 위에 둔다(알림 · 대화상자 300 보다는 아래) -->
+       휴대폰은 사이드 드로어(App.vue, 오버레이 250, 드로어 260) 안에서 열므로 그보다 위에 둔다(알림, 대화상자 300 보다는 아래) -->
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-270" @click="open = false" @contextmenu="open = false"></div>
     <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
@@ -84,7 +84,7 @@ import { text } from "../text/index.ts";
 const T = text.shell;
 
 // wide: 펼친 레일(이름까지) / compact: 휴대폰 위 막대(작은 동그라미) / 둘 다 아니면 좁은 레일
-// labeled: 펼친 세로 막대(작은 프로필 이미지 + 이름 · 아이디)
+// labeled: 펼친 세로 막대(작은 프로필 이미지 + 이름, 아이디)
 const props = withDefaults(defineProps<{ wide?: boolean; compact?: boolean; labeled?: boolean }>(), { wide: false, compact: false, labeled: false });
 
 const user = useUserStore();

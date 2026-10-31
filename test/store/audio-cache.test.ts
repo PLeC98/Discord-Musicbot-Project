@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts: 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
+// src/store/audio-cache.ts: 임시 DB로 실 SQLite 경로 검증 (파일 경로, 퇴거 스코어링, 고아 정리, 초기화, 오디오 길이)
 // 임시 폴더에 DB 를 연다(stores.open). 운영 DB(database/)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -45,7 +45,7 @@ test("getFilePath: 같은 키 → 같은 경로 (결정적), 다른 키 → 다�
 
 // ── 퇴거 스코어링 ────────────────────────────────────────────
 
-test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근 재생은 생존", async () => {
+test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키, 최근 재생은 생존", async () => {
   const now = Date.now();
   const OLD = now - 90 * 86_400_000; // 90일 전
   const ins = cacheDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
@@ -81,7 +81,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   }
 });
 
-// 넘친 정도와 상관없이 일정 비율 · 한 번에 정한 개수만 삭제하면 큰 캐시는 그 개수 상한에 걸려 상한 바로 밑을 오간다
+// 넘친 정도와 상관없이 일정 비율, 한 번에 정한 개수만 삭제하면 큰 캐시는 그 개수 상한에 걸려 상한 바로 밑을 오간다
 test("evict: 넘친 만큼, 목표선(상한의 90%)까지 삭제한다. 한 번에 삭제하는 수의 상한은 없다", async () => {
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
@@ -461,7 +461,7 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
   });
 });
 
-// ── 삭제하는 길의 잠금 · 다운로드 중 ─────────────────────────────
+// ── 삭제하는 길의 잠금, 다운로드 중 ─────────────────────────────
 
 test("퇴거와 초기화는 겹치지 않고 하나씩 돈다", async () => {
   await withTempCacheDir(async () => {
@@ -506,7 +506,7 @@ test("퇴거가 파일을 삭제하는 사이 같은 곡 다운로드가 시작�
   });
 });
 
-test("removeCached: 쓰는 중 · 다운로드 중 · 바뀜 · 없음은 삭제하지 않고 까닭을, 아니면 파일과 행을 삭제한다", async () => {
+test("removeCached: 쓰는 중, 다운로드 중, 바뀜, 없음은 삭제하지 않고 까닭을, 아니면 파일과 행을 삭제한다", async () => {
   await withTempCacheDir(async () => {
     const conn = cacheDb.get();
     try {
@@ -544,7 +544,7 @@ test("removeCached: 쓰는 중 · 다운로드 중 · 바뀜 · 없음은 삭제
 });
 
 // ── 오디오 길이 (duration_sec) ───────────────────────────────
-// 이 행은 영상 하나를 여러 요청(스포티파이·유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
+// 이 행은 영상 하나를 여러 요청(스포티파이, 유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
 
 test("다운로드 완료는 다운로드한 오디오의 실제 길이를 요청 쪽 길이보다 우선 저장한다", () => {
   audioCache.recordDownloadStart("yt:dur1", { title: "곡", duration: 314 });

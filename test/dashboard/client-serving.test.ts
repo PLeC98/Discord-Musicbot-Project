@@ -1,4 +1,4 @@
-// src/dashboard/index.ts · precompressed.ts: 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
+// src/dashboard/index.ts, precompressed.ts: 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
 // 봇을 켠 뒤에 화면을 빌드해도 다시 시작하지 않고 보인다.
 
 import fs from "node:fs";
@@ -67,7 +67,7 @@ test("빌드 파일(assets/)은 오래 캐시하고 화면 껍데기는 매번 �
   assert.equal(await cacheOf("/servers/123"), "no-cache");
 });
 
-// 빌드할 때 만든 압축본(.br · .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
+// 빌드할 때 만든 압축본(.br, .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
 test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 받으면 원본. 폴더 밖으로는 나가지 않는다", async () => {
   const body = "const 화면 = 1;\n".repeat(200);
   fs.mkdirSync(path.join(dist, "assets"), { recursive: true });

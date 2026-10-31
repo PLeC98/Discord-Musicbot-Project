@@ -1,7 +1,7 @@
-// src/sources/youtube · src/rules/error-kind.ts: yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
+// src/sources/youtube, src/rules/error-kind.ts: yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
 //
 // yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
-// 재시도 · 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
+// 재시도, 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
 // "순서" 라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
 
 import { test } from "node:test";
@@ -12,7 +12,7 @@ import { errorKind, codedError } from "../../src/rules/error-kind.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 const T = true;
 const F = false;
-// 문장, 분류, 판별 열(내려감 · 연령 제한 · 클라이언트 탓 · 낡은 주소 · 건너뛴 클라이언트)
+// 문장, 분류, 판별 열(내려감, 연령 제한, 클라이언트 탓, 낡은 주소, 건너뛴 클라이언트)
 type Row = [msg: string, kind: string, gone: boolean, age: boolean, fault: boolean, stale: boolean, skipped: boolean];
 const TABLE: Row[] = [
   // 영상이 없는 경우
@@ -21,12 +21,12 @@ const TABLE: Row[] = [
   ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video has been removed by the uploader", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "unavailable-contents", T, F, F, F, F],
-  // 연령 제한 · 봇 감지 · 쿠키
+  // 연령 제한, 봇 감지, 쿠키
   ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-no-cookies", F, T, F, F, F], // 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
   ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
-  // 클라이언트 · 포맷
+  // 클라이언트, 포맷
   ["ERROR: Requested format is not available", "unknown-error", F, F, T, F, F],
   ["ERROR: Only images are available for download", "unknown-error", F, F, T, F, F],
   ["WARNING: web client https formats require a PO Token which was not provided", "unknown-error", F, F, T, F, F],
@@ -73,8 +73,8 @@ test("errorKind는 이름이 없으면 unknown-error. 문자열과 빈 값도 �
   assert.equal(errorKind(undefined), "unknown-error");
 });
 
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 열과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지 · 지역 차단 ·
-// 요청 제한 · 네트워크 · ffmpeg)도 여기서 붙는다. yt-dlp 가 쓰지 않는 문장(우리 코드 · 프로그램 버그)에는 이름이 없다
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 열과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지, 지역 차단,
+// 요청 제한, 네트워크, ffmpeg)도 여기서 붙는다. yt-dlp 가 쓰지 않는 문장(우리 코드, 프로그램 버그)에는 이름이 없다
 test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
   const CODES: Record<string, string | null> = {
     "ERROR: [youtube] abc: Video unavailable": "unavailable-contents",
@@ -123,7 +123,7 @@ test("yt-dlp 가 쓰는 연결 실패 문장은 네트워크다", () => {
   }
 });
 
-test("yt-dlp 가 쓰는 재생목록 · 지역 차단 문장", () => {
+test("yt-dlp 가 쓰는 재생목록, 지역 차단 문장", () => {
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: The playlist does not exist.")), "unavailable-playlist");
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: This playlist is private")), "unavailable-playlist");
   assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] abc: The uploader has not made this video available in your country")), "geo-blocked");
@@ -137,7 +137,7 @@ test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {
   assert.equal(errorKind(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network-error", "모르는 이름이면 글로 가른다");
 });
 
-test("errorKind 는 오류 자신 → 원인(cause) → 시스템 · 디스코드 번호 순서로 이름을 본다", () => {
+test("errorKind 는 오류 자신 → 원인(cause) → 시스템, 디스코드 번호 순서로 이름을 본다", () => {
   // 글에 기대지 않는다: 글만 보면 unknown 인 것들
   const quiet = (code: string | number) => Object.assign(new Error("무언가"), { code });
   assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");

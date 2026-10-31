@@ -16,7 +16,7 @@ type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; source?
 // vite 가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
 const WARN_KB = 500;
 
-test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈 · 발음 사전 전체는 없으며, 크기 경고를 낼 청크가 없다", async () => {
+test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node 모듈, 발음 사전 전체는 없으며, 크기 경고를 낼 청크가 없다", async () => {
   const { build } = (await import(VITE)) as { build: (config: object) => Promise<{ output: Chunk[] } | Array<{ output: Chunk[] }>> };
   // 배포 번들을 본다. vite 는 NODE_ENV 가 이미 있으면 따르므로(CI 는 test) 빌드하는 동안만 production 으로 둔다
   const nodeEnv = process.env.NODE_ENV;

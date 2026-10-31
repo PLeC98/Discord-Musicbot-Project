@@ -1,4 +1,4 @@
-// dashboard/src/utils/genre-file.ts: 장르 하나 내보내기 · 불러오기. 파일 형식, 다른 파일 거부, 겹치는 식별자
+// dashboard/src/utils/genre-file.ts: 장르 하나 내보내기, 불러오기. 파일 형식, 다른 파일 거부, 겹치는 식별자
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ test("내보낸 파일을 그대로 불러오면 같은 장르가 된다(편집 
   assert.deepEqual(parseGenreFile(body), { id: "pop", genre: GENRE });
 });
 
-test("파일 이름에 못 쓰는 글자 · 빈 식별자", () => {
+test("파일 이름에 못 쓰는 글자, 빈 식별자", () => {
   assert.equal(genreFile(toRows({ "a/b c": GENRE })[0]).name, "genre-a-b-c.json");
   assert.equal(genreFile(toRows({ "": GENRE })[0]).name, "genre-unnamed.json");
 });

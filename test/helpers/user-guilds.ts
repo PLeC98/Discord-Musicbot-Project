@@ -34,7 +34,7 @@ function userGuildsFixture() {
     store.set(sid, fake<SessionData>({ cookie: { expires: new Date(Date.now() + 60_000).toISOString() } }));
     if (token) store.saveDiscordToken(sid, `tok-${userId}`);
   };
-  /** 요청에 그 사용자의 세션 · 세션 저장소를 붙인다 */
+  /** 요청에 그 사용자의 세션, 세션 저장소를 붙인다 */
   const middleware = (user: () => { id: string } | null) => (req: Request, _res: Response, next: NextFunction) => {
     const u = user();
     Object.assign(req, { session: fake<Request["session"]>({ user: u, loginAt: Date.now() }), sessionID: `sid-${u?.id ?? "none"}`, sessionStore: store });

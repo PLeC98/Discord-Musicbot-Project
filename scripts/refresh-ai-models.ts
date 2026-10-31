@@ -1,7 +1,7 @@
 /**
- * 모델 프로필 · 가격표 다운로드. pnpm run update:models
+ * 모델 프로필, 가격표 다운로드. pnpm run update:models
  *
- * 대시보드의 갱신 버튼과 같은 길(src/config/ai-models · ai-prices 의 refresh)을 쓴다.
+ * 대시보드의 갱신 버튼과 같은 길(src/config/ai-models, ai-prices 의 refresh)을 쓴다.
  */
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import path from "path";

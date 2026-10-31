@@ -1,4 +1,4 @@
-// scripts/install-ffmpeg.ts(src/media/ffmpeg/release) · install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
+// scripts/install-ffmpeg.ts(src/media/ffmpeg/release), install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
 //
 // 지키는 것 둘:
 // 1. 움직이는 태그(latest)는 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.

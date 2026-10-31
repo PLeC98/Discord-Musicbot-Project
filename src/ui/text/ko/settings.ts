@@ -1,4 +1,4 @@
-// 서버 설정 화면(/setting · /setchannel · /setplaylistlimit)의 문구. icon 은 헤더 줄 아이콘의 키(ui/settings-screens 가 화면 색으로 그린다)
+// 서버 설정 화면(/setting, /setchannel, /setplaylistlimit)의 문구. icon 은 헤더 줄 아이콘의 키(ui/settings-screens 가 화면 색으로 그린다)
 
 import { icon } from "../../icons.ts";
 
@@ -27,7 +27,7 @@ const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDef
 });
 const playlistLimitSet = (count: number) => ({ icon: "done" as const, title: "재생목록에 한 번에 넣을 곡 수를 바꿨어요", description: `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.` });
 
-/** /setting 한 화면: DJ 역할 · SponsorBlock · 연령 제한 콘텐츠. 선택하면 바로 저장한다 */
+/** /setting 한 화면: DJ 역할, SponsorBlock, 연령 제한 콘텐츠. 선택하면 바로 저장한다 */
 const panel = {
   icon: "modes" as const,
   title: "서버 설정",

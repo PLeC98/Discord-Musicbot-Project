@@ -1,4 +1,4 @@
-// 상주 모드(24/7) 켜기 · 끄기(디스코드 /247). 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
+// 상주 모드(24/7) 켜기, 끄기(디스코드 /247). 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
 // 자리는 봇이 지금 있는 채널, 없으면 부른 사람의 채널에 붙은 뒤 그 채널이다(봇을 옮기지 않는다). 머무는 판정은 player/idle-leave 가 자리를 본다
 
 import { ChannelType, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
@@ -12,7 +12,7 @@ import { isModerator } from "./permissions.ts";
 import { join } from "./join.ts";
 
 type StayRefusal = Extract<Code, "stay-stage" | "must-moderator" | "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "restore-failed">;
-/** on: 켰다(이미 켜져 있던 같은 채널이면 already) · off: 껐다(이미 꺼져 있었으면 already) */
+/** on: 켰다(이미 켜져 있던 같은 채널이면 already), off: 껐다(이미 꺼져 있었으면 already) */
 type StayResult = { ok: true; kind: "on"; channelId: string; already: boolean } | { ok: true; kind: "off"; already: boolean } | { ok: false; code: StayRefusal };
 
 type Bot = { players: Pick<PlayerSeats, "get" | "set"> };

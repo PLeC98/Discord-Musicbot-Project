@@ -5,7 +5,7 @@
 //
 // 이 테스트는 실제로 손자 프로세스를 만들어 killAll이 "트리 전체"를 죽이는지 확인한다.
 // Windows(taskkill /T)와 POSIX(detached + 프로세스 그룹 시그널)는 구현이 완전히 다르므로,
-// CI가 ubuntu·windows 양쪽에서 이 파일을 돌려 두 경로를 모두 증명한다.
+// CI가 ubuntu, windows 양쪽에서 이 파일을 돌려 두 경로를 모두 증명한다.
 
 import { spawn } from "node:child_process";
 import { test } from "node:test";

@@ -34,7 +34,7 @@ const FIELDS = {
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
-// 이미 알린 틀린 문서(서버 · 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
+// 이미 알린 틀린 문서(서버, 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
 const warned = new Set<string>();
 function warnOnce(guildId: string, raw: string, line: string) {
   const key = `${guildId}|${raw}`;
@@ -122,7 +122,7 @@ const table = {
     return { enabled: sb?.enabled ?? null, categories: sb?.categories ?? null };
   },
 
-  /** 서버별 SponsorBlock 설정 저장. enabled · categories 가 null 이면 전역을 따른다(둘 다 null 이면 필드를 뺀다) */
+  /** 서버별 SponsorBlock 설정 저장. enabled, categories 가 null 이면 전역을 따른다(둘 다 null 이면 필드를 뺀다) */
   setGuildSponsorBlock(guildId: string, { enabled, categories }: Partial<SponsorBlockSetting>) {
     const next = { enabled: typeof enabled === "boolean" ? enabled : null, categories: Array.isArray(categories) ? categories : null };
     writeField(guildId, "sponsorBlock", next.enabled === null && next.categories === null ? undefined : next);
@@ -173,12 +173,12 @@ function replaceAll(docs: Record<string, GuildDoc>) {
   })();
 }
 
-// 서버 · 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
+// 서버, 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
 type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
-/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기 · 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
+/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기, 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
 function forgetCache() {
   cache.clear();
 }
@@ -288,7 +288,7 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
   }
 }
 
-/** null이면 기본값으로 되돌린다. 범위 검사는 부르는 쪽이 한다(명령 · 대시보드가 사용자에게 알린다) */
+/** null이면 기본값으로 되돌린다. 범위 검사는 부르는 쪽이 한다(명령, 대시보드가 사용자에게 알린다) */
 async function setPlaylistAddMax(guildId: string, count: number | null | undefined) {
   try {
     table.setPlaylistAddMax(guildId, count);
@@ -396,7 +396,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   }
 }
 
-/** 일부만 바꾼다. patch 에 준 키(enabled · categories)만 바꾸고, null 을 주면 전역을 따르게 되돌린다 */
+/** 일부만 바꾼다. patch 에 준 키(enabled, categories)만 바꾸고, null 을 주면 전역을 따르게 되돌린다 */
 async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetting>) {
   const cur = await getSponsorBlock(guildId);
   const next = {

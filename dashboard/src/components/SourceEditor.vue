@@ -117,7 +117,7 @@ const props = withDefaults(
   defineProps<{
     modelValue?: SourceData[];
     types?: SourceTypeView[];
-    /** 종류 목록을 불러오는 중(loading) · 불러옴(ready) · 못 불러옴(failed). 불러오기 전에는 모르는 종류라고 하지 않는다 */
+    /** 종류 목록을 불러오는 중(loading), 불러옴(ready), 못 불러옴(failed). 불러오기 전에는 모르는 종류라고 하지 않는다 */
     typesState?: "loading" | "ready" | "failed";
     /** 못 받았을 때의 까닭(문제 응답의 글) */
     typesError?: string;
@@ -234,7 +234,7 @@ function write(i: number, patch: Record<string, unknown>) {
 
 const setField = (i: number, key: string, value: unknown) => write(i, { [key]: value });
 
-// 구간은 두 필드를 한꺼번에 쓴다(yearFrom·yearTo).
+// 구간은 두 필드를 한꺼번에 쓴다(yearFrom, yearTo).
 // 전체로 되돌리면 그 구간에 딸린 필드도 비운다. 화면에서 사라진 값이 설정에 남으면 안 된다.
 function setRange(i: number, field: Field, range: { from: number | null; to: number | null }) {
   const patch: Record<string, unknown> = { [field.key]: range.from };

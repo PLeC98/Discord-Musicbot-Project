@@ -15,17 +15,17 @@ type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: strin
  * 대시보드 플레이어 상태 변화 넛지(SSE).
  *
  * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(보기 권한은 보낼 때 확인한다).
- * 서버 목록 · 재생 바 · 서버 화면이 같은 연결을 나눠 쓴다.
+ * 서버 목록, 재생 바, 서버 화면이 같은 연결을 나눠 쓴다.
  *
  * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 구독 중인가"만 관리.
  */
 class PlayerStream {
-  /** 상한 · 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
+  /** 상한, 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
   options: StreamOptions;
   heartbeatMs: number;
   subs = new Set<Sub>();
-  perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭 · 기기 합산)
+  perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭, 기기 합산)
   coalesceTimers = new Map<string, NodeJS.Timeout>();
   heartbeat: NodeJS.Timeout;
   /** 설정 알림 떼기(close 때) */
@@ -92,7 +92,7 @@ class PlayerStream {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
-    // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(구독 · perKey 캡)가 한 번만
+    // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(구독, perKey 캡)가 한 번만
     let done = false;
     const sub: Sub = {
       res,
@@ -137,7 +137,7 @@ class PlayerStream {
 
   _emit(guildId: string, to = (sub: Sub) => sub.canSee(guildId)) {
     // guildId를 함께 보낸다. 한 연결이 여러 서버를 받으므로, 이게 없으면
-    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 선택하는 근거).
+    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바, 서버 화면이 자기 서버만 선택하는 근거).
     // 그 서버를 볼 수 있는 구독자에게만 보내 ID 노출 문제는 없다.
     const payload = `data: ${JSON.stringify({ t: "changed", g: guildId } satisfies GuildEvent)}\n\n`;
     for (const sub of this.subs) {

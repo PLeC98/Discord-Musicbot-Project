@@ -1,4 +1,4 @@
-// 파비콘. 바깥에 내는 파비콘 · 웹 앱 매니페스트(로그인 없이, 화면 셸보다 앞)와 운영자 패널의 크기 슬롯마다 올리기 · 교체 · 삭제(/api/admin/appearance/favicon)
+// 파비콘. 바깥에 내는 파비콘, 웹 앱 매니페스트(로그인 없이, 화면 셸보다 앞)와 운영자 패널의 크기 슬롯마다 올리기, 교체, 삭제(/api/admin/appearance/favicon)
 
 import express, { type Request, type Response } from "express";
 import sharp from "sharp";
@@ -42,7 +42,7 @@ publicAppearanceRouter.get("/favicon/:size", async (req, res) => {
   res.type("png").send(png);
 });
 
-// 홈 화면에 추가할 때의 이름 · 아이콘. 주소창 있는 그대로 연다
+// 홈 화면에 추가할 때의 이름, 아이콘. 주소창 있는 그대로 연다
 publicAppearanceRouter.get("/manifest.webmanifest", (req, res) => {
   const name = req.app.locals.bot.client.user?.username ?? "MusicBot";
   res.set("Cache-Control", "no-cache");
@@ -78,7 +78,7 @@ appearanceRouter.get("/favicon", (req, res) => {
 });
 
 // 링크의 이미지를 대신 다운로드해 그대로 넘긴다(브라우저가 다른 사이트의 이미지를 직접 읽으면 CORS 에 막히는 일이 많다). 화면이 받아 정사각형인지 보고 크기에 추가한다.
-// 내부 주소 · 리다이렉트 · 크기 · 시간은 infra/safe-url 이 막는다. 막힌 까닭은 로그에만(봇이 내부망 탐지 도구가 되지 않게), 화면에는 image-link-failed 하나
+// 내부 주소, 리다이렉트, 크기, 시간은 infra/safe-url 이 막는다. 막힌 까닭은 로그에만(봇이 내부망 탐지 도구가 되지 않게), 화면에는 image-link-failed 하나
 appearanceRouter.post("/favicon/fetch", async (req, res) => {
   const body = parse(FaviconLinkBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);

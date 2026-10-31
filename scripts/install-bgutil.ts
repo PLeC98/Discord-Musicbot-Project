@@ -1,5 +1,5 @@
 // bgutil-ytdlp-pot-provider (POToken 공급자) 설치/업데이트 스크립트.
-//   pnpm run install:bgutil · update:bgutil. 둘은 같은 일을 한다:
+//   pnpm run install:bgutil, update:bgutil. 둘은 같은 일을 한다:
 //   없으면 git clone, 설정한 태그로 체크아웃, 그 태그의 잠금 파일 그대로 의존성 설치(npm ci) + 빌드
 //
 // 설치하는 버전은 src/config/vendor-versions.ts 의 기본 태그이고, .env 의 BGUTIL_VERSION 으로 바꾼다.

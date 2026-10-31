@@ -1,4 +1,4 @@
-// 로그인 배경 편집의 예상 저장 공간(만드는 단계 전부의 크기 하나). 편집 창(보이기 · 최대 용량 알림)과 편집 적용(남은 공간 검사)이 같이 쓴다. Node 를 부르지 않는다.
+// 로그인 배경 편집의 예상 저장 공간(만드는 단계 전부의 크기 하나). 편집 창(보이기, 최대 용량 알림)과 편집 적용(남은 공간 검사)이 같이 쓴다. Node 를 부르지 않는다.
 // 영상은 원본을 다운로드할 때 센 초마다의 크기에서 선택한 구간만큼 더하고, 이미지는 정지 이미지 세트의 추산 그대로다.
 
 import type { LoginBackgroundCrop, LoginBackgroundEstimate } from "../dashboard/contract/login-background.ts";
@@ -13,7 +13,7 @@ const inCounted = (counted: [number, number] | null, range: [number, number]) =>
 type Counted = Pick<LoginBackgroundEstimate, "perSecond" | "stillBytes" | "crop" | "counted"> & { counting?: boolean };
 
 /**
- * 예상 바이트. 추산이 없거나 · 세는 중이거나 · 다른 크롭의 추산이거나 · 잰 범위 밖의 구간이면 null
+ * 예상 바이트. 추산이 없거나, 세는 중이거나, 다른 크롭의 추산이거나, 잰 범위 밖의 구간이면 null
  * @param cropKey  지금 크롭의 키(`cropKeyOf`)
  * @param range    영상의 구간(초), 이미지는 null
  */

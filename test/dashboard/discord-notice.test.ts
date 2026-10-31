@@ -12,7 +12,7 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 
 type Sent = { components: Array<{ toJSON(): unknown }> };
 
-// 패널 채널을 찾은 횟수와 보낸 것 · 삭제한 것을 적는 가짜
+// 패널 채널을 찾은 횟수와 보낸 것, 삭제한 것을 적는 가짜
 function world(found = true) {
   const sent: string[] = [];
   const deleted: string[] = [];

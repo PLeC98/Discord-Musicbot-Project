@@ -1,5 +1,5 @@
 <template>
-  <!-- 초기화(운영자 패널 백업 · 초기화 탭). 공유 타입 contract/reset. 행 다섯: 오디오 캐시 · 봇 설정 · 서버별 설정 · 디스플레이 설정 · 봇 전체.
+  <!-- 초기화(운영자 패널 백업, 초기화 탭). 공유 타입 contract/reset. 행 다섯: 오디오 캐시, 봇 설정, 서버별 설정, 디스플레이 설정, 봇 전체.
        확인 창은 삭제할 양을 숫자로 보인다. 오디오 캐시는 항목을 선택하고(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 실행된다.
        모두 최근 로그인을 본다. 봇 설정은 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 봇 전체는 실행기로 켠 봇이면 다시 시작을 기다려 화면을 새로고침한다 -->
   <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
@@ -21,7 +21,7 @@
       </div>
     </BaseCard>
 
-    <!-- ConfirmDialog 와 같은 모양에 선택 항목 · 이름 입력란을 더한 창 -->
+    <!-- ConfirmDialog 와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
     <Teleport to="body">
       <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
         <div v-if="asking" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
@@ -74,7 +74,7 @@ const T = text.reset;
 
 const API = "/api/admin/reset";
 const CANCEL = text.common.cancel;
-// 행 하나: 이름 · 설명, 오른쪽에 버튼. 좁으면 버튼이 아래로
+// 행 하나: 이름, 설명, 오른쪽에 버튼. 좁으면 버튼이 아래로
 const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 
 const view = ref<ResetOverview | null>(null);
@@ -131,7 +131,7 @@ function announce(done: ResetDone) {
   else if (done.kind === "bot-settings") notifyDone(T.done["bot-settings"]);
   else if (done.kind === "guild-settings") notifyDone(T.done["guild-settings"](done.guilds));
   else if (done.kind === "display") notifyDone(T.done.display);
-  // 다시 시작하는 봇은 다시 시작 창(기다리기 · 새로고침)이 알린다
+  // 다시 시작하는 봇은 다시 시작 창(기다리기, 새로고침)이 알린다
   else if (!done.restarting) notifyDone(T.done.allStaged, T.done.allStagedBody);
 }
 async function run() {
@@ -143,7 +143,7 @@ async function run() {
     const { data } = await axios.post<ResetDone>(API, requestOf(asking.value), { timeout: LIMIT.long });
     announce(data);
     asking.value = null;
-    // 다시 시작해야 적용되는 값(POToken · SponsorBlock)이 바뀌었으면 묻는다(지금 다시 시작 · 나중에)
+    // 다시 시작해야 적용되는 값(POToken, SponsorBlock)이 바뀌었으면 묻는다(지금 다시 시작, 나중에)
     if (data.kind === "bot-settings" && data.restart) askRestart();
     if (data.kind === "all" && data.restarting && before !== null) return void waitRestart(before);
     await load();

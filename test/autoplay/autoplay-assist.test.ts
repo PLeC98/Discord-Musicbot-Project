@@ -37,9 +37,9 @@ type SentBody = {
   thinking?: { type?: unknown };
   [key: string]: unknown;
 };
-// 가짜 응답은 여기서 읽는 필드(ok · status · json · text)만 준다
+// 가짜 응답은 여기서 읽는 필드(ok, status, json, text)만 준다
 type FakeResponse = { ok: boolean; status?: number; headers?: Headers; json?: () => Promise<unknown>; text?: () => Promise<string> };
-// 보조가 바깥으로 보내는 요청(모델 · 토큰 세기 · 서비스 계정 토큰)을 이 가짜로 받는다
+// 보조가 바깥으로 보내는 요청(모델, 토큰 세기, 서비스 계정 토큰)을 이 가짜로 받는다
 function useFetch(fn: (url: string, init: SentInit) => FakeResponse | Promise<FakeResponse>) {
   assist.useFetch(fake<typeof fetch>(async (url: string, init: SentInit) => withText(await fn(url, init))));
 }
@@ -75,7 +75,7 @@ function useConfig(settings: Record<string, unknown>, sections: PromptSection[] 
   putKeys(settings);
 }
 
-// 설정 문서를 쓰지 않는 호출(preview·ping·listModels)도 키를 보게 해 둔다
+// 설정 문서를 쓰지 않는 호출(preview, ping, listModels)도 키를 보게 해 둔다
 useConfig({ provider: "off" });
 
 const ON = { provider: "custom", baseUrl: "http://127.0.0.1:11434/v1", model: "test-model", timeoutMs: 5000, batchSize: 10, retryDelayMs: 0 };
@@ -125,7 +125,7 @@ test("꺼져 있으면 아예 부르지 않는다", async () => {
   assert.equal(calls.length, 0, "요청이 나가면 안 된다");
 });
 
-test("enabled: false 면 프로바이더 · 모델이 있어도 부르지 않는다", async () => {
+test("enabled: false 면 프로바이더, 모델이 있어도 부르지 않는다", async () => {
   useConfig({ enabled: false, ...ON });
   calls.length = 0;
   answers("[]");
@@ -278,7 +278,7 @@ test("고르기 안에서 한 번 끝내 실패하면 그 고르기의 다음 �
   assert.equal(await assist.accepts(cand("D"), { pick: { failed: false } }), false, "새 고르기는 다시 부른다");
 });
 
-// 켜 둔 기능이 한도 · 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다. 재시도 하나하나는 debug
+// 켜 둔 기능이 한도, 서버 오류로 죽어 있으면 평소 로그 수준에서 보여야 한다. 재시도 하나하나는 debug
 test("재시도까지 모두 실패한 판정마다 warn 한 줄, 성공하면 아무것도", async () => {
   useConfig(ON);
   const from = sink.buffer.length;
@@ -552,7 +552,7 @@ test("줄 형식을 직접 짤 수 있다", async () => {
   assert.equal(lastSent().body.messages[0].content, "1) Toxicity [210s]");
 });
 
-// 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다. 어떻게 적을지는 줄 형식 안에서 정한다({{#if-exist}} · {{:else}})
+// 길이를 모르는데 "0분"이라고 적으면 모델에게 거짓을 알려 주는 것이다. 어떻게 적을지는 줄 형식 안에서 정한다({{#if-exist}}, {{:else}})
 test("길이를 모르는 후보: 구간째 빼거나, 글자로 적거나, 0으로", async () => {
   const unknown = { title: "이름만 아는 곡" };
   const ask = async (extra: Record<string, unknown>) => {
@@ -579,7 +579,7 @@ test("길이를 모르는 후보: 구간째 빼거나, 글자로 적거나, 0으
 // ── 추가 파라미터 ─────────────────────────────────────────────────────────
 
 // 서비스마다 이름도 위치도 달라 글로 받는다. RisuAI 와 같은 입력법이다.
-test("추가 파라미터: 값·JSON·헤더·빼기", () => {
+test("추가 파라미터: 값, JSON, 헤더, 빼기", () => {
   const got = assist.parseExtra(["think=false", "reasoning_effort=low", "top_p=0.9", 'response_format=json::{"type":"json_object"}', "header::X-Title=Discord Musicbot", "temperature={{none}}", "# 주석은 건너뛴다", "", "이름없음"].join("\n"));
 
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
@@ -862,7 +862,7 @@ test("미리보기는 만들기만 하고 보내지 않는다", async () => {
   assert.match(asked, /^3\. genre=록 title=/m, "길이를 모르는 줄은 그 필드가 빠진다");
 });
 
-test("테스트는 실제로 보내고 나간 것·온 것을 그대로 준다", async () => {
+test("테스트는 실제로 보내고 나간 것, 온 것을 그대로 준다", async () => {
   calls.length = 0;
   useFetch(async (url, init) => {
     calls.push({ url, init, body: bodyOf(init) });
@@ -898,7 +898,7 @@ test("응답에 키가 섞여 와도 가려서 준다", async () => {
 
 // ── 오류를 그대로 보여준다 ────────────────────────────────────────────────
 
-// 왜 거절됐는지는 본문에만 있다(모델 이름 오타 · 사용량 초과 …). 상태 코드만으론 못 고친다.
+// 왜 거절됐는지는 본문에만 있다(모델 이름 오타, 사용량 초과 …). 상태 코드만으론 못 고친다.
 test("확인 실패는 상태 코드와 본문을 그대로 전한다", async () => {
   useFetch(async () => ({ ok: false, status: 429, text: async () => '{"error":"rate limit exceeded"}' }));
 
@@ -984,7 +984,7 @@ test("키는 입력할 때의 주소에 묶인다: 주소를 바꿔 저장해도
   useConfig(ON);
 });
 
-test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정 · 내보내기에 남는다). 빼는 줄은 된다", () => {
+test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정, 내보내기에 남는다). 빼는 줄은 된다", () => {
   const of = (extra: string) => aiConfig.validateAi({ provider: "openai", extra }).filter((one) => one.includes("extra"));
   assert.equal(of("header::Authorization=Bearer sk-몰래").length, 1);
   assert.equal(of("top_p=0.5\nheader::X-Api-Key=abc").length, 1, "대소문자를 가리지 않는다");
@@ -993,7 +993,7 @@ test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정 · 
 });
 
 // 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다.
-// 저쪽 목록에는 영상·이미지 모델이나 한참 옛 모델이 섞여 나온다.
+// 저쪽 목록에는 영상, 이미지 모델이나 한참 옛 모델이 섞여 나온다.
 // 키가 없으면 저쪽은 401 뿐이다. 묻지 않고 다운로드해 둔 모델 프로필(data/ai-models.json)로 목록을 채운다. 연결 확인은 실패로 둔다
 test("모델 목록: 키가 없거나 저쪽이 거절하면 다운로드해 둔 목록으로 채운다(확인 결과는 실패 그대로)", async () => {
   const preset = (await import("../../src/config/ai-models.ts")).modelsOf("openai").map((one) => one.modelId);
@@ -1169,7 +1169,7 @@ test("AI 스튜디오는 제미니 네이티브로 보낸다", async () => {
   assert.equal(sent.body.generationConfig.topP, 0.5, "추가 파라미터도 적은 경로 그대로");
 });
 
-// 모델 목록은 생성과 주소 체계가 다르다(프로젝트·리전이 안 붙는다).
+// 모델 목록은 생성과 주소 체계가 다르다(프로젝트, 리전이 안 붙는다).
 // 생성 주소를 그대로 쓰면 404 다. API 버전이 나뉘어 있어 순서대로 조회한다.
 test("버텍스 모델 목록: 404 면 다음 주소로 넘어간다", async () => {
   const tried: string[] = [];
@@ -1294,7 +1294,7 @@ test("답에 U+2581 이 섞여 와도 읽는다", async () => {
 
 // ── 줄 형식의 모르는 이름 ─────────────────────────────────────────────────
 
-// 모르는 이름은 검사가 표시한다(저장 · 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다.
+// 모르는 이름은 검사가 표시한다(저장, 기동 시 그 기능만 끈다). 그려 보는 길(미리보기)에서는 건드리지 않고 그대로 둔다.
 // 오타를 조용히 지우면 왜 사라졌는지 알 길이 없다
 test("줄 형식의 모르는 자리표시자는 검사가 표시하고, 그려 보면 그대로 남는다", async () => {
   useConfig({ ...ON, list: { lineFormat: "{{title}} / {{아티스트}} / {{duration::m}}분" } }, [{ role: "user", text: "{{list}}" }]);
@@ -1315,7 +1315,7 @@ test("배치 크기대로 나눠 묻는다", async () => {
   assert.equal(calls.length, 3, "5개를 2개씩 — 세 번");
 });
 
-// 업로더 이름은 일부러 안 넘긴다(유튜브의 그 필드는 대개 채널 이름이다: Vevo · Radio Mix).
+// 업로더 이름은 일부러 안 넘긴다(유튜브의 그 필드는 대개 채널 이름이다: Vevo, Radio Mix).
 test("업로더 이름은 넘기지 않는다", async () => {
   useConfig(ON);
   calls.length = 0;
@@ -1347,7 +1347,7 @@ test("키워드 경로에서만 묻는다", async () => {
   });
   assert.ok(await route.resolve(fromSearch, limits, "팝"), "모델이 죽어도 규칙만으로 튼다");
 
-  // 주소를 직접 주는 소스(VocaDB·재생목록)는 출처가 곧 정답이라 물을 것이 없다
+  // 주소를 직접 주는 소스(VocaDB, 재생목록)는 출처가 곧 정답이라 물을 것이 없다
   calls.length = 0;
   answers('[{"n":1,"song":false,"fits":false}]');
   const direct = { ...fromSearch, fromSearch: undefined, platform: "vocadb", sourceUrl: "https://vocadb.net/S/1" };
@@ -1422,13 +1422,13 @@ test("제미니 본문은 지시를 목록보다 앞에 둔다", async () => {
 });
 
 test("미리보기는 URL 을 돌려준다. 화면이 주소를 흉내 내지 않아도 되게", async () => {
-  // 버텍스는 project·location 으로 조립하고 custom 은 끝 슬래시를 뗀다.
+  // 버텍스는 project, location 으로 조립하고 custom 은 끝 슬래시를 뗀다.
   // 클라이언트가 같은 계산을 다시 하면 어긋난다.
   const out = await assist.preview({ provider: "custom", baseUrl: "http://127.0.0.1:11434/v1///", model: "test-model" });
   assert.equal(out.url, "http://127.0.0.1:11434/v1/chat/completions");
 });
 
-// ── 배치 실패 · 판정 읽기 ─────────────────────────────────────────────────
+// ── 배치 실패, 판정 읽기 ─────────────────────────────────────────────────
 
 test("배치 하나가 실패해도 앞 배치의 판정은 살리고 남은 후보는 그대로 둔다", async () => {
   useConfig({ ...ON, batchSize: 2 });

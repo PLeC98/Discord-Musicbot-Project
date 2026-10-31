@@ -1,8 +1,8 @@
-// src/discord/commands 의 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard): 지금 동작을 고정한다.
+// src/discord/commands 의 곡 추가 명령(/play, /playfirst, /search, /join, /autoplay, /dashboard): 지금 동작을 고정한다.
 //
-// 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
-// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
-// 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
+// 입력, 권한, 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
+// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다.
+// 권한 판정, 서버 설정, 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
 import { inGuild, currentVoiceTarget } from "../../src/infra/guild-context.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -198,7 +198,7 @@ function interaction(w: World, { options = {}, channelId = "c1" }: { options?: R
   return { it, log, sentOnChannel, bot: w.bot };
 }
 
-// ── /play · /playfirst ────────────────────────────────────────────────
+// ── /play, /playfirst ────────────────────────────────────────────────
 
 test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
   const w = world({ userVoice: "v2" });
@@ -207,7 +207,7 @@ test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("must-be-in-same-voice"))]]);
   assert.deepEqual(resolved, []);
 
-  // 봇이 쉬면 소환할 수 있어야 한다(봇에게 연결 · 말하기 권한)
+  // 봇이 쉬면 소환할 수 있어야 한다(봇에게 연결, 말하기 권한)
   const idle = world({ botVoice: null, canJoin: false });
   const j = interaction(idle, { options: { query: "노래" } });
   await runCommand(await command("play"), j.it, idle.bot);
@@ -310,7 +310,7 @@ test("/play 와 /playfirst 는 같은 길이다. 넣을 위치와 진입점 이�
   assert.deepEqual(first.log, play.log, "답하는 모양도 같다");
 });
 
-test("/playfirst: 실패 · 오류 분기는 /play 와 같다", async () => {
+test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
   const w = world({ roles: ["dj"] });
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -340,7 +340,7 @@ test("/playfirst: 실패 · 오류 분기는 /play 와 같다", async () => {
 
 // ── /search ───────────────────────────────────────────────────────────
 
-test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람 · 번호 · 영상 ID 를 싣는다", async () => {
+test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람, 번호, 영상 ID 를 싣는다", async () => {
   const asked: Array<[string, number]> = [];
   const search = async (q: string, n: number) => {
     asked.push([q, n]);
@@ -373,7 +373,7 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼�
   assert.deepEqual(ids, [pick(0), pick(1), pick(2), pick(3), `search:cancel:${USER}`, pick(4), pick(5)]);
 });
 
-test("/search: 권한 · 결과 없음 · 오류", async () => {
+test("/search: 권한, 결과 없음, 오류", async () => {
   const denied = world({ userVoice: "v2" });
   const d = interaction(denied, { options: { query: "x" } });
   await runCommand(await command("search"), d.it, denied.bot);
@@ -530,7 +530,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 열지 못해 그 곡에서 멈춰 둠 · 틀다 실패해 남은 곡 없음 · 틀 곡 없음)
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음, 열지 못해 그 곡에서 멈춰 둠, 틀다 실패해 남은 곡 없음, 틀 곡 없음)
   const nothingLeft = await run(async function () {
     this.queue.push(tracks.youtube("ddddddddddd")); // 가짜가 "틀다 실패"로 보는 모양
   });

@@ -1,5 +1,5 @@
 <template>
-  <!-- 봇 초대. 서버 목록과 같은 틀(헤더 · 카드 격자)에, 카드는 서버 관리 권한이 있고 봇이 없는 서버. 카드 아래 줄이 지금 곡 대신 초대 버튼이다 -->
+  <!-- 봇 초대. 서버 목록과 같은 틀(헤더, 카드 격자)에, 카드는 서버 관리 권한이 있고 봇이 없는 서버. 카드 아래 줄이 지금 곡 대신 초대 버튼이다 -->
   <div class="min-h-full px-(--gap-out) pt-2 md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
     <header class="flex items-center justify-between gap-4 h-12 md:h-(--strip) mb-1 md:mb-0 px-[calc((var(--r-desk)-var(--gap-out))/2)]">
       <div class="flex items-baseline gap-3 min-w-0">
@@ -38,7 +38,7 @@
           <GuildAvatar :guild="{ name: g.name, icon: g.icon, hasPlayer: false }" :status="false" size-class="size-13" text-class="text-lg" />
           <div class="min-w-0 flex-1 text-base font-semibold truncate">{{ g.name }}</div>
         </div>
-        <!-- 서버 카드의 지금 곡 줄과 같은 자리 · 높이. 누르면 새 탭에서 디스코드 승인 화면 -->
+        <!-- 서버 카드의 지금 곡 줄과 같은 자리, 높이. 누르면 새 탭에서 디스코드 승인 화면 -->
         <a :href="g.inviteUrl" target="_blank" rel="noopener noreferrer" class="tap state-layer flex items-center justify-center gap-2 h-14 rounded-(--r-inner) bg-secondary-container text-on-secondary-container no-underline text-sm font-semibold" v-tooltip="T.opensNewTab"> <Icon name="add" :size="20" :weight="600" />{{ T.invite }}<Icon name="open_in_new" :size="16" class="opacity-70" /> </a>
       </div>
     </div>

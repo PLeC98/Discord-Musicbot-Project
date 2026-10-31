@@ -1,10 +1,10 @@
 /**
  * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
- * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연 · 멈춤을 잰다.
+ * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연, 멈춤을 잰다.
  * 답은 이벤트 루프 한 바퀴에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
  * media/opus-encoder 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
  *
- * 받는 것(parentPort): init · open · frame · close. 주는 것(init 때 받은 포트): ready · replies · load
+ * 받는 것(parentPort): init, open, frame, close. 주는 것(init 때 받은 포트): ready, replies, load
  */
 import { parentPort, type MessagePort } from "worker_threads";
 import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts";
@@ -12,7 +12,7 @@ import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
 // 프레임 하나의 답. packet 이 없으면 error 다.
 // doneAt: 답을 낸 때(timeOrigin + now, ms). 메인이 받기를 미룬 시간을 빼고 워커가 걸린 시간을 잰다.
-// startedAt · encodeMs: 인코딩을 시작한 때(timeOrigin + now)와 걸린 시간(ms). 메인이 응답 시간을 대기 · 인코딩으로 나눠 본다. 인코딩 전에 난 오류에는 없다.
+// startedAt, encodeMs: 인코딩을 시작한 때(timeOrigin + now)와 걸린 시간(ms). 메인이 응답 시간을 대기, 인코딩으로 나눠 본다. 인코딩 전에 난 오류에는 없다.
 // fatal: 이 스레드의 WASM 모듈이 망가졌다(abort). 메인이 스레드를 바꾼다
 type Reply = { id: number; seq: number; doneAt: number; startedAt?: number; encodeMs?: number; packet?: ArrayBuffer; error?: string; fatal?: boolean };
 type FromWorker =

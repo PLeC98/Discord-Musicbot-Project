@@ -1,4 +1,4 @@
-// src/player/player.ts · src/player/track-state.ts: 자동재생 미리 뽑기
+// src/player/player.ts, src/player/track-state.ts: 자동재생 미리 뽑기
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
 // QueueWarmer가 평소처럼 다운로드해 두고 전환이 즉시가 된다.
@@ -96,7 +96,7 @@ test("곡이 돌고 대기열이 비어 있으면 한 곡을 미리 넣는다", 
   assert.equal(p.queue[0].autoplay, true, "표시가 붙어야 대기열 표시·정리에서 가른다");
 });
 
-test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 · 한곡 반복 · 자동재생 꺼짐", async () => {
+test("미리 뽑지 않는 경우: 대기열이 차 있음, 현재곡 없음, 한곡 반복, 자동재생 꺼짐", async () => {
   const cases = [makePlayer({ queue: [user("대기중")] }), makePlayer({ current: null }), makePlayer({ loop: "track" }), makePlayer({ autoplay: false })];
 
   for (const p of cases) {
@@ -228,7 +228,7 @@ test("고를 곡이 없으면 끄고 알린다. 아무거나 틀지 않는다", 
   assert.match(p.calls.sent[0], /팝/, "어느 장르에서 못 찾았는지 알려야 한다");
 });
 
-// ── 끄기·장르 변경 ────────────────────────────────────────────────────────
+// ── 끄기, 장르 변경 ────────────────────────────────────────────────────────
 
 test("자동재생을 끄면 미리 뽑아 둔 곡만 빠진다", () => {
   const p = makePlayer({ queue: [user("내곡"), auto("자동")] });

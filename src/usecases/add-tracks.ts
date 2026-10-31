@@ -27,17 +27,17 @@ import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
 
 /** 곡 찾기에서 부르는 것 */
 type Lookup = Pick<typeof songLookup, "resolveQuery" | "getCollection">;
-/** 요청자로 받는 것: 디스코드 멤버 · 사용자, 대시보드 세션 사용자, 세션 복구 스텁(이름 문자열) */
+/** 요청자로 받는 것: 디스코드 멤버, 사용자, 대시보드 세션 사용자, 세션 복구 스텁(이름 문자열) */
 type RequesterSource = string | { id?: string | null; displayName?: string | null; username?: string | null; tag?: string | null; user?: { displayName?: string | null; username?: string | null; tag?: string | null } } | null | undefined;
 
-// 곡 찾기. 진입점(명령 · 이벤트 · 대시보드)을 거쳐 부르는 테스트는 useLookup 으로 가짜를 넘긴다(플레이어의 useBoundary 와 같다)
+// 곡 찾기. 진입점(명령, 이벤트, 대시보드)을 거쳐 부르는 테스트는 useLookup 으로 가짜를 넘긴다(플레이어의 useBoundary 와 같다)
 let defaultLookup: Lookup = songLookup;
 function useLookup(fake: Lookup | null | undefined) {
   defaultLookup = fake ?? songLookup;
 }
 
 /**
- * 넣지 못한 까닭. 로그에 적고, 사용자 문장은 진입점이 ui/error-messages 로 선택한다. 곡 찾기 · 재생이 던진 것이면 그 오류의 종류(kind)
+ * 넣지 못한 까닭. 로그에 적고, 사용자 문장은 진입점이 ui/error-messages 로 선택한다. 곡 찾기, 재생이 던진 것이면 그 오류의 종류(kind)
  */
 type Refused = { code: string; kind?: Code; skipped?: number };
 const isRefused = (x: object): x is Refused => "code" in x;
@@ -52,13 +52,13 @@ function liveBlock(track: TrackInfo, ffmpegReady: () => boolean): Refused | null
 }
 
 /**
- * 곡 추가 경로의 코어. 진입점(슬래시 명령 · 전용 채널 · 검색 선택 · 대시보드)은
+ * 곡 추가 경로의 코어. 진입점(슬래시 명령, 전용 채널, 검색 선택, 대시보드)은
  * 권한 검사와 응답 매체(responder)만 맡고 나머지는 전부 여기를 지난다.
  * 디스코드 상호작용도 HTTP 응답도 만들지 않고 결과 객체만 돌려준다.
  */
 
 /**
- * 요청자를 한 모양으로 접는다(GuildMember · 대시보드 세션 사용자 · 세션 복구 스텁). 쓰는 쪽은 id·username·tag만 읽는다.
+ * 요청자를 한 모양으로 접는다(GuildMember, 대시보드 세션 사용자, 세션 복구 스텁). 쓰는 쪽은 id, username, tag만 읽는다.
  */
 function toRequester(source: RequesterSource): Requester | null {
   if (!source) return null;
@@ -111,7 +111,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
 
 /**
  * 곡 추가/재생 요청. 검색어(query)나 이미 찾은 곡(tracks) 가운데 하나는 있어야 한다.
- * textChannel 은 안내 · 패널을 보낼 채널, voiceChannel 은 붙을 음성 채널, single 은 재생목록이어도 첫 곡만,
+ * textChannel 은 안내, 패널을 보낼 채널, voiceChannel 은 붙을 음성 채널, single 은 재생목록이어도 첫 곡만,
  * responder 는 결과를 알리는 매체(기본: 무동작), source 는 로그 라벨
  */
 type PlaybackRequest = {
@@ -129,10 +129,10 @@ type PlaybackRequest = {
   ffmpegReady?: () => boolean;
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
-/** 곡 담기 결과. 실패면 그 까닭(code · kind), 목록이 더 남았으면 이어 불러올 상태(more) */
+/** 곡 담기 결과. 실패면 그 까닭(code, kind), 목록이 더 남았으면 이어 불러올 상태(more) */
 type PlaybackResult = { success: false; code: string; kind?: Code; skipped?: number; dropped?: undefined; more?: undefined; player?: undefined } | (AddResult & { isPlaylist: boolean; tracks: TrackInfo[]; player: Player; more: (More & { batch: number }) | null });
 
-/** 이어 넣은 결과. 넣은 수 · 목록의 남은 곡과 다음 위치(next) */
+/** 이어 넣은 결과. 넣은 수, 목록의 남은 곡과 다음 위치(next) */
 type Continued = { added: number; skipped: number; total: number | null; remaining: number; next: (More & { batch: number }) | null };
 /** 이어 넣지 못한 까닭. more-nothing-playable 이면 받을 수 없어 뺀 곡 수(skipped) */
 type CollectionResult = { success: false; code: string; skipped?: number } | (PlaybackResult & Continued);
@@ -148,7 +148,7 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
   defaultAdder = fake ?? ((...args) => queueTracks(...args));
 }
 
-/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped 는 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기 · 지역 제한) */
+/** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped 는 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기, 지역 제한) */
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
 async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<PlaybackResult> {
@@ -201,8 +201,8 @@ async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = n
 async function tracksFor(player: Player | null, request: PlaybackRequest, batch: number): Promise<Found | Refused> {
   const found = request.tracks ? { isPlaylist: request.tracks.length > 1, collection: request.collection ?? null, tracks: request.tracks } : await search(player, request.query, request, batch);
   if (isRefused(found)) return found;
-  // 운영자가 직접 지정한 음원을 붙인다(재생목록 · 검색 결과 · 더 넣기 · 대시보드 · /search 의 곡들. 링크 하나의 요청은 곡 찾기가 이미 붙였다).
-  // 막힌 것 필터링 · 라이브 검사보다 먼저: 라이브 · 예정 방송인 원래 영상도 지정한 음원이 있으면 막히지 않는다
+  // 운영자가 직접 지정한 음원을 붙인다(재생목록, 검색 결과, 더 넣기, 대시보드, /search 의 곡들. 링크 하나의 요청은 곡 찾기가 이미 붙였다).
+  // 막힌 것 필터링, 라이브 검사보다 먼저: 라이브, 예정 방송인 원래 영상도 지정한 음원이 있으면 막히지 않는다
   for (const track of found.tracks) pinnedSources.applyPin(track);
   return withoutBlocked(found, request.ffmpegReady);
 }
@@ -499,7 +499,7 @@ async function startFirst(panel: Panel, player: Player, track: QueuedTrack, resp
   player.takeOverSaved();
   trackState.setCurrent(player, track);
   const failure = await startPlayback(player);
-  // 그 곡에서 멈춰 뒀다(다음 곡도 같은 이유로 안 된다 · 까닭 모를 실패가 연달아). 곡을 지우지도 다음 곡을 열지도 않고 멈춘 패널을 세운다. 까닭은 채널 알림이 말한다
+  // 그 곡에서 멈춰 뒀다(다음 곡도 같은 이유로 안 된다, 까닭 모를 실패가 연달아). 곡을 지우지도 다음 곡을 열지도 않고 멈춘 패널을 세운다. 까닭은 채널 알림이 말한다
   if (failure?.code === "parked") return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
   if (failure) {
     // 실패한 곡으로는 패널을 세우지 않고 대기열에도 넣지 않는다(다시 틀어도 실패한다)
@@ -567,7 +567,7 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
   const received = trackData.tracks.length;
   return {
     queued,
-    // 여러 곡을 담았으면 그 출처의 종류(playlist · album 등, 모르면 playlist), 한 곡이면 null
+    // 여러 곡을 담았으면 그 출처의 종류(playlist, album 등, 모르면 playlist), 한 곡이면 null
     collection: trackData.isPlaylist ? (trackData.collection ?? "playlist") : null,
     insertFirst,
     // 안내에 붙일 것. 전체 곡 수는 불러온 것보다 많을 때만

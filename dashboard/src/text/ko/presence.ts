@@ -23,7 +23,7 @@ const interval = "문구 변경 주기(초)";
 const ifEmpty = (value: number | string) => `비우면 ${value}`;
 const messages = "문구";
 
-// 기간 · 시간대 문구
+// 기간, 시간대 문구
 const namePlaceholder = "항목 이름 (예: 크리스마스)";
 const removeSpecial = "이 항목 삭제";
 const conditions = "조건";

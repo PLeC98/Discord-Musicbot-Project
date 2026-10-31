@@ -1,4 +1,4 @@
-// src/dashboard/status/: 봇 상태 탭이 모으는 것: 최근 15분(15초 구간마다 한 점, 60점까지) · 게이트웨이 재연결 · 자식 프로세스
+// src/dashboard/status/: 봇 상태 탭이 모으는 것: 최근 15분(15초 구간마다 한 점, 60점까지), 게이트웨이 재연결, 자식 프로세스
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ import { recentProblems } from "../../src/dashboard/status/env.ts";
 
 after(stopVitals);
 
-// 멈춤은 플레이어 값이다(사람의 뜻 · 억제 사유). 가짜는 오디오가 멈춘 것을 멈춤으로 둔다
+// 멈춤은 플레이어 값이다(사람의 뜻, 억제 사유). 가짜는 오디오가 멈춘 것을 멈춤으로 둔다
 const player = (status: AudioPlayerStatus) => ({ audioPlayer: { state: { status } }, paused: status === AudioPlayerStatus.Paused });
 const bot = fakeBot({
   client: { ws: { ping: 42 } },
@@ -39,7 +39,7 @@ const closeWindows = async (n: number) => {
   await new Promise((resolve) => setImmediate(resolve));
 };
 
-test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤 · 곡 없음은 빼고) · 디스코드 지연 · heap 사용률", async () => {
+test("최근 15분: 구간마다 한 점. 소리를 내는 플레이어 수(멈춤, 곡 없음은 빼고), 디스코드 지연, heap 사용률", async () => {
   startStatusHistory(bot, { readSystem: async () => null });
   const before = Date.now();
   await closeWindows(1);
@@ -149,7 +149,7 @@ test("게이트웨이 로그: 재연결하지 않는 닫힘은 오류와 합쳐 
   assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않습니다 (샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
 });
 
-test("자식 프로세스: 프로그램 · 서버 이름 · 일. 재생 · 다음 곡 일인데 그 서버에 플레이어가 없으면 잔류 의심", () => {
+test("자식 프로세스: 프로그램, 서버 이름, 일. 재생, 다음 곡 일인데 그 서버에 플레이어가 없으면 잔류 의심", () => {
   let pid = 910_001;
   const spawn = (file: string, label: string) => registry.register({ pid: pid++, exitCode: null, signalCode: null, spawnfile: file }, label);
   const releases = [inGuild("g1", () => spawn("ffmpeg", "ffmpeg:playback"), "play"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "prefetch"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "lookup"), spawn("node", "bgutil")];
@@ -183,7 +183,7 @@ test("자식 프로세스: 구간만 행으로, 잔류 의심 프로세스는 �
   }
 });
 
-// 정렬 테스트용 행: 이름 · 일 · 나이만 다르게
+// 정렬 테스트용 행: 이름, 일, 나이만 다르게
 const proc = (pid: number, ageMs: number, more: Partial<ProcessRow> = {}): ProcessRow => ({ pid, label: "ffmpeg", ageMs, memMb: null, guildId: null, guildName: null, job: null, stray: false, ...more });
 const pids = (rows: ProcessRow[]) => rows.map((p) => p.pid);
 
@@ -197,13 +197,13 @@ test("프로세스 정렬: 방향은 고른 열에만, 같은 값끼리는 늘 �
   assert.deepEqual(pids(sortProcesses(labels, "label", false)), [2, 3, 1]);
 });
 
-test("프로세스 정렬(작업): 서버 이름 있는 작업(이름 가나다 → 재생 · 다음 곡 · 곡 찾기) → 나간 서버 → 서버 밖 작업 → 봇 헬퍼", () => {
+test("프로세스 정렬(작업): 서버 이름 있는 작업(이름 가나다 → 재생, 다음 곡, 곡 찾기) → 나간 서버 → 서버 밖 작업 → 봇 헬퍼", () => {
   const rows = [proc(1, 1, { job: "pot-server" }), proc(2, 1, { job: "lookup" }), proc(3, 1, { job: "play", guildId: "x" }), proc(4, 1, { job: "lookup", guildId: "b", guildName: "나비" }), proc(5, 1, { job: "play", guildId: "b", guildName: "나비" }), proc(6, 1, { job: "prefetch", guildId: "a", guildName: "가람" }), proc(7, 1, { job: "net-stats" }), proc(8, 1, { job: "prefetch" })];
   assert.deepEqual(pids(sortProcesses([...rows], "job", false)), [6, 5, 4, 3, 8, 2, 1, 7]);
   assert.deepEqual(pids(sortProcesses([...rows], "job", true)), [7, 1, 2, 8, 3, 4, 5, 6]);
 });
 
-test("플레이어: 상태별 개수 · 합계는 전부, 행은 필터링된 것(상태 · 검색)의 구간만, 멤버 표시는 그 행만", () => {
+test("플레이어: 상태별 개수, 합계는 전부, 행은 필터링된 것(상태, 검색)의 구간만, 멤버 표시는 그 행만", () => {
   const players = new Map(
     [
       ["a", "가요 광장", AudioPlayerStatus.Playing, "봄날"],
@@ -224,7 +224,7 @@ test("플레이어: 상태별 개수 · 합계는 전부, 행은 필터링된 �
   assert.deepEqual(playerRows(client, players, { ...STATUS_QUERY, states: [] }, "viewer", null).rows, []);
 });
 
-test("최근 경고 · 오류: 같은 글은 한 줄로(횟수 · 마지막 때), 최근 것부터 셋", () => {
+test("최근 경고, 오류: 같은 글은 한 줄로(횟수, 마지막 때), 최근 것부터 셋", () => {
   const before = recentProblems();
   const at = Date.now();
   const say = (level: number, msg: string, dt: number) => logSink.record({ level, time: at + dt, msg });

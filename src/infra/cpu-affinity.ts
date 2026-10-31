@@ -36,7 +36,7 @@ function bindProcess(pid: number | undefined) {
   });
 }
 
-/** 묶는 코어 수(묶지 못하는 기기면 null: macOS · taskset 이 없는 리눅스) */
+/** 묶는 코어 수(묶지 못하는 기기면 null: macOS, taskset 이 없는 리눅스) */
 const boundCores = () => (process.platform === "win32" || (process.platform === "linux" && TASKSET) ? encodeCores().count : null);
 
 export { encodeCores, bindCommand, bindProcess, boundCores };

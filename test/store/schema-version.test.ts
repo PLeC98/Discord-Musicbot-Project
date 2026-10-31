@@ -1,5 +1,5 @@
-// src/store/stores.ts · sqlite.ts: DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들거나 그 자리에서 올리지 않는다.
-// 어느 파일이든 열지 않고 멈춘다. 캐시 · 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
+// src/store/stores.ts, sqlite.ts: DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들거나 그 자리에서 올리지 않는다.
+// 어느 파일이든 열지 않고 멈춘다. 캐시, 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import os from "node:os";
@@ -130,7 +130,7 @@ test("현재 재생 패널 위치: 쓰고 읽고 비운다. 서버 설정과 다
   assert.equal(await panelRecords.getPanel("g"), null);
 });
 
-test("서버에서 나가면 그 서버의 실행 상태만 삭제한다. 서버 설정 · 다른 서버는 남는다", async () => {
+test("서버에서 나가면 그 서버의 실행 상태만 삭제한다. 서버 설정, 다른 서버는 남는다", async () => {
   stores.open(dir);
   for (const g of ["gone", "stay"]) {
     sessions().append(g, [{ title: "a", pageUrl: "https://y/a", requestKey: "https://y/a" }]);

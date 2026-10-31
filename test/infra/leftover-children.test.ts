@@ -1,6 +1,6 @@
 // src/infra/leftover-children.ts: 이전 실행이 남긴 자식 프로세스를 기동 시 내린다.
-// 실행마다 파일 하나. 기록을 남긴 봇이 끝났을 때만, 이름 · 시작 시각이 맞는 자식과 그 손자를 내린다. 목록을 읽지 못하면 아무것도 내리지 않고 기록을 둔다.
-// 진짜 프로세스 · 파일은 건드리지 않는다
+// 실행마다 파일 하나. 기록을 남긴 봇이 끝났을 때만, 이름, 시작 시각이 맞는 자식과 그 손자를 내린다. 목록을 읽지 못하면 아무것도 내리지 않고 기록을 둔다.
+// 진짜 프로세스, 파일은 건드리지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const DIR = "records";
 
 type Files = Record<string, ChildRecord | string>;
 
-// 기록 파일들과 OS가 아는 프로세스(null: 읽지 못함). 내린 것 · 삭제한 파일 · 다시 쓴 파일 · 목록을 읽은 횟수를 적는다
+// 기록 파일들과 OS가 아는 프로세스(null: 읽지 못함). 내린 것, 삭제한 파일, 다시 쓴 파일, 목록을 읽은 횟수를 적는다
 function world(files: Files, running: Proc[] | null, { failKill = [] as number[], now = T + 60_000, isWin = true } = {}) {
   const killed: string[] = [];
   const removed: string[] = [];
@@ -55,7 +55,7 @@ test("읽지 못하는 기록은 삭제하고, 쓰는 중의 임시 파일은 �
   assert.deepEqual(w.removed, ["1-2.json"]);
 });
 
-test("살아 있고 이름 · 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 삭제한다", () => {
+test("살아 있고 이름, 시작 시각이 기록과 맞는 자식만 트리째 내리고 기록을 삭제한다", () => {
   const w = world({ "300-1.json": record([child(10, "bgutil", "node"), child(11, "ffmpeg", "ffmpeg", { group: true })]) }, [proc(10, "node"), proc(11, "ffmpeg")]);
   assert.deepEqual(w.run(), ["bgutil#10", "ffmpeg#11"]);
   assert.deepEqual(w.killed, ["10", "11:group"]);
@@ -75,7 +75,7 @@ test("시계와 상관없는 시작 키가 둘 다 있으면 그것으로 맞춘
   assert.deepEqual(world(files, [proc(10, "yt-dlp", { startKey: "boot:999" })]).run(), []);
 });
 
-test("Windows: 끝난 yt-dlp의 남은 손자(안쪽 yt-dlp · conhost)를 부모 pid로 찾아 내린다. 그보다 먼저 생긴 것 · 다른 프로그램은 둔다", () => {
+test("Windows: 끝난 yt-dlp의 남은 손자(안쪽 yt-dlp, conhost)를 부모 pid로 찾아 내린다. 그보다 먼저 생긴 것, 다른 프로그램은 둔다", () => {
   const w = world({ "300-1.json": record([child(20, "yt-dlp", "yt-dlp")]) }, [proc(21, "yt-dlp", { ppid: 20, startedAt: T + 5200 }), proc(22, "conhost", { ppid: 20, startedAt: T + 5100 }), proc(23, "notepad", { ppid: 20, startedAt: T + 6000 }), proc(24, "yt-dlp", { ppid: 20, startedAt: T - DAY })]);
   assert.deepEqual(w.run(), ["yt-dlp#20의 yt-dlp#21", "yt-dlp#20의 conhost#22"]);
   assert.deepEqual(w.killed, ["21", "22"]);

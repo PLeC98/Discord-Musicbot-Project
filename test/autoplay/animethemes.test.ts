@@ -1,10 +1,10 @@
 // src/autoplay/sources/animethemes.ts: AnimeThemes 소스.
 //
 // 지키려는 계약:
-//  · 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
-//  · 같은 곡이 여러 작품 · 시즌의 주제가일 수 있다. 겹침은 song.id 로 막는다
-//  · 연도 · 시즌 조건은 anime 쪽에 걸고, 양끝 시즌은 받은 뒤 우리가 자른다
-//  · 종류(OP · ED)와 순번이 맞는 주제가만
+// - 대사가 얹힌 버전(overlap 이 None 이 아닌 것)만 있는 곡은 버린다. 깨끗한 버전이 있으면 그것을 쓴다
+// - 같은 곡이 여러 작품, 시즌의 주제가일 수 있다. 겹침은 song.id 로 막는다
+// - 연도, 시즌 조건은 anime 쪽에 걸고, 양끝 시즌은 받은 뒤 우리가 자른다
+// - 종류(OP, ED)와 순번이 맞는 주제가만
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -84,7 +84,7 @@ test("곡 id 가 없는 주제가는 뺀다(겹침도 출처 키도 가를 수 �
   );
 });
 
-test("조건이 없으면 주제가를 무작위로 한 번 묻는다. 종류 · 순번은 저쪽 필터로", async () => {
+test("조건이 없으면 주제가를 무작위로 한 번 묻는다. 종류, 순번은 저쪽 필터로", async () => {
   const urls = serve(() => ({ animethemes: [] }));
   await animethemes(source({ themeType: "ED", sequence: 2 }));
   assert.equal(urls.length, 1);

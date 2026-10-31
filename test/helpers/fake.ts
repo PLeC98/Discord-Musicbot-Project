@@ -18,16 +18,16 @@ function fakeWith<T>() {
   return <X extends object>(partial: X) => partial as unknown as T & Omit<X, keyof T>;
 }
 
-// 쉬는 재생 단계. 읽기만 한다(진짜 PlaybackState 를 불러오면 로거 · 설정이 테스트 준비보다 먼저 열린다)
+// 쉬는 재생 단계. 읽기만 한다(진짜 PlaybackState 를 불러오면 로거, 설정이 테스트 준비보다 먼저 열린다)
 const idleLifecycle = () => ({ phase: "idle", ending: false, starting: false, parked: false, disposed: false });
 
-/** 가짜 플레이어. 재생 단계(lifecycle)를 주지 않았으면 쉬는 단계를 붙인다(실패로 멈춰 뒀나 · 여는 중인가를 여러 곳이 본다). 받은 객체에 붙이므로 게터는 그대로다 */
+/** 가짜 플레이어. 재생 단계(lifecycle)를 주지 않았으면 쉬는 단계를 붙인다(실패로 멈춰 뒀나, 여는 중인가를 여러 곳이 본다). 받은 객체에 붙이므로 게터는 그대로다 */
 const fakePlayer = <X extends object>(partial: X) => {
   if (!("lifecycle" in partial)) Object.assign(partial, { lifecycle: idleLifecycle() });
   return fakeWith<Player>()(partial);
 };
 
-/** 가짜 봇 문맥(src/app/bot-context). 테스트가 읽는 필드만 채운다. 플레이어 · 명령은 없으면 빈 목록, 자리 지킴이는 아무것도 안 하는 것 */
+/** 가짜 봇 문맥(src/app/bot-context). 테스트가 읽는 필드만 채운다. 플레이어, 명령은 없으면 빈 목록, 자리 지킴이는 아무것도 안 하는 것 */
 function fakeBot(partial: { client?: object; players?: Map<string, unknown>; panels?: object; commands?: Map<string, unknown>; stay?: object } = {}): BotContext {
   const stay = { boot: async () => {}, attempt: async () => true, onDisposed() {}, wake() {}, onGuildAvailable() {}, onChannelDeleted() {}, stop() {} };
   return fake<BotContext>({ client: {}, players: new Map(), commands: new Map(), stay, ...partial });

@@ -2,9 +2,9 @@
 //   node scripts/build-sans-font.ts
 //
 // 원본은 화면 앱이 받는 @fontsource-variable/google-sans-flex 의 모든 축 버전(full)이다(라틴 1.4MB 남짓). 화면은 폭(wdth)과 획 두께(GRAD)를 움직이지 않으므로
-// 둘을 기본값(100 · 0)에 고정하고, 굵기 · 둥글기(ROND) · 크기 맞춤(opsz) · 기울기(slnt)는 남긴다(rond 버전은 크기 맞춤 · 기울기가 없어 쓰지 않는다).
-// 글자는 하나도 빼지 않는다(문구 · 곡명이 바뀌어도 다시 만들 필요가 없다). 서브셋과 unicode-range 는 원본 CSS 를 그대로 따른다.
-// 결과: dashboard/src/assets/google-sans-flex/(서브셋마다 woff2 · OFL.txt) · dashboard/src/google-sans-flex.css(@font-face)
+// 둘을 기본값(100, 0)에 고정하고, 굵기, 둥글기(ROND), 크기 맞춤(opsz), 기울기(slnt)는 남긴다(rond 버전은 크기 맞춤, 기울기가 없어 쓰지 않는다).
+// 글자는 하나도 빼지 않는다(문구, 곡명이 바뀌어도 다시 만들 필요가 없다). 서브셋과 unicode-range 는 원본 CSS 를 그대로 따른다.
+// 결과: dashboard/src/assets/google-sans-flex/(서브셋마다 woff2, OFL.txt), dashboard/src/google-sans-flex.css(@font-face)
 // 원본에 없는 라이선스 설명(name 13번)을 넣어 서브셋마다 라이선스가 따라가게 한다(scripts/font-names.ts)
 
 import fs from "node:fs";
@@ -23,7 +23,7 @@ const PINNED = { wdth: 100, GRAD: 0 };
 // 글자는 하나도 빼지 않는다(keepAllGlyphs). @types/subset-font 가 이 옵션을 아직 적지 않아, 객체를 따로 만들어 넘긴다(패키지 자체는 받는다)
 const OPTIONS = { keepAllGlyphs: true, variationAxes: PINNED, targetFormat: "woff2" as const, preserveNameIds: LICENSE_NAME_IDS };
 
-/** 원본 CSS 의 @font-face 하나: 서브셋 이름 · 파일 · 글자 범위 · 기울기 범위 */
+/** 원본 CSS 의 @font-face 하나: 서브셋 이름, 파일, 글자 범위, 기울기 범위 */
 type Face = { subset: string; file: string; range: string; style: string };
 
 function faces(): Face[] {

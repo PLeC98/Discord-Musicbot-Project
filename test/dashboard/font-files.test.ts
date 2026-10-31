@@ -1,5 +1,5 @@
-// scripts/font-names.ts · dashboard/src/assets 의 글꼴: 화면 글꼴의 라이선스 조건.
-// 셋 다 SIL OFL 1.1 이다. 서브셋마다 라이선스(name 13 · 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
+// scripts/font-names.ts, dashboard/src/assets 의 글꼴: 화면 글꼴의 라이선스 조건.
+// 셋 다 SIL OFL 1.1 이다. 서브셋마다 라이선스(name 13, 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ function fontSum(font: Buffer) {
   return sum;
 }
 
-test("setNames: 고른 번호만 바꾸고 지우며, 나머지 이름 · 글자 · 체크섬은 맞다", async () => {
+test("setNames: 고른 번호만 바꾸고 지우며, 나머지 이름, 글자, 체크섬은 맞다", async () => {
   const source = await toSfnt(fs.readFileSync(path.join(ASSETS, "material-symbols.woff2")));
   const before = open(source);
   const out = setNames(source, { 1: "Example Sans", 4: "Example Sans Regular", 6: "", ...OFL_NAMES });
@@ -52,7 +52,7 @@ const shipped = () =>
     )
     .concat(path.join(ASSETS, "material-symbols.woff2"));
 
-test("내주는 글꼴은 서브셋마다 저작권 · 라이선스 설명 · 주소를 담는다(OFL FAQ 2.4)", () => {
+test("내주는 글꼴은 서브셋마다 저작권, 라이선스 설명, 주소를 담는다(OFL FAQ 2.4)", () => {
   const missing = shipped().filter((file) => {
     const font = open(fs.readFileSync(file));
     return !en(font, "copyright") || en(font, "license") !== OFL_NAMES[13] || en(font, "licenseURL") !== OFL_NAMES[14];

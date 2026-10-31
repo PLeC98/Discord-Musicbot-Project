@@ -1,4 +1,4 @@
-// src/discord/events/interaction-create.ts: 봇이 만드는 모든 custom_id · 모달 · 선택 메뉴가 정해진 핸들러 하나로 가고,
+// src/discord/events/interaction-create.ts: 봇이 만드는 모든 custom_id, 모달, 선택 메뉴가 정해진 핸들러 하나로 가고,
 // 정확히 한 번 답하는지 본다. 두 번 답하면 늦은 쪽이 40060 으로 터지고, 아무도 안 답하면 사용자는 "상호작용 실패"를 본다.
 
 import fs from "node:fs";
@@ -82,7 +82,7 @@ function ownerOf(kind: Kind, customId: string) {
   return Object.entries(OWNERS).find(([, routes]) => route && routes.includes(route))?.[0] ?? null;
 }
 
-// 진입점에 태워 처음 답한 방법들을 모은다. 미룬 뒤 고치기 · 이어 보내기는 한 답의 뒷부분이라 세지 않는다
+// 진입점에 태워 처음 답한 방법들을 모은다. 미룬 뒤 고치기, 이어 보내기는 한 답의 뒷부분이라 세지 않는다
 const FIRST = new Set(["reply", "deferReply", "deferUpdate", "update", "showModal"]);
 async function answers(kind: Kind, customId: string) {
   const answered: string[] = [];
@@ -121,7 +121,7 @@ for (const [kind, customId, owner] of CASES) {
 }
 
 // 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id 가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
-test("봇이 만드는 모달 · 메뉴의 custom_id 는 목록의 그 경로로 간다", async () => {
+test("봇이 만드는 모달, 메뉴의 custom_id 는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
@@ -177,7 +177,7 @@ test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => 
   assert.deepEqual(missing, []);
 });
 
-test("종류가 다르면 접두사가 맞아도 받지 않는다(버튼 접두사의 메뉴 · 모달)", () => {
+test("종류가 다르면 접두사가 맞아도 받지 않는다(버튼 접두사의 메뉴, 모달)", () => {
   assert.equal(routeOf(ROUTES, "select", "panel:skip:s1"), null);
   assert.equal(routeOf(ROUTES, "modal", "setting:sb-toggle"), null);
   assert.ok(routeOf(ROUTES, "button", "setting:sb-toggle"));

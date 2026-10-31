@@ -1,4 +1,4 @@
-// 운영자 패널: 디스플레이 탭의 파비콘 카드 · 이미지 편집 · 크기별 팝업(업로드 · 링크 · 기록)
+// 운영자 패널: 디스플레이 탭의 파비콘 카드, 이미지 편집, 크기별 팝업(업로드, 링크, 기록)
 
 import { josa } from "../../../../src/rules/josa.ts";
 import { formatClock, formatDate } from "../../utils/locale.ts";
@@ -47,10 +47,10 @@ const crop = {
   use: "적용하기",
 };
 
-/** 크기별 팝업: 이미지 업로드 · 링크로 추가 · 기록 */
+/** 크기별 팝업: 이미지 업로드, 링크로 추가, 기록 */
 const slotDialog = {
   title: (size: number) => `${size}px 파비콘`,
-  /** 업로드 · 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
+  /** 업로드, 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
   maxSize: (bytes: number) => `최대 파일 크기는 ${bytes / 1024 / 1024}MB예요.`,
   fromFile: "이미지 업로드",
   fromFileHint: "png, webp, jpg, svg",

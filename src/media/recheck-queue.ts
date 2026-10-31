@@ -1,13 +1,13 @@
 // 캐시의 다시 확인 줄. 캐시 파일로 튼 곡의 원본을, 마지막으로 본 지 출처마다의 간격(설정 CACHE_RECHECK_*_DAYS)이 지났으면 뒤에서 다시 묻는다.
-// 재생은 기다리지 않는다(캐시 파일로 바로 틀고, 결과는 다음 재생부터). 안 트는 파일은 묻지 않는다. 캐시 DB 의 재생 테스트는 캐시 파일이 있는 음원을 간격 · 줄 없이 바로 묻는다.
+// 재생은 기다리지 않는다(캐시 파일로 바로 틀고, 결과는 다음 재생부터). 안 트는 파일은 묻지 않는다. 캐시 DB 의 재생 테스트는 캐시 파일이 있는 음원을 간격, 줄 없이 바로 묻는다.
 //
-// 한 번에 하나씩, 같은 출처는 간격을 두고(유튜브 · 사운드클라우드는 yt-dlp 의 뒤 줄로), yt-dlp 가 바쁘거나 유튜브 추출 수가 알리는 선을 넘었으면 미룬다.
-// 결과(media/source-recheck)는 source_checks 에 원본에서 틀 수 있는가 · 그때 본 원본의 버전으로 남긴다. 바뀜은 그 버전과 캐시 파일의 버전이 달라 보인다.
+// 한 번에 하나씩, 같은 출처는 간격을 두고(유튜브, 사운드클라우드는 yt-dlp 의 뒤 줄로), yt-dlp 가 바쁘거나 유튜브 추출 수가 알리는 선을 넘었으면 미룬다.
+// 결과(media/source-recheck)는 source_checks 에 원본에서 틀 수 있는가, 그때 본 원본의 버전으로 남긴다. 바뀜은 그 버전과 캐시 파일의 버전이 달라 보인다.
 //
-//   바뀜         유튜브는 알리기만(저작권 주장으로 소리를 지운 편집일 수 있다), 사운드클라우드 · 직접 링크는 캐시를 지워 다음 재생 때 새로 받는다(쓰는 중이면 끝난 뒤)
+//   바뀜         유튜브는 알리기만(저작권 주장으로 소리를 지운 편집일 수 있다), 사운드클라우드, 직접 링크는 캐시를 지워 다음 재생 때 새로 받는다(쓰는 중이면 끝난 뒤)
 //   비교 못 함   틀 수 있음으로 남긴다(앞서 본 버전은 지킨다). 다시 물어도 같아 간격대로만 묻는다
 //   사라짐       캐시는 그대로 틀고 남기기만(곡은 대개 다른 주소에 있어 정리는 다른 캐시와 같다)
-//   모름         하루 뒤에 다시(일시 오류 · 요청 제한 · 만료된 주소)
+//   모름         하루 뒤에 다시(일시 오류, 요청 제한, 만료된 주소)
 
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
@@ -34,7 +34,7 @@ const UNKNOWN_HOLD_MS = 86_400_000;
 // 바뀐 캐시를 쓰는 중이라 못 지웠으면 이만큼 뒤에 다시
 const IN_USE_RETRY_MS = 10 * 60_000;
 
-/** 원본에 묻는 함수 · 시계. 테스트가 바꾼다 */
+/** 원본에 묻는 함수, 시계. 테스트가 바꾼다 */
 const deps = { recheck, now: () => Date.now() };
 
 const queue: Job[] = [];
@@ -51,7 +51,7 @@ const platformOf = (audioUrl: string): Platform | null => {
   return kind === "youtube" || kind === "soundcloud" || kind === "direct" ? kind : null;
 };
 
-// 마지막으로 원본을 본 때: 받은 때 · 버전을 본 때 · 확인한 때 중 늦은 것
+// 마지막으로 원본을 본 때: 받은 때, 버전을 본 때, 확인한 때 중 늦은 것
 function lastSeen(row: audioCache.AudioRow, audioKey: string): number {
   return Math.max(row.downloaded_at ?? 0, row.version_checked_at ?? 0, sourceChecks.getCheck(audioKey)?.at ?? 0);
 }
@@ -70,7 +70,7 @@ function notePlayedFromCache(track: { audioUrl?: string | null; title?: string |
   schedule(0);
 }
 
-/** 캐시 DB 의 재생 테스트: 간격 · 줄을 보지 않고 바로 묻고 결과대로 한다. 캐시 파일이 없거나 다시 확인하지 않는 출처면 null */
+/** 캐시 DB 의 재생 테스트: 간격, 줄을 보지 않고 바로 묻고 결과대로 한다. 캐시 파일이 없거나 다시 확인하지 않는 출처면 null */
 async function recheckNow(audioKey: string, audioUrl: string): Promise<Recheck | null> {
   const platform = platformOf(audioUrl);
   const row = audioCache.lookupByAudioKey(audioKey);
@@ -109,7 +109,7 @@ async function step() {
     const row = audioCache.lookupByAudioKey(job.audioKey);
     if (row?.status === "cached") {
       const stored: Stored = { version: row.audio_version, durationSec: row.duration_sec };
-      // 유튜브 · 사운드클라우드는 yt-dlp 의 뒤 줄로(곡 찾기 · 재생을 막지 않게)
+      // 유튜브, 사운드클라우드는 yt-dlp 의 뒤 줄로(곡 찾기, 재생을 막지 않게)
       const ask = () => deps.recheck(job.audioUrl, stored);
       const result = job.guildId && job.platform !== "direct" ? await inGuild(job.guildId, ask, "prefetch") : await ask();
       await apply(job, row, result);
@@ -176,7 +176,7 @@ async function replace(audioKey: string) {
   if (removed.ok) log.info(`변경된 원본의 캐시 파일을 삭제했습니다. 다음 재생 시 새로 다운로드합니다: "${logTitle(pending.title)}"`);
 }
 
-/** 테스트: 줄 · 기억을 비우고 원본에 묻는 함수 · 시계를 바꾼다(없으면 원래대로) */
+/** 테스트: 줄, 기억을 비우고 원본에 묻는 함수, 시계를 바꾼다(없으면 원래대로) */
 function _reset(over: Partial<typeof deps> = {}) {
   queue.length = 0;
   held.clear();
@@ -189,7 +189,7 @@ function _reset(over: Partial<typeof deps> = {}) {
   Object.assign(deps, { recheck, now: () => Date.now() }, over);
 }
 
-/** 테스트: 줄이 빌 때까지 돌린다(간격 · 바쁨은 보지 않는다) */
+/** 테스트: 줄이 빌 때까지 돌린다(간격, 바쁨은 보지 않는다) */
 async function _drain() {
   while (queue.length) {
     Object.assign(lastAsked, { youtube: 0, soundcloud: 0, direct: 0 });

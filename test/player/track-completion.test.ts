@@ -1,4 +1,4 @@
-// src/player/playback-watch.ts · src/player/start-playback.ts: 곡 길이가 쓰이는 곳. 오버플로 안전망의 위치 계산, 곡에 적는 오디오 길이(audioDurationSec)
+// src/player/playback-watch.ts, src/player/start-playback.ts: 곡 길이가 쓰이는 곳. 오버플로 안전망의 위치 계산, 곡에 적는 오디오 길이(audioDurationSec)
 // 가짜 플레이어로 실 오디오 없이 판정만 검증한다.
 
 import { test, after } from "node:test";

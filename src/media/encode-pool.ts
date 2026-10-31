@@ -3,7 +3,7 @@
 // 세션이 인코더 자리를 든다. 워커가 죽거나 멈추면 세션을 다른 워커의 새 인코더에 옮겨 붙인다. 출력 스트림은 모른다.
 // 프레임 버퍼는 사본 없이 워커로 넘긴다. 그래서 죽거나 멈춘 워커에 보낸 프레임은 되돌릴 수 없어 그 프레임을 무음 패킷으로 채운다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 잃는 것이 없다.
-// 받기는 출력 스트림의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice 가 읽지 않을 때(처음 · 일시정지)의 예비 길이다.
+// 받기는 출력 스트림의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice 가 읽지 않을 때(처음, 일시정지)의 예비 길이다.
 // 워커가 늦어지면 먼저 워커를 늘리고(늘리면 그 워커의 스트림이 옮겨 갈 때만), 아니면 그 워커의 큐 깊이(depth)를 올린다. 워커는 줄이지 않는다.
 // import 만으로는 워커를 띄우지 않는다. 기동 시 start() 가 첫 워커를 띄운다.
 
@@ -35,7 +35,7 @@ const ACTIVE_MS = 1000;
 const CALM_TICKS = 180;
 const DEPTH_CHANGES_PER_MIN = 4;
 // 지연 경고: 최근 SLOW_WINDOW 틱의 지연 프레임이 활성 스트림마다 SLOW_FRAMES 개(100ms) 넘으면 warn, SLOW_CALM_TICKS 틱 내리 없으면 해소.
-// 큐 깊이 · 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU 를 빼앗기면 응답 시간이 들쭉날쭉해 끊기는 동안에도 해소로 보인다
+// 큐 깊이, 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU 를 빼앗기면 응답 시간이 들쭉날쭉해 끊기는 동안에도 해소로 보인다
 // 지연은 띄엄띄엄 한 틱에 몰려 온다. 몇 틱에 났는지가 아니라 양으로 보고, 해소는 몰려 오는 간격보다 길게 기다린다
 const SLOW_FRAMES = 5;
 const SLOW_WINDOW = 5;
@@ -77,7 +77,7 @@ type Entry = {
   ids: Set<number>;
   depth: number;
   rtt: number[];
-  // 응답 시간을 나눈 것(ms): 보낸 뒤 워커가 인코딩을 시작하기까지 · 인코딩에 걸린 시간, 그리고 응답 시간에 넣지 않는 메인이 받기까지 걸린 시간
+  // 응답 시간을 나눈 것(ms): 보낸 뒤 워커가 인코딩을 시작하기까지, 인코딩에 걸린 시간, 그리고 응답 시간에 넣지 않는 메인이 받기까지 걸린 시간
   wait: number[];
   encode: number[];
   receive: number[];
@@ -312,7 +312,7 @@ class EncodePool {
     this.#unbind(session);
   }
 
-  /** 상태 탭. late · deaths 는 봇이 켜진 뒤의 합, 워커의 rttP99 는 지난 1초, cpuPct 는 코어 하나 기준 */
+  /** 상태 탭. late, deaths 는 봇이 켜진 뒤의 합, 워커의 rttP99 는 지난 1초, cpuPct 는 코어 하나 기준 */
   stats() {
     return {
       max: this.#limit(),
@@ -695,7 +695,7 @@ class EncodePool {
     }
   }
 
-  // 1초마다 워커별로 응답 시간을 보고 늘리기 · 큐 깊이를 정한다
+  // 1초마다 워커별로 응답 시간을 보고 늘리기, 큐 깊이를 정한다
   #tick() {
     const at = now();
     let late = 0;
@@ -713,7 +713,7 @@ class EncodePool {
     this.#noteSlow(late, worst);
   }
 
-  // 워커 하나의 지난 1초 응답 시간으로 늘리기 · 큐 깊이를 정해 적용한다
+  // 워커 하나의 지난 1초 응답 시간으로 늘리기, 큐 깊이를 정해 적용한다
   #steer(entry: Entry, rttP99: number, at: number) {
     entry.calm = isCalm(rttP99, entry.depth) ? entry.calm + 1 : 0;
     entry.depthChanges = entry.depthChanges.filter((t) => at - t < 60_000);
@@ -731,7 +731,7 @@ class EncodePool {
   }
 
   // 워커 하나의 지난 1초를 닫는다: 응답 시간 p99 와 지연 프레임 수를 돌려주고 다음 1초를 비운다.
-  // 지연 · 언더런이 있었거나 응답 시간이 임계값을 넘은 초면 상세 한 줄(끊김의 원인을 가르는 debug)
+  // 지연, 언더런이 있었거나 응답 시간이 임계값을 넘은 초면 상세 한 줄(끊김의 원인을 가르는 debug)
   #closeSecond(entry: Entry) {
     const rttP99 = p99(entry.rtt);
     const entryLate = entry.late;

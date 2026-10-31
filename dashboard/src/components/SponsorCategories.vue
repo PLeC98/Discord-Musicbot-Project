@@ -38,7 +38,7 @@ import { SKIP_CATEGORIES, categoryDescription, categoryLabel } from "../../../sr
 import { text } from "../text/index.ts";
 const T = text.serverSettings.sponsor;
 
-/** label: 목록 라벨 · selected: 선택한 구간 id · editable: 고칠 수 있는가 · dimmed: 흐리게(서버에서 자동 스킵을 껐을 때) */
+/** label: 목록 라벨, selected: 선택한 구간 id, editable: 고칠 수 있는가, dimmed: 흐리게(서버에서 자동 스킵을 껐을 때) */
 withDefaults(defineProps<{ label: string; selected: readonly string[]; editable?: boolean; dimmed?: boolean }>(), { editable: true, dimmed: false });
 const emit = defineEmits<{ toggle: [id: string] }>();
 

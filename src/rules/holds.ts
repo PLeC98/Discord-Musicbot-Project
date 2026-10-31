@@ -5,7 +5,7 @@
 //   stage  스테이지 청중(suppress). 발언자가 되면 풀린다
 //   alone  듣는 사람이 없다
 
-/** 표시 우선순위 차례. 패널 상태 줄 · 대시보드 · 조작 결과가 첫째를 보인다 */
+/** 표시 우선순위 차례. 패널 상태 줄, 대시보드, 조작 결과가 첫째를 보인다 */
 const HOLDS = ["mute", "stage", "alone"] as const;
 type Hold = (typeof HOLDS)[number];
 

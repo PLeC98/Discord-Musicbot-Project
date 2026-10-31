@@ -1,8 +1,8 @@
-// 핸들을 눌러 드래그해서 목록의 순서를 바꾼다(마우스 · 터치 · 펜 모두, 포인터 이벤트).
+// 핸들을 눌러 드래그해서 목록의 순서를 바꾼다(마우스, 터치, 펜 모두, 포인터 이벤트).
 // 브라우저 기본 드래그 앤 드롭(HTML5 drag and drop)은 터치에서 기기마다 되기도 안 되기도 하고(크롬 모바일 시뮬레이션은 아예 시작되지 않는다),
 // 핸들로만 시작하게 하려면 mousedown 으로 켜 둬야 하는데 터치는 그 신호가 손을 뗀 뒤에 온다. 그래서 포인터 이벤트로 직접 계산한다.
 //
-// 모양은 안드로이드 앱들의 방식(M3 목록의 dragged 상태): 드래그 중인 항목이 들려(그림자 Level 4 · 모서리 16 · 상태 레이어 16%) 손가락을 따라오고,
+// 모양은 안드로이드 앱들의 방식(M3 목록의 dragged 상태): 드래그 중인 항목이 들려(그림자 Level 4, 모서리 16, 상태 레이어 16%) 손가락을 따라오고,
 // 다른 항목은 미끄러지며 자리를 비켜 준다. 넣을 위치를 선으로 긋지 않는다. 놓으면 목록을 바꾸고 그린 위치를 제거한다(이미 그 위치라 튀지 않는다).
 //
 // 항목마다 data-reorder 를 단다(같은 부모 아래의 형제끼리 순서를 본다). 핸들에는 touch-none 을 줘 드래그하는 손가락이 화면을 스크롤하지 않게 한다.
@@ -19,7 +19,7 @@ type Options = {
   enabled?: () => boolean;
   /** 드래그를 시작했다 */
   start?: () => void;
-  /** 드래그가 끝났다(놓음 · 취소 모두, drop 뒤에) */
+  /** 드래그가 끝났다(놓음, 취소 모두, drop 뒤에) */
   end?: () => void;
   /** 놓았다. from 번째를 to 틈(0 ~ 길이)으로(utils/reorder 의 reordered 와 같은 계산) */
   drop: (from: number, to: number) => void;
@@ -31,7 +31,7 @@ type Options = {
 const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리(px)
 const SPEED = 14; // 한 프레임에 스크롤하는 최대 거리(px)
 const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"; // 비켜서는 항목(M3 standard)
-// 드래그 중인 항목: M3 elevation Level 4 그림자 · 모서리 large · dragged 상태 레이어(on-surface 16%)
+// 드래그 중인 항목: M3 elevation Level 4 그림자, 모서리 large, dragged 상태 레이어(on-surface 16%)
 const LIFTED: Partial<CSSStyleDeclaration> = {
   position: "relative",
   zIndex: "10",
@@ -60,8 +60,8 @@ export function heightTarget(from: number, dy: number, h: number, count: number)
 }
 
 /**
- * 드래그 중인 항목이 갈 수 있는 거리로 자른다(행 높이 h · 항목 count 개, 아니면 시작 때 잰 위 · 높이).
- * 첫 항목 · 마지막 항목 위치에서 드래그 중인 항목 높이의 절반만큼 더 나갈 수 있다(그 가운데를 넘어야 첫 · 마지막 자리가 된다).
+ * 드래그 중인 항목이 갈 수 있는 거리로 자른다(행 높이 h, 항목 count 개, 아니면 시작 때 잰 위, 높이).
+ * 첫 항목, 마지막 항목 위치에서 드래그 중인 항목 높이의 절반만큼 더 나갈 수 있다(그 가운데를 넘어야 첫, 마지막 자리가 된다).
  * 그만큼 늘어나는 스크롤 영역으로는 자동 스크롤하지 않는다(scrollLimit)
  */
 export function boundedDy(dy: number, from: number, rows: { h: number; count: number } | { tops: number[]; heights: number[] }) {
@@ -105,7 +105,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
   // 높이로 계산할 때: 드래그하는 동안 새로 그려진 행(처음 밀어낼 때는 미끄러지지 않고 바로 그 자리에)
   let seen = new WeakSet<HTMLElement>();
   let scroller: HTMLElement | null = null;
-  // 항목마다 드래그 시작 때의 위 · 높이(시작 때의 화면 좌표. 그 뒤에 스크롤한 거리는 dy 에 더한다)
+  // 항목마다 드래그 시작 때의 위, 높이(시작 때의 화면 좌표. 그 뒤에 스크롤한 거리는 dy 에 더한다)
   let tops: number[] = [];
   let heights: number[] = [];
   let shift = 0; // 비켜서는 항목이 움직이는 거리(드래그 중인 항목 높이 + 항목 사이)
@@ -201,7 +201,7 @@ export function usePointerReorder({ enabled, start, end, drop, rowHeight, count 
     if (draggedIndex.value != null || (e.pointerType === "mouse" && e.button !== 0) || (enabled && !enabled())) return;
     const row = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-reorder]");
     if (!row?.parentElement) return;
-    e.preventDefault(); // 글자 선택 · 화면 스크롤을 막는다
+    e.preventDefault(); // 글자 선택, 화면 스크롤을 막는다
     list = row.parentElement;
     dragged = row;
     rows = [...list.children].filter(isRow);

@@ -1,7 +1,7 @@
 // src/media/cache-download.ts: TrackDownloader 가 캐시에 곡을 다운로드하는 흐름의 지금 동작을 고정한다.
 //
 // 분기마다 "무엇으로 다운로드했나 · 캐시 DB 에 무엇을 적었나 · 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 저장소를 임시 DB 로 쓰고
-// yt-dlp · 직접 링크 · 변환 · SponsorBlock · 유튜브 매칭만 가짜로 넘긴다.
+// yt-dlp, 직접 링크, 변환, SponsorBlock, 유튜브 매칭만 가짜로 넘긴다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -66,7 +66,7 @@ const deps: Sources = {
       return ytdlpBehavior(url, options);
     },
   },
-  // 사운드클라우드는 유튜브 실행기(클라이언트 바꾸기 · 쿠키)를 거치지 않는다. 어느 길로 갔는지 via 에 적는다
+  // 사운드클라우드는 유튜브 실행기(클라이언트 바꾸기, 쿠키)를 거치지 않는다. 어느 길로 갔는지 via 에 적는다
   soundcloud: {
     download: async (url, flags) => {
       assert.ok(flags.output, "출력 경로가 없다");
@@ -217,7 +217,7 @@ test("스포티파이: 동등물을 못 찾으면 다운로드 전에 실패한�
   assert.deepEqual(leftovers(), []);
 });
 
-// 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거. 완료 줄(debug)에 걸린 시간 · 다운로드한 포맷 · 옮겼나 인코딩했나를 싣는다
+// 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거. 완료 줄(debug)에 걸린 시간, 다운로드한 포맷, 옮겼나 인코딩했나를 싣는다
 test("다운로드가 끝나면 걸린 시간과 다운로드한 포맷을 한 줄에 남긴다. yt-dlp 가 파일을 다 쓰고 한참 뒤에 끝났으면 그것도", async () => {
   ytdlpBehavior = (url, options) => {
     writesFile()(url, options);
@@ -328,7 +328,7 @@ test("빈 파일은 버린다", async () => {
   assert.deepEqual(leftovers(), []);
 });
 
-test("info.json 이 없으면 제목 · 길이를 모르는 채로 다운로드한다", async () => {
+test("info.json 이 없으면 제목, 길이를 모르는 채로 다운로드한다", async () => {
   ytdlpBehavior = (_url, options) => fs.writeFileSync(options.output, "opus-bytes");
   const track = yt("iiiiiiiiiii");
 
@@ -341,7 +341,7 @@ test("info.json 이 없으면 제목 · 길이를 모르는 채로 다운로드�
 
 // ── 직접 링크 분기 ─────────────────────────────────────────────────────
 
-test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있으면) 가수 · 앨범을 그것으로 고치고, 링크 데이터에 확인된 제목으로 적는다", async () => {
+test("직접 링크: 받은 파일에 태그가 있으면 제목과(비어 있으면) 가수, 앨범을 그것으로 고치고, 링크 데이터에 확인된 제목으로 적는다", async () => {
   const track: DownloadTrack = { title: "a", pageUrl: "https://files.test/t.mp3", requestKey: "https://files.test/t.mp3", audioUrl: "https://files.test/t.mp3", platform: "direct", duration: 100 };
   fileTags = { title: "태그 제목", artist: "태그 가수", album: "태그 앨범" };
   try {
@@ -459,7 +459,7 @@ test("다운로드하는 사이 다른 쪽이 먼저 올렸으면 내 것을 버
   assert.deepEqual(leftovers(), []);
 });
 
-test("다운로드하는 동안 임시 파일을 퇴거 · 기동 청소에서 보호하고, 끝나면 푼다", async () => {
+test("다운로드하는 동안 임시 파일을 퇴거, 기동 청소에서 보호하고, 끝나면 푼다", async () => {
   let during;
   ytdlpBehavior = (url, options) => {
     during = audioCache._protectedFiles.has(path.resolve(options.output));

@@ -1,5 +1,5 @@
 // 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
-// 권한 · 재적 · 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
+// 권한, 재적, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";
@@ -12,7 +12,7 @@ import { showFailureWith } from "../../ui/failure-notice.ts";
 import type { Player } from "../../player/player.ts";
 import type { Problem } from "../../rules/problems.ts";
 
-/** 서버 안의 명령 · 버튼 */
+/** 서버 안의 명령, 버튼 */
 type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;

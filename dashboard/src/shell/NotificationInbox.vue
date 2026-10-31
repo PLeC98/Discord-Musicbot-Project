@@ -1,7 +1,7 @@
 <template>
   <!-- 알림함: 위 막대 오른쪽 끝의 종. 안 읽은 알림이 있으면 수를 단 배지(M3 큰 배지), 누르면 지금까지 뜬 알림(새 것이 위).
        열면 그때까지 온 것을 읽음으로 친다(열어 둔 동안은 새로 온 항목을 칠해 두었다가, 닫을 때 읽음).
-       지우면(항목마다 x · 지우기) 항목이 제자리에서 오른쪽으로 빠진 뒤 그 공간을 접는다(아래 항목이 올라온다). 모두 지우기는 보이는 항목을 아래부터 차례로.
+       지우면(항목마다 x, 지우기) 항목이 제자리에서 오른쪽으로 빠진 뒤 그 공간을 접는다(아래 항목이 올라온다). 모두 지우기는 보이는 항목을 아래부터 차례로.
        다 지우면 목록이 "알림 없음" 높이(h-32)에서 멈추고 그 자리에 "알림 없음"이 나타난다(목록이 접혔다가 다시 늘어나지 않게) -->
   <button ref="triggerEl" type="button" aria-haspopup="dialog" :aria-expanded="open" :aria-label="unread ? T.inboxUnread(unread) : T.inbox" v-tooltip="open ? null : T.inbox" :class="[TOPBAR_BTN, open && 'bg-on-surface/8']" class="relative" @click="toggle">
     <Icon name="notifications" :fill="unread > 0" />

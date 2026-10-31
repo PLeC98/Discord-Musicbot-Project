@@ -20,7 +20,7 @@ function openTempStore(prefix = "store-") {
   audioCache.initialize();
   return {
     dir,
-    /** 캐시 DB(캐시 파일 · 링크 데이터) */
+    /** 캐시 DB(캐시 파일, 링크 데이터) */
     db: () => cacheDb.get(),
     /** 설정 DB(서버별 설정) */
     settings: () => settingsDb.get(),

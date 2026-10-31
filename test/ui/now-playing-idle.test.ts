@@ -42,7 +42,7 @@ function makeChannel(id: string, calls: Calls) {
 }
 type TestChannel = ReturnType<typeof makeChannel>;
 
-// 채널마다 웹훅 가짜. 보낸 것 · 고친 것 · 지운 것을 적는다
+// 채널마다 웹훅 가짜. 보낸 것, 고친 것, 지운 것을 적는다
 class TestPanels extends NowPlayingPanel {
   calls: Calls;
   next = 500;
@@ -272,7 +272,7 @@ test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전�
   assert.match(textOf(plain.calls.edited[0].payload), /\/play/);
 });
 
-test("기동: 음성에 붙어 곡을 기다리는 서버(24/7 자리 · 이어받기)는 음성 밖 문구로 덮지 않는다. 아직 안 그렸으면 기다리는 모양으로", async () => {
+test("기동: 음성에 붙어 곡을 기다리는 서버(24/7 자리, 이어받기)는 음성 밖 문구로 덮지 않는다. 아직 안 그렸으면 기다리는 모양으로", async () => {
   const drawn = setup({ record: { channelId: BOT, messageId: "900" } });
   drawn.players.set("g1", fakePlayer({ nowPlayingMessage: null, voice: { isAlive: () => true } }));
   drawn.mem.idleViews.set("g1", { reason: "joined", leavesAt: null, staying: true });
@@ -349,7 +349,7 @@ test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다�
   assert.equal(await queueDisabled({ queue: [{ title: "다음" }] }), false);
 });
 
-test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지 · 대기열 · 켠 반복 · 켠 자동재생) 위는 흰 기호", async () => {
+test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, 대기열, 켠 반복, 켠 자동재생) 위는 흰 기호", async () => {
   const { mem, guild, text } = setup({});
   const keys = ["prev", "pause", "next", "stop", "volume", "highlight", "shuffle", "repeat_on", "queue_button", "autoplay_on"];
   useUploaded(new Map(keys.map((key, i) => [key, { id: String(100 + i), animated: false }])));

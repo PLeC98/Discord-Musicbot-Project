@@ -1,7 +1,7 @@
 <template>
-  <!-- 필터 창. 휴대폰은 바텀 시트(M3 모달 바텀 시트), 그 밖(태블릿 · 좁은 PC 창)은 가운데 팝업(M3 대화상자). 안의 필터는 선택하는 대로 바로 반영된다(적용 버튼이 없다).
-       팝업은 드래그만 없고 나머지(헤더의 초기화 · 뒤 누르기 · 기기의 뒤로 · Esc 로 닫기)는 같다.
-       시트 드래그: 핸들 · 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
+  <!-- 필터 창. 휴대폰은 바텀 시트(M3 모달 바텀 시트), 그 밖(태블릿, 좁은 PC 창)은 가운데 팝업(M3 대화상자). 안의 필터는 선택하는 대로 바로 반영된다(적용 버튼이 없다).
+       팝업은 드래그만 없고 나머지(헤더의 초기화, 뒤 누르기, 기기의 뒤로, Esc 로 닫기)는 같다.
+       시트 드래그: 핸들, 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
     <Transition v-if="!isPhone" name="fdialog" :duration="{ enter: 250, leave: 150 }">
@@ -56,7 +56,7 @@ const T = text.common;
 // 휴대폰은 바텀 시트, 그 밖은 가운데 팝업
 const isPhone = useMediaQuery(PHONE_QUERY);
 
-// Esc · 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터)
+// Esc, 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터)
 useCloseLayer(
   computed(() => props.open),
   () => emit("close"),
@@ -95,7 +95,7 @@ function release() {
   window.setTimeout(() => (settling.value = false), 250);
 }
 
-// 핸들 · 헤더: 마우스 · 손가락 모두
+// 핸들, 헤더: 마우스, 손가락 모두
 function down(e: PointerEvent) {
   if (e.button !== 0 && e.pointerType === "mouse") return;
   (e.currentTarget as Element).setPointerCapture(e.pointerId);

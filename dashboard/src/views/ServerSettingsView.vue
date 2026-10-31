@@ -66,7 +66,7 @@
         <BaseCard v-if="s.playlistAdd" icon="queue_music" :title="T.playlistAdd.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.playlistAdd.desc }}</p>
 
-          <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게 · 체크. 카드가 좁으면(384px 미만, 작은 휴대폰) 버튼 안 여백 · 체크 간격을 줄여 카드 안에 들게 -->
+          <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게, 체크. 카드가 좁으면(384px 미만, 작은 휴대폰) 버튼 안 여백, 체크 간격을 줄여 카드 안에 들게 -->
           <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
             <button type="button" role="radio" :aria-checked="paUseDefault" :disabled="!s.canEdit" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
               <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
@@ -135,7 +135,7 @@ import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts"
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
 
-/** 불러오기 전에는 이름 · SponsorBlock · 재생목록 필드가 없다 */
+/** 불러오기 전에는 이름, SponsorBlock, 재생목록 필드가 없다 */
 type SettingsSeen = Omit<GuildSettings, "guildName" | "sponsorblock" | "playlistAdd"> & { guildName: string | null; sponsorblock: GuildSettings["sponsorblock"] | null; playlistAdd: GuildSettings["playlistAdd"] | null };
 
 // 좁은 카드에서 곡 수 입력란을 촘촘하게(아니면 iPhone SE 375px 에서 카드 밖으로 넘친다)
@@ -271,7 +271,7 @@ function retryLoad() {
 
 // ── 자동 저장 ──
 // 선택하면 0.4초 뒤 저장한다. 곡 수 직접 입력은 입력하는 동안(typing) 저장하지 않고 입력란을 벗어나거나 Enter 에 저장한다. 범위를 벗어나면 저장하지 않는다(입력란 아래 안내).
-// 저장 중에 또 바뀌면 끝난 뒤 한 번 더. 저장한 값은 그대로 기준(s)으로 삼는다(다시 읽으면 그사이 고친 것을 덮는다). 실패는 표시 · 알림으로 알리고 고친 값은 둔다
+// 저장 중에 또 바뀌면 끝난 뒤 한 번 더. 저장한 값은 그대로 기준(s)으로 삼는다(다시 읽으면 그사이 고친 것을 덮는다). 실패는 표시, 알림으로 알리고 고친 값은 둔다
 const typing = ref(false);
 const saveState = ref<SaveState>("idle");
 let saveTimer = 0;
@@ -325,7 +325,7 @@ async function save() {
 
 onMounted(load);
 
-// 떠날 때 저장할 것이 남았으면(기다리는 중 · 입력 중) 마치고 떠난다. 범위를 벗어난 입력은 버린다
+// 떠날 때 저장할 것이 남았으면(기다리는 중, 입력 중) 마치고 떠난다. 범위를 벗어난 입력은 버린다
 onBeforeRouteLeave(async () => {
   typing.value = false;
   if (s.value.canEdit && dirty.value && !paInvalid.value) await save();
@@ -335,7 +335,7 @@ onUnmounted(() => {
   clearTimeout(doneTimer);
 });
 
-// 화면 색 · 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 앨범아트라 재생 화면에서 들어오면 색이 그대로다).
+// 화면 색, 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 앨범아트라 재생 화면에서 들어오면 색이 그대로다).
 // 서버 목록의 지금 곡이라 곡이 바뀌면 따라간다. 목록을 처음 불러오는 동안은 지금 색을 붙잡는다(주소로 바로 들어온 때)
 const guilds = useGuildsStore();
 const artOwner = Symbol("settings");

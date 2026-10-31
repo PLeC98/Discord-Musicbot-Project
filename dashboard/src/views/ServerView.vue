@@ -1,12 +1,12 @@
 <template>
-  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿 · PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
+  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿, PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
        대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280px 로 가운데에 두고 양옆은 배경화면이 비친다 -->
   <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76px)만큼 아래를 비운다.
        가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 앨범아트가 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔한다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
-    <!-- 음성 상태 · 설정(태블릿 · PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름 · 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
-    <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대 · 사이드 드로어에서 다른 서버로 건너왔어도 나가는 길은 하나).
-         공간이 되면(태블릿 · PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 버튼) -->
+    <!-- 음성 상태, 설정(태블릿, PC)은 위 막대 오른쪽 끝으로 보낸다(서버 이름, 아이콘은 위 막대 가운데). 휴대폰은 아래 한 줄로 -->
+    <!-- 위 막대 왼쪽 끝에 ← 서버 목록(모든 크기). 이전 화면이 아니라 늘 목록으로(세로 막대, 사이드 드로어에서 다른 서버로 건너왔어도 나가는 길은 하나).
+         공간이 되면(태블릿, PC) "← 서버 목록", 휴대폰은 화살표만 두고 이름은 툴팁으로(서버 설정의 돌아가기와 같은 버튼) -->
     <Teleport to="#topbar-start" defer>
       <router-link to="/servers" :class="TOPBAR_TEXT_BTN" :aria-label="text.shell.serverList" v-tooltip="isPhone ? text.shell.serverList : null"
         ><Icon name="arrow_back" /><span class="hidden md:inline text-sm font-semibold truncate">{{ text.shell.serverList }}</span></router-link
@@ -19,7 +19,7 @@
       <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
     </Teleport>
 
-    <!-- 휴대폰: 글 · 버튼 뒤의 받침 오버레이. 곡마다 배경화면 색이 달라 앨범아트 아래 글이 묻혀서, 세로는 아래로(35~72%) · 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
+    <!-- 휴대폰: 글, 버튼 뒤의 받침 오버레이. 곡마다 배경화면 색이 달라 앨범아트 아래 글이 묻혀서, 세로는 아래로(35~72%), 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
          좁게 두면 띠처럼 뭉친다 -->
     <div
       v-if="sheetMode && !loading && !loadError"
@@ -41,7 +41,7 @@
     </PageError>
 
     <div v-else class="flex-1 min-h-0" :class="sheetMode ? 'relative flex flex-col' : 'grid content-start md:content-stretch gap-(--gap-in) grid-cols-1 md:grid-rows-[auto_minmax(0,1fr)]'">
-      <!-- ── 지금 재생: 한 줄 높이의 띠(아트 · 제목 · 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(플레이스홀더 · 비활성 조작) ── -->
+      <!-- ── 지금 재생: 한 줄 높이의 띠(아트, 제목, 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(플레이스홀더, 비활성 조작) ── -->
       <AppWindow v-if="!sheetMode">
         <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
@@ -56,9 +56,9 @@
               <!-- 출처 줄 아래와 아티스트 위 간격을 같게(제목이 가운데). 좁은 창의 아트(88px)는 이 그룹 높이(출처 32px + 6px + 제목 + 6px + 아티스트)에 맞춘다.
                    곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
               <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
-                <!-- 좁은 창은 하이라이트 · 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
+                <!-- 좁은 창은 하이라이트, 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
                 <TrackChips :track="track" :mine="mine" :held="player.heldBy" mine-class="hidden! @xl/win:inline-flex!" />
-                <!-- 좁은 창: 하이라이트 · 정지는 이 줄 오른쪽 끝 -->
+                <!-- 좁은 창: 하이라이트, 정지는 이 줄 오른쪽 끝 -->
                 <div class="@xl/win:hidden ml-auto flex items-center gap-2 shrink-0">
                   <PlayerActions small :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
                 </div>
@@ -71,13 +71,13 @@
               <div class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : T.addToPlay }}</div>
             </div>
 
-            <!-- 넓은 창: 조작은 아트 · 제목 오른쪽 -->
+            <!-- 넓은 창: 조작은 아트, 제목 오른쪽 -->
             <div class="hidden @xl/win:block shrink-0">
               <PlayerControls :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
             </div>
           </div>
 
-          <!-- 진행 줄. 넓은 창은 끝에 [볼륨 | 하이라이트 · 정지], 좁은 창은 [볼륨 버튼] -->
+          <!-- 진행 줄. 넓은 창은 끝에 [볼륨 | 하이라이트, 정지], 좁은 창은 [볼륨 버튼] -->
           <SeekRow class="mt-3" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek">
             <div class="hidden @xl/win:flex items-center gap-2 shrink-0 pl-2">
               <div class="flex items-center gap-2 h-10 pl-2 pr-3 rounded-full bg-surface-container-high/60">
@@ -107,7 +107,7 @@
         <VoiceLockOverlay v-if="locked" />
       </AppWindow>
 
-      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 앨범아트(남는 높이 안의 가장 큰 정사각형) · 배지 · 제목 · 진행 · 조작 · 아래 줄(음성 상태 · 볼륨 · 정지 · 대기열) ── -->
+      <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 앨범아트(남는 높이 안의 가장 큰 정사각형), 배지, 제목, 진행, 조작, 아래 줄(음성 상태, 볼륨, 정지, 대기열) ── -->
       <div v-else class="relative flex-1 min-h-0 flex flex-col">
         <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 앨범아트, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
         <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
@@ -143,12 +143,12 @@
             <!-- 진행: 막대 아래 양 끝에 시간 -->
             <SeekRow stacked class="shrink-0" :class="short ? 'mt-0.5' : 'mt-1'" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek" />
 
-            <!-- 이전 · 다음 버튼도 앨범아트가 밀려 넘어가게(useArtSwipe 의 go) -->
+            <!-- 이전, 다음 버튼도 앨범아트가 밀려 넘어가게(useArtSwipe 의 go) -->
             <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="artSwipe.go(false)" @pause="togglePause" @skip="artSwipe.go(true)" @loop="cycleLoop" />
 
-            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치) · 볼륨 | 하이라이트 · 정지(태블릿 · PC 진행 줄 끝과 같은 그룹).
+            <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치), 볼륨 | 하이라이트, 정지(태블릿, PC 진행 줄 끝과 같은 그룹).
                  볼륨: 줄이 넓으면(400px 이상, 가로 화면) 음성 상태 오른쪽에 막대를 늘 둔다. 좁으면 🔊 를 누를 때 음성 상태가 빠지고 그 위치로 막대가 🔊 쪽에서 펼쳐진다
-                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿 · PC 볼륨 막대와 같다) -->
+                 (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿, PC 볼륨 막대와 같다) -->
             <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
               <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
                 <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity duration-200" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
@@ -194,7 +194,7 @@
         </template>
         <template #actions>
           <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
-          <!-- 자동재생 켜기 · 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
+          <!-- 자동재생 켜기, 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
           <div class="relative">
             <button
               type="button"
@@ -316,7 +316,7 @@ import { text } from "../text/index.ts";
 const P = text.player;
 const T = text.server;
 
-// 볼륨 버튼(좁은 창 · 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트 · 정지 PlayerActions 와 같은 모양)
+// 볼륨 버튼(좁은 창, 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트, 정지 PlayerActions 와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
@@ -334,7 +334,7 @@ const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false,
 const loadedCount = ref(QUEUE_PAGE);
 const loadingMore = ref(false);
 const queueBoxRef = ref<HTMLElement | null>(null);
-// 더 있는 쪽 끝 반 줄(32px)을 페이드로(봇 상태 · 서버 관리의 목록과 같다)
+// 더 있는 쪽 끝 반 줄(32px)을 페이드로(봇 상태, 서버 관리의 목록과 같다)
 const queueFade = useScrollFade(queueBoxRef, () => true, 32);
 // 조작 응답도 상태를 통째로 돌려주므로 모든 호출에 창 크기를 실어 보낸다. 안 그러면 목록이 접힌다.
 const qs = () => `?queue=${loadedCount.value}`;
@@ -354,12 +354,12 @@ let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
 // 진행 막대 요소. 화면마다 SeekRow 가 하나라 누를 때 그 요소를 잡는다(grabSeek)
 const progressBarRef = ref<HTMLElement | null>(null);
 
-// 응답을 기다리는 조작(넘기기 · 이전 · 정지 · 섞기 · 빼는 항목 · 옮기기). 그동안 그 버튼을 끈다
+// 응답을 기다리는 조작(넘기기, 이전, 정지, 섞기, 빼는 항목, 옮기기). 그동안 그 버튼을 끈다
 const { isBusy, whileBusy } = useBusy();
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 
-// 받은 재생 상태를 반영한다. 늦게 온 옛 상태는 버린다(만든 순서). 조작 응답에 없는 읽기 전용 필드(권한 · 음성)는 지금 값을 남긴다(utils/playback).
+// 받은 재생 상태를 반영한다. 늦게 온 옛 상태는 버린다(만든 순서). 조작 응답에 없는 읽기 전용 필드(권한, 음성)는 지금 값을 남긴다(utils/playback).
 // 대기열을 드래그하는 동안에는 대기열만 미룬다
 function applyState(data: PlayerState | PlayerRead) {
   if (!accepts(player.value, data)) return;
@@ -373,7 +373,7 @@ function applyState(data: PlayerState | PlayerRead) {
   syncLoaded();
 }
 
-// 조작 · 갱신 응답은 대기열을 앞에서 QUEUE_WINDOW_MAX 곡까지만 싣는다. 그보다 많이 받아 둔 화면은 잘린 뒤를 stale 값으로 잠깐 두고
+// 조작, 갱신 응답은 대기열을 앞에서 QUEUE_WINDOW_MAX 곡까지만 싣는다. 그보다 많이 받아 둔 화면은 잘린 뒤를 stale 값으로 잠깐 두고
 // 다시 받아 바꾼다(그대로 반영하면 목록이 접혀 보던 자리를 잃는다). 그사이 다른 대기열이 들어오면 그쪽이 맞다(queueVersion)
 let queueVersion = 0;
 function keepTail(next: PlayerSeen, had: QueueTrackView[]): PlayerSeen {
@@ -473,7 +473,7 @@ async function send(key: string, path: string, body: object | undefined, fallbac
   return done === true;
 }
 
-// 넘기기 · 이전은 누른 때의 곡일 때만 하게 항목 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
+// 넘기기, 이전은 누른 때의 곡일 때만 하게 항목 번호를 싣는다(그 사이 바뀌면 서버가 거절한다)
 const skip = () => send("skip", "skip", onTrackOf(player.value), P.failed.skip);
 const previous = () => send("previous", "previous", onTrackOf(player.value), P.failed.previous);
 // 휴대폰 앨범아트를 좌우로 밀어 곡 넘기기
@@ -566,7 +566,7 @@ const {
 });
 const queueSlots = computed(() => slotsOf(queueRange.value, 0, player.value.queue, (t, i) => t.entry ?? `i${i}`).filter((slot) => slot.row !== null));
 
-// 드래그가 끝났다(놓음 · 취소). 드래그하는 동안 미뤄 둔 서버 대기열을 반영한다
+// 드래그가 끝났다(놓음, 취소). 드래그하는 동안 미뤄 둔 서버 대기열을 반영한다
 function releaseHeld() {
   isDragging.value = false;
   if (heldQueue) {
@@ -657,7 +657,7 @@ const highlightMarker = computed(() => {
   if (!dur || h === null || h === undefined) return null;
   return Math.max(0, Math.min(100, (h / dur) * 100));
 });
-// 진행 줄(SeekRow): 시간 글 · 막대. 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이라 표식으로 대신한다
+// 진행 줄(SeekRow): 시간 글, 막대. 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이라 표식으로 대신한다
 const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? P.live : formatDuration(displayTime.value)));
 const lengthText = computed(() => (track.value && track.value.duration > 0 ? formatDuration(track.value.duration) : "--:--"));
 const seekView = computed(() => ({ value: track.value ? progressPct.value : 0, rate: progressRate.value, markers: sponsorMarkers.value, highlight: highlightMarker.value, handle: Boolean(track.value) && seekable.value && Boolean(player.value.canControl), dragging: isScrubbing.value }));
@@ -685,7 +685,7 @@ watch(
   (held) => (heldArt.value = held ? { ...liveArt.value } : null),
 );
 const art = computed(() => heldArt.value ?? liveArt.value);
-// 큰 칸은 늘려 그리지 않게 출처의 큰 이미지로(utils/big-art): 휴대폰 카드는 large, 태블릿 · PC 의 지금 곡(최대 128px)은 standard
+// 큰 칸은 늘려 그리지 않게 출처의 큰 이미지로(utils/big-art): 휴대폰 카드는 large, 태블릿, PC 의 지금 곡(최대 128px)은 standard
 const phoneArt = computed(() => ({ now: bigArt(art.value.now, "large"), next: bigArt(art.value.next, "large"), previous: bigArt(art.value.previous, "large") }));
 const deskArt = computed(() => bigArt(artShown.value, "standard"));
 // 위아래 검은 띠는 키워서 감춘다(theme/art 가 그리는 이미지의 픽셀로 잰다)
@@ -704,7 +704,7 @@ const locked = computed(() => Boolean(track.value) && channelLocked.value);
 // 휴대폰 볼륨 말풍선
 const volumeOpen = ref(false);
 
-// 휴대폰 아래 줄의 볼륨 막대. 줄이 넓으면 늘 펼쳐 두고(volumeInline), 좁으면 누를 때 펼친다(volumeExpand). 손대지 않으면 3초 뒤 · 바깥을 누르면 접는다
+// 휴대폰 아래 줄의 볼륨 막대. 줄이 넓으면 늘 펼쳐 두고(volumeInline), 좁으면 누를 때 펼친다(volumeExpand). 손대지 않으면 3초 뒤, 바깥을 누르면 접는다
 const volRowEl = ref<HTMLElement | null>(null);
 const { width: volRowWidth } = useElementSize(volRowEl);
 const volumeInline = computed(() => volRowWidth.value >= 400);
@@ -768,7 +768,7 @@ async function toggleGenreMenu(e: MouseEvent) {
 }
 const genreMenuEl = ref<HTMLElement | null>(null);
 const genreOverflowing = useOverflowing(genreMenuEl);
-// 켜기(장르) · 끄기(null). 응답의 상태를 반영한다
+// 켜기(장르), 끄기(null). 응답의 상태를 반영한다
 function setAutoplay(genre: string | null) {
   genreMenu.value = false;
   void send("autoplay", "autoplay", { genre }, genre ? T.failed.autoplayOn : T.failed.autoplayOff);
@@ -792,7 +792,7 @@ watch(
   { immediate: true },
 );
 
-// 이 서버의 곡이 화면 색 · 배경화면이 된다(theme). 처음 읽는 동안은 지금 색을 붙잡아 둔다(서버를 옮길 때 다른 색을 들르지 않게)
+// 이 서버의 곡이 화면 색, 배경화면이 된다(theme). 처음 읽는 동안은 지금 색을 붙잡아 둔다(서버를 옮길 때 다른 색을 들르지 않게)
 const artOwner = Symbol("server");
 watch(
   () => (loading.value ? HOLD : (player.value.currentTrack?.thumbnail ?? NO_ART)),
@@ -800,7 +800,7 @@ watch(
   { immediate: true },
 );
 
-// 실시간 신호는 탭의 목록 연결 하나에서 받는다(stores/guilds). 이 서버의 신호 · 어느 서버인지 모르는 신호(끊긴 뒤 따라잡기 · 끊긴 동안의 주기 읽기)면 다시 읽는다.
+// 실시간 신호는 탭의 목록 연결 하나에서 받는다(stores/guilds). 이 서버의 신호, 어느 서버인지 모르는 신호(끊긴 뒤 따라잡기, 끊긴 동안의 주기 읽기)면 다시 읽는다.
 // 연달아 조작하면 신호도 연달아 온다. 합쳐서 한 번만 다시 읽는다
 const guilds = useGuildsStore();
 let offNudge: (() => boolean) | null = null;

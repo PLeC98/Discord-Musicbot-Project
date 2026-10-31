@@ -1,4 +1,4 @@
-// src/sources/hls.ts: 직접 링크 HLS 의 목록 받기 · 선택 · 라이브 따라가기 · 세그먼트 받기(바이트 구간 · 초기화 세그먼트 · AES-128).
+// src/sources/hls.ts: 직접 링크 HLS 의 목록 받기, 선택, 라이브 따라가기, 세그먼트 받기(바이트 구간, 초기화 세그먼트, AES-128).
 // 네트워크는 가짜다(주소 → 응답)
 
 import crypto from "node:crypto";
@@ -13,7 +13,7 @@ import * as SafeUrl from "../../src/infra/safe-url.ts";
 
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean };
 
-/** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx · 5xx 는 SafeUrl 처럼 status 를 단 오류 */
+/** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx, 5xx 는 SafeUrl 처럼 status 를 단 오류 */
 function netOf(routes: Record<string, Reply | (() => Reply)>) {
   const asked: Array<{ url: string; from?: number; to?: number }> = [];
   const net = {
@@ -108,14 +108,14 @@ test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 세그먼트 순�
   await assert.rejects(broken.fragments().fetch(part, new AbortController().signal), (e: unknown) => (e as { permanent?: boolean }).permanent === true);
 });
 
-test("DRM(AES-128 밖의 암호) · 목록이 아님은 열 때 unsupported-link", async () => {
+test("DRM(AES-128 밖의 암호), 목록이 아님은 열 때 unsupported-link", async () => {
   const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
   for (const text of [drm, "[playlist]\nFile1=x"]) {
     await assert.rejects(openHls(text, "https://d.test/index.m3u8", { net: netOf({}).net }), (e: unknown) => codeOf(e) === "unsupported-link");
   }
 });
 
-test("세그먼트 · 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 실패, 5xx 는 아니다", async () => {
+test("세그먼트, 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 실패, 5xx 는 아니다", async () => {
   const { net } = netOf({ "https://e.test/gone.ts": { status: 404 }, "https://e.test/busy.ts": { status: 503 } });
   const blocked = {
     getStream: async (url: string, deps?: undefined, opts?: OpenOptions) => {
@@ -171,7 +171,7 @@ test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송
   assert.equal(await closing.next(), null, "남은 세그먼트가 있어도");
 });
 
-test("직접 링크로 담기 · 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
+test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
   const live = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\ns1.ts\n`;
   const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
   const master = `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttp://10.0.0.1/inner.m3u8\n`;

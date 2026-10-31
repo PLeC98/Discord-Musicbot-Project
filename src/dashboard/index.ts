@@ -51,7 +51,7 @@ import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
 
-/** 조립이 넘기는 것. sessionMiddleware · clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
+/** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
@@ -101,7 +101,7 @@ function createSessionMiddleware() {
   });
 }
 
-// 빌드한 화면 파일(assets/ 아래)은 이름에 내용 해시가 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴 · 스크립트 · 스타일).
+// 빌드한 화면 파일(assets/ 아래)은 이름에 내용 해시가 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일).
 // index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
 function cacheAssets(res: Response, file: string) {
   res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
@@ -122,21 +122,21 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host));
-  // 로그인 없이 받는 것(오류 설명 · 파비콘 · 로그인 배경 · 화면 파일 · 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api · /auth 는 아래에서 따로 센다
+  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 파일, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
-  // 파비콘 · 매니페스트(로그인 없이). 화면 폴백보다 앞에
+  // 파비콘, 매니페스트(로그인 없이). 화면 폴백보다 앞에
   app.use(publicAppearanceRouter);
-  // 로그인 배경의 배경 정보 · 파일(로그인 없이). 화면 폴백보다 앞에
+  // 로그인 배경의 배경 정보, 파일(로그인 없이). 화면 폴백보다 앞에
   app.use(publicLoginBackgroundRouter);
 
   // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 시작하지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");
-  // 빌드할 때 만들어 둔 압축본(.br · .gz)을 먼저, 없거나 받을 수 없으면 원본
+  // 빌드할 때 만들어 둔 압축본(.br, .gz)을 먼저, 없거나 받을 수 없으면 원본
   app.use(precompressed(clientDist, cacheAssets));
   app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
@@ -148,12 +148,12 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(bodyLimit());
   app.use(cors(createCorsOptions(url, { allowDevOrigin: config.dashboard.devOrigin })));
   app.use(sessionMiddleware);
-  // 로그인한 기기 기록(마지막 활동 · IP). 몇 분마다만 세션을 다시 쓴다
+  // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
   app.use(noteDevice);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 
-  // 라우트에서 디스코드 클라이언트 · 플레이어 · 패널을 쓸 수 있게
+  // 라우트에서 디스코드 클라이언트, 플레이어, 패널을 쓸 수 있게
   app.locals.bot = bot;
   app.locals.deployCommands = deployCommands;
   app.locals.stream = stream;
@@ -161,7 +161,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
   const rl = config.dashboard.rateLimit;
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결 · 볼륨 · 앨범아트는 뺀다(rate-limits)
+  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결, 볼륨, 앨범아트는 뺀다(rate-limits)
   app.use(
     "/api",
     limiter(() => rl.apiMax, { skip: unlimited }),
@@ -172,7 +172,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
     limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true }),
   );
 
-  // 로그인 관련(/auth/login · /auth/callback · /auth/logout)
+  // 로그인 관련(/auth/login, /auth/callback, /auth/logout)
   app.use("/auth", createAuthRouter());
 
   // API 라우트
@@ -190,7 +190,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());
 
-  // 지금 로그인한 사용자(/api/me) · 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
+  // 지금 로그인한 사용자(/api/me), 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
   app.use("/api/me/devices", createLoginDevicesRouter({ places: geoip }));
   app.use("/api", identityRouter);
 
@@ -202,9 +202,9 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
 function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {
   const app = createApp(bot, { stream, deployCommands, restart });
-  // 봇 상태 탭의 측정 · 최근 15분 · 게이트웨이 재연결은 화면을 열기 전부터 모은다
+  // 봇 상태 탭의 측정, 최근 15분, 게이트웨이 재연결은 화면을 열기 전부터 모은다
   startStatus(bot);
-  // 로그인 배경: 쓸 수 있는 인코더를 뒤에서 테스트하고, 봇이 꺼질 때 하던 단계 · 남은 단계를 이어서 한다
+  // 로그인 배경: 쓸 수 있는 인코더를 뒤에서 테스트하고, 봇이 꺼질 때 하던 단계, 남은 단계를 이어서 한다
   startEncoderCheck();
   registerStages();
   loginBackground.resume();

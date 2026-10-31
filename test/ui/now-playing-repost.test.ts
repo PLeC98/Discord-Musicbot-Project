@@ -41,7 +41,7 @@ class TestPanels extends NowPlayingPanel {
   }
 }
 
-// 테스트가 조종하는 것: 보내기 · 고치기 실패, 보내기 직전에 할 일
+// 테스트가 조종하는 것: 보내기, 고치기 실패, 보내기 직전에 할 일
 type State = { sendError?: Error | null; editError?: Error | null; onSend?: () => unknown };
 // 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 필드
 type Cached = { id: string; createdTimestamp: number };

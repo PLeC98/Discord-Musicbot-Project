@@ -5,7 +5,7 @@ import * as errors from "./text/ko/errors.ts";
 import config from "../config/index.ts";
 import { isCode, type Code, type LooseProblem } from "../rules/problems.ts";
 
-// 곡을 찾거나 추가하지 못한 결과. 여기서 읽는 필드만. code 는 문제 목록의 코드이거나 흐름의 코드(lookup-failed · play-failed · play-threw 등),
+// 곡을 찾거나 추가하지 못한 결과. 여기서 읽는 필드만. code 는 문제 목록의 코드이거나 흐름의 코드(lookup-failed, play-failed, play-threw 등),
 // kind 는 오류로 못 했을 때 그 오류의 종류, skipped 는 받을 수 없어 뺀 곡 수
 type AddFailure = { code: string; kind?: Code; skipped?: number };
 // 오류가 던져져 못 한 흐름의 코드. 오류 종류를 모르면 unknown-error 의 안내다

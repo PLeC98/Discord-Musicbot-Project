@@ -1,10 +1,10 @@
-// src/autoplay/assist/retry.ts: AI 요청 거절의 요약 · 한도 소진 구분 · 기다리라는 시간 · 백오프
+// src/autoplay/assist/retry.ts: AI 요청 거절의 요약, 한도 소진 구분, 기다리라는 시간, 백오프
 import test from "node:test";
 import assert from "node:assert";
 import * as retry from "../../src/autoplay/assist/retry.ts";
 
 test("거절 까닭의 key 는 상태 코드와 오류 이름만, 문구는 detail 로", () => {
-  // 규격마다 이름 필드가 다르다(Google status · Anthropic type · OpenAI code)
+  // 규격마다 이름 필드가 다르다(Google status, Anthropic type, OpenAI code)
   assert.deepEqual(retry.summaryOf(429, '{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'), {
     key: "HTTP 429 RESOURCE_EXHAUSTED",
     detail: "Resource has been exhausted (e.g. check quota).",
@@ -21,7 +21,7 @@ test("다시 해도 소용없는 한도 소진을 구분한다", () => {
   assert.equal(retry.exhausted('{"error":{"status":"RESOURCE_EXHAUSTED"}}'), false, "구글의 이름은 경합과 한도 소진이 같아 가르지 않는다");
 });
 
-test("기다리라는 시간: 헤더 · 제미니 본문, 여럿이면 긴 것", () => {
+test("기다리라는 시간: 헤더, 제미니 본문, 여럿이면 긴 것", () => {
   const now = Date.parse("2026-09-27T00:00:00Z");
   const headers = (init: Record<string, string>) => new Headers(init);
   assert.equal(retry.adviceMs(headers({ "retry-after": "3" }), "", now), 3000);

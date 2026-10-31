@@ -1,4 +1,4 @@
-// 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · 유튜브용 yt-dlp 옵션 · 인증 상태 로그.
+// 유튜브에 어떻게 붙는가. POToken 플러그인, 쿠키, 유튜브용 yt-dlp 옵션, 인증 상태 로그.
 
 import path from "path";
 import type { YtDlpFlags as Flags } from "../ytdlp-spawn.ts";
@@ -130,7 +130,7 @@ function cookieSource(): CookieSource {
 }
 
 /**
- * 쿠키(브라우저 · 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
+ * 쿠키(브라우저, 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
  *
  * 입력한 쿠키는 기동 시점이 아니라 부를 때마다 본다. 대시보드로 교체하면 봇을 다시 시작하지
  * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮다(연령 제한에서만 불린다).

@@ -6,7 +6,7 @@ import { eventLink } from "../utils/event-link.ts";
 import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/contract/guilds.ts";
 
 // 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
-// 서버 목록 · 사이드바 · 재생 바 · 서버 화면이 같이 쓴다(연결 상한이 사용자당이라 화면마다 열면 넘친다).
+// 서버 목록, 사이드바, 재생 바, 서버 화면이 같이 쓴다(연결 상한이 사용자당이라 화면마다 열면 넘친다).
 // 받는 쪽은 바뀐 서버 ID 를 받는다. null 이면 어느 서버인지 모른다(끊긴 동안 놓쳤을 수 있다): 전부 다시 읽는다
 type NudgeHandler = (guildId: string | null) => void;
 const nudgeHandlers = new Set<NudgeHandler>();
@@ -27,7 +27,7 @@ function changedGuild(data: unknown): string | null {
   }
 }
 
-// 연결 · 타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
+// 연결, 타이머 핸들은 반응성이 필요 없으므로 모듈 스코프에 둔다
 let subscribers = 0;
 let link: ReturnType<typeof eventLink> | null = null;
 let fallbackTimer: ReturnType<typeof setInterval> | undefined;
@@ -53,7 +53,7 @@ export const useGuildsStore = defineStore("guilds", {
         this.guilds = res.data.guilds;
         this.relogin = res.data.relogin === true;
       } catch {
-        // 지금 목록을 둔다. 까닭은 띠(연결 안 됨 · 세션 끝)가 알리고, 다음 신호 · 주기 읽기에서 회복
+        // 지금 목록을 둔다. 까닭은 띠(연결 안 됨, 세션 끝)가 알리고, 다음 신호, 주기 읽기에서 회복
       } finally {
         this.loading = false;
       }

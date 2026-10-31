@@ -1,5 +1,5 @@
 // 운영자 패널 캐시 DB 탭의 문구.
-// 단어는 DB 도구 · 엑셀에서 흔히 쓰는 말 그대로(테이블 · 행 · 열 · 셀 · 필터 · 헤더 · 정렬). 셀 툴팁은 값만으로 알 수 없는 것에만
+// 단어는 DB 도구, 엑셀에서 흔히 쓰는 말 그대로(테이블, 행, 열, 셀, 필터, 헤더, 정렬). 셀 툴팁은 값만으로 알 수 없는 것에만
 
 import type { TrackCacheTable, TrackFileUse } from "../../../../src/dashboard/contract/track-cache.ts";
 
@@ -106,7 +106,7 @@ const values = {
   noRows: "행이 없어요",
 };
 
-/** 셀 툴팁: 값만으로는 알 수 없는 것에만(재생 불가 까닭 · 저장 실패 까닭) */
+/** 셀 툴팁: 값만으로는 알 수 없는 것에만(재생 불가 까닭, 저장 실패 까닭) */
 const tips = {
   checkFailed: (reason: string, when: string) => `${reason} (${when} 테스트)`,
   /** 지정한 음원이 라이브: 라이브는 지정할 수 없어 틀 때 원래 요청으로 다시 찾는다 */

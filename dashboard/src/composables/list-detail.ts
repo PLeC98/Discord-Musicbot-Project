@@ -1,6 +1,6 @@
-// 운영자 패널의 목록 · 상세 편집기(자동재생 장르 · 상태 문구)가 같이 쓰는 것(M3 목록 · 상세).
-// - 넓으면(52rem 이상) 2열, 좁으면 1열. 1열에서 상세를 열면 방문 기록이 하나 쌓여 OS · 브라우저 뒤로가기가 목록으로 돌아온다(2열은 쌓지 않는다)
-// - 선택한 항목은 주소(?<param>=이름, 이름이 비었거나 겹치면 @순번, 목록 첫 항목의 전역 값은 @defaults)에 둬 새로고침 · 저장 뒤에도 다시 찾는다
+// 운영자 패널의 목록, 상세 편집기(자동재생 장르, 상태 문구)가 같이 쓰는 것(M3 목록, 상세).
+// - 넓으면(52rem 이상) 2열, 좁으면 1열. 1열에서 상세를 열면 방문 기록이 하나 쌓여 OS, 브라우저 뒤로가기가 목록으로 돌아온다(2열은 쌓지 않는다)
+// - 선택한 항목은 주소(?<param>=이름, 이름이 비었거나 겹치면 @순번, 목록 첫 항목의 전역 값은 @defaults)에 둬 새로고침, 저장 뒤에도 다시 찾는다
 // - 2열일 때 목록은 재생 바 옆이 비어 있으면 아래 끝까지 쓴다
 
 import { computed, nextTick, reactive, ref, watch, type Ref } from "vue";
@@ -25,7 +25,7 @@ export function reportSinglePane(param: string, single: () => boolean) {
 
 type Row = { key: number; name: string };
 
-/** 2열 판단 · 목록 카드 높이 · 열 나누기만(선택은 부르는 쪽이 정할 때) */
+/** 2열 판단, 목록 카드 높이, 열 나누기만(선택은 부르는 쪽이 정할 때) */
 export function useListDetailLayout(paneEl: Ref<HTMLElement | null>) {
   const { width: paneWidth } = useElementSize(paneEl);
   // 목록 20rem + 편집이 입력란을 두 줄로 놓을 만큼
@@ -81,7 +81,7 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
     return rows.value.findIndex((r) => r.name.trim() === q);
   }
   // 선택한 항목은 화면 안에서 key 로 붙잡는다. 주소는 여기서 따라 쓴다(이름을 고치는 동안 옛 이름으로 다시 찾으면 다른 항목으로 튄다).
-  // 주소가 바뀌면(뒤로가기 · 새로고침 · 저장 뒤 다시 읽은 항목) 주소에서 다시 찾는다
+  // 주소가 바뀌면(뒤로가기, 새로고침, 저장 뒤 다시 읽은 항목) 주소에서 다시 찾는다
   const selectedKey = ref<number | null>(null);
   watch([() => route.query[param], rows], () => {
     const i = indexOfQuery();

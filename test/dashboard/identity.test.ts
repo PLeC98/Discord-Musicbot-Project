@@ -56,7 +56,7 @@ test("/api/me: 로그인 전에는 401, 로그인했으면 사용자와 운영�
   assert.equal(animated.json.avatarUrl, "https://cdn.discordapp.com/avatars/u3/a_abc.gif?size=64", "움직이는 그림은 gif 그대로");
 });
 
-test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름 · 그림은 봇이 준비되면", async () => {
+test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름, 그림은 봇이 준비되면", async () => {
   botUser = null;
   const early = await get("/api/bot");
   assert.equal(early.status, 200);
@@ -82,7 +82,7 @@ test("/api/me: 세션 사용자에 무엇이 더 붙어도 Me 의 필드만 보�
   assert.deepEqual(Object.keys(me.json).sort(), ["avatar", "avatarUrl", "canInvite", "globalName", "id", "isOwner", "isRealOwner", "username", "viewAs"]);
 });
 
-test("/api/me: canInvite 는 공개 봇이면 누구나, 아니면 앱 소유자 · 팀원만. code grant 를 요구하거나 앱 정보를 모르면 아무도", async () => {
+test("/api/me: canInvite 는 공개 봇이면 누구나, 아니면 앱 소유자, 팀원만. code grant 를 요구하거나 앱 정보를 모르면 아무도", async () => {
   const { _setAppInfo } = await import("../../src/dashboard/invite.ts");
   const canInvite = async (id: string) => {
     user = { id, username: id };

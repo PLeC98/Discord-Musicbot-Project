@@ -12,9 +12,9 @@ const GB = 1024 ** 3;
 const MARGIN = 1.1;
 /** AV1 하나의 최대 메모리(GB, 병렬 단계 1 ~ 5 순서. 개발 PC 에서 잰 값) */
 const AV1_GB = { uhd: [3.5, 4.0, 5.0, 6.3, 7.9], fhd: [1.3, 1.5, 1.7, 2.0, 2.5] };
-/** 나눠 인코딩하기(AV1 · VP9 의 4K · 1080p 넷)의 최대 메모리(GB, 병렬 단계 2 · 3) */
+/** 나눠 인코딩하기(AV1, VP9 의 4K, 1080p 넷)의 최대 메모리(GB, 병렬 단계 2, 3) */
 const SPLIT_UHD_GB: Record<number, number> = { 2: 6.3, 3: 7.6 };
-/** VP9 하나 · H.264 720p 하나 · 크기 추산(GB) */
+/** VP9 하나, H.264 720p 하나, 크기 추산(GB) */
 const VP9_GB = { uhd: 1.6, fhd: 0.85 };
 const LIGHT_GB = 1.4;
 
@@ -41,7 +41,7 @@ function av1Lp(uhd: boolean, free = os.freemem()): number | null {
   return null;
 }
 
-/** 나눠 인코딩하기의 병렬 단계(남은 메모리에 들지 않으면 null = 따로 인코딩한다). 4K 가 없으면 1080p 둘(AV1 · VP9)을 더한 값으로 */
+/** 나눠 인코딩하기의 병렬 단계(남은 메모리에 들지 않으면 null = 따로 인코딩한다). 4K 가 없으면 1080p 둘(AV1, VP9)을 더한 값으로 */
 function splitLp(uhd: boolean, free = os.freemem()): number | null {
   const need = (lp: number) => (uhd ? bytes(SPLIT_UHD_GB[lp]) : needOf({ codec: "av1", lp }) + needOf({ codec: "vp9" }));
   return SPLIT_LPS.find((lp) => need(lp) <= free) ?? null;

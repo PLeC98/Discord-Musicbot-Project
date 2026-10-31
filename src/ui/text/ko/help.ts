@@ -3,7 +3,7 @@
 import type { HelpSection, HelpTier } from "../../help-lines.ts";
 import { icon, type IconKey } from "../../icons.ts";
 
-// 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 섹션 이름 · 권한 표시 · 지원 플랫폼만.
+// 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 섹션 이름, 권한 표시, 지원 플랫폼만.
 // 아이콘은 그릴 때 붙인다(앱 이모지를 동기화한 뒤의 id 가 실리게). 플랫폼을 색으로 나타내는 점(🔴 🟢 🟠)은 유니코드 그대로
 
 const SECTION_NAME: Record<HelpSection, [IconKey, string]> = {

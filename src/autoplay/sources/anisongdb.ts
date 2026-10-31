@@ -59,7 +59,7 @@ async function loadAnisongStats(): Promise<AnisongStats | null> {
   }
 }
 
-// 장르·태그 목록과 난이도 분포. 하루 한 번 불러오고, 화면은 오래 기다리지 않는다(http.remembered)
+// 장르, 태그 목록과 난이도 분포. 하루 한 번 불러오고, 화면은 오래 기다리지 않는다(http.remembered)
 const anisongStats = remembered(loadAnisongStats, { ttlMs: CATALOG_TTL_MS, retryMs: CATALOG_RETRY_MS, waitMs: CATALOG_WAIT_MS });
 
 /** 화면이 선택할 값을 저쪽에서 불러와 채운다. 못 불러왔거나 늦으면 null(빈 목록으로 그린다). */
@@ -69,7 +69,7 @@ const anisongCatalog = () => anisongStats.get();
  * 설정 한 줄을 저쪽이 받는 filters 로.
  *
  * 안 적은 필드는 아예 빼야 한다. 빈 배열은 minItems 1 에 걸려 422.
- * `include_no_difficulty` 는 켜지 않는다. 난이도 0·null 은 값이 아니라 결측이다.
+ * `include_no_difficulty` 는 켜지 않는다. 난이도 0, null 은 값이 아니라 결측이다.
  */
 function anisongFilters(source: Partial<GenreSource>): Filters {
   const list = (v: string | string[] | undefined, allowed: string[]) => {
@@ -184,7 +184,7 @@ async function anisongdb(source: GenreSource): Promise<Candidate[]> {
   const seen = new Set<number>();
   for (const song of songs || []) {
     if (!song?.songName) continue;
-    // amqSongId 가 곡 단위다. annSongId 는 (애니, 곡) 쌍이라 속편·OVA·극장판에 다시 쓰인
+    // amqSongId 가 곡 단위다. annSongId 는 (애니, 곡) 쌍이라 속편, OVA, 극장판에 다시 쓰인
     // 같은 곡을 서로 다른 것으로 센다.
     const id = song.amqSongId ?? song.annSongId;
     if (id == null || seen.has(id)) continue;

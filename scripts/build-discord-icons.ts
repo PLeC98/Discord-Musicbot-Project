@@ -1,7 +1,7 @@
 // 디스코드 앱 이모지의 기호 윤곽을 추출한다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
 //   node scripts/build-discord-icons.ts      src/ui/icons.ts 표의 기호로 data/discord-icons/glyphs.json 을 다시 만든다
 //
-// 원본은 화면 앱이 받는 Material Symbols Rounded 가변 글꼴 중 축이 넷 다 있는 것(FILL · wght · GRAD · opsz)이다. 기호 이름을 원본의 합자로 풀어 코드포인트를 얻고,
+// 원본은 화면 앱이 받는 Material Symbols Rounded 가변 글꼴 중 축이 넷 다 있는 것(FILL, wght, GRAD, opsz)이다. 기호 이름을 원본의 합자로 풀어 코드포인트를 얻고,
 // 축을 디스코드에서 정한 값으로 고정한 글꼴(subset-font. fontkit 은 이 WOFF2 의 축을 풀지 못한다)에서 윤곽을 SVG 경로로 적는다(글꼴 칸 960, y 위로).
 // 봇은 이 파일로 PNG 를 만든다(ui/icon-images). 글꼴 도구는 개발 의존성이라 봇이 부르지 않는다. 기호 "sponsorblock" 은 글꼴이 아니라 skipIcon.svg 다
 

@@ -1,4 +1,4 @@
-// src/store/secrets.ts: 비밀값은 암호화해 두고, 묶인 곳 · 같은 키에서만 복호화된다. 화면용 상태에는 값이 없다
+// src/store/secrets.ts: 비밀값은 암호화해 두고, 묶인 곳, 같은 키에서만 복호화된다. 화면용 상태에는 값이 없다
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -24,14 +24,14 @@ beforeEach(() => {
   store.settings().exec("DELETE FROM secrets");
 });
 
-test("넣고 꺼낸다. 같은 곳(제공자 · 주소의 origin)이면 풀린다", () => {
+test("넣고 꺼낸다. 같은 곳(제공자, 주소의 origin)이면 풀린다", () => {
   secrets.put("ai", VALUE, AI);
   assert.deepEqual(secrets.read("ai", AI), { state: "ok", value: VALUE });
   assert.deepEqual(secrets.read("ai", { ...AI, endpoint: "https://API.example.com/other/path" }), { state: "ok", value: VALUE }, "같은 origin 의 다른 경로");
   assert.deepEqual(secrets.read("none"), { state: "none" });
 });
 
-test("주소 · 제공자가 바뀌면 키를 내주지 않는다", () => {
+test("주소, 제공자가 바뀌면 키를 내주지 않는다", () => {
   secrets.put("ai", VALUE, AI);
   assert.equal(secrets.read("ai", { ...AI, endpoint: "https://evil.example" }).state, "moved");
   assert.equal(secrets.read("ai", { ...AI, provider: "openai" }).state, "moved");
@@ -64,7 +64,7 @@ test("예전 형식으로 잠근 행은 키와 따로 알린다", () => {
   assert.equal(secrets.read("spotify").state, "old-format");
 });
 
-test("상태에는 값이 없고 끝 네 글자 · 바꾼 때 · 묶인 곳만. 짧은 값은 끝 네 글자도 적지 않는다", () => {
+test("상태에는 값이 없고 끝 네 글자, 바꾼 때, 묶인 곳만. 짧은 값은 끝 네 글자도 적지 않는다", () => {
   secrets.put("ai", VALUE, AI);
   const status = secrets.status("ai");
   assert.deepEqual({ ...status, updatedAt: typeof status.updatedAt }, { saved: true, updatedAt: "number", last4: "cdef", sameKey: true, provider: "custom", endpoint: "https://api.example.com" });
@@ -83,7 +83,7 @@ test("DB 파일에 평문이 남지 않는다", () => {
   }
 });
 
-test("삭제 · 빈 값과 너무 큰 값은 받지 않는다 · 키가 없으면 던진다", () => {
+test("삭제, 빈 값과 너무 큰 값은 받지 않는다, 키가 없으면 던진다", () => {
   secrets.put("ai", VALUE, AI);
   assert.equal(secrets.remove("ai"), true);
   assert.equal(secrets.remove("ai"), false);

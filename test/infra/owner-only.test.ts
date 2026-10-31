@@ -1,4 +1,4 @@
-// src/infra/owner-only.ts: 비밀(암호문) · 로그인이 든 파일은 봇을 돌리는 사용자만(POSIX 0600). Windows 는 권한이 먹지 않아 건너뛴다
+// src/infra/owner-only.ts: 비밀(암호문), 로그인이 든 파일은 봇을 돌리는 사용자만(POSIX 0600). Windows 는 권한이 먹지 않아 건너뛴다
 
 import fs from "node:fs";
 import os from "node:os";
@@ -11,7 +11,7 @@ import * as snapshots from "../../src/store/snapshots.ts";
 const posix = { skip: process.platform === "win32" ? "Windows 는 POSIX 권한이 없다" : false };
 const modeOf = (file: string) => fs.statSync(file).mode & 0o777;
 
-test("DB 파일 · 스냅샷은 0600 으로 만든다", posix, async () => {
+test("DB 파일, 스냅샷은 0600 으로 만든다", posix, async () => {
   const before = process.umask(0o022); // 보통의 umask 로도 남이 못 읽게
   const store = openTempStore("owner-only-");
   try {

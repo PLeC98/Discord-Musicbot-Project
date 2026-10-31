@@ -1,4 +1,4 @@
-// src/ui/settings-screens.ts: 서버 설정 화면. 저장한 결과는 완료 색, 화면 · 취소 · 지금 값은 기본 색
+// src/ui/settings-screens.ts: 서버 설정 화면. 저장한 결과는 완료 색, 화면, 취소, 지금 값은 기본 색
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

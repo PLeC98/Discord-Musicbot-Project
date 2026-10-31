@@ -10,10 +10,10 @@
 
 import type { AudioFoundBy } from "../rules/audio-found-by.ts";
 
-/** 곡 길이가 어디서 왔나. provided: 출처가 준 값 · measured: 다운로드해 둔 음원을 잰 값 · unknown: 모른다(0). 적지 않았으면 provided */
+/** 곡 길이가 어디서 왔나. provided: 출처가 준 값, measured: 다운로드해 둔 음원을 잰 값, unknown: 모른다(0). 적지 않았으면 provided */
 type DurationSource = "provided" | "measured" | "unknown";
 
-/** 소스가 준 것(링크 조회 · 검색 · 자동재생 후보). */
+/** 소스가 준 것(링크 조회, 검색, 자동재생 후보). */
 type TrackInfo = {
   /** 출처가 제목을 주지 않았으면 null. 그리는 쪽이 "알 수 없는 곡"으로 적는다 */
   title: string | null;

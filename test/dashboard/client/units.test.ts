@@ -30,7 +30,7 @@ test("개수: 1000 부터 k, 100만부터 M, 반올림이 경계를 넘으면 �
   assert.deepEqual(scaledText(999_960, count, digits), { value: "1.0", unit: "M", per: 1e6 }, "1000.0k 가 아니라");
 });
 
-test("깔끔한 상한: 1 · 2 · 5 × 10ⁿ", () => {
+test("깔끔한 상한: 1, 2, 5 × 10ⁿ", () => {
   assert.equal(niceMax(0), 1);
   assert.equal(niceMax(3), 5);
   assert.equal(niceMax(454.6), 500);

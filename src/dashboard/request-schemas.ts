@@ -1,6 +1,6 @@
 // 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다. 오류 메시지에는 문장 대신 문제 코드(rules/problems)를 적는다.
-// 재생 조작의 값(볼륨 · 반복 모드 · 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
-// 서버에 그 역할 · 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
+// 재생 조작의 값(볼륨, 반복 모드, 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
+// 서버에 그 역할, 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { AGE_PLACES } from "../rules/age-place.ts";
 import { z } from "zod";
@@ -27,7 +27,7 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; valu
 // 대기열 ID(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
 const BAD_ENTRY = { error: "bad-request" satisfies Code };
 const Entry = z.number(BAD_ENTRY).int(BAD_ENTRY).positive(BAD_ENTRY);
-// 지금 곡이 이 줄일 때만(넘기기 · 이전 · 하이라이트). 없으면 확인하지 않는다
+// 지금 곡이 이 줄일 때만(넘기기, 이전, 하이라이트). 없으면 확인하지 않는다
 const OnTrackBody = z.object({ onTrack: Entry.optional() }, BAD_ENTRY);
 
 // 구간 이동 { position: 초, onTrack? }. "Infinity"(라이브 duration 0 에서 클램프를 뚫는다)와 비숫자 문자열은 거부
@@ -49,7 +49,7 @@ const QueueWindowQuery = z.object({
   limit: z.coerce.number(BAD_LIMIT).int(BAD_LIMIT).positive(BAD_LIMIT).max(QUEUE_WINDOW_MAX, BAD_LIMIT),
 });
 
-// 곡 추가 { query, single }. 제어문자(CR/LF/NUL 등)는 공백으로. 로그 위조 · 외부 도구 인자 오염을 막는다
+// 곡 추가 { query, single }. 제어문자(CR/LF/NUL 등)는 공백으로. 로그 위조, 외부 도구 인자 오염을 막는다
 const QUERY_MAX_LEN = 500;
 const BAD_QUERY = { error: "bad-query" satisfies Code };
 const AddBody = z.object(
@@ -72,7 +72,7 @@ const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 
 // ── 서버 설정 ──
 
-// 없는 필드는 바꾸지 않는다. null 은 기본값으로 되돌린다(전용 채널 · 재생목록 곡 수). 순서는 문제를 알리는 순서다
+// 없는 필드는 바꾸지 않는다. null 은 기본값으로 되돌린다(전용 채널, 재생목록 곡 수). 순서는 문제를 알리는 순서다
 function settingsBody({ min, max }: { min: number; max: number }) {
   const BAD_PLAYLIST_ADD = { error: "playlist-limit-out-of-range" satisfies Code };
   const BAD_CATEGORIES = { error: "bad-sponsor-categories" satisfies Code };
@@ -83,7 +83,7 @@ function settingsBody({ min, max }: { min: number; max: number }) {
       sponsorblock: z
         .object(
           {
-            // 참 · 거짓이 아니면 바꾸지 않는다
+            // 참, 거짓이 아니면 바꾸지 않는다
             enabled: z
               .unknown()
               .optional()
@@ -110,7 +110,7 @@ type SettingsRequest = z.input<ReturnType<typeof settingsBody>>;
 const BAD_FAVICON = { error: "bad-request" satisfies Code };
 // 기록의 이미지로 교체 { id }
 const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).max(64, BAD_FAVICON) }, BAD_FAVICON);
-// 링크로 추가 { url }. http · https 인지 · 내부 주소인지는 infra/safe-url 이 본다
+// 링크로 추가 { url }. http, https 인지, 내부 주소인지는 infra/safe-url 이 본다
 const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
 
 // ── 로그인 배경 ──
@@ -137,16 +137,16 @@ const BackgroundOptionsBody = z.object(
   },
   BAD_BACKGROUND,
 );
-// 기록 · 저장 한도 { history, maxBytes }
+// 기록, 저장 한도 { history, maxBytes }
 const BackgroundLimitsBody = z.object({ history: bgNumber(0, LOGIN_BG_HISTORY_MAX).int(BAD_BACKGROUND), maxBytes: bgNumber(0, Number.MAX_SAFE_INTEGER).int(BAD_BACKGROUND) }, BAD_BACKGROUND);
 // 기록의 배경으로 교체 { id }
 const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG_ID, BAD_BACKGROUND) }, BAD_BACKGROUND);
-// 링크로 추가 { url }. 다운로드하는 쪽(safe-url · yt-dlp)이 주소를 본다
+// 링크로 추가 { url }. 다운로드하는 쪽(safe-url, yt-dlp)이 주소를 본다
 const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1, BAD_BACKGROUND).max(2048, BAD_BACKGROUND) }, BAD_BACKGROUND);
 
 // ── 캐시 DB ──
 
-// 조작의 모양만 본다. 주소가 쓸 수 있는지 · 개수 상한 · 지울 것이 있는지는 dashboard/track-cache 가 조작 번호와 함께 본다
+// 조작의 모양만 본다. 주소가 쓸 수 있는지, 개수 상한, 지울 것이 있는지는 dashboard/track-cache 가 조작 번호와 함께 본다
 const BAD_TRACK_CACHE = { error: "bad-request" satisfies Code };
 const tcText = (max: number) => z.string(BAD_TRACK_CACHE).min(1, BAD_TRACK_CACHE).max(max, BAD_TRACK_CACHE);
 const tcUrl = tcText(2048);

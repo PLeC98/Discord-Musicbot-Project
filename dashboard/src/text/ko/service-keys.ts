@@ -1,6 +1,6 @@
-// 운영자 패널: API 키 탭의 바깥 서비스 키(Spotify · Last.fm · ListenBrainz)
+// 운영자 패널: API 키 탭의 바깥 서비스 키(Spotify, Last.fm, ListenBrainz)
 
-/** 서비스마다: 제목 · 무엇에 쓰나 · 툴팁 · 키 발급 주소 · 입력란 이름 */
+/** 서비스마다: 제목, 무엇에 쓰나, 툴팁, 키 발급 주소, 입력란 이름 */
 const services = {
   spotify: {
     title: "Spotify",

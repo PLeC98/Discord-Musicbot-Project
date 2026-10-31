@@ -6,7 +6,7 @@ import type { Final } from "./josa.ts";
 // 짧은 모음(외래어 표기법: 짧은 모음 뒤의 어말 무성 파열음은 받침으로 적는다)
 const SHORT_VOWELS = new Set(["AE", "EH", "IH", "AH", "UH", "AA"]);
 const VOWELS = new Set(["AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW"]);
-// 대문자 약어를 글자 이름으로 읽은 끝: L 엘 · R 알 은 ㄹ, M 엠 · N 엔 은 받침, 그 밖(에이 · 비 · 에스 · 티 …)은 받침 없음
+// 대문자 약어를 글자 이름으로 읽은 끝: L 엘, R 알 은 ㄹ, M 엠, N 엔 은 받침, 그 밖(에이, 비, 에스, 티 …)은 받침 없음
 const LETTER: Record<string, Final> = { L: "rieul", R: "rieul", M: "final", N: "final" };
 
 /** 발음(강세 숫자를 뗀 ARPAbet 소리들)의 끝소리 */
@@ -24,7 +24,7 @@ function spellingFinal(word: string): Final {
   if (word.endsWith("ng") || /[mn]$/.test(word)) return "final";
   if (word.endsWith("l")) return "rieul";
   if (word.endsWith("ck")) return "final";
-  // 자음 + 모음 하나 + p · t · k (hit · pop · rock)
+  // 자음 + 모음 하나 + p, t, k (hit, pop, rock)
   if (/(^|[^aeiou])[aeiou][ptk]$/.test(word)) return "final";
   return "none";
 }

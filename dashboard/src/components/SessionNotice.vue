@@ -1,5 +1,5 @@
 <template>
-  <!-- 세션 끝 · 연결 안 됨. 알림(ToastStack) 위에 남는 띠. 화면을 옮기지 않는다(고치던 설정을 지킨다) -->
+  <!-- 세션 끝, 연결 안 됨. 알림(ToastStack) 위에 남는 띠. 화면을 옮기지 않는다(고치던 설정을 지킨다) -->
   <div v-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
     <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="cloud_off" :size="20" /></span>
     <span class="flex-1 min-w-0 text-on-surface font-medium">{{ session.ended ? loginNotice.title : unansweredTitle("offline") }}</span>
@@ -12,7 +12,7 @@
     <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
   </div>
 
-  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘 · 제목 · 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
+  <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘, 제목, 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
        세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">

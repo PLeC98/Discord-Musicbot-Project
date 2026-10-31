@@ -1,4 +1,4 @@
-// 장르 설정의 소스 줄 규격. 종류마다 필드 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
+// 장르 설정의 소스 줄 규격. 종류마다 필드, 값 목록, 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
 import type { Window } from "../../rules/window-depth.ts";
 
@@ -43,7 +43,7 @@ type SourceTypeView = {
   window: Window | null;
 };
 
-// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
+// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(sources/voca.ts). 가수, 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
 const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
@@ -93,11 +93,11 @@ const vocaEnums = (site: Site): Record<string, string[]> => ({
 });
 
 // 대시보드가 그릴 입력란. kind 는 화면이 무엇을 표시할지 정한다.
-// list(칩) · text · url · number · range(구간 슬라이더) ·
-// enum(하나 선택) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿) ·
+// list(칩), text, url, number, range(구간 슬라이더),
+// enum(하나 선택), enumList(알약으로 여럿), enumDrop(드롭다운에서 여럿),
 // enumSearch(입력해 찾아 칩으로 여럿. 항목이 수백 개인 입력란).
 // deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
-// width 는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란) · half(늘 반 줄) ·
+// width 는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란), half(늘 반 줄),
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
 // when: "다른 필드" 는 그 입력란이 채워졌을 때만 나온다.
 const f = (key: string, kind: FieldKind, label: string, extra: Omit<Field, "key" | "kind" | "label"> = {}): Field => ({ key, kind, label, ...extra });
@@ -129,7 +129,7 @@ const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
 };
 
 // 가사 언어. 저쪽이 목록을 주지 않아 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다(유튜브 PV 가 있는 곡 기준, 사이트마다 많은 순서).
-// 로마자 가사에 엉뚱한 코드가 붙은 ha · ln · yo · jv 는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
+// 로마자 가사에 엉뚱한 코드가 붙은 ha, ln, yo, jv 는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
 const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",
@@ -347,7 +347,7 @@ const SPEC: Record<string, SourceSpec> = {
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
   touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있어요.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
-  // 재생목록 · 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
+  // 재생목록, 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
   spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록, 앨범, 아티스트" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "일반 재생목록이나 유튜브 뮤직 공식 재생목록(list=RDCLAK…)을 넣어 주세요. 전체 곡 수 안에서 무작위로 곡을 뽑기 때문에, 믹스처럼 유튜브가 끝없이 이어 주는 자동 목록은 쓰지 못해요." })] },
 };

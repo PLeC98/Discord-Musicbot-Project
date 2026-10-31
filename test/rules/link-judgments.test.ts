@@ -1,4 +1,4 @@
-// src/rules/input-kind.ts · canonical-url.ts · audio-key-of.ts: 링크 판정 셋. 순수 함수라 입력과 답만 적는다.
+// src/rules/input-kind.ts, canonical-url.ts, audio-key-of.ts: 링크 판정 셋. 순수 함수라 입력과 답만 적는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -65,7 +65,7 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
     ["https://api-v2.soundcloud.com/tracks/368141150", "sc:api-v2.soundcloud.com/tracks/368141150"], // 재생목록을 훑어 읽은 곡
     ["https://cdn.example.com/a.mp3", `dl:${md5("https://cdn.example.com/a.mp3")}`],
     ["https://cdn.example.com/a.mp3?token=1", `dl:${md5("https://cdn.example.com/a.mp3?token=1")}`], // 서명된 주소는 쿼리까지
-    // 자동재생 음원(AnisongDB 는 소리 · 영상 파일, AnimeThemes 는 ogg)
+    // 자동재생 음원(AnisongDB 는 소리, 영상 파일, AnimeThemes 는 ogg)
     ["https://nawdist.animemusicquiz.com/abcdef.mp3", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.mp3")}`],
     ["https://nawdist.animemusicquiz.com/abcdef.webm", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.webm")}`],
     ["https://a.animethemes.moe/Title-OP1.ogg", `dl:${md5("https://a.animethemes.moe/Title-OP1.ogg")}`],
@@ -77,8 +77,8 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
   for (const [input, want] of cases) assert.equal(audioKeyOf(input), want, String(input));
 });
 
-// 받는 것은 곡과 세트뿐이다. 프로필 · 좋아요 같은 모음은 곡 링크로 잘못 알아보지 않는다
-test("사운드클라우드 주소가 가리키는 것: 곡 · 세트 · 짧은 링크 · 그 밖", () => {
+// 받는 것은 곡과 세트뿐이다. 프로필, 좋아요 같은 모음은 곡 링크로 잘못 알아보지 않는다
+test("사운드클라우드 주소가 가리키는 것: 곡, 세트, 짧은 링크, 그 밖", () => {
   const cases = [
     ["https://soundcloud.com/artist/track-name", "track"],
     ["https://m.soundcloud.com/artist/track?in=a/sets/b", "track"],

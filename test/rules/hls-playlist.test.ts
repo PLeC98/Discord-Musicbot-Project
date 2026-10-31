@@ -1,4 +1,4 @@
-// src/rules/hls-playlist.ts: HLS 재생목록 해석(상위 · 하위 목록, 바이트 구간 · 초기화 세그먼트 · 키 · 순번 · 끝)과 받을 하위 목록 고르기
+// src/rules/hls-playlist.ts: HLS 재생목록 해석(상위, 하위 목록, 바이트 구간, 초기화 세그먼트, 키, 순번, 끝)과 받을 하위 목록 고르기
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ test("HLS 가 아니면 null", () => {
   assert.equal(parsePlaylist("[playlist]\nFile1=x", BASE), null);
 });
 
-test("상위 목록: 화질 · 음성 따로를 모으고, 음성 따로(기본 먼저)를 고른다. 없으면 대역폭이 가장 낮은 화질", () => {
+test("상위 목록: 화질, 음성 따로를 모으고, 음성 따로(기본 먼저)를 고른다. 없으면 대역폭이 가장 낮은 화질", () => {
   const master = parsePlaylist(
     `#EXTM3U
 #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud1",NAME="Eng",DEFAULT=NO,AUTOSELECT=YES,URI="a1/index.m3u8"
@@ -36,7 +36,7 @@ v240/index.m3u8
   assert.equal(chooseMedia({ ...master, audio: [] }), "https://cdn.test/live/v240/index.m3u8", "대역폭이 가장 낮은 화질");
 });
 
-test("하위 목록: 세그먼트 길이 · 순번 · 끝, 바이트 구간(오프셋 없으면 같은 주소의 앞 구간 끝에서), 초기화 세그먼트 · 키는 바뀔 때까지 이어진다", () => {
+test("하위 목록: 세그먼트 길이, 순번, 끝, 바이트 구간(오프셋 없으면 같은 주소의 앞 구간 끝에서), 초기화 세그먼트, 키는 바뀔 때까지 이어진다", () => {
   const media = parsePlaylist(
     `#EXTM3U
 #EXT-X-TARGETDURATION:6
@@ -70,7 +70,7 @@ https://other.test/seg3.ts
   assert.equal(lengthOf(media), 16.49);
 });
 
-test("http(s) 가 아닌 주소(file · data · 그 밖)는 버리고, 그 밖의 암호는 OTHER(SAMPLE-AES 등)", () => {
+test("http(s) 가 아닌 주소(file, data, 그 밖)는 버리고, 그 밖의 암호는 OTHER(SAMPLE-AES 등)", () => {
   const media = parsePlaylist(
     `#EXTM3U
 #EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://drm"

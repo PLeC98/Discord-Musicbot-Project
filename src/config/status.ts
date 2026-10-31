@@ -13,7 +13,7 @@ const validateStatus = statusProblems;
 
 /** 문구 하나. 글자로 적거나 { text, type } 으로 풀어 적는다 */
 type ActivityMessage = string | { text: string; type?: string };
-/** 때가 맞으면 평소 문구 대신 나오는 문구. 범위는 "MM-DD ~ MM-DD" · "HH:MM ~ HH:MM" */
+/** 때가 맞으면 평소 문구 대신 나오는 문구. 범위는 "MM-DD ~ MM-DD", "HH:MM ~ HH:MM" */
 type StatusEntry = { date?: string; lunar?: string; time?: string; messages: ActivityMessage[] };
 // 검사를 지난 모양. interval 은 글자로 적어도 통과한다(읽는 쪽이 Number 로)
 type StatusConfig = { interval?: unknown; messages: ActivityMessage[]; special?: Record<string, StatusEntry> | null };

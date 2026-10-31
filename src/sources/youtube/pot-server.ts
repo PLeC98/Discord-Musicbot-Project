@@ -1,8 +1,8 @@
 // bgutil POToken 서버. 유튜브가 요구하는 토큰을 만들어 주는 로컬 HTTP 서버를 실행하고 지킨다.
 // 조립(app/main)이 하나 만들어 기동 시 실행하고 종료 시 내린다.
 //
-// 서버는 실행마다 OS가 준 빈 포트 · 127.0.0.1 하나에만 열고, yt-dlp에는 그 주소를 넘긴다(youtube/auth). 고정 포트(4416)를 쓰면
-// 그 포트를 남(남은 서버 · 따로 띄운 서버 · 다른 봇)이 쥐었을 때 서버가 뜨지 못하고 yt-dlp가 남의 서버에 기댄다.
+// 서버는 실행마다 OS가 준 빈 포트, 127.0.0.1 하나에만 열고, yt-dlp에는 그 주소를 넘긴다(youtube/auth). 고정 포트(4416)를 쓰면
+// 그 포트를 남(남은 서버, 따로 띄운 서버, 다른 봇)이 쥐었을 때 서버가 뜨지 못하고 yt-dlp가 남의 서버에 기댄다.
 // 주소를 하나로 정하는 까닭: 정하지 않으면 bgutil은 ::1과 127.0.0.1에 따로 열고 하나만 열려도 돈다(남이 IPv4만 쥐면 반쪽으로 뜬다).
 
 import childProcess from "child_process";
@@ -22,7 +22,7 @@ const HOST = "127.0.0.1";
 const RESTART_MS = 5000; // 비정상 종료 뒤 다시 실행하기까지
 const BIND_TRIES = 3; // 받은 빈 포트를 그 사이 남이 잡아 실행하지 못한 일이 연달아 이만큼이면 멈춘다
 const STOP_WAIT_MS = 1000; // 내릴 때 꺼지기를 기다리는 상한. 넘으면 종료 처리의 자식 정리가 내린다
-// Windows 콘솔의 종료 신호(창 닫기 · 콘솔 전체에 간 Ctrl+C)로 끝난 코드(STATUS_CONTROL_C_EXIT). 같은 콘솔의 봇도 곧 끝난다
+// Windows 콘솔의 종료 신호(창 닫기, 콘솔 전체에 간 Ctrl+C)로 끝난 코드(STATUS_CONTROL_C_EXIT). 같은 콘솔의 봇도 곧 끝난다
 const CONSOLE_EXIT = 0xc000013a;
 // 서버보다 먼저 싣는 코드: 봇이 열어 둔 표준 입력이 닫히면(봇이 어떻게 끝나든 OS가 닫는다) 서버도 끝난다. bgutil은 고치지 않는다
 const EXIT_WITH_PARENT = "data:text/javascript,process.stdin.on('end',()=>process.exit(0));process.stdin.on('error',()=>process.exit(0));process.stdin.resume();";
@@ -30,13 +30,13 @@ const EXIT_WITH_PARENT = "data:text/javascript,process.stdin.on('end',()=>proces
 // 실행한 서버 프로세스. 여기서 쓰는 것만(테스트가 가짜를 넘긴다)
 type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } | null;
 type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; on(event: "error", listener: (error: Error) => void): unknown; once(event: "exit", listener: () => void): unknown; kill(signal?: NodeJS.Signals): unknown };
-/** 내린 결과. none 실행한 것이 없다 · stopped 꺼졌다 · timeout 상한 안에 꺼지지 않았다 */
+/** 내린 결과. none 실행한 것이 없다, stopped 꺼졌다, timeout 상한 안에 꺼지지 않았다 */
 type PotStop = "none" | "stopped" | "timeout";
 type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["pipe", "pipe", "pipe"] }) => PotProcess;
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; json?(): Promise<unknown> }>;
 type FreePort = () => Promise<number>;
 
-// 지금 이 봇이 띄운 서버의 주소. 없으면 null(꺼 둠 · 설치 안 됨 · 내림 · 포트를 잡지 못해 멈춤)
+// 지금 이 봇이 띄운 서버의 주소. 없으면 null(꺼 둠, 설치 안 됨, 내림, 포트를 잡지 못해 멈춤)
 let current: string | null = null;
 
 /** yt-dlp가 쓸 POToken 서버 주소. 이 봇이 띄운 서버가 없으면 null(그때는 플러그인을 싣지 않는다) */
@@ -79,8 +79,8 @@ function scrubBgutilLine(line: unknown): string {
 const BIND_FAILED = /could not listen/i;
 
 // 남의 프로세스라 레벨을 직접 붙일 수 없다. 스트림(stdout/stderr)과 문구로 구분한다.
-// bgutil의 stdout은 전량 요청 단위 상세(POT 생성·챌린지)라 debug로 내린다. 수명주기(시작·준비
-// 완료·비정상 종료)는 이 파일이 따로 남기므로 여기서 info로 올릴 것이 없다.
+// bgutil의 stdout은 전량 요청 단위 상세(POT 생성, 챌린지)라 debug로 내린다. 수명주기(시작, 준비
+// 완료, 비정상 종료)는 이 파일이 따로 남기므로 여기서 info로 올릴 것이 없다.
 function relay(chunk: Buffer | string, stream: "out" | "err") {
   for (const raw of chunk.toString().split("\n").filter(Boolean)) {
     const line = scrubBgutilLine(raw);
@@ -101,7 +101,7 @@ async function versionOf(res: { json?(): Promise<unknown> }) {
 }
 
 /**
- * spawn · exists · fetch · freePort: 바깥 경계. 생략하면 실제 구현. version: 받아 둔 서버의 버전(모르면 null이고 버전을 맞춰 보지 않는다)
+ * spawn, exists, fetch, freePort: 바깥 경계. 생략하면 실제 구현. version: 받아 둔 서버의 버전(모르면 null이고 버전을 맞춰 보지 않는다)
  */
 function createPotServer({ spawn = (command, args, options) => childProcess.spawn(command, args, options), exists = fs.existsSync, fetch = (url, init) => globalThis.fetch(url, init), freePort = pickFreePort, version = installedVersion() }: { spawn?: Spawn; exists?: (file: string) => boolean; fetch?: Fetch; freePort?: FreePort; version?: string | null } = {}) {
   let proc: PotProcess | null = null;

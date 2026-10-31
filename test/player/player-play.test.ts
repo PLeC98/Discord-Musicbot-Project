@@ -1,4 +1,4 @@
-// src/player/player.ts · src/player/start-playback.ts: Player.play() 의 지금 동작을 고정한다.
+// src/player/player.ts, src/player/start-playback.ts: Player.play() 의 지금 동작을 고정한다.
 //
 // 옳고 그름을 따지는 테스트가 아니다. 고칠 때 **무엇이 바뀌었는지**
 // 드러나게 하려는 것이다. 여기 적힌 동작이 이상해 보여도 고치지 말고, 고칠 때는 이 테스트를 같이 고친다.
@@ -104,7 +104,7 @@ test("캐시에서 틀어도 오디오 캐시에 재생을 적는다", async () 
   assert.equal(row?.title_verified, 0, "캐시 분기는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
-test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
+test("같은 곡을 이어 틀면(위치 이동, 구간 건너뛰기, 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
   const track = yt("ccccccccccc");
   h.seedCache("yt:ccccccccccc", track);
   const p = h.makePlayer();
@@ -115,7 +115,7 @@ test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구
     await p.seek(30_000, "dashboard");
     await p.play(60_000, { continued: true });
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 1, "처음 한 번만");
-    await p.play(0); // 한 곡 반복 · 다음 곡처럼 새로 튼다
+    await p.play(0); // 한 곡 반복, 다음 곡처럼 새로 튼다
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 2);
   } finally {
     h.dispose(p);
@@ -228,7 +228,7 @@ const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) =
   start: { header: Buffer.from("HEAD"), startByte: 90_000_000, startedAtMs: 4_490_000, expectStart: { bytes: 4, check: () => true }, ...over },
 });
 
-test("위치 이동: 색인이 있으면 청크 스트림을 헤더 · 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
+test("위치 이동: 색인이 있으면 청크 스트림을 헤더, 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
   const p = h.makePlayer();
   // 곡 길이는 스트림이 알려 준 것이 먼저다(표시 길이와 다를 수 있다)
   p.currentTrack = yt("seekidx0001", { duration: 100 });
@@ -248,7 +248,7 @@ test("위치 이동: 색인이 있으면 청크 스트림을 헤더 · 키프레
   assert.equal(args[args.indexOf("-ss") + 1], "10.000");
 });
 
-test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 연다. 주소 · 네트워크 탓이면 다시 열지 않는다", async () => {
+test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 연다. 주소, 네트워크 탓이면 다시 열지 않는다", async () => {
   for (const [what, failure, opens] of [
     ["색인 탓", Object.assign(new Error("받은 첫 바이트가 키프레임이 아닙니다"), { permanent: true, seekMismatch: true }), 2],
     ["주소 탓", Object.assign(new Error("Range 요청 실패: HTTP 404"), { permanent: true, status: 404 }), 1],
@@ -357,7 +357,7 @@ test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 �
   assert.equal(calls.downloads.length, 1);
 });
 
-// 다시 쓴 주소(받아 둔 영상 정보 · 직전 재생)는 추출한 IP 에 묶여 망을 옮기면 안 열린다
+// 다시 쓴 주소(받아 둔 영상 정보, 직전 재생)는 추출한 IP 에 묶여 망을 옮기면 안 열린다
 test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다. 위치 이동 때 다시 쓸 주소도 새 것이다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("rfrfrfrfrfr");
@@ -400,7 +400,7 @@ test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 �
   assert.equal(asks, 1);
 });
 
-test("앞 광고로 막힌 것이 아니면(시각 없음 · 지남 · 403 아님 · 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
+test("앞 광고로 막힌 것이 아니면(시각 없음, 지남, 403 아님, 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
   const soon = () => Date.now() / 1000 + 0.1;
   const cases = [
     { availableAt: null, status: 403 },
@@ -450,7 +450,7 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
-test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
+test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
   for (const [bounded, downloads] of [
     [true, 1],
     [false, 0],
@@ -469,7 +469,7 @@ test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 �
   }
 });
 
-test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값 · 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/big.mp3");
   behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });
@@ -626,7 +626,7 @@ test("스트림 주소를 못 불러오면 실패", async () => {
   assert.equal(calls.spawns.length, 0);
 });
 
-// ── HLS · 라이브 ───────────────────────────────────────────────────────
+// ── HLS, 라이브 ───────────────────────────────────────────────────────
 
 test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 다운로드한다", async () => {
   const p = h.makePlayer();
@@ -741,7 +741,7 @@ test("스포티파이: 동등물을 못 찾으면 실패", async () => {
   assert.equal(r.ok, false);
 });
 
-// ── 위치 · 인트로 · 제목 ───────────────────────────────────────────────
+// ── 위치, 인트로, 제목 ───────────────────────────────────────────────
 
 test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼 넉넉할 때만 그 주소를 다시 쓴다. 위치는 -ss 가 정한다", async () => {
   const nowSec = Math.floor(Date.now() / 1000);
@@ -771,7 +771,7 @@ test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼
   }
 });
 
-test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소를 다시 쓴다(새 주소는 앞 광고 시간 동안 막힌다). 라이브는 늘 새로 받는다", async () => {
+test("0:00 으로 되감기, 한곡 반복도 같은 곡이면 직전 주소를 다시 쓴다(새 주소는 앞 광고 시간 동안 막힌다). 라이브는 늘 새로 받는다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const url = `https://rr1.googlevideo.com/videoplayback?id=2&expire=${expire}`;
   for (const [what, liveStatus, asks] of [
@@ -788,7 +788,7 @@ test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소�
     };
     try {
       await p.play(0);
-      await p.play(0, { continued: true }); // 처음부터 다시 · 0:00 으로 위치 이동
+      await p.play(0, { continued: true }); // 처음부터 다시, 0:00 으로 위치 이동
       await p.play(0); // 한 곡 반복
     } finally {
       h.dispose(p);
@@ -952,7 +952,7 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   );
 });
 
-test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg · 인코더가 남지 않게)", async () => {
+test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg, 인코더가 남지 않게)", async () => {
   const track = yt("vvvvvvvvvvv");
   h.seedCache("yt:vvvvvvvvvvv", track);
   const p = h.makePlayer();
@@ -1158,7 +1158,7 @@ test("파이프 분기: 청크 스트림이 전체 크기를 다 받지 못하�
   }
 });
 
-test("파일 · 주소 분기도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
+test("파일, 주소 분기도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
   const cachedTrack = yt("z7zzzzzzzzz");
   h.seedCache("yt:z7zzzzzzzzz", cachedTrack);
   const p = h.makePlayer();

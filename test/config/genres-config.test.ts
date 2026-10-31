@@ -1,4 +1,4 @@
-// src/config/genres.ts: 장르 설정을 읽을 때 필터링하는 이름 · 이모지와 저장 전 검사.
+// src/config/genres.ts: 장르 설정을 읽을 때 필터링하는 이름, 이모지와 저장 전 검사.
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -29,8 +29,8 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
   return { code: "CONFIG_INVALID", message: line.text, got };
 }
 
-// 설정은 JSON 문서라 true · false · null도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
-test("true · false · null도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
+// 설정은 JSON 문서라 true, false, null도 그냥 글자다. 화면처럼 앞뒤 공백을 뺀 이름이 비었을 때만 거절한다
+test("true, false, null도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
   const one = (id: string) => genreConfig.validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   for (const id of ["true", "false", "null"]) assert.deepEqual(one(id), [], id);
   for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비었습니다."], JSON.stringify(id));
@@ -146,7 +146,7 @@ test("검사: 길이 범위가 뒤집혀 있으면 걸린다", () => {
   assert.match(problems.join(" "), /minDurationSec이 maxDurationSec보다/);
 });
 
-// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서 · 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 제외 키워드는 전역과 키워드 출처 필드에만
+// 장르마다 기본값의 길이를 덮어쓸 수 있다(기본 문서, 재생이 쓴다). 틀린 값이 조용히 지나가지 않게 본다. 제외 키워드는 전역과 키워드 출처 필드에만
 test("검사: 장르별 덮어쓰기(길이)도 본다", () => {
   const of = (extra: object) => genreConfig.validateGenres({ genres: { 팝: { ...extra, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   assert.equal(of({ minDurationSec: 30, maxDurationSec: 1800 }), "");
@@ -182,7 +182,7 @@ test("검사: 미리 선택해 둘 곡 수는 장르마다 둘 수 없다(기본
   assert.match(problems, /팝: prefetchCount.*defaults/);
 });
 
-// 이름 · 이모지 · 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이지 않게
+// 이름, 이모지, 소스 문제를 한 번에 다 알린다. 하나 고치고 다시 시작해야 다음 문제가 보이지 않게
 test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장 전 검사와 같은 문구)", () => {
   write("genres", { defaults: {}, genres: { 80: { sources: [{ type: "keyword", keywords: ["pop"] }] }, 팝: { emoji: "abc", sources: [] } } });
   const err = complaint();

@@ -1,5 +1,5 @@
-// src/player/player.ts releaseAudioProtection · src/store/audio-cache.ts protect: 재생 중인 곡의 캐시 보호
-// 보호는 저장 계층이 서버마다 들고 있다. 강제 퇴장 · 비활성 종료처럼 currentTrack 을 먼저 비우는 종료 경로에서도 풀리고,
+// src/player/player.ts releaseAudioProtection, src/store/audio-cache.ts protect: 재생 중인 곡의 캐시 보호
+// 보호는 저장 계층이 서버마다 들고 있다. 강제 퇴장, 비활성 종료처럼 currentTrack 을 먼저 비우는 종료 경로에서도 풀리고,
 // 두 서버가 같은 곡을 틀다 한쪽이 끝나도 다른 쪽 보호는 남는다. 메모리만 쓰고 DB 는 건드리지 않는다.
 
 import { test } from "node:test";
@@ -12,7 +12,7 @@ const isProtected = (key: string) => audioCache._liveKeys().has(key);
 
 test("currentTrack 을 먼저 비운 종료 경로에서도 그 서버의 보호가 풀린다", () => {
   audioCache.protect("g1", "k1");
-  release.call({ guild: { id: "g1" }, currentTrack: null }); // 강제 퇴장 · 비활성 종료가 비운 상태
+  release.call({ guild: { id: "g1" }, currentTrack: null }); // 강제 퇴장, 비활성 종료가 비운 상태
   assert.equal(isProtected("k1"), false);
 });
 
@@ -81,7 +81,7 @@ test("재생 중 보호와 대기열 보호는 합쳐진다", () => {
   audioCache.setQueuedKeys("g1", []);
 });
 
-test("빈 값·falsy 키는 보호에 들어가지 않는다", () => {
+test("빈 값, falsy 키는 보호에 들어가지 않는다", () => {
   audioCache.setQueuedKeys("g1", ["ok", null, undefined, ""]);
   assert.deepEqual([...audioCache._liveKeys()], ["ok"]);
 

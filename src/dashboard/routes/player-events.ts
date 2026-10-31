@@ -10,7 +10,7 @@ import type { DiscordHttp } from "../discord-api.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
 // req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 추출해 finish 에서 쓴다.
-// (디스코드 쪽 · 내부 변화는 player/events 의 touched 가 알린다)
+// (디스코드 쪽, 내부 변화는 player/events 의 touched 가 알린다)
 function nudgeAfterChange(stream: PlayerStream) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.method !== "GET") {
@@ -31,7 +31,7 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
   const router = express.Router();
 
   // SSE. 화면의 탭 하나가 여는 연결. 사용자 단위 멀티플렉스(볼 수 있는 서버 전체를 한 연결로).
-  // 보기 권한 확인은 보낼 때 멤버 캐시로 한다(동기여야 한다. 권한 · 서버 목록과 같은 기댐). 그래서 열 때 사용자가 든 서버(사용자의 서버 목록)만
+  // 보기 권한 확인은 보낼 때 멤버 캐시로 한다(동기여야 한다. 권한, 서버 목록과 같은 기댐). 그래서 열 때 사용자가 든 서버(사용자의 서버 목록)만
   // 한 번 가져와 캐시를 채운다(캐시 우선, 없으면 REST). 목록을 받지 못하면 이미 확인한 서버만. 운영자도 참가한 서버만
   router.get("/events", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;

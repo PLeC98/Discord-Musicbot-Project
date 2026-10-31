@@ -1,9 +1,9 @@
-// 디스코드 쪽 아이콘 표. 키마다 머티리얼 기호(Material Symbols Rounded, data/discord-icons) · 모양 · 바탕색 · 유니코드(앱 이모지를 동기화하기 전 · 동기화하지 못했을 때).
-// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis 가 동기화하고 여기에 싣는다. 쓰는 곳은 키로 찾고(icon · buttonEmoji), 직접 덧칠하지 않는다.
+// 디스코드 쪽 아이콘 표. 키마다 머티리얼 기호(Material Symbols Rounded, data/discord-icons), 모양, 바탕색, 유니코드(앱 이모지를 동기화하기 전, 동기화하지 못했을 때).
+// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis 가 동기화하고 여기에 싣는다. 쓰는 곳은 키로 찾고(icon, buttonEmoji), 직접 덧칠하지 않는다.
 // 대시보드 화면 빌드가 이 파일을 거쳐 갈 수 있어 아무것도 부르지 않는다
 
 /**
- * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼 · 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중)
+ * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중)
  * 기호 "sponsorblock" 은 SponsorBlock 의 하이라이트 방패(data/discord-icons/skipIcon.svg)
  */
 type Shape = "tile" | "white" | "spin";
@@ -15,7 +15,7 @@ type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonl
 const SEVERITY = ["error", "warning"] as const;
 
 const ICONS = {
-  // 버튼(지금 재생 패널 · 도움말 · 시스템 · 검색 · 대기열 보기). 색 버튼(초록 · 블러플 · 빨강) 위는 흰 기호
+  // 버튼(지금 재생 패널, 도움말, 시스템, 검색, 대기열 보기). 색 버튼(초록, 블러플, 빨강) 위는 흰 기호
   prev: { glyph: "skip_previous", unicode: "⏮️" },
   play: { glyph: "play_arrow", unicode: "▶️" },
   pause: { glyph: "pause", unicode: "⏸️" },
@@ -39,7 +39,7 @@ const ICONS = {
   page_prev: { glyph: "chevron_left", unicode: "◀" },
   page_next: { glyph: "chevron_right", unicode: "▶" },
 
-  // 응답 헤더 줄의 주제(오류 · 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
+  // 응답 헤더 줄의 주제(오류, 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
   // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(테스트가 확인한다)
   failed: { glyph: "error", unicode: "❌", tints: ["error"] },
   permission: { glyph: "block", unicode: "🚫", tints: SEVERITY },
@@ -72,7 +72,7 @@ const ICONS = {
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 
-  // 정보 · 도움말 임베드의 제목 · 필드 이름
+  // 정보, 도움말 임베드의 제목, 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },
   uptime: { glyph: "timer", unicode: "⏱️" },
   memory: { glyph: "memory_alt", unicode: "💾" },
@@ -95,7 +95,7 @@ const ICONS = {
   inputs: { glyph: "list", unicode: "📋" },
   shield: { glyph: "shield", unicode: "🛡️" },
 
-  // 문장 안(본문 · 작은 글씨 · 상태). 본문 크기라 기호 안의 기호(check_circle 등)는 쓰지 않는다
+  // 문장 안(본문, 작은 글씨, 상태). 본문 크기라 기호 안의 기호(check_circle 등)는 쓰지 않는다
   ok: { glyph: "check", unicode: "✅" },
   person: { glyph: "person", unicode: "👤" },
   idle: { glyph: "bedtime", unicode: "💤" },
@@ -123,12 +123,12 @@ type IconKey = keyof typeof ICONS;
 /** 앱 이모지 이름: 키, 운영자 색이 아닌 바탕색이면 뒤에 붙인다(앱 안에서 하나뿐이어야 한다. 2 ~ 32자 [A-Za-z0-9_]) */
 const emojiName = (key: IconKey, tint: Tint = "brand") => (tint === "brand" ? key : `${key}_${tint}`);
 
-/** 그려 둘 앱 이모지 전부: 이름 · 키 · 바탕색 · 표의 값 */
+/** 그려 둘 앱 이모지 전부: 이름, 키, 바탕색, 표의 값 */
 function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: IconSpec }> {
   return (Object.entries(ICONS) as Array<[IconKey, IconSpec]>).flatMap(([key, spec]) => (spec.tints ?? ["brand"]).map((tint) => ({ name: emojiName(key, tint), key, tint, spec })));
 }
 
-/** 동기화한 앱 이모지(이름 → id · 움직이는가). app/app-emojis 가 싣는다 */
+/** 동기화한 앱 이모지(이름 → id, 움직이는가). app/app-emojis 가 싣는다 */
 const uploaded = new Map<string, { id: string; animated: boolean }>();
 
 /** 동기화한 목록을 통째로 교체한다 */

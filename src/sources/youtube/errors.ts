@@ -1,4 +1,4 @@
-// yt-dlp 오류를 구분한다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
+// yt-dlp 오류를 구분한다(영상 없음, 연령 제한, 클라이언트 탓, 낡은 미디어 주소).
 
 // 오류에서 읽을 텍스트. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
 function textOf(error: unknown): string {
@@ -47,13 +47,13 @@ function isCookiesInvalidError(error: unknown) {
 /**
  * yt-dlp 오류가 "영상 자체가 내려감/삭제/비공개"인지 판별.
  * 링크 데이터의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
- *   일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
+ *   일시적 네트워크, 봇 감지, 연령 제한과는 구별(그것들은 재검색 대상 아님).
  */
 function isVideoUnavailableError(error: unknown) {
   // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp 가 내는 "cookies are no longer valid" 가
   // 아래의 "no longer available" 과 한 단어 차이라, 정규식이 넓어지는 순간 살아 있는 영상이
   // 내려간 것으로 분류된다. 자동재생은 그 판정으로 곡을 영구히 버리므로(markDead) 대가가 크다.
-  // 옆의 isClientFault·isStaleMediaError 도 같은 가드를 갖고 있다.
+  // 옆의 isClientFault, isStaleMediaError 도 같은 가드를 갖고 있다.
   if (isAgeRestrictedError(error)) return false;
 
   const msg = textOf(error);
@@ -65,7 +65,7 @@ function isVideoUnavailableError(error: unknown) {
 /**
  * yt-dlp 가 그 클라이언트를 아예 실행하지 않았는가.
  *
- * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos·android·
+ * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos, android,
  * tv_simply 등)은 건너뛰어지고, 남은 것이 없으면 "Requested format is not available" 로 끝난다.
  * 그 메시지만 보면 클라이언트가 실패한 것처럼 보이지만 돌아 본 적조차 없다.
  *
@@ -81,7 +81,7 @@ function isSkippedClientError(error: unknown) {
 const NO_AUDIO_ONLY = "no-audio-only";
 const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
 
-/** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
+/** 이 실패가 클라이언트 탓으로 보이는가 (영상, 네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
   const msg = textOf(error);
   if (isNoAudioOnly(error)) return true;
@@ -99,7 +99,7 @@ function isClientFault(error: unknown) {
  * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다. 주소 자체가
  * 처음부터 거절당한 것이지 통신이 끊긴 게 아니다.
  *
- * 유튜브 쪽 문제라 봇에서 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하다).
+ * 유튜브 쪽 문제라 봇에서 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS, VPN, 쿠키와 무관하다).
  * 그래서 여기서는 주소를 다시 받는 것만 한다.
  */
 function isStaleMediaError(error: unknown) {
@@ -111,11 +111,11 @@ function isStaleMediaError(error: unknown) {
 }
 
 // yt-dlp 가 적는 문장으로만 구분하는 것. 바꿀 수 없는 문장이라 여기서 읽는다.
-// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
+// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube", 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
-// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection · [WinError 10061] 등)
+// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection, [WinError 10061] 등)
 const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
 const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;

@@ -1,4 +1,4 @@
-// src/infra/process-registry.ts · guild-context.ts · process-memory.ts: 자식 프로세스가 어느 서버의 무슨 일인지(실행한 문맥에서), 메모리
+// src/infra/process-registry.ts, guild-context.ts, process-memory.ts: 자식 프로세스가 어느 서버의 무슨 일인지(실행한 문맥에서), 메모리
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -45,7 +45,7 @@ test("문맥은 await 뒤에도 잇는다", async () => {
   assert.equal(row(pid)?.guildId, "g2");
 });
 
-test("메모리: tasklist CSV(자릿점은 로캘마다) · ps 의 RSS 를 MB 로, 물은 pid 만", () => {
+test("메모리: tasklist CSV(자릿점은 로캘마다), ps 의 RSS 를 MB 로, 물은 pid 만", () => {
   const csv = ['"ffmpeg.exe","4120","Console","1","31,456 K"', '"yt-dlp.exe","4200","Console","1","104.857 K"', '"other.exe","999","Console","1","5,000 K"'].join("\r\n");
   assert.deepEqual(
     [...parseTasklist(csv, new Set([4120, 4200]))],

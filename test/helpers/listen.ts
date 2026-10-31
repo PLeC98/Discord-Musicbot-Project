@@ -1,4 +1,4 @@
-// 테스트용 HTTP 서버를 임의 포트에 연다. fetch 는 명세의 "막힌 포트"(6000 · 6665 등)로는 요청을 보내지 않아
+// 테스트용 HTTP 서버를 임의 포트에 연다. fetch 는 명세의 "막힌 포트"(6000, 6665 등)로는 요청을 보내지 않아
 // (TypeError: fetch failed, cause: bad port) 임의 포트가 거기 걸리면 테스트가 드물게 깨진다. 걸리면 다시 연다.
 
 import { once } from "node:events";

@@ -1,8 +1,8 @@
-// src/media/ffmpeg/args.ts · src/sources/youtube · src/player/player.ts: 라이브(HLS) 재생 경로의 불변식.
+// src/media/ffmpeg/args.ts, src/sources/youtube, src/player/player.ts: 라이브(HLS) 재생 경로의 불변식.
 //
 // HLS는 "다운로드한 바이트"가 아니라 "가져올 주소"를 줘야 열리는 형식이라, 이 분기만 ffmpeg에
 // URL을 넘긴다. 나머지 스트리밍이 그 길로 새면 httpHeaders가 빠지고 폴백을 건너뛴다.
-// 라이브에는 길이가 없어서 길이를 전제하는 곳(탐색·반복)도 따로 다룬다.
+// 라이브에는 길이가 없어서 길이를 전제하는 곳(탐색, 반복)도 따로 다룬다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -46,7 +46,7 @@ test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
 });
 
 test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () => {
-  // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열·패널·로그에
+  // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열, 패널, 로그에
   // "... 2026-09-21 02:58" 이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
   const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
   assert.equal(YouTube.titleOf(live), "lofi radio");
@@ -135,7 +135,7 @@ test("URL을 주지 않으면 분기가 바뀌지 않는다. 파이프가 기본
   assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8");
 });
 
-// 아래는 길이를 전제하는 곳(반복 · 탐색). 라이브에는 길이가 없다.
+// 아래는 길이를 전제하는 곳(반복, 탐색). 라이브에는 길이가 없다.
 
 const fakePlayer = (overrides = {}) => {
   const player = Object.create(Player.prototype);

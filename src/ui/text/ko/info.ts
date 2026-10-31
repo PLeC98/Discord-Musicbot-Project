@@ -1,5 +1,5 @@
-// 정보 화면(/system · /cachestatus · /ping · /license · /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다.
-// 플랫폼 · 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
+// 정보 화면(/system, /cachestatus, /ping, /license, /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다.
+// 플랫폼, 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
 
 import { icon, type IconKey } from "../../icons.ts";
 
@@ -119,7 +119,7 @@ const nowPlaying = () => ({
   autoplay: "자동재생",
   autoplayOn: (genre: string) => `켜짐 · ${genre}`,
 });
-/** /nowplaying 의 상태 값: 재생 상태 · 볼륨 · 반복 */
+/** /nowplaying 의 상태 값: 재생 상태, 볼륨, 반복 */
 function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {
   const parts = [playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`, `${icon("volume")} ${volume}%`];
   if (loop === "track") parts.push(`${icon("repeat_one")} 한 곡 반복`);

@@ -1,14 +1,14 @@
-// 설정 내보내기 · 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json · 이미지 png). 공유 타입은 contract/settings-archive.
-//   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처 · POToken 쓰기도) · 장르 · 활동 문구 · AI 설정 · 프롬프트. 서버별 설정 · 키 · 쿠키는 없다(설정 스냅샷 · 명령 전체 백업에 든다).
-//   favicon   파비콘: 슬롯 · 기록(봇 설정 백업에는 들지 않는다. 봇 설정과 함께 파비콘을 담은 옛 형식 파일도 불러온다)
-//   login-background  로그인 배경: 다 만든 배경 · 화면 값 · 한도(login-background/archive). 불러오면 통째로 바꾼다
-//   audio-cache  오디오 캐시: 캐시 파일 · 링크 데이터 · 직접 지정한 음원 · 연령 제한 · SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
+// 설정 내보내기, 불러오기. ZIP 하나: settings.json(사람이 읽는 JSON) + 파비콘이면 favicon/(파비콘 폴더 그대로: index.json, 이미지 png). 공유 타입은 contract/settings-archive.
+//   settings  봇 설정만: 운영 조절값(PC 에 매인 쿠키 출처, POToken 쓰기도), 장르, 활동 문구, AI 설정, 프롬프트. 서버별 설정, 키, 쿠키는 없다(설정 스냅샷, 명령 전체 백업에 든다).
+//   favicon   파비콘: 슬롯, 기록(봇 설정 백업에는 들지 않는다. 봇 설정과 함께 파비콘을 담은 옛 형식 파일도 불러온다)
+//   login-background  로그인 배경: 다 만든 배경, 화면 값, 한도(login-background/archive). 불러오면 통째로 바꾼다
+//   audio-cache  오디오 캐시: 캐시 파일, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
 // 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
 // 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
-// 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 삭제한다), 파비콘 · 로그인 배경은 DB 뒤에 교체한다.
-// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳 · 봇 웹사이트 주소) · PC 에 매인 값(쿠키 출처 · POToken)이 바뀌면 미리 보기가 표시해 준다.
-// 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 답이 알린다(화면이 다시 시작 창 · 연령 제한 탭 안내를 연다).
+// 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 삭제한다), 파비콘, 로그인 배경은 DB 뒤에 교체한다.
+// 남이 준 파일일 수 있으니 바깥으로 나가는 값(AI 요청이 가는 곳, 봇 웹사이트 주소), PC 에 매인 값(쿠키 출처, POToken)이 바뀌면 미리 보기가 표시해 준다.
+// 불러온 뒤 다시 시작해야 적용되는 값이 바뀌었거나 쿠키 출처가 바뀌었으면 답이 알린다(화면이 다시 시작 창, 연령 제한 탭 안내를 연다).
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -35,7 +35,7 @@ const JSON_NAME = "settings.json";
 const FAVICON_DIR = "favicon/";
 // 명령 전체 백업(app/full-backup)에만 있는 항목
 const FULL_BACKUP_MARK = "database/settings.restore.db";
-// settings.json 하나의 상한. 설정 문서는 크지 않다(장르 수십 개 · 프롬프트 몇 KB)
+// settings.json 하나의 상한. 설정 문서는 크지 않다(장르 수십 개, 프롬프트 몇 KB)
 const JSON_MAX_BYTES = 4 * 1024 * 1024;
 // 파비콘 파일을 모두 합친 상한(슬롯 일곱 × 기록 여섯 × png 두 장 남짓)
 const FAVICON_MAX_BYTES = 64 * 1024 * 1024;
@@ -47,7 +47,7 @@ const POTOKEN_KEY = "BGUTIL_ENABLED";
 type DocItem = Extract<ArchiveItem, documents.DocName>;
 const DOC_ITEMS: readonly DocItem[] = ["genres", "status", "ai", "ai-prompt"];
 const isDocItem = (item: ArchiveItem): item is DocItem => (DOC_ITEMS as readonly string[]).includes(item);
-/** 설정 DB 가 아니라 저장 위치의 파일 · 캐시 DB 인 항목(스냅샷을 뜨지 않는다) */
+/** 설정 DB 가 아니라 저장 위치의 파일, 캐시 DB 인 항목(스냅샷을 뜨지 않는다) */
 const FILE_ITEMS: readonly ArchiveItem[] = ["favicon", "login-background", ...audioArchive.AUDIO_ITEMS];
 
 /** settings.json 의 형식. 읽을 때는 필드마다 따로 본다(빠진 필드는 그 항목이 파일에 없는 것) */
@@ -70,7 +70,7 @@ const badArchive = (why: string) => codedError("BAD_ARCHIVE", why);
 const isTable = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 const digest = (data: Buffer) => crypto.createHash("sha256").update(data).digest("hex");
 
-/** 다운로드할 파일 이름(종류 · 만든 때) */
+/** 다운로드할 파일 이름(종류, 만든 때) */
 function fileName(kind: ArchiveKind, at = new Date()) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `musicbot-${kind}-${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}.zip`;
@@ -98,7 +98,7 @@ function build(kind: ArchiveKind, { withFiles = true }: { withFiles?: boolean } 
   return { inputs: [jsonEntry(manifest(kind, { tunables: tunables.view().values, documents: Object.fromEntries(DOC_ITEMS.map((name) => [name, documents.get(name)])) }))], release: KEEP_NOTHING };
 }
 
-/** 올린 파일을 읽는다(목차와 settings.json · 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
+/** 올린 파일을 읽는다(목차와 settings.json, 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
 function parse(file: string): Parsed {
   const zipped = openZip(file);
   try {
@@ -247,7 +247,7 @@ function itemsOf(parsed: Parsed): ArchiveItem[] {
   return hasFavicons(parsed) ? [...items, "favicon"] : items;
 }
 
-/** 파일을 읽어 항목마다 지금과 같은지 · 검사 문제 · 바깥으로 나가는 값의 변화를 본다. 아무것도 바꾸지 않는다 */
+/** 파일을 읽어 항목마다 지금과 같은지, 검사 문제, 바깥으로 나가는 값의 변화를 본다. 아무것도 바꾸지 않는다 */
 async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
   const parsed = parse(file);
   const { json } = parsed;
@@ -257,7 +257,7 @@ async function preview(file: string): Promise<Omit<ArchivePreview, "token">> {
   return { ...head, rows: await Promise.all(itemsOf(parsed).map((item) => rowFor(item, parsed, aiDoc))) };
 }
 
-/** 항목 이름(검사 문제 · 로그) */
+/** 항목 이름(검사 문제, 로그) */
 const ITEM_LABELS: Record<ArchiveItem, string> = {
   tunables: "운영 조절값",
   genres: "자동재생 장르",
@@ -273,7 +273,7 @@ const ITEM_LABELS: Record<ArchiveItem, string> = {
   "audio-sponsorblock": "SponsorBlock 구간",
 };
 
-// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘 · 불러올 로그인 배경(선택하지 않았으면 null)
+// 선택한 항목이 모두 파일에 있고 검사를 지나는지. 아니면 CONFIG_INVALID(problems: "항목: 까닭"). 지나면 저장할 파비콘, 불러올 로그인 배경(선택하지 않았으면 null)
 async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favicons: appearance.Prepared | null; background: loginBackground.Plan | null }> {
   const aiDoc = aiDocFor(parsed.json, items.includes("ai"));
   const background = items.includes("login-background") ? await loginBackground.check(parsed.file) : null;
@@ -301,7 +301,7 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
 /**
  * 선택한 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 까닭")로 아무것도 바꾸지 않는다.
  * before: DB 를 쓰기 바로 앞에 부른다(스냅샷).
- * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다 · cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
+ * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
  */
 async function apply(file: string, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveImported> {
   const parsed = parse(file);
@@ -311,7 +311,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   const cookiesBefore = tunables.view().values[COOKIES_KEY] ?? "";
   let docItems: DocItem[];
   try {
-    // 스냅샷은 설정 DB 의 것이라 DB 항목을 불러올 때만(파비콘 · 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
+    // 스냅샷은 설정 DB 의 것이라 DB 항목을 불러올 때만(파비콘, 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
     if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
     docItems = writeChosen(parsed.json, items);
   } catch (error) {
@@ -319,7 +319,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
     throw error;
   }
 
-  // 메모리를 DB 에 맞춘다(설정 문서 · 운영 조절값)
+  // 메모리를 DB 에 맞춘다(설정 문서, 운영 조절값)
   if (docItems.length) documents.reload();
   if (items.includes("tunables")) tunables.reload();
   if (favicons) appearance.replaceFavicons(favicons);
@@ -328,7 +328,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   return { ...importedOf(items, cookiesBefore), ...(added ? { added } : {}) };
 }
 
-// 불러온 뒤 알릴 것: 다시 시작해야 적용되는 값 · 바뀐 쿠키 출처(꺼졌거나 그대로면 null)
+// 불러온 뒤 알릴 것: 다시 시작해야 적용되는 값, 바뀐 쿠키 출처(꺼졌거나 그대로면 null)
 function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImported {
   const after = tunables.view();
   const cookies = after.values[COOKIES_KEY] ?? "";
@@ -339,7 +339,7 @@ function importedOf(items: ArchiveItem[], cookiesBefore: string): ArchiveImporte
 const STAGED_AUDIO = "audio-cache.restore.zip";
 
 /**
- * 기동 시(설정을 올린 뒤 · 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
+ * 기동 시(설정을 올린 뒤, 봇을 켜기 전). 명령 전체 백업의 오디오 캐시 번들이 있으면 대시보드 불러오기와 같은 합치기로 파일에 있는 항목을 모두 불러오고 삭제한다.
  * 번들이 없으면 null. 읽을 수 없는 번들(ZIP 이 깨졌거나 오디오 캐시가 아님)은 삭제하고 던진다(매번 다시 하지 않게). 그 밖의 실패는 번들을 남기고 던진다(다음 기동이 다시 한다)
  */
 async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {

@@ -31,7 +31,7 @@ const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
 const NUMERIC_ID = /^\d{1,20}$/;
 
 // 이어 불러올 수 있는 출처(rules/more-choices 의 Kind). 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 불러올 게 없다.
-// anchor: 곡 id 모양 · perClick: 한 번에 넣는 곡 수 상한 · lookback: 앵커를 찾으려고 앞에서부터 다시 불러오는 곡 수 · reads: 한 번에 부르는 구간 수 상한
+// anchor: 곡 id 모양, perClick: 한 번에 넣는 곡 수 상한, lookback: 앵커를 찾으려고 앞에서부터 다시 불러오는 곡 수, reads: 한 번에 부르는 구간 수 상한
 type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
 const KINDS: Record<Kind, KindSpec> = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
@@ -46,7 +46,7 @@ const KINDS: Record<Kind, KindSpec> = {
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
 
-/** 검사 전의 위치(custom_id · 요청 본문에서 온 것) */
+/** 검사 전의 위치(custom_id, 요청 본문에서 온 것) */
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 표시할 때 읽는 필드 */
 type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
@@ -116,7 +116,7 @@ function batchFor(query: string | null | undefined, batch: number) {
   return soundcloud === "set" || soundcloud === "short" ? Math.min(batch, SOUNDCLOUD_BATCH) : batch;
 }
 
-// 누른 사람·메시지 나이 확인. 문제가 있으면 그 코드
+// 누른 사람, 메시지 나이 확인. 문제가 있으면 그 코드
 function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): Extract<Code, "more-not-requester" | "more-expired"> | null {
   if (state.requesterId && state.requesterId !== userId) return "more-not-requester";
   if (now - lastTouched > LIFETIME_MS) return "more-expired";

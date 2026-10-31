@@ -1,4 +1,4 @@
-// 서버 목록 · 서버 아이콘
+// 서버 목록, 서버 아이콘
 
 import { formatNumber } from "../../utils/locale.ts";
 

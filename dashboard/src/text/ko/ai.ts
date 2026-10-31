@@ -1,4 +1,4 @@
-// 운영자 패널: AI 보조 탭(모델 · 파라미터 · 연결 테스트 · 프롬프트 · 판정 테스트 · 고급 설정)
+// 운영자 패널: AI 보조 탭(모델, 파라미터, 연결 테스트, 프롬프트, 판정 테스트, 고급 설정)
 
 import { formatNumber } from "../../utils/locale.ts";
 
@@ -43,7 +43,7 @@ const model = {
   manualTip: "목록을 불러오지 못했으면 직접 입력해야 해요",
   manual: "직접 입력",
   hide: "목록에서 모델 숨기기",
-  /** 숨기기 설명: 앞 · 와일드카드 기호 · 뒤 */
+  /** 숨기기 설명: 앞, 와일드카드 기호, 뒤 */
   hideHelpBefore: "불러온 목록에서 제외해요. ",
   hideHelpAfter: " 만 와일드카드로 쓰고 대소문자는 구분하지 않아요. 영상, 이미지 모델이나 구형 모델을 빼는 데 써요.",
   hidePlaceholder: "*sora* 처럼 입력하고 Enter",
@@ -85,12 +85,12 @@ const list = {
   skipConfident: "확신할 땐 묻지 않기",
   skipConfidentTip: "채널명, 길이가 일치하면 묻지 않아요.",
   lineFormat: "줄 형식",
-  /** 줄 형식 설명: 앞 · 목록 자리 표시 · 뒤 */
+  /** 줄 형식 설명: 앞, 목록 자리 표시, 뒤 */
   lineFormatBefore: "후보 하나를 한 줄로 적는 형식이에요. 이렇게 만든 목록이 프롬프트의 ",
   lineFormatAfter: " 위치에 들어가요. 업로더 이름은 넣을 수 없어요(정답률이 떨어져요).",
   help: "줄 형식 문법 보기",
   helpTitle: "줄 형식 문법",
-  /** 문법 표: 적는 법 · 뜻 */
+  /** 문법 표: 적는 법, 뜻 */
   syntax: [
     { code: "{{index}}", text: "후보 번호(1부터). 모델이 답할 때 이 번호(n)로 가리켜요" },
     { code: "{{genre}}", text: "자동재생 장르의 식별자(예: rock). 프롬프트 섹션에서도 써요" },
@@ -117,7 +117,7 @@ const prompt = {
   estimated: "추정치",
   tokensFailed: "토큰 수를 세지 못함",
   addSection: "섹션 추가",
-  /** 설명: 앞 · 답 형식 예시 · 뒤 */
+  /** 설명: 앞, 답 형식 예시, 뒤 */
   descBefore: "섹션마다 역할을 정해 적은 순서대로 보내요. 답은 반드시 ",
   descAfter: " 형식의 JSON 배열이어야 해요.",
   emptyUsesDefault: "비어 있어 기본 프롬프트를 써요.",
@@ -155,7 +155,7 @@ const judge = {
   rawHide: "요청 기록 접기",
 };
 
-// 리퀘스트 로그 · 사용량 통계가 같이 쓰는 이름
+// 리퀘스트 로그, 사용량 통계가 같이 쓰는 이름
 /** 요청을 보낸 곳(contract/ai-log 의 AI_LOG_SOURCES) */
 const sources = { autoplay: "자동재생 판정", "judge-test": "판정 테스트", ping: "연결 확인", models: "모델 목록" } as const;
 
@@ -300,7 +300,7 @@ const paid = {
   what: "보낼 것",
   checking: "확인하는 중…",
   emptyModel: "(비어 있음)",
-  /** 판정 테스트로 보낼 것: 섹션 수(비었으면 기본) · 선택한 곡 수(없으면 보기 곡 셋) */
+  /** 판정 테스트로 보낼 것: 섹션 수(비었으면 기본), 선택한 곡 수(없으면 보기 곡 셋) */
   judgeWhat: (sections: number, picked: number) => `판정 프롬프트 전체 (${sections ? `섹션 ${sections}개` : "기본 섹션"}, ${picked ? `선택한 곡 ${picked}개` : "예시 곡 3개"})`,
   cancel: "취소",
   send: "보내기",
@@ -339,7 +339,7 @@ const atMost = (value: number) => `${value} 이하`;
 const contextTokens = (count: string) => `컨텍스트 ${count}토큰`;
 const outputTokens = (count: string) => `최대 출력 ${count}토큰`;
 const savedNote = "다음 자동재생부터 반영돼요";
-/** 요청 기록 · 미리보기 상자 이름 */
+/** 요청 기록, 미리보기 상자 이름 */
 const boxes = { headers: "요청 헤더", body: "요청 본문", response: "응답", empty: "(비어 있음)" };
 const verdicts = { pass: "통과", notSong: "곡 아님", wrongGenre: "장르 다름" };
 const hiddenCount = (count: number) => `, ${count}개 숨김`;

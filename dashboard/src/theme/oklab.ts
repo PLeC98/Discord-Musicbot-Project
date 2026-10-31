@@ -1,4 +1,4 @@
-// sRGB ↔ OKLab. 색 역할 옮기기(blend) · 배경 그림의 밝기 띠(art)가 같이 쓴다. sRGB 는 0~1, L 은 0~1
+// sRGB ↔ OKLab. 색 역할 옮기기(blend), 배경 그림의 밝기 띠(art)가 같이 쓴다. sRGB 는 0~1, L 은 0~1
 
 type Lab = [number, number, number];
 

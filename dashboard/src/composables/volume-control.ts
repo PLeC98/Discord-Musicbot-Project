@@ -13,12 +13,12 @@ import { text } from "../text/index.ts";
 const MIN_GAP_MS = 200;
 
 /**
- * serverVolume: 서버가 받아들인 볼륨(요청의 응답 · 실시간 알림으로 바뀐다). send: 볼륨을 보내고 응답을 상태에 반영한다.
+ * serverVolume: 서버가 받아들인 볼륨(요청의 응답, 실시간 알림으로 바뀐다). send: 볼륨을 보내고 응답을 상태에 반영한다.
  * notify: 보내지 못했을 때 알리는 곳
  */
 export function useVolumeControl(serverVolume: Readonly<Ref<number | undefined>>, send: (level: number) => Promise<unknown>, notify: (error: unknown, fallback: string) => void = notifyProblem) {
   const draft = ref<number | null>(null);
-  let pending: number | null = null; // 다음에 보낼 값(보내는 중 · 간격을 기다리는 중에 놓은 마지막 값)
+  let pending: number | null = null; // 다음에 보낼 값(보내는 중, 간격을 기다리는 중에 놓은 마지막 값)
   let sending: number | null = null; // 보내는 중인 값
   let busy = false; // 보내는 중이거나 간격을 기다리는 중
   let released = true;

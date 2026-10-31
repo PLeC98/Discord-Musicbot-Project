@@ -1,4 +1,4 @@
-// VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
+// VocaDB 계열(VocaDB, UtaiteDB, TouhouDB) 소스.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
@@ -27,10 +27,10 @@ const VOCA_PAGE = 50;
 const VOCA_TIMEOUT_MS = 35_000;
 
 // 정렬 순서에서 몇 번째까지 볼지는 VOCA_WINDOW(config/schema/genre-sources). 저쪽은 깊이에 비례해 느려지고 너무 깊으면 500 을 준다
-// (가수 · 가수 분류를 걸면 훨씬 얕은 데서 그렇고, minScore 를 걸면 빠르다).
+// (가수, 가수 분류를 걸면 훨씬 얕은 데서 그렇고, minScore 를 걸면 빠르다).
 // 기본 정렬이면 조건에 맞는 곡 중 평가 높은 쪽에서 선택하게 된다. 보통 설정(minScore 등)은 기본 깊이보다 적어 전체에서 선택한다
 
-// 가사 언어 · 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
+// 가사 언어, 가수 분류. 웹이 쓰는 advancedFilters 로 건다. 여럿 걸면 전부 만족하는 곡이다.
 // 가사 언어: `languages` 파라미터는 조용히 무시된다(아무 값을 넣어도 전체가 온다). 그리고 한 번에 하나만 건다:
 // 둘을 걸면 "둘 다 있는 곡"이 되어 크게 줄어든다.
 // 가수 분류: 웹은 아티스트 검색에만 보이지만 곡에도 걸린다. 여럿 선택하면 모두 참여한 곡이다
@@ -87,7 +87,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   return out;
 }
 
-// 언어 · 가수 분류를 뺀 검색 조건. 이름으로 적는 필드는 id 로 푼다(못 풀면 던진다)
+// 언어, 가수 분류를 뺀 검색 조건. 이름으로 적는 필드는 id 로 푼다(못 풀면 던진다)
 async function filtersOf(source: GenreSource, site: Site) {
   const names = (list: string[] | undefined) => (list || []).map((one) => String(one).trim()).filter(Boolean);
   const [tags, excluded, artists] = await Promise.all([Promise.all(names(source.tags).map((one) => tagId(site, one))), Promise.all(names(source.excludeTags).map((one) => tagId(site, one))), Promise.all(names(source.artists).map((one) => artistId(site, one)))]);
@@ -114,7 +114,7 @@ async function filtersOf(source: GenreSource, site: Site) {
 }
 
 // ── 이름 → id ─────────────────────────────────────────────────────────────
-// 가수 · 제외 태그는 저쪽이 id 로만 받는다. 태그는 이름(tagName)도 받지만 없는 이름이면 0곡을 조용히 돌려준다.
+// 가수, 제외 태그는 저쪽이 id 로만 받는다. 태그는 이름(tagName)도 받지만 없는 이름이면 0곡을 조용히 돌려준다.
 // 그래서 전부 id 로 풀고, 못 풀면 던진다. 부르는 쪽이 로그에 남기고 다음 소스로 넘어간다.
 // 푼 것은 기억한다. 못 푼 것은 기억하지 않는다(나중에 생길 수 있고, 요청이 실패한 것일 수도 있다).
 const ids = new Map<string, number>();
@@ -123,7 +123,7 @@ async function tagId(site: Site, name: string) {
   const key = `${site}:tag:${name}`;
   const known = ids.get(key);
   if (known !== undefined) return known;
-  // 별칭 · 대소문자도 풀린다(ロック → rock). 없으면 null
+  // 별칭, 대소문자도 풀린다(ロック → rock). 없으면 null
   const tag = await getJson<Tag>(site, `https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
   if (!tag?.id) throw new Error(`${site}에 없는 태그입니다: ${name}`);
   ids.set(key, tag.id);
@@ -134,7 +134,7 @@ async function artistId(site: Site, name: string) {
   const key = `${site}:artist:${name}`;
   const known = ids.get(key);
   if (known !== undefined) return known;
-  // 필드가 뜻하는 쪽만 찾는다(vocadb 는 보컬, utaitedb 는 우타이테). touhoudb 는 서클 · 작곡가라 필터링하지 않는다
+  // 필드가 뜻하는 쪽만 찾는다(vocadb 는 보컬, utaitedb 는 우타이테). touhoudb 는 서클, 작곡가라 필터링하지 않는다
   const types = VOCA_ARTIST_TYPES[site];
   const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
@@ -144,7 +144,7 @@ async function artistId(site: Site, name: string) {
   return found.id;
 }
 
-// Exact 로 찾아도 딱 같은 이름만 오지 않는다. 대소문자를 구분하지 않고 별칭까지 본다(UNI 에 ユニちゃん · Urchin 이 같이 온다).
+// Exact 로 찾아도 딱 같은 이름만 오지 않는다. 대소문자를 구분하지 않고 별칭까지 본다(UNI 에 ユニちゃん, Urchin 이 같이 온다).
 // 대표 이름이 똑같은 것, 별칭이 똑같은 것, 대소문자만 다른 것 순으로 선택한다. 같은 단계에서는 곡이 많은 쪽(저쪽 정렬 그대로)
 function sameName(items: Artist[], name: string) {
   const all = (one: Artist) => [one.name, ...(one.names || []).map((n) => n.value)].filter((v): v is string => !!v);
@@ -189,7 +189,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   if (total > depth) log.debug(`${type}: 조건에 맞는 ${total.toLocaleString("en-US")}곡 중 상위 ${depth.toLocaleString("en-US")}곡에서 선택합니다`);
   const span = Math.min(total, depth);
   const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
-  // fields=Names로 원어·로마자·영문이 한 번에 온다. 표기를 선택할 일이 없다
+  // fields=Names로 원어, 로마자, 영문이 한 번에 온다. 표기를 선택할 일이 없다
   const page = await getJson<SongPage | null>(type, `${base}?${query({ ...filters, maxResults: VOCA_PAGE, start, fields: "PVs,Artists,Names,ThumbUrl" })}`, {}, VOCA_TIMEOUT_MS);
 
   return (page?.items || []).flatMap((song) => {
@@ -217,7 +217,7 @@ function candidateOf(song: Song, type: Site): Candidate | null {
   };
 }
 
-// artistString은 애니메이터·일러스트레이터까지 다 붙인 것이다. 만든 사람과 부른 쪽만 추린다.
+// artistString은 애니메이터, 일러스트레이터까지 다 붙인 것이다. 만든 사람과 부른 쪽만 추린다.
 function creditOf(song: Song) {
   const roles = (want: string) => (song.artists || []).filter((a) => String(a.categories || "").includes(want)).map((a) => a.name);
   const makers = roles("Producer");

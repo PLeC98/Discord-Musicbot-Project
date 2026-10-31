@@ -21,7 +21,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
   for (const guild of client.guilds.cache.values()) {
     const channel = guild.voiceStates.cache.get(client.user.id)?.channel;
     if (!channel?.isVoiceBased() || players.has(guild.id) || touched.includes(guild.id)) continue;
-    // 저장된 세션이 있는 서버(이번 기동이 복원하지 않았다: 연달아 끊김 · 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 삭제한다
+    // 저장된 세션이 있는 서버(이번 기동이 복원하지 않았다: 연달아 끊김, 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 삭제한다
     if (sessions().load(guild.id)) {
       log.info(`저장된 세션이 있어 음성 채널 연결을 바로 이어받지 않습니다(/join으로 이어서 재생): "${channel.name}" (${guild.name})`);
       continue;

@@ -53,10 +53,10 @@ function inline(raw: string): string {
   let s = raw.replace(/\\([*_~|`\\<>#[\]()-])/g, (_, c: string) => hold(esc(c)));
   s = s.replace(/(`+)([\s\S]+?)\1/g, (_, __, code: string) => hold(`<code class="dmd-code">${esc(code.trim() || code)}</code>`));
   s = esc(s);
-  // 링크([글](주소))와 맨 주소. 주소는 http · https 만
+  // 링크([글](주소))와 맨 주소. 주소는 http, https 만
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text: string, url: string) => hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${text}</a>`));
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g, (_, pre: string, url: string) => pre + hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${url}</a>`));
-  // 시각 · 멘션 · 사용자 이모지(이스케이프된 꺾쇠)
+  // 시각, 멘션, 사용자 이모지(이스케이프된 꺾쇠)
   s = s.replace(/&lt;t:(-?\d+)(?::([tTdDfFsSR]))?&gt;/g, (_, sec: string, style = "f") => hold(`<span class="dmd-time">${esc(timestamp(Number(sec), style))}</span>`));
   s = s.replace(/&lt;@!?(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionUser}</span>`));
   s = s.replace(/&lt;@&amp;(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionRole}</span>`));

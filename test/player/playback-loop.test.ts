@@ -81,7 +81,7 @@ const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
 
 // ── 한 곡 반복 ────────────────────────────────────────────────
 
-test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기록 불변", async () => {
+test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열, 기록 불변", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B"), makeTrack("C")] });
 

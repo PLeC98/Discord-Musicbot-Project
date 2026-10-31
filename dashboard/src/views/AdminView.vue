@@ -1,6 +1,6 @@
 <template>
-  <!-- 태블릿 · PC: 왼쪽 끝에 탭 레일(M3 내비게이션 레일), 오른쪽에 내용(폭을 다 쓴다).
-       휴대폰: 탭을 선택하지 않았으면 탭 선택 화면(그룹별 목록), 선택하면 그 페이지(위 막대에 ← · "운영자 패널 - 탭 이름").
+  <!-- 태블릿, PC: 왼쪽 끝에 탭 레일(M3 내비게이션 레일), 오른쪽에 내용(폭을 다 쓴다).
+       휴대폰: 탭을 선택하지 않았으면 탭 선택 화면(그룹별 목록), 선택하면 그 페이지(위 막대에 ←, "운영자 패널 - 탭 이름").
        선택한 탭은 주소 ?tab= 에 두고 옮길 때마다 방문 기록을 쌓는다(뒤로가기 = 앞의 탭, 휴대폰은 선택 화면) -->
   <div class="md:pt-(--gap-out) md:flex md:items-start md:gap-(--gap-in)">
     <Teleport to="#topbar-start" defer>
@@ -42,8 +42,8 @@
     </nav>
 
     <!-- 탭을 옮겨 새 페이지가 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
-         늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그 · 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
-    <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집 · 로그 · 스크롤을 지킨다) -->
+         늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그, 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
+    <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집, 로그, 스크롤을 지킨다) -->
     <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
       <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
@@ -85,21 +85,21 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹) · 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'ai'">
-          <!-- settings.db 의 "ai" · "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
+          <!-- settings.db 의 "ai", "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전 · 업데이트) · 설정 표시(고급 설정 보기) · 연령 제한 콘텐츠 · 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값, 한도. 유튜브, SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전, 업데이트), 설정 표시(고급 설정 보기), 연령 제한 콘텐츠, 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false">
-            <!-- 로그인 기기 접속 지역: 현재 버전 · 업데이트 확인 · 업데이트(누르면 바로) -->
+            <!-- 로그인 기기 접속 지역: 현재 버전, 업데이트 확인, 업데이트(누르면 바로) -->
             <template #in-geoip><ConfigGeoip class="mt-4" /></template>
           </ConfigTunables>
           <ConfigVisibility v-if="opened.has('settings')" class="mt-(--gap-in)" />
@@ -107,12 +107,12 @@
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 
-        <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 그룹 -->
+        <!-- 유튜브: 운영 조절값의 유튜브, SponsorBlock 그룹 -->
         <div class="admin-page" v-show="tab === 'youtube'">
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
         </div>
 
-        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키 · 계정 정보 -->
+        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키, 계정 정보 -->
         <div class="admin-page" v-show="tab === 'age'">
           <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
@@ -125,7 +125,7 @@
           <ConfigServiceKeys v-if="opened.has('keys')" />
         </div>
 
-        <!-- 백업: 설정 내보내기 · 불러오기 · 스냅샷. 비밀은 암호문 그대로만 오간다 -->
+        <!-- 백업: 설정 내보내기, 불러오기, 스냅샷. 비밀은 암호문 그대로만 오간다 -->
         <div class="admin-page" v-show="tab === 'backup'">
           <ConfigArchive v-if="opened.has('backup')" />
           <ConfigSnapshots v-if="opened.has('backup')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
@@ -136,11 +136,11 @@
           <DevOptions v-if="opened.has('dev')" />
         </div>
       </template>
-      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장 · 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
+      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장, 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
       <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(', ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
     </div>
 
-    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼 · 운영 조절값 저장 막대가 함께 쓴다 -->
+    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼, 운영 조절값 저장 막대가 함께 쓴다 -->
     <BotRestartDialog />
     <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
@@ -259,13 +259,13 @@ async function saveEverythingAndRestart() {
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
-// 목록 · 상세 편집기의 탭은 선택한 항목을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
+// 목록, 상세 편집기의 탭은 선택한 항목을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
 const TAB_PARAM: Record<string, string> = { autoplay: "genre", presence: "presence", ai: "ai" };
 const route = useRoute();
 const router = useRouter();
 // 휴대폰(md 아래)은 탭을 선택하지 않았으면 탭 선택 화면
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면 · 태블릿 · PC 는 지난번 탭
+// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면, 태블릿, PC 는 지난번 탭
 const tab = computed<string | null>(() => {
   const q = route.query.tab;
   if (typeof q === "string" && TABS.value.some((t) => t.id === q)) return q;
@@ -301,7 +301,7 @@ function slide() {
 
 // 탭을 옮기면 방문 기록을 하나 쌓는다. 떠나는 탭의 표식(?genre= 등)은 제거한다(남기면 뒤로가기가 다른 탭에서 그 편집을 되살린다)
 function setTab(id: string) {
-  // 지금 탭을 다시 누르면 그 탭에 처음 온 것처럼(상세를 닫고 목록 · 첫 화면으로)
+  // 지금 탭을 다시 누르면 그 탭에 처음 온 것처럼(상세를 닫고 목록, 첫 화면으로)
   if (id === tab.value) return closeDetail();
   const query = Object.fromEntries(Object.entries(route.query).filter(([k]) => !Object.values(TAB_PARAM).includes(k) || k === TAB_PARAM[id]));
   void pushDown(router, route, { query: { ...query, tab: id } });
@@ -333,7 +333,7 @@ function closeDetail() {
   if (!param || !route.query[param]) return;
   void goUp(router, { query: Object.fromEntries(Object.entries(route.query).filter(([k]) => k !== param)) });
 }
-// 탭이 바뀌면(누르기 · 뒤로가기) 레일 순서 방향으로 미끄러져 들어온다
+// 탭이 바뀌면(누르기, 뒤로가기) 레일 순서 방향으로 미끄러져 들어온다
 watch(tab, (now, before) => {
   if (!now || !before || now === before) return;
   const list = ALL_TABS.map((t) => t.id);
@@ -341,7 +341,7 @@ watch(tab, (now, before) => {
   slide();
 });
 
-// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 대시보드의 확인 대화상자로, 창 닫기 · 새로고침은 브라우저가 묻는다(beforeunload)
+// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 대시보드의 확인 대화상자로, 창 닫기, 새로고침은 브라우저가 묻는다(beforeunload)
 const leaveOpen = ref(false);
 let leaveAnswer: ((go: boolean) => void) | null = null;
 onBeforeRouteLeave(() => {
@@ -349,7 +349,7 @@ onBeforeRouteLeave(() => {
   leaveOpen.value = true;
   return new Promise<boolean>((resolve) => (leaveAnswer = resolve));
 });
-/** 확인 대화상자의 답(떠나기 · 취소 · 바깥 누르기) */
+/** 확인 대화상자의 답(떠나기, 취소, 바깥 누르기) */
 function answerLeave(go: boolean) {
   leaveOpen.value = false;
   leaveAnswer?.(go);
@@ -368,7 +368,7 @@ const loading = ref(true);
 const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
-// 상태 탭 목록(플레이어 · 자식 프로세스)의 구간 · 필터링 · 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 개수만 받는다
+// 상태 탭 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 개수만 받는다
 const statusQuery = shallowRef<StatusQuery>(STATUS_QUERY);
 const statusAsk = () => (tab.value === "info" ? COUNTS_ONLY : statusQuery.value);
 const statusOrder = replyOrder();
@@ -429,7 +429,7 @@ watch(statusQuery, () => {
 });
 
 // ── 서버 관리 ─────────────────────────────────────────
-// 서버 목록은 쿼리(구간 · 검색 · 재생 중만 · 정렬)로 필터링된 구간만 받는다. 응답 순서 처리는 봇 상태와 같다
+// 서버 목록은 쿼리(구간, 검색, 재생 중만, 정렬)로 필터링된 구간만 받는다. 응답 순서 처리는 봇 상태와 같다
 const guilds = ref<AdminGuilds>({ total: 0, playing: 0, matched: 0, from: 0, guilds: [] });
 const guildQuery = shallowRef<GuildQuery>(GUILD_QUERY);
 const guildOrder = replyOrder();
@@ -448,7 +448,7 @@ watch(guildQuery, () => {
   if (tab.value === "guilds" && live()) void fetchGuilds();
 });
 
-// 서버에서 나갔으면 목록과 봇 상태(서버 수 · 플레이어)를 다시 읽는다
+// 서버에서 나갔으면 목록과 봇 상태(서버 수, 플레이어)를 다시 읽는다
 function onGuildsChanged() {
   void Promise.all([fetchGuilds(), fetchStatus()]);
 }
@@ -462,7 +462,7 @@ let lastLogId = 0;
 // 연결할 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
 // 한 프레임 동안 모았다가 한 번에 반영한다
 let pendingLogs: LogRow[] = [];
-// 표시 줄(받지 못함 · 다시 시작)의 key
+// 표시 줄(받지 못함, 다시 시작)의 key
 let markSeq = 0;
 let flushFrame: number | null = null;
 function queueLog(entry: LogRow) {
@@ -519,7 +519,7 @@ function closeLogs() {
 }
 
 // ── 수명 ────────────────────────────────────────────────
-// status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
+// status는 실시간 값(uptime, 메모리, 자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
 // 디스코드 rate limit과 무관하고(봇의 Express만 부른다) 보는 사람이 운영자 한 명이라 주기를
 // 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
 //
@@ -531,7 +531,7 @@ const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
-// now: 탭 바꿈 · 다시 보임(받는 중이어도 바로 보낸다)
+// now: 탭 바꿈, 다시 보임(받는 중이어도 바로 보낸다)
 function poll(now = false) {
   if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
   else if (tab.value === "guilds") void fetchGuilds(!now);
@@ -553,7 +553,7 @@ onMounted(() => {
   // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
   void fetchStatus();
   void fetchGuilds();
-  // 탭이 숨거나 세션이 끝나면 폴링 · 로그 연결을 접는다
+  // 탭이 숨거나 세션이 끝나면 폴링, 로그 연결을 접는다
   const onVisibility = () => {
     if (!live()) stopPoll();
     else {

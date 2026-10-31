@@ -33,7 +33,7 @@ async function getJson<T = unknown>(service: SourceService, url: string, headers
   return (await res.json()) as T;
 }
 
-/** 키 테스트용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크 · 시간 초과) null */
+/** 키 테스트용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크, 시간 초과) null */
 async function probe(service: SourceService, url: string, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -75,7 +75,7 @@ function query(params: Record<string, unknown>): string {
 }
 
 /**
- * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록 · 범위).
+ * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록, 범위).
  *
  * load() 는 값을 돌려주거나, 못 불러왔으면 스스로 까닭을 남기고 null 을 돌려준다.
  * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 불러오되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.

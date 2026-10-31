@@ -1,4 +1,4 @@
-// src/dashboard/settings-archive.ts · routes/settings-archive.ts: 설정 내보내기 · 불러오기(ZIP).
+// src/dashboard/settings-archive.ts, routes/settings-archive.ts: 설정 내보내기, 불러오기(ZIP).
 // 내보낸 것을 그대로 복원하고, 선택한 항목만 덮어쓰며, 하나라도 검사에 걸리면 아무것도 바꾸지 않는다. 파일은 미리 보기 때 한 번 올리고 불러오기는 그 티켓으로
 
 process.env.OWNER_ID = "owner";
@@ -105,7 +105,7 @@ const square = (side: number) =>
     .png()
     .toBuffer();
 
-test("봇 설정만: 사람이 읽는 settings.json(형식 · 종류 · 봇 버전 · 운영 조절값 · 문서 넷) 하나. 서버별 설정 · 키 · 파비콘은 들지 않는다", async () => {
+test("봇 설정만: 사람이 읽는 settings.json(형식, 종류, 봇 버전, 운영 조절값, 문서 넷) 하나. 서버별 설정, 키, 파비콘은 들지 않는다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300" }, 0);
   guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
   assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
@@ -123,7 +123,7 @@ test("봇 설정만: 사람이 읽는 settings.json(형식 · 종류 · 봇 버�
   assert.match(unzip(file)[0].data.toString("utf8"), /\n {2}"format": 1,/, "들여 쓴 JSON");
 });
 
-test("파비콘: settings.json(형식 · 종류 · 파일 목록)과 favicon/ 파일. 미리 보기는 파비콘 줄 하나", async () => {
+test("파비콘: settings.json(형식, 종류, 파일 목록)과 favicon/ 파일. 미리 보기는 파비콘 줄 하나", async () => {
   assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
   const file = await exported("favicon");
   const json = settingsOf(file);
@@ -162,7 +162,7 @@ test("자기 내보내기를 미리 보면 모두 파일에 있고 지금과 같
   );
 });
 
-test("선택한 항목만 덮어쓰고 메모리(설정 객체 · 문서)까지 맞춘다. 선택하지 않은 것 · 서버별 설정은 그대로", async () => {
+test("선택한 항목만 덮어쓰고 메모리(설정 객체, 문서)까지 맞춘다. 선택하지 않은 것, 서버별 설정은 그대로", async () => {
   const file = await exported();
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
@@ -221,7 +221,7 @@ test("AI 설정의 추가 인자에 비밀 헤더가 있으면 꺼 두었어도 
   assert.equal((await send("import?items=ai", off)).status, 400, "꺼 둔 설정이어도");
 });
 
-test("파일에 없는 항목 · 모르는 항목 · 빈 목록은 거절한다", async () => {
+test("파일에 없는 항목, 모르는 항목, 빈 목록은 거절한다", async () => {
   const file = await rewrite(await exported(), (json) => delete (json.documents as Record<string, unknown>).genres);
   assert.equal(rowsOf((await preview(file)).json).genres.inFile, false);
   assert.equal((await send("import?items=genres", file)).status, 400);
@@ -254,7 +254,7 @@ const currents = () =>
     .slots.filter((one) => one.current)
     .map((one) => one.size);
 
-test("파비콘: 내보낸 슬롯 · 기록으로 통째 되돌린다. 비어 있던 파일을 불러오면 파비콘이 없어진다", async () => {
+test("파비콘: 내보낸 슬롯, 기록으로 통째 되돌린다. 비어 있던 파일을 불러오면 파비콘이 없어진다", async () => {
   await appearance.addFavicon(32, await square(32));
   const first = await exported("favicon");
   await appearance.addFavicon(32, await square(40));
@@ -342,7 +342,7 @@ test("다운로드 주소는 한 번만 쓴다(다시 열면 404). 모르는 티
   assert.equal((await fetch(`${base}/download/${"0".repeat(32)}`)).status, 404);
 });
 
-test("내보내기 · 불러오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
+test("내보내기, 불러오기는 최근 로그인만, 미리 보기는 아니어도 된다", async () => {
   const file = await exported();
   loginAt = Date.now() - RECENT_LOGIN_MS - 1;
   for (const kind of ["settings", "favicon", "login-background"]) assert.equal((await fetch(`${base}/export?kind=${kind}`, { method: "POST" })).status, 403);
@@ -350,7 +350,7 @@ test("내보내기 · 불러오기는 최근 로그인만, 미리 보기는 아�
   assert.equal((await preview(file)).status, 200);
 });
 
-test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지 · 바뀐 쿠키 출처를 답한다", async () => {
+test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지, 바뀐 쿠키 출처를 답한다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" }, 0);
   const file = await exported();
   assert.deepEqual(settingsOf(file).tunables, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
@@ -364,7 +364,7 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 });
 
-// 남이 준 파일로 모르고 불러오지 않게: AI 요청이 가는 곳 · 봇 웹사이트 주소
+// 남이 준 파일로 모르고 불러오지 않게: AI 요청이 가는 곳, 봇 웹사이트 주소
 test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다", async () => {
   const file = await rewrite(await exported("settings"), (json) => {
     (json.tunables as Record<string, string>).WEBSITE = "https://phish.example";

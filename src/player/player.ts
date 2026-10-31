@@ -5,12 +5,12 @@ import { gainOf } from "../rules/volume-gain.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import { encodePool } from "../media/encode-pool.ts";
 const log = logger.child({ category: "player" });
-// 워치독·상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
+// 워치독, 상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = logger.child({ category: "watchdog" });
 import * as YouTube from "../sources/youtube/index.ts";
 import * as genreConfig from "../config/genres.ts";
 import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
-// 사용자·대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 구분해야 한다
+// 사용자, 대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 구분해야 한다
 const clog = logger.child({ category: "control" });
 // 곡을 못 틀었을 때의 오류. 오류 안내와 같은 분류에 남긴다
 const elog = logger.child({ category: "error" });
@@ -77,11 +77,11 @@ import { logTitle } from "../infra/log/title.ts";
 // 사용자가 조정해서 나아질 여지가 없다.
 const SWITCH_LEAD_MS = 2000; // 전환 지점을 현재보다 얼마나 앞에 잡는가(캐시 디코더가 뜨는 시간보다 넉넉히)
 const LIVE_REOPEN_DELAY_MS = 1000; // 라이브 다시 열기 간격의 단위. 예산을 쓴 횟수에 비례해 늘린다
-const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 그 곡에서 멈춰 둔다(까닭을 모르는 실패 · 자동재생이 고른 곡)
+const FAILED_TRACKS_LIMIT = 3; // 곡이 연달아 이만큼 실패하면 넘기기를 그만두고 그 곡에서 멈춰 둔다(까닭을 모르는 실패, 자동재생이 고른 곡)
 const SKIP_NOTICES_IN_ROW = 3; // 곡 탓으로 연달아 넘길 때 하나씩 알리는 수. 넘으면 모았다가 한 번에
 const LENGTH_MISMATCH_LOG_MS = 2000; // 저절로 끝난 위치가 길이와 이만큼 넘게 다르면 남긴다
 // 재생 중 패킷 공급이 끊겨도 이만큼(20ms 프레임 500개 = 10초) 버틴다. 라이브러리 기본은 5(0.1초).
-// 입력 층(청크 스트림 이어받기 · HLS 재접속 · 직접 링크 본문 무응답)이 이보다 먼저 결론 내게 둔다.
+// 입력 층(청크 스트림 이어받기, HLS 재접속, 직접 링크 본문 무응답)이 이보다 먼저 결론 내게 둔다.
 // 이 값을 넘으면 플레이어가 멈추고 곡 끝 판정이 "패킷 공급이 끊겨 멈춤"으로 그 위치부터 다시 연다
 const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
@@ -92,19 +92,19 @@ const REST_AFTER_MS = 10 * 60_000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
 type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed" | "superseded"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
-/** 그 곡에서 멈춰 둔 까닭. environment: 다음 곡도 안 되는 실패 · failures: 까닭을 모르는 실패가 연달아(count 곡) · dropped: 들리던 곡이 끊겨 다시 열지 못함 */
+/** 그 곡에서 멈춰 둔 까닭. environment: 다음 곡도 안 되는 실패, failures: 까닭을 모르는 실패가 연달아(count 곡), dropped: 들리던 곡이 끊겨 다시 열지 못함 */
 type ParkReason = { kind: "environment"; error: unknown } | { kind: "failures"; count: number; error?: undefined } | { kind: "dropped"; error?: unknown };
 
 // 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
 const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
 
-// 기다리는 사이에 플레이어가 버려졌거나 다른 재생이 시작했다(위치 이동 중의 음성 복구 · 연달아 넘기기). 다른 재생이면 곡과 소리, 단계는 그쪽 것이다. 둘 다 아니면 null
+// 기다리는 사이에 플레이어가 버려졌거나 다른 재생이 시작했다(위치 이동 중의 음성 복구, 연달아 넘기기). 다른 재생이면 곡과 소리, 단계는 그쪽 것이다. 둘 다 아니면 null
 function overtaken(player: Pick<Player, "lifecycle" | "_playGen">, gen: number): PlayResult | null {
   if (player.lifecycle.disposed) return { ok: false, code: "disposed" };
   return gen === player._playGen ? null : { ok: false, code: "superseded" };
 }
 
-// voice 에 넘기지 못한 리소스를 destroy 한다. 넘긴 것은 voice 가 교체 · Idle 때 destroy 한다
+// voice 에 넘기지 못한 리소스를 destroy 한다. 넘긴 것은 voice 가 교체, Idle 때 destroy 한다
 function dropUnplayed(pb: CurrentPlayback | null) {
   const resource = pb?.resource;
   if (!resource || resource.audioPlayer) return;
@@ -118,7 +118,7 @@ function dropUnplayed(pb: CurrentPlayback | null) {
 // 자동재생 선택 줄에 적을 소리의 출처(음원 주소의 종류로)
 const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
-// 곡이 어떻게 끝났나. dropped: 사고로 끊겼다 · live: 그중 라이브가 끊긴 것
+// 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
 type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
@@ -140,7 +140,7 @@ function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: numb
 const streamEndedOf = (pb: CurrentPlayback | null) => pb?.resource?.playStream?.readableEnded ?? true;
 
 // 패킷 공급이 끊겨 멈췄을 때 남길 입력 상태. 버티는 시간(MAX_MISSED_FRAMES)이 맞는지 볼 근거다.
-// 입력이 마지막으로 들어온 때는 스트림 · 주소 분기만 적는다(파일과 캐시 전환 뒤에는 없다)
+// 입력이 마지막으로 들어온 때는 스트림, 주소 분기만 적는다(파일과 캐시 전환 뒤에는 없다)
 function starvedDetail(pb: CurrentPlayback | null) {
   const input = pb?.input;
   const tracked = input && input.kind !== "캐시 전환" && pb.inputProgressAt;
@@ -154,16 +154,16 @@ function starvedDetail(pb: CurrentPlayback | null) {
   return parts.join(" · ");
 }
 
-// 채널 알림을 못 보낸 것(권한 · 삭제된 채널)은 재생을 막지 않는다
+// 채널 알림을 못 보낸 것(권한, 삭제된 채널)은 재생을 막지 않는다
 const noticeFailed = (error: unknown) => log.warn(`채널 알림 전송 실패: ${messageOf(error)}`);
 
 const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
 
-// 바깥 경계: 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소. 기본은 진짜다.
-// 음성 연결 · 세션 저장 · 대기열 미리 다운로드 · 캐시 다운로더를 만드는 함수와 동등물 · SponsorBlock 조회도 여기 둔다.
-// 테스트는 생성자에 가짜를 넘기거나, 플레이어를 직접 만들지 않는 경로(명령 · 곡 추가)에서는 useBoundary 로 기본을 바꾼다
+// 바깥 경계: 음성 라이브러리, ffmpeg, 청크 스트림, HTTP, 직접 링크, 스트림 주소. 기본은 진짜다.
+// 음성 연결, 세션 저장, 대기열 미리 다운로드, 캐시 다운로더를 만드는 함수와 동등물, SponsorBlock 조회도 여기 둔다.
+// 테스트는 생성자에 가짜를 넘기거나, 플레이어를 직접 만들지 않는 경로(명령, 곡 추가)에서는 useBoundary 로 기본을 바꾼다
 const REAL = {
   createAudioPlayer,
   createAudioResource,
@@ -194,16 +194,16 @@ type Boundary = typeof REAL;
 
 // 여는 중이고 그 재생의 소리를 아직 오디오 플레이어에 넘기지 않았다. 이때 온 끝 요청은 적어 두었다가 연 뒤에 건다(같은 재생에서는 먼저 온 것이 이긴다).
 // play() 가 끝 원인을 지우고, 이때 멎은 옛 소리의 Idle 은 끝으로 보지 않는다(onPlayerIdle). 넘긴 뒤(세션 저장을 기다리는 사이)는 보통처럼 멈춘다.
-// 소리가 없으면 멈출 것이 없어 true. 옛 소리가 붙어 있으면(위치 이동 · 음성 복구의 재개) false, 부른 쪽이 그 소리를 바로 멈춘다
+// 소리가 없으면 멈출 것이 없어 true. 옛 소리가 붙어 있으면(위치 이동, 음성 복구의 재개) false, 부른 쪽이 그 소리를 바로 멈춘다
 function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "_playGen" | "_handedGen" | "_endWhileStarting" | "currentTrack">, reason: string) {
   if (!player.lifecycle.starting || player._handedGen === player._playGen) return false;
   if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen, track: player.currentTrack };
   return player.audioPlayer.state.status === AudioPlayerStatus.Idle;
 }
 /**
- * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause) · 끝 알림(disposed)을 듣는 쪽이 가른다.
- * 사람이 끝냄: stop · leave. 기다리다 나감: queue-drained · inactivity-timeout. 디스코드 쪽: forced-disconnect · stage-ended · stage-disconnect · channel-gone · voice-lost · guild-gone · operator-leave.
- * 세션을 남기고 버림: connect-failed · restore-failed · adopt-failed · replaced(새 플레이어가 곧 선다). 오류: fault(되풀이되어 멈춤) · fault-cleared(곡 없이 정리) · fault-restart(곧 복원한다)
+ * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause), 끝 알림(disposed)을 듣는 쪽이 가른다.
+ * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, inactivity-timeout. 디스코드 쪽: forced-disconnect, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave.
+ * 세션을 남기고 버림: connect-failed, restore-failed, adopt-failed, replaced(새 플레이어가 곧 선다). 오류: fault(되풀이되어 멈춤), fault-cleared(곡 없이 정리), fault-restart(곧 복원한다)
  */
 type PlayerEnd = "stop" | "leave" | "queue-drained" | "inactivity-timeout" | "forced-disconnect" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
 /** 갭리스 전환에서 스플라이서에게 묻고 부르는 필드 */
@@ -245,14 +245,14 @@ class Player {
   failedLabels: string[] = [];
   /** 자동재생이 고른 곡이 연달아 실패한 수(갈래와 상관없이). 소리를 낸 곡이 끝나면 0 */
   autoplayFailures = 0;
-  /** 곡 탓으로 연달아 넘긴 수 · 그중 알리지 않고 모은 수. 소리가 나기 시작하면 모은 것을 한 번에 알린다 */
+  /** 곡 탓으로 연달아 넘긴 수, 그중 알리지 않고 모은 수. 소리가 나기 시작하면 모은 것을 한 번에 알린다 */
   skippedInRow = 0;
   skippedQuiet = 0;
   /** 그 곡에서 멈춰 두기(park) 전에 사람이 이미 멈춰 뒀나. 멈춰 둔 곡을 떠날 때 멈춤을 되돌릴지 정한다 */
   _parkedOverUserPause = false;
   /** 재생 버튼으로 멈춰 둔 곡을 다시 여는 중(대시보드가 그 사이에도 곡을 보이게) */
   _retryingParked = false;
-  /** play() 의 세대. 끝 정리는 자기 세대가 마지막일 때만 한다(겹친 play 의 정리가 새 것의 단계 · 보호를 지우지 않게) */
+  /** play() 의 세대. 끝 정리는 자기 세대가 마지막일 때만 한다(겹친 play 의 정리가 새 것의 단계, 보호를 지우지 않게) */
   _playGen = 0;
   _handedGen = 0; // 소리를 오디오 플레이어에 넘긴 재생의 세대(commitPlaying)
   /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
@@ -263,7 +263,7 @@ class Player {
   restAfterMs = REST_AFTER_MS; // 시험이 줄인다
   _restTimer: NodeJS.Timeout | null = null;
   _waking = false; // 휴면 중인 곡의 스트림을 다시 여는 중(wake). 화면이 곡을 보이게
-  _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡 · 반복 · 자동재생으로 잇지 않는다
+  _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡, 반복, 자동재생으로 잇지 않는다
   /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
   _silentStop: NodeJS.Timeout | null = null;
   /** 걸린 곡 끝 처리가 끝나기를 기다리는 쪽 */
@@ -282,7 +282,7 @@ class Player {
   downloader: TrackDownloader;
   persistence: SessionPersistence;
   trackSink: SessionPersistence;
-  /** 설정 필드(볼륨 · 반복 · 자동재생 · 멈춤 · 채널)가 바뀌면 알릴 곳. 무엇을 언제 쓸지는 받는 쪽(세션 저장)이 정한다. 복원은 DB 에서 읽은 값이라 알리지 않는다 */
+  /** 설정 필드(볼륨, 반복, 자동재생, 멈춤, 채널)가 바뀌면 알릴 곳. 무엇을 언제 쓸지는 받는 쪽(세션 저장)이 정한다. 복원은 DB 에서 읽은 값이라 알리지 않는다 */
   settingsSink: { onSettingsChanged(): void } | null;
   warmer: QueueWarmer;
   sponsorSkipper: SponsorSkipper;
@@ -301,7 +301,7 @@ class Player {
     this.connection = null;
     this.playback = null; // 지금 트는 한 번(CurrentPlayback). 곡이 바뀌면 버린다
 
-    // 대기열 관리. 현재곡·대기열·기록은 trackState로만 바꾼다
+    // 대기열 관리. 현재곡, 대기열, 기록은 trackState로만 바꾼다
     trackState.init(this);
     // 사람이 바꾸는 재생 설정. 세션에 저장되어 다시 시작할 때 돌아온다
     this.volume = guildSettings.resolveVolume(guild.id); // 이 서버에서 마지막으로 정한 볼륨
@@ -313,7 +313,7 @@ class Player {
     // 이 재생의 라벨. 패널 버튼에 실어 지난 재생의 버튼을 구분한다
     this.sessionId = createPlayerSessionId();
 
-    // 곡 끝 · 다시 열기 · 연달아 실패의 상태
+    // 곡 끝, 다시 열기, 연달아 실패의 상태
     this._endReason = null;
     this.retry = FRESH;
     this.failedTracks = 0;
@@ -328,8 +328,8 @@ class Player {
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
     this.voice = this.io.createVoice(this);
-    this.watch = new PlaybackWatch(this); // 넘침 안전망 · 버퍼링 감시 · 멎음 감시
-    this.idle = new IdleLeave(this); // 혼자 남음 · 틀 게 없음 퇴장
+    this.watch = new PlaybackWatch(this); // 넘침 안전망, 버퍼링 감시, 멎음 감시
+    this.idle = new IdleLeave(this); // 혼자 남음, 틀 게 없음 퇴장
     this.downloader = this.io.createDownloader(this);
     this.persistence = this.io.createPersistence(this);
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
@@ -385,7 +385,7 @@ class Player {
       own((oldState: AudioPlayerState, newState: AudioPlayerState) => this._onAudioState(oldState, newState)),
     );
 
-    // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류 · 전이로 온다(voiceLink).
+    // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류, 전이로 온다(voiceLink).
     // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop)
     this.audioPlayer.on(
       "error",
@@ -430,13 +430,13 @@ class Player {
     return Boolean(this.currentTrack?.isLive);
   }
 
-  /** 지금 곡의 SponsorBlock 구간 · 하이라이트. 틀고 있을 때만 있다 */
+  /** 지금 곡의 SponsorBlock 구간, 하이라이트. 틀고 있을 때만 있다 */
   get sponsor() {
     const pb = this.playback;
     return pb && pb.track === this.currentTrack ? pb.sponsor : null;
   }
 
-  /** play() 가 곡을 여는 중인가(자동 스킵 · 대시보드 탐색이 끼어들지 않게 본다) */
+  /** play() 가 곡을 여는 중인가(자동 스킵, 대시보드 탐색이 끼어들지 않게 본다) */
   get isPlayStarting() {
     return this.lifecycle.starting;
   }
@@ -463,7 +463,7 @@ class Player {
 
   /**
    * @param seekMs  곡 안의 시작 위치
-   * @param o.continued  같은 곡을 이어 튼다(위치 이동 · 끊김 복구 · 세션 복원). 재생 횟수에 세지 않는다
+   * @param o.continued  같은 곡을 이어 튼다(위치 이동, 끊김 복구, 세션 복원). 재생 횟수에 세지 않는다
    * @param o.liveReopen  끊긴 라이브를 다시 연다. 라이브가 아니면(방송이 끝나 다시보기가 됐다) 틀지 않고 live-ended,
    *                      열지 못하면 남기거나 알리지 않고 live-reopen-failed 를 돌려준다. 끝 처리(_recoverDrop)가 다음 곡으로 넘긴다
    */
@@ -477,7 +477,7 @@ class Player {
     try {
       const start = await prepareStart(this, seekMs);
       if (!start.ok) return start;
-      // 기다리는 동안 버려졌거나(stop · leave) 다른 재생이 시작했으면 새 소리를 열지 않는다
+      // 기다리는 동안 버려졌거나(stop, leave) 다른 재생이 시작했으면 새 소리를 열지 않는다
       const late = overtaken(this, gen);
       if (late) return late;
 
@@ -495,7 +495,7 @@ class Player {
       const open = () => this._openSource(opening, start.startMs, previous?.resume, liveReopen);
       const opened = await open().catch(async (error: unknown) => {
         // 직접 지정한 음원이 여는 순간 사라졌으면(직접 링크는 여기서야 연다) 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더.
-        // 스트림 주소로 여는 음원(유튜브 · 사운드클라우드)은 sources/stream-url 이 이미 했다
+        // 스트림 주소로 여는 음원(유튜브, 사운드클라우드)은 sources/stream-url 이 이미 했다
         if (!(await leaveDeadPin(track, error, { findYouTubeEquivalent: (t, o) => this.io.findEquivalent(t as QueuedTrack, o) }))) throw error;
         return open();
       });
@@ -521,7 +521,7 @@ class Player {
       }
       this.lifecycle.to("playing");
       this._tellSkipped();
-      this._armRest(); // 멈춘 채 열었으면(멈춘 채 넘기기 · 위치 이동 · 복원) 여기서부터 잰다
+      this._armRest(); // 멈춘 채 열었으면(멈춘 채 넘기기, 위치 이동, 복원) 여기서부터 잰다
       this._takeEndWhileStarting(gen);
       return { ok: true, track: this.currentTrack };
     } catch (error) {
@@ -533,10 +533,10 @@ class Player {
     }
   }
 
-  // 틀지 못하고 나왔다. 캐시 파일을 찾으며 건 보호를 풀고 쉬는 단계로. 그사이 다른 play() 가 시작했으면(세대가 다르다) 그쪽의 단계 · 보호라 건드리지 않는다
+  // 틀지 못하고 나왔다. 캐시 파일을 찾으며 건 보호를 풀고 쉬는 단계로. 그사이 다른 play() 가 시작했으면(세대가 다르다) 그쪽의 단계, 보호라 건드리지 않는다
   _closeStart(gen: number) {
     // 열지 못했으면 여는 중에 온 끝 요청은 버린다. 실패 처리가 이미 다른 곡으로 넘겼다(두 번 넘기지 않게). 연 경우는 이미 걸었다.
-    // 그 곡에서 멈춰 뒀으면 마저 건다. 이전 곡 · 점프는 대기열을 먼저 옮겨 두어, 버리면 옮긴 대기열만 남는다
+    // 그 곡에서 멈춰 뒀으면 마저 건다. 이전 곡, 점프는 대기열을 먼저 옮겨 두어, 버리면 옮긴 대기열만 남는다
     const pending = this._endWhileStarting?.gen === gen ? this._endWhileStarting : null;
     if (pending) this._endWhileStarting = null;
     if (pending && this.lifecycle.parked && this.currentTrack === pending.track) this._stopWith(pending.reason);
@@ -572,7 +572,7 @@ class Player {
       startMs,
       meta: { title: track.title, url: track.pageUrl, duration: track.duration },
       download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
-      // 오류는 곡이 바뀐 뒤 · 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡 · 위치로 갈아타지 않게 한다
+      // 오류는 곡이 바뀐 뒤, 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡, 위치로 갈아타지 않게 한다
       onStreamLost: (splicer) => this._planCacheSwitch(splicer, pb),
       gain: gainOf(this.volume),
       onProgress: () => {
@@ -592,7 +592,7 @@ class Player {
   // play() 가 던졌다. 끊긴 라이브를 다시 여는 중이었으면 끝 처리에 맡긴다
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
   async _playFailed(error: unknown, liveReopen: boolean, pb: CurrentPlayback | null, { at, continued }: { at: number; continued: boolean }) {
-    // 만들었지만 voice 에 넘기지 못한 리소스는 voice 도 정리도 destroy 하지 않는다. 그대로 두면 ffmpeg · Opus 인코더가 남는다
+    // 만들었지만 voice 에 넘기지 못한 리소스는 voice 도 정리도 destroy 하지 않는다. 그대로 두면 ffmpeg, Opus 인코더가 남는다
     dropUnplayed(pb);
     if (this.lifecycle.disposed) return { ok: false, code: "disposed" } satisfies PlayResult;
     // 음성에 붙지 못했다. 넘기거나 세지 않는다(다음 곡도 붙지 못한다). 곡 추가는 스스로 정리하고(finishByCaller), 음성 복구 중이면 복구가 다시 연다. 그 밖은 세션을 남기고 버린다
@@ -601,7 +601,7 @@ class Player {
       if (!this.finishByCaller && !this.isRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
       return { ok: false, code: "voice-failed", error } satisfies PlayResult;
     }
-    // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음 · 세션 복원) 실패로 세지 않고 알리고 넘긴다
+    // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음, 세션 복원) 실패로 세지 않고 알리고 넘긴다
     const ended = codeOf(error) === "live-ended";
     if (liveReopen) return ended ? ({ ok: false, code: "live-ended" } satisfies PlayResult) : ({ ok: false, code: "live-reopen-failed", error } satisfies PlayResult);
     if (ended) {
@@ -618,7 +618,7 @@ class Player {
   }
 
   /**
-   * 스트림과 나란히 다운로드하는 캐시. 너무 긴 곡은 다운로드하지 않고 스트림으로만 튼다(디스크 · 변환 비용).
+   * 스트림과 나란히 다운로드하는 캐시. 너무 긴 곡은 다운로드하지 않고 스트림으로만 튼다(디스크, 변환 비용).
    * 곡 길이는 아직 스트림 정보로 채우기 전이라 스트림이 알려 준 길이를 먼저 본다
    */
   _downloadAlongside(track: QueuedTrack, streamInfo: { duration?: number | null } | null) {
@@ -650,8 +650,8 @@ class Player {
   }
 
   /**
-   * 곡 정보가 바뀌었으면(유튜브 영상의 제목 · 직접 링크의 파일 태그 · 다운로드 전에 몰랐던 표시 길이) 세션 사본을 다시 쓰게 표시하고 바뀌었다고 답한다.
-   * 패널 · 대시보드는 부른 쪽이 새로 그린다. 채널 상태는 재생을 시작할 때만 쓰므로 지금 곡의 제목이 바뀌었으면 여기서 고친다
+   * 곡 정보가 바뀌었으면(유튜브 영상의 제목, 직접 링크의 파일 태그, 다운로드 전에 몰랐던 표시 길이) 세션 사본을 다시 쓰게 표시하고 바뀌었다고 답한다.
+   * 패널, 대시보드는 부른 쪽이 새로 그린다. 채널 상태는 재생을 시작할 때만 쓰므로 지금 곡의 제목이 바뀌었으면 여기서 고친다
    */
   _noteTrackInfo(track: QueuedTrack, before: ReturnType<typeof infoOf>): boolean {
     const now = infoOf(track);
@@ -661,7 +661,7 @@ class Player {
     return true;
   }
 
-  /** 직접 링크 곡의 파일 태그를 찾았다(sources/embedded-art). 그 음원의 곡(지금 곡 · 대기열 · 지난 곡)에 반영하고, 반영했거나 앨범아트가 생겼으면 새로 그린다 */
+  /** 직접 링크 곡의 파일 태그를 찾았다(sources/embedded-art). 그 음원의 곡(지금 곡, 대기열, 지난 곡)에 반영하고, 반영했거나 앨범아트가 생겼으면 새로 그린다 */
   takeFileTags(audioKey: string, found: embeddedArt.Found) {
     const tracks = [this.currentTrack, ...this.queue, ...this.previousTracks].filter((track): track is QueuedTrack => Boolean(track) && embeddedArt.directKeyOf(track as QueuedTrack) === audioKey);
     if (tracks.length === 0) return;
@@ -674,7 +674,7 @@ class Player {
     if (changed || found.art) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
   }
 
-  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정 · 넘침 안전망이 쓴다 */
+  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다 */
   _learnLength(track: QueuedTrack) {
     const pb = this.playback;
     const key = audioKeyOf(track.audioUrl);
@@ -686,8 +686,8 @@ class Player {
   /**
    * 스트림이 죽었을 때 캐시 파일로 소리 없이 갈아탄다. 예약했으면 true.
    * 캐시가 아직 없으면 하지 않는다. 스트림이 이어받거나, Idle → play(위치)가 받는다.
-   * pb: 그 스트림을 연 재생. 같은 곡의 새 재생(위치 이동 · 다시 열기)을 여는 동안 옛 스트림이 끊기면 지금 재생(this.playback)은 이미 새 것이라,
-   * 위치 · 입력은 그 스트림을 연 재생의 것으로 센다. 새 재생이 자리 잡을 때까지 옛 소리는 캐시로 이어진다
+   * pb: 그 스트림을 연 재생. 같은 곡의 새 재생(위치 이동, 다시 열기)을 여는 동안 옛 스트림이 끊기면 지금 재생(this.playback)은 이미 새 것이라,
+   * 위치, 입력은 그 스트림을 연 재생의 것으로 센다. 새 재생이 자리 잡을 때까지 옛 소리는 캐시로 이어진다
    */
   _planCacheSwitch(splicer: Switchable | null, pb: Pick<CurrentPlayback, "track" | "startOffsetMs" | "input">) {
     const { track } = pb;
@@ -725,7 +725,7 @@ class Player {
     splicer.once("switched", (ms: number) => {
       pb.input = health;
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 갭리스 전환: ${this._trackLabel()}`);
-      // 지점·조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
+      // 지점, 조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
       wlog.debug(`갭리스 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });
     return true;
@@ -740,9 +740,9 @@ class Player {
     this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
-    // 멈춰 두거나 휴면시키며 해제한 스트림이다. 곡이 끝난 것이 아니다(park · rest)
+    // 멈춰 두거나 휴면시키며 해제한 스트림이다. 곡이 끝난 것이 아니다(park, rest)
     if (this.lifecycle.released) return;
-    // 여는 중에 옛 소리가 멎었다(위치 이동 · 음성 복구의 재개). 여는 소리가 대신하고, 그사이 온 끝 요청은 연 뒤에 건다
+    // 여는 중에 옛 소리가 멎었다(위치 이동, 음성 복구의 재개). 여는 소리가 대신하고, 그사이 온 끝 요청은 연 뒤에 건다
     if (this.lifecycle.starting && this._handedGen !== this._playGen) return;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 무음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
@@ -757,7 +757,7 @@ class Player {
   }
 
   /**
-   * 걸린 곡 끝 처리(넘기기 · 이전 곡 뒤 다음 곡 틀기)가 끝날 때까지. 걸린 처리가 없으면 곧바로.
+   * 걸린 곡 끝 처리(넘기기, 이전 곡 뒤 다음 곡 틀기)가 끝날 때까지. 걸린 처리가 없으면 곧바로.
    * 다음 곡을 여는 데 오래 걸리면 capMs 까지만 기다린다. 대시보드가 바뀐 곡을 응답에 싣게 한다
    */
   untilSwitched(capMs = 2000): Promise<void> {
@@ -778,7 +778,7 @@ class Player {
    * 이미 멈추는 중이면 먼저 온 까닭을 지킨다(겹친 까닭은 로그로만).
    * 재생 중이면 무음 프레임 5개를 보낸 뒤 멈춘다(디스코드 문서의 보간 막기): 그냥 끊으면 듣는 쪽이 끊긴 소리를 늘여 메우고,
    * 연결에 남은 마지막 패킷(@discordjs/voice 가 미리 준비해 둔 것)이 다음 곡 첫머리에 나간다. 무음으로 끝나면 남는 것도 무음이다.
-   * 무음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
+   * 무음은 재생 중에만 흘러가므로 버퍼링, 일시정지 중이거나 force 면 바로 멈춘다
    */
   _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
     // 멈춰 두거나 휴면 중인 곡에는 열린 소리가 없어 멈춰도 Idle 이 오지 않는다. 끝 처리를 직접 건다
@@ -823,7 +823,7 @@ class Player {
 
   /**
    * 억제 사유를 지금 음성 상태로 맞춘다. 몇 번 불러도 결과가 같다(이벤트를 놓쳐도 다음 부름이 바로잡는다).
-   * 봇이 이 플레이어의 채널에 붙어 있지 않으면(연결 중 · 재연결 중 · 옮겨지는 중) 모르므로 그대로 둔다.
+   * 봇이 이 플레이어의 채널에 붙어 있지 않으면(연결 중, 재연결 중, 옮겨지는 중) 모르므로 그대로 둔다.
    * 혼자 남음 타이머는 여기서 넘긴다: 부르는 쪽이 바뀜을 다루면 같은 이벤트를 먼저 맞춘 쪽만 바뀜을 보고 나중 쪽은 놓친다.
    * moved: 봇이 다른 채널로 옮겨졌다(혼자 남음이 그대로 참이면 새 채널 기준으로 다시 잰다)
    */
@@ -848,7 +848,7 @@ class Player {
     return { serverMute: Boolean(me.serverMute), suppress: Boolean(me.suppress), onStage: channel.type === ChannelType.GuildStageVoice, listeners: listenersIn(channel.members.values()) };
   }
 
-  // 멈춤이 바뀌었다. 로그 · 저장 알림 · 패널 갱신
+  // 멈춤이 바뀌었다. 로그, 저장 알림, 패널 갱신
   _pauseChanged({ user, added, removed }: PauseChange) {
     const label = this._trackLabel();
     if (user !== undefined) log.info(`${user ? "일시정지" : "일시정지 해제"}: 원인=user | ${label}`);
@@ -875,7 +875,7 @@ class Player {
     this._restTimer = null;
   }
 
-  // 멈춘 지 restAfterMs. 그 안에 나갈 예정이면(혼자 남음 · 틀 게 없음) 곧 버릴 플레이어라 내리지 않고 다시 잰다(그 예정이 사라질 수 있다). 나머지 조건은 rest() 가 다시 본다
+  // 멈춘 지 restAfterMs. 그 안에 나갈 예정이면(혼자 남음, 틀 게 없음) 곧 버릴 플레이어라 내리지 않고 다시 잰다(그 예정이 사라질 수 있다). 나머지 조건은 rest() 가 다시 본다
   _restIfStill() {
     const leavesAt = this.idle.leavesAt();
     if (leavesAt !== null && leavesAt - Date.now() < this.restAfterMs) {
@@ -885,7 +885,7 @@ class Player {
     this.rest();
   }
 
-  /** 반복 타이머를 모두 멈춘다. 재생 상태 · 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
+  /** 반복 타이머를 모두 멈춘다. 재생 상태, 저장된 세션은 건드리지 않는다. 버리는 플레이어는 꼭 부른다(남은 타이머가 플레이어를 붙잡는다) */
   _stopTimers() {
     this._clearSilentStop();
     this._cancelRest();
@@ -902,12 +902,12 @@ class Player {
   }
 
   /**
-   * 이 플레이어를 버린다. 모든 정리(정지 · 나가기 · 강제 퇴장 · 채널 사라짐 · 복구 포기 · 비활성 · 복원 실패 · 교체 · 운영자)가 여기를 지난다.
+   * 이 플레이어를 버린다. 모든 정리(정지, 나가기, 강제 퇴장, 채널 사라짐, 복구 포기, 비활성, 복원 실패, 교체, 운영자)가 여기를 지난다.
    * 두 번째 부름은 아무것도 하지 않는다. 버린 뒤 레지스트리가 스스로 뺀다(disposed 알림).
    * @param o.reason  로그에 남길 원인
-   * @param o.session  remove: 세션을 삭제한다 · save: 저장해 남긴다(/join 이 복원한다) · keep: 건드리지 않는다(따로 저장된 세션이 있다)
+   * @param o.session  remove: 세션을 삭제한다, save: 저장해 남긴다(/join 이 복원한다), keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
-   * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect · inactivity-timeout · leave 등). 기본 stop
+   * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect, inactivity-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
   async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
@@ -931,12 +931,12 @@ class Player {
       log.error("정리 중 오류:", error);
     }
     playerEvents.disposed(this, reason, end);
-    // 패널은 정리가 끝난 뒤에. 패널 참조(텍스트 채널 · 메시지)를 놓기 전에 끝난 모양으로 고친다
+    // 패널은 정리가 끝난 뒤에. 패널 참조(텍스트 채널, 메시지)를 놓기 전에 끝난 모양으로 고친다
     if (panel) await playerEvents.ended(this, panel, end).catch((error) => log.warn(`종료된 재생 패널 갱신 실패: ${messageOf(error)}`));
     this._dropPanel();
   }
 
-  // 버린 플레이어는 곡 끝 처리(다음 곡 · 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
+  // 버린 플레이어는 곡 끝 처리(다음 곡, 재시도)를 하지 않는다. 끝 줄은 여기서 남긴다
   _endPlayback(end: PlayerEnd) {
     const ending = this.currentTrack ? this._trackLabel() : null;
     trackState.reset(this, { history: true });
@@ -961,7 +961,7 @@ class Player {
   }
 
   /**
-   * 재생 위치 이동. `/seek`·`/replay`·`/highlight`·대시보드가 전부 여기를 지난다.
+   * 재생 위치 이동. `/seek`, `/replay`, `/highlight`, 대시보드가 전부 여기를 지난다.
    *
    * 각 진입점이 `play(ms)`를 직접 부르면 로그에서 사람이 위치를 옮긴 것과 봇이 다음 곡으로
    * 넘어간 것을 구분할 수 없다. 진입점마다 로그를 다는 대신 통로를 하나로 둔다.
@@ -985,7 +985,7 @@ class Player {
   skip(reason = "skip") {
     if (this.currentTrack) {
       clog.info(`스킵: ${this._trackLabel()} | 원인=${reason} | 대기열 ${this.queue?.length ?? 0}곡`);
-      // 이 곡에 걸린 감시 · 대기 타이머를 멈춘다
+      // 이 곡에 걸린 감시, 대기 타이머를 멈춘다
       this.watch.stopOverflow();
       this.idle.cancelEmpty();
 
@@ -999,7 +999,7 @@ class Player {
     // 틀고 있는 곡이 없으면 멈출 것도 없다. 멈춤이 곡 끝을 부르지 않아 되감은 곡이 대기열에 걸린 채 남는다
     if (!this.currentTrack) return false;
     clog.info(`이전곡: ${this._trackLabel()} | 이전 기록 ${this.previousTracks?.length ?? 0}곡 | 반복=${this.loop || "off"}`);
-    // 한 곡 반복 중 이전 곡 = 현재 곡 재시작. 대기열 반복인데 대기열이 비었으면 고리에 지금 곡뿐이라 같다. 대기열·기록 불변.
+    // 한 곡 반복 중 이전 곡 = 현재 곡 재시작. 대기열 반복인데 대기열이 비었으면 고리에 지금 곡뿐이라 같다. 대기열, 기록 불변.
     if (this._restartsOnPrevious()) {
       this.watch.stopOverflow();
       this._stopWith("previous");
@@ -1115,14 +1115,14 @@ class Player {
     return false;
   }
 
-  /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤 · 버퍼링은 세지 않는다 */
+  /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤, 버퍼링은 세지 않는다 */
   getCurrentTime() {
     const pb = this.playback;
     if (!pb) return this.lastPlaybackPosition || 0;
     return (pb.startOffsetMs || 0) + (pb.resource?.playbackDuration || 0);
   }
 
-  // 곡 끝 처리. 다시 틀기 · 한 곡 반복 · 다음 곡 · 자동재생 · 대기열 소진을 분기한다
+  // 곡 끝 처리. 다시 틀기, 한 곡 반복, 다음 곡, 자동재생, 대기열 소진을 분기한다
   async onTrackEnd(reason = "idle") {
     this._endScheduled = false;
     if (!this.lifecycle.beginEnd()) {
@@ -1282,13 +1282,13 @@ class Player {
     return count;
   }
 
-  // 한 곡 반복 · 다음 곡 · 자동재생 중 하나를 튼다. 틀었으면 true
+  // 한 곡 반복, 다음 곡, 자동재생 중 하나를 튼다. 틀었으면 true
   async _playNext(finishedTrack: QueuedTrack, reason: string) {
     // 멎어서 넘기는 곡(stuck)은 한 곡 반복이어도 되풀이하지 않는다
     const restart = this.loop === "track" ? !["stop", "jump", "stuck"].includes(reason) : reason === "previous" && this._restartsOnPrevious();
     if (restart) {
-      // 한 곡 반복: 자연 종료·스킵·이전 곡 모두 현재 곡을 처음부터 다시 재생. 대기열 반복인데 대기열이 비었을 때의 이전 곡도 같다
-      // 대기열·이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
+      // 한 곡 반복: 자연 종료, 스킵, 이전 곡 모두 현재 곡을 처음부터 다시 재생. 대기열 반복인데 대기열이 비었을 때의 이전 곡도 같다
+      // 대기열, 이전 곡 기록은 불변. 다음 곡으로 넘어가려면 반복 해제 또는 대기열 점프(jump).
       await this.play(0);
       return true;
     }
@@ -1328,13 +1328,13 @@ class Player {
     }
     this.retry = FRESH;
     // 선택하지 못했으면 false 로 대기열 소진 흐름으로 떨어진다.
-    // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가·스킵이 전부 먹통이 된다.
+    // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가, 스킵이 전부 먹통이 된다.
     // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
     return this.handleAutoplay();
   }
 
   /**
-   * 24/7 자리에서의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없이 기다린다(채널 · 플레이어는 남는다).
+   * 24/7 자리에서의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없이 기다린다(채널, 플레이어는 남는다).
    * 사람의 멈춤은 푼다(남으면 다음 곡이 소리 없이 시작한다). 곡을 여는 중에는 부르지 않는다(usecases/controls 가 거절한다)
    */
   async stopStaying() {
@@ -1384,7 +1384,7 @@ class Player {
       // 대기열에 있으므로, 그걸 빼지 않으면 같은 곡을 두 번 선택할 수 있다.
       const recent = [this.currentTrack, ...this.previousTracks.slice(-20), ...this.queue].filter(Boolean);
 
-      // 길 찾기는 바깥 경계(pickAutoplay)를 지난다. autoplayDeps: 그 안의 소스 · 검색 · 링크 데이터 · AI 보조. 테스트만 넘긴다. 없으면 진짜
+      // 길 찾기는 바깥 경계(pickAutoplay)를 지난다. autoplayDeps: 그 안의 소스, 검색, 링크 데이터, AI 보조. 테스트만 넘긴다. 없으면 진짜
       const picked = await inGuild(this.guild.id, () => this.io.pickAutoplay(cfg, recent, this.autoplayDeps), job);
       if (!picked) {
         log.warn(`자동재생: 어느 소스에서도 곡을 찾지 못했습니다 (장르 ${this.autoplay})`);
@@ -1392,7 +1392,7 @@ class Player {
       }
 
       picked.requestedBy = this.guild.members.me?.user;
-      picked.autoplay = true; // 대기열 표시·정리에서 사용자 곡과 구분한다
+      picked.autoplay = true; // 대기열 표시, 정리에서 사용자 곡과 구분한다
 
       // 어디서 어떻게 왔는지 한 줄. "이 곡이 왜 나왔지"를 로그로 되짚는 근거다.
       // platform 으로는 구분하지 못한다. 음원을 직접 트는 곡도 platform 은 출처 이름(anisongdb 등)이다.
@@ -1501,7 +1501,7 @@ class Player {
   // 미리 선택해 둘 수 있는 상태인가. 선택하기 전과 넣기 직전에 같은 것을 본다.
   _canPrefetchAutoplay() {
     if (!this.autoplay || typeof this.autoplay !== "string") return false;
-    if (this.lifecycle.released) return false; // 멈춰 두거나 휴면 중인 동안(망이 끊겼을 수 있다 · 듣는 사람이 없다) 더 고르지 않는다
+    if (this.lifecycle.released) return false; // 멈춰 두거나 휴면 중인 동안(망이 끊겼을 수 있다, 듣는 사람이 없다) 더 고르지 않는다
     if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
     if (this.loop === "track") return false; // 한 곡 반복이면 다음 곡으로 넘어가지 않는다
     const want = Number(this._autoplayConfig()?.prefetchCount ?? GENRE_DEFAULTS.prefetchCount);
@@ -1520,8 +1520,8 @@ class Player {
   // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 연달은 실패로 센다(끝난 방송은 세지 않는다)
   /**
    * 곡을 못 틀었다. 실패가 어디까지 닿는지(player/failure-scope)로 정한다:
-   * 곡 탓은 넘기고 세지 않는다 · 환경 탓은 넘기지 않고 그 곡에서 멈춰 둔다(넘기면 멀쩡한 대기열을 태운다) · 모름은 넘기고 세어 연달아면 그 곡에서 멈춰 둔다.
-   * 같은 곡을 이어 열다(continued: 위치 이동 · 끊김 복구 · 세션 복원 · 음성 복구) 곡 탓이 아닌 실패는 들리던 곡이라 그 위치(at)에서 멈춰 둔다
+   * 곡 탓은 넘기고 세지 않는다, 환경 탓은 넘기지 않고 그 곡에서 멈춰 둔다(넘기면 멀쩡한 대기열을 태운다), 모름은 넘기고 세어 연달아면 그 곡에서 멈춰 둔다.
+   * 같은 곡을 이어 열다(continued: 위치 이동, 끊김 복구, 세션 복원, 음성 복구) 곡 탓이 아닌 실패는 들리던 곡이라 그 위치(at)에서 멈춰 둔다
    * tell: 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 모름을 연달은 실패로 센다(끝난 방송은 세지 않는다)
    */
   async handleError(error: unknown, { tell = false, counted = true, at = 0, continued = false }: { tell?: boolean; counted?: boolean; at?: number; continued?: boolean } = {}) {
@@ -1552,7 +1552,7 @@ class Player {
 
   // 못 튼 곡을 넘긴다. tell: 무엇이 잘못됐는지 채널에 알린다. removed: 같이 뺀 같은 곡 수
   async _skipFailed(error: unknown, { tell, removed }: { tell: boolean; removed: number }) {
-    // 못 튼 곡의 재생 · 위치를 버린다(곡 끝과 같이). 남기면 다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡의 위치로 쓴다
+    // 못 튼 곡의 재생, 위치를 버린다(곡 끝과 같이). 남기면 다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡의 위치로 쓴다
     this.playback = null;
     this.lastPlaybackPosition = 0;
 
@@ -1569,14 +1569,14 @@ class Player {
       await this.play(0);
     } else {
       trackState.setCurrent(this, null);
-      // 마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태·유령 재생을 해제.
+      // 마지막 곡 실패 정리: 오디오플레이어를 정지해 '말하는 중'(speaking) 상태, 유령 재생을 해제.
       // 사용자 알림은 호출자(명령 editReply / 대시보드 응답)가 play() 반환값으로 처리한다. 여기서 텍스트 채널로 또 보내지 않는다.
       try {
         this.audioPlayer.stop(true);
       } catch (error) {
         log.warn(`오디오 플레이어 정지 실패: ${messageOf(error)}`);
       }
-      // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널 · 세션 삭제 · 나갈 예약). 곡 추가가 첫 곡을 트는 중이면 곡 추가 쪽이 끝낸다
+      // 틀 곡이 없다. 다 튼 것과 같이 끝낸다(끝난 패널, 세션 삭제, 나갈 예약). 곡 추가가 첫 곡을 트는 중이면 곡 추가 쪽이 끝낸다
       if (!this.finishByCaller) await this.finishQueue();
     }
   }
@@ -1611,7 +1611,7 @@ class Player {
 
   /**
    * 그 곡에서 멈춰 둔다(parked): 지금 곡은 그대로, 열린 소리는 없고, 사람이 ▶ 해야 다시 연다. 실패로 멈추는 길은 이것 하나다.
-   * 저장은 사람의 멈춤 · 위치로 한다(복원이 멈춘 채 되살린다). at: 다시 열 위치
+   * 저장은 사람의 멈춤, 위치로 한다(복원이 멈춘 채 되살린다). at: 다시 열 위치
    */
   park(at: number, why: ParkReason) {
     if (this.lifecycle.disposed || !this.currentTrack) return;
@@ -1638,7 +1638,7 @@ class Player {
     if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed);
   }
 
-  // 멈춰 둔 곡을 떠난다(넘기기 · 점프 · 이전 · 대기열 소진). park 가 건 멈춤을 되돌린다. 사람이 이미 멈춰 뒀으면 남긴다
+  // 멈춰 둔 곡을 떠난다(넘기기, 점프, 이전, 대기열 소진). park 가 건 멈춤을 되돌린다. 사람이 이미 멈춰 뒀으면 남긴다
   _leaveParked() {
     const userPausedBefore = this._parkedOverUserPause;
     this._parkedOverUserPause = false;
@@ -1666,8 +1666,8 @@ class Player {
   // ── 스트림 휴면: 장시간 일시정지한 곡의 스트림(ffmpeg, 원본 연결, 인코딩 세션)을 해제하고, 일시정지가 풀리면 그 위치부터 다시 연다 ──
 
   /**
-   * 스트림을 해제한다. 곡 · 위치 · 재생 정보(SponsorBlock 구간 · 라이브 판정 · 받아 둔 원본)는 남는다. 해제했으면 true.
-   * 열린 곡이 일시정지 중이고 끝 처리 · 무음 정지가 걸려 있지 않을 때만. 라이브는 이어 틀 위치가 없어 휴면시키지 않는다
+   * 스트림을 해제한다. 곡, 위치, 재생 정보(SponsorBlock 구간, 라이브 판정, 받아 둔 원본)는 남는다. 해제했으면 true.
+   * 열린 곡이 일시정지 중이고 끝 처리, 무음 정지가 걸려 있지 않을 때만. 라이브는 이어 틀 위치가 없어 휴면시키지 않는다
    */
   rest() {
     const pb = this.playback;
@@ -1746,7 +1746,7 @@ class Player {
     bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title ?? ""}`.trimEnd()), "음성 채널 상태 바꾸기");
   }
 
-  /** 스테이지에서 발언을 요청했다 · 발언자가 될 길이 없다(voice-link 가 알린다) */
+  /** 스테이지에서 발언을 요청했다, 발언자가 될 길이 없다(voice-link 가 알린다) */
   noticeStage(code: "stage-requested" | "stage-cannot-speak") {
     playerEvents.notice(this, code, {}).catch(noticeFailed);
   }

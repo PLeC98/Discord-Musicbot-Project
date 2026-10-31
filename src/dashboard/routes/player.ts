@@ -1,4 +1,4 @@
-// 재생. 상태 읽기 · 음성 참가 · 재생 조작(usecases/controls) · 곡 추가(usecases/add-tracks)
+// 재생. 상태 읽기, 음성 참가, 재생 조작(usecases/controls), 곡 추가(usecases/add-tracks)
 
 import express, { type Request, type Response, type Router } from "express";
 import logger from "../../infra/log/logger.ts";
@@ -98,7 +98,7 @@ function readRoutes(router: Router) {
     res.json({ items: queue.slice(offset, offset + limit).map((t, i) => queueTrack(ctx.guild.id, t, offset + i)), total: queue.length } satisfies QueuePage);
   });
 
-  // 직접 링크 곡의 파일 태그 앨범아트(다시 인코딩한 JPEG). 그 서버의 지금 곡 · 대기열에서 찾은 이미지만 답하고, 메모리 · 캐시 파일에서만 읽는다(통신하지 않는다).
+  // 직접 링크 곡의 파일 태그 앨범아트(다시 인코딩한 JPEG). 그 서버의 지금 곡, 대기열에서 찾은 이미지만 답하고, 메모리, 캐시 파일에서만 읽는다(통신하지 않는다).
   // 주소의 해시가 이미지 내용을 가리켜 브라우저가 다시 요청하지 않는다. 대기열 앨범아트가 한꺼번에 불려 일반 API 한도와 따로, 넉넉히 센다
   const artLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ART_LIMIT_FACTOR);
   router.get("/:guildId/art/:file", requireAuth, artLimiter, async (req: Request<{ guildId: string; file: string }>, res: Response) => {
@@ -143,7 +143,7 @@ function stateAfter(req: Request<{ guildId: string }>) {
 
 // 재생 조작
 function controlRoutes(router: Router) {
-  // 일시정지 · 다시 재생
+  // 일시정지, 다시 재생
   router.post("/:guildId/player/pause", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -226,7 +226,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 하이라이트로. 디스코드 /highlight 와 같은 조작 · 같은 안내
+  // 하이라이트로. 디스코드 /highlight 와 같은 조작, 같은 안내
   router.post("/:guildId/player/highlight", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -262,7 +262,7 @@ function controlRoutes(router: Router) {
   });
 }
 
-// 대기열 빼기 · 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove · /move 는 지금 본 번호로 보낸다
+// 대기열 빼기, 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove, /move 는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
   // 대기열 ID로 빼기. DJ 계층이거나 그 곡의 요청자 본인
   router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
@@ -302,7 +302,7 @@ function autoplayRoutes(router: Router) {
     res.json({ genres: Object.entries(genres).map(([id, g]) => ({ id, label: g.label?.trim() || id, emoji: g.emoji || null })) } satisfies AutoplayGenres);
   });
 
-  // 켜기(장르) · 바꾸기 · 끄기(null). 켤 때 플레이어가 없으면 만든다(봇이 쉬면 부른 사람의 음성 채널로). 켠 결과는 패널 채널에도 알린다
+  // 켜기(장르), 바꾸기, 끄기(null). 켤 때 플레이어가 없으면 만든다(봇이 쉬면 부른 사람의 음성 채널로). 켠 결과는 패널 채널에도 알린다
   router.post("/:guildId/player/autoplay", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -343,7 +343,7 @@ function addRoutes(router: Router) {
 
     try {
       // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
-      // 재생 시작·임베드·로깅은 슬래시 명령과 같은 코어를 지난다.
+      // 재생 시작, 임베드, 로깅은 슬래시 명령과 같은 코어를 지난다.
       const result = await requestPlayback(bot, {
         guild,
         requester: requesterOf(req),
@@ -366,7 +366,7 @@ function addRoutes(router: Router) {
     }
   });
 
-  // 재생목록 더 넣기 POST /:guildId/player/queue/more. 곡 추가와 같은 권한·제한
+  // 재생목록 더 넣기 POST /:guildId/player/queue/more. 곡 추가와 같은 권한, 제한
   router.post("/:guildId/player/queue/more", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);

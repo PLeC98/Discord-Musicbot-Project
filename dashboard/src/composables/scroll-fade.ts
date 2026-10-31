@@ -6,7 +6,7 @@ import { computed, onBeforeUnmount, ref, watch, type Ref } from "vue";
 /** 페이드 길이(px). 영역마다 바꿀 수 있다 */
 const FADE = 24;
 
-/** again: 영역 크기 · 자식 목록 밖에서 스크롤 길이가 바뀌는 신호(가상 스크롤 목록의 스페이서 높이). 바뀌면 다시 잰다 */
+/** again: 영역 크기, 자식 목록 밖에서 스크롤 길이가 바뀌는 신호(가상 스크롤 목록의 스페이서 높이). 바뀌면 다시 잰다 */
 export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boolean, fade = FADE, again?: () => unknown) {
   const start = ref(false);
   const end = ref(false);
@@ -19,7 +19,7 @@ export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boole
     end.value = pos + view < full - 1;
   }
 
-  // 영역 크기 · 안의 내용(서버가 늘거나 줄면)이 바뀔 때도 다시 잰다. v-if 로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
+  // 영역 크기, 안의 내용(서버가 늘거나 줄면)이 바뀔 때도 다시 잰다. v-if 로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
   let resize: ResizeObserver | null = null;
   let mutate: MutationObserver | null = null;
   let attached: HTMLElement | null = null;

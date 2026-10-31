@@ -1,9 +1,9 @@
 // 세그먼트로만 주는 소리를 차례로 받아 흘리는 읽기 스트림.
 //
-// 무엇을 받을지는 출처(FragmentSource)가 정하고, 여기는 받아 흘리는 일만 한다: 다음 세그먼트를 미리 받아 두고, 멈추거나 5xx · 네트워크 오류면
+// 무엇을 받을지는 출처(FragmentSource)가 정하고, 여기는 받아 흘리는 일만 한다: 다음 세그먼트를 미리 받아 두고, 멈추거나 5xx, 네트워크 오류면
 // 조금 기다렸다 다시 받고, 끝내 못 받거나 4xx 면 오류로 끝난다(재생 쪽이 캐시로 갈아타거나 그 위치부터 다시 연다).
 //   유튜브 세그먼트  방송이 끝나고 다시보기를 다 만들기 전(post_live)에 소리를 세그먼트(약 2초)로만 준다. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`이고
-//                   세그먼트마다 `ftyp` · `moov` 가 붙어 있어 하나씩 풀린다. ffmpeg 는 이어 붙인 것을 파이프로 읽는다(겹친 moov 는 건너뛴다)
+//                   세그먼트마다 `ftyp`, `moov` 가 붙어 있어 하나씩 풀린다. ffmpeg 는 이어 붙인 것을 파이프로 읽는다(겹친 moov 는 건너뛴다)
 //   그 밖           출처가 만든다(직접 링크의 HLS 는 sources/hls)
 // 위치 이동은 그 위치가 든 세그먼트부터 받는다. 세그먼트 안의 나머지는 ffmpeg 의 -ss 가 맞춘다(startedAtMs).
 
@@ -41,7 +41,7 @@ type FragmentStream = Readable & {
   describe(): string;
 };
 
-/** 다시 받아도 결과가 같은 실패. 4xx(만료 · 차단 · 없는 세그먼트) */
+/** 다시 받아도 결과가 같은 실패. 4xx(만료, 차단, 없는 세그먼트) */
 const permanent = (status: number) => Object.assign(new Error(`세그먼트 요청 실패: HTTP ${status}`), { status, permanent: status < 500 });
 
 function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: StreamOptions = {}): FragmentStream {
@@ -50,7 +50,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   let ahead: Promise<Buffer | null> | null = null; // 미리 받는 다음 세그먼트
   let closed = false;
 
-  // 세그먼트 하나. 멈추거나 5xx · 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
+  // 세그먼트 하나. 멈추거나 5xx, 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
   async function fetchOne(fragment: F): Promise<Buffer> {
     for (let attempt = 0; ; attempt++) {
       const controller = new AbortController();

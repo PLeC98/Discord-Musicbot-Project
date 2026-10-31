@@ -1,4 +1,4 @@
-// 버튼 · 메뉴 · 모달 핸들러 하나의 라우트. 상호작용 종류와 custom_id 접두사로 선택한다(src/discord/events/interaction-create).
+// 버튼, 메뉴, 모달 핸들러 하나의 라우트. 상호작용 종류와 custom_id 접두사로 선택한다(src/discord/events/interaction-create).
 
 import type { BotContext } from "../../app/bot-context.ts";
 import type { ButtonInteraction, Interaction, ModalSubmitInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction } from "discord.js";
@@ -17,7 +17,7 @@ type Route = { kind: Kind; prefix: string; enabled?: () => boolean; handle(inter
 /** 핸들러 하나. prefix 로 시작하는 custom_id 를 받는다 */
 const route = <K extends Kind>(kind: K, prefix: string, handle: (interaction: ByKind[K], bot: BotContext) => unknown, opts: { enabled?: () => boolean } = {}): Route => ({ kind, prefix, ...opts, handle: handle as Route["handle"] });
 
-/** 서버 안의 버튼 · 메뉴 · 모달이면 그 종류와 좁힌 상호작용. 아니면 null */
+/** 서버 안의 버튼, 메뉴, 모달이면 그 종류와 좁힌 상호작용. 아니면 null */
 function componentOf(interaction: Interaction): { kind: Kind; interaction: ByKind[Kind] } | null {
   if (!interaction.inCachedGuild()) return null;
   if (interaction.isButton()) return { kind: "button", interaction };

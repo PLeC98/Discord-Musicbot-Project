@@ -1,4 +1,4 @@
-// 따로 받는 도구(bgutil · ffmpeg)의 새 버전 판정. 주마다 도는 확인(scripts/check-vendor-updates)과 봇 상태 탭이 같이 쓴다
+// 따로 받는 도구(bgutil, ffmpeg)의 새 버전 판정. 주마다 도는 확인(scripts/check-vendor-updates)과 봇 상태 탭이 같이 쓴다
 
 /** 월말 autobuild 태그인가(autobuild-YYYY-MM-DD-HH-MM 이고 그날이 그 달의 마지막 날). 그 외 autobuild 는 2주 뒤 지워진다 */
 function isMonthEndBuild(tag: string) {

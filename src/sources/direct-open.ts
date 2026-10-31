@@ -1,9 +1,9 @@
 // 직접 링크를 연다: GET 하나(SSRF 가드)의 응답 헤더와 본문 앞부분으로 무엇인지 판정하고(rules/link-content), 읽은 앞부분은 되돌려 넣는다.
-// 곡 추가 · 재생 · 다운로드 · 재생 테스트 · 파일 태그 찾기가 모두 이것을 지나므로 판정 결과를 곡 · DB 에 적지 않는다.
-//   file  본문 Readable(앞부분 포함) · 헤더 · 크기 · 인터넷 라디오(icy-*)인가
+// 곡 추가, 재생, 다운로드, 재생 테스트, 파일 태그 찾기가 모두 이것을 지나므로 판정 결과를 곡, DB 에 적지 않는다.
+//   file  본문 Readable(앞부분 포함), 헤더, 크기, 인터넷 라디오(icy-*)인가
 //   hls   재생목록 텍스트(작다, 다 받는다)과 그 마지막 주소(리다이렉트를 거친, 상대 주소의 기준)
-//   list  단순 목록(PLS · M3U)의 첫 주소. openFollowing 은 그 주소를 다시 연다(목록 안의 목록은 한 번까지)
-//   page · other  음원이 아니다(부르는 쪽이 거절한다)
+//   list  단순 목록(PLS, M3U)의 첫 주소. openFollowing 은 그 주소를 다시 연다(목록 안의 목록은 한 번까지)
+//   page, other  음원이 아니다(부르는 쪽이 거절한다)
 // 옛 SHOUTcast(v1)는 첫 줄을 `ICY 200 OK` 로 답해 Node 가 응답을 읽지 못한다. 그 방송은 shoutcast-v1 로 거절한다(받은 응답으로 안 것이라 숨기지 않는다).
 
 import { PassThrough, type Readable } from "node:stream";
@@ -20,15 +20,15 @@ type StreamNet = { getStream: (url: string, deps?: undefined, opts?: OpenOptions
 type Opened = { kind: "file"; body: AudioStream; headers: Record<string, unknown>; status: number; length: number | null; radio: boolean } | { kind: "hls"; text: string; url: string } | { kind: "list"; target: string | null } | { kind: "page" | "other" };
 type OpenedFile = Extract<Opened, { kind: "file" }>;
 
-/** 판정하려면 웹 페이지 · 이미지도 받아 봐야 한다(판정이 거절한다). 크기 상한 · 홉 대기는 음원과 같다 */
+/** 판정하려면 웹 페이지, 이미지도 받아 봐야 한다(판정이 거절한다). 크기 상한, 홉 대기는 음원과 같다 */
 const OPEN_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
-/** 재생목록 · 단순 목록은 다 받아 읽는다(작다) */
+/** 재생목록, 단순 목록은 다 받아 읽는다(작다) */
 const LIST_MAX_BYTES = 1024 * 1024;
 
-/** 첫 바이트를 받은 뒤 앞부분을 더 기다리는 시간. 넘으면 받은 만큼으로 판정한다(조금 보내고 멈추는 서버 · 느린 라디오) */
+/** 첫 바이트를 받은 뒤 앞부분을 더 기다리는 시간. 넘으면 받은 만큼으로 판정한다(조금 보내고 멈추는 서버, 느린 라디오) */
 const HEAD_WAIT_MS = 1500;
 
-/** 앞부분을 want 바이트(또는 끝 · 첫 바이트 뒤 HEAD_WAIT_MS)까지 읽는다. 다 읽으면 멈춰 둔다 */
+/** 앞부분을 want 바이트(또는 끝, 첫 바이트 뒤 HEAD_WAIT_MS)까지 읽는다. 다 읽으면 멈춰 둔다 */
 function readHead(stream: Readable, want: number): Promise<{ head: Buffer; ended: boolean }> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -56,7 +56,7 @@ function readHead(stream: Readable, want: number): Promise<{ head: Buffer; ended
   });
 }
 
-/** 읽은 앞부분을 되돌려 넣은 본문. 헤더 · 상태를 그대로 단다 */
+/** 읽은 앞부분을 되돌려 넣은 본문. 헤더, 상태를 그대로 단다 */
 function withHead(source: AudioStream, head: Buffer, ended: boolean): AudioStream {
   // 본문을 부수면 원본(연결)도 그 자리에서 부순다
   const passing = new PassThrough({
@@ -96,7 +96,7 @@ function isIcyStatusLine(error: unknown): boolean {
   return code === "HPE_INVALID_CONSTANT" && Buffer.isBuffer(rawPacket) && rawPacket.subarray(0, 4).toString("latin1") === "ICY ";
 }
 
-/** 음원으로 연 응답: 헤더 · 크기 · 인터넷 라디오(icy-*)인가. body 는 앞부분을 되돌려 넣은 본문(없으면 원본) */
+/** 음원으로 연 응답: 헤더, 크기, 인터넷 라디오(icy-*)인가. body 는 앞부분을 되돌려 넣은 본문(없으면 원본) */
 function fileOf(source: AudioStream, body: AudioStream = source): OpenedFile {
   const headers = (source.headers ?? {}) as Record<string, unknown>;
   const length = Number(headers["content-length"]) > 0 ? Number(headers["content-length"]) : null;
@@ -105,8 +105,8 @@ function fileOf(source: AudioStream, body: AudioStream = source): OpenedFile {
 }
 
 /**
- * 직접 링크를 열어 판정한다. from · to · ifRange 를 주면 그 구간으로 연다(이어받기, 판정 없이 file).
- * 막힌 주소 · 열리지 않음은 SafeUrl 의 오류를 그대로 던진다(부르는 쪽이 일반 문장으로 숨긴다)
+ * 직접 링크를 열어 판정한다. from, to, ifRange 를 주면 그 구간으로 연다(이어받기, 판정 없이 file).
+ * 막힌 주소, 열리지 않음은 SafeUrl 의 오류를 그대로 던진다(부르는 쪽이 일반 문장으로 숨긴다)
  */
 async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, ...opts }: OpenOptions & { net?: StreamNet } = {}): Promise<Opened> {
   let source: AudioStream;
@@ -152,7 +152,7 @@ async function judge(source: AudioStream, url: string): Promise<Opened> {
 /** 목록 안의 목록은 한 번까지 따라간다 */
 const LIST_DEPTH = 2;
 
-/** 받은 응답으로 판정한 거절(음원이 아님 · 옛 SHOUTcast). 부르는 쪽이 숨기지 않는다 */
+/** 받은 응답으로 판정한 거절(음원이 아님, 옛 SHOUTcast). 부르는 쪽이 숨기지 않는다 */
 const refusedByResponse = (error: unknown) => ["unsupported-link", "shoutcast-v1"].includes(String(codeOf(error)));
 
 /** 열고, 단순 목록이면 그 첫 주소를 다시 연다(가드도 다시). 목록에 주소가 없거나 너무 깊으면 unsupported-link */

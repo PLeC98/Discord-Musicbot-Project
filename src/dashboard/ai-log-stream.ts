@@ -1,6 +1,6 @@
 // AI 리퀘스트 로그의 SSE 연결(/api/admin/ai/logs/stream). 새 기록이 쓰이면(store/ai-requests 의 onRecorded) 열린 연결 모두에 보낸다.
-// 줄마다 기록 id 를 달아, 브라우저가 재연결할 때(Last-Event-ID) · 화면이 다시 열 때(?after=) 그 뒤의 줄부터 보낸다(최근 RESUME_MAX 줄까지).
-// 사용자당 연결 수는 플레이어 · 운영자 로그 스트림과 따로 센다(SSE_MAX_CONNECTIONS). 유휴 연결은 하트비트(SSE_HEARTBEAT_SEC)로 붙들어 둔다.
+// 줄마다 기록 id 를 달아, 브라우저가 재연결할 때(Last-Event-ID), 화면이 다시 열 때(?after=) 그 뒤의 줄부터 보낸다(최근 RESUME_MAX 줄까지).
+// 사용자당 연결 수는 플레이어, 운영자 로그 스트림과 따로 센다(SSE_MAX_CONNECTIONS). 유휴 연결은 하트비트(SSE_HEARTBEAT_SEC)로 붙들어 둔다.
 
 import type { Response } from "express";
 import config from "../config/index.ts";
@@ -92,7 +92,7 @@ function start(withNames: Decorate) {
   offRecorded ??= requests.onRecorded(broadcast);
 }
 
-/** 연결을 모두 닫고 듣기를 멈춘다(대시보드를 닫을 때 · 테스트) */
+/** 연결을 모두 닫고 듣기를 멈춘다(대시보드를 닫을 때, 테스트) */
 function stop() {
   for (const res of clients.keys()) res.end();
   clients.clear();

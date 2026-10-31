@@ -1,7 +1,7 @@
-// src/config/status.ts · src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 StatusManager.
+// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 StatusManager.
 //
 // 이 문서도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
-// 특히 날짜·시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
+// 특히 날짜, 시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -55,7 +55,7 @@ test("interval은 10초 미만일 수 없다", () => {
   assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
 });
 
-test("날짜·시간은 두 자리로 적어야 한다", () => {
+test("날짜, 시간은 두 자리로 적어야 한다", () => {
   // 비교가 문자열 비교라 "1-5"는 형식만 어긋나는 게 아니라 엉뚱한 날에 걸린다
   const of = (special: unknown) => statusConfig.validateStatus({ ...ok, special }).join(" ");
 
@@ -226,7 +226,7 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
   manager.stop(); // 두 번 불러도 된다
 });
 
-test("오늘 · 음력 오늘 · 지금은 MM-DD · HH:MM 모양", () => {
+test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
   const calendar = new StatusManager({}).calendar;
   assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
   assert.match(calendar.today(), /^\d{2}-\d{2}$/);
@@ -238,7 +238,7 @@ test("load 는 설정 로더의 status() 를 부른다", () => {
   assert.equal(new StatusManager({}).load(), statusConfig.status());
 });
 
-// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)
+// 비운 간격은 봇, 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)
 test("간격의 기본값은 기본 문서의 값과 같다", () => {
   assert.equal((documents.defaultOf("status") as { interval?: unknown }).interval, INTERVAL_DEFAULT);
 });

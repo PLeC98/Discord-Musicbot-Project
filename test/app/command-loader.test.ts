@@ -77,8 +77,8 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-// 설명 · 선택지 이름은 한국어 하나만 둔다(영어 기본값을 따로 두면 고칠 때 한쪽만 고친다). 명령 · 옵션 이름은 코드가 쓰는 식별자라 영어에 한국어 이름을 붙인다
-test("명령 · 옵션 설명과 선택지 이름은 한국어이고(설명은 디스코드 상한 100자 안), 옵션 이름에는 한국어 이름이 있다", () => {
+// 설명, 선택지 이름은 한국어 하나만 둔다(영어 기본값을 따로 두면 고칠 때 한쪽만 고친다). 명령, 옵션 이름은 코드가 쓰는 식별자라 영어에 한국어 이름을 붙인다
+test("명령, 옵션 설명과 선택지 이름은 한국어이고(설명은 디스코드 상한 100자 안), 옵션 이름에는 한국어 이름이 있다", () => {
   type Node = { name: string; description?: string; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
   const HANGUL = /[가-힣]/;
   const missing: string[] = [];

@@ -1,4 +1,4 @@
-// src/sources/bgutil-version.ts: 설치된 bgutil · 설정한 버전 · 최신 릴리스를 비교해 알리기만 한다(설치는 봇을 끄고)
+// src/sources/bgutil-version.ts: 설치된 bgutil, 설정한 버전, 최신 릴리스를 비교해 알리기만 한다(설치는 봇을 끄고)
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -25,14 +25,14 @@ function make(installed: string | null, latest: string | Error) {
   return { one, asked: () => asked };
 }
 
-// 시작한 뒤 남긴 줄(경고 · 정보)
+// 시작한 뒤 남긴 줄(경고, 정보)
 async function started(one: BgutilVersion) {
   const from = sink.buffer.length;
   await one.start();
   return sink.buffer.slice(from).filter((e) => e.level === "warn" || e.level === "info");
 }
 
-test("설치 · 설정 · 최신이 같으면 아무것도 남기지 않고 상태만 싣는다", () =>
+test("설치, 설정, 최신이 같으면 아무것도 남기지 않고 상태만 싣는다", () =>
   withConfig({ bgutil: { version: "2.0.2" } }, async () => {
     const { one } = make("2.0.2", "2.0.2");
     assert.deepEqual(await started(one), []);

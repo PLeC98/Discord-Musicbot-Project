@@ -1,4 +1,4 @@
-// src/ui/icon-images.ts: 앱 이모지 이미지(타일 · 기호 · 움직이는 GIF). 같은 입력이면 같은 바이트
+// src/ui/icon-images.ts: 앱 이모지 이미지(타일, 기호, 움직이는 GIF). 같은 입력이면 같은 바이트
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +23,7 @@ test("같은 입력이면 같은 바이트(맞추기가 디스코드에 올라�
   assert.deepEqual([meta.format, meta.width, meta.height], ["png", SIZE, SIZE]);
 });
 
-test("타일은 바탕색에서 뽑은 톤 40: 운영자 색 · 응답 색, 바탕색이 다르면 다른 그림", () =>
+test("타일은 바탕색에서 뽑은 톤 40: 운영자 색, 응답 색, 바탕색이 다르면 다른 그림", () =>
   withConfig({ bot: { embedColor: "#2743D2" } }, async () => {
     // 모서리를 피한 가장자리(타일 바탕)
     assert.deepEqual(await pixel((await imageOf(ICONS.pause, "brand")).data, 64, 4), [0x52, 0x5b, 0x92, 255]);
@@ -43,7 +43,7 @@ test("SponsorBlock 방패도 그린다(가운데가 바탕이 아니다)", async
   assert.notDeepEqual(await pixel(data, 64, 30), await pixel(data, 64, 4));
 });
 
-test("도는 것은 움직이는 GIF: 24장 · 장마다 50ms", async () => {
+test("도는 것은 움직이는 GIF: 24장, 장마다 50ms", async () => {
   const { data, animated } = await imageOf(ICONS.progress, "brand");
   assert.equal(animated, true);
   const meta = await sharp(data, { animated: true }).metadata();

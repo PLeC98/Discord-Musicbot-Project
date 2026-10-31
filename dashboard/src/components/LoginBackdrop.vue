@@ -1,12 +1,12 @@
 <template>
   <!-- 로그인 배경 하나를 틀(부모 크기)에 그린다. 로그인 화면과 운영자 패널의 미리보기 화면(로그인 화면으로 보기)이 같이 쓴다.
-       파일은 봇이 크롭 · 구간을 적용해 인코딩한 것이라 꽉 채우고(object-fit cover) 보일 위치만 정한다. 정지 이미지는 폭별 이미지에서 틀 폭 × 배율에 맞는 것.
-       영상은 HLS(코덱마다 목록 하나). 선택 규칙 · 내리기는 login-background/pick, 능동 조절은 adapt(adaptive 일 때만, 로그인 화면).
+       파일은 봇이 크롭, 구간을 적용해 인코딩한 것이라 꽉 채우고(object-fit cover) 보일 위치만 정한다. 정지 이미지는 폭별 이미지에서 틀 폭 × 배율에 맞는 것.
+       영상은 HLS(코덱마다 목록 하나). 선택 규칙, 내리기는 login-background/pick, 능동 조절은 adapt(adaptive 일 때만, 로그인 화면).
        블러는 오버레이(backdrop-filter, 틀 폭의 %), 오버레이는 화면 색을 진하기만큼. 장면 색은 장면이 바뀔 때만 1초 동안 넘어간다:
-       paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면 · 효과 cover 면 오버레이 색만 넘긴다.
-       반복은 브라우저에 맡기고(loop) 끝에 닿기 전 · 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기 · 오버레이 색 · 검게 · 블러)를 적용하고 해제한다.
-       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30 · 60Hz 를 오가며 장면을 버리지 않게) -->
-  <!-- 틀 · 블러 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 블러 처리해 모서리 밖까지 번진다) -->
+       paintTheme 이면 화면 색 시스템(theme.ts setPageSeed)을 칠하고(효과 full), 아니면, 효과 cover 면 오버레이 색만 넘긴다.
+       반복은 브라우저에 맡기고(loop) 끝에 닿기 전, 처음으로 돌아간 때에 전환 효과(멈춘 장면 겹치기, 오버레이 색, 검게, 블러)를 적용하고 해제한다.
+       영상이 보이고 재생 중이면 맨 위 1px 점의 불투명도를 늘 바꿔 주사율을 붙잡는다(안드로이드 크롬이 30, 60Hz 를 오가며 장면을 버리지 않게) -->
+  <!-- 틀, 블러 레이어는 부모의 둥근 모서리를 이어받는다(backdrop-filter 는 부모의 둥근 자르기를 따르지 않고 네모로 블러 처리해 모서리 밖까지 번진다) -->
   <!-- 꾸밈 레이어다: 안의 효과 레이어(z-index)가 바깥(로그인 버튼 그룹) 위로 올라가지 않게 쌓임을 가두고(isolate), 누르기는 통과시킨다 -->
   <div ref="frameEl" class="absolute inset-0 isolate overflow-hidden rounded-[inherit] bg-black pointer-events-none" aria-hidden="true">
     <img v-if="still" :src="still.src" :srcset="still.srcset" :sizes="`${Math.max(1, Math.round(frame.width))}px`" alt="" class="absolute inset-0 size-full object-cover" :style="place" draggable="false" />
@@ -39,10 +39,10 @@ const props = withDefaults(defineProps<{ bg: Shown; look: LoginBackgroundLook; a
 /** stale: 파일을 못 불러왔다(배경이 바뀌었을 수 있다. 부모가 배경 정보를 다시 읽는다) */
 const emit = defineEmits<{ stale: [] }>();
 
-/** 장면 색이 넘어가는 시간 · 처음 색 */
+/** 장면 색이 넘어가는 시간, 처음 색 */
 const SCENE_MS = 1000;
 const FIRST_MS = 700;
-/** 기억한 단계(다음 방문의 시작점). 배경 · 내려갈 순서가 같을 때만 쓴다 */
+/** 기억한 단계(다음 방문의 시작점). 배경, 내려갈 순서가 같을 때만 쓴다 */
 const STEP_KEY = "login-bg:step";
 
 const frameEl = ref<HTMLElement | null>(null);
@@ -63,7 +63,7 @@ const still = computed(() => {
   return { src: stills[stills.length - 1].url, srcset: stills.map((one) => `${one.url} ${one.width}w`).join(", ") };
 });
 
-// ── 내려갈 순서 · 지금 단계 ──
+// ── 내려갈 순서, 지금 단계 ──
 
 const ladder = shallowRef<Step[]>([]);
 const index = ref(0);
@@ -120,7 +120,7 @@ async function attach() {
     onStall: () => adapter?.waited(),
     onFatal: ({ load }) => {
       if (mine !== attaching) return;
-      // 불러오기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안 · 같은 배경이면 다음 코덱, 다 실패하면 정지 이미지
+      // 불러오기 오류면 배경이 바뀌었을 수 있다(부모가 다시 읽는다). 그동안, 같은 배경이면 다음 코덱, 다 실패하면 정지 이미지
       if (load) emit("stale");
       nextCodec();
     },
@@ -136,7 +136,7 @@ watch(
   (cap) => player?.cap(cap ?? null),
 );
 
-// ── 장면 색 · 효과 ──
+// ── 장면 색, 효과 ──
 
 const OWNER = Symbol("login-backdrop");
 const sheets = reactive([0, 1].map(() => ({ color: "", on: false, top: false, ms: 0 })));
@@ -156,7 +156,7 @@ const clearCover = () => sheets.forEach((one) => Object.assign(one, { color: "",
 const scenes = computed(() => (props.bg.kind === "video" ? props.bg.scenes : []));
 const sceneAt = (t: number) => scenes.value.reduce((found, scene, i) => (t >= scene.at ? i : found), -1);
 const colorAt = (i: number) => (i >= 0 ? (scenes.value[i]?.color ?? props.bg.color) : props.bg.color);
-/** 이 단계의 효과로 칠하는 법: 화면 전체(테마) · 오버레이만 · 고정. 영상 따라 색 바꾸기를 끄면 고정 */
+/** 이 단계의 효과로 칠하는 법: 화면 전체(테마), 오버레이만, 고정. 영상 따라 색 바꾸기를 끄면 고정 */
 const effect = computed(() => (props.look.follow && codec.value ? (step.value?.effect ?? "fixed") : "fixed"));
 let lastScene = -2;
 function paintScene(i: number, ms: number) {
@@ -171,7 +171,7 @@ watch(effect, () => {
   paintScene(lastScene, FIRST_MS);
 });
 
-// ── 재생 위치를 장면마다 본다: 장면 바뀜 · 반복 전환 효과 ──
+// ── 재생 위치를 장면마다 본다: 장면 바뀜, 반복 전환 효과 ──
 
 const seam = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => props.look.seam);
 let watching = 0;
@@ -211,13 +211,13 @@ function onPlaying() {
   started.value = true;
   follow();
 }
-// 효과 종류 · 길이를 바꾸거나 다른 배경이 오면 남은 효과를 바로 치운다
+// 효과 종류, 길이를 바꾸거나 다른 배경이 오면 남은 효과를 바로 치운다
 watch(
   () => [props.look.seam.kind, props.look.seam.seconds, props.bg.id],
   () => seam.release(0),
 );
 
-// ── 주사율 붙잡기 · 화면 숨김 ──
+// ── 주사율 붙잡기, 화면 숨김 ──
 
 const visible = ref(!document.hidden);
 const holding = computed(() => started.value && Boolean(codec.value) && visible.value && inView.value && !reducedMotion.matches);
@@ -230,7 +230,7 @@ function onVisibility() {
     });
 }
 
-// ── 능동 조절 · 멈춤 감시 ──
+// ── 능동 조절, 멈춤 감시 ──
 
 let adapter: Adapter | null = null;
 function startAdapting() {
@@ -286,14 +286,14 @@ async function begin() {
   paintScene(-1, FIRST_MS);
   startAdapting();
 }
-// 다른 배경이 오거나 같은 배경의 목록이 늘면(정지 화면 → H.264 → AV1 · VP9, 미리보기 화면) 순서를 처음부터 다시. 블러의 1080p 상한도 이때 본다(블러를 바꾸는 동안은 다시 정하지 않는다).
+// 다른 배경이 오거나 같은 배경의 목록이 늘면(정지 화면 → H.264 → AV1, VP9, 미리보기 화면) 순서를 처음부터 다시. 블러의 1080p 상한도 이때 본다(블러를 바꾸는 동안은 다시 정하지 않는다).
 // 로그인 화면은 같은 배경이면 불러온 그대로라(다음 방문부터) 여기에 오지 않는다
 watch(
   () => `${props.bg.id}|${props.bg.kind === "video" ? props.bg.streams.map((one) => one.codec).join(",") : ""}`,
   () => void begin(),
 );
 
-// 틀이 보이지 않으면(운영자 패널의 다른 탭 · 접힌 곳) 영상을 멈춘다. 로그인 화면은 늘 보인다
+// 틀이 보이지 않으면(운영자 패널의 다른 탭, 접힌 곳) 영상을 멈춘다. 로그인 화면은 늘 보인다
 const inView = ref(true);
 let seen: IntersectionObserver | null = null;
 watch(inView, (on) => {

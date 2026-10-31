@@ -1,4 +1,4 @@
-// 플레이어 세션 저장소. 서버당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
+// 플레이어 세션 저장소. 서버당 세션 한 행 + 현재곡, 대기열, 기록 트랙 행.
 // DB는 재시작 복원용 사본이다. 재생 중의 원본은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
@@ -19,7 +19,7 @@ const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "titl
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
 
-/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId · uploader)가 섞여 온다. 여기서 읽는 필드만 */
+/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId, uploader)가 섞여 온다. 여기서 읽는 필드만 */
 type TrackIn = {
   id?: string | null;
   pageUrl?: string | null;
@@ -68,7 +68,7 @@ type SessionState = {
 type RawTrackRow = { guild_id: string; slot: Slot; seq: number; [column: string]: unknown };
 type TrackParams = ReturnType<typeof toRow>;
 
-// 빈 값(undefined · null · "")은 NULL 로
+// 빈 값(undefined, null, "")은 NULL 로
 const orNull = <T>(value: T | null | undefined) => value || null;
 
 function toRow(track: TrackIn) {
@@ -183,7 +183,7 @@ class PlayerSessionStore {
     this.q.insert.run({ guild_id: guildId, slot, seq, ...toRow(track) });
   }
 
-  // 슬롯을 0, GAP, 2·GAP…로 다시 매긴다. 행 id가 바뀌므로 호출한 쪽은 위치를 다시 읽어야 한다.
+  // 슬롯을 0, GAP, 2, GAP…로 다시 매긴다. 행 id가 바뀌므로 호출한 쪽은 위치를 다시 읽어야 한다.
   _renumber(guildId: string, slot: Slot) {
     const rows = this.q.slotRows.all(guildId, slot);
     this.q.deleteSlot.run(guildId, slot);

@@ -1,4 +1,4 @@
-// src/rules/link-content.ts: 직접 링크의 응답이 무엇인가(음원 · HLS · 단순 목록 · 웹 페이지 · 그 밖)와 단순 목록의 첫 주소
+// src/rules/link-content.ts: 직접 링크의 응답이 무엇인가(음원, HLS, 단순 목록, 웹 페이지, 그 밖)와 단순 목록의 첫 주소
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,7 +19,7 @@ test("글로 아는 것: #EXTM3U 에 #EXT-X- 가 있으면 HLS, 없으면 단순
   assert.equal(await contentOf("text/html; charset=utf-8", text("<html></html>")), "page");
 });
 
-test("형식 판별: 실제 MP3(ID3) · 프레임만 있는 MPEG 는 음원, 그림은 그 밖, 헤더 없이 모르는 바이트는 그 밖", async (t) => {
+test("형식 판별: 실제 MP3(ID3), 프레임만 있는 MPEG 는 음원, 그림은 그 밖, 헤더 없이 모르는 바이트는 그 밖", async (t) => {
   const mp3 = await taggedMp3();
   if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
   assert.equal(await contentOf("application/octet-stream", mp3.subarray(0, 4100)), "audio", "octet-stream 의 MP3");
@@ -42,7 +42,7 @@ test("우연히 맞은 MPEG 동기 바이트는 프레임 둘이 잇달지 않�
   assert.equal(await contentOf("audio/mpeg", lone), "audio", "라디오가 프레임 중간부터 흘리는 등 헤더를 믿는다");
 });
 
-test("헤더만으로: 음원 · 영상 형식이면 음원, 재생목록 형식인데 글이 주소 줄이면 목록, HTML 은 웹 페이지, 비면 그 밖", async () => {
+test("헤더만으로: 음원, 영상 형식이면 음원, 재생목록 형식인데 글이 주소 줄이면 목록, HTML 은 웹 페이지, 비면 그 밖", async () => {
   assert.equal(await contentOf("audio/aacp", new Uint8Array(0)), "audio");
   assert.equal(await contentOf("application/x-mpegurl", text("http://r.test/a\n")), "list");
   assert.equal(await contentOf("application/x-mpegurl", text("not a list")), "other");

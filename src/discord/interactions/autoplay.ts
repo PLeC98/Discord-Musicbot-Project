@@ -1,5 +1,5 @@
 // 자동재생 진입점: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 선택한 것을 받는다.
-// 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
+// 켜기, 끄기, 권한, 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
 import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../../ui/text/ko/errors.ts";
@@ -30,8 +30,8 @@ async function answerAutoplay(interaction: RepliableInteraction<"cached">, playe
   return toSelf(interaction, buildGenreMenu(), LIFETIME.menu);
 }
 
-// 끝난 패널 · 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
-// 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤 · 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
+// 끝난 패널, 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
+// 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤, 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
 async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];

@@ -1,5 +1,5 @@
 // 사용자가 든 서버(로그인 때 받은 토큰으로 디스코드의 /users/@me/guilds). 초대 화면(관리하는 서버)과,
-// 서버 목록 · SSE 연결 · 봇 상태 탭의 "참가한 서버" 필터링 · 표시가 쓴다. 보고 조작하는 권한 판정은 guild-access 의 memberOf 가 한다(이 목록은 낡을 수 있다)
+// 서버 목록, SSE 연결, 봇 상태 탭의 "참가한 서버" 필터링, 표시가 쓴다. 보고 조작하는 권한 판정은 guild-access 의 memberOf 가 한다(이 목록은 낡을 수 있다)
 
 import type { Request } from "express";
 import logger from "../infra/log/logger.ts";
@@ -79,7 +79,7 @@ async function userGuilds(key: string, token: string, options: ListOptions = {})
 
 /**
  * 이 요청의 사용자가 든 서버 ID. 받지 못하면 ids 가 null 이고 부르는 쪽은 멤버 캐시만 본다(서버마다 REST 로 돌아가지 않는다).
- * relogin: 토큰이 없거나(토큰을 두기 전의 세션 · SECRETS_KEY 를 바꿈) 거절됐다(만료 · 승인 철회). 다시 로그인하면 받는다
+ * relogin: 토큰이 없거나(토큰을 두기 전의 세션, SECRETS_KEY 를 바꿈) 거절됐다(만료, 승인 철회). 다시 로그인하면 받는다
  */
 async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, { stale = false, http = discordHttp }: { stale?: boolean; http?: DiscordHttp } = {}) {
   const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID);
@@ -94,7 +94,7 @@ async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, 
   }
 }
 
-/** 세션이 끝났다(로그아웃 · 기기 해제). 캐시된 목록을 버린다 */
+/** 세션이 끝났다(로그아웃, 기기 해제). 캐시된 목록을 버린다 */
 const forgetGuilds = (key: string) => kept.delete(key);
 
 /** 테스트: 캐시를 비운다 */

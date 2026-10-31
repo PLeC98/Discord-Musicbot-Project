@@ -1,6 +1,6 @@
 // AI 보조 편집기의 상태와 주고받기. 편집기(ConfigAI)가 하나 만들어 내려 주고(provideAiEditor), 카드들이 같이 쓴다(useAiEditor).
-// 모델 · 프롬프트 · 판정 테스트 · 고급 설정이 한 설정 문서("ai" · "ai-prompt")를 함께 고치므로 상태는 하나(editorState)이고,
-// 그 위의 계산 · 동작을 그룹마다 나눠 둔다(프로바이더 · 모델 매개변수 · 고급 · 프롬프트 · 토큰 · 주고받기 · 서버 읽기 · 판정 테스트 · 모델 목록 · 유료 확인).
+// 모델, 프롬프트, 판정 테스트, 고급 설정이 한 설정 문서("ai", "ai-prompt")를 함께 고치므로 상태는 하나(editorState)이고,
+// 그 위의 계산, 동작을 그룹마다 나눠 둔다(프로바이더, 모델 매개변수, 고급, 프롬프트, 토큰, 주고받기, 서버 읽기, 판정 테스트, 모델 목록, 유료 확인).
 
 import { provide, inject, ref, computed, watch, onMounted, type InjectionKey, type Ref } from "vue";
 import axios from "axios";
@@ -57,7 +57,7 @@ export type Draft = Record<string, unknown> & {
 export type Section = PromptSection & { key: number; name: string };
 /** 목록 줄 형식(AI 설정의 list) */
 export type ListCfg = { lineFormat: string };
-/** 확인 결과 하나(무료 · 유료 테스트) */
+/** 확인 결과 하나(무료, 유료 테스트) */
 export type Tested = { kind: string; ok: boolean; status: number | null | undefined; tookMs: number; reason?: string; extra?: string; asked?: string; body?: string; raw?: string };
 
 // ── 화면에 그대로 쓰는 값 ─────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const ROLES = AI_ROLES;
 const MARKS = Object.keys(LINE_NAMES).map((name) => ({ mark: `{{${name}}}`, hint: T.markHints[name] }));
 // 길이가 있을 때만 적는 구간(넣기 칩)
 const BLOCK_MARK = "{{#if-exist {{duration}}}}{{duration}} {{/}}";
-// 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목 · 길이)
+// 조회 안 한 주소를 그대로 보내면 쓰이는 보기 곡(제목, 길이)
 const SAMPLE_LINES = AI_SAMPLE_CANDIDATES.map((one) => (one.durationSec ? `${one.title ?? ""} (${formatDuration(one.durationSec)})` : (one.title ?? ""))).join(NL);
 const CONSTS = { NL, NONE_MARK, EXTRA_SAMPLE, ROLES, MARKS, BLOCK_MARK, SAMPLE_LINES };
 
@@ -90,7 +90,7 @@ function rememberModel(provider: string | undefined, model: string | undefined) 
   writeStored(PICK_KEY, JSON.stringify({ ...rememberedModels(), [provider]: model }));
 }
 
-// 모델 매개변수의 선택: 값이 참 · 거짓 · 수일 수도 있어 드롭다운에는 순번(문자열)으로 넘기고 돌려받는다. 비어 있으면 기본값
+// 모델 매개변수의 선택: 값이 참, 거짓, 수일 수도 있어 드롭다운에는 순번(문자열)으로 넘기고 돌려받는다. 비어 있으면 기본값
 const enumOptions = (list: Array<{ value: unknown; label: string }>): Option[] => list.map((one, i) => ({ value: String(i), label: one.label }));
 const enumValue = (list: Array<{ value: unknown }>, value: unknown): OptionValue => {
   const at = list.findIndex((one) => one.value === value);
@@ -134,7 +134,7 @@ function editorState() {
     models: ref<string[]>([]),
     manualModel: ref(false),
     pinging: ref(false),
-    // 무료·유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
+    // 무료, 유료 둘 다 테스트 결과다. 나눠 두면 어느 것이 방금 것인지 헷갈린다.
     tested: ref<Tested | null>(null),
     showRaw: ref(false),
     // 미리보기: 보내지 않고 만들어만 본 요청
@@ -148,25 +148,25 @@ function editorState() {
     syntaxOpen: ref(false),
     // 판정 테스트의 장르(줄 형식 미리보기도 쓴다)
     judgeGenre: ref(TJ.genrePlaceholder),
-    // 화면이 읽지 않는 것: 섹션 번호 · 지금 필드를 보여 주는 모델 · 설정 쪽의 섹션 이름(내용은 프롬프트 문서에 있어 순서로 짝짓는다)
+    // 화면이 읽지 않는 것: 섹션 번호, 지금 필드를 보여 주는 모델, 설정 쪽의 섹션 이름(내용은 프롬프트 문서에 있어 순서로 짝짓는다)
     inner: { serial: 0, picking: "", names: [] as string[] },
   };
 }
 type State = ReturnType<typeof editorState>;
 
-// ── 프로바이더 · 키 · 모델 드롭다운 ─────────────────────────────────────────
+// ── 프로바이더, 키, 모델 드롭다운 ─────────────────────────────────────────
 function providerView(s: State) {
   const { draft, providers, keyStates, keyPresence, keyInput, models, fieldInfo, savedBaseUrl } = s;
   // 키는 프로바이더마다 따로다(비밀 테이블). 값은 안 내려오고 상태만 온다.
   // 저장된 키가 있는가(지금 주소로 쓸 수 없어도 있다. 그때는 keyTrouble 이 까닭을 보인다)
   const hasKey = computed(() => (keyStates.value[draft.value.provider ?? ""] ?? (keyPresence.value[draft.value.provider ?? ""] ? "ok" : "none")) !== "none");
-  // 키가 있는데 지금 쓸 수 없는 까닭: moved(주소 · 리전이 바뀜) · again(복호화할 수 없음). 없거나 쓸 수 있으면 null
+  // 키가 있는데 지금 쓸 수 없는 까닭: moved(주소, 리전이 바뀜), again(복호화할 수 없음). 없거나 쓸 수 있으면 null
   const keyTrouble = computed(() => {
     const state = keyStates.value[draft.value.provider ?? ""];
     return state === "moved" || state === "again" ? state : null;
   });
   const spec = computed(() => providers.value.find((one) => one.value === draft.value.provider) || null);
-  // 로컬 · 클라우드 · 게이트웨이로 묶어 보여 준다. 그룹 없는 것("사용하지 않음")은 맨 위에.
+  // 로컬, 클라우드, 게이트웨이로 묶어 보여 준다. 그룹 없는 것("사용하지 않음")은 맨 위에.
   const ungrouped = computed(() => providers.value.filter((one) => !one.group));
   const grouped = computed(() => {
     const out: Array<{ name: string; items: AiState["providers"] }> = [];
@@ -192,7 +192,7 @@ function providerView(s: State) {
    * 어디로 나가는지 보여 준다. 버텍스는 주소가 없어 봇과 같은 규칙(rules/vertex-url)으로 조립한다.
    *
    * 프로젝트 ID 만 가린다. 리전은 공개된 값이고, 가려 두면 정작 주소가 맞는지 못 본다.
-   * 조립은 입력값을 인코딩하므로 보일 때는 풀어 쓴다(자리표시자 글 · 한글). 주소를 바꾸는 글자(# / ? @)는 decodeURI 가 풀지 않아 그대로 드러난다
+   * 조립은 입력값을 인코딩하므로 보일 때는 풀어 쓴다(자리표시자 글, 한글). 주소를 바꾸는 글자(# / ? @)는 decodeURI 가 풀지 않아 그대로 드러난다
    */
   const shownEndpoint = computed(() => {
     if (!spec.value?.needsProject) return spec.value?.baseUrl;
@@ -217,7 +217,7 @@ function providerView(s: State) {
   const secureOrigin = computed(() => window.isSecureContext);
   const staleCustomUrl = computed(() => !!spec.value?.editable && String(draft.value.baseUrl || "") !== savedBaseUrl.value);
   // 프로필이 아는 모델은 보기 좋은 이름으로 보여준다. 모르는 것은 원본 ID 그대로.
-  // 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬·신모델은 프로필에 없다).
+  // 키로 실제로 쓸 수 있는 것은 /models 만 안다(로컬, 신모델은 프로필에 없다).
   const modelChoices = computed(() =>
     models.value.map((id) => {
       const known = fieldInfo.value.models.find((one) => one.modelId === id);
@@ -312,7 +312,7 @@ function paramsView(s: State) {
   return { numberParam, listParam, onJson, modelName, hintOf, showIfOk, paramGroups, paramLimits, cleanParams, enumOptions, enumValue, enumPick };
 }
 
-// ── 고급 설정(요청 · 재시도) ─────────────────────────────────────────────────
+// ── 고급 설정(요청, 재시도) ─────────────────────────────────────────────────
 // 파일은 밀리초로 적히지만 사람에게는 초가 낫다
 function secondsOf(draft: Ref<Draft>, key: string, round = true) {
   return computed({
@@ -356,10 +356,10 @@ function advancedView(s: State) {
   return { hideModels, extraText, timeoutSec: secondsOf(draft, "timeoutMs"), totalSec: secondsOf(draft, "totalTimeoutMs"), delaySec: secondsOf(draft, "retryDelayMs", false), delayMaxSec: secondsOf(draft, "retryDelayMaxMs", false), defaultOf, defaultSec, setRetryStatus };
 }
 
-// ── 프롬프트: 섹션 · 줄 형식 안내 · 요청 미리보기 ────────────────────────────
+// ── 프롬프트: 섹션, 줄 형식 안내, 요청 미리보기 ────────────────────────────
 // 줄 형식 문제를 보여 줄 때 앞뒤로 붙이는 글자 수
 const AROUND = 12;
-// 줄 형식 미리보기의 보기 후보 둘: 길이를 아는 것 · 모르는 것
+// 줄 형식 미리보기의 보기 후보 둘: 길이를 아는 것, 모르는 것
 const PREVIEW_CANDS = [
   { label: TL.previewKnown, title: "System Of A Down - Toxicity (Official HD Video)", seconds: 223 },
   { label: TL.previewUnknown, title: "Pop Hits 2021 - Ariana Grande, Maroon 5, Taylor Swift", seconds: null },
@@ -419,7 +419,7 @@ function promptView(s: State) {
       { title: T.boxes.body, text: JSON.stringify(one.body, null, 2) },
     ];
   });
-  // 프롬프트 한 벌(줄 형식 + 섹션) 내보내기 · 불러오기(utils/prompt-file). 불러오면 지금 것을 교체한다(저장해야 반영, 되돌리면 원래대로)
+  // 프롬프트 한 벌(줄 형식 + 섹션) 내보내기, 불러오기(utils/prompt-file). 불러오면 지금 것을 교체한다(저장해야 반영, 되돌리면 원래대로)
   function exportPrompt() {
     const { name, body } = promptFile(
       listCfg.value.lineFormat,
@@ -483,7 +483,7 @@ function tokenCount(s: State) {
   return { tokenEach, tokenTotal, tokenExact, tokenError, countTokens };
 }
 
-// ── 주고받기: 보낼 형태 · 받은 것 반영 · 저장 막대 ───────────────────────────
+// ── 주고받기: 보낼 형태, 받은 것 반영, 저장 막대 ───────────────────────────
 function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unknown>>>) {
   const { draft, listCfg, sections, allParams, params, savedBaseUrl, keyInput, keyPresence, keyStates, inner } = s;
   // 저장은 보낸 순서대로 둔다. 기본 설정 문서와 같은 순서(schema/ai 의 AI_KEY_ORDER)로 보내 내보내기 글이 읽기 좋게 한다.
@@ -497,7 +497,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   });
   const promptPayload = computed((): PromptSection[] => sections.value.map((one) => ({ role: one.role, text: one.text })));
   // AI 에 보낼 요청을 만들 때 쓰는 것. 저장용(payload)과 달라지는 곳은 프롬프트 하나다(다른 문서로 저장한다).
-  // 미리보기 · 판정 요청처럼 "지금 화면에 있는 것"을 테스트하는 곳은 전부 이쪽을 쓴다.
+  // 미리보기, 판정 요청처럼 "지금 화면에 있는 것"을 테스트하는 곳은 전부 이쪽을 쓴다.
   const aiRequestDraft = () => ({ ...payload.value, prompt: promptPayload.value });
   function apply(data: Record<string, unknown>) {
     const { list, prompt: _prompt, promptNames, params: saved, ...rest } = data || {};
@@ -516,7 +516,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
   function applyPrompt(list: PromptSection[] | null | undefined) {
     sections.value = (list || []).map((one, i) => ({ key: ++inner.serial, role: one?.role || "system", name: inner.names[i] || "", text: String(one?.text ?? "") }));
   }
-  // 키 상태만 다시 불러온다(설정을 저장한 뒤: 주소 · 리전을 바꿔 저장했으면 묶인 키의 상태도 바뀐다)
+  // 키 상태만 다시 불러온다(설정을 저장한 뒤: 주소, 리전을 바꿔 저장했으면 묶인 키의 상태도 바뀐다)
   async function refreshKeys() {
     try {
       const state = (await axios.get<AiState>("/api/admin/ai/state")).data;
@@ -551,7 +551,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
       return saved;
     },
   });
-  // 저장할 때 서버가 보는 검사 그대로(schema/ai · schema/ai-prompt). 꺼 두면(enabled: false) 나머지 필드 · 프롬프트를 따지지 않는다. 불러오기 전에는 문제가 없다
+  // 저장할 때 서버가 보는 검사 그대로(schema/ai, schema/ai-prompt). 꺼 두면(enabled: false) 나머지 필드, 프롬프트를 따지지 않는다. 불러오기 전에는 문제가 없다
   const problems = computed(() => {
     if (!file.loaded.value) return [];
     return aiSwitchedOff(payload.value) ? [...file.serverProblems.value] : [...aiProblems(payload.value), ...promptProblems(promptPayload.value, true), ...file.serverProblems.value];
@@ -562,7 +562,7 @@ function exchange(s: State, cleanParams: Ref<Record<string, Record<string, unkno
 }
 type Exchange = ReturnType<typeof exchange>;
 
-// ── 서버에서 읽기: 모델 필드 · 키 상태와 기본값 · 요청 미리보기 ────────────────
+// ── 서버에서 읽기: 모델 필드, 키 상태와 기본값, 요청 미리보기 ────────────────
 function serverReads(s: State, io: Exchange) {
   const { draft, fieldInfo, params, allParams, jsonText, jsonBad, keyPresence, keyStates, providers, pingText, defaults, settingDefaults, shown, inner } = s;
   // 읽기는 고치는 대로 다시 요청한다. 늦게 온 앞 요청의 답이 새 답을 덮지 않게 순서를 맞춘다
@@ -719,7 +719,7 @@ function judgeTest(s: State, io: Exchange) {
 }
 type Judge = ReturnType<typeof judgeTest>;
 
-// ── 모델 목록(무료 확인) · 프로바이더 · 모델 선택 ───────────────────────────
+// ── 모델 목록(무료 확인), 프로바이더, 모델 선택 ───────────────────────────
 function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>, on: Ref<boolean>) {
   const { draft, models, manualModel, tested, keyInput, loadingModels, showRaw, refreshing } = s;
   // 불러온 모델 목록을 반영한다. 목록을 불러왔으면 드롭다운으로 돌아가고(못 불러왔을 때만 직접 입력하게 한다),
@@ -788,12 +788,12 @@ function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>
   return { rememberModel, takeModels, loadModels, onProvider, pickProvider, pickModel, refreshModels };
 }
 
-// ── 키 입력 · 유료 확인(짧은 생성 · 판정 테스트를 보내기 전에 한 번 묻는다) ────
+// ── 키 입력, 유료 확인(짧은 생성, 판정 테스트를 보내기 전에 한 번 묻는다) ────
 function paidActions(s: State, io: Exchange, judge: Judge, serviceAccount: () => boolean) {
   const { draft, paid, paidUrl, paidUrlError, keyInput, keyPresence, keyStates, savingKey, pinging, tested, showRaw, pingText } = s;
   // 돈이 드는 것은 한 번 물어본다. 보안이 아니라 실수 방지다.
   // 확인 대화상자를 열면서 진짜 주소를 받아 온다. 미리보기는 아무 데도 안 보내므로 토큰이 안 든다.
-  // 클라이언트가 주소를 흉내 내면 어긋난다(버텍스는 project·location 으로 조립하고,
+  // 클라이언트가 주소를 흉내 내면 어긋난다(버텍스는 project, location 으로 조립하고,
   // custom 은 끝 슬래시를 떼야 한다). 물어보는 편이 늘 맞다.
   const askPaid = async (which: "ping" | "judge") => {
     paid.value = which;
@@ -826,7 +826,7 @@ function paidActions(s: State, io: Exchange, judge: Judge, serviceAccount: () =>
     if (which === "ping") void runPing();
     else void judge.runJudge();
   }
-  // 키는 쓰기 전용이다. payload 에 안 싣는다(미리보기 · 테스트로 새어 나가면 안 된다). 키는 지금 입력된 주소 · 리전에 묶인다(data). 그 설정을 저장해야 쓰인다
+  // 키는 쓰기 전용이다. payload 에 안 싣는다(미리보기, 테스트로 새어 나가면 안 된다). 키는 지금 입력된 주소, 리전에 묶인다(data). 그 설정을 저장해야 쓰인다
   async function putKey(value: string) {
     savingKey.value = true;
     try {
@@ -858,7 +858,7 @@ function paidActions(s: State, io: Exchange, judge: Judge, serviceAccount: () =>
   return { askPaid, runPing, runPaid, putKey, saveKey, clearKey };
 }
 
-/** 편집기 하나의 상태 · 동작. 컴포넌트의 setup 안에서 부른다(감시 · 저장 막대 · 처음 읽기가 그 컴포넌트에 걸린다) */
+/** 편집기 하나의 상태, 동작. 컴포넌트의 setup 안에서 부른다(감시, 저장 막대, 처음 읽기가 그 컴포넌트에 걸린다) */
 function createAiEditor() {
   const s = editorState();
   const provider = providerView(s);

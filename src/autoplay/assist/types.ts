@@ -1,4 +1,4 @@
-// AI 보조의 모양. 판정 · 확인 · 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node 를 부르지 않는 여기에 둔다
+// AI 보조의 모양. 판정, 확인, 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node 를 부르지 않는 여기에 둔다
 
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 
@@ -51,7 +51,7 @@ type TokenCount = { total: number; body: number; each?: number[]; by: string; ex
 /** 나갈 것을 만들어만 본 것. 헤더의 키 값은 가려져 있다 */
 type Preview = { url: string; headers: Record<string, string>; body: Body; messages: ShownMessage[]; tokens: TokenCount | null; problems: string[] };
 
-/** 판정 테스트의 답. 나간 것 · 온 것 · 곡별 판정 */
+/** 판정 테스트의 답. 나간 것, 온 것, 곡별 판정 */
 type JudgeResult = Preview & {
   status: number | null;
   response: string;

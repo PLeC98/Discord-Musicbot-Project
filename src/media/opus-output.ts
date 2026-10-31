@@ -1,9 +1,9 @@
 // 출력 스트림. PCM(s16le 48kHz 스테레오)을 20ms 프레임으로 모아 인코딩 세션(media/encode-pool)에 보내고, 돌아온 Opus 패킷을 내준다.
-// @discordjs/voice 에는 StreamType.Opus 로 넘긴다. inlineVolume 을 같이 넘기면 voice 가 prism 의 디코더 · 볼륨 · 인코더를 다시 끼운다.
+// @discordjs/voice 에는 StreamType.Opus 로 넘긴다. inlineVolume 을 같이 넘기면 voice 가 prism 의 디코더, 볼륨, 인코더를 다시 끼운다.
 //
 // 미리 만드는 패킷은 세션의 큐 깊이(depth)까지다: 보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼. 볼륨 배율(gain)은 보낼 때 곱하므로 바꾼 뒤 그만큼 지나 들린다.
-// 받은 PCM 청크는 프레임으로 다 잘라 보낼 때까지 쓰기 callback 을 미뤄 위쪽(스플라이서 · ffmpeg 파이프)에 쌓아 둔다.
-// 패킷은 voice 가 read() 할 때 그 자리에서 받는다(drain). 기다리는 동안 이벤트로 온 패킷은 바로 push 한다(처음 · 일시정지).
+// 받은 PCM 청크는 프레임으로 다 잘라 보낼 때까지 쓰기 callback 을 미뤄 위쪽(스플라이서, ffmpeg 파이프)에 쌓아 둔다.
+// 패킷은 voice 가 read() 할 때 그 자리에서 받는다(drain). 기다리는 동안 이벤트로 온 패킷은 바로 push 한다(처음, 일시정지).
 
 import { Duplex, pipeline, type Readable } from "stream";
 import logger from "../infra/log/logger.ts";
@@ -44,7 +44,7 @@ class OpusOutput extends Duplex {
   constructor({ gain, openEncoder }: { gain: number; openEncoder: OpenEncoder }) {
     super({ readableObjectMode: true, readableHighWaterMark: 1 });
     this.#gain = clampGain(gain);
-    // 패킷 · 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read() · 이벤트 · 풀의 타이머)에서도 온다
+    // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
     this.#session = openEncoder({ onPacket: (packet) => this.#onPacket(packet), onError: (err) => this.destroy(err) });
     // play() 전에 난 오류는 voice 의 리스너가 아직 없다. 그 경우는 play() 가 "already ended" 로 던져 재생 실패로 간다
     this.on("error", (err) => log.debug(`출력 스트림 오류: ${messageOf(err)}`));
@@ -59,7 +59,7 @@ class OpusOutput extends Duplex {
     return this.#gain;
   }
 
-  /** 멈춤 로그 · 테스트용: 보낸 것, 받아 둔 것(읽는 쪽 버퍼 포함), 못 보낸 프레임, 큐 깊이, 워커 번호, 가장 오래 기다리는 답의 나이. destroy 뒤에는 그때의 값 */
+  /** 멈춤 로그, 테스트용: 보낸 것, 받아 둔 것(읽는 쪽 버퍼 포함), 못 보낸 프레임, 큐 깊이, 워커 번호, 가장 오래 기다리는 답의 나이. destroy 뒤에는 그때의 값 */
   describe(): OutputState {
     return this.#last ?? { inflight: this.#inflight, ready: this.#ready.length + this.readableLength, frames: this.#frames.length, depth: this.#session.depth, ...this.#session.describe() };
   }
@@ -88,7 +88,7 @@ class OpusOutput extends Duplex {
     this.#pump();
   }
 
-  // 남은 프레임 · 보낸 것 · 받아 둔 것을 다 내준 뒤 end 를 낸다
+  // 남은 프레임, 보낸 것, 받아 둔 것을 다 내준 뒤 end 를 낸다
   _final(done: (err?: Error | null) => void) {
     this.#finish = done;
     this.#pump();
@@ -127,7 +127,7 @@ class OpusOutput extends Duplex {
   }
 
   // 큐 깊이가 허락하는 만큼 프레임을 잘라 보낸다. 청크를 다 자르면 그 callback 을 부른다(다음 청크가 바로 들어올 수 있다).
-  // callback · 세션이 다시 이 함수에 들어오는 것을 막는다(바깥 루프가 이어 처리한다)
+  // callback, 세션이 다시 이 함수에 들어오는 것을 막는다(바깥 루프가 이어 처리한다)
   #pump() {
     if (this.#pumping || this.destroyed) return;
     this.#pumping = true;
@@ -188,7 +188,7 @@ function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEnc
   const output = new OpusOutput(o);
   output.source = pcm;
   pipeline(pcm, output, () => {
-    /* 오류는 출력 스트림의 error 로도 나오고 voice · 우리 리스너가 받는다 */
+    /* 오류는 출력 스트림의 error 로도 나오고 voice, 우리 리스너가 받는다 */
   });
   return output;
 }

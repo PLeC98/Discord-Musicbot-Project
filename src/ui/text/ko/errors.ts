@@ -1,12 +1,12 @@
-// 오류 · 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 쪽은 코드와 값만 넘긴다.
-// 안내는 무엇에 관한 것인지(topic) · 심각한 정도(severity) · 헤더 줄 · 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
+// 오류, 거절 안내. 코드(rules/problems)마다 문장 하나. 부르는 쪽은 코드와 값만 넘긴다.
+// 안내는 무엇에 관한 것인지(topic), 심각한 정도(severity), 헤더 줄, 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
 import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
 import { PROBLEMS, type Code, type NeedsParams, type Params, type ParamsOf } from "../../../rules/problems.ts";
 
-// 봇 쪽 문제 · 외부 실패로 못 했다
+// 봇 쪽 문제, 외부 실패로 못 했다
 const error = (topic: Topic, title: string, body?: string) => noticeOf("error", topic, title, body);
 // 사용자가 고칠 수 있거나 지금 상태라 못 했다
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
@@ -30,7 +30,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "must-be-in-voice": () => warning("voice", "먼저 음성 채널에 접속해 주세요!", "그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요."),
   // 봇이 음성 채널에 있는데 그 채널 밖에서 조작했다
   "must-be-in-same-voice": () => warning("voice", "봇과 같은 음성 채널에 있어야 해요!", "곡을 듣고 있는 사람들만 재생을 제어할 수 있어요."),
-  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join · 대시보드 부르기)
+  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join, 대시보드 부르기)
   "bot-in-other-voice": () => warning("voice", "음성 채널에 들어갈 수 없어요!", "이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때까지 기다려 주세요."),
   "must-dj": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작을 하려면 DJ 역할을 갖고 있어야 해요."),
   // 설정 화면은 서버 관리 권한이 있어야 만진다
@@ -48,7 +48,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 봇에게 디스코드 권한이 없음
   // 봇이 그 음성 채널에 들어가거나 말할 권한이 없다. 디스코드가 음성 채널 상태를 권한 없음으로 거절해도 이것이다
   "permission-voice": () => error("permission", "제게 권한이 없어요.", "봇이 그 음성 채널에 접속하거나 말할 권한이 없어요."),
-  // 디스코드가 권한 없음으로 거절했다. 글(메시지 · 고정 · 웹훅) · 그 밖(rules/error-kind 가 거절된 요청의 주소로 구분한다)
+  // 디스코드가 권한 없음으로 거절했다. 글(메시지, 고정, 웹훅), 그 밖(rules/error-kind 가 거절된 요청의 주소로 구분한다)
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
   "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해 달라고 해 주세요."),
   // 지금 상태로는 못 함
@@ -60,7 +60,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "no-highlight": () => warning("state", "하이라이트가 없어요!", "이 곡에는 SponsorBlock 하이라이트 지점이 없어요."),
   "too-few-to-shuffle": () => warning("state", "섞을 곡이 없어요!", "셔플하려면 대기열에 곡이 2곡 이상 있어야 해요."),
   "too-few-to-move": () => warning("state", "순서를 바꿀 곡이 없어요!", "순서를 바꾸려면 대기열에 곡이 2곡 이상 있어야 해요."),
-  // 건너뛰기 · 이전 곡 · 곡으로 건너뛰기가 곡을 바꾸지 못했다(지금 곡이 없을 때 난다)
+  // 건너뛰기, 이전 곡, 곡으로 건너뛰기가 곡을 바꾸지 못했다(지금 곡이 없을 때 난다)
   "switch-failed": () => warning("state", "작업에 실패했어요!", "곡을 전환하지 못했어요. 잠시 후 재시도해 보고, 계속되면 봇 운영자에게 알려주세요."),
   // 곡을 추가하는 사이에 플레이어가 사라졌다(더 넣기 포함)
   "ended-while-adding": () => warning("state", "그 사이에 재생이 끝나버렸어요!", "플레이어가 만료됐어요. 링크를 다시 넣어서 재생해주세요."),
@@ -70,13 +70,13 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "live-upcoming": () => warning("live", "아직 시작되지 않은 라이브예요!", "예정된 라이브는 재생할 수 없어요. 라이브가 시작된 뒤에 다시 요청해 주세요!"),
   "live-ended": () => warning("live", "이미 끝난 라이브 방송이에요!", "방송이 끝나서 라이브로는 틀 수 없어요. 다시보기로 들으려면 링크를 다시 넣어 주세요."),
   // 그 사이 사라짐
-  // 지난 재생의 패널 버튼 · 메뉴(정지 뒤 다시 틀었거나 봇이 다시 시작됐다)
+  // 지난 재생의 패널 버튼, 메뉴(정지 뒤 다시 틀었거나 봇이 다시 시작됐다)
   "stale-session": () => warning("stale", "만료된 버튼이에요!", '새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, "현재 재생 중" 패널을 새로 불러와서 사용해 주세요!'),
   // 곡으로 건너뛰기 메뉴에서 선택한 곡이 대기열에 없다(메뉴를 연 뒤 대기열이 바뀌었다)
   "jump-target-gone": () => warning("stale", "선택한 곡이 대기열에 없어요!", "메뉴를 연 뒤에 대기열이 바뀌었어요. 다시 선택해 주세요."),
   // 대시보드: 선택한 곡(대기열 ID)이 그 사이 대기열에서 빠졌다
   "entry-gone": () => warning("stale", "그 곡이 대기열에 없어요!", "그 사이 대기열이 바뀌었어요. 목록을 확인하고 다시 시도해 주세요."),
-  // 대시보드: 조작한 사이 지금 곡이 바뀌었다(넘기기 · 이동이 다음 곡에 가지 않게 거절한다)
+  // 대시보드: 조작한 사이 지금 곡이 바뀌었다(넘기기, 이동이 다음 곡에 가지 않게 거절한다)
   "track-changed": () => warning("stale", "곡이 바뀌었어요!", "그 사이 지금 곡이 바뀌었어요. 화면을 확인하고 다시 시도해 주세요."),
   "more-expired": () => warning("stale", "시간이 지나 닫힌 메뉴예요. 링크를 다시 넣어 주세요."),
   // 입력이 틀림
@@ -96,7 +96,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 대상이나 핸들러가 없음
   // 실행 목록에 없는 명령(꺼진 기능이 디스코드에 아직 남아 있다)
   "unknown-command": () => warning("stale", "사용할 수 없는 명령어예요!", "비활성화되었거나 변경된 명령어예요. 디스코드를 다시 시작해도 보이면 봇 운영자에게 알려 주세요."),
-  // 버튼 · 메뉴를 받을 핸들러가 없다. 봇을 업데이트하기 전에 올린 메시지의 것이 대개 이렇다(custom_id 형식이 바뀌었다). 꺼진 기능의 버튼 · 메뉴도 이렇다
+  // 버튼, 메뉴를 받을 핸들러가 없다. 봇을 업데이트하기 전에 올린 메시지의 것이 대개 이렇다(custom_id 형식이 바뀌었다). 꺼진 기능의 버튼, 메뉴도 이렇다
   "unknown-interaction": () => warning("stale", "만료되었거나 알 수 없는 버튼이에요.", "새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, 명령을 다시 실행하거나 패널을 새로 불러와서 사용해 주세요!"),
   "more-unknown-menu": () => warning("stale", "알 수 없는 메뉴예요."),
   // 곡 찾기가 찾은 것이 없다
@@ -117,19 +117,19 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "yt-age-no-cookies": () => warning("blocked", "연령 제한 영상은 틀 수 없어요!", "제한되지 않은 곡을 틀어주세요."),
   "age-content-off": () => warning("blocked", "연령 제한 영상은 틀 수 없어요!", "제한되지 않은 곡을 틀어주세요."),
   "age-channel-only": () => warning("blocked", "연령 제한 채널에서만 틀 수 있어요!", "이 서버는 연령 제한 영상을 연령 제한이 걸린 음성 채널에서만 틀어요. 그런 채널은 디스코드에서 성인 인증을 마친 사람만 들어갈 수 있어요."),
-  // 사운드클라우드 Go+ · 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
+  // 사운드클라우드 Go+, 음반사 곡은 30초 조각만 열린다. 조각을 곡처럼 틀지 않는다
   "sc-preview-only": () => warning("blocked", "미리듣기만 가능한 곡이라 틀 수 없어요.", "다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요."),
   "geo-blocked": () => warning("blocked", "지역 제한 콘텐츠예요!", "이 링크의 콘텐츠는 제가 있는 곳에서 접근할 수 없어요. 다른 링크로 시도해 보세요."),
   // skipped 는 받을 수 없어 뺀 곡 수
   "nothing-playable": ({ skipped }) => warning("blocked", `앞의 ${skipped}곡이 전부 재생할 수 없는 곡이에요.`, "미리듣기만 가능하거나 지역 제한 등이 걸린 곡들이에요."),
   "more-nothing-playable": ({ skipped }) => warning("blocked", "해당 구간에는 재생할 수 없는 곡뿐이에요.", `미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (${skipped}곡)`),
   // 바깥 실패
-  // 고치는 법(bgutil · 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
+  // 고치는 법(bgutil, 쿠키)은 운영자 로그에(rules/operator-hints). 사용자는 설정을 만질 수 없다
   "yt-bot-check": () => error("failed", "유튜브가 요청을 차단했어요!", "잠시 후에 재시도해 보고, 계속 동일한 문제가 발생하면 봇 운영자에게 알려주세요."),
   "network-error": () => error("failed", "연결 오류가 발생했어요!", "해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요."),
   "stream-failed": () => error("failed", "오디오를 받아오지 못했어요!", "링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요."),
   "voice-failed": () => error("voice", "음성 채널에 들어가지 못했어요!", "채널 인원 제한이나 네트워크 문제일 수 있어요. 잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 알려 주세요."),
-  // 운영자 설정 · 잠시 못 함
+  // 운영자 설정, 잠시 못 함
   "rate-limited": () => error("failed", "요청이 너무 많아요...!", "해당 플랫폼이 제 요청을 차단했어요. 몇 분 뒤에 다시 해 보고, 계속되거나 자주 발생하면 봇 운영자에게 알려주세요."),
   // 운영자가 쿠키를 다시 넣으면 풀린다
   "yt-age-cookies-invalid": () => error("blocked", "일시적으로 연령 제한 영상을 틀 수 없어요!", "오류가 계속되면 봇 운영자에게 알려주세요."),
@@ -142,24 +142,24 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "unknown-error": () => error("failed", "예상치 못한 오류예요!", "잠시 후 재시도해 보세요. 오류가 계속되면 봇 운영자에게 알려 주세요."),
   // 명령 핸들러가 던졌는데 종류를 구분할 수 없다
   "command-failed": () => error("failed", "예상치 못한 오류예요!", "명령어 처리 중 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
-  // 버튼 · 메뉴의 처리가 던졌다(전용 채널 입력 포함)
+  // 버튼, 메뉴의 처리가 던졌다(전용 채널 입력 포함)
   "processing-failed": () => error("failed", "예상치 못한 오류예요!", "처리 중에 오류가 발생했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
   "control-failed": () => error("failed", "작업이 실패했어요!", "잠시 뒤 재시도해 보고, 계속되면 봇 운영자에게 알려주세요."),
   "add-failed": () => error("failed", "오류가 발생했어요!", "곡을 넣는 중에 오류가 발생했어요."),
   // 까닭을 모르고 곡을 못 틀었다
   "cannot-start": () => error("failed", "예상치 못한 오류예요!", "곡을 재생하지 못했어요. 오류가 반복되면 봇 운영자에게 알려주세요."),
-  // 새로고침 버튼이 화면(/help · /system)을 다시 그리다 실패했다
+  // 새로고침 버튼이 화면(/help, /system)을 다시 그리다 실패했다
   "refresh-failed": () => error("failed", "정보를 새로고침하지 못했어요.", "명령어를 다시 입력하여 새 패널로 조회해 주세요."),
   "channel-set-failed": () => error("failed", "채널 지정에 실패했어요.", "채널을 조회하지 못했거나 저장에 실패했어요. 권한 설정을 확인해보고, 잠시 후 시도해도 오류가 발생한다면 봇 운영자에게 알려주세요."),
   "settings-save-failed": () => error("failed", "설정을 저장하지 못했어요.", "데이터베이스나 저장소에 문제가 있어요. 봇 운영자에게 알려주세요."),
   "dj-role-save-failed": () => error("failed", "저장하지 못했어요", "DJ 역할 저장 중에 오류가 발생했어요. 잠시 후 다시 시도해 주세요."),
-  // /join 이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다 · 연달아 실패해 멈췄다 · 복원하다가 오류
+  // /join 이 저장한 세션을 복원하지 못했다. 다시 틀다 실패하고 남은 곡이 없다, 연달아 실패해 멈췄다, 복원하다가 오류
   "restore-nothing-left": () => error("failed", "이어 들을 곡을 틀지 못했어요", "저장된 곡을 다시 틀다 실패했고 남은 곡이 없어요. `/play`로 곡을 넣어 주세요."),
   "restore-parked": () => error("failed", "대기열을 불러왔지만 곡이 재생되지 않아 일시정지했어요", "재생 버튼을 누르면 다시 시도해요."),
   // 디스코드 /join 과 대시보드 참가 버튼이 같이 쓴다
   "restore-failed": () => error("failed", "오류가 발생했어요!", "이전에 듣던 곡을 복구하던 중 오류가 발생했어요. 잠시 후에 `/join` 이나 대시보드의 참가 버튼으로 다시 시도해 보세요. 여전히 문제가 있다면 봇 운영자에게 알려주세요."),
 
-  // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지 · 왜 · 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속 · 권한
+  // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지, 왜, 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속, 권한
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
   // 화면이 새 토큰으로 한 번 다시 보내므로 사람에게는 그 뒤에도 거절됐을 때만 보인다
   "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 10분 안에만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
@@ -220,7 +220,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "log-file-not-found": () => warning("notFound", "없는 로그 파일이에요!", "보관 개수를 넘어 삭제됐거나 파일 로그를 껐어요. 페이지를 새로고침해 파일 목록을 다시 받아 주세요."),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  // 대시보드: 파비콘(업로드한 이미지 · 링크로 다운로드하는 이미지)
+  // 대시보드: 파비콘(업로드한 이미지, 링크로 다운로드하는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
@@ -261,7 +261,7 @@ function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<
 }
 
 /**
- * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답 · 곡 추가 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
+ * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답, 곡 추가 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
  * 빠진 이름은 missing 으로 넘긴다(봇은 로그에 남기고, 화면은 그대로 보인다)
  */
 function noticeFor(code: Code, params: Params = {}, look: Look = PLAIN, missing?: (names: string[]) => void): Notice {

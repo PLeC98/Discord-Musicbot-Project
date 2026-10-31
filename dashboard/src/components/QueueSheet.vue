@@ -1,8 +1,8 @@
 <template>
-  <!-- 휴대폰 서버 화면(스포티파이식)의 대기열 바텀 시트(M3 bottom sheet). 화면 아래에 늘 헤더가 보이고(접힘) 드래그해서 올리면 반 · 끝까지.
-       높이는 바탕화면 높이(--desk-h)에서 잰다. 놓으면 빠르기 · 가까운 단계로 간다.
+  <!-- 휴대폰 서버 화면(스포티파이식)의 대기열 바텀 시트(M3 bottom sheet). 화면 아래에 늘 헤더가 보이고(접힘) 드래그해서 올리면 반, 끝까지.
+       높이는 바탕화면 높이(--desk-h)에서 잰다. 놓으면 빠르기, 가까운 단계로 간다.
        끝까지 펼치기 전에는 내용을 드래그해도 시트가 움직이고(스포티파이처럼), 안의 목록은 스크롤되지 않는다(반만 보일 때는 목록 아래가 화면 밖이라 스크롤바가 밖으로 나간다).
-       위로 드래그해 끝까지 닿으면 같은 손짓으로 목록이 스크롤되고, 끝까지 펼친 뒤 목록 맨 위에서 아래로 드래그하면 시트가 내려간다. 입력 · 버튼 · 링크 · 순서 바꾸기 핸들에서 시작한 동작은 그대로 둔다 -->
+       위로 드래그해 끝까지 닿으면 같은 손짓으로 목록이 스크롤되고, 끝까지 펼친 뒤 목록 맨 위에서 아래로 드래그하면 시트가 내려간다. 입력, 버튼, 링크, 순서 바꾸기 핸들에서 시작한 동작은 그대로 둔다 -->
   <div v-if="shown > 0.01" class="fixed inset-0 z-30 bg-black/40" :class="dragOffset === null && 'transition-opacity duration-300 ease-effects'" :style="{ opacity: shown * 0.9 }" @click="stop = 'peek'"></div>
   <section class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="dragOffset === null && 'transition-[translate] duration-500 ease-spring'" :style="{ height: `${full}px`, translate: `0 ${full - visible}px` }" :aria-label="T.queue">
     <header :class="compact ? 'pb-1' : 'pb-2'" class="shrink-0 px-4 touch-none select-none cursor-grab active:cursor-grabbing" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
@@ -43,12 +43,12 @@ const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: 
 
 type Stop = "peek" | "half" | "full";
 const stop = ref<Stop>("peek");
-// 펼쳐 있는 동안 Esc · 기기의 뒤로는 시트를 접는다
+// 펼쳐 있는 동안 Esc, 기기의 뒤로는 시트를 접는다
 useCloseLayer(
   computed(() => stop.value !== "peek"),
   () => (stop.value = "peek"),
 );
-/** 접힘 · 반 · 끝까지의 보이는 높이(px) */
+/** 접힘, 반, 끝까지의 보이는 높이(px) */
 const peek = computed(() => (props.compact ? 64 : 76));
 const full = computed(() => Math.max(peek.value + 100, props.deskHeight - 8));
 const heights = computed<Record<Stop, number>>(() => ({ peek: peek.value, half: Math.round(full.value * 0.6), full: full.value }));
@@ -85,7 +85,7 @@ function move(e: PointerEvent) {
   if (!start || e.pointerId !== start.id) return;
   const dy = e.clientY - start.y;
   if (!moved && Math.abs(dy) < 6) return;
-  // 내용에서 시작했으면 움직이기 시작할 때 잡는다(누르기 · 입력은 그대로 가게)
+  // 내용에서 시작했으면 움직이기 시작할 때 잡는다(누르기, 입력은 그대로 가게)
   if (!moved && start.body) (e.currentTarget as Element).setPointerCapture(e.pointerId);
   moved = true;
   dragOffset.value = Math.min(full.value, Math.max(peek.value, start.h - dy));
@@ -101,7 +101,7 @@ function up(e: PointerEvent) {
   dragOffset.value = null;
   start = null;
 }
-/** 놓은 높이 h · 빠르기 v(px/ms, 위로 튕기면 음수)로 단계를 정한다. 빠르게 튕기면 그 방향으로 한 단계 */
+/** 놓은 높이 h, 빠르기 v(px/ms, 위로 튕기면 음수)로 단계를 정한다. 빠르게 튕기면 그 방향으로 한 단계 */
 function settle(h: number, v: number) {
   const order: Stop[] = ["peek", "half", "full"];
   stop.value = v < -0.5 ? order[Math.min(2, order.indexOf(nearest(h, "up")))] : v > 0.5 ? order[Math.max(0, order.indexOf(nearest(h, "down")))] : nearest(h);
@@ -122,7 +122,7 @@ function bodyDown(e: PointerEvent) {
 }
 // ── 손가락: 시트와 목록을 한 손짓으로 잇는다(스포티파이처럼) ──
 // 끝까지 펼치기 전: 위로 드래그하면 시트가 올라오고, 끝까지 닿은 뒤 남은 움직임은 같은 손짓으로 목록을 스크롤한다(놓으면 그 빠르기로 관성).
-// 끝까지 펼친 뒤: 목록 맨 위에서 아래로 드래그하면 목록 대신 시트가 내려간다. 그 밖(목록을 스크롤하던 중 · 위로)은 브라우저가 스크롤한다.
+// 끝까지 펼친 뒤: 목록 맨 위에서 아래로 드래그하면 목록 대신 시트가 내려간다. 그 밖(목록을 스크롤하던 중, 위로)은 브라우저가 스크롤한다.
 // 목록은 끝에 닿아도 바깥(페이지)으로 스크롤을 넘기지 않는다(overscroll-contain, 넘기면 당겨서 새로고침이 걸린다).
 // 첫 움직임에서 정하고, 시트가 맡으면 그 손짓 내내 브라우저 스크롤을 막는다(touchmove 를 preventDefault)
 const bodyEl = ref<HTMLElement | null>(null);

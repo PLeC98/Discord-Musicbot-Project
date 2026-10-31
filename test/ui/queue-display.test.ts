@@ -33,7 +33,7 @@ test("대기열 줄: 제목이 없으면 알 수 없는 곡", () => {
   assert.equal(queueLine(song({ title: null }), 2), "`2.` **[알 수 없는 곡](https://y/1)**\n");
 });
 
-// 셀렉트 메뉴 설명은 멘션 · 앱 이모지를 렌더링하지 않는다(글자 그대로 보인다). 이름과 유니코드를 쓴다.
+// 셀렉트 메뉴 설명은 멘션, 앱 이모지를 렌더링하지 않는다(글자 그대로 보인다). 이름과 유니코드를 쓴다.
 test("점프 설명: 아티스트 | 길이 | 요청자 이름. 자동재생 곡은 앱 이모지를 맞춰도 유니코드", () => {
   assert.equal(jumpDescription(song({ requestedBy: { id: "u1", username: "요청자" } })), "가수 | 1:40 | 요청자");
   useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));
@@ -55,7 +55,7 @@ test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으
   assert.equal(jumpDescription(song({ artist: undefined, duration: 0 })), undefined);
 });
 
-// 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다. 길이·요청자를 지키고 아티스트부터 줄인다.
+// 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다. 길이, 요청자를 지키고 아티스트부터 줄인다.
 test("점프 설명: 100자를 넘지 않는다", () => {
   const long = jumpDescription(song({ artist: "가".repeat(300), requestedBy: { id: "u1", username: "아주긴이름".repeat(4) } }));
   assert.ok(long, "설명이 있다");

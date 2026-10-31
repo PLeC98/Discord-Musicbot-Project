@@ -59,7 +59,7 @@ function agoText(at: number | null) {
   return relativeTime.format(-Math.floor(diff / size), unit);
 }
 
-/** 둘째 줄: 접속 지역(지역 · 나라, 내부망) · 마지막 활동. 기록이 없는 기기는 안내 문구 */
+/** 둘째 줄: 접속 지역(지역, 나라, 내부망), 마지막 활동. 기록이 없는 기기는 안내 문구 */
 function subOf(d: LoginDevice) {
   if (!d.known) return T.unknownDesc;
   const place = d.place?.kind === "private" ? T.private : d.place?.kind === "geo" ? [d.place.region, d.place.country].filter(Boolean).join(", ") : "";
@@ -79,7 +79,7 @@ async function load() {
   }
 }
 
-// 다른 기기 로그아웃은 서버가 최근 로그인을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화 · 복원과 같다)
+// 다른 기기 로그아웃은 서버가 최근 로그인을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화, 복원과 같다)
 async function signOut(d: LoginDevice) {
   if (!(await ensureRecentLogin())) return;
   busy.value = true;

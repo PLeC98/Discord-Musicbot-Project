@@ -1,4 +1,4 @@
-// dashboard/src/utils/request.ts: 화면 요청을 모은 곳. CSRF 토큰 · 토큰 거절 뒤 한 번 재시도 · 세션 끝 · 백엔드에 닿았는지 · 시간 한도
+// dashboard/src/utils/request.ts: 화면 요청을 모은 곳. CSRF 토큰, 토큰 거절 뒤 한 번 재시도, 세션 끝, 백엔드에 닿았는지, 시간 한도
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

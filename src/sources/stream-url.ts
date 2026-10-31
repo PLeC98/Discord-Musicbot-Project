@@ -32,7 +32,7 @@ type StreamInfo = {
   reused?: boolean;
   [field: string]: unknown;
 };
-// 여는 쪽 · 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
+// 여는 쪽, 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
@@ -60,7 +60,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
   }
 }
 
-/** 지정한 음원이 라이브인가: 유튜브는 스트림 답(방송 중 · 시작 전), 직접 링크는 인터넷 라디오 헤더(HEAD) */
+/** 지정한 음원이 라이브인가: 유튜브는 스트림 답(방송 중, 시작 전), 직접 링크는 인터넷 라디오 헤더(HEAD) */
 async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInfo, direct: DirectInfo): Promise<boolean> {
   if (stream.liveStatus === "is_live" || stream.liveStatus === "is_upcoming") return true;
   if (!audioUrl || inputKind(audioUrl) !== "direct") return false;
@@ -79,7 +79,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       try {
         return await youtube.getStream(audioUrl, { fresh });
       } catch (err) {
-        // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
+        // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드, 즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
@@ -93,7 +93,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
 
     case "direct":
       // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.open(SafeUrl 가드)이
-      // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수·이중소비가 생긴다.
+      // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수, 이중소비가 생긴다.
       // 인터넷 라디오는 곡 추가 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
       return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null };
 

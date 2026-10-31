@@ -1,7 +1,7 @@
 // src/discord/interactions/button-handler.ts: 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
-// 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
+// 여기서는 검색 결과 버튼, 도움말, 시스템 새로고침, 자동재생 버튼, 대기열 버튼, 옛 세션, 모르는 버튼, 조작이 실패했을 때를 본다.
 //
-// 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
+// 권한 판정, 서버 설정, 곡 추가 코어는 진짜(서버 설정은 임시 DB),
 // 화면 관리자만 가짜다.
 
 import fs from "node:fs";
@@ -191,7 +191,7 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
 
 // ── 조작이 실패했을 때의 답 ───────────────────────────────────────────
 
-test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기 · 이전곡)", async () => {
+test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기, 이전곡)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "u" };
   w.player.queue = [{ title: "다음" }];
@@ -207,7 +207,7 @@ test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기 · 
   }
 });
 
-test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 갱신한다(일시정지 · 건너뛰기 · 반복)", async () => {
+test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 갱신한다(일시정지, 건너뛰기, 반복)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.queue = [{ title: "다음" }];
@@ -231,7 +231,7 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
 });
 
 // 같은 조작이면 명령과 패널 버튼이 같은 화면(Components V2)을 그린다
-test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정지 · 건너뛰기 · 이전 곡 · 반복)", async () => {
+test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정지, 건너뛰기, 이전 곡, 반복)", async () => {
   const commands = { pause: (await import("../../src/discord/commands/pause.ts")).default, skip: (await import("../../src/discord/commands/skip.ts")).default, previous: (await import("../../src/discord/commands/previous.ts")).default, loop: (await import("../../src/discord/commands/loop.ts")).default };
   const ready = () => {
     const w = world();
@@ -403,7 +403,7 @@ test("자동재생 버튼: 옛 세션의 패널 버튼은 거절하고 자동재
   assert.deepEqual(w.seen, []);
 });
 
-// /join 뒤 · 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 슬롯 idle)이다
+// /join 뒤, 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 슬롯 idle)이다
 test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 통한다. 꺼져 있으면 장르 메뉴, 켜져 있으면 끄고 다시 선택 메뉴", async () => {
   const off = world();
   const a = press(off, "panel:autoplay:idle");
@@ -427,7 +427,7 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   assert.deepEqual(log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 });
 
-// ── 도움말 · 시스템 새로고침 ──────────────────────────────────────────
+// ── 도움말, 시스템 새로고침 ──────────────────────────────────────────
 
 test("도움말 새로고침: 제자리에서 다시 그린다. 실패하면 뒤따라 알린다", async () => {
   const w = world();
@@ -484,7 +484,7 @@ test("검색 버튼: 선택은 곡 추가와 같은 검사. 봇이 음성에 있
   assert.deepEqual(denied.seen, []);
 });
 
-test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 삭제한다", async () => {
+test("검색 버튼: 검색한 사람만 누른다. 모르는 동작, 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 삭제한다", async () => {
   const w = world();
   const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
   await interactionCreate.execute(others.bot, others.it);

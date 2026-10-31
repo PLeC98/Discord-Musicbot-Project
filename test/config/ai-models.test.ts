@@ -1,4 +1,4 @@
-// src/config/ai-models.ts: AI 모델 프로필. base-provider 상속 · 본문으로 가는 필드 · 다운로드한 사본의 형식 검사와 선택
+// src/config/ai-models.ts: AI 모델 프로필. base-provider 상속, 본문으로 가는 필드, 다운로드한 사본의 형식 검사와 선택
 
 import test from "node:test";
 import assert from "node:assert";
@@ -56,7 +56,7 @@ test("키가 겹치면 프로필이 이긴다", () => {
   );
 });
 
-// 본문으로 안 가는 필드(인증·쿼리)와 숨긴 필드는 화면에 낼 것이 아니다.
+// 본문으로 안 가는 필드(인증, 쿼리)와 숨긴 필드는 화면에 낼 것이 아니다.
 test("본문으로 가는 필드만, 숨긴 것은 빼고", () => {
   const snapshot = {
     baseProviders: { p: { requestSchema: [{ key: "apiKey", mapsTo: { target: "auth", path: "apiKey" } }], uiSchema: { fields: [{ key: "topK", visibility: "hidden" }] } } },
@@ -129,7 +129,7 @@ test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한
 });
 
 // 다운로드한 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 두 사본 중 다운로드 시각(fetchedAt)이 새로운 쪽을 쓴다
-test("기본 사본 · 다운로드한 사본 중 다운로드한 때가 새것을 쓴다", () => {
+test("기본 사본, 다운로드한 사본 중 다운로드한 때가 새것을 쓴다", () => {
   const at = (fetchedAt?: string) => ({ fetchedAt, baseProviders: {}, profiles: {} });
   const bundled = at("2026-10-01T00:00:00.000Z");
   const fetched = at("2026-10-05T00:00:00.000Z");

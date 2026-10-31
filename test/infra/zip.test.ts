@@ -1,4 +1,4 @@
-// src/infra/zip.ts: 설정 내보내기 · 불러오기 · 백업의 ZIP. 묶은 것을 그대로 풀고(메모리 · 파일, ZIP64 포함), 믿을 수 없는 파일은 거절한다
+// src/infra/zip.ts: 설정 내보내기, 불러오기, 백업의 ZIP. 묶은 것을 그대로 풀고(메모리, 파일, ZIP64 포함), 믿을 수 없는 파일은 거절한다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +20,7 @@ const rejects = (buf: Buffer, options?: Parameters<typeof unzip>[1]) => {
   return false;
 };
 
-test("묶은 것을 그대로 푼다. 한글 이름 · 빈 파일 · 줄지 않는 내용도", async () => {
+test("묶은 것을 그대로 푼다. 한글 이름, 빈 파일, 줄지 않는 내용도", async () => {
   const entries = [
     { name: "settings.json", data: Buffer.from(JSON.stringify({ 장르: "팝".repeat(500) })) },
     { name: "favicon/16.png", data: Buffer.from(Array.from({ length: 300 }, (_, i) => (i * 7919) % 256)) },
@@ -33,14 +33,14 @@ test("묶은 것을 그대로 푼다. 한글 이름 · 빈 파일 · 줄지 않�
   );
 });
 
-test("항목 수 · 풀린 크기 상한을 넘으면 거절한다", async () => {
+test("항목 수, 풀린 크기 상한을 넘으면 거절한다", async () => {
   const many = await zipped(Array.from({ length: 5 }, (_, i) => ({ name: `${i}.txt`, data: Buffer.from("x") })));
   assert.ok(rejects(many, { maxEntries: 4 }));
   const big = await zipped([{ name: "big.txt", data: Buffer.alloc(10_000, 1) }]);
   assert.ok(rejects(big, { maxBytes: 9_999 }), "압축은 작아도 풀린 크기로 잰다");
 });
 
-test("폴더 밖 경로 · 깨진 내용 · ZIP이 아닌 것은 거절한다", async () => {
+test("폴더 밖 경로, 깨진 내용, ZIP이 아닌 것은 거절한다", async () => {
   for (const name of ["../x", "a/../../x", "/etc/x", "C:/x", "..\\x"]) assert.ok(rejects(await zipped([{ name, data: Buffer.from("x") }])), name);
   assert.ok(rejects(Buffer.from("그냥 글")));
   const broken = await zipped([{ name: "a.txt", data: Buffer.from("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") }]);
@@ -48,7 +48,7 @@ test("폴더 밖 경로 · 깨진 내용 · ZIP이 아닌 것은 거절한다", 
   assert.ok(rejects(broken));
 });
 
-// 다른 프로그램이 만든 ZIP 의 흔한 형식: 압축 없이 담은 항목 · 폴더 항목 · 끝 주석
+// 다른 프로그램이 만든 ZIP 의 흔한 형식: 압축 없이 담은 항목, 폴더 항목, 끝 주석
 // Windows PowerShell 5.1 의 Compress-Archive 는 경로를 \ 로 나눈다(사용자가 풀었다 다시 묶은 파일)
 test("\\ 로 나눈 경로는 / 로 읽는다", async () => {
   assert.deepEqual(
@@ -57,7 +57,7 @@ test("\\ 로 나눈 경로는 / 로 읽는다", async () => {
   );
 });
 
-test("압축 없이 담은 항목 · 폴더 항목 · 끝의 주석이 있어도 읽는다", async () => {
+test("압축 없이 담은 항목, 폴더 항목, 끝의 주석이 있어도 읽는다", async () => {
   const made = await zipped([
     { name: "dir/", data: Buffer.alloc(0) },
     { name: "dir/a.txt", data: Buffer.from("ab") },
@@ -72,7 +72,7 @@ test("압축 없이 담은 항목 · 폴더 항목 · 끝의 주석이 있어도
   assert.equal(zlib.crc32(unzip(withComment)[0].data), zlib.crc32(Buffer.from("ab")));
 });
 
-// ── 흘려 쓰기 · 파일 읽기 · ZIP64 ──
+// ── 흘려 쓰기, 파일 읽기, ZIP64 ──
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "zip-stream-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
@@ -92,7 +92,7 @@ const drain = async (stream: NodeJS.ReadableStream) => {
   return Buffer.concat(chunks);
 };
 
-test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄면 deflate. 파일에서 열어 메모리 · 흘려 읽기", async () => {
+test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄면 deflate. 파일에서 열어 메모리, 흘려 읽기", async () => {
   const media = path.join(DIR, "seg.m4s");
   fs.writeFileSync(media, crypto.randomBytes(300_000));
   const text = Buffer.from("가".repeat(5000));

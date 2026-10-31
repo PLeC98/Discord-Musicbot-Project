@@ -1,4 +1,4 @@
-// 운영자 패널: 서버 관리 탭(전체 공지 · 참가 서버 목록)
+// 운영자 패널: 서버 관리 탭(전체 공지, 참가 서버 목록)
 
 import { formatNumber } from "../../utils/locale.ts";
 

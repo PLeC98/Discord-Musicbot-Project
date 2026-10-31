@@ -41,7 +41,7 @@ beforeEach(() => {
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
 });
 
-// 캐시 파일 하나(받은 때 · 버전)
+// 캐시 파일 하나(받은 때, 버전)
 function cached(audioKey: string, downloadedAt: number, version: string) {
   const file = audioCache.getFilePath(audioKey);
   fs.writeFileSync(file, "opus");
@@ -49,7 +49,7 @@ function cached(audioKey: string, downloadedAt: number, version: string) {
   return file;
 }
 
-test("간격이 지난 파일만 묻는다: 유튜브 90일 · 직접 링크 14일, 0 이면 묻지 않는다", async () => {
+test("간격이 지난 파일만 묻는다: 유튜브 90일, 직접 링크 14일, 0 이면 묻지 않는다", async () => {
   cached("yt:aaaaaaaaaaa", NOW - 30 * DAY, "lmt:1");
   queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
   await queue._drain();
@@ -74,7 +74,7 @@ test("간격이 지난 파일만 묻는다: 유튜브 90일 · 직접 링크 14�
   }
 });
 
-test("같음: 원본 버전 · 확인 시각을 남기고(캐시 파일 행은 그대로), 다음 재생은 다시 묻지 않는다", async () => {
+test("같음: 원본 버전, 확인 시각을 남기고(캐시 파일 행은 그대로), 다음 재생은 다시 묻지 않는다", async () => {
   cached("yt:aaaaaaaaaaa", NOW - 100 * DAY, "lmt:1");
   queue.notePlayedFromCache({ audioUrl: YT, title: "a" }, null);
   await queue._drain();
@@ -118,7 +118,7 @@ test("직접 링크가 바뀌면 캐시를 지운다(다음 재생이 새로 받
   } finally {
     audioCache.unprotect("g1");
   }
-  // 캐시 DB 의 재생 테스트(간격 · 줄을 보지 않는다)로 다시: 이제 지운다
+  // 캐시 DB 의 재생 테스트(간격, 줄을 보지 않는다)로 다시: 이제 지운다
   assert.equal((await queue.recheckNow(key, DL))?.kind, "changed");
   assert.equal(fs.existsSync(file), false);
   assert.equal(audioCache.lookupByAudioKey(key), null);

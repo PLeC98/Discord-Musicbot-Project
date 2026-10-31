@@ -1,4 +1,4 @@
-// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡 · idempotent cleanup) · 넛지 · 넛지 합치기 · 운영 조절값 반영
+// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡, idempotent cleanup), 넛지, 넛지 합치기, 운영 조절값 반영
 // 쓰기에 실패하면 구독과 함께 perKey(연결 캡)도 정리한다. close 이벤트에만 기대면 close가 안 오는 비정상 종료에서 캡이 영구 점유된다.
 
 import { test, after, mock } from "node:test";
@@ -43,7 +43,7 @@ const sees =
   (guildId: string) =>
     ids.includes(guildId);
 
-test("쓰기 실패 시 구독 · 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
+test("쓰기 실패 시 구독, 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG2", "evG3"), "evU2");
   assert.equal(DashboardEvents.perKey.get("evU2"), 1);
@@ -104,7 +104,7 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
 });
 
 // 한 연결이 여러 서버를 받는다. 어느 서버의 변화인지 없으면 전부 다시 조회해야 하고,
-// 재생 바 · 서버 화면이 자기 서버만 필터링할 수 없다.
+// 재생 바, 서버 화면이 자기 서버만 필터링할 수 없다.
 test("넛지 페이로드에 guildId가 실린다", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG9", "evG8"), "evU9");
@@ -184,8 +184,8 @@ test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다
   }
 });
 
-// 운영 조절값을 저장하면 바로 먹는다. 상한 · 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
-test("설정 객체를 넘기면 상한 · 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
+// 운영 조절값을 저장하면 바로 먹는다. 상한, 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
+test("설정 객체를 넘기면 상한, 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const options = { heartbeatMs: 60_000, maxPerUser: 1, coalesceMs: 250 };
   const hub = createPlayerStream(options);
@@ -227,7 +227,7 @@ test("atCap: 상한에 찼는지 미리 본다(멤버 확인 전에). 연결이 
   for (const r of held.slice(1)) r.emit("close");
 });
 
-test("watching · watch: 그 서버를 멤버로 확인한 연결의 사용자, 연결을 연 뒤 확인한 서버를 더한다", () => {
+test("watching, watch: 그 서버를 멤버로 확인한 연결의 사용자, 연결을 연 뒤 확인한 서버를 더한다", () => {
   const a = makeRes();
   const b = makeRes();
   DashboardEvents.addClient(a, sees(), "evWa", new Set(["evW1"]));

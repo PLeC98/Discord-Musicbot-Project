@@ -39,7 +39,7 @@ test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너�
   }
 });
 
-// 공통 층은 어느 출처에나 붙는 것만. 유튜브 전용(JS 런타임 · 플러그인 · 쿠키)은 유튜브가 얹는다
+// 공통 층은 어느 출처에나 붙는 것만. 유튜브 전용(JS 런타임, 플러그인, 쿠키)은 유튜브가 얹는다
 test("공통 옵션은 재시도뿐이고 유튜브 전용 필드가 없다. 경고를 끄지 않는다", () => {
   const base = ytdlpOptions.baseOptions({ dumpSingleJson: true });
   assert.deepEqual(base, { retries: 3, fragmentRetries: 3, dumpSingleJson: true });
@@ -147,7 +147,7 @@ test("클라이언트를 바꿔볼 만한 실패를 알아본다", () => {
   }
 });
 
-test("영상 문제·네트워크는 클라이언트 탓이 아니다", () => {
+test("영상 문제, 네트워크는 클라이언트 탓이 아니다", () => {
   for (const msg of notClientFaults) {
     assert.equal(YouTube.isClientFault(new Error(msg)), false, msg.slice(0, 50));
   }
@@ -171,7 +171,7 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 });
 
 test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () => {
-  // 대시보드는 운영자 전용이지만, 쿠키의 경로 · 값은 알려야 할 이유가 없다
+  // 대시보드는 운영자 전용이지만, 쿠키의 경로, 값은 알려야 할 이유가 없다
   const snap = YouTube.statusSnapshot();
   assert.ok(["file", "browser", "none"].includes(snap.cookies));
   assert.ok(!JSON.stringify(snap).includes("cookie-jar"), "실행 때 푸는 표식이 응답에 실리면 안 된다");

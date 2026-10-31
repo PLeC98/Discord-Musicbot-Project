@@ -34,7 +34,7 @@ const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
 /**
  * yt-dlp 호출을 연령 제한 폴백과 함께 실행.
  *  - 해당 videoId가 이미 연령 제한으로 알려져 있으면 처음부터 쿠키 사용(실패 시도 생략 → 영상당 실패 1회 보장). 쿠키가 없으면 부르지 않고 거절.
- *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고(쿠키 · 판정과 상관없이) 쿠키로 1회 재시도.
+ *  - 평상시(bgutil) 시도가 연령 제한으로 실패하면 videoId를 기록하고(쿠키, 판정과 상관없이) 쿠키로 1회 재시도.
  *  - 틀어도 되는 곳이 아니면(운영자가 껐거나 서버가 연령 제한 채널에서만인데 아닌 채널) 둘 다 하지 않고 거절한다(sources/age-gate).
  * exec: yt-dlp 를 실행하는 함수. 생략하면 실제 구현(ytdlp-spawn)
  */
@@ -86,7 +86,7 @@ async function _retryWithCookies(url: string, videoId: string, buildOptions: Bui
  * 클라이언트 탓으로 보이는 실패에서만 다음으로 넘어가고 빈도를 기록한다. 영상이 없어졌거나
  * 연령 제한이거나 네트워크가 끊긴 것은 클라이언트 잘못이 아니므로 그대로 위로 던진다.
  * 그걸 섞어 세면 멀쩡한 클라이언트가 제외된다. 쿠키를 못 받아 건너뛴 클라이언트는 세지 않고 다음으로 간다.
- * 쿠키 없는 클라이언트 시도는 오디오 전용만 받는다(SABR 이 걸리면 영상이 섞인 포맷만 남는 클라이언트가 있다). 마지막 시도 · 쿠키 시도는 무엇이든 받는다.
+ * 쿠키 없는 클라이언트 시도는 오디오 전용만 받는다(SABR 이 걸리면 영상이 섞인 포맷만 남는 클라이언트가 있다). 마지막 시도, 쿠키 시도는 무엇이든 받는다.
  * retry: 재시도다. 첫 시도 뒤의 시도도 재시도라 yt-dlp 대기열의 맨 앞에 선다(곡 찾기 하나가 대기열 끝을 여러 번 기다리지 않게)
  */
 async function _runWithClients(url: string, buildOptions: BuildOptions, forceCookies: boolean, exec: RunYtDlp, retry = false): Promise<unknown> {
@@ -120,7 +120,7 @@ async function _runWithClients(url: string, buildOptions: BuildOptions, forceCoo
         log.debug(`${client}${josa(client, "은")} 쿠키를 받지 않아 yt-dlp가 건너뛰었습니다${next ? `. ${next}${josa(next, "으로")} 전환합니다` : ""}`);
         continue;
       }
-      if (!errors.isClientFault(error)) throw error; // 영상·네트워크 문제. 클라이언트 바꿔봐야 소용없다
+      if (!errors.isClientFault(error)) throw error; // 영상, 네트워크 문제. 클라이언트 바꿔봐야 소용없다
       lastError = error;
       table.record(client, false);
       log.warn({ tags: ["fallback"] }, `${client} 실패 (${errors.faultReason(error)})${next ? `. ${next}${josa(next, "으로")} 전환합니다` : ""}`);
@@ -210,13 +210,13 @@ function _inspectWarnings(stderr: unknown, client: string | null) {
   }
 }
 
-// 캐시된 정보로 다운로드하다 실패했을 때 추출부터 다시 할 원인: 다운로드 자체가 실패했다(낡은 주소 · 요청 제한 · 연결 · 멎음). 변환 실패 · 종료 중은 다시 해도 같다
+// 캐시된 정보로 다운로드하다 실패했을 때 추출부터 다시 할 원인: 다운로드 자체가 실패했다(낡은 주소, 요청 제한, 연결, 멎음). 변환 실패, 종료 중은 다시 해도 같다
 const FETCH_FAILED = new Set(["stale-media", "rate-limited", "network-error"]);
 
 /**
  * 유튜브 음원 다운로드(buildOptions 의 output 으로). 캐시된 영상 정보(recent-info)가 있으면 다시 추출하지 않고 그것으로 한 번 다운로드한다
- * (--load-info-json. 불러온 정보에는 클라이언트 바꾸기 · 낡은 주소 다시 받기 · 쿠키가 소용없어 그 길을 타지 않는다).
- * 다운로드가 실패하면 받다 만 파일을 지우고 추출부터 다시 한다. 끝나면(성공 · 실패) 캐시된 정보를 지운다(다음부터는 캐시 파일로 튼다)
+ * (--load-info-json. 불러온 정보에는 클라이언트 바꾸기, 낡은 주소 다시 받기, 쿠키가 소용없어 그 길을 타지 않는다).
+ * 다운로드가 실패하면 받다 만 파일을 지우고 추출부터 다시 한다. 끝나면(성공, 실패) 캐시된 정보를 지운다(다음부터는 캐시 파일로 튼다)
  */
 async function downloadAudio(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
   const id = links.extractVideoId(url);
@@ -236,7 +236,7 @@ async function downloadAudio(url: string, buildOptions: BuildOptions, exec: RunY
 // 캐시된 정보로 한 번 다운로드한다. 다운로드가 실패했으면 출력 파일 그룹을 지우고 null(추출부터 다시 하게), 그 밖의 실패는 던진다
 async function fromInfo(info: unknown, options: Flags, output: string, exec: RunYtDlp): Promise<{ result: unknown } | null> {
   const { dir, stem } = familyOf(output);
-  // 출력 파일 그룹 안에 둔다(임시 파일 정리 · 멎은 다운로드 감시가 그대로 적용된다)
+  // 출력 파일 그룹 안에 둔다(임시 파일 정리, 멎은 다운로드 감시가 그대로 적용된다)
   const file = path.join(dir, `${stem}.load.json`);
   // 불러온 정보에서 포맷을 다시 선택한다. 추출 때의 선택과 같게, 오디오 전용이 없으면 작은 영상부터
   const { cookies: _cookies, cookiesFromBrowser: _browser, ...flags } = formatFor(options, false);

@@ -1,8 +1,8 @@
 // 이 호스트의 네트워크 송신 누계(인터페이스마다 바이트). 봇 상태 탭의 시스템 업로드.
 // Linux 는 /sys/class/net/<이름>/statistics/tx_bytes 를 읽는다(프로그램을 실행하지 않는다). 장치가 있는 인터페이스만 센다
-// (docker 브리지 · veth · VPN 은 같은 바이트가 실제 카드에서 한 번 더 세진다). 장치가 하나도 없으면(컨테이너 안) 루프백만 뺀다.
+// (docker 브리지, veth, VPN 은 같은 바이트가 실제 카드에서 한 번 더 세진다). 장치가 하나도 없으면(컨테이너 안) 루프백만 뺀다.
 // Windows 는 Node 에 API 가 없어 PowerShell 하나를 띄워 두고 물을 때마다 .NET NetworkInterface 로 읽는다
-// (WMI 를 거치는 Get-NetAdapterStatistics 보다 싸고, 조회마다 띄우면 PowerShell 기동 비용이 매번 든다). 이더넷 · 무선 종류만 센다.
+// (WMI 를 거치는 Get-NetAdapterStatistics 보다 싸고, 조회마다 띄우면 PowerShell 기동 비용이 매번 든다). 이더넷, 무선 종류만 센다.
 //   언어 설정과 상관없게 인터페이스 Id(GUID)와 숫자만 받는다. 자식 프로세스 기록에 올려 봇이 내려갈 때 함께 내리고, 봇이 갑자기 죽으면 stdin 이 닫혀 스스로 끝난다.
 // 그 밖의 운영체제는 재지 않는다(null). 읽지 못하면 null 을 주고 warn 으로 알린다
 
@@ -49,7 +49,7 @@ async function fromSysfs(dir = SYS_NET): Promise<Sent> {
 
 // ── Windows ──
 
-// 줄마다 "Id<탭>보낸 바이트", 빈 줄이 답의 끝. 종류: Ethernet(6) · Wireless80211(71) · FastEthernetT(62) · FastEthernetFx(69) · GigabitEthernet(117) · Ethernet3Megabit(26)
+// 줄마다 "Id<탭>보낸 바이트", 빈 줄이 답의 끝. 종류: Ethernet(6), Wireless80211(71), FastEthernetT(62), FastEthernetFx(69), GigabitEthernet(117), Ethernet3Megabit(26)
 const SCRIPT = `
 $kinds = 6, 71, 62, 69, 117, 26
 while ($null -ne [Console]::In.ReadLine()) {

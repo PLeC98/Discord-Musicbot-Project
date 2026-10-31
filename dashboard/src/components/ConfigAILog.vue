@@ -1,6 +1,6 @@
 <!--
-  AI 보조 · 리퀘스트 로그: AI 보조가 모델에게 보낸 요청 하나가 한 줄(재시도는 따로). 상태는 composables/ai-log, 모양은 contract/ai-log.
-  위에서부터 설명 · 필터(출처 · 결과, 접힘) · 검색 · 건수와 저장 용량 · 목록(펼치면 소요 · 토큰 · 비용 · 원문). 기록 설정(운영 조절값 ailog 그룹)은 고급 설정(ConfigAIAdvanced).
+  AI 보조, 리퀘스트 로그: AI 보조가 모델에게 보낸 요청 하나가 한 줄(재시도는 따로). 상태는 composables/ai-log, 모양은 contract/ai-log.
+  위에서부터 설명, 필터(출처, 결과, 접힘), 검색, 건수와 저장 용량, 목록(펼치면 소요, 토큰, 비용, 원문). 기록 설정(운영 조절값 ailog 그룹)은 고급 설정(ConfigAIAdvanced).
   새 기록은 실시간으로 온다: 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙고, 아니면 "새 기록 n건" 알약을 누르면 붙는다.
 -->
 <template>
@@ -139,7 +139,7 @@ function factsOf(entry: AiLogEntry) {
   return out;
 }
 
-/** 원문 영역: URL · 오류는 목록에 있고, 헤더 · 본문 · 응답은 불러온 뒤에 */
+/** 원문 영역: URL, 오류는 목록에 있고, 헤더, 본문, 응답은 불러온 뒤에 */
 function boxesOf(entry: AiLogEntry) {
   const out: Array<{ title: string; text: string; error?: boolean }> = [{ title: T.url, text: entry.url }];
   if (entry.error) out.push({ title: T.error, text: entry.error, error: true });

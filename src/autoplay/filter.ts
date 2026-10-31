@@ -15,11 +15,11 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
 
 // 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 거의 늘 한 곡이다.
 // (공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다.)
-// feat · ft 만 센다. fe?a?t 로 적으면 "fat" · "fet" 도 걸린다
+// feat, ft 만 센다. fe?a?t 로 적으면 "fat", "fet" 도 걸린다
 const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
-// 단어 경계를 쓸 수 있는 제외 키워드인지. 로마자·숫자·공백뿐이면 쓴다.
-// 한국어·일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
+// 단어 경계를 쓸 수 있는 제외 키워드인지. 로마자, 숫자, 공백뿐이면 쓴다.
+// 한국어, 일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

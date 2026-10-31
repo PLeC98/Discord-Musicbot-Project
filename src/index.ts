@@ -3,7 +3,7 @@
 
 import "./app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다. pnpm install 이 그 단계를 건너뛰었을 수 있다)
 import "./infra/log/sink.ts"; // 그다음 콘솔을 가로챈다
-import * as loadedConfig from "./config/index.ts"; // 설정 값과 함께 문제 · 경고 목록
+import * as loadedConfig from "./config/index.ts"; // 설정 값과 함께 문제, 경고 목록
 import * as configCheck from "./app/config-check.ts";
 import logger from "./infra/log/logger.ts";
 import { EXIT } from "./app/exit-codes.ts";
@@ -19,7 +19,7 @@ if (!lock.ok) {
   process.exit(EXIT.badSetup);
 }
 
-// 본체를 불러오다 던지면(명령 · 이벤트 파일이 깨졌다) 로그인하지 않고 멈춘다. 고치기 전에는 다시 시작해도 같은 실패다
+// 본체를 불러오다 던지면(명령, 이벤트 파일이 깨졌다) 로그인하지 않고 멈춘다. 고치기 전에는 다시 시작해도 같은 실패다
 let main: () => void;
 try {
   ({ main } = await import("./app/main.ts"));

@@ -60,7 +60,7 @@ function deleteRequest(requestKey: string, expect: RequestExpect): Guarded<Reque
   })();
 }
 
-/** 직접 지정한 음원 전부(캐시 DB 읽기 · 내보내기) */
+/** 직접 지정한 음원 전부(캐시 DB 읽기, 내보내기) */
 function allPins(): Pin[] {
   return conn()
     .prepare<[], PinRow>("SELECT * FROM pinned_sources")
@@ -68,11 +68,11 @@ function allPins(): Pin[] {
     .map((row) => pinOf(row)!);
 }
 
-/** 직접 지정한 음원을 붙일 곡. 여기서 읽고 쓰는 필드만(트랙 · 스포티파이 곡의 유튜브 매칭 · 자동재생 곡) */
+/** 직접 지정한 음원을 붙일 곡. 여기서 읽고 쓰는 필드만(트랙, 스포티파이 곡의 유튜브 매칭, 자동재생 곡) */
 type PinTarget = { requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; isLive?: unknown; liveStatus?: unknown; duration?: unknown; durationSource?: unknown };
 
 /**
- * 곡에 직접 지정한 음원을 붙인다: 음원 주소를 바꾸고 pinned 로 표시한다. 붙였으면 true. 이미 붙은 곡 · 지정이 없는 곡은 그대로(false).
+ * 곡에 직접 지정한 음원을 붙인다: 음원 주소를 바꾸고 pinned 로 표시한다. 붙였으면 true. 이미 붙은 곡, 지정이 없는 곡은 그대로(false).
  * 라이브는 지정할 수 없으므로(틀 때 라이브면 sources/stream-url 이 지정을 건너뛴다) 라이브 표시를 끈다. 원래 곡의 길이는 다른 음원의 것이라 버리고,
  * 그 음원을 다운로드해 둔 파일이 있으면 그 길이를, 없으면 모름으로 둔다(틀 때 안다).
  * @param pin  이미 읽은 지정(자동재생은 바깥 경계로 받는다). 생략하면 곡의 요청 키로 읽는다
@@ -91,7 +91,7 @@ function applyPin(track: PinTarget, pin: Pin | null = track.audioFoundBy === "pi
   return true;
 }
 
-/** 직접 지정한 음원 수(저장 공간 카드 · 초기화 카드) */
+/** 직접 지정한 음원 수(저장 공간 카드, 초기화 카드) */
 function pinCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM pinned_sources").pluck().get() as number;
 }

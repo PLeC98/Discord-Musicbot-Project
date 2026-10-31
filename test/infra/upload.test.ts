@@ -1,5 +1,5 @@
-// 봇 상태 탭의 업로드: 봇이 보낸 누계(src/infra/upload-meter.ts) · 시스템 송신 누계(src/infra/system-upload.ts) · 구간 속도(src/dashboard/status/upload.ts).
-// 시스템 누계는 프로그램을 띄우지 않는 부분(답 읽기 · 차이 · sysfs 폴더)만 본다
+// 봇 상태 탭의 업로드: 봇이 보낸 누계(src/infra/upload-meter.ts), 시스템 송신 누계(src/infra/system-upload.ts), 구간 속도(src/dashboard/status/upload.ts).
+// 시스템 누계는 프로그램을 띄우지 않는 부분(답 읽기, 차이, sysfs 폴더)만 본다
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ beforeEach(_reset);
 
 const fakeSocket = (remoteAddress: string) => Object.assign(new EventEmitter(), { remoteAddress, bytesWritten: 0 });
 
-test("음성: 내준 패킷마다 크기에 헤더(RTP · 암호화 · UDP/IP)를 더한다", () => {
+test("음성: 내준 패킷마다 크기에 헤더(RTP, 암호화, UDP/IP)를 더한다", () => {
   const before = uploadTotals().voice;
   addVoicePacket(200);
   addVoicePacket(100);

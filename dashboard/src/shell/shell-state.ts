@@ -6,7 +6,7 @@ import { readStored, writeStored } from "../utils/storage.ts";
 const KEY = "shell:sidebar";
 const WIDTH_KEY = "shell:sidebar-width";
 
-/** 펼친 폭(px)의 기본 · 범위 */
+/** 펼친 폭(px)의 기본, 범위 */
 const SIDEBAR_WIDTH = { initial: 240, min: 180, max: 360 };
 
 const clampWidth = (px: number) => Math.round(Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, px)));

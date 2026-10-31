@@ -1,11 +1,11 @@
-// src/autoplay/sources/voca.ts: VocaDB 계열(VocaDB · UtaiteDB · TouhouDB) 소스.
+// src/autoplay/sources/voca.ts: VocaDB 계열(VocaDB, UtaiteDB, TouhouDB) 소스.
 //
 // 지키려는 계약:
-//  · 내려간 영상(disabled)은 고르지 않는다. 원곡(Original) 영상을 먼저, 없으면 다른 유튜브 영상
-//  · 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터 · 일러스트레이터까지 붙은 artistString 은 마지막 수단
-//  · 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다
-//  · 설정 필드가 저쪽 파라미터로 바뀐다(BPM 은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
-//  · 이름으로 입력하는 필드(태그 · 제외 태그 · 가수)는 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
+// - 내려간 영상(disabled)은 고르지 않는다. 원곡(Original) 영상을 먼저, 없으면 다른 유튜브 영상
+// - 만든 사람과 부른 쪽만 이름으로 쓴다("제작 feat. 가수"). 애니메이터, 일러스트레이터까지 붙은 artistString 은 마지막 수단
+// - 가사 언어는 언어마다 따로 묻고 합친다. 같은 곡은 한 번. 한 언어가 실패해도 나머지는 살린다. 다 실패하면 던진다
+// - 설정 필드가 저쪽 파라미터로 바뀐다(BPM 은 천 배, 연도는 날짜, 가수를 걸면 하위 보이스뱅크까지)
+// - 이름으로 입력하는 필드(태그, 제외 태그, 가수)는 id 로 풀어 건다. 못 풀면 던진다(없는 태그를 이름으로 걸면 저쪽이 0곡을 조용히 준다)
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -134,7 +134,7 @@ test("설정 필드가 저쪽 파라미터로 바뀐다", async () => {
 });
 
 // 사이트마다 곡의 중심이 다르다. UtaiteDB는 커버(우타이테가 부른 것), TouhouDB는 원작 곡의 편곡
-test("곡 종류를 정하지 않으면 사이트마다의 기본값(VocaDB 원곡 · UtaiteDB 커버 · TouhouDB 편곡)을, 정하면 그것을 보낸다", async () => {
+test("곡 종류를 정하지 않으면 사이트마다의 기본값(VocaDB 원곡, UtaiteDB 커버, TouhouDB 편곡)을, 정하면 그것을 보낸다", async () => {
   const urls = serve(() => []);
   for (const type of ["vocadb", "utaitedb", "touhoudb"] as const) await vocaFamily(source({ type }));
   await vocaFamily(source({ type: "utaitedb", songTypes: ["Original", "Remix"] }));
@@ -149,7 +149,7 @@ test("곡 종류를 정하지 않으면 사이트마다의 기본값(VocaDB 원�
   );
 });
 
-test("태그 · 제외 태그 · 가수는 id 로 풀어 건다. 가수는 필드가 뜻하는 분류에서만 찾는다", async () => {
+test("태그, 제외 태그, 가수는 id 로 풀어 건다. 가수는 필드가 뜻하는 분류에서만 찾는다", async () => {
   const urls = serve(() => [], { tags: { rock: 481, ロック: 481, 和風: 90, cover: 12 }, artists: [{ id: 28174, name: "UNI" }] });
   await vocaFamily(source({ tags: ["ロック", "和風"], excludeTags: ["cover"], artists: ["UNI"] }));
   const q = songsAsked(urls)[0].searchParams;
@@ -168,7 +168,7 @@ test("태그 · 제외 태그 · 가수는 id 로 풀어 건다. 가수는 필�
 });
 
 test("같은 이름이 여럿 오면 대표 이름, 별칭, 대소문자만 다른 것 순으로 고른다", async () => {
-  // 저쪽은 곡 많은 순으로 준다. Exact 로 물어도 별칭 · 대소문자 다른 것이 섞여 온다
+  // 저쪽은 곡 많은 순으로 준다. Exact 로 물어도 별칭, 대소문자 다른 것이 섞여 온다
   const found = [
     { id: 136671, name: "ユニちゃん", names: [{ value: "UNI" }] },
     { id: 193691, name: "Urchin", names: [{ value: "Uni" }] },
@@ -206,7 +206,7 @@ test("푼 id 는 기억하고, 못 푼 것은 기억하지 않는다", async () 
   assert.deepEqual(asked, ["rock", "jazz", "jazz"], "rock 은 한 번만, jazz 는 없던 때를 기억하지 않아 다시 묻는다");
 });
 
-test("정렬 순서의 앞쪽에서만 고른다. 가수 · 가수 분류를 걸면 더 앞쪽. 저쪽이 깊은 창을 못 준다", async (t) => {
+test("정렬 순서의 앞쪽에서만 고른다. 가수, 가수 분류를 걸면 더 앞쪽. 저쪽이 깊은 창을 못 준다", async (t) => {
   t.mock.method(Math, "random", () => 0.999); // 고를 수 있는 가장 깊은 창
   const starts = async (extra: Partial<GenreSource>, total = 300_000) => {
     _forgetIds();

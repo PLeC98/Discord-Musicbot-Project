@@ -1,4 +1,4 @@
-// src/dashboard/routes/guild-settings.ts · player.ts · guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PUT + /player 플래그 + 서버 목록 통합 테스트.
+// src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PUT + /player 플래그 + 서버 목록 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
@@ -13,7 +13,7 @@ import type { Player } from "../../src/player/player.ts";
 import { fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 
-/** 이 테스트가 읽는 답의 필드(서버 설정 · 플레이어 · 서버 목록) */
+/** 이 테스트가 읽는 답의 필드(서버 설정, 플레이어, 서버 목록) */
 type Reply = ProblemReply & {
   canEdit?: boolean;
   guildName?: string;
@@ -43,7 +43,7 @@ const settings = await import("../../src/store/guild-settings.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
 
-// 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다
+// 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250, 기본 50 으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
 config.bot.maxQueueSize = 250;
 config.bot.playlistAddDefault = 50;
@@ -228,7 +228,7 @@ test("PUT settings: 일반 멤버 403", async () => {
   assert.equal(r.status, 403);
 });
 
-test("PUT settings: 정상 저장. 중복·유령 역할 정리", async () => {
+test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
   currentMember = modMember();
   const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1", "r2", "r1", "ghost"], botChannelId: "c1" });
   assert.equal(r.status, 200);
@@ -254,8 +254,8 @@ test("PUT settings: SponsorBlock 저장. 유효 카테고리만 통과", async (
   assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
 });
 
-// 선택할 수 있는 구간 · 이름 · 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
-test("GET settings: SponsorBlock 켬 여부 · 선택한 구간", async () => {
+// 선택할 수 있는 구간, 이름, 설명은 화면이 rules/sponsor-categories 를 직접 읽는다
+test("GET settings: SponsorBlock 켬 여부, 선택한 구간", async () => {
   currentMember = modMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
@@ -290,7 +290,7 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
 });
 
-test("GET settings: 재생목록 한 번에 넣는 곡 수. 저장값·실제값·범위", async () => {
+test("GET settings: 재생목록 한 번에 넣는 곡 수. 저장값, 실제값, 범위", async () => {
   currentMember = modMember();
   store.playlistAdd.delete(GUILD_ID);
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
@@ -298,7 +298,7 @@ test("GET settings: 재생목록 한 번에 넣는 곡 수. 저장값·실제값
   assert.deepEqual(r.json.playlistAdd, { value: null, effective: 50, min: 1, max: 250, default: 50 });
 });
 
-test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기본값 / 범위 밖·소수는 400", async () => {
+test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기본값 / 범위 밖, 소수는 400", async () => {
   currentMember = modMember();
   let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 120 });
   assert.equal(r.status, 200);
@@ -316,7 +316,7 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기
   assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
 });
 
-test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드가 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장 · 되돌리기, 모르는 값은 400", async () => {
+test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드가 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장, 되돌리기, 모르는 값은 400", async () => {
   currentMember = modMember();
   documents._use("age-content", { enabled: false, changedAt: 1 });
   assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, null);
@@ -444,7 +444,7 @@ test("GET guilds: 봇이 든 서버 중 지금 멤버인 곳. 운영자는 멤�
 
 // ── GET /api/guilds 의 상태 넷(서버 목록) ──
 
-test("GET guilds: 상태는 유휴(봇이 음성 밖) · 대기 중(곡 없음 · 여는 중) · 재생 중 · 일시정지", async () => {
+test("GET guilds: 상태는 유휴(봇이 음성 밖), 대기 중(곡 없음, 여는 중), 재생 중, 일시정지", async () => {
   currentMember = plainMember();
   currentUser = { id: "u1", username: "tester" };
   const stateNow = async () => ((await req("GET", "/api/guilds")).json.guilds as { state: string }[] | undefined)?.[0]?.state;
@@ -540,7 +540,7 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   currentMember = plainMember();
 });
 
-test("PUT settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer · 코드), 아무것도 반영하지 않는다", async () => {
+test("PUT settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer, 코드), 아무것도 반영하지 않는다", async () => {
   currentMember = modMember();
   const rowBefore = settingsRow();
   const cases: Array<[unknown, string, string]> = [

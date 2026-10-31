@@ -7,7 +7,7 @@
 type Caret = { start: number; end: number };
 
 /**
- * text: 지금 글 · piece: 끼워 넣을 것 · at: 적어 둔 커서 위치(없으면 글 끝)
+ * text: 지금 글, piece: 끼워 넣을 것, at: 적어 둔 커서 위치(없으면 글 끝)
  * max: 길이 상한. 넘기게 되면 넣지 않는다(몰래 잘라내면 더 헷갈린다). 넣을 수 없으면 null
  */
 export function insertAt(text: string | null | undefined, piece: string, at: Caret | null | undefined, max?: number): { text: string; caret: number } | null {

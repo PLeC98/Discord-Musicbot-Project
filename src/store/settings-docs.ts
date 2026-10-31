@@ -1,5 +1,5 @@
 // 설정 문서(settings.db 의 documents). 이름 → JSON + 저장 번호.
-// 저장할 때 받은 번호가 지금 번호와 다르면 거절한다(다른 탭 · 다른 사람이 그사이 저장했다). 문서 모양은 읽는 쪽이 맞춘다
+// 저장할 때 받은 번호가 지금 번호와 다르면 거절한다(다른 탭, 다른 사람이 그사이 저장했다). 문서 모양은 읽는 쪽이 맞춘다
 
 import Database from "better-sqlite3";
 import fs from "fs";

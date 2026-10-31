@@ -5,7 +5,7 @@ import { EventEmitter } from "node:events";
 import { Events } from "discord.js";
 import { watchGatewaySessions, newSessionAt } from "../../src/infra/gateway-sessions.ts";
 
-test("원본 READY 를 받은 샤드만 그때를 적고, 재개(RESUMED) · 다른 패킷은 세지 않는다", () => {
+test("원본 READY 를 받은 샤드만 그때를 적고, 재개(RESUMED), 다른 패킷은 세지 않는다", () => {
   const client = new EventEmitter();
   watchGatewaySessions(client as never);
   assert.equal(newSessionAt(7), null);

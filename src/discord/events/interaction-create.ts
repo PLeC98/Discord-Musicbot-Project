@@ -1,5 +1,5 @@
-// 상호작용 진입점 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼 · 메뉴 · 모달은 종류와 custom_id 접두사로 핸들러를 선택한다(discord/interactions/).
-// 처리가 던지면 여기서 한 번 남기고 알린다(명령 · 핸들러는 제 catch 를 두지 않는다). 응답의 대상 · 수명은 ui/delivery 가 정한다.
+// 상호작용 진입점 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼, 메뉴, 모달은 종류와 custom_id 접두사로 핸들러를 선택한다(discord/interactions/).
+// 처리가 던지면 여기서 한 번 남기고 알린다(명령, 핸들러는 제 catch 를 두지 않는다). 응답의 대상, 수명은 ui/delivery 가 정한다.
 
 import { Events, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
@@ -17,7 +17,7 @@ import type { ClientEvent } from "../../app/main.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 
 /**
- * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크 · 봇 감지 등)는
+ * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크, 봇 감지 등)는
  * 그 문장으로, 아니면 fallback. 자리표시자를 표시한 핸들러가 선언했으면 그 자리표시자에(ui/failure-notice), 미뤄 둔 명령이면
  * 그 답 메시지에, 아니면 본인에게만(이미 답했으면 이어서).
  * 토큰이 죽었거나(10062) 이미 답한 곳이 있으면(40060) 알리지 않는다(rules/dead-interaction)
@@ -54,7 +54,7 @@ async function runCommand(bot: BotContext, interaction: ChatInputCommandInteract
   }
 }
 
-// 버튼 · 메뉴 · 모달. 서버 안의 것만 받는다
+// 버튼, 메뉴, 모달. 서버 안의 것만 받는다
 async function runComponent(bot: BotContext, input: Interaction, routes: readonly Route[]) {
   const component = componentOf(input);
   if (!component) return;

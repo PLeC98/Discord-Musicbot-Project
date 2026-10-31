@@ -1,4 +1,4 @@
-// 폴더(database)마다 실행 하나. 같은 폴더에서 봇이 둘 뜨면 DB · 토큰 · 자식 기록을 함께 써 서로 덮어쓰고 같은 명령에 두 번 답한다.
+// 폴더(database)마다 실행 하나. 같은 폴더에서 봇이 둘 뜨면 DB, 토큰, 자식 기록을 함께 써 서로 덮어쓰고 같은 명령에 두 번 답한다.
 // 로컬 소켓을 쥐어 막는다: Windows는 이름 있는 파이프, Linux는 추상 소켓, 그 밖은 임시 폴더의 유닉스 소켓.
 // 프로세스가 어떻게 끝나든 OS가 쥔 것을 놓는다(유닉스 소켓만 파일이 남아, 붙어 보고 아무도 받지 않으면 삭제하고 다시 쥔다).
 
@@ -51,7 +51,7 @@ function holderOf(name: string): Promise<number | null> {
 
 /**
  * 이 폴더의 잠금을 쥔다. 다른 실행이 쥐고 있으면 ok: false와 그 pid(알 수 있으면).
- * 쥔 잠금은 프로세스가 끝날 때 OS가 놓는다. release는 테스트 · 정상 종료가 먼저 놓을 때
+ * 쥔 잠금은 프로세스가 끝날 때 OS가 놓는다. release는 테스트, 정상 종료가 먼저 놓을 때
  */
 async function acquireInstanceLock(dir: string): Promise<Held> {
   const name = lockNameFor(dir);

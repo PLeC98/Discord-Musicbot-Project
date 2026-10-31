@@ -23,7 +23,7 @@ type Savable = { persistence: { saveNow(reason: string): unknown }; voice: { rel
 type Savables = Pick<Map<string, Savable | null>, "forEach">;
 /** 오류 핸들러를 걸 클라이언트 */
 type WatchedClient = { on(event: "error", listener: (error: Error) => void): unknown };
-/** 처리되지 않은 거부 · 예외를 알리는 곳(프로세스) */
+/** 처리되지 않은 거부, 예외를 알리는 곳(프로세스) */
 type Proc = { on(event: "unhandledRejection" | "uncaughtException", listener: (error: unknown) => void): unknown };
 
 // 전역 폭주 판정. 이 시간창에 서버를 모르는 오류가 이보다 많으면 내린다
@@ -54,7 +54,7 @@ function knownDiscordError(err: unknown) {
 
 // 치명적 오류: 세션을 저장하고 나감 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
 // 세션이 원인이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 복원하지 않는다, app/run-record).
-// exit · record 는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
+// exit, record 는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
 function fatalShutdown(players: Savables | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
   players?.forEach((player, guildId) => {
     if (!player) return;
@@ -79,10 +79,10 @@ ${String(stack || error)}`,
   exit();
 }
 
-/** 핸들러에 넘기는 것. players: 내릴 때 세션을 저장할 플레이어 · fault: 서버 하나 다시 시작(없으면 로그만) · proc · exit · record: 테스트가 넘긴다 */
+/** 핸들러에 넘기는 것. players: 내릴 때 세션을 저장할 플레이어, fault: 서버 하나 다시 시작(없으면 로그만), proc, exit, record: 테스트가 넘긴다 */
 type Options = { players?: Savables; fault?: GuildFault; proc?: Proc; exit?: () => void; record?: Pick<typeof runRecord, "end"> };
 
-// 클라이언트 오류 · 처리되지 않은 거부 · 잡히지 않은 예외에 핸들러를 건다. 기동이 한 번 부른다
+// 클라이언트 오류, 처리되지 않은 거부, 잡히지 않은 예외에 핸들러를 건다. 기동이 한 번 부른다
 function installErrorHandlers(client: WatchedClient, { players, fault, proc = process, exit, record }: Options = {}) {
   const flooding = makeFloodGuard();
 
@@ -97,7 +97,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
       fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
       return;
     }
-    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이 · 네트워크 오류는 discord.js 가 알아서 재연결한다
+    // 서버를 모른다: 경계가 빠진 위치다. 게이트웨이, 네트워크 오류는 discord.js 가 알아서 재연결한다
     if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
     if (flooding()) {

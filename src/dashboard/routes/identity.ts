@@ -23,7 +23,7 @@ identityRouter.get("/me", (req, res) => {
   res.json(me);
 });
 
-// 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름 · 프로필 이미지는 준비 전이면 null.
+// 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름, 프로필 이미지는 준비 전이면 null.
 // 봇 프로필 이미지는 크게 받는다: 로그인 화면이 배경으로도 깐다(디스코드는 저장된 원본보다 크게 늘리지 않는다). 화면 곳곳이 같은 주소라 한 번 받는다
 identityRouter.get("/bot", (req, res) => {
   const botUser = req.app.locals.bot.client.user;

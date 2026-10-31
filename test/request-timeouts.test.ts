@@ -36,7 +36,7 @@ test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
   }
 });
 
-test("디스코드 REST(OAuth 콜백 · 초대 화면)의 모든 요청에 중단 신호가 붙어 있다", () => {
+test("디스코드 REST(OAuth 콜백, 초대 화면)의 모든 요청에 중단 신호가 붙어 있다", () => {
   const src = read("src/dashboard/discord-api.ts");
   const calls = callSites(src, "fetch");
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");

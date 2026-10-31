@@ -1,8 +1,8 @@
-// 재생목록 더 넣기(곡 넣기 입력란 아래). 남은 자리 · 라벨은 봇 문장표(src/ui/text/ko/more)와 같은 것을 부른다
+// 재생목록 더 넣기(곡 넣기 입력란 아래). 남은 자리, 라벨은 봇 문장표(src/ui/text/ko/more)와 같은 것을 부른다
 
 import { formatNumber } from "../../utils/locale.ts";
 
-/** label 은 출처 이름(재생목록 · 앨범 등) */
+/** label 은 출처 이름(재생목록, 앨범 등) */
 const moreLeft = (label: string) => `${label}에 곡이 더 남아 있어요`;
 const progress = (offset: number, total: number) => `${formatNumber(offset)} / ${formatNumber(total)}곡`;
 const adding = "넣는 중";

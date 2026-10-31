@@ -1,4 +1,4 @@
-// src/player/sponsor-skipper.ts: 발동 판정(decide)의 교차 감지 · 수동 진입 배제 · 아웃트로→종료, 그리고 틱(_tick)과 워처(onPlayStart).
+// src/player/sponsor-skipper.ts: 발동 판정(decide)의 교차 감지, 수동 진입 배제, 아웃트로→종료, 그리고 틱(_tick)과 워처(onPlayStart).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

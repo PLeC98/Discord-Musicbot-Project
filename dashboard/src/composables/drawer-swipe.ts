@@ -1,7 +1,7 @@
-// 휴대폰 사이드 드로어를 손가락으로 여닫는다. 드래그하는 동안 사이드 드로어가 손가락을 따라오고(연 정도 0~1), 놓으면 빠르기 · 연 정도로 열지 닫을지 정한다.
-// 열기: 화면 왼쪽 끝 48px 안에서 시작해 오른쪽으로 쓸기(아무 데서나 받으면 너무 쉽게 열린다. 맨 끝은 안드로이드 · 브라우저의 "뒤로" 제스처가 먼저 가져가니 끝 바로 안쪽이 실제로 받는 영역이다).
-//   가로로 드래그하는 것(입력 · 막대 · 순서 바꾸기 핸들 · 알림 밀기 · 가로로 스크롤되는 영역) 위에서 시작하면 받지 않는다.
-// 닫기: 열린 동안 아무 데서나 왼쪽으로 쓸기(사이드 드로어 · 뒤 막).
+// 휴대폰 사이드 드로어를 손가락으로 여닫는다. 드래그하는 동안 사이드 드로어가 손가락을 따라오고(연 정도 0~1), 놓으면 빠르기, 연 정도로 열지 닫을지 정한다.
+// 열기: 화면 왼쪽 끝 48px 안에서 시작해 오른쪽으로 쓸기(아무 데서나 받으면 너무 쉽게 열린다. 맨 끝은 안드로이드, 브라우저의 "뒤로" 제스처가 먼저 가져가니 끝 바로 안쪽이 실제로 받는 영역이다).
+//   가로로 드래그하는 것(입력, 막대, 순서 바꾸기 핸들, 알림 밀기, 가로로 스크롤되는 영역) 위에서 시작하면 받지 않는다.
+// 닫기: 열린 동안 아무 데서나 왼쪽으로 쓸기(사이드 드로어, 뒤 막).
 
 import { ref, onMounted, onUnmounted, type Ref } from "vue";
 
@@ -45,7 +45,7 @@ export function useDrawerSwipe(open: Ref<boolean>, drawer: Ref<HTMLElement | nul
     const dy = e.clientY - start.y;
     if (!engaged) {
       if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
-      // 세로로 스크롤하는 중이거나, 닫힌 채 왼쪽으로 · 열린 채 오른쪽으로면 사이드 드로어 것이 아니다
+      // 세로로 스크롤하는 중이거나, 닫힌 채 왼쪽으로, 열린 채 오른쪽으로면 사이드 드로어 것이 아니다
       if (Math.abs(dy) > Math.abs(dx) || (start.from === 0 && dx < 0) || (start.from === 1 && dx > 0)) {
         start = null;
         return;
@@ -62,7 +62,7 @@ export function useDrawerSwipe(open: Ref<boolean>, drawer: Ref<HTMLElement | nul
     if (!start || e.pointerId !== start.id) return;
     if (engaged && drag.value !== null) {
       open.value = last.v > FLING ? true : last.v < -FLING ? false : drag.value > 0.5;
-      // 손을 떼며 오는 누름(뒤 막 닫기 · 링크)은 막는다
+      // 손을 떼며 오는 누름(뒤 막 닫기, 링크)은 막는다
       window.addEventListener("click", swallow, { capture: true, once: true });
       setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 400);
     }

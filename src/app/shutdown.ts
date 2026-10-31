@@ -1,4 +1,4 @@
-// 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다. 게이트웨이를 정상으로 닫으면 디스코드가 봇을 곧바로 음성 채널에서 뺀다.
+// 종료. 신호를 받으면 세션을 저장하고 음성 연결, 봇, 자식 프로세스를 정리한 뒤 나간다. 게이트웨이를 정상으로 닫으면 디스코드가 봇을 곧바로 음성 채널에서 뺀다.
 // 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
 // 핸들러는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 실행한 것을 내리고 나간다.
@@ -42,11 +42,11 @@ type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(
 type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
-// 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인 · 명령 배포)의 핸들 정리와 겹쳐
+// 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
-/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름 · 내리기)와 서버마다의 플레이어 */
+/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
 type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
 
 /** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
@@ -55,7 +55,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  // why: 로그 · 연결 정리에 적는 원인. restart 면 다시 시작 코드로 나간다
+  // why: 로그, 연결 정리에 적는 원인. restart 면 다시 시작 코드로 나간다
   const gracefulShutdown = async (why: string, restart = false) => {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
@@ -90,7 +90,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   const onSignal = (signal: string) => stop(signal);
   proc.on("SIGINT", () => onSignal("SIGINT"));
   proc.on("SIGTERM", () => onSignal("SIGTERM"));
-  proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘 · SSH 끊김
+  proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘, SSH 끊김
 
   // Windows 콘솔의 Ctrl+C 는 프로세스 신호로 안 오는 때가 있어 입력 쪽에서도 받는다
   if (proc.platform === "win32" && proc.stdin.isTTY) {
@@ -98,7 +98,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   }
 
   return {
-    /** 봇(클라이언트 · 플레이어)을 붙인다. 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다 */
+    /** 봇(클라이언트, 플레이어)을 붙인다. 이제부터 끄면 세션을 저장하고 연결, 봇까지 정리한다 */
     attach(next: ShutdownBot) {
       bot = next;
     },
@@ -151,7 +151,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   for (const [, player] of players) player?.voice.release(reason);
 }
 
-/** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
+/** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정, 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
   const { killAll, exit, record } = { ...REAL, ...boundary };
   log.info("종료 시작: 기동 실패");
@@ -161,7 +161,7 @@ function stopFailedStart(client: { destroy(): unknown } | null, { potServer, log
     .finally(() => setTimeout(() => exit(code), graceMs));
 }
 
-// 봇이 실행한 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
+// 봇이 실행한 것을 내린다. 클라이언트, POToken 서버, 자식 프로세스, 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
 async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">) {
   if (client) {
     client.destroy();

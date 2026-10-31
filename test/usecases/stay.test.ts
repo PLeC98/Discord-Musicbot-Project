@@ -1,4 +1,4 @@
-// src/usecases/stay.ts: 24/7 켜기 · 끄기. 자리는 봇이 있는 채널(없으면 부른 사람의 채널에 붙은 뒤), 스테이지는 받지 않는다
+// src/usecases/stay.ts: 24/7 켜기, 끄기. 자리는 봇이 있는 채널(없으면 부른 사람의 채널에 붙은 뒤), 스테이지는 받지 않는다
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -33,7 +33,7 @@ test("켜기: 봇이 있는 채널을 자리로 적고 퇴장 판정을 다시 �
   assert.equal(seen.reconsider, 2);
 });
 
-test("켜기 거절: 서버 관리 권한이 없으면 · 스테이지면", async () => {
+test("켜기 거절: 서버 관리 권한이 없으면, 스테이지면", async () => {
   const voice = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: member(false) }), { ok: false, code: "must-moderator" });
   const stage = seated({ id: "st1", name: "무대", type: ChannelType.GuildStageVoice });

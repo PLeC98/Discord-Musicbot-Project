@@ -1,6 +1,6 @@
 // settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 복호화된다.
 //   daily           하루 한 번(기동 시 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
-//   before-import   설정을 불러오기 전 · before-restore 복원으로 교체하기 전 · before-reset 초기화하기 전. 셋 합쳐 5개
+//   before-import   설정을 불러오기 전, before-restore 복원으로 교체하기 전, before-reset 초기화하기 전. 셋 합쳐 5개
 // 복원: 선택한 스냅샷을 settings.restore.db 로 예약하면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB 를 교체하지 않는다).
 
 import fs from "fs";
@@ -48,7 +48,7 @@ function list(dir = dbDir()): Snapshot[] {
     .sort((a, b) => b.at - a.at || b.name.localeCompare(a.name));
 }
 
-// 오래된 것을 삭제한다(매일 것 · 그 밖의 것 따로)
+// 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로)
 function prune(dir: string) {
   const all = list(dir);
   const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
@@ -88,7 +88,7 @@ function stopDaily() {
   timer = null;
 }
 
-// 스냅샷 파일이 이 봇의 settings.db 형식인지(구조 버전 · 표). 아니면 던진다
+// 스냅샷 파일이 이 봇의 settings.db 형식인지(구조 버전, 표). 아니면 던진다
 function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {

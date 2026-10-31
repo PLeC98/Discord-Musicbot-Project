@@ -2,7 +2,7 @@
 // 크기는 슬롯을 줄 때마다 다시 읽는다(조절값을 바꾸면 다음 슬롯부터 따른다). 줄이면 도는 것이 끝나기를 기다린다
 
 type Waiter = { rank: number; enter: (leave: () => void) => void; refuse: (error: unknown) => void };
-/** 지금 도는 수 · 크기 · 기다리는 수 */
+/** 지금 도는 수, 크기, 기다리는 수 */
 type SlotStats = { running: number; size: number; waiting: number };
 
 class SlotQueue {

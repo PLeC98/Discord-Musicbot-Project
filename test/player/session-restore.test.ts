@@ -67,7 +67,7 @@ test("길드가 실제로 사라졌을 때만 gone. 재시도 없이 즉시", as
   }
 });
 
-test("네트워크·레이트리밋 실패는 세션을 삭제하지 않는다", async () => {
+test("네트워크, 레이트리밋 실패는 세션을 삭제하지 않는다", async () => {
   for (const err of [new Error("getaddrinfo ENOTFOUND"), Object.assign(new Error("429 Too Many Requests"), { status: 429 }), Object.assign(new Error("500 Internal Server Error"), { status: 500 })]) {
     const client = makeClient(() => {
       throw err;
@@ -143,7 +143,7 @@ function fakePlayerClass({ restoreFails = false } = {}) {
       this.calls.push(`dispose:${o.reason}:${o.session}`);
     }
   }
-  // 플레이어를 만드는 곳에 넘긴다. 복원이 부르는 것(persistence.restoreFromState · dispose)만 갖췄다
+  // 플레이어를 만드는 곳에 넘긴다. 복원이 부르는 것(persistence.restoreFromState, dispose)만 갖췄다
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
@@ -187,7 +187,7 @@ test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
   sessions().removeSession("r9");
 });
 
-test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 플레이어는 버리되 세션은 남긴다. 다음 기동 · /join 이 다시 해 본다", async () => {
+test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 플레이어는 버리되 세션은 남긴다. 다음 기동, /join 이 다시 해 본다", async () => {
   saved("r2");
   const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
@@ -213,7 +213,7 @@ test("복원: 텍스트 채널 기록이 없는 세션(전용 채널 없이 대�
   sessions().removeSession("r6");
 });
 
-test("복원: 채널을 잠깐 못 불러왔으면(네트워크 · 5xx) 세션을 남기고, 없다는 확답(10003 · 50001)이면 지운다", async () => {
+test("복원: 채널을 잠깐 못 불러왔으면(네트워크, 5xx) 세션을 남기고, 없다는 확답(10003, 50001)이면 지운다", async () => {
   const failing = (code: unknown) => fake<Guild>({ id: `c${String(code)}`, name: "서버", channels: { cache: new Map(), fetch: async () => Promise.reject(Object.assign(new Error("조회 실패"), { code })) } });
   const guilds = [failing("ECONNRESET"), failing(500), failing(RESTJSONErrorCodes.UnknownChannel), failing(RESTJSONErrorCodes.MissingAccess)];
   for (const g of guilds) saved(g.id);

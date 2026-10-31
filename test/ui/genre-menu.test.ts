@@ -1,6 +1,6 @@
 // src/ui/genre-menu.ts: 자동재생 장르 선택 화면.
 //
-// 켜기(버튼)와 끄기·명령이 한 빌더를 지나는지 잠가 둔다(각자 만들면 한쪽만 어긋난다). 선택한 값은 식별자(키), 보이는 것은 라벨(label, 없으면 식별자).
+// 켜기(버튼)와 끄기, 명령이 한 빌더를 지나는지 잠가 둔다(각자 만들면 한쪽만 어긋난다). 선택한 값은 식별자(키), 보이는 것은 라벨(label, 없으면 식별자).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +22,7 @@ const menuOf = (payload: ReturnType<typeof buildGenreMenu>) => {
   return { custom_id: select.custom_id, options: select.options };
 };
 
-test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
+test("켜기, 끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
   const on = menuOf(buildGenreMenu());
   const off = menuOf(buildAutoplayOffMenu());
 

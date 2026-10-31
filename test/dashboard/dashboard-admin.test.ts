@@ -1,5 +1,5 @@
-// src/dashboard/routes/admin.ts: 봇 운영자 API 통합 테스트(상태 · 서버 목록 · 나가기 · 재배포 · 공지 · 설정 문서 · AI 보조 · 다시 시작 · 실시간 로그).
-// 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 해시 경로는 배포 함수에 넘긴다(실 배포·운영 DB 없음).
+// src/dashboard/routes/admin.ts: 봇 운영자 API 통합 테스트(상태, 서버 목록, 나가기, 재배포, 공지, 설정 문서, AI 보조, 다시 시작, 실시간 로그).
+// 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 해시 경로는 배포 함수에 넘긴다(실 배포, 운영 DB 없음).
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -34,7 +34,7 @@ const config = (await import("../../src/config/index.ts")).default;
 const { BOT_VERSION } = await import("../../src/infra/version.ts");
 const { MAX_DEPTH } = await import("../../src/media/encode-pool.ts");
 
-/** 거절 · 확인 답의 필드. 경로마다 읽는 필드가 더 있으면 부를 때 모양을 적는다 */
+/** 거절, 확인 답의 필드. 경로마다 읽는 필드가 더 있으면 부를 때 모양을 적는다 */
 type Reply = ProblemReply & { success?: boolean };
 
 // 재배포 경로가 운영 배포 해시(database/deployed-commands.json)을 기록하지 않도록 임시 경로로
@@ -228,13 +228,13 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   assert.deepEqual({ ...r.json.encoding, max: 0 }, { max: 0, maxDepth: MAX_DEPTH, quota: r.json.encoding.quota, sessions: 0, late: 0, deaths: 0, workers: [] });
   assert.ok(r.json.encoding.max >= 1);
   // 플레이어 줄: 소리가 붙지 않았으면 곡 없이 대기, 대기열 곡 수, 보는 운영자가 멤버인지
-  // 쿼리가 없으면 화면의 처음 값(재생 중 · 일시정지만)이라 곡 없이 대기는 개수에만
+  // 쿼리가 없으면 화면의 처음 값(재생 중, 일시정지만)이라 곡 없이 대기는 개수에만
   assert.deepEqual(r.json.players, { voiceConnections: 0, queued: 1, listeners: 0, counts: { playing: 0, paused: 0, idle: 1 }, matched: 0, from: 0, rows: [] });
   const idle = await req<AdminStatus>("GET", "/api/admin/status?states=idle");
   assert.deepEqual(idle.json.players.rows, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
   const { ytdlp, ...processes } = r.json.processes;
   assert.deepEqual(processes, { total: 0, byLabel: [], memMb: 0, stray: [], strayMore: 0, from: 0, rows: [] });
-  // yt-dlp 줄: 도는 것 · 기다리는 것 없이 크기만, 지난 1시간 추출 수
+  // yt-dlp 줄: 도는 것, 기다리는 것 없이 크기만, 지난 1시간 추출 수
   assert.deepEqual([ytdlp.lookup.running, ytdlp.lookup.waiting, ytdlp.background.running, ytdlp.background.waiting], [0, 0, 0, 0]);
   assert.ok(ytdlp.lookup.size >= 2 && ytdlp.lookup.size <= 8, `곡 찾기 줄 ${ytdlp.lookup.size}`);
   assert.ok(ytdlp.background.size >= 2 && ytdlp.background.size <= 4, `다운로드 줄 ${ytdlp.background.size}`);
@@ -260,7 +260,7 @@ test("GET guilds: 참가 서버 목록 + 재생 여부, 쿼리로 필터링된 �
 
 // ── 서버 나가기 ──────────────────────────────────────────────
 
-test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 삭제 · 끝난 패널) 나간다", async () => {
+test("POST leave: 재생 중 서버는 플레이어를 버리고(세션 삭제, 끝난 패널) 나간다", async () => {
   const r = await req<{ name: string }>("POST", "/api/admin/guilds/100/leave");
   assert.equal(r.status, 200);
   assert.equal(r.json.name, "AlphaGuild");
@@ -300,7 +300,7 @@ test("POST broadcast: 빈 내용 400", async () => {
 });
 
 // message가 객체여도 500(TypeError)이 아니라 검증 오류로 답한다.
-test("POST broadcast: 문자열·길이·종류를 검증한다", async () => {
+test("POST broadcast: 문자열, 길이, 종류를 검증한다", async () => {
   for (const body of [{ message: { evil: 1 } }, { message: 42 }, {}]) {
     const r = await req("POST", "/api/admin/broadcast", body);
     assert.equal(r.status, 400, JSON.stringify(body));
@@ -345,7 +345,7 @@ test("POST broadcast: 봇 채널 우선 발송 + 집계", async () => {
   assert.equal((g1.botChannel.sent[0].embeds[0] as { toJSON(): { color?: number } }).toJSON().color, 0xfee75c);
 });
 
-// ── 설정 문서 (장르 · 상태 문구 · AI 설정 · 프롬프트) ────────────────────────────────
+// ── 설정 문서 (장르, 상태 문구, AI 설정, 프롬프트) ────────────────────────────────
 //
 // 봇 전체 동작을 바꾸는 경로다. 권한이 새면 가장 크게 새므로 비운영자 차단을 먼저 잠근다.
 // 문서는 메모리에만 둔다(저장소를 붙이지 않는다). 함께 쓰기의 트랜잭션은 test/config/documents.test.ts 가 본다.
@@ -429,7 +429,7 @@ test("설정: 저장할 때 출처 주소의 추적 쿼리를 버리고, 응답�
   assert.equal((await putDoc("genres", kept)).status, 200);
 });
 
-// 두 탭 · 두 사람이 같은 문서를 고치면 나중 저장이 앞 저장을 모르고 덮는다. 읽은 번호가 낡았으면 거절한다
+// 두 탭, 두 사람이 같은 문서를 고치면 나중 저장이 앞 저장을 모르고 덮는다. 읽은 번호가 낡았으면 거절한다
 test("설정: 읽은 뒤 그사이 저장됐으면 409 config-changed, 문서는 그대로", async () => {
   const { json: read } = await req<GenresConfig>("GET", "/api/admin/config/genres");
   assert.equal((await putDoc("genres", read.data)).status, 200, "다른 탭이 먼저 저장했다");
@@ -457,7 +457,7 @@ test("설정: 내용이나 저장 번호가 없으면 400", async () => {
 
 // ── 소스 편집기 자동완성 ─────────────────────────────────────────────────────
 
-test("자동완성: 받을 수 있는 종류 · 필드 · 검색어만 저쪽에 묻고, 저쪽이 실패하면 502", async () => {
+test("자동완성: 받을 수 있는 종류, 필드, 검색어만 저쪽에 묻고, 저쪽이 실패하면 502", async () => {
   const asked: URL[] = [];
   let down = false;
   useFetch(
@@ -566,7 +566,7 @@ test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
   assert.equal((await req("POST", "/api/admin/ai/judge/lookup", { urls: new Array(21).fill("https://youtu.be/x") })).status, 400, "한 번에 20개까지");
 });
 
-// 목록 형식·장르를 고치면 조회를 다시 하지 않고 줄만 다시 그린다.
+// 목록 형식, 장르를 고치면 조회를 다시 하지 않고 줄만 다시 그린다.
 test("AI 보조: 후보를 프롬프트에 적히는 줄로 그린다", async () => {
   const cands = [
     { url: "a", error: "못 읽음" },
@@ -620,7 +620,7 @@ test("AI 보조: 그 모델이 받는 필드를 알려 준다", async () => {
   assert.ok(json.models.length > 5, "그 프로바이더가 아는 모델 목록도 준다");
 });
 
-test("AI 보조: 프로필이 없는 프로바이더·모델은 빈 손으로", async () => {
+test("AI 보조: 프로필이 없는 프로바이더, 모델은 빈 손으로", async () => {
   const local = await req<ModelFields>("GET", "/api/admin/ai/fields?provider=ollama&model=gemma3n:e2b");
   assert.equal(local.json.known, false, "로컬은 프로필이 없다");
   assert.deepEqual(local.json.fields, []);
@@ -682,7 +682,7 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   // 빈 값이면 삭제한다
   assert.equal((await req<Keys>("PUT", "/api/admin/ai/keys", { keys: { groq: "" } })).json.hasKey.groq, false);
 
-  // 모르는 이름 · 키를 안 쓰는 프로바이더는 받지 않는다
+  // 모르는 이름, 키를 안 쓰는 프로바이더는 받지 않는다
   assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { 엉뚱한것: "x" } })).status, 400);
   assert.equal((await req("PUT", "/api/admin/ai/keys", { keys: { ollama: "x" } })).status, 400);
 
@@ -692,7 +692,7 @@ test("AI 키: 넣을 수는 있어도 되읽을 수는 없다", async () => {
   currentUser = { id: "owner", username: "owner" };
 });
 
-// 키는 화면이 지금 입력해 둔 주소 · 리전에 묶인다. 저장된 설정이 다른 곳을 가리키면 "다시 넣어야 함"으로 보인다
+// 키는 화면이 지금 입력해 둔 주소, 리전에 묶인다. 저장된 설정이 다른 곳을 가리키면 "다시 넣어야 함"으로 보인다
 test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, 저장된 설정과 다른 곳에 묶였으면 moved", async () => {
   const account = JSON.stringify({ client_email: "bot@p.iam.gserviceaccount.com", private_key: "-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----\n" });
   const asPath = await req<ProblemReply>("PUT", "/api/admin/ai/keys", { keys: { vertex: "C:/keys/sa.json" }, data: { provider: "vertex" } });
@@ -712,7 +712,7 @@ test("AI 키: 버텍스는 JSON 내용만, 묶을 주소가 없으면 거절, �
   await req("PUT", "/api/admin/ai/keys", { keys: { vertex: "" } });
 });
 
-// 넣기 · 삭제는 로그인한 지 10분 안이어야 한다(훔친 로그인 쿠키로 키를 교체하지 못하게)
+// 넣기, 삭제는 로그인한 지 10분 안이어야 한다(훔친 로그인 쿠키로 키를 교체하지 못하게)
 test("AI 키: 로그인한 지 오래됐으면 reauth-required", async () => {
   const app = express();
   app.use(bodyLimit());
@@ -864,7 +864,7 @@ test("AI 설정과 프롬프트 한 번에: 둘 다 검사한 뒤 쓰고, 낡은
 });
 
 // 켜 두었는데 주소가 비면 매번 실패하고 로그만 쌓인다. 저장 전에 막는다.
-test("AI 보조 설정: 켤 때만 주소·모델을 따진다", async () => {
+test("AI 보조 설정: 켤 때만 주소, 모델을 따진다", async () => {
   const ok = await putDoc("ai", { provider: "off", baseUrl: "", model: "" });
   assert.equal(ok.status, 200, "꺼 둔 설정이 반쯤 비어 있는 것은 문제가 아니다");
 
@@ -953,7 +953,7 @@ async function firstChunk(urlPath: string, headers: Record<string, string> = {})
   return { status: res.status, text };
 }
 
-test("GET logs/stream: 마지막으로 받은 줄 뒤부터 보낸다(?after= · Last-Event-ID). 상한을 넘으면 too-many-streams", async () => {
+test("GET logs/stream: 마지막으로 받은 줄 뒤부터 보낸다(?after=, Last-Event-ID). 상한을 넘으면 too-many-streams", async () => {
   currentUser = { id: "owner", username: "owner" };
   logSink.record({ level: 30, time: 1, msg: "앞 줄" });
   const mark = `${logSink.boot}.${logSink.lastId}`;

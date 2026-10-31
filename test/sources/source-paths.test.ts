@@ -1,7 +1,7 @@
-// src/sources/lookup.ts · youtube/equivalent.ts · stream-url.ts: 곡 찾기 · 유튜브 매칭 · 스트림의 분기를 고정한다
-// (링크 종류별 조회 · 캐시 지름길 · 키 만들기 · 유튜브 매칭 · 재검색 · 스트림).
+// src/sources/lookup.ts, youtube/equivalent.ts, stream-url.ts: 곡 찾기, 유튜브 매칭, 스트림의 분기를 고정한다
+// (링크 종류별 조회, 캐시 지름길, 키 만들기, 유튜브 매칭, 재검색, 스트림).
 //
-// 부르는 소스(YouTube · Spotify · SoundCloud · DirectLink)는 가짜를 넘기고, 링크 데이터는 진짜 저장소를 임시 DB 로 쓴다.
+// 부르는 소스(YouTube, Spotify, SoundCloud, DirectLink)는 가짜를 넘기고, 링크 데이터는 진짜 저장소를 임시 DB 로 쓴다.
 // 유튜브 검색 결과도 트랙 모양이다(음원 주소가 audioUrl).
 
 import fs from "node:fs";
@@ -53,7 +53,7 @@ const found = (title: string, extra: Partial<TrackInfo> = {}): TrackInfo => ({ t
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
-test("링크 종류: 유튜브 · 스포티파이 · 사운드클라우드 · 직접 링크, 검색어는 유튜브(검색), 알려진 사이트의 다른 주소는 unknown", () => {
+test("링크 종류: 유튜브, 스포티파이, 사운드클라우드, 직접 링크, 검색어는 유튜브(검색), 알려진 사이트의 다른 주소는 unknown", () => {
   const cases = [
     ["https://youtu.be/aaaaaaaaaaa", "youtube"],
     ["https://open.spotify.com/track/abc", "spotify"],
@@ -122,7 +122,7 @@ test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않
   assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "yt-unplayable" });
 });
 
-test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
+test("조회: 스포티파이 앨범, 가수, 재생목록은 모음으로, 곡은 한 곡으로, 글자는 스포티파이 검색으로", async () => {
   const spotify = { spotify: { ...Spotify, getCollection: async (url: string) => ({ tracks: [found(url)], total: 12, nextOffset: 1 }) } };
   const album = await lookup.getTrackData("https://open.spotify.com/album/al1", undefined, undefined, spotify);
   assert.deepEqual([album.isPlaylist, album.collection, album.total], [true, "album", 12]);
@@ -130,7 +130,7 @@ test("조회: 스포티파이 앨범 · 가수 · 재생목록은 모음으로, 
   assert.deepEqual([one.isPlaylist, one.collection, one.total, one.nextOffset], [false, null, null, null]);
 });
 
-// 사운드클라우드 곡 · 세트의 한 구간, 곡 찾기가 넘기는 것. 요청한 주소와 구간을 적는다
+// 사운드클라우드 곡, 세트의 한 구간, 곡 찾기가 넘기는 것. 요청한 주소와 구간을 적는다
 const scAsked: Array<{ url: string; range?: Range & { what?: string } }> = [];
 const scTrack = (url: string) => ({ ...found(url), platform: "soundcloud" as const, audioUrl: url, pageUrl: url, requestKey: url });
 const soundcloud = (kind: "track" | "set", skipped = 0, tracks = 2) => ({
@@ -141,7 +141,7 @@ const soundcloud = (kind: "track" | "set", skipped = 0, tracks = 2) => ({
   },
 });
 
-test("조회: 사운드클라우드 곡 링크 · 직접 링크는 한 곡", async () => {
+test("조회: 사운드클라우드 곡 링크, 직접 링크는 한 곡", async () => {
   const sources = { soundcloud: soundcloud("track"), direct: { getInfo: async (url: string) => [found(url)] } };
   scAsked.length = 0;
   const sc = await lookup.getTrackData("https://soundcloud.com/a/b", undefined, undefined, sources);
@@ -151,7 +151,7 @@ test("조회: 사운드클라우드 곡 링크 · 직접 링크는 한 곡", asy
   assert.equal(direct.tracks?.[0].title, "https://files.test/a.mp3");
 });
 
-// 받는 범위: 곡 · 세트 · 짧은 링크. 프로필 · 좋아요 같은 모음은 조회하지 않고 알린다
+// 받는 범위: 곡, 세트, 짧은 링크. 프로필, 좋아요 같은 모음은 조회하지 않고 알린다
 test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 곡 수), 모음 링크는 거절", async () => {
   scAsked.length = 0;
   const set = await lookup.getTrackData("https://soundcloud.com/a/sets/b", undefined, { limit: 50 }, { soundcloud: soundcloud("set", 3) });
@@ -188,7 +188,7 @@ test("조회: 결과가 없으면 no-song-result, 던지면 lookup-failed 와 �
   assert.deepEqual(await lookup.getTrackData("끊긴 곡", undefined, undefined, broken), { success: false, code: "lookup-failed", error: boom });
 });
 
-test("조회 실패의 안내문: 까닭의 문장 · 조회가 던진 오류는 그 종류로", async () => {
+test("조회 실패의 안내문: 까닭의 문장, 조회가 던진 오류는 그 종류로", async () => {
   const { addFailureMessage } = await import("../../src/ui/error-messages.ts");
   assert.equal(plainText(addFailureMessage({ code: "no-song-result" })), "곡을 찾지 못했어요.\n다른 검색어나 링크로 시도해 주세요.");
   assert.equal(plainText(addFailureMessage({ code: "unsupported-link" })), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
@@ -198,7 +198,7 @@ test("조회 실패의 안내문: 까닭의 문장 · 조회가 던진 오류는
   assert.match(plainText(addFailureMessage({ code: "lookup-failed" })), /예상치 못한 오류예요/, "종류를 모르면 unknown");
 });
 
-test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
+test("모음 이어 받기: 유튜브 재생목록, 스포티파이, 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {
   const gone = { youtube: { ...YouTube, getPlaylist: async () => null } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", { offset: 50, limit: 10 }, gone), { tracks: [], total: null, nextOffset: null });
   const one = found("1", { id: "1" });
@@ -222,7 +222,7 @@ test("모음 이어 받기: 유튜브 재생목록 · 스포티파이 · 사운�
   assert.deepEqual(await lookup.getCollection("https://soundcloud.com/a/b", undefined, { soundcloud: soundcloud("track") }), { tracks: [], total: null, nextOffset: null }, "곡 링크는 모음이 아니다");
 });
 
-test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데이터의 트랙으로. 재생목록 · 모르는 유튜브 링크는 지름길을 안 탄다", async () => {
+test("캐시 지름길: 캐시 파일이 있는 곡은 조회 없이 링크 데이터의 트랙으로. 재생목록, 모르는 유튜브 링크는 지름길을 안 탄다", async () => {
   const url = "https://www.youtube.com/watch?v=ccccccccccc";
   const file = audioCache.getFilePath("yt:ccccccccccc");
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -290,7 +290,7 @@ test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 �
 });
 
 // ── 직접 지정한 음원 ──────────────────────────────────────────────────
-// 운영자가 캐시 DB 에서 지정한 음원이 링크 데이터 · 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
+// 운영자가 캐시 DB 에서 지정한 음원이 링크 데이터, 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
 
 test("지정한 음원: 링크 데이터가 표시 정보를 기억하면 조회 없이 그 정보와 지정한 음원으로 곡을 만든다", async () => {
   const url = "https://www.youtube.com/watch?v=pinlookup01";
@@ -304,7 +304,7 @@ test("지정한 음원: 링크 데이터가 표시 정보를 기억하면 조회
   assert.deepEqual([got.success, got.isPlaylist, t?.title, t?.requestKey, t?.audioUrl, t?.audioFoundBy, t?.isLive], [true, false, "원래 제목", url, "https://soundcloud.com/pinned/track", "pinned", false]);
 });
 
-test("지정한 음원: 원래 영상이 죽었어도 지정한 음원에서 읽은 제목으로 곡을 만든다. 요청 키 · 링크 · 출처는 원래 요청의 것", async () => {
+test("지정한 음원: 원래 영상이 죽었어도 지정한 음원에서 읽은 제목으로 곡을 만든다. 요청 키, 링크, 출처는 원래 요청의 것", async () => {
   const url = "https://www.youtube.com/watch?v=pindead0001";
   pinnedSources.setPin(url, "https://soundcloud.com/alive/song");
   const dead = { youtube: { ...YouTube, search: async () => [] }, soundcloud: { find: async (scUrl: string) => ({ kind: "track" as const, track: { ...scTrack(scUrl), title: "살아 있는 음원의 제목" } }) } };
@@ -333,7 +333,7 @@ test("지정한 음원: 재생목록 주소는 지정 하나로 바뀌지 않는
   assert.equal(got.isPlaylist, true);
 });
 
-test("동등물: 지정한 음원이 있으면 검색 · 링크 데이터보다 먼저 쓰고, 다시 찾을 때(skipPin)는 건너뛴다", async () => {
+test("동등물: 지정한 음원이 있으면 검색, 링크 데이터보다 먼저 쓰고, 다시 찾을 때(skipPin)는 건너뛴다", async () => {
   const sp = "https://open.spotify.com/track/pinequiv01";
   trackLookup.recordTrackLookup({ requestKey: sp, pageUrl: sp, audioUrl: "https://www.youtube.com/watch?v=ledgerequiv", platform: "spotify", title: "곡" });
   pinnedSources.setPin(sp, "https://soundcloud.com/pinned/equiv");
@@ -348,7 +348,7 @@ test("동등물: 지정한 음원이 있으면 검색 · 링크 데이터보다 
   assert.equal(skipping.audioFoundBy, "ledger");
 });
 
-// ── 유튜브 매칭 · 재검색 ──────────────────────────────────────────────
+// ── 유튜브 매칭, 재검색 ──────────────────────────────────────────────
 
 test("동등물: 링크 데이터에 매핑이 있으면 검색하지 않고 쓰며, 링크 데이터에서 왔다고 표시한다", async () => {
   audioCache.recordDownloadStart("yt:fffffffffff", { title: "t" });
@@ -436,7 +436,7 @@ test("스트림: 링크 데이터에서 온 영상이 내려갔으면 한 번 �
 
 // ── 직접 지정한 음원이 죽었을 때 ──────────────────────────────────────────
 
-test("사라졌다는 판정: 확실히 사라진 것만(일시 오류 · 연령 제한으로 지정을 버리지 않는다)", async () => {
+test("사라졌다는 판정: 확실히 사라진 것만(일시 오류, 연령 제한으로 지정을 버리지 않는다)", async () => {
   const { deadSourceCode } = await import("../../src/sources/dead-source.ts");
   assert.equal(deadSourceCode(new Error("ERROR: [youtube] abc: Video unavailable")), "unavailable-contents");
   assert.equal(deadSourceCode(codedError("unavailable-contents", "HTTP Error 404")), "unavailable-contents");
@@ -498,7 +498,7 @@ test("스트림: 직접 링크 요청의 지정이 사라졌으면 그 링크로
   assert.equal((await streamUrl.getStream(auto, { youtube, soundcloud: deadSoundCloud, equivalent })).url, "https://www.youtube.com/watch?v=lfmledger01#stream");
 });
 
-test("스트림: 지정한 음원이 라이브(방송 중 · 시작 전 · 인터넷 라디오)면 사라진 것과 같이 원래 링크로, 결과는 live", async () => {
+test("스트림: 지정한 음원이 라이브(방송 중, 시작 전, 인터넷 라디오)면 사라진 것과 같이 원래 링크로, 결과는 live", async () => {
   const { getCheck } = await import("../../src/store/source-checks.ts");
   for (const liveStatus of ["is_live", "is_upcoming"]) {
     const url = `https://www.youtube.com/watch?v=pinlive${liveStatus === "is_live" ? "0001" : "0002"}`;

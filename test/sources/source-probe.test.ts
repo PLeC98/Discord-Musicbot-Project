@@ -44,7 +44,7 @@ test("사운드클라우드: 열리면 됨, 미리듣기만이면 그 코드", a
   assert.deepEqual(await probeSource(sc, openers({ soundcloud: fail("sc-preview-only") })), { ok: false, code: "sc-preview-only" });
 });
 
-test("직접 링크: 열자마자 끊고, 인터넷 라디오 · 라이브 HLS 면 live", async () => {
+test("직접 링크: 열자마자 끊고, 인터넷 라디오, 라이브 HLS 면 live", async () => {
   const url = "https://cdn.example.net/a.mp3";
   const opened: PassThrough[] = [];
   const open = (radio: boolean) =>

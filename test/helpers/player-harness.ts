@@ -3,12 +3,12 @@
 // 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 일부만 테스트하므로, 생성자와 협력자가 다 얽힌
 // play() 는 돌지 않는다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
 //
-//   음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소
-//                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령 · 곡 추가가
+//   음성 라이브러리, ffmpeg, 청크 스트림, HTTP, 직접 링크, 스트림 주소
+//                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령, 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 DB                                진짜 audioCache 를 임시 DB 로. "캐시 DB 에 무엇을 적었나"를 그대로 본다
-//   다운로드 · SponsorBlock · 유튜브 매칭   테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
-//   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
+//   다운로드, SponsorBlock, 유튜브 매칭   테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
+//   음성 연결, 세션 저장, 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
@@ -56,7 +56,7 @@ const calls = {
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
   seeks: [] as SeekRequest[], // 인덱스로 받기 시작할 위치를 조회한 요청
-  chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 테스트가 정한다
+  chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양, 이어받는 중인가는 테스트가 정한다
   fragments: [] as FragmentOptions[], // 세그먼트 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
@@ -230,7 +230,7 @@ const VoiceLink = (await import("../../src/player/voice-link.ts")).VoiceLink;
 const SessionPersistence = (await import("../../src/player/session-mirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queue-warmer.ts")).QueueWarmer;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
-// 직접 링크 곡의 파일 태그 · 앨범아트 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
+// 직접 링크 곡의 파일 태그, 앨범아트 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
 (await import("../../src/sources/embedded-art.ts"))._internals.useOpen(async () => {
   throw new Error("테스트에서는 원본을 열지 않는다");
 });
@@ -238,9 +238,9 @@ const playerEvents = await import("../../src/player/events.ts");
 // 운영처럼 버려진 플레이어는 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만). 서버마다 레지스트리가 따로라 알림은 여기서 한 번만 듣는다
 playerEvents.on("disposed", (player) => registryOf(player)?.forget(player));
 
-// 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
+// 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice, createPersistence, createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 테스트는 emit 으로 상태를 흉내 낸다
-// 부순 방식(leave: 나감 메시지 · stay: 채널에 남음)을 destroyed 에 적는다
+// 부순 방식(leave: 나감 메시지, stay: 채널에 남음)을 destroyed 에 적는다
 const fakeConnection = () =>
   Object.assign(new EventEmitter(), {
     state: { status: "ready" },
@@ -346,7 +346,7 @@ const behavior: Behavior = {
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
   seekStart: null, // (request) → 인덱스의 답. 기본은 없음(처음부터 받는다)
   directStream: null, // (url) → Readable
-  restore: null, // function (record), this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
+  restore: null, // function (record), this 는 플레이어. 세션 복원(명령, 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
   connect: null, // () → 던지면 음성 채널에 붙지 못함
   encoder: null, // () → false 면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
@@ -388,7 +388,7 @@ class FakeDownloader extends TrackDownloader {
   }
 }
 // 플레이어의 바깥 경계. 이 뒤로 만드는 플레이어가 모두 쓴다
-// 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP 가짜는 여기서 한 번씩 진짜 타입으로 본다(테스트가 읽는 필드만 흉내 낸다)
+// 음성 라이브러리, ffmpeg, 청크 스트림, HTTP 가짜는 여기서 한 번씩 진짜 타입으로 본다(테스트가 읽는 필드만 흉내 낸다)
 const fakes: Partial<Boundary> = {
   createAudioPlayer: () => new FakeAudioPlayer() as unknown as AudioPlayer,
   createVoice: (player) => new FakeVoice(player),
@@ -484,7 +484,7 @@ function seedCache(key: string, track: QueuedTrack, { durationSec = 200 } = {}) 
 }
 
 function reset() {
-  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice 가 교체 · Idle 때, 정리가 버릴 때 destroy 한다
+  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice 가 교체, Idle 때, 정리가 버릴 때 destroy 한다
   for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;
@@ -512,7 +512,7 @@ const audioRow = (key: string) => cacheDb.get().prepare<[string], AudioRow>("SEL
 /** 예약한 타이머의 시간(Node 타이머의 내부 필드). 취소한 타이머는 -1 */
 const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;
 
-/** 플레이어의 가짜 오디오 플레이어. 테스트가 멈춘 횟수 · 튼 것을 본다 */
+/** 플레이어의 가짜 오디오 플레이어. 테스트가 멈춘 횟수, 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
 export { Player, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, registryOf, TMP };

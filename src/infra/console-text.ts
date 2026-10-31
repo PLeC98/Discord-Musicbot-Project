@@ -1,5 +1,5 @@
-// 바깥 프로그램(tasklist · taskkill · powershell · ps)의 출력 글. UTF-8 이 아니면 Windows 콘솔 코드 페이지(OEMCP: 한국어 949 · 일본어 932 등)로 읽는다.
-// 그 코드 페이지를 읽을 디코더가 없으면(437 · 850 같은 영어권 OEM, 메시지는 대개 ASCII) latin1 로 읽는다
+// 바깥 프로그램(tasklist, taskkill, powershell, ps)의 출력 글. UTF-8 이 아니면 Windows 콘솔 코드 페이지(OEMCP: 한국어 949, 일본어 932 등)로 읽는다.
+// 그 코드 페이지를 읽을 디코더가 없으면(437, 850 같은 영어권 OEM, 메시지는 대개 ASCII) latin1 로 읽는다
 
 import { execFileSync } from "node:child_process";
 import logger from "./log/logger.ts";

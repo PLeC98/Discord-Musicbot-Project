@@ -1,6 +1,6 @@
 // src/dashboard/routes/player.ts: 플레이어 조작 API의 입력 검증
-// 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity" · "50junk" 같은 느슨한 숫자,
-// 로그 · yt-dlp 로 흘러갈 제어문자를 막는다.
+// 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity", "50junk" 같은 느슨한 숫자,
+// 로그, yt-dlp 로 흘러갈 제어문자를 막는다.
 // 실 라우터 + fake client/player, 모더레이터 멤버로 권한 게이트를 지나 검증 로직만 조준.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
@@ -76,7 +76,7 @@ function makePlayer() {
       this.calls.push(["play", ms]);
     },
     // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분하는 한 통로).
-    // 넘기기 · 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
+    // 넘기기, 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
     async untilSwitched() {},
     async seek(ms: number, reason: string) {
       this.calls.push(["seek", ms, reason]);
@@ -102,7 +102,7 @@ const guild = {
   roles: { cache: new Map() },
   channels: { cache: new Map() },
   members: {
-    // 그 서버의 모더레이터(재적 · DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
+    // 그 서버의 모더레이터(재적, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
     fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
@@ -197,7 +197,7 @@ test("volume: '50junk'/소수는 400. 구 parseInt는 50으로 통과", async ()
   assert.deepEqual(player.calls, [["setVolume", 70]]);
 });
 
-test("순번으로 빼기 · 옮기기 경로는 없다(대기열 ID 경로만)", async () => {
+test("순번으로 빼기, 옮기기 경로는 없다(대기열 ID 경로만)", async () => {
   freshPlayer();
   assert.equal((await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/1`)).status, 404);
   assert.equal((await req("POST", `/api/guilds/${GUILD_ID}/player/queue/move`, { from: 0, to: 2 })).status, 404);
@@ -299,7 +299,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("대기열 ID: 상태에 싣고, 빼기 · 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
+test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), queue: [entered("새 곡", 14), entered("q0", 11), entered("q1", 12), entered("q2", 13)] });
   Object.assign(p, {
@@ -333,7 +333,7 @@ test("대기열 ID: 상태에 싣고, 빼기 · 옮기기는 그 곡을 가리�
   for (const body of [{ entry: 13 }, { entry: "13", before: null }, { entry: 1.5, before: null }, {}]) assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, body)).status, 400, JSON.stringify(body));
 });
 
-test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기기 · 이전 · 이동 · 하이라이트를 409 로 거절한다", async () => {
+test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기기, 이전, 이동, 하이라이트를 409 로 거절한다", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), sponsor: { highlightAt: 5 }, previousTracks: [makeTrack("전곡")], skip: () => (p.calls.push(["skip"]), true), previous: () => true, _restartsOnPrevious: () => false });
   for (const [action, body] of [
@@ -406,7 +406,7 @@ test("조작 거절은 디스코드와 같은 코드의 문제 응답으로 보�
   assert.deepEqual(r.json, { type: "/problems/no-song", code: "no-song", status: 409, title: "Nothing is playing" });
 });
 
-test("볼륨 · 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
+test("볼륨, 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은 잇단 변경이 멈춘 뒤)", async () => {
   const seen: boolean[] = [];
   const off = playerEvents.on("refresh", async (p: Player) => p === player && seen.push(true)); // 앞 테스트의 볼륨 타이머가 늦게 올 수 있다
   try {

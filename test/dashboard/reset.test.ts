@@ -1,5 +1,5 @@
-// src/dashboard/reset.ts: 봇 설정 · 서버별 설정 · 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
-// 지운 뒤 메모리(설정 객체 · 서버별 설정의 캐시 · 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
+// src/dashboard/reset.ts: 봇 설정, 서버별 설정, 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
+// 지운 뒤 메모리(설정 객체, 서버별 설정의 캐시, 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -68,7 +68,7 @@ test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버린다",
   assert.deepEqual(await guildSettings.getDjRoles("g2"), []);
 });
 
-test("디스플레이: 파비콘 그림과 로그인 배경(기록 · 화면 값 · 한도)을 비운다", async () => {
+test("디스플레이: 파비콘 그림과 로그인 배경(기록, 화면 값, 한도)을 비운다", async () => {
   const png = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 1 } } })
     .png()
     .toBuffer();

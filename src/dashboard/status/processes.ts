@@ -1,4 +1,4 @@
-// 봇 상태 탭의 자식 프로세스(ffmpeg · yt-dlp · 헬퍼): 어느 서버의 무슨 일인지와 메모리. 정렬하고 쿼리의 구간만 행으로.
+// 봇 상태 탭의 자식 프로세스(ffmpeg, yt-dlp, 헬퍼): 어느 서버의 무슨 일인지와 메모리. 정렬하고 쿼리의 구간만 행으로.
 // 메모리는 프로그램을 실행해 읽으므로 15초 구간마다 한 번 재 둔다
 
 import type { Client } from "discord.js";
@@ -30,7 +30,7 @@ function watchProcesses() {
   return onWindow(() => void measure());
 }
 
-// 재생 · 다음 곡 작업인데 그 서버에 플레이어가 없으면 잔류 의심
+// 재생, 다음 곡 작업인데 그 서버에 플레이어가 없으면 잔류 의심
 const STRAY_JOBS = new Set(["play", "prefetch"]);
 
 /** 정렬한 구간의 행. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합, stray 는 잔류 의심 프로세스의 앞(오래된 것부터), ytdlp 는 yt-dlp 줄과 추출 수 */

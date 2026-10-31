@@ -7,7 +7,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { exitText, exitVerdict } from "./exit.ts";
 const log = logger.child({ category: "ffmpeg" });
 
-// 소리를 내는 ffmpeg(playback-input · 갭리스 전환)
+// 소리를 내는 ffmpeg(playback-input, 갭리스 전환)
 const PLAYING = new Set(["stream", "playback", "switch"]);
 
 /**
@@ -19,7 +19,7 @@ const PLAYING = new Set(["stream", "playback", "switch"]);
  *
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
  *   재생은 `pipe:1`, 검사는 `-f null -`이라 여기서 임의로 붙일 수 없다.
- * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
+ * @param {string} label 로그, 레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
  * @param {{killOnStdoutClose?: boolean}} opts stdout이 닫히면 ffmpeg를 죽인다(기본 true). stdout을 읽지 않는 검사(probe)는 false
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
@@ -27,7 +27,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
+  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡, 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
   // stderr 끝 1000자를 모아 두기만 하고, 실패로 끝났을 때만 종료 줄에 함께 남긴다.
@@ -47,7 +47,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남으므로 죽인다(prism의 _cleanup()이 하던 일).
   // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
   // closedByUs: 우리가 손을 떼서 죽인 것인가. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
-  // (스킵 · 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
+  // (스킵, 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
   // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
   let closedByUs = false;
   if (killOnStdoutClose) {
@@ -91,7 +91,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
   if (dur) {
     const sec = Number(dur[1]) * 3600 + Number(dur[2]) * 60 + parseFloat(dur[3]);
-    // 헤더는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이 · 표시가 이 값을 쓴다)
+    // 헤더는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이, 표시가 이 값을 쓴다)
     if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec * 100) / 100;
   }
 
@@ -115,7 +115,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
 /**
  * 로컬 오디오 파일 안에 무엇이 들었는지 묻는다. 열지 못하면 전부 null.
  *
- * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다. 길이·코덱·비트레이트가
+ * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다. 길이, 코덱, 비트레이트가
  * 한 번에 나오므로 따로 물어볼 일이 없다.
  */
 function probeAudio(file: string): Promise<ProbeInfo> {
@@ -130,7 +130,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     }
 
     let out = "";
-    // 필요한 것(길이 · 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
+    // 필요한 것(길이, 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
     child.stderr.on("data", (chunk) => {
       if (out.length < 65536) out += chunk.toString();
     });

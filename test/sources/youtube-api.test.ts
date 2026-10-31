@@ -1,6 +1,6 @@
-// src/sources/youtube/index.ts: YouTube 의 검색 · 정보 · 스트림 · 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다.
+// src/sources/youtube/index.ts: YouTube 의 검색, 정보, 스트림, 재생목록이 yt-dlp 응답을 무엇으로 바꾸는지 고정한다.
 //
-// 모듈을 통째로 교체하지 않고 yt-dlp 를 실행하는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlp-spawn.ts 의 응답 · 오류 모양
+// 모듈을 통째로 교체하지 않고 yt-dlp 를 실행하는 exec 하나만 가짜로 넘긴다(useExec). 그래서 src/sources/ytdlp-spawn.ts 의 응답, 오류 모양
 // 맞추기까지 진짜로 돈다. 클라이언트 목록(.env)은 테스트마다 비워 설정과 무관하게 한 번에 부르게 한다.
 
 import fs from "node:fs";
@@ -23,7 +23,7 @@ import runYtDlp, { useExec, type Exec, type RunYtDlp, type YtDlpFlags, type YtDl
 import { useRecentInfo, recall } from "../../src/sources/youtube/recent-info.ts";
 import { plainText } from "../helpers/notice.ts";
 
-// yt-dlp 가 줄 것. 객체 · 글자, 또는 실패(fail: stderr) · 경고(warn)
+// yt-dlp 가 줄 것. 객체, 글자, 또는 실패(fail: stderr), 경고(warn)
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const lookup = await import("../../src/sources/lookup.ts");
@@ -37,7 +37,7 @@ let savedOrder: string[] = [];
 before(() => {
   savedOrder = playerClients.order;
   playerClients.order = [];
-  // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
+  // 가짜는 tinyspawn 약속의 stdout, stderr 만 준다
   useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.push({ url, flags });
     const out = respond(url, flags);
@@ -81,7 +81,7 @@ test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않�
 
 // ── 검색 ──────────────────────────────────────────────────────────────
 
-test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(채널 · 재생목록)을 필터링한다", async () => {
+test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(채널, 재생목록)을 필터링한다", async () => {
   respond = () => ({
     entries: [video("aaaaaaaaaaa"), { id: "UCxxxxxxxxxxxxxxxxxxxxxx", url: "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx", title: "채널" }, video("bbbbbbbbbbb")],
   });
@@ -98,7 +98,7 @@ test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(�
   assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, url: tracks[0].audioUrl, duration: tracks[0].duration, platform: tracks[0].platform, isLive: tracks[0].isLive, liveStatus: tracks[0].liveStatus }, { title: "영상 aaaaaaaaaaa", artist: "올린 사람", url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", duration: 200, platform: "youtube", isLive: false, liveStatus: null });
 });
 
-test("검색: 길이가 0 인 항목은 상세 정보를 한 번 더 받아 길이 · 라이브를 채운다", async () => {
+test("검색: 길이가 0 인 항목은 상세 정보를 한 번 더 받아 길이, 라이브를 채운다", async () => {
   respond = (url: string) => (url.startsWith("ytsearch") ? { entries: [video("ccccccccccc", { duration: 0 })] } : video("ccccccccccc", { duration: 0, is_live: true, live_status: "is_live", fulltitle: "방송 원제", title: "방송 원제 2026-09-23 12:00" }));
 
   const [t] = await YouTube.search("라이브", 1);
@@ -133,7 +133,7 @@ test("정보: 필드를 옮겨 담고 포맷 목록을 붙인다. 라이브는 �
   assert.ok(t);
 
   assert.equal(calls[0].flags.dumpSingleJson, true);
-  // 재생 주소와 같은 옵션이라 받은 것을 재생 주소 · 다운로드가 다시 쓴다
+  // 재생 주소와 같은 옵션이라 받은 것을 재생 주소, 다운로드가 다시 쓴다
   assert.equal(calls[0].flags.format, "bestaudio/best");
   assert.equal(calls[0].flags.preferFreeFormats, undefined);
   assert.equal(t.title, "원제");
@@ -147,8 +147,8 @@ test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없�
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=fffffffffff"), /Some other failure/);
 });
 
-// 비공개 · 연령 제한 영상 링크는 까닭을 삼키지 않는다(삼키면 "결과를 찾을 수 없습니다"로만 보인다)
-test("정보 · 링크 검색: 못 트는 까닭이 분명하면(비공개 · 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
+// 비공개, 연령 제한 영상 링크는 까닭을 삼키지 않는다(삼키면 "결과를 찾을 수 없습니다"로만 보인다)
+test("정보, 링크 검색: 못 트는 까닭이 분명하면(비공개, 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");
   await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "unavailable-contents");
@@ -184,7 +184,7 @@ test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위�
 });
 
 // 방송이 끝나고 다시보기를 다 만들기 전(post_live)에는 소리가 세그먼트 목록뿐이다. 세그먼트 주소는 포맷 주소 뒤에 &sq=번호
-test("스트림: 세그먼트 목록으로만 주면 세그먼트 주소의 모양(base · count)을 싣는다. 모양이 다르면 던진다", async () => {
+test("스트림: 세그먼트 목록으로만 주면 세그먼트 주소의 모양(base, count)을 싣는다. 모양이 다르면 던진다", async () => {
   const base = "https://rr1.googlevideo.com/videoplayback?live=1&x=1";
   const fragments = (n: number, at = (i: number) => `${base}&sq=${i}`) => Array.from({ length: n }, (_, i) => ({ url: at(i), fragment_count: n }));
   respond = () => ({ ...video("qqqqqqqqqqq"), url: base, protocol: "http_dash_segments", live_status: "post_live", fragments: fragments(3) });
@@ -196,7 +196,7 @@ test("스트림: 세그먼트 목록으로만 주면 세그먼트 주소의 모�
   await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=qqqqqqqqqqq"), /세그먼트 목록의 주소가 알던 모양/);
 });
 
-test("스트림: 헤더 · 앞 광고 시각이 없으면 빈 값", async () => {
+test("스트림: 헤더, 앞 광고 시각이 없으면 빈 값", async () => {
   respond = () => ({ ...video("hhhhhhhhhhh"), url: "https://manifest.googlevideo.com/x.m3u8", protocol: "m3u8_native", acodec: "mp4a" });
 
   const s = await YouTube.getStream("https://www.youtube.com/watch?v=hhhhhhhhhhh");
@@ -326,7 +326,7 @@ test("곡 정보 뒤의 재생 주소는 yt-dlp 를 부르지 않는다. 서술�
   assert.deepEqual({ ...again, reused: false }, fresh);
 });
 
-test("곡을 다 받기 전에 만료될 주소 · fresh 로 받은 것은 다시 쓰지 않는다", async () => {
+test("곡을 다 받기 전에 만료될 주소, fresh 로 받은 것은 다시 쓰지 않는다", async () => {
   respond = () => lasting("sssssssssss", 200 + 30);
   await YouTube.getStream("https://www.youtube.com/watch?v=sssssssssss");
   await YouTube.getStream("https://www.youtube.com/watch?v=sssssssssss");
@@ -353,7 +353,7 @@ function downloadRig(fail: ((url: string) => YtDlpError | null) | null = null) {
   return { dir, output, ran, exec, build };
 }
 
-test("다운로드: 받아 둔 정보가 있으면 빈 주소 · loadInfoJson 으로 한 번(쿠키 없이), 끝나면 지운다", async () => {
+test("다운로드: 받아 둔 정보가 있으면 빈 주소, loadInfoJson 으로 한 번(쿠키 없이), 끝나면 지운다", async () => {
   respond = () => lasting("uuuuuuuuuuu");
   await YouTube.getStream("https://www.youtube.com/watch?v=uuuuuuuuuuu");
   const { dir, ran, exec, build } = downloadRig();
@@ -423,7 +423,7 @@ test("다운로드를 다른 클라이언트로 다시 받기 전에도 받다 �
 
 // ── 오디오 전용 포맷 선택 ───────────────────────────────────────────
 
-// 선택한 포맷만 다른 영상 정보(영상이 섞인 것 · 오디오 전용)
+// 선택한 포맷만 다른 영상 정보(영상이 섞인 것, 오디오 전용)
 const picked = (id: string, formatId: string, vcodec: string, extra: Record<string, unknown> = {}) => ({ ...video(id), format_id: formatId, vcodec, acodec: "mp4a.40.2", url: `https://rr1.googlevideo.com/${formatId}`, ...extra });
 
 test("정보 추출: 클라이언트가 영상이 섞인 포맷만 주면 다음 클라이언트로 간다. 마지막 시도는 무엇이든 받되 작은 영상부터", async () => {

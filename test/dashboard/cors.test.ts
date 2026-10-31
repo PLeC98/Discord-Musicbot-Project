@@ -43,7 +43,7 @@ test("형식이 깨졌거나 출처를 헷갈리게 만든 값은 거부", async
   assert.equal(await isAllowed(options, "https://dashboard.example.com@evil.example"), false);
 });
 
-test("DASHBOARD_URL은 평범한 http·https 출처여야 한다", () => {
+test("DASHBOARD_URL은 평범한 http, https 출처여야 한다", () => {
   assert.equal(normalizeDashboardOrigin("https://dashboard.example.com/path"), "https://dashboard.example.com");
   assert.throws(() => normalizeDashboardOrigin("javascript:alert(1)"), /http 나 https/);
   assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /계정, 쿼리, 프래그먼트가 없는 주소/);

@@ -10,7 +10,7 @@ const log = logger.child({ category: "core" });
 const WINDOW_MS = 10 * 60_000;
 const MAX_RESETS = 3;
 
-/** 다시 시작할 때 쓰는 것. players: 레지스트리 · restore: 그 서버의 저장된 세션을 복원한다 */
+/** 다시 시작할 때 쓰는 것. players: 레지스트리, restore: 그 서버의 저장된 세션을 복원한다 */
 type Deps = {
   players: Pick<Map<string, Pick<Player, "dispose" | "currentTrack" | "queue">>, "get">;
   restore(guildId: string): Promise<unknown>;
@@ -25,7 +25,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
   return async function fault(guildId: string, error: unknown, where: string) {
     log.error(`서버 ${guildId}에서 알 수 없는 오류 (${where}):`, error);
     const player = players.get(guildId);
-    // 복원할 플레이어가 없다(명령 · 화면 쪽 일). 로그만 남긴다. 다시 시작하는 중에 난 것은 그 다시 시작이 맡는다
+    // 복원할 플레이어가 없다(명령, 화면 쪽 일). 로그만 남긴다. 다시 시작하는 중에 난 것은 그 다시 시작이 맡는다
     if (!player || resetting.has(guildId)) return;
 
     const at = now();

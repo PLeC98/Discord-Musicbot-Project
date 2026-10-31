@@ -1,6 +1,6 @@
 <template>
   <!-- 로그인 배경 편집 창. 이미지나 영상에서 쓸 영역(비율 자유)을, 영상이면 쓸 구간과 정지 화면 장면도 선택한다.
-       자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
+       자른 결과가 아니라 영역(0 ~ 1), 구간(초), 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상은 480p), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
        최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
@@ -10,7 +10,7 @@
         <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
-          <!-- 보는 창: 편집 창 폭 전체 · 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
+          <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
                이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다. 둘레의 틈에 이미지 가장자리의 핸들이 들어간다 -->
           <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
             <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
@@ -31,7 +31,7 @@
               </div>
             </div>
           </div>
-          <!-- 화면 확대: 작은 아이콘 · 슬라이더 · 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
+          <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
           <div class="flex items-center justify-center gap-3 text-on-surface-variant">
             <Icon name="image" :size="16" aria-hidden="true" />
             <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
@@ -75,14 +75,14 @@ import { useSeam } from "../login-background/seam.ts";
 import { cropKeyOf, estimatedBytes, inCounted } from "../../../src/rules/background-estimate.ts";
 const T = text.loginBackground.edit;
 
-/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 비교한다). seam: 카드의 반복 전환 효과(편집 창에서 선택하는 효과의 처음 값) */
+/** bg: 편집할 배경(편집을 기다리는 것). state: 한도, 쓰는 용량, 기록(예상 저장 공간과 비교한다). seam: 카드의 반복 전환 효과(편집 창에서 선택하는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
 useCloseLayer(
   computed(() => open.value && props.bg != null),
   () => (open.value = false),
 );
-/** done: 편집과 선택한 반복 전환 효과. recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
+/** done: 편집과 선택한 반복 전환 효과. recount: 그 크롭, 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
 /** 구간을 바꾼 뒤 다시 세기를 요청하기까지(드래그하는 동안은 요청하지 않는다) */
@@ -145,7 +145,7 @@ const encodeMinutes = computed(() => {
   if (props.bg?.kind !== "video" || !est) return null;
   return ((range.value[1] - range.value[0]) * est.encodeRatio) / 60;
 });
-/** 최대 용량을 넘을 것 같으면: 삭제할 수 있는 오래된 기록 수(지금 쓰는 것 · 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
+/** 최대 용량을 넘을 것 같으면: 삭제할 수 있는 오래된 기록 수(지금 쓰는 것, 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
 const evictText = computed(() => {
   const st = props.state;
   const est = estimateBytes.value;
@@ -168,7 +168,7 @@ const evictText = computed(() => {
 const cropNow = (): LoginBackgroundCrop => (natural.width ? { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height } : { x: 0, y: 0, w: 1, h: 1 });
 const cropKey = ref(cropKeyOf({ x: 0, y: 0, w: 1, h: 1 }));
 const rangeNow = (): [number, number] | null => (props.bg?.kind === "video" ? range.value : null);
-/** 크롭을 정했다: 추산한 크롭과 다르면 그 크롭 · 구간으로 다시 센다 */
+/** 크롭을 정했다: 추산한 크롭과 다르면 그 크롭, 구간으로 다시 센다 */
 function cropSettled() {
   const crop = cropNow();
   cropKey.value = cropKeyOf(crop);
@@ -185,7 +185,7 @@ watch(range, () => {
   }, RECOUNT_AFTER_MS);
 });
 
-/** 틀 · 구간 · 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
+/** 틀, 구간, 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
 function reset(fromEdit = false) {
   const saved = fromEdit ? props.bg?.edit : null;
   const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
@@ -220,7 +220,7 @@ function onMeta(event: Event) {
 }
 
 /**
- * 보는 창의 크기: 영역 폭 안 · 남는 높이 안에서 이미지 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
+ * 보는 창의 크기: 영역 폭 안, 남는 높이 안에서 이미지 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
  * first 를 주면 그 높이를 상한으로(처음 그릴 때, 나머지를 재기 전)
  */
 function fit(first?: number) {
@@ -246,7 +246,7 @@ watch(open, (on) => {
   natural.width = natural.height = 0;
 });
 
-// ── 영상: 재생 · 구간 ──
+// ── 영상: 재생, 구간 ──
 
 /** 그 위치로(영상 안으로 자른다). 구간 밖으로도 갈 수 있다(재생은 구간 안에서 돈다) */
 function seek(t: number) {
@@ -255,7 +255,7 @@ function seek(t: number) {
   now.value = at;
   if (videoEl.value) videoEl.value.currentTime = at;
 }
-/** 재생 중에는 장면마다 시각을 받는다(timeupdate 는 1초에 몇 번뿐이라 시각 · 마커가 튄다). 구간 끝에 닿으면 처음으로 */
+/** 재생 중에는 장면마다 시각을 받는다(timeupdate 는 1초에 몇 번뿐이라 시각, 마커가 튄다). 구간 끝에 닿으면 처음으로 */
 function follow() {
   const el = videoEl.value;
   if (!el || el.paused) return;
@@ -268,7 +268,7 @@ function follow() {
   if (typeof el.requestVideoFrameCallback === "function") el.requestVideoFrameCallback((_, meta) => (tick(meta.mediaTime), follow()));
   else requestAnimationFrame(() => (tick(el.currentTime), follow()));
 }
-// 반복을 끄거나 구간 · 효과가 바뀌면 건 효과를 바로 치운다
+// 반복을 끄거나 구간, 효과가 바뀌면 건 효과를 바로 치운다
 watch([loop, range, seamPick], () => seamFx.release(0));
 /** 구간 끝: 반복이면 처음으로, 아니면 멈춘다 */
 function atEnd(el: HTMLVideoElement) {
@@ -341,7 +341,7 @@ async function togglePlay() {
 // ── 틀: 안을 드래그하면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
 
 let drag: { mode: "move" | Corner; px: number; py: number; from: { x: number; y: number; w: number; h: number } } | null = null;
-// 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭 · 높이에 대한 비율로)
+// 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭, 높이에 대한 비율로)
 watch(zoom, async () => {
   const el = viewportEl.value;
   if (!el) return;

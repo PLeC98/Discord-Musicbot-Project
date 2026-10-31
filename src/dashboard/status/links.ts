@@ -68,7 +68,7 @@ function noteOf(id: Service): string | null {
 /** 이름에 올리면 보이는 설명(그 서비스를 다루는 방식) */
 const HINT: Partial<Record<Service, string>> = { listenbrainz: `LB Radio · ${LB_TIMEOUT_MS / 1000}초 넘으면 실패` };
 
-/** 부른 결과로 매긴다: 쉼 · 실패(마지막이 실패) · 느림(오래 걸림 · 최근 실패가 잦음) · 정상 */
+/** 부른 결과로 매긴다: 쉼, 실패(마지막이 실패), 느림(오래 걸림, 최근 실패가 잦음), 정상 */
 function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" | "error" | "note"> {
   const status = linkStatus(id);
   const last = status?.recent.at(-1);

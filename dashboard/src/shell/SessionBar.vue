@@ -1,5 +1,5 @@
 <template>
-  <!-- 틀에 붙은 막대. 태블릿 · PC 는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 사이드 드로어(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
+  <!-- 틀에 붙은 막대. 태블릿, PC 는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 사이드 드로어(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
        서버 아이콘은 동그라미이고, 선택한 서버는 둥근 네모로 바뀌며 막대 가장자리에 표시가 선다(올리면 작게 튀어나온다).
        세로 막대는 맨 위(위 막대 높이)에 펼치기 버튼이 있고, 펼치면 아이콘 옆에 서버 이름이 나온다. 아이콘은 막대 폭(--bar)의 영역에 그대로 있어 펼쳐도 움직이지 않는다.
        접은 막대는 아이콘 영역 양옆에 --bar-x 를 더한 폭이다. 서버 목록은 그 여백과 늘 잡아 둔 스크롤바 칸(rail-list) 덕에 상태 표시가 잘리지 않는다 -->
@@ -35,7 +35,7 @@
     <span :class="vertical ? 'w-full flex shrink-0 px-[calc(var(--bar-x)+(var(--bar)-1.5rem)/2)]' : 'contents'"><span class="shrink-0 rounded-full bg-outline-variant/70" :class="vertical ? 'h-0.5 w-full' : 'w-0.5 h-6'"></span></span>
 
     <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade).
-         세로 막대의 스크롤바는 올렸을 때 · 스크롤하는 동안만 보인다(sb-auto-hide).
+         세로 막대의 스크롤바는 올렸을 때, 스크롤하는 동안만 보인다(sb-auto-hide).
          세로 막대는 아래 끝을 다음 칸과의 틈(gap-3) 쪽으로 조금 내려(-mb-0.5, 안쪽 여백으로 돌려줌) 아래 페이드가 틈까지 걸쳐 사라진다. 목록 안에서만 사라지면 시계 위 틈이 넓어 보인다 -->
     <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full rail-list overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] pt-0.5 pb-1 -mb-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="onListLeave">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
@@ -55,7 +55,7 @@
       </router-link>
     </div>
 
-    <!-- 시계: 마우스로 쓰는 기기(PC)만. 휴대폰 · 태블릿은 OS 의 위 막대에 늘 있다 -->
+    <!-- 시계: 마우스로 쓰는 기기(PC)만. 휴대폰, 태블릿은 OS 의 위 막대에 늘 있다 -->
     <SidebarClock v-if="vertical && prefs.clock" class="hidden pointer-fine:block" />
     <span :class="vertical ? (open ? 'w-full shrink-0 flex px-[calc(var(--bar-x)+(var(--bar)-2.25rem)/2-0.375rem)]' : 'ml-(--bar-x) w-(--bar) flex justify-center shrink-0') : 'contents'"><AccountMenu compact :labeled="vertical && open" /></span>
   </nav>
@@ -84,7 +84,7 @@ const onToggle = () => (props.drawer ? emit("close") : toggleSidebar());
 
 const listEl = ref<HTMLElement | null>(null);
 const listFade = useScrollFade(listEl, () => props.vertical);
-// 스크롤바는 마우스를 올렸을 때와, 스크롤하는 동안 · 멈춘 뒤 잠깐 보인다(터치는 스크롤할 때만)
+// 스크롤바는 마우스를 올렸을 때와, 스크롤하는 동안, 멈춘 뒤 잠깐 보인다(터치는 스크롤할 때만)
 const listHovered = ref(false);
 const listScrolling = ref(false);
 let listIdle = 0;
@@ -137,7 +137,7 @@ function startResize(e: PointerEvent) {
   handle.addEventListener("pointercancel", end);
 }
 
-// 서버 · 모든 서버 한 항목. 세로면 [아이콘 영역(막대 폭) | 이름], 가로면 아이콘만
+// 서버, 모든 서버 한 항목. 세로면 [아이콘 영역(막대 폭) | 이름], 가로면 아이콘만
 const item = computed(() => (props.vertical ? "group relative shrink-0 w-full flex items-center no-underline text-on-surface" : "group relative shrink-0 no-underline"));
 const slot = computed(() => (props.vertical ? "ml-(--bar-x) w-(--bar) shrink-0 flex justify-center" : "contents"));
 const label = "min-w-0 flex-1 pr-4 fade-end text-sm font-medium";

@@ -1,16 +1,16 @@
 <template>
   <!-- 봇 정보 탭: 리싱한 Arch(Hyprland) 데스크톱의 터미널에서 fastfetch 를 실행한 모습(이 탭만 M3E 가 아니라 터미널 스타일).
-       간격은 글자 셀 격자(가로 1ch · 세로 한 줄 --term-line, 터미널처럼 글자 크기의 약 1.2배)에 맞춘다.
+       간격은 글자 셀 격자(가로 1ch, 세로 한 줄 --term-line, 터미널처럼 글자 크기의 약 1.2배)에 맞춘다.
        창은 내용이 짧아도 바탕화면 아래 끝까지 채운다(재생 바는 그 위에 겹친다. 페이지 아래 여백의 재생 바 몫은 음수 여백으로 돌려준다).
        내용이 길어 스크롤되면 끝까지 스크롤했을 때 마지막 줄이 재생 바 위 끝에서 창 여백만큼 떨어지도록 안쪽 아래 여백에 (재생 바 - 바깥 틈)을 더한다.
-       잘 안 바뀌는 신원 · 버전 · 환경만 둔다(지금 상태는 봇 상태 탭). 키는 fastfetch 처럼 영어. 한글은 고정폭 글꼴에서 두 칸이라 터미널처럼 같은 글꼴로 쓴다 -->
+       잘 안 바뀌는 신원, 버전, 환경만 둔다(지금 상태는 봇 상태 탭). 키는 fastfetch 처럼 영어. 한글은 고정폭 글꼴에서 두 칸이라 터미널처럼 같은 글꼴로 쓴다 -->
   <section class="term-border pane relative rounded-(--r-window) p-(--pad-window) pb-[calc(var(--pad-window)+max(0px,var(--player)-var(--gap-out)))] font-mono text-sm leading-(--term-line) [--term-line:1.0625rem] text-on-surface min-h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)">
     <Prompt command="fastfetch" />
     <div class="flex gap-[3ch] items-start">
       <BotInfoLogo class="hidden @4xl/content:block shrink-0" :src="shell.botAvatar" aria-hidden="true" />
       <!-- flex: 상자 아래 반 줄과 색 띠 위 한 줄이 겹치지 않게(여백 겹침이면 격자에서 반 줄 어긋난다) -->
       <div class="flex-1 min-w-0 flex flex-col">
-        <!-- 바깥 상자: 윗선 가운데에 봇 이름 · 버전 -->
+        <!-- 바깥 상자: 윗선 가운데에 봇 이름, 버전 -->
         <Frame :title="`${status.bot.tag} · ${status.bot.version}`" tone="text-outline" title-tone="text-on-surface-variant" class="w-[round(down,100%,1ch)]">
           <div class="grid grid-cols-1 @3xl/content:grid-cols-[repeat(2,round(down,calc((100%-2ch)/2),1ch))] gap-x-[2ch]">
             <Frame v-for="g in infoGroups" :key="g.title" :title="g.title" :tone="g.tone">
@@ -51,10 +51,10 @@ import BotInfoLogo from "./BotInfoLogo.vue";
 const props = defineProps<{ status: AdminStatus }>();
 
 /**
- * 제목이 윗선 가운데에 걸친 상자(터미널의 ╭─ 제목 ─╮). 상자 글자처럼 선은 칸 가운데를 지난다: 세로선은 첫 칸 · 끝 칸의 가운데, 모서리는 반 칸 반지름, 내용은 "│ " 다음 칸부터.
+ * 제목이 윗선 가운데에 걸친 상자(터미널의 ╭─ 제목 ─╮). 상자 글자처럼 선은 칸 가운데를 지난다: 세로선은 첫 칸, 끝 칸의 가운데, 모서리는 반 칸 반지름, 내용은 "│ " 다음 칸부터.
  * 아랫선 줄도 한 줄을 다 쓴다(선은 그 줄 가운데, 1px 테두리 몫을 여백에서 뺀다). 폭은 쓰는 쪽이 칸 단위로 맞춘다.
  * 바탕이 반투명이어도 선이 글자 밑을 지나지 않게 윗선을 조각으로 긋는다.
- * tone: 선 · 제목 색(text-* 클래스, 선은 currentColor). titleTone: 제목만 다른 색(선이 outline 처럼 글자로는 대비가 모자란 색일 때)
+ * tone: 선, 제목 색(text-* 클래스, 선은 currentColor). titleTone: 제목만 다른 색(선이 outline 처럼 글자로는 대비가 모자란 색일 때)
  */
 const Frame = defineComponent({
   props: { title: { type: String, required: true }, tone: { type: String, required: true }, titleTone: { type: String, default: "" } },
@@ -69,7 +69,7 @@ const Frame = defineComponent({
 });
 
 /**
- * starship 식 프롬프트(기본 설정처럼 두 줄): 색 블록(사용자@호스트 · 폴더 · 브랜치)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
+ * starship 식 프롬프트(기본 설정처럼 두 줄): 색 블록(사용자@호스트, 폴더, 브랜치)이 꺾쇠로 이어지고 다음 줄에 ❯ 와 명령. cursor 면 명령 대신 깜박이는 커서
  */
 const PROMPT: Array<{ icon: IconName; text: string; tone: string; ink: string }> = [
   { icon: "person", text: "operator@musicbot", tone: "bg-primary text-on-primary", ink: "var(--md-primary)" },
@@ -96,7 +96,7 @@ const Prompt = defineComponent({
   },
 });
 
-// 터미널 16색(검정 · 빨강 · 초록 · 노랑 · 파랑 · 자주 · 청록 · 흰색). 보통 8색은 테마의 역할, 밝은 8색은 글자색 쪽으로 30% 섞는다
+// 터미널 16색(검정, 빨강, 초록, 노랑, 파랑, 자주, 청록, 흰색). 보통 8색은 테마의 역할, 밝은 8색은 글자색 쪽으로 30% 섞는다
 const NORMAL = ["var(--md-outline)", "var(--md-error)", "var(--ok-ink)", "var(--warn-ink)", "var(--md-primary)", "var(--md-tertiary)", "var(--md-secondary)", "var(--md-on-surface-variant)"];
 const ANSI = [NORMAL, NORMAL.map((c) => `color-mix(in oklab, ${c} 70%, var(--md-on-surface))`)];
 
@@ -108,7 +108,7 @@ function uptimeText(sec: number) {
   const part = (n: number, unit: string) => (n ? `${n} ${unit}${n === 1 ? "" : "s"}` : "");
   return [part(days, "day"), part(hours, "hour"), part(mins, "min")].filter(Boolean).join(", ") || "0 mins";
 }
-// 크기: 단위는 크기에 맞게(src/ui/format 의 byteUnit), 이진 단위 이름(GiB · TiB)으로 소수 둘째 자리
+// 크기: 단위는 크기에 맞게(src/ui/format 의 byteUnit), 이진 단위 이름(GiB, TiB)으로 소수 둘째 자리
 const binText = (bytes: number) => {
   const { value, unit } = scaledText(bytes, byteUnit, () => 2);
   return `${value} ${unit.replace("B", "iB")}`;

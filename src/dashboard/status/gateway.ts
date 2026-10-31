@@ -1,7 +1,7 @@
-// 디스코드 게이트웨이 연결: 끊김 · 재연결 · 재연결하지 않음을 로그로 남기고, 봇이 켜진 뒤 재연결한 횟수와 지금 몇 번째 시도인지를 센다.
-// discord.js 는 연결이 닫힐 때마다 shardReconnecting 을, 재연결되면 shardResume(세션 재개) · shardReady(새 세션)를,
-// 재연결해도 같은 닫힘 코드면(토큰 · 인텐트) shardDisconnect 를 낸다. 연결 오류는 shardError 로 온다.
-// 까닭과 오류는 모아 두었다가 끊김 하나에 줄 하나(정상 절차면 재연결될 때 info 한 줄, 아니면 끊길 때 warn · 재연결될 때 info)로 남긴다
+// 디스코드 게이트웨이 연결: 끊김, 재연결, 재연결하지 않음을 로그로 남기고, 봇이 켜진 뒤 재연결한 횟수와 지금 몇 번째 시도인지를 센다.
+// discord.js 는 연결이 닫힐 때마다 shardReconnecting 을, 재연결되면 shardResume(세션 재개), shardReady(새 세션)를,
+// 재연결해도 같은 닫힘 코드면(토큰, 인텐트) shardDisconnect 를 낸다. 연결 오류는 shardError 로 온다.
+// 까닭과 오류는 모아 두었다가 끊김 하나에 줄 하나(정상 절차면 재연결될 때 info 한 줄, 아니면 끊길 때 warn, 재연결될 때 info)로 남긴다
 
 import { Events, GatewayCloseCodes, type Client } from "discord.js";
 import logger from "../../infra/log/logger.ts";

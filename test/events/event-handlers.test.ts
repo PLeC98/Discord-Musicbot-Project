@@ -1,7 +1,7 @@
-// src/discord/events · src/discord/interactions 의 이벤트 핸들러: 지금 동작을 고정한다.
-// 전용 채널 메시지(message-handler) · 채널 · 서버 삭제(channel-delete · guild-delete) · 끝난 패널 올리기(panel-pin) · 재생목록 더 넣기(playlist-more-handler) · 모달과 선택 메뉴(modal-handler · 자동재생 장르는 src/discord/interactions/autoplay).
+// src/discord/events, src/discord/interactions 의 이벤트 핸들러: 지금 동작을 고정한다.
+// 전용 채널 메시지(message-handler), 채널, 서버 삭제(channel-delete, guild-delete), 끝난 패널 올리기(panel-pin), 재생목록 더 넣기(playlist-more-handler), 모달과 선택 메뉴(modal-handler, 자동재생 장르는 src/discord/interactions/autoplay).
 //
-// 모듈을 통째로 교체하지 않는다. 권한 판정 · 서버 설정 · 곡 추가 코어는
+// 모듈을 통째로 교체하지 않는다. 권한 판정, 서버 설정, 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(봇 문맥의 panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.
 
 import fs from "node:fs";
@@ -82,7 +82,7 @@ beforeEach(() => {
 type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username?: string | null } | null };
 type World = ReturnType<typeof world>;
 
-// 봇이 있는 음성 채널 · 사용자가 있는 음성 채널 · 모더레이터 여부 · DJ 역할로 세계를 만든다
+// 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 모더레이터 여부, DJ 역할로 세계를 만든다
 function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; moderator?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
   const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const guild = { id: "g1", name: "서버", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map([["dj", { id: "dj" }]]) } };
@@ -201,7 +201,7 @@ function message(w: World, { content = "노래 제목", channelId = "bot-channel
   return msg;
 }
 
-test("전용 채널: 봇 메시지 · 빈 메시지 · 전용 채널이 아닌 곳은 무시한다", async () => {
+test("전용 채널: 봇 메시지, 빈 메시지, 전용 채널이 아닌 곳은 무시한다", async () => {
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");
   await messageHandler.execute(w.bot, message(w, { bot: true }));
@@ -238,7 +238,7 @@ test("전용 채널: 곡을 넣는다. 사용자 메시지를 1.5초 뒤 삭제�
   }
 });
 
-test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다른 채널 · DM 이 삭제된 것은 보지 않는다", async () => {
+test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다른 채널, DM 이 삭제된 것은 보지 않는다", async () => {
   await settings.setBotChannel("g1", "bot-channel");
   const moved: string[] = [];
   const bot = fakeBot({ panels: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } });
@@ -255,7 +255,7 @@ test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다
   assert.deepEqual(moved, ["g1"]);
 });
 
-test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열 · 패널 위치 · 24/7 자리를 삭제한다. 서버 설정은 남긴다", async () => {
+test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열, 패널 위치, 24/7 자리를 삭제한다. 서버 설정은 남긴다", async () => {
   await settings.setBotChannel("g-left", "bot-channel");
   staySeats.set("g-left", "vc1", "u1");
   await panelRecords.setPanel("g-left", "bot-channel", "m1");
@@ -451,7 +451,7 @@ test("더 넣기: 그만 넣기는 넣은 사람만. 넣은 사람이 누르면 
   assert.deepEqual(mine.log, [["deferUpdate"], ["deleteReply"]]);
 });
 
-test("더 넣기: 시간이 지난 메뉴 · 권한 · 플레이어 없음은 거절", async () => {
+test("더 넣기: 시간이 지난 메뉴, 권한, 플레이어 없음은 거절", async () => {
   const w = world();
   const old = moreInteraction(w, { select: "10", touched: Date.now() - More.LIFETIME_MS - 1_000 });
   await interactionCreate.execute(old.bot, old.it);
@@ -514,7 +514,7 @@ test("더 넣기: 선택한 수만큼 이어 받아 넣고, 채널의 메뉴는 
   assert.match(textOf(own.room.sent.at(-1)?.payload ?? {}), /^✅ 재생목록에서 2곡을 더 넣었어요\./, "결과는 모두에게");
 });
 
-// ── 모달 · 선택 메뉴 ──────────────────────────────────────────────────
+// ── 모달, 선택 메뉴 ──────────────────────────────────────────────────
 
 function menu(w: World, { customId, values = [], volume = null, select = true }: { customId: string; values?: string[]; volume?: string | null; select?: boolean }) {
   const log: Entry[] = [];
@@ -555,7 +555,7 @@ test("모달: 모르는 모달은 알린다", async () => {
   assert.deepEqual(unknown.log, [["reply", said(errors.notice("unknown-interaction"))]]);
 });
 
-test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 있으면 패널만 갱신. 모르는 장르 · 권한은 거절", async () => {
+test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 있으면 패널만 갱신. 모르는 장르, 권한은 거절", async () => {
   const w = world();
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.bot, pick.it);
@@ -613,7 +613,7 @@ test("대기열 점프: 선택한 곡을 맨 앞으로 옮기고 jump 로 넘긴
   assert.deepEqual(fail.log, [["reply", said(errors.notice("switch-failed"))]]);
 });
 
-test("대기열 점프: 옛 세션의 메뉴 · 없는 번호는 거절", async () => {
+test("대기열 점프: 옛 세션의 메뉴, 없는 번호는 거절", async () => {
   const w = world();
   w.player.queue = [{ title: "A" }];
   const stale = menu(w, { customId: "panel:jump:OLD", values: ["0"] });

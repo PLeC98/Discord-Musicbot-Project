@@ -1,4 +1,4 @@
-// 운영자 패널: 디스플레이 탭의 로그인 배경 카드 · 변경 팝업 · 편집 창 · 시간 막대
+// 운영자 패널: 디스플레이 탭의 로그인 배경 카드, 변경 팝업, 편집 창, 시간 막대
 
 import type { LoginBackgroundCodec, LoginBackgroundItem, LoginBackgroundStage } from "../../../../src/dashboard/contract/login-background.ts";
 import { josa } from "../../../../src/rules/josa.ts";
@@ -30,7 +30,7 @@ const card = {
   stageOf,
   queued: "인코딩 대기 중이에요.",
   resumed: "중단된 인코딩을 이어서 하고 있어요.",
-  /** 편집을 마치기 전(다운로드 · 프리뷰 · 스프라이트 · 편집 대기) · 편집을 적용한 뒤(인코딩 · 대기) */
+  /** 편집을 마치기 전(다운로드, 프리뷰, 스프라이트, 편집 대기), 편집을 적용한 뒤(인코딩, 대기) */
   cancelEdit: "편집 취소",
   cancelEditTip: "올린 배경을 버려요.",
   cancelEncode: "인코딩 취소",
@@ -85,21 +85,21 @@ const advanced = {
   used: (used: string, max: string | null) => (max ? `${used} / ${max}` : `${used} · 무제한`),
   encoders: "인코딩 환경",
   encodersTip: "봇이 시작할 때 이 기기에서 쓸 수 있는 인코더를 확인해 선택해요.",
-  /** 코덱 · 인코더 이름(ffmpeg 의 이름 → 보일 이름) */
+  /** 코덱, 인코더 이름(ffmpeg 의 이름 → 보일 이름) */
   codec: { av1: "AV1", vp9: "VP9", h264: "H.264" } satisfies Record<LoginBackgroundCodec, string>,
   encoderName: { libsvtav1: "SVT-AV1", "libvpx-vp9": "libvpx", libopenh264: "OpenH264", libx264: "x264", h264_nvenc: "NVENC", h264_qsv: "QuickSync", h264_amf: "AMF", h264_vaapi: "VAAPI" } as Record<string, string>,
   use: (name: string, hardware: boolean) => `${name} · ${hardware ? "GPU" : "CPU"}`,
   noEncoder: "사용할 수 있는 인코더가 없어요",
   checking: "확인하는 중…",
   recheck: "다시 확인",
-  /** 지금 인코딩하는 것: 단계 · AV1 병렬 단계 · 묶은 코어 · 속도(실시간의 몇 배) */
+  /** 지금 인코딩하는 것: 단계, AV1 병렬 단계, 묶은 코어, 속도(실시간의 몇 배) */
   bakeTitle: "지금 인코딩",
   bake: (rungs: string, lp: number | null, cores: string, speed: number | null) => [rungs, ...(lp === null ? [] : [`AV1 병렬 단계 ${lp}`]), cores, ...(speed === null ? [] : [`실시간의 ${speed < 1 ? speed.toFixed(2) : speed.toFixed(1)}배`])].join(" · "),
   bakeTip: "봇 상태 탭에서 인코딩하는 동안의 메모리와 이벤트 루프 지연을 볼 수 있어요.",
   cores: (bound: number | null, total: number) => (bound === null ? `코어 ${total}개(지정 안 함)` : `코어 ${bound} / ${total}`),
 };
 
-/** 변경 팝업: 파일 업로드 · 링크로 추가 · 기록 */
+/** 변경 팝업: 파일 업로드, 링크로 추가, 기록 */
 const source = {
   title: "로그인 배경",
   free: (size: string) => `남은 저장 공간 ${size}`,

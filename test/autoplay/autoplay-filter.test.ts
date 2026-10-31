@@ -34,8 +34,8 @@ test("제외 키워드는 단어 경계로 비교한다. mix가 remix를 죽이�
   assert.equal(judge("coffee & beats jazzy japan lofi mix").detail, "mix");
 });
 
-test("한국어·일본어 제외 키워드는 단어 경계 없이 본다", () => {
-  // \b는 한글 · 가나 앞뒤에서 뜻대로 동작하지 않아 포함 여부만 본다
+test("한국어, 일본어 제외 키워드는 단어 경계 없이 본다", () => {
+  // \b는 한글, 가나 앞뒤에서 뜻대로 동작하지 않아 포함 여부만 본다
   assert.equal(judge("봄노래 메들리 모음").detail, "메들리");
   assert.equal(judge("2026 春アニメ メドレー", 240, { blockedKeywords: ["メドレー"] }).detail, "メドレー");
 });
@@ -61,14 +61,14 @@ test("여러 곡을 이어 붙인 생김새는 떨어진다", () => {
 });
 
 test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
-  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official·MV·feat.이 있으면 거의 늘 한 곡)
+  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official, MV, feat.이 있으면 거의 늘 한 곡)
   assert.equal(judge("아이돌 '노래' 🌊🔥 (Official Music Video)").ok, true);
   assert.equal(judge("Artist - Song 🎉🎊 M/V").ok, true);
   assert.equal(judge("A, B, C, D - Song (feat. E)").ok, true);
   assert.equal(judge("A, B, C, D - Song (ft E)").ok, true);
 });
 
-test("fat · fet 같은 단어는 곡 표식이 아니다", () => {
+test("fat, fet 같은 단어는 곡 표식이 아니다", () => {
   // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
   assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");
 });

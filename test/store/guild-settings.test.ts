@@ -1,6 +1,6 @@
 // src/store/guild-settings.ts: 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다.
 //
-// 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
+// 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기, 쓰기, 지우기, 메모리 캐시,
 // DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
 
 import fs from "node:fs";
@@ -38,10 +38,10 @@ after(() => {
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
 const fresh = () => settings.forgetCache();
 
-// 서버 설정 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)
+// 서버 설정 표가 망가진 동안(읽기, 쓰기가 SQLite 오류로 실패한다)
 const whenDbDown = whenSettingsBroken;
 
-test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async () => {
+test("전용 채널: 저장, 읽기, 지우기. 미설정은 null", async () => {
   assert.equal(await settings.getBotChannel("g1"), null);
   fresh();
   assert.equal(await settings.setBotChannel("g1", "c1"), true);
@@ -51,7 +51,7 @@ test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async ()
   assert.equal(await settings.getBotChannel("g1"), null);
 });
 
-test("DJ 역할: 저장 · 읽기 · 지우기. 미설정은 빈 배열", async () => {
+test("DJ 역할: 저장, 읽기, 지우기. 미설정은 빈 배열", async () => {
   assert.deepEqual(await settings.getDjRoles("g1"), []);
   fresh();
   await settings.setDjRoles("g1", ["r1", "r2"]);
@@ -160,7 +160,7 @@ test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () =
   });
 });
 
-test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null · 빈 배열 · 상속)", async () => {
+test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
   assert.equal(await whenDbDown(() => settings.setBotChannel("g1", "c1")), false);
   assert.equal(await whenDbDown(() => settings.setDjRoles("g1", ["r"])), false);
   assert.equal(await whenDbDown(() => settings.setPlaylistAddMax("g1", 3)), false);

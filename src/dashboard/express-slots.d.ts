@@ -21,7 +21,7 @@ declare module "express-session" {
     csrfToken: string;
     /** 권한 수준 오버라이드(viewAs). 세션 저장소에서 읽은 값이라 쓰는 곳은 getViewAs 로 다시 본다 */
     viewAs: Tier;
-    /** 이 세션의 기기 기록(User-Agent · IP · 시각). IP 가 들어 있어 암호화해 둔다(dashboard/login-devices) */
+    /** 이 세션의 기기 기록(User-Agent, IP, 시각). IP 가 들어 있어 암호화해 둔다(dashboard/login-devices) */
     device: string;
   }
 }
@@ -30,7 +30,7 @@ declare global {
   namespace Express {
     // app.locals 에 매단다. res.locals 는 쓰지 않는다
     interface Locals {
-      /** 디스코드 클라이언트 · 플레이어 · 패널. 조립이 넘긴다 */
+      /** 디스코드 클라이언트, 플레이어, 패널. 조립이 넘긴다 */
       bot: BotContext;
       /** 슬래시 명령 등록. 조립이 넘긴다 */
       deployCommands: typeof deployCommands;

@@ -1,9 +1,9 @@
 // 상주 모드(24/7) 자리 지킴이: 자리가 있는데 봇이 그 자리에 붙어 있지 않으면 다시 붙인다. 언제 나가는지는 player/idle-leave, 버리는 결정은 player/voice-link 몫이고
 // 여기는 끝난 까닭(disposed 의 end)을 받아 할 일만 정한다.
-//   다시 붙음   기동(세션 복원 · 이어받기 뒤) · 쓸 수 없던 서버가 돌아옴 · 일시적인 끝(복구 포기 · 접속 실패 등)
-//   자리를 끔   강제 퇴장 · 채널 삭제 · 권한 잃음(디스코드의 확답). 서버 채널에 알린다
+//   다시 붙음   기동(세션 복원, 이어받기 뒤), 쓸 수 없던 서버가 돌아옴, 일시적인 끝(복구 포기, 접속 실패 등)
+//   자리를 끔   강제 퇴장, 채널 삭제, 권한 잃음(디스코드의 확답). 서버 채널에 알린다
 //   차단        같은 오류가 되풀이되어 멈춘 서버(fault). 봇을 다시 시작하거나 곡을 다시 틀 때까지 재접속하지 않는다
-// 일시적 실패는 1 · 2 · 5 · 10 · 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
+// 일시적 실패는 1, 2, 5, 10, 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
 
 import { PermissionFlagsBits, RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -28,7 +28,7 @@ import { bestEffort } from "../infra/best-effort.ts";
 const BACKOFF_MS = [60_000, 120_000, 300_000, 600_000, 1_800_000];
 const BOOT_GAP_MS = 1000; // 기동 때 서버 사이. 게이트웨이 보내기 한도(60초 120번)에 넉넉하다
 
-// 끝마다 할 일. 없는 끝(stop · leave · guild-gone · operator-leave · replaced · fault-restart · stage-ended)은 아무것도 하지 않는다
+// 끝마다 할 일. 없는 끝(stop, leave, guild-gone, operator-leave, replaced, fault-restart, stage-ended)은 아무것도 하지 않는다
 const DROP: Partial<Record<PlayerEnd, "kicked" | "gone">> = { "forced-disconnect": "kicked", "stage-disconnect": "kicked", "channel-gone": "gone" };
 const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-failed", "adopt-failed", "fault-cleared", "queue-drained", "inactivity-timeout"]);
 
@@ -36,7 +36,7 @@ type Why = "kicked" | "gone" | "permission";
 const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };
 const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
 
-// 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고 · 오류 안내처럼 수준에 맞는 수명 뒤 지운다
+// 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고, 오류 안내처럼 수준에 맞는 수명 뒤 지운다
 async function announce(guild: Guild, notice: Notice) {
   const channel = await resolveFallbackTextChannel(guild).catch(() => null);
   if (!channel) return;
@@ -44,10 +44,10 @@ async function announce(guild: Guild, notice: Notice) {
   await bestEffort(log, sending, "상주 모드 해제 알림 전송");
 }
 
-/** join · announce · sleep 은 시험이 바꾼다 */
+/** join, announce, sleep 은 시험이 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
-// 자리 채널을 디스코드에 물은 결과: 붙을 채널 · 자리를 끌 까닭 · 묻지 못함(null)
+// 자리 채널을 디스코드에 물은 결과: 붙을 채널, 자리를 끌 까닭, 묻지 못함(null)
 type Found = { channel: VoiceBasedChannel } | { why: Why } | null;
 
 class StayKeeper {
@@ -111,7 +111,7 @@ class StayKeeper {
     await this.tell(guild, NOTICE[why](DISCORD_LOOK.channel(channelId)));
   }
 
-  // 자리 채널을 디스코드에 묻는다(캐시는 기동 · 재연결 때 비어 있을 수 있다)
+  // 자리 채널을 디스코드에 묻는다(캐시는 기동, 재연결 때 비어 있을 수 있다)
   async _seatChannel(guild: Guild, channelId: string): Promise<Found> {
     try {
       const channel = await guild.channels.fetch(channelId);
@@ -128,7 +128,7 @@ class StayKeeper {
     }
   }
 
-  // 붙어 볼 서버인가. 붙어 있으면(자리가 아닌 채널이면 거기서 나간 뒤 끝 알림으로 다시 온다) · 서버를 쓸 수 없으면(돌아오면 GuildAvailable) 아니다
+  // 붙어 볼 서버인가. 붙어 있으면(자리가 아닌 채널이면 거기서 나간 뒤 끝 알림으로 다시 온다), 서버를 쓸 수 없으면(돌아오면 GuildAvailable) 아니다
   _guildToTry(guildId: string) {
     if (!staySeats.seatOf(guildId) || this.blocked.has(guildId) || this.busy.has(guildId)) return null;
     if (this.players.get(guildId)?.voice.isAlive()) return null;

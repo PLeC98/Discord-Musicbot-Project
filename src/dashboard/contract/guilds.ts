@@ -1,4 +1,4 @@
-// 백엔드와 화면이 주고받는 모양: 서버 목록 · 실시간 알림 · 서버 설정(/api/guilds 아래)
+// 백엔드와 화면이 주고받는 모양: 서버 목록, 실시간 알림, 서버 설정(/api/guilds 아래)
 
 import type { AgePlace } from "../../rules/age-place.ts";
 

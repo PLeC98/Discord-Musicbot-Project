@@ -18,8 +18,8 @@ type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "
 // (따로 상태를 두지 않고 경계를 넘었는지만 본다).
 //
 // 구간 처리:
-//  - 인트로 · 중간: 위치 이동(play(end*1000))으로 구간 끝으로.
-//  - 아웃트로 · 끝(seg.end ≈ 곡 길이): 스킵과 같이 다음 곡으로(skip).
+//  - 인트로, 중간: 위치 이동(play(end*1000))으로 구간 끝으로.
+//  - 아웃트로, 끝(seg.end ≈ 곡 길이): 스킵과 같이 다음 곡으로(skip).
 
 const TICK_MS = 500; // 확인 간격. 인트로가 이만큼까지 들릴 수 있다
 const END_EPSILON_SEC = 1.5; // seg.end가 곡 끝에서 이 이내면 아웃트로로 본다
@@ -55,7 +55,7 @@ class SponsorSkipper {
     return { action: null, prevSec: curSec };
   }
 
-  /** 재생을 시작하거나 위치를 옮길 때 부른다. 이번 재생의 구간 · 기준점을 정하고 구간이 있으면 확인을 켠다 */
+  /** 재생을 시작하거나 위치를 옮길 때 부른다. 이번 재생의 구간, 기준점을 정하고 구간이 있으면 확인을 켠다 */
   onPlayStart(seekMs = 0) {
     const segs = this.player.sponsor?.skipSegments;
     this.segments = Array.isArray(segs) ? segs : [];
@@ -99,7 +99,7 @@ class SponsorSkipper {
     if (d.action === "end") {
       // 스킵과 트랙 종료 줄이 원인=sponsorblock 을 달고 따라나온다. 세 줄이 한 사건이다.
       log.debug(`${logTitle(p.currentTrack?.title)}: 종료 구간 도달, 트랙 종료`);
-      p.skip("sponsorblock"); // 스킵 버튼과 같다(다음 곡 · 반복을 따른다)
+      p.skip("sponsorblock"); // 스킵 버튼과 같다(다음 곡, 반복을 따른다)
     } else if (d.action === "seek") {
       log.info(`${logTitle(p.currentTrack?.title)}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.

@@ -1,9 +1,9 @@
-// 문제(오류 · 거절) 코드 목록. 디스코드 안내와 대시보드 HTTP 오류(RFC 9457)가 같은 코드를 쓴다.
+// 문제(오류, 거절) 코드 목록. 디스코드 안내와 대시보드 HTTP 오류(RFC 9457)가 같은 코드를 쓴다.
 // 코드 하나에 뜻 하나. 코드를 바꾸면 받는 쪽이 깨지니 새 뜻은 새 코드로. 문장에 드는 값은 params 에 이름을 적는다.
-// HTTP 상태: 400 입력이 틀림 · 403 요청한 사람에게 권한이 없음 · 404 대상이나 핸들러가 없음 · 409 지금 상태로는 못 함 ·
-// 410 그 사이 사라짐 · 422 받을 수 없는 내용 · 500 봇 안쪽 실패 · 502 외부(플랫폼 · 디스코드) 실패 · 503 운영자 설정 · 잠시 못 함
+// HTTP 상태: 400 입력이 틀림, 403 요청한 사람에게 권한이 없음, 404 대상이나 핸들러가 없음, 409 지금 상태로는 못 함,
+// 410 그 사이 사라짐, 422 받을 수 없는 내용, 500 봇 안쪽 실패, 502 외부(플랫폼, 디스코드) 실패, 503 운영자 설정, 잠시 못 함
 
-/** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자 · 숫자 · _, 3자 이상)을 따른다 */
+/** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자, 숫자, _, 3자 이상)을 따른다 */
 type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
@@ -13,9 +13,9 @@ const SHARED = {
   // 요청한 사람이 갖추지 못함
   "must-be-in-voice": { status: 409, title: "Join a voice channel first" },
   "must-be-in-same-voice": { status: 409, title: "Join the bot's voice channel first" },
-  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join · 대시보드 참가)
+  // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join, 대시보드 참가)
   "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
-  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다 · 자리에서 내보내기는 서버 관리 권한이 있어야 한다
+  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다, 자리에서 내보내기는 서버 관리 권한이 있어야 한다
   "stay-stage": { status: 409, title: "Stay mode does not work in stage channels" },
   "stay-leave-moderator": { status: 403, title: "Manage Server permission required to leave while stay mode is on" },
   "must-dj": { status: 403, title: "DJ role required" },
@@ -95,7 +95,7 @@ const SHARED = {
   "network-error": { status: 502, title: "Could not reach the platform" },
   "stream-failed": { status: 502, title: "Could not fetch audio" },
   "voice-failed": { status: 502, title: "Could not join the voice channel" },
-  // 운영자 설정 · 잠시 못 함
+  // 운영자 설정, 잠시 못 함
   "rate-limited": { status: 503, title: "Platform rate limit" },
   "yt-age-cookies-invalid": { status: 503, title: "Age-restricted videos are temporarily unavailable" },
   "live-no-ffmpeg": { status: 503, title: "Live streams are unavailable" },
@@ -120,9 +120,9 @@ const SHARED = {
 
 // 대시보드 HTTP 층에서만 나는 것. 화면은 웹 오류 화면처럼 문장 끝에 코드와 HTTP 상태를 함께 보인다
 const WEB = {
-  // 대시보드: 접속 · 권한
+  // 대시보드: 접속, 권한
   "login-required": { status: 401, title: "Login required" },
-  // 위험한 조작(비밀값 · 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
+  // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
   "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
   "no-guild-access": { status: 403, title: "No access to this server" },
@@ -171,7 +171,7 @@ const WEB = {
   "nothing-to-save": { status: 400, title: "Nothing was sent" },
   "config-not-found": { status: 404, title: "Unknown config file" },
   "config-invalid": { status: 400, title: "Config has problems" },
-  // 읽은 뒤 다른 탭 · 다른 사람이 먼저 저장했다(저장 번호가 다르다)
+  // 읽은 뒤 다른 탭, 다른 사람이 먼저 저장했다(저장 번호가 다르다)
   "config-changed": { status: 409, title: "Config changed since it was read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   // 설정 불러오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
@@ -182,9 +182,9 @@ const WEB = {
   "archive-too-many-files": { status: 422, title: "Too many cache files for one archive", params: ["max"] },
   // 미리 보기 때 올린 파일이 없다(1시간이 지났거나 봇이 다시 시작됐다)
   "upload-gone": { status: 410, title: "Uploaded file is gone" },
-  // 설정 DB 스냅샷 복원: 없는 이름 · 이 봇과 구조가 다른 스냅샷
+  // 설정 DB 스냅샷 복원: 없는 이름, 이 봇과 구조가 다른 스냅샷
   "snapshot-not-found": { status: 404, title: "Snapshot not found" },
-  // 로그인한 기기 목록의 그 세션이 그사이 끝났다(로그아웃 · 기한)
+  // 로그인한 기기 목록의 그 세션이 그사이 끝났다(로그아웃, 기한)
   "device-not-found": { status: 404, title: "Signed-in device not found" },
   "snapshot-mismatch": { status: 409, title: "Snapshot does not match this bot" },
   // AI 리퀘스트 로그: 없는 행(저장 용량을 넘어 삭제됐거나 모두 삭제했다)
@@ -192,11 +192,11 @@ const WEB = {
   // 로그 파일 보기: 보관 개수를 넘어 삭제됐거나 파일 로그를 껐다
   "log-file-not-found": { status: 404, title: "Log file not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
-  // 대시보드: 파비콘(올린 이미지 · 링크로 다운로드하는 이미지)
+  // 대시보드: 파비콘(올린 이미지, 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
   "image-too-small": { status: 400, title: "Image is too small", params: ["min"] },
-  // 링크에서 이미지를 다운로드하지 못했다(접속 · 내부 주소 · 크기 · 시간). 까닭은 로그에만
+  // 링크에서 이미지를 다운로드하지 못했다(접속, 내부 주소, 크기, 시간). 까닭은 로그에만
   "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
   // 대시보드: 로그인 배경. 편집은 편집을 기다리는 배경에 한 번만, 기록으로 교체하기는 다 만든 배경만
@@ -206,13 +206,13 @@ const WEB = {
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
-  // 가져온 파일이 쓸 수 있는 이미지 · 영상이 아니다(형식 · 해상도 · 길이 · 초당 장면 수)
+  // 가져온 파일이 쓸 수 있는 이미지, 영상이 아니다(형식, 해상도, 길이, 초당 장면 수)
   "background-bad-source": { status: 422, title: "Not a usable image or video" },
-  // 링크에서 다운로드하지 못했다(접속 · 내부 주소 · 형식 · 유튜브). 까닭은 로그에만
+  // 링크에서 다운로드하지 못했다(접속, 내부 주소, 형식, 유튜브). 까닭은 로그에만
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
-  // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264 · VP9)가 없다. 이미지 배경은 된다
+  // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264, VP9)가 없다. 이미지 배경은 된다
   "background-no-video-encoder": { status: 409, title: "No encoder for video backgrounds" },
-  // 대시보드: 캐시 DB. 필터 식(열마다 · 아무 열에서나)과 읽는 구간
+  // 대시보드: 캐시 DB. 필터 식(열마다, 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
   "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },
   "regex-too-long": { status: 400, title: "Regular expression is too long", params: ["max"] },
@@ -221,7 +221,7 @@ const WEB = {
   "filter-timeout": { status: 422, title: "Filtering took too long" },
   "bad-page-range": { status: 400, title: "Invalid row range" },
   "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },
-  // 지정할 요청이 곡 하나의 링크가 아니다(재생목록 · 앨범 · 세트 · 짧은 링크 · 검색어)
+  // 지정할 요청이 곡 하나의 링크가 아니다(재생목록, 앨범, 세트, 짧은 링크, 검색어)
   "not-single-track": { status: 422, title: "Not a single-track link" },
   // 지정할 음원이 다운로드할 수 있는 음원이 아니다(스포티파이 등)
   "not-audio-source": { status: 422, title: "Not a downloadable audio source" },
@@ -246,7 +246,7 @@ type ParamsOf<C extends Code> = { [K in ParamNames<C>]: Exclude<Params[K], undef
 type NeedsParams<C extends Code> = [ParamNames<C>] extends [never] ? false : true;
 /** 문제 하나: 코드와 그 코드의 문장에 드는 값 */
 type Problem = { [C in Code]: { code: C } & ParamsOf<C> }[Code];
-/** 실행 중에 코드가 정해져 값을 아직 검사하지 않은 문제(대시보드 응답 · 곡 추가 결과). 그리기 전에 errors.noticeFor 가 검사한다 */
+/** 실행 중에 코드가 정해져 값을 아직 검사하지 않은 문제(대시보드 응답, 곡 추가 결과). 그리기 전에 errors.noticeFor 가 검사한다 */
 type LooseProblem = { code: Code } & Params;
 
 /** 목록에 있는 코드인가 */

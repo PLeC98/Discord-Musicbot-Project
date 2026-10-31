@@ -1,4 +1,4 @@
-// 외부 서비스의 응답을 담아 두는 표. SponsorBlock 구간 · 연령 제한 영상 · 스포티파이 익명 상태
+// 외부 서비스의 응답을 담아 두는 표. SponsorBlock 구간, 연령 제한 영상, 스포티파이 익명 상태
 
 import { cacheDb } from "./cache-db.ts";
 import { DONE, GONE, changedTo, type Guarded } from "./guarded-write.ts";
@@ -15,7 +15,7 @@ const conn = () => cacheDb.get();
 
 // ── SponsorBlock 구간 캐시 ──
 
-/** videoId의 캐시된 원시 세그먼트와 받은 때 · 주소. 없거나 망가졌으면 null */
+/** videoId의 캐시된 원시 세그먼트와 받은 때, 주소. 없거나 망가졌으면 null */
 function getSponsorSegments(videoId: string | null | undefined): { segments: unknown; fetchedAt: number; apiBase: string | null } | null {
   if (!videoId) return null;
   const row = conn().prepare("SELECT data_json, fetched_at, api_base FROM sponsorblock_cache WHERE video_id = ?").get(videoId) as SponsorRow | undefined;
@@ -27,7 +27,7 @@ function getSponsorSegments(videoId: string | null | undefined): { segments: unk
   }
 }
 
-/** videoId의 원시 세그먼트를 받은 때 · 주소와 함께 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
+/** videoId의 원시 세그먼트를 받은 때, 주소와 함께 저장한다. 빈 배열도 저장한다("구간 없음"도 캐시한다) */
 function setSponsorSegments(videoId: string | null | undefined, segments: unknown, { fetchedAt, apiBase }: { fetchedAt: number; apiBase: string }) {
   if (!videoId || !Array.isArray(segments)) return;
   conn()
@@ -101,7 +101,7 @@ function mergeAgeRestricted(rows: Array<{ videoId: string; markedAt: number }>):
 }
 
 // ── 스포티파이 익명 웹 플레이어 상태 ──
-// secret · 해시 · clientVersion. 오래됐거나 토큰 · 해시 오류가 나면 sources/spotify 가 다시 추출해 덮어쓴다
+// secret, 해시, clientVersion. 오래됐거나 토큰, 해시 오류가 나면 sources/spotify 가 다시 추출해 덮어쓴다
 
 /** 저장된 익명 상태 `{ ...data, fetchedAt }`. 없거나 망가졌으면 null */
 function getSpotifyAnonState(): (Record<string, unknown> & { fetchedAt: number }) | null {

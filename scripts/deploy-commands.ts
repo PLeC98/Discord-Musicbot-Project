@@ -1,9 +1,9 @@
 // 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트. `pnpm run cmddeploy`.
-// 게이트웨이 · 음성과 무관한 REST PUT 이라 봇이 돌아가는 중에 실행해도 되고, 봇 재시작 없이 커맨드 정의가 갱신된다.
+// 게이트웨이, 음성과 무관한 REST PUT 이라 봇이 돌아가는 중에 실행해도 되고, 봇 재시작 없이 커맨드 정의가 갱신된다.
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import * as configCheck from "../src/app/config-check.ts";
-import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제 · 경고 목록
+import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제, 경고 목록
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 

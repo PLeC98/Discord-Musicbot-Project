@@ -24,7 +24,7 @@ const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", clien
 const SA_JSON = JSON.stringify(ACCOUNT);
 
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
-// 가짜 응답은 여기서 읽는 필드(ok · status · text)만 준다
+// 가짜 응답은 여기서 읽는 필드(ok, status, text)만 준다
 type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
 // 토큰 요청을 받는 가짜. answers 로 답을 정하고 accessToken 에 넘긴다
 let net: typeof fetch = () => Promise.reject(new Error("테스트가 답을 정하지 않았다"));

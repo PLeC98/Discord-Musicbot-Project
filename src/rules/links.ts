@@ -1,4 +1,4 @@
-// 사이트 지식. 어느 호스트가 어느 사이트인가, id 는 어디 있나. 판정이 아니다(판정은 inputKind · canonicalUrl · audioKeyOf).
+// 사이트 지식. 어느 호스트가 어느 사이트인가, id 는 어디 있나. 판정이 아니다(판정은 inputKind, canonicalUrl, audioKeyOf).
 // 순수 함수만 둔다. 사이트를 더하면 이 파일과 그 판정들만 고친다.
 
 // ── 유튜브 ──
@@ -89,7 +89,7 @@ function isSoundCloudURL(url: unknown): boolean {
     /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
     // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 리다이렉트를 따라간다
     /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
-    // 곡 · 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
+    // 곡, 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
     /^https?:\/\/api(-v2)?\.soundcloud\.com\/(tracks|playlists)\/\d+/,
   ];
   return patterns.some((pattern) => pattern.test(String(url)));
@@ -101,9 +101,9 @@ const SOUNDCLOUD_TABS = new Set(["sets", "likes", "tracks", "reposts", "albums",
 /**
  * 사운드클라우드 주소가 무엇을 가리키나.
  *   track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api 의 tracks/<id>)
- *   set    세트 · 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
+ *   set    세트, 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
  *   short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp 가 풀어야 안다)
- *   other  사용자 프로필 · 좋아요 · 재게시 같은 모음. 받지 않는다
+ *   other  사용자 프로필, 좋아요, 재게시 같은 모음. 받지 않는다
  * 사운드클라우드 주소가 아니면 null
  */
 function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other" | null {
@@ -121,10 +121,10 @@ function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other"
 
 // ── 알려진 사이트 ──
 
-// 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립 · 채널, 스포티파이 에피소드 · 짧은 링크)도 그 사이트의 페이지다
+// 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립, 채널, 스포티파이 에피소드, 짧은 링크)도 그 사이트의 페이지다
 const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
 
-/** 알려진 사이트의 호스트인가. 직접 링크(파일 · 방송 주소)와 구분한다 */
+/** 알려진 사이트의 호스트인가. 직접 링크(파일, 방송 주소)와 구분한다 */
 function isKnownSiteHost(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {
@@ -137,7 +137,7 @@ function isKnownSiteHost(value: unknown): boolean {
 
 // ── 링크인가 ──
 
-/** http · https 주소인가. 링크가 아닌 텍스트(검색어)와 구분한다 */
+/** http, https 주소인가. 링크가 아닌 텍스트(검색어)와 구분한다 */
 function isHttpLink(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {

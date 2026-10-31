@@ -1,7 +1,7 @@
 // 디스코드 앱 이모지 이미지 만들기. 아이콘 표(ui/icons)의 한 항목 + 바탕색 → 128 × 128 PNG(도는 것은 GIF).
 // 타일: 둥근 사각형(모서리 28%)에 바탕색의 톤 40, 기호는 톤 98(rules/icon-tones). 흰 기호: 타일 없이 흰색(색 버튼 위).
 // 머티리얼 기호는 글꼴 칸(960) 기준으로 모두 같은 배율이라 디자이너가 칸 안에서 맞춘 크기 보정이 살아 있다. 방패(SponsorBlock)는 자체 여백이 없어 경계 상자로 맞춘다.
-// 같은 입력이면 같은 바이트다(sharp · libvips 버전이 같을 때). 동기화(app/app-emojis)가 디스코드에 올라간 것과 바이트로 비교한다
+// 같은 입력이면 같은 바이트다(sharp, libvips 버전이 같을 때). 동기화(app/app-emojis)가 디스코드에 올라간 것과 바이트로 비교한다
 
 import fs from "fs";
 import path from "path";
@@ -19,7 +19,7 @@ const RADIUS = SIZE * 0.28;
 const SCALE = 0.88;
 /** 방패: 보이는 모양의 긴 변이 이모지 칸에서 차지하는 비율(대시보드와 같은 기호 칸 대비 비율) */
 const SHIELD = SCALE * SHIELD_OF_GLYPH;
-/** 도는 것: 한 바퀴 24장 · 장마다 50ms(1.2초) */
+/** 도는 것: 한 바퀴 24장, 장마다 50ms(1.2초) */
 const SPIN_FRAMES = 24;
 const SPIN_DELAY_MS = 50;
 

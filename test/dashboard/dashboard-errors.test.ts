@@ -1,4 +1,4 @@
-// src/dashboard/index.ts · middleware/error-handler.ts · binding.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
+// src/dashboard/index.ts, middleware/error-handler.ts, binding.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
 // 세션 스토어가 죽어도 (1) 브라우저에 스택 트레이스를 보이지 않고, (2) 정적 자산은 세션 앞이라 앱 껍데기는 뜬다.
@@ -64,7 +64,7 @@ async function req(urlPath: string, init: RequestInit = {}) {
 
 // ── 오류 분류 (순수) ───────────────────────────────────────────────────────────
 
-test("분류: SQLITE_*·I/O 오류는 storage-unavailable(503), 4xx는 bad-request(400), 나머지는 unknown-error(500)", () => {
+test("분류: SQLITE_*, I/O 오류는 storage-unavailable(503), 4xx는 bad-request(400), 나머지는 unknown-error(500)", () => {
   const c = _internals.classify;
 
   for (const code of ["SQLITE_CORRUPT", "SQLITE_NOTADB", "EIO", "ENOENT"]) assert.equal(c(Object.assign(new Error("x"), { code })), "storage-unavailable", code);
@@ -80,7 +80,7 @@ test("분류: SQLITE_*·I/O 오류는 storage-unavailable(503), 4xx는 bad-reque
 });
 
 // 내부 사정은 감추되 무엇을 고쳐야 하는지는 알려 준다("발송 실패" 만으로는 무엇을 고칠지 알 수 없다).
-test("분류: 413·429는 고칠 방법이 드러나는 코드를 준다", () => {
+test("분류: 413, 429는 고칠 방법이 드러나는 코드를 준다", () => {
   assert.equal(_internals.classify(Object.assign(new Error("request entity too large"), { status: 413, type: "entity.too.large" })), "payload-too-large");
   assert.match(notice("payload-too-large").body ?? "", /줄여서/);
   assert.equal(_internals.classify(Object.assign(new Error("x"), { status: 429 })), "too-many-requests");
@@ -125,7 +125,7 @@ test("바인딩 안내: 루프백은 조용히, 외부+http는 경고", () => {
 
 // ── 실 앱: 스토어가 죽은 상태 ──────────────────────────────────────────────────
 
-test("스토어가 죽어도 스택·내부 경로가 응답에 실리지 않는다", async () => {
+test("스토어가 죽어도 스택, 내부 경로가 응답에 실리지 않는다", async () => {
   logLines.length = 0;
   const res = await req("/api/me");
 
@@ -170,7 +170,7 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
   const { headers } = await req("/");
 
   assert.match(headers.get("content-security-policy") || "", /default-src 'self'/);
-  assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일 · 화면이 블러로 만든 배경화면
+  assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일, 화면이 블러로 만든 배경화면
   assert.match(headers.get("content-security-policy") || "", /media-src 'self' blob:/); // 로그인 배경 영상(hls.js 가 MediaSource 를 blob: 으로 붙인다)
   assert.match(headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
   assert.equal(headers.get("x-content-type-options"), "nosniff");
@@ -218,7 +218,7 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
   }
 });
 
-test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api · /auth 는 따로 세서 여기 한도에 걸리지 않는다", async () => {
+test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api, /auth 는 따로 세서 여기 한도에 걸리지 않는다", async () => {
   const { default: config } = await import("../../src/config/index.ts");
   const saved = config.dashboard.rateLimit.publicMax;
   config.dashboard.rateLimit.publicMax = 2;

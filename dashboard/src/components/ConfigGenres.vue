@@ -4,16 +4,16 @@
   설정은 settings.db 의 "genres" 문서다. 저장 번호로 두 탭이 서로 덮지 않게 한다(composables/config-file).
 -->
 <template>
-  <!-- 목록(첫 항목 "전역 설정", 그 아래 장르들) · 선택한 것의 편집(M3 목록 · 상세). 넓으면(52rem 이상) 2열, 좁으면 1열로 하나씩:
-       목록에서 누르면 편집이 목록 위치를 넘겨받고, 방문 기록이 하나 쌓여 OS · 브라우저의 뒤로가기가 목록으로 돌아온다.
-       선택한 것은 주소(?genre=이름, 이름이 비었거나 겹치면 @순번, 전역 설정은 @defaults)에 둬 새로고침 · 저장 뒤에도 다시 찾는다 -->
+  <!-- 목록(첫 항목 "전역 설정", 그 아래 장르들), 선택한 것의 편집(M3 목록, 상세). 넓으면(52rem 이상) 2열, 좁으면 1열로 하나씩:
+       목록에서 누르면 편집이 목록 위치를 넘겨받고, 방문 기록이 하나 쌓여 OS, 브라우저의 뒤로가기가 목록으로 돌아온다.
+       선택한 것은 주소(?genre=이름, 이름이 비었거나 겹치면 @순번, 전역 설정은 @defaults)에 둬 새로고침, 저장 뒤에도 다시 찾는다 -->
   <div class="flex flex-col gap-(--gap-in)">
     <div ref="paneEl" :class="paneClass">
       <!-- 장르 목록. 2열이면 내려도 제자리에 붙어 있고, 길면 그 안에서 스크롤된다 -->
       <BaseCard v-if="showList" icon="library_music" :title="T.listTitle(rows.length, SELECT_MAX)" :class="listCardClass">
         <template #actions>
           <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="rows.length >= SELECT_MAX" :aria-label="T.addGenre" v-tooltip="rows.length >= SELECT_MAX ? T.atMost(SELECT_MAX) : text.common.add" @click="addRow"><Icon name="add" :size="20" /></button>
-          <!-- 기본값 · 장르 파일은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
+          <!-- 기본값, 장르 파일은 편집기에 불러오기만 한다(저장 막대로 저장하거나 되돌린다) -->
           <MoreMenu
             :label="text.editor.more"
             :button-class="[ICON_BTN, 'size-8']"
@@ -25,7 +25,7 @@
           <input ref="fileEl" type="file" accept=".json,application/json" multiple class="hidden" @change="importPicked" />
         </template>
         <p class="mb-3 text-sm text-on-surface-variant">{{ T.desc }}</p>
-        <!-- 어느 항목의 것도 아닌 문제(저장할 때 서버가 가리킨 것 등) · 읽기 실패. 항목마다의 문제는 그 항목의 오류 아이콘과 편집 영역 맨 위에 -->
+        <!-- 어느 항목의 것도 아닌 문제(저장할 때 서버가 가리킨 것 등), 읽기 실패. 항목마다의 문제는 그 항목의 오류 아이콘과 편집 영역 맨 위에 -->
         <NoticeBox v-if="listProblems.length" variant="note" tone="error" icon="error" class="mt-0! mb-3">{{ listProblems.join("\n") }}</NoticeBox>
         <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0! mb-3">{{ loadError }}</NoticeBox>
         <div ref="listEl" class="min-h-0 overflow-y-auto -mx-2 px-2" :style="listFade">
@@ -43,7 +43,7 @@
             <Twemoji v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
             <Icon v-else name="music_note" :size="24" class="shrink-0" :class="!isOn(i) && 'text-on-surface-variant'" />
             <span class="min-w-0 flex-1 truncate" :class="!shownName(row) && !isOn(i) && 'text-on-surface-variant'">{{ shownName(row) || T.noName }}</span>
-            <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등) · 출처 수 · 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
+            <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등), 출처 수, 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
             <Icon v-if="rowProblem(row)" name="error" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-error'" v-tooltip="rowProblem(row)" />
             <Icon v-else-if="rowWarning(row)" name="warning" :size="20" fill class="shrink-0" :class="!isOn(i) && 'text-(--warn-ink)'" v-tooltip="rowWarning(row)" />
             <span class="shrink-0 text-xs nums" :class="!isOn(i) && 'text-on-surface-variant'">{{ T.sourceCount(row.sources.length) }}</span>
@@ -73,7 +73,7 @@
             <input :value="selected.label" :placeholder="selected.name.trim() || T.labelPlaceholder" :aria-label="T.label" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.label = valueOf($event)" />
             <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeGenre" v-tooltip="text.common.remove" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
           </div>
-          <!-- 식별자: 주소 · 디스코드 버튼 · AI 의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
+          <!-- 식별자: 주소, 디스코드 버튼, AI 의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
           <label class="block">
             <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.id }}<Icon name="info" :size="14" class="cursor-help" v-tooltip="T.idTip" /></span>
             <input :value="selected.name" :placeholder="T.idPlaceholder" spellcheck="false" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="selected.name = valueOf($event)" />
@@ -181,7 +181,7 @@ const { startDrag } = useDragReorder(rows, reorderGenres);
 // 자동완성 후보. 브라우저가 외부 서비스에 바로 요청하지 않고 서버를 거친다(GET /api/admin/source-suggest)
 const suggestFor = async (type: string, field: string, term: string) => (await axios.get<Suggestions>("/api/admin/source-suggest", { params: { type, field, q: term } })).data.items || [];
 
-// ── 목록 · 상세(composables/list-detail). 주소는 ?genre= ─────────────────────────
+// ── 목록, 상세(composables/list-detail). 주소는 ?genre= ─────────────────────────
 const paneEl = ref<HTMLElement | null>(null);
 const { listCardClass, paneClass, selectedIndex, selected, showGlobal, showList, isOn, globalOn, select, openGlobal, afterRemove } = useListDetail({ param: "genre", rows, paneEl });
 const listEl = ref<HTMLElement | null>(null);
@@ -202,10 +202,10 @@ const rowProblem = (row: GenreRow) => rowProblems(row).join("\n");
 // 전역 설정의 문제: 멀쩡한 장르 하나를 붙여 전역 값만 본다
 const SOUND_GENRE = { sources: [{ type: "keyword", keywords: ["-"] }] };
 const globalProblems = computed(() => (loaded.value ? genreProblems({ defaults: draft.value.defaults, genres: { "-": SOUND_GENRE } }) : []));
-// 어느 항목의 것도 아닌 문제: 장르가 없음 · 저장할 때 서버가 가리킨 것
+// 어느 항목의 것도 아닌 문제: 장르가 없음, 저장할 때 서버가 가리킨 것
 const listProblems = computed(() => [...(loaded.value && !rows.value.length ? [T.problems.noGenres] : []), ...serverProblems.value]);
 
-// 목록에 표시할 경고: 쓰이지 않는 출처(.env 에 키가 없음) · 모르는 종류. 출처 편집기의 안내와 같은 말
+// 목록에 표시할 경고: 쓰이지 않는 출처(.env 에 키가 없음), 모르는 종류. 출처 편집기의 안내와 같은 말
 function rowWarning(row: GenreRow) {
   if (sourceTypesState.value !== "ready") return "";
   const lines = row.sources.flatMap((one) => {
@@ -229,7 +229,7 @@ function addRow() {
   select(rows.value.length - 1);
 }
 
-// ── 장르 하나 내보내기 · 불러오기(utils/genre-file). 브라우저 안에서만 한다(서버는 저장할 때 평소처럼 검사한다) ──
+// ── 장르 하나 내보내기, 불러오기(utils/genre-file). 브라우저 안에서만 한다(서버는 저장할 때 평소처럼 검사한다) ──
 const fileEl = ref<HTMLInputElement | null>(null);
 
 function exportRow(row: GenreRow) {

@@ -1,4 +1,4 @@
-// src/autoplay/route.ts: 직접 지정한 음원. 운영자가 정한 음원이 후보의 길(유튜브 주소 · 검색 · 음원)보다 앞서고 필터링을 다시 하지 않는다.
+// src/autoplay/route.ts: 직접 지정한 음원. 운영자가 정한 음원이 후보의 길(유튜브 주소, 검색, 음원)보다 앞서고 필터링을 다시 하지 않는다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ after(() => store.close());
 const route = await import("../../src/autoplay/route.ts");
 const pinnedSources = await import("../../src/store/pinned-sources.ts");
 
-// 제외 키워드 · 길이 하한이 걸리는 후보도 지정한 음원이면 지나간다
+// 제외 키워드, 길이 하한이 걸리는 후보도 지정한 음원이면 지나간다
 const LIMITS = filterModule.prepare({ minDurationSec: 600, maxDurationSec: 3600, blockedKeywords: ["live"] });
 const deps: Deps = {
   ...route.REAL,
@@ -21,7 +21,7 @@ const deps: Deps = {
   assist: { filter: async () => assert.fail("AI 보조를 부르면 안 된다"), accepts: async () => assert.fail("AI 보조를 부르면 안 된다") },
 };
 
-test("세 종류 후보 모두 지정한 음원으로 곡을 만들고, 검색 · 링크 데이터 · 필터링 · AI 보조를 거치지 않는다", async () => {
+test("세 종류 후보 모두 지정한 음원으로 곡을 만들고, 검색, 링크 데이터, 필터링, AI 보조를 거치지 않는다", async () => {
   const cands: Candidate[] = [
     { title: "Live 곡", sourceKey: "yt:1", youtubeUrl: "https://www.youtube.com/watch?v=pinauto0001", durationSec: 30 },
     { title: "Live 곡 둘", artist: "가수", sourceKey: "amq:9001", platform: "anisongdb", sourceUrl: "https://anilist.co/anime/1", durationSec: 30 },

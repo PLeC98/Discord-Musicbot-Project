@@ -75,20 +75,20 @@ function stripAnsi(s: unknown): unknown {
 const RETRY_MS = 30_000;
 
 /**
- * 파일 destination. file: 기록할 파일 경로(절대). maxBytes · keep 은 서로 다른 축이고 각각의 0은 "그 축에 제한 없음"이다.
+ * 파일 destination. file: 기록할 파일 경로(절대). maxBytes, keep 은 서로 다른 축이고 각각의 0은 "그 축에 제한 없음"이다.
  *
  *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(keep 은 뜻이 없다)
  *   keep     = 0  → 회전은 하되 오래된 것을 삭제하지 않는다. 파일이 계속 쌓인다
  *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 삭제한다
  *
  * notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다.
- * retryMs · now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
+ * retryMs, now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
  */
 function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line), retryMs = RETRY_MS, now = Date.now }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown; retryMs?: number; now?: () => number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
   let closed = false;
-  // 멈춘 때 · 마지막으로 열어 본 때 · 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
+  // 멈춘 때, 마지막으로 열어 본 때, 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
   let down: number | null = null;
   let lastTry = 0;
   let lost = 0;

@@ -1,4 +1,4 @@
-// 입력 컴포넌트(단일 선택 · 다중 선택 · 칩 · 태그 · 구간 · 이모지 · 마크다운 편집)의 글
+// 입력 컴포넌트(단일 선택, 다중 선택, 칩, 태그, 구간, 이모지, 마크다운 편집)의 글
 
 /** 선택 입력란의 검색(후보가 많을 때) */
 const searchAmong = (count: number) => `${count}개 중에서 검색`;
@@ -28,13 +28,13 @@ const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
 const colorArea = "채도와 밝기";
-/** 채도 · 밝기 판을 읽어 줄 때(퍼센트) */
+/** 채도, 밝기 판을 읽어 줄 때(퍼센트) */
 const colorAreaValue = (saturation: number, brightness: number) => `채도 ${saturation}%, 밝기 ${brightness}%`;
 const colorHue = "색상";
 const colorDefault = "기본 색으로";
 const colorFormat = "값 형식";
 const colorHex = "HEX 값(#RRGGBB)";
-/** RGB · HSV 입력란마다 읽어 줄 이름 */
+/** RGB, HSV 입력란마다 읽어 줄 이름 */
 const colorChannel = { r: "빨강(0~255)", g: "초록(0~255)", b: "파랑(0~255)", h: "색상(0~359도)", s: "채도(0~100%)", v: "밝기(0~100%)" } as const;
 
 // 마크다운 서식 도구(디스코드와 같은 단축키는 부르는 쪽이 붙인다)
@@ -57,7 +57,7 @@ const format = {
   timestamp: "현재 시간 (시간대 자동 변환)",
 };
 
-// 날짜 · 시간 선택
+// 날짜, 시간 선택
 const datePicker = {
   placeholder: "날짜와 시간",
   month: (year: number, month: number) => `${year}년 ${month}월`,

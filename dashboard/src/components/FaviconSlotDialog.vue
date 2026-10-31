@@ -1,5 +1,5 @@
 <template>
-  <!-- 파비콘 한 크기의 팝업(추가하기 · 변경): 이미지 업로드 · 링크로 추가(봇이 대신 다운로드해 넘긴다) · 기록(최근 FAVICON_HISTORY 개, 새것부터) -->
+  <!-- 파비콘 한 크기의 팝업(추가하기, 변경): 이미지 업로드, 링크로 추가(봇이 대신 다운로드해 넘긴다), 기록(최근 FAVICON_HISTORY 개, 새것부터) -->
   <Teleport to="body">
     <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
       <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
@@ -106,7 +106,7 @@ function isWebUrl(value: string) {
   }
 }
 
-/** http · https 주소만 넘긴다(다운로드는 봇이 한다) */
+/** http, https 주소만 넘긴다(다운로드는 봇이 한다) */
 function submitLink() {
   const ok = isWebUrl(link.value);
   linkError.value = ok ? "" : D.linkBad;
