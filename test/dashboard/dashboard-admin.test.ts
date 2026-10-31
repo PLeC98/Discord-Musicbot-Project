@@ -563,6 +563,7 @@ test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
   assert.equal(bad.status, 200);
   assert.equal(bad.json.candidates[0].error, "유튜브 URL이 아니라 건너뛰었어요.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
   // 읽다 던진 줄은 yt-dlp 원문이 아니라 그 종류의 안내 제목
+  // 맨 위에서 불러오면 시험 준비보다 먼저 설정을 읽어 다른 시험이 403 이 된다
   const { useExec } = await import("../../src/sources/ytdlp-spawn.ts");
   useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] zzzzzzzzzzz: Video unavailable", exitCode: 1 }))) as unknown as Exec);
   try {
