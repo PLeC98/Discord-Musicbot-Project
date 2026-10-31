@@ -86,3 +86,29 @@ test("scaledText: 반올림한 수가 단위 경계에 닿으면 다음 단위�
   assert.equal(scaledText(99.96 * 1024 ** 3, byteUnit, rule).value, "100");
   assert.equal(scaledText(99.94 * 1024 ** 3, byteUnit, rule).value, "99.9");
 });
+
+test("formatDuration: 경계 입력의 지금 답(모름 표기를 넘겼을 때)", () => {
+  const U = "모름";
+  const cases: Array<[unknown, string]> = [
+    [0, U],
+    [null, U],
+    [Infinity, "Infinity:NaN:NaN"],
+    [-Infinity, "NaN:NaN"],
+    [-5, "-1:-5"],
+    [-65, "-2:-5"],
+    ["abc", "0:00"],
+    [" ", "0:00"],
+    [true, "0:01"],
+    ["0", "0:00"],
+    ["0.0", "0:00"],
+    ["-0", "0:00"],
+    ["0e3", "0:00"],
+    [0.4, "0:00"],
+    [59.9999, "0:59"],
+    [3599.5, "59:59"],
+    [90061, "25:01:01"],
+    ["185", "3:05"],
+  ];
+  for (const [value, expected] of cases) assert.equal(formatDuration(value as never, U), expected, String(value));
+  assert.equal(formatMs(NaN), "0:00");
+});

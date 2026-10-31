@@ -87,3 +87,13 @@ test("상한을 비우면 길이 제한이 없다", () => {
 test("빈 제외 키워드는 무시한다. 설정에 빈 줄이 남아도 전부를 막으면 안 된다", () => {
   assert.equal(judge("아무 노래", 240, { blockedKeywords: ["", "  ", "mix"] }).ok, true);
 });
+
+test("괄호, 이모지 생김새의 지금 답", () => {
+  const brackets = ["【公式】【東方Vocal】曲【FullMV】", "[a] [b] [c]", "[[a]] [b]", "【a】[b]【c】", "[a] [b] [c", "[a】[b】[c】", "]a[ ]b[ ]c["];
+  for (const title of brackets) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "괄호 다섯 이상" }, title);
+  // 이모지는 1F300 ~ 1F9FF 범위의 글자 수다. 범위 밖(✨ ⭐ ❗ ❓ ©️ ♥️ 키캡 국기)은 세지 않고, 조합 이모지는 조각마다 센다
+  const passes = ["노래 ✨⭐", "노래 ❓❗️", "1️⃣2️⃣", "🇰🇷🇯🇵", "노래 ©️ ™️", "노래 ♥️ ♥️", "Song © ™ ♥ ❤", "노래 🇰🇷", "노래 ⌚︎ ☀︎"];
+  for (const title of passes) assert.deepEqual(judge(title), { ok: true }, title);
+  const rejected = ["노래 👨‍👩‍👧", "노래 👍🏽", "노래 🏳️‍🌈", "노래 🍄‍🟫", "노래 🍄‍🐸"];
+  for (const title of rejected) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "이모지 둘 이상" }, title);
+});

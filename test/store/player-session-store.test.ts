@@ -337,3 +337,16 @@ test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다
   store.setCurrent(G, base);
   assert.equal(loaded(store).current?.audioFoundBy, undefined, "음원 주소가 요청과 달라도 링크 데이터에서 온 것으로 가리지 않는다");
 });
+
+test("세션 행: 곡 길이의 0, 음수, 글자는 지금 그대로 저장된다", () => {
+  const { store } = open();
+  for (const [duration, expected] of [
+    [0, 0],
+    [-1, -1],
+    ["185", 185],
+    ["abc", null],
+  ] as const) {
+    store.setCurrent(G, { ...t(), duration: duration as never });
+    assert.equal(loaded(store).current?.duration, expected, String(duration));
+  }
+});
