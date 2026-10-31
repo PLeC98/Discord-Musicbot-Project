@@ -5,6 +5,7 @@ import type { Client } from "discord.js";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import type { SlashCommand } from "./command-loader.ts";
+import type { StayKeeper } from "./stay-keeper.ts";
 
 type BotContext = {
   client: Client;
@@ -13,6 +14,8 @@ type BotContext = {
   panels: NowPlayingPanel;
   /** 켜진 슬래시 명령. 이름으로 */
   commands: ReadonlyMap<string, SlashCommand>;
+  /** 24/7 자리 지킴이 */
+  stay: StayKeeper;
 };
 
 export type { BotContext };

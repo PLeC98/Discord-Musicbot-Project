@@ -1,7 +1,7 @@
 // src/player/voice-presence.ts: 음성 상태 이벤트를 무슨 일로 읽나(강제 퇴장 · 채널 사라짐 · 채널 이동 · 억제 사유 맞추기).
 // 봇 자신의 상태는 진짜 음성 연결(voiceLink)이 구분한다. 억제 사유 계산은 플레이어(syncHolds)와 rules/holds 테스트가 본다. 여기서는 무엇을 불렀는지만 본다.
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { onVoiceStateUpdate } from "../../src/player/voice-presence.ts";
 import { VoiceLink } from "../../src/player/voice-link.ts";
@@ -11,8 +11,15 @@ import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import { ChannelType } from "discord.js";
+import * as staySeats from "../../src/store/stay-seats.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
 
 const BOT = "bot1";
+
+// 24/7 자리를 적는다
+const store = openTempStore("voice-presence-");
+after(() => store.close());
 
 type Member = { user: { bot: boolean } };
 
@@ -72,6 +79,23 @@ test("봇이 다른 채널로 옮겨지면 기록과 채널 상태를 맞추고,
   await onVoiceStateUpdate(client, players, state(BOT, "vc0"), state(BOT, "vc2", { channel: { id: "vc2" } }));
   assert.equal(player.voiceChannel?.id, "vc2");
   assert.deepEqual(calls, ["status-moved:vc0", "sync:moved", "embed:update"], "채널을 고친 뒤에 맞춘다");
+});
+
+test("자리에 있던 봇이 옮겨지면 24/7 자리도 따라가고 퇴장 판정을 다시 맞춘다(억제 사유보다 먼저). 스테이지로 옮겨지면 자리는 그대로", async () => {
+  for (const [type, want] of [
+    [ChannelType.GuildVoice, "vc2"],
+    [ChannelType.GuildStageVoice, "vc0"],
+  ] as const) {
+    const { client, calls, player, state, players, guild } = setup();
+    staySeats.set("g1", "vc0", "u1");
+    Object.assign(player, { idle: { reconsider: () => calls.push("reconsider") } });
+    const vc2 = fake<VoiceBasedChannel>({ id: "vc2", type, members: new Map(), isVoiceBased: () => true });
+    guild.channels.cache.set("vc2", vc2);
+    await onVoiceStateUpdate(client, players, state(BOT, "vc0"), state(BOT, "vc2", { channel: vc2 }));
+    assert.equal(staySeats.seatOf("g1")?.channelId, want);
+    assert.deepEqual(calls.slice(0, 3), ["status-moved:vc0", "reconsider", "sync:moved"]);
+    staySeats.clear("g1");
+  }
 });
 
 test("봇이 처음 참가한 것은 옮겨진 것이 아니다", async () => {

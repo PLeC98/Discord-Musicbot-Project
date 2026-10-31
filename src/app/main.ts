@@ -60,6 +60,7 @@ import { botJoinedGuild, botLeftGuild, guildBack } from "../dashboard/routes/pla
 import { watchGoneGuilds } from "../discord/gone-guilds.ts";
 import { watchGatewaySessions } from "../infra/gateway-sessions.ts";
 import * as staySeats from "../store/stay-seats.ts";
+import { createStayKeeper } from "./stay-keeper.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
@@ -209,7 +210,8 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const panels = new NowPlayingPanel(client, players);
   // 명령은 기동 확인 뒤 init 이 채운다
   const commands = new Map<string, SlashCommand>();
-  const bot: BotContext = { client, players, panels, commands };
+  const stay = createStayKeeper({ client, players });
+  const bot: BotContext = { client, players, panels, commands, stay };
   // 연령 제한 콘텐츠의 서버 판정이 볼 곳: 봇이 지금 든 음성 채널(옮겨져도 따라간다), 음성 밖이면 곡 추가가 넘긴, 봇이 들어갈 채널. 둘 다 없으면 모른다
   ageGate.usePlace((guildId, target) => {
     const guild = client.guilds.cache.get(guildId);
@@ -221,6 +223,16 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
+  playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
+  playerEvents.on("started", (player) => stay.wake(player.guild.id));
+  // 운영자가 24/7 을 켜고 끄면: 켜면 자리로 돌아가고, 끄면 지금 붙은 플레이어가 평소처럼 나갈 시각을 건다
+  let stayWasEnabled = config.bot.stayEnabled;
+  onTunablesChanged(() => {
+    if (config.bot.stayEnabled === stayWasEnabled) return;
+    stayWasEnabled = config.bot.stayEnabled;
+    for (const player of players.values()) player.idle.reconsider();
+    if (stayWasEnabled) stay.onEnabled();
+  });
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");
@@ -228,6 +240,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 게이트웨이에 재연결해 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
   client.on(Events.GuildAvailable, (guild) => {
     bestEffort(log, guildBack(stream, guild), "다시 쓸 수 있게 된 서버의 대시보드 구독자 가져오기");
+    stay.onGuildAvailable(guild);
   });
   // 봇이 서버에서 나가면 그 서버 멤버였던 사람들의 서버 목록 · 초대 화면이 다시 읽게 한다
   client.on(Events.GuildDelete, (guild) => botLeftGuild(stream, guild));
@@ -292,7 +305,7 @@ function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof crea
   playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
 }
 
-async function onReady(client: Client<true>, { players, panels }: BotContext, skipRestore: boolean) {
+async function onReady(client: Client<true>, { players, panels, stay }: BotContext, skipRestore: boolean) {
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
@@ -310,6 +323,8 @@ async function onReady(client: Client<true>, { players, panels }: BotContext, sk
   const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
+  // 24/7 자리에 붙어 있지 않은 서버를 하나씩. 패널 복원보다 먼저(자리에서 기다리는 끝난 패널을 정지 모양으로 덮지 않게)
+  await stay.boot({ skip: skipRestore });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
   await panels.restorePanels();
   // 이미지 비교 · 업로드 · 삭제는 백그라운드에서(운영자 색이 바뀌면 다시)
