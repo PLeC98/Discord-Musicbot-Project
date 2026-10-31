@@ -12,9 +12,6 @@ import type { StreamInfo } from "../sources/stream-url.ts";
 import type { InputHealth } from "../media/input-health.ts";
 import type { OpusOutput } from "../media/opus-output.ts";
 
-/** 같은 곡 안에서 위치를 옮길 때 다시 쓸 스트림 주소(start-playback 의 commitPlaying 이 남긴다) */
-type Resume = { trackKey: string | null; url: string | null; info: Partial<StreamInfo> };
-
 class CurrentPlayback {
   track: QueuedTrack;
   startOffsetMs: number;
@@ -27,7 +24,7 @@ class CurrentPlayback {
   live: boolean;
   input: InputHealth | null;
   inputProgressAt: number | null;
-  resume: Resume | null;
+  stream: StreamInfo | null;
   lengthMs: number | null;
 
   constructor(track: QueuedTrack, { startOffsetMs = 0 }: { startOffsetMs?: number } = {}) {
@@ -42,10 +39,9 @@ class CurrentPlayback {
     this.live = false; // 라이브를 주소 분기로 트는가. 끝 처리가 재연결 여부를 이걸로 구분한다
     this.input = null; // 지금 소리를 내는 소스의 온전함. 캐시로 갈아타면 그쪽 것으로 바뀐다
     this.inputProgressAt = null; // 입력이 마지막으로 들어온 때. 버퍼링 감시가 본다
-    this.resume = null; // 위치 재개에 다시 쓸 스트림 정보(같은 곡에서만)
+    this.stream = null; // 이 재생이 받은 스트림 서술자. 같은 곡을 다시 열 때 다시 쓴다(start-playback 의 commitPlaying 이 남긴다)
     this.lengthMs = null; // 트는 음원의 길이(곡 끝 판정, 넘침 안전망, 곡 끝 구간이 본다). 표시 길이(track.duration)와 따로다. 모르면 null
   }
 }
 
-export type { Resume };
 export { CurrentPlayback };

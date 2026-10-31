@@ -52,7 +52,6 @@ import { PauseState, type PauseChange } from "./pause-state.ts";
 import { holdsOf, listenersIn, type VoiceView } from "../rules/holds.ts";
 import { PlaybackState } from "./playback-state.ts";
 import { CurrentPlayback } from "./current-playback.ts";
-import type { Resume } from "./current-playback.ts";
 import { leaveDeadPin } from "../sources/pinned-fallback.ts";
 import * as playerEvents from "./events.ts";
 import { prepareStart, resolveSource, commitPlaying } from "./start-playback.ts";
@@ -496,7 +495,7 @@ class Player {
       this.lastPlaybackPosition = start.startMs;
       const track = pb.track;
 
-      const open = () => this._openSource(opening, start.startMs, previous?.resume, liveReopen);
+      const open = () => this._openSource(opening, start.startMs, previous, liveReopen);
       const opened = await open().catch(async (error: unknown) => {
         // 직접 지정한 음원이 여는 순간 사라졌으면(직접 링크는 여기서야 연다) 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더.
         // 스트림 주소로 여는 음원(유튜브, 사운드클라우드)은 sources/stream-url 이 이미 했다
@@ -562,9 +561,9 @@ class Player {
   }
 
   // 소리를 어디서 받을지 정하고 연다. 끊긴 라이브를 다시 여는데 방송이 끝났으면 null(다시보기를 처음부터 틀지 않는다. 사용자가 추가한 것은 방송이다)
-  async _openSource(pb: CurrentPlayback, startMs: number, resume: Resume | null | undefined, liveReopen: boolean) {
+  async _openSource(pb: CurrentPlayback, startMs: number, previous: CurrentPlayback | null, liveReopen: boolean) {
     const track = pb.track;
-    const source = await resolveSource(this, track, startMs, resume);
+    const source = await resolveSource(this, track, startMs, previous);
     const { streamInfo, cacheFile } = source;
     pb.isLive = source.isLive;
     const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));

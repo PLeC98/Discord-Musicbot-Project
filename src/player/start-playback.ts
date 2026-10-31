@@ -21,7 +21,6 @@ import { gainOf } from "../rules/volume-gain.ts";
 import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { CurrentPlayback } from "./current-playback.ts";
-import type { Resume } from "./current-playback.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import type { Segments } from "../sources/sponsor-block.ts";
@@ -75,9 +74,9 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
 /**
  * 소리를 어디서 받나. 캐시 파일이 있으면 yt-dlp 를 부르지 않는다.
  * 음원 주소가 정해졌으니 SponsorBlock 조회도 여기서 시작해 둔다(여는 동안 나란히 묻는다).
- * @param previousResume  직전 재생이 남긴 위치 재개 정보
+ * @param previous  직전 재생. 같은 곡을 다시 열면 그 재생이 받은 서술자를 다시 쓴다
  */
-async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previousResume: Resume | null | undefined): Promise<Source> {
+async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previous: CurrentPlayback | null): Promise<Source> {
   // 캐시 파일을 찾기 전에 보호를 건다. 찾은 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
   // 연령 제한으로 적힌 곡은 그 전에 판정한다. 캐시는 쿠키 없이 틀므로 여기서 막지 않으면 연령 제한 콘텐츠를 꺼도 틀린다
   const pickCacheFile = () => {
@@ -88,7 +87,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
   // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
-  let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previousResume, startMs) : null;
+  let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previous, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 키가 정해지므로
@@ -151,17 +150,18 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
  * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다.
  * 라이브는 늘 새로 받는다(끊긴 라이브를 다시 열 때 새 답을 봐야 방송이 끝났는지 안다)
  */
-function resumeStream(track: QueuedTrack, resume: Resume | null | undefined, startMs: number): StreamInfo | null {
+function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, startMs: number): StreamInfo | null {
+  const stream = previous?.stream;
   const key = resumeKeyOf(track);
-  if (!resume?.url || !key || resume.trackKey !== key || resume.info.liveStatus === "is_live") return null;
-  const remainingMs = Math.max(0, (resume.info.duration || track.duration || 0) * 1000 - startMs);
-  const state = reuseState(resume.url, remainingMs);
+  if (!previous || !stream?.url || !key || resumeKeyOf(previous.track) !== key || stream.liveStatus === "is_live") return null;
+  const remainingMs = Math.max(0, (stream.duration || track.duration || 0) * 1000 - startMs);
+  const state = reuseState(stream.url, remainingMs);
   if (state !== "ok") {
     log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받습니다: ${logTitle(track.title)}`);
     return null;
   }
   // 재사용한 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
-  return { ...resume.info, url: resume.url, reused: true };
+  return { ...stream, reused: true };
 }
 
 function resumeKeyOf(track: QueuedTrack | null) {
@@ -206,7 +206,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
     log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${why.join(", ")}`);
   }
 
-  pb.resume = resumeInfo(track, streamInfo);
+  pb.stream = streamInfo;
 
   // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 판정한다
   player.watch.startOverflow();
@@ -230,15 +230,6 @@ function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boole
   } catch (error) {
     log.warn(`오디오 캐시 기록 실패(재생은 계속): ${messageOf(error)}`);
   }
-}
-
-// 같은 곡 안에서 위치를 옮길 때 주소를 다시 묻지 않도록 남겨 둔다
-function resumeInfo(track: QueuedTrack, streamInfo: StreamInfo | null): Resume {
-  return {
-    trackKey: resumeKeyOf(track),
-    url: streamInfo?.url ?? null,
-    info: streamInfo ?? {},
-  };
 }
 
 // 곡 끝 판정, SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다

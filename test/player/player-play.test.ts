@@ -380,7 +380,7 @@ test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다.
     calls.chunked.map((c) => c.url.slice(-5)),
     ["n=old", "n=new"],
   );
-  assert.equal(p.playback?.resume?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
+  assert.equal(p.playback?.stream?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
   assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다")));
 });
 
@@ -919,7 +919,7 @@ test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 열리�
     const r = await p.play(0);
     assert.equal(r.ok, true);
     assert.equal(p.playback?.cacheFile !== null, true, "파일로 튼다");
-    assert.equal(p.playback?.resume?.url, url);
+    assert.equal(p.playback?.stream?.url, url);
   } finally {
     h.dispose(p);
   }
