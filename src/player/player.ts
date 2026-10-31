@@ -185,6 +185,13 @@ const REAL = {
   pickAutoplay: (cfg: Parameters<typeof autoplayRoute.pickTrack>[0], recent: Parameters<typeof autoplayRoute.pickTrack>[1], deps?: AutoplayDeps) => autoplayRoute.pickTrack(cfg, recent, deps),
 };
 type Boundary = typeof REAL;
+
+// 여는 중이고 소리가 아직 없다. 멈춰도 Idle 이 오지 않고 play() 가 끝 원인을 지운다. 연 뒤에 건다(같은 재생에서는 먼저 온 것이 이긴다). 미뤘으면 true
+function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "_playGen" | "_endWhileStarting">, reason: string) {
+  if (!player.lifecycle.starting || player.audioPlayer.state.status !== AudioPlayerStatus.Idle) return false;
+  if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen };
+  return true;
+}
 /**
  * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause) · 끝 알림(disposed)을 듣는 쪽이 가른다.
  * 사람이 끝냄: stop · leave. 기다리다 나감: queue-drained · inactivity-timeout. 디스코드 쪽: forced-disconnect · stage-ended · stage-disconnect · channel-gone · voice-lost · guild-gone · operator-leave.
@@ -433,7 +440,8 @@ class Player {
   /** 음성 연결이 복구됐다(voice 가 알린다). 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다 */
   async onVoiceRecovered() {
     // 멈춰 둔 곡은 다시 열지 않는다(다시 트는 것은 사람의 ▶). 쉬어 둔 곡은 깨우기가 연다(바로 앞의 syncHolds 가 이미 깨웠을 수 있다)
-    if (!this.currentTrack || this.lifecycle.released) return;
+    // 바로 앞의 syncHolds 가 깨우기 시작했으면 그 열기가 맡는다(두 번 열지 않게). 깨우기가 끝난 뒤 실패했으면 다시 연다
+    if (!this.currentTrack || this.lifecycle.released || this._waking) return;
     try {
       await this.play(this.getCurrentTime(), { continued: true });
     } catch (error) {
@@ -759,11 +767,7 @@ class Player {
       if (!this._endScheduled) this._scheduleEnd(reason);
       return;
     }
-    // 여는 중이고 소리가 아직 없다. 멈춰도 Idle 이 오지 않고 play() 가 끝 원인을 지운다. 연 뒤에 건다(먼저 온 것이 이긴다)
-    if (this.lifecycle.starting && this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
-      this._endWhileStarting ??= { reason, gen: this._playGen };
-      return;
-    }
+    if (deferWhileStarting(this, reason)) return;
     if (this._endReason && this._endReason !== reason) log.debug(`이미 정지 처리 중(원인=${this._endReason})이므로 ${reason} 요청은 무시합니다: ${this._trackLabel()}`);
     this._endReason ??= reason;
     if (force || this.audioPlayer.state.status !== AudioPlayerStatus.Playing) {
@@ -851,10 +855,13 @@ class Player {
     this._restTimer = null;
   }
 
-  // 멈춘 지 restAfterMs. 그 안에 나갈 예정이면(혼자 남음 · 틀 게 없음) 곧 버릴 플레이어라 내리지 않는다. 나머지 조건은 rest() 가 다시 본다
+  // 멈춘 지 restAfterMs. 그 안에 나갈 예정이면(혼자 남음 · 틀 게 없음) 곧 버릴 플레이어라 내리지 않고 다시 잰다(그 예정이 사라질 수 있다). 나머지 조건은 rest() 가 다시 본다
   _restIfStill() {
     const leavesAt = this.idle.leavesAt();
-    if (leavesAt !== null && leavesAt - Date.now() < this.restAfterMs) return;
+    if (leavesAt !== null && leavesAt - Date.now() < this.restAfterMs) {
+      this._armRest();
+      return;
+    }
     this.rest();
   }
 
@@ -1646,6 +1653,8 @@ class Player {
     const pb = this.playback;
     if (this.lifecycle.phase !== "playing" || !pb?.resource || !this.paused || this.isLive || this._endScheduled || this.lifecycle.ending || this.isStopping) return false;
     const at = this.getCurrentTime();
+    // 소리를 낸 곡이면 연달은 실패가 아니다. 곡 끝(onTrackEnd)은 리소스가 낸 시간으로 보는데 쉬면 리소스가 없다
+    if ((pb.resource.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
     // 단계를 먼저 바꾼다. 아래 stop 이 Idle 을 동기로 알리는데, 그 끝 처리가 곡을 넘기지 않게(onPlayerIdle 이 released 를 본다)
     this.lifecycle.to("resting", "오래 멈춤");
     pb.startOffsetMs = at;

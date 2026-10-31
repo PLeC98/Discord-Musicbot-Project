@@ -18,7 +18,7 @@ import { fake } from "../helpers/fake.ts";
 import * as h from "../helpers/player-harness.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { playbackStatus, soundAttached } from "../../src/ui/player-status.ts";
+import { playbackStatus, playState, soundAttached } from "../../src/ui/player-status.ts";
 import { queueInfoOf } from "../../src/ui/queue-view.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
@@ -2050,10 +2050,14 @@ test("쉬기 타이머: 멈춘 지 정해진 시간이 지나면 쉰다. 그 전
 
   const leaving = h.makePlayer();
   leaving.restAfterMs = 20;
-  leaving.idle.leavesAt = () => Date.now() + 10;
+  let leavesAt: number | null = Date.now() + 10;
+  leaving.idle.leavesAt = () => leavesAt;
   await pausedAt(leaving, cached("rt3aaaaaaaa"), 0);
-  await tick(60);
+  await tick(30);
   assert.equal(leaving.lifecycle.resting, false, "곧 나간다");
+  leavesAt = null; // 그 예정이 사라졌다(상주 모드를 켬 등)
+  await tick(60);
+  assert.equal(leaving.lifecycle.resting, true, "미룬 뒤에도 다시 잰다");
   h.dispose(leaving);
 });
 
@@ -2069,5 +2073,49 @@ test("쉬기 타이머: 멈춘 채 새 곡을 열면 그 곡을 연 때부터 �
   assert.ok(p._restTimer && p._restTimer !== first, "새 곡을 연 때부터");
   await p.dispose({ reason: "시험", session: "keep", end: "stop" });
   assert.equal(p._restTimer, null);
+  h.dispose(p);
+});
+
+test("쉬어 두기: 음성이 다시 붙을 때 억제 사유가 빠져 깨우기가 시작됐으면 음성 복구가 또 열지 않는다(한 번 연다)", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rv1aaaaaaaa"), 20_000);
+  p.rest();
+  p.pause.setUser(false);
+  const opened = h.calls.resources.length;
+
+  // voice-link 의 차례: _settled(syncHolds → wake) 다음에 onVoiceRecovered
+  const waking = p.wake();
+  await p.onVoiceRecovered();
+  await waking;
+  h.dispose(p);
+
+  assert.equal(h.calls.resources.length, opened + 1);
+});
+
+test("쉬어 두기: 소리를 낸 곡이면 쉴 때 연달은 실패 수를 비운다. 다시 여는 동안 화면은 곡을 멈춤으로 보인다", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rw1aaaaaaaa"), 0);
+  p.failedTracks = 2;
+  Object.assign(p.resource ?? {}, { playbackDuration: 60_000 });
+  p.rest();
+  assert.equal(p.failedTracks, 0);
+
+  p._waking = true;
+  p.lifecycle.to("starting");
+  assert.equal(playState(p), "paused", "소리가 나기 전까지는 멈춤");
+  p._waking = false;
+  h.dispose(p);
+});
+
+test("여는 중에 받은 넘기기: 앞 세대(실패해 다른 곡을 연 것)의 기록이 남아 있으면 새 넘기기로 덮는다", () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("rx1aaaaaaaa");
+  p._playGen = 5;
+  p.lifecycle.to("starting");
+  p._endWhileStarting = { reason: "skip", gen: 4 };
+  p._stopWith("jump");
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5 });
+  p._stopWith("skip");
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5 }, "같은 세대는 먼저 온 것이 이긴다");
   h.dispose(p);
 });

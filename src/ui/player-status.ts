@@ -23,7 +23,7 @@ function soundAttached(player: Pick<Player, "audioPlayer"> & { parked?: boolean;
 
 /** 소리를 내는가 · 멈췄는가 · 소리가 없는가(곡이 없거나 여는 중) */
 function playState(player: Pick<Player, "audioPlayer" | "paused"> & { parked?: boolean; resting?: boolean }): "playing" | "paused" | "idle" {
-  if (player.parked || (player.resting && player.paused)) return "paused";
+  if (player.parked || player.resting) return "paused";
   if (!soundAttached(player)) return "idle";
   const status = player.audioPlayer?.state?.status;
   return player.paused || status === AudioPlayerStatus.AutoPaused ? "paused" : "playing";
