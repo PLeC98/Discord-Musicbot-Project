@@ -21,6 +21,7 @@ import * as genreConfig from "../../src/config/genres.ts";
 import * as guildSettings from "../../src/store/guild-settings.ts";
 import { plainText } from "../helpers/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
+import config from "../../src/config/index.ts";
 
 useDefaultDocuments();
 
@@ -470,6 +471,12 @@ test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 �
     const players = new Map<string, Player>([["g1", fakePlayer({ voiceChannel: { id: "vc1" } })]]);
     assert.equal(codeOf(await controls.leave(guild, { member: member({ mod: false }) }, players)), "stay-leave-moderator");
     assert.ok(staySeats.seatOf("g1"), "거절하면 자리는 그대로");
+    config.bot.stayEnabled = false;
+    const ignored = await controls.leave(guild, { member: member({ mod: false }) }, new Map([["g1", fakePlayer({ voiceChannel: { id: "vc1" } })]]));
+    config.bot.stayEnabled = true;
+    assert.equal(accepted(ignored).stayOff, false, "운영자가 껐으면 자리를 무시한다(DJ 도 나가게 하고 자리는 남긴다)");
+    assert.ok(staySeats.seatOf("g1"));
+
     assert.equal(accepted(await controls.leave(guild, DJ, players)).stayOff, true);
     assert.equal(staySeats.seatOf("g1"), null);
   } finally {

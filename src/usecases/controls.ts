@@ -22,6 +22,7 @@ import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, NeedsParams, ParamsOf, Problem } from "../rules/problems.ts";
+import config from "../config/index.ts";
 import * as staySeats from "../store/stay-seats.ts";
 import { seatedIn } from "../player/idle-leave.ts";
 
@@ -394,7 +395,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
   // 24/7 자리도 함께 끈다. 켜고 끄는 권한(서버 관리)과 같게, 없으면 거절한다. 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
-  const seated = staySeats.seatOf(guild.id) !== null;
+  const seated = config.bot.stayEnabled && staySeats.seatOf(guild.id) !== null; // 운영자가 껐으면 자리를 무시한다(지우지도 않는다)
   if (seated && !perm.isModerator(actor.member)) return fail("stay-leave-moderator");
   if (seated) staySeats.clear(guild.id);
   const player = players.get(guild.id);
