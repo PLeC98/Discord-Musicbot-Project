@@ -27,7 +27,7 @@ const emojiLoading = "불러오는 중...";
 const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
-const colorArea = "채도와 밝기";
+const colorArea = "채도 및 밝기";
 /** 채도, 밝기 판을 읽어 줄 때(퍼센트) */
 const colorAreaValue = (saturation: number, brightness: number) => `채도 ${saturation}%, 밝기 ${brightness}%`;
 const colorHue = "색상";
@@ -59,7 +59,7 @@ const format = {
 
 // 날짜, 시간 선택
 const datePicker = {
-  placeholder: "날짜와 시간",
+  placeholder: "날짜 및 시간",
   month: (year: number, month: number) => `${year}년 ${month}월`,
   year: (year: number) => `${year}년`,
   pickYear: "연도",

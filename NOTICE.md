@@ -8,7 +8,7 @@ This repository is a fork of [umutxyp/MusicBot](https://github.com/umutxyp/Music
 - **업스트림 베이스 (Upstream base)**: umutxyp/MusicBot 커밋 `e3c825e5ec19c8756bf6612bb7f1f7569501e526` 까지의 코드 -
   Copyright (c) 2025 umutxyp, **MIT License** ([LICENSE-MIT](LICENSE-MIT) 참조)
 
-- **이 저장소의 수정과 추가분 (Modifications in this repository)**: 위 커밋 이후
+- **이 저장소의 수정 및 추가분 (Modifications in this repository)**: 위 커밋 이후
   이 저장소에서 새로 작성된 모든 변경분 -
   Copyright (C) 2026 PLeC, **GNU AGPL-3.0-or-later** ([LICENSE](LICENSE) 참조)
 

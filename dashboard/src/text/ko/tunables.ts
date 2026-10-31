@@ -2,7 +2,7 @@
 
 /** 그룹마다 제목, 아이콘, 설명 */
 const groups = {
-  queue: { title: "대기열과 나가기", icon: "queue_music", desc: "" },
+  queue: { title: "대기열 및 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
   youtube: { title: "유튜브", icon: "smart_display", desc: "" },
   ageyoutube: { title: "유튜브", icon: "smart_display", desc: "" },
@@ -10,7 +10,7 @@ const groups = {
   cache: { title: "오디오 캐시", icon: "hard_drive", desc: "" },
   stream: { title: "재생 스트림", icon: "graphic_eq", desc: "" },
   geoip: { title: "로그인 기기 접속 지역", icon: "public", desc: "" },
-  dashboard: { title: "대시보드 요청 제한과 실시간 연결", icon: "dashboard", desc: "" },
+  dashboard: { title: "대시보드 요청 제한 및 실시간 연결", icon: "dashboard", desc: "" },
   ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
 
@@ -54,7 +54,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   STREAM_CHUNK_KB: { label: "청크 크기(KB)", help: "유튜브 스트림을 나눠 받는 크기. 1024KB 면 약 1분 분량. 권장 256~4096." },
   RATE_LIMIT_WINDOW_SEC: { label: "요청을 세는 구간(초)", help: "아래 값들을 세는 구간. 로그인 시도는 따로 세요." },
   RATE_LIMIT_API_MAX: { label: "구간당 일반 요청 수", help: "실시간 갱신 연결은 세지 않아요. 정상 사용에서 걸리면 늘리세요." },
-  RATE_LIMIT_QUEUE_MAX: { label: "구간당 곡 추가와 재생 테스트 요청 수", help: "둘 다 yt-dlp 를 실행하므로 따로 제한해요." },
+  RATE_LIMIT_QUEUE_MAX: { label: "구간당 곡 추가 및 재생 테스트 요청 수", help: "둘 다 yt-dlp 를 실행하므로 따로 제한해요." },
   RATE_LIMIT_PUBLIC_MAX: { label: "구간당 로그인 없이 받는 요청 수(IP 마다)", help: "화면 파일, 파비콘, 로그인 배경 영상. 화면을 한 번 여는 데 100개 안쪽이에요. 한 공유기 뒤의 여러 사람은 한 IP 로 세요." },
   RATE_LIMIT_AUTH_WINDOW_SEC: { label: "로그인 시도를 세는 구간(초)", help: "" },
   RATE_LIMIT_AUTH_MAX: { label: "그 구간당 로그인 요청 수", help: "" },

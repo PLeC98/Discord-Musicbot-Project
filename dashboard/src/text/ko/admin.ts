@@ -27,7 +27,7 @@ const tabs = {
   appearance: "디스플레이",
   autoplay: "자동재생",
   ai: "AI 보조",
-  backup: "백업과 초기화",
+  backup: "백업 및 초기화",
   info: "봇 정보",
   dev: "개발자 옵션",
 };

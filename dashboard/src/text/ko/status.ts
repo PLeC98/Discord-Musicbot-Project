@@ -83,7 +83,7 @@ const ago = (span: string) => `${span} 전`;
 const about = (text: string) => `약 ${text}`;
 
 // 플레이어
-const playersTitle = (count: number) => `연결된 서버와 활성 플레이어 (${count})`;
+const playersTitle = (count: number) => `연결된 서버 및 활성 플레이어 (${count})`;
 const search = "검색";
 const playerStates = { playing: "재생 중", paused: "일시정지", idle: "재생 대기" };
 const noSong = "곡 없음";

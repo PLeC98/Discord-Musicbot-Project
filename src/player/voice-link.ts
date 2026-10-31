@@ -543,7 +543,7 @@ class VoiceLink {
         if (this.stageNoticed !== channel.id) this.player.noticeStage("stage-requested");
         this.stageNoticed = channel.id;
       } else {
-        log.warn(`스테이지에서 발언자가 될 수도 요청할 수도 없습니다(멤버 음소거와 발언권 요청 권한 없음): ${this._label()}`);
+        log.warn(`스테이지에서 발언자가 될 수도 요청할 수도 없습니다(멤버 음소거 및 발언권 요청 권한 없음): ${this._label()}`);
         this.player.noticeStage("stage-cannot-speak");
       }
     } catch (error) {

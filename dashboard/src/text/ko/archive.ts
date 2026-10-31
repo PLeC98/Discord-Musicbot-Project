@@ -6,7 +6,7 @@ import type { ArchiveItem, ArchiveKind } from "../../../../src/dashboard/contrac
 
 const exportTitle = "백업 내보내기";
 /** 카드 첫 줄: 전체 백업은 여기 없다(명령은 상자로) */
-const exportDescBefore = "전체 백업(.env와 설정 DB 포함)은 봇 폴더에서 ";
+const exportDescBefore = "전체 백업(.env 및 설정 DB 포함)은 봇 폴더에서 ";
 const backupCommand = "pnpm run backup";
 const exportDescAfter = " 명령으로만 만들 수 있어요.";
 /** 백업 내보내기 카드 안의 카드들 */
@@ -16,8 +16,8 @@ const exports: Record<ArchiveKind, { title: string; desc: string; button: string
     desc: "운영 조절값, 자동재생 장르, 상태 문구, AI 설정, 프롬프트",
     button: "내보내기",
   },
-  favicon: { title: "파비콘", desc: "크기별 파비콘과 파비콘 기록", button: "내보내기" },
-  "login-background": { title: "로그인 배경", desc: "현재 배경과 배경 기록", button: "내보내기" },
+  favicon: { title: "파비콘", desc: "크기별 파비콘 및 파비콘 기록", button: "내보내기" },
+  "login-background": { title: "로그인 배경", desc: "현재 배경 및 배경 기록", button: "내보내기" },
   "audio-cache": { title: "오디오 캐시", desc: "캐시 파일, 자동 검색 결과, 직접 지정한 음원, 연령 제한 기록, SponsorBlock 구간", button: "내보내기" },
 };
 /** 오디오 캐시: 캐시 파일 빼고(자동 검색 결과, 직접 지정한 음원만 옮길 때) */

@@ -38,7 +38,7 @@
 > 잔류한 원본 코드는 MIT, 이 저장소에서 수정하거나 추가한 코드는 **AGPL-3.0-or-later**를 따릅니다.
 
 - **업스트림 베이스** ([umutxyp/MusicBot](https://github.com/umutxyp/MusicBot)): Copyright (c) 2025 umutxyp - [MIT License](LICENSE-MIT)
-- **이 저장소의 수정과 추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)
+- **이 저장소의 수정 및 추가분**: Copyright (C) 2026 PLeC - [GNU AGPL-3.0-or-later](LICENSE)
 
 결합 저작물 전체에는 AGPL-3.0 조건이 적용됩니다. 이 봇을 네트워크 서비스로 운영하는 경우, 사용자에게 소스 코드를 제공해야 합니다 (`/license` 명령어가 이 역할을 합니다).
 상세한 구분 기준은 [NOTICE.md](NOTICE.md)를 참조하세요.

@@ -7,14 +7,14 @@ const conditionTime = "시간대";
 
 // 목록
 const title = "상태 문구";
-const addSpecial = "기간, 시간대 문구 추가";
+const addSpecial = "기간 및 시간대 문구 추가";
 const desc = "위에 있는 것을 우선하고, 조건에 맞는 것이 없으면 기본 문구를 사용해요.";
 const defaults = "기본 문구";
 const messageCount = (count: number) => `문구 ${count}`;
 const dragToReorder = "드래그해서 순서 바꾸기";
 const noCondition = "조건 없음";
 const noName = "이름 없음";
-const empty = "기간, 시간대 문구가 없어요. 오른쪽 위 + 로 추가해요";
+const empty = "기간 및 시간대 문구가 없어요. 오른쪽 위 + 로 추가해요";
 const savedNote = "다음 상태 문구부터 반영돼요";
 
 // 기본 문구

@@ -10,7 +10,7 @@ const revert = "되돌리기";
 const save = "저장";
 const saveRestart = "저장 후 다시 시작";
 /** 휴대폰 막대(자리가 좁다) */
-const saveRestartShort = "저장하고 다시 시작";
+const saveRestartShort = "저장 및 다시 시작";
 const saving = "저장하는 중";
 const saved = "저장했어요";
 const saveFailed = "저장하지 못했어요";
