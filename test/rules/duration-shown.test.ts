@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { shownDuration } from "../../src/rules/duration-shown.ts";
+import { knownTotal, shownDuration } from "../../src/rules/duration-shown.ts";
 
 test("모르던 길이는 어느 값이든 채운다", () => {
   assert.deepEqual(shownDuration({ duration: 0 }, 181.2, "provided"), { duration: 181.2, durationSource: "provided" });
@@ -23,4 +23,10 @@ test("캐시한 음원을 잰 값이 2초 넘게 다를 때만 바꾼다", () =>
 test("새 값을 모르면 그대로", () => {
   assert.equal(shownDuration({ duration: 0 }, null, "measured"), null);
   assert.equal(shownDuration({ duration: 0 }, 0, "provided"), null);
+});
+
+test("knownTotal: 아는 길이만 더하고, 길이 0, 수가 아닌 값, 라이브(길이 0)가 있으면 partial", () => {
+  assert.deepEqual(knownTotal([{ duration: 100 }, { duration: 60.5 }]), { seconds: 160.5, partial: false });
+  assert.deepEqual(knownTotal([{ duration: 100 }, { duration: 0 }, { duration: NaN }, {}]), { seconds: 100, partial: true });
+  assert.deepEqual(knownTotal([]), { seconds: 0, partial: false });
 });

@@ -220,7 +220,7 @@
                 </div>
                 <div class="shrink-0 text-right text-xs nums whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1 text-on-surface-variant"><Icon name="headphones" :size="14" />{{ T.playerLine(player.listeners, player.queued) }}</div>
-                  <div :class="player.state !== 'playing' && 'text-on-surface-variant'">{{ player.state === "playing" ? `${formatDuration(player.position, "0:00")} / ${formatDuration(player.duration, "0:00")}` : PLAYER_STATE_WORD[player.state] }}</div>
+                  <div :class="player.state !== 'playing' && 'text-on-surface-variant'">{{ player.state === "playing" ? `${formatDuration(player.position, "0:00")} / ${player.isLive ? text.player.live : formatDuration(player.duration, "--:--")}` : PLAYER_STATE_WORD[player.state] }}</div>
                 </div>
               </component>
             </li>

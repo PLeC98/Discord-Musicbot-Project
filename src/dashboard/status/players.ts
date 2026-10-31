@@ -22,8 +22,8 @@ function looksMember(client: Client, guildId: string, viewerId: string, memberId
 /** 지금 곡. 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙) */
 function nowPlaying(player: Player, state: PlayerState) {
   const track = state === "idle" ? null : player.currentTrack;
-  if (!track) return { title: null, artist: null, position: 0, duration: 0 };
-  return { title: track.title ?? null, artist: track.artist ?? null, position: Math.floor((player.getCurrentTime?.() || 0) / 1000), duration: track.duration ?? 0 };
+  if (!track) return { title: null, artist: null, position: 0, duration: 0, isLive: false };
+  return { title: track.title ?? null, artist: track.artist ?? null, position: Math.floor((player.getCurrentTime?.() || 0) / 1000), duration: track.duration ?? 0, isLive: Boolean(track.isLive) };
 }
 
 /** 플레이어 하나의 행에서 멤버 표시, 아이콘을 뺀 것(필터링, 합계는 전부에 대해 계산한다) */

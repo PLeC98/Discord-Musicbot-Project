@@ -231,7 +231,7 @@ test("GET status: 봇/노드/시스템 상태 형태", async () => {
   // 쿼리가 없으면 화면의 처음 값(재생 중, 일시정지만)이라 곡 없이 대기는 개수에만
   assert.deepEqual(r.json.players, { voiceConnections: 0, queued: 1, listeners: 0, counts: { playing: 0, paused: 0, idle: 1 }, matched: 0, from: 0, rows: [] });
   const idle = await req<AdminStatus>("GET", "/api/admin/status?states=idle");
-  assert.deepEqual(idle.json.players.rows, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, listeners: 0, queued: 1 }]);
+  assert.deepEqual(idle.json.players.rows, [{ guildId: "100", name: "AlphaGuild", icon: null, member: true, state: "idle", title: null, artist: null, position: 0, duration: 0, isLive: false, listeners: 0, queued: 1 }]);
   const { ytdlp, ...processes } = r.json.processes;
   assert.deepEqual(processes, { total: 0, byLabel: [], memMb: 0, stray: [], strayMore: 0, from: 0, rows: [] });
   // yt-dlp 줄: 도는 것, 기다리는 것 없이 크기만, 지난 1시간 추출 수

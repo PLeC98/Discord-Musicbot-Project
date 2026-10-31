@@ -40,6 +40,8 @@ const voice = {
 
 // 대기열
 const songs = (count: number) => `${formatNumber(count)}곡`;
+// 대기열 합계. 길이를 모르는 곡이 있으면 이상
+const queueLength = (length: string, partial: boolean) => (partial ? `${length} 이상` : length);
 const moreSongs = (count: number) => `${formatNumber(count)}곡 더`;
 const autoplay = "자동재생";
 const autoplayOn = "자동재생 켜기";
@@ -65,4 +67,4 @@ const failed = {
   autoplayOff: "자동재생을 끄지 못했어요.",
 };
 
-export { noPlayerState, stopConfirm, joinBot, joining, addPlaceholder, addSubmit, playlistLink, addWhich, addWholePlaylist, addThisOnly, addFirstOnly, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
+export { noPlayerState, stopConfirm, joinBot, joining, addPlaceholder, addSubmit, playlistLink, addWhich, addWholePlaylist, addThisOnly, addFirstOnly, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };

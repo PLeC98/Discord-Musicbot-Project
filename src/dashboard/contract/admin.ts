@@ -83,7 +83,7 @@ type AdminStatus = {
 const PLAYER_STATES = ["playing", "paused", "idle"] as const;
 type PlayerState = (typeof PLAYER_STATES)[number];
 /** member: 보는 사람(운영자)이 그 서버 멤버인가. 아니면 화면은 그 서버 화면으로 잇지 않는다. queued: 대기열 곡 수(지금 곡은 빼고) */
-type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: PlayerState; title: string | null; artist: string | null; position: number; duration: number; listeners: number; queued: number };
+type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: PlayerState; title: string | null; artist: string | null; position: number; duration: number; isLive: boolean; listeners: number; queued: number };
 
 /** 긴 목록의 구간(시작, 개수). 한 번에 받는 행은 LIST_WINDOW_MAX 까지 */
 type Span = { from: number; count: number };

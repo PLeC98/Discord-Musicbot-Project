@@ -31,6 +31,7 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
     title: t.title,
     artist: t.artist,
     duration: t.duration,
+    isLive: Boolean(t.isLive),
     thumbnail: trackArtUrl(guildId, t),
     platform: t.platform,
     platformLabel: labelOf(t.platform),

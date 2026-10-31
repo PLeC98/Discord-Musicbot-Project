@@ -7,6 +7,7 @@ import { labelOf } from "../rules/platforms.ts";
 import { colorOf } from "./colors.ts";
 import * as discordArt from "./discord-art.ts";
 import { formatDuration } from "./format.ts";
+import { knownTotal } from "../rules/duration-shown.ts";
 import { escapeMd } from "./mentions.ts";
 import { playbackStatus } from "./player-status.ts";
 import { progressBar } from "./progress-bar.ts";
@@ -51,22 +52,8 @@ function nextValue(player: Player) {
 function whatsNext(player: Player) {
   const T = infoText.nowPlaying();
   const queue = player.queue ?? [];
-  const known = queue.reduce((sum, one) => sum + (one.duration || 0), 0);
-  return [
-    T.line("next", T.next, nextValue(player)),
-    queue.length
-      ? T.line(
-          "queue",
-          T.queue,
-          T.queued(
-            queue.length,
-            formatDuration(known, "0:00"),
-            queue.some((one) => !one.duration),
-          ),
-        )
-      : null,
-    player.autoplay ? T.line("autoplay", T.autoplay, T.autoplayOn(genreConfig.labelOf(player.autoplay))) : null,
-  ].filter(Boolean);
+  const { seconds, partial } = knownTotal(queue);
+  return [T.line("next", T.next, nextValue(player)), queue.length ? T.line("queue", T.queue, T.queued(queue.length, formatDuration(seconds, "") || null, partial)) : null, player.autoplay ? T.line("autoplay", T.autoplay, T.autoplayOn(genreConfig.labelOf(player.autoplay))) : null].filter(Boolean);
 }
 
 /** art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */

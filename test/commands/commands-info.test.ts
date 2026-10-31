@@ -146,6 +146,17 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
 
+test("/nowplaying: 대기열 곡의 길이를 다 모르면(라이브, 길이 0) 합계 칸을 빼고 곡 수만", async () => {
+  const track = { title: "곡", pageUrl: "https://youtu.be/a", platform: "youtube", duration: 200, requestedBy: { id: "u9" } };
+  const queue = [
+    { title: "라이브", pageUrl: "https://youtu.be/l", duration: 0, isLive: true },
+    { title: "모름", pageUrl: "https://youtu.be/m", duration: 0 },
+  ];
+  const { it, log, bot } = interaction({ player: { ...nowPlayer(track), queue } });
+  await run(await command("nowplaying"), it, bot);
+  assert.ok(nowLines(log[0][1]).includes("-# 📋 **대기열** 2곡"), "0:00 이상이 아니라");
+});
+
 test("/nowplaying: 앱 이모지를 맞춘 뒤에 그리면 머리의 아이콘도 앱 이모지(불러올 때 유니코드로 굳지 않는다)", async (t) => {
   t.after(() => useUploaded(new Map()));
   useUploaded(

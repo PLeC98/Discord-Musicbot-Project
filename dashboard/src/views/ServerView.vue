@@ -193,7 +193,7 @@
           <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ T.songs(player.queueTotal ?? player.queue.length) }}</span>
         </template>
         <template #actions>
-          <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds, "0:00") }}</span>
+          <span v-if="queueLength && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ queueLength }}</span>
           <!-- 자동재생 켜기, 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
           <div class="relative">
             <button
@@ -238,7 +238,7 @@
                 <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
                   <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
                   <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
-                  <span class="nums shrink-0">· {{ formatDuration(item.duration, "0:00") }}</span>
+                  <span v-if="lengthOf(item)" class="nums shrink-0">· {{ lengthOf(item) }}</span>
                 </div>
               </div>
               <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
@@ -309,6 +309,7 @@ import { HOLD, NO_ART, prefetchArt, releasePageArt, setPageArt } from "../theme/
 import { useArtContent, useArtZoom } from "../theme/art.ts";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
+import { knownTotal } from "../../../src/rules/duration-shown.ts";
 import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
@@ -779,11 +780,15 @@ const pickGenre = (name: string) => setAutoplay(name);
 const numWidth = computed(() => `${Math.max(2, String(player.value.queue.length).length) + 0.5}ch`);
 
 // 대기열 전체 길이. 다 불러온 때만(일부만 더하면 틀린 값이 된다)
-const queueSeconds = computed(() => {
+// 대기열 합계. 다 받았을 때만(일부만 받았으면 합계가 틀린다), 모르는 곡이 있으면 이상, 아는 길이가 없으면 칸을 뺀다(디스코드 /nowplaying 과 같다)
+const queueLength = computed(() => {
   const p = player.value;
   if (p.queue.length < (p.queueTotal ?? 0)) return null;
-  return p.queue.reduce((sum, t) => sum + (t.duration || 0), 0);
+  const { seconds, partial } = knownTotal(p.queue);
+  return seconds > 0 ? T.queueLength(formatDuration(seconds, ""), partial) : null;
 });
+// 대기열 곡의 길이 칸. 라이브는 표식, 모르면 칸을 뺀다(디스코드 대기열과 같다)
+const lengthOf = (item: { duration: number; isLive: boolean }) => (item.isLive ? P.live : formatDuration(item.duration, "") || null);
 
 // 다음 곡의 앨범아트를 미리 읽어 둔다. 곡이 넘어가는 순간 색이 바로 옮겨 간다(theme)
 watch(

@@ -25,6 +25,7 @@ type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbna
   index: number;
   entry: number | null;
   platformLabel: string;
+  isLive: boolean;
   /** 자동재생이 미리 선택해 둔 곡 */
   autoplay: boolean;
   requestedBy: RequesterRef;

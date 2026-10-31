@@ -20,4 +20,15 @@ function shownDuration(track: Shown, sec: number | null | undefined, source: "pr
   return null;
 }
 
-export { shownDuration, MEASURED_SWAP_SEC };
+/** 곡들의 아는 길이 합(초)과 모르는 곡(길이 0, 라이브)이 있는가. 대기열 합계가 "이상" 을 붙이는 근거 */
+function knownTotal(tracks: ReadonlyArray<{ duration?: number | null }>): { seconds: number; partial: boolean } {
+  let seconds = 0;
+  let partial = false;
+  for (const { duration } of tracks) {
+    if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) seconds += duration;
+    else partial = true;
+  }
+  return { seconds, partial };
+}
+
+export { shownDuration, knownTotal, MEASURED_SWAP_SEC };

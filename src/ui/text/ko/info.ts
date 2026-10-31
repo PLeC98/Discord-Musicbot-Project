@@ -115,7 +115,8 @@ const nowPlaying = () => ({
   nextByAutoplay: "자동재생이 골라요",
   nextNone: "없음",
   queue: "대기열",
-  queued: (count: number, length: string, partial: boolean) => `${count}곡 · ${length}${partial ? " 이상" : ""}`,
+  // 아는 길이가 없으면(다 라이브, 길이 모름) 곡 수만
+  queued: (count: number, length: string | null, partial: boolean) => (length ? `${count}곡 · ${length}${partial ? " 이상" : ""}` : `${count}곡`),
   autoplay: "자동재생",
   autoplayOn: (genre: string) => `켜짐 · ${genre}`,
 });
