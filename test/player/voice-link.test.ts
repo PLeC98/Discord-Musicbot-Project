@@ -12,7 +12,6 @@ import { fake } from "../helpers/fake.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
 import { HOLD_MS } from "../../src/infra/voice-adapter.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { withConfig } from "../helpers/config.ts";
 
 // 가짜 연결. 부순 방식 · 구독한 것 · 재연결한 곳을 적는다
 class FakeConnection extends EventEmitter {
@@ -792,7 +791,7 @@ function deafenable(me: { voice: object }, { serverDeaf = false, allowed = true,
   return deafs;
 }
 
-test("서버 헤드셋 끄기: 붙은 뒤 권한이 있고 아직 걸리지 않았으면 건다. 걸려 있거나 · 권한이 없거나 · 다른 채널이거나 · 운영자가 껐으면 걸지 않는다", async () => {
+test("서버 헤드셋 끄기: 붙은 뒤 권한이 있고 아직 걸리지 않았으면 건다. 걸려 있거나 · 권한이 없거나 · 다른 채널이면 걸지 않는다", async () => {
   const cases = [
     { o: {}, want: 1 },
     { o: { serverDeaf: true }, want: 0 },
@@ -807,13 +806,6 @@ test("서버 헤드셋 끄기: 붙은 뒤 권한이 있고 아직 걸리지 않�
     assert.equal(deafs.length, want, JSON.stringify(o));
     if (want) assert.equal(deafs[0][0], true);
   }
-  await withConfig({ bot: { serverDeafen: false } }, async () => {
-    const { link, me } = setup();
-    const deafs = deafenable(me);
-    await link.connect();
-    await sleep(0);
-    assert.equal(deafs.length, 0, "운영자가 끔");
-  });
 });
 
 test("서버 헤드셋 끄기: 음성 밖이라 못 걸면(40032) 조용히, 다른 실패는 warn", async () => {

@@ -33,9 +33,9 @@ const stageRequested = () => noticeOf("warning", "voice", "스테이지 발언�
 /** 스테이지에서 발언자가 될 수도, 요청할 수도 없다 */
 const stageCannotSpeak = () => noticeOf("error", "permission", "이 스테이지에서는 말할 수 없어요.", "봇에게 멤버 음소거 권한이나 발언권 요청 권한을 주거나, 모더레이터가 저를 발언자로 초대해 주세요.");
 
-/** 24/7 을 스스로 껐다(자리 지킴이). 다시 켜는 법을 싣는다 */
-const stayKicked = () => noticeOf("warning", "voice", "누가 저를 내보내서 24/7을 껐어요.", "다시 켜려면 `/247`을 써 주세요.");
-const stayChannelGone = () => noticeOf("warning", "voice", "자리 채널이 삭제돼서 24/7을 껐어요.", "다른 음성 채널에서 `/247`로 다시 켤 수 있어요.");
-const stayNoPermission = () => noticeOf("error", "permission", "자리 채널에 들어갈 권한이 없어서 24/7을 껐어요.", "봇에게 연결 · 말하기 권한을 준 뒤 `/247`로 다시 켜 주세요.");
+/** 상주 모드를 스스로 껐다(자리 지킴이). 다시 켜는 법을 싣는다. channel 은 자리 채널(멘션) */
+const stayKicked = () => noticeOf("warning", "voice", "누가 저를 내보내서 상주 모드를 껐어요.", "`/247`로 다시 켤 수 있어요.");
+const stayChannelGone = () => noticeOf("warning", "voice", "머물던 음성 채널이 삭제돼서 상주 모드를 껐어요.", "다른 음성 채널에서 `/247`로 다시 켤 수 있어요.");
+const stayNoPermission = (channel: string) => noticeOf("error", "permission", `${channel}에 들어갈 권한이 없어서 상주 모드를 껐어요.`, "저에게 연결 · 말하기 권한을 준 뒤 `/247`로 다시 켜 주세요.");
 
 export { stayKicked, stayChannelGone, stayNoPermission, autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, parkedLine, parkedFailures, parkedDropped, copiesRemoved, skippedMore, savedSessionReplaced, restored, stageRequested, stageCannotSpeak };

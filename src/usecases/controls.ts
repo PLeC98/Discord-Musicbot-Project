@@ -108,7 +108,7 @@ async function stop(player: MaybePlayer, actor: Actor) {
   // 24/7 자리에서는 대기열만 비우고 남는다. 여는 중이면 그 곡이 정지 뒤에 틀어지지 않게 거절한다
   if (seatedIn(player.guild?.id ?? "", player.voiceChannel?.id)) {
     if (player.isPlayStarting) return fail("still-starting");
-    log.info(`정지(24/7 자리라 채널에 남음): ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
+    log.info(`정지(상주 모드라 채널에 남음): ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
     await player.stopStaying();
     return done({ track, cleared, stayed: true });
   }

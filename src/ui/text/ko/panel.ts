@@ -25,14 +25,14 @@ const userPausedMark = () => "일시정지";
 const queuedStatus = (count: number) => `대기열 ${count}곡`;
 /** 상태 줄의 건너뛸 구간 수(SponsorBlock) */
 const segmentsStatus = (count: number) => `건너뛸 구간 ${count}개`;
-/** 24/7 자리에서 트는 중 */
-const stayStatus = () => `${icon("stay")} 24/7`;
+/** 상주 모드의 자리에서 트는 중 */
+const stayStatus = () => `${icon("stay")} 상주 모드`;
 /** 패널 아래의 대시보드 링크 */
 const dashboardLink = (url: string) => `${icon("dashboard")} [대시보드](${url})`;
 
 /**
  * 끝난 패널. reason 은 nowPlayingPanel.createIdleContainer 와 같다. leavesAt 은 음성에서 나갈 시각(ms),
- * staying 은 24/7 자리에서 곡을 기다리는지, dedicated 는 전용 채널의 패널인지(그러면 곡 이름만 적어도 다시 온다)
+ * staying 은 상주 모드의 자리에서 곡을 기다리는지, dedicated 는 전용 채널의 패널인지(그러면 곡 이름만 적어도 다시 온다)
  */
 function idle({ reason, leavesAt, staying = false, dedicated }: { reason: string; leavesAt?: number | null; staying?: boolean; dedicated: boolean }) {
   let title: string, status: string;
@@ -40,7 +40,7 @@ function idle({ reason, leavesAt, staying = false, dedicated }: { reason: string
   if (reason === "leave") {
     [title, status] = ["듣고 있던 곡이 있어요", `${icon("resume")} \`/join\`으로 이어 들을 수 있어요`];
   } else if (staying) {
-    [title, status] = [waitingTitle, `${icon("stay")} 24/7로 이 채널에서 다음 곡을 기다려요`];
+    [title, status] = [waitingTitle, `${icon("stay")} 상주 모드라 나가지 않고 다음 곡을 기다려요`];
   } else if (leavesAt) {
     [title, status] = [waitingTitle, `🌙 <t:${Math.round(leavesAt / 1000)}:R> 쉬러 갈게요`];
   } else {

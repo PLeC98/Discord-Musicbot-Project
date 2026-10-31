@@ -281,7 +281,7 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
 test("24/7 자리에서 기다리는 끝난 패널은 나갈 시각 대신 자리에서 기다린다고 적는다", async () => {
   const mem = newManager();
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "queue-end", leavesAt: null, staying: true })).components[0].toJSON());
-  assert.match(json, /24\/7로 이 채널에서 다음 곡을 기다려요/);
+  assert.match(json, /상주 모드라 나가지 않고 다음 곡을 기다려요/);
   assert.doesNotMatch(json, /쉬러 갈게요/);
 });
 

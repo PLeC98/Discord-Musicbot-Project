@@ -1,4 +1,4 @@
-// 24/7 켜기 · 끄기(디스코드 /247). 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
+// 상주 모드(24/7) 켜기 · 끄기(디스코드 /247). 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
 // 자리는 봇이 지금 있는 채널, 없으면 부른 사람의 채널에 붙은 뒤 그 채널이다(봇을 옮기지 않는다). 머무는 판정은 player/idle-leave 가 자리를 본다
 
 import { ChannelType, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
@@ -41,7 +41,7 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
   const already = seatChannelOf(guild.id) === channel.id;
   if (!already) {
     staySeats.set(guild.id, channel.id, member.id);
-    log.info(`24/7 켬: "${channel.name}" (${guild.name}) | 실행 ${member.user.tag}`);
+    log.info(`상주 모드 켬: "${channel.name}" (${guild.name}) | 실행 ${member.user.tag}`);
   }
   player.idle.reconsider();
   playerEvents.touched(guild.id);
@@ -52,7 +52,7 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
 function turnOff(bot: Pick<Bot, "players">, { guild, member }: { guild: Guild; member: GuildMember }): StayResult {
   if (!isModerator(member)) return { ok: false, code: "must-moderator" };
   if (!staySeats.clear(guild.id)) return { ok: true, kind: "off", already: true };
-  log.info(`24/7 끔: ${guild.name} | 실행 ${member.user.tag}`);
+  log.info(`상주 모드 끔: ${guild.name} | 실행 ${member.user.tag}`);
   bot.players.get(guild.id)?.idle.reconsider();
   playerEvents.touched(guild.id);
   return { ok: true, kind: "off", already: false };

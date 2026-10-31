@@ -5,7 +5,6 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChanne
 import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
-import config from "../config/index.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
@@ -503,7 +502,7 @@ class VoiceLink {
     const guildId = this.player.guild.id;
     const me = this.player.guild.members.me;
     const voice = me?.voice;
-    if (!config.bot.serverDeafen || undeafenedByPeople.has(guildId) || !me || !voice?.channel) return;
+    if (undeafenedByPeople.has(guildId) || !me || !voice?.channel) return;
     if (voice.serverDeaf !== false || voice.channelId !== this.player.voiceChannel?.id || typeof voice.setDeaf !== "function") return;
     if (!voice.channel.permissionsFor?.(me)?.has(PermissionFlagsBits.DeafenMembers)) return;
     voice.setDeaf(true, DEAFEN_REASON).then(

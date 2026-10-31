@@ -65,9 +65,9 @@ test("기동: 자리가 있고 붙어 있지 않은 서버만 하나씩, 사이 
 
 test("끝난 실패(디스코드의 확답)는 자리를 끄고 알린다: 채널 없음 · 접근 없음 · 연결 · 말하기 권한 없음 · 붙기가 권한으로 거절됨", async () => {
   const cases = [
-    [guildOf("g1", { fetched: "gone" }), "자리 채널이 삭제돼서 24/7을 껐어요."],
-    [guildOf("g1", { fetched: "denied" }), "자리 채널에 들어갈 권한이 없어서 24/7을 껐어요."],
-    [guildOf("g1", { allowed: false }), "자리 채널에 들어갈 권한이 없어서 24/7을 껐어요."],
+    [guildOf("g1", { fetched: "gone" }), "머물던 음성 채널이 삭제돼서 상주 모드를 껐어요."],
+    [guildOf("g1", { fetched: "denied" }), "<#vc1>에 들어갈 권한이 없어서 상주 모드를 껐어요."],
+    [guildOf("g1", { allowed: false }), "<#vc1>에 들어갈 권한이 없어서 상주 모드를 껐어요."],
   ] as const;
   for (const [guild, title] of cases) {
     staySeats.set("g1", "vc1");
@@ -117,7 +117,7 @@ test("끝의 종류: 자리에서 내보내지면 끄고 알린다. 자리가 �
   w.keeper.onDisposed(seatHere, "forced-disconnect");
   await flush();
   assert.equal(staySeats.seatOf("g1"), null);
-  assert.deepEqual(w.calls, ["notice:g1:누가 저를 내보내서 24/7을 껐어요."]);
+  assert.deepEqual(w.calls, ["notice:g1:누가 저를 내보내서 상주 모드를 껐어요."]);
 
   w.calls.length = 0;
   staySeats.set("g1", "vc1");
@@ -147,5 +147,5 @@ test("자리 채널이 지워지면(봇이 없던 동안도) 끄고 한 번만 �
   w.keeper.onChannelDeleted(g1, "vc1");
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(staySeats.seatOf("g1"), null);
-  assert.deepEqual(w.calls, ["notice:g1:자리 채널이 삭제돼서 24/7을 껐어요."]);
+  assert.deepEqual(w.calls, ["notice:g1:머물던 음성 채널이 삭제돼서 상주 모드를 껐어요."]);
 });
