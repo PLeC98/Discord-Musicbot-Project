@@ -659,24 +659,28 @@ class NowPlayingPanel {
   async restorePanels() {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
-        const player = this.players.get(guild.id);
-        if (player?.nowPlayingMessage) continue;
-        // 음성에 붙어 곡을 기다리는 서버(24/7 자리 · 이어받기)는 기다리는 모양으로. 이번 실행에서 이미 그렸으면 그대로 둔다(음성 밖 모양으로 덮지 않게)
-        if (player?.voice.isAlive()) {
-          if (!this.idleViews.has(guild.id)) await this.drawEndedPanel(player, { reason: "joined" });
-          continue;
-        }
-        const channel = await this._dedicatedChannel(guild);
-        const record = await this.location.store.getPanel(guild.id);
-        if (record && (!channel || record.channelId === channel.id)) {
-          const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
-          if (await this.location.edit(guild, payload)) continue;
-        }
-        if (canSend(channel)) await this._postIdle(guild, channel);
+        await this._restorePanel(guild);
       } catch (error) {
         log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
     }
+  }
+
+  async _restorePanel(guild: Guild) {
+    const player = this.players.get(guild.id);
+    if (player?.nowPlayingMessage) return;
+    // 음성에 붙어 곡을 기다리는 서버(24/7 자리 · 이어받기)는 기다리는 모양으로. 이번 실행에서 이미 그렸으면 그대로 둔다(음성 밖 모양으로 덮지 않게)
+    if (player?.voice.isAlive()) {
+      if (!this.idleViews.has(guild.id)) await this.drawEndedPanel(player, { reason: "joined" });
+      return;
+    }
+    const channel = await this._dedicatedChannel(guild);
+    const record = await this.location.store.getPanel(guild.id);
+    if (record && (!channel || record.channelId === channel.id)) {
+      const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+      if (await this.location.edit(guild, payload)) return;
+    }
+    if (canSend(channel)) await this._postIdle(guild, channel);
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
