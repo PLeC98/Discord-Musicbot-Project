@@ -26,6 +26,9 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; valu
 
 // 대기열 ID(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
 const BAD_ENTRY = { error: "bad-request" satisfies Code };
+
+// 24/7 켜기 · 끄기
+const StayBody = z.object({ on: z.boolean(BAD_ENTRY) }, BAD_ENTRY);
 const Entry = z.number(BAD_ENTRY).int(BAD_ENTRY).positive(BAD_ENTRY);
 // 지금 곡이 이 줄일 때만(넘기기 · 이전 · 하이라이트). 없으면 확인하지 않는다
 const OnTrackBody = z.object({ onTrack: Entry.optional() }, BAD_ENTRY);
@@ -176,5 +179,6 @@ const ResetBody = z.discriminatedUnion(
   BAD_RESET,
 );
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN };
-export type { SettingsRequest };
+export { parse, Entry, StayBody, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN };
+type StayRequest = z.input<typeof StayBody>;
+export type { SettingsRequest, StayRequest };

@@ -14,11 +14,12 @@ import config from "../../config/index.ts";
 import { ageContentOn } from "../../config/age-content.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 import { openGuild } from "../guild-access.ts";
-import { parse, settingsBody } from "../request-schemas.ts";
+import { parse, settingsBody, StayBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
-import type { GuildSettings, Saved } from "../contract/guilds.ts";
+import type { GuildSettings, Saved, StaySet, StayView } from "../contract/guilds.ts";
+import * as stay from "../../usecases/stay.ts";
 
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
@@ -117,7 +118,7 @@ function createGuildSettingsRouter() {
     // 연령 제한 콘텐츠를 재생할 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 필드가 없다
     const agePlace = ageContentOn() ? GuildSettingsManager.resolveAgePlace(guild.id) : null;
 
-    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
+    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace, stay: config.bot.stayEnabled ? stayView(guild) : null } satisfies GuildSettings);
   });
 
   // 서버 설정 변경. 모더레이터만. /setting · /setchannel 과 같은 기준.
@@ -148,7 +149,25 @@ function createGuildSettingsRouter() {
     res.json({ success: true } satisfies Saved);
   });
 
+  // 24/7 켜기 · 끄기. 디스코드 /247 · /setting 과 같은 코어(usecases/stay). 켜기는 음성에 붙을 수 있어 몇 초 걸린다
+  router.post("/:guildId/stay", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { guild, member, bot } = ctx;
+    const body = parse(StayBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
+    const r = body.value.on ? await stay.turnOn(bot, { guild, member }) : stay.turnOff(bot, { guild, member });
+    if (!r.ok) return sendProblem(res, r.code);
+    res.json({ success: true, stay: stayView(guild) } satisfies StaySet);
+  });
+
   return router;
+}
+
+// 자리 채널. 이름은 캐시에서(지워졌으면 ID)
+function stayView(guild: Guild): StayView {
+  const id = stay.seatChannelOf(guild.id);
+  return { channel: id ? { id, name: guild.channels.cache.get(id)?.name ?? id } : null };
 }
 
 export { createGuildSettingsRouter };

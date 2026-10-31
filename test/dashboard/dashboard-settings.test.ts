@@ -24,6 +24,8 @@ type Reply = ProblemReply & {
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd?: unknown;
   agePlace?: string | null;
+  stay?: { channel: { id: string; name: string } | null } | null;
+  success?: boolean;
   canManage?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
@@ -42,6 +44,7 @@ const temp = openTempStore("dashboard-settings-");
 const settings = await import("../../src/store/guild-settings.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
+const staySeats = await import("../../src/store/stay-seats.ts");
 
 // 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250 · 기본 50 으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
@@ -124,7 +127,7 @@ const client = {
 const players = new Map<string, Player>();
 
 function modMember() {
-  return { permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
+  return { id: "u-mod", user: { tag: "관리자" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
 }
 function plainMember() {
   return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
@@ -574,4 +577,32 @@ test("POST join: 멤버가 아닌 운영자는 no-guild-access, 음성 밖의 �
   const away = await req("POST", `/api/guilds/${GUILD_ID}/player/join`);
   assert.deepEqual([away.status, away.json.code], [409, "must-be-in-voice"]);
   assert.equal(players.has(GUILD_ID), false, "부르지 못했으면 플레이어를 만들지 않는다");
+});
+
+// ── 24/7 ─────────────────────────────────────────────────────
+
+test("24/7: 설정 화면에 자리 채널을 싣고(운영자가 껐으면 null), 끄기는 서버 관리 권한으로. 잘못된 값은 400", async () => {
+  currentMember = modMember();
+  staySeats.set(GUILD_ID, "v1", "u1");
+  try {
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, { channel: { id: "v1", name: "voice" } });
+    config.bot.stayEnabled = false;
+    assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, null, "운영자가 끄면 카드가 없다");
+    config.bot.stayEnabled = true;
+
+    assert.equal((await req("POST", `/api/guilds/${GUILD_ID}/stay`, { on: "yes" })).status, 400);
+    currentMember = plainMember();
+    const denied = await req("POST", `/api/guilds/${GUILD_ID}/stay`, { on: false });
+    assert.equal(denied.status, 403);
+    assert.ok(staySeats.seatOf(GUILD_ID), "거절하면 그대로");
+
+    currentMember = modMember();
+    const off = await req("POST", `/api/guilds/${GUILD_ID}/stay`, { on: false });
+    assert.equal(off.status, 200);
+    assert.deepEqual(off.json.stay, { channel: null });
+    assert.equal(staySeats.seatOf(GUILD_ID), null);
+  } finally {
+    config.bot.stayEnabled = true;
+    staySeats.clear(GUILD_ID);
+  }
 });

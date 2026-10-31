@@ -55,4 +55,13 @@ const agePlace = {
   allWarning: "이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, channel, dj, sponsor, playlistAdd, agePlace };
+/** 24/7(봇 운영자가 24/7 을 허용했을 때만 보인다) */
+const stay = {
+  title: "24/7",
+  desc: "대기열이 끝나거나 혼자 남아도 음성 채널에서 나가지 않아요. 봇을 다시 시작해도 그 채널로 돌아와요.",
+  enable: "이 서버에서 24/7 사용",
+  at: (name: string) => `${name}에 머물고 있어요.`,
+  where: "켜면 봇이 있는 음성 채널에 머물러요. 봇이 음성 채널에 없으면 내가 들어가 있는 채널로 가요.",
+};
+
+export { backToPlayer, back, loadFailed, saveFailed, channel, dj, sponsor, playlistAdd, agePlace, stay };
