@@ -49,7 +49,7 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   "stage-requested": () => shown(notices.stageRequested()),
   "stage-cannot-speak": () => shown(notices.stageCannotSpeak()),
   restored: ({ title, atSec, paused }) => {
-    const t = notices.restored(title, formatDuration(atSec), paused);
+    const t = notices.restored(title, formatDuration(atSec, "0:00"), paused);
     return { view: frame({ icon: t.icon, title: t.title, body: t.body }), ms: LIFETIME.glance };
   },
 };

@@ -220,7 +220,7 @@
                 </div>
                 <div class="shrink-0 text-right text-xs nums whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1 text-on-surface-variant"><Icon name="headphones" :size="14" />{{ T.playerLine(player.listeners, player.queued) }}</div>
-                  <div :class="player.state !== 'playing' && 'text-on-surface-variant'">{{ player.state === "playing" ? `${formatDuration(player.position)} / ${formatDuration(player.duration)}` : PLAYER_STATE_WORD[player.state] }}</div>
+                  <div :class="player.state !== 'playing' && 'text-on-surface-variant'">{{ player.state === "playing" ? `${formatDuration(player.position, "0:00")} / ${formatDuration(player.duration, "0:00")}` : PLAYER_STATE_WORD[player.state] }}</div>
                 </div>
               </component>
             </li>
@@ -256,11 +256,11 @@
                   <span class="font-mono text-xs" :class="p.label === 'yt-dlp' && 'text-tertiary'">{{ p.label }}</span>
                   <!-- 길면 옆으로 흐르고(마퀴) 툴팁으로 전체를(잔류 프로세스는 까닭 툴팁) -->
                   <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? ORPHAN_TIP : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
-                  <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000) }}</span>
+                  <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000, "0:00") }}</span>
                   <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
                   <span class="text-xs nums text-right">{{ p.memMb === null ? "—" : `${p.memMb} MB` }}</span>
                   <!-- 좁은 카드: PID, 실행 시간을 아래 줄에 -->
-                  <span class="@md/card:hidden col-span-full -mt-0.5 font-mono text-xs nums text-on-surface-variant" :class="p.stray && LEVEL_TEXT.warn">PID {{ p.pid }} · {{ formatDuration(p.ageMs / 1000) }}</span>
+                  <span class="@md/card:hidden col-span-full -mt-0.5 font-mono text-xs nums text-on-surface-variant" :class="p.stray && LEVEL_TEXT.warn">PID {{ p.pid }} · {{ formatDuration(p.ageMs / 1000, "0:00") }}</span>
                 </div>
               </template>
             </div>

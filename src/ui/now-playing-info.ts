@@ -60,7 +60,7 @@ function whatsNext(player: Player) {
           T.queue,
           T.queued(
             queue.length,
-            formatDuration(known),
+            formatDuration(known, "0:00"),
             queue.some((one) => !one.duration),
           ),
         )

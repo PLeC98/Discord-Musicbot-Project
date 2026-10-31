@@ -32,7 +32,7 @@ function requestCellText(r: TrackRequestRow, column: string): string | null {
 }
 
 // 수로 된 열의 글(크기, 길이, 수)
-const NUMBER_TEXT: Record<string, (value: number) => string> = { size: formatBytes, duration: formatDuration, plays: String, requests: String };
+const NUMBER_TEXT: Record<string, (value: number) => string> = { size: formatBytes, duration: (value) => formatDuration(value, "0:00"), plays: String, requests: String };
 
 /** 셀 값의 글(그리는 것). 원시 값은 rawText */
 function cellText(table: TrackCacheTable, row: AnyRow, column: string): string {

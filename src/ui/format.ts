@@ -2,22 +2,20 @@
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** 초 단위 길이를 H:MM:SS 또는 M:SS 로. 값이 없거나 0 이면 unknown */
-function formatDuration(seconds: number | string | null | undefined, unknown = "0:00") {
-  if (!seconds || seconds === 0) return unknown;
-
-  const totalSeconds = Math.floor(Number(seconds) || 0);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const remainingSeconds = totalSeconds % 60;
-
-  if (hours > 0) return `${hours}:${pad(minutes)}:${pad(remainingSeconds)}`;
-  return `${minutes}:${pad(remainingSeconds)}`;
+/**
+ * 초를 M:SS, 한 시간부터 H:MM:SS 로(내림, 시간에 상한 없음). 수가 아니거나 유한하지 않거나 0 이하면 unknown.
+ * unknown 은 그 자리의 모름 표기다(위치는 "0:00", 길이는 "--:--" 같은 것). 곡 모델에서 길이 0 은 모름이다
+ */
+function formatDuration(seconds: number | null | undefined, unknown: string) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) return unknown;
+  const total = Math.floor(seconds);
+  const [hours, minutes, secs] = [Math.floor(total / 3600), Math.floor(total / 60) % 60, total % 60];
+  return hours ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 }
 
-/** 밀리초 길이를 H:MM:SS 또는 M:SS 로 */
-function formatMs(ms: number) {
-  return formatDuration(ms / 1000);
+/** 밀리초를 formatDuration 과 같은 모양으로 */
+function formatMs(ms: number, unknown: string) {
+  return formatDuration(ms / 1000, unknown);
 }
 
 /**

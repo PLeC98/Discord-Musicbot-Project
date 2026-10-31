@@ -62,7 +62,7 @@ function loopSet(mode: Loop, by: Actor) {
 const highlighting = () => frame({ body: controlText.highlighting() });
 /** 하이라이트로 건너뛰었다. ms 는 옮긴 위치 */
 function highlighted(ms: number) {
-  const t = controlText.highlighted(formatMs(ms));
+  const t = controlText.highlighted(formatMs(ms, "0:00"));
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
@@ -78,7 +78,7 @@ function replayed(track: Track, by: Actor, art?: DiscordArt | null) {
 const seeking = () => frame({ body: controlText.seeking() });
 /** 위치를 옮겼다. ms 는 옮긴 위치 */
 function seeked(ms: number) {
-  const t = controlText.seeked(formatMs(ms));
+  const t = controlText.seeked(formatMs(ms, "0:00"));
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
@@ -108,7 +108,7 @@ function volumeSet(before: number, level: number, by: Actor) {
 
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡, 위치(초), 대기열 곡 수 */
 function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor, stayOff = false) {
-  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue }, stayOff);
+  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec, "0:00"), queue: saved.queue }, stayOff);
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 

@@ -5,25 +5,20 @@ import assert from "node:assert/strict";
 import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
-  assert.equal(formatDuration(0), "0:00");
-  assert.equal(formatDuration(null), "0:00");
-  assert.equal(formatDuration(undefined), "0:00");
-  assert.equal(formatDuration(1), "0:01");
-  assert.equal(formatDuration(59), "0:59");
-  assert.equal(formatDuration(60), "1:00");
-  assert.equal(formatDuration(61), "1:01");
-  assert.equal(formatDuration(599), "9:59");
-  assert.equal(formatDuration(600), "10:00");
-  assert.equal(formatDuration(3599), "59:59");
-  assert.equal(formatDuration(3600), "1:00:00");
-  assert.equal(formatDuration(3661), "1:01:01");
-  assert.equal(formatDuration(7325), "2:02:05");
-});
-
-test("formatDuration: 소수/문자열 입력도 안전", () => {
-  assert.equal(formatDuration(61.9), "1:01", "소수는 내림");
-  assert.equal(formatDuration("185"), "3:05", "숫자 문자열 허용");
-  assert.equal(formatDuration("abc"), "0:00", "비숫자는 0 취급");
+  const cases: Array<[number, string]> = [
+    [1, "0:01"],
+    [59, "0:59"],
+    [60, "1:00"],
+    [61, "1:01"],
+    [599, "9:59"],
+    [600, "10:00"],
+    [3599, "59:59"],
+    [3600, "1:00:00"],
+    [3661, "1:01:01"],
+    [7325, "2:02:05"],
+    [61.9, "1:01"],
+  ];
+  for (const [seconds, expected] of cases) assert.equal(formatDuration(seconds, "모름"), expected, String(seconds));
 });
 
 // /search, /seek, /highlight, 조작 거절, /cachestatus, /help, /system 이 같은 함수를 쓴다.
@@ -38,7 +33,10 @@ test("formatDuration: 값이 없을 때의 문구는 부르는 쪽이 넘긴다(
 });
 
 test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek, /highlight, 조작 거절)", () => {
-  assert.deepEqual([0, 999, 1000, 65_500, 3_725_000, 90_061_000].map(formatMs), ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"]);
+  assert.deepEqual(
+    [0, 999, 1000, 65_500, 3_725_000, 90_061_000].map((ms) => formatMs(ms, "0:00")),
+    ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"],
+  );
 });
 
 test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰면 /cachestatus 의 모양", () => {
@@ -87,28 +85,30 @@ test("scaledText: 반올림한 수가 단위 경계에 닿으면 다음 단위�
   assert.equal(scaledText(99.94 * 1024 ** 3, byteUnit, rule).value, "99.9");
 });
 
-test("formatDuration: 경계 입력의 지금 답(모름 표기를 넘겼을 때)", () => {
+test("formatDuration: 수가 아니거나 유한하지 않거나 0 이하면 부르는 쪽의 모름 표기, 1초 미만은 0:00, 시간에 상한 없음", () => {
   const U = "모름";
   const cases: Array<[unknown, string]> = [
     [0, U],
+    [-0, U],
     [null, U],
-    [Infinity, "Infinity:NaN:NaN"],
-    [-Infinity, "NaN:NaN"],
-    [-5, "-1:-5"],
-    [-65, "-2:-5"],
-    ["abc", "0:00"],
-    [" ", "0:00"],
-    [true, "0:01"],
-    ["0", "0:00"],
-    ["0.0", "0:00"],
-    ["-0", "0:00"],
-    ["0e3", "0:00"],
+    [undefined, U],
+    [NaN, U],
+    [Infinity, U],
+    [-Infinity, U],
+    [-5, U],
+    [-65, U],
+    ["abc", U],
+    [" ", U],
+    [true, U],
+    ["0", U],
+    ["185", U],
+    [10n, U],
     [0.4, "0:00"],
     [59.9999, "0:59"],
     [3599.5, "59:59"],
     [90061, "25:01:01"],
-    ["185", "3:05"],
+    [400000.5, "111:06:40"],
   ];
   for (const [value, expected] of cases) assert.equal(formatDuration(value as never, U), expected, String(value));
-  assert.equal(formatMs(NaN), "0:00");
+  assert.equal(formatMs(NaN, "0:00"), "0:00");
 });

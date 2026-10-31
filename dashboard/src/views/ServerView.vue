@@ -193,7 +193,7 @@
           <span v-if="player.queue.length" class="h-6 px-2 rounded-full bg-secondary-container text-on-secondary-container text-xs font-semibold nums inline-flex items-center">{{ T.songs(player.queueTotal ?? player.queue.length) }}</span>
         </template>
         <template #actions>
-          <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds) }}</span>
+          <span v-if="queueSeconds !== null && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ formatDuration(queueSeconds, "0:00") }}</span>
           <!-- 자동재생 켜기, 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
           <div class="relative">
             <button
@@ -238,7 +238,7 @@
                 <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
                   <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
                   <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
-                  <span class="nums shrink-0">· {{ formatDuration(item.duration) }}</span>
+                  <span class="nums shrink-0">· {{ formatDuration(item.duration, "0:00") }}</span>
                 </div>
               </div>
               <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
@@ -658,8 +658,8 @@ const highlightMarker = computed(() => {
   return Math.max(0, Math.min(100, (h / dur) * 100));
 });
 // 진행 줄(SeekRow): 시간 글, 막대. 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이라 표식으로 대신한다
-const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? P.live : formatDuration(displayTime.value)));
-const lengthText = computed(() => (track.value && track.value.duration > 0 ? formatDuration(track.value.duration) : "--:--"));
+const timeText = computed(() => (!track.value ? "--:--" : isLive.value ? P.live : formatDuration(displayTime.value, "0:00")));
+const lengthText = computed(() => formatDuration(track.value?.duration, "--:--"));
 const seekView = computed(() => ({ value: track.value ? progressPct.value : 0, rate: progressRate.value, markers: sponsorMarkers.value, highlight: highlightMarker.value, handle: Boolean(track.value) && seekable.value && Boolean(player.value.canControl), dragging: isScrubbing.value }));
 
 // 하이라이트로 가기. 누른 때의 곡일 때만

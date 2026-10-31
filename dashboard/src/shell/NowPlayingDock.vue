@@ -30,11 +30,11 @@
             </div>
             <div class="flex items-center gap-2 w-full">
               <!-- 라이브의 경과 시간은 곡 안의 위치가 아니라 붙어 있은 시간이다. 표식으로 대신한다 -->
-              <span :class="timeText">{{ np.track?.isLive ? T.live : formatDuration(shownTime) }}</span>
+              <span :class="timeText">{{ np.track?.isLive ? T.live : formatDuration(shownTime, "0:00") }}</span>
               <div ref="trackEl" class="flex-1 flex items-center touch-none" :class="seekable ? 'cursor-pointer' : ''" @pointerdown.prevent="seekBar.onPointerDown">
                 <SeekTrack :value="progressPct" :rate="progressRate" :handle="seekable" :dragging="seekBar.dragging.value" :thick="4" :height="16" />
               </div>
-              <span :class="timeText">{{ np.duration > 0 ? formatDuration(np.duration) : "--:--" }}</span>
+              <span :class="timeText">{{ formatDuration(np.duration, "--:--") }}</span>
             </div>
           </div>
           <div class="flex items-center justify-end gap-2 min-w-0">

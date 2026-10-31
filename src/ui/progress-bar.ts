@@ -12,7 +12,7 @@ function progressBar(currentSec: number, totalSec: number, { live = false } = {}
     return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
   }
 
-  const currentStr = formatDuration(currentSec);
+  const currentStr = formatDuration(currentSec, "0:00");
   // 길이를 모르면(다운로드 전의 직접 링크 등) 곡이 없을 때처럼 비워 둔다. 0:00 은 길이가 0 인 곡으로 읽힌다
   const totalStr = formatDuration(totalSec, "--:--");
   if (!totalSec || totalSec === 0) {

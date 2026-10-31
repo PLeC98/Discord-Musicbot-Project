@@ -47,7 +47,7 @@ function queueLine(track: Listed, number: number, { link = true }: { link?: bool
  * 디스코드 상한이 100자라 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
  */
 function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration" | "artist" | "isLive">>) | null | undefined) {
-  const length = track?.isLive ? LIVE_MARK : track?.duration ? formatDuration(track.duration) : null;
+  const length = track?.isLive ? LIVE_MARK : formatDuration(track?.duration, "") || null;
   const tail = [length, requesterName(track)].filter(Boolean).join(" | ");
   const artist = track?.artist || "";
   if (!artist) return tail || undefined;
