@@ -161,7 +161,15 @@ test("정보: 재생목록이 붙은 영상 주소는 영상 하나만 묻고, �
   assert.deepEqual([calls[0].flags.noPlaylist, t.title, t.duration], [true, "영상 ggggggggggg", 200]);
 
   respond = () => mix;
-  await assert.rejects(YouTube.getInfo("https://www.youtube.com/playlist?list=RDggggggggggg"), /재생목록/);
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/playlist?list=RDggggggggggg"), (e) => messageOf(e) === "유튜브 영상 정보: 단일 영상 요청에 yt-dlp가 재생목록을 반환함 | entries=1");
+});
+
+test("정보, 재생목록: 출력이 JSON 객체가 아니면 받은 것의 타입과 길이를 싣고 던진다", async () => {
+  // JSON 객체가 아닌 출력은 글자로 온다(yt-dlp 를 실행하는 곳이 { 로 시작할 때만 읽는다)
+  respond = () => "[1,2]";
+  await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=jjjjjjjjjjj"), (e) => messageOf(e) === "유튜브 영상 정보: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=5");
+  respond = () => "";
+  await assert.rejects(YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLjjjjjjjjjj"), (e) => messageOf(e) === "유튜브 재생목록: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0");
 });
 
 test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없는 오류로 알린다)", async () => {
@@ -226,10 +234,18 @@ test("스트림: 헤더, 앞 광고 시각이 없으면 빈 값", async () => {
   assert.equal(s.availableAt, null, "앞 광고 시각이 없으면 null");
 });
 
-test("스트림: 주소가 없거나 yt-dlp 가 실패하면 던진다", async () => {
+test("스트림: 답에 주소가 없으면 stream-failed(무엇이 왔는지 싣는다), 빈 주소로 부르면 내부 오류, yt-dlp 가 실패하면 던진다", async () => {
+  const url = "https://www.youtube.com/watch?v=iiiiiiiiiii";
+  const thrown = (p: Promise<unknown>) =>
+    p.then(
+      () => assert.fail("던져야 한다"),
+      (e: unknown) => [codeOf(e), messageOf(e)],
+    );
   respond = () => video("iiiiiiiiiii");
-  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=iiiiiiiiiii"), /스트림 URL을 찾을 수 없음/);
-  await assert.rejects(YouTube.getStream(""), /URL이 필요함/);
+  assert.deepEqual(await thrown(YouTube.getStream(url, { fresh: true })), ["stream-failed", "유튜브 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | _type=없음"]);
+  respond = () => "ERROR 아닌 글자";
+  assert.deepEqual(await thrown(YouTube.getStream(url, { fresh: true })), ["stream-failed", `유튜브 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=${"ERROR 아닌 글자".length}`]);
+  await assert.rejects(YouTube.getStream(""), (e) => messageOf(e) === "유튜브 재생용 스트림: 빈 URL로 호출됨");
   respond = () => ({ fail: "ERROR: [youtube] iiiiiiiiiii: Video unavailable" });
   await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=iiiiiiiiiii"), /Video unavailable/);
 });

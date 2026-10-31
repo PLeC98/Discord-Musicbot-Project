@@ -5,7 +5,7 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import * as SoundCloud from "../../src/sources/soundcloud/index.ts";
 import { trackOf } from "../../src/sources/soundcloud/api.ts";
-import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
+import { codeOf, errorKind, messageOf } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
 import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts";
 
@@ -125,6 +125,22 @@ test("스트림: AAC 가 없는 곡은 mp3 까지 물어 한 번 더, 미리듣�
 
   respond = () => ({ fail: NO_FORMATS });
   await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/aac-only", { canPlayHls: false }), (e: unknown) => codeOf(e) === "stream-failed");
+});
+
+test("답이 없으면 무엇이 왔는지 싣고 던진다. 스트림 주소가 없으면 stream-failed", async () => {
+  const thrown = (p: Promise<unknown>) =>
+    p.then(
+      () => assert.fail("던져야 한다"),
+      (e: unknown) => [codeOf(e), messageOf(e)],
+    );
+  respond = () => ({});
+  assert.deepEqual(await thrown(SoundCloud.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
+  respond = () => ({ json: { id: 77, title: "주소 없음" } });
+  assert.deepEqual(await thrown(SoundCloud.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=77"]);
+  respond = () => ({ json: { format_id: "hls_aac_160k" } });
+  assert.deepEqual(await thrown(SoundCloud.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=hls_aac_160k"]);
+  respond = () => ({});
+  assert.deepEqual(await thrown(SoundCloud.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
 });
 
 test("캐시 다운로드용 옵션: 공통 옵션 위에 재생 포맷", () => {

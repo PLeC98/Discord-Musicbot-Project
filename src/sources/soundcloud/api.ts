@@ -1,6 +1,6 @@
 // 사운드클라우드 곡, 세트, 스트림. 모두 yt-dlp 가 읽는다(run.ts).
 
-import { readInfo } from "../ytdlp-info.ts";
+import { answerShape, readInfo } from "../ytdlp-info.ts";
 import { artOf } from "../../rules/track-art.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
@@ -50,7 +50,7 @@ function trackOf(item: YtInfo): ScTrack | null {
 function oneTrack(item: YtInfo): ScTrack {
   if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url ?? "없음"}`);
   const track = trackOf(item);
-  if (!track) throw new Error("yt-dlp 가 곡 페이지 주소를 주지 않았습니다");
+  if (!track) throw new Error(`사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=${item.id ?? "없음"}`);
   return track;
 }
 
@@ -72,8 +72,9 @@ function setOf(info: YtInfo, offset: number): ScSet {
  */
 async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track" }: { offset?: number; limit?: number; what?: run.What } = {}, exec: RunYtDlp = youtubedl): Promise<Found> {
   const size = Math.max(1, Math.min(limit, SET_BATCH));
-  const info = readInfo(await run.read(url, what === "set" ? "play" : "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec));
-  if (!info) throw new Error("yt-dlp 가 정보를 주지 않았습니다");
+  const raw = await run.read(url, what === "set" ? "play" : "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec);
+  const info = readInfo(raw);
+  if (!info) throw new Error(`사운드클라우드 곡 찾기: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
   if (info._type === "playlist") return { kind: "set", ...setOf(info, offset) };
   return { kind: "track", track: oneTrack(info) };
 }
@@ -96,8 +97,10 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
  * AAC 가 없는 곡은 mp3 까지 요청해 한 번 더 본다. 미리듣기 조각이 선택되면 틀지 않는다. 탐색은 ffmpeg 가 한다.
  */
 async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = youtubedl) {
-  const info = readInfo(await streamInfo(url, canPlayHls, exec));
-  if (!info?.url) throw new Error("yt-dlp 가 스트림 주소를 주지 않았습니다");
+  const raw = await streamInfo(url, canPlayHls, exec);
+  const info = readInfo(raw);
+  if (!info) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
+  if (!info.url) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=${info.format_id ?? "없음"}`);
   if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${info.title ?? url}`);
   return {
     url: info.url,

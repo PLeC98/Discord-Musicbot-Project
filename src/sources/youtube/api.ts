@@ -6,7 +6,7 @@ const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
 import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
-import { readInfo } from "../ytdlp-info.ts";
+import { answerShape, readInfo } from "../ytdlp-info.ts";
 // youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
 import youtubedl from "../ytdlp-spawn.ts";
 import config from "../../config/index.ts";
@@ -174,8 +174,8 @@ async function fetchInfo(url: string, exec: RunYtDlp | undefined) {
   const raw = await extractInfo(url, exec);
   recentInfo.remember(raw);
   const info = readInfo(raw);
-  if (!info) throw new Error("yt-dlp 가 정보를 주지 않았습니다");
-  if (info._type === "playlist") throw new Error(`yt-dlp 가 영상 대신 재생목록 정보를 줬습니다(항목 ${info.entries?.length ?? 0}개)`);
+  if (!info) throw new Error(`유튜브 영상 정보: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
+  if (info._type === "playlist") throw new Error(`유튜브 영상 정보: 단일 영상 요청에 yt-dlp가 재생목록을 반환함 | entries=${info.entries?.length ?? 0}`);
   return info;
 }
 
@@ -205,17 +205,13 @@ async function streamSource(url: string, exec: RunYtDlp | undefined, fresh: bool
  * fresh: 캐시를 버리고 새로 추출하며 캐시하지 않는다(재생 테스트, 다시 쓴 주소가 열리지 않았을 때)
  */
 async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp; fresh?: boolean } = {}) {
-  // 실패는 부르는 쪽(재생)이 한 번 남긴다
-  if (!url) {
-    throw new Error("URL이 필요함");
-  }
+  // 실패는 부르는 쪽(재생)이 한 번 남긴다. 빈 주소는 부르는 코드의 잘못이다
+  if (!url) throw new Error("유튜브 재생용 스트림: 빈 URL로 호출됨");
 
   const { raw, known } = await streamSource(url, exec, fresh);
   const info = readInfo(raw);
-
-  if (!info || !info.url) {
-    throw new Error("스트림 URL을 찾을 수 없음");
-  }
+  if (!info) throw codedError("stream-failed", `유튜브 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
+  if (!info.url) throw codedError("stream-failed", `유튜브 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | _type=${info._type ?? "없음"}`);
 
   // 위치는 주소에 싣지 않는다. ffmpeg 의 -ss 가 정한다
   return {
@@ -271,20 +267,16 @@ function playlistTrack(entry: YtInfo) {
 // 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
 // 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 던진다
 async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
-  const info = readInfo(
-    await exec(
-      url,
-      auth.getYtDlpOptions({
-        dumpSingleJson: true,
-        flatPlaylist: true,
-        playlistItems: `${offset + 1}:${offset + limit}`,
-      }),
-    ),
+  const raw = await exec(
+    url,
+    auth.getYtDlpOptions({
+      dumpSingleJson: true,
+      flatPlaylist: true,
+      playlistItems: `${offset + 1}:${offset + limit}`,
+    }),
   );
-
-  if (!info) {
-    throw new Error("yt-dlp 가 재생목록 정보를 주지 않았습니다");
-  }
+  const info = readInfo(raw);
+  if (!info) throw new Error(`유튜브 재생목록: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
 
   if (!info.entries || info.entries.length === 0) return null;
 

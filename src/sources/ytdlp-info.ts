@@ -69,5 +69,11 @@ function readInfo(raw: unknown): YtInfo | null {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as YtInfo;
 }
 
-export { readInfo };
+/** readInfo 가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON 이 아닌 출력은 글자로 오므로 길이도 */
+function answerShape(raw: unknown): string {
+  if (typeof raw === "string") return `타입=string, 길이=${raw.length}`;
+  return `타입=${raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw}`;
+}
+
+export { readInfo, answerShape };
 export type { YtInfo };
