@@ -41,7 +41,7 @@ type AudioRow = {
   created_at: number;
 };
 // 캐시 파일 기록에 적을 곡 정보. 여기서 읽는 필드만
-type TrackMeta = { title?: string | null; artist?: string | null; channel?: string | null; duration?: number | null };
+type TrackMeta = { title?: string | null; artist?: string | null; duration?: number | null };
 
 // 서버 → 재생 중인 곡의 audio_key. 서버마다 나눠 두어 한 서버가 곡을 끝내도 같은 곡을 트는 다른 서버의 보호는 남는다
 const protectedKeys = new Map<string, string>();
@@ -233,7 +233,7 @@ function recordDownloadStart(audioKey: string, track: TrackMeta | null | undefin
           ON CONFLICT(audio_key) DO UPDATE SET status = 'downloading'
       `,
     )
-    .run(audioKey, track?.duration || null, track?.title || null, track?.artist || track?.channel || null, Date.now());
+    .run(audioKey, track?.duration || null, track?.title || null, track?.artist || null, Date.now());
 }
 
 // durationSec: 다운로드한 오디오의 실제 길이. 모를 때만 track.duration(요청 쪽 메타데이터)으로 채운다
@@ -256,7 +256,7 @@ function recordDownloadComplete(audioKey: string, filePath: string, fileSizeByte
           WHERE audio_key = ?
       `,
     )
-    .run(filePath, fileSizeBytes, track?.title || null, track?.artist || track?.channel || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, audioKey);
+    .run(filePath, fileSizeBytes, track?.title || null, track?.artist || null, durationSec || track?.duration || null, audioVersion, audioVersion ? now : null, now, audioKey);
 
   // 다운로드 뒤 퇴거 검사(기다리지 않는다). 그사이 DB 가 닫혔으면 돌지 않는다(닫힌 DB 를 부르면 던진다)
   setImmediate(() => {
