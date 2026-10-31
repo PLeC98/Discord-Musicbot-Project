@@ -109,13 +109,13 @@ test("직접 링크 판정: 알려진 사이트 밖의 http(s) 면 확장자와 
   }
 });
 
-test("직접 링크 정보: SafeUrl GET 의 응답 헤더로 크기와 종류를 본다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
+test("직접 링크 정보: 제목은 주소의 파일 이름에서 온다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", info);
 
   assert.deepEqual(calls.info, ["https://files.test/my_song-name.mp3?x=1"]);
-  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
+  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", thumbnail: null });
   assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 

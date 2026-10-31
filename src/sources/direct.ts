@@ -65,15 +65,11 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
   }
 }
 
-/** 응답 헤더로 만든 곡(제목, 크기, 종류, 파일 이름, 라디오) */
+/** 응답 헤더로 만든 곡(제목, 라디오) */
 function trackOf(url: string, headers: Record<string, unknown>, radio: boolean): DirectTrack {
-  const contentType = String(headers["content-type"] || "");
-  const contentLength = headers["content-length"];
-
   // 서버가 알려 준 파일 이름이 먼저다(서명된 주소, 다운로드 주소는 경로가 파일 이름이 아닐 수 있다)
   const urlPath = new URL(url).pathname;
   const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
-  const extension = path.extname(filename).toLowerCase();
   return {
     title: titleOf(filename, headers, radio) ?? new URL(url).hostname,
     // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
@@ -89,10 +85,6 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
     thumbnail: null,
     platform: "direct",
     id: generateId(url),
-    fileSize: contentLength ? parseInt(String(contentLength)) : null,
-    contentType: contentType,
-    extension: extension,
-    filename: filename,
   };
 }
 
@@ -186,10 +178,6 @@ type DirectTrack = {
   thumbnail: null;
   platform: string;
   id: string;
-  fileSize: number | null;
-  contentType: string;
-  extension: string;
-  filename: string;
   artist?: string;
   album?: string | null;
 };

@@ -182,7 +182,7 @@ test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 �
     "https://h.test/master.m3u8": { body: master },
   });
   const [v] = await DirectLink.getInfo("https://h.test/vod.m3u8", { net });
-  assert.deepEqual([v.title, v.duration, v.durationSource, v.isLive, v.fileSize], ["h.test", 12, "provided", undefined, null]);
+  assert.deepEqual([v.title, v.duration, v.durationSource, v.isLive], ["h.test", 12, "provided", undefined]);
   const [l] = await DirectLink.getInfo("https://h.test/live.m3u8", { net });
   assert.deepEqual([l.isLive, l.liveStatus, l.duration], [true, "is_live", 0]);
   const opened = await DirectLink.open("https://h.test/live.m3u8", net);
