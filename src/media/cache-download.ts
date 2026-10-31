@@ -38,6 +38,7 @@ type HasAudio = Partial<TrackInfo> | null | undefined;
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { addDownloaded } from "../infra/download-meter.ts";
+import { sec } from "../infra/log/seconds.ts";
 
 // 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
@@ -109,7 +110,6 @@ function cleanTemp(tempPath: string): number {
 // how: 어떻게 다운로드했나(로그 한 줄). 걸린 시간, 포맷, 리먹싱, 인코딩 여부
 type Fetched = { verifiedTitle: string | null; tags?: TagInfo | null; cover?: Cover | null; audioDurationSec: number | null; audioVersion: string | null; how: string };
 
-const secs = (ms: number) => (ms / 1000).toFixed(1);
 // 다운로드한 포맷(로그용). info.json 의 필드
 const formatOf = (info: { format_id?: string | null; protocol?: string | null; acodec?: string | null } | null | undefined) => ({ formatId: info?.format_id ?? null, protocol: info?.protocol ?? null, acodec: info?.acodec ?? null });
 // yt-dlp 가 파일을 다 쓴 뒤 이보다 늦게 끝났으면 적는다(다운로드, 인코딩과 따로 걸린 시간)
@@ -312,7 +312,7 @@ class TrackDownloader {
       if (audioKey && mine) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
       // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug 다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
-      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${secs(measureMs)}초`);
+      log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${sec(measureMs)}초`);
       return filepath;
     } catch (error) {
       // 중단, 실패한 다운로드가 남긴 .part, 조각 파일, 중간 파일을 바로 치운다. 내 임시 파일만
@@ -375,8 +375,8 @@ class TrackDownloader {
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;
     const lingerMs = ended - fsSync.statSync(tempPath).mtimeMs;
-    const linger = lingerMs > LINGER_LOG_MS ? ` · 파일을 다 쓰고 ${secs(lingerMs)}초 뒤에 끝남` : "";
-    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: `yt-dlp ${secs(ended - started)}초 · ${format}${linger}` };
+    const linger = lingerMs > LINGER_LOG_MS ? ` · 파일을 다 쓰고 ${sec(lingerMs)}초 뒤에 끝남` : "";
+    return { verifiedTitle: info.title, audioDurationSec: info.durationSec, audioVersion: info.version, how: `yt-dlp ${sec(ended - started)}초 · ${format}${linger}` };
   }
 
   // 직접 링크(파일, HLS VOD). SSRF 가드(SafeUrl)를 통과해 가져온다(media/direct-input).
@@ -407,7 +407,7 @@ class TrackDownloader {
       // 무엇을 할지는 audioConvert 한 곳이 정한다. 리먹싱이냐 변환이냐, 목표가 몇이냐.
       const made = await this.deps.convert.toCacheOpus(rawPath, tempPath, { tags, cover });
       // 리먹싱, 인코딩 여부는 변환이 자기 로그 줄에 남긴다
-      const how = `다운로드 ${secs(received - started)}초 · 변환 ${secs(Date.now() - received)}초`;
+      const how = `다운로드 ${sec(received - started)}초 · 변환 ${sec(Date.now() - received)}초`;
       return { verifiedTitle: null, tags, cover, audioDurationSec: made.durationSec || null, audioVersion, how };
     } finally {
       audioCache.unprotectFile(rawPath);

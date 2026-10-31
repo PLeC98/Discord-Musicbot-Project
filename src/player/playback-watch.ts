@@ -6,6 +6,7 @@
 
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
+import { sec } from "../infra/log/seconds.ts";
 const wlog = logger.child({ category: "watchdog" });
 import type { Player } from "./player.ts";
 
@@ -16,8 +17,6 @@ const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으�
 const OVERFLOW_MS = 30_000; // 위치가 길이를 이만큼 넘기면 멈춘다
 const OVERFLOW_CHECK_MS = 5_000;
 const IDLE_STUCK_MS = 10_000; // Idle 이 된 뒤 곡이 이만큼 넘어가지 않으면 다음 곡으로
-
-const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 class PlaybackWatch {
   static BUFFERING_STALL_MS = BUFFERING_STALL_MS;

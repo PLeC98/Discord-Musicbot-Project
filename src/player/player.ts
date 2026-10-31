@@ -71,6 +71,7 @@ import { newSessionAt } from "../infra/gateway-sessions.ts";
 import type { Job } from "../infra/process-job.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { logTitle } from "../infra/log/title.ts";
+import { sec } from "../infra/log/seconds.ts";
 
 // 재생 상수. .env로 빼지 않는다. 자연스러운 값의 범위가 좁게 정해져 있어
 // 사용자가 조정해서 나아질 여지가 없다.
@@ -156,7 +157,6 @@ function starvedDetail(pb: CurrentPlayback | null) {
 // 채널 알림을 못 보낸 것(권한, 삭제된 채널)은 재생을 막지 않는다
 const noticeFailed = (error: unknown) => log.warn(`채널 알림 전송 실패: ${messageOf(error)}`);
 
-const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
 
@@ -415,7 +415,7 @@ class Player {
       const heldMs = this.watch.bufferingSince ? Date.now() - this.watch.bufferingSince : null;
       this.watch.stopBuffering();
       if (heldMs !== null) {
-        const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${(heldMs / 1000).toFixed(1)}s`;
+        const line = `상태 전이: buffering → ${newState.status} | ${this._trackLabel()} | 버퍼링 ${sec(heldMs)}s`;
         if (heldMs >= 3000) wlog.warn(`${line} 오래 걸림`);
         else wlog.debug(line);
       }
@@ -696,8 +696,8 @@ class Player {
   _learnLength(track: QueuedTrack) {
     const pb = this.playback;
     if (!pb || pb.track !== track || pb.lengthMs || !pb.audioKey) return;
-    const sec = audioCache.lookupByAudioKey(pb.audioKey)?.duration_sec;
-    if (sec && sec > 0) pb.lengthMs = sec * 1000;
+    const cachedSec = audioCache.lookupByAudioKey(pb.audioKey)?.duration_sec;
+    if (cachedSec && cachedSec > 0) pb.lengthMs = cachedSec * 1000;
   }
 
   /**
@@ -744,7 +744,7 @@ class Player {
       pb.input = health;
       log.info({ tags: ["fallback", "recovered"] }, `오디오 캐시로 갭리스 전환: ${this._trackLabel()}`);
       // 지점, 조정 횟수는 스플라이서 내부 수치라 조사할 때만 본다.
-      wlog.debug(`갭리스 전환 상세: ${(ms / 1000).toFixed(1)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
+      wlog.debug(`갭리스 전환 상세: ${sec(ms)}초 지점${splicer.slips ? ` | 지점 조정 ${splicer.slips}회` : ""}`);
     });
     return true;
   }

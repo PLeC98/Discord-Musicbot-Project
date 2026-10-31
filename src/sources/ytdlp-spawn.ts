@@ -14,6 +14,7 @@ import { isYouTubeURL } from "../rules/links.ts";
 import * as errors from "./youtube/errors.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
+import { sec } from "../infra/log/seconds.ts";
 const log = logger.child({ category: "ytdlp" });
 
 const IS_WIN = process.platform === "win32";
@@ -91,7 +92,7 @@ async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined):
   const waited = Date.now() - asked;
   if (waited > WAIT_NOTE_MS[lane]) {
     const { running, size, waiting } = lanes[lane].stats();
-    log.debug(`yt-dlp 실행 슬롯을 ${(waited / 1000).toFixed(1)}초 대기했습니다 (${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
+    log.debug(`yt-dlp 실행 슬롯을 ${sec(waited)}초 대기했습니다 (${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
   }
   return leave;
 }

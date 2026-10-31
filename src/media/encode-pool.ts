@@ -14,6 +14,7 @@ import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import type { FromWorker, Reply, ToWorker } from "./encode-worker.ts";
 import { josa } from "../rules/josa.ts";
+import { sec } from "../infra/log/seconds.ts";
 const log = logger.child({ category: "player" });
 
 const FRAME_MS = 20;
@@ -614,7 +615,7 @@ class EncodePool {
         const head = this.#sessions.get(id)?.deref()?.sent[0];
         if (head?.sentAt && head.sentAt < oldest) oldest = head.sentAt;
       }
-      if (at - oldest > this.#stallMs) this.#died(entry, `${(this.#stallMs / 1000).toFixed(1)}초 넘게 답이 없어 내렸습니다`);
+      if (at - oldest > this.#stallMs) this.#died(entry, `${sec(this.#stallMs)}초 넘게 답이 없어 내렸습니다`);
     }
   }
 

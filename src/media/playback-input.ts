@@ -21,6 +21,7 @@ import type { DirectInputOptions, Resumable } from "./direct-input.ts";
 import type { SeekRequest, SeekAnswer } from "./seek-start.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import { transportOf, type Transport } from "../rules/transport-of.ts";
+import { sec } from "../infra/log/seconds.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
@@ -74,8 +75,6 @@ type Opened<R> = { resource: R | null; output?: OpusOutput; cacheFile: string | 
 type Hooks = { interrupt(err: unknown): boolean; resumed(info: { attempts: number; downtimeMs: number; starvedMs: number }): void };
 
 const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이드 길이
-
-const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 /**
  * @param o.io  바깥 경계(spawnFfmpeg, createAudioResource, openEncoder, ffmpegCapabilities, openChunkedStream, fetch, directStream)

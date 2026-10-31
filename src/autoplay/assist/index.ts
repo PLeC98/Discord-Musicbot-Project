@@ -28,6 +28,7 @@ import { vertexBase as vertexBaseOf, vertexChatUrl, vertexHost } from "../../rul
 import { httpFor } from "../../infra/http.ts";
 import { REDACTED, mask, safeHeaders } from "./mask.ts";
 import { sendLogged, type Call } from "./request-log.ts";
+import { sec } from "../../infra/log/seconds.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
 const http = httpFor("ai");
@@ -851,7 +852,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       const wait = waitBefore(limited, used, got, endsAt);
       if ("stop" in wait) throw new AskFailure(got.reason, [got.detail, wait.stop].filter(Boolean).join(". "), calls);
       used++;
-      log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${(wait.ms / 1000).toFixed(1)}초 뒤`);
+      log.debug(`AI 보조 재시도 ${used}/${retries}(${got.reason}) ${sec(wait.ms)}초 뒤`);
       await sleep(wait.ms);
     }
   } finally {
