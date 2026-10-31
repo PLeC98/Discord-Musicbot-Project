@@ -1,68 +1,97 @@
 // 사이트 지식. 어느 호스트가 어느 사이트인가, id 는 어디 있나. 판정이 아니다(판정은 inputKind, canonicalUrl, audioKeyOf).
 // 순수 함수만 둔다. 사이트를 더하면 이 파일과 그 판정들만 고친다.
 
-// ── 유튜브 ──
+// ── 주소 읽기 ──
 
-function parseYouTubeURL(value: unknown): URL | null {
+/** 읽은 사이트 주소. host 는 받은 호스트(소문자, 끝 점 뗌), site 는 그 사이트의 정본 호스트, parts 는 경로 칸 */
+type SiteUrl = { host: string; site: string; parts: string[]; params: URLSearchParams; url: URL };
+
+// 어디에 있든 거절한다. new URL 은 소리 없이 지우고 읽는다(open.spo<줄바꿈>tify.com 이 받아진다)
+const STRIPPED = /[\t\n\r]/;
+// 첫 ?, # 앞(스킴, 호스트, 경로)에 있으면 거절한다. 보이지 않는 글자가 판정과 키를 어긋나게 한다. 쿼리, 조각 안의 공백은 둔다
+const HIDDEN = /[\s\p{Cf}]/u;
+
+/**
+ * 사이트 주소를 읽는다. hosts 는 받는 호스트 → 정본 호스트. http, https 만, 사용자 이름, 비밀번호, 기본이 아닌 포트는 받지 않는다.
+ * 경로 칸은 맨 앞의 빈 칸과 맨 뒤의 빈 칸 하나를 버린다(뒤 / 는 같은 주소다). 안쪽의 빈 칸은 남겨 사이트가 거절한다
+ */
+function readSiteUrl(value: unknown, hosts: Readonly<Record<string, string>>): SiteUrl | null {
   if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (STRIPPED.test(text) || HIDDEN.test(text.split(/[?#]/, 1)[0])) return null;
+  let url: URL;
   try {
-    const parsed = new URL(value);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-    const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
-    if (!["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"].includes(hostname)) return null;
-    return parsed;
+    url = new URL(text);
   } catch {
     return null;
   }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.username || url.password || url.port) return null;
+  const host = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (!Object.hasOwn(hosts, host)) return null;
+  const parts = url.pathname.split("/").slice(1);
+  if (parts.at(-1) === "") parts.pop();
+  return { host, site: hosts[host], parts, params: url.searchParams, url };
 }
 
-/** 유튜브 호스트이기만 하면 참. 재생 가능한 형태인지는 보지 않는다(isYouTubeURL이 본다). */
+// ── 유튜브 ──
+
+const YOUTUBE_HOSTS = { "youtube.com": "youtube.com", "www.youtube.com": "youtube.com", "m.youtube.com": "youtube.com", "music.youtube.com": "youtube.com", "youtu.be": "youtu.be" };
+const YOUTUBE_ID = /^[A-Za-z0-9_-]+$/;
+const youtubeIdOf = (value: string | null | undefined) => (value && YOUTUBE_ID.test(value) ? value : null);
+
+/**
+ * 유튜브 주소가 가리키는 영상과 재생목록. 둘 다 없으면 null(유튜브 주소가 아니거나 다루지 않는 모양).
+ * /live/ID 는 라이브였던 영상의 링크일 뿐 다른 모양과 같은 영상 id 다. 지금 라이브인지는 주소가 아니라 정보(is_live)가 정한다
+ */
+function parseYouTube(value: unknown): { videoId: string | null; listId: string | null } | null {
+  const link = readSiteUrl(value, YOUTUBE_HOSTS);
+  if (!link) return null;
+  const { site, parts, params } = link;
+  const list = youtubeIdOf(params.get("list"));
+  let videoId: string | null = null;
+  let listId: string | null = null;
+  if (site === "youtu.be") {
+    videoId = youtubeIdOf(parts[0]);
+    listId = list;
+  } else if (parts.length === 1 && parts[0] === "watch") {
+    videoId = youtubeIdOf(params.get("v"));
+    listId = list;
+  } else if (parts.length === 1 && parts[0] === "playlist") {
+    listId = list;
+  } else if (["embed", "v", "shorts", "live"].includes(parts[0]) && parts.length >= 2) {
+    // embed/videoseries 는 재생목록을 싣는 틀, embed/live_stream 은 채널의 지금 방송이다(yt-dlp 도 영상 id 로 보지 않는다)
+    if (parts[0] === "embed" && parts[1] === "videoseries") listId = list;
+    else if (parts[1] !== "live_stream") videoId = youtubeIdOf(parts[1]);
+  }
+  return videoId || listId ? { videoId, listId } : null;
+}
+
+/** 유튜브 호스트이기만 하면 참. 재생할 수 있는 모양인지는 보지 않는다(isYouTubeURL 이 본다) */
 function isYouTubeHost(value: unknown): boolean {
-  return parseYouTubeURL(value) !== null;
+  if (typeof value !== "string") return false;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+    return Object.hasOwn(YOUTUBE_HOSTS, parsed.hostname.toLowerCase().replace(/\.$/, ""));
+  } catch {
+    return false;
+  }
 }
 
-// /live/ID는 라이브였던 영상의 링크일 뿐 다른 형태와 같은 영상 ID를 쓴다.
-// 지금 라이브인지는 URL이 아니라 메타데이터(is_live)가 정한다. 방송이 끝나면 같은 링크가 VOD가 된다.
-function isYouTubeURL(value: unknown): boolean {
-  const parsed = parseYouTubeURL(value);
-  if (!parsed) return false;
-  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
-  if (hostname === "youtu.be") return /^\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
-  if (parsed.pathname === "/watch") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("v") || "");
-  if (parsed.pathname === "/playlist") return /^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("list") || "");
-  return /^\/(embed|v|shorts|live)\/[a-zA-Z0-9_-]+/.test(parsed.pathname);
-}
+const isYouTubeURL = (value: unknown): boolean => parseYouTube(value) !== null;
+const isYouTubePlaylist = (value: unknown): boolean => Boolean(parseYouTube(value)?.listId);
+const extractVideoId = (value: unknown): string | null => parseYouTube(value)?.videoId ?? null;
+const extractPlaylistId = (value: unknown): string | null => parseYouTube(value)?.listId ?? null;
 
-function isYouTubePlaylist(value: unknown): boolean {
-  const parsed = parseYouTubeURL(value);
-  if (!parsed || !/^[a-zA-Z0-9_-]+$/.test(parsed.searchParams.get("list") || "")) return false;
-  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
-  return hostname === "youtu.be" || parsed.pathname === "/playlist" || parsed.pathname === "/watch";
+/** 유튜브 주소에 실린 재생목록 id(list 값). 주소 모양은 보지 않는다(장르 출처를 목록 주소로 다듬는 곳이 쓴다) */
+function youtubeListOf(value: unknown): string | null {
+  const link = readSiteUrl(value, YOUTUBE_HOSTS);
+  return link ? youtubeIdOf(link.params.get("list")) : null;
 }
 
 /** 영상 id 의 보는 주소(한 모양으로 적는다) */
 const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
-
-function extractVideoId(value: unknown): string | null {
-  const parsed = parseYouTubeURL(value);
-  if (!parsed) return null;
-  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
-  let videoId: string | null;
-  if (hostname === "youtu.be") {
-    videoId = parsed.pathname.split("/").filter(Boolean)[0] || null;
-  } else if (parsed.pathname === "/watch") {
-    videoId = parsed.searchParams.get("v");
-  } else {
-    const match = parsed.pathname.match(/^\/(?:embed|v|shorts|live)\/([a-zA-Z0-9_-]+)/);
-    videoId = match?.[1] || null;
-  }
-  return /^[a-zA-Z0-9_-]+$/.test(videoId || "") ? videoId : null;
-}
-
-function extractPlaylistId(url: string): string | null {
-  const match = url.match(/[&?]list=([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
-}
 
 // ── 스포티파이 ──
 
@@ -148,4 +177,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, parseYouTubeURL, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, isKnownSiteHost };
+export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, isKnownSiteHost };

@@ -16,6 +16,15 @@ test("유튜브: pp=, start_radio=, 영상 v= 를 버리고 재생목록 주소�
   assert.equal(sourceUrl("youtube", "https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RDCLAK5uy_mgu07-HoqLSU-WqjK2ldEQWLuPPm3CAy8&start_radio=1"), "https://www.youtube.com/playlist?list=RDCLAK5uy_mgu07-HoqLSU-WqjK2ldEQWLuPPm3CAy8");
 });
 
+test("유튜브: 어느 모양의 주소든 실린 list 를 읽는다. 값은 통째로 id 글자여야 하고 퍼센트 인코딩은 푼다", () => {
+  assert.equal(sourceUrl("youtube", "https://www.youtube.com/embed/abcdefghijk?list=PLabcdefghij"), "https://www.youtube.com/playlist?list=PLabcdefghij");
+  assert.equal(sourceUrl("youtube", "https://www.youtube.com/channel/UCabc?list=PLabcdefghij"), "https://www.youtube.com/playlist?list=PLabcdefghij");
+  assert.equal(sourceUrl("youtube", "https://www.youtube.com/watch?v=abcdefghijk&list=PL%2Dabc"), "https://www.youtube.com/playlist?list=PL-abc");
+  for (const odd of ["https://www.youtube.com/watch?v=abcdefghijk&list=PLabc+y", "https://www.youtube.com/watch?v=abcdefghijk#t=3&list=PLabc", "https://www.youtube.com/watch?v=abcdefghijk&list=&list=PLyyy"]) {
+    assert.equal(sourceUrl("youtube", odd), odd, odd);
+  }
+});
+
 test("모양을 모르는 주소는 그대로 둔다(검사, 실행이 판단한다)", () => {
   assert.equal(sourceUrl("youtube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "재생목록이 없는 영상 주소");
   assert.equal(sourceUrl("youtube", "https://example.com/x?list=PL1"), "https://example.com/x?list=PL1", "유튜브가 아닌 주소");

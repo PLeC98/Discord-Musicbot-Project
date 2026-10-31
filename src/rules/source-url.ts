@@ -6,7 +6,7 @@
 //
 // canonicalUrl 과 다르다. 그쪽은 곡을 모으므로 유튜브 주소를 영상 하나로 줄인다(재생목록이 사라진다).
 
-import { extractPlaylistId, isYouTubeHost, parseSpotifyURL } from "./links.ts";
+import { parseSpotifyURL, youtubeListOf } from "./links.ts";
 
 function sourceUrl(type: string, url: string): string {
   const value = url.trim();
@@ -14,8 +14,8 @@ function sourceUrl(type: string, url: string): string {
     const { type: kind, id } = parseSpotifyURL(value);
     return kind && id ? `https://open.spotify.com/${kind}/${id}` : url;
   }
-  if (type === "youtube" && isYouTubeHost(value)) {
-    const list = extractPlaylistId(value);
+  if (type === "youtube") {
+    const list = youtubeListOf(value);
     return list ? `https://www.youtube.com/playlist?list=${list}` : url;
   }
   return url;
