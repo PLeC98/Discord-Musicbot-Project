@@ -6,11 +6,11 @@ import assert from "node:assert/strict";
 import * as Spotify from "../../src/sources/spotify.ts";
 const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
 
-test("parseSpotifyURL: 타입/ID 추출 (open URL + spotify: URI)", () => {
-  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1"), { type: "track", id: "2tpWsVSb9UEmDRxAl1zhX1" });
-  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/playlist/abc123?si=xyz"), { type: "playlist", id: "abc123" });
-  assert.deepEqual(links.parseSpotifyURL("spotify:album:XYZ"), { type: "album", id: "XYZ" });
-  assert.deepEqual(links.parseSpotifyURL("https://example.com/track/x"), { type: null, id: null });
+test("parseSpotify: 타입/ID 추출 (open URL + spotify: URI)", () => {
+  assert.deepEqual(links.parseSpotify("https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1"), { type: "track", id: "2tpWsVSb9UEmDRxAl1zhX1" });
+  assert.deepEqual(links.parseSpotify("https://open.spotify.com/playlist/abc123?si=xyz"), { type: "playlist", id: "abc123" });
+  assert.deepEqual(links.parseSpotify("spotify:album:XYZ"), { type: "album", id: "XYZ" });
+  assert.equal(links.parseSpotify("https://example.com/track/x"), null);
 });
 
 test("isSpotifyURL: 유효/무효 판별 (호스트 사칭 차단)", () => {

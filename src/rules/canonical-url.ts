@@ -6,7 +6,7 @@
 //   직접 링크     그대로. 서명된 주소는 쿼리에 토큰이 있어 버리면 다운로드하지 못한다
 //   그 밖         다듬지 않는다
 
-import { extractVideoId, parseSoundCloud, parseSpotifyURL, youtubeWatchUrl } from "./links.ts";
+import { extractVideoId, parseSoundCloud, parseSpotify, youtubeWatchUrl } from "./links.ts";
 import { inputKind } from "./input-kind.ts";
 function canonicalUrl(value: string): string;
 function canonicalUrl<T>(value: T): T;
@@ -18,8 +18,8 @@ function canonicalUrl(value: unknown): unknown {
       return videoId ? youtubeWatchUrl(videoId) : value;
     }
     case "spotify": {
-      const { type, id } = parseSpotifyURL(value);
-      return type && id ? `https://open.spotify.com/${type}/${id}` : value;
+      const link = parseSpotify(value);
+      return link ? `https://open.spotify.com/${link.type}/${link.id}` : value;
     }
     case "soundcloud":
       return parseSoundCloud(value)?.url ?? value;

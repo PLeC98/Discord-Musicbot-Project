@@ -85,7 +85,7 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
 // 스포티파이 링크(곡, 앨범, 재생목록, 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
 async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
   const part = await spotify.getCollection(query, range);
-  const { type } = links.parseSpotifyURL(query);
+  const type = links.parseSpotify(query)?.type;
   const isPlaylist = type === "playlist" || type === "album" || type === "artist";
   if (!isPlaylist) return single(part.tracks);
   return { tracks: part.tracks || [], isPlaylist, collection: type, total: part.total ?? null, nextOffset: part.nextOffset ?? null };

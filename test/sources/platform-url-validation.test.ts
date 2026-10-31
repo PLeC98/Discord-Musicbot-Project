@@ -104,6 +104,6 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
 
 test("스포티파이 공유 링크의 지역 경로(intl-xx/)는 같은 곡으로 알아본다", () => {
   assert.equal(lookup.detectPlatform("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
-  assert.deepEqual(links.parseSpotifyURL("https://open.spotify.com/intl-pt-br/album/abc"), { type: "album", id: "abc" });
+  assert.deepEqual(links.parseSpotify("https://open.spotify.com/intl-pt-br/album/abc"), { type: "album", id: "abc" });
   assert.equal(links.isSpotifyURL("https://open.spotify.com/intl-ko/"), false);
 });

@@ -6,7 +6,7 @@ import type { Code } from "./problems.ts";
 import { audioKeyOf } from "./audio-key-of.ts";
 import { canonicalUrl } from "./canonical-url.ts";
 import { inputKind, type InputKind } from "./input-kind.ts";
-import { extractVideoId, isYouTubePlaylist, parseSoundCloud, parseSpotifyURL, youtubeWatchUrl } from "./links.ts";
+import { extractVideoId, isYouTubePlaylist, parseSoundCloud, parseSpotify, youtubeWatchUrl } from "./links.ts";
 
 type Refused = { ok: false; code: Code };
 type PinAudio = { ok: true; canonical: string; kind: InputKind; audioKey: string } | Refused;
@@ -43,7 +43,7 @@ function notSingle(kind: InputKind, url: string): Code | null {
   if (kind === "search") return "not-single-track";
   if (kind === "unknown") return "unsupported-link";
   if (kind === "youtube") return isYouTubePlaylist(url) || !extractVideoId(url) ? "not-single-track" : null;
-  if (kind === "spotify") return parseSpotifyURL(url).type === "track" ? null : "not-single-track";
+  if (kind === "spotify") return parseSpotify(url)?.type === "track" ? null : "not-single-track";
   if (kind === "soundcloud") return soundCloudTrack(url);
   return null;
 }

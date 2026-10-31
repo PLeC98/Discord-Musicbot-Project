@@ -36,6 +36,13 @@ test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 �
   for (const [input, want] of cases) assert.equal(inputKind(input), want, String(input));
 });
 
+test("inputKind: 공백 없는 spotify: 는 모양이 안 맞아도 스포티파이 URI 라 검색어로 보내지 않는다. 사람이 쓴 spotify: 검색어는 검색", () => {
+  for (const uri of ["spotify:episode:abc", "spotify:track:abc-def", "spotify:user:x:playlist:y"]) assert.equal(inputKind(uri), "unknown", uri);
+  assert.equal(inputKind("Spotify:track:abc"), "spotify");
+  assert.equal(inputKind("spotify: 아이유 좋은 날"), "search");
+  assert.equal(inputKind("spotify:"), "search");
+});
+
 test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으로, 직접 링크와 모르는 것은 그대로", () => {
   const cases = [
     ["https://youtu.be/Lsv4wg9YU8Y?si=AbCdEf", "https://www.youtube.com/watch?v=Lsv4wg9YU8Y"],

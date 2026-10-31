@@ -7,7 +7,7 @@
 // secret/해시/clientVersion은 DB에 캐시하고, TTL이 지나거나 실패하면 번들에서 다시 추출한다.
 
 import crypto from "crypto";
-import { parseSpotifyURL } from "../rules/links.ts";
+import { parseSpotify } from "../rules/links.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "spotify" });
 import config from "../config/index.ts";
@@ -508,8 +508,9 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
 
 // 여러 곡 출처는 필요한 구간만 불러온다. over: 요청 함수 가짜(테스트), 생략하면 실제 요청
 async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
-  const { type, id } = parseSpotifyURL(url);
-  if (!type || !id) return { tracks: [], total: null, nextOffset: null };
+  const link = parseSpotify(url);
+  if (!link) return { tracks: [], total: null, nextOffset: null };
+  const { type, id } = link;
   const result = await resolveType(type, id, { offset, limit }, over);
   const { tracks, total } = result;
   const head = tracks[0] ? `"${tracks[0].title}" - ${tracks[0].artist ?? "?"}${tracks.length > 1 ? ` 외 ${tracks.length - 1}곡` : ""}` : "결과 없음";

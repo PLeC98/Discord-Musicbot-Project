@@ -95,19 +95,29 @@ const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${
 
 // ── 스포티파이 ──
 
-// 공유 링크에는 지역 경로(intl-ko/ 등)가 붙을 수 있다. 같은 곡이다
-function isSpotifyURL(url: unknown): boolean {
-  const patterns = [/^https?:\/\/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|artist)\/[a-zA-Z0-9]+/, /^spotify:(track|album|playlist|artist):[a-zA-Z0-9]+/];
-  return patterns.some((p) => p.test(String(url)));
+type SpotifyLink = { type: "track" | "album" | "playlist" | "artist"; id: string };
+const SPOTIFY_TYPES: ReadonlySet<string> = new Set(["track", "album", "playlist", "artist"]);
+// 공유 링크의 지역 칸(intl-ko, intl-pt-BR). 같은 곡이다
+const SPOTIFY_REGION = /^intl-[a-z]+(?:-[a-z]+)*$/i;
+
+const spotifyOf = (type: string | undefined, id: string | undefined): SpotifyLink | null => (type && SPOTIFY_TYPES.has(type) && id && /^[A-Za-z0-9]+$/.test(id) ? { type: type as SpotifyLink["type"], id } : null);
+
+/** 스포티파이 주소(open.spotify.com)나 URI(spotify:종류:id)가 가리키는 것. 종류 뒤의 칸은 보지 않는다. 아니면 null */
+function parseSpotify(value: unknown): SpotifyLink | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (/^spotify:/i.test(text)) {
+    const [, type, id] = text.split(/[?#]/, 1)[0].replace(/\/$/, "").split(":");
+    return spotifyOf(type, id);
+  }
+  const link = readSiteUrl(text, { "open.spotify.com": "open.spotify.com" });
+  if (!link) return null;
+  const parts = link.parts.filter(Boolean);
+  if (SPOTIFY_REGION.test(parts[0] ?? "")) parts.shift();
+  return spotifyOf(parts[0], parts[1]);
 }
 
-function parseSpotifyURL(url: unknown): { type: string | null; id: string | null } {
-  let m = String(url).match(/^https?:\/\/open\.spotify\.com\/(?:intl-[a-z-]+\/)?(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
-  if (m) return { type: m[1], id: m[2] };
-  m = String(url).match(/^spotify:(track|album|playlist|artist):([a-zA-Z0-9]+)/);
-  if (m) return { type: m[1], id: m[2] };
-  return { type: null, id: null };
-}
+const isSpotifyURL = (value: unknown): boolean => parseSpotify(value) !== null;
 
 // ── 사운드클라우드 ──
 
@@ -176,9 +186,10 @@ const isSoundCloudURL = (value: unknown): boolean => parseSoundCloud(value) !== 
 // 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립, 채널, 스포티파이 에피소드, 짧은 링크)도 그 사이트의 페이지다
 const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
 
-/** 알려진 사이트의 호스트인가. 직접 링크(파일, 방송 주소)와 구분한다 */
+/** 알려진 사이트의 주소인가. 직접 링크(파일, 방송 주소), 검색어와 구분한다. 공백 없는 spotify: 는 URI 모양이다(사람이 쓴 "spotify: 노래" 는 검색어) */
 function isKnownSiteHost(value: unknown): boolean {
   if (typeof value !== "string") return false;
+  if (/^spotify:\S+$/i.test(value.trim())) return true;
   try {
     const host = new URL(value.trim()).hostname.toLowerCase().replace(/\.$/, "");
     return KNOWN_SITE_HOSTS.some((known) => host === known || host.endsWith(`.${known}`));
@@ -200,4 +211,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloud, isKnownSiteHost };
+export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotify, isSoundCloudURL, parseSoundCloud, isKnownSiteHost };

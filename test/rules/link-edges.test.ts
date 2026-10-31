@@ -7,16 +7,16 @@ import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
-import { extractVideoId, extractPlaylistId, isYouTubePlaylist, parseSpotifyURL, parseSoundCloud } from "../../src/rules/links.ts";
+import { extractVideoId, extractPlaylistId, isYouTubePlaylist, parseSpotify, parseSoundCloud } from "../../src/rules/links.ts";
 
-type Answer = { kind: string; video?: string | null; list?: string | null; playlist?: boolean; spotify?: { type: string | null; id: string | null }; sc?: string | null; key: string | null; canonical: string };
+type Answer = { kind: string; video?: string | null; list?: string | null; playlist?: boolean; spotify?: { type: string; id: string } | null; sc?: string | null; key: string | null; canonical: string };
 
 // 판정이 그 사이트면 그 사이트의 꺼내기도 같이 본다
 function answerOf(input: string): Answer {
   const kind = inputKind(input);
   const answer: Answer = { kind, key: null, canonical: "" };
   if (kind === "youtube") Object.assign(answer, { video: extractVideoId(input), list: extractPlaylistId(input), playlist: isYouTubePlaylist(input) });
-  if (kind === "spotify") answer.spotify = parseSpotifyURL(input);
+  if (kind === "spotify") answer.spotify = parseSpotify(input);
   if (kind === "soundcloud") answer.sc = parseSoundCloud(input)?.kind ?? null;
   answer.key = audioKeyOf(input);
   answer.canonical = canonicalUrl(input);
@@ -26,7 +26,7 @@ function answerOf(input: string): Answer {
 const CASES: Array<[string, Answer]> = [
   ["\u00a0https://youtu.be/abcdefghijk", { kind: "youtube", video: "abcdefghijk", list: null, playlist: false, key: "yt:abcdefghijk", canonical: "https://www.youtube.com/watch?v=abcdefghijk" }],
   ["\u3000https://soundcloud.com/artist/track", { kind: "soundcloud", sc: "track", key: "sc:artist/track", canonical: "https://soundcloud.com/artist/track" }],
-  ["\ufeffhttps://open.spotify.com/track/abc123", { kind: "unknown", key: null, canonical: "\ufeffhttps://open.spotify.com/track/abc123" }],
+  ["\ufeffhttps://open.spotify.com/track/abc123", { kind: "spotify", spotify: { type: "track", id: "abc123" }, key: null, canonical: "https://open.spotify.com/track/abc123" }],
   ["https://youtu.be/abcdefghijk\u200b", { kind: "unknown", key: null, canonical: "https://youtu.be/abcdefghijk\u200b" }],
   ["https://www.youtube.com/watch?v=abcdefghijk\nhttps://youtu.be/x", { kind: "unknown", key: null, canonical: "https://www.youtube.com/watch?v=abcdefghijk\nhttps://youtu.be/x" }],
   ["https://user:pw@www.youtube.com/watch?v=abcdefghijk", { kind: "unknown", key: null, canonical: "https://user:pw@www.youtube.com/watch?v=abcdefghijk" }],
@@ -44,20 +44,20 @@ const CASES: Array<[string, Answer]> = [
   ["https://www.youtube.com/watch?v=abcdefghijk?list=PLabc", { kind: "unknown", key: null, canonical: "https://www.youtube.com/watch?v=abcdefghijk?list=PLabc" }],
   ["https://www.youtube.com/watch?v=abcdefghijk&list=PL%2Dabc", { kind: "youtube", video: "abcdefghijk", list: "PL-abc", playlist: true, key: "yt:abcdefghijk", canonical: "https://www.youtube.com/watch?v=abcdefghijk" }],
   ["https://www.youtube.com/watch?v=abcdefghijk&%6cist=PLabc", { kind: "youtube", video: "abcdefghijk", list: "PLabc", playlist: true, key: "yt:abcdefghijk", canonical: "https://www.youtube.com/watch?v=abcdefghijk" }],
-  ["https://open.spotify.com/track/abc-def", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
-  ["https://open.spotify.com/track/X%41", { kind: "spotify", spotify: { type: "track", id: "X" }, key: null, canonical: "https://open.spotify.com/track/X" }],
-  ["https://OPEN.SPOTIFY.COM/track/abc", { kind: "unknown", key: null, canonical: "https://OPEN.SPOTIFY.COM/track/abc" }],
-  ["HTTPS://open.spotify.com/track/abc", { kind: "unknown", key: null, canonical: "HTTPS://open.spotify.com/track/abc" }],
-  ["https://open.spotify.com/intl-pt-BR/track/abc", { kind: "unknown", key: null, canonical: "https://open.spotify.com/intl-pt-BR/track/abc" }],
-  ["https://open.spotify.com//track/abc", { kind: "unknown", key: null, canonical: "https://open.spotify.com//track/abc" }],
+  ["https://open.spotify.com/track/abc-def", { kind: "unknown", key: null, canonical: "https://open.spotify.com/track/abc-def" }],
+  ["https://open.spotify.com/track/X%41", { kind: "unknown", key: null, canonical: "https://open.spotify.com/track/X%41" }],
+  ["https://OPEN.SPOTIFY.COM/track/abc", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
+  ["HTTPS://open.spotify.com/track/abc", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
+  ["https://open.spotify.com/intl-pt-BR/track/abc", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
+  ["https://open.spotify.com//track/abc", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["https://open.spotify.com/intl-ko/track/abc?si=x", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["https://open.spotify.com/track/abc/extra", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["spotify:track:abc#0:45", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["spotify:track:abc/", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["spotify:track:abc:extra", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
   ["spotify:track:abc?si=y", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
-  ["SPOTIFY:track:abc", { kind: "search", key: null, canonical: "SPOTIFY:track:abc" }],
-  ["spotify:track:abc-def", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
+  ["SPOTIFY:track:abc", { kind: "spotify", spotify: { type: "track", id: "abc" }, key: null, canonical: "https://open.spotify.com/track/abc" }],
+  ["spotify:track:abc-def", { kind: "unknown", key: null, canonical: "spotify:track:abc-def" }],
   ["spotify: 아이유 좋은 날", { kind: "search", key: null, canonical: "spotify: 아이유 좋은 날" }],
   ["https://evilspotify.com/track/abc", { kind: "direct", key: "dl:9e09902a06876717a540d635ece96196", canonical: "https://evilspotify.com/track/abc" }],
   ["ftp://open.spotify.com/track/abc", { kind: "unknown", key: null, canonical: "ftp://open.spotify.com/track/abc" }],

@@ -63,9 +63,9 @@ function sourceOf(query: string, collectionId?: string | null): { kind: Kind; li
     const listId = links.extractPlaylistId(query);
     return listId && !listId.startsWith("RD") ? { kind: "ytp", listId } : null;
   }
-  if (links.isSpotifyURL(query)) {
-    const { type, id } = links.parseSpotifyURL(query);
-    if (!id) return null;
+  const spotify = links.parseSpotify(query);
+  if (spotify) {
+    const { type, id } = spotify;
     if (type === "playlist") return { kind: "spp", listId: id };
     if (type === "album") return { kind: "spa", listId: id };
   }
