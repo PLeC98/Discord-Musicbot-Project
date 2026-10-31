@@ -16,6 +16,8 @@ import { waitForRestore } from "../player/session-restore.ts";
 import { joinChannel } from "../usecases/join.ts";
 import { resolveFallbackTextChannel } from "../usecases/add-tracks.ts";
 import { noticeFrame, post } from "../ui/frame.ts";
+import { noticeMs } from "../ui/delivery.ts";
+import { scheduleDelete } from "../ui/transient-messages.ts";
 import * as noticeText from "../ui/text/ko/notices.ts";
 import type { Notice } from "../ui/text/notice.ts";
 import { DISCORD_LOOK } from "../ui/mentions.ts";
@@ -34,10 +36,12 @@ type Why = "kicked" | "gone" | "permission";
 const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };
 const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
 
-// 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다)
+// 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고 · 오류 안내처럼 수준에 맞는 수명 뒤 지운다
 async function announce(guild: Guild, notice: Notice) {
   const channel = await resolveFallbackTextChannel(guild).catch(() => null);
-  if (channel) await bestEffort(log, channel.send(post(noticeFrame(notice))), "상주 모드 해제 알림 전송");
+  if (!channel) return;
+  const sending = channel.send(post(noticeFrame(notice))).then((sent) => scheduleDelete(sent, noticeMs(notice)));
+  await bestEffort(log, sending, "상주 모드 해제 알림 전송");
 }
 
 /** join · announce · sleep 은 시험이 바꾼다 */
