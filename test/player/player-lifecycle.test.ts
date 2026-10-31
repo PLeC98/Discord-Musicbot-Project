@@ -1821,3 +1821,77 @@ test("버리기: stay 면 음성 채널에 남긴 채 연결만 정리하고(서
   await leave.dispose({ reason: "시험", session: "keep", end: "stop" });
   assert.deepEqual(left.destroyed, ["leave"]);
 });
+
+// ── 멈춘 동안의 조작(쉬어 두기를 넣기 전에 지금 동작을 묶는다) ──
+
+// 연 곡을 끝 처리까지 보낸다. 가짜 오디오 플레이어는 멈춰도 Idle 을 알리지 않아 테스트가 대신 쏜다
+async function endNow(p: Player) {
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await p.untilSwitched();
+}
+
+test("사람이 멈춘 채 넘기면 다음 곡을 멈춘 채 연다(멈춤이 풀리지 않는다)", async () => {
+  const p = h.makePlayer();
+  const first = cached("pa1aaaaaaaa");
+  const next = cached("pa2aaaaaaaa");
+  p.currentTrack = first;
+  p.queue = [next];
+  await p.play(0);
+  p.pause.setUser(true);
+
+  assert.equal(p.skip(), true);
+  await endNow(p);
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.paused, true);
+});
+
+test("사람이 멈춘 채 마지막 곡을 넘기면 자동재생이 다음 곡을 잇는다(대기열을 끝내지 않는다)", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pb1aaaaaaaa");
+  await p.play(0);
+  p.pause.setUser(true);
+  p.autoplay = "pop";
+  let asked = 0;
+  p._continueAutoplay = async () => ((asked += 1), true);
+  let finished = 0;
+  p.finishQueue = async () => void (finished += 1);
+
+  p.skip();
+  await endNow(p);
+  h.dispose(p);
+
+  assert.equal(asked, 1);
+  assert.equal(finished, 0);
+});
+
+test("사람이 멈춘 채 위치를 옮기면 멈춘 채 그 위치에서 다시 연다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pc1aaaaaaaa");
+  await p.play(0);
+  p.pause.setUser(true);
+
+  await p.seek(42_000, "seek");
+  h.dispose(p);
+
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.lastPlaybackPosition, 42_000);
+  assert.equal(p.getCurrentTime(), 42_000);
+});
+
+test("음성이 다시 붙으면 멈춰 있던 곡도 그 위치에서 다시 연다. 멈춤은 그대로", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pd1aaaaaaaa");
+  await p.play(30_000);
+  p.pause.setUser(true);
+  const opened = h.calls.resources.length;
+
+  await p.onVoiceRecovered();
+  h.dispose(p);
+
+  assert.equal(h.calls.resources.length, opened + 1, "소리를 새로 연다");
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.getCurrentTime(), 30_000);
+});
