@@ -198,6 +198,13 @@ function baseArgs(bot: TestBot, guild: Guild, extra: Extra): PlaybackRequest {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
+test("붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 곡 찾기 전에 걷는다", async () => {
+  mockResolve = () => ok("곡");
+  const bot = makeBot();
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "\ufeff\u00a0https://youtu.be/abcdefghijk\u3000 ", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "https://youtu.be/abcdefghijk");
+});
+
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 진입점에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });

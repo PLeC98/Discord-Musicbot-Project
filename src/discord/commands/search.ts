@@ -62,7 +62,8 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true)),
 
   async execute(interaction: ChatInputCommandInteraction<"cached">, _bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
-    const query = interaction.options.getString("query", true);
+    // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷는다. 링크 판정이 다듬은 글자를 받는다
+    const query = interaction.options.getString("query", true).trim();
     const member = interaction.member;
 
     // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만

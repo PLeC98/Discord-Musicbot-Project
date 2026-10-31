@@ -373,6 +373,14 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼�
   assert.deepEqual(ids, [pick(0), pick(1), pick(2), pick(3), `search:cancel:${USER}`, pick(4), pick(5)]);
 });
 
+test("/search: 붙여 넣은 검색어 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷고 찾는다", async () => {
+  const asked: string[] = [];
+  const w = world();
+  const { it } = interaction(w, { options: { query: "\u00a0 https://youtu.be/abcdefghijk\u3000\n" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async (q) => (asked.push(q), []) });
+  assert.deepEqual(asked, ["https://youtu.be/abcdefghijk"]);
+});
+
 test("/search: 권한, 결과 없음, 오류", async () => {
   const denied = world({ userVoice: "v2" });
   const d = interaction(denied, { options: { query: "x" } });

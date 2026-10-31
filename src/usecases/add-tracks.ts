@@ -151,7 +151,9 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
 /** 곡을 넣을 목록. 찾은 결과거나 이미 찾은 곡. skipped 는 출처가 받을 수 없어 뺀 곡 수(사운드클라우드 세트의 미리듣기, 지역 제한) */
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
-async function requestPlayback(bot: Bot, request: PlaybackRequest): Promise<PlaybackResult> {
+async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<PlaybackResult> {
+  // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 여기서 걷는다. 곡 찾기와 링크 판정은 다듬은 글자를 받는다
+  const request = typeof asked.query === "string" ? { ...asked, query: asked.query.trim() } : asked;
   const { guild, insertFirst = false, responder = silentResponder } = request;
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
   const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
