@@ -1,6 +1,6 @@
 // src/autoplay/filter.ts: 자동재생 후보를 필터링하는 규칙.
 //
-// 임계값은 실제 후보를 세어 정했다. 여기서는 값이 아니라 깨지면 안 되는 성질을 본다.
+// 여기서는 값이 아니라 깨지면 안 되는 성질을 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -88,12 +88,34 @@ test("빈 제외 키워드는 무시한다. 설정에 빈 줄이 남아도 전�
   assert.equal(judge("아무 노래", 240, { blockedKeywords: ["", "  ", "mix"] }).ok, true);
 });
 
-test("괄호, 이모지 생김새의 지금 답", () => {
-  const brackets = ["【公式】【東方Vocal】曲【FullMV】", "[a] [b] [c]", "[[a]] [b]", "【a】[b]【c】", "[a] [b] [c", "[a】[b】[c】", "]a[ ]b[ ]c["];
-  for (const title of brackets) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "괄호 다섯 이상" }, title);
-  // 이모지는 1F300 ~ 1F9FF 범위의 글자 수다. 범위 밖(✨ ⭐ ❗ ❓ ©️ ♥️ 키캡 국기)은 세지 않고, 조합 이모지는 조각마다 센다
-  const passes = ["노래 ✨⭐", "노래 ❓❗️", "1️⃣2️⃣", "🇰🇷🇯🇵", "노래 ©️ ™️", "노래 ♥️ ♥️", "Song © ™ ♥ ❤", "노래 🇰🇷", "노래 ⌚︎ ☀︎"];
-  for (const title of passes) assert.deepEqual(judge(title), { ok: true }, title);
-  const rejected = ["노래 👨‍👩‍👧", "노래 👍🏽", "노래 🏳️‍🌈", "노래 🍄‍🟫", "노래 🍄‍🐸"];
-  for (const title of rejected) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "이모지 둘 이상" }, title);
+test("괄호는 생김새로 보지 않는다(잡은 진짜 믹스가 없고 한 곡을 떨어뜨렸다)", () => {
+  for (const title of ["【公式】【東方Vocal】曲【FullMV】", "[a] [b] [c]", "【a】[b]【c】"]) assert.deepEqual(judge(title), { ok: true }, title);
+});
+
+test("이모지는 이모지처럼 보이는 글자 묶음을 하나로 세어 둘 이상이면 믹스 생김새", () => {
+  const twoOrMore = [
+    "노래 ✨⭐", // 기본이 그림인 글자
+    "노래 ❓❗️",
+    "노래 ©️ ™️", // VS16 이 붙은 기호
+    "노래 ♥️ ♥️",
+    "1️⃣2️⃣", // VS16 이 붙은 키캡
+    "🇰🇷🇯🇵", // 국기(지역 표시 둘)
+    "노래 🔥🔥",
+    "노래 🍄‍🐸 🐙‍🔥", // 런타임이 모르는 조합도 하나씩
+  ];
+  for (const title of twoOrMore) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "이모지 둘 이상" }, title);
+  const one = [
+    "Song © ™ ♥ ❤", // 그림 표시가 없는 기호
+    "노래 ⌚︎ ☀︎", // VS15(글자 모양)
+    "노래 🇰🇷",
+    "노래 🇰 x", // 짝 없는 지역 표시
+    "노래 1⃣ 2⃣", // VS16 없는 키캡
+    "노래 👍🏽", // 피부색 조합은 하나
+    "노래 🏳️‍🌈", // ZWJ 로 이은 것은 하나
+    "노래 👨‍👩‍👧",
+    "노래 🍄‍🟫",
+    "노래 🏽", // 피부색 글자만
+    "2024 #1 *",
+  ];
+  for (const title of one) assert.deepEqual(judge(title), { ok: true }, title);
 });

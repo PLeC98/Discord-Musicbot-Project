@@ -1,20 +1,44 @@
 // 자동재생 후보를 필터링하는 규칙. 통과 여부뿐 아니라 왜 떨어졌는지를 돌려준다.
 // 실제 재생과 실측 도구가 이 코드를 같이 지난다(도구가 규칙을 베끼면 잰 값이 실제와 어긋난다).
-// 임계값은 실제 후보 표본을 세어 정했다.
+// 생김새는 길이 관문 뒤의 안전망이다(상한 안의 믹스는 거의 길이와 제외 키워드가 잡는다).
 
 import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
+
+const GRAPHEMES = new Intl.Segmenter("en", { granularity: "grapheme" });
+const FLAG = /^\p{Regional_Indicator}{2}$/u;
+const KEYCAP = /^[0-9#*]️⃣$/u;
+const PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
+const PICTURE_BY_DEFAULT = /\p{Emoji_Presentation}/u;
+
+/**
+ * 이모지처럼 보이는 글자 묶음인가: 국기, VS16 이 붙은 키캡, 그림 글자를 품고 기본이 그림이거나 VS16 이나 ZWJ 가 붙은 것.
+ * VS15(글자 모양 지정)만 붙은 것과 그림 표시가 없는 ©, ™ 은 세지 않는다.
+ * 등록된 조합 목록(RGI)을 보지 않아 Node 의 Unicode 판이 낡아도 조합 이모지를 조각마다 더 세지 않는다
+ */
+function looksEmoji(grapheme: string): boolean {
+  if (FLAG.test(grapheme) || KEYCAP.test(grapheme)) return true;
+  if (!PICTOGRAPHIC.test(grapheme)) return false;
+  if (grapheme.includes("︎") && !grapheme.includes("‍")) return false;
+  return PICTURE_BY_DEFAULT.test(grapheme) || grapheme.includes("️") || grapheme.includes("‍");
+}
+
+function emojiCount(title: string): number {
+  let count = 0;
+  for (const { segment } of GRAPHEMES.segment(title)) if (looksEmoji(segment)) count++;
+  return count;
+}
 
 // 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새.
 const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
   ["연도 둘 이상", (t) => (t.match(/\b(19|20)\d\d\b/g) || []).length >= 2],
   ["쉼표 셋 이상", (t) => (t.match(/,/g) || []).length >= 3], // 아티스트를 나열한 컴필레이션
-  ["이모지 둘 이상", (t) => (t.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length >= 2],
+  // 셋으로 올리면 900초 넘는 모음 대부분을 놓친다
+  ["이모지 둘 이상", (t) => emojiCount(t) >= 2],
   ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
-  ["괄호 다섯 이상", (t) => (t.match(/[[\]【】]/g) || []).length >= 5],
 ];
 
 // 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 거의 늘 한 곡이다.
-// (공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다.)
+// (공식 뮤직비디오 제목에는 이모지가 흔하다.)
 // feat, ft 만 센다. fe?a?t 로 적으면 "fat", "fet" 도 걸린다
 const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
 
