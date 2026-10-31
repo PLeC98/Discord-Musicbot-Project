@@ -142,6 +142,21 @@ test("24/7 자리의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없
   assert.equal(p._halting, false);
 });
 
+test("상주 자리의 정지: 사람이 멈춰 둔 곡을 정지 전에 다시 틀지 않는다(멈춤은 정지를 건 뒤에 푼다)", async () => {
+  const p = h.makePlayer();
+  playing(p, yt("cccccccccc2"));
+  p.pause.setUser(true);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused };
+  let unpaused = 0;
+  p.audioPlayer.unpause = () => ((unpaused += 1), true);
+
+  await p.stopStaying();
+  h.dispose(p);
+
+  assert.equal(unpaused, 0);
+  assert.equal(p.pause.userPaused, false);
+});
+
 test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을 끝내고 세션을 삭제하고 나갈 예약을 건다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);

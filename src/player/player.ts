@@ -1259,14 +1259,16 @@ class Player {
    */
   async stopStaying() {
     trackState.clearQueue(this);
-    this.pause.setUser(false);
     const open = this.lifecycle.parked || this.audioPlayer.state.status !== AudioPlayerStatus.Idle;
     if (!this.currentTrack || !open) {
+      this.pause.setUser(false);
       await this.finishQueue({ stopped: true });
       return;
     }
     this._halting = true;
     this._stopWith("stop");
+    // 정지를 건 뒤에 푼다. 먼저 풀면 멈춰 있던 곡이 정지 전에 잠깐 소리를 낸다
+    this.pause.setUser(false);
   }
 
   // 다 끝났다. 다음 재생은 새로 시작하는 것이라 이전 곡 기록도 비운다. stopped: 24/7 자리에서 사람이 정지했다(끝난 패널이 "다 틀었어요" 를 알리지 않는다)
