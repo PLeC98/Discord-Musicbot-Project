@@ -18,8 +18,8 @@ const groups = {
 /** label: 항목 이름(알림 · 안내에도 쓴다), short: 박스 안에서 보일 짧은 이름(박스 제목이 나머지를 말한다) */
 const fields: Record<string, { label: string; help: string; short?: string }> = {
   QUEUE_MAX_TRACKS: { label: "대기열 곡 수 상한", help: "재생 중인 곡은 빼고 세요. 0 이면 끔, 켜면 25 이상.\n곡이 수천 개면 셔플처럼 대기열 전체를 다시 쓰는 조작 동안 봇 전체가 잠깐 멈출 수 있어요. 1,000곡 안쪽을 권해요." },
-  LEAVE_DELAY_QUEUE_EMPTY_SECONDS: { label: "대기열이 비면 나가기까지(초)", help: "대기열을 모두 재생한 뒤 음성 채널을 나가기까지 기다리는 시간. 0 이면 바로 나가요. 상주 모드가 켜져 있으면 이 시간을 따르지 않아요." },
-  LEAVE_DELAY_ALONE_SECONDS: { label: "혼자 남으면 나가기까지(초)", help: "음성 채널에 봇만 남았을 때 나가기까지 기다리는 시간. 상주 모드가 켜져 있으면 이 시간을 따르지 않아요." },
+  LEAVE_DELAY_QUEUE_EMPTY_SECONDS: { label: "대기열이 비면 나가기까지(초)", help: "대기열을 모두 재생한 뒤 음성 채널을 나가기까지 기다리는 시간. 0 이면 바로 나가요. 상주 모드가 켜져 있으면 이 설정은 적용되지 않아요." },
+  LEAVE_DELAY_ALONE_SECONDS: { label: "혼자 남으면 나가기까지(초)", help: "음성 채널에 봇만 남았을 때 나가기까지 기다리는 시간. 상주 모드가 켜져 있으면 이 설정은 적용되지 않아요." },
   EMBED_COLOR: { label: "임베드 색", help: "왼쪽 동그라미를 눌러 선택하거나 #RRGGBB 형식으로 입력해요. 대시보드의 기본 색으로도 써요." },
   WEBSITE: { label: "봇 웹사이트 주소", help: "비우면 /help 에서 링크를 빼요. http · https 주소만." },
   VOICE_PLAYING_PREFIX: { label: "음성 상태: 재생 중 접두어", help: "음성 채널 상태에 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: 📻 " },

@@ -36,6 +36,6 @@ const stageCannotSpeak = () => noticeOf("error", "permission", "이 스테이지
 /** 상주 모드를 스스로 껐다(자리 지킴이). 다시 켜는 법을 싣는다. channel 은 자리 채널(멘션) */
 const stayKicked = () => noticeOf("warning", "voice", "누가 저를 내보내서 상주 모드를 껐어요.", "`/247`로 다시 켤 수 있어요.");
 const stayChannelGone = () => noticeOf("warning", "voice", "머물던 음성 채널이 삭제돼서 상주 모드를 껐어요.", "다른 음성 채널에서 `/247`로 다시 켤 수 있어요.");
-const stayNoPermission = (channel: string) => noticeOf("error", "permission", `${channel}에 들어갈 권한이 없어서 상주 모드를 껐어요.`, "저에게 연결 · 말하기 권한을 준 뒤 `/247`로 다시 켜 주세요.");
+const stayNoPermission = (channel: string) => noticeOf("error", "permission", `${channel}에 들어갈 권한이 없어서 상주 모드를 껐어요.`, "저에게 연결과 말하기 권한을 준 뒤 `/247`로 다시 켜 주세요.");
 
 export { stayKicked, stayChannelGone, stayNoPermission, autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, parkedLine, parkedFailures, parkedDropped, copiesRemoved, skippedMore, savedSessionReplaced, restored, stageRequested, stageCannotSpeak };

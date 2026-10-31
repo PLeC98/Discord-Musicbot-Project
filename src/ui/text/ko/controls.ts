@@ -105,7 +105,7 @@ const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지�
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(at, 적은 것) · 대기열 곡 수와 복원하는 법. stayOff 면 상주 모드도 껐다 */
 const left = (saved: { track: Linked; at: string; queue: number } | null, stayOff = false) => {
   const lines = saved ? [`재생 중이던 곡: ${link(saved.track)}`, `${icon("time")} 저장한 위치 \`${saved.at}\` · ${icon("queue")} 저장한 대기열 ${saved.queue}곡`, "`/join`으로 이어 들을 수 있어요."] : [];
-  if (stayOff) lines.push("활성화했던 상주 모드도 껐어요.");
+  if (stayOff) lines.push("켜져 있던 상주 모드도 함께 껐어요.");
   return { title: "👋 음성 채널에서 나갔어요", body: lines.length ? lines.join("\n") : null };
 };
 
