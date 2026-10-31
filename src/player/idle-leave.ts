@@ -14,10 +14,9 @@ import { bestEffort } from "../infra/best-effort.ts";
 import { listenersIn } from "../rules/holds.ts";
 import * as staySeats from "../store/stay-seats.ts";
 
-/** 24/7 자리에 있나: 운영자가 켰고 서버의 자리가 그 채널이다. 자리에서는 나가는 타이머를 걸지 않고 정지도 채널에 남는다 */
+/** 24/7 자리에 있나: 서버의 자리가 그 채널이다. 자리에서는 나가는 타이머를 걸지 않고 정지도 채널에 남는다 */
 function seatedIn(guildId: string, channelId: string | null | undefined) {
-  if (!config.bot.stayEnabled || !channelId) return false;
-  return staySeats.seatOf(guildId)?.channelId === channelId;
+  return Boolean(channelId) && staySeats.seatOf(guildId)?.channelId === channelId;
 }
 
 class IdleLeave {

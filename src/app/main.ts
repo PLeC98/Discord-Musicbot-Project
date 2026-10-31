@@ -225,14 +225,6 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
   playerEvents.on("started", (player) => stay.wake(player.guild.id));
-  // 운영자가 24/7 을 켜고 끄면: 켜면 자리로 돌아가고, 끄면 지금 붙은 플레이어가 평소처럼 나갈 시각을 건다
-  let stayWasEnabled = config.bot.stayEnabled;
-  onTunablesChanged(() => {
-    if (config.bot.stayEnabled === stayWasEnabled) return;
-    stayWasEnabled = config.bot.stayEnabled;
-    for (const player of players.values()) player.idle.reconsider();
-    if (stayWasEnabled) stay.onEnabled();
-  });
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기");

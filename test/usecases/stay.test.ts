@@ -6,7 +6,6 @@ import { ChannelType, type Guild, type GuildMember } from "discord.js";
 import * as stay from "../../src/usecases/stay.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
-import { withConfig } from "../helpers/config.ts";
 import { fake } from "../helpers/fake.ts";
 import type { PlayerSeats } from "../../src/player/registry.ts";
 
@@ -34,12 +33,11 @@ test("켜기: 봇이 있는 채널을 자리로 적고 퇴장 판정을 다시 �
   assert.equal(seen.reconsider, 2);
 });
 
-test("켜기 거절: 서버 관리 권한이 없으면 · 스테이지면 · 운영자가 껐으면", async () => {
+test("켜기 거절: 서버 관리 권한이 없으면 · 스테이지면", async () => {
   const voice = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: member(false) }), { ok: false, code: "must-moderator" });
   const stage = seated({ id: "st1", name: "무대", type: ChannelType.GuildStageVoice });
   assert.deepEqual(await stay.turnOn(stage.bot, { guild, member: member() }), { ok: false, code: "stay-stage" });
-  await withConfig({ bot: { stayEnabled: false } }, async () => assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: member() }), { ok: false, code: "stay-disabled" }));
   assert.equal(staySeats.seatOf("g1"), null);
 });
 

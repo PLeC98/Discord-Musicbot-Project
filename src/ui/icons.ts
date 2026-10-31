@@ -99,7 +99,7 @@ const ICONS = {
   ok: { glyph: "check", unicode: "✅" },
   person: { glyph: "person", unicode: "👤" },
   idle: { glyph: "bedtime", unicode: "💤" },
-  stay: { glyph: "push_pin", unicode: "📌" },
+  stay: { glyph: "local_convenience_store", unicode: "🏪" },
   position: { glyph: "format_list_numbered", unicode: "📍" },
   time: { glyph: "schedule", unicode: "⏱️" },
   resume: { glyph: "history", unicode: "💾" },

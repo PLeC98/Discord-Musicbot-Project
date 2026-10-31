@@ -29,7 +29,7 @@ const fakePlayer = <X extends object>(partial: X) => {
 
 /** 가짜 봇 문맥(src/app/bot-context). 테스트가 읽는 필드만 채운다. 플레이어 · 명령은 없으면 빈 목록, 자리 지킴이는 아무것도 안 하는 것 */
 function fakeBot(partial: { client?: object; players?: Map<string, unknown>; panels?: object; commands?: Map<string, unknown>; stay?: object } = {}): BotContext {
-  const stay = { boot: async () => {}, attempt: async () => true, onDisposed() {}, wake() {}, onGuildAvailable() {}, onChannelDeleted() {}, onEnabled() {}, stop() {} };
+  const stay = { boot: async () => {}, attempt: async () => true, onDisposed() {}, wake() {}, onGuildAvailable() {}, onChannelDeleted() {}, stop() {} };
   return fake<BotContext>({ client: {}, players: new Map(), commands: new Map(), stay, ...partial });
 }
 

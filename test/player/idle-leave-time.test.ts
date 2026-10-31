@@ -156,8 +156,8 @@ test("틀 게 없음이 0 이면 곡 없이 기다리는 어느 길이든 바로
     assert.deepEqual(disposed, ["곡 없이 대기"]);
   }));
 
-test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 없다. 켜고 끄면 지금 상태로 다시 걸고, 운영자가 끄면 보통대로", () =>
-  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS, stayEnabled: true } }, () => {
+test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 없다. 켜고 끄면 지금 상태로 다시 걸고, 자리가 아닌 채널이면 보통대로", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const p = player();
     Object.assign(p, { queue: [], pause: { holds: new Set(["alone"]) } });
     const idle = new IdleLeave(p);
@@ -180,7 +180,6 @@ test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 �
       assert.equal(idle.emptyTimer, null, "다시 켜면 지운다");
       assert.equal(told.at(-1), null);
 
-      withConfig({ bot: { stayEnabled: false } }, () => assert.equal(idle.seated(), false, "운영자가 끄면 자리를 무시한다"));
       staySeats.set("g", "other", "u1");
       assert.equal(idle.seated(), false, "자리가 아닌 채널이면 보통대로");
     } finally {

@@ -25,6 +25,8 @@ const userPausedMark = () => "일시정지";
 const queuedStatus = (count: number) => `대기열 ${count}곡`;
 /** 상태 줄의 건너뛸 구간 수(SponsorBlock) */
 const segmentsStatus = (count: number) => `건너뛸 구간 ${count}개`;
+/** 24/7 자리에서 트는 중 */
+const stayStatus = () => `${icon("stay")} 24/7`;
 /** 패널 아래의 대시보드 링크 */
 const dashboardLink = (url: string) => `${icon("dashboard")} [대시보드](${url})`;
 
@@ -67,4 +69,4 @@ const CUT_OFF: Record<string, string> = {
 /** 전용 채널 밖에서 끊겨 끝났다는 안내. 알릴 까닭이 아니면(stop · leave 등) null */
 const cutOff = (cause: string): EndNotice | null => (CUT_OFF[cause] ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
 
-export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, pausedLabel, userPausedMark, queuedStatus, segmentsStatus, dashboardLink, idle, ended, cutOff };
+export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, pausedLabel, userPausedMark, queuedStatus, segmentsStatus, stayStatus, dashboardLink, idle, ended, cutOff };

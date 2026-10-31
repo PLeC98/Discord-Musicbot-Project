@@ -1,6 +1,6 @@
 // 24/7 자리 지킴이: 자리가 있는데 봇이 그 자리에 붙어 있지 않으면 다시 붙인다. 언제 나가는지는 player/idle-leave, 버리는 결정은 player/voice-link 몫이고
 // 여기는 끝난 까닭(disposed 의 end)을 받아 할 일만 정한다.
-//   다시 붙음   기동(세션 복원 · 이어받기 뒤) · 쓸 수 없던 서버가 돌아옴 · 운영자가 다시 켬 · 일시적인 끝(복구 포기 · 접속 실패 등)
+//   다시 붙음   기동(세션 복원 · 이어받기 뒤) · 쓸 수 없던 서버가 돌아옴 · 일시적인 끝(복구 포기 · 접속 실패 등)
 //   자리를 끔   강제 퇴장 · 채널 삭제 · 권한 잃음(디스코드의 확답). 서버 채널에 알린다
 //   쉼          같은 오류가 되풀이되어 멈춘 서버(fault). 다시 시작하거나 곡을 다시 틀 때까지 붙지 않는다
 // 일시적 실패는 1 · 2 · 5 · 10 · 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
@@ -8,7 +8,6 @@
 import { PermissionFlagsBits, RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice", sub: "stay" });
-import config from "../config/index.ts";
 import * as staySeats from "../store/stay-seats.ts";
 import * as playerEvents from "../player/events.ts";
 import type { Player, PlayerEnd } from "../player/player.ts";
@@ -125,7 +124,7 @@ class StayKeeper {
 
   // 붙어 볼 서버인가. 붙어 있으면(자리가 아닌 채널이면 거기서 나간 뒤 끝 알림으로 다시 온다) · 서버를 쓸 수 없으면(돌아오면 GuildAvailable) 아니다
   _guildToTry(guildId: string) {
-    if (!config.bot.stayEnabled || !staySeats.seatOf(guildId) || this.resting.has(guildId) || this.busy.has(guildId)) return null;
+    if (!staySeats.seatOf(guildId) || this.resting.has(guildId) || this.busy.has(guildId)) return null;
     if (this.players.get(guildId)?.voice.isAlive()) return null;
     const guild = this.client.guilds.cache.get(guildId);
     return guild?.available ? guild : null;
@@ -181,7 +180,7 @@ class StayKeeper {
   async boot({ skip = false }: { skip?: boolean } = {}) {
     const seats = staySeats.all();
     if (skip && seats.length) log.warn(`짧은 간격의 비정상 종료가 반복되어 24/7 자리 ${seats.length}곳에 다시 붙지 않습니다(자리는 유지)`);
-    if (!skip && config.bot.stayEnabled) {
+    if (!skip) {
       let first = true;
       for (const [guildId] of seats) {
         if (this.players.get(guildId)?.voice.isAlive()) continue;
@@ -197,7 +196,7 @@ class StayKeeper {
   onDisposed(player: Pick<Player, "guild" | "voiceChannel">, end: PlayerEnd) {
     const guildId = player.guild.id;
     const seat = staySeats.seatOf(guildId);
-    if (!seat || !config.bot.stayEnabled) return;
+    if (!seat) return;
     if (end === "fault") {
       this.resting.add(guildId);
       this._cancel(guildId);
@@ -230,11 +229,6 @@ class StayKeeper {
   /** 자리 채널이 지워졌다(봇이 없던 동안도) */
   onChannelDeleted(guild: Guild, channelId: string) {
     if (staySeats.seatOf(guild.id)?.channelId === channelId) void this._drop(guild, "gone");
-  }
-
-  /** 운영자가 24/7 을 다시 켰다 */
-  onEnabled() {
-    if (this.ready) void this.boot();
   }
 
   stop() {
