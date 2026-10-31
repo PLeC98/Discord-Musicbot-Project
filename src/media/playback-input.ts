@@ -45,7 +45,7 @@ type InputIo<R> = {
   ffmpegCapabilities(): Capabilities;
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   seekStart(request: SeekRequest): Promise<SeekAnswer>;
-  openFragmentStream(opts: FragmentOptions): OpenedStream;
+  openFragmentStream(opts: FragmentOptions): Promise<OpenedStream>;
   fetch(url: string, init: { headers: Record<string, string> }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
   directStream(url: string, opts: DirectInputOptions): Promise<OpenedStream>;
   sleep(ms: number): Promise<void>;

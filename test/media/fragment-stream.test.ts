@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
+import { createFragmentStream, openFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
@@ -96,4 +96,17 @@ test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) �
   const endless = streamFragments({ ...source, next: async () => "x" }, { retryDelaysMs: [] });
   for await (const _ of endless) break;
   assert.equal(closed, 2, "다 읽지 않고 닫아도 출처에 알린다");
+});
+
+test("열 때 첫 세그먼트까지 받는다: 막혔으면(403, 주소 만료나 망이 바뀜) 여는 자리에서 실패해 재생 쪽이 새로 받는다", async () => {
+  const { impl, asked } = fakeFetch((i) => (i === 0 ? 403 : "ok"));
+  await assert.rejects(openFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] }), /HTTP 403/);
+  assert.deepEqual(asked, [`${base}&sq=0`]);
+});
+
+test("연 뒤 읽으면 받아 둔 첫 세그먼트부터 흘린다. 첫 세그먼트를 두 번 받지 않는다", async () => {
+  const { impl, asked } = fakeFetch();
+  const s = await openFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] });
+  assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
+  assert.equal(asked.filter((u) => u.endsWith("&sq=0")).length, 1);
 });

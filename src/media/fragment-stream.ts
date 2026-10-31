@@ -39,6 +39,8 @@ type FragmentStream = Readable & {
   startedAtMs: number;
   /** 입력 상태 한 줄(끊겼을 때 남긴다) */
   describe(): string;
+  /** 첫 세그먼트를 받아 둔다. 못 받으면 던진다(읽기는 받아 둔 것부터 흘린다) */
+  prime(): Promise<void>;
 };
 
 /** 다시 받아도 결과가 같은 실패. 4xx(만료, 차단, 없는 세그먼트) */
@@ -107,6 +109,10 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   return Object.assign(stream, {
     startedAtMs: source.startedAtMs,
     describe: () => `${source.describe(sent)}${retries ? ` · 다시 받음 ${retries}회` : ""}`,
+    async prime() {
+      ahead ??= take();
+      await ahead;
+    },
   });
 }
 
@@ -159,5 +165,20 @@ function createFragmentStream(options: FragmentOptions): FragmentStream {
   return streamFragments(numberedFragments(options), options);
 }
 
-export { createFragmentStream, streamFragments, permanent, startOf, fragmentMsOf };
+/**
+ * 유튜브 세그먼트 목록을 열어 첫 세그먼트까지 받아 둔다(청크 스트림의 openChunkedStream 과 같은 약속).
+ * 막힌 주소(만료, 추출한 IP 와 다른 망)가 여는 자리에서 드러나야 재생 쪽이 새로 받거나 캐시로 넘긴다
+ */
+async function openFragmentStream(options: FragmentOptions): Promise<FragmentStream> {
+  const stream = createFragmentStream(options);
+  try {
+    await stream.prime();
+  } catch (error) {
+    stream.destroy();
+    throw error;
+  }
+  return stream;
+}
+
+export { createFragmentStream, openFragmentStream, streamFragments, permanent, startOf, fragmentMsOf };
 export type { Fragments, FragmentOptions, FragmentSource, FragmentStream, FragmentFetch };

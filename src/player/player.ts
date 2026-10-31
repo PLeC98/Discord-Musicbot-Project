@@ -36,7 +36,7 @@ import { applyTags } from "../sources/direct-tags.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import * as SponsorBlock from "../sources/sponsor-block.ts";
 import { openChunkedStream } from "../media/chunked-stream.ts";
-import { createFragmentStream } from "../media/fragment-stream.ts";
+import { openFragmentStream } from "../media/fragment-stream.ts";
 import { openDirectInput, type DirectInputOptions } from "../media/direct-input.ts";
 import { seekStart } from "../media/seek-start.ts";
 import { openInput } from "../media/playback-input.ts";
@@ -172,7 +172,7 @@ const REAL = {
   ffmpegCapabilities,
   openChunkedStream,
   seekStart,
-  openFragmentStream: createFragmentStream,
+  openFragmentStream,
   fetch: (url: string, init: RequestInit) => fetch(url, init),
   sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms)),
   // 재생은 본문 무응답을 짧게 본다. 플레이어가 버티는 10초(MAX_MISSED_FRAMES)보다 먼저 끊겨 곡 끝 판정이 입력 깨짐으로 다시 연다
