@@ -432,7 +432,7 @@ test("라이브러리가 Ready 없이 다섯 번 다시 참가한 뒤의 닫힘(
   const from = sink.buffer.length;
   net2.emit("close", 4021);
   assert.deepEqual(c.destroyed, ["stay"]);
-  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("라이브러리의 다시 참가를 멈추고")));
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("라이브러리 자동 재연결을 중단하고")));
 
   const closing = await ready();
   const net3 = new EventEmitter();

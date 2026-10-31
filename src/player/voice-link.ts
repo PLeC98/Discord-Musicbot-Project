@@ -284,7 +284,7 @@ class VoiceLink {
     if (this.state === "closed" || this.state === "idle" || code === DO_NOT_RECONNECT || !connection) return;
     if (!("networking" in connection.state) || connection.state.networking !== networking) return;
     if (connection.rejoinAttempts < MAX_LIB_REJOINS) return;
-    log.warn(`음성 서버 연결이 Ready 없이 ${connection.rejoinAttempts}번 닫혀(마지막 코드 ${code}) 라이브러리의 다시 참가를 멈추고 직접 재연결합니다: ${this._label()}`);
+    log.warn(`음성 서버 연결이 Ready 전에 ${connection.rejoinAttempts}회 닫혀(마지막 코드 ${code}) 라이브러리 자동 재연결을 중단하고 직접 재연결합니다: ${this._label()}`);
     connection.destroy(false);
   }
 
@@ -431,7 +431,7 @@ class VoiceLink {
     const shardId = this.player.guild.shardId;
     const renewed = typeof shardId === "number" ? this.lib.newSessionAt?.(shardId) : null;
     if (!renewed || renewed < Math.max(this.waitAt - RENEWED_WINDOW_MS, this.readyAt ?? 0)) return false;
-    log.warn(`봇의 게이트웨이가 새 세션을 받아 음성 상태가 지워졌습니다. 강제 퇴장이 아니므로 다시 참가합니다: ${this._label()}`);
+    log.warn(`게이트웨이 세션 초기화로 음성 채널에 다시 참가합니다(강제 퇴장 아님): ${this._label()}`);
     this.recover("게이트웨이 새 세션");
     return true;
   }
@@ -518,7 +518,7 @@ class VoiceLink {
     if (!oldState.channelId || oldState.channelId !== newState.channelId || oldState.serverDeaf !== true || newState.serverDeaf !== false) return;
     if (undeafenedByPeople.has(this.player.guild.id)) return;
     undeafenedByPeople.add(this.player.guild.id);
-    log.info(`서버 헤드셋 끄기가 풀려 이 서버에서는 다시 걸지 않습니다(다시 시작하면 한 번 다시 겁니다): ${this._label()}`);
+    log.info(`서버 헤드셋 끄기가 해제되어 봇 재시작 전까지 다시 걸지 않습니다: ${this._label()}`);
   }
 
   _enterStage(channel: VoiceBasedChannel) {

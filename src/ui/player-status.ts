@@ -13,7 +13,7 @@ function playbackStatus(player: StatusHost) {
 
 /**
  * 곡을 보일까: 소리가 실제로 물렸나(오디오 리소스가 붙은 상태). 곡을 여는 중이거나 멈췄으면 거짓. 여는 중에 곡을 보이면 유령 재생이 된다.
- * 실패로 그 곡에서 멈춰 둔 것(parked, 재생 버튼으로 다시 여는 중 포함) · 오래 멈춰 쉬어 둔 것(resting, 다시 여는 중 포함)은 소리가 없어도 곡을 보인다. 그래야 재생 버튼을 누를 수 있다
+ * 실패로 그 곡에서 멈춰 둔 것(parked, 재생 버튼으로 다시 여는 중 포함) · 스트림 휴면 중인 것(resting, 다시 여는 중 포함)은 소리가 없어도 곡을 보인다. 그래야 재생 버튼을 누를 수 있다
  */
 function soundAttached(player: Pick<Player, "audioPlayer"> & { parked?: boolean; resting?: boolean }) {
   if (player.parked || player.resting) return true;

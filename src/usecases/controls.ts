@@ -80,8 +80,8 @@ async function pause(player: MaybePlayer, actor: Actor) {
     return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
   }
   player.pause.setUser(!player.pause.userPaused);
-  // 쉬어 둔 곡이면 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 답한다(여는 동안에도 화면은 곡을 보인다)
-  if (player.resting) void player.wake().catch((error: unknown) => log.warn(`쉬어 둔 곡 다시 열기 실패: ${messageOf(error)}`));
+  // 휴면 중인 곡이면 스트림을 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 답한다(여는 동안에도 화면은 곡을 보인다)
+  if (player.resting) void player.wake().catch((error: unknown) => log.warn(`휴면 스트림 다시 열기 실패: ${messageOf(error)}`));
   await refresh(player);
   return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
 }

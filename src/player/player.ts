@@ -87,7 +87,7 @@ const MAX_MISSED_FRAMES = 500;
 const DIRECT_BODY_IDLE_MS = 6000; // 직접 링크를 틀 때 본문 무응답 한도
 // 무음을 흘려보내는 멈춤(무음 프레임 5개 = 100ms)이 이만큼 지나도 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다
 const SILENT_STOP_CAP_MS = 500;
-// 소리가 이만큼 멈춰 있으면 내려 둔다(쉬어 두기). 짧으면 사람의 ▶ 가 자주 늦고, 이득은 오래 멈춘 상주 자리에서 쌓인다
+// 일시정지가 이만큼 이어지면 스트림을 휴면시킨다(프로세스 해제). 짧으면 사람의 ▶ 가 자주 늦고, 이득은 오래 멈춘 상주 자리에서 쌓인다
 const REST_AFTER_MS = 10 * 60_000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
@@ -253,7 +253,7 @@ class Player {
   _endWhileStarting: { reason: string; gen: number } | null = null; // 여는 중(소리가 아직 없다)에 온 끝 요청. 연 뒤에 건다(_stopWith)
   restAfterMs = REST_AFTER_MS; // 시험이 줄인다
   _restTimer: NodeJS.Timeout | null = null;
-  _waking = false; // 쉬어 둔 곡을 다시 여는 중(wake). 화면이 곡을 보이게
+  _waking = false; // 휴면 중인 곡의 스트림을 다시 여는 중(wake). 화면이 곡을 보이게
   _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡 · 반복 · 자동재생으로 잇지 않는다
   /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
   _silentStop: NodeJS.Timeout | null = null;
@@ -439,7 +439,7 @@ class Player {
 
   /** 음성 연결이 복구됐다(voice 가 알린다). 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다 */
   async onVoiceRecovered() {
-    // 멈춰 둔 곡은 다시 열지 않는다(다시 트는 것은 사람의 ▶). 쉬어 둔 곡은 깨우기가 연다(바로 앞의 syncHolds 가 이미 깨웠을 수 있다)
+    // 멈춰 둔 곡은 다시 열지 않는다(다시 트는 것은 사람의 ▶). 휴면 중인 곡은 깨우기가 연다(바로 앞의 syncHolds 가 이미 깨웠을 수 있다)
     // 바로 앞의 syncHolds 가 깨우기 시작했으면 그 열기가 맡는다(두 번 열지 않게). 깨우기가 끝난 뒤 실패했으면 다시 연다
     if (!this.currentTrack || this.lifecycle.released || this._waking) return;
     try {
@@ -532,7 +532,7 @@ class Player {
     const pending = this._endWhileStarting;
     this._endWhileStarting = null;
     if (!pending || pending.gen !== gen || this.lifecycle.disposed) return;
-    log.debug(`여는 중에 받은 정지 요청을 연 뒤에 처리합니다(원인=${pending.reason}): ${this._trackLabel()}`);
+    log.debug(`스트림 로딩 중 받은 정지 요청을 로딩 완료 후 처리합니다(원인=${pending.reason}): ${this._trackLabel()}`);
     this._stopWith(pending.reason);
   }
 
@@ -722,7 +722,7 @@ class Player {
     this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
-    // 멈춰 두거나 쉬어 두며 내린 소리다. 곡이 끝난 것이 아니다(park · rest)
+    // 멈춰 두거나 휴면시키며 해제한 스트림이다. 곡이 끝난 것이 아니다(park · rest)
     if (this.lifecycle.released) return;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 무음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
@@ -761,7 +761,7 @@ class Player {
    * 무음은 재생 중에만 흘러가므로 버퍼링 · 일시정지 중이거나 force 면 바로 멈춘다
    */
   _stopWith(reason: string, { force = false }: { force?: boolean } = {}) {
-    // 멈춰 두거나 쉬어 둔 곡에는 열린 소리가 없어 멈춰도 Idle 이 오지 않는다. 끝 처리를 직접 건다
+    // 멈춰 두거나 휴면 중인 곡에는 열린 소리가 없어 멈춰도 Idle 이 오지 않는다. 끝 처리를 직접 건다
     if (this.lifecycle.released) {
       this._endReason = null;
       if (!this._endScheduled) this._scheduleEnd(reason);
@@ -814,8 +814,8 @@ class Player {
     if (added.includes("alone")) this.idle.onAlone(true);
     else if (removed.includes("alone")) this.idle.onAlone(false);
     else if (moved && this.pause.holds.has("alone")) this.idle.restartAlone();
-    // 억제 사유가 모두 빠지고 사람도 멈추지 않았으면 쉬어 둔 곡을 다시 연다. 음성 상태 이벤트 안이라 실패를 여기서 받는다
-    if (removed.length && !this.paused && this.lifecycle.resting) bestEffort(log, this.wake(), "쉬어 둔 곡 다시 열기");
+    // 억제 사유가 모두 빠지고 사람도 멈추지 않았으면 휴면 중인 곡의 스트림을 다시 연다. 음성 상태 이벤트 안이라 실패를 여기서 받는다
+    if (removed.length && !this.paused && this.lifecycle.resting) bestEffort(log, this.wake(), "휴면 스트림 다시 열기");
   }
 
   // 억제 사유를 계산할 지금 음성 상태. 봇이 이 플레이어의 채널에 붙어 있지 않으면 null
@@ -840,7 +840,7 @@ class Player {
     if (this.currentTrack) bestEffort(log, playerEvents.refresh(this), "멈춤 바뀜 뒤 패널 갱신");
   }
 
-  // 멈춘 채 열린 곡이면 쉬기 타이머를 건다. 이미 걸려 있으면 그대로(억제 사유가 오락가락해도 처음 멈춘 때부터 잰다)
+  // 일시정지한 채 열린 곡이면 휴면 타이머를 건다. 이미 걸려 있으면 그대로(억제 사유가 오락가락해도 처음 멈춘 때부터 잰다)
   _armRest() {
     if (this._restTimer || !this.paused || this.lifecycle.phase !== "playing" || !this.playback?.resource || this.isLive) return;
     this._restTimer = setTimeout(() => {
@@ -1142,7 +1142,7 @@ class Player {
     }
   }
 
-  // 곡 끝에서 쉬는 단계로. 멈춰 둔 곡을 떠나는 것이면 park 가 건 멈춤을 되돌린다(쉬어 둔 곡은 멈춤을 건드리지 않았다)
+  // 곡 끝에서 쉬는 단계로. 멈춰 둔 곡을 떠나는 것이면 park 가 건 멈춤을 되돌린다(휴면 중인 곡은 멈춤을 건드리지 않았다)
   _toIdleOnEnd(reason: string) {
     this._cancelRest();
     const wasParked = this.lifecycle.parked;
@@ -1481,7 +1481,7 @@ class Player {
   // 미리 선택해 둘 수 있는 상태인가. 선택하기 전과 넣기 직전에 같은 것을 본다.
   _canPrefetchAutoplay() {
     if (!this.autoplay || typeof this.autoplay !== "string") return false;
-    if (this.lifecycle.released) return false; // 멈춰 두거나 쉬어 둔 동안(망이 끊겼을 수 있다 · 듣는 사람이 없다) 더 고르지 않는다
+    if (this.lifecycle.released) return false; // 멈춰 두거나 휴면 중인 동안(망이 끊겼을 수 있다 · 듣는 사람이 없다) 더 고르지 않는다
     if (!this.currentTrack) return false; // 틀고 있는 게 없으면 미리 둘 이유가 없다
     if (this.loop === "track") return false; // 한 곡 반복이면 다음 곡으로 넘어가지 않는다
     const want = Number(this._autoplayConfig()?.prefetchCount ?? GENRE_DEFAULTS.prefetchCount);
@@ -1643,46 +1643,46 @@ class Player {
     return this.lifecycle.parked || this._retryingParked;
   }
 
-  // ── 쉬어 두기: 오래 멈춘 곡의 소리를 내리고, 멈춤이 풀리면 그 위치부터 다시 연다 ──
+  // ── 스트림 휴면: 장시간 일시정지한 곡의 스트림(ffmpeg, 원본 연결, 인코딩 세션)을 해제하고, 일시정지가 풀리면 그 위치부터 다시 연다 ──
 
   /**
-   * 소리를 내린다. 곡 · 위치 · 재생 정보(SponsorBlock 구간 · 라이브 판정 · 받아 둔 원본)는 남는다. 내렸으면 true.
-   * 열린 곡이 멈춰 있고 끝 처리 · 무음 정지가 걸려 있지 않을 때만. 라이브는 이어 틀 위치가 없어 쉬지 않는다
+   * 스트림을 해제한다. 곡 · 위치 · 재생 정보(SponsorBlock 구간 · 라이브 판정 · 받아 둔 원본)는 남는다. 해제했으면 true.
+   * 열린 곡이 일시정지 중이고 끝 처리 · 무음 정지가 걸려 있지 않을 때만. 라이브는 이어 틀 위치가 없어 휴면시키지 않는다
    */
   rest() {
     const pb = this.playback;
     if (this.lifecycle.phase !== "playing" || !pb?.resource || !this.paused || this.isLive || this._endScheduled || this.lifecycle.ending || this.isStopping) return false;
     const at = this.getCurrentTime();
-    // 소리를 낸 곡이면 연달은 실패가 아니다. 곡 끝(onTrackEnd)은 리소스가 낸 시간으로 보는데 쉬면 리소스가 없다
+    // 소리를 낸 곡이면 연달은 실패가 아니다. 곡 끝(onTrackEnd)은 리소스가 낸 시간으로 보는데 휴면하면 리소스가 없다
     if ((pb.resource.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
     // 단계를 먼저 바꾼다. 아래 stop 이 Idle 을 동기로 알리는데, 그 끝 처리가 곡을 넘기지 않게(onPlayerIdle 이 released 를 본다)
-    this.lifecycle.to("resting", "오래 멈춤");
+    this.lifecycle.to("resting", "장시간 일시정지");
     pb.startOffsetMs = at;
     pb.resource = null;
     this.lastPlaybackPosition = at;
     this.audioPlayer.stop(true);
-    // Idle 이 멎음 감시를 다시 건다. 내린 뒤에 끈다
+    // Idle 이 멎음 감시를 다시 건다. 해제한 뒤에 끈다
     this.watch.stopIdle();
     this.watch.stopOverflow();
     this.sponsorSkipper?.stop();
     this.persistence?.savePosition();
-    log.info(`오래 멈춰 소리를 내려 둠: ${this._trackLabel()} | 위치 ${Math.round(at / 1000)}초`);
+    log.info(`장시간 일시정지로 스트림 휴면 전환(프로세스 해제): ${this._trackLabel()} | 위치 ${Math.round(at / 1000)}초`);
     return true;
   }
 
-  /** 쉬어 둔 곡을 그 위치부터 다시 연다. 아직 멈춰야 하거나 끝 처리가 걸려 있으면(방금 넘김) 아무것도 안 한다 */
+  /** 휴면 중인 곡의 스트림을 그 위치부터 다시 연다. 아직 멈춰야 하거나 끝 처리가 걸려 있으면(방금 넘김) 아무것도 안 한다 */
   async wake() {
     if (!this.lifecycle.resting || this.paused || this._endScheduled || this.lifecycle.ending || this.isStopping || !this.currentTrack) return;
     this._waking = true;
     try {
-      log.info(`쉬어 둔 곡을 다시 엽니다: ${this._trackLabel()}`);
+      log.info(`휴면 중인 곡의 스트림을 다시 엽니다: ${this._trackLabel()}`);
       await this.play(this.getCurrentTime(), { continued: true });
     } finally {
       this._waking = false;
     }
   }
 
-  /** 쉬어 둔 곡이 있다(다시 여는 중 포함). 화면은 이때도 곡을 보인다 */
+  /** 휴면 중인 곡이 있다(다시 여는 중 포함). 화면은 이때도 곡을 보인다 */
   get resting() {
     return this.lifecycle.resting || this._waking;
   }

@@ -132,7 +132,7 @@ test("끝의 종류: 자리에서 내보내지면 끄고 알린다. 자리가 �
   w.keeper.onDisposed(seatHere, "voice-lost");
   t.mock.timers.tick(BACKOFF_MS[0]);
   await flush();
-  assert.deepEqual(w.calls, [], "되풀이 오류로 멈춘 서버는 쉰다");
+  assert.deepEqual(w.calls, [], "되풀이 오류로 멈춘 서버는 재접속을 건너뛴다");
   w.keeper.wake("g1");
   assert.equal(await w.keeper.attempt("g1"), true);
   assert.deepEqual(w.calls, ["join:g1"], "사람이 다시 틀면 푼다");

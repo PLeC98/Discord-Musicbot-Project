@@ -1837,7 +1837,7 @@ test("버리기: stay 면 음성 채널에 남긴 채 연결만 정리하고(서
   assert.deepEqual(left.destroyed, ["leave"]);
 });
 
-// ── 멈춘 동안의 조작(쉬어 두기를 넣기 전에 지금 동작을 묶는다) ──
+// ── 멈춘 동안의 조작(스트림 휴면을 넣기 전에 지금 동작을 묶는다) ──
 
 // 연 곡을 끝 처리까지 보낸다. 가짜 오디오 플레이어는 멈춰도 Idle 을 알리지 않아 테스트가 대신 쏜다
 async function endNow(p: Player) {
@@ -1936,7 +1936,7 @@ test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연
   h.dispose(p);
 });
 
-// ── 쉬어 두기: 오래 멈춘 곡의 소리를 내리고 멈춤이 풀리면 그 위치부터 다시 연다 ──
+// ── 스트림 휴면: 장시간 일시정지한 곡의 스트림을 해제하고 일시정지가 풀리면 그 위치부터 다시 연다 ──
 
 // 열고 사람이 멈춘 곡. 가짜 오디오 플레이어를 실제처럼 Paused 로 둔다
 async function pausedAt(p: Player, track: QueuedTrack, at: number) {
@@ -1946,7 +1946,7 @@ async function pausedAt(p: Player, track: QueuedTrack, at: number) {
   p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
 }
 
-test("쉬어 두기: 소리를 내리되 곡 · 위치 · 재생 정보는 남긴다. 그때의 Idle 은 곡 끝이 아니고, 화면은 곡을 멈춤으로 보인다", async () => {
+test("스트림 휴면: 스트림을 해제하되 곡 · 위치 · 재생 정보는 남긴다. 그때의 Idle 은 곡 끝이 아니고, 화면은 곡을 멈춤으로 보인다", async () => {
   const p = h.makePlayer();
   const track = cached("ra1aaaaaaaa");
   await pausedAt(p, track, 30_000);
@@ -1964,11 +1964,11 @@ test("쉬어 두기: 소리를 내리되 곡 · 위치 · 재생 정보는 남�
   assert.equal(p.currentTrack, track, "곡을 넘기지 않는다");
   assert.equal(soundAttached(p), true);
   assert.equal(playbackStatus(p).paused, true);
-  assert.equal(p.rest(), false, "두 번 쉬지 않는다");
+  assert.equal(p.rest(), false, "두 번 휴면시키지 않는다");
   h.dispose(p);
 });
 
-test("쉬어 두기: 멈춰야 하면 깨우지 않고, 풀리면 그 위치에서 한 번만 다시 연다. 넘기기가 걸려 있으면 깨우지 않는다", async () => {
+test("스트림 휴면: 멈춰야 하면 깨우지 않고, 풀리면 그 위치에서 한 번만 다시 연다. 넘기기가 걸려 있으면 깨우지 않는다", async () => {
   const p = h.makePlayer();
   await pausedAt(p, cached("rb1aaaaaaaa"), 45_000);
   p.rest();
@@ -1990,7 +1990,7 @@ test("쉬어 두기: 멈춰야 하면 깨우지 않고, 풀리면 그 위치에�
   assert.equal(p.getCurrentTime(), 45_000);
 });
 
-test("쉬어 두기: 쉬는 중 넘기면 다음 곡을 멈춘 채 연다. 음성이 다시 붙어도 저절로 열지 않는다. 라이브는 쉬지 않는다", async () => {
+test("스트림 휴면: 휴면 중 넘기면 다음 곡을 멈춘 채 연다. 음성이 다시 붙어도 저절로 열지 않는다. 라이브는 휴면시키지 않는다", async () => {
   const p = h.makePlayer();
   const next = cached("rc2aaaaaaaa");
   await pausedAt(p, cached("rc1aaaaaaaa"), 10_000);
@@ -1999,7 +1999,7 @@ test("쉬어 두기: 쉬는 중 넘기면 다음 곡을 멈춘 채 연다. 음�
 
   const opened = h.calls.resources.length;
   await p.onVoiceRecovered();
-  assert.equal(h.calls.resources.length, opened, "음성 복구는 쉬어 둔 곡을 열지 않는다");
+  assert.equal(h.calls.resources.length, opened, "음성 복구는 휴면 중인 곡을 열지 않는다");
 
   assert.equal(p.skip(), true);
   await p.untilSwitched();
@@ -2015,7 +2015,7 @@ test("쉬어 두기: 쉬는 중 넘기면 다음 곡을 멈춘 채 연다. 음�
   h.dispose(live);
 });
 
-test("쉬어 두기: 상주 자리의 정지는 쉬어 둔 곡도 끝내고 곡 없이 기다린다", async () => {
+test("스트림 휴면: 상주 자리의 정지는 휴면 중인 곡도 끝내고 곡 없이 기다린다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   await pausedAt(p, cached("re1aaaaaaaa"), 5_000);
@@ -2031,7 +2031,7 @@ test("쉬어 두기: 상주 자리의 정지는 쉬어 둔 곡도 끝내고 곡 
   assert.ok(seen.includes("end:stay-stop"));
 });
 
-test("쉬기 타이머: 멈춘 지 정해진 시간이 지나면 쉰다. 그 전에 풀면 안 쉬고, 그 안에 나갈 예정이면(곧 버릴 플레이어) 안 쉰다", async () => {
+test("휴면 타이머: 일시정지한 지 정해진 시간이 지나면 휴면한다. 그 전에 풀면 안 하고, 그 안에 나갈 예정이면(곧 버릴 플레이어) 안 한다", async () => {
   const resting = h.makePlayer();
   resting.restAfterMs = 20;
   await pausedAt(resting, cached("rt1aaaaaaaa"), 0);
@@ -2061,7 +2061,7 @@ test("쉬기 타이머: 멈춘 지 정해진 시간이 지나면 쉰다. 그 전
   h.dispose(leaving);
 });
 
-test("쉬기 타이머: 멈춘 채 새 곡을 열면 그 곡을 연 때부터 다시 잰다. 버리면 지운다", async () => {
+test("휴면 타이머: 일시정지한 채 새 곡을 열면 그 곡을 연 때부터 다시 잰다. 버리면 지운다", async () => {
   const p = h.makePlayer();
   p.restAfterMs = 10_000;
   await pausedAt(p, cached("ru1aaaaaaaa"), 0);
@@ -2076,7 +2076,7 @@ test("쉬기 타이머: 멈춘 채 새 곡을 열면 그 곡을 연 때부터 �
   h.dispose(p);
 });
 
-test("쉬어 두기: 음성이 다시 붙을 때 억제 사유가 빠져 깨우기가 시작됐으면 음성 복구가 또 열지 않는다(한 번 연다)", async () => {
+test("스트림 휴면: 음성이 다시 붙을 때 억제 사유가 빠져 깨우기가 시작됐으면 음성 복구가 또 열지 않는다(한 번 연다)", async () => {
   const p = h.makePlayer();
   await pausedAt(p, cached("rv1aaaaaaaa"), 20_000);
   p.rest();
@@ -2092,7 +2092,7 @@ test("쉬어 두기: 음성이 다시 붙을 때 억제 사유가 빠져 깨우�
   assert.equal(h.calls.resources.length, opened + 1);
 });
 
-test("쉬어 두기: 소리를 낸 곡이면 쉴 때 연달은 실패 수를 비운다. 다시 여는 동안 화면은 곡을 멈춤으로 보인다", async () => {
+test("스트림 휴면: 소리를 낸 곡이면 휴면할 때 연달은 실패 수를 비운다. 다시 여는 동안 화면은 곡을 멈춤으로 보인다", async () => {
   const p = h.makePlayer();
   await pausedAt(p, cached("rw1aaaaaaaa"), 0);
   p.failedTracks = 2;

@@ -477,7 +477,7 @@ test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 �
   }
 });
 
-test("멈춤: 쉬어 둔 곡이면 ▶ 가 멈춤을 풀고 다시 연다(기다리지 않고 답한다)", async () => {
+test("멈춤: 휴면 중인 곡이면 ▶ 가 멈춤을 풀고 스트림을 다시 연다(기다리지 않고 답한다)", async () => {
   let woke = 0;
   const p = fakePlayer({ user: true, resting: true, wake: async () => void (woke += 1) });
   const r = accepted(await controls.pause(p, DJ));

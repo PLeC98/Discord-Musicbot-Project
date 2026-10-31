@@ -2,7 +2,7 @@
 // 여기는 끝난 까닭(disposed 의 end)을 받아 할 일만 정한다.
 //   다시 붙음   기동(세션 복원 · 이어받기 뒤) · 쓸 수 없던 서버가 돌아옴 · 일시적인 끝(복구 포기 · 접속 실패 등)
 //   자리를 끔   강제 퇴장 · 채널 삭제 · 권한 잃음(디스코드의 확답). 서버 채널에 알린다
-//   쉼          같은 오류가 되풀이되어 멈춘 서버(fault). 다시 시작하거나 곡을 다시 틀 때까지 붙지 않는다
+//   차단        같은 오류가 되풀이되어 멈춘 서버(fault). 봇을 다시 시작하거나 곡을 다시 틀 때까지 재접속하지 않는다
 // 일시적 실패는 1 · 2 · 5 · 10 · 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
 
 import { PermissionFlagsBits, RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
@@ -32,12 +32,12 @@ const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-faile
 
 type Why = "kicked" | "gone" | "permission";
 const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };
-const WHY_LOG: Record<Why, string> = { kicked: "내보내짐", gone: "채널 삭제", permission: "채널 권한 없음" };
+const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
 
 // 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다)
 async function announce(guild: Guild, notice: Notice) {
   const channel = await resolveFallbackTextChannel(guild).catch(() => null);
-  if (channel) await bestEffort(log, channel.send(post(noticeFrame(notice))), "상주 모드 끔 알리기");
+  if (channel) await bestEffort(log, channel.send(post(noticeFrame(notice))), "상주 모드 해제 알림 전송");
 }
 
 /** join · announce · sleep 은 시험이 바꾼다 */
@@ -55,7 +55,7 @@ class StayKeeper {
   timers = new Map<string, NodeJS.Timeout>();
   tries = new Map<string, number>();
   failures = new Map<string, ReturnType<typeof repeatingFailure>>();
-  resting = new Set<string>(); // 되풀이 오류로 멈춘 서버
+  blocked = new Set<string>(); // 되풀이 오류로 차단한 서버
   busy = new Set<string>(); // 붙는 중
   ready = false; // 기동 차례가 끝났다(그 전의 GuildAvailable 은 기동이 맡는다)
 
@@ -70,7 +70,7 @@ class StayKeeper {
   _failure(guildId: string) {
     let f = this.failures.get(guildId);
     if (!f) {
-      f = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `서버 ${guildId}의 상주 모드 자리 다시 붙기`);
+      f = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `상주 채널 재접속(서버 ${guildId})`);
       this.failures.set(guildId, f);
     }
     return f;
@@ -102,7 +102,7 @@ class StayKeeper {
     this._cancel(guild.id);
     const channelId = staySeats.seatOf(guild.id)?.channelId;
     if (!channelId || !staySeats.clear(guild.id)) return;
-    log.info(`상주 모드를 끕니다(${WHY_LOG[why]}): ${guild.name}`);
+    log.info(`상주 모드 자동 해제: ${guild.name} | 원인=${WHY_LOG[why]}`);
     playerEvents.touched(guild.id);
     await this.tell(guild, NOTICE[why](DISCORD_LOOK.channel(channelId)));
   }
@@ -126,7 +126,7 @@ class StayKeeper {
 
   // 붙어 볼 서버인가. 붙어 있으면(자리가 아닌 채널이면 거기서 나간 뒤 끝 알림으로 다시 온다) · 서버를 쓸 수 없으면(돌아오면 GuildAvailable) 아니다
   _guildToTry(guildId: string) {
-    if (!staySeats.seatOf(guildId) || this.resting.has(guildId) || this.busy.has(guildId)) return null;
+    if (!staySeats.seatOf(guildId) || this.blocked.has(guildId) || this.busy.has(guildId)) return null;
     if (this.players.get(guildId)?.voice.isAlive()) return null;
     const guild = this.client.guilds.cache.get(guildId);
     return guild?.available ? guild : null;
@@ -173,7 +173,7 @@ class StayKeeper {
     }
     this.tries.delete(guild.id);
     this._failure(guild.id).ok();
-    log.info(`상주 모드 자리에 다시 붙었습니다: "${channel.name}" (${guild.name})`);
+    log.info(`상주 채널 재접속: "${channel.name}" (${guild.name})`);
     result.player.idle.reconsider();
     return true;
   }
@@ -181,7 +181,7 @@ class StayKeeper {
   /** 기동: 자리가 있고 붙어 있지 않은 서버를 하나씩. skip 이면(짧은 간격의 비정상 종료가 되풀이됨) 붙지 않는다(자리는 남긴다) */
   async boot({ skip = false }: { skip?: boolean } = {}) {
     const seats = staySeats.all();
-    if (skip && seats.length) log.warn(`짧은 간격의 비정상 종료가 반복되어 상주 모드 자리 ${seats.length}곳에 다시 붙지 않습니다(자리는 유지)`);
+    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜁니다(상주 설정은 유지)`);
     if (!skip) {
       let first = true;
       for (const [guildId] of seats) {
@@ -200,9 +200,9 @@ class StayKeeper {
     const seat = staySeats.seatOf(guildId);
     if (!seat) return;
     if (end === "fault") {
-      this.resting.add(guildId);
+      this.blocked.add(guildId);
       this._cancel(guildId);
-      log.warn(`같은 오류가 되풀이되어 멈춘 서버라 상주 모드 자리에 다시 붙지 않습니다(다시 시작하거나 곡을 다시 틀면 풉니다): ${player.guild.name}`);
+      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜁니다(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
       return;
     }
     const why = DROP[end];
@@ -217,9 +217,9 @@ class StayKeeper {
     }
   }
 
-  /** 곡을 다시 틀었다. 쉬던 서버를 푼다 */
+  /** 곡을 다시 틀었다. 차단한 서버를 푼다 */
   wake(guildId: string) {
-    this.resting.delete(guildId);
+    this.blocked.delete(guildId);
   }
 
   /** 기동 때 쓸 수 없던 서버가 돌아왔다(새 세션마다 모든 서버에도 온다) */

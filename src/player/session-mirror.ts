@@ -213,7 +213,7 @@ class SessionPersistence {
     return JSON.stringify(row);
   }
 
-  /** 지금 위치만 쓴다(주기 저장은 멈춘 플레이어를 건너뛰어, 멈춘 채 쉬어 둘 때 한 번) */
+  /** 지금 위치만 쓴다(주기 저장은 멈춘 플레이어를 건너뛰어, 스트림 휴면에 들어갈 때 한 번) */
   savePosition() {
     const store = liveStore();
     const p = this.player;

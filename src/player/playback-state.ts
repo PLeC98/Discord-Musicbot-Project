@@ -1,7 +1,7 @@
 // 재생 생명주기. 두 축이다.
 //   단계(phase)   idle → starting → playing, 버리면 disposed(이 플레이어를 더 안 쓴다. stop · leave · 정리)
 //                 parked: 실패로 그 곡에서 멈춰 둠. 지금 곡은 있고 열린 소리는 없다. ▶(starting) · 끝 처리(idle) · 버리기로 나온다
-//                 resting: 오래 멈춘 곡의 소리를 내려 둠(쉬어 두기). 곡 · 위치는 있고 열린 소리는 없다. 멈춤이 풀리면 저절로 다시 연다(starting)
+//                 resting: 스트림 휴면. 장시간 일시정지한 곡의 스트림을 해제해 둠. 곡 · 위치는 있고 열린 소리는 없다. 일시정지가 풀리면 저절로 다시 연다(starting)
 //   끝 처리(ending)  곡 끝을 처리하는 중인가. 끝 처리가 다음 곡을 틀기 때문에 단계와 따로 선다(끝 처리 중에 starting · playing 이 된다)
 // 전이마다 한 줄 남긴다. 허용되지 않은 전이는 경고로 드러내고 그대로 따른다(재생을 멈추면 안 된다).
 
@@ -49,12 +49,12 @@ class PlaybackState {
     return this.phase === "parked";
   }
 
-  /** 오래 멈춰 소리를 내려 뒀다(player.rest) */
+  /** 스트림 휴면 중이다(player.rest) */
   get resting() {
     return this.phase === "resting";
   }
 
-  /** 곡은 있고 열린 소리가 없는 것이 맞다(멈춰 둠 · 쉬어 둠). 이때의 Idle 은 곡 끝이 아니다 */
+  /** 곡은 있고 열린 소리가 없는 것이 맞다(멈춰 둠 · 스트림 휴면). 이때의 Idle 은 곡 끝이 아니다 */
   get released() {
     return this.phase === "parked" || this.phase === "resting";
   }
