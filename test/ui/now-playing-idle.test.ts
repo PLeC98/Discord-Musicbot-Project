@@ -272,6 +272,22 @@ test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전�
   assert.match(textOf(plain.calls.edited[0].payload), /\/play/);
 });
 
+test("기동: 음성에 붙어 곡을 기다리는 서버(24/7 자리 · 이어받기)는 음성 밖 문구로 덮지 않는다. 아직 안 그렸으면 기다리는 모양으로", async () => {
+  const drawn = setup({ record: { channelId: BOT, messageId: "900" } });
+  drawn.players.set("g1", fakePlayer({ nowPlayingMessage: null, voice: { isAlive: () => true } }));
+  drawn.mem.idleViews.set("g1", { reason: "joined", leavesAt: null, staying: true });
+  await drawn.mem.restorePanels();
+  assert.equal(drawn.calls.edited.length + drawn.calls.sent.length, 0, "자리 지킴이가 그린 패널 그대로");
+
+  const adopted = setup({ record: { channelId: BOT, messageId: "900" } });
+  const idle = { upcomingLeave: () => Date.now() + 600_000, seated: () => false };
+  adopted.players.set("g1", fakePlayer({ nowPlayingMessage: null, voice: { isAlive: () => true }, idle, guild: adopted.guild, textChannel: null }));
+  await adopted.mem.restorePanels();
+  const last = adopted.calls.edited.at(-1);
+  assert.ok(last, "기록된 패널을 고친다");
+  assert.match(textOf(last.payload), /곡을 기다리고 있어요.*쉬러 갈게요/);
+});
+
 test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다. 풀면 지운다", async () => {
   const { mem, guild, calls, records } = setup({ record: { channelId: "general", messageId: "800" } });
   await mem.onBotChannelChanged(guild);

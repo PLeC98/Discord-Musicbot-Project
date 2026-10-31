@@ -659,7 +659,13 @@ class NowPlayingPanel {
   async restorePanels() {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
-        if (this.players.get(guild.id)?.nowPlayingMessage) continue;
+        const player = this.players.get(guild.id);
+        if (player?.nowPlayingMessage) continue;
+        // 음성에 붙어 곡을 기다리는 서버(24/7 자리 · 이어받기)는 기다리는 모양으로. 이번 실행에서 이미 그렸으면 그대로 둔다(음성 밖 모양으로 덮지 않게)
+        if (player?.voice.isAlive()) {
+          if (!this.idleViews.has(guild.id)) await this.drawEndedPanel(player, { reason: "joined" });
+          continue;
+        }
         const channel = await this._dedicatedChannel(guild);
         const record = await this.location.store.getPanel(guild.id);
         if (record && (!channel || record.channelId === channel.id)) {
