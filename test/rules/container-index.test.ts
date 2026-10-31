@@ -170,7 +170,7 @@ test("webm: Cues 가 첫 클러스터 앞에 없거나 · 시각이 줄거나 ·
     [shrinking, shrinking.length, /늘어나지 않음/],
     [file, 300, /파일 밖/],
     [unknown, 10_000, /크기 모를 요소/],
-    [Buffer.from("not media at all"), 100, /webm · mp4 가 아님/],
+    [Buffer.from("not media at all"), 100, /webm이나 mp4가 아님/],
   ] as const) {
     const read = readIndex(buf, total);
     assert.ok(!read.ok && "why" in read && why.test(read.why), JSON.stringify(read));

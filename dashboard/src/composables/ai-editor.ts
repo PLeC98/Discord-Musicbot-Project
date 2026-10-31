@@ -342,7 +342,7 @@ function advancedView(s: State) {
   });
   const defaultOf = (key: keyof AiDefaults) => {
     const value = settingDefaults.value[key];
-    return value == null ? "" : Array.isArray(value) ? value.join(" · ") : String(value);
+    return value == null ? "" : Array.isArray(value) ? value.join(", ") : String(value);
   };
   const defaultSec = (key: keyof AiDefaults) => {
     const ms = settingDefaults.value[key];

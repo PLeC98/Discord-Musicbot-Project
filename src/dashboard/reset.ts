@@ -44,7 +44,7 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
     sponsorBlock.forget();
     spotify.forgetAnonState();
   }
-  const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개 · ${MB(result.freedBytes)}MB 삭제${result.kept ? `(재생 중 · 대기열 앞이거나 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
+  const files = parts.includes("files") ? [`캐시 파일 ${result.removed}개(${MB(result.freedBytes)}MB) 삭제${result.kept ? `(재생 중이거나 대기열 앞에 있는 곡, 또는 삭제하지 못한 ${result.kept}개는 남김)` : ""}`] : [];
   const rows = parts.filter((part) => part !== "files").map((part) => `${PART_NAMES[part]} ${result.cleared[part] ?? 0}행`);
   log.warn({ sub: "admin" }, `대시보드에서 오디오 캐시 초기화: ${[...files, ...rows].join(" · ")}. 실행 ${by}`);
   return result;

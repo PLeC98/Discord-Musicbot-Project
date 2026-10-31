@@ -25,7 +25,7 @@ const partlyAdded = (): { icon: IconKey; title: string } => ({ icon: "state", ti
 /** 추가 안내 밑의 경고 줄들. skipped 출처가 받을 수 없어 뺀 곡 수, dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 불러옴 */
 function addedWarnings({ dropped, skipped, queueLimited, max }: { dropped: number; skipped: number; queueLimited: boolean; max: number }) {
   const lines: string[] = [];
-  if (skipped > 0) lines.push(`재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기 · 지역 제한 등)`);
+  if (skipped > 0) lines.push(`재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기, 지역 제한 등)`);
   if (dropped > 0) lines.push(`대기열이 가득 차서 ${dropped}곡은 넣지 못했어요. (최대 ${max}곡)`);
   else if (queueLimited) lines.push(`대기열이 가득 차서 목록의 일부만 넣었어요. (최대 ${max}곡)`);
   return lines;

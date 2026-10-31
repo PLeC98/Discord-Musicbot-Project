@@ -6,7 +6,7 @@ import { formatNumber } from "../../utils/locale.ts";
 const title = "AI 보조";
 const enable = "AI 보조 켜기";
 const desc = "자동재생 후보를 LLM을 사용해 재검증해요.";
-const descTip = "유튜브 검색으로 선택한 후보만 물어요(키워드 검색 · 곡 이름으로 찾기).\n유튜브 주소를 직접 주는 출처(유튜브 재생목록 · VocaDB 등)는 묻지 않아요.\n모델을 호출하지 못하면 규칙으로 선택하니 재생은 멈추지 않아요.";
+const descTip = "유튜브 검색으로 선택한 후보만 물어요(키워드 검색, 곡 이름으로 찾기).\n유튜브 주소를 직접 주는 출처(유튜브 재생목록, VocaDB 등)는 묻지 않아요.\n모델을 호출하지 못하면 규칙으로 선택하니 재생은 멈추지 않아요.";
 /** 후보 목록 표시(mark)가 어느 섹션에도 없을 때 */
 const listMarkMissing = (mark: string) => `어느 섹션에도 ${mark} 이 없어요`;
 
@@ -45,7 +45,7 @@ const model = {
   hide: "목록에서 모델 숨기기",
   /** 숨기기 설명: 앞 · 와일드카드 기호 · 뒤 */
   hideHelpBefore: "불러온 목록에서 제외해요. ",
-  hideHelpAfter: " 만 와일드카드로 쓰고 대소문자는 구분하지 않아요. 영상 · 이미지 모델이나 구형 모델을 빼는 데 써요.",
+  hideHelpAfter: " 만 와일드카드로 쓰고 대소문자는 구분하지 않아요. 영상, 이미지 모델이나 구형 모델을 빼는 데 써요.",
   hidePlaceholder: "*sora* 처럼 입력하고 Enter",
 };
 
@@ -96,7 +96,7 @@ const list = {
     { code: "{{genre}}", text: "자동재생 장르의 식별자(예: rock). 프롬프트 섹션에서도 써요" },
     { code: "{{title}}", text: "영상 제목. 필수예요(판정 대상이에요)" },
     { code: "{{duration}}", text: "길이. 형식 없이 쓰면 3:05. 모르면 빈 값이에요" },
-    { code: "{{duration::형식}}", text: "길이를 형식대로. 예: {{duration::m분 ss초}} → 3분 05초 (h · m · mm · s · ss)" },
+    { code: "{{duration::형식}}", text: "길이를 형식대로. 예: {{duration::m분 ss초}} → 3분 05초 (h, m, mm, s, ss)" },
     { code: "{{#if-exist 값}} … {{:else}} … {{/}}", text: "값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤({{:else}} 가 없으면 아무것도 적지 않아요). 닫기는 {{/if-exist}} 도 돼요. 길이를 모르는 후보를 빼거나 unknown 을 적을 때 써요" },
   ],
   syntaxExample: "{{index}}. genre={{genre}} {{#if-exist {{duration}}}}length={{duration::m}}min {{:else}}length=unknown {{/}}title={{title}}",
@@ -162,7 +162,7 @@ const sources = { autoplay: "자동재생 판정", "judge-test": "판정 테스�
 // 리퀘스트 로그
 const log = {
   title: "리퀘스트 로그",
-  desc: "AI 보조가 모델에게 보낸 요청의 본문 · 응답 · 걸린 시간을 기록해요.",
+  desc: "AI 보조가 모델에게 보낸 요청의 본문, 응답, 걸린 시간을 기록해요.",
   filters: "필터",
   filterActive: (n: number) => (n ? `${n}개 적용됨` : ""),
   filterClear: "필터 초기화",
@@ -171,7 +171,7 @@ const log = {
   ok: "성공",
   failed: "실패",
   sources,
-  search: "URL · 모델 · 오류로 검색",
+  search: "URL, 모델, 오류로 검색",
   refresh: "새로고침",
   clear: "전체 삭제",
   clearTitle: "리퀘스트 로그를 모두 지울까요?",
@@ -222,7 +222,7 @@ const log = {
 // 사용량 통계
 const usage = {
   title: "사용량 통계",
-  desc: "AI 보조 요청의 토큰 · 비용 통계예요. 비용은 models.dev 의 데이터로 추정한 수치예요.",
+  desc: "AI 보조 요청의 토큰과 비용 통계예요. 비용은 models.dev 의 데이터로 추정한 수치예요.",
   periods: { 7: "7일", 30: "30일", 90: "90일", 0: "전체" } as Record<number, string>,
   sources,
   refresh: "새로고침",
@@ -274,18 +274,18 @@ const usage = {
 
 // 고급 설정 카드
 const advanced = {
-  title: "요청 · 재시도",
+  title: "요청과 재시도",
   desc: "실패하면 설정한 대로 재요청하고, 최종 실패 시에는 규칙만 사용해요. 입력란을 비우면 기본값을 사용해요.",
   timeout: "타임아웃(초)",
   timeoutTip: "요청마다 응답을 기다릴 시간",
   retries: "실패 시 재요청 횟수",
   retriesTip: "실패 시 재요청할 최대 횟수\n(0이면 재요청하지 않음)",
   total: "판정 전체 상한(초)",
-  totalTip: "재시도 · 대기를 포함한 판정 한 건의 시간 상한\n(0이면 상한 없음)",
+  totalTip: "재시도와 대기를 포함한 판정 한 건의 시간 상한\n(0이면 상한 없음)",
   delay: "재시도 대기 시간(초)",
   delayTip: "실패 시 첫 대기 시간\n(재시도마다 두 배로 늘어남)",
   delayMax: "최대 대기 시간(초)",
-  delayMaxTip: "재요청 대기 시간의 상한\n(서버의 대기 요구에도 적용 · Gemini API 는 30~60초를 요구하는 경우가 있음)",
+  delayMaxTip: "재요청 대기 시간의 상한\n(서버의 대기 요구에도 적용. Gemini API는 30~60초를 요구하는 경우가 있음)",
   retryTimeouts: "타임아웃 시 재요청",
   retryStatus: "재요청할 응답 코드",
   retryStatusTip: "연결 실패는 입력하지 않아도 재요청해요.\n400, 401, 403, 404 는 재요청으로 해결할 수 없으니 넣지 마세요.",
@@ -301,7 +301,7 @@ const paid = {
   checking: "확인하는 중…",
   emptyModel: "(비어 있음)",
   /** 판정 테스트로 보낼 것: 섹션 수(비었으면 기본) · 선택한 곡 수(없으면 보기 곡 셋) */
-  judgeWhat: (sections: number, picked: number) => `판정 프롬프트 전체 (${sections ? `섹션 ${sections}개` : "기본 섹션"} · ${picked ? `선택한 곡 ${picked}개` : "예시 곡 3개"})`,
+  judgeWhat: (sections: number, picked: number) => `판정 프롬프트 전체 (${sections ? `섹션 ${sections}개` : "기본 섹션"}, ${picked ? `선택한 곡 ${picked}개` : "예시 곡 3개"})`,
   cancel: "취소",
   send: "보내기",
 };
@@ -310,7 +310,7 @@ const paid = {
 const preview = {
   title: "리퀘스트 미리보기",
   notSent: "보내지 않았어요",
-  rawShow: "원본 보기 (주소 · 헤더 · 본문)",
+  rawShow: "원본 보기 (주소, 헤더, 본문)",
   rawHide: "원본 접기",
 };
 

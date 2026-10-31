@@ -148,7 +148,7 @@ test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(사전 캐시
       [0, 1, 2, 3, 4].map((i) => `yt:${id(i)}`),
     );
     const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개를 삭제했습니다"));
-    assert.equal(line?.text, "오디오 캐시 4개를 삭제했습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 5개는 지키고)");
+    assert.equal(line?.text, "오디오 캐시 4개를 삭제했습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 5개는 지키고)");
   } finally {
     sessions().removeSession("g-front");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -163,7 +163,7 @@ test("evict: 삭제할 수 있는 곡이 없어도 결과 줄을 남긴다", asy
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
-    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 1개는 지키고)"));
+    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 1개는 지키고)"));
   } finally {
     audioCache.unprotect("g-evict");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -415,7 +415,7 @@ function seedCached(key: string, bytes = 1000) {
   return file;
 }
 
-test("초기화는 재생 중 · 대기열 앞 곡의 파일과 보호를 남긴다(파일 잠금에 기대지 않는다)", async () => {
+test("초기화는 재생 중이거나 대기열 앞에 있는 곡의 파일과 보호를 남긴다(파일 잠금에 기대지 않는다)", async () => {
   await withTempCacheDir(async () => {
     const live = seedCached("yt:live");
     const queued = seedCached("yt:queued");

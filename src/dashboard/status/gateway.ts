@@ -35,9 +35,9 @@ const routine = () => errors === null && closedBy !== null && (ROUTINE_REASONS.h
 
 function causeText() {
   const parts: string[] = [];
-  if (closedBy) parts.push(closedBy.reason === "none" ? `닫힘 코드 ${closedBy.code}` : `${REASONS[closedBy.reason] ?? closedBy.reason} · 코드 ${closedBy.code}`);
+  if (closedBy) parts.push(closedBy.reason === "none" ? `닫힘 코드 ${closedBy.code}` : `${REASONS[closedBy.reason] ?? closedBy.reason}, 코드 ${closedBy.code}`);
   if (errors) parts.push(`연결 오류 ${errors.count}번(첫: ${errors.first})`);
-  return parts.join(" · ") || "모름";
+  return parts.join("; ") || "모름";
 }
 
 // 끊김이 정상 절차가 아니면 끊길 때 알린다(오래 연결되지 못하면 그동안 아무 줄도 없게 되지 않게). 까닭이 시도 알림보다 늦게 올 수 있어 둘 다에서 부른다

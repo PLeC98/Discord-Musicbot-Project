@@ -3,13 +3,13 @@
 const title = "라이선스";
 const thisBot = "이 봇";
 const runningSource = "운영 소스 코드";
-const runningSourceModified = "운영 소스 코드 · 수정됨";
+const runningSourceModified = "운영 소스 코드(수정됨)";
 const originalProject = "원본 프로젝트";
 const originalSource = "원본 소스 코드";
 const sourceUnknown = "소스 코드 주소를 불러오지 못했어요";
 /** 포크해 온 원본(상류)의 줄 */
 const upstreamPart = "포크해 온 원본에서 남은 부분";
-const groupFontsArt = "글꼴 · 그림";
+const groupFontsArt = "글꼴과 그림";
 const groupLibraries = "라이브러리";
 const groupData = "데이터";
 

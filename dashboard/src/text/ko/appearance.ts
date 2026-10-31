@@ -53,12 +53,12 @@ const slotDialog = {
   /** 업로드 · 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
   maxSize: (bytes: number) => `최대 파일 크기는 ${bytes / 1024 / 1024}MB예요.`,
   fromFile: "이미지 업로드",
-  fromFileHint: "png · webp · jpg · svg",
+  fromFileHint: "png, webp, jpg, svg",
   fromLink: "링크로 추가",
   linkLabel: "이미지 주소",
   linkPlaceholder: "https://…",
   linkFetch: "가져오기",
-  linkBad: "http · https 로 시작하는 주소를 입력해 주세요.",
+  linkBad: "http나 https로 시작하는 주소를 입력해 주세요.",
   linkFailed: "링크에서 이미지를 가져오지 못했어요.",
 };
 

@@ -185,7 +185,7 @@ function docWarnings(item: DocItem, value: unknown): string[] {
   if (item === "status") {
     const known = linksIn(documents.get("status"));
     const added = [...linksIn(value)].filter((link) => !known.has(link));
-    return added.length ? [`활동 문구에 새 링크가 들어와요: ${added.join(" · ")}`] : [];
+    return added.length ? [`활동 문구에 새 링크가 들어와요: ${added.join(", ")}`] : [];
   }
   return [];
 }

@@ -16,9 +16,9 @@ const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are
 const ytdlpError = ytDlpError;
 
 test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id 를 붙인다", () => {
-  assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한 · 쿠키 없음 (hc0ZDaAZQT0)");
-  assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한 · 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
-  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한 · 쿠키가 무효. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한, 쿠키 없음 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한, 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한, 쿠키가 유효하지 않음. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
@@ -27,7 +27,7 @@ test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", (
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
-  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "없거나 비공개 · 삭제된 곡 (abcdefghijk)");
+  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "없거나 비공개 또는 삭제된 곡 (abcdefghijk)");
 });
 
 test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {

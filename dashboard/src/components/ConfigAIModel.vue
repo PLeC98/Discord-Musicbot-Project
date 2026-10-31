@@ -135,7 +135,7 @@
         <div>
           <h3 class="text-sm font-semibold text-on-surface">{{ TP.extra }}</h3>
           <p class="mt-1 text-xs text-on-surface-variant">
-            {{ TP.extraHelp }}<code class="font-mono">key=value</code> · <code class="font-mono">key=json::{...}</code> · <code class="font-mono">header::Name=value</code> · <code class="font-mono">key={{ NONE_MARK }}</code>
+            {{ TP.extraHelp }}<code class="font-mono">key=value</code>, <code class="font-mono">key=json::{...}</code>, <code class="font-mono">header::Name=value</code>, <code class="font-mono">key={{ NONE_MARK }}</code>
           </p>
         </div>
         <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>

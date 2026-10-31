@@ -32,7 +32,7 @@ function apply(view: TunablesView, keys: readonly string[]) {
 
 // 항목 이름(화면 라벨). 알림 · 안내에 "몇 항목" 대신 무엇인지 적는다
 export const labelOf = (key: string) => T.fields[key]?.label ?? key;
-export const namesOf = (keys: string[]) => keys.map(labelOf).join(" · ");
+export const namesOf = (keys: string[]) => keys.map(labelOf).join(", ");
 
 const ALL_KEYS = TUNABLES.map((one) => one.key);
 const changedKey = (key: string) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? "");

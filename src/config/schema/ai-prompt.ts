@@ -26,11 +26,11 @@ function promptProblems(prompt: unknown, on: boolean): string[] {
     const where = `${i + 1}번째 섹션`;
     if (!item || typeof item !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
     const section = item as { role?: unknown; text?: unknown };
-    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(" · ")} 중 하나여야 합니다.`);
+    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(", ")} 중 하나여야 합니다.`);
     if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글로 적어야 합니다.`);
     else for (const one of parseFormat(textOf(section), PROMPT_NAMES).problems) problems.push(`${where} ${one.at + 1}번째 글자: ${one.message}`);
     // 역할 표시 문자열은 넣지 못하게 한다. ChatML 템플릿으로 프롬프트를 짜는 모델에 섹션 경계로 섞여 들어가지 않게
-    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다.`);
+    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>, <|im_end|>를 적을 수 없습니다.`);
   });
 
   // 켜 둔 채 후보 목록 위치가 없으면 요청마다 헛돈다

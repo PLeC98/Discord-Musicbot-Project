@@ -550,7 +550,7 @@ async function checkAndEvict() {
   if (lowDisk) {
     log.warn(`디스크 여유 공간 부족 (${MB(diskFree)}MB 남음, 최소 ${MB(cfg.minFreeDiskBytes)}MB). 오디오 캐시를 정리합니다.`);
   } else {
-    const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(" · ");
+    const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(", ");
     log.info(`오디오 캐시가 상한을 넘었습니다 (${over}) - 상한의 ${cfg.evictTargetPercent}%까지 정리합니다.`);
   }
 
@@ -712,7 +712,7 @@ function removeCached(audioKey: string, expect?: number | null): Promise<RemoveR
 
 // 퇴거 결과 한 줄. 시작 줄("상한을 넘었습니다")에는 늘 이 줄이 따른다
 function reportEviction({ evicted, failed, guarded, files, size, reached }: { evicted: number; failed: number; guarded: number; files: number; size: number; reached: boolean }) {
-  const why = [guarded > 0 && `재생 중 · 대기열 앞 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 삭제하지 못해`].filter(Boolean).join(", ");
+  const why = [guarded > 0 && `재생 중이거나 대기열 앞에 있는 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 삭제하지 못해`].filter(Boolean).join(", ");
   const short = reached ? "" : ` - 목표선까지 내려가지 못했습니다${why ? ` (${why})` : ""}`;
   const unremoved = reached && failed > 0 ? ` - ${failed}개는 삭제하지 못했습니다` : "";
   log.info(`오디오 캐시 ${evicted}개를 삭제했습니다 (${files}개 남음, ${MB(size)}MB)${short}${unremoved}`);

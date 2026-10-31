@@ -21,7 +21,7 @@ const openFiles = "파일 보기";
 const gapToFile = "파일에서 보기";
 /** 필터 창의 그룹 */
 const filterLevels = "레벨";
-const filterCategories = "카테고리 · 태그";
+const filterCategories = "카테고리와 태그";
 const filterView = "보기";
 
 const two = (n: number) => String(n).padStart(2, "0");
@@ -39,8 +39,8 @@ const files = {
     const d = new Date(ms);
     return `${d.getFullYear()}/${two(d.getMonth() + 1)}/${two(d.getDate())} ${d.getHours() < 12 ? "AM" : "PM"} ${two(d.getHours() % 12 || 12)}:${two(d.getMinutes())}:${two(d.getSeconds())} 까지`;
   },
-  whenFile: "파일 · 날짜 · 시간",
-  when: "날짜 · 시간",
+  whenFile: "파일, 날짜, 시간",
+  when: "날짜와 시간",
   loading: "불러오는 중",
   empty: "줄이 없어요",
   loadFailed: "로그 파일을 읽지 못했어요",

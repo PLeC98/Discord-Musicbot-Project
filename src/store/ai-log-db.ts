@@ -12,7 +12,7 @@ const aiLogDb = new DbFile({
   fileName: "ai-requests.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: { lost: "AI 리퀘스트 로그 · 사용량 통계가 사라집니다." },
+  onMismatch: { lost: "AI 리퀘스트 로그와 사용량 통계가 사라집니다." },
   createTables,
 });
 

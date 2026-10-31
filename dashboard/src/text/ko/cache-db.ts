@@ -35,7 +35,7 @@ const columnTips: Record<string, string> = {
   requestKey: "봇이 받은 요청(링크, 자동재생이면 그 출처의 키)",
   audioUrl: "이 요청에 재생하는 음원. 편집하면 직접 지정한 음원이 되고, 지정하지 않은 행은 봇이 자동으로 찾은 음원이에요",
   pinnedAt: "음원을 직접 지정한 시각. 비어 있으면 자동으로 찾은 음원이에요",
-  audioKey: "캐시 파일을 가리키는 키(유튜브 yt: · 사운드클라우드 sc: · 직접 링크 dl:)",
+  audioKey: "캐시 파일을 가리키는 키(유튜브 yt:, 사운드클라우드 sc:, 직접 링크 dl:)",
   requests: "이 캐시 파일을 재생 음원으로 쓰는 요청 수",
   source: "다운로드한 뒤 원본을 확인한 결과. 재생 테스트를 하거나, 캐시로 재생한 곡을 봇이 주기적으로 확인해요",
 };
@@ -149,7 +149,7 @@ const editPane = {
 };
 
 const changes = {
-  summary: (n: number, parts: string[]) => `변경 ${n}건: ${parts.join(" · ")}. 저장해야 반영돼요.`,
+  summary: (n: number, parts: string[]) => `변경 ${n}건: ${parts.join(", ")}. 저장해야 반영돼요.`,
   pins: (n: number) => `음원 지정 ${n}`,
   unpins: (n: number) => `지정 해제 ${n}`,
   clears: (n: number) => `자동 검색 결과 지우기 ${n}`,
@@ -174,20 +174,20 @@ const results = {
 
 /** 단축키 도움말 */
 const shortcuts: Array<[string, string]> = [
-  ["클릭 · 드래그 · Shift+클릭", "셀 선택 · 범위 선택"],
+  ["클릭, 드래그, Shift+클릭", "셀 선택, 범위 선택"],
   ["Ctrl+클릭", "셀 추가 선택"],
-  ["행 번호 클릭 · 드래그 · Shift+클릭", "행 선택"],
-  ["방향키 · Tab · Home · End · PgUp · PgDn", "이동 (Shift 와 함께 범위 선택)"],
-  ["Ctrl+Home · Ctrl+End", "첫 행 · 마지막 행"],
+  ["행 번호 클릭, 드래그, Shift+클릭", "행 선택"],
+  ["방향키, Tab, Home, End, PgUp, PgDn", "이동 (Shift 와 함께 범위 선택)"],
+  ["Ctrl+Home, Ctrl+End", "첫 행, 마지막 행"],
   ["Ctrl+A", "모든 행 선택"],
-  ["더블클릭 · F2 · Enter", "셀 편집 (재생 음원 열)"],
-  ["Esc", "편집 취소 · 선택 해제"],
+  ["더블클릭, F2, Enter", "셀 편집 (재생 음원 열)"],
+  ["Esc", "편집 취소, 선택 해제"],
   ["Delete", "셀 지우기 (행을 선택했으면 행 삭제)"],
-  ["Ctrl+C · Ctrl+V", "복사 · 붙여넣기"],
+  ["Ctrl+C, Ctrl+V", "복사, 붙여넣기"],
   ["Ctrl+Z", "마지막 변경 되돌리기"],
   ["Ctrl+S", "저장"],
   ["F5", "새로고침"],
-  ["열 헤더 클릭 · Ctrl+클릭", "정렬 · 여러 열 정렬"],
+  ["열 헤더 클릭, Ctrl+클릭", "정렬, 여러 열 정렬"],
 ];
 
 const botChanged = "새 변경 사항이 있어요 · 새로고침";

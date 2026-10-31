@@ -104,7 +104,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = v.trim().toLowerCase();
-    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true · false 중 하나여야 합니다", def);
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 합니다", def);
   }
 
   // 조절값(rules/tunables)을 그 형식 · 범위 · 기본값으로 읽는다
@@ -119,7 +119,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join("·")} 중 하나여야 합니다`, def);
+    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 합니다`, def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -150,7 +150,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     } catch {
       return invalid(key, v, "주소 형식이 아닙니다 (예: https://example.com)", def);
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http·https 주소만 쓸 수 있습니다", def);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있습니다", def);
     return v;
   }
 
@@ -181,13 +181,13 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
-    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join("·")})이어야 합니다`, "");
+    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 합니다`, "");
   }
 
   function envClients(key: string) {
     const list = parseClients(env(key));
     const bad = list.filter((name) => !CLIENT_NAME.test(name));
-    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자 · 숫자 · _ 만 쓸 수 있습니다", []) : list;
+    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있습니다", []) : list;
   }
 
   return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
@@ -236,7 +236,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   // .env 가 없으면 그 문제 하나만 알린다(나머지는 거기서 따라 나온다).
   const missing = REQUIRED_CREDENTIALS.filter((name) => !env(name));
   if (envFileFound && missing.length) {
-    problems.push(`비어 있는 필수 값: ${missing.join(" · ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
+    problems.push(`비어 있는 필수 값: ${missing.join(", ")}. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.`);
   }
   // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키 · 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
@@ -248,7 +248,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   }
   // 대시보드(운영자 패널)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다. 입력할 탭마다 알린다
   const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
-  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env 의 ${names.join(" · ")} 는 이제 쓰지 않습니다. 운영자 패널의 ${tab} 탭에서 입력하고 .env 에서 삭제하세요.`);
+  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env 의 ${names.join(", ")} 는 이제 쓰지 않습니다. 운영자 패널의 ${tab} 탭에서 입력하고 .env 에서 삭제하세요.`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");

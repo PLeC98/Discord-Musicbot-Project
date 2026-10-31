@@ -228,7 +228,7 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
     if (list && isServed(rest)) list.push(entry);
     else unknown.push(entry.name);
   }
-  if (unknown.length) return { problems: [`모르는 파일이 있습니다: ${unknown.slice(0, 3).join(" · ")}${unknown.length > 3 ? ` 외 ${unknown.length - 3}개` : ""}`], plan: null, bytes: 0 };
+  if (unknown.length) return { problems: [`모르는 파일이 있습니다: ${unknown.slice(0, 3).join(", ")}${unknown.length > 3 ? ` 외 ${unknown.length - 3}개` : ""}`], plan: null, bytes: 0 };
   const problems: string[] = [];
   for (const one of read.index.items) {
     const problem = await itemProblem(zipped, one, files.get(one.id)!);
@@ -236,7 +236,7 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
   }
   const bytes = [...files.values()].flat().reduce((sum, entry) => sum + entry.size, 0);
   const room = store.room();
-  if (bytes > room) problems.push(`저장 공간이 모자랍니다(풀 크기 ${formatBytes(bytes)} · 남은 공간 ${formatBytes(room)}).`);
+  if (bytes > room) problems.push(`저장 공간이 모자랍니다(풀 크기 ${formatBytes(bytes)}, 남은 공간 ${formatBytes(room)}).`);
   return { problems, plan: problems.length ? null : { index: read.index, files }, bytes };
 }
 

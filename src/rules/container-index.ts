@@ -214,7 +214,7 @@ function checked(index: ContainerIndex, totalBytes: number): Read {
   if (points.length === 0) return none("색인 항목이 없음");
   for (const [i, p] of points.entries()) {
     if (p.byte < headerEnd || p.byte >= totalBytes) return none(`색인이 가리키는 자리가 파일 밖(${p.byte})`);
-    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none("색인의 시각 · 바이트가 늘어나지 않음");
+    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none("색인의 시각이나 바이트가 늘어나지 않음");
   }
   return { ok: true, index };
 }
@@ -223,7 +223,7 @@ function checked(index: ContainerIndex, totalBytes: number): Read {
 function readIndex(head: Buffer, totalBytes: number): Read {
   if (head.length >= 4 && head.readUInt32BE(0) === ID.EBML) return readWebm(head, totalBytes);
   if (head.length >= 8 && head.toString("latin1", 4, 8) === "ftyp") return readMp4(head, totalBytes);
-  return none("webm · mp4 가 아님");
+  return none("webm이나 mp4가 아님");
 }
 
 /** 헤더로 넣을 바이트. webm 은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */

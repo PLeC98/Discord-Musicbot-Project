@@ -300,7 +300,7 @@ const SPEC: Record<string, SourceSpec> = {
           { value: "ending", label: "ED" },
           { value: "insert", label: "삽입곡" },
         ]),
-        hint: "비우면 OP·ED만. 삽입곡은 폭이 크게 넓어져요",
+        hint: "비우면 OP와 ED만. 삽입곡은 폭이 크게 넓어져요",
       }),
       f("animeTypes", "enumList", "매체", {
         width: "halfWide",
@@ -315,7 +315,7 @@ const SPEC: Record<string, SourceSpec> = {
         hint: "비우면 전부",
       }),
       f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "선택한 것 중 하나라도 맞으면 나와요" }),
-      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 거예요. 예) School · Idol · Isekai" }),
+      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 거예요. 예) School, Idol, Isekai" }),
       f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
       f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
       f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
@@ -325,7 +325,7 @@ const SPEC: Record<string, SourceSpec> = {
         options: opts([
           { value: "standard", label: "일반" },
           { value: "character", label: "캐릭터송" },
-          { value: "chanting", label: "구호·창" },
+          { value: "chanting", label: "구호, 챈트" },
           { value: "instrumental", label: "연주곡" },
           { value: "other", label: "기타" },
         ]),
@@ -348,7 +348,7 @@ const SPEC: Record<string, SourceSpec> = {
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
   touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있어요.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
   // 재생목록 · 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
-  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트" })] },
+  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록, 앨범, 아티스트" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "일반 재생목록이나 유튜브 뮤직 공식 재생목록(list=RDCLAK…)을 넣어 주세요. 전체 곡 수 안에서 무작위로 곡을 뽑기 때문에, 믹스처럼 유튜브가 끝없이 이어 주는 자동 목록은 쓰지 못해요." })] },
 };
 

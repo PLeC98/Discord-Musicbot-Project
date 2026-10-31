@@ -131,7 +131,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     const now = GONE_NAMES[name];
     const known = Object.keys(names)
       .map((n) => `{{${n}}}`)
-      .join(" · ");
+      .join(", ");
     if (!spec) problems.push({ at, end, message: now ? `{{${name}}} 은 이제 ${now} 입니다.` : `모르는 이름 ${raw}. 쓸 수 있는 것: ${known}` });
     else if (arg !== null && !spec.arg) problems.push({ at, end, message: `{{${name}}} 은 :: 뒤의 값을 받지 않습니다.` });
     here().push({ kind: "mark", name, arg, raw, at });

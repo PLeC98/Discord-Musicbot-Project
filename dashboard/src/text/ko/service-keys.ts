@@ -5,7 +5,7 @@ const services = {
   spotify: {
     title: "Spotify",
     purpose: "스포티파이 링크를 공식 API 로 열 때 써요. 넣지 않아도 링크는 열려요.",
-    tip: "넣으면 트랙 · 앨범 · 아티스트를 공식 API 로 먼저 열고, 실패하면 키 없이 쓰는 웹 플레이어 경로로 열어요. 재생목록은 늘 웹 플레이어 경로예요.\nSpotify for Developers 의 Dashboard 에서 앱을 만들면 발급돼요.",
+    tip: "넣으면 트랙, 앨범, 아티스트를 공식 API 로 먼저 열고, 실패하면 키 없이 쓰는 웹 플레이어 경로로 열어요. 재생목록은 늘 웹 플레이어 경로예요.\nSpotify for Developers 의 Dashboard 에서 앱을 만들면 발급돼요.",
     link: "https://developer.spotify.com/dashboard",
     fields: { clientId: "Client ID", clientSecret: "Client Secret" },
   },

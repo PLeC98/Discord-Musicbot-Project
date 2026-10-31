@@ -183,7 +183,7 @@ loginBackgroundRouter.put("/:id/position", (req, res) => {
   const body = parse(BackgroundPositionBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
   one.position = body.value;
-  changed(req, res, `"${one.name}" 의 보일 위치를 ${body.value.x}% · ${body.value.y}% 로 바꿨습니다`);
+  changed(req, res, `"${one.name}" 의 보일 위치를 ${body.value.x}%, ${body.value.y}%로 바꿨습니다`);
 });
 
 // 편집 취소 · 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
@@ -229,7 +229,7 @@ loginBackgroundRouter.put("/options", (req, res) => {
   if (!body.ok) return sendProblem(res, body.code);
   const options = body.value;
   store.loaded().options = options;
-  changed(req, res, `화면 값을 바꿨습니다(블러 ${options.blur}% · 오버레이 ${options.cover}% · 테마 색 ${options.follow ? "켬" : "끔"} · 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
+  changed(req, res, `화면 값을 바꿨습니다(블러 ${options.blur}%, 오버레이 ${options.cover}%, 테마 색 ${options.follow ? "켬" : "끔"}, 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
 });
 
 // 한도를 바꾸면 바로 지킨다
@@ -239,7 +239,7 @@ loginBackgroundRouter.put("/limits", (req, res) => {
   const limits = body.value;
   store.loaded().limits = limits;
   const removed = store.enforceLimits();
-  changed(req, res, `한도를 바꿨습니다(보관 ${limits.history}개 · 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
+  changed(req, res, `한도를 바꿨습니다(보관 ${limits.history}개, 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
 });
 
 export { loginBackgroundRouter };

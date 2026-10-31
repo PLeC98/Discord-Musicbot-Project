@@ -7,14 +7,14 @@ const conditionTime = "시간대";
 
 // 목록
 const title = "상태 문구";
-const addSpecial = "기간 · 시간대 문구 추가";
+const addSpecial = "기간, 시간대 문구 추가";
 const desc = "위에 있는 것을 우선하고, 조건에 맞는 것이 없으면 기본 문구를 사용해요.";
 const defaults = "기본 문구";
 const messageCount = (count: number) => `문구 ${count}`;
 const dragToReorder = "드래그해서 순서 바꾸기";
 const noCondition = "조건 없음";
 const noName = "이름 없음";
-const empty = "기간 · 시간대 문구가 없어요. 오른쪽 위 + 로 추가해요";
+const empty = "기간, 시간대 문구가 없어요. 오른쪽 위 + 로 추가해요";
 const savedNote = "다음 상태 문구부터 반영돼요";
 
 // 기본 문구
@@ -27,7 +27,7 @@ const messages = "문구";
 const namePlaceholder = "항목 이름 (예: 크리스마스)";
 const removeSpecial = "이 항목 삭제";
 const conditions = "조건";
-const conditionsDesc = "둘 이상 넣으면 모두 맞을 때만 사용해요. 연말 · 자정을 넘겨도 돼요(12-28 ~ 01-05, 22:00 ~ 06:00).";
+const conditionsDesc = "둘 이상 넣으면 모두 맞을 때만 사용해요. 연말이나 자정을 넘겨도 돼요(12-28 ~ 01-05, 22:00 ~ 06:00).";
 
 // 검사
 const problems = {

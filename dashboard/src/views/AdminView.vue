@@ -137,7 +137,7 @@
         </div>
       </template>
       <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장 · 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
-      <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(' · ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
+      <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(', ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
     </div>
 
     <!-- 봇 다시 시작 창. 봇 상태 탭 버튼 · 운영 조절값 저장 막대가 함께 쓴다 -->

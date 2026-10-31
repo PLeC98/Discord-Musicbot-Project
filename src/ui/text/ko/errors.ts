@@ -221,7 +221,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   // 대시보드: 파비콘(업로드한 이미지 · 링크로 다운로드하는 이미지)
-  "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png · webp · jpg · svg 이미지만 쓸 수 있어요."),
+  "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
   "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
@@ -231,7 +231,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),
   "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 시도해 주세요.`),
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 원인을 확인하고 다시 올려 주세요."),
-  "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지 · 영상 · 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
+  "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지, 영상, 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
   "background-link-failed": () => warning("input", "링크에서 가져오지 못했어요!", "주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요."),
   "background-no-video-encoder": () => warning("state", "이 기기에서는 영상 배경을 만들 수 없어요!", "봇의 ffmpeg 에 H.264 나 VP9 인코더가 있어야 해요. 이미지 배경은 쓸 수 있어요."),
   // 대시보드: 캐시 DB
@@ -242,8 +242,8 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "filter-timeout": () => warning("input", "필터가 너무 오래 걸렸어요!", "식을 더 단순하게 바꿔 주세요."),
   "bad-page-range": (_, look) => warning("input", "불러올 행의 범위가 올바르지 않아요!", stalePage(look)),
   "too-many-file-deletes": ({ max }) => warning("input", "한 번에 삭제할 수 있는 파일 수를 넘었어요!", `한 번에 ${max}개까지 삭제할 수 있어요.`),
-  "not-single-track": () => warning("input", "곡 하나의 링크가 아니에요!", "재생목록 · 앨범 · 짧은 링크가 아닌 곡 하나의 주소를 적어 주세요."),
-  "not-audio-source": () => warning("input", "재생할 수 없는 음원이에요!", "유튜브 영상 · 사운드클라우드 곡 · 오디오 파일 주소를 적어 주세요."),
+  "not-single-track": () => warning("input", "곡 하나의 링크가 아니에요!", "재생목록, 앨범, 짧은 링크가 아닌 곡 하나의 주소를 적어 주세요."),
+  "not-audio-source": () => warning("input", "재생할 수 없는 음원이에요!", "유튜브 영상, 사운드클라우드 곡, 오디오 파일 주소를 적어 주세요."),
   "nothing-to-clear": () => warning("state", "지울 자동 검색 결과가 없어요!", "이 요청은 요청 링크를 그대로 재생해요."),
   "track-cache-write-failed": () => error("failed", "변경 사항을 저장하지 못했어요!", "캐시 DB 에 저장하다 실패했어요. 운영자 로그를 확인해 주세요."),
   // 대시보드: 초기화

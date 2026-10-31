@@ -83,7 +83,7 @@ const lanes: Record<Lane, SlotQueue> = {
 const RANK = { retry: 0, now: 1, prefetch: 2 };
 // 이보다 오래 기다렸으면 debug 로그를 남긴다(ms)
 const WAIT_NOTE_MS: Record<Lane, number> = { lookup: 5_000, background: 30_000 };
-const LANE_NAME: Record<Lane, string> = { lookup: "곡 찾기", background: "다운로드 · 미리 받기" };
+const LANE_NAME: Record<Lane, string> = { lookup: "곡 찾기", background: "다운로드와 미리 받기" };
 
 async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined): Promise<() => void> {
   const asked = Date.now();

@@ -328,8 +328,8 @@ test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기
 
   assert.deepEqual(outcomes(), [...notApi.map(() => [false, "구간 API 응답이 아님"]), [true, null]]);
   assert.deepEqual(notices(from), [
-    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소 · 해시 접두어 길이 설정을 확인하세요`],
-    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소 · 해시 접두어 길이 설정을 확인하세요`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`],
     ["info", "SponsorBlock 구간 조회 복구(실패 2회)"],
   ]);
 });

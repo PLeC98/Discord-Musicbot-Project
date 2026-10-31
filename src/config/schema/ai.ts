@@ -7,7 +7,7 @@ import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 import { LINE_NAMES, parseFormat, usesName, type Problem } from "../../rules/line-format.ts";
 
 // 추가 인자에 비밀 헤더를 적었을 때
-const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 입력란에 입력하세요(암호화해 둡니다).";
+const SECRET_HEADER = "extra 에 비밀 헤더(Authorization, x-api-key, Cookie 등)는 적을 수 없습니다. 키는 API 키 입력란에 입력하세요(암호화해 둡니다).";
 
 /**
  * 줄 형식의 문제(글자 위치와 함께, 화면이 그 위치를 표시한다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
@@ -50,7 +50,7 @@ const aiFile = z.preprocess(
   plain,
   z
     .looseObject({
-      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
+      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`),
       // 켜고 끄기. 끄면(false) 선택한 프로바이더 · 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
       enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
       // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
@@ -76,7 +76,7 @@ const aiFile = z.preprocess(
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
       location: z
         .string({ error: "location는 글자로 적어야 합니다." })
-        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자 · 숫자 · -, 예: us-central1 · global).")
+        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자, 숫자, 하이픈. 예: us-central1, global).")
         .nullish(),
       // 모델이 받는 필드의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
       // 앞 모델 값이 따라온다. 필드 이름이 맞는지는 모델 프로필이 판단한다(assist/index 의 withParams).

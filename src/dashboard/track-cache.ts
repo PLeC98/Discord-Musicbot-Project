@@ -348,7 +348,7 @@ async function write(input: TrackCacheOp[], by: string): Promise<{ ok: true; wri
     counts.set(op.op, count);
     log.debug({ sub: "track-cache" }, `캐시 DB ${OP_NAMES[op.op]}: ${targetOf(op)} | ${results[i].ok ? "됨" : JSON.stringify(results[i])}`);
   }
-  const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(" · ");
+  const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(", ");
   log.warn({ sub: "admin" }, `대시보드에서 캐시 DB 저장: ${summary}. 실행 ${by}`);
   return { ok: true, written: { results, revision: cacheRevision().revision } };
 }

@@ -281,7 +281,7 @@ test("자리가 모자라 덜 불러왔으면(queueLimited) 그렇다고 덧붙�
 
 // 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 불러올 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기 · 지역 제한 등)");
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);

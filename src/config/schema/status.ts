@@ -53,7 +53,7 @@ const message = z.preprocess(
       // 종류를 잘못 적으면 조용히 "듣는 중"이 된다. 오타가 말을 안 해 주는 종류라 여기서 잡는다
       type: present(
         (type) => isActivityType(type),
-        (issue) => `{where}: ${JSON.stringify(issue.input)}은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(" · ")}).`,
+        (issue) => `{where}: ${JSON.stringify(issue.input)}은 쓸 수 없는 활동 종류입니다(${ACTIVITY_TYPES.join(", ")}).`,
       ),
     },
     { error: "{where}: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다." },
@@ -67,7 +67,7 @@ const entry = z
   // 조건이 하나도 없으면 항상 맞아서 아래 항목이 전부 죽는다. 손으로 고치다 범위만 지우면 밟는다
   .superRefine((one, ctx) => {
     if (!one || typeof one !== "object" || Array.isArray(one)) return; // 표가 아니면 위에서 이미 알렸다
-    if (!(["date", "lunar", "time"] as const).some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "{name}: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다)." });
+    if (!(["date", "lunar", "time"] as const).some((k) => one[k] != null)) ctx.addIssue({ code: "custom", message: "{name}: date, lunar, time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다)." });
   }, ALWAYS);
 
 const special = z

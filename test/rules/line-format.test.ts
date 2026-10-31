@@ -48,7 +48,7 @@ test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그�
   const { nodes, problems } = parseFormat("{{번호}}. {{길이분}}분 {{titel}} {{제목}}", LINE_NAMES);
   assert.deepEqual(
     problems.map((one) => one.message),
-    ["{{번호}} 은 이제 {{index}} 입니다.", "{{길이분}} 은 이제 {{duration::m}} 입니다.", "모르는 이름 {{titel}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "{{제목}} 은 이제 {{title}} 입니다."],
+    ["{{번호}} 은 이제 {{index}} 입니다.", "{{길이분}} 은 이제 {{duration::m}} 입니다.", "모르는 이름 {{titel}}. 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "{{제목}} 은 이제 {{title}} 입니다."],
   );
   assert.equal(problems[0].at, 0);
   assert.equal(problems[1].at, 8);

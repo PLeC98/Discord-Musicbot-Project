@@ -35,6 +35,6 @@ function loadEnv(target = PROJECT.env) {
 }
 
 /** 만든 뒤 알릴 한 줄 */
-const madeLine = () => `.env 가 없어 .env.example 로 만들었습니다(SECRETS_KEY · SESSION_SECRET 은 채웠습니다). ${FILL_BY_HAND.join(" · ")} 을 채운 뒤 실행하세요.`;
+const madeLine = () => `.env 가 없어 .env.example 로 만들었습니다(SECRETS_KEY, SESSION_SECRET은 채웠습니다). ${FILL_BY_HAND.join(", ")} 을 채운 뒤 실행하세요.`;
 
 export { setupEnv, loadEnv, fillLine, madeLine, FILL_BY_HAND };

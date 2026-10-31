@@ -13,7 +13,7 @@ const cacheDb = new DbFile({
   // 7: 재생 테스트 · 다시 확인의 원본 버전(source_checks.version). 8: SponsorBlock 구간을 받은 주소(sponsorblock_cache.api_base)
   version: 8,
   synchronous: "NORMAL",
-  onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
+  onMismatch: { lost: "캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, SponsorBlock 구간, 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
 });
 

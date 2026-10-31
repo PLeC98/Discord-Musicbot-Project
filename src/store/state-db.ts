@@ -11,7 +11,7 @@ const stateDb = new DbFile({
   // 3: 사람이 멈춰 둔 것(player_sessions.user_paused)
   version: 3,
   synchronous: "NORMAL",
-  onMismatch: { lost: "저장된 대기열 · 음성 채널 상태 · 재생 패널 위치가 사라집니다." },
+  onMismatch: { lost: "저장된 대기열, 음성 채널 상태, 재생 패널 위치가 사라집니다." },
   createTables,
 });
 
