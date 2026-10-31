@@ -13,7 +13,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audio-splicer.ts";
 import { gainOf } from "../../src/rules/volume-gain.ts";
-import { StreamType } from "@discordjs/voice";
+import { AudioPlayerStatus, StreamType } from "@discordjs/voice";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
@@ -833,6 +833,117 @@ test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치�
   await playOnce(p, 30000);
 
   assert.match(calls.fetches[1].url, /id=pb1bbbbbbbb/);
+});
+
+test("음성 복구, 구간 건너뛰기, 스트림 휴면에서 깨기도 같은 곡이면 직전 주소를 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pr1rrrrrrrr", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=r&expire=${expire}`, duration: 300 });
+  try {
+    await p.play(0);
+    await p.onVoiceRecovered();
+    await p.seek(60_000, "highlight");
+    p.pause.setUser(true);
+    p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
+    assert.equal(p.rest(), true);
+    p.pause.setUser(false);
+    await p.wake();
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.resources.length, 4, "네 번 열었다");
+  assert.equal(asked, 1, "주소는 처음 한 번만 받았다");
+});
+
+test("스포티파이 곡도 유튜브 영상을 찾은 뒤의 위치 이동은 직전 주소를 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = tracks.spotify("sp1spotify");
+  behavior.equivalent = () => tracks.watch("ps1ssssssss");
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=s&expire=${expire}`, duration: 200 });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 1);
+  assert.equal(calls.steps.filter((s) => s === "equivalent").length, 1, "영상은 처음에 한 번 찾는다");
+});
+
+test("직접 링크, 사운드클라우드는 만료 시각(expire=)이 없어 위치를 옮길 때마다 서술자를 다시 받는다", async (t) => {
+  const level = logger.level;
+  logger.level = "debug";
+  t.after(() => {
+    logger.level = level;
+  });
+  const soon = Math.floor(Date.now() / 1000) + 7200;
+  for (const [what, track, url] of [
+    ["직접 링크", tracks.direct("https://files.test/song.mp3", { duration: 300 }), "https://files.test/song.mp3"],
+    ["사운드클라우드", { id: "1", title: "곡", pageUrl: "https://soundcloud.com/a/b", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud", duration: 300 }, `https://cf-media.sndcdn.com/b.128.mp3?Policy=x&Signature=y&Key-Pair-Id=z&expires=${soon}`],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = { ...track };
+    let asked = 0;
+    behavior.stream = () => (asked++, { url, duration: 300, ...(what === "직접 링크" ? { platform: "direct" } : {}) });
+    const from = sink.buffer.length;
+    try {
+      await p.play(0);
+      await p.play(30_000, { continued: true });
+    } finally {
+      h.dispose(p);
+    }
+    assert.equal(asked, 2, what);
+    assert.ok(
+      sink.buffer.slice(from).some((e) => e.text.startsWith("직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다:")),
+      what,
+    );
+  }
+});
+
+test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 열리지 않은 주소를 다시 쓸 주소로 남긴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const url = `https://rr1.googlevideo.com/videoplayback?id=f&expire=${expire}`;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pf1ffffffff");
+  behavior.stream = () => ({ url, duration: 100 });
+  behavior.fetch = () => {
+    h.writeCacheFile("yt:pf1ffffffff");
+    throw new Error("끊김");
+  };
+  try {
+    const r = await p.play(0);
+    assert.equal(r.ok, true);
+    assert.equal(p.playback?.cacheFile !== null, true, "파일로 튼다");
+    assert.equal(p.playback?.resume?.url, url);
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("상주 자리의 정지는 곡만 비우고 직전 재생을 남긴다. 다음 곡은 앞 곡의 주소를 쓰지 않는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
+  p.currentTrack = yt("ph1aaaaaaaa");
+  try {
+    await p.play(0);
+    await p.stopStaying();
+    p.audioPlayer.emit(AudioPlayerStatus.Idle);
+    for (let i = 0; i < 5; i++) await tick();
+    assert.equal(p.currentTrack, null);
+    assert.notEqual(p.playback, null, "재생은 남는다");
+
+    p.currentTrack = yt("ph1bbbbbbbb");
+    await p.play(30_000);
+  } finally {
+    h.dispose(p);
+  }
+  assert.match(calls.fetches.at(-1)?.url ?? "", /id=ph1bbbbbbbb/);
 });
 
 test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 세그먼트와의 차이만 건너뛴다", async () => {
