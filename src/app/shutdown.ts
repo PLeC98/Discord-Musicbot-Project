@@ -1,4 +1,4 @@
-// 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
+// 종료. 신호를 받으면 세션을 저장하고 음성 연결 · 봇 · 자식 프로세스를 정리한 뒤 나간다. 게이트웨이를 정상으로 닫으면 디스코드가 봇을 곧바로 음성 채널에서 뺀다.
 // 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
 // 핸들러는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 실행한 것을 내리고 나간다.
@@ -65,12 +65,12 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     log.info(`종료 시작: ${reason}`);
     if (bot) await savePlayers(bot.players, reason);
 
-    // 레지스트리에 없던 연결도 채널에는 남긴 채 정리한다
+    // 레지스트리에 없던 연결도 나감 없이 정리한다
     for (const [guildId, connection] of voiceConnections()) {
       const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
       try {
         connection.destroy(false);
-        log.info(`음성 연결 정리(채널에는 남음): ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+        log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
       } catch (error) {
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
@@ -109,7 +109,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 }
 
-// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 채널에는 남긴 채 연결을 정리한다
+// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결을 정리한다
 async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
@@ -124,7 +124,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saved = (await Promise.all(saves)).filter(Boolean).length;
   if (saved) log.info(`세션 저장: 서버 ${saved}곳`);
 
-  // 음성 채널에는 남는다(곧바로 다시 시작하면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
+  // 상태 문구는 채널에 붙어 봇이 빠져도 남는다. 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 지운다
   let cleared = 0;
   let pending = 0;
   const clears = [];

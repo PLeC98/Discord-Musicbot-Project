@@ -81,7 +81,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 채널에는 남긴 채 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결 · 봇 · POToken 서버 · 자식 프로세스 · 로그 파일을 정리하고 0 으로 나간다", async () => {
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
   assert.equal(await exited, 0);
@@ -99,7 +99,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   );
 });
 
-test("레지스트리에 없는 음성 연결도 채널에는 남긴 채 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {
+test("레지스트리에 없는 음성 연결도 나감 없이 정리한다. 저장 · 상태 지우기 · 정리가 실패해도 끝까지 간다", async () => {
   const { steps, proc, exited } = setup({ saveFails: true, status: async () => Promise.reject(new Error("권한 없음")) });
   proc.emit("SIGHUP");
   assert.equal(await exited, 0);
@@ -189,7 +189,7 @@ test("깨끗한 종료는 단계마다 info 한 줄을 차례로 남기고, 남�
     ["음성 연결 정리 실패: g8"],
     "실패만 info 가 아니다(가짜 연결 g8 이 일부러 실패한다)",
   );
-  const steps = lines.filter((e) => e.level === "info" && !e.text.startsWith("음성 연결 정리(")).map((e) => e.text);
+  const steps = lines.filter((e) => e.level === "info" && !e.text.startsWith("음성 연결 정리: ")).map((e) => e.text);
   const last = steps.pop();
   assert.deepEqual(steps, ["종료 시작: 프로세스 종료(SIGINT)", "세션 저장: 서버 1곳", "음성 채널 상태 문구 지움: 1곳", "디스코드 연결 닫음", "POToken 서버 내림", "남은 자식 프로세스 정리: 3개 (ffmpeg:playback 2 · yt-dlp 1)"]);
   assert.equal(last, "종료 완료");

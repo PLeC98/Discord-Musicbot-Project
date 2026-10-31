@@ -687,7 +687,7 @@ class VoiceLink {
     }
   }
 
-  /** 채널에는 남긴 채 이 쪽 연결만 정리한다(나감 메시지를 보내지 않는다). 재시작 뒤 같은 채널에 재연결한다 */
+  /** 나감을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
   release(reason: string) {
     this.stop();
     this.state = "closed";
@@ -695,7 +695,7 @@ class VoiceLink {
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
     try {
       connection.destroy(false);
-      log.info(`음성 연결 정리(채널에는 남음): ${this._label()} | 원인=${reason}`);
+      log.info(`음성 연결 정리: ${this._label()} | 원인=${reason}`);
     } catch (error) {
       log.error("음성 연결 정리 실패:", error);
     }

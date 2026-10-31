@@ -52,7 +52,7 @@ function knownDiscordError(err: unknown) {
   return (typeof code === "number" && KNOWN_DISCORD_ERRORS[code]) || null;
 }
 
-// 치명적 오류: 세션을 저장하고 음성 채널에는 남긴 채 연결을 정리한 뒤 내린다(다시 시작하면 그 자리에서 이어 튼다).
+// 치명적 오류: 세션을 저장하고 나감 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
 // 세션이 원인이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 복원하지 않는다, app/run-record).
 // exit · record 는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
 function fatalShutdown(players: Savables | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
