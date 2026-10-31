@@ -265,10 +265,16 @@ function audioDurationSec(audioKey: string | null, streamInfo: Pick<StreamInfo, 
   return streamed && streamed > 0 ? streamed : null;
 }
 
-/** 이 재생이 트는 음원의 키. 여기서 찾은 캐시 파일이면 그 키, 캐시 폴백이 받은 파일이면 그 파일의 캐시 행에서, 스트림이면 서술자가 실은 키 */
-function playingKey(source: Pick<Source, "cacheFile" | "cacheKey" | "streamInfo">, file: string | null): string | null {
+/**
+ * 이 재생이 트는 음원의 키. 스트림이면 서술자가 실은 키, 여기서 찾은 캐시 파일이면 그 키.
+ * 캐시 폴백이 받은 파일이면 트던 스트림이나 곡의 음원 파일인지 경로로 보고(흔한 경우. 막 받은 파일은 캐시 행을 적기 전일 수 있다),
+ * 아니면(같은 다운로드를 기다리던 다른 곡이 다시 찾아 다른 파일로 끝났다) 그 파일의 캐시 행에서 찾는다. 모르면 null
+ */
+function playingKey(source: Pick<Source, "cacheFile" | "cacheKey" | "streamInfo">, file: string | null, track: Pick<QueuedTrack, "audioUrl">): string | null {
   if (!file) return source.streamInfo?.audioKey ?? null;
-  return file === source.cacheFile ? source.cacheKey : audioCache.keyOfFile(file);
+  if (file === source.cacheFile) return source.cacheKey;
+  const known = [source.streamInfo?.audioKey ?? null, audioKeyOf(track.audioUrl)].find((key) => key && audioCache.getFilePath(key) === file);
+  return known ?? audioCache.keyOfFile(file);
 }
 
 export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec, playingKey, ageCheck as _ageCheck };

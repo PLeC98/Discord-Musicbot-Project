@@ -200,10 +200,11 @@ function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "
   return player.audioPlayer.state.status === AudioPlayerStatus.Idle;
 }
 
-// 연 소리의 음원을 재생에 적는다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다). 파일로 틀면 그 파일을 지킨다
+// 연 소리의 음원을 재생에 적는다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다). 파일로 틀면 그 파일을 지킨다.
+// 키를 모르면 보호는 그대로 둔다(키 없이 걸면 그 서버의 보호가 풀린다)
 function settleAudio(guildId: string, pb: CurrentPlayback, source: Parameters<typeof playingKey>[0]) {
-  pb.audioKey = playingKey(source, pb.cacheFile);
-  if (pb.cacheFile) audioCache.protect(guildId, pb.audioKey);
+  pb.audioKey = playingKey(source, pb.cacheFile, pb.track);
+  if (pb.cacheFile && pb.audioKey) audioCache.protect(guildId, pb.audioKey);
 }
 
 // 끝 처리가 다음 곡을 고를 까닭. 다시 여는 동안 받은 이전 곡, 넘기기가 있으면 그것이다(이전 곡이면 대기열을 이미 되감아 다 튼 곡으로 기록하지 않는다)
@@ -574,7 +575,7 @@ class Player {
     const source = await resolveSource(this, track, startMs, previous);
     const { streamInfo, cacheFile } = source;
     // 트는 음원은 소리를 열기 전에 정해 둔다(여는 중에 스트림이 끊기면 캐시 전환이 본다). 캐시 폴백이 다른 파일을 받으면 연 뒤에 고친다
-    pb.audioKey = playingKey(source, cacheFile);
+    pb.audioKey = playingKey(source, cacheFile, track);
     pb.isLive = source.isLive;
     const transport = (pb.transport = transportOf({ file: cacheFile, streamUrl: streamInfo?.url, streamInfo }));
     pb.live = transport.live; // 끝 처리가 재연결 여부를 이걸로 구분한다

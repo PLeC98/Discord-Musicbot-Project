@@ -1069,6 +1069,40 @@ test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝�
   assert.equal(h.audioRow("yt:pl1xxxxxxxx")?.play_count ?? 0, 0);
 });
 
+test("재생이 트는 음원: 캐시 폴백이 막 받은 파일(캐시 행을 적기 전)을 열어도 재생의 키는 그 곡의 음원이고 보호를 풀지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pv1vvvvvvvv");
+  behavior.stream = () => ({ url: "https://media.test/v", duration: 100 });
+  behavior.fetch = () => {
+    h.writeCacheFile("yt:pv1vvvvvvvv"); // 다운로드가 파일을 옮겼고 아직 cached 로 적지 않았다
+    throw new Error("끊김");
+  };
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    assert.equal(p.playback?.audioKey, "yt:pv1vvvvvvvv");
+    assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:pv1vvvvvvvv");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("직전 주소: 세그먼트 목록 서술자(끝난 지 얼마 안 된 긴 방송)도 위치 이동에서 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pw1wwwwwwww", { duration: 3600 });
+  let asked = 0;
+  const base = `https://rr1.googlevideo.com/videoplayback?id=w&expire=${expire}`;
+  behavior.stream = () => (asked++, { url: base, duration: 3600, fragments: { base, count: 1800 } });
+  try {
+    await p.play(0);
+    await p.play(600_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.fragments.length, 2, "세그먼트로 두 번 열었다");
+  assert.equal(asked, 1);
+});
+
 test("재생이 트는 음원: SponsorBlock 구간은 트는 음원의 것이다(물은 영상과 트는 음원이 다르면 다시 묻는다)", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("pu1xxxxxxxx");
