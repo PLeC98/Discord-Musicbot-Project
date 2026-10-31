@@ -94,11 +94,11 @@ async function fromSpotify(query: string, range: Range, spotify: Sources["spotif
 // 사운드클라우드 링크(곡, 세트, 짧은 링크). 세트는 한 구간만(출처가 10곡으로 자른다), 받을 수 없는 곡은 빼고 센다.
 // 비밀 공유 세트는 숫자 id 만으로 다시 부를 수 없어 이어 불러오기를 권하지 않는다
 async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["soundcloud"]): Promise<Found> {
-  const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloudURL(query) === "set" ? "set" : "track" });
+  const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloud(query)?.kind === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
   if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외합니다(미리듣기, 지역 제한 등): ${found.title ?? query}`);
-  const secret = /\/s-[\w-]+\/?$/.test(new URL(query).pathname);
+  const secret = links.parseSoundCloud(query)?.secret ?? false;
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
 
@@ -115,7 +115,7 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
   const platform = detectPlatform(query);
   if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필, 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
-  if (platform === "soundcloud" && links.parseSoundCloudURL(query) === "other") return { success: false, code: "sc-unsupported" };
+  if (platform === "soundcloud" && links.parseSoundCloud(query)?.kind === "other") return { success: false, code: "sc-unsupported" };
   try {
     const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
     // 불러온 구간에 틀 수 있는 곡이 하나도 없는 세트는 nothing-playable 과 뺀 곡 수를 알린다
@@ -149,7 +149,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
     return r ? { tracks: r.tracks, total: r.total ?? null, nextOffset: r.nextOffset ?? null } : none;
   }
   if (links.isSpotifyURL(url)) return spotify.getCollection(url, range);
-  if (links.parseSoundCloudURL(url) === "set") {
+  if (links.parseSoundCloud(url)?.kind === "set") {
     const found = await soundcloud.find(url, { ...range, what: "set" });
     return found.kind === "set" ? { tracks: found.tracks, total: found.total, nextOffset: found.nextOffset, skipped: found.skipped } : none;
   }
@@ -164,7 +164,7 @@ async function getCollection(url: string, range?: Range, sources: Partial<Source
  * 그 엉뚱한 영상을 그대로 돌려주기 때문이다. 같은 이유로 직접 링크는 음원이 요청 그대로인 행만 쓴다.
  */
 async function resolveQuery(query: string, context?: string | null, range: Range = {}, sources: Partial<Sources> = {}): Promise<LookupResult> {
-  const soundcloud = links.parseSoundCloudURL(query);
+  const soundcloud = links.parseSoundCloud(query)?.kind ?? null;
   const skipCache = links.isYouTubePlaylist(query) || isUnsupportedLink(query) || (soundcloud !== null && soundcloud !== "track");
   // 운영자가 직접 지정한 음원이 링크 데이터, 원래 링크보다 앞선다. 원래 영상이 죽었어도 곡을 만든다.
   // 같은 skipCache 를 따른다(canonicalUrl 이 watch?v=X&list=Y 를 영상 하나로 줄여 재생목록이 지정 하나로 바뀌지 않게)

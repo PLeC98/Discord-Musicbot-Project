@@ -6,7 +6,7 @@ import type { Code } from "./problems.ts";
 import { audioKeyOf } from "./audio-key-of.ts";
 import { canonicalUrl } from "./canonical-url.ts";
 import { inputKind, type InputKind } from "./input-kind.ts";
-import { extractVideoId, isYouTubePlaylist, parseSoundCloudURL, parseSpotifyURL, youtubeWatchUrl } from "./links.ts";
+import { extractVideoId, isYouTubePlaylist, parseSoundCloud, parseSpotifyURL, youtubeWatchUrl } from "./links.ts";
 
 type Refused = { ok: false; code: Code };
 type PinAudio = { ok: true; canonical: string; kind: InputKind; audioKey: string } | Refused;
@@ -16,7 +16,7 @@ const refused = (code: Code): Refused => ({ ok: false, code });
 
 // 사운드클라우드는 곡 하나만. 짧은 링크는 풀어야 곡인지 알고 키도 달라진다
 function soundCloudTrack(url: string): Code | null {
-  const shape = parseSoundCloudURL(url);
+  const shape = parseSoundCloud(url)?.kind;
   if (shape === "track") return null;
   return shape === "short" ? "sc-unsupported" : "not-single-track";
 }

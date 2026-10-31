@@ -54,11 +54,10 @@ const USER_ID = /^\d{17,20}$/;
 
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
-  const soundcloud = links.parseSoundCloudURL(query);
-  if (soundcloud === "set" || soundcloud === "short") {
+  const soundcloud = links.parseSoundCloud(query);
+  if (soundcloud?.kind === "set" || soundcloud?.kind === "short") {
     if (collectionId && NUMERIC_ID.test(collectionId)) return { kind: "scs", listId: collectionId };
-    const mix = /^\/discover\/sets\/([\w:-]+)\/?$/.exec(new URL(query).pathname);
-    return mix ? { kind: "scd", listId: mix[1].replaceAll(":", "~") } : null;
+    return soundcloud.mix ? { kind: "scd", listId: soundcloud.mix.replaceAll(":", "~") } : null;
   }
   if (links.isYouTubePlaylist(query)) {
     const listId = links.extractPlaylistId(query);
@@ -112,7 +111,7 @@ function roomFor(player: Pick<Player, "queue" | "currentTrack">) {
 
 /** 이 링크의 한 번에 넣는 곡 수. 서버 설정(batch)을 출처의 상한으로 자른다(사운드클라우드 세트는 10곡) */
 function batchFor(query: string | null | undefined, batch: number) {
-  const soundcloud = query ? links.parseSoundCloudURL(query) : null;
+  const soundcloud = query ? links.parseSoundCloud(query)?.kind : null;
   return soundcloud === "set" || soundcloud === "short" ? Math.min(batch, SOUNDCLOUD_BATCH) : batch;
 }
 

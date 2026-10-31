@@ -111,42 +111,65 @@ function parseSpotifyURL(url: unknown): { type: string | null; id: string | null
 
 // ── 사운드클라우드 ──
 
-function isSoundCloudURL(url: unknown): boolean {
-  const patterns = [
-    /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/[\w-]+/,
-    /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+\/sets\/[\w-]+/,
-    /^https?:\/\/(www\.|m\.)?soundcloud\.com\/[\w-]+$/,
-    // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 리다이렉트를 따라간다
-    /^https?:\/\/on\.soundcloud\.com\/[\w-]+/,
-    // 곡, 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
-    /^https?:\/\/api(-v2)?\.soundcloud\.com\/(tracks|playlists)\/\d+/,
-  ];
-  return patterns.some((pattern) => pattern.test(String(url)));
-}
+const SOUNDCLOUD_HOSTS = {
+  "soundcloud.com": "soundcloud.com",
+  "www.soundcloud.com": "soundcloud.com",
+  "m.soundcloud.com": "soundcloud.com",
+  // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 리다이렉트를 따라간다
+  "on.soundcloud.com": "on.soundcloud.com",
+  // 곡, 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
+  "api.soundcloud.com": "api.soundcloud.com",
+  "api-v2.soundcloud.com": "api-v2.soundcloud.com",
+};
 
 // 사용자 이름 뒤에 와도 곡이 아닌 경로(프로필의 탭들)
 const SOUNDCLOUD_TABS = new Set(["sets", "likes", "tracks", "reposts", "albums", "popular-tracks", "followers", "following", "comments", "spotlight", "playlists", "toptracks"]);
 
-/**
- * 사운드클라우드 주소가 무엇을 가리키나.
- *   track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api 의 tracks/<id>)
- *   set    세트, 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
- *   short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp 가 풀어야 안다)
- *   other  사용자 프로필, 좋아요, 재게시 같은 모음. 받지 않는다
- * 사운드클라우드 주소가 아니면 null
- */
-function parseSoundCloudURL(value: unknown): "track" | "set" | "short" | "other" | null {
-  if (!isSoundCloudURL(value)) return null;
-  const url = new URL(String(value));
-  const host = url.hostname.toLowerCase().replace(/^(www|m)\./, "");
-  const parts = url.pathname.split("/").filter(Boolean);
-  if (host === "on.soundcloud.com") return "short";
-  if (host !== "soundcloud.com") return parts[0] === "tracks" ? "track" : "set";
-  const secret = (part: string | undefined) => part === undefined || /^s-[\w-]+$/.test(part);
-  if (parts[1] === "sets" && parts.length >= 3 && parts.length <= 4 && secret(parts[3])) return "set";
-  if (parts.length >= 2 && parts.length <= 3 && !SOUNDCLOUD_TABS.has(parts[1]) && secret(parts[2])) return "track";
-  return "other";
+type SoundCloudLink = { kind: "track" | "set" | "short" | "other"; url: string; secret: boolean; mix: string | null };
+
+const secretOrNone = (part: string | undefined) => part === undefined || /^s-[\w-]+$/.test(part);
+const mixOf = (parts: string[]) => (parts[0] === "discover" && parts.length === 3 && /^[\w:-]+$/.test(parts[2]) ? parts[2] : null);
+
+// soundcloud.com 의 경로. 첫 칸(사용자 이름)은 통째로, 둘째 칸은 첫 글자만 본다(soundcloud.com/사용자/곡.mp3 도 사운드클라우드다). 안쪽의 빈 칸은 받지 않는다
+function soundCloudPage(parts: string[]): Omit<SoundCloudLink, "url"> | null {
+  if (parts.includes("") || !/^[\w-]+$/.test(parts[0] ?? "") || (parts.length >= 2 && !/^[\w-]/.test(parts[1]))) return null;
+  if (parts[1] === "sets" && parts.length >= 3 && parts.length <= 4 && secretOrNone(parts[3])) return { kind: "set", secret: parts[3] !== undefined, mix: mixOf(parts) };
+  if (parts.length >= 2 && parts.length <= 3 && !SOUNDCLOUD_TABS.has(parts[1]) && secretOrNone(parts[2])) return { kind: "track", secret: parts[2] !== undefined, mix: null };
+  return { kind: "other", secret: false, mix: null };
 }
+
+// 짧은 링크와 숫자 id 주소. id 칸은 통째로 본다
+function soundCloudShortcut(site: string, parts: string[]): SoundCloudLink["kind"] | null {
+  if (site === "on.soundcloud.com") return /^[\w-]+$/.test(parts[0] ?? "") ? "short" : null;
+  if (!/^\d+$/.test(parts[1] ?? "")) return null;
+  if (parts[0] === "tracks") return "track";
+  return parts[0] === "playlists" ? "set" : null;
+}
+
+/**
+ * 사운드클라우드 주소가 무엇을 가리키나. 사운드클라우드 주소가 아니면 null.
+ *   kind    track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api 의 tracks/<id>)
+ *           set    세트, 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
+ *           short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp 가 풀어야 안다)
+ *           other  사용자 프로필, 좋아요, 재게시 같은 모음. 받지 않는다
+ *   url     정본 호스트와 경로만 남긴 주소(쿼리를 버린다)
+ *   secret  비밀 공유 주소인가(s-…)
+ *   mix     discover 믹스(/discover/sets/<id>)의 id
+ */
+function parseSoundCloud(value: unknown): SoundCloudLink | null {
+  const link = readSiteUrl(value, SOUNDCLOUD_HOSTS);
+  if (!link) return null;
+  const { site, parts } = link;
+  const url = `https://${site}/${parts.join("/")}`;
+  if (site !== "soundcloud.com") {
+    const kind = soundCloudShortcut(site, parts);
+    return kind && { kind, url, secret: false, mix: null };
+  }
+  const page = soundCloudPage(parts);
+  return page && { ...page, url };
+}
+
+const isSoundCloudURL = (value: unknown): boolean => parseSoundCloud(value) !== null;
 
 // ── 알려진 사이트 ──
 
@@ -177,4 +200,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloudURL, isKnownSiteHost };
+export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotifyURL, isSoundCloudURL, parseSoundCloud, isKnownSiteHost };

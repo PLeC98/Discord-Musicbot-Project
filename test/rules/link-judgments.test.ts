@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audio-key-of.ts";
-import { parseSoundCloudURL } from "../../src/rules/links.ts";
+import { parseSoundCloud } from "../../src/rules/links.ts";
 test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s) 는 직접 링크", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
@@ -96,6 +96,21 @@ test("사운드클라우드 주소가 가리키는 것: 곡, 세트, 짧은 링�
     ["https://soundcloud.com/artist/tracks", "other"],
     ["https://soundcloud.com/artist/track/extra/more", "other"],
     ["https://www.youtube.com/watch?v=abcdefghijk", null],
+    // 짧은 링크와 숫자 id 주소의 id 칸은 통째로 본다
+    ["https://on.soundcloud.com/AbC.d", null],
+    ["https://api.soundcloud.com/tracks/368141150abc", null],
+    ["https://api.soundcloud.com/users/368141150", null],
   ];
-  for (const [input, want] of cases) assert.equal(parseSoundCloudURL(input), want, String(input));
+  for (const [input, want] of cases) assert.equal(parseSoundCloud(input)?.kind ?? null, want, String(input));
+});
+
+test("사운드클라우드 주소의 비밀 공유, discover 믹스, 다듬은 주소", () => {
+  const pick = (url: string) => {
+    const link = parseSoundCloud(url);
+    return link && { url: link.url, secret: link.secret, mix: link.mix };
+  };
+  assert.deepEqual(pick("https://soundcloud.com/artist/sets/list/s-XyZ9/?si=a"), { url: "https://soundcloud.com/artist/sets/list/s-XyZ9", secret: true, mix: null });
+  assert.deepEqual(pick("https://m.soundcloud.com/artist/track/s-AbC123"), { url: "https://soundcloud.com/artist/track/s-AbC123", secret: true, mix: null });
+  assert.deepEqual(pick("https://soundcloud.com/discover/sets/weekly::artist:123/"), { url: "https://soundcloud.com/discover/sets/weekly::artist:123", secret: false, mix: "weekly::artist:123" });
+  assert.deepEqual(pick("https://soundcloud.com./artist/track"), { url: "https://soundcloud.com/artist/track", secret: false, mix: null });
 });

@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
-import { extractVideoId, extractPlaylistId, isYouTubePlaylist, parseSpotifyURL, parseSoundCloudURL } from "../../src/rules/links.ts";
+import { extractVideoId, extractPlaylistId, isYouTubePlaylist, parseSpotifyURL, parseSoundCloud } from "../../src/rules/links.ts";
 
 type Answer = { kind: string; video?: string | null; list?: string | null; playlist?: boolean; spotify?: { type: string | null; id: string | null }; sc?: string | null; key: string | null; canonical: string };
 
@@ -17,7 +17,7 @@ function answerOf(input: string): Answer {
   const answer: Answer = { kind, key: null, canonical: "" };
   if (kind === "youtube") Object.assign(answer, { video: extractVideoId(input), list: extractPlaylistId(input), playlist: isYouTubePlaylist(input) });
   if (kind === "spotify") answer.spotify = parseSpotifyURL(input);
-  if (kind === "soundcloud") answer.sc = parseSoundCloudURL(input);
+  if (kind === "soundcloud") answer.sc = parseSoundCloud(input)?.kind ?? null;
   answer.key = audioKeyOf(input);
   answer.canonical = canonicalUrl(input);
   return answer;
@@ -25,7 +25,7 @@ function answerOf(input: string): Answer {
 
 const CASES: Array<[string, Answer]> = [
   ["\u00a0https://youtu.be/abcdefghijk", { kind: "youtube", video: "abcdefghijk", list: null, playlist: false, key: "yt:abcdefghijk", canonical: "https://www.youtube.com/watch?v=abcdefghijk" }],
-  ["\u3000https://soundcloud.com/artist/track", { kind: "unknown", key: null, canonical: "\u3000https://soundcloud.com/artist/track" }],
+  ["\u3000https://soundcloud.com/artist/track", { kind: "soundcloud", sc: "track", key: "sc:artist/track", canonical: "https://soundcloud.com/artist/track" }],
   ["\ufeffhttps://open.spotify.com/track/abc123", { kind: "unknown", key: null, canonical: "\ufeffhttps://open.spotify.com/track/abc123" }],
   ["https://youtu.be/abcdefghijk\u200b", { kind: "unknown", key: null, canonical: "https://youtu.be/abcdefghijk\u200b" }],
   ["https://www.youtube.com/watch?v=abcdefghijk\nhttps://youtu.be/x", { kind: "unknown", key: null, canonical: "https://www.youtube.com/watch?v=abcdefghijk\nhttps://youtu.be/x" }],
@@ -63,16 +63,16 @@ const CASES: Array<[string, Answer]> = [
   ["ftp://open.spotify.com/track/abc", { kind: "unknown", key: null, canonical: "ftp://open.spotify.com/track/abc" }],
   ["https://u:p@open.spotify.com/track/abc", { kind: "unknown", key: null, canonical: "https://u:p@open.spotify.com/track/abc" }],
   ["https://open.spotify.com:8443/track/abc", { kind: "unknown", key: null, canonical: "https://open.spotify.com:8443/track/abc" }],
-  ["https://soundcloud.com./artist/track", { kind: "unknown", key: null, canonical: "https://soundcloud.com./artist/track" }],
-  ["https://on.soundcloud.com./AbCd", { kind: "unknown", key: null, canonical: "https://on.soundcloud.com./AbCd" }],
+  ["https://soundcloud.com./artist/track", { kind: "soundcloud", sc: "track", key: "sc:artist/track", canonical: "https://soundcloud.com/artist/track" }],
+  ["https://on.soundcloud.com./AbCd", { kind: "soundcloud", sc: "short", key: "sc:on.soundcloud.com/AbCd", canonical: "https://on.soundcloud.com/AbCd" }],
   ["https://soundcloud.com/a.b/track", { kind: "unknown", key: null, canonical: "https://soundcloud.com/a.b/track" }],
   ["https://soundcloud.com/artist//track", { kind: "unknown", key: null, canonical: "https://soundcloud.com/artist//track" }],
-  ["https://soundcloud.com/artist/", { kind: "unknown", key: null, canonical: "https://soundcloud.com/artist/" }],
-  ["https://soundcloud.com/artist?utm_source=x", { kind: "unknown", key: null, canonical: "https://soundcloud.com/artist?utm_source=x" }],
-  ["https://soundcloud.com/search?q=x", { kind: "unknown", key: null, canonical: "https://soundcloud.com/search?q=x" }],
+  ["https://soundcloud.com/artist/", { kind: "soundcloud", sc: "other", key: "sc:artist", canonical: "https://soundcloud.com/artist" }],
+  ["https://soundcloud.com/artist?utm_source=x", { kind: "soundcloud", sc: "other", key: "sc:artist", canonical: "https://soundcloud.com/artist" }],
+  ["https://soundcloud.com/search?q=x", { kind: "soundcloud", sc: "other", key: "sc:search", canonical: "https://soundcloud.com/search" }],
   ["https://soundcloud.com/search/sounds?q=x", { kind: "soundcloud", sc: "track", key: "sc:search/sounds", canonical: "https://soundcloud.com/search/sounds" }],
-  ["https://SOUNDCLOUD.COM/artist/track", { kind: "unknown", key: null, canonical: "https://SOUNDCLOUD.COM/artist/track" }],
-  ["HTTPS://soundcloud.com/artist/track", { kind: "unknown", key: null, canonical: "HTTPS://soundcloud.com/artist/track" }],
+  ["https://SOUNDCLOUD.COM/artist/track", { kind: "soundcloud", sc: "track", key: "sc:artist/track", canonical: "https://soundcloud.com/artist/track" }],
+  ["HTTPS://soundcloud.com/artist/track", { kind: "soundcloud", sc: "track", key: "sc:artist/track", canonical: "https://soundcloud.com/artist/track" }],
   ["https://soundcloud.com/artist/track/s-AbC123", { kind: "soundcloud", sc: "track", key: "sc:artist/track/s-AbC123", canonical: "https://soundcloud.com/artist/track/s-AbC123" }],
   ["https://soundcloud.com/artist/sets/list/s-XyZ9", { kind: "soundcloud", sc: "set", key: "sc:artist/sets/list/s-XyZ9", canonical: "https://soundcloud.com/artist/sets/list/s-XyZ9" }],
   ["https://soundcloud.com/artist/track.mp3", { kind: "soundcloud", sc: "track", key: "sc:artist/track.mp3", canonical: "https://soundcloud.com/artist/track.mp3" }],
