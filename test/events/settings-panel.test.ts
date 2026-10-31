@@ -91,26 +91,29 @@ const run = async (ix: ReturnType<typeof fakeInteraction>) => {
 };
 const render = async () => ({ components: [await panel(guild)] });
 
-test("한 화면에 세 부분. 컴포넌트 40 · 글자 4000 한도 안", async () => {
+test("한 화면에 네 부분. 컴포넌트 40 · 글자 4000 한도 안", async () => {
   const shown = await render();
   const text = textOf(shown);
   assert.match(text, /### .*서버 설정/);
   assert.match(text, /DJ 역할이 없어 \*\*모두\*\*/);
   assert.match(text, /SponsorBlock 자동 건너뛰기\*\*\n현재 설정: \*\*켬\*\*/);
   assert.match(text, /연령 제한 콘텐츠/);
+  assert.match(text, /\*\*24\/7\*\*\n꺼져 있어요/);
   assert.deepEqual(
     buttonsOf(shown).map((b) => b.custom_id),
-    ["setting:sb-toggle", "setting:age-channel", "setting:age-all", "setting:close"],
+    ["setting:sb-toggle", "setting:age-channel", "setting:age-all", "setting:stay-on", "setting:close"],
   );
   assert.ok(countOf(shown) <= 40, `컴포넌트 ${countOf(shown)}`);
   assert.ok([...text].length <= 4000);
 });
 
-test("봇 전체에서 SponsorBlock · 연령 제한 콘텐츠를 껐으면 그 부분이 없다", async () => {
+test("봇 전체에서 SponsorBlock · 연령 제한 콘텐츠 · 24/7 을 껐으면 그 부분이 없다", async () => {
   config.sponsorblock.enabled = false;
+  config.bot.stayEnabled = false;
   documents._use("age-content", { enabled: false, changedAt: 2 });
   const shown = await render();
-  assert.doesNotMatch(textOf(shown), /SponsorBlock|연령 제한/);
+  config.bot.stayEnabled = true;
+  assert.doesNotMatch(textOf(shown), /SponsorBlock|연령 제한|24\/7/);
   assert.deepEqual(
     buttonsOf(shown).map((b) => b.custom_id),
     ["setting:close"],
