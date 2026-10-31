@@ -241,6 +241,7 @@ class Player {
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
+  _endWhileStarting: { reason: string; gen: number } | null = null; // 여는 중(소리가 아직 없다)에 온 끝 요청. 연 뒤에 건다(_stopWith)
   _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡 · 반복 · 자동재생으로 잇지 않는다
   /** 무음을 흘려보내며 멈추는 중(Idle 전). 상한이 지나면 바로 멈춘다 */
   _silentStop: NodeJS.Timeout | null = null;
@@ -491,6 +492,7 @@ class Player {
       if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
       this.lifecycle.to("playing");
       this._tellSkipped();
+      this._takeEndWhileStarting(gen);
       return { ok: true, track: this.currentTrack };
     } catch (error) {
       return await this._playFailed(error, liveReopen, pb, { at: seekMs, continued });
@@ -503,9 +505,20 @@ class Player {
 
   // 틀지 못하고 나왔다. 캐시 파일을 찾으며 건 보호를 풀고 쉬는 단계로. 그사이 다른 play() 가 시작했으면(세대가 다르다) 그쪽의 단계 · 보호라 건드리지 않는다
   _closeStart(gen: number) {
+    // 열지 못했으면 여는 중에 온 끝 요청은 버린다. 실패 처리가 이미 넘기거나 멈춰 뒀다(두 번 넘기지 않게). 연 경우는 이미 걸었다
+    if (this._endWhileStarting?.gen === gen) this._endWhileStarting = null;
     if (!this.lifecycle.starting || gen !== this._playGen) return;
     this.releaseAudioProtection();
     this.lifecycle.to("idle", "시작 못 함");
+  }
+
+  // 연 곡에 여는 중에 온 끝 요청이 있었으면 이제 건다. 다른 재생이 그사이 시작했으면 그쪽 것이 아니다
+  _takeEndWhileStarting(gen: number) {
+    const pending = this._endWhileStarting;
+    this._endWhileStarting = null;
+    if (!pending || pending.gen !== gen || this.lifecycle.disposed) return;
+    log.debug(`여는 중에 받은 정지 요청을 연 뒤에 처리합니다(원인=${pending.reason}): ${this._trackLabel()}`);
+    this._stopWith(pending.reason);
   }
 
   // 소리를 어디서 받을지 정하고 연다. 끊긴 라이브를 다시 여는데 방송이 끝났으면 null(다시보기를 처음부터 틀지 않는다. 사용자가 추가한 것은 방송이다)
@@ -737,6 +750,11 @@ class Player {
     if (this.lifecycle.parked) {
       this._endReason = null;
       if (!this._endScheduled) this._scheduleEnd(reason);
+      return;
+    }
+    // 여는 중이고 소리가 아직 없다. 멈춰도 Idle 이 오지 않고 play() 가 끝 원인을 지운다. 연 뒤에 건다(먼저 온 것이 이긴다)
+    if (this.lifecycle.starting && this.audioPlayer.state.status === AudioPlayerStatus.Idle) {
+      this._endWhileStarting ??= { reason, gen: this._playGen };
       return;
     }
     if (this._endReason && this._endReason !== reason) log.debug(`이미 정지 처리 중(원인=${this._endReason})이므로 ${reason} 요청은 무시합니다: ${this._trackLabel()}`);

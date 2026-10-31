@@ -1910,3 +1910,28 @@ test("음성이 다시 붙으면 멈춰 있던 곡도 그 위치에서 다시 �
   assert.equal(p.pause.userPaused, true);
   assert.equal(p.getCurrentTime(), 30_000);
 });
+
+test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못하면 버린다(두 번 넘기지 않게)", async () => {
+  const p = h.makePlayer();
+  const next = cached("ps2aaaaaaaa");
+  p.currentTrack = cached("ps1aaaaaaaa");
+  p.queue = [next];
+  const opening = p.play(0);
+  assert.equal(p.lifecycle.starting, true);
+  assert.equal(p.skip(), true);
+  await opening;
+  await endNow(p);
+  assert.equal(p.currentTrack, next, "연 뒤에 넘겼다");
+
+  h.reset();
+  const failing = h.makePlayer();
+  networkDown();
+  failing.currentTrack = yt("pf1aaaaaaaa");
+  const failed = failing.play(0);
+  failing.skip();
+  await failed;
+  assert.equal(failing.lifecycle.parked, true, "열지 못해 멈춰 뒀다");
+  assert.equal(failing._endWhileStarting, null, "여는 중에 받은 넘기기는 버렸다");
+  h.dispose(failing);
+  h.dispose(p);
+});
