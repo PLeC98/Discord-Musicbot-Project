@@ -171,8 +171,6 @@ test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위�
     url: "https://rr1.googlevideo.com/videoplayback?x=1",
     title: "영상 ggggggggggg",
     duration: 200,
-    bitrate: 130,
-    format: "251 - audio only",
     httpHeaders: { "User-Agent": "UA" },
     isLive: false,
     liveStatus: null,

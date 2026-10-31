@@ -587,7 +587,7 @@ class Player {
       streamInfo,
       cacheFile,
       startMs,
-      meta: { title: track.title, url: track.pageUrl, duration: track.duration },
+      durationSec: track.duration,
       download: !cacheFile && transport.cacheable ? this._downloadAlongside(track, streamInfo) : null,
       // 오류는 곡이 바뀐 뒤, 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡, 위치로 갈아타지 않게 한다
       onStreamLost: (splicer) => this._planCacheSwitch(splicer, pb),

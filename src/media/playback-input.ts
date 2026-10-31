@@ -23,7 +23,6 @@ import type { StreamInfo } from "../sources/stream-url.ts";
 import { transportOf, type Transport } from "../rules/transport-of.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
-type ResourceMeta = { title: string | null; url: string; duration: number; bitrate: number };
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
 // startedAtMs: 곡 안의 어디부터 흘리나(세그먼트 스트림은 위치가 든 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
@@ -38,7 +37,7 @@ type OpenedStream = Readable & {
 };
 type InputIo<R> = {
   spawnFfmpeg(args: string[], label: string): FfmpegChild;
-  createAudioResource(input: Readable, options: { inputType: StreamType; metadata: ResourceMeta }): R;
+  createAudioResource(input: Readable, options: { inputType: StreamType }): R;
   openEncoder: OpenEncoder;
   // 인코딩 워커를 쓸 수 있는가(media/encode-pool). 못 쓰면 ffmpeg, 입력을 열기 전에 거절한다
   encoderAvailable(): boolean;
@@ -57,7 +56,8 @@ type InputOptions<R> = {
   streamInfo: StreamInfo | null;
   cacheFile: string | null;
   startMs: number;
-  meta: { title: string | null; url: string; duration: number };
+  /** 곡 길이(초). 서술자가 길이를 주지 않을 때 세그먼트, 청크 분기의 위치 계산이 쓴다 */
+  durationSec: number;
   download: Download | null;
   onStreamLost(splicer: Splicer): boolean;
   /** 처음 볼륨 배율(rules/volume-gain). 출력 스트림이 만들어지자마자 데이터가 흐르므로 처음부터 받는다 */
@@ -82,7 +82,6 @@ const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).t
  * @param o.streamInfo  스트림 서술자. 캐시 파일로 틀면 없을 수 있다
  * @param o.cacheFile  캐시 파일
  * @param o.startMs  곡 안의 시작 위치
- * @param o.meta  리소스에 붙일 곡 정보
  * @param o.download
  *   나란히 다운로드하는 캐시. 캐시 파일이 없고 캐시할 수 있을 때만 있다. 없으면 스트림만 튼다
  * @param o.onStreamLost  스트림이 끊기면 캐시로 갈아탈 예약. 예약했으면 true
@@ -103,12 +102,9 @@ async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
 }
 
 // 볼륨, 인코딩은 우리 출력이 하고 voice 에는 Opus 패킷을 넘긴다
-function resourceOf<R>(o: InputOptions<R>, input: Readable, duration: number): { resource: R; output: OpusOutput } {
+function resourceOf<R>(o: InputOptions<R>, input: Readable): { resource: R; output: OpusOutput } {
   const output = attachOpusOutput(input, { gain: o.gain, openEncoder: o.io.openEncoder });
-  const resource = o.io.createAudioResource(output, {
-    inputType: StreamType.Opus,
-    metadata: { title: o.meta.title, url: o.meta.url, duration, bitrate: o.streamInfo?.bitrate || 128 },
-  });
+  const resource = o.io.createAudioResource(output, { inputType: StreamType.Opus });
   return { resource, output };
 }
 
@@ -142,7 +138,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // ffmpeg 출력이 곧 "살아 있다"의 증거다.
   ffmpeg.stdout.on("data", () => o.onProgress());
 
-  return { ...resourceOf(o, ffmpeg.stdout, live ? 0 : streamInfo.duration || o.meta.duration), cacheFile: null, health };
+  return { ...resourceOf(o, ffmpeg.stdout), cacheFile: null, health };
 }
 
 // HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 흘린 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
@@ -171,7 +167,7 @@ function watchSegmentSkips<R>(o: InputOptions<R>, ffmpeg: FfmpegChild, health: I
 // 캐시 파일. 미리 다운로드했거나, 스트림이 열리지 않아 나란히 다운로드하던 것을 기다렸다
 function openFile<R>(o: InputOptions<R>): Opened<R> {
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ file: o.cacheFile, seekMs: o.startMs }), "playback");
-  return { ...resourceOf(o, ffmpeg.stdout, o.streamInfo?.duration || o.meta.duration), cacheFile: o.cacheFile, health: new InputHealth("파일").watch(ffmpeg) };
+  return { ...resourceOf(o, ffmpeg.stdout), cacheFile: o.cacheFile, health: new InputHealth("파일").watch(ffmpeg) };
 }
 
 // 스트림 파이프. 캐시를 나란히 다운로드하면서 기다리지 않고 바로 튼다. 이 분기에서는 네트워크를 Node가 담당하고
@@ -279,12 +275,12 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   const headers = streamInfo.httpHeaders || { "User-Agent": config.userAgents.browser };
 
   // 세그먼트 목록. 위치가 든 세그먼트부터 받는다
-  if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.meta.duration) * 1000, startMs: o.startMs, headers });
+  if (streamInfo.fragments) return o.io.openFragmentStream({ fragments: streamInfo.fragments, durationMs: (streamInfo.duration || o.durationSec) * 1000, startMs: o.startMs, headers });
 
   // 전체 길이를 알면 Range로 나눠 받는다. 순차 GET은 서버가 재생시간의 약 2배속으로 조인다.
   // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg 의 -ss 가 정한다).
   const totalBytes = contentLengthFromUrl(url);
-  if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.meta.duration) * 1000 }, hooks);
+  if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.durationSec) * 1000 }, hooks);
   const response = await o.io.fetch(url, { headers });
   if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
@@ -398,7 +394,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   // pipe 뒤에 붙인다. 먼저 붙이면 흐르기 시작한 데이터가 목적지 없이 버려진다
   audioStream.on("data", () => o.onProgress());
 
-  return { ...resourceOf(o, playSource, streamInfo.duration || o.meta.duration), cacheFile: null, health };
+  return { ...resourceOf(o, playSource), cacheFile: null, health };
 }
 
 export { openInput };

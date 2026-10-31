@@ -107,7 +107,7 @@ test("짧은 링크가 세트를 가리키면 세트로 읽는다", async () => 
 test("스트림: AAC(HLS)만 묻고, HLS 를 못 여는 ffmpeg 면 mp3 만 묻는다", async () => {
   respond = () => ({ json: { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", format_id: "hls_aac_160k", duration: 180.6, abr: 160, http_headers: { A: "b" } } });
   const s = await SoundCloud.getStream("https://soundcloud.com/artist/track");
-  assert.deepEqual(s, { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 181, bitrate: 160, platform: "soundcloud", httpHeaders: { A: "b" } });
+  assert.deepEqual(s, { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 181, platform: "soundcloud", httpHeaders: { A: "b" } });
   assert.equal(calls[0].flags.extractorArgs, "soundcloud:formats=hls_aac");
   await SoundCloud.getStream("https://soundcloud.com/artist/track", { canPlayHls: false });
   assert.equal(calls[1].flags.extractorArgs, "soundcloud:formats=http_mp3");

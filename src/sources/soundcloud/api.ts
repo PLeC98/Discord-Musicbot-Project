@@ -103,7 +103,6 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
     url: info.url,
     protocol: info.protocol || null,
     duration: Math.round(info.duration || 0),
-    bitrate: info.abr || info.tbr || 0,
     platform: "soundcloud",
     httpHeaders: info.http_headers || {},
   };

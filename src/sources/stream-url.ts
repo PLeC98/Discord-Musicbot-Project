@@ -13,7 +13,7 @@ import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 
-/** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
+/** 스트림 서술자. 재생 쪽이 읽는 필드만 둔다 */
 type StreamInfo = {
   url: string;
   protocol?: string | null;
@@ -23,7 +23,6 @@ type StreamInfo = {
   title?: string | null;
   duration?: number;
   liveStatus?: string | null;
-  bitrate?: number;
   isLive?: boolean;
   /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
   availableAt?: number | null;
@@ -33,7 +32,6 @@ type StreamInfo = {
   reused?: boolean;
   /** 이 서술자를 받은 음원 주소의 캐시 키(rules/audio-key-of). 곡의 음원 주소는 나중에 바뀔 수 있어 받은 때의 것을 싣는다 */
   audioKey?: string | null;
-  [field: string]: unknown;
 };
 // 여는 쪽, 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };

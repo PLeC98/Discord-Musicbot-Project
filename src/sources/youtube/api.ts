@@ -215,8 +215,6 @@ async function getStream(url: string, { exec, fresh = false }: { exec?: RunYtDlp
     // (watch 페이지의 videoDetails.title이라 요청 언어와 무관하게 원제가 온다).
     title: titleOf(info),
     duration: info.duration || 0,
-    bitrate: info.abr || info.tbr || 0,
-    format: info.format,
     httpHeaders: info.http_headers || {},
     isLive: _detectLive(info),
     liveStatus: liveStatusOf(info),
