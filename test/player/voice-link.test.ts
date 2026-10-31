@@ -823,18 +823,19 @@ test("서버 헤드셋 끄기: 음성 밖이라 못 걸면(40032) 조용히, 다
   }
 });
 
-test("서버 헤드셋 끄기: 같은 채널에서 사람이 풀면 그 서버는 다시 걸지 않는다(다른 서버는 건다)", async () => {
+test("서버 헤드셋 끄기: 같은 채널에서 사람이 풀면 그 연결 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다", async () => {
   const { link, me, player } = await ready();
   player.guild.id = "g-undeafened";
   link.onBotState(state("vc1", { serverDeaf: true }), state("vc1", { serverDeaf: false }));
   const deafs = deafenable(me);
   link._settled();
   await sleep(0);
-  assert.deepEqual(deafs, [], "모더레이터의 뜻을 따른다");
+  assert.deepEqual(deafs, [], "모더레이터의 뜻을 따른다(복구 · 옮겨짐도 _settled 를 거친다)");
 
-  const other = setup();
-  const otherDeafs = deafenable(other.me);
-  await other.link.connect();
+  const again = setup();
+  again.player.guild.id = "g-undeafened";
+  const againDeafs = deafenable(again.me);
+  await again.link.connect();
   await sleep(0);
-  assert.equal(otherDeafs.length, 1);
+  assert.equal(againDeafs.length, 1, "새 연결은 다시 건다");
 });

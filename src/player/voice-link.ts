@@ -50,8 +50,6 @@ const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "re
 // 멤버에 남아(채널을 옮기거나 다시 들어와도) 대개 서버마다 한 번 걸린다. 음성 밖에서는 걸 수 없다(40032)
 const DEAFEN_REASON = "쓰지 않는 음성 수신을 끊어 트래픽 절약"; // 감사 로그에 남는 사유
 const NOT_IN_VOICE = 40032;
-// 사람이 풀어 준 서버. 다투지 않게 다시 시작할 때까지 걸지 않는다
-const undeafenedByPeople = new Set<string>();
 
 class VoiceLink {
   player: VoiceHost;
@@ -69,6 +67,8 @@ class VoiceLink {
   closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0;
   maxRecoveryAttempts = 5;
+  /** 사람이 서버 헤드셋 끄기를 풀었다. 다투지 않게 이 연결(복구 · 옮겨짐 포함) 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다 */
+  undeafened = false;
   // 기다리는 시간. 테스트가 줄인다
   waitStartMs = 5000; // 끊긴 뒤 라이브러리가 재연결을 시작하기까지(Signalling · Connecting)
   waitReadyMs = 20_000; // 재연결을 시작한 뒤 Ready 까지
@@ -499,10 +499,9 @@ class VoiceLink {
 
   // 권한이 있고 봇이 플레이어의 채널에 붙어 있으며 아직 걸리지 않았을 때만
   _deafen() {
-    const guildId = this.player.guild.id;
     const me = this.player.guild.members.me;
     const voice = me?.voice;
-    if (undeafenedByPeople.has(guildId) || !me || !voice?.channel) return;
+    if (this.undeafened || !me || !voice?.channel) return;
     if (voice.serverDeaf !== false || voice.channelId !== this.player.voiceChannel?.id || typeof voice.setDeaf !== "function") return;
     if (!voice.channel.permissionsFor?.(me)?.has(PermissionFlagsBits.DeafenMembers)) return;
     voice.setDeaf(true, DEAFEN_REASON).then(
@@ -516,9 +515,9 @@ class VoiceLink {
   // 같은 채널에서 서버 헤드셋 끄기가 풀렸다. 봇은 풀지 않으므로 사람이 푼 것이다
   _undeafened(oldState: Partial<Pick<VoiceState, "channelId" | "serverDeaf">>, newState: Partial<Pick<VoiceState, "channelId" | "serverDeaf">>) {
     if (!oldState.channelId || oldState.channelId !== newState.channelId || oldState.serverDeaf !== true || newState.serverDeaf !== false) return;
-    if (undeafenedByPeople.has(this.player.guild.id)) return;
-    undeafenedByPeople.add(this.player.guild.id);
-    log.info(`서버 헤드셋 끄기가 해제되어 봇 재시작 전까지 다시 걸지 않습니다: ${this._label()}`);
+    if (this.undeafened) return;
+    this.undeafened = true;
+    log.info(`서버 헤드셋 끄기 수동 해제(이번 참가 중 다시 적용 안 함): ${this._label()}`);
   }
 
   _enterStage(channel: VoiceBasedChannel) {
