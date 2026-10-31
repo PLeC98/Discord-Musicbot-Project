@@ -100,7 +100,7 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
 async function searchTrack(item: YtInfo) {
   const url = item.webpage_url || item.url || (item.id ? links.youtubeWatchUrl(String(item.id)) : null);
   if (!url) return null; // 비디오 항목이면 늘 있다(_isVideoEntry)
-  const track = { ...trackOf(item, url, item.uploader || item.channel), views: item.view_count, uploadDate: item.upload_date, description: item.description };
+  const track = trackOf(item, url, item.uploader || item.channel);
   if (track.duration) return track;
   const detailed = await getInfo(url);
   if (detailed?.duration) track.duration = detailed.duration;
@@ -177,7 +177,7 @@ async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
     throw new Error("yt-dlp 가 정보를 주지 않았습니다");
   }
 
-  return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), views: info.view_count, uploadDate: info.upload_date, description: info.description, formats: info.formats };
+  return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), formats: info.formats };
 }
 
 // 캐시된 영상 정보가 있으면 그것(known), 없으면 추출해 캐시한다. fresh 면 캐시된 것을 버리고(남기면 다음 열기가 같은 막힌 정보를 다시 꺼낸다) 새로 추출한 것도 캐시하지 않는다

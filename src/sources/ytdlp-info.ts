@@ -35,14 +35,8 @@ const SHAPE = {
   uploader: str,
   uploader_id: str,
   channel: str,
-  channel_id: z.union([str, num]),
-  artist: str,
-  description: str,
-  upload_date: str,
   thumbnail: str,
   thumbnails: z.array(z.object({ url: str.optional() }).loose()),
-  view_count: num,
-  like_count: num,
   duration: num,
   modified_timestamp: num,
   // 라이브
@@ -50,11 +44,8 @@ const SHAPE = {
   live_status: str,
   // 스트림
   protocol: str,
-  format: str,
   format_id: str,
   acodec: str,
-  abr: num,
-  tbr: num,
   http_headers: z.record(str, str),
   available_at: num,
   // 세그먼트 목록으로만 주는 포맷(유튜브 post_live 의 http_dash_segments). 세그먼트마다 주소
@@ -63,8 +54,6 @@ const SHAPE = {
   // 여러 곡(항목은 부르는 쪽이 하나씩 다시 읽는다)
   entries: z.array(z.unknown()),
   playlist_count: num,
-  playlist_title: str,
-  playlist_uploader: str,
 };
 
 const Info = z.object(Object.fromEntries(Object.entries(SHAPE).map(([name, schema]) => [name, field(name, schema)])));
