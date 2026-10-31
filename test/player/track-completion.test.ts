@@ -91,30 +91,35 @@ function withLookup<T>(rows: Record<string, { duration_sec: number }>, fn: () =>
   }
 }
 
-const track = () => ({ duration: 314, audioUrl: "https://www.youtube.com/watch?v=x" });
-
 test("캐시 파일로 틀면 캐시에 기록된 오디오 길이를 쓴다", () => {
   withLookup({ "yt:x": { duration_sec: 312 } }, () => {
-    assert.equal(audioDurationSec(track(), null, "/cache/x.opus"), 312);
+    assert.equal(audioDurationSec("yt:x", null, "/cache/x.opus"), 312);
   });
 });
 
 test("캐시 파일로 틀 때는 스트림 정보보다 캐시 기록이 우선이다 (틀고 있는 게 그 파일이다)", () => {
   withLookup({ "yt:x": { duration_sec: 312 } }, () => {
-    assert.equal(audioDurationSec(track(), { duration: 999 }, "/cache/x.opus"), 312);
+    assert.equal(audioDurationSec("yt:x", { duration: 999, audioKey: "yt:x" }, "/cache/x.opus"), 312);
   });
 });
 
 test("스트림으로 틀면 스트림 정보의 길이를 쓴다", () => {
   withLookup({}, () => {
-    assert.equal(audioDurationSec(track(), { duration: 312 }, null), 312);
+    assert.equal(audioDurationSec("yt:x", { duration: 312, audioKey: "yt:x" }, null), 312);
   });
 });
 
 test("둘 다 모르면 null. 곡의 기존 길이를 건드리지 않는다", () => {
   withLookup({}, () => {
-    assert.equal(audioDurationSec(track(), null, "/cache/x.opus"), null);
-    const lengthless: StreamInfo = { url: "https://example.com/stream-url" };
-    assert.equal(audioDurationSec(track(), lengthless, null), null, "길이 없는 스트림 정보");
+    assert.equal(audioDurationSec("yt:x", null, "/cache/x.opus"), null);
+    const lengthless: StreamInfo = { url: "https://example.com/stream-url", audioKey: "yt:x" };
+    assert.equal(audioDurationSec("yt:x", lengthless, null), null, "길이 없는 스트림 정보");
+  });
+});
+
+test("트는 음원이 스트림과 다르면(캐시 폴백이 다른 음원의 파일로 끝남) 스트림의 길이를 쓰지 않는다", () => {
+  withLookup({}, () => {
+    assert.equal(audioDurationSec("yt:y", { duration: 999, audioKey: "yt:x" }, "/cache/y.opus"), null);
+    assert.equal(audioDurationSec("yt:x", { duration: 999, audioKey: "yt:x" }, "/cache/x.opus"), 999, "같은 음원의 파일이면 스트림의 길이를 쓴다");
   });
 });

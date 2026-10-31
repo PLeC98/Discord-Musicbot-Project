@@ -925,6 +925,80 @@ test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 열리�
   }
 });
 
+// ── 재생이 트는 음원 ── 곡의 음원 주소는 재생 중에도 바뀐다(나란히 하던 다운로드가 다시 찾는다). 재생 쪽 기록은 튼 음원을 따른다
+
+test("재생이 트는 음원: 여는 동안 곡의 음원이 바뀌어도 재생 횟수는 튼 음원에 센다", async () => {
+  const p = h.makePlayer();
+  const track = yt("pk1xxxxxxxx");
+  p.currentTrack = track;
+  audioCache.recordDownloadStart("yt:pk1yyyyyyyy", yt("pk1yyyyyyyy"));
+  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?id=x", duration: 100 });
+  behavior.fetch = () => {
+    track.audioUrl = tracks.watch("pk1yyyyyyyy"); // 나란히 하던 다운로드가 X 가 내려간 것을 알고 Y 로 다시 찾았다
+    return { ok: true, status: 200, body: new PassThrough() };
+  };
+  let key: string | null | undefined;
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    key = p.playback?.audioKey;
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(h.audioRow("yt:pk1xxxxxxxx")?.play_count, 1);
+  assert.equal(h.audioRow("yt:pk1yyyyyyyy")?.play_count, 0);
+  assert.equal(key, "yt:pk1xxxxxxxx");
+});
+
+test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝나면(다시 찾은 다운로드) 재생의 키, 길이, 재생 횟수는 그 파일의 것이다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pl1xxxxxxxx");
+  const yFile = h.seedCache("yt:pl1yyyyyyyy", yt("pl1yyyyyyyy"), { durationSec: 222 });
+  behavior.stream = () => ({ url: "https://media.test/x", duration: 100 });
+  // 같은 다운로드를 기다리던 다른 서버의 곡이 다시 찾아 다른 파일로 끝났다
+  behavior.download = () => new Promise((done) => setTimeout(() => done(yFile), 20));
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    assert.equal(p.playback?.cacheFile, yFile);
+    assert.equal(p.playback?.audioKey, "yt:pl1yyyyyyyy");
+    assert.equal(p.playback?.lengthMs, 222_000, "열리지 않은 X 스트림의 길이가 아니다");
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(h.audioRow("yt:pl1yyyyyyyy")?.play_count, 1);
+  assert.equal(h.audioRow("yt:pl1xxxxxxxx")?.play_count ?? 0, 0);
+});
+
+test("재생이 트는 음원: 트는 중에 곡이 다른 음원으로 다시 찾아져 그 다운로드가 끝나도 이 재생의 길이로 적지 않는다", async () => {
+  const p = h.makePlayer();
+  const x = "https://files.test/x.mp3";
+  const y = "https://files.test/y.mp3";
+  p.currentTrack = tracks.direct(x);
+  behavior.stream = () => ({ url: x, platform: "direct" });
+  behavior.directStream = () => Object.assign(new PassThrough(), { live: false, bounded: true, describe: () => "가짜" });
+  let finished!: () => void;
+  const done = new Promise<void>((resolve) => (finished = resolve));
+  // 재생을 연 뒤에 끝나는 다운로드. 그사이 곡은 다른 음원으로 다시 찾아졌다(지정한 음원이 사라졌다)
+  behavior.download = (t) =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        t.audioUrl = y;
+        resolve(h.seedCache(`dl:${md5(y)}`, tracks.direct(y), { durationSec: 333 }));
+        setImmediate(finished);
+      }, 20),
+    );
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    await done;
+    await tick();
+    assert.equal(p.playback?.lengthMs, null, "트는 것은 X 다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
 test("상주 자리의 정지는 곡만 비우고 직전 재생을 남긴다. 다음 곡은 앞 곡의 주소를 쓰지 않는다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const p = h.makePlayer();

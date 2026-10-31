@@ -210,6 +210,12 @@ function lookupByAudioKey(audioKey: string): AudioRow | null {
   return (conn().prepare("SELECT * FROM audio_cache WHERE audio_key = ?").get(audioKey) as AudioRow | undefined) || null;
 }
 
+/** 다운로드를 마친 캐시 파일의 오디오 키. 기다린 다운로드가 어느 음원으로 끝났는지 안다(다시 찾아 다른 파일로 끝났을 수 있다). 모르면 null */
+function keyOfFile(filePath: string): string | null {
+  const row = conn().prepare("SELECT audio_key FROM audio_cache WHERE status = 'cached' AND file_path = ?").get(filePath) as Pick<AudioRow, "audio_key"> | undefined;
+  return row?.audio_key ?? null;
+}
+
 /** 캐시 파일 기록 전부(캐시 DB 화면의 읽기) */
 function allRows(): AudioRow[] {
   return conn().prepare("SELECT * FROM audio_cache").all() as AudioRow[];
@@ -823,6 +829,7 @@ export {
   mergePlays,
   rankForEviction,
   lookupByAudioKey,
+  keyOfFile,
   allRows,
   recordDownloadStart,
   recordDownloadComplete,

@@ -54,7 +54,7 @@ import { PlaybackState } from "./playback-state.ts";
 import { CurrentPlayback } from "./current-playback.ts";
 import { leaveDeadPin } from "../sources/pinned-fallback.ts";
 import * as playerEvents from "./events.ts";
-import { prepareStart, resolveSource, commitPlaying } from "./start-playback.ts";
+import { prepareStart, resolveSource, commitPlaying, playingKey } from "./start-playback.ts";
 import { TrackDownloader, tooLongToCache } from "../media/cache-download.ts";
 import { createPlayerSessionId } from "./player-session-id.ts";
 import { SessionPersistence } from "./session-mirror.ts";
@@ -508,6 +508,7 @@ class Player {
       pb.resource = input.resource;
       pb.output = input.output ?? null;
       pb.cacheFile = input.cacheFile;
+      pb.audioKey = playingKey(source, input.cacheFile);
       pb.input = input.health;
       const stale = overtaken(this, gen);
       if (stale) {
@@ -680,12 +681,12 @@ class Player {
     if (changed || found.art) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
   }
 
-  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다 */
+  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
+   *  곡이 그사이 다른 음원으로 다시 찾아졌으면 받은 것은 그 음원의 길이라 적지 않는다(트는 음원의 행에 길이가 없다) */
   _learnLength(track: QueuedTrack) {
     const pb = this.playback;
-    const key = audioKeyOf(track.audioUrl);
-    if (!pb || pb.track !== track || pb.lengthMs || !key) return;
-    const sec = audioCache.lookupByAudioKey(key)?.duration_sec;
+    if (!pb || pb.track !== track || pb.lengthMs || !pb.audioKey) return;
+    const sec = audioCache.lookupByAudioKey(pb.audioKey)?.duration_sec;
     if (sec && sec > 0) pb.lengthMs = sec * 1000;
   }
 

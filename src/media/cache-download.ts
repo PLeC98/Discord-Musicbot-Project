@@ -488,7 +488,11 @@ class TrackDownloader {
    * 음원 주소가 아직 없으면(스포티파이가 영상을 찾기 전) 키도 없어 null 이다.
    */
   static findCacheFile(track: HasAudio): string | null {
-    const key = audioKeyOf(track?.audioUrl);
+    return TrackDownloader.cacheFileOf(audioKeyOf(track?.audioUrl));
+  }
+
+  /** 이 음원 키의 캐시 파일. 판정은 findCacheFile 과 같다 */
+  static cacheFileOf(key: string | null): string | null {
     if (!key) return null;
     const file = audioCache.getFilePath(key);
     try {

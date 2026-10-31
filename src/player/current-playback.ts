@@ -25,6 +25,7 @@ class CurrentPlayback {
   input: InputHealth | null;
   inputProgressAt: number | null;
   stream: StreamInfo | null;
+  audioKey: string | null;
   lengthMs: number | null;
 
   constructor(track: QueuedTrack, { startOffsetMs = 0 }: { startOffsetMs?: number } = {}) {
@@ -40,6 +41,7 @@ class CurrentPlayback {
     this.input = null; // 지금 소리를 내는 소스의 온전함. 캐시로 갈아타면 그쪽 것으로 바뀐다
     this.inputProgressAt = null; // 입력이 마지막으로 들어온 때. 버퍼링 감시가 본다
     this.stream = null; // 이 재생이 받은 스트림 서술자. 같은 곡을 다시 열 때 다시 쓴다(start-playback 의 commitPlaying 이 남긴다)
+    this.audioKey = null; // 이 재생이 트는 음원의 캐시 키. 곡의 음원 주소는 재생 중에도 바뀌므로 연 때의 것을 든다(재생 횟수, 길이가 본다)
     this.lengthMs = null; // 트는 음원의 길이(곡 끝 판정, 넘침 안전망, 곡 끝 구간이 본다). 표시 길이(track.duration)와 따로다. 모르면 null
   }
 }

@@ -27,7 +27,8 @@ import type { Segments } from "../sources/sponsor-block.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
-type Source = { cacheFile: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
+/** cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다 */
+type Source = { cacheFile: string | null; cacheKey: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null> };
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
 
 /**
@@ -79,10 +80,12 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previous: CurrentPlayback | null): Promise<Source> {
   // 캐시 파일을 찾기 전에 보호를 건다. 찾은 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
   // 연령 제한으로 적힌 곡은 그 전에 판정한다. 캐시는 쿠키 없이 틀므로 여기서 막지 않으면 연령 제한 콘텐츠를 꺼도 틀린다
+  let cacheKey: string | null = null;
   const pickCacheFile = () => {
     ageCheck(track.audioUrl);
-    audioCache.protect(player.guild.id, audioKeyOf(track.audioUrl));
-    return TrackDownloader.findCacheFile(track);
+    cacheKey = audioKeyOf(track.audioUrl);
+    audioCache.protect(player.guild.id, cacheKey);
+    return TrackDownloader.cacheFileOf(cacheKey);
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
@@ -105,6 +108,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   if (cacheFile) recheckQueue.notePlayedFromCache(track, player.guild.id);
   return {
     cacheFile,
+    cacheKey: cacheFile ? cacheKey : null,
     streamInfo,
     titleVerified: verifyTitle(track, streamInfo),
     isLive: liveAnswer(streamInfo, cacheFile),
@@ -187,18 +191,17 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 출력은 만들 때 볼륨을 받았다. 여는 동안 바뀐 값을 다시 건다
   pb.output?.setVolume(gainOf(player.volume));
 
-  const durationSec = audioDurationSec(track, streamInfo, pb.cacheFile);
+  const durationSec = audioDurationSec(pb.audioKey, streamInfo, pb.cacheFile);
   pb.lengthMs = durationSec ? durationSec * 1000 : null;
   // 표시는 처음 보인 값을 지킨다. 캐시 기록은 다운로드해 둔 음원을 잰 값, 스트림 정보는 출처가 준 값이다
   const shown = shownDuration(track, durationSec, pb.cacheFile ? "measured" : "provided");
   if (shown) Object.assign(track, shown);
   log.info(`재생: ${logTitle(track.title)} (${track.duration}s, offset: ${pb.startOffsetMs}ms, 출처=${pb.cacheFile ? "캐시" : "스트림"})`);
 
-  const audioKey = audioKeyOf(track.audioUrl);
   player.audioPlayer.play(resource);
   player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
-  if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
+  if (!player.isLive) recordPlayed(track, pb.audioKey, source.titleVerified, { countPlay: !continued });
 
   if (player.paused) {
     // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
@@ -222,26 +225,33 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 }
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).
+// 재생 횟수는 실제로 튼 음원(playedKey)에, 링크 데이터는 다음에 이 요청을 열 음원(곡의 음원 주소)에 적는다. 둘은 재생 중에 갈릴 수 있다.
 // 기록일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
-function recordPlayed(track: QueuedTrack, audioKey: string, titleVerified: boolean, { countPlay }: { countPlay: boolean }) {
+function recordPlayed(track: QueuedTrack, playedKey: string | null, titleVerified: boolean, { countPlay }: { countPlay: boolean }) {
   try {
-    if (countPlay) audioCache.recordPlayback(audioKey);
-    trackLookup.recordTrackLookup(track, { verified: titleVerified });
+    if (countPlay && playedKey) audioCache.recordPlayback(playedKey);
+    if (audioKeyOf(track.audioUrl)) trackLookup.recordTrackLookup(track, { verified: titleVerified });
   } catch (error) {
     log.warn(`오디오 캐시 기록 실패(재생은 계속): ${messageOf(error)}`);
   }
 }
 
-// 곡 끝 판정, SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다
-function audioDurationSec(track: Pick<QueuedTrack, "audioUrl"> | null, streamInfo: Pick<StreamInfo, "duration"> | null, cacheFile: string | null): number | null {
-  const key = audioKeyOf(track?.audioUrl);
-  if (cacheFile && key) {
-    const cached = audioCache.lookupByAudioKey(key)?.duration_sec;
+// 곡 끝 판정, SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다.
+// audioKey 는 이 재생이 트는 음원. 스트림이 알려 준 길이는 그 스트림이 같은 음원일 때만 쓴다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다)
+function audioDurationSec(audioKey: string | null, streamInfo: Pick<StreamInfo, "duration" | "audioKey"> | null, cacheFile: string | null): number | null {
+  if (cacheFile && audioKey) {
+    const cached = audioCache.lookupByAudioKey(audioKey)?.duration_sec;
     if (cached && cached > 0) return cached;
   }
-  const streamed = streamInfo?.duration;
+  const streamed = streamInfo && (streamInfo.audioKey ?? null) === audioKey ? streamInfo.duration : null;
   return streamed && streamed > 0 ? streamed : null;
 }
 
-export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec, ageCheck as _ageCheck };
+/** 이 재생이 트는 음원의 키. 여기서 찾은 캐시 파일이면 그 키, 캐시 폴백이 받은 파일이면 그 파일의 캐시 행에서, 스트림이면 서술자가 실은 키 */
+function playingKey(source: Pick<Source, "cacheFile" | "cacheKey" | "streamInfo">, file: string | null): string | null {
+  if (!file) return source.streamInfo?.audioKey ?? null;
+  return file === source.cacheFile ? source.cacheKey : audioCache.keyOfFile(file);
+}
+
+export { prepareStart, resolveSource, commitPlaying, introOffsetMs, audioDurationSec, playingKey, ageCheck as _ageCheck };
 export type { Source };
