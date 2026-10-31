@@ -14,12 +14,12 @@ const GAP = 1_000_000_000;
 // better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
-const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry", "audio_found_by"] as const;
+const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry", "audio_found_by"] as const;
 
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
 
-/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId, uploader)가 섞여 온다. 여기서 읽는 필드만 */
+/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId)가 섞여 온다. 여기서 읽는 필드만 */
 type TrackIn = {
   id?: string | null;
   pageUrl?: string | null;
@@ -28,12 +28,10 @@ type TrackIn = {
   title?: string | null;
   artist?: string | null;
   album?: string | null;
-  uploader?: string | null;
   duration?: unknown;
   thumbnail?: string | null;
   platform?: string | null;
   isLive?: boolean | null;
-  live?: boolean | null;
   requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
   audioFoundBy?: string | null;
@@ -80,11 +78,11 @@ function toRow(track: TrackIn) {
     title: orNull(track.title),
     artist: orNull(track.artist),
     album: orNull(track.album),
-    uploader: orNull(track.uploader),
-    duration_sec: typeof track.duration === "number" ? track.duration : Number(track.duration) || null,
+    // 곡 모델에서 길이 0 은 모름이다. 0 보다 큰 유한한 수만 적는다
+    duration_sec: typeof track.duration === "number" && Number.isFinite(track.duration) && track.duration > 0 ? track.duration : null,
     thumbnail: orNull(track.thumbnail),
     platform: orNull(track.platform),
-    is_live: track.isLive || track.live ? 1 : 0,
+    is_live: track.isLive ? 1 : 0,
     requester_id: track.requestedBy?.id || orNull(track.requesterId),
     entry: Number.isInteger(track.entry) && (track.entry as number) > 0 ? (track.entry as number) : null,
     audio_found_by: orNull(track.audioFoundBy),
@@ -103,7 +101,6 @@ function fromRow(row: TrackRow) {
     thumbnail: row.thumbnail,
     artist: row.artist,
     album: row.album,
-    uploader: row.uploader,
     platform: row.platform,
     isLive: Boolean(row.is_live),
     requesterId: row.requester_id,

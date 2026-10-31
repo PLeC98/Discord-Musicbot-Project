@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알았나, 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알았나, 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다. 올린 사람(uploader), live 는 저장하지 않는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -193,14 +193,14 @@ test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
     audioFoundBy: "ledger",
-    duration: "185",
+    duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
-    uploader: "채널",
+    uploader: "채널을 채우는 출처가 없어 저장하지 않는다",
     platform: "anisongdb",
     audioSourceKey: "dl:계산하는 값이라 저장하지 않는다",
-    live: true,
+    isLive: true,
     requestedBy: { id: "u1", username: "someone" },
   };
   // 대기열 ID는 track-state 가 찍는 열거되지 않는 필드다
@@ -218,7 +218,6 @@ test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
-    uploader: "채널",
     platform: "anisongdb",
     isLive: true,
     requesterId: "u1",
@@ -338,12 +337,15 @@ test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다
   assert.equal(loaded(store).current?.audioFoundBy, undefined, "음원 주소가 요청과 달라도 링크 데이터에서 온 것으로 가리지 않는다");
 });
 
-test("세션 행: 곡 길이의 0, 음수, 글자는 지금 그대로 저장된다", () => {
+test("세션 행: 곡 길이는 0 보다 큰 유한한 수만 저장하고 나머지는 모름(null)", () => {
   const { store } = open();
   for (const [duration, expected] of [
-    [0, 0],
-    [-1, -1],
-    ["185", 185],
+    [185.5, 185.5],
+    [0, null],
+    [-1, null],
+    [NaN, null],
+    [Infinity, null],
+    ["185", null],
     ["abc", null],
   ] as const) {
     store.setCurrent(G, { ...t(), duration: duration as never });

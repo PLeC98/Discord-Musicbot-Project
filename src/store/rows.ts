@@ -20,7 +20,6 @@ const SessionTrackRow = z.object({
   title: maybe(z.string()),
   artist: maybe(z.string()),
   album: maybe(z.string()),
-  uploader: maybe(z.string()),
   duration_sec: maybe(z.number()),
   thumbnail: maybe(z.string()),
   platform: maybe(z.string()),
