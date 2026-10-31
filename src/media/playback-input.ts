@@ -20,7 +20,7 @@ import type { FragmentOptions } from "./fragment-stream.ts";
 import type { DirectInputOptions, Resumable } from "./direct-input.ts";
 import type { SeekRequest, SeekAnswer } from "./seek-start.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
-import type { Transport } from "../rules/transport-of.ts";
+import { transportOf, type Transport } from "../rules/transport-of.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
 type ResourceMeta = { title: string | null; url: string; duration: number; bitrate: number };
@@ -218,6 +218,9 @@ async function fallBack<R>(o: InputOptions<R>, download: Download | null, direct
   return { resource: null, cacheFile: file, health: null };
 }
 
+// 로그에 적는 분기 이름
+const branchOf = (t: Pick<Transport, "via" | "live">) => `${{ pipe: "파이프", url: "주소", file: "파일" }[t.via]}${t.live ? "(라이브)" : ""}`;
+
 // 재사용한 주소(받아 둔 영상 정보, 직전 재생의 주소)가 열리지 않았다. 주소는 추출한 IP 에 묶여 망을 옮기면 안 열린다.
 // 새로 받아 한 번 더 연다. 그것도 안 되면 null(원래 오류로 캐시 폴백에 맡긴다)
 async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown): Promise<{ streamInfo: StreamInfo; audioStream: OpenedStream | null } | null> {
@@ -225,6 +228,12 @@ async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown):
   log.info(`재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다: ${o.label} | ${describeStreamError(error)}`);
   try {
     const streamInfo = await o.refresh();
+    // 새 답의 분기(파이프인가 주소인가, 라이브인가)가 처음과 다르면 이 자리에서 열지 않는다. 다음 열기가 새 답으로 분기부터 정한다
+    const fresh = transportOf({ streamUrl: streamInfo.url, streamInfo });
+    if (fresh.via !== o.transport.via || fresh.live !== o.transport.live) {
+      log.warn(`새로 받은 스트림의 분기가 처음과 달라 이 자리에서 열지 않습니다: ${o.label} | ${branchOf(o.transport)} → ${branchOf(fresh)}`);
+      return null;
+    }
     return { streamInfo, audioStream: await openStream(o, streamInfo, hooks) };
   } catch (again) {
     log.debug(`새로 받은 주소도 열리지 않았습니다: ${o.label} | ${describeStreamError(again)}`);

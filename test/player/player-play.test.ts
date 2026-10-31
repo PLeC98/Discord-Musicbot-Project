@@ -384,6 +384,23 @@ test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다.
   assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다")));
 });
 
+test("다시 쓴 주소가 열리지 않아 새로 받았는데 분기가 다르면(파이프 → m3u8) 그 자리에서 열지 않고 캐시 폴백에 맡긴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("rgrgrgrgrgr");
+  behavior.stream = (_track, options) => (options?.fresh ? { url: "https://manifest.googlevideo.com/hls/x.m3u8", protocol: "m3u8_native", duration: 100 } : { url: "https://rr1.googlevideo.com/videoplayback?clen=4096&n=old", duration: 100, reused: true });
+  behavior.chunked = () => {
+    throw Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403 });
+  };
+  behavior.download = () => Promise.reject(new Error("받기 실패"));
+  const from = sink.buffer.length;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false, "목록 글자를 소리로 받지 않는다");
+  assert.equal(calls.fetches.length, 0, "새 m3u8 을 파이프로 받지 않았다");
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("새로 받은 스트림의 분기가 처음과 달라")));
+});
+
 test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 지금처럼 캐시로 넘긴다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("nfnfnfnfnfn");

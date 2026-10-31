@@ -40,7 +40,7 @@ type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): P
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
-/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 쓰지 않는다(다시 쓴 주소가 열리지 않았다) */
+/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 버리고 새로 받는다(다시 쓴 주소가 열리지 않았다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
 const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 

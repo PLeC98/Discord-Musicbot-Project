@@ -337,6 +337,15 @@ test("곡을 다 받기 전에 만료될 주소, fresh 로 받은 것은 다시 
   assert.equal(calls.length, 4, "fresh 는 캐시하지도 않는다");
 });
 
+test("fresh 로 받으면 받아 둔 정보를 버린다. 남기면 다음 열기가 같은 막힌 정보를 다시 꺼낸다", async () => {
+  respond = () => lasting("uuuuuuuuuuu");
+  await YouTube.getInfo("https://www.youtube.com/watch?v=uuuuuuuuuuu");
+  await YouTube.getStream("https://www.youtube.com/watch?v=uuuuuuuuuuu", { fresh: true });
+  const after = await YouTube.getStream("https://www.youtube.com/watch?v=uuuuuuuuuuu");
+  assert.equal(calls.length, 3, "버렸으니 다시 추출한다");
+  assert.equal(after.reused, false);
+});
+
 // 다운로드: 받는 쪽이 주는 옵션과, 실행을 적는 가짜
 function downloadRig(fail: ((url: string) => YtDlpError | null) | null = null) {
   const dir = fs.mkdtempSync(path.join(TMP, "dl-"));
