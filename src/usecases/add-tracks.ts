@@ -522,7 +522,8 @@ async function startPlayback(player: Player): Promise<Refused | null> {
     const playResult = await player.play();
     // play()는 실패를 던지지 않고 { ok: false }로 알린다. 놓치면 재생이 안 됐는데도
     // 패널을 세워 '유령 재생'이 된다.
-    if (playResult && playResult.ok === false) return { code: playResult.code ?? "play-failed", ...kindOf(playResult.error) };
+    // superseded 는 실패가 아니다. 그사이 시작한 다른 재생(음성 복구)이 곡을 틀고 있다
+    if (playResult && playResult.ok === false && playResult.code !== "superseded") return { code: playResult.code ?? "play-failed", ...kindOf(playResult.error) };
     return null;
   } catch (playError) {
     log.error("재생 처리 중 오류:", playError);
@@ -536,7 +537,7 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
   try {
     const nextResult = await player.play(0);
     // 그 곡에서 멈춰 뒀어도 패널을 세운다(멈춘 곡으로)
-    if (nextResult && (nextResult.ok !== false || nextResult.code === "parked") && player.currentTrack) {
+    if (nextResult && (nextResult.ok !== false || nextResult.code === "parked" || nextResult.code === "superseded") && player.currentTrack) {
       return await openPanel(panel, player, player.currentTrack, responder);
     }
   } catch (e) {

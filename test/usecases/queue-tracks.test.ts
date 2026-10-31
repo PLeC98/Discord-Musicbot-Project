@@ -131,6 +131,15 @@ test("이미 붙어 있으면 연결하지 않는다", async () => {
   assert.deepEqual(calls, [["play"], ["embed", "a"]]);
 });
 
+test("첫 곡의 열기가 다른 재생(음성 복구)에 밀려나면 실패가 아니다. 곡을 지우지 않고 패널을 만든다", async () => {
+  const { add, player, calls } = setup({ plays: [{ ok: false, code: "superseded" }] });
+  const r = await add({ tracks: [track("a")] }, who);
+
+  assert.deepEqual(r, { success: true });
+  assert.equal(player.currentTrack?.title, "곡 a");
+  assert.deepEqual(calls.at(-1), ["embed", "a"]);
+});
+
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만들고, 틀 곡이 없으니 대기열 소진으로 끝낸다(나갈 예약)", async () => {
   const withCode = setup({ plays: [{ ok: false, code: "live-ended" }] });
   assert.deepEqual(said(await withCode.add({ tracks: [track("a")] }, who)), { success: false, code: "live-ended", message: plainText(errors.notice("live-ended")) });

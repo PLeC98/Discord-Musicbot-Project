@@ -172,7 +172,7 @@ function resumeKeyOf(track: QueuedTrack | null) {
 /**
  * 연 소리를 튼다. 소리는 이미 pb.resource 에 있다.
  */
-async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source, { continued = false }: { continued?: boolean } = {}) {
+async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source, { continued, gen }: { continued: boolean; gen: number }) {
   const track = pb.track;
   const { streamInfo } = source;
   const { resource } = pb;
@@ -180,8 +180,8 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
   pb.sponsor = await source.sponsor;
-  // 기다리는 사이에 플레이어가 버려졌다. 정리(_endPlayback)가 이 리소스를 destroy 했으니 틀지 않는다
-  if (player.lifecycle.disposed) return;
+  // 기다리는 사이에 플레이어가 버려졌거나(정리가 이 리소스를 destroy 했다) 다른 재생이 시작했다(play() 가 버린다). 틀지 않는다
+  if (player.lifecycle.disposed || gen !== player._playGen) return;
   player.sponsorSkipper.onPlayStart(pb.startOffsetMs);
 
   // 출력은 만들 때 볼륨을 받았다. 여는 동안 바뀐 값을 다시 건다
@@ -196,6 +196,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   const audioKey = audioKeyOf(track.audioUrl);
   player.audioPlayer.play(resource);
+  player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (audioKey && !player.isLive) recordPlayed(track, audioKey, source.titleVerified, { countPlay: !continued });
 

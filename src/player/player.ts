@@ -91,12 +91,18 @@ const SILENT_STOP_CAP_MS = 500;
 const REST_AFTER_MS = 10 * 60_000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
-type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
+type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed" | "superseded"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
 /** 그 곡에서 멈춰 둔 까닭. environment: 다음 곡도 안 되는 실패 · failures: 까닭을 모르는 실패가 연달아(count 곡) · dropped: 들리던 곡이 끊겨 다시 열지 못함 */
 type ParkReason = { kind: "environment"; error: unknown } | { kind: "failures"; count: number; error?: undefined } | { kind: "dropped"; error?: unknown };
 
 // 끊긴 라이브를 다시 열었는데 라이브가 아니다(방송이 끝나 다시보기가 됐다)
 const endedLive = (liveReopen: boolean, transport: { live: boolean }) => liveReopen && !transport.live;
+
+// 기다리는 사이에 플레이어가 버려졌거나 다른 재생이 시작했다(위치 이동 중의 음성 복구 · 연달아 넘기기). 다른 재생이면 곡과 소리, 단계는 그쪽 것이다. 둘 다 아니면 null
+function overtaken(player: Pick<Player, "lifecycle" | "_playGen">, gen: number): PlayResult | null {
+  if (player.lifecycle.disposed) return { ok: false, code: "disposed" };
+  return gen === player._playGen ? null : { ok: false, code: "superseded" };
+}
 
 // voice 에 넘기지 못한 리소스를 destroy 한다. 넘긴 것은 voice 가 교체 · Idle 때 destroy 한다
 function dropUnplayed(pb: CurrentPlayback | null) {
@@ -186,11 +192,13 @@ const REAL = {
 };
 type Boundary = typeof REAL;
 
-// 여는 중이고 소리가 아직 없다. 멈춰도 Idle 이 오지 않고 play() 가 끝 원인을 지운다. 연 뒤에 건다(같은 재생에서는 먼저 온 것이 이긴다). 미뤘으면 true
-function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "_playGen" | "_endWhileStarting">, reason: string) {
-  if (!player.lifecycle.starting || player.audioPlayer.state.status !== AudioPlayerStatus.Idle) return false;
-  if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen };
-  return true;
+// 여는 중이고 그 재생의 소리를 아직 오디오 플레이어에 넘기지 않았다. 이때 온 끝 요청은 적어 두었다가 연 뒤에 건다(같은 재생에서는 먼저 온 것이 이긴다).
+// play() 가 끝 원인을 지우고, 이때 멎은 옛 소리의 Idle 은 끝으로 보지 않는다(onPlayerIdle). 넘긴 뒤(세션 저장을 기다리는 사이)는 보통처럼 멈춘다.
+// 소리가 없으면 멈출 것이 없어 true. 옛 소리가 붙어 있으면(위치 이동 · 음성 복구의 재개) false, 부른 쪽이 그 소리를 바로 멈춘다
+function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "_playGen" | "_handedGen" | "_endWhileStarting" | "currentTrack">, reason: string) {
+  if (!player.lifecycle.starting || player._handedGen === player._playGen) return false;
+  if (player._endWhileStarting?.gen !== player._playGen) player._endWhileStarting = { reason, gen: player._playGen, track: player.currentTrack };
+  return player.audioPlayer.state.status === AudioPlayerStatus.Idle;
 }
 /**
  * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause) · 끝 알림(disposed)을 듣는 쪽이 가른다.
@@ -246,11 +254,12 @@ class Player {
   _retryingParked = false;
   /** play() 의 세대. 끝 정리는 자기 세대가 마지막일 때만 한다(겹친 play 의 정리가 새 것의 단계 · 보호를 지우지 않게) */
   _playGen = 0;
+  _handedGen = 0; // 소리를 오디오 플레이어에 넘긴 재생의 세대(commitPlaying)
   /** 끝 처리 중에 끝난 곡(그 처리가 막 튼 다음 곡). 그 처리가 끝나면 이어서 처리한다 */
   _laterEnd: { reason: string; playback: CurrentPlayback } | null = null;
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched 가 본다 */
   _endScheduled = false;
-  _endWhileStarting: { reason: string; gen: number } | null = null; // 여는 중(소리가 아직 없다)에 온 끝 요청. 연 뒤에 건다(_stopWith)
+  _endWhileStarting: { reason: string; gen: number; track: QueuedTrack | null } | null = null; // 여는 중에 온 끝 요청과 그때의 곡. 연 뒤에 건다(_stopWith)
   restAfterMs = REST_AFTER_MS; // 시험이 줄인다
   _restTimer: NodeJS.Timeout | null = null;
   _waking = false; // 휴면 중인 곡의 스트림을 다시 여는 중(wake). 화면이 곡을 보이게
@@ -468,8 +477,9 @@ class Player {
     try {
       const start = await prepareStart(this, seekMs);
       if (!start.ok) return start;
-      // 기다리는 동안 플레이어가 버려졌으면(stop · leave) 새 소리를 열지 않는다
-      if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
+      // 기다리는 동안 버려졌거나(stop · leave) 다른 재생이 시작했으면 새 소리를 열지 않는다
+      const late = overtaken(this, gen);
+      if (late) return late;
 
       // 새 재생. 위치 재개는 직전 재생이 남긴 스트림 정보를 쓴다(같은 곡일 때만)
       this._endReason = null;
@@ -496,14 +506,19 @@ class Player {
       pb.output = input.output ?? null;
       pb.cacheFile = input.cacheFile;
       pb.input = input.health;
-      if (this.lifecycle.disposed) {
+      const stale = overtaken(this, gen);
+      if (stale) {
         dropUnplayed(pb);
-        return { ok: false, code: "disposed" };
+        return stale;
       }
 
-      await commitPlaying(this, pb, source, { continued });
-      // 트는 사이에 버려졌다. 넘긴 리소스는 정리(_endPlayback)가 destroy 했다
-      if (this.lifecycle.disposed) return { ok: false, code: "disposed" };
+      await commitPlaying(this, pb, source, { continued, gen });
+      // 넘기는 사이에 버려졌거나(넘긴 리소스는 정리가 destroy 했다) 다른 재생이 시작했다. 넘기지 못한 소리는 버린다(넘긴 것은 그대로 둔다)
+      const lost = overtaken(this, gen);
+      if (lost) {
+        dropUnplayed(pb);
+        return lost;
+      }
       this.lifecycle.to("playing");
       this._tellSkipped();
       this._armRest(); // 멈춘 채 열었으면(멈춘 채 넘기기 · 위치 이동 · 복원) 여기서부터 잰다
@@ -520,8 +535,11 @@ class Player {
 
   // 틀지 못하고 나왔다. 캐시 파일을 찾으며 건 보호를 풀고 쉬는 단계로. 그사이 다른 play() 가 시작했으면(세대가 다르다) 그쪽의 단계 · 보호라 건드리지 않는다
   _closeStart(gen: number) {
-    // 열지 못했으면 여는 중에 온 끝 요청은 버린다. 실패 처리가 이미 넘기거나 멈춰 뒀다(두 번 넘기지 않게). 연 경우는 이미 걸었다
-    if (this._endWhileStarting?.gen === gen) this._endWhileStarting = null;
+    // 열지 못했으면 여는 중에 온 끝 요청은 버린다. 실패 처리가 이미 다른 곡으로 넘겼다(두 번 넘기지 않게). 연 경우는 이미 걸었다.
+    // 그 곡에서 멈춰 뒀으면 마저 건다. 이전 곡 · 점프는 대기열을 먼저 옮겨 두어, 버리면 옮긴 대기열만 남는다
+    const pending = this._endWhileStarting?.gen === gen ? this._endWhileStarting : null;
+    if (pending) this._endWhileStarting = null;
+    if (pending && this.lifecycle.parked && this.currentTrack === pending.track) this._stopWith(pending.reason);
     if (!this.lifecycle.starting || gen !== this._playGen) return;
     this.releaseAudioProtection();
     this.lifecycle.to("idle", "시작 못 함");
@@ -724,6 +742,8 @@ class Player {
     this._endReason = null;
     // 멈춰 두거나 휴면시키며 해제한 스트림이다. 곡이 끝난 것이 아니다(park · rest)
     if (this.lifecycle.released) return;
+    // 여는 중에 옛 소리가 멎었다(위치 이동 · 음성 복구의 재개). 여는 소리가 대신하고, 그사이 온 끝 요청은 연 뒤에 건다
+    if (this.lifecycle.starting && this._handedGen !== this._playGen) return;
     // 멈춘 쪽의 호출이 끝난 뒤에 처리한다. 바로 멈추면 Idle 이 곧바로, 무음을 흘려보내면 100ms 뒤에 온다
     this._scheduleEnd(reason);
   }
@@ -1232,7 +1252,7 @@ class Player {
   // 방송이 끝났거나 열지 못했으면 실패로 세지 않고 알리지 않는다. false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
   async _reopenLive(label: string) {
     const reopened = await this.play(0, { liveReopen: true });
-    if (reopened.ok || reopened.code === "disposed") return true;
+    if (reopened.ok || reopened.code === "disposed" || reopened.code === "superseded") return true;
     if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘깁니다: ${label} | 재확인 결과 라이브 아님`);
     else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
     else log.warn(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${reopened.code}`);

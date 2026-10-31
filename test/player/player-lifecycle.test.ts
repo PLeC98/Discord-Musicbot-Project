@@ -1911,7 +1911,7 @@ test("음성이 다시 붙으면 멈춰 있던 곡도 그 위치에서 다시 �
   assert.equal(p.getCurrentTime(), 30_000);
 });
 
-test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못하면 버린다(두 번 넘기지 않게)", async () => {
+test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못해 그 곡에서 멈춰 뒀으면 그때 넘긴다", async () => {
   const p = h.makePlayer();
   const next = cached("ps2aaaaaaaa");
   p.currentTrack = cached("ps1aaaaaaaa");
@@ -1925,15 +1925,36 @@ test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연
 
   h.reset();
   const failing = h.makePlayer();
+  const after = cached("pf2aaaaaaaa");
   networkDown();
   failing.currentTrack = yt("pf1aaaaaaaa");
+  failing.queue = [after];
   const failed = failing.play(0);
   failing.skip();
   await failed;
-  assert.equal(failing.lifecycle.parked, true, "열지 못해 멈춰 뒀다");
-  assert.equal(failing._endWhileStarting, null, "여는 중에 받은 넘기기는 버렸다");
+  await failing.untilSwitched();
+  assert.equal(failing.currentTrack, after, "멈춰 둔 곡에 넘기기를 마저 걸었다");
+  assert.equal(failing._endWhileStarting, null);
   h.dispose(failing);
   h.dispose(p);
+});
+
+test("여는 중에 넘겼는데 열지 못해 실패 처리가 이미 다음 곡으로 넘겼으면 한 번 더 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  const next = cached("pg2aaaaaaaa");
+  const third = cached("pg3aaaaaaaa");
+  removedVideo();
+  p.currentTrack = yt("pg1aaaaaaaa");
+  p.queue = [next, third];
+  const failed = p.play(0);
+  p.skip();
+  await failed;
+  await p.untilSwitched();
+  await tick();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.deepEqual(p.queue, [third]);
 });
 
 // ── 스트림 휴면: 장시간 일시정지한 곡의 스트림을 해제하고 일시정지가 풀리면 그 위치부터 다시 연다 ──
@@ -2109,13 +2130,124 @@ test("스트림 휴면: 소리를 낸 곡이면 휴면할 때 연달은 실패 �
 
 test("여는 중에 받은 넘기기: 앞 세대(실패해 다른 곡을 연 것)의 기록이 남아 있으면 새 넘기기로 덮는다", () => {
   const p = h.makePlayer();
-  p.currentTrack = yt("rx1aaaaaaaa");
+  const track = (p.currentTrack = yt("rx1aaaaaaaa"));
   p._playGen = 5;
   p.lifecycle.to("starting");
-  p._endWhileStarting = { reason: "skip", gen: 4 };
+  p._endWhileStarting = { reason: "skip", gen: 4, track };
   p._stopWith("jump");
-  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5 });
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5, track });
   p._stopWith("skip");
-  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5 }, "같은 세대는 먼저 온 것이 이긴다");
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5, track }, "같은 세대는 먼저 온 것이 이긴다");
   h.dispose(p);
+});
+
+// 연 곡을 소리가 나는 것으로 두고, 다음 여는 중을 SponsorBlock 응답에서 붙잡는다(commitPlaying 이 기다린다). 놓아주는 함수를 돌려준다
+async function soundingThenHeld(p: Player, track: QueuedTrack) {
+  p.currentTrack = track;
+  await p.play(0);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Playing } as never;
+  let release = () => {};
+  let held = false;
+  behavior.sponsor = () => {
+    if (held) return null;
+    held = true;
+    return new Promise((done) => (release = () => done(null)));
+  };
+  return () => release();
+}
+
+const resourceOf = (p: Player) => ("resource" in p.audioPlayer.state ? p.audioPlayer.state.resource : null);
+
+test("소리가 붙은 채 다시 여는 중에 넘기면 연 뒤에 한 번만 넘긴다. 옛 소리가 먼저 멎어도, 연 뒤에 멎어도 같다", async () => {
+  for (const order of ["old-idle-first", "commit-first"]) {
+    h.reset();
+    const p = h.makePlayer();
+    const first = cached("ov1aaaaaaaa");
+    const next = cached("ov2aaaaaaaa");
+    p.queue = [next];
+    const release = await soundingThenHeld(p, first);
+
+    const seeking = p.seek(30_000, "seek");
+    await tick();
+    assert.equal(p.lifecycle.starting, true, order);
+    assert.equal(p.skip(), true);
+    if (order === "old-idle-first") {
+      p.audioPlayer.emit(AudioPlayerStatus.Idle);
+      await tick();
+      assert.equal(p.currentTrack, first, "여는 중에 멎은 옛 소리로 곡을 넘기지 않는다");
+    }
+    release();
+    await seeking;
+    await endNow(p);
+    assert.equal(p.currentTrack, next, order);
+    const sounding = resourceOf(p);
+    await tick(200);
+    assert.equal(p.currentTrack, next, `${order}: 한 번만 넘겼다`);
+    assert.equal(resourceOf(p), sounding, `${order}: 다음 곡의 소리를 멈추지 않았다`);
+    assert.notEqual(p.audioPlayer.state.status, AudioPlayerStatus.Idle, order);
+    h.dispose(p);
+  }
+});
+
+test("다시 여는 중에 다른 열기가 겹쳐(음성 복구) 먼저 끝나고 곡이 넘어가면, 늦게 끝난 옛 열기는 소리를 내지 않는다", async () => {
+  const p = h.makePlayer();
+  const first = cached("oz1aaaaaaaa");
+  const next = cached("oz2aaaaaaaa");
+  p.queue = [next];
+  const release = await soundingThenHeld(p, first);
+
+  const seeking = p.seek(30_000, "seek");
+  await tick();
+  await p.onVoiceRecovered();
+  assert.equal(p.lifecycle.phase, "playing", "음성 복구의 열기가 먼저 끝났다");
+  p.skip();
+  await endNow(p);
+  assert.equal(p.currentTrack, next);
+  const sounding = resourceOf(p);
+  release();
+  assert.deepEqual(await seeking, { ok: false, code: "superseded" });
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(resourceOf(p), sounding, "다음 곡의 소리가 그대로다");
+});
+
+test("소리가 붙은 채 다시 여는 중에 옛 소리가 저절로 끝나도 곡을 넘기지 않는다(옮긴 위치에서 이어 튼다)", async () => {
+  const p = h.makePlayer();
+  const first = cached("ow1aaaaaaaa");
+  p.queue = [cached("ow2aaaaaaaa")];
+  const release = await soundingThenHeld(p, first);
+
+  const seeking = p.seek(30_000, "seek");
+  await tick();
+  p.audioPlayer.stop();
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await tick();
+  release();
+  await seeking;
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, first);
+  assert.equal(p.lifecycle.phase, "playing");
+  assert.equal(p.getCurrentTime(), 30_000);
+});
+
+test("여는 중 이전 곡을 눌렀는데 열지 못해 멈춰 뒀으면 이전 곡을 마저 건다(되감은 대기열이 남지 않는다)", async () => {
+  const p = h.makePlayer();
+  const before = cached("op1aaaaaaaa");
+  const failing = yt("op2aaaaaaaa");
+  const after = cached("op3aaaaaaaa");
+  p.previousTracks = [before];
+  p.queue = [after];
+  networkDown();
+  p.currentTrack = failing;
+  const opening = p.play(0);
+  assert.equal(p.previous(), true);
+  await opening;
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, before, "이전 곡을 연다");
+  assert.deepEqual(p.queue, [failing, after], "지금 곡은 이전 곡 뒤로");
+  assert.deepEqual(p.previousTracks, [], "기록에 열지 못한 곡을 더하지 않는다");
 });
