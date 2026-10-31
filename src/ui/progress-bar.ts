@@ -12,17 +12,14 @@ function progressBar(currentSec: number, totalSec: number, { live = false } = {}
     return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
   }
 
-  const currentStr = formatDuration(currentSec, "0:00");
-  // 길이를 모르면(다운로드 전의 직접 링크 등) 곡이 없을 때처럼 비워 둔다. 0:00 은 길이가 0 인 곡으로 읽힌다
-  const totalStr = formatDuration(totalSec, "--:--");
-  if (!totalSec || totalSec === 0) {
-    return `\`${currentStr}\` ●${"▬".repeat(BAR_LENGTH)} \`${totalStr}\``;
-  }
-
-  const progress = Math.min(currentSec / totalSec, 1);
-  const filledCount = Math.round(progress * BAR_LENGTH);
-  const bar = "▬".repeat(filledCount) + "●" + "▬".repeat(BAR_LENGTH - filledCount);
-  return `\`${currentStr}\` ${bar} \`${totalStr}\``;
+  // 길이를 모르면(다운로드 전의 직접 링크 등) 핸들을 맨 앞에 두고 길이는 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다
+  const known = Number.isFinite(totalSec) && totalSec > 0;
+  const at = Number.isFinite(currentSec) && currentSec > 0 ? currentSec : 0;
+  // 표시 길이는 실제 음원과 몇 초 다를 수 있다. 위치는 길이에서 멈춘다(대시보드와 같다)
+  const shown = known ? Math.min(at, totalSec) : at;
+  // 채운 칸은 내림이라 끝에 닿아야 다 찬다
+  const filled = known ? Math.floor((shown / totalSec) * BAR_LENGTH) : 0;
+  return `\`${formatDuration(shown, "0:00")}\` ${"▬".repeat(filled)}●${"▬".repeat(BAR_LENGTH - filled)} \`${formatDuration(totalSec, "--:--")}\``;
 }
 
 /** 곡이 없을 때의 막대 */
