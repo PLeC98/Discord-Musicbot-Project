@@ -168,16 +168,22 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
   );
 
 // 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 원인을 알린다. 받은 정보는 재생 주소, 다운로드가 다시 쓰게 둔다
-async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
+async function fetchInfo(url: string, exec: RunYtDlp | undefined) {
   const raw = await extractInfo(url, exec);
   recentInfo.remember(raw);
   const info = readInfo(raw);
+  if (!info) throw new Error("yt-dlp 가 정보를 주지 않았습니다");
+  return info;
+}
 
-  if (!info) {
-    throw new Error("yt-dlp 가 정보를 주지 않았습니다");
-  }
+async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
+  const info = await fetchInfo(url, exec);
+  return trackOf(info, info.webpage_url || url, info.uploader || info.channel);
+}
 
-  return { ...trackOf(info, info.webpage_url || url, info.uploader || info.channel), formats: info.formats };
+/** 영상의 포맷 목록. 원본 다시 확인이 버전(lmt)과 길이를 읽는다 */
+async function getFormats(url: string, { exec }: { exec?: RunYtDlp } = {}): Promise<readonly unknown[]> {
+  return (await fetchInfo(url, exec)).formats ?? [];
 }
 
 // 캐시된 영상 정보가 있으면 그것(known), 없으면 추출해 캐시한다. fresh 면 캐시된 것을 버리고(남기면 다음 열기가 같은 막힌 정보를 다시 꺼낸다) 새로 추출한 것도 캐시하지 않는다
@@ -293,4 +299,4 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
   };
 }
 
-export { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getStream, getPlaylist };
+export { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getFormats, getStream, getPlaylist };

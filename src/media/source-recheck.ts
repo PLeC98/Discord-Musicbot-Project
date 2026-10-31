@@ -28,7 +28,7 @@ type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: s
 
 /** 원본에 묻는 길. 테스트가 가짜를 넘긴다 */
 type Deps = {
-  youtubeInfo(url: string): Promise<{ formats?: unknown[] | null }>;
+  youtubeFormats(url: string): Promise<readonly unknown[]>;
   soundcloudStream(url: string): Promise<{ url: string }>;
   directHead(url: string): Promise<{ headers: Record<string, unknown> }>;
 };
@@ -44,7 +44,7 @@ async function directHead(url: string) {
 }
 
 const DEPS: Deps = {
-  youtubeInfo: (url) => YouTube.getInfo(url),
+  youtubeFormats: (url) => YouTube.getFormats(url),
   soundcloudStream: (url) => SoundCloud.getStream(url),
   directHead,
 };
@@ -53,7 +53,7 @@ const DEPS: Deps = {
 async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Promise<Recheck> {
   const kind = inputKind(audioUrl);
   try {
-    if (kind === "youtube") return youtube(await deps.youtubeInfo(audioUrl), stored);
+    if (kind === "youtube") return youtube(await deps.youtubeFormats(audioUrl), stored);
     if (kind === "soundcloud") return compared(versionOf.fromSoundCloudUrl((await deps.soundcloudStream(audioUrl)).url), stored, sameSoundCloud);
     if (kind === "direct") return direct((await deps.directHead(audioUrl)).headers, stored);
     return { kind: "unknown", reason: `다시 확인하지 않는 출처(${kind})` };
@@ -62,13 +62,13 @@ async function recheck(audioUrl: string, stored: Stored, deps: Deps = DEPS): Pro
   }
 }
 
-function youtube(info: { formats?: unknown[] | null }, stored: Stored): Recheck {
-  const lmts = versionOf.lmtsOf(info.formats);
+function youtube(formats: readonly unknown[], stored: Stored): Recheck {
+  const lmts = versionOf.lmtsOf(formats);
   const mine = versionOf.lmtOf(stored.version);
   if (!lmts.size) return { kind: "uncompared", reason: "원본 포맷에 lmt 가 없다" };
   if (!mine) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
   if (lmts.has(mine)) return { kind: "same", version: `lmt:${mine}` };
-  const duration = versionOf.audioDurationOf(info.formats);
+  const duration = versionOf.audioDurationOf(formats);
   const durationChanged = duration && stored.durationSec ? Math.abs(duration - stored.durationSec) > DURATION_SLACK_SEC : null;
   // 바뀐 원본의 버전은 포맷 하나의 lmt(편집하면 모든 포맷이 함께 바뀐다). 다시 받으면 그 포맷의 값이 audio_version 이 되고, 다음 확인에서 같음이 된다
   return { kind: "changed", version: `lmt:${[...lmts][0]}`, durationChanged };

@@ -12,30 +12,30 @@ const TRIMMED = [fmt(251, "1792606059000000", "270.341"), fmt(140, "179260605800
 const RESOUNDED = [fmt(251, "1792606387000000", "270.341"), fmt(140, "1792606386000000", "270.373"), fmt(160, "1792606377000000", "270.333", false)];
 
 const never = () => Promise.reject(new Error("부르면 안 된다"));
-const deps = (over: Partial<RecheckDeps>): RecheckDeps => ({ youtubeInfo: never, soundcloudStream: never, directHead: never, ...over });
+const deps = (over: Partial<RecheckDeps>): RecheckDeps => ({ youtubeFormats: never, soundcloudStream: never, directHead: never, ...over });
 const YT = "https://www.youtube.com/watch?v=ppIDyKeeRxs";
 
 test("유튜브: 적어 둔 lmt 가 지금 포맷 중 하나와 같으면 같음(받은 itag 와 지금 고른 itag 가 달라도)", async () => {
-  const got = await recheck(YT, { version: "lmt:1788794897550774", durationSec: 300.4 }, deps({ youtubeInfo: async () => ({ formats: BEFORE }) }));
+  const got = await recheck(YT, { version: "lmt:1788794897550774", durationSec: 300.4 }, deps({ youtubeFormats: async () => BEFORE }));
   assert.deepEqual(got, { kind: "same", version: "lmt:1788794897550774" });
 });
 
 test("유튜브: 자르면 바뀜 + 길이도 다르다, 오디오만 바꾸면 바뀜 + 길이는 같다", async () => {
-  const trimmed = await recheck(YT, { version: "lmt:1788794896364049", durationSec: 300.44 }, deps({ youtubeInfo: async () => ({ formats: TRIMMED }) }));
+  const trimmed = await recheck(YT, { version: "lmt:1788794896364049", durationSec: 300.44 }, deps({ youtubeFormats: async () => TRIMMED }));
   assert.equal(trimmed.kind, "changed");
   assert.equal(trimmed.kind === "changed" && trimmed.durationChanged, true);
-  const resounded = await recheck(YT, { version: "lmt:1792606059000000", durationSec: 270.34 }, deps({ youtubeInfo: async () => ({ formats: RESOUNDED }) }));
+  const resounded = await recheck(YT, { version: "lmt:1792606059000000", durationSec: 270.34 }, deps({ youtubeFormats: async () => RESOUNDED }));
   assert.equal(resounded.kind === "changed" && resounded.durationChanged, false);
   assert.ok(resounded.kind === "changed" && resounded.version.startsWith("lmt:179260"));
 });
 
 test("유튜브: 내려간 영상은 사라짐, 일시 오류는 모름, 적어 둔 버전이 없으면 견주지 못함", async () => {
   const removed = new Error("ERROR: [youtube] ppIDyKeeRxs: Video unavailable. This video has been removed by the uploader");
-  const gone = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeInfo: async () => Promise.reject(removed) }));
+  const gone = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeFormats: async () => Promise.reject(removed) }));
   assert.deepEqual(gone, { kind: "gone", code: "unavailable-contents" });
-  const flaky = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeInfo: async () => Promise.reject(new Error("ERROR: unable to download webpage: timed out")) }));
+  const flaky = await recheck(YT, { version: "lmt:1", durationSec: 1 }, deps({ youtubeFormats: async () => Promise.reject(new Error("ERROR: unable to download webpage: timed out")) }));
   assert.equal(flaky.kind, "unknown");
-  const blank = await recheck(YT, { version: null, durationSec: null }, deps({ youtubeInfo: async () => ({ formats: BEFORE }) }));
+  const blank = await recheck(YT, { version: null, durationSec: null }, deps({ youtubeFormats: async () => BEFORE }));
   assert.equal(blank.kind, "uncompared");
 });
 

@@ -27,6 +27,7 @@ import { plainText } from "../helpers/notice.ts";
 type Reply = ({ fail?: string; warn?: string } & Record<string, unknown>) | string | null;
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const lookup = await import("../../src/sources/lookup.ts");
+const { recheck } = await import("../../src/media/source-recheck.ts");
 const { playerClients } = YouTube._internals;
 
 const calls: Array<{ url: string; flags: YtDlpFlags }> = [];
@@ -126,7 +127,7 @@ test("검색: 결과가 없으면 빈 배열, 실패하면 이름을 단 채로 
 
 // ── 정보 ──────────────────────────────────────────────────────────────
 
-test("정보: 필드를 옮겨 담고 포맷 목록을 붙인다. 라이브는 조회 시각이 빠진 원제를 쓴다", async () => {
+test("정보: 필드를 옮겨 담는다(포맷 목록은 담지 않는다). 라이브는 조회 시각이 빠진 원제를 쓴다", async () => {
   respond = () => video("eeeeeeeeeee", { formats: [{ format_id: "251" }], live_status: "is_live", fulltitle: "원제", title: "원제 2026-09-23 12:00" });
 
   const t = await YouTube.getInfo("https://www.youtube.com/watch?v=eeeeeeeeeee");
@@ -137,9 +138,19 @@ test("정보: 필드를 옮겨 담고 포맷 목록을 붙인다. 라이브는 �
   assert.equal(calls[0].flags.format, "bestaudio/best");
   assert.equal(calls[0].flags.preferFreeFormats, undefined);
   assert.equal(t.title, "원제");
-  assert.deepEqual(t.formats, [{ format_id: "251" }]);
+  assert.equal("formats" in t, false);
   assert.equal(t.isLive, true);
   assert.equal(t.liveStatus, "is_live");
+});
+
+test("포맷 목록: 정보와 같은 추출로 받고, 원본 다시 확인의 실제 의존이 이것으로 버전을 견준다", async () => {
+  const lmt = "1788794896364049";
+  respond = () => video("fffffffffff", { formats: [{ format_id: "251", url: `https://rr1.googlevideo.com/videoplayback?itag=251&lmt=${lmt}&dur=200.0`, acodec: "opus", vcodec: "none" }] });
+  const url = "https://www.youtube.com/watch?v=fffffffffff";
+
+  assert.equal((await YouTube.getFormats(url)).length, 1);
+  assert.equal(calls[0].flags.format, "bestaudio/best");
+  assert.deepEqual(await recheck(url, { version: `lmt:${lmt}`, durationSec: 200 }), { kind: "same", version: `lmt:${lmt}` });
 });
 
 test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없는 오류로 알린다)", async () => {
