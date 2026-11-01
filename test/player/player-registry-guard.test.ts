@@ -142,7 +142,7 @@ test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은
   const from = sink.buffer.length;
 
   await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
-  await fresh.dispose({ reason: "inactivity-timeout", session: "remove", end: "stop" });
+  await fresh.dispose({ reason: "alone-timeout", session: "remove", end: "stop" });
 
   const lines = sink.buffer
     .slice(from)
@@ -150,7 +150,7 @@ test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은
     .filter((text) => text.includes("해제:"));
   assert.deepEqual(
     lines.map((text) => text.slice(text.indexOf("해제:"))),
-    ["해제: TestGuild (g1) | 원인=inactivity-timeout"],
+    ["해제: TestGuild (g1) | 원인=alone-timeout"],
   );
 });
 

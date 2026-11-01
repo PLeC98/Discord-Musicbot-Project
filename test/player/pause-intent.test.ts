@@ -54,7 +54,7 @@ function makePlayer(status: string) {
     _onAudioState: Player.prototype._onAudioState,
   });
   Object.defineProperty(p, "paused", { get: () => pause.silent });
-  Player.prototype.setupEvents.call(p);
+  Player.prototype._listenToAudioPlayer.call(p);
   // 가짜 오디오 플레이어의 상태를 옮기는 핸들
   return Object.assign(p, { audio });
 }

@@ -114,7 +114,7 @@ class IdleLeave {
     if (listeners > 0) return; // 사유, 패널은 syncHolds 가 풀었다
 
     // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 실패로 멈춰 둔 곡이면 세션을 남긴다(사람이 고른 끝이 아니다. /join 이 이어 튼다)
-    await player.dispose({ reason: "비활성 타임아웃", session: player.lifecycle.parked ? "save" : "remove", panel: "disconnected", end: "inactivity-timeout" });
+    await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: player.lifecycle.parked ? "save" : "remove", panel: "disconnected", end: "alone-timeout" });
   }
 
   // ── 틀 게 없음 ──

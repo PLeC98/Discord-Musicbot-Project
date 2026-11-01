@@ -211,10 +211,10 @@ function settleAudio(guildId: string, pb: CurrentPlayback, source: Parameters<ty
 const reasonAfter = (player: Partial<Pick<Player, "_endInstead">>, reason: string) => player._endInstead ?? reason;
 /**
  * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause), 끝 알림(disposed)을 듣는 쪽이 가른다.
- * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, inactivity-timeout. 디스코드 쪽: forced-disconnect, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave.
+ * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, alone-timeout. 디스코드 쪽: kicked, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave.
  * 세션을 남기고 버림: connect-failed, restore-failed, adopt-failed, replaced(새 플레이어가 곧 선다). 오류: fault(되풀이되어 멈춤), fault-cleared(곡 없이 정리), fault-restart(곧 복원한다)
  */
-type PlayerEnd = "stop" | "leave" | "queue-drained" | "inactivity-timeout" | "forced-disconnect" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
+type PlayerEnd = "stop" | "leave" | "queue-drained" | "alone-timeout" | "kicked" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
 /** 갭리스 전환에서 스플라이서에게 묻고 부르는 필드 */
 type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;
@@ -362,10 +362,10 @@ class Player {
     });
     this.sponsorSkipper = new SponsorSkipper(this);
 
-    this.setupEvents();
+    this._listenToAudioPlayer();
   }
 
-  setupEvents() {
+  _listenToAudioPlayer() {
     // 오디오 플레이어는 라이브러리가 쏜다. 리스너를 이 서버의 문맥에 묶어 새어 나온 오류가 이 서버로 돌아오게 한다(infra/guild-context)
     const own = <A extends unknown[]>(fn: (...args: A) => void) => bindToGuild(this.guild.id, fn);
 
@@ -925,7 +925,7 @@ class Player {
    * @param o.reason  로그에 남길 원인
    * @param o.session  remove: 세션을 삭제한다, save: 저장해 남긴다(/join 이 복원한다), keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
-   * @param o.end  곡이 있었으면 끝 줄에 남길 원인(forced-disconnect, inactivity-timeout, leave 등). 기본 stop
+   * @param o.end  곡이 있었으면 끝 줄에 남길 원인(kicked, alone-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
   async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {

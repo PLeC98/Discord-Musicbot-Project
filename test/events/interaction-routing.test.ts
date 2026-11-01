@@ -163,7 +163,7 @@ test("경로표의 핸들러는 모두 위 목록에서 불린다", () => {
 });
 
 // custom_id 를 글자 그대로 적은 곳(ui/custom-ids 를 거치지 않은 것)도 목록이 덮는다. 모달 안의 입력란은 상호작용이 아니다
-const INPUTS = new Set(["volume_input", "count"]);
+const INPUTS = new Set(["level", "count"]);
 test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => {
   const heads = new Set<string>();
   for (const dir of ["src"]) {

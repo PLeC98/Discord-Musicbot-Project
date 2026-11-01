@@ -854,12 +854,12 @@ test("버린 까닭(end)을 끝난 패널 알림에 같이 넘긴다(끝 안내�
     if (q === p) seen.push([reason, cause]);
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "alone-timeout" });
   } finally {
     off();
     h.dispose(p);
   }
-  assert.deepEqual(seen, [["disconnected", "inactivity-timeout"]]);
+  assert.deepEqual(seen, [["disconnected", "alone-timeout"]]);
 });
 
 test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다", async () => {

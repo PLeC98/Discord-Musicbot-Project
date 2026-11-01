@@ -25,7 +25,7 @@ test("모든 문장", () => {
       panel.idle({ reason: "stop", dedicated: true }),
       panel.idle({ reason: "stop", dedicated: false }),
       panel.ended(),
-      ...["inactivity-timeout", "forced-disconnect", "stage-ended", "stage-disconnect", "operator-leave", "voice-lost", "channel-gone", "fault", "stop", "leave"].map((cause) => panel.cutOff(cause)),
+      ...["alone-timeout", "kicked", "stage-ended", "stage-disconnect", "operator-leave", "voice-lost", "channel-gone", "fault", "stop", "leave"].map((cause) => panel.cutOff(cause)),
     ],
     [
       "🎵 현재 재생 중",
@@ -46,7 +46,7 @@ test("모든 문장", () => {
       "### 💤 재생 대기 중\n**쉬는 중이에요**\n-# 👋 곡을 입력하면 다시 올게요",
       "### 💤 재생 대기 중\n**쉬는 중이에요**\n-# 👋 `/play`로 부르면 다시 올게요",
       { icon: "music", title: "재생이 끝났어요", body: "`/play`로 곡을 넣으면 다시 틀어요." },
-      { title: "👋 음성 채널에서 나왔어요", body: "한동안 곡이 없거나 듣는 사람이 없어서 쉬러 갔어요. `/play`로 부르면 다시 올게요." },
+      { title: "👋 음성 채널에서 나왔어요", body: "한동안 듣는 사람이 없어서 쉬러 갔어요. `/play`로 부르면 다시 올게요." },
       { title: "👋 음성 채널에서 나왔어요", body: "누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요." },
       { title: "👋 음성 채널에서 나왔어요", body: "스테이지가 끝나서 나왔어요. `/play`로 부르면 다시 올게요." },
       { title: "👋 음성 채널에서 나왔어요", body: "스테이지가 끝났거나 누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요." },

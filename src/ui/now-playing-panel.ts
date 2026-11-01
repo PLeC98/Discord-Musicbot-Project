@@ -190,8 +190,8 @@ class NowPlayingPanel {
     }
   }
 
-  /** 재생목록을 넣어 첫 곡이 시작된 뒤 남은 곡을 추가했다고 알린다. 잠깐 보이고 삭제한다 */
-  async showPlaylistAdditionMessage(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
+  /** 여러 곡을 넣어 첫 곡이 시작된 뒤 남은 곡을 대기열에 담았다고 알린다. 잠깐 보이고 삭제한다 */
+  async postAddedNotice(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
     // 진입점의 응답이 아니라 항상 텍스트 채널로. 채널이 없는 경로(대시보드)는 생략

@@ -396,7 +396,7 @@ async function gather({ state, onProgress = ignoreProgress, lookup = defaultLook
 // ── 곡 담기 ───────────────────────────────────────────────────────────
 
 /** 곡 담기에서 부르는 패널(그리기만) */
-type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "showPlaylistAdditionMessage">;
+type Panel = Pick<NowPlayingPanel, "postPlaying" | "updatePlaying" | "postAddedNotice">;
 /** 곡을 담는 데 쓰는 것: 서버마다의 플레이어와 재생 패널 */
 type Bot = { players: Pick<PlayerSeats, "get" | "set">; panels: Panel };
 /** 패널을 세운 결과. 세우지 못해도 재생은 성공이다 */
@@ -474,7 +474,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
 
   // 첫 곡을 틀기 시작했고 목록에 남은 곡이 있다. 담은 안내를 내고 패널의 대기열 수를 고친다
   if (opened && tracks.length > 1) {
-    await panel.showPlaylistAdditionMessage(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
+    await panel.postAddedNotice(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
     await panel.updatePlaying(player);
     return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
   }

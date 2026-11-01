@@ -114,14 +114,14 @@ test("끝의 종류: 자리에서 내보내지면 끄고 알린다. 자리가 �
   const elsewhere = { guild: g1, voiceChannel: { id: "vc9" } } as never;
 
   staySeats.set("g1", "vc1");
-  w.keeper.onDisposed(seatHere, "forced-disconnect");
+  w.keeper.onDisposed(seatHere, "kicked");
   await flush();
   assert.equal(staySeats.seatOf("g1"), null);
   assert.deepEqual(w.calls, ["notice:g1:누가 저를 내보내서 상주 모드를 껐어요."]);
 
   w.calls.length = 0;
   staySeats.set("g1", "vc1");
-  w.keeper.onDisposed(elsewhere, "forced-disconnect");
+  w.keeper.onDisposed(elsewhere, "kicked");
   w.keeper.onDisposed(seatHere, "stop");
   t.mock.timers.tick(BACKOFF_MS[0]);
   await flush();

@@ -38,8 +38,9 @@ const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되�
 const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
 const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id ?? "?";
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
+const RECOVERY_ATTEMPTS_MAX = 5; // 한 번의 끊김에 연결 복구를 시도하는 횟수. 넘으면 세션을 저장하고 정리한다
 // 빠짐, 사라짐으로 버릴 때(세션 삭제)
-const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "forced-disconnect" } as const;
+const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "kicked" } as const;
 // 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
 // 4014 는 빠짐 알림보다 먼저, 4022 는 0.1 ~ 0.2초 뒤에 온다(실측). 코드가 끝내 오지 않으면 둘 다 말한다
 const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
@@ -66,7 +67,6 @@ class VoiceLink {
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0;
-  maxRecoveryAttempts = 5;
   /** 사람이 서버 헤드셋 끄기를 풀었다. 다투지 않게 이 연결(복구, 옮겨짐 포함) 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다 */
   undeafened = false;
   // 기다리는 시간. 테스트가 줄인다
@@ -353,7 +353,7 @@ class VoiceLink {
     this.recoveryAttempts = 0;
     this.reattachRefused = false;
     const gen = ++this.gen;
-    log.warn(`연결 복구 시작: ${this._label()} | 원인=${why} | 최대 ${this.maxRecoveryAttempts}회`);
+    log.warn(`연결 복구 시작: ${this._label()} | 원인=${why} | 최대 ${RECOVERY_ATTEMPTS_MAX}회`);
     this._recoverLoop(gen).catch((error: unknown) => log.error("연결 복구 루프 오류:", error));
   }
 
@@ -362,7 +362,7 @@ class VoiceLink {
     const active = () => gen === this.gen && this.state === "recovering";
     while (active()) {
       this.recoveryAttempts++;
-      if (this.recoveryAttempts > this.maxRecoveryAttempts) return this._giveUp();
+      if (this.recoveryAttempts > RECOVERY_ATTEMPTS_MAX) return this._giveUp();
       if (!this._liveChannel()) return this.channelGone();
       const started = Date.now();
       const joined = await this._rejoin();
@@ -438,7 +438,7 @@ class VoiceLink {
 
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
   _giveUp() {
-    log.error(`연결 복구 포기: ${this._label()} | 최대 ${this.maxRecoveryAttempts}회를 넘었습니다. 세션을 저장하고 정리합니다`);
+    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회를 넘었습니다. 세션을 저장하고 정리합니다`);
     this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
   }
 

@@ -115,24 +115,24 @@ test("/leave: 원인=leave. 세션을 저장하고 삭제하지 않는다", asyn
   assert.equal(calls.persists.includes("remove"), false);
 });
 
-test("강제 퇴장: 원인=forced-disconnect, 곡 이름이 남는다. 레지스트리에서 빠진다", async () => {
+test("강제 퇴장: 원인=kicked, 곡 이름이 남는다. 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("ddddddddddd", { title: "넷째 곡" }));
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", isVoiceBased: () => true })); // 채널은 그대로 있다(삭제됐으면 채널 사라짐)
   const client = p.guild.client as Client;
   const state = (channelId: string | null) => fake<VoiceState>({ id: "bot", channelId, guild: p.guild });
   const lines = await endLines(() => onVoiceStateUpdate(client, h.registryOf(p)!, state("voice1"), state(null)));
-  assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=forced-disconnect']);
+  assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=kicked']);
   assert.equal(registered(p), false);
 });
 
-test("혼자 남아 시간이 다 되면: 원인=inactivity-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
+test("혼자 남아 시간이 다 되면: 원인=alone-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("eeeeeeeeeee", { title: "다섯째 곡" }));
   const members = Object.assign(new Map(), { filter: () => ({ size: 0 }) });
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
   Object.assign(p.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
   p.idle.aloneMs = 0;
   const lines = await endLines(() => p.syncHolds());
-  assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=inactivity-timeout']);
+  assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=alone-timeout']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false);
 });

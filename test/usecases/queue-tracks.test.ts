@@ -303,13 +303,13 @@ test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내�
   try {
     player.textChannel = null;
     const from = sink.buffer.length;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
+    await mem.postAddedNotice(player, [track("a")], "playlist");
     assert.deepEqual(sent, []);
     assert.deepEqual(sink.buffer.slice(from), [], "보내려다 실패한 것이 아니라 아예 보내지 않는다");
 
     // 대조: 채널이 있으면 보낸다
     player.textChannel = channel;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
+    await mem.postAddedNotice(player, [track("a")], "playlist");
     assert.equal(sent.length, 1);
   } finally {
     mock.timers.reset();

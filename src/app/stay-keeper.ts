@@ -29,8 +29,8 @@ const BACKOFF_MS = [60_000, 120_000, 300_000, 600_000, 1_800_000];
 const BOOT_GAP_MS = 1000; // 기동 때 서버 사이. 게이트웨이 보내기 한도(60초 120번)에 넉넉하다
 
 // 끝마다 할 일. 없는 끝(stop, leave, guild-gone, operator-leave, replaced, fault-restart, stage-ended)은 아무것도 하지 않는다
-const DROP: Partial<Record<PlayerEnd, "kicked" | "gone">> = { "forced-disconnect": "kicked", "stage-disconnect": "kicked", "channel-gone": "gone" };
-const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-failed", "adopt-failed", "fault-cleared", "queue-drained", "inactivity-timeout"]);
+const DROP: Partial<Record<PlayerEnd, "kicked" | "gone">> = { kicked: "kicked", "stage-disconnect": "kicked", "channel-gone": "gone" };
+const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-failed", "adopt-failed", "fault-cleared", "queue-drained", "alone-timeout"]);
 
 type Why = "kicked" | "gone" | "permission";
 const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };

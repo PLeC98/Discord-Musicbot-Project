@@ -3,7 +3,7 @@
 //
 //   refresh(player)             보이는 상태가 바뀌었다. 패널을 지금 상태로(같은 동기 흐름에서 여러 번 부르면 한 번)
 //   ended(player, reason, cause) 재생이 끝났다. 패널을 끝난 모양으로(reason: queue-end, failures, stop, leave, disconnected, joined).
-//                               cause 는 버린 까닭(dispose 의 end: forced-disconnect, inactivity-timeout, voice-lost 등). 없으면 패널 모양이 곧 까닭
+//                               cause 는 버린 까닭(dispose 의 end: kicked, alone-timeout, voice-lost 등). 없으면 패널 모양이 곧 까닭
 //   started(player)             패널 없이 재생이 시작됐다(자동재생 첫 곡, 세션 복원). 새 패널을 올린다
 //   released(player, textChannelId)  플레이어를 버린다. 그 채널에 쥔 패널 도구를 놓는다
 //   disposed(player, reason, end) 플레이어를 버렸다(reason: 로그에 남는 까닭, end: 끝의 종류 PlayerEnd). 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만)

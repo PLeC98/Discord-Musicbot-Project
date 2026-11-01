@@ -213,7 +213,7 @@ test("기다려도 재연결되지 않았는데 봇이 채널에 없으면(퇴�
   me.voice.channelId = null;
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
   await until(() => steps.length > 0, "버리기");
-  assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(steps, ["dispose:remove:disconnected:kicked"]);
   assert.equal(link.state, "closed");
   assert.equal(joins.length, 1, "재연결하지 않았다");
 });
@@ -367,7 +367,7 @@ test("봇이 채널에서 빠졌다: 채널이 있으면 강제 퇴장, 없으�
   const kicked = await ready();
   assert.deepEqual(kicked.link.onBotState(state("vc1"), state(null)), { left: true, moved: false });
   await until(() => kicked.steps.length > 0, "버리기");
-  assert.deepEqual(kicked.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(kicked.steps, ["dispose:remove:disconnected:kicked"]);
   kicked.conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
   assert.equal(kicked.link.state, "closed");
 
@@ -393,7 +393,7 @@ test("스테이지에서 빠졌다: 음성 서버가 모두를 끊었으면(4022
     return s.steps;
   };
   assert.deepEqual(await leave({ after: 4022 }), ["dispose:remove:disconnected:stage-ended"]);
-  assert.deepEqual(await leave({ before: 4014 }), ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(await leave({ before: 4014 }), ["dispose:remove:disconnected:kicked"]);
   assert.deepEqual(await leave({}), ["dispose:remove:disconnected:stage-disconnect"]);
 });
 
@@ -449,7 +449,7 @@ test("일반 음성 채널에서 빠지면 닫힘 코드와 상관없이 강제 
   s.link.onBotState(state("vc1"), state(null));
   net.emit("close", 4022);
   await until(() => s.steps.length > 0, "버리기");
-  assert.deepEqual(s.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(s.steps, ["dispose:remove:disconnected:kicked"]);
 });
 
 test("채널 삭제 알림보다 빠짐 알림이 먼저 와 캐시에 채널이 남아 있어도, 디스코드가 없다고(10003) 하면 채널 사라짐이다. 묻지 못하면 강제 퇴장", async () => {
@@ -461,7 +461,7 @@ test("채널 삭제 알림보다 빠짐 알림이 먼저 와 캐시에 채널이
   const offline = await ready({ fetchAs: () => Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }) });
   offline.link.onBotState(state("vc1"), state(null));
   await until(() => offline.steps.length > 0, "버리기");
-  assert.deepEqual(offline.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(offline.steps, ["dispose:remove:disconnected:kicked"]);
 });
 
 test("재연결 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것이 아니다(게이트웨이가 끊겼던 것). 복구를 이어 간다", async () => {
@@ -480,7 +480,7 @@ test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알�
   assert.equal(link.state, "waiting");
   assert.deepEqual(link.onBotState(state("vc1"), state(null)), { left: true, moved: false });
   await until(() => steps.length > 0, "버리기");
-  assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(steps, ["dispose:remove:disconnected:kicked"]);
   assert.equal(joins.length, 1, "재연결하지 않는다");
 });
 
@@ -519,7 +519,7 @@ test("새 세션이 경계 앞이면(연결이 마지막으로 Ready 된 때 앞
     me.voice.channelId = null;
     conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
     await until(() => steps.length > 0, "버리기");
-    assert.deepEqual(steps, ["dispose:remove:disconnected:forced-disconnect"], label);
+    assert.deepEqual(steps, ["dispose:remove:disconnected:kicked"], label);
   }
 });
 
@@ -552,7 +552,7 @@ test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 �
   assert.equal(s.link.state, "joining");
   s.link.onBotState(state("vc1"), state(null));
   await until(() => s.steps.length > 0, "버리기");
-  assert.deepEqual(s.steps, ["dispose:remove:disconnected:forced-disconnect"]);
+  assert.deepEqual(s.steps, ["dispose:remove:disconnected:kicked"]);
 });
 
 test("답 없는 참가: 봇이 그 채널에 없으면(10065, 다른 채널) 나가지 않고 참가만 다시 보낸다. 디스코드에 묻지 못하면(네트워크) 아무것도 보내지 않고 기다린다", async () => {

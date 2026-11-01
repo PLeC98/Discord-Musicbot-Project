@@ -23,14 +23,14 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
   await toAll(interaction, replies.jumped(r.track), LIFETIME.result);
 }
 
-async function handleVolumeModal(interaction: ModalSubmitInteraction<"cached">, { players }: BotContext) {
+async function handleVolumeSubmit(interaction: ModalSubmitInteraction<"cached">, { players }: BotContext) {
   // 숫자만 받는다. parseInt 는 "50abc" 를 50 으로 읽는다. 범위는 controls.volume 이 본다
-  const raw = interaction.fields.getTextInputValue("volume_input").trim();
+  const raw = interaction.fields.getTextInputValue("level").trim();
   const volume = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
   await answerVolume(interaction, players.get(interaction.guild.id), volume);
 }
 
 // 곡으로 건너뛰기 메뉴와 볼륨 입력 모달
-const routes: Route[] = [route("select", customId(PANEL, "jump", ""), handleJumpTo), route("modal", customId(PANEL, "volume"), handleVolumeModal)];
+const routes: Route[] = [route("select", customId(PANEL, "jump", ""), handleJumpTo), route("modal", customId(PANEL, "volume"), handleVolumeSubmit)];
 
-export { routes, handleJumpTo, handleVolumeModal };
+export { routes, handleJumpTo, handleVolumeSubmit };

@@ -39,7 +39,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   queue: (it, player) => handleQueue(it, player),
   shuffle: (it, player) => answerShuffle(it, player),
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
-  volume: (it) => handleVolumeModal(it),
+  volume: (it) => handleVolumeButton(it),
   // 순환: 끔 → 한 곡 반복 → 대기열 반복 → 끔. 라이브가 있으면 "끄기"에만 응한다
   loop: (it, player) => answerLoop(it, player, nextLoopMode(player.loop)),
   previous: (it, player) => answerPrevious(it, player),
@@ -83,7 +83,7 @@ async function handleQueuePage(interaction: Press, { players }: BotContext) {
   return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
 }
 
-async function handleVolumeModal(interaction: Press) {
+async function handleVolumeButton(interaction: Press) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
     return await noticeSelf(interaction, errors.notice(permErr));
@@ -92,10 +92,10 @@ async function handleVolumeModal(interaction: Press) {
   await interaction.showModal(volumeModal());
 }
 
-/** 볼륨을 입력하는 모달. 받는 쪽은 modal-handler 의 handleVolumeModal */
+/** 볼륨을 입력하는 모달. 받는 쪽은 modal-handler 의 handleVolumeSubmit */
 function volumeModal() {
   const t = controlText.volumeModal();
-  const volumeInput = new TextInputBuilder().setCustomId("volume_input").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
+  const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
@@ -154,9 +154,9 @@ async function handleSearchInteraction(interaction: Press, bot: BotContext) {
   await interaction.deferUpdate();
 
   const adding = searchText.adding();
-  const processingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
+  const addingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
 
-  await interaction.editReply({ embeds: [processingEmbed], components: [] });
+  await interaction.editReply({ embeds: [addingEmbed], components: [] });
   // 여기서부터 던지면 "처리 중" 자리표시자를 삭제하고 본인에게만 알린다(검색 메시지는 임베드라 안내로 고칠 수 없다)
   showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
 
@@ -188,4 +188,4 @@ const routes: Route[] = [
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeModal, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
