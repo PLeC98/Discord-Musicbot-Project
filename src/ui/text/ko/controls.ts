@@ -87,8 +87,8 @@ const moved = (track: Linked, from: number, to: number): Head & { by: string } =
 
 // 반복 모드마다 [아이콘, 문장]
 const LOOP: Record<string, [icon: IconKey, message: string]> = {
-  track: ["repeat_one", "**한 곡 반복** 모드로 설정했어요. 현재 곡을 계속해서 재생해요."],
-  queue: ["repeat", "**대기열 반복** 모드로 설정했어요. 대기열이 끝나면 처음부터 다시 틀어요."],
+  track: ["repeat_one", "**한 곡 반복** 모드로 설정했어요."],
+  queue: ["repeat", "**대기열 반복** 모드로 설정했어요."],
   false: ["repeat_off", "반복 모드를 **해제**했어요."],
 };
 /** 반복 모드 바꾸기 */

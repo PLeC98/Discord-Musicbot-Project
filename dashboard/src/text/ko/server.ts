@@ -46,7 +46,7 @@ const moreSongs = (count: number) => `${formatNumber(count)}곡 더`;
 const autoplay = "자동재생";
 const autoplayOn = "자동재생 켜기";
 const autoplayOff = "자동재생 끄기";
-const whichGenre = "어떤 장르를 재생할까요?";
+const whichGenre = "어떤 장르의 곡들을 틀까요?";
 const dragToReorder = "드래그해서 순서 바꾸기";
 const pickedByAutoplay = "자동재생이 선택한 곡";
 const removeSong = "빼기";

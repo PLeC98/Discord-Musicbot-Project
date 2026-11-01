@@ -3,7 +3,7 @@
 import { icon } from "../../icons.ts";
 
 /** 켤 때의 장르 메뉴 */
-const pickGenre = () => ({ icon: "autoplay" as const, title: "자동재생 장르 선택", description: "어떤 장르를 재생할까요?", placeholder: "장르를 선택해 주세요!" });
+const pickGenre = () => ({ icon: "autoplay" as const, title: "자동재생 장르 선택", description: "어떤 장르의 곡들을 틀까요?", placeholder: "여기를 눌러 장르를 골라 주세요!" });
 /** 끈 뒤 메뉴가 열려 있는 동안 다른 장르로 다시 켤 수 있는 메뉴 */
 const turnedOff = () => ({
   icon: "autoplay" as const,
@@ -12,6 +12,6 @@ const turnedOff = () => ({
   placeholder: "바꿀 장르를 선택해 주세요!",
 });
 /** 장르를 선택해 켰다 */
-const turnedOn = (genre: string) => ({ icon: "autoplay" as const, title: "자동재생을 시작할게요!", description: `**${genre}** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동재생 곡들이 나와요.`, by: `${icon("person")} 요청한 사람` });
+const turnedOn = (genre: string) => ({ icon: "autoplay" as const, title: "자동재생을 시작할게요!", description: `**${genre}** 장르를 틀게요. 직접 넣어둔 곡들이 끝나면 자동재생 곡이 재생돼요.`, by: `${icon("person")} 요청한 사람` });
 
 export { pickGenre, turnedOff, turnedOn };
