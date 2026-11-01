@@ -9,7 +9,7 @@ const turnedOff = () => ({
   icon: "autoplay" as const,
   title: "자동재생을 껐어요!",
   description: "장르를 바꾸려던 거라면 아래에서 선택해 주세요! 자동재생을 끄려던 거라면 선택하지 않고 두면 돼요.",
-  placeholder: "바꿀 장르를 선택해 주세요!",
+  placeholder: "여기를 눌러 바꿀 장르를 골라 주세요!",
 });
 /** 장르를 선택해 켰다 */
 const turnedOn = (genre: string) => ({ icon: "autoplay" as const, title: "자동재생을 시작할게요!", description: `**${genre}** 장르를 틀게요. 직접 넣어둔 곡들이 끝나면 자동재생 곡이 재생돼요.`, by: `${icon("person")} 요청한 사람` });

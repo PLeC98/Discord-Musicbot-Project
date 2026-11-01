@@ -9,7 +9,7 @@ test("모든 문장", () => {
     [autoplay.pickGenre(), autoplay.turnedOff(), autoplay.turnedOn("J-POP")],
     [
       { icon: "autoplay", title: "자동재생 장르 선택", description: "어떤 장르의 곡들을 틀까요?", placeholder: "여기를 눌러 장르를 골라 주세요!" },
-      { icon: "autoplay", title: "자동재생을 껐어요!", description: "장르를 바꾸려던 거라면 아래에서 선택해 주세요! 자동재생을 끄려던 거라면 선택하지 않고 두면 돼요.", placeholder: "바꿀 장르를 선택해 주세요!" },
+      { icon: "autoplay", title: "자동재생을 껐어요!", description: "장르를 바꾸려던 거라면 아래에서 선택해 주세요! 자동재생을 끄려던 거라면 선택하지 않고 두면 돼요.", placeholder: "여기를 눌러 바꿀 장르를 골라 주세요!" },
       { icon: "autoplay", title: "자동재생을 시작할게요!", description: "**J-POP** 장르를 틀게요. 직접 넣어둔 곡들이 끝나면 자동재생 곡이 재생돼요.", by: "👤 요청한 사람" },
     ],
   );
