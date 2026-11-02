@@ -12,6 +12,7 @@ import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failure-notice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 type Sent = [string, unknown?];
 
@@ -255,4 +256,27 @@ test("자동완성이 없는 명령, 없는 명령, 서버 밖은 빈 목록", a
     await interactionCreate.execute(one.bot, one.it);
     assert.deepEqual(one.answered, [[]]);
   }
+});
+
+// ── 늦게 받은 상호작용 ──
+
+test("만든 뒤 2초가 넘어 받은 상호작용은 warn 으로 남긴다. 1분에 한 줄, 그 사이의 것은 세어 다음 줄에", async () => {
+  const from = sink.buffer.length;
+  const base = 10_000_000;
+  const at = (createdAt: number, now: number) => {
+    const { it, bot } = interaction({ commands: { play: { execute: async () => {} } } });
+    Object.assign(it, { createdTimestamp: createdAt });
+    return routeInteraction(bot, it, [], now);
+  };
+  await at(base, base + 1999);
+  await at(base, base + 3100);
+  await at(base + 10_000, base + 13_000);
+  await at(base + 70_000, base + 72_500);
+  assert.deepEqual(
+    sink.buffer
+      .slice(from)
+      .filter((e) => e.text.startsWith("상호작용 늦게 받음"))
+      .map((e) => `${e.level} ${e.text}`),
+    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인"],
+  );
 });

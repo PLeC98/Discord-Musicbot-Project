@@ -85,8 +85,34 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
   }
 }
 
-/** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯 */
-async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES) {
+/** 받았을 때 상호작용이 만들어진 뒤 이만큼 지났으면 남긴다(ms). 디스코드는 3초 안에 답해야 받는다 */
+const LATE_MS = 2000;
+/** 늦게 받은 것을 남기는 간격(ms). 봇 PC 의 시계가 어긋나 있으면 상호작용마다 늦게 보인다 */
+const LATE_LOG_EVERY_MS = 60_000;
+const late = { loggedAt: -Infinity, skipped: 0 };
+
+const nameOf = (interaction: Interaction) => {
+  if (interaction.isChatInputCommand()) return `/${interaction.commandName}`;
+  if (interaction.isAutocomplete()) return `/${interaction.commandName} 자동완성`;
+  return "customId" in interaction ? String(interaction.customId) : "상호작용";
+};
+
+// 늦게 받은 상호작용. 답하지 못한 것(10062)이 받기 전에 늦었는지(디스코드, 네트워크, 봇이 바빴음) 답하다 늦었는지 가르려고 받은 때의 나이를 남긴다
+function noteLate(interaction: Interaction, now: number) {
+  const age = now - interaction.createdTimestamp;
+  if (!Number.isFinite(age) || age < LATE_MS) return;
+  if (now - late.loggedAt < LATE_LOG_EVERY_MS) {
+    late.skipped++;
+    return;
+  }
+  log.warn(`상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${late.skipped ? ` | 앞서 ${late.skipped}번 더` : ""} | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인`);
+  late.loggedAt = now;
+  late.skipped = 0;
+}
+
+/** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯, now 는 받은 시각 */
+async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES, now = Date.now()) {
+  noteLate(interaction, now);
   if (interaction.isChatInputCommand()) return runCommand(bot, interaction);
   if (interaction.isAutocomplete()) return runAutocomplete(bot, interaction);
   return runComponent(bot, interaction, routes);
