@@ -10,6 +10,8 @@ import { noticeSelf, stopExpiry } from "../../ui/delivery.ts";
 import { pickOfOption } from "../../ui/search-results.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { pickUrl, readPick } from "../../rules/search-pick.ts";
+import * as YouTube from "../../sources/youtube/index.ts";
+import * as Spotify from "../../sources/spotify.ts";
 import { playOnReply } from "../commands/play.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -26,9 +28,9 @@ async function handleSearchPick(interaction: StringSelectMenuInteraction<"cached
   if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
 
   stopExpiry(interaction.message.id);
-  // 항목 이름은 `번호. 제목`(메뉴에 실린 대로)
-  const label = interaction.component.options.find((option) => option.value === value)?.label;
-  const title = label ? label.replace(/^\d+\. /, "") : null;
+  // 항목 이름(`번호. 제목`)에서 제목을. 메뉴를 찾지 못하면 기억해 둔 검색 결과에서
+  const label = interaction.component?.options?.find((option) => option.value === value)?.label;
+  const title = label ? label.replace(/^\d+\. /, "") : ((pick.platform === "spotify" ? Spotify.rememberedTrack(pick.id) : YouTube.rememberedVideo(pick.id))?.title ?? null);
   await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack(title), source: "/search 결과", show: (view) => interaction.update(post(view)) });
 }
 

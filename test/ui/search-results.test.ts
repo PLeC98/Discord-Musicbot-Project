@@ -40,3 +40,10 @@ test("연령 인증으로 스포티파이 곡만이면 카드 푸터에 까닭",
   const view = searchResultsView({ query: "閃光", rows: [spotify(SP)], gated: true, userId: "u1" });
   assert.equal(textsOf({ components: [view.components[0]] }).at(-1), "-# 유튜브가 연령 인증을 요구하는 검색어예요");
 });
+
+test("열 줄 모두 제목, 가수가 아주 길어도 카드 글은 4000자 안(디스코드가 넘으면 메시지 전체를 거절한다)", () => {
+  const long = (i: number): ResultRow => ({ ...spotify(SP), id: SP, title: "제".repeat(300), artist: Array.from({ length: 20 }, (_, n) => `가수${i}-${n}`).join(", ") });
+  const view = searchResultsView({ query: "가".repeat(100), rows: Array.from({ length: 10 }, (_, i) => long(i)), gated: true, userId: "u1" });
+  const total = textsOf({ components: [view.components[0]] }).join("").length;
+  assert.ok(total < 4000, String(total));
+});
