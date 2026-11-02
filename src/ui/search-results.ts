@@ -1,4 +1,4 @@
-// /search 결과 화면: 카드(헤더 줄, 결과 줄, 연령 인증이면 푸터)와 카드 밖의 선택 메뉴(재생 패널처럼). 출처는 앱 이모지(동기화 전에는 유니코드 점)
+// /search 결과 화면: 카드(헤더 줄, 결과 줄, 연령 인증이면 구분선 아래 푸터)와 카드 밖의 선택 메뉴(재생 패널처럼). 출처는 앱 이모지(동기화 전에는 유니코드 점)
 
 import { ActionRowBuilder, MessageFlags, StringSelectMenuBuilder } from "discord.js";
 import { pickValue, type SearchPick } from "../rules/search-pick.ts";
@@ -22,7 +22,7 @@ const pickOfOption = (value: string) => value.slice(value.indexOf(":") + 1);
 /** 결과 화면(처음부터 Components V2 로 답한 메시지를 고친다). userId: 고를 수 있는 사람, gated: 유튜브가 연령 인증을 걸어 스포티파이 곡만 있다 */
 function searchResultsView({ query, rows, gated, userId }: { query: string; rows: readonly ResultRow[]; gated: boolean; userId: string }) {
   const body = rows.map((row, i) => searchText.resultLine(i + 1, { title: row.title, link: row.pageUrl, source: icon(row.platform), artist: row.artist, length: lengthOf(row) })).join("\n");
-  const card = frame({ icon: "search", title: searchText.resultsTitle(query), body, footer: gated ? [searchText.gatedFooter()] : [] });
+  const card = frame({ icon: "search", title: searchText.resultsTitle(query), body, footer: gated ? [searchText.gatedFooter()] : [], divider: true });
   const options = rows.map((row, i) => ({ ...searchText.pickOption(i + 1, { title: row.title, artist: row.artist, length: lengthOf(row) }), value: optionValue(i + 1, row), emoji: buttonEmoji(row.platform) }));
   const menu = new StringSelectMenuBuilder()
     .setCustomId(customId(SEARCH, "pick", userId))

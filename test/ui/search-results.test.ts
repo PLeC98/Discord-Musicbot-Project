@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { searchResultsView, pickOfOption, type ResultRow } from "../../src/ui/search-results.ts";
 import { useUploaded } from "../../src/ui/icons.ts";
-import { selectOf, textsOf } from "../helpers/cv2.ts";
+import { selectOf, separatorsOf, textsOf } from "../helpers/cv2.ts";
 
 afterEach(() => useUploaded(new Map()));
 
@@ -36,9 +36,11 @@ test("메뉴: 검색한 사람을 싣고, 항목은 번호. 제목, 채널 | 길
   assert.equal(pickOfOption(`3:sp:${SP}`), `sp:${SP}`);
 });
 
-test("연령 인증으로 스포티파이 곡만이면 카드 푸터에 까닭", () => {
+test("연령 인증으로 스포티파이 곡만이면 구분선 아래 카드 푸터에 까닭", () => {
   const view = searchResultsView({ query: "閃光", rows: [spotify(SP)], gated: true, userId: "u1" });
   assert.equal(textsOf({ components: [view.components[0]] }).at(-1), "-# 유튜브가 연령 인증을 요구하는 검색어예요");
+  assert.equal(separatorsOf({ components: [view.components[0]] }), 1);
+  assert.equal(separatorsOf({ components: [searchResultsView({ query: "q", rows: [spotify(SP)], gated: false, userId: "u1" }).components[0]] }), 0, "푸터가 없으면 구분선도 없다");
 });
 
 test("열 줄 모두 제목, 가수가 아주 길어도 카드 글은 4000자 안(디스코드가 넘으면 메시지 전체를 거절한다)", () => {

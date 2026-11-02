@@ -501,6 +501,22 @@ test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가�
   assert.deepEqual(log.at(-1), ["deleteReply"]);
 });
 
+test("/search 결과 선택: 결과 메시지가 그 사이 지워졌으면(삭제 예약이 막 돌았다) 새 본인 메시지로 추가하는 중을 보이고 고른 곡은 넣는다", async () => {
+  const w = world();
+  const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
+  Object.assign(it, {
+    update: async () => {
+      throw Object.assign(new Error("Unknown Message"), { code: 10008 });
+    },
+  });
+  await searchPick[0].handle(it, w.bot);
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
+  assert.deepEqual(
+    resolved.map((r) => r.query),
+    [`https://open.spotify.com/track/${SP_ID}`],
+  );
+});
+
 test("/search 결과 선택: 검색한 사람만, 모양이 틀린 값은 모른다고, 권한이 없으면 거절(본인에게만)", async () => {
   const other = pickIn(world(), "1:yt:abcdefghijk", { userId: "999999999999999999" });
   await searchPick[0].handle(other.it, other.bot);
