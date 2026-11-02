@@ -84,8 +84,16 @@ function choicesOf(query: string, found: TextSearchResult | null): ApplicationCo
     const gated = errors.notice("search-age-gated");
     return [{ name: `${gated.title} ${gated.body ?? ""}`.trim(), value: query }];
   }
-  const songs = (found?.tracks ?? []).flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()) }), value: pickValue({ platform: "youtube", id: track.id }) }] : []));
-  return [{ name: searchText.resultsChoice(query), value: query }, ...songs.slice(0, CHOICES)];
+  const top = { name: searchText.resultsChoice(query), value: query };
+  // 이름이 같은 후보(다시 올린 영상 등)는 하나만. 겹치면 디스코드가 응답 전체를 거절할 수 있다
+  const names = new Set([top.name]);
+  const songs = (found?.tracks ?? []).flatMap((track) => {
+    const name = searchText.songChoice({ title: track.title, artist: track.artist, length: track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()) });
+    if (!track.id || names.has(name)) return [];
+    names.add(name);
+    return [{ name, value: pickValue({ platform: "youtube", id: track.id }) }];
+  });
+  return [top, ...songs.slice(0, CHOICES)];
 }
 
 const exported: GuildCommand & {
@@ -101,7 +109,8 @@ const exported: GuildCommand & {
 
   async autocomplete(interaction, _bot, { search = YouTube.searchText, now = Date.now }: SearchDeps = {}) {
     const query = interaction.options.getFocused().trim();
-    if (!query || isLink(query)) return await interaction.respond([]);
+    // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력 칸 상한이 100자라 보통 오지 않는다)
+    if (!query || query.length > 100 || isLink(query)) return await interaction.respond([]);
     if (graphemeLength(query) < MIN_QUERY) return await interaction.respond(choicesOf(query, null));
 
     const started = now();

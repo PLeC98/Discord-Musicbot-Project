@@ -1,6 +1,7 @@
 // 유튜브 글자 검색. yt-dlp 를 띄우지 않고 유튜브 내부 API 를 youtubei.js 로 부른다(0.5초 안팎이라 자동완성의 3초 마감에 든다).
 // 세션 하나를 다시 쓰고, 같은 검색어는 잠시 기억하고, 같은 검색어로 동시에 오면 한 번만 묻는다. 한꺼번에 나가는 검색 수는 상한이 있다.
-// 언어는 yt-dlp 와 같은 en, 지역은 비워 유튜브가 IP 로 정한 값을 쓴다(yt-dlp 와 같은 순위, 제목)
+// 언어는 en, 지역은 비워 유튜브가 IP 로 정한 값을 쓴다(yt-dlp 검색과 같은 순위, 제목). 창작자가 영어 제목을 달아 둔 영상은 영어 제목이라,
+// 곡을 넣을 때 yt-dlp 가 읽는 제목(원래 언어)과 다를 수 있다
 
 import { Innertube, Log, YTNodes } from "youtubei.js";
 import logger from "../../infra/log/logger.ts";

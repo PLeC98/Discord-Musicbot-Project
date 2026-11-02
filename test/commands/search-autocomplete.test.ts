@@ -58,6 +58,16 @@ test("이름은 100자를 넘지 않는다. 곡 후보는 길이를 남기고 �
   assert.ok(song.name.length <= 100 && song.name.endsWith("… (1:01)"));
 });
 
+test("이름이 같은 후보는 하나만 둔다(겹치면 디스코드가 응답을 거절할 수 있다). 100자를 넘는 입력은 빈 목록", async () => {
+  const same = { title: "좋은 날", artist: "아이유", duration: 236 };
+  const choices = await complete("좋은 날", found([tracks.youtube("aaaaaaaaaaa", same), tracks.youtube("bbbbbbbbbbb", same), tracks.youtube("ccccccccccc", { ...same, duration: 240 })]));
+  assert.deepEqual(
+    choices.map((c) => c.value),
+    ["좋은 날", "yt:aaaaaaaaaaa", "yt:ccccccccccc"],
+  );
+  assert.deepEqual(await complete("가".repeat(101), never), []);
+});
+
 test("연령 인증 안내만 왔으면 맨 위 줄 하나, 이름이 그 문장이다(값은 입력한 글자라 보내면 같은 안내가 뜬다)", async () => {
   assert.deepEqual(await complete("閃光", async () => ({ tracks: [], gated: true })), [{ name: "유튜브가 연령 인증을 요구하는 검색어예요. 링크로 직접 넣어 주세요.", value: "閃光" }]);
 });
