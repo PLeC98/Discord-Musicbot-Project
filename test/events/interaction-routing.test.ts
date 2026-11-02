@@ -20,6 +20,8 @@ import { routes as autoplay } from "../../src/discord/interactions/autoplay.ts";
 import { routes as modalHandler } from "../../src/discord/interactions/modal-handler.ts";
 import { routes as playlistMoreHandler } from "../../src/discord/interactions/playlist-more-handler.ts";
 import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
+import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
+import { searchResultsView } from "../../src/ui/search-results.ts";
 import { selectOf } from "../helpers/cv2.ts";
 
 useDefaultDocuments();
@@ -29,7 +31,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler };
+const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler, searchPick };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -98,8 +100,6 @@ const CASES: [Kind, string, string][] = [
   ["button", "queue:page:2", "buttonHandler"],
   ["button", "help:refresh", "buttonHandler"],
   ["button", "system:refresh", "buttonHandler"],
-  ["button", "search:pick:u1:1:aaaaaaaaaaa", "buttonHandler"],
-  ["button", "search:cancel:u1", "buttonHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],
   ["button", "setting:close", "settingsPanelHandler"],
@@ -107,6 +107,7 @@ const CASES: [Kind, string, string][] = [
   ["select", "panel:jump:s1", "modalHandler"],
   ["select", "setting:sb-cats", "settingsPanelHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
+  ["select", "search:pick:u1", "searchPick"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "modalHandler"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
@@ -128,6 +129,8 @@ test("봇이 만드는 모달, 메뉴의 custom_id 는 목록의 그 경로로 �
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
   const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
+  const results = searchResultsView({ query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
+  sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");
 });
 
 test("핸들러가 없는 custom_id 는 모른다고 한 번 답한다", async () => {

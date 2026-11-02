@@ -5,8 +5,9 @@ import { routes as menus } from "./modal-handler.ts";
 import { routes as autoplay } from "./autoplay.ts";
 import { routes as playlistMore } from "./playlist-more-handler.ts";
 import { routes as settingsPanel } from "./settings-panel-handler.ts";
+import { routes as search } from "./search-pick.ts";
 import type { Route } from "./route.ts";
 
-const ROUTES: readonly Route[] = [...buttons, ...menus, ...autoplay, ...playlistMore, ...settingsPanel];
+const ROUTES: readonly Route[] = [...buttons, ...menus, ...autoplay, ...playlistMore, ...settingsPanel, ...search];
 
 export { ROUTES };

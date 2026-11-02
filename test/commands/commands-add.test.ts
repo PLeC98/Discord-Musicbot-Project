@@ -11,7 +11,8 @@ import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand, runViaEntrance } from "../helpers/commands.ts";
 import searchCommand from "../../src/discord/commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
+import { LIFETIME, expireMessage, expiring, lifetimesOf, stopExpiry } from "../../src/ui/delivery.ts";
+import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import interactionCreate from "../../src/discord/events/interaction-create.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -20,7 +21,7 @@ import { PlayerRegistry } from "../../src/player/registry.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/usecases/add-tracks.ts";
-import { selectOf } from "../helpers/cv2.ts";
+import { selectOf, textOf } from "../helpers/cv2.ts";
 import type { BotContext } from "../../src/app/bot-context.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
@@ -340,44 +341,45 @@ test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
 
 // ── /search ───────────────────────────────────────────────────────────
 
-test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람, 번호, 영상 ID 를 싣는다", async () => {
+// 스포티파이 검색의 가짜(진짜는 네트워크로 익명 상태를 받는다)
+const noSpotify = { searchSpotify: async () => [] };
+const spotifyTracks = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `스포티파이 ${i}`, artist: "가수", album: null, pageUrl: `https://open.spotify.com/track/${String(i).repeat(22)}`, requestKey: "", duration: 200, thumbnail: null, platform: "spotify" as const, id: String(i).repeat(22) }));
+
+test("/search: 처음부터 Components V2 로 검색 중을 답하고, 그 메시지를 결과 카드와 선택 메뉴(유튜브 7, 스포티파이 3)로 고친다. 2분 뒤 지운다", async () => {
   const asked: string[] = [];
   const search = async (q: string) => {
     asked.push(q);
-    return { tracks: Array.from({ length: 6 }, (_, i) => tracks.youtube(`v${i}`, { title: `결과 ${i + 1}`, artist: "채널", duration: i === 0 ? 3725 : 65 })), gated: false };
+    return { tracks: Array.from({ length: 12 }, (_, i) => tracks.youtube(`v${String(i).padStart(10, "0")}`, { title: `결과 ${i + 1}`, artist: "채널", duration: 65 })), gated: false };
   };
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   const from = sink.buffer.length;
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search, searchSpotify: async () => spotifyTracks(5) });
 
   assert.deepEqual(asked, ["노래"]);
-  assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }], "검색 결과는 본인에게만");
-  assert.deepEqual(lifetimesOf(it), [LIFETIME.menu], "고르는 화면은 메뉴 수명 뒤 지운다");
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **노래** 검색 중..." }))], "검색 중은 본인에게만, 처음부터 Components V2");
   assert.deepEqual(
     sink.buffer
       .slice(from)
       .filter((e) => e.text.startsWith("곡 검색"))
       .map((e) => `${e.level} ${e.text}`),
-    ['info 곡 검색: /search | 사용자 | "노래" → 결과 6개'],
-    "검색어와 결과 수를 남긴다",
+    ['info 곡 검색: /search | 사용자 | "노래" → 유튜브 7, 스포티파이 3'],
   );
-  const payload = lastSent(log);
-  const fields = payload.embeds[0].data.fields;
-  assert.deepEqual(fields.map((f) => [f.name, f.value]).slice(0, 2), [
-    ["1. 결과 1", "👤 채널 • ⏱️ 1:02:05"],
-    ["2. 결과 2", "👤 채널 • ⏱️ 1:05"],
-  ]);
-  const ids = payload.components.flatMap((row) => row.components.map((b) => b.data.custom_id));
-  const pick = (n: number) => `search:pick:${USER}:${n + 1}:v${n}`;
-  assert.deepEqual(ids, [pick(0), pick(1), pick(2), pick(3), `search:cancel:${USER}`, pick(4), pick(5)]);
+  const menu = selectOf(lastSent(log) as never);
+  assert.equal(menu?.custom_id, `search:pick:${USER}`);
+  assert.deepEqual(
+    menu?.options?.map((o) => o.value.split(":")[1]),
+    [...Array(7).fill("yt"), ...Array(3).fill("sp")],
+  );
+  assert.ok(expiring("edited-msg"), "고르면 멈출 수 있게 메시지 ID 로 예약");
+  stopExpiry("edited-msg");
 });
 
 test("/search: 붙여 넣은 검색어 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷고 찾는다", async () => {
   const asked: string[] = [];
   const w = world();
   const { it } = interaction(w, { options: { query: "\u00a0 노래\u3000\n" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { ...noSpotify, search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
   assert.deepEqual(asked, ["노래"]);
 });
 
@@ -434,28 +436,84 @@ test("/search: 권한, 결과 없음, 오류", async () => {
 
   const none = interaction(world(), { options: { query: "x" } });
   const from = sink.buffer.length;
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { search: async () => ({ tracks: [], gated: false }) });
-  assert.deepEqual(none.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("no-search-results"))]], "미뤄 둔 자리를 지우고 본인에게만");
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { ...noSpotify, search: async () => ({ tracks: [], gated: false }) });
+  assert.deepEqual(none.log.at(-1), ["editReply", post(noticeFrame(errors.notice("no-search-results")))], "검색 중 자리를 안내로 고친다");
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
-  // 유튜브가 연령 인증 안내만 주었으면 결과 없음이 아니라 그렇다고
+  // 유튜브가 연령 인증 안내만 주고 스포티파이도 없으면 결과 없음이 아니라 그렇다고
   const gated = interaction(world(), { options: { query: "y" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(gated.it), gated.bot, { search: async () => ({ tracks: [], gated: true }) });
-  assert.deepEqual(gated.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("search-age-gated"))]]);
-  assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "y" → 연령 인증 안내'));
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(gated.it), gated.bot, { ...noSpotify, search: async () => ({ tracks: [], gated: true }) });
+  assert.deepEqual(gated.log.at(-1), ["editReply", post(noticeFrame(errors.notice("search-age-gated")))]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "y" → 결과 없음(유튜브 연령 인증 안내)'));
 
-  // 검색이 던지면 진입점이 남기고, 미뤄 둔 답을 삭제한 뒤 본인에게만 그 종류의 안내로 알린다
+  // 스포티파이 곡이 있으면 그것만으로 결과 화면, 카드 푸터에 까닭
+  const filled = interaction(world(), { options: { query: "z" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(filled.it), filled.bot, { search: async () => ({ tracks: [], gated: true }), searchSpotify: async () => spotifyTracks(10) });
+  assert.equal(selectOf(lastSent(filled.log) as never)?.options?.length, 10);
+  assert.ok(textOf(lastSent(filled.log)).endsWith("-# 유튜브가 연령 인증을 요구하는 검색어예요"));
+  stopExpiry("edited-msg");
+
+  // 유튜브 검색이 던지면 진입점이 남기고 검색 중 자리를 그 종류의 안내로 고친다
   const offline = async () => {
     throw networkError();
   };
   const err = interaction(world(), { options: { query: "x" } });
-  const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: BotContext) => searchCommand.execute(i, c, { search: offline }) };
+  const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: BotContext) => searchCommand.execute(i, c, { ...noSpotify, search: offline }) };
   await runViaEntrance(offlineSearch, err.it, err.bot);
   assert.deepEqual(
     err.log.map(([name]) => name),
-    ["deferReply", "deleteReply", "followUp"],
+    ["reply", "editReply"],
   );
-  assert.deepEqual(err.log[2][1], noticeReply(errors.notice("network-error")));
+  assert.deepEqual(err.log[1][1], post(noticeFrame(errors.notice("network-error"))));
+});
+
+// ── /search 결과 화면의 선택 ──
+
+const SP_ID = "1SwZVVH9BnXtLRLi2cbFhw";
+
+/** 결과 화면의 메뉴에서 value 를 고른 상호작용. userId: 메뉴를 만든 검색한 사람 */
+function pickIn(w: World, value: string, { userId = USER } = {}) {
+  const made = interaction(w);
+  const it = Object.assign(made.it, interactionKind("select"), {
+    customId: `search:pick:${userId}`,
+    values: [value],
+    component: { options: [{ value, label: `2. 閃光` }] },
+    message: { id: "result-msg" },
+    update: async (p: Sent) => {
+      it.replied = true;
+      made.log.push(["update", p]);
+    },
+  });
+  return { ...made, it: fake<StringSelectMenuInteraction<"cached">>(it) };
+}
+
+test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가하는 중으로 고친 뒤 /play 와 같은 길로 넣는다. 담으면 그 메시지를 지운다", async () => {
+  const w = world();
+  const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
+  expireMessage("result-msg", () => assert.fail("고른 뒤에는 지우지 않는다"), 60_000);
+  await searchPick[0].handle(it, w.bot);
+  assert.equal(expiring("result-msg"), false);
+  assert.deepEqual(log[0], ["update", post(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
+  assert.deepEqual(
+    resolved.map((r) => [r.query, r.context]),
+    [[`https://open.spotify.com/track/${SP_ID}`, "search 결과.resolveQuery"]],
+  );
+  assert.deepEqual(log.at(-1), ["deleteReply"]);
+});
+
+test("/search 결과 선택: 검색한 사람만, 모양이 틀린 값은 모른다고, 권한이 없으면 거절(본인에게만)", async () => {
+  const other = pickIn(world(), "1:yt:abcdefghijk", { userId: "999999999999999999" });
+  await searchPick[0].handle(other.it, other.bot);
+  assert.deepEqual(other.log, [["reply", noticeReply(errors.notice("search-owner-only"))]]);
+
+  const broken = pickIn(world(), "1:yt:짧음");
+  await searchPick[0].handle(broken.it, broken.bot);
+  assert.deepEqual(broken.log, [["reply", noticeReply(errors.notice("unknown-interaction"))]]);
+
+  const denied = pickIn(world({ userVoice: "v2" }), "1:yt:abcdefghijk");
+  await searchPick[0].handle(denied.it, denied.bot);
+  assert.deepEqual(denied.log, [["reply", noticeReply(errors.notice("must-be-in-same-voice"))]]);
+  assert.deepEqual(resolved, []);
 });
 
 // ── /join ─────────────────────────────────────────────────────────────

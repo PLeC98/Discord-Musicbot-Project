@@ -12,7 +12,7 @@ import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transient-messages.ts";
 import { canSend } from "../ui/channels.ts";
-import { LIFETIME, unlessGone } from "../ui/delivery.ts";
+import { LIFETIME, expireMessage, stopExpiry } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -161,22 +161,11 @@ function countModal(state: MoreState, cap: number, batch = config.bot.playlistAd
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
 
-const expiries = new Map<string, NodeJS.Timeout>(); // 키는 메시지 ID
-
-function clearExpiry(messageId: string) {
-  clearTimeout(expiries.get(messageId));
-  expiries.delete(messageId);
-}
+const clearExpiry = stopExpiry;
 
 function expireLater(messageId: string, remove: () => unknown, ms: number = LIFETIME_MS) {
-  clearExpiry(messageId);
   markTransient(messageId, ms); // 조작하는 동안 현재 재생 메시지가 이 밑으로 내려오지 않게
-  const timer = setTimeout(() => {
-    expiries.delete(messageId);
-    Promise.resolve().then(remove).catch(unlessGone(log, "더 넣기 메뉴 삭제"));
-  }, ms);
-  timer.unref?.();
-  expiries.set(messageId, timer);
+  expireMessage(messageId, remove, ms);
 }
 
 // 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요" 에 매달린다).

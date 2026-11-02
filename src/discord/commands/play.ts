@@ -13,7 +13,7 @@ import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import type { PermissionDenied } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { HelpEntry } from "../../ui/help-lines.ts";
-import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
+import type { ChatInputCommandInteraction, ContainerBuilder, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
 
@@ -28,13 +28,13 @@ type PlayOptions = {
 };
 
 /**
- * 찾을 것(검색어, 링크)으로 곡을 넣고 이 명령의 답 메시지로 알린다. 권한은 부르는 쪽이 이미 보았다.
- * placeholder: 찾는 동안 본인에게 보일 줄, source: 로그 라벨
+ * 찾을 것(검색어, 링크)으로 곡을 넣고 이 상호작용의 답 메시지로 알린다. 권한은 부르는 쪽이 이미 보았다.
+ * placeholder: 찾는 동안 본인에게 보일 줄, source: 로그 라벨, show: 자리표시자를 보이는 법(기본은 새 답. 검색 결과 메뉴는 그 메시지를 고친다)
  */
-async function playOnReply(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false }: { query: string; placeholder: string; source: string; insertFirst?: boolean }) {
+async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | StringSelectMenuInteraction<"cached">, bot: BotContext, { query, placeholder, source, insertFirst = false, show = (view) => interaction.reply(reply(view)) }: { query: string; placeholder: string; source: string; insertFirst?: boolean; show?: (view: ContainerBuilder) => Promise<unknown> }) {
   const { member, guild, channel } = interaction;
-  // 자리표시자는 본인에게만. 처음부터 Components V2 로 응답해야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
-  await interaction.reply(reply(frame({ body: placeholder })));
+  // 자리표시자는 본인에게만. Components V2 여야 이 자리표시자를 안내, 메뉴로 고칠 수 있다
+  await show(frame({ body: placeholder }));
   // 여기서부터 던지면 자리표시자를 오류로 바꾼다
   showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 

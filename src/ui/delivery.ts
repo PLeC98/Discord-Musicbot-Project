@@ -20,7 +20,8 @@ const LIFETIME = {
   result: 15_000, // 조작 결과
   farewell: 30_000, // 정지, 나가기
   glance: 10_000, // 잠깐 보는 것(곡 추가 안내, 지금 값 보기, 취소, 이미 들어와 있음)
-  menu: 60_000, // 선택 화면(더 넣기, 검색 결과, 자동재생 장르)
+  menu: 60_000, // 선택 화면(더 넣기, 자동재생 장르)
+  search: 120_000, // 검색 결과. 제목 링크를 눌러 들어 보고 돌아오는 시간
   screen: 600_000, // 읽는 화면, 설정 화면
 } as const;
 
@@ -62,6 +63,29 @@ function expireSelf(interaction: RepliableInteraction, ms: number | null, messag
   }, ms);
   timer.unref?.();
 }
+
+// 고른 뒤에도 그 메시지를 계속 쓰는 메뉴(더 넣기, 검색 결과)의 삭제 예약. 키는 메시지 ID
+const expiries = new Map<string, NodeJS.Timeout>();
+
+/** 메시지를 ms 뒤 remove 로 삭제한다. 같은 메시지에 다시 부르면 새로 센다. stopExpiry 로 멈춘다 */
+function expireMessage(messageId: string, remove: () => unknown, ms: number) {
+  stopExpiry(messageId);
+  const timer = setTimeout(() => {
+    expiries.delete(messageId);
+    Promise.resolve().then(remove).catch(unlessGone(log, "메뉴 삭제"));
+  }, ms);
+  timer.unref?.();
+  expiries.set(messageId, timer);
+}
+
+/** 예약한 삭제를 멈춘다(메뉴를 다른 화면으로 고쳐 계속 쓸 때) */
+function stopExpiry(messageId: string) {
+  clearTimeout(expiries.get(messageId));
+  expiries.delete(messageId);
+}
+
+/** 삭제가 예약돼 있나(테스트) */
+const expiring = (messageId: string) => expiries.has(messageId);
 
 type SelfPayload = InteractionReplyOptions & { flags: unknown };
 
@@ -135,4 +159,4 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
 /** 본인 표시를 단 응답(임베드, 텍스트 화면) */
 const selfOnly = <P extends object>(payload: P) => ({ ...payload, flags: MessageFlags.Ephemeral }) as P & { flags: MessageFlags.Ephemeral };
 
-export { LIFETIME, TOKEN_MS, noticeMs, unlessGone, expireSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };
+export { LIFETIME, TOKEN_MS, noticeMs, unlessGone, expireSelf, expireMessage, stopExpiry, expiring, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };

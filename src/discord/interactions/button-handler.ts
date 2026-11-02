@@ -4,32 +4,23 @@ const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import type { Notice } from "../../ui/text/notice.ts";
-import { addFailureMessage } from "../../ui/error-messages.ts";
-import { requestPlayback } from "../../usecases/add-tracks.ts";
-import { channelResponder } from "../../usecases/responders.ts";
-import { checkControl, checkAdd, checkSummon } from "../../usecases/permissions.ts";
+import { checkControl } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
 
-import { PANEL, HELP, SYSTEM, SEARCH, customId, partsOf } from "../../ui/custom-ids.ts";
-import { showFailureWith } from "../../ui/failure-notice.ts";
+import { PANEL, HELP, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
 import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
-import { colorOf } from "../../ui/colors.ts";
-import * as searchText from "../../ui/text/ko/search.ts";
-import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf, unlessGone } from "../../ui/delivery.ts";
+import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
-import { youtubeWatchUrl } from "../../rules/links.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
-
-const VIDEO_ID = /^[\w-]{11}$/;
 
 // 재생 패널의 버튼. custom_id 는 panel:동작:세션
 const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
@@ -130,57 +121,8 @@ async function handleSystemRefresh(interaction: Press, { players }: BotContext) 
   return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
 }
 
-// 검색 결과 선택, 취소. 검색한 사람만 누를 수 있다. 선택한 영상은 다시 찾는다(다운로드해 둔 곡이면 캐시에서)
-async function handleSearchInteraction(interaction: Press, bot: BotContext) {
-  const { member, guild } = interaction;
-  const { action, rest } = partsOf(interaction.customId);
-  const [userId, position, videoId = ""] = rest;
-
-  if (userId !== interaction.user.id) {
-    return await noticeSelf(interaction, errors.notice("search-owner-only"));
-  }
-
-  // 취소는 결과 화면(본인)을 바로 삭제한다
-  if (action === "cancel") {
-    await interaction.deferUpdate();
-    return await interaction.deleteReply();
-  }
-  if (action !== "pick" || !VIDEO_ID.test(videoId)) return await noticeSelf(interaction, errors.notice("unknown-interaction"));
-
-  // 곡 추가 경로. /play, /search 와 같은 검사
-  const permErr = checkAdd(member) || checkSummon(member);
-  if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
-
-  await interaction.deferUpdate();
-
-  const adding = searchText.adding();
-  const addingEmbed = new EmbedBuilder().setTitle(adding.title).setDescription(adding.description).setColor(colorOf("brand")).setTimestamp();
-
-  await interaction.editReply({ embeds: [addingEmbed], components: [] });
-  // 여기서부터 던지면 "처리 중" 자리표시자를 삭제하고 본인에게만 알린다(검색 메시지는 임베드라 안내로 고칠 수 없다)
-  showFailureWith(interaction, (notice) => noticeInstead(interaction, notice));
-
-  // 안내는 채널로, 자리표시자는 이 상호작용의 "처리 중" 응답.
-  const responder = channelResponder(interaction.channel, () => interaction.deleteReply().catch(unlessGone(log, "자리표시자 삭제")));
-
-  const result = await requestPlayback(bot, {
-    guild,
-    requester: member,
-    query: youtubeWatchUrl(videoId),
-    textChannel: interaction.channel,
-    voiceChannel: member.voice.channel ?? null,
-    responder,
-    source: `/search ${position}번째`,
-  });
-  if (!result.success) return await noticeInstead(interaction, addFailureMessage(result));
-
-  // "곡을 추가하는 중" 자리표시자(본인)를 치운다. 담은 안내, 패널은 채널에 따로 갔다
-  await responder.dismissPlaceholder();
-}
-
-// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(검색, 새로고침, 대기열 넘기기)과 재생 패널의 버튼.
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
 const routes: Route[] = [
-  route("button", customId(SEARCH, ""), handleSearchInteraction),
   route("button", customId(HELP, "refresh"), handleHelpRefresh),
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),
@@ -188,4 +130,4 @@ const routes: Route[] = [
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh, handleSearchInteraction };
+export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh };

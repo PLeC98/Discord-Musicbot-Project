@@ -1,34 +1,36 @@
-import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData } from "discord.js";
+// /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 고르면 /play 와 같은 길로 넣는다. 고르지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 고른다.
+// 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick 이 받는다
+
+import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction } from "discord.js";
 import * as YouTube from "../../sources/youtube/index.ts";
-import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
-import type { GuildCommand } from "../../app/command-loader.ts";
-import type { ChatInputCommandInteraction } from "discord.js";
-import type { BotContext } from "../../app/bot-context.ts";
+import * as Spotify from "../../sources/spotify.ts";
+import type { SpotifyTrack } from "../../sources/spotify.ts";
+import type { TextSearchResult } from "../../sources/youtube/text-search.ts";
 import type { TrackInfo } from "../../player/track.ts";
+import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
+import { requesterName } from "../../usecases/add-tracks.ts";
+import type { GuildCommand } from "../../app/command-loader.ts";
+import type { BotContext } from "../../app/bot-context.ts";
 import { isHttpLink, isKnownSiteHost } from "../../rules/links.ts";
 import { pickUrl, pickValue, readPick } from "../../rules/search-pick.ts";
 import { autocompleteBudget } from "../../rules/autocomplete-budget.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
-import type { TextSearchResult } from "../../sources/youtube/text-search.ts";
-import * as Spotify from "../../sources/spotify.ts";
-import type { SpotifyTrack } from "../../sources/spotify.ts";
-import { playOnReply } from "./play.ts";
-import { requesterName } from "../../usecases/add-tracks.ts";
-import { SEARCH, customId } from "../../ui/custom-ids.ts";
+import { mixCounts, uniqueBy } from "../../rules/search-mix.ts";
 import logger from "../../infra/log/logger.ts";
-import { colorOf } from "../../ui/colors.ts";
-import { buttonEmoji } from "../../ui/icons.ts";
+import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
+import { frame, noticeFrame, reply } from "../../ui/frame.ts";
+import { showFailureWith } from "../../ui/failure-notice.ts";
+import { searchResultsView, type ResultRow } from "../../ui/search-results.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
-import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../../ui/delivery.ts";
+import { LIFETIME, expireMessage, noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
+import { playOnReply } from "./play.ts";
 const log = logger.child({ category: "player" });
 
-const MAX_RESULTS = 9;
-/** 자동완성 곡 후보 수(맨 위 줄은 따로) */
+/** 자동완성 곡 후보 수(맨 위 줄은 따로)와 결과 화면의 줄 수 */
 const CHOICES = 10;
 /** 그중 스포티파이 곡 몫(유튜브가 모자라면 더 채운다). 0 이면 섞지 않고, 유튜브가 연령 인증으로 막았을 때만 스포티파이로 채운다 */
-const SPOTIFY_CHOICES: number = 3;
+const SPOTIFY_SHARE: number = 3;
 /** 이보다 짧은 검색어(글자 수)는 찾지 않고 맨 위 줄만 */
 const MIN_QUERY = 2;
 /**
@@ -36,45 +38,14 @@ const MIN_QUERY = 2;
  * 디스코드는 입력을 1초 남짓으로 묶어 보낸다. 3초 마감에서 이만큼 쓰고도 검색(0.5초 안팎)이 들어간다
  */
 const SETTLE_MS = 1000;
+/** 결과 화면이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 뽑으면 수 초 걸린다) */
+const SPOTIFY_RESULTS_MS = 4000;
 // 사람마다 마지막 자동완성 요청의 번호
 const latestRequest = new Map<string, number>();
 let requestCount = 0;
 
 // 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다
 const isLink = (query: string) => isHttpLink(query) || isKnownSiteHost(query);
-
-// 선택한 결과는 버튼이 싣는다(요청자, 번호, 영상 ID). 처리는 src/discord/interactions/button-handler 의 검색 처리
-async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "editReply" | "user">, results: TrackInfo[], query: string) {
-  // 버튼이 영상 ID 를 싣는다. 검색 결과는 늘 ID 가 있지만 없는 것은 선택할 수 없으니 뺀다
-  const shown = results.flatMap((track) => (track.id ? [{ track, videoId: track.id }] : [])).slice(0, MAX_RESULTS);
-
-  const t = searchText.results(query, shown.length);
-  const embed = new EmbedBuilder().setTitle(t.title).setColor(colorOf("brand")).setDescription(t.description).setFooter({ text: t.footer }).setTimestamp();
-
-  shown.forEach(({ track }, index) => {
-    const field = searchText.result(index + 1, { title: track.title, uploader: track.artist, length: formatDuration(track.duration, searchText.unknownLength()) });
-    embed.addFields({ ...field, inline: false });
-  });
-
-  // 첫 줄에 번호 4개와 취소, 둘째 줄에 나머지 번호 5개(한 줄에 5개까지)
-  const userId = interaction.user.id;
-  const buttons = shown.map(({ videoId }, index) =>
-    new ButtonBuilder()
-      .setCustomId(customId(SEARCH, "pick", userId, index + 1, videoId))
-      .setLabel(`${index + 1}`)
-      .setStyle(ButtonStyle.Secondary),
-  );
-  const cancelButton = new ButtonBuilder()
-    .setCustomId(customId(SEARCH, "cancel", userId))
-    .setLabel(t.cancel)
-    .setStyle(ButtonStyle.Danger)
-    .setEmoji(buttonEmoji("cancel"));
-
-  const components = [new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(0, 4), cancelButton)];
-  if (buttons.length > 4) components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons.slice(4)));
-
-  await interaction.editReply({ embeds: [embed], components });
-}
 
 /** 유튜브 검색, 스포티파이 검색과 그 준비, 시계, 기다리기. 생략하면 진짜(테스트가 가짜를 넘긴다) */
 type SearchDeps = {
@@ -84,11 +55,12 @@ type SearchDeps = {
   now?: () => number;
   wait?: (ms: number) => Promise<unknown>;
 };
-/** 자동완성이 찾은 것. youtube 는 못 찾았으면 null */
+/** 찾은 것. youtube 는 못 찾았으면 null */
 type Found = { youtube: TextSearchResult | null; spotify: SpotifyTrack[] };
 const NOTHING: Found = { youtube: null, spotify: [] };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const depsOf = (deps: SearchDeps): Required<SearchDeps> => ({ search: YouTube.searchText, searchSpotify: Spotify.searchTracks, spotifyReady: Spotify.searchReady, now: Date.now, wait: sleep, ...deps });
 
 // ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
 function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {
@@ -105,6 +77,13 @@ const gatedSentence = () => {
   const gated = errors.notice("search-age-gated");
   return `${gated.title} ${gated.body ?? ""}`.trim();
 };
+
+const lengthOf = (track: { duration: number; isLive?: boolean }) => (track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()));
+
+/** 섞을 곡: 연령 인증으로 막힌 유튜브는 없는 것으로 */
+const youtubeOf = (found: Found): TrackInfo[] => (found.youtube?.gated ? [] : (found.youtube?.tracks ?? []));
+
+// ── 자동완성 ──
 
 /** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 고른 연령 인증 줄의 문장) null */
 function searchable(typed: string): string | null {
@@ -128,7 +107,7 @@ async function settled(user: string, wait: (ms: number) => Promise<unknown>) {
 function remembered(query: string, spotifyReady: boolean): Found | null {
   const youtube = YouTube.rememberedSearch(query);
   if (!youtube) return null;
-  if (!spotifyReady || (SPOTIFY_CHOICES === 0 && !youtube.gated)) return { youtube, spotify: Spotify.rememberedTracks(query) ?? [] };
+  if (!spotifyReady || (SPOTIFY_SHARE === 0 && !youtube.gated)) return { youtube, spotify: Spotify.rememberedTracks(query) ?? [] };
   const spotify = Spotify.rememberedTracks(query);
   return spotify ? { youtube, spotify } : null;
 }
@@ -144,7 +123,7 @@ async function findBoth(query: string, deps: Required<SearchDeps>, budget: numbe
   const started = deps.now();
   const missed: string[] = [];
   const spotifyOf = (ms: number) => (deps.spotifyReady() ? within(deps.searchSpotify(query), ms) : null);
-  let spotifyWork = SPOTIFY_CHOICES > 0 ? spotifyOf(budget) : null;
+  let spotifyWork = SPOTIFY_SHARE > 0 ? spotifyOf(budget) : null;
   const youtubeOutcome = await within(deps.search(query), budget);
   const youtube = "value" in youtubeOutcome ? youtubeOutcome.value : YouTube.rememberedPrefix(query);
   if ("missed" in youtubeOutcome) missed.push(`유튜브 ${youtubeOutcome.missed === "late" ? "마감 넘김" : "실패"}`);
@@ -156,23 +135,63 @@ async function findBoth(query: string, deps: Required<SearchDeps>, budget: numbe
 }
 
 /**
- * 자동완성 선택지: 맨 위 줄(입력한 글자로 결과 화면)과 곡 후보(유튜브 다음 스포티파이, 한쪽이 모자라면 다른 쪽으로 채운다).
+ * 자동완성 선택지: 맨 위 줄(입력한 글자로 결과 화면)과 곡 후보(유튜브 다음 스포티파이).
  * 유튜브가 연령 인증 안내만 주고 스포티파이 곡도 없으면 그 문장을 맨 위 줄 이름으로
  */
 function choicesOf(query: string, found: Found): ApplicationCommandOptionChoiceData<string>[] {
   if (found.youtube?.gated && found.spotify.length === 0) return [{ name: gatedSentence(), value: query }];
   const top = { name: searchText.resultsChoice(query), value: query };
-  // 이름이 같은 후보(다시 올린 영상 등)는 하나만. 겹치면 디스코드가 응답 전체를 거절할 수 있다
-  const names = new Set([top.name]);
-  const choice = (name: string, value: string) => {
-    if (names.has(name)) return [];
-    names.add(name);
-    return [{ name, value }];
-  };
-  const youtube = (found.youtube?.gated ? [] : (found.youtube?.tracks ?? [])).flatMap((track) => (track.id ? choice(searchText.songChoice({ title: track.title, artist: track.artist, length: track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()) }), pickValue({ platform: "youtube", id: track.id })) : []));
-  const spotify = found.spotify.flatMap((track) => (track.id ? choice(searchText.songChoice({ title: track.title, artist: track.artist, length: formatDuration(track.duration, searchText.unknownLength()), spotify: true }), pickValue({ platform: "spotify", id: track.id })) : []));
-  const youtubeShare = Math.min(youtube.length, CHOICES - Math.min(spotify.length, SPOTIFY_CHOICES));
-  return [top, ...youtube.slice(0, youtubeShare), ...spotify.slice(0, CHOICES - youtubeShare)];
+  const youtube = youtubeOf(found).flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: lengthOf(track) }), value: pickValue({ platform: "youtube", id: track.id }) }] : []));
+  const spotify = found.spotify.flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: lengthOf(track), spotify: true }), value: pickValue({ platform: "spotify", id: track.id }) }] : []));
+  // 이름이 같은 후보(다시 올린 영상, 여러 앨범에 실린 곡)는 하나만. 겹치면 디스코드가 응답 전체를 거절할 수 있다
+  const songs = uniqueBy([top, ...youtube, ...spotify], (one) => one.name).slice(1);
+  const counts = mixCounts(songs.filter((one) => one.value.startsWith("yt:")).length, songs.filter((one) => one.value.startsWith("sp:")).length, { total: CHOICES, spotifyShare: SPOTIFY_SHARE });
+  return [top, ...songs.filter((one) => one.value.startsWith("yt:")).slice(0, counts.youtube), ...songs.filter((one) => one.value.startsWith("sp:")).slice(0, counts.spotify)];
+}
+
+// ── 결과 화면 ──
+
+/** 결과 화면이 쓸 것: 자동완성이 방금 찾은 것(검색할 때마다 순서가 조금씩 바뀐다)이 있으면 그것. 유튜브 실패는 던진다 */
+async function findForResults(query: string, deps: Required<SearchDeps>): Promise<Found> {
+  const spotifyWork = SPOTIFY_SHARE > 0 ? (Spotify.rememberedTracks(query) ?? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS)) : null;
+  const youtube = YouTube.rememberedSearch(query) ?? (await deps.search(query));
+  const outcome = await (spotifyWork ?? (youtube.gated ? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS) : null));
+  const spotify = Array.isArray(outcome) ? outcome : outcome && "value" in outcome ? outcome.value : [];
+  return { youtube, spotify };
+}
+
+/** 결과 화면의 줄: 유튜브 다음 스포티파이. 같은 곡(제목, 가수, 길이가 같다)은 하나만 */
+function resultRows(found: Found): ResultRow[] {
+  const keyOf = (one: ResultRow) => `${one.platform}\u0000${one.title ?? ""}\u0000${one.artist ?? ""}\u0000${lengthOf(one)}`;
+  const youtube = uniqueBy(
+    youtubeOf(found).flatMap((track): ResultRow[] => (track.id ? [{ platform: "youtube", id: track.id, title: track.title, artist: track.artist, duration: track.duration, isLive: track.isLive, pageUrl: track.pageUrl }] : [])),
+    keyOf,
+  );
+  const spotify = uniqueBy(
+    found.spotify.flatMap((track): ResultRow[] => (track.id ? [{ platform: "spotify", id: track.id, title: track.title, artist: track.artist, duration: track.duration, pageUrl: track.pageUrl }] : [])),
+    keyOf,
+  );
+  const counts = mixCounts(youtube.length, spotify.length, { total: CHOICES, spotifyShare: SPOTIFY_SHARE });
+  return [...youtube.slice(0, counts.youtube), ...spotify.slice(0, counts.spotify)];
+}
+
+/** 찾아서 결과 화면을 보인다. 결과가 없거나 유튜브가 연령 인증으로 막고 스포티파이도 없으면 그 안내 */
+async function showResults(interaction: ChatInputCommandInteraction<"cached">, query: string, deps: Required<SearchDeps>) {
+  // "검색 중" 은 본인에게만. 처음부터 Components V2 로 답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 던지면 이 자리를 오류로 바꾼다
+  await interaction.reply(reply(frame({ body: searchText.searching(query) })));
+  showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
+
+  const found = await findForResults(query, deps);
+  const rows = resultRows(found);
+  const spotifyCount = rows.filter((row) => row.platform === "spotify").length;
+  log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(interaction.member)} | "${query}" → ${rows.length ? `유튜브 ${rows.length - spotifyCount}, 스포티파이 ${spotifyCount}` : "결과 없음"}${found.youtube?.gated ? "(유튜브 연령 인증 안내)" : ""}`);
+
+  if (rows.length === 0) {
+    const notice = errors.notice(found.youtube?.gated ? "search-age-gated" : "no-search-results");
+    return await replaceSelf(interaction, noticeFrame(notice), noticeMs(notice));
+  }
+  const message = await interaction.editReply(searchResultsView({ query, rows, gated: Boolean(found.youtube?.gated), userId: interaction.user.id }));
+  expireMessage(message.id, () => interaction.deleteReply(), LIFETIME.search);
 }
 
 const exported: GuildCommand & {
@@ -187,7 +206,7 @@ const exported: GuildCommand & {
     .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(100).setAutocomplete(true)),
 
   async autocomplete(interaction, _bot, deps: SearchDeps = {}) {
-    const all: Required<SearchDeps> = { search: YouTube.searchText, searchSpotify: Spotify.searchTracks, spotifyReady: Spotify.searchReady, now: Date.now, wait: sleep, ...deps };
+    const all = depsOf(deps);
     const query = searchable(interaction.options.getFocused().trim());
     if (!query) return await interaction.respond([]);
     if (graphemeLength(query) < MIN_QUERY) return await interaction.respond(choicesOf(query, NOTHING));
@@ -210,7 +229,8 @@ const exported: GuildCommand & {
     await interaction.respond(choices);
   },
 
-  async execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, { search = YouTube.searchText }: SearchDeps = {}) {
+  async execute(interaction, bot, deps: SearchDeps = {}) {
+    const all = depsOf(deps);
     // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷는다. 링크 판정이 다듬은 글자를 받는다
     const query = interaction.options.getString("query", true).trim();
     const member = interaction.member;
@@ -224,19 +244,7 @@ const exported: GuildCommand & {
     if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? Spotify.rememberedTrack(pick.id) : YouTube.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
     if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });
 
-    // 검색이 던지면(네트워크, 봇 감지 등) 진입점이 남기고 이 답 메시지에 그 종류로 알린다
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-    // 자동완성이 방금 찾은 것이 있으면 그 목록 그대로(검색할 때마다 순서가 조금씩 바뀐다)
-    const found = YouTube.rememberedSearch(query) ?? (await search(query));
-    log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${found.gated ? "연령 인증 안내" : found.tracks.length ? `결과 ${found.tracks.length}개` : "결과 없음"}`);
-
-    if (found.gated) return await noticeInstead(interaction, errors.notice("search-age-gated"));
-    if (found.tracks.length === 0) return await noticeInstead(interaction, errors.notice("no-search-results"));
-
-    await showSearchMenu(interaction, found.tracks, query);
-    expireSelf(interaction, LIFETIME.menu);
+    await showResults(interaction, query, all);
   },
 };
 export default exported;
-export { showSearchMenu };

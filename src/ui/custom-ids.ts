@@ -7,7 +7,7 @@ const AUTOPLAY = "autoplay"; // 자동재생 장르 메뉴
 const QUEUE = "queue"; // 대기열 보기의 넘기기
 const HELP = "help";
 const SYSTEM = "system";
-const SEARCH = "search"; // 검색 결과 선택 search:pick:요청자:번호:영상 ID, 취소 search:cancel:요청자
+const SEARCH = "search"; // 검색 결과 화면의 선택 메뉴 search:pick:검색한 사람
 
 /** 끝난 패널의 세션 필드 마커. 세션이 없다는 뜻이라 어느 플레이어에도 통한다 */
 const IDLE_SESSION = "idle";
