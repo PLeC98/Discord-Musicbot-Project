@@ -433,3 +433,19 @@ test("곡 검색 준비: 상태가 메모리에 없으면 거짓이고 뒤에서
   assert.equal(Spotify.searchReady(), true);
   assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1, "준비는 한 번");
 });
+
+test("곡 검색 준비: 검색 해시가 없는 상태는 뽑은 지 10분이 지났으면 다시 뽑는다(바로 뽑은 것은 다시 뽑지 않는다)", async () => {
+  routes = anonRoutes(); // 검색 청크가 없는 번들
+  await graphql._ensureState(false);
+  assert.equal(Spotify.searchReady(), false);
+  const bundles = () => requests.filter((r) => r.url.includes("web-player.abc123.js")).length;
+  await graphql._ensureState(false);
+  assert.equal(bundles(), 1, "방금 뽑았으면 검색 해시가 없어도 다시 뽑지 않는다");
+
+  graphql._state = { ...graphql._state!, fetchedAt: Date.now() - 10 * 60_000 - 1 };
+  routes = searchRoutes();
+  assert.equal(Spotify.searchReady(), false, "뒤에서 다시 뽑기 시작");
+  await graphql._ensureState(false);
+  assert.equal(bundles(), 2);
+  assert.equal(Spotify.searchReady(), true);
+});

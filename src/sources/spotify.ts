@@ -314,7 +314,11 @@ const graphql = {
   // 추출하지 않고 쓸 수 있는 상태. 없으면 null(추출한다)
   _reusable(forceRefresh: boolean, usable: AnonState | null): AnonState | null {
     if (forceRefresh || !usable) return null;
-    if (Date.now() - usable.fetchedAt < STATE_TTL_MS) return usable;
+    const age = Date.now() - usable.fetchedAt;
+    // 검색 해시가 없으면 뽑은 지 10분이 지난 뒤 다시 뽑는다. 다른 해시는 쓰다가 만료로 실패하면 그 자리에서 다시 뽑지만,
+    // 자동완성은 추출을 기다리지 않아 그대로 두면 다음 추출(12시간)까지 검색을 못 쓴다
+    const searchMissing = !usable.hashes.searchTracks && age >= EXTRACT_RETRY_MS;
+    if (age < STATE_TTL_MS && !searchMissing) return usable;
     // 방금 추출에 실패했으면 쉬는 동안은 저장값으로. 토큰, 해시 오류로 부른 강제 추출은 쉬지 않는다
     return Date.now() - this._failedAt < EXTRACT_RETRY_MS ? usable : null;
   },
