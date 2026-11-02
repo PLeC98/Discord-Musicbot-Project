@@ -449,3 +449,62 @@ test("곡 검색 준비: 검색 해시가 없는 상태는 뽑은 지 10분이 �
   assert.equal(bundles(), 2);
   assert.equal(Spotify.searchReady(), true);
 });
+
+// ── 익명 토큰 관리 ──
+
+const mints = () => requests.filter((r) => r.url.startsWith("https://open.spotify.com/api/token?")).length;
+
+test("익명 토큰: 받은 토큰은 저장해 두고, 다시 시작해도 만료 전이면 그대로 쓴다. 상태를 다시 뽑아도 토큰은 남는다", async () => {
+  routes = anonRoutes();
+  assert.equal(await graphql._token(), "A1");
+  Spotify._reset(); // 다시 시작
+  assert.equal(await graphql._token(), "A1");
+  assert.equal(mints(), 1);
+  await graphql._ensureState(true);
+  assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A1", "상태를 덮어써도 토큰은 남는다");
+  assert.equal(externalCaches.getSpotifyAnonState()?.token, undefined, "상태에는 토큰을 싣지 않는다");
+});
+
+test("익명 토큰: 저장된 것이 1분 안쪽으로 남았으면 새로 받는다. 5분 안쪽이면 지금 것을 주고 다음 것은 뒤에서 받는다", async () => {
+  routes = anonRoutes();
+  await graphql._ensureState(false);
+  externalCaches.setSpotifyAnonToken({ value: "OLD", expiresAt: Date.now() + 30_000 });
+  Spotify._reset();
+  assert.equal(await graphql._token(), "A1", "곧 만료라 쓰지 않는다");
+
+  externalCaches.setSpotifyAnonToken({ value: "SOON", expiresAt: Date.now() + 3 * 60_000 });
+  Spotify._reset();
+  assert.equal(await graphql._token(), "SOON", "기다리지 않고 지금 것");
+  await graphql._minting;
+  assert.equal(await graphql._token(), "A2", "뒤에서 받은 다음 토큰");
+  assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A2");
+});
+
+test("GraphQL 쿼리: 토큰이 거절(401)되면 버리고 새로 받아 한 번 더", async () => {
+  let attempts = 0;
+  routes = [
+    ...anonRoutes(),
+    (url) => {
+      if (url !== "https://api-partner.spotify.com/pathfinder/v2/query") return undefined;
+      attempts += 1;
+      return attempts === 1 ? reply("", { status: 401 }) : reply({ data: { ok: true } });
+    },
+  ];
+  assert.deepEqual(await graphql._query("fetchPlaylist", "fetchPlaylist", {}), { ok: true });
+  assert.equal(mints(), 2);
+  const sent = requests.filter((r) => r.url.includes("api-partner")).map((r) => r.init.headers?.Authorization);
+  assert.deepEqual(sent, ["Bearer A1", "Bearer A2"]);
+});
+
+test("기동 준비: 저장해 둔 상태와 토큰이 쓸 만하면 아무것도 요청하지 않는다. 없으면 받아 둔다", async () => {
+  routes = searchRoutes();
+  await Spotify.prepareAnonymous();
+  assert.equal(mints(), 1);
+  assert.equal(Spotify.searchReady(), true);
+
+  Spotify._reset(); // 다시 시작
+  requests.length = 0;
+  await Spotify.prepareAnonymous();
+  assert.deepEqual(requests, [], "저장해 둔 것으로");
+  assert.equal(Spotify.searchReady(), true);
+});

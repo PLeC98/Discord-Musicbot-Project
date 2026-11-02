@@ -101,22 +101,55 @@ function mergeAgeRestricted(rows: Array<{ videoId: string; markedAt: number }>):
 }
 
 // ── 스포티파이 익명 웹 플레이어 상태 ──
-// secret, 해시, clientVersion. 오래됐거나 토큰, 해시 오류가 나면 sources/spotify 가 다시 추출해 덮어쓴다
+// secret, 해시, clientVersion. 오래됐거나 토큰, 해시 오류가 나면 sources/spotify 가 다시 추출해 덮어쓴다.
+// 같은 행에 익명 토큰(token: { value, expiresAt })을 따로 둔다. 다시 시작해도 만료 전이면 그대로 쓴다. 상태를 덮어써도 토큰은 남긴다
 
-/** 저장된 익명 상태 `{ ...data, fetchedAt }`. 없거나 망가졌으면 null */
-function getSpotifyAnonState(): (Record<string, unknown> & { fetchedAt: number }) | null {
-  const row = conn().prepare("SELECT data_json, fetched_at FROM spotify_anon WHERE id = 1").get() as JsonRow | undefined;
+type AnonToken = { value: string; expiresAt: number };
+
+function anonRow(): JsonRow | undefined {
+  return conn().prepare("SELECT data_json, fetched_at FROM spotify_anon WHERE id = 1").get() as JsonRow | undefined;
+}
+
+function anonData(row: JsonRow | undefined): Record<string, unknown> | null {
   if (!row) return null;
   try {
-    return { ...(JSON.parse(row.data_json) as Record<string, unknown>), fetchedAt: row.fetched_at };
+    return JSON.parse(row.data_json) as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
-/** 익명 상태를 저장한다(행 하나를 덮어쓴다). data 는 JSON 으로 직렬화할 수 있는 객체 */
-function setSpotifyAnonState(data: unknown) {
-  conn().prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at").run(JSON.stringify(data), Date.now());
+/** 저장된 익명 상태 `{ ...data, fetchedAt }`(토큰은 빼고). 없거나 망가졌으면 null */
+function getSpotifyAnonState(): (Record<string, unknown> & { fetchedAt: number }) | null {
+  const row = anonRow();
+  const data = anonData(row);
+  if (!row || !data) return null;
+  const { token: _token, ...state } = data;
+  return { ...state, fetchedAt: row.fetched_at };
 }
 
-export { getSponsorSegments, setSponsorSegments, allSponsorSegments, mergeSponsorSegments, markAgeRestricted, isAgeRestricted, allAgeRestricted, clearAgeRestricted, mergeAgeRestricted, getSpotifyAnonState, setSpotifyAnonState };
+/** 익명 상태를 저장한다(행 하나를 덮어쓰고 저장된 토큰은 남긴다). data 는 JSON 으로 직렬화할 수 있는 객체 */
+function setSpotifyAnonState(data: Record<string, unknown>) {
+  const token = anonData(anonRow())?.token;
+  conn()
+    .prepare("INSERT INTO spotify_anon (id, data_json, fetched_at) VALUES (1, ?, ?) ON CONFLICT(id) DO UPDATE SET data_json = excluded.data_json, fetched_at = excluded.fetched_at")
+    .run(JSON.stringify(token ? { ...data, token } : data), Date.now());
+}
+
+/** 저장된 익명 토큰. 없거나 모양이 틀리면 null(만료는 부르는 쪽이 본다) */
+function getSpotifyAnonToken(): AnonToken | null {
+  const token = anonData(anonRow())?.token as Partial<AnonToken> | undefined;
+  return typeof token?.value === "string" && typeof token.expiresAt === "number" ? { value: token.value, expiresAt: token.expiresAt } : null;
+}
+
+/** 익명 토큰을 저장한다. null 이면 지운다. 상태 행이 없으면(토큰은 상태로 받는다) 저장하지 않는다. 상태를 뽑은 시각은 그대로 */
+function setSpotifyAnonToken(token: AnonToken | null) {
+  const data = anonData(anonRow());
+  if (!data) return;
+  const { token: _old, ...rest } = data;
+  conn()
+    .prepare("UPDATE spotify_anon SET data_json = ? WHERE id = 1")
+    .run(JSON.stringify(token ? { ...rest, token } : rest));
+}
+
+export { getSponsorSegments, setSponsorSegments, allSponsorSegments, mergeSponsorSegments, markAgeRestricted, isAgeRestricted, allAgeRestricted, clearAgeRestricted, mergeAgeRestricted, getSpotifyAnonState, setSpotifyAnonState, getSpotifyAnonToken, setSpotifyAnonToken };

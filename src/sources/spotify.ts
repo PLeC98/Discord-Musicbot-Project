@@ -69,14 +69,19 @@ const BUNDLE_TIMEOUT_MS = 30000;
 const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
 // secret, 해시는 코드에 두지 않는다. 늘 번들에서 추출하고 DB 에 남긴다. 낡은 값을 코드에 두면 추출 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
+// 익명 토큰은 만료 전 이만큼 남았을 때부터 다음 것을 뒤에서 받는다(쓰는 쪽이 받기를 기다리지 않게). 이보다 적게 남은 것은 쓰지 않는다
+const TOKEN_RENEW_MS = 5 * 60_000;
+const TOKEN_MARGIN_MS = 60_000;
+// 미리 받기에 실패하면 이만큼은 다시 하지 않는다(만료 전 몇 분 동안 요청마다 받지 않게)
+const TOKEN_RENEW_RETRY_MS = 60_000;
 // 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 스포티파이 쪽이 고장 났을 때 요청마다 번들(수 MB)을 다운로드하지 않게
 const EXTRACT_RETRY_MS = 10 * 60 * 1000;
 // 번들에서 해시를 추출하는 쿼리
 const OPERATIONS = ["fetchPlaylist", "queryArtistOverview", "getTrack", "getAlbum"];
 // 곡 검색 연산은 기본 번들이 아니라 검색 화면 청크에 있다
 const SEARCH_CHUNK = "xpui-routes-search";
-/** 검색 한 번에 받는 곡 수 */
-const SEARCH_LIMIT = 10;
+/** 검색 한 번에 받는 곡 수. 후보 10개보다 넉넉히(같은 녹음이 싱글, 앨범, 모음집에 실려 이름이 겹치는 것을 빼고도 채우게) */
+const SEARCH_LIMIT = 20;
 /** 같은 검색어를 다시 쓰는 시간(ms)과 기억하는 검색어 수 */
 const SEARCH_MEMO_MS = 10 * 60_000;
 const SEARCH_MEMO_MAX = 500;
@@ -400,14 +405,45 @@ const graphql = {
   },
 
   _minting: null as Promise<string> | null,
+  _tokenLoaded: false,
+  _renewFailedAt: 0,
 
-  // 만료 60초 전까지 재사용. 함께 온 요청은 받는 중인 것 하나를 기다린다
+  // 쥐고 있는 토큰. 처음 한 번은 저장해 둔 것을 읽는다(다시 시작해도 만료 전이면 그대로 쓴다)
+  _heldToken(): Token | null {
+    if (!this._anonToken && !this._tokenLoaded) {
+      this._tokenLoaded = true;
+      this._anonToken = externalCaches.getSpotifyAnonToken();
+    }
+    return this._anonToken;
+  },
+
+  // 만료 1분 전까지 쓴다. 5분 안쪽으로 남았으면 지금 것을 주고 다음 토큰은 뒤에서 받는다
   _token(): Promise<string> {
-    if (this._anonToken && Date.now() < this._anonToken.expiresAt - 60000) return Promise.resolve(this._anonToken.value);
+    const held = this._heldToken();
+    const left = held ? held.expiresAt - Date.now() : 0;
+    if (!held || left <= TOKEN_MARGIN_MS) return this._renew();
+    if (left < TOKEN_RENEW_MS && Date.now() - this._renewFailedAt > TOKEN_RENEW_RETRY_MS) {
+      this._renew().catch((e: unknown) => {
+        this._renewFailedAt = Date.now();
+        log.warn(`익명 토큰 미리 받기 실패(만료 전에 다시 받습니다): ${messageOf(e)}`);
+      });
+    }
+    return Promise.resolve(held.value);
+  },
+
+  // 새 토큰. 함께 온 요청은 받는 중인 것 하나를 기다린다
+  _renew(): Promise<string> {
     const minting: Promise<string> = (this._minting ??= this._tokenNow().finally(() => {
       if (this._minting === minting) this._minting = null;
     }));
     return minting;
+  },
+
+  // 스포티파이가 거절한 토큰을 버린다. 다음 요청이 새로 받는다
+  _dropToken() {
+    this._anonToken = null;
+    this._tokenLoaded = true;
+    externalCaches.setSpotifyAnonToken(null);
   },
 
   async _tokenNow(): Promise<string> {
@@ -422,17 +458,23 @@ const graphql = {
         j = await this._mintToken();
       } else throw e;
     }
-    this._anonToken = { value: j.accessToken, expiresAt: j.accessTokenExpirationTimestampMs || Date.now() + 3600000 };
-    return this._anonToken.value;
+    const token = { value: j.accessToken, expiresAt: j.accessTokenExpirationTimestampMs || Date.now() + 3600000 };
+    this._anonToken = token;
+    externalCaches.setSpotifyAnonToken(token);
+    return token.value;
   },
 
   async _query(operationName: string, hashKey: string, variables: Record<string, unknown>): Promise<unknown> {
     const run = async () => {
       const state = await this._ensureState(false);
       // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 추출하게 한다
-      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없습니다(번들에서 못 찾음)`), { persistedNotFound: true });
+      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없습니다(번들에서 못 찾음)`), { retry: "hash" });
       const tok = await this._token();
       const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (r.status === 401) {
+        this._dropToken();
+        throw Object.assign(new Error("익명 토큰이 거절됨(401)"), { retry: "token" });
+      }
       const text = await r.text();
       let j: { data?: unknown; errors?: Array<{ message?: string }> };
       try {
@@ -442,16 +484,22 @@ const graphql = {
       }
       if (j.errors) {
         const msg = j.errors[0]?.message || "GraphQL 오류";
-        throw Object.assign(new Error(msg), { persistedNotFound: /persistedquery/i.test(msg) && /not.?found/i.test(msg) });
+        throw Object.assign(new Error(msg), { retry: /persistedquery/i.test(msg) && /not.?found/i.test(msg) ? "hash" : null });
       }
       return j.data;
     };
+    // 한 번만 다시: 해시가 만료됐으면 다시 뽑고, 토큰이 거절됐으면(버렸다) 새로 받는다
     try {
       return await run();
     } catch (e) {
-      if ((e as { persistedNotFound?: boolean } | null)?.persistedNotFound) {
+      const retry = (e as { retry?: unknown } | null)?.retry;
+      if (retry === "hash") {
         log.warn({ tags: ["retry"] }, "저장된 해시 만료. 다시 추출해 재시도합니다");
         await this._ensureState(true);
+        return run();
+      }
+      if (retry === "token") {
+        log.warn({ tags: ["retry"] }, "익명 토큰이 거절됐습니다. 새로 받아 재시도합니다");
         return run();
       }
       throw e;
@@ -594,6 +642,19 @@ function searchReady(): boolean {
   return false;
 }
 
+/**
+ * 기동 때 익명 상태와 토큰을 준비한다(첫 자동완성이 스포티파이를 쓰고 첫 링크가 받기를 기다리지 않게).
+ * 저장해 둔 것이 쓸 만하면 요청하지 않는다. 실패는 남기기만 하고 쓸 때 다시 한다
+ */
+async function prepareAnonymous() {
+  try {
+    await graphql._ensureState(false);
+    await graphql._token();
+  } catch (e) {
+    log.warn(`익명 경로 준비 실패(쓸 때 다시 합니다): ${messageOf(e)}`);
+  }
+}
+
 /** 곡 검색. 같은 검색어는 잠시 기억하고 동시에 온 것은 한 번만 묻는다. 실패는 던진다 */
 function searchTracks(query: string): Promise<SpotifyTrack[]> {
   return searchMemo.run(searchKey(query), async () => {
@@ -636,6 +697,8 @@ function _reset() {
   graphql._failedAt = 0;
   graphql._ensuring = null;
   graphql._minting = null;
+  graphql._tokenLoaded = false;
+  graphql._renewFailedAt = 0;
   searchMemo = newSearchMemo();
 }
 
@@ -666,5 +729,5 @@ const _internals = { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, 
 /** 익명 토큰 만료 시각(봇 상태 탭). 받은 적이 없으면 null */
 const anonTokenExpiresAt = () => graphql._anonToken?.expiresAt ?? null;
 
-export { getCollection, searchReady, searchTracks, rememberedTracks, rememberedTracksPrefix, rememberedTrack, anonTokenExpiresAt, checkCredentials, forgetAnonState, _reset, _internals, useFetch };
+export { getCollection, prepareAnonymous, searchReady, searchTracks, rememberedTracks, rememberedTracksPrefix, rememberedTrack, anonTokenExpiresAt, checkCredentials, forgetAnonState, _reset, _internals, useFetch };
 export type { SpotifyTrack, Part, Net };
