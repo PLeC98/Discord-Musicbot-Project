@@ -8,7 +8,13 @@ const FIXED_COLORS = {
   notice: "#3498DB", // 운영자가 모든 서버에 알리는 공지사항
 } as const satisfies Record<string, `#${string}`>;
 
+/** 곡 출처 로고의 타일 색(각 회사의 브랜드 색. 유튜브는 브랜드 페이지의 새 값, 스포티파이는 공식 아이콘 파일의 값) */
+const BRAND_COLORS = {
+  youtube: "#FF0033",
+  spotify: "#1ED760",
+} as const satisfies Record<string, `#${string}`>;
+
 /** 디스코드 색 버튼(블러플, 초록, 빨강) 위의 글자 색. 그 위에 올리는 앱 이모지의 흰 기호(ui/icon-images)도 같다 */
 const ON_COLOR_BUTTON = "#FFFFFF";
 
-export { FIXED_COLORS, ON_COLOR_BUTTON };
+export { FIXED_COLORS, BRAND_COLORS, ON_COLOR_BUTTON };

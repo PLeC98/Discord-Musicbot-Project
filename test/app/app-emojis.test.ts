@@ -78,8 +78,8 @@ test("운영자 색이 바뀜: 운영자 색 타일만 임시 이름으로 올�
         },
       }),
     );
-    const brand = iconEntries().filter((one) => one.tint === "brand" && one.spec.shape !== "white");
-    assert.equal(app.calls.filter((c) => c.startsWith("create")).length, brand.length, "운영자 색 타일만 다시 올린다(응답 색 · 흰 기호는 그대로)");
+    const brand = iconEntries().filter((one) => one.tint === "brand" && one.spec.shape !== "white" && one.spec.shape !== "logo");
+    assert.equal(app.calls.filter((c) => c.startsWith("create")).length, brand.length, "운영자 색 타일만 다시 올린다(응답 색, 흰 기호, 로고는 그대로)");
     assert.ok(app.calls.includes("create pause_1"), "이름이 겹쳐 임시 이름으로");
     assert.match(order[0], /지운 수 0/, "옛 것을 지우기 전에 다시 그린다");
     assert.ok(app.calls.indexOf("remove pause") < app.calls.indexOf("rename pause"), "옛 것을 지운 뒤 이름을 되돌린다");

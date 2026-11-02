@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { ICONS, buttonEmoji, emojiName, icon, iconEntries, useUploaded } from "../../src/ui/icons.ts";
+import { ICONS, buttonEmoji, emojiName, icon, iconEntries, useUploaded, type IconSpec } from "../../src/ui/icons.ts";
 
 afterEach(() => useUploaded(new Map()));
 
@@ -40,9 +40,12 @@ test("앱 이모지 이름은 2 ~ 32자 [A-Za-z0-9_] 이고 서로 겹치지 않
   assert.equal(emojiName("autoplay", "warning"), "autoplay_warning");
 });
 
-test("표의 기호가 모두 data/discord-icons 에 있다(빠지면 scripts/build-discord-icons.ts 를 다시 돌린다)", () => {
+test("표의 기호가 모두 data/discord-icons 에 있다(빠지면 scripts/build-discord-icons.ts 를 다시 돌린다). 로고는 그 파일과 회사", () => {
   const dir = path.join(import.meta.dirname, "..", "..", "data", "discord-icons");
   const { glyphs } = JSON.parse(fs.readFileSync(path.join(dir, "glyphs.json"), "utf8")) as { glyphs: Record<string, string> };
-  for (const { glyph } of Object.values(ICONS)) assert.ok(glyph === "sponsorblock" || glyphs[glyph], glyph);
+  for (const spec of Object.values(ICONS) as IconSpec[]) {
+    if (spec.shape === "logo") assert.ok(fs.existsSync(path.join(dir, spec.glyph)) && spec.brand, spec.glyph);
+    else assert.ok(spec.glyph === "sponsorblock" || glyphs[spec.glyph], spec.glyph);
+  }
   assert.ok(fs.existsSync(path.join(dir, "skipIcon.svg")));
 });

@@ -3,14 +3,15 @@
 // 대시보드 화면 빌드가 이 파일을 거쳐 갈 수 있어 아무것도 부르지 않는다
 
 /**
- * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중)
+ * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중),
+ * logo: 회사의 공식 흰 아이콘(기호 자리에 data/discord-icons 의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
  * 기호 "sponsorblock" 은 SponsorBlock 의 하이라이트 방패(data/discord-icons/skipIcon.svg)
  */
-type Shape = "tile" | "white" | "spin";
+type Shape = "tile" | "white" | "spin" | "logo";
 /** 타일의 바탕색. brand: 운영자 색(EMBED_COLOR), 나머지는 응답 색(ui/palette 의 FIXED_COLORS) */
 type Tint = "brand" | "error" | "warning" | "done" | "notice";
-/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나) */
-type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonly Tint[]; scale?: number };
+/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나). brand: logo 의 회사(타일 색은 ui/palette 의 BRAND_COLORS) */
+type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonly Tint[]; scale?: number; brand?: "youtube" | "spotify" };
 
 const SEVERITY = ["error", "warning"] as const;
 
@@ -71,6 +72,10 @@ const ICONS = {
   age_restricted: { glyph: "no_adult_content", unicode: "🔞" },
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
+
+  // 곡의 출처(검색 결과). 각 회사 가이드가 보여 주는 흰 아이콘과 브랜드 색 바탕의 짝이다. 유니코드는 /help 의 플랫폼 점과 같다
+  youtube: { glyph: "youtube-icon-white.png", unicode: "🔴", shape: "logo", brand: "youtube" },
+  spotify: { glyph: "spotify-icon-white.svg", unicode: "🟢", shape: "logo", brand: "spotify" },
 
   // 정보, 도움말 임베드의 제목, 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },

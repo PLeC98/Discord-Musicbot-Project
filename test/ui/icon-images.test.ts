@@ -51,3 +51,16 @@ test("도는 것은 움직이는 GIF: 24장, 장마다 50ms", async () => {
   assert.equal(meta.pages, 24);
   assert.deepEqual(new Set(meta.delay), new Set([50]));
 });
+
+test("로고는 브랜드 색 타일 위의 흰 아이콘이다. 운영자 색을 따르지 않고 같은 입력이면 같은 바이트", () =>
+  withConfig({ bot: { embedColor: "#2743D2" } }, async () => {
+    const youtube = (await imageOf(ICONS.youtube, "brand")).data;
+    assert.equal((await pixel(youtube, 1, 1))[3], 0, "둥근 모서리 밖은 투명");
+    assert.deepEqual(await pixel(youtube, 64, 4), [0xff, 0x00, 0x33, 255], "가장자리는 유튜브 빨강");
+    assert.deepEqual(await pixel(youtube, 40, 64), [255, 255, 255, 255], "아이콘의 흰 부분");
+    const spotify = (await imageOf(ICONS.spotify, "brand")).data;
+    assert.deepEqual(await pixel(spotify, 64, 4), [0x1e, 0xd7, 0x60, 255], "가장자리는 스포티파이 초록");
+    const other = await withConfig({ bot: { embedColor: "#FF0000" } }, () => imageOf(ICONS.youtube, "brand"));
+    assert.ok(other.data.equals(youtube));
+    assert.ok((await imageOf(ICONS.spotify, "brand")).data.equals(spotify));
+  }));

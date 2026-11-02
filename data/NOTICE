@@ -68,6 +68,34 @@ discord-icons/skipIcon.svg
   This project is not affiliated with or endorsed by SponsorBlock.
 
 --------------------------------------------------------------------------------
+discord-icons/youtube-icon-white.png
+
+  The YouTube icon (monochrome white, digital), unmodified, from the YouTube
+  brand resources icon kit (youtube-icon.zip, Digital/03 White/
+  yt_icon_white_digital.png), downloaded 2026-11-03.
+  Source:  https://brand.youtube/youtube-icon
+  YouTube and the YouTube logo are trademarks of Google LLC. This file is not
+  covered by the license of this project. The bot uses it only to show that a
+  search result comes from YouTube and links to that content. It draws the
+  file on a rounded tile of YouTube Red (#FF0033), the white-on-red pairing
+  the brand page shows, and only scales it.
+  This project is not affiliated with or endorsed by Google or YouTube.
+
+--------------------------------------------------------------------------------
+discord-icons/spotify-icon-white.svg
+
+  The Spotify icon (white, RGB), unmodified, from the Spotify for Developers
+  design guidelines icon kit (2024-spotify-logo-icon.zip,
+  Primary_Logo_White_RGB.svg), downloaded 2026-11-03.
+  Source:  https://developer.spotify.com/documentation/design
+  Spotify and the Spotify logo are trademarks of Spotify AB. This file is not
+  covered by the license of this project. The bot uses it only to show that a
+  search result comes from Spotify and links to that content. It draws the
+  file on a rounded tile of Spotify Green (#1ED760), the white-on-green pairing
+  the guidelines show, and only scales it.
+  This project is not affiliated with or endorsed by Spotify.
+
+--------------------------------------------------------------------------------
 english-finals.json
 
   Derived from the CMU Pronouncing Dictionary by scripts/build-english-finals.ts
