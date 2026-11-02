@@ -1,6 +1,6 @@
 // 재생 진행 막대. 재생 패널과 /nowplaying 이 같은 모양을 쓴다.
 
-import { formatDuration } from "./format.ts";
+import { LIVE_MARK, formatDuration } from "./format.ts";
 
 const BAR_LENGTH = 16;
 
@@ -9,7 +9,7 @@ function progressBar(currentSec: number, totalSec: number, { live = false } = {}
   // 라이브에는 끝이 없어 위치도 길이도 찍지 않고, 경과 시간 자리에 표식을 둔다.
   // 접속해 있던 시간을 적으면 옆의 `-:--` 와 나란히 진행률처럼 읽힌다.
   if (live) {
-    return `\`🔴LIVE\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
+    return `\`${LIVE_MARK}\` ${"▬".repeat(BAR_LENGTH + 1)} \`-:--\``;
   }
 
   // 길이를 모르면(다운로드 전의 직접 링크 등) 핸들을 맨 앞에 두고 길이는 비운다. 0:00 은 길이가 0 인 곡으로 읽힌다

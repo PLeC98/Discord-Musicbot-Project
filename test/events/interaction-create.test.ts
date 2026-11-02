@@ -22,6 +22,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
     replied,
     deferred,
     isChatInputCommand: () => chat,
+    isAutocomplete: () => false,
     inCachedGuild: () => guild,
     isButton: () => false,
     isStringSelectMenu: () => false,
@@ -155,6 +156,7 @@ function press({ customId = "x:1", replied = false, deferred = false, dead = fal
     replied,
     deferred,
     isChatInputCommand: () => false,
+    isAutocomplete: () => false,
     inCachedGuild: () => true,
     isButton: () => true,
     reply: async (p: unknown) => {
@@ -202,4 +204,55 @@ test("서버 밖의 버튼은 받지 않는다", async () => {
   await routeInteraction(fakeBot(), it, [route("button", "x:", (i) => seen.push(i))]);
   assert.deepEqual(seen, []);
   assert.deepEqual(sent, []);
+});
+
+// ── 자동완성 ──
+
+/** 자동완성 상호작용. responded 는 respond 를 부르면 참이 된다 */
+function suggest({ name = "search", guild = true, commands = {} as Record<string, object> } = {}) {
+  const answered: unknown[] = [];
+  const it = {
+    commandName: name,
+    responded: false,
+    isChatInputCommand: () => false,
+    isAutocomplete: () => true,
+    inCachedGuild: () => guild,
+    respond: async (choices: unknown) => {
+      answered.push(choices);
+      it.responded = true;
+    },
+  };
+  const bot = fakeBot({ commands: new Map(Object.entries(commands).map(([k, c]) => [k, fake<SlashCommand>(c)])) });
+  return { it: fake<ChatInputCommandInteraction>(it), answered, bot };
+}
+
+test("자동완성은 그 명령의 autocomplete 가 답한다", async () => {
+  const { it, answered, bot } = suggest({ commands: { search: { autocomplete: async (i: { respond(c: unknown): Promise<void> }) => i.respond([{ name: "a", value: "a" }]) } } });
+  await interactionCreate.execute(bot, it);
+  assert.deepEqual(answered, [[{ name: "a", value: "a" }]]);
+});
+
+test("자동완성 처리가 던지거나 답하지 않았으면 빈 목록으로 답하고, 던짐은 밖으로 새지 않는다", async () => {
+  const thrown = suggest({
+    commands: {
+      search: {
+        autocomplete: async () => {
+          throw new Error("버그");
+        },
+      },
+    },
+  });
+  await interactionCreate.execute(thrown.bot, thrown.it);
+  assert.deepEqual(thrown.answered, [[]]);
+
+  const silent = suggest({ commands: { search: { autocomplete: async () => {} } } });
+  await interactionCreate.execute(silent.bot, silent.it);
+  assert.deepEqual(silent.answered, [[]]);
+});
+
+test("자동완성이 없는 명령, 없는 명령, 서버 밖은 빈 목록", async () => {
+  for (const one of [suggest({ commands: { search: { execute: async () => {} } } }), suggest({ name: "nope" }), suggest({ guild: false, commands: { search: { autocomplete: async () => assert.fail("서버 밖") } } })]) {
+    await interactionCreate.execute(one.bot, one.it);
+    assert.deepEqual(one.answered, [[]]);
+  }
 });

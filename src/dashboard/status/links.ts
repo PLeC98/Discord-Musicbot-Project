@@ -27,6 +27,7 @@ const ROWS: Array<{ id: Service; group: Group; name: string }> = [
   { id: "spotify", group: "play", name: "Spotify" },
   { id: "soundcloud", group: "play", name: "SoundCloud" },
   { id: "sponsorblock", group: "play", name: "SponsorBlock" },
+  { id: "youtube", group: "youtube", name: "YouTube 검색" },
   { id: "ai", group: "autoplay", name: "AI 보조" },
   { id: "lastfm", group: "autoplay", name: "Last.fm" },
   { id: "listenbrainz", group: "autoplay", name: "ListenBrainz" },

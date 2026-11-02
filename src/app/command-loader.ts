@@ -1,5 +1,5 @@
 import type { HelpEntry } from "../ui/help-lines.ts";
-import { REST, Routes, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
+import { REST, Routes, type AutocompleteInteraction, type ChatInputCommandInteraction, type RESTPostAPIApplicationCommandsJSONBody, type RESTPutAPIApplicationCommandsResult } from "discord.js";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
@@ -17,8 +17,16 @@ type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONB
 /**
  * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
  * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(기동 때, 그 설정을 저장할 때의 배포에서)
+ * autocomplete: 자동완성을 켠 옵션의 선택지. 3초 안에 respond 로 답한다. 던지면 부르는 쪽(이벤트)이 빈 목록으로 답한다
  */
-type GuildCommand = { data: CommandData; help: HelpEntry | null; anywhere?: false; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext): unknown };
+type GuildCommand = {
+  data: CommandData;
+  help: HelpEntry | null;
+  anywhere?: false;
+  enabled?: () => boolean;
+  execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext): unknown;
+  autocomplete?(interaction: AutocompleteInteraction<"cached">, bot: BotContext): Promise<unknown>;
+};
 /** 서버 밖(DM)에서도 쓰는 명령 */
 type AnywhereCommand = { data: CommandData; help: HelpEntry | null; anywhere: true; enabled?: () => boolean; execute(interaction: ChatInputCommandInteraction, bot: BotContext): unknown };
 /** 슬래시 명령 모듈. 정의(data)와 실행(execute) */

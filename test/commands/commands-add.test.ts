@@ -341,17 +341,17 @@ test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
 // ── /search ───────────────────────────────────────────────────────────
 
 test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람, 번호, 영상 ID 를 싣는다", async () => {
-  const asked: Array<[string, number]> = [];
-  const search = async (q: string, n: number) => {
-    asked.push([q, n]);
-    return Array.from({ length: 6 }, (_, i) => tracks.youtube(`v${i}`, { title: `결과 ${i + 1}`, artist: "채널", duration: i === 0 ? 3725 : 65 }));
+  const asked: string[] = [];
+  const search = async (q: string) => {
+    asked.push(q);
+    return { tracks: Array.from({ length: 6 }, (_, i) => tracks.youtube(`v${i}`, { title: `결과 ${i + 1}`, artist: "채널", duration: i === 0 ? 3725 : 65 })), gated: false };
   };
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   const from = sink.buffer.length;
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search });
 
-  assert.deepEqual(asked, [["노래", 9]]);
+  assert.deepEqual(asked, ["노래"]);
   assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }], "검색 결과는 본인에게만");
   assert.deepEqual(lifetimesOf(it), [LIFETIME.menu], "고르는 화면은 메뉴 수명 뒤 지운다");
   assert.deepEqual(
@@ -376,9 +376,40 @@ test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼�
 test("/search: 붙여 넣은 검색어 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷고 찾는다", async () => {
   const asked: string[] = [];
   const w = world();
-  const { it } = interaction(w, { options: { query: "\u00a0 https://youtu.be/abcdefghijk\u3000\n" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async (q) => (asked.push(q), []) });
-  assert.deepEqual(asked, ["https://youtu.be/abcdefghijk"]);
+  const { it } = interaction(w, { options: { query: "\u00a0 노래\u3000\n" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
+  assert.deepEqual(asked, ["노래"]);
+});
+
+test("/search: 링크는 검색하지 않고 /play 처럼 바로 넣는다(글자 그대로 찾으면 엉뚱한 결과가 나온다)", async () => {
+  for (const link of ["https://youtu.be/abcdefghijk?si=x", "https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw", "spotify:track:1SwZVVH9BnXtLRLi2cbFhw"]) {
+    resolved.length = 0;
+    const w = world();
+    const { it, log } = interaction(w, { options: { query: ` ${link} ` } });
+    await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("링크는 검색하지 않는다") });
+    assert.deepEqual(log[0], ["reply", reply(frame({ body: `🔄 **${link}** 검색 중...` }))], link);
+    assert.deepEqual(
+      resolved.map((r) => [r.query, r.context]),
+      [[link, "search.resolveQuery"]],
+      link,
+    );
+  }
+});
+
+test("/search: 자동완성에서 고른 곡(yt:<영상 id>)은 그 영상을 바로 넣는다. 모양이 틀린 값은 검색어다", async () => {
+  const w = world();
+  const { it, log } = interaction(w, { options: { query: "yt:abcdefghijk" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("고른 곡은 검색하지 않는다") });
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 곡을 추가하는 중..." }))], "기억해 둔 검색 결과에 없으면 제목 없이");
+  assert.deepEqual(
+    resolved.map((r) => [r.query, r.context]),
+    [["https://www.youtube.com/watch?v=abcdefghijk", "search 자동완성.resolveQuery"]],
+  );
+
+  const asked: string[] = [];
+  const typed = interaction(world(), { options: { query: "yt:짧음" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(typed.it), typed.bot, { search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
+  assert.deepEqual(asked, ["yt:짧음"]);
 });
 
 test("/search: 권한, 결과 없음, 오류", async () => {
@@ -394,9 +425,15 @@ test("/search: 권한, 결과 없음, 오류", async () => {
 
   const none = interaction(world(), { options: { query: "x" } });
   const from = sink.buffer.length;
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { search: async () => [] });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { search: async () => ({ tracks: [], gated: false }) });
   assert.deepEqual(none.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("no-search-results"))]], "미뤄 둔 자리를 지우고 본인에게만");
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
+
+  // 유튜브가 연령 인증 안내만 주었으면 결과 없음이 아니라 그렇다고
+  const gated = interaction(world(), { options: { query: "y" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(gated.it), gated.bot, { search: async () => ({ tracks: [], gated: true }) });
+  assert.deepEqual(gated.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("search-age-gated"))]]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "y" → 연령 인증 안내'));
 
   // 검색이 던지면 진입점이 남기고, 미뤄 둔 답을 삭제한 뒤 본인에게만 그 종류의 안내로 알린다
   const offline = async () => {

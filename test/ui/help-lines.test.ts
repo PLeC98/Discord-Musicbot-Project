@@ -28,7 +28,7 @@ const EXPECTED = [
   },
   {
     name: "🔍 탐색 & 정보",
-    lines: ["`/search`: 유튜브에서 검색해서 재생해요", "`/nowplaying`: 재생 중인 곡의 정보를 보여줘요"],
+    lines: ["`/search`: 곡을 검색해요", "`/nowplaying`: 재생 중인 곡의 정보를 보여줘요"],
   },
   {
     name: "📡 채널 & 세션",

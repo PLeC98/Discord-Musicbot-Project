@@ -28,7 +28,7 @@ beforeEach(() => {
 test("순서와 그룹: 디스코드, 재생, 유튜브, 자동재생", () => {
   assert.deepEqual(
     linkRows(client).map((row) => `${row.group}:${row.id}`),
-    ["play:discord", "play:spotify", "play:soundcloud", "play:sponsorblock", "youtube:potoken", "autoplay:ai", "autoplay:lastfm", "autoplay:listenbrainz", "autoplay:animethemes", "autoplay:anisongdb", "autoplay:vocadb", "autoplay:utaitedb", "autoplay:touhoudb"],
+    ["play:discord", "play:spotify", "play:soundcloud", "play:sponsorblock", "youtube:potoken", "youtube:youtube", "autoplay:ai", "autoplay:lastfm", "autoplay:listenbrainz", "autoplay:animethemes", "autoplay:anisongdb", "autoplay:vocadb", "autoplay:utaitedb", "autoplay:touhoudb"],
   );
 });
 

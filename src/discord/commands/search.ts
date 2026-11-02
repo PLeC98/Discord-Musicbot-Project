@@ -1,11 +1,17 @@
-import { formatDuration } from "../../ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData } from "discord.js";
 import * as YouTube from "../../sources/youtube/index.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { TrackInfo } from "../../player/track.ts";
+import { isHttpLink, isKnownSiteHost } from "../../rules/links.ts";
+import { pickUrl, pickValue, readPick } from "../../rules/search-pick.ts";
+import { autocompleteBudget } from "../../rules/autocomplete-budget.ts";
+import { graphemeLength } from "../../rules/clip-text.ts";
+import type { TextSearchResult } from "../../sources/youtube/text-search.ts";
+import { playOnReply } from "./play.ts";
 import { requesterName } from "../../usecases/add-tracks.ts";
 import { SEARCH, customId } from "../../ui/custom-ids.ts";
 import logger from "../../infra/log/logger.ts";
@@ -17,6 +23,13 @@ import { LIFETIME, expireSelf, noticeInstead, noticeSelf } from "../../ui/delive
 const log = logger.child({ category: "player" });
 
 const MAX_RESULTS = 9;
+/** 자동완성 곡 후보 수(맨 위 줄은 따로) */
+const CHOICES = 10;
+/** 이보다 짧은 검색어(글자 수)는 찾지 않고 맨 위 줄만 */
+const MIN_QUERY = 2;
+
+// 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다
+const isLink = (query: string) => isHttpLink(query) || isKnownSiteHost(query);
 
 // 선택한 결과는 버튼이 싣는다(요청자, 번호, 영상 ID). 처리는 src/discord/interactions/button-handler 의 검색 처리
 async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "editReply" | "user">, results: TrackInfo[], query: string) {
@@ -51,17 +64,57 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   await interaction.editReply({ embeds: [embed], components });
 }
 
-/** 유튜브 검색. 생략하면 진짜(테스트가 가짜를 넘긴다) */
-type SearchDeps = { search?: (query: string, limit: number) => Promise<TrackInfo[]> };
+/** 유튜브 검색과 시계. 생략하면 진짜(테스트가 가짜를 넘긴다) */
+type SearchDeps = { search?: (query: string) => Promise<TextSearchResult>; now?: () => number };
 
-const exported: GuildCommand & { execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown } = {
+// ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
+function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<{ missed: "late" }>((resolve) => (timer = setTimeout(() => resolve({ missed: "late" }), ms)));
+  const done = work.then(
+    (value) => ({ value }),
+    () => ({ missed: "failed" as const }),
+  );
+  return Promise.race([done, late]).finally(() => clearTimeout(timer));
+}
+
+/** 자동완성 선택지: 맨 위 줄(입력한 글자로 결과 화면)과 곡 후보. 연령 인증 안내만 왔으면 그 문장을 맨 위 줄 이름으로 */
+function choicesOf(query: string, found: TextSearchResult | null): ApplicationCommandOptionChoiceData<string>[] {
+  if (found?.gated) {
+    const gated = errors.notice("search-age-gated");
+    return [{ name: `${gated.title} ${gated.body ?? ""}`.trim(), value: query }];
+  }
+  const songs = (found?.tracks ?? []).flatMap((track) => (track.id ? [{ name: searchText.songChoice({ title: track.title, artist: track.artist, length: track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()) }), value: pickValue({ platform: "youtube", id: track.id }) }] : []));
+  return [{ name: searchText.resultsChoice(query), value: query }, ...songs.slice(0, CHOICES)];
+}
+
+const exported: GuildCommand & {
+  execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown;
+  autocomplete(interaction: AutocompleteInteraction<"cached">, bot: BotContext, deps?: SearchDeps): Promise<unknown>;
+} = {
   help: { section: "explore", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("search")
-    .setDescription("유튜브에서 검색해서 재생해요")
-    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true)),
+    .setDescription("곡을 검색해요")
+    // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
+    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(100).setAutocomplete(true)),
 
-  async execute(interaction: ChatInputCommandInteraction<"cached">, _bot: BotContext, { search = (query: string, limit: number) => YouTube.search(query, limit) }: SearchDeps = {}) {
+  async autocomplete(interaction, _bot, { search = YouTube.searchText, now = Date.now }: SearchDeps = {}) {
+    const query = interaction.options.getFocused().trim();
+    if (!query || isLink(query)) return await interaction.respond([]);
+    if (graphemeLength(query) < MIN_QUERY) return await interaction.respond(choicesOf(query, null));
+
+    const started = now();
+    const outcome = await within(search(query), autocompleteBudget(interaction.createdTimestamp, started));
+    // 마감 안에 못 찾았으면 앞부분이 같은 이전 검색의 결과라도
+    const found = "value" in outcome ? outcome.value : YouTube.rememberedPrefix(query);
+    const choices = choicesOf(query, found);
+    const missed = "missed" in outcome ? `, ${outcome.missed === "late" ? "마감 넘김" : "검색 실패"}(${found ? "앞 검색어의 결과" : "결과 없음"})` : "";
+    log.debug({ sub: "search" }, `자동완성: "${query}" → ${found?.gated ? "연령 인증 안내" : `후보 ${choices.length - 1}개`}${missed} | ${now() - started}ms`);
+    await interaction.respond(choices);
+  },
+
+  async execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, { search = YouTube.searchText }: SearchDeps = {}) {
     // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷는다. 링크 판정이 다듬은 글자를 받는다
     const query = interaction.options.getString("query", true).trim();
     const member = interaction.member;
@@ -70,17 +123,22 @@ const exported: GuildCommand & { execute(interaction: ChatInputCommandInteractio
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
+    // 자동완성에서 고른 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다
+    const pick = readPick(query);
+    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack(YouTube.rememberedVideo(pick.id)?.title ?? null), source: "/search 자동완성" });
+    if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });
+
     // 검색이 던지면(네트워크, 봇 감지 등) 진입점이 남기고 이 답 메시지에 그 종류로 알린다
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const results = await search(query, MAX_RESULTS);
-    log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${results?.length ? `결과 ${results.length}개` : "결과 없음"}`);
+    // 자동완성이 방금 찾은 것이 있으면 그 목록 그대로(검색할 때마다 순서가 조금씩 바뀐다)
+    const found = YouTube.rememberedSearch(query) ?? (await search(query));
+    log.info({ sub: "play" }, `곡 검색: /search | ${requesterName(member)} | "${query}" → ${found.gated ? "연령 인증 안내" : found.tracks.length ? `결과 ${found.tracks.length}개` : "결과 없음"}`);
 
-    if (!results || results.length === 0) {
-      return await noticeInstead(interaction, errors.notice("no-search-results"));
-    }
+    if (found.gated) return await noticeInstead(interaction, errors.notice("search-age-gated"));
+    if (found.tracks.length === 0) return await noticeInstead(interaction, errors.notice("no-search-results"));
 
-    await showSearchMenu(interaction, results, query);
+    await showSearchMenu(interaction, found.tracks, query);
     expireSelf(interaction, LIFETIME.menu);
   },
 };

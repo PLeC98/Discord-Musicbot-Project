@@ -102,6 +102,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 곡 찾기가 찾은 것이 없다
   "no-song-result": () => warning("notFound", "곡을 찾지 못했어요.", "다른 검색어나 링크로 시도해 주세요."),
   "no-search-results": () => warning("notFound", "검색 결과가 없어요.", "다른 검색어로 시도해 주세요."),
+  "search-age-gated": () => warning("blocked", "유튜브가 연령 인증을 요구하는 검색어예요.", "링크로 직접 넣어 주세요."),
   "sp-no-youtube-match": () => warning("notFound", "일치하는 음원을 찾지 못했어요!", "재생하려는 스포티파이 곡과 일치하는 곡을 유튜브에서 찾지 못했어요. 곡 이름으로 검색하거나 유튜브 링크를 넣어 보세요."),
   "more-nothing-found": () => warning("notFound", "더 넣을 곡을 찾지 못했어요!", "재생목록이 변경되었을 수 있어요. 해당 플랫폼에 접속하여 재생목록을 확인해주세요."),
   // 받을 수 없는 내용

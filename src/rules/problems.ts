@@ -70,6 +70,8 @@ const SHARED = {
   "more-unknown-menu": { status: 404, title: "Unknown menu" },
   "no-song-result": { status: 404, title: "No track found" },
   "no-search-results": { status: 404, title: "No search results" },
+  // 유튜브가 검색어에 연령 인증 안내만 주었다(결과가 없는 것과 다르다. 링크로 넣으면 들을 수 있다)
+  "search-age-gated": { status: 422, title: "YouTube requires age verification for this search" },
   "sp-no-youtube-match": { status: 404, title: "No YouTube match for the Spotify track" },
   "more-nothing-found": { status: 404, title: "No more tracks found" },
   // 받을 수 없는 내용

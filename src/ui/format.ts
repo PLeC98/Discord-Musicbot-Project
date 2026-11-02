@@ -1,5 +1,8 @@
 // 화면에 쓰는 길이, 크기 표기. 값이 없을 때의 문구처럼 위치마다 다른 것은 부르는 쪽이 넘긴다
 
+/** 라이브의 길이 자리 표기(대기열 메뉴, 진행 막대, 검색 결과) */
+const LIVE_MARK = "🔴LIVE";
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
@@ -71,4 +74,4 @@ function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}
   return `${value} ${unit}`;
 }
 
-export { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };
+export { LIVE_MARK, formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };

@@ -1,15 +1,12 @@
 // 대기열 줄 만들기. `/queue`, 대기열 버튼, 점프 메뉴 설명이 같은 규칙(요청자 표기)을 쓰게 한 곳에 둔다.
 
-import { formatDuration } from "./format.ts";
+import { LIVE_MARK, formatDuration } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import { ICONS, icon } from "./icons.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
 // 요청자 표기에서 읽는 필드
 type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefined;
-
-// 라이브 곡의 길이 표기
-const LIVE_MARK = "🔴LIVE";
 
 // 임베드용. 멘션으로 적는다. 알림은 가지 않고, 이름 캐시가 없어도 항상 맞게 보인다.
 // 자동재생 곡은 장르 이모지가 아니라 자동재생 아이콘이다(알릴 것은 장르가 아니라 자동으로 들어온 곡이라는 것)

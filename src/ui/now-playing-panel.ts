@@ -4,6 +4,7 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
 import { labelOf } from "../rules/platforms.ts";
+import { clipText } from "../rules/clip-text.ts";
 
 /** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
@@ -759,7 +760,7 @@ class NowPlayingPanel {
 
     const tracks = player.queue.slice(0, SELECT_MAX);
     const options = tracks.map((track, i) => {
-      const label = `${i + 1}. ${songTitle(track.title)}`.slice(0, 100);
+      const label = clipText(`${i + 1}. ${songTitle(track.title)}`, 100);
       const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
       const description = jumpDescription(track);
       if (description) opt.setDescription(description);

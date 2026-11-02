@@ -20,3 +20,4 @@ export * from "./ytdlp-run.ts";
 export * from "./errors.ts";
 export * from "./api.ts";
 export { _internals };
+export * from "./text-search.ts";

@@ -49,3 +49,11 @@ test("앱 이모지 맞추기의 CDN 요청에 중단 신호가 붙어 있다", 
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
   for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);
 });
+
+test("유튜브 글자 검색의 요청(youtubei.js 에 넘기는 전송)에 중단 신호가 붙어 있다", () => {
+  const src = read("src/sources/youtube/text-search.ts");
+  const calls = callSites(src, "http.fetch");
+  assert.equal(calls.length, 1, "요청은 전송 하나로만 나간다");
+  assert.match(calls[0], /signal: AbortSignal\.timeout\(/);
+  assert.match(src, /Innertube\.create\(\{[^}]*fetch: send/, "youtubei.js 가 그 전송을 쓴다");
+});

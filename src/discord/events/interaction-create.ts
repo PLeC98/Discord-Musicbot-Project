@@ -1,11 +1,11 @@
-// 상호작용 진입점 하나. 슬래시 명령은 이름으로 명령 모듈을, 버튼, 메뉴, 모달은 종류와 custom_id 접두사로 핸들러를 선택한다(discord/interactions/).
+// 상호작용 진입점 하나. 슬래시 명령과 그 자동완성은 이름으로 명령 모듈을, 버튼, 메뉴, 모달은 종류와 custom_id 접두사로 핸들러를 선택한다(discord/interactions/).
 // 처리가 던지면 여기서 한 번 남기고 알린다(명령, 핸들러는 제 catch 를 두지 않는다). 응답의 대상, 수명은 ui/delivery 가 정한다.
 
-import { Events, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
+import { Events, type AutocompleteInteraction, type ChatInputCommandInteraction, type Interaction, type RepliableInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../../rules/dead-interaction.ts";
-import { errorKind, messageOf } from "../../rules/error-kind.ts";
+import { describeError, errorKind, messageOf } from "../../rules/error-kind.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import type { Notice } from "../../ui/text/notice.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
@@ -54,6 +54,20 @@ async function runCommand(bot: BotContext, interaction: ChatInputCommandInteract
   }
 }
 
+// 자동완성. 답할 메시지가 없어 실패를 알릴 곳이 없으니, 무엇이 던져도 빈 목록으로 답해 둔다(처리 경계로 새면 그 서버의 오류로 센다).
+// 서버 밖(DM)이나 자동완성이 없는 명령도 빈 목록
+async function runAutocomplete(bot: BotContext, interaction: AutocompleteInteraction) {
+  const command = bot.commands.get(interaction.commandName);
+  try {
+    if (command && !command.anywhere && command.autocomplete && interaction.inCachedGuild()) await command.autocomplete(interaction, bot);
+  } catch (error) {
+    // 마감(3초)을 넘겨 토큰이 죽었거나 이미 답했다
+    if (isDeadInteraction(error)) log.debug(`/${interaction.commandName} 자동완성 답이 늦음: ${describeError(error)}`);
+    else log.error(`/${interaction.commandName} 자동완성 처리 실패:`, error);
+  }
+  if (!interaction.responded) await interaction.respond([]).catch((error: unknown) => log.debug(`자동완성 빈 답 실패: ${describeError(error)}`));
+}
+
 // 버튼, 메뉴, 모달. 서버 안의 것만 받는다
 async function runComponent(bot: BotContext, input: Interaction, routes: readonly Route[]) {
   const component = componentOf(input);
@@ -74,6 +88,7 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
 /** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯 */
 async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES) {
   if (interaction.isChatInputCommand()) return runCommand(bot, interaction);
+  if (interaction.isAutocomplete()) return runAutocomplete(bot, interaction);
   return runComponent(bot, interaction, routes);
 }
 

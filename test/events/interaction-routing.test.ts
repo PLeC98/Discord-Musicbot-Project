@@ -59,6 +59,7 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
     isRoleSelectMenu: () => kind === "roleSelect",
     isModalSubmit: () => kind === "modal",
     isChatInputCommand: () => kind === "command",
+    isAutocomplete: () => false,
     isRepliable: () => true,
     isFromMessage: () => true,
     inCachedGuild: () => true,
