@@ -369,3 +369,67 @@ test("가수가 없는 곡은 가수 필드를 비워 둔다(표시 문구는 �
   const t = normApiTrack({ id: "x", name: "곡", artists: [], duration_ms: 1000, album: { name: "앨범", images: [] }, external_urls: { spotify: "https://open.spotify.com/track/x" } });
   assert.equal(t?.artist, undefined);
 });
+
+// ── 곡 검색 ──
+
+// 검색 화면 청크를 찾는 표(청크 이름, 청크 해시)가 든 번들과 그 청크
+const SEARCH_BUNDLE = `${BUNDLE};a={77:"xpui-routes-search",78:"other"};b={76:"0000aaaa",77:"1234abcd"}`;
+const SEARCH_CHUNK_URL = "https://open.spotifycdn.com/cdn/build/web-player/xpui-routes-search.1234abcd.js";
+const searchRoutes = ({ chunk = reply(`"searchTracks","query","${"d".repeat(64)}"`) } = {}): Route[] => [(url) => (url.includes("web-player.abc123.js") ? reply(SEARCH_BUNDLE) : undefined), (url) => (url === SEARCH_CHUNK_URL ? chunk : undefined), ...anonRoutes()];
+const searchAnswer = (names: string[]) => reply({ data: { searchV2: { tracksV2: { items: names.map((name, i) => ({ item: { data: { uri: `spotify:track:${String(i).repeat(22)}`, name, artists: { items: [{ profile: { name: "가수" } }] }, duration: { totalMilliseconds: 236000 }, albumOfTrack: { name: "앨범", coverArt: { sources: [] } } } } })) } } } });
+
+test("익명 상태: 곡 검색 해시는 번들의 표로 찾은 검색 화면 청크에서 뽑는다", async () => {
+  routes = searchRoutes();
+  const state = await graphql._ensureState(false);
+  assert.equal(state.hashes.searchTracks, "d".repeat(64));
+  assert.equal(state.hashes.fetchPlaylist, "a".repeat(64));
+});
+
+test("익명 상태: 검색 청크를 못 받으면 warn 하고 나머지 해시는 그대로, 검색 해시는 직전 값", async () => {
+  routes = searchRoutes();
+  await graphql._ensureState(false);
+  const from = sink.buffer.length;
+  routes = searchRoutes({ chunk: reply("", { status: 404 }) });
+  const next = await graphql._ensureState(true);
+  assert.equal(next.hashes.searchTracks, "d".repeat(64), "직전 값");
+  assert.equal(next.hashes.fetchPlaylist, "a".repeat(64));
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.startsWith("곡 검색 해시 추출 실패(직전 값 사용): 검색 청크 404")));
+});
+
+test("익명 상태와 토큰: 동시에 온 요청은 한 번만 뽑고 한 번만 받는다", async () => {
+  routes = searchRoutes();
+  await Promise.all([graphql._ensureState(false), graphql._ensureState(false), graphql._token(), graphql._token()]);
+  assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1);
+  assert.equal(requests.filter((r) => r.url.startsWith("https://open.spotify.com/api/token?")).length, 1);
+});
+
+test("곡 검색: searchTracks 로 묻고 곡 모양으로 바꾼다. 같은 검색어는 기억에서", async () => {
+  routes = [...searchRoutes(), (url) => (url.includes("api-partner") ? searchAnswer(["閃光", "閃光 (Live)"]) : undefined)];
+  const tracks = await Spotify.searchTracks(" 閃光 ");
+  assert.deepEqual(
+    tracks.map((t) => [t.title, t.artist, t.duration, t.pageUrl, t.platform]),
+    [
+      ["閃光", "가수", 236, `https://open.spotify.com/track/${"0".repeat(22)}`, "spotify"],
+      ["閃光 (Live)", "가수", 236, `https://open.spotify.com/track/${"1".repeat(22)}`, "spotify"],
+    ],
+  );
+  const body = JSON.parse(requests.find((r) => r.url.includes("api-partner"))?.init.body ?? "{}");
+  assert.equal(body.operationName, "searchTracks");
+  assert.equal(body.variables.searchTerm, "閃光");
+  assert.equal(body.extensions.persistedQuery.sha256Hash, "d".repeat(64));
+
+  const asked = requests.length;
+  assert.equal((await Spotify.searchTracks("閃光"))[0].title, "閃光");
+  assert.equal(requests.length, asked);
+  assert.equal(Spotify.rememberedTracks("閃光")?.length, 2);
+  assert.equal(Spotify.rememberedTracksPrefix("閃光 l")?.length, 2);
+  assert.equal(Spotify.rememberedTrack("1".repeat(22))?.title, "閃光 (Live)");
+});
+
+test("곡 검색 준비: 상태가 메모리에 없으면 거짓이고 뒤에서 준비를 시작한다. 준비되면 참", async () => {
+  routes = searchRoutes();
+  assert.equal(Spotify.searchReady(), false);
+  await graphql._ensureState(false);
+  assert.equal(Spotify.searchReady(), true);
+  assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1, "준비는 한 번");
+});

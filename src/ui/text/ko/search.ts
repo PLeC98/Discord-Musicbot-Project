@@ -24,15 +24,15 @@ const resultsChoice = (query: string) => {
   const room = CHOICE_MAX - '🔍 "" 검색 결과 보기'.length;
   return `🔍 "${clipText(query, room)}" 검색 결과 보기`;
 };
-/** 자동완성 곡 후보: `제목 - 채널 (길이)`. 넘치면 길이는 두고 앞을 자른다 */
-const songChoice = ({ title, artist, length }: { title: string | null; artist?: string | null; length: string }) => {
-  const tail = ` (${length})`;
+/** 자동완성 곡 후보: `제목 - 채널 (길이)`, 스포티파이 곡은 끝에 `(Spotify)`(이모지가 먹지 않아 출처를 글자로). 넘치면 뒤는 두고 앞을 자른다 */
+const songChoice = ({ title, artist, length, spotify = false }: { title: string | null; artist?: string | null; length: string; spotify?: boolean }) => {
+  const tail = ` (${length})${spotify ? " (Spotify)" : ""}`;
   return clipText(`${title || "알 수 없는 곡"}${artist ? ` - ${artist}` : ""}`, CHOICE_MAX - tail.length) + tail;
 };
 
 // 고른 선택지의 이름이 입력 칸에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
 const RESULTS_ECHO = /^🔍 "([^"]*)"?/u;
-const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|알 수 없음)\)$/u;
+const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|알 수 없음)\)(?: \(Spotify\))?$/u;
 
 /** 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 온 것이면 그 안의 검색어만 */
 const queryOfTyped = (typed: string) => {

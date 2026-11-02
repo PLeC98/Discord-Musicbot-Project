@@ -406,6 +406,15 @@ test("/search: 자동완성에서 고른 곡(yt:<영상 id>)은 그 영상을 �
     [["https://www.youtube.com/watch?v=abcdefghijk", "search 자동완성.resolveQuery"]],
   );
 
+  // 스포티파이 곡(sp:<곡 id>)은 그 곡 링크로. 곡 넣기가 유튜브 영상을 맞춘다
+  resolved.length = 0;
+  const spotify = interaction(world(), { options: { query: "sp:1SwZVVH9BnXtLRLi2cbFhw" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(spotify.it), spotify.bot, { search: async () => assert.fail("고른 곡은 검색하지 않는다") });
+  assert.deepEqual(
+    resolved.map((r) => r.query),
+    ["https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw"],
+  );
+
   const asked: string[] = [];
   const typed = interaction(world(), { options: { query: "yt:짧음" } });
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(typed.it), typed.bot, { search: async (q) => (asked.push(q), { tracks: [], gated: false }) });

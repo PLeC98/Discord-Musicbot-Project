@@ -1,4 +1,4 @@
-// src/discord/commands/search.ts 의 자동완성: 맨 위 줄과 곡 후보, 연령 인증 안내, 마감과 실패, 100자 상한, 고친 선택지 이름, 다음 입력 기다리기
+// src/discord/commands/search.ts 의 자동완성: 맨 위 줄과 곡 후보, 스포티파이 섞기, 연령 인증 안내, 마감과 실패, 100자 상한, 고친 선택지 이름, 다음 입력 기다리기
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -6,6 +6,7 @@ import type { ApplicationCommandOptionChoiceData, AutocompleteInteraction } from
 import searchCommand from "../../src/discord/commands/search.ts";
 import { resetTextSearch, searchText } from "../../src/sources/youtube/text-search.ts";
 import type { TextSearchResult } from "../../src/sources/youtube/text-search.ts";
+import type { SpotifyTrack } from "../../src/sources/spotify.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
 import { searchPage, sessionData, video } from "../helpers/youtube-search.ts";
@@ -19,7 +20,7 @@ after(() => resetTextSearch());
  * 자동완성 하나를 부르고 답한 선택지. createdAt: 상호작용이 만들어진 시각(기본은 방금), user: 입력한 사람,
  * wait: 다음 입력을 기다리는 것(기본은 바로 지나간다)
  */
-async function complete(typed: string, search: (query: string) => Promise<TextSearchResult>, { createdAt = Date.now(), user = "u1", wait = async () => {} } = {}) {
+async function complete(typed: string, search: (query: string) => Promise<TextSearchResult>, { createdAt = Date.now(), user = "u1", wait = async () => {}, spotify = null as ((query: string) => Promise<SpotifyTrack[]>) | null } = {}) {
   const answered: ApplicationCommandOptionChoiceData[][] = [];
   const it = fake<AutocompleteInteraction<"cached">>({
     options: { getFocused: () => typed },
@@ -27,7 +28,8 @@ async function complete(typed: string, search: (query: string) => Promise<TextSe
     user: { id: user },
     respond: async (choices: ApplicationCommandOptionChoiceData[]) => void answered.push(choices),
   });
-  await searchCommand.autocomplete(it, bot, { search, wait });
+  // 스포티파이는 정하지 않으면 준비되지 않은 것(진짜 준비는 네트워크로 상태를 받는다)
+  await searchCommand.autocomplete(it, bot, { search, wait, searchSpotify: spotify ?? (() => assert.fail("스포티파이를 찾지 않는다")), spotifyReady: () => spotify !== null });
   assert.equal(answered.length, 1, "늘 한 번 답한다");
   return answered[0];
 }
@@ -93,7 +95,8 @@ test("고른 선택지의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안
   await complete('🔍 "miku', record);
   await complete("좋은 날 - 아이유 (3:56)", record);
   await complete("라디오 - 채널 (🔴LIVE)", record);
-  assert.deepEqual(asked, ["mik", "miku", "좋은 날 - 아이유", "라디오 - 채널"]);
+  await complete("閃光 - [Alexandros] (4:10) (Spotify)", record);
+  assert.deepEqual(asked, ["mik", "miku", "좋은 날 - 아이유", "라디오 - 채널", "閃光 - [Alexandros]"]);
   assert.deepEqual(await complete("유튜브가 연령 인증을 요구하는 검색어예요. 링크로", () => assert.fail("찾지 않는다")), []);
 });
 
@@ -122,4 +125,49 @@ test("이미 찾아 둔 검색어는 기다리지도 다시 찾지도 않는다"
   await searchText("좋은 날");
   const choices = await complete("좋은 날", () => assert.fail("다시 찾지 않는다"), { wait: () => assert.fail("기다리지 않는다") });
   assert.deepEqual(choices[1], { name: "좋은 날 - 아이유 (3:56)", value: "yt:aaaaaaaaaaa" });
+});
+
+// 스포티파이 곡 id 는 22자. i 는 0 ~ 9
+const spotifyTrack = (i: number): SpotifyTrack => ({ title: `스포티파이 ${i}`, artist: "가수", album: null, pageUrl: `https://open.spotify.com/track/${String(i).repeat(22)}`, requestKey: "", duration: 200, thumbnail: null, platform: "spotify", id: String(i).repeat(22) });
+const youtubeList = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`y${String(i).padStart(10, "0")}`, { title: `유튜브 ${i}`, artist: "채널", duration: 60 }));
+const spotifyList = (n: number) => Array.from({ length: n }, (_, i) => spotifyTrack(i));
+
+test("스포티파이가 준비돼 있으면 유튜브 7, 스포티파이 3 을 섞는다. 이름 끝 (Spotify), 값 sp:<곡 id>. 한쪽이 모자라면 다른 쪽으로 채운다", async () => {
+  const both = await complete("노래", found(youtubeList(12)), { spotify: async () => spotifyList(10) });
+  assert.equal(both.length, 11);
+  assert.deepEqual(
+    both.slice(1).map((c) => String(c.value).slice(0, 3)),
+    ["yt:", "yt:", "yt:", "yt:", "yt:", "yt:", "yt:", "sp:", "sp:", "sp:"],
+  );
+  assert.deepEqual(both[8], { name: "스포티파이 0 - 가수 (3:20) (Spotify)", value: `sp:${"0".repeat(22)}` });
+
+  const fewYoutube = await complete("노래 둘", found(youtubeList(2)), { spotify: async () => spotifyList(10) });
+  assert.deepEqual(
+    fewYoutube.slice(1).map((c) => String(c.value).slice(0, 3)),
+    ["yt:", "yt:", ...Array(8).fill("sp:")],
+  );
+  const fewSpotify = await complete("노래 셋", found(youtubeList(12)), { spotify: async () => spotifyList(1) });
+  assert.deepEqual(
+    fewSpotify.slice(1).map((c) => String(c.value).slice(0, 3)),
+    [...Array(9).fill("yt:"), "sp:"],
+  );
+});
+
+test("유튜브가 연령 인증으로 막으면 스포티파이 곡으로 채운다. 스포티파이도 없으면 연령 인증 문장", async () => {
+  const gated = async () => ({ tracks: [], gated: true });
+  const filled = await complete("閃光", gated, { spotify: async () => spotifyList(10) });
+  assert.equal(filled[0].name, '🔍 "閃光" 검색 결과 보기');
+  assert.equal(filled.length, 11);
+  assert.ok(filled.slice(1).every((c) => String(c.value).startsWith("sp:")));
+  assert.deepEqual(await complete("閃光 둘", gated, { spotify: async () => [] }), [{ name: "유튜브가 연령 인증을 요구하는 검색어예요. 링크로 직접 넣어 주세요.", value: "閃光 둘" }]);
+});
+
+test("스포티파이 검색이 실패하면 유튜브만", async () => {
+  const choices = await complete("노래 넷", found(youtubeList(12)), {
+    spotify: async () => {
+      throw new Error("429");
+    },
+  });
+  assert.equal(choices.length, 11);
+  assert.ok(choices.slice(1).every((c) => String(c.value).startsWith("yt:")));
 });
