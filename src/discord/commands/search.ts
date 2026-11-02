@@ -27,6 +27,14 @@ const MAX_RESULTS = 9;
 const CHOICES = 10;
 /** 이보다 짧은 검색어(글자 수)는 찾지 않고 맨 위 줄만 */
 const MIN_QUERY = 2;
+/**
+ * 같은 사람의 다음 입력을 기다리는 시간(ms). 이 안에 다음 요청이 오면 앞 요청은 찾지 않고 기억으로만 답한다.
+ * 디스코드는 입력을 1초 남짓으로 묶어 보낸다. 3초 마감에서 이만큼 쓰고도 검색(0.5초 안팎)이 들어간다
+ */
+const SETTLE_MS = 1000;
+// 사람마다 마지막 자동완성 요청의 번호
+const latestRequest = new Map<string, number>();
+let requestCount = 0;
 
 // 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다
 const isLink = (query: string) => isHttpLink(query) || isKnownSiteHost(query);
@@ -64,8 +72,10 @@ async function showSearchMenu(interaction: Pick<ChatInputCommandInteraction, "ed
   await interaction.editReply({ embeds: [embed], components });
 }
 
-/** 유튜브 검색과 시계. 생략하면 진짜(테스트가 가짜를 넘긴다) */
-type SearchDeps = { search?: (query: string) => Promise<TextSearchResult>; now?: () => number };
+/** 유튜브 검색, 시계, 기다리기. 생략하면 진짜(테스트가 가짜를 넘긴다) */
+type SearchDeps = { search?: (query: string) => Promise<TextSearchResult>; now?: () => number; wait?: (ms: number) => Promise<unknown> };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
 function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {
@@ -78,12 +88,32 @@ function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { misse
   return Promise.race([done, late]).finally(() => clearTimeout(timer));
 }
 
+const gatedSentence = () => {
+  const gated = errors.notice("search-age-gated");
+  return `${gated.title} ${gated.body ?? ""}`.trim();
+};
+
+/** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 고른 연령 인증 줄의 문장) null */
+function searchable(typed: string): string | null {
+  if (typed.startsWith(gatedSentence().slice(0, 12))) return null;
+  const query = searchText.queryOfTyped(typed);
+  // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력 칸 상한이 100자라 보통 오지 않는다)
+  return !query || query.length > 100 || isLink(query) ? null : query;
+}
+
+/** 기다리는 동안 같은 사람의 다음 요청이 오지 않았으면 참 */
+async function settled(user: string, wait: (ms: number) => Promise<unknown>) {
+  const mine = ++requestCount;
+  latestRequest.set(user, mine);
+  await wait(SETTLE_MS);
+  if (latestRequest.get(user) !== mine) return false;
+  latestRequest.delete(user);
+  return true;
+}
+
 /** 자동완성 선택지: 맨 위 줄(입력한 글자로 결과 화면)과 곡 후보. 연령 인증 안내만 왔으면 그 문장을 맨 위 줄 이름으로 */
 function choicesOf(query: string, found: TextSearchResult | null): ApplicationCommandOptionChoiceData<string>[] {
-  if (found?.gated) {
-    const gated = errors.notice("search-age-gated");
-    return [{ name: `${gated.title} ${gated.body ?? ""}`.trim(), value: query }];
-  }
+  if (found?.gated) return [{ name: gatedSentence(), value: query }];
   const top = { name: searchText.resultsChoice(query), value: query };
   // 이름이 같은 후보(다시 올린 영상 등)는 하나만. 겹치면 디스코드가 응답 전체를 거절할 수 있다
   const names = new Set([top.name]);
@@ -107,11 +137,19 @@ const exported: GuildCommand & {
     // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
     .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(100).setAutocomplete(true)),
 
-  async autocomplete(interaction, _bot, { search = YouTube.searchText, now = Date.now }: SearchDeps = {}) {
-    const query = interaction.options.getFocused().trim();
-    // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력 칸 상한이 100자라 보통 오지 않는다)
-    if (!query || query.length > 100 || isLink(query)) return await interaction.respond([]);
+  async autocomplete(interaction, _bot, { search = YouTube.searchText, now = Date.now, wait = sleep }: SearchDeps = {}) {
+    const query = searchable(interaction.options.getFocused().trim());
+    if (!query) return await interaction.respond([]);
     if (graphemeLength(query) < MIN_QUERY) return await interaction.respond(choicesOf(query, null));
+
+    // 이미 찾은 검색어(글자를 지워 돌아온 것 등)는 기다리지 않는다
+    const known = YouTube.rememberedSearch(query);
+    if (known) return await interaction.respond(choicesOf(query, known));
+
+    if (!(await settled(interaction.user.id, wait))) {
+      log.debug({ sub: "search" }, `자동완성: "${query}" → 다음 입력이 와서 찾지 않음`);
+      return await interaction.respond(choicesOf(query, YouTube.rememberedPrefix(query)));
+    }
 
     const started = now();
     const outcome = await within(search(query), autocompleteBudget(interaction.createdTimestamp, started));

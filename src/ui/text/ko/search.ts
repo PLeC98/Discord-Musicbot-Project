@@ -30,7 +30,17 @@ const songChoice = ({ title, artist, length }: { title: string | null; artist?: 
   return clipText(`${title || "알 수 없는 곡"}${artist ? ` - ${artist}` : ""}`, CHOICE_MAX - tail.length) + tail;
 };
 
+// 고른 선택지의 이름이 입력 칸에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
+const RESULTS_ECHO = /^🔍 "([^"]*)"?/u;
+const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|알 수 없음)\)$/u;
+
+/** 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 온 것이면 그 안의 검색어만 */
+const queryOfTyped = (typed: string) => {
+  const echoed = RESULTS_ECHO.exec(typed);
+  return (echoed ? echoed[1] : typed.replace(SONG_TAIL, "")).trim();
+};
+
 /** /play, 전용 채널 입력이 찾는 동안의 플레이스홀더. input 은 입력한 것(전용 채널은 앞부분만 자른 것) */
 const searching = (input: string) => `${icon("progress")} **${input}** 검색 중...`;
 
-export { results, result, unknownLength, adding, addingTrack, resultsChoice, songChoice, searching };
+export { results, result, unknownLength, adding, addingTrack, resultsChoice, songChoice, queryOfTyped, searching };

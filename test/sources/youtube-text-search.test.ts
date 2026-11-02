@@ -1,5 +1,5 @@
 // src/sources/youtube/text-search.ts: 유튜브 글자 검색. 응답을 곡으로 읽기, 연령 인증 안내, 기억과 함께 기다리기, 실패, 세션 다시 만들기.
-// 유튜브 응답은 youtubei.js 가 읽는 칸만 남긴 가짜다(실제 응답은 수백 KB 이고 IP, 방문자 값이 들어 있다)
+// 유튜브 응답은 test/helpers/youtube-search 의 가짜다
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -7,30 +7,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { youtubeArt } from "../../src/rules/track-art.ts";
 import { rememberedPrefix, rememberedSearch, rememberedVideo, resetTextSearch, searchText } from "../../src/sources/youtube/text-search.ts";
-
-// sw.js_data: 세션을 만들 때 받는 기기 정보. youtubei.js 는 [0][2][0][0] 의 칸 번호로 읽는다(0 언어, 1 지역, 13 방문자, 16 클라이언트 버전)
-function sessionData() {
-  const device: unknown[] = Array(80).fill(null);
-  Object.assign(device, { 0: "en", 1: "KR", 3: "0.0.0.0", 13: "visitor", 16: "2.20251020.00.00", 17: "Windows", 18: "10.0" });
-  return `)]}'\n${JSON.stringify([["yt.sw.adr", null, [[device], "key"]]])}`;
-}
-
-type Video = { id: string; title: string; channel?: string; length?: string; live?: boolean };
-const video = ({ id, title, channel = "채널", length, live = false }: Video) => ({
-  videoRenderer: {
-    videoId: id,
-    title: { runs: [{ text: title }] },
-    ownerText: { runs: [{ text: channel, navigationEndpoint: { browseEndpoint: { browseId: "UCxxxxxxxxxxxxxxxxxxxxxx" } } }] },
-    thumbnail: { thumbnails: [] },
-    ...(length ? { lengthText: { simpleText: length } } : {}),
-    // 썸네일 위 길이 자리. 라이브는 LIVE 모양
-    thumbnailOverlays: [{ thumbnailOverlayTimeStatusRenderer: { text: { simpleText: live ? "LIVE" : (length ?? "") }, style: live ? "LIVE" : "DEFAULT" } }],
-    ...(live ? { badges: [{ metadataBadgeRenderer: { style: "BADGE_STYLE_TYPE_LIVE_NOW", label: "LIVE" } }] } : {}),
-  },
-});
-const GATE = { backgroundPromoRenderer: { title: { runs: [{ text: "Confirm your age" }] }, bodyText: { runs: [{ text: "These results may be inappropriate for some users." }] } } };
-const UNKNOWN = { lockupViewModel: { contentId: "abcdefghijk" } };
-const searchPage = (items: unknown[]) => JSON.stringify({ contents: { twoColumnSearchResultsRenderer: { primaryContents: { sectionListRenderer: { contents: [{ itemSectionRenderer: { contents: items } }] } } } } });
+import { GATE, UNKNOWN, searchPage, sessionData, video } from "../helpers/youtube-search.ts";
 
 let clock = 1_000_000;
 const asked: string[] = [];

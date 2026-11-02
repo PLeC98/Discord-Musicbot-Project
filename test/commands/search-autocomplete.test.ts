@@ -1,28 +1,33 @@
-// src/discord/commands/search.ts 의 자동완성: 맨 위 줄과 곡 후보, 연령 인증 안내, 마감과 실패, 100자 상한
+// src/discord/commands/search.ts 의 자동완성: 맨 위 줄과 곡 후보, 연령 인증 안내, 마감과 실패, 100자 상한, 고친 선택지 이름, 다음 입력 기다리기
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import type { ApplicationCommandOptionChoiceData, AutocompleteInteraction } from "discord.js";
 import searchCommand from "../../src/discord/commands/search.ts";
-import { resetTextSearch } from "../../src/sources/youtube/text-search.ts";
+import { resetTextSearch, searchText } from "../../src/sources/youtube/text-search.ts";
 import type { TextSearchResult } from "../../src/sources/youtube/text-search.ts";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import * as tracks from "../helpers/tracks.ts";
+import { searchPage, sessionData, video } from "../helpers/youtube-search.ts";
 
 const bot = fakeBot();
 
 beforeEach(() => resetTextSearch());
 after(() => resetTextSearch());
 
-/** 자동완성 하나를 부르고 답한 선택지. createdAt: 상호작용이 만들어진 시각(기본은 방금) */
-async function complete(typed: string, search: (query: string) => Promise<TextSearchResult>, { createdAt = Date.now() } = {}) {
+/**
+ * 자동완성 하나를 부르고 답한 선택지. createdAt: 상호작용이 만들어진 시각(기본은 방금), user: 입력한 사람,
+ * wait: 다음 입력을 기다리는 것(기본은 바로 지나간다)
+ */
+async function complete(typed: string, search: (query: string) => Promise<TextSearchResult>, { createdAt = Date.now(), user = "u1", wait = async () => {} } = {}) {
   const answered: ApplicationCommandOptionChoiceData[][] = [];
   const it = fake<AutocompleteInteraction<"cached">>({
     options: { getFocused: () => typed },
     createdTimestamp: createdAt,
+    user: { id: user },
     respond: async (choices: ApplicationCommandOptionChoiceData[]) => void answered.push(choices),
   });
-  await searchCommand.autocomplete(it, bot, { search });
+  await searchCommand.autocomplete(it, bot, { search, wait });
   assert.equal(answered.length, 1, "늘 한 번 답한다");
   return answered[0];
 }
@@ -79,4 +84,42 @@ test("마감 안에 못 찾거나 검색이 실패하면 맨 위 줄만 답한�
     throw new Error("끊김");
   });
   assert.deepEqual(failed, [{ name: '🔍 "노래" 검색 결과 보기', value: "노래" }]);
+});
+
+test("고른 선택지의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안의 검색어, 곡 후보는 끝의 길이를 떼고 찾는다. 연령 인증 문장은 찾지 않는다", async () => {
+  const asked: string[] = [];
+  const record = async (q: string) => (asked.push(q), { tracks: [], gated: false });
+  await complete('🔍 "mik" 검색 결과 보', record);
+  await complete('🔍 "miku', record);
+  await complete("좋은 날 - 아이유 (3:56)", record);
+  await complete("라디오 - 채널 (🔴LIVE)", record);
+  assert.deepEqual(asked, ["mik", "miku", "좋은 날 - 아이유", "라디오 - 채널"]);
+  assert.deepEqual(await complete("유튜브가 연령 인증을 요구하는 검색어예요. 링크로", () => assert.fail("찾지 않는다")), []);
+});
+
+test("같은 사람의 다음 입력이 기다리는 동안 오면 앞 요청은 찾지 않고 기억으로만 답한다. 다른 사람은 따로 센다", async () => {
+  const asked: string[] = [];
+  const record = async (q: string) => (asked.push(q), { tracks: [], gated: false });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const first = complete("아이", record, { wait: () => held });
+  const other = complete("다른 사람", record, { user: "u2" });
+  const second = complete("아이유", record);
+  release();
+  assert.deepEqual(await first, [{ name: '🔍 "아이" 검색 결과 보기', value: "아이" }]);
+  await second;
+  await other;
+  assert.deepEqual(asked.sort(), ["다른 사람", "아이유"]);
+});
+
+test("이미 찾아 둔 검색어는 기다리지도 다시 찾지도 않는다", async () => {
+  resetTextSearch({
+    fetch: (async (input: string | URL | Request) => {
+      const url = String(input instanceof Request ? input.url : input);
+      return new Response(url.includes("/sw.js_data") ? sessionData() : searchPage([video({ id: "aaaaaaaaaaa", title: "좋은 날", channel: "아이유", length: "3:56" })]));
+    }) as typeof fetch,
+  });
+  await searchText("좋은 날");
+  const choices = await complete("좋은 날", () => assert.fail("다시 찾지 않는다"), { wait: () => assert.fail("기다리지 않는다") });
+  assert.deepEqual(choices[1], { name: "좋은 날 - 아이유 (3:56)", value: "yt:aaaaaaaaaaa" });
 });
