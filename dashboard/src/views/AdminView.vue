@@ -41,10 +41,11 @@
       </div>
     </nav>
 
-    <!-- 탭을 옮겨 새 페이지가 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
+    <!-- 아래 탭으로 옮겨 새 페이지가 아래에서 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
+         위 탭으로 옮길 때는 위로 삐져나가 스크롤 높이를 늘리지 않으므로 자르지 않는다(자르면 들어오는 페이지의 윗부분이 잘려 보인다).
          늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그, 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
     <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집, 로그, 스크롤을 지킨다) -->
-    <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
+    <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && pageDir === 'down' && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
       <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
       <template v-else>
