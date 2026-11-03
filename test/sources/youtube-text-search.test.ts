@@ -127,15 +127,16 @@ test("세션을 만들지 못하면 30초 동안 다시 만들지 않는다", as
   assert.equal(sessions, 2);
 });
 
-test("검색이 4xx(429 빼고)로 실패하면 다음 검색이 세션을 새로 만든다", async () => {
-  answer = () => new Response("", { status: 400 });
-  await assert.rejects(searchText("하나"));
-  answer = () => new Response(searchPage([]));
-  await searchText("둘");
+test("검색이 4xx(429 빼고)로 실패하면 새 세션으로 한 번 더 묻는다. 429 는 세션 탓이 아니라 그대로 던진다", async () => {
+  let failures = 1;
+  answer = () => (failures-- > 0 ? new Response("", { status: 403 }) : new Response(searchPage([video({ id: "aaaaaaaaaaa", title: "곡", length: "1:00" })])));
+  assert.equal((await searchText("하나")).tracks.length, 1);
   assert.equal(sessions, 2);
+  assert.deepEqual(asked, ["하나", "하나"]);
   answer = () => new Response("", { status: 429 });
+  await assert.rejects(searchText("둘"), (error) => codeOf(error) === "rate-limited");
+  assert.equal(sessions, 2, "429 는 세션을 버리지 않는다");
+  answer = () => new Response("", { status: 400 });
   await assert.rejects(searchText("셋"));
-  answer = () => new Response(searchPage([]));
-  await searchText("넷");
-  assert.equal(sessions, 2, "429 는 세션 탓이 아니다");
+  assert.equal(sessions, 3, "다시 물어도 실패하면 그 실패를 던진다");
 });

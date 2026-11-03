@@ -87,19 +87,18 @@ function trackOf(video: YTNodes.Video): TrackInfo {
   };
 }
 
+const searchOnce = async (query: string) => (await sessionOf()).search(query, { type: "video" });
+
 async function ask(query: string): Promise<TextSearchResult> {
   const leave = await slots.take();
   try {
-    const yt = await sessionOf();
-    let found;
-    try {
-      found = await yt.search(query, { type: "video" });
-    } catch (error) {
-      // 세션이 받아들여지지 않은 것(4xx)이면 다음 검색이 새로 만든다. 429, 네트워크는 세션 탓이 아니다
+    const found = await searchOnce(query).catch((error: unknown) => {
+      // 세션이 받아들여지지 않은 것(4xx, 오래 쓴 세션에서 403 을 봤다)이면 버리고 새 세션으로 한 번 더. 429, 네트워크는 세션 탓이 아니다
       const status = statusOf(error);
-      if (status !== null && status >= 400 && status < 500 && status !== 429) session = null;
-      throw error;
-    }
+      if (status === null || status < 400 || status >= 500 || status === 429) throw error;
+      session = null;
+      return searchOnce(query);
+    });
     const nodes = found.results ?? [];
     const gated = nodes.some((node) => node.type === "BackgroundPromo");
     const seen = new Set<string>();
