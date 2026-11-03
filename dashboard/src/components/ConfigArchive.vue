@@ -27,9 +27,9 @@
     </BaseCard>
 
     <Teleport to="body">
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+      <DialogTransition>
         <div v-if="preview" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-          <div role="dialog" aria-modal="true" aria-labelledby="archive-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
+          <div role="dialog" aria-modal="true" aria-labelledby="archive-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 dialog-panel">
             <h3 id="archive-title" class="text-xl font-round font-semibold mb-1">{{ T.dialogTitle }}</h3>
             <p v-if="preview.exportedAt" class="text-label text-on-surface-variant mb-3">{{ T.madeAt(T.kinds[preview.kind], formatDateTime(Date.parse(preview.exportedAt)), preview.botVersion) }}</p>
             <p class="text-sm text-on-surface-variant mb-1">{{ preview.kind === "audio-cache" ? T.dialogNoteMerge : T.dialogNote }}</p>
@@ -58,7 +58,7 @@
             </div>
           </div>
         </div>
-      </Transition>
+      </DialogTransition>
     </Teleport>
   </div>
 </template>
@@ -67,6 +67,7 @@
 import { computed, reactive, ref } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
+import DialogTransition from "./DialogTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";

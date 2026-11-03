@@ -1,9 +1,9 @@
 <template>
   <!-- 설정(M3 대화상자). 밝기, 테마, 화면은 이 브라우저에만 기억하고, 로그인한 기기는 서버의 세션이라 창을 열 때 읽는다 -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-        <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="settings-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
+        <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="settings-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high dialog-panel [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
           <div class="flex items-center gap-3 mb-4">
             <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="settings" :size="20" /></span>
             <h3 id="settings-title" class="flex-1 text-xl font-round font-semibold">{{ T.title }}</h3>
@@ -12,16 +12,7 @@
 
           <div class="text-label font-semibold text-primary mb-2">{{ text.shell.brightness }}</div>
           <div class="flex gap-0.5 mb-6" role="group" :aria-label="text.shell.brightness">
-            <button
-              v-for="(m, i) in MODE_ITEMS"
-              :key="m.mode"
-              type="button"
-              class="state-layer flex-1 h-10 flex items-center justify-center gap-2 text-label font-semibold cursor-pointer transition-[border-radius,background-color,color] spring-fast"
-              :class="[mode === m.mode ? 'bg-secondary text-on-secondary rounded-xl' : 'bg-surface-highest text-on-surface-variant ' + (i === 0 ? 'rounded-l-xl rounded-r-sm active:rounded-r-xs' : i === MODE_ITEMS.length - 1 ? 'rounded-r-xl rounded-l-sm active:rounded-l-xs' : 'rounded-sm active:rounded-xs')]"
-              @click="setMode(m.mode)"
-            >
-              <Icon :name="m.icon" :size="18" :fill="mode === m.mode" />{{ m.label }}
-            </button>
+            <button v-for="(m, i) in MODE_ITEMS" :key="m.mode" type="button" class="state-layer flex-1 h-10 flex items-center justify-center gap-2 text-label font-semibold cursor-pointer" :class="[segmentShape(mode === m.mode, i, MODE_ITEMS.length), mode === m.mode ? 'bg-secondary text-on-secondary' : 'bg-surface-highest text-on-surface-variant']" @click="setMode(m.mode)"><Icon :name="m.icon" :size="18" :fill="mode === m.mode" />{{ m.label }}</button>
           </div>
 
           <template v-for="group in GROUPS" :key="group.title">
@@ -42,14 +33,16 @@
           <AccountDevices />
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
+import { segmentShape } from "../utils/segment.ts";
 import { ref } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import BaseSwitch from "./BaseSwitch.vue";

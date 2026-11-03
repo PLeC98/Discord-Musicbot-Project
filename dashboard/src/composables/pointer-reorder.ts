@@ -30,7 +30,7 @@ type Options = {
 
 const EDGE = 48; // 자동 스크롤을 시작하는 끝 거리(px)
 const SPEED = 14; // 한 프레임에 스크롤하는 최대 거리(px)
-const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"; // 비켜서는 항목(M3 standard)
+const SLIDE = "transform 200ms var(--ease-smooth)"; // 비켜서는 항목(M3 standard)
 // 드래그 중인 항목: M3 elevation Level 4 그림자, 모서리 large, dragged 상태 레이어(on-surface 16%)
 const LIFTED: Partial<CSSStyleDeclaration> = {
   position: "relative",

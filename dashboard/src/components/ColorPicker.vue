@@ -14,36 +14,38 @@
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
       <!-- 메뉴 면(이모지 선택과 같다): 바탕 surface-container-low, 모서리 16px. 안쪽 둘레 12px, 맨 아래 "기본 색으로" 버튼(40px + 구분선) -->
-      <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
-        <div class="flex flex-col gap-3 p-3">
-          <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
-          <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
-            <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
+      <Transition name="menu">
+        <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
+          <div class="flex flex-col gap-3 p-3">
+            <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
+            <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
+              <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
+            </div>
+
+            <input type="range" min="0" max="359" step="1" :value="Math.round(hsv.h)" :aria-label="T.colorHue" class="hue" :style="{ '--hue': `hsl(${hsv.h} 100% 50%)` }" @input="set({ h: +valueOf($event) })" />
+
+            <!-- 값 입력란의 형식: 이어 붙은 버튼 그룹(하나 선택). 선택한 형식은 브라우저가 기억한다 -->
+            <div class="flex gap-0.5" role="radiogroup" :aria-label="T.colorFormat">
+              <button v-for="(one, i) in FORMATS" :key="one" type="button" role="radio" :aria-checked="format === one" :class="segment(format === one, i, FORMATS.length)" @click="pickFormat(one)">{{ one.toUpperCase() }}</button>
+            </div>
+
+            <!-- 선택한 색 견본(40px, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
+            <div class="flex items-start gap-2">
+              <span class="size-10 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
+              <label v-if="format === 'hex'" class="flex-1 min-w-0 flex flex-col items-center">
+                <input :value="hex" spellcheck="false" maxlength="7" :aria-label="T.colorHex" :class="[FIELD, 'w-full px-3! text-center font-mono']" @input="typeHex" @change="settleHex" @keydown.enter="settleHex" />
+                <span :class="CHANNEL_NAME">HEX</span>
+              </label>
+              <label v-for="one in channels" v-else :key="one.key" class="flex-1 min-w-0 flex flex-col items-center">
+                <input :value="one.value" inputmode="numeric" maxlength="3" :aria-label="T.colorChannel[one.key]" :class="[FIELD, 'w-full px-1! text-center font-mono']" @input="typeChannel($event, one)" @blur="settleChannel($event, one)" @keydown="stepChannel($event, one)" />
+                <span :class="CHANNEL_NAME">{{ one.key.toUpperCase() }}</span>
+              </label>
+            </div>
           </div>
 
-          <input type="range" min="0" max="359" step="1" :value="Math.round(hsv.h)" :aria-label="T.colorHue" class="hue" :style="{ '--hue': `hsl(${hsv.h} 100% 50%)` }" @input="set({ h: +valueOf($event) })" />
-
-          <!-- 값 입력란의 형식: 이어 붙은 버튼 그룹(하나 선택). 선택한 형식은 브라우저가 기억한다 -->
-          <div class="flex gap-0.5" role="radiogroup" :aria-label="T.colorFormat">
-            <button v-for="(one, i) in FORMATS" :key="one" type="button" role="radio" :aria-checked="format === one" :class="segment(format === one, i, FORMATS.length)" @click="pickFormat(one)">{{ one.toUpperCase() }}</button>
-          </div>
-
-          <!-- 선택한 색 견본(40px, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
-          <div class="flex items-start gap-2">
-            <span class="size-10 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
-            <label v-if="format === 'hex'" class="flex-1 min-w-0 flex flex-col items-center">
-              <input :value="hex" spellcheck="false" maxlength="7" :aria-label="T.colorHex" :class="[FIELD, 'w-full px-3! text-center font-mono']" @input="typeHex" @change="settleHex" @keydown.enter="settleHex" />
-              <span :class="CHANNEL_NAME">HEX</span>
-            </label>
-            <label v-for="one in channels" v-else :key="one.key" class="flex-1 min-w-0 flex flex-col items-center">
-              <input :value="one.value" inputmode="numeric" maxlength="3" :aria-label="T.colorChannel[one.key]" :class="[FIELD, 'w-full px-1! text-center font-mono']" @input="typeChannel($event, one)" @blur="settleChannel($event, one)" @keydown="stepChannel($event, one)" />
-              <span :class="CHANNEL_NAME">{{ one.key.toUpperCase() }}</span>
-            </label>
-          </div>
+          <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer" @click="clear">{{ T.colorDefault }}</button>
         </div>
-
-        <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer" @click="clear">{{ T.colorDefault }}</button>
-      </div>
+      </Transition>
     </Teleport>
   </span>
 </template>
@@ -231,7 +233,7 @@ function place() {
   const below = rect.bottom + 4;
   const top = below + height > floor ? Math.max(8, rect.top - height - 4) : below;
   const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
-  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
+  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px`, transformOrigin: top === below ? "top left" : "bottom left" };
 }
 
 // 팝오버는 화면 기준으로 놓이므로 페이지가 움직이면 다시 놓는다. 안쪽 스크롤 상자도 잡게 capture 로 듣는다

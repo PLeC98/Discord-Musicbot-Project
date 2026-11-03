@@ -51,7 +51,7 @@ const props = withDefaults(
 /** 선택한 구간. 전체면 둘 다 null */
 const emit = defineEmits<{ update: [range: { from: number | null; to: number | null }] }>();
 
-const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors duration-150";
+const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors effects-fast";
 
 // 설정에 적힌 값이 범위 밖일 수 있다(외부 서비스의 데이터가 늘거나 손으로 적었거나).
 // 보이기만 맞춰 두고 값은 건드리지 않는다. 핸들을 옮길 때 비로소 바뀐다.

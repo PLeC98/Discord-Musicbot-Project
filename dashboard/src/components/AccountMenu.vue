@@ -5,7 +5,7 @@
     aria-haspopup="menu"
     :aria-expanded="open"
     v-tooltip="wide || compact ? null : user.displayName"
-    class="state-layer flex items-center cursor-pointer text-on-surface transition-[border-radius,background-color] spring-fast"
+    class="state-layer flex items-center cursor-pointer text-on-surface transition-[background-color] effects"
     :class="[wide ? 'w-full p-1.5 pr-3 rounded-full gap-3' : labeled ? 'w-full rounded-full py-1 pl-1.5 pr-3.5 gap-3 -my-1' : 'rounded-full gap-3', open && (wide || labeled) ? 'bg-on-surface/8' : '', !wide && !compact && !labeled ? 'mx-auto' : '']"
     @click="toggle"
   >
@@ -29,7 +29,7 @@
        휴대폰은 사이드 드로어(App.vue, 오버레이 250, 드로어 260) 안에서 열므로 그보다 위에 둔다(알림, 대화상자 300 보다는 아래) -->
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-270" @click="open = false" @contextmenu="open = false"></div>
-    <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
+    <Transition name="menu">
       <div v-if="open" role="menu" :style="pos" class="fixed z-280 w-70 p-2 rounded-3xl pane-menu" :class="placeAbove ? 'origin-bottom-left' : 'origin-top-right'">
         <div class="flex items-center gap-3 px-2 pt-2 pb-3">
           <img v-if="user.avatarUrl" :src="user.avatarUrl" alt="" class="size-11 rounded-full shrink-0" />
@@ -44,16 +44,7 @@
         <div class="px-2 pb-2 pt-1 text-label font-semibold text-on-surface-variant">{{ T.brightness }}</div>
         <!-- 이어 붙은 버튼 그룹(M3E connected button group). 선택한 버튼은 모서리가 둥글게 바뀐다 -->
         <div class="flex gap-0.5 px-2 pb-3" role="group" :aria-label="T.brightness">
-          <button
-            v-for="(m, i) in MODE_ITEMS"
-            :key="m.mode"
-            type="button"
-            class="state-layer flex-1 h-10 flex items-center justify-center gap-2 text-label font-semibold cursor-pointer transition-[border-radius,background-color,color] spring-fast"
-            :class="[mode === m.mode ? 'bg-secondary text-on-secondary rounded-xl' : 'bg-surface-highest text-on-surface-variant ' + (i === 0 ? 'rounded-l-xl rounded-r-sm active:rounded-r-xs' : i === MODE_ITEMS.length - 1 ? 'rounded-r-xl rounded-l-sm active:rounded-l-xs' : 'rounded-sm active:rounded-xs')]"
-            @click="setMode(m.mode)"
-          >
-            <Icon :name="m.icon" :size="18" :fill="mode === m.mode" />{{ m.label }}
-          </button>
+          <button v-for="(m, i) in MODE_ITEMS" :key="m.mode" type="button" class="state-layer flex-1 h-10 flex items-center justify-center gap-2 text-label font-semibold cursor-pointer" :class="[segmentShape(mode === m.mode, i, MODE_ITEMS.length), mode === m.mode ? 'bg-secondary text-on-secondary' : 'bg-surface-highest text-on-surface-variant']" @click="setMode(m.mode)"><Icon :name="m.icon" :size="18" :fill="mode === m.mode" />{{ m.label }}</button>
         </div>
 
         <div class="mx-2 mb-2 h-px bg-outline-variant/60"></div>
@@ -71,6 +62,7 @@
 
 <script setup lang="ts">
 import { rem } from "../utils/rem.ts";
+import { segmentShape } from "../utils/segment.ts";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";

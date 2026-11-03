@@ -3,8 +3,8 @@
        높이는 바탕화면 높이(--desk-h)에서 잰다. 놓으면 빠르기, 가까운 단계로 간다.
        끝까지 펼치기 전에는 내용을 드래그해도 시트가 움직이고(스포티파이처럼), 안의 목록은 스크롤되지 않는다(반만 보일 때는 목록 아래가 화면 밖이라 스크롤바가 밖으로 나간다).
        위로 드래그해 끝까지 닿으면 같은 손짓으로 목록이 스크롤되고, 끝까지 펼친 뒤 목록 맨 위에서 아래로 드래그하면 시트가 내려간다. 입력, 버튼, 링크, 순서 바꾸기 핸들에서 시작한 동작은 그대로 둔다 -->
-  <div v-if="shown > 0.01" class="fixed inset-0 z-30 bg-black/40" :class="dragOffset === null && 'transition-opacity duration-300 ease-effects'" :style="{ opacity: shown * 0.9 }" @click="stop = 'peek'"></div>
-  <section class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="dragOffset === null && 'transition-[translate] duration-500 ease-spring'" :style="{ height: `${full}px`, translate: `0 ${full - visible}px` }" :aria-label="T.queue">
+  <div v-if="shown > 0.01" class="fixed inset-0 z-30 bg-black/40" :class="dragOffset === null && 'transition-opacity effects'" :style="{ opacity: shown * 0.9 }" @click="stop = 'peek'"></div>
+  <section class="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="dragOffset === null && 'transition-[translate] spring'" :style="{ height: `${full}px`, translate: `0 ${full - visible}px` }" :aria-label="T.queue">
     <header :class="compact ? 'pb-1' : 'pb-2'" class="shrink-0 px-4 touch-none select-none cursor-grab active:cursor-grabbing" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up">
       <!-- 드래그 핸들(M3 32×4px) -->
       <div class="flex justify-center" :class="compact ? 'pt-2 pb-2' : 'pt-3 pb-3'"><span class="w-8 h-1 rounded-full bg-on-surface-variant/40"></span></div>

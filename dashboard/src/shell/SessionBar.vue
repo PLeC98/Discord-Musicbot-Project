@@ -7,7 +7,7 @@
     <!-- 펼친 막대의 오른쪽 가장자리를 드래그해서 폭을 바꾼다(두 번 누르면 기본 폭). 잡는 곳은 가장자리 전체,
          보이는 것은 가운데의 짧은 막대(M3 드래그 핸들). 올리면 나타나고 드래그하는 동안 길어진다 -->
     <span v-if="vertical && open && !drawer" class="group/resize absolute top-0 right-0 bottom-0 z-10 w-3 cursor-col-resize touch-none select-none flex items-center justify-center" role="separator" aria-orientation="vertical" :aria-label="T.sidebarWidth" @pointerdown="startResize" @dblclick="setSidebarWidth(SIDEBAR_WIDTH.initial, true)">
-      <span class="w-1 rounded-full transition-[height,opacity,background-color] spring-fast" :class="resizing ? 'h-16 opacity-100 bg-primary' : 'h-10 opacity-0 bg-on-surface-variant group-hover/resize:opacity-70'"></span>
+      <span class="w-1 rounded-full [transition:height_390ms_var(--ease-spring-fast),opacity_250ms_var(--ease-effects),background-color_250ms_var(--ease-effects)]" :class="resizing ? 'h-16 opacity-100 bg-primary' : 'h-10 opacity-0 bg-on-surface-variant group-hover/resize:opacity-70'"></span>
     </span>
     <!-- 펼치기 버튼은 아이콘 영역(막대 폭)에 그대로 있고, 펼치면 옆에 "사이드바 접기"가 붙는다(글도 누를 수 있다) -->
     <div v-if="vertical" class="shrink-0 h-(--topbar) -mb-2 w-full flex items-center">
@@ -23,7 +23,7 @@
       <span :class="pip(isHome)"></span>
       <span :class="slot">
         <!-- 봇 프로필 그림(로그인 화면과 같은 그림). 없거나 못 불러오면 기호 -->
-        <span class="size-11 overflow-hidden flex items-center justify-center transition-[border-radius,background-color,color] spring-fast" :class="isHome ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-on-surface group-hover:rounded-[32%]'">
+        <span class="size-11 overflow-hidden flex items-center justify-center motion-shape" :class="isHome ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-on-surface group-hover:rounded-[32%]'">
           <img v-if="shell.botAvatar && !avatarBroken" :src="shell.botAvatar" alt="" class="size-full object-cover" @error="avatarBroken = true" />
           <Icon v-else name="graphic_eq" :size="24" :weight="600" />
         </span>
@@ -47,7 +47,7 @@
       <router-link v-if="user.canInvite" to="/invite" v-tooltip="vertical && !open ? text.invite.title : null" :aria-label="text.invite.title" :class="item">
         <span :class="pip(isInvite)"></span>
         <span :class="slot">
-          <span class="size-11 flex items-center justify-center transition-[border-radius,background-color,color] spring-fast" :class="isInvite ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-primary group-hover:rounded-[32%] group-hover:bg-primary group-hover:text-on-primary'">
+          <span class="size-11 flex items-center justify-center motion-shape" :class="isInvite ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-primary group-hover:rounded-[32%] group-hover:bg-primary group-hover:text-on-primary'">
             <Icon name="add" :size="26" :weight="600" />
           </span>
         </span>
@@ -144,7 +144,7 @@ const label = "min-w-0 flex-1 pr-4 fade-end text-sm font-medium";
 
 // 막대 가장자리(화면 가장자리 쪽)의 표시. 선택하면 길게, 올리면 짧게. 세로 막대는 왼쪽 끝, 가로 막대는 위 끝
 function pip(active: boolean) {
-  const base = "absolute rounded-full bg-on-surface transition-[height,width,opacity] spring-fast";
+  const base = "absolute rounded-full bg-on-surface [transition:height_390ms_var(--ease-spring-fast),width_390ms_var(--ease-spring-fast),opacity_250ms_var(--ease-effects)]";
   if (props.vertical) return `${base} left-0 top-1/2 -translate-y-1/2 w-1 rounded-l-none ${active ? "h-8 opacity-100" : "h-2 opacity-0 group-hover:opacity-100 group-hover:h-4"}`;
   return `${base} left-1/2 -top-2.5 -translate-x-1/2 h-1 rounded-t-none ${active ? "w-6 opacity-100" : "w-2 opacity-0"}`;
 }

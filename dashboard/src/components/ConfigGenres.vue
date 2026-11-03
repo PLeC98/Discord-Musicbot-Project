@@ -54,61 +54,64 @@
       </BaseCard>
 
       <!-- 전역 설정 편집 -->
-      <BaseCard v-if="showGlobal">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center gap-3 min-h-10">
-            <span class="size-10 shrink-0 rounded-(--r-inner) bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Icon name="tune" :size="24" /></span>
-            <h3 class="flex-1 min-w-0 truncate text-base font-semibold text-on-surface">{{ T.global }}</h3>
-          </div>
-          <NoticeBox v-if="globalProblems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ globalProblems.join("\n") }}</NoticeBox>
-          <GenreGlobalForm v-model="draft.defaults" />
-        </div>
-      </BaseCard>
-
-      <!-- 선택한 장르 편집 -->
-      <BaseCard v-if="selected">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center gap-3">
-            <EmojiInput v-model="selected.emoji" />
-            <input :value="selected.label" :placeholder="selected.name.trim() || T.labelPlaceholder" :aria-label="T.label" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.label = valueOf($event)" />
-            <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeGenre" v-tooltip="text.common.remove" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
-          </div>
-          <!-- 식별자: 주소, 디스코드 버튼, AI 의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
-          <label class="block">
-            <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.id }}<Icon name="info" :size="14" class="cursor-help" v-tooltip="T.idTip" /></span>
-            <input :value="selected.name" :placeholder="T.idPlaceholder" spellcheck="false" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="selected.name = valueOf($event)" />
-          </label>
-          <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
-
-          <section class="flex flex-col gap-2">
-            <div>
-              <h3 class="text-sm font-semibold text-on-surface">{{ T.sources }}</h3>
-              <p class="mt-1 text-xs text-on-surface-variant">{{ T.sourcesDesc }}</p>
+      <!-- 상세는 선택이 바뀌면 사라진 뒤 나타난다 -->
+      <Transition name="fade" mode="out-in">
+        <BaseCard v-if="showGlobal" key="global">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3 min-h-10">
+              <span class="size-10 shrink-0 rounded-(--r-inner) bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Icon name="tune" :size="24" /></span>
+              <h3 class="flex-1 min-w-0 truncate text-base font-semibold text-on-surface">{{ T.global }}</h3>
             </div>
-            <SourceEditor :key="selected.key" v-model="selected.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="selectedIndex" />
-          </section>
-
-          <!-- 전역 설정 오버라이드: 채운 입력란만 이 장르에서 전역 값을 대신한다. 비우면 전역 값(utils/genre-rows). 제외 키워드는 키워드 출처마다 둔다(SourceEditor) -->
-          <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
-            <h3 class="text-sm font-semibold text-on-surface">{{ T.overrides }}</h3>
-            <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-              <label class="block">
-                <span :class="FIELD_LABEL">{{ T.minDuration }}</span>
-                <NumberInput v-model="selected.minDurationSec" :placeholder="T.currentGlobal(draft.defaults.minDurationSec ?? GENRE_DEFAULTS.minDurationSec)" :class="[FIELD, 'w-full']" />
-              </label>
-              <label class="block">
-                <span :class="FIELD_LABEL">{{ T.maxDuration }}</span>
-                <NumberInput v-model="selected.maxDurationSec" :placeholder="draft.defaults.maxDurationSec ? T.currentGlobal(draft.defaults.maxDurationSec) : T.noGlobalLimit" :class="[FIELD, 'w-full']" />
-              </label>
-            </div>
-          </section>
-
-          <!-- 이 장르를 파일 하나로(저장하지 않은 편집도 담긴다). 불러오기는 목록의 ⋯ 메뉴 -->
-          <div class="flex pt-3 border-t border-outline-variant/40">
-            <BaseButton variant="secondary" size="sm" @click="exportRow(selected)"><Icon name="download" :size="16" />{{ T.exportGenre }}</BaseButton>
+            <NoticeBox v-if="globalProblems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ globalProblems.join("\n") }}</NoticeBox>
+            <GenreGlobalForm v-model="draft.defaults" />
           </div>
-        </div>
-      </BaseCard>
+        </BaseCard>
+
+        <!-- 선택한 장르 편집 -->
+        <BaseCard v-else-if="selected" :key="selected.key">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <EmojiInput v-model="selected.emoji" />
+              <input :value="selected.label" :placeholder="selected.name.trim() || T.labelPlaceholder" :aria-label="T.label" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.label = valueOf($event)" />
+              <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeGenre" v-tooltip="text.common.remove" @click="removeRow(selectedIndex)"><Icon name="delete" :size="20" /></button>
+            </div>
+            <!-- 식별자: 주소, 디스코드 버튼, AI 의 {{genre}}. 라벨(위 입력란)은 보여 줄 이름이라 바꿔도 깨지지 않는다 -->
+            <label class="block">
+              <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.id }}<Icon name="info" :size="14" class="cursor-help" v-tooltip="T.idTip" /></span>
+              <input :value="selected.name" :placeholder="T.idPlaceholder" spellcheck="false" :class="[FIELD, 'w-full font-mono placeholder:font-sans']" @input="selected.name = valueOf($event)" />
+            </label>
+            <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
+
+            <section class="flex flex-col gap-2">
+              <div>
+                <h3 class="text-sm font-semibold text-on-surface">{{ T.sources }}</h3>
+                <p class="mt-1 text-xs text-on-surface-variant">{{ T.sourcesDesc }}</p>
+              </div>
+              <SourceEditor :key="selected.key" v-model="selected.sources" :types="sourceTypes" :types-state="sourceTypesState" :types-error="sourceTypesError" :suggest="suggestFor" :genre-index="selectedIndex" />
+            </section>
+
+            <!-- 전역 설정 오버라이드: 채운 입력란만 이 장르에서 전역 값을 대신한다. 비우면 전역 값(utils/genre-rows). 제외 키워드는 키워드 출처마다 둔다(SourceEditor) -->
+            <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
+              <h3 class="text-sm font-semibold text-on-surface">{{ T.overrides }}</h3>
+              <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL">{{ T.minDuration }}</span>
+                  <NumberInput v-model="selected.minDurationSec" :placeholder="T.currentGlobal(draft.defaults.minDurationSec ?? GENRE_DEFAULTS.minDurationSec)" :class="[FIELD, 'w-full']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL">{{ T.maxDuration }}</span>
+                  <NumberInput v-model="selected.maxDurationSec" :placeholder="draft.defaults.maxDurationSec ? T.currentGlobal(draft.defaults.maxDurationSec) : T.noGlobalLimit" :class="[FIELD, 'w-full']" />
+                </label>
+              </div>
+            </section>
+
+            <!-- 이 장르를 파일 하나로(저장하지 않은 편집도 담긴다). 불러오기는 목록의 ⋯ 메뉴 -->
+            <div class="flex pt-3 border-t border-outline-variant/40">
+              <BaseButton variant="secondary" size="sm" @click="exportRow(selected)"><Icon name="download" :size="16" />{{ T.exportGenre }}</BaseButton>
+            </div>
+          </div>
+        </BaseCard>
+      </Transition>
     </div>
   </div>
 </template>

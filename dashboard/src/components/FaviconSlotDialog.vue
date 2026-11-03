@@ -1,9 +1,9 @@
 <template>
   <!-- 파비콘 한 크기의 팝업(추가하기, 변경): 이미지 업로드, 링크로 추가(봇이 대신 다운로드해 넘긴다), 기록(최근 FAVICON_HISTORY 개, 새것부터) -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open && entry" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
-        <div role="dialog" aria-modal="true" :aria-label="D.title(entry.size)" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 animate-[art-in_350ms_var(--ease-spring-fast)]">
+        <div role="dialog" aria-modal="true" :aria-label="D.title(entry.size)" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 dialog-panel">
           <div class="flex flex-col gap-1">
             <h3 class="text-xl font-round font-semibold">{{ D.title(entry.size) }}</h3>
             <p class="text-sm text-on-surface-variant">{{ D.maxSize(APPEARANCE_MAX_BYTES) }}</p>
@@ -52,13 +52,14 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";

@@ -13,7 +13,7 @@
 
   <Teleport to="#topbar-end" :disabled="phone" defer>
     <template v-if="!phone">
-      <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="transition-[opacity,translate] duration-200 ease-out" leave-active-class="transition-[opacity,translate] duration-150 ease-in">
+      <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_390ms_var(--ease-spring-fast)]" leave-active-class="transition-[opacity,translate] effects-fast">
         <div v-if="dirty && !saving" class="flex items-center gap-1.5">
           <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'" v-tooltip="blocked ? blockedTip || null : null"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? T.fixFirst : T.unsaved }}</span>
           <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />{{ T.revert }}</button>
@@ -26,7 +26,7 @@
   </Teleport>
 
   <!-- 휴대폰: 미니 재생 바 위에 뜨는 막대 -->
-  <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.2,0,0,1)]" leave-active-class="transition-[opacity,translate] duration-200 ease-in">
+  <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_460ms_var(--ease-spring)]" leave-active-class="transition-[opacity,translate] duration-200 ease-accelerate">
     <div v-if="phone && (dirty || indicator !== 'idle')" class="fixed inset-x-3 z-120 h-14 pl-4 pr-2 rounded-full pane-float flex items-center gap-2" :style="{ bottom: 'calc(var(--player, 0px) + 0.75rem)' }">
       <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? blockedTip || T.fixFirst : T.unsavedLong }}</span>
       <template v-if="dirty && !saving">

@@ -23,37 +23,34 @@
           <div v-else key="input" class="h-full flex items-center gap-1 pl-3 pr-1">
             <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
             <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
-            <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
+            <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer transition-[background-color,color] effects-fast disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
           </div>
         </Transition>
       </div>
       <!-- 재생목록 링크면 무엇을 넣을지 선택한다(이어 붙은 버튼 그룹). 넣기 버튼은 선택한 쪽으로 넣는다 -->
-      <div v-if="!calling && isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
-        <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />{{ T.playlistLink }}</span>
-        <div class="ml-auto flex gap-0.5" role="radiogroup" :aria-label="T.addWhich">
-          <button
-            v-for="(opt, i) in playlistModes"
-            :key="opt.label"
-            type="button"
-            role="radio"
-            :aria-checked="addSingle === opt.single"
-            class="state-layer h-8 px-3 flex items-center gap-1 text-xs font-semibold cursor-pointer transition-[border-radius,background-color,color] spring-fast"
-            :class="addSingle === opt.single ? 'bg-secondary-container text-on-secondary-container rounded-2xl' : 'bg-surface-container-highest text-on-surface-variant ' + (i === 0 ? 'rounded-l-2xl rounded-r-sm active:rounded-r-xs' : 'rounded-r-2xl rounded-l-sm active:rounded-l-xs')"
-            @click="addSingle = opt.single"
-          >
-            <Icon v-if="addSingle === opt.single" name="check" :size="18" />{{ opt.label }}
-          </button>
+      <Transition name="fade">
+        <div v-if="!calling && isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
+          <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />{{ T.playlistLink }}</span>
+          <div class="ml-auto flex gap-0.5" role="radiogroup" :aria-label="T.addWhich">
+            <button v-for="(opt, i) in playlistModes" :key="opt.label" type="button" role="radio" :aria-checked="addSingle === opt.single" class="state-layer h-8 px-3 flex items-center gap-1 text-xs font-semibold cursor-pointer" :class="[segmentShape(addSingle === opt.single, i, playlistModes.length, 32), addSingle === opt.single ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-highest text-on-surface-variant']" @click="addSingle = opt.single">
+              <Icon v-if="addSingle === opt.single" name="check" :size="18" />{{ opt.label }}
+            </button>
+          </div>
         </div>
-      </div>
+      </Transition>
     </form>
     <!-- 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우. 폼을 열어봤자 409이므로 잠근다 -->
     <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ text.server.noPlayerState }}</NoticeBox>
     <!-- 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
     <NoticeBox v-else variant="gate" icon="headphones" icon-class="text-on-surface-variant">{{ noticeText("must-be-in-same-voice").title }}</NoticeBox>
-    <NoticeBox v-if="error" variant="note" tone="error" icon="cancel">{{ error }}</NoticeBox>
-    <NoticeBox v-else-if="warning" variant="note" tone="notice" icon="info">{{ warning }}</NoticeBox>
-    <NoticeBox v-else-if="info" variant="note" tone="info" icon="check_circle" fill>{{ info }}</NoticeBox>
-    <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :has-current="Boolean(player.currentTrack)" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
+    <Transition name="fade" mode="out-in">
+      <NoticeBox v-if="error" variant="note" tone="error" icon="cancel">{{ error }}</NoticeBox>
+      <NoticeBox v-else-if="warning" variant="note" tone="notice" icon="info">{{ warning }}</NoticeBox>
+      <NoticeBox v-else-if="info" variant="note" tone="info" icon="check_circle" fill>{{ info }}</NoticeBox>
+    </Transition>
+    <Transition name="fade">
+      <PlaylistMore v-if="more && player.canAdd" :more="more" :queue-total="player.queueTotal ?? player.queue.length" :has-current="Boolean(player.currentTrack)" :queue-max="queueMax" :busy="moreBusy" @add="addMore" @close="more = null" />
+    </Transition>
   </div>
 </template>
 
@@ -68,6 +65,7 @@ import SearchInput from "./SearchInput.vue";
 import { noticeText, problemText } from "../utils/problem.ts";
 import { LIMIT } from "../utils/request.ts";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { segmentShape } from "../utils/segment.ts";
 import type { PlayerSeen } from "../utils/playback.ts";
 import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
 import type { AddReply, MoreReply, MoreView, PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";

@@ -31,7 +31,7 @@
         <template v-for="(group, gi) in TAB_GROUPS" :key="gi">
           <span v-if="gi > 0" aria-hidden="true" class="shrink-0 h-px mx-5 my-1 bg-outline-variant"></span>
           <button v-for="t in group" :key="t.id" :ref="(el) => railItem(t.id, el)" type="button" class="group relative shrink-0 flex flex-col items-center gap-1 py-1 cursor-pointer" :aria-current="tab === t.id ? 'page' : undefined" @click="setTab(t.id)">
-            <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors duration-150" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
+            <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors effects" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
               <Icon :name="t.icon" :size="24" :fill="tab === t.id" />
               <span v-if="unsavedIn(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span>
             </span>
@@ -158,6 +158,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { shell } from "../shell/shell-state.ts";
 import { TOPBAR_BTN } from "../utils/topbar.ts";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { scrollMotion } from "../utils/motion.ts";
 import { singlePane } from "../composables/list-detail.ts";
 import { goUp, pushDown } from "../utils/up-nav.ts";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
@@ -395,8 +396,8 @@ function placePill() {
   if (rail) {
     const top = item.offsetTop - 12;
     const bottom = item.offsetTop + item.offsetHeight + 12;
-    if (top < rail.scrollTop) rail.scrollTo({ top, behavior: "smooth" });
-    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
+    if (top < rail.scrollTop) rail.scrollTo({ top, behavior: scrollMotion() });
+    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: scrollMotion() });
   }
 }
 // 레일은 스크롤바가 없어 페이드가 더 스크롤된다는 유일한 표시다. 탭 하나(64px)만큼 넓게

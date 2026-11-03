@@ -4,9 +4,9 @@
 -->
 <template>
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="open = false">
-        <div ref="panel" role="dialog" aria-modal="true" :aria-labelledby="titleId" class="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
+        <div ref="panel" role="dialog" aria-modal="true" :aria-labelledby="titleId" class="w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high dialog-panel [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
           <div class="flex items-center gap-3 mb-4">
             <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="icon" :size="20" /></span>
             <h3 :id="titleId" class="flex-1 text-xl font-round font-semibold">{{ title }}</h3>
@@ -15,13 +15,14 @@
           <slot />
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { ref, useId } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { useOverflowing } from "../composables/overflowing.ts";

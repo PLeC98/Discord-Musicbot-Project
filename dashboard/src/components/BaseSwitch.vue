@@ -3,8 +3,8 @@
        하나를 켜고 끄는 항목에 쓰고, 여럿 중 선택하는 목록은 체크박스로 둔다. 치수는 아래 <style> -->
   <span class="sw group/sw relative inline-flex shrink-0" :class="disabled ? 'opacity-38 cursor-not-allowed' : 'cursor-pointer'" :data-on="on || undefined" :data-live="!disabled || undefined">
     <input v-model="on" type="checkbox" role="switch" class="peer absolute inset-0 z-10 m-0 opacity-0 cursor-[inherit]" :disabled="disabled" :aria-label="label" />
-    <span class="sw-track relative rounded-full border-2 transition-[background-color,border-color] duration-200 pointer-events-none peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary" :class="on ? 'bg-primary border-primary' : 'bg-surface-container-highest border-outline'">
-      <span class="sw-handle absolute top-1/2 -translate-y-1/2 rounded-full transition-[left,width,height,background-color] spring-fast" :class="on ? 'bg-on-primary' : 'bg-outline'"></span>
+    <span class="sw-track relative rounded-full border-2 transition-[background-color,border-color] effects pointer-events-none peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary" :class="on ? 'bg-primary border-primary' : 'bg-surface-container-highest border-outline'">
+      <span class="sw-handle absolute top-1/2 -translate-y-1/2 rounded-full [transition:left_390ms_var(--ease-spring-fast),width_390ms_var(--ease-spring-fast),height_390ms_var(--ease-spring-fast),background-color_250ms_var(--ease-effects)]" :class="on ? 'bg-on-primary' : 'bg-outline'"></span>
     </span>
   </span>
 </template>
@@ -54,7 +54,7 @@ const on = defineModel<boolean>({ default: false });
   border-radius: 9999px;
   background: var(--md-on-surface);
   opacity: 0;
-  transition: opacity 150ms;
+  transition: opacity 150ms var(--ease-smooth);
 }
 .sw[data-on] .sw-handle::before {
   background: var(--md-primary);

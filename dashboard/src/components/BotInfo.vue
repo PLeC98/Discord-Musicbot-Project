@@ -91,7 +91,8 @@ const Prompt = defineComponent({
         h("span", { class: "basis-full h-0" }),
         h("span", { class: "text-(--ok-ink) font-semibold" }, "❯"),
         p.command ? h("span", { class: "ml-[1ch]" }, p.command) : null,
-        p.cursor ? h("span", { class: "ml-[1ch] inline-block w-[1ch] h-(--term-line) bg-on-surface animate-[term-blink_1.2s_steps(1)_infinite]" }) : null,
+        // 커서는 세 번 깜빡이고 켜진 채 멈춘다(끝없는 움직임을 두지 않는다)
+        p.cursor ? h("span", { class: "ml-[1ch] inline-block w-[1ch] h-(--term-line) bg-on-surface animate-[term-blink_1.2s_steps(1)_3]" }) : null,
       ]);
   },
 });

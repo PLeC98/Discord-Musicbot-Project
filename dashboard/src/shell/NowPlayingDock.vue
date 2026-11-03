@@ -5,7 +5,7 @@
        태블릿, PC 는 양옆을 바깥 틈 + 레일 + 창 사이 틈만큼 비운다. 오목 모서리(28px = 창 16px + 틈 12px)가 레일 아래 모서리(16px)와 같은 중심이 되어, 레일이 오목한 곳에 틈 12px 로 끼워진다.
        노치가 32rem 보다 좁으면 안쪽을 줄인다(버튼 영역은 버튼 폭만, 시간 글자를 숨기고 아트를 줄인다). 그래도 24rem 밑으로는 줄이지 않는다.
        그보다 좁은 화면(사이드바를 펼친 좁은 창 등)에서는 노치가 레일 아래쪽에 겹친다 -->
-  <Transition enter-from-class="translate-y-full" leave-to-class="translate-y-full" enter-active-class="transition-[translate] spring" leave-active-class="transition-[translate] duration-200">
+  <Transition enter-from-class="translate-y-full" leave-to-class="translate-y-full" enter-active-class="transition-[translate] spring" leave-active-class="transition-[translate] duration-200 ease-accelerate">
     <div v-if="np.visible" class="absolute inset-x-0 bottom-0 z-30 flex justify-center pointer-events-none">
       <!-- 휴대폰 모양은 최대 폭 480px(가로로 눕힌 21:9 화면에서 길게 늘어나지 않게) -->
       <div data-dock class="pointer-events-auto relative w-[calc(100%-2*var(--cr))] max-w-120 md:max-w-none md:w-[max(min(24rem,calc(100%-2*var(--cr))),min(56rem,calc(100%-2*(var(--gap-out)+var(--rail)+var(--gap-in)))))] @container isolate rounded-t-(--r-window) [--cr:var(--r-desk)]">
@@ -141,7 +141,7 @@ const metaBtn = "state-layer flex items-center gap-3 min-w-0 rounded-full p-1 pr
 // 셔플, 반복(태블릿, PC)도 40px, 아이콘은 한 단계 작은 20px 에 흐린 색. 모양은 서버 화면과 같이 스포티파이를 따른다
 const iconBtn = `${CTL_BTN} size-10 text-on-surface hover:not-disabled:scale-105`;
 const toggleBtn = `${CTL_BTN} ${TOGGLE_BTN}`;
-const playBtn = "tap size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer bg-primary text-on-primary transition-[scale] duration-150 hover:not-disabled:scale-105 active:not-disabled:scale-95 disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed";
+const playBtn = "tap size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer bg-primary text-on-primary motion-press hover:not-disabled:scale-105 active:not-disabled:scale-95 disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed";
 // 시간 칸은 한 줄로. 1시간이 넘는 곡이면 양쪽을 같이 넓힌다(막대가 가운데에서 흔들리지 않게, 막대는 남는 폭만큼 줄어든다)
 const timeText = computed(() => ["hidden @lg:block shrink-0 whitespace-nowrap text-center text-xs font-medium nums text-on-surface-variant", np.duration >= 3600 ? "min-w-14" : "min-w-10"]);
 </script>

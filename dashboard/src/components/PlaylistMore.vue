@@ -13,11 +13,11 @@
           <div class="h-full rounded-full bg-primary transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
         </div>
       </div>
-      <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다 -->
+      <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다. 고리는 남은 시간이라 움직임 줄이기에도 돈다(data-keep-motion) -->
       <button type="button" class="tap state-layer size-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed" :disabled="busy" v-tooltip="busy ? T.adding : T.closeIn(secondsLeft)" :aria-label="text.common.close" @click="$emit('close')">
         <svg class="absolute inset-0 -rotate-90 pointer-events-none" viewBox="0 0 32 32" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" class="opacity-15" />
-          <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
+          <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" data-keep-motion :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
         </svg>
         <Icon name="close" :size="20" />
       </button>
@@ -75,7 +75,7 @@ const props = withDefaults(
 const emit = defineEmits<{ add: [count: number]; close: [] }>();
 
 // 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, ui/text/ko/more)
-const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface transition-[border-radius,scale] spring-fast active:not-disabled:rounded-3xl active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
+const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface motion-button active:not-disabled:rounded-md active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
 
 const batch = computed(() => props.more.batch);
 const label = computed(() => collection(props.more.collection));

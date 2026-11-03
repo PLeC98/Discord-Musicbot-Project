@@ -147,7 +147,7 @@ const query = defineModel<GuildQuery>("query", { required: true });
 const emit = defineEmits<{ changed: [] }>();
 
 // 다른 입력란과 같은 채운 입력란(모서리 12px, 포커스하면 테두리 primary)
-const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
+const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
 // 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)

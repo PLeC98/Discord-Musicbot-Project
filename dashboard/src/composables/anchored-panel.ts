@@ -91,6 +91,8 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
       width: `${w}px`,
       maxHeight: `${Math.max(80, Math.min(maxHeight, flip ? above : below))}px`,
       zIndex: layerAbove(el),
+      // 여는 넘김(menu)이 입력란 쪽 끝에서 커진다
+      transformOrigin: flip ? "bottom" : "top",
       ...(flip ? { bottom: `${window.innerHeight - rect.top + gap}px` } : { top: `${rect.bottom + gap}px` }),
     };
   }

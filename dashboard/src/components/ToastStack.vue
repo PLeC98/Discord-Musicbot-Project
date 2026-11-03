@@ -1,10 +1,10 @@
 <template>
   <!-- 위치는 App.vue 가 잡는다(화면 오른쪽 위, 라우터 화면 밖이라 페이지를 옮겨도 남는다).
        새 알림은 맨 위로 위에서 내려오고(나머지는 아래로 밀린다), 사라질 때는 오른쪽으로 빠진다. 드래그해서(마우스, 터치) 오른쪽으로 밀어 치운다 -->
-  <TransitionGroup tag="div" class="contents" aria-live="polite" enter-from-class="opacity-0 -translate-y-full" enter-active-class="transition-[opacity,translate] duration-300 spring-fast motion-reduce:transition-none" leave-active-class="absolute! inset-x-0 transition-[opacity,translate] duration-200 ease-in motion-reduce:transition-none" leave-to-class="opacity-0! translate-x-[calc(100%+var(--gap-out))]!" move-class="transition-transform duration-300 spring-fast" @after-leave="onLeft">
-    <div v-for="t in toasts" :key="t.id" role="status" class="pointer-events-auto relative overflow-hidden flex gap-3 items-start rounded-xl pl-3 pr-2 py-3 text-body pane-menu touch-pan-y select-none cursor-grab active:cursor-grabbing transition-[opacity,translate] duration-200 ease-out" :style="styleOf(t.id)" @pointerdown="onDown($event, t.id)" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp">
-      <!-- 아래 띠: 왼쪽부터 차서 다 차면 사라진다(같은 알림이 다시 오면 처음부터) -->
-      <span :key="t.round" class="toast-time absolute left-0 bottom-0 h-1 w-full origin-left" :class="LOOK[t.severity].bar" :style="{ animationDuration: `${t.ms}ms` }"></span>
+  <TransitionGroup tag="div" class="contents" aria-live="polite" name="toast" leave-active-class="toast-leave-active absolute! inset-x-0" @after-leave="onLeft">
+    <div v-for="t in toasts" :key="t.id" role="status" class="pointer-events-auto relative overflow-hidden flex gap-3 items-start rounded-xl pl-3 pr-2 py-3 text-body pane-menu touch-pan-y select-none cursor-grab active:cursor-grabbing [transition:opacity_250ms_var(--ease-effects),translate_390ms_var(--ease-spring-fast)]" :style="styleOf(t.id)" @pointerdown="onDown($event, t.id)" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp">
+      <!-- 아래 띠: 왼쪽부터 차서 다 차면 사라진다(같은 알림이 다시 오면 처음부터). 남은 시간이라 움직임 줄이기에도 찬다(data-keep-motion) -->
+      <span :key="t.round" class="toast-time absolute left-0 bottom-0 h-1 w-full origin-left" data-keep-motion :class="LOOK[t.severity].bar" :style="{ animationDuration: `${t.ms}ms` }"></span>
       <span class="size-9 shrink-0 rounded-full flex items-center justify-center" :class="LOOK[t.severity].badge"><Icon :name="LOOK[t.severity].icon" :size="20" /></span>
       <div class="flex-1 min-w-0 whitespace-pre-line">
         <div class="flex items-baseline gap-2 pt-1.5">

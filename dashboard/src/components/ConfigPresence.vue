@@ -41,53 +41,56 @@
       </BaseCard>
 
       <!-- 기본 문구 편집 -->
-      <BaseCard v-if="showGlobal">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center gap-3 min-h-10">
-            <span class="size-10 shrink-0 rounded-(--r-inner) bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Icon name="chat" :size="24" /></span>
-            <h3 class="flex-1 min-w-0 truncate text-base font-semibold text-on-surface">{{ T.defaults }}</h3>
-          </div>
-          <NoticeBox v-if="globalProblems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ globalProblems.join("\n") }}</NoticeBox>
-          <p class="text-sm text-on-surface-variant">{{ T.defaultsDesc }}</p>
-          <label class="block w-full @lg/card:w-60">
-            <span :class="FIELD_LABEL">{{ T.interval }}</span>
-            <NumberInput v-model="draft.interval" :placeholder="T.ifEmpty(INTERVAL_DEFAULT)" :class="[FIELD, 'w-full']" />
-          </label>
-          <section class="flex flex-col gap-2">
-            <h3 class="text-sm font-semibold text-on-surface">{{ T.messages }}</h3>
-            <PresenceMessageList v-model="messages" @add="messages.push(newMessage())" />
-          </section>
-        </div>
-      </BaseCard>
-
-      <!-- 기간, 시간대 문구 편집 -->
-      <BaseCard v-if="selected">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center gap-3">
-            <input :value="selected.name" :placeholder="T.namePlaceholder" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.name = valueOf($event)" />
-            <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeSpecial" v-tooltip="T.removeSpecial" @click="removeSpecial(selectedIndex)"><Icon name="delete" :size="20" /></button>
-          </div>
-          <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
-
-          <section class="flex flex-col gap-2">
-            <div>
-              <h3 class="text-sm font-semibold text-on-surface">{{ T.conditions }}</h3>
-              <p class="mt-1 text-xs text-on-surface-variant">{{ T.conditionsDesc }}</p>
+      <!-- 상세는 선택이 바뀌면 사라진 뒤 나타난다 -->
+      <Transition name="fade" mode="out-in">
+        <BaseCard v-if="showGlobal" key="global">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3 min-h-10">
+              <span class="size-10 shrink-0 rounded-(--r-inner) bg-surface-container-highest flex items-center justify-center text-on-surface-variant"><Icon name="chat" :size="24" /></span>
+              <h3 class="flex-1 min-w-0 truncate text-base font-semibold text-on-surface">{{ T.defaults }}</h3>
             </div>
-            <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
-              <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
-                <span :class="FIELD_LABEL">{{ cond.label }}</span>
-                <input :value="selected[cond.key]" :placeholder="cond.placeholder" :class="[FIELD, 'w-full nums']" @input="selected[cond.key] = valueOf($event)" />
-              </label>
-            </div>
-          </section>
+            <NoticeBox v-if="globalProblems.length" variant="note" tone="error" icon="error" class="mt-0!">{{ globalProblems.join("\n") }}</NoticeBox>
+            <p class="text-sm text-on-surface-variant">{{ T.defaultsDesc }}</p>
+            <label class="block w-full @lg/card:w-60">
+              <span :class="FIELD_LABEL">{{ T.interval }}</span>
+              <NumberInput v-model="draft.interval" :placeholder="T.ifEmpty(INTERVAL_DEFAULT)" :class="[FIELD, 'w-full']" />
+            </label>
+            <section class="flex flex-col gap-2">
+              <h3 class="text-sm font-semibold text-on-surface">{{ T.messages }}</h3>
+              <PresenceMessageList v-model="messages" @add="messages.push(newMessage())" />
+            </section>
+          </div>
+        </BaseCard>
 
-          <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
-            <h3 class="text-sm font-semibold text-on-surface">{{ T.messages }}</h3>
-            <PresenceMessageList :key="selected.key" v-model="selected.messages" @add="selected.messages.push(newMessage())" />
-          </section>
-        </div>
-      </BaseCard>
+        <!-- 기간, 시간대 문구 편집 -->
+        <BaseCard v-else-if="selected" :key="selected.key">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <input :value="selected.name" :placeholder="T.namePlaceholder" :class="[FIELD, 'min-w-0 flex-1']" @input="selected.name = valueOf($event)" />
+              <button type="button" :class="[ICON_BTN, 'size-8', 'hover:text-error']" :aria-label="T.removeSpecial" v-tooltip="T.removeSpecial" @click="removeSpecial(selectedIndex)"><Icon name="delete" :size="20" /></button>
+            </div>
+            <NoticeBox v-if="rowProblems(selected).length" variant="note" tone="error" icon="error" class="mt-0!">{{ rowProblems(selected).join("\n") }}</NoticeBox>
+
+            <section class="flex flex-col gap-2">
+              <div>
+                <h3 class="text-sm font-semibold text-on-surface">{{ T.conditions }}</h3>
+                <p class="mt-1 text-xs text-on-surface-variant">{{ T.conditionsDesc }}</p>
+              </div>
+              <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
+                <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
+                  <span :class="FIELD_LABEL">{{ cond.label }}</span>
+                  <input :value="selected[cond.key]" :placeholder="cond.placeholder" :class="[FIELD, 'w-full nums']" @input="selected[cond.key] = valueOf($event)" />
+                </label>
+              </div>
+            </section>
+
+            <section class="flex flex-col gap-2 pt-3 border-t border-outline-variant/40">
+              <h3 class="text-sm font-semibold text-on-surface">{{ T.messages }}</h3>
+              <PresenceMessageList :key="selected.key" v-model="selected.messages" @add="selected.messages.push(newMessage())" />
+            </section>
+          </div>
+        </BaseCard>
+      </Transition>
     </div>
   </div>
 </template>

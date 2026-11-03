@@ -13,7 +13,7 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 /** 목록의 전역 값 항목의 주소 표식. 항목 표식의 @순번은 수만 쓰므로 겹치지 않는다 */
 const GLOBAL_TOKEN = "@defaults";
 /** 목록 항목(높이 48px). 선택한 항목은 SELECT_ROW_ON, 끈 것은 흐리게(opacity) */
-export const LIST_ROW = "state-layer flex items-center gap-3 h-12 pl-1 pr-3 rounded-(--r-row) cursor-pointer text-sm text-on-surface transition-[background-color,opacity] duration-150";
+export const LIST_ROW = "state-layer flex items-center gap-3 h-12 pl-1 pr-3 rounded-(--r-row) cursor-pointer text-sm text-on-surface transition-[background-color,border-radius,opacity] effects";
 
 /** 편집기마다(주소 표식 이름 → 지금 1열로 상세를 여는지). 운영자 패널이 위 막대 ← 를 보일지 정한다(태블릿에서도 1열이면 ← 로 목록에) */
 export const singlePane = reactive<Record<string, boolean>>({});

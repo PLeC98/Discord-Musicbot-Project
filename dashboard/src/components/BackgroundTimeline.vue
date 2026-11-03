@@ -23,7 +23,7 @@
     </div>
 
     <!-- 가로 스크롤 공간을 늘 비워 둔다(확대해서 스크롤바가 생겨도 창 높이가 그대로) -->
-    <div ref="scrollEl" class="overflow-x-scroll overflow-y-hidden rounded-lg bg-surface-container-highest outline outline-transparent transition-[outline-color] duration-150 group-focus/tl:outline-primary" :style="SCROLLBAR" @scroll="scrollLeft = ($event.target as HTMLElement).scrollLeft">
+    <div ref="scrollEl" class="overflow-x-scroll overflow-y-hidden rounded-lg bg-surface-container-highest outline outline-transparent transition-[outline-color] effects-fast group-focus/tl:outline-primary" :style="SCROLLBAR" @scroll="scrollLeft = ($event.target as HTMLElement).scrollLeft">
       <!-- 시간 0, 끝은 양옆 PAD 안쪽. 그 바깥은 구간 핸들, 마커 머리가 들어갈 빈 공간(넘치는 것은 잘라 스크롤이 생기지 않게) -->
       <div ref="contentEl" class="relative overflow-hidden cursor-ew-resize touch-none" :style="{ width: `${contentWidth}px` }" @pointerdown="scrubStart">
         <!-- 시간 눈금 -->

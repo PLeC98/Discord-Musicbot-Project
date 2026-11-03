@@ -7,7 +7,7 @@
     <span :class="[cell, open ? 'opacity-100' : 'opacity-0']" :style="colonAt">:</span>
     <span :class="[cell, 'text-on-surface-variant']" :style="minuteAt">{{ mm }}</span>
     <!-- 날짜: 두 줄(월, 일 / 요일). 폭이 넓어질수록 "10/05" → "10월 5일" → "2026/10/05" → "2026년 10월 5일" -->
-    <span class="absolute top-[0.1rem] flex flex-col font-sans font-medium text-xs leading-4 text-on-surface-variant whitespace-nowrap [font-variation-settings:normal] transition-opacity duration-300" :class="open ? 'opacity-100 delay-100' : 'opacity-0'" :style="dateAt">
+    <span class="absolute top-[0.1rem] flex flex-col font-sans font-medium text-xs leading-4 text-on-surface-variant whitespace-nowrap [font-variation-settings:normal] transition-opacity effects" :class="open ? 'opacity-100 delay-100' : 'opacity-0'" :style="dateAt">
       <span class="@min-[12.5rem]:hidden">{{ shortDate }}</span>
       <span class="hidden @min-[12.5rem]:inline @min-[13.75rem]:hidden">{{ month }} {{ day }}</span>
       <span class="hidden @min-[13.75rem]:inline @min-[15.5rem]:hidden">{{ year.slice(0, -1) }}/{{ shortDate }}</span>
@@ -42,7 +42,7 @@ const day = computed(() => T.day(now.value.getDate()));
 const shortDate = computed(() => `${String(now.value.getMonth() + 1).padStart(2, "0")}/${String(now.value.getDate()).padStart(2, "0")}`);
 const weekday = computed(() => formatDate(now.value, { weekday: "long" }));
 
-const cell = "absolute top-0 whitespace-nowrap origin-top-left transition-[left,top,scale,opacity] spring";
+const cell = "absolute top-0 whitespace-nowrap origin-top-left [transition:left_460ms_var(--ease-spring),top_460ms_var(--ease-spring),scale_460ms_var(--ease-spring),opacity_250ms_var(--ease-effects)]";
 
 // 아이콘 영역 가운데(왼쪽 여백 --bar-x + 막대 폭의 절반)를 기준으로 숫자 폭 n 개만큼 옮긴 위치
 const at = (n: number) => `calc(var(--bar-x, 0px) + var(--bar) / 2 + ${n} * ${DIGIT})`;

@@ -21,15 +21,17 @@
       </SearchInput>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.tools.shortcuts" :aria-expanded="showKeys" v-tooltip="T.tools.shortcuts" @click.stop="showKeys = !showKeys"><Icon name="help" :size="18" /></button>
       <!-- 단축키 -->
-      <div v-if="showKeys" class="absolute right-0 top-10 z-150 w-md max-w-full p-3 rounded-(--r-inner) pane-menu text-xs" @click.stop>
-        <p class="mb-2 text-sm font-medium text-on-surface">{{ T.tools.shortcuts }}</p>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-          <template v-for="[keys, what] in T.shortcuts" :key="keys">
-            <dt class="text-on-surface whitespace-nowrap">{{ keys }}</dt>
-            <dd class="text-on-surface-variant">{{ what }}</dd>
-          </template>
-        </dl>
-      </div>
+      <Transition name="menu">
+        <div v-if="showKeys" class="absolute right-0 top-10 z-150 w-md max-w-full p-3 rounded-(--r-inner) pane-menu text-xs origin-top-right" @click.stop>
+          <p class="mb-2 text-sm font-medium text-on-surface">{{ T.tools.shortcuts }}</p>
+          <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+            <template v-for="[keys, what] in T.shortcuts" :key="keys">
+              <dt class="text-on-surface whitespace-nowrap">{{ keys }}</dt>
+              <dd class="text-on-surface-variant">{{ what }}</dd>
+            </template>
+          </dl>
+        </div>
+      </Transition>
     </div>
 
     <div class="flex flex-col lg:flex-row gap-2 min-w-0">
@@ -140,16 +142,18 @@
     </div>
 
     <!-- 오른쪽 클릭 메뉴 -->
-    <div v-if="menu" class="fixed z-150 min-w-56 py-1 rounded-(--r-inner) pane-menu text-sm text-on-surface" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @click.stop @mousedown.prevent>
-      <template v-for="(item, k) in menu.items" :key="k">
-        <div v-if="item === '-'" class="my-1 h-px bg-outline-variant/50"></div>
-        <p v-else-if="!item.run" class="max-w-72 px-3 py-1.5 text-xs text-on-surface-variant">{{ item.label }}</p>
-        <button v-else type="button" class="tap state-layer w-full flex items-center justify-between gap-6 px-3 h-8 text-left disabled:opacity-38" :class="item.danger && 'text-error'" :disabled="item.off" @click="runMenu(item)">
-          <span>{{ item.label }}</span
-          ><span class="text-xs text-on-surface-variant">{{ item.hint ?? "" }}</span>
-        </button>
-      </template>
-    </div>
+    <Transition name="menu">
+      <div v-if="menu" class="fixed z-150 min-w-56 py-1 rounded-(--r-inner) pane-menu text-sm text-on-surface origin-top-left" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @click.stop @mousedown.prevent>
+        <template v-for="(item, k) in menu.items" :key="k">
+          <div v-if="item === '-'" class="my-1 h-px bg-outline-variant/50"></div>
+          <p v-else-if="!item.run" class="max-w-72 px-3 py-1.5 text-xs text-on-surface-variant">{{ item.label }}</p>
+          <button v-else type="button" class="tap state-layer w-full flex items-center justify-between gap-6 px-3 h-8 text-left disabled:opacity-38" :class="item.danger && 'text-error'" :disabled="item.off" @click="runMenu(item)">
+            <span>{{ item.label }}</span
+            ><span class="text-xs text-on-surface-variant">{{ item.hint ?? "" }}</span>
+          </button>
+        </template>
+      </div>
+    </Transition>
   </section>
 </template>
 

@@ -3,9 +3,9 @@
        이 봇의 소스는 로그인 화면과 같은 기준: 운영자가 고친 소스(SOURCE_REPO_URL)가 원본 프로젝트와 다르면 둘 다, 같으면 하나. 주소를 못 불러오면 링크 없이 알린다.
        행을 누르면 그 저장소, 웹사이트를 새 창으로 연다 -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-        <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="license-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high animate-[art-in_350ms_var(--ease-spring-fast)] [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
+        <div ref="dialogEl" role="dialog" aria-modal="true" aria-labelledby="license-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high dialog-panel [&::-webkit-scrollbar-track]:my-(--sb-inset-dialog)" :class="overflowing ? 'py-6 pl-6 pr-5.25' : 'p-6'">
           <div class="flex items-center gap-3 mb-4">
             <span class="size-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="license" :size="20" /></span>
             <h3 id="license-title" class="flex-1 text-xl font-round font-semibold">{{ T.title }}</h3>
@@ -61,7 +61,7 @@
           </template>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
@@ -70,6 +70,7 @@ import { ICON_BTN } from "../utils/icon-button.ts";
 import { computed, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
+import DialogTransition from "./DialogTransition.vue";
 import Icon from "./BaseIcon.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DATA_FILES, FONTS_AND_ART, LIBRARIES, UPSTREAM, isModifiedSource } from "../utils/licenses.ts";

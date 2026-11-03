@@ -8,18 +8,18 @@
         <Icon name="calendar_month" :size="18" class="shrink-0 text-on-surface-variant" />
         <span class="truncate">{{ modelValue == null ? placeholder : summary(modelValue) }}</span>
       </span>
-      <svg class="shrink-0 text-on-surface-variant transition-transform duration-200" :class="open && 'rotate-180'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+      <svg class="shrink-0 text-on-surface-variant transition-transform spring-fast" :class="open && 'rotate-180'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
     </button>
 
     <Teleport to="body">
       <!-- 보통은 입력란 아래에 붙인다. 창 폭은 입력란이 아니라 달력이 정한다(입력란 왼쪽에, 안 들어가면 입력란 오른쪽 끝에 맞춘다).
-           휴대폰이거나 세로가 좁거나(755px 미만), 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 연다(필터 창과 같은 전환, style.css 의 fdialog). 뒤 누르기, 기기의 뒤로, Esc 로 닫는다.
+           휴대폰이거나 세로가 좁거나(755px 미만), 열 때 입력란 위아래 어느 쪽에도 창이 다 들어가지 않으면(필터 창 안처럼) 가운데 팝업으로 연다(대화상자와 같은 넘김, 아래에 붙일 때는 메뉴의 넘김). 뒤 누르기, 기기의 뒤로, Esc 로 닫는다.
            휴대폰 가로처럼 낮은 화면(세로 512px 이하)은 위아래로 쌓으면 시, 분부터 잘리므로 왼쪽에 헤더, 달력, 오른쪽에 시, 분, 버튼을 둔다.
            드래그해서 넘기므로 글자는 선택되지 않게 -->
-      <Transition name="fdialog" :duration="asDialog ? { enter: 250, leave: 150 } : 0">
+      <Transition :name="asDialog ? 'dialog' : 'menu'" :duration="asDialog ? DIALOG_MS : undefined">
         <div v-if="open" :class="asDialog ? 'fixed inset-0 z-300 flex items-center justify-center p-4' : 'contents'">
           <!-- 뒤를 누르면 바깥 누름(useAnchoredPanel)으로 닫힌다 -->
-          <div v-if="asDialog" class="fdialog-scrim absolute inset-0 bg-black/50"></div>
+          <div v-if="asDialog" class="absolute inset-0 bg-black/50"></div>
           <div ref="panel" :role="asDialog ? 'dialog' : undefined" :aria-modal="asDialog || undefined" :class="asDialog ? (side ? SIDE_CLS : DIALOG_CLS) : MENU_CLS" :style="asDialog ? undefined : style">
             <!-- 왼쪽(낮은 화면만 묶는다. 그 밖은 묶지 않고 위아래로 잇는다) -->
             <div :class="side ? 'w-72 flex flex-col gap-2' : 'contents'">
@@ -27,14 +27,14 @@
               <div class="flex items-center justify-between h-9">
                 <button v-if="view === 'days'" type="button" :class="NAV_BTN" :disabled="!prevMonth" :aria-label="T.prevMonth" @click="turn(-1)"><Icon name="chevron_right" :size="20" class="rotate-180" /></button>
                 <span v-else class="size-8"></span>
-                <button type="button" class="tap state-layer h-8 pl-3 pr-1.5 rounded-full flex items-center gap-0.5 text-sm font-semibold cursor-pointer" :aria-expanded="view !== 'days'" @click="toggleYears">{{ view === "days" ? T.month(shown.year, shown.month + 1) : view === "months" ? T.year(pickYear) : T.pickYear }}<Icon name="expand_more" :size="20" class="transition-transform duration-200" :class="view !== 'days' && 'rotate-180'" /></button>
+                <button type="button" class="tap state-layer h-8 pl-3 pr-1.5 rounded-full flex items-center gap-0.5 text-sm font-semibold cursor-pointer" :aria-expanded="view !== 'days'" @click="toggleYears">{{ view === "days" ? T.month(shown.year, shown.month + 1) : view === "months" ? T.year(pickYear) : T.pickYear }}<Icon name="expand_more" :size="20" class="transition-transform spring-fast" :class="view !== 'days' && 'rotate-180'" /></button>
                 <button v-if="view === 'days'" type="button" :class="NAV_BTN" :disabled="!nextMonth" :aria-label="T.nextMonth" @click="turn(1)"><Icon name="chevron_right" :size="20" /></button>
                 <span v-else class="size-8"></span>
               </div>
 
-              <!-- 보기 바꾸기(달력 ↔ 연도 ↔ 월): 서서히 나타나며 조금 커진다(M3 날짜 선택기처럼). 높이는 세 보기가 같다 -->
+              <!-- 보기 바꾸기(달력 ↔ 연도 ↔ 월): 옛 보기가 사라진 뒤 새 보기가 나타난다(fade). 높이는 세 보기가 같다 -->
               <div class="relative h-63 shrink-0">
-                <Transition name="dview">
+                <Transition name="fade" mode="out-in">
                   <!-- 연도 목록: 로그가 있는 연도만(해가 바뀌어 로그가 쌓이면 그 연도가 저절로 생긴다), 지금 연도가 가운데로 -->
                   <div v-if="view === 'years'" key="years" ref="yearsEl" class="absolute inset-0 overflow-y-auto scrollbar-none grid grid-cols-3 content-start gap-1">
                     <button v-for="y in years" :key="y" type="button" :data-year="y" class="tap h-10 rounded-full text-sm nums cursor-pointer" :class="y === cursor.year ? 'bg-primary text-on-primary font-semibold' : 'state-layer'" @click="chooseYear(y)">{{ y }}</button>
@@ -42,7 +42,7 @@
 
                   <!-- 월 목록(그 연도의). 로그가 없는 달은 막는다 -->
                   <div v-else-if="view === 'months'" key="months" class="absolute inset-0 grid grid-cols-3 content-center gap-y-3 gap-x-1">
-                    <button v-for="m in 12" :key="m" type="button" class="tap h-10 rounded-full text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-30" :class="pickYear === cursor.year && m - 1 === cursor.month ? 'bg-primary text-on-primary font-semibold' : 'state-layer'" :disabled="!monthHasLogs(pickYear, m - 1)" @click="chooseMonth(m - 1)">{{ T.monthName(m) }}</button>
+                    <button v-for="m in 12" :key="m" type="button" class="tap h-10 rounded-full text-sm cursor-pointer disabled:cursor-not-allowed disabled:opacity-38" :class="pickYear === cursor.year && m - 1 === cursor.month ? 'bg-primary text-on-primary font-semibold' : 'state-layer'" :disabled="!monthHasLogs(pickYear, m - 1)" @click="chooseMonth(m - 1)">{{ T.monthName(m) }}</button>
                   </div>
 
                   <!-- 달력: 요일 줄은 그대로, 날짜는 이전, 지금, 다음 달 세 장을 나란히 두고 함께 움직인다(드래그하는 동안 옆 달이 바로 붙어 보인다). 옆 달은 로그가 있는 가장 가까운 달 -->
@@ -57,7 +57,7 @@
                             v-for="d in page.days"
                             :key="d.key"
                             type="button"
-                            class="tap mx-auto my-px size-9 rounded-full text-sm nums flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+                            class="tap mx-auto my-px size-9 rounded-full text-sm nums flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-38"
                             :class="[d.selected ? 'bg-primary text-on-primary font-semibold' : 'state-layer', !d.inMonth && !d.selected && 'text-on-surface-variant/60', d.today && !d.selected && 'ring-1 ring-primary']"
                             :disabled="d.disabled"
                             :tabindex="page.key === 'now' ? 0 : -1"
@@ -107,6 +107,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { PHONE_QUERY, SHORT_QUERY } from "../utils/breakpoints.ts";
 import { coveredBottom, useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { rem } from "../utils/rem.ts";
+import { DIALOG_MS } from "../utils/motion.ts";
 import { text } from "../text/index.ts";
 
 // 창 폭(rem). 날짜 한 셀 40px × 7 + 여백
@@ -124,13 +125,13 @@ const emit = defineEmits<{ "update:modelValue": [value: number | null]; go: [val
 
 const T = text.fields.datePicker;
 
-const boxCls = "w-full h-10 pl-4 pr-3 text-sm flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary";
+const boxCls = "w-full h-10 pl-4 pr-3 text-sm flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-left cursor-pointer outline-none transition-[border-color] effects-fast focus-visible:border-primary";
 // 펼친 창: 입력란 아래에 붙일 때(드롭다운 모양), 가운데 팝업일 때(M3 대화상자). 높이가 모자라면 줄이지 않고 스크롤한다
-const MENU_CLS = "pane-menu bg-surface-container-low! rounded-lg p-3 flex flex-col gap-2 select-none";
-const DIALOG_CLS = "fdialog-panel relative w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-4 flex flex-col gap-2 select-none";
+const MENU_CLS = "menu-panel pane-menu bg-surface-container-low! rounded-lg p-3 flex flex-col gap-2 select-none";
+const DIALOG_CLS = "dialog-panel relative w-80 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-4 flex flex-col gap-2 select-none";
 // 낮은 화면의 팝업: 좌우로 나눈다
-const SIDE_CLS = "fdialog-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-4 flex gap-4 select-none";
-const NAV_BTN = "tap state-layer size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface disabled:opacity-30 disabled:cursor-not-allowed";
+const SIDE_CLS = "dialog-panel relative max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-4 flex gap-4 select-none";
+const NAV_BTN = "tap state-layer size-8 rounded-full flex items-center justify-center cursor-pointer text-on-surface disabled:opacity-38 disabled:cursor-not-allowed";
 
 const summary = (ms: number) => T.summary(new Date(ms));
 
@@ -251,7 +252,7 @@ const TURN_MS = 220;
 const slide = ref(0);
 const sliding = ref(false);
 const width = ref(0);
-const trackStyle = computed(() => ({ translate: `calc(-100% / 3 + ${slide.value}px) 0`, transition: sliding.value ? `translate ${TURN_MS}ms cubic-bezier(0.2, 0, 0, 1)` : "none" }));
+const trackStyle = computed(() => ({ translate: `calc(-100% / 3 + ${slide.value}px) 0`, transition: sliding.value ? `translate ${TURN_MS}ms var(--ease-smooth)` : "none" }));
 // 넘어가는 중인 달. 헤더 글은 미끄러지기 시작할 때 바로 바꾼다
 const turning = ref<{ year: number; month: number } | null>(null);
 const shown = computed(() => turning.value ?? cursor.value);
@@ -318,22 +319,3 @@ function latest() {
   open.value = false;
 }
 </script>
-
-<style>
-/* 보기 바꾸기: 새 보기는 조금 작았다가 커지며 나타나고, 옛 보기는 빠르게 흐려진다. 둘 다 같은 자리에 겹쳐 있다 */
-.dview-enter-active {
-  transition:
-    opacity 200ms cubic-bezier(0.05, 0.7, 0.1, 1) 50ms,
-    scale 200ms cubic-bezier(0.05, 0.7, 0.1, 1) 50ms;
-}
-.dview-leave-active {
-  transition: opacity 100ms cubic-bezier(0.3, 0, 0.8, 0.15);
-}
-.dview-enter-from,
-.dview-leave-to {
-  opacity: 0;
-}
-.dview-enter-from {
-  scale: 0.94;
-}
-</style>

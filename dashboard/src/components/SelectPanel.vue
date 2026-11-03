@@ -4,21 +4,23 @@
       <span class="min-w-0 flex items-center gap-2" :class="muted ? 'text-on-surface-variant' : 'text-on-surface'"
         ><span v-if="summaryColor" class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: summaryColor }"></span><span class="truncate">{{ summary }}</span></span
       >
-      <svg class="shrink-0 text-on-surface-variant transition-transform duration-200" :class="open && 'rotate-180'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
+      <svg class="shrink-0 text-on-surface-variant transition-transform spring-fast" :class="open && 'rotate-180'" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z" /></svg>
     </button>
 
     <Teleport to="body">
-      <div v-if="open" ref="panel" :class="panelCls" :style="style">
-        <div v-if="searchable" class="shrink-0 p-1 border-b border-outline-variant/50">
-          <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
+      <Transition name="menu">
+        <div v-if="open" ref="panel" :class="panelCls" :style="style">
+          <div v-if="searchable" class="shrink-0 p-1 border-b border-outline-variant/50">
+            <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
+          </div>
+          <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
+          <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px 로(useOverflowing) -->
+          <div ref="listEl" class="min-h-0 overflow-auto flex flex-col [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu) [&>button]:rounded-xs [&>button:first-of-type]:rounded-t-md [&>button:last-of-type]:rounded-b-md" :class="[overflowing ? 'py-1 pl-1 pr-px' : 'p-1', !searchable && '[&::-webkit-scrollbar-track]:mt-(--sb-inset-menu)']" :style="{ maxHeight: `${LIST_MAX_REM}rem` }">
+            <slot />
+            <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">{{ text.common.noMatch }}</p>
+          </div>
         </div>
-        <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
-        <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px 로(useOverflowing) -->
-        <div ref="listEl" class="min-h-0 overflow-auto flex flex-col [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu) [&>button]:rounded-xs [&>button:first-of-type]:rounded-t-md [&>button:last-of-type]:rounded-b-md" :class="[overflowing ? 'py-1 pl-1 pr-px' : 'p-1', !searchable && '[&::-webkit-scrollbar-track]:mt-(--sb-inset-menu)']" :style="{ maxHeight: `${LIST_MAX_REM}rem` }">
-          <slot />
-          <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">{{ text.common.noMatch }}</p>
-        </div>
-      </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -56,12 +58,12 @@ const props = defineProps<{
 const open = defineModel<boolean>("open", { default: false });
 const term = defineModel<string>("term", { default: "" });
 
-const boxBase = "w-full flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface font-[inherit] text-left cursor-pointer outline-none transition-[border-color] duration-150 focus-visible:border-primary disabled:opacity-38 disabled:cursor-not-allowed";
+const boxBase = "w-full flex items-center justify-between gap-2 bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface font-[inherit] text-left cursor-pointer outline-none transition-[border-color] effects-fast focus-visible:border-primary disabled:opacity-38 disabled:cursor-not-allowed";
 const boxCls = computed(() => `${boxBase} ${props.small ? "h-8 pl-3 pr-2 text-xs" : "h-10 pl-4 pr-3 text-sm"}`);
 // M3E 세로 메뉴(Compose SegmentedMenuTokens, StandardMenuTokens): 바탕 surface-container-low, 그림자 2단, 모서리 16px, 안쪽 여백 4px.
 // 항목은 높이 44px, 좌우 16px, 항목 사이 틈 없음(틈은 그룹 사이에만 두고 스크롤되는 메뉴에는 두지 않는다), 모서리 4px 에 첫 항목 위, 마지막 항목 아래만 12px(쓰는 쪽의 항목은 button), 선택한 항목은 12px, tertiary-container
 const panelCls = "pane-menu bg-surface-container-low! flex flex-col overflow-hidden rounded-lg";
-const searchCls = "w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface h-10 px-4 text-sm font-[inherit] outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
+const searchCls = "w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface h-10 px-4 text-sm font-[inherit] outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
 
 const root = ref<HTMLElement | null>(null);
 const anchor = ref<HTMLElement | null>(null);

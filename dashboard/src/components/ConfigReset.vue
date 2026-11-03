@@ -23,9 +23,9 @@
 
     <!-- ConfirmDialog 와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
     <Teleport to="body">
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+      <DialogTransition>
         <div v-if="asking" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-          <div role="alertdialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md animate-[art-in_350ms_var(--ease-spring-fast)]">
+          <div role="alertdialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md dialog-panel">
             <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
             <h3 class="text-xl font-round font-semibold text-center mb-4">{{ T.confirm[asking].title }}</h3>
             <p v-if="bodyOf(asking)" class="text-sm text-on-surface-variant text-center whitespace-pre-line mb-4">{{ bodyOf(asking) }}</p>
@@ -48,7 +48,7 @@
             </div>
           </div>
         </div>
-      </Transition>
+      </DialogTransition>
     </Teleport>
   </div>
 </template>
@@ -57,6 +57,7 @@
 import { computed, onMounted, reactive, ref } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
+import DialogTransition from "./DialogTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";

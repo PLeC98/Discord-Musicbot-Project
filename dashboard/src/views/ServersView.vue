@@ -28,7 +28,7 @@
     </div>
 
     <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
-      <router-link v-for="g in ordered" :key="g.id" :to="`/servers/${g.id}`" class="group state-layer flex flex-col gap-3 rounded-(--r-window) bg-surface-container p-4 no-underline text-on-surface transition-[border-radius] spring hover:rounded-xl" :class="g.listening ? 'ring-2 ring-primary/70' : ''">
+      <router-link v-for="g in ordered" :key="g.id" :to="`/servers/${g.id}`" class="group state-layer flex flex-col gap-3 rounded-(--r-window) bg-surface-container p-4 no-underline text-on-surface transition-[border-radius,box-shadow] effects hover:rounded-xl" :class="g.listening ? 'ring-2 ring-primary/70' : ''">
         <div class="flex items-center gap-3">
           <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
           <div class="min-w-0 flex-1">

@@ -1,9 +1,9 @@
 <template>
   <!-- 로그인 배경의 변경 팝업(파비콘의 크기별 팝업과 같은 형태). 기록의 행을 누르면 그 배경으로 바꾼다(인코딩이 끝난 것만, 다시 만들지 않는다) -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open && state" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
-        <div role="dialog" aria-modal="true" :aria-label="S.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 animate-[art-in_350ms_var(--ease-spring-fast)]">
+        <div role="dialog" aria-modal="true" :aria-label="S.title" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md max-h-[90dvh] overflow-y-auto flex flex-col gap-4 dialog-panel">
           <div class="flex flex-col gap-1">
             <h3 class="text-xl font-round font-semibold">{{ S.title }}</h3>
             <p class="text-sm text-on-surface-variant nums">{{ S.free(formatBytes(state.freeBytes)) }}</p>
@@ -75,13 +75,14 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { ICON_BTN } from "../utils/icon-button.ts";

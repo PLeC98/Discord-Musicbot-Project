@@ -1,23 +1,26 @@
 <template>
   <!-- 세션 끝, 연결 안 됨. 알림(ToastStack) 위에 남는 띠. 화면을 옮기지 않는다(고치던 설정을 지킨다) -->
-  <div v-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
-    <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="cloud_off" :size="20" /></span>
-    <span class="flex-1 min-w-0 text-on-surface font-medium">{{ session.ended ? loginNotice.title : unansweredTitle("offline") }}</span>
-    <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">{{ T.loginAgain }}</BaseButton>
-    <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">{{ T.retry }}</BaseButton>
-  </div>
-  <!-- SSE 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
-  <div v-else-if="session.streamDown" role="status" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-4 py-2 text-body pane-menu">
-    <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="progress_activity" :size="20" class="animate-spin" /></span>
-    <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
-  </div>
+  <!-- 알림(ToastStack)처럼 위에서 내려오고 오른쪽으로 빠진다 -->
+  <Transition name="toast" mode="out-in">
+    <div v-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
+      <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="cloud_off" :size="20" /></span>
+      <span class="flex-1 min-w-0 text-on-surface font-medium">{{ session.ended ? loginNotice.title : unansweredTitle("offline") }}</span>
+      <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">{{ T.loginAgain }}</BaseButton>
+      <BaseButton v-else variant="ghost" size="sm" :disabled="checking" @click="retry">{{ T.retry }}</BaseButton>
+    </div>
+    <!-- SSE 연결만 끊겼다. 요청은 되므로 조작은 그대로 쓰고, 화면은 30초마다 다시 읽는다 -->
+    <div v-else-if="session.streamDown" role="status" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-4 py-2 text-body pane-menu">
+      <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="progress_activity" :size="20" class="animate-spin" /></span>
+      <span class="flex-1 min-w-0 text-on-surface-variant">{{ T.reconnecting }}</span>
+    </div>
+  </Transition>
 
   <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘, 제목, 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
        세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="(session.ended || session.reauth) && showDialog" class="fixed inset-0 z-400 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-        <div role="dialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 max-w-md w-full text-center animate-[art-in_350ms_var(--ease-spring-fast)]">
+        <div role="dialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 max-w-md w-full text-center dialog-panel">
           <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
           <h3 class="mb-4 text-xl font-round font-semibold text-on-surface">{{ notice.title }}</h3>
           <p class="mb-1 text-sm text-on-surface-variant">{{ notice.body }}</p>
@@ -31,7 +34,7 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
@@ -40,6 +43,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRouter } from "vue-router";
 import axios from "axios";
+import DialogTransition from "./DialogTransition.vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import { session, openLoginWindow, onSignedIn, endReauth } from "../composables/session.ts";

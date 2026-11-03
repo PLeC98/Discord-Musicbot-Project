@@ -315,6 +315,7 @@
 import { computed, ref } from "vue";
 import { createReusableTemplate, useElementSize, watchDebounced } from "@vueuse/core";
 import { RouterLink } from "vue-router";
+import { scrollMotion } from "../utils/motion.ts";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import BotRestart from "./BotRestart.vue";
@@ -438,7 +439,7 @@ const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "m
 // 나타날 때 600ms(long4) 중 1/4 은 0 → 8px 로 두꺼워지고 3/4 은 3px 로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
 const root = ref<HTMLElement | null>(null);
 // 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline 이 px 단위로 끊겨 버벅여 보인다
-const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" };
+const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" }; // --ease-smooth, --ease-accelerate 와 같은 값(Web Animations 는 var() 를 읽지 못한다)
 let ringAnimation: Animation | null = null;
 let cancelPendingRing: (() => void) | null = null;
 function jumpTo(at: string) {
@@ -448,7 +449,7 @@ function jumpTo(at: string) {
   cancelPendingRing?.();
   const scroller = el.closest<HTMLElement>(".overflow-y-auto");
   const before = scroller?.scrollTop ?? 0;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.scrollIntoView({ behavior: scrollMotion(), block: "center" });
   // 스크롤되면 멎을 때까지 기다린다(이미 보이는 위치라 스크롤되지 않으면 바로)
   let timer = 0;
   const start = () => {

@@ -43,10 +43,10 @@
     <div v-else class="flex-1 min-h-0" :class="sheetMode ? 'relative flex flex-col' : 'grid content-start md:content-stretch gap-(--gap-in) grid-cols-1 md:grid-rows-[auto_minmax(0,1fr)]'">
       <!-- ── 지금 재생: 한 줄 높이의 띠(아트, 제목, 조작). 곡이 없어도 같은 줄들을 두어 높이가 같다(플레이스홀더, 비활성 조작) ── -->
       <AppWindow v-if="!sheetMode">
-        <div class="relative" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
+        <div class="relative transition-[filter] effects" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
             <!-- 아트. 누르면 크게 본다 -->
-            <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] spring-fast hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
+            <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] effects hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
               <img :src="deskArt ?? undefined" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="deskZoom > 1 ? { scale: deskZoom } : undefined" @load="noteArt($event, artShown)" @error="noteArt($event, artShown) === 'broken' && (brokenArt = artShown)" />
               <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
             </button>
@@ -57,18 +57,24 @@
                    곡이 없으면 이 줄을 숨겨 "재생 중인 곡이 없어요" 두 줄이 아트 높이의 가운데에 온다 -->
               <div v-if="track" class="flex items-center gap-2 mb-1.5 min-w-0 h-8">
                 <!-- 좁은 창은 하이라이트, 정지 공간을 지키려고 "내가 넣은 곡"을 뺀다 -->
-                <TrackChips :track="track" :mine="mine" :held="player.heldBy" mine-class="hidden! @xl/win:inline-flex!" />
+                <Transition name="fade" mode="out-in">
+                  <span :key="track.url" class="min-w-0 flex items-center gap-2"><TrackChips :track="track" :mine="mine" :held="player.heldBy" mine-class="hidden! @xl/win:inline-flex!" /></span>
+                </Transition>
                 <!-- 좁은 창: 하이라이트, 정지는 이 줄 오른쪽 끝 -->
                 <div class="@xl/win:hidden ml-auto flex items-center gap-2 shrink-0">
                   <PlayerActions small :player="player" :highlight="highlightMarker !== null" :busy="isBusy" @highlight="jumpToHighlight" @stop="showStopConfirm = true" />
                 </div>
               </div>
               <!-- 링크는 글자에만 건다(줄 전체가 눌리지 않게) -->
-              <div v-if="track" class="font-round font-semibold leading-tight text-on-surface line-clamp-1 @xl/win:line-clamp-2 text-lg @xl/win:text-xl @4xl/win:text-2xl">
-                <a :href="track.url" target="_blank" rel="noopener" class="no-underline hover:underline decoration-2 underline-offset-4">{{ songTitle(track.title) }}</a>
-              </div>
-              <div v-else class="font-round font-semibold leading-tight text-on-surface-variant line-clamp-1 text-lg @xl/win:text-xl @4xl/win:text-2xl">{{ P.nothingPlaying }}</div>
-              <div class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : T.addToPlay }}</div>
+              <Transition name="fade" mode="out-in">
+                <div v-if="track" :key="track.url" class="font-round font-semibold leading-tight text-on-surface line-clamp-1 @xl/win:line-clamp-2 text-lg @xl/win:text-xl @4xl/win:text-2xl">
+                  <a :href="track.url" target="_blank" rel="noopener" class="no-underline hover:underline decoration-2 underline-offset-4">{{ songTitle(track.title) }}</a>
+                </div>
+                <div v-else key="none" class="font-round font-semibold leading-tight text-on-surface-variant line-clamp-1 text-lg @xl/win:text-xl @4xl/win:text-2xl">{{ P.nothingPlaying }}</div>
+              </Transition>
+              <Transition name="fade" mode="out-in">
+                <div :key="track?.url ?? 'none'" class="mt-1.5 text-sm @xl/win:text-base text-on-surface-variant truncate">{{ track ? track.artist || " " : T.addToPlay }}</div>
+              </Transition>
             </div>
 
             <!-- 넓은 창: 조작은 아트, 제목 오른쪽 -->
@@ -90,13 +96,13 @@
             <!-- 좁은 창: 볼륨은 버튼 하나. 누르면 슬라이더 말풍선 -->
             <div class="@xl/win:hidden relative shrink-0">
               <button type="button" :class="[ROUND_BTN, 'text-on-surface-variant', volumeOpen ? 'bg-secondary-container text-on-secondary-container' : '']" :aria-label="T.volumeLabel(volumeShown)" :aria-expanded="volumeOpen" :disabled="!player.canControl || !player.hasPlayer" @click="volumeOpen = !volumeOpen"><VolumeIcon :level="volumeShown" :size="24" /></button>
-              <template v-if="volumeOpen">
-                <div class="fixed inset-0 z-40" @click="volumeOpen = false"></div>
-                <div class="absolute right-0 bottom-full mb-2 z-50 pane-menu rounded-full h-12 pl-4 pr-3 flex items-center gap-2">
+              <div v-if="volumeOpen" class="fixed inset-0 z-40" @click="volumeOpen = false"></div>
+              <Transition name="menu">
+                <div v-if="volumeOpen" class="absolute right-0 bottom-full mb-2 z-50 pane-menu rounded-full h-12 pl-4 pr-3 flex items-center gap-2 origin-bottom-right">
                   <VolumeSlider class="w-40" :level="volumeShown" :bubble="false" @input="volumeInput" @change="volumeChange" />
                   <span class="w-7 text-right text-xs font-semibold nums">{{ volumeShown }}</span>
                 </div>
-              </template>
+              </Transition>
             </div>
           </SeekRow>
 
@@ -104,13 +110,13 @@
           <PlayerControls class="@xl/win:hidden mt-3" spread :player="player" :busy="isBusy" @shuffle="shuffle" @previous="previous" @pause="togglePause" @skip="skip" @loop="cycleLoop" />
           <div v-if="track && !player.canControl && player.sameVoice" class="mt-3 text-sm text-on-surface-variant flex items-center gap-2"><Icon name="lock" :size="16" />{{ noticeText("must-dj").body }}</div>
         </div>
-        <VoiceLockOverlay v-if="locked" />
+        <Transition name="fade"><VoiceLockOverlay v-if="locked" /></Transition>
       </AppWindow>
 
       <!-- ── 휴대폰(스포티파이식): 창 없이 바탕화면 위에. 위에서부터 앨범아트(남는 높이 안의 가장 큰 정사각형), 배지, 제목, 진행, 조작, 아래 줄(음성 상태, 볼륨, 정지, 대기열) ── -->
       <div v-else class="relative flex-1 min-h-0 flex flex-col">
         <!-- 낮은 화면(휴대폰 가로): 왼쪽에 높이에 맞춘 정사각형 앨범아트, 오른쪽에 나머지(배지는 빼고 간격을 줄인다). 둘을 가운데로 모은다 -->
-        <div class="flex-1 min-h-0 flex" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
+        <div class="flex-1 min-h-0 flex transition-[filter] effects" :class="[short ? 'flex-row items-center justify-center gap-6' : 'flex-col', locked && 'blur-sm saturate-50 pointer-events-none select-none']">
           <div class="min-h-0 flex items-center justify-center @container-size" :class="short ? 'h-full aspect-square shrink-0' : 'flex-1'">
             <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 앨범아트는 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 앨범아트가 들어온다.
                  옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다.
@@ -129,14 +135,20 @@
 
           <div :class="short ? 'flex-1 min-w-0 max-w-md flex flex-col justify-center' : 'contents'">
             <div v-if="!short" class="shrink-0 mt-6 flex items-center gap-2 h-6">
-              <TrackChips v-if="track" :track="track" :mine="mine" :held="player.heldBy" />
+              <Transition name="fade" mode="out-in">
+                <span v-if="track" :key="track.url" class="flex items-center gap-2"><TrackChips :track="track" :mine="mine" :held="player.heldBy" /></span>
+              </Transition>
             </div>
             <div class="shrink-0 flex items-center gap-3" :class="!short && 'mt-3'">
               <div class="min-w-0 flex-1">
                 <!-- 길면 뉴스 티커처럼 옆으로 흐른다(마퀴) -->
-                <a v-if="track" :href="track.url" target="_blank" rel="noopener" class="block no-underline font-round font-semibold leading-tight text-on-surface" :class="short ? 'text-xl' : 'text-2xl'"><MarqueeText :text="songTitle(track.title)" loop /></a>
-                <div v-else class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
-                <MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop />
+                <Transition name="fade" mode="out-in">
+                  <a v-if="track" :key="track.url" :href="track.url" target="_blank" rel="noopener" class="block no-underline font-round font-semibold leading-tight text-on-surface" :class="short ? 'text-xl' : 'text-2xl'"><MarqueeText :text="songTitle(track.title)" loop /></a>
+                  <div v-else key="none" class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
+                </Transition>
+                <Transition name="fade" mode="out-in">
+                  <MarqueeText :key="track?.url ?? 'none'" class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop />
+                </Transition>
               </div>
             </div>
 
@@ -151,10 +163,10 @@
                  (바깥을 누르거나 3초 손대지 않으면 접힌다). 숫자는 핸들을 잡는 동안 말풍선(태블릿, PC 볼륨 막대와 같다) -->
             <div ref="volRowEl" class="shrink-0 flex items-center gap-2" :class="short ? 'mt-1' : 'mt-5'">
               <div class="relative flex-1 min-w-0 h-10 flex items-center gap-3">
-                <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity duration-200" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
+                <span class="min-w-0 flex items-center gap-1.5 text-xs transition-opacity effects" :class="[player.sameVoice ? 'text-primary' : 'text-on-surface-variant', volumeExpand && !volumeInline && 'opacity-0 pointer-events-none']"
                   ><Icon :name="voiceLine.icon" :size="16" :fill="player.sameVoice" class="shrink-0" /><span class="truncate">{{ voiceLine.text }}</span></span
                 >
-                <div class="flex items-center transition-[clip-path,opacity] duration-300 ease-smooth" :class="volumeInline ? 'ml-auto w-28 shrink-0' : ['absolute inset-y-0 left-1 right-0', volumeExpand ? '[clip-path:inset(-3rem_-1rem_-1rem_-1rem)]' : '[clip-path:inset(-3rem_-1rem_-1rem_100%)] opacity-0 pointer-events-none']">
+                <div class="flex items-center [transition:clip-path_390ms_var(--ease-spring-fast),opacity_250ms_var(--ease-effects)]" :class="volumeInline ? 'ml-auto w-28 shrink-0' : ['absolute inset-y-0 left-1 right-0', volumeExpand ? '[clip-path:inset(-3rem_-1rem_-1rem_-1rem)]' : '[clip-path:inset(-3rem_-1rem_-1rem_100%)] opacity-0 pointer-events-none']">
                   <VolumeSlider
                     class="w-full"
                     :level="volumeShown"
@@ -181,7 +193,7 @@
             <div v-if="track && !player.canControl && player.sameVoice" class="shrink-0 mt-2 text-sm text-on-surface-variant flex items-center gap-2"><Icon name="lock" :size="16" />{{ noticeText("must-dj").body }}</div>
           </div>
         </div>
-        <VoiceLockOverlay v-if="locked" />
+        <Transition name="fade"><VoiceLockOverlay v-if="locked" /></Transition>
       </div>
 
       <ArtLightbox v-model:open="artOpen" :track="track" :content="artContent" />
@@ -211,15 +223,17 @@
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
             <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
             <!-- 아래에 공간이 없으면(휴대폰 대기열 시트가 접혀 화면 아래에 있을 때) 위로 연다 -->
-            <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2' : 'top-full mt-2', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
-              <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
-              <div class="grid grid-cols-2 gap-1">
-                <button v-for="g in genres" :key="g.id" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.id)">
-                  <Twemoji v-if="g.emoji" :char="g.emoji" :size="20" class="shrink-0" />
-                  <span class="truncate">{{ g.label }}</span>
-                </button>
+            <Transition name="menu">
+              <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
+                <div class="px-3 pt-2 pb-2 text-xs font-semibold text-on-surface-variant">{{ T.whichGenre }}</div>
+                <div class="grid grid-cols-2 gap-1">
+                  <button v-for="g in genres" :key="g.id" type="button" class="tap state-layer h-10 px-3 rounded-2xl flex items-center gap-2 text-sm font-medium text-left cursor-pointer" @click="pickGenre(g.id)">
+                    <Twemoji v-if="g.emoji" :char="g.emoji" :size="20" class="shrink-0" />
+                    <span class="truncate">{{ g.label }}</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            </Transition>
           </div>
         </template>
 
@@ -227,30 +241,32 @@
 
         <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다.
              받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 스페이서로 높이만(composables/row-window). 행 높이 64px 고정, 드래그도 그 높이로 순번을 계산한다 -->
-        <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
-          <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
-            <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
-              <span class="text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
-              <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
-              <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
-                <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
-                  <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
-                  <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
-                  <span v-if="lengthOf(item)" class="nums shrink-0">· {{ lengthOf(item) }}</span>
+        <Transition name="fade" mode="out-in">
+          <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
+            <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
+              <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
+                <span class="text-outline group-hover/item:text-on-surface-variant transition-colors touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+                <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
+                <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
+                  <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
+                    <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
+                    <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
+                    <span v-if="lengthOf(item)" class="nums shrink-0">· {{ lengthOf(item) }}</span>
+                  </div>
                 </div>
+                <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
+                <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
               </div>
-              <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
-              <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors duration-150 cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
+            </div>
+            <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
+              <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
+              {{ T.moreSongs(player.queueTotal - player.queue.length) }}
             </div>
           </div>
-          <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
-            <Icon name="progress_activity" :size="20" class="animate-spin text-primary" />
-            {{ T.moreSongs(player.queueTotal - player.queue.length) }}
-          </div>
-        </div>
-        <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">{{ T.queueEmpty }}</div>
+          <div v-else class="flex-1 flex items-center justify-center py-8 text-sm text-on-surface-variant">{{ T.queueEmpty }}</div>
+        </Transition>
       </component>
     </div>
 
@@ -318,7 +334,7 @@ const P = text.player;
 const T = text.server;
 
 // 볼륨 버튼(좁은 창, 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트, 정지 PlayerActions 와 같은 모양)
-const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer transition-[border-radius] spring-fast active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
+const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer motion-toggle active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
 const router = useRouter();

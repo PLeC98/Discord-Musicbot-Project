@@ -3,7 +3,7 @@
   <button ref="triggerEl" type="button" :class="buttonClass" aria-haspopup="menu" :aria-expanded="open" :aria-label="label" v-tooltip="open ? null : label" @click="toggle"><Icon name="more_vert" :size="20" /></button>
   <Teleport to="body">
     <div v-if="open" class="fixed inset-0 z-270" @click="open = false" @contextmenu="open = false"></div>
-    <Transition enter-from-class="opacity-0 scale-90" leave-to-class="opacity-0 scale-95" enter-active-class="transition-[opacity,scale] spring-fast" leave-active-class="transition-[opacity,scale] duration-150">
+    <Transition name="menu">
       <div v-if="open" role="menu" :style="pos" class="fixed z-280 min-w-48 p-2 rounded-3xl pane-menu" :class="placeAbove ? 'origin-bottom-right' : 'origin-top-right'">
         <button v-for="one in items" :key="one.label" type="button" role="menuitem" class="state-layer w-full flex items-center gap-3 h-10 px-3 rounded-full cursor-pointer text-body font-medium text-left" :class="one.danger ? 'text-error' : 'text-on-surface'" @click="pick(one)"><Icon :name="one.icon" :size="20" />{{ one.label }}</button>
       </div>

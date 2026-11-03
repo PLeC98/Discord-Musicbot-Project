@@ -244,6 +244,12 @@
   --ease-spring: linear(0, 0.061, 0.191, 0.345, 0.498, 0.634, 0.746, 0.834, 0.899, 0.947, 0.978, 0.997, 1.008, 1.013, 1.014, 1.014, 1.012, 1.01, 1.008, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
   --ease-effects: linear(0, 0.071, 0.212, 0.365, 0.506, 0.625, 0.72, 0.793, 0.849, 0.891, 0.922, 0.944, 0.959, 0.971, 0.98, 0.986, 0.99, 0.993, 0.995, 0.997, 0.998, 0.998, 0.999, 0.999, 1);
   --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
+  /* M3 emphasized 가속(나가는 시트, 서랍), 감속 */
+  --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* 길이, 곡선을 적지 않은 transition-* 는 effects 와 같게 */
+  --default-transition-duration: 250ms;
+  --default-transition-timing-function: var(--ease-effects);
 }
 
 /* 스프링 = 곡선 + 그 곡선이 멎는 시간 */
@@ -271,13 +277,46 @@
   transition-duration: 350ms;
 }
 
+/* 속성마다 움직임 종류(공간, 효과)가 다른 넘김. 한 요소에 transition-* 와 같이 쓰지 않는다 */
+/* 일반 버튼(BaseButton): 누르는 동안의 모서리, 색은 효과(튕기지 않게), 크기(0.97배)만 공간 */
+@utility motion-button {
+  transition:
+    border-radius 250ms var(--ease-effects),
+    scale 390ms var(--ease-spring-fast),
+    background-color 250ms var(--ease-effects),
+    color 250ms var(--ease-effects),
+    border-color 250ms var(--ease-effects);
+}
+/* 선택이 있는 버튼(이어 붙은 버튼 그룹): 누름과 선택의 모서리 모두 공간, 색은 효과 */
+@utility motion-toggle {
+  transition:
+    border-radius 390ms var(--ease-spring-fast),
+    background-color 250ms var(--ease-effects),
+    color 250ms var(--ease-effects);
+}
+/* 크기로 누름을 보이는 버튼(재생, 재생 바 조작): 크기는 공간, 색은 짧은 효과 */
+@utility motion-press {
+  transition:
+    scale 390ms var(--ease-spring-fast),
+    background-color 160ms var(--ease-effects),
+    color 160ms var(--ease-effects);
+}
+/* 한 요소가 다른 역할로 바뀌는 모양(서버 아이콘의 동그라미와 둥근 네모): 모서리, 색 모두 효과. 스프링이면 줄어드는 쪽에서 넘쳤다 돌아온다 */
+@utility motion-shape {
+  transition:
+    border-radius 250ms var(--ease-effects),
+    background-color 250ms var(--ease-effects),
+    color 250ms var(--ease-effects);
+}
+
 /* 둥근 글자. Google Sans Flex 의 ROND 축. 제목 · 숫자에 */
 @utility font-round {
   font-variation-settings: "ROND" 100;
 }
 
 /* ── 면(pane) ── M3 의 색조 면(tonal surface)과 그림자 높이(elevation). 반사광 · 빛 테두리 · 굴절은 두지 않는다.
-   pane: 창 · 카드(높이 1, 글이 읽히게 탁하게) / pane-float: 떠 있는 것(저장 띠, 높이 3) / pane-menu: 메뉴 · 대화상자 · 알림(높이 2, 불투명)
+   pane: 창, 카드(높이 1, 글이 읽히게 탁하게) / pane-float: 떠 있는 것(저장 띠, 높이 3) / pane-menu: 메뉴, 드롭다운 목록, 알림, 토스트(높이 2, 불투명).
+   대화상자 판은 pane-menu 를 쓰지 않는다(surface-container-high, 그림자 없음)
    pane 은 뒤를 흐리지 않는다. 뒤가 이미 흐린 배경화면이라 다시 흐려도 보이는 차이가 없고(화면 평균 1/255 미만),
    색이 옮겨 가는 동안 매 프레임 면마다 뒤를 다시 흐려 프레임을 놓친다. 내용 위에 뜨는 pane-float 만 흐린다 */
 @utility pane {
@@ -507,11 +546,15 @@ body {
   }
 }
 
-/* 움직임을 줄여 달라고 한 사람에게는 스프링 · 물결을 멈춘다 */
+/* 움직임을 줄여 달라고 한 사람에게는 스프링, 물결, 매끄러운 스크롤을 멈춘다.
+   data-keep-motion 은 남은 시간을 보이는 움직임(토스트 시간 띠, 더 넣기 고리)이다. 줄이면 남은 시간이 보이지 않아 그대로 둔다 */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  ::before,
-  ::after {
+  html {
+    scroll-behavior: auto;
+  }
+  *:not([data-keep-motion]),
+  :not([data-keep-motion])::before,
+  :not([data-keep-motion])::after {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
@@ -564,7 +607,6 @@ body {
   font-family: var(--font-emoji);
 }
 
-/* 앨범아트 크게 보기가 튀어나오는 움직임 */
 /* 운영자 패널 탭을 옮기면 내용이 레일 순서 방향에서 미끄러져 들어온다. 끝난 뒤에는 transform 을 남기지 않는다(안의 fixed 가 갇히지 않게) */
 [data-dir="down"] > .admin-page {
   animation: page-in-down 460ms var(--ease-spring) backwards;
@@ -584,10 +626,15 @@ body {
     transform: translateY(-2rem);
   }
 }
+/* 앨범아트 크게 보기가 튀어나오는 움직임. 크기는 spring-fast, 투명도는 fade-in(effects)으로 따로 건다 */
 @keyframes art-in {
   from {
+    scale: 0.85;
+  }
+}
+@keyframes fade-in {
+  from {
     opacity: 0;
-    transform: scale(0.85);
   }
 }
 /* 체크를 그어 그린다(경로 길이를 1 로 둔 SVG 선, 자동 저장 표시) */
@@ -596,28 +643,80 @@ body {
     stroke-dashoffset: 1;
   }
 }
-/* 가운데 팝업(<Transition name="fdialog">, 겉 안에 .fdialog-scrim · .fdialog-panel): 막은 서서히, 창은 조금 작았다가 커지며(M3 대화상자). 필터 창 · 날짜 선택 */
-.fdialog-enter-active > .fdialog-scrim,
-.fdialog-enter-active > .fdialog-panel {
-  transition:
-    opacity 250ms cubic-bezier(0.05, 0.7, 0.1, 1),
-    scale 250ms cubic-bezier(0.05, 0.7, 0.1, 1);
+/* 대화상자(DialogTransition, <Transition name="dialog">): 겉(막, 또는 막과 판을 담은 것)은 투명도로 나타나고(effects) 사라진다(effects-fast).
+   판(.dialog-panel, 겉의 바로 아래)은 들어올 때만 커진다(spring-fast). 판이 겉보다 늦게 끝나 길이는 DIALOG_MS 로 준다 */
+.dialog-enter-active {
+  transition: opacity 250ms var(--ease-effects);
 }
-.fdialog-leave-active > .fdialog-scrim,
-.fdialog-leave-active > .fdialog-panel {
-  transition:
-    opacity 150ms cubic-bezier(0.3, 0, 0.8, 0.15),
-    scale 150ms cubic-bezier(0.3, 0, 0.8, 0.15);
+.dialog-leave-active {
+  transition: opacity 160ms var(--ease-effects);
 }
-.fdialog-enter-from > .fdialog-scrim,
-.fdialog-leave-to > .fdialog-scrim,
-.fdialog-enter-from > .fdialog-panel,
-.fdialog-leave-to > .fdialog-panel {
+.dialog-enter-from,
+.dialog-leave-to {
   opacity: 0;
 }
-.fdialog-enter-from > .fdialog-panel,
-.fdialog-leave-to > .fdialog-panel {
-  scale: 0.95;
+.dialog-enter-active > .dialog-panel {
+  transition: scale 390ms var(--ease-spring-fast);
+}
+.dialog-enter-from > .dialog-panel {
+  scale: 0.85;
+}
+
+/* 메뉴, 드롭다운, 피커 판(<Transition name="menu">): 들어올 때 투명도(effects)와 크기 0.9 → 1(spring-fast), 나갈 때 투명도만(effects-fast).
+   커지는 기준점은 판의 origin-* 가 정한다. 겉이 display: contents 면 바로 아래 .menu-panel 이 움직인다 */
+.menu-enter-active,
+.menu-enter-active > .menu-panel {
+  transition:
+    opacity 250ms var(--ease-effects),
+    scale 390ms var(--ease-spring-fast);
+}
+.menu-leave-active,
+.menu-leave-active > .menu-panel {
+  transition: opacity 160ms var(--ease-effects);
+}
+.menu-enter-from,
+.menu-enter-from > .menu-panel {
+  opacity: 0;
+  scale: 0.9;
+}
+.menu-leave-to,
+.menu-leave-to > .menu-panel {
+  opacity: 0;
+}
+
+/* 나타나고 사라짐, 같은 자리의 내용 바꾸기(<Transition name="fade">, 바꾸기는 mode="out-in"): 투명도만, 나타날 때 effects, 사라질 때 effects-fast */
+.fade-enter-active {
+  transition: opacity 250ms var(--ease-effects);
+}
+.fade-leave-active {
+  transition: opacity 160ms var(--ease-effects);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 위에서 내려오고 오른쪽으로 빠지는 띠(<TransitionGroup name="toast">, 토스트, 세션 띠). 드래그하던 인라인 값보다 나가는 값이 이긴다 */
+.toast-enter-active {
+  transition:
+    opacity 250ms var(--ease-effects),
+    translate 390ms var(--ease-spring-fast);
+}
+.toast-enter-from {
+  opacity: 0;
+  translate: 0 -100%;
+}
+.toast-leave-active {
+  transition:
+    opacity 160ms var(--ease-effects),
+    translate 200ms var(--ease-accelerate);
+}
+.toast-leave-to {
+  opacity: 0 !important;
+  translate: calc(100% + var(--gap-out)) 0 !important;
+}
+.toast-move {
+  transition: transform 390ms var(--ease-spring-fast);
 }
 
 /* 색이 옮겨 가는 동안(theme/blend)은 넘김 효과를 끈다. 색 역할이 매 프레임 바뀌어 색 넘김이 걸린 요소가 뒤처졌다가 끝에 튄다 */
@@ -679,7 +778,7 @@ body {
   margin-top: calc((var(--track) - var(--thumb-h)) / 2);
   border-radius: 999px;
   background: var(--md-primary);
-  transition: width 200ms var(--ease-spring-fast);
+  transition: width 390ms var(--ease-spring-fast);
 }
 .m3-slider:active::-webkit-slider-thumb {
   width: 2px;
@@ -1071,8 +1170,8 @@ body {
   color: transparent;
   cursor: pointer;
   transition:
-    background-color 150ms,
-    color 150ms;
+    background-color 250ms var(--ease-effects),
+    color 250ms var(--ease-effects);
 }
 .dmd .dmd-spoiler:not(.is-shown) * {
   visibility: hidden;

@@ -16,19 +16,21 @@
       <!-- 필터: 접어 둔다. 켠 것이 있으면 몇 개인지 -->
       <div>
         <button type="button" class="tap inline-flex items-center gap-1 text-sm text-on-surface-variant hover:text-on-surface" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">
-          <Icon name="filter_list" :size="18" />{{ T.filters }}<Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="filtersOpen && 'rotate-180'" /><span v-if="filterCount" class="text-xs text-primary">{{ T.filterActive(filterCount) }}</span>
+          <Icon name="filter_list" :size="18" />{{ T.filters }}<Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="filtersOpen && 'rotate-180'" /><span v-if="filterCount" class="text-xs text-primary">{{ T.filterActive(filterCount) }}</span>
         </button>
-        <div v-if="filtersOpen" class="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
-          <span class="text-xs text-on-surface-variant">{{ T.source }}</span>
-          <div class="flex flex-wrap gap-2">
-            <button v-for="one in AI_LOG_SOURCES" :key="one" type="button" :aria-pressed="query.sources.includes(one)" :class="[FILTER_CHIP, query.sources.includes(one) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleSource(one)">{{ T.sources[one] }}</button>
+        <CollapseTransition>
+          <div v-if="filtersOpen" class="mt-2 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2">
+            <span class="text-xs text-on-surface-variant">{{ T.source }}</span>
+            <div class="flex flex-wrap gap-2">
+              <button v-for="one in AI_LOG_SOURCES" :key="one" type="button" :aria-pressed="query.sources.includes(one)" :class="[FILTER_CHIP, query.sources.includes(one) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleSource(one)">{{ T.sources[one] }}</button>
+            </div>
+            <span class="text-xs text-on-surface-variant">{{ T.result }}</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button v-for="one in RESULTS" :key="one" type="button" :aria-pressed="query.result === one" :class="[FILTER_CHIP, query.result === one ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleResult(one)">{{ T[one] }}</button>
+              <BaseButton v-if="filterCount" variant="ghost" size="sm" class="ml-auto" @click="clearFilters">{{ T.filterClear }}</BaseButton>
+            </div>
           </div>
-          <span class="text-xs text-on-surface-variant">{{ T.result }}</span>
-          <div class="flex flex-wrap items-center gap-2">
-            <button v-for="one in RESULTS" :key="one" type="button" :aria-pressed="query.result === one" :class="[FILTER_CHIP, query.result === one ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleResult(one)">{{ T[one] }}</button>
-            <BaseButton v-if="filterCount" variant="ghost" size="sm" class="ml-auto" @click="clearFilters">{{ T.filterClear }}</BaseButton>
-          </div>
-        </div>
+        </CollapseTransition>
       </div>
 
       <SearchInput v-model="query.q" type="text" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full pl-10!']">
@@ -59,27 +61,29 @@
             <span class="shrink-0 text-xs text-on-surface-variant nums">{{ formatLatency(entry.tookMs) }}</span>
             <span v-if="entry.attempt > 1" class="shrink-0 h-6 px-2 inline-flex items-center rounded-xs bg-tertiary-container text-on-tertiary-container text-xs">{{ T.retry(entry.attempt) }}</span>
             <span class="shrink-0 hidden @md/log:inline-flex h-6 px-2 items-center rounded-xs border border-outline-variant text-xs text-on-surface-variant">{{ T.sources[entry.source] }}</span>
-            <Icon name="expand_more" :size="18" class="shrink-0 text-on-surface-variant transition-transform duration-150" :class="open.has(entry.id) && 'rotate-180'" />
+            <Icon name="expand_more" :size="18" class="shrink-0 text-on-surface-variant transition-transform spring-fast" :class="open.has(entry.id) && 'rotate-180'" />
           </button>
 
           <!-- 펼친 줄: 요약 한 줄과 원문 영역(원문은 펼칠 때 불러온다) -->
-          <div v-if="open.has(entry.id)" class="flex flex-col gap-3 px-3 pt-1 pb-3 bg-surface-container-low/60">
-            <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
-              <span v-for="one in factsOf(entry)" :key="one.label"
-                ><span class="opacity-70">{{ one.label }}:</span> <span class="text-on-surface nums" v-tooltip="one.tip ?? ''">{{ one.value }}</span></span
-              >
-              <span v-if="entry.truncated" class="h-5 px-1.5 inline-flex items-center rounded-xs bg-secondary-container text-on-secondary-container">{{ T.truncated }}</span>
-            </p>
-            <p v-if="details[entry.id] === 'loading'" class="text-xs text-on-surface-variant">{{ T.loading }}</p>
-            <p v-else-if="details[entry.id] === 'error'" class="text-xs text-error">{{ T.detailFailed }}</p>
-            <div v-for="box in boxesOf(entry)" :key="box.title" class="flex flex-col gap-1">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-semibold" :class="box.error ? 'text-error' : 'text-on-surface'">{{ box.title }}</span>
-                <button type="button" :class="[ICON_BTN, 'size-7']" :aria-label="T.copy" v-tooltip="T.copy" @click="copy(box.text)"><Icon name="content_copy" :size="16" /></button>
+          <CollapseTransition>
+            <div v-if="open.has(entry.id)" class="flex flex-col gap-3 px-3 pt-1 pb-3 bg-surface-container-low/60">
+              <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-on-surface-variant">
+                <span v-for="one in factsOf(entry)" :key="one.label"
+                  ><span class="opacity-70">{{ one.label }}:</span> <span class="text-on-surface nums" v-tooltip="one.tip ?? ''">{{ one.value }}</span></span
+                >
+                <span v-if="entry.truncated" class="h-5 px-1.5 inline-flex items-center rounded-xs bg-secondary-container text-on-secondary-container">{{ T.truncated }}</span>
+              </p>
+              <p v-if="details[entry.id] === 'loading'" class="text-xs text-on-surface-variant">{{ T.loading }}</p>
+              <p v-else-if="details[entry.id] === 'error'" class="text-xs text-error">{{ T.detailFailed }}</p>
+              <div v-for="box in boxesOf(entry)" :key="box.title" class="flex flex-col gap-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold" :class="box.error ? 'text-error' : 'text-on-surface'">{{ box.title }}</span>
+                  <button type="button" :class="[ICON_BTN, 'size-7']" :aria-label="T.copy" v-tooltip="T.copy" @click="copy(box.text)"><Icon name="content_copy" :size="16" /></button>
+                </div>
+                <pre :class="[CODE_BOX, box.error && 'text-error']">{{ box.text }}</pre>
               </div>
-              <pre :class="[CODE_BOX, box.error && 'text-error']">{{ box.text }}</pre>
             </div>
-          </div>
+          </CollapseTransition>
         </div>
       </div>
       <BaseButton v-if="more" variant="ghost" class="self-center" :disabled="loading" @click="loadMore()">{{ loading ? T.loading : T.loadMore }}</BaseButton>
@@ -92,6 +96,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useIntersectionObserver } from "@vueuse/core";
+import CollapseTransition from "./CollapseTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";

@@ -35,30 +35,32 @@
         </div>
       </BaseCard>
 
-      <div v-if="showDetail" class="flex flex-col gap-(--gap-in) min-w-0">
-        <ConfigAIModel v-if="view === 'model'" />
+      <Transition name="fade" mode="out-in">
+        <div v-if="showDetail" :key="view ?? undefined" class="flex flex-col gap-(--gap-in) min-w-0">
+          <ConfigAIModel v-if="view === 'model'" />
 
-        <!-- ── 프롬프트: 후보 목록 형식, 판정 프롬프트, 판정 테스트(맨 아래: 프롬프트를 깎으면서 쓴다) ── -->
-        <template v-if="view === 'prompt'">
-          <ConfigAIList />
-          <ConfigAIPrompt />
-          <ConfigAIJudge />
-        </template>
+          <!-- ── 프롬프트: 후보 목록 형식, 판정 프롬프트, 판정 테스트(맨 아래: 프롬프트를 깎으면서 쓴다) ── -->
+          <template v-if="view === 'prompt'">
+            <ConfigAIList />
+            <ConfigAIPrompt />
+            <ConfigAIJudge />
+          </template>
 
-        <!-- ── 리퀘스트 로그, 사용량 통계: 탭이 보일 때만 읽는다(로그는 SSE 연결도 그때만) ── -->
-        <ConfigAILog v-if="view === 'log'" :active="active" />
-        <ConfigAIUsage v-if="view === 'usage'" :active="active" />
+          <!-- ── 리퀘스트 로그, 사용량 통계: 탭이 보일 때만 읽는다(로그는 SSE 연결도 그때만) ── -->
+          <ConfigAILog v-if="view === 'log'" :active="active" />
+          <ConfigAIUsage v-if="view === 'usage'" :active="active" />
 
-        <!-- ── 고급 설정: 요청, 재시도 ── -->
-        <ConfigAIAdvanced v-if="view === 'advanced'" />
-      </div>
+          <!-- ── 고급 설정: 요청, 재시도 ── -->
+          <ConfigAIAdvanced v-if="view === 'advanced'" />
+        </div>
+      </Transition>
     </div>
 
     <Teleport to="body">
       <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다(M3 대화상자, 설정 대화상자와 같은 모양) -->
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+      <DialogTransition>
         <div v-if="paid" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="paid = null">
-          <div role="dialog" aria-modal="true" aria-labelledby="paid-title" class="w-fit min-w-[min(26rem,100%)] max-w-[min(48rem,100%)] rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
+          <div role="dialog" aria-modal="true" aria-labelledby="paid-title" class="w-fit min-w-[min(26rem,100%)] max-w-[min(48rem,100%)] rounded-2xl bg-surface-container-high p-6 dialog-panel">
             <div class="flex items-center gap-3 mb-4">
               <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="paid" :size="20" /></span>
               <h3 id="paid-title" class="flex-1 text-xl font-round font-semibold">{{ TD.title }}</h3>
@@ -79,12 +81,12 @@
             </div>
           </div>
         </div>
-      </Transition>
+      </DialogTransition>
 
       <!-- 요청 미리보기: 나간 것과 온 것을 그대로 본다. 다듬지 않는다 -->
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+      <DialogTransition>
         <div v-if="shown" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="shown = null">
-          <div role="dialog" aria-modal="true" aria-labelledby="preview-title" class="w-[min(56rem,100%)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
+          <div role="dialog" aria-modal="true" aria-labelledby="preview-title" class="w-[min(56rem,100%)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 dialog-panel">
             <div class="flex items-center gap-3 mb-4">
               <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="visibility" :size="20" /></span>
               <h3 id="preview-title" class="flex-1 text-xl font-round font-semibold">{{ TV.title }}</h3>
@@ -102,21 +104,23 @@
                 <pre :class="CODE_BOX">{{ part.text }}</pre>
               </div>
               <div>
-                <BaseButton variant="ghost" size="sm" @click="showRawRequest = !showRawRequest"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRawRequest && 'rotate-180'" />{{ showRawRequest ? TV.rawHide : TV.rawShow }}</BaseButton>
+                <BaseButton variant="ghost" size="sm" @click="showRawRequest = !showRawRequest"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showRawRequest && 'rotate-180'" />{{ showRawRequest ? TV.rawHide : TV.rawShow }}</BaseButton>
               </div>
-              <div v-if="showRawRequest" class="flex flex-col gap-3">
-                <div v-for="box in boxes" :key="box.title" class="flex flex-col gap-1">
-                  <div class="flex items-center gap-2">
-                    <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
-                    <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+              <CollapseTransition>
+                <div v-if="showRawRequest" class="flex flex-col gap-3">
+                  <div v-for="box in boxes" :key="box.title" class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
+                      <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+                    </div>
+                    <pre :class="CODE_BOX">{{ box.text }}</pre>
                   </div>
-                  <pre :class="CODE_BOX">{{ box.text }}</pre>
                 </div>
-              </div>
+              </CollapseTransition>
             </div>
           </div>
         </div>
-      </Transition>
+      </DialogTransition>
     </Teleport>
   </div>
 </template>
@@ -126,6 +130,8 @@ import { ICON_BTN } from "../utils/icon-button.ts";
 import { ref, computed } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRoute, useRouter } from "vue-router";
+import CollapseTransition from "./CollapseTransition.vue";
+import DialogTransition from "./DialogTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";

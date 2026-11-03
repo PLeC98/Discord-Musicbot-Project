@@ -6,7 +6,7 @@
         <h1 class="text-xl md:text-lg font-semibold">{{ T.title }}</h1>
         <span v-if="list?.state === 'ready'" class="text-sm text-on-surface-variant nums">{{ T.count(list.guilds.length) }}</span>
       </div>
-      <button v-if="list?.state !== 'relogin'" type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant cursor-pointer disabled:opacity-50" v-tooltip="T.refresh" :aria-label="T.refresh" :disabled="loading" @click="load(true)">
+      <button v-if="list?.state !== 'relogin'" type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant cursor-pointer disabled:opacity-38" v-tooltip="T.refresh" :aria-label="T.refresh" :disabled="loading" @click="load(true)">
         <Icon name="refresh" :size="22" :class="loading ? 'animate-spin' : ''" />
       </button>
     </header>

@@ -46,17 +46,19 @@
 
       <template v-if="judgeSent">
         <div>
-          <BaseButton variant="ghost" size="sm" @click="showJudgeRaw = !showJudgeRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showJudgeRaw && 'rotate-180'" />{{ showJudgeRaw ? TJ.rawHide : TJ.rawShow }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" @click="showJudgeRaw = !showJudgeRaw"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showJudgeRaw && 'rotate-180'" />{{ showJudgeRaw ? TJ.rawHide : TJ.rawShow }}</BaseButton>
         </div>
-        <div v-if="showJudgeRaw" class="flex flex-col gap-3">
-          <div v-for="box in judgeBoxes" :key="box.title" class="flex flex-col gap-1">
-            <div class="flex items-center gap-2">
-              <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
-              <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+        <CollapseTransition>
+          <div v-if="showJudgeRaw" class="flex flex-col gap-3">
+            <div v-for="box in judgeBoxes" :key="box.title" class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
+                <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+              </div>
+              <pre :class="CODE_BOX">{{ box.text }}</pre>
             </div>
-            <pre :class="CODE_BOX">{{ box.text }}</pre>
           </div>
-        </div>
+        </CollapseTransition>
       </template>
     </div>
   </BaseCard>
@@ -64,6 +66,7 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";

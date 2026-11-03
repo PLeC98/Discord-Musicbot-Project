@@ -4,10 +4,10 @@
        시트 드래그: 핸들, 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
-    <Transition v-if="!isPhone" name="fdialog" :duration="{ enter: 250, leave: 150 }">
+    <DialogTransition v-if="!isPhone">
       <div v-if="open" class="fixed inset-0 z-300 flex items-center justify-center p-4">
-        <div class="fdialog-scrim absolute inset-0 bg-black/50" @click="emit('close')"></div>
-        <section role="dialog" aria-modal="true" :aria-label="title" class="fdialog-panel relative w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-surface-container-high">
+        <div class="absolute inset-0 bg-black/50" @click="emit('close')"></div>
+        <section role="dialog" aria-modal="true" :aria-label="title" class="dialog-panel relative w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-surface-container-high">
           <header class="flex items-center gap-3 px-6 pt-5 pb-3">
             <Icon name="tune" :size="22" class="text-on-surface-variant" />
             <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
@@ -18,9 +18,9 @@
           </div>
         </section>
       </div>
-    </Transition>
-    <!-- 바텀 시트: 뒤는 서서히 어두워지고 시트는 아래에서 미끄러져 올라온다(M3: 올라올 때 감속 400ms, 내려갈 때 가속 200ms) -->
-    <Transition v-else name="sheet" :duration="{ enter: 400, leave: 200 }">
+    </DialogTransition>
+    <!-- 바텀 시트: 뒤는 서서히 어두워지고 시트는 아래에서 미끄러져 올라온다(올라올 때 spring, 내려갈 때 가속 곡선 200ms) -->
+    <Transition v-else name="sheet" :duration="{ enter: 460, leave: 200 }">
       <div v-if="open" class="fixed inset-0 z-300">
         <div class="sheet-scrim absolute inset-0 bg-black/50" :style="{ opacity: scrimOpacity }" @click="emit('close')"></div>
         <section ref="panel" role="dialog" aria-modal="true" :aria-label="title" class="sheet-panel absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="{ 'is-dragging': drag !== null, 'is-settling': settling }" :style="{ '--drag': `${drag ?? 0}px` }">
@@ -45,6 +45,7 @@
 import { computed, ref, watch } from "vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
+import DialogTransition from "./DialogTransition.vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { useMediaQuery } from "@vueuse/core";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
@@ -92,7 +93,7 @@ function release() {
   }
   settling.value = true;
   drag.value = null;
-  window.setTimeout(() => (settling.value = false), 250);
+  window.setTimeout(() => (settling.value = false), 460);
 }
 
 // 핸들, 헤더: 마우스, 손가락 모두
@@ -144,20 +145,20 @@ function touchEnd() {
   translate: 0 var(--drag, 0px);
 }
 .sheet-panel.is-settling {
-  transition: translate 250ms cubic-bezier(0.2, 0, 0, 1);
+  transition: translate 460ms var(--ease-spring);
 }
 /* 오버레이는 서서히, 시트는 미끄러져. 둘이 따로 움직이도록 루트에는 걸지 않는다(시트가 흐려지지 않게). 드래그해서 내린 뒤 닫으면 그 자리에서 마저 내려간다 */
 .sheet-enter-active > .sheet-scrim {
-  transition: opacity 400ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  transition: opacity 250ms var(--ease-effects);
 }
 .sheet-enter-active > section {
-  transition: translate 400ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  transition: translate 460ms var(--ease-spring);
 }
 .sheet-leave-active > .sheet-scrim {
-  transition: opacity 200ms cubic-bezier(0.3, 0, 0.8, 0.15);
+  transition: opacity 160ms var(--ease-effects);
 }
 .sheet-leave-active > section {
-  transition: translate 200ms cubic-bezier(0.3, 0, 0.8, 0.15);
+  transition: translate 200ms var(--ease-accelerate);
 }
 .sheet-enter-from > .sheet-scrim,
 .sheet-leave-to > .sheet-scrim {

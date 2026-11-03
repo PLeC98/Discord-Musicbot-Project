@@ -12,7 +12,7 @@
     <div v-for="(source, i) in list" :key="source._key" class="rounded-(--r-inner) bg-surface-container-high">
       <div class="flex items-center gap-2 p-2">
         <button :class="[ICON_BTN, 'size-8']" v-tooltip="isFolded(sourceFoldId(genreIndex, i)) ? text.common.expand : text.common.collapse" @click="toggleFold(sourceFoldId(genreIndex, i))">
-          <Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }" />
+          <Icon name="expand_more" :size="20" class="transition-transform spring-fast" :class="{ '-rotate-90': isFolded(sourceFoldId(genreIndex, i)) }" />
         </button>
 
         <div class="flex-1 min-w-0">
@@ -27,52 +27,54 @@
         <button :class="[ICON_BTN, 'size-8 hover:text-error']" :aria-label="T.remove" v-tooltip="text.common.remove" @click="remove(i)"><Icon name="delete" :size="20" /></button>
       </div>
 
-      <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="flex flex-col gap-3 px-3 pb-3">
-        <p v-if="spec(source.type)?.hint" class="text-xs text-on-surface-variant">{{ spec(source.type)?.hint }}</p>
-        <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">{{ T.typesLoading }}</p>
-        <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">{{ T.typesFailed }}{{ typesError ? `\n${typesError}` : "" }}</p>
-        <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
-        <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(spec(source.type)?.label ?? String(source.type)) }}</p>
+      <CollapseTransition>
+        <div v-show="!isFolded(sourceFoldId(genreIndex, i))" class="flex flex-col gap-3 px-3 pb-3">
+          <p v-if="spec(source.type)?.hint" class="text-xs text-on-surface-variant">{{ spec(source.type)?.hint }}</p>
+          <p v-if="typesState === 'loading'" class="text-xs text-on-surface-variant">{{ T.typesLoading }}</p>
+          <p v-else-if="typesState === 'failed'" class="text-xs text-(--warn-ink) whitespace-pre-line">{{ T.typesFailed }}{{ typesError ? `\n${typesError}` : "" }}</p>
+          <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
+          <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(spec(source.type)?.label ?? String(source.type)) }}</p>
 
-        <!-- 입력란 너비는 서버가 정한다(width). 짧은 입력란이 한 줄을 다 먹을 이유가 없다 -->
-        <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
-          <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
-            <!-- 1/6 너비 입력란은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
-            <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
-              {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
-            </span>
+          <!-- 입력란 너비는 서버가 정한다(width). 짧은 입력란이 한 줄을 다 먹을 이유가 없다 -->
+          <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
+            <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
+              <!-- 1/6 너비 입력란은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
+              <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
+                {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
+              </span>
 
-            <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? T.listSuggest : T.listPlain" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+              <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? T.listSuggest : T.listPlain" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-            <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+              <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-            <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+              <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-            <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-2">
-              <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
+              <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-2">
+                <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
+              </div>
+
+              <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || text.common.clearValue" @update:model-value="setField(i, field.key, $event || null)" />
+
+              <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
+
+              <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
+
+              <div v-else-if="field.kind === 'url'" class="flex items-center gap-1">
+                <input :value="valueAt(source, field.key) ?? ''" type="text" placeholder="https://…" :class="[FIELD, 'flex-1 min-w-0']" @input="setField(i, field.key, valueOf($event) || null)" />
+                <!-- http(s) 주소일 때만 연다. 그 밖의 값(javascript: 등)은 링크로 만들지 않는다 -->
+                <a :href="linkOf(source, field.key) ?? undefined" target="_blank" rel="noopener noreferrer" :aria-disabled="!linkOf(source, field.key)" :tabindex="linkOf(source, field.key) ? undefined : -1" :class="[ICON_BTN, 'size-10', !linkOf(source, field.key) && 'pointer-events-none opacity-38']" :aria-label="T.openUrl" v-tooltip="T.openUrl"><Icon name="open_in_new" :size="20" /></a>
+              </div>
+
+              <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
             </div>
-
-            <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || text.common.clearValue" @update:model-value="setField(i, field.key, $event || null)" />
-
-            <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
-
-            <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
-
-            <div v-else-if="field.kind === 'url'" class="flex items-center gap-1">
-              <input :value="valueAt(source, field.key) ?? ''" type="text" placeholder="https://…" :class="[FIELD, 'flex-1 min-w-0']" @input="setField(i, field.key, valueOf($event) || null)" />
-              <!-- http(s) 주소일 때만 연다. 그 밖의 값(javascript: 등)은 링크로 만들지 않는다 -->
-              <a :href="linkOf(source, field.key) ?? undefined" target="_blank" rel="noopener noreferrer" :aria-disabled="!linkOf(source, field.key)" :tabindex="linkOf(source, field.key) ? undefined : -1" :class="[ICON_BTN, 'size-10', !linkOf(source, field.key) && 'pointer-events-none opacity-38']" :aria-label="T.openUrl" v-tooltip="T.openUrl"><Icon name="open_in_new" :size="20" /></a>
-            </div>
-
-            <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
           </div>
-        </div>
 
-        <div v-if="deepCount(source.type)">
-          <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? T.deepClose : T.deepOpen(deepCount(source.type)) }}</BaseButton>
+          <div v-if="deepCount(source.type)">
+            <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? T.deepClose : T.deepOpen(deepCount(source.type)) }}</BaseButton>
+          </div>
+          <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">{{ T.window(depthOf(source)) }}</p>
         </div>
-        <p v-if="spec(source.type)?.window" class="text-xs text-on-surface-variant">{{ T.window(depthOf(source)) }}</p>
-      </div>
+      </CollapseTransition>
     </div>
 
     <!-- 출처 추가: 종류를 선택하고 + (아이콘 버튼 S, 색조 면) -->
@@ -90,6 +92,7 @@
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { ref, computed, watch } from "vue";
 import { windowDepth } from "../../../src/rules/window-depth.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import { FIELD } from "../utils/field.ts";

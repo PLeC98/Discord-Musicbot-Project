@@ -31,12 +31,17 @@
     </div>
 
     <Teleport to="body">
-      <div v-if="open && term.trim() && hits.length" ref="panel" :class="CHIP_PANEL" :style="style">
-        <button v-for="(opt, i) in hits" :key="opt.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @click="take(opt)">
-          <span class="truncate">{{ opt.label }}</span>
-        </button>
-      </div>
-      <p v-else-if="open && term.trim()" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.common.noMatch }}</p>
+      <!-- 판 하나가 후보와 없음을 바꿔 보인다(입력할 때마다 판이 다시 열리지 않게) -->
+      <Transition name="menu">
+        <div v-if="open && term.trim()" ref="panel" :class="hits.length ? CHIP_PANEL : CHIP_PANEL_NOTE" :style="style">
+          <template v-if="hits.length">
+            <button v-for="(opt, i) in hits" :key="opt.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @click="take(opt)">
+              <span class="truncate">{{ opt.label }}</span>
+            </button>
+          </template>
+          <template v-else>{{ text.common.noMatch }}</template>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

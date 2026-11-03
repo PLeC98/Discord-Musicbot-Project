@@ -11,7 +11,7 @@
            체크는 글꼴 기호가 아니라 SVG 선이라 왼쪽 아래에서 오른쪽 위로 그어진다(check-draw, style.css). 느낌표는 작았다가 커지며 들어온다 -->
       <Transition mode="out-in" type="transition" :enter-from-class="state === 'done' ? '' : 'opacity-0 scale-50'" leave-to-class="opacity-0 scale-50" enter-active-class="transition-[opacity,scale] duration-200 ease-out" leave-active-class="transition-[opacity,scale] duration-150 ease-in">
         <svg v-if="state === 'done'" key="done" :width="ICON_SIZE" :height="ICON_SIZE" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M5 12.5 9.5 17 19 7.5" pathLength="1" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" class="animate-[check-draw_320ms_cubic-bezier(0.2,0,0,1)_both]" />
+          <path d="M5 12.5 9.5 17 19 7.5" pathLength="1" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1" class="animate-[check-draw_320ms_var(--ease-smooth)_both]" />
         </svg>
         <Icon v-else :key="ICON[state]" :name="ICON[state]" :size="ICON_SIZE" :weight="600" :class="state === 'saving' && 'animate-[spin_1.4s_linear_infinite]'" />
       </Transition>

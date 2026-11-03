@@ -2,9 +2,10 @@
   <!-- 이미지에서 쓸 영역을 선택하는 대화상자(파비콘의 이미지 편집하기). 틀은 aspect(가로 ÷ 세로)를 지킨다.
        "적용하기"를 누르면 선택한 영역을 원본 해상도로(긴 변 maxSide 까지) 잘라 png 로 넘긴다 -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
-        <div role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-xl flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
+        <!-- 편집 창은 보는 창을 넓게 쓰려고 여백을 대화상자(24px)보다 좁은 20px 로 둔다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+        <div role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-xl flex flex-col gap-3 dialog-panel">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
           <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
@@ -42,13 +43,14 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";

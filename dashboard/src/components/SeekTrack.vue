@@ -12,7 +12,7 @@
     </span>
     <span v-if="highlight !== null" v-tooltip="T.highlight" class="absolute top-1/2 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full" :style="{ left: `${highlight}%`, height: `${thick * 3}px`, backgroundColor: 'var(--category-highlight-color)' }"></span>
     <span v-if="handle" class="absolute left-0 top-1/2 pointer-events-none" :style="{ transform: `translate(calc(${shown / 100} * 100cqw - 50%), -50%)` }">
-      <span class="block rounded-full bg-primary transition-[opacity,width] duration-150 pointer-coarse:opacity-100" :class="dragging ? 'w-0.5 opacity-100' : 'w-1 opacity-0 group-hover/seek:opacity-100'" :style="{ height: `${thick * 3}px` }"></span>
+      <span class="block rounded-full bg-primary [transition:opacity_160ms_var(--ease-effects),width_390ms_var(--ease-spring-fast)] pointer-coarse:opacity-100" :class="dragging ? 'w-0.5 opacity-100' : 'w-1 opacity-0 group-hover/seek:opacity-100'" :style="{ height: `${thick * 3}px` }"></span>
     </span>
   </div>
 </template>

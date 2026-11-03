@@ -14,7 +14,7 @@
       <!-- 왼쪽: 밝기(어두운, 밝은, 시스템)를 작업 공간 알약 모양으로. 선택한 것은 긴 알약(안에 아이콘), 나머지는 점. 로그인 전에도 바꾸고 저장해 대시보드도 따른다 -->
       <div :class="[ISLAND, 'justify-self-start px-1.5 gap-0']" role="radiogroup" :aria-label="text.shell.brightness">
         <button v-for="m in MODE_PILLS" :key="m.mode" type="button" role="radio" :aria-checked="mode === m.mode" :aria-label="m.label" v-tooltip="m.label" class="group/ws h-9 px-1 flex items-center cursor-pointer" @click="setMode(m.mode)">
-          <span class="h-4 rounded-full flex items-center justify-center transition-[width,background-color] duration-300 spring" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
+          <span class="h-4 rounded-full flex items-center justify-center [transition:width_460ms_var(--ease-spring),height_460ms_var(--ease-spring),background-color_250ms_var(--ease-effects)]" :class="mode === m.mode ? 'w-8 bg-primary text-on-primary' : 'w-2.5 h-2.5! bg-on-surface/25 group-hover/ws:bg-on-surface/50'">
             <Icon v-if="mode === m.mode" :name="m.icon" :size="12" fill />
           </span>
         </button>

@@ -36,6 +36,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { scrollMotion } from "../utils/motion.ts";
 
 /** count: 값의 수(0 ~ count-1, 시 24, 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
 const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; step?: number; big?: boolean }>(), { step: 1, big: false });
@@ -64,7 +65,7 @@ function show(value: number, smooth = false) {
   if (now !== mid) el.scrollTop = topOf((now = mid));
   let diff = (((value - now) % c) + c) % c;
   if (diff > c / 2) diff -= c;
-  el.scrollTo({ top: topOf(now + diff), behavior: "smooth" });
+  el.scrollTo({ top: topOf(now + diff), behavior: scrollMotion() });
 }
 onMounted(() => show(props.modelValue));
 // 줄 높이가 바뀌면(화면을 돌리면) 다시 그린 뒤 같은 값으로 맞춘다
@@ -116,7 +117,7 @@ function onWheel(e: WheelEvent) {
 function clickRow(i: number) {
   if (moved) return;
   if (i === rowNow()) return startTyping();
-  list.value?.scrollTo({ top: topOf(i), behavior: "smooth" });
+  list.value?.scrollTo({ top: topOf(i), behavior: scrollMotion() });
 }
 
 // 마우스로 드래그(손가락, 휠은 브라우저 스크롤이 한다)
@@ -140,7 +141,7 @@ function up() {
   if (!dragging || !list.value) return;
   dragging = false;
   list.value.style.scrollSnapType = "";
-  list.value.scrollTo({ top: topOf(rowNow()), behavior: "smooth" });
+  list.value.scrollTo({ top: topOf(rowNow()), behavior: scrollMotion() });
 }
 
 // 직접 입력

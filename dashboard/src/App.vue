@@ -25,11 +25,11 @@
            나갈 때 가속(emphasized accelerate) 짧게. 뒤 막은 효과 스프링으로 넘치지 않게. 드래그하는 동안은 손가락을 따라오고 움직임을 끈다.
            휴대폰에서는 늘 붙여 두고 화면 밖으로 밀어 둔다(닫힌 동안은 inert). 사이드 드로어 컴포넌트 자체의 폭 움직임과 섞이지 않게 바깥 상자가 움직인다 -->
       <template v-if="isPhone">
-        <div class="fixed inset-0 z-250 bg-black/40" :class="[drawerDrag === null && (drawerOpen ? 'transition-opacity duration-300 ease-effects' : 'transition-opacity duration-200 ease-in'), drawerShown === 0 && 'pointer-events-none']" :style="{ opacity: drawerShown }" @click="drawerOpen = false"></div>
+        <div class="fixed inset-0 z-250 bg-black/40" :class="[drawerDrag === null && (drawerOpen ? 'transition-opacity effects' : 'transition-opacity effects-fast'), drawerShown === 0 && 'pointer-events-none']" :style="{ opacity: drawerShown }" @click="drawerOpen = false"></div>
         <div
           ref="drawerEl"
           class="fixed inset-y-0 left-0 z-260 w-72 max-w-[85vw] bg-surface-container-low [touch-action:pan-y_pinch-zoom] **:[touch-action:pan-y_pinch-zoom]"
-          :class="[drawerDrag === null && (drawerOpen ? 'transition-[translate] duration-500 ease-spring' : 'transition-[translate] duration-200 ease-[cubic-bezier(0.3,0,0.8,0.15)]'), drawerShown > 0 && 'shadow-[-2rem_0_0_0_var(--md-surface-container-low),0_8px_24px_rgb(0_0_0/0.25)]']"
+          :class="[drawerDrag === null && (drawerOpen ? 'transition-[translate] spring' : 'transition-[translate] duration-200 ease-accelerate'), drawerShown > 0 && 'shadow-[-2rem_0_0_0_var(--md-surface-container-low),0_8px_24px_rgb(0_0_0/0.25)]']"
           :style="{ translate: `${(drawerShown - 1) * 100}% 0` }"
           :inert="!drawerOpen && drawerDrag === null"
         >

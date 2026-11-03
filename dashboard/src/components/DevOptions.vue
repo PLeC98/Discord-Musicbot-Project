@@ -35,7 +35,7 @@ const switchingTier = ref(false);
 const TIER_ROWS: { id: Tier | null; label: string; desc: string }[] = [{ id: null, ...T.viewAs.none }, ...VIEW_AS_TIERS];
 
 // 라디오 항목(선택한 항목은 목록, 상세의 선택한 항목과 같은 색)
-const tierRow = "state-layer w-full flex items-start gap-3 text-left rounded-(--r-inner) px-3 py-2.5 text-on-surface cursor-pointer transition-[background-color,border-radius] duration-150 disabled:cursor-not-allowed disabled:opacity-38";
+const tierRow = "state-layer w-full flex items-start gap-3 text-left rounded-(--r-inner) px-3 py-2.5 text-on-surface cursor-pointer transition-[background-color,border-radius] effects disabled:cursor-not-allowed disabled:opacity-38";
 
 async function pickTier(tier: Tier | null) {
   if (switchingTier.value || user.viewAs === tier) return;

@@ -36,17 +36,22 @@
     </div>
 
     <Teleport to="body">
-      <!-- mousedown.prevent: 누르는 순간 입력란이 blur 되면 입력하던 말이 먼저 칩이 된다 -->
-      <div v-if="suggest && open && hits.length && state === 'done'" ref="panel" :class="CHIP_PANEL" :style="style">
-        <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
-          <span class="truncate">{{ one.value }}</span>
-          <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
-        </button>
-      </div>
-      <!-- 후보 조회가 느릴 때가 있다. 요청 중임을 보여야 기다린다 -->
-      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</p>
-      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</p>
-      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.fields.suggestNone }}</p>
+      <!-- 판 하나가 후보, 조회 중, 실패, 없음을 바꿔 보인다(입력할 때마다 판이 다시 열리지 않게).
+           mousedown.prevent: 누르는 순간 입력란이 blur 되면 입력하던 말이 먼저 칩이 된다 -->
+      <Transition name="menu">
+        <div v-if="suggest && open && state !== 'idle'" ref="panel" :class="state === 'done' && hits.length ? CHIP_PANEL : [CHIP_PANEL_NOTE, state === 'loading' ? 'flex items-center gap-2' : 'whitespace-pre-line']" :style="style">
+          <template v-if="state === 'done' && hits.length">
+            <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
+              <span class="truncate">{{ one.value }}</span>
+              <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
+            </button>
+          </template>
+          <!-- 후보 조회가 느릴 때가 있다. 요청 중임을 보여야 기다린다 -->
+          <template v-else-if="state === 'loading'"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</template>
+          <template v-else-if="state === 'failed'">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</template>
+          <template v-else>{{ text.fields.suggestNone }}</template>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

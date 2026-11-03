@@ -64,12 +64,14 @@
 
         <div v-if="models.length || hideModels.length">
           <BaseButton variant="ghost" size="sm" @click="showHide = !showHide"
-            ><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showHide && 'rotate-180'" />{{ TM.hide }}<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
+            ><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showHide && 'rotate-180'" />{{ TM.hide }}<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
           >
-          <div v-if="showHide" class="mt-2 flex flex-col gap-1">
-            <p class="text-xs text-on-surface-variant">{{ TM.hideHelpBefore }}<code class="font-mono">*</code>{{ TM.hideHelpAfter }}</p>
-            <ChipInput v-model="hideModels" lowercase :placeholder="TM.hidePlaceholder" />
-          </div>
+          <CollapseTransition>
+            <div v-if="showHide" class="mt-2 flex flex-col gap-1">
+              <p class="text-xs text-on-surface-variant">{{ TM.hideHelpBefore }}<code class="font-mono">*</code>{{ TM.hideHelpAfter }}</p>
+              <ChipInput v-model="hideModels" lowercase :placeholder="TM.hidePlaceholder" />
+            </div>
+          </CollapseTransition>
         </div>
       </template>
     </div>
@@ -90,9 +92,11 @@
         >
         <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
         <div v-if="tested.raw && tested.raw !== tested.body">
-          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
         </div>
-        <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+        <CollapseTransition>
+          <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+        </CollapseTransition>
       </template>
     </div>
   </BaseCard>
@@ -146,6 +150,7 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";

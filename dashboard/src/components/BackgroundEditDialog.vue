@@ -5,9 +5,10 @@
        예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
        최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
   <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
+    <DialogTransition>
       <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1">
-        <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
+        <!-- 편집 창은 보는 창을 넓게 쓰려고 여백을 대화상자(24px)보다 좁은 20px 로 둔다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+        <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 dialog-panel">
           <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
           <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
@@ -57,13 +58,14 @@
           </div>
         </div>
       </div>
-    </Transition>
+    </DialogTransition>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import DialogTransition from "./DialogTransition.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";

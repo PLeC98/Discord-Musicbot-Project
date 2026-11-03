@@ -5,7 +5,7 @@
     <!-- 핸들(폭 4px) 가운데에 맞춘다 -->
     <span
       v-if="bubble && !disabled"
-      class="pointer-events-none absolute bottom-full mb-1 h-6 min-w-8 px-2 -translate-x-1/2 rounded-full bg-inverse-surface text-inverse-on-surface text-xs font-semibold nums flex items-center justify-center origin-bottom transition-[opacity,scale] duration-150 group-hover/vol:opacity-100 group-hover/vol:scale-100 peer-active:opacity-100 peer-active:scale-100 peer-focus-visible:opacity-100 peer-focus-visible:scale-100"
+      class="pointer-events-none absolute bottom-full mb-1 h-6 min-w-8 px-2 -translate-x-1/2 rounded-full bg-inverse-surface text-inverse-on-surface text-xs font-semibold nums flex items-center justify-center origin-bottom [transition:opacity_160ms_var(--ease-effects),scale_390ms_var(--ease-spring-fast)] group-hover/vol:opacity-100 group-hover/vol:scale-100 peer-active:opacity-100 peer-active:scale-100 peer-focus-visible:opacity-100 peer-focus-visible:scale-100"
       :class="dragging ? 'opacity-100 scale-100' : 'opacity-0 scale-75'"
       :style="{ left: `calc(2px + (100% - 4px) * ${level / VOLUME_MAX})` }"
       aria-hidden="true"
