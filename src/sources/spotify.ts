@@ -69,11 +69,6 @@ const BUNDLE_TIMEOUT_MS = 30000;
 const CLIENT_VERSION = "1.2.80.289.gd6b01cc3";
 // secret, 해시는 코드에 두지 않는다. 늘 번들에서 추출하고 DB 에 남긴다. 낡은 값을 코드에 두면 추출 실패를 가린다
 const STATE_TTL_MS = 12 * 60 * 60 * 1000;
-// 익명 토큰은 만료 전 이만큼 남았을 때부터 다음 것을 뒤에서 받는다(쓰는 쪽이 받기를 기다리지 않게). 이보다 적게 남은 것은 쓰지 않는다
-const TOKEN_RENEW_MS = 5 * 60_000;
-const TOKEN_MARGIN_MS = 60_000;
-// 미리 받기에 실패하면 이만큼은 다시 하지 않는다(만료 전 몇 분 동안 요청마다 받지 않게)
-const TOKEN_RENEW_RETRY_MS = 60_000;
 // 추출에 실패하면 이만큼은 다시 추출하지 않고 저장값을 쓴다. 스포티파이 쪽이 고장 났을 때 요청마다 번들(수 MB)을 다운로드하지 않게
 const EXTRACT_RETRY_MS = 10 * 60 * 1000;
 // 번들에서 해시를 추출하는 쿼리
@@ -406,7 +401,8 @@ const graphql = {
 
   _minting: null as Promise<string> | null,
   _tokenLoaded: false,
-  _renewFailedAt: 0,
+  // 만료 뒤 다시 받았는데 쥐고 있던 것과 같은 토큰이 왔다(봇 시계가 빠르거나 스포티파이가 아직 그것을 준다). 그 토큰은 401 이 날 때까지 쓴다
+  _sameAgain: null as string | null,
 
   // 쥐고 있는 토큰. 처음 한 번은 저장해 둔 것을 읽는다(다시 시작해도 만료 전이면 그대로 쓴다)
   _heldToken(): Token | null {
@@ -417,18 +413,11 @@ const graphql = {
     return this._anonToken;
   },
 
-  // 만료 1분 전까지 쓴다. 5분 안쪽으로 남았으면 지금 것을 주고 다음 토큰은 뒤에서 받는다
+  // 만료 시각까지 쓰고 지나면 새로 받는다. 만료 전에 다시 받으면 스포티파이가 같은 토큰을 돌려주므로 미리 받지 않는다
   _token(): Promise<string> {
     const held = this._heldToken();
-    const left = held ? held.expiresAt - Date.now() : 0;
-    if (!held || left <= TOKEN_MARGIN_MS) return this._renew();
-    if (left < TOKEN_RENEW_MS && Date.now() - this._renewFailedAt > TOKEN_RENEW_RETRY_MS) {
-      this._renew().catch((e: unknown) => {
-        this._renewFailedAt = Date.now();
-        log.warn(`익명 토큰 미리 받기 실패(만료 전에 다시 받습니다): ${messageOf(e)}`);
-      });
-    }
-    return Promise.resolve(held.value);
+    if (held && (Date.now() < held.expiresAt || this._sameAgain === held.value)) return Promise.resolve(held.value);
+    return this._renew();
   },
 
   // 새 토큰. 함께 온 요청은 받는 중인 것 하나를 기다린다
@@ -442,6 +431,7 @@ const graphql = {
   // 스포티파이가 거절한 토큰을 버린다. 다음 요청이 새로 받는다
   _dropToken() {
     this._anonToken = null;
+    this._sameAgain = null;
     this._tokenLoaded = true;
     externalCaches.setSpotifyAnonToken(null);
   },
@@ -459,6 +449,7 @@ const graphql = {
       } else throw e;
     }
     const token = { value: j.accessToken, expiresAt: j.accessTokenExpirationTimestampMs || Date.now() + 3600000 };
+    this._sameAgain = token.value === this._anonToken?.value ? token.value : null;
     this._anonToken = token;
     externalCaches.setSpotifyAnonToken(token);
     return token.value;
@@ -698,7 +689,7 @@ function _reset() {
   graphql._ensuring = null;
   graphql._minting = null;
   graphql._tokenLoaded = false;
-  graphql._renewFailedAt = 0;
+  graphql._sameAgain = null;
   searchMemo = newSearchMemo();
 }
 

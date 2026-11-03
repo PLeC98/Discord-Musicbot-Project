@@ -209,7 +209,7 @@ const anonRoutes = ({ tokenStatus = [200] } = {}): Route[] => {
   ];
 };
 
-test("익명 상태: 홈, 번들에서 버전, secret, 해시를 뽑아 DB 에 남기고, 다음에는 메모리에서", async () => {
+test("익명 상태: 홈, 번들에서 버전, secret, 해시를 추출해 DB 에 남기고, 다음에는 메모리에서", async () => {
   routes = anonRoutes();
 
   const state = await graphql._ensureState(false);
@@ -236,7 +236,7 @@ const down = (): Route[] => [
   },
 ];
 
-test("익명 상태: 뽑기가 실패하면 저장값, 그것도 없으면 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
+test("익명 상태: 추출이 실패하면 저장값, 그것도 없으면 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
   routes = down();
   await assert.rejects(graphql._ensureState(true), /익명 상태를 얻지 못했습니다: 네트워크 끊김/);
   assert.equal(externalCaches.getSpotifyAnonState(), null);
@@ -249,7 +249,7 @@ test("익명 상태: 뽑기가 실패하면 저장값, 그것도 없으면 던�
   assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
 });
 
-test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 뽑기 실패다. 저장값을 새것으로 덮지 않는다", async () => {
+test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 추출 실패다. 저장값을 새것으로 덮지 않는다", async () => {
   routes = [() => reply("", { status: 500 })];
   await assert.rejects(graphql._ensureState(true), /홈 500/);
   assert.equal(externalCaches.getSpotifyAnonState(), null, "실패를 새 값으로 적지 않는다");
@@ -269,7 +269,7 @@ test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 뽑기 
   assert.equal(kept.fetchedAt, fresh.fetchedAt, "저장값을 그대로 쓴다(새것으로 치지 않는다)");
 });
 
-test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. 토큰, 해시 오류의 강제 뽑기는 예외", async () => {
+test("익명 상태: 추출에 실패하면 한동안 다시 추출하지 않는다. 토큰, 해시 오류의 강제 추출은 예외", async () => {
   routes = anonRoutes();
   await graphql._ensureState(false);
   if (graphql._state) graphql._state.fetchedAt = 0; // 낡았다
@@ -280,7 +280,7 @@ test("익명 상태: 뽑기에 실패하면 한동안 다시 뽑지 않는다. �
   await graphql._ensureState(false);
   assert.equal(requests.length, afterFail, "쉬는 동안은 저장값으로");
   await graphql._ensureState(true);
-  assert.equal(requests.length, afterFail + 1, "강제 뽑기는 쉬지 않는다");
+  assert.equal(requests.length, afterFail + 1, "강제 추출은 쉬지 않는다");
 });
 
 test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아예 없으면 그 쿼리만 실패한다", async () => {
@@ -318,12 +318,12 @@ test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받
   assert.equal(mints[0]?.init.headers?.["App-Platform"], "WebPlayer");
 });
 
-test("익명 토큰: 400, 403 이면 secret 을 다시 뽑아 한 번 더", async () => {
+test("익명 토큰: 400, 403 이면 secret 을 다시 추출해 한 번 더", async () => {
   routes = anonRoutes({ tokenStatus: [403, 200] });
 
   assert.equal(await graphql._token(), "A2");
   const bundles = requests.filter((r) => r.url.includes("web-player.abc123.js"));
-  assert.equal(bundles.length, 2, "처음 한 번 + 다시 뽑기 한 번");
+  assert.equal(bundles.length, 2, "처음 한 번 + 다시 추출 한 번");
 });
 
 test("익명 토큰: 그 밖의 실패는 그대로 던진다", async () => {
@@ -331,7 +331,7 @@ test("익명 토큰: 그 밖의 실패는 그대로 던진다", async () => {
   await assert.rejects(graphql._token(), /익명 토큰 500/);
 });
 
-test("GraphQL 쿼리: 파트너 헤더와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 뽑아 한 번 더", async () => {
+test("GraphQL 쿼리: 파트너 헤더와 저장된 해시로 보낸다. 해시가 만료됐으면 다시 추출해 한 번 더", async () => {
   let attempts = 0;
   routes = [
     ...anonRoutes(),
@@ -465,19 +465,36 @@ test("익명 토큰: 받은 토큰은 저장해 두고, 다시 시작해도 만�
   assert.equal(externalCaches.getSpotifyAnonState()?.token, undefined, "상태에는 토큰을 싣지 않는다");
 });
 
-test("익명 토큰: 저장된 것이 1분 안쪽으로 남았으면 새로 받는다. 5분 안쪽이면 지금 것을 주고 다음 것은 뒤에서 받는다", async () => {
+test("익명 토큰: 만료 시각까지는 곧 만료여도 다시 받지 않고, 지나면 새로 받아 저장한다", async () => {
   routes = anonRoutes();
-  await graphql._ensureState(false);
-  externalCaches.setSpotifyAnonToken({ value: "OLD", expiresAt: Date.now() + 30_000 });
+  await graphql._ensureState(false); // 토큰은 상태 행에 저장된다
+  externalCaches.setSpotifyAnonToken({ value: "SOON", expiresAt: Date.now() + 30_000 });
   Spotify._reset();
-  assert.equal(await graphql._token(), "A1", "곧 만료라 쓰지 않는다");
+  assert.equal(await graphql._token(), "SOON");
+  assert.equal(await graphql._token(), "SOON");
+  assert.equal(mints(), 0, "만료 전에 받으면 같은 토큰이 온다");
 
-  externalCaches.setSpotifyAnonToken({ value: "SOON", expiresAt: Date.now() + 3 * 60_000 });
+  externalCaches.setSpotifyAnonToken({ value: "GONE", expiresAt: Date.now() - 1 });
   Spotify._reset();
-  assert.equal(await graphql._token(), "SOON", "기다리지 않고 지금 것");
-  await graphql._minting;
-  assert.equal(await graphql._token(), "A2", "뒤에서 받은 다음 토큰");
-  assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A2");
+  assert.equal(await graphql._token(), "A1");
+  assert.equal(mints(), 1);
+  assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A1");
+});
+
+test("익명 토큰: 만료 뒤 받았는데 같은 토큰이 오면 다시 받지 않고 그것을 쓴다. 401 로 버린 뒤에는 새로 받는다", async () => {
+  const sameToken: Route = (url) => (url.startsWith("https://open.spotify.com/api/token?") ? reply({ accessToken: "OLD", accessTokenExpirationTimestampMs: Date.now() - 1 }) : undefined);
+  routes = [sameToken, ...anonRoutes()];
+  await graphql._ensureState(false);
+  externalCaches.setSpotifyAnonToken({ value: "OLD", expiresAt: Date.now() - 1 });
+  Spotify._reset();
+  assert.equal(await graphql._token(), "OLD");
+  assert.equal(await graphql._token(), "OLD");
+  assert.equal(mints(), 1, "같은 토큰이 왔으면 요청마다 받지 않는다");
+
+  graphql._dropToken(); // 쿼리가 401 을 받으면 버린다
+  routes = anonRoutes();
+  assert.equal(await graphql._token(), "A1");
+  assert.equal(mints(), 2);
 });
 
 test("GraphQL 쿼리: 토큰이 거절(401)되면 버리고 새로 받아 한 번 더", async () => {
