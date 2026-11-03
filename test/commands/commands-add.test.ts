@@ -371,7 +371,7 @@ test("/search: 처음부터 Components V2 로 검색 중을 답하고, 그 메�
     menu?.options?.map((o) => o.value.split(":")[1]),
     [...Array(7).fill("yt"), ...Array(3).fill("sp")],
   );
-  assert.ok(expiring("edited-msg"), "고르면 멈출 수 있게 메시지 ID 로 예약");
+  assert.ok(expiring("edited-msg"), "선택하면 멈출 수 있게 메시지 ID 로 예약");
   stopExpiry("edited-msg");
 });
 
@@ -398,10 +398,10 @@ test("/search: 링크는 검색하지 않고 /play 처럼 바로 넣는다(글�
   }
 });
 
-test("/search: 자동완성에서 고른 곡(yt:<영상 id>)은 그 영상을 바로 넣는다. 모양이 틀린 값은 검색어다", async () => {
+test("/search: 자동완성에서 선택한 곡(yt:<영상 id>)은 그 영상을 바로 넣는다. 모양이 틀린 값은 검색어다", async () => {
   const w = world();
   const { it, log } = interaction(w, { options: { query: "yt:abcdefghijk" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("고른 곡은 검색하지 않는다") });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("선택한 곡은 검색하지 않는다") });
   assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 곡을 추가하는 중..." }))], "기억해 둔 검색 결과에 없으면 제목 없이");
   assert.deepEqual(
     resolved.map((r) => [r.query, r.context]),
@@ -411,7 +411,7 @@ test("/search: 자동완성에서 고른 곡(yt:<영상 id>)은 그 영상을 �
   // 스포티파이 곡(sp:<곡 id>)은 그 곡 링크로. 곡 넣기가 유튜브 영상을 맞춘다
   resolved.length = 0;
   const spotify = interaction(world(), { options: { query: "sp:1SwZVVH9BnXtLRLi2cbFhw" } });
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(spotify.it), spotify.bot, { search: async () => assert.fail("고른 곡은 검색하지 않는다") });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(spotify.it), spotify.bot, { search: async () => assert.fail("선택한 곡은 검색하지 않는다") });
   assert.deepEqual(
     resolved.map((r) => r.query),
     ["https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw"],
@@ -471,7 +471,7 @@ test("/search: 권한, 결과 없음, 오류", async () => {
 
 const SP_ID = "1SwZVVH9BnXtLRLi2cbFhw";
 
-/** 결과 화면의 메뉴에서 value 를 고른 상호작용. userId: 메뉴를 만든 검색한 사람 */
+/** 결과 화면의 메뉴에서 value 를 선택한 상호작용. userId: 메뉴를 만든 검색한 사람 */
 function pickIn(w: World, value: string, { userId = USER } = {}) {
   const made = interaction(w);
   const it = Object.assign(made.it, interactionKind("select"), {
@@ -490,7 +490,7 @@ function pickIn(w: World, value: string, { userId = USER } = {}) {
 test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가하는 중으로 고친 뒤 /play 와 같은 길로 넣는다. 담으면 그 메시지를 지운다", async () => {
   const w = world();
   const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
-  expireMessage("result-msg", () => assert.fail("고른 뒤에는 지우지 않는다"), 60_000);
+  expireMessage("result-msg", () => assert.fail("선택한 뒤에는 삭제하지 않는다"), 60_000);
   await searchPick[0].handle(it, w.bot);
   assert.equal(expiring("result-msg"), false);
   assert.deepEqual(log[0], ["update", post(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
@@ -501,7 +501,7 @@ test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가�
   assert.deepEqual(log.at(-1), ["deleteReply"]);
 });
 
-test("/search 결과 선택: 결과 메시지가 그 사이 지워졌으면(삭제 예약이 막 돌았다) 새 본인 메시지로 추가하는 중을 보이고 고른 곡은 넣는다", async () => {
+test("/search 결과 선택: 결과 메시지가 그 사이 삭제됐으면(삭제 예약이 막 돌았다) 새 본인 메시지로 추가하는 중을 보이고 선택한 곡은 넣는다", async () => {
   const w = world();
   const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
   Object.assign(it, {

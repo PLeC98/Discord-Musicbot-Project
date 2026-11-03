@@ -1,5 +1,5 @@
-// /search 결과 화면의 선택 메뉴. custom_id 는 search:pick:검색한 사람. 고른 곡은 /play 와 같은 길로 넣는다(discord/commands/play 의 playOnReply).
-// 결과 메시지를 "추가하는 중" 으로 고쳐 쓰므로 그 메시지에 예약한 삭제를 먼저 멈춘다(실패 안내가 곧바로 지워지지 않게)
+// /search 결과 화면의 선택 메뉴. custom_id 는 search:pick:검색한 사람. 선택한 곡은 /play 와 같은 길로 넣는다(discord/commands/play 의 playOnReply).
+// 결과 메시지를 "추가하는 중" 으로 고쳐 쓰므로 그 메시지에 예약한 삭제를 먼저 멈춘다(실패 안내가 곧바로 삭제되지 않게)
 
 import { RESTJSONErrorCodes, type ContainerBuilder, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../../ui/text/ko/errors.ts";
@@ -17,7 +17,7 @@ import { playOnReply } from "../commands/play.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 
-// 결과 메시지를 고친다. 그 사이 지워졌으면(삭제 예약이 막 돌았다. 디스코드 화면에는 잠깐 남는다) 새 본인 메시지로. 고른 곡은 그대로 넣는다
+// 결과 메시지를 고친다. 그 사이 삭제됐으면(삭제 예약이 막 돌았다. 디스코드 화면에는 잠깐 남는다) 새 본인 메시지로. 선택한 곡은 그대로 넣는다
 async function showOn(interaction: StringSelectMenuInteraction<"cached">, view: ContainerBuilder) {
   try {
     await interaction.update(post(view));

@@ -251,6 +251,32 @@ test("자동완성 처리가 던지거나 답하지 않았으면 빈 목록으�
   assert.deepEqual(silent.answered, [[]]);
 });
 
+test("자동완성에 늦게 답해 거절되면(10062) warn 으로 남긴다. 1분에 한 줄", async () => {
+  const from = sink.buffer.length;
+  const late = () => {
+    const one = suggest({
+      commands: {
+        search: {
+          autocomplete: async () => {
+            throw Object.assign(new Error("Unknown interaction"), { code: 10062 });
+          },
+        },
+      },
+    });
+    // 받은 것은 늦지 않았고(늦게 받음 줄을 남기지 않게) 답이 거절됐다
+    Object.assign(one.it, { createdTimestamp: Date.now() - 1000, responded: true });
+    return interactionCreate.execute(one.bot, one.it);
+  };
+  await late();
+  await late();
+  const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("자동완성 답 실패(늦음)"));
+  assert.deepEqual(
+    lines.map((e) => e.level),
+    ["warn"],
+  );
+  assert.match(lines[0].text, /^자동완성 답 실패\(늦음\): \/search \| 생성 뒤 \d+ms \| /);
+});
+
 test("자동완성이 없는 명령, 없는 명령, 서버 밖은 빈 목록", async () => {
   for (const one of [suggest({ commands: { search: { execute: async () => {} } } }), suggest({ name: "nope" }), suggest({ guild: false, commands: { search: { autocomplete: async () => assert.fail("서버 밖") } } })]) {
     await interactionCreate.execute(one.bot, one.it);
@@ -277,6 +303,6 @@ test("만든 뒤 2초가 넘어 받은 상호작용은 warn 으로 남긴다. 1�
       .slice(from)
       .filter((e) => e.text.startsWith("상호작용 늦게 받음"))
       .map((e) => `${e.level} ${e.text}`),
-    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인"],
+    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 늘 이러면 봇 PC 의 시계를 확인하세요", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 늘 이러면 봇 PC 의 시계를 확인하세요"],
   );
 });

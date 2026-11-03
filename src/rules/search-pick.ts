@@ -1,5 +1,5 @@
-// 검색에서 고른 곡을 가리키는 값. 자동완성 선택지의 값이다(`yt:<영상 id>`, `sp:<곡 id>`, 자동재생 요청 키와 같은 모양).
-// 자동완성 값은 사용자가 손으로 칠 수도 있어 모양이 맞을 때만 곡으로 읽고, 아니면 검색어로 둔다
+// 검색에서 선택한 곡을 가리키는 값. 자동완성 선택지의 값이다(`yt:<영상 id>`, `sp:<곡 id>`, 자동재생 요청 키와 같은 모양).
+// 자동완성 값은 사용자가 직접 입력할 수도 있어 모양이 맞을 때만 곡으로 읽고, 아니면 검색어로 둔다
 
 import { youtubeWatchUrl } from "./links.ts";
 
@@ -12,7 +12,7 @@ function pickValue(pick: SearchPick): string {
   return `${pick.platform === "spotify" ? "sp" : "yt"}:${pick.id}`;
 }
 
-/** 값이 고른 곡의 모양이면 그 곡, 아니면 null */
+/** 값이 선택한 곡의 모양이면 그 곡, 아니면 null */
 function readPick(value: string): SearchPick | null {
   const trimmed = value.trim();
   const youtube = YOUTUBE.exec(trimmed);

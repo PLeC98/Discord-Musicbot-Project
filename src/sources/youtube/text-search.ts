@@ -64,7 +64,7 @@ function sessionOf(): Promise<Innertube> {
 
 const statusOf = (error: unknown) => ((error as { cause?: { status?: unknown } } | null)?.cause?.status as number | undefined) ?? null;
 
-// 방송 중: 라이브 배지나 썸네일 길이 자리의 LIVE. youtubei.js 의 is_live 는 길이 자리가 없기만 해도 참이라 쓰지 않는다
+// 방송 중: 라이브 배지나 썸네일 길이 표시의 LIVE. youtubei.js 의 is_live 는 길이 표시가 없기만 해도 참이라 쓰지 않는다
 const isLiveNow = (video: YTNodes.Video) => video.badges.some((badge) => badge.style === "BADGE_STYLE_TYPE_LIVE_NOW") || video.thumbnail_overlays.firstOfType(YTNodes.ThumbnailOverlayTimeStatus)?.style === "LIVE";
 
 // youtubei.js 의 영상 하나 → 곡. 링크 셋은 같은 주소다(sources/youtube/api 의 trackOf 와 같은 모양)
@@ -93,7 +93,7 @@ async function ask(query: string): Promise<TextSearchResult> {
   const leave = await slots.take();
   try {
     const found = await searchOnce(query).catch((error: unknown) => {
-      // 세션이 받아들여지지 않은 것(4xx, 오래 쓴 세션에서 403 을 봤다)이면 버리고 새 세션으로 한 번 더. 429, 네트워크는 세션 탓이 아니다
+      // 세션이 받아들여지지 않은 것(4xx. 오래 쓴 세션은 403 을 받는다)이면 버리고 새 세션으로 한 번 더. 429, 네트워크는 세션 탓이 아니다
       const status = statusOf(error);
       if (status === null || status < 400 || status >= 500 || status === 429) throw error;
       session = null;
@@ -141,7 +141,7 @@ function rememberedPrefix(query: string): TextSearchResult | null {
   return memo.longestPrefix(keyOf(query));
 }
 
-/** 기억해 둔 검색 결과에 있는 영상(자동완성에서 고른 값은 영상 id 뿐이라 제목을 여기서 찾는다). 없으면 null */
+/** 기억해 둔 검색 결과에 있는 영상(자동완성에서 선택한 값은 영상 id 뿐이라 제목을 여기서 찾는다). 없으면 null */
 function rememberedVideo(id: string): TrackInfo | null {
   for (const result of memo.recent()) {
     const track = result.tracks.find((one) => one.id === id);

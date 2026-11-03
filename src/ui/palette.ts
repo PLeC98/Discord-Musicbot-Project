@@ -8,7 +8,7 @@ const FIXED_COLORS = {
   notice: "#3498DB", // 운영자가 모든 서버에 알리는 공지사항
 } as const satisfies Record<string, `#${string}`>;
 
-/** 곡 출처 로고의 타일 색(각 회사의 브랜드 색. 유튜브는 브랜드 페이지의 새 값, 스포티파이는 공식 아이콘 파일의 값) */
+/** 곡 출처 로고의 타일 색(각 회사의 브랜드 색. 유튜브는 브랜드 페이지의 값, 스포티파이는 공식 아이콘 파일의 값) */
 const BRAND_COLORS = {
   youtube: "#FF0033",
   spotify: "#1ED760",

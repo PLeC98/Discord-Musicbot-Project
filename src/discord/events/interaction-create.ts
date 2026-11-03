@@ -61,9 +61,11 @@ async function runAutocomplete(bot: BotContext, interaction: AutocompleteInterac
   try {
     if (command && !command.anywhere && command.autocomplete && interaction.inCachedGuild()) await command.autocomplete(interaction, bot);
   } catch (error) {
-    // 마감(3초)을 넘겨 토큰이 죽었거나 이미 답했다
-    if (isDeadInteraction(error)) log.debug(`/${interaction.commandName} 자동완성 답이 늦음: ${describeError(error)}`);
-    else log.error(`/${interaction.commandName} 자동완성 처리 실패:`, error);
+    // 마감(3초)을 넘겨 토큰이 죽었거나 이미 답했다. 봇 쪽 사정이라 남기되, 입력할 때마다 오므로 묶는다
+    if (isDeadInteraction(error)) {
+      const now = Date.now();
+      lateAnswer(now, (more) => `자동완성 답 실패(늦음): /${interaction.commandName} | 생성 뒤 ${now - interaction.createdTimestamp}ms${more} | ${describeError(error)}`);
+    } else log.error(`/${interaction.commandName} 자동완성 처리 실패:`, error);
   }
   if (!interaction.responded) await interaction.respond([]).catch((error: unknown) => log.debug(`자동완성 빈 답 실패: ${describeError(error)}`));
 }
@@ -87,9 +89,24 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
 
 /** 받았을 때 상호작용이 만들어진 뒤 이만큼 지났으면 남긴다(ms). 디스코드는 3초 안에 답해야 받는다 */
 const LATE_MS = 2000;
-/** 늦게 받은 것을 남기는 간격(ms). 봇 PC 의 시계가 어긋나 있으면 상호작용마다 늦게 보인다 */
+/** 늦게 받은 것, 늦게 답한 것을 남기는 간격(ms). 봇 PC 의 시계가 어긋나 있으면 상호작용마다 늦게 보인다 */
 const LATE_LOG_EVERY_MS = 60_000;
-const late = { loggedAt: -Infinity, skipped: 0 };
+
+// warn 을 LATE_LOG_EVERY_MS 에 한 줄로. 그 사이의 것은 세어 다음 줄에 " | 앞서 N번 더" 로 붙인다
+function oncePerInterval() {
+  const state = { loggedAt: -Infinity, skipped: 0 };
+  return (now: number, line: (more: string) => string) => {
+    if (now - state.loggedAt < LATE_LOG_EVERY_MS) {
+      state.skipped++;
+      return;
+    }
+    log.warn(line(state.skipped ? ` | 앞서 ${state.skipped}번 더` : ""));
+    state.loggedAt = now;
+    state.skipped = 0;
+  };
+}
+const lateReceive = oncePerInterval();
+const lateAnswer = oncePerInterval();
 
 const nameOf = (interaction: Interaction) => {
   if (interaction.isChatInputCommand()) return `/${interaction.commandName}`;
@@ -101,13 +118,7 @@ const nameOf = (interaction: Interaction) => {
 function noteLate(interaction: Interaction, now: number) {
   const age = now - interaction.createdTimestamp;
   if (!Number.isFinite(age) || age < LATE_MS) return;
-  if (now - late.loggedAt < LATE_LOG_EVERY_MS) {
-    late.skipped++;
-    return;
-  }
-  log.warn(`상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${late.skipped ? ` | 앞서 ${late.skipped}번 더` : ""} | 3초 안에 답해야 한다. 늘 이러면 봇 PC 의 시계를 확인`);
-  late.loggedAt = now;
-  late.skipped = 0;
+  lateReceive(now, (more) => `상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${more} | 늘 이러면 봇 PC 의 시계를 확인하세요`);
 }
 
 /** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯, now 는 받은 시각 */

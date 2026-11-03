@@ -20,7 +20,7 @@ test("카드: 헤더 줄, 번호와 제목 링크, 아랫줄에 출처 아이콘
   assert.equal(textsOf({ components: [view.components[0]] }).length, 1, "연령 인증이 아니면 푸터가 없다");
 });
 
-test("메뉴: 검색한 사람을 싣고, 항목은 번호. 제목, 채널 | 길이, 출처 이모지. 값은 번호와 고른 곡이라 같은 곡이 두 번이어도 겹치지 않는다", () => {
+test("메뉴: 검색한 사람을 싣고, 항목은 번호. 제목, 채널 | 길이, 출처 이모지. 값은 번호와 선택한 곡이라 같은 곡이 두 번이어도 겹치지 않는다", () => {
   useUploaded(new Map([["youtube", { id: "11", animated: false }]]));
   const view = searchResultsView({ query: "q", rows: [youtube("aaaaaaaaaaa"), youtube("aaaaaaaaaaa"), spotify(SP)], gated: false, userId: "u1" });
   const menu = selectOf(view);

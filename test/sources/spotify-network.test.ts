@@ -378,7 +378,7 @@ const SEARCH_CHUNK_URL = "https://open.spotifycdn.com/cdn/build/web-player/xpui-
 const searchRoutes = ({ chunk = reply(`"searchTracks","query","${"d".repeat(64)}"`) } = {}): Route[] => [(url) => (url.includes("web-player.abc123.js") ? reply(SEARCH_BUNDLE) : undefined), (url) => (url === SEARCH_CHUNK_URL ? chunk : undefined), ...anonRoutes()];
 const searchAnswer = (names: string[]) => reply({ data: { searchV2: { tracksV2: { items: names.map((name, i) => ({ item: { data: { uri: `spotify:track:${String(i).repeat(22)}`, name, artists: { items: [{ profile: { name: "가수" } }] }, duration: { totalMilliseconds: 236000 }, albumOfTrack: { name: "앨범", coverArt: { sources: [] } } } } })) } } } });
 
-test("익명 상태: 곡 검색 해시는 번들의 표로 찾은 검색 화면 청크에서 뽑는다", async () => {
+test("익명 상태: 곡 검색 해시는 번들의 표로 찾은 검색 화면 청크에서 추출한다", async () => {
   routes = searchRoutes();
   const state = await graphql._ensureState(false);
   assert.equal(state.hashes.searchTracks, "d".repeat(64));
@@ -396,7 +396,7 @@ test("익명 상태: 검색 청크를 못 받으면 warn 하고 나머지 해시
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.startsWith("곡 검색 해시 추출 실패(직전 값 사용): 검색 청크 404")));
 });
 
-test("익명 상태와 토큰: 동시에 온 요청은 한 번만 뽑고 한 번만 받는다", async () => {
+test("익명 상태와 토큰: 동시에 온 요청은 한 번만 추출하고 한 번만 받는다", async () => {
   routes = searchRoutes();
   await Promise.all([graphql._ensureState(false), graphql._ensureState(false), graphql._token(), graphql._token()]);
   assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1);
@@ -434,17 +434,17 @@ test("곡 검색 준비: 상태가 메모리에 없으면 거짓이고 뒤에서
   assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1, "준비는 한 번");
 });
 
-test("곡 검색 준비: 검색 해시가 없는 상태는 뽑은 지 10분이 지났으면 다시 뽑는다(바로 뽑은 것은 다시 뽑지 않는다)", async () => {
+test("곡 검색 준비: 검색 해시가 없는 상태는 추출한 지 10분이 지났으면 다시 추출한다(방금 추출한 것은 다시 추출하지 않는다)", async () => {
   routes = anonRoutes(); // 검색 청크가 없는 번들
   await graphql._ensureState(false);
   assert.equal(Spotify.searchReady(), false);
   const bundles = () => requests.filter((r) => r.url.includes("web-player.abc123.js")).length;
   await graphql._ensureState(false);
-  assert.equal(bundles(), 1, "방금 뽑았으면 검색 해시가 없어도 다시 뽑지 않는다");
+  assert.equal(bundles(), 1, "방금 추출했으면 검색 해시가 없어도 다시 추출하지 않는다");
 
   graphql._state = { ...graphql._state!, fetchedAt: Date.now() - 10 * 60_000 - 1 };
   routes = searchRoutes();
-  assert.equal(Spotify.searchReady(), false, "뒤에서 다시 뽑기 시작");
+  assert.equal(Spotify.searchReady(), false, "뒤에서 다시 추출 시작");
   await graphql._ensureState(false);
   assert.equal(bundles(), 2);
   assert.equal(Spotify.searchReady(), true);
@@ -454,7 +454,7 @@ test("곡 검색 준비: 검색 해시가 없는 상태는 뽑은 지 10분이 �
 
 const mints = () => requests.filter((r) => r.url.startsWith("https://open.spotify.com/api/token?")).length;
 
-test("익명 토큰: 받은 토큰은 저장해 두고, 다시 시작해도 만료 전이면 그대로 쓴다. 상태를 다시 뽑아도 토큰은 남는다", async () => {
+test("익명 토큰: 받은 토큰은 저장해 두고, 다시 시작해도 만료 전이면 그대로 쓴다. 상태를 다시 추출해도 토큰은 남는다", async () => {
   routes = anonRoutes();
   assert.equal(await graphql._token(), "A1");
   Spotify._reset(); // 다시 시작

@@ -63,16 +63,16 @@ type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | n
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
 // 유튜브 검색어. 검색 1위 하나. 연령 인증 안내만 왔으면 스포티파이 1위 곡이 검색어의 곡일 때 그 곡으로,
-// 아니면(스포티파이 실패 포함) 그 까닭으로 거절한다(결과 없음과 다르다)
+// 아니면(스포티파이 실패 포함. 실패는 스포티파이 검색이 warn 으로 남긴다) 그 까닭으로 거절한다(결과 없음과 다르다)
 async function fromYouTubeSearch(query: string, { youtube, spotify }: Pick<Sources, "youtube" | "spotify">): Promise<Found> {
   const found = await youtube.searchText(query);
   if (!found.gated) return single(found.tracks.slice(0, 1));
   const top = await spotify.searchTracks(query).then(
     (tracks) => tracks[0],
-    (e: unknown) => log.debug(`연령 인증 검색어를 스포티파이에서 찾지 못함: ${messageOf(e)}`),
+    (e: unknown) => log.debug(`연령 인증 검색어의 스포티파이 검색 실패(연령 인증 안내로 답함): ${messageOf(e)}`),
   );
   if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
-  log.info(`유튜브가 검색어에 연령 인증 안내만 줘 스포티파이 1위 곡으로: ${query} → "${logTitle(top.title)}"`);
+  log.debug({ tags: ["fallback"] }, `유튜브가 검색어에 연령 인증 안내만 줘 스포티파이 1위 곡으로: ${query} → "${logTitle(top.title)}"`);
   return single([top]);
 }
 

@@ -1,6 +1,6 @@
 // 검색 결과 섞기(자동완성 후보, 결과 화면). 유튜브 다음 스포티파이 차례로 두고, 스포티파이 몫을 둔 뒤 한쪽이 모자라면 다른 쪽으로 채운다
 
-/** total 자리 중 유튜브와 스포티파이에 줄 수. spotifyShare 는 둘 다 넉넉할 때 스포티파이 몫 */
+/** total 개 중 유튜브와 스포티파이에 줄 수. spotifyShare 는 둘 다 넉넉할 때 스포티파이 몫 */
 function mixCounts(youtube: number, spotify: number, { total, spotifyShare }: { total: number; spotifyShare: number }): { youtube: number; spotify: number } {
   const youtubeTake = Math.min(youtube, total - Math.min(spotify, spotifyShare));
   return { youtube: youtubeTake, spotify: Math.min(spotify, total - youtubeTake) };

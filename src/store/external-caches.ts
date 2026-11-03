@@ -142,7 +142,7 @@ function getSpotifyAnonToken(): AnonToken | null {
   return typeof token?.value === "string" && typeof token.expiresAt === "number" ? { value: token.value, expiresAt: token.expiresAt } : null;
 }
 
-/** 익명 토큰을 저장한다. null 이면 지운다. 상태 행이 없으면(토큰은 상태로 받는다) 저장하지 않는다. 상태를 뽑은 시각은 그대로 */
+/** 익명 토큰을 저장한다. null 이면 삭제한다. 상태 행이 없으면(토큰은 상태로 받는다) 저장하지 않는다. 상태를 추출한 시각은 그대로 */
 function setSpotifyAnonToken(token: AnonToken | null) {
   const data = anonData(anonRow());
   if (!data) return;

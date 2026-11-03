@@ -64,7 +64,7 @@ function expireSelf(interaction: RepliableInteraction, ms: number | null, messag
   timer.unref?.();
 }
 
-// 고른 뒤에도 그 메시지를 계속 쓰는 메뉴(더 넣기, 검색 결과)의 삭제 예약. 키는 메시지 ID
+// 선택한 뒤에도 그 메시지를 계속 쓰는 메뉴(더 넣기, 검색 결과)의 삭제 예약. 키는 메시지 ID
 const expiries = new Map<string, NodeJS.Timeout>();
 
 /** 메시지를 ms 뒤 remove 로 삭제한다. 같은 메시지에 다시 부르면 새로 센다. stopExpiry 로 멈춘다 */

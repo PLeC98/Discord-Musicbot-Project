@@ -1,4 +1,4 @@
-// /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 고르면 /play 와 같은 길로 넣는다. 고르지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 고른다.
+// /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 선택하면 /play 와 같은 길로 넣는다. 선택하지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 선택한다.
 // 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick 이 받는다
 
 import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction } from "discord.js";
@@ -38,7 +38,7 @@ const MIN_QUERY = 2;
  * 디스코드는 입력을 1초 남짓으로 묶어 보낸다. 3초 마감에서 이만큼 쓰고도 검색(0.5초 안팎)이 들어간다
  */
 const SETTLE_MS = 1000;
-/** 결과 화면이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 뽑으면 수 초 걸린다) */
+/** 결과 화면이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 추출하면 수 초 걸린다) */
 const SPOTIFY_RESULTS_MS = 4000;
 // 사람마다 마지막 자동완성 요청의 번호
 const latestRequest = new Map<string, number>();
@@ -85,11 +85,11 @@ const youtubeOf = (found: Found): TrackInfo[] => (found.youtube?.gated ? [] : (f
 
 // ── 자동완성 ──
 
-/** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 고른 연령 인증 줄의 문장) null */
+/** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 선택한 연령 인증 줄의 문장) null */
 function searchable(typed: string): string | null {
   if (typed.startsWith(gatedSentence().slice(0, 12))) return null;
   const query = searchText.queryOfTyped(typed);
-  // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력 칸 상한이 100자라 보통 오지 않는다)
+  // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력란 상한이 100자라 보통 오지 않는다)
   return !query || query.length > 100 || isLink(query) ? null : query;
 }
 
@@ -177,7 +177,7 @@ function resultRows(found: Found): ResultRow[] {
 
 /** 찾아서 결과 화면을 보인다. 결과가 없거나 유튜브가 연령 인증으로 막고 스포티파이도 없으면 그 안내 */
 async function showResults(interaction: ChatInputCommandInteraction<"cached">, query: string, deps: Required<SearchDeps>) {
-  // "검색 중" 은 본인에게만. 처음부터 Components V2 로 답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 던지면 이 자리를 오류로 바꾼다
+  // "검색 중" 은 본인에게만. 처음부터 Components V2 로 답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 던지면 이 메시지를 오류로 바꾼다
   await interaction.reply(reply(frame({ body: searchText.searching(query) })));
   showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
@@ -239,7 +239,7 @@ const exported: GuildCommand & {
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
-    // 자동완성에서 고른 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다
+    // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다
     const pick = readPick(query);
     if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? Spotify.rememberedTrack(pick.id) : YouTube.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
     if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });

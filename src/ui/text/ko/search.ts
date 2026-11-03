@@ -20,10 +20,10 @@ const pickOption = (rank: number, { title, artist, length }: { title: string | n
 /** 길이를 모르는 곡 */
 const unknownLength = () => "알 수 없음";
 
-/** 고른 곡을 넣는 동안. 제목을 모르면 곡이라고만 */
+/** 선택한 곡을 넣는 동안. 제목을 모르면 곡이라고만 */
 const addingTrack = (title: string | null) => (title ? `${icon("progress")} **${escapeMd(title)}** 추가하는 중...` : `${icon("progress")} 곡을 추가하는 중...`);
 
-// 자동완성 선택지 이름은 꾸밈 없는 글자 100자까지다(앱 이모지, 마크다운이 먹지 않는다). 고르면 입력 칸이 이 이름으로 바뀌어 다시 검색어가 될 수 있다
+// 자동완성 선택지 이름은 꾸밈 없는 글자 100자까지다(앱 이모지, 마크다운이 먹지 않는다). 선택하면 입력란이 이 이름으로 바뀌어 다시 검색어가 될 수 있다
 const CHOICE_MAX = 100;
 
 /** 자동완성 맨 위 줄: 입력한 검색어로 결과 화면을 연다. 넘치면 검색어를 자른다 */
@@ -37,7 +37,7 @@ const songChoice = ({ title, artist, length, spotify = false }: { title: string 
   return clipText(`${title || "알 수 없는 곡"}${artist ? ` - ${artist}` : ""}`, CHOICE_MAX - tail.length) + tail;
 };
 
-// 고른 선택지의 이름이 입력 칸에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
+// 선택한 후보의 이름이 입력란에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
 const RESULTS_ECHO = /^🔍 "([^"]*)"?/u;
 const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|알 수 없음)\)(?: \(Spotify\))?$/u;
 

@@ -320,7 +320,7 @@ const graphql = {
   _reusable(forceRefresh: boolean, usable: AnonState | null): AnonState | null {
     if (forceRefresh || !usable) return null;
     const age = Date.now() - usable.fetchedAt;
-    // 검색 해시가 없으면 뽑은 지 10분이 지난 뒤 다시 뽑는다. 다른 해시는 쓰다가 만료로 실패하면 그 자리에서 다시 뽑지만,
+    // 검색 해시가 없으면 추출한 지 10분이 지난 뒤 다시 추출한다. 다른 해시는 쓰다가 만료로 실패하면 그 자리에서 다시 추출하지만,
     // 자동완성은 추출을 기다리지 않아 그대로 두면 다음 추출(12시간)까지 검색을 못 쓴다
     const searchMissing = !usable.hashes.searchTracks && age >= EXTRACT_RETRY_MS;
     if (age < STATE_TTL_MS && !searchMissing) return usable;
@@ -488,7 +488,7 @@ const graphql = {
       }
       return j.data;
     };
-    // 한 번만 다시: 해시가 만료됐으면 다시 뽑고, 토큰이 거절됐으면(버렸다) 새로 받는다
+    // 한 번만 다시: 해시가 만료됐으면 다시 추출하고, 토큰이 거절됐으면(버렸다) 새로 받는다
     try {
       return await run();
     } catch (e) {
@@ -634,7 +634,7 @@ const searchKey = (query: string) => query.trim().toLowerCase();
 
 /**
  * 검색을 바로 할 수 있으면 참: 익명 상태(검색 해시 포함)가 메모리에 있고 다시 추출할 때가 아니다.
- * 아니면 뒤에서 준비를 시작하고 거짓(추출은 번들 수 MB 를 받아 자동완성의 3초에 들지 않는다)
+ * 아니면 뒤에서 준비를 시작하고 거짓(추출은 번들 수 MB 를 다운로드해 자동완성의 3초에 들지 않는다)
  */
 function searchReady(): boolean {
   if (graphql._reusable(false, graphql._state)?.hashes.searchTracks) return true;
@@ -643,7 +643,7 @@ function searchReady(): boolean {
 }
 
 /**
- * 기동 때 익명 상태와 토큰을 준비한다(첫 자동완성이 스포티파이를 쓰고 첫 링크가 받기를 기다리지 않게).
+ * 기동 시 익명 상태와 토큰을 준비한다(첫 자동완성이 스포티파이를 쓰고 첫 링크가 받기를 기다리지 않게).
  * 저장해 둔 것이 쓸 만하면 요청하지 않는다. 실패는 남기기만 하고 쓸 때 다시 한다
  */
 async function prepareAnonymous() {

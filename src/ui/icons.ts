@@ -4,7 +4,7 @@
 
 /**
  * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중),
- * logo: 회사의 공식 흰 아이콘(기호 자리에 data/discord-icons 의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
+ * logo: 회사의 공식 흰 아이콘(glyph 에 data/discord-icons 의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
  * 기호 "sponsorblock" 은 SponsorBlock 의 하이라이트 방패(data/discord-icons/skipIcon.svg)
  */
 type Shape = "tile" | "white" | "spin" | "logo";

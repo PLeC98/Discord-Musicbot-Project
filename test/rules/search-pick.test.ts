@@ -1,11 +1,11 @@
-// src/rules/search-pick.ts, src/rules/autocomplete-budget.ts: 검색에서 고른 곡의 값(유튜브, 스포티파이)과 자동완성이 검색을 기다릴 시간
+// src/rules/search-pick.ts, src/rules/autocomplete-budget.ts: 검색에서 선택한 곡의 값(유튜브, 스포티파이)과 자동완성이 검색을 기다릴 시간
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { pickUrl, pickValue, readPick } from "../../src/rules/search-pick.ts";
 import { autocompleteBudget } from "../../src/rules/autocomplete-budget.ts";
 
-test("고른 곡의 값은 yt:<영상 id>. 모양이 맞을 때만 곡으로 읽는다(손으로 친 글자는 검색어)", () => {
+test("선택한 곡의 값은 yt:<영상 id>. 모양이 맞을 때만 곡으로 읽는다(직접 입력한 글자는 검색어)", () => {
   assert.equal(pickValue({ platform: "youtube", id: "abcdefghijk" }), "yt:abcdefghijk");
   assert.deepEqual(readPick(" yt:abcdefghijk "), { platform: "youtube", id: "abcdefghijk" });
   for (const typed of ["yt:짧음", "yt:abcdefghijkl", "YT:abcdefghijk", "abcdefghijk", "yt: abcdefghijk"]) assert.equal(readPick(typed), null, typed);

@@ -8,15 +8,15 @@ import { frame } from "./frame.ts";
 import { buttonEmoji, icon } from "./icons.ts";
 import * as searchText from "./text/ko/search.ts";
 
-/** 결과 한 곡. platform 은 출처(아이콘, 고른 값) */
+/** 결과 한 곡. platform 은 출처(아이콘, 선택 값) */
 type ResultRow = { platform: SearchPick["platform"]; id: string; title: string | null; artist?: string; duration: number; isLive?: boolean; pageUrl: string };
 
 const lengthOf = (row: ResultRow) => (row.isLive ? LIVE_MARK : formatDuration(row.duration, searchText.unknownLength()));
 
-/** 메뉴 항목의 값: 번호와 고른 곡(같은 곡이 두 번 나와도 값이 겹치지 않게) */
+/** 메뉴 항목의 값: 번호와 선택한 곡(같은 곡이 두 번 나와도 값이 겹치지 않게) */
 const optionValue = (rank: number, row: ResultRow) => `${rank}:${pickValue({ platform: row.platform, id: row.id })}`;
 
-/** 고른 항목의 값 → 고른 곡의 값(번호를 뗀다) */
+/** 선택한 항목의 값 → 선택한 곡의 값(번호를 뗀다) */
 const pickOfOption = (value: string) => value.slice(value.indexOf(":") + 1);
 
 /** 결과 화면(처음부터 Components V2 로 답한 메시지를 고친다). userId: 고를 수 있는 사람, gated: 유튜브가 연령 인증을 걸어 스포티파이 곡만 있다 */

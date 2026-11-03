@@ -88,7 +88,7 @@ test("마감 안에 못 찾거나 검색이 실패하면 맨 위 줄만 답한�
   assert.deepEqual(failed, [{ name: '🔍 "노래" 검색 결과 보기', value: "노래" }]);
 });
 
-test("고른 선택지의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안의 검색어, 곡 후보는 끝의 길이를 떼고 찾는다. 연령 인증 문장은 찾지 않는다", async () => {
+test("선택한 후보의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안의 검색어, 곡 후보는 끝의 길이를 떼고 찾는다. 연령 인증 문장은 찾지 않는다", async () => {
   const asked: string[] = [];
   const record = async (q: string) => (asked.push(q), { tracks: [], gated: false });
   await complete('🔍 "mik" 검색 결과 보', record);
