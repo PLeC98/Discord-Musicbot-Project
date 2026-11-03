@@ -8,8 +8,8 @@
          휴대폰은 칸 전체가 부르기 버튼(입력란과 같은 캡슐, 강조색 글), 그보다 넓으면 안내 칸에 글자 버튼(M3 스낵바 배치) -->
     <form v-else-if="!player.botInVoice || (player.hasPlayer && player.canAdd)" @submit.prevent="!calling && addTrack(isPlaylistQuery && addSingle)">
       <!-- 모서리(12 ↔ 24px)는 effects(250ms), 바탕은 effects-slow(350ms). 모서리를 스프링으로 하면 봇이 나가 24 → 12 로 돌아갈 때 12 아래로 넘쳤다 돌아온다.
-           입력란은 모서리를 높이의 절반(24px)으로(rounded-full 은 바꾸는 동안 무한대에서 줄어든다). 입력란을 선택하면 캡슐 전체에 후광 -->
-      <div class="h-12 overflow-hidden [transition:border-radius_250ms_var(--ease-effects),background-color_350ms_var(--ease-effects),box-shadow_200ms]" :class="calling && !isPhone ? 'rounded-(--r-inner) bg-surface-container-high' : 'rounded-3xl bg-surface-container-highest focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]'">
+           입력란은 모서리를 높이의 절반(24px)으로 직접 적는다(rounded-full 은 무한대, 이 테마의 rounded-3xl 은 32px 라 바꾸는 동안 앞부분이 보이지 않는다). 입력란을 선택하면 캡슐 전체에 후광 -->
+      <div class="h-12 overflow-hidden [transition:border-radius_250ms_var(--ease-effects),background-color_350ms_var(--ease-effects),box-shadow_250ms_var(--ease-effects)]" :class="calling && !isPhone ? 'rounded-(--r-inner) bg-surface-container-high' : 'rounded-[1.5rem] bg-surface-container-highest focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]'">
         <Transition mode="out-in" enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity effects" leave-active-class="transition-opacity effects-fast">
           <button v-if="calling && isPhone" key="bar" type="button" class="tap state-layer size-full px-4 flex items-center justify-center gap-2 text-primary text-body font-semibold cursor-pointer disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="joining" @click="joinBot">
             <Icon :name="joining ? 'progress_activity' : 'waving_hand'" :size="24" class="shrink-0" :class="joining ? 'animate-spin' : ''" /><span class="truncate">{{ joining ? T.joining : T.joinBotToVoice }}</span>
