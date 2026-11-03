@@ -257,9 +257,18 @@
   transition-timing-function: var(--ease-spring);
   transition-duration: 460ms;
 }
+/* effects 는 감쇠비 1 스프링이라 강성(fast 3800, default 1600, slow 800)과 상관없이 곡선 모양이 같고 멎는 시간만 다르다 */
+@utility effects-fast {
+  transition-timing-function: var(--ease-effects);
+  transition-duration: 160ms;
+}
 @utility effects {
   transition-timing-function: var(--ease-effects);
   transition-duration: 250ms;
+}
+@utility effects-slow {
+  transition-timing-function: var(--ease-effects);
+  transition-duration: 350ms;
 }
 
 /* 둥근 글자. Google Sans Flex 의 ROND 축. 제목 · 숫자에 */

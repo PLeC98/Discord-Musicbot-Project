@@ -9,6 +9,8 @@ const stopConfirm = { title: "재생을 중지할까요?", body: "재생을 멈�
 
 // 곡 넣기 입력란
 const joinBot = "봇 부르기";
+// 휴대폰에서 칸 전체가 부르기 버튼일 때. 안내 문장 없이 버튼 글이 상황까지 말한다
+const joinBotToVoice = "봇을 음성 채널로 부르기";
 const joining = "부르는 중...";
 const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
@@ -67,4 +69,4 @@ const failed = {
   autoplayOff: "자동재생을 끄지 못했어요.",
 };
 
-export { noPlayerState, stopConfirm, joinBot, joining, addPlaceholder, addSubmit, playlistLink, addWhich, addWholePlaylist, addThisOnly, addFirstOnly, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
+export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, playlistLink, addWhich, addWholePlaylist, addThisOnly, addFirstOnly, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };

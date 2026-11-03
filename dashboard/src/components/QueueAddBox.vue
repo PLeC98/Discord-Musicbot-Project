@@ -4,23 +4,31 @@
     <NoticeBox v-if="!player.botInVoice && !player.userInVoice" variant="gate" icon="headset_off" icon-class="text-on-surface-variant"
       ><span>{{ noticeText("must-be-in-voice").title }} {{ noticeText("must-be-in-voice").body }}</span></NoticeBox
     >
-    <NoticeBox v-else-if="!player.botInVoice && player.userInVoice" variant="gate" class="flex-wrap justify-between">
-      <span class="flex items-center gap-3"><Icon name="waving_hand" :size="24" class="shrink-0 text-primary" />{{ noticeText("bot-not-in-voice").title }}</span>
-      <BaseButton variant="primary" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? T.joining : T.joinBot }}</BaseButton>
-    </NoticeBox>
-    <!-- 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우. 폼을 열어봤자 409이므로 잠근다 -->
-    <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ text.server.noPlayerState }}</NoticeBox>
-    <!-- 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
-    <NoticeBox v-else-if="!player.canAdd" variant="gate" icon="headphones" icon-class="text-on-surface-variant">{{ noticeText("must-be-in-same-voice").title }}</NoticeBox>
-    <form v-else @submit.prevent="addTrack(isPlaylistQuery && addSingle)">
-      <!-- 선택하면 캡슐 전체에 후광 -->
-      <div class="flex items-center gap-1 h-12 pl-3 pr-1 rounded-full bg-surface-container-highest transition-shadow duration-200 focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]">
-        <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
-        <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
-        <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
+    <!-- 봇 부르기와 곡 추가 입력란은 같은 칸(48px)이다. 봇이 들어오면 칸은 그대로 두고 모서리와 바탕만 입력란으로 바뀌고, 안은 사라진 뒤 나타난다(커지거나 옮겨 가지 않는다).
+         휴대폰은 칸 전체가 부르기 버튼(입력란과 같은 캡슐, 강조색 글), 그보다 넓으면 안내 칸에 글자 버튼(M3 스낵바 배치) -->
+    <form v-else-if="!player.botInVoice || (player.hasPlayer && player.canAdd)" @submit.prevent="!calling && addTrack(isPlaylistQuery && addSingle)">
+      <!-- 모서리(12 ↔ 24px)는 effects(250ms), 바탕은 effects-slow(350ms). 모서리를 스프링으로 하면 봇이 나가 24 → 12 로 돌아갈 때 12 아래로 넘쳤다 돌아온다.
+           입력란은 모서리를 높이의 절반(24px)으로(rounded-full 은 바꾸는 동안 무한대에서 줄어든다). 입력란을 선택하면 캡슐 전체에 후광 -->
+      <div class="h-12 overflow-hidden [transition:border-radius_250ms_var(--ease-effects),background-color_350ms_var(--ease-effects),box-shadow_200ms]" :class="calling && !isPhone ? 'rounded-(--r-inner) bg-surface-container-high' : 'rounded-3xl bg-surface-container-highest focus-within:shadow-[0_0_0_2px_var(--md-primary),0_0_18px_2px_color-mix(in_oklab,var(--md-primary)_40%,transparent)]'">
+        <Transition mode="out-in" enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity effects" leave-active-class="transition-opacity effects-fast">
+          <button v-if="calling && isPhone" key="bar" type="button" class="tap state-layer size-full px-4 flex items-center justify-center gap-2 text-primary text-body font-semibold cursor-pointer disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="joining" @click="joinBot">
+            <Icon :name="joining ? 'progress_activity' : 'waving_hand'" :size="24" class="shrink-0" :class="joining ? 'animate-spin' : ''" /><span class="truncate">{{ joining ? T.joining : T.joinBotToVoice }}</span>
+          </button>
+          <div v-else-if="calling" key="note" class="h-full flex items-center justify-between gap-3 pl-4 pr-1 text-sm">
+            <span class="flex items-center gap-3 min-w-0"
+              ><Icon name="waving_hand" :size="24" class="shrink-0 text-primary" /><span class="truncate">{{ noticeText("bot-not-in-voice").title }}</span></span
+            >
+            <button type="button" class="tap state-layer shrink-0 h-10 px-3 rounded-xl inline-flex items-center gap-2 text-primary text-body font-medium cursor-pointer disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? T.joining : T.joinBot }}</button>
+          </div>
+          <div v-else key="input" class="h-full flex items-center gap-1 pl-3 pr-1">
+            <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
+            <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
+            <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
+          </div>
+        </Transition>
       </div>
       <!-- 재생목록 링크면 무엇을 넣을지 선택한다(이어 붙은 버튼 그룹). 넣기 버튼은 선택한 쪽으로 넣는다 -->
-      <div v-if="isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
+      <div v-if="!calling && isPlaylistQuery" class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 pl-3">
         <span class="flex items-center gap-1 text-xs text-on-surface-variant"><Icon name="playlist_play" :size="14" />{{ T.playlistLink }}</span>
         <div class="ml-auto flex gap-0.5" role="radiogroup" :aria-label="T.addWhich">
           <button
@@ -38,6 +46,10 @@
         </div>
       </div>
     </form>
+    <!-- 봇은 음성에 있는데 서버에 플레이어가 없다. 디스코드 음성 상태와 봇 내부 상태가 어긋난 경우. 폼을 열어봤자 409이므로 잠근다 -->
+    <NoticeBox v-else-if="!player.hasPlayer" variant="gate" icon="sync_problem" icon-class="text-on-surface-variant">{{ text.server.noPlayerState }}</NoticeBox>
+    <!-- 봇은 음성 채널에 있는데 사용자는 다른 곳(모더레이터 제외). 곡 추가는 계층과 무관하고 재적 규칙만 본다 -->
+    <NoticeBox v-else variant="gate" icon="headphones" icon-class="text-on-surface-variant">{{ noticeText("must-be-in-same-voice").title }}</NoticeBox>
     <NoticeBox v-if="error" variant="note" tone="error" icon="cancel">{{ error }}</NoticeBox>
     <NoticeBox v-else-if="warning" variant="note" tone="notice" icon="info">{{ warning }}</NoticeBox>
     <NoticeBox v-else-if="info" variant="note" tone="info" icon="check_circle" fill>{{ info }}</NoticeBox>
@@ -47,14 +59,15 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useMediaQuery } from "@vueuse/core";
 import axios from "axios";
-import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import PlaylistMore from "./PlaylistMore.vue";
 import SearchInput from "./SearchInput.vue";
 import { noticeText, problemText } from "../utils/problem.ts";
 import { LIMIT } from "../utils/request.ts";
+import { PHONE_QUERY } from "../utils/breakpoints.ts";
 import type { PlayerSeen } from "../utils/playback.ts";
 import { extractVideoId, isYouTubePlaylist, youtubeWatchUrl } from "../../../src/rules/links.ts";
 import type { AddReply, MoreReply, MoreView, PlayerRead, PlayerState } from "../../../src/dashboard/contract/player.ts";
@@ -71,6 +84,9 @@ const url = (path: string) => `/api/guilds/${props.guildId}/player/${path}?queue
 const query = ref("");
 const adding = ref(false);
 const joining = ref(false);
+// 봇을 부를 칸인가(이 칸에서 봇이 음성 채널에 없으면 사용자는 음성 채널에 있다). 휴대폰은 서버 화면의 바텀 시트와 같은 기준
+const calling = computed(() => !props.player.botInVoice);
+const isPhone = useMediaQuery(PHONE_QUERY);
 // 넣은 결과: 실패, 일부만 넣음(디스코드 담은 안내와 같은 경고), 넣음
 const error = ref("");
 const warning = ref("");
