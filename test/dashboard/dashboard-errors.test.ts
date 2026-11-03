@@ -218,7 +218,7 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
   }
 });
 
-test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api, /auth 는 따로 세서 여기 한도에 걸리지 않는다", async () => {
+test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api, /auth 는 따로 세고 빌드한 화면 파일(assets/)은 세지 않아 여기 한도에 걸리지 않는다", async () => {
   const { default: config } = await import("../../src/config/index.ts");
   const saved = config.dashboard.rateLimit.publicMax;
   config.dashboard.rateLimit.publicMax = 2;
@@ -227,6 +227,7 @@ test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽
   const at = (urlPath: string) => fetch(baseUrl(own) + urlPath, { signal: AbortSignal.timeout(3000) }).then(async (res) => ({ status: res.status, body: await res.text() }));
   try {
     for (let i = 0; i < 3; i++) assert.notEqual((await at("/api/whatever")).status, 429, "/api 는 공개 경로 한도로 세지 않는다");
+    for (let i = 0; i < 3; i++) assert.notEqual((await at("/assets/twemoji/0/1f600.svg")).status, 429, "assets/ 는 공개 경로 한도로 세지 않는다");
     assert.notEqual((await at("/servers")).status, 429);
     assert.notEqual((await at("/servers")).status, 429);
     const over = await at("/servers");

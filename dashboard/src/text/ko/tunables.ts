@@ -55,7 +55,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   RATE_LIMIT_WINDOW_SEC: { label: "요청을 세는 구간(초)", help: "아래 값들을 세는 구간. 로그인 시도는 따로 세요." },
   RATE_LIMIT_API_MAX: { label: "구간당 일반 요청 수", help: "실시간 갱신 연결은 세지 않아요. 정상 사용에서 걸리면 늘리세요." },
   RATE_LIMIT_QUEUE_MAX: { label: "구간당 곡 추가 및 재생 테스트 요청 수", help: "둘 다 yt-dlp 를 실행하므로 따로 제한해요." },
-  RATE_LIMIT_PUBLIC_MAX: { label: "구간당 로그인 없이 받는 요청 수(IP 마다)", help: "화면 파일, 파비콘, 로그인 배경 영상. 화면을 한 번 여는 데 100개 안쪽이에요. 한 공유기 뒤의 여러 사람은 한 IP 로 세요." },
+  RATE_LIMIT_PUBLIC_MAX: { label: "구간당 로그인 없이 받는 요청 수(IP 마다)", help: "첫 화면, 파비콘, 로그인 배경 영상. 스크립트, 글꼴, 이모지 그림 같은 화면 파일은 세지 않아요. 한 공유기 뒤의 여러 사람은 한 IP 로 세요." },
   RATE_LIMIT_AUTH_WINDOW_SEC: { label: "로그인 시도를 세는 구간(초)", help: "" },
   RATE_LIMIT_AUTH_MAX: { label: "그 구간당 로그인 요청 수", help: "" },
   SSE_HEARTBEAT_SEC: { label: "실시간 연결 신호 간격(초)", help: "연결이 끊기지 않게 보내는 신호 간격(5~300)." },

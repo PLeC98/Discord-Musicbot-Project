@@ -101,10 +101,11 @@ function createSessionMiddleware() {
   });
 }
 
-// 빌드한 화면 파일(assets/ 아래)은 이름에 내용 해시가 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일).
+// 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
 // index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
+const ASSETS = /[\\/]assets[\\/]/;
 function cacheAssets(res: Response, file: string) {
-  res.setHeader("Cache-Control", /[\\/]assets[\\/]/.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
+  res.setHeader("Cache-Control", ASSETS.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
 }
 
 // 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체를 지켜야 해서(정적 자산이
@@ -122,8 +123,9 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host));
-  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 파일, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다
-  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) }));
+  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다.
+  // 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
+  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) || ASSETS.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
