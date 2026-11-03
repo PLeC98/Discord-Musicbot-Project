@@ -4,68 +4,63 @@
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상은 480p), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
        최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
-  <Teleport to="body">
-    <DialogTransition>
-      <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1">
-        <!-- 편집 창은 보는 창을 넓게 쓰려고 여백을 대화상자(24px)보다 좁은 20px 로 둔다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
-        <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 dialog-panel">
-          <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
+  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+  <BaseDialog ref="dialog" :open="open && bg != null" width="3xl" padding="editor" :outside="false" class="max-h-[95dvh] overflow-y-auto flex flex-col gap-3" :aria-label="T.title" @close="open = false"
+    ><template v-if="bg">
+      <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
-          <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
+      <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
                이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다. 둘레의 틈에 이미지 가장자리의 핸들이 들어간다 -->
-          <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
-            <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
-              <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
-                <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
-                  <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
-                  <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
-                  <template v-if="bg.kind === 'video'">
-                    <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
-                    <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
-                    <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
-                  </template>
-                  <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
-                </div>
-                <div v-if="natural.width" class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
-                  <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
-                </div>
-              </div>
+      <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
+        <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
+          <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
+            <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
+              <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
+              <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
+              <template v-if="bg.kind === 'video'">
+                <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
+                <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
+                <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
+              </template>
+              <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
             </div>
-          </div>
-          <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
-          <div class="flex items-center justify-center gap-3 text-on-surface-variant">
-            <Icon name="image" :size="16" aria-hidden="true" />
-            <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
-            <Icon name="image" :size="24" aria-hidden="true" />
-          </div>
-
-          <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
-          <SeamPicker v-if="bg.kind === 'video'" v-model="seamPick" class="sm:max-w-md" />
-
-          <p class="text-xs text-on-surface-variant nums">
-            {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
-          </p>
-          <p class="text-xs nums" :class="noSpace ? 'text-error' : evictText ? 'text-tertiary' : 'text-on-surface-variant'">
-            {{ !bg.estimate ? T.noEstimate : estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
-            ><template v-if="bg.estimate?.rough"> · {{ T.rough }}</template
-            ><template v-if="noSpace && state"> · {{ T.noSpace(formatBytes(state.freeBytes)) }}</template
-            ><template v-else-if="evictText"> · {{ evictText }}</template>
-          </p>
-          <div class="flex gap-2 justify-end">
-            <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="reset(false)">{{ T.reset }}</BaseButton>
-            <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
-            <BaseButton :disabled="!natural.width || noSpace" @click="finish">{{ T.use }}</BaseButton>
+            <div v-if="natural.width" class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
+              <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
+            </div>
           </div>
         </div>
       </div>
-    </DialogTransition>
-  </Teleport>
+      <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
+      <div class="flex items-center justify-center gap-3 text-on-surface-variant">
+        <Icon name="image" :size="16" aria-hidden="true" />
+        <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
+        <Icon name="image" :size="24" aria-hidden="true" />
+      </div>
+
+      <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
+      <SeamPicker v-if="bg.kind === 'video'" v-model="seamPick" class="sm:max-w-md" />
+
+      <p class="text-xs text-on-surface-variant nums">
+        {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
+      </p>
+      <p class="text-xs nums" :class="noSpace ? 'text-error' : evictText ? 'text-tertiary' : 'text-on-surface-variant'">
+        {{ !bg.estimate ? T.noEstimate : estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
+        ><template v-if="bg.estimate?.rough"> · {{ T.rough }}</template
+        ><template v-if="noSpace && state"> · {{ T.noSpace(formatBytes(state.freeBytes)) }}</template
+        ><template v-else-if="evictText"> · {{ evictText }}</template>
+      </p>
+      <div class="flex gap-2 justify-end">
+        <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="reset(false)">{{ T.reset }}</BaseButton>
+        <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
+        <BaseButton :disabled="!natural.width || noSpace" @click="finish">{{ T.use }}</BaseButton>
+      </div>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
@@ -80,10 +75,6 @@ const T = text.loginBackground.edit;
 /** bg: 편집할 배경(편집을 기다리는 것). state: 한도, 쓰는 용량, 기록(예상 저장 공간과 비교한다). seam: 카드의 반복 전환 효과(편집 창에서 선택하는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
-useCloseLayer(
-  computed(() => open.value && props.bg != null),
-  () => (open.value = false),
-);
 /** done: 편집과 선택한 반복 전환 효과. recount: 그 크롭, 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
@@ -125,7 +116,7 @@ const now = ref(0);
 const playing = ref(false);
 
 const viewportEl = ref<HTMLElement | null>(null);
-const dialogEl = ref<HTMLElement | null>(null);
+const dialog = ref<InstanceType<typeof BaseDialog> | null>(null);
 /** 구간 반복 재생(끄면 구간 끝에서 멈춘다) */
 const loop = ref(true);
 const fps = computed(() => props.bg?.fps || 30);
@@ -228,7 +219,8 @@ function onMeta(event: Event) {
 function fit(first?: number) {
   if (!natural.width) return;
   const room = (viewportEl.value?.clientWidth ?? Math.min(728, innerWidth - 72)) - EDGE * 2;
-  const rest = dialogEl.value && viewportEl.value ? dialogEl.value.scrollHeight - viewportEl.value.offsetHeight : 0;
+  const panel = dialog.value?.panel;
+  const rest = panel && viewportEl.value ? panel.scrollHeight - viewportEl.value.offsetHeight : 0;
   const tall = first ?? Math.max(120, innerHeight * 0.95 - rest - EDGE * 2);
   const k = Math.min(1, room / natural.width, tall / natural.height);
   view.width = Math.floor(natural.width * k);

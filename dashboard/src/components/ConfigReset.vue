@@ -22,42 +22,37 @@
     </BaseCard>
 
     <!-- ConfirmDialog 와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
-    <Teleport to="body">
-      <DialogTransition>
-        <div v-if="asking" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-          <div role="alertdialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md dialog-panel">
-            <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
-            <h3 class="text-xl font-round font-semibold text-center mb-4">{{ T.confirm[asking].title }}</h3>
-            <p v-if="bodyOf(asking)" class="text-sm text-on-surface-variant text-center whitespace-pre-line mb-4">{{ bodyOf(asking) }}</p>
-            <div v-if="asking === 'audio-cache' && view" class="flex flex-col gap-1 mb-4">
-              <label v-for="part in AUDIO_CACHE_PARTS" :key="part" class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row) cursor-pointer state-layer">
-                <BaseSwitch v-model="parts[part]" :label="T.parts[part].label" />
-                <span class="flex-1 min-w-0">
-                  <span class="block text-body font-medium">{{ T.parts[part].label }}</span>
-                  <span class="block text-label text-on-surface-variant">{{ T.parts[part].desc(counts) }}</span>
-                </span>
-              </label>
-            </div>
-            <label v-if="asking === 'all' && view" class="flex flex-col gap-1 mb-4">
-              <span class="text-label text-on-surface-variant">{{ T.confirm.all.typeName(view.botName) }}</span>
-              <input v-model="typed" type="text" :class="[FIELD, 'w-full']" :placeholder="view.botName" />
-            </label>
-            <div class="flex gap-2 justify-end">
-              <BaseButton variant="ghost" :disabled="busy" @click="close">{{ CANCEL }}</BaseButton>
-              <BaseButton variant="danger" :disabled="!canRun" @click="run">{{ T.confirm[asking].button }}</BaseButton>
-            </div>
-          </div>
+    <BaseDialog :open="asking != null" width="md" role="alertdialog" :aria-labelledby="titleId" @close="close"
+      ><template v-if="asking">
+        <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
+        <h3 :id="titleId" class="text-xl font-round font-semibold text-center mb-4">{{ T.confirm[asking].title }}</h3>
+        <p v-if="bodyOf(asking)" class="text-sm text-on-surface-variant text-center whitespace-pre-line mb-4">{{ bodyOf(asking) }}</p>
+        <div v-if="asking === 'audio-cache' && view" class="flex flex-col gap-1 mb-4">
+          <label v-for="part in AUDIO_CACHE_PARTS" :key="part" class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row) cursor-pointer state-layer">
+            <BaseSwitch v-model="parts[part]" :label="T.parts[part].label" />
+            <span class="flex-1 min-w-0">
+              <span class="block text-body font-medium">{{ T.parts[part].label }}</span>
+              <span class="block text-label text-on-surface-variant">{{ T.parts[part].desc(counts) }}</span>
+            </span>
+          </label>
         </div>
-      </DialogTransition>
-    </Teleport>
+        <label v-if="asking === 'all' && view" class="flex flex-col gap-1 mb-4">
+          <span class="text-label text-on-surface-variant">{{ T.confirm.all.typeName(view.botName) }}</span>
+          <input v-model="typed" type="text" :class="[FIELD, 'w-full']" :placeholder="view.botName" />
+        </label>
+        <div class="flex gap-2 justify-end">
+          <BaseButton variant="ghost" :disabled="busy" @click="close">{{ CANCEL }}</BaseButton>
+          <BaseButton variant="danger" :disabled="!canRun" @click="run">{{ T.confirm[asking].button }}</BaseButton>
+        </div>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
+import { computed, onMounted, reactive, ref, useId } from "vue";
 import axios from "axios";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
@@ -80,10 +75,7 @@ const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 l
 
 const view = ref<ResetOverview | null>(null);
 const asking = ref<ResetKind | null>(null);
-useCloseLayer(
-  computed(() => asking.value != null),
-  () => close(),
-);
+const titleId = useId();
 const busy = ref(false);
 const typed = ref("");
 const parts = reactive(Object.fromEntries(AUDIO_CACHE_PARTS.map((part) => [part, AUDIO_CACHE_PARTS_DEFAULT.includes(part)])) as Record<AudioCachePart, boolean>);

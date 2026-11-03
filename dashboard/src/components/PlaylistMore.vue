@@ -14,7 +14,7 @@
         </div>
       </div>
       <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다. 고리는 남은 시간이라 움직임 줄이기에도 돈다(data-keep-motion) -->
-      <button type="button" class="tap state-layer size-8 rounded-full flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-38 disabled:cursor-not-allowed" :disabled="busy" v-tooltip="busy ? T.adding : T.closeIn(secondsLeft)" :aria-label="text.common.close" @click="$emit('close')">
+      <button type="button" :class="iconButton(32, 'plain')" :disabled="busy" v-tooltip="busy ? T.adding : T.closeIn(secondsLeft)" :aria-label="text.common.close" @click="$emit('close')">
         <svg class="absolute inset-0 -rotate-90 pointer-events-none" viewBox="0 0 32 32" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" class="opacity-15" />
           <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" data-keep-motion :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
@@ -33,7 +33,7 @@
 
       <div class="flex items-center gap-3 pt-2">
         <input v-model.number="amount" type="range" min="1" :max="cap" class="m3-slider m3-slider-compact flex-1" :style="{ '--v': cap > 1 ? (Math.min(Math.max(Number(amount) || 1, 1), cap) - 1) / (cap - 1) : 1 }" :disabled="busy" :aria-label="T.amount" />
-        <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" class="w-16 h-10 bg-surface-highest/80 rounded-xl text-on-surface px-3 text-body text-right nums outline-none ring-0 focus:ring-2 focus:ring-primary" :class="!valid && 'ring-2 ring-error'" :disabled="busy" :aria-label="T.amountInput" @keydown.enter="valid && !busy && $emit('add', amount)" />
+        <input v-model.number="amount" type="text" inputmode="numeric" :maxlength="String(MAX_COUNT).length" :class="[FIELD, 'w-16 px-3! text-right nums', !valid && 'border-error! focus:border-error!']" :disabled="busy" :aria-label="T.amountInput" @keydown.enter="valid && !busy && $emit('add', amount)" />
         <BaseButton type="button" :disabled="busy || !valid" @click="$emit('add', amount)">{{ busy ? T.addingLong : T.add }}</BaseButton>
       </div>
 
@@ -47,7 +47,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import BaseButton from "./BaseButton.vue";
+import { FIELD } from "../utils/field.ts";
 import Icon from "./BaseIcon.vue";
+import { iconButton } from "../utils/icon-button.ts";
 import type { MoreView } from "../../../src/dashboard/contract/player.ts";
 import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
 import { roomWith } from "../../../src/rules/queue-room.ts";

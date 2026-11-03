@@ -14,7 +14,7 @@
       <div v-if="open" role="dialog" :aria-label="T.inbox" :style="pos" class="fixed z-210 w-[min(24rem,calc(100vw-1rem))] flex flex-col max-h-[min(36rem,calc(100dvh-5rem))] p-2 rounded-3xl pane-menu origin-top-right">
         <div class="flex items-center gap-2 pl-3 pr-1 pt-1 pb-2">
           <span class="flex-1 text-title font-semibold">{{ T.inbox }}</span>
-          <button type="button" class="tap state-layer h-8 px-3 rounded-full text-label font-semibold cursor-pointer text-primary disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!inbox.length || clearing" @click="clearAll">{{ T.inboxClear }}</button>
+          <BaseButton type="button" variant="text" size="sm" :disabled="!inbox.length || clearing" @click="clearAll">{{ T.inboxClear }}</BaseButton>
         </div>
         <TransitionGroup v-if="inbox.length || leaving > 0" ref="listRef" tag="ul" class="overflow-y-auto overflow-x-hidden flex flex-col gap-1 transition-[min-height] duration-200 ease-smooth" :class="[inbox.length ? 'min-h-0' : 'min-h-32', leaving > 0 && !scrolled && 'overflow-y-hidden!']" :style="listFade" :css="false" @leave="onLeave">
           <li v-for="one in inbox" :key="one.id" :data-id="one.id" class="flex gap-3 items-start pl-3 pr-1 py-2.5 rounded-2xl" :class="seen.has(one.id) ? 'bg-surface-container-highest' : 'bg-secondary-container'">
@@ -29,7 +29,7 @@
               <a v-if="one.reportUrl" :href="one.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">{{ text.common.reportToDeveloper }}</a>
               <div v-if="one.codeLine" class="text-on-surface-variant text-label mt-0.5">{{ one.codeLine }}</div>
             </div>
-            <button type="button" class="tap state-layer size-8 -my-1 shrink-0 rounded-full flex items-center justify-center cursor-pointer text-on-surface-variant" :aria-label="T.inboxRemoveOne" v-tooltip="T.inboxClear" @click="removeFromInbox(one.id)"><Icon name="close" :size="20" /></button>
+            <button type="button" :class="[iconButton(32), '-my-1']" :aria-label="T.inboxRemoveOne" v-tooltip="T.inboxClear" @click="removeFromInbox(one.id)"><Icon name="close" :size="20" /></button>
           </li>
         </TransitionGroup>
         <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity effects">
@@ -47,6 +47,8 @@
 import { computed, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import Icon from "../components/BaseIcon.vue";
+import BaseButton from "../components/BaseButton.vue";
+import { iconButton } from "../utils/icon-button.ts";
 import { TOPBAR_BTN } from "../utils/topbar.ts";
 import { inbox, unread, markAllRead, removeFromInbox } from "../composables/toasts.ts";
 import { TOAST_LOOK, toastWhen, toastFull } from "../utils/toast-look.ts";

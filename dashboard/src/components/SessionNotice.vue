@@ -17,33 +17,26 @@
 
   <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘, 제목, 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
        세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
-  <Teleport to="body">
-    <DialogTransition>
-      <div v-if="(session.ended || session.reauth) && showDialog" class="fixed inset-0 z-400 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-        <div role="dialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 max-w-md w-full text-center dialog-panel">
-          <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
-          <h3 class="mb-4 text-xl font-round font-semibold text-on-surface">{{ notice.title }}</h3>
-          <p class="mb-1 text-sm text-on-surface-variant">{{ notice.body }}</p>
-          <p class="mb-6 text-sm text-on-surface-variant">{{ session.ended ? T.loginAgainBody : T.reauthBody }}</p>
-          <p v-if="note" class="mb-4 text-sm text-tertiary">{{ note }}</p>
-          <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ session.ended ? codeLineOf("login-required", 401) : codeLineOf("reauth-required", 403) }}</p>
-          <div class="flex gap-2 justify-end flex-wrap">
-            <BaseButton variant="ghost" @click="close">{{ T.later }}</BaseButton>
-            <BaseButton v-if="session.ended" variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
-            <BaseButton variant="primary" @click="openLogin">{{ T.openLoginWindow }}</BaseButton>
-          </div>
-        </div>
-      </div>
-    </DialogTransition>
-  </Teleport>
+  <BaseDialog :open="(session.ended || session.reauth) && showDialog" width="md" layer="session" class="text-center" :aria-labelledby="titleId" @close="close">
+    <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
+    <h3 :id="titleId" class="mb-4 text-xl font-round font-semibold text-on-surface">{{ notice.title }}</h3>
+    <p class="mb-1 text-sm text-on-surface-variant">{{ notice.body }}</p>
+    <p class="mb-6 text-sm text-on-surface-variant">{{ session.ended ? T.loginAgainBody : T.reauthBody }}</p>
+    <p v-if="note" class="mb-4 text-sm text-tertiary">{{ note }}</p>
+    <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ session.ended ? codeLineOf("login-required", 401) : codeLineOf("reauth-required", 403) }}</p>
+    <div class="flex gap-2 justify-end flex-wrap">
+      <BaseButton variant="ghost" @click="close">{{ T.later }}</BaseButton>
+      <BaseButton v-if="session.ended" variant="ghost" :disabled="checking" @click="check">{{ T.loggedIn }}</BaseButton>
+      <BaseButton variant="primary" @click="openLogin">{{ T.openLoginWindow }}</BaseButton>
+    </div>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
+import { computed, ref, watch, onMounted, onUnmounted, useId } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import { session, openLoginWindow, onSignedIn, endReauth } from "../composables/session.ts";
@@ -76,10 +69,7 @@ function close() {
   showDialog.value = false;
   if (session.reauth) endReauth(false);
 }
-useCloseLayer(
-  computed(() => (session.ended || session.reauth) && showDialog.value),
-  close,
-);
+const titleId = useId();
 
 function openLogin() {
   // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다). 창을 닫지 않고 마치기를 기다린다

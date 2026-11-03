@@ -208,18 +208,11 @@
           <span v-if="queueLength && player.queue.length" class="hidden @xl/win:inline text-xs text-on-surface-variant nums mr-1">{{ queueLength }}</span>
           <!-- 자동재생 켜기, 끄기. 꺼져 있으면 장르를 선택하고, 켜져 있으면 누르면 끈다(디스코드 장르 메뉴와 같은 판정) -->
           <div class="relative">
-            <button
-              type="button"
-              class="tap state-layer h-8 px-3 rounded-full flex items-center gap-2 text-xs font-semibold cursor-pointer transition-[background-color,color] effects disabled:opacity-38 disabled:cursor-not-allowed"
-              :class="autoplayGenre ? 'bg-tertiary-container text-on-tertiary-container' : 'border border-outline-variant text-on-surface-variant'"
-              :disabled="!player.canControl || isBusy('autoplay')"
-              v-tooltip="autoplayGenre ? T.autoplayOff : T.autoplayOn"
-              @click="autoplayGenre ? setAutoplay(null) : toggleGenreMenu($event)"
-            >
+            <BaseButton type="button" size="sm" :variant="autoplayGenre ? 'warning' : 'ghost'" :disabled="!player.canControl || isBusy('autoplay')" v-tooltip="autoplayGenre ? T.autoplayOff : T.autoplayOn" @click="autoplayGenre ? setAutoplay(null) : toggleGenreMenu($event)">
               <Icon name="auto_awesome" :size="18" :fill="Boolean(autoplayGenre)" />
               <span>{{ T.autoplay }}</span>
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
-            </button>
+            </BaseButton>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
             <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
             <!-- 아래에 공간이 없으면(휴대폰 대기열 시트가 접혀 화면 아래에 있을 때) 위로 연다 -->
@@ -257,7 +250,7 @@
                   </div>
                 </div>
                 <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
-                <button class="tap state-layer size-8 rounded-full text-outline group-hover/item:text-on-surface-variant transition-colors cursor-pointer flex items-center justify-center shrink-0 disabled:opacity-38 disabled:cursor-not-allowed" v-tooltip="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
+                <button type="button" :class="[iconButton(32, 'quiet'), 'group-hover/item:text-on-surface-variant']" v-tooltip="T.removeSong" :aria-label="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
               </div>
             </div>
             <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
@@ -278,6 +271,7 @@
 <script setup lang="ts">
 import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
+import { iconButton } from "../utils/icon-button.ts";
 import { problemText, noticeText } from "../utils/problem.ts";
 import { useGuildsStore, onGuildNudge } from "../stores/guilds.ts";
 import { notify, notifyProblem } from "../composables/toasts.ts";

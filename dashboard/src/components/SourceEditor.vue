@@ -35,39 +35,44 @@
           <p v-else-if="!spec(source.type)" class="text-xs text-error">{{ T.unknownType }}</p>
           <p v-else-if="!spec(source.type)?.usable" class="text-xs text-(--warn-ink)">{{ T.unusable(spec(source.type)?.label ?? String(source.type)) }}</p>
 
-          <!-- 입력란 너비는 서버가 정한다(width). 짧은 입력란이 한 줄을 다 먹을 이유가 없다 -->
-          <div class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
-            <div v-for="field in shown(source, i)" :key="field.key" class="min-w-0" :class="widthCls(field)">
-              <!-- 1/6 너비 입력란은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
-              <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
-                {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
-              </span>
+          <!-- 입력란 너비는 서버가 정한다(width). 짧은 입력란이 한 줄을 다 먹을 이유가 없다.
+               자주 안 쓰는 필드(deep)는 기본 필드 아래 따로 묶어 접고 편다 -->
+          <template v-for="deep in [false, true]" :key="String(deep)">
+            <CollapseTransition>
+              <div v-if="!deep || (isDeepOpen(sourceFoldId(genreIndex, i)) && shown(source, true).length)" class="grid grid-cols-2 @xl/card:grid-cols-6 gap-3">
+                <div v-for="field in shown(source, deep)" :key="field.key" class="min-w-0" :class="widthCls(field)">
+                  <!-- 1/6 너비 입력란은 설명을 붙이면 줄이 터진다. 툴팁으로 돌린다 -->
+                  <span :class="fieldLabelCls" v-tooltip="field.width === 'narrow' ? field.hint : ''">
+                    {{ field.label }}<span v-if="field.required" class="text-error">*</span><span v-if="field.hint && field.width !== 'narrow'" class="ml-1 font-normal text-on-surface-variant">{{ field.hint }}</span>
+                  </span>
 
-              <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? T.listSuggest : T.listPlain" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+                  <ChipInput v-if="field.kind === 'list'" :model-value="asList(source[field.key]).map(String)" :placeholder="field.suggest ? T.listSuggest : T.listPlain" :suggest="suggestOf(source, field)" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-              <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+                  <MultiSelect v-else-if="field.kind === 'enumDrop'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-              <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
+                  <TagPicker v-else-if="field.kind === 'enumSearch'" :model-value="asList(source[field.key])" :options="field.options" @update:model-value="setField(i, field.key, $event.length ? $event : null)" />
 
-              <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-2">
-                <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
+                  <div v-else-if="field.kind === 'enumList'" class="flex flex-wrap gap-2">
+                    <button v-for="opt in field.options" :key="opt.value" type="button" :aria-pressed="asList(source[field.key]).includes(opt.value)" :class="[FILTER_CHIP, asList(source[field.key]).includes(opt.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggle(i, field.key, opt.value)">{{ opt.label }}</button>
+                  </div>
+
+                  <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || text.common.clearValue" @update:model-value="setField(i, field.key, $event || null)" />
+
+                  <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
+
+                  <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
+
+                  <div v-else-if="field.kind === 'url'" class="flex items-center gap-1">
+                    <input :value="valueAt(source, field.key) ?? ''" type="text" placeholder="https://…" :class="[FIELD, 'flex-1 min-w-0']" @input="setField(i, field.key, valueOf($event) || null)" />
+                    <!-- http(s) 주소일 때만 연다. 그 밖의 값(javascript: 등)은 링크로 만들지 않는다 -->
+                    <a :href="linkOf(source, field.key) ?? undefined" target="_blank" rel="noopener noreferrer" :aria-disabled="!linkOf(source, field.key)" :tabindex="linkOf(source, field.key) ? undefined : -1" :class="[ICON_BTN, 'size-10', !linkOf(source, field.key) && 'pointer-events-none opacity-38']" :aria-label="T.openUrl" v-tooltip="T.openUrl"><Icon name="open_in_new" :size="20" /></a>
+                  </div>
+
+                  <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
+                </div>
               </div>
-
-              <SingleSelect v-else-if="field.kind === 'enum'" :model-value="valueAt(source, field.key) ?? ''" :options="field.options" :empty-label="field.emptyLabel || text.common.clearValue" @update:model-value="setField(i, field.key, $event || null)" />
-
-              <RangeSlider v-else-if="field.kind === 'range'" :min="field.min" :max="field.max" :from="rangeAt(source, field.key)" :to="rangeAt(source, field.to)" :label="field.label" :histogram="field.histogram || []" @update="setRange(i, field, $event)" />
-
-              <NumberInput v-else-if="field.kind === 'number'" :model-value="numberAt(source, field.key)" :class="[FIELD, 'w-full']" @update:model-value="setField(i, field.key, $event)" />
-
-              <div v-else-if="field.kind === 'url'" class="flex items-center gap-1">
-                <input :value="valueAt(source, field.key) ?? ''" type="text" placeholder="https://…" :class="[FIELD, 'flex-1 min-w-0']" @input="setField(i, field.key, valueOf($event) || null)" />
-                <!-- http(s) 주소일 때만 연다. 그 밖의 값(javascript: 등)은 링크로 만들지 않는다 -->
-                <a :href="linkOf(source, field.key) ?? undefined" target="_blank" rel="noopener noreferrer" :aria-disabled="!linkOf(source, field.key)" :tabindex="linkOf(source, field.key) ? undefined : -1" :class="[ICON_BTN, 'size-10', !linkOf(source, field.key) && 'pointer-events-none opacity-38']" :aria-label="T.openUrl" v-tooltip="T.openUrl"><Icon name="open_in_new" :size="20" /></a>
-              </div>
-
-              <input v-else :value="valueAt(source, field.key) ?? ''" type="text" :class="[FIELD, 'w-full']" @input="setField(i, field.key, valueOf($event) || null)" />
-            </div>
-          </div>
+            </CollapseTransition>
+          </template>
 
           <div v-if="deepCount(source.type)">
             <BaseButton variant="ghost" size="sm" @click="toggleDeepOpen(sourceFoldId(genreIndex, i))"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="isDeepOpen(sourceFoldId(genreIndex, i)) && 'rotate-180'" />{{ isDeepOpen(sourceFoldId(genreIndex, i)) ? T.deepClose : T.deepOpen(deepCount(source.type)) }}</BaseButton>
@@ -82,14 +87,14 @@
       <div class="flex-1 min-w-0">
         <SingleSelect v-model="adding" :options="addable.map((t) => ({ value: t.type, label: t.label }))" :empty-label="T.addPlaceholder" />
       </div>
-      <button type="button" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center cursor-pointer bg-secondary-container text-on-secondary-container disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="!adding" :aria-label="T.add" v-tooltip="text.common.add" @click="add"><Icon name="add" :size="24" /></button>
+      <button type="button" :class="iconButton(40, 'tonal')" :disabled="!adding" :aria-label="T.add" v-tooltip="text.common.add" @click="add"><Icon name="add" :size="24" /></button>
     </div>
     <p v-if="!list.length" class="text-xs text-error">{{ T.none }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ICON_BTN } from "../utils/icon-button.ts";
+import { ICON_BTN, iconButton } from "../utils/icon-button.ts";
 import { ref, computed, watch } from "vue";
 import { windowDepth } from "../../../src/rules/window-depth.ts";
 import CollapseTransition from "./CollapseTransition.vue";
@@ -206,7 +211,7 @@ const typeOptions = (current: string | undefined) => choosable(current).map((t) 
 const fieldsOf = (type: string | undefined) => spec(type)?.fields || [];
 const deepCount = (type: string | undefined) => fieldsOf(type).filter((f) => f.deep).length;
 // when 이 있는 필드는 그 필드가 채워졌을 때만 뜬다. 분기는 연도를 자른 뒤에나 뜻이 있다
-const shown = (source: SourceData, i: number) => fieldsOf(source.type).filter((f) => (!f.deep || isDeepOpen(sourceFoldId(props.genreIndex, i))) && (!f.when || hasRange(source, f.when)));
+const shown = (source: SourceData, deep: boolean) => fieldsOf(source.type).filter((f) => Boolean(f.deep) === deep && (!f.when || hasRange(source, f.when)));
 // 구간은 두 필드로 적히니 한쪽만 손으로 적어 둔 설정도 있다
 function hasRange(source: SourceData, key: string) {
   const to = fieldsOf(source.type).find((f) => f.key === key)?.to;

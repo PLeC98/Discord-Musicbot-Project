@@ -8,7 +8,7 @@
 -->
 <template>
   <span ref="root" class="relative inline-flex shrink-0">
-    <button ref="trigger" type="button" class="tap size-6 rounded-full border border-outline-variant cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: shown }" :aria-label="label" :aria-expanded="open" aria-haspopup="dialog" v-tooltip="label" @click="open = !open"></button>
+    <button ref="trigger" type="button" class="tap size-6 rounded-full border border-outline-variant cursor-pointer" :style="{ background: shown }" :aria-label="label" :aria-expanded="open" aria-haspopup="dialog" v-tooltip="label" @click="open = !open"></button>
 
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
@@ -18,7 +18,7 @@
         <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
           <div class="flex flex-col gap-3 p-3">
             <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
-            <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
+            <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
               <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
             </div>
 

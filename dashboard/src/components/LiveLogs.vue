@@ -22,11 +22,11 @@
     <!-- 필터: 레벨은 여럿 켜기(심각한 것부터). 카테고리, 태그는 흘러온 로그에서 본 것만 드롭다운으로(종류가 늘어나는 목록이라 칩 대신, 많으면 검색창). 오른쪽 끝에 자동 스크롤(켜 두면 새 줄을 따라 내려간다), 지우기 -->
     <!-- 카드 안쪽 587px 이하(휴대폰, 운영자 화면에서 사이드바를 접은 화면 795px 이하): 첫 줄은 필터 버튼, 자동 스크롤, 둘째 줄은 검색.
          레벨, 카테고리, 태그, 지우기는 필터 창에(선택하는 대로 반영. 휴대폰은 바텀 시트, 그 밖은 가운데 팝업) -->
-    <div class="flex @min-[588px]/card:hidden items-center gap-2">
+    <div class="flex @min-[36.75rem]/card:hidden items-center gap-2">
       <FilterButton :count="activeFilters" @open="openSheet" />
       <label class="ml-auto flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>
     </div>
-    <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="@min-[588px]/card:hidden w-full" />
+    <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="@min-[36.75rem]/card:hidden w-full" />
     <FilterSheet :open="sheetOpen" @close="sheetOpen = false" @reset="resetFilters">
       <section class="flex flex-col gap-2">
         <h3 class="text-label font-semibold text-primary">{{ T.filterLevels }}</h3>
@@ -48,7 +48,7 @@
     <!-- 카드 안쪽 588px 이상: 영역 이름이 붙은 격자(같은 버튼을 두 번 그리지 않게 영역 위치만 바꾼다). 안쪽 폭 = 운영자 화면에서 사이드바를 접으면 화면 - 208px.
          588 ~ 742px(화면 796 ~ 950px): 레벨, 자동 스크롤, 지우기 / 카테고리, 태그, 검색(남은 폭).
          743px 이상(화면 951px 이상): 레벨 / 카테고리, 태그, 검색(288px 까지), 오른쪽 끝 자동 스크롤, 지우기 -->
-    <div class="hidden @min-[588px]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_actions'_'filters_filters'] @min-[743px]/card:[grid-template-areas:'chips_chips'_'filters_actions']">
+    <div class="hidden @min-[36.75rem]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_actions'_'filters_filters'] @min-[46.4375rem]/card:[grid-template-areas:'chips_chips'_'filters_actions']">
       <div class="[grid-area:chips] flex flex-wrap items-center gap-2">
         <button v-for="l in LEVEL_CHIPS" :key="l.value" type="button" :aria-pressed="levelsOn.has(l.value)" :class="[FILTER_CHIP, levelsOn.has(l.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleLevel(l.value)">{{ l.label }}</button>
       </div>
@@ -56,7 +56,7 @@
         <SingleSelect v-model="category" class="w-44 shrink-0" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
         <SingleSelect v-model="tag" class="w-44 shrink-0" :options="tagOptions" :empty-label="T.allTags" />
         <!-- 글자 검색: 받아 둔 줄의 글, 카테고리, 태그에서(한국어 검색). 넓으면 288px 까지, 그 밖은 남은 폭을 다 -->
-        <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 @min-[743px]/card:max-w-72" />
+        <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 @min-[46.4375rem]/card:max-w-72" />
       </div>
       <span class="[grid-area:actions] justify-self-end flex items-center gap-2">
         <label class="flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer select-none">{{ T.autoScroll }}<BaseSwitch :model-value="follow" :label="T.autoScroll" @update:model-value="setFollow" /></label>

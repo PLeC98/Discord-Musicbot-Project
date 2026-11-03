@@ -16,7 +16,7 @@
         <a v-if="t.reportUrl" :href="t.reportUrl" target="_blank" rel="noopener" class="text-primary text-label font-semibold hover:underline">{{ text.common.reportToDeveloper }}</a>
         <div v-if="t.codeLine" class="text-on-surface-variant text-label mt-0.5">{{ t.codeLine }}</div>
       </div>
-      <button class="tap state-layer size-8 shrink-0 rounded-full flex items-center justify-center text-on-surface-variant cursor-pointer" :aria-label="text.common.close" @click="dismiss(t.id)"><Icon name="close" :size="20" /></button>
+      <button type="button" :class="iconButton(32)" :aria-label="text.common.close" @click="dismiss(t.id)"><Icon name="close" :size="20" /></button>
     </div>
   </TransitionGroup>
 </template>
@@ -24,6 +24,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import Icon from "./BaseIcon.vue";
+import { iconButton } from "../utils/icon-button.ts";
 import { toasts, dismiss } from "../composables/toasts.ts";
 import { TOAST_LOOK, toastClock } from "../utils/toast-look.ts";
 import { text } from "../text/index.ts";

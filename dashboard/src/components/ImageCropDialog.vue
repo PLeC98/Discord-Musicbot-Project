@@ -1,56 +1,49 @@
 <template>
   <!-- 이미지에서 쓸 영역을 선택하는 대화상자(파비콘의 이미지 편집하기). 틀은 aspect(가로 ÷ 세로)를 지킨다.
        "적용하기"를 누르면 선택한 영역을 원본 해상도로(긴 변 maxSide 까지) 잘라 png 로 넘긴다 -->
-  <Teleport to="body">
-    <DialogTransition>
-      <div v-if="open" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1" @click.self="open = false">
-        <!-- 편집 창은 보는 창을 넓게 쓰려고 여백을 대화상자(24px)보다 좁은 20px 로 둔다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
-        <div role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-xl flex flex-col gap-3 dialog-panel">
-          <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
+  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+  <BaseDialog :open="open" width="xl" padding="editor" class="flex flex-col gap-3" :aria-label="T.title" @close="open = false">
+    <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
-          <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
+    <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다.
                둘레에 틈을 두어 이미지 가장자리에 붙은 핸들도 잘리지 않게 한다 -->
-          <div ref="viewportEl" class="w-full" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
-            <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
-              <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
-                <!-- 이미지와 바깥을 어둡게 덮는 그림자는 이미지 안에서만(큰 그림자를 이미지 밖으로 내지 않게 자른다) -->
-                <div class="absolute inset-0 overflow-hidden rounded-lg">
-                  <img v-if="url" :src="url" alt="" class="block size-full pointer-events-none" draggable="false" />
-                  <div class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
-                </div>
-                <!-- 선택한 영역의 틀과 핸들은 자르지 않는 레이어에(이미지 밖으로 나와도 보이고 잡힌다). 안을 드래그하면 옮긴다. 핸들은 보이는 것보다 넓게 잡힌다 -->
-                <div class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
-                  <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
-                </div>
-              </div>
-            </div>
+    <div ref="viewportEl" class="w-full" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
+      <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
+        <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
+          <!-- 이미지와 바깥을 어둡게 덮는 그림자는 이미지 안에서만(큰 그림자를 이미지 밖으로 내지 않게 자른다) -->
+          <div class="absolute inset-0 overflow-hidden rounded-lg">
+            <img v-if="url" :src="url" alt="" class="block size-full pointer-events-none" draggable="false" />
+            <div class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
           </div>
-          <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
-          <div class="flex items-center justify-center gap-3 text-on-surface-variant">
-            <Icon name="image" :size="16" aria-hidden="true" />
-            <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
-            <Icon name="image" :size="24" aria-hidden="true" />
-          </div>
-
-          <p class="text-xs text-on-surface-variant nums">
-            {{ T.picked(Math.round(sel.w), Math.round(sel.h)) }}<template v-if="target && sel.w < target"> · {{ T.tooSmall(target) }}</template>
-          </p>
-          <div class="flex gap-2 justify-end">
-            <!-- 처음 열렸을 때의 틀(그 비율로 가장 크게, 가운데)로 되돌린다 -->
-            <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="fit">{{ T.reset }}</BaseButton>
-            <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
-            <BaseButton :disabled="!natural.width" @click="finish">{{ T.use }}</BaseButton>
+          <!-- 선택한 영역의 틀과 핸들은 자르지 않는 레이어에(이미지 밖으로 나와도 보이고 잡힌다). 안을 드래그하면 옮긴다. 핸들은 보이는 것보다 넓게 잡힌다 -->
+          <div class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
+            <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
           </div>
         </div>
       </div>
-    </DialogTransition>
-  </Teleport>
+    </div>
+    <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
+    <div class="flex items-center justify-center gap-3 text-on-surface-variant">
+      <Icon name="image" :size="16" aria-hidden="true" />
+      <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
+      <Icon name="image" :size="24" aria-hidden="true" />
+    </div>
+
+    <p class="text-xs text-on-surface-variant nums">
+      {{ T.picked(Math.round(sel.w), Math.round(sel.h)) }}<template v-if="target && sel.w < target"> · {{ T.tooSmall(target) }}</template>
+    </p>
+    <div class="flex gap-2 justify-end">
+      <!-- 처음 열렸을 때의 틀(그 비율로 가장 크게, 가운데)로 되돌린다 -->
+      <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="fit">{{ T.reset }}</BaseButton>
+      <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
+      <BaseButton :disabled="!natural.width" @click="finish">{{ T.use }}</BaseButton>
+    </div>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
@@ -59,7 +52,6 @@ const T = text.appearance.crop;
 /** file: 자를 이미지. aspect: 가로 ÷ 세로(1 이면 정사각형). target: 쓸 크기(한 변 px, 그보다 작게 선택하면 알린다). maxSide: 넘기는 긴 변의 상한(쓰는 곳이 필요한 만큼, 안 주면 아주 큰 원본을 그대로 넘기지 않을 만큼) */
 const props = withDefaults(defineProps<{ file: File | null; aspect: number; target?: number; maxSide?: number }>(), { target: undefined, maxSide: 2048 });
 const open = defineModel<boolean>({ required: true });
-useCloseLayer(open, () => (open.value = false));
 const emit = defineEmits<{ done: [blob: Blob] }>();
 
 type Corner = "nw" | "ne" | "sw" | "se";

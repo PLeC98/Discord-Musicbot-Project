@@ -15,7 +15,7 @@
         <!-- 미리보기 화면 영역: 위에 화면 비율(버튼마다 툴팁으로 그 비율의 기기), 미리보기 화면은 영역 가운데 -->
         <div class="flex flex-col gap-3 min-w-0 rounded-2xl bg-surface-container p-4">
           <div class="flex flex-wrap justify-center gap-1">
-            <button v-for="one in RATIOS" :key="one.label" type="button" class="tap state-layer h-8 px-3 rounded-full text-xs font-semibold nums cursor-pointer" :class="ratio === one ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-highest'" v-tooltip="C.ratioDevices[one.label]" @click="ratio = one">{{ one.label }}</button>
+            <button v-for="one in RATIOS" :key="one.label" type="button" :aria-pressed="ratio === one" :class="[FILTER_CHIP, 'nums', ratio === one ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" v-tooltip="C.ratioDevices[one.label]" @click="ratio = one">{{ one.label }}</button>
           </div>
           <label class="flex items-center justify-center gap-2 text-xs"> <BaseSwitch v-model="silhouette" :label="C.silhouette" />{{ C.silhouette }} </label>
           <!-- 미리보기 화면: 높이 PANE_REM 기준, 넓은 비율은 영역 폭에 맞춰 줄인다 -->
@@ -93,49 +93,51 @@
       </div>
 
       <!-- 고급 설정(접힘): 기록 보관 개수, 최대 용량(쓰는 양 막대), 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁, 공용 숫자 입력란, 비워 두면 기본값 -->
-      <details v-if="state" class="group/adv rounded-(--r-inner) bg-surface-container text-sm">
-        <summary class="flex cursor-pointer list-none items-center gap-1 px-4 py-3 font-semibold"><Icon name="expand_more" :size="20" class="transition-transform spring-fast group-open/adv:rotate-180" />{{ A.title }}</summary>
-        <div class="flex flex-col gap-5 px-4 pb-4">
-          <div class="flex flex-col gap-2">
-            <div class="grid grid-cols-2 gap-3">
-              <label class="block">
-                <span :class="FIELD_LABEL" v-tooltip="A.historyTip">{{ A.history }}</span>
-                <NumberInput v-model="limitsDraft.history" :placeholder="String(DEFAULT_LIMITS.history)" :class="[FIELD, 'w-full nums']" />
-              </label>
-              <label class="block">
-                <span :class="FIELD_LABEL" v-tooltip="A.maxSizeTip">{{ A.maxSize }}</span>
-                <NumberInput v-model="limitsDraft.gb" decimal :placeholder="String(DEFAULT_LIMITS.gb)" :class="[FIELD, 'w-full nums']" />
-              </label>
+      <div v-if="state" class="rounded-(--r-inner) bg-surface-container text-sm">
+        <button type="button" class="tap state-layer w-full flex items-center gap-1 px-4 py-3 rounded-(--r-inner) font-semibold text-left cursor-pointer" :aria-expanded="advancedOpen" :aria-controls="advancedId" @click="advancedOpen = !advancedOpen"><Icon name="expand_more" :size="20" class="transition-transform spring-fast" :class="advancedOpen && 'rotate-180'" />{{ A.title }}</button>
+        <CollapseTransition>
+          <div v-show="advancedOpen" :id="advancedId" class="flex flex-col gap-5 px-4 pb-4">
+            <div class="flex flex-col gap-2">
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="A.historyTip">{{ A.history }}</span>
+                  <NumberInput v-model="limitsDraft.history" :placeholder="String(DEFAULT_LIMITS.history)" :class="[FIELD, 'w-full nums']" />
+                </label>
+                <label class="block">
+                  <span :class="FIELD_LABEL" v-tooltip="A.maxSizeTip">{{ A.maxSize }}</span>
+                  <NumberInput v-model="limitsDraft.gb" decimal :placeholder="String(DEFAULT_LIMITS.gb)" :class="[FIELD, 'w-full nums']" />
+                </label>
+              </div>
+              <!-- 쓰는 용량(무제한이면 막대 없이) -->
+              <span class="flex items-baseline justify-between text-xs text-on-surface-variant nums"
+                ><span>{{ A.usedLabel }}</span
+                ><span>{{ A.used(formatBytes(state.usedBytes), state.limits.maxBytes ? formatBytes(state.limits.maxBytes) : null) }}</span></span
+              >
+              <span v-if="state.limits.maxBytes" class="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest"><span class="block h-full rounded-full bg-primary" :style="{ width: `${Math.min(100, (state.usedBytes / state.limits.maxBytes) * 100)}%` }"></span></span>
             </div>
-            <!-- 쓰는 용량(무제한이면 막대 없이) -->
-            <span class="flex items-baseline justify-between text-xs text-on-surface-variant nums"
-              ><span>{{ A.usedLabel }}</span
-              ><span>{{ A.used(formatBytes(state.usedBytes), state.limits.maxBytes ? formatBytes(state.limits.maxBytes) : null) }}</span></span
-            >
-            <span v-if="state.limits.maxBytes" class="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest"><span class="block h-full rounded-full bg-primary" :style="{ width: `${Math.min(100, (state.usedBytes / state.limits.maxBytes) * 100)}%` }"></span></span>
+            <div class="flex flex-col gap-2">
+              <span class="flex items-center gap-2">
+                <span :class="FIELD_LABEL" class="mb-0!" v-tooltip="A.encodersTip">{{ A.encoders }}</span>
+                <BaseButton size="sm" variant="ghost" class="ml-auto" :disabled="busy || state.checking" @click="recheck">{{ state.checking ? A.checking : A.recheck }}</BaseButton>
+              </span>
+              <ul class="flex flex-col gap-1.5">
+                <li v-for="one in state.encoders" :key="one.codec" class="flex flex-col">
+                  <span class="flex items-baseline gap-2"
+                    ><span class="w-14 shrink-0 font-semibold">{{ A.codec[one.codec] }}</span
+                    ><span :class="one.encoder ? 'text-on-surface-variant' : 'text-error'">{{ one.encoder ? A.use(A.encoderName[one.encoder] ?? one.encoder, one.hardware) : A.noEncoder }}</span></span
+                  >
+                  <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
+                </li>
+              </ul>
+              <!-- 지금 인코딩: 함께 인코딩하는 단계, AV1 병렬 단계(남은 메모리에 맞춰 정한 것), 묶은 코어, 속도. 메모리, 이벤트 루프 지연은 봇 상태 탭 -->
+              <span v-if="bakeLine" class="flex items-baseline gap-2 text-xs nums"
+                ><span class="shrink-0 font-semibold" v-tooltip="A.bakeTip">{{ A.bakeTitle }}</span
+                ><span class="text-on-surface-variant">{{ bakeLine }}</span></span
+              >
+            </div>
           </div>
-          <div class="flex flex-col gap-2">
-            <span class="flex items-center gap-2">
-              <span :class="FIELD_LABEL" class="mb-0!" v-tooltip="A.encodersTip">{{ A.encoders }}</span>
-              <BaseButton size="sm" variant="ghost" class="ml-auto" :disabled="busy || state.checking" @click="recheck">{{ state.checking ? A.checking : A.recheck }}</BaseButton>
-            </span>
-            <ul class="flex flex-col gap-1.5">
-              <li v-for="one in state.encoders" :key="one.codec" class="flex flex-col">
-                <span class="flex items-baseline gap-2"
-                  ><span class="w-14 shrink-0 font-semibold">{{ A.codec[one.codec] }}</span
-                  ><span :class="one.encoder ? 'text-on-surface-variant' : 'text-error'">{{ one.encoder ? A.use(A.encoderName[one.encoder] ?? one.encoder, one.hardware) : A.noEncoder }}</span></span
-                >
-                <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
-              </li>
-            </ul>
-            <!-- 지금 인코딩: 함께 인코딩하는 단계, AV1 병렬 단계(남은 메모리에 맞춰 정한 것), 묶은 코어, 속도. 메모리, 이벤트 루프 지연은 봇 상태 탭 -->
-            <span v-if="bakeLine" class="flex items-baseline gap-2 text-xs nums"
-              ><span class="shrink-0 font-semibold" v-tooltip="A.bakeTip">{{ A.bakeTitle }}</span
-              ><span class="text-on-surface-variant">{{ bakeLine }}</span></span
-            >
-          </div>
-        </div>
-      </details>
+        </CollapseTransition>
+      </div>
     </div>
     <input ref="fileInput" type="file" accept="image/*,video/*" class="hidden" @change="onPick" />
   </BaseCard>
@@ -155,13 +157,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, useId, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import SeamPicker from "./SeamPicker.vue";
+import CollapseTransition from "./CollapseTransition.vue";
 import NumberInput from "./NumberInput.vue";
 import Icon from "./BaseIcon.vue";
 import LoginBackdrop from "./LoginBackdrop.vue";
@@ -171,6 +174,7 @@ import BackgroundEditDialog from "./BackgroundEditDialog.vue";
 import LoginView from "../views/LoginView.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { ICON_BTN } from "../utils/icon-button.ts";
+import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { LIMIT } from "../utils/request.ts";
 import { noticeText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
@@ -181,6 +185,8 @@ import { text } from "../text/index.ts";
 const C = text.loginBackground.card;
 const A = text.loginBackground.advanced;
 const N = text.loginBackground.notice;
+const advancedOpen = ref(false);
+const advancedId = useId();
 
 const API = "/api/admin/appearance/login-background";
 /** 운영자 패널의 상태 읽기와 같은 주기 */

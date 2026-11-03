@@ -47,7 +47,9 @@
       <!-- 목록. 맨 위 마커가 보이면 새 기록을 바로 붙인다 -->
       <div class="relative flex flex-col rounded-(--r-inner) border border-outline-variant/40 overflow-hidden">
         <div ref="topMark" class="h-px -mb-px"></div>
-        <button v-if="fresh.length" type="button" class="tap sticky top-2 z-10 self-center -mb-8 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-medium shadow-md" @click="showFresh"><Icon name="arrow_upward" :size="16" />{{ T.newCount(fresh.length) }}</button>
+        <div v-if="fresh.length" class="sticky top-2 z-10 self-center -mb-8 flex">
+          <BaseButton type="button" size="sm" class="shadow-md" @click="showFresh"><Icon name="arrow_upward" :size="16" />{{ T.newCount(fresh.length) }}</BaseButton>
+        </div>
         <p v-if="!entries.length && !loading" class="py-10 flex flex-col items-center gap-1 text-center text-sm text-on-surface-variant">
           <Icon name="history" :size="32" /><span class="text-on-surface">{{ total ? T.emptyFiltered : T.empty }}</span
           ><span v-if="!total" class="text-xs">{{ T.emptyDesc }}</span>

@@ -56,82 +56,73 @@
       </Transition>
     </div>
 
-    <Teleport to="body">
-      <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다(M3 대화상자, 설정 대화상자와 같은 모양) -->
-      <DialogTransition>
-        <div v-if="paid" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="paid = null">
-          <div role="dialog" aria-modal="true" aria-labelledby="paid-title" class="w-fit min-w-[min(26rem,100%)] max-w-[min(48rem,100%)] rounded-2xl bg-surface-container-high p-6 dialog-panel">
-            <div class="flex items-center gap-3 mb-4">
-              <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="paid" :size="20" /></span>
-              <h3 id="paid-title" class="flex-1 text-xl font-round font-semibold">{{ TD.title }}</h3>
-            </div>
-            <p class="mb-3 text-body text-on-surface-variant">{{ TD.body }}</p>
-            <dl class="mb-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-              <dt class="text-on-surface-variant">{{ TD.to }}</dt>
-              <dd class="font-mono break-all whitespace-pre-line text-on-surface">{{ paidUrl || paidUrlError || TD.checking }}</dd>
-              <dt class="text-on-surface-variant">{{ TD.model }}</dt>
-              <dd class="font-mono break-all text-on-surface">{{ draft.model || TD.emptyModel }}</dd>
-              <dt class="text-on-surface-variant">{{ TD.what }}</dt>
-              <dd v-if="paid === 'ping'" class="text-on-surface">{{ pingText || TD.checking }}</dd>
-              <dd v-else class="text-on-surface">{{ TD.judgeWhat(sections.length, judgeUsable.length) }}</dd>
-            </dl>
-            <div class="flex gap-2 justify-end">
-              <BaseButton variant="ghost" @click="paid = null">{{ TD.cancel }}</BaseButton>
-              <BaseButton variant="warning" @click="runPaid">{{ TD.send }}</BaseButton>
-            </div>
-          </div>
-        </div>
-      </DialogTransition>
+    <!-- 유료 확인. 보안이 아니라 돈 때문이다. 실수로 눌러 토큰을 태우는 것을 막는다(M3 대화상자, 설정 대화상자와 같은 모양) -->
+    <BaseDialog :open="paid != null" width="fit" aria-labelledby="paid-title" @close="paid = null">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="size-9 shrink-0 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><Icon name="paid" :size="20" /></span>
+        <h3 id="paid-title" class="flex-1 text-xl font-round font-semibold">{{ TD.title }}</h3>
+      </div>
+      <p class="mb-3 text-body text-on-surface-variant">{{ TD.body }}</p>
+      <dl class="mb-6 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+        <dt class="text-on-surface-variant">{{ TD.to }}</dt>
+        <dd class="font-mono break-all whitespace-pre-line text-on-surface">{{ paidUrl || paidUrlError || TD.checking }}</dd>
+        <dt class="text-on-surface-variant">{{ TD.model }}</dt>
+        <dd class="font-mono break-all text-on-surface">{{ draft.model || TD.emptyModel }}</dd>
+        <dt class="text-on-surface-variant">{{ TD.what }}</dt>
+        <dd v-if="paid === 'ping'" class="text-on-surface">{{ pingText || TD.checking }}</dd>
+        <dd v-else class="text-on-surface">{{ TD.judgeWhat(sections.length, judgeUsable.length) }}</dd>
+      </dl>
+      <div class="flex gap-2 justify-end">
+        <BaseButton variant="ghost" @click="paid = null">{{ TD.cancel }}</BaseButton>
+        <BaseButton variant="warning" @click="runPaid">{{ TD.send }}</BaseButton>
+      </div>
+    </BaseDialog>
 
-      <!-- 요청 미리보기: 나간 것과 온 것을 그대로 본다. 다듬지 않는다 -->
-      <DialogTransition>
-        <div v-if="shown" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="shown = null">
-          <div role="dialog" aria-modal="true" aria-labelledby="preview-title" class="w-[min(56rem,100%)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 dialog-panel">
-            <div class="flex items-center gap-3 mb-4">
-              <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="visibility" :size="20" /></span>
-              <h3 id="preview-title" class="flex-1 text-xl font-round font-semibold">{{ TV.title }}</h3>
-              <span class="text-xs text-on-surface-variant">{{ TV.notSent }}</span>
-              <span v-if="shown.tokens" class="text-xs text-on-surface-variant nums" v-tooltip="shown.tokens.exact ? '' : TR.estimated">{{ TR.tokens(shown.tokens.total) }}</span>
-              <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="shown = null"><Icon name="close" :size="20" /></button>
-            </div>
-            <div class="flex flex-col gap-3">
-              <div v-for="(part, i) in shownSections" :key="i" class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                  <span class="flex-1 text-sm font-semibold text-on-surface">{{ part.name }}</span>
-                  <span class="text-xs font-mono text-on-surface-variant">{{ part.role }}</span>
-                  <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(part.text)"><Icon name="content_copy" :size="20" /></button>
-                </div>
-                <pre :class="CODE_BOX">{{ part.text }}</pre>
-              </div>
-              <div>
-                <BaseButton variant="ghost" size="sm" @click="showRawRequest = !showRawRequest"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showRawRequest && 'rotate-180'" />{{ showRawRequest ? TV.rawHide : TV.rawShow }}</BaseButton>
-              </div>
-              <CollapseTransition>
-                <div v-if="showRawRequest" class="flex flex-col gap-3">
-                  <div v-for="box in boxes" :key="box.title" class="flex flex-col gap-1">
-                    <div class="flex items-center gap-2">
-                      <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
-                      <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
-                    </div>
-                    <pre :class="CODE_BOX">{{ box.text }}</pre>
-                  </div>
-                </div>
-              </CollapseTransition>
-            </div>
-          </div>
+    <!-- 요청 미리보기: 나간 것과 온 것을 그대로 본다. 다듬지 않는다 -->
+    <BaseDialog :open="shown != null" width="4xl" scroll aria-labelledby="preview-title" @close="shown = null"
+      ><template v-if="shown">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="size-9 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="visibility" :size="20" /></span>
+          <h3 id="preview-title" class="flex-1 text-xl font-round font-semibold">{{ TV.title }}</h3>
+          <span class="text-xs text-on-surface-variant">{{ TV.notSent }}</span>
+          <span v-if="shown.tokens" class="text-xs text-on-surface-variant nums" v-tooltip="shown.tokens.exact ? '' : TR.estimated">{{ TR.tokens(shown.tokens.total) }}</span>
+          <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.common.close" @click="shown = null"><Icon name="close" :size="20" /></button>
         </div>
-      </DialogTransition>
-    </Teleport>
+        <div class="flex flex-col gap-3">
+          <div v-for="(part, i) in shownSections" :key="i" class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <span class="flex-1 text-sm font-semibold text-on-surface">{{ part.name }}</span>
+              <span class="text-xs font-mono text-on-surface-variant">{{ part.role }}</span>
+              <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(part.text)"><Icon name="content_copy" :size="20" /></button>
+            </div>
+            <pre :class="CODE_BOX">{{ part.text }}</pre>
+          </div>
+          <div>
+            <BaseButton variant="ghost" size="sm" @click="showRawRequest = !showRawRequest"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showRawRequest && 'rotate-180'" />{{ showRawRequest ? TV.rawHide : TV.rawShow }}</BaseButton>
+          </div>
+          <CollapseTransition>
+            <div v-if="showRawRequest" class="flex flex-col gap-3">
+              <div v-for="box in boxes" :key="box.title" class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <span class="flex-1 text-xs font-semibold text-on-surface-variant">{{ box.title }}</span>
+                  <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TJ.copy" v-tooltip="TJ.copy" @click="copy(box.text)"><Icon name="content_copy" :size="20" /></button>
+                </div>
+                <pre :class="CODE_BOX">{{ box.text }}</pre>
+              </div>
+            </div>
+          </CollapseTransition>
+        </div>
+      </template></BaseDialog
+    >
   </div>
 </template>
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { ref, computed } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
 import { useRoute, useRouter } from "vue-router";
 import CollapseTransition from "./CollapseTransition.vue";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
@@ -160,14 +151,6 @@ const T = text.ai;
 
 // 상태, 주고받기는 composables/ai-editor(카드들이 같이 쓴다)
 const { loadError, NL, draft, sections, paid, paidUrl, paidUrlError, pingText, shown, on, aiOn, listMarked, shownSections, boxes, showRawRequest, problems, copy, judgeUsable, providerOptions, runPaid } = provideAiEditor();
-useCloseLayer(
-  computed(() => paid.value != null),
-  () => (paid.value = null),
-);
-useCloseLayer(
-  computed(() => shown.value != null),
-  () => (shown.value = null),
-);
 
 /** active: AI 보조 탭이 보이는가(편집기는 탭을 오가도 남아 있다) */
 defineProps<{ active: boolean }>();

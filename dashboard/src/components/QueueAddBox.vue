@@ -18,12 +18,12 @@
             <span class="flex items-center gap-3 min-w-0"
               ><Icon name="waving_hand" :size="24" class="shrink-0 text-primary" /><span class="truncate">{{ noticeText("bot-not-in-voice").title }}</span></span
             >
-            <button type="button" class="tap state-layer shrink-0 h-10 px-3 rounded-xl inline-flex items-center gap-2 text-primary text-body font-medium cursor-pointer disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? T.joining : T.joinBot }}</button>
+            <BaseButton type="button" variant="text" class="shrink-0" :disabled="joining" @click="joinBot"><Icon :name="joining ? 'progress_activity' : 'login'" :size="20" :class="joining ? 'animate-spin' : ''" />{{ joining ? T.joining : T.joinBot }}</BaseButton>
           </div>
           <div v-else key="input" class="h-full flex items-center gap-1 pl-3 pr-1">
             <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
             <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
-            <button type="submit" class="tap state-layer size-10 shrink-0 rounded-full flex items-center justify-center bg-primary text-on-primary cursor-pointer transition-[background-color,color] effects-fast disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
+            <button type="submit" :class="iconButton(40, 'filled')" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
           </div>
         </Transition>
       </div>
@@ -59,6 +59,8 @@ import { computed, ref, watch } from "vue";
 import { useMediaQuery } from "@vueuse/core";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
+import BaseButton from "./BaseButton.vue";
+import { iconButton } from "../utils/icon-button.ts";
 import NoticeBox from "./NoticeBox.vue";
 import PlaylistMore from "./PlaylistMore.vue";
 import SearchInput from "./SearchInput.vue";

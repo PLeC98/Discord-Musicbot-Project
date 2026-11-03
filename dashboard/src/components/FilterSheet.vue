@@ -4,21 +4,16 @@
        시트 드래그: 핸들, 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
-    <DialogTransition v-if="!isPhone">
-      <div v-if="open" class="fixed inset-0 z-300 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="emit('close')"></div>
-        <section role="dialog" aria-modal="true" :aria-label="title" class="dialog-panel relative w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-surface-container-high">
-          <header class="flex items-center gap-3 px-6 pt-5 pb-3">
-            <Icon name="tune" :size="22" class="text-on-surface-variant" />
-            <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
-            <BaseButton variant="ghost" size="sm" @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
-          </header>
-          <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
-            <slot />
-          </div>
-        </section>
+    <BaseDialog v-if="!isPhone" :open="open" width="md" padding="none" class="max-h-[calc(100dvh-2rem)] flex flex-col" :aria-label="title" @close="emit('close')">
+      <header class="flex items-center gap-3 px-6 pt-5 pb-3">
+        <Icon name="tune" :size="22" class="text-on-surface-variant" />
+        <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
+        <BaseButton variant="ghost" size="sm" @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
+      </header>
+      <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
+        <slot />
       </div>
-    </DialogTransition>
+    </BaseDialog>
     <!-- 바텀 시트: 뒤는 서서히 어두워지고 시트는 아래에서 미끄러져 올라온다(올라올 때 spring, 내려갈 때 가속 곡선 200ms) -->
     <Transition v-else name="sheet" :duration="{ enter: 460, leave: 200 }">
       <div v-if="open" class="fixed inset-0 z-300">
@@ -45,7 +40,7 @@
 import { computed, ref, watch } from "vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
-import DialogTransition from "./DialogTransition.vue";
+import BaseDialog from "./BaseDialog.vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { useMediaQuery } from "@vueuse/core";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
@@ -57,9 +52,9 @@ const T = text.common;
 // 휴대폰은 바텀 시트, 그 밖은 가운데 팝업
 const isPhone = useMediaQuery(PHONE_QUERY);
 
-// Esc, 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터)
+// Esc, 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터). 팝업은 BaseDialog 가 같은 일을 한다
 useCloseLayer(
-  computed(() => props.open),
+  computed(() => props.open && isPhone.value),
   () => emit("close"),
 );
 watch(

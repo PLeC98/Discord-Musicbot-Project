@@ -33,6 +33,7 @@ import { useAnchoredPanel } from "../composables/anchored-panel.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { rem } from "../utils/rem.ts";
 import SearchInput from "./SearchInput.vue";
+import { SEARCH_FIELD } from "../utils/field.ts";
 import { text } from "../text/index.ts";
 
 const props = defineProps<{
@@ -63,7 +64,7 @@ const boxCls = computed(() => `${boxBase} ${props.small ? "h-8 pl-3 pr-2 text-xs
 // M3E 세로 메뉴(Compose SegmentedMenuTokens, StandardMenuTokens): 바탕 surface-container-low, 그림자 2단, 모서리 16px, 안쪽 여백 4px.
 // 항목은 높이 44px, 좌우 16px, 항목 사이 틈 없음(틈은 그룹 사이에만 두고 스크롤되는 메뉴에는 두지 않는다), 모서리 4px 에 첫 항목 위, 마지막 항목 아래만 12px(쓰는 쪽의 항목은 button), 선택한 항목은 12px, tertiary-container
 const panelCls = "pane-menu bg-surface-container-low! flex flex-col overflow-hidden rounded-lg";
-const searchCls = "w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface h-10 px-4 text-sm font-[inherit] outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
+const searchCls = `${SEARCH_FIELD} w-full`;
 
 const root = ref<HTMLElement | null>(null);
 const anchor = ref<HTMLElement | null>(null);

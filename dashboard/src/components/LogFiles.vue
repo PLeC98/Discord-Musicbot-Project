@@ -16,12 +16,12 @@
       </template>
     </PaneHeader>
 
-    <div class="flex @min-[935px]/card:hidden items-center gap-2">
+    <div class="flex @min-[58.4375rem]/card:hidden items-center gap-2">
       <FilterButton :count="activeFilters" @open="sheetOpen = true" />
-      <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-0 md:@min-[525px]/card:min-w-40 md:@min-[525px]/card:max-w-72" />
+      <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-0 md:@min-[32.8125rem]/card:min-w-40 md:@min-[32.8125rem]/card:max-w-72" />
       <div class="hidden md:flex items-center gap-2 ml-auto shrink-0">
-        <DateTimePicker v-model="at" class="hidden @min-[805px]/card:block w-56" :ranges="ranges" @go="jump" />
-        <SingleSelect v-model="file" class="hidden @min-[525px]/card:block w-64" :options="fileOptions" />
+        <DateTimePicker v-model="at" class="hidden @min-[50.3125rem]/card:block w-56" :ranges="ranges" @go="jump" />
+        <SingleSelect v-model="file" class="hidden @min-[32.8125rem]/card:block w-64" :options="fileOptions" />
       </div>
     </div>
     <FilterSheet :open="sheetOpen" @close="sheetOpen = false" @reset="resetFilters">
@@ -43,7 +43,7 @@
       </section>
     </FilterSheet>
 
-    <div class="hidden @min-[935px]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_when'_'filters_file'] @min-[1187px]/card:grid-cols-[1fr_auto_auto] @min-[1187px]/card:[grid-template-areas:'chips_chips_chips'_'filters_when_file']">
+    <div class="hidden @min-[58.4375rem]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_when'_'filters_file'] @min-[74.1875rem]/card:grid-cols-[1fr_auto_auto] @min-[74.1875rem]/card:[grid-template-areas:'chips_chips_chips'_'filters_when_file']">
       <div class="[grid-area:chips] flex flex-wrap items-center gap-2">
         <button v-for="l in LEVEL_CHIPS" :key="l.value" type="button" :aria-pressed="levelsOn.has(l.value)" :class="[FILTER_CHIP, levelsOn.has(l.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleLevel(l.value)">{{ l.label }}</button>
       </div>
@@ -52,7 +52,7 @@
         <SingleSelect v-model="tag" class="w-44 shrink-0" :options="tagOptions" :empty-label="L.allTags" />
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 max-w-72" />
       </div>
-      <DateTimePicker v-model="at" class="[grid-area:when] w-64 @min-[1187px]/card:w-56" :ranges="ranges" @go="jump" />
+      <DateTimePicker v-model="at" class="[grid-area:when] w-64 @min-[74.1875rem]/card:w-56" :ranges="ranges" @go="jump" />
       <!-- 파일 칸 256px: 나올 수 있는 가장 넓은 시각 글("2000/04/04 AM 04:00:00 까지", 숫자 폭이 제각각인 글꼴에서 0, 4 가 넓다)과 여백, 꺾쇠가 들어간다 -->
       <SingleSelect v-model="file" class="[grid-area:file] w-64" :options="fileOptions" />
     </div>
@@ -87,6 +87,7 @@ import SearchInput from "./SearchInput.vue";
 import LogLine from "./LogLine.vue";
 import Icon from "./BaseIcon.vue";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { rem } from "../utils/rem.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { LEVEL_CHIPS, catColor } from "../utils/log-style.ts";
@@ -265,8 +266,8 @@ const sheetOpen = ref(false);
 const isPhone = useMediaQuery(PHONE_QUERY);
 const card = ref<HTMLElement | null>(null);
 const { width: cardWidth } = useElementSize(card);
-const dateInside = computed(() => isPhone.value || cardWidth.value <= 804);
-const fileInside = computed(() => isPhone.value || cardWidth.value <= 524);
+const dateInside = computed(() => isPhone.value || cardWidth.value < rem(50.3125));
+const fileInside = computed(() => isPhone.value || cardWidth.value < rem(32.8125));
 const sameLevels = () => levelsOn.value.size === BASE_LEVELS.length && BASE_LEVELS.every((l) => levelsOn.value.has(l));
 const activeFilters = computed(() => Number(!sameLevels()) + Number(Boolean(category.value)) + Number(Boolean(tag.value)) + (fileInside.value ? Number(file.value !== latest()?.name) : 0) + (dateInside.value ? Number(at.value != null) : 0));
 // 초기화: 기본 레벨, 모든 카테고리, 모든 태그, 창 안에 있으면 최신 파일, 파일 끝으로

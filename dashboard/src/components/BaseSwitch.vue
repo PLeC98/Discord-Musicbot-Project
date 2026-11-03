@@ -1,9 +1,10 @@
 <template>
   <!-- M3 스위치(아이콘 없는 모양). 글과 함께 쓰려면 <label> 안에 둔다(글을 눌러도 바뀐다).
-       하나를 켜고 끄는 항목에 쓰고, 여럿 중 선택하는 목록은 체크박스로 둔다. 치수는 아래 <style> -->
+       하나를 켜고 끄는 항목에 쓰고, 여럿 중 선택하는 목록은 체크박스로 둔다. 치수는 아래 <style>.
+       실제 입력은 투명이라 포커스 표시(기본 규칙과 같은 3px secondary, 바깥 2px)는 트랙이 대신 그린다 -->
   <span class="sw group/sw relative inline-flex shrink-0" :class="disabled ? 'opacity-38 cursor-not-allowed' : 'cursor-pointer'" :data-on="on || undefined" :data-live="!disabled || undefined">
     <input v-model="on" type="checkbox" role="switch" class="peer absolute inset-0 z-10 m-0 opacity-0 cursor-[inherit]" :disabled="disabled" :aria-label="label" />
-    <span class="sw-track relative rounded-full border-2 transition-[background-color,border-color] effects pointer-events-none peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-primary" :class="on ? 'bg-primary border-primary' : 'bg-surface-container-highest border-outline'">
+    <span class="sw-track relative rounded-full border-2 transition-[background-color,border-color] effects pointer-events-none peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-secondary" :class="on ? 'bg-primary border-primary' : 'bg-surface-container-highest border-outline'">
       <span class="sw-handle absolute top-1/2 -translate-y-1/2 rounded-full [transition:left_390ms_var(--ease-spring-fast),width_390ms_var(--ease-spring-fast),height_390ms_var(--ease-spring-fast),background-color_250ms_var(--ease-effects)]" :class="on ? 'bg-on-primary' : 'bg-outline'"></span>
     </span>
   </span>

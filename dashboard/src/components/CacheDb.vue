@@ -15,7 +15,7 @@
       <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="!selectedKeys().length" :aria-label="T.tools.deleteRows" v-tooltip="T.tools.deleteRows" @click="deleteSelected()"><Icon name="delete" :size="18" /></button>
       <span class="mx-1 h-5 w-px bg-outline-variant"></span>
       <BaseButton variant="ghost" size="sm" :disabled="table === 'age' || !selectedKeys().length" v-tooltip="T.tools.probeTip" @click="probe(selectedKeys())"><Icon name="fact_check" :size="16" />{{ checking.length ? T.tools.probing(checking.length) : T.tools.probe }}</BaseButton>
-      <button v-if="botChanged" type="button" class="tap h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-medium" @click="reload()">{{ T.botChanged }}</button>
+      <BaseButton v-if="botChanged" type="button" size="sm" @click="reload()">{{ T.botChanged }}</BaseButton>
       <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" type="text" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
         <template #leading><Icon name="search" :size="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
       </SearchInput>
@@ -63,7 +63,7 @@
                   type="text"
                   :placeholder="T.filterPlaceholder"
                   :aria-label="`${T.columns[c]} ${T.filterPlaceholder}`"
-                  :input-class="['w-full h-6 px-1.5 rounded-xs bg-surface-container-highest text-xs font-normal outline-none placeholder:text-on-surface-variant/60 focus:outline-1 focus:outline-primary', problems[c] && 'outline-1 outline-error']"
+                  :input-class="['w-full h-6 px-1.5 rounded-xs bg-surface-container-highest border border-transparent text-xs font-normal outline-none placeholder:text-on-surface-variant/60 transition-[border-color] effects-fast focus:border-primary', problems[c] && 'border-error! focus:border-error!']"
                   v-tooltip="problems[c] ?? ''"
                   @update:model-value="setFilter(c, $event)"
                   @contextmenu.prevent.stop="openFilterMenu($event, c)"
@@ -77,7 +77,7 @@
             <tr v-for="(row, n) in changes.newRows" :key="`new${row.id}`" class="h-7">
               <th class="sticky left-0 z-10 px-1 text-right font-normal border-b border-r border-outline-variant/30 bg-secondary-container text-on-secondary-container">*</th>
               <td v-for="(c, i) in shown" :key="c" class="p-0 border-b border-r border-outline-variant/30 bg-secondary-container" :class="frozenClass(i, true, 'bg-')" :style="frozenStyle(i)">
-                <input v-if="c === 'requestKey' || c === 'audioUrl'" v-model="row[c]" type="text" :data-new="`${row.id}:${c}`" class="w-full h-7 px-2 bg-transparent text-xs outline-none select-text focus:outline-1 focus:outline-primary" :class="newProblem(row.id, c) && 'text-error'" v-tooltip="newProblem(row.id, c)" :placeholder="T.columns[c]" @input="inspectNew(row, c)" @keydown.stop="onNewKey($event, n)" />
+                <input v-if="c === 'requestKey' || c === 'audioUrl'" v-model="row[c]" type="text" :data-new="`${row.id}:${c}`" class="w-full h-7 px-2 bg-transparent border border-transparent text-xs outline-none select-text transition-[border-color] effects-fast focus:border-primary" :class="newProblem(row.id, c) && 'text-error'" v-tooltip="newProblem(row.id, c)" :placeholder="T.columns[c]" @input="inspectNew(row, c)" @keydown.stop="onNewKey($event, n)" />
               </td>
             </tr>
             <tr v-if="topPad">
