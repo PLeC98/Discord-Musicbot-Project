@@ -13,6 +13,8 @@ type Field = {
   kind: FieldKind;
   label: string;
   hint?: string;
+  // 빈 입력란에 흐리게 보일 값(봇이 쓰는 기본값)
+  placeholder?: string;
   deep?: boolean;
   width?: "narrow" | "half" | "halfWide";
   when?: string;
@@ -249,7 +251,7 @@ const SPEC: Record<string, SourceSpec> = {
     hint: "태그로 곡 이름을 불러와 유튜브에서 찾아요.",
     need: [["tags"]],
     env: "LASTFM_API_KEY",
-    fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 커요. 관련 태그를 여럿 입력하는 게 좋아요" }), f("pages", "number", "불러올 페이지 수", { deep: true, min: 1, hint: "기본 5" })],
+    fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 커요. 관련 태그를 여럿 입력하는 게 좋아요" }), f("pages", "number", "불러올 페이지 수", { deep: true, min: 1, placeholder: "5" })],
   },
   lbradio: {
     label: "ListenBrainz Radio",
@@ -341,7 +343,7 @@ const SPEC: Record<string, SourceSpec> = {
         ]),
         hint: "비우면 본방만. 재방송판에만 있는 곡이 있어요",
       }),
-      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, hint: "기본 100" }),
+      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, placeholder: "100" }),
     ],
   },
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
