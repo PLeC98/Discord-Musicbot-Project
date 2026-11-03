@@ -797,12 +797,6 @@ body {
    (창 16px large + 간격 12px = 28px extra-large, 모든 폭 같다).
    창 안의 부품(입력란 12px · 줄 8px · 선택 목록 16px 등)은 M3 부품 토큰을 그대로 쓰고 창에 맞춰 줄이지 않는다.
    창 여백은 M3 카드 여백 16px(창 반지름을 넘지 않는다) */
-/* 떠 있는 재생 바가 차지하는 높이(App.vue 가 바탕화면에 건다). 길이로 등록해 두어야 넘김이 걸려, 비우는 아래 여백이 올라오는 재생 바와 같이 움직인다 */
-@property --player {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 0px;
-}
 :root {
   --bar: 4rem; /* 세로 막대의 폭(휴대폰은 사이드 드로어 안 아이콘 칸) */
   --gap-out: 0.75rem;

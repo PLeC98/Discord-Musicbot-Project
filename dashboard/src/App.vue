@@ -5,21 +5,18 @@
   <!-- 막대가 있는 쪽에만 틀(frame)이 있다(PC, 태블릿은 왼쪽 세로 막대 + 위 막대, 휴대폰은 위 막대만. 세로 막대는 위 막대의 메뉴 버튼으로 여는 사이드 드로어).
        바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿, PC 는 왼쪽 위, 오른쪽 위, 왼쪽 아래). 바탕화면만 스크롤되고 틀, 막대, 재생 바는 제자리.
        배경화면은 화면 전체(틀 밑까지)에 깔고, 틀은 바탕화면 바깥을 덮는 반투명한 막이다(바탕화면의 그림자를 넓게 펴서 둥근 모서리를 따른다).
-       --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백). 재생 바와 같은 곡선으로 바뀐다(올라올 때 spring, 내려갈 때 가속 200ms) -->
+       --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백) -->
   <!-- 휴대폰은 세로 스크롤, 확대만 브라우저에 맡긴다(가로로 쓸면 사이드 드로어가 받는다, composables/drawer-swipe) -->
   <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:touch-auto">
     <AppWallpaper />
-    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게.
-         생기고 사라질 때 높이를 움직여 아래 화면이 한 번에 밀리지 않게 한다 -->
-    <CollapseTransition>
-      <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
-        <Icon name="visibility" :size="16" class="shrink-0" />
-        <span class="min-w-0 truncate"
-          ><strong class="font-semibold">{{ user.viewAsLabel }}</strong> {{ T.viewingAs }}</span
-        >
-        <button type="button" class="tap state-layer shrink-0 h-5 px-2.5 rounded-full text-xs font-semibold bg-on-tertiary/16 cursor-pointer" @click="clearViewAs">{{ T.clearViewAs }}</button>
-      </div>
-    </CollapseTransition>
+    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
+    <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
+      <Icon name="visibility" :size="16" class="shrink-0" />
+      <span class="min-w-0 truncate"
+        ><strong class="font-semibold">{{ user.viewAsLabel }}</strong> {{ T.viewingAs }}</span
+      >
+      <button type="button" class="tap state-layer shrink-0 h-5 px-2.5 rounded-full text-xs font-semibold bg-on-tertiary/16 cursor-pointer" @click="clearViewAs">{{ T.clearViewAs }}</button>
+    </div>
 
     <div class="relative flex-1 min-h-0 flex flex-col md:flex-row">
       <SessionBar vertical class="relative z-10 hidden md:flex" />
@@ -68,18 +65,16 @@
           </div>
         </header>
         <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)이 재생 바 위까지의 높이를 계산한다 -->
-        <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem] [transition:--player_460ms_var(--ease-spring)]' : '[--player:0px] [transition:--player_200ms_var(--ease-accelerate)]'">
-          <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다 -->
-          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
-            <!-- 화면을 옮기면 새 화면이 투명도로 나타난다(effects). 옛 화면은 바로 뺀다. 둘이 함께 흐름에 있으면 그동안 높이가 두 배가 된다 -->
+        <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
+          <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다.
+               스크롤바 자리는 늘 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다 -->
+          <div class="@container/desk absolute inset-0 overflow-y-auto [scrollbar-gutter:stable] overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
             <router-view v-slot="{ Component, route: r }">
-              <Transition enter-from-class="opacity-0" enter-active-class="transition-opacity effects" @leave="dropNow">
-                <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
-                <!-- 그 밖의 화면(서버 설정, 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->
-                <div v-else :key="r.path" class="px-(--gap-out) pt-(--gap-out) md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
-                  <component :is="Component" />
-                </div>
-              </Transition>
+              <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
+              <!-- 그 밖의 화면(서버 설정, 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->
+              <div v-else :key="r.path" class="px-(--gap-out) pt-(--gap-out) md:pt-0 pb-[calc(var(--gap-out)+var(--player))]">
+                <component :is="Component" />
+              </div>
             </router-view>
           </div>
           <NowPlayingDock />
@@ -104,7 +99,6 @@ import { PHONE_QUERY } from "./utils/breakpoints.ts";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./components/BaseIcon.vue";
-import CollapseTransition from "./components/CollapseTransition.vue";
 import SessionNotice from "./components/SessionNotice.vue";
 import ToastStack from "./components/ToastStack.vue";
 import AppWallpaper from "./components/AppWallpaper.vue";
@@ -146,10 +140,6 @@ watch(
 );
 useCloseLayer(drawerOpen, () => (drawerOpen.value = false));
 
-// 떠나는 화면은 넘김 없이 바로 뺀다(Transition 이 done 을 받는 leave 는 넘김 끝을 기다리지 않는다)
-function dropNow(_el: Element, done: () => void) {
-  done();
-}
 const guilds = useGuildsStore();
 
 // 위 막대 가운데에 표시할, 지금 보고 있는 서버

@@ -292,9 +292,13 @@ const SPEC: Record<string, SourceSpec> = {
       seasonFrom: SEASONS,
       seasonTo: SEASONS,
     },
+    // 필드 순서와 너비가 편집기의 배치다. 상세(deep) 필드는 짝이 되는 기본 필드 옆이나 아래에 둔다
     fields: [
       // 두 점으로 잡는 구간. 분포는 catalog 가 저쪽에 물어 채운다
       f("difficultyFrom", "range", "인지도", { to: "difficultyTo", min: 1, max: 100, hint: "AMQ에서 그 곡을 맞힌 사람의 비율이에요. 높을수록 유명해요" }),
+      f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
+      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
+      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
       f("songTypes", "enumList", "주제가 종류", {
         width: "halfWide",
         options: opts([
@@ -317,10 +321,7 @@ const SPEC: Record<string, SourceSpec> = {
         hint: "비우면 전부",
       }),
       f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "선택한 것 중 하나라도 맞으면 나와요" }),
-      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 거예요. 예) School, Idol, Isekai" }),
-      f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
-      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
-      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
+      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, placeholder: "100" }),
       f("songCategories", "enumList", "곡 성격", {
         deep: true,
         width: "halfWide",
@@ -343,7 +344,7 @@ const SPEC: Record<string, SourceSpec> = {
         ]),
         hint: "비우면 본방만. 재방송판에만 있는 곡이 있어요",
       }),
-      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, placeholder: "100" }),
+      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 거예요. 예) School, Idol, Isekai" }),
     ],
   },
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
