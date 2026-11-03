@@ -38,10 +38,9 @@ const problems = {
 };
 
 // 문구 줄
-const insertEmoji = "이모지 넣기";
 const activity = "활동 종류";
 const removeMessage = "이 문구 삭제";
 /** 디스코드 활동 종류(빈 값은 기본) */
 const activityTypes = { "": "기본", Listening: "듣는 중", Playing: "게임 중", Watching: "시청 중", Competing: "경쟁 중", Custom: "말머리 없음" };
 
-export { conditionDate, conditionLunar, conditionTime, title, addSpecial, desc, defaults, messageCount, dragToReorder, noCondition, noName, empty, savedNote, defaultsDesc, interval, ifEmpty, messages, namePlaceholder, removeSpecial, conditions, conditionsDesc, problems, insertEmoji, activity, removeMessage, activityTypes };
+export { conditionDate, conditionLunar, conditionTime, title, addSpecial, desc, defaults, messageCount, dragToReorder, noCondition, noName, empty, savedNote, defaultsDesc, interval, ifEmpty, messages, namePlaceholder, removeSpecial, conditions, conditionsDesc, problems, activity, removeMessage, activityTypes };

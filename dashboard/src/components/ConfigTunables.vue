@@ -30,9 +30,11 @@
           <SingleSelect :model-value="cookieChoice(one)" :options="COOKIE_OPTIONS" :empty-label="T.cookies.none" @update:model-value="pickCookie(one, String($event))" />
           <input v-if="cookieChoice(one) === COOKIE_OTHER" :value="draft[one.key]" spellcheck="false" :placeholder="T.cookies.otherPlaceholder" :aria-label="T.cookies.other" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
         </span>
+        <!-- 글(음성 상태 문구)은 디스코드에 그대로 보여 이모지 버튼을 단다 -->
+        <EmojiTextInput v-else-if="one.kind === 'text'" v-model="draft[one.key]" :placeholder="T.defaultWith(one.def)" :spellcheck="false" />
         <!-- 색은 동그라미를 누르면 색 선택이 열린다. 글 입력란이 앞이라야 라벨을 누를 때 색 선택 대신 글 입력란으로 간다(보이는 순서는 동그라미가 앞) -->
         <span v-else class="flex items-center gap-2">
-          <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0', one.kind !== 'text' && 'font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
+          <input :value="draft[one.key]" :inputmode="one.kind === 'int' ? 'numeric' : undefined" spellcheck="false" :placeholder="T.defaultWith(one.def)" :class="[FIELD, 'w-full min-w-0 font-mono placeholder:font-sans']" @input="draft[one.key] = valueOf($event)" />
           <ColorPicker v-if="one.kind === 'color'" class="order-first" :model-value="draft[one.key]" :fallback="one.def" :label="T.pickColor" @update:model-value="draft[one.key] = $event" />
         </span>
       </label>
@@ -69,6 +71,7 @@ import ColorPicker from "./ColorPicker.vue";
 import SponsorCategories from "./SponsorCategories.vue";
 import SingleSelect from "./SingleSelect.vue";
 import DocLink from "./DocLink.vue";
+import EmojiTextInput from "./EmojiTextInput.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
