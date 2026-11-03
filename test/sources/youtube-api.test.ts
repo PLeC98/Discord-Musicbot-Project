@@ -80,51 +80,6 @@ test("성공해도 stderr 의 경고를 _stderr 로 얹는다(열거되지 않�
   assert.deepEqual(Object.keys(out), ["ok", "warn"]);
 });
 
-// ── 검색 ──────────────────────────────────────────────────────────────
-
-test("검색: ytsearchN 으로 평평하게 받고, 비디오가 아닌 항목(채널, 재생목록)을 필터링한다", async () => {
-  respond = () => ({
-    entries: [video("aaaaaaaaaaa"), { id: "UCxxxxxxxxxxxxxxxxxxxxxx", url: "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx", title: "채널" }, video("bbbbbbbbbbb")],
-  });
-
-  const tracks = await YouTube.search("노래 제목", 3);
-
-  assert.equal(calls[0].url, "ytsearch3:노래 제목");
-  assert.equal(calls[0].flags.dumpSingleJson, true);
-  assert.equal(calls[0].flags.flatPlaylist, true);
-  assert.deepEqual(
-    tracks.map((t) => t.id),
-    ["aaaaaaaaaaa", "bbbbbbbbbbb"],
-  );
-  assert.deepEqual({ title: tracks[0].title, artist: tracks[0].artist, url: tracks[0].audioUrl, duration: tracks[0].duration, platform: tracks[0].platform, isLive: tracks[0].isLive, liveStatus: tracks[0].liveStatus }, { title: "영상 aaaaaaaaaaa", artist: "올린 사람", url: "https://www.youtube.com/watch?v=aaaaaaaaaaa", duration: 200, platform: "youtube", isLive: false, liveStatus: null });
-});
-
-test("검색: 길이가 0 인 항목은 상세 정보를 한 번 더 받아 길이, 라이브를 채운다", async () => {
-  respond = (url: string) => (url.startsWith("ytsearch") ? { entries: [video("ccccccccccc", { duration: 0 })] } : video("ccccccccccc", { duration: 0, is_live: true, live_status: "is_live", fulltitle: "방송 원제", title: "방송 원제 2026-09-23 12:00" }));
-
-  const [t] = await YouTube.search("라이브", 1);
-
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].url, "https://www.youtube.com/watch?v=ccccccccccc");
-  assert.equal(t.isLive, true);
-  assert.equal(t.liveStatus, "is_live");
-});
-
-test("검색: 유튜브 주소를 주면 검색하지 않고 정보를 받는다", async () => {
-  respond = () => video("ddddddddddd");
-  const [t] = await YouTube.search("https://youtu.be/ddddddddddd");
-  assert.equal(calls[0].url, "https://youtu.be/ddddddddddd");
-  assert.equal(calls[0].flags.flatPlaylist, undefined);
-  assert.equal(t.id, "ddddddddddd");
-});
-
-test("검색: 결과가 없으면 빈 배열, 실패하면 이름을 단 채로 던진다", async () => {
-  respond = () => ({});
-  assert.deepEqual(await YouTube.search("x"), []);
-  respond = () => ({ fail: "ERROR: Unable to download API page: <urlopen error [Errno 11001] getaddrinfo failed>" });
-  await assert.rejects(YouTube.search("x"), (e) => codeOf(e) === "network-error");
-});
-
 // ── 정보 ──────────────────────────────────────────────────────────────
 
 test("정보: 필드를 옮겨 담는다(포맷 목록은 담지 않는다). 라이브는 조회 시각이 빠진 원제를 쓴다", async () => {
@@ -178,10 +133,9 @@ test("정보: 까닭을 모르는 실패도 던진다(찾는 쪽이 알 수 없�
 });
 
 // 비공개, 연령 제한 영상 링크는 까닭을 삼키지 않는다(삼키면 "결과를 찾을 수 없습니다"로만 보인다)
-test("정보, 링크 검색: 못 트는 까닭이 분명하면(비공개, 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
+test("정보: 못 트는 까닭이 분명하면(비공개, 연령 제한) 던진다. 찾는 쪽이 그 까닭을 알린다", async () => {
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
   await assert.rejects(YouTube.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");
-  await assert.rejects(YouTube.search("https://www.youtube.com/watch?v=ppppppppppp", 1), (e) => codeOf(e) === "unavailable-contents");
 
   const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");

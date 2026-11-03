@@ -1,5 +1,5 @@
 // Spotify/외부 곡의 YouTube 동등물을 점수로 선택하는 순수 로직과 검색어 구성.
-// 검색 함수(YouTube.search)는 부르는 쪽(youtube/equivalent, autoplay/route)이 넘기고, 결과 병합은 mergeCandidateLists로.
+// 검색 함수(YouTube.searchVideos)는 부르는 쪽(youtube/equivalent, autoplay/route)이 넘기고, 결과 병합은 mergeCandidateLists로.
 
 import { youtubeWatchUrl } from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
@@ -485,7 +485,7 @@ function ownUploads<C extends { channel?: string | null; title?: string | null }
 /**
  * target 을 검색해 후보를 모은다. 합친 순서(순위) 그대로, 주소가 없거나 라이브인 것은 뺀다
  * (라이브는 같은 곡으로서 언제나 오답이고, 선택해 두면 캐시 다운로드가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다.
- * 검색어는 한꺼번에 요청한다(동시 실행 수는 yt-dlp 줄이 제한한다). exact 는 1차, 2차, 아티스트 검색을 함께, cheap 의 2차는 1차가 빈 것을 본 뒤에.
+ * 검색어는 한꺼번에 요청한다(동시에 나가는 검색 수는 글자 검색 youtube/text-search 가 제한한다). exact 는 1차, 2차, 아티스트 검색을 함께, cheap 의 2차는 1차가 빈 것을 본 뒤에.
  * artistChannels: 아티스트 검색으로 알아본 채널. 채점할 때 target 에 실어 넘긴다(rankCandidates)
  * failed: 검색어가 하나도 되지 않았으면 마지막 오류. 후보가 없는 까닭이 "없다"가 아니라 "못 찾았다"다(망 끊김 등)
  */

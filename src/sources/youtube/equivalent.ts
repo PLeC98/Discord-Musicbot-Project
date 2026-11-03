@@ -46,10 +46,10 @@ function sharedBest(key: string | null, find: () => Promise<string | null>): { u
  * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치, 정크를 타이브레이커로 삼아
  * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl 과 audioFoundBy 를
  * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.
- * search: 유튜브 검색 함수(생략하면 YouTube.search).
+ * search: 유튜브 검색 함수(생략하면 글자 검색 searchVideos).
  * skipPin: 직접 지정한 음원을 붙이지 않는다(죽은 지정 음원을 건너뛰고 다시 찾을 때. 아니면 죽은 것을 다시 붙인다)
  */
-async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.search(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
+async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.searchVideos(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
   if (track.audioUrl) return track.audioUrl;
 
   // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드, 직접 링크)

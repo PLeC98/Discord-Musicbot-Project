@@ -127,6 +127,11 @@ function searchText(query: string): Promise<TextSearchResult> {
   return memo.run(keyOf(query), () => ask(query.trim()));
 }
 
+/** 영상만 limit 개(곡 매칭, 자동재생). 연령 인증 안내만 왔으면 빈 목록(곡 매칭은 둘째 검색어로 넘어간다) */
+async function searchVideos(query: string, limit: number): Promise<TrackInfo[]> {
+  return (await searchText(query)).tracks.slice(0, limit);
+}
+
 /** 기억해 둔 결과. 없으면 null */
 function rememberedSearch(query: string): TextSearchResult | null {
   return memo.get(keyOf(query));
@@ -156,5 +161,5 @@ function resetTextSearch({ fetch = null, clock = () => Date.now() }: { fetch?: t
   sessionError = null;
 }
 
-export { searchText, rememberedSearch, rememberedPrefix, rememberedVideo, resetTextSearch, REQUEST_MS };
+export { searchText, searchVideos, rememberedSearch, rememberedPrefix, rememberedVideo, resetTextSearch, REQUEST_MS };
 export type { TextSearchResult };

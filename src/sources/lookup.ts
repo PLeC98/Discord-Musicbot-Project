@@ -10,7 +10,7 @@ import { applyTags } from "./direct-tags.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
-import { errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
+import { codedError, errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
 import { inputKind } from "../rules/input-kind.ts";
@@ -25,7 +25,7 @@ type Range = { offset?: number; limit?: number };
 /** 여러 곡 출처의 한 구간. 소스가 준 그대로라 필드가 빠질 수 있다. total 은 모르면 null, skipped 는 받을 수 없어 뺀 곡 수 */
 type Collection = { tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number };
 /** 곡을 찾지 못한 원인. 로그에 적고, 사용자 문장은 ui/error-messages 가 선택한다 */
-type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "shoutcast-v1" | "sc-unsupported" | "nothing-playable";
+type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "unsupported-link" | "shoutcast-v1" | "sc-unsupported" | "nothing-playable" | "search-age-gated";
 /**
  * 찾은 결과. 못 찾았으면 그 원인(code), 던졌으면 그 오류(error).
  * 두 경우가 서로의 필드를 undefined 로 가져 success 로 좁히기 전에도 읽을 수 있다.
@@ -34,7 +34,7 @@ type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "uns
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 실제 모듈 */
 type Sources = {
-  youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; search(query: string, limit: number): Promise<FoundTrack[]> };
+  youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; getInfo(url: string): Promise<FoundTrack>; searchText(query: string): Promise<YouTube.TextSearchResult> };
   spotify: { getCollection(url: string, range?: Range): Promise<Collection> };
   soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<SoundCloud.Found> };
   direct: { getInfo(url: string, opts?: Pick<DirectLink.InfoOptions, "tags">): Promise<FoundTrack[]> };
@@ -61,9 +61,17 @@ function isUnsupportedLink(query: string): boolean {
 type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; collectionId?: string | null; total: number | null; nextOffset: number | null; skipped?: number };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
-// 유튜브. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
+// 유튜브 검색어. 검색 1위 하나. 연령 인증 안내만 왔으면 그 까닭으로 거절한다(결과 없음과 다르다)
+async function fromYouTubeSearch(query: string, youtube: Sources["youtube"]): Promise<Found> {
+  const found = await youtube.searchText(query);
+  if (found.gated) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
+  return single(found.tracks.slice(0, 1));
+}
+
+// 유튜브 링크. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
 // 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 불러오면 그 오류를 그대로 던진다
 async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
+  if (inputKind(query) === "search") return fromYouTubeSearch(query, youtube);
   if (links.isYouTubePlaylist(query)) {
     const video = links.extractVideoId(query);
     let list: Collection | null;
@@ -72,14 +80,14 @@ async function fromYouTube(query: string, range: Range, youtube: Sources["youtub
     } catch (error) {
       if (!video) throw error;
       log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리합니다: ${messageOf(error).split("\n")[0]}`);
-      return single(await youtube.search(query, 1));
+      return single([await youtube.getInfo(query)]);
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
     if (!video) return single([]);
     // yt-dlp 가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
     log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리합니다 (${video})`);
   }
-  return single(await youtube.search(query, 1));
+  return single([await youtube.getInfo(query)]);
 }
 
 // 스포티파이 링크(곡, 앨범, 재생목록, 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
@@ -129,8 +137,8 @@ async function getTrackData(query: string, context: string | null = "lookup.getT
 // 찾다가 던졌다. 열어 보니 받을 수 없는 직접 링크(음원이 아님, 옛 SHOUTcast)는 실패가 아니라 그 원인으로 거절한다
 function lookupFailed(error: unknown, context: string | null): LookupResult {
   const code = codeOf(error);
-  if (code === "unsupported-link" || code === "shoutcast-v1") {
-    log.debug({ sub: context || undefined }, `처리할 수 없는 링크: ${messageOf(error)}`);
+  if (code === "unsupported-link" || code === "shoutcast-v1" || code === "search-age-gated") {
+    log.debug({ sub: context || undefined }, `찾을 수 없음(${code}): ${messageOf(error)}`);
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다

@@ -1,4 +1,4 @@
-// 유튜브 검색, 정보, 스트림, 재생목록.
+// 유튜브 영상 정보, 스트림, 재생목록(yt-dlp). 글자 검색은 text-search.
 
 import logger from "../../infra/log/logger.ts";
 import { artOf, youtubeArt } from "../../rules/track-art.ts";
@@ -12,7 +12,6 @@ import youtubedl from "../ytdlp-spawn.ts";
 import config from "../../config/index.ts";
 import * as trackLookup from "../../store/track-lookup.ts";
 import * as auth from "./auth.ts";
-import * as errors from "./errors.ts";
 import * as run from "./ytdlp-run.ts";
 import * as recentInfo from "./recent-info.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
@@ -60,21 +59,6 @@ function titleOf(item: Item): string | null {
   return title || full;
 }
 
-/**
- * ytsearch 결과 항목이 "재생 가능한 단일 비디오"인지 판별.
- * yt-dlp flat 검색은 채널/재생목록/핸들을 섞어 반환하므로 이들을 제외한다.
- * 비디오 id는 11자, 채널은 UC…(24자), /channel//@handle//playlist 형태.
- */
-function _isVideoEntry(item: Item): item is YtInfo {
-  if (!item) return false;
-  if (item.ie_key && item.ie_key !== "Youtube") return false; // YoutubeTab(채널/재생목록) 등
-  const u = item.webpage_url || item.url || "";
-  if (/youtube\.com\/(channel\/|@|playlist|user\/|results)/i.test(u)) return false;
-  if (item.id && /^[A-Za-z0-9_-]{11}$/.test(String(item.id))) return true; // 비디오 id
-  if (/[?&]v=[A-Za-z0-9_-]{11}/.test(u)) return true; // watch?v= URL
-  return false;
-}
-
 // yt-dlp 가 준 영상 하나 → 곡의 공통 필드. 링크 셋은 같은 주소다(유튜브는 보여 줄 곳이 곧 음원).
 // 제목, 가수(올린 사람)가 없으면 비워 둔다(제목은 null). 그리는 곳이 "알 수 없는 곡"으로 적어, 표시 문구가 매칭 검색어, 중복 판정에 들어가지 않는다
 function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
@@ -93,63 +77,6 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
     isLive: _detectLive(item),
     liveStatus: liveStatusOf(item),
   };
-}
-
-// 검색 결과 한 줄. 검색 결과에 길이가 없으면 상세 정보로 채운다
-// (라이브는 여기서 duration이 늘 0이라 이 분기를 타고, 상세 정보로 isLive가 확정된다.)
-async function searchTrack(item: YtInfo) {
-  const url = item.webpage_url || item.url || (item.id ? links.youtubeWatchUrl(String(item.id)) : null);
-  if (!url) return null; // 비디오 항목이면 늘 있다(_isVideoEntry)
-  const track = trackOf(item, url, item.uploader || item.channel);
-  if (track.duration) return track;
-  const detailed = await getInfo(url);
-  if (detailed?.duration) track.duration = detailed.duration;
-  if (detailed?.isLive) {
-    track.isLive = true;
-    track.liveStatus = detailed.liveStatus;
-  }
-  return track;
-}
-
-// 마지막 인자 { exec }: yt-dlp 를 실행하는 함수. 생략하면 실제 구현. getInfo, getStream, getPlaylist 도 같다
-// 찾은 것이 없으면 빈 배열, 찾지 못한 것(yt-dlp, 네트워크 실패)은 던진다. 오류의 이름은 yt-dlp 를 실행하는 곳이 붙였다
-async function search(query: string, limit = 1, { exec = youtubedl }: { exec?: RunYtDlp } = {}) {
-  if (links.isYouTubeURL(query)) {
-    return [await getInfo(query)];
-  }
-
-  const searchQuery = `ytsearch${limit}:${query}`;
-
-  // 목록 모양만 본다. 항목은 하나씩 readInfo 로 읽는다
-  const results = (await exec(
-    searchQuery,
-    auth.getYtDlpOptions({
-      dumpSingleJson: true,
-      flatPlaylist: true,
-    }),
-  )) as { entries?: unknown[] } | null;
-
-  if (!results || !results.entries) {
-    return [];
-  }
-
-  const tracks = [];
-  // 비디오가 아닌 검색 결과(채널, 재생목록, 핸들)를 제외. ytsearch가 이들을 섞어 반환하는데,
-  // 재생 불가능한 채널 URL이 후보로 들어가면 매칭이 오염된다(예: 제목이 기호뿐인 곡에서 채널이 1위가 된다).
-  const videoEntries = results.entries
-    .map(readInfo)
-    .filter((e) => _isVideoEntry(e))
-    .slice(0, limit);
-  for (const item of videoEntries) {
-    // 한 곡의 상세 조회가 던지면(연령 제한 등) 그 곡만 건너뛴다. 검색은 다른 후보로 이어진다
-    const track = await searchTrack(item).catch((error) => {
-      log.warn(`검색 결과 한 곡을 건너뜁니다: ${errors.briefError(error, 1)}`);
-      return null;
-    });
-    if (track) tracks.push(track);
-  }
-
-  return tracks;
 }
 
 // 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소, 다운로드가 그대로 다시 쓴다(recent-info).
@@ -294,4 +221,4 @@ async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlis
   };
 }
 
-export { _detectLive, liveStatusOf, titleOf, _isVideoEntry, search, getInfo, getFormats, getStream, getPlaylist };
+export { _detectLive, liveStatusOf, titleOf, getInfo, getFormats, getStream, getPlaylist };

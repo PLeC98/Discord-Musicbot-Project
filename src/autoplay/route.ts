@@ -204,7 +204,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
 
 // 바깥 경계. 테스트는 이것을 넘겨 진짜 소스, 검색, 링크 데이터, AI 보조를 부르지 않는다
 const REAL: Deps = {
-  search: (query, limit) => YouTube.search(query, limit),
+  search: (query, limit) => YouTube.searchVideos(query, limit),
   pinned: (requestKey) => pinnedSources.getPin(requestKey),
   // 링크 데이터가 아는 음원 주소. 캐시 파일이 있으면 그 길이도(후보가 길이를 안 주는 소스가 있다)
   known(requestKey) {

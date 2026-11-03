@@ -14,7 +14,7 @@ const _internals = {
   },
 };
 
-// 밖에서는 YouTube.search 처럼 부른다
+// 밖에서는 YouTube.searchVideos 처럼 부른다
 export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookieSource, cookiesConfigured } from "./auth.ts";
 export * from "./ytdlp-run.ts";
 export * from "./errors.ts";
