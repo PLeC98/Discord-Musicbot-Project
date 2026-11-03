@@ -176,7 +176,7 @@ test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 �
 test("조회: 결과가 없으면 no-song-result, 유튜브가 연령 인증 안내만 주면 search-age-gated, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
   const empty = { youtube: { ...YouTube, searchText: async () => ({ tracks: [], gated: false }) } };
   assert.deepEqual(await lookup.getTrackData("없는 곡", undefined, undefined, empty), { success: false, code: "no-song-result" });
-  const gated = { youtube: { ...YouTube, searchText: async () => ({ tracks: [], gated: true }) } };
+  const gated = { youtube: { ...YouTube, searchText: async () => ({ tracks: [], gated: true }) }, spotify: { ...Spotify, searchTracks: async () => [tracks.spotify("x", { title: "Rush" })] } };
   assert.deepEqual(await lookup.getTrackData("閃光 [Alexandros]", undefined, undefined, gated), { success: false, code: "search-age-gated" });
   const asked: string[] = [];
   const first = { youtube: { ...YouTube, searchText: async (q: string) => (asked.push(q), { tracks: [ytTrack("s1"), ytTrack("s2")], gated: false }), getInfo: async () => assert.fail("검색어는 영상 정보를 읽지 않는다") } };
@@ -192,6 +192,42 @@ test("조회: 결과가 없으면 no-song-result, 유튜브가 연령 인증 안
     },
   };
   assert.deepEqual(await lookup.getTrackData("끊긴 곡", undefined, undefined, broken), { success: false, code: "lookup-failed", error: boom });
+});
+
+test("조회: 유튜브가 검색어에 연령 인증 안내만 주면 스포티파이 1위 곡이 그 검색어의 곡일 때만 그 곡 하나. 스포티파이가 실패해도 search-age-gated", async () => {
+  const gated = (searchTracks: (q: string) => Promise<TrackInfo[]>) => ({ youtube: { ...YouTube, searchText: async () => ({ tracks: [], gated: true }) }, spotify: { ...Spotify, searchTracks } });
+  const asked: string[] = [];
+  const hit = await lookup.getTrackData(
+    "閃光 [Alexandros]",
+    undefined,
+    undefined,
+    gated(async (q) => (asked.push(q), [tracks.spotify("a", { title: "閃光", artist: "[Alexandros]" }), tracks.spotify("b", { title: "閃光" })])),
+  );
+  assert.deepEqual([asked, hit.success, hit.isPlaylist, hit.tracks?.map((t) => [t.platform, t.id])], [["閃光 [Alexandros]"], true, false, [["spotify", "a"]]]);
+  const other = await lookup.getTrackData(
+    "rsewjhguioedrtuiduijtjhgio",
+    undefined,
+    undefined,
+    gated(async () => [tracks.spotify("c", { title: "Rush" })]),
+  );
+  assert.deepEqual(other, { success: false, code: "search-age-gated" }, "검색어의 곡이 아니다");
+  assert.deepEqual(
+    await lookup.getTrackData(
+      "閃光",
+      undefined,
+      undefined,
+      gated(async () => []),
+    ),
+    { success: false, code: "search-age-gated" },
+    "스포티파이도 결과 없음",
+  );
+  const failed = await lookup.getTrackData(
+    "閃光",
+    undefined,
+    undefined,
+    gated(async () => Promise.reject(networkError())),
+  );
+  assert.deepEqual(failed, { success: false, code: "search-age-gated" }, "스포티파이 실패");
 });
 
 test("조회 실패의 안내문: 까닭의 문장, 조회가 던진 오류는 그 종류로", async () => {

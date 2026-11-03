@@ -14,6 +14,7 @@ import { codedError, errorKind, messageOf, codeOf } from "../rules/error-kind.ts
 import { failureReason } from "../rules/failure-reason.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
 import { inputKind } from "../rules/input-kind.ts";
+import { queryNamesTrack } from "../rules/query-cover.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
 const log = logger.child({ category: "track" });
@@ -35,7 +36,7 @@ type LookupResult = { success: true; isPlaylist: boolean; collection?: string | 
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 실제 모듈 */
 type Sources = {
   youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; getInfo(url: string): Promise<FoundTrack>; searchText(query: string): Promise<YouTube.TextSearchResult> };
-  spotify: { getCollection(url: string, range?: Range): Promise<Collection> };
+  spotify: { getCollection(url: string, range?: Range): Promise<Collection>; searchTracks(query: string): Promise<FoundTrack[]> };
   soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<SoundCloud.Found> };
   direct: { getInfo(url: string, opts?: Pick<DirectLink.InfoOptions, "tags">): Promise<FoundTrack[]> };
 };
@@ -61,17 +62,24 @@ function isUnsupportedLink(query: string): boolean {
 type Found = { tracks: FoundTrack[]; isPlaylist: boolean; collection: string | null; collectionId?: string | null; total: number | null; nextOffset: number | null; skipped?: number };
 const single = (tracks: FoundTrack[] | null | undefined): Found => ({ tracks: tracks || [], isPlaylist: false, collection: null, total: null, nextOffset: null });
 
-// 유튜브 검색어. 검색 1위 하나. 연령 인증 안내만 왔으면 그 까닭으로 거절한다(결과 없음과 다르다)
-async function fromYouTubeSearch(query: string, youtube: Sources["youtube"]): Promise<Found> {
+// 유튜브 검색어. 검색 1위 하나. 연령 인증 안내만 왔으면 스포티파이 1위 곡이 검색어의 곡일 때 그 곡으로,
+// 아니면(스포티파이 실패 포함) 그 까닭으로 거절한다(결과 없음과 다르다)
+async function fromYouTubeSearch(query: string, { youtube, spotify }: Pick<Sources, "youtube" | "spotify">): Promise<Found> {
   const found = await youtube.searchText(query);
-  if (found.gated) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
-  return single(found.tracks.slice(0, 1));
+  if (!found.gated) return single(found.tracks.slice(0, 1));
+  const top = await spotify.searchTracks(query).then(
+    (tracks) => tracks[0],
+    (e: unknown) => log.debug(`연령 인증 검색어를 스포티파이에서 찾지 못함: ${messageOf(e)}`),
+  );
+  if (!top || !queryNamesTrack(query, top)) throw codedError("search-age-gated", `유튜브가 검색어에 연령 인증 안내만 줌: ${query}`);
+  log.info(`유튜브가 검색어에 연령 인증 안내만 줘 스포티파이 1위 곡으로: ${query} → "${logTitle(top.title)}"`);
+  return single([top]);
 }
 
 // 유튜브 링크. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
 // 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 불러오면 그 오류를 그대로 던진다
-async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
-  if (inputKind(query) === "search") return fromYouTubeSearch(query, youtube);
+async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pick<Sources, "youtube" | "spotify">): Promise<Found> {
+  if (inputKind(query) === "search") return fromYouTubeSearch(query, { youtube, spotify });
   if (links.isYouTubePlaylist(query)) {
     const video = links.extractVideoId(query);
     let list: Collection | null;
@@ -112,7 +120,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
 
 // 링크 종류마다 부르는 곳. 직접 링크는 tags 면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
 function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
-  if (platform === "youtube") return fromYouTube(query, range, youtube);
+  if (platform === "youtube") return fromYouTube(query, range, { youtube, spotify });
   if (platform === "spotify") return fromSpotify(query, range, spotify);
   if (platform === "soundcloud") return fromSoundCloud(query, range, soundcloud);
   return direct.getInfo(query, tags ? { tags: applyTags } : {}).then(single); // getInfo 는 [곡] 또는 []
