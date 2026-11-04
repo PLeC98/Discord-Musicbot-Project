@@ -1,6 +1,7 @@
 <template>
-  <!-- 로그인 배경 편집 창. 이미지나 영상에서 쓸 영역(비율 자유)을, 영상이면 쓸 구간과 정지 화면 장면도 선택한다.
-       자른 결과가 아니라 영역(0 ~ 1), 구간(초), 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
+  <!-- 로그인 배경 편집 창. 이미지나 영상에서 쓸 영역(비율 자유)과 90도 회전, 좌우 반전을, 영상이면 쓸 구간과 정지 화면 장면도 선택한다.
+       자른 결과가 아니라 영역(원본 기준 0 ~ 1), 회전, 반전, 구간(초), 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다(자른 뒤 돌리고 뒤집는다).
+       틀은 돌리고 뒤집은 화면 위에서 다루고 넘길 때 원본 기준으로 되돌린다(utils/turn).
        표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상은 480p), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
        예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
        최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
@@ -15,10 +16,13 @@
         <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
           <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
             <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
-              <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
-              <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
+              <!-- 영상(또는 그림)과 정지 화면 캔버스는 원본 크기 그대로 두고 함께 CSS 로 돌린다. 전환 효과의 막은 보이는 상자 위에 -->
+              <div class="absolute max-w-none" :style="mediaStyle">
+                <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
+                <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
+                <canvas v-if="bg.kind === 'video'" ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
+              </div>
               <template v-if="bg.kind === 'video'">
-                <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
                 <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
                 <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
               </template>
@@ -30,11 +34,13 @@
           </div>
         </div>
       </div>
-      <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태) -->
+      <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태). 그 옆에 회전, 반전(앱 이모지 편집과 같다) -->
       <div class="flex items-center justify-center gap-3 text-on-surface-variant">
         <Icon name="image" :size="16" aria-hidden="true" />
         <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
         <Icon name="image" :size="24" aria-hidden="true" />
+        <button type="button" :class="iconButton(40)" :disabled="!natural.width" :aria-label="C.rotate" v-tooltip="C.rotate" @click="turnRight"><Icon name="rotate_right" /></button>
+        <button type="button" :class="iconButton(40)" :disabled="!natural.width" :aria-label="C.flip" v-tooltip="C.flip" @click="mirror"><Icon name="flip" /></button>
       </div>
 
       <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
@@ -70,7 +76,11 @@ import BackgroundTimeline from "./BackgroundTimeline.vue";
 import SeamPicker from "./SeamPicker.vue";
 import { useSeam } from "../login-background/seam.ts";
 import { cropKeyOf, estimatedBytes, inCounted } from "../../../src/rules/background-estimate.ts";
+import { iconButton } from "../utils/icon-button.ts";
+import { fromSource, imageStyle, mirror as mirrored, NO_TURN, toSource, turnedSize, turnRight as turnedRight, type Turn } from "../utils/turn.ts";
 const T = text.loginBackground.edit;
+/** 회전, 반전 버튼의 이름은 앱 이모지 편집 면과 같다 */
+const C = text.appearance.crop;
 
 /** bg: 편집할 배경(편집을 기다리는 것). state: 한도, 쓰는 용량, 기록(예상 저장 공간과 비교한다). seam: 카드의 반복 전환 효과(편집 창에서 선택하는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
@@ -101,8 +111,14 @@ const dipEl = ref<HTMLElement | null>(null);
 /** 선택한 반복 전환 효과(열 때 카드의 값으로) */
 const seamPick = ref<LoginBackgroundOptions["seam"]>({ ...props.seam });
 const seamFx = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => seamPick.value);
+/** 미리보기 원본 크기 */
 const natural = reactive({ width: 0, height: 0 });
+/** 회전, 반전과 돌린 미리보기의 크기 */
+const turning = ref<Turn>({ ...NO_TURN });
+const size = computed(() => turnedSize(natural, turning.value));
+/** 화면에 보이는 (돌린) 미리보기 크기(확대 전) */
 const view = reactive({ width: 640, height: 360 });
+/** 선택한 영역(돌리고 뒤집은 미리보기의 px) */
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
 const duration = ref(0);
 const range = ref<[number, number]>([0, 0]);
@@ -123,7 +139,8 @@ const fps = computed(() => props.bg?.fps || 30);
 /** 화면 확대: 0 ~ 100 을 1 배 ~ MAX_ZOOM 배로, 지수로 */
 const zoomStep = ref(0);
 const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
-const scale = computed(() => (natural.width ? (view.width * zoom.value) / natural.width : 1));
+const scale = computed(() => (size.value.width ? (view.width * zoom.value) / size.value.width : 1));
+const mediaStyle = computed(() => (natural.width ? imageStyle(natural, scale.value, turning.value) : { inset: "0" }));
 /** 미리보기 픽셀 → 원본 픽셀(선택한 영역을 원본 해상도로 보인다) */
 const originalScale = computed(() => (natural.width && props.bg?.width ? props.bg.width / natural.width : 1));
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
@@ -157,8 +174,14 @@ const evictText = computed(() => {
   }
   return n ? T.evict(n) : T.overAlone;
 });
-/** 지금 틀(0 ~ 1)과 그 키(추산한 크롭과 같은지 본다) */
-const cropNow = (): LoginBackgroundCrop => (natural.width ? { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height } : { x: 0, y: 0, w: 1, h: 1 });
+/** 지금 틀을 원본 기준(0 ~ 1)으로. 봇이 0 ~ 1 밖을 거절해 소수 오차를 잘라 둔다 */
+function cropNow(): LoginBackgroundCrop {
+  if (!natural.width) return { x: 0, y: 0, w: 1, h: 1 };
+  const src = toSource(sel, natural, turning.value);
+  const x = Math.min(1, Math.max(0, src.x / natural.width));
+  const y = Math.min(1, Math.max(0, src.y / natural.height));
+  return { x, y, w: Math.min(1 - x, src.w / natural.width), h: Math.min(1 - y, src.h / natural.height) };
+}
 const cropKey = ref(cropKeyOf({ x: 0, y: 0, w: 1, h: 1 }));
 const rangeNow = (): [number, number] | null => (props.bg?.kind === "video" ? range.value : null);
 /** 크롭을 정했다: 추산한 크롭과 다르면 그 크롭, 구간으로 다시 센다 */
@@ -178,11 +201,19 @@ watch(range, () => {
   }, RECOUNT_AFTER_MS);
 });
 
-/** 틀, 구간, 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
+/** 틀, 회전, 반전을 편집 값(없으면 처음)으로. 돌린 크기가 바뀌면 보는 창을 다시 맞춘다 */
+function placeFrame(saved: LoginBackgroundEdit | null | undefined) {
+  const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+  const before = size.value.width;
+  turning.value = { rotate: saved?.rotate ?? 0, flip: saved?.flip ?? false };
+  Object.assign(sel, fromSource({ x: c.x * natural.width, y: c.y * natural.height, w: c.w * natural.width, h: c.h * natural.height }, natural, turning.value));
+  if (size.value.width !== before) fit();
+}
+
+/** 틀, 회전, 반전, 구간, 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
 function reset(fromEdit = false) {
   const saved = fromEdit ? props.bg?.edit : null;
-  const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
-  Object.assign(sel, { x: c.x * natural.width, y: c.y * natural.height, w: c.w * natural.width, h: c.h * natural.height });
+  placeFrame(saved);
   if (props.bg?.kind === "video") {
     range.value = saved?.range ?? [0, Math.min(duration.value, FIRST_RANGE)];
     thumbAt.value = saved?.thumbAt ?? null;
@@ -222,9 +253,22 @@ function fit(first?: number) {
   const panel = dialog.value?.panel;
   const rest = panel && viewportEl.value ? panel.scrollHeight - viewportEl.value.offsetHeight : 0;
   const tall = first ?? Math.max(120, innerHeight * 0.95 - rest - EDGE * 2);
-  const k = Math.min(1, room / natural.width, tall / natural.height);
-  view.width = Math.floor(natural.width * k);
-  view.height = Math.floor(natural.height * k);
+  const k = Math.min(1, room / size.value.width, tall / size.value.height);
+  view.width = Math.floor(size.value.width * k);
+  view.height = Math.floor(size.value.height * k);
+}
+
+// 보이는 미리보기를 시계 방향으로 90도(틀도 같이, 가로세로가 바뀌어 보는 창을 다시 맞춘다), 좌우로 뒤집기. 원본 기준 영역은 그대로라 다시 세지 않는다
+function turnRight() {
+  const next = turnedRight(natural, turning.value, sel);
+  turning.value = next.turn;
+  Object.assign(sel, next.rect);
+  fit();
+}
+function mirror() {
+  const next = mirrored(natural, turning.value, sel);
+  turning.value = next.turn;
+  Object.assign(sel, next.rect);
 }
 const onResize = () => fit();
 watch(open, (on) => {
@@ -377,17 +421,18 @@ function moveTo(e: PointerEvent) {
   const dx = (e.clientX - drag.px) / scale.value;
   const dy = (e.clientY - drag.py) / scale.value;
   const f = drag.from;
+  const { width, height } = size.value;
   if (drag.mode === "move") {
-    sel.x = Math.min(Math.max(0, f.x + dx), natural.width - f.w);
-    sel.y = Math.min(Math.max(0, f.y + dy), natural.height - f.h);
+    sel.x = Math.min(Math.max(0, f.x + dx), width - f.w);
+    sel.y = Math.min(Math.max(0, f.y + dy), height - f.h);
     return;
   }
   const west = drag.mode.includes("w");
   const north = drag.mode.includes("n");
   const ax = west ? f.x + f.w : f.x;
   const ay = north ? f.y + f.h : f.y;
-  const w = Math.min(Math.max(MIN_SIDE, f.w + (west ? -dx : dx)), west ? ax : natural.width - ax);
-  const h = Math.min(Math.max(MIN_SIDE, f.h + (north ? -dy : dy)), north ? ay : natural.height - ay);
+  const w = Math.min(Math.max(MIN_SIDE, f.w + (west ? -dx : dx)), west ? ax : width - ax);
+  const h = Math.min(Math.max(MIN_SIDE, f.h + (north ? -dy : dy)), north ? ay : height - ay);
   Object.assign(sel, { x: west ? ax - w : ax, y: north ? ay - h : ay, w, h });
 }
 
@@ -396,9 +441,11 @@ function finish() {
   emit(
     "done",
     {
-      crop: { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height },
+      crop: cropNow(),
       range: props.bg?.kind === "video" ? range.value : null,
       thumbAt: props.bg?.kind === "video" ? (thumbAt.value ?? range.value[0]) : null,
+      rotate: turning.value.rotate,
+      flip: turning.value.flip,
     },
     { ...seamPick.value },
   );

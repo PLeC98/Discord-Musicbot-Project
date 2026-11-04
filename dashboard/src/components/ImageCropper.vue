@@ -37,6 +37,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from "vue";
 import Icon from "./BaseIcon.vue";
 import { iconButton } from "../utils/icon-button.ts";
+import { imageStyle as turnedImageStyle, mirror as mirrored, turnedSize, turnRight as turnedRight, type Rotation } from "../utils/turn.ts";
 import { text } from "../text/index.ts";
 const T = text.appearance.crop;
 
@@ -44,7 +45,6 @@ const T = text.appearance.crop;
 const props = withDefaults(defineProps<{ file: File | null; aspect: number; turn?: boolean; maxHeight?: number }>(), { turn: false, maxHeight: undefined });
 
 type Corner = "nw" | "ne" | "sw" | "se";
-type Rotation = 0 | 90 | 180 | 270;
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
 /** 틀의 가장 작은 짧은 변(원본 px) */
 const MIN_SIDE = 16;
@@ -66,9 +66,10 @@ const room = reactive({ width: 0, height: innerHeight });
 let image: HTMLImageElement | null = null;
 
 const ready = computed(() => natural.width > 0);
-/** 돌린 이미지의 크기(90도, 270도면 가로세로가 바뀐다) */
-const size = computed(() => (rotate.value % 180 ? { width: natural.height, height: natural.width } : { width: natural.width, height: natural.height }));
-/** 보는 창 높이. 돌릴 수 있으면 어느 방향이든 들어가는 높이로 둬 돌릴 때 창이 들썩이지 않게 */
+/** 지금의 회전, 반전 */
+const turning = computed(() => ({ rotate: rotate.value, flip: flip.value }));
+/** 돌린 이미지의 크기 */
+const size = computed(() => turnedSize(natural, turning.value));
 /** 화면 px ÷ 원본 px(확대 전): 안쪽 폭과 높이 상한 안에. 돌릴 수 있으면 긴 변이 어느 쪽으로 가도 들어가게 */
 const fitScale = computed(() => {
   if (!natural.width) return 1;
@@ -76,6 +77,7 @@ const fitScale = computed(() => {
   const [w, h] = props.turn ? [long, long] : [natural.width, natural.height];
   return Math.max(0.01, Math.min(1, room.width / w, (props.maxHeight ?? room.height * 0.6) / h));
 });
+/** 보는 창 높이. 돌릴 수 있으면 어느 방향이든 들어가는 높이로 둬 돌릴 때 창이 들썩이지 않게 */
 const viewHeight = computed(() => (props.turn ? Math.max(natural.width, natural.height) : size.value.height) * fitScale.value);
 
 const viewportEl = ref<HTMLElement | null>(null);
@@ -85,19 +87,8 @@ const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
 const scale = computed(() => fitScale.value * zoom.value);
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
-/**
- * 돌린 이미지 크기 × k 인 상자 안에 원본 이미지를 돌려 놓는 스타일(img 에 absolute, max-w-none 과 함께).
- * CSS transform 은 오른쪽부터 적용돼 "회전 뒤 반전"이 scaleX(-1) rotate() 차례다
- */
-function imageStyle(k: number) {
-  return {
-    width: `${natural.width * k}px`,
-    height: `${natural.height * k}px`,
-    left: `${((size.value.width - natural.width) * k) / 2}px`,
-    top: `${((size.value.height - natural.height) * k) / 2}px`,
-    transform: `${flip.value ? "scaleX(-1) " : ""}rotate(${rotate.value}deg)`,
-  };
-}
+/** 돌린 이미지 크기 × k 인 상자 안에 원본 이미지를 돌려 놓는 스타일 */
+const imageStyle = (k: number) => turnedImageStyle(natural, k, turning.value);
 
 /** 비율을 지키며 가장 크게, 가운데 */
 function fit() {
@@ -114,17 +105,17 @@ function reset() {
   fit();
 }
 
-// 보이는 이미지를 시계 방향으로 90도. 뒤집혀 보이는 중이면 원본은 반대로 돌려야 같은 결과다(반전 뒤 회전 = 반대 회전 뒤 반전)
+// 보이는 이미지를 시계 방향으로 90도, 틀도 같이 돌린다. 정사각형이 아닌 틀은 비율이 바뀌어 새로 맞춘다
 function turnRight() {
-  const { height } = size.value;
-  rotate.value = ((rotate.value + (flip.value ? 270 : 90)) % 360) as Rotation;
-  // 틀도 같이 돌린다. 정사각형이 아닌 틀은 비율이 바뀌어 새로 맞춘다
+  const next = turnedRight(natural, turning.value, sel);
+  rotate.value = next.turn.rotate;
   if (props.aspect !== 1) return fit();
-  Object.assign(sel, { x: height - sel.y - sel.h, y: sel.x, w: sel.h, h: sel.w });
+  Object.assign(sel, next.rect);
 }
 function mirror() {
-  flip.value = !flip.value;
-  sel.x = size.value.width - sel.x - sel.w;
+  const next = mirrored(natural, turning.value, sel);
+  flip.value = next.turn.flip;
+  Object.assign(sel, next.rect);
 }
 
 watch(
