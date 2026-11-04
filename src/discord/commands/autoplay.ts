@@ -10,7 +10,7 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("autoplay").setDescription("자동재생을 켜거나 꺼요"),
 
   execute(interaction, bot) {
-    return answerAutoplay(interaction, bot.players.get(interaction.guild.id));
+    return answerAutoplay(interaction, bot.players.get(interaction.guild.id), bot.appEmojis);
   },
 };
 export default exported;
