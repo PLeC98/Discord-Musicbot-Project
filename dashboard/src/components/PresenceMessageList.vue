@@ -8,7 +8,7 @@
   <!-- 행: 문구 입력란(오른쪽 안에 이모지, 디스코드 입력창처럼), 활동 종류, 삭제. 아래에 문구 추가 -->
   <div class="flex flex-col gap-2">
     <div v-for="(message, i) in list" :key="message.key" class="flex items-center gap-2">
-      <EmojiTextInput v-model="message.text" class="flex-1" :placeholder="placeholder" :maxlength="MAX_TEXT" />
+      <EmojiTextInput v-model="message.text" class="flex-1" :placeholder="placeholder" :maxlength="MAX_TEXT" device-emoji />
 
       <SingleSelect :model-value="message.type" class="w-32 shrink-0" :options="TYPES" :empty-label="T.activityTypes['']" v-tooltip="T.activity" @update:model-value="message.type = $event as ActivityType" />
 

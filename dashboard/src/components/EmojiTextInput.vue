@@ -1,10 +1,11 @@
 <!--
   글 입력란. 오른쪽 안에 이모지 버튼(디스코드 입력창처럼)이 있고, 선택한 이모지는 커서 위치에 끼워 넣는다.
   상태 문구와 음성 상태 문구가 함께 쓴다.
+  device-emoji: 디스코드가 그 글의 이모지를 Twemoji 로 바꾸지 않고 기기 글꼴로 그리는 칸(봇 상태 문구). 입력란도 같게 기기 글꼴로 보인다.
 -->
 <template>
   <div class="relative min-w-0">
-    <input ref="box" :value="model" :placeholder="placeholder" :maxlength="maxlength" :spellcheck="spellcheck" :aria-label="label" :class="[FIELD, 'w-full pr-11']" @input="model = valueOf($event)" @blur="remember" @click="remember" @keyup="remember" @select="remember" />
+    <input ref="box" :value="model" :placeholder="placeholder" :maxlength="maxlength" :spellcheck="spellcheck" :aria-label="label" :class="[FIELD, 'w-full pr-11', deviceEmoji && 'font-plain!']" @input="model = valueOf($event)" @blur="remember" @click="remember" @keyup="remember" @select="remember" />
     <EmojiPicker class="absolute! right-1 top-1" @pick="insert">
       <template #default="{ toggle }">
         <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.fields.emojiInsert" v-tooltip="text.fields.emojiInsert" @click="toggle"><EmojiGlyph char="🙂" :size="20" /></button>
@@ -23,8 +24,8 @@ import { valueOf } from "../utils/dom.ts";
 import { insertAt, caretOf, type Caret } from "../utils/caret.ts";
 import { text } from "../text/index.ts";
 
-/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label 이 없을 때의 이름 */
-const props = withDefaults(defineProps<{ placeholder?: string; maxlength?: number; spellcheck?: boolean; label?: string }>(), { spellcheck: true });
+/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label 이 없을 때의 이름, deviceEmoji: 이모지를 기기 글꼴로(머리 주석) */
+const props = withDefaults(defineProps<{ placeholder?: string; maxlength?: number; spellcheck?: boolean; label?: string; deviceEmoji?: boolean }>(), { spellcheck: true });
 const model = defineModel<string>({ default: "" });
 
 const box = useTemplateRef<HTMLInputElement>("box");

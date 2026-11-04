@@ -201,7 +201,9 @@
   --color-warning: var(--md-warning);
 
   /* 이모지는 맨 앞의 Musicbot Twemoji 가 그린다(디스코드와 같은 그림). 다른 글꼴에 있는 기호 이모지(↔, ☺ 등)보다 먼저 와야 한다 */
-  --font-sans: "Musicbot Twemoji", "Google Sans Flex Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
+  --font-sans: "Musicbot Twemoji", var(--font-plain);
+  /* 본문 글꼴에서 Musicbot Twemoji 만 뺀 것. 디스코드가 이모지를 Twemoji 로 바꾸지 않고 기기 글꼴로 그리는 글(봇 상태 문구)에 쓴다 */
+  --font-plain: "Google Sans Flex Variable", "Pretendard Variable", Pretendard, system-ui, sans-serif;
   /* 고정폭(숫자 · 주소 칸, 실시간 로그, 코드). Musicbot Mono(D2Coding 서브셋, 직접 서빙)가 라틴 · 한글 · 가나 · KS 한자를 고정폭으로 그린다.
      없는 글자: 악센트 라틴 · 키릴은 시스템 고정폭 → Pretendard, 드문 한자는 시스템 CJK 글꼴(Pretendard 에는 한자가 없다).
      Musicbot Twemoji 는 넣지 않는다: 디스코드도 코드 블록 안의 이모지는 그림으로 바꾸지 않는다 */
