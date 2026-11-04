@@ -16,6 +16,7 @@ import { codedError, messageOf } from "../rules/error-kind.ts";
 import { RETIRED_EMOJI_NAMES, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
 import { appEmojis, useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
+import { APP_EMOJI_LIMIT as EMOJI_LIMIT } from "../dashboard/contract/app-emojis.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
 
 // 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui 를 부르지 못해 여기서 넣는다
@@ -40,8 +41,6 @@ const CDN_TIMEOUT_MS = 15_000;
 const COMPARE_AT_ONCE = 8;
 /** 움직이는 GIF 를 비교할 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
 const GIF_TOLERANCE = 12;
-/** 디스코드 앱 하나의 앱 이모지 한도 */
-const EMOJI_LIMIT = 2000;
 /** 운영자 색이 바뀌면 다시 올라가는 아이콘 수: 동기화가 새것을 먼저 올리고 옛것을 끝에 지워, 그만큼 자리가 있어야 한다 */
 const recolored = () => iconEntries().filter((entry) => entry.tint === "brand" && entry.spec.shape !== "logo").length;
 /** 운영자 패널에서 더 올릴 수 있는 수(지금 앱 이모지 수에서) */

@@ -1,24 +1,23 @@
 // 운영자 패널: 디스플레이 탭의 앱 이모지 카드와 추가 창
 
-import { josa } from "../../../../src/rules/josa.ts";
 import { formatNumber } from "../../utils/locale.ts";
 
 const title = "앱 이모지";
 const desc = "음성 상태, 자동재생 장르, 공지에 쓸 수 있는 봇의 이모지예요.";
-const room = (n: number) => `${formatNumber(n)}개 더 추가할 수 있어요`;
+/** 남은 슬롯(운영자 색을 바꿀 때 아이콘을 다시 올릴 자리는 뺀다), 쓰는 수, 한도 */
+const room = (n: number, used: number, limit: number) => `슬롯 ${formatNumber(n)}개 사용 가능(${formatNumber(used)}/${formatNumber(limit)})`;
 const add = "추가하기";
 const empty = "추가한 이모지가 없어요.";
-const icons = "봇 아이콘";
+const icons = "봇 내장 아이콘";
 const iconsTip = "봇이 직접 관리해서 이름을 바꾸거나 삭제할 수 없어요.";
 const loadFailed = "앱 이모지 목록을 읽지 못했어요.";
 
-/** 이모지 하나의 조작(화면 읽기 프로그램용 이름, 툴팁) */
-const renameOne = (name: string) => `${name} 이름 변경`;
+/** 이모지 하나의 이름 입력란, 삭제(화면 읽기 프로그램용 이름, 툴팁) */
+const nameLabel = (name: string) => `${name} 이모지 이름`;
 const removeOne = (name: string) => `${name} 삭제`;
-const nameLabel = (name: string) => `${name}의 새 이름`;
-const save = "저장";
-const renamed = (name: string) => `이름을 ${name}${josa(name, "으로")} 바꿨어요`;
-const renameFailed = "이름을 바꾸지 못했어요.";
+/** 저장 띠로 이름을 바꾼 뒤 */
+const renamed = (n: number) => `이모지 이름 ${n}개를 바꿨어요`;
+const renameFailed = "이모지 이름을 바꾸지 못했어요.";
 
 /** 추가 창을 열기 전에 거절한 까닭(화면이 미리 본다). name 은 파일 이름 */
 const refuse = {
@@ -61,4 +60,4 @@ const confirm = {
 const removed = (name: string) => `${name} 이모지를 삭제했어요`;
 const removeFailed = "이모지를 삭제하지 못했어요.";
 
-export { title, desc, room, add, empty, icons, iconsTip, loadFailed, renameOne, removeOne, nameLabel, save, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, confirm, removed, removeFailed };
+export { title, desc, room, add, empty, icons, iconsTip, loadFailed, nameLabel, removeOne, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, confirm, removed, removeFailed };

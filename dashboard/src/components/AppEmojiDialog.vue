@@ -48,7 +48,7 @@ import { composing } from "../utils/dom.ts";
 import { noticeText } from "../utils/problem.ts";
 import { LIMIT, problemCodeOf, replyOf } from "../utils/request.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { appEmojis } from "../composables/app-emojis.ts";
+import { appEmojis, nameProblem } from "../composables/app-emojis.ts";
 import { isCode } from "../../../src/rules/problems.ts";
 import type { AppEmojiItem } from "../../../src/dashboard/contract/app-emojis.ts";
 import { text } from "../text/index.ts";
@@ -59,8 +59,6 @@ const props = defineProps<{ file: File | null }>();
 const open = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ added: [emoji: AppEmojiItem] }>();
 
-/** 디스코드 이모지 이름 규칙(봇도 같은 규칙으로 다시 본다) */
-const NAME = /^\w{2,32}$/;
 /**
  * 미리보기 크기(px). 디스코드는 웹 클라이언트 CSS 의 값: 메시지 글 속 1.375em(16px 글), 이모지만 있는 메시지 3rem, 임베드 본문 18px, 음성 채널 상태 12px 글의 1.375em.
  * 대시보드는 선택기 칸과 장르 24px, 공지 미리보기 14px 글의 1.375em, 입력란 14px 글
@@ -88,7 +86,7 @@ function nameFrom(file: File) {
     .replace(/\W+/g, "_")
     .replace(/^_+|_+$/g, "")
     .slice(0, 32);
-  return NAME.test(base) ? base : "";
+  return nameProblem(base, new Map()) ? "" : base;
 }
 watch(
   () => props.file,
@@ -100,13 +98,12 @@ watch(
 );
 watch(name, () => (refused.value = ""));
 
-// 화면이 아는 만큼 미리 본다: 형식, 다른 이모지의 이름. 봇 아이콘의 예전 이름, 동기화가 잠시 쓰는 이름은 봇이 거절한다
+// 형식, 다른 이모지의 이름은 화면이 바로 알린다
 const issue = computed(() => {
   if (refused.value) return refused.value;
   if (!name.value) return "";
-  if (!NAME.test(name.value)) return noticeText("emoji-name-bad").body;
-  const same = appEmojis.value.find((one) => one.name === name.value);
-  return same ? noticeText(same.icon ? "emoji-name-reserved" : "emoji-name-taken").body : "";
+  const code = nameProblem(name.value, new Map(appEmojis.value.map((one) => [one.name, one.icon])));
+  return code ? noticeText(code).body : "";
 });
 const canAdd = computed(() => !!cropper.value?.ready && !!name.value && !issue.value && !busy.value);
 

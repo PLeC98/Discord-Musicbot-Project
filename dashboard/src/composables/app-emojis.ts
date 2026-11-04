@@ -7,6 +7,7 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { tokenOf, tokensIn, type EmojiBook } from "../../../src/rules/app-emoji-token.ts";
 import type { AppEmojiItem, AppEmojiList } from "../../../src/dashboard/contract/app-emojis.ts";
+import type { Code } from "../../../src/rules/problems.ts";
 
 /** 앱 이모지 전부(아이콘 포함). 읽기 전에는 비어 있다 */
 export const appEmojis = ref<AppEmojiItem[]>([]);
@@ -82,4 +83,17 @@ export const appEmojiImage = (emoji: { id: string; animated: boolean }) => `/api
 export function appEmojiOf(token: string): AppEmojiItem | null {
   const [hit] = tokensIn(token, book.value);
   return hit?.found && "emoji" in hit.found ? (byId.value.get(hit.found.emoji.id) ?? null) : null;
+}
+
+/** 디스코드 이모지 이름 규칙(봇도 같은 규칙으로 다시 본다) */
+const NAME = /^\w{2,32}$/;
+
+/**
+ * 화면이 아는 만큼 미리 본 이름의 문제 코드: 형식, 다른 이모지가 쓰는 이름. 없으면 null.
+ * taken: 다른 이모지의 이름 → 봇 아이콘인가. 봇 아이콘의 예전 이름, 동기화가 잠시 쓰는 이름은 봇이 거절한다
+ */
+export function nameProblem(name: string, taken: ReadonlyMap<string, boolean>): Code | null {
+  if (!NAME.test(name)) return "emoji-name-bad";
+  if (!taken.has(name)) return null;
+  return taken.get(name) ? "emoji-name-reserved" : "emoji-name-taken";
 }
