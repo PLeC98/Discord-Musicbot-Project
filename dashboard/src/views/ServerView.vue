@@ -121,15 +121,30 @@
             <!-- 좌우로 밀어 곡 넘기기: 왼쪽 = 다음 곡, 오른쪽 = 이전 곡(useArtSwipe). 앨범아트는 [이전 | 지금 | 다음] 세 칸이 나란히 붙은 띠라 미는 동안 옆 곡 앨범아트가 들어온다.
                  옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다.
                  옆 곡의 앨범아트를 미리 불러 두어 넘어간 뒤 가운데에 바로 그려진다. 앨범아트가 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
-                 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다 -->
-            <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && 'transition-[translate] duration-250 ease-smooth'" :style="[ART_STEP, artSwipe.style.value]">
-              <span v-if="art.hasPrevious" aria-hidden="true" :class="ART_SIDE" class="-translate-x-(--art-step)"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
-              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="ART_SIDE" class="translate-x-(--art-step)"><img v-if="phoneArt.next" :src="phoneArt.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" @load="noteArt($event, art.next)" @error="noteArt($event, art.next)" /><Icon v-else name="audio_file" :size="64" /></span>
-              <button v-if="art.now" ref="artSwipeEl" type="button" data-no-swipe class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none" :aria-label="T.enlargeArt" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up" @click="artSwipe.swiped.value || (artOpen = true)">
+                 사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다.
+                 낮은 화면(가로)은 옆에 글, 조작이 있어 띠를 옆으로 밀 자리가 없다: 세 칸을 같은 자리에 겹쳐 두고 바꾼다(stack) -->
+            <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && !short && 'transition-[translate] duration-250 ease-smooth'" :style="short ? undefined : [ART_STEP, artSwipe.style.value]">
+              <span v-if="art.hasPrevious" aria-hidden="true" :class="[ART_SIDE, short ? stackMotion : '-translate-x-(--art-step)']" :style="short ? stack.previous : undefined"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
+              <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="[ART_SIDE, short ? stackMotion : 'translate-x-(--art-step)']" :style="short ? stack.next : undefined"><img v-if="phoneArt.next" :src="phoneArt.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" @load="noteArt($event, art.next)" @error="noteArt($event, art.next)" /><Icon v-else name="audio_file" :size="64" /></span>
+              <button
+                v-if="art.now"
+                ref="artSwipeEl"
+                type="button"
+                data-no-swipe
+                class="relative size-full rounded-(--r-window) overflow-hidden bg-surface-container-high cursor-zoom-in shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)] select-none"
+                :class="short && stackMotion"
+                :style="short ? stack.now : undefined"
+                :aria-label="T.enlargeArt"
+                @pointerdown="artSwipe.down"
+                @pointermove="artSwipe.move"
+                @pointerup="artSwipe.up"
+                @pointercancel="artSwipe.up"
+                @click="artSwipe.swiped.value || (artOpen = true)"
+              >
                 <img :src="phoneArt.now ?? undefined" alt="" draggable="false" class="size-full object-cover" :style="nowZoom > 1 ? { scale: nowZoom } : undefined" @load="noteArt($event, art.now)" @error="noteArt($event, art.now) === 'broken' && (brokenArt = art.now)" />
               </button>
               <!-- 앨범아트가 없는 곡도 같은 위치에서 밀어 넘긴다 -->
-              <span v-else ref="artSwipeEl" data-no-swipe class="relative size-full rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"><Icon :name="track ? 'audio_file' : 'music_off'" :size="64" /></span>
+              <span v-else ref="artSwipeEl" data-no-swipe class="relative size-full rounded-(--r-window) bg-surface-container-high text-on-surface-variant flex items-center justify-center select-none" :class="short && stackMotion" :style="short ? stack.now : undefined" @pointerdown="artSwipe.down" @pointermove="artSwipe.move" @pointerup="artSwipe.up" @pointercancel="artSwipe.up"><Icon :name="track ? 'audio_file' : 'music_off'" :size="64" /></span>
             </div>
           </div>
 
@@ -147,7 +162,8 @@
                   <div v-else key="none" class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
                 </Transition>
                 <Transition name="fade" mode="out-in">
-                  <MarqueeText :key="track?.url ?? 'none'" class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop />
+                  <!-- 컴포넌트를 Transition 에 바로 두면 페이드 중에 곡이 또 바뀔 때(빠르게 두 번 넘김) 새 줄이 들어오지 않는다: 요소로 감싼다 -->
+                  <div :key="track?.url ?? 'none'"><MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop /></div>
                 </Transition>
               </div>
             </div>
@@ -704,9 +720,20 @@ const nowZoom = useArtZoom(() => phoneArt.value.now, true);
 const nextZoom = useArtZoom(() => phoneArt.value.next, true);
 const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
 const deskZoom = useArtZoom(() => deskArt.value, true);
-// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지.
-// 낮은 화면(가로)은 앨범아트가 가운데가 아니라 왼쪽 칸이라 칸 영역으로는 화면 밖에 둘 수 없다: 화면 폭만큼 밀어 둔다(옆에 있는 글, 조작을 가리지 않게)
-const ART_STEP = computed(() => ({ "--art-step": short.value ? "calc(100vw + 1.5rem)" : "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" }));
+// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
+const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
+// 낮은 화면의 겹쳐 바꾸기: 지금 앨범아트는 손가락을 틈(1.5rem)까지만 따라가며 흐려지고 작아지고, 넘어갈 쪽 앨범아트가 그 뒤 같은 자리에서 나타나며 커진다.
+// 진행은 미는 거리 ÷ 앨범아트 폭(넘기면 composables/art-swipe 가 폭만큼 끝까지 민다). 손을 떼고 끝까지, 제자리로 가는 동안은 띠와 같은 넘김
+const STACK_SHIFT_REM = 1.5;
+const STACK_SCALE = 0.08;
+const stack = computed(() => {
+  const dx = artSwipe.dx.value;
+  const p = Math.min(1, Math.abs(dx) / (artSwipeEl.value?.offsetWidth || 300));
+  const shift = Math.max(-rem(STACK_SHIFT_REM), Math.min(rem(STACK_SHIFT_REM), dx * 0.25));
+  const side = (shown: boolean) => ({ opacity: shown ? p : 0, scale: 1 - STACK_SCALE * (1 - p) });
+  return { now: { translate: `${shift}px 0`, scale: 1 - STACK_SCALE * p, opacity: 1 - p }, next: side(dx < 0), previous: side(dx > 0) };
+});
+const stackMotion = computed(() => (artSwipe.animating.value ? "transition-[translate,scale,opacity] duration-250 ease-smooth" : ""));
 const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";
 // 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")
 const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);

@@ -4,7 +4,7 @@
 // 화면이 가운데 칸을 새 곡으로 그린다(옆 칸에 떠 있던 그림이라 다시 불러오지 않고 바로 그려진다). 넘기지 못했으면 띠가 돌아온다.
 // 드래그를 시작한 때부터 띠가 제자리로 돌아올 때까지는 holding 이다. 화면은 그동안 세 칸의 그림을 붙잡아 둔다(중간에 곡이 바뀌어도 미끄러지는 그림이 바뀌지 않게).
 // 가로로 움직이기 전에 세로로 먼저 움직이면 화면 스크롤에 넘긴다. 밀었으면 손을 떼며 오는 누름(크게 보기)은 받지 않는다(swiped).
-// 이전, 다음 버튼도 go 로 같은 미끄러짐을 거쳐 넘긴다.
+// 이전, 다음 버튼도 go 로 같은 미끄러짐을 거쳐 넘긴다. 띠 대신 다른 움직임을 그리는 화면은 dx(지금 칸이 밀린 거리)를 읽는다.
 
 import { computed, ref, type Ref } from "vue";
 
@@ -29,10 +29,10 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
   let last = { x: 0, t: 0, v: 0 };
 
   const width = () => el.value?.offsetWidth || 300;
-  // 지금 칸에서 옆 칸까지(칸 폭 + 간격, 화면이 넓으면 옆 칸이 화면 밖에 있게 더 멀다)
+  // 지금 칸에서 옆 칸까지(칸 폭 + 간격, 화면이 넓으면 옆 칸이 화면 밖에 있게 더 멀다). 옆 칸을 같은 자리에 겹쳐 둔 화면은 칸 폭
   const step = () => {
     const next = el.value?.parentElement?.querySelector<HTMLElement>("[data-art-next]");
-    return next && el.value ? Math.abs(next.getBoundingClientRect().left - el.value.getBoundingClientRect().left) || width() : width();
+    return Math.max(width(), next && el.value ? Math.abs(next.getBoundingClientRect().left - el.value.getBoundingClientRect().left) : 0);
   };
   const style = computed(() => (dx.value === 0 && !animating.value ? undefined : { translate: `${dx.value}px 0` }));
   const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -111,5 +111,5 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
     holding.value = false;
   }
 
-  return { down, move, up, go, style, animating, holding, swiped };
+  return { down, move, up, go, dx, style, animating, holding, swiped };
 }
