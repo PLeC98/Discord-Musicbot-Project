@@ -82,7 +82,7 @@
               ><span v-if="added.name" class="truncate font-medium">{{ added.name }}</span
               ><span :class="added.name ? 'shrink-0 whitespace-pre' : 'line-clamp-2'">{{ added.rest }}</span></span
             >
-            <button type="button" :class="iconButton(32)" :aria-label="text.common.close" v-tooltip="text.common.close" @mousedown.prevent @click="added = null"><Icon name="close" :size="20" /></button>
+            <TimerClose :ms="ADDED_MS" :round="added" @mousedown.prevent @close="added = null" />
           </div>
         </div>
       </Transition>
@@ -131,6 +131,7 @@ import BaseButton from "./BaseButton.vue";
 import NoticeBox from "./NoticeBox.vue";
 import PlaylistMore from "./PlaylistMore.vue";
 import TrackArt from "./TrackArt.vue";
+import TimerClose from "./TimerClose.vue";
 import { notify, notifyProblem } from "../composables/toasts.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { iconButton } from "../utils/icon-button.ts";
@@ -462,12 +463,7 @@ async function joinBot() {
 // 넣은 곡 한 줄: 그림, 곡 이름(한 곡일 때), 나머지 문장(디스코드 추가 안내와 같은 문장)
 type AddedLine = { thumbnail: string | null; name: string | null; rest: string };
 const added = ref<AddedLine | null>(null);
-let addedTimer: ReturnType<typeof setTimeout> | undefined;
-function showAdded(line: AddedLine) {
-  clearTimeout(addedTimer);
-  added.value = line;
-  addedTimer = setTimeout(() => (added.value = null), ADDED_MS);
-}
+const showAdded = (line: AddedLine) => (added.value = line);
 // 넣은 첫 곡의 제목, 그림은 응답의 요약에서(응답의 대기열은 펼쳐 둔 만큼만 실어 긴 대기열 끝에 넣은 곡이 없을 수 있다)
 function lineOf(summary: AddedSummary): AddedLine {
   const addition: AddedTracks = {
@@ -517,7 +513,6 @@ onBeforeUnmount(() => {
   token++;
   clearTimeout(timer);
   inFlight?.abort();
-  clearTimeout(addedTimer);
   window.visualViewport?.removeEventListener("resize", measure);
   window.visualViewport?.removeEventListener("scroll", measure);
   moving?.removeEventListener("transitionend", measure);

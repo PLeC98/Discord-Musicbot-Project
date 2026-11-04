@@ -547,7 +547,7 @@ body {
 }
 
 /* 움직임을 줄여 달라고 한 사람에게는 스프링, 물결, 매끄러운 스크롤을 멈춘다.
-   data-keep-motion 은 남은 시간을 보이는 움직임(토스트 시간 띠, 더 넣기 고리)이다. 줄이면 남은 시간이 보이지 않아 그대로 둔다 */
+   data-keep-motion 은 남은 시간을 보이는 움직임(토스트 시간 띠, 저절로 닫히는 닫기 버튼의 고리)이다. 줄이면 남은 시간이 보이지 않아 그대로 둔다 */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

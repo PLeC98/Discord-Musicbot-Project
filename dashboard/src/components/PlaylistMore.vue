@@ -14,14 +14,8 @@
           <div class="h-full rounded-full bg-primary transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
         </div>
       </div>
-      <!-- 닫기. 둘레의 고리가 남은 시간만큼 줄어들고, 다 줄면 디스코드 메뉴처럼 사라진다. 고리는 남은 시간이라 움직임 줄이기에도 돈다(data-keep-motion) -->
-      <button type="button" :class="iconButton(32, 'plain')" :disabled="busy" v-tooltip="busy ? T.adding : T.closeIn(secondsLeft)" :aria-label="text.common.close" @click="$emit('close')">
-        <svg class="absolute inset-0 -rotate-90 pointer-events-none" viewBox="0 0 32 32" aria-hidden="true">
-          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" class="opacity-15" />
-          <circle :key="timerKey" cx="16" cy="16" r="14" fill="none" stroke="var(--md-primary)" stroke-width="2" stroke-linecap="round" :stroke-dasharray="RING" stroke-dashoffset="0" class="ring-drain" data-keep-motion :style="{ animationDuration: `${lifetime}ms`, animationPlayState: busy ? 'paused' : 'running' }" />
-        </svg>
-        <Icon name="close" :size="20" />
-      </button>
+      <!-- 가만두면 사라지고(디스코드 메뉴처럼), 이어 넣으면 다시 센다. 넣는 동안은 멈춘다 -->
+      <TimerClose :ms="more.lifetimeMs" :round="more" :paused="busy" :paused-tip="T.adding" @close="$emit('close')" />
     </div>
 
     <div v-if="cap === 0" class="mt-3 text-body">{{ moreText.roomFull() }} {{ T.roomFullHint }}</div>
@@ -46,11 +40,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
+import { ref, computed, watch } from "vue";
 import BaseButton from "./BaseButton.vue";
 import { FIELD } from "../utils/field.ts";
-import Icon from "./BaseIcon.vue";
-import { iconButton } from "../utils/icon-button.ts";
+import TimerClose from "./TimerClose.vue";
 import type { MoreView } from "../../../src/dashboard/contract/player.ts";
 import { MAX_COUNT, moreChoices } from "../../../src/rules/more-choices.ts";
 import { roomWith } from "../../../src/rules/queue-room.ts";
@@ -77,7 +70,7 @@ const props = withDefaults(
   }>(),
   { queueTotal: 0, hasCurrent: true, queueMax: 0, busy: false },
 );
-const emit = defineEmits<{ add: [count: number]; close: [] }>();
+defineEmits<{ add: [count: number]; close: [] }>();
 
 // 선택지, 남은 공간, 라벨은 디스코드 더 넣기 메뉴와 같은 규칙, 문장(rules/more-choices, rules/queue-room, ui/text/ko/more)
 const chip = "tap state-layer h-10 px-4 rounded-xl text-body font-semibold nums cursor-pointer bg-surface-highest/80 text-on-surface motion-button active:not-disabled:rounded-md active:not-disabled:scale-97 disabled:opacity-38 disabled:cursor-not-allowed";
@@ -98,66 +91,4 @@ watch(cap, (c) => {
   if (amount.value > c) amount.value = Math.max(1, c);
 });
 const valid = computed(() => Number.isInteger(amount.value) && amount.value >= 1 && amount.value <= cap.value);
-
-// ── 수명. 디스코드 메뉴와 같다: 가만두면 사라지고, 이어 넣으면 다시 센다. 넣는 동안은 멈춘다.
-const RING = 2 * Math.PI * 14;
-const lifetime = computed(() => props.more.lifetimeMs);
-const timerKey = ref(0);
-const secondsLeft = ref(Math.ceil(lifetime.value / 1000));
-let deadline = 0;
-let pausedLeft = 0;
-let tick: ReturnType<typeof setInterval> | null = null;
-
-function stop() {
-  if (tick !== null) clearInterval(tick);
-  tick = null;
-}
-
-function run(ms: number) {
-  stop();
-  deadline = Date.now() + ms;
-  const step = () => {
-    const left = deadline - Date.now();
-    secondsLeft.value = Math.max(0, Math.ceil(left / 1000));
-    if (left <= 0) {
-      stop();
-      emit("close");
-    }
-  };
-  step();
-  tick = setInterval(step, 250);
-}
-
-function restart() {
-  timerKey.value++; // 고리 애니메이션을 처음부터
-  pausedLeft = 0;
-  if (!props.busy) run(lifetime.value);
-}
-
-watch(() => props.more, restart, { immediate: true });
-watch(
-  () => props.busy,
-  (busy) => {
-    if (busy) {
-      pausedLeft = Math.max(0, deadline - Date.now());
-      stop();
-    } else if (tick === null) {
-      run(pausedLeft || lifetime.value); // 실패해서 상태가 그대로면 멈춘 시점부터 이어 센다
-    }
-  },
-);
-onBeforeUnmount(stop);
 </script>
-
-<style scoped>
-.ring-drain {
-  animation-name: ring-drain;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-@keyframes ring-drain {
-  to {
-    stroke-dashoffset: 87.965; /* 2π × 14. RING과 같다 */
-  }
-}
-</style>
