@@ -162,14 +162,14 @@ loginBackgroundRouter.put("/:id/edit", (req, res) => {
   if (store.phaseOf(one, runner.isRunning(one.id)) !== "editing") return sendProblem(res, "background-not-editable");
   const body = parse(BackgroundEditBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
-  const { crop, range, thumbAt } = body.value;
+  const { crop, range, thumbAt, rotate, flip } = body.value;
   const video = one.kind === "video";
   if (video && range && range[1] > one.duration + 0.5) return sendProblem(res, "bad-request");
   // 추산이 남은 공간보다 크면 막는다(편집 창과 같은 계산. 추산이 없으면 남은 공간이 있는지만)
   const room = store.room();
   const need = estimatedBytes(one.estimate, cropKeyOf(crop), video ? range : null) ?? 0;
   if (room <= 0 || need > room) return sendProblem(res, "background-no-space", { size: Math.max(0, room) });
-  one.edit = { crop, range: video ? range : null, thumbAt: video ? thumbAt : null };
+  one.edit = { crop, range: video ? range : null, thumbAt: video ? thumbAt : null, rotate, flip };
   one.appliedAt = Date.now();
   one.estimate = null;
   runner.stopCounting(one.id);

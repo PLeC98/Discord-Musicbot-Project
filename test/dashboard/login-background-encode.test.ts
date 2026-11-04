@@ -79,6 +79,13 @@ test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열, 2초 최
   assert.ok(progress.length > 0);
 });
 
+test("H.264 단계: 편집에서 돌렸으면 돌린 크기로(자른 뒤 돌린다)", opts, async () => {
+  const one = await applied({ crop: { x: 0, y: 0, w: 0.5, h: 1 }, range: [0.5, 2.5], thumbAt: null, rotate: 90, flip: true });
+  const [rung] = (await h264(job(one))).media!.rungs.h264!;
+  assert.deepEqual([rung.width, rung.height], [360, 320]);
+  assert.match(fs.readFileSync(at(one, "h264", "index.m3u8"), "utf8"), /RESOLUTION=360x320/);
+});
+
 test("굽기 단계: AV1(10비트), VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", opts, async () => {
   if (!encoders.encoderFor("av1") || !encoders.encoderFor("vp9")) return;
   const one = await applied({ crop: FULL, range: null, thumbAt: null });

@@ -134,8 +134,8 @@ const bgNumber = (min: number, max: number) => z.number(BAD_BACKGROUND).min(min,
 const BackgroundCrop = z.object({ x: bgNumber(0, 1), y: bgNumber(0, 1), w: bgNumber(0, 1).positive(BAD_BACKGROUND), h: bgNumber(0, 1).positive(BAD_BACKGROUND) }, BAD_BACKGROUND).refine((crop) => crop.x + crop.w <= 1 + 1e-6 && crop.y + crop.h <= 1 + 1e-6, BAD_BACKGROUND);
 // 쓸 구간(초). 1초 이상(영상 길이 안인지는 경로가 본다)
 const BackgroundRange = z.tuple([bgNumber(0, Number.MAX_SAFE_INTEGER), bgNumber(0, Number.MAX_SAFE_INTEGER)], BAD_BACKGROUND).refine(([from, to]) => to - from >= 1, BAD_BACKGROUND);
-// 편집 적용 { crop, range, thumbAt }. 썸네일 장면은 구간 안
-const BackgroundEditBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable(), thumbAt: bgNumber(0, Number.MAX_SAFE_INTEGER).nullable() }, BAD_BACKGROUND).refine((edit) => edit.thumbAt === null || edit.range === null || (edit.thumbAt >= edit.range[0] && edit.thumbAt <= edit.range[1]), BAD_BACKGROUND);
+// 편집 적용 { crop, range, thumbAt, rotate, flip }. 썸네일 장면은 구간 안. 회전, 반전이 없던 때의 편집(백업)은 그대로로
+const BackgroundEditBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable(), thumbAt: bgNumber(0, Number.MAX_SAFE_INTEGER).nullable(), rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)], BAD_BACKGROUND).default(0), flip: z.boolean(BAD_BACKGROUND).default(false) }, BAD_BACKGROUND).refine((edit) => edit.thumbAt === null || edit.range === null || (edit.thumbAt >= edit.range[0] && edit.thumbAt <= edit.range[1]), BAD_BACKGROUND);
 // 크기 추산 다시 세기 { crop, range }
 const BackgroundEstimateBody = z.object({ crop: BackgroundCrop, range: BackgroundRange.nullable() }, BAD_BACKGROUND);
 // 보일 위치 { x, y }(%)

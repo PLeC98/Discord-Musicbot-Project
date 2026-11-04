@@ -79,8 +79,11 @@ type LoginBackground = { kind: "none" } | { kind: "image"; id: string; stills: L
 
 /** 원본에서 쓸 사각형(0 ~ 1, x + w, y + h 는 1 이하) */
 type LoginBackgroundCrop = { x: number; y: number; w: number; h: number };
-/** 편집 창에서 정한 것. range 는 쓸 구간(초, 영상만), thumbAt 은 썸네일로 쓸 장면(초, 영상만, 구간 안) */
-type LoginBackgroundEdit = { crop: LoginBackgroundCrop; range: [number, number] | null; thumbAt: number | null };
+/**
+ * 편집 창에서 정한 것. range 는 쓸 구간(초, 영상만), thumbAt 은 썸네일로 쓸 장면(초, 영상만, 구간 안).
+ * rotate, flip: 자른 뒤 시계 방향으로 돌리고(도) 그다음 좌우로 뒤집는다. 없으면 그대로(이 값이 없던 때의 편집, 백업)
+ */
+type LoginBackgroundEdit = { crop: LoginBackgroundCrop; range: [number, number] | null; thumbAt: number | null; rotate?: 0 | 90 | 180 | 270; flip?: boolean };
 /**
  * 세트 크기 추산(편집 창의 예상 파일 크기, 예상 인코딩 시간). 편집 전에만 싣는다.
  * 원본을 받을 때 원본 전체를 한 번 빠르게 인코딩해 초마다의 세트 크기(perSecond, 그림은 빈다)를 둔다. 구간을 바꾸면 그 초를 더하기만 한다.

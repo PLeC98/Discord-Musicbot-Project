@@ -17,7 +17,7 @@ import { boundCores } from "../../infra/cpu-affinity.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
 import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
-import { cropped, FHD, FPS_CAP, fitShort, frameRate, scaleTo, seekArgs, sourceFilter, UHD } from "./ladder.ts";
+import { cropped, FHD, FPS_CAP, fitShort, frameRate, scaleTo, seekArgs, sourceFilter, turned, turnFilter, UHD } from "./ladder.ts";
 import { probeVideo, READ_ARGS, type Probed } from "./source.ts";
 import { encoderFor, encodersReady, recheck } from "./encoders.ts";
 import { AV1_LP_MAX, av1LpFor, enoughMemory, needOf, splitLp } from "./memory.ts";
@@ -121,7 +121,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
   // AV1 은 10비트로 인코딩한다(8비트는 어두운 면에 얼룩이 진다)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
-  const graph = `${sourceFilter(probed, edit.crop, { from, to })}${split}`;
+  const graph = `${sourceFilter(probed, edit.crop, { from, to })}${turnFilter(edit)}${split}`;
   const outputs = plans.flatMap((plan, i) => ["-map", `[${labels[i]}]`, ...plan.options, ...hlsOutput(tmp[i])]);
   const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", store.sourceOf(item.id), "-filter_complex", graph, "-an", "-sn", "-dn", ...outputs], {
     signal,
@@ -200,7 +200,7 @@ function writeMasters(item: Readonly<store.Stored>, shapes: Shape[], fps: number
 async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBackgroundCodec[]): Promise<StageResult> {
   await encodersReady();
   const probed = await probeVideo(store.sourceOf(item.id), signal);
-  const size = cropped(probed.width, probed.height, item.edit!.crop);
+  const size = turned(cropped(probed.width, probed.height, item.edit!.crop), item.edit!);
   const fps = frameRate(probed);
   const missing = codecs.filter((codec) => !encoderFor(codec));
   if (missing.length) log.warn({ sub: "admin" }, `로그인 배경 "${item.name}": ${missing.join(", ")} 인코더가 없어 그 코덱은 만들지 않습니다`);

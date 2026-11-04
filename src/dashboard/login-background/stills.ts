@@ -11,9 +11,9 @@ import { hexOfSeed, SEED_SIDE, seedOfPixels } from "../../rules/art-seed.ts";
 import { ffmpeg } from "./ffmpeg.ts";
 import type { StageJob, StageResult } from "./runner.ts";
 import * as store from "./store.ts";
-import { cropped, scaleTo, seekArgs, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL } from "./ladder.ts";
+import { cropped, scaleTo, seekArgs, sourceFilter, squareCrop, stillWidths, TRANSPARENT_FILL, turned, turnFilter } from "./ladder.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS, type Probed } from "./source.ts";
-import type { LoginBackgroundCrop } from "../contract/login-background.ts";
+import type { LoginBackgroundCrop, LoginBackgroundEdit } from "../contract/login-background.ts";
 
 /** 정지 그림 WebP 품질 */
 const QUALITY = 95;
@@ -62,21 +62,31 @@ async function withLut(image: Sharp, lut: Uint8Array | null): Promise<Sharp> {
   return sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
 }
 
-/** 그림 배경: 돌리고 자르고 투명은 검정으로 채운 원본(폭을 줄이기 전), 그 크기와 감마 표 */
-async function croppedImage(item: Readonly<store.Stored>, crop: LoginBackgroundCrop) {
+/** 그림 배경: EXIF 방향대로 세우고 자르고 투명은 검정으로 채운 뒤 편집대로 돌리고 뒤집은 원본(폭을 줄이기 전), 그 크기와 감마 표 */
+async function croppedImage(item: Readonly<store.Stored>, edit: LoginBackgroundEdit) {
   const file = store.sourceOf(item.id);
-  // 돌린 크기는 다운로드 단계가 적은 것(item.width, height)
-  const area = { left: Math.round(item.width * crop.x), top: Math.round(item.height * crop.y), ...cropped(item.width, item.height, crop) };
-  const image = sharp(file, { limitInputPixels: MAX_PIXELS }).autoOrient().extract(area).flatten({ background: TRANSPARENT_FILL });
+  // 세운 크기는 다운로드 단계가 적은 것(item.width, height)
+  const area = { left: Math.round(item.width * edit.crop.x), top: Math.round(item.height * edit.crop.y), ...cropped(item.width, item.height, edit.crop) };
+  const piece = sharp(file, { limitInputPixels: MAX_PIXELS }).autoOrient().extract(area).flatten({ background: TRANSPARENT_FILL });
+  const image = edit.rotate || edit.flip ? await turnedImage(piece, edit) : piece;
   const gamma = pngGamma(file);
-  return { image, width: area.width, height: area.height, lut: gamma ? gammaToSrgb(gamma) : null };
+  return { image, ...turned(area, edit), lut: gamma ? gammaToSrgb(gamma) : null };
+}
+
+// sharp 는 반전을 회전, 자르기보다 먼저 적용한다(부른 차례가 아니다): 자른 조각을 받아 단계마다 따로 돌린다
+async function turnedImage(piece: Sharp, edit: LoginBackgroundEdit): Promise<Sharp> {
+  let { data, info } = await piece.raw().toBuffer({ resolveWithObject: true });
+  const raw = () => ({ raw: { width: info.width, height: info.height, channels: info.channels } });
+  if (edit.rotate) ({ data, info } = await sharp(data, raw()).rotate(edit.rotate).raw().toBuffer({ resolveWithObject: true }));
+  if (edit.flip) data = await sharp(data, raw()).flop().raw().toBuffer();
+  return sharp(data, raw());
 }
 
 /** 영상의 한 장면(RGB 또는 RGBA)을 그 크기로 뜬다 */
-type Frame = { source: string; probed: Probed; at: number; crop: LoginBackgroundCrop; size: { width: number; height: number }; channels: 3 | 4 };
-async function frameAt({ source, probed, at, crop, size, channels }: Frame, signal: AbortSignal): Promise<Buffer> {
+type Frame = { source: string; probed: Probed; at: number; crop: LoginBackgroundCrop; turn?: Pick<LoginBackgroundEdit, "rotate" | "flip">; size: { width: number; height: number }; channels: 3 | 4 };
+async function frameAt({ source, probed, at, crop, turn = {}, size, channels }: Frame, signal: AbortSignal): Promise<Buffer> {
   const span = { from: Number(at.toFixed(3)), to: null };
-  const graph = `${sourceFilter(probed, crop, span)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
+  const graph = `${sourceFilter(probed, crop, span)}${turnFilter(turn)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
   const run = await ffmpeg(["-v", "error", ...seekArgs(probed, span), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 600_000 });
   if (run.aborted) throw codedError("aborted", "그만뒀습니다");
   const bytes = size.width * size.height * channels;
@@ -89,10 +99,10 @@ async function thumbFrame(item: Readonly<store.Stored>, signal: AbortSignal) {
   const edit = item.edit!;
   const source = store.sourceOf(item.id);
   const probed = await probeVideo(source, signal);
-  const size = cropped(probed.width, probed.height, edit.crop);
+  const size = turned(cropped(probed.width, probed.height, edit.crop), edit);
   const even = { width: Math.max(2, size.width - (size.width % 2)), height: Math.max(2, size.height - (size.height % 2)) };
   const at = edit.thumbAt ?? edit.range?.[0] ?? 0;
-  const data = await frameAt({ source, probed, at, crop: edit.crop, size: even, channels: 3 }, signal);
+  const data = await frameAt({ source, probed, at, crop: edit.crop, turn: edit, size: even, channels: 3 }, signal);
   return { image: sharp(data, { raw: { width: even.width, height: even.height, channels: 3 } }), width: even.width, height: even.height, lut: null, probed };
 }
 
@@ -119,7 +129,7 @@ async function colorOf(item: Readonly<store.Stored>, base: { image: Sharp; lut: 
   return hexOfSeed(seedOfPixels(Buffer.concat(frames)));
 }
 
-const baseOf = (item: Readonly<store.Stored>, signal: AbortSignal) => (item.kind === "image" ? croppedImage(item, item.edit!.crop) : thumbFrame(item, signal));
+const baseOf = (item: Readonly<store.Stored>, signal: AbortSignal) => (item.kind === "image" ? croppedImage(item, item.edit!) : thumbFrame(item, signal));
 
 /** 썸네일 단계: 가장 작은 폭 하나와 대표색(이것이 생기면 로그인 화면이 이 배경으로 넘어간다) */
 async function thumb({ item, signal }: StageJob): Promise<StageResult> {

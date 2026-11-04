@@ -1,7 +1,7 @@
 // 로그인 배경의 크기 계산: 정지 그림 폭, 영상 단계, 짧은 변을 맞춘 크기, 원본을 고르게 만드는 필터. 미리보기, 추산, 인코딩이 같이 쓴다.
 // 영상 단계의 1080p, 4K 는 짧은 변 1080, 2160 이다(세로 영상은 1080 × 1920 등). 원본보다 큰 단계는 만들지 않고, 원본이 1080p 보다 작으면 원본 크기 하나
 
-import { LOGIN_BG_WIDTHS, type LoginBackgroundCrop } from "../contract/login-background.ts";
+import { LOGIN_BG_WIDTHS, type LoginBackgroundCrop, type LoginBackgroundEdit } from "../contract/login-background.ts";
 import type { Probed } from "./source.ts";
 
 /** 영상 단계의 짧은 변 */
@@ -24,6 +24,17 @@ function fitShort(width: number, height: number, short: number): { width: number
 
 /** 크롭한 크기 */
 const cropped = (width: number, height: number, crop: LoginBackgroundCrop) => ({ width: Math.round(width * crop.w), height: Math.round(height * crop.h) });
+
+/** 편집의 회전, 반전(없으면 그대로) */
+type Turn = Pick<LoginBackgroundEdit, "rotate" | "flip">;
+/** 돌린 크기(90도, 270도면 가로세로가 바뀐다) */
+const turned = (size: { width: number; height: number }, turn: Turn) => ((turn.rotate ?? 0) % 180 ? { width: size.height, height: size.width } : size);
+/** 자른 뒤 돌리고(시계 방향) 그다음 좌우로 뒤집는 필터. sourceFilter 뒤에 그대로 이어 붙인다(없으면 빈 글). ffmpeg 는 적은 차례대로 적용한다 */
+function turnFilter(turn: Turn): string {
+  const steps: string[] = { 0: [], 90: ["transpose=clock"], 180: ["hflip", "vflip"], 270: ["transpose=cclock"] }[turn.rotate ?? 0];
+  if (turn.flip) steps.push("hflip");
+  return steps.map((step) => `,${step}`).join("");
+}
 
 /** 크롭 안 가운데 정사각형의 크롭(색을 추출할 때: 화면의 앨범아트 색 추출처럼 가운데 정사각형에서) */
 function squareCrop(width: number, height: number, crop: LoginBackgroundCrop): LoginBackgroundCrop {
@@ -92,5 +103,5 @@ function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null, span?: 
 /** 크기를 맞추는 필터 분기 하나(lanczos, 픽셀 형식은 인코딩이면 4:2:0, 장면을 뜰 때는 RGB) */
 const scaleTo = ({ width, height }: { width: number; height: number }, format = "yuv420p") => `scale=${width}:${height}:flags=lanczos,format=${format}`;
 
-export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, squareCrop, stillWidths, rungShorts, stacked, frameRate, seekArgs, sourceFilter, scaleTo };
+export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, turned, turnFilter, squareCrop, stillWidths, rungShorts, stacked, frameRate, seekArgs, sourceFilter, scaleTo };
 export type { Span };
