@@ -86,11 +86,15 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 앱 이모지, 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
-          <AppEmojiCard v-if="opened.has('appearance')" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
+        </div>
+
+        <!-- 앱 이모지: 운영자가 올려 음성 상태, 자동재생 장르, 공지에 쓰는 이모지와 봇 아이콘 -->
+        <div class="admin-page" v-show="tab === 'emojis'">
+          <AppEmojiCard v-if="opened.has('emojis')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'ai'">
@@ -219,6 +223,7 @@ const ALL_TABS: Tab[] = [
   { id: "age", label: T.tabs.age, icon: "no_adult_content", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
+  { id: "emojis", label: T.tabs.emojis, icon: "add_reaction", group: "outside" },
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
   { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },

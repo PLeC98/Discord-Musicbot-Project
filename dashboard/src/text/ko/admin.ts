@@ -25,6 +25,7 @@ const tabs = {
   keys: "API 키",
   presence: "상태 문구",
   appearance: "디스플레이",
+  emojis: "앱 이모지",
   autoplay: "자동재생",
   ai: "AI 보조",
   backup: "백업 및 초기화",
