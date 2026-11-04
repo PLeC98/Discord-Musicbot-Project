@@ -9,8 +9,9 @@ import { tooManyRequests } from "./problem.ts";
 // 로그인한 사용자로 센다. 로그인 전에는 IP(trust proxy 가 사설망 한정이라 믿을 수 있다)
 const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
-// 일반 API 한도에서 빼는 경로: SSE 연결(오래 붙어 있다), 볼륨(드래그하는 동안 잇달아 온다), 앨범아트(대기열의 것이 한꺼번에 불린다). 볼륨, 앨범아트는 그 경로가 따로 센다
-const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/admin\/ai\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume)$/, /^\/api\/guilds\/[^/]+\/art\/[^/]+$/];
+// 일반 API 한도에서 빼는 경로: SSE 연결(오래 붙어 있다), 볼륨(드래그하는 동안 잇달아 온다), 곡 추가 칸의 검색(치는 대로 온다), 앨범아트(대기열의 것이 한꺼번에 불린다).
+// 볼륨, 검색, 앨범아트는 그 경로가 따로 센다
+const UNLIMITED = [/^\/api\/admin\/logs\/stream$/, /^\/api\/admin\/ai\/logs\/stream$/, /^\/api\/guilds\/events$/, /^\/api\/guilds\/[^/]+\/player\/(?:events|volume|search)$/, /^\/api\/guilds\/[^/]+\/art\/[^/]+$/];
 
 /** 일반 API 한도에서 빼는 요청인가(주소의 경로로 본다) */
 const unlimited = (req: Pick<Request, "originalUrl">) => UNLIMITED.some((re) => re.test(req.originalUrl.split("?")[0]));

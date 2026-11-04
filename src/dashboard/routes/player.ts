@@ -8,7 +8,11 @@ import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
-import { loopOf, type AddReply, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage } from "../contract/player.ts";
+import { loopOf, type AddReply, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage, type SearchReply } from "../contract/player.ts";
+import { findSongs, MIN_QUERY } from "../../usecases/song-search.ts";
+import { graphemeLength } from "../../rules/clip-text.ts";
+import { errorKind } from "../../rules/error-kind.ts";
+import { latestOnly } from "../latest-only.ts";
 import { requestPlayback, continueCollection, ensurePlayer, resolveFallbackTextChannel } from "../../usecases/add-tracks.ts";
 import { waitForRestore } from "../../player/session-restore.ts";
 import * as genreConfig from "../../config/genres.ts";
@@ -18,8 +22,8 @@ import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playl
 import * as queueText from "../../ui/text/ko/queue.ts";
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
-import { queueTrack, queueWindow, playerState, toInt } from "../player-view.ts";
-import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN } from "../request-schemas.ts";
+import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack } from "../player-view.ts";
+import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery, SEARCH_MAX_LEN } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
@@ -59,6 +63,7 @@ function createPlayerRouter() {
   controlRoutes(router);
   queueEditRoutes(router);
   addRoutes(router);
+  searchRoute(router);
   autoplayRoutes(router);
   return router;
 }
@@ -293,6 +298,48 @@ function queueEditRoutes(router: Router) {
 }
 
 // 자동재생. 판정과 일은 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
+// 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 재적 규칙)을 지난 사람만.
+// 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
+// 그래서 사람마다 한 번에 하나만 찾고(그사이 더 새 검색이 오면 앞 것은 찾지 않는다), 일반 API 한도에서 빼 검색만의 한도로 센다(치는 대로 오는 검색이 재생 조작의 몫을 먹지 않게)
+function searchRoute(router: Router) {
+  const searchLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
+  const oneAtATime = latestOnly();
+  const EMPTY: SearchReply = { tracks: [], gated: false };
+
+  router.get("/:guildId/player/search", requireAuth, searchLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
+    const { guildId } = req.params;
+    const ctx = await openGuild(req, res, guildId);
+    if (!ctx) return;
+    const { player, actor } = ctx;
+
+    if (!player) return sendProblem(res, "bot-not-in-voice");
+    const err = checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
+
+    const query = parse(SearchQuery, req.query);
+    if (!query.ok) return sendProblem(res, query.code, { max: SEARCH_MAX_LEN });
+    const { q } = query.value;
+    // 두 글자가 안 되면 찾지 않는다(/search 와 같다)
+    if (graphemeLength(q) < MIN_QUERY) return res.json(EMPTY);
+
+    const requester = requesterOf(req);
+    try {
+      // 테스트가 검색을 가짜로 넘기는 슬롯. 없으면 진짜
+      const search: typeof findSongs = req.app.locals.findSongs ?? findSongs;
+      const found = await oneAtATime(requester.id, () => search(q));
+      if (!found) return res.json(EMPTY);
+      const queued = queuedUrls(player);
+      const tracks = found.songs.map((song) => searchTrack(guildId, song, queued));
+      const spotify = tracks.filter((t) => t.platform === "spotify").length;
+      log.debug({ sub: "search" }, `곡 검색: 대시보드 | ${requester.username} | "${q}" → ${tracks.length ? `유튜브 ${tracks.length - spotify}, 스포티파이 ${spotify}` : "결과 없음"}${found.gated ? "(유튜브 연령 인증 안내)" : ""}`);
+      res.json({ tracks, gated: found.gated } satisfies SearchReply);
+    } catch (e) {
+      // 실패는 검색 모듈이 남겼다(되풀이되면 한 번만). 화면은 그 까닭의 코드와 HTTP 상태를 보인다
+      sendProblem(res, errorKind(e));
+    }
+  });
+}
+
 function autoplayRoutes(router: Router) {
   // 장르 목록. 디스코드 장르 메뉴와 같은 것(파일이 바뀌면 곧바로)
   router.get("/:guildId/autoplay/genres", requireAuth, async (req, res) => {

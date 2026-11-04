@@ -3,7 +3,9 @@
 import type { Request } from "express";
 import { artOf } from "../rules/track-art.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
-import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
+import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView, type SearchTrack } from "./contract/player.ts";
+import { canonicalUrl } from "../rules/canonical-url.ts";
+import type { Song } from "../usecases/song-search.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import * as trackState from "../player/track-state.ts";
@@ -37,6 +39,34 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
     platformLabel: labelOf(t.platform),
     autoplay: Boolean(t.autoplay), // 자동재생이 미리 선택해 둔 곡. 화면에서 사용자 곡과 구분한다
     requestedBy: t.requestedBy ? { id: t.requestedBy.id } : null,
+  };
+}
+
+/**
+ * 지금 곡과 대기열 전체에 있는 곡의 주소 집합(정본으로 다듬은 것). 검색 결과에 "대기열" 배지를 달 때 본다.
+ * 세 주소를 다 넣는다: 고정한 곡은 pageUrl 이 입력 그대로, 출처가 있는 자동재생 곡은 유튜브 영상이 audioUrl 에만 있다(스포티파이 곡을 유튜브로 튼 것도 같은 음원)
+ */
+function queuedUrls(player: Pick<Player, "currentTrack" | "queue">): Set<string> {
+  const urls = new Set<string>();
+  for (const t of [player.currentTrack, ...player.queue]) {
+    if (!t) continue;
+    for (const url of [t.requestKey, t.pageUrl, t.audioUrl]) if (typeof url === "string" && url) urls.add(canonicalUrl(url));
+  }
+  return urls;
+}
+
+/** 곡 추가 칸의 검색 결과 한 곡. queued 는 queuedUrls */
+function searchTrack(guildId: string, song: Song, queued: Set<string>): SearchTrack {
+  const url = canonicalUrl(song.pageUrl);
+  return {
+    title: song.title ?? null,
+    artist: song.artist ?? null,
+    duration: song.duration,
+    thumbnail: trackArtUrl(guildId, { thumbnail: song.thumbnail, audioUrl: "audioUrl" in song ? song.audioUrl : undefined }),
+    platform: song.platform,
+    url,
+    isLive: "isLive" in song && Boolean(song.isLive),
+    inQueue: queued.has(url),
   };
 }
 
@@ -119,4 +149,4 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
   };
 }
 
-export { queueTrack, queueWindow, playerState, toInt, trackArtUrl };
+export { queueTrack, queueWindow, playerState, toInt, trackArtUrl, queuedUrls, searchTrack };

@@ -96,10 +96,15 @@ type QueuePage = { items: QueueTrackView[]; total: number };
 type MoreView = Omit<More, "requesterId" | "batch"> & { batch: number; collection: string; lifetimeMs: number; perClick: number | null };
 
 /** 곡 넣기의 답. dropped 는 대기열이 가득 차 못 넣은 곡 수, queueMax 는 대기열 상한(0 이면 없음), notes 는 디스코드 담은 안내의 경고 줄(일부만 넣었을 때) */
+/** 곡 추가 칸의 검색 결과 한 곡. url 은 정본 주소(넣을 때 보낸다), isLive 는 방송 중(예정 영상은 서버가 뺀다), inQueue 는 지금 곡이나 대기열에 같은 곡이 있는지 */
+type SearchTrack = { title: string | null; artist: string | null; duration: number; thumbnail: string | null; platform: string; url: string; isLive: boolean; inQueue: boolean };
+/** 곡 추가 칸의 검색 응답. gated: 유튜브가 연령 인증 안내만 주었고 스포티파이 곡도 없다 */
+type SearchReply = { tracks: SearchTrack[]; gated: boolean };
+
 type AddReply = PlayerState & { dropped: number; queueLimited: boolean; notes: string[]; more: MoreView | null; queueMax: number };
 
 /** 이어 넣기의 답. note 는 디스코드 더 넣기 결과와 같은 글 */
 type MoreReply = PlayerState & { added: number; dropped: number; note: string; more: MoreView | null; queueMax: number };
 
 export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
-export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply };
+export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply, SearchTrack, SearchReply };

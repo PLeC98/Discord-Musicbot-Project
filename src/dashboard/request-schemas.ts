@@ -67,6 +67,19 @@ const AddBody = z.object(
   BAD_QUERY,
 );
 
+// 곡 추가 칸의 검색 ?q=. 곡 추가와 같이 다듬고, 길이 상한은 /search 와 같다
+const SEARCH_MAX_LEN = 100;
+const SearchQuery = z.object(
+  {
+    q: z
+      .string(BAD_QUERY)
+      .max(SEARCH_MAX_LEN, BAD_QUERY)
+      .transform((raw) => raw.replace(/[\x00-\x1f\x7f]/g, " ").trim())
+      .pipe(z.string().min(1, BAD_QUERY)),
+  },
+  BAD_QUERY,
+);
+
 // 재생목록 더 넣기의 곡 수. 목록 상태(validState)는 디스코드 쪽과 같이 쓰는 usecases/playlist-more 가 본다
 const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 
@@ -176,5 +189,5 @@ const ResetBody = z.discriminatedUnion(
   BAD_RESET,
 );
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN };
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery, SEARCH_MAX_LEN };
 export type { SettingsRequest };

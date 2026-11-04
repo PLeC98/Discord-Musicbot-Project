@@ -4,9 +4,6 @@
 import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction } from "discord.js";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as Spotify from "../../sources/spotify.ts";
-import type { SpotifyTrack } from "../../sources/spotify.ts";
-import type { TextSearchResult } from "../../sources/youtube/text-search.ts";
-import type { TrackInfo } from "../../player/track.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requesterName } from "../../usecases/add-tracks.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
@@ -16,6 +13,7 @@ import { pickUrl, pickValue, readPick } from "../../rules/search-pick.ts";
 import { autocompleteBudget } from "../../rules/autocomplete-budget.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
 import { mixCounts, uniqueBy } from "../../rules/search-mix.ts";
+import { CHOICES, SPOTIFY_SHARE, MIN_QUERY, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, type Found, type SearchDeps } from "../../usecases/song-search.ts";
 import logger from "../../infra/log/logger.ts";
 import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
@@ -27,19 +25,11 @@ import { LIFETIME, expireMessage, noticeMs, noticeSelf, replaceSelf } from "../.
 import { playOnReply } from "./play.ts";
 const log = logger.child({ category: "player" });
 
-/** 자동완성 곡 후보 수(맨 위 줄은 따로)와 결과 화면의 줄 수 */
-const CHOICES = 10;
-/** 그중 스포티파이 곡 몫(유튜브가 모자라면 더 채운다). 0 이면 섞지 않고, 유튜브가 연령 인증으로 막았을 때만 스포티파이로 채운다 */
-const SPOTIFY_SHARE: number = 3;
-/** 이보다 짧은 검색어(글자 수)는 찾지 않고 맨 위 줄만 */
-const MIN_QUERY = 2;
 /**
  * 같은 사람의 다음 입력을 기다리는 시간(ms). 이 안에 다음 요청이 오면 앞 요청은 찾지 않고 기억으로만 답한다.
  * 디스코드는 입력을 1초 남짓으로 묶어 보낸다. 3초 마감에서 이만큼 쓰고도 검색(0.5초 안팎)이 들어간다
  */
 const SETTLE_MS = 1000;
-/** 결과 화면이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 추출하면 수 초 걸린다) */
-const SPOTIFY_RESULTS_MS = 4000;
 // 사람마다 마지막 자동완성 요청의 번호
 const latestRequest = new Map<string, number>();
 let requestCount = 0;
@@ -47,41 +37,12 @@ let requestCount = 0;
 // 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다
 const isLink = (query: string) => isHttpLink(query) || isKnownSiteHost(query);
 
-/** 유튜브 검색, 스포티파이 검색과 그 준비, 시계, 기다리기. 생략하면 진짜(테스트가 가짜를 넘긴다) */
-type SearchDeps = {
-  search?: (query: string) => Promise<TextSearchResult>;
-  searchSpotify?: (query: string) => Promise<SpotifyTrack[]>;
-  spotifyReady?: () => boolean;
-  now?: () => number;
-  wait?: (ms: number) => Promise<unknown>;
-};
-/** 찾은 것. youtube 는 못 찾았으면 null */
-type Found = { youtube: TextSearchResult | null; spotify: SpotifyTrack[] };
-const NOTHING: Found = { youtube: null, spotify: [] };
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const depsOf = (deps: SearchDeps): Required<SearchDeps> => ({ search: YouTube.searchText, searchSpotify: Spotify.searchTracks, spotifyReady: Spotify.searchReady, now: Date.now, wait: sleep, ...deps });
-
-// ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
-function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<{ missed: "late" }>((resolve) => (timer = setTimeout(() => resolve({ missed: "late" }), ms)));
-  const done = work.then(
-    (value) => ({ value }),
-    () => ({ missed: "failed" as const }),
-  );
-  return Promise.race([done, late]).finally(() => clearTimeout(timer));
-}
-
 const gatedSentence = () => {
   const gated = errors.notice("search-age-gated");
   return `${gated.title} ${gated.body ?? ""}`.trim();
 };
 
 const lengthOf = (track: { duration: number; isLive?: boolean }) => (track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()));
-
-/** 섞을 곡: 연령 인증으로 막힌 유튜브는 없는 것으로 */
-const youtubeOf = (found: Found): TrackInfo[] => (found.youtube?.gated ? [] : (found.youtube?.tracks ?? []));
 
 // ── 자동완성 ──
 
