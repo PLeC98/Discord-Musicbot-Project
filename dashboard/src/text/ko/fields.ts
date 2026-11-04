@@ -28,6 +28,9 @@ const emojiNone = "찾는 이모지가 없어요.";
 const emojiClear = "비우기";
 /** 글 입력란의 이모지 버튼(커서 위치에 넣는다) */
 const emojiInsert = "이모지 넣기";
+const appEmojiGroup = "앱 이모지";
+/** 저장된 앱 이모지가 봇의 앱에 없다(지웠거나 다른 봇의 이모지). 보낼 때는 빠진다 */
+const appEmojiMissing = "없는 앱 이모지예요. 보낼 때 빠져요";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
 const colorArea = "채도 및 밝기";
 /** 채도, 밝기 판을 읽어 줄 때(퍼센트) */
@@ -86,4 +89,4 @@ const datePicker = {
 const filter = "필터";
 const filterApplied = (count: number) => `필터 ${count}개 적용됨`;
 
-export { datePicker, filter, filterApplied, searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiInsert, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };
+export { datePicker, filter, filterApplied, searchAmong, pick, pickedSummary, emojiChange, emojiPick, rangeStart, rangeEnd, typeForSuggestions, suggestLoading, suggestFailed, suggestNone, linkText, mentionUser, mentionRole, mentionChannel, emojiSearch, searchClear, emojiLoading, emojiNone, emojiClear, emojiInsert, appEmojiGroup, appEmojiMissing, emojiLoadFailed, colorArea, colorAreaValue, colorHue, colorDefault, colorFormat, colorHex, colorChannel, format };

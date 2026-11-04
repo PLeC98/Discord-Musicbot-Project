@@ -20,8 +20,8 @@
         <!-- 다른 입력란과 같은 채운 입력란. 이모지 버튼은 오른쪽 위(오른쪽 아래는 크기 조절 핸들 위치) -->
         <div class="flex flex-col gap-1">
           <div class="relative">
-            <textarea ref="box" :value="message" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = valueOf($event)"></textarea>
-            <EmojiPicker class="absolute! right-2 top-2" @pick="insertEmoji">
+            <textarea ref="box" :value="shown" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = fromChars(valueOf($event))" @paste="onPaste" @copy="onCopy" @cut="onCopy"></textarea>
+            <EmojiPicker class="absolute! right-2 top-2" app-emoji @pick="insertEmoji">
               <template #default="{ toggle }">
                 <button type="button" :class="[ICON_BTN, 'size-8']" v-tooltip="T.announce.emoji" @click="toggle"><EmojiGlyph char="🙂" :size="20" /></button>
               </template>
@@ -106,7 +106,7 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import axios from "axios";
 import { useIntervalFn, useNow, watchDebounced } from "@vueuse/core";
 import BaseButton from "./BaseButton.vue";
@@ -121,6 +121,7 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { rem } from "../utils/rem.ts";
 import { caretOf, insertAt, type Caret } from "../utils/caret.ts";
+import { fromChars, hasAppEmojiChar, loadAppEmojis, toChars } from "../composables/app-emojis.ts";
 import { discordMarkdown } from "../utils/discord-markdown.ts";
 import { composing, valueOf } from "../utils/dom.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
@@ -156,7 +157,10 @@ const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
 const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
 const KINDS = (Object.entries(KIND_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label, icon: KIND_ICON[value] }));
 const kind = ref<AnnounceKind>("maintenance");
+// 저장 값(보낼 글)은 앱 이모지가 토큰(<:이름:id>), 입력란에는 그 문자로 보인다(composables/app-emojis). 서식 도구, 이모지 넣기의 위치는 보이는 글 기준이다
 const message = ref("");
+const shown = computed(() => toChars(message.value));
+onMounted(() => void loadAppEmojis());
 // 서버처럼 앞뒤 공백을 뺀 길이로 센다. 길이 상한은 서버의 것(서버도 막지만 다 쓰고 나서야 막히면 늦다)
 const body = computed(() => announceBody(message.value));
 const length = computed(() => body.value.length);
@@ -189,8 +193,8 @@ const SHORTCUT: Record<string, Run> = { b: FORMAT_GROUPS[0][0].run, i: FORMAT_GR
 function format(run: Run) {
   const el = box.value;
   if (!el) return;
-  const r = run(message.value, el.selectionStart, el.selectionEnd);
-  message.value = r.text;
+  const r = run(shown.value, el.selectionStart, el.selectionEnd);
+  message.value = fromChars(r.text);
   void nextTick(() => {
     el.focus();
     el.setSelectionRange(r.start, r.end);
@@ -209,14 +213,32 @@ function onFormatKey(e: KeyboardEvent) {
 const box = ref<HTMLTextAreaElement | null>(null);
 const caret = ref<Caret | null>(null);
 function insertEmoji(char: string) {
-  const inserted = insertAt(message.value, char, caret.value, ANNOUNCE_MAX);
+  const inserted = insertAt(shown.value, toChars(char), caret.value, ANNOUNCE_MAX);
   if (!inserted) return;
-  message.value = inserted.text;
+  message.value = fromChars(inserted.text);
   caret.value = { start: inserted.caret, end: inserted.caret };
   void nextTick(() => {
     box.value?.focus();
     box.value?.setSelectionRange(inserted.caret, inserted.caret);
   });
+}
+
+// 붙여넣은 토큰은 문자로(insertText 라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
+function onPaste(e: ClipboardEvent) {
+  const pasted = e.clipboardData?.getData("text/plain") ?? "";
+  const converted = toChars(pasted);
+  if (converted === pasted) return;
+  e.preventDefault();
+  document.execCommand("insertText", false, converted);
+}
+function onCopy(e: ClipboardEvent) {
+  const el = box.value;
+  if (!el || !e.clipboardData) return;
+  const picked = el.value.slice(el.selectionStart, el.selectionEnd);
+  if (!hasAppEmojiChar(picked)) return;
+  e.clipboardData.setData("text/plain", fromChars(picked));
+  e.preventDefault();
+  if (e.type === "cut") document.execCommand("delete");
 }
 
 async function send() {

@@ -7,6 +7,9 @@
 
   분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 불러온다
  대시보드를 열 때마다 들고 다닐 것이 아니다.
+
+  app-emoji: 봇의 앱 이모지 분류를 맨 앞에(디스코드가 앱 이모지를 그리는 칸: 음성 상태 문구, 공지, 장르). 고르면 토큰(<:이름:id>)을 넘긴다.
+  봇 상태 문구처럼 앱 이모지가 글자로 남는 칸은 켜지 않는다.
 -->
 <template>
   <div ref="root" class="relative inline-flex shrink-0">
@@ -27,7 +30,7 @@
               <p class="text-sm text-error whitespace-pre-line">{{ loadError }}</p>
               <BaseButton variant="secondary" size="sm" @click="load">{{ text.shell.retry }}</BaseButton>
             </div>
-            <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
+            <p v-else-if="!shown.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
 
             <!-- 검색 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
             <div v-else-if="results" class="p-1">
@@ -39,7 +42,7 @@
 
             <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
                칸은 이모지 글꼴 글자 하나라(요청이 없다) 다 그려도 부담이 작다 -->
-            <section v-for="group in groups" v-else :key="group.name">
+            <section v-for="group in shown" v-else :key="group.name">
               <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠, 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
               <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
                 <Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="collapsed[group.name] && '-rotate-90'" />
@@ -74,6 +77,8 @@ import { SEARCH_FIELD } from "../utils/field.ts";
 import { rem } from "../utils/rem.ts";
 import EmojiGlyph from "./EmojiGlyph.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
+import { tokenOf } from "../../../src/ui/app-emoji-token.ts";
+import { appEmojis, loadAppEmojis } from "../composables/app-emojis.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";
 import { text } from "../text/index.ts";
@@ -83,8 +88,10 @@ const props = withDefaults(
   defineProps<{
     /** 값을 비울 수 있는 곳(장르 아이콘)에서만 "비우기"를 보여준다 */
     clearable?: boolean;
+    /** 앱 이모지 분류를 맨 앞에(머리 주석) */
+    appEmoji?: boolean;
   }>(),
-  { clearable: false },
+  { clearable: false, appEmoji: false },
 );
 const emit = defineEmits<{ pick: [char: string]; clear: [] }>();
 
@@ -133,6 +140,13 @@ async function load() {
   collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
 }
 
+// 앱 이모지 분류(켤 때만): 고르면 토큰, 이름으로 찾는다. 아이콘도 넣는다
+const appGroup = computed<EmojiGroup | null>(() => (props.appEmoji && appEmojis.value.length ? { name: T.appEmojiGroup, emoji: appEmojis.value.map((one) => ({ char: tokenOf(one), label: `:${one.name}:`, search: one.name.toLowerCase() })) } : null));
+const shown = computed(() => (appGroup.value ? [appGroup.value, ...groups.value] : groups.value));
+watch(open, (now) => {
+  if (now && props.appEmoji) void loadAppEmojis();
+});
+
 const results = computed(() => {
   const typed = query.value.trim();
   if (!typed) return null;
@@ -142,7 +156,7 @@ const results = computed(() => {
   if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
 
   const needle = typed.toLowerCase();
-  for (const group of groups.value) {
+  for (const group of shown.value) {
     for (const e of group.emoji) {
       if (found.length >= 120) return found; // 다 그려 봐야 눈에 안 들어온다
       if (e.char !== typed && koMatch(e.search, needle)) found.push(e);
