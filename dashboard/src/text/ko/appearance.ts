@@ -41,7 +41,7 @@ const crop = {
   title: "이미지 편집하기",
   reset: "재설정",
   zoom: "화면 확대",
-  rotate: "90도 회전",
+  rotate: "시계 방향 90도 회전",
   flip: "좌우 반전",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 선택한 영역이 쓸 크기보다 작을 때만 */

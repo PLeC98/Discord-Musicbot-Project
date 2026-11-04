@@ -30,7 +30,7 @@ const emojiClear = "비우기";
 const emojiInsert = "이모지 넣기";
 const appEmojiGroup = "앱 이모지";
 /** 저장된 앱 이모지가 봇의 앱에 없다(지웠거나 다른 봇의 이모지). 보낼 때는 빠진다 */
-const appEmojiMissing = "없는 앱 이모지예요. 보낼 때 빠져요";
+const appEmojiMissing = "삭제된 앱 이모지가 있어요. 보낼 때 그 이모지는 빠져요";
 const emojiLoadFailed = "목록을 불러오지 못했어요. 대시보드를 다시 빌드했다면 새로고침해 주세요.";
 const colorArea = "채도 및 밝기";
 /** 채도, 밝기 판을 읽어 줄 때(퍼센트) */
