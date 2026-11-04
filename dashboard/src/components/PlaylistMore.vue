@@ -5,9 +5,10 @@
         <Icon name="playlist_play" :size="20" />
       </div>
       <div class="flex-1 min-w-0">
+        <!-- 첫 배치를 막 넣었으면 그 결과 문장(디스코드 추가 안내와 같다)이 제목 자리에 선다. 넣은 곡 수가 문장에 있어 진행 수는 뺀다 -->
         <div class="flex items-baseline justify-between gap-2">
-          <span class="text-body font-semibold">{{ T.moreLeft(label) }}</span>
-          <span class="text-label nums whitespace-nowrap opacity-80">{{ T.progress(more.offset, more.total) }}</span>
+          <span class="text-body font-semibold">{{ added || T.moreLeft(label) }}</span>
+          <span v-if="!added" class="text-label nums whitespace-nowrap opacity-80">{{ T.progress(more.offset, more.total) }}</span>
         </div>
         <div class="mt-2 h-1 rounded-full bg-on-primary-container/15 overflow-hidden">
           <div class="h-full rounded-full bg-primary transition-[width] duration-500 ease-smooth" :class="busy && 'animate-pulse'" :style="{ width: `${progress}%` }"></div>
@@ -71,6 +72,8 @@ const props = withDefaults(
     /** 대기열 상한. 0이면 상한 없음 */
     queueMax?: number;
     busy?: boolean;
+    /** 첫 배치를 넣은 결과 문장(added-parts). 있으면 제목 자리에 */
+    added?: string;
   }>(),
   { queueTotal: 0, hasCurrent: true, queueMax: 0, busy: false },
 );
