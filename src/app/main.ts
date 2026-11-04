@@ -12,7 +12,7 @@ import * as fullReset from "../store/full-reset.ts";
 import * as archive from "../dashboard/settings-archive.ts";
 import type { ArchiveItem } from "../dashboard/contract/settings-archive.ts";
 import * as serviceKeys from "../store/service-keys.ts";
-import { uploadedIds, keepUploaded } from "../store/app-emoji-records.ts";
+import { uploadedIds, keepUploaded, addUploaded } from "../store/app-emoji-records.ts";
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
 import * as documents from "../config/documents.ts";
@@ -299,7 +299,8 @@ function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof crea
   playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
 }
 
-async function onReady(client: Client<true>, { players, panels, stay }: BotContext, skipRestore: boolean) {
+async function onReady(client: Client<true>, bot: BotContext, skipRestore: boolean) {
+  const { players, panels, stay } = bot;
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
   new StatusManager(client).start(); // 활동 문구
@@ -315,7 +316,8 @@ async function onReady(client: Client<true>, { players, panels, stay }: BotConte
     for (const player of players.values()) player.refreshVoiceStatus();
     await panels.redrawIdlePanels();
   };
-  const appEmojis = new AppEmojis(apiOf(client), { onChanged: redrawEmojis, protectedIds: uploadedIds, forget: keepUploaded });
+  const appEmojis = new AppEmojis(apiOf(client), { onChanged: redrawEmojis, protectedIds: uploadedIds, forget: keepUploaded, remember: addUploaded });
+  bot.appEmojis = appEmojis;
   await appEmojis.loadKnown();
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행, 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거, 고아 청소 모두 저장된 세션을 보고 지킨다

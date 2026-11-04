@@ -201,6 +201,19 @@ const WEB = {
   // 링크에서 이미지를 다운로드하지 못했다(접속, 내부 주소, 크기, 시간). 까닭은 로그에만
   "image-link-failed": { status: 502, title: "Could not get the image from the link", params: ["max"] },
   "appearance-save-failed": { status: 500, title: "Could not save the image" },
+  // 대시보드: 앱 이모지 올리기, 이름 바꾸기, 지우기(운영자 패널)
+  "emoji-name-bad": { status: 400, title: "Emoji name is not valid" },
+  "emoji-name-taken": { status: 409, title: "Emoji name is taken" },
+  "emoji-name-reserved": { status: 409, title: "Emoji name is reserved for bot icons" },
+  // 앱 이모지 한도(2,000)에서 운영자 색이 바뀌면 다시 올라갈 아이콘 자리를 남긴다
+  "emoji-full": { status: 409, title: "No room for more app emoji" },
+  "emoji-image-bad": { status: 422, title: "Not a usable image" },
+  "emoji-image-too-big": { status: 413, title: "Image has too many frames or pixels" },
+  // 만든 결과가 디스코드 앱 이모지 한도(256KiB)를 넘는다
+  "emoji-too-large": { status: 422, title: "Emoji is over Discord's file limit" },
+  "emoji-edit-bad": { status: 400, title: "Crop area is outside the image" },
+  "emoji-not-found": { status: 404, title: "App emoji not found" },
+  "emoji-is-icon": { status: 409, title: "Bot icons cannot be changed" },
   // 대시보드: 로그인 배경. 편집은 편집을 기다리는 배경에 한 번만, 기록으로 교체하기는 다 만든 배경만
   "background-not-editable": { status: 409, title: "Background cannot be edited now" },
   "background-not-ready": { status: 409, title: "Background is not ready" },

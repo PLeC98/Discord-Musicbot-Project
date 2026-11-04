@@ -6,6 +6,7 @@ import type { PlayerRegistry } from "../player/registry.ts";
 import type { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import type { SlashCommand } from "./command-loader.ts";
 import type { StayKeeper } from "./stay-keeper.ts";
+import type { AppEmojis } from "./app-emojis.ts";
 
 type BotContext = {
   client: Client;
@@ -16,6 +17,8 @@ type BotContext = {
   commands: ReadonlyMap<string, SlashCommand>;
   /** 24/7 자리 지킴이 */
   stay: StayKeeper;
+  /** 앱 이모지 동기화와 운영자 패널의 조작. 디스코드 클라이언트가 준비된 뒤(onReady)에 채운다 */
+  appEmojis?: AppEmojis;
 };
 
 export type { BotContext };

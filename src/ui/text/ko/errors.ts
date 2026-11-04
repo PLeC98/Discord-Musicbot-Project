@@ -227,6 +227,17 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "image-too-small": ({ min }) => warning("input", "이미지가 너무 작아요!", `한 변이 ${min}px 이상인 이미지를 올려 주세요.`),
   "image-link-failed": ({ max }) => warning("input", "링크에서 이미지를 가져오지 못했어요!", `주소가 이미지 파일을 바로 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.${max ? ` ${formatBytes(max)} 보다 큰 이미지는 가져오지 않아요.` : ""}`),
   "appearance-save-failed": () => error("failed", "이미지를 저장하지 못했어요!", "파일을 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
+  // 대시보드: 앱 이모지(운영자 패널)
+  "emoji-name-bad": () => warning("input", "쓸 수 없는 이모지 이름이에요!", "영문, 숫자, 밑줄(_)로 2 ~ 32자를 입력해 주세요."),
+  "emoji-name-taken": () => warning("input", "이미 있는 이모지 이름이에요!", "이 봇의 다른 앱 이모지가 쓰는 이름이에요. 다른 이름을 입력해 주세요."),
+  "emoji-name-reserved": () => warning("input", "봇 아이콘이 쓰는 이름이에요!", "봇 아이콘의 이름과 예전 이름, 동기화가 잠시 쓰는 이름(이름_숫자)은 쓸 수 없어요. 다른 이름을 입력해 주세요."),
+  "emoji-full": () => warning("state", "앱 이모지를 더 올릴 수 없어요!", "디스코드 앱 하나에 2,000개까지 올릴 수 있고, 운영자 색을 바꿀 때 봇 아이콘을 다시 올릴 자리를 남겨 둬요. 쓰지 않는 앱 이모지를 삭제해 주세요."),
+  "emoji-image-bad": () => warning("input", "쓸 수 없는 이미지예요!", "PNG, JPEG, GIF, WebP, AVIF 이미지만 쓸 수 있어요."),
+  "emoji-image-too-big": () => warning("input", "이미지가 너무 커요!", "움직이는 이미지는 300프레임까지, 한 프레임은 4096×4096 픽셀까지 쓸 수 있어요."),
+  "emoji-too-large": () => warning("input", "디스코드 이모지 용량을 넘어요!", "앱 이모지는 256KB 까지예요. 움직이는 이미지라면 더 짧거나 단순한 이미지로 바꿔 주세요."),
+  "emoji-edit-bad": () => warning("input", "자를 영역이 이미지 밖이에요!", "편집 창에서 영역을 다시 맞춰 주세요."),
+  "emoji-not-found": () => warning("notFound", "없는 앱 이모지예요!", "이미 삭제됐어요. 목록을 다시 불러와 주세요."),
+  "emoji-is-icon": () => warning("state", "봇 아이콘은 바꿀 수 없어요!", "봇 아이콘은 봇이 직접 관리해요."),
   // 대시보드: 로그인 배경
   "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),

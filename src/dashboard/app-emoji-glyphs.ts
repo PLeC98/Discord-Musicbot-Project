@@ -77,7 +77,7 @@ function emojiItems(): AppEmojiItem[] {
   });
 }
 
-/** 목록의 판: 글꼴 주소의 ETag. 이모지, 문자가 바뀌면 바뀐다 */
+/** 목록의 버전: 글꼴 주소의 ETag. 이모지, 문자가 바뀌면 바뀐다 */
 const versionOf = (items: readonly AppEmojiItem[]) =>
   createHash("sha256")
     .update(items.map((one) => `${one.id}:${String(one.char.codePointAt(0))}`).join(","))
@@ -87,7 +87,7 @@ const versionOf = (items: readonly AppEmojiItem[]) =>
 let fonts: { version: string; sbix: Buffer; svg: Buffer } | null = null;
 let building: { version: string; done: Promise<void> } | null = null;
 
-/** 입력란용 그림 글꼴과 그 판. 지금 목록으로 만든 것이 없으면 만든다 */
+/** 입력란용 그림 글꼴과 그 버전. 지금 목록으로 만든 것이 없으면 만든다 */
 async function emojiFont(format: EmojiFontFormat): Promise<{ version: string; data: Buffer }> {
   const items = emojiItems();
   const version = versionOf(items);

@@ -12,9 +12,9 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codedError, messageOf } from "../rules/error-kind.ts";
 import { RETIRED_EMOJI_NAMES, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
-import { useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
+import { appEmojis, useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
 
@@ -40,6 +40,12 @@ const CDN_TIMEOUT_MS = 15_000;
 const COMPARE_AT_ONCE = 8;
 /** 움직이는 GIF 를 비교할 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
 const GIF_TOLERANCE = 12;
+/** 디스코드 앱 하나의 앱 이모지 한도 */
+const EMOJI_LIMIT = 2000;
+/** 운영자 색이 바뀌면 다시 올라가는 아이콘 수: 동기화가 새것을 먼저 올리고 옛것을 끝에 지워, 그만큼 자리가 있어야 한다 */
+const recolored = () => iconEntries().filter((entry) => entry.tint === "brand" && entry.spec.shape !== "logo").length;
+/** 운영자 패널에서 더 올릴 수 있는 수(지금 앱 이모지 수에서) */
+const roomOf = (count: number) => Math.max(0, EMOJI_LIMIT - count - recolored());
 /** 운영자가 색을 바꾸는 동안 잦은 저장을 모으는 시간 */
 const SETTLE_MS = 3000;
 
@@ -224,13 +230,74 @@ class AppEmojis {
 
   protectedIds: Protected;
   forget: SyncOptions["forget"];
+  remember: ((id: string) => void) | undefined;
+  /** 동기화와 운영자 패널의 조작(올리기, 이름 바꾸기, 지우기)을 한 줄로. 동기화가 처음에 본 목록이 그 사이 바뀌지 않게 */
+  tail: Promise<unknown> = Promise.resolve();
 
-  constructor(api: Api, { onChanged, protectedIds = NONE, forget }: Pick<SyncOptions, "onChanged" | "protectedIds" | "forget">) {
+  constructor(api: Api, { onChanged, protectedIds = NONE, forget, remember }: Pick<SyncOptions, "onChanged" | "protectedIds" | "forget"> & { remember?: (id: string) => void }) {
     this.api = api;
     this.onChanged = onChanged;
     this.protectedIds = protectedIds;
     this.forget = forget;
+    this.remember = remember;
     this.color = config.bot.embedColor;
+  }
+
+  /** 앞의 일이 끝난 뒤 task 를 돌린다(실패해도 줄은 이어진다) */
+  serial<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.tail.then(task, task);
+    this.tail = run.catch(() => undefined);
+    return run;
+  }
+
+  /** 운영자 패널에서 더 올릴 수 있는 수 */
+  room() {
+    return roomOf(appEmojis().length);
+  }
+
+  /** 운영자 패널의 조작 뒤: 앱의 목록을 다시 싣고 기록을 맞춘다 */
+  async reload() {
+    const list = await this.api.list();
+    useAppEmojis(list);
+    this.forget?.(new Set(list.map((one) => one.id)));
+    return list;
+  }
+
+  /** 운영자 패널에서 올리기. 이름은 부른 쪽이 규칙을 봤다. 앱에 같은 이름이 있거나 자리가 없으면 던진다 */
+  add(name: string, image: Buffer): Promise<Remote> {
+    return this.serial(async () => {
+      const list = await this.api.list();
+      if (list.some((one) => one.name === name)) throw codedError("EMOJI_NAME_TAKEN", name);
+      if (roomOf(list.length) < 1) throw codedError("EMOJI_FULL", String(list.length));
+      const created = await this.api.create(name, image);
+      this.remember?.(created.id);
+      await this.reload();
+      return created;
+    });
+  }
+
+  /** 운영자 패널에서 이름 바꾸기. 아이콘(관리하는 이름)은 바꾸지 않는다 */
+  rename(id: string, name: string): Promise<void> {
+    return this.serial(async () => {
+      const list = await this.api.list();
+      const target = list.find((one) => one.id === id);
+      if (!target) throw codedError("EMOJI_NOT_FOUND", id);
+      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
+      if (list.some((one) => one.name === name && one.id !== id)) throw codedError("EMOJI_NAME_TAKEN", name);
+      await this.api.rename(id, name);
+      await this.reload();
+    });
+  }
+
+  /** 운영자 패널에서 지우기. 아이콘은 지우지 않는다(동기화가 다시 올린다) */
+  remove(id: string): Promise<void> {
+    return this.serial(async () => {
+      const target = (await this.api.list()).find((one) => one.id === id);
+      if (!target) throw codedError("EMOJI_NOT_FOUND", id);
+      if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
+      await this.api.remove(id);
+      await this.reload();
+    });
   }
 
   /** 패널 복원 전에 부른다. 실패해도 유니코드로 돈다 */
@@ -264,7 +331,7 @@ class AppEmojis {
       do {
         this.again = false;
         // 실패하면 그때까지 실은 것(목록에서 불러온 id, 유니코드)으로 돈다. 아이콘이 옛 이미지, 유니코드로 남으므로 알린다
-        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again, protectedIds: this.protectedIds, forget: this.forget }).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
+        await this.serial(() => sync(this.api, { onChanged: this.onChanged, stale: () => this.again, protectedIds: this.protectedIds, forget: this.forget })).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
       } while (this.again);
     })().finally(() => (this.running = null));
   }
@@ -275,5 +342,5 @@ class AppEmojis {
   }
 }
 
-export { AppEmojis, apiOf, loadKnown, sync, sameImage, tempName };
+export { AppEmojis, apiOf, loadKnown, sync, sameImage, tempName, roomOf, EMOJI_LIMIT };
 export type { Api, Remote };

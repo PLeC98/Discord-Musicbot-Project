@@ -35,7 +35,7 @@ export function loadAppEmojis(again = false): Promise<void> {
   return loading;
 }
 
-// 글꼴은 style.css 의 @font-face 가 고정 주소로 건다(브라우저가 ETag 로 다시 확인한다). 같은 탭에서 목록이 바뀌면(올린 직후) 새 판을 하나 더 건다.
+// 글꼴은 style.css 의 @font-face 가 고정 주소로 건다(브라우저가 ETag 로 다시 확인한다). 같은 탭에서 목록이 바뀌면(올린 직후) 새 버전을 하나 더 건다.
 // 나중에 더한 것이 앞선다. 형식은 @font-face 의 tech() 차례와 같게: sbix 를 그리면 sbix, font-tech() 를 모르는 브라우저도 sbix, 아니면 SVG
 function swapFont(version: string) {
   const first = !fontVersion;

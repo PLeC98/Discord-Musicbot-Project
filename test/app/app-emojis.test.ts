@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { withConfig } from "../helpers/config.ts";
 import { iconEntries, icon, useUploaded } from "../../src/ui/icons.ts";
 import { imageOf } from "../../src/ui/icon-images.ts";
-import { loadKnown, sync, tempName, type Api, type Remote } from "../../src/app/app-emojis.ts";
+import { AppEmojis, EMOJI_LIMIT, loadKnown, roomOf, sync, tempName, type Api, type Remote } from "../../src/app/app-emojis.ts";
 import { appEmojis } from "../../src/store/app-emoji-book.ts";
 
 afterEach(() => useUploaded(new Map()));
@@ -200,4 +200,46 @@ test("임시 이름은 32자 안에서 겹치지 않게", () => {
   assert.equal(tempName("pause", new Set()), "pause_1");
   assert.equal(tempName("pause", new Set(["pause_1"])), "pause_2");
   assert.equal(tempName("x".repeat(32), new Set()).length, 32);
+});
+
+test("운영자 패널: 올리기는 이름이 겹치면 거절, 올린 id 를 적고 목록을 다시 싣는다", async () => {
+  const app = fakeApp([{ id: "3", name: "party", animated: false, mine: false }]);
+  const remembered: string[] = [];
+  const emojis = new AppEmojis(app.api, { onChanged: async () => {}, remember: (id) => remembered.push(id) });
+  await assert.rejects(emojis.add("party", Buffer.from("x")), { code: "EMOJI_NAME_TAKEN" });
+  const created = await emojis.add("dancing", Buffer.from("x"));
+  assert.deepEqual(remembered, [created.id]);
+  assert.ok(appEmojis().some((one) => one.name === "dancing"));
+});
+
+test("운영자 패널: 자리는 앱 한도에서 운영자 색이 바뀌면 다시 올라갈 아이콘 수를 뺀다", async () => {
+  const recolored = iconEntries().filter((entry) => entry.tint === "brand" && entry.spec.shape !== "logo").length;
+  assert.equal(roomOf(0), EMOJI_LIMIT - recolored);
+  assert.equal(roomOf(EMOJI_LIMIT - recolored), 0);
+  const full = fakeApp(Array.from({ length: EMOJI_LIMIT - recolored }, (_, i) => ({ id: `f${i}`, name: `f${i}`, animated: false, mine: false })));
+  await assert.rejects(new AppEmojis(full.api, { onChanged: async () => {} }).add("one_more", Buffer.from("x")), { code: "EMOJI_FULL" });
+});
+
+test("운영자 패널: 아이콘(관리하는 이름)은 이름을 바꾸거나 지우지 않는다", async () => {
+  const app = fakeApp([
+    { id: "7", name: "pause", animated: false, mine: true },
+    { id: "8", name: "party", animated: false, mine: true },
+  ]);
+  const emojis = new AppEmojis(app.api, { onChanged: async () => {} });
+  await assert.rejects(emojis.rename("7", "my_pause"), { code: "EMOJI_IS_ICON" });
+  await assert.rejects(emojis.remove("7"), { code: "EMOJI_IS_ICON" });
+  await assert.rejects(emojis.remove("99"), { code: "EMOJI_NOT_FOUND" });
+  await emojis.rename("8", "celebrate");
+  await emojis.remove("8");
+  assert.deepEqual(app.calls, ["rename celebrate", "remove celebrate"]);
+});
+
+test("운영자 패널의 조작은 동기화가 끝난 뒤에 돈다(한 줄)", async () => {
+  const app = fakeApp();
+  const emojis = new AppEmojis(app.api, { onChanged: async () => {} });
+  emojis.request();
+  await emojis.add("dancing", Buffer.from("x"));
+  const created = app.calls.filter((one) => one.startsWith("create"));
+  assert.equal(created.at(-1), "create dancing", "동기화가 아이콘을 다 올린 뒤");
+  assert.equal(created.length, total + 1);
 });
