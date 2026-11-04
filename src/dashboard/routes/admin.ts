@@ -2,6 +2,8 @@
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 import express from "express";
+import { toDiscordText } from "../../rules/app-emoji-token.ts";
+import { emojiBook } from "../../store/app-emoji-book.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 const adminRouter = express.Router();
@@ -111,9 +113,10 @@ async function announceChannel(guild: Guild) {
 adminRouter.post("/broadcast", requireOwner, async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
-  // 문자열인지 먼저 본다(객체면 trim 이 던진다)
-  if (typeof message !== "string" || !announceBody(message)) return sendProblem(res, "announce-empty");
-  const body = announceBody(message);
+  // 문자열인지 먼저 본다(객체면 trim 이 던진다). 앱 이모지 토큰을 보낼 글로 먼저 바꾸고(없는 이모지는 빠진다) 그 글로 검사한다
+  if (typeof message !== "string") return sendProblem(res, "announce-empty");
+  const body = announceBody(toDiscordText(message, emojiBook()));
+  if (!body) return sendProblem(res, "announce-empty");
   if (body.length > ANNOUNCE_MAX) return sendProblem(res, "announce-too-long", { max: ANNOUNCE_MAX, length: body.length });
   if (!isAnnounceKind(type)) return sendProblem(res, "bad-announce-type");
 

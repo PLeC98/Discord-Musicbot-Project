@@ -77,7 +77,7 @@ import { SEARCH_FIELD } from "../utils/field.ts";
 import { rem } from "../utils/rem.ts";
 import EmojiGlyph from "./EmojiGlyph.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
-import { tokenOf } from "../../../src/ui/app-emoji-token.ts";
+import { tokenOf } from "../../../src/rules/app-emoji-token.ts";
 import { appEmojis, loadAppEmojis } from "../composables/app-emojis.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";

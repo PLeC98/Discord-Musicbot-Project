@@ -300,6 +300,12 @@ test("POST broadcast: 빈 내용 400", async () => {
   assert.equal(r.status, 400);
 });
 
+test("POST broadcast: 앱 이모지를 보낼 글로 바꾼 뒤 검사한다(없는 이모지만 있으면 빈 공지)", async () => {
+  const r = await req("POST", "/api/admin/broadcast", { message: " <:gone:999999999999999999> " });
+  assert.equal(r.status, 400);
+  assert.equal(r.json.code, "announce-empty");
+});
+
 // message가 객체여도 500(TypeError)이 아니라 검증 오류로 답한다.
 test("POST broadcast: 문자열, 길이, 종류를 검증한다", async () => {
   for (const body of [{ message: { evil: 1 } }, { message: 42 }, {}]) {

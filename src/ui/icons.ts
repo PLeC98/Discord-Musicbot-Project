@@ -134,7 +134,7 @@ function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: Ic
 }
 
 /**
- * 아이콘 표에서 빠지거나 이름이 바뀐 앱 이모지 이름. 설정에 적힌 토큰을 찾을 때 따라가고(ui/app-emoji-token), 동기화(app/app-emojis)가
+ * 아이콘 표에서 빠지거나 이름이 바뀐 앱 이모지 이름. 설정에 적힌 토큰을 찾을 때 따라가고(rules/app-emoji-token), 동기화(app/app-emojis)가
  * 그 이름의 이모지를 지운다. 아이콘을 빼거나 이름을 바꾸면 여기에 더한다. test/ui/icon-names.json(지금까지 낸 이름)과 비교하는 테스트가 빠뜨림을 잡는다.
  * renamed: 새 이름, unicode: 빠진 아이콘의 유니코드(빠지기 전 표의 값)
  */

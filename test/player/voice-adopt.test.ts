@@ -5,7 +5,6 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Client } from "discord.js";
 import { adoptLingeringVoice } from "../../src/player/voice-adopt.ts";
-import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -42,8 +41,8 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
         },
       };
     }
-    async updateVoiceStatus(text: string) {
-      steps.push(`${this.guild.id}:status:${text}`);
+    showIdleVoiceStatus() {
+      steps.push(`${this.guild.id}:status:idle`);
     }
     async dispose(o: { session: string }) {
       steps.push(`${this.guild.id}:dispose:${o.session}`);
@@ -58,7 +57,7 @@ test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), restored, guildWith("g3", { botIn: null })]);
   players.set("g2", "세션을 복원한 플레이어");
   await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기", "g1:announce"]);
+  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", "g1:status:idle", "g1:empty:곡 없이 대기", "g1:announce"]);
   assert.ok(players.has("g1"));
   assert.equal(players.get("g2"), "세션을 복원한 플레이어");
   assert.equal(players.has("g3"), false);

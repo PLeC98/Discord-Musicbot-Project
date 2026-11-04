@@ -2,6 +2,8 @@
 // 진입점마다 따로 만들면 한쪽만 고쳐져 어긋난다.
 
 import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
+import { componentEmojiOf } from "../rules/app-emoji-token.ts";
+import { emojiBook } from "../store/app-emoji-book.ts";
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./custom-ids.ts";
 import { frame, reply } from "./frame.ts";
@@ -24,7 +26,9 @@ function genreSelect(placeholder: string) {
       .addOptions(
         Object.entries(genres).map(([id, g]) => {
           const option = new StringSelectMenuOptionBuilder().setLabel(g.label?.trim() || id).setValue(id);
-          return g.emoji ? option.setEmoji(g.emoji) : option;
+          // 앱 이모지 토큰은 지금 이모지로 찾는다(id, 이름, 아이콘 옛 이름). 찾지 못하면 이모지 없이
+          const emoji = g.emoji ? componentEmojiOf(g.emoji, emojiBook()) : null;
+          return emoji ? option.setEmoji(emoji) : option;
         }),
       )
   );

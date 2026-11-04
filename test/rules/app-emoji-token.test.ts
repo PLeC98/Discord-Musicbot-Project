@@ -1,8 +1,8 @@
-// src/ui/app-emoji-token.ts: 설정에 적힌 앱 이모지 토큰을 찾고 보낼 글로 바꾼다
+// src/rules/app-emoji-token.ts: 설정에 적힌 앱 이모지 토큰을 찾고 보낼 글로 바꾼다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { componentEmojiOf, find, toDiscordText, tokensIn, type EmojiBook } from "../../src/ui/app-emoji-token.ts";
+import { componentEmojiOf, find, toDiscordText, tokensIn, type EmojiBook } from "../../src/rules/app-emoji-token.ts";
 
 const PARTY = { id: "111111111111111111", name: "party", animated: false };
 const SPIN = { id: "222222222222222222", name: "spin", animated: true };

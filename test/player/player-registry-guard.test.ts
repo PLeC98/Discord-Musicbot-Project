@@ -74,6 +74,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
     warmer: { stop() {} },
     _cancelRest() {},
     _tellSkipped: Player.prototype._tellSkipped,
+    showIdleVoiceStatus: Player.prototype.showIdleVoiceStatus,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     async persistState() {},

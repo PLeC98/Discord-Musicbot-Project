@@ -6,7 +6,7 @@ import { withConfig } from "../helpers/config.ts";
 import { iconEntries, icon, useUploaded } from "../../src/ui/icons.ts";
 import { imageOf } from "../../src/ui/icon-images.ts";
 import { loadKnown, sync, tempName, type Api, type Remote } from "../../src/app/app-emojis.ts";
-import { appEmojis } from "../../src/ui/app-emoji-book.ts";
+import { appEmojis } from "../../src/store/app-emoji-book.ts";
 
 afterEach(() => useUploaded(new Map()));
 

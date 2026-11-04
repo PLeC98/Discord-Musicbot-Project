@@ -3,14 +3,12 @@
 import { PermissionFlagsBits, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player", sub: "join" });
-import config from "../config/index.ts";
 import * as playerEvents from "../player/events.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import { sessions, type RestoredSession } from "../store/player-sessions.ts";
 import { waitForRestore } from "../player/session-restore.ts";
-import { bestEffort } from "../infra/best-effort.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { ensurePlayer, resolveFallbackTextChannel } from "./add-tracks.ts";
 
@@ -106,7 +104,7 @@ const hasTracks = (saved: RestoredSession | null): saved is RestoredSession => B
 
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {
-  bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+  player.showIdleVoiceStatus();
   player.idle.scheduleEmpty("곡 없이 대기");
   playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${messageOf(error)}`));
 }

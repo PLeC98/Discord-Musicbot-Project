@@ -1,6 +1,7 @@
 // 장르 설정("genres" 문서)의 스키마. 문구는 운영자에게 그대로 보이므로 무엇을 고칠지까지 적는다.
 
 import { SPEC, TYPES } from "./genre-sources.ts";
+import { ONE_TOKEN } from "../../rules/app-emoji-token.ts";
 import { z, ALWAYS, present, keyed, plain, problemsOf } from "./problems.ts";
 import { SELECT_MAX } from "../../rules/limits.ts";
 import { sourceUrl } from "../../rules/source-url.ts";
@@ -52,7 +53,7 @@ const genre = z.preprocess(
   z.object({
     // 보여 줄 이름(디스코드 메뉴, 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
     label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비우지 않은 글(100자까지)이어야 합니다."),
-    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)), "{id}: emoji는 이모지 한 글자여야 합니다."),
+    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "{id}: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 합니다."),
     // 맨 위 keywords: 는 읽지 않고 sources 로 옮기라고 알린다(두 형식을 함께 받지 않는다)
     keywords: z
       .unknown()

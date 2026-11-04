@@ -13,7 +13,7 @@ import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { appEmojisRouter } from "../../src/dashboard/routes/app-emojis.ts";
 import { _useDir } from "../../src/dashboard/app-emoji-glyphs.ts";
-import { useAppEmojis } from "../../src/ui/app-emoji-book.ts";
+import { useAppEmojis } from "../../src/store/app-emoji-book.ts";
 import type { AppEmojiList } from "../../src/dashboard/contract/app-emojis.ts";
 
 const store = openTempStore("app-emojis-");

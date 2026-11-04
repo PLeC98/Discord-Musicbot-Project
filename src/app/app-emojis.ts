@@ -1,5 +1,5 @@
 // 디스코드 앱 이모지 동기화. 아이콘 표(ui/icons)를 렌더링한 이미지(ui/icon-images)가 봇의 디스코드 앱에 올라가 있게 하고, 이름 → id 를 표에 싣는다.
-// 앱의 이모지 전부는 ui/app-emoji-book 에 싣는다(설정에 적힌 앱 이모지 토큰을 찾을 때).
+// 앱의 이모지 전부는 store/app-emoji-book 에 싣는다(설정에 적힌 앱 이모지 토큰을 찾을 때). 아이콘의 옛 이름과 유니코드도 함께 넣는다.
 // 건드리는 것은 봇이 올린 것 중 관리하는 이름(지금 아이콘 이름, 옛 이름, 그 임시 이름)뿐이다. 운영자가 개발자 포털이나 대시보드에서 올린 이모지는
 // 아이콘과 이름이 같아도 지우지 않고 그 아이콘은 유니코드로 둔다(대시보드에서 올린 것도 작성자가 봇이라 store/app-emoji-records 의 id 로 가린다).
 // 같은지는 CDN 의 이미지와 비교한다(PNG 는 올린 바이트 그대로 돌아온다. 움직이는 GIF 는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 비교한다).
@@ -13,10 +13,14 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
-import { useAppEmojis } from "../ui/app-emoji-book.ts";
+import { RETIRED_EMOJI_NAMES, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
+import { useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
+
+// 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui 를 부르지 못해 여기서 넣는다
+const iconUnicode = new Map(iconEntries().map((entry) => [entry.name, entry.spec.unicode]));
+useIconFallbacks({ retired: RETIRED_EMOJI_NAMES, iconUnicode: (name) => iconUnicode.get(name) });
 
 /** 앱에 있는 이모지 하나. mine: 봇이 올렸다 */
 type Remote = { id: string; name: string; animated: boolean; mine: boolean };

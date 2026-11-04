@@ -63,6 +63,31 @@ test("두 화면 다 본인에게만 보인다", () => {
   }
 });
 
+test("앱 이모지 토큰은 지금 이모지로(id 가 바뀌었으면 이름으로), 앱에 없으면 이모지 없이", async () => {
+  const { useDocument } = await import("../helpers/config-docs.ts");
+  const { useAppEmojis } = await import("../../src/store/app-emoji-book.ts");
+  const keywords = (k: string) => [{ type: "keyword", keywords: [k] }];
+  useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "<:party:999999999999999999>", sources: keywords("pop") }, 록: { emoji: "<a:spin:222222222222222222>", sources: keywords("rock") }, 재즈: { emoji: "<:gone:333333333333333333>", sources: keywords("jazz") } } });
+  useAppEmojis([
+    { id: "111111111111111111", name: "party", animated: false },
+    { id: "222222222222222222", name: "spin", animated: true },
+  ]);
+  try {
+    const menu = menuOf(buildGenreMenu());
+    assert.deepEqual(
+      menu.options.map((o) => [o.value, o.emoji ?? null]),
+      [
+        ["팝", { id: "111111111111111111", name: "party", animated: false }],
+        ["록", { id: "222222222222222222", name: "spin", animated: true }],
+        ["재즈", null],
+      ],
+    );
+  } finally {
+    useAppEmojis([]);
+    useDefaultDocuments();
+  }
+});
+
 test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
   const { useDocument } = await import("../helpers/config-docs.ts");
   useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "", sources: [{ type: "keyword", keywords: ["pop"] }] }, 재즈: { sources: [{ type: "keyword", keywords: ["jazz"] }] }, 록: { emoji: "🤘", sources: [{ type: "keyword", keywords: ["rock"] }] } } });

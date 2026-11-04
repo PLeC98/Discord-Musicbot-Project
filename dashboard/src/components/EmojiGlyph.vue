@@ -23,15 +23,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import Icon from "./BaseIcon.vue";
-import { ONE_TOKEN } from "../../../src/ui/app-emoji-token.ts";
-import { appEmojiImage, appEmojiOf } from "../composables/app-emojis.ts";
+import { ONE_TOKEN } from "../../../src/rules/app-emoji-token.ts";
+import { appEmojiImage, appEmojiOf, loadAppEmojis } from "../composables/app-emojis.ts";
 import { text } from "../text/index.ts";
 
 const props = withDefaults(defineProps<{ char: string; size?: number }>(), { size: 20 });
 
 const token = computed(() => ONE_TOKEN.test(props.char));
+// 토큰을 그릴 때 목록이 없으면 불러온다(한 번). 서버 화면의 장르 이모지처럼 따로 부르지 않는 곳도 있다
+watch(token, (now) => now && void loadAppEmojis(), { immediate: true });
 const app = computed(() => (token.value ? appEmojiOf(props.char) : null));
 
 /** 키캡이면 그 SVG 주소. Twemoji 는 키캡 파일 이름에서 VS16(FE0F)을 뗀다(31-20e3.svg) */

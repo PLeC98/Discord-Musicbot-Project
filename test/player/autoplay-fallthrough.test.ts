@@ -61,6 +61,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
     warmer: { stop() {} },
     _cancelRest() {},
     _tellSkipped: Player.prototype._tellSkipped,
+    showIdleVoiceStatus: Player.prototype.showIdleVoiceStatus,
     audioPlayer: { stop() {} },
     releaseAudioProtection() {},
     scheduleStatePersist() {},

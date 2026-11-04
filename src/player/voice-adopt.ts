@@ -3,9 +3,7 @@
 // 세션이 없는 서버만: 그 채널에 플레이어를 붙이고 /join 으로 곡 없이 들어왔을 때처럼 틀 게 없음 퇴장을, 사람이 없으면 혼자 남음 퇴장을 건다.
 
 import type { Client } from "discord.js";
-import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
-import { bestEffort } from "../infra/best-effort.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
@@ -37,7 +35,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
       continue;
     }
     log.info(`세션 없이 음성 채널에 남아 있던 봇을 이어받습니다: "${channel.name}" (${guild.name})`);
-    bestEffort(log, player.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+    player.showIdleVoiceStatus();
     player.idle.scheduleEmpty("곡 없이 대기");
     // 혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 그때의 안내는 틀 게 없음 타이머 전이라 한 번 더 알린다
     player.idle.announce();

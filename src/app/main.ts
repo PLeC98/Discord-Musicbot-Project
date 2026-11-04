@@ -310,7 +310,12 @@ async function onReady(client: Client<true>, { players, panels, stay }: BotConte
 
   // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
   // 늦으면 패널이 유니코드로 올라갔다가 다음 갱신에 앱 이모지로 바뀐다. 실패하면 경고만 남기고 유니코드로 간다
-  const appEmojis = new AppEmojis(apiOf(client), { onChanged: () => panels.redrawIdlePanels(), protectedIds: uploadedIds, forget: keepUploaded });
+  // 아이콘 id 가 바뀌면(운영자 색) 대기 패널과 음성 채널 상태를 다시 그린다. 옛 것을 지우기 전이라 옛 id 를 가리키는 것이 남지 않는다
+  const redrawEmojis = async () => {
+    for (const player of players.values()) player.refreshVoiceStatus();
+    await panels.redrawIdlePanels();
+  };
+  const appEmojis = new AppEmojis(apiOf(client), { onChanged: redrawEmojis, protectedIds: uploadedIds, forget: keepUploaded });
   await appEmojis.loadKnown();
   // 캐시 정리는 복원 앞에. 정리는 이전 실행이 남긴 것(다운로드하다 만 행, 고아 파일)을 다루는데, 복원이 곡을 틀기 시작한 뒤에 돌면
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거, 고아 청소 모두 저장된 세션을 보고 지킨다

@@ -1,5 +1,5 @@
 // 대시보드가 쓰는 앱 이모지: 목록(문자를 붙여서), 이미지, 입력란용 그림 글꼴(app-emoji-font).
-// 이미지는 database/dashboard/app-emojis/<id>.<png|gif> 에 캐시한다. 지금 앱 목록(ui/app-emoji-book)에 있는 id 만 CDN 에서 한 번 다운로드한다
+// 이미지는 database/dashboard/app-emojis/<id>.<png|gif> 에 캐시한다. 지금 앱 목록(store/app-emoji-book)에 있는 id 만 CDN 에서 한 번 다운로드한다
 // (아무 이모지 id 로 봇이 받아 저장하게 하지 않으려고). 이모지의 이미지는 디스코드에서 바뀌지 않아 id 하나에 한 번이면 된다. 캐시라 백업하지 않는다.
 // 글꼴은 목록이 바뀌면 다시 만들어 메모리에 둔다(이모지마다 64px PNG, 움직이는 것은 첫 프레임)
 
@@ -11,7 +11,7 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { appEmojis } from "../ui/app-emoji-book.ts";
+import { appEmojis } from "../store/app-emoji-book.ts";
 import { iconEntries } from "../ui/icons.ts";
 import { charsFor } from "../store/app-emoji-records.ts";
 import { buildEmojiFont, type EmojiFontFormat } from "./app-emoji-font.ts";

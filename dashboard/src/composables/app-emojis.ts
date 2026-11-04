@@ -5,7 +5,7 @@
 
 import { computed, ref } from "vue";
 import axios from "axios";
-import { tokenOf, tokensIn, type EmojiBook } from "../../../src/ui/app-emoji-token.ts";
+import { tokenOf, tokensIn, type EmojiBook } from "../../../src/rules/app-emoji-token.ts";
 import type { AppEmojiItem, AppEmojiList } from "../../../src/dashboard/contract/app-emojis.ts";
 
 /** 앱 이모지 전부(아이콘 포함). 읽기 전에는 비어 있다 */

@@ -44,6 +44,8 @@ import { InputHealth } from "../media/input-health.ts";
 import { endVerdict, type EndFacts } from "../rules/end-verdict.ts";
 import { countDrop, FRESH, MAX_LIVE_REOPENS, MAX_TRACK_RETRIES, PROGRESS_MS, type RetryState } from "../rules/retry-budget.ts";
 import * as voiceChannelStatus from "./voice-channel-status.ts";
+import { voiceStatusText } from "../rules/voice-status-text.ts";
+import { emojiBook } from "../store/app-emoji-book.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import { VoiceLink } from "./voice-link.ts";
 import { PlaybackWatch } from "./playback-watch.ts";
@@ -1382,7 +1384,7 @@ class Player {
     trackState.reset(this, { history: true });
     this.warmer.stop(); // 곡 없이 기다리는 동안 틱을 돌리지 않는다. 다음 곡을 열면 다시 켠다
 
-    bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+    this.showIdleVoiceStatus();
 
     await playerEvents.ended(this, stopped ? "stay-stop" : "queue-end");
 
@@ -1764,11 +1766,23 @@ class Player {
     this.autoplay = autoplay;
   }
 
-  /** 지금 곡을 음성 채널 상태에. 일시정지면 그 접두어로 */
+  /** 지금 곡을 음성 채널 상태에. 일시정지면 그 접두어로(접두어의 앱 이모지만 바꾸고 500자로, rules/voice-status-text) */
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
     const { playingPrefix, pausedPrefix } = config.voiceStatus;
-    bestEffort(log, this.updateVoiceStatus(`${this.paused ? pausedPrefix : playingPrefix}${this.currentTrack.title ?? ""}`.trimEnd()), "음성 채널 상태 바꾸기");
+    bestEffort(log, this.updateVoiceStatus(voiceStatusText(this.paused ? pausedPrefix : playingPrefix, this.currentTrack.title ?? "", emojiBook())), "음성 채널 상태 바꾸기");
+  }
+
+  /** 곡 없이 기다리는 동안의 음성 채널 상태(대기 중 문구) */
+  showIdleVoiceStatus() {
+    bestEffort(log, this.updateVoiceStatus(voiceStatusText(config.voiceStatus.idleText, "", emojiBook())), "음성 채널 상태 바꾸기");
+  }
+
+  /** 음성 채널 상태를 지금 모습으로 다시 쓴다(앱 이모지 id 가 바뀐 뒤 옛 id 를 가리키지 않게) */
+  refreshVoiceStatus() {
+    if (!this.voiceChannel) return;
+    if (this.currentTrack) this._showTrackInVoiceStatus();
+    else this.showIdleVoiceStatus();
   }
 
   /** 스테이지에서 발언을 요청했다, 발언자가 될 길이 없다(voice-link 가 알린다) */
@@ -1780,7 +1794,7 @@ class Player {
   movedVoiceStatus(fromId: string) {
     bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
     if (this.currentTrack) this._showTrackInVoiceStatus();
-    else bestEffort(log, this.updateVoiceStatus(config.voiceStatus.idleText), "음성 채널 상태 바꾸기");
+    else this.showIdleVoiceStatus();
   }
 
   // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다. channelId 를 주지 않으면 지금 음성 채널
