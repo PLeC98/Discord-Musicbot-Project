@@ -10,19 +10,17 @@
     <div class="@container/emoji">
       <div class="flex flex-col gap-3 @md/emoji:flex-row @md/emoji:items-start">
         <label class="flex-1 min-w-0">
-          <span :class="FIELD_LABEL">{{ T.name }}</span>
-          <input v-model.trim="name" type="text" maxlength="32" autocomplete="off" spellcheck="false" :class="[FIELD, 'w-full font-mono']" :aria-invalid="!!issue" @keydown.enter="!composing($event) && submit()" />
+          <span :class="FIELD_LABEL">{{ T.name }}<span class="text-error" aria-hidden="true">*</span></span>
+          <input v-model.trim="name" type="text" maxlength="32" required autocomplete="off" spellcheck="false" :class="[FIELD, 'w-full font-mono']" :aria-invalid="!!issue" @keydown.enter="!composing($event) && submit()" />
           <span v-if="issue" class="block mt-1 text-xs text-error">{{ issue }}</span>
         </label>
         <div class="shrink-0">
           <span :class="FIELD_LABEL">{{ T.preview }}</span>
-          <div class="flex items-center gap-4 h-10">
-            <span v-for="px in [48, 22]" :key="px" class="flex items-center gap-1.5 text-sm text-on-surface">
-              <span v-if="px === 22">{{ T.previewText }}</span>
-              <span class="relative overflow-hidden shrink-0" :style="{ width: `${px}px`, height: `${px}px` }">
-                <span v-if="cropper?.ready" class="absolute" :style="previewOf(px).box">
-                  <img :src="cropper.url" alt="" class="absolute max-w-none" :style="previewOf(px).image" draggable="false" />
-                </span>
+          <!-- 이 이모지가 실제로 그려지는 크기들, 큰 것부터. 어디의 크기인지는 툴팁으로 -->
+          <div class="flex items-end gap-3 h-12">
+            <span v-for="one in PREVIEWS" :key="one.where" class="relative overflow-hidden shrink-0" :style="{ width: `${one.px}px`, height: `${one.px}px` }" v-tooltip="T.previewAt(one.where, one.px)">
+              <span v-if="cropper?.ready" class="absolute" :style="previewOf(one.px).box">
+                <img :src="cropper.url" alt="" class="absolute max-w-none" :style="previewOf(one.px).image" draggable="false" />
               </span>
             </span>
           </div>
@@ -63,6 +61,19 @@ const emit = defineEmits<{ added: [emoji: AppEmojiItem] }>();
 
 /** 디스코드 이모지 이름 규칙(봇도 같은 규칙으로 다시 본다) */
 const NAME = /^\w{2,32}$/;
+/**
+ * 미리보기 크기(px). 디스코드는 웹 클라이언트 CSS 의 값: 메시지 글 속 1.375em(16px 글), 이모지만 있는 메시지 3rem, 임베드 본문 18px, 음성 채널 상태 12px 글의 1.375em.
+ * 대시보드는 선택기 칸과 장르 24px, 공지 미리보기 14px 글의 1.375em, 입력란 14px 글
+ */
+const PREVIEWS = [
+  { px: 48, where: T.where.jumbo },
+  { px: 24, where: T.where.picker },
+  { px: 22, where: T.where.message },
+  { px: 19.25, where: T.where.announcePreview },
+  { px: 18, where: T.where.announce },
+  { px: 16.5, where: T.where.voiceStatus },
+  { px: 14, where: T.where.input },
+];
 
 const cropper = ref<InstanceType<typeof ImageCropper> | null>(null);
 const name = ref("");

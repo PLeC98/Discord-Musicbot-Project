@@ -31,10 +31,19 @@ const refusedTitle = "추가하지 않았어요";
 /** 추가 창 */
 const dialog = {
   title: "앱 이모지 추가하기",
-  name: "이름",
+  name: "이모지 이름",
   preview: "미리보기",
-  /** 글 속 크기 미리보기 옆의 글 */
-  previewText: "음악 듣는 중",
+  /** 미리보기 하나의 툴팁: 그 크기로 그려지는 곳 */
+  previewAt: (where: string, px: number) => `${where}(${px}px)`,
+  where: {
+    jumbo: "디스코드 메시지, 이모지만 있을 때",
+    picker: "대시보드 이모지 선택, 장르",
+    message: "디스코드 메시지",
+    announcePreview: "대시보드 공지 미리보기",
+    announce: "디스코드 공지",
+    voiceStatus: "디스코드 음성 채널 상태",
+    input: "대시보드 입력란",
+  },
   add: "추가하기",
 };
 const added = (name: string) => `${name} 이모지를 추가했어요`;
