@@ -233,7 +233,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "emoji-name-reserved": () => warning("input", "봇 아이콘이 쓰는 이름이에요!", "봇 아이콘의 이름과 예전 이름, 동기화가 잠시 쓰는 이름(이름_숫자)은 쓸 수 없어요. 다른 이름을 입력해 주세요."),
   "emoji-full": () => warning("state", "앱 이모지를 더 올릴 수 없어요!", "디스코드 앱 하나에 2,000개까지 올릴 수 있고, 운영자 색을 바꿀 때 봇 아이콘을 다시 올릴 자리를 남겨 둬요. 쓰지 않는 앱 이모지를 삭제해 주세요."),
   "emoji-image-bad": () => warning("input", "쓸 수 없는 이미지예요!", "PNG, JPEG, GIF, WebP, AVIF 이미지만 쓸 수 있어요."),
-  "emoji-image-too-big": () => warning("input", "이미지가 너무 커요!", "움직이는 이미지는 300프레임까지, 한 프레임은 4096×4096 픽셀까지 쓸 수 있어요."),
+  "emoji-image-too-big": () => warning("input", "이미지가 너무 커요!", "움직이는 이미지는 300프레임까지, 한 프레임은 16383×16383 픽셀까지 쓸 수 있어요."),
   "emoji-too-large": () => warning("input", "디스코드 이모지 용량을 넘어요!", "앱 이모지는 256KB 까지예요. 움직이는 이미지라면 더 짧거나 단순한 이미지로 바꿔 주세요."),
   "emoji-edit-bad": () => warning("input", "자를 영역이 이미지 밖이에요!", "편집 창에서 영역을 다시 맞춰 주세요."),
   "emoji-not-found": () => warning("notFound", "없는 앱 이모지예요!", "이미 삭제됐어요. 목록을 다시 불러와 주세요."),

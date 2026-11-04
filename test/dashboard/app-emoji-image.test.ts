@@ -55,6 +55,46 @@ test("EXIF 방향이 있는 JPEG 는 세운 이미지 위에서 자른다(브라
   assert.ok(near(await colorAt(top.data, 120, 5), RED));
 });
 
+test("회전, 반전 여덟 가지 모두 돌리고 뒤집은 전체 이미지에서 자른 것과 같다(영역을 원본으로 되돌려 읽는다)", async () => {
+  // 사분면마다 다른 색, 가로가 긴 이미지, 가장자리에 붙지 않은 영역
+  const quad = (r: number, g: number, b: number) => ({ create: { width: 150, height: 100, channels: 4 as const, background: { r, g, b, alpha: 1 } } });
+  const source = await sharp({ create: { width: 300, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } })
+    .composite([
+      { input: quad(255, 0, 0), left: 0, top: 0 },
+      { input: quad(0, 255, 0), left: 150, top: 0 },
+      { input: quad(0, 0, 255), left: 0, top: 100 },
+      { input: quad(255, 255, 0), left: 150, top: 100 },
+    ])
+    .png()
+    .toBuffer();
+  for (const rotate of [0, 90, 180, 270] as const) {
+    for (const flip of [false, true]) {
+      const e = edit({ rotate, flip, left: 30, top: 40, side: 100 });
+      const turned = await sharp(source).rotate(rotate).png().toBuffer();
+      const whole = flip ? await sharp(turned).flop().png().toBuffer() : turned;
+      const expected = await sharp(whole).extract({ left: 30, top: 40, width: 100, height: 100 }).resize(EMOJI_SIZE, EMOJI_SIZE).png().toBuffer();
+      const out = await makeEmojiImage(source, e);
+      for (const [x, y] of [
+        [5, 5],
+        [122, 5],
+        [5, 122],
+        [122, 122],
+        [64, 64],
+      ]) {
+        assert.deepEqual(await colorAt(out.data, x, y), await colorAt(expected, x, y), `rotate ${rotate}, flip ${flip}, (${x}, ${y})`);
+      }
+    }
+  }
+});
+
+test("원본이 커도 자를 영역만 읽어 만든다(4096×4096 을 넘는 사진)", async () => {
+  const big = await sharp({ create: { width: 6000, height: 4000, channels: 3, background: { r: 0, g: 0, b: 255 } } })
+    .jpeg()
+    .toBuffer();
+  const out = await makeEmojiImage(big, edit({ left: 5000, top: 3000, side: 500 }));
+  assert.ok(near(await colorAt(out.data, 64, 64), BLUE));
+});
+
 test("자를 영역이 돌린 이미지 밖이면 거절", async () => {
   // 90도 돌리면 100×200 이라 왼쪽 150 은 밖이다
   await assert.rejects(makeEmojiImage(await marked(200, 100), edit({ rotate: 90, left: 150 })), { code: "EMOJI_EDIT" });
