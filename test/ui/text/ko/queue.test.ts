@@ -1,8 +1,9 @@
-// src/ui/text/ko/queue.ts: 추가 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/queue.ts, added-parts.ts: 추가 안내와 대기열 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as queue from "../../../../src/ui/text/ko/queue.ts";
+import { addedParts } from "../../../../src/ui/text/ko/added-parts.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
@@ -15,8 +16,8 @@ test("모든 문장", () => {
       queue.added({ tracks: [{ title: "좋은 날" }], collection: null, total: null, first: false, position: 13 }),
       queue.added({ tracks: [{}, {}], collection: "재생목록", total: 87, first: false, position: 13 }),
       queue.added({ tracks: [{}], collection: null, total: null, first: true, position: 1 }),
-      queue.addedParts({ tracks: [{ title: "곡*" }], collection: null, total: null, first: false, position: 2 }),
-      queue.addedParts({ tracks: [{}, {}], collection: "앨범", total: null, first: false, position: 2 }),
+      addedParts({ tracks: [{ title: "곡*" }], collection: null, total: null, first: false, position: 2 }),
+      addedParts({ tracks: [{}, {}], collection: "앨범", total: null, first: false, position: 2 }),
       queue.partlyAdded(),
       queue.addedWarnings({ dropped: 0, skipped: 0, queueLimited: false, max: 100 }),
       queue.addedWarnings({ dropped: 2, skipped: 3, queueLimited: true, max: 100 }),
