@@ -13,7 +13,8 @@ import { pickUrl, pickValue, readPick } from "../../rules/search-pick.ts";
 import { autocompleteBudget } from "../../rules/autocomplete-budget.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
 import { mixCounts, uniqueBy } from "../../rules/search-mix.ts";
-import { CHOICES, SPOTIFY_SHARE, MIN_QUERY, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, type Found, type SearchDeps } from "../../usecases/song-search.ts";
+import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../rules/limits.ts";
+import { CHOICES, SPOTIFY_SHARE, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, type Found, type SearchDeps } from "../../usecases/song-search.ts";
 import logger from "../../infra/log/logger.ts";
 import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
@@ -51,7 +52,7 @@ function searchable(typed: string): string | null {
   if (typed.startsWith(gatedSentence().slice(0, 12))) return null;
   const query = searchText.queryOfTyped(typed);
   // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력란 상한이 100자라 보통 오지 않는다)
-  return !query || query.length > 100 || isLink(query) ? null : query;
+  return !query || query.length > SEARCH_MAX_LEN || isLink(query) ? null : query;
 }
 
 /** 기다리는 동안 같은 사람의 다음 요청이 오지 않았으면 참 */
@@ -164,13 +165,13 @@ const exported: GuildCommand & {
     .setName("search")
     .setDescription("곡을 검색해요")
     // 자동완성 맨 위 줄의 값이 입력한 글자다. 선택지 값은 100자까지라 넘치면 그 줄을 만들 수 없다
-    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(100).setAutocomplete(true)),
+    .addStringOption((option) => option.setName("query").setNameLocalizations({ ko: "검색어" }).setDescription("검색할 키워드").setRequired(true).setMaxLength(SEARCH_MAX_LEN).setAutocomplete(true)),
 
   async autocomplete(interaction, _bot, deps: SearchDeps = {}) {
     const all = depsOf(deps);
     const query = searchable(interaction.options.getFocused().trim());
     if (!query) return await interaction.respond([]);
-    if (graphemeLength(query) < MIN_QUERY) return await interaction.respond(choicesOf(query, NOTHING));
+    if (graphemeLength(query) < SEARCH_MIN_LEN) return await interaction.respond(choicesOf(query, NOTHING));
 
     // 이미 찾은 검색어(글자를 지워 돌아온 것 등)는 기다리지 않는다
     const known = remembered(query, all.spotifyReady());

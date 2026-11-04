@@ -47,6 +47,6 @@ test("안내 문구가 출처 이름을 따른다", () => {
 test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {
   const label = "playlist";
   assert.equal(addedText(songs(50), label, false, { total: 9946 }), "### ✅ 곡을 추가했어요!\n재생목록 9,946곡 중 50곡을 대기열에 넣었어요.");
-  assert.equal(addedText(songs(5), label, false, { queueLimited: true }), "### ⚠️ 일부 곡을 추가했어요!\n재생목록의 5곡을 대기열에 넣었어요.\n대기열이 가득 차서 목록의 일부만 넣었어요. (최대 " + config.bot.maxQueueSize + "곡)");
+  assert.equal(addedText(songs(5), label, false, { queueLimited: true }), "### ⚠️ 일부 곡을 추가했어요!\n재생목록의 5곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 " + config.bot.maxQueueSize + "곡)");
   assert.doesNotMatch(addedText([{ title: "곡" }], null, false, { total: 9946 }), /9,946/, "한 곡 안내에는 붙이지 않는다");
 });

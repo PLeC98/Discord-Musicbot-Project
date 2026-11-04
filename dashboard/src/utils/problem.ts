@@ -35,6 +35,9 @@ export function noticeText(code: Code): { title: string; body: string } {
   return { title: plain(title), body: body ? plain(body) : "" };
 }
 
+/** 응답 없이 실패한 요청의 오류 코드 */
+export const unansweredCode = (kind: FailureKind) => UNANSWERED[kind]?.code;
+
 /** 응답 없이 실패한 요청의 제목 줄 */
 export const unansweredTitle = (kind: FailureKind) => UNANSWERED[kind]?.title ?? "";
 

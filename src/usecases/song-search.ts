@@ -13,8 +13,6 @@ import { liveBlockReason } from "../rules/live-block-reason.ts";
 const CHOICES = 10;
 /** 그중 스포티파이 곡 몫(유튜브가 모자라면 더 채운다). 0 이면 섞지 않고, 유튜브가 연령 인증으로 막았을 때만 스포티파이로 채운다 */
 const SPOTIFY_SHARE: number = 3;
-/** 이보다 짧은 검색어(글자 수)는 찾지 않는다 */
-const MIN_QUERY = 2;
 /** 결과를 내는 쪽이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 추출하면 수 초 걸린다) */
 const SPOTIFY_RESULTS_MS = 4000;
 
@@ -75,5 +73,5 @@ async function findSongs(query: string, deps: SearchDeps = {}): Promise<SongResu
   return { songs: [...fromYouTube.slice(0, counts.youtube), ...fromSpotify.slice(0, counts.spotify)], gated: youtube.gated && fromSpotify.length === 0 };
 }
 
-export { CHOICES, SPOTIFY_SHARE, MIN_QUERY, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, findSongs };
+export { CHOICES, SPOTIFY_SHARE, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, findSongs };
 export type { SearchDeps, Found, Song, SongResults };

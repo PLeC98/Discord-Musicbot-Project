@@ -21,5 +21,24 @@ function addedParts({ tracks, collection, total, first, position = null }: Added
   return { name, rest: `${josa(name, "을")} ${where} 넣었어요.` };
 }
 
-export { addedParts };
-export type { AddedTracks };
+/** 다 넣지 못한 까닭. dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 불러옴, skipped 출처가 받을 수 없어 뺀 곡 수 */
+type Shortfall = { dropped: number; queueLimited: boolean; skipped: number; max: number };
+
+/** 대기열이 찼을 때 대시보드 알림의 제목. 디스코드는 그 줄 앞에 붙인다 */
+const FULL_TITLE = "대기열이 가득 찼어요!";
+/** 대기열이 차서 다 못 넣은 줄과 받을 수 없어 뺀 줄(없으면 null) */
+function shortfallParts({ dropped, queueLimited, skipped, max }: Shortfall) {
+  const full = dropped > 0 ? `${dropped}개의 곡을 넣지 못했어요. (최대 ${max}곡)` : queueLimited ? `목록의 일부만 넣었어요. (최대 ${max}곡)` : null;
+  const left = skipped > 0 ? `재생할 수 없는 ${skipped}곡은 제외됐어요. (미리듣기, 지역 제한 등)` : null;
+  return { full, left };
+}
+
+/** 대시보드 경고 알림: 제목과 줄들. 대기열이 찼으면 "대기열이 가득 찼어요!", 뺀 곡만 있으면 "일부 곡을 추가했어요!". 다 넣었으면 null */
+function shortfallNotice(shortfall: Shortfall): { title: string; lines: string[] } | null {
+  const { full, left } = shortfallParts(shortfall);
+  if (!full && !left) return null;
+  return { title: full ? FULL_TITLE : "일부 곡을 추가했어요!", lines: [full, left].filter((line): line is string => line !== null) };
+}
+
+export { addedParts, FULL_TITLE, shortfallParts, shortfallNotice };
+export type { AddedTracks, Shortfall };

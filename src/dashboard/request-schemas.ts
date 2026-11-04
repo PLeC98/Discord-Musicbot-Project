@@ -6,6 +6,7 @@ import { AGE_PLACES } from "../rules/age-place.ts";
 import { z } from "zod";
 import { MAX_COUNT } from "../rules/more-choices.ts";
 import { QUEUE_WINDOW_MAX } from "./contract/player.ts";
+import { SEARCH_MAX_LEN } from "../rules/limits.ts";
 import { isCode, type Code } from "../rules/problems.ts";
 import { AUDIO_CACHE_PARTS } from "../rules/audio-cache-parts.ts";
 import type { FieldProblem } from "./contract/problem.ts";
@@ -67,8 +68,7 @@ const AddBody = z.object(
   BAD_QUERY,
 );
 
-// 곡 추가 칸의 검색 ?q=. 곡 추가와 같이 다듬고, 길이 상한은 /search 와 같다
-const SEARCH_MAX_LEN = 100;
+// 곡 추가 칸의 검색 ?q=. 곡 추가와 같이 다듬고, 길이 상한은 /search 와 같다(SEARCH_MAX_LEN, 화면도 같은 값을 본다)
 const SearchQuery = z.object(
   {
     q: z
@@ -189,5 +189,5 @@ const ResetBody = z.discriminatedUnion(
   BAD_RESET,
 );
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery, SEARCH_MAX_LEN };
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery };
 export type { SettingsRequest };

@@ -95,16 +95,24 @@ type QueuePage = { items: QueueTrackView[]; total: number };
  */
 type MoreView = Omit<More, "requesterId" | "batch"> & { batch: number; collection: string; lifetimeMs: number; perClick: number | null };
 
-/** 곡 넣기의 답. dropped 는 대기열이 가득 차 못 넣은 곡 수, queueMax 는 대기열 상한(0 이면 없음), notes 는 디스코드 담은 안내의 경고 줄(일부만 넣었을 때) */
 /** 곡 추가 칸의 검색 결과 한 곡. url 은 정본 주소(넣을 때 보낸다), isLive 는 방송 중(예정 영상은 서버가 뺀다), inQueue 는 지금 곡이나 대기열에 같은 곡이 있는지 */
 type SearchTrack = { title: string | null; artist: string | null; duration: number; thumbnail: string | null; platform: string; url: string; isLive: boolean; inQueue: boolean };
 /** 곡 추가 칸의 검색 응답. gated: 유튜브가 연령 인증 안내만 주었고 스포티파이 곡도 없다 */
 type SearchReply = { tracks: SearchTrack[]; gated: boolean };
 
-type AddReply = PlayerState & { dropped: number; queueLimited: boolean; notes: string[]; more: MoreView | null; queueMax: number };
+/**
+ * 넣은 것(추가 안내 문장 added-parts 에 넘긴다). count 는 넣은 곡 수(곧바로 튼 곡도 센다), position 은 넣은 첫 곡의 대기열 순번(곧바로 틀었으면 null),
+ * collection 은 여러 곡의 출처 종류(labels.collection 으로 이름을 단다, 한 곡이면 null), total 은 출처 전체 곡 수(일부만 불러왔을 때),
+ * title, thumbnail 은 넣은 첫 곡의 것(응답의 대기열은 펼쳐 둔 만큼만 실어 순번으로 찾을 수 없을 때가 있다)
+ */
+type AddedSummary = { count: number; position: number | null; collection: string | null; total: number | null; title: string | null; thumbnail: string | null };
+/** 다 넣지 못한 까닭의 경고(디스코드 추가 안내의 경고 줄과 같은 문장, added-parts): 제목과 줄들 */
+type ShortfallNotice = { title: string; lines: string[] };
+/** 곡 넣기의 답. dropped 는 대기열이 가득 차 못 넣은 곡 수, queueMax 는 대기열 상한(0 이면 없음), added 는 넣은 것(모르면 null), shortfall 은 다 넣지 못했을 때의 경고 */
+type AddReply = PlayerState & { dropped: number; queueLimited: boolean; added: AddedSummary | null; shortfall: ShortfallNotice | null; more: MoreView | null; queueMax: number };
 
 /** 이어 넣기의 답. note 는 디스코드 더 넣기 결과와 같은 글 */
 type MoreReply = PlayerState & { added: number; dropped: number; note: string; more: MoreView | null; queueMax: number };
 
 export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
-export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply, SearchTrack, SearchReply };
+export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply, SearchTrack, SearchReply, AddedSummary, ShortfallNotice };

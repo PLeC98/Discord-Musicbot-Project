@@ -272,7 +272,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
     const some = setup({ current: track("now"), queue: [track("q1")] });
     const r = await some.add({ isPlaylist: true, collection: "album", total: 30, tracks: [track("a"), track("b")] }, who, some.responder);
     assert.equal(r.dropped, 1);
-    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열 2번째에 넣었어요.\n대기열이 가득 차서 1곡은 넣지 못했어요. (최대 2곡)"]);
+    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열 2번째에 넣었어요.\n**대기열이 가득 찼어요!** 1개의 곡을 넣지 못했어요. (최대 2곡)"]);
 
     const full = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
     assert.deepEqual(said(await full.add({ tracks: [track("a")] }, who, full.responder)), { success: false, code: "queue-full", message: "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 2곡)", dropped: 1 });
@@ -282,7 +282,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 });
 
 test("자리가 모자라 덜 불러왔으면(queueLimited) 그렇다고 덧붙인다", () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n대기열이 가득 차서 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
 // 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기, 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다

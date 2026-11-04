@@ -14,13 +14,13 @@ const joinBotToVoice = "봇을 음성 채널로 부르기";
 const joining = "부르는 중...";
 const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
-const playlistLink = "재생목록 링크예요";
-/** 재생목록 링크일 때 넣을 곡 선택 */
-const addWhich = "넣을 곡";
-const addWholePlaylist = "재생목록 전체";
-/** 재생목록 안의 곡 링크면 그 곡, 재생목록만이면 첫 곡 */
-const addThisOnly = "이 곡만";
-const addFirstOnly = "첫 곡만";
+/** 재생목록 링크에서 그 곡(곡 + 목록 주소면 그 곡, 목록만이면 첫 곡)만 넣는 버튼 */
+const addOne = "한 곡만";
+/** 검색 결과가 이미 대기열에 있는 곡의 배지 */
+const inQueue = "대기열";
+/** 검색 실패(결과 자리의 제목 줄, 보조 줄). 끝 줄에는 오류 코드 */
+const searchLimited = { title: "유튜브 검색이 일시적으로 제한됐어요.", hint: "몇 분 뒤에 다시 검색해 주세요." };
+const searchFailed = { title: "검색 결과를 불러오지 못했어요.", hint: "잠시 뒤에 다시 검색해 주세요." };
 const addFailed = "추가에 실패했어요.";
 const joinFailed = "참가에 실패했어요.";
 
@@ -69,4 +69,4 @@ const failed = {
   autoplayOff: "자동재생을 끄지 못했어요.",
 };
 
-export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, playlistLink, addWhich, addWholePlaylist, addThisOnly, addFirstOnly, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
+export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, addOne, inQueue, searchLimited, searchFailed, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };

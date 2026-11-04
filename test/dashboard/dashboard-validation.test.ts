@@ -19,7 +19,7 @@ import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
 /** 이 테스트가 읽는 답의 필드 */
-type Reply = { error?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; notes?: string[] };
+type Reply = { error?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; shortfall?: unknown; added?: { count: number; position: number | null; title: string | null } | null };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
 const { openTempStore } = await import("../helpers/temp-store.ts");
@@ -117,10 +117,10 @@ const panels = {
   updatePlaying: async () => {},
 };
 const bot = fakeBot({ client, players: new Map<string, Player>(), panels });
-// 곡 추가는 받은 것만 적는다
+// 곡 추가는 받은 것만 적고, 대기열 4번째에 한 곡을 넣었다고 답한다
 fakeAdder(bot, async (_bot, guildId, trackData) => {
   embedCalls.push([guildId, trackData]);
-  return { success: true };
+  return { success: true, placed: { count: 1, position: 4, collection: null, total: null, skipped: 0, first: makeTrack("추가곡") } };
 });
 
 let server: Server;
@@ -169,7 +169,8 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
   const sent = resolverCalls.at(-1) ?? "";
   assert.doesNotMatch(sent, /[\x00-\x1f\x7f]/, "제어문자가 yt-dlp/로그로 흘러가지 않음");
   assert.match(sent, /hello +world +!/);
-  assert.deepEqual(r.json.notes, [], "다 넣었으면 경고 줄이 없다");
+  assert.equal(r.json.shortfall, null, "다 넣었으면 경고가 없다");
+  assert.deepEqual([r.json.added?.count, r.json.added?.position, r.json.added?.title], [1, 4, "추가곡"], "넣은 것을 싣는다");
   assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
 });
 

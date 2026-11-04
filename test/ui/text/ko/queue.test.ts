@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as queue from "../../../../src/ui/text/ko/queue.ts";
-import { addedParts } from "../../../../src/ui/text/ko/added-parts.ts";
+import { addedParts, shortfallNotice } from "../../../../src/ui/text/ko/added-parts.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
@@ -22,6 +22,9 @@ test("모든 문장", () => {
       queue.addedWarnings({ dropped: 0, skipped: 0, queueLimited: false, max: 100 }),
       queue.addedWarnings({ dropped: 2, skipped: 3, queueLimited: true, max: 100 }),
       queue.addedWarnings({ dropped: 0, skipped: 0, queueLimited: true, max: 100 }),
+      shortfallNotice({ dropped: 0, skipped: 0, queueLimited: false, max: 100 }),
+      shortfallNotice({ dropped: 2, skipped: 3, queueLimited: true, max: 100 }),
+      shortfallNotice({ dropped: 0, skipped: 3, queueLimited: false, max: 100 }),
       queue.view({ count: 4, page: 1, pages: 1 }),
       queue.view({ count: 40, page: 2, pages: 3 }),
     ],
@@ -38,8 +41,11 @@ test("모든 문장", () => {
       { name: null, rest: "앨범의 2곡을 대기열 2번째부터 넣었어요." },
       { icon: "state", title: "일부 곡을 추가했어요!" },
       [],
-      ["재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)", "대기열이 가득 차서 2곡은 넣지 못했어요. (최대 100곡)"],
-      ["대기열이 가득 차서 목록의 일부만 넣었어요. (최대 100곡)"],
+      ["재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)", "**대기열이 가득 찼어요!** 2개의 곡을 넣지 못했어요. (최대 100곡)"],
+      ["**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 100곡)"],
+      null,
+      { title: "대기열이 가득 찼어요!", lines: ["2개의 곡을 넣지 못했어요. (최대 100곡)", "재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)"] },
+      { title: "일부 곡을 추가했어요!", lines: ["재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)"] },
       { title: "📋 재생 대기열", footer: "모두 4곡" },
       { title: "📋 재생 대기열", footer: "모두 40곡 • 2/3 페이지" },
     ],

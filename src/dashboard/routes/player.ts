@@ -8,8 +8,11 @@ import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
-import { loopOf, type AddReply, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage, type SearchReply } from "../contract/player.ts";
-import { findSongs, MIN_QUERY } from "../../usecases/song-search.ts";
+import { loopOf, type AddReply, type AddedSummary, type AutoplayGenres, type MoreReply, type MoreView, type PlayerRead, type QueuePage, type SearchReply } from "../contract/player.ts";
+import type { Placed } from "../../usecases/add-tracks.ts";
+import { shortfallNotice } from "../../ui/text/ko/added-parts.ts";
+import { findSongs } from "../../usecases/song-search.ts";
+import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../rules/limits.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
 import { errorKind } from "../../rules/error-kind.ts";
 import { latestOnly } from "../latest-only.ts";
@@ -19,11 +22,10 @@ import * as genreConfig from "../../config/genres.ts";
 import { autoplayOn } from "../../ui/genre-menu.ts";
 import { join } from "../../usecases/join.ts";
 import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
-import * as queueText from "../../ui/text/ko/queue.ts";
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
-import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack } from "../player-view.ts";
-import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery, SEARCH_MAX_LEN } from "../request-schemas.ts";
+import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack, trackArtUrl } from "../player-view.ts";
+import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
@@ -48,6 +50,13 @@ function moreView(more: (More & { batch: number }) | null | undefined): MoreView
   const { requesterId: _requesterId, ...shown } = more;
   const { perClick, collection } = KINDS[more.kind];
   return { ...shown, collection, lifetimeMs: LIFETIME_MS, perClick: Number.isFinite(perClick) ? perClick : null };
+}
+
+// 넣은 것을 화면에. 첫 곡의 그림은 대기열 행과 같은 주소로. 사용 사례가 싣지 않았으면(가짜 추가기 등) null
+function addedSummary(guildId: string, placed: Placed | undefined): AddedSummary | null {
+  if (!placed) return null;
+  const { count, position, collection, total, first } = placed;
+  return { count, position, collection, total, title: first?.title ?? null, thumbnail: first ? trackArtUrl(guildId, first) : null };
 }
 
 // 대시보드에서 곡을 넣은 사람. 화면에 보이는 이름으로
@@ -320,7 +329,7 @@ function searchRoute(router: Router) {
     if (!query.ok) return sendProblem(res, query.code, { max: SEARCH_MAX_LEN });
     const { q } = query.value;
     // 두 글자가 안 되면 찾지 않는다(/search 와 같다)
-    if (graphemeLength(q) < MIN_QUERY) return res.json(EMPTY);
+    if (graphemeLength(q) < SEARCH_MIN_LEN) return res.json(EMPTY);
 
     const requester = requesterOf(req);
     try {
@@ -405,8 +414,8 @@ function addRoutes(router: Router) {
 
       const dropped = result.dropped || 0;
       const queueLimited = Boolean(result.queueLimited);
-      const notes = queueText.addedWarnings({ dropped, skipped: 0, queueLimited, max: config.bot.maxQueueSize });
-      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, notes, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
+      const shortfall = shortfallNotice({ dropped, queueLimited, skipped: result.placed?.skipped ?? 0, max: config.bot.maxQueueSize });
+      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, added: addedSummary(guildId, result.placed), shortfall, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       log.error("대시보드에서 곡 추가 실패:", err);
       sendProblem(res, "add-failed");

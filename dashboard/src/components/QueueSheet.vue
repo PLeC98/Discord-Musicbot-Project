@@ -31,11 +31,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watchEffect } from "vue";
+import { computed, onUnmounted, provide, ref, watchEffect } from "vue";
 import Icon from "./BaseIcon.vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
+import { SHEET_EXPAND } from "../utils/sheet-expand.ts";
 const T = text.player;
 
 /** compact: 낮은 화면(휴대폰 가로). 헤더를 64px 로 줄인다 */
@@ -43,6 +44,8 @@ const props = withDefaults(defineProps<{ title: string; icon?: IconName; next?: 
 
 type Stop = "peek" | "half" | "full";
 const stop = ref<Stop>("peek");
+// 안의 곡 추가 칸이 입력란을 누르면 끝까지 펼친다(접힌 동안은 안의 목록이 스크롤되지 않아 검색 결과를 내릴 수 없다)
+provide(SHEET_EXPAND, () => (stop.value = "full"));
 // 펼쳐 있는 동안 Esc, 기기의 뒤로는 시트를 접는다
 useCloseLayer(
   computed(() => stop.value !== "peek"),
@@ -126,21 +129,28 @@ function bodyDown(e: PointerEvent) {
 // 목록은 끝에 닿아도 바깥(페이지)으로 스크롤을 넘기지 않는다(overscroll-contain, 넘기면 당겨서 새로고침이 걸린다).
 // 첫 움직임에서 정하고, 시트가 맡으면 그 손짓 내내 브라우저 스크롤을 막는다(touchmove 를 preventDefault)
 const bodyEl = ref<HTMLElement | null>(null);
-const scroller = () => bodyEl.value?.querySelector<HTMLElement>(".overflow-y-auto") ?? null;
-let touch: { y: number; h: number; top: number; mode: "sheet" | "native" | null; lastY: number; lastT: number; v: number } | null = null;
+// 손짓이 다룰 목록: 손가락이 닿은 곳에서 가장 가까운 스크롤 목록(대기열 위에 뜬 검색 결과 등), 목록 밖이면 대기열
+function scrollerAt(target: EventTarget | null): HTMLElement | null {
+  const body = bodyEl.value;
+  const near = target instanceof Element ? target.closest<HTMLElement>(".overflow-y-auto") : null;
+  if (near && body?.contains(near)) return near;
+  return body?.querySelector<HTMLElement>("[data-reorder-scroller]") ?? body?.querySelector<HTMLElement>(".overflow-y-auto") ?? null;
+}
+let touch: { y: number; h: number; top: number; list: HTMLElement | null; mode: "sheet" | "native" | null; lastY: number; lastT: number; v: number } | null = null;
 let glide = 0;
 
 function touchStart(e: TouchEvent) {
   cancelAnimationFrame(glide);
   if (e.touches.length !== 1 || ownControl(e.target)) return void (touch = null);
   const y = e.touches[0].clientY;
-  touch = { y, h: visible.value, top: scroller()?.scrollTop ?? 0, mode: null, lastY: y, lastT: e.timeStamp, v: 0 };
+  const list = scrollerAt(e.target);
+  touch = { y, h: visible.value, top: list?.scrollTop ?? 0, list, mode: null, lastY: y, lastT: e.timeStamp, v: 0 };
 }
 // 처음 움직인 쪽으로 누가 맡을지 정한다: 시트(sheet) 또는 목록 스크롤(native). 아직 임계값 안이면 false
 function pickMode(t: NonNullable<typeof touch>, y: number) {
   const dy = y - t.y;
   if (Math.abs(dy) < 6) return false;
-  const list = scroller();
+  const { list } = t;
   const atTop = !list || list.scrollTop <= 0;
   t.mode = stop.value !== "full" || (atTop && dy > 0) ? "sheet" : "native";
   // 시트를 맡은 곳에서 다시 잰다(움직임 임계값만큼 튀지 않게)
@@ -151,7 +161,7 @@ function pickMode(t: NonNullable<typeof touch>, y: number) {
 }
 // 끝까지 펼친 채 목록 맨 위에서 아래로 드래그하는 손짓은 시트가 맡는다. 임계값(6px)을 기다리면 브라우저가 먼저 잡아
 // 당겨서 새로고침이 걸리므로(그 뒤로는 막을 수 없다) 첫 움직임부터 막는다
-const pullingDown = (t: NonNullable<typeof touch>, y: number) => stop.value === "full" && y > t.y && (scroller()?.scrollTop ?? 0) <= 0;
+const pullingDown = (t: NonNullable<typeof touch>, y: number) => stop.value === "full" && y > t.y && (t.list?.scrollTop ?? 0) <= 0;
 function touchMove(e: TouchEvent) {
   if (!touch || e.touches.length !== 1) return;
   const y = e.touches[0].clientY;
@@ -159,7 +169,7 @@ function touchMove(e: TouchEvent) {
   if (!touch.mode && !pickMode(touch, y)) return;
   if (touch.mode !== "sheet") return;
   if (e.cancelable) e.preventDefault();
-  const list = scroller();
+  const { list } = touch;
   let want = touch.h - (y - touch.y);
   // 끝까지 넘친 만큼은 목록을 스크롤한다(되돌아 내리면 목록이 먼저 돌아오고 그다음 시트가 내려간다)
   if (want > full.value) {
@@ -174,7 +184,7 @@ function touchEnd() {
   if (!touch) return;
   if (touch.mode === "sheet") {
     const h = dragOffset.value ?? visible.value;
-    const list = scroller();
+    const { list } = touch;
     if (h >= full.value - 1 && list && list.scrollTop > touch.top) {
       // 목록을 스크롤하던 끝: 끝까지 펼친 채 그 빠르기로 미끄러진다
       stop.value = "full";
