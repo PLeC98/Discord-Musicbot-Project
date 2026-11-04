@@ -15,6 +15,12 @@ const loadFailed = "앱 이모지 목록을 읽지 못했어요.";
 /** 이모지 하나의 이름 입력란, 삭제(화면 읽기 프로그램용 이름, 툴팁) */
 const nameLabel = (name: string) => `${name} 이모지 이름`;
 const removeOne = (name: string) => `${name} 삭제`;
+/** 한 번 누른 삭제 버튼: 글, 화면 읽기 프로그램용 이름 */
+const removeArmed = "삭제";
+const removeNow = (name: string) => `${name} 삭제 확인`;
+/** 한 번 누른 칸 아래: 이 이모지를 쓰는 곳 */
+const usedIn = (places: string[]) => `${places.join(", ")}에서 쓰고 있어요. 삭제하면 이모지 없이 보여요.`;
+const genreUse = (id: string) => `자동재생 장르 ${id}`;
 /** 저장 띠로 이름을 바꾼 뒤 */
 const renamed = (n: number) => `이모지 이름 ${n}개를 바꿨어요`;
 const renameFailed = "이모지 이름을 바꾸지 못했어요.";
@@ -48,16 +54,7 @@ const dialog = {
 const added = (name: string) => `${name} 이모지를 추가했어요`;
 const addFailed = "이모지를 추가하지 못했어요.";
 
-/** 삭제 확인 */
-const confirm = {
-  title: (name: string) => `${name} 이모지를 삭제할까요?`,
-  body: "디스코드에서도 삭제돼 되돌릴 수 없어요.",
-  /** 쓰는 곳이 있을 때 덧붙인다 */
-  uses: "지금 쓰는 곳에서는 이모지 없이 보여요.",
-  genre: (id: string) => `자동재생 장르: ${id}`,
-  run: "삭제",
-};
 const removed = (name: string) => `${name} 이모지를 삭제했어요`;
 const removeFailed = "이모지를 삭제하지 못했어요.";
 
-export { title, desc, room, add, empty, icons, iconsTip, loadFailed, nameLabel, removeOne, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, confirm, removed, removeFailed };
+export { title, desc, room, add, empty, icons, iconsTip, loadFailed, nameLabel, removeOne, removeArmed, removeNow, usedIn, genreUse, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, removed, removeFailed };

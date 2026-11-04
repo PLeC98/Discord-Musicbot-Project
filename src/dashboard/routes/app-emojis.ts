@@ -1,13 +1,12 @@
 // 앱 이모지(/api/app-emojis): 목록, 이미지, 입력란용 그림 글꼴. 서버 화면의 장르 이모지도 그리므로 로그인한 사용자 누구나 읽는다.
 // 이미지와 글꼴은 선택기를 열면 한꺼번에 불려 일반 API 한도와 따로 센다(rate-limits 의 UNLIMITED).
-// 올리기, 이름 바꾸기, 지우기는 운영자만(운영자 패널). 지우기는 되돌릴 수 없어 최근 로그인을 본다. 조작은 동기화와 한 줄로 돈다(app/app-emojis)
+// 올리기, 이름 바꾸기, 지우기는 운영자만(운영자 패널). 조작은 동기화와 한 줄로 돈다(app/app-emojis)
 
 import express, { type Request, type Response } from "express";
 import config from "../../config/index.ts";
 import * as genreConfig from "../../config/genres.ts";
 import { requireAuth } from "../middleware/require-auth.ts";
 import { requireOwner } from "../middleware/require-owner.ts";
-import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { limiter } from "../rate-limits.ts";
 import { sendProblem } from "../problem.ts";
 import { codeOf } from "../../rules/error-kind.ts";
@@ -89,7 +88,7 @@ appEmojisRouter.patch("/:id", requireOwner, async (req: Request<{ id: string }>,
   });
 });
 
-appEmojisRouter.delete("/:id", requireOwner, requireRecentLogin, async (req: Request<{ id: string }>, res: Response) => {
+appEmojisRouter.delete("/:id", requireOwner, async (req: Request<{ id: string }>, res: Response) => {
   const emojis = req.app.locals.bot.appEmojis;
   if (!emojis) return sendProblem(res, "bot-not-ready");
   await answer(res, async () => {
