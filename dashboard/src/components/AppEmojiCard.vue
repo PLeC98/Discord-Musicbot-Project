@@ -21,8 +21,15 @@
               <span class="text-on-surface-variant" aria-hidden="true">:</span>
             </label>
           </span>
-          <button v-if="armed === one.id" data-armed type="button" class="shrink-0 inline-flex items-center gap-1 h-8 px-3 rounded-full bg-error text-on-error text-xs font-medium cursor-pointer disabled:opacity-38" :disabled="busy" :aria-label="T.removeNow(one.name)" @click="remove(one)"><Icon name="delete" :size="16" />{{ T.removeArmed }}</button>
-          <button v-else type="button" :class="iconButton(32)" class="hover:text-error" :disabled="busy || saving" :aria-label="T.removeOne(one.name)" v-tooltip="T.removeOne(one.name)" @click="arm(one)"><Icon name="delete" :size="18" /></button>
+          <!-- 삭제: 한 버튼이 휴지통 아이콘에서 빨간 알약 "삭제"로 바뀐다. 색은 효과, 글자 자리가 열리는 폭은 공간(spring-fast) -->
+          <button type="button" :data-armed="armed === one.id || undefined" :class="[DELETE_BTN, armed === one.id ? 'bg-error text-on-error px-2.5' : 'text-on-surface-variant hover:text-error px-1.75']" :disabled="busy || saving" :aria-label="armed === one.id ? T.removeNow(one.name) : T.removeOne(one.name)" v-tooltip="armed === one.id ? null : T.removeOne(one.name)" @click="armed === one.id ? remove(one) : arm(one)">
+            <Icon name="delete" :size="18" />
+            <span class="grid [transition:grid-template-columns_390ms_var(--ease-spring-fast)]" :class="armed === one.id ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'" aria-hidden="true">
+              <span class="overflow-hidden whitespace-nowrap"
+                ><span class="pl-1 text-xs font-medium">{{ T.removeArmed }}</span></span
+              >
+            </span>
+          </button>
         </div>
         <p v-if="issues[one.id]" class="pl-10 text-xs text-error">{{ issues[one.id] }}</p>
         <p v-else-if="armed === one.id && uses.length" class="pl-10 text-xs text-on-surface-variant">{{ T.usedIn(uses) }}</p>
@@ -52,7 +59,6 @@ import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import AppEmojiDialog from "./AppEmojiDialog.vue";
-import { iconButton } from "../utils/icon-button.ts";
 import { valueOf } from "../utils/dom.ts";
 import { problemCodeOf, replyOf } from "../utils/request.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
@@ -67,6 +73,8 @@ const T = text.appEmojis;
 /** 디스코드가 이모지로 받는 형식 */
 const TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif"];
 const API = "/api/app-emojis";
+/** 삭제 버튼(높이 32, 동그라미 ↔ 알약). 바탕, 글자색은 효과로, 안쪽 여백은 글자 자리와 같은 공간 곡선으로 */
+const DELETE_BTN = "tap state-layer shrink-0 inline-flex items-center h-8 rounded-full cursor-pointer disabled:cursor-not-allowed disabled:opacity-38 [transition:background-color_250ms_var(--ease-effects),color_250ms_var(--ease-effects),padding_390ms_var(--ease-spring-fast)]";
 /** :이름: 상자: 평소에는 면과 테두리가 없고, 올리면 입력란 면, 입력하는 동안 입력란 면과 강조 테두리 */
 const NAME_BOX = "inline-flex items-center h-8 px-2 min-w-0 max-w-full rounded-(--r-inner) border border-transparent font-mono text-sm cursor-text transition-[background-color,border-color] effects-fast hover:bg-surface-container-highest focus-within:bg-surface-container-highest focus-within:border-primary";
 
