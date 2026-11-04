@@ -139,8 +139,13 @@ type CollectionResult = { success: false; code: string; skipped?: number } | (Pl
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
-/** 담은 결과. 실패면 그 까닭(code). 던진 것이면 그 오류의 종류(kind) */
-type AddResult = { success: true; dropped?: number; queueLimited?: boolean } | { success: false; code: string; kind?: Code; dropped?: number };
+/**
+ * 넣은 것. count 는 넣은 곡 수(쉬던 플레이어에 곧바로 튼 곡도 센다), position 은 넣은 첫 곡의 대기열 순번(1부터, 곧바로 틀었으면 null),
+ * collection 은 여러 곡의 출처 종류(한 곡이면 null), total 은 출처 전체 곡 수(일부만 불러왔을 때), skipped 는 받을 수 없어 뺀 곡 수, first 는 넣은 첫 곡
+ */
+type Placed = { count: number; position: number | null; collection: string | null; total: number | null; skipped: number; first: QueuedTrack | null };
+/** 담은 결과. 실패면 그 까닭(code). 던진 것이면 그 오류의 종류(kind). placed 는 넣은 것(대시보드가 그 자리에서 알린다) */
+type AddResult = { success: true; dropped?: number; queueLimited?: boolean; placed?: Placed } | { success: false; code: string; kind?: Code; dropped?: number };
 
 // 곡 담기(queueTracks). 진입점을 거쳐 부르는 테스트는 useAdder 로 가짜를 넘긴다(useLookup 과 같다)
 let defaultAdder: typeof queueTracks = (...args) => queueTracks(...args);
@@ -449,7 +454,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
     const addition = enqueue(player, trackData, wasIdle ? stamped.slice(1) : stamped);
     // 음성 채널에 붙지 못했으면 다음 곡도 붙지 못한다
     const opened = start.failure ? (start.failure.code === "voice-failed" ? null : await startNext(panel, player, responder)) : start.opened;
-    return { start, addition, opened };
+    return { start, addition, opened, wasIdle };
   } finally {
     player.finishByCaller = false;
   }
@@ -461,7 +466,10 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
 
   // 쉬던 플레이어면 첫 곡을 틀기 시작하고, 나머지는 대기열에 담는다
-  const { start, addition, opened } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
+  const { start, addition, opened, wasIdle } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
+  // 넣은 것: 곧바로 튼 곡과 대기열에 넣은 곡. 첫 곡이 실패해 다음 곡을 틀었으면 그 곡이 첫 곡이다. 쉬던 플레이어였으면 첫 곡은 대기열에 없다(순번 없음)
+  const placedTracks = placedOf(start, addition.queued);
+  const placed: Placed = { count: placedTracks.length, position: wasIdle ? null : addition.position, collection: addition.collection, total: addition.notice.total, skipped: addition.notice.skipped, first: placedTracks[0] ?? null };
 
   // 첫 곡이 실패했고 다음 곡으로도 살리지 못했다. 실패를 돌려주면 진입점이 사용자에게 알린다.
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
@@ -476,16 +484,17 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   if (opened && tracks.length > 1) {
     await panel.postAddedNotice(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
     await panel.updatePlaying(player);
-    return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited };
+    return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited, placed };
   }
 
   // 이미 틀고 있었다. 대기열에만 담았다
   if (wasPlayingBefore || (!opened && tracks.length > 0)) {
-    return await queueOnly(panel, player, responder, addition);
+    const result = await queueOnly(panel, player, responder, addition);
+    return result.success ? { ...result, placed } : result;
   }
 
   // 한 곡을 틀기 시작했다
-  return opened ?? { success: true };
+  return { ...(opened ?? { success: true }), placed };
 }
 
 // 쉬던 플레이어에 첫 곡을 튼다
@@ -596,4 +605,4 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
 
 export { requestPlayback, continueCollection, queueTracks, toRequester, requesterName, ensurePlayer, resolveFallbackTextChannel, useLookup, useAdder };
 export const _internals = { resolveFallbackTextChannel };
-export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult };
+export type { PlaybackRequest, RequesterSource, Lookup, CollectionResult, TrackData, AddResult, Placed };

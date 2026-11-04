@@ -24,6 +24,9 @@ import * as errors from "../../src/ui/text/ko/errors.ts";
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
+// 결과의 넣은 것(placed)을 첫 곡 id 로 줄여 비교한다
+const withPlaced = (r: AddResult) => (r.success && r.placed ? { ...r, placed: { ...r.placed, first: r.placed.first?.id ?? null } } : r);
+const ONE_STARTED = { count: 1, position: null, collection: null, total: null, skipped: 0, first: "a" };
 const who = { id: "u1", username: "사용자" };
 
 // 패널 만들기, 갱신은 부른 것만 적는다. embedFails 면 만들기가 던진다
@@ -109,7 +112,7 @@ test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패�
   const { add, player, calls } = setup();
   const r = await add({ tracks: [track("a")] }, who);
 
-  assert.deepEqual(r, { success: true });
+  assert.deepEqual(withPlaced(r), { success: true, placed: ONE_STARTED }, "곧바로 튼 곡은 대기열 순번이 없다");
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
   assert.equal(player.currentTrack?.requestedBy, who);
 });
@@ -135,7 +138,7 @@ test("첫 곡의 열기가 다른 재생(음성 복구)에 밀려나면 실패�
   const { add, player, calls } = setup({ plays: [{ ok: false, code: "superseded" }] });
   const r = await add({ tracks: [track("a")] }, who);
 
-  assert.deepEqual(r, { success: true });
+  assert.deepEqual(withPlaced(r), { success: true, placed: ONE_STARTED });
   assert.equal(player.currentTrack?.title, "곡 a");
   assert.deepEqual(calls.at(-1), ["embed", "a"]);
 });
@@ -164,9 +167,10 @@ test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 �
   const { add, player, sent } = setup();
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
-    await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
+    const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
 
     assert.equal(player.currentTrack?.id, "a");
+    assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 3, position: null, collection: "playlist", total: null, skipped: 0, first: "a" } }, "튼 곡까지 세고 순번은 없다(첫 곡이 대기열에 없다)");
     assert.deepEqual(
       player.queue.map((t) => t.id),
       ["b", "c"],
@@ -185,6 +189,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 
     assert.equal(r.success, true);
     assert.equal(player.currentTrack?.id, "b", "실패한 곡은 대기열에 안 넣는다");
+    assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 2, position: null, collection: "playlist", total: null, skipped: 0, first: "b" } }, "넣은 것의 첫 곡은 실패한 곡이 아니라 대신 튼 곡");
     assert.deepEqual(
       player.queue.map((t) => t.id),
       ["c"],
@@ -218,14 +223,14 @@ test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목�
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
   const { mem, add } = setup();
   mem.embedFails = true;
-  assert.deepEqual(await add({ tracks: [track("a")] }, who), { success: true });
+  assert.deepEqual(withPlaced(await add({ tracks: [track("a")] }, who)), { success: true, placed: ONE_STARTED });
 });
 
 test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이 있으면 갱신한다", async () => {
   const { add, player, calls, notices, responder } = setup({ current: track("now"), queue: [track("q1")] });
   const r = await add({ tracks: [track("a")] }, who, responder);
 
-  assert.deepEqual(r, { success: true, dropped: 0, queueLimited: false });
+  assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 1, position: 2, collection: null, total: null, skipped: 0, first: "a" } });
   assert.deepEqual(
     player.queue.map((t) => t.id),
     ["q1", "a"],
@@ -252,11 +257,12 @@ test("넣을 위치: 맨 앞, 특정 곡 뒤, 기본은 자동재생이 선택�
   );
 
   const normal = setup({ current: track("now"), queue: [track("q1"), auto] });
-  await normal.add({ tracks: [track("a")] }, who, normal.responder);
+  const r = await normal.add({ tracks: [track("a")] }, who, normal.responder);
   assert.deepEqual(
     normal.player.queue.map((t) => t.id),
     ["q1", "a", "auto"],
   );
+  assert.equal(r.success && r.placed?.position, 2, "자동재생이 선택해 둔 곡 앞에 선 자리");
 });
 
 test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하나도 못 넣으면 가득 찼다고 실패", async () => {
