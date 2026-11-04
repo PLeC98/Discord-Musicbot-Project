@@ -20,3 +20,16 @@ test("제목 없는 곡, 라이브, 주소 없는 결과는 후보로 삼지 않
     ["곡"],
   );
 });
+
+test("가수 자리는 검색 결과의 채널명(없으면 비운다)", async () => {
+  const source = fake<GenreSource>({ type: "keyword", keywords: ["아무거나"] });
+  const search = async () => [
+    { id: "1", audioUrl: "https://y/1", title: "モニタリング", artist: "DECO*27", duration: 182 },
+    { id: "2", audioUrl: "https://y/2", title: "채널 없음", duration: 200 },
+  ];
+  const candidates = await keyword(source, { search });
+  assert.deepEqual(
+    candidates.map((c) => c.artist),
+    ["DECO*27", undefined],
+  );
+});

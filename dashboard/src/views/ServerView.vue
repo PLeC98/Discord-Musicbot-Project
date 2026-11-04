@@ -246,7 +246,7 @@
                   <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
                     <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
                     <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
-                    <span v-if="lengthOf(item)" class="nums shrink-0">· {{ lengthOf(item) }}</span>
+                    <span v-if="lengthOf(item)" class="nums shrink-0"><template v-if="item.artist">· </template>{{ lengthOf(item) }}</span>
                   </div>
                 </div>
                 <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>

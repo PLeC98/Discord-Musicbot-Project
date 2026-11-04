@@ -106,7 +106,7 @@
                 <!-- 방송 중은 대기열 행처럼 길이 자리에 라이브 -->
                 <span class="text-xs text-on-surface-variant truncate flex items-center gap-1"
                   ><span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(track.platform) }"></span><span v-if="track.artist" class="truncate">{{ track.artist }}</span
-                  ><span v-if="lengthOf(track)" class="nums shrink-0">· {{ lengthOf(track) }}</span></span
+                  ><span v-if="lengthOf(track)" class="nums shrink-0"><template v-if="track.artist">· </template>{{ lengthOf(track) }}</span></span
                 >
               </span>
               <span v-if="track.inQueue" class="h-6 px-3 rounded-full bg-surface-container-highest text-xs font-semibold text-on-surface-variant inline-flex items-center gap-1 shrink-0"><Icon name="queue_music" :size="14" />{{ T.inQueue }}</span>
