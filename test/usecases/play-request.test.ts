@@ -205,6 +205,15 @@ test("붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 
   assert.equal(resolverCalls.at(-1)?.query, "https://youtu.be/abcdefghijk");
 });
 
+test("스킴을 뺀 알려진 사이트 주소는 https:// 를 붙여 찾는다(그 글자로 검색하지 않는다)", async () => {
+  mockResolve = () => ok("곡");
+  const bot = makeBot();
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: " youtu.be/abcdefghijk ", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "https://youtu.be/abcdefghijk");
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "will.i.am", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "will.i.am");
+});
+
 // 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 진입점에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });

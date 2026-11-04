@@ -15,6 +15,7 @@ import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
 import { capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { liveBlockReason } from "../rules/live-block-reason.ts";
+import { withSiteScheme } from "../rules/links.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { canSend } from "../ui/channels.ts";
@@ -157,8 +158,9 @@ function useAdder(fake: typeof queueTracks | null | undefined) {
 type Found = { isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: TrackInfo[]; total?: number | null; nextOffset?: number | null; skipped?: number; queueLimited?: boolean };
 
 async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<PlaybackResult> {
-  // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 여기서 걷는다. 곡 찾기와 링크 판정은 다듬은 글자를 받는다
-  const request = typeof asked.query === "string" ? { ...asked, query: asked.query.trim() } : asked;
+  // 붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 여기서 걷고, 스킴을 뺀 알려진 사이트 주소에는 https:// 를 붙인다(안 붙이면 그 글자로 검색한다).
+  // 곡 찾기와 링크 판정은 다듬은 글자를 받는다
+  const request = typeof asked.query === "string" ? { ...asked, query: withSiteScheme(asked.query.trim()) } : asked;
   const { guild, insertFirst = false, responder = silentResponder } = request;
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
   const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));

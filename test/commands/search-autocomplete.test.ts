@@ -40,6 +40,7 @@ const found = (list: ReturnType<typeof tracks.youtube>[]) => async () => ({ trac
 test("빈 입력, 링크는 빈 목록. 짧은 검색어는 찾지 않고 맨 위 줄만", async () => {
   assert.deepEqual(await complete("  ", never), []);
   assert.deepEqual(await complete("https://youtu.be/abcdefghijk", never), []);
+  assert.deepEqual(await complete("youtu.be/abcdefghijk", never), [], "스킴을 뺀 주소도 링크다");
   assert.deepEqual(await complete("spotify:track:1SwZVVH9BnXtLRLi2cbFhw", never), []);
   assert.deepEqual(await complete("아", never), [{ name: '🔍 "아" 검색 결과 보기', value: "아" }]);
 });

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audio-key-of.ts";
-import { parseSoundCloud } from "../../src/rules/links.ts";
+import { parseSoundCloud, withSiteScheme } from "../../src/rules/links.ts";
 test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s) 는 직접 링크", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
@@ -41,6 +41,23 @@ test("inputKind: 공백 없는 spotify: 는 모양이 안 맞아도 스포티파
   assert.equal(inputKind("Spotify:track:abc"), "spotify");
   assert.equal(inputKind("spotify: 아이유 좋은 날"), "search");
   assert.equal(inputKind("spotify:"), "search");
+});
+
+test("withSiteScheme: 스킴을 뺀 알려진 사이트 주소에만 https:// 를 붙인다. 점이 든 이름, 공백이 든 글, 다른 사이트, 스킴이 있는 것은 그대로", () => {
+  for (const [input, want] of [
+    ["youtube.com/watch?v=abcdefghijk", "https://youtube.com/watch?v=abcdefghijk"],
+    ["www.youtube.com/watch?v=abcdefghijk&list=PLx", "https://www.youtube.com/watch?v=abcdefghijk&list=PLx"],
+    ["m.YouTube.com/watch?v=abcdefghijk", "https://m.YouTube.com/watch?v=abcdefghijk"],
+    ["youtu.be/abcdefghijk?si=x", "https://youtu.be/abcdefghijk?si=x"],
+    ["open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["soundcloud.com/artist/track", "https://soundcloud.com/artist/track"],
+  ]) {
+    assert.equal(withSiteScheme(input), want, input);
+    assert.notEqual(inputKind(withSiteScheme(input)), "search", input);
+  }
+  for (const input of ["", "will.i.am", "Mr.Children", "아이유 좋은 날", "youtube", "youtu.be/abc 노래", "example.com/song.mp3", "https://youtu.be/abcdefghijk", "spotify:track:abc"]) {
+    assert.equal(withSiteScheme(input), input, input);
+  }
 });
 
 test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으로, 직접 링크와 모르는 것은 그대로", () => {

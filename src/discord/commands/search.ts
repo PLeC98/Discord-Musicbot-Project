@@ -8,7 +8,7 @@ import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requesterName } from "../../usecases/add-tracks.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { BotContext } from "../../app/bot-context.ts";
-import { isHttpLink, isKnownSiteHost } from "../../rules/links.ts";
+import { isHttpLink, isKnownSiteHost, withSiteScheme } from "../../rules/links.ts";
 import { pickUrl, pickValue, readPick } from "../../rules/search-pick.ts";
 import { autocompleteBudget } from "../../rules/autocomplete-budget.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
@@ -35,8 +35,11 @@ const SETTLE_MS = 1000;
 const latestRequest = new Map<string, number>();
 let requestCount = 0;
 
-// 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다
-const isLink = (query: string) => isHttpLink(query) || isKnownSiteHost(query);
+// 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다(스킴을 뺀 주소는 곡 넣기가 붙인다)
+const isLink = (query: string) => {
+  const url = withSiteScheme(query);
+  return isHttpLink(url) || isKnownSiteHost(url);
+};
 
 const gatedSentence = () => {
   const gated = errors.notice("search-age-gated");

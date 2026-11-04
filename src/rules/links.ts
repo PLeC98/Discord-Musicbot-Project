@@ -198,6 +198,18 @@ function isKnownSiteHost(value: unknown): boolean {
   }
 }
 
+// ── 스킴을 뺀 주소 ──
+
+/**
+ * 스킴(https://)을 뺀 알려진 사이트 주소(youtube.com/watch?v=…, youtu.be/…, open.spotify.com/track/…)면 https:// 를 붙인 주소, 아니면 받은 그대로.
+ * 알려진 사이트만 본다. 점이 든 이름(will.i.am), 공백이 든 글은 검색어로 둔다
+ */
+function withSiteScheme(text: string): string {
+  if (!text || /\s/.test(text) || /^[a-z][a-z\d+.-]*:\/\//i.test(text) || /^spotify:/i.test(text)) return text;
+  const full = `https://${text}`;
+  return isKnownSiteHost(full) ? full : text;
+}
+
 // ── 링크인가 ──
 
 /** http, https 주소인가. 링크가 아닌 텍스트(검색어)와 구분한다 */
@@ -211,4 +223,4 @@ function isHttpLink(value: unknown): boolean {
   }
 }
 
-export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotify, isSoundCloudURL, parseSoundCloud, isKnownSiteHost };
+export { isHttpLink, readSiteUrl, parseYouTube, isYouTubeHost, isYouTubeURL, isYouTubePlaylist, youtubeWatchUrl, extractVideoId, extractPlaylistId, youtubeListOf, isSpotifyURL, parseSpotify, isSoundCloudURL, parseSoundCloud, isKnownSiteHost, withSiteScheme };
