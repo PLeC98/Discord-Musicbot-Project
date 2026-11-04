@@ -433,6 +433,9 @@
 html {
   scroll-behavior: smooth;
   -webkit-tap-highlight-color: transparent;
+  /* 글자 표시가 기본인 문자(♥, ❤, ☺, ↔ 등)는 VS16(FE0F)이 붙을 때만 이모지로. 없으면 맨 앞의 Musicbot Twemoji 가 ♥ 까지 이모지로 그린다.
+     크롬, 엣지 131 이상, 파이어폭스 141 이상. 사파리는 지원하지 않는다(iOS 는 기기 이모지라 상관없고, 맥은 ♥ 도 이모지로 보인다) */
+  font-variant-emoji: unicode;
 }
 
 /* 로그인 화면은 문서 끝에서 튕기지 않는다(iOS 사파리는 스크롤할 것이 없어도 문서를 튕겨 고정된 배경화면 밖의 바탕이 드러난다) */
