@@ -14,9 +14,10 @@ const FLING = 0.5; // px/ms 이상으로 놓으면 거리와 상관없이
 const RESIST = 0.25; // 넘길 수 없는 쪽으로는 손가락 이동의 이 비율만 따라온다
 const SLIDE_MS = 250; // 띠가 옆 칸까지, 제자리로 미끄러지는 시간(화면의 transition 과 같다)
 const ANSWER_MS = 1000; // 넘기기 답을 이만큼까지 기다린다(늦으면 넘기지 못한 것으로)
+const EXIT_SHADOW = 32; // 화면 밖으로 나갈 때 그림자(번짐 24px)까지 지나가는 여유(px)
 
-/** next, previous: 넘겼으면 true */
-type Actions = { canNext: () => boolean; canPrevious: () => boolean; next: () => Promise<boolean>; previous: () => Promise<boolean> };
+/** next, previous: 넘겼으면 true. current: 화면이 그리는 지금 곡을 가리키는 값(넘긴 뒤 화면이 새 곡을 받았는지 본다) */
+type Actions = { canNext: () => boolean; canPrevious: () => boolean; next: () => Promise<boolean>; previous: () => Promise<boolean>; current: () => unknown };
 
 /** el: 지금 칸. 옆 칸까지의 거리는 다음 칸(data-art-next)의 위치로 잰다 */
 export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
@@ -27,12 +28,19 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
   let start: { id: number; x: number; y: number } | null = null;
   let engaged = false;
   let last = { x: 0, t: 0, v: 0 };
+  /** 끌기를 시작할 때 잰 옆 칸까지의 거리. 옆 칸이 지금 칸과 따로 움직이는 화면이 있어 끄는 중에는 다시 재지 않는다 */
+  let measured: { next: number; previous: number } | null = null;
 
   const width = () => el.value?.offsetWidth || 300;
-  // 지금 칸에서 옆 칸까지(칸 폭 + 간격, 화면이 넓으면 옆 칸이 화면 밖에 있게 더 멀다). 옆 칸을 같은 자리에 겹쳐 둔 화면은 칸 폭
-  const step = () => {
-    const next = el.value?.parentElement?.querySelector<HTMLElement>("[data-art-next]");
-    return Math.max(width(), next && el.value ? Math.abs(next.getBoundingClientRect().left - el.value.getBoundingClientRect().left) : 0);
+  // 지금 칸에서 그쪽 옆 칸(data-art-next, data-art-previous)까지(칸 폭 + 간격, 화면이 넓으면 옆 칸이 화면 밖에 있게 더 멀다).
+  // 다음 칸을 같은 자리 뒤에 겹쳐 둔 화면은 지금 칸이 화면 왼쪽 밖(그림자까지)으로 나가는 거리
+  const step = (toNext: boolean) => {
+    const here = el.value?.getBoundingClientRect();
+    const side = el.value?.parentElement?.querySelector<HTMLElement>(toNext ? "[data-art-next]" : "[data-art-previous]");
+    if (!here || !side) return width();
+    const gap = Math.abs(side.getBoundingClientRect().left - here.left);
+    if (gap >= width()) return gap;
+    return toNext ? Math.max(width(), here.right + EXIT_SHADOW) : width();
   };
   const style = computed(() => (dx.value === 0 && !animating.value ? undefined : { translate: `${dx.value}px 0` }));
   const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -57,6 +65,7 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
         return;
       }
       engaged = true;
+      measured = { next: step(true), previous: step(false) };
       swiped.value = true;
       holding.value = true;
       animating.value = false;
@@ -70,6 +79,7 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
 
   // 띠를 제자리로 미끄러뜨린 뒤 붙잡은 그림을 놓는다
   async function back() {
+    measured = null;
     animating.value = true;
     dx.value = 0;
     await wait(SLIDE_MS);
@@ -98,13 +108,23 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
     return slide(toNext);
   }
 
+  // 넘겼다는 답이 와도 화면의 곡 상태는 늦게 올 수 있다(실시간 알림). 지금 곡이 바뀔 때까지(ANSWER_MS 까지) 그림을 붙잡아 둔다. 놓으면 옛 곡 그림이 잠깐 다시 그려진다
+  async function arrived(before: unknown) {
+    const until = performance.now() + ANSWER_MS;
+    while (act.current() === before && performance.now() < until) await new Promise((r) => requestAnimationFrame(r));
+  }
+
   // 옆 칸까지 미끄러지는 동안 곡을 넘긴다
   async function slide(toNext: boolean) {
+    const before = act.current();
     animating.value = true;
-    dx.value = toNext ? -step() : step();
+    const distance = measured ?? { next: step(true), previous: step(false) };
+    measured = null;
+    dx.value = toNext ? -distance.next : distance.previous;
     const answer = Promise.race([(toNext ? act.next() : act.previous()).catch(() => false), wait(ANSWER_MS).then(() => false)]);
     const [moved] = await Promise.all([answer, wait(SLIDE_MS)]);
     if (!moved) return back();
+    await arrived(before);
     // 같은 프레임에: 띠는 움직임 없이 제자리로, 가운데 칸은 새 곡(화면이 붙잡은 그림을 놓아서)
     animating.value = false;
     dx.value = 0;

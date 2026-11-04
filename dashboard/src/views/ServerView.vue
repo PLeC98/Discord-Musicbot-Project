@@ -122,9 +122,9 @@
                  옆 칸은 칸 폭 + 2.5rem, 화면이 칸보다 넓으면 화면 밖에 둔다. 화면 끝까지 보이고 그 밖은 화면 맨 바깥 상자가 자른다.
                  옆 곡의 앨범아트를 미리 불러 두어 넘어간 뒤 가운데에 바로 그려진다. 앨범아트가 없으면 지금 칸과 같은 아이콘(넘어가며 아이콘이 바뀌지 않게)
                  사이드 드로어 쓸기는 여기서 받지 않는다(data-no-swipe). 밀었으면 크게 보기는 열지 않는다.
-                 낮은 화면(가로)은 옆에 글, 조작이 있어 띠를 옆으로 밀 자리가 없다: 세 칸을 같은 자리에 겹쳐 두고 바꾼다(stack) -->
+                 낮은 화면(가로)은 오른쪽에 글, 조작이 있어 띠를 왼쪽으로만 움직이고 다음 곡은 같은 자리 뒤에서 나타난다(stack) -->
             <div class="relative size-[min(100cqw,100cqh)] shrink-0" :class="artSwipe.animating.value && !short && 'transition-[translate] duration-250 ease-smooth'" :style="short ? undefined : [ART_STEP, artSwipe.style.value]">
-              <span v-if="art.hasPrevious" aria-hidden="true" :class="[ART_SIDE, short ? stackMotion : '-translate-x-(--art-step)']" :style="short ? stack.previous : undefined"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
+              <span v-if="art.hasPrevious" data-art-previous aria-hidden="true" :class="[ART_SIDE, short ? stackMotion : '-translate-x-(--art-step)']" :style="short ? stack.previous : undefined"><img v-if="phoneArt.previous" :src="phoneArt.previous" alt="" draggable="false" class="size-full object-cover" :style="previousZoom > 1 ? { scale: previousZoom } : undefined" @load="noteArt($event, art.previous)" @error="noteArt($event, art.previous)" /><Icon v-else name="audio_file" :size="64" /></span>
               <span v-if="art.hasNext" data-art-next aria-hidden="true" :class="[ART_SIDE, short ? stackMotion : 'translate-x-(--art-step)']" :style="short ? stack.next : undefined"><img v-if="phoneArt.next" :src="phoneArt.next" alt="" draggable="false" class="size-full object-cover" :style="nextZoom > 1 ? { scale: nextZoom } : undefined" @load="noteArt($event, art.next)" @error="noteArt($event, art.next)" /><Icon v-else name="audio_file" :size="64" /></span>
               <button
                 v-if="art.now"
@@ -510,6 +510,7 @@ const artSwipe = useArtSwipe(artSwipeEl, {
   canPrevious: () => previousEnabled(player.value) && !isBusy("previous"),
   next: skip,
   previous,
+  current: () => player.value.currentTrack?.entry ?? player.value.currentTrack?.url,
 });
 const shuffle = () => send("shuffle", "shuffle", undefined, P.failed.shuffle);
 
@@ -722,16 +723,23 @@ const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
 const deskZoom = useArtZoom(() => deskArt.value, true);
 // 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
 const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
-// 낮은 화면의 겹쳐 바꾸기: 지금 앨범아트는 손가락을 틈(1.5rem)까지만 따라가며 흐려지고 작아지고, 넘어갈 쪽 앨범아트가 그 뒤 같은 자리에서 나타나며 커진다.
-// 진행은 미는 거리 ÷ 앨범아트 폭(넘기면 composables/art-swipe 가 폭만큼 끝까지 민다). 손을 떼고 끝까지, 제자리로 가는 동안은 띠와 같은 넘김
-const STACK_SHIFT_REM = 1.5;
+// 낮은 화면(가로)의 넘기기: 앨범아트 왼쪽은 비어 있고 오른쪽에는 글, 조작이 있다. 그래서 왼쪽으로만 띠처럼 움직인다.
+// 다음 곡: 지금 앨범아트가 손가락을 따라 왼쪽으로 나가고, 다음 곡 앨범아트가 같은 자리 뒤에서 커지며 나타난다.
+// 이전 곡: 이전 곡 앨범아트가 왼쪽(칸 폭 + 2.5rem)에서 손가락을 따라 들어오고, 지금 앨범아트는 제자리에서 흐려지고 작아지며 뒤로 물러난다.
+// 진행은 미는 거리 ÷ 옆 칸까지의 거리(넘기면 composables/art-swipe 가 그 거리만큼 끝까지 민다). 손을 떼고 끝까지, 제자리로 가는 동안은 띠와 같은 넘김
+const STACK_GAP_REM = 2.5;
 const STACK_SCALE = 0.08;
 const stack = computed(() => {
   const dx = artSwipe.dx.value;
-  const p = Math.min(1, Math.abs(dx) / (artSwipeEl.value?.offsetWidth || 300));
-  const shift = Math.max(-rem(STACK_SHIFT_REM), Math.min(rem(STACK_SHIFT_REM), dx * 0.25));
-  const side = (shown: boolean) => ({ opacity: shown ? p : 0, scale: 1 - STACK_SCALE * (1 - p) });
-  return { now: { translate: `${shift}px 0`, scale: 1 - STACK_SCALE * p, opacity: 1 - p }, next: side(dx < 0), previous: side(dx > 0) };
+  const width = artSwipeEl.value?.offsetWidth || 300;
+  const toPrevious = dx > 0;
+  const p = Math.min(1, Math.abs(dx) / (toPrevious ? width + rem(STACK_GAP_REM) : width));
+  return {
+    now: toPrevious ? { scale: 1 - STACK_SCALE * p, opacity: 1 - p } : { translate: `${dx}px 0` },
+    next: { opacity: dx < 0 ? p : 0, scale: 1 - STACK_SCALE * (1 - p) },
+    // 쉴 때는 숨긴다(왼쪽 빈 곳이 좁으면 가장자리가 보인다). 들어오는 동안은 물러나는 지금 앨범아트 위로
+    previous: { translate: `calc(${toPrevious ? dx : 0}px - 100% - ${STACK_GAP_REM}rem) 0`, opacity: toPrevious ? 1 : 0, zIndex: toPrevious ? 1 : undefined },
+  };
 });
 const stackMotion = computed(() => (artSwipe.animating.value ? "transition-[translate,scale,opacity] duration-250 ease-smooth" : ""));
 const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";
