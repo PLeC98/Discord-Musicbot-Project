@@ -55,6 +55,13 @@ function createTables(db: Db) {
       id          TEXT    PRIMARY KEY,
       added_at    INTEGER NOT NULL
     );
+
+    -- 대시보드 입력란이 앱 이모지를 그리는 문자(보조 사용자 정의 영역, U+F0000 ~). 키는 아이콘이면 icon:이름, 그 밖은 id:id.
+    -- 한 번 준 문자는 다시 쓰지 않는다(열린 탭의 입력란이 옛 문자를 들고 있어도 다른 이모지가 되지 않게). store/app-emoji-records
+    CREATE TABLE IF NOT EXISTS app_emoji_chars (
+      key         TEXT    PRIMARY KEY,
+      codepoint   INTEGER NOT NULL UNIQUE
+    );
   `);
 }
 

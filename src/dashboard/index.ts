@@ -26,6 +26,7 @@ import * as aiRequests from "../store/ai-requests.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { createGuildsRouter } from "./routes/guilds.ts";
 import { identityRouter } from "./routes/identity.ts";
+import { appEmojisRouter } from "./routes/app-emojis.ts";
 import { createLoginDevicesRouter } from "./routes/login-devices.ts";
 import { noteDevice } from "./login-devices.ts";
 import * as geoip from "./geoip.ts";
@@ -191,6 +192,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use("/api/admin", adminRouter);
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());
+  app.use("/api/app-emojis", appEmojisRouter);
 
   // 지금 로그인한 사용자(/api/me), 로그인 전 화면이 쓰는 봇의 공개 정보(/api/bot)
   app.use("/api/me/devices", createLoginDevicesRouter({ places: geoip }));
