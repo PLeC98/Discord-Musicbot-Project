@@ -51,7 +51,8 @@ async function framesOf(source: Buffer): Promise<{ frames: Frame[]; delay?: numb
   if (pages > MAX_FRAMES || width * height > MAX_FRAME_PIXELS) throw codedError("EMOJI_IMAGE_TOO_BIG", `프레임 ${pages}개, ${width}×${height}`);
   const frames: Frame[] = [];
   for (let page = 0; page < pages; page++) {
-    const { data, info } = await sharp(source, { page }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    // 브라우저처럼 EXIF 방향대로 세운 이미지 위에서 편집한다(휴대폰 사진)
+    const { data, info } = await sharp(source, { page, autoOrient: true }).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     frames.push({ data, width: info.width, height: info.height });
   }
   return { frames, delay: meta.delay, loop: meta.loop };

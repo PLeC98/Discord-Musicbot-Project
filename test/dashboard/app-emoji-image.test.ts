@@ -43,6 +43,18 @@ test("90도 돌리면 빨강이 오른쪽 위로, 돌린 뒤 뒤집으면 다시
   assert.ok(near(await colorAt(flipped.data, 120, 5), BLUE));
 });
 
+test("EXIF 방향이 있는 JPEG 는 세운 이미지 위에서 자른다(브라우저가 보이는 대로)", async () => {
+  // 방향 6: 시계 방향으로 90도 돌려 보인다. 보이는 이미지는 100×200, 빨강은 오른쪽 위
+  const jpeg = await sharp(await marked(200, 100))
+    .jpeg()
+    .withMetadata({ orientation: 6 })
+    .toBuffer();
+  const out = await makeEmojiImage(jpeg, edit({ top: 100 }));
+  assert.ok(near(await colorAt(out.data, 5, 5), BLUE));
+  const top = await makeEmojiImage(jpeg, edit({}));
+  assert.ok(near(await colorAt(top.data, 120, 5), RED));
+});
+
 test("자를 영역이 돌린 이미지 밖이면 거절", async () => {
   // 90도 돌리면 100×200 이라 왼쪽 150 은 밖이다
   await assert.rejects(makeEmojiImage(await marked(200, 100), edit({ rotate: 90, left: 150 })), { code: "EMOJI_EDIT" });
