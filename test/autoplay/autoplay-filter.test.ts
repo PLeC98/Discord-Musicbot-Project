@@ -68,6 +68,31 @@ test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
   assert.equal(judge("A, B, C, D - Song (ft E)").ok, true);
 });
 
+test("라이브 날짜 안의 연도, 숫자 사이의 쉼표는 세지 않는다(한 곡 영상)", () => {
+  assert.equal(judge('YOASOBI「UNDEAD」 from 『LIVE 2024 "超現実"』2024.11.10@東京ドーム').ok, true);
+  assert.equal(judge("Song at Arena (2019/3/17) 2019.8.28 Best Album Release").ok, true);
+  assert.equal(judge("Song live 11-10-2024 (2020 ver.)").ok, true);
+  assert.equal(judge("1, 2, 3, 4").ok, true);
+  // 연도 범위, 아티스트 나열은 그대로 생김새다
+  assert.equal(judge("Hits 2010 - 2020").reason, "믹스 생김새");
+  assert.equal(judge("Top 10 - Adele, Sia, Lorde, Dua Lipa").reason, "믹스 생김새");
+});
+
+test("공식, 가사 영상 표식: 公式, FullMV, 괄호 안의 lyrics, 가사", () => {
+  assert.equal(judge("【公式】曲名 🌸🌸").ok, true);
+  assert.equal(judge("【東方Vocal】曲名 🌸🌸【FullMV】").ok, true);
+  assert.equal(judge("🎢👏 신나는 노래 : Artist - Song [가사/번역/해석/Lyrics]").ok, true);
+  assert.equal(judge("Song - Artist [Romaji, Español, English, Lyrics]").ok, true);
+  assert.equal(judge("Artist - Song 🌊🔥 (Lyric Video)").ok, true);
+  // 글 속의 lyrics 는 모음 제목에도 나온다
+  assert.equal(judge("Smooth Jazz | Uplifting Lyrics to Heal (1 Hour)", 3600, { maxDurationSec: null }).reason, "믹스 생김새");
+});
+
+test("official 은 따로 쓰인 낱말일 때만 곡 표식이다(Official髭男dism 은 밴드 이름)", () => {
+  assert.equal(judge("Official髭男dism 노래 모음 🌸🌸").reason, "믹스 생김새");
+  assert.equal(judge("Official髭男dism - Pretender［Official Video］ 🌸🌸").ok, true);
+});
+
 test("fat, fet 같은 단어는 곡 표식이 아니다", () => {
   // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
   assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");

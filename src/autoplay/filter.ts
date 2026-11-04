@@ -28,19 +28,25 @@ function emojiCount(title: string): number {
   return count;
 }
 
+// 날짜(2024.11.10, 2024-11-10, 11/10/2024) 안의 연도는 세지 않는다. 라이브 한 곡 영상이 공연 날짜를 적는다
+const DATE = /\b(?:(?:19|20)\d\d[./-]\d{1,2}[./-]\d{1,2}|\d{1,2}[./-]\d{1,2}[./-](?:19|20)\d\d)\b/g;
+const yearCount = (t: string) => (t.replace(DATE, " ").match(/\b(19|20)\d\d\b/g) || []).length;
+// 숫자 사이의 쉼표("1, 2, 3, 4" 같은 곡 이름)는 세지 않는다
+const commaCount = (t: string) => (t.replace(/\d\s*,(?=\s*\d)/g, " ").match(/,/g) || []).length;
+
 // 제목이 "여러 곡을 이어 붙인 것"임을 알리는 생김새.
 const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
-  ["연도 둘 이상", (t) => (t.match(/\b(19|20)\d\d\b/g) || []).length >= 2],
-  ["쉼표 셋 이상", (t) => (t.match(/,/g) || []).length >= 3], // 아티스트를 나열한 컴필레이션
+  ["연도 둘 이상", (t) => yearCount(t) >= 2],
+  ["쉼표 셋 이상", (t) => commaCount(t) >= 3], // 아티스트를 나열한 컴필레이션
   // 셋으로 올리면 900초 넘는 모음 대부분을 놓친다
   ["이모지 둘 이상", (t) => emojiCount(t) >= 2],
   ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
 ];
 
-// 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 셋 다 거의 늘 한 곡이다.
-// (공식 뮤직비디오 제목에는 이모지가 흔하다.)
-// feat, ft 만 센다. fe?a?t 로 적으면 "fat", "fet" 도 걸린다
-const SONG_MARKS = /official|\bm\/?v\b|\b(?:feat|ft)\b\.?/i;
+// 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 거의 늘 한 곡이다(공식 뮤직비디오, 가사 영상 제목에는 이모지, 언어 목록이 흔하다).
+// official 은 앞뒤가 글자가 아닐 때만(Official髭男dism 은 밴드 이름이다). feat, ft 만 센다. fe?a?t 로 적으면 "fat", "fet" 도 걸린다.
+// 가사 영상 표식(lyrics, 가사)은 괄호 안이나 "lyric video" 로만 본다. 글 속의 lyrics 는 모음 제목에도 나온다("… uplifting lyrics … (1 hour)")
+const SONG_MARKS = /(?<!\p{L})official(?!\p{L})|公式|\bm\/?v\b|fullmv|[[(（【][^\])）】]*(?:\blyrics?\b|가사)|\blyrics? video\b|\b(?:feat|ft)\b\.?/iu;
 
 // 단어 경계를 쓸 수 있는 제외 키워드인지. 로마자, 숫자, 공백뿐이면 쓴다.
 // 한국어, 일본어에는 \b가 뜻대로 동작하지 않으므로 그때는 그냥 포함 여부를 본다.
