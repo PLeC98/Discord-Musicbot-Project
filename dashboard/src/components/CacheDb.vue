@@ -16,7 +16,7 @@
       <span class="mx-1 h-5 w-px bg-outline-variant"></span>
       <BaseButton variant="ghost" size="sm" :disabled="table === 'age' || !selectedKeys().length" v-tooltip="T.tools.probeTip" @click="probe(selectedKeys())"><Icon name="fact_check" :size="16" />{{ checking.length ? T.tools.probing(checking.length) : T.tools.probe }}</BaseButton>
       <BaseButton v-if="botChanged" type="button" size="sm" @click="reload()">{{ T.botChanged }}</BaseButton>
-      <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" type="text" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
+      <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
         <template #leading><Icon name="search" :size="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
       </SearchInput>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.tools.shortcuts" :aria-expanded="showKeys" v-tooltip="T.tools.shortcuts" @click.stop="showKeys = !showKeys"><Icon name="help" :size="18" /></button>

@@ -22,7 +22,7 @@
           </div>
           <div v-else key="input" class="h-full flex items-center gap-1 pl-3 pr-1">
             <Icon name="add" :size="24" class="text-on-surface-variant shrink-0" />
-            <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" :disabled="adding" />
+            <SearchInput v-model="query" class="flex-1 min-w-0 h-full" input-class="w-full h-full bg-transparent px-2 text-sm text-on-surface outline-none placeholder:text-on-surface-variant" :placeholder="T.addPlaceholder" enterkeyhint="send" :disabled="adding" />
             <button type="submit" :class="iconButton(40, 'filled')" :disabled="adding || !query.trim()" :aria-label="T.addSubmit"><Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding ? 'animate-spin' : ''" /></button>
           </div>
         </Transition>

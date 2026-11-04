@@ -33,7 +33,7 @@
         </CollapseTransition>
       </div>
 
-      <SearchInput v-model="query.q" type="text" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full pl-10!']">
+      <SearchInput v-model="query.q" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full pl-10!']">
         <template #leading><Icon name="search" :size="20" class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
       </SearchInput>
 

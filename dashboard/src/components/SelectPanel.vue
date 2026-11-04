@@ -11,7 +11,7 @@
       <Transition name="menu">
         <div v-if="open" ref="panel" :class="panelCls" :style="style">
           <div v-if="searchable" class="shrink-0 p-1 border-b border-outline-variant/50">
-            <SearchInput ref="box" v-model="term" type="text" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
+            <SearchInput ref="box" v-model="term" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
           </div>
           <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
           <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px 로(useOverflowing) -->
