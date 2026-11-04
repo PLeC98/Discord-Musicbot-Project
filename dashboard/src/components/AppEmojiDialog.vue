@@ -2,9 +2,9 @@
   <!-- 앱 이모지 추가 창(디스코드 서버 설정의 "이모지 추가" 창과 같은 편집): 정사각형 틀, 확대, 90도 회전, 좌우 반전, 이름, 미리보기.
        원본 파일과 편집 값을 그대로 보내고 봇이 원본에서 만든다(움직이는 GIF, WebP 가 움직임을 잃지 않게) -->
   <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(ImageCropper 의 room)도 이 여백으로 계산한다 -->
-  <BaseDialog :open="open" width="xl" padding="editor" class="flex flex-col gap-3" :aria-label="T.title" @close="!busy && (open = false)">
-    <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
-    <ImageCropper ref="cropper" :file="file" :aspect="1" turn />
+  <BaseDialog :open="open" width="xl" padding="editor" scroll class="flex flex-col gap-3" :aria-label="T.title" @close="!busy && (open = false)">
+    <h3 ref="titleEl" class="text-xl font-round font-semibold">{{ T.title }}</h3>
+    <ImageCropper ref="cropper" :file="file" :aspect="1" turn :max-height="viewMax" />
 
     <!-- 이름과 미리보기: 넓으면 나란히, 좁으면 위아래 -->
     <div class="@container/emoji">
@@ -29,25 +29,24 @@
       <p v-if="issue" class="mt-1 text-xs text-error">{{ issue }}</p>
     </div>
 
-    <!-- 봇이 거절한 까닭(이미지, 한도 등). 알림은 이 창 아래에 깔려 창 안에 보인다 -->
-    <NoticeBox v-if="failure" variant="note" tone="error" icon="cancel" class="mt-0!">
-      <span class="min-w-0"
-        ><span class="block font-medium">{{ failure.title }}</span
-        ><span v-if="failure.body" class="block">{{ failure.body }}</span></span
-      >
-    </NoticeBox>
-
-    <div class="flex gap-2 justify-end">
-      <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
-      <BaseButton variant="ghost" class="mr-auto" :disabled="!cropper?.ready || busy" @click="cropper?.reset()">{{ text.appearance.crop.reset }}</BaseButton>
-      <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
-      <BaseButton :disabled="!canAdd" @click="submit">{{ T.add }}</BaseButton>
+    <!-- 버튼 줄. 봇이 거절한 까닭(이미지, 한도 등)은 알림이 이 창 아래에 깔려 이 줄에 보인다: 넓으면 재설정과 취소 사이, 좁으면 버튼 위 한 줄.
+         창이 화면보다 길어지면 판 안에서 스크롤한다 -->
+    <div class="@container/foot">
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
+        <BaseButton variant="ghost" :disabled="!cropper?.ready || busy" @click="cropper?.reset()">{{ text.appearance.crop.reset }}</BaseButton>
+        <p v-if="failure" class="min-w-0 text-xs text-error order-first basis-full @md/foot:order-none @md/foot:basis-0 @md/foot:flex-1" role="alert">
+          <span class="font-medium">{{ failure.title }}</span> {{ failure.body }}
+        </p>
+        <BaseButton variant="ghost" class="ml-auto" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
+        <BaseButton :disabled="!canAdd" @click="submit">{{ T.add }}</BaseButton>
+      </div>
     </div>
   </BaseDialog>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import axios from "axios";
 import BaseDialog from "./BaseDialog.vue";
 import BaseButton from "./BaseButton.vue";
@@ -55,7 +54,6 @@ import ImageCropper from "./ImageCropper.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { composing } from "../utils/dom.ts";
 import { problemNotice } from "../utils/problem.ts";
-import NoticeBox from "./NoticeBox.vue";
 import { LIMIT, problemCodeOf, replyOf } from "../utils/request.ts";
 import { appEmojis, nameIssueText, nameProblem } from "../composables/app-emojis.ts";
 import type { AppEmojiItem } from "../../../src/dashboard/contract/app-emojis.ts";
@@ -117,6 +115,30 @@ const issue = computed(() => {
   return nameIssueText(code) ?? "";
 });
 const canAdd = computed(() => !!cropper.value?.ready && !!name.value && !issue.value && !busy.value);
+
+// 창이 화면에 들어가게 편집 면의 높이를 맞춘다: 화면 높이에서 창 바깥 틈(위아래 16px), 편집 면 밖의 내용(이름, 미리보기, 오류, 버튼), 보는 창의 틈을 뺀다.
+// 창 크기나 내용이 바뀔 때마다 다시 잰다(편집 면 밖의 내용 높이는 편집 면 높이와 상관없어 한 번에 맞는다)
+const MIN_VIEW = 96;
+const titleEl = ref<HTMLElement | null>(null);
+const viewMax = ref<number>();
+function fitHeight() {
+  const panel = titleEl.value?.parentElement;
+  const c = cropper.value;
+  if (!panel || !c) return;
+  const others = panel.scrollHeight - c.viewportHeight;
+  viewMax.value = Math.max(MIN_VIEW, innerHeight - 32 - others - 32);
+}
+let watcher: ResizeObserver | null = null;
+watch(titleEl, (el) => {
+  watcher?.disconnect();
+  watcher = el?.parentElement ? new ResizeObserver(fitHeight) : null;
+  if (el?.parentElement) watcher?.observe(el.parentElement);
+});
+addEventListener("resize", fitHeight);
+onBeforeUnmount(() => {
+  watcher?.disconnect();
+  removeEventListener("resize", fitHeight);
+});
 
 /** 미리보기 칸(px 정사각형)에 선택한 영역이 꽉 차게: 돌린 이미지 상자를 옮기고 그 안에 편집 면과 같은 돌림으로 */
 function previewOf(px: number) {

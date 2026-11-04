@@ -40,8 +40,8 @@ import { iconButton } from "../utils/icon-button.ts";
 import { text } from "../text/index.ts";
 const T = text.appearance.crop;
 
-/** file: 자를 이미지. aspect: 가로 ÷ 세로(1 이면 정사각형). turn: 회전, 반전 버튼을 둔다 */
-const props = withDefaults(defineProps<{ file: File | null; aspect: number; turn?: boolean }>(), { turn: false });
+/** file: 자를 이미지. aspect: 가로 ÷ 세로(1 이면 정사각형). turn: 회전, 반전 버튼을 둔다. maxHeight: 보는 창에 이미지가 차지할 높이의 상한(px, 없으면 화면 높이의 60%) */
+const props = withDefaults(defineProps<{ file: File | null; aspect: number; turn?: boolean; maxHeight?: number }>(), { turn: false, maxHeight: undefined });
 
 type Corner = "nw" | "ne" | "sw" | "se";
 type Rotation = 0 | 90 | 180 | 270;
@@ -61,14 +61,21 @@ const rotate = ref<Rotation>(0);
 const flip = ref(false);
 /** 선택한 영역(돌리고 뒤집은 이미지의 px) */
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
-/** 화면 px ÷ 원본 px(확대 전) */
-const fitScale = ref(1);
+/** 보는 창 안쪽 폭(틈을 뺀 것), 화면 높이. 창 크기가 바뀌면 다시 잰다 */
+const room = reactive({ width: 0, height: innerHeight });
 let image: HTMLImageElement | null = null;
 
 const ready = computed(() => natural.width > 0);
 /** 돌린 이미지의 크기(90도, 270도면 가로세로가 바뀐다) */
 const size = computed(() => (rotate.value % 180 ? { width: natural.height, height: natural.width } : { width: natural.width, height: natural.height }));
 /** 보는 창 높이. 돌릴 수 있으면 어느 방향이든 들어가는 높이로 둬 돌릴 때 창이 들썩이지 않게 */
+/** 화면 px ÷ 원본 px(확대 전): 안쪽 폭과 높이 상한 안에. 돌릴 수 있으면 긴 변이 어느 쪽으로 가도 들어가게 */
+const fitScale = computed(() => {
+  if (!natural.width) return 1;
+  const long = Math.max(natural.width, natural.height);
+  const [w, h] = props.turn ? [long, long] : [natural.width, natural.height];
+  return Math.max(0.01, Math.min(1, room.width / w, (props.maxHeight ?? room.height * 0.6) / h));
+});
 const viewHeight = computed(() => (props.turn ? Math.max(natural.width, natural.height) : size.value.height) * fitScale.value);
 
 const viewportEl = ref<HTMLElement | null>(null);
@@ -136,13 +143,9 @@ watch(
     img.onload = () => {
       if (url.value !== src) return;
       image = img;
+      measure();
       natural.width = img.naturalWidth;
       natural.height = img.naturalHeight;
-      // 보는 창 안쪽 폭(틈을 뺀 것), 화면 높이의 60% 안에. 돌릴 수 있으면 긴 변이 어느 쪽으로 가도 들어가게
-      const room = (viewportEl.value?.clientWidth ?? Math.min(524, innerWidth - 72)) - EDGE * 2;
-      const long = Math.max(natural.width, natural.height);
-      const [w, h] = props.turn ? [long, long] : [natural.width, natural.height];
-      fitScale.value = Math.min(1, room / w, (innerHeight * 0.6) / h);
       fit();
     };
     img.src = src;
@@ -150,7 +153,16 @@ watch(
   { immediate: true },
 );
 
-onBeforeUnmount(() => url.value && URL.revokeObjectURL(url.value));
+// 보는 창 폭을 재기 전(열리는 중)에는 편집 창 폭으로 추산한다
+function measure() {
+  room.width = (viewportEl.value?.clientWidth ?? Math.min(524, innerWidth - 72)) - EDGE * 2;
+  room.height = innerHeight;
+}
+addEventListener("resize", measure);
+onBeforeUnmount(() => {
+  removeEventListener("resize", measure);
+  if (url.value) URL.revokeObjectURL(url.value);
+});
 
 // 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭, 높이에 대한 비율로)
 watch(zoom, async () => {
@@ -215,8 +227,8 @@ function moveTo(e: PointerEvent) {
 }
 
 /**
- * 부르는 쪽(편집 창)이 쓰는 것. sel, size: 돌리고 뒤집은 이미지의 px. image: 읽은 원본(읽기 전 null).
+ * 부르는 쪽(편집 창)이 쓰는 것. sel, size: 돌리고 뒤집은 이미지의 px. image: 읽은 원본(읽기 전 null). viewportHeight: 보는 창의 높이(px, 틈 포함).
  * imageStyle 로 같은 돌림을 미리보기에도 쓴다
  */
-defineExpose({ url, natural, size, sel, rotate, flip, ready, image: () => image, imageStyle, reset });
+defineExpose({ url, natural, size, sel, rotate, flip, ready, image: () => image, imageStyle, reset, viewportHeight: computed(() => viewHeight.value + EDGE * 2) });
 </script>
