@@ -143,6 +143,22 @@ test("정보: 못 트는 까닭이 분명하면(비공개, 연령 제한) 던진
   assert.equal(result.success ? "" : plainText(errorMessage(result.error)), "접근할 수 없거나 존재하지 않는 영상이에요!\n비공개이거나 삭제된 콘텐츠는 틀 수 없어요.");
 });
 
+// 시작 전 라이브(예정된 방송, 최초 공개)는 yt-dlp 가 정보도 주지 않고 실패한다. 넣을 수 있게 포맷 없이 정보만 한 번 더 받는다
+test("정보: 시작 전 라이브는 포맷 없이 정보만 다시 받는다. 스트림은 live-upcoming 으로 던지고 그 정보를 다시 쓰지 않는다", async () => {
+  const id = "uuuuuuuuuuu";
+  respond = (_url, flags) => (flags.ignoreNoFormatsError ? video(id, { live_status: "is_upcoming", is_live: false, duration: null }) : { fail: `ERROR: [youtube] ${id}: This live event will begin in 3 days.` });
+  const track = await YouTube.getInfo(`https://www.youtube.com/watch?v=${id}`);
+  assert.deepEqual([track.isLive, track.liveStatus, calls.map((c) => Boolean(c.flags.ignoreNoFormatsError))], [true, "is_upcoming", [false, true]]);
+
+  calls.length = 0;
+  await assert.rejects(YouTube.getStream(`https://www.youtube.com/watch?v=${id}`), (e) => codeOf(e) === "live-upcoming");
+  assert.deepEqual(
+    calls.map((c) => Boolean(c.flags.ignoreNoFormatsError)),
+    [false],
+    "재생은 포맷이 있어야 한다",
+  );
+});
+
 // ── 스트림 ────────────────────────────────────────────────────────────
 
 test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위치는 ffmpeg 의 -ss 가 정한다)", async () => {

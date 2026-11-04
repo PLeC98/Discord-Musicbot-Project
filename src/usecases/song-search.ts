@@ -7,7 +7,6 @@ import type { SpotifyTrack } from "../sources/spotify.ts";
 import type { TextSearchResult } from "../sources/youtube/text-search.ts";
 import type { TrackInfo } from "../player/track.ts";
 import { mixCounts, uniqueBy } from "../rules/search-mix.ts";
-import { liveBlockReason } from "../rules/live-block-reason.ts";
 
 /** 곡 후보 수(자동완성은 맨 위 줄을 따로 더한다), 결과 화면의 줄 수 */
 const CHOICES = 10;
@@ -50,12 +49,9 @@ type Song = TrackInfo | SpotifyTrack;
 /** 섞은 결과. gated: 유튜브가 연령 인증 안내만 주었고 스포티파이 곡도 없다 */
 type SongResults = { songs: Song[]; gated: boolean };
 
-// 예정 영상(최초 공개, 예정된 방송)은 넣으면 봇이 거절한다(live-upcoming). 봇의 판정을 그대로 쓴다
-const upcoming = (track: Song) => "liveStatus" in track && liveBlockReason(track, { ffmpegReady: () => true }) === "live-upcoming";
-
 /**
  * 대시보드 곡 추가 칸의 검색. 유튜브가 실패하면 던진다(부르는 쪽이 그 까닭을 알린다). 스포티파이는 준비돼 있을 때만, 마감 안에 온 것만 섞는다(늦거나 실패하면 유튜브만).
- * 예정 영상은 섞기 전에 빼서 자리를 다시 채운다. 같은 곡(출처, 제목, 가수, 길이가 같다)은 하나만
+ * 예정 영상(최초 공개, 예정된 방송)도 둔다(넣을 수 있다). 같은 곡(출처, 제목, 가수, 길이가 같다)은 하나만
  */
 async function findSongs(query: string, deps: SearchDeps = {}): Promise<SongResults> {
   const all = depsOf(deps);
@@ -64,10 +60,7 @@ async function findSongs(query: string, deps: SearchDeps = {}): Promise<SongResu
   const outcome = await (spotifyWork ?? (youtube.gated && all.spotifyReady() ? within(all.searchSpotify(query), SPOTIFY_RESULTS_MS) : null));
   const spotify = outcome && "value" in outcome ? outcome.value : [];
   const keyOf = (song: Song) => `${song.platform}\u0000${song.title ?? ""}\u0000${song.artist ?? ""}\u0000${song.duration}`;
-  const fromYouTube = uniqueBy(
-    youtubeOf({ youtube, spotify }).filter((track) => !upcoming(track)),
-    keyOf,
-  );
+  const fromYouTube = uniqueBy(youtubeOf({ youtube, spotify }), keyOf);
   const fromSpotify = uniqueBy(spotify, keyOf);
   const counts = mixCounts(fromYouTube.length, fromSpotify.length, { total: CHOICES, spotifyShare: SPOTIFY_SHARE });
   return { songs: [...fromYouTube.slice(0, counts.youtube), ...fromSpotify.slice(0, counts.spotify)], gated: youtube.gated && fromSpotify.length === 0 };

@@ -97,25 +97,26 @@ test("검색: 검색어 검사. 빈 것, 100자 넘음, 여럿이면 400 bad-que
   assert.deepEqual(searched, ["아이 유"], "두 글자 미만은 검색 모듈까지 가지 않는다");
 });
 
-test("검색: 결과 모양. 정본 주소, 그림, 방송 중, 스포티파이 곡. 지금 곡이나 대기열에 있는 곡은 inQueue(세 주소 중 무엇이든)", async () => {
+test("검색: 결과 모양. 정본 주소, 그림, 방송 중, 시작 전 방송, 스포티파이 곡. 지금 곡이나 대기열에 있는 곡은 inQueue(세 주소 중 무엇이든)", async () => {
   // 대기열: 고정한 곡(pageUrl 이 입력 그대로, requestKey 는 정본), 출처가 있는 자동재생 곡(유튜브 영상은 audioUrl 에만)
   fresh([
     { title: "고정", pageUrl: "https://youtu.be/pinned?si=x", requestKey: "https://www.youtube.com/watch?v=pinned", audioUrl: null },
     { title: "자동재생", pageUrl: "https://www.last.fm/music/x", requestKey: "lastfm:x", audioUrl: "https://youtu.be/auto" },
   ]);
-  answer = async () => ({ songs: [yt("pinned"), yt("auto"), yt("new", { isLive: true, liveStatus: "is_live", duration: 0 }), sp], gated: false });
+  answer = async () => ({ songs: [yt("pinned"), yt("auto"), yt("new", { isLive: true, liveStatus: "is_live", duration: 0 }), yt("soon", { isLive: true, liveStatus: "is_upcoming", duration: 0 }), sp], gated: false });
   const r = await get("q=아이유");
   assert.equal(r.status, 200);
   assert.deepEqual(
-    r.json.tracks.map((t) => [t.url, t.inQueue, t.isLive, t.platform]),
+    r.json.tracks.map((t) => [t.url, t.inQueue, t.isLive, t.upcoming, t.platform]),
     [
-      ["https://www.youtube.com/watch?v=pinned", true, false, "youtube"],
-      ["https://www.youtube.com/watch?v=auto", true, false, "youtube"],
-      ["https://www.youtube.com/watch?v=new", false, true, "youtube"],
-      ["https://open.spotify.com/track/abc", false, false, "spotify"],
+      ["https://www.youtube.com/watch?v=pinned", true, false, false, "youtube"],
+      ["https://www.youtube.com/watch?v=auto", true, false, false, "youtube"],
+      ["https://www.youtube.com/watch?v=new", false, true, false, "youtube"],
+      ["https://www.youtube.com/watch?v=soon", false, true, true, "youtube"],
+      ["https://open.spotify.com/track/abc", false, false, false, "spotify"],
     ],
   );
-  assert.deepEqual(r.json.tracks[0], { title: "곡 pinned", artist: "가수", duration: 200, thumbnail: "https://i.ytimg.com/vi/pinned/mqdefault.jpg", platform: "youtube", url: "https://www.youtube.com/watch?v=pinned", isLive: false, inQueue: true });
+  assert.deepEqual(r.json.tracks[0], { title: "곡 pinned", artist: "가수", duration: 200, thumbnail: "https://i.ytimg.com/vi/pinned/mqdefault.jpg", platform: "youtube", url: "https://www.youtube.com/watch?v=pinned", isLive: false, upcoming: false, inQueue: true });
   assert.equal(r.json.gated, false);
 });
 

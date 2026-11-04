@@ -263,22 +263,22 @@ test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 �
   pinnedSources.unpin("https://x/곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming");
 });
 
-// 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
-// 조용히 버리면 디스코드에는 아무 반응이 없어 먹통처럼 보인다. 이유를 말하고 거절한다.
-test("시작 전 방송은 거절하고 이유를 알린다", async () => {
+// 시작 전 방송(예정된 방송, 최초 공개)도 넣는다. 시작에 맞춰 틀려는 사람이 있다. 틀 차례에 아직이면 그때 알리고 넘긴다(player)
+test("시작 전 방송도 넣는다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
   const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/soon", source: "/play" }));
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/soon", source: "/play" }));
 
-  assert.equal(result.success ? null : result.code, "live-upcoming");
-  assert.match(result.success ? "" : plainText(addFailureMessage(result)), /아직 시작되지 않은 라이브예요/);
-  assert.equal(bot.embedCalls.length, 0, "코어까지 가지 않는다");
+  assert.deepEqual(
+    bot.embedCalls[0].trackData.tracks.map((t) => t.title),
+    ["곧 시작"],
+  );
 });
 
-// 재생목록에 시작 전 방송이 섞여 있으면 그것만 빼고 나머지는 넣는다.
-test("재생목록의 시작 전 방송만 필터링하고 나머지는 넣는다", async () => {
+// 재생목록에 시작 전 방송이 섞여 있어도 빼지 않는다
+test("재생목록의 시작 전 방송도 함께 넣는다", async () => {
   mockResolve = () => ({
     success: true,
     isPlaylist: true,
@@ -291,7 +291,7 @@ test("재생목록의 시작 전 방송만 필터링하고 나머지는 넣는�
   await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/list", source: "/play" }));
 
   const sent = bot.embedCalls[0].trackData.tracks.map((t) => t.title);
-  assert.deepEqual(sent, ["보통곡"]);
+  assert.deepEqual(sent, ["곧 시작", "보통곡"]);
 });
 
 // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
@@ -517,8 +517,6 @@ test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 
   assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: no-song-result']);
   assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: lookup-failed(network-error)']);
   assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: unsupported-link']);
-  const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
-  assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: live-upcoming']);
 });
 
 test("로그: 담지 못했으면 그 까닭을 한 줄 더(info). 담았으면 debug 로, 상한으로 뺀 곡 수와 대기열 곡 수", async () => {

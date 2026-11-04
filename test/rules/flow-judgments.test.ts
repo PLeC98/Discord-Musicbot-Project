@@ -25,17 +25,19 @@ test("liveBlockReason: 라이브가 아니면 null, 예정이면 upcoming, ffmpe
   });
   assert.equal(liveBlockReason({ isLive: false }, ready(false)), null);
   assert.equal(liveBlockReason(null, ready(false)), null);
-  assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_upcoming" }, ready(true)), "live-upcoming");
   assert.equal(asked, 0, "라이브로 트는 곡이 아니면 ffmpeg 를 실행해 보지 않는다");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(false)), "live-no-ffmpeg");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(true)), null);
   assert.equal(asked, 2);
+  // 시작 전 라이브는 막지 않는다(틀 차례에 아직이면 그때 넘긴다). 틀 때는 라이브라 ffmpeg 능력은 본다
+  assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_upcoming" }, ready(true)), null);
+  assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_upcoming" }, ready(false)), "live-no-ffmpeg");
   // 직접 링크의 라이브(인터넷 라디오, HLS)는 파이프로 튼다. 주소를 여는 능력이 없어도 넣는다
   for (const audioUrl of ["https://radio.test/stream", "https://h.test/live/index.m3u8"]) {
     assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live", audioUrl }, ready(false)), null, audioUrl);
   }
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }, ready(false)), "live-no-ffmpeg");
-  assert.equal(asked, 3, "직접 링크는 묻지 않는다");
+  assert.equal(asked, 5, "직접 링크는 묻지 않는다");
 });
 
 test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있으면 file, 나머지는 pipe. 라이브는 캐시하지 않는다", () => {

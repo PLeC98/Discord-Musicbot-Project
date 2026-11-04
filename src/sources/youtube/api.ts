@@ -14,6 +14,7 @@ import * as trackLookup from "../../store/track-lookup.ts";
 import * as auth from "./auth.ts";
 import * as run from "./ytdlp-run.ts";
 import * as recentInfo from "./recent-info.ts";
+import * as errors from "./errors.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp } from "../ytdlp-spawn.ts";
 
@@ -81,7 +82,8 @@ function trackOf(item: YtInfo, url: string, artist: string | null | undefined) {
 
 // 영상 정보 한 번: 재생 주소와 같은 옵션(포맷 선택까지)이라 받은 것을 재생 주소, 다운로드가 그대로 다시 쓴다(recent-info).
 // 재생목록이 붙은 영상 주소(watch?v=X&list=Y)도 영상 하나만 묻는다. 재생목록은 getPlaylist 가 따로 연다
-const extractInfo = (url: string, exec?: RunYtDlp) =>
+// infoOnly: 포맷이 없어도 정보를 받는다(시작 전 라이브). 재생, 다운로드에는 쓰지 않는다(포맷이 없다는 실패를 클라이언트 바꾸기가 봐야 한다)
+const extractInfo = (url: string, exec?: RunYtDlp, { infoOnly = false } = {}) =>
   run.runYtDlp(
     url,
     (forceCookies) =>
@@ -90,6 +92,7 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
           dumpSingleJson: true,
           format: run.AUDIO_FORMAT,
           noPlaylist: true,
+          ...(infoOnly ? { ignoreNoFormatsError: true } : {}),
         },
         { forceCookies },
       ),
@@ -97,8 +100,8 @@ const extractInfo = (url: string, exec?: RunYtDlp) =>
   );
 
 // 실패는 모두 던진다(이름은 yt-dlp 를 실행하는 곳이 붙였다). 찾는 쪽이 그 원인을 알린다. 받은 정보는 재생 주소, 다운로드가 다시 쓰게 둔다
-async function fetchInfo(url: string, exec: RunYtDlp | undefined) {
-  const raw = await extractInfo(url, exec);
+async function fetchInfo(url: string, exec: RunYtDlp | undefined, infoOnly = false) {
+  const raw = await extractInfo(url, exec, { infoOnly });
   recentInfo.remember(raw);
   const info = readInfo(raw);
   if (!info) throw new Error(`유튜브 영상 정보: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
@@ -106,8 +109,12 @@ async function fetchInfo(url: string, exec: RunYtDlp | undefined) {
   return info;
 }
 
+// 시작 전 라이브는 넣을 수 있다(틀 차례에 시작했으면 튼다). 그 정보는 포맷 없이 한 번 더 받는다(recent-info 가 기억하지 않는다)
 async function getInfo(url: string, { exec }: { exec?: RunYtDlp } = {}) {
-  const info = await fetchInfo(url, exec);
+  const info = await fetchInfo(url, exec).catch((error: unknown) => {
+    if (!errors.isUpcomingError(error)) throw error;
+    return fetchInfo(url, exec, true);
+  });
   return trackOf(info, info.webpage_url || url, info.uploader || info.channel);
 }
 

@@ -26,6 +26,8 @@ type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbna
   entry: number | null;
   platformLabel: string;
   isLive: boolean;
+  /** 시작 전 라이브(예정된 방송, 최초 공개). isLive 도 참이다 */
+  upcoming: boolean;
   /** 자동재생이 미리 선택해 둔 곡 */
   autoplay: boolean;
   requestedBy: RequesterRef;
@@ -95,8 +97,8 @@ type QueuePage = { items: QueueTrackView[]; total: number };
  */
 type MoreView = Omit<More, "requesterId" | "batch"> & { batch: number; collection: string; lifetimeMs: number; perClick: number | null };
 
-/** 곡 추가 칸의 검색 결과 한 곡. url 은 정본 주소(넣을 때 보낸다), isLive 는 방송 중(예정 영상은 서버가 뺀다), inQueue 는 지금 곡이나 대기열에 같은 곡이 있는지 */
-type SearchTrack = { title: string | null; artist: string | null; duration: number; thumbnail: string | null; platform: string; url: string; isLive: boolean; inQueue: boolean };
+/** 곡 추가 칸의 검색 결과 한 곡. url 은 정본 주소(넣을 때 보낸다), isLive 는 라이브, upcoming 은 그중 시작 전(예정된 방송, 최초 공개), inQueue 는 지금 곡이나 대기열에 같은 곡이 있는지 */
+type SearchTrack = { title: string | null; artist: string | null; duration: number; thumbnail: string | null; platform: string; url: string; isLive: boolean; upcoming: boolean; inQueue: boolean };
 /** 곡 추가 칸의 검색 응답. gated: 유튜브가 연령 인증 안내만 주었고 스포티파이 곡도 없다 */
 type SearchReply = { tracks: SearchTrack[]; gated: boolean };
 

@@ -528,6 +528,33 @@ test("라이브로 담은 HLS 를 처음 틀 때(세션 복원도 같다) 목록
   assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
 });
 
+test("틀 차례에 아직 시작하지 않은 라이브면 알리고 다음 곡으로. 넣은 사람이 고른 것이라 실패로 세지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("m8mmmmmmmmm", { isLive: true, liveStatus: "is_upcoming", duration: 0 });
+  const next = cached("m9mmmmmmmmm");
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => {
+    throw codedError("live-upcoming", "This live event will begin in 3 days.");
+  };
+  const sent = calls.sent.length;
+  const from = sink.buffer.length;
+
+  const r = await p.play(0);
+  h.dispose(p);
+
+  assert.deepEqual(r, { ok: false, code: "live-upcoming" });
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.failedTracks, 0);
+  assert.ok(calls.sent.length > sent, "채널에 알린다");
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => /^info 아직 시작하지 않은 라이브라 재생하지 않고 넘깁니다: /.test(l)),
+    lines.join(" / "),
+  );
+  assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
+});
+
 test("모르는 자동재생 장르는 끄고 채널에 알린 뒤 대기열 소진으로 간다", async () => {
   const p = h.makePlayer();
   embeds(p);

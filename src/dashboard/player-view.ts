@@ -34,6 +34,7 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
     artist: t.artist,
     duration: t.duration,
     isLive: Boolean(t.isLive),
+    upcoming: t.liveStatus === "is_upcoming",
     thumbnail: trackArtUrl(guildId, t),
     platform: t.platform,
     platformLabel: labelOf(t.platform),
@@ -66,6 +67,7 @@ function searchTrack(guildId: string, song: Song, queued: Set<string>): SearchTr
     platform: song.platform,
     url,
     isLive: "isLive" in song && Boolean(song.isLive),
+    upcoming: "liveStatus" in song && song.liveStatus === "is_upcoming",
     inQueue: queued.has(url),
   };
 }

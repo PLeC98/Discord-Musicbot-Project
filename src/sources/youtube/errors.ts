@@ -81,11 +81,14 @@ function isSkippedClientError(error: unknown) {
 const NO_AUDIO_ONLY = "no-audio-only";
 const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
 
+/** 시작 전 라이브라 열 것이 없는가 */
+const isUpcomingError = (error: unknown) => UPCOMING.test(textOf(error));
+
 /** 이 실패가 클라이언트 탓으로 보이는가 (영상, 네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
   const msg = textOf(error);
   if (isNoAudioOnly(error)) return true;
-  if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
+  if (isVideoUnavailableError(error) || isAgeRestrictedError(error) || isUpcomingError(error)) return false;
   // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
   // 주력 경로가 세션 내내 빠지고, 그때부터 평상시 재생까지 기본값으로 떨어진다.
   if (isSkippedClientError(error)) return false;
@@ -119,6 +122,8 @@ const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceede
 const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
 const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
+// 시작 전 라이브(예정된 방송, 최초 공개). 영상 정보도 스트림도 주지 않고 이 문장으로 끝난다
+const UPCOMING = /this live event will begin|premieres? (?:in|on)\b|premiere will begin/i;
 
 /**
  * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlp-spawn)이 실패할 때 한 번 붙인다. 모르면 null.
@@ -133,6 +138,7 @@ function codeOf(error: unknown) {
   // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
   if (GEO_BLOCKED.test(msg)) return "geo-blocked";
   if (isVideoUnavailableError(error)) return "unavailable-contents";
+  if (UPCOMING.test(msg)) return "live-upcoming";
   if (PLAYLIST_UNAVAILABLE.test(msg)) return "unavailable-playlist";
   if (BOT_CHECK.test(msg)) return "yt-bot-check";
   if (RATE_LIMITED.test(msg)) return "rate-limited";
@@ -153,4 +159,4 @@ function faultReason(error: unknown) {
   return "포맷 획득 실패";
 }
 
-export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };
+export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isUpcomingError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };

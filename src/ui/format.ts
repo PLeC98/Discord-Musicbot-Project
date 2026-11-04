@@ -2,6 +2,10 @@
 
 /** 라이브의 길이 표기(대기열 메뉴, 진행 막대, 검색 결과) */
 const LIVE_MARK = "🔴LIVE";
+/** 시작 전 라이브(예정된 방송, 최초 공개)의 길이 표기 */
+const UPCOMING_MARK = "예정된 라이브";
+/** 라이브 곡의 길이 자리 */
+const liveMarkOf = (track: { liveStatus?: string | null }) => (track.liveStatus === "is_upcoming" ? UPCOMING_MARK : LIVE_MARK);
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -74,4 +78,4 @@ function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}
   return `${value} ${unit}`;
 }
 
-export { LIVE_MARK, formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };
+export { LIVE_MARK, UPCOMING_MARK, liveMarkOf, formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText };

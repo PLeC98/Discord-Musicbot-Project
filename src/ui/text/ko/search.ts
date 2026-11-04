@@ -39,7 +39,7 @@ const songChoice = ({ title, artist, length, spotify = false }: { title: string 
 
 // 선택한 후보의 이름이 입력란에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
 const RESULTS_ECHO = /^🔍 "([^"]*)"?/u;
-const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|알 수 없음)\)(?: \(Spotify\))?$/u;
+const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|예정된 라이브|알 수 없음)\)(?: \(Spotify\))?$/u;
 
 /** 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 온 것이면 그 안의 검색어만 */
 const queryOfTyped = (typed: string) => {

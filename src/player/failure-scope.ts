@@ -12,7 +12,7 @@ import { SsrfError } from "../infra/safe-url.ts";
 type FailureScope = "track" | "environment" | "unknown";
 
 // 이 곡의 성질이나 이 곡에만 걸리는 설정. 연령 제한, 쿠키는 대기열의 다른 곡에 걸리지 않는다
-const TRACK = new Set(["unavailable-contents", "sc-preview-only", "geo-blocked", "age-content-off", "age-channel-only", "yt-age-no-cookies", "yt-age-cookies-invalid", "sp-no-youtube-match", "unsupported-link", "shoutcast-v1", "pinned-live", "live-ended"]);
+const TRACK = new Set(["unavailable-contents", "sc-preview-only", "geo-blocked", "age-content-off", "age-channel-only", "yt-age-no-cookies", "yt-age-cookies-invalid", "sp-no-youtube-match", "unsupported-link", "shoutcast-v1", "pinned-live", "live-ended", "live-upcoming"]);
 // 다음 곡도 같은 이유로 안 된다
 const ENVIRONMENT = new Set(["network-error", "rate-limited", "yt-bot-check", "encoder-unavailable"]);
 // 근거가 없다고 아는 이름. 유튜브 클라이언트 탓은 아래 재시도를 다 쓰고 올라온 것이라 다음 곡에도 걸릴 수 있다. 판정은 표에 없는 이름과 같다(모름). 테스트가 재생 쪽 이름이 빠짐없이 어느 표에 있는지 본다

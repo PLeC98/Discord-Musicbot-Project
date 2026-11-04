@@ -44,14 +44,21 @@ test("빈 입력, 링크는 빈 목록. 짧은 검색어는 찾지 않고 맨 �
   assert.deepEqual(await complete("아", never), [{ name: '🔍 "아" 검색 결과 보기', value: "아" }]);
 });
 
-test("맨 위 줄(값은 입력한 글자)과 곡 후보 10개(값은 yt:<영상 id>). 이름은 제목 - 채널 (길이), 라이브는 🔴LIVE, 제목이 없으면 알 수 없는 곡", async () => {
-  const list = [tracks.youtube("aaaaaaaaaaa", { title: "좋은 날", artist: "아이유", duration: 236 }), tracks.youtube("bbbbbbbbbbb", { title: "라디오", artist: "채널", isLive: true }), tracks.youtube("ccccccccccc", { title: null, artist: "", duration: 0 }), ...Array.from({ length: 12 }, (_, i) => tracks.youtube(`d${String(i).padStart(10, "0")}`, { title: `곡 ${i}`, artist: "채널", duration: 60 }))];
+test("맨 위 줄(값은 입력한 글자)과 곡 후보 10개(값은 yt:<영상 id>). 이름은 제목 - 채널 (길이), 라이브는 🔴LIVE(시작 전이면 예정된 라이브), 제목이 없으면 알 수 없는 곡", async () => {
+  const list = [
+    tracks.youtube("aaaaaaaaaaa", { title: "좋은 날", artist: "아이유", duration: 236 }),
+    tracks.youtube("bbbbbbbbbbb", { title: "라디오", artist: "채널", isLive: true }),
+    tracks.youtube("ddddddddddd", { title: "최초 공개", artist: "채널", isLive: true, liveStatus: "is_upcoming" }),
+    tracks.youtube("ccccccccccc", { title: null, artist: "", duration: 0 }),
+    ...Array.from({ length: 12 }, (_, i) => tracks.youtube(`d${String(i).padStart(10, "0")}`, { title: `곡 ${i}`, artist: "채널", duration: 60 })),
+  ];
   const choices = await complete(" 아이유 좋은 날 ", found(list));
   assert.equal(choices.length, 11, "맨 위 줄과 후보 10개");
-  assert.deepEqual(choices.slice(0, 4), [
+  assert.deepEqual(choices.slice(0, 5), [
     { name: '🔍 "아이유 좋은 날" 검색 결과 보기', value: "아이유 좋은 날" },
     { name: "좋은 날 - 아이유 (3:56)", value: "yt:aaaaaaaaaaa" },
     { name: "라디오 - 채널 (🔴LIVE)", value: "yt:bbbbbbbbbbb" },
+    { name: "최초 공개 - 채널 (예정된 라이브)", value: "yt:ddddddddddd" },
     { name: "알 수 없는 곡 (알 수 없음)", value: "yt:ccccccccccc" },
   ]);
 });
@@ -95,8 +102,9 @@ test("선택한 후보의 이름을 고쳐 온 것: 맨 위 줄은 따옴표 안
   await complete('🔍 "miku', record);
   await complete("좋은 날 - 아이유 (3:56)", record);
   await complete("라디오 - 채널 (🔴LIVE)", record);
+  await complete("최초 공개 - 채널 (예정된 라이브)", record);
   await complete("閃光 - [Alexandros] (4:10) (Spotify)", record);
-  assert.deepEqual(asked, ["mik", "miku", "좋은 날 - 아이유", "라디오 - 채널", "閃光 - [Alexandros]"]);
+  assert.deepEqual(asked, ["mik", "miku", "좋은 날 - 아이유", "라디오 - 채널", "최초 공개 - 채널", "閃光 - [Alexandros]"]);
   assert.deepEqual(await complete("유튜브가 연령 인증을 요구하는 검색어예요. 링크로", () => assert.fail("찾지 않는다")), []);
 });
 

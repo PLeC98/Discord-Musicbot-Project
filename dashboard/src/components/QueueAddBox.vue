@@ -231,8 +231,8 @@ const message = computed(() => {
   const { title, body } = noticeText(gated.value ? "search-age-gated" : "no-search-results");
   return { title, hint: gated.value ? body : "", codeLine: "" };
 });
-// 길이 글(대기열 행과 같다): 방송 중은 라이브, 모르면 뺀다
-const lengthOf = (track: SearchTrack) => (track.isLive ? P.live : formatDuration(track.duration, "") || null);
+// 길이 글(대기열 행과 같다): 라이브는 라이브(시작 전이면 예정된 라이브), 모르면 뺀다
+const lengthOf = (track: SearchTrack) => (track.isLive ? (track.upcoming ? P.upcoming : P.live) : formatDuration(track.duration, "") || null);
 
 // 서버와 같은 기준. 상한을 넘는 글은 찾지 않는다(보내면 곡 추가로 간다)
 const searchable = (now: string) => graphemeLength(now) >= SEARCH_MIN_LEN && now.length <= SEARCH_MAX_LEN && !typedUrl(now);

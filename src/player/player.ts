@@ -91,7 +91,7 @@ const SILENT_STOP_CAP_MS = 500;
 const REST_AFTER_MS = 10 * 60_000;
 
 /** play() 의 결과. 못 틀었으면 까닭(code), 던졌으면 그 오류 */
-type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "disposed" | "superseded"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
+type PlayResult = { ok: true; track: QueuedTrack | null } | { ok: false; code: "queue-empty" | "live-ended" | "live-upcoming" | "disposed" | "superseded"; error?: undefined } | { ok: false; code: "play-failed" | "live-reopen-failed" | "parked" | "voice-failed"; error: unknown };
 /** 그 곡에서 멈춰 둔 까닭. environment: 다음 곡도 안 되는 실패, failures: 까닭을 모르는 실패가 연달아(count 곡), dropped: 들리던 곡이 끊겨 다시 열지 못함 */
 type ParkReason = { kind: "environment"; error: unknown } | { kind: "failures"; count: number; error?: undefined } | { kind: "dropped"; error?: unknown };
 
@@ -625,6 +625,12 @@ class Player {
       log.info(`종료된 라이브 방송이라 재생하지 않고 넘깁니다: ${this._trackLabel()} | 확인 결과 라이브 아님`);
       await this.handleError(error, { tell: true, counted: false });
       return { ok: false, code: "live-ended" } satisfies PlayResult;
+    }
+    // 넣은 사람이 고른 시작 전 라이브. 봇의 실패가 아니라 세지 않고 알리고 넘긴다
+    if (codeOf(error) === "live-upcoming") {
+      log.info(`아직 시작하지 않은 라이브라 재생하지 않고 넘깁니다: ${this._trackLabel()}`);
+      await this.handleError(error, { tell: true, counted: false });
+      return { ok: false, code: "live-upcoming" } satisfies PlayResult;
     }
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
     elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);

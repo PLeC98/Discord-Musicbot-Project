@@ -40,13 +40,11 @@ test("스포티파이가 준비되지 않았으면 부르지 않고 유튜브만
   assert.ok(r.songs.every((s) => s.platform === "youtube"));
 });
 
-test("예정 영상은 섞기 전에 빼고 그 자리를 다시 채운다. 방송 중인 영상은 남긴다", async () => {
+test("예정 영상과 방송 중인 영상도 결과에 둔다(넣을 수 있다)", async () => {
   const d = deps({ spotify: 0 });
   d.search = async () => ({ tracks: [yt("a", { isLive: true, liveStatus: "is_upcoming", duration: 0 }), yt("b", { isLive: true, liveStatus: "is_live", duration: 0 }), ...Array.from({ length: 10 }, (_, i) => yt(String(i)))], gated: false });
   const r = await findSongs("라디오", d);
-  assert.equal(r.songs.length, 10);
-  assert.ok(!ids(r).includes("유튜브 a"), "예정 영상");
-  assert.equal(ids(r)[0], "유튜브 b", "방송 중");
+  assert.deepEqual(ids(r).slice(0, 2), ["유튜브 a", "유튜브 b"]);
 });
 
 test("연령 인증: 유튜브가 안내만 주면 스포티파이로 채우고, 스포티파이도 없으면 gated", async () => {

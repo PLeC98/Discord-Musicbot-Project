@@ -1,6 +1,6 @@
 // 대기열 줄 만들기. `/queue`, 대기열 버튼, 점프 메뉴 설명이 같은 규칙(요청자 표기)을 쓰게 한 곳에 둔다.
 
-import { LIVE_MARK, formatDuration } from "./format.ts";
+import { formatDuration, liveMarkOf } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import { ICONS, icon } from "./icons.ts";
 import type { QueuedTrack } from "../player/track.ts";
@@ -40,11 +40,11 @@ function queueLine(track: Listed, number: number, { link = true }: { link?: bool
 }
 
 /**
- * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`. 라이브는 길이 위치에 LIVE_MARK(진행 막대와 같은 표기).
+ * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`. 라이브는 길이 위치에 진행 막대와 같은 표기(시작 전이면 예정된 라이브).
  * 디스코드 상한이 100자라 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
  */
-function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration" | "artist" | "isLive">>) | null | undefined) {
-  const length = track?.isLive ? LIVE_MARK : formatDuration(track?.duration, "") || null;
+function jumpDescription(track: (Requested & Partial<Pick<QueuedTrack, "duration" | "artist" | "isLive" | "liveStatus">>) | null | undefined) {
+  const length = track?.isLive ? liveMarkOf(track) : formatDuration(track?.duration, "") || null;
   const tail = [length, requesterName(track)].filter(Boolean).join(" | ");
   const artist = track?.artist || "";
   if (!artist) return tail || undefined;

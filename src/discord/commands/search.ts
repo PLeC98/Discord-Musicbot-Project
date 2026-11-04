@@ -16,7 +16,7 @@ import { mixCounts, uniqueBy } from "../../rules/search-mix.ts";
 import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../rules/limits.ts";
 import { CHOICES, SPOTIFY_SHARE, SPOTIFY_RESULTS_MS, NOTHING, depsOf, within, youtubeOf, type Found, type SearchDeps } from "../../usecases/song-search.ts";
 import logger from "../../infra/log/logger.ts";
-import { LIVE_MARK, formatDuration } from "../../ui/format.ts";
+import { formatDuration, liveMarkOf } from "../../ui/format.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { searchResultsView, type ResultRow } from "../../ui/search-results.ts";
@@ -43,7 +43,7 @@ const gatedSentence = () => {
   return `${gated.title} ${gated.body ?? ""}`.trim();
 };
 
-const lengthOf = (track: { duration: number; isLive?: boolean }) => (track.isLive ? LIVE_MARK : formatDuration(track.duration, searchText.unknownLength()));
+const lengthOf = (track: { duration: number; isLive?: boolean; liveStatus?: string | null }) => (track.isLive ? liveMarkOf(track) : formatDuration(track.duration, searchText.unknownLength()));
 
 // ── 자동완성 ──
 
@@ -126,7 +126,7 @@ async function findForResults(query: string, deps: Required<SearchDeps>): Promis
 function resultRows(found: Found): ResultRow[] {
   const keyOf = (one: ResultRow) => `${one.platform}\u0000${one.title ?? ""}\u0000${one.artist ?? ""}\u0000${lengthOf(one)}`;
   const youtube = uniqueBy(
-    youtubeOf(found).flatMap((track): ResultRow[] => (track.id ? [{ platform: "youtube", id: track.id, title: track.title, artist: track.artist, duration: track.duration, isLive: track.isLive, pageUrl: track.pageUrl }] : [])),
+    youtubeOf(found).flatMap((track): ResultRow[] => (track.id ? [{ platform: "youtube", id: track.id, title: track.title, artist: track.artist, duration: track.duration, isLive: track.isLive, liveStatus: track.liveStatus, pageUrl: track.pageUrl }] : [])),
     keyOf,
   );
   const spotify = uniqueBy(

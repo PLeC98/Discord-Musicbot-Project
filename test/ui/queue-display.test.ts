@@ -40,9 +40,10 @@ test("점프 설명: 아티스트 | 길이 | 요청자 이름. 자동재생 곡�
   assert.equal(jumpDescription(song({ autoplay: true })), "가수 | 1:40 | 🎲");
 });
 
-test("점프 설명: 라이브는 길이 위치에 🔴LIVE", () => {
+test("점프 설명: 라이브는 길이 위치에 🔴LIVE, 시작 전이면 예정된 라이브", () => {
   assert.equal(jumpDescription(song({ isLive: true, duration: 0, requestedBy: { id: "u1", username: "요청자" } })), "가수 | 🔴LIVE | 요청자");
   assert.equal(jumpDescription(song({ artist: undefined, isLive: true, duration: 0 })), "🔴LIVE");
+  assert.equal(jumpDescription(song({ isLive: true, liveStatus: "is_upcoming", duration: 0 })), "가수 | 예정된 라이브");
 });
 
 // 복원된 곡은 세션에 id만 남아 이름을 모른다. 멘션을 원본 그대로 보이느니 적지 않는다.

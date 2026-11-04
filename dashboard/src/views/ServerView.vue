@@ -798,7 +798,7 @@ const queueLength = computed(() => {
   return seconds > 0 ? T.queueLength(formatDuration(seconds, ""), partial) : null;
 });
 // 대기열 곡의 길이 칸. 라이브는 표식, 모르면 칸을 뺀다(디스코드 대기열과 같다)
-const lengthOf = (item: { duration: number; isLive: boolean }) => (item.isLive ? P.live : formatDuration(item.duration, "") || null);
+const lengthOf = (item: { duration: number; isLive: boolean; upcoming: boolean }) => (item.isLive ? (item.upcoming ? P.upcoming : P.live) : formatDuration(item.duration, "") || null);
 
 // 다음 곡의 앨범아트를 미리 읽어 둔다. 곡이 넘어가는 순간 색이 바로 옮겨 간다(theme)
 watch(
