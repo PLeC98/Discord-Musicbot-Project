@@ -54,15 +54,13 @@ import NoticeBox from "./NoticeBox.vue";
 import AppEmojiDialog from "./AppEmojiDialog.vue";
 import { iconButton } from "../utils/icon-button.ts";
 import { valueOf } from "../utils/dom.ts";
-import { noticeText } from "../utils/problem.ts";
 import { problemCodeOf, replyOf } from "../utils/request.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
-import { appEmojiImage, appEmojiRoom, appEmojis, loadAppEmojis, nameProblem } from "../composables/app-emojis.ts";
+import { appEmojiImage, appEmojiRoom, appEmojis, loadAppEmojis, nameIssueText, nameProblem } from "../composables/app-emojis.ts";
 import { useSaveTarget } from "../composables/save-targets.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { APPEARANCE_MAX_BYTES } from "../../../src/dashboard/contract/appearance.ts";
 import { APP_EMOJI_LIMIT, type AppEmojiItem, type AppEmojiUses } from "../../../src/dashboard/contract/app-emojis.ts";
-import { isCode } from "../../../src/rules/problems.ts";
 import { text } from "../text/index.ts";
 const T = text.appEmojis;
 
@@ -135,7 +133,7 @@ const issues = computed(() => {
   const out: Record<string, string> = {};
   for (const one of changed.value) {
     const code = nameProblem(drafts[one.id], new Map(now.filter((other) => other.id !== one.id).map((other) => [other.name, other.icon])));
-    const why = refused[one.id] ?? (code ? noticeText(code).body : "");
+    const why = refused[one.id] ?? nameIssueText(code);
     if (why) out[one.id] = why;
   }
   return out;
@@ -153,8 +151,8 @@ async function save(): Promise<boolean> {
         delete drafts[one.id];
         done++;
       } catch (err) {
-        const code = problemCodeOf(replyOf(err));
-        if (code?.startsWith("emoji-name") && isCode(code)) refused[one.id] = noticeText(code).body;
+        const why = nameIssueText(problemCodeOf(replyOf(err)));
+        if (why) refused[one.id] = why;
         else notifyProblem(err, T.renameFailed);
         return false;
       }

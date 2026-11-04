@@ -15,6 +15,12 @@ const loadFailed = "앱 이모지 목록을 읽지 못했어요.";
 /** 이모지 하나의 이름 입력란, 삭제(화면 읽기 프로그램용 이름, 툴팁) */
 const nameLabel = (name: string) => `${name} 이모지 이름`;
 const removeOne = (name: string) => `${name} 삭제`;
+/** 이름 입력란 아래의 짧은 글(문제 코드마다) */
+const nameIssue: Record<string, string> = {
+  "emoji-name-bad": "영문, 숫자, 밑줄(_)로 2 ~ 32자만 쓸 수 있어요.",
+  "emoji-name-taken": "이미 있는 이름이에요.",
+  "emoji-name-reserved": "봇 내장 아이콘이 쓰는 이름이에요.",
+};
 /** 한 번 누른 삭제 버튼: 글, 화면 읽기 프로그램용 이름 */
 const removeArmed = "삭제";
 const removeNow = (name: string) => `${name} 삭제 확인`;
@@ -57,4 +63,4 @@ const addFailed = "이모지를 추가하지 못했어요.";
 const removed = (name: string) => `${name} 이모지를 삭제했어요`;
 const removeFailed = "이모지를 삭제하지 못했어요.";
 
-export { title, desc, room, add, empty, icons, iconsTip, loadFailed, nameLabel, removeOne, removeArmed, removeNow, usedIn, genreUse, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, removed, removeFailed };
+export { title, desc, room, add, empty, icons, iconsTip, loadFailed, nameIssue, nameLabel, removeOne, removeArmed, removeNow, usedIn, genreUse, renamed, renameFailed, refuse, refusedTitle, dialog, added, addFailed, removed, removeFailed };

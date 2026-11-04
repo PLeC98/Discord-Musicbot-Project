@@ -8,6 +8,7 @@ import axios from "axios";
 import { tokenOf, tokensIn, type EmojiBook } from "../../../src/rules/app-emoji-token.ts";
 import type { AppEmojiItem, AppEmojiList } from "../../../src/dashboard/contract/app-emojis.ts";
 import type { Code } from "../../../src/rules/problems.ts";
+import { text } from "../text/index.ts";
 
 /** 앱 이모지 전부(아이콘 포함). 읽기 전에는 비어 있다 */
 export const appEmojis = ref<AppEmojiItem[]>([]);
@@ -92,6 +93,9 @@ const NAME = /^\w{2,32}$/;
  * 화면이 아는 만큼 미리 본 이름의 문제 코드: 형식, 다른 이모지가 쓰는 이름. 없으면 null.
  * taken: 다른 이모지의 이름 → 봇 아이콘인가. 봇 아이콘의 예전 이름, 동기화가 잠시 쓰는 이름은 봇이 거절한다
  */
+/** 이름 문제 코드(화면이 본 것, 봇이 거절한 것) → 입력란 아래 짧은 글. 이름 문제가 아니면 null */
+export const nameIssueText = (code: string | null | undefined): string | null => (code && Object.hasOwn(text.appEmojis.nameIssue, code) ? text.appEmojis.nameIssue[code] : null);
+
 export function nameProblem(name: string, taken: ReadonlyMap<string, boolean>): Code | null {
   if (!NAME.test(name)) return "emoji-name-bad";
   if (!taken.has(name)) return null;

@@ -11,8 +11,7 @@
       <div class="flex flex-col gap-3 @md/emoji:flex-row @md/emoji:items-start">
         <label class="flex-1 min-w-0">
           <span :class="FIELD_LABEL">{{ T.name }}<span class="text-error" aria-hidden="true">*</span></span>
-          <input v-model.trim="name" type="text" maxlength="32" required autocomplete="off" spellcheck="false" :class="[FIELD, 'w-full font-mono']" :aria-invalid="!!issue" @keydown.enter="!composing($event) && submit()" />
-          <span v-if="issue" class="block mt-1 text-xs text-error">{{ issue }}</span>
+          <input v-model.trim="name" type="text" maxlength="32" required autocomplete="off" spellcheck="false" :class="[FIELD, 'w-full font-mono', issue && 'border-error!']" :aria-invalid="!!issue" @keydown.enter="!composing($event) && submit()" />
         </label>
         <div class="shrink-0">
           <span :class="FIELD_LABEL">{{ T.preview }}</span>
@@ -26,7 +25,17 @@
           </div>
         </div>
       </div>
+      <!-- 이름의 문제는 이름과 미리보기 줄 아래 폭 전체에 -->
+      <p v-if="issue" class="mt-1 text-xs text-error">{{ issue }}</p>
     </div>
+
+    <!-- 봇이 거절한 까닭(이미지, 한도 등). 알림은 이 창 아래에 깔려 창 안에 보인다 -->
+    <NoticeBox v-if="failure" variant="note" tone="error" icon="cancel" class="mt-0!">
+      <span class="min-w-0"
+        ><span class="block font-medium">{{ failure.title }}</span
+        ><span v-if="failure.body" class="block">{{ failure.body }}</span></span
+      >
+    </NoticeBox>
 
     <div class="flex gap-2 justify-end">
       <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
@@ -45,11 +54,10 @@ import BaseButton from "./BaseButton.vue";
 import ImageCropper from "./ImageCropper.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { composing } from "../utils/dom.ts";
-import { noticeText } from "../utils/problem.ts";
+import { problemNotice } from "../utils/problem.ts";
+import NoticeBox from "./NoticeBox.vue";
 import { LIMIT, problemCodeOf, replyOf } from "../utils/request.ts";
-import { notifyProblem } from "../composables/toasts.ts";
-import { appEmojis, nameProblem } from "../composables/app-emojis.ts";
-import { isCode } from "../../../src/rules/problems.ts";
+import { appEmojis, nameIssueText, nameProblem } from "../composables/app-emojis.ts";
 import type { AppEmojiItem } from "../../../src/dashboard/contract/app-emojis.ts";
 import { text } from "../text/index.ts";
 const T = text.appEmojis.dialog;
@@ -78,6 +86,8 @@ const name = ref("");
 /** 봇이 거절한 이름의 까닭. 이름을 고치면 지운다 */
 const refused = ref("");
 const busy = ref(false);
+/** 봇이 거절한 까닭(이름 밖의 것). 다시 추가하거나 다른 파일이면 지운다 */
+const failure = ref<{ title: string; body: string } | null>(null);
 
 /** 파일 이름에서 처음 이름을 만든다(영문, 숫자, 밑줄만). 규칙에 맞지 않으면 비운다 */
 function nameFrom(file: File) {
@@ -93,6 +103,7 @@ watch(
   (file) => {
     name.value = file ? nameFrom(file) : "";
     refused.value = "";
+    failure.value = null;
   },
   { immediate: true },
 );
@@ -103,7 +114,7 @@ const issue = computed(() => {
   if (refused.value) return refused.value;
   if (!name.value) return "";
   const code = nameProblem(name.value, new Map(appEmojis.value.map((one) => [one.name, one.icon])));
-  return code ? noticeText(code).body : "";
+  return nameIssueText(code) ?? "";
 });
 const canAdd = computed(() => !!cropper.value?.ready && !!name.value && !issue.value && !busy.value);
 
@@ -124,15 +135,16 @@ async function submit() {
   const top = Math.min(Math.max(0, Math.round(sel.y)), size.height - side);
   const params = { name: name.value, rotate: c.rotate, left, top, side, ...(c.flip && { flip: 1 }) };
   busy.value = true;
+  failure.value = null;
   try {
     // 움직이는 이미지는 프레임마다 만들어 오래 걸릴 수 있다
     const { data } = await axios.post<AppEmojiItem>("/api/app-emojis", props.file, { params, headers: { "Content-Type": props.file.type }, timeout: LIMIT.long });
     open.value = false;
     emit("added", data);
   } catch (err) {
-    const code = problemCodeOf(replyOf(err));
-    if (code?.startsWith("emoji-name") && isCode(code)) refused.value = noticeText(code).body;
-    else notifyProblem(err, text.appEmojis.addFailed);
+    const why = nameIssueText(problemCodeOf(replyOf(err)));
+    if (why) refused.value = why;
+    else failure.value = problemNotice(err, text.appEmojis.addFailed);
   } finally {
     busy.value = false;
   }
