@@ -10,27 +10,32 @@ import type { AppEmojiItem, AppEmojiList } from "../../../src/dashboard/contract
 
 /** 앱 이모지 전부(아이콘 포함). 읽기 전에는 비어 있다 */
 export const appEmojis = ref<AppEmojiItem[]>([]);
+/** 운영자 패널에서 더 올릴 수 있는 수(봇 준비 전이면 0) */
+export const appEmojiRoom = ref(0);
 
 const FAMILY = "Musicbot App Emoji";
-let loading: Promise<void> | null = null;
+let loading: Promise<boolean> | null = null;
 let fontVersion = "";
 
 const book = computed<EmojiBook>(() => ({ emojis: appEmojis.value }));
 const byChar = computed(() => new Map(appEmojis.value.map((one) => [one.char, one])));
 const byId = computed(() => new Map(appEmojis.value.map((one) => [one.id, one])));
 
-/** 목록을 읽는다(한 번). again 이면 다시(올리기, 지우기 뒤) */
-export function loadAppEmojis(again = false): Promise<void> {
+/** 목록을 읽는다(한 번). again 이면 다시(올리기, 이름 바꾸기, 지우기 뒤). 읽었으면 true */
+export function loadAppEmojis(again = false): Promise<boolean> {
   if (loading && !again) return loading;
   loading = axios
     .get<AppEmojiList>("/api/app-emojis")
     .then(({ data }) => {
       appEmojis.value = data.emojis;
+      appEmojiRoom.value = data.room;
       swapFont(data.fontVersion);
+      return true;
     })
     .catch(() => {
       // 다음에 다시 읽는다. 그동안 입력란의 토큰은 글자 그대로 보인다
       loading = null;
+      return false;
     });
   return loading;
 }

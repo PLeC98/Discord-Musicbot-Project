@@ -1,0 +1,132 @@
+<template>
+  <!-- 앱 이모지 추가 창(디스코드 서버 설정의 "이모지 추가" 창과 같은 편집): 정사각형 틀, 확대, 90도 회전, 좌우 반전, 이름, 미리보기.
+       원본 파일과 편집 값을 그대로 보내고 봇이 원본에서 만든다(움직이는 GIF, WebP 가 움직임을 잃지 않게) -->
+  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(ImageCropper 의 room)도 이 여백으로 계산한다 -->
+  <BaseDialog :open="open" width="xl" padding="editor" class="flex flex-col gap-3" :aria-label="T.title" @close="!busy && (open = false)">
+    <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
+    <ImageCropper ref="cropper" :file="file" :aspect="1" turn />
+
+    <!-- 이름과 미리보기: 넓으면 나란히, 좁으면 위아래 -->
+    <div class="@container/emoji">
+      <div class="flex flex-col gap-3 @md/emoji:flex-row @md/emoji:items-start">
+        <label class="flex-1 min-w-0">
+          <span :class="FIELD_LABEL">{{ T.name }}</span>
+          <input v-model.trim="name" type="text" maxlength="32" autocomplete="off" spellcheck="false" :class="[FIELD, 'w-full font-mono']" :aria-invalid="!!issue" @keydown.enter="!composing($event) && submit()" />
+          <span v-if="issue" class="block mt-1 text-xs text-error">{{ issue }}</span>
+        </label>
+        <div class="shrink-0">
+          <span :class="FIELD_LABEL">{{ T.preview }}</span>
+          <div class="flex items-center gap-4 h-10">
+            <span v-for="px in [48, 22]" :key="px" class="flex items-center gap-1.5 text-sm text-on-surface">
+              <span v-if="px === 22">{{ T.previewText }}</span>
+              <span class="relative overflow-hidden shrink-0" :style="{ width: `${px}px`, height: `${px}px` }">
+                <span v-if="cropper?.ready" class="absolute" :style="previewOf(px).box">
+                  <img :src="cropper.url" alt="" class="absolute max-w-none" :style="previewOf(px).image" draggable="false" />
+                </span>
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-2 justify-end">
+      <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
+      <BaseButton variant="ghost" class="mr-auto" :disabled="!cropper?.ready || busy" @click="cropper?.reset()">{{ text.appearance.crop.reset }}</BaseButton>
+      <BaseButton variant="ghost" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>
+      <BaseButton :disabled="!canAdd" @click="submit">{{ T.add }}</BaseButton>
+    </div>
+  </BaseDialog>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import axios from "axios";
+import BaseDialog from "./BaseDialog.vue";
+import BaseButton from "./BaseButton.vue";
+import ImageCropper from "./ImageCropper.vue";
+import { FIELD, FIELD_LABEL } from "../utils/field.ts";
+import { composing } from "../utils/dom.ts";
+import { noticeText } from "../utils/problem.ts";
+import { LIMIT, problemCodeOf, replyOf } from "../utils/request.ts";
+import { notifyProblem } from "../composables/toasts.ts";
+import { appEmojis } from "../composables/app-emojis.ts";
+import { isCode } from "../../../src/rules/problems.ts";
+import type { AppEmojiItem } from "../../../src/dashboard/contract/app-emojis.ts";
+import { text } from "../text/index.ts";
+const T = text.appEmojis.dialog;
+
+/** file: 올릴 원본. 열 때마다 새 파일을 준다 */
+const props = defineProps<{ file: File | null }>();
+const open = defineModel<boolean>({ required: true });
+const emit = defineEmits<{ added: [emoji: AppEmojiItem] }>();
+
+/** 디스코드 이모지 이름 규칙(봇도 같은 규칙으로 다시 본다) */
+const NAME = /^\w{2,32}$/;
+
+const cropper = ref<InstanceType<typeof ImageCropper> | null>(null);
+const name = ref("");
+/** 봇이 거절한 이름의 까닭. 이름을 고치면 지운다 */
+const refused = ref("");
+const busy = ref(false);
+
+/** 파일 이름에서 처음 이름을 만든다(영문, 숫자, 밑줄만). 규칙에 맞지 않으면 비운다 */
+function nameFrom(file: File) {
+  const base = file.name
+    .replace(/\.[^.]+$/, "")
+    .replace(/\W+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 32);
+  return NAME.test(base) ? base : "";
+}
+watch(
+  () => props.file,
+  (file) => {
+    name.value = file ? nameFrom(file) : "";
+    refused.value = "";
+  },
+  { immediate: true },
+);
+watch(name, () => (refused.value = ""));
+
+// 화면이 아는 만큼 미리 본다: 형식, 다른 이모지의 이름. 봇 아이콘의 예전 이름, 동기화가 잠시 쓰는 이름은 봇이 거절한다
+const issue = computed(() => {
+  if (refused.value) return refused.value;
+  if (!name.value) return "";
+  if (!NAME.test(name.value)) return noticeText("emoji-name-bad").body;
+  const same = appEmojis.value.find((one) => one.name === name.value);
+  return same ? noticeText(same.icon ? "emoji-name-reserved" : "emoji-name-taken").body : "";
+});
+const canAdd = computed(() => !!cropper.value?.ready && !!name.value && !issue.value && !busy.value);
+
+/** 미리보기 칸(px 정사각형)에 선택한 영역이 꽉 차게: 돌린 이미지 상자를 옮기고 그 안에 편집 면과 같은 돌림으로 */
+function previewOf(px: number) {
+  const { sel, size, imageStyle } = cropper.value!;
+  const k = px / sel.w;
+  return { box: { left: `${-sel.x * k}px`, top: `${-sel.y * k}px`, width: `${size.width * k}px`, height: `${size.height * k}px` }, image: imageStyle(k) };
+}
+
+async function submit() {
+  const c = cropper.value;
+  if (!canAdd.value || !c || !props.file) return;
+  // 봇은 영역이 이미지 밖이면 거절한다. 정수로 맞춘 뒤 이미지 안에 넣는다
+  const { size, sel } = c;
+  const side = Math.max(1, Math.min(Math.round(sel.w), size.width, size.height));
+  const left = Math.min(Math.max(0, Math.round(sel.x)), size.width - side);
+  const top = Math.min(Math.max(0, Math.round(sel.y)), size.height - side);
+  const params = { name: name.value, rotate: c.rotate, left, top, side, ...(c.flip && { flip: 1 }) };
+  busy.value = true;
+  try {
+    // 움직이는 이미지는 프레임마다 만들어 오래 걸릴 수 있다
+    const { data } = await axios.post<AppEmojiItem>("/api/app-emojis", props.file, { params, headers: { "Content-Type": props.file.type }, timeout: LIMIT.long });
+    open.value = false;
+    emit("added", data);
+  } catch (err) {
+    const code = problemCodeOf(replyOf(err));
+    if (code?.startsWith("emoji-name") && isCode(code)) refused.value = noticeText(code).body;
+    else notifyProblem(err, text.appEmojis.addFailed);
+  } finally {
+    busy.value = false;
+  }
+}
+</script>

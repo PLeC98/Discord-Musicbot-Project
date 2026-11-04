@@ -86,9 +86,10 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 앱 이모지, 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
+          <AppEmojiCard v-if="opened.has('appearance')" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
         </div>
 
@@ -193,6 +194,7 @@ import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
+import AppEmojiCard from "../components/AppEmojiCard.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";

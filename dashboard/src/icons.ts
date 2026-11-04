@@ -3,6 +3,7 @@
 
 const ICONS = {
   add: 0xe145,
+  add_reaction: 0xe1d3,
   admin_panel_settings: 0xef3d,
   arrow_back: 0xe5c4,
   arrow_downward: 0xe5db,
@@ -40,6 +41,7 @@ const ICONS = {
   dns: 0xe875,
   download: 0xf090,
   drag_indicator: 0xe945,
+  edit: 0xf097,
   edit_off: 0xe950,
   error: 0xf8b6,
   event: 0xe878,
@@ -49,6 +51,7 @@ const ICONS = {
   fact_check: 0xf0c5,
   filter_list: 0xe152,
   filter_list_off: 0xeb57,
+  flip: 0xe3e8,
   folder: 0xe2c7,
   format_bold: 0xe238,
   format_h1: 0xf85d,
@@ -116,6 +119,7 @@ const ICONS = {
   repeat_one: 0xe041,
   replay: 0xe042,
   restart_alt: 0xf053,
+  rotate_right: 0xe41a,
   save: 0xe161,
   schedule: 0xefd6,
   search: 0xef7a,
