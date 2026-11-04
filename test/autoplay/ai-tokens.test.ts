@@ -95,10 +95,10 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
     widest = Math.max(widest, performance.now() - last); // 막혔으면 타이머가 한 번도 못 돈다. 마지막 틈까지 센다
     return { took: performance.now() - started, widest };
   };
-  // 호스트마다 빠르기가 달라(커버리지, 부하) 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
+  // 호스트(커버리지, 부하)와 gpt-tokenizer 버전마다 빠르기가 달라 세는 시간이 200ms 를 넘을 때까지 글을 두 배씩 늘린다. 세기 상한(10초)에는 닿지 않게.
   // 글자는 매번 바꾼다(gpt-tokenizer 가 병합 결과를 캐시해 같은 글은 두 번째가 빠르다. 아래 상한 테스트의 "가" 도 피한다)
   let result = { took: 0, widest: 0 };
-  for (const [i, size] of [2000, 4000, 8000, 16000, 32000].entries()) {
+  for (let i = 0, size = 2000; size <= 2_048_000; i++, size *= 2) {
     result = await measure(String.fromCharCode("나".charCodeAt(0) + i).repeat(size));
     if (result.took > 200) break;
   }
@@ -108,7 +108,8 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
 });
 
 test("상한을 넘기면 실패로 답하고 다음 세기는 새로 시작한 스레드가 한다", async () => {
-  await assert.rejects(tokens.countAll(["가".repeat(16000)], "tik", { timeoutMs: 100 }), /넘겼습니다/);
+  // 상한은 1ms: 20만 자는 어느 버전, 어느 호스트에서도 그보다 오래 걸린다
+  await assert.rejects(tokens.countAll(["가".repeat(200_000)], "tik", { timeoutMs: 1 }), /넘겼습니다/);
   assert.deepEqual(await tokens.countAll(["a", "hello world"], "tik"), [
     { tokens: 1, by: "tik", exact: true },
     { tokens: 2, by: "tik", exact: true },
