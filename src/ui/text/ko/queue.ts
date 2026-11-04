@@ -6,17 +6,27 @@ import { josa } from "../../../rules/josa.ts";
 import { icon, type IconKey } from "../../icons.ts";
 
 /**
- * 곡을 추가한 안내 { icon, title, body }(icon 은 헤더 줄 아이콘의 키). collection 은 여러 곡을 추가한 출처의 이름(labels.collection, 없으면 한 곡),
- * total 은 출처 전체 곡 수(일부만 추가했을 때), first 는 대기열 맨 앞에 넣었는지
+ * 추가한 곡. collection 은 여러 곡을 추가한 출처의 이름(labels.collection, 없으면 한 곡), total 은 출처 전체 곡 수(일부만 추가했을 때),
+ * first 는 대기열 맨 앞에 넣었는지, position 은 넣은 첫 곡의 대기열 순번(1부터, 모르면 null)
  */
-function added({ tracks, collection, total, first }: { tracks: Array<{ title?: string | null }>; collection: string | null; total: number | null; first: boolean }): { icon: IconKey; title: string; body: string } {
-  const head = { icon: first ? "first_added" : "done", title: "곡을 추가했어요!" } as const;
-  const where = first ? "대기열 맨 앞에" : "대기열에";
+type AddedTracks = { tracks: Array<{ title?: string | null }>; collection: string | null; total: number | null; first: boolean; position?: number | null };
+
+/** 추가 안내 본문을 곡 이름(한 곡일 때, 아니면 null)과 나머지 문장으로 나눈 것. 대시보드는 이름만 줄여 보인다 */
+function addedParts({ tracks, collection, total, first, position = null }: AddedTracks): { name: string | null; rest: string } {
+  // 여러 곡은 첫 곡의 순번부터. 목록에서 한 곡만 넣었으면 그 자리
+  const where = first ? "대기열 맨 앞에" : position ? `대기열 ${position}번째${tracks.length > 1 ? "부터" : "에"}` : "대기열에";
   // 목록의 일부만 넣었으면 전체 중 몇 곡인지. "N개 (전체 M곡)" 형식은 넣은 수인지 대기열 수인지 헷갈린다
-  if (collection && total) return { ...head, body: `${collection} ${total.toLocaleString("ko-KR")}곡 중 ${tracks.length}곡을 ${where} 넣었어요.` };
-  if (collection) return { ...head, body: `${collection}의 ${tracks.length}곡을 ${where} 넣었어요.` };
+  if (collection && total) return { name: null, rest: `${collection} ${total.toLocaleString("ko-KR")}곡 중 ${tracks.length}곡을 ${where} 넣었어요.` };
+  if (collection) return { name: null, rest: `${collection}의 ${tracks.length}곡을 ${where} 넣었어요.` };
   const name = songTitle(tracks[0]?.title);
-  return { ...head, body: `**${escapeMd(name)}**${josa(name, "을")} ${where} 넣었어요.` };
+  return { name, rest: `${josa(name, "을")} ${where} 넣었어요.` };
+}
+
+/** 곡을 추가한 안내 { icon, title, body }(icon 은 헤더 줄 아이콘의 키) */
+function added(addition: AddedTracks): { icon: IconKey; title: string; body: string } {
+  const head = { icon: addition.first ? "first_added" : "done", title: "곡을 추가했어요!" } as const;
+  const { name, rest } = addedParts(addition);
+  return { ...head, body: name === null ? rest : `**${escapeMd(name)}**${rest}` };
 }
 
 /** 일부만 추가했을 때(경고 줄이 있을 때) 추가 안내의 헤더 줄을 대신한다 */
@@ -37,4 +47,5 @@ const view = ({ count, page, pages }: { count: number; page: number; pages: numb
   footer: `모두 ${count}곡${pages > 1 ? ` • ${page}/${pages} 페이지` : ""}`,
 });
 
-export { added, partlyAdded, addedWarnings, view };
+export { added, addedParts, partlyAdded, addedWarnings, view };
+export type { AddedTracks };

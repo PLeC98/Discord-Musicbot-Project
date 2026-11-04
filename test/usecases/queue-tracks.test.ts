@@ -231,7 +231,7 @@ test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이
     ["q1", "a"],
   );
   assert.deepEqual(calls, ["update"]);
-  assert.deepEqual(notices, ["### ✅ 곡을 추가했어요!\n**곡 a**를 대기열에 넣었어요."]);
+  assert.deepEqual(notices, ["### ✅ 곡을 추가했어요!\n**곡 a**를 대기열 2번째에 넣었어요."]);
 });
 
 test("넣을 위치: 맨 앞, 특정 곡 뒤, 기본은 자동재생이 선택해 둔 곡 앞", async () => {
@@ -266,7 +266,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
     const some = setup({ current: track("now"), queue: [track("q1")] });
     const r = await some.add({ isPlaylist: true, collection: "album", total: 30, tracks: [track("a"), track("b")] }, who, some.responder);
     assert.equal(r.dropped, 1);
-    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열에 넣었어요.\n대기열이 가득 차서 1곡은 넣지 못했어요. (최대 2곡)"]);
+    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열 2번째에 넣었어요.\n대기열이 가득 차서 1곡은 넣지 못했어요. (최대 2곡)"]);
 
     const full = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
     assert.deepEqual(said(await full.add({ tracks: [track("a")] }, who, full.responder)), { success: false, code: "queue-full", message: "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 2곡)", dropped: 1 });

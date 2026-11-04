@@ -8,12 +8,15 @@ import * as queueText from "./text/ko/queue.ts";
 
 /** 일부만 추가한 까닭. dropped 대기열이 차서 못 넣은 곡 수, skipped 받을 수 없어 뺀 곡 수, total 출처 전체 곡 수(일부만 불러왔을 때), queueLimited 자리가 모자라 목록을 덜 불러옴 */
 type AdditionNotice = { dropped?: number; skipped?: number; total?: number | null; queueLimited?: boolean };
-/** 추가한 곡. collection 은 여러 곡을 추가한 출처의 종류(sources/lookup 의 collection 값), null 이면 한 곡. insertFirst 는 대기열 맨 앞에 넣었는지 */
-type Added = { tracks: Array<{ title?: string | null }>; collection: string | null; insertFirst?: boolean; notice?: AdditionNotice };
+/**
+ * 추가한 곡. collection 은 여러 곡을 추가한 출처의 종류(sources/lookup 의 collection 값), null 이면 한 곡. insertFirst 는 대기열 맨 앞에 넣었는지.
+ * position 은 넣은 첫 곡의 대기열 순번(1부터). 첫 곡을 바로 틀었으면 대기열 순번이 없어 null
+ */
+type Added = { tracks: Array<{ title?: string | null }>; collection: string | null; insertFirst?: boolean; position?: number | null; notice?: AdditionNotice };
 
-function addedView({ tracks, collection, insertFirst = false, notice = {} }: Added) {
+function addedView({ tracks, collection, insertFirst = false, position = null, notice = {} }: Added) {
   const { dropped = 0, skipped = 0, total = null, queueLimited = false } = notice;
-  const head = queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst });
+  const head = queueText.added({ tracks, collection: collection === null ? null : labels.collection(collection), total, first: insertFirst, position });
   const warnings = queueText.addedWarnings({ dropped, skipped, queueLimited, max: config.bot.maxQueueSize });
   if (!warnings.length) return frame({ icon: head.icon, title: head.title, body: head.body });
   const partly = queueText.partlyAdded();

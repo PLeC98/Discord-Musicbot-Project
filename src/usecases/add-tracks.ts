@@ -404,7 +404,7 @@ type Opened = { success: true };
 /** 쉬던 플레이어에 첫 곡을 튼 결과. opened 는 패널까지 세운 결과, failure 는 시작 실패의 까닭, started 는 곧바로 튼 곡 */
 type FirstStart = { opened: Opened | null; failure: Refused | null; started?: QueuedTrack };
 /** 대기열에 담은 것과 안내에 붙일 것 */
-type Addition = { queued: QueuedTrack[]; collection: string | null; insertFirst: boolean; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
+type Addition = { queued: QueuedTrack[]; collection: string | null; insertFirst: boolean; position: number | null; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 
 // 서버마다 한 번에 하나. 앞 작업의 꼬리에 잇는다. get 과 set 사이에 await 가 없어 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다
 const adding = new Map<string, Promise<AddResult>>();
@@ -572,13 +572,15 @@ function enqueue(player: Player, trackData: TrackData, tracks: QueuedTrack[]): A
     // 여러 곡을 담았으면 그 출처의 종류(playlist, album 등, 모르면 playlist), 한 곡이면 null
     collection: trackData.isPlaylist ? (trackData.collection ?? "playlist") : null,
     insertFirst,
+    // 넣은 첫 곡의 대기열 순번(1부터). 한 곡도 못 넣었으면 null
+    position: queued.length ? player.queue.indexOf(queued[0]) + 1 : null,
     // 안내에 붙일 것. 전체 곡 수는 불러온 것보다 많을 때만
     notice: { dropped: tracks.length - queued.length, skipped: trackData.skipped ?? 0, total: trackData.total && trackData.total > received ? trackData.total : null, queueLimited: Boolean(trackData.queueLimited) },
   };
 }
 
 // 틀고 있는 중에 대기열에만 담았다
-async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, collection, insertFirst, notice }: Addition): Promise<AddResult> {
+async function queueOnly(panel: Panel, player: Player, responder: Responder, { queued, collection, insertFirst, position, notice }: Addition): Promise<AddResult> {
   // 자리가 없어 한 곡도 못 담았다
   if (queued.length === 0 && notice.dropped > 0) return { success: false, code: "queue-full", dropped: notice.dropped };
 
@@ -587,7 +589,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(addedView({ tracks: queued, collection, insertFirst, notice }));
+  await responder.notifyQueued(addedView({ tracks: queued, collection, insertFirst, position, notice }));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }
