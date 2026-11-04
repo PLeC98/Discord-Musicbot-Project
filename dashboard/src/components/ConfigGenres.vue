@@ -40,7 +40,7 @@
           <div class="h-px my-1 mx-3 bg-outline-variant/40" />
           <div v-for="(row, i) in rows" :key="row.key" role="button" tabindex="0" :class="[LIST_ROW, isOn(i) && SELECT_ROW_ON]" :aria-current="isOn(i) ? 'true' : undefined" data-reorder @click="select(i)" @keydown.enter="select(i)">
             <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing" :class="isOn(i) ? '' : 'text-outline'" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)" @click.stop><Icon name="drag_indicator" :size="20" /></span>
-            <Twemoji v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
+            <EmojiGlyph v-if="row.emoji" :char="row.emoji" :size="24" class="shrink-0" />
             <Icon v-else name="music_note" :size="24" class="shrink-0" :class="!isOn(i) && 'text-on-surface-variant'" />
             <span class="min-w-0 flex-1 truncate" :class="!shownName(row) && !isOn(i) && 'text-on-surface-variant'">{{ shownName(row) || T.noName }}</span>
             <!-- 오른쪽 끝: 문제(오류) 또는 경고(쓰이지 않는 출처 등), 출처 수, 열린다는 꺾쇠. 아이콘에 올리면 까닭 -->
@@ -131,7 +131,7 @@ import NumberInput from "./NumberInput.vue";
 import EmojiInput from "./EmojiInput.vue";
 import NoticeBox from "./NoticeBox.vue";
 import MoreMenu from "./MoreMenu.vue";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";

@@ -15,7 +15,7 @@ const groupData = "데이터";
 
 /** 목록의 이름, 설명(영어 이름 그대로인 것은 utils/licenses 에) */
 const items = {
-  twemojiArt: "Twemoji 그림",
+  twemojiArt: "Twemoji",
   twemojiArtNote: "ⓒ Twitter, Inc 및 기여자",
   d2codingNote: "ⓒ NAVER Corporation",
   modelRegistry: "PocketRisu 모델 레지스트리",

@@ -16,6 +16,7 @@ import subsetFont from "subset-font";
 import * as prettier from "prettier";
 import { unzip } from "../src/infra/zip.ts";
 import { setNames, LICENSE_NAME_IDS, OFL_NAMES } from "./font-names.ts";
+import { codepointsOf, rangeOf } from "./unicode-range.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 
 const DASHBOARD = path.join(PROJECT.root, "dashboard");
@@ -43,30 +44,6 @@ async function releaseZip(): Promise<Buffer> {
   if (!asset) throw new Error(`릴리스 ${latest.tag_name} 에 zip 이 없습니다`);
   console.log(`다운로드 중: ${asset.name}`);
   return Buffer.from(await (await fetch(asset.browser_download_url)).arrayBuffer());
-}
-
-/** "U+AC00-AC0F, U+00A0" → 코드포인트들 */
-function codepointsOf(range: string): number[] {
-  return range.split(",").flatMap((part) => {
-    const [from, to = from] = part.trim().replace(/^U\+/i, "").split("-");
-    const start = parseInt(from, 16);
-    const end = parseInt(to, 16);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  });
-}
-
-/** 코드포인트들 → "U+0020-007E, U+00A0" (이어지는 것은 묶는다) */
-function rangeOf(cps: number[]): string {
-  const sorted = [...cps].sort((a, b) => a - b);
-  const parts: string[] = [];
-  for (let i = 0; i < sorted.length; i++) {
-    let j = i;
-    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
-    const hex = (n: number) => n.toString(16).toUpperCase().padStart(4, "0");
-    parts.push(i === j ? `U+${hex(sorted[i])}` : `U+${hex(sorted[i])}-${hex(sorted[j])}`);
-    i = j;
-  }
-  return parts.join(", ");
 }
 
 /** 서브셋들: Pretendard 의 서브셋 경계로 나누고, 남은 글자는 코드 순서로 REST_CHUNK 씩 */

@@ -33,12 +33,12 @@
             <div v-else-if="results" class="p-1">
               <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiNone }}</p>
               <div v-else :class="grid">
-                <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
+                <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><EmojiGlyph :char="e.char" :size="24" /></button>
               </div>
             </div>
 
             <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
-               이미지는 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
+               칸은 이모지 글꼴 글자 하나라(요청이 없다) 다 그려도 부담이 작다 -->
             <section v-for="group in groups" v-else :key="group.name">
               <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠, 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
               <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
@@ -49,7 +49,7 @@
 
               <CollapseTransition>
                 <div v-if="!collapsed[group.name]" :class="[grid, 'px-1 pb-1']">
-                  <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
+                  <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><EmojiGlyph :char="e.char" :size="24" /></button>
                 </div>
               </CollapseTransition>
             </section>
@@ -72,7 +72,7 @@ import BaseButton from "./BaseButton.vue";
 import SearchInput from "./SearchInput.vue";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { rem } from "../utils/rem.ts";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";

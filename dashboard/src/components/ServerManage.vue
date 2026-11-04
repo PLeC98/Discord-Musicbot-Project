@@ -23,7 +23,7 @@
             <textarea ref="box" :value="message" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = valueOf($event)"></textarea>
             <EmojiPicker class="absolute! right-2 top-2" @pick="insertEmoji">
               <template #default="{ toggle }">
-                <button type="button" :class="[ICON_BTN, 'size-8']" v-tooltip="T.announce.emoji" @click="toggle"><Twemoji char="🙂" :size="20" /></button>
+                <button type="button" :class="[ICON_BTN, 'size-8']" v-tooltip="T.announce.emoji" @click="toggle"><EmojiGlyph char="🙂" :size="20" /></button>
               </template>
             </EmojiPicker>
           </div>
@@ -115,7 +115,7 @@ import Icon from "./BaseIcon.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 import GuildAvatar from "./GuildAvatar.vue";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
 import { slotsOf, useRowWindow } from "../composables/row-window.ts";

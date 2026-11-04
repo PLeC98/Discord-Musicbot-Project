@@ -57,24 +57,8 @@ test("디스코드에서 복사한 이름으로 찾을 수 있다", async () => 
   assert.equal(find("기타"), "🎸", "한국어 이름으로도 찾아진다");
 });
 
-test("그림 파일 이름을 규칙대로 지을 수 있다", async () => {
-  // 대시보드는 이모지마다 Twemoji 그림 주소를 코드포인트로 지어 만든다(TwemojiImage.vue).
-  // 주소가 깨지면 그 셀만 조용히 글자로 되돌아가므로, 이름이 나올 수 있는 형식인지 본다.
-  const shape = /^[0-9a-f]+(-[0-9a-f]+)*$/;
-  const bad = [];
-
-  for (const [group, char] of await all()) {
-    const id = [...(char.includes("‍") ? char : char.replace(/️/g, ""))].map((c) => c.codePointAt(0)?.toString(16)).join("-");
-    if (!shape.test(id)) bad.push(`${group} ${char} → ${id}`);
-    // ZWJ가 없는데 fe0f가 남아 있으면 규칙을 잘못 적용한 것이다
-    if (!char.includes("‍") && id.includes("fe0f")) bad.push(`${group} ${char} → ${id} (VS16이 남음)`);
-  }
-
-  assert.deepEqual(bad, []);
-});
-
 test("기록된 Twemoji 버전이 대시보드가 고정한 버전과 같다", async () => {
-  // 그림은 이 패키지에서 화면이 같이 내준다(dashboard/twemoji-images.ts). 패키지만 올리고 목록을 다시 만들지 않으면
+  // 그림은 이 패키지로 만든 글꼴(scripts/build-twemoji-font.ts)이 그린다. 패키지만 올리고 목록을 다시 만들지 않으면
   // 새로 생긴 이모지가 목록에 없는 채로 남는다. 그때 여기서 걸린다.
   // 버전은 범위가 아니라 하나로 고정해 둔다. 설치물이 아니라 package.json을 보므로 대시보드를 깔지 않은 작업 트리에서도 같은 답이다
   const pkg = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "..", "dashboard", "package.json"), "utf8")) as { devDependencies: Record<string, string> };

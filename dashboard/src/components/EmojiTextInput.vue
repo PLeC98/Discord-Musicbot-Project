@@ -7,7 +7,7 @@
     <input ref="box" :value="model" :placeholder="placeholder" :maxlength="maxlength" :spellcheck="spellcheck" :aria-label="label" :class="[FIELD, 'w-full pr-11']" @input="model = valueOf($event)" @blur="remember" @click="remember" @keyup="remember" @select="remember" />
     <EmojiPicker class="absolute! right-1 top-1" @pick="insert">
       <template #default="{ toggle }">
-        <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.fields.emojiInsert" v-tooltip="text.fields.emojiInsert" @click="toggle"><Twemoji char="🙂" :size="20" /></button>
+        <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="text.fields.emojiInsert" v-tooltip="text.fields.emojiInsert" @click="toggle"><EmojiGlyph char="🙂" :size="20" /></button>
       </template>
     </EmojiPicker>
   </div>
@@ -15,7 +15,7 @@
 
 <script setup lang="ts">
 import { nextTick, useTemplateRef } from "vue";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 import { FIELD } from "../utils/field.ts";
 import { ICON_BTN } from "../utils/icon-button.ts";
