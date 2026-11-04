@@ -704,8 +704,9 @@ const nowZoom = useArtZoom(() => phoneArt.value.now, true);
 const nextZoom = useArtZoom(() => phoneArt.value.next, true);
 const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
 const deskZoom = useArtZoom(() => deskArt.value, true);
-// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
-const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
+// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지.
+// 낮은 화면(가로)은 앨범아트가 가운데가 아니라 왼쪽 칸이라 칸 영역으로는 화면 밖에 둘 수 없다: 화면 폭만큼 밀어 둔다(옆에 있는 글, 조작을 가리지 않게)
+const ART_STEP = computed(() => ({ "--art-step": short.value ? "calc(100vw + 1.5rem)" : "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" }));
 const ART_SIDE = "absolute inset-0 rounded-(--r-window) overflow-hidden bg-surface-container-high text-on-surface-variant flex items-center justify-center shadow-[0_2px_6px_rgb(0_0_0/0.2),0_8px_24px_rgb(0_0_0/0.15)]";
 // 지금 곡을 내가 넣었는지(출처 배지의 "내가 넣은 곡")
 const mine = computed(() => track.value?.requestedBy?.id === player.value.userId);
