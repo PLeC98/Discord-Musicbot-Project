@@ -133,6 +133,44 @@ function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: Ic
   return (Object.entries(ICONS) as Array<[IconKey, IconSpec]>).flatMap(([key, spec]) => (spec.tints ?? ["brand"]).map((tint) => ({ name: emojiName(key, tint), key, tint, spec })));
 }
 
+/**
+ * 아이콘 표에서 빠지거나 이름이 바뀐 앱 이모지 이름. 설정에 적힌 토큰을 찾을 때 따라가고(ui/app-emoji-token), 동기화(app/app-emojis)가
+ * 그 이름의 이모지를 지운다. 아이콘을 빼거나 이름을 바꾸면 여기에 더한다. test/ui/icon-names.json(지금까지 낸 이름)과 비교하는 테스트가 빠뜨림을 잡는다.
+ * renamed: 새 이름, unicode: 빠진 아이콘의 유니코드(빠지기 전 표의 값)
+ */
+const RETIRED_EMOJI_NAMES: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
+  channel: { unicode: "🔧" },
+  input_error: { unicode: "✏️" },
+  link_off_error: { unicode: "🔗" },
+  muted_error: { unicode: "🔇" },
+  not_found_error: { unicode: "🔍" },
+  platform_animethemes: { unicode: "🎌" },
+  platform_anisongdb: { unicode: "🎏" },
+  platform_direct: { unicode: "🔗" },
+  platform_lastfm: { unicode: "🔺" },
+  platform_lbradio: { unicode: "🧠" },
+  platform_soundcloud_warning: { unicode: "🟠" },
+  platform_spotify_done: { unicode: "🟢" },
+  platform_touhoudb: { unicode: "⛩️" },
+  platform_utaitedb: { unicode: "🎤" },
+  platform_vocadb: { unicode: "🎹" },
+  platform_youtube_error: { unicode: "🔴" },
+  stale_error: { unicode: "⌛" },
+  state_error: { unicode: "⚠️" },
+  voice: { unicode: "🎧" },
+};
+
+/**
+ * 동기화가 관리하는 앱 이모지 이름인가: 지금 아이콘 이름, 옛 이름, 그 임시 이름(동기화가 이미지를 바꿀 때 쓰는 이름_숫자, 32자로 잘림).
+ * 동기화는 이 이름만 지우거나 바꾸고, 운영자 패널은 이 이름으로 올리지 못한다
+ */
+function isManagedEmojiName(name: string): boolean {
+  const bases = [...iconEntries().map((entry) => entry.name), ...Object.keys(RETIRED_EMOJI_NAMES)];
+  if (bases.includes(name)) return true;
+  const temp = /^(.+)(_\d+)$/.exec(name);
+  return temp !== null && bases.some((base) => base.slice(0, 32 - temp[2].length) === temp[1]);
+}
+
 /** 동기화한 앱 이모지(이름 → id, 움직이는가). app/app-emojis 가 싣는다 */
 const uploaded = new Map<string, { id: string; animated: boolean }>();
 
@@ -159,5 +197,5 @@ function buttonEmoji(key: IconKey, tint: Tint = "brand"): { id: string; name: st
   return found ? { id: found.id, name, animated: found.animated } : { name: ICONS[key].unicode };
 }
 
-export { ICONS, emojiName, iconEntries, useUploaded, icon, buttonEmoji };
+export { ICONS, RETIRED_EMOJI_NAMES, emojiName, iconEntries, isManagedEmojiName, useUploaded, icon, buttonEmoji };
 export type { IconKey, IconSpec, Shape, Tint };

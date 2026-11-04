@@ -1,5 +1,7 @@
 // 디스코드 앱 이모지 동기화. 아이콘 표(ui/icons)를 렌더링한 이미지(ui/icon-images)가 봇의 디스코드 앱에 올라가 있게 하고, 이름 → id 를 표에 싣는다.
-// 봇이 올린 것(작성자가 봇)만 건드린다: 운영자가 같은 이름으로 올린 이모지는 지우지 않고 그 아이콘은 유니코드로 둔다.
+// 앱의 이모지 전부는 ui/app-emoji-book 에 싣는다(설정에 적힌 앱 이모지 토큰을 찾을 때).
+// 건드리는 것은 봇이 올린 것 중 관리하는 이름(지금 아이콘 이름, 옛 이름, 그 임시 이름)뿐이다. 운영자가 개발자 포털이나 대시보드에서 올린 이모지는
+// 아이콘과 이름이 같아도 지우지 않고 그 아이콘은 유니코드로 둔다(대시보드에서 올린 것도 작성자가 봇이라 store/app-emoji-records 의 id 로 가린다).
 // 같은지는 CDN 의 이미지와 비교한다(PNG 는 올린 바이트 그대로 돌아온다. 움직이는 GIF 는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 비교한다).
 // 이름은 앱 안에서 하나뿐이라 이미지가 바뀐 것은 임시 이름으로 올려 쓰는 쪽을 바꾸고 옛 것을 지운 뒤 이름을 되돌린다.
 // 기동 시에는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 비교, 업로드는 백그라운드에서 한다. 운영자 색이 바뀌면 다시 동기화한다.
@@ -11,7 +13,8 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { iconEntries, useUploaded } from "../ui/icons.ts";
+import { iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
+import { useAppEmojis } from "../ui/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
 
@@ -103,25 +106,66 @@ function tempName(name: string, taken: ReadonlySet<string>) {
   }
 }
 
-/** 목록만으로: 표의 이름 중 봇이 올린 것의 id 를 싣는다(이미지가 맞는지는 sync 가 본다) */
-async function loadKnown(api: Api) {
+/** 운영자가 대시보드에서 올린 id(작성자가 봇이어도 운영자가 올린 것으로 본다). 테스트는 넘기지 않는다 */
+type Protected = () => ReadonlySet<string>;
+const NONE: Protected = () => new Set();
+
+/** onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전). stale: 참이면 멈춘다. protectedIds: 대시보드에서 올린 id. forget: 앱에 없는 id 를 그 기록에서 지운다 */
+type SyncOptions = { onChanged: () => Promise<unknown>; stale?: () => boolean; protectedIds?: Protected; forget?: (existing: ReadonlySet<string>) => void };
+
+/** 동기화가 건드려도 되는 것: 봇이 올렸고, 대시보드에서 올린 것이 아니다 */
+const ownedBy = (remote: Remote, protectedIds: ReadonlySet<string>) => remote.mine && !protectedIds.has(remote.id);
+
+/** 목록만으로: 앱의 이모지 전부와, 표의 이름 중 봇이 올린 것의 id 를 싣는다(이미지가 맞는지는 sync 가 본다) */
+async function loadKnown(api: Api, protectedIds: Protected = NONE) {
   const expected = new Map(iconEntries().map((entry) => [entry.name, entry]));
   const known = new Map<string, { id: string; animated: boolean }>();
-  for (const remote of await api.list()) if (remote.mine && expected.has(remote.name)) known.set(remote.name, { id: remote.id, animated: remote.animated });
+  const kept = protectedIds();
+  const list = await api.list();
+  for (const remote of list) if (ownedBy(remote, kept) && expected.has(remote.name)) known.set(remote.name, { id: remote.id, animated: remote.animated });
   useUploaded(known);
+  useAppEmojis(list);
   return known.size;
+}
+
+/**
+ * 지금 앱의 목록을 동기화가 쓸 형태로 나누고, 표에 없는 관리 이름(옛 아이콘, 실패한 동기화가 남긴 임시 이름)을 먼저 지운다(앱 이모지 수 한도에 자리를 비워 두려고).
+ * mine: 이번에 쓸 수 있는 봇의 관리 이름, takenByOthers: 아이콘이 쓰지 못하는 이름, taken: 앱에 있는 이름 전부(임시 이름을 지을 때)
+ */
+async function partition(api: Api, remote: Remote[], kept: ReadonlySet<string>) {
+  const owned = remote.filter((one) => ownedBy(one, kept) && isManagedEmojiName(one.name));
+  const mine = new Map(owned.map((one) => [one.name, one]));
+  // 관리하지 않는 이름은 봇이 올렸어도(대시보드에서 올린 것, 이 버전이 모르는 것) 남의 것으로 본다
+  const ownedIds = new Set(owned.map((one) => one.id));
+  const takenByOthers = new Set(remote.filter((one) => !ownedIds.has(one.id)).map((one) => one.name));
+  const taken = new Set(remote.map((one) => one.name));
+  const expected = new Set(iconEntries().map((entry) => entry.name));
+  for (const one of owned.filter((o) => !expected.has(o.name))) {
+    await api.remove(one.id);
+    mine.delete(one.name);
+    taken.delete(one.name);
+  }
+  return { mine, takenByOthers, taken, cleared: owned.length - mine.size };
+}
+
+/** 동기화를 마친 뒤: 바뀐 것이 있으면 목록을 다시 불러 앱의 이모지 전부를 싣고, 앱에 없는 id 를 기록에서 지우게 넘기고, 남긴다 */
+async function publish(api: Api, remote: Remote[], { added, removed, total, skipped, forget }: { added: number; removed: number; total: number; skipped: string[]; forget: SyncOptions["forget"] }) {
+  const now = added || removed ? await api.list() : remote;
+  useAppEmojis(now);
+  forget?.(new Set(now.map((one) => one.id)));
+  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
+  if (added || removed) log.info(`앱 이모지 동기화: ${total}개 중 ${added}개 추가, ${removed}개 삭제`);
+  else log.debug(`앱 이모지 동기화: ${total}개 변경 없음`);
 }
 
 /**
  * 동기화. onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전) 계속 갱신하는 메시지를 다시 그린다.
  * stale: 참이면 업로드를 멈추고 아무것도 바꾸지 않은 채 끝낸다(그새 운영자 색이 또 바뀜). 그때까지 올린 것은 다음 동기화가 지운다
  */
-async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: () => Promise<unknown>; stale?: () => boolean }) {
+async function sync(api: Api, { onChanged, stale = () => false, protectedIds = NONE, forget }: SyncOptions) {
   const remote = await api.list();
-  const mine = new Map(remote.filter((one) => one.mine).map((one) => [one.name, one]));
-  const takenByOthers = new Set(remote.filter((one) => !one.mine).map((one) => one.name));
-  const taken = new Set(remote.map((one) => one.name));
-  // 봇이 올린 것 중 이번에 쓰지 않는 것(옛 이미지, 표에서 뺀 것, 이름 바꾸다 남은 임시 이름)은 끝에 지운다
+  const { mine, takenByOthers, taken, cleared } = await partition(api, remote, protectedIds());
+  // 봇이 올린 관리 이름 중 이번에 쓰지 않는 것(옛 이미지)은 끝에 지운다
   const unused = new Set([...mine.values()].map((one) => one.id));
   const next = new Map<string, { id: string; animated: boolean }>();
   const renames: Array<{ id: string; name: string }> = [];
@@ -161,10 +205,7 @@ async function sync(api: Api, { onChanged, stale = () => false }: { onChanged: (
   if (added) await onChanged();
   for (const id of unused) await api.remove(id);
   for (const { id, name } of renames) await api.rename(id, name);
-
-  if (skipped.length) log.warn(`봇이 등록하지 않은 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
-  if (added || unused.size) log.info(`앱 이모지 동기화: ${next.size}개 중 ${added}개 추가, ${unused.size}개 삭제`);
-  else log.debug(`앱 이모지 동기화: ${next.size}개 변경 없음`);
+  await publish(api, remote, { added, removed: unused.size + cleared, total: next.size, skipped, forget });
 }
 
 /** 기동과 운영자 색 변경을 잇는다. 동기화는 한 번에 하나, 도는 중에 다시 요청되면 끝난 뒤 한 번 더 */
@@ -177,16 +218,21 @@ class AppEmojis {
   timer: NodeJS.Timeout | null = null;
   off: (() => void) | null = null;
 
-  constructor(api: Api, { onChanged }: { onChanged: () => Promise<unknown> }) {
+  protectedIds: Protected;
+  forget: SyncOptions["forget"];
+
+  constructor(api: Api, { onChanged, protectedIds = NONE, forget }: Pick<SyncOptions, "onChanged" | "protectedIds" | "forget">) {
     this.api = api;
     this.onChanged = onChanged;
+    this.protectedIds = protectedIds;
+    this.forget = forget;
     this.color = config.bot.embedColor;
   }
 
   /** 패널 복원 전에 부른다. 실패해도 유니코드로 돈다 */
   async loadKnown() {
     try {
-      const count = await loadKnown(this.api);
+      const count = await loadKnown(this.api, this.protectedIds);
       log.debug(`앱 이모지 ${count}개를 불러옴`);
     } catch (error) {
       log.warn(`앱 이모지 목록을 불러오지 못해 아이콘을 유니코드로 둡니다: ${messageOf(error)}`);
@@ -214,7 +260,7 @@ class AppEmojis {
       do {
         this.again = false;
         // 실패하면 그때까지 실은 것(목록에서 불러온 id, 유니코드)으로 돈다. 아이콘이 옛 이미지, 유니코드로 남으므로 알린다
-        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again }).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
+        await sync(this.api, { onChanged: this.onChanged, stale: () => this.again, protectedIds: this.protectedIds, forget: this.forget }).catch((error: unknown) => log.warn(`앱 이모지 동기화 실패(기존 상태로 계속 실행): ${messageOf(error)}`));
       } while (this.again);
     })().finally(() => (this.running = null));
   }

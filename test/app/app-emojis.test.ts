@@ -6,6 +6,7 @@ import { withConfig } from "../helpers/config.ts";
 import { iconEntries, icon, useUploaded } from "../../src/ui/icons.ts";
 import { imageOf } from "../../src/ui/icon-images.ts";
 import { loadKnown, sync, tempName, type Api, type Remote } from "../../src/app/app-emojis.ts";
+import { appEmojis } from "../../src/ui/app-emoji-book.ts";
 
 afterEach(() => useUploaded(new Map()));
 
@@ -133,14 +134,39 @@ test("운영자가 같은 이름으로 올린 이모지는 건드리지 않고 �
   assert.equal(icon("pause"), "⏸️");
 });
 
-test("봇이 올렸는데 쓰지 않는 것(표에서 뺀 것, 이름 바꾸다 남은 임시 이름)은 지운다", async () => {
+test("관리하는 이름 중 쓰지 않는 것(옛 아이콘, 남은 임시 이름)은 올리기 전에 지우고, 관리하지 않는 이름은 봇이 올렸어도 둔다", async () => {
   const app = fakeApp([
-    { id: "1", name: "old_icon", animated: false, mine: true },
+    { id: "1", name: "voice", animated: false, mine: true },
     { id: "2", name: "pause_1", animated: false, mine: true },
+    { id: "3", name: "party", animated: false, mine: true },
   ]);
   await sync(app.api, { onChanged: async () => {} });
-  assert.ok(app.calls.includes("remove old_icon"));
-  assert.ok(app.calls.includes("remove pause_1"));
+  assert.ok(app.calls.includes("remove voice"), "옛 이름(RETIRED_EMOJI_NAMES)");
+  assert.ok(app.calls.includes("remove pause_1"), "임시 이름");
+  assert.ok(!app.calls.includes("remove party"), "대시보드에서 올린 것처럼 관리하지 않는 이름");
+  assert.ok(app.calls.indexOf("remove voice") < app.calls.findIndex((one) => one.startsWith("create")), "자리를 비우려고 먼저");
+});
+
+test("대시보드에서 올린 id 는 아이콘 이름과 같아도 바꾸지 않고 그 아이콘은 유니코드로, 기동 첫머리에도 싣지 않는다", async () => {
+  const app = fakeApp([{ id: "9", name: "pause", animated: false, mine: true }]);
+  const protectedIds = () => new Set(["9"]);
+  assert.equal(await loadKnown(app.api, protectedIds), 0);
+  assert.equal(icon("pause"), "⏸️");
+  await sync(app.api, { onChanged: async () => {}, protectedIds });
+  assert.ok(!app.calls.some((one) => one.endsWith(" pause") || one.endsWith(" pause_1")), app.calls.join(", "));
+  assert.equal(icon("pause"), "⏸️");
+});
+
+test("앱의 이모지 전부를 싣고, 앱에 없는 id 를 기록에서 지우게 넘긴다", async () => {
+  const app = fakeApp([{ id: "3", name: "party", animated: true, mine: false }]);
+  let existing: ReadonlySet<string> = new Set();
+  await sync(app.api, { onChanged: async () => {}, forget: (ids) => (existing = ids) });
+  assert.deepEqual(
+    appEmojis().find((one) => one.id === "3"),
+    { id: "3", name: "party", animated: true },
+  );
+  assert.equal(appEmojis().length, total + 1);
+  assert.equal(existing.size, total + 1);
 });
 
 test("기동 첫머리: 목록만으로 봇이 올린 것의 id 를 싣는다(그림은 보지 않는다), 운영자 것은 싣지 않는다", async () => {

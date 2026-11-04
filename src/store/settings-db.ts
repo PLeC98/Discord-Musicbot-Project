@@ -1,4 +1,4 @@
-// 설정 DB(settings.db). 사람이 정한 값만 담는다. 삭제하지 않는다.
+// 설정 DB(settings.db). 사람이 정한 값과 운영자가 한 일의 기록(대시보드에서 올린 앱 이모지)만 담는다. 삭제하지 않는다.
 // 표는 "키 → JSON 문서" 형식이라 구조를 거의 바꾸지 않고, 문서 모양은 코드가 읽을 때 맞춘다(옮기기 코드를 두지 않는다). 설정 문서는 저장 번호를 함께 둔다(두 탭이 서로 덮지 않게).
 // 구조 버전이 맞지 않으면 열지 않고 멈춘다. 기본값으로 조용히 켜지면 정한 값을 잃은 줄 모른다.
 
@@ -47,6 +47,13 @@ function createTables(db: Db) {
       ciphertext  BLOB    NOT NULL,
       last4       TEXT    NOT NULL,
       updated_at  INTEGER NOT NULL
+    );
+
+    -- 대시보드에서 올린 앱 이모지 id(store/app-emoji-records). 앱 이모지는 봇의 디스코드 앱(.env)에 딸려 설정과 함께 백업한다.
+    -- 동기화는 이 id 를 운영자가 올린 것처럼 다룬다(새 아이콘 이름과 겹쳐도 바꾸지 않는다). 봇 설정 초기화(documents)와 따로다
+    CREATE TABLE IF NOT EXISTS app_emojis (
+      id          TEXT    PRIMARY KEY,
+      added_at    INTEGER NOT NULL
     );
   `);
 }
