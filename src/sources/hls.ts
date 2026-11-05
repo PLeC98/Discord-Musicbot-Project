@@ -5,7 +5,8 @@
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
 //   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
-// 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받는다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다.
+// 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받는다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
+// 세그먼트 하나는 메모리에 모아 흘리니 상한을 따로(작게) 둔다. 상한을 넘으면 다시 받지 않는다
 
 import crypto from "node:crypto";
 import type { Readable } from "node:stream";
@@ -38,8 +39,10 @@ type HlsOptions = { net?: StreamNet; sleep?: (ms: number) => Promise<void> };
 /** 목록, 키는 작다 */
 const LIST_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024 * 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 세그먼트 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다) */
-const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
+/** 세그먼트 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다). 받는 것과 미리 받는 것이 함께 메모리에 있다 */
+const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/, maxBytes: 64 * 1024 * 1024 };
+/** 키를 몇 개까지 기억하나(키를 돌리는 라이브는 새 키만 쓴다) */
+const KEYS_KEPT = 4;
 /** 라이브를 끝에서 몇 세그먼트 앞부터 트나 */
 const LIVE_EDGE = 3;
 /** 라이브 목록을 연달아 이만큼 받지 못하면 오류로 끝난다 */
@@ -59,10 +62,11 @@ async function settled<T>(request: Promise<T>): Promise<T> {
   }
 }
 
-/** 본문을 끝까지(slice 가 있으면 그 구간까지만) 모은다. signal 이 끊으면 본문을 부수고 그 사유로 던진다 */
+/** 본문을 끝까지(slice 가 있으면 그 구간까지만) 모은다. signal 이 끊으면(이미 끊겼어도) 본문을 부수고 그 사유로 던진다 */
 async function collect(body: Readable, { signal, slice }: { signal?: AbortSignal; slice?: ByteRange | null } = {}): Promise<Buffer> {
   const stop = () => body.destroy(signal?.reason instanceof Error ? signal.reason : new Error("그만 받음"));
   signal?.addEventListener("abort", stop, { once: true });
+  if (signal?.aborted) stop();
   try {
     const chunks: Buffer[] = [];
     let length = 0;
@@ -221,14 +225,19 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
       key = settled(net.getStream(url, undefined, { accept: KEY_ACCEPT })).then((body) => collect(body));
       keys.set(url, key);
       key.catch(() => keys.delete(url));
+      for (const old of keys.keys()) if (keys.size > KEYS_KEPT) keys.delete(old);
     }
     return key;
   }
 
   async function fetchPart(part: HlsPart, signal: AbortSignal): Promise<Buffer> {
-    const body = await settled(net.getStream(part.url, undefined, { accept: PART_ACCEPT, ...(part.range ? { from: part.range.offset, to: part.range.offset + part.range.length - 1 } : {}) }));
-    // 구간을 주었으면(206) 그대로, 무시했으면(200) 그 구간만
+    const body = await settled(net.getStream(part.url, undefined, { accept: PART_ACCEPT, signal, ...(part.range ? { from: part.range.offset, to: part.range.offset + part.range.length - 1 } : {}) }));
+    // 구간을 주었으면(206) 그대로, 무시했으면(200) 그 구간만. 200 은 처음부터 구간 끝까지 받아야 해서 그 끝이 상한을 넘으면 받지 않는다
     const slice = part.range && body.status !== 206 ? part.range : null;
+    if (slice && slice.offset + slice.length > PART_ACCEPT.maxBytes) {
+      body.destroy();
+      throw permanent(new Error(`HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘습니다`));
+    }
     let bytes = await collect(body, { signal, slice });
     if (part.key?.method === "AES-128" && part.key.url) {
       const key = await keyOf(part.key.url);
@@ -237,7 +246,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     }
     if (startMs !== null) {
       received += bytes.length;
-      if (received > PART_ACCEPT.maxBytes) throw permanent(new Error(`HLS 가 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘었습니다`));
+      if (received > SafeUrl.MAX_BYTES) throw permanent(new Error(`HLS 가 최대 크기(${SafeUrl.MAX_BYTES} bytes)를 넘었습니다`));
     }
     return bytes;
   }

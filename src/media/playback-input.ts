@@ -22,6 +22,7 @@ import type { SeekRequest, SeekAnswer } from "./seek-start.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import { transportOf, type Transport } from "../rules/transport-of.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { watchBodyIdle } from "../infra/safe-url.ts";
 
 type Splicer = InstanceType<typeof AudioSplicer>;
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
@@ -46,7 +47,7 @@ type InputIo<R> = {
   openChunkedStream(opts: ChunkedOptions): Promise<OpenedStream>;
   seekStart(request: SeekRequest): Promise<SeekAnswer>;
   openFragmentStream(opts: FragmentOptions): Promise<OpenedStream>;
-  fetch(url: string, init: { headers: Record<string, string> }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
+  fetch(url: string, init: { headers: Record<string, string>; signal: AbortSignal }): Promise<{ ok: boolean; status: number; body: WebStream<Uint8Array> | Readable | null }>;
   directStream(url: string, opts: DirectInputOptions): Promise<OpenedStream>;
   sleep(ms: number): Promise<void>;
 };
@@ -238,6 +239,9 @@ async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown):
 
 // 앞 광고를 이보다 오래 기다리지는 않는다. 넘으면 원래 오류로 캐시 폴백에 맡긴다
 const AD_WAIT_MAX_MS = 60_000;
+// 단일 GET 의 응답 헤더 대기와 본문 무응답 한도. 본문은 플레이어가 버티는 10초보다 먼저 끊어 곡 끝 판정이 입력 깨짐으로 다시 연다
+const SINGLE_GET_HEADERS_MS = 10_000;
+const SINGLE_GET_IDLE_MS = 6000;
 
 /**
  * 스트림을 연다. 첫 요청까지 여기서 끝내 실패가 캐시 폴백으로 가게 한다.
@@ -280,10 +284,20 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg 의 -ss 가 정한다).
   const totalBytes = contentLengthFromUrl(url);
   if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.durationSec) * 1000 }, hooks);
-  const response = await o.io.fetch(url, { headers });
+  // 헤더 대기만 끊는다(fetch 는 신호를 본문까지 물고 간다. 본문은 무응답 감시가 본다)
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`응답이 ${SINGLE_GET_HEADERS_MS / 1000}초 동안 없습니다`)), SINGLE_GET_HEADERS_MS);
+  let response;
+  try {
+    response = await o.io.fetch(url, { headers, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
-  return body && "getReader" in body ? Readable.fromWeb(body) : body;
+  const stream = body && "getReader" in body ? Readable.fromWeb(body) : body;
+  if (stream) watchBodyIdle(stream, SINGLE_GET_IDLE_MS);
+  return stream;
 }
 
 /**

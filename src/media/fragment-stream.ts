@@ -51,11 +51,14 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   let retries = 0; // 지금까지 다시 받은 횟수(모든 세그먼트)
   let ahead: Promise<Buffer | null> | null = null; // 미리 받는 다음 세그먼트
   let closed = false;
+  const fetching = new Set<AbortController>(); // 받는 중인 세그먼트(닫을 때 끊는다)
 
   // 세그먼트 하나. 멈추거나 5xx, 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
   async function fetchOne(fragment: F): Promise<Buffer> {
     for (let attempt = 0; ; attempt++) {
+      if (closed) throw new Error("세그먼트 스트림이 닫힘");
       const controller = new AbortController();
+      fetching.add(controller);
       const timer = setTimeout(() => controller.abort(new Error(`세그먼트가 ${stallMs / 1000}초 안에 오지 않음`)), stallMs);
       try {
         return await source.fetch(fragment, controller.signal);
@@ -66,6 +69,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         await sleep(retryDelaysMs[attempt]);
       } finally {
         clearTimeout(timer);
+        fetching.delete(controller);
       }
     }
   }
@@ -101,6 +105,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     },
     destroy(error, callback) {
       closed = true;
+      for (const controller of fetching) controller.abort(new Error("세그먼트 스트림이 닫힘"));
       source.close?.();
       callback(error);
     },
@@ -136,9 +141,10 @@ type FragmentOptions = StreamOptions & {
 /** 세그먼트 하나의 길이(ms). 전체 길이를 세그먼트 수로 나눈다. 세그먼트마다의 길이는 yt-dlp 도 주지 않는다 */
 const fragmentMsOf = ({ count }: Fragments, durationMs: number) => durationMs / count;
 
-/** 이 위치가 든 세그먼트 번호와 그 세그먼트의 시작(ms) */
+/** 이 위치가 든 세그먼트 번호와 그 세그먼트의 시작(ms). 곡 길이를 모르면 처음부터 */
 function startOf(fragments: Fragments, durationMs: number, startMs: number) {
   const each = fragmentMsOf(fragments, durationMs);
+  if (!(each > 0) || !Number.isFinite(each)) return { index: 0, atMs: 0 };
   const index = Math.min(fragments.count - 1, Math.max(0, Math.floor(startMs / each)));
   return { index, atMs: Math.round(index * each) };
 }

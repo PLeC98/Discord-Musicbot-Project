@@ -110,3 +110,32 @@ test("연 뒤 읽으면 받아 둔 첫 세그먼트부터 흘린다. 첫 세그�
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
   assert.equal(asked.filter((u) => u.endsWith("&sq=0")).length, 1);
 });
+
+test("곡 길이를 모르면(0, NaN) 처음 세그먼트부터", () => {
+  for (const durationMs of [0, NaN]) assert.deepEqual(startOf({ base, count: 5 }, durationMs, 30_000), { index: 0, atMs: 0 });
+});
+
+test("닫으면 받는 중인 세그먼트(미리 받는 것까지)를 끊는다", async () => {
+  const signals: AbortSignal[] = [];
+  const source: FragmentSource<number> = {
+    next: async () => signals.length,
+    fetch: (_n, signal) => {
+      signals.push(signal);
+      return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+    },
+    startedAtMs: 0,
+    describe: () => "",
+  };
+  const s = streamFragments(source, { retryDelaysMs: [1], stallMs: 60_000 });
+  s.on("error", () => {});
+  s.resume();
+  await new Promise((done) => setImmediate(done));
+  assert.equal(signals.length, 2, "흘릴 것과 미리 받는 것");
+  s.destroy();
+  assert.deepEqual(
+    signals.map((one) => one.aborted),
+    [true, true],
+  );
+  await new Promise((done) => setTimeout(done, 5));
+  assert.equal(signals.length, 2, "끊긴 뒤 다시 받지 않는다");
+});

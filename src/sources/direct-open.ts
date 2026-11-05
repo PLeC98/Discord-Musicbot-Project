@@ -13,7 +13,7 @@ import { codedError, codeOf } from "../rules/error-kind.ts";
 
 /** 받는 쪽이 음원의 버전을 헤더에서, 이어 받기가 됐는지를 상태에서 읽는다 */
 type AudioStream = Readable & { headers?: Record<string, unknown>; status?: number; url?: string };
-type OpenOptions = { bodyIdleMs?: number; accept?: SafeUrl.Accept; from?: number; to?: number; ifRange?: string };
+type OpenOptions = { bodyIdleMs?: number; accept?: SafeUrl.Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal };
 // 바깥 경계(SafeUrl). 테스트가 가짜를 넘긴다
 type StreamNet = { getStream: (url: string, deps?: undefined, opts?: OpenOptions) => Promise<AudioStream> };
 

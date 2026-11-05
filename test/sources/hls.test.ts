@@ -193,3 +193,58 @@ test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 �
   // 가짜 네트워크가 SafeUrl 처럼 막힌 주소를 거절한다(여기서는 없는 주소의 404)
   await assert.rejects(DirectLink.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
 });
+
+test("세그먼트 상한: 구간을 무시한 200 의 구간 끝이 상한을 넘으면 받지 않고, 받는 중 상한 초과는 다시 받지 않는 실패", async () => {
+  const permanentOf = (e: unknown) => (e as { permanent?: boolean }).permanent === true;
+  let read = false;
+  const net = {
+    getStream: async (url: string) => {
+      if (url.endsWith("far.mp4")) {
+        const body = new Readable({ read: () => (read = true) });
+        return Object.assign(body, { headers: {}, status: 200, url }) as AudioStream;
+      }
+      const body = new Readable({ read() {} });
+      setImmediate(() => body.destroy(Object.assign(new Error("다운로드한 파일이 최대 크기를 초과했습니다"), { permanent: true })));
+      return Object.assign(body, { headers: {}, status: 200, url }) as AudioStream;
+    },
+  };
+  const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-BYTERANGE:1000@${200 * 1024 * 1024}\n#EXTINF:4,\nfar.mp4\n#EXTINF:4,\nbig.ts\n#EXT-X-ENDLIST\n`;
+  const fragments = (await openHls(text, "https://c.test/index.m3u8", { net })).fragments();
+  const signal = new AbortController().signal;
+  await assert.rejects(fragments.fetch((await fragments.next())!, signal), (e: unknown) => permanentOf(e) && /구간을 무시/.test(messageOf(e)));
+  assert.equal(read, false, "본문을 읽지 않았다");
+  await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf);
+});
+
+test("세그먼트 취소: 신호를 가드에 넘기고, 헤더를 기다리는 사이 끝난 취소도 본문을 읽지 않고 그 사유로 끝난다", async () => {
+  const controller = new AbortController();
+  const signals: Array<AbortSignal | undefined> = [];
+  const body = Object.assign(new Readable({ read() {} }), { headers: {}, status: 200, url: "https://c.test/a.ts" }) as AudioStream;
+  const net = {
+    getStream: async (_url: string, _deps?: undefined, opts: OpenOptions = {}) => {
+      signals.push(opts.signal);
+      controller.abort(new Error("곡을 넘김"));
+      return body;
+    },
+  };
+  const fragments = (await openHls(vod(["a.ts"]), "https://c.test/index.m3u8", { net })).fragments();
+  await assert.rejects(fragments.fetch((await fragments.next())!, controller.signal), /곡을 넘김/);
+  assert.deepEqual([signals[0] === controller.signal, body.destroyed], [true, true]);
+});
+
+test("라이브 목록의 비정상 수: 아주 큰 목표 길이도 다시 받기 대기는 상한 안이다", async () => {
+  const live = (target: string) => `#EXTM3U\n#EXT-X-TARGETDURATION:${target}\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\ns1.ts\n`;
+  const { net } = netOf({ "https://l.test/index.m3u8": () => ({ body: `${live("1e300")}#EXTINF:2,\ns2.ts\n#EXT-X-ENDLIST\n` }), "https://l.test/s1.ts": { body: "s1" }, "https://l.test/s2.ts": { body: "s2" } });
+  const waits: number[] = [];
+  const hls = await openHls(live("Infinity"), "https://l.test/index.m3u8", {
+    net,
+    sleep: async (ms) => {
+      waits.push(ms);
+    },
+  });
+  assert.deepEqual(await drain(hls.fragments()), ["s1", "s2"]);
+  assert.deepEqual(waits, [500], "Infinity 는 0(가장 짧은 대기)");
+  const big = await openHls(live("9999999"), "https://l.test/index.m3u8", { net, sleep: async (ms) => void waits.push(ms) });
+  await drain(big.fragments());
+  assert.equal(waits.at(-1), 60_000, "목표 길이는 60초까지");
+});

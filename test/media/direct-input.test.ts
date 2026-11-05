@@ -109,3 +109,17 @@ test("Range 어댑터: 구간, If-Range 를 가드에 넘기고, 상태 오류�
   await assert.rejects(failing(new SafeUrl.SsrfError("내부 주소"))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent === true);
   await assert.rejects(failing(new Error("ECONNRESET"))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent !== true);
 });
+
+test("Range 어댑터: 신호를 가드에 넘기고, 응답을 기다리는 사이 끝난 취소면 본문을 곧바로 부순다", async () => {
+  const controller = new AbortController();
+  const body = Object.assign(PassThrough.from([Buffer.from("xyz")]), { headers: {}, status: 206 });
+  body.on("error", () => {});
+  let passed: AbortSignal | undefined;
+  const fetch = guardedRanges(async (_url, _deps, opts) => {
+    passed = opts.signal;
+    controller.abort(new Error("멈춤"));
+    return body;
+  });
+  await fetch("https://f.test/a", { headers: { Range: "bytes=0-" }, signal: controller.signal });
+  assert.deepEqual([passed === controller.signal, body.destroyed], [true, true]);
+});

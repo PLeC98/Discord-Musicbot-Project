@@ -10,6 +10,19 @@ type Rendition = { url: string; groupId: string; isDefault: boolean; autoselect:
 type MasterPlaylist = { kind: "master"; variants: Variant[]; audio: Rendition[] };
 type Playlist = MasterPlaylist | MediaPlaylist;
 
+/** 목표 길이(초)의 상한. 라이브 목록을 다시 받는 간격이 이것을 따른다 */
+const MAX_TARGET_DURATION_S = 60;
+/** 세그먼트 하나의 길이(초)의 상한(하루) */
+const MAX_SEGMENT_DURATION_S = 86_400;
+
+/** 유한한 0 이상의 수(상한 안), 아니면 0 */
+const lengthIn = (value: number, max: number) => (Number.isFinite(value) && value > 0 ? Math.min(value, max) : 0);
+/** 0 이상의 안전한 정수, 아니면 null(순번, 바이트 수는 정밀도를 잃으면 엉뚱한 곳을 받는다) */
+const countOf = (value: string) => {
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n >= 0 ? n : null;
+};
+
 /** 속성 목록(KEY=VALUE, 따옴표 안의 쉼표는 값) */
 function attributesOf(text: string): Record<string, string> {
   const out: Record<string, string> = {};
@@ -31,7 +44,9 @@ function resolve(uri: string | undefined, base: string): string | null {
 /** "길이[@오프셋]". 오프셋이 없으면 앞 구간 끝에서 잇는다(같은 주소일 때) */
 function byteRangeOf(value: string | undefined, previousEnd: number): ByteRange | null {
   const m = /^(\d+)(?:@(\d+))?$/.exec(value?.trim() ?? "");
-  return m ? { length: Number(m[1]), offset: m[2] === undefined ? previousEnd : Number(m[2]) } : null;
+  const length = m ? countOf(m[1]) : null;
+  const offset = m?.[2] === undefined ? previousEnd : countOf(m[2]);
+  return length && offset !== null ? { length, offset } : null;
 }
 
 function ivOf(value: string | undefined): Uint8Array | null {
@@ -66,9 +81,9 @@ type Pending = { duration: number; range: ByteRange | null; init: Segment["init"
 
 /** 세그먼트 앞의 태그 하나를 읽어 목록, 다음 세그먼트에 적는다 */
 const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pending, baseUrl: string) => void]> = [
-  ["#EXT-X-TARGETDURATION:", (v, out) => (out.targetDuration = Number(v) || 0)],
-  ["#EXT-X-MEDIA-SEQUENCE:", (v, out) => (out.mediaSequence = Number(v) || 0)],
-  ["#EXTINF:", (v, _out, next) => (next.duration = parseFloat(v) || 0)],
+  ["#EXT-X-TARGETDURATION:", (v, out) => (out.targetDuration = lengthIn(Number(v), MAX_TARGET_DURATION_S))],
+  ["#EXT-X-MEDIA-SEQUENCE:", (v, out) => (out.mediaSequence = countOf(v) ?? 0)],
+  ["#EXTINF:", (v, _out, next) => (next.duration = lengthIn(parseFloat(v), MAX_SEGMENT_DURATION_S))],
   // 오프셋이 없으면 -1(같은 주소의 앞 구간 끝에서 잇는다)
   ["#EXT-X-BYTERANGE:", (v, _out, next) => (next.range = byteRangeOf(v, -1))],
   [

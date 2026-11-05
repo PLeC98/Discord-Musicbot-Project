@@ -374,3 +374,40 @@ test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 �
     server.close();
   }
 });
+
+test("진짜 소켓: 응답 헤더를 기다리는 사이 신호가 끊으면 그 사유로 끝나고, 헤더가 온 뒤의 신호는 보지 않는다", async () => {
+  const { server, url } = await localServer((req, res) => {
+    if (req.url === "/silent") return;
+    res.writeHead(200, AUDIO).end(Buffer.alloc(16, 1));
+  });
+  try {
+    const controller = new AbortController();
+    const waiting = send({ method: "GET", url: url("/silent"), agent: pinned(), timeoutMs: 5000, headers: {}, signal: controller.signal });
+    setTimeout(() => controller.abort(new Error("곡을 넘김")), 20);
+    await assert.rejects(waiting, /곡을 넘김/);
+
+    const early = new AbortController();
+    early.abort(new Error("이미 끊김"));
+    await assert.rejects(send({ method: "GET", url: url("/silent"), agent: pinned(), timeoutMs: 5000, headers: {}, signal: early.signal }), /이미 끊김/);
+
+    const late = new AbortController();
+    const ok = await send({ method: "GET", url: url("/ok"), agent: pinned(), timeoutMs: 2000, headers: {}, signal: late.signal });
+    late.abort(new Error("늦은 취소"));
+    assert.equal(await drain(ok.body), 16);
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});
+
+test("getStream: 이미 끊긴 신호면 요청하지 않고, 받는 중 크기 상한 초과는 다시 받지 않는 실패", async () => {
+  lookupImpl = async () => [{ address: "93.184.216.34", family: 4 }];
+  const gone = new AbortController();
+  gone.abort(new Error("그만"));
+  await assert.rejects(safeUrl.getStream("https://files.example/a.mp3", deps, { signal: gone.signal }), /그만/);
+  assert.equal(calls.length, 0);
+
+  responder = () => ({ status: 200, headers: AUDIO, body: Readable.from([Buffer.alloc(6), Buffer.alloc(6)]) });
+  const capped = await safeUrl.getStream("https://files.example/a.mp3", deps, { accept: { contentType: /audio/, maxBytes: 8, timeoutMs: 1000 } });
+  await assert.rejects(drain(capped), (e: unknown) => (e as { permanent?: boolean }).permanent === true && /최대 크기/.test((e as Error).message));
+});

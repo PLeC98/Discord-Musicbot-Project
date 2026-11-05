@@ -28,7 +28,7 @@ type DirectInput = Readable & {
  */
 type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number };
 type Open = (url: string, net?: undefined, opts?: { bodyIdleMs?: number }) => Promise<DirectLink.DirectOpen>;
-type GuardedGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; from?: number; to?: number; ifRange?: string }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
+type GuardedGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
 
 /** 처음 응답의 검사값. 강한 ETag(W/ 가 아닌 것), 없으면 Last-Modified */
 function validatorOf(headers: Record<string, unknown> = {}): string | null {
@@ -47,7 +47,7 @@ function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
     const [, from, to] = /bytes=(\d+)-(\d*)/.exec(headers.Range ?? "") ?? [];
     let body;
     try {
-      body = await get(url, undefined, { accept: OPEN_ACCEPT, from: Number(from), to: to ? Number(to) : undefined, ifRange: headers["If-Range"] });
+      body = await get(url, undefined, { accept: OPEN_ACCEPT, from: Number(from), to: to ? Number(to) : undefined, ifRange: headers["If-Range"], signal });
     } catch (error) {
       if (error instanceof SafeUrl.SsrfError) throw Object.assign(error, { permanent: true });
       const status = (error as { status?: unknown } | null)?.status;
@@ -55,7 +55,9 @@ function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
       throw error;
     }
     const opened = body;
-    signal.addEventListener("abort", () => opened.destroy(signal.reason instanceof Error ? signal.reason : undefined), { once: true });
+    const stop = () => opened.destroy(signal.reason instanceof Error ? signal.reason : undefined);
+    signal.addEventListener("abort", stop, { once: true });
+    if (signal.aborted) stop();
     const responseHeaders = opened.headers ?? {};
     return {
       status: opened.status ?? 200,
