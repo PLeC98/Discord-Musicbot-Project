@@ -365,7 +365,7 @@ class VoiceLink {
       if (this.recoveryAttempts > RECOVERY_ATTEMPTS_MAX) return this._giveUp();
       if (!this._liveChannel()) return this.channelGone();
       const started = Date.now();
-      const joined = await this._rejoin();
+      const joined = await this._rejoin(active);
       if (!active()) return;
       if (joined) {
         this.state = "ready";
@@ -383,14 +383,14 @@ class VoiceLink {
   // 한 번 재연결해 본다. 됐으면 true. 채널에서는 나가지 않는다.
   // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 재연결한다.
   // 디스코드가 봇을 채널에서 뺐으면(게이트웨이가 끊겼던 것) 그 정보는 쓸 수 없어 옛 연결을 버리고 새로 참가한다.
-  // 디스코드에 닿는데도 재연결이 실패했으면 그 정보가 낡은 것이라 다음부터 새로 참가한다(답이 없으면 _unstick 이 푼다)
-  async _rejoin() {
+  // 디스코드에 닿는데도 재연결이 실패했으면 그 정보가 낡은 것이라 다음부터 새로 참가한다(답이 없으면 _unstick 이 푼다).
+  // 디스코드에 묻는 사이 정리됐으면(active 가 거짓) 아무것도 하지 않는다. 그 뒤에 만든 연결은 치울 쪽이 없다
+  async _rejoin(active: () => boolean) {
     const connection = this.player.connection;
-    const channelId = this.player.voiceChannel?.id;
     const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord() : null;
-    const reattach = Boolean(connection) && !this.reattachRefused && (at === undefined || at === channelId);
+    if (!active()) return false;
     try {
-      if (connection && reattach && this._reattach(connection)) {
+      if (connection && this._mayReattach(at) && this._reattach(connection)) {
         log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결합니다: ${this._label()}`);
         try {
           await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
@@ -410,6 +410,11 @@ class VoiceLink {
       log.debug(`연결 복구 ${this.recoveryAttempts}회차 실패: ${messageOf(error)}`);
       return false;
     }
+  }
+
+  // 받아 둔 음성 서버 정보로 재연결해도 되나. 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못했고(at 이 undefined), 이번 복구에서 그 정보가 낡았다고 보지 않았다
+  _mayReattach(at: string | null | undefined) {
+    return !this.reattachRefused && (at === undefined || at === this.player.voiceChannel?.id);
   }
 
   // 받아 둔 음성 서버 정보로 음성 서버에 재연결을 시작한다. 시작했으면 true(정보가 없거나 부서진 연결이면 라이브러리가 아무것도 하지 않는다)

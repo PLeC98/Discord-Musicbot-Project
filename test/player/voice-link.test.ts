@@ -359,6 +359,20 @@ test("복구 중에 정리하면 늦게 돌아온 성공이 상태를 건드리�
   assert.deepEqual(steps, []);
 });
 
+test("복구 중에 정리하면: 디스코드에 묻는 사이 정리됐으면 새로 참가하지 않는다(아무도 치우지 않는 연결이 남지 않는다)", async () => {
+  const { link, player } = await ready();
+  let answer: ((voice: { channelId: string | null }) => void) | null = null;
+  player.guild.voiceStates.fetch = () => new Promise((done) => (answer = done));
+  link.recover("시험");
+  await until(() => answer !== null, "디스코드에 묻기");
+  link.disconnect("정리");
+  answer!({ channelId: null });
+  await sleep(10);
+  assert.equal(joins.length, 1, "새로 참가하지 않았다");
+  assert.equal(player.connection, null);
+  assert.equal(link.state, "closed");
+});
+
 // ── 게이트웨이: 봇 자신의 음성 상태 ──
 
 const state = (channelId: string | null, extra: object = {}) => ({ channelId, serverMute: false, serverDeaf: false, suppress: false, channel: null, ...extra });

@@ -42,6 +42,8 @@ type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(
 type Saver = { persistence: { save(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
+// 디스코드 연결(게이트웨이)을 닫는 데 기다리는 상한. 닫는 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
+const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
@@ -163,10 +165,7 @@ function stopFailedStart(client: { destroy(): unknown } | null, { potServer, log
 
 // 봇이 실행한 것을 내린다. 클라이언트, POToken 서버, 자식 프로세스, 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
 async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">) {
-  if (client) {
-    client.destroy();
-    log.info("디스코드 연결 닫음");
-  }
+  if (client) await closeClient(client);
   const pot = await potServer.stop();
   if (pot === "stopped") log.info("POToken 서버 내림");
   else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내립니다");
@@ -178,6 +177,21 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
 
   log.info("종료 완료");
   if (logFile) logFile.close();
+}
+
+// 디스코드 연결을 닫고 닫는 프레임이 나가기를 상한까지 기다린다
+async function closeClient(client: { destroy(): unknown }) {
+  let cap: NodeJS.Timeout | undefined;
+  const closing = Promise.resolve()
+    .then(() => client.destroy())
+    .then(
+      () => "closed" as const,
+      (error: unknown) => (log.warn(`디스코드 연결 닫기 실패: ${messageOf(error)}`), "failed" as const),
+    );
+  const how = await Promise.race([closing, new Promise<"timeout">((done) => (cap = setTimeout(done, CLIENT_CLOSE_MS, "timeout")))]);
+  clearTimeout(cap);
+  if (how === "closed") log.info("디스코드 연결 닫음");
+  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행합니다`);
 }
 
 // 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"
