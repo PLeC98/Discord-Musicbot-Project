@@ -27,8 +27,8 @@ const SPOTIFY_PIN_ONLY = "https://open.spotify.com/track/2222222222222222222222"
 const SC = "https://soundcloud.com/artist/song";
 const DIRECT = "https://cdn.example.net/a.mp3";
 
-function ledger(requestKey: string, audioUrl: string, platform: string, title: string) {
-  store.db().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, display_title, display_artist) VALUES (?, ?, ?, ?, ?, ?)").run(requestKey, requestKey, audioUrl, platform, title, "가수");
+function ledger(requestKey: string, audioUrl: string, platform: string, title: string, pageUrl = requestKey) {
+  store.db().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, display_title, display_artist) VALUES (?, ?, ?, ?, ?, ?)").run(requestKey, pageUrl, audioUrl, platform, title, "가수");
 }
 function file(audioKey: string, { status = "cached", size = MB, plays = 1, last = null as number | null, downloaded = 100 as number | null } = {}) {
   store.db().prepare("INSERT INTO audio_cache (audio_key, status, file_size_bytes, play_count, last_played_at, downloaded_at, created_at) VALUES (?, ?, ?, ?, ?, ?, 0)").run(audioKey, status, size, plays, last, downloaded);
@@ -51,7 +51,7 @@ beforeEach(() => {
   store.db().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES ('aaaaaaaaaa4', 800)").run();
   sourceChecks.recordCheck("yt:aaaaaaaaaa4", { ok: false, code: "unavailable-contents", at: 900 });
   // 자동재생 키, 직접 링크 음원
-  ledger("amq:1", DIRECT, "anisongdb", "넷");
+  ledger("amq:1", DIRECT, "anisongdb", "넷", "https://anilist.co/anime/1");
   file(audioKeyOf(DIRECT)!, { status: "error", size: null as unknown as number, plays: 0, downloaded: null });
   // 요청이 가리키지 않는 파일, 되돌릴 수 없는 직접 링크 파일, 연령 제한만
   file("yt:aaaaaaaaaa5", { plays: 2, last: 2000 });
@@ -88,6 +88,7 @@ test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원�
 
   const direct = byKey(rows, "amq:1");
   assert.deepEqual([direct.audioKey?.slice(0, 3), direct.file, direct.size, direct.downloadedAt], ["dl:", "error", null, null]);
+  assert.deepEqual([direct.pageUrl, plain.pageUrl, pinOnly.pageUrl], ["https://anilist.co/anime/1", yt("aaaaaaaaaa1"), null], "페이지 링크는 링크 데이터의 것, 링크 데이터 행이 없으면 null");
 });
 
 test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크는 그 키를 가리키는 행에서), 요청 수를 센다", () => {

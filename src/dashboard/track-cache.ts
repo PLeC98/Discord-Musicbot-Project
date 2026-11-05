@@ -77,8 +77,8 @@ function sourceOf(row: audioCache.AudioRow, check: sourceChecks.Check | undefine
 
 // 요청 행의 링크 데이터 몫, 직접 지정한 음원 몫
 function requestCells(requestKey: string, led: LookupRow | undefined, pin: pinnedSources.Pin | undefined) {
-  if (!led) return { requestKey, platform: inputKind(requestKey), title: null, artist: null, audioUrl: pin!.audioUrl, ledgerAudioUrl: null, pinnedAt: pin!.pinnedAt };
-  return { requestKey, platform: led.platform, title: led.display_title, artist: led.display_artist, audioUrl: pin?.audioUrl ?? led.audio_url, ledgerAudioUrl: led.audio_url, pinnedAt: pin?.pinnedAt ?? null };
+  if (!led) return { requestKey, pageUrl: null, platform: inputKind(requestKey), title: null, artist: null, audioUrl: pin!.audioUrl, ledgerAudioUrl: null, pinnedAt: pin!.pinnedAt };
+  return { requestKey, pageUrl: led.page_url, platform: led.platform, title: led.display_title, artist: led.display_artist, audioUrl: pin?.audioUrl ?? led.audio_url, ledgerAudioUrl: led.audio_url, pinnedAt: pin?.pinnedAt ?? null };
 }
 
 // 쓰는 음원의 음원 키로 이어 붙인 몫. 이을 것이 없으면 빔
