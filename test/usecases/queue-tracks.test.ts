@@ -241,6 +241,51 @@ test("음성 채널에 붙지 못하면 재생목록의 나머지도 담지 않�
   }
 });
 
+// ── 쉬는지의 판정이 갈리는 경우(지금 동작을 묶는다) ──
+
+test("지금 곡은 없는데 대기열은 있으면(곡을 넘기는 사이 등) 쉬는 것이 아니다. 틀지 않고 담기만 한다", async () => {
+  const { add, calls, notices, responder, player } = setup({ current: null, queue: [track("q1")] });
+  const r = await add({ tracks: [track("a")] }, who, responder);
+  assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 1, position: 2, collection: null, total: null, skipped: 0, first: "a" } });
+  assert.deepEqual(calls, [], "붙지도 틀지도 않는다");
+  assert.deepEqual(
+    player.queue.map((t) => t.id),
+    ["q1", "a"],
+  );
+  assert.equal(notices.length, 1, "담은 것을 응답 매체로 알린다");
+});
+
+test("쉬던 중 재생목록이 상한에 걸려 일부만 담기면 첫 곡을 틀고, 안내에 뺀 수를 싣는다", async () => {
+  const saved = config.bot.maxQueueSize;
+  config.bot.maxQueueSize = 1;
+  try {
+    const { add, calls, sent } = setup();
+    const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
+    assert.deepEqual(withPlaced(r), { success: true, dropped: 1, queueLimited: false, placed: { count: 2, position: null, collection: "playlist", total: null, skipped: 0, first: "a" } });
+    assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"], "update"]);
+    assert.match(sent[0].content, /1개의 곡을 넣지 못했어요/);
+  } finally {
+    config.bot.maxQueueSize = saved;
+  }
+});
+
+test("쉬던 중 재생목록의 첫 곡에서 멈춰 두면(parked) 그 곡으로 패널을 세우고 담은 안내를 낸다", async () => {
+  const { add, calls, sent, player } = setup({ plays: [{ ok: false, code: "parked" }] });
+  const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b")] }, who);
+  assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 2, position: null, collection: "playlist", total: null, skipped: 0, first: "a" } });
+  assert.equal(player.currentTrack?.id, "a");
+  assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"], "update"]);
+  assert.equal(sent.length, 1);
+});
+
+test("첫 곡이 실패하고 다음 곡에서 멈춰 두면(parked) 그 곡으로 패널을 세운다", async () => {
+  const { add, calls, player } = setup({ plays: [{ ok: false }, { ok: false, code: "parked" }] });
+  const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
+  assert.equal(r.success, true);
+  assert.equal(player.currentTrack?.id, "b");
+  assert.deepEqual(calls, ["connect", ["play"], ["play", 0], ["embed", "b"], "update"]);
+});
+
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
   const { mem, add } = setup();
   mem.embedFails = true;

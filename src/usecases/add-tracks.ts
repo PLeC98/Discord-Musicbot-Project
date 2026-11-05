@@ -433,63 +433,69 @@ async function processTracks(bot: Bot, guildId: string, trackData: TrackData, re
   }
 }
 
-// 이번에 넣은 곡 전부. 곧바로 튼 첫 곡도 센다(재생목록에서 50곡을 불러왔으면 안내도 50곡).
-// 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다
-const placedOf = (start: FirstStart, queued: QueuedTrack[]) => (start.started ? [start.started, ...queued] : queued);
+/**
+ * 담은 결과. started: 쉬던 플레이어에 곡을 틀기 시작했다(첫 곡이 실패해 다음 곡으로 살린 것 포함, started 는 곧바로 튼 첫 곡),
+ * failed: 쉬던 플레이어인데 첫 곡도 다음 곡도 틀지 못했다, queued: 틀고 있었거나 곡을 넘기는 사이라 담기만 했다
+ */
+type Outcome = { kind: "started"; opened: Opened; started?: QueuedTrack; addition: Addition } | { kind: "failed"; refused: Refused } | { kind: "queued"; addition: Addition };
 
-// 쉬던 플레이어면 첫 곡을 틀고, 나머지를 대기열에 넣는다. 첫 곡이 실패했으면 다음 곡부터 다시 시도한다.
+// 이번에 넣은 것. 곧바로 튼 첫 곡도 센다(재생목록에서 50곡을 불러왔으면 안내도 50곡).
+// 첫 곡이 실패해 다음 곡으로 살렸으면 그 곡은 이미 대기열 몫에 들어 있다. 곧바로 틀었으면 첫 곡은 대기열에 없다(순번 없음)
+function placedOf(addition: Addition, started: QueuedTrack | undefined, opened: boolean): Placed {
+  const tracks = started ? [started, ...addition.queued] : addition.queued;
+  return { count: tracks.length, position: opened ? null : addition.position, collection: addition.collection, total: addition.notice.total, skipped: addition.notice.skipped, first: tracks[0] ?? null };
+}
+
+// 쉬던 플레이어(지금 곡도 대기열도 없다)면 첫 곡을 틀고 나머지를 담는다. 첫 곡이 실패했으면 다음 곡부터 다시 시도한다. 쉬지 않았으면 담기만 한다.
 // 첫 곡을 트는 동안은 틀지 못해도 플레이어가 끝내지 않는다(남은 곡을 아직 넣지 않았다). 끝은 부르는 쪽(place)이 맡는다
-async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackData, stamped: QueuedTrack[], responder: Responder) {
-  const wasIdle = !player.currentTrack && player.queue.length === 0 && stamped.length > 0;
-  player.finishByCaller = wasIdle;
+async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackData, stamped: QueuedTrack[], responder: Responder): Promise<Outcome> {
+  if (player.currentTrack || player.queue.length > 0) return { kind: "queued", addition: enqueue(player, trackData, stamped) };
+  player.finishByCaller = true;
   try {
-    const start: FirstStart = wasIdle ? await startFirst(panel, player, stamped[0], responder) : { opened: null, failure: null };
+    const start = await startFirst(panel, player, stamped[0], responder);
     // 음성 채널에 붙지 못했으면 나머지도 담지 않는다. 담기는 세션의 첫 쓰기라 앞 플레이어가 남긴 세션(/join 으로 이어 들을 것)을 넘겨받아 지운다.
     // 다음 곡도 붙지 못하니 틀어 보지 않는다
     const voiceFailed = start.failure?.code === "voice-failed";
-    const addition = enqueue(player, trackData, voiceFailed ? [] : wasIdle ? stamped.slice(1) : stamped);
+    const addition = enqueue(player, trackData, voiceFailed ? [] : stamped.slice(1));
     const opened = start.failure ? (voiceFailed ? null : await startNext(panel, player, responder)) : start.opened;
-    return { start, addition, opened, wasIdle };
+    if (opened) return { kind: "started", opened, started: start.started, addition };
+    // startFirst 는 실패가 없으면 패널까지 세운다. 여기 왔으면 실패가 있다
+    return { kind: "failed", refused: start.failure as Refused };
   } finally {
     player.finishByCaller = false;
   }
 }
 
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
-  const wasPlayingBefore = player.currentTrack !== null;
   const { tracks } = trackData;
+  // 부르는 쪽(곡 찾기, 더 넣기)이 빈 결과를 거절한다
+  if (tracks.length === 0) throw new Error("담을 곡이 없습니다");
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
+  const outcome = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
-  // 쉬던 플레이어면 첫 곡을 틀기 시작하고, 나머지는 대기열에 담는다
-  const { start, addition, opened, wasIdle } = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
-  // 넣은 것: 곧바로 튼 곡과 대기열에 넣은 곡. 첫 곡이 실패해 다음 곡을 틀었으면 그 곡이 첫 곡이다. 쉬던 플레이어였으면 첫 곡은 대기열에 없다(순번 없음)
-  const placedTracks = placedOf(start, addition.queued);
-  const placed: Placed = { count: placedTracks.length, position: wasIdle ? null : addition.position, collection: addition.collection, total: addition.notice.total, skipped: addition.notice.skipped, first: placedTracks[0] ?? null };
-
-  // 첫 곡이 실패했고 다음 곡으로도 살리지 못했다. 실패를 돌려주면 진입점이 사용자에게 알린다.
+  // 첫 곡도 다음 곡도 틀지 못했다. 실패를 돌려주면 진입점이 사용자에게 알린다.
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
-  if (start.failure && !opened) {
-    if (start.failure.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+  if (outcome.kind === "failed") {
+    if (outcome.refused.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
-    return { success: false, ...start.failure };
+    return { success: false, ...outcome.refused };
   }
 
-  // 첫 곡을 틀기 시작했고 목록에 남은 곡이 있다. 담은 안내를 내고 패널의 대기열 수를 고친다
-  if (opened && tracks.length > 1) {
-    await panel.postAddedNotice(player, placedOf(start, addition.queued), addition.collection, addition.insertFirst, addition.notice);
+  if (outcome.kind === "queued") {
+    const result = await queueOnly(panel, player, responder, outcome.addition);
+    return result.success ? { ...result, placed: placedOf(outcome.addition, undefined, false) } : result;
+  }
+
+  // 틀기 시작했다. 넣으려던 곡이 여럿이면 담은 안내(뺀 수 포함)를 내고 패널의 대기열 수를 고친다
+  const { opened, started, addition } = outcome;
+  const placed = placedOf(addition, started, true);
+  if (tracks.length > 1) {
+    await panel.postAddedNotice(player, started ? [started, ...addition.queued] : addition.queued, addition.collection, addition.insertFirst, addition.notice);
     await panel.updatePlaying(player);
     return { ...opened, dropped: addition.notice.dropped, queueLimited: addition.notice.queueLimited, placed };
   }
-
-  // 이미 틀고 있었다. 대기열에만 담았다
-  if (wasPlayingBefore || (!opened && tracks.length > 0)) {
-    const result = await queueOnly(panel, player, responder, addition);
-    return result.success ? { ...result, placed } : result;
-  }
-
-  // 한 곡을 틀기 시작했다
-  return { ...(opened ?? { success: true }), placed };
+  return { ...opened, placed };
 }
 
 // 쉬던 플레이어에 첫 곡을 튼다
