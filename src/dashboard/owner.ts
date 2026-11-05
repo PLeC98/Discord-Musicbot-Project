@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import config from "../config/index.ts";
+import { isBotOwner } from "../usecases/permissions.ts";
 import { getViewAs } from "./view-as.ts";
 
 /**
@@ -8,12 +8,10 @@ import { getViewAs } from "./view-as.ts";
  *
  * 로그인 시점 값을 세션에 굳혀두면 `OWNER_ID`를 바꿔도 기존 세션의 권한이 철회되지 않는다.
  * 세션은 SQLite에 남고 쿠키 수명이 7일이라, 고정 `SESSION_SECRET`이면 다시 시작도 견딘다.
- *
- * `OWNER_ID` 미설정이면 아무도 운영자가 아니다. 양쪽이 `undefined`로 일치하는 일이 없게.
  */
 function isRealOwner<P>(req: Request<P>) {
-  const ownerId = config.dashboard.ownerId;
-  return !!ownerId && req.session?.user?.id === ownerId;
+  const id = req.session?.user?.id;
+  return !!id && isBotOwner(id);
 }
 
 /**

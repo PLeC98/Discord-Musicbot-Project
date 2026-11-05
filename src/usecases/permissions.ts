@@ -10,7 +10,7 @@ import { ownTrackDenied } from "../rules/controls.ts";
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
 
 // "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)다.
-// 봇 운영자(OWNER_ID, src/dashboard/owner.ts)와는 다르다. 서버 소유자와 Administrator 권한은 discord.js 권한 검사가 전부 통과시킨다.
+// 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다. 서버 소유자와 Administrator 권한은 discord.js 권한 검사가 전부 통과시킨다.
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
 function isModerator(member: GuildMember) {

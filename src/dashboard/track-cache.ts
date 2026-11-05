@@ -277,6 +277,8 @@ async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCach
   const matcher = matcherOf(query);
   if (!matcher.ok) return matcher;
   const src = load();
+  // 행과 같은 때의 버전(정규식을 기다리는 사이 바뀐 것은 다음 확인이 잡는다)
+  const { revision, checkRevision } = cacheRevision();
   const all: AnyRow[] = table === "requests" ? requestRows(src) : table === "files" ? fileRows(src) : ageRows(src);
   const started = performance.now();
   const plain: AnyRow[] = [];
@@ -294,7 +296,6 @@ async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCach
     }
     return compare(rawOf(a, key), rawOf(b, key), "asc");
   });
-  const { revision, checkRevision } = cacheRevision();
   return { ok: true, page: { table, rows: matched.slice(offset, offset + limit), offset, total: all.length, matched: matched.length, revision, checkRevision } as TrackCachePage };
 }
 

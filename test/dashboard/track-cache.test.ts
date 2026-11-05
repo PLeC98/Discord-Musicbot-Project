@@ -331,3 +331,10 @@ test("정규식 필터: 다른 조건과 함께 맞는 행만. 끝나지 않는 
     "스레드를 새로 띄운다",
   );
 });
+
+test("정규식 필터: 함께 들어온 맞추기는 하나씩 돌고, 상한은 저마다 시작한 때부터. 느린 하나가 기다리던 것까지 시간 초과로 만들지 않는다", async () => {
+  ledger(yt("aaaaaaaaaa7"), yt("aaaaaaaaaa7"), "youtube", `${"word ".repeat(10)}word!`);
+  const [slow, fast] = await Promise.all([trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } })), trackCache.read(query("requests", { filters: { title: "/^하나$/" } }))]);
+  assert.deepEqual([slow.ok, !slow.ok && slow.code], [false, "filter-timeout"]);
+  assert.deepEqual(fast.ok && fast.page.rows.map((row) => (row as { title: string }).title), ["하나"]);
+});
