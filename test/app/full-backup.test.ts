@@ -78,6 +78,17 @@ test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으�
   if (process.platform !== "win32") assert.equal(fs.statSync(second.file).mode & 0o777, 0o600);
 });
 
+test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다. 지우지 못한 것을 알린다", async () => {
+  const stuckOut = path.join(work, "stuck-out");
+  // 지우지 못하는 앞의 백업(이름만 같은 폴더는 rmSync 가 지우지 못한다)
+  const stuck = path.join(stuckOut, "musicbot-full-20261001-0900.zip");
+  fs.mkdirSync(path.join(stuck, "안"), { recursive: true });
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: stuckOut }, new Date(2026, 9, 13, 9, 0));
+  assert.ok(fs.existsSync(made.file));
+  assert.deepEqual(made.left, ["musicbot-full-20261001-0900.zip"]);
+  assert.deepEqual(made.replaced, []);
+});
+
 // root 는 읽기 전용 파일도 쓸 수 있다
 test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다)", { skip: process.getuid?.() === 0 }, async () => {
   const blockedOut = path.join(work, "blocked-out");

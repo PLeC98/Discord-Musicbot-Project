@@ -126,6 +126,19 @@ test("같은 초에 두 번 떠도 앞 복원점을 덮지 않는다(꼬리 -2),
 });
 
 // 다른 프로그램이 앞 시점을 읽고 있으면 -wal 을 본체에 다 접지 못한다(Windows 는 열린 파일을 지우지 못해 교체가 RESTORE_FAILED 로 멈추므로 거기까지 가지 않는다)
+test("뜨다 멈춰 남은 .part 는 한 시간이 지나면 지우고, 뜨는 중일 수 있는 새 것은 둔다", async () => {
+  fs.mkdirSync(backups, { recursive: true });
+  const stale = path.join(backups, "settings-before-import-2026-11-01-000000.db.part");
+  const fresh = path.join(backups, "settings-before-import-2026-11-06-000000.db.part");
+  fs.writeFileSync(stale, "반쯤");
+  fs.writeFileSync(fresh, "뜨는 중");
+  const old = new Date(Date.now() - snapshots.STALE_PART_MS - 60_000);
+  fs.utimesSync(stale, old, old);
+  await snapshots.take("before-import");
+  assert.equal(fs.existsSync(stale), false);
+  assert.equal(fs.existsSync(fresh), true);
+});
+
 test("복원 전 사본: 다른 읽는 쪽이 있어 -wal 을 접지 못해도 -wal 에만 있는 내용까지 남긴다", { skip: process.platform === "win32" ? "Windows 는 열린 settings.db 를 지우지 못한다" : false }, async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 12));
   snapshots.stage(name);

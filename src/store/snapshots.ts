@@ -16,6 +16,8 @@ import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 const KEEP_DAILY = 7;
 const KEEP_OTHERS = 5;
 const CHECK_MS = 60 * 60_000;
+// 뜨다 멈춰 남은 .part 를 이만큼 지나면 지운다(뜨는 중인 것은 건드리지 않게)
+const STALE_PART_MS = 60 * 60_000;
 const NAME = /^settings-(daily|before-import|before-restore|before-reset)-[0-9-]+\.db$/;
 const STAGED = "settings.restore.db";
 
@@ -57,7 +59,7 @@ function claim(folder: string, base: string): string {
     const name = `${base}${n > 1 ? `-${n}` : ""}.db`;
     const part = path.join(folder, `${name}.part`);
     try {
-      fs.closeSync(fs.openSync(part, "wx"));
+      fs.closeSync(fs.openSync(part, "wx", 0o600));
     } catch (error) {
       if (codeOf(error) === "EEXIST") continue;
       throw error;
@@ -67,11 +69,18 @@ function claim(folder: string, base: string): string {
   }
 }
 
-// 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로)
-function prune(dir: string) {
+// 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로). 뜨다 멈춰 남은 .part 도
+function prune(dir: string, now = Date.now()) {
   const all = list(dir);
   const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
-  for (const one of extra) fs.rmSync(path.join(backupsOf(dir), one.name), { force: true });
+  const folder = backupsOf(dir);
+  for (const one of extra) fs.rmSync(path.join(folder, one.name), { force: true });
+  for (const name of fs.readdirSync(folder)) {
+    if (!name.endsWith(".db.part")) continue;
+    const file = path.join(folder, name);
+    const stat = fs.statSync(file, { throwIfNoEntry: false });
+    if (stat && now - stat.mtimeMs > STALE_PART_MS) fs.rmSync(file, { force: true });
+  }
 }
 
 /** 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다) */
@@ -210,4 +219,4 @@ function applyStaged(dir: string): string | null {
   return from;
 }
 
-export { list, take, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS };
+export { list, take, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };

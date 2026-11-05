@@ -5,6 +5,9 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import { ownerOnly } from "../infra/owner-only.ts";
+import logger from "../infra/log/logger.ts";
+import { messageOf } from "../rules/error-kind.ts";
+const log = logger.child({ category: "core" });
 
 type Db = Database.Database;
 
@@ -62,12 +65,24 @@ class DbFile {
         this.spec.createTables(next);
         next.pragma(`user_version = ${this.spec.version}`);
       })();
-      // 이 설정 없이 만든 파일이면 VACUUM 으로 바꾼다(한 번)
-      if (this.spec.autoVacuum && next.pragma("auto_vacuum", { simple: true }) !== AUTO_VACUUM[this.spec.autoVacuum]) next.exec("VACUUM");
+      if (this.spec.autoVacuum && next.pragma("auto_vacuum", { simple: true }) !== AUTO_VACUUM[this.spec.autoVacuum]) this.vacuum(next, file);
       this.conn = next;
     } catch (error) {
       next.close();
       throw error;
+    }
+  }
+
+  // 이 설정 없이 만든 파일을 VACUUM 으로 바꾼다(한 번). 파일 크기만큼의 여유 공간이 더 든다. 못 바꿔도 파일은 그대로 쓴다(다음 기동에 다시 해 본다)
+  vacuum(db: Db, file: string) {
+    const bytes = fs.statSync(file).size;
+    log.info(`${this.spec.label} 를 한 번 다시 씁니다(지운 공간을 돌려주는 설정, ${Math.ceil(bytes / 1024 / 1024)}MB)`);
+    try {
+      db.exec("VACUUM");
+      // VACUUM 이 쓴 만큼 커진 -wal 을 접어 줄인다
+      db.pragma("wal_checkpoint(TRUNCATE)");
+    } catch (error) {
+      log.warn(`${this.spec.label} 를 다시 쓰지 못해 그대로 엽니다. 기록을 지워도 파일이 줄지 않습니다(다음 기동에 다시 해 봅니다): ${messageOf(error)}`);
     }
   }
 

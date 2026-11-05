@@ -10,6 +10,7 @@ try {
   console.log(`로그인 배경 ${made.backgrounds}개를 담았습니다(만드는 중인 배경은 담지 않습니다)`);
   if (made.audioFiles !== null) console.log(made.audioFiles ? `오디오 캐시: 캐시 파일 ${made.audioFiles}개와 자동 검색 결과 · 직접 지정한 음원을 담았습니다` : "오디오 캐시: 자동 검색 결과 · 직접 지정한 음원을 담았습니다(캐시 파일까지는 --with-audio)");
   if (made.replaced.length) console.log(`이전 백업을 삭제했습니다: ${made.replaced.join(", ")}`);
+  if (made.left.length) console.log(`주의: 이전 백업을 삭제하지 못했습니다(다른 프로그램이 열어 두었을 수 있습니다). 평문 비밀이 든 파일이니 직접 삭제하세요: ${made.left.join(", ")}`);
   if (!made.hasEnv) console.log("주의: .env 가 없어 담지 못했습니다. 옮긴 곳에서 .env 를 따로 맞춰야 합니다");
   console.log("");
   console.log("이 파일에는 봇 토큰과 SECRETS_KEY 가 평문으로 들어 있습니다. .env 처럼 다루고, 옮긴 뒤에는 삭제하세요.");
