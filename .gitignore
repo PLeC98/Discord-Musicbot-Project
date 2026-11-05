@@ -14,14 +14,6 @@ coverage/
 # 외부 도구: ffmpeg, yt-dlp(vendor/bin), POToken (vendor/bgutil-ytdlp-pot-provider)
 vendor/
 
-# 과거 버전에서 사용하던 설정/시크릿 파일
-cookies.txt
-config/genres.yaml
-config/status.yaml
-config/ai.yaml
-config/ai-keys.yaml
-config/ai-prompt.chatml
-
 # 개발 작업용 파일/디렉터리
 notes/
 CLAUDE.md
