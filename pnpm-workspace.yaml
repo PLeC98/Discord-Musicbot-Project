@@ -5,6 +5,8 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - body-parser@2.4.0
   - follow-redirects@1.16.2
+  - music-metadata@12.3.3
+  - strtok3@10.6.3
 
 packages:
   - "dashboard"

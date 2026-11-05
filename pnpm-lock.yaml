@@ -71,8 +71,8 @@ importers:
         specifier: ^5.0.7
         version: 5.0.7
       music-metadata:
-        specifier: ^12.2.2
-        version: 12.2.2(supports-color@7.2.0)
+        specifier: ^12.3.3
+        version: 12.3.3(supports-color@7.2.0)
       sharp:
         specifier: ^0.35.5
         version: 0.35.5(@types/node@24.19.2)
@@ -1916,8 +1916,8 @@ packages:
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
 
-  music-metadata@12.2.2:
-    resolution: {integrity: sha512-m0fMlp+9snT8Gte3t99fMXpAeS0oRWVLzbj5OZd8zrPuP4RTQ/+VTaxgiz1igrJ/8NwhzdRNk/38aDVK/5N0Ow==}
+  music-metadata@12.3.3:
+    resolution: {integrity: sha512-KnETUdzymX+Df8A+CgQRoNi1MrHCkfq9McC2WrxHt4wECHmt8FARCNIg8WbFiYpBSNTGBcqOGLbUN4waKyNYhQ==}
     engines: {node: '>=22'}
 
   nanoid@3.3.19:
@@ -2193,8 +2193,8 @@ packages:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
 
-  strtok3@10.6.1:
-    resolution: {integrity: sha512-p8ynRS8lXnvA3tsdcUYFjbzwh2MsdBZgxrFT2G+Yb7vNvUfPF+GgHCt/0jkayfsRXA1TwtZstf+JA0V+iQXdHA==}
+  strtok3@10.6.3:
+    resolution: {integrity: sha512-MD8mENgyXMr2mDaDfzP3RWYDSyYQxIIou7HhCiCJiBekrsoDtUG0id3vYnjDfY9ndOEbazFXe13Qw6u/1AB8ew==}
     engines: {node: '>=18'}
 
   subset-font@2.9.0:
@@ -3759,7 +3759,7 @@ snapshots:
   file-type@22.2.0(supports-color@7.2.0):
     dependencies:
       '@tokenizer/inflate': 0.5.1(supports-color@7.2.0)
-      strtok3: 10.6.1
+      strtok3: 10.6.3
       token-types: 6.1.2
       uint8array-extras: 1.6.0
     transitivePeerDependencies:
@@ -4140,7 +4140,7 @@ snapshots:
 
   muggle-string@0.4.1: {}
 
-  music-metadata@12.2.2(supports-color@7.2.0):
+  music-metadata@12.3.3(supports-color@7.2.0):
     dependencies:
       '@borewit/text-codec': 0.2.2
       '@tokenizer/token': 0.3.0
@@ -4148,7 +4148,7 @@ snapshots:
       debug: 4.4.3(supports-color@7.2.0)
       file-type: 22.2.0(supports-color@7.2.0)
       media-typer: 2.0.0
-      strtok3: 10.6.1
+      strtok3: 10.6.3
       token-types: 6.1.2
       uint8array-extras: 1.6.0
       win-guid: 0.2.1
@@ -4449,7 +4449,7 @@ snapshots:
 
   statuses@2.0.2: {}
 
-  strtok3@10.6.1:
+  strtok3@10.6.3:
     dependencies:
       '@tokenizer/token': 0.3.0
 
