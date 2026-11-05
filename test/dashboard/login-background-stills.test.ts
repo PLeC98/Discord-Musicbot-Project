@@ -1,5 +1,5 @@
 // src/dashboard/login-background/stills.ts, tones.ts, rules/art-seed.ts: 썸네일, 정지 그림(폭별 WebP, sRGB, 편집의 회전과 반전), 대표색, 장면 바뀜과 장면 색.
-// 실제 ffmpeg 로 표본을 만든다(없으면 건너뛴다)
+// 실제 ffmpeg 로 표본을 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다)
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
 import sharp from "sharp";
-import { ffmpegPath } from "../../src/media/ffmpeg/path.ts";
+import { withFfmpeg as opts, withAnimatedWebp } from "../helpers/login-background-ffmpeg.ts";
 import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import { COLORLESS, hexOfSeed, seedOfPixels } from "../../src/rules/art-seed.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
@@ -22,14 +22,7 @@ after(() => {
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
   fs.rmSync(SAMPLES, { recursive: true, force: true, maxRetries: 5 });
 });
-const BIN = (() => {
-  try {
-    return ffmpegPath();
-  } catch {
-    return null;
-  }
-})();
-const opts = { skip: BIN ? false : "ffmpeg 바이너리 없음" };
+const animatedWebp = await withAnimatedWebp();
 const signal = new AbortController().signal;
 const sample = (name: string) => path.join(SAMPLES, name);
 
@@ -66,14 +59,14 @@ before(async () => {
     .png()
     .toBuffer();
   fs.writeFileSync(sample("marked.png"), marked);
-  if (!BIN) return;
+  if (opts.skip) return;
   await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x180:r=10:d=2", "-vf", "drawbox=x=0:y=0:w=48:h=48:color=red:t=fill", "-c:v", "mpeg4", "-q:v", "2", sample("marked.mp4")]);
   // 빨강 → 어두운 파랑 → 밝은 초록, 2초씩(장면 바뀜 둘. scene 점수는 밝기 차이를 크게 보므로 밝기가 다른 색으로)
   const cuts = (size: string, rate: number) => [0xd02020, 0x081860, 0x40e060].flatMap((color) => ["-f", "lavfi", "-i", `color=c=0x${color.toString(16).padStart(6, "0")}:s=${size}:r=${rate}:d=2`]);
   const joined = ["-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1[v]", "-map", "[v]"];
   await runFfmpeg(["-v", "error", "-y", ...cuts("1920x1080", 30), ...joined, "-c:v", "mpeg4", "-q:v", "3", sample("cuts.mp4")]);
   // 같은 장면의 움직이는 그림(장면을 앞 장면 위에 그리는 형식, 투명 채널이 있다)
-  await runFfmpeg(["-v", "error", "-y", ...cuts("320x180", 10), ...joined, "-c:v", "libwebp_anim", "-loop", "0", sample("cuts.webp")]);
+  if (!animatedWebp.skip) await runFfmpeg(["-v", "error", "-y", ...cuts("320x180", 10), ...joined, "-c:v", "libwebp_anim", "-loop", "0", sample("cuts.webp")]);
   await runFfmpeg(["-v", "error", "-y", ...cuts("320x180", 10), ...joined, "-f", "apng", "-plays", "0", sample("cuts.png")]);
 });
 
@@ -193,7 +186,7 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
 
 // 움직이는 WebP, APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
 for (const name of ["cuts.webp", "cuts.png"]) {
-  test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, opts, async () => {
+  test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, name.endsWith(".webp") ? animatedWebp : opts, async () => {
     const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });
     assert.equal(one.kind, "video");
     const shot = await thumb(job(one));

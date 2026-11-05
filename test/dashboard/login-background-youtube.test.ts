@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { ffmpegPath } from "../../src/media/ffmpeg/path.ts";
+import { withFfmpeg as opts } from "../helpers/login-background-ffmpeg.ts";
 import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -24,14 +24,6 @@ after(() => {
   fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 });
   fs.rmSync(path.dirname(SAMPLE), { recursive: true, force: true, maxRetries: 5 });
 });
-const BIN = (() => {
-  try {
-    return ffmpegPath();
-  } catch {
-    return null;
-  }
-})();
-const opts = { skip: BIN ? false : "ffmpeg 바이너리 없음" };
 const signal = new AbortController().signal;
 const URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
@@ -40,7 +32,7 @@ let reply: { fail?: string; skip?: boolean; info?: object } = {};
 const calls: YtDlpFlags[] = [];
 
 before(async () => {
-  if (BIN) await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30", "-t", "2", "-c:v", "mpeg4", SAMPLE]);
+  if (!opts.skip) await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30", "-t", "2", "-c:v", "mpeg4", SAMPLE]);
   useExec(((_url: string, flags: YtDlpFlags = {}) => {
     calls.push(flags);
     if (reply.fail) return Promise.reject(Object.assign(new Error("exit 1"), { stderr: reply.fail }));

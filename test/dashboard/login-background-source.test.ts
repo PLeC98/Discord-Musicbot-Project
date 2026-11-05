@@ -1,5 +1,5 @@
 // src/dashboard/login-background/source.ts: 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 다운로드한다.
-// 표본은 실제 ffmpeg 로 만든다(없으면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
+// 표본은 실제 ffmpeg 로 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import sharp from "sharp";
-import { ffmpegPath } from "../../src/media/ffmpeg/path.ts";
+import { withFfmpeg as opts, withAnimatedWebp } from "../helpers/login-background-ffmpeg.ts";
 import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { download, inspectSource, parseInput } from "../../src/dashboard/login-background/source.ts";
@@ -19,24 +19,15 @@ after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 const at = (name: string) => path.join(DIR, name);
 const signal = new AbortController().signal;
 
-const BIN = (() => {
-  try {
-    return ffmpegPath();
-  } catch {
-    return null;
-  }
-})();
-const opts = { skip: BIN ? false : "ffmpeg 바이너리 없음" };
-/** 움직이는 WebP 를 만들 수 있는 빌드인가(libwebp_anim) */
-let animatedWebp = false;
+const animatedWebp = await withAnimatedWebp();
 
 before(async () => {
-  if (!BIN) return;
+  if (opts.skip) return;
   const make = (args: string[]) => runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=15", "-t", "2", ...args]);
   await make(["-c:v", "mpeg4", at("clip.mp4")]);
   await make(["-c:v", "gif", at("anim.gif")]);
   await make(["-f", "apng", "-plays", "0", at("anim.png")]);
-  animatedWebp = (await make(["-c:v", "libwebp_anim", "-loop", "0", at("anim.webp")])).code === 0;
+  if (!animatedWebp.skip) await make(["-c:v", "libwebp_anim", "-loop", "0", at("anim.webp")]);
   await sharp({ create: { width: 640, height: 360, channels: 3, background: "#336699" } })
     .png()
     .toFile(at("still.png"));
@@ -68,14 +59,18 @@ test("정지 그림은 sharp 로, EXIF 방향을 따른 크기", opts, async () 
   assert.deepEqual(await inspect("rotated.jpg"), { kind: "image", width: 200, height: 400, duration: 0, fps: 0 });
 });
 
-test("영상, 움짤(GIF, APNG, 움직이는 WebP)은 ffmpeg 로, 길이를 적지 않은 것은 패킷을 세어", opts, async () => {
-  for (const name of ["clip.mp4", "anim.gif", "anim.png", ...(animatedWebp ? ["anim.webp"] : [])]) {
-    const got = await inspect(name);
-    assert.deepEqual([got.kind, got.width, got.height], ["video", 320, 180], name);
-    assert.ok(Math.abs(got.duration - 2) < 0.2, `${name} 길이 ${got.duration}`);
-    assert.ok(got.fps > 0, name);
-  }
+async function assertMoving(name: string) {
+  const got = await inspect(name);
+  assert.deepEqual([got.kind, got.width, got.height], ["video", 320, 180], name);
+  assert.ok(Math.abs(got.duration - 2) < 0.2, `${name} 길이 ${got.duration}`);
+  assert.ok(got.fps > 0, name);
+}
+
+test("영상, 움짤(GIF, APNG)은 ffmpeg 로, 길이를 적지 않은 것은 패킷을 세어", opts, async () => {
+  for (const name of ["clip.mp4", "anim.gif", "anim.png"]) await assertMoving(name);
 });
+
+test("움직이는 WebP 도 ffmpeg 로", animatedWebp, () => assertMoving("anim.webp"));
 
 test("다른 파일을 읽는 형식, 그림이 아닌 것, 너무 작은 그림은 거절한다", opts, async () => {
   assert.equal(await reject("evil.m3u8"), "background-bad-source");
