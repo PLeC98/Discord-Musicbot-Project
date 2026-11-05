@@ -7,6 +7,8 @@ minimumReleaseAgeExclude:
   - follow-redirects@1.16.2
   - music-metadata@12.3.3
   - strtok3@10.6.3
+  - minimatch@11.0.4
+  - "@isaacs/nonrecursive-glob-match@1.0.3"
   - youtube-dl-exec@3.1.19
 
 packages:
@@ -25,7 +27,9 @@ patchedDependencies:
 # undici: @discordjs/rest 고정 버전이 취약, 픽스는 6.29.1. 패치까지만 따른다(다음 minor 는 바뀐 것을 보고 올린다). 7/8은 discord.js 스테이블 지원 시 승계.
 # @discordjs/opus: prism-media(voice 의 의존)의 선택 피어라 직접 의존성에서 빼도 pnpm 이 계속 설치한다. 인코딩은 libopus-wasm 으로 한다(media/opus-encoder)
 # ffmpeg-static: 같은 까닭으로 남아 설치 때 ffmpeg(80MB)를 받는다. ffmpeg는 따로 받아 직접 띄우고 voice에는 Opus를 넘긴다(media/ffmpeg)
+# minimatch: 린트 도구(eslint, typescript-eslint)가 묶은 10 에 고친 버전이 없다(GHSA-g3hv-75wg-m249). 두 도구가 쓰는 Minimatch, match, minimatch() 는 11 에도 같다. 도구가 11 로 올리면 뺀다
 overrides:
   undici: ~6.29.1
   "@discordjs/opus": "-"
   ffmpeg-static: "-"
+  minimatch: ~11.0.4
