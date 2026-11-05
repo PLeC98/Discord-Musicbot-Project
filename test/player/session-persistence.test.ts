@@ -719,3 +719,17 @@ test("위치만 쓰기는 주기 저장에 든 플레이어만. 복원 중(주�
     sp.stopPeriodicSave();
   }
 });
+
+test("재생을 시작한 차례(주기 저장에 넣고, 재생 저장으로 세션을 넘겨받음) 그대로면 멈춘 위치를 쓴다", async () => {
+  const { p, sp } = makePlayer();
+  p.currentTrack = t("지금"); // 미러를 거치지 않는다. 넘겨받기는 재생 저장이 한다
+  sp.startPeriodicSave(); // start-playback 의 차례
+  try {
+    await sp.save("play");
+    p.position = 44_000;
+    sp.savePosition();
+    assert.equal(sessions().load(p.guild.id)?.session.positionMs, 44_000);
+  } finally {
+    sp.stopPeriodicSave();
+  }
+});
