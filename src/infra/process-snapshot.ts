@@ -4,6 +4,7 @@
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import logger from "./log/logger.ts";
 import { consoleText } from "./console-text.ts";
 const log = logger.child({ category: "proc" });
@@ -72,6 +73,17 @@ function parseStat(pid: number, text: string): Proc | null {
   };
 }
 
+// Node 는 메인 스레드 이름을 MainThread 로 바꿔(uv_thread_setname) comm 이 실행 파일 이름이 아니다. 그때만 실행 파일 경로에서 읽는다.
+// 늘 경로로 읽지 않는 것은 shebang 스크립트(yt-dlp)의 경로가 인터프리터라서다
+const RENAMED_MAIN_THREAD = "mainthread";
+function exeImage(pid: number) {
+  try {
+    return imageName(path.basename(fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "")));
+  } catch {
+    return null;
+  }
+}
+
 function linuxSnapshot(): Proc[] | null {
   let names: string[];
   try {
@@ -86,7 +98,9 @@ function linuxSnapshot(): Proc[] | null {
     // 읽는 사이 끝난 프로세스는 없다고 본다
     const text = readText(`/proc/${name}/stat`);
     const proc = text && parseStat(Number(name), text);
-    if (proc) out.push(proc);
+    if (!proc) continue;
+    if (proc.image === RENAMED_MAIN_THREAD) proc.image = exeImage(proc.pid) ?? proc.image;
+    out.push(proc);
   }
   return out;
 }
