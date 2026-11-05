@@ -199,3 +199,54 @@ test("갱신: 목차와 카탈로그의 해시가 다르거나 형식 버전이 
   assert.equal(models.saved(), false, "가진 사본을 그대로 둔다");
   assert.deepEqual(models.load().profiles, {}, "받은 것이 없으면 빈 프로필로 돈다");
 });
+
+test("갱신: 모양이 틀린 프로필(읽는 쪽이 던질 것, 상속하는 베이스가 없는 것)은 빼고 나머지를 저장한다", async () => {
+  useModelInfo();
+  const broken = {
+    "a:null": null,
+    "a:no-model": { schema: [FIELD] },
+    "a:lost-base": { modelId: "x", providerBaseId: "missing", schema: [] },
+    "a:schema-object": { modelId: "y", schema: { key: "topP" } },
+    "a:null-field": { modelId: "z", schema: [null] },
+  };
+  const { fetchImpl } = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => {
+      const one = catalogOf("h1");
+      return { ...one, profiles: { ...one.profiles, ...broken } };
+    },
+  );
+  assert.equal((await models.refresh({ registries: ["a"], fetchImpl })).count, 1);
+  assert.deepEqual(Object.keys(models.load().profiles), ["a:m"]);
+  assert.deepEqual(models.fieldsOf("a", "x"), [], "뺀 모델은 모르는 모델과 같다");
+});
+
+test("갱신: 담을 레지스트리가 바뀌면(프로바이더를 더 지원하게 되면) 해시가 같아도 다시 받는다", async () => {
+  useModelInfo();
+  const { asked, fetchImpl } = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => catalogOf("h1"),
+  );
+  await models.refresh({ registries: ["a"], fetchImpl });
+  asked.length = 0;
+  const got = await models.refresh({ registries: ["a", "z"], fetchImpl });
+  assert.deepEqual(asked, ["index.json", "catalog.json?h=h1"]);
+  assert.deepEqual([got.changed, Object.keys(models.load().profiles).sort()], [true, ["a:m", "z:n"]]);
+});
+
+test("모델 ID 를 직접 넣어 쓰는 틀(빈 modelId)은 저장하되 모델 목록에는 넣지 않는다", async () => {
+  useModelInfo();
+  const { fetchImpl } = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => {
+      const one = catalogOf("h1");
+      return { ...one, profiles: { ...one.profiles, "a:openai-compatible": { modelId: "", providerBaseId: "a-base", schema: [] } } };
+    },
+  );
+  await models.refresh({ registries: ["a"], fetchImpl });
+  assert.deepEqual(Object.keys(models.load().profiles).sort(), ["a:m", "a:openai-compatible"]);
+  assert.deepEqual(
+    models.modelsOf("a").map((one) => one.modelId),
+    ["m"],
+  );
+});

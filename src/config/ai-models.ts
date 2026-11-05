@@ -38,8 +38,8 @@ type Profile = {
   uiSchema?: UiSchema;
   defaults?: Record<string, unknown>;
 };
-/** 파일에 둔 한 버전. hash 는 받은 카탈로그의 해시 */
-type Snapshot = { fetchedAt?: string; hash?: string; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
+/** 파일에 둔 한 버전. hash 는 받은 카탈로그의 해시, registries 는 담은 레지스트리(담을 목록이 바뀌면 해시가 같아도 다시 받는다) */
+type Snapshot = { fetchedAt?: string; hash?: string; registries?: string[]; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
 /** 목차(index.json)에서 읽는 것: 카탈로그 전체의 해시 */
 type RegistryIndex = { hash?: unknown };
 /** 카탈로그(catalog.json): 레지스트리 전체가 든 파일 하나 */
@@ -93,7 +93,8 @@ function _setDir(dir: string) {
 function modelsOf(registry: string, snapshot: Snapshot = load()): ModelSummary[] {
   const out: ModelSummary[] = [];
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) {
-    if (String(id).split(":")[0] !== registry) continue;
+    // 모델 ID 를 직접 넣어 쓰는 틀(modelId 가 빈 글, "Enter any model ID")은 모델이 아니다
+    if (String(id).split(":")[0] !== registry || !profile.modelId) continue;
     out.push({
       id,
       modelId: profile.modelId,
@@ -171,12 +172,29 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 
 const github = httpFor("github");
 
-/** 카탈로그에서 우리 프로바이더의 프로필과 그 프로필이 상속하는 베이스만 선택한다 */
-function pick(catalog: Catalog, registries: string[], fetchedAt = new Date().toISOString()): Snapshot {
-  const profiles = Object.fromEntries(Object.entries(catalog.profiles ?? {}).filter(([id]) => registries.includes(String(id).split(":")[0])));
+const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
+// 읽는 쪽(fieldsOf, groupsOf, defaultsOf)이 그대로 펼치는 배열. 있으면 배열이고 칸마다 객체여야 한다
+const objectList = (value: unknown) => value === undefined || (Array.isArray(value) && value.every(isObject));
+const goodUi = (ui: unknown) => ui === undefined || (isObject(ui) && objectList(ui.fields) && objectList(ui.groups));
+const goodBase = (base: unknown) => isObject(base) && objectList(base.requestSchema) && goodUi(base.uiSchema);
+
+/**
+ * 카탈로그에서 우리 프로바이더의 프로필과 그 프로필이 상속하는 베이스만 선택한다.
+ * 모양이 틀린 프로필(읽는 쪽이 던질 것, 상속하는 베이스가 없거나 틀린 것)은 빼고 그 id 를 skipped 로 돌려준다
+ */
+function pick(catalog: Catalog, registries: string[], fetchedAt = new Date().toISOString()): { snapshot: Snapshot; skipped: string[] } {
+  const sources = catalog.baseProviders ?? {};
+  const skipped: string[] = [];
+  const profiles: Record<string, Profile> = {};
+  for (const [id, one] of Object.entries(catalog.profiles ?? {})) {
+    if (!registries.includes(String(id).split(":")[0])) continue;
+    const ok = isObject(one) && typeof one.modelId === "string" && objectList(one.schema) && goodUi(one.uiSchema) && (one.providerBaseId === undefined || goodBase(sources[one.providerBaseId]));
+    if (ok) profiles[id] = one;
+    else skipped.push(id);
+  }
   const bases = new Set([...registries, ...Object.values(profiles).flatMap((one) => (one.providerBaseId ? [one.providerBaseId] : []))]);
-  const baseProviders = Object.fromEntries(Object.entries(catalog.baseProviders ?? {}).filter(([id]) => bases.has(id)));
-  return { fetchedAt, hash: String(catalog.hash), baseProviders, profiles };
+  const baseProviders = Object.fromEntries(Object.entries(sources).filter(([id, base]) => bases.has(id) && goodBase(base)));
+  return { snapshot: { fetchedAt, hash: String(catalog.hash), registries: [...registries].sort(), baseProviders, profiles }, skipped };
 }
 
 // 저쪽이 모양을 바꾸면 필드가 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
@@ -201,13 +219,15 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
   const index = await get<RegistryIndex>("index.json");
   if (typeof index.hash !== "string") throw new Error("레지스트리 목차에 해시가 없습니다");
-  if (!force && count(held) && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
+  const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
+  if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
   // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 목차와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
   if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`레지스트리 카탈로그 형식 ${String(catalog.schemaVersion)}은 읽지 않습니다(${CATALOG_SCHEMA}만 읽습니다)`);
   if (catalog.hash !== index.hash) throw new Error("레지스트리 목차와 카탈로그의 해시가 다릅니다(저쪽이 갱신하는 중). 다음에 다시 받습니다");
-  const got = pick(catalog, registries);
+  const { snapshot: got, skipped } = pick(catalog, registries);
+  if (skipped.length) log.warn(`AI 모델 정보에서 모양이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장합니다: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 

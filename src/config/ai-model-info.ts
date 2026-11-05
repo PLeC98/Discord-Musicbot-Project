@@ -14,12 +14,19 @@ const log = logger.child({ category: "config" });
 /** 프로필을 받을 레지스트리(PROVIDER_SPECS 의 registry) */
 const registries = () => [...new Set(Object.values(PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
 
-// 화면을 열면서 목록 새로고침을 같이 누르는 일이 흔하다. 받는 중이면 그 결과를 같이 기다린다
+// 화면을 열면서 목록 새로고침을 같이 누르거나 화면을 연달아 여는 일이 흔하다.
+// 받는 중이면 그 결과를 같이 기다리고, 끝난 지 이만큼 안이면 다시 묻지 않고 그 결과를 쓴다(force 는 늘 묻는다)
+const REASK_MS = 5000;
 let running: Promise<RefreshResult> | null = null;
+let last: { at: number; result: RefreshResult } | null = null;
 
 /** 받는다. changed: 둘 중 하나라도 바뀌었다, count: 모델 프로필 수. force 면 해시와 상관없이 모델 프로필을 받는다 */
 function refreshModelInfo({ force = false } = {}): Promise<RefreshResult> {
-  running ??= both(force).finally(() => (running = null));
+  if (running) return running;
+  if (!force && last && Date.now() - last.at < REASK_MS) return Promise.resolve({ ...last.result, changed: false });
+  running = both(force)
+    .then((result) => ((last = { at: Date.now(), result }), result))
+    .finally(() => (running = null));
   return running;
 }
 
