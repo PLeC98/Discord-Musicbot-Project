@@ -266,11 +266,11 @@ class FakeVoice extends VoiceLink {
 // 대기열이 바뀔 때 세션 저장이 받는 알림(on…)은 어떤 알림이 어떤 순서로 가는지만 남긴다
 class FakePersistence extends SessionPersistence {
   override _mirror() {}
-  override async persistState(reason: string) {
+  override async save(reason: string) {
     calls.persists.push(reason);
   }
-  override startStateSync() {}
-  override stopStateSync() {}
+  override startPeriodicSave() {}
+  override stopPeriodicSave() {}
   // 잠깐 모았다가 쓰는 것은 세션 저장 테스트가 본다. 여기서는 알림만 센다
   override onSettingsChanged() {
     calls.settings++;

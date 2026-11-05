@@ -143,7 +143,7 @@ const fakePlayer = (overrides = {}) => {
     currentTrack: null,
     queue: [],
     loop: false,
-    lastPlaybackPosition: 0,
+    heldPositionMs: 0,
     _trackLabel: () => '"x" (youtube)',
     ...overrides,
   });

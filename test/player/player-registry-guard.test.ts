@@ -45,7 +45,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
       currentTrack: current,
       playback: { resource: { playbackDuration: (current?.duration || 0) * 1000 } },
-      lastPlaybackPosition: 0,
+      heldPositionMs: 0,
       retry: { used: 0, stalled: 0 },
       failedTracks: 0,
       failedLabels: [],

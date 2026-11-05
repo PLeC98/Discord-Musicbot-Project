@@ -194,7 +194,7 @@ const REAL = {
 type Boundary = typeof REAL;
 
 // 여는 중이고 그 재생의 소리를 아직 오디오 플레이어에 넘기지 않았다. 이때 온 끝 요청은 적어 두었다가 연 뒤에 건다(같은 재생에서는 먼저 온 것이 이긴다).
-// play() 가 끝 원인을 지우고, 이때 멎은 옛 소리의 Idle 은 끝으로 보지 않는다(onPlayerIdle). 넘긴 뒤(세션 저장을 기다리는 사이)는 보통처럼 멈춘다.
+// play() 가 끝 원인을 지우고, 이때 멎은 옛 소리의 Idle 은 끝으로 보지 않는다(onAudioIdle). 넘긴 뒤(세션 저장을 기다리는 사이)는 보통처럼 멈춘다.
 // 소리가 없으면 멈출 것이 없어 true. 옛 소리가 붙어 있으면(위치 이동, 음성 복구의 재개) false, 부른 쪽이 그 소리를 바로 멈춘다
 function deferWhileStarting(player: Pick<Player, "lifecycle" | "audioPlayer" | "_playGen" | "_handedGen" | "_endWhileStarting" | "currentTrack">, reason: string) {
   if (!player.lifecycle.starting || player._handedGen === player._playGen) return false;
@@ -286,7 +286,7 @@ class Player {
   /** 곡 추가가 쉬던 플레이어에 첫 곡을 트는 동안. 틀지 못해도 대기열 소진으로 끝내지 않는다(추가할 곡이 아직 남았다). 끝은 곡 추가 쪽이 맡는다 */
   finishByCaller = false;
   lifecycle: PlaybackState;
-  lastPlaybackPosition: number;
+  heldPositionMs: number;
   /** 멈춤: 사람의 뜻과 지금 음성 상태에서 계산한 억제 사유. 밖에서는 이것의 메서드와 syncHolds 로만 바꾼다 */
   pause: PauseState;
   voice: VoiceLink;
@@ -331,7 +331,7 @@ class Player {
     this.retry = FRESH;
     this.failedTracks = 0;
     this.lifecycle = new PlaybackState(() => this._trackLabel()); // 재생 단계와 끝 처리 중인가
-    this.lastPlaybackPosition = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
+    this.heldPositionMs = 0; // 재생이 없을 때(복원 직후 등) 알려 줄 위치
 
     // 소리가 멈춰 있어야 하나는 사람의 뜻과 억제 사유로 계산한다(paused)
     this.pause = new PauseState(
@@ -388,7 +388,7 @@ class Player {
 
     this.audioPlayer.on(
       AudioPlayerStatus.Idle,
-      own(() => this.onPlayerIdle("idle")),
+      own(() => this.onAudioIdle("idle")),
     );
 
     // 내장 방어(maxMissedFrames)는 Playing 중에만 돈다. Buffering에서 멈추면 시작 워치독이 깨운다.
@@ -502,7 +502,7 @@ class Player {
       if (!current) return { ok: false, code: "queue-empty" };
       pb = this.playback = new CurrentPlayback(current, { startOffsetMs: start.startMs });
       const opening = pb; // 아래 콜백은 let 의 좁힌 형식을 이어받지 못한다
-      this.lastPlaybackPosition = start.startMs;
+      this.heldPositionMs = start.startMs;
       const track = pb.track;
 
       const open = () => this._openSource(opening, start.startMs, previous, liveReopen);
@@ -658,19 +658,19 @@ class Player {
   /** 즉시 재생과 나란히 캐시를 다운로드해 둔다. 기다리지 않으며, 실패해도 재생은 스트림으로 계속된다. */
   _startBackgroundDownload() {
     // currentTrack은 다운로드가 끝나기 전에 바뀔 수 있다. 지금 곡을 붙잡아 둔다
-    const trackToDownload = this.currentTrack;
-    if (!trackToDownload) return;
-    const before = infoOf(trackToDownload);
+    const track = this.currentTrack;
+    if (!track) return;
+    const before = infoOf(track);
     this.downloader
-      .downloadTrack(trackToDownload)
+      .downloadTrack(track)
       .then((file) => {
-        log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(trackToDownload)} → ${file}`);
-        if (this.currentTrack === trackToDownload) this._learnLength(trackToDownload);
-        if (this._noteTrackInfo(trackToDownload, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+        log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(track)} → ${file}`);
+        if (this.currentTrack === track) this._learnLength(track);
+        if (this._noteTrackInfo(track, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
       })
       .catch(() => {
         // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
-        log.debug(`백그라운드 캐시 다운로드 실패, 재생은 스트림으로 계속합니다: ${this._trackLabel(trackToDownload)}`);
+        log.debug(`백그라운드 캐시 다운로드 실패, 재생은 스트림으로 계속합니다: ${this._trackLabel(track)}`);
       });
   }
 
@@ -762,7 +762,7 @@ class Player {
     return track ? `"${logTitle(track.title)}" (${track.platform})` : "(곡 없음)";
   }
 
-  onPlayerIdle(trigger = "idle") {
+  onAudioIdle(trigger = "idle") {
     this._clearSilentStop();
     const reason = this._endReason ?? trigger;
     this._endReason = null;
@@ -919,7 +919,7 @@ class Player {
     this._cancelRest();
     this.idle.stop();
     this.warmer.stop();
-    this.persistence.stopStateSync();
+    this.persistence.stopPeriodicSave();
     this.voice.stop();
     this.watch.stop();
   }
@@ -943,7 +943,7 @@ class Player {
     this.lifecycle.to("disposed", reason);
     try {
       bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
-      if (session === "save") await this.persistence.persistState("leave");
+      if (session === "save") await this.persistence.save("leave");
       else if (session === "remove") this.persistence?.removeSession();
       // 남긴다: 아래에서 메모리를 비우는 것(_endPlayback)이 미러를 타고 저장된 곡 행까지 지우지 않게 미러를 뗀다
       else if (this.persistence) this.persistence.frozen = true;
@@ -977,7 +977,7 @@ class Player {
       log.debug(`재생 스트림 닫기 실패: ${messageOf(error)}`);
     }
     this.playback = null;
-    this.lastPlaybackPosition = 0;
+    this.heldPositionMs = 0;
   }
 
   // 패널 참조를 놓는다. 남은 패널은 ui 가 기록으로 찾아 끝낸다
@@ -1003,7 +1003,7 @@ class Player {
       clog.info(`위치 이동 거부: ${this._trackLabel()} | 라이브 | 원인=${reason}`);
       return { ok: false, code: "live-no-seek" };
     }
-    // 출발은 지금 재생 위치다. lastPlaybackPosition 은 이번 재생을 시작한 위치라 재생 중에 안 바뀐다
+    // 출발은 지금 재생 위치다(heldPositionMs 는 재생이 없을 때 알려 줄 위치다)
     const from = Math.round(this.getCurrentTime() / 1000);
     clog.info(`위치 이동: ${this._trackLabel()} | ${from}초 → ${Math.round(seekMs / 1000)}초 | 원인=${reason}`);
     return this.play(seekMs, { continued: true });
@@ -1146,7 +1146,7 @@ class Player {
   /** 곡 안의 지금 위치(ms). 리소스가 실제로 낸 양이라 멈춤, 버퍼링은 세지 않는다 */
   getCurrentTime() {
     const pb = this.playback;
-    if (!pb) return this.lastPlaybackPosition || 0;
+    if (!pb) return this.heldPositionMs || 0;
     return (pb.startOffsetMs || 0) + (pb.resource?.playbackDuration || 0);
   }
 
@@ -1218,7 +1218,7 @@ class Player {
   // 어떻게 끝났는지 재고 로그로 남긴다
   _describeEnd(finishedTrack: QueuedTrack | null, reason: string): EndShape {
     const playedMs = this.getCurrentTime();
-    this.lastPlaybackPosition = playedMs;
+    this.heldPositionMs = playedMs;
     const label = this._trackLabel(finishedTrack);
     log.info(`트랙 종료: ${label} | 원인=${reason}`);
     if (!finishedTrack) return { playedMs, label, dropped: false, live: false, why: "곡 없음" };
@@ -1326,7 +1326,7 @@ class Player {
     }
 
     this.playback = null;
-    this.lastPlaybackPosition = 0;
+    this.heldPositionMs = 0;
 
     if (this.queue.length > 0) {
       trackState.shiftNext(this);
@@ -1583,7 +1583,7 @@ class Player {
   async _skipFailed(error: unknown, { tell, removed }: { tell: boolean; removed: number }) {
     // 못 튼 곡의 재생, 위치를 버린다(곡 끝과 같이). 남기면 다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡의 위치로 쓴다
     this.playback = null;
-    this.lastPlaybackPosition = 0;
+    this.heldPositionMs = 0;
 
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
     if (this.queue.length === 0 && this.autoplay) {
@@ -1644,7 +1644,7 @@ class Player {
    */
   park(at: number, why: ParkReason) {
     if (this.lifecycle.disposed || !this.currentTrack) return;
-    // 단계를 먼저 바꾼다. 아래에서 열려 있던 소리를 내리면 Idle 이 동기로 오는데, 그 끝 처리가 곡을 넘기지 않게(onPlayerIdle 이 parked 를 본다)
+    // 단계를 먼저 바꾼다. 아래에서 열려 있던 소리를 내리면 Idle 이 동기로 오는데, 그 끝 처리가 곡을 넘기지 않게(onAudioIdle 이 parked 를 본다)
     this.lifecycle.to("parked", why.kind);
     this._clearSilentStop();
     if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle) this.audioPlayer.stop(true);
@@ -1655,12 +1655,12 @@ class Player {
     this.watch.stopOverflow();
     this.releaseAudioProtection();
     this.playback = null;
-    this.lastPlaybackPosition = Math.max(0, at || 0);
+    this.heldPositionMs = Math.max(0, at || 0);
     this._parkedOverUserPause = this.pause.userPaused;
     this.pause.setUser(true);
     // 소리를 한 번도 열지 못한 플레이어는 상태 동기화에 없어 설정 변경이 저장되지 않는다. 붙이고 지금 상태를 곧바로 쓴다
-    this.persistence.startStateSync();
-    bestEffort(log, this.persistence.persistState("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
+    this.persistence.startPeriodicSave();
+    bestEffort(log, this.persistence.save("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
     this._showTrackInVoiceStatus();
     log.warn(`그 곡에서 일시정지합니다(재생 버튼으로 다시 시도): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
     // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
@@ -1704,11 +1704,11 @@ class Player {
     const at = this.getCurrentTime();
     // 소리를 낸 곡이면 연달은 실패가 아니다. 곡 끝(onTrackEnd)은 리소스가 낸 시간으로 보는데 휴면하면 리소스가 없다
     if ((pb.resource.playbackDuration ?? 0) >= PROGRESS_MS) this._resetFailures();
-    // 단계를 먼저 바꾼다. 아래 stop 이 Idle 을 동기로 알리는데, 그 끝 처리가 곡을 넘기지 않게(onPlayerIdle 이 released 를 본다)
+    // 단계를 먼저 바꾼다. 아래 stop 이 Idle 을 동기로 알리는데, 그 끝 처리가 곡을 넘기지 않게(onAudioIdle 이 released 를 본다)
     this.lifecycle.to("resting", "장시간 일시정지");
     pb.startOffsetMs = at;
     pb.resource = null;
-    this.lastPlaybackPosition = at;
+    this.heldPositionMs = at;
     this.audioPlayer.stop(true);
     // Idle 이 멎음 감시를 다시 건다. 해제한 뒤에 끈다
     this.watch.stopIdle();

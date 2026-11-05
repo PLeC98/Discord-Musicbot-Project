@@ -29,7 +29,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
       watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
       currentTrack: current,
       playback: current ? { resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
-      lastPlaybackPosition: 0,
+      heldPositionMs: 0,
       retry: { used: 0, stalled: 0 },
       failedTracks: 0,
       failedLabels: [],

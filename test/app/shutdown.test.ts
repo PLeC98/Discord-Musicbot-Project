@@ -27,7 +27,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
 
   const player = (id: string) => ({
     persistence: {
-      persistState: async (reason: string) => {
+      save: async (reason: string) => {
         steps.push(`save:${id}:${reason}`);
         if (saveFails) throw new Error("저장 실패");
       },

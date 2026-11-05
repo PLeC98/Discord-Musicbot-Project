@@ -14,7 +14,7 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 
-const HEARTBEAT_MS = 5000;
+const POSITION_SAVE_MS = 5000;
 // 설정이 바뀐 뒤 이만큼 모았다가 한 번 쓴다(볼륨을 연달아 바꾸는 따위)
 const SETTINGS_SETTLE_MS = 200;
 
@@ -26,11 +26,11 @@ const liveStore = () => (stateDb.isOpen() ? sessions() : null);
 
 // 재생 위치는 플레이어마다 타이머를 두지 않고 하나로 모아 한 트랜잭션에 쓴다.
 const active = new Set<SessionPersistence>();
-let heartbeat: NodeJS.Timeout | null = null;
+let tickTimer: NodeJS.Timeout | null = null;
 // DB 가 잠기면 5초마다 같은 실패가 난다. 처음 한 번만 error, 풀리면 한 줄
 const positionSave = repeatingFailure(log, "재생 위치 저장");
 
-function beat() {
+function saveTick() {
   const store = liveStore();
   if (!store) return;
   const entries: Array<{ guildId: string; positionMs: number }> = [];
@@ -52,7 +52,7 @@ function beat() {
 }
 
 class SessionPersistence {
-  static _beat = beat;
+  static _saveTick = saveTick;
   player: Player;
   frozen: boolean;
   dirty: boolean;
@@ -204,7 +204,7 @@ class SessionPersistence {
   saveRowIfChanged() {
     const p = this.player;
     if (!p.currentTrack && p.queue.length === 0) return;
-    if (this._rowKey() !== this.lastRow) bestEffort(log, this.persistState("changed"), "세션 저장");
+    if (this._rowKey() !== this.lastRow) bestEffort(log, this.save("changed"), "세션 저장");
   }
 
   // 세션 행에서 위치를 뺀 열. 위치는 주기 저장이 따로 쓴다
@@ -228,11 +228,12 @@ class SessionPersistence {
     }
   }
 
-  async persistState(reason: string) {
+  /** 세션 행을 곧바로 쓴다. saveNow 와 같고 Promise 를 돌려준다: 기다리는 곳(종료, bestEffort)과 테스트가 차례를 끼우는 곳이 쓴다 */
+  async save(reason: string) {
     this.saveNow(reason);
   }
 
-  /** 세션 행을 곧바로 쓴다(DB 쓰기는 동기다). 기다릴 수 없는 곳(치명 종료)이 부른다 */
+  /** 세션 행을 곧바로 쓴다(DB 쓰기는 동기다). 기다릴 수 없는 곳(치명 종료)이 부른다. reason 이 나감, 종료면 이 뒤로는 옮기지 않는다 */
   saveNow(reason: string) {
     const p = this.player;
     const store = liveStore();
@@ -267,21 +268,21 @@ class SessionPersistence {
     }
   }
 
-  startStateSync() {
+  startPeriodicSave() {
     active.add(this);
-    if (!heartbeat) {
-      heartbeat = setInterval(beat, HEARTBEAT_MS);
-      heartbeat.unref?.();
+    if (!tickTimer) {
+      tickTimer = setInterval(saveTick, POSITION_SAVE_MS);
+      tickTimer.unref?.();
     }
   }
 
-  stopStateSync() {
+  stopPeriodicSave() {
     if (this.settingsTimer) clearTimeout(this.settingsTimer);
     this.settingsTimer = null;
     active.delete(this);
-    if (active.size === 0 && heartbeat) {
-      clearInterval(heartbeat);
-      heartbeat = null;
+    if (active.size === 0 && tickTimer) {
+      clearInterval(tickTimer);
+      tickTimer = null;
     }
   }
 
@@ -308,7 +309,7 @@ class SessionPersistence {
     if (!record || !player.guild?.id) return "empty";
     const { session } = record;
     this.claimed = true; // 저장된 세션을 이 플레이어로 되살린다
-    this.stopStateSync();
+    this.stopPeriodicSave();
     player.restoreSettings({
       volume: session.volume,
       loop: session.loopMode === "track" || session.loopMode === "queue" ? session.loopMode : false,
@@ -328,7 +329,7 @@ class SessionPersistence {
       resumeMs = 0;
       await this._advancePastEnd();
     }
-    player.lastPlaybackPosition = resumeMs;
+    player.heldPositionMs = resumeMs;
 
     // 틀 곡이 없으면 붙지 않는다(붙은 채 나갈 타이머 없이 남지 않게)
     if (!player.currentTrack) {
@@ -445,7 +446,7 @@ function endedAt(track: QueuedTrack | null, positionMs: number | null | undefine
   const key = audioKeyOf(track.audioUrl);
   const measured = key ? audioCache.lookupByAudioKey(key)?.duration_sec : null;
   const lengthMs = (measured && measured > 0 ? measured : Number(track.duration) || 0) * 1000;
-  return lengthMs > 0 && Math.max(0, Number(positionMs) || 0) + HEARTBEAT_MS >= lengthMs;
+  return lengthMs > 0 && Math.max(0, Number(positionMs) || 0) + POSITION_SAVE_MS >= lengthMs;
 }
 
 export { SessionPersistence };

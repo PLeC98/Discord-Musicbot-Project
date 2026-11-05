@@ -181,11 +181,11 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
-// 알림을 빠뜨린 길은 주기 저장(beat)이 잡는다. 세션 행의 열이 지난 저장과 다르면 쓴다
+// 알림을 빠뜨린 길은 주기 저장(saveTick)이 잡는다. 세션 행의 열이 지난 저장과 다르면 쓴다
 test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위치만 바뀌었으면 다시 쓰지 않는다. 곡이 없으면 쓰지 않는다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
-  await sp.persistState("play");
+  await sp.save("play");
   const store = sessions();
   const save = store.saveSession.bind(store);
   const remove = store.removeSession.bind(store);
@@ -193,30 +193,30 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
   let removals = 0;
   store.saveSession = (...args: Parameters<typeof save>) => (writes++, save(...args));
   store.removeSession = (...args: Parameters<typeof remove>) => (removals++, remove(...args));
-  sp.startStateSync();
+  sp.startPeriodicSave();
   try {
-    SessionPersistence._beat();
+    SessionPersistence._saveTick();
     assert.equal(writes, 0, "바뀐 필드가 없다");
 
-    p.lastPlaybackPosition = 90_000; // 위치만
-    SessionPersistence._beat();
+    p.position = 90_000; // 위치만(가짜의 getCurrentTime 이 읽는 값)
+    SessionPersistence._saveTick();
     assert.equal(writes, 0, "위치는 행을 다시 쓰지 않는다(위치는 따로 쓴다)");
 
     p.volume = 40;
-    SessionPersistence._beat();
+    SessionPersistence._saveTick();
     assert.equal(writes, 1);
     assert.equal(loaded(p.guild.id).session.volume, 40);
 
-    SessionPersistence._beat();
+    SessionPersistence._saveTick();
     assert.equal(writes, 1, "한 번 쓴 뒤로는 같다");
 
     trackState.reset(p, { history: true });
     p.loop = "queue";
-    SessionPersistence._beat();
+    SessionPersistence._saveTick();
     assert.equal(writes, 1, "곡도 대기열도 없으면 쓰지 않는다");
     assert.equal(removals, 0, "지우는 것도 주기 저장의 일이 아니다(대기열이 끝날 때 지운다)");
   } finally {
-    sp.stopStateSync();
+    sp.stopPeriodicSave();
     store.saveSession = save;
     store.removeSession = remove;
   }
@@ -226,13 +226,13 @@ test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위�
 test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰지 않는다. 동기화를 멈추면 대기 중인 쓰기도 버린다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("now"));
-  await sp.persistState("play");
+  await sp.save("play");
   const store = sessions();
   const save = store.saveSession.bind(store);
   let writes = 0;
   store.saveSession = (...args: Parameters<typeof save>) => (writes++, save(...args));
   const settle = () => new Promise((done) => setTimeout(done, 300));
-  sp.startStateSync();
+  sp.startPeriodicSave();
   try {
     for (const volume of [80, 60, 40]) {
       p.volume = volume;
@@ -249,7 +249,7 @@ test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰�
 
     p.loop = "track";
     sp.onSettingsChanged();
-    sp.stopStateSync();
+    sp.stopPeriodicSave();
     await settle();
     assert.equal(writes, 1, "멈추면 걸린 쓰기를 버린다");
 
@@ -257,7 +257,7 @@ test("설정 알림: 연달아 와도 한 번 쓴다. 바뀐 게 없으면 쓰�
     await settle();
     assert.equal(writes, 1, "멈춘 뒤의 알림은 받지 않는다(버린 플레이어)");
   } finally {
-    sp.stopStateSync();
+    sp.stopPeriodicSave();
     store.saveSession = save;
   }
 });
@@ -267,7 +267,7 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   trackState.setCurrent(p, t("now"));
   trackState.enqueue(p, [t("next")]);
 
-  await sp.persistState("leave");
+  await sp.save("leave");
   trackState.reset(p);
 
   const s = loaded(p.guild.id);
@@ -281,7 +281,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
   const { p, sp } = makePlayer({ volume: 30, position: 42_000 });
   p.pause.setHolds(["alone"]);
   trackState.setCurrent(p, t("x"));
-  await sp.persistState("test");
+  await sp.save("test");
 
   let { session } = loaded(p.guild.id);
   assert.equal(session.loopMode, "off");
@@ -293,7 +293,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
   p.loop = "queue";
   p.autoplay = "kpop";
   p.pause.setUser(true);
-  await sp.persistState("test");
+  await sp.save("test");
   ({ session } = loaded(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
@@ -303,9 +303,9 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
 test("곡도 대기열도 없으면 세션을 삭제한다", async () => {
   const { p, sp } = makePlayer();
   trackState.setCurrent(p, t("x"));
-  await sp.persistState("test");
+  await sp.save("test");
   trackState.setCurrent(p, null);
-  await sp.persistState("test");
+  await sp.save("test");
   assert.equal(sessions().load(p.guild.id), null);
 });
 
@@ -314,20 +314,20 @@ test("재생 위치는 타이머 하나가 한 번에 쓰고, 일시정지 중�
   const b = makePlayer({ position: 20_000 });
   for (const { p, sp } of [a, b]) {
     trackState.setCurrent(p, t());
-    await sp.persistState("test");
-    sp.startStateSync();
+    await sp.save("test");
+    sp.startPeriodicSave();
   }
   a.p.position = 11_000;
   b.p.position = 99_000;
   b.p.pause.setHolds(["alone"]); // 저장 필드(사람의 뜻)는 그대로인 멈춤. 사람이 멈추면 그 순간의 위치를 한 번 저장한다
 
   try {
-    SessionPersistence._beat();
+    SessionPersistence._saveTick();
     assert.equal(loaded(a.p.guild.id).session.positionMs, 11_000);
     assert.equal(loaded(b.p.guild.id).session.positionMs, 20_000, "멈춘 동안 위치는 그대로다");
   } finally {
-    a.sp.stopStateSync();
-    b.sp.stopStateSync();
+    a.sp.stopPeriodicSave();
+    b.sp.stopPeriodicSave();
   }
 });
 
@@ -711,11 +711,11 @@ test("위치만 쓰기는 주기 저장에 든 플레이어만. 복원 중(주�
 
   sp.savePosition();
   assert.equal(at(), 0, "주기 저장 밖");
-  sp.startStateSync();
+  sp.startPeriodicSave();
   try {
     sp.savePosition();
     assert.equal(at(), 33_000);
   } finally {
-    sp.stopStateSync();
+    sp.stopPeriodicSave();
   }
 });

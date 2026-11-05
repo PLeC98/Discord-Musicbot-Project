@@ -39,7 +39,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
-type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+type Saver = { persistence: { save(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
@@ -115,7 +115,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   for (const [guildId, player] of players) {
     if (!player) continue;
     saves.push(
-      player.persistence.persistState("shutdown").then(
+      player.persistence.save("shutdown").then(
         () => true,
         (err: unknown) => (log.error(`세션 저장 실패 (서버 ID ${guildId}):`, err), false),
       ),

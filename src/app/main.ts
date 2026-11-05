@@ -24,7 +24,7 @@ import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
 import { encodePool } from "../media/encode-pool.ts";
 import { Player } from "../player/player.ts";
-import { restoreSavedPlayers, restoreGuild } from "../player/session-restore.ts";
+import { restoreSessions, restoreGuild } from "../player/session-restore.ts";
 import * as ageGate from "../sources/age-gate.ts";
 import { adoptLingeringVoice } from "../player/voice-adopt.ts";
 import * as voiceChannelStatus from "../player/voice-channel-status.ts";
@@ -327,7 +327,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   // 이번 실행이 다운로드하기 시작한 행까지 다운로드하다 만 것으로 되돌린다. 복원될 곡은 퇴거, 고아 청소 모두 저장된 세션을 보고 지킨다
   await cleanupAudioCache();
   log.debug("세션 복원 시작");
-  const touched = await restoreSavedPlayers(client, players, Player, { skip: skipRestore });
+  const touched = await restoreSessions(client, players, Player, { skip: skipRestore });
   // 세션 없이 음성 채널에 남아 있던 봇(곡 없이 끔)을 이어받는다. 복원이 손댄 서버는 건드리지 않는다
   await adoptLingeringVoice(client, players, Player, { touched });
   // 24/7 자리에 붙어 있지 않은 서버를 하나씩. 패널 복원보다 먼저(자리에서 기다리는 끝난 패널을 정지 모양으로 덮지 않게)

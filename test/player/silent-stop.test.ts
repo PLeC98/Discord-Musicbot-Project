@@ -43,7 +43,7 @@ test("재생 중이면 무음을 흘려보내며 멈추고, Idle 이 오면 멈�
   assert.deepEqual(stops, [undefined], "멈추는 중에 다시 멈추지 않는다");
   assert.equal(player._endReason, "skip", "먼저 온 까닭을 지킨다");
 
-  Player.prototype.onPlayerIdle.call(player);
+  Player.prototype.onAudioIdle.call(player);
   assert.equal(player.isStopping, false);
 });
 

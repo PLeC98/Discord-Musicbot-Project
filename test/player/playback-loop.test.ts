@@ -34,7 +34,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
       currentTrack: current,
       // 입력이 온전히 끝난 재생(깨짐 표시 없음) → 곡 끝으로 판정
       playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
-      lastPlaybackPosition: 0,
+      heldPositionMs: 0,
       retry: { used: 0, stalled: 0 },
       failedTracks: 0,
       failedLabels: [],

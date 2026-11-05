@@ -154,8 +154,8 @@ function threeTracks() {
 
 test("연달아 넘기기: 다음 곡을 트는 사이(세션 저장을 기다리는 사이) 그 곡을 넘겨도 끝을 버리지 않고 이어서 처리한다", async () => {
   const p = threeTracks();
-  const persist = p.persistence.persistState.bind(p.persistence);
-  p.persistence.persistState = async (reason: string) => {
+  const persist = p.persistence.save.bind(p.persistence);
+  p.persistence.save = async (reason: string) => {
     await tick(300); // 잠긴 DB
     return persist(reason);
   };
@@ -174,9 +174,9 @@ test("연달아 넘기기: 다음 곡을 트는 사이(세션 저장을 기다�
 
 test("연달아 넘기기: 미뤄 둔 끝은 그 사이 재생이 바뀌었으면 버린다(지금 곡을 잘못 넘기지 않는다)", async () => {
   const p = threeTracks();
-  const persist = p.persistence.persistState.bind(p.persistence);
+  const persist = p.persistence.save.bind(p.persistence);
   let release = () => {};
-  p.persistence.persistState = async (reason: string) => {
+  p.persistence.save = async (reason: string) => {
     await new Promise<void>((done) => (release = done));
     return persist(reason);
   };
@@ -247,8 +247,8 @@ test("곡이 바뀔 때까지: 이전 곡 뒤 기다리면 되돌아간 곡이 �
 
 test("곡이 바뀔 때까지: 다음 곡을 여는 데 오래 걸려도 상한까지만 기다린다", async () => {
   const p = threeTracks();
-  const persist = p.persistence.persistState.bind(p.persistence);
-  p.persistence.persistState = async (reason: string) => {
+  const persist = p.persistence.save.bind(p.persistence);
+  p.persistence.save = async (reason: string) => {
     await tick(1000);
     return persist(reason);
   };
