@@ -756,10 +756,10 @@ test("연결의 전이, 오류는 누가 쏘든 이 서버의 문맥에서 돈�
   const seen: Array<string | null> = [];
   const { player } = setup();
   class Probe extends VoiceLink {
-    _onStateChange() {
+    override _onStateChange() {
       seen.push(currentGuild());
     }
-    _onError() {
+    override _onError() {
       seen.push(currentGuild());
     }
   }

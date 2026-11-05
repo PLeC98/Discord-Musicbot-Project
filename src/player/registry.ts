@@ -13,7 +13,7 @@ import * as playerEvents from "./events.ts";
 const label = (player: Player | undefined, guildId: string) => `${player?.guild?.name ?? "?"} (${guildId})`;
 
 class PlayerRegistry extends Collection<string, Player> {
-  set(guildId: string, player: Player) {
+  override set(guildId: string, player: Player) {
     log.debug(`등록: ${label(player, guildId)}${this.has(guildId) ? " | 기존 항목 교체" : ""}`);
     return super.set(guildId, player);
   }

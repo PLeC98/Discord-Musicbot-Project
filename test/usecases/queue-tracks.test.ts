@@ -38,12 +38,12 @@ class RecordingPanels extends NowPlayingPanel {
     super(client, players);
     this.calls = calls;
   }
-  async postPlaying(_player: Player, t: QueuedTrack) {
+  override async postPlaying(_player: Player, t: QueuedTrack) {
     this.calls.push(["embed", t.id]);
     if (this.embedFails) throw new Error("CV2 수정 제한");
     return { success: true as const };
   }
-  async updatePlaying() {
+  override async updatePlaying() {
     this.calls.push("update");
   }
 }

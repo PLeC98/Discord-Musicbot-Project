@@ -99,7 +99,7 @@ class SqliteSessionStore extends Store {
   }
 
   // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
-  touch(sid: string, session: SessionData, cb: Done = unheard("만료 연장")) {
+  override touch(sid: string, session: SessionData, cb: Done = unheard("만료 연장")) {
     try {
       this._touchStmt.run(this._expiresAt(session), sid);
       cb(null);

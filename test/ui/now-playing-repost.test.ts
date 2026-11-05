@@ -33,10 +33,10 @@ class TestPanels extends NowPlayingPanel {
     super(client, new Map(), { panelStore });
     this.webhook = webhook;
   }
-  async getOrCreateWebhook() {
+  override async getOrCreateWebhook() {
     return this.webhook;
   }
-  async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
+  override async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
     return this.sendAs ? this.sendAs() : super._sendNowPlaying(player, track, channel);
   }
 }

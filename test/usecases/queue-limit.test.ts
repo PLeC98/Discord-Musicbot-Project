@@ -25,7 +25,7 @@ const many = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => 
 
 // 가짜 플레이어에는 패널이 없다. 갱신은 하지 않는다
 class NoPanelRefresh extends NowPlayingPanel {
-  async updatePlaying() {}
+  override async updatePlaying() {}
 }
 
 function setup({ max, queued = 0, playing = true }: { max: number; queued?: number; playing?: boolean }) {

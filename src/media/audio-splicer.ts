@@ -93,7 +93,7 @@ class AudioSplicer extends Readable {
     return s.read(FRAME_BYTES) || (isEnded(s) ? s.read() : null);
   }
 
-  _read() {
+  override _read() {
     this._kick();
   }
 
@@ -261,7 +261,7 @@ class AudioSplicer extends Readable {
   // 소스까지 역전파한다. 그 사슬이 여기서 끊기면 ffmpeg의 stdout이 닫히지 않아
   // spawnFfmpeg의 killOnStdoutClose가 걸리지 않고, ffmpeg가 파이프에 막힌 채 남는다.
   // 레지스트리는 종료 백스톱이라 그때까지 좀비가 쌓인다. 곡을 넘길 때마다 하나씩.
-  _destroy(err: Error | null, cb: (err?: Error | null) => void) {
+  override _destroy(err: Error | null, cb: (err?: Error | null) => void) {
     this.waiting = null;
     for (const s of [this.a, this.b]) this._discard(s);
     cb(err);

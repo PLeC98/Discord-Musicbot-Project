@@ -40,7 +40,7 @@ const segments = (skipSegments: SkipSegment[]): Segments => ({ skipSegments, hig
 // 캐시 전환을 물으면 그 재생의 곡을 적고 전환을 예약했다고 답하는 플레이어
 class SwitchAsked extends h.Player {
   asked: QueuedTrack[] = [];
-  _planCacheSwitch(_splicer: unknown, pb: { track: QueuedTrack }) {
+  override _planCacheSwitch(_splicer: unknown, pb: { track: QueuedTrack }) {
     this.asked.push(pb.track);
     return true;
   }

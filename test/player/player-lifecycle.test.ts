@@ -81,20 +81,20 @@ class Scripted extends h.Player {
   errorAs: ((error: Error) => unknown) | null = null;
   autoplayAs: (() => Promise<boolean>) | null = null;
 
-  async play(seekMs = 0) {
+  override async play(seekMs = 0) {
     if (!this.playAs) return super.play(seekMs);
     await this.playAs(seekMs);
     return { ok: true as const, track: this.currentTrack };
   }
-  async onTrackEnd(reason = "idle") {
+  override async onTrackEnd(reason = "idle") {
     if (!this.endAs) return super.onTrackEnd(reason);
     await this.endAs(reason);
   }
-  async handleError(error: unknown, opts: { tell?: boolean } = {}) {
+  override async handleError(error: unknown, opts: { tell?: boolean } = {}) {
     if (!this.errorAs) return super.handleError(error, opts);
     await this.errorAs(error as Error);
   }
-  async handleAutoplay() {
+  override async handleAutoplay() {
     return this.autoplayAs ? this.autoplayAs() : super.handleAutoplay();
   }
 }
@@ -1865,7 +1865,7 @@ test("음성 채널 상태: 쓰기가 실패하면 던진다(부르는 쪽의 be
 test("오디오 플레이어의 전이는 누가 쏘든 이 서버의 문맥에서 돈다(새어 나온 오류가 이 서버로 돌아온다)", () => {
   const seen: Array<string | null> = [];
   class Probe extends h.Player {
-    _onAudioState() {
+    override _onAudioState() {
       seen.push(currentGuild());
     }
   }

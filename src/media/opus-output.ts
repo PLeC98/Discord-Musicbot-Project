@@ -83,23 +83,23 @@ class OpusOutput extends Duplex {
     return packet;
   }
 
-  _write(chunk: Buffer, _encoding: BufferEncoding, done: (err?: Error | null) => void) {
+  override _write(chunk: Buffer, _encoding: BufferEncoding, done: (err?: Error | null) => void) {
     this.#pending = { chunk, offset: 0, done };
     this.#pump();
   }
 
   // 남은 프레임, 보낸 것, 받아 둔 것을 다 내준 뒤 end 를 낸다
-  _final(done: (err?: Error | null) => void) {
+  override _final(done: (err?: Error | null) => void) {
     this.#finish = done;
     this.#pump();
   }
 
-  _read() {
+  override _read() {
     this.#waiting = true;
     this.#take();
   }
 
-  _destroy(err: Error | null, done: (err?: Error | null) => void) {
+  override _destroy(err: Error | null, done: (err?: Error | null) => void) {
     this.#last = this.describe();
     this.#session.free();
     this.#pending = null;
