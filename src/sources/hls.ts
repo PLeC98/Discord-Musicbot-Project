@@ -41,6 +41,8 @@ const LIST_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024 * 1024
 const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 /** 세그먼트 하나. 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다). 받는 것과 미리 받는 것이 함께 메모리에 있다 */
 const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/, maxBytes: 64 * 1024 * 1024 };
+/** 바이트 구간 세그먼트. 구간을 무시하는 서버는 파일 전체의 크기를 알려 오니 파일 상한으로 열고, 모으는 양은 구간 끝까지로 묶는다(fetchPart) */
+const RANGED_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BYTES };
 /** 키를 몇 개까지 기억하나(키를 돌리는 라이브는 새 키만 쓴다) */
 const KEYS_KEPT = 4;
 /** 라이브를 끝에서 몇 세그먼트 앞부터 트나 */
@@ -224,14 +226,15 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, net: Strea
     if (!key) {
       key = settled(net.getStream(url, undefined, { accept: KEY_ACCEPT })).then((body) => collect(body));
       keys.set(url, key);
-      key.catch(() => keys.delete(url));
+      key.catch(() => keys.get(url) === key && keys.delete(url));
       for (const old of keys.keys()) if (keys.size > KEYS_KEPT) keys.delete(old);
     }
     return key;
   }
 
   async function fetchPart(part: HlsPart, signal: AbortSignal): Promise<Buffer> {
-    const body = await settled(net.getStream(part.url, undefined, { accept: PART_ACCEPT, signal, ...(part.range ? { from: part.range.offset, to: part.range.offset + part.range.length - 1 } : {}) }));
+    if (part.range && part.range.length > PART_ACCEPT.maxBytes) throw permanent(new Error(`HLS 세그먼트 구간이 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘습니다`));
+    const body = await settled(net.getStream(part.url, undefined, part.range ? { accept: RANGED_ACCEPT, signal, from: part.range.offset, to: part.range.offset + part.range.length - 1 } : { accept: PART_ACCEPT, signal }));
     // 구간을 주었으면(206) 그대로, 무시했으면(200) 그 구간만. 200 은 처음부터 구간 끝까지 받아야 해서 그 끝이 상한을 넘으면 받지 않는다
     const slice = part.range && body.status !== 206 ? part.range : null;
     if (slice && slice.offset + slice.length > PART_ACCEPT.maxBytes) {

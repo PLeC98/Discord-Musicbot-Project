@@ -284,9 +284,9 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   // 길이를 모르는 입력은 나눌 수가 없으므로 처음부터 받는다(위치는 ffmpeg 의 -ss 가 정한다).
   const totalBytes = contentLengthFromUrl(url);
   if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.durationSec) * 1000 }, hooks);
-  // 헤더 대기만 끊는다(fetch 는 신호를 본문까지 물고 간다. 본문은 무응답 감시가 본다)
+  // 헤더 대기만 끊는다(fetch 는 신호를 본문까지 물고 간다. 본문은 무응답 감시가 본다). 시간 초과(TimeoutError)라 실패 범위가 망 탓으로 읽는다
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error(`응답이 ${SINGLE_GET_HEADERS_MS / 1000}초 동안 없습니다`)), SINGLE_GET_HEADERS_MS);
+  const timer = setTimeout(() => controller.abort(new DOMException(`응답이 ${SINGLE_GET_HEADERS_MS / 1000}초 동안 없습니다`, "TimeoutError")), SINGLE_GET_HEADERS_MS);
   let response;
   try {
     response = await o.io.fetch(url, { headers, signal: controller.signal });

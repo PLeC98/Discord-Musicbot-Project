@@ -1,6 +1,8 @@
 // HLS 재생목록(RFC 8216) 해석. 보는 것은 목록 글과 그 주소뿐이다(통신 없음).
 // 상위 목록은 화질, 음성 선택지를, 하위 목록은 세그먼트(주소, 바이트 구간, 초기화 세그먼트, 키, 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
 
+import { codedError } from "./error-kind.ts";
+
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
 type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean };
@@ -21,6 +23,12 @@ const lengthIn = (value: number, max: number) => (Number.isFinite(value) && valu
 const countOf = (value: string) => {
   const n = Number(value);
   return Number.isSafeInteger(n) && n >= 0 ? n : null;
+};
+/** 첫 순번. 숫자가 아니면 0. 안전한 정수를 넘는 숫자는 던진다(순번은 이어 받기와 복호화의 IV 라 0 으로 바꾸면 엉뚱한 곳을 받거나 풀지 못한다) */
+const sequenceOf = (value: string) => {
+  const n = countOf(value);
+  if (n === null && /^\s*\d+\s*$/.test(value)) throw codedError("unsupported-link", `HLS 순번이 다룰 수 있는 크기를 넘습니다(${value.trim().slice(0, 30)})`);
+  return n ?? 0;
 };
 
 /** 속성 목록(KEY=VALUE, 따옴표 안의 쉼표는 값) */
@@ -82,7 +90,7 @@ type Pending = { duration: number; range: ByteRange | null; init: Segment["init"
 /** 세그먼트 앞의 태그 하나를 읽어 목록, 다음 세그먼트에 적는다 */
 const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pending, baseUrl: string) => void]> = [
   ["#EXT-X-TARGETDURATION:", (v, out) => (out.targetDuration = lengthIn(Number(v), MAX_TARGET_DURATION_S))],
-  ["#EXT-X-MEDIA-SEQUENCE:", (v, out) => (out.mediaSequence = countOf(v) ?? 0)],
+  ["#EXT-X-MEDIA-SEQUENCE:", (v, out) => (out.mediaSequence = sequenceOf(v))],
   ["#EXTINF:", (v, _out, next) => (next.duration = lengthIn(parseFloat(v), MAX_SEGMENT_DURATION_S))],
   // 오프셋이 없으면 -1(같은 주소의 앞 구간 끝에서 잇는다)
   ["#EXT-X-BYTERANGE:", (v, _out, next) => (next.range = byteRangeOf(v, -1))],

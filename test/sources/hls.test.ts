@@ -216,6 +216,26 @@ test("세그먼트 상한: 구간을 무시한 200 의 구간 끝이 상한을 �
   await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf);
 });
 
+test("세그먼트 상한: 구간 요청은 파일 상한으로 연다(구간을 무시한 200 은 파일 전체 크기를 알린다). 구간 자체가 상한을 넘으면 요청하지 않는다", async () => {
+  const accepts: Array<[string, number | undefined]> = [];
+  const net = {
+    getStream: async (url: string, _deps?: undefined, opts: OpenOptions = {}) => {
+      accepts.push([url.slice(-6), opts.accept?.maxBytes]);
+      return Object.assign(Readable.from([Buffer.alloc(2000)]), { headers: { "content-length": String(128 * 1024 * 1024) }, status: 200, url }) as AudioStream;
+    },
+  };
+  const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-BYTERANGE:1000@0\n#EXTINF:4,\nall.mp4\n#EXTINF:4,\nplain.ts\n#EXT-X-BYTERANGE:${65 * 1024 * 1024}@0\n#EXTINF:4,\nhuge.mp4\n#EXT-X-ENDLIST\n`;
+  const fragments = (await openHls(text, "https://c.test/index.m3u8", { net })).fragments();
+  const signal = new AbortController().signal;
+  assert.equal((await fragments.fetch((await fragments.next())!, signal)).length, 1000, "구간만 잘라 쓴다");
+  await fragments.fetch((await fragments.next())!, signal);
+  await assert.rejects(fragments.fetch((await fragments.next())!, signal), /구간이 최대 크기/);
+  assert.deepEqual(accepts, [
+    ["ll.mp4", SafeUrl.MAX_BYTES],
+    ["ain.ts", 64 * 1024 * 1024],
+  ]);
+});
+
 test("세그먼트 취소: 신호를 가드에 넘기고, 헤더를 기다리는 사이 끝난 취소도 본문을 읽지 않고 그 사유로 끝난다", async () => {
   const controller = new AbortController();
   const signals: Array<AbortSignal | undefined> = [];

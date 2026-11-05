@@ -144,7 +144,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
       signal?.removeEventListener("abort", stop);
       reject(error);
     });
-    if (signal?.aborted) stop();
+    if (signal?.aborted) return stop();
     req.end();
   });
 }
