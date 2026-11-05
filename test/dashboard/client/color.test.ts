@@ -1,4 +1,4 @@
-// dashboard/src/utils/color.ts — 색 선택의 #RRGGBB ↔ RGB ↔ HSV
+// dashboard/src/utils/color.ts: 색 선택의 #RRGGBB ↔ RGB ↔ HSV
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ test("#RRGGBB 를 HSV 로 갔다 오면 같은 색(대문자)", () => {
   for (const hex of ["#2743D2", "#000000", "#FFFFFF", "#808080", "#FF0000", "#00FF00", "#0000FF", "#F1C40F", "#123456", "#fedcba"]) assert.equal(hsvToHex(hexToHsv(hex)), hex.toUpperCase(), hex);
 });
 
-test("HSV 는 색상 · 채도 · 밝기", () => {
+test("HSV 는 색상, 채도, 밝기", () => {
   assert.deepEqual(hexToHsv("#FF0000"), { h: 0, s: 1, v: 1 });
   assert.deepEqual(hexToHsv("#00FF00"), { h: 120, s: 1, v: 1 });
   assert.deepEqual(hexToHsv("#0000FF"), { h: 240, s: 1, v: 1 });
@@ -36,13 +36,13 @@ test("입력한 HEX: # 은 없어도 되고 세 자리는 늘린다, 대문자�
   for (const bad of ["", "#", "#12", "#1234", "#2743D2F", "#GGGGGG"]) assert.equal(parseHex(bad), null, bad);
 });
 
-test("RGB 는 0~255, HEX · HSV 와 오간다", () => {
+test("RGB 는 0~255, HEX, HSV 와 오간다", () => {
   assert.deepEqual(hexToRgb("#2743D2"), { r: 39, g: 67, b: 210 });
   assert.equal(rgbToHex({ r: 39, g: 67, b: 210 }), "#2743D2");
   assert.deepEqual(hsvToRgb(rgbToHsv({ r: 39, g: 67, b: 210 })), { r: 39, g: 67, b: 210 });
 });
 
-test("검정 · 무채색으로 가도 지금 색상(검정이면 채도도)을 남긴다", () => {
+test("검정, 무채색으로 가도 지금 색상(검정이면 채도도)을 남긴다", () => {
   const now = { h: 230, s: 0.8, v: 0.8 };
   assert.deepEqual(keepHue(hexToHsv("#000000"), now), { h: 230, s: 0.8, v: 0 });
   assert.deepEqual(keepHue(hexToHsv("#808080"), now), { h: 230, s: 0, v: 128 / 255 });

@@ -1,6 +1,6 @@
-// src/ui/genre-menu.ts — 자동재생 장르 선택 화면.
+// src/ui/genre-menu.ts: 자동재생 장르 선택 화면.
 //
-// 켜기(버튼)와 끄기·명령이 한 빌더를 지나는지 잠가 둔다(각자 만들면 한쪽만 어긋난다). 선택한 값은 식별자(키), 보이는 것은 라벨(label, 없으면 식별자).
+// 켜기(버튼)와 끄기, 명령이 한 빌더를 지나는지 잠가 둔다(각자 만들면 한쪽만 어긋난다). 선택한 값은 식별자(키), 보이는 것은 라벨(label, 없으면 식별자).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +22,7 @@ const menuOf = (payload: ReturnType<typeof buildGenreMenu>) => {
   return { custom_id: select.custom_id, options: select.options };
 };
 
-test("켜기·끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
+test("켜기, 끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
   const on = menuOf(buildGenreMenu());
   const off = menuOf(buildAutoplayOffMenu());
 
@@ -53,7 +53,7 @@ test("끄기 화면: 이미 꺼졌음을 알리고 다시 선택할 기회를 �
 
 test("켠 결과: 선택한 장르와 누가 켰는지, 그 줄 위에 구분선", () => {
   const on = post(autoplayOn("가요", "<@1>"));
-  assert.deepEqual(textsOf(on), ["### 🎲 자동재생을 시작할게요!\n**가요** 장르로 켰어요. 직접 넣어둔 대기열이 끝나면 자동재생 곡들이 나와요.", "-# 👤 요청한 사람 <@1>"]);
+  assert.deepEqual(textsOf(on), ["### 🎲 자동재생을 시작할게요!\n**가요** 장르를 틀게요. 직접 넣어둔 곡들이 끝나면 자동재생 곡이 재생돼요.", "-# 👤 요청한 사람 <@1>"]);
   assert.equal(separatorsOf(on), 1);
 });
 
@@ -63,9 +63,34 @@ test("두 화면 다 본인에게만 보인다", () => {
   }
 });
 
+test("앱 이모지 토큰은 지금 이모지로(id 가 바뀌었으면 이름으로), 앱에 없으면 이모지 없이", async () => {
+  const { useDocument } = await import("../helpers/config-docs.ts");
+  const { useAppEmojis } = await import("../../src/store/app-emoji-book.ts");
+  const keywords = (k: string) => [{ type: "keyword", keywords: [k] }];
+  useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "<:party:999999999999999999>", sources: keywords("pop") }, 록: { emoji: "<a:spin:222222222222222222>", sources: keywords("rock") }, 재즈: { emoji: "<:gone:333333333333333333>", sources: keywords("jazz") } } });
+  useAppEmojis([
+    { id: "111111111111111111", name: "party", animated: false },
+    { id: "222222222222222222", name: "spin", animated: true },
+  ]);
+  try {
+    const menu = menuOf(buildGenreMenu());
+    assert.deepEqual(
+      menu.options.map((o) => [o.value, o.emoji ?? null]),
+      [
+        ["팝", { id: "111111111111111111", name: "party", animated: false }],
+        ["록", { id: "222222222222222222", name: "spin", animated: true }],
+        ["재즈", null],
+      ],
+    );
+  } finally {
+    useAppEmojis([]);
+    useDefaultDocuments();
+  }
+});
+
 test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
   const { useDocument } = await import("../helpers/config-docs.ts");
-  useDocument("genres", ["defaults: {}", "genres:", "  팝:", '    emoji: ""', "    sources: [{ type: keyword, keywords: [pop] }]", "  재즈:", "    sources: [{ type: keyword, keywords: [jazz] }]", "  록:", "    emoji: 🤘", "    sources: [{ type: keyword, keywords: [rock] }]", ""].join("\n"));
+  useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "", sources: [{ type: "keyword", keywords: ["pop"] }] }, 재즈: { sources: [{ type: "keyword", keywords: ["jazz"] }] }, 록: { emoji: "🤘", sources: [{ type: "keyword", keywords: ["rock"] }] } } });
   try {
     const menu = menuOf(buildGenreMenu());
     assert.deepEqual(

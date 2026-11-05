@@ -37,7 +37,7 @@ const PROVIDER_SPECS: Record<string, ProviderSpec> = {
   groq: { label: "Groq", baseUrl: "https://api.groq.com/openai/v1", key: true, group: "클라우드", prices: "groq" },
   together: { label: "Together AI", baseUrl: "https://api.together.xyz/v1", key: true, group: "클라우드", prices: "togetherai" },
 
-  // 구글 클라우드. 키가 아니라 서비스 계정 JSON 을 쓰고, 주소는 프로젝트·리전으로 조립한다.
+  // 구글 클라우드. 키가 아니라 서비스 계정 JSON 을 쓰고, 주소는 프로젝트, 리전으로 조립한다.
   vertex: { label: "Vertex AI (Gemini 네이티브)", key: true, group: "클라우드", dialect: "vertex", serviceAccount: true, needsProject: true, registry: "vertex-gemini-native", prices: "google-vertex" },
 
   // ── 여러 곳을 묶어 파는 곳 ──

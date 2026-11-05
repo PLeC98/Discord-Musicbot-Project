@@ -7,7 +7,7 @@ import { count, takeGemmaProblem } from "./tokenizers.ts";
 
 type Job = { id: number; texts: string[]; tokenizer: string };
 
-// 실패는 약속 밖으로 새지 않고 오류로 답한다
+// 실패는 던지지 않고 오류 메시지로 답한다
 async function answer({ id, texts, tokenizer }: Job) {
   try {
     const counted = [];

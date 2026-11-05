@@ -11,7 +11,7 @@ import { text } from "../text/index.ts";
 const T = text.restart;
 
 const waiting = computed(() => restartPhase.value === "waiting");
-// 닫기(바깥 · 취소)는 묻는 중에만 먹는다. 보내는 중(다시 로그인일 수 있다)에는 닫혀 있고, 기다리는 중에는 창을 지킨다
+// 닫기(바깥, 취소)는 묻는 중에만 된다. 보내는 중(다시 로그인일 수 있다)에는 닫혀 있고, 기다리는 중에는 창을 지킨다
 const open = computed({
   get: () => restartPhase.value === "asking" || waiting.value,
   set: (value: boolean) => {

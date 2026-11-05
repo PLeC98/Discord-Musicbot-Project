@@ -1,4 +1,4 @@
-// src/ui/now-playing-panel.ts — 재생 패널 그리기 · 끝난 패널 · 진행 막대. 곡 담기의 순서는 test/usecases/queueTracksOrder.
+// src/ui/now-playing-panel.ts: 재생 패널 그리기, 끝난 패널, 진행 막대. 곡 추가의 순서는 test/usecases/queue-tracks-order.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import config from "../../src/config/index.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 
-// 큰 그림 확인은 네트워크로 나가지 않게: 모든 영상에 큰 그림이 있다고 답한다
+// 큰 썸네일 확인은 네트워크로 나가지 않게: 모든 영상에 큰 썸네일이 있다고 답한다
 discordArt.useHead(async () => ({ ok: true, status: 200 }));
 
 const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
@@ -27,12 +27,13 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
   });
   const base: QueuedTrack = { title: "Test", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct" };
 
   for (const thumbnail of [null, undefined, "", "https://example.org/t.jpg"]) {
     const container = await mem.createNowPlayingContainer(player, { ...base, thumbnail });
-    // toJSON이 실제 전송 시 도는 검증 — 썸네일이 없어도 여기서 던지지 않는다
+    // toJSON이 실제 전송 시 도는 검증. 썸네일이 없어도 여기서 던지지 않는다
     const json = container.toJSON();
     assert.ok(JSON.stringify(json).includes("Test"), `제목이 담겨야 한다 (thumbnail=${thumbnail})`);
   }
@@ -40,7 +41,7 @@ test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능�
 
 test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 올리고(5초 갱신마다 다시 올리지 않는다) 그림이 있는 곡으로 바뀌면 뗀다", async () => {
   const mem = newManager();
-  const player = fakePlayer({ guild: { id: "g-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ guild: { id: "g-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const bare: QueuedTrack = { title: "파일", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 127, platform: "direct", thumbnail: null };
   const art: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
   const shape = (payload: { files?: Array<{ name: string }>; attachments?: [] }) => [payload.files?.map((one) => one.name) ?? null, payload.attachments ?? null];
@@ -59,7 +60,7 @@ test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림�
   const url = "https://files.test/panel-art.mp3";
   if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const mem = newManager();
-  const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const bare: QueuedTrack = { title: "파일", pageUrl: "https://files.test/none.mp3", requestKey: "https://files.test/none.mp3", audioUrl: "https://files.test/none.mp3", duration: 127, platform: "direct", thumbnail: null };
   const tagged: QueuedTrack = { ...bare, title: "태그", pageUrl: url, requestKey: url, audioUrl: url };
   const video: QueuedTrack = { ...bare, title: "영상", thumbnail: "https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg" };
@@ -76,7 +77,7 @@ test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림�
 
 test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보여 줄 링크(pageUrl)다", async () => {
   const mem = newManager();
-  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false });
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const track: QueuedTrack = { title: "주제가", duration: 90, platform: "anisongdb", pageUrl: "https://anilist.co/anime/1", requestKey: "amq:1", audioUrl: "https://nawdist.animemusicquiz.com/a.mp3" };
 
   const json = JSON.stringify((await mem.createNowPlayingContainer(player, track)).toJSON());
@@ -100,6 +101,7 @@ function panelPlayer(over: object = {}) {
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     currentTrack: null,
     ...over,
   });
@@ -111,7 +113,7 @@ const buttonsOf = (json: Json) => json.components.filter((c) => c.type === 1).fl
 // 빌더를 JSON 으로
 const jsonOf = (builder: { toJSON(): unknown }) => builder.toJSON() as Json;
 
-// 대시보드 주소를 정해 두고 부른다. 테스트는 로컬 .env 를 읽으므로 주소에 따라 링크가 달라지는 테스트는 값을 정한다
+// 대시보드 주소를 정해 두고 부른다. 주소에 따라 링크가 달라지는 테스트는 값을 정해 설정 기본값에 기대지 않는다
 async function withDashboardUrl<T>(url: string, run: () => Promise<T>) {
   const saved = config.dashboard.url;
   config.dashboard.url = url;
@@ -133,7 +135,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
 
   assert.deepEqual(shape(idle), shape(playing));
   assert.equal(buttonsOf(idle).length, buttonsOf(playing).length);
-  // 자동재생만 살린다 — 끝난 패널에서 다시 틀 수 있는 유일한 길이다. 나머지는 대기열 버튼까지 꺼진다.
+  // 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다. 나머지는 대기열 버튼까지 꺼진다.
   const alive = buttonsOf(idle).filter((b) => !b.disabled);
   assert.deepEqual(
     alive.map((b) => b.custom_id),
@@ -145,7 +147,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
   assert.equal(files[0].name, "blank.png");
 });
 
-// 기본값 localhost · 사설 주소는 다른 사람이 열 수 없다
+// 기본값 localhost, 사설 주소는 다른 사람이 열 수 없다
 test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
   const mem = newManager();
   const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
@@ -179,27 +181,9 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
   assert.match(await text({ reason: "leave" }), /듣고 있던 곡이 있어요.*\/join/);
   assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*곡을 입력하면/);
   assert.match(await text({ reason: "disconnected" }), /쉬는 중이에요.*\/play/);
-  const failed = await text({ reason: "failures" });
-  assert.match(failed, /곡 재생에 연달아 실패해서 재생을 멈췄어요.*곡을 넣으면 다시 틀게요/);
-  assert.doesNotMatch(failed, /쉬러 갈게요/, "대기열이 남으면 나가지 않으니 나갈 시각을 보이지 않는다");
 });
 
-test("곡이 연달아 실패해 멈춘 것은 전용 채널 밖이어도 '모든 노래가 재생되었습니다' 메시지를 보내지 않는다(채널 알림이 따로 간다)", async () => {
-  tempStore.setGuild("g1", { botChannel: null });
-  const mem = newManager();
-  const sent: unknown[] = [];
-  const player = panelPlayer({
-    nowPlayingMessage: { id: "100" },
-    nowPlayingWebhook: { editMessage: async () => {} },
-    textChannel: { id: "chan-1", send: async (payload: unknown) => sent.push(payload) },
-  });
-
-  await mem.drawEndedPanel(player, { reason: "failures" });
-
-  assert.equal(sent.length, 0);
-});
-
-test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다 — 종료 메시지는 전용 채널 밖에서만", async () => {
+test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다. 종료 메시지는 전용 채널 밖에서만", async () => {
   try {
     const cases: Array<[botChannel: string | null, expectNotice: boolean]> = [
       ["chan-1", false],
@@ -235,15 +219,14 @@ test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모
   }
 });
 
-test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것 · 연달아 실패는 보내지 않는다", async () => {
+test("끝 안내는 다 틀었거나 끊겼을 때만(끊김은 그 까닭으로). 사람이 멈추거나 내보낸 것은 보내지 않는다", async () => {
   const cases: Array<[reason: string, cause: string | undefined, notice: string | null]> = [
     ["queue-end", undefined, "재생이 끝났어요"],
     ["stop", "stop", null],
     ["leave", "leave", null],
     ["disconnected", "stop", null],
-    ["failures", undefined, null],
-    ["disconnected", "inactivity-timeout", "쉬러 갔어요"],
-    ["disconnected", "forced-disconnect", "내보냈어요"],
+    ["disconnected", "alone-timeout", "쉬러 갔어요"],
+    ["disconnected", "kicked", "내보냈어요"],
     ["disconnected", "operator-leave", "봇 운영자가"],
     ["disconnected", "voice-lost", "다시 연결하지 못했어요"],
     ["disconnected", "channel-gone", "채널이 사라졌어요"],
@@ -273,7 +256,7 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
   const sent: string[] = [];
   const stale = { send: async () => Promise.reject(Object.assign(new Error("Unknown Webhook"), { code: 10015 })), destroy: () => sent.push("stale-destroyed") };
   mem.webhookCache.set("c1", fake<WebhookClient>(stale));
-  const fresh = { id: "w2", token: "t2", name: "Music Now Playing", owner: { id: "bot" }, isIncoming: () => true };
+  const fresh = { id: "w2", token: "t2", name: "Now Playing", owner: { id: "bot" }, isIncoming: () => true };
   const channel = fake<GuildTextBasedChannel>({
     id: "c1",
     fetchWebhooks: async () => new Collection(),
@@ -293,6 +276,13 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
     mem.deleteWebhookCache("c1");
   }
   assert.deepEqual(sent, ["stale-destroyed", "fresh"]);
+});
+
+test("24/7 자리에서 기다리는 끝난 패널은 나갈 시각 대신 자리에서 기다린다고 적는다", async () => {
+  const mem = newManager();
+  const json = JSON.stringify((await mem.createIdleContainer({ reason: "queue-end", leavesAt: null, staying: true })).components[0].toJSON());
+  assert.match(json, /상주 모드라 나가지 않고 다음 곡을 기다려요/);
+  assert.doesNotMatch(json, /쉬러 갈게요/);
 });
 
 test("/join만 했을 때: 곡을 기다리는 문구와 퇴장 시각", async () => {
@@ -319,7 +309,7 @@ test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 �
       .slice(from)
       .filter((e) => e.text.startsWith("진행 막대"))
       .map((e) => [e.level, e.text.split("\n")[0]]),
-    [["error", "진행 막대 갱신이 던져 이 곡의 갱신을 멈춤 (서버): Error: boom"]],
+    [["error", "진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신을 중단합니다 (서버): Error: boom"]],
   );
 });
 
@@ -374,4 +364,65 @@ test("진행 막대: 앞 갱신이 끝난 뒤 5초에 다음을 건다. 갱신 �
   await flush();
   assert.equal(started, 2, "갱신 중에 멈췄으면 다시 걸지 않는다");
   assert.equal(mem.progressTimers.has("g1"), false);
+});
+
+test("진행 막대: 멈춰 있으면 고치지 않고 쉬다가 소리가 다시 나면 다시 건다. 오류로 멈춘 갱신은 되살리지 않는다", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const mem = newManager();
+  const edits: unknown[] = [];
+  const sound = { paused: true };
+  const player = fakePlayer({
+    guild: { id: "g1", name: "서버" },
+    currentTrack: { title: "곡" },
+    nowPlayingMessage: { id: "m1", edit: async (p: unknown) => void edits.push(p) },
+    get paused() {
+      return sound.paused;
+    },
+  });
+  mem._playingPayload = async () => ({ components: [], flags: 0 }) as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+  let ticks = 0;
+  mem._tickProgress = async () => void ticks++;
+  const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+  mem.startProgressUpdate(player);
+  t.mock.timers.tick(5_000);
+  await flush();
+  assert.equal(ticks, 0, "멈춘 동안은 고치지 않는다");
+  assert.equal(mem.progressTimers.has("g1"), false);
+  t.mock.timers.tick(60_000);
+  await flush();
+  assert.equal(ticks, 0, "다시 걸지도 않는다");
+
+  await mem.updatePlaying(player);
+  assert.equal(mem.progressTimers.has("g1"), false, "아직 멈춰 있으면 다시 걸지 않는다");
+
+  sound.paused = false;
+  await mem.updatePlaying(player);
+  assert.equal(edits.length, 2);
+  t.mock.timers.tick(5_000);
+  await flush();
+  assert.equal(ticks, 1, "소리가 다시 나면 5초 갱신을 다시 건다");
+
+  mem.stopProgressUpdate("g1");
+  await mem.updatePlaying(player);
+  assert.equal(mem.progressTimers.has("g1"), false, "멈춤 때문에 쉰 것이 아니면 되살리지 않는다");
+});
+
+test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 멈춰 뒀으면 일시정지를 덧붙이고, 버튼은 사람의 멈춤을 따른다", async () => {
+  const mem = newManager();
+  const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
+  const look = async (pause: { heldBy: string | null; userPaused: boolean }) => {
+    const json = jsonOf(await mem.createNowPlayingContainer(panelPlayer({ paused: Boolean(pause.heldBy) || pause.userPaused, pause }), track));
+    const pauseButton = buttonsOf(json).find((b) => b.custom_id?.startsWith("panel:pause:")) as { emoji?: unknown } | undefined;
+    return { text: JSON.stringify(json), emoji: JSON.stringify(pauseButton?.emoji) };
+  };
+  const heldOnly = await look({ heldBy: "mute", userPaused: false });
+  assert.match(heldOnly.text, /음소거됨/);
+  assert.doesNotMatch(heldOnly.text, /음소거됨 • 일시정지/);
+  const heldAndUser = await look({ heldBy: "mute", userPaused: true });
+  assert.match(heldAndUser.text, /음소거됨 • 일시정지/);
+  const userOnly = await look({ heldBy: null, userPaused: true });
+  assert.match(userOnly.text, /일시정지/);
+  assert.notEqual(heldOnly.emoji, heldAndUser.emoji, "억제만이면 일시정지 버튼(누르면 멈춰 둔다), 사람이 멈췄으면 재생 버튼");
+  assert.equal(heldAndUser.emoji, userOnly.emoji);
 });

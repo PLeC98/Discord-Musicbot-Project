@@ -1,4 +1,4 @@
-// 빌드한 화면의 압축본. 화면을 빌드할 때 텍스트 파일마다 .br · .gz 를 만들어 두고(dashboard/vite.config.ts 의 precompress),
+// 빌드한 화면의 압축본. 화면을 빌드할 때 텍스트 파일마다 .br, .gz 를 만들어 두고(dashboard/vite.config.ts 의 precompress),
 // 받는 쪽이 받을 수 있으면 원본 대신 그것을 보낸다(요청마다 압축하지 않는다). 압축본이 없거나 받을 수 없으면 다음(express.static)이 원본을 보낸다
 
 import fs from "fs";

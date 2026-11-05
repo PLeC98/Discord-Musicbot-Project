@@ -1,7 +1,6 @@
 <template>
-  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 계약 contract/track-cache.
-       위 줄(테이블 | 새로고침 · 필터 지우기 · 정렬 해제 | 새 행 · 행 삭제 | 재생 테스트 | 단축키 | 모든 열에서 필터) · 격자(행 번호 · 헤더 정렬 · 열마다 필터 · 이어 불러오기) ·
-       오른쪽 셀 편집 창 · 아래 줄(페이지 이동 · 범위 · 상태 안내 · 행으로 이동). 변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
+  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 공유 타입 contract/track-cache.
+       변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
   <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-2 min-w-0" @click="closePopups()" @keydown.capture="onCardKey">
     <!-- 위 줄 -->
     <div class="relative flex flex-wrap items-center gap-1">
@@ -16,21 +15,23 @@
       <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="!selectedKeys().length" :aria-label="T.tools.deleteRows" v-tooltip="T.tools.deleteRows" @click="deleteSelected()"><Icon name="delete" :size="18" /></button>
       <span class="mx-1 h-5 w-px bg-outline-variant"></span>
       <BaseButton variant="ghost" size="sm" :disabled="table === 'age' || !selectedKeys().length" v-tooltip="T.tools.probeTip" @click="probe(selectedKeys())"><Icon name="fact_check" :size="16" />{{ checking.length ? T.tools.probing(checking.length) : T.tools.probe }}</BaseButton>
-      <button v-if="botChanged" type="button" class="tap h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-medium" @click="reload()">{{ T.botChanged }}</button>
-      <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" type="text" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
+      <BaseButton v-if="botChanged" type="button" size="sm" @click="reload()">{{ T.botChanged }}</BaseButton>
+      <SearchInput v-model="q" class="ml-auto" size="sm" :clear-label="T.tools.clearFilter" :placeholder="T.tools.search" :aria-label="T.tools.search" :input-class="[FIELD, 'h-8! pl-8! text-xs! w-56', problems.q && 'border-error!']" v-tooltip="problems.q ?? ''">
         <template #leading><Icon name="search" :size="16" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" /></template>
       </SearchInput>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="T.tools.shortcuts" :aria-expanded="showKeys" v-tooltip="T.tools.shortcuts" @click.stop="showKeys = !showKeys"><Icon name="help" :size="18" /></button>
       <!-- 단축키 -->
-      <div v-if="showKeys" class="absolute right-0 top-10 z-150 w-md max-w-full p-3 rounded-(--r-inner) pane-menu text-xs" @click.stop>
-        <p class="mb-2 text-sm font-medium text-on-surface">{{ T.tools.shortcuts }}</p>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-          <template v-for="[keys, what] in T.shortcuts" :key="keys">
-            <dt class="text-on-surface whitespace-nowrap">{{ keys }}</dt>
-            <dd class="text-on-surface-variant">{{ what }}</dd>
-          </template>
-        </dl>
-      </div>
+      <Transition name="menu">
+        <div v-if="showKeys" class="absolute right-0 top-10 z-150 w-md max-w-full p-3 rounded-(--r-inner) pane-menu text-xs origin-top-right" @click.stop>
+          <p class="mb-2 text-sm font-medium text-on-surface">{{ T.tools.shortcuts }}</p>
+          <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+            <template v-for="[keys, what] in T.shortcuts" :key="keys">
+              <dt class="text-on-surface whitespace-nowrap">{{ keys }}</dt>
+              <dd class="text-on-surface-variant">{{ what }}</dd>
+            </template>
+          </dl>
+        </div>
+      </Transition>
     </div>
 
     <div class="flex flex-col lg:flex-row gap-2 min-w-0">
@@ -62,7 +63,7 @@
                   type="text"
                   :placeholder="T.filterPlaceholder"
                   :aria-label="`${T.columns[c]} ${T.filterPlaceholder}`"
-                  :input-class="['w-full h-6 px-1.5 rounded-xs bg-surface-container-highest text-xs font-normal outline-none placeholder:text-on-surface-variant/60 focus:outline-1 focus:outline-primary', problems[c] && 'outline-1 outline-error']"
+                  :input-class="['w-full h-6 px-1.5 rounded-xs bg-surface-container-highest border border-transparent text-xs font-normal outline-none placeholder:text-on-surface-variant/60 transition-[border-color] effects-fast focus:border-primary', problems[c] && 'border-error! focus:border-error!']"
                   v-tooltip="problems[c] ?? ''"
                   @update:model-value="setFilter(c, $event)"
                   @contextmenu.prevent.stop="openFilterMenu($event, c)"
@@ -76,7 +77,7 @@
             <tr v-for="(row, n) in changes.newRows" :key="`new${row.id}`" class="h-7">
               <th class="sticky left-0 z-10 px-1 text-right font-normal border-b border-r border-outline-variant/30 bg-secondary-container text-on-secondary-container">*</th>
               <td v-for="(c, i) in shown" :key="c" class="p-0 border-b border-r border-outline-variant/30 bg-secondary-container" :class="frozenClass(i, true, 'bg-')" :style="frozenStyle(i)">
-                <input v-if="c === 'requestKey' || c === 'audioUrl'" v-model="row[c]" type="text" :data-new="`${row.id}:${c}`" class="w-full h-7 px-2 bg-transparent text-xs outline-none select-text focus:outline-1 focus:outline-primary" :class="newProblem(row.id, c) && 'text-error'" v-tooltip="newProblem(row.id, c)" :placeholder="T.columns[c]" @input="inspectNew(row, c)" @keydown.stop="onNewKey($event, n)" />
+                <input v-if="c === 'requestKey' || c === 'audioUrl'" v-model="row[c]" type="text" :data-new="`${row.id}:${c}`" class="w-full h-7 px-2 bg-transparent border border-transparent text-xs outline-none select-text transition-[border-color] effects-fast focus:border-primary" :class="newProblem(row.id, c) && 'text-error'" v-tooltip="newProblem(row.id, c)" :placeholder="T.columns[c]" @input="inspectNew(row, c)" @keydown.stop="onNewKey($event, n)" />
               </td>
             </tr>
             <tr v-if="topPad">
@@ -141,16 +142,18 @@
     </div>
 
     <!-- 오른쪽 클릭 메뉴 -->
-    <div v-if="menu" class="fixed z-150 min-w-56 py-1 rounded-(--r-inner) pane-menu text-sm text-on-surface" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @click.stop @mousedown.prevent>
-      <template v-for="(item, k) in menu.items" :key="k">
-        <div v-if="item === '-'" class="my-1 h-px bg-outline-variant/50"></div>
-        <p v-else-if="!item.run" class="max-w-72 px-3 py-1.5 text-xs text-on-surface-variant">{{ item.label }}</p>
-        <button v-else type="button" class="tap state-layer w-full flex items-center justify-between gap-6 px-3 h-8 text-left disabled:opacity-38" :class="item.danger && 'text-error'" :disabled="item.off" @click="runMenu(item)">
-          <span>{{ item.label }}</span
-          ><span class="text-xs text-on-surface-variant">{{ item.hint ?? "" }}</span>
-        </button>
-      </template>
-    </div>
+    <Transition name="menu">
+      <div v-if="menu" class="fixed z-150 min-w-56 py-1 rounded-(--r-inner) pane-menu text-sm text-on-surface origin-top-left" :style="{ left: `${menu.x}px`, top: `${menu.y}px` }" @click.stop @mousedown.prevent>
+        <template v-for="(item, k) in menu.items" :key="k">
+          <div v-if="item === '-'" class="my-1 h-px bg-outline-variant/50"></div>
+          <p v-else-if="!item.run" class="max-w-72 px-3 py-1.5 text-xs text-on-surface-variant">{{ item.label }}</p>
+          <button v-else type="button" class="tap state-layer w-full flex items-center justify-between gap-6 px-3 h-8 text-left disabled:opacity-38" :class="item.danger && 'text-error'" :disabled="item.off" @click="runMenu(item)">
+            <span>{{ item.label }}</span
+            ><span class="text-xs text-on-surface-variant">{{ item.hint ?? "" }}</span>
+          </button>
+        </template>
+      </div>
+    </Transition>
   </section>
 </template>
 
@@ -210,7 +213,7 @@ const PROBE_POLL_MS = 1500;
 const HINT_MS = 4000;
 const DEFAULT_WIDTH: Record<string, number> = { requestKey: 260, audioUrl: 260, audioKey: 200, title: 180, artist: 120, channel: 120, platform: 90, pinnedAt: 136, file: 84, status: 84, size: 76, plays: 64, requests: 64, duration: 64, lastPlayedAt: 136, downloadedAt: 136, ageMarkedAt: 136, markedAt: 136, check: 88, source: 88, videoId: 140 };
 
-// ── 테이블 · 필터 · 정렬 · 열 모양(열 너비 · 숨김 · 고정은 브라우저에 사람마다) ──────
+// ── 테이블, 필터, 정렬, 열 모양(열 너비, 숨김, 고정은 브라우저에 사람마다) ──────
 
 const table = ref<TrackCacheTable>("requests");
 const filters = reactive<Record<TrackCacheTable, Record<string, string>>>({ requests: {}, files: {}, age: {} });
@@ -311,7 +314,7 @@ async function loadAll() {
   for (let b = 0; b * BLOCK < matched.value && gen === generation; b++) if (!rows.has(b * BLOCK)) await loadBlock(b, gen);
 }
 
-/** 처음부터 다시 읽는다(테이블 · 필터 · 정렬이 바뀌었거나 새로고침) */
+/** 처음부터 다시 읽는다(테이블, 필터, 정렬이 바뀌었거나 새로고침) */
 async function reload() {
   if (!checkFilters()) return;
   generation++;
@@ -417,7 +420,7 @@ function say(text: string) {
 }
 const refocus = () => void nextTick(() => scroller.value?.focus({ preventScroll: true }));
 
-// ── 선택(셀 · 행). 행 번호로 든다 ──────────────────────────────────────────
+// ── 선택(셀, 행). 행 번호로 든다 ──────────────────────────────────────────
 
 type Pos = { r: number; i: number };
 const focus = ref<Pos | null>(null);
@@ -427,7 +430,7 @@ const rowSel = reactive(new Set<number>());
 const rowAnchor = ref<number | null>(null);
 let dragging = false;
 let rowDragging = false;
-// Ctrl 을 누르고 행을 끌 때 그 전에 선택해 둔 행
+// Ctrl 을 누르고 행을 드래그할 때 그 전에 선택해 둔 행
 let rowBase: number[] = [];
 
 const inRange = (r: number, i: number) => {
@@ -607,14 +610,14 @@ const isDeleted = (r: number) => {
   const key = keyOf(table.value, row);
   return table.value === "requests" ? changes.deleteRequests.has(key) : table.value === "files" ? changes.deleteFiles.has(key) : changes.clearAges.has(key);
 };
-/** 재생 음원이 직접 지정한 것인가(저장 전 변경까지 셈한다) */
+/** 재생 음원이 직접 지정한 것인가(저장 전 변경까지 계산에 넣는다) */
 function isPinned(r: number): boolean {
   const row = rowAt(r) as TrackRequestRow | undefined;
   if (!row || table.value !== "requests") return false;
   if (changes.pins.has(row.requestKey)) return true;
   return row.pinnedAt !== null && !changes.unpins.has(row.requestKey);
 }
-// 재생 음원 셀의 바뀐 값(지정 · 해제 · 자동 검색 결과 삭제). 안 바뀌었으면 null
+// 재생 음원 셀의 바뀐 값(지정, 해제, 자동 검색 결과 삭제). 안 바뀌었으면 null
 function changedAudio(one: TrackRequestRow): string | null {
   if (changes.pins.has(one.requestKey)) return changes.pins.get(one.requestKey)!.audioUrl;
   if (changes.unpins.has(one.requestKey)) return one.ledgerAudioUrl ?? T.values.none;
@@ -653,9 +656,9 @@ function cellClass(r: number, c: string) {
   if (isDeleted(r)) return "text-on-surface-variant";
   return failing(row, c) ? "text-error" : "text-on-surface";
 }
-// 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 틀 때 건너뛴다)
+// 재생 테스트 실패인가. 라이브는 지정한 음원일 때만(라이브는 지정할 수 없어 재생할 때 건너뛴다)
 const checkFailed = (one: TrackRequestRow) => !!one.check && !one.check.ok && (one.check.code !== "live" || one.pinnedAt !== null);
-// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원 · 다운로드 실패 · 원본이 바뀌었거나 없음
+// 빨갛게 보일 셀: 재생 테스트 실패와 그 음원, 다운로드 실패, 원본이 바뀌었거나 없음
 function failing(row: AnyRow, c: string): boolean {
   if (table.value === "files") {
     const one = row as TrackFileRow;
@@ -671,7 +674,7 @@ function rowHeadClass(r: number) {
   if (rowSel.has(r)) return "bg-primary text-on-primary";
   return "bg-surface-container text-on-surface-variant";
 }
-// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패 · 재생 불가 까닭 · 원본 상태의 뜻
+// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패, 재생 불가 까닭, 원본 상태의 뜻
 function tipOf(r: number, c: string): string {
   const row = rowAt(r)!;
   const failure = failureOf(row, c);
@@ -691,7 +694,7 @@ function sourceTip(source: TrackFileRow["source"]): string {
   return source.state === "changed" ? T.tips.sourceChanged(stamp(source.at)) : T.tips.sourceOk(stamp(source.at));
 }
 
-// ── 셀 안 편집 · 셀 편집 창 ───────────────────────────────────────────────
+// ── 셀 안 편집, 셀 편집 창 ───────────────────────────────────────────────
 
 const editing = ref<{ r: number; c: string; value: string } | null>(null);
 const inlineInput = ref<HTMLInputElement[] | null>(null);
@@ -733,7 +736,7 @@ const focusInfo = computed(() => {
   if (!row || !column) return null;
   return { column, label: focus.value.r + 1, editable: editable(table.value, column) && !isDeleted(focus.value.r) };
 });
-// 재생 음원 셀: 지정을 해제하면 돌아갈 곳 · 요청 링크 그대로인지
+// 재생 음원 셀: 지정을 해제하면 돌아갈 곳, 요청 링크 그대로인지
 const paneNote = computed(() => {
   if (!focus.value || table.value !== "requests") return "";
   const row = rowAt(focus.value.r) as TrackRequestRow | undefined;
@@ -747,7 +750,7 @@ function syncPane() {
   pane.value = changedText(focus.value.r, focusInfo.value.column) ?? rawText(row, focusInfo.value.column);
   pane.dirty = false;
   pane.info = null;
-  // 끌거나 방향키를 누르고 있으면 셀마다 묻지 않게 잠깐 기다린다
+  // 드래그하거나 방향키를 누르고 있으면 셀마다 조회하지 않게 잠깐 기다린다
   clearTimeout(inspectTimer);
   if (focusInfo.value.editable) {
     const value = pane.value;
@@ -814,7 +817,7 @@ function onNewKey(event: KeyboardEvent, n: number) {
 }
 const isLink = (value: string) => /^https?:\/\//.test(value.trim());
 
-// ── 복사 · 붙여넣기: 브라우저의 copy · paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
+// ── 복사, 붙여넣기: 브라우저의 copy, paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
 
 let copyHeaders = false;
 /** 메뉴가 부른 복사의 글(열 이름 등). 있으면 셀 대신 이것을 넣는다 */
@@ -881,7 +884,7 @@ function menuPaste() {
 
 // ── 키 ──────────────────────────────────────────────────────────────────────
 
-// 카드 어디서든(필터 · 편집 창 안이어도): F5 새로고침 · Ctrl+S 저장 · Esc 메뉴 닫기
+// 카드 어디서든(필터, 편집 창 안이어도): F5 새로고침, Ctrl+S 저장, Esc 메뉴 닫기
 function onCardKey(event: KeyboardEvent) {
   const ctrl = event.ctrlKey || event.metaKey;
   if (event.key === "F5") {
@@ -935,7 +938,7 @@ function onKey(event: KeyboardEvent) {
   }
   onCellKey(event, focus.value);
 }
-// 셀에서의 편집 키: F2 · Enter 편집 · Esc 선택 풀기 · Delete 지우기
+// 셀에서의 편집 키: F2, Enter 편집, Esc 선택 풀기, Delete 지우기
 function onCellKey(event: KeyboardEvent, { r, i }: { r: number; i: number }) {
   const key = event.key;
   if (key === "F2" || key === "Enter") return void (event.preventDefault(), startEdit(r, shown.value[i]));
@@ -951,7 +954,7 @@ function onCellKey(event: KeyboardEvent, { r, i }: { r: number; i: number }) {
     else clearCells(selectedCells());
   }
 }
-/** 키보드로 옮긴 셀이 보이게 스크롤한다(고정한 열 · 행 번호 · 헤더에 가리지 않게) */
+/** 키보드로 옮긴 셀이 보이게 스크롤한다(고정한 열, 행 번호, 헤더에 가리지 않게) */
 function keepInView(r: number, i: number, toStart = false) {
   const el = scroller.value;
   if (!el) return;
@@ -968,7 +971,7 @@ function keepInView(r: number, i: number, toStart = false) {
   else if (right > el.scrollLeft + el.clientWidth) el.scrollLeft = right - el.clientWidth;
 }
 
-// ── 오른쪽 클릭 메뉴 · 단축키 도움말 ─────────────────────────────────────────
+// ── 오른쪽 클릭 메뉴, 단축키 도움말 ─────────────────────────────────────────
 
 type Item = { label: string; hint?: string; danger?: boolean; off?: boolean; run?: () => void } | "-";
 const menu = ref<{ x: number; y: number; items: Item[]; grid: boolean } | null>(null);
@@ -1078,7 +1081,7 @@ async function probe(keys: string[]) {
   }
 }
 let checkTimer = 0;
-// 확인 번호가 바뀌었으면 보이는 행의 확인 결과 · 원본만 다시 받는다(다시 읽지 않아 선택 · 바꾼 것이 남는다)
+// 확인 번호가 바뀌었으면 보이는 행의 확인 결과, 원본만 다시 불러온다(다시 읽지 않아 선택, 바꾼 것이 남는다)
 async function refreshChecks(latest: number) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
@@ -1101,7 +1104,7 @@ function pollChecks() {
 
 // ── 변경 번호(탭이 보이는 동안 운영자 패널의 3초 읽기가 부른다) ─────────────
 
-/** 봇이 이 표들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것 · 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 고친다 */
+/** 봇이 이 테이블들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것, 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 갱신한다 */
 async function checkChanged() {
   if (!loadedRevision.value) return;
   try {
@@ -1109,12 +1112,12 @@ async function checkChanged() {
     if (data.revision !== loadedRevision.value) botChanged.value = true;
     if (!checking.value.length) await refreshChecks(data.checkRevision);
   } catch {
-    // 다음 주기에 다시 묻는다
+    // 다음 주기에 다시 조회한다
   }
 }
 defineExpose({ checkChanged });
 
-// ── 저장(저장 막대 · Ctrl+S) ─────────────────────────────────────────────────
+// ── 저장(저장 막대, Ctrl+S) ─────────────────────────────────────────────────
 
 const saving = ref(false);
 const dirty = computed(() => changeCount(changes) > 0);
@@ -1181,7 +1184,7 @@ function revert() {
 }
 useSaveTarget({ tab: "db", dirty, saving, save: () => save(), revert });
 
-// ── 시작 · 끝 ───────────────────────────────────────────────────────────────
+// ── 시작, 끝 ───────────────────────────────────────────────────────────────
 
 let resizeObserver: ResizeObserver | null = null;
 onMounted(() => {

@@ -5,8 +5,8 @@ import { sendProblem } from "../problem.ts";
 // 세션에 토큰을 두고 헤더(x-csrf-token)로 받은 값과 맞춘다. 라우트를 걸기 전에 app.use 로
 // 통째로 씌우므로 상태를 바꾸는 경로가 이 검사 밖으로 새지 않는다.
 //
-// CodeQL 의 js/missing-token-validation 은 이 파일을 못 알아본다. 알려진 패키지(csurf 등)만
-// 보기 때문이다. 그쪽으로 갈아타면 알림은 사라지지만 csurf 는 더 이상 관리되지 않는다.
+// CodeQL 의 js/missing-token-validation 은 알려진 패키지(csurf 등)만 알아봐 이 파일을 경고한다.
+// csurf 는 관리가 끊겨 쓰지 않는다.
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

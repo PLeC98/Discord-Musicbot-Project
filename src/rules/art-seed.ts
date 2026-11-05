@@ -1,6 +1,6 @@
-// 그림의 대표색(화면 색 체계의 바탕색 씨앗) 선택. 화면(theme/art: 앨범아트 · 배경)과 봇(로그인 배경의 대표색 · 장면 색)이 같은 계산을 쓴다.
+// 이미지의 대표색(화면 색 체계의 바탕색 씨앗) 선택. 화면(theme/art: 앨범아트, 배경)과 봇(로그인 배경의 대표색, 장면 색)이 같은 계산을 쓴다.
 // 가운데를 SEED_SIDE × SEED_SIDE 로 줄인 픽셀(RGBA)에서 Material 색 유틸리티로 양자화(Celebi 64색)해 점수가 가장 높은 하나를 선택한다.
-// 쓸 만한 색이 없는 그림(흑백 · 거의 무채색)이면 COLORLESS(회색 테마). 브라우저도 쓴다. Node 에 기대는 것이 없다
+// 쓸 만한 색이 없는 이미지(흑백, 거의 무채색)면 COLORLESS(회색 테마). 브라우저도 쓴다. Node 에 기대는 것이 없다
 
 import { QuantizerCelebi, Score } from "@material/material-color-utilities";
 

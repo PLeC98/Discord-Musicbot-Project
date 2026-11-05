@@ -1,15 +1,15 @@
 // 입력란 아래에 붙여 표시하는 패널의 위치를 잡는다. 드롭다운 목록이 쓴다.
 //
-// 그냥 absolute 로 두면 카드 · 스크롤되는 영역 안에 갇히고, 아래 고정 재생바에도 깔린다.
+// 그냥 absolute 로 두면 카드, 스크롤되는 영역 안에 갇히고, 아래 고정 재생바에도 깔린다.
 // 그래서 body 로 내보내고(Teleport) 좌표를 직접 준다. fixed 만으로는 안 된다.
-// 조상에 transform · filter · backdrop-filter 가 걸리면 그 조상이 fixed 의 기준이 되기 때문이다.
+// 조상에 transform, filter, backdrop-filter 가 걸리면 그 조상이 fixed 의 기준이 되기 때문이다.
 //
 // 위치를 잡고 나면 세 가지를 더 본다.
 //   아래가 패널 내용을 다 담지 못하고 위가 더 넓으면 위로 뒤집는다. 아래 재생바가 가리는 만큼은 빼고 본다.
 //   스크롤과 창 크기 변화를 따라간다. 내부 스크롤 영역도 잡으려면 캡처로 들어야 한다.
 //   입력란 자체가 커지면(칩이 늘면) 다시 잰다.
 //
-// 열려 있는 동안 Esc · 기기의 뒤로는 이 패널부터 닫는다(close-layer).
+// 열려 있는 동안 Esc, 기기의 뒤로는 이 패널부터 닫는다(close-layer).
 import { computed, ref, nextTick, watch, onBeforeUnmount, type Ref, type CSSProperties } from "vue";
 import { useCloseLayer } from "./close-layer.ts";
 
@@ -27,7 +27,7 @@ export function coveredBottom(el: HTMLElement) {
 const EDGE = 8;
 
 /**
- * 폭을 정한 패널의 가로 자리. Compose Material3 메뉴와 같은 차례로, 화면 가장자리(EDGE) 안에 들어가는 첫 자리를 쓴다:
+ * 폭을 정한 패널의 가로 자리. Compose Material3 메뉴와 같은 순서로, 화면 가장자리(EDGE) 안에 들어가는 첫 자리를 쓴다:
  * 기준 요소의 왼쪽에 맞춤 → 오른쪽 끝을 기준 요소의 오른쪽 끝에 맞춤 → 기준 요소가 있는 쪽의 화면 끝. 화면보다 넓으면 가운데
  */
 function sideBy(rect: DOMRect, width: number) {
@@ -38,7 +38,7 @@ function sideBy(rect: DOMRect, width: number) {
   return rect.left + rect.width / 2 < room / 2 ? EDGE : room - width - EDGE;
 }
 
-/** 패널의 쌓임 순서: 기준 요소가 든 층(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 층이 없으면 PANEL_Z */
+/** 패널의 쌓임 순서: 기준 요소가 든 레이어(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 레이어가 없으면 PANEL_Z */
 const PANEL_Z = 160;
 function layerAbove(el: HTMLElement) {
   let top = PANEL_Z - 1;
@@ -50,13 +50,13 @@ function layerAbove(el: HTMLElement) {
 }
 
 /**
- * root: 입력란을 감싼 겉(바깥 누름 판정의 기준) · anchor: 기준이 될 요소(입력란 또는 버튼) · panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
- * open: 열림 상태(바깥을 누르면 여기를 내린다) · maxHeight: 패널이 바랄 최대 높이(px) · gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
+ * root: 입력란을 감싼 겉(바깥 누름 판정의 기준), anchor: 기준이 될 요소(입력란 또는 버튼), panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
+ * open: 열림 상태(바깥을 누르면 여기를 내린다), maxHeight: 패널이 바랄 최대 높이(px), gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
  * width: 패널 폭(px). 없으면 기준 요소의 폭(드롭다운). 주면 그 폭으로 두고 가로 자리는 sideBy 가 정한다(달력처럼 내용이 정한 폭)
  */
 export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
-  // 층은 패널이 실제로 그려졌을 때만(칩 입력 · 태그 고르기는 입력칸에 포커스만 가도 open 이 참이다)
+  // 닫기 레이어는 패널이 실제로 그려졌을 때만(칩 입력, 태그 선택은 입력란에 포커스만 가도 open 이 참이다)
   useCloseLayer(
     computed(() => open.value && panel.value != null),
     () => (open.value = false),
@@ -91,6 +91,8 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
       width: `${w}px`,
       maxHeight: `${Math.max(80, Math.min(maxHeight, flip ? above : below))}px`,
       zIndex: layerAbove(el),
+      // 여는 넘김(menu)이 입력란 쪽 끝에서 커진다
+      transformOrigin: flip ? "bottom" : "top",
       ...(flip ? { bottom: `${window.innerHeight - rect.top + gap}px` } : { top: `${rect.bottom + gap}px` }),
     };
   }

@@ -1,15 +1,15 @@
-// dashboard/src/composables/config-folds.ts — 접어 둔 출처 · 프롬프트 섹션과 펼친 출처 상세 기억. 장르 · 출처를 삭제하거나 순서를 바꾸면 기억이 그 카드를 따라간다
+// dashboard/src/composables/config-folds.ts: 접어 둔 출처, 프롬프트 섹션과 펼친 출처 상세 기억. 장르, 출처를 삭제하거나 순서를 바꾸면 기억이 그 카드를 따라간다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// 브라우저 저장소 흉내(모듈이 불러올 때 읽는다)
+// localStorage 흉내. 모듈이 불러오는 순간 읽어서 import 보다 먼저 둔다
 const stored = new Map<string, string>();
 Object.assign(globalThis, { localStorage: { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => stored.set(k, v) } });
 const folds = await import("../../../dashboard/src/composables/config-folds.ts");
 const { sourceFoldId: s } = folds;
 
-test("장르를 삭제하면 뒤 장르의 출처 접힘 · 상세 펼침 기억이 한 칸 당겨지고, 삭제한 장르의 기억은 버린다", () => {
+test("장르를 삭제하면 뒤 장르의 출처 접힘, 상세 펼침 기억이 한 칸 당겨지고, 삭제한 장르의 기억은 버린다", () => {
   folds.toggleFold(s(0, 0));
   folds.toggleFold(s(2, 1));
   folds.toggleDeepOpen(s(1, 0));

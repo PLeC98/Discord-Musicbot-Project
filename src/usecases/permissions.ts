@@ -5,13 +5,11 @@ import type { GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
-// "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)로 취급.
-// 봇 운영자(OWNER_ID)와는 다른 개념이다. 그쪽은 src/dashboard/owner.ts.
-// 서버 소유자와 Administrator(관리자) 권한 보유자는 discord.js 권한 검사가 자동으로 전부 통과시킨다.
-// 기준을 조정하려면 이 배열만 수정하면 된다.
 /** 권한 판정이 막은 까닭 */
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
 
+// "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)다.
+// 봇 운영자(OWNER_ID, src/dashboard/owner.ts)와는 다르다. 서버 소유자와 Administrator 권한은 discord.js 권한 검사가 전부 통과시킨다.
 const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
 
 function isModerator(member: GuildMember) {
@@ -21,7 +19,7 @@ function isModerator(member: GuildMember) {
 /**
  * DJ 계층 이상인가. 재생 조작 권한의 기준.
  *  - 모더레이터: 항상 DJ 취급
- *  - DJ 역할이 설정된 서버(/setting · 대시보드 서버 설정, 복수 가능): 그 중 하나라도 보유한 유저만
+ *  - DJ 역할이 설정된 서버(/setting, 대시보드 서버 설정, 복수 가능): 그 중 하나라도 보유한 유저만
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
  *  - 설정된 역할이 서버에서 전부 삭제된 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
  */

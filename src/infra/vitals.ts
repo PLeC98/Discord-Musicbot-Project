@@ -1,5 +1,5 @@
-// 봇 프로세스와 기계의 측정값: CPU 사용률 · 이벤트 루프 지연 · heap 한도.
-// 3초마다 CPU 를 재고(지난 3초), 15초마다 한 구간을 닫는다(그 15초의 CPU 평균 · 루프 지연 p99 · 최대). 구간을 닫을 때 onWindow 로 알린다.
+// 봇 프로세스와 시스템의 측정값: CPU 사용률, 이벤트 루프 지연, heap 한도.
+// 3초마다 CPU 를 재고(지난 3초), 15초마다 한 구간을 닫는다(그 15초의 CPU 평균, 루프 지연 p99, 최대). 구간을 닫을 때 onWindow 로 알린다.
 // 사용률은 쓴 CPU 시간의 차이로 잰다(운영체제와 상관없다. loadavg 는 Windows 에서 늘 0 이다). 모든 코어를 합쳐 100
 
 import os from "node:os";
@@ -13,7 +13,7 @@ const WINDOW_MS = TICK_MS * WINDOW_TICKS;
 type Cpu = { bot: number; system: number };
 type Window = { cpu: Cpu; loop: { p99: number; max: number } };
 
-/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스 · 모든 코어의 바쁜 시간과 전체 시간 */
+/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스, 모든 코어의 바쁜 시간과 전체 시간 */
 function cpuTimes() {
   const usage = process.cpuUsage();
   let busy = 0;

@@ -1,4 +1,4 @@
-// Components V2 응답에서 글자 · 썸네일 · 메뉴를 꺼낸다. 컨테이너 안의 섹션 · 텍스트 디스플레이 · 줄을 순서대로 본다
+// Components V2 응답에서 글자, 썸네일, 메뉴를 꺼낸다. 컨테이너 안의 섹션, 텍스트 디스플레이, 줄을 순서대로 본다
 
 type Node = { type?: number; content?: string; components?: Node[]; accessory?: { media?: { url?: string } }; custom_id?: string; options?: Array<{ value: string; label: string; emoji?: { name?: string } }>; default_values?: Array<{ id: string }> };
 type Payload = { components?: Array<{ toJSON(): unknown }> };
@@ -38,7 +38,7 @@ const separatorsOf = (payload: Payload) => nodesOf(payload).filter((n) => n.type
 const selectOf = (payload: Payload) => nodesOf(payload).find((n) => n.type === STRING_SELECT);
 
 /**
- * 화면 하나: 헤더 줄(### 를 뗀 것) · 그 아래 본문 · 줄(메뉴 · 버튼 줄) 수 · 버튼 custom_id · 역할 메뉴의 기본값 · 완료 색인지.
+ * 화면 하나: 헤더 줄(### 를 뗀 것), 그 아래 본문, 줄(메뉴, 버튼 줄) 수, 버튼 custom_id, 역할 메뉴의 기본값, 완료 색인지.
  * 헤더 줄이 없으면 title 은 빈 글자이고 첫 텍스트 디스플레이 전체가 본문이다
  */
 function screenOf(payload: unknown) {

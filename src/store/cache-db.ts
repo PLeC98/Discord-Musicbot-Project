@@ -1,4 +1,4 @@
-// 캐시 DB(cache.db). 음원 데이터를 담는다: 캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · 외부 서비스의 응답.
+// 캐시 DB(cache.db). 음원 데이터를 담는다: 캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, 외부 서비스의 응답.
 // 구조 버전이 맞지 않으면 열지 않고 멈춘다(삭제하고 다시 시작하라고 안내한다). 삭제한 뒤 기록을 잃은 캐시 파일은 기동 정리(audioCache.onStartup)가 삭제한다.
 // 오디오 캐시 초기화는 선택한 것(rules/audio-cache-parts)의 표만 비운다(TABLES_OF_PART, audioCache.resetCache). 직접 지정한 음원은 사람이 정한 값이지만
 // "어느 요청에 어느 음원"이라는 음원 데이터라 링크 데이터와 같은 파일에 둔다(설정 스냅샷을 복원해도 따라 돌아가지 않는다). 실행 상태는 여기 두지 않는다.
@@ -10,13 +10,11 @@ import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 const cacheDb = new DbFile({
   label: "캐시 DB",
   fileName: "cache.db",
-  // 6: 서버 설정 · 저장된 대기열 · 음성 채널 상태를 다른 파일로 옮겼다. 7: 재생 테스트 · 다시 확인의 원본 버전(source_checks.version)
-  version: 7,
+  // 7: 재생 테스트, 다시 확인의 원본 버전(source_checks.version). 8: SponsorBlock 구간을 받은 주소(sponsorblock_cache.api_base)
+  version: 8,
   synchronous: "NORMAL",
-  onMismatch: { lost: "캐시 파일 기록 · 오디오 링크 데이터 · 직접 지정한 음원 · 재생 테스트 결과 · SponsorBlock 구간 · 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
+  onMismatch: { lost: "캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, SponsorBlock 구간, 연령 제한 기록이 사라지고, 캐시 파일은 시작할 때 정리가 삭제한 뒤 다음 재생부터 다시 다운로드합니다." },
   createTables,
-  // 6 → 7 은 열 하나를 더할 뿐이라 그 자리에서(직접 지정한 음원 · 링크 데이터를 잃지 않게)
-  upgrades: { 6: (db) => db.exec("ALTER TABLE source_checks ADD COLUMN version TEXT") },
 });
 
 function createTables(db: Db) {
@@ -73,12 +71,13 @@ function createTables(db: Db) {
                 version      TEXT
             );
 
-            -- SponsorBlock 원시 세그먼트 캐시 (폴백 전용. 라이브 조회 실패 시 사용).
-            -- data_json = 정규화 이전 원시 배열(카테고리 전부). 정규화/필터는 SponsorBlock.js가 읽을 때 수행.
+            -- SponsorBlock 구간. 있으면 곧바로 쓰고, 오래됐거나 다른 주소에서 받았으면 뒤에서 다시 받는다(sources/sponsor-block).
+            -- data_json = 정규화 이전 원시 배열(카테고리 전부, 빈 배열은 "구간 없음"). api_base = 받은 주소(모르면 NULL)
             CREATE TABLE IF NOT EXISTS sponsorblock_cache (
                 video_id    TEXT PRIMARY KEY,
                 data_json   TEXT NOT NULL,
-                fetched_at  INTEGER NOT NULL
+                fetched_at  INTEGER NOT NULL,
+                api_base    TEXT
             );
 
             -- 연령 제한 확인된 videoId. 재조회 시 bgutil 실패를 건너뛰고 바로 쿠키 폴백에 사용.
@@ -102,9 +101,9 @@ function createTables(db: Db) {
   createRevisionTriggers(db);
 }
 
-// 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows 는 링크 데이터 · 직접 지정한 음원 · 캐시 파일 · 연령 제한, checks 는 재생 테스트 결과
+// 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows 는 링크 데이터, 직접 지정한 음원, 캐시 파일, 연령 제한, checks 는 재생 테스트 결과
 // (운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게 따로). 쓰는 곳마다 올리지 않고 트리거가 센다(새로 쓰는 곳이 빠지지 않게).
-// 연결마다의 임시 표 · 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master 의 표만 비워 이것은 남는다
+// 연결마다의 임시 표, 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master 의 표만 비워 이것은 남는다
 const REVISION_OF: Record<string, "rows" | "checks"> = { track_lookup: "rows", pinned_sources: "rows", audio_cache: "rows", age_restricted: "rows", source_checks: "checks" };
 
 function createRevisionTriggers(db: Db) {
@@ -112,7 +111,7 @@ function createRevisionTriggers(db: Db) {
   for (const [table, name] of Object.entries(REVISION_OF)) for (const event of ["INSERT", "UPDATE", "DELETE"]) db.exec(`CREATE TEMP TRIGGER IF NOT EXISTS revision_${table}_${event.toLowerCase()} AFTER ${event} ON main.${table} BEGIN UPDATE cache_revision SET n = n + 1 WHERE name = '${name}'; END;`);
 }
 
-/** 지금 바뀜 번호(캐시 DB 화면). revision: 표의 행 · checkRevision: 재생 테스트 결과 */
+/** 지금 바뀜 번호(캐시 DB 화면). revision: 표의 행, checkRevision: 재생 테스트 결과 */
 function cacheRevision(): { revision: number; checkRevision: number } {
   const rows = cacheDb.get().prepare("SELECT name, n FROM cache_revision").all() as Array<{ name: string; n: number }>;
   const of = (name: string) => rows.find((row) => row.name === name)?.n ?? 1;

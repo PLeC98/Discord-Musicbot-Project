@@ -1,4 +1,4 @@
-// src/rules/ko-search.ts — 한국어를 아는 찾기. 마지막 글자는 조합 중일 수 있고, 자음만이면 초성으로 찾는다
+// src/rules/ko-search.ts: 한국어를 아는 검색. 마지막 글자는 조합 중일 수 있고, 자음만이면 초성으로 찾는다
 import test from "node:test";
 import assert from "node:assert/strict";
 import { koMatch, koRanges, koStarts } from "../../src/rules/ko-search.ts";
@@ -9,7 +9,7 @@ test("그대로 들어 있으면 찾는다(영문은 대소문자 무시, 빈 �
   assert.equal(koMatch("음악", "미술"), false);
 });
 
-test("마지막 글자는 조합 중으로 본다: 받침 · 겹모음이 덜 된 글자", () => {
+test("마지막 글자는 조합 중으로 본다: 받침, 겹모음이 덜 된 글자", () => {
   assert.equal(koMatch("음악 감상실", "음ㅇ"), true);
   assert.equal(koMatch("음악 감상실", "음악 가"), true);
   assert.equal(koMatch("가나", "간"), true, "받침이 다음 글자 첫소리로 넘어가는 중");
@@ -29,7 +29,7 @@ test("koStarts 는 맨 앞에서만 같은 규칙", () => {
   assert.equal(koStarts("음악 감상실", "감"), false);
 });
 
-test("koRanges 는 맞은 자리들(칠할 곳): 그대로 · 조합 중인 글자가 걸친 글자까지 · 초성은 띄어쓰기를 건너 원래 자리로", () => {
+test("koRanges 는 맞은 자리들(칠할 곳): 그대로, 조합 중인 글자가 걸친 글자까지, 초성은 띄어쓰기를 건너 원래 자리로", () => {
   assert.deepEqual(koRanges("YouTube 와 youtube", "you"), [
     [0, 3],
     [10, 13],

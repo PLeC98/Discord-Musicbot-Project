@@ -1,4 +1,4 @@
-// 운영자 패널: 디스플레이 탭의 파비콘 카드 · 이미지 편집 · 크기별 팝업(업로드 · 링크 · 기록)
+// 운영자 패널: 디스플레이 탭의 파비콘 카드, 이미지 편집, 크기별 팝업(업로드, 링크, 기록)
 
 import { josa } from "../../../../src/rules/josa.ts";
 import { formatClock, formatDate } from "../../utils/locale.ts";
@@ -41,24 +41,26 @@ const crop = {
   title: "이미지 편집하기",
   reset: "재설정",
   zoom: "화면 확대",
+  rotate: "시계 방향 90도 회전",
+  flip: "좌우 반전",
   picked: (width: number, height: number) => `선택한 영역 ${width} × ${height}`,
   /** 선택한 영역이 쓸 크기보다 작을 때만 */
   tooSmall: (target: number) => `${target}px 보다 작아서 흐릿하게 보일 수 있어요`,
   use: "적용하기",
 };
 
-/** 크기별 팝업: 이미지 업로드 · 링크로 추가 · 기록 */
+/** 크기별 팝업: 이미지 업로드, 링크로 추가, 기록 */
 const slotDialog = {
   title: (size: number) => `${size}px 파비콘`,
-  /** 업로드 · 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
+  /** 업로드, 링크로 추가 위에 한 줄(상한은 MB 로 나눠 떨어진다) */
   maxSize: (bytes: number) => `최대 파일 크기는 ${bytes / 1024 / 1024}MB예요.`,
   fromFile: "이미지 업로드",
-  fromFileHint: "png · webp · jpg · svg",
+  fromFileHint: "png, webp, jpg, svg",
   fromLink: "링크로 추가",
   linkLabel: "이미지 주소",
   linkPlaceholder: "https://…",
   linkFetch: "가져오기",
-  linkBad: "http · https 로 시작하는 주소를 입력해 주세요.",
+  linkBad: "http나 https로 시작하는 주소를 입력해 주세요.",
   linkFailed: "링크에서 이미지를 가져오지 못했어요.",
 };
 

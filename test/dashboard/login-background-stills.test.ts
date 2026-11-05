@@ -1,4 +1,4 @@
-// src/dashboard/login-background/stills.ts · tones.ts · rules/art-seed.ts — 썸네일 · 정지 그림(폭별 WebP, sRGB) · 대표색 · 장면 바뀜과 장면 색.
+// src/dashboard/login-background/stills.ts, tones.ts, rules/art-seed.ts: 썸네일, 정지 그림(폭별 WebP, sRGB, 편집의 회전과 반전), 대표색, 장면 바뀜과 장면 색.
 // 실제 ffmpeg 로 표본을 만든다(없으면 건너뛴다)
 
 import { test, before, after } from "node:test";
@@ -60,7 +60,14 @@ before(async () => {
     .toBuffer();
   fs.writeFileSync(sample("gamma.png"), withChunk(dark, "gAMA", gamma(45455)));
   fs.writeFileSync(sample("gamma-srgb.png"), withChunk(withChunk(dark, "gAMA", gamma(45455)), "sRGB", Buffer.from([0])));
+  // 방향 표시: 파랑 바탕, 왼쪽 위 빨강(그림 400 × 200, 영상 320 × 180)
+  const marked = await sharp({ create: { width: 400, height: 200, channels: 3, background: { r: 0, g: 0, b: 255 } } })
+    .composite([{ input: { create: { width: 60, height: 60, channels: 3, background: { r: 255, g: 0, b: 0 } } }, left: 0, top: 0 }])
+    .png()
+    .toBuffer();
+  fs.writeFileSync(sample("marked.png"), marked);
   if (!BIN) return;
+  await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:s=320x180:r=10:d=2", "-vf", "drawbox=x=0:y=0:w=48:h=48:color=red:t=fill", "-c:v", "mpeg4", "-q:v", "2", sample("marked.mp4")]);
   // 빨강 → 어두운 파랑 → 밝은 초록, 2초씩(장면 바뀜 둘. scene 점수는 밝기 차이를 크게 보므로 밝기가 다른 색으로)
   const cuts = (size: string, rate: number) => [0xd02020, 0x081860, 0x40e060].flatMap((color) => ["-f", "lavfi", "-i", `color=c=0x${color.toString(16).padStart(6, "0")}:s=${size}:r=${rate}:d=2`]);
   const joined = ["-filter_complex", "[0:v][1:v][2:v]concat=n=3:v=1[v]", "-map", "[v]"];
@@ -80,8 +87,19 @@ async function applied(name: string, edit: store.Stored["edit"]) {
 const job = (one: store.Stored) => ({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 const pixel = async (file: string) => [...(await sharp(file).raw().toBuffer()).subarray(0, 3)];
+/** 그 점이 빨강인가(정지 그림은 WebP 라 색이 조금 번진다) */
+async function redAt(file: string, x: number, y: number) {
+  const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
+  const at = (y * info.width + x) * info.channels;
+  return data[at] > 150 && data[at + 2] < 100;
+}
+/** 정지 그림 하나의 크기 */
+const sizeOf = async (file: string) => {
+  const meta = await sharp(file).metadata();
+  return [meta.width, meta.height];
+};
 
-test("대표색: 화면과 같은 셈(Celebi · Score). 무채색이면 COLORLESS(null)", () => {
+test("대표색: 화면과 같은 계산(Celebi, Score). 무채색이면 COLORLESS(null)", () => {
   const solid = (r: number, g: number, b: number) => Array.from({ length: 40 * 40 }, () => [r, g, b, 255]).flat();
   assert.match(hexOfSeed(seedOfPixels(solid(30, 90, 200)))!, /^#[0-9a-f]{6}$/);
   assert.equal(seedOfPixels(solid(128, 128, 128)), COLORLESS);
@@ -111,6 +129,36 @@ test("그림: 썸네일은 가장 작은 폭과 대표색, 정지 그림은 원�
   // 왼쪽 절반만: 1000 폭이라 원본 폭 하나
   const half = await applied("photo.png", { crop: { x: 0, y: 0, w: 0.5, h: 1 }, range: null, thumbAt: null });
   assert.deepEqual((await thumb(job(half))).media!.stills, [1000]);
+});
+
+test("그림: 자른 뒤 시계 방향으로 돌리고 그다음 좌우로 뒤집는다(가로세로가 바뀐다)", async () => {
+  // 90도: 왼쪽 위 빨강이 오른쪽 위로. 돌린 뒤 뒤집으면 다시 왼쪽 위로
+  const turned = await applied("marked.png", { crop: FULL, range: null, thumbAt: null, rotate: 90 });
+  const [width] = (await thumb(job(turned))).media!.stills;
+  assert.deepEqual(await sizeOf(stillFile(turned.id, width)), [200, 400]);
+  assert.ok(await redAt(stillFile(turned.id, width), 190, 10));
+  assert.ok(!(await redAt(stillFile(turned.id, width), 10, 10)));
+  const flipped = await applied("marked.png", { crop: FULL, range: null, thumbAt: null, rotate: 90, flip: true });
+  await thumb(job(flipped));
+  assert.ok(await redAt(stillFile(flipped.id, width), 10, 10));
+  assert.ok(!(await redAt(stillFile(flipped.id, width), 190, 10)));
+  // 자르기는 원본 기준: 오른쪽 절반을 자르면 빨강이 없다
+  const right = await applied("marked.png", { crop: { x: 0.5, y: 0, w: 0.5, h: 1 }, range: null, thumbAt: null, rotate: 270 });
+  const [small] = (await thumb(job(right))).media!.stills;
+  assert.deepEqual(await sizeOf(stillFile(right.id, small)), [200, 200]);
+  assert.ok(!(await redAt(stillFile(right.id, small), 10, 10)) && !(await redAt(stillFile(right.id, small), 10, 190)));
+});
+
+test("영상: 썸네일 장면도 자른 뒤 돌리고 뒤집는다", opts, async () => {
+  const turned = await applied("marked.mp4", { crop: FULL, range: [0, 2], thumbAt: 1, rotate: 90 });
+  const [width] = (await thumb(job(turned))).media!.stills;
+  assert.deepEqual(await sizeOf(stillFile(turned.id, width)), [180, 320]);
+  assert.ok(await redAt(stillFile(turned.id, width), 170, 10));
+  assert.ok(!(await redAt(stillFile(turned.id, width), 10, 10)));
+  const flipped = await applied("marked.mp4", { crop: FULL, range: [0, 2], thumbAt: 1, rotate: 90, flip: true });
+  await thumb(job(flipped));
+  assert.ok(await redAt(stillFile(flipped.id, width), 10, 10));
+  assert.ok(!(await redAt(stillFile(flipped.id, width), 170, 10)));
 });
 
 test("그림: 감마만 적힌 PNG 는 sRGB 로 다시 적어 브라우저에서 보이던 만큼 어둡다", async () => {
@@ -143,7 +191,7 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
   assert.equal(new Set(scenes.map((one) => one.color)).size, 3);
 });
 
-// 움직이는 WebP · APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
+// 움직이는 WebP, APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
 for (const name of ["cuts.webp", "cuts.png"]) {
   test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, opts, async () => {
     const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });
@@ -160,6 +208,6 @@ for (const name of ["cuts.webp", "cuts.png"]) {
   });
 }
 
-test("장면 바뀜 선택: 처음 · 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
+test("장면 바뀜 선택: 처음, 끝 0.5초 안과 1초 안에 거듭 바뀐 것은 하나로", () => {
   assert.deepEqual(cutsOf([0.2, 1.5, 2.0, 2.4, 3.7, 9.8], 10), [1.5, 3.7]);
 });

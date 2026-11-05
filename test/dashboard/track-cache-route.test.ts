@@ -1,4 +1,4 @@
-// src/dashboard/routes/track-cache.ts — 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 계약의 모양.
+// src/dashboard/routes/track-cache.ts: 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 공유 타입의 모양.
 
 process.env.OWNER_ID = "owner";
 
@@ -41,7 +41,7 @@ const call = async (method: string, route: string, body?: unknown) => {
 const SPOTIFY = "https://open.spotify.com/track/1111111111111111111111";
 const SC = "https://soundcloud.com/artist/song";
 
-test("읽기: 표 하나의 구간과 번호, 질의가 틀리면 그 위치를 가리킨다", async () => {
+test("읽기: 표 하나의 구간과 번호, 쿼리가 틀리면 그 위치를 가리킨다", async () => {
   pinnedSources.setPin(SPOTIFY, SC, 10);
   const page = await call("GET", "/?table=requests&offset=0&limit=50&f.audioUrl=soundcloud&sort=pinnedAt:desc");
   assert.equal(page.status, 200);
@@ -84,7 +84,7 @@ test("쓰기 본문은 조작 200개를 싣는다(32kb 를 넘는다)", async ()
   assert.equal((res.json.results as unknown[]).length, 200);
 });
 
-test("값 검사 미리 보기 · 재생 테스트 · 번호 · 결과", async () => {
+test("값 검사 미리 보기, 재생 테스트, 번호, 결과", async () => {
   const inspected = await call("POST", "/inspect", { audioUrl: "https://youtu.be/ddddddddddd" });
   assert.deepEqual(inspected.json, { audio: { ok: true, canonical: "https://www.youtube.com/watch?v=ddddddddddd", kind: "youtube", audioKey: "yt:ddddddddddd" } });
 

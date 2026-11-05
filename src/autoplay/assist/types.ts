@@ -1,4 +1,4 @@
-// AI 보조의 모양. 판정 · 확인 · 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node 를 부르지 않는 여기에 둔다
+// AI 보조의 모양. 판정, 확인, 미리보기가 돌려주는 것은 대시보드가 그대로 받으므로 Node 를 부르지 않는 여기에 둔다
 
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
 
@@ -51,7 +51,7 @@ type TokenCount = { total: number; body: number; each?: number[]; by: string; ex
 /** 나갈 것을 만들어만 본 것. 헤더의 키 값은 가려져 있다 */
 type Preview = { url: string; headers: Record<string, string>; body: Body; messages: ShownMessage[]; tokens: TokenCount | null; problems: string[] };
 
-/** 판정 테스트의 답. 나간 것 · 온 것 · 곡별 판정 */
+/** 판정 테스트의 답. 나간 것, 온 것, 곡별 판정 */
 type JudgeResult = Preview & {
   status: number | null;
   response: string;
@@ -60,8 +60,10 @@ type JudgeResult = Preview & {
   tookMs?: number;
 };
 
-/** 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */
-/** preset: 저쪽 목록이 아니라 다운로드해 둔 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 묻지 못했다) */
+/**
+ * 모델 목록 확인(무료). 저쪽에 닿기 전에 막혔으면 reason 만 있다.
+ * preset 이면 저쪽 목록이 아니라 모델 프로필(config/ai-models)로 채운 목록이다(저쪽에 조회하지 못했다)
+ */
 type ModelsCheck = { ok: boolean; reason?: string; url?: string; status?: number | null; models?: string[]; hiddenCount?: number; preset?: boolean; response?: string; tookMs?: number };
 
 /** 짧은 물음 하나로 확인(유료). 저쪽에 닿기 전에 막혔으면 reason 만 있다 */

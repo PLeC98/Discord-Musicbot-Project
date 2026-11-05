@@ -1,12 +1,12 @@
-// 한국어를 아는 찾기. 검색어의 마지막 글자는 아직 조합 중일 수 있다(입력기가 "음ㅇ" · "가" 같은 덜 된 글자를 넘긴다).
+// 한국어를 아는 검색. 검색어의 마지막 글자는 아직 조합 중일 수 있다(입력기가 "음ㅇ", "가" 같은 덜 된 글자를 넘긴다).
 // 그래서 마지막 글자는 자모로 풀어 앞부분만 맞으면 찾는다: "음ㅇ" → 음악, "음악 가" → 음악 감상실, "간" → 가나(받침이 다음 글자 첫소리로 넘어가는 중), "고" → 과일.
 // 자음만 입력한 검색어는 초성으로도 찾는다(ㅇㅇㄱㅅㅅ → 음악 감상실). 영문은 대소문자를 가리지 않는다
-// 봇(캐시 DB 필터)과 화면(서버 목록 · 선택지 찾기 등)이 같이 쓴다. Node 를 부르지 않는다
+// 봇(캐시 DB 필터)과 화면(서버 목록, 선택지 검색 등)이 같이 쓴다. Node 를 부르지 않는다
 
 const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 const JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
 const JONG = ["", "ㄱ", "ㄲ", "ㄳ", "ㄴ", "ㄵ", "ㄶ", "ㄷ", "ㄹ", "ㄺ", "ㄻ", "ㄼ", "ㄽ", "ㄾ", "ㄿ", "ㅀ", "ㅁ", "ㅂ", "ㅄ", "ㅅ", "ㅆ", "ㅇ", "ㅈ", "ㅊ", "ㅋ", "ㅌ", "ㅍ", "ㅎ"];
-// 겹받침 · 겹모음은 입력하는 순서대로 푼다(ㄺ = ㄹ 다음 ㄱ, ㅘ = ㅗ 다음 ㅏ)
+// 겹받침, 겹모음은 입력하는 순서대로 푼다(ㄺ = ㄹ 다음 ㄱ, ㅘ = ㅗ 다음 ㅏ)
 const SPLIT: Record<string, string> = { ㄳ: "ㄱㅅ", ㄵ: "ㄴㅈ", ㄶ: "ㄴㅎ", ㄺ: "ㄹㄱ", ㄻ: "ㄹㅁ", ㄼ: "ㄹㅂ", ㄽ: "ㄹㅅ", ㄾ: "ㄹㅌ", ㄿ: "ㄹㅍ", ㅀ: "ㄹㅎ", ㅄ: "ㅂㅅ", ㅘ: "ㅗㅏ", ㅙ: "ㅗㅐ", ㅚ: "ㅗㅣ", ㅝ: "ㅜㅓ", ㅞ: "ㅜㅔ", ㅟ: "ㅜㅣ", ㅢ: "ㅡㅣ" };
 
 const isSyllable = (c: string) => c >= "가" && c <= "힣";
@@ -33,7 +33,7 @@ const onlyConsonants = (q: string) => /^[ㄱ-ㅎ]+$/.test(q);
 
 type Range = [number, number];
 
-/** 덜 된 글자가 걸친 글자까지의 끝(맞지 않으면 -1). from 부터 최대 세 글자를 자모로 견준다 */
+/** 덜 된 글자가 걸친 글자까지의 끝(맞지 않으면 -1). from 부터 최대 세 글자를 자모로 비교한다 */
 function tailEnd(t: string, from: number, last: string): number {
   for (let k = 1; k <= 3 && from + k <= t.length; k++) {
     if (jamo(t.slice(from, from + k)).startsWith(last)) return from + k;
@@ -41,7 +41,7 @@ function tailEnd(t: string, from: number, last: string): number {
   return -1;
 }
 
-// 마지막 글자만 덜 된 글자로 보고, 앞은 그대로 맞는 위치에서 뒤를 자모로 견준다. 덜 된 글자가 걸친 글자까지 맞은 자리다
+// 마지막 글자만 덜 된 글자로 보고, 앞은 그대로 맞는 위치에서 뒤를 자모로 비교한다. 덜 된 글자가 걸친 글자까지 맞은 자리다
 // (그대로 들어 있는 것도 여기서 걸린다: 마지막 글자의 자모는 자기 자신으로 시작한다)
 function tailMatches(t: string, q: string, all: boolean): Range[] {
   const out: Range[] = [];
@@ -60,7 +60,7 @@ function tailMatches(t: string, q: string, all: boolean): Range[] {
   return out;
 }
 
-// 자음만: 초성 찾기(띄어쓰기는 보지 않는다). 띄어쓰기를 뺀 글의 자리를 원래 자리로 되돌린다
+// 자음만: 초성 검색(띄어쓰기는 보지 않는다). 띄어쓰기를 뺀 글의 자리를 원래 자리로 되돌린다
 function initialMatches(t: string, bare: string, all: boolean): Range[] {
   const out: Range[] = [];
   const kept: number[] = [];
@@ -84,7 +84,7 @@ function merge(ranges: Range[]): Range[] {
   return out;
 }
 
-/** 맞은 자리 [시작, 끝) 들. all 이 아니면 첫 자리 하나에서 멈춘다. t · q 는 다듬은 글(NFC · 소문자, q 는 앞뒤 공백 없음) */
+/** 맞은 자리 [시작, 끝) 들. all 이 아니면 첫 자리 하나에서 멈춘다. t, q 는 다듬은 글(NFC, 소문자, q 는 앞뒤 공백 없음) */
 function find(t: string, q: string, all: boolean): Range[] {
   const tail = tailMatches(t, q, all);
   const bare = q.replace(/\s+/g, "");

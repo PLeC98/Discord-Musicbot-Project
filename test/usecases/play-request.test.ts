@@ -1,11 +1,11 @@
-// src/usecases/add-tracks.ts — 곡 추가 경로의 단일 코어.
+// src/usecases/add-tracks.ts: 곡 추가 경로의 단일 코어.
 //
-// 슬래시 명령 · 전용 채널 · 검색 선택 · 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
+// 슬래시 명령, 전용 채널, 검색 선택, 대시보드가 같은 곡 추가 코어를 지난다(둘로 나뉘면 같은 버그를 두 번 고치고 요청자 모양도 갈린다).
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 
-// ── 모킹 (playRequest보다 먼저 — 실 SQLite/네트워크 미접촉) ──────────────
+// ── 모킹 (곡 추가 코어를 불러오기 전에, 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 import config from "../../src/config/index.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
@@ -31,7 +31,7 @@ const store = openTempStore("play-request-");
 after(() => store.close());
 setGuild("g1", { playlistAddMax: 50 });
 
-// 테스트마다 정하는 조회 · 모음 답
+// 테스트마다 정하는 조회, 모음 답
 let mockResolve: (query: string) => LookupResult = () => assert.fail("테스트가 조회 답을 정하지 않았다");
 let mockCollection: (range: Range) => Collection = () => assert.fail("테스트가 모음 답을 정하지 않았다");
 const resolverCalls: Array<{ query: string; context?: string | null; range?: Range }> = [];
@@ -63,7 +63,7 @@ function makeGuild({ botVoice = null, channels = [] }: { botVoice?: VoiceBasedCh
   return fake<Guild>({ id: GUILD_ID, channels: { cache }, members: { me: { voice: { channel: botVoice } } } });
 }
 
-// 곡 요청이 곡 담기(queueTracks)에 넘긴 것
+// 곡 요청이 곡 추가(queueTracks)에 넘긴 것
 type EmbedCall = { guildId: string; trackData: TrackData; requester: unknown; responder: Responder | undefined };
 
 function makeBot() {
@@ -99,7 +99,7 @@ function ok(...titles: string[]): Extract<LookupResult, { success: true }> {
 // ── toRequester ──────────────────────────────────────────────
 
 // 표시에 쓰는 이름은 그 서버에서 보이는 이름이다. GuildMember에는 username이 없어
-// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다 — displayName을 먼저 본다.
+// 전역 계정명(user.username)이 먼저 잡히면 닉네임이 영영 쓰이지 않는다. displayName을 먼저 본다.
 test("toRequester: GuildMember는 서버 닉네임(displayName)을 쓴다", () => {
   const member = { id: "u1", user: { username: "carl", tag: "carl#0" }, displayName: "칼" };
   assert.deepEqual(toRequester(member), { id: "u1", username: "칼", tag: "carl#0" });
@@ -139,7 +139,7 @@ test("ensurePlayer: 없으면 만들고 맵에 넣는다", () => {
   assert.equal(player.voiceChannel, voice);
 });
 
-test("ensurePlayer: 있으면 재사용한다 — 큐가 사라지면 안 된다", () => {
+test("ensurePlayer: 있으면 재사용한다. 큐가 사라지면 안 된다", () => {
   const bot = makeBot();
   const guild = makeGuild();
   const existing = fakePlayer({ bindChannels: Player.prototype.bindChannels, movePanel: Player.prototype.movePanel, restoreSettings: Player.prototype.restoreSettings, queue: [track("a")], textChannel: makeChannel("old"), voiceChannel: voiceOf("v0") });
@@ -198,7 +198,23 @@ function baseArgs(bot: TestBot, guild: Guild, extra: Extra): PlaybackRequest {
   return { guild, requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, ...extra };
 }
 
-// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 더 이상 진입점에서 막지 않는다.
+test("붙여 넣은 링크 앞뒤의 공백(NBSP, 전각 공백, BOM 포함)은 곡 찾기 전에 걷는다", async () => {
+  mockResolve = () => ok("곡");
+  const bot = makeBot();
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "\ufeff\u00a0https://youtu.be/abcdefghijk\u3000 ", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "https://youtu.be/abcdefghijk");
+});
+
+test("스킴을 뺀 알려진 사이트 주소는 https:// 를 붙여 찾는다(그 글자로 검색하지 않는다)", async () => {
+  mockResolve = () => ok("곡");
+  const bot = makeBot();
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: " youtu.be/abcdefghijk ", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "https://youtu.be/abcdefghijk");
+  await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "will.i.am", source: "/play" }));
+  assert.equal(resolverCalls.at(-1)?.query, "will.i.am");
+});
+
+// 방송 중인 라이브는 주소를 ffmpeg에 넘기는 분기로 재생한다. 진입점에서 막지 않는다.
 test("방송 중인 라이브는 통과시킨다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("24/7 라디오", { isLive: true, liveStatus: "is_live" })] });
   const bot = makeBot();
@@ -256,22 +272,22 @@ test("직접 지정한 음원이 있는 곡은 그 음원으로 담고, 원래 �
   pinnedSources.unpin("https://x/곧 시작하는 원곡", "https://soundcloud.com/pinned/upcoming");
 });
 
-// 아직 시작하지 않은 방송은 열어 봐야 받을 것이 없다.
-// 조용히 버리면 디스코드에는 아무 반응이 없어 먹통처럼 보인다 — 이유를 말하고 거절한다.
-test("시작 전 방송은 거절하고 이유를 알린다", async () => {
+// 시작 전 방송(예정된 방송, 최초 공개)도 넣는다. 시작에 맞춰 틀려는 사람이 있다. 틀 차례에 아직이면 그때 알리고 넘긴다(player)
+test("시작 전 방송도 넣는다", async () => {
   mockResolve = () => ({ success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] });
   const bot = makeBot();
   const guild = makeGuild();
 
-  const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/soon", source: "/play" }));
+  await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/soon", source: "/play" }));
 
-  assert.equal(result.success ? null : result.code, "live-upcoming");
-  assert.match(result.success ? "" : plainText(addFailureMessage(result)), /아직 시작되지 않은 라이브예요/);
-  assert.equal(bot.embedCalls.length, 0, "코어까지 가지 않는다");
+  assert.deepEqual(
+    bot.embedCalls[0].trackData.tracks.map((t) => t.title),
+    ["곧 시작"],
+  );
 });
 
-// 재생목록에 시작 전 방송이 섞여 있으면 그것만 빼고 나머지는 넣는다.
-test("재생목록의 시작 전 방송만 필터링하고 나머지는 넣는다", async () => {
+// 재생목록에 시작 전 방송이 섞여 있어도 빼지 않는다
+test("재생목록의 시작 전 방송도 함께 넣는다", async () => {
   mockResolve = () => ({
     success: true,
     isPlaylist: true,
@@ -284,7 +300,7 @@ test("재생목록의 시작 전 방송만 필터링하고 나머지는 넣는�
   await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/list", source: "/play" }));
 
   const sent = bot.embedCalls[0].trackData.tracks.map((t) => t.title);
-  assert.deepEqual(sent, ["보통곡"]);
+  assert.deepEqual(sent, ["곧 시작", "보통곡"]);
 });
 
 // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
@@ -436,7 +452,7 @@ test("곡 찾기가 거절한 까닭(지원하지 않는 링크 등)은 그대�
   assert.match(none.success ? "" : plainText(addFailureMessage(none)), /^앞의 4곡이 전부/);
 });
 
-// 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남았다
+// 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남는다
 test("봇이 쉬는 서버에서 곡을 못 찾으면 플레이어를 만들지 않는다", async () => {
   mockResolve = () => ({ success: false, code: "no-song-result" });
   const bot = makeBot();
@@ -471,7 +487,7 @@ test("responder를 주지 않으면 무동작 어댑터가 간다 (대시보드)
 
 // ── 로그: 누가 무엇을 찾아 무엇이 선택됐나 ─────────────────────
 
-// 곡 요청 줄들. 담기(queueTracks)를 부른 때의 로그 길이도 적는다
+// 곡 요청 줄들. 곡 추가(queueTracks)를 부른 때의 로그 길이도 적는다
 async function requestLines(args: Partial<PlaybackRequest>, outcome: object = { success: true }) {
   const bot = makeBot();
   let handledAt = -1;
@@ -507,28 +523,26 @@ test("로그: 못 넣은 까닭은 코드로. 곡 찾기가 던졌으면 오류 
     mockResolve = typeof answer === "function" ? answer : () => answer;
     return (await requestLines({ query: "q" })).lines;
   };
-  assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: no-song-result']);
-  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 못 넣음: lookup-failed(network-error)']);
-  assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 못 넣음: unsupported-link']);
-  const upcoming = { success: true, isPlaylist: false, tracks: [track("곧 시작", { isLive: true, liveStatus: "is_upcoming" })] } as const;
-  assert.deepEqual(await refused(() => ({ ...upcoming, tracks: [...upcoming.tracks] })), ['info 곡 요청: /play | carl | "q" → 못 넣음: live-upcoming']);
+  assert.deepEqual(await refused({ success: false, code: "no-song-result" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: no-song-result']);
+  assert.deepEqual(await refused({ success: false, code: "lookup-failed", error: networkError() }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: lookup-failed(network-error)']);
+  assert.deepEqual(await refused({ success: false, code: "unsupported-link" }), ['info 곡 요청: /play | carl | "q" → 대기열 추가 불가: unsupported-link']);
 });
 
 test("로그: 담지 못했으면 그 까닭을 한 줄 더(info). 담았으면 debug 로, 상한으로 뺀 곡 수와 대기열 곡 수", async () => {
   mockResolve = () => ok("곡A");
   const failed = async (outcome: object) => (await requestLines({ query: "곡A" }, outcome)).lines.slice(1);
-  assert.deepEqual(await failed({ success: false, code: "voice-failed" }), ["info 곡 담기 실패: voice-failed"]);
-  assert.deepEqual(await failed({ success: false, code: "add-failed", kind: "network-error" }), ["info 곡 담기 실패: add-failed(network-error)"]);
-  assert.deepEqual(await failed({ success: false, code: "queue-full", dropped: 1 }), ["info 곡 담기 실패: queue-full"]);
+  assert.deepEqual(await failed({ success: false, code: "voice-failed" }), ["info 곡 추가 실패: voice-failed"]);
+  assert.deepEqual(await failed({ success: false, code: "add-failed", kind: "network-error" }), ["info 곡 추가 실패: add-failed(network-error)"]);
+  assert.deepEqual(await failed({ success: false, code: "queue-full", dropped: 1 }), ["info 곡 추가 실패: queue-full"]);
 
   const level = logger.level;
   logger.level = "debug";
   try {
     const dropped = await requestLines({ query: "곡A" }, { success: true, dropped: 2 });
     assert.equal(dropped.lines.length, 1, "담긴 것은 info 로 한 줄 더 남기지 않는다");
-    assert.ok(dropped.debug.includes("곡 담기 끝 | 상한으로 2곡 뺌 | 대기열 0곡"), dropped.debug.join(" / "));
+    assert.ok(dropped.debug.includes("곡 추가 완료 | 상한으로 2곡 뺌 | 대기열 0곡"), dropped.debug.join(" / "));
     const whole = await requestLines({ query: "곡A" });
-    assert.ok(whole.debug.includes("곡 담기 끝 | 대기열 0곡"), whole.debug.join(" / "));
+    assert.ok(whole.debug.includes("곡 추가 완료 | 대기열 0곡"), whole.debug.join(" / "));
   } finally {
     logger.level = level;
   }
@@ -571,7 +585,7 @@ test("호출자가 텍스트 채널을 주면 봇 채널을 조회하지 않는�
   assert.equal(playerOf(bot).textChannel, given);
 });
 
-// ── 불러올 곡 수 (해석기에 넘기는 어림값) ──────────────────────
+// ── 불러올 곡 수 (해석기에 넘기는 추산값) ──────────────────────
 
 async function withLimits(queueMax: number, playlistMax: number, fn: () => Promise<void>) {
   const saved = config.bot.maxQueueSize;
@@ -600,7 +614,7 @@ test("불러올 곡 수: 한 번에 넣는 배치와 남은 자리 중 작은 �
   withLimits(30, 50, async () => {
     assert.equal((await requestWith({ playing: true })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
-    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 셈하지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
+    // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 세지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
     assert.equal((await requestWith({ playing: false })).limit, 30);
     assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
@@ -617,7 +631,7 @@ test("자리가 모자라 덜 불러왔고 뒤에 곡이 더 있을 때만 queue
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: five })).trackData?.queueLimited, true);
 
     const room = () => ({ ...ok(...Array.from({ length: 25 }, (_, i) => `s${i}`)), total: 80 });
-    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData?.queueLimited, true, "남은 자리 25가 묶음 30보다 작다");
+    assert.equal((await requestWith({ playing: true, queued: 5, resolve: room })).trackData?.queueLimited, true, "남은 자리 25가 배치 30보다 작다");
 
     const whole = () => ({ ...ok("1", "2", "3"), total: 3 });
     assert.equal((await requestWith({ playing: true, queued: 25, resolve: whole })).trackData?.queueLimited, undefined, "목록을 다 받았으면 아니다");
@@ -628,7 +642,7 @@ test("자리가 모자라 덜 불러왔고 뒤에 곡이 더 있을 때만 queue
 const SP = "37i9dQZF1E3aglU7q0y10F";
 const idOf = (i: number) => `t${String(i).padStart(21, "0")}`; // 22자 트랙 ID
 
-// 원본 목록 — shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 위치)
+// 원본 목록. shift만큼 앞에 새 곡이 끼어든 상태를 흉내 낼 수 있다(원래 i번째 곡이 i+shift 위치)
 function listSource(size: number, { shift = 0 } = {}) {
   return ({ offset = 0, limit = 0 }: Range): Collection => {
     const tracks: TrackInfo[] = [];
@@ -658,7 +672,7 @@ async function continueWith({ state, count, size = 300, shift = 0, queued = 0, s
   return { result, progress, added: bot.embedCalls[0]?.trackData };
 }
 
-// 이어 넣은 결과(넣은 수 · 다음 위치). 넣기 전에 거절됐으면 실패
+// 이어 넣은 결과(넣은 수, 다음 위치). 넣기 전에 거절됐으면 실패
 function continued(r: CollectionResult) {
   if (!("added" in r)) assert.fail(`거절됨: ${r.code}`);
   return r;
@@ -666,7 +680,7 @@ function continued(r: CollectionResult) {
 
 const addedTitles = (trackData: TrackData | undefined) => trackData?.tracks.map((t) => t.title) ?? [];
 
-test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡을 넘겨준다", () =>
+test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치, 앵커, 남은 곡을 넘겨준다", () =>
   withLimits(250, 50, async () => {
     const { result, added } = await continueWith({ state: stateAt(50), count: 50 });
     assert.deepEqual(collectionCalls[0].range, { offset: 45, limit: 55 }, "앵커를 찾으려고 앞으로 더 받는다");
@@ -677,7 +691,7 @@ test("이어 넣기: 앵커 뒤부터 넣고, 다음 위치·앵커·남은 곡�
     assert.deepEqual({ offset: done.next?.offset, anchorId: done.next?.anchorId, remaining: done.next?.remaining }, { offset: 100, anchorId: idOf(99), remaining: 200 });
   }));
 
-test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다 — 빠지거나 겹치는 곡이 없다", () =>
+test("이어 넣기: 목록 앞에 곡이 끼어들어도 앵커가 이어 준다. 빠지거나 겹치는 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const { added } = await continueWith({ state: stateAt(50), count: 50, shift: 2 });
     assert.deepEqual(
@@ -696,7 +710,7 @@ test("이어 넣기: 누른 시점의 남은 자리로 자르고, 자리가 없�
     assert.equal(collectionCalls.length, 0);
   }));
 
-test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다 · 불러올 수 없는 곡뿐이다(뺀 곡 수) · 불러온 곡이 없다", () =>
+test("이어 넣기: 넣지 못하면 그 까닭. 플레이어가 없다, 불러올 수 없는 곡뿐이다(뺀 곡 수), 불러온 곡이 없다", () =>
   withLimits(250, 50, async () => {
     const bot = makeBot();
     assert.deepEqual(await continueCollection(bot, { guild: makeGuild(), requester: { id: "u1" }, state: stateAt(50), count: 10, lookup }), { success: false, code: "ended-while-adding" });
@@ -718,7 +732,7 @@ test("이어 넣기: 다음 배치를 못 불러오면 모은 곡까지만 넣�
       return whole(range);
     };
     const { added } = await continueWith({ state: stateAt(50), count: 250, source: secondFails });
-    assert.equal(added?.tracks.length, 100, "첫 묶음만");
+    assert.equal(added?.tracks.length, 100, "첫 배치만");
 
     await assert.rejects(
       continueWith({
@@ -756,7 +770,7 @@ test("이어 넣기: 맨 앞에 넣었던 목록은 앵커 곡 바로 뒤에 넣
   withLimits(250, 50, async () => {
     const front = await continueWith({ state: stateAt(50, { insertFirst: true }), count: 10 });
     assert.equal(front.added?.insertAfterId, idOf(49));
-    assert.equal(continued(front.result).next?.insertFirst, true, "다음 묶음도 같은 자리 규칙을 잇는다");
+    assert.equal(continued(front.result).next?.insertFirst, true, "다음 배치도 같은 자리 규칙을 잇는다");
 
     const back = await continueWith({ state: stateAt(50), count: 10 });
     assert.equal(back.added?.insertAfterId, undefined);

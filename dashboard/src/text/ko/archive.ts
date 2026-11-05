@@ -1,33 +1,33 @@
-// 설정 내보내기 · 불러오기(운영자 패널 백업 · 초기화 탭).
-// 카드 둘: 백업 내보내기(안에 봇 설정만 · 파비콘 · 로그인 배경 · 오디오 캐시) · 백업 불러오기.
+// 설정 내보내기, 불러오기(운영자 패널 백업, 초기화 탭).
+// 카드 둘: 백업 내보내기(안에 봇 설정만, 파비콘, 로그인 배경, 오디오 캐시), 백업 불러오기.
 // 짧게: 내보내기 카드의 설명은 담기는 것 목록만, 주의는 제목 옆 툴팁으로
 
 import type { ArchiveItem, ArchiveKind } from "../../../../src/dashboard/contract/settings-archive.ts";
 
 const exportTitle = "백업 내보내기";
 /** 카드 첫 줄: 전체 백업은 여기 없다(명령은 상자로) */
-const exportDescBefore = "전체 백업(.env · 설정 DB 포함)은 봇 폴더에서 ";
+const exportDescBefore = "전체 백업(.env 및 설정 DB 포함)은 봇 폴더에서 ";
 const backupCommand = "pnpm run backup";
 const exportDescAfter = " 명령으로만 만들 수 있어요.";
 /** 백업 내보내기 카드 안의 카드들 */
 const exports: Record<ArchiveKind, { title: string; desc: string; button: string }> = {
   settings: {
     title: "봇 설정만",
-    desc: "운영 조절값 · 자동재생 장르 · 상태 문구 · AI 설정 · 프롬프트",
+    desc: "운영 조절값, 자동재생 장르, 상태 문구, AI 설정, 프롬프트",
     button: "내보내기",
   },
-  favicon: { title: "파비콘", desc: "크기별 파비콘 · 파비콘 기록", button: "내보내기" },
-  "login-background": { title: "로그인 배경", desc: "현재 배경 · 배경 기록", button: "내보내기" },
-  "audio-cache": { title: "오디오 캐시", desc: "캐시 파일 · 자동 검색 결과 · 직접 지정한 음원 · 연령 제한 기록 · SponsorBlock 구간", button: "내보내기" },
+  favicon: { title: "파비콘", desc: "크기별 파비콘 및 파비콘 기록", button: "내보내기" },
+  "login-background": { title: "로그인 배경", desc: "현재 배경 및 배경 기록", button: "내보내기" },
+  "audio-cache": { title: "오디오 캐시", desc: "캐시 파일, 자동 검색 결과, 직접 지정한 음원, 연령 제한 기록, SponsorBlock 구간", button: "내보내기" },
 };
-/** 오디오 캐시: 캐시 파일 빼고(자동 검색 결과 · 직접 지정한 음원만 옮길 때) */
+/** 오디오 캐시: 캐시 파일 빼고(자동 검색 결과, 직접 지정한 음원만 옮길 때) */
 const withoutFiles = "캐시 파일 제외";
 const withoutFilesTip = "곡은 재생할 때 다시 다운로드해요.";
 /** 제목 옆 툴팁(길어지는 주의) */
 const tips: Record<ArchiveKind | "import", string> = {
   favicon: "",
   "login-background": "영상이면 수백 MB 가 될 수 있어요.",
-  settings: "API 키 · 쿠키 · 서버별 설정은 빠져요.",
+  settings: "API 키, 쿠키, 서버별 설정은 빠져요.",
   "audio-cache": "곡이 많으면 수백 MB ~ 수 GB 가 될 수 있어요.",
   import: "오디오 캐시는 지금 캐시에 합쳐요.",
 };
@@ -41,7 +41,7 @@ const exportFailed = "내보내지 못했어요.";
 const previewFailed = "파일을 읽지 못했어요.";
 
 const dialogTitle = "불러올 항목 선택";
-/** 파일에 적힌 종류 · 만든 때 · 봇 버전 */
+/** 파일에 적힌 종류, 만든 때, 봇 버전 */
 const kinds: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경", "audio-cache": "오디오 캐시" };
 const madeAt = (kind: string, when: string, version: string | null) => `${kind} · ${when}에 만든 백업${version ? ` · 봇 ${version}` : ""}`;
 const dialogNote = "지금 값은 설정 스냅샷으로 복원할 수 있어요.";
@@ -60,7 +60,7 @@ const items: Record<ArchiveItem, string> = {
   "audio-age": "연령 제한 기록",
   "audio-sponsorblock": "SponsorBlock 구간",
 };
-/** 이미지 · 배경 수 */
+/** 이미지, 배경 수 */
 const counts: Partial<Record<ArchiveItem, (n: number) => string>> = { favicon: (n) => `이미지 ${n}개`, "login-background": (n) => `배경 ${n}개` };
 /** 합치는 항목의 내역 */
 const breakdown = {

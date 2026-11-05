@@ -2,6 +2,8 @@
 // 진입점마다 따로 만들면 한쪽만 고쳐져 어긋난다.
 
 import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from "discord.js";
+import { componentEmojiOf } from "../rules/app-emoji-token.ts";
+import { emojiBook } from "../store/app-emoji-book.ts";
 import * as genreConfig from "../config/genres.ts";
 import { AUTOPLAY, customId } from "./custom-ids.ts";
 import { frame, reply } from "./frame.ts";
@@ -10,7 +12,7 @@ import * as autoplayText from "./text/ko/autoplay.ts";
 
 /**
  * 본인에게만 보이는 장르 선택 메시지. 그대로 reply에 넘긴다.
- * 선택한 결과는 src/discord/interactions/modal-handler.ts 의 장르 처리가 받는다. 지금 플레이어(없으면 새로 만든 것)에 걸므로 세션을 싣지 않는다.
+ * 선택한 결과는 src/discord/interactions/autoplay.ts 의 장르 처리가 받는다. 지금 플레이어(없으면 새로 만든 것)에 걸므로 세션을 싣지 않는다.
  */
 function genreSelect(placeholder: string) {
   // 장르 정의는 장르 설정 한 곳에서 관리. 부를 때마다 읽는다(대시보드에서 저장하면 곧바로 반영)
@@ -24,7 +26,9 @@ function genreSelect(placeholder: string) {
       .addOptions(
         Object.entries(genres).map(([id, g]) => {
           const option = new StringSelectMenuOptionBuilder().setLabel(g.label?.trim() || id).setValue(id);
-          return g.emoji ? option.setEmoji(g.emoji) : option;
+          // 앱 이모지 토큰은 지금 이모지로 찾는다(id, 이름, 아이콘 옛 이름). 찾지 못하면 이모지 없이
+          const emoji = g.emoji ? componentEmojiOf(g.emoji, emojiBook()) : null;
+          return emoji ? option.setEmoji(emoji) : option;
         }),
       )
   );

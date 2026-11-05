@@ -1,6 +1,6 @@
-// 종료. 신호를 받으면 세션을 저장하고 음성 연결(채널에는 남는다) · 봇 · 자식 프로세스를 정리한 뒤 나간다.
+// 종료. 신호를 받으면 세션을 저장하고 음성 연결, 봇, 자식 프로세스를 정리한 뒤 나간다. 게이트웨이를 정상으로 닫으면 디스코드가 봇을 곧바로 음성 채널에서 뺀다.
 // 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
-// 처리기는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
+// 핸들러는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 실행한 것을 내리고 나간다.
 
 import readline from "readline";
@@ -36,26 +36,26 @@ const REAL: Boundary = {
   exit: (code) => process.exit(code),
   record: runRecord,
 };
-/** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 진짜) */
+/** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
 type Saver = { persistence: { persistState(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
-// 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인 · 명령 배포)의 핸들 정리와 겹쳐
+// 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
-/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름 · 내리기)와 서버마다의 플레이어 */
+/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
 type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
 
-/** 종료 신호에 처리기를 건다. 돌려주는 attach 로 봇을 붙인다 */
+/** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  // why: 로그 · 연결 정리에 적는 까닭. restart 면 다시 시작 코드로 나간다
+  // why: 로그, 연결 정리에 적는 원인. restart 면 다시 시작 코드로 나간다
   const gracefulShutdown = async (why: string, restart = false) => {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
@@ -65,12 +65,12 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     log.info(`종료 시작: ${reason}`);
     if (bot) await savePlayers(bot.players, reason);
 
-    // 레지스트리에 없던 연결도 채널에는 남긴 채 정리한다
+    // 레지스트리에 없던 연결도 나감 없이 정리한다
     for (const [guildId, connection] of voiceConnections()) {
       const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
       try {
         connection.destroy(false);
-        log.info(`음성 연결 정리(채널에는 남음): ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+        log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
       } catch (error) {
         log.error(`음성 연결 정리 실패: ${name}`, error);
       }
@@ -90,7 +90,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   const onSignal = (signal: string) => stop(signal);
   proc.on("SIGINT", () => onSignal("SIGINT"));
   proc.on("SIGTERM", () => onSignal("SIGTERM"));
-  proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘 · SSH 끊김
+  proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘, SSH 끊김
 
   // Windows 콘솔의 Ctrl+C 는 프로세스 신호로 안 오는 때가 있어 입력 쪽에서도 받는다
   if (proc.platform === "win32" && proc.stdin.isTTY) {
@@ -98,7 +98,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   }
 
   return {
-    /** 봇(클라이언트 · 플레이어)을 붙인다. 이제부터 끄면 세션을 저장하고 연결 · 봇까지 정리한다 */
+    /** 봇(클라이언트, 플레이어)을 붙인다. 이제부터 끄면 세션을 저장하고 연결, 봇까지 정리한다 */
     attach(next: ShutdownBot) {
       bot = next;
     },
@@ -109,7 +109,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 }
 
-// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 채널에는 남긴 채 연결을 정리한다
+// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결을 정리한다
 async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
@@ -124,7 +124,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saved = (await Promise.all(saves)).filter(Boolean).length;
   if (saved) log.info(`세션 저장: 서버 ${saved}곳`);
 
-  // 음성 채널에는 남는다(곧바로 다시 시작하면 나갔다 들어오지 않고 이어 튼다). 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 상태 문구만 지운다
+  // 상태 문구는 채널에 붙어 봇이 빠져도 남는다. 재생 중이던 곡 이름이 소리 없이 떠 있지 않게 지운다
   let cleared = 0;
   let pending = 0;
   const clears = [];
@@ -151,7 +151,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   for (const [, player] of players) player?.voice.release(reason);
 }
 
-/** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정 · 토큰이 틀림 또는 일시적 실패)로 나간다 */
+/** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정, 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
   const { killAll, exit, record } = { ...REAL, ...boundary };
   log.info("종료 시작: 기동 실패");
@@ -161,7 +161,7 @@ function stopFailedStart(client: { destroy(): unknown } | null, { potServer, log
     .finally(() => setTimeout(() => exit(code), graceMs));
 }
 
-// 봇이 실행한 것을 내린다. 클라이언트 · POToken 서버 · 자식 프로세스 · 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
+// 봇이 실행한 것을 내린다. 클라이언트, POToken 서버, 자식 프로세스, 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
 async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">) {
   if (client) {
     client.destroy();
@@ -176,11 +176,11 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 
-  log.info("종료 끝");
+  log.info("종료 완료");
   if (logFile) logFile.close();
 }
 
-// ffmpeg:playback 2 · yt-dlp 1
+// 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"
 function countByLabel(killed: Array<{ label: string }>) {
   const counts = new Map<string, number>();
   for (const { label } of killed) counts.set(label, (counts.get(label) ?? 0) + 1);

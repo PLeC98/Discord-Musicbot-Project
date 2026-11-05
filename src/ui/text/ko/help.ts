@@ -3,8 +3,8 @@
 import type { HelpSection, HelpTier } from "../../help-lines.ts";
 import { icon, type IconKey } from "../../icons.ts";
 
-// 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 섹션 이름 · 권한 표시 · 지원 플랫폼만.
-// 아이콘은 그릴 때 붙인다(앱 이모지를 맞춘 뒤의 id 가 실리게). 플랫폼을 색으로 나타내는 점(🔴 🟢 🟠)은 유니코드 그대로
+// 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 섹션 이름, 권한 표시, 지원 플랫폼만.
+// 아이콘은 그릴 때 붙인다(앱 이모지를 동기화한 뒤의 id 가 실리게). 플랫폼을 색으로 나타내는 점(🔴 🟢 🟠)은 유니코드 그대로
 
 const SECTION_NAME: Record<HelpSection, [IconKey, string]> = {
   play: ["music", "재생"],
@@ -29,7 +29,7 @@ const TIER_MARK: Record<HelpTier, () => string> = {
 const tierMark = (tier: HelpTier) => TIER_MARK[tier]();
 
 /** 지원 플랫폼 필드 */
-const platforms = () => ({ name: `${icon("web")} 지원 플랫폼`, lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3 · FLAC · M4A · MP4 등)"] });
+const platforms = () => ({ name: `${icon("web")} 지원 플랫폼`, lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3, FLAC, M4A, MP4 등)"] });
 
 /** 헤더 */
 const intro = () => ({

@@ -1,10 +1,10 @@
 import { text as screenText } from "../text/index.ts";
 const LINK_TEXT = screenText.fields.linkText;
-// 공지 입력란의 서식 도구: 선택한 글을 감싸거나(굵게 등) 선택한 줄 앞에 기호를 붙인다(제목 · 목록 등). 이미 있으면 뗀다(켜고 끄기)
+// 공지 입력란의 서식 도구: 선택한 글을 감싸거나(굵게 등) 선택한 줄 앞에 기호를 붙인다(제목, 목록 등). 이미 있으면 뗀다(켜고 끄기)
 
 export type Edit = { text: string; start: number; end: number };
 
-/** 선택한 글을 left · right 로 감싼다. 이미 감싸져 있으면 벗긴다. 선택한 글이 없으면 기호 사이에 커서를 둔다 */
+/** 선택한 글을 left, right 로 감싼다. 이미 감싸져 있으면 벗긴다. 선택한 글이 없으면 기호 사이에 커서를 둔다 */
 export function wrap(text: string, start: number, end: number, left: string, right = left): Edit {
   const before = text.slice(0, start);
   const after = text.slice(end);
@@ -19,7 +19,7 @@ export function wrap(text: string, start: number, end: number, left: string, rig
   return { text: before + left + inner + right + after, start: start + left.length, end: end + left.length };
 }
 
-// 줄 앞 기호 중 서로 바뀌는 것(제목 · 작은 글씨는 하나만 붙는다)
+// 줄 앞 기호 중 서로 바뀌는 것(제목, 작은 글씨는 하나만 붙는다)
 const HEADINGS = ["### ", "## ", "# ", "-# "];
 
 /** 선택한 줄(커서가 있는 줄)마다 앞에 prefix 를 붙인다. 모든 줄에 이미 있으면 뗀다. numbered 면 1. 2. 3. 으로 */

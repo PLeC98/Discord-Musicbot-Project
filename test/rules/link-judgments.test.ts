@@ -1,11 +1,11 @@
-// 링크 판정 셋(inputKind · canonicalUrl · audioKeyOf). 순수 함수라 입력과 답만 적는다.
+// src/rules/input-kind.ts, canonical-url.ts, audio-key-of.ts: 링크 판정 셋. 순수 함수라 입력과 답만 적는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { inputKind } from "../../src/rules/input-kind.ts";
 import { canonicalUrl } from "../../src/rules/canonical-url.ts";
 import { audioKeyOf, md5 } from "../../src/rules/audio-key-of.ts";
-import { parseSoundCloudURL } from "../../src/rules/links.ts";
+import { parseSoundCloud, withSiteScheme } from "../../src/rules/links.ts";
 test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 주소는 unknown, 나머지 http(s) 는 직접 링크", () => {
   const cases = [
     ["https://www.youtube.com/watch?v=abcdefghijk", "youtube"],
@@ -34,6 +34,30 @@ test("inputKind: 사이트의 모양을 먼저 보고, 그 사이트의 다른 �
     [undefined, "search"],
   ];
   for (const [input, want] of cases) assert.equal(inputKind(input), want, String(input));
+});
+
+test("inputKind: 공백 없는 spotify: 는 모양이 안 맞아도 스포티파이 URI 라 검색어로 보내지 않는다. 사람이 쓴 spotify: 검색어는 검색", () => {
+  for (const uri of ["spotify:episode:abc", "spotify:track:abc-def", "spotify:user:x:playlist:y"]) assert.equal(inputKind(uri), "unknown", uri);
+  assert.equal(inputKind("Spotify:track:abc"), "spotify");
+  assert.equal(inputKind("spotify: 아이유 좋은 날"), "search");
+  assert.equal(inputKind("spotify:"), "search");
+});
+
+test("withSiteScheme: 스킴을 뺀 알려진 사이트 주소에만 https:// 를 붙인다. 점이 든 이름, 공백이 든 글, 다른 사이트, 스킴이 있는 것은 그대로", () => {
+  for (const [input, want] of [
+    ["youtube.com/watch?v=abcdefghijk", "https://youtube.com/watch?v=abcdefghijk"],
+    ["www.youtube.com/watch?v=abcdefghijk&list=PLx", "https://www.youtube.com/watch?v=abcdefghijk&list=PLx"],
+    ["m.YouTube.com/watch?v=abcdefghijk", "https://m.YouTube.com/watch?v=abcdefghijk"],
+    ["youtu.be/abcdefghijk?si=x", "https://youtu.be/abcdefghijk?si=x"],
+    ["open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj", "https://open.spotify.com/track/2joT0CjcGqc1fr8Fvk7itj"],
+    ["soundcloud.com/artist/track", "https://soundcloud.com/artist/track"],
+  ]) {
+    assert.equal(withSiteScheme(input), want, input);
+    assert.notEqual(inputKind(withSiteScheme(input)), "search", input);
+  }
+  for (const input of ["", "will.i.am", "Mr.Children", "아이유 좋은 날", "youtube", "youtu.be/abc 노래", "example.com/song.mp3", "https://youtu.be/abcdefghijk", "spotify:track:abc"]) {
+    assert.equal(withSiteScheme(input), input, input);
+  }
 });
 
 test("canonicalUrl: 사이트마다 같은 곡의 공유 링크를 한 모양으로, 직접 링크와 모르는 것은 그대로", () => {
@@ -65,7 +89,7 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
     ["https://api-v2.soundcloud.com/tracks/368141150", "sc:api-v2.soundcloud.com/tracks/368141150"], // 재생목록을 훑어 읽은 곡
     ["https://cdn.example.com/a.mp3", `dl:${md5("https://cdn.example.com/a.mp3")}`],
     ["https://cdn.example.com/a.mp3?token=1", `dl:${md5("https://cdn.example.com/a.mp3?token=1")}`], // 서명된 주소는 쿼리까지
-    // 자동재생 음원(AnisongDB 는 소리 · 영상 파일, AnimeThemes 는 ogg)
+    // 자동재생 음원(AnisongDB 는 소리, 영상 파일, AnimeThemes 는 ogg)
     ["https://nawdist.animemusicquiz.com/abcdef.mp3", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.mp3")}`],
     ["https://nawdist.animemusicquiz.com/abcdef.webm", `dl:${md5("https://nawdist.animemusicquiz.com/abcdef.webm")}`],
     ["https://a.animethemes.moe/Title-OP1.ogg", `dl:${md5("https://a.animethemes.moe/Title-OP1.ogg")}`],
@@ -77,8 +101,8 @@ test("audioKeyOf: 음원 주소 하나만 보고 사이트마다 키 모양", ()
   for (const [input, want] of cases) assert.equal(audioKeyOf(input), want, String(input));
 });
 
-// 받는 것은 곡과 세트뿐이다. 프로필 · 좋아요 같은 모음은 곡 링크로 잘못 알아보지 않는다
-test("사운드클라우드 주소가 가리키는 것: 곡 · 세트 · 짧은 링크 · 그 밖", () => {
+// 받는 것은 곡과 세트뿐이다. 프로필, 좋아요 같은 모음은 곡 링크로 잘못 알아보지 않는다
+test("사운드클라우드 주소가 가리키는 것: 곡, 세트, 짧은 링크, 그 밖", () => {
   const cases = [
     ["https://soundcloud.com/artist/track-name", "track"],
     ["https://m.soundcloud.com/artist/track?in=a/sets/b", "track"],
@@ -96,6 +120,21 @@ test("사운드클라우드 주소가 가리키는 것: 곡 · 세트 · 짧은 
     ["https://soundcloud.com/artist/tracks", "other"],
     ["https://soundcloud.com/artist/track/extra/more", "other"],
     ["https://www.youtube.com/watch?v=abcdefghijk", null],
+    // 짧은 링크와 숫자 id 주소의 id 칸은 통째로 본다
+    ["https://on.soundcloud.com/AbC.d", null],
+    ["https://api.soundcloud.com/tracks/368141150abc", null],
+    ["https://api.soundcloud.com/users/368141150", null],
   ];
-  for (const [input, want] of cases) assert.equal(parseSoundCloudURL(input), want, String(input));
+  for (const [input, want] of cases) assert.equal(parseSoundCloud(input)?.kind ?? null, want, String(input));
+});
+
+test("사운드클라우드 주소의 비밀 공유, discover 믹스, 다듬은 주소", () => {
+  const pick = (url: string) => {
+    const link = parseSoundCloud(url);
+    return link && { url: link.url, secret: link.secret, mix: link.mix };
+  };
+  assert.deepEqual(pick("https://soundcloud.com/artist/sets/list/s-XyZ9/?si=a"), { url: "https://soundcloud.com/artist/sets/list/s-XyZ9", secret: true, mix: null });
+  assert.deepEqual(pick("https://m.soundcloud.com/artist/track/s-AbC123"), { url: "https://soundcloud.com/artist/track/s-AbC123", secret: true, mix: null });
+  assert.deepEqual(pick("https://soundcloud.com/discover/sets/weekly::artist:123/"), { url: "https://soundcloud.com/discover/sets/weekly::artist:123", secret: false, mix: "weekly::artist:123" });
+  assert.deepEqual(pick("https://soundcloud.com./artist/track"), { url: "https://soundcloud.com/artist/track", secret: false, mix: null });
 });

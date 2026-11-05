@@ -1,4 +1,4 @@
-// 현재곡·대기열·기록을 바꾸는 유일한 통로. 필드는 플레이어에 그대로 두고 읽기는 어디서든 한다.
+// 현재곡, 대기열, 기록을 바꾸는 유일한 통로. 필드는 플레이어에 그대로 두고 읽기는 어디서든 한다.
 // 바꾼 뒤 player.trackSink에 알린다. 세션 저장이 메모리를 따라가는 길은 이것 하나다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
@@ -24,7 +24,7 @@ type Queue = Pick<Tracks, "queue" | "trackSink">;
 
 const sinkOf = (player: Pick<Tracks, "trackSink">) => player.trackSink;
 
-// 대기열 ID. 곡 객체가 처음 들어올 때 찍는다. 옮기기 · 섞기 · 되감기 · 반복으로 대기열 끝에 돌리기는 같은 객체라 번호가 그대로다.
+// 대기열 ID. 곡 객체가 처음 들어올 때 찍는다. 옮기기, 섞기, 되감기, 반복으로 대기열 끝에 돌리기는 같은 객체라 번호가 그대로다.
 // 열거되지 않는 필드라 복사본({...track})에는 따라가지 않는다. 복사해 넣은 곡은 새 번호를 받아 번호가 겹치지 않는다.
 // 세션 저장이 번호를 같이 적고 복원할 때 그대로 붙여 오므로(store/player-sessions), 이미 번호가 있는 곡을 보면 세는 값을 그 위로 올린다.
 // 그래야 봇을 다시 시작해도 같은 곡이 같은 번호이고, 새로 들어오는 곡이 복원한 번호와 겹치지 않는다
@@ -57,7 +57,7 @@ function enqueue(player: Queue, tracks: QueuedTrack[], { front = false }: { fron
   sinkOf(player)?.onEnqueue(tracks, front);
 }
 
-// 사용자가 넣은 곡은 자동재생이 미리 선택해 둔 곡보다 앞에 선다.
+// 사용자가 추가한 곡은 자동재생이 미리 선택해 둔 곡보다 앞에 선다.
 // 미리 선택이 켜지면 대기열이 비어 있지 않은 것이 기본이라, 그냥 뒤에 붙이면 사용자 곡이 뒤로 밀린다.
 function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   if (tracks.length === 0) return;
@@ -68,7 +68,7 @@ function enqueueAheadOfAutoplay(player: Queue, tracks: QueuedTrack[]) {
   sinkOf(player)?.onReplace();
 }
 
-// 자동재생이 미리 선택해 둔 곡만 제거한다. 사용자가 넣은 곡은 그대로 둔다. 반환: 제거한 수
+// 자동재생이 미리 선택해 둔 곡만 제거한다. 사용자가 추가한 곡은 그대로 둔다. 반환: 제거한 수
 function dropAutoplay(player: Queue) {
   const before = player.queue.length;
   player.queue = player.queue.filter((t) => !t?.autoplay);
@@ -94,7 +94,7 @@ function shiftNext(player: Pick<Tracks, "currentTrack" | "queue" | "trackSink">)
   return player.currentTrack;
 }
 
-// 끝난 곡을 기록에 남기고 큐 반복이면 대기열 끝으로. 현재곡은 비우지 않는다. 다음 곡이 덮는다.
+// 끝난 곡을 기록에 남기고 대기열 반복이면 대기열 끝으로. 현재곡은 비우지 않는다. 다음 곡이 덮는다.
 function retire(player: Pick<Tracks, "previousTracks" | "queue" | "trackSink">, track: QueuedTrack, { requeue = false }: { requeue?: boolean } = {}) {
   player.previousTracks.push(track);
   if (player.previousTracks.length > HISTORY_MAX) player.previousTracks.shift();
@@ -139,6 +139,20 @@ function rewindRing(player: Tracks) {
   if (current) player.queue.splice(1, 0, current);
   sinkOf(player)?.onRewind(prev, copy, current, false);
   return prev;
+}
+
+/** 이전 곡이 지금 곡을 처음부터 트는가. 한 곡 반복, 또는 대기열 반복인데 대기열이 비었다(고리에 지금 곡뿐) */
+function restartsOnPrevious(player: Pick<Tracks, "loop" | "queue">) {
+  return player.loop === "track" || (player.loop === "queue" && player.queue.length === 0);
+}
+
+/** 이전 곡을 누르면 틀 곡. 바꾸지 않고 본다(player.previous 와 같은 선택: 처음부터, rewindRing, rewind) */
+function previousOf(player: Tracks) {
+  if (!player.currentTrack) return null;
+  if (restartsOnPrevious(player)) return player.currentTrack;
+  if (player.loop === "queue") return player.queue.at(-1) ?? null;
+  // rewind 처럼 기록 끝의 지금 곡(같은 객체)은 건너뛴다
+  return player.previousTracks.findLast((track) => track !== player.currentTrack) ?? null;
 }
 
 function removeAt(player: Queue, index: number) {
@@ -191,5 +205,5 @@ function restore(player: Pick<Tracks, "currentTrack" | "queue" | "previousTracks
   if (!persisted) sinkOf(player)?.onReplace();
 }
 
-export { HISTORY_MAX, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, removeAt, move, shuffle, clearQueue, reset, restore };
+export { HISTORY_MAX, init, setCurrent, enqueue, enqueueAheadOfAutoplay, dropAutoplay, insertAfter, shiftNext, retire, rewind, rewindRing, restartsOnPrevious, previousOf, removeAt, move, shuffle, clearQueue, reset, restore };
 export type { TrackSink, Tracks };

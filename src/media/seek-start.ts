@@ -1,5 +1,5 @@
-// 위치를 옮길 때 받기 시작할 자리를 묻는다: 파일 앞부분(헤더 · 색인)을 받아 목표 앞의 키프레임 바이트를 고른다(rules/container-index).
-// 청크 스트림으로 받는 유튜브의 webm · m4a 가 쓴다. 답이 없으면(가까운 위치 · 색인 없음 · 받지 못함) 부르는 쪽은 파일 처음부터 받는다.
+// 위치를 옮길 때 받기 시작할 자리를 묻는다: 파일 앞부분(헤더, 색인)을 받아 목표 앞의 키프레임 바이트를 찾는다(rules/container-index).
+// 청크 스트림으로 받는 유튜브의 webm, m4a 가 쓴다. 답이 없으면(가까운 위치, 색인 없음, 받지 못함) 부르는 쪽은 파일 처음부터 받는다.
 // 여기서는 로그를 남기지 않고 까닭을 돌려준다(여는 쪽이 한 번 남긴다).
 
 import { readIndex, headerOf, startPoint, worthIndexing, FIRST_BYTES } from "../rules/container-index.ts";
@@ -12,7 +12,7 @@ type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expec
 type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
 
-/** 헤더 · 색인을 처음 받는 양. 아주 긴 곡도 대개 이 안에 든다(넘으면 아래 횟수만큼 더 받는다) */
+/** 헤더, 색인을 처음 받는 양. 아주 긴 곡도 대개 이 안에 든다(넘으면 아래 횟수만큼 더 받는다) */
 const HEAD_BYTES = 64 * 1024;
 /** 색인이 처음 받은 양보다 길 때 더 받는 횟수 */
 const MORE_HEAD_TRIES = 3;

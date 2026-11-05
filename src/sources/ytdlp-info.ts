@@ -11,7 +11,7 @@ function field<T extends z.ZodType>(name: string, schema: T) {
   return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
-      log.warn(`yt-dlp 응답의 ${name} 필드 모양이 바뀌었습니다(받은 값: ${typeof ctx.input}). 이 필드 없이 계속합니다`);
+      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다릅니다(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속합니다`);
     }
     return undefined;
   });
@@ -35,14 +35,8 @@ const SHAPE = {
   uploader: str,
   uploader_id: str,
   channel: str,
-  channel_id: z.union([str, num]),
-  artist: str,
-  description: str,
-  upload_date: str,
   thumbnail: str,
   thumbnails: z.array(z.object({ url: str.optional() }).loose()),
-  view_count: num,
-  like_count: num,
   duration: num,
   modified_timestamp: num,
   // 라이브
@@ -50,21 +44,16 @@ const SHAPE = {
   live_status: str,
   // 스트림
   protocol: str,
-  format: str,
   format_id: str,
   acodec: str,
-  abr: num,
-  tbr: num,
   http_headers: z.record(str, str),
   available_at: num,
-  // 조각 목록으로만 주는 포맷(유튜브 post_live 의 http_dash_segments). 조각마다 주소
+  // 세그먼트 목록으로만 주는 포맷(유튜브 post_live 의 http_dash_segments). 세그먼트마다 주소
   fragments: z.array(z.object({ url: str.optional() }).loose()),
   formats: z.array(z.unknown()),
   // 여러 곡(항목은 부르는 쪽이 하나씩 다시 읽는다)
   entries: z.array(z.unknown()),
   playlist_count: num,
-  playlist_title: str,
-  playlist_uploader: str,
 };
 
 const Info = z.object(Object.fromEntries(Object.entries(SHAPE).map(([name, schema]) => [name, field(name, schema)])));
@@ -80,5 +69,11 @@ function readInfo(raw: unknown): YtInfo | null {
   return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined)) as YtInfo;
 }
 
-export { readInfo };
+/** readInfo 가 읽지 못한 답이 무엇이었나(오류 문장에 싣는다). JSON 이 아닌 출력은 글자로 오므로 길이도 */
+function answerShape(raw: unknown): string {
+  if (typeof raw === "string") return `타입=string, 길이=${raw.length}`;
+  return `타입=${raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw}`;
+}
+
+export { readInfo, answerShape };
 export type { YtInfo };

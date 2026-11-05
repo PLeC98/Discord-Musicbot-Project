@@ -1,5 +1,5 @@
-// src/store/audio-cache.ts — 임시 DB로 실 SQLite 경로 검증 (파일 경로 · 퇴거 스코어링 · 고아 정리 · 초기화 · 오디오 길이)
-// 임시 폴더에 DB 를 연다(stores.open) — 운영 DB(database/)는 건드리지 않는다.
+// src/store/audio-cache.ts: 임시 DB로 실 SQLite 경로 검증 (파일 경로, 퇴거 스코어링, 고아 정리, 초기화, 오디오 길이)
+// 임시 폴더에 DB 를 연다(stores.open). 운영 DB(database/)는 건드리지 않는다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import { table as guildTable } from "../../src/store/guild-settings.ts";
@@ -45,7 +45,7 @@ test("getFilePath: 같은 키 → 같은 경로 (결정적), 다른 키 → 다�
 
 // ── 퇴거 스코어링 ────────────────────────────────────────────
 
-test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근 재생은 생존", async () => {
+test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키, 최근 재생은 생존", async () => {
   const now = Date.now();
   const OLD = now - 90 * 86_400_000; // 90일 전
   const ins = cacheDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, last_played_at, downloaded_at) VALUES (?, 'cached', ?, ?, ?, ?, ?)");
@@ -81,7 +81,7 @@ test("evict: 오래되고 안 듣는 큰 파일부터 제거, 보호 키·최근
   }
 });
 
-// 넘친 정도와 상관없이 일정 비율 · 한 번에 정한 개수만 삭제하면 큰 캐시는 그 개수 상한에 걸려 상한 바로 밑을 오간다
+// 넘친 정도와 상관없이 일정 비율, 한 번에 정한 개수만 삭제하면 큰 캐시는 그 개수 상한에 걸려 상한 바로 밑을 오간다
 test("evict: 넘친 만큼, 목표선(상한의 90%)까지 삭제한다. 한 번에 삭제하는 수의 상한은 없다", async () => {
   const conn = cacheDb.get();
   conn.prepare("DELETE FROM audio_cache").run();
@@ -148,7 +148,7 @@ test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(사전 캐시
       [0, 1, 2, 3, 4].map((i) => `yt:${id(i)}`),
     );
     const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개를 삭제했습니다"));
-    assert.equal(line?.text, "오디오 캐시 4개를 삭제했습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 5개는 지키고)");
+    assert.equal(line?.text, "오디오 캐시 4개를 삭제했습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 5개는 지키고)");
   } finally {
     sessions().removeSession("g-front");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -163,7 +163,7 @@ test("evict: 삭제할 수 있는 곡이 없어도 결과 줄을 남긴다", asy
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
-    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중 · 대기열 앞 곡 1개는 지키고)"));
+    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 1개는 지키고)"));
   } finally {
     audioCache.unprotect("g-evict");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -200,7 +200,7 @@ test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이�
     assert.ok(left().includes("stuck"), "삭제하지 못한 파일의 행은 남는다");
     assert.equal(left().length, 2, "나머지를 삭제해 목표선(3의 90%) 아래로: stuck 과 하나");
     const logs = sink.buffer.slice(from).map((e) => e.text);
-    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행 동안 건너뜁니다")));
+    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행에서는 건너뜁니다")));
     assert.ok(logs.some((t) => t.includes(" - 1개는 삭제하지 못했습니다")));
 
     calls.length = 0;
@@ -415,7 +415,7 @@ function seedCached(key: string, bytes = 1000) {
   return file;
 }
 
-test("초기화는 재생 중 · 대기열 앞 곡의 파일과 보호를 남긴다(파일 잠금에 기대지 않는다)", async () => {
+test("초기화는 재생 중이거나 대기열 앞에 있는 곡의 파일과 보호를 남긴다(파일 잠금에 기대지 않는다)", async () => {
   await withTempCacheDir(async () => {
     const live = seedCached("yt:live");
     const queued = seedCached("yt:queued");
@@ -453,7 +453,7 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
       assert.equal(fs.existsSync(`${temp}.part`), true, "그 부스러기도 다운로드 중이다");
       assert.equal(audioCache.lookupByAudioKey("yt:downloading")?.status, "downloading", "행이 남아야 끝날 때 고칠 곳이 있다");
       audioCache.recordDownloadComplete("yt:downloading", audioCache.getFilePath("yt:downloading"), 10, { title: "t" });
-      assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 셈 · 퇴거에서 빠지지 않는다)");
+      assert.equal(audioCache._cacheCount(), 1, "완료가 행을 찾는다(크기 계산 · 퇴거에서 빠지지 않는다)");
     } finally {
       audioCache.unprotectFile(temp);
       cacheDb.get().prepare("DELETE FROM audio_cache").run();
@@ -461,7 +461,7 @@ test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로
   });
 });
 
-// ── 삭제하는 길의 잠금 · 다운로드 중 ─────────────────────────────
+// ── 삭제하는 길의 잠금, 다운로드 중 ─────────────────────────────
 
 test("퇴거와 초기화는 겹치지 않고 하나씩 돈다", async () => {
   await withTempCacheDir(async () => {
@@ -506,7 +506,7 @@ test("퇴거가 파일을 삭제하는 사이 같은 곡 다운로드가 시작�
   });
 });
 
-test("removeCached: 쓰는 중 · 다운로드 중 · 바뀜 · 없음은 삭제하지 않고 까닭을, 아니면 파일과 행을 삭제한다", async () => {
+test("removeCached: 쓰는 중, 다운로드 중, 바뀜, 없음은 삭제하지 않고 까닭을, 아니면 파일과 행을 삭제한다", async () => {
   await withTempCacheDir(async () => {
     const conn = cacheDb.get();
     try {
@@ -544,7 +544,7 @@ test("removeCached: 쓰는 중 · 다운로드 중 · 바뀜 · 없음은 삭제
 });
 
 // ── 오디오 길이 (duration_sec) ───────────────────────────────
-// 이 행은 영상 하나를 여러 요청(스포티파이·유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
+// 이 행은 영상 하나를 여러 요청(스포티파이, 유튜브 링크)이 공유한다. 요청 쪽 메타데이터가 아니라 오디오의 길이를 담는다.
 
 test("다운로드 완료는 다운로드한 오디오의 실제 길이를 요청 쪽 길이보다 우선 저장한다", () => {
   audioCache.recordDownloadStart("yt:dur1", { title: "곡", duration: 314 });
@@ -566,7 +566,7 @@ test("같은 오디오를 다시 다운로드하면 앞선 요청이 남긴 길�
   assert.equal(audioCache.lookupByAudioKey("yt:dur3")?.duration_sec, 312);
 });
 
-// 반드시 마지막 — DB를 닫는다
+// 반드시 마지막. DB를 닫는다
 
 test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 때를 버전을 본 때로 적는다", async () => {
   const temp = path.join(audioCache.cacheDir(), "adopt.tmp");

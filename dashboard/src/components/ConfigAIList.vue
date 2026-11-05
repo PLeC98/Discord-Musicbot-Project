@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 후보 목록: 요청 하나에 맡길 곡 수 · 줄 형식(문법 안내 · 문제 구간 · 미리보기).
+  AI 보조, 후보 목록: 요청 하나에 맡길 곡 수, 줄 형식(문법 안내, 문제 구간, 미리보기).
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -27,7 +27,7 @@
           </p>
         </div>
         <input :value="listCfg.lineFormat" :placeholder="defaults.line" :class="[FIELD, 'w-full font-mono']" @input="listCfg.lineFormat = valueOf($event)" />
-        <!-- 문제는 입력란 아래에 그 구간을 표시한다(입력란 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간 · 몇 번째 글자 · 까닭 -->
+        <!-- 문제는 입력란 아래에 그 구간을 표시한다(입력란 안은 색을 칠할 수 없다): 앞뒤 몇 글자와 틀린 구간, 몇 번째 글자, 까닭 -->
         <ul v-if="lineProblems.length" class="flex flex-col gap-1">
           <li v-for="(one, i) in lineProblems" :key="i" class="flex flex-wrap items-baseline gap-x-2 text-xs">
             <code class="font-mono text-on-surface-variant"
@@ -41,7 +41,7 @@
           <button v-for="one in MARKS" :key="one.mark" type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="one.hint" @click="insertMark(one.mark)"><Icon name="add" :size="18" />{{ one.mark }}</button>
           <button type="button" :class="[FILTER_CHIP, FILTER_CHIP_OFF, 'font-mono']" v-tooltip="TL.blockChipTip" @click="insertMark(BLOCK_MARK)"><Icon name="add" :size="18" />{{ TL.blockChip }}</button>
         </div>
-        <!-- 미리보기: 봇과 같은 해석기로 길이를 아는 줄 · 모르는 줄을 그린다(조회 없이) -->
+        <!-- 미리보기: 봇과 같은 해석기로 길이를 아는 줄, 모르는 줄을 그린다(조회 없이) -->
         <div class="flex flex-col gap-1">
           <span :class="FIELD_LABEL">{{ TL.previewTitle }}</span>
           <div v-for="one in linePreview" :key="one.label" class="flex flex-col gap-0.5">

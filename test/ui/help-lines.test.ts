@@ -1,5 +1,5 @@
-// src/ui/help-lines.ts — /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션 · 권한)에서 만든다.
-// 실제 명령 목록으로 만든 줄을 적어 둔다(명령 · 설명 · 옵션 이름 · 권한을 바꾸면 여기도 바뀐다)
+// src/ui/help-lines.ts: /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션, 권한)에서 만든다.
+// 실제 명령 목록으로 만든 줄을 적어 둔다(명령, 설명, 옵션 이름, 권한을 바꾸면 여기도 바뀐다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -28,11 +28,11 @@ const EXPECTED = [
   },
   {
     name: "🔍 탐색 & 정보",
-    lines: ["`/search`: 유튜브에서 검색해서 재생해요", "`/nowplaying`: 재생 중인 곡의 정보를 보여줘요"],
+    lines: ["`/search`: 곡을 검색해요", "`/nowplaying`: 재생 중인 곡의 정보를 보여줘요"],
   },
   {
     name: "📡 채널 & 세션",
-    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
+    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/247`: 상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요 🛡️", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
   },
   {
     name: "📊 봇 정보",
@@ -40,11 +40,11 @@ const EXPECTED = [
   },
   {
     name: "🌐 지원 플랫폼",
-    lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3 · FLAC · M4A · MP4 등)"],
+    lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3, FLAC, M4A, MP4 등)"],
   },
 ];
 
-test("명령 정의에서 만든 /help 의 줄(섹션 · 순서 · 권한 표시)", () => {
+test("명령 정의에서 만든 /help 의 줄(섹션, 순서, 권한 표시)", () => {
   const sections = withConfig({ sponsorblock: { enabled: true } }, sectionsNow);
   assert.deepEqual(sections, EXPECTED);
 });
@@ -76,9 +76,9 @@ test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 �
 
 test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완성이 보인다). 권한 표시를 끝에 붙인다", () => {
   const [section] = helpSections([
-    { defined: { name: "x", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "dj" } },
-    { defined: { name: "y", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "moderator" } },
-    { defined: { name: "z", description: "en", description_localizations: { ko: "설명" } }, help: { section: "play", tier: "everyone" } },
+    { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
+    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "moderator" } },
+    { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ]);
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);
 });
@@ -92,7 +92,7 @@ test("앱 이모지를 맞춰도(<:이름:19자리 id> 는 유니코드보다 25
     assert.ok(intro.title.length <= 256, "제목");
     assert.ok(intro.description.length <= 4096, "설명");
     for (const { name, lines } of fields) {
-      assert.ok(name.length <= 256, `칸 이름: ${name}`);
+      assert.ok(name.length <= 256, `필드 이름: ${name}`);
       assert.ok(lines.join("\n").length <= 1024, `${name}: ${lines.join("\n").length}자`);
     }
     const total = intro.title.length + intro.description.length + fields.reduce((sum, { name, lines }) => sum + name.length + lines.join("\n").length, 0);

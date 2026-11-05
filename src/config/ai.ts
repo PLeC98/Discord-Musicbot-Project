@@ -1,4 +1,4 @@
-// AI 보조 설정과 프롬프트(settings.db 의 "ai" · "ai-prompt" 문서, config/documents). 키는 비밀 표에 있다(store/ai-keys).
+// AI 보조 설정과 프롬프트(settings.db 의 "ai", "ai-prompt" 문서, config/documents). 키는 비밀 표에 있다(store/ai-keys).
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
@@ -19,8 +19,7 @@ function aiPrompt(): PromptSection[] {
 
 // ── AI 설정 ─────────────────────────────────────────────────────────────
 
-// 상태와 같은 처지다. 곡을 선택할 때마다 읽히므로 던지지 않는다.
-// 던지면 자동재생이 통째로 멈춘다. AI는 없어도 되는 기능이라 그건 과하다.
+// 곡을 선택할 때마다 읽히므로 틀려도 던지지 않는다(던지면 자동재생이 통째로 멈춘다). 같은 문제는 한 번만 알린다
 let aiWarned = "";
 
 /** 읽은 그대로의 AI 설정. 문제가 있으면 enabled: false 를 얹는다 */

@@ -1,4 +1,4 @@
-// 재생목록 소스(스포티파이 · 유튜브).
+// 재생목록 소스(스포티파이, 유튜브).
 
 import { rand } from "./http.ts";
 import * as Spotify from "../../sources/spotify.ts";
@@ -6,7 +6,6 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
-// ── 재생목록 ──────────────────────────────────────────────────────────────
 // 통째로 불러오지 않는다. total을 알면 무작위 오프셋으로 한 구간만 집어 온다.
 const PLAYLIST_PAGE = 50;
 
@@ -21,7 +20,7 @@ async function spotify(source: GenreSource): Promise<Candidate[]> {
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
-  // 목록을 불러오지 못하면 그 까닭(없는 · 비공개 목록, 네트워크)을 단 채로 던진다
+  // 목록을 불러오지 못하면 그 까닭(없는, 비공개 목록, 네트워크)을 단 채로 던진다
   const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
   if (!head) throw new Error("재생목록에 곡이 없습니다");
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
@@ -30,9 +29,8 @@ async function youtube(source: GenreSource): Promise<Candidate[]> {
 
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
   const part = await YouTube.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });
-  // 재생목록은 아티스트가 안 온다(제목뿐). 그래서 youtubeMatch를 거치지 않고 주소를 그대로 쓴다
-  // 영상 주소가 곧 요청 키다(getPlaylist)
-  return (part?.tracks || []).flatMap((t) => (t.audioUrl && t.title && !t.isLive ? [{ title: t.title, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
+  // 영상이 곧 곡이라 youtubeMatch를 거치지 않고 주소를 그대로 쓴다. 가수 자리는 올린 채널명(getPlaylist). 영상 주소가 곧 요청 키다
+  return (part?.tracks || []).flatMap((t) => (t.audioUrl && t.title && !t.isLive ? [{ title: t.title, artist: t.artist || undefined, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
 }
 
 export { spotify, youtube };

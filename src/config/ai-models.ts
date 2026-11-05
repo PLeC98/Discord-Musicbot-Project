@@ -2,7 +2,7 @@
  * 모델 프로필. 어느 모델이 어떤 필드를 받고 그 값이 본문 어디로 가는지.
  *
  * PocketRisu 공개 레지스트리를 원본 그대로 둔다(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry).
- * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 버튼 · `pnpm run update:models` 가 다운로드한 것은 실행 위치(`database/ai-models.json`)에 쓴다.
+ * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 버튼, `pnpm run update:models` 가 다운로드한 것은 실행 위치(`database/ai-models.json`)에 쓴다.
  * 기본 사본은 git 이 추적해 고쳐 두면 `git pull` 이 막힌다. 읽을 때는 둘 중 다운로드한 때(`fetchedAt`)가 새것을 쓴다(저장소가 새 사본을 내보내면 그것이 이긴다).
  */
 import fs from "fs";
@@ -114,7 +114,7 @@ function profileOf(registry: string, modelId: string, snapshot: Snapshot = load(
 // 프로필이 상속하는 베이스
 const baseOf = (snapshot: Snapshot, profile: Profile) => (profile.providerBaseId ? snapshot.baseProviders?.[profile.providerBaseId] : undefined);
 
-/** 그 모델이 받는 필드들. 본문으로 가는 것만. uiSchema 의 위젯·그룹도 같이 얹는다. */
+/** 그 모델이 받는 필드들. 본문으로 가는 것만. uiSchema 의 위젯, 그룹도 같이 얹는다. */
 function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelField[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
@@ -165,11 +165,12 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
   return { ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) };
 }
 
-/** 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다. */
-// index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
-// 모델 목록은 GitHub 에서 다운로드한다(공유 HTTP 클라이언트)
 const github = httpFor("github");
 
+/**
+ * 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다.
+ * index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
+ */
 async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = github.fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
   const get = async <T>(at: string): Promise<T> => {
     const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -209,7 +210,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000 }: { regis
 
   const got = await fetchRegistry(registries, { timeoutMs, index });
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(" · ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
+  if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
   fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
   fs.writeFileSync(FETCHED, JSON.stringify(got, null, 2) + String.fromCharCode(10));

@@ -1,4 +1,4 @@
-// 곡이 끝나는 길마다 무엇이 남나: "트랙 종료" 줄 · 레지스트리 · 세션 저장.
+// src/player/player.ts, src/usecases/controls.ts: 곡이 끝나는 길마다 무엇이 남나("트랙 종료" 줄, 레지스트리, 세션 저장).
 // 진짜 오디오 플레이어는 stop() 안에서 곧바로 Idle 을 내보낸다. 하네스의 가짜는 내보내지 않으므로 여기서 그렇게 만든다.
 
 import { test, beforeEach } from "node:test";
@@ -33,7 +33,7 @@ function playingPlayer(track: QueuedTrack, playedMs = 30_000) {
     return true;
   };
   p.currentTrack = track;
-  p.playback = fake({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } } });
+  p.playback = fake({ resource: { playbackDuration: playedMs, playStream: { destroy() {} } } });
   audio.state = { status: AudioPlayerStatus.Playing };
   return p;
 }
@@ -84,10 +84,10 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 레지스트리에 남는다
   assert.deepEqual(lines, ['트랙 종료: "첫 곡" (youtube) | 원인=skip']);
 });
 
-// 모더레이터는 재적 · DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
+// 모더레이터는 재적, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
 const moderatorOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
 
-test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제 · 나갈 예약)", async () => {
+test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제, 나갈 예약)", async () => {
   const p = playingPlayer(yt("zzzzzzzzzzz", { title: "마지막 곡" }));
   p.queue = [];
   const lines = await endLines(async () => assert.equal((await controls.skip(p, moderatorOf(p))).ok, true));
@@ -115,29 +115,30 @@ test("/leave: 원인=leave. 세션을 저장하고 삭제하지 않는다", asyn
   assert.equal(calls.persists.includes("remove"), false);
 });
 
-test("강제 퇴장: 원인=forced-disconnect, 곡 이름이 남는다. 레지스트리에서 빠진다", async () => {
+test("강제 퇴장: 원인=kicked, 곡 이름이 남는다. 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("ddddddddddd", { title: "넷째 곡" }));
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", isVoiceBased: () => true })); // 채널은 그대로 있다(삭제됐으면 채널 사라짐)
   const client = p.guild.client as Client;
   const state = (channelId: string | null) => fake<VoiceState>({ id: "bot", channelId, guild: p.guild });
   const lines = await endLines(() => onVoiceStateUpdate(client, h.registryOf(p)!, state("voice1"), state(null)));
-  assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=forced-disconnect']);
+  assert.deepEqual(lines, ['트랙 종료: "넷째 곡" (youtube) | 원인=kicked']);
   assert.equal(registered(p), false);
 });
 
-test("혼자 남아 시간이 다 되면: 원인=inactivity-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
+test("혼자 남아 시간이 다 되면: 원인=alone-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("eeeeeeeeeee", { title: "다섯째 곡" }));
   const members = Object.assign(new Map(), { filter: () => ({ size: 0 }) });
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
+  Object.assign(p.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
   p.idle.aloneMs = 0;
-  const lines = await endLines(() => p.idle.startAlone());
-  assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=inactivity-timeout']);
+  const lines = await endLines(() => p.syncHolds());
+  assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=alone-timeout']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false);
 });
 
 // ── 연달아 넘기기 ──────────────────────────────────────────────────
-// 앞 곡의 끝 처리는 다음 곡을 튼 뒤에도 잠깐(세션 저장 · SQLite 잠금) 이어진다. 그 사이 다음 곡을 넘겨도 그 곡의 끝을
+// 앞 곡의 끝 처리는 다음 곡을 튼 뒤에도 잠깐(세션 저장, SQLite 잠금) 이어진다. 그 사이 다음 곡을 넘겨도 그 곡의 끝을
 // "겹쳐 들어온 끝"으로 버리지 않는다(버리면 아무도 다음 곡을 틀지 않고 멎음 감시가 실패로 센다)
 
 // 첫 곡을 틀고 있고 대기열에 캐시된 두 곡이 있는 플레이어
@@ -184,7 +185,7 @@ test("연달아 넘기기: 미뤄 둔 끝은 그 사이 재생이 바뀌었으�
     await tick(60);
     p.skip(); // 둘째 곡의 끝을 미뤄 둔다
     await tick(20);
-    p.playback = fake({ resource: { playbackDuration: 0, playStream: { destroy() {} }, volume: { setVolume() {} } } }); // 그 사이 재생이 바뀌었다
+    p.playback = fake({ resource: { playbackDuration: 0, playStream: { destroy() {} } } }); // 그 사이 재생이 바뀌었다
     release();
     await tick(200);
     assert.equal(p.currentTrack?.title, "둘째 곡", "바뀐 재생을 넘기지 않았다");
@@ -207,12 +208,12 @@ test("넘긴 뒤의 끝 처리는 패널 고치기(디스코드 메시지 수정
   }
 });
 
-test("연달아 실패해 멈출 때 실패한 곡을 모두 적는다", async () => {
+test("연달아 실패해 멈춰 둘 때 실패한 곡을 모두 적는다", async () => {
   const p = threeTracks();
   const from = sink.buffer.length;
   try {
     for (let i = 0; i < 3; i++) await p.onTrackEnd("stuck");
-    const line = sink.buffer.slice(from).find((e) => e.text.includes("연달아 실패해 재생을 멈춥니다"));
+    const line = sink.buffer.slice(from).find((e) => e.text.includes("연달아 실패했습니다"));
     assert.ok(line, "멈췄다");
     for (const title of ["첫 곡", "둘째 곡", "셋째 곡"]) assert.ok(line.text.includes(title), `${title}: ${line.text}`);
   } finally {
@@ -221,7 +222,7 @@ test("연달아 실패해 멈출 때 실패한 곡을 모두 적는다", async (
 });
 
 // ── 곡이 바뀔 때까지 ──────────────────────────────────────────────
-// 대시보드의 이전 곡 응답은 곡이 바뀐 뒤 답한다. 옛 곡을 실으면 화면이 신호를 기다린다(넘기기는 패널 고치기를 기다리는 사이 곡이 바뀌어 새 곡이 실린다)
+// 대시보드의 이전 곡 응답은 곡이 바뀐 뒤 답한다. 옛 곡을 실으면 화면이 신호를 기다린다(넘기기는 패널 갱신을 기다리는 사이 곡이 바뀌어 새 곡이 실린다)
 
 test("곡이 바뀔 때까지: 이전 곡 뒤 기다리면 되돌아간 곡이 지금 곡이다. 대기 중인 끝 처리가 없으면 곧바로", async () => {
   const before = yt("iiiiiiiiiii", { title: "앞 곡" });

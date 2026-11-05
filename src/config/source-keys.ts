@@ -10,7 +10,7 @@ const KEYS: Record<string, () => string | null | undefined> = {
   LISTENBRAINZ_TOKEN: () => config.sources?.listenbrainzToken,
 };
 
-/** 그 소스를 쓸 수 있는가. 모르는 소스 · 읽는 법을 모르는 키는 쓸 수 없다 */
+/** 그 소스를 쓸 수 있는가. 모르는 소스, 읽는 법을 모르는 키는 쓸 수 없다 */
 function usable(type: string): boolean {
   const spec = SPEC[type];
   if (!spec) return false;

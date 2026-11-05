@@ -1,5 +1,5 @@
-// 그림 · 태그가 붙은 MP3 시료(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 시험이 건너뛴다.
-// 파일 태그 그림을 기억 모듈(sources/embedded-art)에 넣어 두는 것까지(remember)
+// 앨범아트, 태그가 붙은 MP3 시료(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 테스트가 건너뛴다.
+// 파일 태그 앨범아트를 기억 모듈(sources/embedded-art)에 넣어 두는 것까지(remember)
 
 import fs from "node:fs";
 import os from "node:os";
@@ -24,7 +24,7 @@ function run(args: string[]): Promise<boolean> {
   });
 }
 
-/** 600×600 그림 · 제목 "태그 제목" 이 붙은 3초 MP3 */
+/** 600×600 앨범아트, 제목 "태그 제목" 이 붙은 3초 MP3 */
 function taggedMp3(): Promise<Buffer | null> {
   made ??= (async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-tagged-"));
@@ -40,7 +40,7 @@ function taggedMp3(): Promise<Buffer | null> {
   return made;
 }
 
-/** 이 주소의 음원 파일 태그 · 그림을 기억 모듈에 넣어 둔다. 시료를 만들 수 없으면 false */
+/** 이 주소의 음원 파일 태그, 앨범아트를 기억 모듈에 넣어 둔다. 시료를 만들 수 없으면 false */
 async function remember(url: string): Promise<boolean> {
   const mp3 = await taggedMp3();
   if (!mp3) return false;

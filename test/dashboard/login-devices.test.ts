@@ -1,5 +1,5 @@
-// src/dashboard/login-devices.ts · routes/login-devices.ts — 로그인한 기기 목록 · 하나씩 · 모두 로그아웃.
-// 진짜 OAuth 경로(가짜 디스코드)로 쿠키 셋을 로그인시킨다: 같은 사용자 둘 · 다른 사용자 하나. 세션은 임시 SQLite.
+// src/dashboard/login-devices.ts, routes/login-devices.ts: 로그인한 기기 목록, 하나씩, 모두 로그아웃.
+// 진짜 OAuth 경로(가짜 디스코드)로 쿠키 셋을 로그인시킨다: 같은 사용자 둘, 다른 사용자 하나. 세션은 임시 SQLite.
 
 import { test, after, before } from "node:test";
 import assert from "node:assert/strict";
@@ -87,7 +87,7 @@ function device(ua: string) {
   return { go, login, list };
 }
 
-test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저 · OS · 기기 종류 · 시각, 내부망 주소는 위치 DB 에 묻지 않는다", async () => {
+test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저, OS, 기기 종류, 시각, 내부망 주소는 위치 DB 에 묻지 않는다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   const other = device(CHROME);
@@ -105,7 +105,7 @@ test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라�
       [false, true, "Mobile Safari", "iOS", "mobile"],
     ],
   );
-  assert.deepEqual(devices[0].place, { kind: "private" }, "시험은 127.0.0.1 에서 온다");
+  assert.deepEqual(devices[0].place, { kind: "private" }, "테스트는 127.0.0.1 에서 온다");
   assert.ok(devices.every((d) => typeof d.signedInAt === "number" && typeof d.seenAt === "number"));
   assert.ok(
     devices.every((d) => d.id.length === 22 && !/sess/.test(d.id)),
@@ -122,7 +122,7 @@ test("기록은 세션 내용에 봉해 둔다(IP 가 평문으로 남지 않는
   assert.equal(openRecord(b.sid, sealed), null);
 });
 
-test("하나 끊기 · 모두 끊기: 최근 로그인만, 끊는 세션의 디스코드 토큰 폐기 요청. 다른 사용자의 세션은 그대로, 지금 기기는 하나 끊기로 끊지 않는다", async () => {
+test("하나 끊기, 모두 끊기: 최근 로그인만, 끊는 세션의 디스코드 토큰 폐기 요청. 다른 사용자의 세션은 그대로, 지금 기기는 하나 끊기로 끊지 않는다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   const tablet = device(IPHONE);

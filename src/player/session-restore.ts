@@ -1,7 +1,7 @@
 import { RESTJSONErrorCodes, type Client, type Guild } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
-import { sessions, type RestoredSession, type SessionState } from "../store/player-sessions.ts";
+import { sessions, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
 import type { Player } from "./player.ts";
@@ -18,7 +18,7 @@ const sleep = (ms: number) => (ms > 0 ? new Promise((resolve) => setTimeout(reso
 /**
  * 저장 세션을 복원할 길드를 확보한다. 기동 직후에는 캐시가 덜 차 있을 수 있어 REST로 재시도한다.
  *
- * `gone`은 길드가 실제로 사라졌을 때만 참이다. 네트워크 오류·5xx·레이트리밋 같은 일시적
+ * `gone`은 길드가 실제로 사라졌을 때만 참이다. 네트워크 오류, 5xx, 레이트리밋 같은 일시적
  *   실패는 거짓. 세션을 삭제하지 않고 다음 기동에서 다시 시도한다.
  */
 async function resolveGuildForRestore(client: Client, guildId: string, { attempts = ATTEMPTS, delayMs = RETRY_DELAY_MS } = {}): Promise<{ guild: Guild | null; gone: boolean }> {
@@ -37,16 +37,17 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회를 ${attempts}회 실패. 세션을 삭제하지 않고 다음 기동에서 다시 시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회 ${attempts}회 실패. 세션을 유지하고 다음 기동 시 재시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
   return { guild: null, gone: false };
 }
 
-// 기동 때 저장된 재생 세션을 모두 복원한다. 플레이어는 부르는 쪽이 준 생성자로 만든다(이 폴더의 중심 파일을 부르지 않게)
+// 플레이어는 부르는 쪽이 준 생성자로 만든다(player.ts 를 불러오지 않게)
 type PlayerClass = typeof Player;
 /** 서버마다의 플레이어. 복원한 플레이어를 여기에 올린다(복원하는 동안 들어온 명령이 같은 플레이어를 보게 먼저 올린다) */
 type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
+ * 기동 시 저장된 재생 세션을 모두 복원한다.
  * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
  * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
@@ -55,31 +56,60 @@ async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {
-    log.warn(`짧게 끊긴 실행이 연달아여서 이번에는 저장된 세션 ${saved.length}개를 복원하지 않습니다(세션은 남겨 둡니다): 서버 ID ${touched.join(", ")}`);
+    log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜁니다(세션은 유지): 서버 ID ${touched.join(", ")}`);
     return touched;
   }
 
   log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
 
-  for (const record of saved) {
-    try {
-      // 서버 문맥으로: 복원한 재생이 여는 일(연령 제한 판정 · 자식 프로세스 기록)이 그 서버의 일로 돈다
-      await inGuild(record.guildId, () => restoreOne(client, players, PlayerCtor, record));
-    } catch (error) {
-      log.error(`서버 ID ${record.guildId} 세션 복원 중 오류:`, messageOf(error));
-      sessions().removeSession(record.guildId);
-    }
+  // 차례를 기다리는 서버로 올려 둔다. 그사이 곡 추가, 자동재생 켜기, /join 이 오면 그 서버를 먼저 복원한다(waitForRestore)
+  for (const { guildId } of saved) {
+    waiting.set(guildId, async () => {
+      try {
+        // 서버 문맥으로: 복원한 재생이 여는 일(연령 제한 판정, 자식 프로세스 기록)이 그 서버의 일로 돈다
+        await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
+      } catch (error) {
+        // 지우지 않는다. 다음 기동, /join 이 다시 해 본다(지운 대기열은 되찾을 수 없다)
+        log.error(`서버 ID ${guildId} 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+      }
+    });
   }
+  for (const guildId of touched) await restoreNow(guildId);
   return touched;
 }
 
-async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerClass, record: RestoredSession) {
-  const { guildId } = record;
+// 기동 복원의 차례를 기다리는 서버, 지금 복원 중인 서버. 같은 서버를 두 번 복원하지 않는다
+const waiting = new Map<string, () => Promise<void>>();
+const restoring = new Map<string, Promise<void>>();
+
+function restoreNow(guildId: string): Promise<void> | null {
+  const running = restoring.get(guildId);
+  if (running) return running;
+  const start = waiting.get(guildId);
+  if (!start) return null;
+  waiting.delete(guildId);
+  const run = start().finally(() => restoring.delete(guildId));
+  restoring.set(guildId, run);
+  return run;
+}
+
+/**
+ * 기동 복원이 아직 이 서버에 오지 않았으면 지금 복원하고 끝날 때까지 기다린다.
+ * 플레이어를 새로 만드는 쪽(곡 추가, 자동재생 켜기, /join)이 먼저 부른다. 그러지 않으면 곧 복원될 세션을 새 플레이어가 지운다(타이밍 탓)
+ */
+async function waitForRestore(guildId: string) {
+  await restoreNow(guildId);
+}
+
+// 복원 직전에 그 서버의 세션을 다시 읽는다. 기동 때 읽은 목록을 쓰면 그사이 지워진 세션을 옛 기록으로 되살린다
+async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
+  const record = sessions().load(guildId);
+  if (!record) return;
   const { guild, gone } = await resolveGuildForRestore(client, guildId);
   if (!guild) {
     // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
     if (gone) {
-      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 제거합니다.`);
+      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 삭제합니다`);
       sessions().removeSession(guildId);
     }
     return;
@@ -95,10 +125,12 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 
   const channels = await savedChannels(guild, record.session);
   if (alreadyPlaying()) return;
-  if (!channels) {
+  if (channels === "gone") {
     sessions().removeSession(guildId);
     return;
   }
+  // 채널을 잠깐 못 불러왔다(네트워크, 5xx, 요청 제한). 다음 기동, /join 이 다시 해 본다
+  if (channels === "unknown") return;
 
   const player = new PlayerCtor(guild, channels.text, channels.voice);
   players.set(guildId, player);
@@ -106,35 +138,46 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     const outcome = await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
-    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류:`, messageOf(error));
-    await player.dispose({ reason: "세션 복원 실패", session: "remove" });
+    // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다)
+    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+    await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
   }
 }
 
 // 복원한 결과를 로그에
-const RESTORE_OUTCOME = { restored: "이어 틂", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
+const RESTORE_OUTCOME = { restored: "이어 틂", parked: "열지 못해 그 곡에서 멈춰 둠", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
 
-// 저장된 음성 · 텍스트 채널. 기록이 없거나 그 종류의 채널이 아니면 null
+// 채널이 없다는 디스코드의 확답(삭제됨, 볼 수 없음). 그 밖의 조회 실패는 잠깐일 수 있다
+const CHANNEL_GONE = new Set<unknown>([RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess]);
+// 조회 실패의 답: gone 은 없다는 확답, unknown 은 알 수 없음(잠깐의 실패)
+const lookupFailed = Symbol("lookup-failed");
+
+/**
+ * 저장된 음성, 텍스트 채널. gone: 음성 채널 기록이 없거나 없다는 확답이거나 음성 채널이 아니다(세션을 지운다), unknown: 잠깐 못 불러왔다(세션을 남긴다).
+ * 텍스트 채널은 없어도 된다(전용 채널 없이 대시보드로 시작한 세션은 텍스트 채널 없이 저장된다. 패널은 서버의 전용 채널로 간다)
+ */
 async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: SessionState) {
-  if (!voiceChannelId || !textChannelId) return null;
+  if (!voiceChannelId) return "gone" as const;
   const fetch = (id: string) =>
     guild.channels.fetch(id).catch((error: unknown) => {
-      // 채널이 삭제됐다(10003)는 답은 없다는 뜻이다. 그 밖의 실패도 세션을 제거하게 되므로 까닭을 남긴다
-      if (codeOf(error) !== RESTJSONErrorCodes.UnknownChannel) log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패: ${describeError(error)}`);
-      return null;
+      if (CHANNEL_GONE.has(codeOf(error))) return null;
+      log.warn(`서버 ${guild.name}의 채널 ${id} 조회 실패(세션은 남김): ${describeError(error)}`);
+      return lookupFailed;
     });
   const find = async (id: string) => guild.channels.cache.get(id) || (await fetch(id));
   const voice = await find(voiceChannelId);
-  const text = await find(textChannelId);
-  if (voice?.isVoiceBased() && text?.isTextBased()) return { voice, text };
-  log.warn(`서버 ${guild.name}의 채널 정보가 유효하지 않아 저장된 세션을 제거합니다.`);
-  return null;
+  const text = textChannelId ? await find(textChannelId) : null;
+  if (voice === lookupFailed || text === lookupFailed) return "unknown" as const;
+  if (!voice?.isVoiceBased()) {
+    log.warn(`서버 ${guild.name}의 저장된 음성 채널이 없어 저장된 세션을 삭제합니다`);
+    return "gone" as const;
+  }
+  return { voice, text: text?.isTextBased() ? text : null };
 }
 
 /** 서버 하나의 저장된 세션을 복원한다(서버 하나 다시 시작). 세션이 없으면 아무것도 안 한다 */
 async function restoreGuild(client: Client, players: Registry, PlayerCtor: PlayerClass, guildId: string) {
-  const record = sessions().load(guildId);
-  if (record) await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, record));
+  await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
 }
 
-export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, ATTEMPTS, RETRY_DELAY_MS };
+export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, waitForRestore, ATTEMPTS, RETRY_DELAY_MS };

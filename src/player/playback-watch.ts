@@ -6,6 +6,7 @@
 
 import { AudioPlayerStatus } from "@discordjs/voice";
 import logger from "../infra/log/logger.ts";
+import { sec } from "../infra/log/seconds.ts";
 const wlog = logger.child({ category: "watchdog" });
 import type { Player } from "./player.ts";
 
@@ -16,8 +17,6 @@ const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으�
 const OVERFLOW_MS = 30_000; // 위치가 길이를 이만큼 넘기면 멈춘다
 const OVERFLOW_CHECK_MS = 5_000;
 const IDLE_STUCK_MS = 10_000; // Idle 이 된 뒤 곡이 이만큼 넘어가지 않으면 다음 곡으로
-
-const sec = (ms: number | null | undefined) => (ms == null ? "?" : (ms / 1000).toFixed(1));
 
 class PlaybackWatch {
   static BUFFERING_STALL_MS = BUFFERING_STALL_MS;
@@ -38,7 +37,7 @@ class PlaybackWatch {
 
   // ── 넘침 안전망 ──
 
-  /** 이 곡의 넘침 안전망을 건다. 위치로 보므로 일시정지 · 버퍼링과 어긋나지 않는다 */
+  /** 이 곡의 넘침 안전망을 건다. 위치로 보므로 일시정지, 버퍼링과 어긋나지 않는다 */
   startOverflow() {
     this.stopOverflow();
     this.overflowTimer = setInterval(() => this.checkOverflow(), OVERFLOW_CHECK_MS);
@@ -47,7 +46,7 @@ class PlaybackWatch {
 
   checkOverflow(): void {
     const player = this.player;
-    // 트는 음원의 길이를 모르면(라이브 · 다운로드 전의 직접 링크) 넘었는지 판정할 수 없다. 표시 길이는 쓰지 않는다
+    // 트는 음원의 길이를 모르면(라이브, 다운로드 전의 직접 링크) 넘었는지 판정할 수 없다. 표시 길이는 쓰지 않는다
     const lengthMs = player.isLive ? null : (player.playback?.lengthMs ?? null);
     if (!lengthMs) return;
     const at = player.getCurrentTime();
@@ -100,12 +99,13 @@ class PlaybackWatch {
   checkIdle(): void {
     const player = this.player;
     this.idleTimer = null;
-    if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle) return;
-    // 곡을 여는 중 · 끝 처리 중 · 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
+    // 실패로 멈춰 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
+    if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
+    // 곡을 여는 중, 끝 처리 중, 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();
     wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냅니다: ${player._trackLabel()}`);
     this.armIdle(); // 넘긴 곡도 틀지 못하면 다시 본다
-    player.onTrackEnd("stuck").catch((error) => wlog.error("멎은 곡 넘기기 실패:", error));
+    player.onTrackEnd("stuck").catch((error) => wlog.error("멈춘 곡 스킵 처리 실패:", error));
   }
 
   stopIdle() {

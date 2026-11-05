@@ -1,5 +1,5 @@
-// 대시보드 경로가 서버 하나를 여는 법. 봇 준비 · 서버 있음 · 실멤버십 · 권한 수준 오버라이드.
-// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다(ref-dashboard-security "서버 접근")
+// 대시보드 경로가 서버 하나를 여는 법. 봇 준비, 서버 있음, 실멤버십, 권한 수준 오버라이드.
+// 봇 운영자도 참가한 서버만 열고, 그 서버 안에서는 그 서버의 권한대로다
 
 import { RESTJSONErrorCodes, type Guild, type GuildMember } from "discord.js";
 import type { Request, Response } from "express";
@@ -16,9 +16,26 @@ const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONE
 
 /** members.fetch 의 catch. 멤버가 아니라는 답은 조용히, 다른 실패는 까닭을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
 const notMember = (guildId: string, userId: string) => (error: unknown) => {
-  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId} · 사용자 ${userId} | ${describeError(error)}`);
+  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId}, 사용자 ${userId} | ${describeError(error)}`);
   return null;
 };
+
+/** 멤버 판정에 쓰는 서버의 모양(테스트의 가짜는 available 이 없으면 사용 가능한 것으로 본다) */
+type MemberSource = { id: string; available?: boolean; members: { fetch(options: string | { user: string; force: boolean }): Promise<GuildMember> } };
+
+/**
+ * 이 사용자가 지금 이 서버의 멤버인가(보고 조작하는 권한 판정의 진입점 하나). 멤버 캐시 → REST. 답은 따로 캐시하지 않는다(캐시하면 언제 낡을지 모른다).
+ * 재연결 직후 그 서버의 GUILD_CREATE 전에는(사용 불가(unavailable) 서버) 옛 멤버가 캐시에 남아 있으므로 캐시를 건너뛰고 REST 로 조회한다
+ */
+function memberOf(guild: MemberSource, userId: string): Promise<GuildMember | null> {
+  const asked = guild.available === false ? guild.members.fetch({ user: userId, force: true }) : guild.members.fetch(userId);
+  return asked.catch(notMember(guild.id, userId));
+}
+
+/** SSE 연결의 보기 권한 확인(보낼 때 동기로). 멤버 캐시를 보되, 사용 불가 서버는 캐시를 믿지 않는다 */
+function seesGuild(guild: { available?: boolean; members: { cache: { has(id: string): boolean } } } | undefined, userId: string) {
+  return Boolean(guild && guild.available !== false && guild.members.cache.has(userId));
+}
 
 /** 이 요청으로 서버 하나를 연다. 못 열면 응답을 쓰고 null(멤버가 아니면 no-guild-access) */
 async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
@@ -37,7 +54,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
 
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
-  const fetched: GuildMember | null = await guild.members.fetch(userId).catch(notMember(guildId, userId)); // 캐시 우선, 미스 시 REST 1회
+  const fetched = await memberOf(guild, userId);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
     return null;
@@ -46,7 +63,6 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
   // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
   const member = shadowMember(req, fetched);
-  // 재생 조작을 하는 사람
   const actor: Actor = { member };
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }
@@ -64,4 +80,4 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };
 }
 
-export { openGuild, voiceFlags, notMember };
+export { openGuild, voiceFlags, notMember, memberOf, seesGuild };

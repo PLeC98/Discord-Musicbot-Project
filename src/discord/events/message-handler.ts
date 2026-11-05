@@ -48,7 +48,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     // 삭제할 수도 없는 유령 메시지로 남는다(앱을 다시 시작해야 사라진다). 잠깐 뒤에 삭제한다
     scheduleDelete(message, USER_MESSAGE_DELETE_MS);
 
-    // 초기 CV2 검색 자리표시자. 생성 시점부터 CV2여야 이후 현재 재생 메시지 흐름과 맞는다
+    // "검색 중" 자리표시자. 처음부터 Components V2 로 보내야 뒤의 현재 재생 메시지 흐름과 맞는다
     const preview = content.length > 60 ? content.slice(0, 60) + "…" : content;
     const loadingMsg = await message.channel.send(post(frame({ body: searchText.searching(preview) })));
 
@@ -65,7 +65,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
         source: "전용채널",
       });
 
-      // 해석 실패·재생 시작 실패를 사용자에게 알림. 침묵하면 왜 안 되는지 알 수 없다
+      // 곡 찾기, 재생 시작 실패를 알린다. 알리지 않으면 왜 안 되는지 알 수 없다
       if (!result.success) {
         await responder.dismissPlaceholder();
         const failed = addFailureMessage(result);

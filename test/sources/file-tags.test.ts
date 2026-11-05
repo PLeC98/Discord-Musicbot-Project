@@ -1,5 +1,5 @@
-// src/sources/file-tags.ts — 음원 파일의 태그(제목 · 가수 · 앨범 · 그림). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
-// 시료는 ffmpeg 로 만든다(그림이 붙은 MP3 · FLAC · M4A(moov 앞 · 끝) · Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
+// src/sources/file-tags.ts: 음원 파일의 태그(제목, 가수, 앨범, 앨범아트). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
+// 시료는 ffmpeg 로 만든다(앨범아트가 붙은 MP3, FLAC, M4A(moov 앞, 끝), Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
 
 import path from "node:path";
 import os from "node:os";
@@ -75,7 +75,7 @@ function trickle(bytes: Buffer, { end = true, from = 0 } = {}) {
 const LIMITS: StreamLimits = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 const sameCover = (data: Uint8Array | undefined) => Buffer.compare(Buffer.from(data ?? []), cover) === 0;
 
-test("파일: 형식마다 제목 · 가수 · 앨범과 그림(원본과 같은 바이트). MP4 는 moov 가 끝이어도", async (t) => {
+test("파일: 형식마다 제목, 가수, 앨범과 그림(원본과 같은 바이트). MP4 는 moov 가 끝이어도", async (t) => {
   if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
   for (const name of ["a.mp3", "a.flac", "end.m4a", "front.m4a"]) {
     const tags = await fromFile(at(name));
@@ -127,7 +127,7 @@ test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면
   if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const mp3 = fs.readFileSync(at("a.mp3"));
   assert.ok(cover.length > 25_000, `그림 ${cover.length}B`);
-  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 조각부터 넘는다");
+  assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 청크부터 넘는다");
   assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 20_000 }), null, "그림이 든 헤더가 20KB 를 넘는다(이어 받는 동안)");
 
   const stalled = new Readable({ read() {} });

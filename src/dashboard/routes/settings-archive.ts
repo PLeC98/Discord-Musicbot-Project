@@ -1,5 +1,5 @@
-// 설정 내보내기 · 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
-// 내보내기 · 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
+// 설정 내보내기, 불러오기(운영자 패널 백업 탭). /api/admin/settings-archive
+// 내보내기, 불러오기는 최근 로그인만(훔친 로그인 쿠키로 설정을 빼가거나 교체하지 못하게). 미리 보기는 아무것도 바꾸지 않아 운영자면 된다
 
 import crypto from "node:crypto";
 import express from "express";
@@ -31,12 +31,12 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류 · 캐시 파일까지(오디오 캐시) · 낸 사람 · 지나는 때 */
+/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 지나는 때 */
 const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만) · favicon(파비콘) · login-background(로그인 배경) · audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
+// kind: settings(봇 설정만), favicon(파비콘), login-background(로그인 배경), audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
 // 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다. 담을 수 없으면(캐시 파일이 너무 많다) 여기서 거절한다(다운로드 주소는 브라우저가 바로 열어 화면이 알릴 수 없다)
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");
@@ -69,7 +69,7 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
     res.end();
   } catch (error) {
     // 받던 쪽이 끊었거나 쓰는 동안 파일이 삭제됐다(헤더를 이미 보냈으니 응답을 끊는다)
-    log.debug({ sub: "admin" }, `설정 내보내기를 보내다 멈췄습니다: ${messageOf(error)}`);
+    log.debug({ sub: "admin" }, `설정 내보내기 전송 중단: ${messageOf(error)}`);
     res.destroy();
   } finally {
     release();
@@ -108,7 +108,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(" · ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (unreadable(res, error)) return;

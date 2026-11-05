@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts — 캐시 초기화와 재생 중인 곡.
+// src/store/audio-cache.ts: 캐시 초기화와 재생 중인 곡.
 //
 // 초기화는 파일이 남은 곡(재생 중이라 잠긴 파일)의 행을 남긴다. 행만 사라지면 다음 재생이 "이미 캐시됨"으로 보고
 // 다운로더(audio_cache 행을 만드는 곳)를 건너뛰어 행 없는 파일이 된다.
@@ -32,7 +32,7 @@ after(() => {
   fs.rmSync(CACHE_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-// 캐시된 곡 하나를 만든다 — 행 + 파일.
+// 캐시된 곡 하나를 만든다(행 + 파일).
 function seedTrack(key: string, title: string) {
   const track = { title, artist: "가수", duration: 100, requestKey: `https://y/${title}`, pageUrl: `https://y/${title}`, audioUrl: `https://www.youtube.com/watch?v=${key.slice(3)}`, platform: "youtube" };
   const file = audioCache.getFilePath(key);
@@ -43,11 +43,11 @@ function seedTrack(key: string, title: string) {
   return { track, file };
 }
 
-test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다", async () => {
+test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머지는 사라진다. 그 뒤에도 재생 중인 곡의 기록이 터지지 않는다", async () => {
   const playing = seedTrack("yt:playing", "재생중인곡");
   const idle = seedTrack("yt:idle", "그냥캐시된곡");
 
-  // 재생 중이라 잠긴 파일을 흉내 낸다 — Windows에서 실제로 unlink가 던지는 위치다.
+  // 재생 중이라 잠긴 파일을 흉내 낸다. Windows에서 실제로 unlink가 던지는 위치다.
   audioCache._setRemoval({
     unlink: async (target) => {
       if (path.resolve(target) === path.resolve(playing.file)) throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });
@@ -74,13 +74,11 @@ test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머
   );
   assert.equal(audioCache._liveKeys().size, 0, "보호는 초기화가 만들거나 비우지 않는다(재생 중이면 플레이어가 서버마다 걸어 둔 것이 남는다)");
   assert.equal(cacheDb.get().prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM track_lookup").get()?.n, 0, "링크 데이터는 파일과 따로 살므로 통째로 비운다");
-});
 
-test("초기화 뒤에도 재생 중인 곡의 링크 데이터 기록이 터지지 않는다", () => {
-  // 위 테스트가 남긴 상태 그대로 — 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다.
+  // 재생 경로가 곡을 계속 틀며 기록을 남기는 순간이다
   assert.doesNotThrow(() => {
     audioCache.recordPlayback("yt:playing");
-    trackLookup.recordTrackLookup({ requestKey: "https://y/재생중인곡", pageUrl: "https://y/재생중인곡", audioUrl: "https://www.youtube.com/watch?v=playing", platform: "youtube", title: "재생중인곡", artist: "가수" });
+    trackLookup.recordTrackLookup(playing.track);
   });
 });
 

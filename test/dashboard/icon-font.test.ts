@@ -1,4 +1,4 @@
-// dashboard/src/icons.ts · assets/material-symbols.woff2 — 아이콘 글꼴은 화면이 쓰는 기호만 담는다(scripts/build-icon-font.ts 가 만든다).
+// dashboard/src/icons.ts, assets/material-symbols.woff2: 아이콘 글꼴은 화면이 쓰는 기호만 담는다(scripts/build-icon-font.ts 가 만든다).
 // 표를 고치고 글꼴을 다시 만들지 않았거나, 원본 글꼴이 바뀌어 코드포인트가 어긋나면 기호가 빈칸으로 그려진다
 
 import { test } from "node:test";

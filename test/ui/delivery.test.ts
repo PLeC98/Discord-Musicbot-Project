@@ -1,4 +1,4 @@
-// src/ui/delivery.ts — 응답의 대상과 수명. 본인 응답 · 후속 메시지 · 공개 응답 · 채널 메시지가 같은 수명표로 지워진다
+// src/ui/delivery.ts: 응답의 대상과 수명. 본인 응답, 후속 메시지, 공개 응답, 채널 메시지가 같은 수명표로 지워진다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,10 +11,10 @@ import { fake } from "../helpers/fake.ts";
 
 type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };
 
-// 부른 순서를 적는 상호작용. 보낸 것은 flags 로 본인 · 모두를 구분한다
+// 부른 순서를 적는 상호작용. 보낸 것은 flags 로 본인, 모두를 구분한다
 function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
   const calls: string[] = [];
-  // 보낸 첨부 이름(응답 · 후속 · 채널)
+  // 보낸 첨부 이름(응답, 후속, 채널)
   const files: string[][] = [];
   const visible = (p: { flags?: unknown; files?: Array<{ name: string }> }) => {
     if (p.files) files.push(p.files.map((file) => file.name));
@@ -49,7 +49,7 @@ function asked({ replied = false, deferred = false, command = true, component = 
 
 const view = () => frame({ title: "결과" });
 
-test("수명: 경고 10초 · 오류 15초, 연결 오류는 10초 · 곡 전환 실패는 15초", () => {
+test("수명: 경고 10초, 오류 15초, 연결 오류는 10초, 곡 전환 실패는 15초", () => {
   assert.equal(noticeMs(notice("must-dj")), 10_000);
   assert.equal(noticeMs(notice("command-failed")), 15_000);
   assert.equal(noticeMs(notice("network-error")), 10_000, "오류 수준이지만 대개 일시적");
@@ -169,7 +169,7 @@ test("모두: 지우지 않는 수명(null)이면 남긴다", async (t) => {
   assert.deepEqual(lifetimesOf(a.it), [null]);
 });
 
-test("모두: 화면이 attachment:// 로 건 첨부를 응답 · 채널 메시지 · 후속 메시지에 함께 보낸다", async (t) => {
+test("모두: 화면이 attachment:// 로 건 첨부를 응답, 채널 메시지, 후속 메시지에 함께 보낸다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const art = [{ attachment: Buffer.from("jpeg"), name: "art.jpg" }];
   const a = asked();

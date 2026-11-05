@@ -1,4 +1,4 @@
-// 색 선택(ColorPicker)의 계산. #RRGGBB ↔ RGB(0~255) ↔ HSV(색상 h 0~360 · 채도 s 0~1 · 밝기 v 0~1)
+// 색 선택(ColorPicker)의 계산. #RRGGBB ↔ RGB(0~255) ↔ HSV(색상 h 0~360, 채도 s 0~1, 밝기 v 0~1)
 
 export type Rgb = { r: number; g: number; b: number };
 export type Hsv = { h: number; s: number; v: number };
@@ -48,7 +48,7 @@ export const hexToHsv = (hex: string) => rgbToHsv(hexToRgb(hex));
 /** HSV → #RRGGBB(대문자) */
 export const hsvToHex = (hsv: Hsv) => rgbToHex(hsvToRgb(hsv));
 
-/** 새 색의 HSV. 검정이면 지금 색상 · 채도를, 무채색이면 지금 색상을 남긴다(판의 핸들이 튀지 않게) */
+/** 새 색의 HSV. 검정이면 지금 색상, 채도를, 무채색이면 지금 색상을 남긴다(판의 핸들이 튀지 않게) */
 export function keepHue(next: Hsv, now: Hsv): Hsv {
   if (!next.v) return { h: now.h, s: now.s, v: 0 };
   if (!next.s) return { ...next, h: now.h };

@@ -7,14 +7,14 @@ import { canGoBack, canGoNext, ownTrackDenied } from "../../../src/rules/control
 /** 규칙이 읽는 곡의 필드 */
 type TrackSeen = Partial<Pick<PlayingView, "entry" | "currentTime" | "duration" | "requestedBy">>;
 /** 규칙이 읽는 재생 상태의 필드 */
-type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "hasLive" | "botInVoice" | "sameVoice">> & {
+type StateSeen = Partial<Pick<PlayerRead, "boot" | "seq" | "playing" | "paused" | "userPaused" | "heldBy" | "loop" | "autoplay" | "hasPrevious" | "canControl" | "userId" | "queueTotal" | "hasLive" | "botInVoice" | "sameVoice">> & {
   queue?: TrackSeen[];
   currentTrack?: TrackSeen | null;
 };
-/** 진행 시계: 받은 위치(초) · 받은 때(ms) · 흐르는 중인지 · 길이(초) */
+/** 진행 시계: 받은 위치(초), 받은 때(ms), 흐르는 중인지, 길이(초) */
 type Clock = { at: number; since: number; running: boolean; duration: number };
 
-/** 상태 읽기(GET)만 싣는 필드: 음성 채널 · 이 사람이 할 수 있는 것. 조작 응답(PlayerState)에는 없다 */
+/** 상태 읽기(GET)만 싣는 필드: 음성 채널, 사용자가 할 수 있는 것. 조작 응답(PlayerState)에는 없다 */
 type ReadFields = Omit<PlayerRead, keyof PlayerState>;
 /** 화면이 들고 있는 재생 상태. 읽기 전용 필드는 상태를 읽기 전이면 없다 */
 type PlayerSeen = PlayerState & Partial<ReadFields>;
@@ -41,7 +41,7 @@ export function accepts(current: StateSeen | null | undefined, next: StateSeen |
   return typeof next.seq === "number" && typeof current.seq === "number" && next.seq >= current.seq;
 }
 
-/** 진행 시계의 기준: 받은 위치 · 받은 때 · 흐르는 중인지 · 길이 */
+/** 진행 시계의 기준: 받은 위치, 받은 때, 흐르는 중인지, 길이 */
 export function clockOf(s: StateSeen | null | undefined, now: number): Clock {
   const track = s?.currentTrack;
   return { at: track?.currentTime ?? 0, since: now, running: Boolean(track && s.playing && !s.paused), duration: track?.duration ?? 0 };
@@ -53,13 +53,13 @@ export function positionAt(clock: Clock, now: number): number {
   return clock.duration > 0 ? Math.min(t, clock.duration) : t;
 }
 
-/** 시계를 지금 위치에서 다시 잰다. 옮긴 위치(at) · 흐르는지(running)를 바꿀 수 있다(응답을 기다리는 동안 얹어 보인다) */
+/** 시계를 지금 위치에서 다시 잰다. 옮긴 위치(at), 흐르는지(running)를 바꿀 수 있다(응답을 기다리는 동안 얹어 보인다) */
 export function retime(clock: Clock, now: number, { at = positionAt(clock, now), running = clock.running }: { at?: number; running?: boolean } = {}): Clock {
   return { ...clock, at, since: now, running };
 }
 
 /**
- * 그 곡을 넣은 사람도 하는 조작(넘기기 · 빼기)을 할 수 있나. 서버(usecases/permissions)와 같은 규칙(rules/controls)에
+ * 그 곡을 넣은 사람도 하는 조작(넘기기, 빼기)을 할 수 있나. 서버(usecases/permissions)와 같은 규칙(rules/controls)에
  * 받은 상태를 넣는다: 조작 권한(canControl), 재적 규칙(봇이 음성 채널에 없거나 같은 채널이다)
  */
 function mayTouch(s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean {
@@ -79,12 +79,12 @@ export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean
 /** 이전 곡 버튼(rules/controls 의 canGoBack). 상태는 기록이 있는지만 싣는다 */
 export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && canGoBack({ history: s?.hasPrevious ? 1 : 0, loop: s?.loop });
 
-/** 탐색 · 넘기기 · 이전 · 하이라이트를 "지금 곡이 이것일 때만" 하라는 표식. 항목 번호가 있을 때만 싣는다 */
 /** 반복을 바꿀 수 있는지: 조작할 수 있고 대기열에 라이브가 없을 때(끝이 없는 곡은 반복할 수 없다) */
 export const loopEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && !s?.hasLive;
 /** 섞을 수 있는지: 조작할 수 있고 대기열에 둘 이상 */
 export const shuffleEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.canControl) && queueSize(s) >= 2;
 
+/** 탐색, 넘기기, 이전, 하이라이트를 "지금 곡이 이것일 때만" 하라는 표식. 항목 번호가 있을 때만 싣는다 */
 export const onTrackOf = (s: StateSeen | null | undefined): { onTrack?: number } => {
   const entry = s?.currentTrack?.entry;
   return typeof entry === "number" && Number.isInteger(entry) ? { onTrack: entry } : {};
@@ -97,12 +97,12 @@ export function seekPosition(clientX: number, rect: { left: number; width: numbe
   return Math.round(ratio * duration);
 }
 
-/** 끌어 놓은 위치의 옮기기 요청. before 항목 앞으로, null 이면 대기열 맨 끝 */
+/** 드래그해서 놓은 위치의 옮기기 요청. before 항목 앞으로, null 이면 대기열 맨 끝 */
 type MoveRequest = { entry: number; before: number | null };
 const isEntry = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
 
 /**
- * 끌어 놓은 위치 → 옮기기 요청. insertAt 은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
+ * 드래그해서 놓은 위치 → 옮기기 요청. insertAt 은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
  * "same": 제자리. "partial": 받은 창의 끝인데 그 뒤에 곡이 더 있다(맨 끝이 아니다).
  * "unknown": 항목 번호가 없다(봇이 다시 시작하기 전의 목록 등)
  */

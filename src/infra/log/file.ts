@@ -1,7 +1,6 @@
 // NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
 //
-// 파일 로직을 facade(src/infra/log/logger.ts)가 아니라 destination 계층에 두면, 나중에 pino로 바꿔도
-// 같은 위치에 transport가 앉으므로 호출부가 그대로 살아남는다.
+// 파일 쓰기는 facade(logger.ts)가 아니라 destination 에 둔다. pino transport 와 같은 자리라 로거를 바꿔도 부르는 쪽은 그대로다.
 //
 // 한 줄에 레코드 하나. 가공은 ANSI 제거뿐이다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).
 // 로그는 한 파일에 모은다. 분석하려고 파일 여러 개를 여는 것은 손해다.
@@ -26,12 +25,8 @@ function stamp(d: Date = new Date()): string {
 
 // logs/bot.log → logs/bot-2026-09-10T14-23-05.123.log (확장자가 없으면 뒤에 붙인다)
 //
-// 번호(bot.1.log)가 아니라 시각을 박는 이유:
-//  - 번호는 회전할 때마다 파일 전부를 rename해야 한다(1→2, 2→3 …). 시각은 rename 한 번이다.
-//  - 파일명만 보고 언제 것인지 안다. 번호는 열어봐야 알고, 회전할 때마다 뜻이 바뀐다.
-//  - 이름순 정렬이 곧 시간순이다.
-// 박는 값은 분리한 시각이다. "언제부터 기록했는지"는 재시작 후 기존 파일에 이어 쓸 때
-// 알 수가 없지만(첫 줄을 읽어야 한다), 분리 시각은 그 순간 확실하다.
+// 번호(bot.1.log)가 아니라 분리한 시각을 붙인다: 회전할 때 rename 이 한 번이고, 이름순이 곧 시간순이다.
+// 기록을 시작한 시각은 다시 시작해 이어 쓰면 알 수 없지만 분리한 시각은 그 순간 확실하다.
 function backupPath(file: string, at: Date | string = new Date()): string {
   const ext = path.extname(file);
   const tag = typeof at === "string" ? at : stamp(at);
@@ -76,27 +71,24 @@ function stripAnsi(s: unknown): unknown {
   return typeof s === "string" ? s.replace(ANSI_RE, "") : s;
 }
 
-/**
- * 두 설정은 서로 다른 축이고, 각각의 0은 "그 축에 제한 없음"을 뜻한다.
- *
- *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(개수 설정은 의미 없음)
- *   keep     = 0  → 회전은 하되 오래된 것을 삭제하지 않는다. 파일이 계속 쌓인다
- *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 삭제한다
- *
- * 분리된 파일에는 분리한 시각이 붙는다 (bot-2026-09-10T14-23-05.123.log).
- *
- * file: 기록할 파일 경로(절대). maxBytes: 이 크기를 넘으면 회전(0이면 회전 안 함). keep: 보관할 회전본 개수(0이면 제한 없이 쌓음)
- */
 // 멈춘 파일 로그를 다시 열어 보는 간격
 const RETRY_MS = 30_000;
 
-// notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다
-// retryMs · now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
+/**
+ * 파일 destination. file: 기록할 파일 경로(절대). maxBytes, keep 은 서로 다른 축이고 각각의 0은 "그 축에 제한 없음"이다.
+ *
+ *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(keep 은 뜻이 없다)
+ *   keep     = 0  → 회전은 하되 오래된 것을 삭제하지 않는다. 파일이 계속 쌓인다
+ *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 삭제한다
+ *
+ * notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다.
+ * retryMs, now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
+ */
 function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line), retryMs = RETRY_MS, now = Date.now }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown; retryMs?: number; now?: () => number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
   let closed = false;
-  // 멈춘 때 · 마지막으로 열어 본 때 · 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
+  // 멈춘 때, 마지막으로 열어 본 때, 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
   let down: number | null = null;
   let lastTry = 0;
   let lost = 0;
@@ -144,7 +136,6 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     return fd !== null;
   }
 
-  // keep을 넘는 오래된 파일 삭제. keep=0이면 제한이 없으므로 아무것도 삭제하지 않는다.
   function prune() {
     if (keep <= 0) return;
     const old = rotatedFilesOf(file);
@@ -159,7 +150,6 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
   }
 
   // 회전: fd를 먼저 닫는다. Windows는 열려 있는 파일을 rename하지 못한다.
-  // 번호 방식과 달리 rename은 한 번뿐이다(파일 전부를 밀어 올리지 않는다).
   function rotate() {
     try {
       fs.closeSync(fd as number); // 기록 중에만 회전한다. 그때는 열려 있다

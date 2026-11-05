@@ -1,4 +1,4 @@
-// src/rules/failure-reason.ts — 재생 실패를 로그 한 줄로. 같은 실패를 두 줄씩, yt-dlp 원문 그대로 찍지 않는다.
+// src/rules/failure-reason.ts: 재생 실패를 로그 한 줄로. 같은 실패를 두 줄씩, yt-dlp 원문 그대로 찍지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,9 +16,9 @@ const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are
 const ytdlpError = ytDlpError;
 
 test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id 를 붙인다", () => {
-  assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한 · 쿠키 없음 (hc0ZDaAZQT0)");
-  assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한 · 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
-  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한 · 쿠키가 무효. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한, 쿠키 없음 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한, 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
+  assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한, 쿠키가 유효하지 않음. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
@@ -27,7 +27,7 @@ test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", (
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
-  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "없거나 비공개 · 삭제된 곡 (abcdefghijk)");
+  assert.equal(failureReason(ytdlpError("ERROR: [youtube] abcdefghijk: Video unavailable"), false), "없거나 비공개 또는 삭제된 곡 (abcdefghijk)");
 });
 
 test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
@@ -37,7 +37,7 @@ test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
 });
 
 // 사용자는 설정을 만질 수 없다. 사용자 문장에는 무엇이 안 됐는지만, 고치는 법은 운영자 로그에
-test("봇 감지 · 요청 제한: 운영자 안내는 로그 줄에만 붙고 사용자 문장에는 없다. 쿠키는 권하지 않는다", () => {
+test("봇 감지, 요청 제한: 운영자 안내는 로그 줄에만 붙고 사용자 문장에는 없다. 쿠키는 권하지 않는다", () => {
   const bot = ytdlpError("ERROR: [youtube] abcdefghijk: Sign in to confirm you're not a bot");
   const limited = ytdlpError("ERROR: [youtube] abcdefghijk: HTTP Error 429: Too Many Requests");
   assert.match(failureReason(bot, false), /^봇 감지 \(운영자: .*bgutil.*\) \(abcdefghijk\)$/);
@@ -56,7 +56,7 @@ test("감싼 오류는 원인의 첫 줄을 붙인다", () => {
   assert.equal(failureReason(wrapped, false), "재생할 수 없는 링크입니다 (요청 실패: HTTP 404)");
 });
 
-// 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍혔다(실사용)
+// 원인의 ERROR 줄을 그대로 글로 삼은 오류(사운드클라우드)는 같은 줄이 두 번 찍힐 수 있다
 test("원인의 첫 줄이 오류와 같으면 다시 붙이지 않는다. 이름이 있는 종류는 이름으로", () => {
   const line = "ERROR: [soundcloud] a/weird: Unable to download JSON metadata: HTTP Error 500";
   const same = codedError("stream-failed", line, { cause: new Error(`${line}\nmore`) });

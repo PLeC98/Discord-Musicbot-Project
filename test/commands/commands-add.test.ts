@@ -1,8 +1,8 @@
-// 곡 추가 명령(/play · /playfirst · /search · /join · /autoplay · /dashboard)의 지금 동작을 고정한다.
+// src/discord/commands 의 곡 추가 명령(/play, /playfirst, /search, /join, /autoplay, /dashboard): 지금 동작을 고정한다.
 //
-// 입력 · 권한 · 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
-// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다.
-// 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
+// 입력, 권한, 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
+// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다.
+// 권한 판정, 서버 설정, 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
 import { inGuild, currentVoiceTarget } from "../../src/infra/guild-context.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -11,7 +11,8 @@ import * as tracks from "../helpers/tracks.ts";
 import { command, run as runCommand, runViaEntrance } from "../helpers/commands.ts";
 import searchCommand from "../../src/discord/commands/search.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
+import { LIFETIME, expireMessage, expiring, lifetimesOf, stopExpiry } from "../../src/ui/delivery.ts";
+import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
 import type { ChatInputCommandInteraction, Client, Guild, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import interactionCreate from "../../src/discord/events/interaction-create.ts";
 import * as genreConfig from "../../src/config/genres.ts";
@@ -20,7 +21,7 @@ import { PlayerRegistry } from "../../src/player/registry.ts";
 import type { Requester } from "../../src/player/track.ts";
 import type { LookupResult, Range } from "../../src/sources/lookup.ts";
 import type { TrackData } from "../../src/usecases/add-tracks.ts";
-import { selectOf } from "../helpers/cv2.ts";
+import { selectOf, textOf } from "../helpers/cv2.ts";
 import type { BotContext } from "../../src/app/bot-context.ts";
 import { fakeAdder } from "../helpers/adder.ts";
 import { fake, fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
@@ -97,7 +98,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     roles: { cache: { has: (r: string) => roles.includes(r) } },
     toString: () => `<@${USER}>`,
   };
-  // 패널 관리자가 받은 것. 곡 담기는 handled 에 따로
+  // 패널 관리자가 받은 것. 곡 추가는 handled 에 따로
   const seen: unknown[] = [];
   const handled: Array<{ handle: TrackData; who: Requester | null }> = [];
   const embeds = {
@@ -113,7 +114,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
   const players = new PlayerRegistry();
   players.followDisposals();
   const bot = fakeBot({ client, players, panels: embeds });
-  // 곡 담기는 받은 것만 적는다
+  // 곡 추가는 받은 것만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData, who) => {
     handled.push({ handle: trackData, who });
     return handle(trackData);
@@ -137,7 +138,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     },
   });
   if (player === "fake") bot.players.set("g1", existing);
-  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  // 조작 뒤 패널 갱신은 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === existing && seen.push("update"));
   return { guild: fake<Guild>(guild), member: fake<GuildMember>(member), client, bot, seen, handled, player: existing };
 }
@@ -151,7 +152,6 @@ type Sent = {
   embeds: Array<{ data: { fields: Array<{ name: string; value: string }> } }>;
 };
 type Logged = [name: string, payload?: Sent];
-// 마지막으로 보낸 것
 function lastSent(log: Logged[]) {
   const last = log.at(-1);
   assert.ok(last?.[1], "보낸 것이 있다");
@@ -199,7 +199,7 @@ function interaction(w: World, { options = {}, channelId = "c1" }: { options?: R
   return { it, log, sentOnChannel, bot: w.bot };
 }
 
-// ── /play · /playfirst ────────────────────────────────────────────────
+// ── /play, /playfirst ────────────────────────────────────────────────
 
 test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
   const w = world({ userVoice: "v2" });
@@ -208,7 +208,7 @@ test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("must-be-in-same-voice"))]]);
   assert.deepEqual(resolved, []);
 
-  // 봇이 쉬면 소환할 수 있어야 한다(봇에게 연결 · 말하기 권한)
+  // 봇이 쉬면 소환할 수 있어야 한다(봇에게 연결, 말하기 권한)
   const idle = world({ botVoice: null, canJoin: false });
   const j = interaction(idle, { options: { query: "노래" } });
   await runCommand(await command("play"), j.it, idle.bot);
@@ -311,7 +311,7 @@ test("/play 와 /playfirst 는 같은 길이다. 넣을 위치와 진입점 이�
   assert.deepEqual(first.log, play.log, "답하는 모양도 같다");
 });
 
-test("/playfirst: 실패 · 오류 분기는 /play 와 같다", async () => {
+test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
   const w = world({ roles: ["dj"] });
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -341,40 +341,89 @@ test("/playfirst: 실패 · 오류 분기는 /play 와 같다", async () => {
 
 // ── /search ───────────────────────────────────────────────────────────
 
-test("/search: 9개를 찾아 번호 버튼과 취소 버튼을 단다. 버튼은 검색한 사람 · 번호 · 영상 ID 를 싣는다", async () => {
-  const asked: Array<[string, number]> = [];
-  const search = async (q: string, n: number) => {
-    asked.push([q, n]);
-    return Array.from({ length: 6 }, (_, i) => tracks.youtube(`v${i}`, { title: `결과 ${i + 1}`, artist: "채널", duration: i === 0 ? 3725 : 65 }));
+// 스포티파이 검색의 가짜(진짜는 네트워크로 익명 상태를 받는다)
+const noSpotify = { searchSpotify: async () => [] };
+const spotifyTracks = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `스포티파이 ${i}`, artist: "가수", album: null, pageUrl: `https://open.spotify.com/track/${String(i).repeat(22)}`, requestKey: "", duration: 200, thumbnail: null, platform: "spotify" as const, id: String(i).repeat(22) }));
+
+test("/search: 처음부터 Components V2 로 검색 중을 답하고, 그 메시지를 결과 카드와 선택 메뉴(유튜브 7, 스포티파이 3)로 고친다. 2분 뒤 지운다", async () => {
+  const asked: string[] = [];
+  const search = async (q: string) => {
+    asked.push(q);
+    return { tracks: Array.from({ length: 12 }, (_, i) => tracks.youtube(`v${String(i).padStart(10, "0")}`, { title: `결과 ${i + 1}`, artist: "채널", duration: 65 })), gated: false };
   };
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   const from = sink.buffer.length;
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search, searchSpotify: async () => spotifyTracks(5) });
 
-  assert.deepEqual(asked, [["노래", 9]]);
-  assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }], "검색 결과는 본인에게만");
-  assert.deepEqual(lifetimesOf(it), [LIFETIME.menu], "고르는 화면은 메뉴 수명 뒤 지운다");
+  assert.deepEqual(asked, ["노래"]);
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **노래** 검색 중..." }))], "검색 중은 본인에게만, 처음부터 Components V2");
   assert.deepEqual(
     sink.buffer
       .slice(from)
       .filter((e) => e.text.startsWith("곡 검색"))
       .map((e) => `${e.level} ${e.text}`),
-    ['info 곡 검색: /search | 사용자 | "노래" → 결과 6개'],
-    "검색어와 결과 수를 남긴다",
+    ['info 곡 검색: /search | 사용자 | "노래" → 유튜브 7, 스포티파이 3'],
   );
-  const payload = lastSent(log);
-  const fields = payload.embeds[0].data.fields;
-  assert.deepEqual(fields.map((f) => [f.name, f.value]).slice(0, 2), [
-    ["1. 결과 1", "👤 채널 • ⏱️ 1:02:05"],
-    ["2. 결과 2", "👤 채널 • ⏱️ 1:05"],
-  ]);
-  const ids = payload.components.flatMap((row) => row.components.map((b) => b.data.custom_id));
-  const pick = (n: number) => `search:pick:${USER}:${n + 1}:v${n}`;
-  assert.deepEqual(ids, [pick(0), pick(1), pick(2), pick(3), `search:cancel:${USER}`, pick(4), pick(5)]);
+  const menu = selectOf(lastSent(log) as never);
+  assert.equal(menu?.custom_id, `search:pick:${USER}`);
+  assert.deepEqual(
+    menu?.options?.map((o) => o.value.split(":")[1]),
+    [...Array(7).fill("yt"), ...Array(3).fill("sp")],
+  );
+  assert.ok(expiring("edited-msg"), "선택하면 멈출 수 있게 메시지 ID 로 예약");
+  stopExpiry("edited-msg");
 });
 
-test("/search: 권한 · 결과 없음 · 오류", async () => {
+test("/search: 붙여 넣은 검색어 앞뒤의 공백(NBSP, 전각 공백 포함)은 걷고 찾는다", async () => {
+  const asked: string[] = [];
+  const w = world();
+  const { it } = interaction(w, { options: { query: "\u00a0 노래\u3000\n" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { ...noSpotify, search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
+  assert.deepEqual(asked, ["노래"]);
+});
+
+test("/search: 링크는 검색하지 않고 /play 처럼 바로 넣는다(글자 그대로 찾으면 엉뚱한 결과가 나온다)", async () => {
+  for (const link of ["https://youtu.be/abcdefghijk?si=x", "https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw", "spotify:track:1SwZVVH9BnXtLRLi2cbFhw"]) {
+    resolved.length = 0;
+    const w = world();
+    const { it, log } = interaction(w, { options: { query: ` ${link} ` } });
+    await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("링크는 검색하지 않는다") });
+    assert.deepEqual(log[0], ["reply", reply(frame({ body: `🔄 **${link}** 검색 중...` }))], link);
+    assert.deepEqual(
+      resolved.map((r) => [r.query, r.context]),
+      [[link, "search.resolveQuery"]],
+      link,
+    );
+  }
+});
+
+test("/search: 자동완성에서 선택한 곡(yt:<영상 id>)은 그 영상을 바로 넣는다. 모양이 틀린 값은 검색어다", async () => {
+  const w = world();
+  const { it, log } = interaction(w, { options: { query: "yt:abcdefghijk" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(it), w.bot, { search: async () => assert.fail("선택한 곡은 검색하지 않는다") });
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 곡을 추가하는 중..." }))], "기억해 둔 검색 결과에 없으면 제목 없이");
+  assert.deepEqual(
+    resolved.map((r) => [r.query, r.context]),
+    [["https://www.youtube.com/watch?v=abcdefghijk", "search 자동완성.resolveQuery"]],
+  );
+
+  // 스포티파이 곡(sp:<곡 id>)은 그 곡 링크로. 곡 넣기가 유튜브 영상을 맞춘다
+  resolved.length = 0;
+  const spotify = interaction(world(), { options: { query: "sp:1SwZVVH9BnXtLRLi2cbFhw" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(spotify.it), spotify.bot, { search: async () => assert.fail("선택한 곡은 검색하지 않는다") });
+  assert.deepEqual(
+    resolved.map((r) => r.query),
+    ["https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw"],
+  );
+
+  const asked: string[] = [];
+  const typed = interaction(world(), { options: { query: "yt:짧음" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(typed.it), typed.bot, { search: async (q) => (asked.push(q), { tracks: [], gated: false }) });
+  assert.deepEqual(asked, ["yt:짧음"]);
+});
+
+test("/search: 권한, 결과 없음, 오류", async () => {
   const denied = world({ userVoice: "v2" });
   const d = interaction(denied, { options: { query: "x" } });
   await runCommand(await command("search"), d.it, denied.bot);
@@ -387,22 +436,100 @@ test("/search: 권한 · 결과 없음 · 오류", async () => {
 
   const none = interaction(world(), { options: { query: "x" } });
   const from = sink.buffer.length;
-  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { search: async () => [] });
-  assert.deepEqual(none.log.slice(-2), [["deleteReply"], ["followUp", noticeReply(errors.notice("no-search-results"))]], "미뤄 둔 자리를 지우고 본인에게만");
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(none.it), none.bot, { ...noSpotify, search: async () => ({ tracks: [], gated: false }) });
+  assert.deepEqual(none.log.at(-1), ["editReply", post(noticeFrame(errors.notice("no-search-results")))], "검색 중 자리를 안내로 고친다");
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "x" → 결과 없음'));
 
-  // 검색이 던지면 진입점이 남기고, 미뤄 둔 답을 삭제한 뒤 본인에게만 그 종류의 안내로 알린다
+  // 유튜브가 연령 인증 안내만 주고 스포티파이도 없으면 결과 없음이 아니라 그렇다고
+  const gated = interaction(world(), { options: { query: "y" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(gated.it), gated.bot, { ...noSpotify, search: async () => ({ tracks: [], gated: true }) });
+  assert.deepEqual(gated.log.at(-1), ["editReply", post(noticeFrame(errors.notice("search-age-gated")))]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "y" → 결과 없음(유튜브 연령 인증 안내)'));
+
+  // 스포티파이 곡이 있으면 그것만으로 결과 화면, 카드 푸터에 까닭
+  const filled = interaction(world(), { options: { query: "z" } });
+  await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(filled.it), filled.bot, { search: async () => ({ tracks: [], gated: true }), searchSpotify: async () => spotifyTracks(10) });
+  assert.equal(selectOf(lastSent(filled.log) as never)?.options?.length, 10);
+  assert.ok(textOf(lastSent(filled.log)).endsWith("-# 유튜브가 연령 인증을 요구하는 검색어예요"));
+  stopExpiry("edited-msg");
+
+  // 유튜브 검색이 던지면 진입점이 남기고 검색 중 자리를 그 종류의 안내로 고친다
   const offline = async () => {
     throw networkError();
   };
   const err = interaction(world(), { options: { query: "x" } });
-  const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: BotContext) => searchCommand.execute(i, c, { search: offline }) };
+  const offlineSearch = { ...searchCommand, execute: (i: ChatInputCommandInteraction<"cached">, c: BotContext) => searchCommand.execute(i, c, { ...noSpotify, search: offline }) };
   await runViaEntrance(offlineSearch, err.it, err.bot);
   assert.deepEqual(
     err.log.map(([name]) => name),
-    ["deferReply", "deleteReply", "followUp"],
+    ["reply", "editReply"],
   );
-  assert.deepEqual(err.log[2][1], noticeReply(errors.notice("network-error")));
+  assert.deepEqual(err.log[1][1], post(noticeFrame(errors.notice("network-error"))));
+});
+
+// ── /search 결과 화면의 선택 ──
+
+const SP_ID = "1SwZVVH9BnXtLRLi2cbFhw";
+
+/** 결과 화면의 메뉴에서 value 를 선택한 상호작용. userId: 메뉴를 만든 검색한 사람 */
+function pickIn(w: World, value: string, { userId = USER } = {}) {
+  const made = interaction(w);
+  const it = Object.assign(made.it, interactionKind("select"), {
+    customId: `search:pick:${userId}`,
+    values: [value],
+    component: { options: [{ value, label: `2. 閃光` }] },
+    message: { id: "result-msg" },
+    update: async (p: Sent) => {
+      it.replied = true;
+      made.log.push(["update", p]);
+    },
+  });
+  return { ...made, it: fake<StringSelectMenuInteraction<"cached">>(it) };
+}
+
+test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가하는 중으로 고친 뒤 /play 와 같은 길로 넣는다. 담으면 그 메시지를 지운다", async () => {
+  const w = world();
+  const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
+  expireMessage("result-msg", () => assert.fail("선택한 뒤에는 삭제하지 않는다"), 60_000);
+  await searchPick[0].handle(it, w.bot);
+  assert.equal(expiring("result-msg"), false);
+  assert.deepEqual(log[0], ["update", post(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
+  assert.deepEqual(
+    resolved.map((r) => [r.query, r.context]),
+    [[`https://open.spotify.com/track/${SP_ID}`, "search 결과.resolveQuery"]],
+  );
+  assert.deepEqual(log.at(-1), ["deleteReply"]);
+});
+
+test("/search 결과 선택: 결과 메시지가 그 사이 삭제됐으면(삭제 예약이 막 돌았다) 새 본인 메시지로 추가하는 중을 보이고 선택한 곡은 넣는다", async () => {
+  const w = world();
+  const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
+  Object.assign(it, {
+    update: async () => {
+      throw Object.assign(new Error("Unknown Message"), { code: 10008 });
+    },
+  });
+  await searchPick[0].handle(it, w.bot);
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **閃光** 추가하는 중..." }))]);
+  assert.deepEqual(
+    resolved.map((r) => r.query),
+    [`https://open.spotify.com/track/${SP_ID}`],
+  );
+});
+
+test("/search 결과 선택: 검색한 사람만, 모양이 틀린 값은 모른다고, 권한이 없으면 거절(본인에게만)", async () => {
+  const other = pickIn(world(), "1:yt:abcdefghijk", { userId: "999999999999999999" });
+  await searchPick[0].handle(other.it, other.bot);
+  assert.deepEqual(other.log, [["reply", noticeReply(errors.notice("search-owner-only"))]]);
+
+  const broken = pickIn(world(), "1:yt:짧음");
+  await searchPick[0].handle(broken.it, broken.bot);
+  assert.deepEqual(broken.log, [["reply", noticeReply(errors.notice("unknown-interaction"))]]);
+
+  const denied = pickIn(world({ userVoice: "v2" }), "1:yt:abcdefghijk");
+  await searchPick[0].handle(denied.it, denied.bot);
+  assert.deepEqual(denied.log, [["reply", noticeReply(errors.notice("must-be-in-same-voice"))]]);
+  assert.deepEqual(resolved, []);
 });
 
 // ── /join ─────────────────────────────────────────────────────────────
@@ -479,7 +606,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   // 진짜처럼 버림을 알린다. 레지스트리에서 빼기는 실제 경로(알림)로
   const dispose = async (o: { session: string }) => {
     calls.push(`dispose:${o.session}`);
-    playerEvents.disposed(w.player, "replaced");
+    playerEvents.disposed(w.player, "replaced", "replaced");
   };
   Object.assign(w.player, { voice: { isAlive: () => false }, guild: w.guild, dispose });
   const { it } = interaction(w);
@@ -494,7 +621,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
 });
 
 test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 메시지를 삭제하고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
-  sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+  sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
 
   const run = async (restore: (this: Player, record: unknown, options?: { announce?: boolean }) => Promise<void>) => {
@@ -527,18 +654,25 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
 
   const paused = await run(async function () {
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
-    this.paused = true;
+    this.pause.setUser(true);
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음 · 대기열만 남음 · 둘 다 없음)
-  const nothingLeft = await run(async () => {});
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음, 열지 못해 그 곡에서 멈춰 둠, 틀다 실패해 남은 곡 없음, 틀 곡 없음)
+  const nothingLeft = await run(async function () {
+    this.queue.push(tracks.youtube("ddddddddddd")); // 가짜가 "틀다 실패"로 보는 모양
+  });
   assert.deepEqual(nothingLeft.shown(), [post(noticeFrame(errors.notice("restore-nothing-left")))]);
 
-  const stopped = await run(async function () {
-    this.queue.push(tracks.youtube("ddddddddddd"), tracks.youtube("eeeeeeeeeee"));
+  // 저장 위치가 마지막 곡의 끝이라 틀 곡이 남지 않았다: 보통의 참가로 잇는다
+  const ended = await run(async () => {});
+  assert.deepEqual(ended.shown(), [post(replies.joined())]);
+
+  const parked = await run(async function () {
+    this.currentTrack = tracks.youtube("ddddddddddd");
+    this.lifecycle.to("parked", "시험");
   });
-  assert.deepEqual(stopped.shown(), [post(noticeFrame(errors.notice("restore-failed-in-row", { left: 2 })))]);
+  assert.deepEqual(parked.shown(), [post(noticeFrame(errors.notice("restore-parked")))]);
 
   const failed = await run(async () => {
     throw new Error("복원 실패");

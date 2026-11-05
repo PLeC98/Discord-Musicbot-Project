@@ -21,7 +21,7 @@ function remove(provider: string) {
   secrets.remove(nameOf(provider));
 }
 
-/** 지금 주소로 꺼낸 키. 없거나 주소가 다르거나 못 풀면 빈 문자열 */
+/** 지금 주소로 꺼낸 키. 없거나 주소가 다르거나 복호화하지 못하면 빈 문자열 */
 function read(provider: string, endpoint: string) {
   const got = secrets.read(nameOf(provider), { provider, endpoint });
   return got.state === "ok" ? got.value : "";
@@ -34,8 +34,8 @@ function stateOf(provider: string, endpoint: string): AiKeyState {
 }
 
 /**
- * 저장된 키 값 모두(가리기용: 거절 응답이 되비춘 키를 화면 · 로그에서 지운다). 키마다 묶인 곳으로 푼다.
- * 묶인 주소 열을 바꿔 둔 행은 풀리지 않아 빠진다. 그런 키는 어디로도 나가지 않으므로 가릴 것도 없다
+ * 저장된 키 값 모두(가리기용: 거절 응답이 되비춘 키를 화면, 로그에서 가린다). 키마다 묶인 곳으로 복호화한다.
+ * 묶인 주소 열을 바꿔 둔 행은 복호화되지 않아 빠진다. 그런 키는 어디로도 나가지 않으므로 가릴 것도 없다
  */
 function allValues(providers: readonly string[]) {
   const out: string[] = [];
@@ -48,11 +48,11 @@ function allValues(providers: readonly string[]) {
   return out;
 }
 
-/** 옛 키 파일(config/ai-keys.yaml)이 남아 있으면 기동 때 한 줄. 읽지도 삭제하지도 않는다 */
+/** 옛 키 파일(config/ai-keys.yaml)이 남아 있으면 기동 시 한 줄. 읽지도 삭제하지도 않는다 */
 function warnLegacyFile(dir = PROJECT.config) {
   const file = path.join(dir, "ai-keys.yaml");
   if (fs.existsSync(file) && fs.statSync(file).size > 0) {
-    log.warn("config/ai-keys.yaml 은 이제 읽지 않습니다. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요");
+    log.warn("config/ai-keys.yaml은 이제 읽지 않습니다. 운영자 패널의 AI 보조 탭에서 키를 다시 입력하고 이 파일은 삭제하세요");
   }
 }
 

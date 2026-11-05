@@ -1,7 +1,8 @@
-// 디스코드 앱 이모지 그림 굽기. 아이콘 표(ui/icons)의 한 항목 + 바탕색 → 128 × 128 PNG(도는 것은 GIF).
+// 디스코드 앱 이모지 이미지 만들기. 아이콘 표(ui/icons)의 한 항목 + 바탕색 → 128 × 128 PNG(도는 것은 GIF).
 // 타일: 둥근 사각형(모서리 28%)에 바탕색의 톤 40, 기호는 톤 98(rules/icon-tones). 흰 기호: 타일 없이 흰색(색 버튼 위).
+// 로고: 공식 흰 아이콘 파일을 고치지 않고 투명 여백만 잘라, 브랜드 색 타일 위에 같은 비율로 얹는다.
 // 머티리얼 기호는 글꼴 칸(960) 기준으로 모두 같은 배율이라 디자이너가 칸 안에서 맞춘 크기 보정이 살아 있다. 방패(SponsorBlock)는 자체 여백이 없어 경계 상자로 맞춘다.
-// 같은 입력이면 같은 바이트다(sharp · libvips 버전이 같을 때). 맞추기(app/app-emojis)가 디스코드에 올라간 것과 바이트로 견준다
+// 같은 입력이면 같은 바이트다(sharp, libvips 버전이 같을 때). 동기화(app/app-emojis)가 디스코드에 올라간 것과 바이트로 비교한다
 
 import fs from "fs";
 import path from "path";
@@ -9,17 +10,19 @@ import sharp from "sharp";
 import { PROJECT } from "../infra/project-paths.ts";
 import { iconTones } from "../rules/icon-tones.ts";
 import { colorOf } from "./colors.ts";
-import { ON_COLOR_BUTTON } from "./palette.ts";
+import { BRAND_COLORS, ON_COLOR_BUTTON } from "./palette.ts";
 import { SHIELD_OF_GLYPH, shieldOf } from "./shield-svg.ts";
 import type { IconSpec, Tint } from "./icons.ts";
 
 const SIZE = 128;
 const RADIUS = SIZE * 0.28;
-/** 머티리얼 기호: 글꼴 칸이 이모지 칸에서 차지하는 비율(디스코드에서 견주어 정함) */
+/** 머티리얼 기호: 글꼴 칸이 이모지 칸에서 차지하는 비율 */
 const SCALE = 0.88;
 /** 방패: 보이는 모양의 긴 변이 이모지 칸에서 차지하는 비율(대시보드와 같은 기호 칸 대비 비율) */
 const SHIELD = SCALE * SHIELD_OF_GLYPH;
-/** 도는 것: 한 바퀴 24장 · 장마다 50ms(1.2초) */
+/** 로고: 공식 아이콘의 긴 변이 이모지 칸에서 차지하는 비율(머티리얼 기호와 무게가 비슷한 것) */
+const LOGO = 0.72;
+/** 도는 것: 한 바퀴 24장, 장마다 50ms(1.2초) */
 const SPIN_FRAMES = 24;
 const SPIN_DELAY_MS = 50;
 
@@ -61,8 +64,27 @@ function svgOf(spec: IconSpec, tint: Tint, rotate = 0) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">${body}</svg>`;
 }
 
-/** 그 항목의 그림. 도는 것은 움직이는 GIF */
+// 로고 타일. SVG 는 크게 그린 뒤 줄인다(작게 그리면 가장자리가 뭉개진다)
+async function logoTile(spec: IconSpec): Promise<Buffer> {
+  if (!spec.brand) throw new Error(`로고의 회사가 없습니다: ${spec.glyph}`);
+  const file = path.join(DIR, spec.glyph);
+  const source = spec.glyph.endsWith(".svg") ? sharp(file, { density: 600 }) : sharp(file);
+  const trimmed = await source.png().trim({ threshold: 1 }).toBuffer({ resolveWithObject: true });
+  const long = Math.round(SIZE * LOGO);
+  const logo = await sharp(trimmed.data)
+    .resize(trimmed.info.width >= trimmed.info.height ? { width: long } : { height: long })
+    .png()
+    .toBuffer({ resolveWithObject: true });
+  const tile = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}"><rect width="${SIZE}" height="${SIZE}" rx="${RADIUS}" fill="${BRAND_COLORS[spec.brand]}"/></svg>`);
+  return sharp(tile)
+    .composite([{ input: logo.data, left: Math.round((SIZE - logo.info.width) / 2), top: Math.round((SIZE - logo.info.height) / 2) }])
+    .png()
+    .toBuffer();
+}
+
+/** 그 항목의 이미지. 도는 것은 움직이는 GIF */
 async function imageOf(spec: IconSpec, tint: Tint): Promise<{ data: Buffer; animated: boolean }> {
+  if (spec.shape === "logo") return { data: await logoTile(spec), animated: false };
   if (spec.shape !== "spin")
     return {
       data: await sharp(Buffer.from(svgOf(spec, tint)))

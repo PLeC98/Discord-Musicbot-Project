@@ -1,7 +1,7 @@
 <!--
   저장/되돌리기(운영자 패널에 하나). 어느 탭의 편집기든 고친 것이 생기면 나타나고, 탭을 옮겨도 그대로다(composables/save-targets).
 
-  태블릿 · PC: 위 막대 오른쪽(알림 옆)에 "저장하지 않은 변경 · 되돌리기 · 저장". 위 막대는 틀이라 내용을 가리지 않는다.
+  태블릿, PC: 위 막대 오른쪽(알림 옆)에 "저장하지 않은 변경 · 되돌리기 · 저장". 위 막대는 틀이라 내용을 가리지 않는다.
     저장을 누르면 서버 설정의 자동 저장과 같은 표시(SaveIndicator: 플로피가 돌다 동그라미 체크)로 바뀌었다 사라진다.
   휴대폰: 위 막대 오른쪽에 공간이 없어 디스코드처럼 아래(미니 재생 바 위)에 막대로 표시하고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 막대 위로 올려 볼 수 있게).
   blocked(검사에 걸린 값): 저장을 막고 "고칠 것이 남아 있어요"(blockedTip: 어느 탭인지).
@@ -13,7 +13,7 @@
 
   <Teleport to="#topbar-end" :disabled="phone" defer>
     <template v-if="!phone">
-      <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="transition-[opacity,translate] duration-200 ease-out" leave-active-class="transition-[opacity,translate] duration-150 ease-in">
+      <Transition enter-from-class="opacity-0 translate-x-2" leave-to-class="opacity-0 translate-x-2" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_390ms_var(--ease-spring-fast)]" leave-active-class="transition-[opacity,translate] effects-fast">
         <div v-if="dirty && !saving" class="flex items-center gap-1.5">
           <span class="hidden lg:flex items-center gap-1.5 pr-1 text-xs font-medium" :class="blocked ? 'text-error' : 'text-tertiary'" v-tooltip="blocked ? blockedTip || null : null"><span class="size-1.5 rounded-full bg-current"></span>{{ blocked ? T.fixFirst : T.unsaved }}</span>
           <button type="button" :class="[pill, 'text-on-surface']" @click="$emit('revert')"><Icon name="undo" :size="16" />{{ T.revert }}</button>
@@ -26,7 +26,7 @@
   </Teleport>
 
   <!-- 휴대폰: 미니 재생 바 위에 뜨는 막대 -->
-  <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.2,0,0,1)]" leave-active-class="transition-[opacity,translate] duration-200 ease-in">
+  <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_460ms_var(--ease-spring)]" leave-active-class="transition-[opacity,translate] duration-200 ease-accelerate">
     <div v-if="phone && (dirty || indicator !== 'idle')" class="fixed inset-x-3 z-120 h-14 pl-4 pr-2 rounded-full pane-float flex items-center gap-2" :style="{ bottom: 'calc(var(--player, 0px) + 0.75rem)' }">
       <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? blockedTip || T.fixFirst : T.unsavedLong }}</span>
       <template v-if="dirty && !saving">
@@ -56,7 +56,7 @@ const props = withDefaults(
     blocked?: boolean;
     /** 저장을 막은 까닭(고칠 것이 남은 탭) */
     blockedTip?: string;
-    /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 먹는 값을 고쳤다) */
+    /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 적용되는 값을 고쳤다) */
     restart?: boolean;
   }>(),
   { dirty: false, saving: false, blocked: false, blockedTip: "", restart: false },

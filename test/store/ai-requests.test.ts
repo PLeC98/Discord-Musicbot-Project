@@ -1,4 +1,4 @@
-// AI 리퀘스트 로그 · 사용량 통계 저장: 쓰기 · 필터 · 페이지 넘기기 · 저장 용량 맞추기 · 삭제 · 필드 자르기
+// src/store/ai-requests.ts: AI 리퀘스트 로그, 사용량 통계 저장. 쓰기, 필터, 페이지 넘기기, 저장 용량 맞추기, 삭제, 필드 자르기
 
 import test, { after } from "node:test";
 import assert from "node:assert";
@@ -36,7 +36,7 @@ const BASE: NewRecord = {
 const BIG = 1024 * 1024 * 1024;
 const add = (patch: Partial<NewRecord> = {}) => requests.record({ ...BASE, ...patch }, { maxBytes: BIG });
 
-test("쓴 행은 목록 · 한 행 읽기로 돌아오고, 듣는 쪽에 알린다", () => {
+test("쓴 행은 목록, 한 행 읽기로 돌아오고, 듣는 쪽에 알린다", () => {
   requests.clearRequests();
   const heard: number[] = [];
   const off = requests.onRecorded((entry) => heard.push(entry.id));
@@ -50,7 +50,7 @@ test("쓴 행은 목록 · 한 행 읽기로 돌아오고, 듣는 쪽에 알린�
   assert.equal(requests.list({ sources: [], result: "", q: "" }, { limit: 50 }).entries[0].id, entry.id);
 });
 
-test("필터: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까지) · 최근 것부터 페이지 넘기기", () => {
+test("필터: 출처, 결과, 찾는 말(대소문자 무시, 이름까지), 최근 것부터 페이지 넘기기", () => {
   requests.clearRequests();
   add({ source: "models", model: "", name: "", url: "https://api.openai.com/v1/models", tokens: null });
   add({ ok: false, status: 429, error: "Too Many Requests" });
@@ -62,7 +62,7 @@ test("필터: 출처 · 결과 · 찾는 말(대소문자 무시, 이름까지) 
   assert.equal(requests.list({ ...all, q: "FANCY" }, { limit: 50 }).matched, 1);
   // % 는 글자 그대로다(LIKE 처럼 아무 글자나가 아니다)
   assert.equal(requests.list({ ...all, q: "%" }, { limit: 50 }).matched, 0);
-  // 한국어 찾기: 조합 중인 마지막 글자 · 초성(화면의 실시간 필터 aiLogMatches 와 같은 규칙)
+  // 한국어 검색: 조합 중인 마지막 글자, 초성(화면의 실시간 필터 aiLogMatches 와 같은 규칙)
   add({ source: "ping", name: "제미니 무료" });
   assert.equal(requests.list({ ...all, q: "제민" }, { limit: 50 }).matched, 1);
   assert.equal(requests.list({ ...all, q: "ㅈㅁㄴ" }, { limit: 50 }).matched, 1);

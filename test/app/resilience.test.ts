@@ -1,4 +1,4 @@
-// src/app/resilience.ts — 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
+// src/app/resilience.ts: 프로세스 수준에서 새어 나온 오류. 서버를 알면 그 서버만 다시 시작하고, 모르면 남기고 계속 돌며, 서버를 가리지 않고 쏟아질 때만 내린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +15,7 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("아는 디스코드 오류: 못 답한 · 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
+test("아는 디스코드 오류: 못 답한, 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
   assert.equal(knownDiscordError({ code: 10062 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 40060 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
@@ -25,7 +25,7 @@ test("아는 디스코드 오류: 못 답한 · 두 번 답한 상호작용은 w
 
 // ── 안전 종료 ──
 
-// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 채널에는 남긴 채 연결을 정리한다(release)
+// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 나감 없이 연결을 정리한다(release)
 function savable(id: string, steps: string[], { saveFails = false } = {}) {
   return {
     persistence: {
@@ -38,7 +38,7 @@ function savable(id: string, steps: string[], { saveFails = false } = {}) {
   };
 }
 
-test("안전 종료: 모든 플레이어의 세션을 저장하고 채널에는 남긴 채 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
+test("안전 종료: 모든 플레이어의 세션을 저장하고 나감 없이 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
   const steps: string[] = [];
   const players = new Map([
     ["g1", savable("g1", steps)],
@@ -65,9 +65,9 @@ test("안전 종료: 플레이어 없음도 exit 호출", () => {
   assert.equal(exited, 1);
 });
 
-// ── 새어 나온 오류 처리기 ──
+// ── 새어 나온 오류 핸들러 ──
 
-// 처리기를 건 클라이언트 · 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
+// 핸들러를 건 클라이언트, 프로세스. 서버 하나 다시 시작(faults)와 나가기(exits)를 센다
 function installed() {
   const faults: string[] = [];
   const exits: number[] = [];
@@ -107,7 +107,7 @@ test("서버를 모르는 오류는 남기고 계속 돈다. 서버를 가리지
   proc.emit("uncaughtException", new Error("버그"));
   client.emit("error", Object.assign(new Error("socket"), { code: "ECONNRESET" }));
   assert.deepEqual(exits, [], "한두 번은 계속 돈다");
-  for (let i = 0; i < FLOOD_MAX - 1; i++) proc.emit("unhandledRejection", "문자열 거부"); // 앞의 둘과 합쳐 문턱을 한 번 넘는다
+  for (let i = 0; i < FLOOD_MAX - 1; i++) proc.emit("unhandledRejection", "문자열 거부"); // 앞의 둘과 합쳐 임계값을 한 번 넘는다
   assert.deepEqual(exits, [1], "쏟아지면 내린다");
   assert.deepEqual(faults, []);
 });

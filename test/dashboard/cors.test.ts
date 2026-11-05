@@ -1,3 +1,5 @@
+// src/dashboard/cors.ts: 대시보드 CORS 허용 출처(대시보드 주소 하나, 개발 서버는 명시적으로 켰을 때만)와 DASHBOARD_URL 검사
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCorsOptions, normalizeDashboardOrigin } from "../../src/dashboard/cors.ts";
@@ -18,7 +20,7 @@ test("기본 실행은 대시보드 주소 하나만 허용한다 (개발 서버
   assert.equal(await isAllowed(options, "http://localhost:5173"), false);
 });
 
-// 개발 서버 출처는 `pnpm run dev`가 켤 때만 연다. NODE_ENV 로 가르면 평상시 실행이 열린 쪽이 되어 운영자가 닫는 것을 기억해야 한다.
+// 개발 서버 출처는 `pnpm run dev`가 켤 때만 연다. NODE_ENV 로 구분하면 평상시 실행이 열린 쪽이 되어 운영자가 닫는 것을 기억해야 한다.
 test("개발 서버(5173)는 명시적으로 켰을 때만 허용한다", async () => {
   const options = createCorsOptions("http://localhost:33333", { allowDevOrigin: true });
   assert.equal(await isAllowed(options, "http://localhost:33333"), true);
@@ -41,9 +43,9 @@ test("형식이 깨졌거나 출처를 헷갈리게 만든 값은 거부", async
   assert.equal(await isAllowed(options, "https://dashboard.example.com@evil.example"), false);
 });
 
-test("DASHBOARD_URL은 평범한 http·https 출처여야 한다", () => {
+test("DASHBOARD_URL은 평범한 http, https 출처여야 한다", () => {
   assert.equal(normalizeDashboardOrigin("https://dashboard.example.com/path"), "https://dashboard.example.com");
   assert.throws(() => normalizeDashboardOrigin("javascript:alert(1)"), /http 나 https/);
-  assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /계정 · 쿼리 · 조각 없는 주소/);
-  assert.throws(() => normalizeDashboardOrigin("https://example.com/?next=evil"), /계정 · 쿼리 · 조각 없는 주소/);
+  assert.throws(() => normalizeDashboardOrigin("https://user:pass@example.com"), /계정, 쿼리, 프래그먼트가 없는 주소/);
+  assert.throws(() => normalizeDashboardOrigin("https://example.com/?next=evil"), /계정, 쿼리, 프래그먼트가 없는 주소/);
 });

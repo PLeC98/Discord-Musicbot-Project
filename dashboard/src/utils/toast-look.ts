@@ -1,4 +1,4 @@
-// 알림 종류마다의 모양(떠 있는 알림 · 알림함이 같이 쓴다): 됨은 주 색, 경고는 3차 색, 오류는 오류 색
+// 알림 종류마다의 모양(떠 있는 알림, 알림함이 같이 쓴다): 됨은 주 색, 경고는 3차 색, 오류는 오류 색
 import type { Severity } from "../composables/toasts.ts";
 import type { IconName } from "../icons.ts";
 import { formatClock } from "./locale.ts";

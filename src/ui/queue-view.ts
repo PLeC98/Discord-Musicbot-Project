@@ -1,4 +1,4 @@
-// 대기열 화면 한 벌. /queue 와 재생 패널의 대기열 버튼, 넘기기 버튼이 같은 그림을 쓴다.
+// 대기열 화면 한 벌. /queue 와 재생 패널의 대기열 버튼, 넘기기 버튼이 같은 화면을 쓴다.
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import { queueDescription } from "./queue-display.ts";
@@ -20,14 +20,14 @@ type QueueInfo = { queue: Listed[] };
 /** 이 대기열의 페이지 수(적어도 1) */
 const pagesOf = (info: QueueInfo) => Math.max(1, Math.ceil(info.queue.length / PAGE_SIZE));
 
-/** 대기열 화면이 보는 것 */
+/** 플레이어에서 대기열 화면이 보는 것만 */
 function queueInfoOf(player: { queue: Listed[] }): QueueInfo {
   return { queue: player.queue };
 }
 
 /**
  * 대기열 한 페이지. 페이지 번호는 1 부터이고 범위를 넘으면 끝 페이지로 붙인다.
- * 페이지가 둘 이상이면 넘기기 버튼(이전 · 다음 쪽)을 단다. 넘기면 그때의 대기열로 다시 그린다
+ * 페이지가 둘 이상이면 넘기기 버튼(이전, 다음 쪽)을 단다. 넘기면 그때의 대기열로 다시 그린다
  */
 function queueView(info: QueueInfo, page = 1) {
   const pages = pagesOf(info);

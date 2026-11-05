@@ -1,13 +1,12 @@
 // 자동재생 후보 풀. 소스에서 불러온 곡 목록을 쥐고 있다가 한 곡씩 내준다.
 //
-// 소스를 한 번 부르면 곡이 무더기로 온다(Last.fm 1000 · AnimeThemes 100 · LB Radio 50).
-// 그런데 선택하는 것은 3분에 한 곡이라, 매번 부르면 나머지를 버리는 셈이다. 불러와 두고 나눠 쓴다.
+// 소스를 한 번 부르면 곡이 무더기로 오는데(Last.fm 1000곡, AnimeThemes 100곡, LB Radio 50곡) 선택은 한 곡씩이라
+// 매번 부르면 나머지를 버리는 셈이다. 불러와 두고 나눠 쓴다.
 //
-// 키는 장르가 아니라 소스 설정 그 자체다. 장르 정의는 전역이고 장르마다 설정이 다르므로,
-// 설정을 키로 삼으면 섞일 일이 없고 설정을 고쳤을 때 옛 풀이 저절로 버려진다.
+// 키는 장르가 아니라 소스 설정 그 자체다. 섞일 일이 없고 설정을 고치면 옛 풀이 저절로 버려진다.
 //
-// 메모리에만 둔다. 잃어도 비용이 호출 한 번이고, 저장하면 다시 채울 때 정하는 무작위 오프셋이
-// 다시 시작해도 살아남아 뜻이 없어진다.
+// 메모리에만 둔다. 잃어도 비용이 호출 한 번이고, 저장하면 채울 때 정한 무작위 오프셋이
+// 다시 시작해도 남아 뜻이 없어진다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
@@ -96,12 +95,12 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
   return picked;
 }
 
-/** 지금 쥐고 있는 풀들의 형편. 로그와 테스트에서 본다. */
+/** 지금 쥐고 있는 풀들의 상태. 로그와 테스트에서 본다. */
 function stats() {
   return [...pools.entries()].map(([key, p]) => ({ key, total: p.tracks.length, used: p.used.size, age: Date.now() - p.fetchedAt }));
 }
 
-/** 테스트 시임. 풀을 전부 버린다. */
+/** 테스트용. 풀을 전부 버린다. */
 function _reset() {
   pools.clear();
 }

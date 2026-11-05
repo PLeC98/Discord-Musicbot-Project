@@ -57,7 +57,8 @@ function resolve(): Resolved {
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
-      throw codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`);
+      // 범위: 모든 곡이 같이 안 된다(player/failure-scope)
+      throw Object.assign(codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`), { scope: "environment" });
     }
     resolved = { path: configured, version, source: "FFMPEG_PATH" };
     return resolved;
@@ -76,7 +77,7 @@ function resolve(): Resolved {
     }
   }
 
-  throw codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg).");
+  throw Object.assign(codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg)."), { scope: "environment" });
 }
 
 /** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
@@ -103,7 +104,7 @@ function ffmpegPath(): string {
  * `segMaxRetry`는 비교적 최근 옵션이라 따로 본다. ffmpeg는 모르는 옵션을 치명적 오류로 보므로
  * 없는 빌드에 붙이면 재생이 시작조차 못 한다.
  *
- * `dash`는 DASH 조각 목록을 여는가. 지금 받는 곳에서는 드물다.
+ * `dash`는 DASH 세그먼트 목록을 여는가. 지금 받는 곳에서는 드물다.
  */
 function capabilities(): Capabilities {
   if (caps) return caps;
@@ -112,12 +113,12 @@ function capabilities(): Capabilities {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
       if (result.error) {
-        log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
         return "";
       }
       return `${result.stdout || ""}${result.stderr || ""}`;
     } catch (error) {
-      log.debug(`ffmpeg 능력 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
+      log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
       return "";
     }
   };

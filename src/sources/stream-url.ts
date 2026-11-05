@@ -1,4 +1,4 @@
-// 트랙 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
+// 곡 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
 
 import { codedError } from "../rules/error-kind.ts";
 import * as YouTube from "./youtube/index.ts";
@@ -11,9 +11,9 @@ import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { leaveDeadPin } from "./pinned-fallback.ts";
+import { audioKeyOf } from "../rules/audio-key-of.ts";
 
-// 여는 쪽 · 동등물 찾는 쪽. 테스트가 가짜를 넘긴다
-/** 스트림 서술자. 재생 쪽이 읽는 필드만 적는다. 소스마다 필드가 더 있다 */
+/** 스트림 서술자. 재생 쪽이 읽는 필드만 둔다 */
 type StreamInfo = {
   url: string;
   protocol?: string | null;
@@ -23,30 +23,30 @@ type StreamInfo = {
   title?: string | null;
   duration?: number;
   liveStatus?: string | null;
-  bitrate?: number;
   isLive?: boolean;
   /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
   availableAt?: number | null;
-  /** 조각 목록으로만 주는 포맷이면 조각 주소의 모양(포맷 주소 뒤 `&sq=번호`, 조각 수). 아니면 없다 */
+  /** 세그먼트 목록으로만 주는 포맷이면 세그먼트 주소의 모양(포맷 주소 뒤 `&sq=번호`, 세그먼트 수). 아니면 없다 */
   fragments?: { base: string; count: number } | null;
-  /** 앞서 받아 둔 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 받는다) */
+  /** 캐시된 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 추출한다) */
   reused?: boolean;
-  [field: string]: unknown;
+  /** 이 서술자를 받은 음원 주소의 캐시 키(rules/audio-key-of). 곡의 음원 주소는 나중에 바뀔 수 있어 받은 때의 것을 싣는다 */
+  audioKey?: string | null;
 };
-// 여기서 부르는 것만
+// 여는 쪽, 유튜브 동등물 찾는 쪽. 테스트가 가짜를 넘긴다. 여기서 부르는 것만
 type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): Promise<StreamInfo>; isVideoUnavailableError(error: unknown): boolean };
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
-/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 받아 둔 유튜브 영상 정보를 쓰지 않는다(다시 쓴 주소가 열리지 않았다) */
+/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 버리고 새로 받는다(다시 쓴 주소가 열리지 않았다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
 const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
  * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
+ * options 에서 넘기지 않은 것은 DEFAULTS(실제 모듈, canPlayHls = true, fresh = false)
  */
-// options: 넘기지 않은 것은 진짜(youtube · soundcloud · equivalent)와 canPlayHls = true
 async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
   const opts = { ...DEFAULTS, ...options };
   try {
@@ -61,7 +61,7 @@ async function getStream(track: Seeking & { platform?: string | null }, options:
   }
 }
 
-/** 지정한 음원이 라이브인가: 유튜브는 스트림 답(방송 중 · 시작 전), 직접 링크는 인터넷 라디오 헤더(HEAD) */
+/** 지정한 음원이 라이브인가: 유튜브는 스트림 답(방송 중, 시작 전), 직접 링크는 인터넷 라디오 헤더(HEAD) */
 async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInfo, direct: DirectInfo): Promise<boolean> {
   if (stream.liveStatus === "is_live" || stream.liveStatus === "is_upcoming") return true;
   if (!audioUrl || inputKind(audioUrl) !== "direct") return false;
@@ -69,34 +69,37 @@ async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInf
   return info?.isLive === true;
 }
 
-async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions) {
+// 받은 음원 주소의 키를 싣는다. 서술자의 url 은 CDN 주소라 키가 되지 않는다
+const keyed = (stream: StreamInfo, audioUrl: string): StreamInfo => ({ ...stream, audioKey: audioKeyOf(audioUrl) });
+
+async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions): Promise<StreamInfo> {
   const audioUrl = track.audioUrl || (await equivalent.findYouTubeEquivalent(track));
   if (!audioUrl) {
-    throw codedError("sp-no-youtube-match", `Spotify 트랙의 YouTube 동등물을 찾을 수 없음: ${logTitle(track.title)}`);
+    throw codedError("sp-no-youtube-match", `유튜브에서 같은 곡을 찾지 못함: ${logTitle(track.title)}`);
   }
 
   switch (inputKind(audioUrl)) {
     case "youtube":
       try {
-        return await youtube.getStream(audioUrl, { fresh });
+        return keyed(await youtube.getStream(audioUrl, { fresh }), audioUrl);
       } catch (err) {
-        // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드·즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
+        // 링크 데이터에서 가져온 영상이 내려간 경우(프리로드, 즉시재생 스트리밍이 여기서 먼저 실패) → 재검색 후 1회 재시도.
         if (youtube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const ytUrl = await equivalent.reresolveYouTube(track);
-          if (ytUrl) return await youtube.getStream(ytUrl, { fresh });
+          if (ytUrl) return keyed(await youtube.getStream(ytUrl, { fresh }), ytUrl);
         }
         throw err;
       }
 
     case "soundcloud":
-      return soundcloud.getStream(audioUrl, { canPlayHls });
+      return keyed(await soundcloud.getStream(audioUrl, { canPlayHls }), audioUrl);
 
     case "direct":
-      // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.getStream(SafeUrl 가드)이
-      // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수·이중소비가 생긴다.
-      // 인터넷 라디오는 담을 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
-      return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null };
+      // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.open(SafeUrl 가드)이
+      // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수, 이중소비가 생긴다.
+      // 인터넷 라디오는 곡 추가 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
+      return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null, audioKey: audioKeyOf(audioUrl) };
 
     default:
       throw new Error(`지원되지 않는 음원 주소: ${track.platform ?? "없음"}`);

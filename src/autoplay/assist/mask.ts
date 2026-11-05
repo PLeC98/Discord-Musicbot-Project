@@ -1,4 +1,4 @@
-// AI 보조가 화면 · 로그 · 리퀘스트 로그에 내보내는 글에서 키를 가린다. 판정(assist/index)과 기록(assist/request-log)이 같이 쓴다.
+// AI 보조가 화면, 로그, 리퀘스트 로그에 내보내는 글에서 키를 가린다. 판정(assist/index)과 기록(assist/request-log)이 같이 쓴다.
 //
 // 어떤 서비스는 거절 응답에 보낸 값을 되비춘다. 화면에도 로그에도 키가 남으면 안 된다.
 // 무엇이 가려진 것인지 알아볼 수 있게 이름을 붙인다(별표만 있으면 원래 그런 값인 줄 안다).
@@ -33,9 +33,7 @@ function mask(text: unknown): string {
   return out;
 }
 
-// 인증이 실리는 헤더는 규격마다 다르다(rules/secret-headers)
-
-/** 화면에 보여도 되는 헤더. 키 값은 절대 나가지 않는다. */
+/** 화면에 보여도 되는 헤더. 인증이 실리는 헤더(규격마다 다르다, rules/secret-headers)의 키 값은 절대 나가지 않는다. */
 function safeHeaders(headers: Record<string, string> | null | undefined) {
   const out: Record<string, string> = {};
   for (const [name, value] of Object.entries(headers || {})) {
@@ -43,7 +41,7 @@ function safeHeaders(headers: Record<string, string> | null | undefined) {
       out[name] = value;
       continue;
     }
-    // 앞의 낱말(Bearer)은 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
+    // 앞의 단어(Bearer)는 남긴다. 어떤 방식으로 붙는지는 보이는 편이 낫다
     const scheme = /^(\w+)\s/.exec(String(value));
     out[name] = scheme ? `${scheme[1]} ${REDACTED}` : REDACTED;
   }

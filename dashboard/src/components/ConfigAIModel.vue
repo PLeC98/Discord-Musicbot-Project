@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 모델: 어디로(프로바이더 · 주소 · 키) · 무엇을(모델) 부를지 한 카드, 연결 테스트 · 모델 파라미터.
+  AI 보조, 모델: 어디로(프로바이더, 주소, 키), 무엇을(모델) 부를지 한 카드, 연결 테스트, 모델 파라미터.
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -10,7 +10,7 @@
           <span :class="FIELD_LABEL">{{ TM.provider }}</span>
           <SingleSelect :model-value="on ? draft.provider : ''" :options="providerOptions" :placeholder="text.fields.pick" @update:model-value="pickProvider" />
         </label>
-        <!-- 주소를 직접 입력하는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. 버텍스는 프로젝트 · 리전 · 모델로 조립한 것을 보여 준다 -->
+        <!-- 주소를 직접 입력하는 것은 custom 뿐이다. 나머지는 그 서비스의 주소로 간다. 버텍스는 프로젝트, 리전, 모델로 조립한 것을 보여 준다 -->
         <label v-if="on" class="block min-w-0">
           <span :class="FIELD_LABEL">{{ TM.endpoint }}</span>
           <input v-if="spec?.editable" :value="draft.baseUrl" placeholder="https://example.com/v1" :class="[FIELD, 'w-full']" @input="draft.baseUrl = valueOf($event)" />
@@ -64,12 +64,14 @@
 
         <div v-if="models.length || hideModels.length">
           <BaseButton variant="ghost" size="sm" @click="showHide = !showHide"
-            ><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showHide && 'rotate-180'" />{{ TM.hide }}<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
+            ><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showHide && 'rotate-180'" />{{ TM.hide }}<span v-if="hideModels.length" class="nums">{{ hideModels.length }}</span></BaseButton
           >
-          <div v-if="showHide" class="mt-2 flex flex-col gap-1">
-            <p class="text-xs text-on-surface-variant">{{ TM.hideHelpBefore }}<code class="font-mono">*</code>{{ TM.hideHelpAfter }}</p>
-            <ChipInput v-model="hideModels" lowercase :placeholder="TM.hidePlaceholder" />
-          </div>
+          <CollapseTransition>
+            <div v-if="showHide" class="mt-2 flex flex-col gap-1">
+              <p class="text-xs text-on-surface-variant">{{ TM.hideHelpBefore }}<code class="font-mono">*</code>{{ TM.hideHelpAfter }}</p>
+              <ChipInput v-model="hideModels" lowercase :placeholder="TM.hidePlaceholder" />
+            </div>
+          </CollapseTransition>
         </div>
       </template>
     </div>
@@ -90,9 +92,11 @@
         >
         <pre v-if="tested.body" :class="CODE_BOX">{{ tested.body }}</pre>
         <div v-if="tested.raw && tested.raw !== tested.body">
-          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
+          <BaseButton variant="ghost" size="sm" @click="showRaw = !showRaw"><Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="showRaw && 'rotate-180'" />{{ showRaw ? TT.rawHide : TT.rawShow }}</BaseButton>
         </div>
-        <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+        <CollapseTransition>
+          <pre v-if="showRaw && tested.raw" :class="CODE_BOX">{{ tested.raw }}</pre>
+        </CollapseTransition>
       </template>
     </div>
   </BaseCard>
@@ -135,7 +139,7 @@
         <div>
           <h3 class="text-sm font-semibold text-on-surface">{{ TP.extra }}</h3>
           <p class="mt-1 text-xs text-on-surface-variant">
-            {{ TP.extraHelp }}<code class="font-mono">key=value</code> · <code class="font-mono">key=json::{...}</code> · <code class="font-mono">header::Name=value</code> · <code class="font-mono">key={{ NONE_MARK }}</code>
+            {{ TP.extraHelp }}<code class="font-mono">key=value</code>, <code class="font-mono">key=json::{...}</code>, <code class="font-mono">header::Name=value</code>, <code class="font-mono">key={{ NONE_MARK }}</code>
           </p>
         </div>
         <textarea :value="extraText" rows="4" :placeholder="EXTRA_SAMPLE" :class="[AREA, 'font-mono text-xs']" @input="extraText = valueOf($event)"></textarea>
@@ -146,6 +150,7 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";

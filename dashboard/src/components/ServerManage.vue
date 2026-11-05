@@ -1,11 +1,11 @@
 <template>
-  <!-- 서버 관리 탭. 넓으면 두 단(왼쪽 전체 공지 · 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
+  <!-- 서버 관리 탭. 넓으면 2열(왼쪽 전체 공지, 오른쪽 참가 서버), 좁으면 위아래. 서버 목록은 탭이 3초마다 다시 읽어 넘겨준다 -->
   <div class="grid grid-cols-1 @4xl/content:grid-cols-2 items-start gap-(--gap-in)">
-    <!-- 카드 안 간격(design.md 간격 기준): 블록 사이 12, 입력란 → 글자 수 4, 라벨 → 미리보기 8 -->
+    <!-- 카드 안 간격: 블록 사이 12px, 입력란 → 글자 수 4px, 라벨 → 미리보기 8px -->
     <BaseCard icon="campaign" :title="T.announce.title">
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.announce.desc }}</p>
-        <!-- 공지 종류: 이어 붙은 버튼 그룹(하나 선택). 종류마다 아이콘, 선택하면 체크(M3). 좁은 카드(384 미만)는 버튼 안 여백을 줄이고, 아주 좁으면(320 미만) 선택하지 않은 버튼의 아이콘을 뺀다 -->
+        <!-- 공지 종류: 이어 붙은 버튼 그룹(하나 선택). 종류마다 아이콘, 선택하면 체크(M3). 좁은 카드(384px 미만)는 버튼 안 여백을 줄이고, 아주 좁으면(320px 미만) 선택하지 않은 버튼의 아이콘을 뺀다 -->
         <div class="flex gap-0.5" role="radiogroup" :aria-label="T.announce.kind">
           <button v-for="(k, i) in KINDS" :key="k.value" type="button" role="radio" :aria-checked="kind === k.value" :class="[segment(kind === k.value, i, KINDS.length), '@max-sm/card:px-2 @max-sm/card:gap-1']" @click="kind = k.value"><Icon :name="kind === k.value ? 'check' : k.icon" :size="18" :class="kind !== k.value && '@max-xs/card:hidden!'" />{{ k.label }}</button>
         </div>
@@ -20,10 +20,10 @@
         <!-- 다른 입력란과 같은 채운 입력란. 이모지 버튼은 오른쪽 위(오른쪽 아래는 크기 조절 핸들 위치) -->
         <div class="flex flex-col gap-1">
           <div class="relative">
-            <textarea ref="box" :value="message" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = valueOf($event)"></textarea>
-            <EmojiPicker class="absolute! right-2 top-2" @pick="insertEmoji">
+            <textarea ref="box" :value="shown" :placeholder="T.announce.placeholder" rows="5" :class="[FIELD, tooLong ? 'border-error!' : '']" @blur="caret = caretOf(box)" @click="caret = caretOf(box)" @keyup="caret = caretOf(box)" @select="caret = caretOf(box)" @keydown="onFormatKey" @input="message = fromChars(valueOf($event))" @paste="onPaste" @copy="onCopy" @cut="onCopy"></textarea>
+            <EmojiPicker class="absolute! right-2 top-2" app-emoji @pick="insertEmoji">
               <template #default="{ toggle }">
-                <button type="button" :class="[ICON_BTN, 'size-8']" v-tooltip="T.announce.emoji" @click="toggle"><Twemoji char="🙂" :size="20" /></button>
+                <button type="button" :class="[ICON_BTN, 'size-8']" v-tooltip="T.announce.emoji" @click="toggle"><EmojiGlyph char="🙂" :size="20" /></button>
               </template>
             </EmojiPicker>
           </div>
@@ -32,7 +32,7 @@
             <span class="nums" :class="tooLong ? 'text-error' : 'text-on-surface-variant'">{{ formatNumber(length) }} / {{ formatNumber(ANNOUNCE_MAX) }}</span>
           </div>
         </div>
-        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠 · 이모지 제목 · 본문 · 푸터)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
+        <!-- 미리보기: 봇이 보낼 디스코드 임베드(왼쪽 색 띠, 이모지 제목, 본문, 푸터)를 앱의 면 위에, 글꼴은 디스코드 순서(font-discord). 무슨 종류로 나가는지 보내기 전에 보이게 -->
         <div class="flex flex-col gap-2">
           <p class="text-xs text-on-surface-variant">{{ T.announce.preview }}</p>
           <div class="flex rounded-(--r-inner) bg-surface-container-highest overflow-hidden font-discord">
@@ -59,65 +59,71 @@
       <div class="flex flex-col gap-3">
         <p class="text-sm text-on-surface-variant">{{ T.guilds.desc }}</p>
         <div class="flex flex-wrap items-center gap-2">
-          <SearchInput v-model="term" :placeholder="T.guilds.search(guilds.length)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
-          <!-- 정렬 · 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
+          <SearchInput v-model="term" :placeholder="T.guilds.search(list.total)" :input-class="[SEARCH_FIELD, 'w-full']" class="flex-1 min-w-40" />
+          <!-- 정렬, 필터: 드롭다운 하나에(닫혀 있으면 선택한 것을 줄여 보인다). 선택할 때마다 닫지 않는다(여럿 바꿀 수 있게) -->
           <SelectPanel v-model:open="viewOpen" :summary="viewSummary" :muted="false" :count="0" :searchable="false" :empty="false" :rows="7" class="w-52 shrink-0">
             <p :class="SELECT_GROUP">{{ T.guilds.sort }}</p>
-            <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="sort === o.value" :class="[SELECT_ROW, sort === o.value && SELECT_ROW_ON]" @click="sort = o.value">{{ o.label }}</button>
+            <button v-for="o in SORTS" :key="o.value" type="button" role="menuitemradio" :aria-checked="query.sort === o.value" :class="[SELECT_ROW, query.sort === o.value && SELECT_ROW_ON]" @click="setList({ sort: o.value })">{{ o.label }}</button>
             <p :class="SELECT_GROUP">{{ T.guilds.filter }}</p>
-            <button type="button" role="menuitemcheckbox" :aria-checked="playingOnly" :class="[SELECT_ROW, 'justify-between gap-2', playingOnly && SELECT_ROW_ON]" @click="playingOnly = !playingOnly">
+            <button type="button" role="menuitemcheckbox" :aria-checked="query.playing" :class="[SELECT_ROW, 'justify-between gap-2', query.playing && SELECT_ROW_ON]" @click="setList({ playing: !query.playing })">
               <span class="truncate"
-                >{{ T.guilds.playingOnly }} <span class="nums">({{ playingCount }})</span></span
+                >{{ T.guilds.playingOnly }} <span class="nums">({{ list.playing }})</span></span
               >
-              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="playingOnly ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="playingOnly" tabindex="-1" />
+              <input type="checkbox" class="size-4 shrink-0 pointer-events-none" :class="query.playing ? 'accent-on-tertiary-container' : 'accent-primary'" :checked="query.playing" tabindex="-1" />
             </button>
           </SelectPanel>
         </div>
-        <!-- 목록 영역은 서버 7.5줄(한 단일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3 떨어지게(활성 플레이어 목록과 같다) -->
+        <!-- 목록 영역은 서버 7.5줄(1열일 때 6.5줄) 높이로 고정하고 넘치면 스크롤된다. 넘치면 영역 오른쪽을 카드 끝까지 넓혀 스크롤바가 가장자리에서 3px 떨어지게(활성 플레이어 목록과 같다).
+             보이는 행 둘레만 그리고 위아래는 스페이서로 채운다(composables/row-window, 봇 상태의 목록과 같다). 아직 받지 못한 자리는 스켈레톤 행 -->
         <div ref="listEl" class="h-91 @4xl/content:h-105 overflow-y-auto -ml-2" :class="overflowing ? '-mr-4' : '-mr-2'" :style="listFade">
-          <ul v-if="shown.length" class="flex flex-col">
-            <li v-for="g in shown" :key="g.id" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
-              <GuildAvatar :guild="{ name: g.name, icon: g.icon, hasPlayer: g.hasPlayer, state: g.hasPlayer ? 'playing' : 'idle' }" :status="g.hasPlayer" size-class="size-9" text-class="text-sm" class="shrink-0" />
-              <div class="min-w-0 flex-1">
-                <div class="text-sm font-semibold truncate">{{ g.name }}</div>
-                <div class="text-xs text-on-surface-variant nums">
-                  {{ T.guilds.members(g.memberCount)
-                  }}<template v-if="g.hasPlayer">
-                    · <span class="text-(--ok-ink)">{{ T.guilds.playing }}</span></template
-                  >
+          <ul v-if="list.matched" class="flex flex-col" :style="{ paddingTop: `${listTop}px`, paddingBottom: `${listBottom}px` }">
+            <li v-for="{ key, row: g } in slots" :key="key" class="flex items-center gap-3 h-14 px-2 rounded-(--r-row)">
+              <template v-if="!g"><span class="size-9 shrink-0 rounded-full bg-on-surface/8" aria-hidden="true" /><span class="h-3 w-1/2 rounded-sm bg-on-surface/8" aria-hidden="true" /></template>
+              <template v-else>
+                <GuildAvatar :guild="{ name: g.name, icon: g.icon, hasPlayer: g.hasPlayer, state: g.hasPlayer ? 'playing' : 'idle' }" :status="g.hasPlayer" size-class="size-9" text-class="text-sm" class="shrink-0" />
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-semibold truncate">{{ g.name }}</div>
+                  <div class="text-xs text-on-surface-variant nums">
+                    {{ T.guilds.members(g.memberCount)
+                    }}<template v-if="g.hasPlayer">
+                      · <span class="text-(--ok-ink)">{{ T.guilds.playing }}</span></template
+                    >
+                  </div>
                 </div>
-              </div>
-              <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">{{ T.guilds.leave }}</BaseButton>
+                <BaseButton variant="ghost" size="sm" @click="leaveTarget = g">{{ T.guilds.leave }}</BaseButton>
+              </template>
             </li>
           </ul>
-          <p v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ guilds.length ? T.guilds.noMatch : T.guilds.none }}</p>
+          <p v-else class="px-2 py-3 text-sm text-on-surface-variant">{{ list.total ? T.guilds.noMatch : T.guilds.none }}</p>
         </div>
       </div>
     </BaseCard>
 
-    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(guilds.length)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
+    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
     <ConfirmDialog :model-value="leaveTarget !== null" icon="logout" :title="T.guilds.leaveTitle(leaveTarget?.name ?? '')" :body="T.guilds.leaveBody(Boolean(leaveTarget?.hasPlayer))" :confirm-label="T.guilds.leave" :busy="leaving" @update:model-value="(v) => !v && (leaveTarget = null)" @confirm="leave" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
-import { computed, nextTick, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import axios from "axios";
-import { useIntervalFn, useNow } from "@vueuse/core";
+import { useIntervalFn, useNow, watchDebounced } from "@vueuse/core";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import Icon from "./BaseIcon.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import EmojiPicker from "./EmojiPicker.vue";
 import GuildAvatar from "./GuildAvatar.vue";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
+import { slotsOf, useRowWindow } from "../composables/row-window.ts";
+import { rem } from "../utils/rem.ts";
 import { caretOf, insertAt, type Caret } from "../utils/caret.ts";
+import { fromChars, hasAppEmojiChar, loadAppEmojis, toChars } from "../composables/app-emojis.ts";
 import { discordMarkdown } from "../utils/discord-markdown.ts";
 import { composing, valueOf } from "../utils/dom.ts";
-import { koMatch } from "../../../src/rules/ko-search.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { codeBlock, linePrefix, link, timestampTag, wrap, type Edit } from "../utils/markdown-edit.ts";
 import { SELECT_GROUP, SELECT_ROW, SELECT_ROW_ON } from "../utils/select-row.ts";
@@ -126,38 +132,42 @@ import SearchInput from "./SearchInput.vue";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { LIMIT } from "../utils/request.ts";
 import { segment } from "../utils/segment.ts";
-import { ANNOUNCE_MAX, ANNOUNCE_STYLE, announceBody, type AdminGuilds, type AnnounceKind, type BroadcastReply } from "../../../src/dashboard/contract/admin.ts";
+import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
-import { compareText, formatNumber, formatTime } from "../utils/locale.ts";
+import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
 const F = text.fields.format;
 const T = text.manage;
 
-type AdminGuild = AdminGuilds["guilds"][number];
-const props = defineProps<{ guilds: AdminGuild[] }>();
-/** changed: 서버에서 나갔다(목록 · 봇 상태를 다시 읽는다) */
+// list: 쿼리로 필터링된 서버의 구간과 수, query: 그 쿼리(바꾸면 운영자 패널이 바로 받는다)
+const props = defineProps<{ list: AdminGuilds }>();
+const query = defineModel<GuildQuery>("query", { required: true });
+/** changed: 서버에서 나갔다(목록, 봇 상태를 다시 읽는다) */
 const emit = defineEmits<{ changed: [] }>();
 
-// 다른 입력란과 같은 채운 입력란(모서리 12, 포커스하면 테두리 primary)
-const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] duration-150 focus:border-primary placeholder:text-on-surface-variant";
+// 다른 입력란과 같은 채운 입력란(모서리 12px, 포커스하면 테두리 primary)
+const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
 // 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
-// 종류 버튼 · 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
+// 종류 버튼, 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
 const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
 const KINDS = (Object.entries(KIND_LABEL) as Array<[AnnounceKind, string]>).map(([value, label]) => ({ value, label, icon: KIND_ICON[value] }));
 const kind = ref<AnnounceKind>("maintenance");
+// 저장 값(보낼 글)은 앱 이모지가 토큰(<:이름:id>), 입력란에는 그 문자로 보인다(composables/app-emojis). 서식 도구, 이모지 넣기의 위치는 보이는 글 기준이다
 const message = ref("");
+const shown = computed(() => toChars(message.value));
+onMounted(() => void loadAppEmojis());
 // 서버처럼 앞뒤 공백을 뺀 길이로 센다. 길이 상한은 서버의 것(서버도 막지만 다 쓰고 나서야 막히면 늦다)
 const body = computed(() => announceBody(message.value));
 const length = computed(() => body.value.length);
 // 푸터의 시각: 지금 보내면 찍힐 시각을 디스코드 한국어 표기로("오늘 오후 11:15"). 분이 바뀌면 따라간다
 const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
-// 봇이 보낼 임베드의 모양(계약 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
+// 봇이 보낼 임베드의 모양(공유 타입의 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
 const tile = computed(() => iconTones(style.value.color));
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
@@ -170,7 +180,7 @@ function revealSpoiler(e: MouseEvent) {
   (e.target as HTMLElement).closest(".dmd-spoiler")?.classList.add("is-shown");
 }
 
-// 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B · 기울임 Ctrl+I · 밑줄 Ctrl+U · 링크 Ctrl+K)
+// 서식 도구. 단축키는 디스코드와 같다(굵게 Ctrl+B, 기울임 Ctrl+I, 밑줄 Ctrl+U, 링크 Ctrl+K)
 type Run = (text: string, start: number, end: number) => Edit;
 const tool = (icon: IconName, label: string, run: Run, key?: string) => ({ icon, label, tip: key ? `${label} (${key})` : label, run });
 const FORMAT_GROUPS = [
@@ -183,8 +193,8 @@ const SHORTCUT: Record<string, Run> = { b: FORMAT_GROUPS[0][0].run, i: FORMAT_GR
 function format(run: Run) {
   const el = box.value;
   if (!el) return;
-  const r = run(message.value, el.selectionStart, el.selectionEnd);
-  message.value = r.text;
+  const r = run(shown.value, el.selectionStart, el.selectionEnd);
+  message.value = fromChars(r.text);
   void nextTick(() => {
     el.focus();
     el.setSelectionRange(r.start, r.end);
@@ -199,18 +209,36 @@ function onFormatKey(e: KeyboardEvent) {
   format(run);
 }
 
-// 이모지는 커서 위치에 끼워 넣는다. 판을 열면 입력란에서 포커스가 떠나므로 떠나기 전 위치를 적어 둔다
+// 이모지는 커서 위치에 끼워 넣는다. 이모지 선택을 열면 입력란에서 포커스가 떠나므로 떠나기 전 위치를 적어 둔다
 const box = ref<HTMLTextAreaElement | null>(null);
 const caret = ref<Caret | null>(null);
 function insertEmoji(char: string) {
-  const inserted = insertAt(message.value, char, caret.value, ANNOUNCE_MAX);
+  const inserted = insertAt(shown.value, toChars(char), caret.value, ANNOUNCE_MAX);
   if (!inserted) return;
-  message.value = inserted.text;
+  message.value = fromChars(inserted.text);
   caret.value = { start: inserted.caret, end: inserted.caret };
   void nextTick(() => {
     box.value?.focus();
     box.value?.setSelectionRange(inserted.caret, inserted.caret);
   });
+}
+
+// 붙여넣은 토큰은 문자로(insertText 라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
+function onPaste(e: ClipboardEvent) {
+  const pasted = e.clipboardData?.getData("text/plain") ?? "";
+  const converted = toChars(pasted);
+  if (converted === pasted) return;
+  e.preventDefault();
+  document.execCommand("insertText", false, converted);
+}
+function onCopy(e: ClipboardEvent) {
+  const el = box.value;
+  if (!el || !e.clipboardData) return;
+  const picked = el.value.slice(el.selectionStart, el.selectionEnd);
+  if (!hasAppEmojiChar(picked)) return;
+  e.clipboardData.setData("text/plain", fromChars(picked));
+  e.preventDefault();
+  if (e.type === "cut") document.execCommand("delete");
 }
 
 async function send() {
@@ -219,7 +247,7 @@ async function send() {
   try {
     const { data } = await axios.post<BroadcastReply>("/api/admin/broadcast", { message: message.value, type: kind.value }, { timeout: LIMIT.long });
     message.value = "";
-    // 몇 곳에 못 갔으면 경고로(보낸 곳 · 못 보낸 곳)
+    // 몇 곳에 못 갔으면 경고로(보낸 곳, 못 보낸 곳)
     if (data.failed) notify({ title: T.announce.partial.title, body: T.announce.partial.body(data.sent, data.failed), severity: "warning" });
     else notifyDone(T.announce.done, T.announce.doneBody(data.sent));
   } catch (e) {
@@ -232,31 +260,48 @@ async function send() {
 }
 
 // ── 참가 서버 ──
-const term = ref("");
-const playingOnly = ref(false);
-const playingCount = computed(() => props.guilds.filter((g) => g.hasPlayer).length);
-// 정렬: 이름(기본) · 이름 역순 · 멤버 수. 봇이 넘겨주는 순서는 디스코드에서 받은 순서라 기준이 없어 쓰지 않는다
-type Sort = "name" | "name-desc" | "members-desc" | "members-asc";
-const SORTS: Array<{ value: Sort; label: string }> = [
+// 필터링, 정렬은 백엔드가 한다. 바꾸면 처음부터, 맨 위로
+function setList(patch: Partial<Omit<GuildQuery, "guilds">>) {
+  query.value = { ...query.value, ...patch, guilds: { ...query.value.guilds, from: 0 } };
+  listToTop();
+}
+// 검색어는 입력이 200ms 쉬면 보낸다
+const term = ref(query.value.q);
+watchDebounced(term, (q) => setList({ q: q.slice(0, Q_MAX) }), { debounce: 200 });
+// 정렬: 이름(기본), 이름 역순, 멤버 수(같으면 서버 ID)
+const SORTS: Array<{ value: GuildSort; label: string }> = [
   { value: "name", label: T.guilds.sorts.name },
   { value: "name-desc", label: T.guilds.sorts.nameDesc },
   { value: "members-desc", label: T.guilds.sorts.membersDesc },
   { value: "members-asc", label: T.guilds.sorts.membersAsc },
 ];
-const sort = ref<Sort>("name");
 const viewOpen = ref(false);
-const viewSummary = computed(() => [SORTS.find((o) => o.value === sort.value)?.label, playingOnly.value && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
-const shown = computed(() => {
-  const list = props.guilds.filter((g) => (!playingOnly.value || g.hasPlayer) && koMatch(g.name, term.value));
-  if (sort.value === "name-desc") return list.sort((a, b) => compareText(b.name, a.name));
-  if (sort.value === "members-desc") return list.sort((a, b) => b.memberCount - a.memberCount);
-  if (sort.value === "members-asc") return list.sort((a, b) => a.memberCount - b.memberCount);
-  return list.sort((a, b) => compareText(a.name, b.name));
-});
+const viewSummary = computed(() => [SORTS.find((o) => o.value === query.value.sort)?.label, query.value.playing && T.guilds.playingOnlyShort].filter(Boolean).join(" · "));
 const listEl = ref<HTMLElement | null>(null);
-const overflowing = useOverflowing(listEl);
-// 더 있는 쪽 끝 반 줄(28)을 흐리게(봇 상태의 목록과 같다)
-const listFade = useScrollFade(listEl, () => true, 28);
+// 행 높이 56px(h-14)
+const ROW = 3.5 * rem(1);
+const {
+  range,
+  top: listTop,
+  bottom: listBottom,
+  toTop: listToTop,
+} = useRowWindow({
+  el: listEl,
+  rowHeight: () => ROW,
+  total: () => props.list.matched,
+  have: () => ({ from: props.list.from, count: props.list.guilds.length }),
+  request: (span: Span) => (query.value = { ...query.value, guilds: span }),
+});
+const slots = computed(() => slotsOf(range.value, props.list.from, props.list.guilds, (row) => row.id));
+// 스페이서 높이만 바뀌어도 다시 잰다
+const overflowing = useOverflowing(listEl, () => [listTop.value, listBottom.value]);
+// 더 있는 쪽 끝 반 줄(28px)을 페이드 처리한다(봇 상태의 목록과 같다)
+const listFade = useScrollFade(
+  listEl,
+  () => true,
+  28,
+  () => [listTop.value, listBottom.value],
+);
 
 const leaveTarget = ref<AdminGuild | null>(null);
 const leaving = ref(false);

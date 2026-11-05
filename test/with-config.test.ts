@@ -1,4 +1,4 @@
-// 테스트용 설정 덮어쓰기 창구(test/helpers/config.ts)가 바꾼 것을 빠짐없이 되돌리는지 본다.
+// test/helpers/config.ts: 테스트용 설정 덮어쓰기 창구가 바꾼 것을 빠짐없이 되돌리는지 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ test("비동기 테스트도 끝난 뒤에 되돌린다", async () => {
   assert.equal(config.bot.maxQueueSize, before);
 });
 
-test("던져도 되돌린다(동기 · 비동기)", async () => {
+test("던져도 되돌린다(동기, 비동기)", async () => {
   const before = config.sponsorblock.enabled;
   assert.throws(() =>
     withConfig({ sponsorblock: { enabled: !before } }, () => {

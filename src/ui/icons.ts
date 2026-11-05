@@ -1,21 +1,22 @@
-// 디스코드 쪽 아이콘 표. 키마다 머티리얼 기호(Material Symbols Rounded, data/discord-icons) · 모양 · 바탕색 · 유니코드(앱 이모지를 맞추기 전 · 못 맞췄을 때).
-// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis 가 맞추고 여기에 싣는다. 쓰는 곳은 키로 묻고(icon · buttonEmoji), 직접 덧칠하지 않는다.
+// 디스코드 쪽 아이콘 표. 키마다 머티리얼 기호(Material Symbols Rounded, data/discord-icons), 모양, 바탕색, 유니코드(앱 이모지를 동기화하기 전, 동기화하지 못했을 때).
+// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis 가 동기화하고 여기에 싣는다. 쓰는 곳은 키로 찾고(icon, buttonEmoji), 직접 덧칠하지 않는다.
 // 대시보드 화면 빌드가 이 파일을 거쳐 갈 수 있어 아무것도 부르지 않는다
 
 /**
- * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼 · 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중)
+ * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중),
+ * logo: 회사의 공식 흰 아이콘(glyph 에 data/discord-icons 의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
  * 기호 "sponsorblock" 은 SponsorBlock 의 하이라이트 방패(data/discord-icons/skipIcon.svg)
  */
-type Shape = "tile" | "white" | "spin";
+type Shape = "tile" | "white" | "spin" | "logo";
 /** 타일의 바탕색. brand: 운영자 색(EMBED_COLOR), 나머지는 응답 색(ui/palette 의 FIXED_COLORS) */
 type Tint = "brand" | "error" | "warning" | "done" | "notice";
-/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나) */
-type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonly Tint[]; scale?: number };
+/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나). brand: logo 의 회사(타일 색은 ui/palette 의 BRAND_COLORS) */
+type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonly Tint[]; scale?: number; brand?: "youtube" | "spotify" };
 
 const SEVERITY = ["error", "warning"] as const;
 
 const ICONS = {
-  // 버튼(지금 재생 패널 · 도움말 · 시스템 · 검색 · 대기열 보기). 색 버튼(초록 · 블러플 · 빨강) 위는 흰 기호
+  // 버튼(지금 재생 패널, 도움말, 시스템, 검색, 대기열 보기). 색 버튼(초록, 블러플, 빨강) 위는 흰 기호
   prev: { glyph: "skip_previous", unicode: "⏮️" },
   play: { glyph: "play_arrow", unicode: "▶️" },
   pause: { glyph: "pause", unicode: "⏸️" },
@@ -39,8 +40,8 @@ const ICONS = {
   page_prev: { glyph: "chevron_left", unicode: "◀" },
   page_next: { glyph: "chevron_right", unicode: "▶" },
 
-  // 응답 헤더 줄의 주제(오류 · 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
-  // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(시험이 맞춰 본다)
+  // 응답 헤더 줄의 주제(오류, 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
+  // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(테스트가 확인한다)
   failed: { glyph: "error", unicode: "❌", tints: ["error"] },
   permission: { glyph: "block", unicode: "🚫", tints: SEVERITY },
   voice: { glyph: "headphones", unicode: "🎧", tints: SEVERITY },
@@ -72,7 +73,11 @@ const ICONS = {
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 
-  // 정보 · 도움말 임베드의 제목 · 칸 이름
+  // 곡의 출처(검색 결과). 각 회사 가이드가 보여 주는 흰 아이콘과 브랜드 색 바탕의 짝이다. 유니코드는 /help 의 플랫폼 점과 같다
+  youtube: { glyph: "youtube-icon-white.png", unicode: "🔴", shape: "logo", brand: "youtube" },
+  spotify: { glyph: "spotify-icon-white.svg", unicode: "🟢", shape: "logo", brand: "spotify" },
+
+  // 정보, 도움말 임베드의 제목, 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },
   uptime: { glyph: "timer", unicode: "⏱️" },
   memory: { glyph: "memory_alt", unicode: "💾" },
@@ -95,10 +100,11 @@ const ICONS = {
   inputs: { glyph: "list", unicode: "📋" },
   shield: { glyph: "shield", unicode: "🛡️" },
 
-  // 문장 안(본문 · 작은 글씨 · 상태). 본문 크기라 기호 안의 기호(check_circle 등)는 쓰지 않는다
+  // 문장 안(본문, 작은 글씨, 상태). 본문 크기라 기호 안의 기호(check_circle 등)는 쓰지 않는다
   ok: { glyph: "check", unicode: "✅" },
   person: { glyph: "person", unicode: "👤" },
   idle: { glyph: "bedtime", unicode: "💤" },
+  stay: { glyph: "local_convenience_store", unicode: "🏪" },
   position: { glyph: "format_list_numbered", unicode: "📍" },
   time: { glyph: "schedule", unicode: "⏱️" },
   resume: { glyph: "history", unicode: "💾" },
@@ -122,15 +128,53 @@ type IconKey = keyof typeof ICONS;
 /** 앱 이모지 이름: 키, 운영자 색이 아닌 바탕색이면 뒤에 붙인다(앱 안에서 하나뿐이어야 한다. 2 ~ 32자 [A-Za-z0-9_]) */
 const emojiName = (key: IconKey, tint: Tint = "brand") => (tint === "brand" ? key : `${key}_${tint}`);
 
-/** 그려 둘 앱 이모지 전부: 이름 · 키 · 바탕색 · 표의 값 */
+/** 그려 둘 앱 이모지 전부: 이름, 키, 바탕색, 표의 값 */
 function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: IconSpec }> {
   return (Object.entries(ICONS) as Array<[IconKey, IconSpec]>).flatMap(([key, spec]) => (spec.tints ?? ["brand"]).map((tint) => ({ name: emojiName(key, tint), key, tint, spec })));
 }
 
-/** 맞춘 앱 이모지(이름 → id · 움직이는가). app/app-emojis 가 싣는다 */
+/**
+ * 아이콘 표에서 빠지거나 이름이 바뀐 앱 이모지 이름. 설정에 적힌 토큰을 찾을 때 따라가고(rules/app-emoji-token), 동기화(app/app-emojis)가
+ * 그 이름의 이모지를 지운다. 아이콘을 빼거나 이름을 바꾸면 여기에 더한다. test/ui/icon-names.json(지금까지 낸 이름)과 비교하는 테스트가 빠뜨림을 잡는다.
+ * renamed: 새 이름, unicode: 빠진 아이콘의 유니코드(빠지기 전 표의 값)
+ */
+const RETIRED_EMOJI_NAMES: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
+  channel: { unicode: "🔧" },
+  input_error: { unicode: "✏️" },
+  link_off_error: { unicode: "🔗" },
+  muted_error: { unicode: "🔇" },
+  not_found_error: { unicode: "🔍" },
+  platform_animethemes: { unicode: "🎌" },
+  platform_anisongdb: { unicode: "🎏" },
+  platform_direct: { unicode: "🔗" },
+  platform_lastfm: { unicode: "🔺" },
+  platform_lbradio: { unicode: "🧠" },
+  platform_soundcloud_warning: { unicode: "🟠" },
+  platform_spotify_done: { unicode: "🟢" },
+  platform_touhoudb: { unicode: "⛩️" },
+  platform_utaitedb: { unicode: "🎤" },
+  platform_vocadb: { unicode: "🎹" },
+  platform_youtube_error: { unicode: "🔴" },
+  stale_error: { unicode: "⌛" },
+  state_error: { unicode: "⚠️" },
+  voice: { unicode: "🎧" },
+};
+
+/**
+ * 동기화가 관리하는 앱 이모지 이름인가: 지금 아이콘 이름, 옛 이름, 그 임시 이름(동기화가 이미지를 바꿀 때 쓰는 이름_숫자, 32자로 잘림).
+ * 동기화는 이 이름만 지우거나 바꾸고, 운영자 패널은 이 이름으로 올리지 못한다
+ */
+function isManagedEmojiName(name: string): boolean {
+  const bases = [...iconEntries().map((entry) => entry.name), ...Object.keys(RETIRED_EMOJI_NAMES)];
+  if (bases.includes(name)) return true;
+  const temp = /^(.+)(_\d+)$/.exec(name);
+  return temp !== null && bases.some((base) => base.slice(0, 32 - temp[2].length) === temp[1]);
+}
+
+/** 동기화한 앱 이모지(이름 → id, 움직이는가). app/app-emojis 가 싣는다 */
 const uploaded = new Map<string, { id: string; animated: boolean }>();
 
-/** 맞춘 것을 통째로 바꾼다 */
+/** 동기화한 목록을 통째로 교체한다 */
 function useUploaded(next: ReadonlyMap<string, { id: string; animated: boolean }>) {
   uploaded.clear();
   for (const [name, value] of next) uploaded.set(name, value);
@@ -153,5 +197,5 @@ function buttonEmoji(key: IconKey, tint: Tint = "brand"): { id: string; name: st
   return found ? { id: found.id, name, animated: found.animated } : { name: ICONS[key].unicode };
 }
 
-export { ICONS, emojiName, iconEntries, useUploaded, icon, buttonEmoji };
+export { ICONS, RETIRED_EMOJI_NAMES, emojiName, iconEntries, isManagedEmojiName, useUploaded, icon, buttonEmoji };
 export type { IconKey, IconSpec, Shape, Tint };

@@ -1,5 +1,5 @@
-// bgutil(POToken 공급자)의 설치된 버전 · 목표(BGUTIL_VERSION) · 최신 릴리스. 기동 때와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
-// 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 갈아 끼우므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 셋을 보인다
+// bgutil(POToken 공급자)의 설치된 버전, 목표(BGUTIL_VERSION), 최신 릴리스. 기동 시와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
+// 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 교체하므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 세 버전을 보여 준다
 
 import fs from "fs";
 import path from "path";
@@ -17,7 +17,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // 확인이 실패하면 이만큼 뒤에 다시 본다
 const RETRY_MS = 60 * 60 * 1000;
 
-/** 디스크 · 네트워크 · 시계. 테스트가 가짜를 넘긴다 */
+/** 디스크, 네트워크, 시계. 테스트가 가짜를 넘긴다 */
 type Io = { installed(): string | null; latest(): Promise<string>; now(): number };
 
 /** 체크아웃의 서버 버전(태그와 같은 글자). 설치돼 있지 않으면 null */
@@ -56,8 +56,8 @@ class BgutilVersion {
     this.installed = this.io.installed();
     if (!this.installed) return;
     const target = config.bgutil.version;
-    // 코드를 받아 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 묻지 않아도 안다
-    if (this.installed !== target) log.warn(`bgutil 이 설정한 버전이 아닙니다: 설치 ${this.installed} · 설정 ${target}. 봇을 끄고 pnpm run update:bgutil 로 옮기세요`);
+    // 코드를 업데이트해 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 조회하지 않아도 안다
+    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다릅니다: 설치 ${this.installed}, 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
     await this._tick();
   }
 
@@ -68,7 +68,7 @@ class BgutilVersion {
       this.checkedAt = this.io.now();
       const target = config.bgutil.version;
       const newer = newerRelease(this.latest, target);
-      if (newer) log.info(`bgutil 에 새 버전이 있습니다: ${target} → ${newer}. .env 의 BGUTIL_VERSION 을 올리고 봇을 끈 뒤 pnpm run update:bgutil`);
+      if (newer) log.info(`bgutil 새 버전이 있습니다: ${target} → ${newer}. .env의 BGUTIL_VERSION을 수정한 뒤 봇을 종료하고 pnpm run update:bgutil을 실행하세요`);
     } catch (error) {
       failed = true;
       log.warn(`bgutil 새 버전 조회 실패: ${messageOf(error)}`);

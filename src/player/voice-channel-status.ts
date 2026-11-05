@@ -25,7 +25,7 @@ const ours = new Map<string, string>(); // channelId -> 우리가 마지막으�
 const text = (v: unknown) => (typeof v === "string" ? v : "");
 let keeper: Keeper | null = null;
 
-/** 저장소에 남긴 우리 값을 읽어 오고, 앞으로 쓰는 값도 거기 남긴다. 기동 때 한 번 */
+/** 저장소에 남긴 우리 값을 읽어 오고, 앞으로 쓰는 값도 거기 남긴다. 기동 시 한 번 */
 function keepIn(next: Keeper) {
   for (const [channelId, status] of next.load()) ours.set(channelId, status);
   keeper = next;
@@ -46,7 +46,7 @@ function mark(channelId: string | null | undefined, status: unknown) {
   try {
     keeper?.save(channelId, value);
   } catch (error) {
-    log.warn(`음성 채널 상태를 저장소에 남기지 못했습니다(재시작 뒤 이 채널의 상태를 남의 것으로 봅니다): ${messageOf(error)}`);
+    log.warn(`음성 채널 상태 저장 실패(재시작 후 이 채널의 상태를 봇이 설정한 것으로 인식하지 못함): ${messageOf(error)}`);
   }
 }
 

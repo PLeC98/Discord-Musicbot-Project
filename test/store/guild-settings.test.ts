@@ -1,6 +1,6 @@
-// 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다.
+// src/store/guild-settings.ts: 서버별 설정(GuildSettingsManager)의 지금 동작을 고정한다.
 //
-// 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기 · 쓰기 · 지우기, 메모리 캐시,
+// 서버 설정 표 위에 메모리 캐시를 얹은 층이다. 설정마다 읽기, 쓰기, 지우기, 메모리 캐시,
 // DB 가 실패했을 때 돌려주는 값을 적어 둔다. 진짜 표를 임시 DB 로 쓴다.
 
 import fs from "node:fs";
@@ -38,11 +38,10 @@ after(() => {
 // 메모리 캐시를 비우고 다시 읽는다. DB 에 실제로 남았는지 본다
 const fresh = () => settings.forgetCache();
 
-// DB 를 잠깐 닫는다. 표를 부르면 던진다(DB_NOT_OPEN)
-// 표가 망가진 동안(읽기 · 쓰기가 SQLite 오류로 실패한다)
+// 서버 설정 표가 망가진 동안(읽기, 쓰기가 SQLite 오류로 실패한다)
 const whenDbDown = whenSettingsBroken;
 
-test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async () => {
+test("전용 채널: 저장, 읽기, 지우기. 미설정은 null", async () => {
   assert.equal(await settings.getBotChannel("g1"), null);
   fresh();
   assert.equal(await settings.setBotChannel("g1", "c1"), true);
@@ -52,7 +51,7 @@ test("전용 채널: 저장 · 읽기 · 지우기. 미설정은 null", async ()
   assert.equal(await settings.getBotChannel("g1"), null);
 });
 
-test("DJ 역할: 저장 · 읽기 · 지우기. 미설정은 빈 배열", async () => {
+test("DJ 역할: 저장, 읽기, 지우기. 미설정은 빈 배열", async () => {
   assert.deepEqual(await settings.getDjRoles("g1"), []);
   fresh();
   await settings.setDjRoles("g1", ["r1", "r2"]);
@@ -111,9 +110,20 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
   } finally {
     stores.open(TMP);
   }
-  // 열기 전의 기본값을 담아 두지 않았다. 담아 뒀으면 연 뒤에 적은 값이 안 보인다
+  // 열기 전의 기본값을 담아 두지 않는다. 담아 두면 연 뒤에 적은 값이 안 보인다
   guildTable.setPlaylistAddMax("g-unopened", 7);
   assert.equal(settings.resolvePlaylistAddMax("g-unopened"), 7);
+});
+
+test("볼륨: 저장하면 새 플레이어가 그 값으로 시작하고, 기본 볼륨이면 문서에서 지운다. 미설정은 기본 볼륨", async () => {
+  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(await settings.saveVolume("g1", 30), true);
+  fresh();
+  assert.equal(settings.resolveVolume("g1"), 30);
+  await settings.saveVolume("g1", config.bot.defaultVolume);
+  fresh();
+  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(guildTable.getVolume("g1"), null, "기본값은 남기지 않는다");
 });
 
 test("SponsorBlock: 부분 갱신. 준 필드만 바꾸고 null 은 상속으로 되돌린다", async () => {
@@ -150,7 +160,7 @@ test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () =
   });
 });
 
-test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null · 빈 배열 · 상속)", async () => {
+test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
   assert.equal(await whenDbDown(() => settings.setBotChannel("g1", "c1")), false);
   assert.equal(await whenDbDown(() => settings.setDjRoles("g1", ["r"])), false);
   assert.equal(await whenDbDown(() => settings.setPlaylistAddMax("g1", 3)), false);
@@ -229,7 +239,7 @@ test("필드 하나의 모양이 틀려도 다른 필드는 읽는다", () => {
   const warned = sink.buffer.slice(from).filter((e) => e.text.startsWith("서버 g5 설정의"));
   assert.deepEqual(
     warned.map((e) => e.text),
-    ["서버 g5 설정의 djRoleIds, playlistAddMax 값이 틀려 그 값은 기본값을 씁니다"],
+    ["서버 g5 설정의 djRoleIds, playlistAddMax 값 검증 실패(기본값 사용)"],
     "곡마다 읽어도 같은 문서는 한 번만 알린다",
   );
 });
@@ -240,7 +250,7 @@ test("DJ 역할: 미지정 서버는 빈 배열", () => {
 
 // ── 서버 설정 문서: 봇 채널 ──────────────────────────────────
 
-test("봇 채널: 저장/조회/해제 — DJ 설정과 같은 문서에서 서로 무손상", () => {
+test("봇 채널: 저장/조회/해제. DJ 설정과 같은 문서에서 서로 무손상", () => {
   guildTable.setDjRoles("g4", ["r1"]);
   guildTable.setBotChannel("g4", "ch4");
   assert.equal(guildTable.getBotChannel("g4"), "ch4");

@@ -1,11 +1,11 @@
 // 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.
-// 분류·순서는 디스코드 선택기 그대로.
-// 이름·검색어: emojibase-data@17.0.0 (MIT, ko) + 디스코드 단축명
-// 그림: twemoji@17.0.3. 전부 실제로 있는 파일인지 대조했다
+// 분류, 순서는 디스코드 선택기 그대로.
+// 이름, 검색어: emojibase-data@17.0.0 (MIT, ko) + 디스코드 단축명
+// 그림: @discordapp/twemoji@16.0.1. 전부 실제로 있는 파일인지 대조했다
 //
 // 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.
 // 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어
-export const TWEMOJI_VERSION = "17.0.3";
+export const TWEMOJI_VERSION = "16.0.1";
 
 /** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */
 type Emoji = { char: string; label: string; search: string };

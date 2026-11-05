@@ -1,5 +1,5 @@
-// src/media/seek-start.ts — 위치를 옮길 때 받기 시작할 자리(헤더 · 키프레임 바이트)를 묻는다.
-// 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림 · ffmpeg 로 색인 길과 처음부터 받은 길의 소리를 견준다
+// src/media/seek-start.ts: 위치를 옮길 때 받기 시작할 위치(헤더, 키프레임 바이트)를 조회한다.
+// 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림, ffmpeg 로 인덱스 경로와 처음부터 받은 경로의 소리를 비교한다
 
 import path from "node:path";
 import os from "node:os";
@@ -74,7 +74,7 @@ for (const kind of ["webm", "m4a"] as const) {
   });
 }
 
-test("가까운 위치는 묻지 않는다 · 색인이 처음 받은 양보다 길면 모자란 만큼 더 받는다", async (t) => {
+test("가까운 위치는 묻지 않는다, 색인이 처음 받은 양보다 길면 모자란 만큼 더 받는다", async (t) => {
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const near = fileFetch(file);
@@ -89,7 +89,7 @@ test("가까운 위치는 묻지 않는다 · 색인이 처음 받은 양보다 
   assert.equal(more.asked[0], "bytes=0-299");
 });
 
-test("헤더 요청이 206 이 아니면 · 받지 못하면 · 한도를 넘으면 없음(한도는 slow)", async (t) => {
+test("헤더 요청이 206 이 아니면, 받지 못하면, 한도를 넘으면 없음(한도는 slow)", async (t) => {
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const ignored = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 200 }).fetchImpl });
@@ -110,7 +110,7 @@ test("곡 길이가 색인과 크게 다르면(시간 축을 잘못 읽은 것) 
   assert.ok(!answer.ok && /곡 길이/.test(answer.why), JSON.stringify(answer));
 });
 
-// ── 진짜 청크 스트림 · ffmpeg ──
+// ── 진짜 청크 스트림, ffmpeg ──
 
 /** 청크 스트림을 ffmpeg 에 넣고 PCM 2초 */
 function pcmOf(stream: Readable, seekMs: number): Promise<Buffer> {

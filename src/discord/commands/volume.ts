@@ -7,18 +7,8 @@ const exported: GuildCommand = {
   help: { section: "mode", tier: "dj" },
   data: new SlashCommandBuilder()
     .setName("volume")
-    .setDescription("Set the playback volume")
-    .setDescriptionLocalizations({ ko: "볼륨을 설정해요" })
-    .addIntegerOption((option) =>
-      option
-        .setName("level")
-        .setNameLocalizations({ ko: "볼륨" })
-        .setDescription(`Volume level (0 ~ ${VOLUME_MAX})`)
-        .setDescriptionLocalizations({ ko: `설정할 볼륨 (0~${VOLUME_MAX})` })
-        .setRequired(true)
-        .setMinValue(0)
-        .setMaxValue(VOLUME_MAX),
-    ),
+    .setDescription("볼륨을 설정해요")
+    .addIntegerOption((option) => option.setName("level").setNameLocalizations({ ko: "볼륨" }).setDescription(`설정할 볼륨 (0~${VOLUME_MAX})`).setRequired(true).setMinValue(0).setMaxValue(VOLUME_MAX)),
 
   async execute(interaction, bot) {
     await answerVolume(interaction, bot.players.get(interaction.guild.id), interaction.options.getInteger("level", true));

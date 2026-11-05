@@ -1,4 +1,4 @@
-// 설정 파일 스키마가 같이 쓰는 헬퍼. 스키마는 문제 목록만 낸다. 던질지 경고할지는 부르는 쪽이 정한다.
+// 설정 문서 스키마가 같이 쓰는 헬퍼. 스키마는 문제 목록만 낸다. 던질지 경고할지는 부르는 쪽이 정한다.
 
 import { z } from "zod";
 
@@ -9,14 +9,14 @@ type Fill = (path: PropertyKey[]) => Record<string, unknown>;
 
 const ALWAYS = { when: () => true }; // 필드 하나가 틀려도 교차 검사를 돌린다. 문제를 한 번에 다 알린다
 
-// 있으면(null · undefined 가 아니면) 조건을 본다
+// 있으면(null, undefined 가 아니면) 조건을 본다
 const present = (ok: (v: unknown) => boolean, message: Message) =>
   z
     .unknown()
     .refine((v) => v == null || ok(v), { error: message })
     .optional();
 
-// 이름을 붙인 목록을 Object.keys 로 읽던 것과 같게: 무엇이 오든 키 → 값 표로
+// 무엇이 오든 Object.keys 의 키 → 값 표로
 const keyed = (v: unknown): Record<string, unknown> => Object.fromEntries(Object.keys(v || {}).map((k) => [k, (v as Record<string, unknown>)[k]]));
 
 // 표가 아니면 빈 표로(값이 없던 것과 같게 읽는다)

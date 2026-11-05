@@ -1,9 +1,9 @@
-// 따로 받는 도구(bgutil · ffmpeg)의 새 버전과 고정한 bgutil 잠금 파일의 취약점을 본다. 주마다 도는 vendor-updates 워크플로가 부르고, 로컬에서도 돈다.
+// 따로 받는 도구(bgutil, ffmpeg)의 새 버전과 고정한 bgutil 잠금 파일의 취약점을 본다. 주마다 도는 vendor-updates 워크플로가 부르고, 로컬에서도 돈다.
 //
 //   node scripts/check-vendor-updates.ts           결과를 JSON 으로 찍는다
 //   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts 의 기본값을 고치고 찍는다
 //
-// 설정 모듈 · .env 를 부르지 않는다(워크플로 실행기에는 .env 가 없다. 견주는 것은 저장소의 기본값이다).
+// 설정 모듈, .env 를 부르지 않는다(워크플로 실행기에는 .env 가 없다. 비교하는 것은 저장소의 기본값이다).
 // GITHUB_TOKEN 이 있으면 GitHub API 에 실어 보낸다(요청 한도). 잠금 파일은 package.json 과 함께 받아 npm audit --package-lock-only 로 본다(설치하지 않는다)
 
 import fs from "node:fs";

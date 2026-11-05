@@ -1,4 +1,4 @@
-// src/ui/palette.ts · colors.ts — 화면의 색은 경고 수준마다 하나. 색 값은 palette 표에만 적는다
+// src/ui/palette.ts, colors.ts: 화면의 색은 경고 수준마다 하나. 색 값은 palette 표에만 적는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -29,7 +29,7 @@ function walk(dir: string, out: string[] = []) {
   return out;
 }
 
-test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻 · ui/palette 로 선택한다)", () => {
+test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻, ui/palette 로 선택한다)", () => {
   // 운영 조절값 표는 임베드 색의 기본값을 적는 위치다
   const skip = [path.join(ROOT, "src", "rules", "tunables.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));

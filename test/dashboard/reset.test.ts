@@ -1,5 +1,5 @@
-// src/dashboard/reset.ts — 봇 설정 · 서버별 설정 · 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
-// 지운 뒤 메모리(설정 객체 · 서버별 설정의 캐시 · 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
+// src/dashboard/reset.ts: 봇 설정, 서버별 설정, 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
+// 지운 뒤 메모리(설정 객체, 서버별 설정의 캐시, 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -32,8 +32,8 @@ after(() => {
   fs.rmSync(DISPLAY, { recursive: true, force: true, maxRetries: 5 });
 });
 
-test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기동 때와 달라진 다시 시작 값이 있으면 restart", async () => {
-  // 기동 때 BGUTIL_ENABLED=true 였다(다시 시작해야 적용되는 값)
+test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기동 시와 달라진 다시 시작 값이 있으면 restart", async () => {
+  // 기동 시 BGUTIL_ENABLED=true 였다(다시 시작해야 적용되는 값)
   tunables.writeRaw({ BGUTIL_ENABLED: "true", RATE_LIMIT_API_MAX: "7" });
   tunables.load();
   settingsDocs.write("genres", { genres: [] }, settingsDocs.read("genres").revision);
@@ -44,14 +44,14 @@ test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기�
 
   assert.match(done.snapshot, /^settings-before-reset-/);
   assert.ok(snapshots.list().some((one) => one.name === done.snapshot && one.kind === "before-reset"));
-  assert.equal(done.restart, true, "기동 때 true 였던 BGUTIL_ENABLED 가 기본값(false)이 된다");
+  assert.equal(done.restart, true, "기동 시 true 였던 BGUTIL_ENABLED 가 기본값(false)이 된다");
   assert.deepEqual(settingsDocs.names(), [], "기본값을 써 넣지 않는다");
   assert.equal(secrets.count(), 0);
   assert.equal(config.dashboard.rateLimit.apiMax, 120, "운영 조절값은 바로 기본값");
   assert.equal(config.sources.lastfmKey, null, "바깥 서비스 키도 메모리에서 빠진다");
 
   tunables.load();
-  assert.equal((await reset.resetBotSettings("tester")).restart, false, "기동 때와 같으면 다시 시작하지 않아도 된다");
+  assert.equal((await reset.resetBotSettings("tester")).restart, false, "기동 시와 같으면 다시 시작하지 않아도 된다");
 });
 
 test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버린다", async () => {
@@ -68,7 +68,7 @@ test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버린다",
   assert.deepEqual(await guildSettings.getDjRoles("g2"), []);
 });
 
-test("디스플레이: 파비콘 그림과 로그인 배경(기록 · 화면 값 · 한도)을 비운다", async () => {
+test("디스플레이: 파비콘 그림과 로그인 배경(기록, 화면 값, 한도)을 비운다", async () => {
   const png = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 1 } } })
     .png()
     .toBuffer();

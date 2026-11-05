@@ -1,6 +1,6 @@
-// src/usecases/responders.ts — 곡 추가 결과를 알리는 매체별 어댑터.
+// src/usecases/responders.ts: 곡 추가 결과를 알리는 매체별 어댑터.
 //
-// 코어의 출력은 "상호작용 응답" · "텍스트 채널" 말고 셋째(대시보드, silentResponder)도 있다. 대시보드가 별도 경로로 갈라지지 않게.
+// 코어의 출력은 "상호작용 응답", "텍스트 채널" 말고 셋째(대시보드, silentResponder)도 있다. 대시보드가 별도 경로로 갈라지지 않게.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -46,7 +46,7 @@ function fakeChannel() {
 }
 const channelOf = (partial: object) => fake<GuildTextBasedChannel>(partial);
 
-// 담은 안내의 화면
+// 추가 안내의 화면
 const view = frame({ body: "추가됨" });
 
 // ── 공통 계약 ────────────────────────────────────────────────
@@ -59,7 +59,7 @@ test("세 어댑터가 같은 계약을 만족한다 (코어는 이 둘만 호�
   }
 });
 
-test("안내 실패가 재생을 망가뜨리지 않는다 — 던지지 않는다", async () => {
+test("안내 실패가 재생을 망가뜨리지 않는다. 던지지 않는다", async () => {
   const broken = channelOf({
     send: async () => {
       throw new Error("채널 권한 없음");
@@ -139,7 +139,7 @@ test("상호작용: 아직 응답 전이면 reply로 확인만 하고 삭제한�
 
 // ── channelResponder ─────────────────────────────────────────
 
-test("채널: 안내 전에 자리표시자를 먼저 치운다 — 별도 메시지라 덮어쓸 수 없다", async () => {
+test("채널: 안내 전에 자리표시자를 먼저 치운다. 별도 메시지라 덮어쓸 수 없다", async () => {
   const order: string[] = [];
   const channel = channelOf({
     async send() {
@@ -160,7 +160,7 @@ test("채널: 보낼 곳이 없으면 조용히 넘어간다", async () => {
 
 // ── 멱등성 ───────────────────────────────────────────────────
 
-test("dismissPlaceholder는 멱등 — 코어와 진입점이 모두 불러도 한 번만 실행된다", async () => {
+test("dismissPlaceholder는 멱등. 코어와 진입점이 모두 불러도 한 번만 실행된다", async () => {
   let count = 0;
   const responder = channelResponder(fakeChannel(), () => count++);
 

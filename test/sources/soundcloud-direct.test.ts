@@ -1,4 +1,4 @@
-// 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
+// src/sources/lookup.ts, direct.ts: 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
 // yt-dlp 는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl 의 getStream 만 가짜로 둔다.
 
 import { Readable } from "node:stream";
@@ -20,7 +20,7 @@ type Reply = ({ fail?: string } & Record<string, unknown>) | null;
 const calls = { ytdlp: [] as Array<{ url: string; flags: YtDlpFlags }>, info: [] as string[], stream: [] as string[], streamOpts: [] as unknown[] };
 let respond: (url: string, flags: YtDlpFlags) => Reply;
 let headReply: (url: string) => { headers: object };
-// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 보고, 재생 · 다운로드는 본문 무응답 한도를 넘긴다
+// 직접 링크의 네트워크(SafeUrl 의 getStream) 가짜. DirectLink 에 넘긴다. 곡 정보(getInfo)는 응답 헤더를 보고, 재생, 다운로드는 본문 무응답 한도를 넘긴다
 const net = {
   getStream: async (url: string, _deps?: undefined, opts?: { bodyIdleMs?: number; accept?: { timeoutMs: number } }) => {
     if (opts?.bodyIdleMs === undefined) {
@@ -35,7 +35,7 @@ const net = {
 const info = { net };
 
 before(() => {
-  // 가짜는 tinyspawn 약속의 stdout · stderr 만 준다
+  // 가짜는 tinyspawn 약속의 stdout, stderr 만 준다
   useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.ytdlp.push({ url, flags });
     const out = respond(url, flags);
@@ -58,7 +58,7 @@ const scItem = (slug: string, extra: Record<string, unknown> = {}) => ({ id: 100
 
 // ── 사운드클라우드 ────────────────────────────────────────────────────
 
-test("사운드클라우드 링크 판정: 곡 · 세트 · 사용자 · 앱 짧은 링크", () => {
+test("사운드클라우드 링크 판정: 곡, 세트, 사용자, 앱 짧은 링크", () => {
   for (const url of ["https://soundcloud.com/artist/track-name", "https://m.soundcloud.com/artist/track", "https://soundcloud.com/artist/sets/list", "https://soundcloud.com/artist", "https://on.soundcloud.com/AbC123"]) {
     assert.equal(links.isSoundCloudURL(url), true, url);
   }
@@ -109,13 +109,13 @@ test("직접 링크 판정: 알려진 사이트 밖의 http(s) 면 확장자와 
   }
 });
 
-test("직접 링크 정보: SafeUrl GET 의 응답 헤더로 크기와 종류를 본다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
+test("직접 링크 정보: 제목은 주소의 파일 이름에서 온다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
   const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", info);
 
   assert.deepEqual(calls.info, ["https://files.test/my_song-name.mp3?x=1"]);
-  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, fileSize: t.fileSize, extension: t.extension, filename: t.filename, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", fileSize: 1600000, extension: ".mp3", filename: "my_song-name.mp3", thumbnail: null });
+  assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", thumbnail: null });
   assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 

@@ -1,4 +1,4 @@
-// src/discord/commands/index · src/discord/events/index — 명령 · 이벤트 처리기는 폴더를 읽지 않고 목록으로 모은다.
+// src/discord/commands/index, src/discord/events/index: 명령, 이벤트 핸들러는 폴더를 읽지 않고 목록으로 모은다.
 // 새 파일을 만들고 목록에 넣지 않으면 등록되지 않는다. 폴더의 파일 전부가 목록에 있는지 본다
 
 import fs from "node:fs";

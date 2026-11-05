@@ -1,11 +1,11 @@
 <template>
-  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 끄는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
+  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 드래그하는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
   <span class="group/vol relative inline-flex">
     <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="level" class="peer m3-slider m3-slider-thin w-full" :style="style" :disabled="disabled" :aria-label="T.volume" @pointerdown="grab" @input="emit('input', valueOf($event))" @change="emit('change', valueOf($event))" />
-    <!-- 핸들(폭 4) 가운데에 맞춘다 -->
+    <!-- 핸들(폭 4px) 가운데에 맞춘다 -->
     <span
       v-if="bubble && !disabled"
-      class="pointer-events-none absolute bottom-full mb-1 h-6 min-w-8 px-2 -translate-x-1/2 rounded-full bg-inverse-surface text-inverse-on-surface text-xs font-semibold nums flex items-center justify-center origin-bottom transition-[opacity,scale] duration-150 group-hover/vol:opacity-100 group-hover/vol:scale-100 peer-active:opacity-100 peer-active:scale-100 peer-focus-visible:opacity-100 peer-focus-visible:scale-100"
+      class="pointer-events-none absolute bottom-full mb-1 h-6 min-w-8 px-2 -translate-x-1/2 rounded-full bg-inverse-surface text-inverse-on-surface text-xs font-semibold nums flex items-center justify-center origin-bottom [transition:opacity_160ms_var(--ease-effects),scale_390ms_var(--ease-spring-fast)] group-hover/vol:opacity-100 group-hover/vol:scale-100 peer-active:opacity-100 peer-active:scale-100 peer-focus-visible:opacity-100 peer-focus-visible:scale-100"
       :class="dragging ? 'opacity-100 scale-100' : 'opacity-0 scale-75'"
       :style="{ left: `calc(2px + (100% - 4px) * ${level / VOLUME_MAX})` }"
       aria-hidden="true"
@@ -25,7 +25,7 @@ const T = text.player;
 const props = withDefaults(defineProps<{ level: number; disabled?: boolean; bubble?: boolean }>(), { disabled: false, bubble: true });
 const emit = defineEmits<{ input: [value: string]; change: [value: string] }>();
 
-// 끄는 동안(누른 손을 뗄 때까지). 터치로 끌면 브라우저가 :active 를 풀어 말풍선이 사라져서 직접 기억한다
+// 드래그하는 동안(누른 손을 뗄 때까지). 터치로 드래그하면 브라우저가 :active 를 풀어 말풍선이 사라져서 직접 기억한다
 const dragging = ref(false);
 function release() {
   dragging.value = false;

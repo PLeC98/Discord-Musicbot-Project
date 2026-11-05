@@ -1,4 +1,4 @@
-// src/rules/end-verdict.ts — 곡이 멈췄을 때 끝인가 끊김인가. 판정표의 행마다 고정한다
+// src/rules/end-verdict.ts: 곡이 멈췄을 때 끝인가 끊김인가. 판정표의 행마다 고정한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -31,14 +31,14 @@ test("우리가 멈춘 것은 그 까닭대로: 깨진 재생을 멈춘 까닭�
 });
 
 test("재생 스트림이 끝까지 읽히지 않고 멈췄으면(공급 부족) 끊김", () => {
-  assert.deepEqual(endVerdict(facts({ streamEnded: false })), { dropped: true, why: "공급이 끊겨 플레이어가 멈춤" });
+  assert.deepEqual(endVerdict(facts({ streamEnded: false })), { dropped: true, why: "패킷 공급이 끊겨 플레이어가 멈춤" });
 });
 
 test("입력 깨짐 표시가 있으면 스트림이 끝까지 읽혔어도 끊김. 까닭은 표시 그대로", () => {
   assert.deepEqual(endVerdict(facts({ broken: "입력 스트림 오류: 끊김" })), { dropped: true, why: "입력 스트림 오류: 끊김" });
 });
 
-test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남 · 0 아님 · 깨짐)은 끊김", () => {
+test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남, 0 아님, 깨짐)은 끊김", () => {
   const live = { live: true, lengthMs: null };
   assert.deepEqual(endVerdict(facts({ ...live, exitCode: 0 })), { dropped: false, why: "방송이 끝남" });
   assert.equal(dropped({ ...live, exitCode: null }), true);
@@ -51,7 +51,7 @@ test("되감기 방지: 끊겼어도 다시 열 위치가 길이 끝 1.5초 안�
   assert.equal(dropped({ streamEnded: false, positionMs: 198_499 }), true);
   const atEnd = endVerdict(facts({ streamEnded: false, positionMs: 198_500 }));
   assert.equal(atEnd.dropped, false);
-  assert.equal(atEnd.why, "공급이 끊겨 플레이어가 멈춤. 끝에 닿아 다시 열지 않음");
+  assert.equal(atEnd.why, "패킷 공급이 끊겨 플레이어가 멈춤. 끝에 닿아 다시 열지 않음");
   assert.equal(dropped({ reason: "stream-error", positionMs: 199_000 }), false, "우리가 멈춘 끊김에도 건다");
   assert.equal(dropped({ streamEnded: false, positionMs: 500_000, lengthMs: null }), true, "길이를 모르면 걸 수 없다");
 });

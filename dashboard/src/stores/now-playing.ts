@@ -14,7 +14,7 @@ import { text } from "../text/index.ts";
 // 서버 화면과 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로
 // 같은 서버를 둘이 동시에 읽는 상황이 생기지 않는다. 규칙은 utils/playback 을 같이 쓴다.
 //
-// 실시간 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
+// SSE 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
 // 대기열은 보지 않으므로 모든 요청에 ?queue=0 을 싣는다
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
@@ -36,15 +36,17 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const visible = computed(() => !!guildId.value && !onTargetPage.value && !!data.value?.hasPlayer);
 
   const canControl = computed(() => data.value?.canControl ?? false);
-  // 곡이 있고 멈추지 않았다(재생 · 일시정지 버튼이 어느 쪽인지)
+  // 곡이 있고 소리가 멈추지 않았다(진행 막대가 흐르나)
   const running = computed(() => Boolean(track.value && !data.value?.paused));
+  // 재생 버튼이 어느 쪽인지: 사람이 멈추지 않았으면 일시정지 버튼(억제로 소리가 멈춰 있어도)
+  const wantsPlay = computed(() => Boolean(track.value && !data.value?.userPaused));
   const canSkip = computed(() => skipAllowed(data.value));
   const duration = computed(() => track.value?.duration ?? 0);
   const position = computed(() => positionAt(clock.value, now.value));
 
   const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
 
-  // 받은 상태를 넣는다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한 · 음성 필드가 없어 그것만 남긴다
+  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한, 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
     data.value = withReadFields(data.value, next);
@@ -89,12 +91,14 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   // 일시정지는 먼저 바꿔 보이고, 거절되면 다시 읽어 되돌린다
   function togglePause() {
     if (!data.value || isBusy("pause")) return;
-    const paused = !data.value.paused;
+    // 뒤집는 것은 사람의 멈춤이다. 억제 사유가 남아 있으면 소리는 계속 멈춰 있다
+    const userPaused = !data.value.userPaused;
+    const paused = userPaused || data.value.heldBy != null;
     clock.value = retime(clock.value, Date.now(), { running: Boolean(track.value && data.value.playing && !paused) });
-    data.value = { ...data.value, paused };
+    data.value = { ...data.value, userPaused, paused };
     return send("pause", undefined, text.player.failed.pause);
   }
-  // 넘기기 · 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
+  // 넘기기, 이전은 응답을 기다린다. 누른 때의 곡일 때만 하게 항목 번호를 싣는다
   const skip = () => send("skip", onTrackOf(data.value), text.player.failed.skip);
   const previous = () => send("previous", onTrackOf(data.value), text.player.failed.previous);
   const shuffle = () => send("shuffle", undefined, text.player.failed.shuffle);
@@ -133,7 +137,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
   function start() {
     if (++started > 1) return;
 
-    // 대상 서버가 바뀌면(참가·이동·퇴장) 즉시 다시 읽는다
+    // 대상 서버가 바뀌면(참가, 이동, 퇴장) 즉시 다시 읽는다
     stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
     // 목록 연결의 신호. 내 대상 서버의 변화만 필터링해 받는다.
@@ -164,5 +168,5 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     data.value = null;
   }
 
-  return { data, page, guildId, guild, track, visible, canControl, running, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
+  return { data, page, guildId, guild, track, visible, canControl, running, wantsPlay, canSkip, duration, position, isBusy, refresh, togglePause, skip, previous, shuffle, cycleLoop, setVolume, seek, start, stop };
 });

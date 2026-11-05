@@ -23,17 +23,17 @@ type WarmerDeps = {
   isBusy(track: QueuedTrack): boolean;
   keyOf(track: QueuedTrack | null | undefined): string | null;
   setProtection(guildId: string, keys: string[]): void;
-  /** 직접 링크 곡의 파일 태그 · 그림을 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
+  /** 직접 링크 곡의 파일 태그, 앨범아트를 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
   wantArt?(tracks: Array<QueuedTrack | null>): void;
 };
-/** 파일 태그 · 그림을 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
+/** 파일 태그, 앨범아트를 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
 const ART_WINDOW = 1000;
 
 /**
  * 대기열 앞부분을 캐시에 올려둔 상태로 유지한다.
  *
  * 조작 지점마다 알리는 대신 주기적으로 대기열을 직접 본다. 큐를 변형하는 지점이 수십 곳이라
- * 알림 방식은 하나만 빠뜨려도 그 경로가 조용히 예열되지 않는다. 직접 보면 최악이 몇 초 늦음이고,
+ * 알림 방식은 하나만 빠뜨려도 그 경로가 조용히 예열되지 않는다. 직접 보면 최악이 몇 초 지연이고,
  * 큐 조작이 늘어도 여기를 고칠 필요가 없다.
  *
  * 앞 N곡의 서명이 연속 두 틱 같을 때만 움직인다. 셔플하는 동안에는 매 틱 목표가 바뀌어서
@@ -62,10 +62,6 @@ class QueueWarmer {
   _stopped: boolean;
   _failed: Set<QueuedTrack>;
 
-  /**
-   * @param player  queue / currentTrack / loop / guild 를 읽는다
-   * @param deps    협력자 주입
-   */
   constructor(player: WarmerHost, deps: WarmerDeps) {
     this.player = player;
 
@@ -78,7 +74,7 @@ class QueueWarmer {
     // 캐시 파일이 이미 있는가 / 지금 다운로드 중인가. 이 둘만이 "다운로드할 필요가 없다"의 근거다.
     this.isCached = deps.isCached;
     this.isBusy = deps.isBusy;
-    // 트랙 → 캐시 키(없을 수 있다: 아직 유튜브 동등물을 못 찾은 스포티파이 트랙)
+    // 곡 → 캐시 키(없을 수 있다: 아직 유튜브 동등물을 못 찾은 스포티파이 곡)
     this.keyOf = deps.keyOf;
     // 길드의 보호 키 집합을 통째로 교체한다
     this.setProtection = deps.setProtection;
@@ -91,7 +87,7 @@ class QueueWarmer {
     this._applied = null; // 실제로 반영한 서명
     this._running = false;
     this._stopped = false;
-    this._failed = new Set(); // 이번 서명에서 실패한 트랙. 같은 곡을 무한히 재시도하지 않는다
+    this._failed = new Set(); // 이번 서명에서 실패한 곡. 같은 곡을 무한히 재시도하지 않는다
   }
 
   start() {
@@ -120,10 +116,10 @@ class QueueWarmer {
     if (guildId) this.setProtection(guildId, []);
   }
 
-  /** 한 박자. 서명이 안정됐고 아직 반영하지 않았을 때만 움직인다. */
+  /** 틱 하나. 서명이 안정됐고 아직 반영하지 않았을 때만 움직인다. */
   tick() {
     if (this._stopped) return;
-    // 대기열 뒤쪽에 담은 곡도 차례가 오기 전에 그림이 생기게. 서명과 상관없이 박자마다 넘긴다(아는 곡은 메모리에서 건너뛴다)
+    // 대기열 뒤쪽에 추가된 곡도 순서가 오기 전에 앨범아트가 생기게. 서명과 상관없이 틱마다 넘긴다(아는 곡은 메모리에서 건너뛴다)
     this.wantArt?.([this.player.currentTrack, ...this.player.queue.slice(0, ART_WINDOW)]);
 
     const signature = this.signature();
@@ -152,7 +148,7 @@ class QueueWarmer {
   /**
    * 내려간 영상을 선택한 자동재생 곡을 대기열에서 빼고 다른 곡으로 채운다.
    *
-   * 소스 DB(VocaDB·LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
+   * 소스 DB(VocaDB, LB Radio 등)는 그 영상이 아직 살아 있다고 믿으므로, 우리가 기억해 두지
    * 않으면 다음 선택에서 같은 것을 또 선택한다.
    *
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
@@ -165,7 +161,7 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 뺍니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
+    log.info(`자동재생 곡을 대기열에서 제거합니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
 
     // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
     if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 슬롯의 자동재생 곡 선택");
@@ -176,7 +172,7 @@ class QueueWarmer {
    * 예열 대상. 대기열 앞 N곡.
    *
    * 현재 곡은 제외한다(재생 경로가 이미 다운로드하고 있다). 라이브는 끝이 없어, 너무 긴 곡은 비용이 커 캐시 대상이 아니다.
-   * 한곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 다운로드해 둘 이유가 없다.
+   * 한 곡 반복 중에는 다음 곡이 현재 곡이므로 앞을 다운로드해 둘 이유가 없다.
    */
   targets() {
     if (this.player.loop === "track") return [];
@@ -191,9 +187,9 @@ class QueueWarmer {
 
   /**
    * 대기열 앞부분의 지문. 순서가 바뀌면 달라져야 하므로 이어붙인다.
-   * 현재 곡도 넣는다. 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전곡)가 있다.
+   * 현재 곡도 넣는다. 대기열은 그대로인데 현재 곡만 바뀌는 경로(이전 곡)가 있다.
    *
-   * 캐시 키가 아니라 요청 키를 쓴다. 캐시 키는 스포티파이 트랙에서 받는 도중에 정해지므로, 키로 지문을
+   * 캐시 키가 아니라 요청 키를 쓴다. 캐시 키는 스포티파이 곡에서 받는 도중에 정해지므로, 키로 지문을
    * 만들면 곡을 하나 받을 때마다 대기열이 바뀐 것처럼 보여 루프가 매번 끊긴다. 여기서 봐야
    * 하는 것은 대기열이 바뀌었는가지 해석이 얼마나 진행됐는가가 아니다.
    */
@@ -231,7 +227,7 @@ class QueueWarmer {
           log.debug(`사전 캐싱: "${logTitle(track.title)}" | 대상 ${this.targets().length}곡`);
           await this.warm(track);
         } catch (err) {
-          // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생 차례에 스트림도 실패해
+          // 영상이 내려간 자동재생 곡은 여기서 버린다. 그냥 두면 재생할 때 스트림도 실패해
           // 대기열이 빈 채로 멈춘다. 우리가 선택한 곡이니 사용자에게 알릴 일이 아니라
           // 조용히 빼고 다른 곡을 선택하는 것이 맞다.
           if (track.autoplay && this._dropDeadAutoplay(track, err)) continue;

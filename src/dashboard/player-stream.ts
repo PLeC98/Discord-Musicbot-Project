@@ -8,24 +8,24 @@ import type { GuildEvent } from "./contract/guilds.ts";
 const log = logger.child({ category: "dashboard" });
 
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
-/** 연결 하나. canSee 는 보낼 때 그 서버를 볼 수 있는지 묻는다 */
-type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; cleanup: () => void };
+/** 연결 하나. canSee 는 보낼 때 그 서버의 보기 권한을 확인한다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
+type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
 
 /**
- * 대시보드 플레이어 상태 변화 넛지 (SSE, 하이브리드).
+ * 대시보드 플레이어 상태 변화 넛지(SSE).
  *
- * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(볼 수 있는지는 보낼 때 묻는다).
- * 서버 목록 · 재생 바 · 서버 화면이 같은 연결을 나눠 쓴다.
+ * 화면의 탭 하나가 연결 하나를 연다. 그 연결이 사용자가 볼 수 있는 서버 전체의 신호를 싣는다(보기 권한은 보낼 때 확인한다).
+ * 서버 목록, 재생 바, 서버 화면이 같은 연결을 나눠 쓴다.
  *
  * 페이로드는 "어느 서버에 변화 발생"이라는 최소 신호(`{"t":"changed","g":"<guildId>"}`). 받으면 GET으로 재조회.
  * per-user 권한/범위 지정은 GET 경로가 담당, 이 모듈은 "누가 구독 중인가"만 관리.
  */
 class PlayerStream {
-  /** 상한 · 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
+  /** 상한, 합치기 창은 쓸 때마다 읽는다(설정 객체를 넘기면 운영 조절값을 저장하자마자 적용된다) */
   options: StreamOptions;
   heartbeatMs: number;
   subs = new Set<Sub>();
-  perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭 · 기기 합산)
+  perKey = new Map<string, number>(); // userKey -> 연결 수 (사용자당 캡, 모든 탭, 기기 합산)
   coalesceTimers = new Map<string, NodeJS.Timeout>();
   heartbeat: NodeJS.Timeout;
   /** 설정 알림 떼기(close 때) */
@@ -65,7 +65,7 @@ class PlayerStream {
 
   /** 사용자당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. 이미 끊긴 연결도 false */
   _capOk(res: Response, userKey: string) {
-    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 셈이 남는다
+    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 연결 수가 남는다
     if (res.closed) return false;
     const count = this.perKey.get(userKey) || 0;
     if (count >= this.options.maxPerUser) {
@@ -82,17 +82,23 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 구독. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. requireAuth 뒤 호출할 것 */
-  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string) {
+  /** 그 사용자의 연결이 상한에 찼나. 부르는 쪽이 멤버 확인(REST)을 하기 전에 본다(SSE 연결은 요청 한도 밖이다) */
+  atCap(userKey: string) {
+    return (this.perKey.get(userKey) || 0) >= this.options.maxPerUser;
+  }
+
+  /** 구독. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. guilds: 멤버로 확인한 서버. requireAuth 뒤 호출할 것 */
+  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
     if (!this._capOk(res, userKey)) return;
     this._sseHead(res);
 
-    // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(구독 · perKey 캡)가 한 번만
+    // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(구독, perKey 캡)가 한 번만
     let done = false;
     const sub: Sub = {
       res,
       canSee,
       userKey,
+      guilds,
       cleanup: () => {
         if (done) return;
         done = true;
@@ -103,7 +109,7 @@ class PlayerStream {
     this.subs.add(sub);
     res.on("close", sub.cleanup);
     res.on("error", (error: unknown) => {
-      log.debug(`재생 알림 연결 오류: ${messageOf(error)}`);
+      log.debug(`재생 상태 SSE 연결 오류: ${messageOf(error)}`);
       sub.cleanup();
     });
   }
@@ -131,7 +137,7 @@ class PlayerStream {
 
   _emit(guildId: string, to = (sub: Sub) => sub.canSee(guildId)) {
     // guildId를 함께 보낸다. 한 연결이 여러 서버를 받으므로, 이게 없으면
-    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바 · 서버 화면이 자기 서버만 선택하는 근거).
+    // 어느 서버가 바뀌었는지 몰라 전부 다시 조회해야 한다(재생 바, 서버 화면이 자기 서버만 선택하는 근거).
     // 그 서버를 볼 수 있는 구독자에게만 보내 ID 노출 문제는 없다.
     const payload = `data: ${JSON.stringify({ t: "changed", g: guildId } satisfies GuildEvent)}\n\n`;
     for (const sub of this.subs) {
@@ -139,7 +145,7 @@ class PlayerStream {
       try {
         sub.res.write(payload);
       } catch (error) {
-        log.trace(`재생 알림 쓰기 실패: ${messageOf(error)}`);
+        log.trace(`재생 상태 SSE 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }
@@ -151,7 +157,7 @@ class PlayerStream {
       try {
         sub.res.write(ping);
       } catch (error) {
-        log.trace(`재생 알림 하트비트 쓰기 실패: ${messageOf(error)}`);
+        log.trace(`재생 상태 SSE 하트비트 쓰기 실패: ${messageOf(error)}`);
         sub.cleanup();
       }
     }
@@ -160,6 +166,16 @@ class PlayerStream {
   /** 연결을 열어 둔 사용자 */
   listUsers() {
     return new Set([...this.subs].map((sub) => sub.userKey));
+  }
+
+  /** 그 서버를 멤버로 확인한 연결의 사용자 */
+  watching(guildId: string) {
+    return new Set([...this.subs].filter((sub) => sub.guilds.has(guildId)).map((sub) => sub.userKey));
+  }
+
+  /** 그 사용자의 연결에 멤버로 확인한 서버를 더한다(연결을 연 뒤 봇이 든 서버) */
+  watch(userKey: string, guildId: string) {
+    for (const sub of this.subs) if (sub.userKey === userKey) sub.guilds.add(guildId);
   }
 
   /** 하트비트와 예약한 넛지를 멈춘다 */

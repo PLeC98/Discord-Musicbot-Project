@@ -1,5 +1,5 @@
-// src/dashboard/login-background/encode.ts — H.264 · AV1 · VP9 를 HLS(fMP4)로 굽고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 굽는다(없으면 건너뛴다)
-// 단계 크기 셈(4K · 세로 · 작은 원본) · 구간과 크롭 · 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다) · 마무리(원본 삭제) · 코어 셈
+// src/dashboard/login-background/encode.ts: H.264, AV1, VP9 를 HLS(fMP4)로 인코딩하고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 인코딩한다(없으면 건너뛴다)
+// 단계 크기 계산(4K, 세로, 작은 원본), 구간과 크롭, 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다), 마무리(원본 삭제), 코어 계산
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -53,7 +53,7 @@ const at = (one: store.Stored, ...parts: string[]) => path.join(store.folderOf(o
 const seconds = (playlist: string) => [...fs.readFileSync(playlist, "utf8").matchAll(/#EXTINF:([\d.]+)/g)].reduce((sum, m) => sum + Number(m[1]), 0);
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 
-test("단계 크기: AV1 · VP9 는 짧은 변 1080 · 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264 는 720", opts, () => {
+test("단계 크기: AV1, VP9 는 짧은 변 1080, 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264 는 720", opts, () => {
   const shorts = (width: number, height: number) => plansFor(["av1", "vp9", "h264"], { width, height }, 30).map((plan) => `${plan.codec} ${plan.width}x${plan.height}`);
   assert.deepEqual(shorts(3840, 2160), ["av1 1920x1080", "av1 3840x2160", "vp9 1920x1080", "vp9 3840x2160", "h264 1280x720"]);
   assert.deepEqual(shorts(2160, 3840), ["av1 1080x1920", "av1 2160x3840", "vp9 1080x1920", "vp9 2160x3840", "h264 720x1280"]);
@@ -64,7 +64,7 @@ test("단계 크기: AV1 · VP9 는 짧은 변 1080 · 2160(원본이 2160 이�
   assert.ok(plansFor(["vp9"], { width: 640, height: 360 }, 60)[0].options.join(" ").includes("-g 60"));
 });
 
-test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열 · 2초 최대), 구간 · 크롭을 따른다", opts, async () => {
+test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열, 2초 최대), 구간, 크롭을 따른다", opts, async () => {
   const one = await applied({ crop: { x: 0, y: 0, w: 0.5, h: 1 }, range: [0.5, 2.5], thumbAt: null });
   const progress: number[] = [];
   const result = await h264(job(one, (value) => progress.push(value)));
@@ -79,10 +79,17 @@ test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열 · 2초 �
   assert.ok(progress.length > 0);
 });
 
-test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", opts, async () => {
+test("H.264 단계: 편집에서 돌렸으면 돌린 크기로(자른 뒤 돌린다)", opts, async () => {
+  const one = await applied({ crop: { x: 0, y: 0, w: 0.5, h: 1 }, range: [0.5, 2.5], thumbAt: null, rotate: 90, flip: true });
+  const [rung] = (await h264(job(one))).media!.rungs.h264!;
+  assert.deepEqual([rung.width, rung.height], [360, 320]);
+  assert.match(fs.readFileSync(at(one, "h264", "index.m3u8"), "utf8"), /RESOLUTION=360x320/);
+});
+
+test("굽기 단계: AV1(10비트), VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", opts, async () => {
   if (!encoders.encoderFor("av1") || !encoders.encoderFor("vp9")) return;
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
-  // 굽는 동안 운영자 패널에 보이는 것: 함께 굽는 단계 · AV1 병렬 단계 · 코어
+  // 인코딩하는 동안 운영자 패널에 보이는 것: 함께 인코딩하는 단계, AV1 병렬 단계, 코어
   const seen: NonNullable<ReturnType<typeof bakeNow>>[] = [];
   const watch = setInterval(() => {
     const now = bakeNow();
@@ -101,7 +108,7 @@ test("굽기 단계: AV1(10비트) · VP9 를 굽고 목록을 쓴다. 끝난 �
   const av1Mtime = fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs;
   fs.rmSync(at(one, "vp9", "360"), { recursive: true });
   fs.mkdirSync(at(one, "vp9", "360.tmp"), { recursive: true });
-  fs.writeFileSync(at(one, "vp9", "360.tmp", "seg-000.m4s"), "끊긴 조각");
+  fs.writeFileSync(at(one, "vp9", "360.tmp", "seg-000.m4s"), "끊긴 세그먼트");
   one.media = first.media!;
   const again = await encode(job(one));
   assert.equal(fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs, av1Mtime);
@@ -121,7 +128,7 @@ test("움직이는 그림: 30fps 로 고르게 펴 구간대로 굽는다(입력
   assert.ok(Math.abs(seconds(at(one, "vp9", "180", "index.m3u8")) - 4) < 0.1);
 });
 
-test("인코더가 없는 코덱은 만들지 않고 단계는 끝난다(로그인 화면은 남은 코덱 · 정지 그림으로)", opts, async () => {
+test("인코더가 없는 코덱은 만들지 않고 단계는 끝난다(로그인 화면은 남은 코덱, 정지 그림으로)", opts, async () => {
   const one = await applied({ crop: FULL, range: [0, 2], thumbAt: null });
   encoders._reset();
   try {
@@ -134,7 +141,7 @@ test("인코더가 없는 코덱은 만들지 않고 단계는 끝난다(로그�
   }
 });
 
-test("마무리: 원본 · 미리보기 · 장면 띠는 삭제하고 구운 것 · 정지 그림은 남긴다", opts, async () => {
+test("마무리: 원본, 미리보기, 장면 띠는 삭제하고 구운 것, 정지 그림은 남긴다", opts, async () => {
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
   for (const name of ["preview.mp4", "strip.webp", "still-640.webp", "download.info.json"]) fs.writeFileSync(at(one, name), "x");
   await h264(job(one));
@@ -152,14 +159,14 @@ test("굽기 코어: 논리 코어의 80%, 최소 2개는 비운다(위쪽 코�
 test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 않는다", async () => {
   const { enoughMemory } = await import("../../src/dashboard/login-background/memory.ts");
   const started = Date.now();
-  await enoughMemory(0, "시험", signal);
+  await enoughMemory(0, "테스트", signal);
   const stopped = new AbortController();
   stopped.abort();
-  await enoughMemory(Number.MAX_SAFE_INTEGER, "시험", stopped.signal);
+  await enoughMemory(Number.MAX_SAFE_INTEGER, "테스트", stopped.signal);
   assert.ok(Date.now() - started < 1000);
 });
 
-test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지), 나눠 굽기는 3 · 2 만(들지 않으면 따로)", async () => {
+test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지), 나눠 굽기는 3, 2 만(들지 않으면 따로)", async () => {
   const { av1Lp, splitLp, needOf } = await import("../../src/dashboard/login-background/memory.ts");
   const GB = 1024 ** 3;
   assert.deepEqual(
@@ -178,7 +185,7 @@ test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지),
     [64, 2.9, 2.6, 2].map((free) => splitLp(false, free * GB)),
     [3, 3, 2, null],
   );
-  // VP9 · H.264 는 가볍다(AV1 4K 의 몇 분의 일)
+  // VP9, H.264 는 가볍다(AV1 4K 의 몇 분의 일)
   assert.ok(needOf({ codec: "vp9", uhd: true }) < needOf({ codec: "av1", uhd: true, lp: 1 }));
   assert.ok(needOf({ codec: "h264" }) < 2 * GB);
 });
@@ -190,7 +197,7 @@ test("진행 감시: out_time_us 가 늘면 다시 재고, 멈추면 알린다",
   for (let i = 1; i <= 4; i++) {
     await new Promise((resolve) => setTimeout(resolve, 40));
     watch.feed(`out_time_us=${i * 1000}`);
-    // 늘지 않은 값 · 다른 줄은 다시 재지 않는다
+    // 늘지 않은 값, 다른 줄은 다시 재지 않는다
     watch.feed("progress=continue");
   }
   assert.equal(stalled, 0);

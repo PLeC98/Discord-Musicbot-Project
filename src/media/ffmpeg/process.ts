@@ -4,37 +4,33 @@ import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { exitText, exitVerdict } from "./exit.ts";
 const log = logger.child({ category: "ffmpeg" });
 
-/**
- * ffmpeg 자식 프로세스 생성.
- *
- * prism.FFmpeg는 쓰지 않는다(prism-media@1.3.5). `command` 옵션을 무시하고 자체 탐색한 바이너리를
- * 쓰며, stderr를 배수하지 않아 로그를 켜면 파이프 버퍼가 차서 멈추고, `'close'`가 Duplex로 가버려
- * 프로세스 종료와 어긋난다.
- */
-
-// 소리를 내는 ffmpeg(playback-input · 무이음 전환)
+// 소리를 내는 ffmpeg(playback-input, 갭리스 전환)
 const PLAYING = new Set(["stream", "playback", "switch"]);
 
-// SIGKILL/SIGTERM은 스킵·정지·종료에서 우리가 보내는 것이므로 크래시가 아니다.
-const CRASH_SIGNALS = new Set<NodeJS.Signals>(["SIGSEGV", "SIGABRT", "SIGBUS", "SIGILL", "SIGFPE"]);
-
 /**
+ * ffmpeg 자식 프로세스를 실행한다.
+ *
+ * prism.FFmpeg는 쓰지 않는다(prism-media@1.3.5). `command` 옵션을 무시하고 자체 탐색한 바이너리를
+ * 쓰며, stderr를 비우지 않아 로그를 켜면 파이프 버퍼가 차서 멈추고, `'close'`가 Duplex로 가
+ * 프로세스 종료와 어긋난다.
+ *
  * @param {string[]} args 완전한 ffmpeg 인자. 출력 대상까지 호출부가 지정한다.
  *   재생은 `pipe:1`, 검사는 `-f null -`이라 여기서 임의로 붙일 수 없다.
- * @param {string} label 로그·레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
- * @param {{killOnStdoutClose?: boolean}} opts stdout을 소비하는 경로(재생)에서만 true
+ * @param {string} label 로그, 레지스트리 표기용 ("stream" | "playback" | "switch" | "probe")
+ * @param {{killOnStdoutClose?: boolean}} opts stdout이 닫히면 ffmpeg를 죽인다(기본 true). stdout을 읽지 않는 검사(probe)는 false
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
   const bin = ffmpegPath();
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡 · 다음 곡)
+  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡, 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
-  // 정상 운용에서는 조용하도록 모아두기만 하고, 비정상 종료일 때만 함께 내보낸다.
+  // stderr 끝 1000자를 모아 두기만 하고, 실패로 끝났을 때만 종료 줄에 함께 남긴다.
   let stderrTail = "";
   child.stderr.on("data", (chunk) => {
     stderrTail = (stderrTail + chunk.toString()).slice(-1000);
@@ -48,20 +44,17 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
     /* 소비자 쪽에서 종료를 감지해 처리한다 */
   });
 
-  // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남는다.
-  // prism의 _cleanup()이 하던 일을 여기서 대신한다.
+  // 소비자(@discordjs/voice)가 stdout을 파괴하면 ffmpeg는 write에서 막힌 채 남으므로 죽인다(prism의 _cleanup()이 하던 일).
   // stdout 을 소비하지 않는 검사(probe)는 이 정리를 걸지 않는다(조기 종료 방지).
-  // 우리가 손을 떼서 죽인 것인지 표시. 프로세스가 아직 살아 있는데 stdout이 닫혔다면
-  // 닫은 쪽은 소비자, 즉 우리다(무지연 전환에서 옛 소스를 버릴 때가 그렇다).
-  // 이때 ffmpeg는 파이프 쓰기가 실패해 스스로 죽는데(Windows에서는 EINVAL → 종료 코드 -22),
-  // 그건 사고가 아니라 우리가 시킨 정리다. 경고로 올리면 안 된다.
+  // closedByUs: 우리가 손을 떼서 죽인 것인가. 끝까지 읽지 않은 stdout 이 닫혔다면 닫은 쪽은 소비자, 즉 우리다
+  // (스킵, 위치 이동, 갭리스 전환에서 옛 소스를 버릴 때). ffmpeg 가 스스로 끝나도 close 가 exit 보다 먼저 올 수 있어
+  // 프로세스가 살아 있는지만으로는 가를 수 없다. 우리가 닫으면 ffmpeg 는 파이프 쓰기가 실패해 스스로 죽는다(exit.ts)
   let closedByUs = false;
   if (killOnStdoutClose) {
     child.stdout.on("close", () => {
-      if (child.exitCode === null && child.signalCode === null) {
-        closedByUs = true;
-        child.kill("SIGKILL");
-      }
+      if (child.stdout.readableEnded) return;
+      closedByUs = true;
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     });
   }
 
@@ -73,14 +66,10 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   child.on("exit", (code, signal) => {
     release();
     const detail = stderrTail.trim() ? `: ${stderrTail.trim()}` : "";
-    if (signal !== null && CRASH_SIGNALS.has(signal)) {
-      log.error(`ffmpeg(${label}) 비정상 종료: ${signal}${detail}`);
-    } else if (closedByUs) {
-      // 종료 코드는 남긴다. 조사할 때 "정리로 죽은 것"과 "정리 직전에 이미 이상했던 것"을 구분한다.
-      log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${code ?? signal ?? "없음"})`);
-    } else if (code !== 0 && code !== null) {
-      log.warn(`ffmpeg(${label}) 종료 코드 ${code}${detail}`);
-    }
+    const verdict = exitVerdict({ code, signal, closedByUs });
+    if (verdict === "crash") log.error(`ffmpeg(${label}) 비정상 종료: ${exitText(code, signal)}${detail}`);
+    else if (verdict === "cleanup") log.debug(`ffmpeg(${label}) 정리 완료 (종료 코드 ${exitText(code, signal)})`);
+    else if (verdict === "failed") log.warn(`ffmpeg(${label}) 종료 코드 ${exitText(code, signal)}${closedByUs ? "(출력을 닫기 전에 이미 실패)" : ""}${detail}`);
   });
 
   return child;
@@ -102,7 +91,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
   const dur = str.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
   if (dur) {
     const sec = Number(dur[1]) * 3600 + Number(dur[2]) * 60 + parseFloat(dur[3]);
-    // 헤더는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이 · 표시가 이 값을 쓴다)
+    // 헤더는 100분의 1초까지 적는다. 버리지 않는다(캐시 길이, 표시가 이 값을 쓴다)
     if (Number.isFinite(sec) && sec > 0) out.durationSec = Math.round(sec * 100) / 100;
   }
 
@@ -113,7 +102,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
     if (perStream) out.bitrateKbps = Number(perStream[1]);
   }
   // 컨테이너 값은 영상이 섞여 있으면 오디오 비트레이트가 아니다. 모르는 채로 두는 편이 낫다.
-  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 굽기 때문이다.
+  // 부르는 쪽이 "상한을 넘음"으로 보고 멀쩡한 opus 를 다시 인코딩하기 때문이다.
   if (out.bitrateKbps === null && !/Stream #\d+:\d+[^\r\n]*:\s*Video:/.test(str)) {
     const container = str.match(/Duration:[^\r\n]*?bitrate:\s*(\d+)\s*kb\/s/);
     if (container) out.bitrateKbps = Number(container[1]);
@@ -126,7 +115,7 @@ function parseProbeOutput(text: unknown): ProbeInfo {
 /**
  * 로컬 오디오 파일 안에 무엇이 들었는지 묻는다. 열지 못하면 전부 null.
  *
- * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다. 길이·코덱·비트레이트가
+ * `-c copy -f null -`은 디코딩 없이 헤더만 읽어 100ms대에 끝난다. 길이, 코덱, 비트레이트가
  * 한 번에 나오므로 따로 물어볼 일이 없다.
  */
 function probeAudio(file: string): Promise<ProbeInfo> {
@@ -141,7 +130,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     }
 
     let out = "";
-    // 필요한 것(길이 · 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
+    // 필요한 것(길이, 스트림 줄)은 모두 앞쪽에 나온다. 앞 64KB 만 둔다
     child.stderr.on("data", (chunk) => {
       if (out.length < 65536) out += chunk.toString();
     });
@@ -152,12 +141,12 @@ function probeAudio(file: string): Promise<ProbeInfo> {
 
 /**
  * 로컬 오디오 파일의 실제 길이(초). 알아낼 수 없으면 null.
- * 파일 크기로 어림한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
+ * 파일 크기로 추산한 길이는 VBR 에서 양방향으로 크게 어긋나 쓰지 않는다. 길이는 다운로드해 둔 파일을 재서 얻는다.
  */
 async function probeDurationSec(file: string): Promise<number | null> {
   return (await probeAudio(file)).durationSec;
 }
 
 export { spawnFfmpeg, probeAudio, probeDurationSec };
-export const _internals = { CRASH_SIGNALS, parseProbeOutput };
+export const _internals = { parseProbeOutput };
 export type { ProbeInfo };

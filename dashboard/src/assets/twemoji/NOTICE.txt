@@ -1,0 +1,9 @@
+Musicbot Twemoji (twemoji.woff2)
+
+Graphics: Twemoji 16.0.1 as published by Discord (@discordapp/twemoji, https://github.com/discord/twemoji)
+Copyright Twitter, Inc and other contributors; Copyright Jason Sofonia & Justine De Caires
+Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+
+Modified: the SVG files were converted to a COLRv0 color font with nanoemoji, text characters
+(space, #, *, 0-9, ©, ®, ™, U+20E3) and keycap emoji were removed, and ligatures were added for
+every form listed in Unicode emoji-test.txt 16.0. Built by scripts/build-twemoji-font.ts.

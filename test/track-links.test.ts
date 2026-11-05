@@ -1,6 +1,6 @@
-// 트랙의 링크 필드 셋(pageUrl · requestKey · audioUrl)과 오디오 링크 데이터.
+// src/store/track-lookup.ts, src/sources/stream-url.ts: 트랙의 링크 필드 셋(pageUrl, requestKey, audioUrl)과 오디오 링크 데이터.
 //
-// 세 필드가 서로 섞이지 않는지 본다(보여 줄 링크 · 링크 데이터 키 · 음원 주소는 다른 값이다).
+// 세 필드가 서로 섞이지 않는지 본다(보여 줄 링크, 링크 데이터 키, 음원 주소는 다른 값이다).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -9,6 +9,7 @@ import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { canonicalUrl } from "../src/rules/canonical-url.ts";
+import { audioKeyOf } from "../src/rules/audio-key-of.ts";
 import * as stores from "../src/store/stores.ts";
 import { cacheDb } from "../src/store/cache-db.ts";
 import { createTables as createStateTables } from "../src/store/state-db.ts";
@@ -49,7 +50,7 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
   db.pragma("foreign_keys = ON");
   createStateTables(db);
   const store = new PlayerSessionStore(db);
-  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", pausedManual: false, positionMs: 0 });
+  store.saveSession("g1", { voiceChannelId: "v", textChannelId: "t", volume: 100, loopMode: "off", autoplay: "x", userPaused: false, positionMs: 0 });
 
   const page = "https://anilist.co/anime/1";
   const toYoutube = { title: "A", artist: "가수", platform: "anisongdb", pageUrl: page, requestKey: "amq:1", audioUrl: watch("v1"), id: "amq:1", addedAt: 1 };
@@ -66,7 +67,7 @@ test("세션 복원: 유튜브로 올라간 곡도 음원으로 떨어진 곡도
 
 test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음원 주소에서만 온다", async () => {
   const track = { title: "곡", platform: "anisongdb", id: "amq:48944", pageUrl: "https://anilist.co/anime/21827", requestKey: "amq:48944", audioUrl: "https://nawdist.animemusicquiz.com/abc.mp3" };
-  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null });
+  assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null, audioKey: audioKeyOf(track.audioUrl) });
 });
 
 // 링크 데이터 키가 작품 페이지면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다(「Fatal」 링크를 넣으면 「Burning」)

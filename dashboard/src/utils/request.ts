@@ -1,12 +1,12 @@
-// 요청 한 곳. 화면의 모든 axios 요청이 이 가로채기를 거친다: CSRF 토큰 · 토큰 거절 뒤 한 번 다시 보내기 · 세션 끝 · 시간 한도
-// 시간 한도는 종류별이다. 기본은 조작 · 읽기 · 저장(10초), 부르기 · 곡 넣기 · 더 넣기와 운영자의 오래 걸리는 일은 120초,
+// 요청 한 곳. 화면의 모든 axios 요청이 이 가로채기를 거친다: CSRF 토큰, 토큰 거절 뒤 한 번 다시 보내기, 세션 끝, 시간 한도
+// 시간 한도는 종류별이다. 기본은 조작, 읽기, 저장(10초), 부르기, 곡 추가, 더 넣기와 운영자의 오래 걸리는 일은 120초,
 // 바깥 AI 를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
 import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 declare module "axios" {
   interface AxiosRequestConfig {
-    /** 401 이어도 세션 끝으로 돌리지 않는다(로그인 여부를 확인하는 요청 · 로그아웃) */
+    /** 401 이어도 세션 끝으로 돌리지 않는다(로그인 여부를 확인하는 요청, 로그아웃) */
     quietSession?: boolean;
     /** CSRF 토큰 거절 뒤 다시 보낸 요청(한 번만 다시 보낸다) */
     csrfRetried?: boolean;
@@ -51,7 +51,7 @@ async function unblobbed(data: unknown): Promise<unknown> {
 /** 봇에게서 답을 못 받은 요청의 종류 */
 export type FailureKind = "timeout" | "offline" | "aborted";
 
-/** 봇에게서 답을 못 받은 요청의 종류. 시간 한도 · 연결 안 됨(프록시의 502 · 503 · 504 포함) · 화면이 끊음(페이지를 떠남 등) · 그 밖(봇이 답했다)은 null */
+/** 봇에게서 답을 못 받은 요청의 종류. 시간 한도, 연결 안 됨(프록시의 502, 503, 504 포함), 화면이 끊음(페이지를 떠남 등), 그 밖(봇이 답했다)은 null */
 export function failureKind(error: unknown): FailureKind | null {
   const { response, code } = failedOf(error);
   if (response) return response.status !== undefined && GATEWAY.has(response.status) && problemCodeOf(response.data) === undefined ? "offline" : null;
@@ -67,7 +67,7 @@ export function failureKind(error: unknown): FailureKind | null {
  * 요청에 quietSession 을 주면 401 이어도 부르지 않는다(로그아웃).
  * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
  *   다시 로그인을 마치면 true 로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false 면 거절대로 실패한다
- * onReach(ok): 서버에 닿았는지(응답이 왔다 · 연결이 안 됐다). 시간 한도 · 끊음은 알리지 않는다
+ * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
  */
 export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void }): void {
   let token: string | null = null;
@@ -108,7 +108,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
       if (response) response.data = await unblobbed(response.data);
       if (failureKind(error) === "offline") onReach(false);
       else if (response) onReach(true);
-      // 토큰은 처리기보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
+      // 토큰은 핸들러보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
       if (problemCodeOf(response?.data) === "bad-csrf-token") {
         token = null;
         if (request && !request.csrfRetried) return http.request({ ...request, csrfRetried: true });

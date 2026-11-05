@@ -1,10 +1,9 @@
 // 장르 설정 ↔ 편집 행. 편집 중에는 배열로 다룬다. 맵으로 두면 식별자를 고치는 순간 키가 바뀌어 입력이 튄다.
-// 키가 식별자(name, 주소 · 디스코드 버튼 · AI 의 {{genre}})이고 보여 줄 이름은 label(비우면 식별자를 보인다).
+// 키가 식별자(name, 주소, 디스코드 버튼, AI 의 {{genre}})이고 보여 줄 이름은 label(비우면 식별자를 보인다).
 // 행은 원래 장르를 통째로 들고 있다가(kept) 화면이 고친 필드만 덮어 돌려보낸다. 화면에 필드가 없는 것을 빠뜨리면 저장이 삭제한다.
 // 저장은 보낸 필드의 순서대로 파일을 고쳐 쓰므로 원래 필드의 순서도 지킨다(있던 필드는 제자리, 새로 입력한 필드는 끝에).
 //
-// 장르마다 덮어쓸 수 있는 필드는 셋(최소 · 최대 길이, 차단할 말). 비우면 그 필드를 빼서 전역 값을 쓴다.
-// 재생은 { ...defaults, ...장르 } 로 합치므로 장르의 차단할 말은 전역 목록에 더하지 않고 대신한다
+// 장르마다 덮어쓸 수 있는 필드는 최소, 최대 길이 둘이다. 비우면 그 필드를 빼서 전역 값을 쓴다(재생은 { ...defaults, ...장르 } 로 합친다)
 
 /** 소스 하나(장르 문서의 그대로). 필드는 소스 종류마다 다르다(schema/genre-sources 의 SPEC). _key 는 편집 중 행을 붙잡아 두는 번호 */
 type SourceData = Record<string, unknown> & { type?: string; _key?: number };
@@ -26,7 +25,7 @@ type GenreRow = {
 let serial = 0;
 const nextKey = () => ++serial;
 
-/** 장르마다 덮어쓸 수 있는 필드(차단어는 키워드 출처 필드가 덮어쓴다) */
+/** 장르마다 덮어쓸 수 있는 필드(제외 키워드는 키워드 출처 필드가 덮어쓴다) */
 const OVERRIDES = ["minDurationSec", "maxDurationSec"] as const;
 
 const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[] =>
@@ -54,7 +53,7 @@ function overrideOf(row: GenreRow, key: (typeof OVERRIDES)[number]) {
 }
 
 function toGenre(row: GenreRow): GenreData {
-  // 라벨 · 이모지도 비우면 필드를 뺀다(빈 글자를 파일에 적지 않는다)
+  // 라벨, 이모지도 비우면 필드를 뺀다(빈 글자를 파일에 적지 않는다)
   const changed: Record<string, unknown> = { label: row.label.trim() || undefined, emoji: row.emoji || undefined, sources: row.sources.map(clean) };
   for (const key of OVERRIDES) changed[key] = overrideOf(row, key);
   // 있던 필드는 제자리에서 바꾸거나 빼고, 새 필드는 끝에 붙인다

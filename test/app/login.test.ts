@@ -1,4 +1,4 @@
-// src/app/login.ts — 로그인 전에 게이트웨이 정보를 묻고, 디스코드 5xx · 네트워크면 간격을 두고 다시 묻는다. 로그인은 한 번만 한다.
+// src/app/login.ts: 로그인 전에 게이트웨이 정보를 조회하고, 디스코드 5xx, 네트워크면 간격을 두고 재요청한다. 로그인은 한 번만 한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -28,7 +28,7 @@ function client(gateway: Array<Error | object>, { loginFails = false } = {}) {
 }
 const server5xx = () => Object.assign(new Error("Internal Server Error"), { status: 500 });
 
-test("게이트웨이 정보가 5xx · 네트워크로 안 오면 기다렸다가 다시 묻고, 오면 한 번 로그인한다", async () => {
+test("게이트웨이 정보가 5xx, 네트워크로 안 오면 기다렸다가 다시 묻고, 오면 한 번 로그인한다", async () => {
   const c = client([server5xx(), Object.assign(new Error("socket"), { code: "ECONNRESET" }), { url: "wss://gateway" }]);
   const waited: number[] = [];
   assert.equal(await loginWithRetry(c, "T", { waits: [5, 15, 30], wait: async (ms) => void waited.push(ms) }), "T");

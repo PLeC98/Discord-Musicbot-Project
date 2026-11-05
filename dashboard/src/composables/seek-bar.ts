@@ -1,6 +1,6 @@
 // 탐색 막대. 재생 바와 서버 화면이 같이 쓴다.
-// 포인터 이벤트(마우스 · 터치 · 펜)를 막대가 붙잡고(setPointerCapture), 끄는 동안의 값을 들고, 놓으면 보낸다.
-// 끄는 사이 곡이 바뀌면 취소하고 알린다(다음 곡을 옮기지 않게). 브라우저가 끌기를 빼앗으면(pointercancel) 보내지 않는다
+// 포인터 이벤트(마우스, 터치, 펜)를 막대가 붙잡고(setPointerCapture), 드래그하는 동안의 값을 들고, 놓으면 보낸다.
+// 드래그하는 사이 곡이 바뀌면 취소하고 알린다(다음 곡을 옮기지 않게). 브라우저가 드래그를 빼앗으면(pointercancel) 보내지 않는다
 
 import { ref, watch, onUnmounted, type Ref } from "vue";
 import { seekPosition } from "../utils/playback.ts";

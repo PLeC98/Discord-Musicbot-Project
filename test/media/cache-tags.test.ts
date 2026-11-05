@@ -1,5 +1,5 @@
-// 캐시 파일의 태그: 다시 구운 그림(sources/cover) · FLAC 그림 블록(rules/flac-picture) · 캐시 변환이 적는 태그(media/convert).
-// 받은 파일의 태그는 버리고 우리가 읽은 제목 · 가수 · 앨범과 그림만 적는다. 다시 읽으면(sources/file-tags) 같은 것이 나와야 한다
+// src/sources/cover.ts, src/rules/flac-picture.ts, src/media/convert.ts: 캐시 파일의 태그. 다시 인코딩한 앨범아트(cover), FLAC 그림 블록(flac-picture), 캐시 변환이 적는 태그(convert).
+// 받은 파일의 태그는 버리고 우리가 읽은 제목, 가수, 앨범과 앨범아트만 적는다. 다시 읽으면(sources/file-tags) 같은 것이 나와야 한다
 
 import path from "node:path";
 import os from "node:os";
@@ -33,7 +33,7 @@ function ffmpeg(args: string[]): Promise<boolean> {
 
 const noise = (width: number, height: number) => sharp({ create: { width, height, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } });
 
-test("그림 블록: 앞 표지 · MIME · 가로 · 세로 · 깊이 · 그림 길이가 빅 엔디언 32비트로", () => {
+test("그림 블록: 앞 표지, MIME, 가로, 세로, 깊이, 그림 길이가 빅 엔디언 32비트로", () => {
   const block = pictureBlock({ mime: "image/jpeg", width: 640, height: 480, data: new Uint8Array([1, 2, 3]) });
   const view = new DataView(block.buffer);
   assert.equal(view.getUint32(0), 3, "앞 표지");
@@ -43,7 +43,7 @@ test("그림 블록: 앞 표지 · MIME · 가로 · 세로 · 깊이 · 그림 
   assert.deepEqual([...block.subarray(42)], [1, 2, 3]);
 });
 
-test("굽기: 큰 그림은 긴 변 1000px JPEG, 작은 그림은 키우지 않는다. 깨진 그림 · 선언된 화소가 거대한 그림은 null", async () => {
+test("굽기: 큰 그림은 긴 변 1000px JPEG, 작은 그림은 키우지 않는다. 깨진 그림, 선언된 화소가 거대한 그림은 null", async () => {
   const big = await bakeCover(await noise(3000, 2000).png().toBuffer());
   assert.deepEqual([big?.width, big?.height], [SIDE, 667]);
   assert.equal((await sharp(big!.jpeg).metadata()).format, "jpeg");
@@ -84,7 +84,7 @@ test("굽기: 움직이는 GIF 는 첫 장", async (t) => {
   assert.deepEqual([frame?.width, frame?.height], [40, 80]);
 });
 
-test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3 · Ogg Vorbis · 이미 Opus 라 옮기기). 다시 읽으면 같고, 임시 그림 파일은 남지 않는다", { timeout: 60_000 }, async (t) => {
+test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3, Ogg Vorbis, 이미 Opus 라 옮기기). 다시 읽으면 같고, 임시 그림 파일은 남지 않는다", { timeout: 60_000 }, async (t) => {
   if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
   const cover = await bakeCover(fs.readFileSync(at("src.jpg")));
   assert.ok(cover);

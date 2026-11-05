@@ -1,5 +1,5 @@
-// src/discord/interactions/settings-panel-handler.ts · commands/setting — /setting 한 화면(DJ 역할 · SponsorBlock · 연령 제한 콘텐츠).
-// 고르거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB 로 쓴다.
+// src/discord/interactions/settings-panel-handler.ts, commands/setting: /setting 한 화면(DJ 역할, SponsorBlock, 연령 제한 콘텐츠).
+// 선택하거나 누르면 바로 저장하고 화면을 지금 값으로 다시 그린다. 봇 전체에서 끈 기능의 부분은 없다. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +44,7 @@ function buttonsOf(payload: Payload) {
   for (const c of payload.components) walk(c.toJSON() as Node);
   return out;
 }
-// 컴포넌트 수(디스코드가 세는 대로: 안에 든 것 · 섹션 옆 것까지)
+// 컴포넌트 수(디스코드가 세는 대로: 안에 든 것, 섹션 옆 것까지)
 function countOf(payload: Payload) {
   let count = 0;
   const walk = (n: Node) => {
@@ -91,7 +91,7 @@ const run = async (ix: ReturnType<typeof fakeInteraction>) => {
 };
 const render = async () => ({ components: [await panel(guild)] });
 
-test("한 화면에 세 부분. 컴포넌트 40 · 글자 4000 한도 안", async () => {
+test("한 화면에 세 부분. 컴포넌트 40, 글자 4000 한도 안", async () => {
   const shown = await render();
   const text = textOf(shown);
   assert.match(text, /### .*서버 설정/);
@@ -106,7 +106,7 @@ test("한 화면에 세 부분. 컴포넌트 40 · 글자 4000 한도 안", asyn
   assert.ok([...text].length <= 4000);
 });
 
-test("봇 전체에서 SponsorBlock · 연령 제한 콘텐츠를 껐으면 그 부분이 없다", async () => {
+test("봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 부분이 없다", async () => {
   config.sponsorblock.enabled = false;
   documents._use("age-content", { enabled: false, changedAt: 2 });
   const shown = await render();
@@ -128,7 +128,7 @@ test("역할 메뉴: 고르면 바로 저장하고 화면을 다시 그린다. �
   assert.deepEqual(settings.table.getDjRoles("g1"), []);
 });
 
-test("SponsorBlock: 켜기 · 끄기 버튼과 구간 메뉴가 바로 저장한다. 끄면 구간 메뉴는 고를 수 없다", async () => {
+test("SponsorBlock: 켜기, 끄기 버튼과 구간 메뉴가 바로 저장한다. 끄면 구간 메뉴는 고를 수 없다", async () => {
   const off = await run(fakeInteraction("button", "setting:sb-toggle"));
   assert.equal(settings.resolveSponsorBlock("g1").enabled, false);
   assert.match(textOf(off.updatedWith), /현재 설정: \*\*끔\*\*/);

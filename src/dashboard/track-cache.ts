@@ -1,7 +1,7 @@
-// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기 · 쓰기 · 값 검사. 모양은 contract/track-cache.
-// 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 셈해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
+// 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기, 쓰기, 값 검사. 모양은 contract/track-cache.
+// 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 계산해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
-// 계약이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
+// 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
 
 import {
   TRACK_CACHE_COLUMNS,
@@ -43,13 +43,13 @@ import type { LookupRow } from "../store/rows.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열> · /q · /sort, 쓰기면 /ops/<번호>/<필드>) */
+/** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
 type Refusal = { ok: false; code: Code; params?: Params; errors?: FieldProblem[] };
 
 const refusal = (code: Code, errors?: FieldProblem[], params?: Params): Refusal => ({ ok: false, code, ...(params ? { params } : {}), ...(errors ? { errors } : {}) });
 const firstOf = (errors: FieldProblem[]): Refusal => refusal(errors[0].code, errors, errors[0].max !== undefined ? { max: errors[0].max } : undefined);
 
-// ── 행 잇기 ──────────────────────────────────────────────────────────────────
+// ── 행 잇기 ──
 
 type Sources = { ledger: LookupRow[]; pins: pinnedSources.Pin[]; files: Map<string, audioCache.AudioRow>; age: Map<string, number>; checks: Map<string, sourceChecks.Check> };
 
@@ -75,7 +75,7 @@ function sourceOf(row: audioCache.AudioRow, check: sourceChecks.Check | undefine
   return { state: check.version === row.audio_version ? "same" : "changed", at: check.at };
 }
 
-// 요청 행의 링크 데이터 몫 · 직접 지정한 음원 몫
+// 요청 행의 링크 데이터 몫, 직접 지정한 음원 몫
 function requestCells(requestKey: string, led: LookupRow | undefined, pin: pinnedSources.Pin | undefined) {
   if (!led) return { requestKey, platform: inputKind(requestKey), title: null, artist: null, audioUrl: pin!.audioUrl, ledgerAudioUrl: null, pinnedAt: pin!.pinnedAt };
   return { requestKey, platform: led.platform, title: led.display_title, artist: led.display_artist, audioUrl: pin?.audioUrl ?? led.audio_url, ledgerAudioUrl: led.audio_url, pinnedAt: pin?.pinnedAt ?? null };
@@ -103,7 +103,7 @@ function requestRows(src: Sources): TrackRequestRow[] {
   return rows;
 }
 
-// 음원 키에서 주소. 유튜브 · 사운드클라우드는 다시 만들고(audioKeyOf 의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원 · 링크 데이터에서
+// 음원 키에서 주소. 유튜브, 사운드클라우드는 다시 만들고(audioKeyOf 의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원, 링크 데이터에서
 function urlsOfKeys(src: Sources): (audioKey: string) => string | null {
   const direct = new Map<string, string>();
   for (const url of [...src.ledger.map((row) => row.audio_url), ...src.pins.map((pin) => pin.audioUrl)]) {
@@ -143,7 +143,7 @@ function fileRows(src: Sources): TrackFileRow[] {
 const ageRows = (src: Sources): TrackAgeRow[] => [...src.age].map(([videoId, markedAt]) => ({ videoId, markedAt }));
 
 type AnyRow = TrackRequestRow | TrackFileRow | TrackAgeRow;
-// 셀의 원시 값(필터 · 정렬은 이것으로). 재생 테스트 · 원본은 결과 문자열, 정렬은 확인한 때
+// 셀의 원시 값(필터, 정렬은 이것으로). 재생 테스트, 원본은 결과 문자열, 정렬은 확인한 때
 function rawOf(row: AnyRow, column: string): string | number | null {
   if (column === "check") {
     const check = (row as TrackRequestRow).check;
@@ -159,7 +159,7 @@ function rawOf(row: AnyRow, column: string): string | number | null {
 const sortValueOf = (row: AnyRow, column: string) => (column === "check" ? ((row as TrackRequestRow).check?.at ?? null) : column === "source" ? ((row as TrackFileRow).source?.at ?? null) : rawOf(row, column));
 const KEY_OF: Record<TrackCacheTable, string> = { requests: "requestKey", files: "audioKey", age: "videoId" };
 
-// ── 읽기 ────────────────────────────────────────────────────────────────────
+// ── 읽기 ──
 
 /** 필터링 한 번의 시간 상한. 음악 재생과 같은 이벤트 루프라 길게 막지 않는다(겹친 반복 거절을 빠져나간 정규식) */
 const FILTER_TIME_MS = 100;
@@ -177,7 +177,7 @@ function compare(a: string | number | null, b: string | number | null, dir: "asc
 }
 
 /**
- * 주소 질의를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열 · 같은 키가 여럿 · 정렬 열이 겹치면 거절한다.
+ * URL 쿼리를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
  * 필터 식은 여기서 읽지 않는다(read 가 읽는다)
  */
 // 값 하나만 받는 키(없으면 fallback). 여럿이면 null
@@ -229,7 +229,7 @@ function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } 
 
 const problemOf = (pointer: string, problem: { code: Code; max?: number }): FieldProblem => ({ pointer, code: problem.code, ...(problem.max ? { max: problem.max } : {}) });
 
-// 열마다의 식과 아무 열에서나의 낱말을 읽어 행 하나를 보는 함수로
+// 열마다의 식과 아무 열에서나의 단어를 읽어 행 하나를 보는 함수로
 function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) => boolean } | Refusal {
   const kinds = TRACK_CACHE_COLUMN_KINDS[query.table] as Record<string, ColumnKind>;
   const errors: FieldProblem[] = [];
@@ -254,7 +254,7 @@ function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) =
   return { ok: true, matches: (row) => inColumns(row) && inAny(row) };
 }
 
-/** 표 하나의 구간. 필터 · 정렬은 메모리에서(SQL 을 만들지 않는다) */
+/** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다) */
 function read(query: TrackCacheQuery): { ok: true; page: TrackCachePage } | Refusal {
   const { table, offset, limit } = query;
   const matcher = matcherOf(query);
@@ -279,7 +279,7 @@ function read(query: TrackCacheQuery): { ok: true; page: TrackCachePage } | Refu
   return { ok: true, page: { table, rows: matched.slice(offset, offset + limit), offset, total: all.length, matched: matched.length, revision, checkRevision } as TrackCachePage };
 }
 
-// ── 쓰기 ────────────────────────────────────────────────────────────────────
+// ── 쓰기 ──
 
 // 모두 검사(하나라도 걸리면 아무것도 쓰지 않는다). 새 행의 요청 키는 다듬은 것으로 바꿔 둔다
 function validate(ops: TrackCacheOp[]): { ok: true; ops: TrackCacheOp[] } | Refusal {
@@ -319,7 +319,7 @@ function applyDbOp(op: Exclude<TrackCacheOp, { op: "deleteFile" }>): TrackCacheO
   return externalCaches.clearAgeRestricted(op.videoId, op.expect);
 }
 
-// 캐시 파일 삭제 하나(정리 잠금 안). 지운 바이트는 화면에 보내지 않는다
+// 캐시 파일 삭제 하나(정리 잠금 안). 삭제한 바이트는 화면에 보내지 않는다
 async function applyFileOp(op: Extract<TrackCacheOp, { op: "deleteFile" }>): Promise<TrackCacheOpResult> {
   const removed = await audioCache.removeCached(op.audioKey, op.expect);
   return removed.ok ? { ok: true } : removed;
@@ -348,7 +348,7 @@ async function write(input: TrackCacheOp[], by: string): Promise<{ ok: true; wri
     counts.set(op.op, count);
     log.debug({ sub: "track-cache" }, `캐시 DB ${OP_NAMES[op.op]}: ${targetOf(op)} | ${results[i].ok ? "됨" : JSON.stringify(results[i])}`);
   }
-  const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(" · ");
+  const summary = [...counts].map(([name, { done, failed }]) => `${OP_NAMES[name]} ${done + failed}${failed ? `(실패 ${failed})` : ""}`).join(", ");
   log.warn({ sub: "admin" }, `대시보드에서 캐시 DB 저장: ${summary}. 실행 ${by}`);
   return { ok: true, written: { results, revision: cacheRevision().revision } };
 }

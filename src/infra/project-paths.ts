@@ -11,17 +11,17 @@ const PROJECT = {
   root: ROOT,
   /** 운영자 설정(.env) */
   env: path.join(ROOT, ".env"),
-  /** 운영자가 고치는 YAML · 쿠키 */
+  /** 옛 설정 파일(YAML, 쿠키)이 남아 있는지만 본다. 지금은 읽지 않는다 */
   config: path.join(ROOT, "config"),
-  /** 저장소에 함께 싣는 데이터 · 고지 */
+  /** 저장소에 함께 싣는 데이터, 고지 */
   data: path.join(ROOT, "data"),
-  /** DB · 실행 기록. 사람이 열어 볼 수 있게 루트에 둔다 */
+  /** DB, 실행 기록. 사람이 열어 볼 수 있게 루트에 둔다 */
   database: path.join(ROOT, "database"),
-  /** 대시보드가 쓰는 실행 상태(운영자 패널에서 올린 그림 등). 사람이 건드리지 않는다 */
+  /** 대시보드가 쓰는 실행 상태(운영자 패널에서 올린 이미지 등). 사람이 건드리지 않는다 */
   dashboardData: path.join(ROOT, "database", "dashboard"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
-  /** 설치 스크립트가 다운로드하는 실행 파일(ffmpeg · yt-dlp) */
+  /** 설치 스크립트가 다운로드하는 실행 파일(ffmpeg, yt-dlp) */
   bin: path.join(VENDOR, "bin"),
   /** POToken 공급자 체크아웃 */
   bgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),

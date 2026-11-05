@@ -1,4 +1,4 @@
-// src/ui/error-messages.ts — 오류 종류와 사용자 문장
+// src/ui/error-messages.ts: 오류 종류와 사용자 문장
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ import { codedError } from "../../src/rules/error-kind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
 import { plainText } from "../helpers/notice.ts";
 
-// [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp 는 실행하는 곳이, 우리 코드는 만든 곳이, Node · 디스코드는 저마다 이름을 단다
+// [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp 는 실행하는 곳이, 우리 코드는 만든 곳이, Node, 디스코드는 저마다 이름을 단다
 const CASES: Array<[Error, string]> = [
   [ytDlpError("Sign in to confirm you're not a bot. This helps protect our community."), "yt-bot-check"],
   [ytDlpError("ERROR: [youtube] abc: This video is age-restricted"), "yt-age-no-cookies"],
@@ -17,7 +17,7 @@ const CASES: Array<[Error, string]> = [
   [ytDlpError("ERROR: [youtube] xyz: Video unavailable. This video has been removed"), "unavailable-contents"],
   [ytDlpError("Video not available in your country"), "geo-blocked"],
   [ytDlpError("HTTP Error 429: Too Many Requests"), "rate-limited"],
-  [codedError("sp-no-youtube-match", "Spotify 트랙의 YouTube 동등물을 찾을 수 없음: 곡"), "sp-no-youtube-match"], // Player · streamUrl
+  [codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함: 곡"), "sp-no-youtube-match"], // Player, streamUrl
   [Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }), "network-error"],
   [Object.assign(new Error("connect ETIMEDOUT 1.2.3.4:443"), { code: "ETIMEDOUT" }), "network-error"],
   [networkError(), "network-error"],

@@ -1,5 +1,5 @@
-// 외부 서비스 키를 비밀 표에서 꺼내 설정 객체에 올린다. 기동 때 한 번(load), 대시보드에서 바꿀 때마다(save · remove).
-// 값을 쓰는 곳(자동재생 소스 · 스포티파이)은 설정 객체를 그대로 읽는다. 값은 메모리에만 있고 응답 · 로그로 나가지 않는다.
+// 외부 서비스 키를 비밀 표에서 꺼내 설정 객체에 올린다. 기동 시 한 번(load), 대시보드에서 바꿀 때마다(save, remove).
+// 값을 쓰는 곳(자동재생 소스, 스포티파이)은 설정 객체를 그대로 읽는다. 값은 메모리에만 있고 응답, 로그로 나가지 않는다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
@@ -34,14 +34,14 @@ function apply(service: ServiceId) {
   });
 }
 
-/** 기동 때. 모두 꺼내 올리고, 다시 입력해야 하는 키 · 없는 Spotify 키를 알린다 */
+/** 기동 시. 모두 꺼내 올리고, 다시 입력해야 하는 키, 없는 Spotify 키를 알린다 */
 function load() {
   for (const service of SERVICE_IDS) {
     const states = apply(service);
     if (states.some((state) => state !== "ok" && state !== "none")) {
-      log.warn(`${LABELS[service]} 키를 풀지 못했습니다(SECRETS_KEY 가 바뀌었거나 저장된 값이 망가졌습니다). 운영자 패널의 API 키 탭에서 다시 입력하세요`);
+      log.warn(`${LABELS[service]} 키 복호화 실패(SECRETS_KEY가 변경되었거나 저장된 값이 손상됨). 운영자 패널의 API 키 탭에서 다시 입력하세요`);
     } else if (service === "spotify" && states.includes("none")) {
-      log.warn("Spotify API 키가 없습니다. 트랙 · 앨범 링크는 열지 못하고 재생목록 · 아티스트는 키 없이 엽니다. 운영자 패널의 API 키 탭에서 입력하세요");
+      log.warn("Spotify API 키가 없습니다. 트랙, 앨범 링크는 열지 못하고 재생목록, 아티스트는 키 없이 엽니다. 운영자 패널의 API 키 탭에서 입력하세요");
     }
   }
 }

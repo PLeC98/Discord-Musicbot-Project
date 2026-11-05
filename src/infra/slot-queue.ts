@@ -1,8 +1,8 @@
-// 동시에 도는 수를 묶는 줄. 자리가 나면 기다리던 것을 차례(rank 가 작은 것부터, 같으면 온 차례)로 자리를 준다.
-// 크기는 들일 때마다 다시 읽는다(조정값을 바꾸면 다음 자리부터 따른다). 줄이면 도는 것이 끝나기를 기다린다
+// 동시에 도는 수를 묶는 줄. 슬롯이 비면 기다리던 것에 순서대로(rank 가 작은 것부터, 같으면 온 순서) 슬롯을 준다.
+// 크기는 슬롯을 줄 때마다 다시 읽는다(조절값을 바꾸면 다음 슬롯부터 따른다). 줄이면 도는 것이 끝나기를 기다린다
 
 type Waiter = { rank: number; enter: (leave: () => void) => void; refuse: (error: unknown) => void };
-/** 지금 도는 수 · 크기 · 기다리는 수 */
+/** 지금 도는 수, 크기, 기다리는 수 */
 type SlotStats = { running: number; size: number; waiting: number };
 
 class SlotQueue {
@@ -16,7 +16,7 @@ class SlotQueue {
   }
 
   /**
-   * 자리를 잡는다. 돌려주는 것은 자리를 내놓는 함수(두 번 불러도 한 번만 센다).
+   * 슬롯을 잡는다. 돌려주는 것은 슬롯을 내놓는 함수(두 번 불러도 한 번만 센다).
    * signal 이 끊기면 줄에서 빠지고 그 까닭으로 거절된다. 닫힌 줄은 곧바로 거절한다
    */
   take({ rank = 1, signal }: { rank?: number; signal?: AbortSignal } = {}): Promise<() => void> {

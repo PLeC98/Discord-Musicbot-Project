@@ -1,8 +1,5 @@
 <template>
-  <!-- 배경 편집 창의 시간 막대(프리미어 · 베가스 스타일). 영상은 편집 창이 쥐고, 이것은 시각 · 구간 · 정지 화면을 보이고 바꾸자고 알린다.
-       위: 지금 시각(시:분:초;프레임) · 10초 전 · 1프레임 전 · 재생/일시정지 · 1프레임 뒤 · 10초 뒤 · 정지 화면 설정.
-       가운데: 시간 눈금(확대에 맞춰 간격이 바뀐다)에 재생 위치 · 정지 화면 마커, 마커에서 띠 아래까지 줄. 띠는 일정 간격으로 뜬 장면을 깔고, 구간 밖은 어둡게, 양 끝 핸들로 구간.
-       눈금이나 띠를 누르거나 끌면 그 위치로. 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 정지 화면 시각(누르면 그 위치로).
+  <!-- 배경 편집 창의 시간 막대(프리미어, 베가스 스타일). 영상은 편집 창이 쥐고, 이 컴포넌트는 시각, 구간, 정지 화면을 보이고 바꿀 값을 emit 으로 알린다.
        장면은 봇이 가져올 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 셀마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
   <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다 -->
   <div class="group/tl flex flex-col gap-2 select-none outline-none focus-visible:outline-none" tabindex="0" @keydown="onKey">
@@ -13,7 +10,7 @@
         <button type="button" :class="[ICON_BTN, 'size-9', loop && 'bg-secondary-container! text-on-secondary-container!']" :aria-pressed="loop" :aria-label="T.loop" v-tooltip="loop ? T.loopOn : T.loopOff" @click="emit('loop')"><Icon name="repeat" :size="20" /></button>
       </span>
       <div class="flex items-center gap-0.5">
-        <!-- 재생 위치를 구간 시작 · 끝으로(편집기의 In · Out, 키 I · O) -->
+        <!-- 재생 위치를 구간 시작, 끝으로(편집기의 In, Out, 키 I, O) -->
         <BaseButton size="sm" variant="secondary" class="mr-1" v-tooltip="T.markInTip" @click="markIn">{{ T.markIn }}</BaseButton>
         <button type="button" :class="[ICON_BTN, 'size-9']" :aria-label="T.back10" v-tooltip="T.back10" @click="emit('seek', now - 10)"><Icon name="skip_previous" :size="20" /></button>
         <button type="button" :class="[ICON_BTN, 'size-9']" :aria-label="T.backFrame" v-tooltip="T.backFrame" @click="emit('seek', now - 1 / fps)"><Icon name="chevron_right" :size="22" class="rotate-180" /></button>
@@ -25,9 +22,9 @@
       <BaseButton size="sm" variant="secondary" class="justify-self-end" @click="emit('thumb')">{{ T.useAsThumb }}</BaseButton>
     </div>
 
-    <!-- 가로 스크롤 공간을 늘 비워 둔다(확대해서 스크롤바가 생겨도 창 높이가 그대로) -->
-    <div ref="scrollEl" class="overflow-x-scroll overflow-y-hidden rounded-lg bg-surface-container-highest outline outline-1 outline-transparent transition-[outline-color] duration-150 group-focus/tl:outline-primary" :style="SCROLLBAR" @scroll="scrollLeft = ($event.target as HTMLElement).scrollLeft">
-      <!-- 시간 0 · 끝은 양옆 PAD 안쪽. 그 바깥은 구간 핸들 · 마커 머리가 들어갈 빈 공간(넘치는 것은 잘라 스크롤이 생기지 않게) -->
+    <!-- 가로 스크롤 공간을 늘 비워 둔다(확대해서 스크롤바가 생겨도 창 높이가 그대로). 키보드 포커스는 감싼 요소 대신 이 띠에 기본 포커스 모양으로 -->
+    <div ref="scrollEl" class="overflow-x-scroll overflow-y-hidden rounded-lg bg-surface-container-highest outline-3 outline-offset-2 outline-transparent transition-[outline-color] effects-fast group-focus-visible/tl:outline-secondary" :style="SCROLLBAR" @scroll="scrollLeft = ($event.target as HTMLElement).scrollLeft">
+      <!-- 시간 0, 끝은 양옆 PAD 안쪽. 그 바깥은 구간 핸들, 마커 머리가 들어갈 빈 공간(넘치는 것은 잘라 스크롤이 생기지 않게) -->
       <div ref="contentEl" class="relative overflow-hidden cursor-ew-resize touch-none" :style="{ width: `${contentWidth}px` }" @pointerdown="scrubStart">
         <!-- 시간 눈금 -->
         <div class="relative h-7 border-b border-outline-variant">
@@ -35,13 +32,13 @@
             <span class="absolute bottom-0 w-px bg-on-surface-variant/60" :class="tick.major ? 'h-3' : 'h-1.5'" :style="{ left: `${x(tick.t)}px` }"></span>
             <span v-if="tick.major" class="absolute top-0.5 ml-1 text-2xs font-mono text-on-surface-variant whitespace-nowrap" :style="{ left: `${x(tick.t)}px` }">{{ tick.label }}</span>
           </template>
-          <!-- 정지 화면 마커(◆) · 재생 위치 마커(▼) -->
+          <!-- 정지 화면 마커(◆), 재생 위치 마커(▼) -->
           <span v-if="thumbAt !== null" class="absolute bottom-0.5 size-3 -ml-1.5 rotate-45 bg-tertiary cursor-pointer" :style="{ left: `${x(thumbAt)}px` }" v-tooltip="T.thumbMark" @pointerdown.stop="emit('seek', thumbAt)"></span>
           <span class="absolute bottom-0 -ml-2 w-4 h-3 bg-primary [clip-path:polygon(0_0,100%_0,100%_45%,50%_100%,0_45%)] pointer-events-none" :style="{ left: `${x(now)}px` }"></span>
         </div>
-        <!-- 띠: 장면 · 구간 -->
+        <!-- 띠: 장면, 구간 -->
         <div class="relative" :style="{ height: `${BAR_H}px` }">
-          <!-- 장면 · 구간 밖 어둡게: 시간이 있는 곳(PAD 안쪽)만 -->
+          <!-- 장면, 구간 밖 어둡게: 시간이 있는 곳(PAD 안쪽)만 -->
           <div class="absolute inset-y-0 overflow-hidden bg-black" :style="{ left: `${PAD}px`, right: `${PAD}px` }">
             <span v-for="tile in tiles" :key="tile.left" class="absolute top-0 h-full bg-no-repeat pointer-events-none" :style="tile.style"></span>
             <span class="absolute inset-y-0 left-0 bg-black/65 pointer-events-none" :style="{ width: `${x(range[0]) - PAD}px` }"></span>
@@ -57,7 +54,7 @@
       </div>
     </div>
 
-    <!-- 아래: 왼쪽 확대, 오른쪽 시작 · 끝 · 정지 화면 시각(누르면 그 위치로) · 구간 길이 -->
+    <!-- 아래: 왼쪽 확대, 오른쪽 시작, 끝, 정지 화면 시각(누르면 그 위치로), 구간 길이 -->
     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs nums">
       <label class="flex items-center gap-2">
         <span class="text-on-surface-variant">{{ T.zoom }}</span>
@@ -83,16 +80,16 @@ import type { LoginBackgroundStrip } from "../../../src/dashboard/contract/login
 import { text } from "../text/index.ts";
 const T = text.loginBackground.timeline;
 
-/** strip: 장면 띠(주소와 모양, 없으면 빈 띠). aspect: 가로 ÷ 세로. now · range · thumbAt 은 초 */
+/** strip: 장면 띠(주소와 모양, 없으면 빈 띠). aspect: 가로 ÷ 세로. now, range, thumbAt 은 초 */
 const props = defineProps<{ strip: { url: string; shape: LoginBackgroundStrip } | null; duration: number; fps: number; aspect: number; now: number; playing: boolean; range: [number, number]; thumbAt: number | null; loop: boolean }>();
-/** peek: 구간 핸들을 끄는 동안 그 장면만 보여 달라(재생 위치는 그대로), peekEnd: 놓았으니 재생 위치로 돌아가 달라 */
+/** peek: 구간 핸들을 드래그하는 동안 그 장면만 보여 달라(재생 위치는 그대로), peekEnd: 놓았으니 재생 위치로 돌아가 달라 */
 const emit = defineEmits<{ seek: [t: number]; peek: [t: number]; peekEnd: []; toggle: []; range: [range: [number, number]]; thumb: []; loop: [] }>();
 
-/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(끌어서 옮기기 쉽게). 핸들은 가장자리 3px 를 비운 나머지 */
+/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(드래그해서 옮기기 쉽게). thumb 는 가장자리 3px 을 비운 나머지(style.css) */
 const SCROLLBAR = { "--sb-size": "1rem", scrollbarWidth: "auto" as const };
 /** 구간 핸들의 폭(px) */
 const HANDLE_W = 12;
-/** 시간 0 · 끝 바깥의 빈 공간(px): 구간이 끝까지 닿아도 바깥에 붙는 핸들 · 마커 머리가 들어간다 */
+/** 시간 0, 끝 바깥의 빈 공간(px): 구간이 끝까지 닿아도 바깥에 붙는 핸들, 마커 머리가 들어간다 */
 const PAD = HANDLE_W;
 /** 띠의 높이(px) */
 const BAR_H = 64;
@@ -144,7 +141,7 @@ const ticks = computed(() => {
   return out;
 });
 
-/** 보이는 만큼의 장면 셀: 셀 가운데 시각의 장면을 띠 그림에서 잘라(배경 위치) 깐다 */
+/** 보이는 만큼의 장면 셀: 셀 가운데 시각의 장면을 장면 띠 이미지에서 잘라(배경 위치) 깐다 */
 const tiles = computed(() => {
   const strip = props.strip;
   if (!strip || !strip.shape.count || !props.duration) return [];
@@ -169,9 +166,9 @@ const tiles = computed(() => {
 
 const points = computed(() => [{ label: T.start, t: props.range[0], dot: "bg-primary" }, { label: T.end, t: props.range[1], dot: "bg-primary" }, ...(props.thumbAt !== null ? [{ label: T.thumbMark, t: props.thumbAt, dot: "bg-tertiary" }] : [])]);
 
-// ── 누르기 · 끌기 ──
+// ── 누르기, 드래그 ──
 
-/** 누른 위치의 시각(자르지 않음) · 영상 안으로 자른 것 */
+/** 누른 위치의 시각(자르지 않음), 영상 안으로 자른 것 */
 const rawTimeAt = (clientX: number) => (clientX - contentEl.value!.getBoundingClientRect().left - PAD) / pxPerSec.value;
 const timeAt = (clientX: number) => Math.min(Math.max(0, rawTimeAt(clientX)), props.duration);
 function scrubStart(e: PointerEvent) {
@@ -181,7 +178,7 @@ function scrubStart(e: PointerEvent) {
   el.onpointermove = (m) => emit("seek", timeAt(m.clientX));
   el.onpointerup = el.onpointercancel = () => (el.onpointermove = el.onpointerup = el.onpointercancel = null);
 }
-/** 구간 핸들: 서로 1초 안으로는 붙지 않는다. 끄는 동안 재생 위치는 그대로 두고 화면만 핸들 장면을 보이고, 놓으면 재생 위치로 돌아간다 */
+/** 구간 핸들: 서로 1초 안으로는 붙지 않는다. 드래그하는 동안 재생 위치는 그대로 두고 화면만 핸들 장면을 보이고, 놓으면 재생 위치로 돌아간다 */
 function rangeStart(e: PointerEvent, side: 0 | 1) {
   const el = e.currentTarget as HTMLElement;
   el.setPointerCapture(e.pointerId);
@@ -212,7 +209,7 @@ function markOut() {
   emit("range", [Math.max(0, Math.min(props.range[0], t - 1)), t]);
 }
 
-/** 키: 스페이스 재생 · 좌우 1프레임 · Shift+좌우 10초 · I 시작점 · O 끝점 */
+/** 키: 스페이스 재생, 좌우 1프레임, Shift+좌우 10초, I 시작점, O 끝점 */
 function onKey(e: KeyboardEvent) {
   const step = e.shiftKey ? 10 : 1 / fpsInt.value;
   if (e.key === " ") emit("toggle");
@@ -225,7 +222,7 @@ function onKey(e: KeyboardEvent) {
 }
 
 // 확대해도 재생 위치가 화면의 같은 위치에 남게, 재생 위치가 화면 밖으로 나가면 따라간다
-watch(zoom, async (next, prev) => {
+watch(zoom, async (_next, prev) => {
   const el = scrollEl.value;
   if (!el || !props.duration) return;
   const onScreen = PAD + props.now * ((viewWidth.value * prev - PAD * 2) / props.duration) - el.scrollLeft;

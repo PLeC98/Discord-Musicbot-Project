@@ -1,4 +1,4 @@
-// 로그인 배경의 메모리 관문: 크기 어림과 인코딩이 16GB 서버에서 함께 돌 수 있어, 무거운 ffmpeg 를 실행하기 전에 남은 메모리를 본다.
+// 로그인 배경의 메모리 관문: 크기 추산과 인코딩이 16GB 서버에서 함께 돌 수 있어, 무거운 ffmpeg 를 실행하기 전에 남은 메모리를 본다.
 // AV1(SVT-AV1)은 병렬 단계(lp 1 ~ 5)마다 메모리가 크게 달라 지금 남은 메모리에 드는 가장 높은 단계로 인코딩한다.
 // 단계 2 도 들지 않으면 기다리고(5초마다 본다), 30분을 기다려도 모자라면 드는 단계(없으면 1)로 인코딩한다(기기 메모리가 원래 작다).
 // 나눠 인코딩하기는 VP9 4K 가 시간을 잡아 AV1 을 3 으로 내려도 시간이 거의 같아 3(모자라면 2)으로 인코딩하고, 2 도 들지 않으면 따로 인코딩한다
@@ -10,15 +10,15 @@ const log = logger.child({ category: "dashboard" });
 const GB = 1024 ** 3;
 /** 잰 값에 더하는 여유 */
 const MARGIN = 1.1;
-/** AV1 하나의 최대 메모리(GB, 병렬 단계 1 ~ 5 순서. 이 PC 에서 잼) */
+/** AV1 하나의 최대 메모리(GB, 병렬 단계 1 ~ 5 순서. 개발 PC 에서 잰 값) */
 const AV1_GB = { uhd: [3.5, 4.0, 5.0, 6.3, 7.9], fhd: [1.3, 1.5, 1.7, 2.0, 2.5] };
-/** 나눠 인코딩하기(AV1 · VP9 의 4K · 1080p 넷)의 최대 메모리(GB, 병렬 단계 2 · 3) */
+/** 나눠 인코딩하기(AV1, VP9 의 4K, 1080p 넷)의 최대 메모리(GB, 병렬 단계 2, 3) */
 const SPLIT_UHD_GB: Record<number, number> = { 2: 6.3, 3: 7.6 };
-/** VP9 하나 · H.264 720p 하나 · 크기 어림(GB) */
+/** VP9 하나, H.264 720p 하나, 크기 추산(GB) */
 const VP9_GB = { uhd: 1.6, fhd: 0.85 };
 const LIGHT_GB = 1.4;
 
-/** AV1 의 가장 높은 병렬 단계(그 위는 메모리만 늘고 빨라지지 않았다) */
+/** AV1 의 가장 높은 병렬 단계(그 위는 메모리만 늘고 빨라지지 않는다) */
 const AV1_LP_MAX = 5;
 /** 나눠 인코딩하기의 병렬 단계(높은 것부터) */
 const SPLIT_LPS = [3, 2];
@@ -41,7 +41,7 @@ function av1Lp(uhd: boolean, free = os.freemem()): number | null {
   return null;
 }
 
-/** 나눠 인코딩하기의 병렬 단계(남은 메모리에 들지 않으면 null = 따로 인코딩한다). 4K 가 없으면 1080p 둘(AV1 · VP9)을 더한 값으로 */
+/** 나눠 인코딩하기의 병렬 단계(남은 메모리에 들지 않으면 null = 따로 인코딩한다). 4K 가 없으면 1080p 둘(AV1, VP9)을 더한 값으로 */
 function splitLp(uhd: boolean, free = os.freemem()): number | null {
   const need = (lp: number) => (uhd ? bytes(SPLIT_UHD_GB[lp]) : needOf({ codec: "av1", lp }) + needOf({ codec: "vp9" }));
   return SPLIT_LPS.find((lp) => need(lp) <= free) ?? null;
@@ -55,7 +55,7 @@ async function enoughMemory(need: number, what: string, signal: AbortSignal): Pr
   const started = Date.now();
   let told = false;
   while (os.freemem() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
-    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 남은 메모리가 모자라 기다립니다(${(os.freemem() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
+    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기합니다(${(os.freemem() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
     told = true;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }

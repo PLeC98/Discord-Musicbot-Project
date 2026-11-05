@@ -1,7 +1,9 @@
-// 여러 화면이 같은 뜻으로 쓰는 단추 · 짧은 말
+// 여러 화면이 같은 뜻으로 쓰는 버튼, 짧은 말
 
 const cancel = "취소";
 const close = "닫기";
+/** 저절로 닫히는 닫기 버튼의 툴팁 */
+const closeIn = (seconds: number) => `닫기 · ${seconds}초 뒤 사라져요`;
 const remove = "삭제";
 const reset = "초기화";
 const all = "전체";
@@ -14,8 +16,8 @@ const add = "추가";
 const expand = "펼치기";
 const collapse = "접기";
 const clearValue = "비우기";
-/** 저장소 설명서로 가는 단추(카드 헤더) */
+/** 저장소 설명서로 가는 버튼(카드 헤더) */
 const docs = "설명서";
 const docsTip = "봇 저장소의 설명서를 새 탭에서 열어요.";
 
-export { cancel, close, remove, reset, all, noMatch, toServerList, reportToDeveloper, add, expand, collapse, clearValue, docs, docsTip };
+export { cancel, close, closeIn, remove, reset, all, noMatch, toServerList, reportToDeveloper, add, expand, collapse, clearValue, docs, docsTip };

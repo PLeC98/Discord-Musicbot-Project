@@ -1,4 +1,4 @@
-// src/dashboard/track-cache-probe.ts — 재생 테스트 줄. 세우고 곧바로 돌아오며 하나씩 차례로 열고, 결과를 음원 키로 남긴다.
+// src/dashboard/track-cache-probe.ts: 재생 테스트 줄. 세우고 곧바로 돌아오며 하나씩 차례로 열고, 결과를 음원 키로 남긴다.
 // 결과는 확인 번호만 올린다(운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게).
 
 import { test, after } from "node:test";
@@ -20,7 +20,7 @@ after(() => {
 
 const yt = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 
-test("세우고 곧바로 돌아온다: 새로 · 이미 있음 · 주소마다의 음원 키, 하나씩 차례로 열어 결과를 남긴다", async () => {
+test("세우고 곧바로 돌아온다: 새로, 이미 있음, 주소마다의 음원 키, 하나씩 차례로 열어 결과를 남긴다", async () => {
   const opened: string[] = [];
   const waiting: Array<(result: Probed) => void> = [];
   probes._setProbe(
@@ -89,7 +89,7 @@ test("캐시 파일이 있으면 원본 다시 확인으로(확인 번호만 오
   assert.equal(sourceChecks.getCheck("yt:ccccccccccc")?.version, "lmt:1", "열어 본 결과는 앞서 본 버전을 지킨다");
 });
 
-test("상한: 빈 목록 · 한 번에 세우는 수 · 한 번에 묻는 결과 수", () => {
+test("상한: 빈 목록, 한 번에 세우는 수, 한 번에 묻는 결과 수", () => {
   assert.deepEqual(probes.enqueue([], "tester"), { ok: false, code: "nothing-to-save" });
   assert.deepEqual(
     probes.enqueue(

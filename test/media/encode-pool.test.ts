@@ -1,0 +1,404 @@
+// src/media/encode-pool.ts: 출력 스트림마다 세션을 열어 프레임을 워커에서 인코딩하고, 워커가 죽거나 멈추면 다른 워커로 옮겨 붙이는 풀
+//
+// 지키는 것: 기동하면 첫 워커가 libopus 를 불러 둔다. 세션의 패킷은 보낸 순서대로 하나씩 오고, drain() 은 이벤트 루프 없이 받는다.
+// 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐, 겹침이 없다.
+// 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
+// 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
+// 큐 깊이, 워커 늘리기 판단(decideDepth)과 워커 수 상한. 늘려도 옮길 스트림이 없으면(늦는 스트림이 하나뿐) 늘리지 않고 큐 깊이를 올린다.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { BroadcastChannel } from "worker_threads";
+import { EncodePool, decideDepth, workerLimit, START_DEPTH, MAX_DEPTH, type EncodeSession } from "../../src/media/encode-pool.ts";
+import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
+import { codeOf } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
+import logger from "../../src/infra/log/logger.ts";
+
+const FAULTY = new URL("../helpers/faulty-encode-worker.ts", import.meta.url);
+const STUB = new URL("../helpers/stub-encode-worker.ts", import.meta.url);
+
+function frame(amplitude = 12000) {
+  const buf = Buffer.alloc(FRAME_BYTES);
+  for (let i = 0, t = 0; i < buf.length; i += 4, t++) {
+    const v = Math.round(amplitude * Math.sin((2 * Math.PI * 440 * t) / 48000));
+    buf.writeInt16LE(v, i);
+    buf.writeInt16LE(v, i + 2);
+  }
+  return buf;
+}
+
+function opened(pool: EncodePool) {
+  const packets: Buffer[] = [];
+  const errors: Error[] = [];
+  const session: EncodeSession = pool.open({ onPacket: (p) => packets.push(p), onError: (e) => errors.push(e) });
+  return { session, packets, errors };
+}
+
+async function until(done: () => boolean, what: string, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!done()) {
+    if (Date.now() > deadline) throw new Error(`기다리다 시간 초과: ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function broadcast(what: "exit" | "hang") {
+  const channel = new BroadcastChannel("faulty-encode-worker");
+  channel.postMessage(what);
+  channel.close();
+}
+
+test("기동하면 첫 워커가 libopus 를 불러 두고, 세션의 패킷이 보낸 만큼 온다", async () => {
+  const pool = new EncodePool({ calibrateFrames: 10 });
+  try {
+    const started = await pool.start();
+    assert.match(started.libopusVersion, /libopus/);
+    assert.equal(started.workers, 1);
+    const { session, packets, errors } = opened(pool);
+    assert.equal(session.depth, START_DEPTH);
+    for (let i = 0; i < 20; i++) session.send(frame(), 0.5);
+    await until(() => packets.length === 20, "패킷 20개");
+    assert.deepEqual(errors, []);
+    assert.ok(packets.every((p) => Buffer.isBuffer(p) && p.length > 0));
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("drain() 은 이벤트 루프를 거치지 않고 답을 받는다", async () => {
+  const pool = new EncodePool({ calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const { session, packets } = opened(pool);
+    session.send(frame(), 1);
+    await until(() => packets.length === 1, "첫 패킷");
+    session.send(frame(), 1);
+    // 이 루프가 도는 동안 이벤트 루프는 돌지 않는다
+    const deadline = Date.now() + 2000;
+    while (packets.length < 2 && Date.now() < deadline) session.drain();
+    assert.equal(packets.length, 2);
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("해제한 세션에는 늦은 답이 오지 않고, 생성 중 해제해도 다음 세션이 된다", async () => {
+  const pool = new EncodePool({ calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const first = opened(pool);
+    for (let i = 0; i < 5; i++) first.session.send(frame(), 1);
+    first.session.free();
+    first.session.send(frame(), 1);
+    await sleep(200);
+    assert.equal(first.packets.length, 0);
+    assert.deepEqual(first.errors, []);
+
+    const second = opened(pool);
+    second.session.send(frame(), 1);
+    await until(() => second.packets.length === 1, "다음 세션의 패킷");
+    second.session.free();
+    assert.equal(pool.stats().sessions, 0);
+  } finally {
+    await pool.close();
+  }
+});
+
+test("워커가 죽으면 세션이 새 워커로 옮겨 붙어 빠짐, 겹침 없이 이어진다", async () => {
+  const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const { session, packets, errors } = opened(pool);
+    for (let i = 0; i < 5; i++) session.send(frame(), 1);
+    await until(() => packets.length === 5, "죽기 전 패킷 5개");
+    for (let i = 0; i < 5; i++) session.send(frame(), 1);
+    broadcast("exit");
+    await until(() => pool.stats().deaths === 1, "워커 크래시");
+    for (let i = 0; i < 5; i++) session.send(frame(), 1);
+    await until(() => packets.length >= 15, "옮긴 뒤 패킷");
+    await sleep(100);
+    assert.equal(packets.length, 15);
+    assert.deepEqual(errors, []);
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("답이 없는 워커는 멈춘 것으로 보고 내린 뒤 세션을 옮긴다", async () => {
+  const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, stallMs: 300, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const { session, packets, errors } = opened(pool);
+    session.send(frame(), 1);
+    await until(() => packets.length === 1, "첫 패킷");
+    broadcast("hang");
+    await sleep(50);
+    session.send(frame(), 1);
+    await until(() => packets.length === 2, "멈춘 뒤 옮겨 받은 패킷", 3000);
+    assert.equal(pool.stats().deaths, 1);
+    assert.deepEqual(errors, []);
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 새 세션을 거절한다", async () => {
+  const pool = new EncodePool({ workerUrl: FAULTY, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    // 워커를 죽이는 입력: 첫 프레임에 워커가 죽고(그 프레임은 무음), 옮긴 워커도 다음 프레임에 죽는다
+    const poison = opened(pool);
+    poison.session.send(frame(), -1);
+    await until(() => pool.stats().deaths === 1 && poison.packets.length === 1, "첫 크래시와 무음 하나");
+    await until(() => pool.stats().workers.length === 1, "새 워커");
+    poison.session.send(frame(), -1);
+    await until(() => poison.errors.length === 1, "크래시 유발 세션의 실패");
+    assert.match(poison.errors[0]?.message ?? "", /잇달아/);
+    assert.equal(pool.stats().deaths, 2);
+
+    const healthy = opened(pool);
+    healthy.session.send(frame(), 1);
+    await until(() => healthy.packets.length === 1, "다른 세션은 된다");
+    healthy.session.free();
+
+    // 60초 안의 세 번째 크래시: 새 워커를 늦춘다. 남은 워커가 없어 새 세션은 실패한다
+    const third = opened(pool);
+    third.session.send(frame(), -1);
+    await until(() => third.errors.length === 1, "세 번째 크래시 뒤 실패");
+    assert.equal(codeOf(third.errors[0]), "encoder-unavailable");
+    assert.equal(pool.available(), false);
+    const refused = opened(pool);
+    await until(() => refused.errors.length === 1, "늦추는 동안 새 세션 거절");
+    assert.equal(codeOf(refused.errors[0]), "encoder-unavailable");
+  } finally {
+    await pool.close();
+  }
+});
+
+test("WASM 오류는 그 프레임의 세션만 실패시키고 다른 세션은 옮기며, 되풀이해도 새 워커를 늦추지 않는다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const other = opened(pool);
+    other.session.send(frame(), 1);
+    await until(() => other.packets.length === 1, "다른 세션의 첫 패킷");
+    for (let round = 1; round <= 4; round++) {
+      // 앞 판에서 내린 워커 대신 새 워커가 뜰 때까지(아래 동기 루프는 이벤트 루프를 돌리지 않는다)
+      await until(() => pool.stats().workers.length > 0, "새 워커");
+      const broken = opened(pool);
+      broken.session.send(frame(), -2);
+      // read() 안의 drain 에서 워커가 내려지는 길
+      const deadline = Date.now() + 2000;
+      while (!broken.errors.length && Date.now() < deadline) broken.session.drain();
+      assert.match(broken.errors[0]?.message ?? "", /WASM/);
+      assert.equal(pool.stats().deaths, round);
+    }
+    assert.equal(pool.available(), true);
+    other.session.send(frame(), 1);
+    await until(() => other.packets.length === 2, "옮겨 간 다른 세션의 패킷");
+    assert.deepEqual(other.errors, []);
+    other.session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 올리고 내리지 않는다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const { session, packets, errors } = opened(pool);
+    // voice 처럼 20ms 마다 하나를 꺼내고, 꺼내지 않은 것 + 보낸 것이 큐 깊이가 되게 채운다. 워커는 프레임마다 18ms 걸린다(큐 깊이 2 의 임계값 16ms 를 넘는다)
+    let sent = 0;
+    let used = 0;
+    const timer = setInterval(() => {
+      session.drain();
+      if (packets.length > used) used++;
+      while (sent - used < session.depth) {
+        session.send(frame(), 18);
+        sent++;
+      }
+    }, 20);
+    // 응답 시간은 이 PC의 부하를 따른다(전체 테스트 중에는 다른 파일이 CPU를 나눠 쓴다). 그래서 상한을 정해 두지 않고 그 자리에서 잰다:
+    // 한 단계 올리려면 그 틱의 p99가 그 깊이의 임계값을 넘어야 하므로, 본 p99 가운데 가장 큰 값이 넘지 못하는 깊이보다 깊어지지 않는다.
+    // 판단은 1초마다라 200ms마다 읽어 틱을 놓치지 않는다
+    const depths: number[] = [];
+    let maxP99 = 0;
+    for (let i = 1; i <= 40; i++) {
+      await sleep(200);
+      maxP99 = Math.max(maxP99, pool.stats().workers[0]?.rttP99 ?? 0);
+      if (i % 5 === 0) depths.push(session.depth);
+    }
+    clearInterval(timer);
+    assert.deepEqual(errors, []);
+    let needed = START_DEPTH;
+    while (needed < MAX_DEPTH && maxP99 > (needed - 1) * 20 * 0.8) needed++;
+    const final = depths.at(-1) ?? 0;
+    const why = `큐 깊이 ${depths.join(",")}, 가장 큰 p99 ${maxP99}ms, 필요한 깊이 ${needed}`;
+    assert.ok(final > START_DEPTH, `늦으면 올린다: ${why}`);
+    assert.ok(final <= needed, `필요한 만큼만 올린다: ${why}`);
+    assert.ok(
+      depths.every((d, i) => i === 0 || d >= depths[i - 1]),
+      `여유가 이어지기 전에는 내리지 않는다: ${why}`,
+    );
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세를 debug 로 남긴다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 4, calibrateFrames: 0 });
+  const details = (from: number) => sink.buffer.slice(from).filter((e) => e.text.startsWith("재생 인코딩 상세: 워커 1(활성 스트림 1/1"));
+  const level = logger.level;
+  logger.level = "debug";
+  try {
+    await pool.start();
+    const from = sink.buffer.length;
+    const { session, packets, errors } = opened(pool);
+    let sent = 0;
+    let used = 0;
+    const timer = setInterval(() => {
+      session.drain();
+      if (packets.length > used) used++;
+      while (sent - used < session.depth) {
+        session.send(frame(), 18);
+        sent++;
+      }
+    }, 20);
+    await sleep(3500);
+    clearInterval(timer);
+    assert.deepEqual(errors, []);
+    assert.equal(pool.stats().workers.length, 1);
+    assert.ok(session.depth > START_DEPTH, `큐 깊이 ${session.depth}`);
+    assert.ok(details(from).length >= 1, "상세 로그");
+    assert.equal(details(from)[0].level, "debug");
+    session.free();
+  } finally {
+    logger.level = level;
+    await pool.close();
+  }
+});
+
+test("워커가 늦어 하나를 늘리면 새 워커로 활성 세션을 리밸런싱한다", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2, calibrateFrames: 0 });
+  try {
+    await pool.start();
+    const streams = Array.from({ length: 4 }, () => ({ ...opened(pool), sent: 0, used: 0 }));
+    // 세션마다 프레임에 18ms 라 워커 하나로는 따라가지 못한다
+    const timer = setInterval(() => {
+      for (const s of streams) {
+        s.session.drain();
+        if (s.packets.length > s.used) s.used++;
+        while (s.sent - s.used < s.session.depth) {
+          s.session.send(frame(), 18);
+          s.sent++;
+        }
+      }
+    }, 20);
+    await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
+    // 답을 기다리던 세션은 그 답을 다 받은 뒤 옮긴다
+    await until(
+      () =>
+        pool
+          .stats()
+          .workers.map((w) => w.streams)
+          .join() === "2,2",
+      "리밸런싱",
+      5000,
+    );
+    clearInterval(timer);
+    for (const s of streams) {
+      assert.deepEqual(s.errors, []);
+      // 옮기면서 잃은 프레임이 없다(무음 패킷은 3바이트)
+      assert.ok(s.packets.every((p) => p.length === 8));
+      s.session.free();
+    }
+  } finally {
+    await pool.close();
+  }
+});
+
+test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커로 리밸런싱하고, 새 세션은 덜 맡은 워커로 간다", async () => {
+  // 세션 8개면 워커 2개가 필요한 프레임당 시간, 늘린 워커는 1.5초 뒤에 뜬다(스트림이 첫 프레임을 보내기 전)
+  process.env.STUB_ENCODE_FRAME_US = "2500";
+  process.env.STUB_ENCODE_GROW_READY_MS = "1500";
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 2 });
+  try {
+    await pool.start();
+    const streams = Array.from({ length: 8 }, () => opened(pool));
+    await until(() => pool.stats().workers.length === 2, "워커 늘리기", 5000);
+    assert.equal(
+      pool
+        .stats()
+        .workers.map((w) => w.streams)
+        .join(),
+      "4,4",
+    );
+    streams.push(opened(pool), opened(pool));
+    assert.equal(
+      pool
+        .stats()
+        .workers.map((w) => w.streams)
+        .join(),
+      "5,5",
+    );
+    for (const s of streams) s.session.free();
+  } finally {
+    delete process.env.STUB_ENCODE_FRAME_US;
+    delete process.env.STUB_ENCODE_GROW_READY_MS;
+    await pool.close();
+  }
+});
+
+test("지연 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info", async () => {
+  const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
+  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 지연되고 있습니다") || e.text.includes("재생 인코딩 지연이 해소됐습니다"));
+  try {
+    await pool.start();
+    const { session } = opened(pool);
+    // 우리 출력 스트림이 읽힐 때 패킷이 없으면 지연을 센다. 그것만 흉내 낸다
+    const late = (frames: number) => {
+      for (let i = 0; i < frames; i++) session.late();
+    };
+    const from = sink.buffer.length;
+    late(2);
+    await sleep(2500);
+    assert.deepEqual(slowLines(from), [], "두 프레임은 경고하지 않는다");
+    // 메인이 막혔다 몰아 읽은 것처럼 한 틱에 0.6초 몫
+    late(30);
+    await until(() => slowLines(from).length === 1, "경고", 2500);
+    assert.equal(slowLines(from)[0].level, "warn");
+    await until(() => slowLines(from).length === 2, "해소", 33_000);
+    assert.equal(slowLines(from)[1].level, "info");
+    session.free();
+  } finally {
+    await pool.close();
+  }
+});
+
+test("응답 시간이 큐 깊이의 임계값에 가까우면 워커를 늘리고, 늘릴 수 없으면 큐 깊이를 올리고, 상한이면 늦다고 본다", () => {
+  const base = { depth: START_DEPTH, canGrow: true, contended: false, calm: 0 };
+  assert.equal(decideDepth({ ...base, rttP99: 2 }), null);
+  assert.equal(decideDepth({ ...base, rttP99: 17 }), "grow");
+  assert.equal(decideDepth({ ...base, rttP99: 17, canGrow: false }), "deepen");
+  // CPU 를 뺏기는 중에는 늘려도 경쟁만 커진다
+  assert.equal(decideDepth({ ...base, rttP99: 17, contended: true }), "deepen");
+  assert.equal(decideDepth({ ...base, rttP99: 200, depth: MAX_DEPTH, canGrow: false }), "slow");
+  // 여유가 오래 이어져야 내린다
+  assert.equal(decideDepth({ ...base, rttP99: 2, depth: 4, calm: 10 }), null);
+  assert.equal(decideDepth({ ...base, rttP99: 2, depth: 4, calm: 180 }), "shallow");
+  assert.equal(decideDepth({ ...base, rttP99: 2, calm: 1000 }), null);
+});
+
+test("워커 수 상한은 1 이상 8 이하다", () => {
+  const { max } = workerLimit();
+  assert.ok(max >= 1 && max <= 8, `상한 ${max}`);
+});

@@ -1,4 +1,4 @@
-// 재생 조작 · 탐색 · 볼륨 · 곡 표. 서버 화면 · 재생 바 · 대기열 판이 같이 쓴다
+// 재생 조작, 탐색, 볼륨, 곡 표. 서버 화면, 재생 바, 대기열 판이 같이 쓴다
 
 const shuffle = "셔플";
 const previous = "이전곡";
@@ -12,6 +12,8 @@ const highlight = "하이라이트";
 const toHighlight = "하이라이트로 가기";
 const volume = "볼륨";
 const live = "라이브";
+/** 시작 전 라이브(예정된 방송, 최초 공개)의 길이 자리 */
+const upcoming = "예정된 라이브";
 const queue = "대기열";
 const mine = "내가 넣은 곡";
 /** 크게 보기의 화면 읽기 이름 */
@@ -34,4 +36,4 @@ const failed = {
 /** 반복 버튼: 지금 모드와 누르면 바뀔 모드 */
 const loopTip = (now: string, next: string) => `${now} (다음: ${next})`;
 
-export { shuffle, previous, next, play, pause, playPause, stop, highlight, toHighlight, volume, live, queue, mine, albumArt, upNext, nothingPlaying, openServer, seekCancelled, volumeFailed, failed, loopTip };
+export { shuffle, previous, next, play, pause, playPause, stop, highlight, toHighlight, volume, live, upcoming, queue, mine, albumArt, upNext, nothingPlaying, openServer, seekCancelled, volumeFailed, failed, loopTip };

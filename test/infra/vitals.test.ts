@@ -1,4 +1,4 @@
-// src/infra/vitals.ts · version.ts — 봇 상태 탭의 측정: CPU 사용률 · 이벤트 루프 지연(15초 구간) · heap 한도, 돌고 있는 버전
+// src/infra/vitals.ts, version.ts: 봇 상태 탭의 측정. CPU 사용률, 이벤트 루프 지연(15초 구간), heap 한도, 돌고 있는 버전
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const busy = (ms: number) => {
   while (performance.now() < until);
 };
 
-test("다섯 번 잴 때마다 15초 구간을 닫고 알린다: 그 구간의 CPU 평균 · 루프 지연 p99 와 최대", async () => {
+test("다섯 번 잴 때마다 15초 구간을 닫고 알린다: 그 구간의 CPU 평균, 루프 지연 p99 와 최대", async () => {
   startVitals();
   const windows: Window[] = [];
   onWindow((window) => windows.push(window));

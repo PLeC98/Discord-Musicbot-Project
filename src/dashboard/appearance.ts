@@ -1,8 +1,8 @@
-// 파비콘. 운영자가 패널에서 크기 슬롯마다 올린 그림을 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
-// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg · 메타데이터가 그대로 나가지 않게).
-// 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 그림 · 기록)는 같은 폴더의 index.json:
-// 그림과 한 폴더라 백업 · 이사 · 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 그림과 어긋나지 않는다).
-// 그 크기를 낼 때: 그 슬롯의 지금 그림 > 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘림 > 봇 프로필 그림을 줄임
+// 파비콘. 운영자가 패널에서 크기 슬롯마다 올린 이미지를 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
+// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg, 메타데이터가 그대로 나가지 않게).
+// 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 이미지, 기록)는 같은 폴더의 index.json:
+// 이미지와 한 폴더라 백업, 이사, 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 이미지와 어긋나지 않는다).
+// 그 크기를 낼 때: 그 슬롯의 지금 이미지 > 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘림 > 봇 프로필 이미지를 줄임
 
 import crypto from "crypto";
 import fs from "fs";
@@ -19,18 +19,18 @@ let dir = path.join(PROJECT.dashboardData, "favicon");
 const INDEX = "index.json";
 /** 래스터로 받는 형식 */
 const RASTERS = ["png", "webp", "jpeg"];
-/** 그림 id(파일 이름에 그대로 쓴다) */
+/** 이미지 id(파일 이름에 그대로 쓴다) */
 const ID = /^[a-z0-9]{8,24}$/;
-/** 이 폴더에서 봇이 쓰는 파일: 목록 · 슬롯 크기 png · 보관본 png */
+/** 이 폴더에서 봇이 쓰는 파일: 목록, 슬롯 크기 png, 보관본 png */
 const FILE = /^(index\.json|[a-z0-9]{8,24}(\.reserve)?\.png)$/;
 
-/** 저장한 그림 하나. reserveSide 는 보관본의 변 */
+/** 저장한 이미지 하나. reserveSide 는 보관본의 변 */
 type Stored = FaviconImage & { reserveSide: number };
-/** 슬롯 하나: 새것부터의 기록과 지금 쓰는 그림 */
+/** 슬롯 하나: 새것부터의 기록과 지금 쓰는 이미지 */
 type Slot = { current: string | null; history: Stored[] };
 /** index.json 의 형식(슬롯 크기 → 슬롯) */
 type Index = { slots: Record<string, Slot> };
-/** 올리기의 답: 됐거나, 거절(문제 코드 · 그 값) */
+/** 올리기의 답: 됐거나, 거절(문제 코드, 그 값) */
 type Added = { ok: true } | { ok: false; code: Code; params?: Params };
 type Refused = Extract<Added, { ok: false }>;
 
@@ -58,7 +58,7 @@ function isStored(value: unknown): value is Stored {
   return !!one && typeof one.id === "string" && ID.test(one.id) && isNum(one.bytes) && isNum(one.width) && isNum(one.height) && typeof one.vector === "boolean" && isNum(one.at) && isNum(one.reserveSide) && one.reserveSide > 0 && one.reserveSide <= FAVICON_RESERVE_SIDE;
 }
 
-/** index.json 을 슬롯으로 읽는다. 모르는 크기 · 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 그림이 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
+/** index.json 을 슬롯으로 읽는다. 모르는 크기, 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 이미지가 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
 function slotsFrom(raw: unknown, has: (id: string) => boolean): Map<number, Slot> {
   const table = (raw as Partial<Index> | null)?.slots;
   return new Map(
@@ -84,14 +84,14 @@ function loaded(): Map<number, Slot> {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 자리 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 경로 읽기 실패: ${messageOf(error)}`);
   }
   let raw: unknown = null;
   try {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
   } catch (error) {
     // 목록이 없거나 망가졌다: 빈 슬롯으로
-    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 그림 파일은 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 이미지 파일은 삭제): ${messageOf(error)}`);
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));
@@ -116,7 +116,7 @@ const currentOf = (size: number) => {
   return slot.history.find((one) => one.id === slot.current) ?? null;
 };
 
-/** 받은 그림을 본다(형식 · 래스터는 정사각형 · 변). 지나가면 그 크기의 png 와 보관본을 그린다 */
+/** 받은 이미지를 본다(형식, 래스터는 정사각형, 변). 지나가면 그 크기의 png 와 보관본을 그린다 */
 async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: Stored; png: Buffer; reserve: Buffer } | Refused> {
   const meta = await sharp(raw)
     .metadata()
@@ -139,12 +139,12 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
     const [png, reserve] = await Promise.all([draw(size), draw(reserveSide)]);
     return { ok: true, image: { id: newId(), bytes: raw.length, width, height, vector, at: Date.now(), reserveSide }, png, reserve };
   } catch (error) {
-    log.debug(`파비콘 그리기 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
+    log.debug(`파비콘 변환 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
     return refused("bad-image");
   }
 }
 
-/** 그 크기에 그림을 올린다(정사각형 png · webp · jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 그림으로 쓰고, 기록을 넘친 옛 그림은 삭제한다 */
+/** 그 크기에 이미지를 올린다(정사각형 png, webp, jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 이미지로 쓰고, 기록을 넘친 옛 이미지는 삭제한다 */
 async function addFavicon(size: number, raw: Buffer): Promise<Added> {
   const checked = await inspect(raw, size);
   if (!checked.ok) return checked;
@@ -167,7 +167,7 @@ function dropFiles(id: string) {
   fs.rmSync(reserveOf(id), { force: true });
 }
 
-/** 기록의 그림으로 교체한다. 기록에 없으면 false */
+/** 기록의 이미지로 교체한다. 기록에 없으면 false */
 function useFavicon(size: number, id: string): boolean {
   const map = loaded();
   const slot = map.get(size)!;
@@ -189,7 +189,7 @@ function clearFavicon(size: number): boolean {
   return true;
 }
 
-/** 기록에서 삭제한다(지금 쓰는 그림이면 슬롯도 빈다). 기록에 없으면 false */
+/** 기록에서 삭제한다(지금 쓰는 이미지면 슬롯도 빈다). 기록에 없으면 false */
 function removeFavicon(size: number, id: string): boolean {
   const map = loaded();
   const slot = map.get(size)!;
@@ -202,7 +202,7 @@ function removeFavicon(size: number, id: string): boolean {
   return true;
 }
 
-// 빈 슬롯이 빌려 쓸 슬롯: 지금 그림이 있는 슬롯 중 배율로 가장 가까운 슬롯(차이가 아니라 배율: 180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
+// 빈 슬롯이 빌려 쓸 슬롯: 지금 이미지가 있는 슬롯 중 배율로 가장 가까운 슬롯(차이가 아니라 배율: 180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
 function nearestSlot(size: number): number | null {
   const off = (side: number) => Math.abs(Math.log(side / size));
   let best: number | null = null;
@@ -220,7 +220,7 @@ async function cached(key: string, make: () => Promise<Buffer>): Promise<Buffer>
 
 const resized = (input: Buffer, size: number) => sharp(input).resize(size, size, { fit: "cover" }).png().toBuffer();
 
-/** 봇 프로필 그림(다운로드한 것을 기억한다, 주소가 바뀌면 다시 다운로드한다). 없거나 다운로드하지 못하면 null */
+/** 봇 프로필 이미지(다운로드한 것을 기억한다, 주소가 바뀌면 다시 다운로드한다). 없거나 다운로드하지 못하면 null */
 async function avatarInput(url: string | null): Promise<Buffer | null> {
   if (!url) return null;
   if (avatar?.url === url) return avatar.input;
@@ -228,17 +228,17 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (res.ok) input = Buffer.from(await res.arrayBuffer());
-    else log.debug(`봇 프로필 그림 받기 실패: HTTP ${res.status}`);
+    else log.debug(`봇 프로필 이미지 다운로드 실패: HTTP ${res.status}`);
   } catch (error) {
-    // 디스코드에 닿지 못했다. 다음 요청에서 다시
-    log.debug(`봇 프로필 그림 받기 실패: ${messageOf(error)}`);
+    // 디스코드에 닿지 못했다: 기억하지 않고 다음 요청에서 다시 다운로드한다
+    log.debug(`봇 프로필 이미지 다운로드 실패: ${messageOf(error)}`);
     return null;
   }
   avatar = { url, input };
   return input;
 }
 
-/** 그 크기의 파비콘(png). 그 슬롯의 그림 > 가까운 슬롯의 보관본 > 봇 프로필 그림(avatarUrl). 셋 다 없으면 null */
+/** 그 크기의 파비콘(png). 그 슬롯의 이미지 > 가까운 슬롯의 보관본 > 봇 프로필 이미지(avatarUrl). 셋 다 없으면 null */
 async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffer | null> {
   const own = currentOf(size);
   if (own) return cached(`own:${own.id}`, async () => fs.readFileSync(pngOf(own.id)));
@@ -252,13 +252,13 @@ async function faviconPng(size: number, avatarUrl: string | null): Promise<Buffe
   return cached(`avatar:${avatarUrl}:${size}`, () => resized(input, size));
 }
 
-/** 기록의 그림을 슬롯 크기로(미리 보기). 없으면 null */
+/** 기록의 이미지를 슬롯 크기로(미리 보기). 없으면 null */
 function previewPng(size: number, id: string): Buffer | null {
   const found = slotOf(size).history.find((one) => one.id === id);
   return found ? fs.readFileSync(pngOf(found.id)) : null;
 }
 
-/** 운영자 패널의 파비콘 상태. hasAvatar: 봇 프로필 그림을 대신 쓸 수 있는지 */
+/** 운영자 패널의 파비콘 상태. hasAvatar: 봇 프로필 이미지를 대신 쓸 수 있는지 */
 function faviconSlots(hasAvatar: boolean): FaviconSlots {
   const list: FaviconSlot[] = FAVICON_SIZES.map((size) => {
     const slot = slotOf(size);
@@ -274,12 +274,12 @@ function faviconSlots(hasAvatar: boolean): FaviconSlots {
 
 const faviconVersion = () => version;
 
-// ── 내보내기 · 불러오기 · 전체 백업 ──
+// ── 내보내기, 불러오기, 전체 백업 ──
 
 /** 이 폴더에서 봇이 쓰는 파일인지(전체 백업이 담을 것) */
 const isFaviconFile = (name: string) => FILE.test(name);
 
-/** 저장한 파일들: index.json 과 그림마다 슬롯 크기 png · 보관본 png(이름은 저장된 그대로) */
+/** 저장한 파일들: index.json 과 이미지마다 슬롯 크기 png, 보관본 png(이름은 저장된 그대로) */
 function faviconFiles(): Array<{ name: string; data: Buffer }> {
   const map = loaded();
   const images = [...map.values()].flatMap((slot) => slot.history);
@@ -288,10 +288,10 @@ function faviconFiles(): Array<{ name: string; data: Buffer }> {
 
 /** 검사를 지나 저장할 모양: 슬롯들과 파일(다시 만든 png) */
 type Prepared = { slots: Map<number, Slot>; files: Map<string, Buffer> };
-/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음 · 목록에 있는 그림 파일이 없음 · 그림이 망가졌거나 크기가 맞지 않음 */
+/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음, 목록에 있는 이미지 파일이 없음, 이미지가 망가졌거나 크기가 맞지 않음 */
 type FaviconFault = "index" | "missing" | "broken";
 
-/** 그림 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
+/** 이미지 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
 async function remade(data: Buffer | undefined, side: number): Promise<Buffer | "missing" | "broken"> {
   if (!data) return "missing";
   try {
@@ -303,7 +303,7 @@ async function remade(data: Buffer | undefined, side: number): Promise<Buffer | 
   }
 }
 
-/** 불러온 파일들(내보내기의 favicon/ 아래)을 본다. 목록의 그림마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
+/** 불러온 파일들(내보내기의 favicon/ 아래)을 본다. 목록의 이미지마다 두 파일이 있고 크기가 맞아야 한다. 지나가면 저장할 모양 */
 async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Promise<{ ok: true; prepared: Prepared } | { ok: false; faults: FaviconFault[] }> {
   const byName = new Map(files.map((one) => [one.name, one.data]));
   let raw: unknown;
@@ -336,12 +336,12 @@ function replaceFavicons({ slots: next, files }: Prepared) {
   changed();
 }
 
-/** 올린 파비콘 그림 수(크기마다의 기록, 초기화 카드) */
+/** 기록에 있는 파비콘 이미지 수(모든 슬롯의 합, 초기화 카드) */
 function faviconCount(): number {
   return [...loaded().values()].reduce((sum, slot) => sum + slot.history.length, 0);
 }
 
-/** 파비콘을 모두 비운다(디스플레이 설정 초기화). 지운 그림 수 */
+/** 파비콘을 모두 비운다(디스플레이 설정 초기화). 삭제한 이미지 수 */
 function clearFavicons(): number {
   const removed = faviconCount();
   replaceFavicons({ slots: slotsFrom(null, () => false), files: new Map() });

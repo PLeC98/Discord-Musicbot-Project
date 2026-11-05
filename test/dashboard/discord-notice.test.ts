@@ -1,4 +1,4 @@
-// src/dashboard/discord-notice.ts — 대시보드에서 한 조작을 디스코드의 패널 채널에 알린다
+// src/dashboard/discord-notice.ts: 대시보드에서 한 조작을 디스코드의 패널 채널에 알린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 
 type Sent = { components: Array<{ toJSON(): unknown }> };
 
-// 패널 채널을 찾은 횟수와 보낸 것 · 삭제한 것을 적는 가짜
+// 패널 채널을 찾은 횟수와 보낸 것, 삭제한 것을 적는 가짜
 function world(found = true) {
   const sent: string[] = [];
   const deleted: string[] = [];

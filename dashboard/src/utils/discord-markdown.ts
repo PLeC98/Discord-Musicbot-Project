@@ -1,5 +1,6 @@
 import { formatDate, formatTime, relativeTime } from "./locale.ts";
 import { text } from "../text/index.ts";
+import { appEmojiImage, appEmojiOf } from "../composables/app-emojis.ts";
 // 디스코드 임베드 본문(description)이 그리는 마크다운을 HTML 로 옮긴다(공지 미리보기용).
 // 블록: 코드 블록 ``` · 인용 > · >>>(그 뒤 전부) · 제목 # ## ### · 작은 글씨 -# · 목록 - * · 번호 목록 1.
 // 글 안: 인라인 코드 ` · 굵게 ** · 밑줄 __ · 기울임 * _ · 취소선 ~~ · 스포일러 || · 링크 [글](주소) · 맨 주소 · 시각 <t:초:형식> · 멘션 · 사용자 이모지 · 역슬래시 이스케이프.
@@ -53,15 +54,19 @@ function inline(raw: string): string {
   let s = raw.replace(/\\([*_~|`\\<>#[\]()-])/g, (_, c: string) => hold(esc(c)));
   s = s.replace(/(`+)([\s\S]+?)\1/g, (_, __, code: string) => hold(`<code class="dmd-code">${esc(code.trim() || code)}</code>`));
   s = esc(s);
-  // 링크([글](주소))와 맨 주소. 주소는 http · https 만
+  // 링크([글](주소))와 맨 주소. 주소는 http, https 만
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text: string, url: string) => hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${text}</a>`));
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g, (_, pre: string, url: string) => pre + hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${url}</a>`));
-  // 시각 · 멘션 · 사용자 이모지(이스케이프된 꺾쇠)
+  // 시각, 멘션, 사용자 이모지(이스케이프된 꺾쇠)
   s = s.replace(/&lt;t:(-?\d+)(?::([tTdDfFsSR]))?&gt;/g, (_, sec: string, style = "f") => hold(`<span class="dmd-time">${esc(timestamp(Number(sec), style))}</span>`));
   s = s.replace(/&lt;@!?(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionUser}</span>`));
   s = s.replace(/&lt;@&amp;(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionRole}</span>`));
   s = s.replace(/&lt;#(\d+)&gt;/g, () => hold(`<span class="dmd-mention">${text.fields.mentionChannel}</span>`));
-  s = s.replace(/&lt;a?:(\w+):(\d+)&gt;/g, (_, name: string) => hold(`<span class="dmd-emoji">:${name}:</span>`));
+  // 봇의 앱 이모지면 그 이미지(봇이 내준다), 아니면 이름 글자(서버 이모지 등은 봇이 그리지 못한다)
+  s = s.replace(/&lt;(a?):(\w+):(\d+)&gt;/g, (_, a: string, name: string, id: string) => {
+    const app = appEmojiOf(`<${a}:${name}:${id}>`);
+    return hold(app ? `<img class="dmd-emoji" src="${appEmojiImage(app)}" alt=":${esc(app.name)}:" draggable="false">` : `<span class="dmd-emoji">:${name}:</span>`);
+  });
   // 굵게 → 밑줄 → 기울임 → 취소선 → 스포일러(겹쳐 쓸 수 있다)
   s = s.replace(/\*\*([\s\S]+?)\*\*/g, "<strong>$1</strong>");
   s = s.replace(/__([\s\S]+?)__/g, "<u>$1</u>");
@@ -85,7 +90,7 @@ const LINE_KINDS: Array<{ head: RegExp; kind: Block["kind"]; cut: number }> = [
   { head: /^\s*\d+\. /, kind: "ol", cut: 0 },
 ];
 
-/** i 번째 줄에서 여는 코드 블록. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 낱말 하나면 언어 이름). 닫지 않았으면 null */
+/** i 번째 줄에서 여는 코드 블록. 같은 줄에서 닫히면 그 줄만, 아니면 닫는 ``` 까지(여는 줄의 나머지가 단어 하나면 언어 이름). 닫지 않았으면 null */
 function codeBlock(lines: string[], i: number): { block: Block; end: number } | null {
   const rest = lines[i].slice(3);
   const close = rest.indexOf("```");

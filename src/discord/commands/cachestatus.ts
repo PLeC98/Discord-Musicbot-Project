@@ -8,7 +8,7 @@ import { LIFETIME, expireSelf } from "../../ui/delivery.ts";
 
 const GB2 = { gbDigits: 2 };
 
-// 총 재생 시간. 100시간이 넘으면 분은 뺀다
+// 총 재생 시간. 100시간 이상이면 분은 뺀다
 function totalPlayed(seconds: number) {
   const hours = Math.floor(seconds / 3600);
   return hours >= 100 ? infoText.hours(hours) : formatSpan(seconds, { days: false });
@@ -25,17 +25,15 @@ function usageBar(used: number, max: number, width = 12) {
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "moderator" },
   anywhere: true,
-  data: new SlashCommandBuilder().setName("cachestatus").setDescription("Show audio cache statistics").setDescriptionLocalizations({ ko: "오디오 캐시 통계를 보여줘요" }).setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("cachestatus").setDescription("오디오 캐시 통계를 보여줘요").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, _client) {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const stats = audioCache.getCacheStats();
 
-    // 캐시 현황
     const sizeBar = usageBar(stats.totalSize, stats.maxSize);
     const countBar = usageBar(stats.fileCount, stats.maxFiles);
-    // 재생 통계
     const avgDuration = stats.fileCount > 0 ? Math.round(stats.totalDuration / stats.fileCount) : 0;
     const t = infoText.cache({
       sizeBar,
@@ -57,7 +55,6 @@ const exported: AnywhereCommand = {
     });
     const blank = infoText.cacheBlank();
 
-    // 인기 TOP 5
     let topTracksText = blank.noData;
     if (stats.topTracks.length > 0) {
       topTracksText = stats.topTracks
@@ -69,7 +66,6 @@ const exported: AnywhereCommand = {
         .join("\n");
     }
 
-    // 최근 추가 TOP 3
     let recentText = blank.noData;
     if (stats.recentTracks.length > 0) {
       recentText = stats.recentTracks

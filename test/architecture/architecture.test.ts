@@ -1,6 +1,6 @@
-// 구조 게이트. 부르는 방향 · 순환 · 지연 부름 · config 꺼내 두기 · 모듈과 메서드 교체 · 첫 테스트 뒤 기다리기를 기준선과 맞춘다.
+// 구조 게이트. 부르는 방향, 순환, 지연 부름, config 꺼내 두기, 모듈과 메서드 교체, 첫 테스트 뒤 기다리기를 기준선과 맞춘다.
 //
-// 기준선(baseline.json)은 줄이기만 한다(지금은 비었다). 새 위반은 실패한다. 위반을 없앴으면 기준선에서도 지운다.
+// 기준선(baseline.json)은 줄이기만 한다. 새 위반은 실패한다. 위반을 없앴으면 기준선에서도 지운다.
 // 안 지우면 실패한다. 남은 슬롯만큼 새 위반이 숨기 때문이다(eslint 억제 파일과 같은 규칙).
 
 import fs from "node:fs";
@@ -72,8 +72,8 @@ test("테스트가 프로젝트 모듈의 메서드를 덮어쓰지 않는다", 
   sameList("메서드 교체", now.methodSwap, baseline.methodSwap);
 });
 
-// 실행 중 경로는 PROJECT 하나에서 나온다(src/infra/project-paths). 루트를 잘못 세면 DB · 캐시가 엉뚱한 빈 경로에 새로 생긴다
-// 테스트는 진입 파일을 부르지 않으므로 .env 를 읽지 않는다. 설정 모듈이 읽으면 운영자가 바꾼 값 · 비밀이 테스트에 샌다
+// 실행 중 경로는 PROJECT 하나에서 나온다(src/infra/project-paths). 루트를 잘못 세면 DB, 캐시가 엉뚱한 빈 경로에 새로 생긴다
+// 테스트는 진입 파일을 부르지 않으므로 .env 를 읽지 않는다. 설정 모듈이 읽으면 운영자가 바꾼 값, 비밀이 테스트에 샌다
 test(".env 는 진입 파일의 첫 줄만 읽는다", () => {
   assert.deepEqual(now.envFileLoad, ["src/config/env-file.ts"]);
   assert.ok(now.configEntries.includes("src/index.ts") && now.configEntries.length > 1, now.configEntries.join(", "));
@@ -89,7 +89,7 @@ test("실행 중 경로를 파일 위치에서 세지 않는다(import.meta.dirn
   assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
 });
 
-// 조립이 만든 것(플레이어 레지스트리 · 패널 · 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 다시 열린다
+// 조립이 만든 것(플레이어 레지스트리, 패널, 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 다시 열린다
 test("디스코드 클라이언트 타입을 늘려 필드를 매달지 않는다", () => {
   const src = path.join(PROJECT.root, "src");
   const augmenting = fs
@@ -99,8 +99,8 @@ test("디스코드 클라이언트 타입을 늘려 필드를 매달지 않는�
   assert.deepEqual(augmenting, []);
 });
 
-// 파일 이름은 kebab-case(점 뒤는 .test · .d · .browser 같은 접미사). 대시보드 화면(Vue 컴포넌트는 PascalCase)은 따로 본다
-test("봇 · 테스트 · 스크립트의 파일 이름은 kebab-case", () => {
+// 파일 이름은 kebab-case(점 뒤는 .test, .d, .browser 같은 접미사). 대시보드 화면(Vue 컴포넌트는 PascalCase)은 따로 본다
+test("봇, 테스트, 스크립트의 파일 이름은 kebab-case", () => {
   const files = (dir: string): string[] => fs.readdirSync(path.join(PROJECT.root, dir), { recursive: true, encoding: "utf8" }).filter((f) => /\.(ts|js|mjs)$/.test(f));
   const bad = ["src", "test", "scripts"].flatMap((dir) => files(dir).map((f) => `${dir}/${f.split(path.sep).join("/")}`)).filter((f) => !/^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+)*\.(ts|js|mjs)$/.test(path.posix.basename(f)));
   assert.deepEqual(bad, []);

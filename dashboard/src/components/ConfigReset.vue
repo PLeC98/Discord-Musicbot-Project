@@ -1,8 +1,8 @@
 <template>
-  <!-- 초기화(운영자 패널 백업 · 초기화 탭). 계약 contract/reset. 줄 다섯: 오디오 캐시 · 봇 설정 · 서버별 설정 · 디스플레이 설정 · 봇 전체.
-       줄마다 이름 · 무엇을 삭제하는지 · 버튼, 누르면 확인 창(삭제할 양을 숫자로). 오디오 캐시는 선택하는 것(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 연다.
-       모두 최근 로그인을 본다. 봇 설정은 다시 시작해야 먹는 값이 바뀌었으면 다시 시작 창을 연다. 봇 전체는 실행기로 켠 봇이면 다시 시작을 기다려 화면을 새로고침한다 -->
-  <!-- 뿌리 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 초기화(운영자 패널 백업, 초기화 탭). 공유 타입 contract/reset. 행 다섯: 오디오 캐시, 봇 설정, 서버별 설정, 디스플레이 설정, 봇 전체.
+       확인 창은 삭제할 양을 숫자로 보인다. 오디오 캐시는 항목을 선택하고(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 실행된다.
+       모두 최근 로그인을 본다. 봇 설정은 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 봇 전체는 실행기로 켠 봇이면 다시 시작을 기다려 화면을 새로고침한다 -->
+  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="delete_sweep" :title="T.title">
       <NoticeBox v-if="view?.staged" variant="note" tone="notice" icon="info" class="mt-0! mb-3">
@@ -21,43 +21,38 @@
       </div>
     </BaseCard>
 
-    <!-- 확인 창: 삭제할 양을 숫자로. 오디오 캐시는 선택하는 것, 봇 전체는 봇 이름 -->
-    <!-- ConfirmDialog 와 같은 모양에 선택 항목 · 이름 입력란을 더한 창 -->
-    <Teleport to="body">
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-        <div v-if="asking" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-          <div role="alertdialog" aria-modal="true" class="rounded-2xl bg-surface-container-high p-6 w-full max-w-md animate-[art-in_350ms_var(--ease-spring-fast)]">
-            <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
-            <h3 class="text-xl font-round font-semibold text-center mb-4">{{ T.confirm[asking].title }}</h3>
-            <p v-if="bodyOf(asking)" class="text-sm text-on-surface-variant text-center whitespace-pre-line mb-4">{{ bodyOf(asking) }}</p>
-            <div v-if="asking === 'audio-cache' && view" class="flex flex-col gap-1 mb-4">
-              <label v-for="part in AUDIO_CACHE_PARTS" :key="part" class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row) cursor-pointer state-layer">
-                <BaseSwitch v-model="parts[part]" :label="T.parts[part].label" />
-                <span class="flex-1 min-w-0">
-                  <span class="block text-body font-medium">{{ T.parts[part].label }}</span>
-                  <span class="block text-label text-on-surface-variant">{{ T.parts[part].desc(counts) }}</span>
-                </span>
-              </label>
-            </div>
-            <label v-if="asking === 'all' && view" class="flex flex-col gap-1 mb-4">
-              <span class="text-label text-on-surface-variant">{{ T.confirm.all.typeName(view.botName) }}</span>
-              <input v-model="typed" type="text" :class="[FIELD, 'w-full']" :placeholder="view.botName" />
-            </label>
-            <div class="flex gap-2 justify-end">
-              <BaseButton variant="ghost" :disabled="busy" @click="close">{{ CANCEL }}</BaseButton>
-              <BaseButton variant="danger" :disabled="!canRun" @click="run">{{ T.confirm[asking].button }}</BaseButton>
-            </div>
-          </div>
+    <!-- ConfirmDialog 와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
+    <BaseDialog :open="asking != null" width="md" role="alertdialog" :aria-labelledby="titleId" @close="close"
+      ><template v-if="asking">
+        <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
+        <h3 :id="titleId" class="text-xl font-round font-semibold text-center mb-4">{{ T.confirm[asking].title }}</h3>
+        <p v-if="bodyOf(asking)" class="text-sm text-on-surface-variant text-center whitespace-pre-line mb-4">{{ bodyOf(asking) }}</p>
+        <div v-if="asking === 'audio-cache' && view" class="flex flex-col gap-1 mb-4">
+          <label v-for="part in AUDIO_CACHE_PARTS" :key="part" class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row) cursor-pointer state-layer">
+            <BaseSwitch v-model="parts[part]" :label="T.parts[part].label" />
+            <span class="flex-1 min-w-0">
+              <span class="block text-body font-medium">{{ T.parts[part].label }}</span>
+              <span class="block text-label text-on-surface-variant">{{ T.parts[part].desc(counts) }}</span>
+            </span>
+          </label>
         </div>
-      </Transition>
-    </Teleport>
+        <label v-if="asking === 'all' && view" class="flex flex-col gap-1 mb-4">
+          <span class="text-label text-on-surface-variant">{{ T.confirm.all.typeName(view.botName) }}</span>
+          <input v-model="typed" type="text" :class="[FIELD, 'w-full']" :placeholder="view.botName" />
+        </label>
+        <div class="flex gap-2 justify-end">
+          <BaseButton variant="ghost" :disabled="busy" @click="close">{{ CANCEL }}</BaseButton>
+          <BaseButton variant="danger" :disabled="!canRun" @click="run">{{ T.confirm[asking].button }}</BaseButton>
+        </div>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
+import { computed, onMounted, reactive, ref, useId } from "vue";
 import axios from "axios";
+import BaseDialog from "./BaseDialog.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
@@ -75,15 +70,12 @@ const T = text.reset;
 
 const API = "/api/admin/reset";
 const CANCEL = text.common.cancel;
-// 줄 하나: 이름 · 설명, 오른쪽에 버튼. 좁으면 버튼이 아래로
+// 행 하나: 이름, 설명, 오른쪽에 버튼. 좁으면 버튼이 아래로
 const actionRow = "flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0";
 
 const view = ref<ResetOverview | null>(null);
 const asking = ref<ResetKind | null>(null);
-useCloseLayer(
-  computed(() => asking.value != null),
-  () => close(),
-);
+const titleId = useId();
 const busy = ref(false);
 const typed = ref("");
 const parts = reactive(Object.fromEntries(AUDIO_CACHE_PARTS.map((part) => [part, AUDIO_CACHE_PARTS_DEFAULT.includes(part)])) as Record<AudioCachePart, boolean>);
@@ -132,7 +124,7 @@ function announce(done: ResetDone) {
   else if (done.kind === "bot-settings") notifyDone(T.done["bot-settings"]);
   else if (done.kind === "guild-settings") notifyDone(T.done["guild-settings"](done.guilds));
   else if (done.kind === "display") notifyDone(T.done.display);
-  // 다시 시작하는 봇은 다시 시작 창(기다리기 · 새로고침)이 알린다
+  // 다시 시작하는 봇은 다시 시작 창(기다리기, 새로고침)이 알린다
   else if (!done.restarting) notifyDone(T.done.allStaged, T.done.allStagedBody);
 }
 async function run() {
@@ -144,7 +136,7 @@ async function run() {
     const { data } = await axios.post<ResetDone>(API, requestOf(asking.value), { timeout: LIMIT.long });
     announce(data);
     asking.value = null;
-    // 다시 시작해야 먹는 값(POToken · SponsorBlock)이 바뀌었으면 묻는다(지금 다시 시작 · 나중에)
+    // 다시 시작해야 적용되는 값(POToken, SponsorBlock)이 바뀌었으면 묻는다(지금 다시 시작, 나중에)
     if (data.kind === "bot-settings" && data.restart) askRestart();
     if (data.kind === "all" && data.restarting && before !== null) return void waitRestart(before);
     await load();

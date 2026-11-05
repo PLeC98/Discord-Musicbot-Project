@@ -1,5 +1,5 @@
-// src/media/cache-download.ts `_takeInfoJson` — 다운로드에 곁들여 다운로드한 info.json에서 제목과 오디오 길이를 꺼낸다.
-// 읽고 삭제하는 것까지가 계약이다 — 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
+// src/media/cache-download.ts `_takeInfoJson`: 다운로드에 곁들여 받은 info.json에서 제목과 오디오 길이를 꺼낸다.
+// 읽고 삭제하는 것까지가 계약이다. 남기면 캐시 폴더에 영상마다 100KB대 찌꺼기가 쌓인다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -40,7 +40,7 @@ test("확장자를 바꾼 형태로 쓰인 경우도 찾는다", () => {
   });
 });
 
-test("UTF-8로 읽는다 (일본어·한국어 제목이 목적이다)", () => {
+test("UTF-8로 읽는다 (일본어, 한국어 제목이 목적이다)", () => {
   withTemp((filepath) => {
     fs.writeFileSync(`${filepath}.info.json`, JSON.stringify({ title: "閃光 — 트와이스 テスト" }), "utf8");
     assert.equal(take.call(null, filepath).title, "閃光 — 트와이스 テスト");

@@ -1,4 +1,4 @@
-// src/sources/sponsor-block.ts — 정규화/병합 순수 로직 + lookup 오케스트레이션(라이브/캐시 폴백/무동작).
+// src/sources/sponsor-block.ts: 정규화/병합 순수 로직 + forTrack(기억, DB 캐시, 라이브, 뒤에서 다시 받기) + 응답 구분.
 // 네트워크는 가짜 fetch 를 넘기고(useFetch), 캐시는 임시 SQLite로 실제 라운드트립 검증.
 
 import os from "node:os";
@@ -11,25 +11,34 @@ import * as GSM from "../../src/store/guild-settings.ts";
 import { table as guildTable } from "../../src/store/guild-settings.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as stores from "../../src/store/stores.ts";
+import { cacheDb } from "../../src/store/cache-db.ts";
 import * as externalCaches from "../../src/store/external-caches.ts";
 import * as SponsorBlock from "../../src/sources/sponsor-block.ts";
 import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
+import sink from "../../src/infra/log/sink.ts";
+import { _reset as resetLinks, linkStatus } from "../../src/infra/link-status.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-sponsorblock-test-${process.pid}`);
 
-// 가짜 fetch 를 걸 위치. 테스트마다 net.fetch 를 정하고 SponsorBlock 에는 이것을 부르는 것을 넘긴다.
-// 가짜 응답은 SponsorBlock 이 읽는 필드(status · json)만 가진다. 정하지 않은 테스트가 부르면 실패한다
-type Reply = { status: number; json(): Promise<unknown> };
-const unset = (): Promise<Reply> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
+// 가짜 fetch를 걸 위치. 테스트마다 net.fetch를 정하고 SponsorBlock에는 이것을 부르는 것을 넘긴다. 정하지 않은 테스트가 부르면 실패한다
+const unset = (_url: string, _init?: RequestInit): Promise<Response> => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
 const net = { fetch: unset };
+
+// 실제 서버처럼 JSON으로 답한다(구간이 없는 접두어는 404 + [])
+const JSON_TYPE = "application/json; charset=utf-8";
+function reply(body: unknown, status = 200, type = JSON_TYPE) {
+  return new Response(typeof body === "string" ? body : JSON.stringify(body), { status, headers: { "content-type": type } });
+}
+
+const BASE = config.sponsorblock.apiBase;
 
 before(() => {
   fs.rmSync(DB_DIR, { recursive: true, force: true });
   stores.open(DB_DIR);
   audioCache.initialize();
   config.sponsorblock.enabled = true; // 테스트 기준 활성
-  SponsorBlock.useFetch(fake<typeof fetch>(() => net.fetch()));
+  SponsorBlock.useFetch(fake<typeof fetch>((url: unknown, init?: RequestInit) => net.fetch(String(url), init)));
 });
 
 after(() => {
@@ -42,20 +51,40 @@ after(() => {
 beforeEach(() => {
   net.fetch = unset;
   config.sponsorblock.enabled = true;
+  config.sponsorblock.apiBase = BASE;
+  SponsorBlock.forget();
 });
 
 // SponsorBlock 해시 엔드포인트 응답 형태로 스텁 (우리 videoId의 세그먼트를 담은 한 항목).
 // 실제 API처럼 항목의 videoID를 조회 대상과 일치시켜 _fetchRaw 필터를 통과하게 한다.
 function stubFetch(videoId: string, segments: unknown[], { status = 200 } = {}) {
-  net.fetch = async () => ({
-    status,
-    json: async () => [{ videoID: videoId, hash: "0".repeat(64), segments }],
-  });
+  net.fetch = async () => reply([{ videoID: videoId, hash: "0".repeat(64), segments }], status);
 }
 
 function seg(category: string, start: number, end: number, actionType = "skip", extra: Record<string, unknown> = {}) {
   return { category, actionType, segment: [start, end], votes: 0, locked: 0, ...extra };
 }
+
+// 실제 경로(forTrack)로 조회한다. 서버 설정이 없어 기본 카테고리(music_offtopic, intro, outro)
+const ask = (videoId: string) => SponsorBlock.forTrack({ audioUrl: `https://youtu.be/${videoId}` }, "gAsk");
+// 뒤에서 도는 다시 받기가 끝나게 한 바퀴씩 넘긴다
+async function settle(rounds = 20) {
+  for (let i = 0; i < rounds; i++) await new Promise((done) => setImmediate(done));
+}
+// 답을 세워 둘 수 있는 가짜. release로 답을 보낸다
+function gated(answer: () => Response) {
+  let open = (_: unknown) => {};
+  const gate = new Promise((done) => (open = done));
+  let asked = 0;
+  net.fetch = async () => {
+    asked++;
+    await gate;
+    return answer();
+  };
+  return { release: () => open(null), asked: () => asked };
+}
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 
 // ── 순수 정규화/병합 ──────────────────────────────────────────────────────────
 
@@ -111,114 +140,233 @@ test("normalize: 잘못된 구간(끝<=시작, 비유한값) 제거", () => {
   assert.deepEqual(skipSegments[0], { start: 0, end: 8, categories: ["intro"] });
 });
 
-// ── lookup 오케스트레이션 ─────────────────────────────────────────────────────
+// ── forTrack: 기억, DB 캐시, 라이브 ──────────────────────────────────────────
 
-test("lookup: 마스터 킬스위치 off면 fetch/캐시 없이 disabled", async () => {
+test("마스터 킬스위치 off면 조회, 캐시 없이 null", async () => {
   config.sponsorblock.enabled = false;
   let called = false;
   net.fetch = async () => {
     called = true;
-    return { status: 200, json: async () => [] };
+    return reply([]);
   };
-  const r = await SponsorBlock.lookup("vidDisabled");
-  assert.equal(r.source, "disabled");
+  assert.equal(await ask("vidDisabled"), null);
   assert.equal(called, false);
-  assert.deepEqual(r.skipSegments, []);
 });
 
-test("lookup: 라이브 성공 → source live + write-through 캐시", async () => {
+test("DB에 없으면 라이브를 기다려 받고, 받은 때, 주소와 함께 저장한다", async () => {
   stubFetch("vidLive", [seg("music_offtopic", 0, 21, "skip", { locked: 1, votes: 41 })]);
-  const r = await SponsorBlock.lookup("vidLive", { categories: ["music_offtopic"] });
-  assert.equal(r.source, "live");
+  const r = await ask("vidLive");
+  assert.equal(r?.source, "live");
   assert.equal(r?.skipSegments.length, 1);
-  // 캐시에 원시 세그먼트가 저장됐는지
   const cached = externalCaches.getSponsorSegments("vidLive");
-  const segments = cached?.segments as Array<{ category: string }> | undefined;
-  assert.ok(segments && segments.length === 1);
-  assert.equal(segments[0].category, "music_offtopic");
+  assert.equal((cached?.segments as Array<{ category: string }>)[0].category, "music_offtopic");
+  assert.equal(cached?.apiBase, BASE);
+  assert.ok(cached && Date.now() - cached.fetchedAt < 60_000);
 });
 
-test("lookup: 조회 실패 + 캐시 있음 → source cache (폴백)", async () => {
-  // 먼저 라이브로 캐시 채우고
-  stubFetch("vidFallback", [seg("intro", 0, 8, "skip")]);
-  await SponsorBlock.lookup("vidFallback", { categories: ["intro"] });
-  // 이후 조회는 실패
+test("조회 실패 + DB에 없음 → none, 스킵 없음", async () => {
   net.fetch = async () => {
     throw new Error("network down");
   };
-  const r = await SponsorBlock.lookup("vidFallback", { categories: ["intro"] });
-  assert.equal(r.source, "cache");
-  assert.equal(r?.skipSegments.length, 1);
+  const r = await ask("vidNoCache");
+  assert.equal(r?.source, "none");
+  assert.deepEqual(r?.skipSegments, []);
 });
 
-// 캐시가 있으면 라이브 조회를 기다리지 않는다. 기다리면 바로 트는 첫 곡이 그만큼 늦는다
-test("lookup: 캐시가 있으면 곧바로 캐시로 답하고, 라이브는 뒤에서 받아 다음 답을 고친다", async () => {
-  stubFetch("vidBoth", [seg("intro", 0, 8, "skip")]);
-  await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
+// 기동 뒤(기억이 빈 채로) DB의 받은 때로 판단한다. 오래돼도 재생은 기다리지 않는다
+test("DB의 답은 곧바로 쓰고, 받은 때가 지나면(구간 없음 6시간, 구간 있음 7일) 뒤에서 한 번 다시 받아 기억, DB를 바꾼다", async (t) => {
+  const now = 50 * DAY;
+  t.mock.timers.enable({ apis: ["Date"], now });
+  externalCaches.setSponsorSegments("vidHasSegs", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 7 * DAY + HOUR, apiBase: BASE });
+  externalCaches.setSponsorSegments("vidNoSegs", [], { fetchedAt: now - 5 * HOUR, apiBase: BASE });
+  const urls: string[] = [];
+  net.fetch = async (url) => {
+    urls.push(url);
+    return reply([{ videoID: urls.length === 1 ? "vidNoSegs" : "vidHasSegs", segments: [seg("intro", 0, 12)] }]);
+  };
+
+  assert.deepEqual([(await ask("vidHasSegs"))?.source, (await ask("vidNoSegs"))?.source], ["cache", "cache"]);
+  await settle();
+  assert.equal(urls.length, 0, "아직 오래되지 않았다");
+
+  t.mock.timers.tick(HOUR);
+  const noSegs = await ask("vidNoSegs");
+  assert.deepEqual([noSegs?.source, noSegs?.skipSegments], ["cache", []], "지금 곡은 가진 답으로");
+  await settle();
+  assert.equal(urls.length, 1, "구간 없음은 6시간에");
+  const again = await ask("vidNoSegs");
+  assert.deepEqual([again?.source, again?.skipSegments[0]?.end], ["live", 12], "다음부터 새 답");
+  assert.equal(externalCaches.getSponsorSegments("vidNoSegs")?.fetchedAt, now + HOUR, "DB의 받은 때도 바꾼다");
+
+  assert.equal((await ask("vidHasSegs"))?.skipSegments[0]?.end, 8);
+  await settle();
+  assert.equal(urls.length, 2, "구간 있음은 7일에");
+  assert.equal((await ask("vidHasSegs"))?.skipSegments[0]?.end, 12);
+  await ask("vidNoSegs");
+  await settle();
+  assert.equal(urls.length, 2, "새로 받은 답은 다시 조회하지 않는다");
+});
+
+test("다시 받다 실패하면 가진 답, 받은 때를 지키고 30분 쉰 뒤 다시 조회한다", async (t) => {
+  const now = 50 * DAY;
+  t.mock.timers.enable({ apis: ["Date"], now });
+  externalCaches.setSponsorSegments("vidStale", [{ category: "intro", actionType: "skip", start: 0, end: 8 }], { fetchedAt: now - 8 * DAY, apiBase: BASE });
   let asked = 0;
-  let answer = (_: unknown) => {};
-  const answered = new Promise((done) => (answer = done));
   net.fetch = async () => {
-    asked += 1;
-    answer(null);
-    return { status: 200, json: async () => [{ videoID: "vidBoth", hash: "0".repeat(64), segments: [seg("intro", 0, 12, "skip")] }] };
+    asked++;
+    return reply({ message: "down" }, 503);
   };
-  const r = await SponsorBlock.lookup("vidBoth", { categories: ["intro"] });
-  assert.equal(r.source, "cache");
-  assert.equal(r.skipSegments[0].end, 8, "지금은 캐시(8초)");
-  await answered;
-  await new Promise((done) => setImmediate(done));
-  assert.equal(asked, 1, "라이브는 뒤에서 한 번");
-  const cached = externalCaches.getSponsorSegments("vidBoth")?.segments as Array<{ end: number }>;
-  assert.equal(cached[0].end, 12, "다음 재생부터는 라이브 답");
+
+  assert.equal((await ask("vidStale"))?.skipSegments[0]?.end, 8);
+  await settle();
+  assert.equal(asked, 1);
+  t.mock.timers.tick(30 * 60_000 - 1);
+  assert.equal((await ask("vidStale"))?.skipSegments[0]?.end, 8, "답은 그대로 쓴다");
+  await settle();
+  assert.equal(asked, 1, "30분 동안은 조회하지 않는다");
+  assert.equal(externalCaches.getSponsorSegments("vidStale")?.fetchedAt, now - 8 * DAY);
+
+  t.mock.timers.tick(1);
+  await ask("vidStale");
+  await settle();
+  assert.equal(asked, 2);
 });
 
-// 기억해 둔 답(forTrack)도 뒤에서 받은 라이브 답으로 바뀐다
-test("forTrack: 캐시로 답한 뒤 뒤에서 받은 라이브 답을 기억한다", async () => {
+test("같은 영상의 다시 받기는 한 번에 하나: 나가 있는 동안 다시 틀어도 합친다", async (t) => {
+  const now = 50 * DAY;
+  t.mock.timers.enable({ apis: ["Date"], now });
+  externalCaches.setSponsorSegments("vidCoalesce", [], { fetchedAt: now - 7 * HOUR, apiBase: BASE });
+  const live = gated(() => reply([{ videoID: "vidCoalesce", segments: [seg("intro", 0, 5)] }]));
+  for (let i = 0; i < 3; i++) assert.equal((await ask("vidCoalesce"))?.source, "cache", "기다리지 않는다");
+  await settle();
+  assert.equal(live.asked(), 1);
+  live.release();
+  await settle();
+  assert.equal((await ask("vidCoalesce"))?.source, "live");
+  assert.equal(live.asked(), 1);
+});
+
+test("다른 주소에서 받은 답(주소를 바꿨거나 주소를 모르는 답)은 오래된 것으로 보고 뒤에서 지금 주소로 다시 받는다", async () => {
+  externalCaches.setSponsorSegments("vidOldBase", [], { fetchedAt: Date.now(), apiBase: BASE });
+  cacheDb.get().prepare("UPDATE sponsorblock_cache SET api_base = NULL WHERE video_id = ?").run("vidOldBase");
+  const urls: string[] = [];
+  net.fetch = async (url) => {
+    urls.push(url);
+    return reply([{ videoID: urls.length === 1 ? "vidOldBase" : "vidMoved", segments: [seg("intro", 0, 5)] }]);
+  };
+  assert.equal((await ask("vidOldBase"))?.source, "cache");
+  await settle();
+  assert.equal(externalCaches.getSponsorSegments("vidOldBase")?.apiBase, BASE);
+
+  assert.equal((await ask("vidMoved"))?.source, "live");
+  config.sponsorblock.apiBase = "https://new-mirror.example";
+  assert.equal((await ask("vidMoved"))?.skipSegments[0]?.end, 5, "지금 곡은 가진 답으로");
+  await settle();
+  assert.ok(urls[2]?.startsWith("https://new-mirror.example/api/skipSegments/"), urls[2]);
+  assert.equal(externalCaches.getSponsorSegments("vidMoved")?.apiBase, "https://new-mirror.example");
+});
+
+test("오디오 캐시 초기화(forget) 뒤에 도착한 옛 응답은 기억, 저장하지 않는다", async () => {
+  const late = gated(() => reply([{ videoID: "vidLate", segments: [seg("intro", 0, 5)] }]));
+  const playing = ask("vidLate");
+  await settle();
   SponsorBlock.forget();
-  stubFetch("ytVid9", [seg("intro", 0, 5, "skip")]);
-  await SponsorBlock.lookup("ytVid9", { categories: ["intro"] }); // 캐시를 채운다
-  let answer = (_: unknown) => {};
-  const answered = new Promise((done) => (answer = done));
+  late.release();
+  assert.equal((await playing)?.source, "none");
+  assert.equal(externalCaches.getSponsorSegments("vidLate"), null);
+
+  stubFetch("vidLate", [seg("intro", 0, 6)]);
+  assert.equal((await ask("vidLate"))?.skipSegments[0]?.end, 6, "다음 곡부터 다시 조회한다");
+});
+
+// ── 응답 구분: 구간 없음이라는 답, 구간 API가 아닌 응답, 실패 ─────────────────
+
+const outcomes = () => linkStatus("sponsorblock")?.recent.map((one) => [one.ok, one.error]) ?? [];
+const notices = (from: number) =>
+  sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("SponsorBlock 구간 조회") && e.level !== "debug")
+    .map((e) => [e.level, e.text]);
+const noneStored = (videoId: string) => externalCaches.getSponsorSegments(videoId) === null;
+
+test("404 + JSON 빈 배열, 200 + 이 영상의 빈 구간, 200 + 다른 영상만은 '구간 없음'이라는 답이라 저장하고, 연결은 성공으로 한 번씩 남긴다", async () => {
+  resetLinks();
+  const answers = [
+    reply([], 404), // 그 접두어에 구간이 하나도 없다
+    reply([]), // 미러는 빈 답도 200이다
+    reply([{ videoID: "vidNoSegs2", segments: [] }]),
+    reply([{ videoID: "someOtherVid", segments: [seg("intro", 0, 8)] }]),
+  ];
+  for (const [i, res] of answers.entries()) {
+    net.fetch = async () => res;
+    const r = await ask(`vidNoSegs${i}`);
+    assert.deepEqual([r?.source, r?.skipSegments], ["live", []]);
+    assert.deepEqual(externalCaches.getSponsorSegments(`vidNoSegs${i}`)?.segments, []);
+  }
+  assert.deepEqual(
+    outcomes(),
+    answers.map(() => [true, null]),
+  );
+});
+
+test("구간 API가 아닌 응답은 저장하지 않고 연결 실패로 남기며, 처음 한 번 경고하고 다시 답을 받으면 한 줄", async () => {
+  resetLinks();
+  const from = sink.buffer.length;
+  const notApi = [
+    reply("<!DOCTYPE html><pre>Cannot GET /api/api/skipSegments/abcde</pre>", 404, "text/html; charset=utf-8"), // 주소 끝에 /api를 붙여 넣었다
+    reply({ message: "not found" }, 404),
+    reply("Hash prefix does not match format requirements.", 200), // 접두어를 4자만 받는 미러
+    reply({ videos: [] }),
+  ];
+  for (const [i, res] of notApi.entries()) {
+    net.fetch = async () => res;
+    assert.equal((await ask(`vidNotApi${i}`))?.source, "none");
+    assert.ok(noneStored(`vidNotApi${i}`));
+  }
+  stubFetch("vidApiBack", []);
+  assert.equal((await ask("vidApiBack"))?.source, "live");
+
+  assert.deepEqual(outcomes(), [...notApi.map(() => [false, "구간 API 응답이 아님"]), [true, null]]);
+  assert.deepEqual(notices(from), [
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 404). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`],
+    ["warn", `SponsorBlock 구간 조회 실패: ${BASE}의 응답이 SponsorBlock 구간 API 응답이 아님(HTTP 200). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`],
+    ["info", "SponsorBlock 구간 조회 복구(실패 2회)"],
+  ]);
+});
+
+test("400, 429, 5xx, 연결 오류는 실패: 저장하지 않고 연결 실패로 남기되 주소 경고는 하지 않는다", async () => {
+  resetLinks();
+  const from = sink.buffer.length;
+  for (const status of [400, 429, 503]) {
+    net.fetch = async () => reply({ message: "x" }, status);
+    assert.equal((await ask(`vidFail${status}`))?.source, "none");
+    assert.ok(noneStored(`vidFail${status}`));
+  }
   net.fetch = async () => {
-    answer(null);
-    return { status: 200, json: async () => [{ videoID: "ytVid9", hash: "0".repeat(64), segments: [seg("intro", 0, 9, "skip")] }] };
+    throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
   };
-  const track = { platform: "youtube", id: "ytVid9", audioUrl: "https://youtu.be/ytVid9" };
-  assert.equal((await SponsorBlock.forTrack(track, "gFresh"))?.source, "cache");
-  await answered;
-  await new Promise((done) => setImmediate(done));
-  const again = await SponsorBlock.forTrack({ ...track }, "gFresh");
-  assert.deepEqual([again?.source, again?.skipSegments[0]?.end], ["live", 9]);
+  assert.equal((await ask("vidRefused"))?.source, "none");
+  assert.deepEqual(outcomes(), [
+    [false, "HTTP 400"],
+    [false, "HTTP 429"],
+    [false, "HTTP 503"],
+    [false, "ECONNREFUSED"],
+  ]);
+  assert.deepEqual(notices(from), []);
 });
 
-test("lookup: 조회 실패 + 캐시 없음 → source none, 스킵 없음", async () => {
-  net.fetch = async () => {
-    throw new Error("network down");
-  };
-  const r = await SponsorBlock.lookup("vidNoCache", { categories: ["intro"] });
-  assert.equal(r.source, "none");
-  assert.deepEqual(r.skipSegments, []);
-});
-
-test("lookup: 비200 응답은 실패로 처리(폴백)", async () => {
-  stubFetch("vid500", [], { status: 500 });
-  const r = await SponsorBlock.lookup("vid500", { categories: ["intro"] });
-  assert.equal(r.source, "none"); // 캐시 없으니 none
-});
-
-test("lookup: 우리 영상 세그먼트 없음(빈 배열)은 라이브 성공 + 네거티브 캐시", async () => {
-  stubFetch("vidEmpty", []); // segments 빈 배열
-  const r = await SponsorBlock.lookup("vidEmpty", { categories: ["music_offtopic"] });
-  assert.equal(r.source, "live");
-  assert.deepEqual(r.skipSegments, []);
-  const cached = externalCaches.getSponsorSegments("vidEmpty");
-  assert.ok(cached && Array.isArray(cached.segments) && cached.segments.length === 0);
-});
-
-test("lookup: videoId 없으면 none", async () => {
-  const r = await SponsorBlock.lookup("");
-  assert.equal(r.source, "none");
+test("시간 초과는 연결 실패 timeout으로 남는다", async (t) => {
+  resetLinks();
+  const timeoutMs = config.sponsorblock.timeoutMs;
+  t.after(() => (config.sponsorblock.timeoutMs = timeoutMs));
+  config.sponsorblock.timeoutMs = 20;
+  net.fetch = (_url, init) =>
+    new Promise((_, reject) => {
+      const signal = init!.signal!;
+      signal.addEventListener("abort", () => reject(signal.reason as Error));
+    });
+  assert.equal((await ask("vidSlow"))?.source, "none");
+  assert.deepEqual(outcomes(), [[false, "timeout"]]);
 });
 
 // ── 서버별 유효 설정 해석 ─────────────────────────────────────────────────────
@@ -263,7 +411,7 @@ test("forTrack: 서버 설정으로 필터링한 구간을 돌려주고, 영상 
   assert.equal(r?.skipSegments.length, 1);
   assert.equal(Reflect.get(track, "sponsor"), undefined, "곡에는 붙이지 않는다");
 
-  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작 · 복원) 묻지 않는다
+  // 같은 영상을 다른 곡 객체로 다시 틀어도(재시작, 복원) 다시 조회하지 않는다
   net.fetch = async () => {
     throw new Error("should not be called");
   };
@@ -276,7 +424,7 @@ test("forTrack: 겹쳐 불러도 한 번만 묻는다", async () => {
   let asked = 0;
   net.fetch = async () => {
     asked++;
-    return { status: 200, json: async () => [{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }] };
+    return reply([{ videoID: "ytVidTwice", hash: "0".repeat(64), segments: [] }]);
   };
   const track = { audioUrl: "https://youtu.be/ytVidTwice" };
   await Promise.all([SponsorBlock.forTrack(track, "gEnsure"), SponsorBlock.forTrack(track, "gEnsure")]);
@@ -289,7 +437,7 @@ test("forTrack: 서버가 껐으면 null, 조회 안 함", async () => {
   let called = false;
   net.fetch = async () => {
     called = true;
-    return { status: 200, json: async () => [] };
+    return reply([]);
   };
   const r = await SponsorBlock.forTrack({ audioUrl: "https://youtu.be/ytVid2" }, "gEnsureOff");
   assert.equal(r, null);

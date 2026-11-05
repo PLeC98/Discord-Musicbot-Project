@@ -1,7 +1,7 @@
-// 버튼 처리기의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
-// 여기서는 검색 결과 버튼 · 도움말 · 시스템 새로고침 · 자동재생 버튼 · 대기열 버튼 · 옛 세션 · 모르는 버튼 · 조작이 실패했을 때를 본다.
+// src/discord/interactions/button-handler.ts: 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
+// 여기서는 도움말, 시스템 새로고침, 자동재생 버튼, 대기열 버튼, 옛 세션, 모르는 버튼, 조작이 실패했을 때를 본다.
 //
-// 권한 판정 · 서버 설정 · 곡 추가 코어는 진짜(서버 설정은 임시 DB),
+// 권한 판정, 서버 설정, 곡 추가 코어는 진짜(서버 설정은 임시 DB),
 // 화면 관리자만 가짜다.
 
 import fs from "node:fs";
@@ -14,7 +14,6 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
-import { youtube } from "../helpers/tracks.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { withConfig } from "../helpers/config.ts";
@@ -39,22 +38,8 @@ const said = (notice: Notice) => headOf(noticeReply(notice));
 const settings = await import("../../src/store/guild-settings.ts");
 const playerEvents = await import("../../src/player/events.ts");
 const interactionCreate = (await import("../../src/discord/events/interaction-create.ts")).default;
-const addTracks = await import("../../src/usecases/add-tracks.ts");
 const { LIFETIME, lifetimesOf } = await import("../../src/ui/delivery.ts");
-const sink = (await import("../../src/infra/log/sink.ts")).default;
-
-// 검색 결과 선택은 영상을 다시 찾는다. 찾은 주소를 적고 "결과 1" 을 돌려준다
-const asked: string[] = [];
-addTracks.useLookup({
-  resolveQuery: async (query: string) => {
-    asked.push(query);
-    return { success: true, isPlaylist: false, tracks: [youtube("aaaaaaaaaaa", { title: "결과 1" })] };
-  },
-  getCollection: async () => ({ tracks: [], total: null, nextOffset: null }),
-});
-
 after(() => {
-  addTracks.useLookup(null);
   audioCache.close();
   stores.close();
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
@@ -87,7 +72,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     // 실행 목록. 도움말 새로고침이 이것으로 명령 줄을 만든다
     commands: new Map(COMMANDS.map((command) => [command.data.name, command])),
   });
-  // 곡 담기는 받은 곡의 제목만 적는다
+  // 곡 추가는 받은 곡의 제목만 적는다
   fakeAdder(bot, async (_bot, _guildId, trackData) => {
     seen.push({ handle: trackData.tracks.map((t) => t.title) });
     return handle(trackData);
@@ -107,8 +92,14 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
       seen.push(`autoplay:${v}`);
       p.autoplay = v;
     },
-    pauseFor: () => false,
-    resumeFor: () => false,
+    pause: {
+      userPaused: false,
+      heldBy: null,
+      setUser(on: boolean) {
+        this.userPaused = on;
+        p.paused = on;
+      },
+    },
     skip: () => false,
     previous: () => false,
     _restartsOnPrevious: Player.prototype._restartsOnPrevious,
@@ -122,7 +113,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   };
   const registered = fake<Player>(p);
   if (player) bot.players.set("g1", registered);
-  // 조작 뒤 패널 고치기는 플레이어 알림으로 온다
+  // 조작 뒤 패널 갱신은 플레이어 알림으로 온다
   playerEvents.on("refresh", async (x) => x === registered && seen.push("update"));
   return { guild, member, client, bot, seen, player: p };
 }
@@ -185,13 +176,12 @@ test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린�
 
 // ── 조작이 실패했을 때의 답 ───────────────────────────────────────────
 
-test("조작 버튼: 플레이어가 거절하면 실패 문장(일시정지 · 건너뛰기 · 이전곡)", async () => {
+test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기, 이전곡)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "u" };
   w.player.queue = [{ title: "다음" }];
   w.player.previousTracks = [{ title: "앞" }];
   const cases = [
-    ["panel:pause:S1", "### ❌ 작업이 실패했어요!"],
     ["panel:skip:S1", "### ⚠️ 작업에 실패했어요!"],
     ["panel:previous:S1", "### ⚠️ 작업에 실패했어요!"],
   ];
@@ -202,11 +192,10 @@ test("조작 버튼: 플레이어가 거절하면 실패 문장(일시정지 · 
   }
 });
 
-test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 갱신한다(일시정지 · 건너뛰기 · 반복)", async () => {
+test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 갱신한다(일시정지, 건너뛰기, 반복)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.queue = [{ title: "다음" }];
-  w.player.pauseFor = () => true;
   w.player.skip = () => true;
   const pause = press(w, "panel:pause:S1");
   await interactionCreate.execute(pause.bot, pause.it);
@@ -227,14 +216,13 @@ test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 �
 });
 
 // 같은 조작이면 명령과 패널 버튼이 같은 화면(Components V2)을 그린다
-test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정지 · 건너뛰기 · 이전 곡 · 반복)", async () => {
+test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정지, 건너뛰기, 이전 곡, 반복)", async () => {
   const commands = { pause: (await import("../../src/discord/commands/pause.ts")).default, skip: (await import("../../src/discord/commands/skip.ts")).default, previous: (await import("../../src/discord/commands/previous.ts")).default, loop: (await import("../../src/discord/commands/loop.ts")).default };
   const ready = () => {
     const w = world();
     w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
     w.player.queue = [{ title: "다음" }];
     w.player.previousTracks = [{ title: "앞" }];
-    w.player.pauseFor = () => true;
     w.player.skip = () => true;
     w.player.previous = () => true;
     return w;
@@ -258,7 +246,6 @@ test("조작 응답: 명령과 패널 버튼이 한 화면을 쓴다(일시정�
 test("조작 응답: 누가 했나는 Components V2 화면에 담고, 일시정지는 썸네일을 붙이지 않는다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", thumbnail: "https://t.test/a.jpg" };
-  w.player.pauseFor = () => true;
   let payload: Payload = {};
   const { it, bot } = press(w, "panel:pause:S1", { reply: async (p: Payload) => ((payload = p), { resource: { message: { id: "r1" } } }) });
   await interactionCreate.execute(bot, it);
@@ -297,7 +284,7 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 맞추기 전에는 ◀ ▶)
+// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)
 type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
 type QueueRow = { components: Array<{ data: { custom_id?: string; emoji?: { name?: string }; disabled?: boolean } }> };
 type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
@@ -401,7 +388,7 @@ test("자동재생 버튼: 옛 세션의 패널 버튼은 거절하고 자동재
   assert.deepEqual(w.seen, []);
 });
 
-// /join 뒤 · 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 슬롯 idle)이다
+// /join 뒤, 대기열이 끝나 기다리는 동안에는 플레이어가 있고 패널은 끝난 패널(세션 슬롯 idle)이다
 test("자동재생 버튼: 끝난 패널의 버튼은 플레이어가 있어도 통한다. 꺼져 있으면 장르 메뉴, 켜져 있으면 끄고 다시 선택 메뉴", async () => {
   const off = world();
   const a = press(off, "panel:autoplay:idle");
@@ -425,7 +412,7 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   assert.deepEqual(log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 });
 
-// ── 도움말 · 시스템 새로고침 ──────────────────────────────────────────
+// ── 도움말, 시스템 새로고침 ──────────────────────────────────────────
 
 test("도움말 새로고침: 제자리에서 다시 그린다. 실패하면 뒤따라 알린다", async () => {
   const w = world();
@@ -457,80 +444,4 @@ test("시스템 새로고침: 봇 운영자만", async () => {
   } finally {
     config.dashboard.ownerId = saved;
   }
-});
-
-// ── 검색 결과 버튼 ────────────────────────────────────────────────────
-
-const PICK = `search:pick:${USER}:1:aaaaaaaaaaa`;
-
-test("검색 버튼: 선택은 곡 추가와 같은 검사. 봇이 음성에 있으면 재적 규칙, 쉬면 소환할 수 있어야 한다", async () => {
-  const other = world({ userVoice: "v2" });
-  const a = press(other, PICK);
-  await interactionCreate.execute(a.bot, a.it);
-  assert.deepEqual(a.log, [["reply", said(errors.notice("must-be-in-same-voice"))]]);
-
-  const idle = world({ botVoice: null, userVoice: null });
-  const b = press(idle, PICK);
-  await interactionCreate.execute(b.bot, b.it);
-  assert.deepEqual(b.log, [["reply", said(errors.notice("must-be-in-voice"))]]);
-
-  const denied = world({ botVoice: null, userVoice: "v1" });
-  denied.member.voice.channel = { id: "v1", name: "v1", permissionsFor: () => ({ has: () => false }) };
-  const c = press(denied, PICK);
-  await interactionCreate.execute(c.bot, c.it);
-  assert.deepEqual(c.log, [["reply", said(errors.notice("permission-voice"))]], "봇이 연결 · 말하기 권한이 없으면 /play 처럼 막는다");
-  assert.deepEqual(denied.seen, []);
-});
-
-test("검색 버튼: 검색한 사람만 누른다. 모르는 동작 · 틀린 영상 ID 는 거절, 취소는 음성에 없어도 되고 결과 화면을 바로 삭제한다", async () => {
-  const w = world();
-  const others = press(w, "search:pick:someone:1:aaaaaaaaaaa");
-  await interactionCreate.execute(others.bot, others.it);
-  assert.deepEqual(others.log, [["reply", said(errors.notice("search-owner-only"))]]);
-  const othersCancel = press(w, "search:cancel:someone");
-  await interactionCreate.execute(othersCancel.bot, othersCancel.it);
-  assert.deepEqual(othersCancel.log, [["reply", said(errors.notice("search-owner-only"))]]);
-
-  for (const id of [`search:pick:${USER}:1:bad`, `search:nope:${USER}:1:aaaaaaaaaaa`]) {
-    const bad = press(w, id);
-    await interactionCreate.execute(bad.bot, bad.it);
-    assert.deepEqual(bad.log, [["reply", said(errors.notice("unknown-interaction"))]], id);
-  }
-  assert.deepEqual(w.seen, []);
-
-  const away = world({ botVoice: null, userVoice: null });
-  const cancel = press(away, `search:cancel:${USER}`);
-  await interactionCreate.execute(cancel.bot, cancel.it);
-  assert.deepEqual(cancel.log, [["deferUpdate"], ["deleteReply"]]);
-});
-
-test("검색 버튼: 선택한 영상을 주소로 다시 찾아 코어에 넘기고, 처리 중 표시 뒤 검색 메시지를 치운다", async () => {
-  const w = world();
-  asked.length = 0;
-  const from = sink.buffer.length;
-  const { it, log, bot } = press(w, PICK);
-  await interactionCreate.execute(bot, it);
-  assert.deepEqual(asked, ["https://www.youtube.com/watch?v=aaaaaaaaaaa"]);
-  assert.ok(
-    sink.buffer.slice(from).some((e) => e.text.startsWith("곡 요청: /search 1번째 | ")),
-    "몇 번째를 골랐는지 남긴다",
-  );
-  assert.deepEqual(w.seen, [{ handle: ["결과 1"] }]);
-  assert.deepEqual(log, [["deferUpdate"], ["editReply", "🔄 넣는 중..."], ["deleteReply"]]);
-});
-
-test("검색 버튼: 코어가 실패하면 그 안내, 던지면 일반 오류. 검색 메시지를 삭제하고 본인에게만", async () => {
-  const failed = world({ handle: async () => ({ success: false, message: "대기열이 가득 찼습니다" }) });
-  const a = press(failed, PICK);
-  await interactionCreate.execute(a.bot, a.it);
-  assert.deepEqual(a.log.slice(-2), [["deleteReply"], ["followUp", said(errors.notice("cannot-start"))]]);
-
-  const thrown = world({
-    handle: async () => {
-      throw new Error("boom");
-    },
-  });
-  const b = press(thrown, PICK);
-  await interactionCreate.execute(b.bot, b.it);
-  assert.deepEqual(b.log.slice(-2), [["deleteReply"], ["followUp", said(errors.notice("processing-failed"))]]);
 });

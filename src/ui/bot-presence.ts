@@ -37,7 +37,7 @@ function toMessage(item: ActivityMessage): Message | null {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** 오늘(MM-DD) · 음력 오늘 · 지금(HH:MM). 테스트는 지정한 날을 준다 */
+/** 오늘(MM-DD), 음력 오늘, 지금(HH:MM). 테스트는 지정한 날을 준다 */
 type Calendar = { today(): string; todayLunar(): string; now(): string };
 const CALENDAR: Calendar = {
   today() {
@@ -81,7 +81,7 @@ class StatusManager {
     this.calendar = calendar;
   }
 
-  // 시작이 끝보다 크면 자정·연말을 걸친 범위다 (22:00~06:00, 12-28~01-05)
+  // 시작이 끝보다 크면 자정, 연말을 걸친 범위다 (22:00~06:00, 12-28~01-05)
   inRange(cur: string, range: Range | null) {
     if (!range) return true;
     return range.start <= range.end ? cur >= range.start && cur <= range.end : cur >= range.start || cur <= range.end;

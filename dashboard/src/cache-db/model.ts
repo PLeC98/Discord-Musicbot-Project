@@ -1,4 +1,4 @@
-// 캐시 DB 격자의 모양: 셀 값을 그리는 글 · 바뀐 것(쓰기 전) · 바뀐 것에서 조작 목록. 화면 부품(components/CacheDb.vue)이 쓴다
+// 캐시 DB 격자의 표시 규칙: 셀 값을 그리는 글, 바뀐 것(쓰기 전), 바뀐 것에서 조작 목록. 컴포넌트 components/CacheDb.vue 가 쓴다
 
 import type { TrackCacheOp, TrackCacheRow, TrackCacheTable, TrackFileRow, TrackRequestRow, TrackAgeRow } from "../../../src/dashboard/contract/track-cache.ts";
 import { formatBytes, formatDuration } from "../../../src/ui/format.ts";
@@ -31,8 +31,8 @@ function requestCellText(r: TrackRequestRow, column: string): string | null {
   return null;
 }
 
-// 수로 된 열의 글(크기 · 길이 · 수)
-const NUMBER_TEXT: Record<string, (value: number) => string> = { size: formatBytes, duration: formatDuration, plays: String, requests: String };
+// 수로 된 열의 글(크기, 길이, 수)
+const NUMBER_TEXT: Record<string, (value: number) => string> = { size: formatBytes, duration: (value) => formatDuration(value, "--:--"), plays: String, requests: String };
 
 /** 셀 값의 글(그리는 것). 원시 값은 rawText */
 function cellText(table: TrackCacheTable, row: AnyRow, column: string): string {
@@ -47,7 +47,7 @@ function cellText(table: TrackCacheTable, row: AnyRow, column: string): string {
   return value === null || value === undefined ? T.values.none : String(value);
 }
 
-/** 원시 값(복사 · 이 값으로 필터) */
+/** 원시 값(복사, 이 값으로 필터) */
 function rawText(row: AnyRow, column: string): string {
   if (column === "check") {
     const check = (row as TrackRequestRow).check;
@@ -61,7 +61,7 @@ function rawText(row: AnyRow, column: string): string {
   return value === null || value === undefined ? "" : String(value);
 }
 
-/** 행의 키(바뀐 것 · 선택한 것을 행 번호가 아니라 이것으로 든다) */
+/** 행의 키(바뀐 것, 선택한 것을 행 번호가 아니라 이것으로 든다) */
 function keyOf(table: TrackCacheTable, row: AnyRow): string {
   if (table === "requests") return (row as TrackRequestRow).requestKey;
   if (table === "files") return (row as TrackFileRow).audioKey;
@@ -72,7 +72,7 @@ function keyOf(table: TrackCacheTable, row: AnyRow): string {
 
 type NewRow = { id: number; requestKey: string; audioUrl: string };
 type Changes = {
-  /** 요청의 음원 주소를 직접 지정한 음원으로: 요청 키 → 새 주소 · 본 지정 음원 */
+  /** 요청의 음원 주소를 직접 지정한 음원으로: 요청 키 → 새 주소, 본 지정 음원 */
   pins: Map<string, { audioUrl: string; expect: string | null }>;
   unpins: Map<string, string>;
   clears: Map<string, string>;
@@ -85,7 +85,7 @@ type Changes = {
 const emptyChanges = (): Changes => ({ pins: new Map(), unpins: new Map(), clears: new Map(), deleteRequests: new Map(), deleteFiles: new Map(), clearAges: new Map(), newRows: [] });
 const changeCount = (c: Changes) => c.pins.size + c.unpins.size + c.clears.size + c.deleteRequests.size + c.deleteFiles.size + c.clearAges.size + c.newRows.length;
 
-/** 바뀐 것 → 조작 목록. 순서를 함께 돌려줘 결과를 셀에 다시 붙인다(where: 테이블 · 행 키 · 열) */
+/** 바뀐 것 → 조작 목록. 순서를 함께 돌려줘 결과를 셀에 다시 붙인다(where: 테이블, 행 키, 열) */
 function opsOf(c: Changes): Array<{ op: TrackCacheOp; where: { table: TrackCacheTable; key: string; column: string | null } }> {
   const out: Array<{ op: TrackCacheOp; where: { table: TrackCacheTable; key: string; column: string | null } }> = [];
   for (const row of c.newRows) out.push({ op: { op: "pin", requestKey: row.requestKey.trim(), audioUrl: row.audioUrl.trim(), expect: null }, where: { table: "requests", key: `new:${row.id}`, column: "audioUrl" } });

@@ -1,24 +1,27 @@
 // 진짜 Player 를 세워 play() 를 끝까지 돌리는 하네스.
 //
-// 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 조각을 테스트한다. 그래서 생성자와 협력자가 다 얽힌
-// play() 는 한 번도 돌지 않았다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
+// 다른 테스트는 가짜 객체에 메서드를 빌려 붙여 일부만 테스트하므로, 생성자와 협력자가 다 얽힌
+// play() 는 돌지 않는다. 여기서는 플레이어를 진짜로 만들고, 바깥과 닿는 곳만 교체한다.
 //
-//   음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP · 직접 링크 · 스트림 주소
-//                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령 · 곡 추가가
+//   음성 라이브러리, ffmpeg, 청크 스트림, HTTP, 직접 링크, 스트림 주소
+//                                          플레이어의 바깥 경계로 넘긴다(Player.useBoundary). 명령, 곡 추가가
 //                                          만드는 플레이어도 같은 가짜를 쓴다
 //   캐시 DB                                진짜 audioCache 를 임시 DB 로. "캐시 DB 에 무엇을 적었나"를 그대로 본다
-//   다운로드 · SponsorBlock · 동등물        테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
-//   음성 연결 · 세션 저장 · 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
+//   다운로드, SponsorBlock, 유튜브 매칭   테스트마다 behavior 에 적은 것으로 답한다(바깥 경계로 넘긴다)
+//   음성 연결, 세션 저장, 예열            연결은 붙은 것으로, 저장은 부른 것만 기록한다
 //
 // node --test 는 테스트 파일마다 프로세스를 따로 실행하므로 여기서 바꾼 것이 다른 테스트 파일로 새지 않는다.
 
+import { after } from "node:test";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { EventEmitter } from "events";
 import { PassThrough, Writable, type Readable } from "stream";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
-import type { AudioPlayer, VoiceConnection } from "@discordjs/voice";
+import type { AudioPlayer, StreamType, VoiceConnection } from "@discordjs/voice";
+import type { OpusOutput } from "../../src/media/opus-output.ts";
+import type { EncodeSession, SessionHooks } from "../../src/media/encode-pool.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { Boundary } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -34,13 +37,13 @@ import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
 type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
+// input 은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
-  input: Readable;
-  options: { metadata?: unknown };
+  input: OpusOutput;
+  options: { inputType?: StreamType; inlineVolume?: boolean; metadata?: unknown };
   metadata: unknown;
   playbackDuration: number;
-  volume: { value: number | null; setVolume(v: number): void };
-  encoder: { bitrate: number | null; setBitrate(b: number): void };
+  audioPlayer?: unknown;
   playStream: { destroy(): void };
 };
 
@@ -52,9 +55,9 @@ const calls = {
   spawns: [] as FakeChild[],
   resources: [] as FakeResource[],
   chunked: [] as ChunkedOptions[],
-  seeks: [] as SeekRequest[], // 색인으로 받기 시작할 자리를 물은 요청
-  chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양 · 이어받는 중인가는 테스트가 정한다
-  fragments: [] as FragmentOptions[], // 조각 스트림을 연 요청
+  seeks: [] as SeekRequest[], // 인덱스로 받기 시작할 위치를 조회한 요청
+  chunkedStreams: [] as Array<PassThrough & { received: number; resuming: boolean }>, // 청크 스트림 가짜. 받은 양, 이어받는 중인가는 테스트가 정한다
+  fragments: [] as FragmentOptions[], // 세그먼트 스트림을 연 요청
   fetches: [] as Array<{ url: string; init: FetchInit }>,
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
@@ -82,7 +85,10 @@ class FakeAudioPlayer extends EventEmitter {
     this.played = [];
     this.stops = 0;
   }
+  // voice 처럼 넘겨받은 리소스에 표시하고, 교체하거나 멈추면 옛 리소스를 destroy 한다
   play(resource: unknown) {
+    if (this.state.resource && this.state.resource !== resource) destroyResource(this.state.resource);
+    (resource as FakeResource).audioPlayer = this;
     this.played.push(resource);
     this.state = { status: AudioPlayerStatus.Buffering, resource };
   }
@@ -98,30 +104,50 @@ class FakeAudioPlayer extends EventEmitter {
   }
   stop() {
     this.stops += 1;
+    if (this.state.resource) destroyResource(this.state.resource);
     this.state = { status: AudioPlayerStatus.Idle };
     return true;
   }
 }
 
-function createAudioResource(input: Readable, options: { metadata?: unknown } = {}): FakeResource {
+const destroyResource = (resource: unknown) => (resource as Partial<FakeResource>).playStream?.destroy?.();
+
+// 인코딩 워커 대신. 플레이어 테스트는 소리를 읽지 않는다. 빈 패킷이면 missedFrames 가 쌓이므로 크기를 맞춘다.
+// 보낸 프레임의 패킷은 read() 의 drain 이 주고, 읽지 않으면 다음 마이크로태스크에 준다(실제의 이벤트 길). send 안에서 바로 주면 실제에 없는 재진입이 생긴다
+function fakeEncoder(hooks: SessionHooks): EncodeSession {
+  let queued = 0;
+  let scheduled = false;
+  let freed = false;
+  const deliver = () => {
+    scheduled = false;
+    for (; queued > 0 && !freed; queued--) hooks.onPacket(Buffer.alloc(320));
+  };
+  return {
+    depth: 2,
+    send() {
+      queued++;
+      if (scheduled) return;
+      scheduled = true;
+      queueMicrotask(deliver);
+    },
+    drain: deliver,
+    late() {},
+    underrun() {},
+    free() {
+      freed = true;
+    },
+    describe: () => ({ worker: null, oldestMs: null }),
+  };
+}
+
+function createAudioResource(input: OpusOutput, options: FakeResource["options"] = {}): FakeResource {
   const resource: FakeResource = {
     input,
     options,
     metadata: options.metadata,
     playbackDuration: 0,
-    volume: {
-      value: null,
-      setVolume(v: number) {
-        this.value = v;
-      },
-    },
-    encoder: {
-      bitrate: null,
-      setBitrate(b: number) {
-        this.bitrate = b;
-      },
-    },
-    playStream: { destroy() {} },
+    // StreamType.Opus 면 voice 의 playStream 은 넘긴 출력 그 자체다
+    playStream: { destroy: () => input.destroy() },
   };
   calls.resources.push(resource);
   return resource;
@@ -165,17 +191,17 @@ async function openChunkedStream(opts: ChunkedOptions) {
   return stream;
 }
 
-// 색인 묻기 가짜. 기본은 없음이라 청크 스트림은 처음부터 받는다
+// 인덱스 조회 가짜. 기본은 없음이라 청크 스트림은 처음부터 받는다
 async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
   calls.seeks.push(request);
   return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
 }
 
-// 조각 스트림 가짜. 진짜처럼 위치가 든 조각의 시작부터 흘린다고 알린다
+// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 흘린다고 알린다
 function openFragmentStream(opts: FragmentOptions) {
   calls.fragments.push(opts);
   const { atMs } = startOf(opts.fragments, opts.durationMs, opts.startMs);
-  return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "조각 가짜" });
+  return Object.assign(new PassThrough(), { startedAtMs: atMs, describe: () => "세그먼트 가짜" });
 }
 
 // ── 4. 캐시 DB: 진짜를 임시 DB 로 ──────────────────────────────────────
@@ -184,6 +210,12 @@ const audioCache = await import("../../src/store/audio-cache.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
+// 파일이 끝나면 지운다. DB 를 먼저 닫아야 Windows 에서 지워진다
+after(() => {
+  audioCache.close();
+  stores.close();
+  fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
+});
 
 // 설정. 캐시 길이 상한은 테스트마다 기본값으로 되돌린다(reset)
 const config = (await import("../../src/config/index.ts")).default;
@@ -198,17 +230,17 @@ const VoiceLink = (await import("../../src/player/voice-link.ts")).VoiceLink;
 const SessionPersistence = (await import("../../src/player/session-mirror.ts")).SessionPersistence;
 const QueueWarmer = (await import("../../src/player/queue-warmer.ts")).QueueWarmer;
 const { PlayerRegistry } = await import("../../src/player/registry.ts");
-// 직접 링크 곡의 파일 태그 · 그림 찾기는 원본을 열지 않는다(시험은 네트워크로 나가지 않는다). 찾기를 보는 시험은 embedded-art 시험이 따로
+// 직접 링크 곡의 파일 태그, 앨범아트 찾기는 원본을 열지 않는다(테스트는 네트워크로 나가지 않는다). 찾기를 보는 테스트는 embedded-art 테스트가 따로
 (await import("../../src/sources/embedded-art.ts"))._internals.useOpen(async () => {
-  throw new Error("시험에서는 원본을 열지 않는다");
+  throw new Error("테스트에서는 원본을 열지 않는다");
 });
 const playerEvents = await import("../../src/player/events.ts");
 // 운영처럼 버려진 플레이어는 레지스트리가 뺀다(그 서버에 이 플레이어가 아직 있을 때만). 서버마다 레지스트리가 따로라 알림은 여기서 한 번만 듣는다
 playerEvents.on("disposed", (player) => registryOf(player)?.forget(player));
 
-// 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice · createPersistence · createWarmer)로 넘긴다
+// 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice, createPersistence, createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 테스트는 emit 으로 상태를 흉내 낸다
-// 부순 방식(leave: 나감 메시지 · stay: 채널에 남음)을 destroyed 에 적는다
+// 부순 방식(leave: 나감 메시지, stay: 채널에 남음)을 destroyed 에 적는다
 const fakeConnection = () =>
   Object.assign(new EventEmitter(), {
     state: { status: "ready" },
@@ -249,6 +281,7 @@ class FakePersistence extends SessionPersistence {
   async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
       await behavior.restore.call(this.player, record, options);
+      if (this.player.lifecycle.parked) return "parked";
       return this.player.currentTrack ? "restored" : this.player.queue.length ? "failed" : "empty";
     }
     return super.restoreFromState(record, options);
@@ -302,22 +335,24 @@ type Behavior = {
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
   connect: (() => unknown) | null;
+  encoder: (() => boolean) | null;
 };
 const behavior: Behavior = {
-  stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 묻는다
-  equivalent: null, // (track) → youtubeUrl. 스포티파이 동등물
+  stream: null, // (track, options) → streamInfo. 던지면 스트림 실패. options.fresh: 다시 쓴 주소가 열리지 않아 새로 조회한다
+  equivalent: null, // (track) → youtubeUrl. 스포티파이의 유튜브 매칭
   sponsor: null, // (track) → SponsorBlock.forTrack 의 답
   download: null, // (track) → Promise<file>. 기본은 끝나지 않는 약속
   fetch: null, // (url, init) → Response 비슷한 것
   chunked: null, // (opts) → 던지면 청크 스트림의 첫 요청 실패
-  seekStart: null, // (request) → 색인의 답. 기본은 없음(처음부터 받는다)
+  seekStart: null, // (request) → 인덱스의 답. 기본은 없음(처음부터 받는다)
   directStream: null, // (url) → Readable
-  restore: null, // function (record) — this 는 플레이어. 세션 복원(명령 · 곡 추가의 분기)
+  restore: null, // function (record), this 는 플레이어. 세션 복원(명령, 곡 추가의 분기)
   autoplay: null, // () → 자동재생이 선택할 곡. 기본은 못 찾음
   connect: null, // () → 던지면 음성 채널에 붙지 못함
+  encoder: null, // () → false 면 인코딩 워커를 쓸 수 없음. 기본은 쓸 수 있음
 };
 
-// 동등물 찾기 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
+// 유튜브 매칭 가짜. 찾으면 진짜처럼 트랙에 음원 주소를 적는다
 const findEquivalent = async (track: QueuedTrack) => {
   calls.steps.push("equivalent");
   const url = behavior.equivalent ? behavior.equivalent(track) : null;
@@ -326,7 +361,7 @@ const findEquivalent = async (track: QueuedTrack) => {
   }
   return url;
 };
-// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 동등물을 찾은 뒤)
+// 진짜처럼 영상 id 를 알 때만 답한다(스포티파이는 유튜브 매칭 뒤)
 const sponsorFor = async (track: QueuedTrack) => {
   calls.steps.push("sponsor");
   if (!SponsorBlock._trackVideoId(track)) return null;
@@ -353,7 +388,7 @@ class FakeDownloader extends TrackDownloader {
   }
 }
 // 플레이어의 바깥 경계. 이 뒤로 만드는 플레이어가 모두 쓴다
-// 음성 라이브러리 · ffmpeg · 청크 스트림 · HTTP 가짜는 여기서 한 번씩 진짜 타입으로 본다(테스트가 읽는 필드만 흉내 낸다)
+// 음성 라이브러리, ffmpeg, 청크 스트림, HTTP 가짜는 여기서 한 번씩 진짜 타입으로 본다(테스트가 읽는 필드만 흉내 낸다)
 const fakes: Partial<Boundary> = {
   createAudioPlayer: () => new FakeAudioPlayer() as unknown as AudioPlayer,
   createVoice: (player) => new FakeVoice(player),
@@ -365,6 +400,8 @@ const fakes: Partial<Boundary> = {
   // 자동재생 길 찾기. 기본은 "못 찾음"(밖으로 나가지 않는다)
   pickAutoplay: async () => (behavior.autoplay ? behavior.autoplay() : null) as Awaited<ReturnType<Boundary["pickAutoplay"]>>,
   createAudioResource: createAudioResource as unknown as Boundary["createAudioResource"],
+  openEncoder: fakeEncoder,
+  encoderAvailable: () => (behavior.encoder ? behavior.encoder() : true),
   spawnFfmpeg: spawnFfmpeg as unknown as Boundary["spawnFfmpeg"],
   ffmpegCapabilities: () => caps,
   openChunkedStream: openChunkedStream as unknown as Boundary["openChunkedStream"],
@@ -372,7 +409,9 @@ const fakes: Partial<Boundary> = {
   openFragmentStream: openFragmentStream as unknown as Boundary["openFragmentStream"],
   getStream: async (track, options) => {
     if (!behavior.stream) throw new Error("테스트가 스트림을 정하지 않았다");
-    return behavior.stream(track as QueuedTrack, options);
+    const got = await behavior.stream(track as QueuedTrack, options);
+    // 진짜(sources/stream-url)처럼 받은 음원 주소의 키를 싣는다. 테스트가 키를 정했으면(null 포함) 그대로
+    return "audioKey" in got ? got : { ...got, audioKey: audioKeyOf((track as QueuedTrack).audioUrl) };
   },
   directStream: (async (url: string, opts?: { startMs?: number; liveOnly?: boolean }) => {
     calls.directStreams.push(url);
@@ -447,12 +486,14 @@ function seedCache(key: string, track: QueuedTrack, { durationSec = 200 } = {}) 
 }
 
 function reset() {
+  // 지난 테스트가 틀다 둔 출력. 운영에서는 voice 가 교체, Idle 때, 정리가 버릴 때 destroy 한다
+  for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });
-  // 캐시 길이 상한은 기본값(60분)으로. 테스트는 로컬 .env 를 읽으므로 운영자가 바꾼 값이 새어 든다
+  // 캐시 길이 상한은 테스트마다 기본값(60분)으로 되돌린다
   config.cache.maxTrackSec = DEFAULT_MAX_TRACK_SEC;
   cacheDb.get().exec("DELETE FROM track_lookup; DELETE FROM audio_cache;");
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true, maxRetries: 5 });
@@ -473,7 +514,7 @@ const audioRow = (key: string) => cacheDb.get().prepare<[string], AudioRow>("SEL
 /** 예약한 타이머의 시간(Node 타이머의 내부 필드). 취소한 타이머는 -1 */
 const timerDelay = (timer: unknown) => (timer as { _idleTimeout?: number } | null)?._idleTimeout;
 
-/** 플레이어의 가짜 오디오 플레이어. 테스트가 멈춘 횟수 · 튼 것을 본다 */
+/** 플레이어의 가짜 오디오 플레이어. 테스트가 멈춘 횟수, 튼 것을 본다 */
 const fakeAudioOf = (player: Player) => player.audioPlayer as unknown as FakeAudioPlayer;
 
 export { Player, audioCache, AudioPlayerStatus, calls, behavior, caps, makePlayer, writeCacheFile, seedCache, reset, dispose, lookupRow, audioRow, fakeAudioOf, timerDelay, fakeConnection, fakeGuild, registryOf, TMP };

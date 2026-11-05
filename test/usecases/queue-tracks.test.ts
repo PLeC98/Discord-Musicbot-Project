@@ -1,5 +1,5 @@
-// usecases/add-tracks 의 곡 담기(queueTracks). 첫 곡 재생 · 실패 · 다음 곡으로 복구 · 대기열 상한 · 넣을 위치 · 안내를 본다.
-// 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결 · 재생과 패널 만들기만 가짜다.
+// src/usecases/add-tracks.ts: 곡 추가(queueTracks). 첫 곡 재생, 실패, 다음 곡으로 복구, 대기열 상한, 넣을 위치, 안내를 본다.
+// 대기열은 진짜 trackState 로 바뀌고, 플레이어의 연결, 재생과 패널 만들기만 가짜다.
 
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
@@ -24,9 +24,12 @@ import * as errors from "../../src/ui/text/ko/errors.ts";
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
+// 결과의 넣은 것(placed)을 첫 곡 id 로 줄여 비교한다
+const withPlaced = (r: AddResult) => (r.success && r.placed ? { ...r, placed: { ...r.placed, first: r.placed.first?.id ?? null } } : r);
+const ONE_STARTED = { count: 1, position: null, collection: null, total: null, skipped: 0, first: "a" };
 const who = { id: "u1", username: "사용자" };
 
-// 패널 만들기 · 갱신은 부른 것만 적는다. embedFails 면 만들기가 던진다
+// 패널 만들기, 갱신은 부른 것만 적는다. embedFails 면 만들기가 던진다
 class RecordingPanels extends NowPlayingPanel {
   calls: unknown[];
   embedFails = false;
@@ -49,10 +52,12 @@ class RecordingPanels extends NowPlayingPanel {
 type Sent = { id: string; content: string; deleted: boolean; delete(): Promise<unknown> };
 type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean; connects?: boolean };
 
-// 연결 · 재생 결과를 테스트마다 정하는 가짜 플레이어
+// 연결, 재생 결과를 테스트마다 정하는 가짜 플레이어
 function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false, connects = true }: Setup = {}) {
   const calls: unknown[] = [];
   const sent: Sent[] = [];
+  // 앞 플레이어가 남긴 세션을 넘겨받은 때마다 음성에 붙어 있었는지
+  const takenOver: boolean[] = [];
   const player = fakePlayer({
     currentTrack: current,
     queue: [...queue],
@@ -85,6 +90,10 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     async finishQueue() {
       calls.push("finish");
     },
+    takeOverSaved() {
+      takenOver.push(Boolean(this.connection));
+      return 0;
+    },
     async dispose() {
       calls.push("dispose");
     },
@@ -94,24 +103,44 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   const bot = { players, panels: mem };
   const notices: string[] = [];
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
-  // 이 서버에 곡을 담는다
+  // 이 서버에 곡을 추가한다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
-  return { mem, add, player, calls, sent, notices, responder };
+  return { mem, add, player, calls, sent, notices, responder, takenOver };
 }
 
 test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패널을 만든다. 요청자와 넣은 시각을 붙인다", async () => {
   const { add, player, calls } = setup();
   const r = await add({ tracks: [track("a")] }, who);
 
-  assert.deepEqual(r, { success: true });
+  assert.deepEqual(withPlaced(r), { success: true, placed: ONE_STARTED }, "곧바로 튼 곡은 대기열 순번이 없다");
   assert.deepEqual(calls, ["connect", ["play"], ["embed", "a"]]);
   assert.equal(player.currentTrack?.requestedBy, who);
+});
+
+test("앞 플레이어가 남긴 세션은 음성에 붙은 뒤 첫 곡을 지정하기 전에 넘겨받는다. 붙지 못하면 넘겨받지 않는다(/join 으로 이어 듣게 남긴다)", async () => {
+  const fresh = setup();
+  await fresh.add({ tracks: [track("a")] }, who);
+  assert.deepEqual(fresh.takenOver, [true]);
+
+  const stranded = setup({ connects: false });
+  await stranded.add({ tracks: [track("a"), track("b")] }, who);
+  assert.deepEqual(stranded.takenOver, []);
+  assert.equal(stranded.player.currentTrack, null, "곡도 지정하지 않았다");
 });
 
 test("이미 붙어 있으면 연결하지 않는다", async () => {
   const { add, calls } = setup({ connected: true });
   await add({ tracks: [track("a")] }, who);
   assert.deepEqual(calls, [["play"], ["embed", "a"]]);
+});
+
+test("첫 곡의 열기가 다른 재생(음성 복구)에 밀려나면 실패가 아니다. 곡을 지우지 않고 패널을 만든다", async () => {
+  const { add, player, calls } = setup({ plays: [{ ok: false, code: "superseded" }] });
+  const r = await add({ tracks: [track("a")] }, who);
+
+  assert.deepEqual(withPlaced(r), { success: true, placed: ONE_STARTED });
+  assert.equal(player.currentTrack?.title, "곡 a");
+  assert.deepEqual(calls.at(-1), ["embed", "a"]);
 });
 
 test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려준다. 패널은 안 만들고, 틀 곡이 없으니 대기열 소진으로 끝낸다(나갈 예약)", async () => {
@@ -138,9 +167,10 @@ test("쉬던 중 재생목록을 넣으면 곧바로 튼 첫 곡까지 세어 �
   const { add, player, sent } = setup();
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
-    await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
+    const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
 
     assert.equal(player.currentTrack?.id, "a");
+    assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 3, position: null, collection: "playlist", total: null, skipped: 0, first: "a" } }, "튼 곡까지 세고 순번은 없다(첫 곡이 대기열에 없다)");
     assert.deepEqual(
       player.queue.map((t) => t.id),
       ["b", "c"],
@@ -159,6 +189,7 @@ test("재생목록의 첫 곡이 실패하면 대기열의 다음 곡부터 틀�
 
     assert.equal(r.success, true);
     assert.equal(player.currentTrack?.id, "b", "실패한 곡은 대기열에 안 넣는다");
+    assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 2, position: null, collection: "playlist", total: null, skipped: 0, first: "b" } }, "넣은 것의 첫 곡은 실패한 곡이 아니라 대신 튼 곡");
     assert.deepEqual(
       player.queue.map((t) => t.id),
       ["c"],
@@ -192,23 +223,23 @@ test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목�
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
   const { mem, add } = setup();
   mem.embedFails = true;
-  assert.deepEqual(await add({ tracks: [track("a")] }, who), { success: true });
+  assert.deepEqual(withPlaced(await add({ tracks: [track("a")] }, who)), { success: true, placed: ONE_STARTED });
 });
 
 test("틀고 있으면 대기열에 넣고 응답 매체로 알린다. 패널이 있으면 갱신한다", async () => {
   const { add, player, calls, notices, responder } = setup({ current: track("now"), queue: [track("q1")] });
   const r = await add({ tracks: [track("a")] }, who, responder);
 
-  assert.deepEqual(r, { success: true, dropped: 0, queueLimited: false });
+  assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 1, position: 2, collection: null, total: null, skipped: 0, first: "a" } });
   assert.deepEqual(
     player.queue.map((t) => t.id),
     ["q1", "a"],
   );
   assert.deepEqual(calls, ["update"]);
-  assert.deepEqual(notices, ["### ✅ 곡을 추가했어요!\n**곡 a**를 대기열에 넣었어요."]);
+  assert.deepEqual(notices, ["### ✅ 곡을 추가했어요!\n**곡 a**를 대기열 2번째에 넣었어요."]);
 });
 
-test("넣을 위치: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 선택해 둔 곡 앞", async () => {
+test("넣을 위치: 맨 앞, 특정 곡 뒤, 기본은 자동재생이 선택해 둔 곡 앞", async () => {
   const auto = track("auto", { autoplay: true });
   const front = setup({ current: track("now"), queue: [track("q1"), auto] });
   await front.add({ insertFirst: true, tracks: [track("a")] }, who, front.responder);
@@ -226,11 +257,12 @@ test("넣을 위치: 맨 앞 · 특정 곡 뒤 · 기본은 자동재생이 선�
   );
 
   const normal = setup({ current: track("now"), queue: [track("q1"), auto] });
-  await normal.add({ tracks: [track("a")] }, who, normal.responder);
+  const r = await normal.add({ tracks: [track("a")] }, who, normal.responder);
   assert.deepEqual(
     normal.player.queue.map((t) => t.id),
     ["q1", "a", "auto"],
   );
+  assert.equal(r.success && r.placed?.position, 2, "자동재생이 선택해 둔 곡 앞에 선 자리");
 });
 
 test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하나도 못 넣으면 가득 찼다고 실패", async () => {
@@ -240,7 +272,7 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
     const some = setup({ current: track("now"), queue: [track("q1")] });
     const r = await some.add({ isPlaylist: true, collection: "album", total: 30, tracks: [track("a"), track("b")] }, who, some.responder);
     assert.equal(r.dropped, 1);
-    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열에 넣었어요.\n대기열이 가득 차서 1곡은 넣지 못했어요. (최대 2곡)"]);
+    assert.deepEqual(some.notices, ["### ⚠️ 일부 곡을 추가했어요!\n앨범 30곡 중 1곡을 대기열 2번째에 넣었어요.\n**대기열이 가득 찼어요!** 1개의 곡을 넣지 못했어요. (최대 2곡)"]);
 
     const full = setup({ current: track("now"), queue: [track("q1"), track("q2")] });
     assert.deepEqual(said(await full.add({ tracks: [track("a")] }, who, full.responder)), { success: false, code: "queue-full", message: "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 2곡)", dropped: 1 });
@@ -250,12 +282,12 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 });
 
 test("자리가 모자라 덜 불러왔으면(queueLimited) 그렇다고 덧붙인다", () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n대기열이 가득 차서 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
-// 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기 · 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
+// 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기, 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 불러올 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기 · 지역 제한 등)");
+  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);
@@ -277,13 +309,13 @@ test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내�
   try {
     player.textChannel = null;
     const from = sink.buffer.length;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
+    await mem.postAddedNotice(player, [track("a")], "playlist");
     assert.deepEqual(sent, []);
     assert.deepEqual(sink.buffer.slice(from), [], "보내려다 실패한 것이 아니라 아예 보내지 않는다");
 
     // 대조: 채널이 있으면 보낸다
     player.textChannel = channel;
-    await mem.showPlaylistAdditionMessage(player, [track("a")], "playlist");
+    await mem.postAddedNotice(player, [track("a")], "playlist");
     assert.equal(sent.length, 1);
   } finally {
     mock.timers.reset();

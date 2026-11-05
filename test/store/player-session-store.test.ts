@@ -1,4 +1,4 @@
-// src/store/player-sessions.ts — 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
+// src/store/player-sessions.ts: 메모리 배열(trackState)과 DB 행이 같은 순서를 유지하는가.
 // 저장소는 행을 위치로 찾으므로, 둘이 한 번이라도 어긋나면 이후의 모든 증분 쓰기가 엉뚱한 행을 건드린다.
 
 import { test } from "node:test";
@@ -43,7 +43,7 @@ function loaded(store: PlayerSessionStore, guildId = G) {
   return s;
 }
 
-// 시드 고정 난수 — 실패하면 같은 순서로 재현된다
+// 시드 고정 난수. 실패하면 같은 순서로 재현된다
 function rng(seed: number) {
   let x = seed >>> 0;
   return (n: number) => {
@@ -52,11 +52,11 @@ function rng(seed: number) {
   };
 }
 
-test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
+test("무작위 조작 2000회: 매 조작 뒤 메모리와 DB의 슬롯별 순서가 같다", () => {
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
-  // 이전곡은 사본 위치를 trackState가 알려 준다 — 그 알림만 받아 저장소로 옮긴다
+  // 이전곡은 사본 위치를 trackState가 알려 준다. 그 알림만 받아 저장소로 옮긴다
   const onRewind = (track: TrackIn, copy: number, current: TrackIn | null) => store.rewind(G, track, { copy, current });
   // 통째로 다시 쓰라는 알림(이전곡이 기록 끝의 지금 곡을 건너뛴 때 등)은 실제 미러(session-mirror resync)처럼 그대로 옮겨 쓴다
   const onReplace = () => store.replaceTracks(G, { current: p.currentTrack, queue: p.queue, history: p.previousTracks });
@@ -81,7 +81,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
       store.take(G, 0);
     },
     () => {
-      // 점프와 같은 모양 — 아무 위치의 곡이 현재곡이 된다
+      // 점프와 같은 모양. 아무 위치의 곡이 현재곡이 된다
       if (p.queue.length === 0) return;
       const i = pick(p.queue.length);
       trackState.move(p, i, 0);
@@ -137,7 +137,7 @@ test("무작위 조작 2000회 — 매 조작 뒤 메모리와 DB의 슬롯별 �
   }
 });
 
-test("같은 위치에 계속 끼우면 간격이 닳는다 — 재번호 후에도 순서가 맞다", () => {
+test("같은 위치에 계속 끼우면 간격이 닳는다. 재번호 후에도 순서가 맞다", () => {
   const { store } = open();
   const p: Tracks = { currentTrack: null, queue: [], previousTracks: [], loop: false };
   trackState.init(p);
@@ -152,7 +152,7 @@ test("같은 위치에 계속 끼우면 간격이 닳는다 — 재번호 후에
     return real(...args);
   };
 
-  // 마지막 곡을 1번 위치로 — 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
+  // 마지막 곡을 1번 위치로. 매번 맨 앞 곡 바로 뒤의 간격이 반으로 준다
   for (let i = 0; i < 40; i++) {
     trackState.move(p, 2, 1);
     store.move(G, 2, 1);
@@ -184,7 +184,7 @@ test("기록은 상한을 넘으면 가장 오래된 것부터 버린다", () =>
   assert.equal(history[0].title, "h7");
 });
 
-test("트랙 필드: 링크 필드 셋과 표시 정보 · 음원을 어떻게 알았나 · 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다", () => {
+test("트랙 필드: 링크 필드 셋과 표시 정보, 음원을 어떻게 알았나, 대기열 ID가 저장한 그대로 돌아오고, 요청자는 id만 남는다. 올린 사람(uploader), live 는 저장하지 않는다", () => {
   const { store } = open();
   const track = {
     id: "amq:1",
@@ -193,14 +193,14 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 음원을 어떻게 �
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
     audioFoundBy: "ledger",
-    duration: "185",
+    duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
-    uploader: "채널",
+    uploader: "채널을 채우는 출처가 없어 저장하지 않는다",
     platform: "anisongdb",
     audioSourceKey: "dl:계산하는 값이라 저장하지 않는다",
-    live: true,
+    isLive: true,
     requestedBy: { id: "u1", username: "someone" },
   };
   // 대기열 ID는 track-state 가 찍는 열거되지 않는 필드다
@@ -213,12 +213,11 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 음원을 어떻게 �
     pageUrl: "https://anilist.co/anime/1",
     requestKey: "amq:1",
     audioUrl: "https://nawdist.animemusicquiz.com/a.mp3",
-    audioFoundBy: "ledger", // 음원 주소로 가리지 않고 저장한 값(직접 지정한 음원 · 검색 결과를 링크 데이터에서 온 것과 섞지 않는다)
+    audioFoundBy: "ledger", // 음원 주소로 가리지 않고 저장한 값(직접 지정한 음원, 검색 결과를 링크 데이터에서 온 것과 섞지 않는다)
     duration: 185,
     thumbnail: "https://img/1.jpg",
     artist: "가수",
     album: "앨범",
-    uploader: "채널",
     platform: "anisongdb",
     isLive: true,
     requesterId: "u1",
@@ -229,7 +228,7 @@ test("트랙 필드: 링크 필드 셋과 표시 정보 · 음원을 어떻게 �
   assert.equal(loaded(store).current?.entry, null);
 });
 
-test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
+test("세션 행: 저장, 조회, 위치 갱신은 위치만 바꾼다", () => {
   const { store } = open();
   store.saveSession(G, {
     voiceChannelId: "v1",
@@ -237,14 +236,37 @@ test("세션 행: 저장·조회, 위치 갱신은 위치만 바꾼다", () => {
     volume: 40,
     loopMode: "queue",
     autoplay: "kpop",
-    pausedManual: true,
+    userPaused: true,
     positionMs: 12_345.6,
   });
   store.savePositions([{ guildId: G, positionMs: 99_000 }]);
 
   const { session } = loaded(store);
   assert.equal(session.positionMs, 99_000);
-  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", pausedManual: true, positionMs: undefined });
+  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined });
+});
+
+test("지금 곡이 바뀌면(지정, 대기열에서 꺼내기, 비우기) 위치가 0이 된다. 앞 곡의 위치가 새 곡에 남지 않는다", () => {
+  const { store } = open();
+  const position = () => loaded(store).session.positionMs;
+  store.saveSession(G, { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  store.append(G, [t("q1"), t("q2")]);
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  store.setCurrent(G, t("a"));
+  assert.equal(position(), 0, "지정");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  assert.equal(store.take(G, 0), true);
+  assert.equal(position(), 0, "대기열에서 꺼내기");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  store.setCurrent(G, null);
+  assert.equal(position(), 0, "비우기");
+
+  store.savePositions([{ guildId: G, positionMs: 238_000 }]);
+  assert.equal(store.take(G, 5), false);
+  assert.equal(position(), 238_000, "꺼낼 곡이 없으면 그대로");
 });
 
 test("반복 모드는 세 값만 받는다", () => {
@@ -275,7 +297,7 @@ test("replaceTracks: 주어진 목록으로 통째로 바꾸고 기록은 상한
   assert.equal(s.history.at(-1)?.title, `h${trackState.HISTORY_MAX + 2}`);
 });
 
-test("liveAudioUrls: 현재곡과 대기열만 — 기록은 지킬 필요가 없다", () => {
+test("liveAudioUrls: 현재곡과 대기열만. 기록은 지킬 필요가 없다", () => {
   const { store } = open();
   store.setCurrent(G, t("now"));
   store.append(G, [t("next"), { title: "스포티파이", requestKey: "https://open.spotify.com/track/x" }]);
@@ -293,7 +315,7 @@ test("loadAll: 트랙이 없는 세션도 빈 목록으로 돌아온다", () => 
   assert.deepEqual(titles(all[G].queue), ["A"]);
 });
 
-test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다 — 남은 곡의 위치가 메모리와 맞는다", () => {
+test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다. 남은 곡의 위치가 메모리와 맞는다", () => {
   const { db, store } = open();
   store.append(G, [t("A"), t("B"), t("C")]);
   db.prepare("UPDATE session_tracks SET request_key = NULL WHERE title = 'B'").run(); // 손으로 고쳤거나 옛 코드가 남긴 행
@@ -304,7 +326,7 @@ test("모양이 틀린 행은 되읽을 때 버리고 DB 에서도 삭제한다 
   assert.deepEqual(titles(loaded(store).queue), ["A"], "자리로 지우는 것이 맞는 곡을 지운다");
 });
 
-test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다(모르는 값 · 빈 값은 없음)", () => {
+test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다(모르는 값, 빈 값은 없음)", () => {
   const { store } = open();
   const base = { title: "노래", pageUrl: "https://y/2", requestKey: "https://y/2", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube" };
   store.setCurrent(G, { ...base, audioFoundBy: "pinned" });
@@ -313,4 +335,20 @@ test("트랙 필드: 음원을 어떻게 알았나는 아는 값만 되읽는다
   assert.equal(loaded(store).current?.audioFoundBy, undefined);
   store.setCurrent(G, base);
   assert.equal(loaded(store).current?.audioFoundBy, undefined, "음원 주소가 요청과 달라도 링크 데이터에서 온 것으로 가리지 않는다");
+});
+
+test("세션 행: 곡 길이는 0 보다 큰 유한한 수만 저장하고 나머지는 모름(null)", () => {
+  const { store } = open();
+  for (const [duration, expected] of [
+    [185.5, 185.5],
+    [0, null],
+    [-1, null],
+    [NaN, null],
+    [Infinity, null],
+    ["185", null],
+    ["abc", null],
+  ] as const) {
+    store.setCurrent(G, { ...t(), duration: duration as never });
+    assert.equal(loaded(store).current?.duration, expected, String(duration));
+  }
 });

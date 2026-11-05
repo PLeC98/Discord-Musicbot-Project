@@ -1,4 +1,4 @@
-// 운영자 패널의 저장 막대 하나가 저장 · 되돌리는 편집기들. 편집기가 자기를 올려 두고(사라지면 내린다),
+// 운영자 패널의 저장 막대 하나가 저장, 되돌리는 편집기들. 편집기가 자기를 올려 두고(사라지면 내린다),
 // 운영자 패널이 막대를 하나 표시해 고친 편집기를 모두 저장하거나 되돌린다. 탭을 옮겨도 막대는 그대로다.
 
 import { shallowReactive, onUnmounted, type Ref, type ComputedRef } from "vue";
@@ -6,7 +6,7 @@ import { shallowReactive, onUnmounted, type Ref, type ComputedRef } from "vue";
 type Flag = Readonly<Ref<boolean>> | ComputedRef<boolean>;
 
 export type SaveTarget = {
-  /** 편집기가 있는 운영자 패널 탭(주소 ?tab=). 저장 순서 · 고칠 것이 남은 탭 알림 · 저장에 실패하면 옮겨 갈 탭 */
+  /** 편집기가 있는 운영자 패널 탭(주소 ?tab=). 저장 순서, 고칠 것이 남은 탭 알림, 저장에 실패하면 옮겨 갈 탭 */
   tab: string;
   dirty: Flag;
   saving: Flag;

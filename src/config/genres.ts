@@ -6,7 +6,7 @@ const log = logger.child({ category: "config" });
 import * as sources from "./schema/genre-sources.ts";
 import { usable } from "./source-keys.ts";
 import * as documents from "./documents.ts";
-import { genreProblems } from "./schema/genres.ts";
+import { genreProblems, tidyGenres } from "./schema/genres.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 
 // 저장 전 검사(대시보드)와 읽을 때 검사가 같은 스키마를 본다
@@ -66,14 +66,7 @@ type GenresConfig = { defaults: GenreDefaults; genres: Record<string, Genre> };
 // 같은 말을 되풀이하지 않는다. genres()는 곡을 선택할 때마다 불린다
 let warnedKeys = "";
 
-/**
- * 자동재생 장르 설정. { defaults, genres }.
- *
- * 장르 키는 식별자(주소 · 버튼 id · AI 의 {{genre}})이고 보여 줄 이름은 label(없으면 키)이다. 키는 문자열이어야 한다. 이 라이브러리(YAML 1.2)에서 no·yes·on·off는 그냥 문자열이지만,
- * `true`/`false`/`null`은 값으로 읽혀 id가 조용히 뒤바뀐다(null 키는 빈 문자열이 된다).
- * 흔한 실수는 아니지만, 조용히 틀리는 종류라 거절하고 무엇을 고칠지 알린다.
- */
-// 직전에 검사를 지난 설정. 돌던 중 파일이 틀리면 이것으로 계속 돈다(status 와 같다)
+// 직전에 검사를 지난 설정. 돌던 중 문서가 틀리면 이것으로 계속 돈다(status 와 같다)
 let lastGood: GenresConfig | null = null;
 let reported = "";
 
@@ -81,7 +74,7 @@ let reported = "";
 const EMPTY: GenresConfig = { defaults: {}, genres: {} };
 
 /**
- * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 때부터 틀림) 빈 설정을 돌려준다.
+ * 장르 설정. 틀렸으면 알리고 직전에 맞던 설정을, 그것도 없으면(기동 시점부터 틀림) 빈 설정을 돌려준다.
  * 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다(DB 를 바깥에서 고쳤을 때 등)
  */
 function genres(): GenresConfig {
@@ -98,7 +91,7 @@ function genres(): GenresConfig {
   }
 }
 
-/** 지금 장르 문서가 검사를 못 지나는가(직전 설정 · 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
+/** 지금 장르 문서가 검사를 못 지나는가(직전 설정, 빈 설정으로 도는 중). 봇 상태 탭이 까닭으로 보인다 */
 function genresBroken() {
   genres();
   return reported !== "";
@@ -106,7 +99,7 @@ function genresBroken() {
 
 function checkedGenres(): GenresConfig {
   const loaded = documents.get("genres");
-  // 이름 · 숫자 이름 · 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
+  // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
     throw Object.assign(new Error(["자동재생 장르 설정을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
@@ -119,13 +112,10 @@ function checkedGenres(): GenresConfig {
 }
 
 /**
- * 키가 없는 소스를 어떻게 다룰까. 부분만 없으면 알리고 남은 것으로 돈다.
- * 쓸 수 있는 소스가 하나도 없으면 그 장르만 못 쓴다: 선택하면 키가 없다고 거절한다(unusableGenre).
- *
- * 기동은 멈추지 않는다. 키를 입력할 대시보드도 봇과 함께 실행되기 때문이다.
- * 그렇다고 그 장르를 선택하면 아무 일도 일어나지 않는 채로 두지 않는다. 무엇이 잘못됐는지 알 길이 없기 때문이다.
+ * 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수. 소스가 하나도 없으면 CONFIG_INVALID 로 던진다.
+ * 키가 없는 소스는 빼고 남은 것으로 돌고, 하나도 안 남으면 그 장르만 못 쓴다(선택하면 unusableGenre 로 거절해 까닭을 알린다).
+ * 키를 입력할 대시보드가 봇과 함께 돌므로 기동은 멈추지 않는다
  */
-// 그 장르의 소스 중 키가 없어 못 쓰는 것의 키 이름과 쓸 수 있는 소스 수
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
@@ -174,18 +164,17 @@ function checkSourceKeys(genres: Record<string, Genre>) {
     lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없습니다. 키를 입력하기 전까지 이 장르는 선택할 수 없습니다.`);
   }
 
-  // 이 함수는 곡을 선택할 때마다 불린다(Player._autoplayConfig). 그대로 남기면 같은 경고가
-  // 몇 분마다 되풀이되므로, 내용이 달라졌을 때만 남긴다. status()가 쓰는 것과 같은 방식이다.
+  // 곡을 선택할 때마다 불리므로 내용이 달라졌을 때만 남긴다
   const key = lines.join("|");
   if (lines.length && key !== warnedKeys) for (const line of lines) log.warn(line);
   warnedKeys = key;
 }
 
-/** 보여 줄 이름(디스코드 메뉴 · 알림 · 화면). 없거나 모르는 장르면 식별자 그대로 */
+/** 보여 줄 이름(디스코드 메뉴, 알림, 화면). 없거나 모르는 장르면 식별자 그대로 */
 function labelOf(id: string): string {
   return genres().genres[id]?.label?.trim() || id;
 }
 
-export { genres, genresBroken, validateGenres, unusableGenre, labelOf };
+export { genres, genresBroken, validateGenres, tidyGenres, unusableGenre, labelOf };
 export const _reset = () => ((lastGood = null), (reported = ""));
 export type { GenreSource, Genre, GenreDefaults, GenresConfig };

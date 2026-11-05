@@ -1,33 +1,28 @@
-// src/ui/format.ts — 공용 소형 유틸
+// src/ui/format.ts: 공용 소형 유틸
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDuration, formatMs, formatSpan, formatBytes } from "../../src/ui/format.ts";
+import { formatDuration, formatMs, formatSpan, formatBytes, byteUnit, scaledText } from "../../src/ui/format.ts";
 
 test("formatDuration: 초 → M:SS / H:MM:SS", () => {
-  assert.equal(formatDuration(0), "0:00");
-  assert.equal(formatDuration(null), "0:00");
-  assert.equal(formatDuration(undefined), "0:00");
-  assert.equal(formatDuration(1), "0:01");
-  assert.equal(formatDuration(59), "0:59");
-  assert.equal(formatDuration(60), "1:00");
-  assert.equal(formatDuration(61), "1:01");
-  assert.equal(formatDuration(599), "9:59");
-  assert.equal(formatDuration(600), "10:00");
-  assert.equal(formatDuration(3599), "59:59");
-  assert.equal(formatDuration(3600), "1:00:00");
-  assert.equal(formatDuration(3661), "1:01:01");
-  assert.equal(formatDuration(7325), "2:02:05");
+  const cases: Array<[number, string]> = [
+    [1, "0:01"],
+    [59, "0:59"],
+    [60, "1:00"],
+    [61, "1:01"],
+    [599, "9:59"],
+    [600, "10:00"],
+    [3599, "59:59"],
+    [3600, "1:00:00"],
+    [3661, "1:01:01"],
+    [7325, "2:02:05"],
+    [61.9, "1:01"],
+  ];
+  for (const [seconds, expected] of cases) assert.equal(formatDuration(seconds, "모름"), expected, String(seconds));
 });
 
-test("formatDuration: 소수/문자열 입력도 안전", () => {
-  assert.equal(formatDuration(61.9), "1:01", "소수는 내림");
-  assert.equal(formatDuration("185"), "3:05", "숫자 문자열 허용");
-  assert.equal(formatDuration("abc"), "0:00", "비숫자는 0 취급");
-});
-
-// 명령마다 따로 있던 사본(/search · /seek · /highlight · 조작 거절 · /cachestatus · /help · /system)을 합쳤다.
-// 아래 기대값은 합치기 전 사본들의 출력을 그대로 옮긴 것이다. 곳마다 보이는 표기를 바꾸지 않는다
+// /search, /seek, /highlight, 조작 거절, /cachestatus, /help, /system 이 같은 함수를 쓴다.
+// 아래 기대값은 곳마다 보이던 표기 그대로다. 곳마다 보이는 표기를 바꾸지 않는다
 const SECS = [0, 0.4, 5, 59.9, 65, 3599, 3600, 3725.7, 86399, 86400, 90061, 360000, 400000.5];
 
 test("formatDuration: 값이 없을 때의 문구는 부르는 쪽이 넘긴다(/search 는 알 수 없음)", () => {
@@ -37,8 +32,11 @@ test("formatDuration: 값이 없을 때의 문구는 부르는 쪽이 넘긴다(
   );
 });
 
-test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek · /highlight · 조작 거절)", () => {
-  assert.deepEqual([0, 999, 1000, 65_500, 3_725_000, 90_061_000].map(formatMs), ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"]);
+test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek, /highlight, 조작 거절)", () => {
+  assert.deepEqual(
+    [0, 999, 1000, 65_500, 3_725_000, 90_061_000].map((ms) => formatMs(ms, "0:00")),
+    ["0:00", "0:00", "0:01", "1:05", "1:02:05", "25:01:01"],
+  );
 });
 
 test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰면 /cachestatus 의 모양", () => {
@@ -58,14 +56,59 @@ test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰�
   assert.equal(formatSpan(400000, { days: false, withSeconds: true }), "111시간 6분 40초");
 });
 
-test("formatBytes: GB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2 · /system 1)", () => {
-  const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3];
+test("formatBytes: GB, TB 의 소수 자릿수만 부르는 쪽이 정한다(/cachestatus 2, /system 1), 1024 GB 부터 TB", () => {
+  const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3, 1023.9 * 1024 ** 3, 1024 ** 4, 97.23 * 1024 ** 4];
   assert.deepEqual(
     sizes.map((b) => formatBytes(b, { gbDigits: 2 })),
-    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.00 GB", "3.46 GB"],
+    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.00 GB", "3.46 GB", "1023.90 GB", "1.00 TB", "97.23 TB"],
   );
   assert.deepEqual(
     sizes.map((b) => formatBytes(b)),
-    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.0 GB", "3.5 GB"],
+    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.0 GB", "3.5 GB", "1023.9 GB", "1.0 TB", "97.2 TB"],
   );
+});
+
+test("byteUnit: 1024 배씩 KB, MB, GB, TB, KB 아래로는 내리지 않는다", () => {
+  assert.deepEqual(byteUnit(100), { n: 100 / 1024, unit: "KB", per: 1024 });
+  assert.deepEqual(byteUnit(2 * 1024 ** 3), { n: 2, unit: "GB", per: 1024 ** 3 });
+  assert.deepEqual(byteUnit(3 * 1024 ** 4), { n: 3, unit: "TB", per: 1024 ** 4 });
+});
+
+test("scaledText: 반올림한 수가 단위 경계에 닿으면 다음 단위로, 자릿수 경계를 넘으면 그 자릿수로", () => {
+  const oneDigit = () => 1;
+  assert.equal(formatBytes(1023.96 * 1024 ** 3), "1.0 TB", "1024.0 GB 가 아니라");
+  assert.equal(formatBytes(1023.94 * 1024 ** 3), "1023.9 GB");
+  assert.deepEqual(scaledText(1023.96 * 1024 ** 3, byteUnit, oneDigit), { value: "1.0", unit: "TB", per: 1024 ** 4 });
+  // 100 이상은 정수, 그 아래는 소수 한 자리인 규칙: 99.96 은 "100.0" 이 아니라 "100"
+  const rule = (n: number) => (n >= 100 ? 0 : 1);
+  assert.equal(scaledText(99.96 * 1024 ** 3, byteUnit, rule).value, "100");
+  assert.equal(scaledText(99.94 * 1024 ** 3, byteUnit, rule).value, "99.9");
+});
+
+test("formatDuration: 수가 아니거나 유한하지 않거나 0 이하면 부르는 쪽의 모름 표기, 1초 미만은 0:00, 시간에 상한 없음", () => {
+  const U = "모름";
+  const cases: Array<[unknown, string]> = [
+    [0, U],
+    [-0, U],
+    [null, U],
+    [undefined, U],
+    [NaN, U],
+    [Infinity, U],
+    [-Infinity, U],
+    [-5, U],
+    [-65, U],
+    ["abc", U],
+    [" ", U],
+    [true, U],
+    ["0", U],
+    ["185", U],
+    [10n, U],
+    [0.4, "0:00"],
+    [59.9999, "0:59"],
+    [3599.5, "59:59"],
+    [90061, "25:01:01"],
+    [400000.5, "111:06:40"],
+  ];
+  for (const [value, expected] of cases) assert.equal(formatDuration(value as never, U), expected, String(value));
+  assert.equal(formatMs(NaN, "0:00"), "0:00");
 });

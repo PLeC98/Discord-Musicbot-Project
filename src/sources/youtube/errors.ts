@@ -1,6 +1,6 @@
-// yt-dlp 오류를 구분한다(영상 없음 · 연령 제한 · 클라이언트 탓 · 낡은 미디어 주소).
+// yt-dlp 오류를 구분한다(영상 없음, 연령 제한, 클라이언트 탓, 낡은 미디어 주소).
 
-// 오류에서 읽을 글. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
+// 오류에서 읽을 텍스트. yt-dlp 오류는 stderr 에, 나머지는 message 에 담긴다
 function textOf(error: unknown): string {
   const e = error && typeof error === "object" ? (error as { stderr?: unknown; message?: unknown }) : null;
   const found = e && (e.stderr || e.message);
@@ -46,14 +46,14 @@ function isCookiesInvalidError(error: unknown) {
 
 /**
  * yt-dlp 오류가 "영상 자체가 내려감/삭제/비공개"인지 판별.
- * 캐시된 매핑의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
- *   일시적 네트워크·봇 감지·연령 제한과는 구별(그것들은 재검색 대상 아님).
+ * 링크 데이터의 영상이 사라진 경우 재검색으로 보내기 위한 신호.
+ *   일시적 네트워크, 봇 감지, 연령 제한과는 구별(그것들은 재검색 대상 아님).
  */
 function isVideoUnavailableError(error: unknown) {
   // 연령 제한을 먼저 뺀다. 쿠키가 무효일 때 yt-dlp 가 내는 "cookies are no longer valid" 가
   // 아래의 "no longer available" 과 한 단어 차이라, 정규식이 넓어지는 순간 살아 있는 영상이
   // 내려간 것으로 분류된다. 자동재생은 그 판정으로 곡을 영구히 버리므로(markDead) 대가가 크다.
-  // 옆의 isClientFault·isStaleMediaError 도 같은 가드를 갖고 있다.
+  // 옆의 isClientFault, isStaleMediaError 도 같은 가드를 갖고 있다.
   if (isAgeRestrictedError(error)) return false;
 
   const msg = textOf(error);
@@ -65,11 +65,11 @@ function isVideoUnavailableError(error: unknown) {
 /**
  * yt-dlp 가 그 클라이언트를 아예 실행하지 않았는가.
  *
- * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos·android·
+ * 쿠키를 붙이면 쓸 수 있는 클라이언트 집합이 바뀐다. 쿠키를 못 받는 것들(visionos, android,
  * tv_simply 등)은 건너뛰어지고, 남은 것이 없으면 "Requested format is not available" 로 끝난다.
  * 그 메시지만 보면 클라이언트가 실패한 것처럼 보이지만 돌아 본 적조차 없다.
  *
- * 어느 클라이언트가 쿠키를 지원하는지는 우리가 표로 들고 있지 않는다. yt-dlp 가 건너뛰면서
+ * 어느 클라이언트가 쿠키를 지원하는지는 표로 두지 않는다. yt-dlp 가 건너뛰면서
  * 이유를 적어 주므로 그것을 읽는다. 표를 박아 두면 유튜브나 yt-dlp 가 바뀔 때 먼저 어긋난다.
  */
 function isSkippedClientError(error: unknown) {
@@ -81,11 +81,14 @@ function isSkippedClientError(error: unknown) {
 const NO_AUDIO_ONLY = "no-audio-only";
 const isNoAudioOnly = (error: unknown) => (error as { code?: unknown } | null)?.code === NO_AUDIO_ONLY;
 
-/** 이 실패가 클라이언트 탓으로 보이는가 (영상·네트워크 문제와 구별) */
+/** 시작 전 라이브라 열 것이 없는가 */
+const isUpcomingError = (error: unknown) => UPCOMING.test(textOf(error));
+
+/** 이 실패가 클라이언트 탓으로 보이는가 (영상, 네트워크 문제와 구별) */
 function isClientFault(error: unknown) {
   const msg = textOf(error);
   if (isNoAudioOnly(error)) return true;
-  if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
+  if (isVideoUnavailableError(error) || isAgeRestrictedError(error) || isUpcomingError(error)) return false;
   // 실행조차 안 된 것을 실패로 세면 멀쩡한 클라이언트가 제외된다. 연령 제한 영상 몇 편이면
   // 주력 경로가 세션 내내 빠지고, 그때부터 평상시 재생까지 기본값으로 떨어진다.
   if (isSkippedClientError(error)) return false;
@@ -99,31 +102,33 @@ function isClientFault(error: unknown) {
  * 주소로 세 번 재시도해도(retries:3) 계속 403인데, 주소를 새로 받으면 풀린다. 주소 자체가
  * 처음부터 거절당한 것이지 통신이 끊긴 게 아니다.
  *
- * 저쪽 사정이고 우리 쪽에 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS·VPN·쿠키와 무관하다).
- * 그래서 여기서는 다시 받는 것만 한다.
+ * 유튜브 쪽 문제라 봇에서 고칠 것이 없다(yt-dlp #17395. 간헐적이고, OS, VPN, 쿠키와 무관하다).
+ * 그래서 여기서는 주소를 다시 받는 것만 한다.
  */
 function isStaleMediaError(error: unknown) {
   const msg = textOf(error);
   if (isVideoUnavailableError(error) || isAgeRestrictedError(error)) return false;
   // "unable to download video data" 만으로는 안 된다. 네트워크 타임아웃도 같은 문구로 온다.
-  // 유튜브가 거절한 것(403/429)과 조각이 어긋난 것만 본다.
+  // 유튜브가 거절한 것(403/429)과 세그먼트가 어긋난 것만 본다.
   return /HTTP Error (?:403|429)|unable to download fragment|fragment .{0,20}not found/i.test(msg);
 }
 
-// yt-dlp 가 적는 문장으로만 구분하는 것. 우리가 고칠 수 없는 문장이라 여기서 읽는다.
-// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube" · 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
+// yt-dlp 가 적는 문장으로만 구분하는 것. 바꿀 수 없는 문장이라 여기서 읽는다.
+// 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube", 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
 const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
-// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection · [WinError 10061] 등)
+// 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection, [WinError 10061] 등)
 const NETWORK = /getaddrinfo|name resolution|connection (?:refused|reset|aborted)|failed to establish a new connection|unable to connect to proxy|timed out|network is unreachable|urlopen error|\[(?:WinError|Errno) (?:10060|10061|10065|110|111|113)\]/i;
 const PLAYLIST_UNAVAILABLE = /playlist does not exist|this playlist is private|playlist (?:is )?(?:unavailable|private)|unable to recognize playlist/i;
 const FFMPEG = /\bffmpeg\b|\bffprobe\b/i;
+// 시작 전 라이브(예정된 방송, 최초 공개). 영상 정보도 스트림도 주지 않고 이 문장으로 끝난다
+const UPCOMING = /this live event will begin|premieres? (?:in|on)\b|premiere will begin/i;
 
 /**
- * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlpSpawn)이 실패할 때 한 번 붙인다. 모르면 null.
+ * yt-dlp 오류에 붙일 이름. 실행하는 곳(ytdlp-spawn)이 실패할 때 한 번 붙인다. 모르면 null.
  * 연령 제한 → 지역 차단 → 영상 없음 순서다. 요청 제한(429)은 주소 어긋남보다 앞이다
- * (다시 받을지는 ytdlpRun 이 isStaleMediaError 로 따로 본다).
+ * (다시 받을지는 ytdlp-run 의 runYtDlp 가 isStaleMediaError 로 따로 본다).
  */
 function codeOf(error: unknown) {
   const msg = textOf(error);
@@ -133,6 +138,7 @@ function codeOf(error: unknown) {
   // 지역 차단 문장은 "this video is not available ... from your location" 처럼 영상 없음의 문장을 품는다. 먼저 본다
   if (GEO_BLOCKED.test(msg)) return "geo-blocked";
   if (isVideoUnavailableError(error)) return "unavailable-contents";
+  if (UPCOMING.test(msg)) return "live-upcoming";
   if (PLAYLIST_UNAVAILABLE.test(msg)) return "unavailable-playlist";
   if (BOT_CHECK.test(msg)) return "yt-bot-check";
   if (RATE_LIMITED.test(msg)) return "rate-limited";
@@ -153,4 +159,4 @@ function faultReason(error: unknown) {
   return "포맷 획득 실패";
 }
 
-export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };
+export { NO_AUDIO_ONLY, briefError, isAgeRestrictedError, isCookiesInvalidError, isVideoUnavailableError, isUpcomingError, isSkippedClientError, isClientFault, isStaleMediaError, codeOf, faultReason };

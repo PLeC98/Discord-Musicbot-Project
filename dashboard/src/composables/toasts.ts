@@ -1,4 +1,4 @@
-// 화면 오른쪽 위의 작은 알림. 저장 · 보내기 같은 조작의 결과(됨 · 실패)와 거절된 까닭을 몇 초 보여 준다.
+// 화면 오른쪽 위의 작은 알림. 저장, 보내기 같은 조작의 결과(됨, 실패)와 거절된 까닭을 몇 초 보여 준다.
 // 뜬 알림은 알림함(위 막대 오른쪽 끝의 종)에도 남는다. 페이지를 새로 열면 비는 이 탭만의 기록이다
 // 어느 입력란이 틀렸는지 표시하는 검사(장르 이름 겹침, 곡 주소 형식 등)는 그 입력란 옆에 두고 여기로 보내지 않는다
 
@@ -6,12 +6,12 @@ import { computed, reactive } from "vue";
 import { problemNotice, type ProblemNotice } from "../utils/problem.ts";
 import { failureKind, statusOf, problemCodeOf, replyOf } from "../utils/request.ts";
 
-// 됨은 읽을 것이 적어 짧게(M3 스낵바 4초), 실패 · 경고는 까닭을 읽게 길게
+// 됨은 읽을 것이 적어 짧게(M3 스낵바 4초), 실패, 경고는 까닭을 읽게 길게
 const SHOW_MS = { success: 4000, warning: 6000, error: 6000 };
 const MAX = 3;
 const INBOX_MAX = 50;
 
-/** 알림 종류. 봇 안내의 오류 · 경고에 화면만의 됨을 더한다 */
+/** 알림 종류. 봇 안내의 오류, 경고에 화면만의 됨을 더한다 */
 type Severity = ProblemNotice["severity"] | "success";
 /** 떠 있는 알림 하나 */
 // at: 일어난 때(같은 알림이 다시 오면 그때로), ms: 떠 있는 시간(아래 띠가 이만큼 걸려 찬다), round: 시간을 다시 잴 때마다 하나씩(띠를 처음부터 다시 채운다)
@@ -73,7 +73,7 @@ export function notifyDone(title: string, body = ""): void {
   notify({ title, body, severity: "success" });
 }
 
-/** 요청 오류의 알림. 세션 끝(401) · 다시 로그인 · 연결 안 됨은 SessionNotice 가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
+/** 요청 오류의 알림. 세션 끝(401), 다시 로그인, 연결 안 됨은 SessionNotice 가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
 export function notifyProblem(error: unknown, fallback: string): void {
   const kind = failureKind(error);
   if (statusOf(error) === 401 || problemCodeOf(replyOf(error)) === "reauth-required" || kind === "aborted" || kind === "offline") return;

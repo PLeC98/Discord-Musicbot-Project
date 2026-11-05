@@ -1,4 +1,4 @@
-// src/autoplay/sources/http.ts — 자동재생 출처의 요청은 서비스마다 공유 HTTP 클라이언트를 지나 부른 결과가 남는다
+// src/autoplay/sources/http.ts: 자동재생 출처의 요청은 공유 HTTP 클라이언트를 지나고, 부른 결과가 서비스마다 남는다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";

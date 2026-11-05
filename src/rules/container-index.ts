@@ -1,22 +1,22 @@
-// 음원 파일 앞부분의 색인(webm Cues · mp4 sidx)으로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
-// 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(클러스터 · 조각)부터 받으려고 쓴다(media/seek-start).
-//   webm  EBML → Segment → Info(TimecodeScale) · Tracks(오디오 트랙 번호) · 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
-//   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0 · 1, 조각마다 크기 · 길이). 조각 시작은 sidx 다음 바이트 + first_offset
-// 색인이 이상하면(값이 빠짐 · 시각이나 바이트가 줄어듦 · 파일 밖 · 계층형 sidx 등) 없음으로 답한다. 부르는 쪽은 그때 파일 처음부터 받는다.
+// 음원 파일 앞부분의 인덱스(webm Cues, mp4 sidx)으로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
+// 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(webm 클러스터, mp4 세그먼트)부터 받으려고 쓴다(media/seek-start).
+//   webm  EBML → Segment → Info(TimecodeScale), Tracks(오디오 트랙 번호), 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
+//   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0, 1, 세그먼트마다 크기, 길이). 세그먼트 시작은 sidx 다음 바이트 + first_offset
+// 인덱스가 이상하면(값이 빠짐, 시각이나 바이트가 줄어듦, 파일 밖, 계층형 sidx 등) 없음으로 답한다. 부르는 쪽은 그때 파일 처음부터 받는다.
 
 type Kind = "webm" | "mp4";
-/** 키프레임 하나: 곡 안의 시각(ms)과 파일 안의 바이트. raw 는 webm 클러스터의 Timestamp 와 견줄 원래 값 */
+/** 키프레임 하나: 곡 안의 시각(ms)과 파일 안의 바이트. raw 는 webm 클러스터의 Timestamp 와 비교할 원래 값 */
 type Point = { ms: number; byte: number; raw: number };
 type ContainerIndex = { kind: Kind; headerEnd: number; points: Point[]; segment: { at: number; width: number } | null };
-/** 읽은 답: 색인 · 더 받아야 함(앞에서부터 need 바이트) · 없음(까닭) */
+/** 읽은 답: 인덱스, 더 받아야 함(앞에서부터 need 바이트), 없음(까닭) */
 type Read = { ok: true; index: ContainerIndex } | { ok: false; need: number } | { ok: false; why: string };
 type StartPoint = { byte: number; startedAtMs: number; expectStart(bytes: Buffer): boolean };
 
-/** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID · 크기 · Timestamp, mp4: 상자 헤더) */
+/** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID, 크기, Timestamp, mp4: 상자 헤더) */
 const FIRST_BYTES: Record<Kind, number> = { webm: 32, mp4: 8 };
 /** 디코더가 앞 소리 없이 시작하면 처음 수십 ms 가 다르다(Opus). 목표보다 이만큼 넘게 앞선 키프레임에서 시작한다 */
 const PREROLL_MS = 1000;
-/** 색인을 이보다 길게 받으러 가지 않는다 */
+/** 인덱스를 받으러 갈 때 앞부분 크기의 상한(4MB) */
 const MAX_HEAD_BYTES = 4 * 1024 * 1024;
 /** 마지막 키프레임이 곡 길이보다 이만큼 앞이거나 이만큼 뒤면 시간 축을 잘못 읽은 것이다 */
 const LAST_POINT_EARLY_MS = 60_000;
@@ -157,7 +157,7 @@ function boxAt(buf: Buffer, at: number): Box | null {
   return { type: buf.toString("latin1", at + 4, at + 8), start: at, data: at + header, end: at + size };
 }
 
-/** sidx → 조각의 시작 바이트 · 시각. 계층형(reference_type 1) · 값이 이상하면 까닭 */
+/** sidx → 세그먼트의 시작 바이트, 시각. 계층형(reference_type 1), 값이 이상하면 까닭 */
 function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
   const version = buf[sidx.data];
   if (version > 1) return `sidx version ${version}`;
@@ -179,9 +179,9 @@ function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
     points.push({ ms: (time / timescale) * 1000, byte, raw: time });
     byte += word & 0x7fffffff;
     time += buf.readUInt32BE(at + 4);
-    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값이 넘침";
+    if (!Number.isSafeInteger(byte) || !Number.isSafeInteger(time)) return "sidx 값 오버플로";
   }
-  points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 조각의 끝(검사에만 쓴다)
+  points.push({ ms: (time / timescale) * 1000, byte, raw: time }); // 마지막 세그먼트의 끝(검사에만 쓴다)
   return points;
 }
 
@@ -191,7 +191,7 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
     const box = boxAt(buf, at);
     if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none("상자가 깨짐");
     if (at === 0 && box.type !== "ftyp") return none("ftyp 로 시작하지 않음");
-    if (box.type === "moof" || box.type === "mdat") return none("sidx 가 조각 앞에 없음");
+    if (box.type === "moof" || box.type === "mdat") return none("sidx 가 세그먼트 앞에 없음");
     if (box.end > buf.length) return need(more(buf, box.end));
     if (box.type === "moov") moovEnd = box.end;
     if (box.type === "sidx") {
@@ -208,22 +208,22 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
 
 // ── 함께 ──
 
-/** 시각 · 바이트가 늘어나기만 하고 모두 [헤더 끝, 파일 끝) 안인가 */
+/** 시각, 바이트가 늘어나기만 하고 모두 [헤더 끝, 파일 끝) 안인가 */
 function checked(index: ContainerIndex, totalBytes: number): Read {
   const { points, headerEnd } = index;
   if (points.length === 0) return none("색인 항목이 없음");
   for (const [i, p] of points.entries()) {
     if (p.byte < headerEnd || p.byte >= totalBytes) return none(`색인이 가리키는 자리가 파일 밖(${p.byte})`);
-    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none("색인의 시각 · 바이트가 늘어나지 않음");
+    if (i > 0 && (p.ms <= points[i - 1].ms || p.byte <= points[i - 1].byte)) return none("색인의 시각이나 바이트가 늘어나지 않음");
   }
   return { ok: true, index };
 }
 
-/** 파일 앞부분(head)의 색인. totalBytes 는 파일 전체 크기 */
+/** 파일 앞부분(head)의 인덱스. totalBytes 는 파일 전체 크기 */
 function readIndex(head: Buffer, totalBytes: number): Read {
   if (head.length >= 4 && head.readUInt32BE(0) === ID.EBML) return readWebm(head, totalBytes);
   if (head.length >= 8 && head.toString("latin1", 4, 8) === "ftyp") return readMp4(head, totalBytes);
-  return none("webm · mp4 가 아님");
+  return none("webm이나 mp4가 아님");
 }
 
 /** 헤더로 넣을 바이트. webm 은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
@@ -263,7 +263,7 @@ function startPoint(index: ContainerIndex, { targetMs, durationMs, chunkBytes }:
   return { byte: point.byte, startedAtMs: Math.round(point.ms), expectStart: startCheck(index.kind, point) };
 }
 
-/** 헤더를 받으러 갈 만한가(받기 전에). 목표 바이트를 평균으로 어림해 첫 청크 둘 안이면 처음부터 받아도 차이가 없다 */
+/** 헤더를 받으러 갈 만한가(받기 전에). 목표 바이트를 평균 비트레이트로 추산해 첫 청크 둘 안이면 처음부터 받아도 차이가 없다 */
 function worthIndexing({ startMs, durationMs, totalBytes, chunkBytes }: { startMs: number; durationMs: number; totalBytes: number; chunkBytes: number }): boolean {
   if (!(startMs > 0) || !(durationMs > 0) || !(totalBytes > 0)) return false;
   return (startMs / durationMs) * totalBytes >= 2 * chunkBytes;

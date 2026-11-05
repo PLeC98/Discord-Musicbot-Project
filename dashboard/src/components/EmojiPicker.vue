@@ -7,6 +7,9 @@
 
   분류와 순서는 디스코드 선택기 그대로다. 목록(1900여 개)은 처음 열 때 따로 불러온다
  대시보드를 열 때마다 들고 다닐 것이 아니다.
+
+  app-emoji: 봇의 앱 이모지 분류를 맨 앞에(디스코드가 앱 이모지를 그리는 칸: 음성 상태 문구, 공지, 장르). 고르면 토큰(<:이름:id>)을 넘긴다.
+  봇 상태 문구처럼 앱 이모지가 글자로 남는 칸은 켜지 않는다.
 -->
 <template>
   <div ref="root" class="relative inline-flex shrink-0">
@@ -15,45 +18,49 @@
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-190" @mousedown="open = false"></div>
 
-      <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low · 그림자 2단 · 모서리 16. 위에 검색창(둘레 4 · 아래 구분선), 셀은 아이콘 버튼 S(40 · 이모지 24) 8열 -->
-      <div v-if="open" :class="panel" :style="popoverStyle">
-        <div class="shrink-0 p-1 border-b border-outline-variant/50">
-          <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" />
-        </div>
-
-        <div :class="scroller">
-          <div v-if="loadError" class="px-4 py-6 flex flex-col items-center gap-3 text-center">
-            <p class="text-sm text-error whitespace-pre-line">{{ loadError }}</p>
-            <BaseButton variant="secondary" size="sm" @click="load">{{ text.shell.retry }}</BaseButton>
-          </div>
-          <p v-else-if="!groups.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
-
-          <!-- 찾는 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
-          <div v-else-if="results" class="p-1">
-            <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiNone }}</p>
-            <div v-else :class="grid">
-              <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
-            </div>
+      <!-- M3E 메뉴 면(선택 목록과 같다): 바탕 surface-container-low, 그림자 2단, 모서리 16px. 위에 검색창(둘레 4px, 아래 구분선), 셀은 아이콘 버튼 S(40px, 이모지 24px) 8열 -->
+      <Transition name="menu">
+        <div v-if="open" :class="panel" :style="popoverStyle">
+          <div class="shrink-0 p-1 border-b border-outline-variant/50">
+            <SearchInput ref="searchBox" v-model="query" :placeholder="T.emojiSearch" :input-class="[SEARCH_FIELD, 'w-full']" />
           </div>
 
-          <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
-               그림은 어차피 lazy 라 화면 밖은 불러오지도 않는다 -->
-          <section v-for="group in groups" v-else :key="group.name">
-            <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠 · 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
-            <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
-              <Icon name="expand_more" :size="18" class="transition-transform duration-150" :class="collapsed[group.name] && '-rotate-90'" />
-              <span class="truncate">{{ group.name }}</span>
-              <span class="ml-auto nums font-normal">{{ group.emoji.length }}</span>
-            </button>
-
-            <div v-if="!collapsed[group.name]" :class="[grid, 'px-1 pb-1']">
-              <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><Twemoji :char="e.char" :size="24" /></button>
+          <div :class="scroller">
+            <div v-if="loadError" class="px-4 py-6 flex flex-col items-center gap-3 text-center">
+              <p class="text-sm text-error whitespace-pre-line">{{ loadError }}</p>
+              <BaseButton variant="secondary" size="sm" @click="load">{{ text.shell.retry }}</BaseButton>
             </div>
-          </section>
-        </div>
+            <p v-else-if="!shown.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiLoading }}</p>
 
-        <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer hover:text-error" @click="clear">{{ T.emojiClear }}</button>
-      </div>
+            <!-- 검색 중에는 분류를 접어 두었는지와 무관하게 전부 뒤진다 -->
+            <div v-else-if="results" class="p-1">
+              <p v-if="!results.length" class="py-6 text-center text-sm text-on-surface-variant">{{ T.emojiNone }}</p>
+              <div v-else :class="grid">
+                <button v-for="e in results" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><EmojiGlyph :char="e.char" :size="24" /></button>
+              </div>
+            </div>
+
+            <!-- content-visibility 로 화면 밖 분류를 건너뛰지 않는다: 짐작한 높이와 실제 높이의 차이가 소수점으로 남아 붙어 있는 분류 헤더 위에 틈이 비친다.
+               칸은 이모지 글꼴 글자 하나라(요청이 없다) 다 그려도 부담이 작다 -->
+            <section v-for="group in shown" v-else :key="group.name">
+              <!-- 분류 헤더: 목록의 그룹 이름 모양에 접기 꺾쇠, 개수. 목록 영역과 같은 바탕이라 붙어 있는 동안 밑으로 지나가는 셀이 비치지 않는다 -->
+              <button type="button" :class="header" :aria-expanded="!collapsed[group.name]" @click="toggleGroup(group.name)">
+                <Icon name="expand_more" :size="18" class="transition-transform spring-fast" :class="collapsed[group.name] && '-rotate-90'" />
+                <span class="truncate">{{ group.name }}</span>
+                <span class="ml-auto nums font-normal">{{ group.emoji.length }}</span>
+              </button>
+
+              <CollapseTransition>
+                <div v-if="!collapsed[group.name]" :class="[grid, 'px-1 pb-1']">
+                  <button v-for="e in group.emoji" :key="e.char" type="button" :class="cell" v-tooltip="e.label" @click="choose(e.char)"><EmojiGlyph :char="e.char" :size="24" /></button>
+                </div>
+              </CollapseTransition>
+            </section>
+          </div>
+
+          <button v-if="clearable" type="button" class="state-layer shrink-0 h-10 w-full border-t border-outline-variant/50 text-sm text-on-surface-variant cursor-pointer hover:text-error" @click="clear">{{ T.emojiClear }}</button>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -62,13 +69,16 @@
 import { koMatch } from "../../../src/rules/ko-search.ts";
 import { ref, shallowRef, computed, watch, nextTick, onBeforeUnmount, useTemplateRef, type CSSProperties } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import SearchInput from "./SearchInput.vue";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { rem } from "../utils/rem.ts";
-import Twemoji from "./TwemojiImage.vue";
+import EmojiGlyph from "./EmojiGlyph.vue";
 import { ONE_EMOJI } from "../../../src/config/schema/genres.ts";
+import { tokenOf } from "../../../src/rules/app-emoji-token.ts";
+import { appEmojis, loadAppEmojis } from "../composables/app-emojis.ts";
 import { readStored, writeStored } from "../utils/storage.ts";
 import type { Emoji, EmojiGroup } from "../emoji-list.ts";
 import { text } from "../text/index.ts";
@@ -78,8 +88,10 @@ const props = withDefaults(
   defineProps<{
     /** 값을 비울 수 있는 곳(장르 아이콘)에서만 "비우기"를 보여준다 */
     clearable?: boolean;
+    /** 앱 이모지 분류를 맨 앞에(머리 주석) */
+    appEmoji?: boolean;
   }>(),
-  { clearable: false },
+  { clearable: false, appEmoji: false },
 );
 const emit = defineEmits<{ pick: [char: string]; clear: [] }>();
 
@@ -128,6 +140,13 @@ async function load() {
   collapsed.value = Object.fromEntries(module.EMOJI_GROUPS.map((group) => [group.name, names.has(group.name)]));
 }
 
+// 앱 이모지 분류(켤 때만): 고르면 토큰, 이름으로 찾는다. 아이콘도 넣는다
+const appGroup = computed<EmojiGroup | null>(() => (props.appEmoji && appEmojis.value.length ? { name: T.appEmojiGroup, emoji: appEmojis.value.map((one) => ({ char: tokenOf(one), label: `:${one.name}:`, search: one.name.toLowerCase() })) } : null));
+const shown = computed(() => (appGroup.value ? [appGroup.value, ...groups.value] : groups.value));
+watch(open, (now) => {
+  if (now && props.appEmoji) void loadAppEmojis();
+});
+
 const results = computed(() => {
   const typed = query.value.trim();
   if (!typed) return null;
@@ -137,7 +156,7 @@ const results = computed(() => {
   if (ONE_EMOJI.test(typed)) found.push({ char: typed, label: typed });
 
   const needle = typed.toLowerCase();
-  for (const group of groups.value) {
+  for (const group of shown.value) {
     for (const e of group.emoji) {
       if (found.length >= 120) return found; // 다 그려 봐야 눈에 안 들어온다
       if (e.char !== typed && koMatch(e.search, needle)) found.push(e);
@@ -156,7 +175,7 @@ function clear() {
   open.value = false;
 }
 
-// 판을 표시할 위치. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 셀 8개(40) + 둘레 4 · 4, 높이는 검색창(48 + 선) + 목록(18.75rem) + 비우기(40 + 선)
+// 팝오버를 표시할 위치. 여는 버튼 아래가 화면을 넘치면 위로 올린다. 폭은 셀 8개(40px) + 둘레 4px, 4px, 높이는 검색창(48px + 선) + 목록(18.75rem) + 비우기(40px + 선)
 const WIDTH_REM = 20.5;
 function place() {
   const rect = root.value?.getBoundingClientRect();
@@ -167,10 +186,10 @@ function place() {
   const top = below + height > window.innerHeight ? Math.max(8, rect.top - height - 4) : below;
   // 정수로 떨어뜨린다. 소수점 좌표에 놓이면 안에서 붙어 있는 분류 헤더 위에 1픽셀 틈이 비친다
   const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8);
-  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px` };
+  popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px`, transformOrigin: top === below ? "top right" : "bottom right" };
 }
 
-// 판은 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 버튼을 따라간다.
+// 팝오버는 화면 기준으로 놓이므로, 페이지가 움직이면 다시 놓아야 버튼을 따라간다.
 // capture로 잡아야 안쪽 스크롤 상자가 움직일 때도 걸린다.
 const listen = (add: boolean) => {
   if (add) {

@@ -14,7 +14,7 @@ const conn = () => stateDb.get();
 // 서버마다 읽어 둔 위치. 없으면 null 을 담는다
 const cache = new Map<string, PanelRecord | null>();
 
-// 테스트 시임. 읽어 둔 것을 버린다
+// 테스트: 읽어 둔 것을 버린다
 function _reset() {
   cache.clear();
 }
@@ -29,7 +29,7 @@ async function getPanel(guildId: string): Promise<PanelRecord | null> {
     return record;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.error("현재 재생 패널 위치 읽기 실패(옛 패널을 못 치운다):", error);
+    log.error("현재 재생 패널 위치 읽기 실패(이전 패널 정리 생략):", error);
     return null;
   }
 }

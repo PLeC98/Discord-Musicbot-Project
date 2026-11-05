@@ -1,4 +1,4 @@
-// 대기열 상한. 곡 담기(usecases/add-tracks 의 queueTracks)가 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
+// src/usecases/add-tracks.ts: 대기열 상한. 곡 추가(queueTracks)가 넘치는 곡을 빼고 몇 곡을 뺐는지 알린다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -37,6 +37,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
     async play() {
       return { ok: true };
     },
+    takeOverSaved: () => 0,
   });
   trackState.init(player);
   if (playing) trackState.setCurrent(player, t("now"));
@@ -58,8 +59,8 @@ test("넘치는 곡은 빼고, 몇 곡을 뺐는지 결과와 안내에 싣는�
   assert.equal(result.dropped, 5);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(titles(player.queue.slice(25)), ["new0", "new1", "new2", "new3", "new4"], "목록의 앞부분부터 들어간다");
-  assert.match(notices[0], /^### ⚠️ 일부 곡을 추가했어요!\n.*의 5곡을 대기열에 넣었어요/);
-  assert.match(notices[0], /5곡은 넣지 못했어요\. \(최대 30곡\)/);
+  assert.match(notices[0], /^### ⚠️ 일부 곡을 추가했어요!\n.*의 5곡을 대기열 26번째부터 넣었어요/);
+  assert.match(notices[0], /5개의 곡을 넣지 못했어요\. \(최대 30곡\)/);
 });
 
 test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", async () => {
@@ -90,7 +91,7 @@ test("이어 넣기: 앵커 곡 뒤에 들어가고, 넘치면 역시 뒤쪽이 
   assert.deepEqual(titles(player.queue.slice(0, 5)), ["p0", "p1", "new0", "new1", "old0"]);
 });
 
-test("현재곡은 세지 않는다 — 비어 있을 때 넣으면 첫 곡은 재생되고 대기열이 상한만큼 찬다", async () => {
+test("현재곡은 세지 않는다. 비어 있을 때 넣으면 첫 곡은 재생되고 대기열이 상한만큼 찬다", async () => {
   const { player, add } = setup({ max: 25, playing: false });
   const result = await add(many("new", 26));
 

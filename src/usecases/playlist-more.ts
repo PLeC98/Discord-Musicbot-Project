@@ -1,5 +1,5 @@
 // 재생목록 "더 넣기". 이어 불러올 위치(상태), 선택지, 메시지 수명. 화면은 ui/playlist-more-menu 가 그린다.
-// 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 산다. 만료는 누를 때 메시지 나이로 다시 본다.
+// 상태는 메뉴의 custom_id에만 둔다(메모리 없음). 재시작해도 메뉴가 그대로 동작한다. 만료는 누를 때 메시지 나이로 다시 본다.
 
 import * as links from "../rules/links.ts";
 import { SET_BATCH as SOUNDCLOUD_BATCH } from "../sources/soundcloud/index.ts";
@@ -12,7 +12,7 @@ import * as labels from "../ui/text/ko/labels.ts";
 import * as moreText from "../ui/text/ko/more.ts";
 import { markTransient } from "../ui/transient-messages.ts";
 import { canSend } from "../ui/channels.ts";
-import { LIFETIME, unlessGone } from "../ui/delivery.ts";
+import { LIFETIME, expireMessage, stopExpiry } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -31,7 +31,7 @@ const TRACK_ID = /^[A-Za-z0-9_-]{11,22}$/;
 const NUMERIC_ID = /^\d{1,20}$/;
 
 // 이어 불러올 수 있는 출처(rules/more-choices 의 Kind). 믹스(RD…)는 부를 때마다 결과가 달라 빠진다. 인기곡은 10곡뿐이라 이어 불러올 게 없다.
-// anchor: 곡 id 모양 · perClick: 한 번에 넣는 곡 수 상한 · lookback: 앵커를 찾으려고 앞에서부터 다시 불러오는 곡 수 · reads: 한 번에 부르는 구간 수 상한
+// anchor: 곡 id 모양, perClick: 한 번에 넣는 곡 수 상한, lookback: 앵커를 찾으려고 앞에서부터 다시 불러오는 곡 수, reads: 한 번에 부르는 구간 수 상한
 type KindSpec = { id: RegExp; url: (id: string) => string; collection: string; anchor: RegExp; perClick: number; lookback: number; reads: number };
 const KINDS: Record<Kind, KindSpec> = {
   ytp: { id: /^[A-Za-z0-9_-]{10,64}$/, url: (id) => `https://www.youtube.com/playlist?list=${id}`, collection: "playlist", anchor: TRACK_ID, perClick: Infinity, lookback: LOOKBACK, reads: Infinity },
@@ -46,7 +46,7 @@ const KINDS: Record<Kind, KindSpec> = {
 };
 const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Object.hasOwn(KINDS, kind);
 
-/** 검사 전의 위치(custom_id · 요청 본문에서 온 것) */
+/** 검사 전의 위치(custom_id, 요청 본문에서 온 것) */
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 표시할 때 읽는 필드 */
 type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
@@ -54,19 +54,18 @@ const USER_ID = /^\d{17,20}$/;
 
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
-  const soundcloud = links.parseSoundCloudURL(query);
-  if (soundcloud === "set" || soundcloud === "short") {
+  const soundcloud = links.parseSoundCloud(query);
+  if (soundcloud?.kind === "set" || soundcloud?.kind === "short") {
     if (collectionId && NUMERIC_ID.test(collectionId)) return { kind: "scs", listId: collectionId };
-    const mix = /^\/discover\/sets\/([\w:-]+)\/?$/.exec(new URL(query).pathname);
-    return mix ? { kind: "scd", listId: mix[1].replaceAll(":", "~") } : null;
+    return soundcloud.mix ? { kind: "scd", listId: soundcloud.mix.replaceAll(":", "~") } : null;
   }
   if (links.isYouTubePlaylist(query)) {
     const listId = links.extractPlaylistId(query);
     return listId && !listId.startsWith("RD") ? { kind: "ytp", listId } : null;
   }
-  if (links.isSpotifyURL(query)) {
-    const { type, id } = links.parseSpotifyURL(query);
-    if (!id) return null;
+  const spotify = links.parseSpotify(query);
+  if (spotify) {
+    const { type, id } = spotify;
     if (type === "playlist") return { kind: "spp", listId: id };
     if (type === "album") return { kind: "spa", listId: id };
   }
@@ -82,10 +81,10 @@ function validState(s: RawState | null | undefined): MoreState | null {
   return { kind: s.kind, listId: String(s.listId), offset, anchorId: String(s.anchorId), insertFirst: s.insertFirst === true, requesterId: s.requesterId == null ? null : String(s.requesterId) };
 }
 
-// 방금 넣은 목록을 이어 불러올 수 있으면 그 상태. 총 곡 수를 모르거나(믹스) 끝까지 넣었으면 null.
 // 곡 찾기 결과에서 읽는 필드
 type Found = { isPlaylist?: boolean; collectionId?: string | null; total?: number | null; nextOffset?: number | null; tracks?: Array<{ id?: string }> };
 
+// 방금 넣은 목록을 이어 불러올 수 있으면 그 상태. 총 곡 수를 모르거나(믹스) 끝까지 넣었으면 null.
 function continuation(query: string | null | undefined, trackData: Found | null | undefined, { insertFirst = false } = {}): More | null {
   if (!query || !trackData?.isPlaylist || trackData.total == null || trackData.nextOffset == null) return null;
   const source = sourceOf(query, trackData.collectionId);
@@ -105,18 +104,18 @@ function decodeState(customId: unknown) {
   return validState({ kind, listId, offset, anchorId, insertFirst: place === "f", requesterId: requesterId ?? null });
 }
 
-// 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더
+// 대기열에 더 넣을 수 있는 곡 수. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더
 function roomFor(player: Pick<Player, "queue" | "currentTrack">) {
   return roomWithin(player, config.bot.maxQueueSize);
 }
 
 /** 이 링크의 한 번에 넣는 곡 수. 서버 설정(batch)을 출처의 상한으로 자른다(사운드클라우드 세트는 10곡) */
 function batchFor(query: string | null | undefined, batch: number) {
-  const soundcloud = query ? links.parseSoundCloudURL(query) : null;
+  const soundcloud = query ? links.parseSoundCloud(query)?.kind : null;
   return soundcloud === "set" || soundcloud === "short" ? Math.min(batch, SOUNDCLOUD_BATCH) : batch;
 }
 
-// 누른 사람·메시지 나이 확인. 문제가 있으면 그 코드
+// 누른 사람, 메시지 나이 확인. 문제가 있으면 그 코드
 function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }: { userId: string; lastTouched: number; now?: number }): Extract<Code, "more-not-requester" | "more-expired"> | null {
   if (state.requesterId && state.requesterId !== userId) return "more-not-requester";
   if (now - lastTouched > LIFETIME_MS) return "more-expired";
@@ -162,22 +161,11 @@ function countModal(state: MoreState, cap: number, batch = config.bot.playlistAd
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
 
-const expiries = new Map<string, NodeJS.Timeout>(); // messageId → timer
-
-function clearExpiry(messageId: string) {
-  clearTimeout(expiries.get(messageId));
-  expiries.delete(messageId);
-}
+const clearExpiry = stopExpiry;
 
 function expireLater(messageId: string, remove: () => unknown, ms: number = LIFETIME_MS) {
-  clearExpiry(messageId);
   markTransient(messageId, ms); // 조작하는 동안 현재 재생 메시지가 이 밑으로 내려오지 않게
-  const timer = setTimeout(() => {
-    expiries.delete(messageId);
-    Promise.resolve().then(remove).catch(unlessGone(log, "더 넣기 메뉴 삭제"));
-  }, ms);
-  timer.unref?.();
-  expiries.set(messageId, timer);
+  expireMessage(messageId, remove, ms);
 }
 
 // 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요" 에 매달린다).

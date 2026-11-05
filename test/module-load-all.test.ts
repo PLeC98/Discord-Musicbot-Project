@@ -1,7 +1,7 @@
-// 봇 쪽 모듈을 전부 불러 본다.
+// src 전체: 봇 쪽 모듈을 전부 불러 본다.
 //
-// 옮기기만 하는 파일은 다른 테스트가 덜 덮어서, 경로가 깨져도 아무도 모를 수 있다. 폴더로 옮길 때 · ESM 으로 바꿀 때 ·
-// .ts 로 바꿀 때 불러오기 실패를 여기서 먼저 잡는다. 진입 파일(src/index.ts)은 불러오는 순간 봇이 디스코드에 로그인하므로 꼭 뺀다.
+// 옮기기만 하는 파일은 다른 테스트가 덜 덮어서, 경로가 깨져도 아무도 모를 수 있다. 파일을 옮길 때의
+// 불러오기 실패를 여기서 먼저 잡는다. 진입 파일(src/index.ts)은 불러오는 순간 봇이 디스코드에 로그인하므로 꼭 뺀다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -25,7 +25,7 @@ function walk(dir: string, out: string[] = []) {
   return out;
 }
 
-// 진입 파일. 불러오면 실제 봇이 켜진다(토큰으로 로그인 · 대시보드 · POToken 서버)
+// 진입 파일. 불러오면 실제 봇이 켜진다(토큰으로 로그인, 대시보드, POToken 서버)
 const ENTRY = path.join(ROOT, "src", "index.ts");
 // 진입 파일의 첫 줄. 불러오면 .env 가 없을 때 저장소 루트에 만들고 .env 를 읽는다(테스트는 둘 다 하면 안 된다)
 const BOOTSTRAP = path.join(ROOT, "src", "app", "env-bootstrap.ts");
@@ -48,7 +48,7 @@ for (const file of files) {
   });
 }
 
-// 목록 파일(index.ts)은 명령 · 이벤트가 아니다
+// 목록 파일(index.ts)은 명령, 이벤트가 아니다
 const modulesOf = (dir: string) => walk(path.join(ROOT, dir)).filter((f) => path.basename(f) !== "index.ts");
 
 test("명령은 data 와 execute 를, 이벤트는 name 과 execute 를 가진다", async () => {

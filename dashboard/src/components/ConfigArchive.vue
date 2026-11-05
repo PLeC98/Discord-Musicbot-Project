@@ -1,7 +1,7 @@
 <template>
-  <!-- 설정 내보내기 · 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만 · 파비콘 · 로그인 배경 · 오디오 캐시) · 백업 불러오기.
-       불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지 · 문제 · 바깥으로 나가는 값의 변화를 보고 선택한 것만 불러온다. 오디오 캐시는 합친다(나눔을 행마다).
-       불러온 뒤 쿠키 출처가 바뀌었으면 알리고, 다시 시작해야 먹는 값이 바뀌었으면 다시 시작 창을 연다. 내보내기 · 불러오기는 최근 로그인만 -->
+  <!-- 설정 내보내기, 불러오기. 카드 둘: 백업 내보내기(안에 봇 설정만, 파비콘, 로그인 배경, 오디오 캐시), 백업 불러오기.
+       불러오기는 파일을 한 번 올려(봇이 받은 표를 돌려준다) 항목마다 지금과 같은지, 문제, 바깥으로 나가는 값의 변화를 보고 선택한 것만 불러온다. 오디오 캐시는 합친다(나눔을 행마다).
+       불러온 뒤 쿠키 출처가 바뀌었으면 알리고, 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 내보내기, 불러오기는 최근 로그인만 -->
   <div class="flex flex-col gap-(--gap-in)">
     <BaseCard icon="download" :title="T.exportTitle">
       <p class="mb-3 text-sm text-on-surface-variant">
@@ -26,47 +26,43 @@
       <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
     </BaseCard>
 
-    <Teleport to="body">
-      <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-        <div v-if="preview" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" @click.self="close">
-          <div role="dialog" aria-modal="true" aria-labelledby="archive-title" class="w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-surface-container-high p-6 animate-[art-in_350ms_var(--ease-spring-fast)]">
-            <h3 id="archive-title" class="text-xl font-round font-semibold mb-1">{{ T.dialogTitle }}</h3>
-            <p v-if="preview.exportedAt" class="text-label text-on-surface-variant mb-3">{{ T.madeAt(T.kinds[preview.kind], formatDateTime(Date.parse(preview.exportedAt)), preview.botVersion) }}</p>
-            <p class="text-sm text-on-surface-variant mb-1">{{ preview.kind === "audio-cache" ? T.dialogNoteMerge : T.dialogNote }}</p>
-            <p v-if="preview.room !== undefined" class="text-label text-on-surface-variant mb-4">{{ T.room(formatBytes(preview.room)) }}</p>
-            <ul class="flex flex-col gap-1 mb-6 mt-3">
-              <li v-for="row in preview.rows" :key="row.item">
-                <label class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row)" :class="usable(row) ? 'cursor-pointer state-layer' : 'opacity-60'">
-                  <BaseSwitch v-model="chosen[row.item]" :disabled="!usable(row) || applying" :label="T.items[row.item]" />
-                  <span class="flex-1 min-w-0">
-                    <span class="block text-body font-medium">{{ T.items[row.item] }}</span>
-                    <span class="block text-label" :class="row.problems.length ? 'text-error' : 'text-on-surface-variant'">{{ stateOf(row) }}</span>
-                  </span>
-                </label>
-                <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
-                  <li v-for="line in row.problems" :key="line">{{ line }}</li>
-                </ul>
-                <ul v-if="(row.warnings.length || row.breakdown?.overLimit) && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
-                  <li v-for="line in row.warnings" :key="line">{{ line }}</li>
-                  <li v-if="row.breakdown?.overLimit">{{ T.breakdown.overLimit(row.breakdown.overLimit) }}</li>
-                </ul>
-              </li>
+    <BaseDialog :open="preview != null" width="md" scroll aria-labelledby="archive-title" @close="close"
+      ><template v-if="preview">
+        <h3 id="archive-title" class="text-xl font-round font-semibold mb-1">{{ T.dialogTitle }}</h3>
+        <p v-if="preview.exportedAt" class="text-label text-on-surface-variant mb-3">{{ T.madeAt(T.kinds[preview.kind], formatDateTime(Date.parse(preview.exportedAt)), preview.botVersion) }}</p>
+        <p class="text-sm text-on-surface-variant mb-1">{{ preview.kind === "audio-cache" ? T.dialogNoteMerge : T.dialogNote }}</p>
+        <p v-if="preview.room !== undefined" class="text-label text-on-surface-variant mb-4">{{ T.room(formatBytes(preview.room)) }}</p>
+        <ul class="flex flex-col gap-1 mb-6 mt-3">
+          <li v-for="row in preview.rows" :key="row.item">
+            <label class="flex items-center gap-3 min-h-12 px-2 rounded-(--r-row)" :class="usable(row) ? 'cursor-pointer state-layer' : 'opacity-60'">
+              <BaseSwitch v-model="chosen[row.item]" :disabled="!usable(row) || applying" :label="T.items[row.item]" />
+              <span class="flex-1 min-w-0">
+                <span class="block text-body font-medium">{{ T.items[row.item] }}</span>
+                <span class="block text-label" :class="row.problems.length ? 'text-error' : 'text-on-surface-variant'">{{ stateOf(row) }}</span>
+              </span>
+            </label>
+            <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
+              <li v-for="line in row.problems" :key="line">{{ line }}</li>
             </ul>
-            <div class="flex gap-2 justify-end">
-              <BaseButton variant="ghost" :disabled="applying" @click="close">{{ T.cancel }}</BaseButton>
-              <BaseButton :disabled="!picks.length || applying" @click="apply">{{ T.apply(picks.length) }}</BaseButton>
-            </div>
-          </div>
+            <ul v-if="(row.warnings.length || row.breakdown?.overLimit) && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
+              <li v-for="line in row.warnings" :key="line">{{ line }}</li>
+              <li v-if="row.breakdown?.overLimit">{{ T.breakdown.overLimit(row.breakdown.overLimit) }}</li>
+            </ul>
+          </li>
+        </ul>
+        <div class="flex gap-2 justify-end">
+          <BaseButton variant="ghost" :disabled="applying" @click="close">{{ T.cancel }}</BaseButton>
+          <BaseButton :disabled="!picks.length || applying" @click="apply">{{ T.apply(picks.length) }}</BaseButton>
         </div>
-      </Transition>
-    </Teleport>
+      </template>
+    </BaseDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
+import BaseDialog from "./BaseDialog.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
@@ -87,13 +83,9 @@ const busy = ref(false);
 const applying = ref(false);
 const noFiles = ref(false);
 const preview = ref<ArchivePreview | null>(null);
-useCloseLayer(
-  computed(() => preview.value != null),
-  () => close(),
-);
 const chosen = reactive(Object.fromEntries(ARCHIVE_ITEMS.map((item) => [item, false])) as Record<ArchiveItem, boolean>);
 
-// 불러올 수 있는 행: 파일에 있고 검사를 지났고 지금과 다르다(합치는 행은 새로 불러올 것 · 바뀔 것이 있을 때)
+// 불러올 수 있는 행: 파일에 있고 검사를 지났고 지금과 다르다(합치는 행은 새로 불러올 것, 바뀔 것이 있을 때)
 const usable = (row: ArchiveRow) => row.inFile && !row.problems.length && (row.breakdown ? row.breakdown.added + row.breakdown.changed > 0 : !row.same);
 const picks = computed(() => ARCHIVE_ITEMS.filter((item) => chosen[item]));
 
@@ -162,7 +154,7 @@ async function apply() {
     if (data.cookiesSource) notify({ ...T.cookiesChanged(data.cookiesSource), severity: "warning" });
     preview.value = null;
     applying.value = false;
-    // 다시 시작해야 먹는 값이 바뀌었으면 묻는다(지금 다시 시작 · 나중에). 아니면 열려 있던 편집기들이 옛 값을 들고 있어 새로 읽는다
+    // 다시 시작해야 적용되는 값이 바뀌었으면 묻는다(지금 다시 시작, 나중에). 아니면 열려 있던 편집기들이 옛 값을 들고 있어 새로 읽는다
     if (data.restart) askRestart();
     else if (!merging) setTimeout(() => location.reload(), 800);
   } catch (err) {

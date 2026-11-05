@@ -1,3 +1,5 @@
+// src/dashboard/middleware/csrf.ts: 로그인한 세션에만 CSRF 토큰을 발급하고, 안전하지 않은 메서드는 그 토큰이 있어야 지나간다
+
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -6,7 +8,7 @@ import { fake, fakeWith } from "../helpers/fake.ts";
 
 type Body = { csrfToken?: string; code?: string };
 
-// 응답은 보낸 상태 · 헤더 · 본문을 모은다. 본문은 테스트만 읽는 필드라 이름을 달리한다
+// 응답은 보낸 상태, 헤더, 본문을 모은다. 본문은 테스트만 읽는 필드라 이름을 달리한다
 function response() {
   return fakeWith<Response>()({
     statusCode: 200,

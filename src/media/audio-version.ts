@@ -1,10 +1,10 @@
 // 다운로드한 음원의 버전(audio_version). 같은 주소에서 음원이 바뀐 것을 나중에 알아볼 값이다.
-// 다운로드할 때 같은 응답에서 공짜로 나오고, 캐시의 다시 확인(media/source-recheck)이 원본의 지금 값과 견준다.
+// 다운로드할 때 같은 응답에서 공짜로 나오고, 캐시의 다시 확인(media/source-recheck)이 원본의 지금 값과 비교한다.
 //
-//   유튜브        다운로드한 포맷 주소의 lmt(그 포맷 인코딩의 시각). 편집(자르기 · 오디오 바꾸기)하면 모든 포맷이 바뀌고, 유튜브가 스스로 다시 인코딩해도 바뀐다.
+//   유튜브        다운로드한 포맷 주소의 lmt(그 포맷 인코딩의 시각). 편집(자르기, 오디오 바꾸기)하면 모든 포맷이 바뀌고, 유튜브가 스스로 다시 인코딩해도 바뀐다.
 //                 포맷마다 값이 달라 원본의 지금 포맷 중 하나라도 같으면 같은 원본이다
 //   사운드클라우드 음원 주소 경로의 첫 세그먼트(올린 음원 파일의 id, 파형 주소의 값과 같다). 없으면 modified_timestamp
-//   직접 링크     응답 헤더 ETag · Last-Modified · 전체 크기 중 있는 것을 이어 붙인 한 줄(구간 응답이면 크기는 Content-Range 의 전체)
+//   직접 링크     응답 헤더 ETag, Last-Modified, 전체 크기 중 있는 것을 이어 붙인 한 줄(구간 응답이면 크기는 Content-Range 의 전체)
 // 모르면 null.
 
 function parseUrl(value: unknown): URL | null {
@@ -75,14 +75,14 @@ function fromHeaders(headers: ResponseHeaders | null | undefined): string | null
   return parts.length ? parts.map(([k, v]) => `${String(k)}=${String(v)}`).join(";") : null;
 }
 
-// 직접 링크 버전 한 줄을 칸으로. 값에 ; 가 없다(ETag 는 따옴표 안의 글자, 날짜는 , 와 : 뿐)
+// 직접 링크 버전 한 줄을 필드로. 값에 ; 가 없다(ETag 는 따옴표 안의 글자, 날짜는 , 와 : 뿐)
 function partsOf(version: string): Record<string, string> {
   return Object.fromEntries(version.split(";").flatMap((part) => (part.includes("=") ? [[part.slice(0, part.indexOf("=")), part.slice(part.indexOf("=") + 1)]] : [])));
 }
 
 /**
  * 직접 링크의 두 버전이 같은 파일인가. 둘 다 가진 값 중 가장 믿을 만한 것 하나로 가린다: ETag > Last-Modified > 전체 크기.
- * 견줄 값이 없으면 null(모름). 크기만 같은 것은 같은 크기로 다시 인코딩한 파일을 놓친다
+ * 비교할 값이 없으면 null(모름). 크기만 같은 것은 같은 크기로 다시 인코딩한 파일을 놓친다
  */
 function sameDirect(a: string, b: string): boolean | null {
   const x = partsOf(a);

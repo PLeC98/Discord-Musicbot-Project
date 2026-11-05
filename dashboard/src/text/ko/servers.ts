@@ -1,4 +1,4 @@
-// 서버 목록 · 서버 아이콘
+// 서버 목록, 서버 아이콘
 
 import { formatNumber } from "../../utils/locale.ts";
 
@@ -13,9 +13,11 @@ const count = (n: number) => `${n}곳`;
 const empty = { title: "함께 있는 서버가 없어요", body: "봇을 서버에 초대하거나, 봇이 있는 서버에 참여하세요." };
 const members = (n: number) => `멤버 ${formatNumber(n)}명`;
 const listening = "듣는 중";
+/** 디스코드에서 서버 목록을 받지 못해 이미 확인한 서버만 보일 때 */
+const relogin = { body: "디스코드에서 서버 목록을 받지 못해 일부 서버가 안 보일 수 있어요. 다시 로그인하면 모두 보여요.", action: "다시 로그인" };
 const waitingInVoiceLong = "음성 채널에서 대기 중이에요";
 const resting = "봇이 쉬고 있어요";
 /** 인사(시각에 따라) */
 const greeting = (hour: number, name: string) => `${hour < 6 ? "늦은 밤이에요" : hour < 12 ? "좋은 아침이에요" : hour < 18 ? "좋은 오후예요" : "좋은 저녁이에요"}, ${name}님`;
 
-export { playing, paused, waitingInVoice, title, count, empty, members, listening, waitingInVoiceLong, resting, greeting };
+export { playing, paused, waitingInVoice, title, count, empty, members, listening, relogin, waitingInVoiceLong, resting, greeting };

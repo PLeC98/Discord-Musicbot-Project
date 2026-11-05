@@ -1,4 +1,4 @@
-// 외부 호출에 마감이 붙어 있는지 호출부 단위로 확인한다.
+// src 전체: 외부 호출에 마감이 붙어 있는지 호출부 단위로 확인한다.
 // 값 자체(10초 등)가 아니라 "마감 없는 호출이 새로 들어오는 것"을 막는 게 목적이다.
 
 import { test } from "node:test";
@@ -36,7 +36,7 @@ test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
   }
 });
 
-test("디스코드 REST(OAuth 콜백 · 초대 화면)의 모든 요청에 중단 신호가 붙어 있다", () => {
+test("디스코드 REST(OAuth 콜백, 초대 화면)의 모든 요청에 중단 신호가 붙어 있다", () => {
   const src = read("src/dashboard/discord-api.ts");
   const calls = callSites(src, "fetch");
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
@@ -48,4 +48,12 @@ test("앱 이모지 맞추기의 CDN 요청에 중단 신호가 붙어 있다", 
   const calls = callSites(src, "cdn.fetch");
   assert.ok(calls.length >= 1, "호출부를 찾지 못했다");
   for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);
+});
+
+test("유튜브 글자 검색의 요청(youtubei.js 에 넘기는 전송)에 중단 신호가 붙어 있다", () => {
+  const src = read("src/sources/youtube/text-search.ts");
+  const calls = callSites(src, "http.fetch");
+  assert.equal(calls.length, 1, "요청은 전송 하나로만 나간다");
+  assert.match(calls[0], /signal: AbortSignal\.timeout\(/);
+  assert.match(src, /Innertube\.create\(\{[^}]*fetch: send/, "youtubei.js 가 그 전송을 쓴다");
 });

@@ -1,5 +1,5 @@
 // 돌고 있는 봇의 버전: package.json 의 version 과, git 체크아웃이면 지금 커밋(짧은 해시).
-// git 을 실행하지 않고 .git 의 파일을 읽는다(git 이 없는 곳에서도 같다). 기동 때 한 번 읽는다
+// git 을 실행하지 않고 .git 의 파일을 읽는다(git 이 없는 곳에서도 같다). 기동 시 한 번 읽는다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -19,7 +19,7 @@ const read = (file: string) => {
   }
 };
 
-/** .git 폴더. 워크트리 · 서브모듈이면 .git 은 "gitdir: …" 를 적은 파일이다 */
+/** .git 폴더. 워크트리, 서브모듈이면 .git 은 "gitdir: …" 를 적은 파일이다 */
 function gitDir(): string | null {
   const dotGit = path.join(PROJECT.root, ".git");
   const pointer = /^gitdir: (.+)$/m.exec(read(dotGit) ?? "")?.[1];

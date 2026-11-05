@@ -25,12 +25,12 @@ export const useUserStore = defineStore("user", {
     viewAsLabel: (s) => (s.data?.viewAs ? TIER_TEXT[s.data.viewAs].label : null),
     displayName: (s) => s.data?.globalName || s.data?.username || "",
     avatarUrl: (s) => s.data?.avatarUrl ?? null,
-    // 대시보드에서 봇을 초대할 수 있나(사이드바 ⊕ · 초대 화면)
+    // 대시보드에서 봇을 초대할 수 있나(사이드바 ⊕, 초대 화면)
     canInvite: (s) => s.data?.canInvite ?? false,
   },
   actions: {
     // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 열지 않는다).
-    // 그 밖의 실패(응답 없음 · 서버 오류)는 모른다: fetched 를 두지 않아 다음에 다시 요청한다
+    // 그 밖의 실패(응답 없음, 서버 오류)는 모른다: fetched 를 두지 않아 다음에 다시 요청한다
     async fetchMe() {
       try {
         const res = await axios.get<Me>("/api/me", { quietSession: true });
@@ -62,7 +62,7 @@ export const useUserStore = defineStore("user", {
     // tier가 null이면 해제.
     async setViewAs(tier: Tier | null) {
       await axios.post<ViewAsReply>("/api/admin/view-as", { tier });
-      // 계층이 바뀌면 서버 목록·플레이어 상태·버튼 노출이 전부 달라진다. 부분 갱신으로 맞추기보다
+      // 계층이 바뀌면 서버 목록, 플레이어 상태, 버튼 노출이 전부 달라진다. 부분 갱신으로 맞추기보다
       // 통째로 다시 읽는다. 점검용 기능이라 어중간하게 남은 상태가 더 헷갈린다.
       window.location.reload();
     },

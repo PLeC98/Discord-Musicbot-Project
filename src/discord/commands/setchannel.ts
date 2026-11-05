@@ -12,38 +12,15 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
-const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 뒤 패널 옮기기 실패: ${messageOf(error)}`));
+const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "moderator" },
   data: new SlashCommandBuilder()
     .setName("setchannel")
-    .setDescription("Set a dedicated bot channel for music requests and announcements")
-    .setDescriptionLocalizations({
-      ko: "제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)",
-    })
-    .addChannelOption((option) =>
-      option
-        .setName("channel")
-        .setNameLocalizations({ ko: "채널" })
-        .setDescription("Channel to designate (defaults to current channel)")
-        .setDescriptionLocalizations({
-          ko: "설정할 채널 (비우면 명령어를 입력한 채널)",
-        })
-        .addChannelTypes(ChannelType.GuildText)
-        .setRequired(false),
-    )
-    .addStringOption((option) =>
-      option
-        .setName("action")
-        .setNameLocalizations({ ko: "동작" })
-        .setDescription("Set or remove the bot channel")
-        .setDescriptionLocalizations({
-          ko: "설정 또는 해제",
-        })
-        .addChoices({ name: "Set", name_localizations: { ko: "설정" }, value: "set" }, { name: "Remove", name_localizations: { ko: "해제" }, value: "remove" })
-        .setRequired(false),
-    )
+    .setDescription("제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)")
+    .addChannelOption((option) => option.setName("channel").setNameLocalizations({ ko: "채널" }).setDescription("설정할 채널 (비우면 명령어를 입력한 채널)").addChannelTypes(ChannelType.GuildText).setRequired(false))
+    .addStringOption((option) => option.setName("action").setNameLocalizations({ ko: "동작" }).setDescription("설정 또는 해제").addChoices({ name: "설정", value: "set" }, { name: "해제", value: "remove" }).setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction, bot) {

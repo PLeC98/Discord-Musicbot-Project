@@ -1,7 +1,6 @@
-// src/autoplayFilter — 자동재생 후보를 필터링하는 규칙.
+// src/autoplay/filter.ts: 자동재생 후보를 필터링하는 규칙.
 //
-// 문턱은 짐작이 아니라 후보 840개를 세어 정했다.
-// 그래서 여기 적는 것은 "왜 이 값인가"가 아니라 "이 성질이 깨지면 안 된다"이다.
+// 여기서는 값이 아니라 깨지면 안 되는 성질을 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +12,7 @@ const judge = (title: string, duration = 240, over?: filter.FilterConfig) => fil
 
 // ── 길이 ──────────────────────────────────────────────────────────────────
 
-test("길이를 모르면 떨어진다 — 대개 라이브다", () => {
+test("길이를 모르면 떨어진다. 대개 라이브다", () => {
   assert.equal(filter.judge({ title: "노래", duration: null }, limits()).reason, "길이 없음");
 });
 
@@ -23,11 +22,11 @@ test("길이 범위 밖은 떨어진다", () => {
   assert.equal(judge("노래", 240).ok, true);
 });
 
-// ── 차단어 ────────────────────────────────────────────────────────────────
+// ── 제외 키워드 ────────────────────────────────────────────────────────────────
 
 // 단순 포함으로 판정하면 "mix"가 "remix"(멀쩡하고 흔한 곡)를 죽인다.
 // 설정에 " mix"처럼 공백을 넣어 두는 것으로는 못 막는다. 대시보드가 앞뒤 공백을 뗀다.
-test("차단어는 단어 경계로 비교한다 — mix가 remix를 죽이지 않는다", () => {
+test("제외 키워드는 단어 경계로 비교한다. mix가 remix를 죽이지 않는다", () => {
   assert.equal(judge("BTS - MIC Drop (Steve Aoki Remix) Official MV").ok, true);
   assert.equal(judge("Clarity (BUNT. Remix)").ok, true);
 
@@ -35,17 +34,17 @@ test("차단어는 단어 경계로 비교한다 — mix가 remix를 죽이지 �
   assert.equal(judge("coffee & beats jazzy japan lofi mix").detail, "mix");
 });
 
-test("한국어·일본어 차단어는 단어 경계 없이 본다", () => {
-  // \b는 한글 앞뒤에서 뜻대로 동작하지 않는다 — 그때는 그냥 포함 여부를 본다
+test("한국어, 일본어 제외 키워드는 단어 경계 없이 본다", () => {
+  // \b는 한글, 가나 앞뒤에서 뜻대로 동작하지 않아 포함 여부만 본다
   assert.equal(judge("봄노래 메들리 모음").detail, "메들리");
   assert.equal(judge("2026 春アニメ メドレー", 240, { blockedKeywords: ["メドレー"] }).detail, "メドレー");
 });
 
-test("차단어는 대소문자를 구분하지 않는다", () => {
+test("제외 키워드는 대소문자를 구분하지 않는다", () => {
   assert.equal(judge("Best Playlist Ever").detail, "playlist");
 });
 
-test("차단어는 곡 표식이 있어도 면제하지 않는다 — 공식 믹스도 믹스다", () => {
+test("제외 키워드는 곡 표식이 있어도 면제하지 않는다. 공식 믹스도 믹스다", () => {
   assert.equal(judge("Official Summer Mix (Official Video)").detail, "mix");
 });
 
@@ -62,14 +61,39 @@ test("여러 곡을 이어 붙인 생김새는 떨어진다", () => {
 });
 
 test("곡 표식이 있으면 생김새 규칙을 면제한다", () => {
-  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official·MV·feat.이 있으면 거의 늘 한 곡)
+  // 공식 뮤직비디오 제목에는 이모지도 괄호도 흔하다(official, MV, feat.이 있으면 거의 늘 한 곡)
   assert.equal(judge("아이돌 '노래' 🌊🔥 (Official Music Video)").ok, true);
   assert.equal(judge("Artist - Song 🎉🎊 M/V").ok, true);
   assert.equal(judge("A, B, C, D - Song (feat. E)").ok, true);
   assert.equal(judge("A, B, C, D - Song (ft E)").ok, true);
 });
 
-test("fat · fet 같은 단어는 곡 표식이 아니다", () => {
+test("라이브 날짜 안의 연도, 숫자 사이의 쉼표는 세지 않는다(한 곡 영상)", () => {
+  assert.equal(judge('YOASOBI「UNDEAD」 from 『LIVE 2024 "超現実"』2024.11.10@東京ドーム').ok, true);
+  assert.equal(judge("Song at Arena (2019/3/17) 2019.8.28 Best Album Release").ok, true);
+  assert.equal(judge("Song live 11-10-2024 (2020 ver.)").ok, true);
+  assert.equal(judge("1, 2, 3, 4").ok, true);
+  // 연도 범위, 아티스트 나열은 그대로 생김새다
+  assert.equal(judge("Hits 2010 - 2020").reason, "믹스 생김새");
+  assert.equal(judge("Top 10 - Adele, Sia, Lorde, Dua Lipa").reason, "믹스 생김새");
+});
+
+test("공식, 가사 영상 표식: 公式, FullMV, 괄호 안의 lyrics, 가사", () => {
+  assert.equal(judge("【公式】曲名 🌸🌸").ok, true);
+  assert.equal(judge("【東方Vocal】曲名 🌸🌸【FullMV】").ok, true);
+  assert.equal(judge("🎢👏 신나는 노래 : Artist - Song [가사/번역/해석/Lyrics]").ok, true);
+  assert.equal(judge("Song - Artist [Romaji, Español, English, Lyrics]").ok, true);
+  assert.equal(judge("Artist - Song 🌊🔥 (Lyric Video)").ok, true);
+  // 글 속의 lyrics 는 모음 제목에도 나온다
+  assert.equal(judge("Smooth Jazz | Uplifting Lyrics to Heal (1 Hour)", 3600, { maxDurationSec: null }).reason, "믹스 생김새");
+});
+
+test("official 은 따로 쓰인 낱말일 때만 곡 표식이다(Official髭男dism 은 밴드 이름)", () => {
+  assert.equal(judge("Official髭男dism 노래 모음 🌸🌸").reason, "믹스 생김새");
+  assert.equal(judge("Official髭男dism - Pretender［Official Video］ 🌸🌸").ok, true);
+});
+
+test("fat, fet 같은 단어는 곡 표식이 아니다", () => {
   // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
   assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");
 });
@@ -85,6 +109,38 @@ test("상한을 비우면 길이 제한이 없다", () => {
   assert.equal(filter.judge({ title: "교향곡", duration: 9999 }, filter.prepare({ minDurationSec: 60 })).ok, true);
 });
 
-test("빈 차단어는 무시한다 — 설정에 빈 줄이 남아도 전부를 막으면 안 된다", () => {
+test("빈 제외 키워드는 무시한다. 설정에 빈 줄이 남아도 전부를 막으면 안 된다", () => {
   assert.equal(judge("아무 노래", 240, { blockedKeywords: ["", "  ", "mix"] }).ok, true);
+});
+
+test("괄호는 생김새로 보지 않는다(잡은 진짜 믹스가 없고 한 곡을 떨어뜨렸다)", () => {
+  for (const title of ["【公式】【東方Vocal】曲【FullMV】", "[a] [b] [c]", "【a】[b]【c】"]) assert.deepEqual(judge(title), { ok: true }, title);
+});
+
+test("이모지는 이모지처럼 보이는 글자 묶음을 하나로 세어 둘 이상이면 믹스 생김새", () => {
+  const twoOrMore = [
+    "노래 ✨⭐", // 기본이 그림인 글자
+    "노래 ❓❗️",
+    "노래 ©️ ™️", // VS16 이 붙은 기호
+    "노래 ♥️ ♥️",
+    "1️⃣2️⃣", // VS16 이 붙은 키캡
+    "🇰🇷🇯🇵", // 국기(지역 표시 둘)
+    "노래 🔥🔥",
+    "노래 🍄‍🐸 🐙‍🔥", // 런타임이 모르는 조합도 하나씩
+  ];
+  for (const title of twoOrMore) assert.deepEqual(judge(title), { ok: false, reason: "믹스 생김새", detail: "이모지 둘 이상" }, title);
+  const one = [
+    "Song © ™ ♥ ❤", // 그림 표시가 없는 기호
+    "노래 ⌚︎ ☀︎", // VS15(글자 모양)
+    "노래 🇰🇷",
+    "노래 🇰 x", // 짝 없는 지역 표시
+    "노래 1⃣ 2⃣", // VS16 없는 키캡
+    "노래 👍🏽", // 피부색 조합은 하나
+    "노래 🏳️‍🌈", // ZWJ 로 이은 것은 하나
+    "노래 👨‍👩‍👧",
+    "노래 🍄‍🟫",
+    "노래 🏽", // 피부색 글자만
+    "2024 #1 *",
+  ];
+  for (const title of one) assert.deepEqual(judge(title), { ok: true }, title);
 });

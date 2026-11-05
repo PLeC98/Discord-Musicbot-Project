@@ -1,3 +1,5 @@
+// src/ui/transient-messages.ts: 잠깐 보이는 메시지의 삭제 예약, 재시도, 기한
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { markTransient, isTransient, scheduleDelete, RETRY_AFTER_MS } from "../../src/ui/transient-messages.ts";
@@ -39,7 +41,7 @@ test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 �
   }
 });
 
-test("잠깐 보이는 메시지: 네트워크가 끊겨 못 지웠으면 간격을 늘려 가며 다시 지운다. 권한 · 이미 지워짐은 다시 하지 않는다", async (t) => {
+test("잠깐 보이는 메시지: 네트워크가 끊겨 못 지웠으면 간격을 늘려 가며 다시 지운다. 권한, 이미 지워짐은 다시 하지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const offline = () => Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" });
   let calls = 0;

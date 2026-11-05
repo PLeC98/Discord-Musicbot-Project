@@ -1,4 +1,4 @@
-// src/autoplay/assist/google-auth.ts — 서비스 계정 JSON → 액세스 토큰.
+// src/autoplay/assist/google-auth.ts: 서비스 계정 JSON → 액세스 토큰.
 //
 // 이 파일이 다루는 private_key 는 이 기능에서 가장 값비싼 비밀이다.
 // 어떤 경로로도 밖으로 나가지 않는 것이 여기서 지킬 계약이다.
@@ -16,7 +16,7 @@ import { fake } from "../helpers/fake.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-sa-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-// 진짜 키로 서명해야 crypto 가 통과한다 — 작게 뽑는다
+// 서명이 통과하려면 진짜 RSA 키가 있어야 해서 테스트에서 만든다
 const { privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
 
 const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", client_email: "bot@내-프로젝트.iam.gserviceaccount.com", private_key: privateKey };
@@ -24,7 +24,7 @@ const ACCOUNT = { type: "service_account", project_id: "내-프로젝트", clien
 const SA_JSON = JSON.stringify(ACCOUNT);
 
 const calls: Array<{ url: string; init?: RequestInit; body: string }> = [];
-// 가짜 응답은 여기서 읽는 필드(ok · status · text)만 준다
+// 가짜 응답은 여기서 읽는 필드(ok, status, text)만 준다
 type FakeReply = { ok: boolean; status: number; text: () => Promise<string> };
 // 토큰 요청을 받는 가짜. answers 로 답을 정하고 accessToken 에 넘긴다
 let net: typeof fetch = () => Promise.reject(new Error("테스트가 답을 정하지 않았다"));
@@ -57,7 +57,7 @@ test("JWT 로 토큰을 받아 온다", async () => {
   assert.ok(parsed.exp > parsed.iat);
 });
 
-// 한 시간짜리다. 판정마다 새로 받으면 그것만으로도 느려진다.
+// 토큰은 한 시간짜리다. 판정마다 새로 받으면 그것만으로도 느려진다.
 test("받아 둔 토큰을 다시 쓴다", async () => {
   auth._reset();
   calls.length = 0;
@@ -119,7 +119,7 @@ test("어떤 오류에도 private_key 가 나오지 않는다", async () => {
     );
   }
 
-  // 저쪽이 거절하면서 우리가 보낸 것을 되비추는 경우까지
+  // 저쪽이 401 로 거절한 경우의 오류까지
   answers(() => ({ ok: false, status: 401, text: async () => "invalid_grant" }));
   await assert.rejects(
     () => auth.accessToken(SA_JSON, { fetch: net }),

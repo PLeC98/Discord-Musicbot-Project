@@ -1,4 +1,4 @@
-// dashboard/src/composables/save-targets.ts — 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 순서로 저장 · 되돌린다
+// dashboard/src/composables/save-targets.ts: 운영자 패널의 저장 막대 하나가 고친 편집기를 탭 순서로 저장, 되돌린다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { addSaveTarget, revertAll, saveAll, saveTargets } from "../../../dashboa
 // 편집기의 ref 흉내(목록은 .value 만 읽는다). vue 는 화면 쪽 패키지라 테스트에서 부르지 않는다
 const flag = (value: boolean) => ({ value }) as never;
 
-/** 가짜 편집기. 저장 · 되돌리기를 log 에 적는다 */
+/** 가짜 편집기. 저장, 되돌리기를 log 에 적는다 */
 function editor(tab: string, log: string[], { dirty = true, ok = true } = {}) {
   return addSaveTarget({
     tab,

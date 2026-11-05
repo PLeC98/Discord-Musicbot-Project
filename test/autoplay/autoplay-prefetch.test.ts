@@ -1,4 +1,4 @@
-// 자동재생 미리 뽑기 — src/player/player.ts · src/player/track-state.ts
+// src/player/player.ts, src/player/track-state.ts: 자동재생 미리 뽑기
 //
 // 곡이 끝난 뒤에야 검색을 시작하면 그만큼 소리가 빈다. 곡이 시작될 때 다음 곡을 미리 대기열에 둬야
 // QueueWarmer가 평소처럼 다운로드해 두고 전환이 즉시가 된다.
@@ -81,7 +81,7 @@ test("자동재생 곡이 없으면 평소대로 뒤에 붙인다", () => {
   assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
 });
 
-test("정리는 자동재생 곡만 — 사용자 곡은 남는다", () => {
+test("정리는 자동재생 곡만. 사용자 곡은 남는다", () => {
   const p = { queue: [auto("자동1"), user("내곡"), auto("자동2")] };
   assert.equal(trackState.dropAutoplay(p), 2);
   assert.deepEqual(titles(p.queue), ["내곡"]);
@@ -96,7 +96,7 @@ test("곡이 돌고 대기열이 비어 있으면 한 곡을 미리 넣는다", 
   assert.equal(p.queue[0].autoplay, true, "표시가 붙어야 대기열 표시·정리에서 가른다");
 });
 
-test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 · 한곡 반복 · 자동재생 꺼짐", async () => {
+test("미리 뽑지 않는 경우: 대기열이 차 있음, 현재곡 없음, 한곡 반복, 자동재생 꺼짐", async () => {
   const cases = [makePlayer({ queue: [user("대기중")] }), makePlayer({ current: null }), makePlayer({ loop: "track" }), makePlayer({ autoplay: false })];
 
   for (const p of cases) {
@@ -105,12 +105,9 @@ test("미리 뽑지 않는 경우: 대기열이 차 있음 · 현재곡 없음 �
   }
 });
 
-// 미리 뽑을 곡 수는 장르 설정의 prefetchCount가 정한다(장르가 덮어쓴다).
-// 기본 1곡만 덮으면 값을 키워도 한 곡만 들어가는 것을 놓친다.
-// 한 번 불릴 때 prefetchCount 만큼 채운다. 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라 한 곡씩 넣으면 늘 한 곡 앞만 보인다.
 // 뽑기 한 번에 유튜브 검색이 여러 번 나간다. 다섯 곡을 붙여 뽑으면 수십 번이 몇 초 안에 몰려
 // 뒤이은 다운로드가 403을 맞는다. 급한 것은 첫 곡뿐이므로 나머지는 사이를 둔다.
-test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않는다", async () => {
+test("둘째 곡부터는 쉬었다 뽑는다. 유튜브를 몰아치지 않는다", async () => {
   const p = makePlayer({ prefetch: 3 });
   await ensureAutoplayNext.call(p);
 
@@ -119,7 +116,9 @@ test("둘째 곡부터는 쉬었다 뽑는다 — 유튜브를 몰아치지 않�
   assert.deepEqual(p.calls.slept, [gap, gap], "첫 곡은 바로, 나머지 둘은 예열과 같은 간격을 쉬었다가");
 });
 
-test("prefetchCount만큼 채운다 — 한 번 불려도 끝까지", async () => {
+// 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라, 한 번에 한 곡씩 넣으면 늘 한 곡 앞만 보인다.
+// 기본값 1 로만 보면 값을 키워도 한 곡만 들어가는 것을 놓친다.
+test("prefetchCount만큼 채운다. 한 번 불려도 끝까지", async () => {
   const p = makePlayer({ prefetch: 3 });
 
   assert.equal(await ensureAutoplayNext.call(p), true);
@@ -184,7 +183,8 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
       return auto("첫곡");
     },
     async play() {},
-    // 곡을 못 고르면 알리고 끈다 — 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
+    takeOverSaved: () => 0,
+    // 곡을 못 고르면 알리고 끄는 길. 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
     _giveUpAutoplay: Player.prototype._giveUpAutoplay,
     setAutoplay: Player.prototype.setAutoplay,
     scheduleStatePersist() {},
@@ -195,11 +195,11 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
     },
     panel: [] as string[],
   });
-  player.panel = recordPanel({ player }); // 화면에 알린 것
+  player.panel = recordPanel({ player }); // 패널에 알린 것을 적는다
   return player;
 }
 
-// 아무것도 틀지 않던 서버에서 /autoplay로 켜는 길 — 이 경로에는 고칠 패널이 없다.
+// 아무것도 재생하지 않던 서버에서 /autoplay로 켜는 길에는 갱신할 패널이 없다.
 test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
   const p = makeNowPlayer();
 
@@ -208,7 +208,7 @@ test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
   assert.deepEqual(p.panel, ["create:첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
 });
 
-test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", async () => {
+test("패널이 이미 있으면 고쳐 쓴다. 새로 올리지 않는다", async () => {
   const p = makeNowPlayer({ nowPlayingMessage: { id: "m1" } });
 
   assert.equal(await handleAutoplay.call(p), true);
@@ -216,7 +216,7 @@ test("패널이 이미 있으면 고쳐 쓴다 — 새로 올리지 않는다", 
 });
 
 // 조용히 멈추면 무엇이 잘못됐는지 알 길이 없다. 아무거나 트는 것보다는 끄는 편이 낫다.
-test("고를 곡이 없으면 끄고 알린다 — 아무거나 틀지 않는다", async () => {
+test("고를 곡이 없으면 끄고 알린다. 아무거나 틀지 않는다", async () => {
   const p = makeNowPlayer();
   p.pickAutoplayTrack = async () => null;
 
@@ -228,7 +228,7 @@ test("고를 곡이 없으면 끄고 알린다 — 아무거나 틀지 않는다
   assert.match(p.calls.sent[0], /팝/, "어느 장르에서 못 찾았는지 알려야 한다");
 });
 
-// ── 끄기·장르 변경 ────────────────────────────────────────────────────────
+// ── 끄기, 장르 변경 ────────────────────────────────────────────────────────
 
 test("자동재생을 끄면 미리 뽑아 둔 곡만 빠진다", () => {
   const p = makePlayer({ queue: [user("내곡"), auto("자동")] });
@@ -257,11 +257,9 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 
 // ── 뽑을 때의 필터링 ─────────────────────────────────────────────────────
 
-// 제목만 소문자로 낮추고 차단어를 그대로 두면 "Playlist" 같은 대문자 섞인 차단어가 아무것도 필터링하지 못한다.
-//
-// 규칙 자체는 autoplayFilter가 갖고 있다(test/autoplay/autoplay-filter.test.ts). 여기서 보는 것은
-// 설정에서 뽑기까지 그 규칙이 실제로 이어지는가다 — 소스에서 후보가 와서 필터를 지나는 길.
-test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구분하지 않는다", async () => {
+// 제목만 소문자로 낮추고 제외 키워드를 그대로 두면 "Playlist" 같은 대문자 섞인 제외 키워드가 아무것도 필터링하지 못한다.
+// 규칙 자체는 autoplay-filter.test.ts 가 본다. 여기서는 설정에서 뽑기까지, 소스에서 온 후보가 필터를 지나는 길이 실제로 이어지는가를 본다.
+test("설정의 제외 키워드가 뽑기까지 이어진다. 대소문자를 구분하지 않는다", async () => {
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
     { id: "1", title: "Best Playlist Ever", audioUrl: "https://y/1", duration: 200 },
@@ -283,7 +281,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구�
       }),
       pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
       io: { pickAutoplay: route.pickTrack }, // 길 찾기는 진짜(안쪽 경계는 아래 autoplayDeps)
-      // AI 보조는 AI 설정 문서를 읽어 진짜로 부른다. 여기서는 규칙만 본다
+      // assist 를 넘기지 않으면 AI 설정을 읽어 진짜로 부른다. 여기서는 규칙만 본다
       // 직접 지정한 음원은 없다(이 테스트는 캐시 DB 를 열지 않는다)
       autoplayDeps: { ...route.REAL, pinned: () => null, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });
@@ -293,7 +291,7 @@ test("설정의 차단어가 뽑기까지 이어진다 — 대소문자를 구�
     for (let i = 0; i < 8; i++) {
       pool._reset();
       const picked = await p.pickAutoplayTrack();
-      assert.equal(picked?.audioUrl, "https://y/2", "대문자로 적은 차단어도 필터링해야 한다");
+      assert.equal(picked?.audioUrl, "https://y/2", "대문자로 적은 제외 키워드도 필터링해야 한다");
     }
   } finally {
     pool._reset();

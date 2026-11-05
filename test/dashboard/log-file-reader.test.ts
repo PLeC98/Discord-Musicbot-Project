@@ -1,6 +1,6 @@
-// src/dashboard/log-file-reader.ts — 로그 파일 읽기(끝에서부터 쪽 · 뒤로 이어 읽기 · 시각으로 가기 · 필터 · 떼어진 파일 따라가기 · 덜 된 줄)
+// src/dashboard/log-file-reader.ts: 로그 파일 읽기(끝에서부터 쪽, 뒤로 이어 읽기, 시각으로 가기, 필터, 떼어진 파일 따라가기, 덜 된 줄)
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
@@ -9,11 +9,17 @@ import { listLogFiles, readLogPage, resolveLogFile, filteredLines, formatLogLine
 import { backupPath, createFileDestination } from "../../src/infra/log/file.ts";
 
 const T0 = 1_760_000_000_000;
-/** i 번째 줄: 1초 간격, 셋마다 warn, 다섯마다 youtube 카테고리 · retry 태그 */
+/** i 번째 줄: 1초 간격, 셋마다 warn, 다섯마다 youtube 카테고리, retry 태그 */
 const record = (i: number) => ({ time: T0 + i * 1000, level: i % 3 === 0 ? 40 : 30, msg: `줄 ${i} 재생 시작`, ...(i % 5 === 0 ? { category: "youtube", sub: "client", tags: ["retry"] } : { category: "player" }) });
+
+const dirs: string[] = [];
+after(() => {
+  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
 
 function writeLog(n: number, extra = "") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-test-"));
+  dirs.push(dir);
   const file = path.join(dir, "bot.log");
   fs.writeFileSync(file, Array.from({ length: n }, (_, i) => JSON.stringify(record(i)) + "\n").join("") + extra);
   return { dir, file };
@@ -58,12 +64,12 @@ test("시각으로 가기(at): 그 시각 이상인 첫 줄이 들고, 그 뒤 5
   assert.ok(nums.includes(401), "400.5초 뒤의 첫 줄은 401");
   assert.equal(nums.at(-1), 451);
   assert.equal(page.later, true);
-  // 파일보다 앞 · 뒤의 시각
+  // 파일보다 앞, 뒤의 시각
   assert.equal(texts(readLogPage(target, { ...all, limit: 100, at: T0 - 5000 }))[0], 0, "파일보다 이르면 첫 줄부터");
   assert.equal(texts(readLogPage(target, { ...all, limit: 10, at: T0 + 10_000_000 })).at(-1), 999);
 });
 
-test("필터: 레벨 · 카테고리 · 태그 · 찾기(실시간 로그와 같은 규칙), 찾기가 있으면 파일 전체의 맞은 줄 수", () => {
+test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 규칙), 검색어가 있으면 파일 전체의 맞은 줄 수", () => {
   const { file } = writeLog(100);
   const target = resolveLogFile(file, "bot.log")!;
   const warn = readLogPage(target, { limit: 300, filter: { levels: new Set(["warn"] as const) } })!;
@@ -79,7 +85,7 @@ test("필터: 레벨 · 카테고리 · 태그 · 찾기(실시간 로그와 같
   assert.equal(readLogPage(target, { limit: 3, filter: { levels: new Set() } })!.lines.length, 0, "레벨을 모두 끄면 없다");
 });
 
-test("덜 된 마지막 줄 · 읽을 수 없는 줄은 건너뛴다", () => {
+test("덜 된 마지막 줄, 읽을 수 없는 줄은 건너뛴다", () => {
   const { file } = writeLog(5, 'not json\n{"time":1,"lev');
   const target = resolveLogFile(file, "bot.log")!;
   assert.deepEqual(texts(readLogPage(target, all)), [0, 1, 2, 3, 4]);
@@ -87,7 +93,7 @@ test("덜 된 마지막 줄 · 읽을 수 없는 줄은 건너뛴다", () => {
   assert.equal(info.lines, 5);
 });
 
-test("목록: 지금 파일이 먼저, 떼어 낸 파일은 최근 것부터. 줄 수 · 카테고리 · 태그 · 처음과 끝 시각", () => {
+test("목록: 지금 파일이 먼저, 떼어 낸 파일은 최근 것부터. 줄 수, 카테고리, 태그, 처음과 끝 시각", () => {
   const { dir, file } = writeLog(10);
   fs.renameSync(file, backupPath(file, new Date(2026, 0, 1)));
   fs.writeFileSync(file, JSON.stringify(record(20)) + "\n");
@@ -109,7 +115,7 @@ test("목록: 지금 파일이 먼저, 떼어 낸 파일은 최근 것부터. �
   assert.ok(fs.existsSync(dir));
 });
 
-test("이름: 목록의 이름만 받는다(경로 · 다른 파일은 없음)", () => {
+test("이름: 목록의 이름만 받는다(경로, 다른 파일은 없음)", () => {
   const { dir, file } = writeLog(3);
   fs.writeFileSync(path.join(dir, "secret.txt"), "x");
   assert.equal(resolveLogFile(file, "../secret.txt"), null);
@@ -147,8 +153,9 @@ test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보�
   assert.equal(formatLogLine(lines[1], 0).slice(0, 23), utc);
 });
 
-test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞 · 뒤로 이어 읽는다", () => {
+test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞, 뒤로 이어 읽는다", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-rotate-"));
+  dirs.push(dir);
   const file = path.join(dir, "bot.log");
   const dest = createFileDestination({ file, maxBytes: 64 * 1024, keep: 5 });
   const write = (from: number, to: number) => {

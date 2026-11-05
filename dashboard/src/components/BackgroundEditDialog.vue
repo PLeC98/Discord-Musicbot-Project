@@ -1,75 +1,72 @@
 <template>
-  <!-- 로그인 배경 편집 창. 그림이나 영상에서 쓸 영역(비율 자유)을 선택하고, 영상이면 쓸 구간과 정지 화면 장면을 선택한다.
-       자른 결과가 아니라 영역(0 ~ 1) · 구간(초) · 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다.
-       틀은 안을 끌면 옮기고 네 모서리로 크기를 바꾼다. 바깥은 어둡게 덮는다(그림 안에서만), 틀과 핸들은 그림 밖으로 나와도 보인다.
-       아래 화면 확대로 그림을 키우면 보는 창은 그대로 두고 그 안에서 스크롤한다(틀 바깥을 끌어도 옮겨진다).
-       시간 막대는 BackgroundTimeline(눈금 · 장면 띠 · 구간 · 정지 화면 · 확대). 재생은 구간 반복이 켜져 있으면 구간 안에서 돌고(아래에서 고른 반복 전환 효과를 적용한다), 끄면 구간 끝에서 멈춘다.
-       반복 전환 효과는 카드의 화면 값에서 시작하고, 적용하면 카드의 화면 값도 그 효과로 바뀐다(카드에서 나중에 바꿀 수 있다).
-       보는 창의 높이는 편집 창의 나머지(제목 · 확대 · 시간 막대 · 버튼)를 뺀 남는 높이에 맞춘다(창 크기를 바꾸면 다시).
-       표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상 480p · 그림), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
-       예상 저장 공간: 원본을 가져올 때 센 초마다의 세트 크기를 선택한 구간만큼 더한다(구간을 바꾸면 바로). 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다(세는 중).
-       최대 용량을 넘을 것 같으면(어림을 넉넉히 1.3배) 삭제할 수 있는 오래된 기록 수를 알린다(막지 않는다, 구운 뒤 실제 크기로 지킨다) -->
-  <Teleport to="body">
-    <Transition enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-200" leave-active-class="transition-opacity duration-150">
-      <div v-if="open && bg" class="fixed inset-0 z-300 bg-black/50 flex items-center justify-center p-4" tabindex="-1">
-        <div ref="dialogEl" role="dialog" aria-modal="true" :aria-label="T.title" class="rounded-2xl bg-surface-container-high p-5 w-full max-w-3xl max-h-[95dvh] overflow-y-auto flex flex-col gap-3 animate-[art-in_350ms_var(--ease-spring-fast)]">
-          <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
+  <!-- 로그인 배경 편집 창. 이미지나 영상에서 쓸 영역(비율 자유)과 90도 회전, 좌우 반전을, 영상이면 쓸 구간과 정지 화면 장면도 선택한다.
+       자른 결과가 아니라 영역(원본 기준 0 ~ 1), 회전, 반전, 구간(초), 정지 화면 장면(초)을 넘긴다: 봇이 원본에서 다시 만든다(자른 뒤 돌리고 뒤집는다).
+       틀은 돌리고 뒤집은 화면 위에서 다루고 넘길 때 원본 기준으로 되돌린다(utils/turn).
+       표시하는 것은 봇이 가져올 때 만든 미리보기(GET …/:id/preview, 영상은 480p), 시간 막대의 장면은 장면 띠(GET …/:id/strip).
+       예상 저장 공간: 원본을 가져올 때 센 초당 세트 크기를 선택한 구간만큼 더한다. 크롭을 정하거나 구간을 잰 범위 밖으로 넓히면 그것만 다시 센다.
+       최대 용량을 넘을 것 같으면(추산의 1.3배) 삭제될 오래된 기록 수를 알리기만 한다. 실제 크기는 인코딩 뒤 봇이 지킨다 -->
+  <!-- 편집 창이라 여백이 20px 이다. 보는 창 폭을 재기 전의 추산(room)도 이 여백으로 계산한다 -->
+  <BaseDialog ref="dialog" :open="open && bg != null" width="3xl" padding="editor" :outside="false" class="max-h-[95dvh] overflow-y-auto flex flex-col gap-3" :aria-label="T.title" @close="open = false"
+    ><template v-if="bg">
+      <h3 class="text-xl font-round font-semibold">{{ T.title }}</h3>
 
-          <!-- 보는 창: 편집 창 폭 전체 · 처음 맞춘 높이. 그 폭을 재서 그림을 맞추고(틀을 그리는 배율이 실제 그림 크기와 같아야 한다),
-               그림이 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다. 둘레의 틈에 그림 가장자리의 핸들이 들어간다 -->
-          <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
-            <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
-              <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
-                <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
-                  <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
-                  <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
-                  <template v-if="bg.kind === 'video'">
-                    <canvas ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
-                    <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
-                    <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
-                  </template>
-                  <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
-                </div>
-                <div v-if="natural.width" class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
-                  <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
-                </div>
+      <!-- 보는 창: 편집 창 폭 전체, 처음 맞춘 높이. 그 폭을 재서 이미지를 맞추고(틀을 그리는 배율이 실제 이미지 크기와 같아야 한다),
+               이미지가 창보다 작으면 가운데, 확대해서 넘치면 그 안에서 스크롤한다. 둘레의 틈에 이미지 가장자리의 핸들이 들어간다 -->
+      <div ref="viewportEl" class="w-full shrink-0" :class="zoom > 1 ? 'overflow-auto' : 'overflow-hidden'" :style="{ height: `${view.height + EDGE * 2}px` }">
+        <div class="flex min-w-full min-h-full w-max h-max" :class="zoom > 1 && 'cursor-grab'" :style="{ padding: `${EDGE}px` }" @pointerdown="panStart">
+          <div class="relative m-auto shrink-0 select-none touch-none" :style="{ width: `${view.width * zoom}px`, height: `${view.height * zoom}px` }">
+            <div class="absolute inset-0 overflow-hidden rounded-lg bg-black">
+              <!-- 영상(또는 그림)과 정지 화면 캔버스는 원본 크기 그대로 두고 함께 CSS 로 돌린다. 전환 효과의 막은 보이는 상자 위에 -->
+              <div class="absolute max-w-none" :style="mediaStyle">
+                <video v-if="bg.kind === 'video'" ref="videoEl" :src="src" muted playsinline preload="auto" class="block size-full pointer-events-none" @loadedmetadata="onMeta" @timeupdate="onTime" @ended="onEnded"></video>
+                <img v-else :src="src" alt="" class="block size-full pointer-events-none" draggable="false" @load="onMeta" />
+                <canvas v-if="bg.kind === 'video'" ref="freezeEl" class="absolute inset-0 size-full opacity-0"></canvas>
               </div>
+              <template v-if="bg.kind === 'video'">
+                <div ref="pulseEl" class="absolute inset-0 opacity-0" :style="{ backdropFilter: `blur(${sel.w * scale * 0.03}px)` }"></div>
+                <div ref="dipEl" class="absolute inset-0 opacity-0" :style="{ backgroundColor: seamPick.kind === 'black' ? '#000' : 'var(--md-surface)' }"></div>
+              </template>
+              <div v-if="natural.width" class="absolute shadow-[0_0_0_9999px_rgb(0_0_0/0.55)]" :style="box"></div>
             </div>
-          </div>
-          <!-- 화면 확대: 작은 그림 · 슬라이더 · 큰 그림(디스코드의 이미지 편집과 같은 형태), 가운데 -->
-          <div class="flex items-center justify-center gap-3 text-on-surface-variant">
-            <Icon name="image" :size="16" aria-hidden="true" />
-            <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
-            <Icon name="image" :size="24" aria-hidden="true" />
-          </div>
-
-          <!-- 시간 막대(영상만) -->
-          <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
-          <SeamPicker v-if="bg.kind === 'video'" v-model="seamPick" class="sm:max-w-md" />
-
-          <p class="text-xs text-on-surface-variant nums">
-            {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
-          </p>
-          <p class="text-xs nums" :class="noSpace ? 'text-error' : evictText ? 'text-tertiary' : 'text-on-surface-variant'">
-            {{ !bg.estimate ? T.noEstimate : estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
-            ><template v-if="bg.estimate?.rough"> · {{ T.rough }}</template
-            ><template v-if="noSpace && state"> · {{ T.noSpace(formatBytes(state.freeBytes)) }}</template
-            ><template v-else-if="evictText"> · {{ evictText }}</template>
-          </p>
-          <div class="flex gap-2 justify-end">
-            <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="reset(false)">{{ T.reset }}</BaseButton>
-            <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
-            <BaseButton :disabled="!natural.width || noSpace" @click="finish">{{ T.use }}</BaseButton>
+            <div v-if="natural.width" class="absolute outline-2 outline-white cursor-move" :style="box" @pointerdown="start($event, 'move')">
+              <span v-for="corner in CORNERS" :key="corner" class="absolute size-4 -m-2 rounded-full bg-white shadow before:absolute before:-inset-2" :class="[corner.includes('n') ? 'top-0' : 'bottom-0', corner.includes('w') ? 'left-0' : 'right-0', corner === 'nw' || corner === 'se' ? 'cursor-nwse-resize' : 'cursor-nesw-resize']" @pointerdown.stop="start($event, corner)"></span>
+            </div>
           </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+      <!-- 화면 확대: 작은 아이콘, 슬라이더, 큰 아이콘(디스코드의 이미지 편집과 같은 형태). 그 옆에 회전, 반전(앱 이모지 편집과 같다) -->
+      <div class="flex items-center justify-center gap-3 text-on-surface-variant">
+        <Icon name="image" :size="16" aria-hidden="true" />
+        <input v-model.number="zoomStep" type="range" min="0" max="100" step="1" class="m3-slider m3-slider-thin w-48" :style="{ '--v': zoomStep / 100 }" :aria-label="T.zoom" :disabled="!natural.width" />
+        <Icon name="image" :size="24" aria-hidden="true" />
+        <button type="button" :class="iconButton(40)" :disabled="!natural.width" :aria-label="C.rotate" v-tooltip="C.rotate" @click="turnRight"><Icon name="rotate_right" /></button>
+        <button type="button" :class="iconButton(40)" :disabled="!natural.width" :aria-label="C.flip" v-tooltip="C.flip" @click="mirror"><Icon name="flip" /></button>
+      </div>
+
+      <BackgroundTimeline v-if="bg.kind === 'video' && duration" :strip="strip" :duration="duration" :fps="bg.fps || 30" :aspect="natural.width / natural.height" :now="now" :playing="playing" :range="range" :thumb-at="thumbAt" :loop="loop" @loop="loop = !loop" @seek="seek" @peek="peek" @peek-end="peekEnd" @toggle="togglePlay" @range="range = $event" @thumb="thumbAt = clampToRange(now)" />
+      <SeamPicker v-if="bg.kind === 'video'" v-model="seamPick" class="sm:max-w-md" />
+
+      <p class="text-xs text-on-surface-variant nums">
+        {{ T.picked(Math.round(sel.w * originalScale), Math.round(sel.h * originalScale)) }}<template v-if="bg.kind === 'video' && thumbAt === null"> · {{ T.thumbHint }}</template>
+      </p>
+      <p class="text-xs nums" :class="noSpace ? 'text-error' : evictText ? 'text-tertiary' : 'text-on-surface-variant'">
+        {{ !bg.estimate ? T.noEstimate : estimateBytes === null ? T.counting : T.estimate(formatBytes(estimateBytes)) }}<template v-if="encodeMinutes !== null"> · {{ T.encodeTime(encodeMinutes) }}</template
+        ><template v-if="bg.estimate?.rough"> · {{ T.rough }}</template
+        ><template v-if="noSpace && state"> · {{ T.noSpace(formatBytes(state.freeBytes)) }}</template
+        ><template v-else-if="evictText"> · {{ evictText }}</template>
+      </p>
+      <div class="flex gap-2 justify-end">
+        <BaseButton variant="ghost" class="mr-auto" :disabled="!natural.width" @click="reset(false)">{{ T.reset }}</BaseButton>
+        <BaseButton variant="ghost" @click="open = false">{{ text.common.cancel }}</BaseButton>
+        <BaseButton :disabled="!natural.width || noSpace" @click="finish">{{ T.use }}</BaseButton>
+      </div>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from "vue";
-import { useCloseLayer } from "../composables/close-layer.ts";
+import BaseDialog from "./BaseDialog.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
@@ -79,26 +76,26 @@ import BackgroundTimeline from "./BackgroundTimeline.vue";
 import SeamPicker from "./SeamPicker.vue";
 import { useSeam } from "../login-background/seam.ts";
 import { cropKeyOf, estimatedBytes, inCounted } from "../../../src/rules/background-estimate.ts";
+import { iconButton } from "../utils/icon-button.ts";
+import { fromSource, imageStyle, mirror as mirrored, NO_TURN, toSource, turnedSize, turnRight as turnedRight, type Turn } from "../utils/turn.ts";
 const T = text.loginBackground.edit;
+/** 회전, 반전 버튼의 이름은 앱 이모지 편집 면과 같다 */
+const C = text.appearance.crop;
 
-/** bg: 편집할 배경(편집을 기다리는 것). state: 한도 · 쓰는 용량 · 기록(예상 저장 공간과 견준다). seam: 카드의 반복 전환 효과(편집 창에서 고르는 효과의 처음 값) */
+/** bg: 편집할 배경(편집을 기다리는 것). state: 한도, 쓰는 용량, 기록(예상 저장 공간과 비교한다). seam: 카드의 반복 전환 효과(편집 창에서 선택하는 효과의 처음 값) */
 const props = defineProps<{ bg: LoginBackgroundItem | null; state: LoginBackgroundState | null; seam: LoginBackgroundOptions["seam"] }>();
 const open = defineModel<boolean>({ required: true });
-useCloseLayer(
-  computed(() => open.value && props.bg != null),
-  () => (open.value = false),
-);
-/** done: 편집과 고른 반복 전환 효과. recount: 그 크롭 · 구간으로 다시 세 달라(PUT …/:id/estimate) */
+/** done: 편집과 선택한 반복 전환 효과. recount: 그 크롭, 구간으로 다시 세 달라(PUT …/:id/estimate) */
 const emit = defineEmits<{ done: [edit: LoginBackgroundEdit, seam: LoginBackgroundOptions["seam"]]; recount: [id: string, crop: LoginBackgroundCrop, range: [number, number] | null] }>();
 const API = "/api/admin/appearance/login-background";
-/** 구간을 바꾼 뒤 다시 세기를 요청하기까지(끄는 동안은 요청하지 않는다) */
+/** 구간을 바꾼 뒤 다시 세기를 요청하기까지(드래그하는 동안은 요청하지 않는다) */
 const RECOUNT_AFTER_MS = 600;
 
 type Corner = "nw" | "ne" | "sw" | "se";
 const CORNERS: Corner[] = ["nw", "ne", "sw", "se"];
 /** 틀의 가장 작은 변(원본 px) */
 const MIN_SIDE = 64;
-/** 보는 창 둘레의 틈(px). 그림 가장자리의 핸들(반지름 8)과 넓게 잡히는 범위(8)가 들어가 스크롤이 생기지 않게 */
+/** 보는 창 둘레의 틈(px). 이미지 가장자리의 핸들(반지름 8px)과 넓게 잡히는 범위(8px)가 들어가 스크롤이 생기지 않게 */
 const EDGE = 16;
 /** 화면 확대의 상한(배) */
 const MAX_ZOOM = 5;
@@ -111,15 +108,21 @@ const videoEl = ref<HTMLVideoElement | null>(null);
 const freezeEl = ref<HTMLCanvasElement | null>(null);
 const pulseEl = ref<HTMLElement | null>(null);
 const dipEl = ref<HTMLElement | null>(null);
-/** 고른 반복 전환 효과(열 때 카드의 것으로) */
+/** 선택한 반복 전환 효과(열 때 카드의 값으로) */
 const seamPick = ref<LoginBackgroundOptions["seam"]>({ ...props.seam });
 const seamFx = useSeam({ video: videoEl, freeze: freezeEl, pulse: pulseEl, dip: dipEl }, () => seamPick.value);
+/** 미리보기 원본 크기 */
 const natural = reactive({ width: 0, height: 0 });
+/** 회전, 반전과 돌린 미리보기의 크기 */
+const turning = ref<Turn>({ ...NO_TURN });
+const size = computed(() => turnedSize(natural, turning.value));
+/** 화면에 보이는 (돌린) 미리보기 크기(확대 전) */
 const view = reactive({ width: 640, height: 360 });
+/** 선택한 영역(돌리고 뒤집은 미리보기의 px) */
 const sel = reactive({ x: 0, y: 0, w: 0, h: 0 });
 const duration = ref(0);
 const range = ref<[number, number]>([0, 0]);
-/** 정지 화면 장면은 구간 안으로(구간 밖 장면은 굽지 않고, 유튜브는 선택한 구간만 다운로드한다) */
+/** 정지 화면 장면은 구간 안으로(구간 밖 장면은 인코딩하지 않고, 유튜브는 선택한 구간만 다운로드한다) */
 const clampToRange = (t: number) => Math.min(range.value[1], Math.max(range.value[0], t));
 watch(range, () => {
   if (thumbAt.value !== null) thumbAt.value = clampToRange(thumbAt.value);
@@ -129,29 +132,30 @@ const now = ref(0);
 const playing = ref(false);
 
 const viewportEl = ref<HTMLElement | null>(null);
-const dialogEl = ref<HTMLElement | null>(null);
+const dialog = ref<InstanceType<typeof BaseDialog> | null>(null);
 /** 구간 반복 재생(끄면 구간 끝에서 멈춘다) */
 const loop = ref(true);
 const fps = computed(() => props.bg?.fps || 30);
 /** 화면 확대: 0 ~ 100 을 1 배 ~ MAX_ZOOM 배로, 지수로 */
 const zoomStep = ref(0);
 const zoom = computed(() => Math.pow(MAX_ZOOM, zoomStep.value / 100));
-const scale = computed(() => (natural.width ? (view.width * zoom.value) / natural.width : 1));
+const scale = computed(() => (size.value.width ? (view.width * zoom.value) / size.value.width : 1));
+const mediaStyle = computed(() => (natural.width ? imageStyle(natural, scale.value, turning.value) : { inset: "0" }));
 /** 미리보기 픽셀 → 원본 픽셀(선택한 영역을 원본 해상도로 보인다) */
 const originalScale = computed(() => (natural.width && props.bg?.width ? props.bg.width / natural.width : 1));
 const box = computed(() => ({ left: `${sel.x * scale.value}px`, top: `${sel.y * scale.value}px`, width: `${sel.w * scale.value}px`, height: `${sel.h * scale.value}px` }));
 
-/** 예상 저장 공간(바이트, 세는 중이면 null). 편집 적용의 남은 공간 검사와 같은 셈(rules/background-estimate) */
+/** 예상 저장 공간(바이트, 세는 중이면 null). 편집 적용의 남은 공간 검사와 같은 계산(rules/background-estimate) */
 const estimateBytes = computed(() => estimatedBytes(props.bg?.estimate ?? null, cropKey.value, rangeNow()));
-/** 남은 저장 공간보다 크면 적용할 수 없다(봇도 같은 셈으로 막는다) */
+/** 남은 저장 공간보다 크면 적용할 수 없다(봇도 같은 계산으로 막는다) */
 const noSpace = computed(() => !!props.state && estimateBytes.value !== null && estimateBytes.value > props.state.freeBytes);
-/** 예상 인코딩 시간(분, 영상만): 이 기기에서 잰 굽는 속도 × 구간 길이 */
+/** 예상 인코딩 시간(분, 영상만): 이 기기에서 잰 인코딩 속도 × 구간 길이 */
 const encodeMinutes = computed(() => {
   const est = props.bg?.estimate;
   if (props.bg?.kind !== "video" || !est) return null;
   return ((range.value[1] - range.value[0]) * est.encodeRatio) / 60;
 });
-/** 최대 용량을 넘을 것 같으면: 삭제할 수 있는 오래된 기록 수(지금 쓰는 것 · 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
+/** 최대 용량을 넘을 것 같으면: 삭제할 수 있는 오래된 기록 수(지금 쓰는 것, 이 배경은 빼고, 마지막으로 쓴 지 오래된 것부터) */
 const evictText = computed(() => {
   const st = props.state;
   const est = estimateBytes.value;
@@ -160,7 +164,7 @@ const evictText = computed(() => {
   if (need > st.limits.maxBytes) return T.overAlone;
   let over = st.usedBytes + need - st.limits.maxBytes;
   if (over <= 0) return "";
-  // 삭제할 수 있는 것: 다 구운 기록 전부(지금 배경은 새 배경이 걸리면 이전 배경이 되어 맨 마지막)
+  // 삭제할 수 있는 것: 인코딩이 끝난 기록 전부(지금 배경은 새 배경이 걸리면 이전 배경이 되어 맨 마지막)
   const victims = st.list.filter((bg) => bg.phase === "ready" && bg.id !== props.bg?.id).sort((a, b) => Number(a.id === st.current) - Number(b.id === st.current) || a.usedAt - b.usedAt);
   let n = 0;
   for (const bg of victims) {
@@ -170,18 +174,24 @@ const evictText = computed(() => {
   }
   return n ? T.evict(n) : T.overAlone;
 });
-/** 지금 틀(0 ~ 1)과 그 키(어림을 센 크롭과 같은지 본다) */
-const cropNow = (): LoginBackgroundCrop => (natural.width ? { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height } : { x: 0, y: 0, w: 1, h: 1 });
+/** 지금 틀을 원본 기준(0 ~ 1)으로. 봇이 0 ~ 1 밖을 거절해 소수 오차를 잘라 둔다 */
+function cropNow(): LoginBackgroundCrop {
+  if (!natural.width) return { x: 0, y: 0, w: 1, h: 1 };
+  const src = toSource(sel, natural, turning.value);
+  const x = Math.min(1, Math.max(0, src.x / natural.width));
+  const y = Math.min(1, Math.max(0, src.y / natural.height));
+  return { x, y, w: Math.min(1 - x, src.w / natural.width), h: Math.min(1 - y, src.h / natural.height) };
+}
 const cropKey = ref(cropKeyOf({ x: 0, y: 0, w: 1, h: 1 }));
 const rangeNow = (): [number, number] | null => (props.bg?.kind === "video" ? range.value : null);
-/** 크롭을 정했다: 어림을 잰 크롭과 다르면 그 크롭 · 구간으로 다시 센다 */
+/** 크롭을 정했다: 추산한 크롭과 다르면 그 크롭, 구간으로 다시 센다 */
 function cropSettled() {
   const crop = cropNow();
   cropKey.value = cropKeyOf(crop);
   const est = props.bg?.estimate;
   if (props.bg && est && cropKeyOf(est.crop) !== cropKey.value) emit("recount", props.bg.id, crop, rangeNow());
 }
-// 구간을 잰 범위 밖으로 넓혔으면(끄기를 멈춘 뒤) 그 구간을 다시 센다
+// 구간을 잰 범위 밖으로 넓혔으면(드래그를 멈춘 뒤) 그 구간을 다시 센다
 let recountTimer = 0;
 watch(range, () => {
   clearTimeout(recountTimer);
@@ -191,11 +201,19 @@ watch(range, () => {
   }, RECOUNT_AFTER_MS);
 });
 
-/** 틀 · 구간 · 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
+/** 틀, 회전, 반전을 편집 값(없으면 처음)으로. 돌린 크기가 바뀌면 보는 창을 다시 맞춘다 */
+function placeFrame(saved: LoginBackgroundEdit | null | undefined) {
+  const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+  const before = size.value.width;
+  turning.value = { rotate: saved?.rotate ?? 0, flip: saved?.flip ?? false };
+  Object.assign(sel, fromSource({ x: c.x * natural.width, y: c.y * natural.height, w: c.w * natural.width, h: c.h * natural.height }, natural, turning.value));
+  if (size.value.width !== before) fit();
+}
+
+/** 틀, 회전, 반전, 구간, 정지 화면을 처음으로(편집한 적이 있으면 그것으로) */
 function reset(fromEdit = false) {
   const saved = fromEdit ? props.bg?.edit : null;
-  const c = saved?.crop ?? { x: 0, y: 0, w: 1, h: 1 };
-  Object.assign(sel, { x: c.x * natural.width, y: c.y * natural.height, w: c.w * natural.width, h: c.h * natural.height });
+  placeFrame(saved);
   if (props.bg?.kind === "video") {
     range.value = saved?.range ?? [0, Math.min(duration.value, FIRST_RANGE)];
     thumbAt.value = saved?.thumbAt ?? null;
@@ -226,17 +244,31 @@ function onMeta(event: Event) {
 }
 
 /**
- * 보는 창의 크기: 영역 폭 안 · 남는 높이 안에서 그림 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
+ * 보는 창의 크기: 영역 폭 안, 남는 높이 안에서 이미지 비율대로. 남는 높이는 화면 높이(편집 창의 상한 95%)에서 편집 창의 나머지를 뺀 것.
  * first 를 주면 그 높이를 상한으로(처음 그릴 때, 나머지를 재기 전)
  */
 function fit(first?: number) {
   if (!natural.width) return;
   const room = (viewportEl.value?.clientWidth ?? Math.min(728, innerWidth - 72)) - EDGE * 2;
-  const rest = dialogEl.value && viewportEl.value ? dialogEl.value.scrollHeight - viewportEl.value.offsetHeight : 0;
+  const panel = dialog.value?.panel;
+  const rest = panel && viewportEl.value ? panel.scrollHeight - viewportEl.value.offsetHeight : 0;
   const tall = first ?? Math.max(120, innerHeight * 0.95 - rest - EDGE * 2);
-  const k = Math.min(1, room / natural.width, tall / natural.height);
-  view.width = Math.floor(natural.width * k);
-  view.height = Math.floor(natural.height * k);
+  const k = Math.min(1, room / size.value.width, tall / size.value.height);
+  view.width = Math.floor(size.value.width * k);
+  view.height = Math.floor(size.value.height * k);
+}
+
+// 보이는 미리보기를 시계 방향으로 90도(틀도 같이, 가로세로가 바뀌어 보는 창을 다시 맞춘다), 좌우로 뒤집기. 원본 기준 영역은 그대로라 다시 세지 않는다
+function turnRight() {
+  const next = turnedRight(natural, turning.value, sel);
+  turning.value = next.turn;
+  Object.assign(sel, next.rect);
+  fit();
+}
+function mirror() {
+  const next = mirrored(natural, turning.value, sel);
+  turning.value = next.turn;
+  Object.assign(sel, next.rect);
 }
 const onResize = () => fit();
 watch(open, (on) => {
@@ -252,7 +284,7 @@ watch(open, (on) => {
   natural.width = natural.height = 0;
 });
 
-// ── 영상: 재생 · 구간 ──
+// ── 영상: 재생, 구간 ──
 
 /** 그 위치로(영상 안으로 자른다). 구간 밖으로도 갈 수 있다(재생은 구간 안에서 돈다) */
 function seek(t: number) {
@@ -261,7 +293,7 @@ function seek(t: number) {
   now.value = at;
   if (videoEl.value) videoEl.value.currentTime = at;
 }
-/** 재생 중에는 장면마다 시각을 받는다(timeupdate 는 1초에 몇 번뿐이라 시각 · 마커가 튄다). 구간 끝에 닿으면 처음으로 */
+/** 재생 중에는 장면마다 시각을 받는다(timeupdate 는 1초에 몇 번뿐이라 시각, 마커가 튄다). 구간 끝에 닿으면 처음으로 */
 function follow() {
   const el = videoEl.value;
   if (!el || el.paused) return;
@@ -274,7 +306,7 @@ function follow() {
   if (typeof el.requestVideoFrameCallback === "function") el.requestVideoFrameCallback((_, meta) => (tick(meta.mediaTime), follow()));
   else requestAnimationFrame(() => (tick(el.currentTime), follow()));
 }
-// 반복을 끄거나 구간 · 효과가 바뀌면 건 효과를 바로 치운다
+// 반복을 끄거나 구간, 효과가 바뀌면 건 효과를 바로 치운다
 watch([loop, range, seamPick], () => seamFx.release(0));
 /** 구간 끝: 반복이면 처음으로, 아니면 멈춘다 */
 function atEnd(el: HTMLVideoElement) {
@@ -305,7 +337,7 @@ function onTime() {
   if (videoEl.value?.paused && !peeking) now.value = videoEl.value.currentTime;
 }
 
-/** 구간 핸들을 끄는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
+/** 구간 핸들을 드래그하는 동안: 재생 위치(now)는 그대로 두고 화면만 그 장면(재생 중이면 잠시 멈춘다). 놓으면 재생 위치로 돌아가 이어서 */
 let peeking: { wasPlaying: boolean } | null = null;
 function peek(t: number) {
   const el = videoEl.value;
@@ -344,10 +376,10 @@ async function togglePlay() {
   }
 }
 
-// ── 틀: 안을 끌면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
+// ── 틀: 안을 드래그하면 옮기고, 모서리는 반대 모서리를 붙잡고 비율 자유로 ──
 
 let drag: { mode: "move" | Corner; px: number; py: number; from: { x: number; y: number; w: number; h: number } } | null = null;
-// 확대해도 보는 창의 가운데가 그림의 같은 곳에 남게(스크롤할 수 있는 폭 · 높이에 대한 비율로)
+// 확대해도 보는 창의 가운데가 이미지의 같은 곳에 남게(스크롤할 수 있는 폭, 높이에 대한 비율로)
 watch(zoom, async () => {
   const el = viewportEl.value;
   if (!el) return;
@@ -358,7 +390,7 @@ watch(zoom, async () => {
   el.scrollTop = cy * el.scrollHeight - el.clientHeight / 2;
 });
 
-/** 확대했을 때 틀 바깥(빈 곳 포함)을 끌면 보는 창을 옮긴다 */
+/** 확대했을 때 틀 바깥(빈 곳 포함)을 드래그하면 보는 창을 옮긴다 */
 function panStart(e: PointerEvent) {
   const el = viewportEl.value;
   if (!el || zoom.value <= 1) return;
@@ -389,17 +421,18 @@ function moveTo(e: PointerEvent) {
   const dx = (e.clientX - drag.px) / scale.value;
   const dy = (e.clientY - drag.py) / scale.value;
   const f = drag.from;
+  const { width, height } = size.value;
   if (drag.mode === "move") {
-    sel.x = Math.min(Math.max(0, f.x + dx), natural.width - f.w);
-    sel.y = Math.min(Math.max(0, f.y + dy), natural.height - f.h);
+    sel.x = Math.min(Math.max(0, f.x + dx), width - f.w);
+    sel.y = Math.min(Math.max(0, f.y + dy), height - f.h);
     return;
   }
   const west = drag.mode.includes("w");
   const north = drag.mode.includes("n");
   const ax = west ? f.x + f.w : f.x;
   const ay = north ? f.y + f.h : f.y;
-  const w = Math.min(Math.max(MIN_SIDE, f.w + (west ? -dx : dx)), west ? ax : natural.width - ax);
-  const h = Math.min(Math.max(MIN_SIDE, f.h + (north ? -dy : dy)), north ? ay : natural.height - ay);
+  const w = Math.min(Math.max(MIN_SIDE, f.w + (west ? -dx : dx)), west ? ax : width - ax);
+  const h = Math.min(Math.max(MIN_SIDE, f.h + (north ? -dy : dy)), north ? ay : height - ay);
   Object.assign(sel, { x: west ? ax - w : ax, y: north ? ay - h : ay, w, h });
 }
 
@@ -408,9 +441,11 @@ function finish() {
   emit(
     "done",
     {
-      crop: { x: sel.x / natural.width, y: sel.y / natural.height, w: sel.w / natural.width, h: sel.h / natural.height },
+      crop: cropNow(),
       range: props.bg?.kind === "video" ? range.value : null,
       thumbAt: props.bg?.kind === "video" ? (thumbAt.value ?? range.value[0]) : null,
+      rotate: turning.value.rotate,
+      flip: turning.value.flip,
     },
     { ...seamPick.value },
   );

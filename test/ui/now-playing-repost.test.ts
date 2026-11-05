@@ -1,4 +1,4 @@
-// 현재 재생 임베드의 자가 복구 — 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
+// src/ui/now-playing-panel.ts: 현재 재생 임베드의 자가 복구. 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 사용자가 임베드를 지워도 5초 갱신마다 10008(Unknown Message)을 error로 찍지 않는다.
 
 import sink from "../../src/infra/log/sink.ts";
@@ -17,7 +17,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 
 const BOT_CHANNEL = "chan-1";
 
-// 패널 채널을 정할 때 전용 채널을 묻는다. 임시 DB 에 두고, 기본은 "전용 채널 없음"
+// 패널 채널을 정할 때 전용 채널을 조회한다. 임시 DB 에 두고, 기본은 "전용 채널 없음"
 const store = tempStore.openTempStore("repost-");
 after(() => store.close());
 const gone = () => Object.assign(new Error("Unknown Message"), { code: 10008 });
@@ -41,7 +41,7 @@ class TestPanels extends NowPlayingPanel {
   }
 }
 
-// 테스트가 조종하는 것: 보내기 · 고치기 실패, 보내기 직전에 할 일
+// 테스트가 조종하는 것: 보내기, 고치기 실패, 보내기 직전에 할 일
 type State = { sendError?: Error | null; editError?: Error | null; onSend?: () => unknown };
 // 채널 캐시에 둔 메시지. 묻혔는지 볼 때 읽는 필드
 type Cached = { id: string; createdTimestamp: number };
@@ -68,7 +68,7 @@ function makeSetup(state: State = {}) {
     },
   });
 
-  // 패널 위치 기록은 메모리로 — 실제 DB를 열지 않는다
+  // 패널 위치 기록은 메모리로. 실제 DB를 열지 않는다
   const records = new Map<string, PanelRecord | null>([["g1", { channelId: BOT_CHANNEL, messageId: "100" }]]);
   const panelStore: PanelStore = {
     getPanel: async (g) => records.get(g) ?? null,
@@ -94,6 +94,7 @@ function makeSetup(state: State = {}) {
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     volume: 100,
     getCurrentTime: () => 1000,
     currentTrack: { title: "곡", pageUrl: "https://example.org/a.mp3", requestKey: "https://example.org/a.mp3", duration: 100, platform: "direct" },
@@ -105,7 +106,7 @@ function makeSetup(state: State = {}) {
   return { mem, player, calls, state, cache, text };
 }
 
-test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 않는다", async () => {
+test("지워진 임베드는 다시 올린다. 같은 오류를 반복하지 않는다", async () => {
   const { mem, player, calls, state } = makeSetup({ editError: gone() });
 
   await mem.updatePlaying(player);
@@ -114,7 +115,7 @@ test("지워진 임베드는 다시 올린다 — 같은 오류를 반복하지 
   assert.equal(player.nowPlayingMessage?.id, calls.sent[0], "참조가 새 메시지로 바뀐다");
   assert.ok(calls.deleted.includes("100"), "지워진 옛 메시지도 정리를 시도한다");
 
-  // 다음 갱신은 새 메시지를 편집한다 — 사라진 id로 계속 두드리지 않는다
+  // 다음 갱신은 새 메시지를 편집한다. 사라진 id로 계속 두드리지 않는다
   state.editError = null;
   await mem.updatePlaying(player);
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);

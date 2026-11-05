@@ -1,4 +1,4 @@
-// src/rules/latency.ts — 응답 시간의 등급(/ping · 운영자 패널)
+// src/rules/latency.ts: 응답 시간의 등급(/ping, 운영자 패널)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

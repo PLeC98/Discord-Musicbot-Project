@@ -1,4 +1,4 @@
-// AI 사용량 통계 화면의 상태: 기간 · 출처 필터 · 보고서 · 통계 삭제. 화면이 보일 때 읽는다(active)
+// AI 사용량 통계 화면의 상태: 기간, 출처 필터, 보고서, 통계 삭제. 화면이 보일 때 읽는다(active)
 
 import { ref, watch } from "vue";
 import axios from "axios";

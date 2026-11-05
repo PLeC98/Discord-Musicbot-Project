@@ -1,5 +1,5 @@
-// src/discord/events/interaction-create.ts — 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼 · 메뉴 · 모달은 처리기 표로 선택한다.
-// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 처리기는 그 자리표시자에.
+// src/discord/events/interaction-create.ts: 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼, 메뉴, 모달은 핸들러 표로 선택한다.
+// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,6 +12,7 @@ import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failure-notice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 type Sent = [string, unknown?];
 
@@ -22,6 +23,7 @@ function interaction({ name = "play", chat = true, commands = {} as Record<strin
     replied,
     deferred,
     isChatInputCommand: () => chat,
+    isAutocomplete: () => false,
     inCachedGuild: () => guild,
     isButton: () => false,
     isStringSelectMenu: () => false,
@@ -49,7 +51,7 @@ test("상호작용 생성 이벤트로 불린다", () => {
   assert.equal(interactionCreate.name, Events.InteractionCreate);
 });
 
-test("슬래시 명령도 버튼 · 메뉴 · 모달도 아니면 지나간다", async () => {
+test("슬래시 명령도 버튼, 메뉴, 모달도 아니면 지나간다", async () => {
   const { it, sent, bot } = interaction({ chat: false });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent, []);
@@ -114,7 +116,7 @@ test("종류를 구분할 수 있는 오류(네트워크 등)는 그 종류의 �
   assert.deepEqual(pressed.sent[0][1], noticeReply(errors.notice("network-error")));
 });
 
-test("자리표시자를 표시한 처리기가 선언했으면 그 자리표시자에 알린다", async () => {
+test("자리표시자를 표시한 핸들러가 선언했으면 그 자리표시자에 알린다", async () => {
   const placeholder = {
     execute: async (i: object) => {
       showFailureWith(i, async (notice) => sent.push(["shown", notice]));
@@ -146,7 +148,7 @@ test("알리기가 실패해도 던지지 않는다", async () => {
   await interactionCreate.execute(bot, it);
 });
 
-// ── 버튼 · 메뉴 · 모달 ────────────────────────────────────────────────
+// ── 버튼, 메뉴, 모달 ────────────────────────────────────────────────
 
 function press({ customId = "x:1", replied = false, deferred = false, dead = false } = {}) {
   const sent: Sent[] = [];
@@ -155,6 +157,7 @@ function press({ customId = "x:1", replied = false, deferred = false, dead = fal
     replied,
     deferred,
     isChatInputCommand: () => false,
+    isAutocomplete: () => false,
     inCachedGuild: () => true,
     isButton: () => true,
     reply: async (p: unknown) => {
@@ -187,7 +190,7 @@ test("버튼 처리가 던졌는데 상호작용이 이미 죽었으면 알리�
   assert.deepEqual(sent, []);
 });
 
-test("처리기를 찾아 그 상호작용으로 부른다", async () => {
+test("핸들러를 찾아 그 상호작용으로 부른다", async () => {
   const seen: unknown[] = [];
   const { it, sent } = press({ customId: "x:go" });
   await routeInteraction(fakeBot(), it, [route("button", "x:", (i) => seen.push(i))]);
@@ -202,4 +205,104 @@ test("서버 밖의 버튼은 받지 않는다", async () => {
   await routeInteraction(fakeBot(), it, [route("button", "x:", (i) => seen.push(i))]);
   assert.deepEqual(seen, []);
   assert.deepEqual(sent, []);
+});
+
+// ── 자동완성 ──
+
+/** 자동완성 상호작용. responded 는 respond 를 부르면 참이 된다 */
+function suggest({ name = "search", guild = true, commands = {} as Record<string, object> } = {}) {
+  const answered: unknown[] = [];
+  const it = {
+    commandName: name,
+    responded: false,
+    isChatInputCommand: () => false,
+    isAutocomplete: () => true,
+    inCachedGuild: () => guild,
+    respond: async (choices: unknown) => {
+      answered.push(choices);
+      it.responded = true;
+    },
+  };
+  const bot = fakeBot({ commands: new Map(Object.entries(commands).map(([k, c]) => [k, fake<SlashCommand>(c)])) });
+  return { it: fake<ChatInputCommandInteraction>(it), answered, bot };
+}
+
+test("자동완성은 그 명령의 autocomplete 가 답한다", async () => {
+  const { it, answered, bot } = suggest({ commands: { search: { autocomplete: async (i: { respond(c: unknown): Promise<void> }) => i.respond([{ name: "a", value: "a" }]) } } });
+  await interactionCreate.execute(bot, it);
+  assert.deepEqual(answered, [[{ name: "a", value: "a" }]]);
+});
+
+test("자동완성 처리가 던지거나 답하지 않았으면 빈 목록으로 답하고, 던짐은 밖으로 새지 않는다", async () => {
+  const thrown = suggest({
+    commands: {
+      search: {
+        autocomplete: async () => {
+          throw new Error("버그");
+        },
+      },
+    },
+  });
+  await interactionCreate.execute(thrown.bot, thrown.it);
+  assert.deepEqual(thrown.answered, [[]]);
+
+  const silent = suggest({ commands: { search: { autocomplete: async () => {} } } });
+  await interactionCreate.execute(silent.bot, silent.it);
+  assert.deepEqual(silent.answered, [[]]);
+});
+
+test("자동완성에 늦게 답해 거절되면(10062) warn 으로 남긴다. 1분에 한 줄", async () => {
+  const from = sink.buffer.length;
+  const late = () => {
+    const one = suggest({
+      commands: {
+        search: {
+          autocomplete: async () => {
+            throw Object.assign(new Error("Unknown interaction"), { code: 10062 });
+          },
+        },
+      },
+    });
+    // 받은 것은 늦지 않았고(늦게 받음 줄을 남기지 않게) 답이 거절됐다
+    Object.assign(one.it, { createdTimestamp: Date.now() - 1000, responded: true });
+    return interactionCreate.execute(one.bot, one.it);
+  };
+  await late();
+  await late();
+  const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("자동완성 답 실패(늦음)"));
+  assert.deepEqual(
+    lines.map((e) => e.level),
+    ["warn"],
+  );
+  assert.match(lines[0].text, /^자동완성 답 실패\(늦음\): \/search \| 생성 뒤 \d+ms \| /);
+});
+
+test("자동완성이 없는 명령, 없는 명령, 서버 밖은 빈 목록", async () => {
+  for (const one of [suggest({ commands: { search: { execute: async () => {} } } }), suggest({ name: "nope" }), suggest({ guild: false, commands: { search: { autocomplete: async () => assert.fail("서버 밖") } } })]) {
+    await interactionCreate.execute(one.bot, one.it);
+    assert.deepEqual(one.answered, [[]]);
+  }
+});
+
+// ── 늦게 받은 상호작용 ──
+
+test("만든 뒤 2초가 넘어 받은 상호작용은 warn 으로 남긴다. 1분에 한 줄, 그 사이의 것은 세어 다음 줄에", async () => {
+  const from = sink.buffer.length;
+  const base = 10_000_000;
+  const at = (createdAt: number, now: number) => {
+    const { it, bot } = interaction({ commands: { play: { execute: async () => {} } } });
+    Object.assign(it, { createdTimestamp: createdAt });
+    return routeInteraction(bot, it, [], now);
+  };
+  await at(base, base + 1999);
+  await at(base, base + 3100);
+  await at(base + 10_000, base + 13_000);
+  await at(base + 70_000, base + 72_500);
+  assert.deepEqual(
+    sink.buffer
+      .slice(from)
+      .filter((e) => e.text.startsWith("상호작용 늦게 받음"))
+      .map((e) => `${e.level} ${e.text}`),
+    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 늘 이러면 봇 PC 의 시계를 확인하세요", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 늘 이러면 봇 PC 의 시계를 확인하세요"],
+  );
 });

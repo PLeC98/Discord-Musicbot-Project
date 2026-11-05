@@ -3,16 +3,19 @@
 import type { Request } from "express";
 import { artOf } from "../rules/track-art.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
-import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView } from "./contract/player.ts";
+import { QUEUE_PAGE, QUEUE_WINDOW_MAX, type PlayerState, type PlayingView, type QueueTrackView, type SearchTrack } from "./contract/player.ts";
+import { canonicalUrl } from "../rules/canonical-url.ts";
+import type { Song } from "../usecases/song-search.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
+import * as trackState from "../player/track-state.ts";
 // 라벨은 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
 
 /**
- * 화면에 거는 곡 그림. 곡 그림 주소가 있으면 그것, 직접 링크 곡이면 찾아 둔 파일 태그의 그림(이 봇의 경로, 지문이 그림의 내용). 모르면 null(아이콘).
+ * 화면에 거는 앨범아트. 앨범아트 주소가 있으면 그것, 직접 링크 곡이면 찾아 둔 파일 태그의 이미지(이 봇의 경로, 해시가 이미지 내용을 가리킨다). 모르면 null(아이콘).
  * 찾기를 시작하지 않는다(읽기만. 찾으면 플레이어가 새로 그리게 알린다)
  */
 function trackArtUrl(guildId: string | undefined, track: Pick<QueuedTrack, "thumbnail" | "audioUrl">): string | null {
@@ -25,11 +28,13 @@ function trackArtUrl(guildId: string | undefined, track: Pick<QueuedTrack, "thum
 function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): QueueTrackView {
   return {
     index: i,
-    // 대기열 ID. 빼기 · 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
+    // 대기열 ID. 빼기, 옮기기는 순번이 아니라 이것으로 가리킨다(그 사이 대기열이 바뀌어도 그 곡)
     entry: t.entry ?? null,
     title: t.title,
     artist: t.artist,
     duration: t.duration,
+    isLive: Boolean(t.isLive),
+    upcoming: t.liveStatus === "is_upcoming",
     thumbnail: trackArtUrl(guildId, t),
     platform: t.platform,
     platformLabel: labelOf(t.platform),
@@ -38,7 +43,36 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
   };
 }
 
-// 요청의 정수. parseInt와 달리 "50junk"·Infinity·소수를 전부 NaN으로 거부
+/**
+ * 지금 곡과 대기열 전체에 있는 곡의 주소 집합(정본으로 다듬은 것). 검색 결과에 "대기열" 배지를 달 때 본다.
+ * 세 주소를 다 넣는다: 고정한 곡은 pageUrl 이 입력 그대로, 출처가 있는 자동재생 곡은 유튜브 영상이 audioUrl 에만 있다(스포티파이 곡을 유튜브로 튼 것도 같은 음원)
+ */
+function queuedUrls(player: Pick<Player, "currentTrack" | "queue">): Set<string> {
+  const urls = new Set<string>();
+  for (const t of [player.currentTrack, ...player.queue]) {
+    if (!t) continue;
+    for (const url of [t.requestKey, t.pageUrl, t.audioUrl]) if (typeof url === "string" && url) urls.add(canonicalUrl(url));
+  }
+  return urls;
+}
+
+/** 곡 추가 칸의 검색 결과 한 곡. queued 는 queuedUrls */
+function searchTrack(guildId: string, song: Song, queued: Set<string>): SearchTrack {
+  const url = canonicalUrl(song.pageUrl);
+  return {
+    title: song.title ?? null,
+    artist: song.artist ?? null,
+    duration: song.duration,
+    thumbnail: trackArtUrl(guildId, { thumbnail: song.thumbnail, audioUrl: "audioUrl" in song ? song.audioUrl : undefined }),
+    platform: song.platform,
+    url,
+    isLive: "isLive" in song && Boolean(song.isLive),
+    upcoming: "liveStatus" in song && song.liveStatus === "is_upcoming",
+    inQueue: queued.has(url),
+  };
+}
+
+// 요청의 정수. parseInt와 달리 "50junk", Infinity, 소수를 전부 NaN으로 거부
 function toInt(value: unknown) {
   const n = Number(value);
   return Number.isInteger(n) ? n : NaN;
@@ -55,7 +89,7 @@ function queueWindow(req: Request) {
 // 지금 곡
 function playingView(player: Player, track: QueuedTrack): PlayingView {
   return {
-    // 대기열 ID. 넘기기 · 이동이 보던 곡일 때만 하도록 실어 보낸다
+    // 대기열 ID. 넘기기, 이동이 보던 곡일 때만 하도록 실어 보낸다
     entry: track.entry ?? null,
     title: track.title,
     artist: track.artist,
@@ -78,9 +112,21 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
 const BOOT = Date.now();
 let made = 0;
 
+// 이전 곡의 앨범아트. 가짜 플레이어(테스트)는 필드가 없을 수 있다
+function previousArt(player: Player) {
+  if (!player.previousTracks || !player.queue) return null;
+  const prev = trackState.previousOf(player);
+  return prev ? trackArtUrl(player.guild?.id, prev) : null;
+}
+
+// 곡이 없을 때도 혼자 남음이면 멈춤이 참이다. 보이는 곡이 있을 때만 멈춤, 억제 사유로 보인다
+function pauseView(player: Player, paused: boolean, shown: boolean) {
+  return { paused: shown && paused, userPaused: player.pause.userPaused, heldBy: shown ? player.pause.heldBy : null };
+}
+
 function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE): PlayerState {
   const order = { boot: BOOT, seq: ++made };
-  if (!player) return { ...order, playing: false, paused: false, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
+  if (!player) return { ...order, playing: false, paused: false, userPaused: false, heldBy: null, queue: [], queueTotal: 0, currentTrack: null, hasLive: false };
   const status = playbackStatus(player);
   // 재생이 실제로 시작되기 전(곡 해석/스트림 셋업 중)에는 곡을 노출하지 않는다. 그래야
   // 대시보드가 '재생 중 + 진행바'로 유령 재생을 보여주지 않는다.
@@ -88,20 +134,21 @@ function playerState(player: Player | null | undefined, queueLimit = QUEUE_PAGE)
   return {
     ...order,
     playing: status.playing,
-    paused: status.paused,
+    ...pauseView(player, status.paused, Boolean(track)),
     volume: status.volume,
     loop: status.loop,
     currentTrack: track ? playingView(player, track) : null,
     hasPrevious: (player.previousTracks?.length ?? 0) > 0,
+    previousThumbnail: previousArt(player),
     // 대기열이 비어도 자동재생이 켜져 있으면 넘기기가 된다
     autoplay: Boolean(player.autoplay),
     autoplayGenre: player.autoplay || null,
     autoplayGenreLabel: player.autoplay ? genreConfig.labelOf(player.autoplay) : null,
-    // 반복 버튼을 끌지 결정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
+    // 반복 버튼을 비활성화할지 정한다. 대기열 창 밖의 곡도 봐야 해서 클라이언트가 목록으로 셀 수 없다.
     hasLive: player.hasLiveTrack?.() ?? false,
     queue: (player.queue || []).slice(0, queueLimit).map((t, i) => queueTrack(player.guild?.id, t, i)),
     queueTotal: player.queue?.length ?? 0,
   };
 }
 
-export { queueTrack, queueWindow, playerState, toInt, trackArtUrl };
+export { queueTrack, queueWindow, playerState, toInt, trackArtUrl, queuedUrls, searchTrack };

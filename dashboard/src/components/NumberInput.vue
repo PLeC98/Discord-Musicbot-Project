@@ -1,7 +1,7 @@
 <!--
   숫자 입력란. type="number" 를 쓰지 않는다. 입력란 위에서 휠을 굴리면 값이 바뀌기 때문이다.
-  평범한 입력란으로 두고 숫자만 받는다. 소수·음수는 받을 입력란에서만 켠다
-  (온도 0.4 · top_p 0.9 · penalty -2 처럼 프로필이 그렇게 적어 둔 필드).
+  평범한 입력란으로 두고 숫자만 받는다. 소수, 음수는 받을 입력란에서만 켠다
+  (온도 0.4, top_p 0.9, penalty -2 처럼 프로필이 그렇게 적어 둔 필드).
 -->
 <template>
   <input :inputmode="decimal ? 'decimal' : 'numeric'" :value="modelValue ?? ''" @input="onInput" />

@@ -1,4 +1,4 @@
-// src/ui/added-notice.ts — 곡을 담은 안내. 다 담았으면 기본 색, 일부만 담았으면 경고 색
+// src/ui/added-notice.ts: 곡 추가 안내. 다 추가했으면 기본 색, 일부만 추가했으면 경고 색
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

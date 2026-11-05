@@ -1,6 +1,6 @@
-// 끝까지 돌리는 ffmpeg 일(테스트 · 검사 · 굽기). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
-// signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 굽기의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
-// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 굽기용 코어로 묶는다(infra/cpu-affinity)
+// 끝까지 돌리는 ffmpeg 일(테스트, 검사, 인코딩). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
+// signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 인코딩의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
+// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 인코딩용 코어로 묶는다(infra/cpu-affinity)
 
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "./path.ts";
@@ -21,7 +21,7 @@ type FfmpegJob = {
   input?: Buffer;
   signal?: AbortSignal;
   timeoutMs?: number;
-  /** 진행(-progress 의 out_time_us)이 이만큼 늘지 않으면 끊는다. 느린 기기에서 길게 도는 굽기는 끊지 않고 멈춘 것만 끊는다 */
+  /** 진행(-progress 의 out_time_us)이 이만큼 늘지 않으면 끊는다. 느린 기기에서 길게 도는 인코딩은 끊지 않고 멈춘 것만 끊는다 */
   stallMs?: number;
   /** 표준 출력을 모으지 않는다(파일로 쓰는 일) */
   discardStdout?: boolean;
@@ -29,7 +29,7 @@ type FfmpegJob = {
   /** 레지스트리에 적을 이름(ffmpeg:<label>)과 하는 일 */
   label?: string;
   job?: Job;
-  /** 굽기용 코어로 묶는다 */
+  /** 인코딩용 코어로 묶는다 */
   bindCores?: boolean;
 };
 /** 진행 감시: feed 에 표준 오류 줄을 주면 out_time_us 가 늘 때마다 다시 잰다. stallMs 동안 늘지 않으면 onStall */
@@ -48,7 +48,7 @@ function progressWatch(stallMs: number, onStall: () => void) {
   };
 }
 
-/** 끝난 코드(실행하지 못했거나 신호로 끝났으면 null) · 끝낸 신호 · 모은 출력(글 · 바이트 그대로) · 멈춘 까닭 */
+/** 끝난 코드(실행하지 못했거나 신호로 끝났으면 null), 끝낸 신호, 모은 출력(글, 바이트 그대로), 멈춘 까닭 */
 type FfmpegResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
 function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
@@ -99,7 +99,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     child.on("error", (error) => done(null, String(error)));
     child.on("close", (code, ended) => done(code, "", ended));
     if (input) {
-      // ffmpeg 가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE 로 터진다. 끝난 코드 · 표준 오류는 close 가 넘긴다
+      // ffmpeg 가 입력을 다 읽기 전에 끝나면 쓰기가 EPIPE 로 터진다. 끝난 코드, 표준 오류는 close 가 넘긴다
       child.stdin?.on("error", (error) => log.trace(`ffmpeg(${label}) 입력 쓰기 실패: ${messageOf(error)}`));
       child.stdin?.end(input);
     }

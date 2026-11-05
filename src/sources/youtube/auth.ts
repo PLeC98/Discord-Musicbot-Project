@@ -1,4 +1,4 @@
-// 유튜브에 어떻게 붙는가. POToken 플러그인 · 쿠키 · 유튜브용 yt-dlp 옵션 · 인증 상태 로그.
+// 유튜브에 어떻게 붙는가. POToken 플러그인, 쿠키, 유튜브용 yt-dlp 옵션, 인증 상태 로그.
 
 import path from "path";
 import type { YtDlpFlags as Flags } from "../ytdlp-spawn.ts";
@@ -7,7 +7,8 @@ import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import config from "../../config/index.ts";
-import { baseOptions } from "../ytdlp-options.ts";
+import { argList, baseOptions } from "../ytdlp-options.ts";
+import { potServerUrl } from "./pot-server.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
 import type { CookieSource, YoutubeStatus } from "./status-types.ts";
@@ -37,16 +38,22 @@ const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
 const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { ageContentOn } from "../../config/age-content.ts";
+import { josa } from "../../rules/josa.ts";
 
-// 유튜브용 yt-dlp 옵션. 공통(ytdlpOptions) 위에 유튜브 전용을 얹는다
+// 유튜브용 yt-dlp 옵션. 공통(baseOptions) 위에 유튜브 전용을 얹는다
 function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}): Flags {
   const options = baseOptions({
     jsRuntimes: `node:${process.execPath}` as const,
-    // User-Agent를 우리가 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 선택해 주고, 그 값이
-    // http_headers로 실려 와 재생 요청 헤더가 된다. 우리가 덮으면 그게 낡은 단일 값으로 뭉개진다.
-    ...(potEnabled() && { pluginDirs: BGUTIL_DIR }),
+    // User-Agent를 덮지 않는다. yt-dlp는 클라이언트마다 다른 값을 선택해 주고, 그 값이
+    // http_headers로 실려 와 재생 요청 헤더가 된다. 덮으면 낡은 단일 값 하나로 뭉개진다.
     ...extraOptions,
   });
+  // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣고 그 주소를 준다(플러그인의 기본 주소는 남의 서버일 수 있다)
+  const pot = potEnabled() ? potServerUrl() : null;
+  if (pot) {
+    options.pluginDirs = BGUTIL_DIR;
+    options.extractorArgs = [...argList(options.extractorArgs), `youtubepot-bgutilhttp:base_url=${pot}`];
+  }
 
   // 인증 모델: 평상시 쿠키 없이, 연령 제한에만 쿠키. bgutil 유무와 무관하다.
   // 쿠키는 계정 밴 위험이 있다. 노출 지점을 연령 제한 한 곳으로 묶는다. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 쓰지 않는다(config/age-content).
@@ -56,7 +63,7 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
     if (config.ytdlp.cookiesFromBrowser) {
       options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
     } else if (config.ytdlp.useCookieFile && cookieJar.ready()) {
-      // 실행 때 비밀 표에서 그 실행만의 파일로 푼다(ytdlp-run 의 _runOnce)
+      // 실행할 때 그 실행만의 파일로 복호화한다(ytdlp-run 의 _runOnce)
       options.cookies = cookieJar.JAR;
     }
   }
@@ -75,23 +82,22 @@ function potEnabled() {
 function logAuthMode() {
   const clients = config.ytdlp.playerClients;
   const pot = potEnabled() ? "사용" : config.bgutil.enabled ? "설정됨(설치 없음)" : "미사용";
-  // 파일 방식인데 아직 안 올렸으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
+  // 파일 방식인데 아직 입력하지 않았으면 그렇다고 적는다. 연령 제한 영상이 나오고서야 아는 것보다 낫다
   const cookie = !ageContentOn() ? "쓰지 않음(연령 제한 콘텐츠 꺼짐)" : config.ytdlp.cookiesFromBrowser ? `브라우저 ${config.ytdlp.cookiesFromBrowser}(연령 제한 폴백 전용)` : config.ytdlp.useCookieFile ? (cookieJar.ready() ? "대시보드에 입력한 쿠키(연령 제한 폴백 전용)" : "대시보드에 입력한 쿠키(아직 없음. 연령 제한 탭에서 입력하세요)") : "없음";
   log.info({ tags: ["startup"] }, `재생 인증: 클라이언트=${clients.length ? clients.join(",") : "yt-dlp 기본값"} | POToken=${pot} | 쿠키=${cookie}`);
 
-  // POToken이 있어야 제대로 도는 클라이언트를 적어놓고 공급자를 안 켰으면 알려준다.
-  // 막지는 않는다. 이 표는 오늘의 유튜브일 뿐이고, 진짜 판정은 실행이 한다.
+  // POToken이 있어야 제대로 도는 클라이언트를 설정했는데 POToken 서버가 꺼져 있으면 알린다.
+  // 막지는 않는다. NEEDS_POT은 지금의 유튜브 기준일 뿐이고, 실제 판정은 실행 결과가 한다.
   const needy = clients.filter((c) => NEEDS_POT.includes(c));
   if (needy.length && !potEnabled()) {
-    log.warn(`${needy.join(", ")} 은(는) POToken이 있어야 제대로 동작합니다. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
+    log.warn(`${needy.join(", ")}${josa(needy.join(", "), "은")} POToken이 있어야 제대로 동작합니다. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
   }
 
-  // 우리가 아는 목록에 없는 이름. 필터링하지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
-  // 유효한지는 yt-dlp가 판단한다. 알고 넣은 사람은 이 줄을 무시하면 되고,
-  // 오타였다면 "넣으라는 대로 넣었는데 왜?"의 답이 여기 있다.
+  // KNOWN에 없는 이름. 필터링하지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
+  // 유효한지는 yt-dlp가 판단한다. 오타를 찾을 수 있게 경고 한 줄만 남긴다.
   const unknown = clients.filter((c) => !KNOWN.includes(c));
   if (unknown.length) {
-    log.warn(`${unknown.join(", ")} 은(는) 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옵니다`);
+    log.warn(`${unknown.join(", ")}${josa(unknown.join(", "), "은")} 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옵니다`);
   }
 }
 
@@ -124,9 +130,9 @@ function cookieSource(): CookieSource {
 }
 
 /**
- * 쿠키(브라우저 · 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
+ * 쿠키(브라우저, 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
  *
- * 입력한 쿠키는 기동 시점이 아니라 물어볼 때마다 본다. 대시보드로 교체하면 봇을 다시 시작하지
+ * 입력한 쿠키는 기동 시점이 아니라 부를 때마다 본다. 대시보드로 교체하면 봇을 다시 시작하지
  * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮다(연령 제한에서만 불린다).
  */
 function cookiesConfigured() {

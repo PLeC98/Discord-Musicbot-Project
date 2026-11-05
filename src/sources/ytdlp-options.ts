@@ -1,4 +1,4 @@
-// yt-dlp 의 공통 옵션. 어느 출처에나 붙는 것만 둔다. 출처 전용(유튜브의 JS 런타임 · POToken 플러그인 · 쿠키)은 그 출처가 얹는다.
+// yt-dlp 의 공통 옵션. 어느 출처에나 붙는 것만 둔다. 출처 전용(유튜브의 JS 런타임, POToken 플러그인, 쿠키)은 그 출처가 얹는다.
 
 import type { YtDlpFlags as Flags } from "./ytdlp-spawn.ts";
 
@@ -12,7 +12,7 @@ function useFfmpeg(locate: () => string | null) {
 
 /**
  * 공통 옵션 위에 extra 를 얹는다(extra 가 이긴다).
- * noWarnings 를 켜지 않는다. yt-dlp 의 경고에는 봐야 할 것이 섞여 있다(유튜브의 POToken 요구 · 사운드클라우드의 지역 제한 등). ERROR 는 이 옵션과 무관하다.
+ * noWarnings 를 켜지 않는다. yt-dlp 의 경고에는 봐야 할 것이 섞여 있다(유튜브의 POToken 요구, 사운드클라우드의 지역 제한 등). ERROR 는 이 옵션과 무관하다.
  */
 function baseOptions(extra: Flags = {}): Flags {
   const ffmpeg = ffmpegLocation();
@@ -26,4 +26,7 @@ function baseOptions(extra: Flags = {}): Flags {
   };
 }
 
-export { useFfmpeg, baseOptions };
+/** --extractor-args 들. 하나면 글자, 여럿이면 배열로 온다(같은 옵션을 되풀이해 넘긴다) */
+const argList = (args: string | string[] | undefined): string[] => (args === undefined ? [] : Array.isArray(args) ? args : [args]);
+
+export { useFfmpeg, baseOptions, argList };

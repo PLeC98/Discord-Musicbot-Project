@@ -1,9 +1,9 @@
 // 실행 기록(database/run-state.json). 봇이 어떻게 끝났는지 다음 기동이 알게 한다.
 //
-// 기동이 begin() 으로 {시작 시각} 을 적고, 돌아 있는 동안 "마지막으로 살아 있던 시각"을 고쳐 적는다. 끝낼 때 end() 가 끝난 방식을 적는다.
-// 끝난 방식이 없으면 기록 없이 끊긴 것이다(창 닫기 · 강제 종료 · 네이티브 충돌 · 정전). 가동 시간은 마지막으로 살아 있던 시각까지로 본다.
-// 짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 두 번이면 이번 기동은 세션을 복원하지 않는다. 세션이 끊김의 까닭이면 켤 때마다 다시 끊긴다.
-// begin() 전에는 아무것도 쓰지 않는다(테스트 · 스크립트가 실제 기록을 건드리지 않게).
+// 기동이 begin() 으로 {시작 시각} 을 적고, 돌아 있는 동안 "마지막으로 살아 있던 시각"을 갱신한다. 끝낼 때 end() 가 끝난 방식을 적는다.
+// 끝난 방식이 없으면 기록 없이 끊긴 것이다(창 닫기, 강제 종료, 네이티브 충돌, 정전). 가동 시간은 마지막으로 살아 있던 시각까지로 본다.
+// 짧게 끊긴 실행(기록 없이 끊김, 전역 폭주)이 연달아 두 번이면 이번 기동은 세션을 복원하지 않는다. 세션이 끊김의 원인이면 켤 때마다 다시 끊긴다.
+// begin() 전에는 아무것도 쓰지 않는다(테스트, 스크립트가 실제 기록을 건드리지 않게).
 
 import fs from "fs";
 import path from "path";
@@ -18,11 +18,11 @@ type Run = { startedAt: number; aliveAt: number; ended: { how: Ending; at: numbe
 type Previous = { line: string; skipRestore: boolean; shortStreak: number };
 
 const FILE = path.join(PROJECT.database, "run-state.json");
-const ALIVE_MS = 30_000; // 살아 있던 시각을 고쳐 적는 간격
-const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다
+const ALIVE_MS = 30_000; // 살아 있던 시각을 갱신하는 간격(ms)
+const SHORT_RUN_MS = 10 * 60_000; // 이보다 짧게 끊긴 실행을 센다(ms)
 const SKIP_RESTORE_STREAK = 2;
 
-const ENDINGS: Record<Ending, string> = { shutdown: "깨끗이 끝남", restart: "다시 시작함", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 내림" };
+const ENDINGS: Record<Ending, string> = { shutdown: "정상 종료", restart: "다시 시작", "startup-failed": "기동 실패", "global-flood": "전역 폭주로 종료" };
 
 function span(ms: number) {
   const min = Math.floor(ms / 60_000);
@@ -53,7 +53,7 @@ class RunRecord {
     }
   }
 
-  // 읽다 만 파일이 남지 않게 옆에 쓰고 옮긴다
+  // 쓰다 만 파일이 남지 않게 임시 파일에 쓰고 rename 한다
   _write() {
     if (!this.run) return;
     const temp = `${this.file}.${process.pid}.tmp`;
@@ -62,7 +62,7 @@ class RunRecord {
     fs.renameSync(temp, this.file);
   }
 
-  /** 기동. 직전 실행을 읽어 한 줄로 알려 주고 이번 실행을 적기 시작한다 */
+  /** 기동. 이전 실행을 읽어 한 줄로 알려 주고 이번 실행을 적기 시작한다 */
   begin(): Previous {
     const previous = this._read();
     const at = this.now();
@@ -91,7 +91,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 다음 간격에 다시 적는다. 못 적어도 끝난 방식은 end() 가 적는다
-      log.trace(`실행 기록 고치기 실패: ${messageOf(error)}`);
+      log.trace(`실행 기록 갱신 실패: ${messageOf(error)}`);
     }
   }
 
@@ -106,7 +106,7 @@ class RunRecord {
       this._write();
     } catch (error) {
       // 끝나는 중이다. 못 적으면 다음 기동이 "기록 없이 끊김"으로 본다
-      log.warn(`실행 기록에 끝난 방식을 적지 못했습니다: ${messageOf(error)}`);
+      log.warn(`실행 기록에 종료 사유 기록 실패: ${messageOf(error)}`);
     }
   }
 }

@@ -1,4 +1,4 @@
-// src/ui/text/ko/info.ts — 정보 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/info.ts: 정보 화면의 글자를 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,10 +20,14 @@ test("모든 문장", () => {
       info.ping({ botMark: "🟢", botMs: 40, apiMark: "⚪", apiMs: null }).api,
       info.pinging(),
       info.license(["• a", "• b"]),
-      info.nowPlaying(),
+      info.nowPlaying().title,
+      info.nowPlaying().line("stats", info.nowPlaying().status, "값"),
       info.nowPlayingStatus({ playing: true, paused: false, volume: 80, loop: false }),
       info.nowPlayingStatus({ playing: false, paused: true, volume: 50, loop: "track" }),
       info.nowPlayingStatus({ playing: false, paused: false, volume: 50, loop: "queue" }),
+      info.nowPlaying().queued(12, "43:10", false),
+      info.nowPlaying().queued(3, "9:00", true),
+      info.nowPlaying().autoplayOn("K-POP"),
     ],
     [
       "새로고침",
@@ -62,10 +66,14 @@ test("모든 문장", () => {
         fullText: { name: "📚 라이선스 전문", value: "저장소의 `LICENSE`(AGPL-3.0) / `LICENSE-MIT`(MIT) / `NOTICE.md`(구조 설명) 파일을 참조하세요." },
         footer: "GNU AGPL-3.0-or-later • MIT",
       },
-      { title: "🎵 현재 재생 중", artist: "🎤 아티스트", album: "💿 앨범", platform: "🌐 출처", progress: "⏱️ 진행", requester: "👤 요청자", status: "📊 상태" },
+      "🎵 현재 재생 중",
+      "-# 📊 **상태** 값",
       "▶️ 재생 중 • 🔊 80%",
       "⏸️ 일시정지 • 🔊 50% • 🔂 한 곡 반복",
       "⏳ 준비 중 • 🔊 50% • 🔁 대기열 반복",
+      "12곡 · 43:10",
+      "3곡 · 9:00 이상",
+      "켜짐 · K-POP",
     ],
   );
 });

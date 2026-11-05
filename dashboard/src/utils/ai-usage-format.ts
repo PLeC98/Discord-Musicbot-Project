@@ -1,11 +1,13 @@
-// AI 리퀘스트 로그 · 사용량 통계의 표시 형식: 걸린 시간 · 비용 · 토큰 · 짧은 주소 · 원문 펴기
+// AI 리퀘스트 로그, 사용량 통계의 표시 형식: 걸린 시간, 비용, 토큰, 짧은 주소, 원문 펴기
 
 import { formatNumber } from "./locale.ts";
+import { time } from "./units.ts";
 
-/** 1초 아래는 ms, 위는 소수 둘째 자리 초 */
-export function formatMs(ms: number | null | undefined): string {
+/** 1초 아래는 ms 정수, 위는 소수 둘째 자리 초(단위는 utils/units 의 time) */
+export function formatLatency(ms: number | null | undefined): string {
   if (ms == null) return "-";
-  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`;
+  const s = time(ms);
+  return s.unit === "ms" ? `${Math.round(s.n)}ms` : `${s.n.toFixed(2)}s`;
 }
 
 /** 달러. 1센트 아래는 넷째 자리까지(작은 요청이 0 으로 보이지 않게), 0 은 그대로 */
@@ -26,7 +28,7 @@ export function shortUrl(url: string): string {
   }
 }
 
-/** JSON 이면 들여 써서 편다. 아니면 그대로(잘린 원문 · 글 응답) */
+/** JSON 이면 들여 써서 편다. 아니면 그대로(잘린 원문, 글 응답) */
 export function prettyJson(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return raw;

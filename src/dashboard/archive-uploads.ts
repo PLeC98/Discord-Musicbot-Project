@@ -39,7 +39,7 @@ async function receive(req: Request): Promise<(Saved & { ok: false; room: number
 /** 그 토큰의 파일(없거나 지났으면 null) */
 const fileOf = (token: string) => (TOKEN.test(token) && uploads.has(token) && fs.existsSync(fileFor(token)) ? fileFor(token) : null);
 
-/** 삭제한다 */
+/** 올린 파일을 삭제하고 타이머를 멈춘다. 모르는 토큰은 무시한다 */
 function drop(token: string) {
   if (!TOKEN.test(token) || !uploads.has(token)) return;
   clearTimeout(uploads.get(token));
@@ -47,13 +47,13 @@ function drop(token: string) {
   fs.rmSync(fileFor(token), { force: true });
 }
 
-/** 봇이 켜질 때: 남은 것을 치운다 */
+/** 봇이 켜질 때: 이전 실행이 남긴 업로드 파일을 모두 삭제한다 */
 function sweepUploads() {
   let names: string[];
   try {
     names = fs.readdirSync(dir);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`올린 백업 파일 치우기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.debug(`업로드된 백업 임시 파일 정리 실패: ${messageOf(error)}`);
     return;
   }
   for (const name of names) if (name.startsWith(PREFIX)) fs.rmSync(path.join(dir, name), { force: true });

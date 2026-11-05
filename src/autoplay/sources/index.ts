@@ -1,16 +1,13 @@
-// 자동재생 소스. 설정 한 줄을 곡 목록으로 바꾼다. 부르는 곳이 다를 뿐 계약은 하나다.
-//
-//   { artist?, title, durationSec?, audioUrl?, youtubeUrl?, thumbnail?, sourceKey,
-//     sourceUrl?, platform? }
+// 자동재생 소스. 설정 한 줄을 곡 목록으로 바꾼다. 소스마다 부르는 곳은 달라도 내는 모양은 하나다(sources/candidate).
 //
 // 뒤의 처리는 어느 필드가 찼는지가 정한다. 유형을 따로 적어 두지 않는다.
 //   youtubeUrl 있음 → 그 영상을 튼다
 //   artist+title   → youtubeMatch로 찾는다 (durationSec이 있으면 길이 신호가 켜진다)
 //   audioUrl 있음  → 위가 안 되면 이것을 그대로 튼다
 //
-// `sourceUrl`·`platform`은 곡이 어디 것인가를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
-// 곳일 뿐이고, 표시 이름과 링크 데이터의 키는 출처 것이 된다(autoplayRoute 참고).
-// keyword·유튜브 재생목록은 영상 자체가 출처라 이 필드를 비워 둔다.
+// `sourceUrl`, `platform`은 곡이 어디 것인가를 말한다. 이게 있으면 유튜브 영상은 소리를 대는
+// 곳일 뿐이고, 표시 이름과 링크 데이터의 키는 출처 것이 된다(autoplay/route).
+// keyword, 유튜브 재생목록은 영상 자체가 출처라 이 필드를 비워 둔다.
 
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
@@ -43,14 +40,8 @@ const FETCHERS: Record<string, Fetcher> = { keyword, lastfm, lbradio, animetheme
 
 const TYPES = Object.keys(FETCHERS);
 
-/**
- * 대시보드가 그릴 소스 목록. 검증·실행과 같은 표에서 추출해 준다.
- * 화면이 따로 목록을 들고 있으면 소스를 더할 때 한쪽만 고치게 된다.
- *
- * 필수 여부는 need 에서 끌어온다(중복해서 적지 않는다).
- */
-// AnimeThemes 에서 선택할 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 어림잡지 않는다(연말에는 다음 해 1분기가 이미
-// 등록돼 있다). 하루 한 번 묻고, 화면은 오래 기다리지 않는다(http.remembered)
+// AnimeThemes 에서 선택할 수 있는 방영 연도. 저쪽이 알려 주므로 올해로 추산하지 않는다(연말에는 다음 해 1분기가 이미
+// 등록돼 있다). 하루 한 번 불러오고, 화면은 오래 기다리지 않는다(http.remembered)
 const yearRange = remembered<YearRange>(
   async () => {
     try {
@@ -72,9 +63,7 @@ async function animeYearRange() {
 
 /**
  * 필드 하나에 저쪽에서 불러온 값을 얹는다.
- *
- * `kind === "range"` 로 구분하지 않는 이유: 구간 필드가 둘인 소스가 있어(연도와 인지도)
- * 한쪽 값이 다른 쪽에 얹힌다. 필드 이름으로 구분한다.
+ * 구간 필드가 둘인 소스(anisongdb: 연도와 인지도)는 `kind === "range"` 로 구분하면 한쪽 값이 다른 쪽에 얹히므로 필드 이름으로 구분한다.
  */
 function fill(field: Field, type: string, years: YearRange, anisong: AnisongStats | null) {
   if (type === "animethemes" && field.kind === "range") return years;
@@ -83,15 +72,19 @@ function fill(field: Field, type: string, years: YearRange, anisong: AnisongStat
 
 function fillAnisong(field: Field, years: YearRange, anisong: AnisongStats | null) {
   if (field.key === "yearFrom") return anisong?.min ? { min: anisong.min, max: anisong.max } : years;
-  // 분포를 같이 내린다. 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
-  // 적은지 알고 선택한다. 쏠림이 심해서 안 보여 주면 "왜 같은 곡만 나오지"가 된다.
+  // 분포를 같이 보낸다. 쏠림이 심해 화면이 슬라이더 옆에 그려야 사용자가 높은 쪽 후보가 얼마나
+  // 적은지 알고 선택한다(안 보이면 "왜 같은 곡만 나오지"가 된다).
   if (field.key === "difficultyFrom") return anisong?.difficulty?.length ? { histogram: anisong.difficulty } : {};
-  // 태그는 364개라 SPEC 에 못 적는다. 저쪽에 물어 채운다.
+  // 태그는 수백 개라 SPEC 에 못 적는다. 저쪽에서 불러와 채운다.
   if (field.key === "tags") return { options: opts(anisong?.tags || []) };
   if (field.key === "genres" && anisong?.genres?.length) return { options: opts(anisong.genres) };
   return {};
 }
 
+/**
+ * 대시보드가 그릴 소스 목록. 검증, 실행과 같은 표(SPEC)에서 만든다(화면이 따로 들고 있으면 소스를 더할 때 한쪽만 고치게 된다).
+ * 필수 여부는 need 에서 끌어온다.
+ */
 async function catalog(): Promise<SourceTypeView[]> {
   // 나란히 부른다. 한쪽이 느리다고 다른 쪽을 기다릴 이유가 없다.
   const [years, anisong] = await Promise.all([animeYearRange(), anisongCatalog()]);
@@ -114,7 +107,6 @@ async function catalog(): Promise<SourceTypeView[]> {
 }
 
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
-// deps: 소스가 부르는 것의 가짜(테스트). 지금은 keyword 의 search 뿐이다
 async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
   if (!fetcher) throw new Error(`모르는 소스입니다: ${source?.type}`);

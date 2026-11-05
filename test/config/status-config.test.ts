@@ -1,7 +1,7 @@
-// 상태 문구 설정 — settings.db 의 "status" 문서(config/documents)와 그것을 읽는 StatusManager.
+// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 StatusManager.
 //
-// 이 파일도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
-// 특히 날짜·시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
+// 이 문서도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
+// 특히 날짜, 시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -27,7 +27,7 @@ test("기본 문서는 아무 문제가 없다", () => {
 });
 
 test("활동 종류 목록은 StatusManager와 같다", () => {
-  // configDataLoader가 StatusManager를 require하면 순환이 된다 — 그래서 목록을 따로 들고 있다
+  // 설정(config/)은 ui/ 의 StatusManager 를 부를 수 없어(층 방향) 목록을 따로 들고 있다
   assert.deepEqual(Object.keys(StatusManager.TYPE_MAP), statusConfig.ACTIVITY_TYPES);
 });
 
@@ -36,7 +36,7 @@ test("문구는 그냥 적어도 되고, 종류가 필요할 때만 풀어 적�
 });
 
 test("쓸 수 없는 활동 종류는 걸린다", () => {
-  // 잘못 적으면 조용히 "듣는 중"이 된다 — 오타가 말을 안 해 주는 종류다
+  // 잘못 적으면 오류 없이 "듣는 중"이 된다
   const problems = statusConfig.validateStatus({ messages: [{ text: "x", type: "playing" }] });
   assert.match(problems.join(" "), /활동 종류/);
 });
@@ -55,7 +55,7 @@ test("interval은 10초 미만일 수 없다", () => {
   assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
 });
 
-test("날짜·시간은 두 자리로 적어야 한다", () => {
+test("날짜, 시간은 두 자리로 적어야 한다", () => {
   // 비교가 문자열 비교라 "1-5"는 형식만 어긋나는 게 아니라 엉뚱한 날에 걸린다
   const of = (special: unknown) => statusConfig.validateStatus({ ...ok, special }).join(" ");
 
@@ -84,15 +84,15 @@ test("항목 이름 규칙은 장르와 같다", () => {
 // 문서는 DB 에 있고 고칠 대시보드가 실행돼야 하므로, 처음부터 틀렸어도 기동을 멈추지 않는다
 test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문구 없이 돈다(던지지 않는다)", () => {
   const from = sink.buffer.length;
-  useDocument("status", "interval: 1\nmessages: []\n");
+  useDocument("status", { interval: 1, messages: [] });
   assert.deepEqual(statusConfig.status(), { messages: [] });
   const said = sink.buffer.slice(from).find((e) => e.level === "error");
   assert.ok(said?.text.startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")), said?.text);
 });
 
 test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
-  // status()는 회전 주기마다 setInterval 안에서 불린다 — 던지면 타이머에서 잡히지 않는 예외가 된다.
-  useDocument("status", "interval: 30\nmessages: [맞는 문구]\n");
+  // status()는 회전 주기마다 setInterval 안에서 불리므로, 던지면 타이머에서 잡히지 않는 예외가 된다.
+  useDocument("status", { interval: 30, messages: ["맞는 문구"] });
   assert.deepEqual(statusConfig.status().messages, ["맞는 문구"]);
 
   documents._use("status", { interval: 1, messages: [] });
@@ -226,7 +226,7 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
   manager.stop(); // 두 번 불러도 된다
 });
 
-test("오늘 · 음력 오늘 · 지금은 MM-DD · HH:MM 모양", () => {
+test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
   const calendar = new StatusManager({}).calendar;
   assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
   assert.match(calendar.today(), /^\d{2}-\d{2}$/);
@@ -238,7 +238,7 @@ test("load 는 설정 로더의 status() 를 부른다", () => {
   assert.equal(new StatusManager({}).load(), statusConfig.status());
 });
 
-// 비운 간격은 봇 · 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)
+// 비운 간격은 봇, 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)
 test("간격의 기본값은 기본 문서의 값과 같다", () => {
   assert.equal((documents.defaultOf("status") as { interval?: unknown }).interval, INTERVAL_DEFAULT);
 });

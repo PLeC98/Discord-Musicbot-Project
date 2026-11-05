@@ -1,5 +1,5 @@
-// src/dashboard/routes/player.ts 의 봇 부르기 — 디스코드 /join 과 같은 판정과 일(usecases/join)을 HTTP 로 옮기는지.
-// 진짜 Player 를 만들므로 재생 하네스(음성 · ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 일은 /join 테스트(commands-add)가 본다.
+// src/dashboard/routes/player.ts: 봇 부르기. 디스코드 /join 과 같은 판정과 일(usecases/join)을 HTTP 로 옮기는지.
+// 진짜 Player 를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 일은 /join 테스트(commands-add)가 본다.
 
 import * as h from "../helpers/player-harness.ts";
 const { behavior } = h; // 하네스의 가짜 설정
@@ -104,7 +104,7 @@ test("음성 채널에 붙지 못하면 502 이고 플레이어가 남지 않는
 
 test("저장한 세션이 있으면 복원한다. 복원하다가 오류가 나면 500 이고 플레이어가 남지 않는다", async () => {
   const saveSession = () => {
-    sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+    sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
     sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
   };
   saveSession();

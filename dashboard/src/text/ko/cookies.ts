@@ -11,7 +11,7 @@ const clear = "저장된 쿠키 지우기";
 const pasteHint = "브라우저 확장에서 복사한 내용이나 다운로드한 파일의 내용 전부를 그대로 붙여넣으세요.";
 const pasteHintTip = "내보내는 방법은 README를 참고하세요.";
 const insecure = "지금 평문(HTTP)으로 접속 중이에요. 쿠키가 암호화되지 않은 채 네트워크로 전송돼요.";
-/** 저장된 쿠키가 있을 때 입력칸 자리 글 */
+/** 저장된 쿠키가 있을 때 입력란 플레이스홀더 */
 const replacePlaceholder = "바꾸려면 새 쿠키를 붙여넣어요";
 const savedDone = "쿠키를 저장했어요";
 const clearedDone = "쿠키를 지웠어요";

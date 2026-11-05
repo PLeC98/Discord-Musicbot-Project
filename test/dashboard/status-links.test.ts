@@ -1,4 +1,4 @@
-// src/dashboard/status/links.ts — 봇 상태 탭의 연결: 부른 결과와 설정으로 매긴다(쉼 · 실패 · 느림 · 정상 · 쓰지 않음)
+// src/dashboard/status/links.ts: 봇 상태 탭의 연결: 부른 결과와 설정으로 매긴다(쉼, 실패, 느림, 정상, 쓰지 않음)
 
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -6,18 +6,13 @@ import type { Client } from "discord.js";
 import { useDocument } from "../helpers/config-docs.ts";
 import * as documents from "../../src/config/documents.ts";
 
-// 장르는 Last.fm · VocaDB 만 쓴다
-useDocument("genres", "defaults:\n  prefetchCount: 1\ngenres:\n  락:\n    sources:\n      - type: lastfm\n        tags: [rock]\n      - type: vocadb\n");
+// 장르는 Last.fm, VocaDB 만 쓴다
+useDocument("genres", { defaults: { prefetchCount: 1 }, genres: { 락: { sources: [{ type: "lastfm", tags: ["rock"] }, { type: "vocadb" }] } } });
 
 const config = (await import("../../src/config/index.ts")).default;
 const { linkRows } = await import("../../src/dashboard/status/links.ts");
 const { _reset, record } = await import("../../src/infra/link-status.ts");
 const { _internals: spotify } = await import("../../src/sources/spotify.ts");
-
-/** 설정 문서를 바꾼다 */
-function writeConfig(name: "genres" | "status" | "ai", text: string) {
-  useDocument(name, text);
-}
 
 const client = { isReady: () => true, ws: { ping: 48 } } as unknown as Client;
 const rowOf = (id: string) => linkRows(client).find((row) => row.id === id)!;
@@ -30,14 +25,14 @@ beforeEach(() => {
   config.sponsorblock.enabled = true;
 });
 
-test("순서와 그룹: 디스코드 · 재생 · 유튜브 · 자동재생", () => {
+test("순서와 그룹: 디스코드, 재생, 유튜브, 자동재생", () => {
   assert.deepEqual(
     linkRows(client).map((row) => `${row.group}:${row.id}`),
-    ["play:discord", "play:spotify", "play:soundcloud", "play:sponsorblock", "youtube:potoken", "autoplay:ai", "autoplay:lastfm", "autoplay:listenbrainz", "autoplay:animethemes", "autoplay:anisongdb", "autoplay:vocadb", "autoplay:utaitedb", "autoplay:touhoudb"],
+    ["play:discord", "play:spotify", "play:soundcloud", "play:sponsorblock", "youtube:potoken", "youtube:youtube", "autoplay:ai", "autoplay:lastfm", "autoplay:listenbrainz", "autoplay:animethemes", "autoplay:anisongdb", "autoplay:vocadb", "autoplay:utaitedb", "autoplay:touhoudb"],
   );
 });
 
-test("쓰지 않음: 꺼 둠 · 키 없음 · 그 출처를 쓰는 장르가 없음", () => {
+test("쓰지 않음: 꺼 둠, 키 없음, 그 출처를 쓰는 장르가 없음", () => {
   config.sponsorblock.enabled = false;
   const off = Object.fromEntries(linkRows(client).flatMap((row) => (row.state === "off" ? [[row.id, row.note]] : [])));
   assert.deepEqual(off, { sponsorblock: "꺼 둠", potoken: "꺼 둠", ai: "꺼 둠", listenbrainz: "토큰 없음", animethemes: "이 출처를 쓰는 장르가 없음", anisongdb: "이 출처를 쓰는 장르가 없음", utaitedb: "이 출처를 쓰는 장르가 없음", touhoudb: "이 출처를 쓰는 장르가 없음" });
@@ -67,7 +62,7 @@ test("디스코드는 게이트웨이, POToken 은 서버 프로세스로 본다
 });
 
 test("늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간, ListenBrainz 는 이름에 올리면 시간 한도", () => {
-  writeConfig("ai", ["enabled: true", "provider: ollama", "model: qwen3:8b", ""].join("\n"));
+  useDocument("ai", { enabled: true, provider: "ollama", model: "qwen3:8b" });
   spotify.graphql._anonToken = { value: "t", expiresAt: Date.now() + 41 * 60_000 + 1000 };
   try {
     assert.deepEqual([rowOf("ai").state, rowOf("ai").note], ["idle", "qwen3:8b"]);

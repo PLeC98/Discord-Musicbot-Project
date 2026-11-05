@@ -1,4 +1,4 @@
-// 봇 다시 시작. 봇 상태 탭의 버튼 · 운영 조절값 저장 막대의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
+// 봇 다시 시작. 봇 상태 탭의 버튼, 운영 조절값 저장 막대의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
 // 봇이 스스로 다시 시작하는 일(봇 전체 초기화)은 보내지 않고 기다리기만 한다(waitRestart).
 // asking: 버튼을 눌러 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
 // waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 답하면 화면을 새로고침한다
@@ -6,7 +6,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import { notify, notifyProblem } from "./toasts.ts";
-import type { AdminStatus, RestartReply } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, statusParams, type AdminStatus, type RestartReply } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
 
@@ -18,7 +18,8 @@ type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const pidNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { timeout: 3000 })).data.env.pid;
+// pid 만 읽는다(목록 행은 받지 않는다)
+const pidNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(COUNTS_ONLY), timeout: 3000 })).data.env.pid;
 
 // 새 프로세스가 답하면 true. 내려가 있는 동안의 실패는 기다린다
 async function cameBack(before: number) {
@@ -50,7 +51,7 @@ async function waitFor(before: number) {
   phase.value = "idle";
 }
 
-/** 묻지 않고 다시 시작한다(이미 선택한 일: 확인 창의 다시 시작 · 저장 후 다시 시작) */
+/** 묻지 않고 다시 시작한다(이미 선택한 일: 확인 창의 다시 시작, 저장 후 다시 시작) */
 async function restartNow() {
   phase.value = "starting";
   try {

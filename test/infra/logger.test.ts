@@ -1,4 +1,4 @@
-// logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
+// src/infra/log/logger.ts, sink.ts: logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test, mock } from "node:test";
@@ -15,14 +15,14 @@ const { LogManager } = sink;
 const quiet = () => {};
 
 // ── facade: 인자 파싱/레코드 형태 ─────────────────────────────
-test("buildRecord: (msg, ...interp) — util.format 적용", () => {
+test("buildRecord: (msg, ...interp). util.format 적용", () => {
   const r = buildRecord(LEVELS.info, {}, ["안녕 %s", "세계"]);
   assert.equal(r.level, 30);
   assert.equal(r.msg, "안녕 세계");
   assert.equal(typeof r.time, "number");
 });
 
-test("buildRecord: (mergingObj, msg) — 바인딩이 top-level로 병합", () => {
+test("buildRecord: (mergingObj, msg). 바인딩이 top-level로 병합", () => {
   const r = buildRecord(LEVELS.warn, { category: "youtube" }, [{ guildId: "42" }, "실패"]);
   assert.equal(r.level, 40);
   assert.equal(r.msg, "실패");
@@ -30,7 +30,7 @@ test("buildRecord: (mergingObj, msg) — 바인딩이 top-level로 병합", () =
   assert.equal(r.guildId, "42"); // 호출부 merging object
 });
 
-test("buildRecord: (err) — err는 필드로 남고 stack이 msg에 접붙음", () => {
+test("buildRecord: (err). err는 필드로 남고 stack이 msg에 접붙음", () => {
   const e = new Error("펑");
   const r = buildRecord(LEVELS.error, {}, [e]);
   assert.match(r.msg, /펑/);
@@ -38,7 +38,7 @@ test("buildRecord: (err) — err는 필드로 남고 stack이 msg에 접붙음",
   assert.match(String(r.err), /펑/);
 });
 
-test("buildRecord: (obj) 단독 — msg 빈 문자열", () => {
+test("buildRecord: (obj) 단독. msg 빈 문자열", () => {
   const r = buildRecord(LEVELS.info, {}, [{ a: 1 }]);
   assert.equal(r.msg, "");
   assert.equal(r.a, 1);
@@ -99,7 +99,7 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
   assert.doesNotMatch(String(got[0].msg), /abcDEF123456/);
 });
 
-test("레드액션: msg 에 JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
+test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
@@ -124,7 +124,7 @@ test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   assert.deepEqual(entry, { id: 1, ts: 123, level: "warn", text: "노랑" });
 });
 
-// 브리지에 걸리는 console.log은 전부 서드파티다 — info로 올리면 우리 로그가 묻힌다.
+// 브리지에 걸리는 console.log은 전부 서드파티라 info로 올리면 우리 로그가 묻힌다.
 test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 나간다", () => {
   assert.equal(sink._internals.CONSOLE_LEVEL.log, 20);
   const lm = new LogManager({ intercept: false, terminal: quiet });
@@ -143,7 +143,7 @@ test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다
   );
 });
 
-test("터미널 하한은 파일·대시보드에 영향을 주지 않는다", () => {
+test("터미널 하한은 파일, 대시보드에 영향을 주지 않는다", () => {
   const printed: number[] = [];
   const lm = new LogManager({ intercept: false, terminal: (rec) => printed.push(rec.level) });
   lm.setConsoleLevel("info");
@@ -165,8 +165,8 @@ test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
   );
 });
 
-// 관리자 로그 스트림도 연결 상한 · 느린 소비자 처리를 둔다.
-// 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다.
+// 관리자 로그 스트림도 연결 상한, 느린 소비자 처리를 둔다.
+// 상한, 하트비트는 대시보드 SSE와 같은 설정을 쓴다.
 function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   const res = {
     writes: [] as string[],
@@ -199,7 +199,7 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   return res;
 }
 
-test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429 — 무한정 받지 않는다", () => {
+test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429. 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
@@ -256,7 +256,7 @@ test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 �
   assert.match(received, /붙는 순간의 새 줄/);
 });
 
-test("관리자 SSE: 줄마다 기동표.번호를 싣고, 다시 붙으면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
+test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
   for (let i = 1; i <= 3; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
@@ -324,7 +324,7 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
   assert.deepEqual(parsed, { id: 1, ts: 7, level: "error", text: "err" });
 });
 
-test("지난 1시간 경고 · 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
+test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
   const m = new LogManager({ intercept: false, maxLines: 2, terminal: () => {} });
   const at = Date.now();
   m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });

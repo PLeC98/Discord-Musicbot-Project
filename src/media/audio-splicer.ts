@@ -29,8 +29,8 @@ class AudioSplicer extends Readable {
   _failFrom: (err: Error) => void;
 
   /**
-   * @param {Readable} source  최초 소스 (ffmpeg stdout)
-   * @param {number}   fadeMs  크로스페이드 길이
+   * @param {Readable} source  처음 소스 (ffmpeg stdout)
+   * @param {number}   fadeMs  크로스페이드 길이(ms). 한 프레임(20ms)보다 짧으면 20ms
    */
   constructor(source: Readable, { fadeMs = 40 }: { fadeMs?: number } = {}) {
     super({ highWaterMark: 64 * 1024 });
@@ -166,7 +166,7 @@ class AudioSplicer extends Readable {
   }
 
   // 새 소스가 아직 못 준다. 옛 소스에 여유가 남았으면 멈추지 말고 전환 지점을 뒤로 민다.
-  // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 무이음으로 갈 이유가 없어진다.
+  // 여기서 기다리면 그게 곧 공백이고, 공백이 나는 순간 갭리스 전환을 할 이유가 없어진다.
   _slipOrWait(b: Readable) {
     const c = this._take(this.a);
     if (c) {
@@ -204,7 +204,7 @@ class AudioSplicer extends Readable {
     if (this.bDebt > 0 && isEnded(b) && b.readableLength === 0) this.bDebt = 0;
   }
 
-  // 두 조각의 길이가 다를 수 있다(끝난 소스의 꼬리). 긴 쪽에 맞추고 모자란 쪽은 무음으로 본다
+  // 두 청크의 길이가 다를 수 있다(끝난 소스의 꼬리). 긴 쪽에 맞추고 모자란 쪽은 무음으로 본다
   _mix(a: Buffer, b: Buffer): Buffer {
     const length = Math.max(a.length, b.length) & ~1;
     const sample = (buf: Buffer, i: number) => (i + 1 < buf.length ? buf.readInt16LE(i) : 0);
@@ -226,7 +226,7 @@ class AudioSplicer extends Readable {
     const old = this.a;
     this.a = next;
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
-    // 트랙 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
+    // 곡 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
     // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
     // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 교체한다.
     // 교체하지 않으면 이 파괴가 방금 성공한 전환을 도로 죽인다.
@@ -246,7 +246,7 @@ class AudioSplicer extends Readable {
     if (this.waiting === s) return;
     this.waiting = s;
     // 둘 중 하나가 깨우면 나머지도 반드시 뗀다. 안 그러면 굶었다 깨어날 때마다 리스너가
-    // 하나씩 쌓여 MaxListenersExceededWarning이 나고, 긴 트랙에서 계속 누적된다.
+    // 하나씩 쌓여 MaxListenersExceededWarning이 나고, 긴 곡에서 계속 누적된다.
     const again = () => {
       s.off("readable", again);
       s.off("end", again);

@@ -1,4 +1,4 @@
-// Player.play() 의 지금 동작을 고정한다.
+// src/player/player.ts, src/player/start-playback.ts: Player.play() 의 지금 동작을 고정한다.
 //
 // 옳고 그름을 따지는 테스트가 아니다. 고칠 때 **무엇이 바뀌었는지**
 // 드러나게 하려는 것이다. 여기 적힌 동작이 이상해 보여도 고치지 말고, 고칠 때는 이 테스트를 같이 고친다.
@@ -12,14 +12,17 @@ import * as audioCache from "../../src/store/audio-cache.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audio-splicer.ts";
+import { gainOf } from "../../src/rules/volume-gain.ts";
+import { AudioPlayerStatus, StreamType } from "@discordjs/voice";
 import { PassThrough } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
-import { codedError } from "../../src/rules/error-kind.ts";
+import { codedError, codeOf } from "../../src/rules/error-kind.ts";
 import { recordPanel } from "../helpers/panel-events.ts";
 import type { FakeChild } from "../helpers/player-harness.ts";
 import type { Player } from "../../src/player/player.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
+import type { StreamInfo } from "../../src/sources/stream-url.ts";
 import type { Segments, SkipSegment } from "../../src/sources/sponsor-block.ts";
 
 const { calls, behavior } = h;
@@ -70,7 +73,7 @@ test("캐시 파일이 있으면 스트림을 받지 않고 파일로 튼다", a
   assert.equal(calls.downloads.length, 0, "이미 있으니 다운로드하지 않는다");
   assert.equal(calls.fetches.length, 0);
   assert.equal(h.fakeAudioOf(p).played.length, 1);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "파일 분기는 스플라이서를 끼우지 않는다");
+  assert.equal(calls.resources[0].input.source, calls.spawns[0].stdout, "파일 분기는 스플라이서를 끼우지 않는다");
   // 캐시에 적힌 길이는 캐시된 음원을 잰 값이다. 보이던 값(180)과 2초 넘게 다르니 표시도 바꾼다
   assert.equal(p.currentTrack.duration, 201);
   assert.equal(p.playback?.lengthMs, 201_000, "곡 끝 판정은 이 음원의 길이를 본다");
@@ -84,7 +87,7 @@ test("재생 단계: 틀지 못하면 idle 로 돌아오고, 정지하면 dispos
   assert.equal(p.lifecycle.phase, "idle");
   assert.equal(p.isPlayStarting, false);
 
-  await p.dispose({ reason: "정지", session: "remove" });
+  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
   assert.equal(p.lifecycle.phase, "disposed");
 });
 
@@ -102,7 +105,7 @@ test("캐시에서 틀어도 오디오 캐시에 재생을 적는다", async () 
   assert.equal(row?.title_verified, 0, "캐시 분기는 영상 제목을 못 받아 확인 안 됨으로 적는다");
 });
 
-test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
+test("같은 곡을 이어 틀면(위치 이동, 구간 건너뛰기, 복구) 재생 횟수를 세지 않는다. 새로 틀면 센다", async () => {
   const track = yt("ccccccccccc");
   h.seedCache("yt:ccccccccccc", track);
   const p = h.makePlayer();
@@ -113,7 +116,7 @@ test("같은 곡을 이어 틀면(위치 이동 · 구간 건너뛰기 · 복구
     await p.seek(30_000, "dashboard");
     await p.play(60_000, { continued: true });
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 1, "처음 한 번만");
-    await p.play(0); // 한곡 반복 · 다음 곡처럼 새로 튼다
+    await p.play(0); // 한 곡 반복, 다음 곡처럼 새로 튼다
     assert.equal(h.audioRow("yt:ccccccccccc")?.play_count, 2);
   } finally {
     h.dispose(p);
@@ -146,6 +149,20 @@ test("캐시로 튼 곡은 퇴거에서 보호한다", async () => {
   p.releaseAudioProtection();
 });
 
+test("인코딩 워커를 쓸 수 없으면 ffmpeg 를 띄우기 전에 encoder-unavailable 로 실패한다", async () => {
+  const track = yt("ccccccccccc");
+  h.seedCache("yt:ccccccccccc", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  behavior.encoder = () => false;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false);
+  assert.equal(codeOf(r.error), "encoder-unavailable");
+  assert.equal(calls.spawns.length, 0);
+});
+
 // ── 스트림으로 튼다 ────────────────────────────────────────────────────
 
 test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시를 다운로드한다", async () => {
@@ -164,7 +181,7 @@ test("캐시가 없으면 스트림을 파이프로 먹이고 뒤에서 캐시�
   assert.equal(calls.spawns[0].label, "stream");
   assert.ok(calls.spawns[0].args.includes("pipe:0"));
   assert.equal(calls.downloads.length, 1, "재생과 나란히 캐시를 다운로드한다");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "스트림 분기는 무지연 전환을 위해 스플라이서를 끼운다");
+  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "스트림 분기는 갭리스 전환을 위해 스플라이서를 끼운다");
   assert.equal(p.currentTrack.duration, 180, "보이던 길이를 지킨다(스트림이 준 길이도 출처가 준 값이다)");
   assert.equal(p.playback?.lengthMs, 190_000, "곡 끝 판정은 트는 음원의 길이(스트림이 준 값)를 본다");
 });
@@ -179,7 +196,7 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운�
   assert.equal(r.ok, true);
   assert.equal(calls.fetches.length, 1);
   assert.equal(calls.downloads.length, 0, "기본 상한 60분");
-  assert.ok(calls.resources[0].input instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
+  assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
 });
 
 test("헤더를 안 준 스트림은 브라우저 User-Agent 로 받는다", async () => {
@@ -204,7 +221,7 @@ test("전체 길이(clen)를 아는 주소는 청크로 나눠 받는다", async
   assert.equal(calls.chunked[0].totalBytes, 4096);
 });
 
-// ── 긴 곡의 위치 이동: 색인으로 키프레임 바이트부터(media/seek-start) ──
+// ── 긴 곡의 위치 이동: 인덱스로 키프레임 바이트부터(media/seek-start) ──
 
 const LONG = "https://rr1.googlevideo.com/videoplayback?clen=120000000&x=1";
 const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) => ({
@@ -212,7 +229,7 @@ const found = (over: Partial<{ startByte: number; startedAtMs: number }> = {}) =
   start: { header: Buffer.from("HEAD"), startByte: 90_000_000, startedAtMs: 4_490_000, expectStart: { bytes: 4, check: () => true }, ...over },
 });
 
-test("위치 이동: 색인이 있으면 청크 스트림을 헤더 · 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
+test("위치 이동: 색인이 있으면 청크 스트림을 헤더, 키프레임 바이트로 열고, ffmpeg 는 키프레임과의 차이만 -ss 로 건너뛴다", async () => {
   const p = h.makePlayer();
   // 곡 길이는 스트림이 알려 준 것이 먼저다(표시 길이와 다를 수 있다)
   p.currentTrack = yt("seekidx0001", { duration: 100 });
@@ -232,7 +249,7 @@ test("위치 이동: 색인이 있으면 청크 스트림을 헤더 · 키프레
   assert.equal(args[args.indexOf("-ss") + 1], "10.000");
 });
 
-test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 연다. 주소 · 네트워크 탓이면 다시 열지 않는다", async () => {
+test("위치 이동: 색인 탓으로 열리지 않으면 처음부터 다시 연다. 주소, 네트워크 탓이면 다시 열지 않는다", async () => {
   for (const [what, failure, opens] of [
     ["색인 탓", Object.assign(new Error("받은 첫 바이트가 키프레임이 아닙니다"), { permanent: true, seekMismatch: true }), 2],
     ["주소 탓", Object.assign(new Error("Range 요청 실패: HTTP 404"), { permanent: true, status: 404 }), 1],
@@ -297,13 +314,13 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   assert.equal(calls.chunked[0].startByte, undefined);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^warn 색인을 받지 못해 처음부터 받습니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
+    lines.some((l) => /^warn 인덱스를 불러오지 못해 처음부터 스트리밍합니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
     lines.join(" / "),
   );
 });
 
-// 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 조각 목록뿐이다. 주소 하나로 열면 첫 조각(2초)만 틀고 끝난다
-test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 파이프로 흘리고, 조각 안의 나머지만 -ss 로 건너뛴다", async () => {
+// 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 세그먼트 목록뿐이다. 주소 하나로 열면 첫 세그먼트(2초)만 틀고 끝난다
+test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 흘리고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
   const p = h.makePlayer();
   p.currentTrack = yt("pppppppppp1", { duration: 20 });
@@ -315,8 +332,8 @@ test("조각 목록으로만 주는 소리는 위치가 든 조각부터 받아 
   assert.deepEqual({ ...calls.fragments[0], headers: undefined }, { fragments, durationMs: 20_000, startMs: 5_000, headers: undefined });
   const args = argsOf(calls.spawns[0]);
   assert.ok(args.includes("-i pipe:0"), args);
-  assert.ok(args.includes("-ss 1.000"), `조각 하나가 2초라 5초는 셋째 조각(4초)부터 받고 1초를 건너뛴다: ${args}`);
-  assert.equal(p.playback?.input?.kind, "조각");
+  assert.ok(args.includes("-ss 1.000"), `세그먼트 하나가 2초라 5초는 셋째 세그먼트(4초)부터 받고 1초를 건너뛴다: ${args}`);
+  assert.equal(p.playback?.input?.kind, "세그먼트");
   assert.equal(p.playback?.live, false);
 });
 
@@ -341,7 +358,7 @@ test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 �
   assert.equal(calls.downloads.length, 1);
 });
 
-// 다시 쓴 주소(받아 둔 영상 정보 · 직전 재생)는 추출한 IP 에 묶여 망을 옮기면 안 열린다
+// 다시 쓴 주소(받아 둔 영상 정보, 직전 재생)는 추출한 IP 에 묶여 망을 옮기면 안 열린다
 test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다. 위치 이동 때 다시 쓸 주소도 새 것이다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("rfrfrfrfrfr");
@@ -364,8 +381,25 @@ test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다.
     calls.chunked.map((c) => c.url.slice(-5)),
     ["n=old", "n=new"],
   );
-  assert.equal(p.playback?.resume?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
-  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("다시 쓴 스트림 주소가 열리지 않아 주소를 새로 받습니다")));
+  assert.equal(p.playback?.stream?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다")));
+});
+
+test("다시 쓴 주소가 열리지 않아 새로 받았는데 분기가 다르면(파이프 → m3u8) 그 자리에서 열지 않고 캐시 폴백에 맡긴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("rgrgrgrgrgr");
+  behavior.stream = (_track, options) => (options?.fresh ? { url: "https://manifest.googlevideo.com/hls/x.m3u8", protocol: "m3u8_native", duration: 100 } : { url: "https://rr1.googlevideo.com/videoplayback?clen=4096&n=old", duration: 100, reused: true });
+  behavior.chunked = () => {
+    throw Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403 });
+  };
+  behavior.download = () => Promise.reject(new Error("받기 실패"));
+  const from = sink.buffer.length;
+
+  const r = await playOnce(p);
+
+  assert.equal(r.ok, false, "목록 글자를 소리로 받지 않는다");
+  assert.equal(calls.fetches.length, 0, "새 m3u8 을 파이프로 받지 않았다");
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("새로 받은 스트림의 분기가 처음과 달라")));
 });
 
 test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 지금처럼 캐시로 넘긴다", async () => {
@@ -384,7 +418,7 @@ test("다시 쓰지 않은 주소가 열리지 않으면 새로 묻지 않고 �
   assert.equal(asks, 1);
 });
 
-test("앞 광고로 막힌 것이 아니면(시각 없음 · 지남 · 403 아님 · 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
+test("앞 광고로 막힌 것이 아니면(시각 없음, 지남, 403 아님, 60초 넘게 남음) 기다리지 않고 그대로 실패로 넘긴다", async () => {
   const soon = () => Date.now() / 1000 + 0.1;
   const cases = [
     { availableAt: null, status: 403 },
@@ -434,7 +468,7 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
-test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
+test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
   for (const [bounded, downloads] of [
     [true, 1],
     [false, 0],
@@ -453,7 +487,7 @@ test("직접 링크는 끝이 있고 크기 · 길이를 알 때만 나란히 �
   }
 });
 
-test("이을 수 있는 직접 링크 파일은 연 응답을 첫 조각으로 청크 스트림에 넘긴다(검사값 · 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/big.mp3");
   behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });
@@ -542,7 +576,7 @@ test("스트림이 실패해도 그사이 캐시 다운로드가 끝났으면 �
   assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 실행하지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
   assert.ok(
-    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 다운로드한 캐시로 틉니다")),
+    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 캐시 파일로 재생합니다")),
     "넘어간 것을 남긴다(조용히 넘어가면 스트림 쪽 결함이 가려진다)",
   );
 });
@@ -610,7 +644,7 @@ test("스트림 주소를 못 불러오면 실패", async () => {
   assert.equal(calls.spawns.length, 0);
 });
 
-// ── HLS · 라이브 ───────────────────────────────────────────────────────
+// ── HLS, 라이브 ───────────────────────────────────────────────────────
 
 test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 다운로드한다", async () => {
   const p = h.makePlayer();
@@ -628,7 +662,7 @@ test("HLS(다시보기)는 주소를 ffmpeg 에 주고, 캐시는 뒤에서 다�
   assert.equal(calls.downloads.length, 1);
   assert.equal(p.playback?.live, false);
   assert.equal(p.isLive, false);
-  assert.equal(calls.resources[0].input, calls.spawns[0].stdout, "HLS 분기는 스플라이서를 끼우지 않는다");
+  assert.equal(calls.resources[0].input.source, calls.spawns[0].stdout, "HLS 분기는 스플라이서를 끼우지 않는다");
 });
 
 test("라이브는 위치 0 으로 열고, 캐시를 다운로드하지 않는다", async () => {
@@ -725,7 +759,7 @@ test("스포티파이: 동등물을 못 찾으면 실패", async () => {
   assert.equal(r.ok, false);
 });
 
-// ── 위치 · 인트로 · 제목 ───────────────────────────────────────────────
+// ── 위치, 인트로, 제목 ───────────────────────────────────────────────
 
 test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼 넉넉할 때만 그 주소를 다시 쓴다. 위치는 -ss 가 정한다", async () => {
   const nowSec = Math.floor(Date.now() / 1000);
@@ -755,7 +789,7 @@ test("위치를 옮기면 직전 주소의 만료가 남은 곡을 받을 만큼
   }
 });
 
-test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소를 다시 쓴다(새 주소는 앞 광고 시간 동안 막힌다). 라이브는 늘 새로 받는다", async () => {
+test("0:00 으로 되감기, 한곡 반복도 같은 곡이면 직전 주소를 다시 쓴다(새 주소는 앞 광고 시간 동안 막힌다). 라이브는 늘 새로 받는다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const url = `https://rr1.googlevideo.com/videoplayback?id=2&expire=${expire}`;
   for (const [what, liveStatus, asks] of [
@@ -772,8 +806,8 @@ test("0:00 으로 되감기 · 한곡 반복도 같은 곡이면 직전 주소�
     };
     try {
       await p.play(0);
-      await p.play(0, { continued: true }); // 처음부터 다시 · 0:00 으로 위치 이동
-      await p.play(0); // 한곡 반복
+      await p.play(0, { continued: true }); // 처음부터 다시, 0:00 으로 위치 이동
+      await p.play(0); // 한 곡 반복
     } finally {
       h.dispose(p);
     }
@@ -806,7 +840,7 @@ test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만�
   assert.ok(!lines().some((l) => l.startsWith("직전 스트림 주소")), "파일로 트는데 주소 이야기를 남기지 않는다");
 });
 
-test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {
+test("직전 주소는 같은 음원에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {
   const expire = Math.floor(Date.now() / 1000) + 3600;
   const p = h.makePlayer();
   behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
@@ -819,7 +853,330 @@ test("직전 주소는 같은 곡에서만 다시 쓴다. 다른 곡을 위치�
   assert.match(calls.fetches[1].url, /id=pb1bbbbbbbb/);
 });
 
-test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 조각과의 차이만 건너뛴다", async () => {
+test("음성 복구, 구간 건너뛰기, 스트림 휴면에서 깨기도 같은 곡이면 직전 주소를 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pr1rrrrrrrr", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=r&expire=${expire}`, duration: 300 });
+  try {
+    await p.play(0);
+    await p.onVoiceRecovered();
+    await p.seek(60_000, "highlight");
+    p.pause.setUser(true);
+    p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
+    assert.equal(p.rest(), true);
+    p.pause.setUser(false);
+    await p.wake();
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.resources.length, 4, "네 번 열었다");
+  assert.equal(asked, 1, "주소는 처음 한 번만 받았다");
+});
+
+test("스포티파이 곡도 유튜브 영상을 찾은 뒤의 위치 이동은 직전 주소를 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = tracks.spotify("sp1spotify");
+  behavior.equivalent = () => tracks.watch("ps1ssssssss");
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=s&expire=${expire}`, duration: 200 });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 1);
+  assert.equal(calls.steps.filter((s) => s === "equivalent").length, 1, "영상은 처음에 한 번 찾는다");
+});
+
+// 위치를 옮기며 서술자를 다시 받는 횟수와, 직전 주소 이야기를 남겼는지
+async function reopenTwice(track: QueuedTrack, stream: StreamInfo, t: { after(fn: () => void): void }) {
+  const level = logger.level;
+  logger.level = "debug";
+  t.after(() => {
+    logger.level = level;
+  });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  let asked = 0;
+  behavior.stream = () => (asked++, stream);
+  const from = sink.buffer.length;
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  return { asked, told: sink.buffer.slice(from).some((e) => e.text.startsWith("직전 스트림 주소")) };
+}
+
+test("직접 링크는 서술자를 만드는 데 받는 것이 없어 다시 쓰지 않고, 직전 주소 이야기도 남기지 않는다", async (t) => {
+  const url = "https://files.test/song.mp3";
+  const { asked, told } = await reopenTwice(tracks.direct(url, { duration: 300 }), { url, duration: 300, platform: "direct" }, t);
+  assert.equal(asked, 2);
+  assert.equal(told, false);
+});
+
+test("사운드클라우드는 다시 쓰지 않는다: 목록 주소는 받은 지 5.5분에 막힌다(expires= 는 그보다 한참 뒤라 믿지 않는다)", async (t) => {
+  const track = { id: "1", title: "곡", pageUrl: "https://soundcloud.com/a/b", requestKey: "https://soundcloud.com/a/b", audioUrl: "https://soundcloud.com/a/b", platform: "soundcloud", duration: 300 };
+  const url = `https://cf-media.sndcdn.com/b.128.mp3?Policy=x&Signature=y&Key-Pair-Id=z&expires=${Math.floor(Date.now() / 1000) + 7200}&expire=${Math.floor(Date.now() / 1000) + 7200}`;
+  const { asked, told } = await reopenTwice(track, { url, duration: 300 }, t);
+  assert.equal(asked, 2, "만료가 넉넉해 보여도 다시 쓰지 않는다");
+  assert.equal(told, false);
+});
+
+test("스트림이 열리지 않아 캐시 파일로 넘어간 재생은 다시 쓸 서술자를 남기지 않는다(파일로 튼다)", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const url = `https://rr1.googlevideo.com/videoplayback?id=f&expire=${expire}`;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pf1ffffffff");
+  behavior.stream = () => ({ url, duration: 100 });
+  behavior.fetch = () => {
+    h.writeCacheFile("yt:pf1ffffffff");
+    throw new Error("끊김");
+  };
+  try {
+    const r = await p.play(0);
+    assert.equal(r.ok, true);
+    assert.equal(p.playback?.cacheFile !== null, true, "파일로 튼다");
+    assert.equal(p.playback?.stream, null, "열리지 않은 주소를 남기지 않는다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("직전 주소는 그 주소를 받은 음원이 지금 곡이 열 음원일 때만 다시 쓴다: 재생 중 곡의 음원이 바뀐 뒤의 위치 이동은 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  const track = yt("pm1xxxxxxxx", { duration: 300 });
+  p.currentTrack = track;
+  const asked: string[] = [];
+  behavior.stream = (t) => {
+    asked.push(String(t.audioUrl));
+    return { url: `https://rr1.googlevideo.com/videoplayback?id=${asked.length}&expire=${expire}`, duration: 300 };
+  };
+  try {
+    await p.play(0);
+    track.audioUrl = tracks.watch("pm1yyyyyyyy"); // 나란히 하던 다운로드가 다시 찾았다
+    await p.seek(60_000, "highlight");
+  } finally {
+    h.dispose(p);
+  }
+  assert.deepEqual(asked, [tracks.watch("pm1xxxxxxxx"), tracks.watch("pm1yyyyyyyy")]);
+  assert.match(calls.fetches.at(-1)?.url ?? "", /id=2/);
+});
+
+test("직전 주소: 요청이 달라도 음원이 같으면 다시 쓴다(상주 자리의 정지 뒤 같은 영상을 다른 링크로)", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=s&expire=${expire}`, duration: 300 });
+  p.currentTrack = yt("pn1aaaaaaaa");
+  try {
+    await p.play(0);
+    await p.stopStaying();
+    p.audioPlayer.emit(AudioPlayerStatus.Idle);
+    for (let i = 0; i < 5; i++) await tick();
+    p.currentTrack = { ...yt("pn1aaaaaaaa"), id: "amq:7", requestKey: "amq:7", platform: "anisongdb" };
+    await p.play(30_000);
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 1);
+});
+
+test("직전 주소: 서술자에 음원 키가 없으면 곡에서 대신 셈하지 않고 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("po1oooooooo", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://rr1.googlevideo.com/videoplayback?id=o&expire=${expire}`, duration: 300, audioKey: null });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(asked, 2);
+});
+
+test("직전 주소: 주소 분기(HLS)로 연 서술자는 다시 쓰지 않는다(그 분기에는 막혔을 때 새로 받는 길이 없다)", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pq1qqqqqqqq", { duration: 300 });
+  let asked = 0;
+  behavior.stream = () => (asked++, { url: `https://manifest.googlevideo.com/v.m3u8?expire=${expire}`, protocol: "m3u8_native", liveStatus: "was_live", duration: 300 });
+  try {
+    await p.play(0);
+    await p.play(30_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.spawns[0].label, "stream", "주소 분기로 열었다");
+  assert.equal(asked, 2);
+});
+
+// ── 재생이 트는 음원 ── 곡의 음원 주소는 재생 중에도 바뀐다(나란히 하던 다운로드가 다시 찾는다). 재생 쪽 기록은 튼 음원을 따른다
+
+test("재생이 트는 음원: 여는 동안 곡의 음원이 바뀌어도 재생 횟수는 튼 음원에 센다", async () => {
+  const p = h.makePlayer();
+  const track = yt("pk1xxxxxxxx");
+  p.currentTrack = track;
+  audioCache.recordDownloadStart("yt:pk1yyyyyyyy", yt("pk1yyyyyyyy"));
+  behavior.stream = () => ({ url: "https://rr1.googlevideo.com/videoplayback?id=x", duration: 100, title: "X 영상의 제목" });
+  behavior.fetch = () => {
+    track.audioUrl = tracks.watch("pk1yyyyyyyy"); // 나란히 하던 다운로드가 X 가 내려간 것을 알고 Y 로 다시 찾았다
+    return { ok: true, status: 200, body: new PassThrough() };
+  };
+  let key: string | null | undefined;
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    key = p.playback?.audioKey;
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(h.audioRow("yt:pk1xxxxxxxx")?.play_count, 1);
+  assert.equal(h.audioRow("yt:pk1yyyyyyyy")?.play_count, 0);
+  assert.equal(key, "yt:pk1xxxxxxxx");
+  // 링크 데이터는 다음에 열 음원(Y)으로 적되, 받은 서술자의 제목은 X 의 것이라 확인됨으로 치지 않는다
+  assert.equal(h.lookupRow(track.requestKey)?.audio_url, tracks.watch("pk1yyyyyyyy"));
+  assert.equal(h.lookupRow(track.requestKey)?.title_verified, 0);
+});
+
+test("재생이 트는 음원: 캐시 폴백이 다른 음원의 파일로 끝나면(다시 찾은 다운로드) 재생의 키, 길이, 재생 횟수는 그 파일의 것이다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pl1xxxxxxxx");
+  const yFile = h.seedCache("yt:pl1yyyyyyyy", yt("pl1yyyyyyyy"), { durationSec: 222 });
+  behavior.stream = () => ({ url: "https://media.test/x", duration: 100 });
+  // 같은 다운로드를 기다리던 다른 서버의 곡이 다시 찾아 다른 파일로 끝났다
+  behavior.download = () => new Promise((done) => setTimeout(() => done(yFile), 20));
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    assert.equal(p.playback?.cacheFile, yFile);
+    assert.equal(p.playback?.audioKey, "yt:pl1yyyyyyyy");
+    assert.equal(p.playback?.lengthMs, 222_000, "열리지 않은 X 스트림의 길이가 아니다");
+    assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:pl1yyyyyyyy", "트는 파일을 지킨다(퇴거가 지우지 않게)");
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(h.audioRow("yt:pl1yyyyyyyy")?.play_count, 1);
+  assert.equal(h.audioRow("yt:pl1xxxxxxxx")?.play_count ?? 0, 0);
+});
+
+test("재생이 트는 음원: 캐시 폴백이 막 받은 파일(캐시 행을 적기 전)을 열어도 재생의 키는 그 곡의 음원이고 보호를 풀지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pv1vvvvvvvv");
+  behavior.stream = () => ({ url: "https://media.test/v", duration: 100 });
+  behavior.fetch = () => {
+    h.writeCacheFile("yt:pv1vvvvvvvv"); // 다운로드가 파일을 옮겼고 아직 cached 로 적지 않았다
+    throw new Error("끊김");
+  };
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    assert.equal(p.playback?.audioKey, "yt:pv1vvvvvvvv");
+    assert.equal(audioCache._protectedKeys.get(p.guild.id), "yt:pv1vvvvvvvv");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("직전 주소: 세그먼트 목록 서술자(끝난 지 얼마 안 된 긴 방송)도 위치 이동에서 다시 쓴다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  p.currentTrack = yt("pw1wwwwwwww", { duration: 3600 });
+  let asked = 0;
+  const base = `https://rr1.googlevideo.com/videoplayback?id=w&expire=${expire}`;
+  behavior.stream = () => (asked++, { url: base, duration: 3600, fragments: { base, count: 1800 } });
+  try {
+    await p.play(0);
+    await p.play(600_000, { continued: true });
+  } finally {
+    h.dispose(p);
+  }
+  assert.equal(calls.fragments.length, 2, "세그먼트로 두 번 열었다");
+  assert.equal(asked, 1);
+});
+
+test("재생이 트는 음원: SponsorBlock 구간은 트는 음원의 것이다(물은 영상과 트는 음원이 다르면 다시 묻는다)", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("pu1xxxxxxxx");
+  const yFile = h.seedCache("yt:pu1yyyyyyyy", yt("pu1yyyyyyyy"), { durationSec: 222 });
+  behavior.stream = () => ({ url: "https://media.test/x", duration: 100 });
+  behavior.download = () => new Promise((done) => setTimeout(() => done(yFile), 20));
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+  const asked: string[] = [];
+  behavior.sponsor = (t) => {
+    asked.push(String(t.audioUrl));
+    return segments([{ start: t.audioUrl?.includes("yyy") ? 100 : 50, end: 110, categories: ["sponsor"] }]);
+  };
+  try {
+    assert.equal((await p.play(30_000)).ok, true);
+    assert.equal(p.playback?.audioKey, "yt:pu1yyyyyyyy");
+    assert.equal(p.playback?.sponsor?.skipSegments[0]?.start, 100, "Y 의 구간");
+  } finally {
+    h.dispose(p);
+  }
+  assert.deepEqual(asked, [tracks.watch("pu1xxxxxxxx"), tracks.watch("pu1yyyyyyyy")]);
+});
+
+test("재생이 트는 음원: 트는 중에 곡이 다른 음원으로 다시 찾아져 그 다운로드가 끝나도 이 재생의 길이로 적지 않는다", async () => {
+  const p = h.makePlayer();
+  const x = "https://files.test/x.mp3";
+  const y = "https://files.test/y.mp3";
+  p.currentTrack = tracks.direct(x);
+  behavior.stream = () => ({ url: x, platform: "direct" });
+  behavior.directStream = () => Object.assign(new PassThrough(), { live: false, bounded: true, describe: () => "가짜" });
+  let finished!: () => void;
+  const done = new Promise<void>((resolve) => (finished = resolve));
+  // 재생을 연 뒤에 끝나는 다운로드. 그사이 곡은 다른 음원으로 다시 찾아졌다(지정한 음원이 사라졌다)
+  behavior.download = (t) =>
+    new Promise((resolve) =>
+      setTimeout(() => {
+        t.audioUrl = y;
+        resolve(h.seedCache(`dl:${md5(y)}`, tracks.direct(y), { durationSec: 333 }));
+        setImmediate(finished);
+      }, 20),
+    );
+  try {
+    assert.equal((await p.play(0)).ok, true);
+    await done;
+    await tick();
+    assert.equal(p.playback?.lengthMs, null, "트는 것은 X 다");
+  } finally {
+    h.dispose(p);
+  }
+});
+
+test("상주 자리의 정지는 곡만 비우고 직전 재생을 남긴다. 다음 곡은 앞 곡의 주소를 쓰지 않는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const p = h.makePlayer();
+  behavior.stream = (t) => ({ url: `https://rr1.googlevideo.com/videoplayback?id=${t.id}&expire=${expire}`, duration: 300 });
+  p.currentTrack = yt("ph1aaaaaaaa");
+  try {
+    await p.play(0);
+    await p.stopStaying();
+    p.audioPlayer.emit(AudioPlayerStatus.Idle);
+    for (let i = 0; i < 5; i++) await tick();
+    assert.equal(p.currentTrack, null);
+    assert.notEqual(p.playback, null, "재생은 남는다");
+
+    p.currentTrack = yt("ph1bbbbbbbb");
+    await p.play(30_000);
+  } finally {
+    h.dispose(p);
+  }
+  assert.match(calls.fetches.at(-1)?.url ?? "", /id=ph1bbbbbbbb/);
+});
+
+test("직접 링크 HLS VOD 의 위치 이동: 그 위치를 여는 쪽에 넘기고, ffmpeg 는 받기 시작한 세그먼트와의 차이만 건너뛴다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://h.test/vod/index.m3u8", { duration: 600 });
   behavior.stream = () => ({ url: "https://h.test/vod/index.m3u8", platform: "direct" });
@@ -913,7 +1270,7 @@ test("멈춤 사유가 있으면 불러만 두고 멈춘 상태로 둔다", asyn
   h.seedCache("yt:uuuuuuuuuuu", track);
   const p = h.makePlayer();
   p.currentTrack = track;
-  p.pauseReasons.add("alone");
+  p.pause.setHolds(["alone"]);
 
   await playOnce(p);
 
@@ -921,7 +1278,7 @@ test("멈춤 사유가 있으면 불러만 두고 멈춘 상태로 둔다", asyn
   assert.equal(h.fakeAudioOf(p).played.length, 1, "리소스는 건다. 멈추는 것은 Playing 리스너다");
 });
 
-test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
+test("틀고 나면 저장한다. 위치를 두고 다시 열어도 같다", async () => {
   const track = yt("vvvvvvvvvvv");
   h.seedCache("yt:vvvvvvvvvvv", track);
   const p = h.makePlayer();
@@ -930,13 +1287,72 @@ test("틀고 나면 저장하고, 재개면 이유가 다르다", async () => {
   await p.play(0);
   await playOnce(p, 1000);
 
-  assert.deepEqual(
-    calls.persists.filter((x) => !x.startsWith("schedule:")),
-    ["play", "resume-playback"],
-  );
+  assert.deepEqual(calls.persists, ["play", "play"]);
 });
 
-test("리소스 볼륨과 전송 비트레이트를 맞춘다", async () => {
+test("재생 시작 줄: 제목은 따옴표로 묶고, 시작 위치와 음원 길이는 정수 초, 소리를 어디서 읽나는 맨 뒤", async () => {
+  const track = yt("wwwwwwwwwww", { title: "A | B" });
+  h.seedCache("yt:wwwwwwwwwww", track, { durationSec: 201.6 });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  const from = sink.buffer.length;
+
+  await playOnce(p, 42_400);
+
+  const lines = sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("재생: "))
+    .map((e) => `${e.level} ${e.text}`);
+  assert.deepEqual(lines, ['info 재생: "A | B" (youtube) | 시작 42초 / 길이 202초 | 출처=캐시']);
+});
+
+test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg, 인코더가 남지 않게)", async () => {
+  const track = yt("vvvvvvvvvvv");
+  h.seedCache("yt:vvvvvvvvvvv", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  // 재생을 확정하기 전에 기다리는 SponsorBlock 조회가 DB 닫힘으로 던진다(종료 중)
+  behavior.sponsor = () => {
+    throw codedError("DB_NOT_OPEN", "DB 가 닫혔다");
+  };
+
+  await playOnce(p, 3000);
+
+  assert.equal(calls.resources.length, 1);
+  assert.equal(h.fakeAudioOf(p).played.length, 0, "voice 에 넘기지 못했다");
+  assert.equal(calls.resources[0].input.destroyed, true);
+});
+
+test("트는 사이에 플레이어가 버려지면 틀지 않고 출력을 destroy 하며 단계를 playing 으로 덮지 않는다", async () => {
+  const track = yt("uuuuuuuuuuu");
+  h.seedCache("yt:uuuuuuuuuuu", track);
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  let answer: (s: null) => void = () => {};
+  behavior.sponsor = () => new Promise((resolve) => (answer = resolve));
+
+  // 위치 이동(0 이 아님)이라 인트로 조회를 건너뛰고, 리소스를 만든 뒤 SponsorBlock 답을 기다린다
+  const playing = p.play(3000);
+  while (calls.resources.length === 0) await new Promise((r) => setImmediate(r));
+  await p.dispose({ reason: "테스트", session: "keep", end: "stop" });
+  answer(null);
+  const r = await playing;
+  h.dispose(p);
+
+  assert.deepEqual(r, { ok: false, code: "disposed" });
+  assert.equal(h.fakeAudioOf(p).played.length, 0);
+  assert.equal(calls.resources[0].input.destroyed, true);
+  assert.equal(p.lifecycle.phase, "disposed");
+});
+
+test("끊긴 라이브를 다시 여는 사이에 플레이어가 버려지면 끝 처리가 다음 곡으로 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  p.play = async () => ({ ok: false, code: "disposed" });
+  assert.equal(await p._reopenLive("곡"), true);
+  h.dispose(p);
+});
+
+test("볼륨은 출력이 만들 때 받고, voice 에는 인코딩한 Opus 를 넘긴다(inlineVolume 없이)", async () => {
   const track = yt("wwwwwwwwwww");
   h.seedCache("yt:wwwwwwwwwww", track);
   const p = h.makePlayer();
@@ -945,8 +1361,10 @@ test("리소스 볼륨과 전송 비트레이트를 맞춘다", async () => {
 
   await playOnce(p);
 
-  assert.equal(calls.resources[0].volume.value, 0.4);
-  assert.equal(calls.resources[0].encoder.bitrate, 128000);
+  assert.equal(calls.resources[0].input.gain, gainOf(40));
+  assert.equal(p.playback?.output, calls.resources[0].input);
+  assert.equal(calls.resources[0].options.inputType, StreamType.Opus);
+  assert.equal(calls.resources[0].options.inlineVolume, undefined, "넘기면 voice 가 prism 의 디코더 · 볼륨 · 인코더를 다시 끼운다");
 });
 
 test("틀면 넘침 안전망을 5초 간격으로 건다", async () => {
@@ -1094,7 +1512,7 @@ test("파이프 분기: 청크 스트림이 전체 크기를 다 받지 못하�
   }
 });
 
-test("파일 · 주소 분기도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
+test("파일, 주소 분기도 ffmpeg 가 0 이 아닌 코드로 끝나면 깨진 것으로 적는다", async () => {
   const cachedTrack = yt("z7zzzzzzzzz");
   h.seedCache("yt:z7zzzzzzzzz", cachedTrack);
   const p = h.makePlayer();
@@ -1144,7 +1562,7 @@ test("연 입력의 종류를 적는다. 청크 스트림은 끊겼을 때 남�
   assert.equal(f.playback?.input?.kind, "파일");
 });
 
-test("오디오 플레이어는 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
+test("오디오 플레이어는 패킷 공급이 끊겨도 10초(프레임 500개)를 버틴다", () => {
   let options: unknown = null;
   const p = new h.Player(h.fakeGuild("g9"), null, null, {
     createAudioPlayer: ((opts: unknown) => {

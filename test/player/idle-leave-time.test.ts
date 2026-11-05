@@ -1,8 +1,8 @@
-// src/player/idle-leave.ts · src/ui/now-playing-panel.ts — 곡이 없을 때 나갈 시각이 바뀌면 끝난 패널이 따라간다.
+// src/player/idle-leave.ts, src/ui/now-playing-panel.ts: 곡이 없을 때 나갈 시각이 바뀌면 끝난 패널이 따라간다.
 //
-// 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진 · 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
+// 끝난 패널의 "n분 후 쉬러 갈게요"는 두 타이머(대기열 소진, 혼자 남음) 중 먼저 끝나는 쪽이다. 실제로 나가는 때가 그것이다.
 
-import { test, afterEach } from "node:test";
+import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { IdleLeave } from "../../src/player/idle-leave.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -11,13 +11,19 @@ import type { Player, PanelMessage } from "../../src/player/player.ts";
 import type { Client } from "discord.js";
 import { withConfig } from "../helpers/config.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import * as staySeats from "../../src/store/stay-seats.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
+
+// 24/7 자리를 적는다
+const store = openTempStore("idle-leave-");
+after(() => store.close());
 
 const ALONE_MS = 60_000;
 const EMPTY_MS = 300_000;
 
 // 퇴장 타이머가 건드리는 것만 둔 플레이어
 function player(currentTrack: object | null = null) {
-  return fakePlayer({ currentTrack, guild: { id: "g", name: "G" }, voiceChannel: { id: "v", name: "V" }, pauseReasons: new Set(), pauseFor() {}, resumeFor() {} });
+  return fakePlayer({ currentTrack, guild: { id: "g", name: "G" }, voiceChannel: { id: "v", name: "V" }, syncHolds() {} });
 }
 
 let cleanups: Array<() => void> = [];
@@ -47,10 +53,10 @@ test("곡이 없을 때 혼자 남으면 먼저 끝나는 쪽 시각을, 사람�
     idle.scheduleEmpty();
     assert.deepEqual(told, [], "대기열 소진 시각은 끝난 패널이 처음부터 적는다");
 
-    idle.startAlone();
+    idle.onAlone(true);
     assert.ok(near(told[0], start + ALONE_MS), "혼자 남음이 먼저 끝난다");
 
-    idle.cancelAlone(true);
+    idle.onAlone(false);
     assert.ok(near(told[1], start + EMPTY_MS), "돌아오면 대기열 소진 시각으로");
   }));
 
@@ -60,24 +66,37 @@ test("혼자 남음이 대기열 소진보다 늦으면 대기열 소진 시각 
     const told = watch(idle);
     const start = Date.now();
     idle.scheduleEmpty();
-    idle.startAlone();
+    idle.onAlone(true);
     assert.ok(near(told[0], start + EMPTY_MS));
   }));
 
-test("대기열이 끝나 스스로 취소할 때와 재생 중일 때는 알리지 않는다", () =>
+test("버릴 때, 타이머가 없었을 때, 재생 중일 때는 알리지 않는다", () =>
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());
     const told = watch(idle);
-    idle.startAlone();
+    idle.onAlone(true);
     told.length = 0;
-    idle.cancelAlone(false);
-    assert.deepEqual(told, [], "끝난 패널을 곧 새로 그린다");
+    idle.stop();
+    assert.deepEqual(told, [], "버릴 때");
+    idle.onAlone(false);
+    assert.deepEqual(told, [], "타이머가 돌지 않았으면 돌아온 것을 알릴 것이 없다");
 
     const playing = new IdleLeave(player({ title: "곡" }));
     const toldPlaying = watch(playing);
-    playing.startAlone();
-    playing.cancelAlone(true);
+    playing.onAlone(true);
+    playing.onAlone(false);
     assert.deepEqual(toldPlaying, [], "재생 패널은 나갈 시각을 보이지 않는다");
+  }));
+
+test("옮겨져도 혼자면 새 채널 기준으로 다시 잰다", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
+    const idle = new IdleLeave(player());
+    const told = watch(idle);
+    idle.onAlone(true);
+    const first = idle.aloneAt;
+    idle.restartAlone();
+    assert.equal(told.length, 2, "다시 잰 시각을 알린다");
+    assert.ok(idle.aloneAt !== null && first !== null && idle.aloneAt >= first);
   }));
 
 // ── 패널 ──
@@ -98,7 +117,7 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
 
   panels.idleViews.set("g", { reason: "queue-end", leavesAt: 1000 });
   await panels.updateIdleLeave(idlePlayer, 500);
-  assert.deepEqual(panels.drawn, [{ reason: "queue-end", leavesAt: 500, dedicated: true }]);
+  assert.deepEqual(panels.drawn, [{ reason: "queue-end", leavesAt: 500, staying: false, dedicated: true }]);
   assert.equal(panels.idleViews.get("g")?.leavesAt, 500, "다시 올릴 때도 같은 모양으로");
 
   await panels.updateIdleLeave(idlePlayer, 500);
@@ -112,3 +131,58 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
   await panels.updateIdleLeave(fake<Player>(player({ title: "곡" })), 700);
   assert.equal(panels.drawn.length, 1, "재생 중이면 끝난 패널이 아니다");
 });
+
+test("끝난 패널의 처음 나갈 시각도 idle 이 정한다: 혼자 남음이 먼저면 그쪽, 틀 게 없음이 0 이면 시각 없음", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
+    const idle = new IdleLeave(player());
+    watch(idle);
+    const start = Date.now();
+    assert.ok(near(idle.upcomingLeave(), start + EMPTY_MS), "타이머를 걸기 전이면 걸 시각");
+    idle.onAlone(true);
+    assert.ok(near(idle.upcomingLeave(), start + ALONE_MS));
+    idle.stop();
+    withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, () => assert.equal(idle.upcomingLeave(), null));
+  }));
+
+test("틀 게 없음이 0 이면 곡 없이 기다리는 어느 길이든 바로 나간다", async () =>
+  withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, async () => {
+    const disposed: string[] = [];
+    const p = player();
+    Object.assign(p, { queue: [], dispose: async (o: { reason: string }) => void disposed.push(o.reason) });
+    const idle = new IdleLeave(p);
+    cleanups.push(() => idle.stop());
+    idle.scheduleEmpty("곡 없이 대기");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.deepEqual(disposed, ["곡 없이 대기"]);
+  }));
+
+test("24/7 자리에 있으면 두 타이머를 걸지 않고 나갈 시각도 없다. 켜고 끄면 지금 상태로 다시 걸고, 자리가 아닌 채널이면 보통대로", () =>
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
+    const p = player();
+    Object.assign(p, { queue: [], pause: { holds: new Set(["alone"]) } });
+    const idle = new IdleLeave(p);
+    const told = watch(idle);
+    staySeats.set("g", "v", "u1");
+    try {
+      idle.scheduleEmpty();
+      idle.onAlone(true);
+      assert.equal(idle.emptyTimer, null);
+      assert.equal(idle.aloneTimer, null);
+      assert.equal(idle.upcomingLeave(), null);
+
+      staySeats.clear("g");
+      idle.reconsider();
+      assert.ok(idle.emptyTimer && idle.aloneTimer, "끄면 지금부터 두 타이머");
+      assert.ok(near(told.at(-1) ?? null, Date.now() + ALONE_MS));
+
+      staySeats.set("g", "v", "u1");
+      idle.reconsider();
+      assert.equal(idle.emptyTimer, null, "다시 켜면 지운다");
+      assert.equal(told.at(-1), null);
+
+      staySeats.set("g", "other", "u1");
+      assert.equal(idle.seated(), false, "자리가 아닌 채널이면 보통대로");
+    } finally {
+      staySeats.clear("g");
+    }
+  }));

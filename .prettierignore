@@ -1,9 +1,8 @@
-node_modules
-vendor
 dashboard/dist
-database
-cache
-notes
-pnpm-lock.yaml
-patches
 data
+database
+node_modules
+notes
+patches
+vendor
+pnpm-lock.yaml

@@ -1,4 +1,4 @@
-// 로그 파일 보기(/api/admin/logs/files · /file · /file/download). 운영자만. 모양은 contract/log-files, 읽기는 log-file-reader.
+// 로그 파일 보기(/api/admin/logs/files, /file, /file/download). 운영자만. 모양은 contract/log-files, 읽기는 log-file-reader.
 // 파일 이름은 목록의 이름만 받는다(경로를 받지 않는다). 파일 로그를 껐으면 목록이 비고 읽기는 log-file-not-found
 
 import path from "path";
@@ -48,7 +48,7 @@ logFilesRouter.get("/file", requireOwner, (req, res) => {
   res.json(page satisfies FilePage);
 });
 
-// 내려받기: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
+// 다운로드: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다. 한 줄씩 흘려 보낸다
 logFilesRouter.get("/file/download", requireOwner, (req, res) => {
   const target = targetOf(req);
   if (!target) return sendProblem(res, "log-file-not-found");

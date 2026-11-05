@@ -1,4 +1,4 @@
-// src/rules/retry-budget.ts — 끊긴 곡을 다시 열지 넘길지
+// src/rules/retry-budget.ts: 끊긴 곡을 다시 열지 넘길지
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

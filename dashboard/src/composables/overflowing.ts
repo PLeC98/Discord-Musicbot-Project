@@ -1,9 +1,10 @@
-// 스크롤 영역이 넘치는가(세로 스크롤바가 생기는가). 영역이 생길 때 · 크기가 바뀔 때 · 안의 항목이 바뀔 때 다시 잰다.
-// 넘치면 오른쪽 안쪽 여백을 왼쪽보다 3 줄여, 스크롤바 영역 안의 투명 테두리 3 과 합쳐 내용과 막대 사이가 왼쪽 여백과 같아지게 쓴다
+// 스크롤 영역이 넘치는가(세로 스크롤바가 생기는가). 영역이 생길 때, 크기가 바뀔 때, 안의 항목이 바뀔 때 다시 잰다.
+// 넘치면 오른쪽 안쪽 여백을 왼쪽보다 3px 줄여, 스크롤바 영역 안의 투명 테두리 3px 과 합쳐 내용과 막대 사이가 왼쪽 여백과 같아지게 쓴다
 
 import { onBeforeUnmount, ref, watch, type Ref } from "vue";
 
-export function useOverflowing(el: Ref<HTMLElement | null>) {
+/** again: 영역 크기, 안의 항목 밖에서 내용 높이가 바뀌는 신호(가상 스크롤 목록의 스페이서 높이). 바뀌면 다시 잰다 */
+export function useOverflowing(el: Ref<HTMLElement | null>, again?: () => unknown) {
   const overflowing = ref(false);
   let resize: ResizeObserver | null = null;
   let mutate: MutationObserver | null = null;
@@ -31,6 +32,7 @@ export function useOverflowing(el: Ref<HTMLElement | null>) {
     },
     { flush: "post" },
   );
+  if (again) watch(again, measure, { flush: "post" });
   onBeforeUnmount(stop);
   return overflowing;
 }

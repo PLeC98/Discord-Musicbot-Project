@@ -7,11 +7,11 @@ import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 import { LINE_NAMES, parseFormat, usesName, type Problem } from "../../rules/line-format.ts";
 
 // 추가 인자에 비밀 헤더를 적었을 때
-const SECRET_HEADER = "extra 에 비밀 헤더(Authorization · x-api-key · Cookie 등)는 적을 수 없습니다. 키는 API 키 입력란에 입력하세요(암호화해 둡니다).";
+const SECRET_HEADER = "extra 에 비밀 헤더(Authorization, x-api-key, Cookie 등)는 적을 수 없습니다. 키는 API 키 입력란에 입력하세요(암호화해 둡니다).";
 
 /**
  * 줄 형식의 문제(글자 위치와 함께, 화면이 그 위치를 표시한다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
- * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration · unknownText)은 읽지 않는다
+ * 길이를 모르는 후보는 줄 형식 안에서 정한다({{#if-exist {{duration}}}} … {{:else}} … {{/}}). 옛 필드(list.unknownDuration, unknownText)는 읽지 않는다
  */
 function lineFormatProblems(format: string): Problem[] {
   if (!format.trim()) return [];
@@ -50,14 +50,14 @@ const aiFile = z.preprocess(
   plain,
   z
     .looseObject({
-      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`),
-      // 켜고 끄기. 끄면(false) 선택한 프로바이더 · 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
+      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`),
+      // 켜고 끄기. 끄면(false) 선택한 프로바이더, 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
       enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
       // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
       timeoutMs: between("timeoutMs", 1000, 600000),
       batchSize: between("batchSize", 1, 50),
-      // 글자 "false" 는 참으로 읽힌다. 참 · 거짓으로만 받는다
+      // 글자 "false" 는 참으로 읽힌다. 참, 거짓으로만 받는다
       skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 합니다."),
       // 재시도. 빠진 필드의 기본값은 assist 의 DEFAULTS
       retries: between("retries", 0, 10),
@@ -76,7 +76,7 @@ const aiFile = z.preprocess(
       project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
       location: z
         .string({ error: "location는 글자로 적어야 합니다." })
-        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자 · 숫자 · -, 예: us-central1 · global).")
+        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자, 숫자, 하이픈. 예: us-central1, global).")
         .nullish(),
       // 모델이 받는 필드의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
       // 앞 모델 값이 따라온다. 필드 이름이 맞는지는 모델 프로필이 판단한다(assist/index 의 withParams).
@@ -87,14 +87,13 @@ const aiFile = z.preprocess(
           { error: "params는 모델 이름 아래에 필드를 적는 표여야 합니다." },
         )
         .nullish(),
-      // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상·이미지 모델도 섞여 나온다.
+      // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상, 이미지 모델도 섞여 나온다.
       hideModels: present((v) => Array.isArray(v) && v.every((one) => typeof one === "string"), 'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).'),
-      // 섹션 이름은 대시보드에서 어느 섹션인지 알아보려고 붙이는 것이다.
-      // ChatML 에는 이름을 적을 곳이 없어서 여기 둔다. 순서가 프롬프트 섹션과 같아야 한다.
+      // 대시보드에서 어느 섹션인지 알아보려고 붙이는 이름. 프롬프트 섹션에는 이름 필드가 없어 여기 두므로 순서가 섹션과 같아야 한다
       promptNames: present((v) => Array.isArray(v) && v.every((one) => one == null || typeof one === "string"), "promptNames는 글자 목록이어야 합니다."),
       list,
     })
-    // 켤 때만 나머지를 따진다. 꺼 둔 설정이 반쯤 비어 있다고 나무랄 이유가 없다.
+    // 켰는데 프로바이더가 없으면 알리고, 프로바이더를 골랐을 때만 주소, 모델을 따진다
     .superRefine((data, ctx) => {
       if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 선택해야 합니다." });
       if (!data.provider || data.provider === "off") return;
@@ -107,7 +106,7 @@ const aiFile = z.preprocess(
     }, ALWAYS),
 );
 
-/** 꺼 두었는지(enabled: false). 꺼 두면 나머지 필드를 따지지 않는다(프롬프트는 파일이 깨지지 않을 만큼만 본다: ai-prompt 의 promptProblems(…, false)) */
+/** 꺼 두었는지(enabled: false). 꺼 두면 나머지 필드를 따지지 않는다(프롬프트는 형식만 본다: ai-prompt 의 promptProblems(…, false)) */
 const aiSwitchedOff = (data: unknown) => !!data && typeof data === "object" && (data as { enabled?: unknown }).enabled === false;
 
 /** AI 설정의 문제 목록. 없으면 빈 배열. 꺼 두었어도 비밀 헤더는 막는다(설정은 평문으로 남고 내보내기에도 실린다) */

@@ -1,11 +1,11 @@
-// src/infra/process-registry.ts — 외부 프로세스 트리 종료
+// src/infra/process-registry.ts: 외부 프로세스 트리 종료
 //
 // yt-dlp가 ffmpeg를 외부 다운로더로 실행하면(손자 프로세스) 봇을 꺼도 ffmpeg가 살아남아
 // 끝나지 않는 방송을 계속 받을 수 있다. killAll 은 트리 전체를 내린다.
 //
 // 이 테스트는 실제로 손자 프로세스를 만들어 killAll이 "트리 전체"를 죽이는지 확인한다.
 // Windows(taskkill /T)와 POSIX(detached + 프로세스 그룹 시그널)는 구현이 완전히 다르므로,
-// CI가 ubuntu·windows 양쪽에서 이 파일을 돌려 두 경로를 모두 증명한다.
+// CI가 ubuntu, windows 양쪽에서 이 파일을 돌려 두 경로를 모두 증명한다.
 
 import { spawn } from "node:child_process";
 import { test } from "node:test";
@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 const IS_WIN = process.platform === "win32";
 const registry = await import("../../src/infra/process-registry.ts");
 
-/** pid가 아직 살아있는가 — 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
+/** pid가 아직 살아있는가. 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid: number) {
   try {
     process.kill(pid, 0);
@@ -24,7 +24,6 @@ function alive(pid: number) {
   }
 }
 
-/** cond()가 true가 될 때까지(또는 timeout까지) 대기 */
 async function waitFor(cond: () => boolean, timeoutMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -39,7 +38,7 @@ async function waitFor(cond: () => boolean, timeoutMs = 5000) {
  * 손자 pid를 stdout으로 받아 두 세대가 모두 정리되는지 확인할 수 있게 한다.
  */
 function spawnChildWithGrandchild() {
-  // 손자는 아무 일도 안 하고 그냥 오래 살아있는다 — 무한 다운로드 중인 ffmpeg의 대역.
+  // 손자는 아무 일도 안 하고 그냥 오래 살아있는다. 무한 다운로드 중인 ffmpeg의 대역.
   const script = `
     const { spawn } = require("node:child_process");
     const g = spawn(process.execPath, ["-e", "setInterval(()=>{}, 1e9)"], { stdio: "ignore" });
@@ -48,7 +47,7 @@ function spawnChildWithGrandchild() {
   `;
   const child = spawn(process.execPath, ["-e", script], {
     stdio: ["ignore", "pipe", "ignore"],
-    // POSIX는 자체 프로세스 그룹이 있어야 그룹킬로 손자까지 잡을 수 있다(운영 코드 ytdlp.js와 동일 조건).
+    // POSIX는 자체 프로세스 그룹이 있어야 그룹킬로 손자까지 잡을 수 있다(운영 코드 src/sources/ytdlp-spawn.ts와 같은 조건).
     detached: !IS_WIN,
   });
 
@@ -88,6 +87,23 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다", async () =
   release();
 });
 
+test("killAll: 여러 트리를 한 번에 내린다(이미 끝난 것은 빼고)", async () => {
+  const trees = Array.from({ length: 3 }, () => spawnChildWithGrandchild());
+  const grandchildren = await Promise.all(trees.map((t) => t.grandchildPid));
+  const done = spawn(process.execPath, ["-e", "process.exit(0)"], { stdio: "ignore" });
+  const releases = [...trees.map(({ child }, i) => registry.register(child, `test:tree${i}`, { group: !IS_WIN })), registry.register(done, "test:done")];
+  await new Promise((resolve) => done.once("exit", resolve));
+
+  const killed = registry.killAll();
+  assert.deepEqual(
+    killed.map(({ label }) => label),
+    ["test:tree0", "test:tree1", "test:tree2"],
+  );
+  for (const { child } of trees) assert.ok(await waitFor(() => !alive(child.pid as number)), "자식이 종료되어야 함");
+  for (const pid of grandchildren) assert.ok(await waitFor(() => !alive(pid)), "손자도 함께 종료되어야 함");
+  for (const release of releases) release();
+});
+
 test("register: 유효하지 않은 pid는 추적하지 않는다 (pid 0 → -0 = 자기 그룹 자살 방지)", () => {
   assert.equal(registry.size(), 0);
   for (const pid of [undefined, null, 0, 1, -5, 1.5, "123", NaN]) {
@@ -111,7 +127,7 @@ test("killTree: 이미 종료한 프로세스에는 시그널을 보내지 않�
   release();
 });
 
-test("killAll: 멱등 — 비어 있으면 빈 목록을 반환하고 아무것도 하지 않는다", () => {
+test("killAll: 멱등. 비어 있으면 빈 목록을 반환하고 아무것도 하지 않는다", () => {
   assert.equal(registry.size(), 0);
   assert.deepEqual(registry.killAll(), []);
   assert.deepEqual(registry.killAll(), []);

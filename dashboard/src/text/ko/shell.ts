@@ -1,4 +1,4 @@
-// 틀: 위 막대 · 세로 막대 · 계정 메뉴 · 알림함 · 세션 · 시계 · 없는 주소
+// 틀: 위 막대, 세로 막대, 계정 메뉴, 알림함, 세션, 시계, 없는 주소
 
 const notFoundTitle = "페이지 없음";
 const notFound = "페이지를 찾을 수 없어요!\n주소가 잘못되었거나 없어진 페이지예요.";
@@ -9,7 +9,7 @@ const serverList = "서버 목록";
 const serverSettingsSuffix = "- 서버 설정";
 const adminPanel = "운영자 패널";
 const openMenu = "메뉴 열기";
-/** 권한 수준 오버라이드 중임을 알리는 줄. tier 는 고른 계층의 이름 */
+/** 권한 수준 오버라이드 중임을 알리는 줄. tier 는 선택한 계층의 이름 */
 const viewingAs = "권한으로 보는 중";
 const clearViewAs = "해제";
 

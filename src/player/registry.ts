@@ -5,7 +5,7 @@ import type { Player } from "./player.ts";
 import * as playerEvents from "./events.ts";
 
 /**
- * 서버마다 플레이어 하나. 조립(app/main)이 하나 만들어 넘긴다. 등록 · 해제를 기록한다.
+ * 서버마다 플레이어 하나. 조립(app/main)이 하나 만들어 넘긴다. 등록, 해제를 기록한다.
  * 빼는 길은 플레이어를 버릴 때 오는 알림 하나다(followDisposals → forget). 그 서버에 새 플레이어가
  * 이미 들어와 있으면 늦게 버려진 옛 플레이어가 새것을 빼지 않는다.
  */

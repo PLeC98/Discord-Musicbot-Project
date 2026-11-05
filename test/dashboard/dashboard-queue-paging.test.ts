@@ -1,4 +1,4 @@
-// src/dashboard/routes/guilds.ts — 대기열을 구간으로 나눠 싣는 경로.
+// src/dashboard/routes/player.ts: 대기열을 구간으로 나눠 싣는 경로.
 // 큐 전체를 매 응답에 담지 않는다. 조작 응답도 상태를 통째로 돌려주므로,
 // 화면이 펼쳐 둔 창(?queue=n)을 그대로 지켜주지 않으면 목록이 접힌다.
 
@@ -33,6 +33,7 @@ function makePlayer() {
     currentTrack: makeTrack("현재곡"),
     queue: Array.from({ length: QUEUE_LEN }, (_, i) => Object.defineProperty(makeTrack(`q${i}`), "entry", { value: i + 1, enumerable: false })),
     previousTracks: [],
+    pause: { userPaused: false, heldBy: null },
     getCurrentTime: () => 0,
     removeFromQueue(i: number) {
       return this.queue.splice(i, 1)[0];
@@ -47,7 +48,7 @@ const guild = {
   roles: { cache: new Map() },
   channels: { cache: new Map() },
   members: {
-    // 그 서버의 모더레이터(재적 · DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
+    // 그 서버의 모더레이터(재적, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
     fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
@@ -84,11 +85,11 @@ test("기본 응답은 한 구간만 싣고 총 개수를 따로 알린다", asy
   assert.equal(json.queue.length, PAGE);
   assert.equal(json.queueTotal, QUEUE_LEN);
   assert.equal(json.queue[0].index, 0);
-  // 툴팁에 "youtube" 대신 읽을 수 있는 이름이 뜬다 — 브라우저는 src/platforms 를 못 읽어 서버가 실어 준다
+  // 툴팁에 "youtube" 대신 읽을 수 있는 이름이 뜬다. 브라우저는 src/platforms 를 못 읽어 서버가 실어 준다
   assert.equal(json.queue[0].platformLabel, "YouTube");
 });
 
-test("?queue=n이면 펼쳐 둔 만큼 돌려준다 — 조작 응답도 같다", async () => {
+test("?queue=n이면 펼쳐 둔 만큼 돌려준다. 조작 응답도 같다", async () => {
   const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=150`);
   assert.equal(json.queue.length, 150);
 

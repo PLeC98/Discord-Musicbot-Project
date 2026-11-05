@@ -1,10 +1,12 @@
-// Player 의 곡 종료 · 정지 · 정리 · 오류 처리 · 조작의 지금 동작을 고정한다.
+// src/player/player.ts: Player 의 곡 종료, 정지, 정리, 오류 처리, 조작의 지금 동작을 고정한다.
 //
 // player-play.test.ts 와 같은 하네스로 진짜 플레이어를 세운다. 옳고 그름이 아니라 "지금 이렇게 한다"를 적는다.
 // 고칠 때 무엇이 바뀌었는지 드러나게 하려는 것이다.
 
 import { recordPanel } from "../helpers/panel-events.ts";
 import * as playerEvents from "../../src/player/events.ts";
+import { gainOf } from "../../src/rules/volume-gain.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
 import type { AudioResource } from "@discordjs/voice";
 import { ChannelType, type Client, type VoiceBasedChannel } from "discord.js";
@@ -16,13 +18,16 @@ import { fake } from "../helpers/fake.ts";
 import * as h from "../helpers/player-harness.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { playbackStatus, soundAttached } from "../../src/ui/player-status.ts";
+import { playbackStatus, playState, soundAttached } from "../../src/ui/player-status.ts";
 import { queueInfoOf } from "../../src/ui/queue-view.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import { audioKeyOf } from "../../src/rules/audio-key-of.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import * as autoplayRoute from "../../src/autoplay/route.ts";
+import * as trackState from "../../src/player/track-state.ts";
+import { SessionPersistence } from "../../src/player/session-mirror.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
 import * as voiceChannelStatus from "../../src/player/voice-channel-status.ts";
 import config from "../../src/config/index.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
@@ -49,8 +54,7 @@ function cached(id: string, extra?: Partial<QueuedTrack>) {
   return track;
 }
 
-// 재생 패널 관리자 대신. 무엇을 불렀는지만 남긴다
-// 이 플레이어가 화면에 알린 것(알림을 옛 화면 가짜의 기록 모양으로)
+// 이 플레이어가 화면에 알린 것(update, end:<까닭>, create:<곡 제목>, webhook:<채널 id>)
 const embeds = (player: Player) => recordPanel({ player });
 
 // 재생 상태 가짜. 테스트가 보는 필드만
@@ -59,18 +63,18 @@ const playback = (fields: object) => fake<CurrentPlayback>(fields);
 // 재생이 끝난 곡 하나를 세운다. 리소스의 재생량으로 "어디까지 틀었나"를 정한다. 음원 길이는 곡의 길이와 같게 둔다. extra 는 재생 상태에 더할 필드
 function playing(player: Player, track: QueuedTrack, playedMs = track.duration * 1000, extra: object = {}) {
   player.currentTrack = track;
-  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} }, volume: { setVolume() {} } }, lengthMs: track.duration ? track.duration * 1000 : null, ...extra });
+  player.playback = playback({ resource: { playbackDuration: playedMs, playStream: { destroy() {} } }, lengthMs: track.duration ? track.duration * 1000 : null, ...extra });
   return track;
 }
 
-// 공급이 끊겨 플레이어가 멈춘 곡. 재생 스트림이 끝까지 읽히지 않았다
+// 패킷 공급이 끊겨 플레이어가 멈춘 곡. 재생 스트림이 끝까지 읽히지 않았다
 function starved(player: Player, track: QueuedTrack, playedMs: number) {
   playing(player, track, playedMs);
   Object.assign(player.playback?.resource?.playStream ?? {}, { readableEnded: false });
   return track;
 }
 
-// 재생 · 곡 종료 · 오류 처리 · 자동재생을 테스트가 정할 수 있는 플레이어. 정하지 않은 것은 진짜로 돈다
+// 재생, 곡 종료, 오류 처리, 자동재생을 테스트가 정할 수 있는 플레이어. 정하지 않은 것은 진짜로 돈다
 class Scripted extends h.Player {
   playAs: ((seekMs: number) => unknown) | null = null;
   endAs: ((reason: string) => unknown) | null = null;
@@ -119,15 +123,52 @@ test("끝까지 튼 곡은 기록으로 가고 대기열 다음 곡을 처음부
   assert.equal(p._endReason, null);
 });
 
+test("24/7 자리의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없이 기다린다. 반복, 자동재생, 사람의 멈춤이 잇지 않는다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  playing(p, yt("ccccccccccc"));
+  p.queue = [yt("ddddddddddd")];
+  p.loop = "queue";
+  p.pause.setUser(true);
+
+  await p.stopStaying();
+  await p.onTrackEnd("stop");
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.deepEqual(p.queue, [], "대기열 반복이어도 끝난 곡을 다시 넣지 않는다");
+  assert.equal(p.pause.userPaused, false);
+  assert.ok(seen.includes("end:stay-stop") && !seen.includes("end:queue-end"), "다 틀었다고 알리지 않는 끝난 패널");
+  assert.equal(p._halting, false);
+});
+
+test("상주 자리의 정지: 사람이 멈춰 둔 곡을 정지 전에 다시 틀지 않는다(멈춤은 정지를 건 뒤에 푼다)", async () => {
+  const p = h.makePlayer();
+  playing(p, yt("cccccccccc2"));
+  p.pause.setUser(true);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
+  let unpaused = 0;
+  p.audioPlayer.unpause = () => ((unpaused += 1), true);
+
+  await p.stopStaying();
+  h.dispose(p);
+
+  assert.equal(unpaused, 0);
+  assert.equal(p.pause.userPaused, false);
+});
+
 test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을 끝내고 세션을 삭제하고 나갈 예약을 건다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   playing(p, yt("ccccccccccc"));
+  let warmerStopped = false;
+  p.warmer.stop = () => void (warmerStopped = true);
 
   await p.onTrackEnd("idle");
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
 
+  assert.ok(warmerStopped, "곡 없이 기다리는 동안 예열 틱을 멈춘다");
   assert.equal(p.currentTrack, null);
   assert.deepEqual(seen, ["end:queue-end"]);
   assert.ok(calls.persists.includes("remove"));
@@ -136,7 +177,7 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
-test("공급이 끊겨 멈춘 곡은 끊긴 위치부터 다시 튼다", async () => {
+test("패킷 공급이 끊겨 멈춘 곡은 끊긴 위치부터 다시 튼다", async () => {
   const p = h.makePlayer();
   const track = cached("ddddddddddd");
   starved(p, track, 30000);
@@ -222,7 +263,7 @@ test("끊겼어도 다시 열 위치가 길이 끝 1.5초 안이면 다시 열�
   assert.equal(p.retry.used, 0);
 });
 
-test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입력 상태를 남기고, 다시 연 데 걸린 시간을 남긴다", async () => {
+test("패킷 공급이 끊겨 멈추면 입력 종류, 입력이 끊긴 시간, 입력 상태를 남기고, 다시 연 데 걸린 시간을 남긴다", async () => {
   const p = h.makePlayer();
   const track = cached("e1eeeeeeeee");
   starved(p, track, 30_000);
@@ -234,7 +275,7 @@ test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입
 
   const lines = sink.buffer.slice(from).map((e) => e.text);
   assert.ok(
-    lines.some((l) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
+    lines.some((l) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
     lines.join("\n"),
   );
   assert.ok(lines.some((l) => /^다시 열었습니다: .* \| \d+\.\d초 걸림$/.test(l)));
@@ -247,12 +288,29 @@ test("공급이 끊겨 멈추면 입력 종류 · 입력이 끊긴 시간 · 입
   await q.onTrackEnd("idle");
   h.dispose(q);
   assert.ok(
-    sink.buffer.slice(from2).some((e) => /^공급이 끊겨 플레이어가 멈춤: .* \| 입력 캐시 전환$/.test(e.text)),
+    sink.buffer.slice(from2).some((e) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 캐시 전환$/.test(e.text)),
     "캐시로 갈아탄 뒤에는 입력이 끊긴 시간을 모른다",
   );
 });
 
-test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 간다", async () => {
+test("패킷 공급이 끊겨 멈추면 출력 쪽(워커, 응답 대기 프레임, 송출 대기 패킷, 큐 깊이)도 남긴다", async () => {
+  const p = h.makePlayer();
+  starved(p, cached("e3eeeeeeeee"), 30_000);
+  const output = { describe: () => ({ inflight: 3, ready: 0, frames: 1, depth: 2, worker: 2, oldestMs: 1200 }) };
+  Object.assign(p.playback ?? {}, { input: { kind: "파일", detail: () => null }, output });
+  const from = sink.buffer.length;
+
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+
+  const lines = sink.buffer.slice(from).map((e) => e.text);
+  assert.ok(
+    lines.some((l) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 파일 · 출력 워커 2 · 응답 대기 3개\(가장 오래 1\.2초\) · 송출 대기 0개 · 큐 깊이 2$/.test(l)),
+    lines.join("\n"),
+  );
+});
+
+test("다시 틀기를 두 번 써도 끊기면 포기하고 끊긴 위치에서 멈춰 둔다. 다음 곡으로 넘기지 않는다", async () => {
   const p = h.makePlayer();
   const track = starved(p, yt("fffffffffff"), 30000);
   const next = cached("ggggggggggg");
@@ -263,8 +321,10 @@ test("다시 틀기를 두 번 써도 끊기면 포기하고 다음 곡으로 �
   await p.onTrackEnd("idle");
   h.dispose(p);
 
-  assert.equal(p.currentTrack, next);
-  assert.equal(p.previousTracks.at(-1), track);
+  assert.equal(p.currentTrack, track);
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.lastPlaybackPosition, 30000);
+  assert.deepEqual(p.queue, [next]);
 });
 
 test("손으로 넘긴 곡은 일찍 끝나도 다시 틀지 않는다", async () => {
@@ -348,7 +408,7 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
 
 // 방송이 끝나면 ffmpeg 가 종료 코드를 남기기 전에 플레이어가 멈추기도 해 끊김으로 보고 다시 연다. 다시 열어 보면 끝난 것을 안다
 for (const [ending, answer, line] of [
-  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 방송이 끝나 다음 곡으로 넘깁니다: .* \| 다시 열어 보니 라이브가 아님$/],
+  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: .* \| 재확인 결과 라이브 아님$/],
   [
     "yt-dlp 가 오류로 답하면",
     () => {
@@ -383,6 +443,29 @@ for (const [ending, answer, line] of [
   });
 }
 
+test("끊긴 라이브를 다시 여는 중에 이전 곡을 눌렀는데 방송이 끝났으면 이전 곡을 연다. 라이브는 다 튼 곡으로 기록하지 않는다(대기열에만 한 번)", async () => {
+  const p = h.makePlayer();
+  const before = cached("m5mmmmmmmmm");
+  const live = playing(p, yt("m6mmmmmmmmm", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+  const next = cached("m7mmmmmmmmm");
+  p.previousTracks = [before];
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => {
+    assert.equal(p.previous(), true, "다시 여는 중에 누른다");
+    return { url: "https://media.test/vod", duration: 3600, liveStatus: null };
+  };
+
+  await p.onTrackEnd("idle");
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, before);
+  assert.deepEqual(p.queue, [live, next]);
+  assert.deepEqual(p.previousTracks, [], "기록과 대기열에 둘 다 남지 않는다");
+  assert.equal(p._endInstead, null);
+});
+
 test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝났으면 다음 곡으로. 실패로 세지 않는다", async () => {
   const p = h.makePlayer();
   const url = "https://h.test/live/index.m3u8";
@@ -407,7 +490,7 @@ test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝�
   assert.equal(asked[0]?.liveOnly, true, "다시 열 때만 끝난 목록을 거절한다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 방송이 끝나 다음 곡으로 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: /.test(l)),
     lines.join(" / "),
   );
 });
@@ -439,7 +522,34 @@ test("라이브로 담은 HLS 를 처음 틀 때(세션 복원도 같다) 목록
   assert.ok(calls.sent.length > sent, "채널에 알린다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 방송이 끝나 틀지 않고 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 종료된 라이브 방송이라 재생하지 않고 넘깁니다: /.test(l)),
+    lines.join(" / "),
+  );
+  assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
+});
+
+test("틀 차례에 아직 시작하지 않은 라이브면 알리고 다음 곡으로. 넣은 사람이 고른 것이라 실패로 세지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("m8mmmmmmmmm", { isLive: true, liveStatus: "is_upcoming", duration: 0 });
+  const next = cached("m9mmmmmmmmm");
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => {
+    throw codedError("live-upcoming", "This live event will begin in 3 days.");
+  };
+  const sent = calls.sent.length;
+  const from = sink.buffer.length;
+
+  const r = await p.play(0);
+  h.dispose(p);
+
+  assert.deepEqual(r, { ok: false, code: "live-upcoming" });
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.failedTracks, 0);
+  assert.ok(calls.sent.length > sent, "채널에 알린다");
+  const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
+  assert.ok(
+    lines.some((l) => /^info 아직 시작하지 않은 라이브라 재생하지 않고 넘깁니다: /.test(l)),
     lines.join(" / "),
   );
   assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
@@ -501,24 +611,27 @@ test("Idle 이벤트는 멈춘 까닭을 곧바로 꺼내고, 처리는 멈춘 �
   assert.deepEqual(reasons, ["skip"]);
 });
 
-test("Playing 이벤트: 멈춤을 풀고, 멈춤 사유가 있으면 그 자리에서 다시 멈춘다", () => {
+test("Playing 이벤트: 멈출 까닭이 없으면 그대로, 있으면 그 자리에서 다시 멈춘다", () => {
   const p = h.makePlayer();
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
-  p.paused = true;
 
   p.audioPlayer.emit(AudioPlayerStatus.Playing);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Playing);
   assert.equal(p.paused, false);
 
-  p.pauseReasons.add("alone");
+  p.pause.setHolds(["alone"]);
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing }; // 오디오만 다시 재생된 경우(재연결 등)
   p.audioPlayer.emit(AudioPlayerStatus.Playing);
   h.dispose(p);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
 });
 
-test("Paused 이벤트는 멈춤으로 적는다", () => {
+test("멈춤은 오디오 상태가 아니라 사람의 뜻, 억제 사유로 계산한다(Paused 이벤트는 음성 채널 상태만 고친다)", () => {
   const p = h.makePlayer();
 
   p.audioPlayer.emit(AudioPlayerStatus.Paused);
+  assert.equal(p.paused, false);
+  p.pause.setUser(true);
   h.dispose(p);
 
   assert.equal(p.paused, true);
@@ -537,7 +650,7 @@ test("오디오 오류는 음원 쪽이다: 음성 연결을 건드리지 않고
   await new Promise((done) => setImmediate(done));
   h.dispose(p);
 
-  assert.deepEqual(calls.recoveries, [], "음성 연결을 다시 붙이지 않는다");
+  assert.deepEqual(calls.recoveries, [], "음성 연결을 재연결하지 않는다");
   assert.deepEqual(errors, [], "다음 곡으로 넘기는 오류 처리를 따로 부르지 않는다(곡 끝 처리와 겹친다)");
   assert.deepEqual(ends, ["stream-error"]);
 });
@@ -569,7 +682,7 @@ test("멎음 감시: 오디오가 Idle 이 되면 10초 뒤를 본다. 곡이 �
   h.dispose(p);
 });
 
-test("멎음 감시: 여는 중 · 끝 처리 중 · 음성 복구 중이면 넘기지 않고 다시 본다. 곡이 없거나 Idle 이 아니면 손 뗀다", () => {
+test("멎음 감시: 여는 중, 끝 처리 중, 음성 복구 중이면 넘기지 않고 다시 본다. 곡이 없거나 Idle 이 아니면 손 뗀다", () => {
   const p = scripted();
   const ends: string[] = [];
   p.endAs = (r) => ends.push(r);
@@ -615,19 +728,19 @@ test("멎어서 넘긴 곡은 한곡 반복이어도 되풀이하지 않는다",
   assert.equal(p.previousTracks.at(-1), stuck);
 });
 
-// ── 정지 · 나가기 · 정리 ────────────────────────────────────────────────
+// ── 정지, 나가기, 정리 ────────────────────────────────────────────────
 
-test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 세션을 삭제하고 연결을 끊는다", async () => {
+test("버리기(세션 삭제): 대기열, 현재 곡, 기록을 비우고 세션을 삭제하고 연결을 끊는다", async () => {
   const p = h.makePlayer();
   const track = cached("qqqqqqqqqqq");
   p.currentTrack = track;
   p.queue = [yt("rrrrrrrrrrr")];
   p.previousTracks = [yt("sssssssssss")];
   audioCache.protect(p.guild.id, "yt:qqqqqqqqqqq");
-  p.pauseReasons.add("manual");
+  p.pause.setUser(true);
 
   const from = sink.buffer.length;
-  await p.dispose({ reason: "정지", session: "remove" });
+  await p.dispose({ reason: "정지", session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(p.currentTrack, null);
@@ -636,7 +749,7 @@ test("버리기(세션 삭제): 대기열 · 현재 곡 · 기록을 비우고 �
   assert.deepEqual(calls.persists, ["remove"]);
   assert.equal(p.connection, null);
   assert.equal(h.fakeAudioOf(p).stops, 1);
-  assert.equal(p.pauseReasons.size, 0);
+  assert.equal(p.paused, false, "멈춤을 비운다");
   assert.equal(audioCache._liveKeys().has("yt:qqqqqqqqqqq"), false, "보호를 푼다");
   const ended = sink.buffer.slice(from).filter((e) => e.text.startsWith("트랙 종료:"));
   assert.deepEqual(
@@ -652,7 +765,7 @@ test("버리기(세션 저장): 먼저 저장하고, 똑같이 비우고 끊되 
   p.currentTrack = yt("ttttttttttt");
   p.queue = [yt("uuuuuuuuuuu")];
 
-  await p.dispose({ reason: "나가며 저장", session: "save" });
+  await p.dispose({ reason: "나가며 저장", session: "save", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["leave"]);
@@ -673,7 +786,7 @@ test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포�
   p.currentTrack = yt("vvvvvvvvvvv");
   p.previousTracks = [yt("wwwwwwwwwww")];
 
-  await p.dispose({ reason: "시험", session: "remove" });
+  await p.dispose({ reason: "시험", session: "remove", end: "stop" });
   h.dispose(p);
 
   assert.equal(destroyed, 1);
@@ -687,12 +800,12 @@ test("버리기: 연결을 부수고 플레이어가 쥔 것(패널 참조 포�
   assert.equal(p.audioPlayer.listenerCount(AudioPlayerStatus.Idle), 0, "리스너를 뗀다");
 });
 
-test("버리면 타이머와 함께 대기열 미리 다운로드 · 세션 동기화도 멈춘다", async () => {
+test("버리면 타이머와 함께 대기열 미리 다운로드, 세션 동기화도 멈춘다", async () => {
   const p = h.makePlayer();
   const stopped: string[] = [];
   p.warmer.stop = () => void stopped.push("warmer");
   p.persistence.stopStateSync = () => void stopped.push("sync");
-  await p.dispose({ reason: "시험", session: "keep" });
+  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
   const atDispose = [...stopped].sort();
   h.dispose(p);
   assert.deepEqual(atDispose, ["sync", "warmer"]);
@@ -703,8 +816,8 @@ test("버리기는 한 번만 한다. 두 번째 부름은 아무것도 하지 �
   const seen = embeds(p);
   p.currentTrack = yt("aaaaaaaaaaa");
 
-  await p.dispose({ reason: "첫째", session: "remove", panel: "stop" });
-  await p.dispose({ reason: "둘째", session: "save", panel: "leave" });
+  await p.dispose({ reason: "첫째", session: "remove", panel: "stop", end: "stop" });
+  await p.dispose({ reason: "둘째", session: "save", panel: "leave", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, ["remove"]);
@@ -716,11 +829,28 @@ test("버리기(세션 그대로): 저장도 삭제도 하지 않는다. 따로 
   const p = h.makePlayer();
   p.currentTrack = yt("bbbbbbbbbbb");
 
-  await p.dispose({ reason: "교체", session: "keep" });
+  await p.dispose({ reason: "교체", session: "keep", end: "stop" });
   h.dispose(p);
 
   assert.deepEqual(calls.persists, []);
   assert.equal(h.registryOf(p)?.has("g1"), false, "레지스트리에서는 빠진다");
+});
+
+test("버리기(세션 그대로): 메모리를 비워도 저장된 곡 행은 남는다(진짜 세션 저장으로)", async () => {
+  const p = h.makePlayer({ guildId: "gkeep" });
+  // 이 도우미는 세션 저장을 가짜로 끼운다. DB 에 남는 것을 보려고 진짜로 바꾼다
+  const real = new SessionPersistence(p);
+  p.persistence = real;
+  p.trackSink = real;
+  trackState.setCurrent(p, yt("kkkkkkkkkk1"));
+  trackState.enqueue(p, [yt("kkkkkkkkkk2")]);
+
+  await p.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "stop" });
+  h.dispose(p);
+
+  const left = sessions().load("gkeep");
+  assert.deepEqual([left?.current?.title, left?.queue.map((t) => t.title)], [yt("kkkkkkkkkk1").title, [yt("kkkkkkkkkk2").title]]);
+  sessions().removeSession("gkeep");
 });
 
 test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고친다. 패널 고치기가 실패해도 버림은 끝난다", async () => {
@@ -733,7 +863,7 @@ test("끝난 패널은 정리가 끝난 뒤, 패널 참조를 놓기 전에 고�
     throw new Error("패널 고치기 실패");
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected" });
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "stop" });
   } finally {
     off();
     h.dispose(p);
@@ -751,12 +881,12 @@ test("버린 까닭(end)을 끝난 패널 알림에 같이 넘긴다(끝 안내�
     if (q === p) seen.push([reason, cause]);
   });
   try {
-    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
+    await p.dispose({ reason: "시험", session: "remove", panel: "disconnected", end: "alone-timeout" });
   } finally {
     off();
     h.dispose(p);
   }
-  assert.deepEqual(seen, [["disconnected", "inactivity-timeout"]]);
+  assert.deepEqual(seen, [["disconnected", "alone-timeout"]]);
 });
 
 test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀면 곡을 오류로 끝낸다", async () => {
@@ -785,13 +915,14 @@ test("음성 연결이 복구되면 끊긴 위치에서 다시 튼다. 못 틀�
 
 // ── 혼자 남았을 때 ────────────────────────────────────────────────────
 
-type Member = { user: { bot: boolean; id: string } };
+type Member = { user: { bot: boolean; id: string }; voice: { selfDeaf: boolean; serverDeaf: boolean } };
 
-// 음성 채널에 사람을 둔다. 플레이어가 읽는 필드(members.filter · 권한)만
+// 음성 채널에 사람을 두고 봇을 그 채널에 붙여 둔다. 플레이어가 읽는 필드(members, 권한, 봇의 음성 상태)만
 function voiceChannelWith(player: Player, humans: string[]) {
-  const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id } }]));
+  const all = new Map(humans.map((id): [string, Member] => [id, { user: { bot: false, id }, voice: { selfDeaf: false, serverDeaf: false } }]));
   const members = Object.assign(all, { filter: (fn: (m: Member) => boolean) => ({ size: [...all.values()].filter(fn).length }) });
   player.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", type: ChannelType.GuildVoice, members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
+  Object.assign(player.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
 }
 
 test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다", async () => {
@@ -802,32 +933,34 @@ test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
   p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.idle.startAlone();
-  assert.ok(p.pauseReasons.has("alone"));
+  p.syncHolds();
+  assert.ok(p.pause.holds.has("alone"));
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
   await tick(10);
   h.dispose(p);
 
-  assert.deepEqual(seen, ["end:disconnected", "webhook:text1"]);
+  assert.deepEqual(seen, ["update", "end:disconnected", "webhook:text1"], "멈추는 순간 패널을 고친다");
   assert.ok(calls.persists.includes("remove"), "세션을 지운다");
   assert.equal(p.connection, null);
   assert.equal(h.registryOf(p)?.has("g1"), false);
 });
 
-test("시간이 됐을 때 사람이 있으면 alone 을 풀고 패널만 갱신한다", async () => {
+test("시간이 됐을 때 사람이 있으면(돌아온 이벤트를 놓쳤어도) alone 을 풀고 패널만 갱신한다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
-  voiceChannelWith(p, ["u1"]);
+  voiceChannelWith(p, []);
   p.idle.aloneMs = 0;
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+  p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.idle.startAlone();
+  p.syncHolds();
+  voiceChannelWith(p, ["u1"]); // 사람이 들어왔지만 이벤트는 오지 않았다
   await tick(10);
   h.dispose(p);
 
-  assert.equal(p.pauseReasons.has("alone"), false);
+  assert.equal(p.pause.holds.has("alone"), false);
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Playing);
-  assert.deepEqual(seen, ["update"]);
+  assert.deepEqual(seen, ["update", "update"], "멈출 때 · 풀 때 한 번씩");
   assert.equal(h.registryOf(p)?.get("g1"), p);
 });
 
@@ -839,7 +972,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   h.registryOf(p)?.set("g1", current);
   p.idle.aloneMs = 0;
 
-  p.idle.startAlone();
+  p.syncHolds();
   p.lifecycle.to("disposed", "교체"); // 타이머는 일부러 두었다(이미 깨어나는 중인 경우)
   await tick(10);
   h.dispose(p);
@@ -848,18 +981,51 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   assert.ok(p.connection, "연결은 현행 플레이어 것일 수 있어 끊지 않는다");
 });
 
-test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 다른 멈춤 사유는 남는다", () => {
+test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 사람이 멈춰 둔 것은 남는다", () => {
   const p = h.makePlayer();
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
-  p.pauseReasons.add("manual");
-  p.idle.startAlone();
+  p.pause.setUser(true);
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  assert.ok(p.idle.aloneTimer);
 
-  p.idle.cancelAlone(true);
+  voiceChannelWith(p, ["u1"]);
+  p.syncHolds();
   h.dispose(p);
 
   assert.equal(p.idle.aloneTimer, null);
-  assert.deepEqual([...p.pauseReasons], ["manual"]);
-  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused, "manual 이 남아 멈춘 채");
+  assert.equal(p.pause.holds.size, 0);
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused, "사람의 멈춤이 남아 멈춘 채");
+});
+
+test("붙어 있지 않으면(연결, 재연결, 옮겨지는 중) 억제 사유를 그대로 두고, 버린 플레이어는 맞추지 않는다", () => {
+  const p = h.makePlayer();
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  Object.assign(p.guild.members.me!, { voice: { channelId: null } });
+  voiceChannelWith(p, ["u1"]);
+  Object.assign(p.guild.members.me!, { voice: { channelId: "other" } });
+  p.syncHolds();
+  assert.ok(p.pause.holds.has("alone"), "모르면 바꾸지 않는다");
+
+  Object.assign(p.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
+  p.lifecycle.to("disposed", "교체");
+  p.syncHolds();
+  h.dispose(p);
+  assert.ok(p.pause.holds.has("alone"), "버린 플레이어");
+});
+
+test("대기열이 끝나도 혼자 남음 타이머는 그대로 돈다(채널 밖에서 곡을 넣어도 소리 없이 남지 않는다)", async () => {
+  const p = h.makePlayer();
+  embeds(p);
+  voiceChannelWith(p, []);
+  p.syncHolds();
+  const timer = p.idle.aloneTimer;
+  await p.onTrackEnd("idle");
+  h.dispose(p);
+  assert.ok(timer);
+  assert.equal(p.idle.aloneTimer, null, "버리며 지운다");
 });
 
 // ── 오류 처리 ─────────────────────────────────────────────────────────
@@ -924,9 +1090,8 @@ function unplayable() {
   };
 }
 
-test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다. 실패한 곡만 내리고 대기열 · 세션은 두고, 채널에 알리고, 패널을 멈춘 모양으로", async () => {
+test("까닭 모를 실패가 연달아 셋이면 넘기기를 그만두고 셋째 곡에서 멈춰 둔다. 지금 곡, 대기열을 두고, 멈춤으로 저장하고, 채널에 알린다", async () => {
   const p = h.makePlayer();
-  const seen = embeds(p);
   const [a, b, c, d] = ["f1fffffffff", "f2fffffffff", "f3fffffffff", "f4fffffffff"].map((id) => yt(id));
   unplayable();
   p.currentTrack = a;
@@ -936,18 +1101,40 @@ test("곡이 연달아 세 번 실패하면 넘기기를 그만두고 멈춘다.
   const leaveTimer = p.idle.emptyTimer; // 치우기 전에 읽는다
   h.dispose(p);
 
-  assert.equal(p.currentTrack, null);
+  assert.equal(p.currentTrack, c, "지금 곡을 비우지 않는다(곡을 넣으면 뒤에 붙고, 재생 버튼으로 다시 연다)");
   assert.deepEqual(p.queue, [d]);
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.pause.userPaused, true, "멈춤으로 저장된다(재시작이 저절로 틀지 않는다)");
+  assert.equal(p.lastPlaybackPosition, 0);
   assert.equal(p.failedTracks, 0, "멈추면 다시 센다. 사용자가 다시 틀 때 한 번 실패로 곧바로 멈추지 않게");
-  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요.\n남은 1곡은 대기열에 그대로 있고, 곡을 넣으면 이어서 틀어요."));
-  assert.ok(seen.includes("end:failures"));
-  assert.equal(calls.persists.includes("remove"), false, "대기열이 남았으니 세션을 지우지 않는다");
-  assert.equal(leaveTimer, null, "남은 곡이 있으니 나갈 예약을 걸지 않는다(패널이 오지 않을 나갈 시각을 보이지 않게)");
+  assert.ok(calls.sent.map(textOf).includes("### ❌ 3곡이 연달아 재생되지 않아 일시정지했어요.\n재생 버튼으로 다시 시도하거나 다음 곡 버튼으로 넘길 수 있어요."));
+  assert.ok(calls.persists.includes("parked"));
+  assert.equal(calls.persists.includes("remove"), false);
+  assert.equal(leaveTimer, null, "나갈 예약을 걸지 않는다");
 });
 
-test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈추면 채널에 알리지 않는다. 패널은 멈춘 모양으로", async () => {
+test("곡을 못 열어 다음 곡으로 넘기면 앞 곡의 위치를 버린다(다음 곡을 여는 동안 주기 저장이 그 위치를 새 곡에 쓰지 않게)", async () => {
   const p = h.makePlayer();
-  const seen = embeds(p);
+  const [a, b] = [yt("p1fffffffff"), yt("p2fffffffff")];
+  unplayable();
+  // 다음 곡을 새로 열 때(위치 0) 시작 위치를 정하려고 SponsorBlock 을 묻는다. 그때의 위치가 주기 저장이 쓰는 값이다
+  const seen: number[] = [];
+  behavior.sponsor = (track) => {
+    if (track === b) seen.push(p.getCurrentTime());
+    return null;
+  };
+  p.currentTrack = a;
+  p.queue = [b];
+
+  await p.play(90_000); // 복원 위치에서 열다 실패
+  h.dispose(p);
+
+  assert.ok(seen.length > 0, "다음 곡을 열었다");
+  assert.deepEqual([...new Set(seen)], [0]);
+});
+
+test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈춰 두면 채널에 알리지 않는다(/join 이 응답으로 말한다)", async () => {
+  const p = h.makePlayer();
   const [a, b, c, d] = ["q1fffffffff", "q2fffffffff", "q3fffffffff", "q4fffffffff"].map((id) => yt(id));
   unplayable();
   p.currentTrack = a;
@@ -957,15 +1144,15 @@ test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈추면
   await p.play(0);
   h.dispose(p);
 
-  assert.deepEqual(p.queue, [d]);
+  assert.equal(p.currentTrack, c);
+  assert.equal(p.lifecycle.parked, true);
   assert.equal(
     calls.sent.map(textOf).some((text) => text.includes("연달아 실패")),
     false,
   );
-  assert.ok(seen.includes("end:failures"));
 });
 
-test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열 소진처럼 끝낸다: 세션을 삭제하고 나갈 시각을 보이고 나갈 예약", async () => {
+test("연달아 실패해 멈춰 둘 때 남은 곡이 없어도 끝내지 않는다: 마지막 곡에서 멈춰 두고 세션을 남긴다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   const [a, b, c] = ["f9aaaaaaaaa", "f9bbbbbbbbb", "f9ccccccccc"].map((id) => yt(id));
@@ -977,14 +1164,14 @@ test("연달아 실패해 멈출 때 남은 곡이 없으면 보통의 대기열
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
 
-  assert.equal(p.currentTrack, null);
-  assert.ok(calls.sent.map(textOf).includes("### ❌ 곡 3개 재생에 연달아 실패해서 재생을 중단했어요."));
-  assert.ok(seen.includes("end:queue-end"));
-  assert.ok(calls.persists.includes("remove"));
-  assert.ok(leaveTimer, "대기열 소진처럼 나갈 예약을 건다");
+  assert.equal(p.currentTrack, c);
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(seen.includes("end:queue-end"), false);
+  assert.equal(calls.persists.includes("remove"), false);
+  assert.equal(leaveTimer, null);
 });
 
-test("마지막 곡이 열리지 않으면(연달아 실패 전) 다 튼 것과 같이 끝낸다: 끝난 패널 · 세션 삭제 · 나갈 예약", async () => {
+test("마지막 곡이 열리지 않으면(연달아 실패 전) 다 튼 것과 같이 끝낸다: 끝난 패널, 세션 삭제, 나갈 예약", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   unplayable();
@@ -1019,7 +1206,7 @@ test("곡 담기가 첫 곡을 트는 동안(finishByCaller)은 열리지 않아
   assert.equal(leaveTimer, null);
 });
 
-test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 없어도 끝내지 않는다(담기가 한 번 끝낸다)", async () => {
+test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 없으면 마지막 곡에서 멈춰 둔다(끝내지 않는다)", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   const [a, b, c] = ["l3aaaaaaaaa", "l3bbbbbbbbb", "l3ccccccccc"].map((id) => yt(id));
@@ -1031,7 +1218,8 @@ test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 �
   await p.play(0);
   h.dispose(p);
 
-  assert.equal(p.currentTrack, null);
+  assert.equal(p.currentTrack, c, "셋째 곡에서 멈춰 둔다");
+  assert.equal(p.lifecycle.parked, true);
   assert.equal(seen.includes("end:queue-end"), false);
   assert.equal(calls.persists.includes("remove"), false);
 });
@@ -1053,9 +1241,9 @@ test("소리를 낸 곡이 끝나면 연달아 실패한 수를 다시 센다", 
   assert.equal(q.failedTracks, 1, "5초도 못 낸 곡은 살아난 것이 아니다");
 });
 
-test("끊긴 곡을 다시 열다 실패하면 한 번만 센다(다시 열기 실패가 곧 곡 실패다)", async () => {
+test("끊긴 곡을 다시 열다 실패하면(곡 탓이 아니면) 그 위치에서 멈춰 둔다. 들리던 곡을 넘기지 않고 세지도 않는다", async () => {
   const p = h.makePlayer();
-  starved(p, yt("f7fffffffff", { duration: 2 * 3600 }), 30_000);
+  const track = starved(p, yt("f7fffffffff", { duration: 2 * 3600 }), 30_000);
   const next = cached("f8fffffffff");
   p.queue = [next];
   unplayable();
@@ -1063,11 +1251,14 @@ test("끊긴 곡을 다시 열다 실패하면 한 번만 센다(다시 열기 �
   await p.onTrackEnd("idle");
   h.dispose(p);
 
-  assert.equal(p.currentTrack, next, "다시 열기가 실패해 다음 곡으로");
-  assert.equal(p.failedTracks, 1);
+  assert.equal(p.currentTrack, track);
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.lastPlaybackPosition, 30_000);
+  assert.deepEqual(p.queue, [next]);
+  assert.equal(p.failedTracks, 0);
 });
 
-test("재시도를 다 쓴 것 · 멎어서 넘긴 것도 실패로 세고, 한도에 닿으면 다음 곡을 틀지 않고 멈춘다", async () => {
+test("끊김 복구를 다 쓴 곡은 그 위치에서, 멎어서 넘긴 곡은 연달아 실패 한도에 닿으면 그 곡에서 멈춰 둔다. 다음 곡을 열지 않는다", async () => {
   for (const [reason, setup] of [
     ["idle", (p: Player, t: QueuedTrack) => ((p._retryTrack = t), (p.retry = { used: 2, stalled: 0 }), starved(p, t, 1_000))],
     ["stuck", (p: Player, t: QueuedTrack) => playing(p, t, 0)],
@@ -1082,35 +1273,297 @@ test("재시도를 다 쓴 것 · 멎어서 넘긴 것도 실패로 세고, 한�
     await p.onTrackEnd(reason);
     h.dispose(p);
 
-    assert.equal(p.currentTrack, null, reason);
+    assert.equal(p.currentTrack, t, reason);
+    assert.equal(p.lifecycle.parked, true, reason);
     assert.equal(p.queue.length, 1, `${reason}: 대기열은 둔다`);
     assert.equal(calls.spawns.length, 0, `${reason}: 다음 곡을 열지 않는다`);
   }
 });
 
+// ── 실패의 범위, 그 곡에서 멈춰 둠 ────────────────────────────────────
+
+// 다음 곡도 같이 안 되는 실패(망 끊김)
+function networkDown() {
+  behavior.stream = () => ({ url: "https://media.test/down", duration: 2 * 3600 });
+  behavior.fetch = () => {
+    throw Object.assign(new Error("connect ECONNRESET"), { code: "ECONNRESET" });
+  };
+}
+
+// 이 곡만 안 되는 실패(영상이 내려감)
+function removedVideo() {
+  behavior.stream = () => {
+    throw codedError("unavailable-contents", "영상이 내려갔습니다");
+  };
+}
+
+test("환경 탓(망 끊김)은 넘기지 않고 그 곡, 그 위치에서 멈춰 둔다. 세지 않고, 멈춤으로 저장하고, 한 번 알린다", async () => {
+  const p = h.makePlayer();
+  const [a, b] = [yt("e1eeeeeeeee"), yt("e2eeeeeeeee")];
+  networkDown();
+  p.currentTrack = a;
+  p.queue = [b];
+
+  const result = await p.play(42_000);
+  h.dispose(p);
+
+  assert.equal(result.ok, false);
+  assert.equal(!result.ok && result.code, "parked");
+  assert.equal(p.currentTrack, a);
+  assert.deepEqual(p.queue, [b], "멀쩡한 다음 곡을 태우지 않는다");
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.lastPlaybackPosition, 42_000);
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.failedTracks, 0);
+  assert.ok(calls.persists.includes("parked"));
+  assert.equal(calls.sent.map(textOf).filter((t) => t.includes("다음 곡으로 넘기지 않고 일시정지했어요")).length, 1);
+});
+
+test("곡 탓(영상 내려감)은 넘기고 세지 않는다. 다섯이 이어져도 멈추지 않는다. 대기열의 같은 곡도 같이 뺀다", async () => {
+  const p = h.makePlayer();
+  const dead = ["d1ddddddddd", "d2ddddddddd", "d3ddddddddd", "d4ddddddddd", "d5ddddddddd"].map((id) => yt(id));
+  const copy = yt("d1ddddddddd");
+  removedVideo();
+  p.currentTrack = dead[0];
+  p.queue = [...dead.slice(1), copy];
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.equal(p.lifecycle.parked, false, "멈춰 두지 않는다");
+  assert.equal(p.currentTrack, null, "다 넘기고 대기열이 끝났다");
+  assert.equal(p.failedTracks, 0);
+  assert.ok(calls.sent.map(textOf).some((t) => t.includes("대기열에 같은 곡이 1번 더 있어서 함께 뺐어요.")));
+});
+
+test("곡 탓 넘기기 알림은 셋까지 하나씩, 그 뒤는 모았다가 대기열이 끝나면 한 번에", async () => {
+  const p = h.makePlayer();
+  const dead = ["k1kkkkkkkkk", "k2kkkkkkkkk", "k3kkkkkkkkk", "k4kkkkkkkkk", "k5kkkkkkkkk", "k6kkkkkkkkk"].map((id) => yt(id));
+  removedVideo();
+  p.currentTrack = dead[0];
+  p.queue = dead.slice(1);
+
+  await p.play(0);
+  h.dispose(p);
+
+  const sent = calls.sent.map(textOf);
+  assert.equal(sent.filter((t) => t.includes("재생할 수 없는 ") && t.includes("곡을 더 넘겼어요")).length, 1);
+  assert.ok(
+    sent.some((t) => t.includes("재생할 수 없는 2곡을 더 넘겼어요.")),
+    sent.join("\n---\n"),
+  );
+});
+
+test("까닭 모를 실패만 센다: 모름, 곡 탓, 모름, 곡 탓, 모름이면 다섯째(모름 셋째)에서 멈춰 둔다", async () => {
+  const p = h.makePlayer();
+  const ids = ["m1mmmmmmmmm", "m2mmmmmmmmm", "m3mmmmmmmmm", "m4mmmmmmmmm", "m5mmmmmmmmm", "m6mmmmmmmmm"];
+  const list = ids.map((id) => yt(id));
+  const trackFailures = new Set([ids[1], ids[3]]);
+  behavior.stream = (track) => {
+    if (trackFailures.has(String(track.id))) throw codedError("unavailable-contents", "영상이 내려갔습니다");
+    return { url: "https://media.test/dead", duration: 2 * 3600 };
+  };
+  behavior.fetch = () => {
+    throw new Error("끊김");
+  };
+  p.currentTrack = list[0];
+  p.queue = list.slice(1);
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, list[4]);
+  assert.equal(p.lifecycle.parked, true);
+  assert.deepEqual(p.queue, [list[5]]);
+});
+
+test("자동재생이 고른 곡은 갈래와 상관없이 따로 세어 셋이면 자동재생을 끈다(곡 탓을 세지 않아 끝없이 고르지 않게)", async () => {
+  const p = scripted();
+  removedVideo();
+  p.setAutoplay("팝");
+  let picks = 0;
+  p.autoplayAs = async () => {
+    picks += 1;
+    if (!p.autoplay) return false;
+    trackState.enqueue(p, [{ ...yt(`a${picks}aaaaaaaaa`.slice(0, 11)), autoplay: true }]);
+    trackState.shiftNext(p);
+    await p.play(0);
+    return true;
+  };
+  p.currentTrack = { ...yt("a0aaaaaaaaa"), autoplay: true };
+
+  await p.play(0);
+  h.dispose(p);
+
+  assert.equal(p.autoplay, false);
+  assert.ok(picks <= 3, `고른 횟수 ${picks}`);
+});
+
+test("멈춰 둔 곡: 멎음 감시가 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  networkDown();
+  p.currentTrack = yt("w1wwwwwwwww");
+  await p.play(0);
+  p.watch.checkIdle();
+  await tick(5);
+  h.dispose(p);
+
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.currentTrack?.id, "w1wwwwwwwww");
+});
+
+test("멈춰 둔 곡에서 넘기면 다음 곡을 연다. 멈춤은 풀린 채(사람이 멈춰 둔 채 실패했으면 멈춘 채)", async () => {
+  for (const userPausedBefore of [false, true]) {
+    h.reset();
+    const p = h.makePlayer();
+    const next = cached("s2sssssssss");
+    networkDown();
+    p.currentTrack = yt("s1sssssssss");
+    p.queue = [next];
+    if (userPausedBefore) p.pause.setUser(true);
+    await p.play(0);
+    assert.equal(p.lifecycle.parked, true);
+
+    assert.equal(p.skip(), true);
+    await p.untilSwitched();
+    h.dispose(p);
+
+    assert.equal(p.currentTrack, next, `멈춤 ${userPausedBefore}`);
+    assert.equal(p.lifecycle.parked, false);
+    assert.equal(p.pause.userPaused, userPausedBefore);
+  }
+});
+
+test("▶ 는 멈춰 둔 곡을 그 위치부터 다시 연다. 다시 실패하면 다시 멈춰 둔다. 넘기기가 걸려 있으면 아무것도 안 한다", async () => {
+  const p = h.makePlayer();
+  networkDown();
+  p.currentTrack = yt("r1rrrrrrrrr");
+  await p.play(30_000);
+  assert.equal(p.lifecycle.parked, true);
+
+  const asked: number[] = [];
+  const stream = behavior.stream;
+  behavior.stream = (track, options) => {
+    asked.push(p.getCurrentTime());
+    return stream!(track, options);
+  };
+  await p.retryParked();
+  assert.equal(p.lifecycle.parked, true, "망이 아직 끊겨 있다");
+  assert.equal(p.lastPlaybackPosition, 30_000);
+  assert.ok(asked.length > 0);
+
+  p._endScheduled = true;
+  const before = asked.length;
+  await p.retryParked();
+  assert.equal(asked.length, before, "방금 넘겼으면 다시 열지 않는다");
+  p._endScheduled = false;
+  h.dispose(p);
+});
+
+test("멈춰 둔 곡: 음성이 다시 붙어도 저절로 열지 않는다. 대시보드는 곡을 멈춤으로 보인다", async () => {
+  const p = h.makePlayer();
+  networkDown();
+  let opens = 0;
+  const stream = behavior.stream;
+  behavior.stream = (track, options) => {
+    opens += 1;
+    return stream!(track, options);
+  };
+  p.currentTrack = yt("v1vvvvvvvvv");
+  await p.play(0);
+  const before = opens;
+
+  await p.onVoiceRecovered();
+
+  assert.equal(opens, before, "음원을 다시 묻지 않는다");
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(soundAttached(p), true);
+  assert.equal(playbackStatus(p).paused, true);
+  h.dispose(p);
+});
+
+test("소리가 재생 중일 때 멈춰 두면(위치 이동, 음성 복구가 다시 열다 실패) 소리를 내려도 곡 끝 처리가 돌지 않는다", async () => {
+  const p = h.makePlayer();
+  const track = yt("y1yyyyyyyyy");
+  const next = cached("y2yyyyyyyyy");
+  p.currentTrack = track;
+  p.queue = [next];
+  // 옛 리소스가 아직 재생 중이다. 내리면 오디오 플레이어가 Idle 을 동기로 낸다
+  p.audioPlayer.state = fake<typeof p.audioPlayer.state>({ status: AudioPlayerStatus.Playing });
+  p.audioPlayer.stop = () => {
+    p.audioPlayer.state = fake<typeof p.audioPlayer.state>({ status: AudioPlayerStatus.Idle });
+    p.onPlayerIdle("idle");
+    return true;
+  };
+
+  p.park(61_000, { kind: "dropped" });
+  await tick(5);
+  h.dispose(p);
+
+  assert.equal(p._endScheduled, false);
+  assert.equal(p.currentTrack, track, "넘기지 않는다");
+  assert.equal(p.lifecycle.parked, true);
+  assert.equal(p.lastPlaybackPosition, 61_000);
+});
+
+test("멈춰 둔 동안은 자동재생 곡을 미리 고르지 않는다", async () => {
+  const p = h.makePlayer();
+  networkDown();
+  p.setAutoplay("팝");
+  p.currentTrack = yt("x1xxxxxxxxx");
+  await p.play(0);
+  assert.equal(p._canPrefetchAutoplay(), false);
+  h.dispose(p);
+});
+
+test("음성에 붙지 못하면 play 는 넘기거나 세지 않고 voice-failed 를 돌려주고, 세션을 남긴 채 플레이어를 버린다. 음성 복구 중이면 붙지 않는다", async () => {
+  const p = h.makePlayer({ connected: false });
+  behavior.connect = () => {
+    throw codedError("voice-failed", "음성 채널에 붙지 못했습니다");
+  };
+  p.currentTrack = yt("c1ccccccccc");
+  p.queue = [yt("c2ccccccccc")];
+
+  const result = await p.play(0);
+  h.dispose(p);
+
+  assert.equal(!result.ok && result.code, "voice-failed");
+  assert.equal(p.failedTracks, 0);
+  assert.equal(p.lifecycle.disposed, true);
+  assert.equal(calls.persists.includes("remove"), false);
+});
+
 // ── 조작 ─────────────────────────────────────────────────────────────
 
-test("볼륨은 0~100 으로 자르고 지금 리소스에 바로 건다", () => {
+test("새 플레이어는 그 서버에서 마지막으로 정한 볼륨으로 시작한다", async () => {
+  await guildSettings.saveVolume("g7", 25);
+  const p = h.makePlayer({ guildId: "g7" });
+  assert.equal(p.volume, 25);
+  h.dispose(p);
+  await guildSettings.saveVolume("g7", 100);
+});
+
+test("볼륨은 0~100 으로 자르고 지금 출력 스트림에 볼륨 배율(dB)로 바로 건다", () => {
   const p = h.makePlayer();
   let applied: number | null = null;
   p.playback = playback({
-    resource: {
-      volume: {
-        setVolume: (v: number) => {
-          applied = v;
-        },
+    output: {
+      setVolume: (v: number) => {
+        applied = v;
       },
     },
   });
 
   assert.equal(p.setVolume(150), 100);
   assert.equal(applied, 1);
+  assert.equal(p.setVolume(50), 50);
+  assert.equal(applied, gainOf(50));
   assert.equal(p.setVolume(-3), 0);
   h.dispose(p);
   assert.deepEqual(calls.persists, [], "조작은 저장을 모른다(세션 미러가 주기 저장 때 바뀐 필드를 쓴다)");
 });
 
-test("대기열 조작: 빼기 · 옮기기", () => {
+test("대기열 조작: 빼기, 옮기기", () => {
   const p = h.makePlayer();
   const [a, b, c] = [yt("c1ccccccccc", { duration: 10 }), yt("c2ccccccccc", { duration: 20 }), yt("c3ccccccccc", { duration: 0 })];
   p.currentTrack = yt("c0ccccccccc", { duration: 5 });
@@ -1221,7 +1674,7 @@ test("재생 위치: 시작 오프셋 + 리소스 재생량, 재생이 없으면
   h.dispose(p);
 });
 
-test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그 · 미리 선택한 곡 정리. 세션은 주기 저장이 쓴다)", async () => {
+test("자동재생: 모르는 장르면 setAutoplay 로 끈다(로그, 미리 선택한 곡 정리. 세션은 주기 저장이 쓴다)", async () => {
   const p = h.makePlayer();
   p.autoplay = "지금은 없는 장르";
   assert.equal(await p._continueAutoplay("지금은 없는 장르"), false);
@@ -1234,7 +1687,11 @@ test("상태 요약과 재생 여부(화면 쪽 요약이 플레이어 상태를
   assert.equal(soundAttached(p), false);
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Buffering };
   assert.equal(soundAttached(p), true);
-  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
+  assert.deepEqual(playbackStatus(p), { playing: true, paused: false, volume: p.volume, loop: false });
+  // 멈춤은 오디오 상태가 아니라 플레이어 값(사람의 뜻, 억제 사유). 곡을 여는 중에도 멈춰 있어야 하면 멈춤
+  h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Buffering };
+  p.pause.setUser(true);
   const s = playbackStatus(p);
   h.dispose(p);
   assert.deepEqual(s, { playing: false, paused: true, volume: p.volume, loop: false });
@@ -1284,7 +1741,7 @@ test("음성 채널 상태: 옮겨지면 옛 채널에 우리가 쓴 상태를 �
   assert.deepEqual(puts.slice(3), [["/channels/voice3/voice-status", `${config.voiceStatus.playingPrefix}지금 곡`]]);
 });
 
-// 다운로드가 제목을 고칠 수 있다(유튜브 영상의 제목 · 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 고쳐야 한다
+// 다운로드가 제목을 바꿀 수 있다(유튜브 영상의 제목, 직접 링크의 파일 태그). 채널 상태는 재생을 시작할 때만 쓰므로 따로 갱신해야 한다
 test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을 고치면 채널 상태도 고친다", async () => {
   voiceChannelStatus._internals._reset();
   const p = h.makePlayer();
@@ -1312,7 +1769,7 @@ test("음성 채널 상태: 곁에서 다운로드하며 지금 곡의 제목을
   assert.equal(puts.length, 1);
 });
 
-test("다운로드가 곡 정보를 고치면(지금 곡 · 예열한 대기열 곡) 세션 사본을 다시 쓰게 표시하고 패널 · 대시보드에 알린다. 그대로면 알리지 않는다", async () => {
+test("다운로드가 곡 정보를 고치면(지금 곡, 예열한 대기열 곡) 세션 사본을 다시 쓰게 표시하고 패널, 대시보드에 알린다. 그대로면 알리지 않는다", async () => {
   const p = h.makePlayer();
   const refreshed: Player[] = [];
   const off = playerEvents.on("refresh", async (q) => void refreshed.push(q));
@@ -1344,7 +1801,7 @@ test("다운로드가 곡 정보를 고치면(지금 곡 · 예열한 대기열 
   }
 });
 
-test("파일 태그를 찾으면 그 음원의 곡(지금 곡 · 대기열)에 반영하고 한 번 새로 그린다. 다른 키는 그대로, 그림만 생겨도 새로 그린다", async () => {
+test("파일 태그를 찾으면 그 음원의 곡(지금 곡, 대기열)에 반영하고 한 번 새로 그린다. 다른 키는 그대로, 그림만 생겨도 새로 그린다", async () => {
   const p = h.makePlayer();
   const refreshed: Player[] = [];
   const off = playerEvents.on("refresh", async (q) => void refreshed.push(q));
@@ -1356,14 +1813,19 @@ test("파일 태그를 찾으면 그 음원의 곡(지금 곡 · 대기열)에 �
     const key = audioKeyOf(url)!;
     const tags = { title: "태그 제목", artist: "태그 가수", album: null };
 
+    // 갱신 알림은 같은 틱의 것을 묶어 다음 틱에 낸다
+    const settle = () => new Promise((r) => setImmediate(r));
     p.takeFileTags("dl:다른 키", { tags, art: null });
+    await settle();
     assert.equal(refreshed.length, 0, "다른 키");
 
     p.takeFileTags(key, { tags, art: null });
+    await settle();
     assert.deepEqual([p.currentTrack.title, p.queue[0].title, p.queue[0].artist, p.queue[1].title], ["태그 제목", "태그 제목", "태그 가수", "track_09"]);
     assert.deepEqual([refreshed.length, p.persistence.dirty], [1, true]);
 
     p.takeFileTags(key, { tags, art: { fingerprint: "f", width: 1, height: 1 } });
+    await settle();
     assert.equal(refreshed.length, 2, "곡 정보는 그대로여도 그림이 생겼다");
   } finally {
     off();
@@ -1416,11 +1878,426 @@ test("오디오 플레이어의 전이는 누가 쏘든 이 서버의 문맥에�
 test("버리기: stay 면 음성 채널에 남긴 채 연결만 정리하고(서버 하나 다시 시작), 아니면 나간다", async () => {
   const stay = h.makePlayer();
   const kept = stay.connection as unknown as { destroyed: string[] };
-  await stay.dispose({ reason: "시험", session: "keep", stay: true });
+  await stay.dispose({ reason: "시험", session: "keep", stay: true, end: "stop" });
   assert.deepEqual(kept.destroyed, ["stay"]);
 
   const leave = h.makePlayer();
   const left = leave.connection as unknown as { destroyed: string[] };
-  await leave.dispose({ reason: "시험", session: "keep" });
+  await leave.dispose({ reason: "시험", session: "keep", end: "stop" });
   assert.deepEqual(left.destroyed, ["leave"]);
+});
+
+// ── 멈춘 동안의 조작(스트림 휴면을 넣기 전에 지금 동작을 묶는다) ──
+
+// 연 곡을 끝 처리까지 보낸다. 가짜 오디오 플레이어는 멈춰도 Idle 을 알리지 않아 테스트가 대신 쏜다
+async function endNow(p: Player) {
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await p.untilSwitched();
+}
+
+test("사람이 멈춘 채 넘기면 다음 곡을 멈춘 채 연다(멈춤이 풀리지 않는다)", async () => {
+  const p = h.makePlayer();
+  const first = cached("pa1aaaaaaaa");
+  const next = cached("pa2aaaaaaaa");
+  p.currentTrack = first;
+  p.queue = [next];
+  await p.play(0);
+  p.pause.setUser(true);
+
+  assert.equal(p.skip(), true);
+  await endNow(p);
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.paused, true);
+});
+
+test("사람이 멈춘 채 마지막 곡을 넘기면 자동재생이 다음 곡을 잇는다(대기열을 끝내지 않는다)", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pb1aaaaaaaa");
+  await p.play(0);
+  p.pause.setUser(true);
+  p.autoplay = "pop";
+  let asked = 0;
+  p._continueAutoplay = async () => ((asked += 1), true);
+  let finished = 0;
+  p.finishQueue = async () => void (finished += 1);
+
+  p.skip();
+  await endNow(p);
+  h.dispose(p);
+
+  assert.equal(asked, 1);
+  assert.equal(finished, 0);
+});
+
+test("사람이 멈춘 채 위치를 옮기면 멈춘 채 그 위치에서 다시 연다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pc1aaaaaaaa");
+  await p.play(0);
+  p.pause.setUser(true);
+
+  await p.seek(42_000, "seek");
+  h.dispose(p);
+
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.lastPlaybackPosition, 42_000);
+  assert.equal(p.getCurrentTime(), 42_000);
+});
+
+test("음성이 다시 붙으면 멈춰 있던 곡도 그 위치에서 다시 연다. 멈춤은 그대로", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = cached("pd1aaaaaaaa");
+  await p.play(30_000);
+  p.pause.setUser(true);
+  const opened = h.calls.resources.length;
+
+  await p.onVoiceRecovered();
+  h.dispose(p);
+
+  assert.equal(h.calls.resources.length, opened + 1, "소리를 새로 연다");
+  assert.equal(p.pause.userPaused, true);
+  assert.equal(p.getCurrentTime(), 30_000);
+});
+
+test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못해 그 곡에서 멈춰 뒀으면 그때 넘긴다", async () => {
+  const p = h.makePlayer();
+  const next = cached("ps2aaaaaaaa");
+  p.currentTrack = cached("ps1aaaaaaaa");
+  p.queue = [next];
+  const opening = p.play(0);
+  assert.equal(p.lifecycle.starting, true);
+  assert.equal(p.skip(), true);
+  await opening;
+  await endNow(p);
+  assert.equal(p.currentTrack, next, "연 뒤에 넘겼다");
+
+  h.reset();
+  const failing = h.makePlayer();
+  const after = cached("pf2aaaaaaaa");
+  networkDown();
+  failing.currentTrack = yt("pf1aaaaaaaa");
+  failing.queue = [after];
+  const failed = failing.play(0);
+  failing.skip();
+  await failed;
+  await failing.untilSwitched();
+  assert.equal(failing.currentTrack, after, "멈춰 둔 곡에 넘기기를 마저 걸었다");
+  assert.equal(failing._endWhileStarting, null);
+  h.dispose(failing);
+  h.dispose(p);
+});
+
+test("여는 중에 넘겼는데 열지 못해 실패 처리가 이미 다음 곡으로 넘겼으면 한 번 더 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  const next = cached("pg2aaaaaaaa");
+  const third = cached("pg3aaaaaaaa");
+  removedVideo();
+  p.currentTrack = yt("pg1aaaaaaaa");
+  p.queue = [next, third];
+  const failed = p.play(0);
+  p.skip();
+  await failed;
+  await p.untilSwitched();
+  await tick();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.deepEqual(p.queue, [third]);
+});
+
+// ── 스트림 휴면: 장시간 일시정지한 곡의 스트림을 해제하고 일시정지가 풀리면 그 위치부터 다시 연다 ──
+
+// 열고 사람이 멈춘 곡. 가짜 오디오 플레이어를 실제처럼 Paused 로 둔다
+async function pausedAt(p: Player, track: QueuedTrack, at: number) {
+  p.currentTrack = track;
+  await p.play(at);
+  p.pause.setUser(true);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Paused } as never;
+}
+
+test("스트림 휴면: 스트림을 해제하되 곡, 위치, 재생 정보는 남긴다. 그때의 Idle 은 곡 끝이 아니고, 화면은 곡을 멈춤으로 보인다", async () => {
+  const p = h.makePlayer();
+  const track = cached("ra1aaaaaaaa");
+  await pausedAt(p, track, 30_000);
+  const pb = p.playback;
+
+  assert.equal(p.rest(), true);
+  assert.equal(p.lifecycle.resting, true);
+  assert.equal(p.playback, pb, "재생 정보(구간 · 라이브 판정 · 받아 둔 원본)는 그대로");
+  assert.equal(p.resource, null);
+  assert.equal(p.getCurrentTime(), 30_000);
+  assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Idle);
+
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await tick();
+  assert.equal(p.currentTrack, track, "곡을 넘기지 않는다");
+  assert.equal(soundAttached(p), true);
+  assert.equal(playbackStatus(p).paused, true);
+  assert.equal(p.rest(), false, "두 번 휴면시키지 않는다");
+  h.dispose(p);
+});
+
+test("스트림 휴면: 멈춰야 하면 깨우지 않고, 풀리면 그 위치에서 한 번만 다시 연다. 넘기기가 걸려 있으면 깨우지 않는다", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rb1aaaaaaaa"), 45_000);
+  p.rest();
+  const opened = h.calls.resources.length;
+
+  await p.wake();
+  assert.equal(h.calls.resources.length, opened, "아직 멈춰 있다");
+
+  p.pause.setUser(false);
+  p._endScheduled = true;
+  await p.wake();
+  assert.equal(h.calls.resources.length, opened, "방금 넘겼으면 그 끝 처리가 다음 곡을 연다");
+  p._endScheduled = false;
+
+  await Promise.all([p.wake(), p.wake()]);
+  h.dispose(p);
+  assert.equal(h.calls.resources.length, opened + 1, "두 번 불러도 한 번 연다");
+  assert.equal(p.lifecycle.resting, false);
+  assert.equal(p.getCurrentTime(), 45_000);
+});
+
+test("스트림 휴면: 휴면 중 넘기면 다음 곡을 멈춘 채 연다. 음성이 다시 붙어도 저절로 열지 않는다. 라이브는 휴면시키지 않는다", async () => {
+  const p = h.makePlayer();
+  const next = cached("rc2aaaaaaaa");
+  await pausedAt(p, cached("rc1aaaaaaaa"), 10_000);
+  p.queue = [next];
+  p.rest();
+
+  const opened = h.calls.resources.length;
+  await p.onVoiceRecovered();
+  assert.equal(h.calls.resources.length, opened, "음성 복구는 휴면 중인 곡을 열지 않는다");
+
+  assert.equal(p.skip(), true);
+  await p.untilSwitched();
+  assert.equal(p.currentTrack, next);
+  assert.equal(p.lifecycle.resting, false);
+  assert.equal(p.pause.userPaused, true, "멈춘 채");
+  h.dispose(p);
+
+  const live = h.makePlayer();
+  await pausedAt(live, cached("rd1aaaaaaaa"), 0);
+  if (live.playback) live.playback.isLive = true; // 재생이 판정한 라이브
+  assert.equal(live.rest(), false);
+  h.dispose(live);
+});
+
+test("스트림 휴면: 상주 자리의 정지는 휴면 중인 곡도 끝내고 곡 없이 기다린다", async () => {
+  const p = h.makePlayer();
+  const seen = embeds(p);
+  await pausedAt(p, cached("re1aaaaaaaa"), 5_000);
+  p.queue = [cached("re2aaaaaaaa")];
+  p.rest();
+
+  await p.stopStaying();
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, null);
+  assert.deepEqual(p.queue, []);
+  assert.ok(seen.includes("end:stay-stop"));
+});
+
+test("휴면 타이머: 일시정지한 지 정해진 시간이 지나면 휴면한다. 그 전에 풀면 안 하고, 그 안에 나갈 예정이면(곧 버릴 플레이어) 안 한다", async () => {
+  const resting = h.makePlayer();
+  resting.restAfterMs = 20;
+  await pausedAt(resting, cached("rt1aaaaaaaa"), 0);
+  await tick(60);
+  assert.equal(resting.lifecycle.resting, true);
+  h.dispose(resting);
+
+  const resumed = h.makePlayer();
+  resumed.restAfterMs = 20;
+  await pausedAt(resumed, cached("rt2aaaaaaaa"), 0);
+  resumed.pause.setUser(false);
+  await tick(60);
+  assert.equal(resumed.lifecycle.resting, false, "풀면 타이머를 지운다");
+  assert.equal(resumed._restTimer, null);
+  h.dispose(resumed);
+
+  const leaving = h.makePlayer();
+  leaving.restAfterMs = 20;
+  let leavesAt: number | null = Date.now() + 10;
+  leaving.idle.leavesAt = () => leavesAt;
+  await pausedAt(leaving, cached("rt3aaaaaaaa"), 0);
+  await tick(30);
+  assert.equal(leaving.lifecycle.resting, false, "곧 나간다");
+  leavesAt = null; // 그 예정이 사라졌다(상주 모드를 켬 등)
+  await tick(60);
+  assert.equal(leaving.lifecycle.resting, true, "미룬 뒤에도 다시 잰다");
+  h.dispose(leaving);
+});
+
+test("휴면 타이머: 일시정지한 채 새 곡을 열면 그 곡을 연 때부터 다시 잰다. 버리면 지운다", async () => {
+  const p = h.makePlayer();
+  p.restAfterMs = 10_000;
+  await pausedAt(p, cached("ru1aaaaaaaa"), 0);
+  const first = p._restTimer;
+  assert.ok(first);
+  p.queue = [cached("ru2aaaaaaaa")];
+  p.skip();
+  await endNow(p);
+  assert.ok(p._restTimer && p._restTimer !== first, "새 곡을 연 때부터");
+  await p.dispose({ reason: "시험", session: "keep", end: "stop" });
+  assert.equal(p._restTimer, null);
+  h.dispose(p);
+});
+
+test("스트림 휴면: 음성이 다시 붙을 때 억제 사유가 빠져 깨우기가 시작됐으면 음성 복구가 또 열지 않는다(한 번 연다)", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rv1aaaaaaaa"), 20_000);
+  p.rest();
+  p.pause.setUser(false);
+  const opened = h.calls.resources.length;
+
+  // voice-link 의 차례: _settled(syncHolds → wake) 다음에 onVoiceRecovered
+  const waking = p.wake();
+  await p.onVoiceRecovered();
+  await waking;
+  h.dispose(p);
+
+  assert.equal(h.calls.resources.length, opened + 1);
+});
+
+test("스트림 휴면: 소리를 낸 곡이면 휴면할 때 연달은 실패 수를 비운다. 다시 여는 동안 화면은 곡을 멈춤으로 보인다", async () => {
+  const p = h.makePlayer();
+  await pausedAt(p, cached("rw1aaaaaaaa"), 0);
+  p.failedTracks = 2;
+  Object.assign(p.resource ?? {}, { playbackDuration: 60_000 });
+  p.rest();
+  assert.equal(p.failedTracks, 0);
+
+  p._waking = true;
+  p.lifecycle.to("starting");
+  assert.equal(playState(p), "paused", "소리가 나기 전까지는 멈춤");
+  p._waking = false;
+  h.dispose(p);
+});
+
+test("여는 중에 받은 넘기기: 앞 세대(실패해 다른 곡을 연 것)의 기록이 남아 있으면 새 넘기기로 덮는다", () => {
+  const p = h.makePlayer();
+  const track = (p.currentTrack = yt("rx1aaaaaaaa"));
+  p._playGen = 5;
+  p.lifecycle.to("starting");
+  p._endWhileStarting = { reason: "skip", gen: 4, track };
+  p._stopWith("jump");
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5, track });
+  p._stopWith("skip");
+  assert.deepEqual(p._endWhileStarting, { reason: "jump", gen: 5, track }, "같은 세대는 먼저 온 것이 이긴다");
+  h.dispose(p);
+});
+
+// 연 곡을 소리가 나는 것으로 두고, 다음 여는 중을 SponsorBlock 응답에서 붙잡는다(commitPlaying 이 기다린다). 놓아주는 함수를 돌려준다
+async function soundingThenHeld(p: Player, track: QueuedTrack) {
+  p.currentTrack = track;
+  await p.play(0);
+  p.audioPlayer.state = { ...p.audioPlayer.state, status: AudioPlayerStatus.Playing } as never;
+  let release = () => {};
+  let held = false;
+  behavior.sponsor = () => {
+    if (held) return null;
+    held = true;
+    return new Promise((done) => (release = () => done(null)));
+  };
+  return () => release();
+}
+
+const resourceOf = (p: Player) => ("resource" in p.audioPlayer.state ? p.audioPlayer.state.resource : null);
+
+test("소리가 붙은 채 다시 여는 중에 넘기면 연 뒤에 한 번만 넘긴다. 옛 소리가 먼저 멎어도, 연 뒤에 멎어도 같다", async () => {
+  for (const order of ["old-idle-first", "commit-first"]) {
+    h.reset();
+    const p = h.makePlayer();
+    const first = cached("ov1aaaaaaaa");
+    const next = cached("ov2aaaaaaaa");
+    p.queue = [next];
+    const release = await soundingThenHeld(p, first);
+
+    const seeking = p.seek(30_000, "seek");
+    await tick();
+    assert.equal(p.lifecycle.starting, true, order);
+    assert.equal(p.skip(), true);
+    if (order === "old-idle-first") {
+      p.audioPlayer.emit(AudioPlayerStatus.Idle);
+      await tick();
+      assert.equal(p.currentTrack, first, "여는 중에 멎은 옛 소리로 곡을 넘기지 않는다");
+    }
+    release();
+    await seeking;
+    await endNow(p);
+    assert.equal(p.currentTrack, next, order);
+    const sounding = resourceOf(p);
+    await tick(200);
+    assert.equal(p.currentTrack, next, `${order}: 한 번만 넘겼다`);
+    assert.equal(resourceOf(p), sounding, `${order}: 다음 곡의 소리를 멈추지 않았다`);
+    assert.notEqual(p.audioPlayer.state.status, AudioPlayerStatus.Idle, order);
+    h.dispose(p);
+  }
+});
+
+test("다시 여는 중에 다른 열기가 겹쳐(음성 복구) 먼저 끝나고 곡이 넘어가면, 늦게 끝난 옛 열기는 소리를 내지 않는다", async () => {
+  const p = h.makePlayer();
+  const first = cached("oz1aaaaaaaa");
+  const next = cached("oz2aaaaaaaa");
+  p.queue = [next];
+  const release = await soundingThenHeld(p, first);
+
+  const seeking = p.seek(30_000, "seek");
+  await tick();
+  await p.onVoiceRecovered();
+  assert.equal(p.lifecycle.phase, "playing", "음성 복구의 열기가 먼저 끝났다");
+  p.skip();
+  await endNow(p);
+  assert.equal(p.currentTrack, next);
+  const sounding = resourceOf(p);
+  release();
+  assert.deepEqual(await seeking, { ok: false, code: "superseded" });
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, next);
+  assert.equal(resourceOf(p), sounding, "다음 곡의 소리가 그대로다");
+});
+
+test("소리가 붙은 채 다시 여는 중에 옛 소리가 저절로 끝나도 곡을 넘기지 않는다(옮긴 위치에서 이어 튼다)", async () => {
+  const p = h.makePlayer();
+  const first = cached("ow1aaaaaaaa");
+  p.queue = [cached("ow2aaaaaaaa")];
+  const release = await soundingThenHeld(p, first);
+
+  const seeking = p.seek(30_000, "seek");
+  await tick();
+  p.audioPlayer.stop();
+  p.audioPlayer.emit(AudioPlayerStatus.Idle);
+  await tick();
+  release();
+  await seeking;
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, first);
+  assert.equal(p.lifecycle.phase, "playing");
+  assert.equal(p.getCurrentTime(), 30_000);
+});
+
+test("여는 중 이전 곡을 눌렀는데 열지 못해 멈춰 뒀으면 이전 곡을 마저 건다(되감은 대기열이 남지 않는다)", async () => {
+  const p = h.makePlayer();
+  const before = cached("op1aaaaaaaa");
+  const failing = yt("op2aaaaaaaa");
+  const after = cached("op3aaaaaaaa");
+  p.previousTracks = [before];
+  p.queue = [after];
+  networkDown();
+  p.currentTrack = failing;
+  const opening = p.play(0);
+  assert.equal(p.previous(), true);
+  await opening;
+  await p.untilSwitched();
+  h.dispose(p);
+
+  assert.equal(p.currentTrack, before, "이전 곡을 연다");
+  assert.deepEqual(p.queue, [failing, after], "지금 곡은 이전 곡 뒤로");
+  assert.deepEqual(p.previousTracks, [], "기록에 열지 못한 곡을 더하지 않는다");
 });

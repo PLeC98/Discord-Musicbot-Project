@@ -1,5 +1,5 @@
 <template>
-  <!-- 글꼴 기호가 아닌 것(DrawnIcon)은 그것을 그리는 컴포넌트로. 칸 · 크기 · 색은 같다 -->
+  <!-- 글꼴 기호가 아닌 것(DrawnIcon)은 그것을 그리는 컴포넌트로. 칸, 크기, 색은 같다 -->
   <SponsorBlockIcon v-if="name === 'sponsorblock'" :size="size" />
   <span v-else class="symbol shrink-0 align-[-0.18em]" :style="style" aria-hidden="true">{{ glyph }}</span>
 </template>

@@ -1,8 +1,8 @@
 <!--
-  문자열 목록을 칩으로 다룬다. 검색어와 차단어가 같은 성질이라 한 곳에 모은다.
+  문자열 목록을 칩으로 다룬다. 검색어와 제외 키워드가 같은 성질이라 한 곳에 모은다.
   Enter로 추가, 지우기 버튼 또는 빈 입력란에서 Backspace로 제거, 칩을 누르면 고친다.
 
-  suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그 · 가수). 후보는 돕는 것일 뿐이라
+  suggest 를 주면 입력하는 동안 후보를 표시한다(VocaDB 태그, 가수). 후보는 돕는 것일 뿐이라
   목록에 없는 말도 Enter 로 추가할 수 있다. 저쪽이 느리거나 죽어 있어도 입력할 수 있어야 한다.
 -->
 <template>
@@ -36,17 +36,22 @@
     </div>
 
     <Teleport to="body">
-      <!-- mousedown.prevent: 누르는 순간 입력란이 blur 되면 입력하던 말이 먼저 칩이 된다 -->
-      <div v-if="suggest && open && hits.length && state === 'done'" ref="panel" :class="CHIP_PANEL" :style="style">
-        <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
-          <span class="truncate">{{ one.value }}</span>
-          <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
-        </button>
-      </div>
-      <!-- 저쪽이 느릴 때가 있다. 요청 중인지 알 수 있어야 기다린다 -->
-      <p v-else-if="suggest && open && state === 'loading'" ref="panel" :class="[CHIP_PANEL_NOTE, 'flex items-center gap-2']" :style="style"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</p>
-      <p v-else-if="suggest && open && state === 'failed'" ref="panel" :class="[CHIP_PANEL_NOTE, 'whitespace-pre-line']" :style="style">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</p>
-      <p v-else-if="suggest && open && state === 'done'" ref="panel" :class="CHIP_PANEL_NOTE" :style="style">{{ text.fields.suggestNone }}</p>
+      <!-- 판 하나가 후보, 조회 중, 실패, 없음을 바꿔 보인다(입력할 때마다 판이 다시 열리지 않게).
+           mousedown.prevent: 누르는 순간 입력란이 blur 되면 입력하던 말이 먼저 칩이 된다 -->
+      <Transition name="menu">
+        <div v-if="suggest && open && state !== 'idle'" ref="panel" :class="state === 'done' && hits.length ? CHIP_PANEL : [CHIP_PANEL_NOTE, state === 'loading' ? 'flex items-center gap-2' : 'whitespace-pre-line']" :style="style">
+          <template v-if="state === 'done' && hits.length">
+            <button v-for="(one, i) in hits" :key="one.value" type="button" :class="[CHIP_PANEL_ROW, i === at ? 'bg-on-surface/8' : '']" @mouseenter="at = i" @mousedown.prevent @click="take(one)">
+              <span class="truncate">{{ one.value }}</span>
+              <span v-if="one.hint" class="ml-auto pl-2 text-xs text-on-surface-variant shrink-0">{{ one.hint }}</span>
+            </button>
+          </template>
+          <!-- 후보 조회가 느릴 때가 있다. 요청 중임을 보여야 기다린다 -->
+          <template v-else-if="state === 'loading'"><Icon name="progress_activity" :size="14" class="animate-spin" />{{ text.fields.suggestLoading }}</template>
+          <template v-else-if="state === 'failed'">{{ text.fields.suggestFailed }}{{ failReason ? `\n${failReason}` : "" }}</template>
+          <template v-else>{{ text.fields.suggestNone }}</template>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -69,7 +74,7 @@ const props = withDefaults(
   defineProps<{
     modelValue?: string[];
     placeholder?: string;
-    /** 차단어처럼 대소문자를 가리지 않고 견주는 입력란. 입력되는 값 자체를 낮춰 둔다 */
+    /** 제외 키워드처럼 대소문자를 가리지 않고 비교하는 입력란. 입력되는 값 자체를 소문자로 바꿔 둔다 */
     lowercase?: boolean;
     /** 검색어로 후보를 불러온다. 없으면 후보를 표시하지 않는다 */
     suggest?: ((term: string) => Promise<Suggestion[]>) | null;
@@ -88,7 +93,7 @@ const box = ref<HTMLElement | null>(null);
 const panel = ref<HTMLElement | null>(null);
 const open = ref(false);
 const hits = ref<Suggestion[]>([]);
-// 후보 불러오기: idle(입력한 말이 없다) · loading · done · failed
+// 후보 불러오기: idle(입력한 말이 없다), loading, done, failed
 const state = ref("idle");
 const failReason = ref("");
 // 방향키로 선택한 후보. -1 이면 선택한 것이 없어 Enter 가 입력한 말을 그대로 추가한다
@@ -127,7 +132,7 @@ watch(entry, (text) => {
     state.value = failed ? "failed" : "done";
   }, SUGGEST_WAIT_MS);
 });
-// 입력란이 사라지면(장르 · 출처를 삭제) 기다리던 요청도 보내지 않는다
+// 입력란이 사라지면(장르, 출처를 삭제) 기다리던 요청도 보내지 않는다
 onUnmounted(() => clearTimeout(timer));
 
 // 방향키로 오르내리면 닫혀 있던 목록도 연다

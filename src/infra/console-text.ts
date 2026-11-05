@@ -1,5 +1,5 @@
-// 바깥 프로그램(tasklist · taskkill · powershell · ps)의 출력 글. UTF-8 이 아니면 Windows 콘솔 코드 페이지(OEMCP: 한국어 949 · 일본어 932 등)로 읽는다.
-// 그 코드 페이지를 읽을 디코더가 없으면(437 · 850 같은 영어권 OEM, 메시지는 대개 ASCII) latin1 로 읽는다
+// 바깥 프로그램(tasklist, taskkill, powershell, ps)의 출력 글. UTF-8 이 아니면 Windows 콘솔 코드 페이지(OEMCP: 한국어 949, 일본어 932 등)로 읽는다.
+// 그 코드 페이지를 읽을 디코더가 없으면(437, 850 같은 영어권 OEM, 메시지는 대개 ASCII) latin1 로 읽는다
 
 import { execFileSync } from "node:child_process";
 import logger from "./log/logger.ts";
@@ -23,9 +23,9 @@ function oemCodePage(): number | null {
     const out = execFileSync("reg", ["query", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage", "/v", "OEMCP"], { encoding: "latin1", windowsHide: true, timeout: 5000 });
     const found = /OEMCP\s+REG_SZ\s+(\d+)/.exec(out);
     oem = found ? Number(found[1]) : null;
-    if (oem === null) log.warn("콘솔 코드 페이지를 읽지 못했습니다(OEMCP 값 없음). 바깥 프로그램의 오류 글이 깨질 수 있습니다");
+    if (oem === null) log.warn("콘솔 코드 페이지를 확인하지 못했습니다(OEMCP 값 없음). 외부 프로세스의 오류 메시지가 깨질 수 있습니다");
   } catch (error) {
-    log.warn(`콘솔 코드 페이지를 읽지 못했습니다. 바깥 프로그램의 오류 글이 깨질 수 있습니다: ${messageOf(error)}`);
+    log.warn(`콘솔 코드 페이지를 확인하지 못했습니다(외부 프로세스의 오류 메시지가 깨질 수 있음): ${messageOf(error)}`);
   }
   return oem;
 }

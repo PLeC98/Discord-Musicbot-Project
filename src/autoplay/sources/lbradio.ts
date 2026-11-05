@@ -16,8 +16,7 @@ type Radio = { payload?: { jspf?: { playlist?: { track?: Array<{ creator?: strin
 // 한도가 짧으면 멀쩡한 소스가 빈손으로 취급된다.
 const SLOW_MS = 30000;
 
-// ── lbradio ───────────────────────────────────────────────────────────────
-// 호출마다 50곡을 새로 짠다. 길이를 준다(병 유형). youtubeMatch의 길이 신호가 켜진다.
+// 호출마다 50곡을 새로 짠다. 길이를 주므로 youtubeMatch의 길이 신호가 켜진다.
 async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const token = config.sources?.listenbrainzToken;
   if (!token) throw new Error("ListenBrainz 토큰이 없습니다");
@@ -39,7 +38,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
       return {
         artist,
         title,
-        // 길이가 없는 곡은 정 유형으로 떨어져 필터를 탄다.
+        // 길이가 없는 곡은 길이 신호 없이 찾고 필터를 거친다.
         durationSec: Number(t.duration) > 0 ? Math.round(Number(t.duration) / 1000) : undefined,
         sourceUrl: t.identifier?.[0] || undefined, // MusicBrainz 녹음 주소
         platform: "lbradio",
@@ -49,7 +48,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
     .filter((t) => t.artist && t.title && !PLACEHOLDER.test(t.artist) && !PLACEHOLDER.test(t.title));
 }
 
-// MusicBrainz는 아티스트·곡을 모를 때 정해진 이름으로 빈 값을 채운다.
+// MusicBrainz는 아티스트, 곡을 모를 때 정해진 이름으로 빈 값을 채운다.
 // 그대로 두면 그걸 유튜브에 검색하게 된다.
 //
 // 대괄호로 싸였다고 다 필터링하면 안 된다. `[Alexandros]`는 실존하는 일본 록밴드다.
@@ -72,7 +71,7 @@ async function checkListenbrainzToken(): Promise<KeyCheck> {
   const res = await probe("listenbrainz", "https://api.listenbrainz.org/1/validate-token", { Authorization: `Token ${token}` });
   if (!res) return { ok: false, reason: "unreachable" };
   const body = (await res.json().catch((error: unknown) => {
-    log.debug(`ListenBrainz 토큰 확인 응답을 읽지 못함(HTTP ${res.status}): ${messageOf(error)}`);
+    log.debug(`ListenBrainz 토큰 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
     return null;
   })) as { valid?: boolean } | null;
   if (res.ok && body?.valid === true) return { ok: true };

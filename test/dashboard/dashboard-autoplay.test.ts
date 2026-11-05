@@ -1,4 +1,4 @@
-// src/dashboard/routes/player.ts — 대시보드의 자동재생: 장르 목록, 켜기 · 바꾸기 · 끄기(판정과 일은 디스코드의 장르 메뉴와 같다)
+// src/dashboard/routes/player.ts: 대시보드의 자동재생: 장르 목록, 켜기, 바꾸기, 끄기(판정과 일은 디스코드의 장르 메뉴와 같다)
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +20,7 @@ const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.t
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 
 const GUILD_ID = "100";
-// 그 서버의 모더레이터(재적 · DJ 판정을 건너뛴다). 봇은 음성 채널에 있다
+// 그 서버의 모더레이터(재적, DJ 판정을 건너뛴다). 봇은 음성 채널에 있다
 const guild = {
   id: GUILD_ID,
   name: "서버",
@@ -48,6 +48,7 @@ function playingPlayer() {
     previousTracks: [],
     volume: 50,
     loop: false,
+    pause: { userPaused: false, heldBy: null },
     audioPlayer: { state: { status: "playing" } },
     getCurrentTime: () => 0,
     guild,
@@ -63,7 +64,7 @@ const server = await listenForFetch(app);
 after(() => server.close());
 const req = <T>(method: string, path: string, body?: unknown) => requestJson<T>(baseUrl(server), method, path, body);
 
-test("장르 목록: 설정 파일의 순서로 이름 · 이모지(디스코드 장르 메뉴와 같은 것)", async () => {
+test("장르 목록: 설정 파일의 순서로 이름, 이모지(디스코드 장르 메뉴와 같은 것)", async () => {
   const { status, json } = await req<AutoplayGenres>("GET", `/api/guilds/${GUILD_ID}/autoplay/genres`);
   assert.equal(status, 200);
   const { genres } = genreConfig.genres();
@@ -73,7 +74,7 @@ test("장르 목록: 설정 파일의 순서로 이름 · 이모지(디스코드
   );
 });
 
-test("켜기 · 바꾸기 · 끄기: 지금 장르가 상태에 실리고, 켠 결과는 패널 채널에도 알린다", async () => {
+test("켜기, 바꾸기, 끄기: 지금 장르가 상태에 실리고, 켠 결과는 패널 채널에도 알린다", async () => {
   const player = playingPlayer();
   players.set(GUILD_ID, player);
   const [first, second] = Object.keys(genreConfig.genres().genres);
@@ -93,7 +94,7 @@ test("켜기 · 바꾸기 · 끄기: 지금 장르가 상태에 실리고, 켠 �
   players.clear();
 });
 
-test("거절: 모르는 장르는 unknown-genre, 장르가 글자 · null 이 아니면 bad-request", async () => {
+test("거절: 모르는 장르는 unknown-genre, 장르가 글자, null 이 아니면 bad-request", async () => {
   players.set(GUILD_ID, playingPlayer());
   const unknown = await req<{ code: string }>("POST", `/api/guilds/${GUILD_ID}/player/autoplay`, { genre: "없는 장르" });
   assert.deepEqual([unknown.status, unknown.json.code], [400, "unknown-genre"]);

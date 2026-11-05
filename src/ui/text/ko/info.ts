@@ -1,7 +1,7 @@
-// 정보 화면(/system · /cachestatus · /ping · /license · /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다.
-// 플랫폼 · 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
+// 정보 화면(/system, /cachestatus, /ping, /license, /nowplaying)의 문구. 값은 부르는 쪽이 말로 적어 넘긴다.
+// 플랫폼, 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
 
-import { icon } from "../../icons.ts";
+import { icon, type IconKey } from "../../icons.ts";
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
@@ -85,7 +85,7 @@ const ping = ({ botMark, botMs, apiMark, apiMs }: { botMark: string; botMs: numb
 /** 첫 응답. 그 응답이 닿은 시각으로 잰다 */
 const pinging = () => "핑 측정 중...";
 
-/** /license. repos 는 저작권 줄들(마크다운 링크) */
+/** /license. lines 는 저작권 줄들(마크다운 링크) */
 const license = (lines: string[]) => ({
   title: `${icon("license")} 라이선스 정보`,
   description: "이 봇은 오픈 소스 소프트웨어입니다.\n" + "네트워크를 통해 이 봇과 상호작용하는 모든 사용자는 " + "GNU AGPL-3.0에 따라 소스 코드를 받을 권리가 있습니다.",
@@ -98,23 +98,34 @@ const license = (lines: string[]) => ({
   footer: "GNU AGPL-3.0-or-later • MIT",
 });
 
-/** /nowplaying. 필드 라벨 */
+/** /nowplaying 의 문구. 작은 글씨 줄은 아이콘 + 굵은 항목 이름 + 값 */
 const nowPlaying = () => ({
   title: `${icon("music")} 현재 재생 중`,
-  artist: `${icon("artist")} 아티스트`,
-  album: `${icon("album")} 앨범`,
-  platform: `${icon("web")} 출처`,
-  progress: `${icon("time")} 진행`,
-  requester: `${icon("person")} 요청자`,
-  status: `${icon("stats")} 상태`,
+  artist: icon("artist"),
+  album: icon("album"),
+  line: (key: IconKey, name: string, value: string) => `-# ${icon(key)} **${name}** ${value}`,
+  status: "상태",
+  requester: "요청",
+  autoplayPick: `${icon("autoplay")} 자동재생이 고름`,
+  source: "출처",
+  audio: "음원",
+  // 음원 주소를 어떻게 알았나(rules/audio-found-by, 요청 그대로는 줄을 내지 않는다)
+  foundBy: { ledger: "자동 검색 결과", search: "자동 검색 결과", pinned: "직접 지정한 음원" } as Record<string, string>,
+  next: "다음",
+  nextByAutoplay: "자동재생이 골라요",
+  nextNone: "없음",
+  queue: "대기열",
+  // 아는 길이가 없으면(다 라이브, 길이 모름) 곡 수만
+  queued: (count: number, length: string | null, partial: boolean) => (length ? `${count}곡 · ${length}${partial ? " 이상" : ""}` : `${count}곡`),
+  autoplay: "자동재생",
+  autoplayOn: (genre: string) => `켜짐 · ${genre}`,
 });
-/** /nowplaying 의 상태 줄 */
+/** /nowplaying 의 상태 값: 재생 상태, 볼륨, 반복 */
 function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean; paused: boolean; volume: number; loop: string | false }) {
-  let text = playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`;
-  text += ` • ${icon("volume")} ${volume}%`;
-  if (loop === "track") text += ` • ${icon("repeat_one")} 한 곡 반복`;
-  else if (loop === "queue") text += ` • ${icon("repeat")} 대기열 반복`;
-  return text;
+  const parts = [playing ? `${icon("play")} 재생 중` : paused ? `${icon("pause")} 일시정지` : `${icon("waiting")} 준비 중`, `${icon("volume")} ${volume}%`];
+  if (loop === "track") parts.push(`${icon("repeat_one")} 한 곡 반복`);
+  else if (loop === "queue") parts.push(`${icon("repeat")} 대기열 반복`);
+  return parts.join(" • ");
 }
 
 export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };

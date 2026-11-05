@@ -1,4 +1,4 @@
-// src/ui/text/ko/controls.ts — 조작 응답 문장을 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
+// src/ui/text/ko/controls.ts: 조작 응답 문장을 모두 적어 둔다. 문장을 고치면 여기도 같이 고친다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -38,6 +38,7 @@ test("모든 문장", () => {
       controls.left(null),
       controls.joined(),
       controls.alreadyJoined(),
+      controls.alreadyJoined(true),
       controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, true),
       controls.restored({ title: "곡", pageUrl: "https://example.com/v" }, false),
       controls.restoring(),
@@ -64,8 +65,8 @@ test("모든 문장", () => {
       { icon: "cleared", title: "대기열을 비웠어요!", body: "대기열에 있던 5곡을 삭제했어요." },
       { icon: "cleared", title: "선택한 곡을 삭제했어요!", body: "대기열에 2곡이 남았어요." },
       { icon: "shuffle", title: "곡의 순서를 바꿨어요", body: "**[곡](https://example.com/v)**\n📍 기존 순번: 2번째\n📍 현재 순번: 7번째", by: "👤 변경한 사람" },
-      { icon: "repeat_one", title: "반복 모드를 바꿨어요!", body: "**한 곡 반복** 모드로 설정했어요. 현재 곡을 계속해서 재생해요." },
-      { icon: "repeat", title: "반복 모드를 바꿨어요!", body: "**대기열 반복** 모드로 설정했어요. 대기열이 끝나면 처음부터 다시 틀어요." },
+      { icon: "repeat_one", title: "반복 모드를 바꿨어요!", body: "**한 곡 반복** 모드로 설정했어요." },
+      { icon: "repeat", title: "반복 모드를 바꿨어요!", body: "**대기열 반복** 모드로 설정했어요." },
       { icon: "repeat_off", title: "반복 모드를 바꿨어요!", body: "반복 모드를 **해제**했어요." },
       { icon: "volume", title: "볼륨을 조절했어요!", body: "**30%** → **60%**" },
       { icon: "volume", title: "볼륨을 조절했어요!", body: "볼륨이 이미 60%라서 그대로 둘게요." },
@@ -74,6 +75,7 @@ test("모든 문장", () => {
       { title: "👋 음성 채널에서 나갔어요", body: null },
       { icon: "done", title: "음성 채널에 접속했어요!", body: "언제든지 곡을 넣어 주세요." },
       { icon: "done", title: "이미 음성 채널에 있어요.", body: "저는 준비됐어요. 언제든지 곡을 넣어 주세요." },
+      { icon: "done", title: "이미 음성 채널에 있어요.", body: "곡이 재생되지 않아 일시정지 상태예요. 재생 버튼을 누르면 다시 시도해요." },
       { icon: "pause", title: "듣던 곡이 있어요!", body: "이전에 **[곡](https://example.com/v)**을 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!" },
       { icon: "play", title: "듣던 곡이 있어요!", body: "이전에 **[곡](https://example.com/v)**을 듣고 있었어요. 이어서 재생할게요!" },
       "🔄 듣던 곡을 불러오는 중...",
@@ -83,4 +85,17 @@ test("모든 문장", () => {
 
 test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자를 보고 선택한다", () => {
   assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { icon: "pause", title: "일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
+});
+
+test("억제 사유로 소리가 함께 멈춰 있으면: 멈춰 둘 때는 풀려도 멈춘 채, 풀 때는 지금 멈춘 까닭과 언제 이어 트는지", () => {
+  const track = { title: "곡", pageUrl: "u" };
+  assert.deepEqual(
+    (["mute", "stage", "alone"] as const).map((held) => controls.paused(true, track, held).body),
+    ["**[곡](u)**을 일시정지했어요. 음소거가 풀려도 멈춘 채로 둘게요.", "**[곡](u)**을 일시정지했어요. 발언자가 돼도 멈춘 채로 둘게요.", "**[곡](u)**을 일시정지했어요. 누가 들어와도 멈춘 채로 둘게요."],
+  );
+  assert.deepEqual(
+    (["mute", "stage", "alone"] as const).map((held) => controls.paused(false, track, held).body),
+    ["아직 음소거 상태라 멈춰 있어요. 음소거가 풀리면 **[곡](u)**을 다시 재생할게요.", "아직 스테이지 청중이라 멈춰 있어요. 발언자가 되면 **[곡](u)**을 다시 재생할게요.", "아직 채널에 저 혼자라 멈춰 있어요. 누가 들어오면 **[곡](u)**을 다시 재생할게요."],
+  );
+  assert.equal(controls.paused(false, track, "mute").title, "일시정지를 해제했어요!");
 });

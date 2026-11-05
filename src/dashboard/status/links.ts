@@ -10,6 +10,7 @@ import * as procRegistry from "../../infra/process-registry.ts";
 import { linkStatus, type Service } from "../../infra/link-status.ts";
 import { LB_TIMEOUT_MS } from "../../autoplay/sources/lbradio.ts";
 import { anonTokenExpiresAt } from "../../sources/spotify.ts";
+import { potServerUrl } from "../../sources/youtube/pot-server.ts";
 import type { LinkRow } from "../contract/admin.ts";
 import { gateway } from "./gateway.ts";
 
@@ -26,6 +27,7 @@ const ROWS: Array<{ id: Service; group: Group; name: string }> = [
   { id: "spotify", group: "play", name: "Spotify" },
   { id: "soundcloud", group: "play", name: "SoundCloud" },
   { id: "sponsorblock", group: "play", name: "SponsorBlock" },
+  { id: "youtube", group: "youtube", name: "YouTube 검색" },
   { id: "ai", group: "autoplay", name: "AI 보조" },
   { id: "lastfm", group: "autoplay", name: "Last.fm" },
   { id: "listenbrainz", group: "autoplay", name: "ListenBrainz" },
@@ -67,7 +69,7 @@ function noteOf(id: Service): string | null {
 /** 이름에 올리면 보이는 설명(그 서비스를 다루는 방식) */
 const HINT: Partial<Record<Service, string>> = { listenbrainz: `LB Radio · ${LB_TIMEOUT_MS / 1000}초 넘으면 실패` };
 
-/** 부른 결과로 매긴다: 쉼 · 실패(마지막이 실패) · 느림(오래 걸림 · 최근 실패가 잦음) · 정상 */
+/** 부른 결과로 매긴다: 쉼, 실패(마지막이 실패), 느림(오래 걸림, 최근 실패가 잦음), 정상 */
 function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" | "error" | "note"> {
   const status = linkStatus(id);
   const last = status?.recent.at(-1);
@@ -79,12 +81,12 @@ function judged(id: Service): Pick<LinkRow, "state" | "latencyMs" | "lastOkAt" |
   return { state: slow ? "slow" : "ok", latencyMs: last.ms, lastOkAt, error: null, note: fails ? `최근 ${status.recent.length}번 중 ${fails}번 실패` : noteOf(id) };
 }
 
-/** 디스코드: 게이트웨이에 붙어 있으면 정상(지연은 하트비트), 다시 붙는 중이면 실패 */
+/** 디스코드: 게이트웨이에 연결돼 있으면 정상(지연은 하트비트), 재연결 중이면 실패 */
 function discordRow(client: Client): LinkRow {
   const { reconnects, retryAttempt } = gateway();
-  const note = reconnects ? `연결 재수립 ${reconnects}회` : null;
+  const note = reconnects ? `재연결 ${reconnects}회` : null;
   const base = { id: "discord", group: "play" as const, name: "디스코드 API" };
-  if (retryAttempt) return { ...base, state: "fail", latencyMs: null, lastOkAt: null, error: `다시 붙는 중(${retryAttempt}번째)`, note };
+  if (retryAttempt) return { ...base, state: "fail", latencyMs: null, lastOkAt: null, error: `재연결 중(${retryAttempt}번째)`, note };
   const ready = client.isReady();
   return { ...base, state: ready ? "ok" : "idle", latencyMs: ready && client.ws.ping >= 0 ? client.ws.ping : null, lastOkAt: ready ? Date.now() : null, error: null, note };
 }
@@ -94,7 +96,8 @@ function potokenRow(): LinkRow {
   const base = { id: "potoken", group: "youtube" as const, name: "POToken", latencyMs: null, lastOkAt: null, error: null };
   if (!config.bgutil.enabled) return { ...base, state: "off", note: "꺼 둠" };
   const running = procRegistry.list().some((p) => p.job === "pot-server");
-  return { ...base, state: running ? "ok" : "fail", note: running ? null : "서버가 떠 있지 않음" };
+  // 서버는 실행마다 빈 포트에 열린다. 떠 있으면 그 주소를 보인다
+  return { ...base, state: running ? "ok" : "fail", note: running ? (potServerUrl()?.replace(/^http:\/\//, "") ?? null) : "서버가 떠 있지 않음" };
 }
 
 function linkRows(client: Client): LinkRow[] {

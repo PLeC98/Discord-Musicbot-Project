@@ -1,11 +1,13 @@
 // 재생 조작의 응답 화면(응답 템플릿 ui/frame). 명령과 패널 버튼이 같은 조작을 하면 이 화면 하나를 쓴다
 
 import { frame, noticeFrame } from "./frame.ts";
+import { DISCORD_LOOK } from "./mentions.ts";
 import * as errors from "./text/ko/errors.ts";
 import { formatDuration, formatMs } from "./format.ts";
 import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { DiscordArt } from "./discord-art.ts";
+import type { Hold } from "../rules/holds.ts";
 
 type Track = { title: string | null; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
@@ -14,9 +16,9 @@ type Actor = { toString(): string };
 // 누가 했나 줄
 const who = (by: Actor) => `${controlText.requestedBy()} ${String(by)}`;
 
-/** 일시정지 · 재개 */
-function paused(isPaused: boolean, track: Track, by: Actor) {
-  const t = controlText.paused(isPaused, track);
+/** 일시정지, 재개. heldBy: 소리를 함께 멈추고 있는 억제 사유 */
+function paused(isPaused: boolean, track: Track, by: Actor, heldBy: Hold | null = null) {
+  const t = controlText.paused(isPaused, track, heldBy);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
@@ -38,9 +40,9 @@ function jumped(track: Track) {
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
-/** 정지. cleared 는 비운 대기열 곡 수 */
-function stopped(cleared: number, by: Actor) {
-  const t = controlText.stopped(cleared);
+/** 정지. cleared 는 비운 대기열 곡 수, stayed 면 24/7 자리라 채널에 남았다 */
+function stopped(cleared: number, by: Actor, stayed = false) {
+  const t = stayed ? controlText.stoppedStaying(cleared) : controlText.stopped(cleared);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
@@ -60,13 +62,13 @@ function loopSet(mode: Loop, by: Actor) {
 const highlighting = () => frame({ body: controlText.highlighting() });
 /** 하이라이트로 건너뛰었다. ms 는 옮긴 위치 */
 function highlighted(ms: number) {
-  const t = controlText.highlighted(formatMs(ms));
+  const t = controlText.highlighted(formatMs(ms, "0:00"));
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => frame({ body: controlText.replaying() });
-/** 처음부터 다시 틀었다. art: 걸 그림(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡 그림 주소 */
+/** 처음부터 다시 틀었다. art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
 function replayed(track: Track, by: Actor, art?: DiscordArt | null) {
   const t = controlText.replayed(track);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true, thumbnail: art === undefined ? track.thumbnail : (art?.url ?? null) });
@@ -76,7 +78,7 @@ function replayed(track: Track, by: Actor, art?: DiscordArt | null) {
 const seeking = () => frame({ body: controlText.seeking() });
 /** 위치를 옮겼다. ms 는 옮긴 위치 */
 function seeked(ms: number) {
-  const t = controlText.seeked(formatMs(ms));
+  const t = controlText.seeked(formatMs(ms, "0:00"));
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
@@ -92,44 +94,55 @@ function removed(left: number, by: Actor) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 대기열 순서 바꾸기. from · to 는 사람이 센 위치(1부터) */
+/** 대기열 순서 바꾸기. from, to 는 사람이 센 위치(1부터) */
 function moved(track: Track, from: number, to: number, by: Actor) {
   const t = controlText.moved(track, from, to);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [`${t.by} ${String(by)}`], divider: true });
 }
 
-/** 볼륨. before · level 은 0 ~ VOLUME_MAX(rules/limits) */
+/** 볼륨. before, level 은 0 ~ VOLUME_MAX(rules/limits) */
 function volumeSet(before: number, level: number, by: Actor) {
   const t = controlText.volumeSet(before, level);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡 · 위치(초) · 대기열 곡 수 */
-function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor) {
-  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec), queue: saved.queue });
+/** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡, 위치(초), 대기열 곡 수 */
+function left(saved: { track: Track; positionSec: number; queue: number } | null, by: Actor, stayOff = false) {
+  const t = controlText.left(saved && { track: saved.track, at: formatDuration(saved.positionSec, "0:00"), queue: saved.queue }, stayOff);
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 음성 채널에 들어왔다 · 이미 들어와 있다 */
+/** 24/7 켬, 끔, 지금 상태. channelId 는 자리 채널 */
+function stayOn(channelId: string, already: boolean, by: Actor) {
+  const t = controlText.stayOn(DISCORD_LOOK.channel(channelId), already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+}
+function stayOff(already: boolean, by: Actor) {
+  const t = controlText.stayOff(already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+}
+
+/** 음성 채널에 들어왔다, 이미 들어와 있다 */
 function joined() {
   const t = controlText.joined();
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
-function alreadyJoined() {
-  const t = controlText.alreadyJoined();
+function alreadyJoined(parked = false) {
+  const t = controlText.alreadyJoined(parked);
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
 
-/** /join 이 저장한 세션을 복원하는 동안 · 복원했다 */
+/** /join 이 저장한 세션을 복원하는 동안, 복원했다 */
 const restoring = () => frame({ body: controlText.restoring() });
 function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
-/** 복원한 결과. 이어 튼 곡이 있으면 그 곡, 없으면 까닭(남은 곡이 있으면 연달아 실패해 멈춘 것) */
-function restoreResult(track: Track | null, isPaused: boolean, left: number) {
+/** 복원한 결과. 열지 못해 그 곡에서 멈춰 뒀으면 그 까닭과 ▶, 이어 튼 곡이 있으면 그 곡, 없으면 틀 곡이 남지 않았다 */
+function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) {
+  if (parked) return noticeFrame(errors.notice("restore-parked"));
   if (track) return restored(track, isPaused);
-  return noticeFrame(left > 0 ? errors.notice("restore-failed-in-row", { left }) : errors.notice("restore-nothing-left"));
+  return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
-export { paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };
+export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };

@@ -1,8 +1,8 @@
-// 라이브(HLS) 재생 경로의 불변식.
+// src/media/ffmpeg/args.ts, src/sources/youtube, src/player/player.ts: 라이브(HLS) 재생 경로의 불변식.
 //
 // HLS는 "다운로드한 바이트"가 아니라 "가져올 주소"를 줘야 열리는 형식이라, 이 분기만 ffmpeg에
 // URL을 넘긴다. 나머지 스트리밍이 그 길로 새면 httpHeaders가 빠지고 폴백을 건너뛴다.
-// 그리고 라이브에는 길이가 없어서, 길이를 전제하던 곳들(탐색·반복)이 전부 걸린다.
+// 라이브에는 길이가 없어서 길이를 전제하는 곳(탐색, 반복)도 따로 다룬다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -24,7 +24,7 @@ test("능력 확인: 우리가 깔아 주는 빌드는 https와 hls를 갖췄다
   assert.equal(caps.hls, true, "hls 디먹서가 있어야 재생목록을 읽는다");
   assert.equal(caps.ok, true);
   assert.equal(typeof caps.segMaxRetry, "boolean", "세그먼트 재시도 옵션은 있고 없고를 가린다");
-  assert.equal(typeof caps.dash, "boolean", "DASH 조각 목록을 여는지도 가린다");
+  assert.equal(typeof caps.dash, "boolean", "DASH 세그먼트 목록을 여는지도 가린다");
 });
 
 test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 실행하지 않는다", () => {
@@ -46,7 +46,7 @@ test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
 });
 
 test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () => {
-  // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열·패널·로그에
+  // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열, 패널, 로그에
   // "... 2026-09-21 02:58" 이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
   const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
   assert.equal(YouTube.titleOf(live), "lofi radio");
@@ -101,7 +101,7 @@ test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는
     assert.equal(args[idx(args, flag) + 1], "1", `${flag}가 켜져 있어야 함`);
     assert.ok(idx(args, flag) < idx(args, "-i"), `${flag}는 입력 옵션이라 -i 앞이어야 함`);
   }
-  // 라이브에서 EOF는 "방송이 끝났다"다. 켜면 그걸 오류로 보고 영영 다시 붙는다.
+  // 라이브에서 EOF는 "방송이 끝났다"다. 켜면 그걸 오류로 보고 영영 재연결한다.
   assert.equal(idx(args, "-reconnect_at_eof"), -1);
 });
 
@@ -130,12 +130,12 @@ test("URL을 주지 않으면 분기가 바뀌지 않는다. 파이프가 기본
     assert.equal(args[idx(args, "-i") + 1], "pipe:0", JSON.stringify(opts));
   }
   // 둘을 같이 주면 URL이 이긴다. 다만 "캐시가 있으면 캐시로 튼다"를 정하는 것은 여기가 아니라
-  // _play 쪽이다(파일이 잡혀 있으면 URL 분기를 아예 타지 않는다).
+  // start-playback.ts의 resolveSource다(캐시 파일이 있으면 스트림 주소를 아예 받지 않는다).
   const withFile = buildFfmpegArgs({ file: "/cache/x.opus", url: "https://x/index.m3u8" });
   assert.equal(withFile[idx(withFile, "-i") + 1], "https://x/index.m3u8");
 });
 
-// 아래는 길이를 전제하던 곳들. 라이브에는 길이가 없다.
+// 아래는 길이를 전제하는 곳(반복, 탐색). 라이브에는 길이가 없다.
 
 const fakePlayer = (overrides = {}) => {
   const player = Object.create(Player.prototype);

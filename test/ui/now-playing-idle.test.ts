@@ -1,4 +1,4 @@
-// 전용 채널의 패널 — 끝난 패널을 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
+// src/ui/now-playing-panel.ts: 전용 채널의 패널. 끝난 패널을 재생 화면으로 고쳐 쓰고, 묻히면 맨 아래로, 음성에서 나가면 문구를 고친다.
 // 전용 채널이 있으면 패널은 늘 그 채널에 둔다.
 
 import { test, beforeEach, after } from "node:test";
@@ -42,7 +42,7 @@ function makeChannel(id: string, calls: Calls) {
 }
 type TestChannel = ReturnType<typeof makeChannel>;
 
-// 채널마다 웹훅 가짜. 보낸 것 · 고친 것 · 지운 것을 적는다
+// 채널마다 웹훅 가짜. 보낸 것, 고친 것, 지운 것을 적는다
 class TestPanels extends NowPlayingPanel {
   calls: Calls;
   next = 500;
@@ -106,6 +106,7 @@ function makePlayer(guild: Guild, textChannel: GuildTextBasedChannel, over: obje
     previousTracks: [],
     loop: false,
     paused: false,
+    pause: { heldBy: null, userPaused: false },
     getCurrentTime: () => 0,
     currentTrack: { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube", thumbnail: "https://example.org/t.jpg" },
     nowPlayingMessage: null,
@@ -126,7 +127,7 @@ async function play(mem: NowPlayingPanel, player: Player) {
   }
 }
 
-test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다 — 새로 올리지 않는다", async () => {
+test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다. 새로 올리지 않는다", async () => {
   const { mem, guild, calls, records, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text(BOT));
 
@@ -165,7 +166,7 @@ test("전용 채널: 끝난 패널이 묻혀 있으면 맨 아래에 새로 올�
   assert.equal(records.get("g1")?.messageId, calls.sent[0].id);
 });
 
-test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 채널에 — 없으면 요청한 채널", async () => {
+test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 채널에. 없으면 요청한 채널", async () => {
   const withBot = setup();
   await play(withBot.mem, makePlayer(withBot.guild, withBot.text("general")));
   assert.equal(withBot.calls.sent[0].channel, BOT);
@@ -178,7 +179,7 @@ test("전용 채널이 있으면 다른 채널에서 틀어도 패널은 전용 
   assert.ok(noBot.calls.deleted.includes("general:800"));
 });
 
-test("살아 있는 패널이 없을 때 끝나면 기록된 패널의 문구만 고친다 — 종료 메시지는 없다", async () => {
+test("살아 있는 패널이 없을 때 끝나면 기록된 패널의 문구만 고친다. 종료 메시지는 없다", async () => {
   const { mem, guild, calls, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text("general"), { currentTrack: null });
 
@@ -205,6 +206,14 @@ test("끝난 패널이 묻히면 기억해 둔 문구로 맨 아래에 다시 �
   players.set("g1", fakePlayer({ currentTrack: {}, nowPlayingMessage: { id: "1" } }));
   await mem.repinIdlePanel(guild, BOT, now);
   assert.equal(calls.sent.length, 0, "재생 중이면 5초 갱신이 맡는다");
+  let reposted = 0;
+  mem._isBuried = async () => true;
+  mem._repostNowPlaying = async () => void reposted++;
+  mem.heldProgress.add("g1");
+  await mem.repinIdlePanel(guild, BOT, now);
+  assert.equal(reposted, 1, "멈춰 5초 갱신이 쉬는 재생 패널은 여기서 다시 올린다");
+  assert.equal(calls.sent.length, 0, "끝난 패널을 올리지 않는다");
+  mem.heldProgress.delete("g1");
   players.clear();
 
   await mem.repinIdlePanel(guild, BOT, now);
@@ -227,7 +236,7 @@ test("전용 채널이 있는 서버에서 다른 채널로 틀고 끝나도 종
   assert.equal(calls.sent.filter((s) => s.channel === "general").length, 0);
 });
 
-test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다 — 새로 올리지 않는다", async () => {
+test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다. 새로 올리지 않는다", async () => {
   const { mem, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
   await mem.restorePanels();
   assert.equal(calls.sent.length, 0);
@@ -263,7 +272,23 @@ test("기동: 세션을 복원해 패널을 올린 서버는 건너뛰고, 전�
   assert.match(textOf(plain.calls.edited[0].payload), /\/play/);
 });
 
-test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다 — 풀면 지운다", async () => {
+test("기동: 음성에 붙어 곡을 기다리는 서버(24/7 자리, 이어받기)는 음성 밖 문구로 덮지 않는다. 아직 안 그렸으면 기다리는 모양으로", async () => {
+  const drawn = setup({ record: { channelId: BOT, messageId: "900" } });
+  drawn.players.set("g1", fakePlayer({ nowPlayingMessage: null, voice: { isAlive: () => true } }));
+  drawn.mem.idleViews.set("g1", { reason: "joined", leavesAt: null, staying: true });
+  await drawn.mem.restorePanels();
+  assert.equal(drawn.calls.edited.length + drawn.calls.sent.length, 0, "자리 지킴이가 그린 패널 그대로");
+
+  const adopted = setup({ record: { channelId: BOT, messageId: "900" } });
+  const idle = { upcomingLeave: () => Date.now() + 600_000, seated: () => false };
+  adopted.players.set("g1", fakePlayer({ nowPlayingMessage: null, voice: { isAlive: () => true }, idle, guild: adopted.guild, textChannel: null }));
+  await adopted.mem.restorePanels();
+  const last = adopted.calls.edited.at(-1);
+  assert.ok(last, "기록된 패널을 고친다");
+  assert.match(textOf(last.payload), /곡을 기다리고 있어요.*쉬러 갈게요/);
+});
+
+test("전용 채널을 정하면 끝난 패널을 그 채널에 올리고 옛 패널을 지운다. 풀면 지운다", async () => {
   const { mem, guild, calls, records } = setup({ record: { channelId: "general", messageId: "800" } });
   await mem.onBotChannelChanged(guild);
   assert.equal(calls.sent[0].channel, BOT);
@@ -324,7 +349,7 @@ test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다�
   assert.equal(await queueDisabled({ queue: [{ title: "다음" }] }), false);
 });
 
-test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지 · 대기열 · 켠 반복 · 켠 자동재생) 위는 흰 기호", async () => {
+test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, 대기열, 켠 반복, 켠 자동재생) 위는 흰 기호", async () => {
   const { mem, guild, text } = setup({});
   const keys = ["prev", "pause", "next", "stop", "volume", "highlight", "shuffle", "repeat_on", "queue_button", "autoplay_on"];
   useUploaded(new Map(keys.map((key, i) => [key, { id: String(100 + i), animated: false }])));

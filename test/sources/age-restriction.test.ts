@@ -1,4 +1,4 @@
-// 연령 제한 폴백: externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별.
+// src/store/external-caches.ts, src/sources/youtube: 연령 제한 폴백. externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별, 운영자, 서버 단위의 연령 제한 콘텐츠 설정.
 
 import os from "node:os";
 import path from "node:path";
@@ -93,7 +93,7 @@ test("연령 제한 콘텐츠가 꺼져 있으면 쿠키가 있어도 다시 시
     await assert.rejects(runYtDlp("https://www.youtube.com/watch?v=ageoff00002", options, fakeExec(none)), (e) => codeOf(e) === "age-content-off");
     assert.equal(none.length, 0);
 
-    // 켜면 적어 두고 쿠키로 한 번 더 묻는다
+    // 켜면 적어 두고 쿠키로 한 번 더 요청한다
     documents._use("age-content", { enabled: true, changedAt: 2 });
     const on: YtDlpFlags[] = [];
     assert.deepEqual(await runYtDlp("https://www.youtube.com/watch?v=ageon000001", options, fakeExec(on)), { id: "ok" });
@@ -158,7 +158,7 @@ test("서버 단위: 기본은 연령 제한 채널에서만. 봇이 든 채널�
   ageGate.usePlace();
 });
 
-test("서버 단위: 처음 알게 된 연령 제한은 쿠키 · 판정과 상관없이 적어 두고, 아닌 채널이면 쿠키로 다시 묻지 않는다. 적어 둔 영상인데 쿠키가 없으면 yt-dlp 를 부르지 않는다", async () => {
+test("서버 단위: 처음 알게 된 연령 제한은 쿠키, 판정과 상관없이 적어 두고, 아닌 채널이면 쿠키로 다시 묻지 않는다. 적어 둔 영상인데 쿠키가 없으면 yt-dlp 를 부르지 않는다", async () => {
   const saved = { ...config.ytdlp };
   try {
     documents._use("age-content", { enabled: true, changedAt: 1 });
@@ -190,7 +190,7 @@ test("서버 단위: 봇이 음성 밖이면 곡을 넣는 일이 실은 붙을 
   documents._use("age-content", { enabled: true, changedAt: 1 });
   externalCaches.markAgeRestricted("agechan0003");
   const url = "https://www.youtube.com/watch?v=agechan0003";
-  // 봇은 음성 밖, 채널 v-nsfw 는 연령 제한 · v-plain 은 아님
+  // 봇은 음성 밖, 채널 v-nsfw 는 연령 제한, v-plain 은 아님
   ageGate.usePlace((_guildId, target) => (target === null ? null : target === "v-nsfw"));
   const verdict = (target: string | null) =>
     inGuild("g-out", () =>

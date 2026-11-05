@@ -6,7 +6,7 @@ import { noticeFor } from "../../ui/text/ko/errors.ts";
 import { sendProblem } from "../problem.ts";
 const log = logger.child({ category: "dashboard" });
 
-// 오류 응답에 스택·내부 경로·의존성 버전이 실리지 않게 한다.
+// 오류 응답에 스택, 내부 경로, 의존성 버전이 실리지 않게 한다.
 //
 // 이 미들웨어가 없으면 Express 내부 폴백(finalhandler)이 NODE_ENV !== "production"일 때
 // err.stack을 그대로 본문에 담는다. 세션 스토어 조회 실패는 인증보다 앞에서 터지므로
@@ -52,7 +52,7 @@ function wantsJson(req: Request) {
   return p.startsWith("/api") || p.startsWith("/auth");
 }
 
-// 등록되지 않은 /api·/auth 경로. Express 기본 404는 HTML이라 클라이언트가 문제 코드를 읽지 못한다.
+// 등록되지 않은 /api, /auth 경로. Express 기본 404는 HTML이라 클라이언트가 문제 코드를 읽지 못한다.
 // 404에는 오류 객체가 없어 오류 미들웨어가 돌지 않으므로 별도 폴백이 필요하다.
 function notFoundJson(req: Request, res: Response, next: NextFunction) {
   if (!wantsJson(req)) return next();

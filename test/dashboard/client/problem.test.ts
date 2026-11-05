@@ -1,4 +1,4 @@
-// dashboard/src/utils/problem.ts — 화면이 문제 응답을 글로 바꾸는 헬퍼. 문장은 봇과 같은 안내에서 코드로 선택한다
+// dashboard/src/utils/problem.ts: 화면이 문제 응답을 글로 바꾸는 헬퍼. 문장은 봇과 같은 안내에서 코드로 선택한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import { text } from "../../../dashboard/src/text/index.ts";
 
 const failed = (data: unknown) => ({ response: { data } });
 
-test("봇 쪽 거절은 디스코드와 같은 문장만(헤더 줄 · 본문). 문장에 드는 값은 응답의 확장 필드에서 읽는다", () => {
+test("봇 쪽 거절은 디스코드와 같은 문장만(헤더 줄, 본문). 문장에 드는 값은 응답의 확장 필드에서 읽는다", () => {
   assert.equal(problemText(failed(problemBody("no-song")), "실패"), "재생 중인 곡이 없어요!\n이 조작을 하려면 재생 중인 곡이 있어야 해요.");
   assert.equal(problemText(failed(problemBody("queue-full", { max: 100 })), "실패"), "곡을 추가하지 못했어요!\n대기열이 가득 찼어요... (최대 100곡)");
 });
@@ -36,7 +36,7 @@ test("봇 개발자에게 보고하라는 문장이면 보고할 곳(소스 저�
   }
 });
 
-test("꾸밈(굵게 · 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
+test("꾸밈(굵게, 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
   assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽을 수 없는 형식이에요. 1:30, 3m20s, 90 처럼 적어 주세요!");
   assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
 });

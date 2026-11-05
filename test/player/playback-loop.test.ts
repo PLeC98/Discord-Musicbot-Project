@@ -1,9 +1,9 @@
-// src/player/player.ts — 반복 모드 × 트랙 전이(자연 종료/스킵/이전곡) 계약
+// src/player/player.ts: 반복 모드 × 트랙 전이(자연 종료/스킵/이전곡) 계약
 // 지키는 것:
-//  1. 한곡 반복 중 스킵은 현재 곡을 다시 틀고 대기열은 그대로다
-//  2. 큐 반복 중 이전곡은 중단곡을 대기열에 복제하지 않는다
-//  3. 한곡 반복 중 이전곡은 곡을 늘리지 않는다(두 곡이 번갈아 재생되지 않는다)
-// onTrackEnd/previous를 프로토타입 호출 — 실 오디오/연결 없이 상태 전이만 검증.
+//  1. 한 곡 반복 중 스킵은 현재 곡을 다시 틀고 대기열은 그대로다
+//  2. 대기열 반복 중 이전곡은 중단곡을 대기열에 복제하지 않는다
+//  3. 한 곡 반복 중 이전곡은 곡을 늘리지 않는다(두 곡이 번갈아 재생되지 않는다)
+// onTrackEnd/previous를 프로토타입 메서드로 불러 실 오디오/연결 없이 상태 전이만 검증한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -39,6 +39,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _runLaterEnd: Player.prototype._runLaterEnd,
     _scheduleEnd: Player.prototype._scheduleEnd,
     _closeEnd: Player.prototype._closeEnd,
+    _toIdleOnEnd: Player.prototype._toIdleOnEnd,
     _endScheduled: false,
     _endWaiters: new Set(),
     _resetFailures: Player.prototype._resetFailures,
@@ -55,7 +56,7 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     played: [] as Array<{ title: string | null | undefined; ms: number }>,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
-    // 로그 문구용 — 코드가 부르는 헬퍼는 여기 나열한다 (프로토타입을 잇지 않는 목이므로)
+    // 프로토타입을 잇지 않는 목이라 코드가 부르는 헬퍼(로그 문구용 포함)는 여기 나열한다
     _trackLabel: Player.prototype._trackLabel,
     getCurrentTime: Player.prototype.getCurrentTime,
     _describeEnd: Player.prototype._describeEnd,
@@ -64,6 +65,9 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
+    warmer: { stop() {} },
+    _cancelRest() {},
+    _tellSkipped: Player.prototype._tellSkipped,
     audioPlayer: { state: { status: "idle" }, stop() {} },
     async play(ms: number) {
       this.played.push({ title: this.currentTrack?.title, ms });
@@ -75,9 +79,9 @@ function makePlayer({ loop = false, current = null, queue = [], history = [] }: 
 
 const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
 
-// ── 한곡 반복 ─────────────────────────────────────────────────
+// ── 한 곡 반복 ────────────────────────────────────────────────
 
-test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기록 불변", async () => {
+test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열, 기록 불변", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B"), makeTrack("C")] });
 
@@ -89,7 +93,7 @@ test("한곡 반복: 자연 종료 → 같은 곡 처음부터, 대기열·기�
   assert.equal(p.previousTracks.length, 0, "기록 불변");
 });
 
-test("한곡 반복: 스킵도 현재 곡 재시작 — 대기열을 진행시키지 않음", async () => {
+test("한곡 반복: 스킵도 현재 곡 재시작. 대기열을 진행시키지 않음", async () => {
   const A = makeTrack("A");
   const p = makePlayer({ loop: "track", current: A, queue: [makeTrack("B")] });
 
@@ -177,7 +181,7 @@ test("skip(reason): 기본은 'skip', 점프는 'jump'를 종료 사유로 세�
   assert.equal(p._endReason, "jump");
 });
 
-// ── 큐 반복 ───────────────────────────────────────────────────
+// ── 대기열 반복 ─────────────────────────────────────────────────
 
 test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존", async () => {
   const [A, B, C, D, E] = ["A", "B", "C", "D", "E"].map((t) => makeTrack(t));
@@ -205,8 +209,8 @@ test("큐 반복: 자연 종료/스킵은 끝난 곡을 대기열 끝으로 (기
   assert.deepEqual(titles(p.previousTracks), ["A"]);
 });
 
-// 위의 "복제 없이" 테스트는 기록의 곡이 대기열에 없는 상태에서 시작해 이 경우를 못 잡았다.
-// 큐 반복 중에는 끝난 곡이 기록과 대기열 끝 양쪽에 들어가 있는 게 정상 상태다.
+// 대기열 반복 중에는 끝난 곡이 기록과 대기열 끝 양쪽에 들어가 있는 게 정상 상태다.
+// 위의 "복제 없이" 테스트는 기록의 곡이 대기열에 없는 상태에서 시작하므로 이 경우는 여기서 본다.
 test("큐 반복 + 이전곡: 끝난 곡이 대기열 끝에 다시 들어가 있어도 곡 수가 그대로다", async () => {
   const [A, B, C] = ["A", "B", "C"].map((t) => makeTrack(t));
   const p = makePlayer({ loop: "queue", current: A, queue: [B, C] });
@@ -233,19 +237,26 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 
 // ── 조기 종료 재시도 ──────────────────────────────────────────
 
-test("재시도 예산은 곡마다 — 앞 곡이 다 쓰고 넘어가도 다음 곡은 처음부터 재시도한다", async () => {
+test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 멈춰 둔 뒤 넘긴 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
+  // 예산을 다 쓰면 그 곡에서 멈춰 둔다. 사람이 넘긴 것처럼 다음 곡으로 옮긴다
+  const parked: Array<string | null | undefined> = [];
+  p.park = () => {
+    parked.push(p.currentTrack?.title);
+    p.currentTrack = p.queue.shift() ?? null;
+  };
 
-  for (let i = 0; i < 4; i++) {
-    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 공급이 끊겨 멈춤
+  for (let i = 0; i < 5; i++) {
+    p.playback = fake<CurrentPlayback>({ resource: { playbackDuration: 10_000, playStream: { readableEnded: false } } }); // 매번 10초쯤 가다 패킷 공급이 끊겨 멈춤
     await onTrackEnd.call(p, "idle");
   }
 
+  assert.deepEqual(parked, ["A"]);
   assert.deepEqual(
     p.played.map((x) => x.title),
     ["A", "A", "B", "B"],
-    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 넘어간다",
+    "앞 곡의 소진된 카운터를 물려받으면 B는 재시도 없이 멈춘다",
   );
 });
 
@@ -263,7 +274,7 @@ test("반복 없음: 스킵은 다음 곡 진행 + 기록 (기존 동작 보존)
   assert.deepEqual(titles(p.previousTracks), ["A"]);
 });
 
-test("반복 없음: 이전곡 연타 체인 — 중복 없이 기록을 거슬러 올라감", async () => {
+test("반복 없음: 이전곡 연타 체인. 중복 없이 기록을 거슬러 올라감", async () => {
   const [A, B, C, D] = ["A", "B", "C", "D"].map((t) => makeTrack(t));
   const p = makePlayer({ current: C, queue: [D], history: [A, B] });
 

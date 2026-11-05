@@ -1,4 +1,4 @@
-// dashboard/src/utils/event-link.ts — 탭의 실시간 연결: 끊기면 브라우저가 다시 붙고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
+// dashboard/src/utils/event-link.ts: 탭의 SSE 연결: 끊기면 브라우저가 재연결하고, 닫히면 늘려 가는 간격으로 화면이 다시 연다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -30,19 +30,19 @@ class FakeSource {
     this.readyState = OPEN;
     this.onopen?.();
   }
-  /** 200 이 아닌 답: 닫히고 다시 붙지 않는다 */
+  /** 200 이 아닌 답: 닫히고 재연결하지 않는다 */
   refused() {
     this.readyState = CLOSED;
     this.onerror?.();
   }
-  /** 연 뒤 끊김: 브라우저가 스스로 다시 붙는 중 */
+  /** 연 뒤 끊김: 브라우저가 스스로 재연결하는 중 */
   dropped() {
     this.readyState = CONNECTING;
     this.onerror?.();
   }
 }
 
-/** 가짜 시계: 걸린 일을 적어 두고 테스트가 하나씩 돌린다 */
+/** 가짜 시계: 예약된 타이머를 적어 두고 테스트가 하나씩 돌린다 */
 function harness({ checks = [] as boolean[] } = {}) {
   const sources: FakeSource[] = [];
   const states: string[] = [];
@@ -84,7 +84,7 @@ function harness({ checks = [] as boolean[] } = {}) {
   return { link, sources, states, delays, pending, tick, checked };
 }
 
-test("닫히면(200 이 아닌 답) 2 · 5 · 15초로 늘려 가며 다시 열고, 열리면 간격을 처음부터", async () => {
+test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 열리면 간격을 처음부터", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();
@@ -112,7 +112,7 @@ test("열 때마다 주소를 새로 만든다(운영자 로그의 이어 받기
   );
 });
 
-test("연 뒤 끊기면 브라우저가 다시 붙으므로 화면은 다시 열지 않는다", () => {
+test("연 뒤 끊기면 브라우저가 재연결하므로 화면은 다시 열지 않는다", () => {
   const h = harness();
   h.link.start();
   h.sources[0].opened();

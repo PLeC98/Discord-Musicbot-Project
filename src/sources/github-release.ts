@@ -1,4 +1,4 @@
-// GitHub 의 최신 릴리스 태그(공유 HTTP 클라이언트). yt-dlp 버전 맞추기 · bgutil 버전 알림이 같이 쓴다
+// GitHub 의 최신 릴리스 태그(공유 HTTP 클라이언트). yt-dlp 버전 맞추기, bgutil 버전 알림이 같이 쓴다
 
 import config from "../config/index.ts";
 import { httpFor } from "../infra/http.ts";

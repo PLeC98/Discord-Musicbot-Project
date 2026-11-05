@@ -1,0 +1,15 @@
+{
+  "twemoji": "16.0.1",
+  "emoji": "16.0",
+  "tools": {
+    "nanoemoji": "0.16.0",
+    "picosvg": "0.23.0",
+    "fonttools": "4.65.0"
+  },
+  "metrics": {
+    "upem": 1024,
+    "width": 1024,
+    "ascender": 922,
+    "descender": -102
+  }
+}

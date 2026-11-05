@@ -51,9 +51,9 @@ const props = withDefaults(
 /** 선택한 구간. 전체면 둘 다 null */
 const emit = defineEmits<{ update: [range: { from: number | null; to: number | null }] }>();
 
-const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors duration-150";
+const clearBtn = "text-xs text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors effects-fast";
 
-// 설정에 적힌 값이 범위 밖일 수 있다(저쪽 자료가 늘거나 손으로 적었거나).
+// 설정에 적힌 값이 범위 밖일 수 있다(외부 서비스의 데이터가 늘거나 손으로 적었거나).
 // 보이기만 맞춰 두고 값은 건드리지 않는다. 핸들을 옮길 때 비로소 바뀐다.
 const clamp = (v: number) => Math.min(props.max, Math.max(props.min, v));
 const lo = computed(() => clamp(props.from ?? props.min));
@@ -68,10 +68,10 @@ const loOnTop = computed(() => lo.value > (props.min + props.max) / 2);
 const pct = (v: number) => ((v - props.min) / Math.max(1, props.max - props.min)) * 100;
 const fill = computed(() => ({ left: `${pct(lo.value)}%`, right: `${100 - pct(hi.value)}%` }));
 
+// 칠하는 색. 배경 이미지(그라데이션)로 얹는 것이라 bg-primary/55 같은 클래스로는 안 된다
+const BAR_ON = "color-mix(in srgb, var(--md-primary) 55%, transparent)";
 // 막대 수. 다섯의 배수로 둔다. 다섯 칸마다 세면 눈짐작이 빠르다.
 // 막대가 너무 많으면 화면에서 1픽셀도 안 되므로 상한을 둔다.
-// 칠하는 색. 배경색 위에 그림으로 얹는 것이라 bg-primary/55 같은 클래스로는 안 된다
-const BAR_ON = "color-mix(in srgb, var(--md-primary) 55%, transparent)";
 const BARS_MAX = 50;
 const BARS_STEP = 5;
 

@@ -1,5 +1,5 @@
-// AI 리퀘스트 로그 화면의 상태: 필터 · 페이지 넘기기(앞 페이지 마지막 id 뒤로) · 펼친 줄의 원문 · 실시간 새 기록 · 전체 삭제.
-// 실시간 연결은 화면이 보일 때만 연다(active). 새 기록은 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙이고, 아니면 모아 두었다가 알약을 누르면 붙인다(읽는 줄이 밀리지 않게).
+// AI 리퀘스트 로그 화면의 상태: 필터, 페이지 넘기기(앞 페이지 마지막 id 뒤로), 펼친 줄의 원문, 실시간 새 기록, 전체 삭제.
+// SSE 연결은 화면이 보일 때만 연다(active). 새 기록은 맨 위를 보고 있고 펼친 줄이 없으면 바로 붙이고, 아니면 모아 두었다가 새 기록 칩을 누르면 붙인다(읽는 줄이 밀리지 않게).
 
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 import axios from "axios";
@@ -10,10 +10,10 @@ import { AI_LOG_PAGE, aiLogMatches, type AiLogDetail, type AiLogEntry, type AiLo
 import { text } from "../text/index.ts";
 const T = text.ai.log;
 
-/** 펼친 줄의 원문: 불러오는 중 · 못 불러옴 · 불러온 것 */
+/** 펼친 줄의 원문: 불러오는 중, 못 불러옴, 불러온 것 */
 type Detail = AiLogDetail | "loading" | "error";
 
-/** 찾는 말은 입력할 때마다 요청하지 않고 잠깐 멈추면 요청한다 */
+/** 검색어는 입력할 때마다 요청하지 않고 잠깐 멈추면 요청한다 */
 const SEARCH_WAIT_MS = 300;
 
 function queryString(query: AiLogQuery, before?: number) {
@@ -25,7 +25,7 @@ function queryString(query: AiLogQuery, before?: number) {
   return params.toString();
 }
 
-/** 목록 · 필터 · 페이지 넘기기 */
+/** 목록, 필터, 페이지 넘기기 */
 function listState() {
   const entries = ref<AiLogEntry[]>([]);
   const total = ref(0);
@@ -141,7 +141,7 @@ function liveState(list: List, open: { value: Set<number> }) {
   return { fresh, atTop, connected, showFresh, start, stop };
 }
 
-/** 리퀘스트 로그 화면 하나. active: 화면이 보이는가(보일 때 읽고 실시간 연결을 연다) */
+/** 리퀘스트 로그 화면 하나. active: 화면이 보이는가(보일 때 읽고 SSE 연결을 연다) */
 export function useAiLog(active: () => boolean) {
   const list = listState();
   const detail = detailState();

@@ -1,10 +1,9 @@
 // 슬래시 커맨드를 Discord에 수동 (재)배포하는 독립 스크립트. `pnpm run cmddeploy`.
-// 봇 프로세스와 무관하게 실행되므로 봇 재시작 없이 언제든 커맨드 정의를 갱신한다.
-// (게이트웨이/음성과 무관한 REST PUT이라 봇이 돌아가는 중에 실행해도 안전.)
+// 게이트웨이, 음성과 무관한 REST PUT 이라 봇이 돌아가는 중에 실행해도 되고, 봇 재시작 없이 커맨드 정의가 갱신된다.
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
 import * as configCheck from "../src/app/config-check.ts";
-import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제 · 경고 목록
+import * as loadedConfig from "../src/config/index.ts"; // 설정 값과 함께 문제, 경고 목록
 
 configCheck.stopOnConfigProblems(loadedConfig, console);
 
@@ -18,7 +17,7 @@ tunables.loadReadOnly(path.join(PROJECT.database, "settings.db"));
 const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
 const commands = definitions();
 console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
-const r = await deployCommands({ force: true }); // 수동 스크립트 = 명시적 재배포 의도. 지문 무시
+const r = await deployCommands({ force: true }); // 수동 실행은 명시적 재배포라 해시가 같아도 올린다
 
 if (r.ok) {
   const where = r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로";

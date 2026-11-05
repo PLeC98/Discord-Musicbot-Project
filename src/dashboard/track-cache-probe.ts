@@ -1,6 +1,6 @@
-// 캐시 DB 화면의 재생 테스트. 누르면 줄에 세우고 곧바로 돌아오며, 봇이 하나씩 차례로 묻는다.
-// 캐시 파일이 있는 음원은 원본 다시 확인(media/recheck-queue: 버전을 견주고 결과대로 한다), 없거나 견주지 못하면 열어 본다(sources/source-probe).
-// 결과는 음원 키로 source_checks 에 남는다(그 쓰기가 확인 번호를 올린다: cache-db 의 트리거). 줄은 메모리에만 있다(다시 시작하면 사라진다).
+// 캐시 DB 화면의 재생 테스트. 누르면 큐에 넣고 곧바로 돌아오며, 봇이 하나씩 순서대로 확인한다.
+// 캐시 파일이 있는 음원은 원본 다시 확인(media/recheck-queue: 버전을 비교하고 결과대로 한다), 없거나 비교하지 못하면 열어 본다(sources/source-probe).
+// 결과는 음원 키로 source_checks 에 남는다(그 쓰기가 확인 번호를 올린다: cache-db 의 트리거). 큐는 메모리에만 있다(다시 시작하면 사라진다).
 
 import { TRACK_CACHE_PAGE_MAX, TRACK_CACHE_PROBE_MAX, type TrackCacheChecks, type TrackCacheProbeQueued, type TrackCacheRevision } from "./contract/track-cache.ts";
 import { checkOf, sourceOf, type Refusal } from "./track-cache.ts";
@@ -20,7 +20,7 @@ const queue: Array<{ key: string; url: string }> = [];
 let running: string | null = null;
 let probe = probeSource;
 
-// 하나씩 차례로. 이미 도는 중이면 그 줄이 이어 한다
+// 하나씩 순서대로. 이미 도는 중이면 그 루프가 이어 한다
 async function drain() {
   if (running !== null) return;
   for (let next = queue.shift(); next; next = queue.shift()) {
@@ -33,20 +33,20 @@ async function drain() {
       log.debug({ sub: "track-cache" }, `재생 테스트: ${next.url} | ${result.ok ? "됨" : result.code}`);
       sourceChecks.recordCheck(next.key, result.ok ? { ok: true, at: Date.now() } : { ok: false, code: result.code, at: Date.now() });
     } catch (error) {
-      log.debug({ sub: "track-cache" }, `재생 테스트를 끝내지 못했습니다(${next.url}): ${messageOf(error)}`);
+      log.debug({ sub: "track-cache" }, `재생 테스트 실패(${next.url}): ${messageOf(error)}`);
     }
   }
   running = null;
 }
 
-/** 음원 키. 지정할 수 있는 주소면 다듬은 주소로 열고, 아니면 받은 그대로(키가 없으면 빈 문자열이라 세우지 않는다) */
+/** 음원 키. 지정할 수 있는 주소면 다듬은 주소로 열고, 아니면 받은 그대로(키가 없으면 빈 문자열이라 큐에 넣지 않는다) */
 function targetOf(url: string): { key: string; url: string } {
   const audio = checkPinAudio(url);
   return audio.ok ? { key: audio.audioKey, url: audio.canonical } : { key: audioKeyOf(url) ?? "", url };
 }
 
 /**
- * 재생 테스트 줄에 세운다. keys 는 주소마다의 음원 키(쓰기 전 주소도 checking · checks 와 맞춰 보게)
+ * 재생 테스트 큐에 넣는다. keys 는 주소마다의 음원 키(쓰기 전 주소도 checking, checks 와 맞춰 보게)
  * @param by  로그에 남길 실행한 사람
  */
 function enqueue(audioUrls: string[], by: string): { ok: true; queued: TrackCacheProbeQueued } | Refusal {
@@ -74,7 +74,7 @@ const checking = () => [...(running ? [running] : []), ...queue.map((one) => one
 /** 리비전 번호와 확인 중인 것(탭이 보이는 동안의 3초 읽기) */
 const revision = (): TrackCacheRevision => ({ ...cacheRevision(), checking: checking() });
 
-/** 이 음원 키들의 확인 결과 · 캐시 파일의 원본. 결과가 없는 키는 빠진다 */
+/** 이 음원 키들의 확인 결과, 캐시 파일의 원본. 결과가 없는 키는 빠진다 */
 function checks(audioKeys: string[]): { ok: true; checks: TrackCacheChecks } | Refusal {
   if (audioKeys.length > TRACK_CACHE_PAGE_MAX) return { ok: false, code: "too-many-items", params: { max: TRACK_CACHE_PAGE_MAX } };
   const found = sourceChecks.checksOf(audioKeys);
@@ -91,7 +91,7 @@ function checks(audioKeys: string[]): { ok: true; checks: TrackCacheChecks } | R
 function _setProbe(next: typeof probeSource = probeSource) {
   probe = next;
 }
-/** 테스트: 줄이 빌 때까지 */
+/** 테스트: 큐가 빌 때까지 */
 async function _idle() {
   while (running !== null || queue.length) await new Promise((resolve) => setTimeout(resolve, 5));
 }

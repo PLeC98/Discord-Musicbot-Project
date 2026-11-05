@@ -1,5 +1,5 @@
-// src/app/command-loader.ts — 커맨드 로드 + 배포 (등록 요청은 가짜를 넘긴다, 실 배포 없음).
-// 배포 지문은 임시 파일 사용 — 운영 database/deployed-commands.json 미접촉.
+// src/app/command-loader.ts: 커맨드 로드 + 배포(등록 요청은 가짜를 넘겨 실제로 배포하지 않는다).
+// 배포 해시는 임시 파일에 써서 운영 database/deployed-commands.json 을 건드리지 않는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -25,7 +25,8 @@ const put: PutCommands = (route, body) => {
   return putImpl(route, body);
 };
 
-const { enabledCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/command-loader.ts");
+const { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines } = await import("../../src/app/command-loader.ts");
+const { tunablesChanged } = await import("../../src/config/tunables-changed.ts");
 const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
@@ -44,6 +45,29 @@ test("봇 전체에서 SponsorBlock 을 껐으면 /highlight 를 등록하지도
   assert.equal(off.length, COMMANDS.length - 1, "다른 명령은 그대로");
 });
 
+test("운영 조절값을 저장해 켜진 명령이 바뀌면 실행 목록을 다시 만들고 등록을 맞춘다. 바뀌지 않은 저장에는 아무것도 하지 않는다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const calls: string[] = [];
+  const off = withConfig({ sponsorblock: { enabled: true } }, () =>
+    followEnabledCommands(
+      () => calls.push("load"),
+      () => calls.push("deploy"),
+    ),
+  );
+  try {
+    withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
+    assert.deepEqual(calls, [], "켜진 명령이 그대로다");
+    withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy"], "SponsorBlock 을 껐다");
+    withConfig({ sponsorblock: { enabled: false } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy"]);
+    withConfig({ sponsorblock: { enabled: true } }, () => tunablesChanged());
+    assert.deepEqual(calls, ["load", "deploy", "load", "deploy"], "다시 켰다");
+  } finally {
+    off();
+  }
+});
+
 test("명령 목록의 명령 전부가 유효한 정의(name/description)다", () => {
   assert.ok(commands.length > 0);
   for (const c of commands) {
@@ -53,17 +77,18 @@ test("명령 목록의 명령 전부가 유효한 정의(name/description)다", 
   }
 });
 
-test("명령 · 옵션 설명, 옵션 · 선택지 이름 전부에 한국어가 있다(설명은 디스코드 상한 100자 안)", () => {
-  type Node = { name: string; description?: string; description_localizations?: Record<string, string> | null; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
+// 설명, 선택지 이름은 한국어 하나만 둔다(영어 기본값을 따로 두면 고칠 때 한쪽만 고친다). 명령, 옵션 이름은 코드가 쓰는 식별자라 영어에 한국어 이름을 붙인다
+test("명령, 옵션 설명과 선택지 이름은 한국어이고(설명은 디스코드 상한 100자 안), 옵션 이름에는 한국어 이름이 있다", () => {
+  type Node = { name: string; description?: string; name_localizations?: Record<string, string> | null; options?: Node[]; choices?: Node[] };
+  const HANGUL = /[가-힣]/;
   const missing: string[] = [];
   const visit = (n: Node, at: string) => {
-    const ko = n.description_localizations?.ko;
-    if (!ko || ko.length > 100) missing.push(`${at} 설명`);
+    if (!HANGUL.test(n.description ?? "") || (n.description ?? "").length > 100) missing.push(`${at} 설명`);
     for (const o of n.options ?? []) {
       if (!o.name_localizations?.ko) missing.push(`${at} ${o.name} 이름`);
       visit(o, `${at} ${o.name}`);
     }
-    for (const c of n.choices ?? []) if (!c.name_localizations?.ko) missing.push(`${at}=${c.name}`);
+    for (const c of n.choices ?? []) if (!HANGUL.test(c.name)) missing.push(`${at}=${c.name}`);
   };
   for (const c of commands) visit(fake<Node>(c), `/${c.name}`);
   assert.deepEqual(missing, []);
@@ -81,7 +106,7 @@ test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", 
   assert.equal(new Set(names).size, names.length, `중복: ${names.filter((n, i) => names.indexOf(n) !== i)}`);
 });
 
-test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 PUT", async () => {
+test("deployCommands: 성공 경로. 현재 로드된 세트 전체를 1회 PUT", async () => {
   putCalls = [];
   const result = await deployCommands({ hashPath: freshHashPath(), put });
 
@@ -94,12 +119,12 @@ test("deployCommands: 성공 경로 — 현재 로드된 세트 전체를 1회 P
   assert.deepEqual(putCalls[0].body, commands, "로드된 정의를 그대로 등록");
 });
 
-test("deployCommands: 정의 무변경 재기동은 PUT 생략, force는 항상 PUT (§2.3)", async () => {
+test("deployCommands: 정의 변경 없는 재기동은 PUT 생략, force는 항상 PUT", async () => {
   const hashPath = freshHashPath();
   putCalls = [];
 
-  await deployCommands({ hashPath, put }); // 첫 배포 — 지문 기록
-  const second = await deployCommands({ hashPath, put }); // 무변경 재기동 시뮬레이션
+  await deployCommands({ hashPath, put }); // 첫 배포: 해시 기록
+  const second = await deployCommands({ hashPath, put }); // 변경 없는 재기동
   assert.ok(second.ok);
   assert.equal(second.skipped, true);
   assert.equal(second.count, commands.length, "생략이어도 카운트/이름은 보고");

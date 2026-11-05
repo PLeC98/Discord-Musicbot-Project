@@ -1,12 +1,11 @@
 /**
  * 토큰 세기. 요청이 몇 토큰짜리인지.
  *
- * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정함
- *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o·4.1·o1·o3·5.x·6 이 같은 인코딩
- *   gemma   제미니·젬마. data/gemma-tokenizer.model (SentencePiece BPE)
- *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자란다.
- *           그래서 저쪽 count_tokens 로 측정: 무료이고 정확
- *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산치
+ * 어느 토크나이저를 쓸지는 모델 프로필의 `recommendedTokenizer` 가 정한다
+ *   tik     OpenAI 계열. gpt-tokenizer (o200k_base). 4o, 4.1, o1, o3, 5.x, 6 이 같은 인코딩이다
+ *   gemma   제미니, 젬마. data/gemma-tokenizer.model (SentencePiece BPE)
+ *   claude  앤트로픽은 공개 토크나이저가 없고 tik 로 세면 한국어에서 크게 모자라, 저쪽 count_tokens 로 잰다(무료, 정확).
+ *           키가 없거나 못 부르면 tik 로 떨어지고, 그때만 추산값이다
  * 토크나이저로 세는 것은 따로 도는 스레드가 맡는다(아래 "세는 스레드")
  */
 import { Worker } from "worker_threads";
@@ -27,7 +26,7 @@ type Message = { role?: string; content?: string; text?: string };
  *   openai     한 메시지 3 + 요청 3
  *   gemini     0. promptTokenCount 가 본문 토큰과 그대로 같다
  *              (countTokens 엔드포인트는 1 을 더 세는데 그 값은 청구되지 않는다)
- *   anthropic  세대마다 다르다. 5(4.8~5) · 10(4.7) · 6(4.5~4.6)
+ *   anthropic  요청당 6(세대마다 조금 다르다)
  */
 const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
   openai: { perMessage: 3, perRequest: 3 },
@@ -51,7 +50,7 @@ let lastId = 0;
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
-    if (problem) log.warn(`젬마 토크나이저 파일을 읽지 못해 tik 로 어림합니다: ${problem}`);
+    if (problem) log.warn(`Gemma 토크나이저 파일을 읽지 못해 tik으로 추산합니다: ${problem}`);
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
@@ -60,7 +59,7 @@ function spawn() {
     else job.reject(new Error(error || "토큰을 세지 못했습니다"));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 세는 스레드가 멈췄습니다(${messageOf(error)}). 다음 세기에 다시 시작합니다`);
+    log.warn(`토큰 계산 워커가 중단됐습니다(${messageOf(error)}). 다음 계산 시 다시 시작합니다`);
     stop(one, error);
   });
   one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
@@ -91,7 +90,7 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 세기가 ${timeoutMs / 1000}초를 넘겨 멈춥니다(${tokenizer} · ${chars}자). 다음 세기에 다시 시작합니다`);
+      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 중단합니다(${tokenizer}, ${chars}자). 다음 계산 시 다시 시작합니다`);
       stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
@@ -106,7 +105,7 @@ async function count(text: unknown, tokenizer = "tik"): Promise<Counted> {
 
 // ── 바깥에서 쓰는 것 ────────────────────────────────────────────────────────
 
-// 그 모델이 쓰는 토크나이저. 모르면 tik 로 어림.
+// 그 모델이 쓰는 토크나이저. 모르면 tik
 function tokenizerFor(registry: Parameters<typeof models.modelsOf>[0] | null | undefined, model: string | null | undefined): string {
   if (!registry || !model) return "tik";
   const found = models.modelsOf(registry).find((one) => one.modelId === model);
@@ -128,8 +127,8 @@ async function countMessages(messages: Message[] | null | undefined, tokenizer =
 }
 
 /**
- * 앤트로픽에 직접 물어 정확히 측정. 무과금
- * 감싸는 몫까지 포함된 값이 오므로 본문만 필요하면 빼서 사용
+ * 앤트로픽 count_tokens 로 정확히 잰다(무료). 못 재면 null.
+ * 감싸는 몫까지 든 값이라 본문만 필요하면 FRAMING 만큼 뺀다
  */
 async function countByAnthropic(messages: Message[] | null | undefined, { model, apiKey, timeoutMs = 15000, fetch: send = fetch }: { model?: string; apiKey?: string; timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<number | null> {
   if (!apiKey || !model) return null;
@@ -156,7 +155,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
-    log.debug(`앤트로픽 토큰 세기 실패(어림으로): HTTP ${res.status}`);
+    log.debug(`Anthropic 토큰 계산 실패(추산값 사용): HTTP ${res.status}`);
     return null;
   }
   const json = (await res.json()) as { input_tokens?: unknown } | null;

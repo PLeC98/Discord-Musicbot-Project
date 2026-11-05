@@ -1,5 +1,5 @@
-// src/sources/youtube/clients.ts — 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
-// 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트·같은 영상도 실행마다 결과가
+// src/sources/youtube/clients.ts: 순서 유지와 "자주 헛발질하는 클라이언트" 제외 판정.
+// 연속 실패가 아니라 슬라이딩 윈도우인 이유: 같은 클라이언트, 같은 영상도 실행마다 결과가
 // 달라서 성공이 섞이면 연속 카운터가 계속 리셋된다.
 
 import { test } from "node:test";
@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { PlayerClients, KNOWN, NEEDS_POT } from "../../src/sources/youtube/clients.ts";
 import { parseClients } from "../../src/config/index.ts";
 
-test("빈 설정이면 idle — 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
+test("빈 설정이면 idle. 폴백 루프를 아예 돌지 않는다 (기존 동작 보존)", () => {
   const pc = new PlayerClients([]);
   assert.equal(pc.idle, true);
   assert.deepEqual(pc.list(), []);
@@ -41,12 +41,12 @@ test("창이 밀리면 오래된 실패는 잊는다", () => {
   pc.record("visionos", false);
   pc.record("visionos", false);
   pc.record("visionos", true); // 창: ng,ng,ok
-  pc.record("visionos", true); // 창: ng,ok,ok — 첫 실패가 밀려났다
+  pc.record("visionos", true); // 창: ng,ok,ok(첫 실패가 밀려났다)
   pc.record("visionos", true); // 창: ok,ok,ok
   assert.deepEqual(pc.list(), ["visionos"]);
 });
 
-test("전부 제외되면 빈 배열 — 호출부가 yt-dlp 기본값으로 떨어진다", () => {
+test("전부 제외되면 빈 배열. 호출부가 yt-dlp 기본값으로 떨어진다", () => {
   const pc = new PlayerClients(["visionos", "web_embedded"], { window: 2, fails: 2 });
   for (const c of ["visionos", "web_embedded"]) {
     pc.record(c, false);
@@ -67,11 +67,11 @@ test("제외된 클라이언트는 더 기록하지 않는다", () => {
 
 // ── 이름 파싱 ────────────────────────────────────────────────────────────────
 
-test("쉼표 목록을 파싱하고 공백·대소문자를 정리한다", () => {
+test("쉼표 목록을 파싱하고 공백, 대소문자를 정리한다", () => {
   assert.deepEqual(parseClients(" VisionOS , web_embedded "), ["visionos", "web_embedded"]);
 });
 
-test("모르는 이름도 그대로 넘긴다 — 유효성은 yt-dlp가 판단한다", () => {
+test("모르는 이름도 그대로 넘긴다. 유효성은 yt-dlp가 판단한다", () => {
   // 아는 이름 목록을 우리가 들고 필터링하면 yt-dlp가 새로 추가한 클라이언트를 우리가 막게 된다.
   // 대신 기동 로그(YouTube.logAuthMode)와 yt-dlp 자신의 경고로 알린다.
   assert.deepEqual(parseClients("visionos,vision_os"), ["visionos", "vision_os"]);
@@ -81,7 +81,7 @@ test("중복은 한 번만", () => {
   assert.deepEqual(parseClients("visionos,visionos"), ["visionos"]);
 });
 
-test("빈 값은 빈 배열 — 미설정과 같다", () => {
+test("빈 값은 빈 배열. 미설정과 같다", () => {
   assert.deepEqual(parseClients(""), []);
   assert.deepEqual(parseClients(null), []);
 });

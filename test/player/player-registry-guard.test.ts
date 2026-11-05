@@ -1,7 +1,7 @@
-// 지연 정리 타이머와 레지스트리. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 레지스트리는 같은 플레이어일 때만 뺀다.
+// src/player/registry.ts, src/player/idle-leave.ts: 지연 정리 타이머와 레지스트리. 버려진 플레이어의 늦은 타이머는 아무것도 하지 않고, 레지스트리는 같은 플레이어일 때만 뺀다.
 //
 // 대기열 소진 타이머는 트랙이 끝날 때마다 새로 예약된다. 늦게 깨어난 옛 타이머가 길드 키로 레지스트리에서 지우면
-// 그 사이 등록된 새 플레이어가 지워져, 소리는 나는데 /nowplaying · 대시보드는 "재생 중 없음"이 된다.
+// 그 사이 등록된 새 플레이어가 지워져, 소리는 나는데 /nowplaying, 대시보드는 "재생 중 없음"이 된다.
 
 import { test, before, after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
@@ -35,7 +35,7 @@ after(() => {
   config.bot.leaveDelayQueueEmptyMs = savedDelay;
 });
 
-// playback-loop.test.ts와 같은 방식 — 코드가 건드리는 것만 나열한 목
+// playback-loop.test.ts와 같은 방식으로 코드가 건드리는 것만 나열한 목
 function makePlayer(current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
   const p = fakePlayer({
     lifecycle: new PlaybackState(),
@@ -51,6 +51,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
     _runLaterEnd: Player.prototype._runLaterEnd,
     _scheduleEnd: Player.prototype._scheduleEnd,
     _closeEnd: Player.prototype._closeEnd,
+    _toIdleOnEnd: Player.prototype._toIdleOnEnd,
     _endScheduled: false,
     _endWaiters: new Set(),
     _resetFailures: Player.prototype._resetFailures,
@@ -70,6 +71,10 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
     _playNext: Player.prototype._playNext,
     _continueAutoplay: Player.prototype._continueAutoplay,
     finishQueue: Player.prototype.finishQueue,
+    warmer: { stop() {} },
+    _cancelRest() {},
+    _tellSkipped: Player.prototype._tellSkipped,
+    showIdleVoiceStatus: Player.prototype.showIdleVoiceStatus,
     releaseAudioProtection() {},
     scheduleStatePersist() {},
     async persistState() {},
@@ -81,7 +86,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       if (this.lifecycle.disposed) return;
       this.disposeCalls.push(reason);
       this.lifecycle.to("disposed", reason);
-      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason);
+      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
     },
   });
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
@@ -119,10 +124,10 @@ test("늦게 버려진 옛 플레이어는 레지스트리의 새 플레이어�
   const fresh = makePlayer({ title: "재생 중인 곡", duration: 200 });
   players.set(GUILD, fresh);
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep" });
+  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
   assert.equal(players.get(GUILD), fresh);
 
-  await fresh.dispose({ reason: "정리", session: "remove" });
+  await fresh.dispose({ reason: "정리", session: "remove", end: "stop" });
   assert.equal(players.has(GUILD), false);
 });
 
@@ -137,8 +142,8 @@ test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은
   t.after(() => (logger.level = level));
   const from = sink.buffer.length;
 
-  await stale.dispose({ reason: "늦은 정리", session: "keep" });
-  await fresh.dispose({ reason: "inactivity-timeout", session: "remove" });
+  await stale.dispose({ reason: "늦은 정리", session: "keep", end: "stop" });
+  await fresh.dispose({ reason: "alone-timeout", session: "remove", end: "stop" });
 
   const lines = sink.buffer
     .slice(from)
@@ -146,7 +151,7 @@ test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은
     .filter((text) => text.includes("해제:"));
   assert.deepEqual(
     lines.map((text) => text.slice(text.indexOf("해제:"))),
-    ["해제: TestGuild (g1) | 원인=inactivity-timeout"],
+    ["해제: TestGuild (g1) | 원인=alone-timeout"],
   );
 });
 

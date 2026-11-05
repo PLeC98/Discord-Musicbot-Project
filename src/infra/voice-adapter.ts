@@ -13,12 +13,13 @@ const log = logger.child({ category: "voice" });
 // 게이트웨이로 보내는 것. 여기서 보는 필드만
 type GatewayPayload = { op?: number; d?: { channel_id?: string | null; [field: string]: unknown } };
 
-const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가 · 이동 · 나가기
+const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가, 이동, 나가기
 const HOLD_MS = 300; // 붙잡는 시간. 닫힘과 상태 패킷은 보통 몇 ms 차이로 온다
 
-/** creator: 디스코드 쪽 어댑터 생성기(guild.voiceAdapterCreator) */
+/** onRewrite: 붙잡은 참가 요청의 채널을 고쳤을 때, onSend: 참가 요청을 내보낼 때(고쳤는지와 함께) */
 type Hooks = { holdMs?: number; onRewrite?: (from: string, to: string) => void; onSend?: (channelId: string, rewritten: boolean) => void };
 
+/** creator(디스코드 쪽 어댑터 생성기, guild.voiceAdapterCreator)를 감싸 참가 요청을 holdMs 동안 붙잡는다 */
 function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs = HOLD_MS, onRewrite, onSend }: Hooks = {}): DiscordGatewayAdapterCreator {
   return (methods) => {
     let pending: { payload: GatewayPayload & { d: { channel_id: string } }; timer: NodeJS.Timeout; rewritten: boolean } | null = null; // 붙잡아 둔 참가 요청
@@ -47,7 +48,7 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       pending = null;
       onSend?.(payload.d.channel_id, rewritten);
       // 붙잡는 동안 라이브러리에는 보냈다고 답했다. 못 보낸 것은 여기서만 안다
-      if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 게이트웨이로 보내지 못했습니다(샤드가 준비되지 않았다)`);
+      if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청 전송 실패(샤드 미준비)`);
     };
 
     return {

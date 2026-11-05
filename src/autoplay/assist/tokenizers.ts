@@ -1,5 +1,5 @@
 /**
- * 토크나이저로 글 하나를 센다. 바깥에 묻지 않고 이 프로세스에서 센다.
+ * 토크나이저로 글 하나를 센다. 바깥 API 를 부르지 않고 직접 센다.
  * 무엇으로 셀지와 요청 하나를 세는 것은 tokens.ts
  */
 import fs from "fs";
@@ -105,7 +105,7 @@ function takeGemmaProblem() {
   return problem;
 }
 
-// 붙일 짝 하나. left · right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
+// 붙일 짝 하나. left, right 는 처음 글자 위치(왼쪽이 먼저인 순서를 지킨다)
 type Pair = { score: number; left: number; right: number; joined: string };
 // 점수가 높은 것, 같으면 왼쪽이 먼저
 const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score && a.left < b.left);
@@ -115,7 +115,7 @@ const before = (a: Pair, b: Pair) => a.score > b.score || (a.score === b.score &
  * 조각을 연결 목록으로, 붙일 짝을 힙으로 둔다. 붙일 때마다 전부 훑으면 글 길이의 제곱이 든다
  */
 function countGemma(text: string, rank: Map<string, number>) {
-  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약임
+  // 스페이스를 ▁ 로 바꾸는 것이 SentencePiece 의 규약이다
   const parts = [...("▁" + String(text).replace(/ /g, "▁"))];
   const n = parts.length;
   const prev = Array.from({ length: n }, (_, i) => i - 1);

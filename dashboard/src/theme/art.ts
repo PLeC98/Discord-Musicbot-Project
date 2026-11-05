@@ -1,7 +1,7 @@
-// 앨범아트 읽기: 대표색과, 위아래 검은 띠를 빼고 정사각형으로 채우는 배율.
+// 앨범아트 읽기: 대표색과, 검은 띠(위아래, 양옆)를 빼고 정사각형으로 채우는 배율.
 // 목록의 작은 아트는 픽셀을 읽지 않는다(대기열이 100곡이면 100번 읽게 된다)
-// 썸네일 서버(유튜브 · 스포티파이 · 사운드클라우드)가 CORS 를 열어 두어 브라우저가 픽셀을 읽을 수 있다.
-// 못 읽으면(막힌 곳 · 그림 없음) 색은 null, 배율은 주소로 짐작한 값이다
+// 썸네일 서버(유튜브, 스포티파이, 사운드클라우드)가 CORS 를 열어 두어 브라우저가 픽셀을 읽을 수 있다.
+// 못 읽으면(막힌 곳, 그림 없음) 색은 null, 배율은 주소로 짐작한 값이다
 
 import { ref, watch, type Ref } from "vue";
 import { SEED_SIDE, seedOfPixels } from "../../../src/rules/art-seed.ts";
@@ -13,11 +13,11 @@ const SNAP = 0.08;
 /** 주소만 보고 짐작한 배율(픽셀을 읽기 전). 유튜브 4:3 썸네일은 16:9 영상이 가운데 3/4 에 있다 */
 const guessZoom = (url: string | null | undefined) => (url && /ytimg\.com\/vi(_webp)?\/[^/]+\/(hq|sd)?default\.(jpg|webp)/.test(url) ? 4 / 3 : 1);
 
-// 그림 읽기 · 띠 재기 · 색 추출을 따로 기억한다. 색 추출(양자화)은 무거워 정말 필요한 그림만 한다.
+// 그림 읽기, 띠 재기, 색 추출을 따로 기억한다. 색 추출(양자화)은 무거워 정말 필요한 그림만 한다.
 // 기억에는 상한을 둔다(오래 켜 두면 곡이 수백 곡 넘어간다). 최근에 쓴 것부터 남기고 오래된 것을 놓는다.
-// 원본 그림은 디코딩된 채로 들고 있어 무겁다(480×360 이면 0.7MB, 큰 그림이면 몇 MB): 색 추출 · 배경을 만든 뒤에는 거의 다시 쓰지 않으므로 몇 장만
+// 원본 그림은 디코딩된 채로 들고 있어 무겁다(480×360 이면 0.7MB, 큰 그림이면 몇 MB): 색 추출, 배경을 만든 뒤에는 거의 다시 쓰지 않으므로 몇 장만
 const images = new Map<string, Promise<HTMLImageElement | null>>();
-/** 띠를 뺀 내용의 폭 · 높이 비율(0 ~ 1) */
+/** 띠를 뺀 내용의 폭, 높이 비율(0 ~ 1) */
 type Content = { w: number; h: number };
 const FULL: Content = { w: 1, h: 1 };
 const contents = new Map<string, Promise<Content>>();
@@ -27,7 +27,7 @@ const KEEP = { images: 8, small: 64, backdrops: 24 };
 function remember<T>(map: Map<string, Promise<T>>, key: string, make: () => Promise<T>, keep: number, drop?: (gone: Promise<T>) => void): Promise<T> {
   let found = map.get(key);
   if (found) {
-    // 최근에 쓴 것을 뒤로(Map 은 넣은 순서를 지킨다)
+    // 최근에 쓴 것을 뒤로(Map 은 삽입 순서를 지킨다)
     map.delete(key);
     map.set(key, found);
     return found;
@@ -59,8 +59,8 @@ const imageOf = (url: string) =>
   );
 
 /**
- * 검은 띠를 뺀 내용의 폭 · 높이 비율. 위아래(16:9 에 든 4:3 · 시네마 비율)와 양옆(16:9 썸네일에 든 4:3 옛 영상 · 세로 영상 · 정사각형 앨범아트)을
- * 행 · 열마다 밝기를 보고 어두운 줄이 이어지는 데까지 띠로 본다
+ * 검은 띠를 뺀 내용의 폭, 높이 비율. 위아래(16:9 에 든 4:3, 시네마 비율)와 양옆(16:9 썸네일에 든 4:3 옛 영상, 세로 영상, 정사각형 앨범아트)을
+ * 행, 열마다 밝기를 보고 어두운 줄이 이어지는 데까지 띠로 본다
  */
 function measure(img: HTMLImageElement): Content {
   const side = 48;
@@ -102,7 +102,7 @@ const contentOf = (url: string) =>
     KEEP.small,
   );
 
-/** 그림 주소의 대표색(ARGB). 띠를 뺀 가운데 정사각형에서 추출한다. 못 읽으면 null, 쓸 만한 색이 없는 그림(흑백 · 거의 무채색)이면 COLORLESS(회색 테마) */
+/** 그림 주소의 대표색(ARGB). 띠를 뺀 가운데 정사각형에서 추출한다. 못 읽으면 null, 쓸 만한 색이 없는 그림(흑백, 거의 무채색)이면 COLORLESS(회색 테마) */
 const seedOf = (url: string) =>
   remember(
     seeds,
@@ -117,14 +117,14 @@ const seedOf = (url: string) =>
       if (!ctx) return null;
       const crop = Math.min(img.naturalWidth * content.w, img.naturalHeight * content.h);
       ctx.drawImage(img, (img.naturalWidth - crop) / 2, (img.naturalHeight - crop) / 2, crop, crop, 0, 0, SEED_SIDE, SEED_SIDE);
-      // 선택하는 셈은 봇(로그인 배경의 장면 색)과 같은 것(rules/art-seed)
+      // 색을 정하는 계산은 봇(로그인 배경의 장면 색)과 같다(rules/art-seed)
       return seedOfPixels(ctx.getImageData(0, 0, SEED_SIDE, SEED_SIDE).data);
     },
     KEEP.small,
   );
 
 // 배경화면용으로 미리 흐린 그림. 큰 레이어를 CSS 로 흐리면 두 레이어가 엇갈려 번지는 동안 매 프레임 두 레이어를 다시 흐린다(무겁다).
-// 한 번 만들어 두면 겹침은 다 된 그림 두 장을 섞기만 한다. 정한 폭으로 줄인 뒤 흐린다: 흐림은 그 폭 대비 비율이라 원본 해상도 · 화면 크기와 무관하게 같은 정도로 번진다.
+// 한 번 만들어 두면 겹침은 다 된 그림 두 장을 섞기만 한다. 정한 폭으로 줄인 뒤 흐린다: 블러는 그 폭 대비 비율이라 원본 해상도, 화면 크기와 무관하게 같은 정도로 번진다.
 // 밝기는 모드에 맞는 띠로 옮긴다(OKLab L, 색조는 그대로): 하얀 그림이 어두운 모드에서 글자와 부딪히거나, 까만 그림이 밝은 모드에서 그러지 않게.
 // 그림의 쓰임마다 값이 다르다(BACKDROP_LOOKS)
 type Band = { lo: number; hi: number; chroma: number };
@@ -132,15 +132,15 @@ type BakeLook = {
   /** 줄일 폭(px). upTo 면 상한: 그보다 작은 그림은 받은 그대로 */
   width: number;
   upTo: boolean;
-  /** 흐림. 폭 대비 비율 */
+  /** 블러. 폭 대비 비율 */
   blur: number;
   saturate: number;
-  /** 밝기 띠 세기(원래 색과 섞는 비율, 0 이면 띠 없음) · 모드마다 범위 */
+  /** 밝기 띠 세기(원래 색과 섞는 비율, 0 이면 띠 없음), 모드마다 범위 */
   band: number;
   range: { dark: Band; light: Band };
   /** webp 품질 */
   quality: number;
-  /** 위아래 검은 띠(레터박스)를 잘라 내는가 */
+  /** 검은 띠(레터박스, 필러박스)를 잘라 내는가 */
   crop: boolean;
 };
 /** 띠의 채도 상한을 끈다(OKLab 채도는 0.4 를 넘지 않는다) */
@@ -148,11 +148,11 @@ const NO_CAP = 1;
 /** 모드마다 앨범아트 배경 밝기 띠(OKLab L 0~1)와 채도 상한. 어두운 모드 면은 L 0.13 쯤, 밝은 모드 면은 0.98 쯤이다 */
 const BAND = { dark: { lo: 0.16, hi: 0.36, chroma: 0.1 }, light: { lo: 0.86, hi: 0.95, chroma: 0.07 } };
 const BACKDROP_LOOKS = {
-  // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 흐림은 살짝(1px) 준다
+  // 지금 곡의 앨범아트(배경은 들러리). 아주 작게(64px 폭) 만들어 브라우저가 늘리며 부드럽게 번지게 하고, 블러는 살짝(1px) 준다
   // (크게 만들면 늘렸을 때 압축 자국이 네모나게 보인다)
   song: { width: 64, upTo: false, blur: 1 / 64, saturate: 1.6, band: 1, range: BAND, quality: 0.92, crop: true },
-  // 로그인 화면의 봇 프사(배경이 시계 · 버튼과 함께 주인공). 받은 그대로의 해상도로 그림을 살리고(768 폭 상한: 네 자리 폭부터 만드는 시간이 확 는다),
-  // 흐림은 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다)
+  // 로그인 화면의 봇 프로필 이미지(배경이 시계, 버튼과 함께 주인공). 받은 그대로의 해상도로 그림을 살리고(768px 폭 상한: 1000px 폭대부터 만드는 시간이 확 는다),
+  // 블러는 옅게, 채도는 그대로. 압축은 거의 하지 않는다(1.00 은 크기가 네 배쯤 뛴다)
   avatar: { width: 768, upTo: true, blur: 0.005, saturate: 1, band: 0.5, range: { dark: { lo: 0.2, hi: 0.45, chroma: NO_CAP }, light: { lo: 0.8, hi: 0.95, chroma: NO_CAP } }, quality: 0.99, crop: false },
 } satisfies Record<string, BakeLook>;
 type BackdropKind = keyof typeof BACKDROP_LOOKS;
@@ -173,7 +173,7 @@ function intoBand(data: Uint8ClampedArray, band: Band, mix = 1) {
   }
 }
 
-/** 배경화면 그림을 만든다(기억하지 않는다). 굽는 값을 바꿔 보는 개발 도구도 부른다 */
+/** 배경화면 그림을 만든다(기억하지 않는다). 만드는 값을 바꿔 보는 개발 도구도 부른다 */
 async function bakeBackdrop(url: string, dark: boolean, look: BakeLook): Promise<string | null> {
   const img = await imageOf(url);
   if (!img) return null;
@@ -189,7 +189,7 @@ async function bakeBackdrop(url: string, dark: boolean, look: BakeLook): Promise
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) return null;
   ctx.filter = `blur(${blur}px) saturate(${look.saturate})`;
-  // 가장자리가 투명하게 번지지 않게 흐림 폭만큼 넘치게 그린다
+  // 가장자리가 투명하게 번지지 않게 블러 폭만큼 넘치게 그린다
   const pad = blur * 2;
   ctx.drawImage(img, (img.naturalWidth - srcW) / 2, (img.naturalHeight - srcH) / 2, srcW, srcH, -pad, -pad, w + pad * 2, h + pad * 2);
   try {
@@ -214,7 +214,7 @@ const backdropOf = (url: string, dark: boolean, kind: BackdropKind = "song") =>
     (gone) => void gone.then((blob) => blob && URL.revokeObjectURL(blob)),
   );
 
-/** 띠를 뺀 내용의 비율을 픽셀로 잰다(바뀌기 전까지는 FULL). 크게 보기가 원래 비율로 띠만 빼고 보일 때 */
+/** 띠를 뺀 내용의 비율을 픽셀로 잰다(재기 전에는 FULL). 크게 보기가 원래 비율로 띠만 빼고 보일 때 */
 function useArtContent(url: () => string | null | undefined): Ref<Content> {
   const content = ref<Content>(FULL);
   watch(
@@ -231,7 +231,7 @@ function useArtContent(url: () => string | null | undefined): Ref<Content> {
 }
 
 /**
- * 아트를 정사각형으로 채우는 배율(띠를 뺀다). measured 가 아니면 주소로 짐작만 한다(작은 아트 · 목록은 픽셀을 읽지 않는다).
+ * 아트를 정사각형으로 채우는 배율(띠를 뺀다). measured 가 아니면 주소로 짐작만 한다(작은 아트, 목록은 픽셀을 읽지 않는다).
  * measured 면 픽셀로 네 방향 띠를 재서, 가운데 정사각형이 내용 안에 들게 키운다(최대 2배)
  */
 function useArtZoom(url: () => string | null | undefined, measured = false): Ref<number> {

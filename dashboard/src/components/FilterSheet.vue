@@ -1,28 +1,21 @@
 <template>
-  <!-- 필터 창. 휴대폰은 바텀 시트(M3 모달 바텀 시트), 그 밖(태블릿 · 좁은 PC 창)은 가운데 팝업(M3 대화상자). 안의 필터는 고르는 대로 바로 반영된다(적용 버튼이 없다).
-       팝업은 끌기만 없고 나머지(헤더의 초기화 · 뒤 누르기 · 기기의 뒤로 · Esc 로 닫기)는 같다.
-       바텀 시트: 뒤를 어둡게 하고 아래에서 올라온다.
-       헤더 오른쪽은 초기화. 닫기는 끌어 내리기 · 뒤 누르기 · 기기의 뒤로 · Esc.
-       끌기: 핸들 · 헤더는 늘, 내용은 맨 위에서 아래로 끌 때(대기열 시트와 같은 손짓). 판이 손가락을 따라오고, 놓을 때 4분의 1 넘게 내렸거나 빠르게 튕겼으면 닫고 아니면 제자리로 -->
+  <!-- 필터 창. 휴대폰은 바텀 시트(M3 모달 바텀 시트), 그 밖(태블릿, 좁은 PC 창)은 가운데 팝업(M3 대화상자). 안의 필터는 선택하는 대로 바로 반영된다(적용 버튼이 없다).
+       팝업은 드래그만 없고 나머지(헤더의 초기화, 뒤 누르기, 기기의 뒤로, Esc 로 닫기)는 같다.
+       시트 드래그: 핸들, 헤더는 늘, 내용은 맨 위에서 아래로 드래그할 때(대기열 시트와 같은 손짓) -->
   <Teleport to="body">
     <!-- 팝업: 뒤는 서서히 어두워지고 창은 가운데서 조금 커지며 나타난다 -->
-    <Transition v-if="!isPhone" name="fdialog" :duration="{ enter: 250, leave: 150 }">
-      <div v-if="open" class="fixed inset-0 z-300 flex items-center justify-center p-4">
-        <div class="fdialog-scrim absolute inset-0 bg-black/50" @click="emit('close')"></div>
-        <section role="dialog" aria-modal="true" :aria-label="title" class="fdialog-panel relative w-full max-w-md max-h-[calc(100dvh-2rem)] flex flex-col rounded-2xl bg-surface-container-high">
-          <header class="flex items-center gap-3 px-6 pt-5 pb-3">
-            <Icon name="tune" :size="22" class="text-on-surface-variant" />
-            <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
-            <BaseButton variant="ghost" size="sm" @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
-          </header>
-          <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
-            <slot />
-          </div>
-        </section>
+    <BaseDialog v-if="!isPhone" :open="open" width="md" padding="none" class="max-h-[calc(100dvh-2rem)] flex flex-col" :aria-label="title" @close="emit('close')">
+      <header class="flex items-center gap-3 px-6 pt-5 pb-3">
+        <Icon name="tune" :size="22" class="text-on-surface-variant" />
+        <h2 class="flex-1 text-lg font-semibold">{{ title }}</h2>
+        <BaseButton variant="ghost" size="sm" @click="emit('reset')"><Icon name="restart_alt" :size="18" />{{ T.reset }}</BaseButton>
+      </header>
+      <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
+        <slot />
       </div>
-    </Transition>
-    <!-- 바텀 시트: 뒤는 서서히 어두워지고 판은 아래에서 미끄러져 올라온다(M3: 올라올 때 감속 400ms, 내려갈 때 가속 200ms) -->
-    <Transition v-else name="sheet" :duration="{ enter: 400, leave: 200 }">
+    </BaseDialog>
+    <!-- 바텀 시트: 뒤는 서서히 어두워지고 시트는 아래에서 미끄러져 올라온다(올라올 때 spring, 내려갈 때 가속 곡선 200ms) -->
+    <Transition v-else name="sheet" :duration="{ enter: 460, leave: 200 }">
       <div v-if="open" class="fixed inset-0 z-300">
         <div class="sheet-scrim absolute inset-0 bg-black/50" :style="{ opacity: scrimOpacity }" @click="emit('close')"></div>
         <section ref="panel" role="dialog" aria-modal="true" :aria-label="title" class="sheet-panel absolute inset-x-0 bottom-0 max-h-[85dvh] flex flex-col rounded-t-2xl bg-surface-container-low shadow-[0_-2px_12px_rgb(0_0_0/0.18)]" :class="{ 'is-dragging': drag !== null, 'is-settling': settling }" :style="{ '--drag': `${drag ?? 0}px` }">
@@ -47,6 +40,7 @@
 import { computed, ref, watch } from "vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
+import BaseDialog from "./BaseDialog.vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import { useMediaQuery } from "@vueuse/core";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
@@ -58,9 +52,9 @@ const T = text.common;
 // 휴대폰은 바텀 시트, 그 밖은 가운데 팝업
 const isPhone = useMediaQuery(PHONE_QUERY);
 
-// Esc · 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터)
+// Esc, 기기의 뒤로는 시트를 닫는다(위에 연 드롭다운이 있으면 그것부터). 팝업은 BaseDialog 가 같은 일을 한다
 useCloseLayer(
-  computed(() => props.open),
+  computed(() => props.open && isPhone.value),
   () => emit("close"),
 );
 watch(
@@ -68,10 +62,10 @@ watch(
   () => (drag.value = null),
 );
 
-// ── 끌기 ──
+// ── 드래그 ──
 const panel = ref<HTMLElement | null>(null);
 const body = ref<HTMLElement | null>(null);
-/** 끄는 동안 내린 거리(px). 아니면 null */
+/** 드래그하는 동안 내린 거리(px). 아니면 null */
 const drag = ref<number | null>(null);
 /** 놓은 뒤 제자리로 돌아가는 동안 */
 const settling = ref(false);
@@ -94,10 +88,10 @@ function release() {
   }
   settling.value = true;
   drag.value = null;
-  window.setTimeout(() => (settling.value = false), 250);
+  window.setTimeout(() => (settling.value = false), 460);
 }
 
-// 핸들 · 헤더: 마우스 · 손가락 모두
+// 핸들, 헤더: 마우스, 손가락 모두
 function down(e: PointerEvent) {
   if (e.button !== 0 && e.pointerType === "mouse") return;
   (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -115,7 +109,7 @@ function up(e: PointerEvent) {
   if (drag.value !== null) release();
 }
 
-// 내용: 맨 위에서 아래로 끌면 판을 끈다(그 밖은 내용 스크롤). 첫 움직임에서 정하고, 판을 맡으면 그 손짓 내내 스크롤을 막는다
+// 내용: 맨 위에서 아래로 드래그하면 시트가 따라 내려온다(그 밖은 내용 스크롤). 첫 움직임에서 정하고, 시트가 맡으면 그 손짓 내내 스크롤을 막는다
 let touch: { y: number; mode: "sheet" | "native" | null } | null = null;
 function touchStart(e: TouchEvent) {
   if (e.touches.length !== 1) return void (touch = null);
@@ -141,25 +135,25 @@ function touchEnd() {
 </script>
 
 <style>
-/* 판의 위치: 끄는 동안 내린 거리(--drag). 끄는 동안은 손가락을 바로 따라가고, 놓아 제자리로 돌아갈 때만 미끄러진다 */
+/* 시트의 위치: 드래그하는 동안 내린 거리(--drag). 드래그하는 동안은 손가락을 바로 따라가고, 놓아 제자리로 돌아갈 때만 미끄러진다 */
 .sheet-panel {
   translate: 0 var(--drag, 0px);
 }
 .sheet-panel.is-settling {
-  transition: translate 250ms cubic-bezier(0.2, 0, 0, 1);
+  transition: translate 460ms var(--ease-spring);
 }
-/* 막은 서서히, 판은 미끄러져. 둘이 따로 움직이도록 겉(루트)에는 걸지 않는다(판이 흐려지지 않게). 끌어 내린 뒤 닫으면 그 자리에서 마저 내려간다 */
+/* 오버레이는 서서히, 시트는 미끄러져. 둘이 따로 움직이도록 루트에는 걸지 않는다(시트가 흐려지지 않게). 드래그해서 내린 뒤 닫으면 그 자리에서 마저 내려간다 */
 .sheet-enter-active > .sheet-scrim {
-  transition: opacity 400ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  transition: opacity 250ms var(--ease-effects);
 }
 .sheet-enter-active > section {
-  transition: translate 400ms cubic-bezier(0.05, 0.7, 0.1, 1);
+  transition: translate 460ms var(--ease-spring);
 }
 .sheet-leave-active > .sheet-scrim {
-  transition: opacity 200ms cubic-bezier(0.3, 0, 0.8, 0.15);
+  transition: opacity 160ms var(--ease-effects);
 }
 .sheet-leave-active > section {
-  transition: translate 200ms cubic-bezier(0.3, 0, 0.8, 0.15);
+  transition: translate 200ms var(--ease-accelerate);
 }
 .sheet-enter-from > .sheet-scrim,
 .sheet-leave-to > .sheet-scrim {

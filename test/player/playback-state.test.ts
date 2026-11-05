@@ -1,4 +1,4 @@
-// src/player/playback-state.ts — 재생 단계와 끝 처리 중인가.
+// src/player/playback-state.ts: 재생 단계와 끝 처리 중인가.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

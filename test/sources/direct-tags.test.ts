@@ -1,4 +1,4 @@
-// src/sources/direct-tags.ts · direct.ts 의 getInfo 태그 읽기 — 직접 링크 곡 정보를 파일 태그로 고친다.
+// src/sources/direct-tags.ts, direct.ts 의 getInfo 태그 읽기: 직접 링크 곡 정보를 파일 태그로 고친다.
 // 담을 때 GET 하나: 1.5초 안에 읽으면 그 곡으로, 아니면 파일 이름으로 담고 마저 읽어 고친다. 고친 것은 링크 데이터에 확인된 제목으로 적는다
 
 import fs from "node:fs";
@@ -43,7 +43,7 @@ function ffmpeg(args: string[]): Promise<boolean> {
 
 /**
  * ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null).
- * art: 그림이 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
+ * art: 앨범아트가 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
  */
 async function mp3(title: string, artist: string, album: string, { art = false } = {}): Promise<Buffer | null> {
   const key = `${title}|${artist}|${album}|${art}`;
@@ -57,7 +57,7 @@ async function mp3(title: string, artist: string, album: string, { art = false }
   return bytes;
 }
 
-/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 조각은 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
+/** 가짜 SafeUrl: 응답 헤더와 본문. 앞 8KB 뒤의 청크는 laterDelayMs 마다, 다 보내면 닫지 않는다(끝이 없는 응답 흉내) */
 function netOf(body: Buffer, { headers = { "content-type": "audio/mpeg" } as Record<string, unknown>, laterDelayMs = 0, chunk = 512 } = {}) {
   const seen = { accept: [] as Array<number | undefined>, destroyed: false };
   const net = {
@@ -115,7 +115,7 @@ test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 �
 test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같은 곡을 고친다", { timeout: 20_000 }, async (t) => {
   const body = await mp3("늦은 제목", "늦은 가수", "늦은 앨범", { art: true });
   if (!body) return t.skip("ffmpeg로 시료를 만들 수 없음");
-  // 앞부분(판정)은 바로 오고, 그림이 든 태그의 나머지가 느리게 온다
+  // 앞부분(판정)은 바로 오고, 앨범아트가 든 태그의 나머지가 느리게 온다
   const { net } = netOf(body, { laterDelayMs: 400, chunk: 8192 });
   let late: () => void = () => {};
   const applied = new Promise<void>((resolve) => (late = resolve));
@@ -128,7 +128,7 @@ test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같
   assert.equal(row(FILE)?.display_title, "늦은 제목");
 });
 
-test("getInfo: 라디오 · 태그를 읽지 않는 부름(라디오 확인 · 직접 지정한 음원)은 헤더만 보고 끊는다", async () => {
+test("getInfo: 라디오, 태그를 읽지 않는 부름(라디오 확인, 직접 지정한 음원)은 헤더만 보고 끊는다", async () => {
   const body = Buffer.from("ID3 아무 바이트");
   const radio = netOf(body, { headers: { "content-type": "audio/mpeg", "icy-name": "라디오" } });
   let called = false;
@@ -163,7 +163,7 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
   ]);
 });
 
-test("음원이 아닌 직접 링크(웹 페이지 · 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
+test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
   const page = netOf(Buffer.from("<!doctype html><p>로그인</p>"), { headers: { "content-type": "text/html" } });
   await assert.rejects(DirectLink.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
   const direct = {

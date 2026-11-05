@@ -1,4 +1,4 @@
-// src/dashboard/routes/invite.ts · invite.ts — 봇 초대 화면(/api/invite).
+// src/dashboard/routes/invite.ts, invite.ts: 봇 초대 화면(/api/invite).
 // 디스코드를 부르는 HTTP 클라이언트는 가짜를 넘긴다. 토큰은 진짜 세션 저장소(임시 DB)의 세션 행에 둔다.
 
 import fs from "node:fs";
@@ -13,7 +13,8 @@ import { requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { createInviteRouter } from "../../src/dashboard/routes/invite.ts";
-import { _setAppInfo, canInvite, loadAppInfo, managedGuilds, KEEP_MS, FRESH_GAP_MS } from "../../src/dashboard/invite.ts";
+import { _setAppInfo, canInvite, loadAppInfo, managedGuilds } from "../../src/dashboard/invite.ts";
+import { KEEP_MS, FRESH_GAP_MS } from "../../src/dashboard/user-guilds.ts";
 import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
 import type { Client } from "discord.js";
 import type { InviteList } from "../../src/dashboard/contract/invite.ts";
@@ -24,7 +25,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-invite-"));
 secrets._useKey(newSecretsKey());
 const store = new SqliteSessionStore({ dbPath: path.join(tmpDir, "sessions.db") });
 
-// 권한 비트: 서버 관리(0x20) · 관리자(0x8)
+// 권한 비트: 서버 관리(0x20), 관리자(0x8)
 const ROWS = [
   { id: "10", name: "내 서버", icon: "abc", owner: true, permissions: "0" },
   { id: "11", name: "관리하는 서버", icon: null, owner: false, permissions: String(0x20) },
@@ -73,7 +74,7 @@ beforeEach(() => {
   sid = `sid-${Math.random()}`;
 });
 
-test("서버 관리 권한(소유자 · 관리자 포함)이 있고 봇이 없는 서버를, 그 서버를 미리 고른 초대 링크와 함께 준다", async () => {
+test("서버 관리 권한(소유자, 관리자 포함)이 있고 봇이 없는 서버를, 그 서버를 미리 고른 초대 링크와 함께 준다", async () => {
   signIn(sid, "tok");
   const out = await requestJson<InviteList>(base, "GET", "/api/invite");
   assert.equal(out.status, 200);
@@ -88,7 +89,7 @@ test("서버 관리 권한(소유자 · 관리자 포함)이 있고 봇이 없�
   assert.deepEqual(asked, ["https://discord.com/api/v10/users/@me/guilds Bearer tok"], "세션 행의 토큰으로 묻는다");
 });
 
-test("잠깐 둔 목록: 다시 열면 디스코드에 묻지 않는다", async () => {
+test("잠깐 캐시된 목록: 다시 열면 디스코드에 묻지 않는다", async () => {
   signIn(sid, "tok");
   await requestJson(base, "GET", "/api/invite");
   await requestJson(base, "GET", "/api/invite");
@@ -96,7 +97,7 @@ test("잠깐 둔 목록: 다시 열면 디스코드에 묻지 않는다", async 
   assert.equal(asked.length, 1, "갱신 버튼도 잠깐 사이에는 다시 묻지 않는다");
 });
 
-test("둔 목록의 기한: 30초가 지나면 다시 묻고, 갱신 버튼은 10초가 지나면 다시 묻는다", async () => {
+test("캐시된 목록의 기한: 30초가 지나면 다시 묻고, 갱신 버튼은 10초가 지나면 다시 묻는다", async () => {
   let calls = 0;
   const counted = fake<DiscordHttp>({
     get: async () => {
@@ -160,7 +161,7 @@ test("앱 정보: 봇이 준비되기 전에 물어도 막히지 않고, 준비�
   assert.deepEqual([canInvite(fake<Client>(client), "t2"), canInvite(fake<Client>(client), "u1")], [true, false]);
 });
 
-test("응답 어디에도 디스코드 토큰이 없다(목록 · 다시 로그인 · 실패)", async () => {
+test("응답 어디에도 디스코드 토큰이 없다(목록, 다시 로그인, 실패)", async () => {
   const raw = async () => (await fetch(`${base}/api/invite`)).text();
   signIn(sid, "tok-should-not-leak");
   const bodies = [await raw()];

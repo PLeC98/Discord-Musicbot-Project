@@ -41,12 +41,11 @@ function readAccount(where: unknown): Account {
   return { ...account, client_email, private_key };
 }
 
-// client_email -> { token, expiresAt }
+// 키는 client_email
 const cache = new Map<string, { token: string; expiresAt: number }>();
 
 /**
  * 액세스 토큰을 받는다. 한 시간짜리라 받아 두고 만료 직전까지 그대로 쓴다.
- * @returns {Promise<string>}
  */
 async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fetch }: { timeoutMs?: number; fetch?: typeof fetch } = {}): Promise<string> {
   const account = readAccount(where);
@@ -106,7 +105,7 @@ function projectOf(where: unknown): string {
   }
 }
 
-/** 받아 둔 토큰. 가려야 할 것이라 바깥에서도 알아야 한다(assist/index 의 mask). */
+/** 받아 둔 토큰. 가려야 할 것이라 바깥에서도 알아야 한다(assist/mask). */
 const heldTokens = () => [...cache.values()].map((one) => one.token).filter(Boolean);
 
 export { accessToken, projectOf, heldTokens, readAccount };

@@ -1,7 +1,8 @@
 // 언제 음성 채널을 떠나나. 타이머 둘을 이 모듈이 가지고 stop() 하나로 치운다.
-//   혼자 남음   채널에 사람이 없으면 멈추고, 정해진 시간 뒤에도 없으면 정리한다(leaveDelayAloneMs)
+//   혼자 남음   듣는 사람이 없으면 정해진 시간 뒤에도 없을 때 정리한다(leaveDelayAloneMs). 멈추는 것은 플레이어의 억제 사유(alone)다
 //   틀 게 없음  대기열이 비면 정해진 시간 뒤 정리한다(leaveDelayQueueEmptyMs)
-// 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 부르는 쪽이 한다. 여기는 시간만 잰다.
+// 24/7 자리(store/stay-seats)에 있으면 둘 다 걸지 않는다. 걸 때와 만료될 때 모두 본다(그 사이에 자리가 켜지거나 꺼진다)
+// 누가 혼자 남았는지 알아보는 것(음성 상태 해석)은 플레이어의 syncHolds 가 한다. 여기는 시간만 잰다.
 // 곡이 없을 때 사람이 나가거나 돌아와 나갈 시각이 바뀌면 알린다(끝난 패널의 "쉬러 갈게요").
 
 import logger from "../infra/log/logger.ts";
@@ -10,6 +11,13 @@ import config from "../config/index.ts";
 import * as playerEvents from "./events.ts";
 import type { Player } from "./player.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { listenersIn } from "../rules/holds.ts";
+import * as staySeats from "../store/stay-seats.ts";
+
+/** 24/7 자리에 있나: 서버의 자리가 그 채널이다. 자리에서는 나가는 타이머를 걸지 않고 정지도 채널에 남는다 */
+function seatedIn(guildId: string, channelId: string | null | undefined) {
+  return Boolean(channelId) && staySeats.seatOf(guildId)?.channelId === channelId;
+}
 
 class IdleLeave {
   player: Player;
@@ -29,64 +37,84 @@ class IdleLeave {
   }
 
   // ── 혼자 남음 ──
+  // 타이머는 "듣는 사람이 없다"(억제 사유 alone)만 따른다. 사유는 플레이어가 지금 음성 상태에서 계산하고(syncHolds), 바뀌면 여기로 넘긴다.
+  // 대기열과는 상관없다(대기열이 끝나도 타이머를 지우지 않는다. 채널 밖에서 곡을 추가하면 사유가 남은 채 소리 없이 남지 않게).
 
-  startAlone() {
+  /** 24/7 자리에 있나(seatedIn) */
+  seated() {
+    return seatedIn(this.player.guild.id, this.player.voiceChannel?.id);
+  }
+
+  /** 자리가 켜졌거나 꺼졌다(옮겨져 자리에 들거나 나온 것도). 지금 상태로 타이머를 걸거나 지우고 알린다 */
+  reconsider() {
+    if (this.seated()) {
+      this.stop();
+    } else {
+      const player = this.player;
+      if (player.pause.holds.has("alone")) this._startAlone();
+      if (!player.currentTrack && player.queue.length === 0 && !this.emptyTimer) this.scheduleEmpty("곡 없이 대기");
+    }
+    this.announce();
+  }
+
+  /** 듣는 사람이 없어졌다(true), 돌아왔다(false) */
+  onAlone(alone: boolean) {
+    if (alone) this._startAlone();
+    else this._endAlone();
+  }
+
+  /** 옮겨진 채널에서도 혼자다. 새 채널 기준으로 다시 잰다 */
+  restartAlone() {
+    this._clearAlone();
+    this._startAlone();
+  }
+
+  _startAlone() {
     const player = this.player;
-    if (this.aloneTimer) return;
-
+    if (this.aloneTimer || this.seated()) return;
     log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없습니다. ${Math.round(this.aloneMs / 1000)}초 뒤 정리합니다`);
-    player.pauseFor("alone");
-
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
-        this._aloneExpired().catch((error: unknown) => log.error("혼자 남음 정리 실패:", error));
+        this._aloneExpired().catch((error: unknown) => log.error("빈 음성 채널 자동 퇴장 정리 실패:", error));
       },
       Math.max(this.aloneMs, 0),
     );
     this.announce();
   }
 
-  /** 혼자 남음 타이머를 취소한다. shouldResume 이면 "혼자" 멈춤도 풀고, 아니면 그 사유만 지운다(재생은 그대로) */
-  // 혼자 남은 채 기다린 시간이 지났다. 그사이 사람이 돌아왔으면 풀고, 아니면 나간다
+  // 사람이 돌아왔다. 타이머가 돌고 있었을 때만 알린다(대기열이 끝난 뒤 지운 타이머 등은 알릴 것이 없다)
+  _endAlone() {
+    const player = this.player;
+    if (!this._clearAlone()) return;
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 복귀하여 정리를 취소합니다`);
+    this.announce();
+  }
+
+  // 타이머를 지운다. 돌고 있었으면 true
+  _clearAlone() {
+    if (!this.aloneTimer) return false;
+    clearTimeout(this.aloneTimer);
+    this.aloneTimer = null;
+    this.aloneAt = null;
+    return true;
+  }
+
+  // 혼자 남은 채 기다린 시간이 지났다. 놓친 이벤트가 있을 수 있으니 한 번 더 맞추고, 그래도 아무도 없으면 나간다
   async _aloneExpired() {
     const player = this.player;
     this.aloneTimer = null;
     this.aloneAt = null;
-
+    if (this.seated()) return;
+    player.syncHolds();
+    // 붙어 있지 않아 맞추지 못했을 수 있다(재연결 중). 그때는 플레이어의 채널을 직접 센다
     const channelId = player.voiceChannel?.id;
     const channel = channelId ? player.guild.channels.cache.get(channelId) : null;
-    const hasListeners = channel?.isVoiceBased() ? channel.members.filter((member) => !member.user.bot).size > 0 : false;
+    const listeners = channel?.isVoiceBased() ? listenersIn(channel.members.values()) : 0;
+    if (listeners > 0) return; // 사유, 패널은 syncHolds 가 풀었다
 
-    if (hasListeners) {
-      player.resumeFor("alone");
-      await playerEvents.refresh(player);
-      return;
-    }
-
-    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다
-    await player.dispose({ reason: "비활성 타임아웃", session: "remove", panel: "disconnected", end: "inactivity-timeout" });
-  }
-
-  cancelAlone(shouldResume = true) {
-    const player = this.player;
-    if (this.aloneTimer) {
-      clearTimeout(this.aloneTimer);
-      this.aloneTimer = null;
-      this.aloneAt = null;
-      // 사람이 돌아와 취소한 것만 알린다. 대기열이 끝나 취소하는 쪽(shouldResume 이 거짓)은 곧 끝난 패널을 새로 그린다
-      if (shouldResume) this.announce();
-      // 여기가 "정리 예약이 취소된다"는 상태 변화가 실제로 일어나는 지점이다.
-      // 예약을 건 타이머 콜백 안에도 같은 로그가 있었는데, 사람이 돌아오면 음성 상태 이벤트가
-      // 이 함수를 먼저 불러 타이머를 지우므로 그 콜백은 아예 실행되지 않았다. 거의 안 찍혔다.
-      if (shouldResume) log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 복귀하여 정리를 취소합니다`);
-    }
-
-    if (shouldResume) {
-      player.resumeFor("alone");
-    } else {
-      player.pauseReasons.delete("alone");
-    }
+    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 실패로 멈춰 둔 곡이면 세션을 남긴다(사람이 고른 끝이 아니다. /join 이 이어 튼다)
+    await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: player.lifecycle.parked ? "save" : "remove", panel: "disconnected", end: "alone-timeout" });
   }
 
   // ── 틀 게 없음 ──
@@ -94,13 +122,14 @@ class IdleLeave {
   scheduleEmpty(reason = "대기열 소진") {
     const player = this.player;
     this.cancelEmpty();
+    if (this.seated()) return;
     this.emptyAt = Date.now() + config.bot.leaveDelayQueueEmptyMs;
     this.emptyTimer = setTimeout(() => {
       this.emptyTimer = null;
       this.emptyAt = null;
-      if (player.queue.length !== 0 || player.currentTrack) return;
+      if (player.queue.length !== 0 || player.currentTrack || this.seated()) return;
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected" }), "대기열 소진으로 나가기");
+      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }), "대기열 소진으로 나가기");
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 
@@ -116,17 +145,26 @@ class IdleLeave {
     return times.length ? Math.min(...times) : null;
   }
 
+  /** 곡 없이 기다리는 끝난 패널에 보일 나갈 시각. 패널을 타이머보다 먼저 그리므로 틀 게 없음 타이머가 아직 없으면 걸 시각으로 센다 */
+  upcomingLeave() {
+    if (this.seated()) return null;
+    const ms = config.bot.leaveDelayQueueEmptyMs;
+    const empty = this.emptyAt ?? (ms > 0 ? Date.now() + ms : null);
+    const times = [this.aloneAt, empty].filter((t): t is number => t !== null);
+    return times.length ? Math.min(...times) : null;
+  }
+
   // 곡이 없을 때만. 재생 중이면 패널이 나갈 시각을 보이지 않는다
   announce() {
     if (this.player.currentTrack) return;
     bestEffort(log, playerEvents.leaving(this.player, this.leavesAt()), "끝난 패널의 나갈 시각 고치기");
   }
 
-  /** 두 타이머를 모두 취소한다. "혼자" 멈춤 사유도 지운다(플레이어를 버릴 때) */
+  /** 두 타이머를 모두 지운다(플레이어를 버릴 때). 알리지 않는다 */
   stop() {
-    this.cancelAlone(false);
+    this._clearAlone();
     this.cancelEmpty();
   }
 }
 
-export { IdleLeave };
+export { IdleLeave, seatedIn };

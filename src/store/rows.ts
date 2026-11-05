@@ -20,7 +20,6 @@ const SessionTrackRow = z.object({
   title: maybe(z.string()),
   artist: maybe(z.string()),
   album: maybe(z.string()),
-  uploader: maybe(z.string()),
   duration_sec: maybe(z.number()),
   thumbnail: maybe(z.string()),
   platform: maybe(z.string()),
@@ -48,7 +47,7 @@ function checked<T extends z.ZodType>(schema: T, row: unknown, what: string): z.
   const result = schema.safeParse(row);
   if (result.success) return result.data;
   const where = result.error.issues.map((i) => i.path.join(".")).join(", ");
-  log.warn(`${what} 행의 모양이 틀려 버립니다(${where}): ${String((row as { request_key?: unknown }).request_key ?? "없음")}`);
+  log.warn(`${what} 행의 형식이 올바르지 않아 무시합니다(${where}): ${String((row as { request_key?: unknown }).request_key ?? "없음")}`);
   return null;
 }
 

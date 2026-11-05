@@ -1,4 +1,4 @@
-// src/usecases/playlist-more.ts — 재생목록 이어 넣기의 상태(custom_id)·메뉴·누를 때 판정
+// src/usecases/playlist-more.ts: 재생목록 이어 넣기의 상태(custom_id), 메뉴, 누를 때 판정
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -126,7 +126,7 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
 
   const result = More.resultView(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
   assert.equal(result.menu, true);
-  assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 재생할 수 없는 3곡\(미리듣기 · 지역 제한 등\)은 제외했어요\./);
+  assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 재생할 수 없는 3곡\(미리듣기, 지역 제한 등\)은 제외했어요\./);
 });
 
 // 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 불러온다

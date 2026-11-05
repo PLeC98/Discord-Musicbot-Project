@@ -1,4 +1,4 @@
-// src/app/run-record.ts — 직전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아면 세션을 복원하지 않는다.
+// src/app/run-record.ts: 이전 실행이 어떻게 끝났는지를 다음 기동이 안다. 짧게 끊긴 실행이 연달아 두 번이면 세션을 복원하지 않는다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-// 한 파일을 두고 기동 · 끝을 되풀이한다. clock 은 테스트가 옮긴다
+// 한 파일을 두고 기동, 끝을 되풀이한다. clock 은 테스트가 옮긴다
 function machine() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "run-record-"));
   dirs.push(dir);
@@ -39,7 +39,7 @@ test("처음 켜면 기록이 없다. 깨끗이 끝낸 뒤에는 끝난 방식�
   assert.deepEqual(first.previous, { line: "직전 실행 기록 없음", shortStreak: 0, skipRestore: false });
   m.clock.now += 3 * 60 * MIN + 12 * MIN;
   first.record.end("shutdown");
-  assert.equal(m.boot().previous.line, "직전 실행: 깨끗이 끝남 | 가동 3시간 12분");
+  assert.equal(m.boot().previous.line, "직전 실행: 정상 종료 | 가동 3시간 12분");
 });
 
 // 대시보드에서 짧게 여러 번 다시 시작해도 끊김으로 세지 않는다(세션을 복원한다)
@@ -51,7 +51,7 @@ test("다시 시작으로 끝났으면 그렇게 알리고 짧게 끊긴 실행�
     record.end("restart");
   }
   const { previous } = m.boot();
-  assert.deepEqual(previous, { line: "직전 실행: 다시 시작함 | 가동 1분", shortStreak: 0, skipRestore: false });
+  assert.deepEqual(previous, { line: "직전 실행: 다시 시작 | 가동 1분", shortStreak: 0, skipRestore: false });
 });
 
 test("끝을 적지 못하고 끊겼으면 마지막으로 살아 있던 때까지를 가동으로 본다", () => {
@@ -64,7 +64,7 @@ test("끝을 적지 못하고 끊겼으면 마지막으로 살아 있던 때까�
   assert.equal(previous.skipRestore, false);
 });
 
-test("짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 두 번이면 세션을 복원하지 않는다. 길게 돌았거나 깨끗이 끝나면 처음부터 센다", () => {
+test("짧게 끊긴 실행(기록 없이 끊김, 전역 폭주)이 연달아 두 번이면 세션을 복원하지 않는다. 길게 돌았거나 깨끗이 끝나면 처음부터 센다", () => {
   const m = machine();
   let run = m.boot();
   m.cutAfter(run.record, MIN);
@@ -74,7 +74,7 @@ test("짧게 끊긴 실행(기록 없이 끊김 · 전역 폭주)이 연달아 �
   run = m.boot();
   assert.equal(run.previous.shortStreak, 2);
   assert.equal(run.previous.skipRestore, true);
-  assert.match(run.previous.line, /^직전 실행: 전역 폭주로 내림 \| 가동 1분/);
+  assert.match(run.previous.line, /^직전 실행: 전역 폭주로 종료 \| 가동 1분/);
 
   m.cutAfter(run.record, SHORT_RUN_MS); // 복원하지 않은 실행은 오래 돌았다
   run = m.boot();

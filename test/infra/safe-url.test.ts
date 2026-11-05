@@ -1,10 +1,10 @@
-// src/infra/safe-url.ts — SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
+// src/infra/safe-url.ts: SSRF 방어의 오프라인 검증 배터리 (네트워크/DNS 미접촉 경로만).
 // IPv6 리터럴은 대괄호를 떼고 본다(안 떼면 모든 IPv6 리터럴이 DNS 경로로 빠진다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SsrfError, isBlockedIp, isAllowedContentType, validateAndResolve } from "../../src/infra/safe-url.ts";
-test("isBlockedIp: 내부·예약 대역 차단 배터리", () => {
+test("isBlockedIp: 내부, 예약 대역 차단 배터리", () => {
   const blocked = [
     "127.0.0.1", // 루프백
     "10.0.0.1", // 사설 A
@@ -27,7 +27,7 @@ test("isBlockedIp: 내부·예약 대역 차단 배터리", () => {
   for (const ip of allowed) assert.equal(isBlockedIp(ip), false, ip);
 });
 
-test("IPv6 리터럴: 대괄호를 벗겨 IP로 판정 — 내부는 리터럴 차단, 공인은 핀 접속", async () => {
+test("IPv6 리터럴: 대괄호를 벗겨 IP로 판정. 내부는 리터럴 차단, 공인은 핀 접속", async () => {
   // IP 리터럴로 인식해 명시적으로 차단한다(DNS 해석 실패로 우연히 막히는 것이 아니다. 메시지로 경로를 구분한다)
   await assert.rejects(validateAndResolve("http://[::1]/x"), (e) => e instanceof SsrfError && /리터럴/.test(e.message));
   await assert.rejects(validateAndResolve("http://[fe80::1]/x"), /리터럴/);

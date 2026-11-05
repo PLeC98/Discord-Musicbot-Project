@@ -4,10 +4,10 @@
 // 목록의 원본은 scripts/data/discord-emoji-picker.md 다. 분류와 순서를 디스코드 선택기에서
 // 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
-//   · 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
-//   · 한국어 이름·검색어. emojibase에서 가져온다.
+// - 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.
+// - 한국어 이름, 검색어. emojibase에서 가져온다.
 //
-// 그리고 Twemoji에 그림 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
+// 그리고 Twemoji에 이미지 파일이 실제로 있는지 대조한다. 없는 것을 목록에 넣으면 그 셀만 깨져 보인다.
 // 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣는다.
 
 import fs from "fs";
@@ -17,16 +17,15 @@ import * as prettier from "prettier";
 import { messageOf } from "../src/rules/error-kind.ts";
 
 const EMOJIBASE = "17.0.0";
-// 대시보드가 그림을 받아오는 곳과 같은 버전을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
-import twemojiPackage from "../dashboard/node_modules/@twemoji/api/package.json" with { type: "json" };
+// 대시보드가 내주는 그림(디스코드가 올린 @discordapp/twemoji)과 같은 것을 본다. 설치된 패키지에서 읽어 어긋날 일을 없앤다
+import twemojiPackage from "../dashboard/node_modules/@discordapp/twemoji/package.json" with { type: "json" };
 import { PROJECT } from "../src/infra/project-paths.ts";
 const TWEMOJI = twemojiPackage.version;
 const GIST = "https://gist.githubusercontent.com/rigwild/1b509bf69e2a2391f44aa5de3f05b006/raw/discord_emojis.min.json";
 const PICKER = path.join(import.meta.dirname, "data", "discord-emoji-picker.md");
 const OUT = path.join(PROJECT.root, "dashboard", "src", "emoji-list.ts");
 
-// 받아 오는 것의 모양. 여기서 읽는 필드만 본다
-const Listing = z.object({ files: z.array(z.object({ name: z.string() })).optional() });
+// 다운로드하는 데이터의 형식. 여기서 읽는 필드만 적는다
 const Gist = z.record(z.string(), z.string());
 const Compact = z.array(z.object({ hexcode: z.string(), unicode: z.string(), label: z.string().optional(), tags: z.array(z.string()).optional() }));
 const Shortcodes = z.record(z.string(), z.union([z.string(), z.array(z.string())]));
@@ -40,7 +39,7 @@ const base = <T extends z.ZodType>(file: string, schema: T) => json(`https://cdn
 
 // Twemoji 파일 이름 규칙. ZWJ가 없는 이모지에서만 VS16(FE0F)을 뗀다.
 // 예외로 👁️‍🗨️처럼 ZWJ가 있는데도 전부 뗀 이름인 것이 있어 두 후보를 다 본다.
-// TwemojiImage.vue도 같은 순서로 시도한다.
+// 대시보드는 이 SVG 로 만든 글꼴(scripts/build-twemoji-font.ts)로 그리므로, 파일이 있으면 글꼴에도 있다.
 const toId = (s: string) => [...s].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
 const iconIds = (char: string) => {
   const strict = toId(char.includes("‍") ? char : char.replace(/️/g, ""));
@@ -75,12 +74,12 @@ function readPicker() {
     }));
 }
 
-// Twemoji 저장소에 있는 svg 파일 이름들
-async function readAssets() {
-  const listing = await json(`https://data.jsdelivr.com/v1/packages/gh/jdecked/twemoji@${TWEMOJI}?structure=flat`, Listing);
-  const ids = (listing.files || []).map((f) => f.name).filter((n) => n.startsWith("/assets/svg/"));
+// 설치된 Twemoji 패키지에 있는 svg 파일 이름들
+function readAssets() {
+  const dir = path.join(PROJECT.root, "dashboard", "node_modules", "@discordapp", "twemoji", "dist", "svg");
+  const ids = fs.readdirSync(dir).filter((n) => n.endsWith(".svg"));
   if (!ids.length) throw new Error("Twemoji 파일 목록을 읽지 못했다");
-  return new Set(ids.map((n) => n.slice("/assets/svg/".length, -".svg".length)));
+  return new Set(ids.map((n) => n.slice(0, -".svg".length)));
 }
 
 type Compacted = z.output<typeof Compact>[number];
@@ -103,7 +102,7 @@ function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: 
   return charOfCode;
 }
 
-// 목록의 한 줄. 못 담으면 dropped, 그림 파일이 없으면 noAsset 에 까닭을 적는다
+// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset 에 까닭을 적는다
 function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
   if (!found) return { dropped: `${group}:${code} (대응 없음)` };
@@ -127,7 +126,6 @@ function rowOf(group: string, code: string, charOfCode: Map<string, string>, kor
 async function main() {
   const picker = readPicker();
 
-  // 단축명 → 이모지.
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
   // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
   // 디스코드 고유 이름을 메우는 데만 쓴다.
@@ -158,7 +156,7 @@ async function main() {
     "// 자동 생성물. 손으로 고치지 않는다. scripts/build-emoji-list.ts를 고치고 다시 만든다.",
     "// 분류·순서는 디스코드 선택기 그대로.",
     `// 이름·검색어: emojibase-data@${EMOJIBASE} (MIT, ko) + 디스코드 단축명`,
-    `// 그림: twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
+    `// 그림: @discordapp/twemoji@${TWEMOJI}. 전부 실제로 있는 파일인지 대조했다`,
     "//",
     "// 한 분류를 한 줄짜리 문자열로 담는다. 항목마다 객체로 두면 파일이 몇 배로 불어난다.",
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
@@ -186,7 +184,7 @@ async function main() {
   fs.writeFileSync(OUT, await prettier.format(source, { ...(await prettier.resolveConfig(OUT)), filepath: OUT }));
 
   console.log(groups.map(([n, r]) => `${n}(${r.length})`).join(" "));
-  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · twemoji@${TWEMOJI}`);
+  console.log(`총 ${total}개 · ${(fs.statSync(OUT).size / 1024).toFixed(0)}KB · @discordapp/twemoji@${TWEMOJI}`);
   if (dropped.length) console.log(`뺀 것 ${dropped.length}개: ${dropped.slice(0, 6).join(" ")}${dropped.length > 6 ? " …" : ""}`);
   console.log(noAsset.length ? `그림 파일이 없는 것 ${noAsset.length}개: ${noAsset.slice(0, 8).join(" ")}` : "그림 파일은 전부 있음");
 }

@@ -1,4 +1,4 @@
-// src/sources/direct.ts · direct-open.ts — 단순 목록(PLS · M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 그 까닭으로 거절한다
+// src/sources/direct.ts, direct-open.ts: 단순 목록(PLS, M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 그 까닭으로 거절한다
 
 import { Readable } from "node:stream";
 import { test } from "node:test";
@@ -10,7 +10,7 @@ import { codeOf } from "../../src/rules/error-kind.ts";
 
 type Reply = { body?: string; headers?: Record<string, unknown>; error?: Error };
 
-/** 가짜 SafeUrl(주소 → 응답). 라디오는 끝나지 않는 본문 흉내로 같은 조각을 이어 준다 */
+/** 가짜 SafeUrl(주소 → 응답). 라디오는 끝나지 않는 본문 흉내로 같은 청크를 이어 준다 */
 function netOf(routes: Record<string, Reply>) {
   const asked: string[] = [];
   const net = {
@@ -28,7 +28,7 @@ function netOf(routes: Record<string, Reply>) {
 const radio: Reply = { body: "ÿû", headers: { "content-type": "audio/mpeg", "icy-name": "Radio X" } };
 const icyError = () => Object.assign(new Error("Parse Error: Expected HTTP/, RTSP/ or ICE/"), { code: "HPE_INVALID_CONSTANT", rawPacket: Buffer.from("ICY 200 OK\r\n") });
 
-test("PLS · M3U: 첫 주소를 열어 본다. 곡의 음원 주소는 목록 주소 그대로(열 때마다 다시 푼다)", async () => {
+test("PLS, M3U: 첫 주소를 열어 본다. 곡의 음원 주소는 목록 주소 그대로(열 때마다 다시 푼다)", async () => {
   const { net, asked } = netOf({
     "https://site.test/listen.pls": { body: "[playlist]\nNumberOfEntries=2\nFile1=https://radio.test/a\nFile2=https://radio.test/b\n", headers: { "content-type": "audio/x-scpls" } },
     "https://site.test/listen.m3u": { body: "#EXTM3U\n#EXTINF:-1,Radio X\nhttps://radio.test/a\n", headers: { "content-type": "audio/x-mpegurl" } },
@@ -41,10 +41,14 @@ test("PLS · M3U: 첫 주소를 열어 본다. 곡의 음원 주소는 목록 �
     assert.ok(opened.kind === "file" && opened.radio, url);
     if (opened.kind === "file") opened.body.destroy();
   }
-  assert.ok(!asked.includes("https://radio.test/b"), "첫 주소만");
+  assert.deepEqual(
+    asked.filter((one) => one === "https://radio.test/b"),
+    [],
+    "첫 주소만",
+  );
 });
 
-test("목록 안의 목록은 한 번까지, 빈 목록 · 더 깊은 목록은 unsupported-link", async () => {
+test("목록 안의 목록은 한 번까지, 빈 목록, 더 깊은 목록은 unsupported-link", async () => {
   const pls = (target: string): Reply => ({ body: `[playlist]\nFile1=${target}\n`, headers: { "content-type": "audio/x-scpls" } });
   const { net } = netOf({
     "https://l.test/one.pls": pls("https://l.test/two.pls"),

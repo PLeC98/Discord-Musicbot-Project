@@ -4,7 +4,9 @@ import express from "express";
 import { trackArtUrl } from "../player-view.ts";
 import { PermissionFlagsBits } from "discord.js";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { notMember, voiceFlags } from "../guild-access.ts";
+import { memberOf, seesGuild, voiceFlags } from "../guild-access.ts";
+import { memberGuildIds } from "../user-guilds.ts";
+import type { DiscordHttp } from "../discord-api.ts";
 import { sendProblem } from "../problem.ts";
 import { playState, soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
@@ -18,18 +20,22 @@ function listState(botInVoice: boolean, player: Player | undefined): ListState {
   return state === "idle" ? "waiting" : state;
 }
 
-function createGuildListRouter() {
+/** http: 디스코드를 부르는 HTTP 클라이언트(사용자의 서버 목록). 생략하면 진짜 */
+function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
 
-  // 봇이 든 서버 중 지금 멤버인 곳. 로그인 때 받은 서버 목록에 기대지 않아 그 뒤 들어간 서버도 보이고 나간 서버는 빠진다
+  // 봇이 든 서버 중 지금 멤버인 곳. 사용자의 서버 목록(세션마다 30초 캐시한다)으로 고르고 멤버인지는 memberOf 로 본다. 나간 서버는 바로 빠지고, 막 든 서버는 목록을 다시 받을 때 보인다
   router.get("/", requireAuth, async (req, res) => {
     const { client, players } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
+    // 사용자가 든 서버만 멤버 판정을 한다(봇이 든 서버마다 조회하지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만
+    const { ids, relogin } = await memberGuildIds(req, { http });
+    const candidates = [...client.guilds.cache.values()].filter((guild) => (ids ? ids.has(guild.id) : seesGuild(guild, user.id)));
     const rows = await Promise.all(
-      [...client.guilds.cache.values()].map(async (guild): Promise<GuildRow | null> => {
-        const member = await guild.members.fetch(user.id).catch(notMember(guild.id, user.id)); // 캐시 우선
+      candidates.map(async (guild): Promise<GuildRow | null> => {
+        const member = await memberOf(guild, user.id);
         if (!member) return null;
         const player = players.get(guild.id);
         // 지금 곡(서버 카드가 그린다). 소리가 붙기 전에는 곡이 없다(재생 화면과 같은 규칙)
@@ -52,7 +58,7 @@ function createGuildListRouter() {
     );
     // 디스코드가 로그인 때 주던 순서(서버 ID 순서)
     const guilds = rows.filter((row) => row !== null).sort((x, y) => (BigInt(x.id) < BigInt(y.id) ? -1 : 1));
-    res.json({ guilds } satisfies GuildList);
+    res.json({ guilds, ...(relogin ? { relogin: true as const } : {}) } satisfies GuildList);
   });
 
   return router;

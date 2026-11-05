@@ -12,7 +12,7 @@ export function useListCursor(panel: Readonly<Ref<HTMLElement | null>>, count: (
 
   watch(at, () => nextTick(() => panel.value?.children[at.value]?.scrollIntoView({ block: "nearest" })));
 
-  /** 위(-1) · 아래(+1)로. 끝에서는 돌아간다. 선택한 것이 없으면 위는 마지막 항목, 아래는 첫 항목이다 */
+  /** 위(-1), 아래(+1)로. 끝에서는 돌아간다. 선택한 것이 없으면 위는 마지막 항목, 아래는 첫 항목이다 */
   function move(by: number) {
     const n = count();
     if (!n) return;

@@ -1,11 +1,10 @@
-// src/player/voice-adopt.ts — 세션 없이 음성 채널에 남은 봇을 기동 때 이어받는다.
-// 가짜 서버 · 플레이어로 어느 서버에 무엇을 했는지만 본다.
+// src/player/voice-adopt.ts: 세션 없이 음성 채널에 남은 봇을 기동 시 이어받는다.
+// 가짜 서버, 플레이어로 어느 서버에 무엇을 했는지만 본다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Client } from "discord.js";
 import { adoptLingeringVoice } from "../../src/player/voice-adopt.ts";
-import config from "../../src/config/index.ts";
 import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -15,7 +14,7 @@ after(() => store.close());
 
 const BOT = "bot1";
 
-// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null) · humans: 그 채널의 사람 수
+// 서버 하나. botIn: 봇이 앉아 있는 음성 채널(없으면 null), humans: 그 채널의 사람 수
 function guildWith(id: string, { botIn = "vc1" as string | null, humans = 1 } = {}) {
   const members = new Map<string, { user: { bot: boolean } }>([[BOT, { user: { bot: true } }]]);
   for (let i = 0; i < humans; i++) members.set(`u${i}`, { user: { bot: false } });
@@ -30,7 +29,7 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
   class FakePlayer {
     guild: { id: string };
     voice: { connect(): Promise<boolean> };
-    idle = { scheduleEmpty: (why: string) => steps.push(`${this.guild.id}:empty:${why}`), startAlone: () => steps.push(`${this.guild.id}:alone`) };
+    idle = { scheduleEmpty: (why: string) => steps.push(`${this.guild.id}:empty:${why}`), announce: () => steps.push(`${this.guild.id}:announce`) };
     constructor(guild: { id: string }, text: unknown, voice: { id: string }) {
       this.guild = guild;
       steps.push(`${guild.id}:new:${String(text)}:${voice.id}`);
@@ -42,8 +41,8 @@ function world(guilds: ReturnType<typeof guildWith>[], { failConnect = [] as str
         },
       };
     }
-    async updateVoiceStatus(text: string) {
-      steps.push(`${this.guild.id}:status:${text}`);
+    showIdleVoiceStatus() {
+      steps.push(`${this.guild.id}:status:idle`);
     }
     async dispose(o: { session: string }) {
       steps.push(`${this.guild.id}:dispose:${o.session}`);
@@ -58,19 +57,19 @@ test("봇이 음성 채널에 남아 있고 플레이어가 없는 서버만 이
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), restored, guildWith("g3", { botIn: null })]);
   players.set("g2", "세션을 복원한 플레이어");
   await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", `g1:status:${config.voiceStatus.idleText}`, "g1:empty:곡 없이 대기"]);
+  assert.deepEqual(steps, ["g1:new:null:vc1", "g1:connect", "g1:status:idle", "g1:empty:곡 없이 대기", "g1:announce"]);
   assert.ok(players.has("g1"));
   assert.equal(players.get("g2"), "세션을 복원한 플레이어");
   assert.equal(players.has("g3"), false);
 });
 
-test("그 채널에 사람이 없으면 혼자 남음 퇴장도 건다", async () => {
+test("혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 틀 게 없음 퇴장을 건 뒤 나갈 시각을 한 번 더 알린다", async () => {
   const { client, players, steps, FakePlayer } = world([guildWith("g1", { humans: 0 })]);
   await adoptLingeringVoice(client, players, FakePlayer);
-  assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:alone"]);
+  assert.deepEqual(steps.slice(-2), ["g1:empty:곡 없이 대기", "g1:announce"]);
 });
 
-test("다시 붙지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {
+test("재연결하지 못하면 그 서버는 정리하고(세션은 남김) 다음 서버로 넘어간다", async () => {
   const { client, players, steps, FakePlayer } = world([guildWith("g1"), guildWith("g2")], { failConnect: ["g1"] });
   await adoptLingeringVoice(client, players, FakePlayer);
   assert.deepEqual(steps.slice(0, 2), ["g1:new:null:vc1", "g1:dispose:keep"]);
@@ -78,7 +77,7 @@ test("다시 붙지 못하면 그 서버는 정리하고(세션은 남김) 다�
 });
 
 test("저장된 세션이 있는 서버(이번에 복원하지 않았다)는 이어받지 않고 세션도 건드리지 않는다. /join 이 이어 튼다", async () => {
-  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, pausedManual: false, positionMs: 0 });
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   try {
     const { client, players, steps, FakePlayer } = world([guildWith("g1")]);
     await adoptLingeringVoice(client, players, FakePlayer);

@@ -1,4 +1,4 @@
-// src/store/audio-cache.ts · stores.ts · infra/disk.ts — 봇 상태 탭의 저장공간: 캐시 수와 상한 · 지키는 파일 · 틀지 않은 파일 · 다운로드 실패 · 마지막 정리, DB 크기와 행 수, 드라이브
+// src/store/audio-cache.ts, stores.ts, infra/disk.ts: 봇 상태 탭의 저장공간. 캐시 수와 상한, 지키는 파일, 틀지 않은 파일, 다운로드 실패, 마지막 정리, DB 크기와 행 수, 드라이브
 
 import os from "node:os";
 import path from "node:path";
@@ -26,7 +26,7 @@ after(() => {
   fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-test("캐시: 수 · 크기와 상한, 지키는 파일, 한 번도 틀지 않은 파일, 다운로드 실패 행. 실제로 삭제한 정리를 기억한다", async () => {
+test("캐시: 수, 크기와 상한, 지키는 파일, 한 번도 틀지 않은 파일, 다운로드 실패 행. 실제로 삭제한 정리를 기억한다", async () => {
   const ins = cacheDb.get().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, play_count, downloaded_at) VALUES (?, ?, ?, ?, ?, ?)");
   const old = Date.now() - 90 * 86_400_000;
   ins.run("played", "cached", "/nx/played.opus", 3_000_000, 4, Date.now());

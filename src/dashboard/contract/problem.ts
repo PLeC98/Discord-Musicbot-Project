@@ -7,7 +7,7 @@ const PROBLEM_PATH = "/problems/";
 
 /** 입력란 하나의 문제. pointer 는 요청 본문의 JSON Pointer, detail 은 운영자용 원문 */
 type FieldProblem = { pointer?: string; code: Code; detail?: string } & Params;
-/** 이번 일의 것. detail 은 개발자 · 운영자용 설명, errors 는 입력란별 문제, 그 밖은 확장 필드(errorId · discordCode 등) */
+/** 이번 일의 것. detail 은 개발자, 운영자용 설명, errors 는 입력란별 문제, 그 밖은 확장 필드(errorId, discordCode 등) */
 type Extra = { detail?: string; errors?: FieldProblem[]; [member: string]: unknown };
 /** 응답 본문 */
 type ProblemBody = { type: string; code: Code; status: number; title: string; detail?: string; errors?: FieldProblem[]; [member: string]: unknown };

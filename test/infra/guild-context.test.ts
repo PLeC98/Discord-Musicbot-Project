@@ -1,4 +1,4 @@
-// src/infra/guild-context.ts — 서버 문맥이 타이머 · 약속 · await 를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
+// src/infra/guild-context.ts: 서버 문맥이 타이머, 약속, await 를 따라가고, 묶은 리스너는 쏜 쪽과 상관없이 그 서버로 돈다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { inGuild, currentGuild, bindToGuild } from "../../src/infra/guild-contex
 
 const tick = () => new Promise((done) => setTimeout(done, 1));
 
-test("문맥 밖이면 null. 문맥 안의 타이머 · await 뒤에도 그 서버다", async () => {
+test("문맥 밖이면 null. 문맥 안의 타이머, await 뒤에도 그 서버다", async () => {
   assert.equal(currentGuild(), null);
   const seen: Array<string | null> = [];
   await inGuild("g1", async () => {

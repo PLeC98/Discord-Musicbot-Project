@@ -1,4 +1,4 @@
-// src/app/launcher.ts — 실행기. 다시 시작 코드일 때만 다시 실행하고, 신호는 넘기고 기다린다(바깥 감시 pm2 · systemd · 도커와 겹쳐도 어긋나지 않게).
+// src/app/launcher.ts: 실행기. 다시 시작 코드일 때만 다시 실행하고, 신호는 넘기고 기다린다(바깥 감시 pm2, systemd, 도커와 겹쳐도 어긋나지 않게).
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -38,7 +38,7 @@ test("봇에 실행기 표시를 넘겨 실행하고, 다시 시작 코드로 �
   assert.deepEqual(exits, []);
 });
 
-// 크래시 · 기동 실패는 바깥 감시가 정한 대로(다시 실행 · 간격 · 횟수 한도). 실행기가 몰래 되살리지 않는다
+// 크래시, 기동 실패는 바깥 감시가 정한 대로(다시 실행, 간격, 횟수 한도). 실행기가 몰래 되살리지 않는다
 test("다른 코드로 끝나면 같은 코드로 끝난다. 신호로 끝났으면 128 + 번호", () => {
   for (const code of [EXIT.stopped, EXIT.globalFlood, EXIT.transient, EXIT.badSetup, 1]) {
     const { children, exits } = setup();

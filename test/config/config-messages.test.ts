@@ -1,7 +1,7 @@
-// 설정 문서 검사 문구를 고정한다(config/schema 의 zod 스키마).
+// src/config/schema: 설정 문서 검사 문구를 고정한다(zod 스키마).
 //
 // 문구는 무엇을 고쳐야 하는지까지 알려 주므로 한 글자도 바뀌면 안 된다. 입력마다 나오는 문구 목록을 순서까지 적었다.
-// 여러 문제가 겹치면 필드 검사가 먼저, 교차 검사(이름 · 필드끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 그룹.
+// 여러 문제가 겹치면 필드 검사가 먼저, 교차 검사(이름, 필드끼리 비교)가 뒤에 나온다. 틀린 문서를 읽었을 때 어떻게 도는지는 아래 셋째 그룹.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -16,13 +16,12 @@ import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
 // 제공자가 늘어도 문구 표가 안 깨지게 목록에서 만든다
 
 // [이름, 입력, 지금 나오는 문구]
-// [이름, 넣는 것, 나올 문구들]
 type Case = [name: string, input: unknown, want: string[]];
 
 const GENRES: Case[] = [
   ["장르가 없다", {}, ["장르가 하나도 없습니다."]],
   [
-    "YAML 이 값으로 읽는 이름 · 숫자 이름 · 이모지가 아닌 값",
+    "공백뿐인 이름 · 숫자 이름 · 이모지가 아닌 값",
     {
       genres: {
         80: {
@@ -33,7 +32,7 @@ const GENRES: Case[] = [
             },
           ],
         },
-        true: {
+        "  ": {
           sources: [
             {
               type: "keyword",
@@ -52,7 +51,7 @@ const GENRES: Case[] = [
         },
       },
     },
-    ["가요: emoji는 이모지 한 글자여야 합니다.", '"80": 숫자만으로 된 식별자는 순서가 어긋납니다. "80s"처럼 글자를 붙여 주세요.', '"true"는 장르 식별자로 쓸 수 없습니다(YAML이 값으로 읽습니다).'],
+    ["가요: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 합니다.", '"80": 숫자만으로 된 식별자는 순서가 어긋납니다. "80s"처럼 글자를 붙여 주세요.', "장르 식별자가 비었습니다."],
   ],
   [
     "맨 위 keywords · 소스 없음",
@@ -181,7 +180,7 @@ const STATUSES: Case[] = [
         },
       ],
     },
-    ["평소 문구: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다.", "평소 문구: 빈 문구가 있습니다.", '평소 문구: 문구가 128자를 넘습니다. "xxxxxxxxxxxxxxxxxxxx…"', '평소 문구: "Streaming"은 쓸 수 없는 활동 종류입니다(Playing · Listening · Watching · Competing · Custom).'],
+    ["평소 문구: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다.", "평소 문구: 빈 문구가 있습니다.", '평소 문구: 문구가 128자를 넘습니다. "xxxxxxxxxxxxxxxxxxxx…"', '평소 문구: "Streaming"은 쓸 수 없는 활동 종류입니다(Playing, Listening, Watching, Competing, Custom).'],
   ],
   [
     "special 이 표가 아니다",
@@ -200,7 +199,7 @@ const STATUSES: Case[] = [
           time: "22:00 ~ 06:00",
           messages: ["a"],
         },
-        true: {
+        " ": {
           date: "12-24 ~ 12-26",
           messages: ["a"],
         },
@@ -220,17 +219,7 @@ const STATUSES: Case[] = [
         },
       },
     },
-    [
-      "빈것: 내용이 비었습니다.",
-      "조건없음: date · lunar · time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).",
-      '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다',
-      '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다',
-      '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다',
-      "숫자의 date: 글자로 적어야 합니다",
-      "숫자: 문구가 하나는 있어야 합니다.",
-      '"2026": 숫자만으로 된 이름은 순서가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.',
-      '"true"는 이름으로 쓸 수 없습니다(YAML이 값으로 읽습니다).',
-    ],
+    ["빈것: 내용이 비었습니다.", "조건없음: date, lunar, time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).", '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다', '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다', '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다', "숫자의 date: 글자로 적어야 합니다", "숫자: 문구가 하나는 있어야 합니다.", '"2026": 숫자만으로 된 이름은 순서가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.', "문구 이름이 비었습니다."],
   ],
 ];
 
@@ -241,7 +230,7 @@ const AIS: Case[] = [
       provider: "nope",
       enabled: true,
     },
-    [`provider는 ${PROVIDERS.join(" · ")} 중 하나여야 합니다.`, "model을 적어야 합니다."],
+    [`provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`, "model을 적어야 합니다."],
   ],
   ["켰는데 provider 를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 합니다."]],
   ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 합니다."]],
@@ -323,8 +312,8 @@ const AIS: Case[] = [
         unknownText: 1,
       },
     },
-    // 옛 필드(unknownDuration · unknownText)은 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
-    ["params.m1 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}} · {{genre}} · {{title}} · {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
+    // 옛 필드(unknownDuration, unknownText)는 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
+    ["params.m1 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
   ],
   [
     "list.lineFormat 이 글이 아님",
@@ -339,7 +328,6 @@ const AIS: Case[] = [
 ];
 
 // [이름, 프롬프트 섹션, 켜 둠, 지금 나오는 문구]
-// [이름, 넣는 것, 켰나, 나올 문구들]
 const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]> = [
   ["목록이 아님", "text", true, ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."]],
   [
@@ -356,7 +344,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
       },
     ],
     false,
-    ["1번째 섹션: 역할과 내용을 적어야 합니다.", "2번째 섹션: 역할은 system · user · assistant 중 하나여야 합니다.", "2번째 섹션: 내용은 글로 적어야 합니다.", "3번째 섹션: 내용에 <|im_start|>·<|im_end|> 를 적을 수 없습니다."],
+    ["1번째 섹션: 역할과 내용을 적어야 합니다.", "2번째 섹션: 역할은 system, user, assistant 중 하나여야 합니다.", "2번째 섹션: 내용은 글로 적어야 합니다.", "3번째 섹션: 내용에 <|im_start|>, <|im_end|>를 적을 수 없습니다."],
   ],
   [
     "켜 둔 채 {{list}} 이 없음",
@@ -404,16 +392,16 @@ function firstComplaint(read: () => unknown) {
 }
 
 test("장르 문서가 검사에 걸리면 알리고 빈 장르로 돈다. 문구는 한 줄씩 들여 쓴다", () => {
-  useDocument("genres", "genres:\n  가요:\n    sources: []\n");
+  useDocument("genres", { genres: { 가요: { sources: [] } } });
   assert.ok(firstComplaint(() => assert.deepEqual(genreConfig.genres().genres, {})).startsWith(["자동재생 장르 설정을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n")));
 });
 
 test("상태 문서도 처음부터 검사에 걸리면 알리고 문구 없이 돈다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
-  useDocument("status", "interval: 5\nmessages: []\n");
+  useDocument("status", { interval: 5, messages: [] });
   assert.ok(firstComplaint(() => assert.deepEqual(statusConfig.status().messages, [])).startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")));
 });
 
 test("AI 문서는 검사에 걸리면 끈 채로 돌려준다", () => {
-  useDocument("ai", "provider: custom\n");
+  useDocument("ai", { provider: "custom" });
   assert.equal(aiConfig.ai().enabled, false);
 });

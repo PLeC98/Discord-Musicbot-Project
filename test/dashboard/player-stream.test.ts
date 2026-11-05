@@ -1,4 +1,4 @@
-// src/dashboard/player-stream.ts — SSE 연결 회계의 idempotent cleanup
+// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡, idempotent cleanup), 넛지, 넛지 합치기, 운영 조절값 반영
 // 쓰기에 실패하면 구독과 함께 perKey(연결 캡)도 정리한다. close 이벤트에만 기대면 close가 안 오는 비정상 종료에서 캡이 영구 점유된다.
 
 import { test, after, mock } from "node:test";
@@ -37,13 +37,13 @@ function makeRes({ closed = false } = {}) {
   return res;
 }
 
-// 볼 수 있는 서버(보낼 때 묻는 것)
+// 볼 수 있는 서버(보낼 때 확인하는 것)
 const sees =
   (...ids: string[]) =>
   (guildId: string) =>
     ids.includes(guildId);
 
-test("쓰기 실패 시 구독 · 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
+test("쓰기 실패 시 구독, 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG2", "evG3"), "evU2");
   assert.equal(DashboardEvents.perKey.get("evU2"), 1);
@@ -63,8 +63,8 @@ test("idempotent: 쓰기 실패 정리 후 늦은 close가 와도 이중 감산 
   assert.equal(DashboardEvents.perKey.get("evU3"), 2);
 
   resA.failWrite = true;
-  DashboardEvents._pingAll(); // resA 정리
-  resA.emit("close"); // 뒤늦은 close — 같은 cleanup이라 no-op
+  DashboardEvents._pingAll(); // 쓰기 실패로 resA 정리
+  resA.emit("close"); // 뒤늦은 close: 같은 cleanup이라 no-op
 
   assert.equal(DashboardEvents.perKey.get("evU3"), 1, "resB의 몫은 유지");
   resB.emit("close");
@@ -104,7 +104,7 @@ test("연결 캡: 초과분은 429, 정리 후 재접속 가능", () => {
 });
 
 // 한 연결이 여러 서버를 받는다. 어느 서버의 변화인지 없으면 전부 다시 조회해야 하고,
-// 재생 바 · 서버 화면이 자기 서버만 필터링할 수 없다.
+// 재생 바, 서버 화면이 자기 서버만 필터링할 수 없다.
 test("넛지 페이로드에 guildId가 실린다", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG9", "evG8"), "evU9");
@@ -120,7 +120,7 @@ test("넛지 페이로드에 guildId가 실린다", () => {
   res.emit("close");
 });
 
-test("볼 수 없는 서버의 넛지는 받지 않는다. 볼 수 있는지는 보낼 때 물어 연결을 연 뒤 보이게 된 서버도 받는다", () => {
+test("볼 수 없는 서버의 넛지는 받지 않는다. 보기 권한은 보낼 때 확인해 연결을 연 뒤 보이게 된 서버도 받는다", () => {
   const res = makeRes();
   const visible = new Set(["evG7"]);
   DashboardEvents.addClient(res, (id: string) => visible.has(id), "evU7");
@@ -156,7 +156,6 @@ test("봇이 나간 서버: 이제 볼 수 없어도 나가기 전에 멤버였�
   other.emit("close");
 });
 
-// 넛지 합치기: 몰린 알림은 창 하나에 한 번, 창이 끝나면 다시 받는다
 test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다시 예약한다. 그 서버를 볼 이가 없으면 예약도 안 한다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const hub = createPlayerStream({ heartbeatMs: 60_000, maxPerUser: 5, coalesceMs: 250 });
@@ -185,8 +184,8 @@ test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다
   }
 });
 
-// 운영 조절값을 저장하면 바로 먹는다. 상한 · 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
-test("설정 객체를 넘기면 상한 · 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
+// 운영 조절값을 저장하면 바로 먹는다. 상한, 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
+test("설정 객체를 넘기면 상한, 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const options = { heartbeatMs: 60_000, maxPerUser: 1, coalesceMs: 250 };
   const hub = createPlayerStream(options);
@@ -212,4 +211,31 @@ test("설정 객체를 넘기면 상한 · 하트비트를 다시 시작하지 �
   tunablesChanged();
   assert.equal(hub.heartbeatMs, 10_000, "닫은 허브는 다시 걸지 않는다");
   mock.timers.reset();
+});
+
+test("atCap: 상한에 찼는지 미리 본다(멤버 확인 전에). 연결이 닫히면 풀린다", () => {
+  const held = [];
+  for (let i = 0; i < maxPerUser; i++) {
+    assert.equal(DashboardEvents.atCap("evCap"), false);
+    const r = makeRes();
+    DashboardEvents.addClient(r, sees(), "evCap");
+    held.push(r);
+  }
+  assert.equal(DashboardEvents.atCap("evCap"), true);
+  held[0].emit("close");
+  assert.equal(DashboardEvents.atCap("evCap"), false);
+  for (const r of held.slice(1)) r.emit("close");
+});
+
+test("watching, watch: 그 서버를 멤버로 확인한 연결의 사용자, 연결을 연 뒤 확인한 서버를 더한다", () => {
+  const a = makeRes();
+  const b = makeRes();
+  DashboardEvents.addClient(a, sees(), "evWa", new Set(["evW1"]));
+  DashboardEvents.addClient(b, sees(), "evWb", new Set(["evW2"]));
+  assert.deepEqual([...DashboardEvents.watching("evW1")], ["evWa"]);
+  DashboardEvents.watch("evWb", "evW1");
+  assert.deepEqual([...DashboardEvents.watching("evW1")].sort(), ["evWa", "evWb"]);
+  a.emit("close");
+  assert.deepEqual([...DashboardEvents.watching("evW1")], ["evWb"], "닫힌 연결은 빠진다");
+  b.emit("close");
 });

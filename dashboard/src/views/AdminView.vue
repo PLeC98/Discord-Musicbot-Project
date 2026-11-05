@@ -1,6 +1,6 @@
 <template>
-  <!-- 태블릿 · PC: 왼쪽 끝에 탭 레일(M3 내비게이션 레일), 오른쪽에 내용(폭을 다 쓴다).
-       휴대폰: 탭을 선택하지 않았으면 탭 선택 화면(그룹별 목록), 선택하면 그 페이지(위 막대에 ← · "운영자 패널 - 탭 이름").
+  <!-- 태블릿, PC: 왼쪽 끝에 탭 레일(M3 내비게이션 레일), 오른쪽에 내용(폭을 다 쓴다).
+       휴대폰: 탭을 선택하지 않았으면 탭 선택 화면(그룹별 목록), 선택하면 그 페이지(위 막대에 ←, "운영자 패널 - 탭 이름").
        선택한 탭은 주소 ?tab= 에 두고 옮길 때마다 방문 기록을 쌓는다(뒤로가기 = 앞의 탭, 휴대폰은 선택 화면) -->
   <div class="md:pt-(--gap-out) md:flex md:items-start md:gap-(--gap-in)">
     <Teleport to="#topbar-start" defer>
@@ -11,7 +11,7 @@
     <div v-if="isPhone && !tab && !loading" class="flex flex-col gap-(--gap-in)">
       <section v-for="(group, gi) in TAB_GROUPS" :key="gi" class="pane rounded-(--r-window) p-2">
         <template v-for="(t, ti) in group" :key="t.id">
-          <!-- 구분선: 아이콘 영역(안쪽 여백 12 + 아이콘 40 + 틈 16)을 비우고 글자 시작부터 -->
+          <!-- 구분선: 아이콘 영역(안쪽 여백 12px + 아이콘 40px + 틈 16px)을 비우고 글자 시작부터 -->
           <div v-if="ti" class="h-px ml-17 mr-3 bg-outline-variant/60" aria-hidden="true"></div>
           <button type="button" class="tap state-layer w-full flex items-center gap-4 min-h-14 px-3 py-2 rounded-(--r-row) cursor-pointer text-left" @click="setTab(t.id)">
             <span class="relative size-10 shrink-0 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon :name="t.icon" :size="24" /><span v-if="unsavedIn(t.id)" class="absolute top-0 right-0 size-2 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span></span>
@@ -24,14 +24,14 @@
     <!-- 탭 레일. 내용이 길어도 제자리에 붙어 있다. 선택 표시(알약)는 하나를 두고 선택한 탭으로 미끄러뜨린다.
          높이는 바탕화면 위아래 틈 사이 전부(재생 바 노치는 가운데에 떠 있어 레일과 겹치지 않는다).
          페이지 아래 여백에 든 재생 바 높이만큼은 음수 여백으로 돌려줘 레일 때문에 페이지가 스크롤되지 않게 한다.
-         탭이 많아 넘치면 레일 안에서 스크롤되고 가장자리가 흐려진다 -->
+         탭이 많아 넘치면 레일 안에서 스크롤되고 가장자리가 페이드로 사라진다 -->
     <nav v-if="!loading" class="pane hidden md:flex sticky top-(--gap-out) shrink-0 w-(--rail) flex-col overflow-hidden rounded-(--r-window) h-[calc(var(--desk-h)-var(--gap-out)*2)] -mb-(--player)" :aria-label="T.tabsLabel">
       <div ref="railEl" class="relative min-h-0 flex flex-col items-stretch gap-1 py-3 overflow-y-auto overscroll-contain scrollbar-none" :style="railFade">
         <span aria-hidden="true" class="absolute top-0 left-1/2 w-14 h-8 rounded-2xl bg-secondary-container" :class="railReady && 'transition-transform spring'" :style="{ transform: `translate(-50%, ${pillY}px)` }"></span>
         <template v-for="(group, gi) in TAB_GROUPS" :key="gi">
           <span v-if="gi > 0" aria-hidden="true" class="shrink-0 h-px mx-5 my-1 bg-outline-variant"></span>
           <button v-for="t in group" :key="t.id" :ref="(el) => railItem(t.id, el)" type="button" class="group relative shrink-0 flex flex-col items-center gap-1 py-1 cursor-pointer" :aria-current="tab === t.id ? 'page' : undefined" @click="setTab(t.id)">
-            <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors duration-150" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
+            <span data-ind class="relative w-14 h-8 rounded-2xl flex items-center justify-center transition-colors effects" :class="tab === t.id ? 'text-on-secondary-container' : 'text-on-surface-variant group-hover:bg-on-surface/8'">
               <Icon :name="t.icon" :size="24" :fill="tab === t.id" />
               <span v-if="unsavedIn(t.id)" class="absolute top-1 right-3 size-1.5 rounded-full bg-warning" v-tooltip="T.unsavedTab"></span>
             </span>
@@ -41,10 +41,11 @@
       </div>
     </nav>
 
-    <!-- 탭을 옮겨 새 페이지가 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
-         늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그 · 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
-    <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집 · 로그 · 스크롤을 지킨다) -->
-    <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
+    <!-- 아래 탭으로 옮겨 새 페이지가 아래에서 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
+         위 탭으로 옮길 때는 위로 삐져나가 스크롤 높이를 늘리지 않으므로 자르지 않는다(자르면 들어오는 페이지의 윗부분이 잘려 보인다).
+         늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그, 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
+    <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집, 로그, 스크롤을 지킨다) -->
+    <div v-show="tab" class="@container/content flex-1 min-w-0" :class="sliding && pageDir === 'down' && 'overflow-y-clip pb-(--player) -mb-(--player)'" :data-dir="pageDir">
       <div v-if="loading" class="flex items-center justify-center p-20"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
       <template v-else>
@@ -55,7 +56,7 @@
            그 안쪽(선 위)에 그려진다. overflow-y를 명시하지 않으면 visible이 auto로 바뀌어,
            버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
         <div class="admin-page" v-show="tab === 'status'">
-          <BotStatus v-if="status" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
+          <BotStatus v-if="status" v-model:query="statusQuery" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'info'">
@@ -67,7 +68,7 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'guilds'">
-          <ServerManage :guilds="guilds" @changed="onGuildsChanged" />
+          <ServerManage v-model:query="guildQuery" :list="guilds" @changed="onGuildsChanged" />
         </div>
 
         <!-- 캐시 DB. 저장 공간 카드의 "캐시 DB" 버튼이 여기로 온다 -->
@@ -85,21 +86,26 @@
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹) · 파비콘. 올린 그림은 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
         </div>
 
+        <!-- 앱 이모지: 운영자가 올려 음성 상태, 자동재생 장르, 공지에 쓰는 이모지와 봇 아이콘 -->
+        <div class="admin-page" v-show="tab === 'emojis'">
+          <AppEmojiCard v-if="opened.has('emojis')" />
+        </div>
+
         <div class="admin-page" v-show="tab === 'ai'">
-          <!-- settings.db 의 "ai" · "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
+          <!-- settings.db 의 "ai", "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값 · 한도. 유튜브 · SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, IP 위치 정보 카드 안에 버전 · 업데이트) · 설정 표시(고급 설정 보기) · 연령 제한 콘텐츠 · 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 조절값(봇 전역의 기본값, 한도. 유튜브, SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전, 업데이트), 설정 표시(고급 설정 보기), 연령 제한 콘텐츠, 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false">
-            <!-- IP 위치 정보: 지금 버전 · 업데이트 확인 · 업데이트(누르면 바로) -->
+            <!-- 로그인 기기 접속 지역: 현재 버전, 업데이트 확인, 업데이트(누르면 바로) -->
             <template #in-geoip><ConfigGeoip class="mt-4" /></template>
           </ConfigTunables>
           <ConfigVisibility v-if="opened.has('settings')" class="mt-(--gap-in)" />
@@ -107,12 +113,12 @@
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 
-        <!-- 유튜브: 운영 조절값의 유튜브 · SponsorBlock 그룹 -->
+        <!-- 유튜브: 운영 조절값의 유튜브, SponsorBlock 그룹 -->
         <div class="admin-page" v-show="tab === 'youtube'">
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
         </div>
 
-        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 받을 때 쓰는 쿠키 · 계정 정보 -->
+        <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키, 계정 정보 -->
         <div class="admin-page" v-show="tab === 'age'">
           <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
@@ -125,7 +131,7 @@
           <ConfigServiceKeys v-if="opened.has('keys')" />
         </div>
 
-        <!-- 백업: 설정 내보내기 · 불러오기 · 스냅샷. 비밀은 암호문 그대로만 오간다 -->
+        <!-- 백업: 설정 내보내기, 불러오기, 스냅샷. 비밀은 암호문 그대로만 오간다 -->
         <div class="admin-page" v-show="tab === 'backup'">
           <ConfigArchive v-if="opened.has('backup')" />
           <ConfigSnapshots v-if="opened.has('backup')" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
@@ -136,11 +142,11 @@
           <DevOptions v-if="opened.has('dev')" />
         </div>
       </template>
-      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장 · 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
-      <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(' · ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
+      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장, 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
+      <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(', ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
     </div>
 
-    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼 · 운영 조절값 저장 막대가 함께 쓴다 -->
+    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼, 운영 조절값 저장 막대가 함께 쓴다 -->
     <BotRestartDialog />
     <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
@@ -149,7 +155,7 @@
 <script setup lang="ts">
 import { session, live } from "../composables/session.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
+import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
 import { unsaved, unsavedIn } from "../composables/unsaved.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -158,6 +164,7 @@ import { useMediaQuery } from "@vueuse/core";
 import { shell } from "../shell/shell-state.ts";
 import { TOPBAR_BTN } from "../utils/topbar.ts";
 import { PHONE_QUERY } from "../utils/breakpoints.ts";
+import { scrollMotion } from "../utils/motion.ts";
 import { singlePane } from "../composables/list-detail.ts";
 import { goUp, pushDown } from "../utils/up-nav.ts";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
@@ -191,10 +198,12 @@ import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";
 import BotRestartDialog from "../components/BotRestartDialog.vue";
 import ConfigAppearance from "../components/ConfigAppearance.vue";
+import AppEmojiCard from "../components/AppEmojiCard.vue";
 import DevOptions from "../components/DevOptions.vue";
 import { SHOWN_LINES, type LogGap, type WireEntry } from "../../../src/infra/log/levels.ts";
 import type { LogRow } from "../utils/log-rows.ts";
-import type { AdminGuilds, AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, GUILD_QUERY, STATUS_QUERY, guildParams, statusParams, type AdminGuilds, type AdminStatus, type GuildQuery, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
+import { replyOrder } from "../utils/reply-order.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.admin;
@@ -214,6 +223,7 @@ const ALL_TABS: Tab[] = [
   { id: "age", label: T.tabs.age, icon: "no_adult_content", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
+  { id: "emojis", label: T.tabs.emojis, icon: "add_reaction", group: "outside" },
   { id: "presence", label: T.tabs.presence, icon: "headphones", group: "outside" },
   { id: "autoplay", label: T.tabs.autoplay, icon: "music_note", group: "autoplay" },
   { id: "ai", label: T.tabs.ai, icon: "campaign", group: "autoplay" },
@@ -258,13 +268,13 @@ async function saveEverythingAndRestart() {
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
-// 목록 · 상세 편집기의 탭은 선택한 항목을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
+// 목록, 상세 편집기의 탭은 선택한 항목을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다
 const TAB_PARAM: Record<string, string> = { autoplay: "genre", presence: "presence", ai: "ai" };
 const route = useRoute();
 const router = useRouter();
 // 휴대폰(md 아래)은 탭을 선택하지 않았으면 탭 선택 화면
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면 · 태블릿 · PC 는 지난번 탭
+// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면, 태블릿, PC 는 지난번 탭
 const tab = computed<string | null>(() => {
   const q = route.query.tab;
   if (typeof q === "string" && TABS.value.some((t) => t.id === q)) return q;
@@ -300,13 +310,13 @@ function slide() {
 
 // 탭을 옮기면 방문 기록을 하나 쌓는다. 떠나는 탭의 표식(?genre= 등)은 제거한다(남기면 뒤로가기가 다른 탭에서 그 편집을 되살린다)
 function setTab(id: string) {
-  // 지금 탭을 다시 누르면 그 탭에 처음 온 것처럼(상세를 닫고 목록 · 첫 화면으로)
+  // 지금 탭을 다시 누르면 그 탭에 처음 온 것처럼(상세를 닫고 목록, 첫 화면으로)
   if (id === tab.value) return closeDetail();
   const query = Object.fromEntries(Object.entries(route.query).filter(([k]) => !Object.values(TAB_PARAM).includes(k) || k === TAB_PARAM[id]));
   void pushDown(router, route, { query: { ...query, tab: id } });
 }
 // 위 막대 ← (화면 안에 따로 "목록으로"를 두지 않는다): 늘 상위로(utils/up-nav). 상세 표식(?genre= 등)이 있으면 그것을 제거해 목록으로,
-// 없으면 탭을 제거해 선택 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 한 단 ↔ 두 단이 뒤집혀도 늘 상위로).
+// 없으면 탭을 제거해 선택 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 1열 ↔ 2열이 뒤집혀도 늘 상위로).
 // 누른 뒤 화면이 바뀔 때까지 다시 누른 것은 무시한다(두 단계 건너뜀 막기)
 let backing = false;
 watch(
@@ -324,7 +334,7 @@ function goBack() {
 }
 // 지금 탭의 상세 표식(?genre= 등)
 const detailParam = computed(() => (tab.value ? TAB_PARAM[tab.value] : undefined));
-// 한 단으로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail 의 singlePane)
+// 1열로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail 의 singlePane)
 const detailOpen = computed(() => Boolean(detailParam.value && route.query[detailParam.value] && singlePane[detailParam.value]));
 // 상세를 닫고 목록(첫 화면)으로: 늘 상위로(목록에서 연 상세면 기록을 무르고, 아니면 표식만 제거한다)
 function closeDetail() {
@@ -332,7 +342,7 @@ function closeDetail() {
   if (!param || !route.query[param]) return;
   void goUp(router, { query: Object.fromEntries(Object.entries(route.query).filter(([k]) => k !== param)) });
 }
-// 탭이 바뀌면(누르기 · 뒤로가기) 레일 순서 방향으로 미끄러져 들어온다
+// 탭이 바뀌면(누르기, 뒤로가기) 레일 순서 방향으로 미끄러져 들어온다
 watch(tab, (now, before) => {
   if (!now || !before || now === before) return;
   const list = ALL_TABS.map((t) => t.id);
@@ -340,7 +350,7 @@ watch(tab, (now, before) => {
   slide();
 });
 
-// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 우리 확인 대화상자로, 창 닫기 · 새로고침은 브라우저가 묻는다(beforeunload)
+// 저장하지 않은 설정이 있으면 페이지를 떠날 때 묻는다. 다른 화면으로는 대시보드의 확인 대화상자로, 창 닫기, 새로고침은 브라우저가 묻는다(beforeunload)
 const leaveOpen = ref(false);
 let leaveAnswer: ((go: boolean) => void) | null = null;
 onBeforeRouteLeave(() => {
@@ -348,7 +358,7 @@ onBeforeRouteLeave(() => {
   leaveOpen.value = true;
   return new Promise<boolean>((resolve) => (leaveAnswer = resolve));
 });
-/** 확인 대화상자의 답(떠나기 · 취소 · 바깥 누르기) */
+/** 확인 대화상자의 답(떠나기, 취소, 바깥 누르기) */
 function answerLeave(go: boolean) {
   leaveOpen.value = false;
   leaveAnswer?.(go);
@@ -367,6 +377,10 @@ const loading = ref(true);
 const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
+// 상태 탭 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 봇 상태 탭이 바꾸고(v-model), 바뀌면 바로 받는다. 정보 탭은 개수만 받는다
+const statusQuery = shallowRef<StatusQuery>(STATUS_QUERY);
+const statusAsk = () => (tab.value === "info" ? COUNTS_ONLY : statusQuery.value);
+const statusOrder = replyOrder();
 
 const TAB_GROUPS = computed(() => (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
 
@@ -390,43 +404,60 @@ function placePill() {
   if (rail) {
     const top = item.offsetTop - 12;
     const bottom = item.offsetTop + item.offsetHeight + 12;
-    if (top < rail.scrollTop) rail.scrollTo({ top, behavior: "smooth" });
-    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: "smooth" });
+    if (top < rail.scrollTop) rail.scrollTo({ top, behavior: scrollMotion() });
+    else if (bottom > rail.scrollTop + rail.clientHeight) rail.scrollTo({ top: bottom - rail.clientHeight, behavior: scrollMotion() });
   }
 }
-// 레일은 스크롤바가 없어 흐림이 더 스크롤된다는 유일한 표시다. 탭 하나(64)만큼 넓게
+// 레일은 스크롤바가 없어 페이드가 더 스크롤된다는 유일한 표시다. 탭 하나(64px)만큼 넓게
 const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
-async function fetchStatus() {
+// 최신 요청의 답만 반영한다. 보낸 뒤 쿼리가 바뀌었으면(정보 탭의 개수만 받기가 상태 탭으로 바꾼 뒤 도착) 그 답도 반영하지 않는다.
+// poll: 3초 폴링이면 받는 중일 때 건너뛴다(그 밖의 받기는 기다리지 않는다)
+async function fetchStatus(poll = false) {
+  if (poll && statusOrder.busy()) return;
+  const asked = statusAsk();
+  const n = statusOrder.send();
   try {
-    const res = await axios.get<AdminStatus>("/api/admin/status");
+    const res = await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(asked) });
+    if (!statusOrder.settle(n, asked === statusAsk())) return;
     status.value = res.data;
     statusAt.value = Date.now();
     statusStale.value = false;
     loading.value = false;
   } catch (e) {
+    if (!statusOrder.settle(n, asked === statusAsk())) return;
     statusStale.value = true;
     // 3초마다 요청한다. 같은 까닭이면 알림 하나가 남아 있다
     notifyProblem(e, T.failed.status);
     loading.value = false;
   }
 }
+watch(statusQuery, () => {
+  if (tab.value === "status" && live()) void fetchStatus();
+});
 
 // ── 서버 관리 ─────────────────────────────────────────
-type AdminGuild = AdminGuilds["guilds"][number];
-const guilds = ref<AdminGuild[]>([]);
-
-async function fetchGuilds() {
+// 서버 목록은 쿼리(구간, 검색, 재생 중만, 정렬)로 필터링된 구간만 받는다. 응답 순서 처리는 봇 상태와 같다
+const guilds = ref<AdminGuilds>({ total: 0, playing: 0, matched: 0, from: 0, guilds: [] });
+const guildQuery = shallowRef<GuildQuery>(GUILD_QUERY);
+const guildOrder = replyOrder();
+async function fetchGuilds(poll = false) {
+  if (poll && guildOrder.busy()) return;
+  const asked = guildQuery.value;
+  const n = guildOrder.send();
   try {
-    const res = await axios.get<AdminGuilds>("/api/admin/guilds");
-    guilds.value = res.data.guilds;
+    const res = await axios.get<AdminGuilds>("/api/admin/guilds", { params: guildParams(asked) });
+    if (guildOrder.settle(n, asked === guildQuery.value)) guilds.value = res.data;
   } catch (e) {
-    notifyProblem(e, T.failed.guilds);
+    if (guildOrder.settle(n, asked === guildQuery.value)) notifyProblem(e, T.failed.guilds);
   }
 }
+watch(guildQuery, () => {
+  if (tab.value === "guilds" && live()) void fetchGuilds();
+});
 
-// 서버에서 나갔으면 목록과 봇 상태(서버 수 · 플레이어)를 다시 읽는다
+// 서버에서 나갔으면 목록과 봇 상태(서버 수, 플레이어)를 다시 읽는다
 function onGuildsChanged() {
   void Promise.all([fetchGuilds(), fetchStatus()]);
 }
@@ -437,10 +468,10 @@ const sseConnected = ref(false);
 // 마지막으로 받은 줄의 SSE id("기동표.번호"). 다시 열 때 그 뒤부터 받는다
 let lastLogEventId = "";
 let lastLogId = 0;
-// 붙을 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
-// 한 프레임 동안 모았다가 한 번에 넣는다
+// 연결할 때 쌓인 줄(KEPT_LINES)이 줄마다 따로 온다. 줄마다 목록을 다시 그리면 그만큼 그려 브라우저가 멎는다.
+// 한 프레임 동안 모았다가 한 번에 반영한다
 let pendingLogs: LogRow[] = [];
-// 표시 줄(받지 못함 · 다시 시작)의 key
+// 표시 줄(받지 못함, 다시 시작)의 key
 let markSeq = 0;
 let flushFrame: number | null = null;
 function queueLog(entry: LogRow) {
@@ -455,13 +486,13 @@ function flushLogs() {
 }
 
 watch(tab, () => {
-  poll(); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
+  poll(true); // 새 탭이 최대 한 주기 동안 옛 값을 보여주지 않도록
   syncLogs();
 });
 
 // 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 KEPT_LINES 줄까지 들고 있고, 그 밖으로 밀려난 줄은 수만 받는다, infra/log/levels)
 const wantLogs = () => tab.value === "logs" && live();
-// 끊기면 브라우저가 마지막 id 를 실어 다시 붙고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
+// 끊기면 브라우저가 마지막 id 를 실어 재연결하고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
 const logLink = eventLink({
   url: () => `/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`,
   open: (url) => new EventSource(url, { withCredentials: true }),
@@ -473,7 +504,7 @@ const logLink = eventLink({
       lastLogId = 0;
       queueLog({ key: `mark-${++markSeq}`, mark: "restart" });
     },
-    // 다시 붙었는데 이어 받을 줄이 서버가 쌓아 둔 줄 밖으로 밀려났다. 그 수를 표시 줄로
+    // 재연결했는데 이어 받을 줄이 서버가 쌓아 둔 줄 밖으로 밀려났다. 그 수를 표시 줄로
     gap: (e) => {
       const { missed } = JSON.parse(String(e.data)) as LogGap;
       queueLog({ key: `mark-${++markSeq}`, mark: "gap", missed });
@@ -497,25 +528,26 @@ function closeLogs() {
 }
 
 // ── 수명 ────────────────────────────────────────────────
-// status는 실시간 값(uptime·메모리·자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
-// 디스코드 rate limit과 무관하고(우리 Express만 친다) 보는 사람이 운영자 한 명이라 주기를
+// status는 실시간 값(uptime, 메모리, 자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
+// 디스코드 rate limit과 무관하고(봇의 Express만 부른다) 보는 사람이 운영자 한 명이라 주기를
 // 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
 //
 // 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
 // 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
 const POLL_MS = 3000;
-// 캐시 DB 탭은 크고 열 때만 그린다: 따로 받는다
+// 캐시 DB 탭은 크고 열 때만 그린다: 코드를 따로 불러온다
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
-function poll() {
-  if (tab.value === "status" || tab.value === "info") void fetchStatus();
-  else if (tab.value === "guilds") void fetchGuilds();
+// now: 탭 바꿈, 다시 보임(받는 중이어도 바로 보낸다)
+function poll(now = false) {
+  if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
+  else if (tab.value === "guilds") void fetchGuilds(!now);
   else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
 }
 function startPoll() {
-  if (!timer) timer = setInterval(poll, POLL_MS);
+  if (!timer) timer = setInterval(() => poll(), POLL_MS);
 }
 function stopPoll() {
   if (timer) {
@@ -530,11 +562,11 @@ onMounted(() => {
   // 첫 진입만은 탭과 무관하게 둘 다 받는다. 화면 전체의 loading 해제가 fetchStatus에 달려 있다.
   void fetchStatus();
   void fetchGuilds();
-  // 탭이 숨거나 세션이 끝나면 폴링 · 로그 연결을 접는다
+  // 탭이 숨거나 세션이 끝나면 폴링, 로그 연결을 접는다
   const onVisibility = () => {
     if (!live()) stopPoll();
     else {
-      poll();
+      poll(true);
       startPoll();
     }
     syncLogs();

@@ -1,5 +1,5 @@
-// src/dashboard/login-background/archive.ts — 로그인 배경 백업(설정 내보내기의 login-background 종류).
-// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일 · 빠진 파일 · 바깥을 가리키는 목록은 받지 않는다
+// src/dashboard/login-background/archive.ts: 로그인 배경 백업(설정 내보내기의 login-background 종류).
+// 다 만든 배경의 내는 파일만 담고, 불러오면 새 id 로 풀어 기록을 통째로 바꾼다. 남이 준 파일의 모르는 파일, 빠진 파일, 바깥을 가리키는 목록은 받지 않는다
 
 process.env.OWNER_ID = "owner";
 
@@ -15,7 +15,8 @@ import type { Index } from "../../src/dashboard/login-background/store.ts";
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { fake } = await import("../helpers/fake.ts");
 const { openTempStore } = await import("../helpers/temp-store.ts");
-const { zip, unzip } = await import("../../src/infra/zip.ts");
+const { unzip } = await import("../../src/infra/zip.ts");
+const { zipped } = await import("../helpers/zip.ts");
 const store = await import("../../src/dashboard/login-background/store.ts");
 const runner = await import("../../src/dashboard/login-background/runner.ts");
 const uploads = await import("../../src/dashboard/archive-uploads.ts");
@@ -59,7 +60,7 @@ const webp = (width: number) =>
     .webp()
     .toBuffer();
 
-/** 다 만든 배경(파일까지). 원본 · 미리보기 같은 내지 않는 파일도 하나씩 둔다 */
+/** 다 만든 배경(파일까지). 원본, 미리보기 같은 내지 않는 파일도 하나씩 둔다 */
 async function made(kind: "image" | "video", name: string) {
   const one = store.create({ kind, from: "upload", name });
   const folder = store.folderOf(one.id);
@@ -112,9 +113,9 @@ const indexOf = (file: Buffer) =>
       .data.toString("utf8"),
   ) as Index;
 /** 파일의 항목을 바꿔 다시 묶는다 */
-const rezip = (file: Buffer, change: (entries: Array<{ name: string; data: Buffer }>) => Array<{ name: string; data: Buffer }>) => zip(change(unzip(file)));
+const rezip = (file: Buffer, change: (entries: Array<{ name: string; data: Buffer }>) => Array<{ name: string; data: Buffer }>) => zipped(change(unzip(file)));
 
-test("내보내기: 다 만든 배경의 내는 파일과 기록만. 만드는 중인 배경 · 원본은 담지 않고, 지금 배경이 만드는 중이면 그 전에 쓰던 배경을 지금 배경으로", async () => {
+test("내보내기: 다 만든 배경의 내는 파일과 기록만. 만드는 중인 배경, 원본은 담지 않고, 지금 배경이 만드는 중이면 그 전에 쓰던 배경을 지금 배경으로", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -146,7 +147,7 @@ test("자기 내보내기를 미리 보면 같다. 미리 보기 줄은 로그�
   assert.deepEqual([row.item, row.inFile, row.same, row.problems, row.count], ["login-background", true, true, [], 1]);
 });
 
-test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · 화면 값 · 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
+test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경, 화면 값, 한도를 복원하며, 지금 기록(만드는 중인 것까지)은 삭제한다", async () => {
   const image = await made("image", "그림");
   const video = await made("video", "영상");
   store.show(video.id);
@@ -199,18 +200,18 @@ test("불러오기는 통째로 바꾼다: 새 id 로 풀고 지금 배경 · �
   assert.equal(again.row.same, true, "불러온 뒤에는 같다(id 가 아니라 만든 때 · 이름 · 파일로 본다)");
 });
 
-test("남이 준 파일: 모르는 파일 · 기록에 없는 배경 · 빠진 정지 그림 · 바깥을 가리키는 목록 · WebP 가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
+test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정지 그림, 바깥을 가리키는 목록, WebP 가 아닌 그림은 받지 않고 아무것도 바꾸지 않는다", async () => {
   const one = await made("video", "영상");
   store.show(one.id);
   const file = await exported();
   const at = (rel: string) => `login-background/${one.id}/${rel}`;
   const cases: Array<[Buffer, RegExp]> = [
-    [rezip(file, (entries) => [...entries, { name: at("source"), data: Buffer.from("원본") }]), /모르는 파일/],
-    [rezip(file, (entries) => [...entries, { name: "login-background/abcdefghijklmnopqrstuvwx/still-1280.webp", data: Buffer.from("x") }]), /모르는 파일/],
-    [rezip(file, (entries) => entries.filter((entry) => entry.name !== at("still-1280.webp"))), /정지 그림\(still-1280\.webp\)이 없습니다/],
-    [rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from("#EXTM3U\nhttps://evil.example/seg.m4s\n") } : entry))), /목록을 쓸 수 없습니다/],
-    [rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://evil.example/key"\nseg-000.m4s\n') } : entry))), /목록을 쓸 수 없습니다/],
-    [rezip(file, (entries) => entries.map((entry) => (entry.name === at("still-1280.webp") ? { ...entry, data: Buffer.from("그림 아님") } : entry))), /그 폭의 WebP 가 아닙니다/],
+    [await rezip(file, (entries) => [...entries, { name: at("source"), data: Buffer.from("원본") }]), /모르는 파일/],
+    [await rezip(file, (entries) => [...entries, { name: "login-background/abcdefghijklmnopqrstuvwx/still-1280.webp", data: Buffer.from("x") }]), /모르는 파일/],
+    [await rezip(file, (entries) => entries.filter((entry) => entry.name !== at("still-1280.webp"))), /정지 그림\(still-1280\.webp\)이 없습니다/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from("#EXTM3U\nhttps://evil.example/seg.m4s\n") } : entry))), /목록을 쓸 수 없습니다/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://evil.example/key"\nseg-000.m4s\n') } : entry))), /목록을 쓸 수 없습니다/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("still-1280.webp") ? { ...entry, data: Buffer.from("그림 아님") } : entry))), /그 폭의 WebP 가 아닙니다/],
   ];
   for (const [bad, why] of cases) {
     const { row } = await preview(bad);
@@ -220,11 +221,11 @@ test("남이 준 파일: 모르는 파일 · 기록에 없는 배경 · 빠진 �
   }
   const index = indexOf(file);
   index.items[0].done = ["receive"];
-  const unfinished = rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
+  const unfinished = await rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
   assert.match((await preview(unfinished)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
   index.items[0].done = [...one.stages];
   index.items[0].media.color = "url(https://evil.example)";
-  const colored = rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
+  const colored = await rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
   assert.match((await preview(colored)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
 
   assert.deepEqual(
@@ -252,7 +253,7 @@ test("풀다 실패하면(내용이 깨졌다) 푼 것을 삭제하고 지금 �
   store.show(one.id);
   store.save();
   const file = await exported();
-  // 조각의 몸통을 바꾼다(목차의 CRC 와 어긋나 풀 때 걸린다)
+  // 세그먼트의 몸통을 바꾼다(목차의 CRC 와 어긋나 풀 때 걸린다)
   const at = file.indexOf(Buffer.from("segment"));
   file[at] ^= 0xff;
   assert.deepEqual((await preview(file)).row.problems, [], "미리 보기는 목차 · 목록 · 그림만 본다");

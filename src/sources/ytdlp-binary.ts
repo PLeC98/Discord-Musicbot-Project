@@ -1,11 +1,11 @@
-// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlpSpawn)은 지금 버전의 경로를 묻는다.
+// yt-dlp 바이너리. 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
 //
 // 새 버전은 지금 버전의 복사본 위에서 yt-dlp 의 자체 업데이트(--update-to 채널@태그. 다운로드한 파일의 SHA-256 을 검사한다)로 다운로드하고,
 // 다운로드한 버전이 목표와 같을 때만 교체한다. 교체는 가리키는 경로만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다.
 // 처음 한 번은 youtube-dl-exec 가 설치 때 다운로드한 것을 옮겨 온다. 그 경로는 npm install 이 stable 로 다시 덮어 쓰지 않는다.
 //
 // 목표 버전: .env 의 YTDLP_VERSION(고정) 이 있으면 그 버전, 없으면 YTDLP_CHANNEL 의 최신(GitHub 릴리스). 최신은 하루 한 번 본다.
-// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 다운로드해 교체한다 · notify 알린다 · off 보지 않는다).
+// 새 버전을 보았을 때 할 일은 YTDLP_UPDATE(auto 다운로드해 교체한다, notify 알린다, off 보지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -36,7 +36,7 @@ const VERSION_TIMEOUT_MS = 30_000; // 유닉스용 바이너리는 파이썬으�
 // youtube-dl-exec 가 설치 때 다운로드한 바이너리(라이브러리가 내보내지만 타입에는 없다)
 const { YOUTUBE_DL_PATH } = (youtubedl as typeof youtubedl & { constants: { YOUTUBE_DL_PATH: string } }).constants;
 
-/** vendor/bin/yt-dlp/state.json. 지금 버전 · 직전 버전 · 최신을 마지막으로 본 때 · 다운로드해 봤지만 목표가 아니었던 태그 */
+/** vendor/bin/yt-dlp/state.json. 현재 버전, 이전 버전, 최신을 마지막으로 확인한 시각, 다운로드해 봤지만 목표가 아니었던 태그 */
 type State = { version: string; previous: string | null; lastChecked: number; capped: string | null };
 /** 바이너리를 한 번 부른 결과 */
 type Ran = { status: number | null; stdout: string; stderr: string };
@@ -83,12 +83,11 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
   });
 }
 
-// 최신 릴리스는 GitHub API 로
 const realLatestTag = (channel: Channel) => latestReleaseTag(REPOS[channel]);
 
 const REAL: Io = { dir: path.join(PROJECT.bin, "yt-dlp"), seed: YOUTUBE_DL_PATH, run: realRun, latestTag: realLatestTag, now: () => Date.now() };
 
-// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 까닭(ERROR: …)을 적는다
+// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 원인(ERROR: …)을 적는다
 const reasonOf = (ran: Ran) => ran.stderr.trim().split(/\r?\n/).at(-1)?.trim() || `종료 코드 ${ran.status ?? "없음"}`;
 
 class YtdlpBinary {
@@ -97,7 +96,7 @@ class YtdlpBinary {
   // 버전 맞추기는 한 번에 하나(기동 확인과 하루 확인이 겹치지 않게)
   busy: Promise<Outcome> | null = null;
   timer: NodeJS.Timeout | null = null;
-  /** 다음 확인 때(예약하지 않았으면 null) */
+  /** 다음 확인 시각(예약하지 않았으면 null) */
   nextAt: number | null = null;
 
   constructor(io: Io = REAL) {
@@ -124,7 +123,7 @@ class YtdlpBinary {
     }
   }
 
-  // 다른 프로세스(update:ytdlp)가 읽다 만 파일을 보지 않게 옆에 쓰고 옮긴다
+  // 다른 프로세스(update:ytdlp)가 쓰다 만 파일을 읽지 않게 임시 파일에 쓰고 rename 한다
   _write(state: State) {
     fs.mkdirSync(this.io.dir, { recursive: true });
     const temp = `${this.stateFile}.${process.pid}.tmp`;
@@ -166,7 +165,7 @@ class YtdlpBinary {
     fs.chmodSync(to, 0o755);
   }
 
-  // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 모양이 다르면 쓰지 않는다
+  // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 형식이 다르면 쓰지 않는다
   async _latestTag(channel: Channel) {
     const tag = await this.io.latestTag(channel);
     if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그의 모양이 아닙니다: ${tag.slice(0, 40)}`);
@@ -174,7 +173,7 @@ class YtdlpBinary {
   }
 
   /**
-   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치 · update:ytdlp)이다: 하루 한 번 · YTDLP_UPDATE · 다운로드해 봤던 태그를 보지 않고 다운로드한다.
+   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(설치, update:ytdlp)이다: 하루 한 번, YTDLP_UPDATE, 다운로드해 봤던 태그를 보지 않고 다운로드한다.
    * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 다운로드한 버전을 이어받는다). 알릴 것이 없으면 null
    */
   async check({ force = false } = {}): Promise<Outcome | null> {
@@ -210,7 +209,7 @@ class YtdlpBinary {
       return { kind: "reused", from: current, to: target };
     }
 
-    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 다운로드를 삭제하지 않게). 남은 것은 봇 기동 때의 정리가 삭제한다
+    // 프로세스마다 따로(돌고 있는 봇과 update:ytdlp 가 겹쳐도 서로의 다운로드를 삭제하지 않게). 남은 것은 봇 기동 시의 정리가 삭제한다
     const staging = path.join(this.io.dir, `.staging-${process.pid}`);
     const file = path.join(staging, path.basename(this.io.seed));
     try {
@@ -234,14 +233,14 @@ class YtdlpBinary {
       try {
         fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
       } catch (error) {
-        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 때의 정리가 삭제한다
+        // Windows 에서 옛 파일(.old)이 아직 잡혀 있으면 삭제하지 못한다. 다음 다운로드나 봇 기동 시의 정리가 삭제한다
         log.debug(`yt-dlp 다운로드 임시 폴더 삭제 실패: ${messageOf(error)}`);
       }
     }
   }
 
   /**
-   * 지금 버전 · 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 때와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
+   * 지금 버전, 직전 버전이 아닌 폴더를 삭제한다. 봇만 부른다: 기동 시와 확인할 때마다(오래 켜 두어도 버전이 쌓이지 않게).
    * 봇은 디스크의 기록을 막 읽은 뒤라 제가 쓰는 버전이 지금 버전이다. update:ytdlp 는 돌고 있는 봇이 아직 쓰는 버전을 삭제할 수 있어 부르지 않는다.
    * 옛 버전으로 아직 돌고 있어 삭제하지 못한 것(Windows)은 다음에 삭제한다
    */
@@ -260,7 +259,7 @@ class YtdlpBinary {
     }
   }
 
-  /** 봇 기동. 버전을 갖추고 한 줄 남긴 뒤, 설정대로 기동 때와 하루 한 번 새 버전을 본다 */
+  /** 봇 기동. 버전을 갖추고 한 줄 남긴 뒤, 설정대로 기동 시와 하루 한 번 새 버전을 본다 */
   async start() {
     const { channel, version: pin, update: mode } = config.ytdlp;
     try {
@@ -268,14 +267,14 @@ class YtdlpBinary {
       this.cleanup();
       log.info(`yt-dlp ${version} | 채널=${channel}${pin ? ` | 고정=${pin}` : ""} | 업데이트=${updateText(mode, Boolean(pin))}${seeded ? " | 설치 때 다운로드한 것을 옮겨 옴" : ""}`);
     } catch (error) {
-      log.warn(`yt-dlp 버전을 갖추지 못했습니다: ${messageOf(error)} | 쓰는 경로=${this.path()}`);
+      log.warn(`yt-dlp 바이너리 준비 실패: ${messageOf(error)} | 사용 경로=${this.path()}`);
       return;
     }
     if (mode === "off") return;
     await this._tick();
   }
 
-  // 기동 때와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 예약한다
+  // 기동 시와 하루 한 번. 새 버전을 보고 버전을 정리한 뒤 다음 확인을 예약한다
   async _tick() {
     let failed = false;
     try {
@@ -286,7 +285,7 @@ class YtdlpBinary {
     } finally {
       this.cleanup();
     }
-    // 고정한 버전은 기동 때 한 번만 맞춘다
+    // 고정한 버전은 기동 시 한 번만 맞춘다
     if (!config.ytdlp.version) this._schedule(failed ? RETRY_MS : this.state!.lastChecked + DAY_MS - this.io.now());
   }
 
@@ -308,7 +307,7 @@ class YtdlpBinary {
   }
 }
 
-// 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 때 한 번 맞춘다)
+// 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 시 한 번 맞춘다)
 function updateText(mode: Mode, pinned: boolean) {
   if (mode === "auto") return pinned ? "자동" : "자동 (1일 1회 확인)";
   return mode === "notify" ? "알림만" : "하지 않음";

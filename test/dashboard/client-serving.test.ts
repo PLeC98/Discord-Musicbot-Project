@@ -1,4 +1,4 @@
-// src/dashboard/index.ts · precompressed.ts — 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
+// src/dashboard/index.ts, precompressed.ts: 화면(빌드한 dashboard/dist)을 내주는 법. 빌드가 있는지는 요청 때 본다.
 // 봇을 켠 뒤에 화면을 빌드해도 다시 시작하지 않고 보인다.
 
 import fs from "node:fs";
@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { NextFunction, Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
-import { baseUrl } from "../helpers/listen.ts";
+import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("client-serving-");
@@ -32,8 +32,7 @@ let server: Server;
 let base: string;
 before(async () => {
   const deployCommands = () => assert.fail("이 테스트는 명령을 등록하지 않는다");
-  server = createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: noSession, clientDist: dist }).listen(0, "127.0.0.1");
-  await new Promise((resolve) => server.once("listening", resolve));
+  server = await listenForFetch(createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands, sessionMiddleware: noSession, clientDist: dist }), "127.0.0.1");
   base = baseUrl(server);
 });
 after(() => server.close());
@@ -57,7 +56,7 @@ test("빌드가 없으면 빌드하라고 알리고, 켜 둔 채 빌드하면 �
   assert.equal((await get("/api/없는-경로")).status, 404, "API 는 화면으로 넘기지 않는다");
 });
 
-// 이름에 내용 해시가 붙은 빌드 파일은 한 해 동안 묻지 않고 쓰고, 이름이 고정된 화면(index.html)은 매번 묻는다(새 빌드의 새 이름을 받게)
+// 이름에 내용 해시가 붙은 빌드 파일은 1년 동안 다시 확인하지 않고 쓰고, 이름이 고정된 화면(index.html)은 매번 확인한다(새 빌드의 새 이름을 받게)
 test("빌드 파일(assets/)은 오래 캐시하고 화면 껍데기는 매번 확인한다", async () => {
   fs.writeFileSync(path.join(dist, "index.html"), "<!doctype html><title>화면</title>");
   fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
@@ -68,7 +67,7 @@ test("빌드 파일(assets/)은 오래 캐시하고 화면 껍데기는 매번 �
   assert.equal(await cacheOf("/servers/123"), "no-cache");
 });
 
-// 빌드할 때 만든 압축본(.br · .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
+// 빌드할 때 만든 압축본(.br, .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
 test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 받으면 원본. 폴더 밖으로는 나가지 않는다", async () => {
   const body = "const 화면 = 1;\n".repeat(200);
   fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
@@ -76,7 +75,7 @@ test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 
   fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.br"), zlib.brotliCompressSync(body));
   fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.gz"), zlib.gzipSync(body));
   const ask = async (encoding: string | null) => {
-    // fetch 는 압축을 스스로 푼다. 오간 그대로 보려고 node:http 로 묻는다
+    // fetch 는 압축을 스스로 푼다. 오간 그대로 보려고 node:http 로 요청한다
     return new Promise<{ status: number; headers: Record<string, unknown>; raw: Buffer }>((resolve, reject) => {
       const req = http.get(`${base}/assets/app-zip123.js`, { headers: encoding ? { "accept-encoding": encoding } : {} }, (res) => {
         const chunks: Buffer[] = [];

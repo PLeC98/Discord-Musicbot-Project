@@ -1,4 +1,4 @@
-// src/sources/hls.ts — 직접 링크 HLS 의 목록 받기 · 고르기 · 라이브 따라가기 · 조각 받기(바이트 구간 · 초기화 조각 · AES-128).
+// src/sources/hls.ts: 직접 링크 HLS 의 목록 받기, 선택, 라이브 따라가기, 세그먼트 받기(바이트 구간, 초기화 세그먼트, AES-128).
 // 네트워크는 가짜다(주소 → 응답)
 
 import crypto from "node:crypto";
@@ -13,7 +13,7 @@ import * as SafeUrl from "../../src/infra/safe-url.ts";
 
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean };
 
-/** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx · 5xx 는 SafeUrl 처럼 status 를 단 오류 */
+/** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx, 5xx 는 SafeUrl 처럼 status 를 단 오류 */
 function netOf(routes: Record<string, Reply | (() => Reply)>) {
   const asked: Array<{ url: string; from?: number; to?: number }> = [];
   const net = {
@@ -59,17 +59,17 @@ test("상위 목록: 음성 따로를 골라 하위 목록을 한 번 더 받는
   );
 });
 
-test("VOD: 위치가 든 조각부터 받고 그 조각의 시작을 알린다", async () => {
+test("VOD: 위치가 든 세그먼트부터 받고 그 세그먼트의 시작을 알린다", async () => {
   const { net } = netOf({ "https://v.test/a.ts": { body: "a" }, "https://v.test/b.ts": { body: "b" }, "https://v.test/c.ts": { body: "c" } });
   const hls = await openHls(vod(["a.ts", "b.ts", "c.ts"]), "https://v.test/index.m3u8", { net });
   const from = hls.fragments(9_000);
   assert.equal(from.startedAtMs, 8_000);
   assert.deepEqual(await drain(from), ["c"]);
-  assert.deepEqual(await drain(hls.fragments(99_000)), ["c"], "끝을 넘으면 마지막 조각");
+  assert.deepEqual(await drain(hls.fragments(99_000)), ["c"], "끝을 넘으면 마지막 세그먼트");
   assert.equal(hls.fragments().startedAtMs, 0);
 });
 
-test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버면 잘라 쓴다. 초기화 조각은 바뀔 때만 먼저 받는다", async () => {
+test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버면 잘라 쓴다. 초기화 세그먼트는 바뀔 때만 먼저 받는다", async () => {
   const file = "INIT" + "AAAA" + "BBBB";
   const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="main.mp4",BYTERANGE="4@0"\n#EXTINF:4,\n#EXT-X-BYTERANGE:4@4\nmain.mp4\n#EXTINF:4,\n#EXT-X-BYTERANGE:4\nmain.mp4\n#EXT-X-MAP:URI="other.mp4"\n#EXTINF:4,\nseg.m4s\n#EXT-X-ENDLIST\n`;
   for (const honorsRange of [true, false]) {
@@ -87,7 +87,7 @@ test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버
   }
 });
 
-test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 조각 순번", async () => {
+test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 세그먼트 순번", async () => {
   const key = Buffer.alloc(16, 1);
   const iv = Buffer.alloc(16, 7);
   const seal = (text: string, withIv: Buffer) => {
@@ -108,14 +108,14 @@ test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 조각 순번", as
   await assert.rejects(broken.fragments().fetch(part, new AbortController().signal), (e: unknown) => (e as { permanent?: boolean }).permanent === true);
 });
 
-test("DRM(AES-128 밖의 암호) · 목록이 아님은 열 때 unsupported-link", async () => {
+test("DRM(AES-128 밖의 암호), 목록이 아님은 열 때 unsupported-link", async () => {
   const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
   for (const text of [drm, "[playlist]\nFile1=x"]) {
     await assert.rejects(openHls(text, "https://d.test/index.m3u8", { net: netOf({}).net }), (e: unknown) => codeOf(e) === "unsupported-link");
   }
 });
 
-test("조각 · 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 실패, 5xx 는 아니다", async () => {
+test("세그먼트, 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 실패, 5xx 는 아니다", async () => {
   const { net } = netOf({ "https://e.test/gone.ts": { status: 404 }, "https://e.test/busy.ts": { status: 503 } });
   const blocked = {
     getStream: async (url: string, deps?: undefined, opts?: OpenOptions) => {
@@ -130,7 +130,7 @@ test("조각 · 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 
   const permanentOf = (e: unknown) => (e as { permanent?: boolean }).permanent === true;
   await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf);
   await assert.rejects(fragments.fetch((await fragments.next())!, signal), (e: unknown) => !permanentOf(e));
-  await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf, "막힌 조각");
+  await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf, "막힌 세그먼트");
   const keyed = netOf({ "https://e.test/busy.ts": { body: Buffer.alloc(16) } });
   const withKey = await openHls(text, "https://e.test/index.m3u8", { net: { getStream: (url, deps, opts) => (url.includes("10.0.0.1") ? blocked.getStream(url, deps, opts) : keyed.net.getStream(url, deps, opts)) } });
   const parts = withKey.fragments();
@@ -155,7 +155,7 @@ test("라이브: 끝 가까이부터, 목록을 다시 받아 순번으로 잇�
   const fragments = hls.fragments(30_000);
   assert.deepEqual(await drain(fragments), ["s3", "s4", "s5", "s6", "s7", "s8"], "위치는 보지 않고 끝에서 셋 앞부터, 순번으로 이어서");
   assert.deepEqual(waits, [2000, 2000, 1000], "바뀌지 않았으면 목표 길이의 절반 뒤");
-  assert.match(fragments.describe(6), /라이브 · 조각 6개 흘림 · 마지막 순번 8 · 목록 다시 받음 3회/);
+  assert.match(fragments.describe(6), /라이브 · 세그먼트 6개 흘림 · 마지막 순번 8 · 목록 다시 받음 3회/);
 });
 
 test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송이 끝남과 다르다), 닫으면 멈춘다", async () => {
@@ -168,10 +168,10 @@ test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송
   const closing = hls.fragments();
   await closing.next();
   closing.close();
-  assert.equal(await closing.next(), null, "남은 조각이 있어도");
+  assert.equal(await closing.next(), null, "남은 세그먼트가 있어도");
 });
 
-test("직접 링크로 담기 · 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
+test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
   const live = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\ns1.ts\n`;
   const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
   const master = `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttp://10.0.0.1/inner.m3u8\n`;
@@ -182,7 +182,7 @@ test("직접 링크로 담기 · 열기: VOD 는 목록의 길이, 라이브는 
     "https://h.test/master.m3u8": { body: master },
   });
   const [v] = await DirectLink.getInfo("https://h.test/vod.m3u8", { net });
-  assert.deepEqual([v.title, v.duration, v.durationSource, v.isLive, v.fileSize], ["h.test", 12, "provided", undefined, null]);
+  assert.deepEqual([v.title, v.duration, v.durationSource, v.isLive], ["h.test", 12, "provided", undefined]);
   const [l] = await DirectLink.getInfo("https://h.test/live.m3u8", { net });
   assert.deepEqual([l.isLive, l.liveStatus, l.duration], [true, "is_live", 0]);
   const opened = await DirectLink.open("https://h.test/live.m3u8", net);

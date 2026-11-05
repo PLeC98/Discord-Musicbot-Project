@@ -1,10 +1,10 @@
-// AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가.
+// src/autoplay/sources/anisongdb.ts: AnisongDB 소스. 설정 한 줄이 저쪽 filters 로 어떻게 바뀌는가, 목록 캐시, 후보 모양.
 //
 // 지키려는 계약:
-//  · 보내는 값은 소문자. 받은 값을 되보내면 422
-//  · 입력하지 않은 필드는 아예 뺀다. 빈 배열은 422
-//  · include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
-//  · 삽입곡은 기본으로 꺼져 있다
+// - 보내는 값은 소문자. 받은 값을 되보내면 422
+// - 입력하지 않은 필드는 아예 뺀다. 빈 배열은 422
+// - include_no_difficulty 를 켜지 않는다. 난이도 0 은 결측이다
+// - 삽입곡은 기본으로 꺼져 있다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,7 +16,7 @@ const build = sources._anisongFilters;
 
 // ── 기본값 ────────────────────────────────────────────────────────────────
 
-test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 있음", () => {
+test("아무것도 입력하지 않으면 OP/ED, standard, normal, 음원 있음", () => {
   const f = build({});
   assert.deepEqual(f.song_types, ["opening", "ending"], "삽입곡은 기본으로 끈다");
   assert.deepEqual(f.song_categories, ["standard"], "Instrumental 은 자동재생에 안 맞는다");
@@ -25,14 +25,14 @@ test("아무것도 입력하지 않으면 OP/ED · standard · normal · 음원 
   assert.deepEqual(f.media_links, { require_any: ["audio", "HQ"] });
 });
 
-test("입력하지 않은 필드는 아예 없다 — 빈 배열을 보내면 422다", () => {
+test("입력하지 않은 필드는 아예 없다. 빈 배열을 보내면 422다", () => {
   const f = build({});
   for (const key of ["anime_types", "genres", "tags", "difficulty", "season"]) {
     assert.ok(!(key in f), `${key} 는 없어야 한다`);
   }
 });
 
-// 난이도 0·null 은 값이 아니라 결측이다. 켜면 그 곡들이 들어온다.
+// 난이도 0, null 은 값이 아니라 결측이다. 켜면 그 곡들이 들어온다.
 test("include_no_difficulty 를 켜지 않는다", () => {
   for (const source of [{}, { difficultyFrom: 50 }, { difficultyFrom: 0, difficultyTo: 100 }]) {
     const f = build(source);
@@ -51,7 +51,7 @@ test("받은 대문자를 그대로 되보내지 않는다", () => {
   assert.deepEqual(f.anime_types, ["tv", "movie"]);
 });
 
-test("모르는 값은 버리고 기본값으로 돌아간다 — 422로 소스가 조용히 죽는 것보다 낫다", () => {
+test("모르는 값은 버리고 기본값으로 돌아간다. 422로 소스가 조용히 죽는 것보다 낫다", () => {
   const f = build({ songTypes: ["오프닝"], broadcasts: ["없는값"] });
   assert.deepEqual(f.song_types, ["opening", "ending"]);
   assert.deepEqual(f.broadcasts, ["normal"]);
@@ -68,7 +68,6 @@ test("한쪽만 입력하면 반대쪽은 끝까지", () => {
   assert.deepEqual(build({ difficultyTo: 30 }).difficulty, { start: 1, end: 30 });
 });
 
-// 0 은 값이 아니라 결측 표시다.
 test("하한 0 은 1 로 올린다", () => {
   assert.deepEqual(build({ difficultyFrom: 0, difficultyTo: 100 }).difficulty, { start: 1, end: 100 });
 });
@@ -79,7 +78,7 @@ test("100을 넘겨도 100에서 멈춘다", () => {
 
 // ── 분기 ──────────────────────────────────────────────────────────────────
 
-// AnimeThemes 는 시즌 범위 문법이 없어 우리가 필터링했다. 저쪽은 범위를 받는다.
+// AnimeThemes 는 시즌 범위 문법이 없어 받은 뒤 자르지만, AnisongDB 는 범위를 받는다.
 test("분기는 저쪽이 범위로 받으므로 우리가 자르지 않는다", () => {
   assert.deepEqual(build({ yearFrom: 2024, seasonFrom: "Spring", yearTo: 2026, seasonTo: "Summer" }).season, { start: "Spring 2024", end: "Summer 2026" });
 });
@@ -88,11 +87,11 @@ test("분기를 입력하지 않으면 그 해 처음부터 끝까지", () => {
   assert.deepEqual(build({ yearFrom: 2020, yearTo: 2021 }).season, { start: "Winter 2020", end: "Fall 2021" });
 });
 
-test("분기만 입력하고 연도가 없으면 무시한다 — 연도 없는 분기는 뜻이 없다", () => {
+test("분기만 입력하고 연도가 없으면 무시한다. 연도 없는 분기는 뜻이 없다", () => {
   assert.equal(build({ seasonFrom: "Summer" }).season, undefined);
 });
 
-// ── 장르·태그 ─────────────────────────────────────────────────────────────
+// ── 장르, 태그 ─────────────────────────────────────────────────────────────
 
 test("장르와 태그는 require_any 로 싣는다", () => {
   const f = build({ genres: ["Comedy", "Action"], tags: ["Idol", "School"] });
@@ -100,7 +99,7 @@ test("장르와 태그는 require_any 로 싣는다", () => {
   assert.deepEqual(f.tags, { require_any: ["Idol", "School"] });
 });
 
-// Idol·School 은 태그이고 장르가 아니다. 장르 필드에 넣으면 422 가 온다.
+// Idol, School 은 태그이고 장르가 아니다. 장르 필드에 넣으면 422 가 온다.
 // SPEC 의 enums 가 설정 시점에 잡는다.
 test("장르 목록에 태그 이름이 섞여 있지 않다", () => {
   const { SPEC } = sources;
@@ -144,7 +143,7 @@ test("난이도 분포에서 0 구간을 뺀다", async () => {
   }
 });
 
-test("목록을 못 받아도 던지지 않는다 — 입력란이 안 그려지는 것보다 빈 목록이 낫다", async () => {
+test("목록을 못 받아도 던지지 않는다. 입력란이 안 그려지는 것보다 빈 목록이 낫다", async () => {
   useFetch(fake<typeof fetch>(async () => ({ ok: false, status: 503, text: async () => "" })));
   try {
     sources._seedAnisongStats(null);
@@ -156,7 +155,7 @@ test("목록을 못 받아도 던지지 않는다 — 입력란이 안 그려지
 
 // ── 후보 모양 ─────────────────────────────────────────────────────────────
 
-// 가짜 fetch. AnisongDB 와 AniList 를 부르는 순서대로 답한다.
+// 가짜 fetch. 주소로 AnisongDB 와 AniList 를 구분해 답하고, 부른 것을 적는다.
 function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; covers?: unknown[]; anilistFails?: boolean }) {
   const calls: Array<{ url: string; body: { variables?: { ids?: unknown[] } } | null }> = [];
   // 가짜 응답은 여기서 읽는 필드만 준다
@@ -174,7 +173,7 @@ function stub({ songs, covers = [], anilistFails = false }: { songs: unknown[]; 
 
 const song = (over: Record<string, unknown> = {}) => ({ songName: "곡", songArtist: "아티스트", amqSongId: 1, annSongId: 10, annId: 100, audio: "abc.mp3", linked_ids: { anilist: 7 }, ...over });
 
-test("후보 모양 — 음원 주소·출처·키", async () => {
+test("후보 모양: 음원 주소, 출처, 키", async () => {
   const s = stub({ songs: [song()], covers: [{ id: 7, coverImage: { extraLarge: "https://cover/7.jpg" } }] });
   try {
     const [cand] = await sources.fetchFrom({ type: "anisongdb" });
@@ -190,7 +189,7 @@ test("후보 모양 — 음원 주소·출처·키", async () => {
   }
 });
 
-// 같은 곡이 속편·OVA·극장판에 다시 쓰인다. annSongId 로 막으면 그것들이 다 따로 센다.
+// 같은 곡이 속편, OVA, 극장판에 다시 쓰이고 그때마다 annSongId 가 다르다. annSongId 로 막으면 같은 곡이 여러 번 나온다.
 test("amqSongId 가 같으면 한 번만 낸다", async () => {
   const s = stub({ songs: [song({ annSongId: 10 }), song({ annSongId: 11 }), song({ amqSongId: 2, annSongId: 12 })] });
   try {
@@ -237,8 +236,8 @@ test("AniList ID 가 없으면 ANN 주소를 쓴다", async () => {
   }
 });
 
-// AniList 는 분당 30회다. 곡마다 물으면 한도에 닿는다.
-test("표지는 묶어서 묻는다 — 곡마다 묻지 않는다", async () => {
+// AniList 한도는 분당 30회라 곡마다 조회하면 닿는다.
+test("표지는 묶어서 묻는다. 곡마다 묻지 않는다", async () => {
   const songs = Array.from({ length: 120 }, (_, i) => song({ amqSongId: i, linked_ids: { anilist: i } }));
   const s = stub({ songs });
   try {

@@ -1,5 +1,5 @@
 // HLS 재생목록(RFC 8216) 해석. 보는 것은 목록 글과 그 주소뿐이다(통신 없음).
-// 상위 목록은 화질 · 음성 고르기를, 하위 목록은 조각(주소 · 바이트 구간 · 초기화 조각 · 키 · 순번)과 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
+// 상위 목록은 화질, 음성 선택지를, 하위 목록은 세그먼트(주소, 바이트 구간, 초기화 세그먼트, 키, 순번)와 끝 표시를 준다. 상대 주소는 목록 주소로 풀고 http(s) 만 남긴다
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
@@ -61,10 +61,10 @@ function parseMaster(lines: string[], baseUrl: string): MasterPlaylist {
   return { kind: "master", variants, audio };
 }
 
-/** 하위 목록을 읽는 동안 다음 조각에 걸릴 것 */
+/** 하위 목록을 읽는 동안 다음 세그먼트에 걸릴 것 */
 type Pending = { duration: number; range: ByteRange | null; init: Segment["init"]; key: Key | null; discontinuity: boolean };
 
-/** 조각 앞의 태그 하나를 읽어 목록 · 다음 조각에 적는다 */
+/** 세그먼트 앞의 태그 하나를 읽어 목록, 다음 세그먼트에 적는다 */
 const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pending, baseUrl: string) => void]> = [
   ["#EXT-X-TARGETDURATION:", (v, out) => (out.targetDuration = Number(v) || 0)],
   ["#EXT-X-MEDIA-SEQUENCE:", (v, out) => (out.mediaSequence = Number(v) || 0)],
@@ -89,7 +89,7 @@ const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pendi
   ],
 ];
 
-/** 하위 목록: 조각과 그 앞의 태그. 초기화 조각 · 키는 바뀔 때까지 뒤 조각에 이어진다 */
+/** 하위 목록: 세그먼트와 그 앞의 태그. 초기화 세그먼트, 키는 바뀔 때까지 뒤 세그먼트에 이어진다 */
 function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   const out: MediaPlaylist = { kind: "media", targetDuration: 0, mediaSequence: 0, ended: false, segments: [] };
   const next: Pending = { duration: 0, range: null, init: null, key: null, discontinuity: false };
@@ -125,7 +125,7 @@ function parsePlaylist(text: string, baseUrl: string): Playlist | null {
 }
 
 /**
- * 상위 목록에서 받을 하위 목록 하나: 음성 따로가 있으면 그것(기본 · 자동 선택 먼저), 없으면 대역폭이 가장 낮은 화질(소리는 같고 받는 양이 가장 적다)
+ * 상위 목록에서 받을 하위 목록 하나: 음성 따로가 있으면 그것(기본, 자동 선택 먼저), 없으면 대역폭이 가장 낮은 화질(소리는 같고 받는 양이 가장 적다)
  */
 function chooseMedia(master: MasterPlaylist): string | null {
   const audio = [...master.audio].sort((a, b) => Number(b.isDefault) - Number(a.isDefault) || Number(b.autoselect) - Number(a.autoselect))[0];
@@ -134,7 +134,7 @@ function chooseMedia(master: MasterPlaylist): string | null {
   return lowest?.url ?? null;
 }
 
-/** VOD 의 길이(초): 조각 길이의 합(1ms 단위, 더하며 생기는 부동소수점 끝자리를 버린다) */
+/** VOD 의 길이(초): 세그먼트 길이의 합(1ms 단위, 더하며 생기는 부동소수점 끝자리를 버린다) */
 const lengthOf = (playlist: MediaPlaylist) => Math.round(playlist.segments.reduce((sum, segment) => sum + segment.duration, 0) * 1000) / 1000;
 
 export { parsePlaylist, chooseMedia, lengthOf };

@@ -1,7 +1,7 @@
 // 운영 조절값(rules/tunables)을 settings.db 의 "tunables" 문서에서 꺼내 설정 객체에 올린다.
-// 기동 때 한 번(boot), 대시보드에서 저장할 때마다(save). 계산은 .env 와 같은 loadConfig 가 한다(검사 · 단위 · 다듬기가 하나).
-// 저장하면 설정 객체를 고치고 알린다(config/tunables-changed). 기동 때 만들어 둔 제한기 · 타이머가 듣고 다시 만든다.
-// 다시 시작해야 적용되는 값(restart)은 저장해도 기동 때 값으로 돈다. 저장하자마자 반쯤 적용되는 일(실행하지 않은 POToken 서버를 찾는 따위)이 없게.
+// 기동 시 한 번(boot), 대시보드에서 저장할 때마다(save). 계산은 .env 와 같은 loadConfig 가 한다(검사, 단위, 다듬기가 하나).
+// 저장하면 설정 객체를 고치고 알린다(config/tunables-changed). 기동 시 만들어 둔 제한기, 타이머가 듣고 다시 만든다.
+// 다시 시작해야 적용되는 값(restart)은 저장해도 기동 시 값으로 돈다. 저장하자마자 반쯤 적용되는 일(실행하지 않은 POToken 서버를 찾는 따위)이 없게.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "config" });
@@ -14,10 +14,10 @@ import * as docs from "./settings-docs.ts";
 
 const DOC = "tunables";
 
-// 기동 때 올린 값. 다시 시작해야 적용되는 값은 이것으로 돈다
+// 기동 시 올린 값. 다시 시작해야 적용되는 값은 이것으로 돈다
 let booted: Record<string, string> = {};
 
-/** 문서에서 아는 이름 · 문자열 값만 남긴다. 빈 문자열은 기본값이라 뺀다. 공백은 tunableValue 대로(텍스트 필드는 남긴다) */
+/** 문서에서 아는 이름, 문자열 값만 남긴다. 빈 문자열은 기본값이라 뺀다. 공백은 tunableValue 대로(텍스트 필드는 남긴다) */
 function shape(data: unknown): Record<string, string> {
   const source = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
   const out: Record<string, string> = {};
@@ -47,13 +47,13 @@ function apply(values: Record<string, string>) {
   return next.tuneProblems;
 }
 
-// 기동 때 올린다. 틀린 필드는 기동을 멈추지 않고 그 필드만 기본값(DB 를 외부에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
+// 기동 시 올린다. 틀린 필드는 기동을 멈추지 않고 그 필드만 기본값(DB 를 외부에서 고쳤을 때 등. 고칠 화면이 떠야 한다)
 function boot(values: Record<string, string>) {
-  for (const line of apply(values)) log.warn(`운영 조절값의 ${line} 그 값은 기본값으로 돕니다. 운영자 패널에서 고치세요`);
+  for (const line of apply(values)) log.warn(`운영 조절값 ${line} 해당 값은 기본값으로 적용됩니다. 운영자 패널에서 수정하세요`);
   booted = values;
 }
 
-/** 기동 때. settings.db 를 연 뒤 */
+/** 기동 시. settings.db 를 연 뒤 */
 function load() {
   boot(shape(docs.read(DOC).data));
 }
@@ -63,7 +63,7 @@ function loadReadOnly(file: string) {
   boot(shape(docs.peek(file, DOC)));
 }
 
-/** 지금 쓰는 값: 다시 시작해야 적용되는 이름은 기동 때 값, 나머지는 저장한 값 */
+/** 지금 쓰는 값: 다시 시작해야 적용되는 이름은 기동 시 값, 나머지는 저장한 값 */
 function effective(saved: Record<string, string>) {
   const out: Record<string, string> = {};
   for (const { key } of TUNABLES) {
@@ -75,7 +75,7 @@ function effective(saved: Record<string, string>) {
 
 /**
  * 저장. values 는 필드 전부(빈 필드는 기본값), revision 은 화면이 읽은 번호.
- * 모르는 이름 · 틀린 값이면 CONFIG_INVALID(problems), 그사이 다른 저장이 있었으면 REVISION_CONFLICT 로 던진다
+ * 모르는 이름, 틀린 값이면 CONFIG_INVALID(problems), 그사이 다른 저장이 있었으면 REVISION_CONFLICT 로 던진다
  */
 function save(values: Record<string, unknown>, revision: number): TunablesView {
   const problems = problemsOf(values);
@@ -86,14 +86,14 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
   return { values: saved, revision: next, pending: pendingOf(saved) };
 }
 
-/** 저장 전 검사(모르는 이름 · 문자열이 아닌 값 · .env 와 같은 값 검사). 문제 줄들 */
+/** 저장 전 검사(모르는 이름, 문자열이 아닌 값, .env 와 같은 값 검사). 문제 줄들 */
 function problemsOf(values: Record<string, unknown>): string[] {
   const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);
   return [...unknown.map((key) => `${key}: 모르는 설정입니다.`), ...wrongType.map(([key]) => `${key}: 문자열로 보내야 합니다.`), ...root.loadConfig(process.env, { tunables: shape(values) }).tuneProblems];
 }
 
-// 저장한 값을 설정 객체에 올리고 알린다(다시 시작해야 적용되는 값은 기동 때 값으로)
+// 저장한 값을 설정 객체에 올리고 알린다(다시 시작해야 적용되는 값은 기동 시 값으로)
 function use(saved: Record<string, string>) {
   apply(effective(saved));
   for (const error of tunablesChanged()) log.error(`운영 조절값을 저장했지만 적용하지 못한 곳이 있습니다: ${messageOf(error)}`);

@@ -11,7 +11,7 @@ const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
 const IS_LINUX = process.platform === "linux";
-// 바쁜 기계에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
+// 바쁜 시스템에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
 const TIMEOUT_MS = 30_000;
 
 const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 메모리 읽기");
@@ -26,9 +26,9 @@ function run(file: string, args: string[], done: number[] = []): Promise<{ out: 
   });
 }
 
-// 상한을 넘겨 끊었는지, 스스로 실패하고 끝났으면 종료 코드와 stderr
+// 상한을 넘겨 끊었는지, 자체 실패로 끝났으면 종료 코드와 stderr
 function failure(error: ExecFileException, stderr: Buffer) {
-  if (error.killed) return `${TIMEOUT_MS / 1000}초를 넘겨 끊음(${error.signal ?? "신호 모름"})`;
+  if (error.killed) return `${TIMEOUT_MS / 1000}초 초과로 강제 종료(${error.signal ?? "신호 모름"})`;
   // 실행조차 못 했다(ENOENT 등)
   if (typeof error.code !== "number") return error.message;
   const said = consoleText(stderr).trim();
@@ -64,7 +64,7 @@ function parseProcStatus(text: string) {
   return found ? Number(found[1]) : null;
 }
 
-// Linux: pid 마다 /proc 를 읽는다. 끝난 pid(ENOENT · ESRCH)는 빠진다
+// Linux: pid 마다 /proc 를 읽는다. 끝난 pid(ENOENT, ESRCH)는 빠진다
 async function fromProc(pids: number[]): Promise<{ memory: Map<number, number> } | { failed: string }> {
   const memory = new Map<number, number>();
   let failed: string | null = null;

@@ -1,4 +1,4 @@
-// 장르 설정의 소스 줄 규격. 종류마다 필드 · 값 목록 · 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
+// 장르 설정의 소스 줄 규격. 종류마다 필드, 값 목록, 필요한 키. 설정 검증과 대시보드 편집기와 자동재생이 같이 본다.
 
 import type { Window } from "../../rules/window-depth.ts";
 
@@ -13,6 +13,8 @@ type Field = {
   kind: FieldKind;
   label: string;
   hint?: string;
+  // 빈 입력란에 흐리게 보일 값(봇이 쓰는 기본값)
+  placeholder?: string;
   deep?: boolean;
   width?: "narrow" | "half" | "halfWide";
   when?: string;
@@ -43,7 +45,7 @@ type SourceTypeView = {
   window: Window | null;
 };
 
-// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(sources/voca.ts). 가수 · 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
+// VocaDB 계열은 깊은 곳을 저쪽이 못 준다(sources/voca.ts). 가수, 가수 분류를 걸면 더 느려 더 앞쪽에서 선택한다
 const VOCA_WINDOW: Window = { depth: 30_000, narrow: ["artists", "artistTypes"], narrowDepth: 2000 };
 
 // 요청은 소문자, 응답은 대문자다. 받은 값을 그대로 되보내면 422.
@@ -59,11 +61,8 @@ const ANISONG_BROADCASTS = ["normal", "dub", "rebroadcast"];
 // 태그는 수가 많아 못 적는다. 오타는 저쪽 422로 드러난다.
 const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
 
-// 기본 곡 종류가 사이트마다 다르다. 셋 다 같은 소프트웨어지만 무엇이 "본체"인지가 다르다.
-//   utaitedb. 우타이테는 남의 곡을 부르는 사람들이다. Original로 받으면 정작 우타이테가
-//              아니라 보컬로이드 원곡이 온다(MARETU feat. 初音ミク 같은 것).
-//   touhoudb. 동방은 어레인지 문화다. Original은 ZUN의 게임 BGM 3,190곡뿐이고,
-//              사람들이 듣는 것은 Arrangement 46,557곡 쪽이다(Bad Apple!! · チルノのパーフェクトさんすう教室).
+// 기본 곡 종류가 사이트마다 다르다. utaitedb 는 Original 로 받으면 우타이테가 아니라 보컬로이드 원곡이 오고,
+// touhoudb 는 Original 이 게임 BGM 뿐이라 사람들이 듣는 Arrangement 를 받는다.
 const VOCA_DEFAULT_TYPES: Partial<Record<Site, string[]>> = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
 // 값이 정해져 있는 필드들. 오타를 설정 시점에 잡는다. 안 그러면 저쪽이 422/400을 돌려주고
@@ -74,7 +73,7 @@ const MEDIA_FORMATS = ["TV", "TV Short", "Movie", "OVA", "ONA", "Special"];
 
 const LB_MODES = ["easy", "medium", "hard"];
 
-// 정렬 이름은 저쪽 코드값이다. 화면에는 한국어로 보인다. 코드값은 예제 파일 주석으로 충분하다.
+// 정렬 이름은 저쪽 코드값이고 화면에는 한국어로 보인다
 const SONG_SORT_OPTIONS = [
   { value: "RatingScore", label: "평가 점수 높은 순" },
   { value: "FavoritedTimes", label: "즐겨찾기 많은 순" },
@@ -96,11 +95,11 @@ const vocaEnums = (site: Site): Record<string, string[]> => ({
 });
 
 // 대시보드가 그릴 입력란. kind 는 화면이 무엇을 표시할지 정한다.
-// list(칩) · text · url · number · range(구간 슬라이더) ·
-// enum(하나 선택) · enumList(알약으로 여럿) · enumDrop(드롭다운에서 여럿) ·
+// list(칩), text, url, number, range(구간 슬라이더),
+// enum(하나 선택), enumList(알약으로 여럿), enumDrop(드롭다운에서 여럿),
 // enumSearch(입력해 찾아 칩으로 여럿. 항목이 수백 개인 입력란).
 // deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
-// width 는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란) · half(늘 반 줄) ·
+// width 는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란), half(늘 반 줄),
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
 // when: "다른 필드" 는 그 입력란이 채워졌을 때만 나온다.
 const f = (key: string, kind: FieldKind, label: string, extra: Omit<Field, "key" | "kind" | "label"> = {}): Field => ({ key, kind, label, ...extra });
@@ -131,12 +130,8 @@ const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
   touhoudb: null,
 };
 
-// 가사 언어. 저쪽이 목록을 안 주므로 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다
-// (유튜브 PV 가 있는 곡 기준. 사이트마다 다르고, 많은 순서다).
-//
-// ha·ln·yo·jv 는 뺐다. 그 언어의 곡이 아니라 로마자 가사에 엉뚱한 코드가 붙은 것이다.
-//
-// 번역 가사만 있는 곡도 걸린다. 그 언어로 부른 곡만 필터링할 방법은 저쪽에 없다.
+// 가사 언어. 저쪽이 목록을 주지 않아 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다(유튜브 PV 가 있는 곡 기준, 사이트마다 많은 순서).
+// 로마자 가사에 엉뚱한 코드가 붙은 ha, ln, yo, jv 는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
 const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",
@@ -212,12 +207,12 @@ const VOCA_LANG_CODES: Record<Site, string[]> = {
 const VOCA_LANGUAGES = Object.fromEntries(Object.entries(VOCA_LANG_CODES).map(([site, codes]) => [site, codes.map((code) => ({ value: code, label: LANG_NAMES[code] }))])) as Record<Site, Option[]>;
 
 const VOCA_SINGER: Record<Site, { typeLabel?: string; artistLabel: string; artistHint: string }> = {
-  vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "입력하면 후보가 표시됩니다. 예) 初音ミク. 여럿이면 모두 참여한 곡" },
-  utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "입력하면 후보가 표시됩니다. 여럿이면 모두 참여한 곡" },
-  touhoudb: { artistLabel: "특정 아티스트만", artistHint: "입력하면 후보가 표시됩니다. 예) ZUN. 여럿이면 모두 참여한 곡" },
+  vocadb: { typeLabel: "보컬 라이브러리", artistLabel: "특정 보컬만", artistHint: "입력하면 후보가 표시돼요. 예) 初音ミク. 여럿이면 모두 참여한 곡" },
+  utaitedb: { typeLabel: "가수 분류", artistLabel: "특정 우타이테만", artistHint: "입력하면 후보가 표시돼요. 여럿이면 모두 참여한 곡" },
+  touhoudb: { artistLabel: "특정 아티스트만", artistHint: "입력하면 후보가 표시돼요. 예) ZUN. 여럿이면 모두 참여한 곡" },
 };
 
-// 척도는 사이트마다 크게 다르지만(예제 파일의 표 참고) 설명할 말은 같다
+// 척도는 사이트마다 크게 다르지만 설명할 말은 같다
 const VOCA_SCORE_HINT = '해당 사이트의 "評価" 점수.';
 
 function vocaFields(site: Site): Field[] {
@@ -227,11 +222,11 @@ function vocaFields(site: Site): Field[] {
     f("tags", "list", "장르 태그", { suggest: "tags", hint: "rock, pop, ballad, EDM, 和風 등. 여럿이면 모두 붙은 곡" }),
     f("minScore", "number", "최소 평가 점수", { width: "half", min: 0, hint: VOCA_SCORE_HINT }),
     // 언어마다 따로 불러와 섞는다(vocaFamily). 저쪽이 한 번에 하나만 받는다
-    f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞입니다" }),
+    f("languages", "enumDrop", "가사 언어", { width: "half", options: VOCA_LANGUAGES[site], hint: "번역 가사만 있는 곡도 섞여요" }),
     ...(types && singer.typeLabel ? [f("artistTypes", "enumList", singer.typeLabel, { deep: true, options: opts(types), hint: "여럿 선택하면 모두 참여한 곡" })] : []),
     f("artists", "list", singer.artistLabel, { deep: true, suggest: "artists", hint: singer.artistHint }),
     f("songTypes", "enumList", "곡 종류", { deep: true, options: opts(VOCA_SONG_TYPES[site]), hint: `기본값: ${(VOCA_DEFAULT_TYPES[site] || ["Original"]).join(", ")}` }),
-    f("excludeTags", "list", "제외할 태그", { deep: true, suggest: "tags", hint: "하나라도 붙은 곡은 뺍니다" }),
+    f("excludeTags", "list", "제외할 태그", { deep: true, suggest: "tags", hint: "하나라도 붙은 곡은 빼요" }),
     f("minLength", "number", "최소 길이(초)", { deep: true, width: "narrow", min: 0 }),
     f("maxLength", "number", "최대 길이(초)", { deep: true, width: "narrow", min: 0 }),
     f("minBpm", "number", "최소 BPM", { deep: true, width: "narrow", min: 0 }),
@@ -250,25 +245,25 @@ function vocaFields(site: Site): Field[] {
  *   env    있어야 하는 키의 이름(운영자 패널의 API 키 탭에서 입력한다. 없으면 그 소스만 못 쓴다, config/source-keys)
  */
 const SPEC: Record<string, SourceSpec> = {
-  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 선택해 유튜브에서 검색합니다. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 선택해 사용합니다" }), f("blockedKeywords", "list", "차단어 오버라이드", { deep: true, hint: "입력하면 이 출처에서는 전역 키워드 검색 차단어 대신 이것을 씁니다. 비우면 전역 값" })] },
+  keyword: { label: "키워드", hint: "지정한 키워드 중 하나를 선택해 유튜브에서 검색해요. 품질이 가장 낮으니 가중치를 낮게 주세요.", need: [["keywords"]], fields: [f("keywords", "list", "검색어", { hint: "무작위로 하나를 선택해 사용해요" }), f("blockedKeywords", "list", "제외 키워드 오버라이드", { deep: true, hint: "입력하면 이 출처에서는 전역 제외 키워드 대신 이것을 써요. 비우면 전역 값" })] },
   lastfm: {
     label: "Last.fm",
-    hint: "태그로 곡 이름을 불러와 유튜브에서 찾습니다.",
+    hint: "태그로 곡 이름을 불러와 유튜브에서 찾아요.",
     need: [["tags"]],
     env: "LASTFM_API_KEY",
-    fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 큽니다. 관련 태그를 여럿 입력하는 것이 좋습니다" }), f("pages", "number", "불러올 페이지 수", { deep: true, min: 1, hint: "기본 5" })],
+    fields: [f("tags", "list", "태그", { hint: "태그마다 품질 편차가 커요. 관련 태그를 여럿 입력하는 게 좋아요" }), f("pages", "number", "불러올 페이지 수", { deep: true, min: 1, placeholder: "5" })],
   },
   lbradio: {
     label: "ListenBrainz Radio",
-    hint: "태그나 프롬프트를 기반으로 플레이리스트를 제공해 줍니다. 둘 중 하나는 입력해야 합니다.",
+    hint: "태그나 프롬프트로 재생목록을 만들어 줘요. 둘 중 하나는 입력해야 해요.",
     need: [["tags", "prompt"]],
     enums: { mode: LB_MODES },
     env: "LISTENBRAINZ_TOKEN",
-    fields: [f("tags", "list", "태그", { hint: "MusicBrainz 공식 장르명" }), f("mode", "enumList", "모드", { options: opts(LB_MODES), hint: "easy가 마이너한 곡을, hard가 유명한 곡을 줍니다. 여럿 선택하면 섞습니다" }), f("prompt", "text", "프롬프트 직접 작성", { deep: true, hint: "예) tag:(jazz,funk)::or, artist:(Miles Davis)" })],
+    fields: [f("tags", "list", "태그", { hint: "MusicBrainz 공식 장르명" }), f("mode", "enumList", "모드", { options: opts(LB_MODES), hint: "easy는 덜 알려진 곡, hard는 더 알려진 곡을 줘요. 여럿 선택하면 섞어요" }), f("prompt", "text", "프롬프트 직접 작성", { deep: true, hint: "예) tag:(jazz,funk)::or, artist:(Miles Davis)" })],
   },
   animethemes: {
     label: "AnimeThemes",
-    hint: "애니 주제가 DB. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생합니다.",
+    hint: "애니 주제가 DB. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생해요.",
     need: [],
     enums: { themeType: ["OP", "ED"], season: SEASONS, seasonFrom: SEASONS, seasonTo: SEASONS, mediaFormat: MEDIA_FORMATS },
     fields: [
@@ -285,7 +280,7 @@ const SPEC: Record<string, SourceSpec> = {
   },
   anisongdb: {
     label: "AnisongDB",
-    hint: "애니 주제가 DB(AMQ 기반). 곡마다 인지도 점수가 있어 유명한 곡만 선택할 수 있습니다. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생합니다.",
+    hint: "애니 주제가 DB(AMQ 기반). 곡마다 인지도 점수가 있어 유명한 곡만 선택할 수 있어요. 유튜브에 풀버전이 있으면 그쪽을, 없으면 TV 사이즈 음원을 재생해요.",
     need: [],
     // 태그는 364개라 여기 못 적는다(검증이 동기다). 오타는 저쪽 422로 드러난다.
     enums: {
@@ -297,9 +292,13 @@ const SPEC: Record<string, SourceSpec> = {
       seasonFrom: SEASONS,
       seasonTo: SEASONS,
     },
+    // 필드 순서와 너비가 편집기의 배치다. 상세(deep) 필드는 짝이 되는 기본 필드 옆이나 아래에 둔다
     fields: [
       // 두 점으로 잡는 구간. 분포는 catalog 가 저쪽에 물어 채운다
-      f("difficultyFrom", "range", "인지도", { to: "difficultyTo", min: 1, max: 100, hint: "AMQ에서 그 곡을 맞힌 사람의 비율입니다. 높을수록 유명합니다" }),
+      f("difficultyFrom", "range", "인지도", { to: "difficultyTo", min: 1, max: 100, hint: "AMQ에서 그 곡을 맞힌 사람의 비율이에요. 높을수록 유명해요" }),
+      f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
+      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
+      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
       f("songTypes", "enumList", "주제가 종류", {
         width: "halfWide",
         options: opts([
@@ -307,7 +306,7 @@ const SPEC: Record<string, SourceSpec> = {
           { value: "ending", label: "ED" },
           { value: "insert", label: "삽입곡" },
         ]),
-        hint: "비우면 OP·ED만. 삽입곡은 폭이 크게 넓어집니다",
+        hint: "비우면 OP와 ED만. 삽입곡은 폭이 크게 넓어져요",
       }),
       f("animeTypes", "enumList", "매체", {
         width: "halfWide",
@@ -321,18 +320,15 @@ const SPEC: Record<string, SourceSpec> = {
         ]),
         hint: "비우면 전부",
       }),
-      f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "선택한 것 중 하나라도 맞으면 나옵니다" }),
-      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 것입니다. 예) School · Idol · Isekai" }),
-      f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
-      f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
-      f("seasonTo", "enum", "끝 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 끝까지" }),
+      f("genres", "enumDrop", "장르", { width: "halfWide", options: opts(ANISONG_GENRES), hint: "선택한 것 중 하나라도 맞으면 나와요" }),
+      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, placeholder: "100" }),
       f("songCategories", "enumList", "곡 성격", {
         deep: true,
         width: "halfWide",
         options: opts([
           { value: "standard", label: "일반" },
           { value: "character", label: "캐릭터송" },
-          { value: "chanting", label: "구호·창" },
+          { value: "chanting", label: "구호, 챈트" },
           { value: "instrumental", label: "연주곡" },
           { value: "other", label: "기타" },
         ]),
@@ -346,20 +342,18 @@ const SPEC: Record<string, SourceSpec> = {
           { value: "dub", label: "더빙" },
           { value: "rebroadcast", label: "재방송" },
         ]),
-        hint: "비우면 본방만. 재방송판에만 있는 곡이 있습니다",
+        hint: "비우면 본방만. 재방송판에만 있는 곡이 있어요",
       }),
-      f("n", "number", "한 번에 불러올 곡 수", { deep: true, width: "halfWide", min: 1, max: 500, hint: "기본 100" }),
+      f("tags", "enumSearch", "태그", { deep: true, options: [], hint: "장르보다 잘게 나눈 거예요. 예) School, Idol, Isekai" }),
     ],
   },
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
-  touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있습니다.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
-  // 재생목록 · 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
-  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록·앨범·아티스트. 앨범은 Spotify 키(운영자 패널의 API 키 탭)가 있어야 합니다" })] },
-  youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "자동 생성 믹스(list=RD…)는 곡 수에 끝이 없어 사용이 불가능합니다" })] },
+  touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있어요.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
+  // 재생목록, 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
+  spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록, 앨범, 아티스트" })] },
+  youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "일반 재생목록이나 유튜브 뮤직 공식 재생목록(list=RDCLAK…)을 넣어 주세요. 전체 곡 수 안에서 무작위로 곡을 뽑기 때문에, 믹스처럼 유튜브가 끝없이 이어 주는 자동 목록은 쓰지 못해요." })] },
 };
-
-/** 이 타입을 지금 쓸 수 있나. 키가 필요한 소스는 키가 있어야 한다. */
 
 /** 이 타입이 무엇을 필요로 하는지(없으면 null). 기동 시 문구를 만들 때 쓴다. */
 const needsOf = (type: string): { env: string; label: string } | null => (SPEC[type]?.env ? { env: SPEC[type].env, label: SPEC[type].label } : null);

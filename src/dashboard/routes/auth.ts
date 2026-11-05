@@ -8,17 +8,17 @@ import { loginFailed, type LoginError } from "../contract/identity.ts";
 import { tokenStoreOf } from "../session-store.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
-import { forgetGuilds } from "../invite.ts";
+import { forgetGuilds } from "../user-guilds.ts";
 import { recordLogin } from "../login-devices.ts";
 
 /** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
 type UserReply = { id: string; username: string; global_name: string | null; avatar: string | null };
 
-// 요청 실패에서 읽는 필드. 응답이 있으면 상태와 본문, 없으면(시간 초과 · 연결 실패) 이름과 문장
+// 요청 실패에서 읽는 필드. 응답이 있으면 상태와 본문, 없으면(시간 초과, 연결 실패) 이름과 문장
 type Failure = { response?: { status?: number; data?: unknown }; name?: string; message?: string; cause?: { code?: string } };
 const failureOf = (error: unknown): Failure => (typeof error === "object" && error !== null ? error : {});
-/** 디스코드가 봇의 앱 자격(클라이언트 ID · 시크릿)을 거절한 응답인가 */
+/** 디스코드가 봇의 앱 자격(클라이언트 ID, 시크릿)을 거절한 응답인가 */
 const isBadClient = (response: Failure["response"]) => (response?.data as { error?: unknown } | undefined)?.error === "invalid_client";
 
 /** 콜백에서 디스코드를 부르다 실패했다. 까닭을 남기고 로그인 화면에 보일 까닭을 선택한다 */
@@ -26,16 +26,16 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
   if (isBadClient(response)) {
-    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET 이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
+    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
     return "bad_client";
   }
-  // 응답 없는 실패(시간 초과 · 연결 실패)도 읽히게
+  // 응답 없는 실패(시간 초과, 연결 실패)도 읽히게
   const what = response ? `상태 코드 ${response.status ?? "없음"}` : name === "TimeoutError" ? "응답 시간 초과" : cause?.code || message;
   log.error({ status: response?.status, body: JSON.stringify(response?.data), redirectUri }, `OAuth 콜백 오류: ${what ?? "없음"}`);
   return "auth_failed";
 }
 
-/** 디스코드에 접근 토큰 폐기를 요청한다(RFC 7009). 로그아웃 · 다른 기기 로그아웃 */
+/** 디스코드에 접근 토큰 폐기를 요청한다(RFC 7009). 로그아웃, 다른 기기 로그아웃 */
 function revokeToken(http: DiscordHttp, token: string) {
   return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
@@ -44,7 +44,7 @@ function revokeToken(http: DiscordHttp, token: string) {
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
 /**
- * 디스코드 OAuth 로그인 · 로그아웃.
+ * 디스코드 OAuth 로그인, 로그아웃.
  * http: 디스코드를 부르는 HTTP 클라이언트. 생략하면 진짜(fetch)
  */
 function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {

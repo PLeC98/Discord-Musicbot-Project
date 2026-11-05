@@ -1,15 +1,14 @@
-// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장·렌더·배포는 sink(LogManager)가 한다.
-// 나중에 pino를 넣으면 이 파일만 교체한다.
+// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장, 렌더, 배포는 sink(LogManager)가 한다.
 //
 //   logger.warn({ guildId }, "무언가 %s", x);
 //   const yt = logger.child({ category: "youtube" });
 //   yt.error(err, "다운로드 실패");
 //
 // 지켜야 할 표면:
-//   - 레벨: trace/debug/info/warn/error/fatal (10~60), logger.level 가변 + 게이팅
+//   - 레벨: trace/debug/info/warn/error/fatal (10~60). logger.level 을 바꿀 수 있고 그보다 낮은 레벨은 찍지 않는다
 //   - 호출: fn(mergingObj?, msg?, ...interp) | fn(err) | fn(msg, ...interp)
 //   - child(bindings): bindings 병합된 자식 (카테고리도 그냥 바인딩이다)
-//   - pino에 없는 logger.log()는 노출하지 않는다 (레거시 console.log은 LogManager 브리지가 흡수)
+//   - pino에 없는 logger.log()는 노출하지 않는다 (서드파티의 console.* 는 sink 의 console 브리지가 받는다)
 
 import util from "util";
 import sink from "./sink.ts";
@@ -18,7 +17,7 @@ import { LEVELS, isLevel, levelNameOf, type LevelName } from "./levels.ts";
 
 type LogFn = (...args: unknown[]) => void;
 
-/** 레벨마다 찍는 함수 · 자식 만들기 · 레벨(읽으면 이름, 설정은 설정 파일의 글자를 받는다) */
+/** 레벨마다 찍는 함수, 자식 만들기, 레벨(읽으면 이름, 쓸 때는 레벨 이름 글자를 받고 모르는 이름은 무시한다) */
 export interface Logger extends Record<LevelName, LogFn> {
   get level(): LevelName;
   set level(value: string);
@@ -45,7 +44,7 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
 
   const rec: LogRecord = { level: levelNum, time: Date.now(), ...bindings, ...(merge || {}) };
 
-  // err 가시화: 구조화 필드(rec.err)는 유지하되 터미널/SSE에 보이도록 stack을 msg에 접붙임.
+  // err 는 rec.err 에 stack 글로 남기고, 터미널, SSE 에도 보이도록 msg 뒤에 붙인다
   const err = rec.err || rec.error;
   if (err instanceof Error) {
     const stack = err.stack || err.message;
@@ -56,9 +55,8 @@ function buildRecord(levelNum: number, bindings: Record<string, unknown>, args: 
   return Object.assign(rec, { msg });
 }
 
-// 루트 레벨은 공유 상태다. 각 파일이 require 시점에 `child()`로 로거를 만들어 두는데,
-// 레벨을 그때 복사해 버리면 나중에(config를 읽은 뒤) 루트 레벨을 바꿔도 이미 만들어진
-// 자식들에게 닿지 않는다. 설정이 아무 효과가 없어진다. pino의 자식도 부모 레벨을 따른다.
+// 루트 레벨은 공유 상태다. 파일마다 불러올 때 `child()`로 로거를 만들어 두므로, 레벨을 그때 복사하면
+// 나중에(설정을 읽은 뒤) 루트 레벨을 바꿔도 이미 만든 자식에게 닿지 않는다. pino의 자식도 부모 레벨을 따른다.
 let rootLevelNum = LEVELS.info;
 
 /** record: 레코드를 받는 곳. 생략하면 sink */
@@ -84,7 +82,7 @@ function createLogger(bindings: Record<string, unknown> = {}, ownLevel: LevelNam
 
   for (const [name, num] of Object.entries(LEVELS)) {
     api[name as LevelName] = (...args: unknown[]) => {
-      if (num < effective()) return; // 레벨 게이팅
+      if (num < effective()) return;
       record(buildRecord(num, bindings, args));
     };
   }

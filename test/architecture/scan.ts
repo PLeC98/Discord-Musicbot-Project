@@ -1,15 +1,15 @@
-// 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS · ESM · .ts 를 같은 코드로 읽기 위해서다.
+// 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS, ESM, .ts 를 같은 코드로 읽기 위해서다.
 //
 //   node test/architecture/scan.ts    지금 숫자와 목록을 찍는다
 //
-// 부름: require("…") · require.resolve("…") · import … from "…" · export … from "…" · import("…"). 글자로 된 상대 경로만 따라간다.
-// import type · export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
-// 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require · import(). 맨 위의 if · try 안은 지연으로 치지 않는다.
-// 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환 · 방향 위반은 프로젝트 모듈에서만 생긴다.
-// 글자가 아닌 경로(명령 · 이벤트 불러오기)는 따로 목록으로 둔다.
+// 부름: require("…"), require.resolve("…"), import … from "…", export … from "…", import("…"). 글자로 된 상대 경로만 따라간다.
+// import type, export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
+// 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require, import(). 맨 위의 if, try 안은 지연으로 치지 않는다.
+// 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환, 방향 위반은 프로젝트 모듈에서만 생긴다.
+// 글자가 아닌 경로(명령, 이벤트 불러오기)는 따로 목록으로 둔다.
 // config 꺼내 두기: 루트 src/config/index.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
 // 모듈 교체: 테스트의 require.cache.
-// 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = … · x[k] = … · x.prototype.m = 무엇이든) mock.method 로 덮거나,
+// 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = …, x[k] = …, x.prototype.m = 무엇이든) mock.method 로 덮거나,
 // 받은 객체의 속성을 교체하는 헬퍼(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
 // 테스트 헬퍼(test/…)가 내준 이름의 필드에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 헬퍼를 거친 제품 값(h.X.m = …)은 센다.
 
@@ -61,7 +61,7 @@ const isRequireResolve = (n: ts.Node): n is ts.CallExpression => ts.isCallExpres
 const isDynamicImport = (n: ts.Node): n is ts.CallExpression => ts.isCallExpression(n) && n.expression.kind === ts.SyntaxKind.ImportKeyword;
 const literalArg = (n: ts.CallExpression) => (n.arguments[0] && ts.isStringLiteralLike(n.arguments[0]) ? n.arguments[0].text : null);
 
-// 타입만 가져오기 · 내보내기(실행 때 지워진다)
+// 타입만 가져오기, 내보내기(실행 때 지워진다)
 const typeOnly = (n: ts.Node) => (ts.isImportDeclaration(n) && !!n.importClause?.isTypeOnly) || (ts.isExportDeclaration(n) && n.isTypeOnly);
 
 // 속성 접근 사슬의 맨 앞 이름(a.b.c → a)
@@ -77,7 +77,7 @@ function parse(rel: string) {
   return { sf, line };
 }
 
-// 봇 코드 한 파일: 부름 · 지연 부름 · 글자가 아닌 부름 · config 꺼내 두기
+// 봇 코드 한 파일: 부름, 지연 부름, 글자가 아닌 부름, config 꺼내 두기
 function scanSource(rel: string) {
   const { sf, line } = parse(rel);
   const deps: { to: string; line: number; lazy: boolean }[] = [];
@@ -91,7 +91,7 @@ function scanSource(rel: string) {
     if (to) deps.push({ to, line: line(n), lazy: inFn });
   };
 
-  // src/config/index.ts 를 받은 이름(맨 위의 import x from "…/config.ts" · import * as x · const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
+  // src/config/index.ts 를 받은 이름(맨 위의 import x from "…/config.ts", import * as x, const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
   for (const s of sf.statements) {
     if (ts.isImportDeclaration(s) && !typeOnly(s) && ts.isStringLiteral(s.moduleSpecifier) && isRootConfig(resolveSpec(rel, s.moduleSpecifier.text) ?? "")) {
       const clause = s.importClause;
@@ -138,7 +138,7 @@ function scanSource(rel: string) {
   return { rel, layer: layerOf(rel), deps, unseen, lazy, captures };
 }
 
-// 테스트 한 파일: require.cache · 메서드 교체
+// 테스트 한 파일: require.cache, 메서드 교체
 function scanTest(rel: string) {
   const { sf, line } = parse(rel);
   let requireCache = 0;
@@ -150,7 +150,7 @@ function scanTest(rel: string) {
 
   const fromProject = (e: ts.Expression | undefined): boolean => {
     if (!e) return false;
-    // (await import("./x")).default · await import("./x")
+    // (await import("./x")).default, await import("./x")
     while (ts.isParenthesizedExpression(e) || ts.isAwaitExpression(e)) e = e.expression;
     if (isRequire(e) || isDynamicImport(e)) return (literalArg(e) ?? "").startsWith(".");
     const r = ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e) ? e.expression : null;
@@ -225,7 +225,7 @@ function scanTest(rel: string) {
   visit(sf);
 
   // 첫 테스트를 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 테스트가 끝나면 맨 위 after() 가 먼저 돌아
-  // 뒤에 등록되는 테스트가 닫힌 서버 · 저장소를 만난다(앞 테스트만 필터링해 돌리면 늘 그렇다)
+  // 뒤에 등록되는 테스트가 닫힌 서버, 저장소를 만난다(앞 테스트만 필터링해 돌리면 늘 그렇다)
   const lateAwaits: number[] = [];
   const awaits = (n: ts.Node): boolean => ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier) || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => awaits(c) || undefined));
   // 줄 안 어디서든(for 로 여럿 등록하는 것까지) test(…) 를 부르면 등록한 것이다. 함수 안은 그 함수가 불릴 때라 보지 않는다
@@ -295,7 +295,7 @@ function scan() {
     graph.set(f.rel, targets);
   }
 
-  // 진입 파일(기동 · scripts) 중 루트 설정까지 닿는 것. 프로젝트 모듈 중 첫 부름이 .env 를 읽는 부트스트랩이어야 설정보다 먼저 돈다
+  // 진입 파일(기동, scripts) 중 루트 설정까지 닿는 것. 프로젝트 모듈 중 첫 부름이 .env 를 읽는 부트스트랩이어야 설정보다 먼저 돈다
   const scripts = walk("scripts")
     .filter((rel) => /^scripts\/[^/]+\.ts$/.test(rel))
     .map(scanSource);

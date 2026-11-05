@@ -1,4 +1,4 @@
-// 자동재생 소스가 같이 쓰는 요청 헬퍼. 요청은 서비스마다 공유 HTTP 클라이언트(infra/http)를 지나 부른 결과가 남는다
+// 자동재생 소스가 같이 쓰는 요청 헬퍼. 요청은 서비스마다 공유 HTTP 클라이언트(infra/http)를 지나므로 호출 결과가 남는다
 
 import { setTimeout as sleep } from "node:timers/promises";
 import config from "../../config/index.ts";
@@ -11,7 +11,7 @@ const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
-/** 자동재생 출처가 부르는 서비스. anilist 는 AnisongDB 곡의 표지 그림 */
+/** 자동재생 출처가 부르는 서비스. anilist 는 AnisongDB 곡의 표지 이미지 */
 const SOURCE_SERVICES = ["lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb"] as const;
 type SourceService = (typeof SOURCE_SERVICES)[number];
 const clients = new Map<SourceService, HttpClient>(SOURCE_SERVICES.map((service) => [service, httpFor(service)]));
@@ -33,7 +33,7 @@ async function getJson<T = unknown>(service: SourceService, url: string, headers
   return (await res.json()) as T;
 }
 
-/** 키 테스트용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크 · 시간 초과) null */
+/** 키 테스트용. 응답을 그대로 돌려주고, 닿지 못했으면(네트워크, 시간 초과) null */
 async function probe(service: SourceService, url: string, headers: Record<string, string> = {}): Promise<Response | null> {
   try {
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
@@ -44,7 +44,7 @@ async function probe(service: SourceService, url: string, headers: Record<string
   }
 }
 
-// getJson의 형제. 필터를 본문으로 받는 API용.
+// 필터를 본문으로 받는 API용 getJson.
 // 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
 // 설정이 조용히 빈손이 되는 이유를 알 수 없다.
 async function postJson<T = unknown>(service: SourceService, url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
@@ -75,11 +75,11 @@ function query(params: Record<string, unknown>): string {
 }
 
 /**
- * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록 · 범위).
+ * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록, 범위).
  *
  * load() 는 값을 돌려주거나, 못 불러왔으면 스스로 까닭을 남기고 null 을 돌려준다.
- * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 묻되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
- * 불러오기는 뒤에서 마저 한다. 못 불러왔으면 retryMs 동안 다시 묻지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
+ * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 불러오되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
+ * 불러오기는 뒤에서 마저 한다. 못 불러왔으면 retryMs 동안 다시 부르지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
  */
 function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }: { ttlMs: number; retryMs: number; waitMs: number }) {
   let value: T | null = null;

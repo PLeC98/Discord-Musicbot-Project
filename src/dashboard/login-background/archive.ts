@@ -1,5 +1,5 @@
-// 로그인 배경 백업(설정 내보내기의 login-background 종류). ZIP 의 login-background/ 아래에 index.json(다 만든 배경 · 지금 배경 · 화면 값 · 한도)과
-// 배경마다 내는 파일(files.ts 의 형식)을 저장 위치 그대로 담는다. 만드는 중 · 실패한 배경은 담지 않는다.
+// 로그인 배경 백업(설정 내보내기의 login-background 종류). ZIP 의 login-background/ 아래에 index.json(다 만든 배경, 지금 배경, 화면 값, 한도)과
+// 배경마다 내는 파일(files.ts 의 형식)을 저장 위치 그대로 담는다. 만드는 중, 실패한 배경은 담지 않는다.
 // 불러오기는 통째로 바꾼다: 파일의 배경을 새 id 로 저장 위치에 먼저 풀고(기록에 없는 폴더라 아직 보이지 않고, 도중에 꺼지면 다음에 켤 때 치운다),
 // 도는 단계를 멈춘 뒤 기록을 바꾸고 옛 배경을 삭제한다. 로그인 화면은 옛 배경의 파일을 못 받으면 배경 정보를 다시 읽는다.
 // 남이 준 파일일 수 있어 형식만 받는다: 기록은 다 만든 배경의 형식, 파일은 기록에 있는 배경의 내는 파일, 목록(.m3u8)은 그 폴더 안의 파일만 가리키고, 정지 그림은 적힌 폭의 WebP
@@ -26,7 +26,7 @@ const PLAYLIST_MAX_BYTES = 1024 * 1024;
 const STILL_MAX_BYTES = 64 * 1024 * 1024;
 const HEX = /^#[0-9a-f]{6}$/i;
 const CODECS = /^[A-Za-z0-9.]+(,[A-Za-z0-9.]+)*$/;
-/** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 조각 */
+/** 목록이 가리킬 수 있는 것: 코덱 목록은 단계 목록, 단계 목록은 세그먼트 */
 const RUNG_LINE = /^(\d{2,4})\/index\.m3u8$/;
 const SEGMENT_LINE = /^seg-\d{3,6}\.m4s$/;
 /** 단계 목록이 init 을 가리키는 줄(이 형식만 주소를 받는다) */
@@ -48,8 +48,8 @@ function exportedCurrent(current: string | null, ready: store.Stored[]): string 
 }
 
 /**
- * 내보낼 항목: index.json(다 만든 배경만) · 그 배경들의 내는 파일(파일째 스트리밍으로 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
- * state · folderOf 는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex 로 읽은 것), prefix 는 ZIP 안 이름 앞
+ * 내보낼 항목: index.json(다 만든 배경만), 그 배경들의 내는 파일(파일째 스트리밍으로 담는다). 만드는 중인 배경은 쓰는 중인 파일이라 담지 않는다.
+ * state, folderOf 는 기록과 배경 폴더(전체 백업 명령은 봇 밖에서 readIndex 로 읽은 것), prefix 는 ZIP 안 이름 앞
  */
 function exportInputs({ state = store.loaded(), folderOf = store.folderOf, prefix = "" }: { state?: store.Index; folderOf?: (id: string) => string; prefix?: string } = {}): ZipInput[] {
   const ready = state.items.filter(store.isReady);
@@ -136,7 +136,7 @@ function itemFrom(raw: unknown): store.Stored | null {
 
 // ── 파일 검사 ──
 
-/** 목록의 줄이 이 폴더 안만 가리키는지. 가리키는 것(단계 폴더 · 조각 이름) */
+/** 목록의 줄이 이 폴더 안만 가리키는지. 가리키는 것(단계 폴더, 세그먼트 이름) */
 function playlistTargets(text: string, line: RegExp, allowMap: boolean): string[] | null {
   const targets: string[] = [];
   for (const raw of text.split(/\r?\n/)) {
@@ -169,7 +169,7 @@ async function stillsProblem(one: store.Stored, files: Files): Promise<string | 
   return null;
 }
 
-/** 코덱마다 목록 · 단계 목록 · init · 조각이 다 있고 목록이 그 폴더 안만 가리키는지 */
+/** 코덱마다 목록, 단계 목록, init, 세그먼트가 다 있고 목록이 그 폴더 안만 가리키는지 */
 function streamsProblem(one: store.Stored, { has, read }: Files): string | null {
   for (const [codec, rungs] of Object.entries(one.media.rungs) as [LoginBackgroundCodec, LoginBackgroundRung[]][]) {
     const master = `${codec}/${PLAYLIST}`;
@@ -228,7 +228,7 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
     if (list && isServed(rest)) list.push(entry);
     else unknown.push(entry.name);
   }
-  if (unknown.length) return { problems: [`모르는 파일이 있습니다: ${unknown.slice(0, 3).join(" · ")}${unknown.length > 3 ? ` 외 ${unknown.length - 3}개` : ""}`], plan: null, bytes: 0 };
+  if (unknown.length) return { problems: [`모르는 파일이 있습니다: ${unknown.slice(0, 3).join(", ")}${unknown.length > 3 ? ` 외 ${unknown.length - 3}개` : ""}`], plan: null, bytes: 0 };
   const problems: string[] = [];
   for (const one of read.index.items) {
     const problem = await itemProblem(zipped, one, files.get(one.id)!);
@@ -236,13 +236,13 @@ async function planOf(zipped: Zipped): Promise<{ problems: string[]; plan: Plan 
   }
   const bytes = [...files.values()].flat().reduce((sum, entry) => sum + entry.size, 0);
   const room = store.room();
-  if (bytes > room) problems.push(`저장 공간이 모자랍니다(풀 크기 ${formatBytes(bytes)} · 남은 공간 ${formatBytes(room)}).`);
+  if (bytes > room) problems.push(`저장 공간이 모자랍니다(풀 크기 ${formatBytes(bytes)}, 남은 공간 ${formatBytes(room)}).`);
   return { problems, plan: problems.length ? null : { index: read.index, files }, bytes };
 }
 
-// ── 미리 보기 · 불러오기 ──
+// ── 미리 보기, 불러오기 ──
 
-/** 같은 배경인지 볼 때의 값: 만든 때 · 이름과 내는 파일(이름 · 크기). 불러오면 id 가 새로 붙으니 id 는 보지 않는다 */
+/** 같은 배경인지 볼 때의 값: 만든 때, 이름과 내는 파일(이름, 크기). 불러오면 id 가 새로 붙으니 id 는 보지 않는다 */
 const signatureOf = (one: store.Stored, files: Array<[string, number]>) => JSON.stringify([one.at, one.name, [...files].sort(([a], [b]) => a.localeCompare(b))]);
 
 function sameAsNow(plan: Plan): boolean {

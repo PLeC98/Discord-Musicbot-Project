@@ -8,12 +8,11 @@ const SECRETS_KEY_BYTES = 32;
 /** 운영자에게 알려 줄 만드는 명령. 출력을 .env 의 SECRETS_KEY= 뒤에 넣는다 */
 const SECRETS_KEY_COMMAND = `node -e "console.log(require('node:crypto').randomBytes(${SECRETS_KEY_BYTES}).toString('base64'))"`;
 
-/** 무작위 32바이트를 base64 로 */
 function newSecretsKey() {
   return crypto.randomBytes(SECRETS_KEY_BYTES).toString("base64");
 }
 
-/** base64 로 적은 32바이트인가. 다시 적었을 때 같은 문자열이어야 한다(잘린 값 · 다른 글자가 섞인 값을 막는다) */
+/** base64 로 적은 32바이트인가. 다시 적었을 때 같은 문자열이어야 한다(잘린 값, 다른 글자가 섞인 값을 막는다) */
 function isSecretsKey(value: string) {
   const text = value.trim();
   const bytes = Buffer.from(text, "base64");

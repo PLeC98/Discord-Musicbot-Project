@@ -1,4 +1,4 @@
-// src/dashboard/routes/log-files.ts — 로그 파일 목록 · 한 쪽 · 내려받기(운영자만, 목록의 이름만, 파일 로그를 끄면 없음)
+// src/dashboard/routes/log-files.ts: 로그 파일 목록, 한 쪽, 다운로드(운영자만, 목록의 이름만, 파일 로그를 끄면 없음)
 
 import fs from "fs";
 import os from "os";
@@ -31,9 +31,12 @@ app.use((req, _res, next) => {
 app.use("/api/admin/logs", logFilesRouter);
 const server = await listenForFetch(app);
 const base = `${baseUrl(server)}/api/admin/logs`;
-after(() => server.close());
+after(() => {
+  server.close();
+  fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
 
-test("목록과 한 쪽: 운영자는 파일 목록 · 필터링한 줄을 받는다", async () => {
+test("목록과 한 쪽: 운영자는 파일 목록, 필터링한 줄을 받는다", async () => {
   const list = (await (await fetch(`${base}/files`)).json()) as LogFileList;
   assert.equal(list.enabled, true);
   assert.deepEqual(
@@ -51,7 +54,7 @@ test("목록과 한 쪽: 운영자는 파일 목록 · 필터링한 줄을 받�
   assert.equal(found.matches, 11, "줄 1 · 10 ~ 19");
 });
 
-test("목록에 없는 이름 · 경로는 log-file-not-found", async () => {
+test("목록에 없는 이름, 경로는 log-file-not-found", async () => {
   fs.writeFileSync(path.join(dir, "other.txt"), "x");
   for (const name of ["other.txt", "../bot.log", file, ""]) {
     const res = await fetch(`${base}/file?name=${encodeURIComponent(name)}`);

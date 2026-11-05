@@ -1,3 +1,5 @@
+// 서버별 설정(settings.db 의 guild_settings). 서버마다 JSON 문서 하나를 필드 하나씩 읽고 쓰고, 읽은 값은 메모리에 담아 둔다.
+
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
 import { z } from "zod";
@@ -5,6 +7,7 @@ import { settingsDb } from "./settings-db.ts";
 import config from "../config/index.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
+import { VOLUME_MAX } from "../rules/limits.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
@@ -27,10 +30,11 @@ const FIELDS = {
   sponsorBlock: z.object({ enabled: z.boolean().nullable().optional(), categories: z.array(z.string()).nullable().optional() }),
   playlistAddMax: z.number().int().positive(),
   agePlace: z.enum(AGE_PLACES),
+  volume: z.number().int().min(0).max(VOLUME_MAX),
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
-// 이미 알린 틀린 문서(서버 · 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
+// 이미 알린 틀린 문서(서버, 내용). 곡마다 읽는 필드가 있어 같은 문서를 되풀이해 알리지 않는다
 const warned = new Set<string>();
 function warnOnce(guildId: string, raw: string, line: string) {
   const key = `${guildId}|${raw}`;
@@ -45,7 +49,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    warnOnce(guildId, raw, `서버 ${guildId} 설정이 JSON 이 아니어서 기본값을 씁니다`);
+    warnOnce(guildId, raw, `서버 ${guildId} 설정 읽기 실패(기본값 사용): 올바른 JSON 형식이 아님`);
     return {};
   }
   const source = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
@@ -57,7 +61,7 @@ function shapeOf(guildId: string, raw: string): GuildDoc {
     if (checked.success) doc[key] = checked.data;
     else wrong.push(key);
   }
-  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값이 틀려 그 값은 기본값을 씁니다`);
+  if (wrong.length) warnOnce(guildId, raw, `서버 ${guildId} 설정의 ${wrong.join(", ")} 값 검증 실패(기본값 사용)`);
   return doc as GuildDoc;
 }
 
@@ -105,20 +109,20 @@ const table = {
   },
 
   setDjRoles(guildId: string, roleIds: string[]) {
-    writeField(guildId, "djRoleIds", roleIds.length ? roleIds : undefined); // 빈 배열 = 미설정과 동일
+    writeField(guildId, "djRoleIds", roleIds.length ? roleIds : undefined); // 빈 배열은 지정하지 않은 것과 같다
   },
 
   clearDjRoles(guildId: string) {
     writeField(guildId, "djRoleIds", undefined);
   },
 
-  /** 서버별 SponsorBlock 설정. { enabled: null|bool, categories: null|string[] } (null=전역 상속) */
+  /** 서버별 SponsorBlock 설정. 필드가 null 이면 전역 설정을 따른다 */
   getGuildSponsorBlock(guildId: string): SponsorBlockSetting {
     const sb = readDoc(guildId).sponsorBlock;
     return { enabled: sb?.enabled ?? null, categories: sb?.categories ?? null };
   },
 
-  /** 서버별 SponsorBlock 설정 저장. enabled/categories 각각 null이면 "상속"으로 기록. */
+  /** 서버별 SponsorBlock 설정 저장. enabled, categories 가 null 이면 전역을 따른다(둘 다 null 이면 필드를 뺀다) */
   setGuildSponsorBlock(guildId: string, { enabled, categories }: Partial<SponsorBlockSetting>) {
     const next = { enabled: typeof enabled === "boolean" ? enabled : null, categories: Array.isArray(categories) ? categories : null };
     writeField(guildId, "sponsorBlock", next.enabled === null && next.categories === null ? undefined : next);
@@ -139,9 +143,19 @@ const table = {
     return readDoc(guildId).agePlace ?? "channel";
   },
 
-  /** 기본값(연령 제한 채널에서만)이면 지운다 */
+  /** 기본값(연령 제한 채널에서만)이면 필드를 뺀다 */
   setAgePlace(guildId: string, place: AgePlace) {
     writeField(guildId, "agePlace", place === "channel" ? undefined : place);
+  },
+
+  /** 마지막으로 정한 볼륨. 미설정이면 null */
+  getVolume(guildId: string): number | null {
+    return readDoc(guildId).volume ?? null;
+  },
+
+  /** 기본 볼륨이면 필드를 뺀다 */
+  setVolume(guildId: string, level: number) {
+    writeField(guildId, "volume", level === config.bot.defaultVolume ? undefined : level);
   },
 };
 
@@ -159,12 +173,12 @@ function replaceAll(docs: Record<string, GuildDoc>) {
   })();
 }
 
-// 서버 · 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
-type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace };
+// 서버, 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
+type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
-/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기 · 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
+/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기, 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
 function forgetCache() {
   cache.clear();
 }
@@ -208,7 +222,7 @@ async function clearBotChannel(guildId: string) {
     table.clearBotChannel(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("전용 채널 지우기 실패:", error);
+    log.error("전용 채널 설정 해제 실패:", error);
   }
   cache.delete(`${guildId}_botChannel`);
 }
@@ -245,12 +259,12 @@ async function clearDjRoles(guildId: string) {
     table.clearDjRoles(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("DJ 역할 지우기 실패:", error);
+    log.error("DJ 역할 설정 해제 실패:", error);
   }
   cache.delete(`${guildId}_djRoles`);
 }
 
-// ── 재생목록 한 번에 넣는 곡 수 ─────────────────────────────────────────────
+// ── 재생목록 한 번에 넣는 곡 수 ──
 // 첫 배치와 "더 넣기" 선택지 단위를 정한다. 더 넣기 자체는 대기열 상한만 본다.
 
 /** 설정할 수 있는 범위와 기본값 */
@@ -269,12 +283,12 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
     return value;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
+    log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
     return null;
   }
 }
 
-/** null이면 기본값으로 되돌린다. 범위 검증은 호출자 몫(명령·대시보드가 사용자에게 알린다). */
+/** null이면 기본값으로 되돌린다. 범위 검사는 부르는 쪽이 한다(명령, 대시보드가 사용자에게 알린다) */
 async function setPlaylistAddMax(guildId: string, count: number | null | undefined) {
   try {
     table.setPlaylistAddMax(guildId, count);
@@ -282,14 +296,14 @@ async function setPlaylistAddMax(guildId: string, count: number | null | undefin
     return true;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("재생목록 한 번에 넣는 곡 수 저장 실패:", error);
+    log.error("재생목록 1회 최대 추가 곡 수 저장 실패:", error);
     return false;
   }
 }
 
 /**
  * 실제로 쓸 값. 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
- * DB가 열린 뒤에만 읽는다. 열지 않은 채 부르는 테스트가 운영 DB를 건드리지 않게.
+ * DB 가 열리지 않았으면 읽지 않고 기본값을 쓴다(DB 를 열지 않고 부르는 테스트).
  */
 function resolvePlaylistAddMax(guildId: string): number {
   const { min, max, default: fallback } = playlistAddLimits();
@@ -299,14 +313,14 @@ function resolvePlaylistAddMax(guildId: string): number {
       stored = table.getPlaylistAddMax(guildId);
       remember(guildId, "playlistAdd", stored);
     } catch (error) {
-      log.error("재생목록 한 번에 넣는 곡 수 읽기 실패(기본값을 쓴다):", error);
+      log.error("재생목록 1회 최대 추가 곡 수 읽기 실패(기본값 사용):", error);
       stored = null;
     }
   }
   return Math.max(min, Math.min(max, stored ?? fallback));
 }
 
-// ── 연령 제한 콘텐츠를 틀 곳 ────────────────────────────────────────────────
+// ── 연령 제한 콘텐츠를 틀 곳 ──
 
 /** 이 서버에서 연령 제한 콘텐츠를 틀 곳. 곡을 찾거나 틀 때마다 부르므로 메모리에 담는다. DB 가 열리지 않았거나 못 읽으면 기본(연령 제한 채널에서만) */
 function resolveAgePlace(guildId: string): AgePlace {
@@ -318,7 +332,7 @@ function resolveAgePlace(guildId: string): AgePlace {
     remember(guildId, "agePlace", value);
     return value;
   } catch (error) {
-    log.error("연령 제한 콘텐츠를 틀 곳 읽기 실패(연령 제한 채널에서만으로 본다):", error);
+    log.error("연령 제한 콘텐츠 허용 범위 읽기 실패(연령 제한 채널만 허용으로 적용):", error);
     return "channel";
   }
 }
@@ -330,14 +344,44 @@ async function setAgePlace(guildId: string, place: AgePlace) {
     return true;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("연령 제한 콘텐츠를 틀 곳 저장 실패:", error);
+    log.error("연령 제한 콘텐츠 허용 범위 저장 실패:", error);
     return false;
   }
 }
 
-// ── SponsorBlock 서버별 설정 ────────────────────────────────────────────────
+// ── 볼륨 ──
 
-/** 서버별 원본 설정(상속=null). { enabled: null|bool, categories: null|string[] } */
+/** 이 서버에서 새 플레이어가 시작할 볼륨(마지막으로 정한 값). DB 가 열리지 않았거나 못 읽으면 기본 볼륨 */
+function resolveVolume(guildId: string): number {
+  let stored = cached(guildId, "volume");
+  if (stored === undefined && settingsDb.isOpen()) {
+    try {
+      stored = table.getVolume(guildId);
+      remember(guildId, "volume", stored);
+    } catch (error) {
+      log.error("서버 볼륨 읽기 실패(기본 볼륨 사용):", error);
+      stored = null;
+    }
+  }
+  return stored ?? config.bot.defaultVolume;
+}
+
+/** 볼륨을 바꾸고 멈춘 뒤 부른다(usecases/controls). 다음에 새로 틀 때 이 값으로 시작한다 */
+async function saveVolume(guildId: string, level: number) {
+  try {
+    table.setVolume(guildId, level);
+    remember(guildId, "volume", level);
+    return true;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("서버 볼륨 저장 실패:", error);
+    return false;
+  }
+}
+
+// ── SponsorBlock 서버별 설정 ──
+
+/** 서버가 정한 그대로의 설정. null 은 전역을 따른다 */
 async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   const hit = cached(guildId, "sb");
   if (hit !== undefined) return hit;
@@ -347,12 +391,12 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
     return v;
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
+    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
     return { enabled: null, categories: null };
   }
 }
 
-/** 부분 갱신. patch에 준 키만 변경(enabled/categories). null 전달 시 "상속"으로 되돌림. */
+/** 일부만 바꾼다. patch 에 준 키(enabled, categories)만 바꾸고, null 을 주면 전역을 따르게 되돌린다 */
 async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetting>) {
   const cur = await getSponsorBlock(guildId);
   const next = {
@@ -371,9 +415,8 @@ async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetti
 }
 
 /**
- * 유효 SponsorBlock 설정. { enabled, categories }.
- * 전역 마스터(config)가 off면 서버 설정과 무관하게 하드 off(상업적 이용 컴플라이언스).
- * 마스터 on이면: enabled = 서버값 ?? true(기본 on), categories = 서버값 ?? 전역 기본.
+ * 실제로 쓸 SponsorBlock 설정. 전역 스위치(config)가 꺼져 있으면 서버 설정과 상관없이 끈다(상업적으로 쓸 때의 데이터 라이선스).
+ * 켜져 있으면 enabled = 서버 값 ?? true, categories = 서버 값 ?? 전역 기본.
  */
 function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: string[] } {
   const master = config.sponsorblock;
@@ -383,7 +426,7 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
     per = table.getGuildSponsorBlock(guildId);
   } catch (error) {
     unlessNotOpen(error);
-    log.error("SponsorBlock 설정 읽기 실패(전역을 따른다):", error);
+    log.error("SponsorBlock 설정 읽기 실패(전역 설정 적용):", error);
     per = { enabled: null, categories: null };
   }
   return {
@@ -392,5 +435,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

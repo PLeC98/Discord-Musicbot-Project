@@ -1,8 +1,8 @@
-// src/config/index.ts — 잘못 적은 설정값은 기동을 멈춘다.
+// src/config/index.ts: 잘못 적은 설정값은 기동을 멈춘다.
 //
 // `parseInt`처럼 "120junk"를 120으로 삼키지 않는다. 경고 뒤 기본값으로 돌면 로그를 보지 않는 사이 의도하지 않은 값으로 운영된다.
 //
-// config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)의 첫 줄이다.
+// config 는 불러와도 멈추지 않고 문제 목록을 낸다. 멈추는 것은 기동(src/index.ts)이 본체를 불러오기 전이다.
 // 값 계산은 loadConfig 순수 함수라 바로 부른다.
 
 import { test } from "node:test";
@@ -13,7 +13,7 @@ import { loadConfig } from "../src/config/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
 
 const ROOT = path.join(import.meta.dirname, "..");
-// 모양이 맞는 암호화 키(32바이트)
+// 형식이 맞는 암호화 키(32바이트)
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수(env)와 운영 조절값(tunables, settings.db 의 문서)으로 설정을 계산한다 */
@@ -40,11 +40,11 @@ test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드
 test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
-  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS · RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 입력하고 .env 에서 삭제하세요."]);
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
-test("허용 범위를 벗어나면 문제다 — 조용히 기본값으로 돌지 않는다", () => {
+test("허용 범위를 벗어나면 문제다. 조용히 기본값으로 돌지 않는다", () => {
   assert.match(load({ DASHBOARD_PORT: "99999" }).problems.join(), /DASHBOARD_PORT.*65535 이하/);
   assert.equal(tune({ SSE_HEARTBEAT_SEC: "0" }).tuneProblems.length, 1, "0초 하트비트 같은 1ms급 타이머도 막는다");
 });
@@ -94,7 +94,7 @@ test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이�
 });
 
 // 클라이언트 이름은 yt-dlp 추출기 인자(youtube:player_client=…)에 그대로 들어간다. ; 가 끼면 인자가 늘어난다
-test("유튜브 클라이언트 이름은 영문 소문자 · 숫자 · _ 만", () => {
+test("유튜브 클라이언트 이름은 영문 소문자, 숫자, _만", () => {
   assert.equal(tune({ YTDLP_PLAYER_CLIENTS: "web;formats=x" }).tuneProblems.length, 1);
   const { config: c } = loadConfig({}, { tunables: { YTDLP_PLAYER_CLIENTS: "Web_Embedded, tv,web_embedded" } });
   assert.deepEqual(c.ytdlp.playerClients, ["web_embedded", "tv"]);
@@ -103,12 +103,12 @@ test("유튜브 클라이언트 이름은 영문 소문자 · 숫자 · _ 만", 
 test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
   const { problems } = load({ DASHBOARD_PORT: "x", DASHBOARD_URL: "y", LOG_LEVEL: "loud" });
   assert.equal(problems.length, 3);
-  assert.match(problems[2], /LOG_LEVEL.*trace·debug·info·warn·error·fatal 중 하나/);
+  assert.match(problems[2], /LOG_LEVEL.*trace, debug, info, warn, error, fatal 중 하나/);
 });
 
-test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID · 기능 한정 키가 없으면 경고", () => {
+test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID, 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({ SECRETS_KEY: KEY });
-  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN · CLIENT_ID · CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
+  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_ID, CLIENT_SECRET. README 의 "설정" 절과 .env.example 의 주석을 참고해 .env 에 채운 뒤 다시 실행하세요.']);
   assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
   assert.equal(bare.warnings.length, 1);
   assert.match(bare.warnings[0], /OWNER_ID/);
@@ -117,7 +117,7 @@ test("자격증명: 봇 토큰 · 클라이언트 ID · 시크릿이 없으면 �
 
 test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
   const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET · LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 입력하고 .env 에서 삭제하세요."]);
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });

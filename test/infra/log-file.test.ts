@@ -1,13 +1,19 @@
-// src/infra/log/file.ts — NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
+// src/infra/log/file.ts: NDJSON 파일 destination (원본 보존 / ANSI 제거 / 크기 회전 / 실패 시 조용히 중단)
 
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } from "../../src/infra/log/file.ts";
+const dirs: string[] = [];
+after(() => {
+  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+});
 function tmpdir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logfile-test-"));
+  dirs.push(dir);
+  return dir;
 }
 
 const rec = (msg: string, extra = {}) => ({ time: 1757400000000, level: 30, msg, ...extra });
@@ -31,7 +37,7 @@ test("한 줄에 레코드 하나, 바인딩을 그대로 보존한다", () => {
   assert.equal(out[1].category, "watchdog");
 });
 
-test("ANSI만 벗긴다 — 색이 남으면 grep이 깨진다", () => {
+test("ANSI만 벗긴다. 색이 남으면 grep이 깨진다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const dest = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   dest.write(rec("\u001b[31m❌ 실패\u001b[39m"));
@@ -40,7 +46,7 @@ test("ANSI만 벗긴다 — 색이 남으면 grep이 깨진다", () => {
   assert.equal(lines(file)[0].msg, "❌ 실패");
 });
 
-test("이어 쓰기 — 재시작해도 기존 내용을 덮지 않는다", () => {
+test("이어 쓰기: 재시작해도 기존 내용을 덮지 않는다", () => {
   const file = path.join(tmpdir(), "bot.log");
   const first = createFileDestination({ file, maxBytes: 1e9, keep: 3 });
   first.write(rec("이전 기동"));
@@ -164,21 +170,21 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   dest.write(rec("다시 남김"));
   dest.close();
   assert.equal(notices.length, 2);
-  assert.match(notices[1], /다시 됩니다\(잇단 실패 2회 뒤\)/);
+  assert.match(notices[1], /복구\(실패 2회\)/);
   const got = lines(path.join(dir, "bot.log"));
   assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 다시 씁니다\. 그동안 3줄을 남기지 못했습니다$/);
   assert.equal(got[1].msg, "다시 남김");
 });
 
 test("backupPath: 확장자 앞에 시각을 넣고, 확장자가 없으면 뒤에 붙인다", () => {
-  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터 — 9월
+  const at = new Date(2026, 8, 10, 14, 23, 5, 123); // 월은 0부터라 8 이 9월
   assert.equal(backupPath("/a/bot.log", at), "/a/bot-2026-09-10T14-23-05.123.log");
   assert.equal(backupPath("/a/bot", at), "/a/bot-2026-09-10T14-23-05.123");
 });
 
 // 같은 밀리초에 두 번 회전할 때 번호를 덧붙이면(`…407-2.log`) `-`가 `.`보다 작아
 // 번호 붙은 쪽이 원본보다 앞으로 정렬된다(빠른 러너에서만 드러난다).
-test("이름이 겹치면 시각을 밀어서 비운다 — 이름순이 곧 시간순이어야 한다", () => {
+test("이름이 겹치면 시각을 밀어서 비운다. 이름순이 곧 시간순이어야 한다", () => {
   const at = new Date(2026, 8, 10, 14, 23, 5, 123);
   const taken = new Set(["/a/bot-2026-09-10T14-23-05.123.log", "/a/bot-2026-09-10T14-23-05.124.log"]);
 

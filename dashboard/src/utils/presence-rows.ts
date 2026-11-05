@@ -6,7 +6,7 @@ import { text } from "../text/index.ts";
 
 /** 문구 한 줄. type 이 "" 이면 파일에 종류를 적지 않는다(기본 = 듣는 중) */
 type MessageRow = { key: number; text: string; type: ActivityType | "" };
-/** 특별 문구 하나. 양력 · 음력 · 시간대 중 적은 것이 맞을 때 평소 문구 대신 돈다 */
+/** 특별 문구 하나. 양력, 음력, 시간대 중 적은 것이 맞을 때 평소 문구 대신 돈다 */
 type SpecialRow = { key: number; name: string; date: string; lunar: string; time: string; messages: MessageRow[] };
 /** 특별 문구가 맞는지 보는 조건 */
 type ConditionKey = "date" | "lunar" | "time";

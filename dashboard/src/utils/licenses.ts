@@ -1,17 +1,16 @@
 import { text } from "../text/index.ts";
 const T = text.licenses.items;
-// 라이선스 대화상자(LicenseDialog)의 목록: 화면이 내보내는 글꼴 · 그림 · 라이브러리, 봇이 함께 배포하는 데이터(data/, 고지는 data/NOTICE). 라이선스는 각 패키지의 package.json 에 적힌 것.
-// 빌드할 때만 쓰는 도구(Vite · TypeScript 등)는 화면에 실리지 않아 넣지 않는다. 의존성을 추가하거나 빼면 여기도 고친다
+// 라이선스 대화상자(LicenseDialog)의 목록: 화면이 내보내는 글꼴, 그림, 라이브러리, 봇이 함께 배포하는 데이터(data/, 고지는 data/NOTICE). 라이선스는 각 패키지의 package.json 에 적힌 것.
+// 빌드할 때만 쓰는 도구(Vite, TypeScript 등)는 화면에 실리지 않아 넣지 않는다. 의존성을 추가하거나 빼면 여기도 고친다
 
 export type LicenseItem = { name: string; license: string; url: string; note?: string };
 
 export const FONTS_AND_ART: LicenseItem[] = [
   { name: "Google Sans Flex", license: "SIL OFL 1.1", url: "https://fonts.google.com/specimen/Google+Sans+Flex" },
   { name: "Pretendard", license: "SIL OFL 1.1", url: "https://github.com/orioncactus/pretendard" },
-  { name: "D2Coding", license: "SIL OFL 1.1", url: "https://github.com/naver/d2codingfont" },
+  { name: "D2Coding", license: "SIL OFL 1.1", url: "https://github.com/naver/d2-coding-font", note: T.d2codingNote },
   { name: "Material Symbols Rounded", license: "SIL OFL 1.1", url: "https://fonts.google.com/icons" },
-  { name: T.twemojiArt, license: "CC BY 4.0", url: "https://github.com/jdecked/twemoji", note: T.twemojiArtNote },
-  { name: T.twemojiFont, license: "SIL OFL 1.1", url: "https://github.com/mrdrogdrog/twemoji-color-font" },
+  { name: T.twemojiArt, license: "CC BY 4.0", url: "https://github.com/discord/twemoji", note: T.twemojiArtNote },
 ];
 
 export const LIBRARIES: LicenseItem[] = [
@@ -21,11 +20,10 @@ export const LIBRARIES: LicenseItem[] = [
   { name: "VueUse", license: "MIT", url: "https://vueuse.org" },
   { name: "Tailwind CSS", license: "MIT", url: "https://tailwindcss.com" },
   { name: "axios", license: "MIT", url: "https://axios-http.com" },
-  { name: "Twemoji API", license: "MIT", url: "https://github.com/jdecked/twemoji" },
   { name: "Material Color Utilities", license: "Apache 2.0", url: "https://github.com/material-foundation/material-color-utilities" },
 ];
 
-// 저장소 주소 견주기: 끝의 / · .git, 대소문자, http(s):// · www. 는 무시한다(같은 저장소를 적는 흔한 다른 형식)
+// 저장소 주소 비교: 끝의 /, .git, 대소문자, http(s)://, www. 는 무시한다(같은 저장소를 적는 흔한 다른 형식)
 const repoKey = (url: string) =>
   url
     .trim()

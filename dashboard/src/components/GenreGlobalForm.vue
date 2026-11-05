@@ -17,7 +17,7 @@
       </label>
     </div>
     <div>
-      <!-- 차단어는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다 -->
+      <!-- 제외 키워드는 키워드 출처(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다 -->
       <span :class="[FIELD_LABEL, 'flex! items-center gap-1']">{{ T.blocked }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.blockedTip" /></span>
       <ChipInput v-model="defaults.blockedKeywords" lowercase :placeholder="T.blockedPlaceholder" />
     </div>
@@ -33,7 +33,7 @@ import { GENRE_DEFAULTS } from "../../../src/config/schema/genres.ts";
 import { text } from "../text/index.ts";
 const T = text.genres.defaults;
 
-/** 전역 값. 필드를 바로 고친다(부모의 draft.defaults) */
+/** 전역 값. 필드를 바로 수정한다(부모의 draft.defaults) */
 type Defaults = { prefetchCount: number | null; minDurationSec: number | null; maxDurationSec: number | null; blockedKeywords: string[] };
 const defaults = defineModel<Defaults>({ required: true });
 </script>

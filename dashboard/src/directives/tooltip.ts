@@ -1,15 +1,16 @@
 // v-tooltip="text". 네이티브 title 대신 커스텀 디자인 툴팁.
-// 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래) 4 떨어진 위치에 중앙 정렬로 표시(M3 일반 툴팁, 꼬리 없음).
+// 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래) 4px 떨어진 위치에 중앙 정렬로 표시(M3 일반 툴팁, 꼬리 없음).
 //
-// 마우스: 올리면 뜨고 떠나거나 누르면 꺼진다. 키보드: 포커스가 오면 뜬다. 어디든 스크롤되면 꺼진다.
-// 터치 · 펜: 톡 치면 브라우저가 마우스 흉내(올림 → 누름)를 연달아 보내 떴다가 바로 꺼지므로, 그 흉내는 받지 않고 따로 다룬다.
-//   누르는 기능이 없는 것(도움말 아이콘 · 라벨)은 톡 치면 켜고 끄고, 버튼 · 링크처럼 누르면 동작하는 것은 길게 누르면 뜬다(M3 모바일 툴팁.
+// 마우스: 올리면 뜨고 떠나거나 누르면 꺼진다. 키보드: 포커스가 오면 뜬다(누른 버튼에 오는 포커스는 빼고). 어디든 스크롤되면 꺼진다.
+// v-tooltip.stay: 눌러도 끄지 않는다(누를 때마다 글이 바뀌는 버튼).
+// 터치, 펜: 톡 치면 브라우저가 마우스 흉내(올림 → 누름)를 연달아 보내 떴다가 바로 꺼지므로, 그 흉내는 받지 않고 따로 다룬다.
+//   누르는 기능이 없는 것(도움말 아이콘, 라벨)은 톡 치면 켜고 끄고, 버튼, 링크처럼 누르면 동작하는 것은 길게 누르면 뜬다(M3 모바일 툴팁.
 //   이때 손을 떼며 오는 누름은 막는다: 툴팁을 보려던 것이지 누르려던 것이 아니다). 다른 곳을 치면 꺼진다.
 
 import type { Directive } from "vue";
 
-/** 요소마다 든 것: 표시할 글과 붙인 처리기 */
-type Held = { text: string | null | undefined; show: () => void; hide: () => void; down: (e: PointerEvent) => void; up: (e: PointerEvent) => void; cancel: () => void; click: (e: MouseEvent) => void };
+/** 요소마다 든 것: 표시할 글과 붙인 핸들러 */
+type Held = { text: string | null | undefined; show: () => void; hide: () => void; focus: () => void; press: () => void; blur: () => void; down: (e: PointerEvent) => void; up: (e: PointerEvent) => void; cancel: () => void; click: (e: MouseEvent) => void };
 const held = new WeakMap<HTMLElement, Held>();
 
 const LONG_PRESS_MS = 500;
@@ -44,11 +45,17 @@ function ensureEl() {
 function show(el: HTMLElement) {
   const text = held.get(el)?.text;
   if (!text) return hide(el);
-  owner = el;
   const t = ensureEl();
+  // 떠 있으면 다시 나타나지 않고 글, 자리만 바꾼다
+  const shown = owner === el && t.style.display === "block";
+  if (shown && t.textContent === text) return;
+  owner = el;
   t.textContent = text;
   t.style.display = "block";
-  t.style.opacity = "0";
+  if (!shown) t.style.opacity = "0";
+  // 앞 툴팁 자리에서 재면 폭이 눌린다
+  t.style.left = "0px";
+  t.style.top = "0px";
 
   const r = el.getBoundingClientRect();
   const tr = t.getBoundingClientRect();
@@ -58,11 +65,13 @@ function show(el: HTMLElement) {
   const gap = 4;
   let top = r.top - tr.height - gap;
   if (top < pad) top = r.bottom + gap;
+  top = Math.max(pad, Math.min(top, window.innerHeight - tr.height - pad));
   t.style.left = `${Math.round(left)}px`;
   t.style.top = `${Math.round(top)}px`;
-  requestAnimationFrame(() => {
-    t.style.opacity = "1";
-  });
+  if (!shown)
+    requestAnimationFrame(() => {
+      t.style.opacity = "1";
+    });
 }
 
 /** el 이 표시한 툴팁이면 끈다 */
@@ -82,6 +91,10 @@ const tooltip: Directive<HTMLElement, string | null | undefined> = {
       // 터치 뒤의 마우스 흉내는 받지 않는다
       show: () => !fromTouch() && show(el),
       hide: () => !fromTouch() && hide(el),
+      focus: () => el.matches(":focus-visible") && one.show(),
+      press: () => !binding.modifiers.stay && one.hide(),
+      // 처리 중에 버튼이 꺼져 포커스를 잃어도 마우스가 위면 둔다
+      blur: () => !(binding.modifiers.stay && el.matches(":hover")) && one.hide(),
       down(e) {
         if (e.pointerType === "mouse") return;
         lastTouch = Date.now();
@@ -119,9 +132,9 @@ const tooltip: Directive<HTMLElement, string | null | undefined> = {
     held.set(el, one);
     el.addEventListener("mouseenter", one.show);
     el.addEventListener("mouseleave", one.hide);
-    el.addEventListener("mousedown", one.hide); // 클릭/스크럽 시작 시 숨김
-    el.addEventListener("focus", one.show);
-    el.addEventListener("blur", one.hide);
+    el.addEventListener("mousedown", one.press); // 클릭/스크럽 시작 시 숨김
+    el.addEventListener("focus", one.focus);
+    el.addEventListener("blur", one.blur);
     el.addEventListener("pointerdown", one.down);
     el.addEventListener("pointerup", one.up);
     el.addEventListener("pointercancel", one.cancel);
@@ -139,9 +152,9 @@ const tooltip: Directive<HTMLElement, string | null | undefined> = {
     if (one) {
       el.removeEventListener("mouseenter", one.show);
       el.removeEventListener("mouseleave", one.hide);
-      el.removeEventListener("mousedown", one.hide);
-      el.removeEventListener("focus", one.show);
-      el.removeEventListener("blur", one.hide);
+      el.removeEventListener("mousedown", one.press);
+      el.removeEventListener("focus", one.focus);
+      el.removeEventListener("blur", one.blur);
       el.removeEventListener("pointerdown", one.down);
       el.removeEventListener("pointerup", one.up);
       el.removeEventListener("pointercancel", one.cancel);

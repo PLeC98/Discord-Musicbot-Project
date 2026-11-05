@@ -1,4 +1,4 @@
-// src/rules/controls.ts — 이전 · 다음 곡 버튼과 넣은 사람의 조작. 서버 판정과 디스코드 패널 · 대시보드가 같이 쓴다
+// src/rules/controls.ts: 이전, 다음 곡 버튼과 넣은 사람의 조작. 서버 판정과 디스코드 패널, 대시보드가 같이 쓴다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ test("이전 곡: 기록이 있거나 반복 중이면", () => {
   assert.equal(canGoBack({ history: 0, loop: "queue" }), true);
 });
 
-test("다음 곡: 대기열 · 한 곡 반복 · 자동재생 중 하나면", () => {
+test("다음 곡: 대기열, 한 곡 반복, 자동재생 중 하나면", () => {
   assert.equal(canGoNext({ queue: 0, loop: false, autoplay: false }), false);
   assert.equal(canGoNext({ queue: 0, loop: "queue", autoplay: false }), false, "대기열 반복이라도 대기열이 비면 넘길 곳이 없다");
   assert.equal(canGoNext({ queue: 2, loop: false, autoplay: false }), true);

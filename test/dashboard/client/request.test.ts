@@ -1,4 +1,4 @@
-// dashboard/src/utils/request.ts — 화면 요청 한 곳: CSRF 토큰 · 토큰 거절 뒤 한 번 다시 보내기 · 세션 끝 · 서버에 닿았는지 · 시간 한도
+// dashboard/src/utils/request.ts: 화면 요청을 모은 곳. CSRF 토큰, 토큰 거절 뒤 한 번 재시도, 세션 끝, 백엔드에 닿았는지, 시간 한도
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,10 +8,10 @@ import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 
 type Sent = { method: string; url: string; token: string | undefined };
-/** blob: 문제 응답을 파일로 다운로드하는 요청처럼 Blob 으로 */
+/** blob: 파일 다운로드 요청처럼 문제 응답을 Blob 으로 준다 */
 type Reply = { problem?: Code; data?: unknown; fail?: string; blob?: boolean };
 
-/** 가짜 서버. route 가 요청마다 답을 선택한다. 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 다시 로그인을 물으면 마칠지(기본은 그만둔다) */
+/** 가짜 서버. route 가 요청마다 답을 고르고, 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 재로그인 안내에서 로그인을 마치는가(기본은 그만둔다) */
 function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }: { signsIn?: boolean } = {}) {
   const sent: Sent[] = [];
   const ends: string[] = [];

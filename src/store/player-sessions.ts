@@ -1,5 +1,5 @@
-// 플레이어 세션 저장소. 길드당 세션 한 행 + 현재곡·대기열·기록 트랙 행.
-// DB는 재시작 복원용 사본이다. 재생 중의 진실은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
+// 플레이어 세션 저장소. 서버당 세션 한 행 + 현재곡, 대기열, 기록 트랙 행.
+// DB는 재시작 복원용 사본이다. 재생 중의 원본은 메모리 배열이고, 슬롯 안의 행 순서는 그 배열 순서와 같다.
 // 그래서 i번째 곡은 seq를 들고 다니지 않고 `ORDER BY seq LIMIT 1 OFFSET i`로 찾는다.
 
 import { HISTORY_MAX } from "../rules/history.ts";
@@ -14,12 +14,12 @@ const GAP = 1_000_000_000;
 // better-sqlite3는 정수를 JS Number로 준다. 2^53을 넘으면 정밀도가 깨지므로 그 전에 재번호한다
 const SEQ_LIMIT = Number.MAX_SAFE_INTEGER - GAP;
 
-const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "uploader", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry", "audio_found_by"] as const;
+const TRACK_COLUMNS = ["track_id", "page_url", "request_key", "audio_url", "title", "artist", "album", "duration_sec", "thumbnail", "platform", "is_live", "requester_id", "entry", "audio_found_by"] as const;
 
 type Slot = "current" | "queue" | "history";
 type LoopMode = "off" | "track" | "queue";
 
-/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId · uploader)가 섞여 온다. 여기서 읽는 필드만 */
+/** 저장할 곡. 대기열의 곡에 되읽은 곡의 필드(requesterId)가 섞여 온다. 여기서 읽는 필드만 */
 type TrackIn = {
   id?: string | null;
   pageUrl?: string | null;
@@ -28,12 +28,10 @@ type TrackIn = {
   title?: string | null;
   artist?: string | null;
   album?: string | null;
-  uploader?: string | null;
   duration?: unknown;
   thumbnail?: string | null;
   platform?: string | null;
   isLive?: boolean | null;
-  live?: boolean | null;
   requestedBy?: { id?: string | null } | null;
   requesterId?: string | null;
   audioFoundBy?: string | null;
@@ -49,7 +47,7 @@ type SessionRow = {
   volume: number;
   loop_mode: LoopMode;
   autoplay: string | null;
-  paused_manual: number;
+  user_paused: number;
   position_ms: number;
 };
 
@@ -60,7 +58,7 @@ type SessionState = {
   volume?: number;
   loopMode?: LoopMode;
   autoplay?: string | null;
-  pausedManual?: boolean;
+  userPaused?: boolean;
   positionMs?: number;
 };
 
@@ -68,7 +66,7 @@ type SessionState = {
 type RawTrackRow = { guild_id: string; slot: Slot; seq: number; [column: string]: unknown };
 type TrackParams = ReturnType<typeof toRow>;
 
-// 빈 값(undefined · null · "")은 NULL 로
+// 빈 값(undefined, null, "")은 NULL 로
 const orNull = <T>(value: T | null | undefined) => value || null;
 
 function toRow(track: TrackIn) {
@@ -80,11 +78,11 @@ function toRow(track: TrackIn) {
     title: orNull(track.title),
     artist: orNull(track.artist),
     album: orNull(track.album),
-    uploader: orNull(track.uploader),
-    duration_sec: typeof track.duration === "number" ? track.duration : Number(track.duration) || null,
+    // 곡 모델에서 길이 0 은 모름이다. 0 보다 큰 유한한 수만 적는다
+    duration_sec: typeof track.duration === "number" && Number.isFinite(track.duration) && track.duration > 0 ? track.duration : null,
     thumbnail: orNull(track.thumbnail),
     platform: orNull(track.platform),
-    is_live: track.isLive || track.live ? 1 : 0,
+    is_live: track.isLive ? 1 : 0,
     requester_id: track.requestedBy?.id || orNull(track.requesterId),
     entry: Number.isInteger(track.entry) && (track.entry as number) > 0 ? (track.entry as number) : null,
     audio_found_by: orNull(track.audioFoundBy),
@@ -103,7 +101,6 @@ function fromRow(row: TrackRow) {
     thumbnail: row.thumbnail,
     artist: row.artist,
     album: row.album,
-    uploader: row.uploader,
     platform: row.platform,
     isLive: Boolean(row.is_live),
     requesterId: row.requester_id,
@@ -118,7 +115,7 @@ function sessionFromRow(row: SessionRow) {
     volume: row.volume,
     loopMode: row.loop_mode,
     autoplay: row.autoplay,
-    pausedManual: Boolean(row.paused_manual),
+    userPaused: Boolean(row.user_paused),
     positionMs: row.position_ms,
   };
 }
@@ -130,13 +127,13 @@ function queries(conn: Db) {
     ensure: conn.prepare<[string]>("INSERT OR IGNORE INTO player_sessions (guild_id) VALUES (?)"),
     upsert: conn.prepare<SessionRow>(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     paused_manual, position_ms)
+                                     user_paused, position_ms)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @paused_manual, @position_ms)
+                @user_paused, @position_ms)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
-          paused_manual = excluded.paused_manual, position_ms = excluded.position_ms`),
+          user_paused = excluded.user_paused, position_ms = excluded.position_ms`),
     position: conn.prepare<[number, string]>("UPDATE player_sessions SET position_ms = ? WHERE guild_id = ?"),
     deleteSession: conn.prepare<[string]>("DELETE FROM player_sessions WHERE guild_id = ?"),
     deleteGuildTracks: conn.prepare<[string]>("DELETE FROM session_tracks WHERE guild_id = ?"),
@@ -183,7 +180,7 @@ class PlayerSessionStore {
     this.q.insert.run({ guild_id: guildId, slot, seq, ...toRow(track) });
   }
 
-  // 슬롯을 0, GAP, 2·GAP…로 다시 매긴다. 행 id가 바뀌므로 호출한 쪽은 위치를 다시 읽어야 한다.
+  // 슬롯을 0, GAP, 2, GAP…로 다시 매긴다. 행 id가 바뀌므로 호출한 쪽은 위치를 다시 읽어야 한다.
   _renumber(guildId: string, slot: Slot) {
     const rows = this.q.slotRows.all(guildId, slot);
     this.q.deleteSlot.run(guildId, slot);
@@ -224,12 +221,12 @@ class PlayerSessionStore {
       volume: s.volume ?? 100,
       loop_mode: s.loopMode ?? "off",
       autoplay: s.autoplay || null,
-      paused_manual: s.pausedManual ? 1 : 0,
+      user_paused: s.userPaused ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
     });
   }
 
-  // 재생 위치만. 활성 플레이어 전부를 한 트랜잭션에
+  // 재생 위치만 저장한다. 도는 플레이어 전부를 한 트랜잭션으로
   savePositions(entries: Array<{ guildId: string; positionMs?: number }>) {
     this._tx(() => {
       for (const e of entries) this.q.position.run(Math.max(0, Math.round(e.positionMs ?? 0)), e.guildId);
@@ -243,11 +240,13 @@ class PlayerSessionStore {
     });
   }
 
-  // ── 트랙 행 (증분) ──
+  // ── 트랙 행 (한 곡씩) ──
 
+  // 지금 곡이 바뀌면 위치도 0으로. 새 곡의 재생이 위치를 쓰기 전에 꺼지면 앞 곡의 위치로 열게 된다
   setCurrent(guildId: string, track: TrackIn | null | undefined) {
     this._tx(() => {
       this.q.deleteSlot.run(guildId, "current");
+      this.q.position.run(0, guildId);
       if (!track) return; // 비우기만 할 때는 세션 행을 새로 만들지 않는다
       this._ensure(guildId);
       this._insert(guildId, "current", 0, track);
@@ -266,12 +265,13 @@ class PlayerSessionStore {
     });
   }
 
-  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다)
+  // 대기열 index번째를 현재곡으로. 있던 현재곡 행은 버린다(기록은 retire가 따로 남긴다). 위치는 setCurrent 와 같이 0
   take(guildId: string, index: number): boolean {
     return this._tx(() => {
       const row = this.q.rowidAt.get(guildId, "queue", index);
       if (!row) return false;
       this.q.deleteSlot.run(guildId, "current");
+      this.q.position.run(0, guildId);
       this.q.toCurrent.run(row.rowid);
       return true;
     });
@@ -326,7 +326,7 @@ class PlayerSessionStore {
     });
   }
 
-  // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 큐 반복 사본(copy번째)은 먼저 뺀다.
+  // 이전곡. 기록의 마지막 곡을 대기열 맨 앞에, 중단된 현재곡을 그 뒤에. 대기열 반복 사본(copy번째)은 먼저 뺀다.
   // fromHistory: 기록 끝에서 꺼낸 곡이다(기록 행을 삭제한다). 대기열 반복의 이전 곡은 대기열 끝에서 오므로 기록을 두고 copy 만 옮긴다
   rewind(guildId: string, track: TrackIn, { copy = -1, current = null, fromHistory = true }: { copy?: number; current?: TrackIn | null; fromHistory?: boolean } = {}): boolean {
     return this._tx(() => {
@@ -387,7 +387,7 @@ class PlayerSessionStore {
     return this.q.allSessions.all().map((s) => ({ guildId: s.guild_id, session: sessionFromRow(s), ...this._group(byGuild.get(s.guild_id) || []) }));
   }
 
-  // 기동 시 고아 파일 청소가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 다운로드하면 된다)
+  // 기동 시 고아 파일 정리가 지켜야 할 곡의 음원 주소. 현재곡과 대기열(기록은 다시 다운로드하면 된다)
   liveAudioUrls(): string[] {
     return this.q.liveRefs.all().map((r) => r.audio_url);
   }
@@ -398,9 +398,9 @@ class PlayerSessionStore {
   }
 }
 
-// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
 type RestoredTrack = ReturnType<typeof fromRow>;
 
+// 모양이 틀린 행은 버리고 DB 에서도 삭제한다. 남겨 두면 메모리의 i번째와 DB 의 i번째 행이 어긋난다
 function groupTracks(rows: RawTrackRow[], drop: (row: RawTrackRow) => void) {
   const out: { current: RestoredTrack | null; queue: RestoredTrack[]; history: RestoredTrack[] } = { current: null, queue: [], history: [] };
   for (const raw of rows) {

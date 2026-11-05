@@ -1,4 +1,4 @@
-// src/rules/track-cache-filter.ts — 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 견준다
+// src/rules/track-cache-filter.ts: 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 비교한다
 import test from "node:test";
 import assert from "node:assert";
 import { FILTER_MAX, REGEX_MAX, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";
@@ -15,13 +15,13 @@ test("빈 식은 필터링하지 않는다", () => {
   assert.equal(parseWords(""), null);
 });
 
-test("그냥 쓰면 포함(대소문자 무시) · % 는 아무 글자들 · 다른 정규식 글자는 글자 그대로", () => {
+test("그냥 쓰면 포함(대소문자 무시), % 는 아무 글자들, 다른 정규식 글자는 글자 그대로", () => {
   assert.deepEqual(pick("text", "yoa", ["YOASOBI", "Aimer", null]), ["YOASOBI"]);
   assert.deepEqual(pick("text", "a%r", ["Aimer", "ar", "abc"]), ["Aimer", "ar"]);
   assert.deepEqual(pick("text", "a.b", ["a.b", "axb"]), ["a.b"]);
 });
 
-test("한국어는 조합 중인 마지막 글자 · 초성으로도 찾는다(서버 목록 찾기와 같은 규칙)", () => {
+test("한국어는 조합 중인 마지막 글자, 초성으로도 찾는다(서버 목록 검색과 같은 규칙)", () => {
   const titles = ["잔향산가", "밤을 달리다", "Lemon"];
   assert.deepEqual(pick("text", "잔햐", titles), ["잔향산가"], "마지막 글자는 조합 중");
   assert.deepEqual(pick("text", "ㅂㅇㄷ", titles), ["밤을 달리다"], "초성");
@@ -32,7 +32,7 @@ test("한국어는 조합 중인 마지막 글자 · 초성으로도 찾는다(�
   assert.equal(matchWords(words.words, ["밤을 달리다", "Lemon"]), false);
 });
 
-test("= · <> 는 글자 열에서 그대로 견주고, ='' · <>'' 는 빔 · 빔 아님", () => {
+test("=, <> 는 글자 열에서 그대로 견주고, ='', <>'' 는 빔, 빔 아님", () => {
   assert.deepEqual(pick("text", "=youtube", ["youtube", "YouTube", "youtube2"]), ["youtube"]);
   assert.deepEqual(pick("text", "<>youtube", ["youtube", "spotify", null]), ["spotify", null]);
   assert.deepEqual(pick("text", "=''", ["", null, "a"]), ["", null]);
@@ -48,7 +48,7 @@ test("크기는 단위를 읽는다(없으면 바이트)", () => {
   assert.deepEqual(pick("bytes", "1MB~2MB", [1024 ** 2, 1.5 * 1024 ** 2, 3 * 1024 ** 2]), [1024 ** 2, 1.5 * 1024 ** 2]);
 });
 
-test("길이는 분:초 · 시:분:초 · 초", () => {
+test("길이는 분:초, 시:분:초, 초", () => {
   assert.equal(readValue("seconds", "3:30")?.value, 210);
   assert.equal(readValue("seconds", "1:02:03")?.value, 3723);
   assert.equal(readValue("seconds", "95")?.value, 95);
@@ -68,7 +68,7 @@ test("날짜 하나는 그날 하루: = 은 그날 안, > 는 그날 뒤, >= 는
   assert.deepEqual(pick("time", ">=2026-10-17 12:00", all), [night, after]);
 });
 
-test("수 열에 읽을 수 없는 값 · 글자 열에 크기 견주기는 bad-filter", () => {
+test("수 열에 읽을 수 없는 값, 글자 열에 크기 견주기는 bad-filter", () => {
   assert.deepEqual(parseFilter("count", ">many"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("text", ">3"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("time", "2026-13-40~x"), { ok: false, code: "bad-filter" });
@@ -79,7 +79,7 @@ test("정규식: /…/ 는 대소문자 무시, \\/ 로 / 를 쓴다", () => {
   assert.deepEqual(pick("text", "/watch\\/x/", ["a/watch/x", "watchx"]), ["a/watch/x"]);
 });
 
-test("정규식: 길이 상한 · 겹친 반복 · 문법 오류는 받지 않는다", () => {
+test("정규식: 길이 상한, 겹친 반복, 문법 오류는 받지 않는다", () => {
   assert.deepEqual(parseFilter("text", `/${"a".repeat(REGEX_MAX + 1)}/`), { ok: false, code: "regex-too-long", max: REGEX_MAX });
   for (const bad of ["/(a+)+/", "/(a*)*b/", "/(\\w+){2,}/", "/(x{1,})+/"]) assert.deepEqual(parseFilter("text", bad), { ok: false, code: "unsafe-regex" }, bad);
   assert.deepEqual(parseFilter("text", "/(a/"), { ok: false, code: "bad-filter" });

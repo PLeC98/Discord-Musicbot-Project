@@ -1,4 +1,4 @@
-// 플레이어가 알린 일(notice)을 그 서버의 텍스트 채널에 응답 템플릿(ui/frame)로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
+// 플레이어가 알린 일(notice)을 그 서버의 텍스트 채널에 응답 템플릿(ui/frame)으로 보낸다. 플레이어는 무슨 일인지 코드로만 알린다.
 
 import type { ContainerBuilder } from "discord.js";
 import { errorMessage } from "./error-messages.ts";
@@ -14,26 +14,42 @@ import type { Notices, NoticeCode } from "../player/events.ts";
 
 type Shown = { view: ContainerBuilder; ms: number };
 
-// 오류 · 경고 안내는 그 수준의 수명으로
+// 오류, 경고 안내는 그 수준의 수명으로
 const shown = (notice: Notice): Shown => ({ view: noticeFrame(notice), ms: noticeMs(notice) });
+
+// 안내 본문 끝에 한 줄을 더한다
+const withLine = (notice: Notice, line: string | null): Notice =>
+  line
+    ? {
+        ...notice,
+        body: notice.body
+          ? `${notice.body}
+${line}`
+          : line,
+      }
+    : notice;
 
 // 코드 → 화면과 수명
 const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   // 장르 목록이 바뀌기 전에 저장된 세션 등
   "autoplay-unknown-genre": ({ genre }) => shown(notices.autoplayUnknownGenre(genre)),
   // 저장된 세션의 장르가 그 사이 쓸 소스를 잃었다(키를 삭제했다 등)
-  // 장르는 식별자로 온다. 보이는 것은 라벨(모르는 장르는 라벨이 없어 위는 식별자 그대로)
+  // 장르는 식별자로 온다. 보이는 것은 라벨(autoplay-unknown-genre 는 라벨이 없어 식별자 그대로)
   "autoplay-genre-unusable": ({ genre, keys }) => shown(notices.autoplayGenreUnusable(labelOf(genre), keys)),
   "autoplay-gave-up": ({ genre }) => shown(notices.autoplayGaveUp(labelOf(genre))),
-  // 곡을 못 틀어 다음 곡으로 넘긴다
-  "skipped-after-error": ({ error }) => shown(errorMessage(error)),
-  // 곡이 연달아 실패해 넘기기를 그만뒀다. 대기열은 남아 있다
-  "failed-in-row": ({ count, left }) => shown(notices.failedInRow(count, left)),
+  // 곡을 못 틀어 다음 곡으로 넘긴다(곡 탓). 대기열의 같은 곡도 뺐으면 그 수
+  "skipped-after-error": ({ error, removed = 0 }) => shown(withLine(errorMessage(error), removed > 0 ? notices.copiesRemoved(removed) : null)),
+  // 연달아 넘긴 곡 중 하나씩 알리지 않고 모은 것
+  "skipped-more": ({ count }) => shown(notices.skippedMore(count)),
+  // 그 곡에서 멈춰 뒀다(player.park). 재생 버튼으로 다시 연다
+  parked: (why) => shown(why.kind === "environment" ? withLine(errorMessage(why.error), notices.parkedLine()) : why.kind === "failures" ? notices.parkedFailures(why.count) : notices.parkedDropped()),
+  // /join 없이 새로 틀어 앞 플레이어가 남긴 세션을 지웠다
+  "saved-session-replaced": ({ count }) => shown(notices.savedSessionReplaced(count)),
   // 스테이지에 청중으로 들어왔다(player/voice-link)
   "stage-requested": () => shown(notices.stageRequested()),
   "stage-cannot-speak": () => shown(notices.stageCannotSpeak()),
   restored: ({ title, atSec, paused }) => {
-    const t = notices.restored(title, formatDuration(atSec), paused);
+    const t = notices.restored(title, formatDuration(atSec, "0:00"), paused);
     return { view: frame({ icon: t.icon, title: t.title, body: t.body }), ms: LIFETIME.glance };
   },
 };

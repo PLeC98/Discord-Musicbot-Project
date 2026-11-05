@@ -1,5 +1,5 @@
 // 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
-// 권한 · 재적 · 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
+// 권한, 재적, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";
@@ -12,7 +12,7 @@ import { showFailureWith } from "../../ui/failure-notice.ts";
 import type { Player } from "../../player/player.ts";
 import type { Problem } from "../../rules/problems.ts";
 
-/** 서버 안의 명령 · 버튼 */
+/** 서버 안의 명령, 버튼 */
 type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
@@ -22,7 +22,7 @@ const refuse = (interaction: Asked, r: Problem) => noticeSelf(interaction, contr
 async function answerPause(interaction: Asked, player: MaybePlayer) {
   const r = await controls.pause(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.paused(r.paused, r.track, interaction.member), LIFETIME.result);
+  return toAll(interaction, replies.paused(r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
 }
 
 async function answerSkip(interaction: Asked, player: MaybePlayer) {
@@ -40,7 +40,7 @@ async function answerPrevious(interaction: Asked, player: MaybePlayer) {
 async function answerStop(interaction: Asked, player: MaybePlayer) {
   const r = await controls.stop(player, { member: interaction.member });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.stopped(r.cleared, interaction.member), LIFETIME.farewell);
+  return toAll(interaction, replies.stopped(r.cleared, interaction.member, r.stayed), LIFETIME.farewell);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {
@@ -76,7 +76,7 @@ const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () =
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
   const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
   if (!r.ok) return refuse(interaction, r);
-  // 직접 링크 곡은 파일 태그 그림을 첨부한다(ui/discord-art)
+  // 직접 링크 곡은 파일 태그의 앨범아트를 첨부한다(ui/discord-art)
   const art = await discordArt.artFor(r.track);
   return toAll(interaction, replies.replayed(r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
 }

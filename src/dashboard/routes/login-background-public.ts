@@ -1,6 +1,6 @@
 // 로그인 배경(로그인 없이, 화면 셸보다 앞에): 로그인 화면이 받는 배경 정보(GET /api/login-background)와 그 파일(/login-background/:id/…).
-// 배경 정보는 캐시하지 않는다(Express 의 ETag 로 304). 파일은 배경마다 다른 주소라 정지 그림 · init · 조각은 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
-// 파일은 기록에 있는 배경이면 낸다(이전 배경을 보던 화면이 이어 받게). 경로는 정해진 형식만 받는다(배경 id · 코덱 · 단계 · 파일 이름), 받은 문자열을 경로로 그대로 쓰지 않는다
+// 배경 정보는 캐시하지 않는다(Express 의 ETag 로 304). 파일은 배경마다 다른 주소라 정지 그림, init, 세그먼트는 1년 immutable, HLS 목록(.m3u8)은 캐시하지 않는다.
+// 파일은 기록에 있는 배경이면 낸다(이전 배경을 보던 화면이 이어 받게). 경로는 정해진 형식만 받는다(배경 id, 코덱, 단계, 파일 이름), 받은 문자열을 경로로 그대로 쓰지 않는다
 
 import express, { type Response } from "express";
 import fs from "node:fs";
@@ -13,11 +13,11 @@ const publicLoginBackgroundRouter = express.Router();
 
 /** 파일 주소 */
 const fileUrl = (id: string, ...parts: string[]) => ["/login-background", id, ...parts].join("/");
-/** 1년 immutable(배경 · 단계마다 다른 주소) · 캐시하지 않음(목록 · 배경 정보) */
+/** 1년 immutable(배경, 단계마다 다른 주소), 캐시하지 않음(목록, 배경 정보) */
 const FOREVER = "public, max-age=31536000, immutable";
 const NO_CACHE = "no-cache";
 
-/** 로그인 화면이 받는 것. 지금 배경이 걸 것(썸네일)이 없으면 none(봇 프로필 그림 배경) */
+/** 로그인 화면이 받는 것. 지금 배경이 걸 것(썸네일)이 없으면 none(봇 프로필 이미지 배경) */
 function publicOf(): LoginBackground {
   const { current, options } = store.loaded();
   const one = current ? store.find(current) : null;
@@ -55,7 +55,7 @@ publicLoginBackgroundRouter.get("/login-background/:id/:codec/index.m3u8", (req,
   sendFile(res, req.params.id, [req.params.codec, "index.m3u8"], "application/vnd.apple.mpegurl", NO_CACHE);
 });
 
-// 단계의 목록 · init · 조각
+// 단계의 목록, init, 세그먼트
 publicLoginBackgroundRouter.get("/login-background/:id/:codec/:short/:file", (req, res) => {
   const { id, codec, short, file } = req.params;
   if (!isCodec(codec) || !SHORT.test(short) || !RUNG_FILE.test(file)) return res.status(404).end();

@@ -1,4 +1,4 @@
-// 인증 · 세션이 실리는 요청 헤더. 화면에 보일 때 가리고(autoplay/assist 의 미리보기), AI 설정의 추가 인자에 입력하지 못하게 한다(config/schema/ai).
+// 인증, 세션이 실리는 요청 헤더. 화면에 보일 때 가리고(autoplay/assist 의 미리보기), AI 설정의 추가 인자에 입력하지 못하게 한다(config/schema/ai).
 // 하나를 더할 때 두 곳이 같이 따른다
 
 const SECRET_HEADERS = ["authorization", "proxy-authorization", "x-api-key", "x-goog-api-key", "api-key", "cookie"];

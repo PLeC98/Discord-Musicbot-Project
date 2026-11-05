@@ -1,6 +1,6 @@
-// 화면 테마: 밝기(어둡게 · 밝게 · 시스템)와 바탕색. 바탕색은 보고 있는 곡의 앨범아트에서 온다.
+// 화면 테마: 밝기(어둡게, 밝게, 시스템)와 바탕색. 바탕색은 보고 있는 곡의 앨범아트에서 온다.
 // 서버 화면을 보고 있으면 그 서버의 곡, 아니면 내가 듣는 곡(재생 바), 둘 다 없으면 기본색.
-// 그림 없이 색 씨앗만 받는 화면도 있다(로그인 배경: 봇이 올릴 때 추출해 둔 대표색 · 장면 색, setPageSeed). 그때는 배경화면을 깔지 않는다(그 화면이 그린다)
+// 그림 없이 색 씨앗만 받는 화면도 있다(로그인 배경: 봇이 올릴 때 추출해 둔 대표색, 장면 색, setPageSeed). 그때는 배경화면을 깔지 않는다(그 화면이 그린다)
 
 import { computed, reactive, ref, watch } from "vue";
 import { argbFromHex } from "@material/material-color-utilities";
@@ -19,7 +19,7 @@ const systemDark = ref(window.matchMedia("(prefers-color-scheme: dark)").matches
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => (systemDark.value = e.matches));
 const dark = computed(() => (mode.value === "system" ? systemDark.value : mode.value === "dark"));
 
-/** 화면 설정(계정 메뉴의 설정). 앨범아트 색 · 배경화면을 끄면 기본색 · 그라데이션, clock 은 PC 시계 */
+/** 화면 설정(계정 메뉴의 설정). 앨범아트 색, 배경화면을 끄면 기본색, 그라데이션, clock 은 PC 시계 */
 type Prefs = { artColor: boolean; artWallpaper: boolean; clock: boolean };
 const PREFS_KEY = "theme:prefs";
 const prefs = reactive<Prefs>({ artColor: true, artWallpaper: true, clock: true });
@@ -54,7 +54,7 @@ const shown = ref<Wallpaper | null>(null);
 const wallpaper = computed(() => (prefs.artWallpaper ? shown.value : null));
 
 /**
- * 앨범아트가 없을 때(곡이 없음 · 앨범아트 색 사용을 끔)의 바탕색. 운영자가 지정한 임베드 색(EMBED_COLOR, /api/bot 의 brandColor).
+ * 앨범아트가 없을 때(곡이 없음, 앨범아트 색 사용을 끔)의 바탕색. 운영자가 지정한 임베드 색(EMBED_COLOR, /api/bot 의 brandColor).
  * 불러오기 전에는 지난번에 불러온 색(이 브라우저에 기억), 그것도 없으면 기본색
  */
 const BRAND_KEY = "theme:brand";
@@ -70,11 +70,11 @@ function setBrandColor(hex: string | null | undefined) {
 const seed = ref(brandSeed.value);
 const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-/** 색 · 배경이 옮겨 가는 시간. 배경화면의 겹침(AppWallpaper)도 같은 시간이다 */
+/** 색, 배경이 옮겨 가는 시간. 배경화면의 겹침(AppWallpaper)도 같은 시간이다 */
 const SHIFT_MS = 700;
 
 /**
- * 색 역할을 깐다. 처음 그릴 때 · 움직임을 줄인 때는 바로, 그 밖은 모든 역할을 한 박자로 옮긴다(blend).
+ * 색 역할을 깐다. 처음 그릴 때, 움직임을 줄인 때는 바로, 그 밖은 모든 역할을 한 박자로 옮긴다(blend).
  * 배경화면은 같은 때에 바꿔 같은 시간 동안 겹친다
  */
 let painted = false;
@@ -82,7 +82,7 @@ function paint(ms = SHIFT_MS) {
   const root = document.documentElement;
   const target = paletteOf(seed.value, dark.value);
   if (!painted || reduced.matches) setNow(target);
-  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 첫 단계가 무거운 프레임에 걸리지 않게
+  // 화면이 바뀐 바로 그 프레임(새 화면 그리기)이 지나간 뒤에 시작한다. 색 전환의 첫 프레임이 무거운 프레임에 걸리지 않게
   else requestAnimationFrame(() => requestAnimationFrame(() => blendTo(target, ms)));
   painted = true;
   root.dataset.theme = dark.value ? "dark" : "light";
@@ -110,7 +110,7 @@ watch(
 );
 
 /**
- * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 선택한다(로그인 화면의 봇 프사는 avatar).
+ * 화면이 자기 그림을 깐다(art.page). 쓰임(kind)으로 배경화면 값을 선택한다(로그인 화면의 봇 프로필 이미지는 avatar).
  * 깐 화면이 주인이 되고, 치울 때는 주인만 치운다.
  * 화면이 바뀌면 새 화면이 먼저 깔고 옛 화면의 정리(onUnmounted)가 뒤에 돈다. 아무나 치우면 새 화면이 깐 것을 지운다
  */

@@ -1,12 +1,12 @@
 <template>
-  <!-- 돌려서 고르는 휠(알람 앱처럼). 세 줄이 보이고 가운데가 고른 값. 끝에서 처음으로 이어진다(같은 값을 다섯 벌 늘어놓고 가운데 벌로 되돌린다).
-       손가락으로 밀기 · 마우스 휠(한 번 굴리면 step 만큼, OS · 브라우저의 스크롤 양과 상관없이) · 마우스로 끌기 · 위아래 화살표. 가운데를 누르면 그 자리가 입력칸이 되어 직접 친다(Enter · 다른 곳을 누르면 반영, Esc 는 그만) -->
+  <!-- 돌려서 선택하는 휠(알람 앱처럼). 세 줄이 보이고 가운데가 선택한 값. 끝에서 처음으로 이어진다(같은 값을 다섯 벌 늘어놓고 가운데 벌로 되돌린다).
+       마우스 휠은 한 번 굴리면 step 만큼(OS, 브라우저의 스크롤 양과 상관없이). 가운데를 누르면 그 자리가 입력란이 되어 직접 입력한다(Enter, 다른 곳을 누르면 반영, Esc 는 취소) -->
   <div class="relative select-none" :style="{ height: `${rowPx * 3}px` }">
     <!-- 가운데 띠 -->
     <div class="pointer-events-none absolute inset-x-0 rounded-(--r-row) bg-secondary-container" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }"></div>
     <div
       ref="list"
-      class="relative h-full overflow-y-scroll scrollbar-none snap-y snap-mandatory overscroll-contain outline-none cursor-grab active:cursor-grabbing [mask-image:linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]"
+      class="relative h-full overflow-y-scroll scrollbar-none snap-y snap-mandatory overscroll-contain outline-none cursor-grab active:cursor-grabbing mask-[linear-gradient(to_bottom,transparent,black_30%,black_70%,transparent)]"
       tabindex="0"
       role="spinbutton"
       :aria-label="label"
@@ -29,15 +29,16 @@
       </button>
       <div :style="{ height: `${rowPx}px` }"></div>
     </div>
-    <!-- 직접 치기: 가운데 띠 자리에 입력칸 -->
+    <!-- 직접 입력: 가운데 띠 자리에 입력란 -->
     <input v-if="typing" ref="field" v-model="draft" inputmode="numeric" maxlength="2" :class="big ? 'text-2xl' : 'text-lg'" class="absolute inset-x-0 text-center font-semibold nums rounded-(--r-row) bg-surface-container-highest border border-primary outline-none" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }" :aria-label="label" @keydown.enter.prevent="commit" @keydown.esc.stop.prevent="typing = false" @blur="commit" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { scrollMotion } from "../utils/motion.ts";
 
-/** count: 값의 수(0 ~ count-1, 시 24 · 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40 · 글자 24(남는 자리가 넓을 때) */
+/** count: 값의 수(0 ~ count-1, 시 24, 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
 const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; step?: number; big?: boolean }>(), { step: 1, big: false });
 const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 
@@ -53,7 +54,7 @@ const topOf = (i: number) => i * rowPx.value;
 const rowNow = () => Math.round((list.value?.scrollTop ?? 0) / rowPx.value);
 
 // 값으로 맞춘다. 바로 맞출 때는 가운데 벌로, 미끄러질 때는 지금 자리에서 가까운 쪽으로(59 → 0 이 한 바퀴를 거꾸로 돌지 않게).
-// 가운데 벌을 벗어나 있으면 같은 그림인 가운데 벌로 먼저 옮겨 두어 끝에 닿지 않게 한다
+// 가운데 벌을 벗어나 있으면 같은 화면인 가운데 벌로 먼저 옮겨 두어 끝에 닿지 않게 한다
 function show(value: number, smooth = false) {
   const el = list.value;
   if (!el) return;
@@ -64,7 +65,7 @@ function show(value: number, smooth = false) {
   if (now !== mid) el.scrollTop = topOf((now = mid));
   let diff = (((value - now) % c) + c) % c;
   if (diff > c / 2) diff -= c;
-  el.scrollTo({ top: topOf(now + diff), behavior: "smooth" });
+  el.scrollTo({ top: topOf(now + diff), behavior: scrollMotion() });
 }
 onMounted(() => show(props.modelValue));
 // 줄 높이가 바뀌면(화면을 돌리면) 다시 그린 뒤 같은 값으로 맞춘다
@@ -76,7 +77,7 @@ watch(
   },
 );
 
-// 스크롤이 멎으면 가운데 값을 고르고, 가장자리 벌에 와 있으면 같은 값의 가운데 벌로 되돌린다(이어진 것처럼)
+// 스크롤이 멎으면 가운데 값을 선택하고, 가장자리 벌에 와 있으면 같은 값의 가운데 벌로 되돌린다(이어진 것처럼)
 let settleTimer: number | undefined;
 function onScroll() {
   clearTimeout(settleTimer);
@@ -94,7 +95,7 @@ function stepBy(by: number) {
   emit("update:modelValue", (props.modelValue + by + props.count) % props.count);
 }
 
-// 마우스 휠: 한 번 "도록"에 step 만큼. 한 번에 크게 오는 것(마우스 휠)은 크기와 상관없이 한 번으로, 잘게 오는 것(터치패드)은 모아서 한 번으로 친다
+// 마우스 휠: 한 칸(notch)에 step 만큼. 한 번에 크게 오는 것(마우스 휠)은 크기와 상관없이 한 번으로, 잘게 오는 것(터치패드)은 모아서 한 번으로 센다
 const NOTCH = 40;
 let wheelSum = 0;
 let wheelAt = 0;
@@ -112,14 +113,14 @@ function onWheel(e: WheelEvent) {
   emit("update:modelValue", ((next % props.count) + props.count) % props.count);
 }
 
-// 줄을 눌렀다: 가운데면 직접 치기, 아니면 그 줄로
+// 줄을 눌렀다: 가운데면 직접 입력, 아니면 그 줄로
 function clickRow(i: number) {
   if (moved) return;
   if (i === rowNow()) return startTyping();
-  list.value?.scrollTo({ top: topOf(i), behavior: "smooth" });
+  list.value?.scrollTo({ top: topOf(i), behavior: scrollMotion() });
 }
 
-// 마우스로 끌기(손가락 · 휠은 브라우저 스크롤이 한다)
+// 마우스로 드래그(손가락, 휠은 브라우저 스크롤이 한다)
 let dragging = false;
 let moved = false;
 let start = { y: 0, top: 0 };
@@ -140,10 +141,10 @@ function up() {
   if (!dragging || !list.value) return;
   dragging = false;
   list.value.style.scrollSnapType = "";
-  list.value.scrollTo({ top: topOf(rowNow()), behavior: "smooth" });
+  list.value.scrollTo({ top: topOf(rowNow()), behavior: scrollMotion() });
 }
 
-// 직접 치기
+// 직접 입력
 const typing = ref(false);
 const draft = ref("");
 const field = ref<HTMLInputElement | null>(null);

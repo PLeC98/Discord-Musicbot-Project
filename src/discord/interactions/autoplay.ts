@@ -1,48 +1,76 @@
 // 자동재생 진입점: /autoplay 와 패널의 자동재생 버튼이 같은 절차(answerAutoplay)를 쓰고, 장르 메뉴에서 선택한 것을 받는다.
-// 켜기 · 끄기 · 권한 · 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
+// 켜기, 끄기, 권한, 플레이어 만들기는 usecases/controls 의 autoplay 가 한다
 
-import { type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { RESTJSONErrorCodes, type ButtonInteraction, type RepliableInteraction, type StringSelectMenuInteraction } from "discord.js";
 import * as errors from "../../ui/text/ko/errors.ts";
 import * as controls from "../../usecases/controls.ts";
 import { ensurePlayer } from "../../usecases/add-tracks.ts";
+import { waitForRestore } from "../../player/session-restore.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
 import { buildGenreMenu, buildAutoplayOffMenu, autoplayOn } from "../../ui/genre-menu.ts";
 import { PANEL, AUTOPLAY, IDLE_SESSION, customId, partsOf } from "../../ui/custom-ids.ts";
 import { route, type Route } from "./route.ts";
+import { codeOf } from "../../infra/error-text.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
+import type { AppEmojis } from "../../app/app-emojis.ts";
 import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
+
+type Menu = ReturnType<typeof buildGenreMenu>;
+
+/**
+ * 장르 메뉴를 본인에게. 봇이 아는 앱 이모지 목록이 낡으면(개발자 포털에서 지운 이모지) 디스코드가 메뉴 전체를 거절한다.
+ * 그러면 목록을 다시 읽어 메뉴가 달라졌을 때만 한 번 더 보낸다. 같거나 다시 읽지 못하면 처음 오류를 던진다
+ */
+async function sendMenu(interaction: RepliableInteraction, build: () => Menu, emojis: AppEmojis | undefined) {
+  const first = build();
+  try {
+    await toSelf(interaction, first, LIFETIME.menu);
+  } catch (error) {
+    if (codeOf(error) !== RESTJSONErrorCodes.InvalidFormBodyOrContentType || !emojis) throw error;
+    await emojis.reload().catch(() => {
+      throw error;
+    });
+    const again = build();
+    if (JSON.stringify(again) === JSON.stringify(first)) throw error;
+    await toSelf(interaction, again, LIFETIME.menu);
+  }
+}
 
 /**
  * 켜져 있으면 끄고 메뉴가 떠 있는 동안 장르를 다시 선택할 기회를 준다(선택하면 변경, 두면 종료).
  * 꺼져 있으면 장르 메뉴를 표시한다. 플레이어가 없어도 표시한다(선택한 뒤에 만든다)
  */
-async function answerAutoplay(interaction: RepliableInteraction<"cached">, player: Player | undefined) {
+async function answerAutoplay(interaction: RepliableInteraction<"cached">, player: Player | undefined, emojis: AppEmojis | undefined) {
   const actor = { member: interaction.member };
   if (player?.autoplay) {
-    const r = await controls.autoplay(player, actor, false, { onAccepted: () => toSelf(interaction, buildAutoplayOffMenu(), LIFETIME.menu) });
+    const r = await controls.autoplay(player, actor, false, { onAccepted: () => sendMenu(interaction, buildAutoplayOffMenu, emojis) });
     if (!r.ok) return noticeSelf(interaction, controlMessage(r));
     return;
   }
   const blocked = await controls.autoplayBlocked(actor);
   if (blocked) return noticeSelf(interaction, controlMessage(blocked));
-  return toSelf(interaction, buildGenreMenu(), LIFETIME.menu);
+  return sendMenu(interaction, buildGenreMenu, emojis);
 }
 
-// 끝난 패널 · 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
-// 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤 · 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
-async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { players }: BotContext) {
+// 끝난 패널, 재생 중 패널 양쪽에서 온다. 재생 중 패널의 버튼은 다른 패널 버튼처럼 패널의 세션이 지금 세션이어야 한다.
+// 끝난 패널의 버튼(idle)은 세션이 없어 어느 플레이어에도 통한다(/join 뒤, 대기열이 끝나 기다리는 동안에도 플레이어가 있다). /autoplay 와 같다
+async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { players, appEmojis }: BotContext) {
   const player = players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && sessionId !== IDLE_SESSION && player.sessionId && sessionId !== player.sessionId) return noticeSelf(interaction, errors.notice("stale-session"));
-  return answerAutoplay(interaction, player);
+  return answerAutoplay(interaction, player, appEmojis);
 }
 
 // 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
-  const create = () => ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  // 기동 복원을 기다리는 서버면 먼저 복원한다(복원한 플레이어가 있으면 그것을 쓴다)
+  const create = async () => {
+    await waitForRestore(guild.id);
+    return ensurePlayer(bot, { guild, textChannel: interaction.channel, voiceChannel: member.voice?.channel ?? null });
+  };
   const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
     onAccepted: async () => {

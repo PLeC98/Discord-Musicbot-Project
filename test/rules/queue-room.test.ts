@@ -1,4 +1,4 @@
-// src/rules/queue-room.ts — 대기열에 더 넣을 수 있는 곡 수
+// src/rules/queue-room.ts: 대기열에 더 넣을 수 있는 곡 수
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

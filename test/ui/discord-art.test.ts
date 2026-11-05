@@ -1,4 +1,4 @@
-// src/ui/discord-art.ts — 디스코드에 거는 큰 곡 그림
+// src/ui/discord-art.ts: 디스코드에 거는 큰 앨범아트
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { remember } from "../helpers/tagged-audio.ts";
 
 const yt = (id: string, name = "mqdefault") => `https://i.ytimg.com/vi/${id}/${name}.jpg`;
 
-test("유튜브: 큰 그림이 있으면 maxresdefault, 없으면(404) · 묻지 못하면 hqdefault. 물어 보기 전에는 hqdefault", async () => {
+test("유튜브: 큰 그림이 있으면 maxresdefault, 없으면(404), 묻지 못하면 hqdefault. 물어 보기 전에는 hqdefault", async () => {
   const asked: string[] = [];
   _internals.useHead(async (url) => {
     asked.push(url);
@@ -25,7 +25,7 @@ test("유튜브: 큰 그림이 있으면 maxresdefault, 없으면(404) · 묻지
   assert.deepEqual(asked, [yt("newvideo000", "maxresdefault"), yt("oldvideo000", "maxresdefault"), yt("brokennet00", "maxresdefault")], "영상마다 한 번만 묻는다");
 });
 
-test("유튜브가 아니면 묻지 않고 rules/track-art 의 큰 것(사운드클라우드 500×500 · 그 밖은 그대로), 없으면 null", async () => {
+test("유튜브가 아니면 묻지 않고 rules/track-art 의 큰 것(사운드클라우드 500×500, 그 밖은 그대로), 없으면 null", async () => {
   _internals.useHead(async () => assert.fail("묻지 않는다"));
   await prepare("https://i1.sndcdn.com/artworks-ab-mini.jpg");
   await prepare(null);

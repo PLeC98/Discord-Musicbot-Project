@@ -1,11 +1,11 @@
 // 판정: 직접 링크의 응답이 무엇인가. 보는 것은 응답 헤더(Content-Type)와 본문 앞부분뿐이다(통신 없음). 화면은 부르지 않는다(file-type).
-//   audio  음원(파일 · 인터넷 라디오)
+//   audio  음원(파일, 인터넷 라디오)
 //   hls    HLS 재생목록(#EXTM3U 에 #EXT-X- 줄)
-//   list   단순 목록(PLS · 주소 줄만 있는 M3U). 첫 주소로 다시 판정한다
+//   list   단순 목록(PLS, 주소 줄만 있는 M3U). 첫 주소로 다시 판정한다
 //   page   웹 페이지. "알 수 없는 링크"로 거절한다
-//   other  그 밖(그림 · 문서 · 모르는 바이트). 거절한다
-// 앞부분이 헤더보다 앞선다(거짓 Content-Type). application/octet-stream · text/plain 은 오디오 · 재생목록 둘 다 흔하다.
-// 형식 판별은 file-type 이 하고, 그것이 하지 않는 넷(#EXTM3U · [playlist] · 맨 앞 '<' · MPEG 프레임 둘 연속)만 여기서 본다
+//   other  그 밖(이미지, 문서, 모르는 바이트). 거절한다
+// 앞부분이 헤더보다 앞선다(거짓 Content-Type). application/octet-stream, text/plain 은 오디오, 재생목록 둘 다 흔하다.
+// 형식 판별은 file-type 이 하고, 그것이 하지 않는 넷(#EXTM3U, [playlist], 맨 앞 '<', MPEG 프레임 둘 연속)만 여기서 본다
 
 import { fileTypeFromBuffer } from "file-type";
 
@@ -28,7 +28,7 @@ function textOf(head: Uint8Array) {
     .trimStart();
 }
 
-// MPEG 오디오 프레임 헤더의 길이(바이트). 헤더가 아니면 0. layer I · II · III, MPEG 1 · 2 · 2.5
+// MPEG 오디오 프레임 헤더의 길이(바이트). 헤더가 아니면 0. layer I, II, III, MPEG 1, 2, 2.5
 const BITRATES: Record<string, number[]> = {
   "1-1": [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
   "1-2": [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
@@ -40,7 +40,7 @@ const RATES: Record<number, number[]> = { 3: [44100, 48000, 32000], 2: [22050, 2
 function mpegFrameLength(b: Uint8Array, at: number): number {
   if (at + 4 > b.length || b[at] !== 0xff || (b[at + 1] & 0xe0) !== 0xe0) return 0;
   const version = (b[at + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
-  const layer = 4 - ((b[at + 1] >> 1) & 3); // 1 · 2 · 3
+  const layer = 4 - ((b[at + 1] >> 1) & 3); // 1, 2, 3
   const bitrateIndex = b[at + 2] >> 4;
   const rateIndex = (b[at + 2] >> 2) & 3;
   if (version === 1 || layer === 4 || bitrateIndex === 0 || bitrateIndex === 15 || rateIndex === 3) return 0;
@@ -60,7 +60,7 @@ function adtsFrameLength(b: Uint8Array, at: number): number {
   return length >= 7 ? length : 0;
 }
 
-/** 앞부분 어딘가에서 프레임 둘이 잇달아 나오는가(MPEG 오디오 · ADTS). 우연히 맞은 동기 바이트를 제외한다 */
+/** 앞부분 어딘가에서 프레임 둘이 잇달아 나오는가(MPEG 오디오, ADTS). 우연히 맞은 동기 바이트를 제외한다 */
 function twoFrames(head: Uint8Array): boolean {
   for (let at = 0; at + 8 < head.length; at++) {
     for (const lengthAt of [mpegFrameLength, adtsFrameLength]) {
@@ -75,14 +75,14 @@ const startsWithId3 = (head: Uint8Array) => head[0] === 0x49 && head[1] === 0x44
 
 const isMedia = (mime: string) => mime.startsWith("audio/") || mime.startsWith("video/");
 
-/** 앞부분의 글만으로 아는 것(재생목록 · 목록 · 웹 페이지). 모르면 null */
+/** 앞부분의 글만으로 아는 것(재생목록, 목록, 웹 페이지). 모르면 null */
 function byText(text: string): LinkContent | null {
   if (text.startsWith("#EXTM3U")) return /^#EXT-X-/m.test(text) ? "hls" : "list";
   if (/^\[playlist\]/i.test(text)) return "list";
   return text.startsWith("<") ? "page" : null;
 }
 
-/** file-type 이 알아본 형식. 동기 바이트로만 알아본 MPEG · ADTS 는 프레임 둘이 이어야 믿는다(ID3 로 시작하면 그대로) */
+/** file-type 이 알아본 형식. 동기 바이트로만 알아본 MPEG, ADTS 는 프레임 둘이 이어야 믿는다(ID3 로 시작하면 그대로) */
 function bySniff(sniffed: { ext: string; mime: string }, head: Uint8Array, mime: string): LinkContent {
   if (!isMedia(sniffed.mime)) return "other";
   const bySync = (sniffed.ext === "mp3" || sniffed.ext === "mp2" || sniffed.ext === "aac") && !startsWithId3(head);
@@ -92,7 +92,7 @@ function bySniff(sniffed: { ext: string; mime: string }, head: Uint8Array, mime:
 
 /** 헤더만으로 아는 것 */
 function byHeader(mime: string, text: string): LinkContent {
-  // 재생목록 · 목록 형식이라 하는데 글이 #EXTM3U · [playlist] 가 아니면 주소 줄만 있는 목록이다
+  // 재생목록, 목록 형식이라 하는데 글이 #EXTM3U, [playlist] 가 아니면 주소 줄만 있는 목록이다
   if (HLS_TYPES.has(mime) || PLS_TYPES.has(mime)) return /^https?:\/\//im.test(text) ? "list" : "other";
   if (mime === "text/html" || mime === "application/xhtml+xml") return "page";
   // 앞부분으로 모르지만 헤더가 음원이라 한다(라디오가 프레임 중간부터 흘리는 등)
@@ -110,7 +110,7 @@ async function contentOf(contentType: string | null | undefined, head: Uint8Arra
 }
 
 /**
- * 단순 목록(PLS · M3U)의 첫 주소. 상대 주소는 목록 주소 기준으로 푼다. http(s) 만. 없으면 null
+ * 단순 목록(PLS, M3U)의 첫 주소. 상대 주소는 목록 주소 기준으로 푼다. http(s) 만. 없으면 null
  * PLS: File1=… 줄, M3U: # 로 시작하지 않는 줄
  */
 function listTarget(text: string, baseUrl: string): string | null {

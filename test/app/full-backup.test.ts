@@ -1,4 +1,4 @@
-// src/app/full-backup.ts — 명령 전체 백업(.env · 설정 DB · 파비콘 · 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
+// src/app/full-backup.ts: 명령 전체 백업(.env, 설정 DB, 파비콘, 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
 
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -65,7 +65,7 @@ const statusIn = (file: string) => {
   }
 };
 
-test("켜져 있는 봇에서 만들고(.env · 설정 DB 를 교체할 이름으로 · 파비콘), 한 번에 하나만 둔다", async () => {
+test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으로, 파비콘), 한 번에 하나만 둔다", async () => {
   settingsDocs.write("status", { messages: ["옮길 것"] }, settingsDocs.read("status").revision);
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
@@ -107,7 +107,7 @@ test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 �
   assert.deepEqual(statusIn(path.join(database, "backups", kept.name)), { messages: ["그 봇의 것"] });
 });
 
-test("구조 버전이 다른 봇이 만든 백업이면 교체하지 않고 까닭을 알린다(예약된 것 · 지금 것은 그대로)", async () => {
+test("구조 버전이 다른 봇이 만든 백업이면 교체하지 않고 까닭을 알린다(예약된 것, 지금 것은 그대로)", async () => {
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir });
   const bot = otherBot();
   extract(made.file, bot);
@@ -128,7 +128,7 @@ test("구조 버전이 다른 봇이 만든 백업이면 교체하지 않고 까
   assert.deepEqual(statusIn(path.join(bot, "database", "settings.db")), { messages: ["그 봇의 것"] });
 });
 
-test("로그인 배경: 다 만든 배경과 기록을 저장 경로 그대로 담고, 켜진 봇의 기록 · 폴더는 건드리지 않는다. 풀어 덮어쓰면 그 봇에 있던 배경은 다음 기동이 치운다", async () => {
+test("로그인 배경: 다 만든 배경과 기록을 저장 경로 그대로 담고, 켜진 봇의 기록, 폴더는 건드리지 않는다. 풀어 덮어쓰면 그 봇에 있던 배경은 다음 기동이 치운다", async () => {
   const loginBackground = await import("../../src/dashboard/login-background/store.ts");
   const dir = path.join(work, "login-background");
   loginBackground._useDir(dir);
@@ -189,7 +189,7 @@ test("오디오 캐시 번들: 기본은 캐시 파일 없이, withAudio 면 캐
   // 풀어 둔 번들을 다음 기동이 합친다(비운 캐시에)
   const bundle = unzip(fs.readFileSync(made.file), { maxBytes: 10_000_000 }).find((one) => one.name === "database/audio-cache.restore.zip")!;
   await audioCache.resetCache(AUDIO_CACHE_PARTS);
-  // 새로 설치한 봇 · 옮긴 직후: 캐시 폴더가 아직 없다(기동 때의 합치기는 캐시를 켜기 전이다)
+  // 새로 설치한 봇, 옮긴 직후: 캐시 폴더가 아직 없다(기동 시의 합치기는 캐시를 켜기 전이다)
   fs.rmSync(audioCache.cacheDir(), { recursive: true, force: true });
   fs.writeFileSync(path.join(store.dir, "audio-cache.restore.zip"), bundle.data);
   const done = await applyStagedAudio(store.dir);

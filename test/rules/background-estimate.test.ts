@@ -1,4 +1,4 @@
-// src/rules/background-estimate.ts — 로그인 배경 편집의 예상 저장 공간(편집 창 · 편집 적용이 같이 쓴다)
+// src/rules/background-estimate.ts: 로그인 배경 편집의 예상 저장 공간(편집 창, 편집 적용이 같이 쓴다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ test("영상은 구간의 초마다 크기를 더한다(걸친 초는 걸친 만
   assert.equal(estimatedBytes(estimate, cropKeyOf(FULL), null), 50);
 });
 
-test("어림이 없거나 · 세는 중이거나 · 다른 크롭 · 잰 범위 밖이면 null", () => {
+test("어림이 없거나, 세는 중이거나, 다른 크롭, 잰 범위 밖이면 null", () => {
   assert.equal(estimatedBytes(null, cropKeyOf(FULL), [0, 2]), null);
   assert.equal(estimatedBytes({ ...estimate, counting: true }, cropKeyOf(FULL), [0, 2]), null);
   assert.equal(estimatedBytes(estimate, cropKeyOf({ x: 0, y: 0, w: 0.5, h: 1 }), [0, 2]), null);

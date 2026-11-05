@@ -1,10 +1,10 @@
 /**
- * AI 값표. 모델마다 100만 토큰당 달러(입력 · 출력 · 캐시 읽기). AI 사용량 통계의 비용을 기록할 때 센다.
+ * AI 값표. 모델마다 100만 토큰당 달러(입력, 출력, 캐시 읽기). AI 사용량 통계의 비용을 기록할 때 센다.
  *
  * models.dev 의 공개 값표(MIT / https://github.com/sst/models.dev, https://models.dev/api.json)에서 우리 프로바이더 몫(PROVIDER_SPECS 의 prices)의
- * 가격 필드만 추려 둔다. 저장소의 `data/ai-prices.json` 은 함께 싣는 기본 사본이고, 갱신(대시보드의 모델 정보 갱신 · `pnpm run update:models`)이 다운로드한 것은
+ * 가격 필드만 추려 둔다. 저장소의 `data/ai-prices.json` 은 함께 싣는 기본 사본이고, 갱신(대시보드의 모델 정보 갱신, `pnpm run update:models`)이 다운로드한 것은
  * 실행 위치(`database/ai-prices.json`)에 쓴다. 읽을 때는 둘 중 다운로드한 때(`fetchedAt`)가 새것을 쓴다(모델 프로필과 같은 방식, config/ai-models).
- * 구간 가격(긴 문맥 할증) · 할인은 보지 않는다. 판정 요청은 짧아 기본 구간이다.
+ * 구간 가격(긴 문맥 할증), 할인은 보지 않는다. 판정 요청은 짧아 기본 구간이다.
  */
 import fs from "fs";
 import path from "path";
@@ -60,7 +60,7 @@ function load({ reload = false } = {}): PriceBook {
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
 
-/** 다운로드한 값표에서 우리 프로바이더 몫의 가격 필드만 선택한다. 입력 · 출력 값이 없는 모델은 뺀다(값을 모른다) */
+/** 다운로드한 값표에서 우리 프로바이더 몫의 가격 필드만 선택한다. 입력, 출력 값이 없는 모델은 뺀다(값을 모른다) */
 function trim(source: SourceBook, fetchedAt = new Date().toISOString()): PriceBook {
   const names = [...new Set(Object.values(PROVIDER_SPECS).flatMap((one) => (one.prices ? [one.prices] : [])))].sort();
   const providers: PriceBook["providers"] = {};
@@ -93,7 +93,7 @@ function serialize(book: PriceBook): string {
 
 /**
  * 그 모델의 값. 키가 없는 로컬 프로바이더는 0(값이 들지 않는다), 값표에 있으면 그 값(무료 모델은 0),
- * 값표에 없는 프로바이더(custom) · 모델이면 null(가격 모름)
+ * 값표에 없는 프로바이더(custom), 모델이면 null(가격 모름)
  */
 function priceOf(provider: string, model: string, book: PriceBook = load()): Price | 0 | null {
   const spec = PROVIDER_SPECS[provider];
@@ -111,7 +111,6 @@ function costOf(price: Price | 0 | null, tokens: AiTokens | null): number | null
   return (Math.max(0, tokens.input - tokens.cached) * input + tokens.cached * cacheRead + tokens.output * output) / 1_000_000;
 }
 
-// 값표는 models.dev 에서 다운로드한다(공유 HTTP 클라이언트)
 const modelsdev = httpFor("modelsdev");
 
 /** 다운로드해서 사본(`database/ai-prices.json`)에 쓴다. 선택한 값이 같으면 쓰지 않는다. 모델 정보 갱신과 같은 길이다 */

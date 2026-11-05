@@ -1,6 +1,6 @@
 // 봇 활동 문구 설정(settings.db 의 "status" 문서, config/documents).
 //
-// 틀린 문서는 쓰지 않는다. 문제를 전부 알리고 직전에 맞던 설정으로, 그것도 없으면(기동 때부터 틀림) 빈 설정(활동 문구 없음)으로 돈다.
+// 틀린 문서는 쓰지 않는다. 문제를 전부 알리고 직전에 맞던 설정으로, 그것도 없으면(기동 시점부터 틀림) 빈 설정(활동 문구 없음)으로 돈다.
 // 기동을 멈추지 않는다. 고칠 대시보드가 실행돼야 한다. 고치면 다음 회전부터 새 설정이 들어간다.
 
 import logger from "../infra/log/logger.ts";
@@ -13,7 +13,7 @@ const validateStatus = statusProblems;
 
 /** 문구 하나. 글자로 적거나 { text, type } 으로 풀어 적는다 */
 type ActivityMessage = string | { text: string; type?: string };
-/** 때가 맞으면 평소 문구 대신 나오는 문구. 범위는 "MM-DD ~ MM-DD" · "HH:MM ~ HH:MM" */
+/** 때가 맞으면 평소 문구 대신 나오는 문구. 범위는 "MM-DD ~ MM-DD", "HH:MM ~ HH:MM" */
 type StatusEntry = { date?: string; lunar?: string; time?: string; messages: ActivityMessage[] };
 // 검사를 지난 모양. interval 은 글자로 적어도 통과한다(읽는 쪽이 Number 로)
 type StatusConfig = { interval?: unknown; messages: ActivityMessage[]; special?: Record<string, StatusEntry> | null };

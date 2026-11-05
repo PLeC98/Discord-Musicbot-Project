@@ -4,7 +4,7 @@
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
 // 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
-// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200) · 구간이 어긋나면 · 전체 크기가 다르면 이어받기를 그만둔다.
+// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
 // 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
@@ -62,7 +62,7 @@ type StreamStats = {
 };
 type ChunkedStream = Readable & { prime(): Promise<void>; stats(): StreamStats };
 
-// 다시 요청해도 결과가 같은 실패. 4xx(만료·차단)와 구간 어긋남
+// 다시 요청해도 결과가 같은 실패. 4xx(만료, 차단)와 구간 어긋남
 function permanent(message: string): Error & { permanent: boolean } {
   return Object.assign(new Error(message), { permanent: true });
 }
@@ -72,21 +72,18 @@ function httpError(status: number): Error & { status: number } {
   return status >= 500 ? Object.assign(new Error(message), { status }) : Object.assign(permanent(message), { status });
 }
 
-/** 중간 바이트에서 시작한 첫 요청이 색인 탓으로 실패했다(Range 무시 · 416 · 구간 · 전체 크기가 다름 · 첫 바이트가 키프레임이 아님). 여는 쪽이 처음부터 다시 연다 */
+/** 중간 바이트에서 시작한 첫 요청이 색인 탓으로 실패했다(Range 무시, 416, 구간, 전체 크기가 다름, 첫 바이트가 키프레임이 아님). 여는 쪽이 처음부터 다시 연다 */
 const seekMismatch = <E extends Error>(err: E) => Object.assign(err, { seekMismatch: true });
 const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | null)?.seekMismatch === true;
 
 /**
- * @param {string}   url          받을 주소 (서명된 미디어 URL)
- * @param {object}   headers      yt-dlp가 준 요청 헤더
- * @param {number}   totalBytes   전체 길이. googlevideo는 URL의 clen 파라미터로 준다
- * @param {number}   chunkSize    요청 하나의 크기 = 미리 받아 두는 양의 단위
- * @param {(err: Error) => boolean} [onInterrupt]
- *   재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
- * @param {(info: {attempts: number, downtimeMs: number, starvedMs: number}) => void} [onResumed]
- *   끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
- * @param {Function} fetchImpl    테스트 주입용. 기본은 전역 fetch
- * @returns {Readable}
+ * 옵션:
+ *  - url: 받을 주소(서명된 미디어 URL), headers: yt-dlp가 준 요청 헤더
+ *  - totalBytes: 전체 길이. googlevideo는 URL의 clen 파라미터로 준다
+ *  - chunkSize: 요청 하나의 크기 = 미리 받아 두는 양의 단위
+ *  - onInterrupt: 재생이 시작된 뒤 끊겼을 때 한 번 부른다. true면 호출부가 넘겨받은 것. 이어받지 않고 받아 둔 데까지 내보낸 뒤 끝낸다.
+ *  - onResumed: 끊긴 뒤 다시 받기 시작했을 때. starvedMs는 그동안 내보낼 것이 없어 소비자가 기다린 시간이다.
+ *  - fetchImpl: 테스트가 넘긴다. 기본은 전역 fetch
  */
 function createChunkedStream(options: ChunkedOptions): ChunkedStream {
   const { totalBytes, chunkSize, startByte = 0 } = options;
@@ -100,8 +97,8 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 파일 처음이 아닌 자리(expected > 0, 이어받기 · 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
-// 0바이트에서 시작한 첫 요청의 크기는 어림값(유튜브 clen)이라 보지 않는다
+// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
+// 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range");
   if (!cr) return;
@@ -136,7 +133,7 @@ class ChunkedReader {
 
   pos = 0; // 받은 바이트 = 다음 요청의 시작 위치
   target = 0; // 지금 받는 청크의 끝(미포함)
-  chunks: Buffer[] = []; // 받아 두고 아직 내보내지 않은 조각
+  chunks: Buffer[] = []; // 받아 두고 아직 내보내지 않은 청크
   queued = 0;
   wanting = false;
   fetching = false;
@@ -168,7 +165,7 @@ class ChunkedReader {
     this.first = first;
     this.verifying = expectStart !== null;
     this.pos = startByte;
-    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치 · 실패 횟수 · 이어받기 알림을 건드린다)
+    // 헤더는 받은 양에 세지 않고 줄에만 둔다(take 는 받은 위치, 실패 횟수, 이어받기 알림을 건드린다)
     if (prefix?.length) {
       this.chunks.push(Buffer.from(prefix));
       this.queued += prefix.length;
@@ -245,7 +242,7 @@ class ChunkedReader {
     }
     const range = { Range: `bytes=${this.pos}-${this.target - 1}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
     const res = await fetchImpl(url, { headers: { ...headers, ...range }, signal });
-    // 위치를 옮긴 첫 요청이면 Range 무시(200) · 416 · 구간 어긋남은 색인 탓으로 본다(주소 탓의 403 · 404 는 아니다)
+    // 위치를 옮긴 첫 요청이면 Range 무시(200), 416, 구간 어긋남은 색인 탓으로 본다(주소 탓의 403, 404 는 아니다)
     const mid = !this.primed && this.o.startByte > 0;
     if (res.status === 206) {
       try {
@@ -293,7 +290,8 @@ class ChunkedReader {
         }
         this.accept(value);
       }
-      if (this.pos < this.target) throw codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`);
+      // 범위: 연결이 중간에 끊겼다(player/failure-scope)
+      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`), { scope: "environment" });
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;
@@ -354,12 +352,12 @@ class ChunkedReader {
     }
     const delays = this.o.retryDelaysMs;
     if ((err as { permanent?: boolean }).permanent || this.failures >= delays.length) throw err;
-    log.trace(`청크 요청 실패(다시 받기 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
+    log.trace(`청크 요청 실패(재시도 ${this.failures + 1}/${delays.length}, ${this.pos}B): ${describeStreamError(err)}`);
     await sleep(delays[this.failures++]);
     return !this.stream.destroyed;
   }
 
-  // 다음 조각을 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
+  // 다음 청크를 받는다. fill 은 실패를 스스로 받아 스트림을 닫는다. 그래도 새면 스트림을 오류로 닫는다
   _fillOrFail() {
     this.fill().catch((error: unknown) => this.stream.destroy(error instanceof Error ? error : new Error(String(error))));
   }
@@ -385,7 +383,7 @@ class ChunkedReader {
     }
   }
 
-  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 기존 fetch와 같은 곳에서 실패를 잡도록.
+  // 첫 요청을 미리 걸고 성패를 기다린다. 호출부가 스트림을 여는 자리에서 실패를 잡도록.
   prime() {
     if (!this.ready) {
       this.ready = new Promise<void>((resolve, reject) => {

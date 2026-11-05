@@ -6,7 +6,7 @@
       <template #actions>
         <a :href="T.services[id].link" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-xs text-primary hover:underline">{{ T.linkLabel }}<Icon name="open_in_new" :size="14" /></a>
       </template>
-      <!-- 무엇에 쓰는지 한 줄, 없을 때의 일 · 받는 법은 툴팁 -->
+      <!-- 무엇에 쓰는지 한 줄, 없을 때의 일, 받는 법은 툴팁 -->
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.services[id].purpose }}<Icon name="info" :size="16" class="shrink-0 cursor-help" v-tooltip="T.services[id].tip" /></p>
 
       <div class="flex flex-col gap-3">
@@ -60,7 +60,7 @@ const view = ref<ServiceKeysView | null>(null);
 const loadError = ref("");
 // 서비스마다 입력란에 입력한 값(저장 전). 저장하면 비운다
 const input = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, Object.fromEntries(fieldsOf(id).map((field) => [field, ""]))])) as Record<ServiceId, Record<string, string>>);
-// 서비스마다 하는 일(저장 · 테스트 · 삭제), 마지막 연결 테스트 결과
+// 서비스마다 하는 일(저장, 테스트, 삭제), 마지막 연결 테스트 결과
 const busy = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, null])) as Record<ServiceId, "save" | "test" | "clear" | null>);
 const checked = reactive(Object.fromEntries(SERVICE_IDS.map((id) => [id, null])) as Record<ServiceId, KeyCheck | null>);
 

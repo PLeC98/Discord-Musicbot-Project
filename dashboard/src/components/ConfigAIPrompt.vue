@@ -1,5 +1,5 @@
 <!--
-  AI 보조 · 판정 프롬프트: 섹션(역할 · 이름 · 글)을 순서대로 보낸다. 토큰 어림수 · 리퀘스트 미리보기.
+  AI 보조, 판정 프롬프트: 섹션(역할, 이름, 글)을 순서대로 보낸다. 토큰 어림수, 리퀘스트 미리보기.
   상태는 composables/ai-editor(ConfigAI 가 내려 준다).
 -->
 <template>
@@ -8,25 +8,37 @@
       <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenTotal) }}</span>
       <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">{{ TR.tokensFailed }}</span>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TR.addSection" v-tooltip="text.common.add" @click="addSection"><Icon name="add" :size="20" /></button>
+      <!-- 프롬프트 한 벌(목록 형식 + 섹션)을 파일로. 불러오면 편집기에만 들어간다(저장 막대로 저장하거나 되돌린다) -->
+      <MoreMenu
+        :label="text.editor.more"
+        :button-class="[ICON_BTN, 'size-8']"
+        :items="[
+          { label: TR.exportPrompt, icon: 'download', select: exportPrompt },
+          { label: TR.importPrompt, icon: 'upload', select: () => fileEl?.click() },
+        ]"
+      />
+      <input ref="fileEl" type="file" accept=".json,application/json" class="hidden" @change="picked" />
     </template>
     <div class="flex flex-col gap-3">
       <p class="text-sm text-on-surface-variant">{{ TR.descBefore }}<code class="font-mono">[{"n":1,"song":true,"fits":false}]</code>{{ TR.descAfter }}</p>
       <NoticeBox v-if="!sections.length" variant="note" tone="info" icon="info" class="mt-0!">{{ TR.emptyUsesDefault }}</NoticeBox>
       <NoticeBox v-else-if="!listMarked" variant="note" tone="error" icon="error" class="mt-0!">{{ TR.listMarkMissing(LIST_MARK) }}</NoticeBox>
 
-      <!-- 섹션 카드: 헤더(핸들 · 접기 · 이름 · 역할 · 삭제), 몸은 프롬프트. 출처 카드와 같은 모양 -->
+      <!-- 섹션 카드: 헤더(핸들, 접기, 이름, 역할, 삭제), 몸은 프롬프트. 출처 카드와 같은 모양 -->
       <div v-for="(section, i) in sections" :key="section.key" class="rounded-(--r-inner) bg-surface-container-high" data-reorder>
         <div class="flex items-center gap-1 @sm/card:gap-2 p-2">
           <span class="shrink-0 flex touch-none cursor-grab active:cursor-grabbing text-outline" v-tooltip="TR.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
-          <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" v-tooltip="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" @click="toggleFold(promptFoldId(i))"><Icon name="expand_more" :size="20" class="transition-transform duration-150" :class="isFolded(promptFoldId(i)) && '-rotate-90'" /></button>
+          <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" v-tooltip="isFolded(promptFoldId(i)) ? text.common.expand : text.common.collapse" @click="toggleFold(promptFoldId(i))"><Icon name="expand_more" :size="20" class="transition-transform spring-fast" :class="isFolded(promptFoldId(i)) && '-rotate-90'" /></button>
           <input :value="section.name" :placeholder="TR.sectionName(i + 1)" :class="[FIELD, 'flex-1 min-w-0']" v-tooltip="TR.sectionNameTip" @input="section.name = valueOf($event)" />
           <SingleSelect :model-value="section.role" class="w-28 @sm/card:w-32 shrink-0" :options="ROLES.map((one) => ({ value: one, label: one }))" v-tooltip="TR.role" @update:model-value="section.role = $event as PromptSection['role']" />
           <button type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :aria-label="TR.removeSection" v-tooltip="text.common.remove" @click="removeSection(i)"><Icon name="delete" :size="20" /></button>
         </div>
-        <div v-show="!isFolded(promptFoldId(i))" class="flex flex-col gap-1 px-3 pb-3">
-          <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenEach[i]) }}</span>
-          <textarea :value="section.text" rows="8" :class="[AREA, 'font-mono text-xs']" @input="section.text = valueOf($event)"></textarea>
-        </div>
+        <CollapseTransition>
+          <div v-show="!isFolded(promptFoldId(i))" class="flex flex-col gap-1 px-3 pb-3">
+            <span v-if="tokenEach[i] != null" class="self-end text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenEach[i]) }}</span>
+            <textarea :value="section.text" rows="8" :class="[AREA, 'font-mono text-xs']" @input="section.text = valueOf($event)"></textarea>
+          </div>
+        </CollapseTransition>
       </div>
 
       <div class="flex items-center gap-2 flex-wrap">
@@ -39,11 +51,14 @@
 
 <script setup lang="ts">
 import { ICON_BTN } from "../utils/icon-button.ts";
+import CollapseTransition from "./CollapseTransition.vue";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import Icon from "./BaseIcon.vue";
 import SingleSelect from "./SingleSelect.vue";
 import NoticeBox from "./NoticeBox.vue";
+import MoreMenu from "./MoreMenu.vue";
+import { ref } from "vue";
 import { FIELD, AREA } from "../utils/field.ts";
 import { isFolded, toggleFold, promptFoldId } from "../composables/config-folds.ts";
 import { valueOf } from "../utils/dom.ts";
@@ -52,5 +67,13 @@ import { text } from "../text/index.ts";
 import { useAiEditor } from "../composables/ai-editor.ts";
 const TR = text.ai.prompt;
 
-const { startDrag, ROLES, tokenEach, tokenTotal, tokenExact, tokenError, sections, listMarked, addSection, removeSection, loadDefaults, openPreview } = useAiEditor();
+const { startDrag, ROLES, tokenEach, tokenTotal, tokenExact, tokenError, sections, listMarked, addSection, removeSection, loadDefaults, openPreview, exportPrompt, importPrompt } = useAiEditor();
+
+const fileEl = ref<HTMLInputElement | null>(null);
+function picked(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = ""; // 같은 파일을 다시 선택해도 change 가 오게
+  if (file) void importPrompt(file);
+}
 </script>

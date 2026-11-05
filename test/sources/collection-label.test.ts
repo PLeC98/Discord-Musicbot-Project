@@ -1,4 +1,4 @@
-// 여러 곡을 담은 출처(재생목록·앨범·아티스트)를 구분해 대기열 추가를 안내한다
+// src/sources/lookup.ts, src/ui/added-notice.ts: 여러 곡을 담은 출처(재생목록, 앨범, 아티스트)를 구분해 대기열 추가를 안내한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,7 +10,7 @@ import { addedView } from "../../src/ui/added-notice.ts";
 import config from "../../src/config/index.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
-// 담은 안내가 보인 글자(ui/added-notice)
+// 추가 안내가 보인 글자(ui/added-notice)
 const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
@@ -47,6 +47,6 @@ test("안내 문구가 출처 이름을 따른다", () => {
 test("안내 문구: 받은 것보다 목록이 크면 전체 곡 수를, 자리가 모자라 덜 받았으면 그 사실을 붙인다", () => {
   const label = "playlist";
   assert.equal(addedText(songs(50), label, false, { total: 9946 }), "### ✅ 곡을 추가했어요!\n재생목록 9,946곡 중 50곡을 대기열에 넣었어요.");
-  assert.equal(addedText(songs(5), label, false, { queueLimited: true }), "### ⚠️ 일부 곡을 추가했어요!\n재생목록의 5곡을 대기열에 넣었어요.\n대기열이 가득 차서 목록의 일부만 넣었어요. (최대 " + config.bot.maxQueueSize + "곡)");
+  assert.equal(addedText(songs(5), label, false, { queueLimited: true }), "### ⚠️ 일부 곡을 추가했어요!\n재생목록의 5곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 " + config.bot.maxQueueSize + "곡)");
   assert.doesNotMatch(addedText([{ title: "곡" }], null, false, { total: 9946 }), /9,946/, "한 곡 안내에는 붙이지 않는다");
 });

@@ -1,21 +1,21 @@
-// LogSink. 로그 레코드의 "진짜 매니저".
+// 로그 싱크(LogManager). 모든 로그 레코드가 지나는 한 곳.
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
-// 책임: 레드액션 → 터미널 렌더(단독) → 링버퍼 → SSE → destinations(미래 file/ipc)
-// 생산자는 두 경로: (1) src/infra/log/logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 흡수)
+// 순서: 가리기(redact) → 터미널 출력 → 줄 버퍼 → SSE → destinations(파일)
+// 들어오는 길은 둘: (1) logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 를 받는다)
 
 import util from "util";
 import config from "../../config/index.ts";
 import { styleText } from "node:util";
 import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
 
-// 터미널 출력은 항상 "가로채기 이전의 진짜 console"으로. 몽키패치 순서와 무관하게 재귀 차단.
+// 터미널 출력은 늘 가로채기 전의 console 로 한다. 가로챈 console 로 찍으면 다시 여기로 들어온다.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
 
 // 호출부가 이미 색을 넣었는지 본다(색 지우기는 levels 의 wireFields 가 한다)
 const HAS_ANSI = /\x1B\[/;
 
-/** 로그 레코드(pino JSON 부분집합). 바인딩(category · sub · tags · err …)이 같이 실린다 */
+/** 로그 레코드(pino JSON 부분집합). 바인딩(category, sub, tags, err …)이 같이 실린다 */
 export type LogRecord = { level: number; time: number; msg?: unknown; category?: string; sub?: string; tags?: string[]; [field: string]: unknown };
 /** 레코드를 받는 곳(파일 등) */
 type Destination = (rec: LogRecord) => void;
@@ -71,17 +71,17 @@ function catColor(name: string) {
   return CAT_COLORS[h % CAT_COLORS.length];
 }
 
-// 레드액션(민감정보 마스킹). 레코드가 버퍼/터미널/SSE로 나가기 직전 단일 지점.
-// 지금은 "최소 규칙"만 둔다. 경로 기반 redact 는 로거를 바꿀 때(pino 등) 넘긴다.
+// 가리기(redact). 레코드가 터미널, 버퍼, SSE, 파일로 나가기 전 한 곳에서 한다.
+// 맨 위 키 이름과 메시지 패턴만 본다(중첩된 필드는 보지 않는다).
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
   { re: /((?:access_?token|client_?secret|refresh_?token|api_?key)["'`\s:=]{1,4}["'`]?)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
-  // JSON 으로 실린 토큰 · 암호 키(음성 연결의 진행 줄: 참가 · 세션 설명 · 상태 바뀜). 값은 글 · 배열 · 객체(Uint8Array)
+  // JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄: 참가, 세션 설명, 상태 바뀜). 값은 글, 배열, 객체(Uint8Array)
   { re: /"(token|secret_?key)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/gi, repl: '"$1":"[REDACTED]"' },
 ];
 
-/** 지난 1시간 경고 · 오류. fatal 은 오류로 */
+/** 지난 1시간 경고, 오류. fatal 은 오류로 */
 type Problem = { ts: number; level: "warn" | "error"; text: string };
 const PROBLEM_WINDOW_MS = 60 * 60_000;
 const MAX_PROBLEMS = 2000;
@@ -108,7 +108,7 @@ class LogManager {
   constructor({ maxLines = KEPT_LINES, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
     this.maxLines = maxLines;
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
-    // 터미널에만 적용하는 하한. 파일·대시보드는 레코드가 오는 대로 다 받는다.
+    // 터미널에만 적용하는 하한. 파일, 대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
     this.consoleLevel = 0;
     this.buffer = [];
@@ -118,32 +118,30 @@ class LogManager {
     this.boot = Date.now();
     this.clients = new Set();
     this._owners = new Map(); // res -> 연 사람(상한을 사람마다 센다)
-    this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close·error·쓰기 실패 공용)
+    this._cleanups = new WeakMap(); // res -> 한 번만 도는 정리 함수 (close, error, 쓰기 실패 공용)
     this._heartbeat = null; // 연결 모두에 한 타이머로 보낸다. 첫 연결 때 건다
     this._heartbeatMs = 0;
     this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
-    // destination이 붙기 전에 지나간 레코드. 파일 로그는 config를 읽은 뒤에야 열 수 있는데,
-    // config 검증 경고("SPOTIFY 미설정" 등)와 기동 오류가 바로 그 이전에 나온다. 그게 파일에서
-    // 빠지면 정작 필요한 부분이 없다. 첫 destination이 붙을 때 흘려보내고 수집을 멈춘다.
+    // destination이 붙기 전에 지나간 레코드. 파일 로그는 설정을 읽은 뒤에야 열 수 있는데,
+    // 설정 경고와 기동 오류가 바로 그 전에 나온다. 첫 destination이 붙을 때 흘려보내고 모으기를 멈춘다.
     this.earlyRecords = [];
 
-    // 터미널 사정(색·TTY)의 단일 홈.
+    // 터미널 사정(색, TTY)은 여기서만 본다.
     this.isTTY = !!process.stdout.isTTY;
     this.useColor = this.isTTY;
 
     if (intercept) this._intercept();
   }
 
-  // console.* catch-net: 우리 코드는 전부 logger.*를 쓰므로, 여기 걸리는 건 곧
-  // logger를 우회한 서드파티/의존성/누락 console.* → category:"external"로 태깅해 흡수.
-  // (터미널 포맷 일관성 + 대시보드 완결성. pino 시대엔 console.*→pino로 그대로 생존.)
+  // console.* 가로채기: 우리 코드는 전부 logger.*를 쓰므로, 여기 걸리는 것은 서드파티, 의존성의 console.* 다.
+  // category "external" 로 받아 터미널 형식을 맞추고 대시보드에도 싣는다.
   _intercept() {
     for (const method of ["log", "info", "warn", "error"] as const) {
       console[method] = (...args: unknown[]) => {
         this.record({
           level: CONSOLE_LEVEL[method],
           time: Date.now(),
-          msg: util.format(...args), // console 시맨틱(%s, 객체 inspect, Error stack) 보존
+          msg: util.format(...args), // console 과 같은 형식(%s, 객체 inspect, Error stack)
           category: "external",
         });
       };
@@ -180,7 +178,7 @@ class LogManager {
     } else {
       for (const dest of this.destinations) {
         try {
-          dest(safe); // destinations는 리치 레코드를 받음(구조화 소비 대비. ANSI도 그대로)
+          dest(safe); // destination 은 가리기만 한 레코드를 그대로 받는다(ANSI 도 그대로)
         } catch {
           /* destination 오류가 로깅을 막지 않도록 삼킴 */
         }
@@ -234,7 +232,7 @@ class LogManager {
     // 카테고리 배지: sub 바인딩(하위 카테고리, pino child) 있으면 [category/sub]
     const catLabel = rec.category ? (rec.sub ? `${rec.category}/${rec.sub}` : rec.category) : rec.sub || "";
     const cat = catLabel ? paint(catColor(rec.category || rec.sub || ""), ` [${catLabel}]`) : "";
-    // 태그: 교차 성질(직교) 라벨 집합 → 배지 뒤 #tag
+    // 태그(카테고리와 따로 붙는 라벨)는 배지 뒤에 #tag 로
     const tagsRaw = Array.isArray(rec.tags) && rec.tags.length ? " " + rec.tags.map((t) => `#${t}`).join(" ") : "";
     const tags = tagsRaw ? paint(style("gray"), tagsRaw) : "";
 
@@ -249,21 +247,21 @@ class LogManager {
     return { id: ++this.lastId, ...wireFields(rec) };
   }
 
-  // 경고 · 오류는 지난 1시간을 따로 둔다(봇 상태 탭). 줄 버퍼는 debug 를 켜면 몇 분 만에 넘친다
+  // 경고, 오류는 지난 1시간을 따로 둔다(봇 상태 탭). 줄 버퍼는 debug 를 켜면 몇 분 만에 넘친다
   _keepProblem(entry: WireEntry) {
     this.problems.push({ ts: entry.ts, level: entry.level === "warn" ? "warn" : "error", text: entry.text });
     const since = entry.ts - PROBLEM_WINDOW_MS;
     while (this.problems.length > MAX_PROBLEMS || (this.problems[0] && this.problems[0].ts < since)) this.problems.shift();
   }
 
-  /** 지난 1시간의 경고 · 오류(오래된 것부터) */
+  /** 지난 1시간의 경고, 오류(오래된 것부터) */
   recentProblems(now = Date.now()) {
     return this.problems.filter((one) => now - one.ts <= PROBLEM_WINDOW_MS);
   }
 
   /**
-   * 관리자 로그 스트림 구독. 연결 상한·하트비트는 대시보드 SSE와 같은 설정을 쓴다
-   * (`SSE_MAX_CONNECTIONS`·`SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
+   * 관리자 로그 스트림 구독. 연결 상한, 하트비트는 대시보드 SSE와 같은 설정을 쓴다
+   * (`SSE_MAX_CONNECTIONS`, `SSE_HEARTBEAT_SEC`). 상한은 대시보드 SSE 처럼 사용자마다 센다(userKey: 디스코드 사용자 id).
    * after: 화면이 마지막으로 받은 줄의 SSE id("기동시각.번호"). 이 실행의 것이면 그 뒤 줄만 보낸다. 다른 실행의 것이면(봇을 다시 시작함)
    * reset 을 먼저 보내고 전부. 없으면(처음 연결) 전부. 이어 받을 줄이 쌓아 둔 줄 밖으로 이미 밀려났으면 gap(받지 못한 줄 수)을 줄보다 먼저 보낸다.
    *
@@ -310,7 +308,7 @@ class LogManager {
     return true;
   }
 
-  // SSE 한 줄. id 를 실어 브라우저가 다시 붙을 때 마지막 id(Last-Event-ID)를 보내게 한다
+  // SSE 한 줄. id 를 실어 브라우저가 재연결할 때 마지막 id(Last-Event-ID)를 보내게 한다
   _frameOf(entry: WireEntry) {
     return `id: ${this.boot}.${entry.id}\ndata: ${JSON.stringify(entry)}\n\n`;
   }

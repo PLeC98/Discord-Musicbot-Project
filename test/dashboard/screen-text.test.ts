@@ -1,5 +1,5 @@
-// dashboard/src — 화면 문구는 문구표(text/) 한곳에 둔다. 다국어를 추가할 때 그곳만 옮기면 되게.
-// 화면 파일의 글(템플릿의 글 · 속성 값 · 식, 스크립트의 문자열)에 한글이 있으면 걸린다. 주석은 보지 않는다
+// dashboard/src: 화면 문구는 문구표(text/) 한곳에 둔다. 다국어를 추가할 때 그곳만 옮기면 되게.
+// 화면 파일의 글(템플릿의 글, 속성 값, 식, 스크립트의 문자열)에 한글이 있으면 걸린다. 주석은 보지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -29,7 +29,7 @@ function scriptStrings(code: string): string[] {
 
 type TemplateNode = { type: number; content?: unknown; props?: Array<{ type: number; value?: { content: string }; exp?: { content: string } }>; children?: TemplateNode[] };
 
-/** 템플릿의 글 · 속성 값 · 식 가운데 한글이 든 것(주석 마디는 빼고) */
+/** 템플릿의 글, 속성 값, 식 가운데 한글이 든 것(주석 노드는 빼고) */
 function templateStrings(node: TemplateNode): string[] {
   const out: string[] = [];
   if (node.type === 2 && typeof node.content === "string" && HANGUL.test(node.content)) out.push(node.content.trim());
