@@ -1,0 +1,51 @@
+name: CodeQL
+
+# 저장소 설정의 기본 설정(default setup) 대신 이 워크플로가 돈다. 규칙을 빼려면 설정 파일(.github/codeql/codeql-config.yml)이 있어야 해서다.
+# 이 워크플로를 쓰려면 Settings > Code security 의 CodeQL 기본 설정을 끈다(둘이 함께 있으면 이 워크플로의 결과를 올리지 못한다)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 0 * * 1" # 월요일 09:00 KST(Dependabot 과 같은 때)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 빌드 없이 소스를 읽는다. python 은 scripts 의 글꼴 빌드 도구
+        language: [actions, javascript-typescript, python]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: "/language:${{ matrix.language }}"
