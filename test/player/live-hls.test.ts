@@ -144,7 +144,6 @@ const fakePlayer = (overrides = {}) => {
     queue: [],
     loop: false,
     lastPlaybackPosition: 0,
-    scheduleStatePersist() {},
     _trackLabel: () => '"x" (youtube)',
     ...overrides,
   });

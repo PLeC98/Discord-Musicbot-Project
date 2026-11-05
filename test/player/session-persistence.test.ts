@@ -47,36 +47,34 @@ after(() => {
 
 let guildSerial = 0;
 // 가짜 플레이어. 테스트가 재생 위치(position)와 부른 것(calls)을 정하고 본다
-function makePlayer(overrides: object = {}) {
-  const p = fakePlayer({
-    bindChannels: Player.prototype.bindChannels,
-    movePanel: Player.prototype.movePanel,
-    restoreSettings: Player.prototype.restoreSettings,
-    guild: { id: `g${guildSerial++}` },
-    voiceChannel: { id: "v1" },
-    textChannel: null,
-    volume: 100,
-    loop: false,
-    autoplay: false,
-    // 멈춤은 진짜 상태 모듈로. 오디오는 쓰지 않으니 아무것도 하지 않는 것
-    pause: new PauseState(
-      () => ({ state: { status: "idle" }, pause: () => false, unpause: () => false }) as never,
-      () => {},
-    ),
-    syncs: 0,
-    syncHolds() {
-      this.syncs++;
+function makePlayer({ position = 0, ...overrides }: { [K in keyof Player]?: unknown } & { position?: number } = {}) {
+  const p = fakePlayer(
+    {
+      bindChannels: Player.prototype.bindChannels,
+      movePanel: Player.prototype.movePanel,
+      restoreSettings: Player.prototype.restoreSettings,
+      guild: { id: `g${guildSerial++}` },
+      voiceChannel: { id: "v1" },
+      textChannel: null,
+      volume: 100,
+      loop: false,
+      autoplay: false,
+      // 멈춤은 진짜 상태 모듈로. 오디오는 쓰지 않으니 아무것도 하지 않는 것
+      pause: new PauseState(
+        () => ({ state: { status: "idle" }, pause: () => false, unpause: () => false }) as never,
+        () => {},
+      ),
+      playback: null,
+      nowPlayingMessage: null,
+      ...overrides,
     },
-    playback: null,
-    requesterId: null,
-    nowPlayingMessage: null,
-    position: 0,
-    calls: [] as unknown[][],
-    getCurrentTime() {
-      return this.position;
-    },
-    ...overrides,
-  });
+    { syncs: 0, position, calls: [] as unknown[][] },
+  );
+  // 테스트가 바꾸는 값(position)과 센 수(syncs)를 읽으므로 만든 뒤에 붙인다
+  p.syncHolds = () => {
+    p.syncs++;
+  };
+  p.getCurrentTime = () => p.position;
   Object.defineProperty(p, "paused", { get: () => p.pause.silent });
   trackState.init(p);
   const sp = new SessionPersistence(p);

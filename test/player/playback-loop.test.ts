@@ -24,57 +24,60 @@ function makeTrack(title: string, duration = 100): QueuedTrack {
 type Options = { loop?: Loop; current?: QueuedTrack | null; queue?: QueuedTrack[]; history?: QueuedTrack[] };
 
 function makePlayer({ loop = false, current = null, queue = [], history = [] }: Options = {}) {
-  return fakePlayer({
-    lifecycle: new PlaybackState(),
-    watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
-    idle: { cancelAlone() {}, cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
-    currentTrack: current,
-    // 입력이 온전히 끝난 재생(깨짐 표시 없음) → 곡 끝으로 판정
-    playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
-    lastPlaybackPosition: 0,
-    retry: { used: 0, stalled: 0 },
-    failedTracks: 0,
-    failedLabels: [],
-    _laterEnd: null,
-    _runLaterEnd: Player.prototype._runLaterEnd,
-    _scheduleEnd: Player.prototype._scheduleEnd,
-    _closeEnd: Player.prototype._closeEnd,
-    _toIdleOnEnd: Player.prototype._toIdleOnEnd,
-    _endScheduled: false,
-    _endWaiters: new Set(),
-    _resetFailures: Player.prototype._resetFailures,
-    previousTracks: history,
-    loop,
-    queue,
-    autoplay: false,
-    _endReason: null,
-    _stopWith: Player.prototype._stopWith,
-    _clearSilentStop: Player.prototype._clearSilentStop,
-    _silentStop: null,
-    _restartsOnPrevious: Player.prototype._restartsOnPrevious,
-    guild: { id: "g1", client: null },
-    played: [] as Array<{ title: string | null | undefined; ms: number }>,
-    releaseAudioProtection() {},
-    scheduleStatePersist() {},
-    // 프로토타입을 잇지 않는 목이라 코드가 부르는 헬퍼(로그 문구용 포함)는 여기 나열한다
-    _trackLabel: Player.prototype._trackLabel,
-    getCurrentTime: Player.prototype.getCurrentTime,
-    _describeEnd: Player.prototype._describeEnd,
-    _recoverDrop: Player.prototype._recoverDrop,
-    _countFailure: Player.prototype._countFailure,
-    _playNext: Player.prototype._playNext,
-    _continueAutoplay: Player.prototype._continueAutoplay,
-    finishQueue: Player.prototype.finishQueue,
-    warmer: { stop() {} },
-    _cancelRest() {},
-    _tellSkipped: Player.prototype._tellSkipped,
-    audioPlayer: { state: { status: "idle" }, stop() {} },
-    async play(ms: number) {
-      this.played.push({ title: this.currentTrack?.title, ms });
-      this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };
-      return { ok: true };
+  // 튼 곡. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  const played: Array<{ title: string | null | undefined; ms: number }> = [];
+  return fakePlayer(
+    {
+      lifecycle: new PlaybackState(),
+      watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
+      idle: { cancelEmpty() {}, scheduleEmpty() {}, stop() {} },
+      currentTrack: current,
+      // 입력이 온전히 끝난 재생(깨짐 표시 없음) → 곡 끝으로 판정
+      playback: current ? { startOffsetMs: 0, resource: { playbackDuration: (current.duration || 0) * 1000 } } : null,
+      lastPlaybackPosition: 0,
+      retry: { used: 0, stalled: 0 },
+      failedTracks: 0,
+      failedLabels: [],
+      _laterEnd: null,
+      _runLaterEnd: Player.prototype._runLaterEnd,
+      _scheduleEnd: Player.prototype._scheduleEnd,
+      _closeEnd: Player.prototype._closeEnd,
+      _toIdleOnEnd: Player.prototype._toIdleOnEnd,
+      _endScheduled: false,
+      _endWaiters: new Set(),
+      _resetFailures: Player.prototype._resetFailures,
+      previousTracks: history,
+      loop,
+      queue,
+      autoplay: false,
+      _endReason: null,
+      _stopWith: Player.prototype._stopWith,
+      _clearSilentStop: Player.prototype._clearSilentStop,
+      _silentStop: null,
+      _restartsOnPrevious: Player.prototype._restartsOnPrevious,
+      guild: { id: "g1", client: null },
+      releaseAudioProtection() {},
+      // 프로토타입을 잇지 않는 목이라 코드가 부르는 헬퍼(로그 문구용 포함)는 여기 나열한다
+      _trackLabel: Player.prototype._trackLabel,
+      getCurrentTime: Player.prototype.getCurrentTime,
+      _describeEnd: Player.prototype._describeEnd,
+      _recoverDrop: Player.prototype._recoverDrop,
+      _countFailure: Player.prototype._countFailure,
+      _playNext: Player.prototype._playNext,
+      _continueAutoplay: Player.prototype._continueAutoplay,
+      finishQueue: Player.prototype.finishQueue,
+      warmer: { stop() {} },
+      _cancelRest() {},
+      _tellSkipped: Player.prototype._tellSkipped,
+      audioPlayer: { state: { status: "idle" }, stop() {} },
+      async play(ms: number) {
+        played.push({ title: this.currentTrack?.title, ms });
+        this.playback = { startOffsetMs: ms, resource: { playbackDuration: 0 } };
+        return { ok: true };
+      },
     },
-  });
+    { played },
+  );
 }
 
 const titles = (arr: QueuedTrack[]) => arr.map((t) => t.title);
