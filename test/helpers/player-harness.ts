@@ -36,7 +36,7 @@ import type { AudioRow } from "../../src/store/audio-cache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
-type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
+type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; written: Buffer[]; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
 // input 은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
   input: OpusOutput;
@@ -48,7 +48,7 @@ type FakeResource = {
 };
 
 // 재생 입력이 fetch 에 넘기는 필드
-type FetchInit = { headers: Record<string, string> };
+type FetchInit = { headers: Record<string, string>; signal?: AbortSignal };
 
 // 판정 테스트에서 무엇이 불렸는지 모은다. 테스트마다 reset() 으로 비운다
 const calls = {
@@ -156,12 +156,19 @@ function createAudioResource(input: OpusOutput, options: FakeResource["options"]
 
 // ── 2. ffmpeg ─────────────────────────────────────────────────────────
 function fakeChild(args: string[], label: string): FakeChild {
+  const written: Buffer[] = []; // 입력(stdin)으로 받은 것
   const child: FakeChild = Object.assign(new EventEmitter(), {
     args,
     label,
     stdout: new PassThrough(),
     stderr: new PassThrough(),
-    stdin: new Writable({ write: (_c, _e, done) => done() }),
+    stdin: new Writable({
+      write: (chunk: Buffer, _e, done) => {
+        written.push(chunk);
+        done();
+      },
+    }),
+    written,
     exitCode: null,
     signalCode: null,
     killed: false,

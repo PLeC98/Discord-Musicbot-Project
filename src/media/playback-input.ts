@@ -3,7 +3,7 @@
 
 import { codedError } from "../rules/error-kind.ts";
 import { StreamType } from "@discordjs/voice";
-import { Readable, type Writable } from "stream";
+import { PassThrough, Readable, pipeline, type Writable } from "stream";
 import type { ReadableStream as WebStream } from "stream/web";
 import fs from "fs";
 import logger from "../infra/log/logger.ts";
@@ -296,8 +296,14 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
   const stream = body && "getReader" in body ? Readable.fromWeb(body) : body;
-  if (stream) watchBodyIdle(stream, SINGLE_GET_IDLE_MS);
-  return stream;
+  if (!stream) return stream;
+  // 감시를 받는 쪽 뒤에 건다. 먼저 걸면 ffmpeg 를 잇기 전에 흐름이 열려 앞부분을 잃는다
+  const out = new PassThrough();
+  pipeline(stream, out, () => {
+    /* 끊김은 out 의 오류로 받는 쪽(ffmpeg 입력)이 받는다 */
+  });
+  watchBodyIdle(stream, SINGLE_GET_IDLE_MS);
+  return out;
 }
 
 /**

@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audio-splicer.ts";
 import { gainOf } from "../../src/rules/volume-gain.ts";
 import { AudioPlayerStatus, StreamType } from "@discordjs/voice";
-import { PassThrough } from "node:stream";
+import { PassThrough, Readable } from "node:stream";
 import { EventEmitter } from "node:events";
 import { md5 } from "../../src/rules/audio-key-of.ts";
 import { codedError, codeOf } from "../../src/rules/error-kind.ts";
@@ -197,6 +197,19 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운�
   assert.equal(calls.fetches.length, 1);
   assert.equal(calls.downloads.length, 0, "기본 상한 60분");
   assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
+});
+
+test("단일 GET: 응답 헤더 대기에 신호를 걸고, 무응답 감시를 거친 본문이 ffmpeg 에 그대로 들어간다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("hhhhhhhhhhh");
+  behavior.stream = () => ({ url: "https://media.test/c", duration: 100 });
+  behavior.fetch = () => ({ ok: true, status: 200, body: Readable.from([Buffer.from("앞부분")]) });
+
+  await playOnce(p);
+  await new Promise((done) => setImmediate(done));
+
+  assert.ok(calls.fetches[0].init.signal instanceof AbortSignal);
+  assert.equal(Buffer.concat(calls.spawns[0].written).toString(), "앞부분");
 });
 
 test("헤더를 안 준 스트림은 브라우저 User-Agent 로 받는다", async () => {
@@ -1466,6 +1479,7 @@ test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입
   await playOnce(p);
   const ffmpeg = calls.spawns[0];
   body.emit("error", new Error("끊김"));
+  await new Promise((done) => setImmediate(done)); // 본문의 오류는 무응답 감시를 거쳐 다음 차례에 닿는다
 
   assert.deepEqual(p.asked, [track]);
   assert.equal(ffmpeg.stdin.writableEnded, true, "입력을 닫아야 출력이 끝나 전환이나 Idle 로 넘어간다");
@@ -1485,6 +1499,7 @@ test("파이프 분기: 입력 스트림이 깨지면 입력을 닫은 ffmpeg �
   await playOnce(p);
   assert.equal(p.playback?.input?.broken, null, "여는 순간에는 온전하다");
   body.emit("error", new Error("끊김"));
+  await tick();
   calls.spawns[0].emit("exit", 0, null);
 
   assert.equal(p.playback?.input?.exitCode, 0);
