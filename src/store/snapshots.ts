@@ -48,16 +48,22 @@ function list(dir = dbDir()): Snapshot[] {
     .sort((a, b) => b.at - a.at || b.name.localeCompare(a.name));
 }
 
-/** backups/ 에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 빈 파일로 자리를 잡아 겹쳐 뜨는 것끼리도 이름이 갈린다 */
+/**
+ * backups/ 에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 뜨는 동안의 <이름>.part 를 빈 파일로 잡아 겹쳐 뜨는 것끼리도 갈린다.
+ * 다 뜨면 부르는 쪽이 .part 를 그 이름으로 바꾼다(멈춰도 목록에는 반쯤 뜬 것이 없다)
+ */
 function claim(folder: string, base: string): string {
   for (let n = 1; ; n++) {
     const name = `${base}${n > 1 ? `-${n}` : ""}.db`;
+    const part = path.join(folder, `${name}.part`);
     try {
-      fs.closeSync(fs.openSync(path.join(folder, name), "wx"));
-      return name;
+      fs.closeSync(fs.openSync(part, "wx"));
     } catch (error) {
-      if (codeOf(error) !== "EEXIST") throw error;
+      if (codeOf(error) === "EEXIST") continue;
+      throw error;
     }
+    if (!fs.existsSync(path.join(folder, name))) return name;
+    fs.rmSync(part, { force: true });
   }
 }
 
@@ -65,8 +71,7 @@ function claim(folder: string, base: string): string {
 function prune(dir: string) {
   const all = list(dir);
   const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
-  // 읽지 못한 파일을 그대로 남긴 것은 -wal 이 곁에 있다
-  for (const one of extra) for (const side of ["", "-wal", "-shm"]) fs.rmSync(path.join(backupsOf(dir), one.name + side), { force: true });
+  for (const one of extra) fs.rmSync(path.join(backupsOf(dir), one.name), { force: true });
 }
 
 /** 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다) */
@@ -82,7 +87,6 @@ async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
     fs.renameSync(`${file}.part`, file);
   } catch (error) {
     fs.rmSync(`${file}.part`, { force: true });
-    if (kind !== "daily") fs.rmSync(file, { force: true });
     throw error;
   }
   ownerOnly(file);
@@ -165,15 +169,15 @@ function keepCurrent(dir: string, current: string) {
   try {
     const db = new Database(current, { fileMustExist: true });
     try {
-      fs.writeFileSync(kept, db.serialize());
+      fs.writeFileSync(`${kept}.part`, db.serialize());
     } finally {
       db.close();
     }
   } catch (error) {
     log.warn(`교체할 설정 DB 를 읽지 못해 파일 그대로 남깁니다: ${messageOf(error)}`);
-    fs.copyFileSync(current, kept);
-    if (fs.existsSync(`${current}-wal`)) fs.copyFileSync(`${current}-wal`, `${kept}-wal`);
+    fs.copyFileSync(current, `${kept}.part`);
   }
+  fs.renameSync(`${kept}.part`, kept);
   ownerOnly(kept);
 }
 
