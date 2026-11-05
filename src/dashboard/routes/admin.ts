@@ -62,7 +62,7 @@ import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
 import * as models from "../../config/ai-models.ts";
-import * as prices from "../../config/ai-prices.ts";
+import { refreshModelInfo } from "../../config/ai-model-info.ts";
 import { adminStatus } from "../status/index.ts";
 import { ranBy } from "../ran-by.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
@@ -268,11 +268,12 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
  */
 adminRouter.get("/ai/fields", requireOwner, (req, res) => {
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
-  if (!registry) return res.json({ known: false, fields: [], models: [] } satisfies AiFields);
+  if (!registry) return res.json({ known: false, profiled: false, fields: [], models: [] } satisfies AiFields);
 
   const model = String(req.query.model || "");
   res.json({
     known: !!models.profileOf(registry, model),
+    profiled: true,
     fields: model ? models.fieldsOf(registry, model) : [],
     groups: model ? models.groupsOf(registry, model) : [],
     // 프로필이 아는 모델들. 목록에 라벨을 입힐 때 쓴다
@@ -323,22 +324,10 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
   }
 });
 
-/** 가격표 갱신. 바뀌었으면 true. 못 불러와도 모델 프로필 갱신은 그대로 둔다(가진 가격표로 계속 센다) */
-async function refreshPrices() {
-  try {
-    return (await prices.refresh()).changed;
-  } catch (error) {
-    log.warn({ sub: "admin" }, `AI 가격표를 불러오지 못했습니다(models.dev): ${messageOf(error)}. 내장 가격표로 비용을 계산합니다`);
-    return false;
-  }
-}
-
-/** 모델 프로필, 가격표 갱신. 해시가 같으면 불러오지 않는다. pnpm run update:models 와 같은 길이다. 답의 수는 모델 프로필의 것 */
+/** 모델 정보(모델 프로필, 가격표)를 받는다. 목차의 해시가 같으면 받지 않는다. AI 설정 화면을 열 때, 모델 목록 새로고침이 부른다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
   try {
-    const registries = [...new Set(Object.values(assist.PROVIDER_SPECS).flatMap((one) => (one.registry ? [one.registry] : [])))];
-    const got = await models.refresh({ registries, force: !!req.body?.force });
-    res.json({ ...got, changed: got.changed || (await refreshPrices()) });
+    res.json(await refreshModelInfo({ force: !!req.body?.force }));
   } catch (error) {
     sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }

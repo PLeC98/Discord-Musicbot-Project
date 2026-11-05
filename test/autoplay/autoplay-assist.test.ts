@@ -12,6 +12,7 @@ import { useDocument, useDefaultDocuments } from "../helpers/config-docs.ts";
 import * as aiKeys from "../../src/store/ai-keys.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
+import { useModelInfo } from "../helpers/model-info.ts";
 import * as assist from "../../src/autoplay/assist/index.ts";
 import { fake } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
@@ -53,6 +54,8 @@ after(() => useDefaultDocuments());
 // 키는 비밀 표에 있다(store/ai-keys). 프로바이더마다 따로고, 입력할 때의 주소에 묶인다
 const KEY = "sk-test-do-not-log";
 const store = openTempStore("musicbot-ai-keys-");
+// 값이 본문 어디로 가는지는 모델 프로필이 안다(테스트용 레지스트리 사본)
+useModelInfo({ dir: store.dir, profiles: true });
 secrets._useKey(Buffer.alloc(32, 5).toString("base64"));
 after(() => {
   secrets._useKey();
@@ -648,7 +651,7 @@ test("헤더와 {{none}} 이 실제 요청에 반영된다", async () => {
 
 // ── 모델 프로필이 정한 필드 ───────────────────────────────────────────────
 
-// 값이 본문 어디로 가는지는 모델 프로필이 안다(data/ai-models.json).
+// 값이 본문 어디로 가는지는 모델 프로필이 안다.
 test("params 는 프로필이 적어 둔 경로로 간다", async () => {
   useConfig({ provider: "anthropic", model: "claude-opus-5", params: { "claude-opus-5": { effort: "high" } } }, [{ role: "user", text: "{{list}}" }]);
   calls.length = 0;
@@ -996,7 +999,7 @@ test("추가 인자에 비밀 헤더는 입력하지 못한다(평문 설정, �
 
 // 모델 이름은 코드에 안 적는다. 대신 안 쓸 것을 설정에서 가린다.
 // 저쪽 목록에는 영상, 이미지 모델이나 한참 옛 모델이 섞여 나온다.
-// 키가 없으면 저쪽은 401 뿐이다. 묻지 않고 다운로드해 둔 모델 프로필(data/ai-models.json)로 목록을 채운다. 연결 확인은 실패로 둔다
+// 키가 없으면 저쪽은 401 뿐이다. 묻지 않고 받아 둔 모델 프로필로 목록을 채운다. 연결 확인은 실패로 둔다
 test("모델 목록: 키가 없거나 저쪽이 거절하면 다운로드해 둔 목록으로 채운다(확인 결과는 실패 그대로)", async () => {
   const preset = (await import("../../src/config/ai-models.ts")).modelsOf("openai").map((one) => one.modelId);
   assert.ok(preset.length > 0, "받아 둔 프로필에 openai 모델이 있다");

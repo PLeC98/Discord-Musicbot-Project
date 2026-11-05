@@ -110,7 +110,7 @@ function editorState() {
   return {
     draft: ref<Draft>({ provider: "off" }),
     // 모델이 받는 필드. 서버가 프로필(config/ai-models)을 보고 알려 준다
-    fieldInfo: ref<AiFields>({ known: false, fields: [], groups: [], models: [] }),
+    fieldInfo: ref<AiFields>({ known: false, profiled: false, fields: [], groups: [], models: [] }),
     showAdvanced: ref(false),
     showHide: ref(false),
     refreshing: ref(false),
@@ -572,7 +572,7 @@ function serverReads(s: State, io: Exchange) {
     const provider = draft.value.provider;
     const model = draft.value.model;
     if (!provider || provider === "off") {
-      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+      fieldInfo.value = { known: false, profiled: false, fields: [], groups: [], models: [] };
       return;
     }
     try {
@@ -587,7 +587,7 @@ function serverReads(s: State, io: Exchange) {
       }
     } catch (error) {
       if (seq !== fieldsSeq) return;
-      fieldInfo.value = { known: false, fields: [], groups: [], models: [] };
+      fieldInfo.value = { known: false, profiled: false, fields: [], groups: [], models: [] };
       io.loadError.value = problemText(error, T.failed.fields);
     }
   }
@@ -771,21 +771,29 @@ function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>
     draft.value.model = String(value);
     rememberModel(draft.value.provider, draft.value.model);
   }
-  async function refreshModels() {
+  // 모델 정보(파라미터 필드, 한도, 이름)는 봇이 받아 두는 레지스트리 사본에서 온다. 봇이 목차의 해시로 보고 바뀌었을 때만 받는다.
+  // 바뀌었으면 필드를 다시 읽는다. explicit: 사람이 누른 것(바뀌었을 때, 실패했을 때 알린다). 화면을 열 때는 조용히
+  async function syncInfo({ explicit = false } = {}) {
     refreshing.value = true;
     try {
       const { data } = await axios.post<RefreshResult>("/api/admin/ai/models/refresh", undefined, { timeout: LIMIT.none });
-      if (data.changed) {
-        notifyDone(T.modelsRefreshed, T.modelCount(data.count));
-        await reads.loadFields();
-      } else notifyDone(T.modelsCurrent);
+      if (!data.changed) return false;
+      await reads.loadFields();
+      if (explicit) notifyDone(T.modelsRefreshed, T.modelCount(data.count));
+      return true;
     } catch (error) {
-      notifyProblem(error, T.modelsRefreshFailed);
+      if (explicit) notifyProblem(error, T.modelsRefreshFailed);
+      return false;
     } finally {
       refreshing.value = false;
     }
   }
-  return { rememberModel, takeModels, loadModels, onProvider, pickProvider, pickModel, refreshModels };
+  // 모델 목록 새로고침: 모델 정보를 확인한 뒤 프로바이더에 목록을 묻는다(키가 없을 때 채우는 목록이 모델 정보에서 온다)
+  async function refreshList() {
+    await syncInfo({ explicit: true });
+    await loadModels();
+  }
+  return { rememberModel, takeModels, loadModels, onProvider, pickProvider, pickModel, syncInfo, refreshList };
 }
 
 // ── 키 입력, 유료 확인(짧은 생성, 판정 테스트를 보내기 전에 한 번 묻는다) ────
@@ -873,6 +881,10 @@ function createAiEditor() {
     await io.fetchAll();
     // 켜져 있으면 열자마자 채워 둔다. 무료라 물어볼 것이 없다.
     if (provider.on.value) void list.loadModels({ quiet: true });
+    // 모델 정보도 연 김에 확인한다. 바뀌었으면 키 없이 채운 목록도 바뀌므로 다시 채운다
+    void list.syncInfo().then((changed) => {
+      if (changed && provider.on.value) void list.loadModels({ quiet: true });
+    });
   });
   return { ...CONSTS, ...s, ...provider, ...paramsPart, ...advancedView(s), ...promptView(s), ...tokenCount(s), ...io, ...reads, ...judge, ...list, ...paidPart };
 }

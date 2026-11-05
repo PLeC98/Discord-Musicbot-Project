@@ -3,6 +3,10 @@ import test from "node:test";
 import assert from "node:assert";
 import fs from "node:fs";
 import * as tokens from "../../src/autoplay/assist/tokens.ts";
+import { useModelInfo } from "../helpers/model-info.ts";
+
+// 토크나이저는 모델 프로필이 정한다(테스트용 레지스트리 사본)
+useModelInfo({ profiles: true });
 
 // OpenAI API 가 실제로 39 토큰으로 센 문장
 const SENTENCE = "세차를 하려고 해. 세차장은 50미터 떨어져 있어. 걸어가야 할까, 운전해서 가야 할까?";

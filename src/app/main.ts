@@ -16,6 +16,7 @@ import { uploadedIds, keepUploaded, addUploaded } from "../store/app-emoji-recor
 import * as tunables from "../store/tunables.ts";
 import * as settingsDocs from "../store/settings-docs.ts";
 import * as documents from "../config/documents.ts";
+import { fetchIfMissing } from "../config/ai-model-info.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
@@ -124,11 +125,12 @@ function main() {
  * 내용이 틀린 것(조절값, 복호화하지 못하는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
+  let restored: string | null;
   try {
     // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷, .env, 로그, 이번 실행의 기록은 남는다)
     if (fullReset.applyRequested()) log.warn("봇 전체 초기화: DB, 캐시 파일, 디스플레이 파일을 삭제했습니다. 설정 스냅샷은 database/backups에 보관했습니다");
     // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
-    const restored = snapshots.applyStaged(PROJECT.database);
+    restored = snapshots.applyStaged(PROJECT.database);
     if (restored) log.warn(`설정 DB를 ${restored}로 복원했습니다. 기존 DB는 database/backups에 백업했습니다`);
     stores.open();
   } catch (error) {
@@ -145,6 +147,8 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   // 예전 기본값 그대로인 AI 줄 형식, 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
   const upgraded = documents.attach(settingsDocs);
   if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신했습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(", ")}`);
+  // 복원한 설정이 AI 를 켜 두었는데 이 폴더에 받은 모델 정보가 없을 수 있다(전체 백업은 모델 정보를 담지 않는다)
+  if (restored) fetchIfMissing();
   warnLegacyConfigFiles();
   serviceKeys.load();
   staySeats.load();

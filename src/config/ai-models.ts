@@ -1,9 +1,9 @@
 /**
  * 모델 프로필. 어느 모델이 어떤 필드를 받고 그 값이 본문 어디로 가는지.
  *
- * PocketRisu 공개 레지스트리를 원본 그대로 둔다(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry).
- * 저장소의 `data/ai-models.json` 은 함께 싣는 기본 사본이고, 갱신 버튼, `pnpm run update:models` 가 다운로드한 것은 실행 위치(`database/ai-models.json`)에 쓴다.
- * 기본 사본은 git 이 추적해 고쳐 두면 `git pull` 이 막힌다. 읽을 때는 둘 중 다운로드한 때(`fetchedAt`)가 새것을 쓴다(저장소가 새 사본을 내보내면 그것이 이긴다).
+ * PocketRisu 공개 레지스트리(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry)의 카탈로그에서 우리 프로바이더 몫을 원본 그대로 받아
+ * 실행 위치(`database/ai-models.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 빈 프로필로 돈다(필드를 모르는 모델과 같다).
+ * 받는 때는 config/ai-model-info 가 정한다.
  */
 import fs from "fs";
 import path from "path";
@@ -15,10 +15,10 @@ import type { ModelField, ModelGroup, ModelSummary, RefreshResult, ShowIf } from
 const log = logger.child({ category: "config" });
 
 const RAW = "https://raw.githubusercontent.com/PocketRisu/pocketrisu-model-registry/main";
-/** 저장소에 함께 싣는 기본 사본. 여기에는 쓰지 않는다 */
-const BUNDLED = path.join(PROJECT.data, "ai-models.json");
-/** 다운로드한 사본(실행 위치) */
-const FETCHED = path.join(PROJECT.database, "ai-models.json");
+/** 레지스트리 카탈로그의 형식 버전. 다르면 받지 않는다 */
+const CATALOG_SCHEMA = 4;
+/** 받은 사본 */
+let file = path.join(PROJECT.database, "ai-models.json");
 
 // 레지스트리의 모양. 여기서 읽는 필드만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
@@ -38,10 +38,12 @@ type Profile = {
   uiSchema?: UiSchema;
   defaults?: Record<string, unknown>;
 };
-/** 파일에 둔 한 버전 */
+/** 파일에 둔 한 버전. hash 는 받은 카탈로그의 해시 */
 type Snapshot = { fetchedAt?: string; hash?: string; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
-/** 목차(index.json). 버전마다 해시와 파일 위치 */
-type RegistryIndex = { hash?: string; baseProviders?: Array<{ id: string; url: string }>; profiles?: Array<{ id: string; url: string }> };
+/** 목차(index.json)에서 읽는 것: 카탈로그 전체의 해시 */
+type RegistryIndex = { hash?: unknown };
+/** 카탈로그(catalog.json): 레지스트리 전체가 든 파일 하나 */
+type Catalog = { schemaVersion?: unknown; hash?: unknown; baseProviders?: Record<string, BaseProvider>; profiles?: Record<string, Profile> };
 
 // 목록의 값 하나. 값만 적거나 { value, label } 로 적는다
 function optionOf(e: unknown) {
@@ -61,28 +63,30 @@ function mergeSchemas(base: SchemaField[] | undefined, extension: SchemaField[] 
 
 let held: Snapshot | null = null;
 
-// 다운로드한 사본은 없을 수 있다
-function readSnapshot(file: string): Snapshot | null {
+// 받은 사본은 없을 수 있다
+function readSnapshot(): Snapshot | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as Snapshot;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 목록을 읽지 못했습니다(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 정보를 읽지 못했습니다(${path.basename(file)}): ${messageOf(error)}`);
     return null;
   }
 }
 
-/** 다운로드한 때가 새것. 다운로드한 때를 모르면 가장 오래된 것으로 본다. 같으면 다운로드한 사본(b) */
-function newerOf(a: Snapshot | null, b: Snapshot | null): Snapshot | null {
-  const at = (one: Snapshot | null) => (one?.fetchedAt ? Date.parse(one.fetchedAt) || 0 : -1);
-  if (!a || !b) return a ?? b;
-  return at(a) > at(b) ? a : b;
-}
-
-/** 기본 사본과 다운로드한 사본 중 새것. 둘 다 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
+/** 받은 사본. 없으면 빈 것으로 든다. 프로필이 없다고 봇이 멈출 일은 아니다. */
 function load({ reload = false } = {}): Snapshot {
   if (held && !reload) return held;
-  held = newerOf(readSnapshot(BUNDLED), readSnapshot(FETCHED)) ?? { baseProviders: {}, profiles: {} };
+  held = readSnapshot() ?? { baseProviders: {}, profiles: {} };
   return held;
+}
+
+/** 받은 사본이 있는가 */
+const saved = () => fs.existsSync(file);
+
+/** 받은 사본을 둘 폴더를 바꾼다(테스트). 들고 있던 것은 버린다 */
+function _setDir(dir: string) {
+  file = path.join(dir, "ai-models.json");
+  held = null;
 }
 
 /** 프로바이더 하나가 아는 모델들. 프로필 id 는 `<registry>:<이름>` 이다. */
@@ -167,26 +171,12 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
 
 const github = httpFor("github");
 
-/**
- * 저쪽에서 한 버전 다운로드한다. 원본 그대로 담되 우리 프로바이더 것만 선택한다.
- * index: 이미 다운로드해 둔 목차(갱신은 해시를 보려고 먼저 다운로드한다). 없으면 여기서 다운로드한다
- */
-async function fetchRegistry(registries: string[], { timeoutMs = 30000, fetchImpl = github.fetch, index: known }: { timeoutMs?: number; fetchImpl?: typeof fetch; index?: RegistryIndex } = {}): Promise<Snapshot> {
-  const get = async <T>(at: string): Promise<T> => {
-    const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
-    if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
-    return (await res.json()) as T;
-  };
-
-  const index = known ?? (await get<RegistryIndex>("index.json"));
-  const out: Snapshot = { fetchedAt: new Date().toISOString(), hash: index.hash, baseProviders: {}, profiles: {} };
-  for (const one of index.baseProviders || []) {
-    if (registries.includes(one.id)) out.baseProviders[one.id] = await get<BaseProvider>(one.url);
-  }
-  for (const one of index.profiles || []) {
-    if (registries.includes(String(one.id).split(":")[0])) out.profiles[one.id] = await get<Profile>(one.url);
-  }
-  return out;
+/** 카탈로그에서 우리 프로바이더의 프로필과 그 프로필이 상속하는 베이스만 선택한다 */
+function pick(catalog: Catalog, registries: string[], fetchedAt = new Date().toISOString()): Snapshot {
+  const profiles = Object.fromEntries(Object.entries(catalog.profiles ?? {}).filter(([id]) => registries.includes(String(id).split(":")[0])));
+  const bases = new Set([...registries, ...Object.values(profiles).flatMap((one) => (one.providerBaseId ? [one.providerBaseId] : []))]);
+  const baseProviders = Object.fromEntries(Object.entries(catalog.baseProviders ?? {}).filter(([id]) => bases.has(id)));
+  return { fetchedAt, hash: String(catalog.hash), baseProviders, profiles };
 }
 
 // 저쪽이 모양을 바꾸면 필드가 통째로 빈 채로 저장될 수 있다. 모델 이름이 아니라 모양으로 본다(저쪽이 옛 모델을 빼도 멀쩡하다):
@@ -198,25 +188,34 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 }
 
 /**
- * 다운로드해서 사본(`database/ai-models.json`)에 쓴다. 해시가 같으면 다운로드하지 않는다.
- * 대시보드 갱신 버튼과 `pnpm run update:models` 가 이 길을 같이 쓴다.
+ * 목차의 해시가 받은 사본과 다를 때만 카탈로그를 받아 사본에 쓴다(force 면 해시와 상관없이).
+ * 받은 것이 모양 검사(lostShape)에 걸리거나 목차와 해시가 다르면 던지고 가진 사본을 그대로 둔다.
  */
-async function refresh({ registries, force = false, timeoutMs = 30000 }: { registries: string[]; force?: boolean; timeoutMs?: number }): Promise<RefreshResult> {
+async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl = github.fetch }: { registries: string[]; force?: boolean; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<RefreshResult> {
+  const get = async <T>(at: string): Promise<T> => {
+    const res = await fetchImpl(`${RAW}/${at}`, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) throw new Error(`레지스트리 ${res.status}: ${at}`);
+    return (await res.json()) as T;
+  };
   const held = load();
-  const index = (await (await github.fetch(`${RAW}/index.json`, { signal: AbortSignal.timeout(timeoutMs) })).json()) as RegistryIndex;
-  if (!force && index.hash && index.hash === held.hash) {
-    return { changed: false, count: Object.keys(held.profiles || {}).length, fetchedAt: held.fetchedAt };
-  }
+  const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
+  const index = await get<RegistryIndex>("index.json");
+  if (typeof index.hash !== "string") throw new Error("레지스트리 목차에 해시가 없습니다");
+  if (!force && count(held) && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
-  const got = await fetchRegistry(registries, { timeoutMs, index });
+  // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 목차와 해시가 같은 짝만 쓴다
+  const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
+  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`레지스트리 카탈로그 형식 ${String(catalog.schemaVersion)}은 읽지 않습니다(${CATALOG_SCHEMA}만 읽습니다)`);
+  if (catalog.hash !== index.hash) throw new Error("레지스트리 목차와 카탈로그의 해시가 다릅니다(저쪽이 갱신하는 중). 다음에 다시 받습니다");
+  const got = pick(catalog, registries);
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 
-  fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
-  fs.writeFileSync(FETCHED, JSON.stringify(got, null, 2) + String.fromCharCode(10));
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(got, null, 2) + String.fromCharCode(10));
   load({ reload: true });
-  return { changed: true, count: Object.keys(got.profiles).length, fetchedAt: got.fetchedAt };
+  return { changed: true, count: count(got), fetchedAt: got.fetchedAt };
 }
 
-export { RAW, BUNDLED, FETCHED, fetchRegistry, refresh, load, newerOf, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
+export { RAW, refresh, load, saved, _setDir, pick, modelsOf, profileOf, fieldsOf, groupsOf, defaultsOf, mergeSchemas, lostShape };
 export type { Snapshot, Profile };

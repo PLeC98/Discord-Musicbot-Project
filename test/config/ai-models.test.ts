@@ -1,8 +1,14 @@
-// src/config/ai-models.ts: AI 모델 프로필. base-provider 상속, 본문으로 가는 필드, 다운로드한 사본의 형식 검사와 선택
+// src/config/ai-models.ts: AI 모델 프로필. base-provider 상속, 본문으로 가는 필드, 레지스트리 카탈로그를 받는 갱신과 형식 검사
 
 import test from "node:test";
 import assert from "node:assert";
+import fs from "node:fs";
+import path from "node:path";
 import * as models from "../../src/config/ai-models.ts";
+import { useModelInfo } from "../helpers/model-info.ts";
+
+/** 테스트용 레지스트리 사본(실제 레지스트리에서 테스트가 쓰는 모델만 고른 것) */
+const fixture = (): models.Snapshot => JSON.parse(fs.readFileSync(path.join(useModelInfo({ profiles: true }), "ai-models.json"), "utf8"));
 
 // 프로필은 base-provider 를 상속한다. 버텍스 프로필은 schema 가 비어 있고 알맹이가 베이스에 있어,
 // 합치지 않으면 추론 필드가 통째로 빈다.
@@ -94,10 +100,10 @@ test("모르는 모델은 빈 손으로. 던지지 않는다", () => {
   assert.equal(models.profileOf("p", "없는모델", snapshot), null);
 });
 
-// 실제로 다운로드해 둔 파일이 쓸 만한지. 저쪽 형식이 바뀌면 여기서 걸린다.
-test("다운로드해 둔 파일에 현행 모델의 추론 필드가 있다", () => {
-  const snapshot = models.load();
-  assert.ok(Object.keys(snapshot.profiles).length > 100, "프로필이 실려 있다");
+// 실제 레지스트리의 모양에서 필드를 읽는가. 테스트용 사본은 실제 레지스트리에서 고른 것이다
+test("레지스트리 사본에서 현행 모델의 추론 필드를 읽는다", () => {
+  const snapshot = fixture();
+  assert.ok(Object.keys(snapshot.profiles).length > 10, "프로필이 실려 있다");
 
   const hasKey = (registry: string, modelId: string, key: string) => models.fieldsOf(registry, modelId, snapshot).some((f) => f.key === key);
   assert.ok(hasKey("anthropic", "claude-opus-5", "effort"), "앤트로픽 5 는 output_config.effort 를 받는다");
@@ -122,22 +128,74 @@ test("갱신 모양 검사: 모델 이름이 아니라 필드가 통째로 비�
   assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [field] } })), []);
 });
 
-test("갱신 모양 검사: 저장소의 버전은 스스로와 견줘 통과한다", () => {
-  const held = models.load();
+test("갱신 모양 검사: 레지스트리 사본은 스스로와 견줘 통과한다", () => {
+  const held = fixture();
   const registries = [...new Set(Object.keys(held.profiles).map((id) => id.split(":")[0]))];
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
 
-// 다운로드한 사본은 database/ 에 따로 두고(저장소의 기본 사본을 고치지 않는다), 읽을 때는 두 사본 중 다운로드 시각(fetchedAt)이 새로운 쪽을 쓴다
-test("기본 사본, 다운로드한 사본 중 다운로드한 때가 새것을 쓴다", () => {
-  const at = (fetchedAt?: string) => ({ fetchedAt, baseProviders: {}, profiles: {} });
-  const bundled = at("2026-10-01T00:00:00.000Z");
-  const fetched = at("2026-10-05T00:00:00.000Z");
-  assert.equal(models.newerOf(bundled, fetched), fetched);
-  assert.equal(models.newerOf(at("2026-10-09T00:00:00.000Z"), fetched)?.fetchedAt, "2026-10-09T00:00:00.000Z", "저장소가 더 새 사본을 내보내면 그것");
-  assert.equal(models.newerOf(bundled, null), bundled, "받은 사본이 없으면 기본 사본");
-  assert.equal(models.newerOf(null, fetched), fetched);
-  assert.equal(models.newerOf(at(), fetched), fetched, "받은 때를 모르면 가장 오래된 것");
-  assert.equal(models.newerOf(null, null), null);
-  assert.ok(models.FETCHED.includes("database") && models.BUNDLED.includes("data"));
+// ── 갱신: 목차(index.json)의 해시로 보고 카탈로그(catalog.json) 하나를 받는다 ──
+
+const FIELD = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
+const catalogOf = (hash: string, more: Record<string, unknown> = {}) => ({
+  schemaVersion: 4,
+  hash,
+  baseProviders: { a: { requestSchema: [FIELD] }, "a-base": { requestSchema: [FIELD] }, other: { requestSchema: [FIELD] } },
+  profiles: { "a:m": { modelId: "m", providerBaseId: "a-base", schema: [] }, "z:n": { modelId: "n", providerBaseId: "other", schema: [FIELD] } },
+  ...more,
+});
+/** 레지스트리 흉내. 받은 주소를 남긴다 */
+function registry(index: () => unknown, catalog: () => unknown) {
+  const asked: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    const at = String(url).split("/main/")[1] ?? "";
+    asked.push(at);
+    return new Response(JSON.stringify(at.startsWith("catalog.json") ? catalog() : index()));
+  }) as typeof fetch;
+  return { asked, fetchImpl };
+}
+
+test("갱신: 해시가 바뀌었으면 카탈로그를 받아 우리 레지스트리의 프로필과 그 프로필이 상속하는 베이스만 쓴다", async () => {
+  useModelInfo();
+  const { asked, fetchImpl } = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => catalogOf("h1"),
+  );
+  const got = await models.refresh({ registries: ["a"], fetchImpl });
+  assert.deepEqual([got.changed, got.count], [true, 1]);
+  assert.deepEqual(asked, ["index.json", "catalog.json?h=h1"], "CDN 의 낡은 사본을 피하려고 해시를 붙여 받는다");
+  const held = models.load();
+  assert.deepEqual([held.hash, Object.keys(held.profiles), Object.keys(held.baseProviders).sort()], ["h1", ["a:m"], ["a", "a-base"]]);
+  assert.equal(models.saved(), true);
+  assert.equal(models.fieldsOf("a", "m").length, 1, "베이스에서 필드를 상속한다");
+});
+
+test("갱신: 해시가 같으면 카탈로그를 받지 않는다. force 면 받는다", async () => {
+  useModelInfo();
+  const { asked, fetchImpl } = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => catalogOf("h1"),
+  );
+  await models.refresh({ registries: ["a"], fetchImpl });
+  asked.length = 0;
+  assert.equal((await models.refresh({ registries: ["a"], fetchImpl })).changed, false);
+  assert.deepEqual(asked, ["index.json"]);
+  await models.refresh({ registries: ["a"], fetchImpl, force: true });
+  assert.deepEqual(asked, ["index.json", "index.json", "catalog.json?h=h1"]);
+});
+
+test("갱신: 목차와 카탈로그의 해시가 다르거나 형식 버전이 다르면 쓰지 않는다", async () => {
+  useModelInfo();
+  const stale = registry(
+    () => ({ schemaVersion: 4, hash: "h2" }),
+    () => catalogOf("h1"),
+  );
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: stale.fetchImpl }), /해시가 다릅니다/);
+  const newer = registry(
+    () => ({ schemaVersion: 5, hash: "h3" }),
+    () => catalogOf("h3", { schemaVersion: 5 }),
+  );
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: newer.fetchImpl }), /형식 5/);
+  assert.equal(models.saved(), false, "가진 사본을 그대로 둔다");
+  assert.deepEqual(models.load().profiles, {}, "받은 것이 없으면 빈 프로필로 돈다");
 });

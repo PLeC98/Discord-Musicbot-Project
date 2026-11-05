@@ -17,6 +17,7 @@ import { openZip, type ZipInput } from "../infra/zip.ts";
 import { BOT_VERSION } from "../infra/version.ts";
 import { codedError } from "../rules/error-kind.ts";
 import * as documents from "../config/documents.ts";
+import { fetchIfMissing } from "../config/ai-model-info.ts";
 import { genreProblems } from "../config/schema/genres.ts";
 import { statusProblems } from "../config/schema/status.ts";
 import { aiProblems, aiSwitchedOff } from "../config/schema/ai.ts";
@@ -321,6 +322,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
 
   // 메모리를 DB 에 맞춘다(설정 문서, 운영 조절값)
   if (docItems.length) documents.reload();
+  if (items.includes("ai")) fetchIfMissing();
   if (items.includes("tunables")) tunables.reload();
   if (favicons) appearance.replaceFavicons(favicons);
   staged?.commit();
