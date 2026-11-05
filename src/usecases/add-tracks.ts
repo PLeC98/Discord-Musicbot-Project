@@ -20,6 +20,7 @@ import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { canSend } from "../ui/channels.ts";
 import { inVoiceTarget } from "../infra/guild-context.ts";
+import { keyedSerial } from "../infra/keyed-serial.ts";
 import { addedView } from "../ui/added-notice.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { PlayerSeats } from "../player/registry.ts";
@@ -413,22 +414,12 @@ type FirstStart = { opened: Opened | null; failure: Refused | null; started?: Qu
 /** 대기열에 담은 것과 안내에 붙일 것 */
 type Addition = { queued: QueuedTrack[]; collection: string | null; insertFirst: boolean; position: number | null; notice: { dropped: number; skipped: number; total: number | null; queueLimited: boolean } };
 
-// 서버마다 한 번에 하나. 앞 작업의 꼬리에 잇는다. get 과 set 사이에 await 가 없어 끼어들 틈이 없고, 정리도 자기 항목일 때만 한다
-const adding = new Map<string, Promise<AddResult>>();
+// 서버마다 한 번에 하나(infra/keyed-serial). 해석이 끝난 뒤의 담기만 줄 선다
+const adding = keyedSerial();
 
 /** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
 function queueTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
-  const tail = adding.get(guildId) || Promise.resolve();
-  const task = tail
-    .catch(() => {
-      /* 앞 작업의 실패는 그 호출자가 받는다. 뒤 작업까지 실패시키지 않는다 */
-    })
-    .then(() => processTracks(bot, guildId, trackData, requester, responder));
-  adding.set(guildId, task);
-
-  return task.finally(() => {
-    if (adding.get(guildId) === task) adding.delete(guildId);
-  });
+  return adding.run(guildId, () => processTracks(bot, guildId, trackData, requester, responder));
 }
 
 async function processTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
