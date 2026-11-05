@@ -41,6 +41,7 @@ import * as externalCaches from "../store/external-caches.ts";
 import * as sourceChecks from "../store/source-checks.ts";
 import type { LookupRow } from "../store/rows.ts";
 import logger from "../infra/log/logger.ts";
+import { matchRegexes } from "./regex-filter.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
@@ -161,7 +162,7 @@ const KEY_OF: Record<TrackCacheTable, string> = { requests: "requestKey", files:
 
 // ── 읽기 ──
 
-/** 필터링 한 번의 시간 상한. 음악 재생과 같은 이벤트 루프라 길게 막지 않는다(겹친 반복 거절을 빠져나간 정규식) */
+/** 필터링 한 번의 시간 상한(정규식 밖, 정규식은 dashboard/regex-filter 의 상한). 음악 재생과 같은 이벤트 루프라 길게 막지 않는다 */
 const FILTER_TIME_MS = 100;
 // 시각을 이 행 수마다 본다
 const FILTER_CHECK_EVERY = 256;
@@ -229,8 +230,8 @@ function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } 
 
 const problemOf = (pointer: string, problem: { code: Code; max?: number }): FieldProblem => ({ pointer, code: problem.code, ...(problem.max ? { max: problem.max } : {}) });
 
-// 열마다의 식과 아무 열에서나의 단어를 읽어 행 하나를 보는 함수로
-function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) => boolean } | Refusal {
+// 열마다의 식과 아무 열에서나의 단어를 읽어 행 하나를 보는 함수로. 정규식은 따로(regexes, 따로 도는 스레드에서 맞춘다)
+function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) => boolean; regexes: Array<{ column: string; source: string }> } | Refusal {
   const kinds = TRACK_CACHE_COLUMN_KINDS[query.table] as Record<string, ColumnKind>;
   const errors: FieldProblem[] = [];
   const filters: Array<{ column: string; filter: Filter }> = [];
@@ -244,29 +245,47 @@ function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) =
   if (errors.length) return firstOf(errors);
   const columns = TRACK_CACHE_COLUMNS[query.table] as readonly string[];
   const anyColumn = words?.ok ? words.words : null;
-  const inColumns = (row: AnyRow) => filters.every(({ column, filter }) => matchFilter(filter, rawOf(row, column)));
+  const regexes = filters.flatMap(({ column, filter }) => (filter.kind === "regex" ? [{ column, source: filter.pattern.source }] : []));
+  const plain = filters.filter(({ filter }) => filter.kind !== "regex");
+  const inColumns = (row: AnyRow) => plain.every(({ column, filter }) => matchFilter(filter, rawOf(row, column)));
   const inAny = (row: AnyRow) =>
     !anyColumn ||
     matchWords(
       anyColumn,
       columns.map((column) => rawOf(row, column)),
     );
-  return { ok: true, matches: (row) => inColumns(row) && inAny(row) };
+  return { ok: true, matches: (row) => inColumns(row) && inAny(row), regexes };
+}
+
+// 다른 조건에 맞은 행 가운데 정규식에도 맞는 것. 시간 상한을 넘기면 null
+async function withRegexes(rows: AnyRow[], regexes: Array<{ column: string; source: string }>): Promise<AnyRow[] | null> {
+  if (!regexes.length || !rows.length) return rows;
+  const valueOf = (row: AnyRow, column: string) => {
+    const raw = rawOf(row, column);
+    return raw === null ? null : String(raw);
+  };
+  const hits = await matchRegexes(
+    regexes.map((one) => one.source),
+    rows.map((row) => regexes.map((one) => valueOf(row, one.column))),
+  );
+  return hits && hits.map((i) => rows[i]);
 }
 
 /** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다) */
-function read(query: TrackCacheQuery): { ok: true; page: TrackCachePage } | Refusal {
+async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCachePage } | Refusal> {
   const { table, offset, limit } = query;
   const matcher = matcherOf(query);
   if (!matcher.ok) return matcher;
   const src = load();
   const all: AnyRow[] = table === "requests" ? requestRows(src) : table === "files" ? fileRows(src) : ageRows(src);
   const started = performance.now();
-  const matched: AnyRow[] = [];
+  const plain: AnyRow[] = [];
   for (const [i, row] of all.entries()) {
     if (i % FILTER_CHECK_EVERY === FILTER_CHECK_EVERY - 1 && performance.now() - started > FILTER_TIME_MS) return refusal("filter-timeout");
-    if (matcher.matches(row)) matched.push(row);
+    if (matcher.matches(row)) plain.push(row);
   }
+  const matched = await withRegexes(plain, matcher.regexes);
+  if (!matched) return refusal("filter-timeout");
   const key = KEY_OF[table];
   matched.sort((a, b) => {
     for (const { column, dir } of query.sort) {
