@@ -34,10 +34,11 @@ const fileOf = (id: string, animated: boolean) => path.join(dir, `${id}.${animat
 async function imageOf(id: string): Promise<Image | null> {
   const emoji = appEmojis().find((one) => one.id === id);
   if (!emoji) return null;
-  const file = fileOf(id, emoji.animated);
+  // 경로와 CDN 주소에는 요청의 id 가 아니라 목록의 id 를 쓴다
+  const file = fileOf(emoji.id, emoji.animated);
   if (fs.existsSync(file)) return { data: fs.readFileSync(file), animated: emoji.animated };
-  const pending = downloading.get(id) ?? download(id, emoji.animated, file).finally(() => downloading.delete(id));
-  downloading.set(id, pending);
+  const pending = downloading.get(emoji.id) ?? download(emoji.id, emoji.animated, file).finally(() => downloading.delete(emoji.id));
+  downloading.set(emoji.id, pending);
   return pending;
 }
 

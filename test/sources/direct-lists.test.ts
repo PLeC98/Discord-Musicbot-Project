@@ -41,7 +41,11 @@ test("PLS, M3U: 첫 주소를 열어 본다. 곡의 음원 주소는 목록 주�
     assert.ok(opened.kind === "file" && opened.radio, url);
     if (opened.kind === "file") opened.body.destroy();
   }
-  assert.ok(!asked.includes("https://radio.test/b"), "첫 주소만");
+  assert.deepEqual(
+    asked.filter((one) => one === "https://radio.test/b"),
+    [],
+    "첫 주소만",
+  );
 });
 
 test("목록 안의 목록은 한 번까지, 빈 목록, 더 깊은 목록은 unsupported-link", async () => {
