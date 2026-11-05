@@ -62,6 +62,7 @@ const calls = {
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
   settings: 0, // 플레이어가 설정이 바뀌었다고 알린 횟수
+  positions: 0, // 지금 위치만 쓴 횟수
   directStreams: [] as string[],
   sink: [] as string[],
   steps: [] as string[],
@@ -273,6 +274,9 @@ class FakePersistence extends SessionPersistence {
   // 잠깐 모았다가 쓰는 것은 세션 저장 테스트가 본다. 여기서는 알림만 센다
   override onSettingsChanged() {
     calls.settings++;
+  }
+  override savePosition() {
+    calls.positions++;
   }
   override removeSession() {
     calls.persists.push("remove");
@@ -490,6 +494,7 @@ function reset() {
   for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;
+  calls.positions = 0;
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });

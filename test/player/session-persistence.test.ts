@@ -701,3 +701,21 @@ test("복원한 플레이어는 그 세션을 넘겨받은 것이다. 이어지�
   assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2", "NEW"] });
   sessions().removeSession(p.guild.id);
 });
+
+test("위치만 쓰기는 주기 저장에 든 플레이어만. 복원 중(주기 저장 밖)에는 위치를 맞추기 전이라 쓰지 않는다", () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("지금")); // 첫 쓰기로 세션을 넘겨받는다
+  sp.saveNow("play");
+  const at = () => sessions().load(p.guild.id)?.session.positionMs;
+  p.position = 33_000;
+
+  sp.savePosition();
+  assert.equal(at(), 0, "주기 저장 밖");
+  sp.startStateSync();
+  try {
+    sp.savePosition();
+    assert.equal(at(), 33_000);
+  } finally {
+    sp.stopStateSync();
+  }
+});

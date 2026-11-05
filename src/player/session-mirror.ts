@@ -213,11 +213,14 @@ class SessionPersistence {
     return JSON.stringify(row);
   }
 
-  /** 지금 위치만 쓴다(주기 저장은 멈춘 플레이어를 건너뛰어, 스트림 휴면에 들어갈 때 한 번) */
+  /**
+   * 지금 위치만 쓴다(멈출 때, 스트림 휴면에 들어갈 때. 주기 저장은 멈춘 플레이어를 건너뛴다).
+   * 주기 저장에 든(재생을 시작한) 플레이어이고 세션을 넘겨받았을 때만. 복원은 주기 저장에서 뺀 뒤 멈춤을 맞춰, 위치를 맞추기 전에 쓰지 않는다
+   */
   savePosition() {
     const store = liveStore();
     const p = this.player;
-    if (!store || this.frozen || !p.guild?.id || !p.currentTrack) return;
+    if (!store || this.frozen || !active.has(this) || !this.claimed || !p.guild?.id || !p.currentTrack) return;
     try {
       store.savePositions([{ guildId: p.guild.id, positionMs: p.getCurrentTime() || 0 }]);
     } catch (error) {

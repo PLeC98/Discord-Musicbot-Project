@@ -881,6 +881,8 @@ class Player {
     for (const hold of added) log.info(`일시정지: 원인=${hold} | ${label}`);
     for (const hold of removed) log.info(`일시정지 해제: 원인=${hold} | ${label}`);
     this.settingsSink?.onSettingsChanged(); // 받는 쪽이 잠깐 모았다가 읽는다
+    // 멈춘 위치를 곧바로 쓴다. 주기 저장은 멈춘 플레이어를 건너뛰고, 세션 행에는 사람의 멈춤만 있어 억제로 멈춘 것은 행이 바뀌지 않는다
+    if (this.paused) this.persistence?.savePosition();
     if (this.paused) this._armRest();
     else this._cancelRest();
     if (this.currentTrack) bestEffort(log, playerEvents.refresh(this), "멈춤 바뀜 뒤 패널 갱신");
