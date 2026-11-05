@@ -4,6 +4,7 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - body-parser@2.4.0
+  - follow-redirects@1.16.2
 
 packages:
   - "dashboard"
