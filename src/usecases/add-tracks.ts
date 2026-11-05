@@ -453,9 +453,11 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
   player.finishByCaller = wasIdle;
   try {
     const start: FirstStart = wasIdle ? await startFirst(panel, player, stamped[0], responder) : { opened: null, failure: null };
-    const addition = enqueue(player, trackData, wasIdle ? stamped.slice(1) : stamped);
-    // 음성 채널에 붙지 못했으면 다음 곡도 붙지 못한다
-    const opened = start.failure ? (start.failure.code === "voice-failed" ? null : await startNext(panel, player, responder)) : start.opened;
+    // 음성 채널에 붙지 못했으면 나머지도 담지 않는다. 담기는 세션의 첫 쓰기라 앞 플레이어가 남긴 세션(/join 으로 이어 들을 것)을 넘겨받아 지운다.
+    // 다음 곡도 붙지 못하니 틀어 보지 않는다
+    const voiceFailed = start.failure?.code === "voice-failed";
+    const addition = enqueue(player, trackData, voiceFailed ? [] : wasIdle ? stamped.slice(1) : stamped);
+    const opened = start.failure ? (voiceFailed ? null : await startNext(panel, player, responder)) : start.opened;
     return { start, addition, opened, wasIdle };
   } finally {
     player.finishByCaller = false;

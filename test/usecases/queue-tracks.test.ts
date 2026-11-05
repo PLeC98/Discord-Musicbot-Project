@@ -19,6 +19,9 @@ import { codedError } from "../../src/rules/error-kind.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
+import { openTempStore } from "../helpers/temp-store.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
+import { SessionPersistence } from "../../src/player/session-mirror.ts";
 
 // 실패 결과에 진입점이 보일 문장을 붙여 본다
 const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
@@ -218,6 +221,24 @@ test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목�
   const list = setup({ connects: false });
   assert.equal(said(await list.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)).success, false);
   assert.deepEqual(list.calls, ["connect", "dispose"]);
+});
+
+// 담기는 세션 미러의 첫 쓰기라 앞 플레이어가 남긴 세션을 지우고 넘겨받는다. 붙지 못했으면 넘겨받을 까닭이 없다
+test("음성 채널에 붙지 못하면 재생목록의 나머지도 담지 않는다. 앞 플레이어가 남긴 세션이 남는다(/join 으로 이어 듣기)", async () => {
+  const store = openTempStore("queue-tracks-voice-");
+  try {
+    const list = setup({ connects: false });
+    Object.assign(list.player, { guild: { id: "g1", client: { user: { id: "bot" } } } });
+    list.player.trackSink = new SessionPersistence(list.player);
+    sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 61_000 });
+    sessions().setCurrent("g1", { ...track("old"), requestedBy: { id: "u1" } });
+
+    assert.equal((await list.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)).success, false);
+    assert.deepEqual(list.player.queue, [], "담지 않는다");
+    assert.equal(sessions().load("g1")?.current?.title, "곡 old", "앞 세션이 그대로다");
+  } finally {
+    store.close();
+  }
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
