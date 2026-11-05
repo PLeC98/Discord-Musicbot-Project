@@ -1,10 +1,12 @@
 import { formatBytes, formatDuration, formatSpan } from "../../ui/format.ts";
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import * as audioCache from "../../store/audio-cache.ts";
-import type { AnywhereCommand } from "../../app/command-loader.ts";
+import type { GuildCommand } from "../../app/command-loader.ts";
+import { isBotOwner } from "../../usecases/permissions.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as infoText from "../../ui/text/ko/info.ts";
-import { LIFETIME, expireSelf } from "../../ui/delivery.ts";
+import * as errors from "../../ui/text/ko/errors.ts";
+import { LIFETIME, expireSelf, noticeSelf } from "../../ui/delivery.ts";
 
 const GB2 = { gbDigits: 2 };
 
@@ -22,12 +24,14 @@ function usageBar(used: number, max: number, width = 12) {
   return `${color} ${"█".repeat(filled)}${"░".repeat(width - filled)} ${(pct * 100).toFixed(1)}%`;
 }
 
-const exported: AnywhereCommand = {
-  help: { section: "info", tier: "moderator" },
-  anywhere: true,
-  data: new SlashCommandBuilder().setName("cachestatus").setDescription("오디오 캐시 통계를 보여줘요").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+const exported: GuildCommand = {
+  help: { section: "info", tier: "owner" },
+  data: new SlashCommandBuilder().setName("cachestatus").setDescription("오디오 캐시 통계를 보여줘요"),
 
-  async execute(interaction, _client) {
+  async execute(interaction) {
+    // 캐시는 모든 서버가 함께 쓴다. 다른 서버에서 들은 곡과 호스트 디스크 여유가 나간다
+    if (!isBotOwner(interaction.user.id)) return noticeSelf(interaction, errors.notice("must-owner"));
+
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const stats = audioCache.getCacheStats();

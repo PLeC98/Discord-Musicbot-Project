@@ -4,7 +4,7 @@ const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import type { Notice } from "../../ui/text/notice.ts";
-import { checkControl } from "../../usecases/permissions.ts";
+import { checkControl, isBotOwner } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
@@ -115,7 +115,7 @@ function handleHelpRefresh(interaction: Press, bot: BotContext) {
 
 async function handleSystemRefresh(interaction: Press, { players }: BotContext) {
   // /system과 동일하게 봇 운영자 전용
-  if (interaction.user.id !== config.dashboard.ownerId) {
+  if (!isBotOwner(interaction.user.id)) {
     return await noticeSelf(interaction, errors.notice("must-owner"));
   }
   return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });

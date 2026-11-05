@@ -1,4 +1,5 @@
 import { PermissionFlagsBits } from "discord.js";
+import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { GuildMember } from "discord.js";
@@ -14,6 +15,12 @@ const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.Ba
 
 function isModerator(member: GuildMember) {
   return MOD_PERMISSIONS.some((perm) => member.permissions.has(perm));
+}
+
+/** 봇 운영자(OWNER_ID)인가. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID 가 비어 있으면 아무도 아니다 */
+function isBotOwner(userId: string) {
+  const ownerId = config.dashboard.ownerId;
+  return !!ownerId && userId === ownerId;
 }
 
 /**
@@ -98,5 +105,5 @@ const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrac
 /** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
 const checkRemoveTrack = checkOwnTrack;
 
-export { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+export { MOD_PERMISSIONS, isModerator, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };
