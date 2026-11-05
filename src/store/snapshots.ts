@@ -48,20 +48,43 @@ function list(dir = dbDir()): Snapshot[] {
     .sort((a, b) => b.at - a.at || b.name.localeCompare(a.name));
 }
 
+/** backups/ 에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 빈 파일로 자리를 잡아 겹쳐 뜨는 것끼리도 이름이 갈린다 */
+function claim(folder: string, base: string): string {
+  for (let n = 1; ; n++) {
+    const name = `${base}${n > 1 ? `-${n}` : ""}.db`;
+    try {
+      fs.closeSync(fs.openSync(path.join(folder, name), "wx"));
+      return name;
+    } catch (error) {
+      if (codeOf(error) !== "EEXIST") throw error;
+    }
+  }
+}
+
 // 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로)
 function prune(dir: string) {
   const all = list(dir);
   const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
-  for (const one of extra) fs.rmSync(path.join(backupsOf(dir), one.name), { force: true });
+  // 읽지 못한 파일을 그대로 남긴 것은 -wal 이 곁에 있다
+  for (const one of extra) for (const side of ["", "-wal", "-shm"]) fs.rmSync(path.join(backupsOf(dir), one.name + side), { force: true });
 }
 
-/** 지금 settings.db 를 뜬다. 뜬 파일 이름 */
+/** 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다) */
 async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
   const dir = dbDir();
-  fs.mkdirSync(backupsOf(dir), { recursive: true });
-  const name = `settings-${kind}-${kind === "daily" ? day(at) : stamp(at)}.db`;
-  const file = path.join(backupsOf(dir), name);
-  await settingsDb.get().backup(file);
+  const folder = backupsOf(dir);
+  fs.mkdirSync(folder, { recursive: true });
+  const name = kind === "daily" ? `settings-daily-${day(at)}.db` : claim(folder, `settings-${kind}-${stamp(at)}`);
+  const file = path.join(folder, name);
+  // 다 뜬 뒤에 그 이름으로(뜨다 멈춰도 반쯤 뜬 파일이 목록에 남지 않는다)
+  try {
+    await settingsDb.get().backup(`${file}.part`);
+    fs.renameSync(`${file}.part`, file);
+  } catch (error) {
+    fs.rmSync(`${file}.part`, { force: true });
+    if (kind !== "daily") fs.rmSync(file, { force: true });
+    throw error;
+  }
   ownerOnly(file);
   prune(dir);
   return name;
@@ -133,22 +156,24 @@ function staged(dir = dbDir()): string | null {
   }
 }
 
-// 교체하기 전의 settings.db 를 before-restore 로 남긴다. 닫힌 파일이라 -wal 을 본체에 접어 넣은 뒤 본체만 복사하면 한 시점의 사본이다.
-// 깨진 파일이라 접지 못해도(복원이 가장 필요한 때) 있는 그대로 복사한다
+// 교체하기 전의 settings.db 를 before-restore 로 남긴다. SQLite 를 거쳐 읽어(-wal 의 내용까지) 한 파일로 쓴다.
+// 다른 프로그램이 읽고 있어 -wal 을 본체에 접지 못해도 같다. 깨진 파일이라 읽지 못하면(복원이 가장 필요한 때) 있는 그대로 복사한다
 function keepCurrent(dir: string, current: string) {
+  const folder = backupsOf(dir);
+  fs.mkdirSync(folder, { recursive: true });
+  const kept = path.join(folder, claim(folder, `settings-before-restore-${stamp(new Date())}`));
   try {
-    const db = new Database(current);
+    const db = new Database(current, { fileMustExist: true });
     try {
-      db.pragma("wal_checkpoint(TRUNCATE)");
+      fs.writeFileSync(kept, db.serialize());
     } finally {
       db.close();
     }
   } catch (error) {
-    log.warn(`복원할 설정 DB 정리 실패(원본 그대로 적용): ${messageOf(error)}`);
+    log.warn(`교체할 설정 DB 를 읽지 못해 파일 그대로 남깁니다: ${messageOf(error)}`);
+    fs.copyFileSync(current, kept);
+    if (fs.existsSync(`${current}-wal`)) fs.copyFileSync(`${current}-wal`, `${kept}-wal`);
   }
-  fs.mkdirSync(backupsOf(dir), { recursive: true });
-  const kept = path.join(backupsOf(dir), `settings-before-restore-${stamp(new Date())}.db`);
-  fs.copyFileSync(current, kept);
   ownerOnly(kept);
 }
 

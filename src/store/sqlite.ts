@@ -8,6 +8,9 @@ import { ownerOnly } from "../infra/owner-only.ts";
 
 type Db = Database.Database;
 
+/** PRAGMA auto_vacuum 이 돌려주는 수 */
+const AUTO_VACUUM = { INCREMENTAL: 2 } as const;
+
 /**
  * 구조 버전이 맞지 않을 때의 안내. 어느 파일이든 열지 않고 멈춘다(저절로 삭제하고 새로 만들지 않는다).
  * lost: 삭제해도 되는 파일. 삭제하면 무엇을 잃는지(안내는 "이 파일을 삭제하고 다시 시작하라")
@@ -25,7 +28,9 @@ type DbSpec = {
   /** 쓰기마다 디스크까지 기다리나. 잃으면 안 되는 파일은 FULL */
   synchronous: "NORMAL" | "FULL";
   onMismatch: OnMismatch;
-  /** 표 만들기. 이미 있으면 그대로 둔다 */
+  /** 지운 공간을 파일에서 돌려주나(auto_vacuum). 표를 만들기 전, WAL 을 켜기 전에만 걸려서 표 만들기에 두지 않는다 */
+  autoVacuum?: "INCREMENTAL";
+  /** 표 만들기. 이미 있으면 그대로 둔다. 구조 버전과 한 트랜잭션에서 돈다 */
   createTables(db: Db): void;
 };
 
@@ -46,13 +51,19 @@ class DbFile {
     try {
       // -wal, -shm 은 SQLite 가 본체와 같은 권한으로 만든다
       ownerOnly(file);
+      if (this.spec.autoVacuum) next.pragma(`auto_vacuum = ${this.spec.autoVacuum}`);
       next.pragma("journal_mode = WAL");
       next.pragma(`synchronous = ${this.spec.synchronous}`);
       next.pragma("foreign_keys = ON");
       next.pragma("busy_timeout = 5000");
       this.settle(next, file);
-      this.spec.createTables(next);
-      next.pragma(`user_version = ${this.spec.version}`);
+      // 만드는 도중 멈춰 표만 있고 버전이 없는 파일이 남지 않게
+      next.transaction(() => {
+        this.spec.createTables(next);
+        next.pragma(`user_version = ${this.spec.version}`);
+      })();
+      // 이 설정 없이 만든 파일이면 VACUUM 으로 바꾼다(한 번)
+      if (this.spec.autoVacuum && next.pragma("auto_vacuum", { simple: true }) !== AUTO_VACUUM[this.spec.autoVacuum]) next.exec("VACUUM");
       this.conn = next;
     } catch (error) {
       next.close();

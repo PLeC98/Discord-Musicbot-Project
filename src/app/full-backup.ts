@@ -130,10 +130,11 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
     copy.done();
     audio?.done();
   }
+  // 새 것을 제자리에 둔 뒤 앞의 것을 지운다(그사이 멈춰도 백업이 하나는 있다. 같은 이름이면 바꾸기가 덮는다)
   const replaced = fs.readdirSync(outDir).filter((one) => /^musicbot-full-.*\.zip$/.test(one));
-  for (const old of replaced) fs.rmSync(path.join(outDir, old), { force: true });
   fs.renameSync(part, out);
   ownerOnly(out);
+  for (const old of replaced) if (old !== name) fs.rmSync(path.join(outDir, old), { force: true });
   return { file: out, replaced, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null };
 }
 
