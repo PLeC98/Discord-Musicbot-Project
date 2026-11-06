@@ -118,13 +118,17 @@ test("SSE 연결: 다시 붙을 때 보내는 놓친 줄은 바이트로도 묶�
   const res = await fetch(`${base}/logs/stream?after=${first.id - 1}`, { signal: controller.signal });
   const reader = res.body!.getReader();
   let bytes = 0;
+  let text = "";
+  const decoder = new TextDecoder();
   const deadline = Date.now() + 1000;
   while (Date.now() < deadline) {
     const got = await Promise.race([reader.read(), new Promise<null>((done) => setTimeout(() => done(null), 200))]);
     if (!got || got.done) break;
     bytes += got.value.length;
+    text += decoder.decode(got.value, { stream: true });
   }
   controller.abort();
+  assert.match(text, /event: gap\n/, "못 보낸 줄이 있다고 알린다(화면이 목록을 다시 읽는다)");
   assert.ok(bytes > aiLogStream.RESUME_MAX_BYTES / 2 && bytes <= aiLogStream.RESUME_MAX_BYTES + 16 * 1024, `${bytes}B`);
 });
 

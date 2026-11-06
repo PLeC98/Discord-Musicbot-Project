@@ -43,10 +43,11 @@ export const useUserStore = defineStore("user", {
       }
     },
 
-    // 세션이 끝난 뒤 다시 로그인했는지 본다. 다른 계정으로 들어왔으면 화면 전체가 남의 것이라 새로 연다
-    async resumeSession() {
+    // 세션이 끝난 뒤 다시 로그인했는지 본다. 다른 계정으로 들어왔으면 화면 전체가 남의 것이라 새로 연다.
+    // quiet: 401 이어도 세션 끝으로 돌리지 않는다(기본). false 면 401 이 지금처럼 세션 끝으로 간다
+    async resumeSession({ quiet = true }: { quiet?: boolean } = {}) {
       try {
-        const res = await axios.get<Me>("/api/me", { quietSession: true });
+        const res = await axios.get<Me>("/api/me", { quietSession: quiet });
         if (this.data && res.data.id !== this.data.id) {
           window.location.reload();
           return false;
@@ -70,10 +71,9 @@ export const useUserStore = defineStore("user", {
 });
 
 /**
- * 스트림을 다시 열어도 되는지(로그인이 살아 있는지, utils/event-link 의 check). quiet 면 401 이어도 세션 끝으로 돌리지 않고,
- * 다른 계정으로 로그인했으면 화면을 새로 연다(resumeSession). 아니면 지금처럼 401 이 세션 끝으로 간다
+ * 스트림을 다시 열어도 되는지(로그인이 살아 있는지, utils/event-link 의 check). 다른 계정으로 로그인했으면 화면을 새로 연다(resumeSession).
+ * quiet 면 401 이어도 세션 끝으로 돌리지 않는다
  */
-export async function checkSession(quiet: boolean): Promise<boolean> {
-  if (quiet) return useUserStore().resumeSession();
-  return (await axios.get("/api/me")).status === 200;
+export function checkSession(quiet: boolean): Promise<boolean> {
+  return useUserStore().resumeSession({ quiet });
 }

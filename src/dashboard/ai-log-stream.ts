@@ -25,6 +25,8 @@ let heartbeatMs = 0;
 let decorate: Decorate = (entry) => entry;
 let offRecorded: (() => void) | null = null;
 
+/** 다시 붙을 때 놓친 줄을 다 보내지 못했다 */
+const GAP_FRAME = "event: gap\ndata: {}\n\n";
 const frameOf = (pushed: AiLogPushed) => `id: ${pushed.entry.id}\ndata: ${JSON.stringify(pushed)}\n\n`;
 
 function pushedOf(entry: AiLogEntry): AiLogPushed {
@@ -81,7 +83,11 @@ function addClient(res: Response, userKey: string, after: number): boolean {
     for (const entry of requests.since(after, RESUME_MAX)) {
       const frame = frameOf(pushedOf(entry));
       bytes += Buffer.byteLength(frame);
-      if (bytes > RESUME_MAX_BYTES) break;
+      if (bytes > RESUME_MAX_BYTES) {
+        // 못 보낸 줄이 있다. 다음 새 줄이 이어 받을 자리를 앞으로 옮기므로 화면이 목록을 다시 읽게 알린다
+        res.write(GAP_FRAME);
+        break;
+      }
       res.write(frame);
     }
   }

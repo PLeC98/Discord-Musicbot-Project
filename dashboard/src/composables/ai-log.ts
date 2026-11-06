@@ -130,8 +130,10 @@ function liveState(list: List, open: { value: Set<number> }) {
     open: (url) => new EventSource(url, { withCredentials: true }),
     check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
-    events: { message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed) },
+    // gap: 다시 붙을 때 놓친 줄을 다 받지 못했다(서버의 상한). 목록을 다시 읽어 빈 곳을 채운다
+    events: { message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed), gap: () => onGap() },
   });
+  let onGap: () => void = () => undefined;
   function start() {
     lastId = list.entries.value[0]?.id ?? 0;
     link.start();
@@ -140,7 +142,7 @@ function liveState(list: List, open: { value: Set<number> }) {
     link.stop();
     connected.value = false;
   }
-  return { fresh, atTop, connected, showFresh, start, stop };
+  return { fresh, atTop, connected, showFresh, start, stop, whenGap: (fn: () => void) => (onGap = fn) };
 }
 
 /** 리퀘스트 로그 화면 하나. active: 화면이 보이는가(보일 때 읽고 SSE 연결을 연다) */
@@ -177,17 +179,24 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  // 화면이 보이고(active), 탭이 보이고 세션이 살아 있을 때만 연다(다른 두 스트림과 같다). 읽기를 기다리는 사이 바뀌었거나 화면이 사라졌으면 열지 않는다
+  // 화면이 보이고(active), 탭이 보이고 세션이 살아 있을 때만 연다(다른 두 스트림과 같다). 읽기를 기다리는 사이 바뀌었거나 화면이 사라졌으면 열지 않는다.
+  // 다시 읽기는 처음 열 때, 화면을 떠났다 올 때, 세션이 끝났다 다시 로그인했을 때만. 탭을 숨겼다 보이는 것은 이어 받기로 충분하다(펼친 줄, 더 읽은 줄을 지킨다)
   let disposed = false;
   let turn = 0;
+  let stale = true;
   const wanted = () => !disposed && active() && canStream();
   async function sync() {
     const mine = ++turn;
+    if (!active() || session.ended) stale = true;
     if (!wanted()) return live.stop();
-    await reload();
-    if (mine !== turn || !wanted()) return;
+    if (stale) {
+      await reload();
+      if (mine !== turn || !wanted()) return;
+      stale = false;
+    }
     live.start();
   }
+  live.whenGap(() => void reload());
   watch([active, () => session.ended], () => void sync(), { immediate: true });
   // 숨긴 탭의 값(document.hidden)은 반응형이 아니라 따로 듣는다
   const onVisibility = () => void sync();

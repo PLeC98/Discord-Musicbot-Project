@@ -21,7 +21,7 @@ const RECHECK_MS = 30_000;
 const CLOSE_GRACE_MS = 1000;
 /** 쌓인 것이 이보다 많으면 끝 이벤트 없이 곧바로 부순다(읽지 않는 클라이언트) */
 const LARGE_BACKLOG = 512 * 1024;
-/** 저장소 읽기가 이만큼 잇달아 실패하면 확인하지 못한 스트림을 끊는다(망가진 DB 가 끝난 세션의 스트림을 살려 두지 않게) */
+/** 다시 보기에서 저장소 읽기가 이만큼의 차례 잇달아 실패하면 그 차례에 확인하지 못한 스트림을 끊는다(망가진 DB 가 끝난 세션의 스트림을 살려 두지 않게. DB 오류는 스트림마다가 아니라 한꺼번에 온다) */
 const FAILURES_TO_CLOSE = 3;
 
 /** 끝을 알리는 SSE 이벤트. 화면이 받으면 닫고, 조금 뒤 로그인이 살아 있는지 확인한다(다시 로그인한 브라우저는 새 쿠키로 다시 연다) */
@@ -51,6 +51,8 @@ function track(req: Request, res: Response, kind: string, drop?: () => void) {
   const user = req.session?.user;
   if (!store || !user) return;
   const entry: Tracked = { res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, kind, deadline: (req.session.loginAt ?? 0) + SESSION_MAX_MS, store, drop: drop ?? (() => undefined) };
+  // 이 요청이 고친 기기 기록(브라우저, 주소, 마지막 활동)을 떼기 전에 저장한다(떼면 응답이 끝날 때 저장하지 않는다). 방금 살아 있음을 보았다
+  req.session.save(() => undefined);
   (req as { session: unknown }).session = null;
   tracked.set(res, entry);
   const untrack = () => {
@@ -93,7 +95,8 @@ function close(entry: Tracked, why: string) {
     // 끝낸 뒤에는 응답이 소켓에서 떨어져 응답을 부숴도 소켓은 남는다. 소켓을 직접 부순다
     setTimeout(() => socket?.destroy(), CLOSE_GRACE_MS).unref();
   }
-  log.info(`스트림을 끊었습니다(${why}): ${entry.kind} | ${entry.name}`);
+  // 로그아웃, 다시 로그인마다 탭 수만큼 나온다. 끊은 일 자체(다른 기기 로그아웃 등)는 그 경로가 남긴다
+  log.debug(`스트림을 끊었습니다(${why}): ${entry.kind} | ${entry.name}`);
 }
 
 /** 묶인 스트림의 세션을 다시 본다(RECHECK_MS 마다). 세션마다 저장소를 한 번 읽는다. 절대 기한은 저장소를 읽지 못해도 본다 */

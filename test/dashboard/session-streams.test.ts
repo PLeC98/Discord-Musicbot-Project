@@ -12,7 +12,7 @@ import express, { type Response } from "express";
 import session from "express-session";
 import type { Server } from "node:http";
 import { SqliteSessionStore, SESSION_MAX_MS } from "../../src/dashboard/session-store.ts";
-import { noteDevice } from "../../src/dashboard/login-devices.ts";
+import { noteDevice, openRecord } from "../../src/dashboard/login-devices.ts";
 import * as sessionStreams from "../../src/dashboard/session-streams.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
@@ -42,6 +42,8 @@ before(async () => {
   app.post("/logout", (req, res) => req.session.destroy(() => res.status(204).end()));
   // 대시보드 스트림 경로의 모양: 로그인, 열기 바로 앞의 확인, 머리, 묶기
   app.get("/stream", (req, res) => {
+    // revoke: 세션을 읽은 뒤 열기 앞에서 끝낸다(기다리는 사이 다른 기기에서 끊은 것)
+    if (req.query.revoke) store.destroy(req.sessionID);
     if (!req.session?.user || !sessionStreams.admit(req)) return res.status(401).end();
     res.writeHead(200, { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
@@ -110,6 +112,8 @@ async function openStream(who: ReturnType<typeof device>, headers: Record<string
 
 const rowOf = (sid: string) => store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(sid);
 const settle = (ms: number) => new Promise((done) => setTimeout(done, ms));
+// 고침이 빠지면 멈추지 말고 실패하게
+const within = <T>(promise: Promise<T>, ms = 3000) => Promise.race([promise, new Promise<never>((_, fail) => setTimeout(() => fail(new Error(`${ms}ms 안에 끝나지 않음`)), ms))]);
 
 test("로그아웃하면 그 세션의 스트림은 끝 이벤트를 받고 닫힌다. 다시 열면 401", async () => {
   const thief = device();
@@ -117,7 +121,7 @@ test("로그아웃하면 그 세션의 스트림은 끝 이벤트를 받고 닫�
   const stream = await openStream(thief);
   assert.equal(stream.status, 200);
   await thief.go("/logout", { method: "POST" });
-  await stream.ended;
+  await within(stream.ended);
   assert.match(stream.text(), /event: session-ended/);
   assert.equal(dropped, 1, "모듈 정리를 곧바로 부른다");
   assert.equal((await thief.go("/stream")).status, 401);
@@ -128,7 +132,7 @@ test("다른 기기에서 끊은 것(저장소의 지우기)도 곧바로 끊는
   await thief.go("/login?u=s2", { method: "POST" });
   const stream = await openStream(thief);
   store.destroy(thief.sid());
-  await stream.ended;
+  await within(stream.ended);
   assert.match(stream.text(), /event: session-ended/);
 });
 
@@ -140,18 +144,26 @@ test("알림 없는 끝(날 SQL 로 지움)은 다시 보기가 끊는다. 세�
   const sid = thief.sid();
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(sid);
   sessionStreams.recheck();
-  await stream.ended;
+  await within(stream.ended);
   await settle(50);
   assert.equal(rowOf(sid), undefined, "되살아나지 않는다");
 });
 
-test("열기 바로 앞에서 본다: 끝난 세션은 열지 않고 한 바이트도 보내지 않는다", async () => {
+test("열기 바로 앞에서 본다: 세션을 읽은 뒤 끝난 세션은 열지 않고 한 바이트도 보내지 않는다", async () => {
   const thief = device();
   await thief.go("/login?u=s4", { method: "POST" });
-  store.destroy(thief.sid());
-  const res = await thief.go("/stream");
+  const res = await thief.go("/stream?revoke=1");
   assert.equal(res.status, 401);
   assert.equal(opened.length, 0);
+});
+
+test("스트림을 연 요청의 기기 기록(브라우저, 주소)은 세션을 떼기 전에 저장한다", async () => {
+  const thief = device();
+  await thief.go("/login?u=s9", { method: "POST" });
+  const stream = await openStream(thief, { "user-agent": `${UA} Changed` });
+  const data = JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(thief.sid()) as string) as { device?: string };
+  assert.match(openRecord(thief.sid(), data.device)?.ua ?? "", /Changed/);
+  stream.abort();
 });
 
 test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 남는다)", async () => {
@@ -192,7 +204,7 @@ test("저장소를 읽다 실패하면 한두 번은 두고, 세 번 잇달아�
     await settle(30);
     assert.doesNotMatch(stream.text(), /session-ended/, "두 번은 둔다");
     sessionStreams.recheck();
-    await stream.ended;
+    await within(stream.ended);
     assert.match(stream.text(), /session-ended/);
   } finally {
     store.liveSession = real;
@@ -209,7 +221,7 @@ test("로그인 30일이 지나면 저장소가 망가져 있어도 끊는다(�
   };
   try {
     sessionStreams.recheck(Date.now() + 120_000);
-    await stream.ended;
+    await within(stream.ended);
     assert.match(stream.text(), /session-ended/);
   } finally {
     store.liveSession = real;
@@ -225,7 +237,7 @@ test("클라이언트가 끊으면 묶음에서 빠진다(다시 보기가 끝�
   store.liveSession = (sid: string) => (reads++, real(sid));
   try {
     stream.abort();
-    await stream.ended;
+    await within(stream.ended);
     await settle(50);
     sessionStreams.recheck();
     assert.equal(reads, 0);

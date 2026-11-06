@@ -84,3 +84,14 @@ test("한꺼번에 열어도, 열고 끊기를 되풀이해도 끝나지 않은 
   assert.equal(stream.perKey.get("u1"), 1, "다시 열 수 있다");
   fresh.abort();
 });
+
+test("멤버 조회를 기다리는 사이 세션이 끝나면(다른 기기에서 끊음) 열지 않고 401, 자리를 푼다", async () => {
+  gate = new Promise<void>((done) => (open = done));
+  const one = connect();
+  await settle(100);
+  tokens.store.destroy("sid-u1");
+  open();
+  assert.equal(await one.status, 401);
+  assert.equal(stream.perKey.get("u1"), undefined);
+  tokens.signIn("u1");
+});

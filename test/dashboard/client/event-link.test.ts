@@ -122,6 +122,57 @@ test("열자마자 또 닫히면 간격을 처음으로 돌리지 않는다(열 
   assert.deepEqual(h.delays, [2000, 5000, 15000]);
 });
 
+test("브라우저가 스스로 다시 붙은 것(열림이 또 옴)은 버틴 시간을 처음부터 세지 않는다", async () => {
+  const h = harness();
+  h.link.start();
+  h.sources[0].refused();
+  await h.tick();
+  h.sources[1].refused();
+  await h.tick();
+  h.sources[2].opened();
+  h.clock.now += 60_000;
+  h.sources[2].dropped(); // 망이 잠깐 끊겨 브라우저가 다시 붙는다
+  h.sources[2].opened();
+  h.clock.now += 1_000;
+  h.sources[2].refused(); // 곧 다시 시작(503)
+  assert.deepEqual(h.delays, [2000, 5000, 2000], "한 시간 버틴 연결이라 처음부터");
+});
+
+test("세션 끝 이벤트 뒤 확인을 기다리는 사이 다시 열려도 조용한 확인이 남지 않는다", async () => {
+  let answer: (ok: boolean) => void = () => {};
+  const h = harness();
+  const quiet: boolean[] = [];
+  const pending: Array<() => void> = [];
+  const sources: FakeSource[] = [];
+  const link = eventLink({
+    url: "/events",
+    open: (url) => {
+      const one = new FakeSource(url);
+      sources.push(one);
+      return one;
+    },
+    events: {},
+    check: (q) => {
+      quiet.push(q);
+      return new Promise<boolean>((done) => (answer = done));
+    },
+    delay: () => 2000,
+    schedule: (fn) => (pending.push(fn), pending.length),
+    cancel: () => {},
+  });
+  void h;
+  link.start();
+  sources[0].opened();
+  sources[0].ended();
+  pending.shift()!(); // 차례가 와 조용히 묻는 중
+  link.start(); // 탭을 오가 곧바로 연다
+  answer(true);
+  await new Promise((done) => setImmediate(done));
+  sources[1].refused();
+  pending.shift()!();
+  assert.deepEqual(quiet, [true, false], "다음 확인은 조용하지 않다");
+});
+
 test("세션 끝 이벤트: 닫고 끊김을 알리고, 차례 전에는 묻지 않는다. 첫 확인은 조용히, 그래도 아니면 다음 확인은 지금처럼(세션 끝으로)", async () => {
   const h = harness({ checks: [false, false] });
   h.link.start();

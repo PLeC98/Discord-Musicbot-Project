@@ -61,8 +61,10 @@ export function eventLink({
   function connect() {
     const one = open(typeof url === "function" ? url() : url);
     source = one;
+    quietChecks = 0;
     one.onopen = () => {
-      openedAt = now();
+      // 브라우저가 스스로 다시 붙은 것은 그대로 이어진 연결로 센다(다시 붙을 때마다 처음부터 세면 오래 버틴 연결의 간격이 처음으로 돌아가지 않는다)
+      openedAt ??= now();
       onState("open");
     };
     for (const [name, fn] of Object.entries(events)) one.addEventListener(name, fn);
@@ -99,8 +101,8 @@ export function eventLink({
     } catch {
       ok = false;
     }
+    if (quiet) quietChecks = Math.max(0, quietChecks - 1);
     if (!wanted || source || timer !== undefined) return;
-    if (quiet) quietChecks--;
     if (ok) {
       quietChecks = 0;
       connect();
