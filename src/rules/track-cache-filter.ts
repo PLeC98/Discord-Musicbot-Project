@@ -99,7 +99,7 @@ function parseFilter(kind: ColumnKind, input: string): Parsed | null {
     if (!low || !high) return { ok: false, code: "bad-filter" };
     return { ok: true, filter: { kind: "between", low: low.value, high: high.until ?? high.value } };
   }
-  if (expr.includes("%")) return { ok: true, filter: { kind: "like", parts: expr.toLowerCase().split("%").filter(Boolean) } };
+  if (expr.includes("%")) return { ok: true, filter: { kind: "like", parts: foldCase(expr).split("%").filter(Boolean) } };
   return { ok: true, filter: { kind: "contains", text: expr } };
 }
 
@@ -110,16 +110,33 @@ function sameAs(filter: Extract<Filter, { kind: "equals" | "not-equals" }>, valu
   return filter.until === undefined ? n === filter.value : n >= filter.value && n <= filter.until;
 }
 
-/** % 식: 조각이 그 차례로 어디에든 들어 있다(대소문자 무시). 앞에서부터 가장 이른 자리를 잡아 나간다 */
-function likeMatch(parts: string[], value: string) {
-  const text = value.toLowerCase();
-  let at = 0;
-  for (const part of parts) {
-    const found = text.indexOf(part, at);
-    if (found < 0) return false;
-    at = found + part.length;
+/**
+ * 정규식의 i 플래그(u 없음)와 같은 대소문자 접기. 글자(UTF-16 단위)마다 대문자로 바꾸되, 여러 글자가 되거나 ASCII 밖에서 ASCII 로 바뀌면 그대로 둔다.
+ * 길이가 바뀌지 않는다. toLowerCase 는 낱말 끝의 Σ 를 ς 로 바꾸는 것처럼 앞뒤를 보아 정규식과 달라진다
+ */
+function foldCase(text: string) {
+  let out = "";
+  for (const unit of text.split("")) {
+    const upper = unit.toUpperCase();
+    out += upper.length !== 1 || (unit.charCodeAt(0) >= 128 && upper.charCodeAt(0) < 128) ? unit : upper;
   }
-  return true;
+  return out;
+}
+
+const LINE_BREAK = /[\n\r\u2028\u2029]/;
+
+/** % 식: 조각이 그 차례로 한 줄 안에 들어 있다(대소문자 무시, % 를 .* 로 바꾼 정규식과 같다). 앞에서부터 가장 이른 자리를 잡아 나간다 */
+function likeMatch(parts: string[], value: string) {
+  return value.split(LINE_BREAK).some((line) => {
+    const text = foldCase(line);
+    let at = 0;
+    for (const part of parts) {
+      const found = text.indexOf(part, at);
+      if (found < 0) return false;
+      at = found + part.length;
+    }
+    return true;
+  });
 }
 
 const COMPARE: Record<Cmp, (n: number, value: number) => boolean> = { ">": (n, v) => n > v, "<": (n, v) => n < v, ">=": (n, v) => n >= v, "<=": (n, v) => n <= v };
