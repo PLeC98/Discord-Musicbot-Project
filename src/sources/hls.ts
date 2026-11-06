@@ -132,6 +132,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       body.off("data", onData);
       body.off("end", onEnd);
       body.off("error", onError);
+      body.off("close", onClose);
       signal.removeEventListener("abort", onAbort);
     };
     const handOff = () => {
@@ -159,6 +160,10 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       cleanup();
       reject(error);
     };
+    // 오류 없이 닫혔다(끝 전에). 다시 받을 수 있는 실패
+    const onClose = () => {
+      if (!body.readableEnded) onError(Object.assign(new Error("세그먼트 본문이 끝 전에 닫혔습니다"), { code: "ERR_STREAM_PREMATURE_CLOSE" }));
+    };
     const onAbort = () => {
       cleanup();
       body.destroy();
@@ -170,6 +175,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
     body.on("data", onData);
     body.once("end", onEnd);
     body.once("error", onError);
+    body.once("close", onClose);
   });
 }
 

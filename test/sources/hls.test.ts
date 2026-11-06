@@ -363,6 +363,21 @@ test("모으기: 문자열 덩이도 바이트로 받고, Buffer 도 문자열�
   await assert.rejects(odd.fetch((await odd.next())!, new AbortController().signal), /덩이/);
 });
 
+test("모으기: 본문이 오류 없이 닫히면 그 자리에서 다시 받을 수 있는 실패로(넘길 때까지 기다리지 않는다)", async () => {
+  const net = {
+    getStream: async (url: string) => {
+      const body = new Readable({ read() {} });
+      body.push(Buffer.from("앞"));
+      setTimeout(() => body.destroy(), 20);
+      return Object.assign(body, { headers: {}, status: 200, url }) as AudioStream;
+    },
+  };
+  const fragments = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net })).fragments();
+  const started = Date.now();
+  await assert.rejects(fragments.fetch((await fragments.next())!, new AbortController().signal), (e: Error & { permanent?: boolean; code?: string }) => e.code === "ERR_STREAM_PREMATURE_CLOSE" && !e.permanent);
+  assert.ok(Date.now() - started < 1000, "3초를 기다리지 않았다");
+});
+
 test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 신호가 끊으면 그 사유로 끝난다(세그먼트는 열지 않는다)", async () => {
   const asked: string[] = [];
   const net = {
