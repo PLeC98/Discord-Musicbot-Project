@@ -193,7 +193,12 @@ async function openUnread(who: ReturnType<typeof device>, query = "") {
   await new Promise((done) => raw.once("connect", done));
   raw.write(`GET /stream${query} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${who.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
   raw.pause();
-  while (!opened.length) await settle(10);
+  // 열리지 않으면(401) 멈추지 말고 실패하게
+  const started = Date.now();
+  while (!opened.length) {
+    if (Date.now() - started > 3000) throw new Error("스트림이 열리지 않았다");
+    await settle(10);
+  }
   return { raw, ...opened[0] };
 }
 
@@ -301,3 +306,20 @@ test("클라이언트가 끊으면 목록에서 빠진다(다시 보기가 끝�
     store.liveSession = real;
   }
 });
+
+// 다시 보기(알림 없는 끝, 로그인 30일)도 끝 이벤트를 받을 1초를 둔다(소켓 쓸기가 그 스트림의 소켓을 곧바로 부수지 않는다)
+for (const how of ["날 SQL 로 지움", "로그인 30일"] as const) {
+  test(`다시 보기가 끊는 스트림도 쌓인 것이 적으면 끝 이벤트를 쓰고 1초 뒤에 부순다(${how})`, async () => {
+    const thief = device();
+    // 로그인 30일: 기한 1분 전에 로그인해 두고 2분 뒤의 시각으로 다시 본다
+    const at = how === "로그인 30일" ? `&at=${Date.now() - SESSION_MAX_MS + 60_000}` : "";
+    await thief.go(`/login?u=grace-${how === "로그인 30일" ? "deadline" : "sql"}${at}`, { method: "POST" });
+    const { raw, socket } = await openUnread(thief, "?plain=1");
+    if (how === "날 SQL 로 지움") store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
+    sessionRequests.recheck(how === "로그인 30일" ? Date.now() + 120_000 : Date.now());
+    const took = await untilDestroyed(socket);
+    assert.notEqual(took, null, "부서진다");
+    assert.ok(took! >= 900 && took! < 2500, `끝 이벤트를 받을 틈을 두고(${took}ms)`);
+    raw.destroy();
+  });
+}

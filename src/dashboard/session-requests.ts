@@ -294,12 +294,14 @@ function recheck(now = Date.now()) {
   const unchecked: Entry[] = [];
   let firstError: unknown = null;
   for (const [sid, list] of liveBySid()) {
+    // 멈추기 전에 쥔다(멈춘 스트림은 목록에서 빠져, 뒤에 쥐면 소켓 쓸기가 끝 이벤트의 1초 유예를 깨고 곧바로 부순다)
+    const keep = liveOf(sid);
     const alive = list.filter((entry) => {
       if (entry.deadline > now) return true;
       stop(entry, "로그인 기한이 지남");
       return false;
     });
-    if (alive.length < list.length) sweepSockets(sid, liveOf(sid));
+    if (alive.length < list.length) sweepSockets(sid, keep);
     if (!alive.length) continue;
     let session;
     try {
@@ -311,7 +313,7 @@ function recheck(now = Date.now()) {
     }
     const gone = alive.filter((entry) => session?.user?.id !== entry.userId);
     for (const entry of gone) stop(entry, "세션이 끝남");
-    if (gone.length) sweepSockets(sid, liveOf(sid));
+    if (gone.length) sweepSockets(sid, keep);
   }
   if (!firstError) {
     failures = 0;
