@@ -79,10 +79,16 @@ class DbFile {
     log.info(`${this.spec.label} 를 한 번 다시 씁니다(지운 공간을 돌려주는 설정, ${Math.ceil(bytes / 1024 / 1024)}MB)`);
     try {
       db.exec("VACUUM");
-      // VACUUM 이 쓴 만큼 커진 -wal 을 접어 줄인다
-      db.pragma("wal_checkpoint(TRUNCATE)");
     } catch (error) {
       log.warn(`${this.spec.label} 를 다시 쓰지 못해 그대로 엽니다. 기록을 지워도 파일이 줄지 않습니다(다음 기동에 다시 해 봅니다): ${messageOf(error)}`);
+    }
+    // VACUUM 이 쓴 만큼 커진 -wal 을 접어 줄인다. 실패했어도 한다(되감은 쓰기도 -wal 에 남는다).
+    // 다른 연결이 읽는 중이면 던지지 않고 결과의 busy 로 알린다
+    try {
+      const [result] = db.pragma("wal_checkpoint(TRUNCATE)") as Array<{ busy: number }>;
+      if (result?.busy) log.warn(`${this.spec.label} 의 -wal 을 줄이지 못했습니다(다른 프로그램이 읽는 중). 봇이 쓰는 동안 차차 줄어듭니다`);
+    } catch (error) {
+      log.warn(`${this.spec.label} 의 -wal 을 줄이지 못했습니다: ${messageOf(error)}`);
     }
   }
 

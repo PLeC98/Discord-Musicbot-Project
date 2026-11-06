@@ -220,3 +220,68 @@ test("지운 공간 돌려주기로 바꾸는 VACUUM 이 실패해도(디스크�
   assert.equal(again.get().pragma("auto_vacuum", { simple: true }), 2, "다음에 열 때 바꾼다");
   again.close();
 });
+
+test("VACUUM 이 쓰다 실패해도 그만큼 커진 -wal 을 접어 둔다(디스크가 모자랄 때 공간을 돌려준다)", async () => {
+  const { DbFile } = await import("../../src/store/sqlite.ts");
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "w.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, blob BLOB)") });
+  const file = path.join(dir, "grown.db");
+  const plain = new DbFile(spec());
+  plain.open(file);
+  plain.close();
+
+  // VACUUM 자리에서 큰 쓰기를 하다 되감고 실패한다. 캐시를 넘친 쪽은 -wal 에 쓰이고 되감아도 파일은 그 크기로 남는다(캐시를 줄여 넘치게 한다)
+  const exec = Database.prototype.exec;
+  Database.prototype.exec = function (this: Database.Database, sql: string) {
+    if (sql !== "VACUUM") return exec.call(this, sql);
+    this.pragma("cache_size = 50");
+    exec.call(this, "BEGIN");
+    const insert = this.prepare("INSERT INTO t (blob) VALUES (?)");
+    for (let i = 0; i < 200; i++) insert.run(Buffer.alloc(64 * 1024));
+    exec.call(this, "ROLLBACK");
+    throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+  };
+  const one = new DbFile(spec("INCREMENTAL"));
+  try {
+    one.open(file);
+  } finally {
+    Database.prototype.exec = exec;
+  }
+  try {
+    assert.ok(fs.statSync(`${file}-wal`).size < 1024 * 1024, `-wal ${fs.statSync(`${file}-wal`).size}B`);
+  } finally {
+    one.close();
+  }
+});
+
+test("다른 연결이 읽는 중이라 -wal 을 접지 못하면(던지지 않고 busy 로 알린다) warn 을 남긴다", async () => {
+  const { DbFile } = await import("../../src/store/sqlite.ts");
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "r.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const file = path.join(dir, "read.db");
+  const plain = new DbFile(spec());
+  plain.open(file);
+  plain.get().prepare("INSERT INTO t DEFAULT VALUES").run();
+  // 열어 둔 채 읽기 트랜잭션을 쥔다
+  const reader = new Database(file);
+  reader.exec("BEGIN");
+  reader.prepare("SELECT COUNT(*) FROM t").get();
+  // VACUUM 은 된 것으로 둔다(읽는 쪽이 있으면 VACUUM 도 기다리다 실패해 시험이 길어진다)
+  const exec = Database.prototype.exec;
+  Database.prototype.exec = function (this: Database.Database, sql: string) {
+    return sql === "VACUUM" ? this : exec.call(this, sql);
+  };
+  const from = sink.buffer.length;
+  const one = new DbFile(spec("INCREMENTAL"));
+  try {
+    one.open(file);
+    assert.ok(
+      sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("-wal")),
+      "접지 못한 것을 알린다",
+    );
+  } finally {
+    Database.prototype.exec = exec;
+    reader.exec("ROLLBACK");
+    reader.close();
+    one.close();
+    plain.close();
+  }
+});

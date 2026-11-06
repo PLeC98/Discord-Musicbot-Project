@@ -52,6 +52,16 @@ async function dbCopy(file: string): Promise<{ file: string; done: () => void }>
 }
 
 // 파일로 스트리밍해 쓴다(옆 이름에 쓰고 다 쓰면 바꾼다. 실패하면 삭제한다)
+// 다 쓴 ZIP 을 제 이름으로. 바꾸지 못하면 .part 를 지운다(.env 의 비밀이 평문으로 들어 있어 남기지 않는다)
+function publish(part: string, out: string) {
+  try {
+    fs.renameSync(part, out);
+  } catch (error) {
+    fs.rmSync(part, { force: true });
+    throw error;
+  }
+}
+
 async function writeTo(out: string, inputs: ZipInput[]) {
   const part = `${out}.part`;
   const stream = fs.createWriteStream(part, { mode: 0o600 });
@@ -133,7 +143,7 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
   // 새 것을 제자리에 둔 뒤 앞의 것을 지운다(그사이 멈춰도 백업이 하나는 있다. 같은 이름이면 바꾸기가 덮는다).
   // 지우지 못한 것은 남기고 알린다. 새 백업은 이미 제자리에 있다
   const earlier = fs.readdirSync(outDir).filter((one) => /^musicbot-full-.*\.zip$/.test(one));
-  fs.renameSync(part, out);
+  publish(part, out);
   ownerOnly(out);
   const left: string[] = [];
   for (const old of earlier) {

@@ -89,6 +89,14 @@ test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다.
   assert.deepEqual(made.replaced, []);
 });
 
+test("다 쓴 ZIP 의 이름 바꾸기가 실패하면(같은 이름의 폴더) 비밀이 든 .part 를 지우고 실패한다", async () => {
+  const blockedOut = path.join(work, "rename-out");
+  // 바꿀 이름에 비지 않은 폴더가 있다
+  fs.mkdirSync(path.join(blockedOut, "musicbot-full-20261014-0900.zip", "안"), { recursive: true });
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: blockedOut }, new Date(2026, 9, 14, 9, 0)));
+  assert.ok(!fs.existsSync(path.join(blockedOut, "musicbot-full-20261014-0900.zip.part")));
+});
+
 // root 는 읽기 전용 파일도 쓸 수 있다
 test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다)", { skip: process.getuid?.() === 0 }, async () => {
   const blockedOut = path.join(work, "blocked-out");
