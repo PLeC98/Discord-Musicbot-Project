@@ -17,6 +17,8 @@ import { FILE_PAGE_LINES, FILE_PAGE_MAX, LOG_SEARCH_MAX, type FileLine, type Fil
 const log = logger.child({ category: "dashboard" });
 
 const logFilesRouter = express.Router();
+// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+logFilesRouter.use(requireOwner);
 
 function intOf(raw: unknown): number | undefined {
   const n = Number(raw);
@@ -52,7 +54,7 @@ function watchLeave(req: Request, res: Response) {
   return { left, stop: () => gone || isEnded(req) };
 }
 
-logFilesRouter.get("/files", requireOwner, async (req, res) => {
+logFilesRouter.get("/files", async (req, res) => {
   const enabled = config.logging.fileEnabled;
   const { left, stop } = watchLeave(req, res);
   const files = enabled ? await listLogFiles(config.logging.file, stop) : [];
@@ -60,7 +62,7 @@ logFilesRouter.get("/files", requireOwner, async (req, res) => {
   res.json({ enabled, files } satisfies LogFileList);
 });
 
-logFilesRouter.get("/file", requireOwner, async (req, res) => {
+logFilesRouter.get("/file", async (req, res) => {
   const target = targetOf(req);
   const limit = Math.min(Math.max(intOf(req.query.limit) ?? FILE_PAGE_LINES, 1), FILE_PAGE_MAX);
   const { left, stop } = watchLeave(req, res);
@@ -77,7 +79,7 @@ async function* downloadText(batches: AsyncGenerator<FileLine[]>, offset: number
 
 // 다운로드: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다.
 // 받는 쪽이 읽는 만큼만 읽어 보내고, 끊기면(로그인이 끝나 끊은 것도) 멈추고 파일을 닫는다
-logFilesRouter.get("/file/download", requireOwner, async (req, res) => {
+logFilesRouter.get("/file/download", async (req, res) => {
   const target = targetOf(req);
   if (!target) return sendProblem(res, "log-file-not-found");
   const offset = intOf(req.query.tz) ?? 0;

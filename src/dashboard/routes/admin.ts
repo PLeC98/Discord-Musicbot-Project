@@ -7,7 +7,6 @@ import { toDiscordText } from "../../rules/app-emoji-token.ts";
 import { emojiBook } from "../../store/app-emoji-book.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-const adminRouter = express.Router();
 import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
@@ -74,9 +73,13 @@ import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import * as staySeats from "../../store/stay-seats.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 
+const adminRouter = express.Router();
+// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+adminRouter.use(requireOwner);
+
 // 봇, Node, 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
 // 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 조회하지 않는다
-adminRouter.get("/status", requireOwner, async (req, res) => {
+adminRouter.get("/status", async (req, res) => {
   const query = statusQueryOf(req.query);
   const { ids } = query.players.count ? await memberGuildIds(req, { stale: true }) : { ids: null };
   res.json(adminStatus(req.app.locals.bot, query, { id: signedIn(req).id, memberIds: ids }, req.app.locals.stream, Boolean(req.app.locals.restart)));
@@ -84,7 +87,7 @@ adminRouter.get("/status", requireOwner, async (req, res) => {
 
 // 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 실행한다(app/launcher). 실행기 없이 켰으면 다시 실행해 줄 쪽이 없어 거절한다.
 // 답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
-adminRouter.post("/restart", requireOwner, (req, res) => {
+adminRouter.post("/restart", (req, res) => {
   const restart = req.app.locals.restart;
   if (!restart) return sendProblem(res, "restart-unavailable");
   // 실행자는 먼저 쥔다(답을 보낸 뒤에는 요청에서 세션을 뗐을 수 있다)
@@ -108,7 +111,7 @@ async function announceChannel(guild: Guild) {
     .sort((a, b) => a.position - b.position)[0];
 }
 
-adminRouter.post("/broadcast", requireOwner, async (req, res) => {
+adminRouter.post("/broadcast", async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
   // 문자열인지 먼저 본다(객체면 trim 이 던진다). 앱 이모지 토큰을 보낼 글로 먼저 바꾸고(없는 이모지는 빠진다) 그 글로 검사한다
@@ -151,7 +154,7 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
 });
 
 // 봇이 든 서버. 쿼리로 필터링하고 정렬한 구간만(list-window)
-adminRouter.get("/guilds", requireOwner, (req, res) => {
+adminRouter.get("/guilds", (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
@@ -169,7 +172,7 @@ adminRouter.get("/guilds", requireOwner, (req, res) => {
 // 서버에서 나가기(운영자가 대시보드에서)
 // 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
 // guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
-adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
+adminRouter.post("/guilds/:guildId/leave", async (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
@@ -197,7 +200,7 @@ adminRouter.post("/guilds/:guildId/leave", requireOwner, async (req, res) => {
 // 슬래시 명령을 디스코드에 다시 등록(운영자가 대시보드에서)
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
 // 조립(app/main)이 app.locals 로 넘긴다. 대시보드가 app 층을 부르지 않는다
-adminRouter.post("/redeploy-commands", requireOwner, async (req, res) => {
+adminRouter.post("/redeploy-commands", async (req, res) => {
   const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼은 명시적 재배포라 해시가 같아도 등록한다
   if (r.ok) {
     // 개수는 디스코드가 등록을 받고 돌려준 것이다
@@ -221,7 +224,7 @@ const TIDIERS: Partial<Record<string, (data: unknown) => unknown>> = { genres: g
 // 자동재생 소스 편집기가 그릴 표. 어떤 종류가 있고, 무슨 필드를 받고, 지금 쓸 수 있는가.
 // 검증, 실행과 같은 표에서 나온다(src/autoplay/sources). 화면이 목록을 따로 들면 소스를 더할 때
 // 한쪽만 고치게 된다.
-adminRouter.get("/source-types", requireOwner, async (req, res) => {
+adminRouter.get("/source-types", async (req, res) => {
   // AnimeThemes 연도 범위를 그쪽에 조회해 채우므로 비동기다(하루에 한 번만 조회하고 캐시한다)
   res.json({ types: await autoplaySources.catalog() } satisfies SourceTypes);
 });
@@ -229,7 +232,7 @@ adminRouter.get("/source-types", requireOwner, async (req, res) => {
 // 소스 편집기의 자동완성(VocaDB 계열의 태그, 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
 // 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
 const SUGGEST_TERM_MAX = 100;
-adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
+adminRouter.get("/source-suggest", async (req, res) => {
   const type = String(req.query.type || "");
   const what = String(req.query.field || "");
   const term = String(req.query.q || "").trim();
@@ -247,7 +250,7 @@ adminRouter.get("/source-suggest", requireOwner, async (req, res) => {
 // AI 보조. 키는 비밀 표(store/ai-keys)에 있고 값을 내려보내지 않는다. 상태만 알려 준다.
 // 브라우저로 내려보내는 순간 XSS 하나로 새어 나갈 수 있고, 화면에 필요한 것은 상태뿐이다.
 // 기본 프롬프트도 같이 준다. 화면이 베껴 두면 한쪽만 고치게 된다.
-adminRouter.get("/ai/state", requireOwner, (req, res) => {
+adminRouter.get("/ai/state", (req, res) => {
   // 키 값은 절대 안 내려간다. 프로바이더마다 상태만 알린다(주소는 저장된 설정으로 계산한다)
   res.json({
     ...keysReply(aiConfig.ai()),
@@ -267,7 +270,7 @@ adminRouter.get("/ai/state", requireOwner, (req, res) => {
  * 그 모델이 받는 필드. 프로필(config/ai-models)이 정한다.
  * 화면은 여기서 받은 위젯, 그룹 그대로 그린다.
  */
-adminRouter.get("/ai/fields", requireOwner, (req, res) => {
+adminRouter.get("/ai/fields", (req, res) => {
   const registry = assist.PROVIDER_SPECS[String(req.query.provider || "")]?.registry;
   if (!registry) return res.json({ known: false, profiled: false, fields: [], models: [] } satisfies AiFields);
 
@@ -312,7 +315,7 @@ async function countBodies(texts: string[], provider: string, model: string) {
  * 클로드는 공개 토크나이저가 없어 앤트로픽 API 로 센다. 무료이고 정확하다.
  * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503 으로 답한다
  */
-adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
+adminRouter.post("/ai/tokens", async (req, res) => {
   const texts: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
   if (texts.length > 50) return sendProblem(res, "too-many-items", { max: 50 });
   const cut = texts.map((one) => String(one ?? "").slice(0, 200000));
@@ -326,7 +329,7 @@ adminRouter.post("/ai/tokens", requireOwner, async (req, res) => {
 });
 
 /** 모델 정보(모델 프로필, 가격표)를 받는다. 목차의 해시가 같으면 받지 않는다. AI 설정 화면을 열 때, 모델 목록 새로고침이 부른다. 답의 수는 모델 프로필의 것 */
-adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
+adminRouter.post("/ai/models/refresh", async (req, res) => {
   try {
     res.json(await refreshModelInfo({ force: !!req.body?.force }));
   } catch (error) {
@@ -337,7 +340,7 @@ adminRouter.post("/ai/models/refresh", requireOwner, async (req, res) => {
 /**
  * 판정 테스트 1. 유튜브 주소로 후보를 읽는다. 아무것도 보내지 않는다.
  */
-adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
+adminRouter.post("/ai/judge/lookup", async (req, res) => {
   const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
   if (!urls.length) return sendProblem(res, "urls-empty");
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
@@ -347,20 +350,20 @@ adminRouter.post("/ai/judge/lookup", requireOwner, async (req, res) => {
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */
-adminRouter.post("/ai/judge/lines", requireOwner, (req, res) => {
+adminRouter.post("/ai/judge/lines", (req, res) => {
   const cands = (Array.isArray(req.body?.candidates) ? req.body.candidates : []).filter((one: { error?: unknown; title?: unknown } | null) => one && !one.error && one.title).slice(0, 20);
   res.json({ lines: assist.renderList({ list: req.body?.list }, cands, String(req.body?.genre || "rock")) } satisfies LinesReply);
 });
 
 /** 판정 테스트 2. 그 후보들을 실제로 보내 곡별 판정을 받는다. */
-adminRouter.post("/ai/judge/run", requireOwner, async (req, res) => {
+adminRouter.post("/ai/judge/run", async (req, res) => {
   const cands = Array.isArray(req.body?.candidates) ? req.body.candidates : [];
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "rock")));
 });
 
 // 키를 입력하고 삭제한다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 삭제한다), 돌려주는 것은 상태다.
 // 키는 화면이 지금 적어 둔 설정(data: 주소, 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
-adminRouter.put("/ai/keys", requireOwner, requireRecentLogin, (req, res) => {
+adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
   const keys: unknown = req.body?.keys;
   const draft = (req.body?.data && typeof req.body.data === "object" ? req.body.data : {}) as Record<string, unknown>;
   if (!keys || typeof keys !== "object" || !Object.keys(keys).length) return sendProblem(res, "nothing-to-save");
@@ -414,13 +417,13 @@ function keysReply(settings: Record<string, unknown>): KeysReply {
 }
 
 // 프롬프트는 설정과 딴 문서다("ai-prompt", 섹션 목록). 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
-adminRouter.get("/ai/prompt", requireOwner, (req, res) => {
+adminRouter.get("/ai/prompt", (req, res) => {
   res.json({ sections: aiConfig.aiPrompt() } satisfies PromptReply);
 });
 
 // AI 설정과 프롬프트를 한 요청으로. 화면의 저장 버튼 하나가 둘을 고친다. 둘 다 검사한 뒤에 쓴다.
 // 저장 번호는 AI 설정 문서의 것 하나로 본다(둘은 늘 함께 저장된다)
-adminRouter.put("/ai/settings", requireOwner, (req, res) => {
+adminRouter.put("/ai/settings", (req, res) => {
   const data = req.body?.data;
   const sections = req.body?.sections;
   const revision: unknown = req.body?.revision;
@@ -454,9 +457,9 @@ function cookieState(): CookieState {
   return { source: YouTube.cookieSource(), hasFile: cookieJar.ready() };
 }
 
-adminRouter.get("/cookies", requireOwner, (req, res) => res.json(cookieState()));
+adminRouter.get("/cookies", (req, res) => res.json(cookieState()));
 
-adminRouter.put("/cookies", requireOwner, requireRecentLogin, (req, res) => {
+adminRouter.put("/cookies", requireRecentLogin, (req, res) => {
   const text = req.body?.text;
   if (typeof text !== "string") return sendProblem(res, "nothing-to-save");
 
@@ -471,7 +474,7 @@ adminRouter.put("/cookies", requireOwner, requireRecentLogin, (req, res) => {
 });
 
 // 나갈 것을 만들어만 본다. 보내지 않는다. 조립은 봇이 쓰는 코드 그대로다.
-adminRouter.post("/ai/preview", requireOwner, async (req, res) => {
+adminRouter.post("/ai/preview", async (req, res) => {
   const data = req.body?.data;
   if (!data || typeof data !== "object") return sendProblem(res, "nothing-to-save");
   res.json(await assist.preview(data));
@@ -479,23 +482,23 @@ adminRouter.post("/ai/preview", requireOwner, async (req, res) => {
 
 // 무료 확인. 모델 목록만 불러온다. 추론을 안 돌리니 토큰이 안 든다.
 // 화면의 모델 선택 입력란도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
-adminRouter.post("/ai/models", requireOwner, async (req, res) => {
+adminRouter.post("/ai/models", async (req, res) => {
   res.json(await assist.listModels(req.body?.data || {}));
 });
 
 // 유료 확인. 짧은 요청 하나를 실제로 생성시킨다. 판정 프롬프트는 안 쓴다.
-adminRouter.post("/ai/ping", requireOwner, async (req, res) => {
+adminRouter.post("/ai/ping", async (req, res) => {
   res.json(await assist.ping(req.body?.data || {}));
 });
 
 // 운영자 패널의 보기 설정. 저장 막대와 상관없이 곧바로 쓰고, 마지막에 쓴 것이 남는다(한 사람의 보기 설정이라 번호를 맞추지 않는다)
 const panelOf = (data: unknown): PanelPrefs => ({ advanced: (data as Partial<PanelPrefs> | null)?.advanced === true });
 
-adminRouter.get("/panel", requireOwner, (_req, res) => {
+adminRouter.get("/panel", (_req, res) => {
   res.json(panelOf(documents.get("panel")) satisfies PanelPrefs);
 });
 
-adminRouter.put("/panel", requireOwner, (req, res) => {
+adminRouter.put("/panel", (req, res) => {
   const advanced: unknown = req.body?.advanced;
   if (typeof advanced !== "boolean") return sendProblem(res, "nothing-to-save");
   const next = { ...panelOf(documents.get("panel")), advanced };
@@ -504,11 +507,11 @@ adminRouter.put("/panel", requireOwner, (req, res) => {
 });
 
 // 연령 제한 콘텐츠(운영자 단위, config/age-content). 화면이 켜기 전에 확인을 받는다. 저장 막대와 상관없이 곧바로 쓴다
-adminRouter.get("/age-content", requireOwner, (_req, res) => {
+adminRouter.get("/age-content", (_req, res) => {
   res.json(ageContent() satisfies AgeContent);
 });
 
-adminRouter.put("/age-content", requireOwner, (req, res) => {
+adminRouter.put("/age-content", (req, res) => {
   const enabled: unknown = req.body?.enabled;
   if (typeof enabled !== "boolean") return sendProblem(res, "nothing-to-save");
   const before = ageContent().enabled;
@@ -521,15 +524,15 @@ adminRouter.put("/age-content", requireOwner, (req, res) => {
 });
 
 // IP 위치 DB(dashboard/geoip). 다운로드는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
-adminRouter.get("/geoip", requireOwner, (_req, res) => {
+adminRouter.get("/geoip", (_req, res) => {
   res.json(geoip.status() satisfies GeoipStatus);
 });
 
-adminRouter.post("/geoip/check", requireOwner, async (_req, res) => {
+adminRouter.post("/geoip/check", async (_req, res) => {
   res.json((await geoip.check()) satisfies GeoipCheck);
 });
 
-adminRouter.post("/geoip/update", requireOwner, (req, res) => {
+adminRouter.post("/geoip/update", (req, res) => {
   log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
   geoip.update().catch(() => {
     /* 까닭은 geoip 가 로그에 남긴다(다운로드 실패는 상태의 error 에도) */
@@ -537,20 +540,20 @@ adminRouter.post("/geoip/update", requireOwner, (req, res) => {
   res.status(202).json(geoip.status() satisfies GeoipStatus);
 });
 
-adminRouter.get("/config/:name", requireOwner, (req, res) => {
+adminRouter.get("/config/:name", (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
   res.json({ name, data: documents.get(name) as Record<string, unknown>, revision: documents.revisionOf(name) } satisfies ConfigFile);
 });
 
 // 기본값. 저장하지 않는다(편집기가 불러와 보이고, 저장은 평소처럼 PUT 으로)
-adminRouter.get("/config/:name/default", requireOwner, (req, res) => {
+adminRouter.get("/config/:name/default", (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
   res.json({ name, data: documents.defaultOf(name) as Record<string, unknown> } satisfies ConfigDefault);
 });
 
-adminRouter.put("/config/:name", requireOwner, (req, res) => {
+adminRouter.put("/config/:name", (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name)) return sendProblem(res, "config-not-found");
 
@@ -576,7 +579,7 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
 
 // 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 스스로 재연결할 때는 Last-Event-ID 를,
 // 화면이 닫았다 다시 열 때는 ?after= 를 싣는다
-adminRouter.get("/logs/stream", requireOwner, (req, res) => {
+adminRouter.get("/logs/stream", (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
   // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
@@ -586,7 +589,7 @@ adminRouter.get("/logs/stream", requireOwner, (req, res) => {
 
 // 권한 수준 오버라이드. { tier: "server-manager"|"dj"|"user"|null }. null이면 해제.
 // requireOwner가 오버라이드를 무시하므로(실 운영자 기준) 낮춘 뒤에도 여기로 되돌아올 수 있다.
-adminRouter.post("/view-as", requireOwner, (req, res) => {
+adminRouter.post("/view-as", (req, res) => {
   const { tier } = req.body || {};
   if (tier !== null && !isTier(tier)) {
     return sendProblem(res, "bad-tier");

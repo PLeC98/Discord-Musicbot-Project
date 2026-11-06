@@ -17,6 +17,8 @@ import { dayKey, firstDay, usageReport } from "../../rules/ai-usage.ts";
 import { AI_LOG_PAGE, AI_USAGE_PERIODS, isAiLogSource, type AiLogEntry, type AiLogPage, type AiLogQuery, type AiLogStorage, type AiUsagePeriod, type AiUsageReport } from "../contract/ai-log.ts";
 
 const aiLogRouter = express.Router();
+// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+aiLogRouter.use(requireOwner);
 
 /** 한 번에 받는 줄의 상한 */
 const PAGE_MAX = 200;
@@ -49,7 +51,7 @@ function intOf(raw: unknown): number | null {
 }
 
 // 실시간 새 기록. 브라우저가 재연결할 때는 Last-Event-ID 를, 화면이 다시 열 때는 ?after= 를 싣는다(그 뒤의 줄부터 받는다)
-aiLogRouter.get("/logs/stream", requireOwner, (req, res) => {
+aiLogRouter.get("/logs/stream", (req, res) => {
   const after = intOf(req.get("Last-Event-ID") ?? req.query.after) ?? 0;
   // 열자마자 놓친 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
@@ -57,27 +59,27 @@ aiLogRouter.get("/logs/stream", requireOwner, (req, res) => {
   sessionRequests.track(req, res, "AI 리퀘스트 로그", () => aiLogStream.drop(res));
 });
 
-aiLogRouter.get("/logs", requireOwner, (req, res) => {
+aiLogRouter.get("/logs", (req, res) => {
   const limit = Math.min(Math.max(intOf(req.query.limit) ?? AI_LOG_PAGE, 1), PAGE_MAX);
   const before = intOf(req.query.before) ?? undefined;
   const page = requests.list(queryOf(req), { before, limit });
   res.json({ ...page, entries: page.entries.map(withGuildName(guildNameOf(req))), storage: storage() } satisfies AiLogPage);
 });
 
-aiLogRouter.get("/logs/:id", requireOwner, (req, res) => {
+aiLogRouter.get("/logs/:id", (req, res) => {
   const one = requests.one(Number(req.params.id));
   if (!one) return sendProblem(res, "ai-log-not-found");
   res.json(withGuildName(guildNameOf(req))(one));
 });
 
-aiLogRouter.delete("/logs", requireOwner, (req, res) => {
+aiLogRouter.delete("/logs", (req, res) => {
   const { count } = requests.size();
   requests.clearRequests();
   log.warn({ sub: "admin" }, `대시보드에서 AI 리퀘스트 로그 전체 삭제(${count}줄, 사용량 통계 유지). 실행 ${ranBy(req)}`);
   res.json({ success: true });
 });
 
-aiLogRouter.get("/usage", requireOwner, (req, res) => {
+aiLogRouter.get("/usage", (req, res) => {
   const asked = Number(req.query.period ?? 30);
   const period: AiUsagePeriod = (AI_USAGE_PERIODS as readonly number[]).includes(asked) ? (asked as AiUsagePeriod) : 30;
   const today = dayKey(Date.now());
@@ -86,7 +88,7 @@ aiLogRouter.get("/usage", requireOwner, (req, res) => {
   res.json(usageReport(rows, { period, from, today, guildName: guildNameOf(req) }) satisfies AiUsageReport);
 });
 
-aiLogRouter.delete("/usage", requireOwner, (req, res) => {
+aiLogRouter.delete("/usage", (req, res) => {
   requests.clearUsage();
   log.warn({ sub: "admin" }, `대시보드에서 AI 사용량 통계 전체 삭제(리퀘스트 로그 유지). 실행 ${ranBy(req)}`);
   res.json({ success: true });
