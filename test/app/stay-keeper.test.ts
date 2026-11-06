@@ -138,6 +138,27 @@ test("끝의 종류: 자리에서 내보내지면 끄고 알린다. 자리가 �
   assert.deepEqual(w.calls, ["join:g1"], "사람이 다시 틀면 푼다");
 });
 
+test("채널을 묻는 사이 자리가 꺼지거나 바뀌면(/leave, /247) 그 시도는 붙지도 끄지도 않는다", async () => {
+  // 채널 답이 오기 전에 자리를 지운다
+  const cleared = guildOf("g1");
+  const fetchCleared = cleared.channels.fetch;
+  Object.assign(cleared.channels, { fetch: async (...args: unknown[]) => (staySeats.clear("g1"), (fetchCleared as (...a: unknown[]) => unknown)(...args)) });
+  staySeats.set("g1", "vc1");
+  const w = world([cleared]);
+  assert.equal(await w.keeper.attempt("g1"), true);
+  assert.deepEqual(w.calls, [], "붙지 않는다");
+
+  // 옛 자리의 채널은 없어졌는데 그사이 다른 채널로 새로 켰다: 새 자리를 지우지 않는다
+  const moved = guildOf("g2", { fetched: "gone" });
+  const fetchMoved = moved.channels.fetch;
+  Object.assign(moved.channels, { fetch: async (...args: unknown[]) => (staySeats.set("g2", "vc2"), (fetchMoved as (...a: unknown[]) => unknown)(...args)) });
+  staySeats.set("g2", "vc1");
+  const v = world([moved]);
+  assert.equal(await v.keeper.attempt("g2"), true);
+  assert.equal(staySeats.seatOf("g2")?.channelId, "vc2");
+  assert.deepEqual(v.calls, [], "알리지도 않는다");
+});
+
 test("자리 채널이 지워지면(봇이 없던 동안도) 끄고 한 번만 알린다", async () => {
   staySeats.set("g1", "vc1");
   const g1 = guildOf("g1");

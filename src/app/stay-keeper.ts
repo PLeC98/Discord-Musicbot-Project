@@ -146,6 +146,8 @@ class StayKeeper {
       const seat = staySeats.seatOf(guildId);
       if (!seat || this.players.get(guildId)?.voice.isAlive()) return true;
       const found = await this._seatChannel(guild, seat.channelId);
+      // 묻는 사이 자리가 꺼지거나 다른 채널로 바뀌었으면(/leave, /247) 이 답으로 붙지도 끄지도 않는다
+      if (staySeats.seatOf(guildId)?.channelId !== seat.channelId) return true;
       if (!found) {
         this._later(guildId);
         return false;

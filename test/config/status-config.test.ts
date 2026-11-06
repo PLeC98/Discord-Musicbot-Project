@@ -108,7 +108,7 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
 
 // 오늘이 언제인지를 정해 조건을 테스트한다
 function managerAt({ date = "06-15", lunar = "05-10", time = "12:00" }) {
-  return new StatusManager({}, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
+  return new StatusManager(NOT_READY, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
 }
 
 // 선택한 문구의 글자. 선택하지 못하면 실패
@@ -172,12 +172,17 @@ test("풀어 적은 문구의 종류가 그대로 온다", () => {
 
 // ── 걸기 ──────────────────────────────────────────────────────────────────
 
+// 활동을 보내지 않는 클라이언트(달력, 설정만 볼 때)
+const NOT_READY = { isReady: () => false };
+
 // 건 활동. 여기서 보는 필드만
 type Activity = { name: string; type: number };
 
+// ready: 게이트웨이가 준비됐나(client.isReady). 끄기 시작하면 거짓이 된다
 function presenceClient() {
   const set: Activity[] = [];
-  return { set, client: { user: { setActivity: (a: Activity) => set.push(a) } } };
+  const state = { ready: true };
+  return { set, state, client: { isReady: () => state.ready, user: { setActivity: (a: Activity) => set.push(a) } } };
 }
 
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
@@ -194,7 +199,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
   ]);
 
   // 로그인 전이거나 고를 문구가 없으면 건드리지 않는다
-  const loggedOut = new StatusManager({}, { load: () => ({ messages: ["x"] }) });
+  const loggedOut = new StatusManager(NOT_READY, { load: () => ({ messages: ["x"] }) });
   loggedOut.apply();
   config = { messages: [] };
   manager.apply();
@@ -226,8 +231,24 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
   manager.stop(); // 두 번 불러도 된다
 });
 
+test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) 보내지 않는다. 끄는 중에 보내면 discord.js 가 잡지 않는 거절을 낸다", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const { set, state, client } = presenceClient();
+  const manager = new StatusManager(client, { load: () => ({ interval: 10, messages: ["하나", "둘"] }) });
+  state.ready = false;
+  manager.start();
+  assert.equal(set.length, 0, "로그인 중에 늦게 온 시작");
+  state.ready = true;
+  t.mock.timers.tick(10_000);
+  assert.equal(set.length, 1);
+  state.ready = false;
+  t.mock.timers.tick(30_000);
+  assert.equal(set.length, 1, "끄는 중의 차례");
+  manager.stop();
+});
+
 test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
-  const calendar = new StatusManager({}).calendar;
+  const calendar = new StatusManager(NOT_READY).calendar;
   assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
   assert.match(calendar.today(), /^\d{2}-\d{2}$/);
   assert.match(calendar.todayLunar(), /^\d{2}-\d{2}$/);
@@ -235,7 +256,7 @@ test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
 });
 
 test("load 는 설정 로더의 status() 를 부른다", () => {
-  assert.equal(new StatusManager({}).load(), statusConfig.status());
+  assert.equal(new StatusManager(NOT_READY).load(), statusConfig.status());
 });
 
 // 비운 간격은 봇, 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)

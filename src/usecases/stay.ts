@@ -54,12 +54,21 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
 async function turnOff(bot: Pick<Bot, "players">, { guild, member }: { guild: Guild; member: GuildMember }): Promise<StayResult> {
   const denied = await checkControl(member);
   if (denied) return { ok: false, code: denied };
-  if (!staySeats.clear(guild.id)) return { ok: true, kind: "off", already: true };
-  log.info(`상주 모드 끔: ${guild.name} | 실행 ${member.user.tag}`);
+  if (!clearSeat(guild, member)) return { ok: true, kind: "off", already: true };
   bot.players.get(guild.id)?.idle.reconsider();
-  playerEvents.touched(guild.id);
   return { ok: true, kind: "off", already: false };
 }
 
-export { turnOn, turnOff, seatChannelOf };
+/**
+ * 자리를 지우고 로그를 남기고 대시보드에 알린다(권한은 부르는 쪽이 봤다). /247 끄기와 /leave 가 함께 쓴다. 자리가 없었으면 false.
+ * 나갈 시각은 다시 걸지 않는다(끄기가 건다. 나가기는 곧 플레이어를 버리니 걸면 끝난 패널과 나갈 시각 표시가 겹친다)
+ */
+function clearSeat(guild: Guild, by: GuildMember) {
+  if (!staySeats.clear(guild.id)) return false;
+  log.info(`상주 모드 끔: ${guild.name} | 실행 ${by.user.tag}`);
+  playerEvents.touched(guild.id);
+  return true;
+}
+
+export { turnOn, turnOff, clearSeat, seatChannelOf };
 export type { StayResult, StayRefusal };

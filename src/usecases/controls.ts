@@ -22,7 +22,7 @@ import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
 import type { Code, NeedsParams, ParamsOf, Problem } from "../rules/problems.ts";
-import * as staySeats from "../store/stay-seats.ts";
+import { clearSeat } from "./stay.ts";
 import { seatedIn } from "../player/idle-leave.ts";
 
 /** 누가 시켰나: 디스코드 멤버 */
@@ -396,11 +396,11 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
   // 24/7 자리도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 봤다). 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
-  const seated = staySeats.seatOf(guild.id) !== null;
-  if (seated) staySeats.clear(guild.id);
+  const seated = clearSeat(guild, actor.member);
   const player = players.get(guild.id);
   if (!player) {
-    if (!guild.members.me?.voice?.channel) return fail("no-song");
+    // 자리 지킴이가 다시 붙기를 기다리는 중이면 봇이 음성에 없다. 자리만 끈 것이다
+    if (!guild.members.me?.voice?.channel) return seated ? done({ left: "seat-only" as const, stayOff: true }) : fail("no-song");
     await guild.members.me.voice.disconnect();
     return done({ left: "voice-only" as const, stayOff: seated });
   }

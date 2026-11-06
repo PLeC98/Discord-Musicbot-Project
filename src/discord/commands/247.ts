@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import * as stay from "../../usecases/stay.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import * as replies from "../../ui/control-replies.ts";
@@ -13,8 +13,8 @@ const exported: GuildCommand = {
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
     const on = stay.seatChannelOf(guild.id) === null;
-    // 켜기는 음성에 붙을 수 있어 몇 초 걸린다
-    if (on) await interaction.deferReply();
+    // 켜기는 음성에 붙을 수 있어 몇 초 걸린다. 본인에게만 미룬다(거절은 그 자리를 본인 안내로, 켬은 채널에 새로 보낸다)
+    if (on) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const r = on ? await stay.turnOn(bot, { guild, member, textChannel: channel }) : await stay.turnOff(bot, { guild, member });
     if (!r.ok) return noticeSelf(interaction, errors.notice(r.code));
     if (r.kind === "on") return toAll(interaction, replies.stayOn(r.channelId, r.already, member), LIFETIME.result);

@@ -15,7 +15,7 @@ const SHARED = {
   "must-be-in-same-voice": { status: 409, title: "Join the bot's voice channel first" },
   // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join, 대시보드 참가)
   "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
-  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다, 자리에서 내보내기는 서버 관리 권한이 있어야 한다
+  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다
   "stay-stage": { status: 409, title: "Stay mode does not work in stage channels" },
   "must-dj": { status: 403, title: "DJ role required" },
   "must-server-manager": { status: 403, title: "Manage Server permission required" },

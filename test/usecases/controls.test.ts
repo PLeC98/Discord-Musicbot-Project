@@ -38,8 +38,8 @@ function accepted<R extends { ok: boolean }>(r: R) {
   return r as Extract<R, { ok: true }>;
 }
 
-const guild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: { id: "vc1" } } } } });
-const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
+const guild = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: { id: "vc1" } } } } });
+const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, user: { tag: `사람 ${id}` }, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
 const DJ: Actor = { member: member() };
 const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 
@@ -472,6 +472,20 @@ test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 �
     assert.ok(staySeats.seatOf("g1"), "거절하면 자리는 그대로");
     assert.equal(accepted(await controls.leave(guild, { member: member({ mod: false }) }, players)).stayOff, true, "서버 관리 권한이 없는 DJ 도");
     assert.equal(staySeats.seatOf("g1"), null);
+  } finally {
+    staySeats.clear("g1");
+  }
+});
+
+test("24/7 자리: 플레이어도 없고 봇이 음성에도 없으면(자리 지킴이가 다시 붙기를 기다리는 중) 나가기는 자리만 끈다고 답한다", async () => {
+  const away = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: null } } } });
+  const someone = fake<GuildMember>({ id: "u1", user: { tag: "사람" }, guild: away, permissions: { has: () => false }, voice: { channel: null }, roles: { cache: new Map() } });
+  const players = new Map<string, Player>();
+  staySeats.set("g1", "vc1", "u1");
+  try {
+    assert.deepEqual(await controls.leave(away, { member: someone }, players), { ok: true, left: "seat-only", stayOff: true });
+    assert.equal(staySeats.seatOf("g1"), null);
+    assert.equal(codeOf(await controls.leave(away, { member: someone }, players)), "no-song", "자리도 없으면 그대로");
   } finally {
     staySeats.clear("g1");
   }
