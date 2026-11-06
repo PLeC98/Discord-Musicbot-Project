@@ -347,6 +347,15 @@ test("정규식 필터: 화면이 버린 요청(연결이 닫힘)은 줄에서 �
   assert.equal(done[0], "abandoned", "느린 것을 기다리지 않고 곧바로 빠진다");
 });
 
+test("정규식 필터: 돌기 시작한 뒤에 버려진 요청도 끝나면 결과 없이(null) 돌아온다(닫힌 연결에 답하지 않게)", async () => {
+  ledger(yt("aaaaaaaaaa9"), yt("aaaaaaaaaa9"), "youtube", `${"word ".repeat(10)}word!`);
+  const dropped = new AbortController();
+  const running = trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } }), { signal: dropped.signal });
+  await new Promise((done) => setTimeout(done, 100)); // 스레드에서 돌기 시작한다
+  dropped.abort();
+  assert.equal(await running, null);
+});
+
 test("정규식 필터: 함께 들어온 맞추기는 하나씩 돌고, 상한은 저마다 시작한 때부터. 느린 하나가 기다리던 것까지 시간 초과로 만들지 않는다", async () => {
   ledger(yt("aaaaaaaaaa7"), yt("aaaaaaaaaa7"), "youtube", `${"word ".repeat(10)}word!`);
   const [slow, fast] = await Promise.all([trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } })), trackCache.read(query("requests", { filters: { title: "/^하나$/" } }))]);

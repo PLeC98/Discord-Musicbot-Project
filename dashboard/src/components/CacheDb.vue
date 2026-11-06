@@ -324,11 +324,14 @@ async function reload() {
   rowSel.clear();
   botChanged.value = false;
   // 새 세대의 블록이 올 때까지 바뀜 확인을 쉰다(옛 번호와 견주면 막 끈 알약을 다시 켠다)
+  const before = loadedRevision.value;
   loadedRevision.value = 0;
   loading.value = true;
   await loadBlock(Math.floor(scrollTop.value / ROW_H / BLOCK), gen);
   // 그사이 또 다시 읽었으면 뒷일은 그 세대가 한다
   if (!gens.isCurrent(gen)) return;
+  // 받지 못했으면 앞 번호로 바뀜 확인을 이어 간다(0 이면 다음에 받을 때까지 알약이 영영 뜨지 않는다)
+  if (!loadedRevision.value) loadedRevision.value = before;
   loading.value = false;
   ensureVisible();
 }
@@ -1115,6 +1118,8 @@ function pollChecks() {
     const gen = gens.id;
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
     await refreshChecks(data.checkRevision, gen);
+    // 기다리는 사이 다시 읽었으면 그 세대가 새로 묻는다(낡은 목록으로 지금 확인 중 표시를 덮지 않게)
+    if (!gens.isCurrent(gen)) return;
     checking.value = data.checking;
     if (data.checking.length) pollChecks();
   }, PROBE_POLL_MS);

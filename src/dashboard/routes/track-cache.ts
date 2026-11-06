@@ -32,7 +32,7 @@ trackCacheRouter.get("/", async (req, res) => {
     if (!res.writableFinished) cancel.abort();
   });
   const read = await trackCache.read(query.query, { signal: cancel.signal });
-  if (!read) return; // 버렸다(닫힌 연결에 답하지 않는다)
+  if (!read || cancel.signal.aborted) return; // 버렸다(닫힌 연결에 답하지 않는다)
   if (!read.ok) return refuse(res, read);
   res.json(read.page satisfies TrackCachePage);
 });

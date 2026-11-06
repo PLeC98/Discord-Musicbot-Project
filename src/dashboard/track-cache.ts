@@ -298,7 +298,8 @@ async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal }
     log.warn(`캐시 DB 의 정규식 필터를 맞추지 못했습니다: ${messageOf(error)}`);
     return refusal("filter-failed");
   }
-  if (matched === "aborted") return null;
+  // 돌던 맞추기는 끝까지 두므로, 끝난 뒤에도 그사이 버려졌는지 본다
+  if (matched === "aborted" || signal?.aborted) return null;
   if (matched === "timeout") return refusal("filter-timeout");
   const key = KEY_OF[table];
   matched.sort((a, b) => {

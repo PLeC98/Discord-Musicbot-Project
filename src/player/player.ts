@@ -27,7 +27,7 @@ import type { Seeking } from "../sources/youtube/equivalent.ts";
 import config from "../config/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import { errorKind, messageOf, codedError, codeOf } from "../rules/error-kind.ts";
-import { failureScope, type FailureScope } from "./failure-scope.ts";
+import { failureScope, servedDirectly, type FailureScope } from "./failure-scope.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import * as streamUrl from "../sources/stream-url.ts";
 import { SponsorSkipper } from "./sponsor-skipper.ts";
@@ -1555,7 +1555,7 @@ class Player {
    */
   async handleError(error: unknown, { tell = false, counted = true, at = 0, continued = false }: { tell?: boolean; counted?: boolean; at?: number; continued?: boolean } = {}) {
     const failed = this.currentTrack;
-    const scope = failureScope(error, { direct: failed?.platform === "direct" });
+    const scope = failureScope(error, { direct: servedDirectly(failed) });
     this._countAutoplayFailure(failed);
     if (this._droppedDeadAutoplay(error)) tell = false;
     if (this._parkedOnFailure(error, scope, { at, continued, counted })) return;

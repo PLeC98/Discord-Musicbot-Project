@@ -8,6 +8,7 @@
 import { chainOf, codeOf, isNetworkCode } from "../rules/error-kind.ts";
 import { deadSourceCode } from "../sources/dead-source.ts";
 import { SsrfError } from "../infra/safe-url.ts";
+import { inputKind } from "../rules/input-kind.ts";
 
 type FailureScope = "track" | "environment" | "unknown";
 
@@ -58,5 +59,14 @@ function failureScope(error: unknown, { direct = false }: { direct?: boolean } =
   return "unknown";
 }
 
-export { failureScope, TRACK, ENVIRONMENT, UNKNOWN };
+/**
+ * 소리를 직접 링크(알려진 사이트 밖의 서버)에서 받는 곡인가. 곡의 라벨(platform)이 아니라 받을 주소(audioUrl)로 본다:
+ * 자동재생이 고른 직접 파일, 유튜브 요청에 고정한 직접 링크 음원도 그 서버 하나의 일이다. 주소를 아직 모르면 라벨로
+ */
+function servedDirectly(track: { platform?: string | null; audioUrl?: string | null } | null | undefined) {
+  if (!track) return false;
+  return track.audioUrl ? inputKind(track.audioUrl) === "direct" : track.platform === "direct";
+}
+
+export { failureScope, servedDirectly, TRACK, ENVIRONMENT, UNKNOWN };
 export type { FailureScope };

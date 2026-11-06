@@ -51,7 +51,6 @@ async function dbCopy(file: string): Promise<{ file: string; done: () => void }>
   return { file: temp, done };
 }
 
-// 파일로 스트리밍해 쓴다(옆 이름에 쓰고 다 쓰면 바꾼다. 실패하면 삭제한다)
 // 다 쓴 ZIP 을 제 이름으로. 바꾸지 못하면 .part 를 지운다(.env 의 비밀이 평문으로 들어 있어 남기지 않는다)
 function publish(part: string, out: string) {
   try {
@@ -62,6 +61,7 @@ function publish(part: string, out: string) {
   }
 }
 
+// 파일로 스트리밍해 쓴다(옆 이름에 쓰고 다 쓰면 바꾼다. 실패하면 삭제한다)
 async function writeTo(out: string, inputs: ZipInput[]) {
   const part = `${out}.part`;
   const stream = fs.createWriteStream(part, { mode: 0o600 });

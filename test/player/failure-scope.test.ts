@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { failureScope, TRACK, ENVIRONMENT, UNKNOWN } from "../../src/player/failure-scope.ts";
+import { failureScope, servedDirectly, TRACK, ENVIRONMENT, UNKNOWN } from "../../src/player/failure-scope.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { SsrfError } from "../../src/infra/safe-url.ts";
 
@@ -87,4 +87,13 @@ test("재생 쪽에서 만드는 이름은 모두 갈래가 정해져 있다", (
   const elsewhere = new Set(["not-found", "spotify-failed", "unavailable-playlist", "voice-failed", "search-age-gated"]);
   const missing = [...names].filter((n) => !elsewhere.has(n) && !TRACK.has(n) && !ENVIRONMENT.has(n) && !UNKNOWN.has(n));
   assert.deepEqual(missing, []);
+});
+
+test("직접 링크로 받는 곡인가는 곡의 라벨(platform)이 아니라 소리를 받을 주소(audioUrl)로 본다", () => {
+  assert.equal(servedDirectly({ platform: "direct", audioUrl: "https://files.test/a.mp3" }), true);
+  assert.equal(servedDirectly({ platform: "animethemes", audioUrl: "https://v.animethemes.test/a.webm" }), true, "자동재생이 고른 직접 파일");
+  assert.equal(servedDirectly({ platform: "youtube", audioUrl: "https://files.test/pinned.mp3" }), true, "유튜브 요청에 고정한 직접 링크 음원");
+  assert.equal(servedDirectly({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }), false);
+  assert.equal(servedDirectly({ platform: "direct", audioUrl: null }), true, "주소를 아직 모르면 라벨로");
+  assert.equal(servedDirectly(null), false);
 });

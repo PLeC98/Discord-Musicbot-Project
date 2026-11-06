@@ -157,6 +157,16 @@ test("채널을 묻는 사이 자리가 꺼지거나 바뀌면(/leave, /247) 그
   assert.equal(await v.keeper.attempt("g2"), true);
   assert.equal(staySeats.seatOf("g2")?.channelId, "vc2");
   assert.deepEqual(v.calls, [], "알리지도 않는다");
+
+  // 끄고 같은 채널로 다시 켰다(권한이 돌아옴): 앞 시도의 낡은 거절로 새 자리를 끄지 않는다
+  const again = guildOf("g3", { fetched: "denied" });
+  const fetchAgain = again.channels.fetch;
+  Object.assign(again.channels, { fetch: async (...args: unknown[]) => (staySeats.clear("g3"), staySeats.set("g3", "vc1"), (fetchAgain as (...a: unknown[]) => unknown)(...args)) });
+  staySeats.set("g3", "vc1");
+  const u = world([again]);
+  assert.equal(await u.keeper.attempt("g3"), true);
+  assert.equal(staySeats.seatOf("g3")?.channelId, "vc1", "새 자리는 그대로");
+  assert.deepEqual(u.calls, []);
 });
 
 test("자리 채널이 지워지면(봇이 없던 동안도) 끄고 한 번만 알린다", async () => {
