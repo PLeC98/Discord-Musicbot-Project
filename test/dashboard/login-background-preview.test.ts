@@ -28,11 +28,18 @@ const withCodecs = await encoderGate();
 const video = withCodecs("h264");
 // 어림은 AV1 을 SVT-AV1 로 구운 값으로 잰다
 const NO_SVT = "이 ffmpeg 에 SVT-AV1(libsvtav1)이 없어 어림을 보지 않는다";
+const NO_SVT_HDR = "이 ffmpeg 에 SVT-AV1(libsvtav1)이 없어 HDR 원본을 만들지 않는다";
 const svt = () => encoders.encoderFor("av1") === "libsvtav1";
 const estimated = video.skip || svt() ? video : skipFor(NO_SVT);
 
 const sample = (name: string) => path.join(SAMPLES, name);
-const lavfi = (source: string, args: string[]) => runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", source, "-t", "3", ...args]);
+// 만들지 못하면 그 자리에서 실패한다(만들지 못한 원본으로 뒤 시험이 엉뚱하게 깨지거나 비어 통과하지 않게)
+const lavfi = async (source: string, args: string[]) => {
+  const made = await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", source, "-t", "3", ...args]);
+  assert.equal(made.code, 0, `시험 원본을 만들지 못함: ${made.stderr}`);
+};
+// HDR 원본은 SVT-AV1 로 굽는다. 색 정보는 출력 옵션이 아니라 필터로 단다(출력 쪽 -color_trc, -color_primaries 는 떨어져 나가 HDR 로 읽히지 않는다)
+const HDR_SOURCE = "testsrc2=size=640x360:rate=30,format=yuv420p10le,setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc";
 
 before(async () => {
   if (opts.skip) return;
@@ -40,7 +47,10 @@ before(async () => {
   await lavfi("testsrc2=size=1280x720:rate=60", ["-c:v", "mpeg4", "-q:v", "4", sample("clip.mp4")]);
   // 반투명한 GIF(투명한 곳은 검정으로 채운다)
   await lavfi("testsrc2=size=320x240:rate=10,format=rgba,colorchannelmixer=aa=0.5", ["-c:v", "gif", sample("alpha.gif")]);
-  await lavfi("testsrc2=size=640x360:rate=30,format=yuv420p10le", ["-c:v", "libsvtav1", "-preset", "12", "-color_trc", "smpte2084", "-color_primaries", "bt2020", "-colorspace", "bt2020nc", sample("hdr.mp4")]);
+  if (svt()) {
+    await lavfi(HDR_SOURCE, ["-c:v", "libsvtav1", "-preset", "12", sample("hdr.mp4")]);
+    assert.equal((await probeVideo(sample("hdr.mp4"), signal))?.hdr, true, "HDR 원본이 HDR 로 읽힌다");
+  }
   await sharp({ create: { width: 2000, height: 1000, channels: 4, background: { r: 20, g: 120, b: 220, alpha: 0.5 } } })
     .png()
     .toFile(sample("still.png"));
@@ -79,8 +89,8 @@ test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이�
   assert.deepEqual([estimate.crop, estimate.counted, estimate.rough], [{ x: 0, y: 0, w: 1, h: 1 }, null, false]);
 });
 
-test("투명이 있는 GIF, HDR 영상도 미리보기를 만든다", video, async () => {
-  for (const name of ["alpha.gif", "hdr.mp4"]) {
+test("투명이 있는 GIF, HDR 영상도 미리보기를 만든다(HDR 은 SDR 로 톤 매핑)", video, async (t) => {
+  for (const name of svt() ? ["alpha.gif", "hdr.mp4"] : ["alpha.gif"]) {
     const one = await made(name);
     await run(one);
     const probed = await probeVideo(previewOf(one.id)!, signal);
@@ -90,6 +100,7 @@ test("투명이 있는 GIF, HDR 영상도 미리보기를 만든다", video, asy
   const gif = store.items().find((one) => one.name === "alpha.gif")!;
   const frame = await runFfmpeg(["-v", "error", "-i", previewOf(gif.id)!, "-frames:v", "1", "-vf", "scale=1:1,format=gray", "-f", "rawvideo", "-"]);
   assert.ok(frame.output[0] < 140, `밝기 ${frame.output[0]}`);
+  if (!svt()) skipRest(t, NO_SVT_HDR);
 });
 
 test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 세트 어림. 크롭하면 넓이만큼", opts, async () => {
