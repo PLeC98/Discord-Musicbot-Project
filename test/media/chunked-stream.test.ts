@@ -696,7 +696,10 @@ test("구간보다 더 보내는 응답은 구간 끝까지만 쓰고 그 응답
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });
   assert.deepEqual(await collect(s), body);
   assert.equal(signals.length, 2);
-  assert.ok(signals.every((signal) => signal.aborted), "끝없이 보내던 응답을 닫았다");
+  assert.ok(
+    signals.every((signal) => signal.aborted),
+    "끝없이 보내던 응답을 닫았다",
+  );
 });
 
 test("구간을 다 읽은 응답도 닫는다. 닫아도 늦은 오류가 나지 않는다", async () => {
