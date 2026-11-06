@@ -7,6 +7,7 @@ import * as stay from "../../src/usecases/stay.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { fake } from "../helpers/fake.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import type { PlayerSeats } from "../../src/player/registry.ts";
 
 const store = openTempStore("stay-");
@@ -33,20 +34,40 @@ test("켜기: 봇이 있는 채널을 자리로 적고 퇴장 판정을 다시 �
   assert.equal(seen.reconsider, 2);
 });
 
-test("켜기 거절: 서버 관리 권한이 없으면, 스테이지면", async () => {
+// DJ 역할(r1)을 정한 서버에서 봇이 vc1 에 있다. roles: 그 사람의 역할, channel: 그 사람의 음성 채널
+function djServer() {
+  const withRoles = fake<Guild>({ id: "g1", name: "서버", roles: { cache: new Map([["r1", {}]]) }, members: { me: { voice: { channel: { id: "vc1" } } } } });
+  return (roles: string[], channel: string | null) => fake<GuildMember>({ id: "u2", user: { tag: "다른 사람" }, guild: withRoles, permissions: { has: () => false }, roles: { cache: new Map(roles.map((id) => [id, {}])) }, voice: { channel: channel ? { id: channel } : null } });
+}
+
+test("켜기, 끄기는 DJ 조작이다: 서버 관리 권한이 없어도 DJ 면 되고, DJ 가 아니거나 봇과 다른 채널이면 거절", async () => {
   const voice = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
-  assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: member(false) }), { ok: false, code: "must-moderator" });
+  const someone = djServer();
+  assert.equal((await stay.turnOn(voice.bot, { guild, member: someone([], "vc1") })).ok, true, "DJ 역할을 정하지 않은 서버는 모두 DJ");
+  staySeats.clear("g1");
+  await guildSettings.setDjRoles("g1", ["r1"]);
+  try {
+    assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: someone([], "vc1") }), { ok: false, code: "must-dj" });
+    assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: someone(["r1"], "vc2") }), { ok: false, code: "must-be-in-same-voice" });
+    assert.deepEqual(await stay.turnOn(voice.bot, { guild, member: someone(["r1"], "vc1") }), { ok: true, kind: "on", channelId: "vc1", already: false });
+    assert.deepEqual(await stay.turnOff(voice.bot, { guild, member: someone([], "vc1") }), { ok: false, code: "must-dj" });
+    assert.deepEqual(await stay.turnOff(voice.bot, { guild, member: someone(["r1"], "vc1") }), { ok: true, kind: "off", already: false });
+  } finally {
+    await guildSettings.setDjRoles("g1", []);
+  }
+});
+
+test("켜기 거절: 스테이지면", async () => {
   const stage = seated({ id: "st1", name: "무대", type: ChannelType.GuildStageVoice });
   assert.deepEqual(await stay.turnOn(stage.bot, { guild, member: member() }), { ok: false, code: "stay-stage" });
   assert.equal(staySeats.seatOf("g1"), null);
 });
 
-test("끄기: 자리를 지우고 다시 맞춘다. 없으면 already, 권한이 없으면 거절", async () => {
+test("끄기: 자리를 지우고 다시 맞춘다. 없으면 already", async () => {
   const { bot, seen } = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   staySeats.set("g1", "vc1", "u1");
-  assert.deepEqual(stay.turnOff(bot, { guild, member: member(false) }), { ok: false, code: "must-moderator" });
-  assert.deepEqual(stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: false });
+  assert.deepEqual(await stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: false });
   assert.equal(staySeats.seatOf("g1"), null);
   assert.equal(seen.reconsider, 1);
-  assert.deepEqual(stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: true });
+  assert.deepEqual(await stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: true });
 });

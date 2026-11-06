@@ -395,9 +395,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
-  // 24/7 자리도 함께 끈다. 켜고 끄는 권한(서버 관리)과 같게, 없으면 거절한다. 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
+  // 24/7 자리도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 봤다). 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
   const seated = staySeats.seatOf(guild.id) !== null;
-  if (seated && !perm.isModerator(actor.member)) return fail("stay-leave-moderator");
   if (seated) staySeats.clear(guild.id);
   const player = players.get(guild.id);
   if (!player) {

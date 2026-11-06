@@ -456,7 +456,7 @@ test("안내: 코드와 값의 안내", () => {
   assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
 });
 
-test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 중이면 거절). 나가기는 서버 관리 권한이면 자리까지 끄고, 아니면 거절한다", async () => {
+test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 중이면 거절). 나가기는 DJ 조작이라 자리까지 끄고(켜고 끄는 권한과 같다), 거절하면 자리는 그대로", async () => {
   staySeats.set("g1", "vc1", "u1");
   try {
     const p = fakePlayer({ voiceChannel: { id: "vc1" }, stopStaying: async () => void p.calls.push("stop-staying") });
@@ -468,9 +468,9 @@ test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 �
     assert.deepEqual(elsewhere.calls, ["dispose:remove:stop"], "자리가 아닌 채널이면 보통의 정지");
 
     const players = new Map<string, Player>([["g1", fakePlayer({ voiceChannel: { id: "vc1" } })]]);
-    assert.equal(codeOf(await controls.leave(guild, { member: member({ mod: false }) }, players)), "stay-leave-moderator");
+    assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "must-be-in-same-voice");
     assert.ok(staySeats.seatOf("g1"), "거절하면 자리는 그대로");
-    assert.equal(accepted(await controls.leave(guild, DJ, players)).stayOff, true);
+    assert.equal(accepted(await controls.leave(guild, { member: member({ mod: false }) }, players)).stayOff, true, "서버 관리 권한이 없는 DJ 도");
     assert.equal(staySeats.seatOf("g1"), null);
   } finally {
     staySeats.clear("g1");
