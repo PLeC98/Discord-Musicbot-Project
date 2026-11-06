@@ -17,6 +17,8 @@ let closedBy: { reason: string; code: number } | null = null;
 let errors: { first: string; count: number } | null = null;
 /** 이번 끊김을 warn 으로 알렸나 */
 let announced = false;
+/** 봇이 연결을 스스로 닫았나(끄는 중). 다시 시작도 프로세스를 새로 띄우므로 되돌리지 않는다 */
+let destroyed = false;
 
 // @discordjs/ws 는 연결을 닫을 때마다 debug 로 "Destroying shard / Reason / Code" 를 낸다. 열린 소켓이면 그 뒤 shardReconnecting 이,
 // 디스코드가 닫았으면 shardReconnecting 이 먼저 온다. 열리기 전에 닫았으면 shardReconnecting 없이 재연결한다
@@ -29,6 +31,8 @@ const REASONS: Record<string, string> = {
 };
 // 디스코드가 정상 절차로 재연결하게 한 것(오류가 아니다)
 const ROUTINE_REASONS = new Set(["Told to reconnect by Discord", "Got disconnected by Discord", "Invalid session"]);
+// client.destroy() 가 닫을 때의 까닭. discord.js 는 이때도 shardReconnecting 을 내지만 재연결하지 않는다
+const SELF_CLOSE = "Manager was destroyed";
 const ROUTINE_CODES = new Set([1000, 1001]);
 
 const routine = () => errors === null && closedBy !== null && (ROUTINE_REASONS.has(closedBy.reason) || (closedBy.reason === "none" && ROUTINE_CODES.has(closedBy.code)));
@@ -42,7 +46,7 @@ function causeText() {
 
 // 끊김이 정상 절차가 아니면 끊길 때 알린다(오래 연결되지 못하면 그동안 아무 줄도 없게 되지 않게). 까닭이 시도 알림보다 늦게 올 수 있어 둘 다에서 부른다
 function announce(shardId: number) {
-  if (announced || !attempt || !closedBy || routine()) return;
+  if (destroyed || announced || !attempt || !closedBy || routine()) return;
   announced = true;
   log.warn(`게이트웨이 연결이 끊겼습니다 (샤드 ${shardId}): ${causeText()}. 재연결하는 중입니다`);
 }
@@ -50,6 +54,11 @@ function announce(shardId: number) {
 function onDebug(message: string, shardId: number) {
   const found = DESTROYED.exec(message);
   if (!found) return;
+  if (found[1] === SELF_CLOSE) {
+    destroyed = true;
+    attempt = 0;
+    return;
+  }
   // 여러 번 시도한 끊김은 처음 까닭을 남긴다
   if (!closedBy) closedBy = { reason: found[1], code: Number(found[2]) };
   announce(shardId);
@@ -61,6 +70,7 @@ function onError(error: Error, shardId: number) {
 }
 
 function onReconnecting(shardId: number) {
+  if (destroyed) return;
   attempt += 1;
   log.debug(`게이트웨이 연결이 끊겨 재연결하는 중입니다(${attempt}번째 시도)`);
   announce(shardId);
@@ -124,6 +134,7 @@ function _reset() {
   closedBy = null;
   errors = null;
   announced = false;
+  destroyed = false;
 }
 
 export { watchGateway, gateway, _reset };
