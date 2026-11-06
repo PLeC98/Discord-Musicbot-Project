@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough, Readable, Writable } from "node:stream";
 import { createFragmentStream, openFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
+import { failureScope } from "../../src/player/failure-scope.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
 
@@ -72,6 +73,17 @@ test("세그먼트가 멈추면 끊고 다시 받는다", async () => {
   const { impl } = fakeFetch((i, attempt) => (i === 0 && attempt === 0 ? "hang" : "ok"));
   const s = createFragmentStream({ fragments: { base, count: 2 }, durationMs: 4_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [1], stallMs: 50 });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|");
+});
+
+test("세그먼트가 계속 멈춰 다시 받기를 다 쓰면 시간 초과(TimeoutError)로 열지 못한다. 직접 링크가 아닌 곡이면 환경 탓", async () => {
+  const { impl } = fakeFetch(() => "hang");
+  const error = await openFragmentStream({ fragments: { base, count: 2 }, durationMs: 4_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [1], stallMs: 30 }).then(
+    () => null,
+    (e: unknown) => e,
+  );
+  assert.equal((error as Error | null)?.name, "TimeoutError");
+  assert.equal(failureScope(error), "environment");
+  assert.equal(failureScope(error, { direct: true }), "unknown", "직접 링크는 그 서버만일 수 있다");
 });
 
 test("세그먼트 수가 없으면 만들지 않는다", () => {

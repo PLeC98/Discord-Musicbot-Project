@@ -12,7 +12,7 @@
 import crypto from "node:crypto";
 import type { Readable } from "node:stream";
 import * as SafeUrl from "../infra/safe-url.ts";
-import { codedError, messageOf } from "../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { parsePlaylist, chooseMedia, lengthOf, type MediaPlaylist, type Segment, type ByteRange, type Key } from "../rules/hls-playlist.ts";
 import type { AudioStream, StreamNet } from "./direct-open.ts";
 import logger from "../infra/log/logger.ts";
@@ -292,7 +292,8 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
         if (next.ended) return false;
         unchanged = true;
       } catch (error) {
-        if ((error as { permanent?: boolean }).permanent || ++failures >= RELOAD_FAILURES) throw error;
+        // 목록의 뜻이 다룰 수 없는 것(큰 순번, 읽을 수 없는 구간 등)은 다시 받아도 같다. 목록이 아닌 응답 같은 한때의 이상은 다시 받는다
+        if ((error as { permanent?: boolean }).permanent || codeOf(error) === "unsupported-link" || ++failures >= RELOAD_FAILURES) throw error;
         log.trace(`라이브 HLS 플레이리스트 갱신 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
       }
     }
@@ -402,12 +403,20 @@ async function fetchWhole(ctx: PartNet, part: HlsPart, at: Fetching): Promise<Bu
   }
 }
 
-// 구간 세그먼트는 모은다. 구간을 주었으면(206) 그대로, 무시했으면(200) 그 구간만. 200 은 처음부터 구간 끝까지 받아야 해서 그 끝이 상한을 넘으면 받지 않는다
+// 구간 세그먼트는 모은다. 응답이 시작한 자리(200 이면 0, 206 이면 Content-Range)에서 구간까지 건너뛰고 구간 길이만큼만 모은다.
+// 처음 자리의 206 은 Content-Range 가 없어도 받는다(청크 스트림의 처음 요청과 같다). 그 밖에 자리를 모르거나 구간 뒤에서 시작했으면 다른 바이트라 받지 않는다.
+// 구간 끝이 상한을 넘으면(구간을 무시한 200 이 처음부터 보낼 때) 받지 않는다. 짧게 끝났으면 받은 만큼(파일 끝을 넘은 마지막 구간은 서버가 끝에서 자른다)
 async function fetchRange(ctx: PartNet, part: HlsPart, range: ByteRange, at: Fetching): Promise<Buffer> {
   const body = await settled(ctx.net.getStream(part.url, undefined, { accept: RANGED_ACCEPT, signal: at.signal, bodyIdleMs: ctx.idleMs, from: range.offset, to: range.offset + range.length - 1 }));
   at.progress();
-  const slice = body.status !== 206 ? range : null;
-  if (slice && slice.offset + slice.length > PART_ACCEPT.maxBytes) {
+  const headers = body.headers ?? {};
+  const start = SafeUrl.servedFrom({ status: body.status ?? 200, headers }) ?? (range.offset === 0 ? 0 : null);
+  if (start === null || start > range.offset) {
+    body.destroy();
+    throw permanent(new Error(`HLS 서버가 요청한 구간(${range.offset}부터)이 아닌 곳을 보냈습니다(${String(headers["content-range"] ?? "Content-Range 없음")})`));
+  }
+  const slice = { offset: range.offset - start, length: range.length };
+  if (slice.offset + slice.length > PART_ACCEPT.maxBytes) {
     body.destroy();
     throw permanent(new Error(`HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘습니다`));
   }

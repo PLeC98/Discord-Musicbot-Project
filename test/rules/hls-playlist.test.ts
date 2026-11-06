@@ -92,9 +92,9 @@ data:text/plain,abc
   assert.equal(media.ended, false, "끝 표시가 없으면 라이브");
 });
 
-test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 길이는 유한한 수, 순번과 바이트 구간은 안전한 정수만", () => {
+test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 길이는 유한한 수, 순번은 안전한 정수만", () => {
   const huge = "9".repeat(400);
-  const media = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:Infinity\n#EXT-X-MEDIA-SEQUENCE:x\n#EXTINF:Infinity,\na.ts\n#EXT-X-BYTERANGE:${huge}@0\n#EXTINF:-3,\nb.ts\n#EXT-X-BYTERANGE:0@10\n#EXTINF:4,\nc.ts\n`, BASE) as MediaPlaylist;
+  const media = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:Infinity\n#EXT-X-MEDIA-SEQUENCE:x\n#EXTINF:Infinity,\na.ts\n#EXTINF:-3,\nb.ts\n#EXTINF:4,\nc.ts\n`, BASE) as MediaPlaylist;
   assert.deepEqual([media.targetDuration, media.mediaSequence], [0, 0]);
   assert.deepEqual(
     media.segments.map((s) => [s.duration, s.sequence, s.range]),
@@ -109,4 +109,20 @@ test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 �
   }
   const long = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:3000000\n#EXT-X-MEDIA-SEQUENCE:7\n#EXTINF:1e300,\na.ts\n`, BASE) as MediaPlaylist;
   assert.deepEqual([long.targetDuration, long.mediaSequence, long.segments[0].duration], [60, 7, 86_400]);
+});
+
+test("읽을 수 없는 바이트 구간(길이 0, 안전한 정수를 넘음, 빈 값, 끝이 넘침)은 그것을 쓰는 세그먼트에서 unsupported-link. 파일 전체 받기로 바꾸지 않는다", () => {
+  const huge = "9".repeat(400);
+  const max = "9007199254740991";
+  for (const range of [`${huge}@0`, "0@10", "", `2@${max}`, "x"]) {
+    assert.throws(() => parsePlaylist(`#EXTM3U\n#EXTINF:4,\n#EXT-X-BYTERANGE:${range}\nmain.mp4\n`, BASE), { code: "unsupported-link" }, range);
+  }
+  // 오프셋 없이 이어지는 자리가 넘친다
+  assert.throws(() => parsePlaylist(`#EXTM3U\n#EXTINF:4,\n#EXT-X-BYTERANGE:${max}@0\nmain.mp4\n#EXTINF:4,\n#EXT-X-BYTERANGE:2\nmain.mp4\n`, BASE), { code: "unsupported-link" });
+  assert.throws(() => parsePlaylist(`#EXTM3U\n#EXT-X-MAP:URI="init.mp4",BYTERANGE="0@0"\n#EXTINF:4,\nseg.m4s\n`, BASE), { code: "unsupported-link" }, "초기화 세그먼트의 구간도");
+  // 다시 쓰는 중에 받아 끝이 잘린 라이브 목록: 그 구간을 쓰는 세그먼트가 없으니 읽는다
+  const cut = parsePlaylist(`#EXTM3U\n#EXTINF:4,\na.ts\n#EXTINF:4,\n#EXT-X-BYTERANGE:`, BASE) as MediaPlaylist;
+  assert.equal(cut.segments.length, 1);
+  const ok = parsePlaylist(`#EXTM3U\n#EXT-X-MAP:URI="init.mp4"\n#EXTINF:4,\n#EXT-X-BYTERANGE:4@4\nmain.mp4\n`, BASE) as MediaPlaylist;
+  assert.deepEqual([ok.segments[0].range, ok.segments[0].init?.range], [{ length: 4, offset: 4 }, null], "구간이 없는 것은 그대로 null");
 });

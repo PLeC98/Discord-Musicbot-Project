@@ -49,12 +49,24 @@ function resolve(uri: string | undefined, base: string): string | null {
   }
 }
 
-/** "길이[@오프셋]". 오프셋이 없으면 앞 구간 끝에서 잇는다(같은 주소일 때) */
-function byteRangeOf(value: string | undefined, previousEnd: number): ByteRange | null {
-  const m = /^(\d+)(?:@(\d+))?$/.exec(value?.trim() ?? "");
+/** 읽을 수 없는 바이트 구간. 그것을 쓰는 세그먼트가 나올 때 던진다(끝이 잘린 라이브 갱신의 마지막 태그는 쓰는 세그먼트가 없다) */
+const BAD_RANGE = "bad";
+type RangeTag = ByteRange | typeof BAD_RANGE | null;
+
+/** "길이[@오프셋]". 오프셋이 없으면 앞 구간 끝에서 잇는다(같은 주소일 때). 값이 없으면 null, 있는데 읽을 수 없으면(길이 0, 안전한 정수를 넘음, 끝이 넘침) BAD_RANGE */
+function byteRangeOf(value: string | undefined, previousEnd: number): RangeTag {
+  if (value === undefined) return null;
+  const m = /^(\d+)(?:@(\d+))?$/.exec(value.trim());
   const length = m ? countOf(m[1]) : null;
   const offset = m?.[2] === undefined ? previousEnd : countOf(m[2]);
-  return length && offset !== null ? { length, offset } : null;
+  if (!length || offset === null || (offset >= 0 && !Number.isSafeInteger(offset + length))) return BAD_RANGE;
+  return { length, offset };
+}
+
+/** 세그먼트가 쓰는 구간. 읽을 수 없으면 던진다(파일 전체 받기로 바꾸면 그 세그먼트에 파일이 다 들어간다) */
+function usedRange(range: RangeTag): ByteRange | null {
+  if (range === BAD_RANGE) throw codedError("unsupported-link", "HLS 바이트 구간(BYTERANGE)을 읽을 수 없습니다");
+  return range;
 }
 
 function ivOf(value: string | undefined): Uint8Array | null {
@@ -85,7 +97,7 @@ function parseMaster(lines: string[], baseUrl: string): MasterPlaylist {
 }
 
 /** 하위 목록을 읽는 동안 다음 세그먼트에 걸릴 것 */
-type Pending = { duration: number; range: ByteRange | null; init: Segment["init"]; key: Key | null; discontinuity: boolean };
+type Pending = { duration: number; range: RangeTag; init: { url: string; range: RangeTag } | null; key: Key | null; discontinuity: boolean };
 
 /** 세그먼트 앞의 태그 하나를 읽어 목록, 다음 세그먼트에 적는다 */
 const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pending, baseUrl: string) => void]> = [
@@ -126,9 +138,12 @@ function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
     } else {
       const url = resolve(line, baseUrl);
       if (url) {
-        const range = next.range ? { length: next.range.length, offset: next.range.offset >= 0 ? next.range.offset : (ends.get(url) ?? 0) } : null;
+        const tagged = usedRange(next.range);
+        const range = tagged ? { length: tagged.length, offset: tagged.offset >= 0 ? tagged.offset : (ends.get(url) ?? 0) } : null;
+        if (range && !Number.isSafeInteger(range.offset + range.length)) usedRange(BAD_RANGE);
         if (range) ends.set(url, range.offset + range.length);
-        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range, init: next.init, key: next.key, discontinuity: next.discontinuity });
+        const init = next.init && { url: next.init.url, range: usedRange(next.init.range) };
+        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range, init, key: next.key, discontinuity: next.discontinuity });
       }
       Object.assign(next, { duration: 0, range: null, discontinuity: false });
     }

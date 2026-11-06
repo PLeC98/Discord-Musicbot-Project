@@ -9,7 +9,7 @@
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
 import { Readable } from "stream";
-import { codeOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, codedError, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
@@ -222,7 +222,7 @@ class ChunkedReader {
     clearTimeout(this.stallTimer);
     const request = this.aborter;
     const { stallMs } = this.o;
-    this.stallTimer = setTimeout(() => request?.abort(Object.assign(new Error(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`), { code: "STREAM_STALL" })), stallMs);
+    this.stallTimer = setTimeout(() => request?.abort(timeoutError(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`, { code: "STREAM_STALL" })), stallMs);
     this.stallTimer.unref?.();
   }
 

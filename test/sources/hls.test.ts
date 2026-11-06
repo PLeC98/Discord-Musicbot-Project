@@ -11,7 +11,8 @@ import * as DirectLink from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import * as SafeUrl from "../../src/infra/safe-url.ts";
 
-type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean };
+// raw: 그대로 돌려줄 상태와 머리(구간을 어긋나게 주는 서버). 없으면 구간을 따르는 서버는 206 과 Content-Range 를 붙인다
+type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean; raw?: { status: number; headers: Record<string, string> } };
 
 /** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx, 5xx 는 SafeUrl 처럼 status 를 단 오류 */
 function netOf(routes: Record<string, Reply | (() => Reply)>) {
@@ -24,10 +25,12 @@ function netOf(routes: Record<string, Reply | (() => Reply)>) {
       const reply = typeof route === "function" ? route() : route;
       const status = reply.status ?? 200;
       if (status >= 400) throw Object.assign(new Error(`요청 실패: HTTP ${status}`), { status });
-      let body = Buffer.from(reply.body ?? "");
+      const full = Buffer.from(reply.body ?? "");
+      if (reply.raw) return Object.assign(Readable.from([full]), { ...reply.raw, url: reply.url ?? url }) as AudioStream;
       const ranged = opts.from !== undefined && reply.honorsRange !== false;
-      if (ranged) body = body.subarray(opts.from, (opts.to ?? body.length - 1) + 1);
-      return Object.assign(Readable.from([body]), { headers: {}, status: ranged ? 206 : status, url: reply.url ?? url }) as AudioStream;
+      const body = ranged ? full.subarray(opts.from, (opts.to ?? full.length - 1) + 1) : full;
+      const headers = ranged ? { "content-range": `bytes ${opts.from}-${opts.from! + body.length - 1}/${full.length}` } : {};
+      return Object.assign(Readable.from([body]), { headers, status: ranged ? 206 : status, url: reply.url ?? url }) as AudioStream;
     },
   };
   return { net, asked };
@@ -85,6 +88,29 @@ test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버
       ],
     );
   }
+});
+
+test("구간 응답(206)은 시작한 자리를 본다: 구간 뒤에서 시작했으면 다시 받지 않는 실패, 앞에서 시작했으면 건너뛴다, 처음 자리에서 Content-Range 가 없으면 받는다, 더 보내면 구간만, 파일 끝에서 잘렸으면 받은 만큼", async () => {
+  const one = (range: string) => `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\n#EXT-X-BYTERANGE:${range}\nmain.mp4\n#EXT-X-ENDLIST\n`;
+  const served = async (range: string, reply: Reply) => {
+    const { net } = netOf({ "https://v.test/main.mp4": reply });
+    const hls = await openHls(one(range), "https://v.test/index.m3u8", { net });
+    const fragments = hls.fragments();
+    const part = await fragments.next();
+    return fragments.fetch(part!, new AbortController().signal) as Promise<Buffer>;
+  };
+  const failed = (got: Promise<unknown>) =>
+    got.then(
+      () => null,
+      (e: unknown) => e as { permanent?: boolean },
+    );
+  const file = "INIT" + "AAAA" + "BBBB";
+  assert.equal((await failed(served("4@4", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })))?.permanent, true, "구간 뒤의 바이트를 ffmpeg 에 주지 않는다");
+  assert.equal((await served("4@4", { body: file, raw: { status: 206, headers: { "content-range": "bytes 0-11/12" } } })).toString(), "AAAA", "앞부분부터 보냈으면 건너뛴다(구간을 무시한 200 과 같다)");
+  assert.equal((await failed(served("4@4", { body: "AAAA", raw: { status: 206, headers: {} } })))?.permanent, true, "처음 자리가 아니면 Content-Range 없이는 자리를 모른다");
+  assert.equal((await served("4@0", { body: file, raw: { status: 206, headers: {} } })).toString(), "INIT", "한 파일 HLS 의 첫 구간");
+  assert.equal((await served("4@4", { body: "AAAABBBB", raw: { status: 206, headers: { "content-range": "bytes 4-11/12" } } })).toString(), "AAAA");
+  assert.equal((await served("8@8", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })).toString(), "BBBB", "목록의 끝 구간이 파일 끝을 넘었다");
 });
 
 test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 세그먼트 순번", async () => {
@@ -169,6 +195,19 @@ test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송
   await closing.next();
   closing.close();
   assert.equal(await closing.next(), null, "남은 세그먼트가 있어도");
+});
+
+test("라이브: 갱신한 목록이 다룰 수 없는 것(큰 순번)이면 다시 받지 않고 끝난다. 목록이 아닌 응답은 지금처럼 다시 받는다", async () => {
+  const text = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\ns1.ts\n`;
+  const { net, asked } = netOf({ "https://l.test/index.m3u8": { body: "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:9007199254740992\n#EXTINF:2,\ns2.ts\n" }, "https://l.test/s1.ts": { body: "s1" } });
+  const hls = await openHls(text, "https://l.test/index.m3u8", { net, sleep: instant });
+  await assert.rejects(drain(hls.fragments()), { code: "unsupported-link" });
+  assert.equal(asked.filter((a) => a.url.endsWith("index.m3u8")).length, 1, "한 번에");
+
+  const lists = ["<html>잠시 오류</html>", `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:2\n#EXTINF:2,\ns2.ts\n#EXT-X-ENDLIST\n`];
+  const flaky = netOf({ "https://l.test/index.m3u8": () => ({ body: lists.shift() ?? "" }), "https://l.test/s1.ts": { body: "s1" }, "https://l.test/s2.ts": { body: "s2" } });
+  const again = await openHls(text, "https://l.test/index.m3u8", { net: flaky.net, sleep: instant });
+  assert.deepEqual(await drain(again.fragments()), ["s1", "s2"]);
 });
 
 test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {

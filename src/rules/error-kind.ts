@@ -3,7 +3,7 @@
 // 글은 보지 않는다. 이름이 없으면 unknown-error 다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 import { isCode, type Code } from "./problems.ts";
-import { codeOf, messageOf } from "../infra/error-text.ts";
+import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
@@ -69,4 +69,4 @@ function errorKind(error: unknown): Code {
   return "unknown-error";
 }
 
-export { errorKind, codedError, codeOf, messageOf, describeError, chainOf, isNetworkCode };
+export { errorKind, codedError, codeOf, messageOf, timeoutError, describeError, chainOf, isNetworkCode };

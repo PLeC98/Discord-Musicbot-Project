@@ -284,6 +284,21 @@ const drain = async (body: Readable) => {
   return bytes;
 };
 
+test("진짜 소켓: 응답 머리가 상한 안에 오지 않으면 시간 초과(TimeoutError)로 끊는다", async () => {
+  const { server, url } = await localServer(() => {}); // 답하지 않는다
+  try {
+    const error = await send({ method: "GET", url: url("/slow"), agent: pinned(), timeoutMs: 50, headers: {} }).then(
+      () => null,
+      (e: unknown) => e as Error,
+    );
+    assert.equal(error?.name, "TimeoutError");
+    assert.match(error?.message ?? "", /응답이 50ms 동안 없습니다/);
+  } finally {
+    server.closeAllConnections();
+    server.close();
+  }
+});
+
 test("진짜 소켓: 고정 IP 로 접속하고, 리다이렉트는 따라가지 않고 그대로 돌려준다", async () => {
   const { server, url } = await localServer((req, res) => {
     if (req.url === "/redirect") return res.writeHead(302, { Location: "/final" }).end();
@@ -349,6 +364,7 @@ test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 �
   t.mock.timers.tick(1_000);
   await new Promise((done) => setImmediate(done));
   assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않습니다/);
+  assert.equal(errors[0]?.name, "TimeoutError", "실패 범위가 망 탓으로 읽는다");
 });
 
 // Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 실행할 때 읽으므로 자식으로 본다.

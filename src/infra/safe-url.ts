@@ -20,7 +20,7 @@ import http from "http";
 import https from "https";
 import { pipeline, Transform } from "stream";
 import { isPublicIp } from "./public-address.ts";
-import { codeOf, messageOf } from "./error-text.ts";
+import { codeOf, messageOf, timeoutError } from "./error-text.ts";
 import config from "../config/index.ts";
 
 // 보안 상수. 잘못 설정해 방어가 꺼지지 않게 설정으로 빼지 않는다
@@ -139,7 +139,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
     });
     const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청을 그만둠"));
     signal?.addEventListener("abort", stop, { once: true });
-    req.on("timeout", () => req.destroy(new Error(`응답이 ${timeoutMs}ms 동안 없습니다`)));
+    req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없습니다`)));
     req.on("error", (error) => {
       signal?.removeEventListener("abort", stop);
       reject(error);
@@ -263,7 +263,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
   const timer = setInterval(
     () => {
       if (source.readableFlowing !== true) last = Date.now();
-      else if (Date.now() - last >= idleMs) source.destroy(new Error(`본문이 ${idleMs}ms 동안 오지 않습니다`));
+      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(`본문이 ${idleMs}ms 동안 오지 않습니다`));
     },
     Math.min(BODY_CHECK_MS, idleMs),
   );

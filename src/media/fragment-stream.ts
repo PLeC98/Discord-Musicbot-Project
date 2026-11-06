@@ -10,7 +10,7 @@
 // 위치 이동은 그 위치가 든 세그먼트부터 받는다. 세그먼트 안의 나머지는 ffmpeg 의 -ss 가 맞춘다(startedAtMs).
 
 import { Readable, finished } from "stream";
-import { messageOf } from "../rules/error-kind.ts";
+import { messageOf, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
@@ -75,7 +75,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
       const arm = () => {
         if (settled) return;
         clearTimeout(timer);
-        timer = setTimeout(() => controller.abort(new Error(`세그먼트가 ${stallMs / 1000}초 동안 오지 않음`)), stallMs);
+        timer = setTimeout(() => controller.abort(timeoutError(`세그먼트가 ${stallMs / 1000}초 동안 오지 않음`)), stallMs);
       };
       arm();
       try {

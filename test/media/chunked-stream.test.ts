@@ -287,6 +287,24 @@ test("받는 중에 데이터가 멈추면 정체로 보고 다시 요청한다"
   assert.deepEqual(await collect(s), body);
 });
 
+test("계속 멈춰 다시 요청을 다 쓰면 시간 초과(TimeoutError, STREAM_STALL)로 끝난다", async () => {
+  const body = makeBody(30_000);
+  const s = createChunkedStream({
+    url: URL_,
+    totalBytes: body.length,
+    chunkSize: 30_000,
+    ...FAST,
+    stallMs: 30,
+    // 받는 만큼 다시 셈이 처음으로 돌아가므로, 한 바이트도 안 오게 멈춘다
+    fetchImpl: fakeFetch(body, { sliceBytes: 1000, plan: () => ({ hangAfter: 0 }) }),
+  });
+  const error = await collect(s).then(
+    () => null,
+    (e: unknown) => e as { name?: string; code?: string },
+  );
+  assert.deepEqual([error?.name, error?.code], ["TimeoutError", "STREAM_STALL"]);
+});
+
 test("첫 요청이 네트워크 오류로 실패해도 다시 시도해 연다. 재생 전이라 넘겨받기는 묻지 않는다", async () => {
   const body = makeBody(20_000);
   let asked = 0;
