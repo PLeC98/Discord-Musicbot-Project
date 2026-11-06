@@ -189,7 +189,8 @@ test("HLS 큰 세그먼트: 첫 응답이 중간에 끊기면 그 자리부터 R
   const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(false));
   assert.deepEqual(await readInput(input), body);
   const resumed = server.asked.filter((one) => one.from !== undefined);
-  assert.equal(resumed[0].from, 1_500_000, "끊긴 자리부터");
+  // 끊길 때 받는 쪽에 닿지 않은 덩이는 버려지므로(운영체제마다 다르다) 받은 자리부터. 처음부터 다시 받지 않는다
+  assert.ok(resumed[0].from! > 1_000_000 && resumed[0].from! <= 1_500_000, `받은 자리부터(${resumed[0].from})`);
   assert.ok(resumed.every((one) => one.ifRange === '"v1"'));
   assert.equal(server.asked[0].bodyIdleMs, 6000, "첫 응답에 무응답 한도");
 });
