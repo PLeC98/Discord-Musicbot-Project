@@ -77,7 +77,8 @@ test("창이 끝난 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있�
   s.wait.sessionEnded();
   s.wait.sessionEnded();
   await new Promise((done) => setImmediate(done));
-  assert.deepEqual([s.checks(), s.ended()], [1, 0], "겹치면 확인은 하나");
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual([s.checks(), s.ended()], [2, 0], "겹치면 나가 있던 확인 뒤 한 번 더(몇 번이 겹쳐도 둘)");
   s.advance(120_000);
   s.wait.sessionEnded();
   assert.equal(s.ended(), 1);
@@ -90,4 +91,28 @@ test("창이 끝난 뒤 늦게 온 401 이라도 확인에서 살아 있지 않�
   s.wait.sessionEnded();
   await new Promise((done) => setImmediate(done));
   assert.equal(s.ended(), 1);
+});
+
+test("확인이 나가 있는 동안 온 401 은 그 확인이 끝난 뒤 한 번 더 확인한다(먼저 나간 확인의 답은 그 401 보다 오래됐을 수 있다)", async () => {
+  let answers = [true, false];
+  let checks = 0;
+  let ended = 0;
+  let release: () => void = () => {};
+  const wait = loginWait({
+    end: () => void ended++,
+    check: () => {
+      checks++;
+      const alive = answers.shift() ?? false;
+      return checks === 1 ? new Promise<boolean>((done) => (release = () => done(alive))) : Promise.resolve(alive);
+    },
+    now: () => 0,
+  });
+  wait.opened();
+  await wait.signedIn();
+  wait.sessionEnded();
+  wait.sessionEnded();
+  release();
+  await new Promise((done) => setTimeout(done, 10));
+  assert.deepEqual([checks, ended], [2, 1]);
+  answers = [];
 });

@@ -196,7 +196,7 @@ class SqliteSessionStore extends Store {
   /** 종료 순서에서: 삭제하지 못한 행을 마지막으로 다시 삭제한다. 남은 수(다시 시작하면 그 로그인들이 되살아난다) */
   finish() {
     const left = this.retryUnsaved();
-    if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료합니다. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인한 뒤 다시 로그아웃하세요`);
+    if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료합니다. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인하고, 되살아난 기기는 다른 기기 로그아웃으로 끊으세요`);
     return left;
   }
 

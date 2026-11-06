@@ -23,17 +23,29 @@ export function loginWait({ end, check, now = () => Date.now() }: LoginWaitOptio
   let settledAt: number | null = null;
   let held = false;
   let checking: Promise<void> | null = null;
+  let again = false;
   const waiting = () => since !== null && now() - since < WAIT_MS;
   const lately = () => settledAt !== null && now() - settledAt < GRACE_MS;
 
-  // 살아 있는지 한 번 본다(겹치면 하나만). 닿지 못하면(던짐) 살아 있다고 보지 않는다(닫힌 쪽)
-  function confirm() {
-    checking ??= check()
+  // 살아 있는지 본다. 닿지 못하면(던짐) 살아 있다고 보지 않는다(닫힌 쪽). 확인이 나가 있는 동안 온 401 은 그 확인이 끝난 뒤 한 번 더
+  // (먼저 나간 확인의 답은 그 401 보다 오래됐을 수 있다)
+  function confirm(): Promise<void> {
+    if (checking) {
+      again = true;
+      return checking;
+    }
+    checking = check()
       .catch(() => false)
       .then((alive) => {
         if (!alive) end();
       })
-      .finally(() => (checking = null));
+      .finally(() => {
+        checking = null;
+        if (again) {
+          again = false;
+          void confirm();
+        }
+      });
     return checking;
   }
 

@@ -248,7 +248,9 @@ function stop(entry: Entry, why: string) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
-  if (!receiving(req) && !(res.headersSent && !res.writableFinished)) return;
+  // 다 나가지 않은 답: 읽기는 end 를 불렀어도(버퍼에 남은 내려받기), 상태를 바꾸는 요청은 아직 끝내지 않은 것만(이미 바꾸고 답했으면 그 답을 보낸다)
+  const unsent = res.headersSent && (SAFE.has(req.method) ? !res.writableFinished : !res.writableEnded);
+  if (!receiving(req) && !unsent) return;
   if (entries.get(res) === entry) entries.delete(res);
   if (!entries.size) disarm();
   entry.socket.destroy();
@@ -297,6 +299,7 @@ function recheck(now = Date.now()) {
       stop(entry, "로그인 기한이 지남");
       return false;
     });
+    if (alive.length < list.length) sweepSockets(sid, liveOf(sid));
     if (!alive.length) continue;
     let session;
     try {
@@ -308,7 +311,7 @@ function recheck(now = Date.now()) {
     }
     const gone = alive.filter((entry) => session?.user?.id !== entry.userId);
     for (const entry of gone) stop(entry, "세션이 끝남");
-    if (gone.length) sweepSockets(sid, new Set(gone.map((entry) => entry.req)));
+    if (gone.length) sweepSockets(sid, liveOf(sid));
   }
   if (!firstError) {
     failures = 0;
@@ -320,6 +323,11 @@ function recheck(now = Date.now()) {
   if (failures < FAILURES_TO_CLOSE) return;
   for (const entry of unchecked) stop(entry, "세션을 확인하지 못함");
   failures = 0;
+}
+
+// 그 sid 의 목록에 남은 요청(stop 이 다뤘거나 401 로 답할 것. 소켓 쓸기가 건드리지 않게)
+function liveOf(sid: string) {
+  return new Set([...entries.values()].filter((entry) => entry.sid === sid).map((entry) => entry.req));
 }
 
 // 아직 멈추지 않은 묶인 요청을 sid 마다

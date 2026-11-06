@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import { sendProblem } from "../problem.ts";
+import { sessionCookieName } from "../cookies.ts";
 
 // 세션에 토큰을 두고 헤더(x-csrf-token)로 받은 값과 맞춘다. 라우트를 걸기 전에 app.use 로
 // 통째로 씌우므로 상태를 바꾸는 경로가 이 검사 밖으로 새지 않는다.
@@ -26,10 +27,17 @@ function issueCsrfToken(req: Request, res: Response) {
   return res.json({ csrfToken: ensureCsrfToken(req) });
 }
 
+// 요청에 이 연결의 세션 쿠키가 실렸나
+function carriesSessionCookie(req: Request) {
+  const name = `${sessionCookieName(req.secure)}=`;
+  return (req.headers.cookie ?? "").split(";").some((part) => part.trim().startsWith(name));
+}
+
 function requireCsrfToken(req: Request, res: Response, next: NextFunction) {
   if (SAFE_METHODS.has(req.method)) return next();
-  // 로그인하지 않은(끝난) 세션의 로그아웃은 지킬 것이 없다. 이 브라우저의 쿠키만 삭제한다(교차 사이트 POST 에는 lax 쿠키가 실리지 않는다)
-  if (req.path === "/auth/logout" && !req.session?.user) return next();
+  // 끝난 세션의 로그아웃은 지킬 것이 없다. 이 브라우저의 쿠키만 삭제한다. 그 세션 쿠키가 실린 요청만이다: 교차 사이트 POST 에는 lax 쿠키가 실리지 않아
+  // 그것까지 받으면 다른 사이트의 폼이 이 브라우저의 로그인 쿠키를 삭제하게 된다(강제 로그아웃)
+  if (req.path === "/auth/logout" && !req.session?.user && carriesSessionCookie(req)) return next();
 
   const expected = req.session?.csrfToken;
   const supplied = req.get("x-csrf-token");

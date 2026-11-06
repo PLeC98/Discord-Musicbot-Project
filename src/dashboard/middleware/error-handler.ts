@@ -63,7 +63,7 @@ function notFoundJson(req: Request, res: Response, next: NextFunction) {
 // 본문을 받다 연결이 끊겼다(봇이 소켓을 부쉈거나 받던 쪽이 끊음)
 function cutShort(err: unknown) {
   const { type, code } = fieldsOf(err);
-  return type === "request.aborted" || code === "ECONNABORTED" || code === "ECONNRESET";
+  return type === "request.aborted" || code === "ECONNABORTED";
 }
 
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {

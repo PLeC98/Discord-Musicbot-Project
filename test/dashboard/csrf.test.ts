@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import type { Request, Response } from "express";
 import { issueCsrfToken, requireCsrfToken } from "../../src/dashboard/middleware/csrf.ts";
 import { fake, fakeWith } from "../helpers/fake.ts";
+import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 
 type Body = { csrfToken?: string; code?: string };
 
@@ -99,14 +100,19 @@ test("allows unsafe methods with the session CSRF token", () => {
   assert.equal(called, true);
 });
 
-test("로그인하지 않은(끝난) 세션의 로그아웃은 토큰 없이 지나간다(지킬 것이 없고 이 브라우저의 쿠키만 삭제한다). 로그인한 세션의 로그아웃은 토큰이 있어야 한다", () => {
+test("끝난 세션의 로그아웃은 그 세션 쿠키가 실렸으면 토큰 없이 지나간다(지킬 것이 없고 이 브라우저의 쿠키만 삭제한다). 쿠키가 없는 요청(교차 사이트 폼), 로그인한 세션은 토큰이 있어야 한다", () => {
   let passed = 0;
-  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, get: () => undefined }), response(), () => passed++);
+  const cookie = `${sessionCookieName(false)}=s%3Aold.sig`;
+  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, headers: { cookie }, get: () => undefined }), response(), () => passed++);
   assert.equal(passed, 1);
+  const crossSite = response();
+  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, headers: {}, get: () => undefined }), crossSite, () => passed++);
+  assert.equal(passed, 1, "교차 사이트 POST 는 lax 쿠키를 싣지 못한다. 받으면 다른 사이트가 이 브라우저의 쿠키를 삭제하게 된다");
+  assert.equal(crossSite.sentBody?.code, "bad-csrf-token");
   const res = response();
-  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: { user: { id: "u1" }, csrfToken: "t" }, get: () => undefined }), res, () => passed++);
+  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: { user: { id: "u1" }, csrfToken: "t" }, headers: { cookie }, get: () => undefined }), res, () => passed++);
   assert.equal(passed, 1);
   assert.equal(res.sentBody?.code, "bad-csrf-token");
-  requireCsrfToken(request({ method: "POST", path: "/api/x", session: {}, get: () => undefined }), response(), () => passed++);
+  requireCsrfToken(request({ method: "POST", path: "/api/x", session: {}, headers: { cookie }, get: () => undefined }), response(), () => passed++);
   assert.equal(passed, 1, "다른 경로는 그대로 막는다");
 });
