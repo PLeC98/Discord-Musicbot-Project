@@ -227,12 +227,14 @@ test("세그먼트 상한: 구간 요청은 파일 상한으로 연다(구간을
   const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-BYTERANGE:1000@0\n#EXTINF:4,\nall.mp4\n#EXTINF:4,\nplain.ts\n#EXT-X-BYTERANGE:${65 * 1024 * 1024}@0\n#EXTINF:4,\nhuge.mp4\n#EXT-X-ENDLIST\n`;
   const fragments = (await openHls(text, "https://c.test/index.m3u8", { net })).fragments();
   const signal = new AbortController().signal;
-  assert.equal((await fragments.fetch((await fragments.next())!, signal)).length, 1000, "구간만 잘라 쓴다");
-  await fragments.fetch((await fragments.next())!, signal);
+  assert.equal(((await fragments.fetch((await fragments.next())!, signal)) as Buffer).length, 1000, "구간만 잘라 쓴다");
+  const plain = await fragments.fetch((await fragments.next())!, signal);
+  assert.ok(!Buffer.isBuffer(plain) && plain.kind === "pour" && plain.totalBytes === 128 * 1024 * 1024, "알린 크기가 커서 모으지 않고 넘긴다");
+  if (!Buffer.isBuffer(plain)) plain.body.destroy();
   await assert.rejects(fragments.fetch((await fragments.next())!, signal), /구간이 최대 크기/);
   assert.deepEqual(accepts, [
     ["ll.mp4", SafeUrl.MAX_BYTES],
-    ["ain.ts", 64 * 1024 * 1024],
+    ["ain.ts", SafeUrl.MAX_BYTES],
   ]);
 });
 
@@ -267,4 +269,117 @@ test("라이브 목록의 비정상 수: 아주 큰 목표 길이도 다시 받�
   const big = await openHls(live("9999999"), "https://l.test/index.m3u8", { net, sleep: async (ms) => void waits.push(ms) });
   await drain(big.fragments());
   assert.equal(waits.at(-1), 60_000, "목표 길이는 60초까지");
+});
+
+// ── 모으지 않고 넘기는 세그먼트 ──
+
+const MB = 1024 * 1024;
+const pattern = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 31 + (i >> 10)) & 0xff));
+const vodOf = (names: string[]) => `#EXTM3U\n#EXT-X-TARGETDURATION:4\n${names.map((name) => `#EXTINF:4,\n${name}\n`).join("")}#EXT-X-ENDLIST\n`;
+
+// 세그먼트를 덩이로 흘리는 가짜. length 면 content-length 를 단다. gapMs 마다 한 덩이
+function pourNet(segments: Record<string, { body: Buffer; length?: boolean; chunk?: number; gapMs?: number }>) {
+  const asked: Array<{ url: string } & OpenOptions> = [];
+  const net = {
+    getStream: async (url: string, _deps?: undefined, opts: OpenOptions = {}) => {
+      asked.push({ url, ...opts });
+      const one = segments[url];
+      if (!one) throw Object.assign(new Error("요청 실패: HTTP 404"), { status: 404 });
+      const { body, length = false, chunk = 64 * 1024, gapMs = 0 } = one;
+      let off = 0;
+      const stream = new Readable({
+        read() {
+          if (off >= body.length) return void this.push(null);
+          const piece = body.subarray(off, off + chunk);
+          off += piece.length;
+          if (gapMs) setTimeout(() => this.push(piece), gapMs);
+          else this.push(piece);
+        },
+      });
+      return Object.assign(stream, { headers: length ? { "content-length": String(body.length) } : {}, status: 200, url }) as AudioStream;
+    },
+  };
+  return { net, asked };
+}
+
+const readRest = async (stream: Readable) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+};
+
+test("넘기기: 알린 크기가 1MB 를 넘으면 모으지 않고 곧바로 넘긴다(본문은 처음부터 남아 있고 이어 받을 주소, 헤더, 무응답 한도를 함께)", async () => {
+  const big = pattern(3 * MB);
+  const { net, asked } = pourNet({ "https://p.test/big.ts": { body: big, length: true } });
+  const hls = await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net, bodyIdleMs: 6000 });
+  assert.equal(hls.idleMs, 6000);
+  const fragments = hls.fragments();
+  const got = await fragments.fetch((await fragments.next())!, new AbortController().signal);
+  assert.ok(!Buffer.isBuffer(got));
+  assert.deepEqual([got.kind, got.url, got.totalBytes, got.head, got.key, got.idleMs], ["pour", "https://p.test/big.ts", 3 * MB, null, null, 6000]);
+  assert.equal(asked[0].bodyIdleMs, 6000, "세그먼트 요청에 무응답 한도");
+  assert.deepEqual(await readRest(got.body), big);
+});
+
+test("넘기기: 크기를 모르면 1MB 를 넘는 데서 넘긴다. 앞부분과 나머지를 이으면 원본과 같다", async () => {
+  const big = pattern(3 * MB + 123);
+  const { net } = pourNet({ "https://p.test/big.ts": { body: big, chunk: 100_000 } });
+  const fragments = (await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net })).fragments();
+  const got = await fragments.fetch((await fragments.next())!, new AbortController().signal);
+  assert.ok(!Buffer.isBuffer(got) && got.head && got.totalBytes === null);
+  assert.ok(got.head.length > MB && got.head.length < MB + 100_001);
+  assert.deepEqual(Buffer.concat([got.head, await readRest(got.body)]), big);
+});
+
+test("모으기: 작고 빠른 세그먼트는 버퍼로, 덩이마다 progress 를 알린다", async () => {
+  const small = pattern(300_000);
+  const { net } = pourNet({ "https://p.test/s.ts": { body: small, length: true, chunk: 50_000 } });
+  const fragments = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net })).fragments();
+  let progress = 0;
+  const got = await fragments.fetch((await fragments.next())!, new AbortController().signal, () => progress++);
+  assert.deepEqual(got, small);
+  assert.ok(progress >= 6, `progress ${progress}`);
+});
+
+test("넘기기: 작아도 모으는 데 3초가 넘으면 넘긴다(그동안은 ffmpeg 에 입력이 없다)", async () => {
+  const slow = pattern(400_000);
+  const { net } = pourNet({ "https://p.test/slow.ts": { body: slow, length: true, chunk: 40_000, gapMs: 400 } });
+  const fragments = (await openHls(vodOf(["slow.ts"]), "https://p.test/index.m3u8", { net })).fragments();
+  const started = Date.now();
+  const got = await fragments.fetch((await fragments.next())!, new AbortController().signal);
+  const waited = Date.now() - started;
+  assert.ok(!Buffer.isBuffer(got) && got.head && got.totalBytes === null, "모으다 넘긴 것은 이어 받지 않는다");
+  assert.ok(waited >= 2900 && waited < 4500, `${waited}ms`);
+  assert.deepEqual(Buffer.concat([got.head, await readRest(got.body)]), slow);
+});
+
+test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 신호가 끊으면 그 사유로 끝난다(세그먼트는 열지 않는다)", async () => {
+  const asked: string[] = [];
+  const net = {
+    getStream: async (url: string) => {
+      asked.push(url);
+      return new Promise<AudioStream>(() => {});
+    },
+  };
+  const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=AES-128,URI="k"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
+  const fragments = (await openHls(text, "https://k.test/index.m3u8", { net })).fragments();
+  const controller = new AbortController();
+  const fetching = fragments.fetch((await fragments.next())!, controller.signal);
+  await new Promise((done) => setTimeout(done, 10));
+  controller.abort(new Error("곡을 넘김"));
+  await assert.rejects(fetching, /곡을 넘김/);
+  assert.deepEqual(asked, ["https://k.test/k"]);
+});
+
+test("합계: 모은 세그먼트는 받은 바이트로 세고, 넘긴 세그먼트는 받는 쪽이 count 로 센다(넘으면 다시 받지 않는 실패)", async () => {
+  const { net } = pourNet({ "https://p.test/big.ts": { body: pattern(2 * MB), length: true } });
+  const fragments = (await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net })).fragments();
+  const got = await fragments.fetch((await fragments.next())!, new AbortController().signal);
+  assert.ok(!Buffer.isBuffer(got));
+  got.body.destroy();
+  got.count(SafeUrl.MAX_BYTES);
+  assert.throws(
+    () => got.count(1),
+    (e: unknown) => (e as { permanent?: boolean }).permanent === true,
+  );
 });
