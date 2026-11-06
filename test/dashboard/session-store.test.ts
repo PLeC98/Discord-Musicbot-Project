@@ -225,7 +225,7 @@ test("절대 수명: 로그인한 지 30일이 넘은 세션은 쓰지도 읽지
     "로그인 기기 목록에도 넘은 것은 없다",
   );
   // 로그인 전 세션(사용자 없음)은 이 규칙 밖
-  store.set("로그인 전", fake<SessionData>({ cookie: { expires: new Date(Date.now() + 600_000).toISOString() }, oauthState: "x" }));
+  store.set("로그인 전", fake<SessionData>({ cookie: { expires: new Date(Date.now() + 600_000).toISOString() }, csrfToken: "x" }));
   assert.notEqual(await getAsync(store, "로그인 전"), null);
 });
 

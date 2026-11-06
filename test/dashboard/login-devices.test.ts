@@ -20,6 +20,7 @@ import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import type { LoginDevices, SignedOut } from "../../src/dashboard/contract/identity.ts";
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
+import { cookieJar } from "../helpers/cookie-jar.ts";
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -80,11 +81,10 @@ after(() => {
 
 // 쿠키 하나 = 기기 하나
 function device(ua: string) {
-  let cookie = "";
+  const jar = cookieJar();
   const go = async (p: string, init: RequestInit = {}) => {
-    const res = await fetch(base + p, { redirect: "manual", ...init, headers: { cookie, "user-agent": ua, ...(init.headers as Record<string, string>) } });
-    const set = res.headers.get("set-cookie");
-    if (set) cookie = set.split(";")[0];
+    const res = await fetch(base + p, { redirect: "manual", ...init, headers: { cookie: jar.header(), "user-agent": ua, ...(init.headers as Record<string, string>) } });
+    jar.take(res);
     return res;
   };
   const login = async (who: string) => {
@@ -93,7 +93,7 @@ function device(ua: string) {
     await go(`/auth/callback?code=c&state=${state}`);
   };
   const list = async () => (await (await go("/api/me/devices")).json()) as LoginDevices;
-  return { go, login, list, cookie: () => cookie };
+  return { go, login, list, cookie: () => jar.header() };
 }
 
 test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저, OS, 기기 종류, 시각, 내부망 주소는 위치 DB 에 묻지 않는다", async () => {
@@ -253,7 +253,7 @@ test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠
   const restore = breakDelete();
   let res: Response;
   try {
-    res = await fetch(`${base}/auth/logout`, { method: "POST", headers: { cookie: (await pc.cookie()) ?? "", "user-agent": CHROME } });
+    res = await fetch(`${base}/auth/logout`, { method: "POST", headers: { cookie: pc.cookie(), "user-agent": CHROME } });
   } finally {
     restore();
   }

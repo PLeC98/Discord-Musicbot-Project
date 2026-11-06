@@ -12,7 +12,7 @@ import fs from "fs";
 import { createCorsOptions } from "./cors.ts";
 import { bodyLimit } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
-import { SESSION_COOKIE } from "./session-cookie.ts";
+import { SESSION_COOKIE } from "./cookies.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";

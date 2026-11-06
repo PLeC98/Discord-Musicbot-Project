@@ -10,7 +10,8 @@ import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../user-guilds.ts";
 import { recordLogin } from "../login-devices.ts";
-import { clearSessionCookie } from "../session-cookie.ts";
+import { LOGIN_COOKIE_MS, clearSessionCookie, setLoginCookie, takeLoginCookie } from "../cookies.ts";
+import * as secrets from "../../store/secrets.ts";
 import { sendProblem } from "../problem.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 
@@ -43,11 +44,65 @@ function revokeToken(http: DiscordHttp, token: string) {
   return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
 
-/** 로그인 전 세션(OAuth state)의 수명. 콜백이 성공하면 새 세션(쿠키 수명)으로 바뀐다 */
-const PRE_LOGIN_MS = 10 * 60_000;
-
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
+
+// OAuth 로그인 요청(state, 팝업 여부, 만든 때)은 세션이 아니라 쿠키 하나에 잠가 둔다(Grafana 의 oauth_state, Auth.js 의 state 쿠키와 같다).
+// 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 다시 로그인이 쓴 state 를 같은 때의 다른 요청이 옛 사본으로 저장해 지운다
+type LoginRequest = { state: string; popup: boolean; at: number };
+const LOGIN_PURPOSE = "oauth-login";
+// 잠근 값을 이 대시보드에 묶는다(다른 봇의 쿠키로 바꿔 넣어도 열리지 않는다)
+const loginBound = () => `${config.discord.clientId}|${config.dashboard.url}`;
+
+function sealLogin(login: LoginRequest) {
+  return secrets.sealBlob(LOGIN_PURPOSE, JSON.stringify(login), loginBound()).toString("base64url");
+}
+
+/** 쿠키의 로그인 요청. 없거나, 위조했거나, 다른 키로 잠갔거나, 형식이 다르면 null */
+function openLogin(value: string | null): LoginRequest | null {
+  if (!value) return null;
+  const json = secrets.openBlob(LOGIN_PURPOSE, Buffer.from(value, "base64url"), loginBound());
+  if (!json) return null;
+  try {
+    const login = JSON.parse(json) as Partial<LoginRequest>;
+    return typeof login.state === "string" && typeof login.popup === "boolean" && typeof login.at === "number" ? (login as LoginRequest) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 같은 길이면 시간이 일정한 비교 */
+function sameText(a: string, b: string) {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+/** 쓴 state 를 기억하는 수의 상한(넘으면 오래된 것부터 잊는다. 잊은 것도 쿠키의 수명이 지나면 만든 때로 거절된다) */
+const USED_MAX = 10_000;
+
+// 새 세션에 사용자를 담아 저장하고 디스코드 토큰을 그 행에 둔다. 실패하면(세션 저장소) 요청에서 세션을 떼고 false:
+// 떼지 않으면 응답이 끝날 때 express-session 이 사용자를 담은 세션을 저장하고 쿠키를 실어, 실패로 돌려보내도 로그인이 된다
+async function signIn(req: express.Request, user: SessionUser, token: string) {
+  const step = (run: (done: (err?: unknown) => void) => void) => new Promise<void>((ok, fail) => run((err) => (err ? fail(err) : ok())));
+  try {
+    await step((done) => req.session.regenerate(done));
+    req.session.user = user;
+    req.session.loginAt = Date.now();
+    recordLogin(req, req.session.loginAt);
+    await step((done) => req.session.save(done));
+    // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 지워진다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
+    const store = tokenStoreOf(req);
+    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장한 세션 행이 없습니다");
+    return true;
+  } catch (error) {
+    log.error(`로그인 세션을 저장하지 못했습니다(로그인 실패로 돌려보냅니다): ${messageOf(error)}`);
+    const sid = req.sessionID;
+    (req as { session: unknown }).session = null;
+    tokenStoreOf(req)?.destroy(sid, () => undefined);
+    return false;
+  }
+}
 
 /**
  * 디스코드 OAuth 로그인, 로그아웃.
@@ -58,40 +113,43 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
+  // 쓴 state → 잊어도 되는 때. 쿠키만으로는 한 번만 쓰게 할 수 없다(지우기를 따르지 않는 클라이언트). 다시 시작하면 비지만 쿠키의 수명이 남은 틈을 묶는다
+  const used = new Map<string, number>();
 
-  // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다
+  // 이 state 를 처음 쓰면 기억하고 true. 이미 썼으면 false
+  function firstUse(state: string, now: number) {
+    for (const [one, until] of used) if (until <= now) used.delete(one);
+    if (used.has(state)) return false;
+    if (used.size >= USED_MAX) used.delete(used.keys().next().value as string);
+    used.set(state, now + LOGIN_COOKIE_MS);
+    return true;
+  }
+
+  // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다. 세션은 건드리지 않는다
   router.get("/login", (req, res) => {
-    const state = crypto.randomBytes(16).toString("hex");
-    // 로그인 전 세션(state 만 든다)은 짧게. 로그인한 세션이 다시 로그인하러 온 것(팝업)은 진짜 세션이라 줄이지 않는다(팝업을 닫으면 로그아웃된다)
-    if (!req.session.user) req.session.cookie.maxAge = PRE_LOGIN_MS;
-    req.session.oauthState = state;
-    if (req.query.popup === "1") req.session.oauthPopup = true;
-    else delete req.session.oauthPopup;
-    req.session.save(() => {
-      const params = new URLSearchParams({
-        client_id: CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
-        response_type: "code",
-        scope: "identify guilds",
-        state,
-      });
-      res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
+    const state = crypto.randomBytes(32).toString("base64url");
+    setLoginCookie(req, res, sealLogin({ state, popup: req.query.popup === "1", at: Date.now() }));
+    const params = new URLSearchParams({
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: "code",
+      scope: "identify guilds",
+      state,
     });
+    res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
   });
 
-  // OAuth2 콜백
+  // OAuth2 콜백. 로그인 쿠키는 모든 길에서 지운다
   router.get("/callback", async (req, res) => {
+    const login = openLogin(takeLoginCookie(req, res));
     const { code, state } = req.query;
     // 디스코드 승인 화면에서 취소했다(RFC 6749 4.1.2.1)
     if (req.query.error === "access_denied") return res.redirect(loginFailed("denied"));
     if (typeof code !== "string" || !code) return res.redirect(loginFailed("no_code"));
 
-    // 로그인 CSRF 를 막으려고 state 를 맞춰 본다(RFC 6749)
-    const expectedState = req.session.oauthState;
-    delete req.session.oauthState;
-    const popup = req.session.oauthPopup === true;
-    delete req.session.oauthPopup;
-    if (!state || !expectedState || state !== expectedState) {
+    // 로그인 CSRF 를 막으려고 state 를 이 브라우저의 쿠키와 맞춰 본다(RFC 6749 10.12). 한 번만, 쿠키의 수명 안에서만
+    const now = Date.now();
+    if (!login || typeof state !== "string" || !sameText(state, login.state) || now - login.at > LOGIN_COOKIE_MS || !firstUse(login.state, now)) {
       return res.redirect(loginFailed("auth_failed"));
     }
 
@@ -123,22 +181,9 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         avatar: user.avatar,
       };
 
-      // 로그인 성공 시 세션 ID 재발급. session fixation 방어.
-      // 로그인 전 세션(oauthState 등)은 폐기, 새 sid로 사용자 정보만
-      req.session.regenerate((err) => {
-        if (err) {
-          log.error("세션 재생성 실패:", err);
-          return res.redirect(loginFailed("auth_failed"));
-        }
-        req.session.user = sessionUser;
-        req.session.loginAt = Date.now();
-        recordLogin(req, req.session.loginAt);
-        req.session.save(() => {
-          // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 지워진다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
-          tokenStoreOf(req)?.saveDiscordToken(req.sessionID, access_token);
-          res.redirect(popup ? "/login-done" : "/dashboard");
-        });
-      });
+      // 로그인 성공 시 세션 ID 재발급(session fixation 방어). 이 브라우저의 옛 세션(다시 로그인이면 진짜 세션)은 끝난다
+      if (!(await signIn(req, sessionUser, access_token))) return res.redirect(loginFailed("auth_failed"));
+      res.redirect(login.popup ? "/login-done" : "/dashboard");
     } catch (error) {
       res.redirect(loginFailed(callbackFailure(error, REDIRECT_URI)));
     }
