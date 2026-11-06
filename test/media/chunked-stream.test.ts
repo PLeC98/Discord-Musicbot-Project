@@ -648,6 +648,69 @@ test("totalBytes, chunkSize가 올바르지 않으면 만들 때 거부한다", 
   }
 });
 
+// ── 응답의 길이와 구간 ───────────────────────────────────────
+// 206 에는 Content-Range 가 있어야 한다(RFC 9110). 없이 0 부터 주면 같은 바이트가 두 번 들어간다. 더 보내는 서버의 남은 본문은 연결을 붙잡는다
+
+// 요청마다 신호가 끊겼는지 적는 가짜. reply(start, end) 가 응답 모양을 정한다
+function scriptedFetch(reply: (start: number, end: number) => { status: number; range: string | null; payload: Buffer; endless?: boolean }) {
+  const signals: AbortSignal[] = [];
+  const fetchImpl: RangeFetch = async (_url, opts) => {
+    const [, from, to] = /bytes=(\d+)-(\d+)/.exec(opts.headers.Range ?? "") ?? [];
+    const { status, range, payload, endless } = reply(Number(from), Number(to));
+    const signal = opts.signal;
+    signals.push(signal);
+    let off = 0;
+    return {
+      status,
+      headers: { get: (k: string) => (k.toLowerCase() === "content-range" ? range : null) },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (signal.aborted) throw signal.reason;
+            if (off < payload.length) {
+              const v = payload.subarray(off, off + 4096);
+              off += v.length;
+              return { done: false as const, value: new Uint8Array(v) };
+            }
+            // 끝없이 더 보내는 서버: 끊기 전까지 같은 덩이
+            if (endless) return { done: false as const, value: new Uint8Array(4096) };
+            return { done: true as const, value: undefined };
+          },
+        }),
+      },
+    };
+  };
+  return { fetchImpl, signals };
+}
+
+test("이어 받는 206 에 Content-Range 가 없으면 다시 받지 않는 실패(같은 바이트를 두 번 넣지 않는다)", async () => {
+  const body = makeBody(20_000);
+  const { fetchImpl } = scriptedFetch((start, end) => (start === 0 ? { status: 206, range: `bytes 0-9999/${body.length}`, payload: body.subarray(0, 10_000) } : { status: 206, range: null, payload: body.subarray(0, end - start + 1) }));
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });
+  await assert.rejects(collect(s), (e: Error & { permanent?: boolean }) => e.permanent === true && /Content-Range/.test(e.message));
+});
+
+test("구간보다 더 보내는 응답은 구간 끝까지만 쓰고 그 응답을 닫는다", async () => {
+  const body = makeBody(20_000);
+  const { fetchImpl, signals } = scriptedFetch((start, end) => ({ status: 206, range: `bytes ${start}-${end}/${body.length}`, payload: body.subarray(start, end + 1), endless: true }));
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });
+  assert.deepEqual(await collect(s), body);
+  assert.equal(signals.length, 2);
+  assert.ok(signals.every((signal) => signal.aborted), "끝없이 보내던 응답을 닫았다");
+});
+
+test("구간을 다 읽은 응답도 닫는다. 닫아도 늦은 오류가 나지 않는다", async () => {
+  const body = makeBody(20_000);
+  const { fetchImpl, signals } = scriptedFetch((start, end) => ({ status: 206, range: `bytes ${start}-${end}/${body.length}`, payload: body.subarray(start, end + 1) }));
+  const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });
+  const errors: unknown[] = [];
+  s.on("error", (e) => errors.push(e));
+  assert.deepEqual(await collect(s), body);
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(signals.every((signal) => signal.aborted));
+  assert.deepEqual(errors, []);
+});
+
 // ── clen 추출 ────────────────────────────────────────────────
 
 test("clen: URL에서 전체 길이를 읽는다 (HEAD 요청 불필요)", () => {
