@@ -2,7 +2,7 @@
 
 import express from "express";
 import { trackArtUrl } from "../player-view.ts";
-import { PermissionFlagsBits } from "discord.js";
+import { isServerManager } from "../../usecases/permissions.ts";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { memberOf, seesGuild, voiceFlags } from "../guild-access.ts";
 import { memberGuildIds } from "../user-guilds.ts";
@@ -45,7 +45,7 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
           name: guild.name,
           icon: guildIconUrl(guild.id, guild.icon),
           // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다. 봇 운영자(isOwner)와 무관
-          canManageGuild: member.permissions.has(PermissionFlagsBits.ManageGuild),
+          canManageGuild: isServerManager(member),
           hasPlayer: players.has(guild.id),
           state: listState(voiceFlags(guild, user.id).botInVoice, player),
           memberCount: guild.memberCount,

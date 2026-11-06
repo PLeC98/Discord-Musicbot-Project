@@ -82,7 +82,7 @@ beforeEach(() => {
 type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username?: string | null } | null };
 type World = ReturnType<typeof world>;
 
-// 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 모더레이터 여부, DJ 역할로 세계를 만든다
+// 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 서버 관리자 여부, DJ 역할로 세계를 만든다
 function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; moderator?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
   const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const guild = { id: "g1", name: "서버", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map([["dj", { id: "dj" }]]) } };

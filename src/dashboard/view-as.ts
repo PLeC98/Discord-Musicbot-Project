@@ -16,17 +16,17 @@ function getViewAs<P>(req: Request<P>): Tier | null {
   return isTier(tier) ? tier : null;
 }
 
-// isModerator는 MOD_PERMISSIONS 중 하나만 있으면 통과하므로 대표값 하나면 충분하다.
+// 서버 관리자 판정(isServerManager)은 서버 관리 권한 하나를 본다.
 const MOD_BITS = new PermissionsBitField(PermissionFlagsBits.ManageGuild);
 const NO_BITS = new PermissionsBitField(0n);
 
 // isDj는 member.roles.cache.has(역할ID)만 본다. 서버마다 다른 DJ 역할 ID를 미리 알 필요 없이
-// "무슨 역할이든 갖고 있다"로 흉내낸다. 모더레이터 여부는 permissions가 따로 결정한다.
+// "무슨 역할이든 갖고 있다"로 흉내낸다. 서버 관리자 여부는 permissions가 따로 결정한다.
 const ANY_ROLE = { cache: { has: () => true } };
 const NO_ROLE = { cache: { has: () => false } };
 
 const SPEC: Partial<Record<Tier, { permissions: PermissionsBitField; roles: { cache: { has(id: string): boolean } } }>> = {
-  moderator: { permissions: MOD_BITS, roles: NO_ROLE }, // isDj가 모더레이터에서 단락되므로 역할은 불필요
+  moderator: { permissions: MOD_BITS, roles: NO_ROLE }, // isDj가 서버 관리자에서 단락되므로 역할은 불필요
   dj: { permissions: NO_BITS, roles: ANY_ROLE },
   user: { permissions: NO_BITS, roles: NO_ROLE },
 };

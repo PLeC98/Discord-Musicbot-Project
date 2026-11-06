@@ -61,7 +61,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   }
 
   // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
-  // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
+  // checkControl/checkAdd/isServerManager가 전부 그 계층으로 판정된다.
   const member = shadowMember(req, fetched);
   const actor: Actor = { member };
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };

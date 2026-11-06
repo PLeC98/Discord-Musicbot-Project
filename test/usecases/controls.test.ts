@@ -1,5 +1,5 @@
 // src/usecases/controls.ts: 재생 조작 코어. 전제 조건을 같은 순서로 보고, 조작하고, 패널에 알린다.
-// 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(모더레이터는 통과, 봇과 다른 곳에 있으면 거절).
+// 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(서버 관리자는 통과, 봇과 다른 곳에 있으면 거절).
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";

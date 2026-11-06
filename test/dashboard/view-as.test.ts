@@ -21,7 +21,7 @@ after(() => store.close());
 const { getViewAs, shadowMember } = await import("../../src/dashboard/view-as.ts");
 const { TIERS } = await import("../../src/dashboard/contract/identity.ts");
 const { isOwner, isRealOwner } = await import("../../src/dashboard/owner.ts");
-const { isModerator, isDj, checkVoice, checkControl, checkAdd } = await import("../../src/usecases/permissions.ts");
+const { isServerManager, isDj, checkVoice, checkControl, checkAdd } = await import("../../src/usecases/permissions.ts");
 
 // 세션의 오버라이드 필드에는 무엇이든 들어올 수 있다고 본다(모르는 값, 글자가 아닌 값)
 const req = (tier: unknown, userId = "owner") => fake<Request>({ session: { user: { id: userId }, ...(tier === undefined ? {} : { viewAs: tier }) } });
@@ -48,23 +48,23 @@ test("오버라이드가 없으면 원본을 그대로 돌려준다", () => {
   assert.equal(shadowMember(req("owner"), m), m, "운영자는 계층이 아니다(오버라이드 없음)");
 });
 
-test("moderator: 모더레이터로 승격돼 재적 규칙까지 면제된다", async () => {
+test("moderator: 서버 관리자로 승격돼 재적 규칙까지 면제된다", async () => {
   const m = shadowMember(req("moderator"), member({ voice: null, botVoice: "vc-A" }));
-  assert.equal(isModerator(m), true);
-  assert.equal(checkVoice(m), null, "모더레이터는 음성에 없어도 통과");
+  assert.equal(isServerManager(m), true);
+  assert.equal(checkVoice(m), null, "서버 관리자는 음성에 없어도 통과");
   assert.equal(await checkControl(m), null);
 });
 
-test("dj: 모더레이터는 아니지만 DJ 역할 보유로 취급된다", async () => {
+test("dj: 서버 관리자는 아니지만 DJ 역할 보유로 취급된다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const m = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-A", botVoice: "vc-A" }));
 
-  assert.equal(isModerator(m), false, "원본이 모더레이터여도 계층이 내려간다");
+  assert.equal(isServerManager(m), false, "원본이 서버 관리자여도 계층이 내려간다");
   assert.equal(await isDj(m), true);
   assert.equal(await checkControl(m), null);
 });
 
-test("dj: 모더레이터 면제가 사라지므로 재적 규칙을 받는다", async () => {
+test("dj: 서버 관리자 면제가 사라지므로 재적 규칙을 받는다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const other = shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-B", botVoice: "vc-A" }));
   assert.equal(await checkControl(other), "must-be-in-same-voice");
@@ -77,7 +77,7 @@ test("user: DJ 역할이 설정된 서버에서는 조작이 막힌다", async (
   setGuild("g", { djRoles: ["dj-role"] });
   const m = shadowMember(req("user"), member({ perms: [PermissionFlagsBits.ManageGuild], roles: ["dj-role"], voice: "vc-A", botVoice: "vc-A" }));
 
-  assert.equal(isModerator(m), false);
+  assert.equal(isServerManager(m), false);
   assert.equal(await isDj(m), false, "원본이 DJ 역할을 갖고 있어도 계층이 내려간다");
   assert.equal(await checkControl(m), "must-dj");
   assert.equal(checkAdd(m), null, "곡 추가는 계층 무관 — 재적만 맞으면 통과");

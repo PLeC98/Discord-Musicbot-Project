@@ -4,7 +4,7 @@ import express, { type Request, type Response, type Router } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.ts";
+import { checkControl, checkAdd, isServerManager } from "../../usecases/permissions.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
@@ -91,8 +91,8 @@ function readRoutes(router: Router) {
     // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member 는 openGuild 가 지금 멤버십으로 가져온다.
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    // 서버 설정(⚙) 진입 가능 여부. 모더레이터만 (설정 화면 GET 게이트와 동일 기준)
-    const manageable = isModerator(member);
+    // 서버 설정(⚙) 진입 가능 여부. 서버 관리자만 (설정 화면 GET 게이트와 동일 기준)
+    const manageable = isServerManager(member);
 
     // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
@@ -145,7 +145,7 @@ function joinRoute(router: Router) {
     // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    const manageable = isModerator(member);
+    const manageable = isServerManager(member);
     res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id } satisfies PlayerRead);
   });
 }

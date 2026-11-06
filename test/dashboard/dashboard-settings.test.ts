@@ -152,7 +152,7 @@ const req = (method: string, urlPath: string, body?: unknown) => requestJson<Rep
 
 // ── GET /settings ────────────────────────────────────────────
 
-test("GET settings: 모더레이터. 현황 + 드롭다운 목록", async () => {
+test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1", "deleted-role"]);
   store.botChannel.set(GUILD_ID, "c2");
@@ -176,13 +176,13 @@ test("GET settings: 모더레이터. 현황 + 드롭다운 목록", async () => 
   );
 });
 
-test("GET settings: 일반 멤버는 조회도 403 (모더레이터 전용)", async () => {
+test("GET settings: 일반 멤버는 조회도 403 (서버 관리자 전용)", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
 });
 
-test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 모더레이터가 아니면 403(서버 안 우대 없음)", async () => {
+test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
   currentMember = null;
   let r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
@@ -209,7 +209,7 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
 
 // ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: canManage. 일반 멤버 false / 모더레이터 true", async () => {
+test("GET player: canManage. 일반 멤버 false / 서버 관리자 true", async () => {
   currentMember = plainMember();
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.status, 200);
@@ -389,7 +389,7 @@ test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다
   assert.equal(r.json.canAdd, true);
 });
 
-test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래도 조작 가능", async () => {
+test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래도 조작 가능", async () => {
   noDjRoles();
   noVoice();
   guild.members.me = { voice: voiceState("v1") };
@@ -400,7 +400,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
   assert.equal(r.json.sameVoice, false);
   assert.equal(r.json.canControl, false);
 
-  // 모더레이터는 checkVoice 면제라 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
+  // 서버 관리자는 checkVoice 면제라 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.sameVoice, false);

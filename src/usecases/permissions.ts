@@ -9,12 +9,12 @@ import { ownTrackDenied } from "../rules/controls.ts";
 /** 권한 판정이 막은 까닭 */
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
 
-// "강한 모더레이션 권한". 이 중 하나라도 있으면 모더레이터(상위 계층)다.
-// 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다. 서버 소유자와 Administrator 권한은 discord.js 권한 검사가 전부 통과시킨다.
-const MOD_PERMISSIONS = [PermissionFlagsBits.ManageGuild, PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers];
-
-function isModerator(member: GuildMember) {
-  return MOD_PERMISSIONS.some((perm) => member.permissions.has(perm));
+/**
+ * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 단추, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 재적 규칙 면제)가 이것을 본다.
+ * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 건다. 서버 소유자와 Administrator 는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
+ */
+function isServerManager(member: GuildMember) {
+  return member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
 
 /** 봇 운영자(OWNER_ID)인가. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID 가 비어 있으면 아무도 아니다 */
@@ -25,13 +25,13 @@ function isBotOwner(userId: string) {
 
 /**
  * DJ 계층 이상인가. 재생 조작 권한의 기준.
- *  - 모더레이터: 항상 DJ 취급
+ *  - 서버 관리자: 항상 DJ 취급
  *  - DJ 역할이 설정된 서버(/setting, 대시보드 서버 설정, 복수 가능): 그 중 하나라도 보유한 유저만
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
  *  - 설정된 역할이 서버에서 전부 삭제된 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
  */
 async function isDj(member: GuildMember) {
-  if (isModerator(member)) return true;
+  if (isServerManager(member)) return true;
 
   const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
   if (!djRoleIds.length) return true;
@@ -43,13 +43,13 @@ async function isDj(member: GuildMember) {
 }
 
 /**
- * 재적 규칙. 모더레이터는 어디서든 면제, 그 외는:
+ * 재적 규칙. 서버 관리자는 어디서든 면제, 그 외는:
  *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수(음성 채널 밖이든 다른 채널이든 같은 까닭)
  *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 재적은 checkSummon 이 본다
  * 통과 시 null, 거부 시 그 까닭.
  */
 function checkVoice(member: GuildMember): PermissionDenied | null {
-  if (isModerator(member)) return null;
+  if (isServerManager(member)) return null;
 
   const botChannelId = member.guild.members.me?.voice?.channel?.id;
   if (!botChannelId) return null;
@@ -73,7 +73,7 @@ function checkAdd(member: GuildMember) {
 }
 
 /**
- * 봇이 유휴 상태일 때 소환 가능한지. 요청자의 채널로 들어가야 하므로 모더레이터여도 본인 접속 필수이며,
+ * 봇이 유휴 상태일 때 소환 가능한지. 요청자의 채널로 들어가야 하므로 서버 관리자여도 본인 접속 필수이며,
  * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
  *
  * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
@@ -105,5 +105,5 @@ const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrac
 /** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
 const checkRemoveTrack = checkOwnTrack;
 
-export { MOD_PERMISSIONS, isModerator, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+export { isServerManager, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };

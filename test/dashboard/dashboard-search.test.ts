@@ -25,7 +25,7 @@ const GUILD_ID = "100";
 const yt = (id: string, extra: object = {}): Song => ({ title: `곡 ${id}`, artist: "가수", duration: 200, thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, platform: "youtube", id, pageUrl: `https://www.youtube.com/watch?v=${id}`, requestKey: `https://www.youtube.com/watch?v=${id}`, audioUrl: `https://www.youtube.com/watch?v=${id}`, isLive: false, liveStatus: null, ...extra });
 const sp: Song = { title: "스포티파이 곡", artist: "가수", album: "앨범", duration: 180, thumbnail: null, platform: "spotify", pageUrl: "https://open.spotify.com/track/abc", requestKey: "https://open.spotify.com/track/abc" };
 
-// 그 서버의 멤버. 기본은 모더레이터(재적 규칙을 건너뛴다). sameVoice 가 거짓이면 봇과 다른 음성 채널의 일반 멤버
+// 그 서버의 멤버. 기본은 서버 관리자(재적 규칙을 건너뛴다). sameVoice 가 거짓이면 봇과 다른 음성 채널의 일반 멤버
 let moderator = true;
 const guild = {
   id: GUILD_ID,
