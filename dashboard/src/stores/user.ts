@@ -68,3 +68,12 @@ export const useUserStore = defineStore("user", {
     },
   },
 });
+
+/**
+ * 스트림을 다시 열어도 되는지(로그인이 살아 있는지, utils/event-link 의 check). quiet 면 401 이어도 세션 끝으로 돌리지 않고,
+ * 다른 계정으로 로그인했으면 화면을 새로 연다(resumeSession). 아니면 지금처럼 401 이 세션 끝으로 간다
+ */
+export async function checkSession(quiet: boolean): Promise<boolean> {
+  if (quiet) return useUserStore().resumeSession();
+  return (await axios.get("/api/me")).status === 200;
+}

@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { session, live } from "../composables/session.ts";
+import { checkSession } from "../stores/user.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
@@ -496,7 +497,7 @@ const wantLogs = () => tab.value === "logs" && live();
 const logLink = eventLink({
   url: () => `/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`,
   open: (url) => new EventSource(url, { withCredentials: true }),
-  check: async () => (await axios.get("/api/me")).status === 200,
+  check: (quiet) => checkSession(quiet),
   onState: (state) => (sseConnected.value = state === "open"),
   events: {
     // 봇을 다시 시작해 줄 번호가 처음부터다. 옛 실행의 줄은 두고 그 자리에 표시 줄을 넣는다

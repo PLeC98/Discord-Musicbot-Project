@@ -4,6 +4,8 @@
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 import axios from "axios";
 import { eventLink } from "../utils/event-link.ts";
+import { live as canStream, session } from "./session.ts";
+import { checkSession } from "../stores/user.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
 import { AI_LOG_PAGE, aiLogMatches, type AiLogDetail, type AiLogEntry, type AiLogPage, type AiLogPushed, type AiLogQuery, type AiLogSource, type AiLogStorage } from "../../../src/dashboard/contract/ai-log.ts";
@@ -126,7 +128,7 @@ function liveState(list: List, open: { value: Set<number> }) {
   const link = eventLink({
     url: () => `/api/admin/ai/logs/stream?after=${lastId}`,
     open: (url) => new EventSource(url, { withCredentials: true }),
-    check: async () => (await axios.get("/api/me")).status === 200,
+    check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
     events: { message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed) },
   });
@@ -175,17 +177,26 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  watch(
-    active,
-    async (on) => {
-      if (!on) return live.stop();
-      await reload();
-      live.start();
-    },
-    { immediate: true },
-  );
+  // 화면이 보이고(active), 탭이 보이고 세션이 살아 있을 때만 연다(다른 두 스트림과 같다). 읽기를 기다리는 사이 바뀌었거나 화면이 사라졌으면 열지 않는다
+  let disposed = false;
+  let turn = 0;
+  const wanted = () => !disposed && active() && canStream();
+  async function sync() {
+    const mine = ++turn;
+    if (!wanted()) return live.stop();
+    await reload();
+    if (mine !== turn || !wanted()) return;
+    live.start();
+  }
+  watch([active, () => session.ended], () => void sync(), { immediate: true });
+  // 숨긴 탭의 값(document.hidden)은 반응형이 아니라 따로 듣는다
+  const onVisibility = () => void sync();
+  document.addEventListener("visibilitychange", onVisibility);
 
   onScopeDispose(() => {
+    disposed = true;
+    turn++;
+    document.removeEventListener("visibilitychange", onVisibility);
     clearTimeout(searchTimer);
     live.stop();
   });

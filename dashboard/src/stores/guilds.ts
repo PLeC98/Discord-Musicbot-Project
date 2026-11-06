@@ -3,6 +3,7 @@ import axios from "axios";
 import { watch } from "vue";
 import { session, live } from "../composables/session.ts";
 import { eventLink } from "../utils/event-link.ts";
+import { checkSession } from "./user.ts";
 import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/contract/guilds.ts";
 
 // 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
@@ -78,7 +79,7 @@ export const useGuildsStore = defineStore("guilds", {
       const opened = eventLink({
         url: "/api/guilds/events",
         open: (url) => new EventSource(url, { withCredentials: true }),
-        check: async () => (await axios.get("/api/me")).status === 200,
+        check: (quiet) => checkSession(quiet),
         events: {
           message: (e) => {
             nudgeAll(changedGuild(e.data));
