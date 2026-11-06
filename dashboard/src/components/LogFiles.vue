@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import axios from "axios";
 import { useElementSize, useMediaQuery } from "@vueuse/core";
 import PaneHeader from "./PaneHeader.vue";
@@ -93,7 +93,7 @@ import { SEARCH_FIELD } from "../utils/field.ts";
 import { LEVEL_CHIPS, catColor } from "../utils/log-style.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { notifyProblem } from "../composables/toasts.ts";
-import { problemCodeOf, replyOf } from "../utils/request.ts";
+import { LIMIT, problemCodeOf, replyOf } from "../utils/request.ts";
 import type { Option, OptionValue } from "../utils/options.ts";
 import type { LevelName } from "../../../src/infra/log/levels.ts";
 import type { FileLine, FilePage, LogFile, LogFileList } from "../../../src/dashboard/contract/log-files.ts";
@@ -134,7 +134,8 @@ const ranges = computed(() => files.value.filter((f) => f.lines).map((f): [numbe
 // 시각이 든 파일: 그 기간 안이면 그 파일, 사이(파일을 떼어 낸 틈)면 그 뒤로 가장 먼저 끝난 파일
 const fileAt = (ms: number) => files.value.find((f) => f.lines && f.firstAt <= ms && ms <= f.lastAt) ?? [...files.value].sort((a, b) => a.lastAt - b.lastAt).find((f) => f.lastAt >= ms) ?? latest();
 async function loadFiles() {
-  const list = (await axios.get<LogFileList>(`${BASE}/files`)).data;
+  // 큰 파일은 처음 한 번 끝까지 훑는다
+  const list = (await axios.get<LogFileList>(`${BASE}/files`, { timeout: LIMIT.long })).data;
   enabled.value = list.enabled;
   files.value = list.files;
 }
@@ -160,10 +161,15 @@ const stamp = (ms: number) => {
   return `${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 };
 
+// 받는 중인 쪽. 새로 읽으면(필터, 검색어를 바꿈) 앞의 것을 끊는다(검색어가 있거나 맞는 줄이 드물면 서버가 파일 끝까지 훑는다)
+let inFlight: AbortController | null = null;
 async function fetchPage(params: Record<string, string | number>, kind: "page" | "earlier" | "later"): Promise<FilePage | null> {
+  inFlight?.abort();
+  const own = new AbortController();
+  inFlight = own;
   loading.value = kind;
   try {
-    const page = (await axios.get<FilePage>(`${BASE}/file`, { params: { name: file.value, ...filterParams(), ...params } })).data;
+    const page = (await axios.get<FilePage>(`${BASE}/file`, { params: { name: file.value, ...filterParams(), ...params }, timeout: LIMIT.long, signal: own.signal })).data;
     since = page.since;
     // 보던 지금 파일이 떼어졌다: 떼어 낸 파일을 이어 읽었다. 목록을 새로 받아 그 파일을 선택한 것으로
     if (page.name !== file.value) {
@@ -178,7 +184,11 @@ async function fetchPage(params: Record<string, string | number>, kind: "page" |
     notifyProblem(err, T.loadFailed);
     return null;
   } finally {
-    loading.value = "";
+    // 끊긴 앞의 것은 뒤의 것의 받는 중 표시를 지우지 않는다
+    if (inFlight === own) {
+      inFlight = null;
+      loading.value = "";
+    }
   }
 }
 const toEnd = () => void nextTick(() => pane.value && (pane.value.scrollTop = pane.value.scrollHeight));
@@ -297,4 +307,6 @@ onMounted(async () => {
   if (startAt != null) at.value = startAt;
   await reload(startAt == null ? {} : { at: startAt });
 });
+// 떠나면 받는 중인 쪽을 끊어 서버도 훑기를 멈추게
+onBeforeUnmount(() => inFlight?.abort());
 </script>

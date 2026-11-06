@@ -4,12 +4,12 @@
 import path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
-import { setImmediate as nextTurn } from "timers/promises";
-import express, { type Request } from "express";
+import express, { type Request, type Response } from "express";
 import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { requireOwner } from "../middleware/require-owner.ts";
+import { isEnded } from "../session-requests.ts";
 import { sendProblem } from "../problem.ts";
 import { filteredLines, formatLogLine, listLogFiles, readLogPage, resolveLogFile } from "../log-file-reader.ts";
 import { isLevel } from "../../infra/log/levels.ts";
@@ -17,9 +17,6 @@ import { FILE_PAGE_LINES, FILE_PAGE_MAX, type FileLine, type FilePage, type LogF
 const log = logger.child({ category: "dashboard" });
 
 const logFilesRouter = express.Router();
-
-/** 다운로드에서 한 번에 보내는 글의 크기(글자 수, 대강) */
-const SEND_CHARS = 64 * 1024;
 
 function intOf(raw: unknown): number | undefined {
   const n = Number(raw);
@@ -44,32 +41,38 @@ function targetOf(req: Request) {
   return resolveLogFile(config.logging.file, textOf(req.query.name), intOf(req.query.since));
 }
 
-logFilesRouter.get("/files", requireOwner, (_req, res) => {
+/**
+ * 오래 읽는 동안 멈출 때. left 는 받는 쪽이 떠났다(답하지 않는다), stop 은 그것이나 이 로그인이 끝났다
+ * (끝난 GET 의 답은 세션 쪽이 401 로 바꾼다)
+ */
+function watchLeave(req: Request, res: Response) {
+  let gone = false;
+  res.once("close", () => (gone = true));
+  const left = () => gone;
+  return { left, stop: () => gone || isEnded(req) };
+}
+
+logFilesRouter.get("/files", requireOwner, async (req, res) => {
   const enabled = config.logging.fileEnabled;
-  res.json({ enabled, files: enabled ? listLogFiles(config.logging.file) : [] } satisfies LogFileList);
+  const { left, stop } = watchLeave(req, res);
+  const files = enabled ? await listLogFiles(config.logging.file, stop) : [];
+  if (left()) return;
+  res.json({ enabled, files } satisfies LogFileList);
 });
 
-logFilesRouter.get("/file", requireOwner, (req, res) => {
+logFilesRouter.get("/file", requireOwner, async (req, res) => {
   const target = targetOf(req);
   const limit = Math.min(Math.max(intOf(req.query.limit) ?? FILE_PAGE_LINES, 1), FILE_PAGE_MAX);
-  const page = target && readLogPage(target, { before: intOf(req.query.before), after: intOf(req.query.after), at: intOf(req.query.at), limit, filter: filterOf(req) });
+  const { left, stop } = watchLeave(req, res);
+  const page = target && (await readLogPage(target, { before: intOf(req.query.before), after: intOf(req.query.after), at: intOf(req.query.at), limit, filter: filterOf(req) }, stop));
+  if (left()) return;
   if (!page) return sendProblem(res, "log-file-not-found");
   res.json(page satisfies FilePage);
 });
 
-/** 걸러 낸 줄을 글 조각으로. 훑기만 하는 동안에도(null) 이벤트 루프를 놓아 준다 */
-async function* downloadText(lines: Generator<FileLine | null>, offset: number): AsyncGenerator<string> {
-  let text = "";
-  for (const line of lines) {
-    if (line) {
-      text += `${formatLogLine(line, offset)}\n`;
-      if (text.length < SEND_CHARS) continue;
-    }
-    if (text) yield text;
-    text = "";
-    if (!line) await nextTurn();
-  }
-  if (text) yield text;
+/** 걸러 낸 줄의 묶음을 글 조각으로 */
+async function* downloadText(batches: AsyncGenerator<FileLine[]>, offset: number): AsyncGenerator<string> {
+  for await (const lines of batches) yield lines.map((line) => `${formatLogLine(line, offset)}\n`).join("");
 }
 
 // 다운로드: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다.
@@ -81,7 +84,8 @@ logFilesRouter.get("/file/download", requireOwner, async (req, res) => {
   const name = `${path.basename(target.name, path.extname(target.name))}.txt`;
   res.type("text/plain; charset=utf-8").attachment(name);
   try {
-    await pipeline(Readable.from(downloadText(filteredLines(target, filterOf(req)), offset)), res);
+    // 바이트 단위 스트림으로: 쌓아 두는 양을 조각 수가 아니라 바이트로 센다
+    await pipeline(Readable.from(downloadText(filteredLines(target, filterOf(req)), offset), { objectMode: false }), res);
   } catch (error) {
     // 끊긴 응답은 받는 쪽이 덜 받은 것을 안다(pipeline 이 응답을 부순다)
     if (codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") log.debug(`로그 파일 다운로드 중단: ${target.name}`);

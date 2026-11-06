@@ -8,9 +8,11 @@
 // 보던 파일이 떼어졌으면 같은 첫 줄을 가진 떼어 낸 파일에서 이어 읽는다.
 // 파일마다 줄 수, 카테고리, 태그, 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
 // 검색의 맞은 줄 수는 처음 받는 페이지마다 파일 전체를 훑는다(입력이 멈춘 뒤 한 번)
+// 파일 끝까지 갈 수 있는 훑기(목록, 맞은 줄 수, 드문 필터의 페이지, 다운로드)는 paced 로 나눠 이벤트 루프를 놓아 준다(파일 하나가 10GB 까지)
 
 import fs from "fs";
 import path from "path";
+import { setImmediate as nextTurn } from "timers/promises";
 import { rotatedFilesOf } from "../infra/log/file.ts";
 import { wireFields } from "../infra/log/levels.ts";
 import logger from "../infra/log/logger.ts";
@@ -20,6 +22,8 @@ const log = logger.child({ category: "dashboard" });
 
 /** 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;
+/** 오래 훑는 길이 이벤트 루프를 놓아 주는 간격(바이트) */
+const PAUSE_BYTES = 256 * 1024;
 const NL = 0x0a;
 
 type Raw = { offset: number; bytes: Buffer };
@@ -83,6 +87,26 @@ function* backward(fd: number, before: number): Generator<Raw> {
 }
 const trimNl = (bytes: Buffer) => (bytes.length && bytes[bytes.length - 1] === NL ? bytes.subarray(0, -1) : bytes);
 
+/**
+ * 오래 훑는 길: 줄을 PAUSE_BYTES 만큼씩 묶어 내고, 묶음 사이에 이벤트 루프를 놓아 준다.
+ * stop 이 참이 되면 다음 묶음을 내지 않고 끝난다(받는 쪽이 떠났다. 끝까지 읽은 것과 구별하지 않는다)
+ */
+async function* paced(raws: Generator<Raw>, stop?: () => boolean): AsyncGenerator<Raw[]> {
+  let batch: Raw[] = [];
+  let from = -1;
+  for (const raw of raws) {
+    if (from < 0) from = raw.offset;
+    batch.push(raw);
+    if (Math.abs(raw.offset - from) < PAUSE_BYTES) continue;
+    yield batch;
+    batch = [];
+    from = -1;
+    await nextTurn();
+    if (stop?.()) return;
+  }
+  if (batch.length) yield batch;
+}
+
 /** at 이상에서 처음 시작하는 줄의 위치(없으면 end) */
 function nextLineStart(fd: number, at: number, end: number): number {
   if (at <= 0) return 0;
@@ -120,19 +144,16 @@ function lowerBound(fd: number, at: number, end: number): number {
 }
 
 /** 파일 첫 줄의 시각(줄이 없으면 0). 파일을 알아보는 값 */
-function firstTime(file: string): number {
-  return (
-    withFile(file, (fd, size) => {
-      for (const raw of forward(fd, 0, size)) {
-        const line = parse(raw);
-        if (line) return line.ts;
-      }
-      return 0;
-    }) ?? 0
-  );
+function firstTimeOf(fd: number, size: number): number {
+  for (const raw of forward(fd, 0, size)) {
+    const line = parse(raw);
+    if (line) return line.ts;
+  }
+  return 0;
 }
+const firstTime = (file: string) => withFile(file, firstTimeOf) ?? 0;
 
-/** 파일을 열어 fn 을 부른다. 열 수 없으면 null */
+/** 파일을 열어 fn 을 부른다. fn 이 Promise 를 돌려주면 그것이 끝난 뒤에 닫는다. 열 수 없으면 null */
 function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | null {
   let fd: number;
   try {
@@ -141,31 +162,48 @@ function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | nul
     if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패: ${messageOf(error)}`);
     return null;
   }
+  let result: T;
   try {
-    return fn(fd, fs.fstatSync(fd).size);
-  } finally {
+    result = fn(fd, fs.fstatSync(fd).size);
+  } catch (error) {
     fs.closeSync(fd);
+    throw error;
   }
+  if (!(result instanceof Promise)) {
+    fs.closeSync(fd);
+    return result;
+  }
+  return result.finally(() => fs.closeSync(fd)) as T;
 }
 
 // ── 파일 목록, 훑기 ──
 
 type Scan = { since: number; size: number; lines: number; firstAt: number; lastAt: number; categories: Set<string>; tags: Set<string> };
 const scans = new Map<string, Scan>();
+/** 지금 훑는 파일. 같은 파일을 겹쳐 훑지 않는다(겹치면 늘어난 부분을 두 번 센다) */
+const scanning = new Map<string, Promise<Scan | null>>();
 
-/** 파일을 훑어 줄 수, 카테고리, 태그, 처음과 끝 시각을 센다. 지난번에 훑은 같은 파일이면 늘어난 부분만 */
-function scan(file: string): Scan | null {
-  return withFile(file, (fd, size) => {
-    const since = firstTime(file);
-    const known = scans.get(file);
-    const fresh: Scan = { since, size: 0, lines: 0, firstAt: 0, lastAt: 0, categories: new Set(), tags: new Set() };
-    const done = known && known.since === since && known.size <= size ? known : fresh;
-    if (done.size === size) return done;
-    // 덜 된 마지막 줄은 다음에 다시 훑도록 줄바꿈으로 끝난 곳까지만 센다
-    let scanned = done.size;
-    for (const raw of forward(fd, done.size, size)) {
-      const ended = raw.offset + raw.bytes.length < size;
-      if (!ended) break;
+/** 파일을 훑어 줄 수, 카테고리, 태그, 처음과 끝 시각을 센다. 지난번에 훑은 같은 파일이면 늘어난 부분만. 이미 훑는 중이면 그 결과를 기다린다 */
+function scan(file: string): Promise<Scan | null> {
+  const running = scanning.get(file);
+  if (running) return running;
+  const job = (withFile(file, (fd, size) => scanFile(file, fd, size)) ?? Promise.resolve(null)).finally(() => scanning.delete(file));
+  scanning.set(file, job);
+  return job;
+}
+
+/** scan 의 몸통. 기억한 것은 고치지 않고 사본을 늘려 다 훑은 뒤에 바꿔 넣는다(그동안 다른 요청이 기억한 것을 읽는다) */
+async function scanFile(file: string, fd: number, size: number): Promise<Scan> {
+  const since = firstTimeOf(fd, size);
+  const known = scans.get(file);
+  const base = known && known.since === since && known.size <= size ? known : null;
+  if (base?.size === size) return base;
+  const done: Scan = base ? { ...base, categories: new Set(base.categories), tags: new Set(base.tags) } : { since, size: 0, lines: 0, firstAt: 0, lastAt: 0, categories: new Set(), tags: new Set() };
+  // 덜 된 마지막 줄은 다음에 다시 훑도록 줄바꿈으로 끝난 곳까지만 센다
+  let scanned = done.size;
+  read: for await (const batch of paced(forward(fd, done.size, size))) {
+    for (const raw of batch) {
+      if (raw.offset + raw.bytes.length >= size) break read;
       scanned = raw.offset + raw.bytes.length + 1;
       const line = parse(raw);
       if (!line) continue;
@@ -175,20 +213,21 @@ function scan(file: string): Scan | null {
       if (line.category) done.categories.add(line.category);
       for (const tag of line.tags ?? []) done.tags.add(tag);
     }
-    done.size = scanned;
-    scans.set(file, done);
-    return done;
-  });
+  }
+  done.size = scanned;
+  scans.set(file, done);
+  return done;
 }
 
 const sorted = (set: Set<string>) => [...set].sort((a, b) => a.localeCompare(b));
 
-/** 로그 파일 목록: 지금 쓰는 파일이 먼저, 떼어 낸 파일은 최근 것부터 */
-function listLogFiles(file: string): LogFile[] {
+/** 로그 파일 목록: 지금 쓰는 파일이 먼저, 떼어 낸 파일은 최근 것부터. stop 이 참이 되면 다음 파일을 훑지 않고 그때까지의 목록 */
+async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile[]> {
   const dir = path.dirname(file);
   const names = [path.basename(file), ...rotatedFilesOf(file).reverse()];
   const out: LogFile[] = [];
   for (const [i, name] of names.entries()) {
+    if (stop?.()) return out;
     const full = path.join(dir, name);
     let stat: fs.Stats;
     try {
@@ -198,7 +237,7 @@ function listLogFiles(file: string): LogFile[] {
       if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
       continue;
     }
-    const s = scan(full);
+    const s = await scan(full);
     if (!s) continue;
     out.push({ name, size: stat.size, modifiedAt: stat.mtimeMs, current: i === 0, firstAt: s.firstAt, lastAt: s.lastAt, lines: s.lines, categories: sorted(s.categories), tags: sorted(s.tags) });
   }
@@ -228,33 +267,37 @@ function resolveLogFile(file: string, name: string, since?: number): { name: str
 
 type PageQuery = { before?: number; after?: number; at?: number; limit: number; filter: LogFilter };
 
-/** 한 페이지를 읽는다. 위치는 줄의 시작이어야 한다(아니면 그 다음 줄부터) */
-function readLogPage(target: { name: string; path: string }, query: PageQuery): FilePage | null {
-  return withFile(target.path, (fd, size) => {
-    const since = firstTime(target.path);
+/** 묶음에서 keep 이 고른 줄을 limit 개까지. cut: 그 뒤에 고를 줄이 더 있었다 */
+async function take(batches: AsyncGenerator<Raw[]>, keep: (raw: Raw) => FileLine | null, limit: number): Promise<{ lines: FileLine[]; cut: boolean }> {
+  const lines: FileLine[] = [];
+  for await (const batch of batches) {
+    for (const raw of batch) {
+      const line = keep(raw);
+      if (!line) continue;
+      if (lines.length === limit) return { lines, cut: true };
+      lines.push(line);
+    }
+  }
+  return { lines, cut: false };
+}
+
+/** 한 페이지를 읽는다. 위치는 줄의 시작이어야 한다(아니면 그 다음 줄부터). stop 이 참이 되면 그때까지 읽은 것으로 끝낸다(받는 쪽이 떠났다) */
+async function readLogPage(target: { name: string; path: string }, query: PageQuery, stop?: () => boolean): Promise<FilePage | null> {
+  return withFile(target.path, async (fd, size) => {
+    const since = firstTimeOf(fd, size);
     const keep = (raw: Raw) => {
       const line = parse(raw);
       return line && matchesLog(line, query.filter) ? line : null;
     };
     // 맞은 줄 수는 처음 받는 페이지에서만 센다(이어 받는 페이지는 화면이 이미 안다)
     const counting = query.filter.q?.trim() && query.before === undefined && query.after === undefined;
-    const page = (lines: FileLine[], more: boolean, later: boolean): FilePage => ({ name: target.name, since, lines, more, later, ...(counting ? { matches: countMatches(fd, size, query.filter) } : {}) });
+    const page = async (lines: FileLine[], more: boolean, later: boolean): Promise<FilePage> => ({ name: target.name, since, lines, more, later, ...(counting ? { matches: await countMatches(fd, size, query.filter, stop) } : {}) });
 
     if (query.after !== undefined) {
       // 그 줄 뒤에서부터 아래로
       const from = nextLineStart(fd, Math.min(query.after, size) + 1, size);
-      const lines: FileLine[] = [];
-      let later = false;
-      for (const raw of forward(fd, from, size)) {
-        const line = keep(raw);
-        if (!line) continue;
-        if (lines.length === query.limit) {
-          later = true;
-          break;
-        }
-        lines.push(line);
-      }
-      return page(lines, from > 0, later);
+      const { lines, cut } = await take(paced(forward(fd, from, size), stop), keep, query.limit);
+      return page(lines, from > 0, cut);
     }
 
     // 앞의 줄: before 앞에서부터 위로. 시각으로 가면 그 줄 뒤로 몇 줄을 더 받도록 끝을 정한다
@@ -271,36 +314,25 @@ function readLogPage(target: { name: string; path: string }, query: PageQuery): 
       }
       end = Math.min(end, size);
     }
-    const lines: FileLine[] = [];
-    let more = false;
-    for (const raw of backward(fd, end)) {
-      const line = keep(raw);
-      if (!line) continue;
-      if (lines.length === query.limit) {
-        more = true;
-        break;
-      }
-      lines.push(line);
-    }
-    return page(lines.reverse(), more, end < size);
+    const { lines, cut } = await take(paced(backward(fd, end), stop), keep, query.limit);
+    return page(lines.reverse(), cut, end < size);
   });
 }
 
 /** 필터를 모두 건 채 파일 전체에서 맞은 줄 수 */
-function countMatches(fd: number, size: number, filter: LogFilter): number {
+async function countMatches(fd: number, size: number, filter: LogFilter, stop?: () => boolean): Promise<number> {
   let n = 0;
-  for (const raw of forward(fd, 0, size)) {
-    const line = parse(raw);
-    if (line && matchesLog(line, filter)) n++;
+  for await (const batch of paced(forward(fd, 0, size), stop)) {
+    for (const raw of batch) {
+      const line = parse(raw);
+      if (line && matchesLog(line, filter)) n++;
+    }
   }
   return n;
 }
 
-/** 다운로드가 null 을 내는 간격(바이트) */
-const PAUSE_BYTES = 1024 * 1024;
-
-/** 필터에 맞는 줄들을 앞에서부터(다운로드). 맞는 줄이 드물어도 받는 쪽이 이벤트 루프를 놓아 줄 수 있게 훑는 중에 null 을 낸다 */
-function* filteredLines(target: { path: string }, filter: LogFilter): Generator<FileLine | null> {
+/** 필터에 맞는 줄들을 앞에서부터 묶음으로(다운로드). 맞는 줄이 없는 묶음은 내지 않는다 */
+async function* filteredLines(target: { path: string }, filter: LogFilter): AsyncGenerator<FileLine[]> {
   let fd: number;
   try {
     fd = fs.openSync(target.path, "r");
@@ -310,14 +342,13 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   }
   try {
     const size = fs.fstatSync(fd).size;
-    let paused = 0;
-    for (const raw of forward(fd, 0, size)) {
-      if (raw.offset - paused >= PAUSE_BYTES) {
-        paused = raw.offset;
-        yield null;
+    for await (const batch of paced(forward(fd, 0, size))) {
+      const lines: FileLine[] = [];
+      for (const raw of batch) {
+        const line = parse(raw);
+        if (line && matchesLog(line, filter)) lines.push(line);
       }
-      const line = parse(raw);
-      if (line && matchesLog(line, filter)) yield line;
+      if (lines.length) yield lines;
     }
   } finally {
     fs.closeSync(fd);
