@@ -234,6 +234,16 @@ test("HLS 큰 AES 세그먼트: 틀린 키, 블록이 아닌 크기는 흘리기
   await assert.rejects(readInput(oddInput), (e: Error & { permanent?: boolean }) => e.permanent === true && /16/.test(e.message));
 });
 
+test("HLS 큰 AES 세그먼트: 암호문이 블록 중간에서 끝나면 그 조각만 버리고 앞의 온전한 블록은 흘린다", async () => {
+  const plain = bytesOf(2 * MB);
+  const sealed = seal(plain);
+  const server = segmentServer(sealed.subarray(0, sealed.length - 1), { length: false });
+  const from = sink.buffer.length;
+  const out = await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(true)));
+  assert.deepEqual(out, plain, "패딩 블록 앞까지 다 흘렸다(평문 2MB 는 16 의 배수라 마지막 블록은 패딩뿐)");
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("15바이트")));
+});
+
 test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를 이어 흘린다(AES 면 앞부분이 블록 중간에서 끝나도 이어 푼다)", async () => {
   const body = bytesOf(3 * MB + 77);
   const plainServer = segmentServer(body, { length: false });

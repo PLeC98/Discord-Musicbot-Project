@@ -139,9 +139,15 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       cleanup();
       resolve({ head: Buffer.concat(chunks) });
     };
-    const onData = (chunk: Buffer) => {
-      chunks.push(chunk);
-      length += chunk.length;
+    // 문자열 덩이는 바이트로. 그 밖(객체)은 그 세그먼트의 실패로(이벤트 안에서 던지면 아무도 받지 못한다)
+    const onData = (chunk: unknown) => {
+      const piece = Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk) : null;
+      if (!piece) {
+        body.destroy();
+        return onError(new TypeError(`세그먼트 본문의 덩이가 바이트가 아닙니다(${typeof chunk})`));
+      }
+      chunks.push(piece);
+      length += piece.length;
       progress();
       if (length > GATHER_MAX_BYTES) handOff();
     };

@@ -353,6 +353,16 @@ test("넘기기: 작아도 모으는 데 3초가 넘으면 넘긴다(그동안�
   assert.deepEqual(Buffer.concat([got.head, await readRest(got.body)]), slow);
 });
 
+test("모으기: 문자열 덩이도 바이트로 받고, Buffer 도 문자열도 아닌 덩이는 그 세그먼트의 실패로(처리되지 않은 예외가 되지 않는다)", async () => {
+  const bodyOf = (chunks: unknown[]) => ({
+    getStream: async (url: string) => Object.assign(Readable.from(chunks, { objectMode: true }), { headers: {}, status: 200, url }) as AudioStream,
+  });
+  const words = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net: bodyOf(["가나", "다"]) })).fragments();
+  assert.deepEqual(await words.fetch((await words.next())!, new AbortController().signal), Buffer.from("가나다"));
+  const odd = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net: bodyOf([{ x: 1 }]) })).fragments();
+  await assert.rejects(odd.fetch((await odd.next())!, new AbortController().signal), /덩이/);
+});
+
 test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 신호가 끊으면 그 사유로 끝난다(세그먼트는 열지 않는다)", async () => {
   const asked: string[] = [];
   const net = {

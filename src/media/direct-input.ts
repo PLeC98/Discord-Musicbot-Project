@@ -177,7 +177,8 @@ function paddingOf(block: Buffer): number | null {
 
 /**
  * AES-128-CBC 를 흘리며 푼다. 덩이 사이에 남은 바이트를 이어 온전한 블록만 풀고, 푼 마지막 블록은 끝까지 쥐었다가 PKCS7 을 뗀다.
- * 끝이 깨졌으면(패딩, 블록이 아닌 길이) 16바이트 이하를 버리고 warn 을 남긴 채 깨끗이 끝낸다. 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
+ * 끝이 깨졌으면 warn 을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 조각(16바이트 미만)만 버리거나(그 앞 블록은 마지막이 아니라 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
+ * 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
  */
 function decrypting(key: Buffer, iv: Buffer): Transform {
   const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv).setAutoPadding(false);
@@ -195,9 +196,13 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       done(null, all.subarray(0, all.length - 16));
     },
     flush(done) {
-      const pad = held && !rest.length ? paddingOf(held) : null;
+      if (rest.length) {
+        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버립니다(암호문이 잘림)`);
+        return done(null, held ?? undefined);
+      }
+      const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 풀지 못해 마지막 ${(held?.length ?? 0) + rest.length}바이트를 버립니다(패딩이나 길이가 맞지 않음)`);
+        log.warn(`HLS 세그먼트의 끝을 풀지 못해 마지막 ${held?.length ?? 0}바이트를 버립니다(패딩이 맞지 않음)`);
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
