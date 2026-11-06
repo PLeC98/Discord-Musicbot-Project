@@ -57,11 +57,14 @@ const SIGNED_IN = { id: "u1", username: "u1" };
 
 test("익명의 상태 바꾸는 요청은 본문을 풀기 전에 세여 한도를 넘으면 429(CSRF 403 이 먼저가 아니다)", () =>
   withLimits({ apiMax: 2 }, async () => {
-    const at = await fresh();
+    const server = await listenForFetch(appOf(), "127.0.0.1");
+    servers.push(server);
+    const port = (server.address() as AddressInfo).port;
+    // 원시 소켓으로: 서버는 본문을 다 받지 않고 답하고 닫으므로, 올리는 도중에 끊긴 것을 실패로 보는 fetch 대신 받은 응답 줄을 본다
     const big = JSON.stringify({ x: "y".repeat(500_000) });
-    const put = () => at("/api/admin/ai/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: big });
-    assert.deepEqual([(await put()).status, (await put()).status], [403, 403]);
-    assert.equal((await put()).status, 429);
+    const put = async () => (await raw(port, `PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${big.length}\r\n\r\n`, big)).got.slice(0, 12);
+    assert.deepEqual([await put(), await put()], ["HTTP/1.1 403", "HTTP/1.1 403"]);
+    assert.equal(await put(), "HTTP/1.1 429");
   }));
 
 test("빼 주는 경로도 익명 요청, 다른 메서드는 센다. 로그인한 사람의 GET 은 빼 준다", () =>
@@ -136,6 +139,13 @@ test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, �
   const chunked = await raw(port, "POST /api/me HTTP/1.1\r\nHost: x\r\nTransfer-Encoding: chunked\r\n\r\n", "5\r\nhello\r\n");
   assert.equal(chunked.closed, true);
 
+  // 남은 본문이 작으면 받아 버리고 연결을 이어 쓴다(올리는 도중의 브라우저도 연결 끊김이 아니라 답을 받는다)
+  const small = JSON.stringify({ x: "y".repeat(20_000) });
+  const kept = await raw(port, `PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${small.length}\r\n\r\n`, small, { waitMs: 500 });
+  assert.match(kept.got, /^HTTP\/1\.1 403/);
+  assert.doesNotMatch(kept.got, /connection: close/i);
+  assert.equal(kept.closed, false);
+
   user = SIGNED_IN;
   try {
     const ignored = await raw(port, "GET /api/csrf-token HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n", "{ not json");
@@ -167,6 +177,10 @@ test("100-continue: 검사에 걸리면 100 없이 거절하고, 지나면 100 �
 
   user = SIGNED_IN;
   try {
+    const over = await raw(port, `POST /api/guilds/1/player/queue HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 2000000\r\nExpect: 100-continue\r\nx-csrf-token: ${TOKEN}\r\n\r\n`);
+    assert.doesNotMatch(over.got, /100 Continue/, "상한을 넘을 본문에는 100 을 보내지 않는다");
+    assert.match(over.got, /^HTTP\/1\.1 413/);
+
     const socket = net.connect(port, "127.0.0.1");
     await once(socket, "connect");
     let got = "";
@@ -180,6 +194,85 @@ test("100-continue: 검사에 걸리면 100 없이 거절하고, 지나면 100 �
     while (!/HTTP\/1\.1 400/.test(got) && Date.now() < deadline + 2000) await new Promise((r) => setTimeout(r, 20));
     assert.match(got, /HTTP\/1\.1 400/, "본문을 받아 풀었다(틀린 JSON)");
     socket.destroy();
+  } finally {
+    user = null;
+  }
+});
+
+test("본문은 /api 만 푼다(로그아웃은 틀린 JSON 이어도 400 이 아니다). 운영자가 아닌 앱 이모지 쓰기는 본문을 풀기 전에 403", async () => {
+  user = SIGNED_IN;
+  try {
+    const at = await fresh();
+    const logout = await at("/auth/logout", { method: "POST", headers: { "content-type": "application/json", "x-csrf-token": TOKEN }, body: "{" });
+    assert.notEqual(logout.status, 400);
+    const emoji = await at("/api/app-emojis/x", { method: "PATCH", headers: { "content-type": "application/json", "x-csrf-token": TOKEN }, body: "{" });
+    assert.equal(emoji.status, 403);
+  } finally {
+    user = null;
+  }
+});
+
+test("대문자 /API 도 화면 폴백이 답하지 않고 API 로 가서 센다", () =>
+  withLimits({ apiMax: 1 }, async () => {
+    const at = await fresh();
+    const first = await at("/API/admin/status");
+    assert.equal(first.status, 401, "HTML 이 아니라 운영자 문");
+    assert.equal((await at("/API/admin/status")).status, 429);
+  }));
+
+test("알린 길이가 상한을 넘으면 받지 않고 곧바로 413 에 닫고, 길이를 알리지 않은 본문이 넘으면 끊는다", async () => {
+  const server = await listenForFetch(appOf(), "127.0.0.1");
+  servers.push(server);
+  const port = (server.address() as AddressInfo).port;
+  user = SIGNED_IN;
+  try {
+    const declared = await raw(port, `POST /api/guilds/1/player/queue HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 2000000\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, "{");
+    assert.match(declared.got, /^HTTP\/1\.1 413/);
+    assert.equal(declared.closed, true);
+
+    const chunk = "x".repeat(40_000);
+    const chunked = await raw(port, `POST /api/guilds/1/player/queue HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, `${chunk.length.toString(16)}\r\n${chunk}\r\n`);
+    assert.equal(chunked.closed, true, "상한을 넘은 덩어리 본문은 남은 것을 기다리지 않고 끊는다");
+  } finally {
+    user = null;
+  }
+});
+
+test("남은 본문이 작아도 요청 제한에 걸렸거나 본문을 받을 일이 없는 메서드면 받아 버리지 않고 닫는다. OPTIONS 도 센다", () =>
+  withLimits({ apiMax: 1, publicMax: 1 }, async () => {
+    const server = await listenForFetch(appOf(), "127.0.0.1");
+    servers.push(server);
+    const port = (server.address() as AddressInfo).port;
+    const small = JSON.stringify({ x: "y".repeat(20_000) });
+    const head = `PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${small.length}\r\n\r\n`;
+    const first = await raw(port, head, small, { waitMs: 500 });
+    assert.match(first.got, /^HTTP\/1\.1 403/);
+    assert.equal(first.closed, false);
+    const limited = await raw(port, head, small.slice(0, 100));
+    assert.match(limited.got, /^HTTP\/1\.1 429/);
+    assert.equal(limited.closed, true, "걸린 요청의 남은 본문은 받지 않는다");
+
+    const getWithBody = await raw(port, "GET /login-background HTTP/1.1\r\nHost: x\r\nContent-Length: 1000\r\n\r\n", "x");
+    assert.equal(getWithBody.closed, true, "GET 의 남은 본문은 받지 않는다");
+
+    const options = () => raw(port, "OPTIONS /api/me HTTP/1.1\r\nHost: x\r\n\r\n", "", { waitMs: 300 }).then((r) => r.got.slice(0, 12));
+    const statuses = [await options(), await options()];
+    assert.ok(statuses.includes("HTTP/1.1 429"), `OPTIONS 도 공개 한도에 센다: ${statuses.join(", ")}`);
+  }));
+
+test("JSON 이 아닌 업로드(이미지)는 JSON 상한을 받지 않는다(경로가 자기 상한으로 읽는다)", async () => {
+  const server = await listenForFetch(appOf(), "127.0.0.1");
+  servers.push(server);
+  const port = (server.address() as AddressInfo).port;
+  user = { id: "owner", username: "owner" };
+  try {
+    const image = "x".repeat(40_000);
+    const declared = await raw(port, `POST /api/app-emojis HTTP/1.1\r\nHost: x\r\nContent-Type: image/png\r\nContent-Length: ${image.length}\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, image);
+    assert.match(declared.got, /^HTTP\/1\.1 \d{3}/);
+    assert.doesNotMatch(declared.got, /^HTTP\/1\.1 413/);
+    const chunked = await raw(port, `POST /api/app-emojis HTTP/1.1\r\nHost: x\r\nContent-Type: image/png\r\nTransfer-Encoding: chunked\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, `${image.length.toString(16)}\r\n${image}\r\n0\r\n\r\n`);
+    assert.match(chunked.got, /^HTTP\/1\.1 \d{3}/, "끊지 않고 답한다");
+    assert.doesNotMatch(chunked.got, /^HTTP\/1\.1 413/);
   } finally {
     user = null;
   }

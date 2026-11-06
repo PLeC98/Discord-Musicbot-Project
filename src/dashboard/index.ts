@@ -175,8 +175,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host, url));
   // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다
-  // (세션 앞에서 답하는 /api 의 공개 경로는 여기서). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
-  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path)) || ASSETS.test(req.path) }));
+  // (세션 앞에서 답하는 /api 의 공개 경로와, 아래 CORS 가 세기 전에 답하는 OPTIONS 는 여기서). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
+  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path) && req.method !== "OPTIONS") || ASSETS.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
@@ -193,7 +193,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(precompressed(clientDist, cacheAssets));
   app.use(express.static(clientDist, { setHeaders: cacheAssets }));
   app.get("/{*path}", (req, res, next) => {
-    if (req.path.startsWith("/api") || req.path.startsWith("/auth")) return next();
+    if (COUNTED_LATER.test(req.path)) return next();
     if (!fs.existsSync(indexHtml)) return res.send("<h2>대시보드 화면이 빌드되지 않았어요.<br>봇 폴더에서 <code>pnpm run build:dashboard</code> 를 실행한 뒤 새로고침하세요.</h2>");
     res.sendFile(indexHtml, { headers: { "Cache-Control": "no-cache" } });
   });
@@ -229,6 +229,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(requireCsrfToken);
   // 운영자 패널 앞의 문. 라우터마다 주인 검사를 하고, 여기서도 한 번 본다(검사 없이 더한 라우터를 잡는다). 본문을 읽기 전에(큰 본문 경로는 모두 운영자 패널이다)
   app.use("/api/admin", requireOwner);
+  // 앱 이모지 쓰기(GET 이 아닌 것)도 운영자만이라 본문을 읽기 전에 본다(경로의 검사는 그대로)
+  app.use("/api/app-emojis", (req, res, next) => (["GET", "HEAD", "OPTIONS"].includes(req.method) ? next() : requireOwner(req, res, next)));
   // 검사를 다 지난 요청만 본문을 받는다: 100-continue 를 기다리면 이제 100 을 보내고, JSON 을 푼다
   app.use(continueBody);
   app.use(bodyLimit());
