@@ -79,7 +79,9 @@ test("나쁜 입력: 같은 초성 음절이 이어진 긴 글에 긴 자음 검
       out.push([koMatch(text, q), koRanges(text, q).length, performance.now() - t]);
     }
     console.log(JSON.stringify(out));`;
-  const run = spawnSync(process.execPath, ["--input-type=module", "-e", script], { encoding: "utf8", timeout: 30_000 });
+  // .ts 를 여는 플래그 등은 그대로 넘기고, 시험 러너의 것은 뺀다
+  const flags = process.execArgv.filter((one) => !one.startsWith("--test") && !one.startsWith("--experimental-test"));
+  const run = spawnSync(process.execPath, [...flags, "--input-type=module", "-e", script], { encoding: "utf8", timeout: 30_000 });
   assert.equal(run.error, undefined, "30초 안에 끝난다");
   for (const [matched, ranges, ms] of JSON.parse(run.stdout) as Array<[boolean, number, number]>) {
     assert.deepEqual([matched, ranges], [false, 0]);
