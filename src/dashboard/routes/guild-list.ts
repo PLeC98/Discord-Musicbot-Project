@@ -5,6 +5,7 @@ import { trackArtUrl } from "../player-view.ts";
 import { isServerManager } from "../../usecases/permissions.ts";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { memberOf, seesGuild, voiceFlags } from "../guild-access.ts";
+import { shadowMember } from "../view-as.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import type { DiscordHttp } from "../discord-api.ts";
 import { sendProblem } from "../problem.ts";
@@ -44,8 +45,8 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
           id: guild.id,
           name: guild.name,
           icon: guildIconUrl(guild.id, guild.icon),
-          // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다. 봇 운영자(isOwner)와 무관
-          canManageGuild: isServerManager(member),
+          // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다(권한 수준 오버라이드로 낮췄으면 그 계층으로). 봇 운영자(isOwner)와 무관
+          canManageGuild: isServerManager(await shadowMember(req, member)),
           hasPlayer: players.has(guild.id),
           state: listState(voiceFlags(guild, user.id).botInVoice, player),
           memberCount: guild.memberCount,

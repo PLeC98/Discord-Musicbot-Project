@@ -132,6 +132,8 @@ function plainMember() {
 
 // ── 앱 구성 ──────────────────────────────────────────────────
 let currentUser: object | null;
+// 권한 수준 오버라이드(세션의 viewAs). 테스트가 걸고 되돌린다
+let currentViewAs: string | undefined;
 let server: Server;
 let base: string;
 
@@ -140,6 +142,10 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => currentUser));
+  app.use((req, _res, next) => {
+    if (currentViewAs) Object.assign(req.session, { viewAs: currentViewAs });
+    next();
+  });
   app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {} } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
@@ -412,6 +418,31 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래
 });
 
 // ── GET /api/guilds 의 후보 ──
+
+test("GET guilds: 서버 관리 권한은 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
+  noVoice();
+  currentUser = { id: "owner", username: "운영자" };
+  try {
+    for (const [member, viewAs, want] of [
+      [modMember, "user", false],
+      [modMember, "dj", false],
+      [modMember, "server-manager", true],
+      [plainMember, "server-manager", false],
+    ] as const) {
+      currentMember = member();
+      currentViewAs = viewAs;
+      const r = await req("GET", "/api/guilds");
+      assert.deepEqual(
+        r.json.guilds?.map((g) => g.canManageGuild),
+        [want],
+        `${member.name} 로 ${viewAs} 보기`,
+      );
+    }
+  } finally {
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+  }
+});
 
 test("GET guilds: 봇이 든 서버 중 지금 멤버인 곳. 운영자는 멤버가 아니어도. 서버 관리 권한은 지금 멤버 권한", async () => {
   noVoice();

@@ -1,6 +1,5 @@
 import type { Request } from "express";
 import { isBotOwner } from "../usecases/permissions.ts";
-import { getViewAs } from "./view-as.ts";
 
 /**
  * 봇 운영자(`OWNER_ID`) 여부를 요청마다 현재 설정으로 다시 판정한다.
@@ -14,12 +13,4 @@ function isRealOwner<P>(req: Request<P>) {
   return !!id && isBotOwner(id);
 }
 
-/**
- * 권한 판정용 운영자 여부. 권한 수준 오버라이드(viewAs)가 걸려 있으면 운영자가 아니다(그 계층으로 낮춰 본다).
- * 오버라이드를 켜고 끄는 경로 자체는 isRealOwner를 써야 한다. 아니면 스스로를 잠근다.
- */
-function isOwner<P>(req: Request<P>) {
-  return isRealOwner(req) && !getViewAs(req);
-}
-
-export { isOwner, isRealOwner };
+export { isRealOwner };

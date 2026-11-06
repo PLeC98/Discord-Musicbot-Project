@@ -15,8 +15,14 @@ const { faviconVersion } = await import("../../src/dashboard/appearance.ts");
 
 let user: object | null = null;
 let botUser: object | null = null;
+// 세션의 권한 수준 오버라이드(viewAs)
+let viewAs: string | undefined;
 const app = express();
 app.use(signedInAs(() => user));
+app.use((req, _res, next) => {
+  if (viewAs) Object.assign(req.session, { viewAs });
+  next();
+});
 app.locals.bot = fakeBot({
   client: {
     get user() {
@@ -31,6 +37,21 @@ const get = async (urlPath: string) => {
   const res = await fetch(baseUrl(server) + urlPath, { signal: AbortSignal.timeout(3000) });
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 };
+
+test("/api/me: 권한 수준 오버라이드는 진짜 운영자의 세션에서만 보인다(OWNER_ID 가 바뀐 옛 운영자의 세션에 남은 값은 없는 것으로)", async () => {
+  viewAs = "user";
+  try {
+    user = { id: "owner", username: "운영자" };
+    const owner = await get("/api/me");
+    assert.deepEqual([owner.json.viewAs, owner.json.isOwner, owner.json.isRealOwner], ["user", false, true]);
+
+    user = { id: "former-owner", username: "이전 운영자" };
+    const former = await get("/api/me");
+    assert.deepEqual([former.json.viewAs, former.json.isOwner, former.json.isRealOwner], [null, false, false]);
+  } finally {
+    viewAs = undefined;
+  }
+});
 
 test("/api/me: 로그인 전에는 401, 로그인했으면 사용자와 운영자인지", async () => {
   user = null;

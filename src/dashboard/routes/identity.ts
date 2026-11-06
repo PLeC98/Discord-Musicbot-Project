@@ -2,8 +2,8 @@
 
 import express from "express";
 import config from "../../config/index.ts";
-import { isOwner, isRealOwner } from "../owner.ts";
-import { getViewAs } from "../view-as.ts";
+import { isRealOwner } from "../owner.ts";
+import { getViewAs, isOwner } from "../view-as.ts";
 import type { BotInfo, Me } from "../contract/identity.ts";
 import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
