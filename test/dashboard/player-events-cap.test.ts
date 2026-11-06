@@ -85,6 +85,17 @@ test("한꺼번에 열어도, 열고 끊기를 되풀이해도 끝나지 않은 
   fresh.abort();
 });
 
+test("Connection: close 로 연다(세션이 끝나 끊을 때 그 소켓을 부수므로 다시 쓰지 않게)", async () => {
+  gate = new Promise<void>((done) => (open = done));
+  open();
+  const controller = new AbortController();
+  const res = await fetch(`${base}/api/guilds/events`, { signal: controller.signal });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("connection"), "close");
+  controller.abort();
+  await settle(50);
+});
+
 test("멤버 조회를 기다리는 사이 세션이 끝나면(다른 기기에서 끊음) 열지 않고 401, 자리를 푼다", async () => {
   gate = new Promise<void>((done) => (open = done));
   const one = connect();

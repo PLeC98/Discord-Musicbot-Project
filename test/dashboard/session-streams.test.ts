@@ -50,13 +50,16 @@ before(async () => {
       store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify({ ...JSON.parse(row), csrfToken: "다른 요청의 것" }), req.sessionID);
     }
     if (!req.session?.user || !sessionStreams.admit(req)) return res.status(401).end();
-    res.writeHead(200, { "Content-Type": "text/event-stream", Connection: "close" });
+    // plain: Connection: close 없이(소켓 부수기만 시험한다. 그 머리가 있으면 이 PC 에서는 끝내기만으로도 닫힌다)
+    res.writeHead(200, req.query.plain ? { "Content-Type": "text/event-stream" } : { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
     res.write(": open\n\n");
     opened.push({ res, socket: req.socket });
     sessionStreams.track(req, res, "시험 스트림", () => dropped++);
   });
   server = await listen.listenForFetch(app);
+  // 끝낸 연결이 keep-alive 시간으로 닫히지 않게(소켓 부수기가 빠지면 기다리다 실패한다)
+  server.keepAliveTimeout = 60_000;
   base = listen.baseUrl(server);
 });
 after(() => {
@@ -181,27 +184,64 @@ test("스트림을 연 요청의 기기 기록(브라우저, 주소)은 세션�
   stream.abort();
 });
 
-test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 남는다)", async () => {
-  const thief = device();
-  await thief.go("/login?u=s5", { method: "POST" });
+// 날 TCP 로 스트림을 열고 읽지 않는다(HTTP 클라이언트의 pause 는 소켓 읽기까지 멈추지 않는다). 서버 쪽 응답과 소켓
+async function openUnread(who: ReturnType<typeof device>, query = "") {
   const url = new URL(base + "/stream");
-  // 날 TCP 로 요청만 보내고 읽지 않는다(HTTP 클라이언트의 pause 는 소켓 읽기까지 멈추지 않는다)
   const raw = net.connect(Number(url.port), url.hostname);
   raw.on("error", () => {});
   await new Promise((done) => raw.once("connect", done));
-  raw.write(`GET /stream HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${thief.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
+  raw.write(`GET /stream${query} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${who.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
   raw.pause();
   while (!opened.length) await settle(10);
-  const { res, socket } = opened[0];
+  return { raw, ...opened[0] };
+}
+
+// 소켓이 부서질 때까지 기다린 시간(ms). limit 까지 안 부서지면 null
+async function untilDestroyed(socket: Socket, limit = 4000) {
+  const started = Date.now();
+  while (!socket.destroyed && Date.now() - started < limit) await settle(20);
+  return socket.destroyed ? Date.now() - started : null;
+}
+
+test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 남는다)", async () => {
+  const thief = device();
+  await thief.go("/login?u=s5", { method: "POST" });
+  const { raw, res, socket } = await openUnread(thief);
   // 클라이언트가 읽지 않는 동안 쌓인다. 운영체제의 소켓 버퍼(로컬은 수 MB)를 넘겨야 막힌다
   const chunk = "x".repeat(1024 * 1024);
   for (let i = 0; i < 64; i++) res.write(`data: ${chunk}\n\n`);
   assert.ok(res.writableLength > 1024 * 1024, `막혔다 ${res.writableLength}`);
   store.destroy(thief.sid());
-  const started = Date.now();
-  while (!socket.destroyed && Date.now() - started < 4000) await settle(20);
-  assert.equal(socket.destroyed, true, `${Date.now() - started}ms`);
-  assert.ok(Date.now() - started < 2000, "keep-alive 를 기다리지 않는다");
+  const took = await untilDestroyed(socket);
+  assert.notEqual(took, null, "부서진다");
+  assert.ok(took! < 2000, `keep-alive 를 기다리지 않는다(${took}ms)`);
+  raw.destroy();
+});
+
+// Connection: close 없이 열면 소켓 부수기가 빠졌을 때 연결이 keep-alive 로 남는다(위 시험은 이 PC 에서 그 머리만으로도 닫혀 부수기를 가르지 못한다)
+test("Connection: close 없이 연 스트림도: 쌓인 것이 많으면 곧바로 부순다", async () => {
+  const thief = device();
+  await thief.go("/login?u=s5b", { method: "POST" });
+  const { raw, res, socket } = await openUnread(thief, "?plain=1");
+  const chunk = "x".repeat(1024 * 1024);
+  for (let i = 0; i < 64; i++) res.write(`data: ${chunk}\n\n`);
+  assert.ok(res.writableLength > 1024 * 1024, `막혔다 ${res.writableLength}`);
+  store.destroy(thief.sid());
+  const took = await untilDestroyed(socket);
+  assert.notEqual(took, null, "부서진다");
+  assert.ok(took! < 500, `곧바로(${took}ms)`);
+  raw.destroy();
+});
+
+test("Connection: close 없이 연 스트림도: 쌓인 것이 적으면 끝 이벤트를 쓰고 1초 뒤에 부순다", async () => {
+  const thief = device();
+  await thief.go("/login?u=s5c", { method: "POST" });
+  const { raw, res, socket } = await openUnread(thief, "?plain=1");
+  assert.ok(res.writableLength < 512 * 1024);
+  store.destroy(thief.sid());
+  const took = await untilDestroyed(socket);
+  assert.notEqual(took, null, "부서진다(keep-alive 로 남지 않는다)");
+  assert.ok(took! >= 900 && took! < 2500, `끝 이벤트를 받을 틈을 두고(${took}ms)`);
   raw.destroy();
 });
 

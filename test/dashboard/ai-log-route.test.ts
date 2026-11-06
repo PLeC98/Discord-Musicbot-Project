@@ -95,6 +95,7 @@ test("SSE 연결: 새 기록을 서버 이름과 저장 상태를 붙여 보내�
   const controller = new AbortController();
   const res = await fetch(`${base}/logs/stream?after=${missed.id - 1}`, { signal: controller.signal });
   assert.equal(res.status, 200);
+  assert.equal(res.headers.get("connection"), "close", "끊을 때 그 소켓을 부수므로 다시 쓰지 않게");
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let text = "";

@@ -176,7 +176,10 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
     statusCode: null as number | null,
     body: null as unknown,
     handlers: {} as Record<string, () => void>,
-    writeHead() {},
+    head: null as Record<string, string> | null,
+    writeHead(_code: number, headers: Record<string, string>) {
+      res.head = headers;
+    },
     flushHeaders() {},
     write(p: string) {
       res.writes.push(p);
@@ -202,6 +205,13 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
   };
   return res;
 }
+
+test("관리자 SSE: Connection: close 로 연다(끊을 때 그 소켓을 부수므로 다시 쓰지 않게)", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const res = fakeRes();
+  assert.equal(lm.addClient(res, "owner"), true);
+  assert.equal(res.head?.Connection, "close");
+});
 
 test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429. 무한정 받지 않는다", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
