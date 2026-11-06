@@ -21,6 +21,7 @@ import type { LoginDevices, SignedOut } from "../../src/dashboard/contract/ident
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
@@ -55,7 +56,7 @@ before(async () => {
   });
   const app = express();
   app.use(express.json());
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
+  app.use(session({ name: sessionCookieName(false), secret: "test-secret", resave: false, saveUninitialized: false, store }));
   app.use(noteDevice);
   app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http }));
@@ -261,7 +262,7 @@ test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠
   }
   assert.equal(res.status, 503);
   assert.equal(((await res.json()) as Unsaved).code, "sign-out-unsaved");
-  assert.match(res.headers.get("set-cookie") ?? "", /connect\.sid=;.*Expires=Thu, 01 Jan 1970/, "이 브라우저의 쿠키를 지운다");
+  assert.match(res.headers.get("set-cookie") ?? "", new RegExp(`${sessionCookieName(false)}=;.*Expires=Thu, 01 Jan 1970`), "이 브라우저의 쿠키를 지운다");
   assert.equal((await pc.go("/api/me/devices")).status, 401);
 });
 
@@ -280,4 +281,17 @@ test("끊을 세션의 디스코드 토큰을 읽지 못해도(DB 오류) 세션
     store.readDiscordToken = real;
   }
   assert.equal((await phone.go("/api/me/devices")).status, 401);
+});
+
+test("다른 기기 로그아웃은 로그인한 지 2분 안이어야 한다(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id 도 바뀐다)", async () => {
+  const pc = device(CHROME);
+  const phone = device(IPHONE);
+  await pc.login("two-minutes");
+  await phone.login("two-minutes");
+  // 두 기기 모두 3분 전에 로그인한 것처럼(최근 로그인 10분 안, 다른 기기 로그아웃의 2분 밖)
+  for (const { sid, session } of store.sessionsOf("two-minutes")) store.set(sid, { ...session, loginAt: Date.now() - 3 * 60_000 });
+  const late = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
+  assert.equal(late.status, 403);
+  assert.equal(((await late.json()) as { code: string }).code, "reauth-required");
+  assert.equal(store.sessionsOf("two-minutes").length, 2, "끊지 않았다");
 });

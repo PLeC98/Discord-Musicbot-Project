@@ -7,7 +7,8 @@ import express from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { requireRecentLogin } from "../middleware/recent-login.ts";
+import { recentLogin } from "../middleware/recent-login.ts";
+import { SIGN_OUT_LOGIN_MS } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { describe, handleOf, type Locate } from "../login-devices.ts";
 import { revokeToken } from "./auth.ts";
@@ -56,7 +57,10 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
   });
 
   // 기기 하나. 지금 기기는 여기서 끊지 않는다(로그아웃으로)
-  router.delete("/:id", requireAuth, requireRecentLogin, (req, res) => {
+  // 끊기는 로그인한 지 2분 안(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id 도 바뀐다. 이 기기의 쿠키를 복제한 쪽도 끊긴다)
+  const signOutLogin = recentLogin(SIGN_OUT_LOGIN_MS);
+
+  router.delete("/:id", requireAuth, signOutLogin, (req, res) => {
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const user = signedIn(req);
@@ -68,7 +72,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
   });
 
   // 지금 기기 말고 모두
-  router.post("/sign-out-others", requireAuth, requireRecentLogin, (req, res) => {
+  router.post("/sign-out-others", requireAuth, signOutLogin, (req, res) => {
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const user = signedIn(req);

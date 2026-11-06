@@ -9,6 +9,8 @@ import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
 import { canInvite } from "../invite.ts";
 import { sendProblem } from "../problem.ts";
+import { requireAuth } from "../middleware/require-auth.ts";
+import { recentLogin, RECENT_LOGIN_MS } from "../middleware/recent-login.ts";
 
 const identityRouter = express.Router();
 
@@ -21,6 +23,14 @@ identityRouter.get("/me", (req, res) => {
   const { id, username, globalName, avatar } = req.session.user;
   const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id) };
   res.json(me);
+});
+
+// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다.
+// 로그인만 본다(다른 기기 로그아웃은 누구나 한다). within: 그 조작이 받는 시간(ms). 기본보다 길게는 받지 않는다(확인일 뿐, 막는 것은 조작의 경로다)
+identityRouter.get("/me/recent-login", requireAuth, (req, res) => {
+  const asked = Number(req.query.within);
+  const within = Number.isFinite(asked) && asked > 0 ? Math.min(asked, RECENT_LOGIN_MS) : RECENT_LOGIN_MS;
+  recentLogin(within)(req, res, () => res.status(204).end());
 });
 
 // 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름, 프로필 이미지는 준비 전이면 null.

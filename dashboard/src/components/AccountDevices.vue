@@ -32,7 +32,7 @@ import { ensureRecentLogin } from "../composables/session.ts";
 import { problemText } from "../utils/problem.ts";
 import { relativeTime } from "../utils/locale.ts";
 import type { IconName } from "../icons.ts";
-import type { LoginDevice, LoginDevices, SignedOut } from "../../../src/dashboard/contract/identity.ts";
+import { SIGN_OUT_LOGIN_MS, type LoginDevice, type LoginDevices, type SignedOut } from "../../../src/dashboard/contract/identity.ts";
 import { text } from "../text/index.ts";
 const T = text.settings.devices;
 
@@ -79,9 +79,9 @@ async function load() {
   }
 }
 
-// 다른 기기 로그아웃은 서버가 최근 로그인을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화, 복원과 같다)
+// 다른 기기 로그아웃은 서버가 로그인한 지 2분 안을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화, 복원과 같다). 그 로그인이 이 기기의 세션 id 도 바꿔 이 기기의 쿠키를 복제한 쪽도 끊긴다
 async function signOut(d: LoginDevice) {
-  if (!(await ensureRecentLogin())) return;
+  if (!(await ensureRecentLogin(SIGN_OUT_LOGIN_MS))) return;
   busy.value = true;
   try {
     const { data } = await axios.delete<SignedOut>(`/api/me/devices/${d.id}`);
@@ -95,7 +95,7 @@ async function signOut(d: LoginDevice) {
 }
 
 async function askOthers() {
-  if (await ensureRecentLogin()) asking.value = true;
+  if (await ensureRecentLogin(SIGN_OUT_LOGIN_MS)) asking.value = true;
 }
 
 async function signOutOthers() {

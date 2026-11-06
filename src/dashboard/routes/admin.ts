@@ -74,11 +74,6 @@ import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import * as staySeats from "../../store/stay-seats.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 
-// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다
-adminRouter.get("/recent-login", requireOwner, requireRecentLogin, (_req, res) => {
-  res.status(204).end();
-});
-
 // 봇, Node, 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
 // 플레이어 행의 멤버 표시는 사용자의 서버 목록으로(3초마다 디스코드를 기다리지 않게 stale 목록을 쓰고 새로 받기는 뒤에서). 행을 받지 않으면 조회하지 않는다
 adminRouter.get("/status", requireOwner, async (req, res) => {

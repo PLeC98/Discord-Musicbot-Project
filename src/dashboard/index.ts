@@ -12,7 +12,7 @@ import fs from "fs";
 import { createCorsOptions } from "./cors.ts";
 import { bodyLimit } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
-import { SESSION_COOKIE } from "./cookies.ts";
+import { sessionCookieName } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
@@ -73,37 +73,45 @@ function resolveSessionSecret() {
 
 // 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
 // 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 안전망.
-function plaintextAccessWarner(host: string): RequestHandler {
+// 대시보드 주소가 https 인데 평문으로 보이면 앞의 프록시를 믿지 않는 것이다(같은 기기, 사설망이 아니다. trust proxy). 쿠키에 Secure, __Host- 가 빠진다
+function plaintextAccessWarner(host: string, url: string): RequestHandler {
   if (isLoopbackHost(host)) return (_req, _res, next) => next();
 
   let warned = false;
+  const https = /^https:/i.test(url);
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!warned && !req.secure) {
       warned = true;
-      log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
+      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞의 프록시가 같은 기기나 사설망 주소가 아니면 X-Forwarded-Proto를 믿지 않아 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시를 같은 기기나 사설망에 두세요.");
+      else log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
     }
     next();
   };
 }
 
 // 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
-// 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
-function createSessionMiddleware() {
-  return session({
-    name: SESSION_COOKIE,
-    secret: resolveSessionSecret(),
-    store: new SqliteSessionStore(),
+// 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조).
+// 쿠키 이름은 요청마다: HTTPS 면 __Host- 이름(dashboard/cookies). express-session 은 이름이 하나라 같은 저장소로 둘을 만들고 고른다.
+// 둘의 설정은 이름 말고 같아야 한다: express-session 은 만들 때마다 저장소의 새 세션 만들기(generate)를 덮어써 나중 것의 쿠키 설정이 모든 요청에 걸린다
+// store, secret 은 시험이 넘긴다(임시 DB). 없으면 로그인 세션 DB 와 설정의 비밀값
+function createSessionMiddleware({ store = new SqliteSessionStore(), secret = resolveSessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
+  const options = {
+    secret,
+    store,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
       // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
       // 그냥 http://localhost 면 빠져서 로컬 테스트가 그대로 된다.
-      secure: "auto",
-      sameSite: "lax",
+      secure: "auto" as const,
+      sameSite: "lax" as const,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     },
-  });
+  };
+  const secure = session({ ...options, name: sessionCookieName(true) });
+  const plain = session({ ...options, name: sessionCookieName(false) });
+  return (req, res, next) => (req.secure ? secure : plain)(req, res, next);
 }
 
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
@@ -129,7 +137,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 소켓의 마지막 요청을 적는다(세션이 끝나 소켓을 부술 때 keep-alive 의 다음 요청을 건드리지 않게). 정적 파일보다 앞에
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
-  app.use(plaintextAccessWarner(host));
+  app.use(plaintextAccessWarner(host, url));
   // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다.
   // 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) || ASSETS.test(req.path) }));
@@ -248,4 +256,4 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   return app;
 }
 
-export { startDashboard, createApp };
+export { startDashboard, createApp, createSessionMiddleware };

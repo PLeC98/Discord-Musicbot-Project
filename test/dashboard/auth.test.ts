@@ -20,10 +20,13 @@ import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 const { listenForFetch } = listen;
 
 const servers: Server[] = [];
+// 대시보드의 평문 세션 쿠키 이름(로그아웃이 같은 이름을 지운다)
+const SESSION = sessionCookieName(false);
 before(() => secrets._useKey(newSecretsKey()));
 after(() => {
   servers.forEach((s) => s.close());
@@ -55,7 +58,7 @@ async function start(http: ReturnType<typeof fakeDiscord>, { store, maxAge }: { 
   const app = express();
   // 믿는 프록시(시험은 같은 기기)가 HTTPS 라고 알리면 req.secure
   app.set("trust proxy", "loopback");
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: maxAge ? { maxAge } : {} }));
+  app.use(session({ name: SESSION, secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: maxAge ? { maxAge } : {} }));
   app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
@@ -179,7 +182,7 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대
 
   const res = await go(`/auth/callback?code=abc&state=${state}`);
   assert.equal(location(res), "/dashboard");
-  assert.deepEqual(jar.names(), ["connect.sid"], "세션 쿠키만 남는다");
+  assert.deepEqual(jar.names(), [SESSION], "세션 쿠키만 남는다");
 
   const [token, me, ...rest] = discord.calls;
   assert.equal(token.url, "https://discord.com/api/v10/oauth2/token");
@@ -202,9 +205,9 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대
 test("콜백: 다시 로그인하면 세션 id 를 새로 받는다(세션 고정을 막는다)", async () => {
   const { go, jar } = await start(fakeDiscord());
   await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login"))}`);
-  const before = jar.get("connect.sid");
+  const before = jar.get(SESSION);
   await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login?popup=1"))}`);
-  assert.ok(before && jar.get("connect.sid") && jar.get("connect.sid") !== before);
+  assert.ok(before && jar.get(SESSION) && jar.get(SESSION) !== before);
 });
 
 // 화면이 연 로그인 창(다시 로그인)은 끝나면 창을 닫는 화면으로. 다음 로그인이 평소 로그인이면 대시보드로

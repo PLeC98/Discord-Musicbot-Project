@@ -9,6 +9,9 @@
 import { reactive } from "vue";
 import axios from "axios";
 import { loginWait } from "../utils/login-wait.ts";
+import { problemCodeOf, replyOf } from "../utils/request.ts";
+import { notifyProblem } from "./toasts.ts";
+import { text } from "../text/index.ts";
 
 export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false, switched: false });
 
@@ -74,14 +77,16 @@ export function endReauth(signedIn: boolean): void {
 }
 
 /**
- * 최근 로그인이어야 하는 조작(초기화, 복원, 불러오기)의 확인 창을 열기 전에. 로그인한 지 오래됐으면 로그인 창을 먼저 연다(요청 한 곳의 다시 로그인 흐름).
- * 이어 가도 되면 true. 다시 로그인을 그만뒀거나 봇에 닿지 못하면 false(확인 창을 열지 않는다)
+ * 최근 로그인이어야 하는 조작(초기화, 복원, 불러오기, 다른 기기 로그아웃)의 확인 창을 열기 전에. 로그인한 지 오래됐으면 로그인 창을 먼저 연다(요청 한 곳의 다시 로그인 흐름).
+ * within: 그 조작이 받는 로그인 뒤의 시간(다른 기기 로그아웃은 짧다). 이어 가도 되면 true.
+ * 다시 로그인을 그만뒀거나 봇에 닿지 못하면 false(확인 창을 열지 않는다). 그 밖의 실패는 알린다(말없이 멈추지 않게)
  */
-export async function ensureRecentLogin(): Promise<boolean> {
+export async function ensureRecentLogin(within?: number): Promise<boolean> {
   try {
-    await axios.get("/api/admin/recent-login");
+    await axios.get("/api/me/recent-login", within ? { params: { within } } : undefined);
     return true;
-  } catch {
+  } catch (error) {
+    if (problemCodeOf(replyOf(error)) !== "reauth-required") notifyProblem(error, text.shell.checkFailed);
     return false;
   }
 }

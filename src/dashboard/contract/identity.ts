@@ -30,8 +30,13 @@ type ViewAsReply = { viewAs: Tier | null };
 
 /** 위험한 조작(비밀값 바꾸기 등)을 받는 로그인 뒤의 시간. 지나면 reauth-required(middleware/recent-login) */
 const RECENT_LOGIN_MS = 10 * 60_000;
+/**
+ * 다른 기기 로그아웃이 받는 로그인 뒤의 시간. 거의 언제나 로그인 창을 거치게 해 그 로그인이 이 기기의 세션 id 도 바꾼다(세션 고정 방어의 새 id).
+ * 그래서 이 기기의 쿠키를 복제한 쪽도 끊긴다
+ */
+const SIGN_OUT_LOGIN_MS = 2 * 60_000;
 
-export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS };
+export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS, SIGN_OUT_LOGIN_MS };
 /** 로그인한 기기가 있는 곳. private: 내부망(집, 같은 망), geo: IP 위치(모르는 필드는 null), null: 모름(위치 DB 를 껐거나 없다) */
 type DevicePlace = { kind: "private" } | { kind: "geo"; city: string | null; region: string | null; country: string | null } | null;
 /**

@@ -200,7 +200,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 지워지고, 디스코드에도 폐기를 요청한다.
   // 결과와 상관없이 이 브라우저의 쿠키를 지운다(행을 지우지 못한 채 다시 시작해도 이 브라우저는 되살아나지 않는다). 지우지 못했으면 성공으로 답하지 않는다
   router.post("/logout", (req, res) => {
-    clearSessionCookie(res);
+    clearSessionCookie(req, res);
     if (!req.session?.user) return res.status(204).end();
     try {
       const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
