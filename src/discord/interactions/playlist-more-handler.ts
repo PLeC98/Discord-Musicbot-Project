@@ -9,7 +9,7 @@ import { post } from "../../ui/frame.ts";
 import type { Notice } from "../../ui/text/notice.ts";
 import { fetchingView } from "../../ui/playlist-more-menu.ts";
 import { addFailureMessage, errorMessage } from "../../ui/error-messages.ts";
-import { checkAdd } from "../../usecases/permissions.ts";
+import { checkAdd, checkAddFirst } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { continueCollection } from "../../usecases/add-tracks.ts";
 import * as More from "../../usecases/playlist-more.ts";
@@ -111,7 +111,8 @@ async function handleMore(interaction: MoreInteraction, bot: BotContext) {
   const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
   if (clickErr) return refuse(errors.notice(clickErr));
 
-  const permErr = checkAdd(interaction.member);
+  // 맨 앞에 넣는 메뉴(/playfirst 에서 이어진 것)는 /playfirst 와 같은 검사
+  const permErr = state.insertFirst ? await checkAddFirst(interaction.member) : checkAdd(interaction.member);
   if (permErr) return refuse(errors.notice(permErr));
 
   const player = bot.players.get(interaction.guild.id);

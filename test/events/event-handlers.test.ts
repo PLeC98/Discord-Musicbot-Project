@@ -469,6 +469,22 @@ test("더 넣기: 시간이 지난 메뉴, 권한, 플레이어 없음은 거절
   assert.deepEqual(none.log, [["reply", said(errors.notice("no-song"))]]);
 });
 
+test("더 넣기: /playfirst 에서 이어진 메뉴(맨 앞에 넣기)는 /playfirst 처럼 DJ 만, 일반 메뉴는 DJ 를 보지 않는다", async () => {
+  await settings.setDjRoles("g1", ["dj"]);
+  const first = moreInteraction(world(), { select: "10", customState: state({ insertFirst: true }) });
+  await interactionCreate.execute(first.bot, first.it);
+  assert.deepEqual(first.log, [["reply", said(errors.notice("must-dj"))]]);
+
+  // DJ 역할이 있으면 거절하지 않는다(그 뒤 이어 받기로 간다)
+  const dj = moreInteraction(world({ roles: ["dj"] }), { select: "10", customState: state({ insertFirst: true }) });
+  await interactionCreate.execute(dj.bot, dj.it);
+  assert.notDeepEqual(dj.log[0], ["reply", said(errors.notice("must-dj"))]);
+
+  const plain = moreInteraction(world(), { select: "10" });
+  await interactionCreate.execute(plain.bot, plain.it);
+  assert.notDeepEqual(plain.log[0], ["reply", said(errors.notice("must-dj"))]);
+});
+
 test("더 넣기: 직접 입력은 모달을 연다. 숫자가 아니면 거절", async () => {
   const w = world();
   const custom = moreInteraction(w, { select: "custom" });

@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Events, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
+import { Events, PermissionFlagsBits, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
 import interactionCreate, { route as routeInteraction } from "../../src/discord/events/interaction-create.ts";
 import { route } from "../../src/discord/interactions/route.ts";
 import type { SlashCommand } from "../../src/app/command-loader.ts";
@@ -80,6 +80,31 @@ test("서버 밖(DM)에서는 서버 명령을 부르지 않고 그렇다고 알
   await interactionCreate.execute(bot, it);
   assert.deepEqual(seen, []);
   assert.deepEqual(sent, [["reply", noticeReply(errors.notice("guild-only"))]]);
+});
+
+test("서버 관리 계층의 명령은 서버 관리 권한을 다시 본다(연동 탭이 다른 역할에 열어 줘도). 다른 계층은 보지 않는다", async () => {
+  const seen: string[] = [];
+  const commands = {
+    setting: { help: { section: "channel", tier: "server-manager" }, execute: async () => seen.push("setting") },
+    queue: { help: { section: "queue", tier: "everyone" }, execute: async () => seen.push("queue") },
+  };
+  const run = async (name: string, manager: boolean) => {
+    const { it, sent, bot } = interaction({ name, commands });
+    Object.assign(it, { member: { permissions: { has: (p: bigint) => manager && p === PermissionFlagsBits.ManageGuild } } });
+    await interactionCreate.execute(bot, it);
+    return sent;
+  };
+  assert.deepEqual(await run("setting", false), [["reply", noticeReply(errors.notice("must-server-manager"))]]);
+  assert.deepEqual(seen, []);
+  await run("setting", true);
+  await run("queue", false);
+  assert.deepEqual(seen, ["setting", "queue"]);
+});
+
+test("서버 관리 계층으로 표시한 명령은 설정 명령 셋이다(도움말의 표시가 곧 검사)", async () => {
+  const { COMMANDS } = await import("../../src/discord/commands/index.ts");
+  const names = COMMANDS.filter((c) => c.help?.tier === "server-manager").map((c) => c.data.name);
+  assert.deepEqual(names.sort(), ["setchannel", "setplaylistlimit", "setting"]);
 });
 
 test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {

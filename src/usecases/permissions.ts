@@ -11,7 +11,8 @@ type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voic
 
 /**
  * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 단추, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 재적 규칙 면제)가 이것을 본다.
- * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 건다. 서버 소유자와 Administrator 는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
+ * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 걸고, 서버 관리자가 연동 탭에서 다른 역할에 열어 줄 수 있어 명령을 나눠 주는 곳이 다시 본다(events/interaction-create).
+ * 서버 소유자와 Administrator 는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
  */
 function isServerManager(member: GuildMember) {
   return member.permissions.has(PermissionFlagsBits.ManageGuild);
@@ -67,9 +68,14 @@ async function checkControl(member: GuildMember): Promise<PermissionDenied | nul
   return null;
 }
 
-/** 곡 추가(일반 추가): 계층 무관 전원 가능, 재적 규칙만 적용 (우선 추가는 checkControl 사용) */
+/** 곡 추가(일반 추가): 계층 무관 전원 가능, 재적 규칙만 적용 (우선 추가는 checkAddFirst) */
 function checkAdd(member: GuildMember) {
   return checkVoice(member);
+}
+
+/** 우선 추가(대기열 맨 앞): 재생 순서를 바꾸는 조작이라 DJ 계층. 봇이 유휴면 부를 수 있는지도 본다. /playfirst 와 그 더 넣기 메뉴가 같이 쓴다 */
+async function checkAddFirst(member: GuildMember): Promise<PermissionDenied | null> {
+  return (await checkControl(member)) || checkSummon(member);
 }
 
 /**
@@ -105,5 +111,5 @@ const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrac
 /** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
 const checkRemoveTrack = checkOwnTrack;
 
-export { isServerManager, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack };
+export { isServerManager, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };
