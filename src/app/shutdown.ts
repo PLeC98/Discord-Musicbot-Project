@@ -13,6 +13,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import { EXIT, type ExitCode } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { PotStop } from "../sources/youtube/pot-server.ts";
+import { finishSessions } from "../dashboard/session-store.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -174,6 +175,9 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
+
+  // 끊었지만 지우지 못한 로그인 세션을 마지막으로 다시 지운다(남으면 다시 시작한 뒤 되살아나니 그 수를 남긴다)
+  finishSessions();
 
   log.info("종료 완료");
   if (logFile) logFile.close();

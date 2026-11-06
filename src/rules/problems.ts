@@ -193,6 +193,8 @@ const WEB = {
   // 로그 파일 보기: 보관 개수를 넘어 삭제됐거나 파일 로그를 껐다
   "log-file-not-found": { status: 404, title: "Log file not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
+  // 로그인 세션을 끊었지만 저장소에서 지우지 못했다(디스크가 가득 참 등). 이 실행에서는 끊겼고 봇이 다시 지운다. 그 전에 다시 시작하면 되살아난다
+  "sign-out-unsaved": { status: 503, title: "Sign-out could not be saved" },
   // 대시보드: 파비콘(올린 이미지, 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },

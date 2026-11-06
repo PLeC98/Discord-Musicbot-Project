@@ -93,7 +93,7 @@ function device(ua: string) {
     await go(`/auth/callback?code=c&state=${state}`);
   };
   const list = async () => (await (await go("/api/me/devices")).json()) as LoginDevices;
-  return { go, login, list };
+  return { go, login, list, cookie: () => cookie };
 }
 
 test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저, OS, 기기 종류, 시각, 내부망 주소는 위치 DB 에 묻지 않는다", async () => {
@@ -209,3 +209,73 @@ for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
     assert.equal(store.sessionsOf(who).length, 1, "남은 것은 끊지 않은 기기뿐");
   });
 }
+
+// 저장소의 지우기만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
+function breakDelete() {
+  const real = store._deleteStmt;
+  store._deleteStmt = fake<typeof real>({
+    get() {
+      throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    },
+  });
+  return () => (store._deleteStmt = real);
+}
+
+type Unsaved = { code: string; signedOutCount: number; unsavedCount: number };
+
+test("다른 기기 로그아웃의 지우기가 실패하면 성공으로 답하지 않는다(503, 수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 못 지웠으면 503, DB 가 돌아오면 다시 지운다", async () => {
+  const pc = device(CHROME);
+  const phone = device(IPHONE);
+  await pc.login("unsaved1");
+  await phone.login("unsaved1");
+  const restore = breakDelete();
+  try {
+    const res = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
+    assert.equal(res.status, 503);
+    const body = (await res.json()) as Unsaved;
+    assert.deepEqual([body.code, body.signedOutCount, body.unsavedCount], ["sign-out-unsaved", 0, 1]);
+    assert.equal((await phone.go("/api/me/devices")).status, 401, "끊은 쿠키는 이 실행에서 쓸 수 없다");
+    assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as Unsaved).unsavedCount, 1, "다시 해도 지우지 못한 것을 성공으로 답하지 않는다");
+  } finally {
+    restore();
+  }
+  const again = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
+  assert.equal(again.status, 200, "DB 가 돌아오면 지운다");
+  assert.equal(store.sessionsOf("unsaved1").length, 1);
+  assert.equal(store.unsavedOf("unsaved1").length, 0);
+});
+
+test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠키는 이 실행에서 401", async () => {
+  const pc = device(CHROME);
+  await pc.login("unsaved2");
+  const before = await pc.go("/api/me/devices");
+  assert.equal(before.status, 200);
+  const restore = breakDelete();
+  let res: Response;
+  try {
+    res = await fetch(`${base}/auth/logout`, { method: "POST", headers: { cookie: (await pc.cookie()) ?? "", "user-agent": CHROME } });
+  } finally {
+    restore();
+  }
+  assert.equal(res.status, 503);
+  assert.equal(((await res.json()) as Unsaved).code, "sign-out-unsaved");
+  assert.match(res.headers.get("set-cookie") ?? "", /connect\.sid=;.*Expires=Thu, 01 Jan 1970/, "이 브라우저의 쿠키를 지운다");
+  assert.equal((await pc.go("/api/me/devices")).status, 401);
+});
+
+test("끊을 세션의 디스코드 토큰을 읽지 못해도(DB 오류) 세션은 끊는다", async () => {
+  const pc = device(CHROME);
+  const phone = device(IPHONE);
+  await pc.login("token-throws");
+  await phone.login("token-throws");
+  const real = store.readDiscordToken;
+  store.readDiscordToken = () => {
+    throw new Error("database is locked");
+  };
+  try {
+    assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as SignedOut).count, 1);
+  } finally {
+    store.readDiscordToken = real;
+  }
+  assert.equal((await phone.go("/api/me/devices")).status, 401);
+});

@@ -7,6 +7,7 @@ import path from "node:path";
 import { test, after } from "node:test";
 import type { SessionData } from "express-session";
 import Database from "better-sqlite3";
+import type { Request } from "express";
 import assert from "node:assert/strict";
 import { SqliteSessionStore, SESSION_MAX_MS } from "../../src/dashboard/session-store.ts";
 import { fake } from "../helpers/fake.ts";
@@ -260,4 +261,66 @@ test("끝 알림: 듣는 쪽이 던져도 지우기는 성공으로 끝나고 �
     failed = error ?? null;
   });
   assert.deepEqual([calls, failed, heard], [1, null, ["sid1"]]);
+});
+
+// 지우기(DELETE)만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
+function breakDelete(store: SqliteSessionStore) {
+  const real = store._deleteStmt;
+  store._deleteStmt = fake<typeof real>({
+    get() {
+      throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    },
+  });
+  return () => (store._deleteStmt = real);
+}
+
+test("지우기가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰지도 않고, 끝을 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
+  const store = makeStore("delete-fails.db");
+  const heard: string[] = [];
+  store.onEnded((sid) => heard.push(sid));
+  store.set("sid1", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  let failed: unknown = null;
+  store.destroy("sid1", (error) => (failed = error));
+  restore();
+  assert.equal((failed as { code?: string } | null)?.code, "SQLITE_FULL");
+  assert.deepEqual(heard, ["sid1"], "열린 스트림, 진행 중인 요청이 끊긴다");
+  assert.ok(rowOf(store, "sid1"), "행은 남았다");
+  assert.equal(await getAsync(store, "sid1"), null, "이 실행에서는 읽지 않는다");
+  assert.deepEqual(store.sessionsOf("u1"), [], "끊은 기기를 살아 있다고 보이지 않는다");
+  assert.deepEqual(store.unsavedOf("u1"), [], "destroy 는 사용자를 모른다");
+  assert.equal(store.isUnsaved("sid1"), true);
+});
+
+test("못 지운 행은 다시 지운다(DB 가 돌아오면). 끝(finish)에도 남으면 그 수를 알린다", () => {
+  const store = makeStore("delete-retry.db");
+  store.set("a", makeSession({ id: "u1" }));
+  store.set("b", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  assert.equal(store.end("a", "u1"), false);
+  assert.equal(store.end("b", "u1"), false);
+  assert.deepEqual(store.unsavedOf("u1").sort(), ["a", "b"]);
+  assert.equal(store.retryUnsaved(), 2, "아직 못 지움");
+  assert.equal(store.finish(), 2, "끝에도 남았다");
+  restore();
+  assert.equal(store.retryUnsaved(), 0);
+  assert.equal(rowOf(store, "a"), undefined);
+  assert.equal(rowOf(store, "b"), undefined);
+  assert.equal(store.isUnsaved("a"), false);
+  assert.equal(store.finish(), 0);
+});
+
+test("다시 로그인(regenerate)의 지우기가 실패하면 그 사용자의 못 지운 것으로 둔다. 새 세션은 만든다", async () => {
+  const store = makeStore("regen-fails.db");
+  store.set("old", makeSession({ id: "u7" }));
+  let generated = 0;
+  store.generate = () => void generated++;
+  const restore = breakDelete(store);
+  let failed: unknown = null;
+  store.regenerate(fake<Request>({ sessionID: "old", session: fake<Request["session"]>({ user: { id: "u7", username: "u7", globalName: "u7", avatar: null } }) }), (error) => (failed = error));
+  restore();
+  assert.equal(generated, 1);
+  assert.ok(failed);
+  assert.deepEqual(store.unsavedOf("u7"), ["old"]);
+  assert.equal(await getAsync(store, "old"), null);
 });

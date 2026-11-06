@@ -1,6 +1,7 @@
 import { Store, type SessionData } from "express-session";
 import type Database from "better-sqlite3";
 import type { Statement } from "better-sqlite3";
+import type { Request } from "express";
 import { DbFile } from "../store/sqlite.ts";
 import { sessionDb } from "../store/session-db.ts";
 import * as secrets from "../store/secrets.ts";
@@ -15,12 +16,16 @@ import { messageOf } from "../rules/error-kind.ts";
 // 끝난 세션을 다시 쓰지 않는다. express-session 은 요청이 끝날 때 그 요청이 읽은 세션을 저장하므로, 로그아웃, 다른 기기 로그아웃 뒤에
 // 그 세션으로 걸려 있던 요청이 끝나면 지운 행을 다시 넣는다(set 이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
 // 그 sid 는 쓰지 않으며, 만료한 행은 정리 전이어도 늘리지 않는다. 로그인한 세션은 로그인 시각에서 SESSION_MAX_MS 를 넘지 못한다(절대 수명).
-// 세션이 끝나면 듣는 쪽(onEnded)에 알린다(열린 스트림을 끊는다)
+// 세션이 끝나면 듣는 쪽(onEnded)에 알린다(열린 스트림을 끊는다).
+// 지우기가 실패해도(디스크가 가득 참 등) 닫힌 쪽으로: 묘비를 남겨 이 실행에서는 그 세션을 받지 않고, 지우지 못한 행은 다시 지운다.
+// 묘비는 메모리뿐이라 지우지 못한 채 다시 시작하면 그 로그인이 되살아난다. 그래서 실패는 부른 쪽에 넘기고(화면이 알린다) 끝(finish)에 남은 수를 남긴다
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /** 로그인한 세션의 절대 수명. 로그인 시각에서 이만큼이 지나면 쓰고 있어도 끝난다(NIST SP 800-63B-4 AAL1 30일) */
 const SESSION_MAX_MS = 30 * 24 * 60 * 60 * 1000;
+/** 지우지 못한 행을 다시 지우는 간격 */
+const RETRY_MS = 60_000;
 
 type Done = (err?: unknown) => void;
 type Ended = (sid: string) => void;
@@ -50,6 +55,11 @@ class SqliteSessionStore extends Store {
   /** 끝낸 로그인 세션의 sid → 그 절대 기한. 그때까지 쓰지 않는다 */
   _ended = new Map<string, number>();
   _listeners = new Set<Ended>();
+  /** 끝냈지만 지우지 못한 sid → 그 사용자 id(모르면 null). 다시 지운다 */
+  _unsaved = new Map<string, string | null>();
+  _retryTimer: NodeJS.Timeout | null = null;
+  /** 새 세션을 요청에 단다. express-session 이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
+  declare generate: (req: Request) => void;
 
   // dbPath 는 테스트용(임시 DB, 운영 DB 를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
   constructor({ dbPath, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
@@ -78,6 +88,7 @@ class SqliteSessionStore extends Store {
       }
     }, pruneIntervalMs);
     this._pruneTimer.unref();
+    live.add(this);
   }
 
   /** 세션이 끝나면(지움, 정리, 절대 수명) 부른다. 끄는 함수를 돌려준다 */
@@ -123,6 +134,72 @@ class SqliteSessionStore extends Store {
     if (row) this._bury(sid, row.data);
   }
 
+  // 끝낸다. 지우기가 실패해도 묘비를 남기고(지금부터 절대 수명만큼) 지우지 못한 것으로 둔다. 알림은 부르는 쪽이 콜백 뒤에
+  _endOrBury(sid: string, userId: string | null) {
+    try {
+      this._end(sid);
+      this._unsaved.delete(sid);
+    } catch (error) {
+      this._bury(sid, null);
+      this._unsaved.set(sid, userId);
+      this._armRetry();
+      log.error(`로그인 세션을 끊었지만 저장소에서 지우지 못했습니다(이 실행에서는 받지 않습니다. 다시 지웁니다): ${messageOf(error)}`);
+      throw error;
+    }
+  }
+
+  _armRetry() {
+    if (this._retryTimer) return;
+    this._retryTimer = setInterval(() => this.retryUnsaved(), RETRY_MS);
+    this._retryTimer.unref();
+  }
+
+  /** 지우지 못한 행을 다시 지운다. 남은 수 */
+  retryUnsaved() {
+    for (const sid of [...this._unsaved.keys()]) {
+      try {
+        this._deleteStmt.get(sid);
+        this._unsaved.delete(sid);
+      } catch (error) {
+        log.debug(`끊은 로그인 세션 다시 지우기 실패: ${messageOf(error)}`);
+      }
+    }
+    if (!this._unsaved.size && this._retryTimer) {
+      clearInterval(this._retryTimer);
+      this._retryTimer = null;
+    }
+    return this._unsaved.size;
+  }
+
+  /** 끊었지만 아직 지우지 못한 sid 인가 */
+  isUnsaved(sid: string) {
+    return this._unsaved.has(sid);
+  }
+
+  /** 그 사용자의, 끊었지만 아직 지우지 못한 sid 들 */
+  unsavedOf(userId: string) {
+    return [...this._unsaved].filter(([, user]) => user === userId).map(([sid]) => sid);
+  }
+
+  /** 세션 하나를 끝낸다(다른 기기 로그아웃). 지웠으면 true. 못 지웠어도 이 실행에서는 끝난 것이고 다시 지운다 */
+  end(sid: string, userId: string): boolean {
+    let ok = true;
+    try {
+      this._endOrBury(sid, userId);
+    } catch {
+      ok = false;
+    }
+    this._announce([sid]);
+    return ok;
+  }
+
+  /** 종료 차례에서: 지우지 못한 행을 마지막으로 다시 지운다. 남은 수(다시 시작하면 그 로그인들이 되살아난다) */
+  finish() {
+    const left = this.retryUnsaved();
+    if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 지우지 못한 채 종료합니다. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인한 뒤 다시 로그아웃하세요`);
+    return left;
+  }
+
   /** 저장소의 만료 시각: 쿠키 만료(없으면 폴백), 로그인한 세션이면 그 절대 기한까지 */
   _expiresAt(session: SessionData, now = Date.now()) {
     const expires = session?.cookie?.expires;
@@ -163,6 +240,7 @@ class SqliteSessionStore extends Store {
   get(sid: string, cb: (err: unknown, session?: SessionData | null) => void) {
     let found: SessionData | null = null;
     const ended: string[] = [];
+    if (this.isEnded(sid)) return cb(null, null);
     try {
       const row = this._getStmt.get(sid);
       if (row && row.expires_at > Date.now()) found = this._parse(sid, row.data, ended);
@@ -236,14 +314,28 @@ class SqliteSessionStore extends Store {
     this._announce(ended);
   }
 
-  destroy(sid: string, cb: Done = unheard("삭제")) {
+  // 실패해도 이 실행에서는 끝난 것이라 알린다(성공과 같은 차례로 콜백 다음에)
+  destroy(sid: string, cb: Done = unheard("삭제"), userId: string | null = null) {
+    let failed: unknown = null;
     try {
-      this._end(sid);
+      this._endOrBury(sid, userId);
     } catch (e) {
-      return cb(e);
+      failed = e;
     }
-    cb(null);
+    cb(failed);
     this._announce([sid]);
+  }
+
+  // express-session 의 다시 로그인(옛 sid 를 지우고 새 세션). 지우지 못한 것에 그 사용자를 남기려고 덮는다
+  override regenerate(req: Request, fn: Done) {
+    this.destroy(
+      req.sessionID,
+      (err) => {
+        this.generate(req);
+        fn(err);
+      },
+      req.session?.user?.id ?? null,
+    );
   }
 
   /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한을 넘은 것은 빼고 */
@@ -251,6 +343,7 @@ class SqliteSessionStore extends Store {
     const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
     return rows.flatMap(({ sid, data }) => {
       try {
+        if (this.isEnded(sid, now)) return [];
         const session = JSON.parse(data) as SessionData;
         const deadline = deadlineOf(session);
         return session.user?.id === userId && (deadline === null || deadline > now) ? [{ sid, session }] : [];
@@ -262,6 +355,7 @@ class SqliteSessionStore extends Store {
 
   /** 만료한 행을 지운다. 지운 수. 로그인한 세션은 묘비를 남기고 끝났음을 알린다. 지난 묘비도 버린다 */
   prune(now = Date.now()) {
+    if (this._unsaved.size) this.retryUnsaved();
     const gone = this._pruneStmt.all(now);
     for (const { sid, data } of gone) this._bury(sid, data, now);
     for (const [sid, until] of this._ended) if (until <= now) this._ended.delete(sid);
@@ -271,6 +365,8 @@ class SqliteSessionStore extends Store {
 
   close() {
     clearInterval(this._pruneTimer);
+    if (this._retryTimer) clearInterval(this._retryTimer);
+    live.delete(this);
     this._own?.close();
   }
 
@@ -293,7 +389,21 @@ class SqliteSessionStore extends Store {
 // 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
 
-export { SqliteSessionStore, SESSION_MAX_MS };
+/** 열린 저장소들(종료 차례의 finishSessions) */
+const live = new Set<SqliteSessionStore>();
+
+/** 종료 차례에서: 열린 저장소마다 지우지 못한 행을 마지막으로 다시 지운다 */
+function finishSessions() {
+  for (const store of live) {
+    try {
+      store.finish();
+    } catch (error) {
+      log.error(`로그인 세션 저장소 마무리 실패: ${messageOf(error)}`);
+    }
+  }
+}
+
+export { SqliteSessionStore, SESSION_MAX_MS, finishSessions };
 
 /** 요청의 세션 저장소가 디스코드 토큰을 다루면 그것. 아니면 null(테스트의 메모리 저장소) */
 function tokenStoreOf(req: { sessionStore?: unknown }): SqliteSessionStore | null {

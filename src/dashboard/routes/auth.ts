@@ -10,6 +10,9 @@ import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../user-guilds.ts";
 import { recordLogin } from "../login-devices.ts";
+import { clearSessionCookie } from "../session-cookie.ts";
+import { sendProblem } from "../problem.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 
 /** 여기서 읽는 필드만 */
 type TokenReply = { access_token: string; token_type: string };
@@ -141,12 +144,22 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     }
   });
 
-  // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 지워지고, 디스코드에도 폐기를 요청한다
+  // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 지워지고, 디스코드에도 폐기를 요청한다.
+  // 결과와 상관없이 이 브라우저의 쿠키를 지운다(행을 지우지 못한 채 다시 시작해도 이 브라우저는 되살아나지 않는다). 지우지 못했으면 성공으로 답하지 않는다
   router.post("/logout", (req, res) => {
-    const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
-    if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기");
+    clearSessionCookie(res);
+    if (!req.session?.user) return res.status(204).end();
+    try {
+      const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
+      if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기");
+    } catch (error) {
+      log.warn(`디스코드 토큰을 읽지 못해 폐기를 요청하지 않았습니다(로그아웃은 합니다): ${messageOf(error)}`);
+    }
     forgetGuilds(req.sessionID);
-    req.session.destroy(() => res.status(204).end());
+    req.session.destroy((error) => {
+      if (error) return sendProblem(res, "sign-out-unsaved");
+      res.status(204).end();
+    });
   });
 
   return router;

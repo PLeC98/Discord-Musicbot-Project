@@ -12,6 +12,7 @@ import fs from "fs";
 import { createCorsOptions } from "./cors.ts";
 import { bodyLimit } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
+import { SESSION_COOKIE } from "./session-cookie.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
@@ -87,6 +88,7 @@ function plaintextAccessWarner(host: string): RequestHandler {
 // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조)
 function createSessionMiddleware() {
   return session({
+    name: SESSION_COOKIE,
     secret: resolveSessionSecret(),
     store: new SqliteSessionStore(),
     resave: false,

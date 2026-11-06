@@ -26,6 +26,7 @@ const brightness = "화면 밝기";
 const settings = "설정";
 const licenses = "라이선스";
 const logout = "로그아웃";
+const logoutFailed = "로그아웃하지 못했어요.";
 const modeDark = "어둡게";
 const modeLight = "밝게";
 const modeSystem = "시스템";
@@ -79,6 +80,7 @@ export {
   settings,
   licenses,
   logout,
+  logoutFailed,
   modeDark,
   modeLight,
   modeSystem,

@@ -66,6 +66,9 @@ import { segmentShape } from "../utils/segment.ts";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import axios from "axios";
+import { problemCodeOf, replyOf, statusOf } from "../utils/request.ts";
+import { notifyProblem } from "../composables/toasts.ts";
+import { loginFailed } from "../../../src/dashboard/contract/identity.ts";
 import Icon from "./BaseIcon.vue";
 import SettingsDialog from "./SettingsDialog.vue";
 import LicenseDialog from "./LicenseDialog.vue";
@@ -122,14 +125,17 @@ function openLicense() {
   licenseOpen.value = true;
 }
 
+// 로그아웃했거나 세션이 이미 끝났으면(401) 로그인 화면으로 간다(세션 끝 대화상자를 열지 않는다). 로그아웃은 됐지만 저장하지 못했으면
+// 그 까닭을 로그인 화면에 싣고 간다(이 탭은 이미 끊겼다). 봇에 닿지 못했으면 남아서 다시 할 수 있게 알린다
 async function logout() {
   open.value = false;
   try {
-    // 세션이 이미 끝났어도 로그인 화면으로 간다. 세션 끝 대화상자를 열지 않는다
     await axios.post("/auth/logout", undefined, { quietSession: true });
-  } finally {
-    window.location.assign("/");
+  } catch (error) {
+    if (problemCodeOf(replyOf(error)) === "sign-out-unsaved") return window.location.assign(loginFailed("sign_out_unsaved"));
+    if (statusOf(error) !== 401) return notifyProblem(error, T.logoutFailed);
   }
+  window.location.assign("/");
 }
 
 // 창 크기가 바뀌면 좌표가 어긋난다. 다시 계산하는 대신 닫는다.
