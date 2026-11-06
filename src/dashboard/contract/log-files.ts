@@ -10,6 +10,8 @@ const FILE_PAGE_LINES = 300;
 const FILE_PAGE_MAX = 500;
 /** 시각으로 갔을 때 그 줄 뒤로 함께 받는 줄 수(그 줄이 페이지의 맨 끝에 붙지 않게) */
 const AT_AFTER_LINES = 50;
+/** 검색어의 상한(글자 수). 넘으면 앞부분만 쓴다(자음 검색어가 길면 찾는 시간이 그만큼 는다) */
+const LOG_SEARCH_MAX = 200;
 
 /** 로그 파일 하나. 줄이 없으면 firstAt, lastAt 은 0 */
 type LogFile = {
@@ -48,5 +50,5 @@ function matchesLog(line: Pick<WireFields, "level" | "text" | "category" | "sub"
   return !q || [line.text, line.category ?? "", line.sub ?? "", ...(line.tags ?? [])].some((one) => koMatch(one, q));
 }
 
-export { FILE_PAGE_LINES, FILE_PAGE_MAX, AT_AFTER_LINES, matchesLog };
+export { FILE_PAGE_LINES, FILE_PAGE_MAX, AT_AFTER_LINES, LOG_SEARCH_MAX, matchesLog };
 export type { LogFile, LogFileList, FileLine, FilePage, LogFilter };

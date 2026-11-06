@@ -13,7 +13,7 @@ import { isEnded } from "../session-requests.ts";
 import { sendProblem } from "../problem.ts";
 import { filteredLines, formatLogLine, listLogFiles, readLogPage, resolveLogFile } from "../log-file-reader.ts";
 import { isLevel } from "../../infra/log/levels.ts";
-import { FILE_PAGE_LINES, FILE_PAGE_MAX, type FileLine, type FilePage, type LogFileList, type LogFilter } from "../contract/log-files.ts";
+import { FILE_PAGE_LINES, FILE_PAGE_MAX, LOG_SEARCH_MAX, type FileLine, type FilePage, type LogFileList, type LogFilter } from "../contract/log-files.ts";
 const log = logger.child({ category: "dashboard" });
 
 const logFilesRouter = express.Router();
@@ -31,7 +31,7 @@ function filterOf(req: Request): LogFilter {
     ...(typeof levels === "string" ? { levels: new Set(levels.split(",").filter(isLevel)) } : {}),
     category: textOf(req.query.category),
     tag: textOf(req.query.tag),
-    q: textOf(req.query.q),
+    q: textOf(req.query.q).slice(0, LOG_SEARCH_MAX),
   };
 }
 
