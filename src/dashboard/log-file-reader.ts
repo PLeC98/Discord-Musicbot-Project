@@ -296,8 +296,11 @@ function countMatches(fd: number, size: number, filter: LogFilter): number {
   return n;
 }
 
-/** 필터에 맞는 줄들을 앞에서부터(다운로드) */
-function* filteredLines(target: { path: string }, filter: LogFilter): Generator<FileLine> {
+/** 다운로드가 null 을 내는 간격(바이트) */
+const PAUSE_BYTES = 1024 * 1024;
+
+/** 필터에 맞는 줄들을 앞에서부터(다운로드). 맞는 줄이 드물어도 받는 쪽이 이벤트 루프를 놓아 줄 수 있게 훑는 중에 null 을 낸다 */
+function* filteredLines(target: { path: string }, filter: LogFilter): Generator<FileLine | null> {
   let fd: number;
   try {
     fd = fs.openSync(target.path, "r");
@@ -307,7 +310,12 @@ function* filteredLines(target: { path: string }, filter: LogFilter): Generator<
   }
   try {
     const size = fs.fstatSync(fd).size;
+    let paused = 0;
     for (const raw of forward(fd, 0, size)) {
+      if (raw.offset - paused >= PAUSE_BYTES) {
+        paused = raw.offset;
+        yield null;
+      }
       const line = parse(raw);
       if (line && matchesLog(line, filter)) yield line;
     }

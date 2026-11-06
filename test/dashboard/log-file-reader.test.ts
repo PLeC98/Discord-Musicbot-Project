@@ -145,7 +145,7 @@ test("보던 지금 파일이 떼어졌으면 첫 줄의 시각(since)으로 떼
 test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보는 사람의 시간대", () => {
   const { file } = writeLog(10);
   const target = resolveLogFile(file, "bot.log")!;
-  const lines = [...filteredLines(target, { category: "youtube" })];
+  const lines = [...filteredLines(target, { category: "youtube" })].filter((line) => line !== null);
   assert.equal(lines.length, 2);
   const kst = formatLogLine(lines[1], -540);
   assert.match(kst, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} INFO {2}youtube\/client #retry 줄 5 재생 시작$/);
