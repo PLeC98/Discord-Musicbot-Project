@@ -258,22 +258,26 @@ function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) =
   return { ok: true, matches: (row) => inColumns(row) && inAny(row), regexes };
 }
 
-// 다른 조건에 맞은 행 가운데 정규식에도 맞는 것. 시간 상한을 넘기면 null
-async function withRegexes(rows: AnyRow[], regexes: Array<{ column: string; source: string }>): Promise<AnyRow[] | null> {
+// 다른 조건에 맞은 행 가운데 정규식에도 맞는 것. 시간 상한을 넘기면 "timeout", 부른 쪽이 버렸으면 "aborted"
+async function withRegexes(rows: AnyRow[], regexes: Array<{ column: string; source: string }>, signal?: AbortSignal): Promise<AnyRow[] | "timeout" | "aborted"> {
   if (!regexes.length || !rows.length) return rows;
   const valueOf = (row: AnyRow, column: string) => {
     const raw = rawOf(row, column);
     return raw === null ? null : String(raw);
   };
-  const hits = await matchRegexes(
+  const result = await matchRegexes(
     regexes.map((one) => one.source),
     rows.map((row) => regexes.map((one) => valueOf(row, one.column))),
+    { signal },
   );
-  return hits && hits.map((i) => rows[i]);
+  return result.kind === "hits" ? result.hits.map((i) => rows[i]) : result.kind;
 }
 
-/** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다) */
-async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCachePage } | Refusal> {
+type Read = { ok: true; page: TrackCachePage } | Refusal;
+/** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다). signal: 부른 쪽이 기다리다 버리면(연결이 닫힘) 정규식을 맞추지 않고 null */
+async function read(query: TrackCacheQuery): Promise<Read>;
+async function read(query: TrackCacheQuery, options: { signal: AbortSignal }): Promise<Read | null>;
+async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal } = {}): Promise<Read | null> {
   const { table, offset, limit } = query;
   const matcher = matcherOf(query);
   if (!matcher.ok) return matcher;
@@ -289,12 +293,13 @@ async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCach
   }
   let matched;
   try {
-    matched = await withRegexes(plain, matcher.regexes);
+    matched = await withRegexes(plain, matcher.regexes, signal);
   } catch (error) {
     log.warn(`캐시 DB 의 정규식 필터를 맞추지 못했습니다: ${messageOf(error)}`);
     return refusal("filter-failed");
   }
-  if (!matched) return refusal("filter-timeout");
+  if (matched === "aborted") return null;
+  if (matched === "timeout") return refusal("filter-timeout");
   const key = KEY_OF[table];
   matched.sort((a, b) => {
     for (const { column, dir } of query.sort) {

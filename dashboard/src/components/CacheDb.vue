@@ -167,6 +167,7 @@ import NoticeBox from "./NoticeBox.vue";
 import SingleSelect from "./SingleSelect.vue";
 import SearchInput from "./SearchInput.vue";
 import { useSaveTarget } from "../composables/save-targets.ts";
+import { createLoadGenerations } from "../composables/load-generations.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { noticeText } from "../utils/problem.ts";
 import { replyOf } from "../utils/request.ts";
@@ -272,8 +273,8 @@ const problems = reactive<Record<string, string>>({});
 const scroller = ref<HTMLElement | null>(null);
 const scrollTop = ref(0);
 const viewHeight = ref(512);
-let generation = 0;
-const pendingBlocks = new Set<number>();
+// 다시 읽을 때마다 새 세대. 앞 세대의 요청은 끊고, 늦게 끝난 앞 세대가 새 세대의 행, 받는 중 표시를 건드리지 않는다
+const gens = createLoadGenerations();
 
 const hasFilters = computed(() => Object.values(filters[table.value]).some(Boolean) || Boolean(q.value.trim()));
 const queryOf = (offset: number, limit: number) => ({ table: table.value, filters: filters[table.value], q: q.value.trim(), sort: sort.value, offset, limit }) as TrackCacheQuery;
@@ -291,39 +292,43 @@ function checkFilters(): boolean {
   return Object.keys(problems).length === 0;
 }
 
-async function loadBlock(block: number, gen = generation) {
-  if (pendingBlocks.has(block)) return;
-  pendingBlocks.add(block);
+async function loadBlock(block: number, gen = gens.id) {
+  if (!gens.isCurrent(gen)) return;
+  const ticket = gens.claim(block);
+  if (!ticket) return;
   try {
-    const { data } = await axios.get<TrackCachePage>(`${API}?${trackCacheSearch(queryOf(block * BLOCK, BLOCK))}`);
-    if (gen !== generation) return;
+    const { data } = await axios.get<TrackCachePage>(`${API}?${trackCacheSearch(queryOf(block * BLOCK, BLOCK))}`, { signal: ticket.signal });
+    if (!gens.isCurrent(ticket.id)) return;
     data.rows.forEach((row, i) => rows.set(data.offset + i, row));
     matched.value = data.matched;
     total.value = data.total;
     loadedRevision.value = data.revision;
     checkRevision.value = data.checkRevision;
   } catch (e) {
-    if (gen === generation) notifyProblem(e, T.loadFailed);
+    if (gens.isCurrent(ticket.id)) notifyProblem(e, T.loadFailed);
   } finally {
-    pendingBlocks.delete(block);
+    ticket.done();
   }
 }
 /** 아직 불러오지 않은 청크를 모두 불러온다(모든 행 선택) */
 async function loadAll() {
-  const gen = generation;
-  for (let b = 0; b * BLOCK < matched.value && gen === generation; b++) if (!rows.has(b * BLOCK)) await loadBlock(b, gen);
+  const gen = gens.id;
+  for (let b = 0; b * BLOCK < matched.value && gens.isCurrent(gen); b++) if (!rows.has(b * BLOCK)) await loadBlock(b, gen);
 }
 
 /** 처음부터 다시 읽는다(테이블, 필터, 정렬이 바뀌었거나 새로고침) */
 async function reload() {
   if (!checkFilters()) return;
-  generation++;
+  const gen = gens.begin();
   rows.clear();
-  pendingBlocks.clear();
   rowSel.clear();
   botChanged.value = false;
+  // 새 세대의 블록이 올 때까지 바뀜 확인을 쉰다(옛 번호와 견주면 막 끈 알약을 다시 켠다)
+  loadedRevision.value = 0;
   loading.value = true;
-  await loadBlock(Math.floor(scrollTop.value / ROW_H / BLOCK));
+  await loadBlock(Math.floor(scrollTop.value / ROW_H / BLOCK), gen);
+  // 그사이 또 다시 읽었으면 뒷일은 그 세대가 한다
+  if (!gens.isCurrent(gen)) return;
   loading.value = false;
   ensureVisible();
 }
@@ -1092,10 +1097,12 @@ async function probe(keys: string[]) {
 }
 let checkTimer = 0;
 // 확인 번호가 바뀌었으면 보이는 행의 확인 결과, 원본만 다시 불러온다(다시 읽지 않아 선택, 바꾼 것이 남는다)
-async function refreshChecks(latest: number) {
+async function refreshChecks(latest: number, gen = gens.id) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
   const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
+  // 기다리는 사이 다시 읽었으면 그 행들의 결과가 아니다
+  if (!gens.isCurrent(gen)) return;
   for (const row of rows.values()) {
     if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
     if (table.value === "files" && got.sources[(row as TrackFileRow).audioKey]) (row as TrackFileRow).source = got.sources[(row as TrackFileRow).audioKey];
@@ -1105,8 +1112,9 @@ async function refreshChecks(latest: number) {
 function pollChecks() {
   clearTimeout(checkTimer);
   checkTimer = window.setTimeout(async () => {
+    const gen = gens.id;
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
-    await refreshChecks(data.checkRevision);
+    await refreshChecks(data.checkRevision, gen);
     checking.value = data.checking;
     if (data.checking.length) pollChecks();
   }, PROBE_POLL_MS);
@@ -1117,10 +1125,13 @@ function pollChecks() {
 /** 봇이 이 테이블들을 바꿨는지 번호만 본다. 바뀌었으면 "새 변경 사항이 있어요" 알약(선택해 둔 것, 바꾼 것을 지키려고 저절로 다시 읽지 않는다). 확인 결과는 셀만 갱신한다 */
 async function checkChanged() {
   if (!loadedRevision.value) return;
+  const gen = gens.id;
   try {
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
+    // 나간 뒤 다시 읽었으면 그 번호는 낡았다
+    if (!gens.isCurrent(gen) || !loadedRevision.value) return;
     if (data.revision !== loadedRevision.value) botChanged.value = true;
-    if (!checking.value.length) await refreshChecks(data.checkRevision);
+    if (!checking.value.length) await refreshChecks(data.checkRevision, gen);
   } catch {
     // 다음 주기에 다시 조회한다
   }

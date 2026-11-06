@@ -7,5 +7,5 @@ import { matchRegexes } from "../../src/dashboard/regex-filter.ts";
 test("스레드가 실패를 돌려주면 그 맞추기만 실패하고, 함께 기다리던 것은 이어 맞춘다", async () => {
   const [broken, next] = await Promise.allSettled([matchRegexes(["("], [["x"]]), matchRegexes(["^a"], [["abc"], ["b"], [null]])]);
   assert.equal(broken.status, "rejected");
-  assert.deepEqual(next, { status: "fulfilled", value: [0] });
+  assert.deepEqual(next, { status: "fulfilled", value: { kind: "hits", hits: [0] } });
 });

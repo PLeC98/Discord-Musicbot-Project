@@ -1,7 +1,7 @@
 // src/rules/track-cache-filter.ts: 캐시 DB 의 필터 식(DB Browser for SQLite 문법)을 읽고 비교한다
 import test from "node:test";
 import assert from "node:assert";
-import { FILTER_MAX, REGEX_MAX, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";
+import { FILTER_MAX, REGEX_MAX, foldCase, matchFilter, matchWords, parseFilter, parseWords, readValue, type ColumnKind } from "../../src/rules/track-cache-filter.ts";
 
 // 식을 읽어 값들 중 맞는 것만
 function pick(kind: ColumnKind, expr: string, values: Array<string | number | null>) {
@@ -119,5 +119,30 @@ test("% 식은 % 를 .* 로 바꾼 정규식(i 플래그)과 같은 것에 맞�
       values.filter((value) => regex.test(value)),
       expr,
     );
+  }
+});
+
+// 낱글자마다의 접기(뜻의 기준): 대문자로 하되 여러 글자가 되거나 ASCII 밖에서 ASCII 로 가면 그대로
+const unitFold = (text: string) =>
+  text
+    .split("")
+    .map((unit) => {
+      const upper = unit.toUpperCase();
+      return upper.length !== 1 || (unit.charCodeAt(0) >= 128 && upper.charCodeAt(0) < 128) ? unit : upper;
+    })
+    .join("");
+
+test("대소문자 접기: 구간을 통째로 대문자로 해도 낱글자마다 한 것과 같다(BMP 의 모든 낱단위, 이모지, ß, 결합 문자, 그리스 문자가 섞인 글)", () => {
+  for (let code = 0; code < 0x10000; code++) {
+    const unit = String.fromCharCode(code);
+    assert.equal(foldCase(unit), unitFold(unit), code.toString(16));
+  }
+  const pieces = ["a", "Z", "ß", "ı", "ſ", "İ", "ŉ", "ǰ", "ΐ", "ﬀ", "Σ", "ς", "σ", "\u0345", "\u0301", "가", "ㄱ", "😀", "\uD83D", "\uDE00", " ", "\n", "Straße", "ΣΑΣ"];
+  let seed = 7;
+  const next = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+  for (let i = 0; i < 20000; i++) {
+    let text = "";
+    for (let k = next() % 12; k > 0; k--) text += pieces[next() % pieces.length];
+    assert.equal(foldCase(text), unitFold(text), JSON.stringify(text));
   }
 });

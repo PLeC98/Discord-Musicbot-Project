@@ -332,6 +332,21 @@ test("정규식 필터: 다른 조건과 함께 맞는 행만. 끝나지 않는 
   );
 });
 
+test("정규식 필터: 화면이 버린 요청(연결이 닫힘)은 줄에서 빼고 맞추지 않는다(답하지 않는다). 뒤의 것은 그만큼 일찍 돈다", async () => {
+  ledger(yt("aaaaaaaaaa8"), yt("aaaaaaaaaa8"), "youtube", `${"word ".repeat(10)}word!`);
+  const done: string[] = [];
+  const dropped = new AbortController();
+  const slow = trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } })).then((r) => (done.push("slow"), r));
+  const abandoned = trackCache.read(query("requests", { filters: { title: "/^둘$/" } }), { signal: dropped.signal }).then((r) => (done.push("abandoned"), r));
+  const fast = trackCache.read(query("requests", { filters: { title: "/^하나$/" } })).then((r) => (done.push("fast"), r));
+  dropped.abort();
+  const [s, a, f] = await Promise.all([slow, abandoned, fast]);
+  assert.equal(a, null, "버린 것은 결과가 없다");
+  assert.deepEqual([s?.ok, s && !s.ok && s.code], [false, "filter-timeout"]);
+  assert.deepEqual(f?.ok && f.page.rows.map((row) => (row as { title: string }).title), ["하나"]);
+  assert.equal(done[0], "abandoned", "느린 것을 기다리지 않고 곧바로 빠진다");
+});
+
 test("정규식 필터: 함께 들어온 맞추기는 하나씩 돌고, 상한은 저마다 시작한 때부터. 느린 하나가 기다리던 것까지 시간 초과로 만들지 않는다", async () => {
   ledger(yt("aaaaaaaaaa7"), yt("aaaaaaaaaa7"), "youtube", `${"word ".repeat(10)}word!`);
   const [slow, fast] = await Promise.all([trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } })), trackCache.read(query("requests", { filters: { title: "/^하나$/" } }))]);

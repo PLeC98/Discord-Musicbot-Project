@@ -26,7 +26,13 @@ const searchOf = (req: Request) => new URL(req.originalUrl, "http://localhost").
 trackCacheRouter.get("/", async (req, res) => {
   const query = trackCache.queryOf(searchOf(req));
   if (!query.ok) return refuse(res, query);
-  const read = await trackCache.read(query.query);
+  // 화면이 이 요청을 버리면(다시 읽기, 식 고침) 정규식 줄에서 뺀다. 응답을 다 보낸 뒤의 close 는 무시한다
+  const cancel = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) cancel.abort();
+  });
+  const read = await trackCache.read(query.query, { signal: cancel.signal });
+  if (!read) return; // 버렸다(닫힌 연결에 답하지 않는다)
   if (!read.ok) return refuse(res, read);
   res.json(read.page satisfies TrackCachePage);
 });

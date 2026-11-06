@@ -8,7 +8,9 @@ import { Worker } from "worker_threads";
 /** 맞추기 한 번의 상한 */
 const MATCH_TIMEOUT_MS = 1000;
 
-type Job = { id: number; sources: string[]; rows: Array<Array<string | null>>; timeoutMs: number; resolve: (hits: number[] | null) => void; reject: (error: Error) => void };
+/** 맞추기의 결과. hits: 맞은 행의 번호, timeout: 상한을 넘겼다, aborted: 부른 쪽이 기다리다 버렸다(돌기 전에 줄에서 뺐다). 스레드가 실패하면 거절(reject) */
+type MatchResult = { kind: "hits"; hits: number[] } | { kind: "timeout" } | { kind: "aborted" };
+type Job = { id: number; sources: string[]; rows: Array<Array<string | null>>; timeoutMs: number; resolve: (result: MatchResult) => void; reject: (error: Error) => void };
 let thread: Worker | null = null;
 const queue: Job[] = [];
 let running: { job: Job; timer: NodeJS.Timeout } | null = null;
@@ -19,7 +21,7 @@ function spawn() {
   one.on("message", ({ id, hits, error }: { id: number; hits?: number[]; error?: string }) => {
     if (thread !== one || running?.job.id !== id) return;
     const { job } = finish();
-    if (hits) job.resolve(hits);
+    if (hits) job.resolve({ kind: "hits", hits });
     else job.reject(new Error(error || "정규식을 맞추지 못했습니다"));
     next();
   });
@@ -55,20 +57,33 @@ function stop(one: Worker, error: Error | null) {
   if (running) {
     const { job } = finish();
     if (error) job.reject(error);
-    else job.resolve(null);
+    else job.resolve({ kind: "timeout" });
   }
   next();
 }
 
 /**
  * 행마다 sources 차례의 값(rows)이 모든 정규식(대소문자 무시)에 맞는 행의 번호. 빈 값은 맞지 않는다.
- * 상한을 넘기면 null(시간 초과)
+ * signal 이 끊으면 줄에서 기다리던 것은 빼고 aborted 로 끝낸다(화면이 버린 요청이 뒤의 것을 붙잡지 않게). 돌기 시작한 것은 상한 안에 끝나니 그대로 둔다
  */
-function matchRegexes(sources: string[], rows: Array<Array<string | null>>, { timeoutMs = MATCH_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<number[] | null> {
+function matchRegexes(sources: string[], rows: Array<Array<string | null>>, { timeoutMs = MATCH_TIMEOUT_MS, signal }: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<MatchResult> {
+  if (signal?.aborted) return Promise.resolve({ kind: "aborted" });
   return new Promise((resolve, reject) => {
-    queue.push({ id: ++lastId, sources, rows, timeoutMs, resolve, reject });
+    const job: Job = { id: ++lastId, sources, rows, timeoutMs, resolve, reject };
+    queue.push(job);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        const at = queue.indexOf(job);
+        if (at < 0) return;
+        queue.splice(at, 1);
+        resolve({ kind: "aborted" });
+      },
+      { once: true },
+    );
     next();
   });
 }
 
 export { matchRegexes, MATCH_TIMEOUT_MS };
+export type { MatchResult };

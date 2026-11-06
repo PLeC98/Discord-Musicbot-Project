@@ -110,17 +110,16 @@ function sameAs(filter: Extract<Filter, { kind: "equals" | "not-equals" }>, valu
   return filter.until === undefined ? n === filter.value : n >= filter.value && n <= filter.until;
 }
 
+// 낱글자 접기가 그대로 두는 것: 대문자로 하면 여러 글자가 되거나 ASCII 밖에서 ASCII 로 가는 BMP 낱단위(104개, 시험이 BMP 전체로 다시 만들어 견준다)와 서로게이트
+const FOLDABLE = /[^\u00DF\u0131\u0149\u017F\u01F0\u0390\u03B0\u0587\u1E96-\u1E9A\u1F50\u1F52\u1F54\u1F56\u1F80-\u1FAF\u1FB2-\u1FB4\u1FB6\u1FB7\u1FBC\u1FC2-\u1FC4\u1FC6\u1FC7\u1FCC\u1FD2\u1FD3\u1FD6\u1FD7\u1FE2-\u1FE4\u1FE6\u1FE7\u1FF2-\u1FF4\u1FF6\u1FF7\u1FFC\uFB00-\uFB06\uFB13-\uFB17\uD800-\uDFFF]+/g;
+
 /**
  * 정규식의 i 플래그(u 없음)와 같은 대소문자 접기. 글자(UTF-16 단위)마다 대문자로 바꾸되, 여러 글자가 되거나 ASCII 밖에서 ASCII 로 바뀌면 그대로 둔다.
- * 길이가 바뀌지 않는다. toLowerCase 는 낱말 끝의 Σ 를 ς 로 바꾸는 것처럼 앞뒤를 보아 정규식과 달라진다
+ * 길이가 바뀌지 않는다. toLowerCase 는 낱말 끝의 Σ 를 ς 로 바꾸는 것처럼 앞뒤를 보아 정규식과 달라진다.
+ * 그대로 둘 것 사이의 구간은 통째로 대문자로 한다(기본 대문자화는 앞뒤를 보지 않아 낱글자마다 한 것과 같고, 글자마다 하면 큰 캐시에서 필터 예산을 넘는다)
  */
 function foldCase(text: string) {
-  let out = "";
-  for (const unit of text.split("")) {
-    const upper = unit.toUpperCase();
-    out += upper.length !== 1 || (unit.charCodeAt(0) >= 128 && upper.charCodeAt(0) < 128) ? unit : upper;
-  }
-  return out;
+  return text.replace(FOLDABLE, (run) => run.toUpperCase());
 }
 
 const LINE_BREAK = /[\n\r\u2028\u2029]/;
@@ -169,5 +168,5 @@ const matchWords = (words: string[], values: Array<string | number | null>) => {
   return words.every((word) => texts.some((text) => koMatch(text, word)));
 };
 
-export { FILTER_MAX, REGEX_MAX, parseFilter, matchFilter, parseWords, matchWords, readValue };
+export { FILTER_MAX, REGEX_MAX, parseFilter, matchFilter, parseWords, matchWords, readValue, foldCase };
 export type { ColumnKind, Filter, Parsed, Words };
