@@ -5,6 +5,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import { createHash } from "node:crypto";
 import session from "express-session";
 import type { Server } from "node:http";
 import { createAuthRouter } from "../../src/dashboard/routes/auth.ts";
@@ -104,6 +105,8 @@ test("로그인: 세션을 만들지 않고 state 를 잠근 쿠키에 둔 뒤 �
   assert.match(to.searchParams.get("redirect_uri") ?? "", /\/auth\/callback$/);
   const state = to.searchParams.get("state") ?? "";
   assert.match(state, /^[A-Za-z0-9_-]{43}$/, "32바이트");
+  assert.match(to.searchParams.get("code_challenge") ?? "", /^[A-Za-z0-9_-]{43}$/, "PKCE");
+  assert.equal(to.searchParams.get("code_challenge_method"), "S256");
   assert.deepEqual(
     jar.names().filter((name) => !name.startsWith("musicbot-login-")),
     [],
@@ -168,7 +171,9 @@ test("콜백: 쓴 state 는 다시 받지 않는다(지우기를 따르지 않�
 test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대시보드로 보낸다(서버 목록은 받지 않는다). 로그인 쿠키는 지운다", async () => {
   const discord = fakeDiscord();
   const { go, jar } = await start(discord);
-  const state = stateOf(await go("/auth/login"));
+  const login = await go("/auth/login");
+  const state = stateOf(login);
+  const challenge = new URL(location(login)).searchParams.get("code_challenge");
 
   const res = await go(`/auth/callback?code=abc&state=${state}`);
   assert.equal(location(res), "/dashboard");
@@ -176,6 +181,13 @@ test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대
 
   const [token, me, ...rest] = discord.calls;
   assert.equal(token.url, "https://discord.com/api/v10/oauth2/token");
+  assert.equal(
+    createHash("sha256")
+      .update(token.body?.code_verifier ?? "")
+      .digest("base64url"),
+    challenge,
+    "PKCE: 인가 때의 challenge 와 짝인 verifier",
+  );
   assert.equal(token.body?.code, "abc");
   assert.equal(token.body?.grant_type, "authorization_code");
   assert.equal(me.auth, "Bearer tok");

@@ -47,9 +47,9 @@ function revokeToken(http: DiscordHttp, token: string) {
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
-// OAuth 로그인 요청(state, 팝업 여부, 만든 때)은 세션이 아니라 쿠키 하나에 잠가 둔다(Grafana 의 oauth_state, Auth.js 의 state 쿠키와 같다).
+// OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 만든 때)은 세션이 아니라 쿠키 하나에 잠가 둔다(Grafana 의 oauth_state, Auth.js 의 state 쿠키와 같다).
 // 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 다시 로그인이 쓴 state 를 같은 때의 다른 요청이 옛 사본으로 저장해 지운다
-type LoginRequest = { state: string; popup: boolean; at: number };
+type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
 const LOGIN_PURPOSE = "oauth-login";
 // 잠근 값을 이 대시보드에 묶는다(다른 봇의 쿠키로 바꿔 넣어도 열리지 않는다)
 const loginBound = () => `${config.discord.clientId}|${config.dashboard.url}`;
@@ -65,7 +65,7 @@ function openLogin(value: string | null): LoginRequest | null {
   if (!json) return null;
   try {
     const login = JSON.parse(json) as Partial<LoginRequest>;
-    return typeof login.state === "string" && typeof login.popup === "boolean" && typeof login.at === "number" ? (login as LoginRequest) : null;
+    return typeof login.state === "string" && typeof login.verifier === "string" && typeof login.popup === "boolean" && typeof login.at === "number" ? (login as LoginRequest) : null;
   } catch {
     return null;
   }
@@ -126,15 +126,19 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   }
 
   // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다. 세션은 건드리지 않는다
+  // PKCE(RFC 7636, S256): 가로챈 인가 코드는 이 브라우저의 verifier 없이 토큰으로 바꾸지 못한다. RFC 9700 2.1.1 은 confidential client 에도 권한다
   router.get("/login", (req, res) => {
     const state = crypto.randomBytes(32).toString("base64url");
-    setLoginCookie(req, res, sealLogin({ state, popup: req.query.popup === "1", at: Date.now() }));
+    const verifier = crypto.randomBytes(32).toString("base64url");
+    setLoginCookie(req, res, sealLogin({ state, verifier, popup: req.query.popup === "1", at: Date.now() }));
     const params = new URLSearchParams({
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       response_type: "code",
       scope: "identify guilds",
       state,
+      code_challenge: crypto.createHash("sha256").update(verifier).digest("base64url"),
+      code_challenge_method: "S256",
     });
     res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
   });
@@ -163,6 +167,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
           grant_type: "authorization_code",
           code,
           redirect_uri: REDIRECT_URI,
+          code_verifier: login.verifier,
         }),
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
       );
