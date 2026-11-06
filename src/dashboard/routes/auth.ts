@@ -10,6 +10,7 @@ import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../user-guilds.ts";
 import { recordLogin } from "../login-devices.ts";
+import { release } from "../session-requests.ts";
 import { LOGIN_COOKIE_MS, clearSessionCookie, setLoginCookie, takeLoginCookie } from "../cookies.ts";
 import * as secrets from "../../store/secrets.ts";
 import { sendProblem } from "../problem.ts";
@@ -85,6 +86,8 @@ const USED_MAX = 10_000;
 // 떼지 않으면 응답이 끝날 때 express-session 이 사용자를 담은 세션을 저장하고 쿠키를 실어, 실패로 돌려보내도 로그인이 된다
 async function signIn(req: express.Request, user: SessionUser, token: string) {
   const step = (run: (done: (err?: unknown) => void) => void) => new Promise<void>((ok, fail) => run((err) => (err ? fail(err) : ok())));
+  // 이 요청이 옛 세션을 끝낸다(다시 로그인). 그 끝 알림에 이 요청이 멈추지 않게
+  release(req);
   try {
     await step((done) => req.session.regenerate(done));
     req.session.user = user;
@@ -206,6 +209,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       log.warn(`디스코드 토큰을 읽지 못해 폐기를 요청하지 않았습니다(로그아웃은 합니다): ${messageOf(error)}`);
     }
     forgetGuilds(req.sessionID);
+    release(req);
     req.session.destroy((error) => {
       if (error) return sendProblem(res, "sign-out-unsaved");
       res.status(204).end();

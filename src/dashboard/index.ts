@@ -13,6 +13,7 @@ import { createCorsOptions } from "./cors.ts";
 import { bodyLimit } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
 import { SESSION_COOKIE } from "./cookies.ts";
+import * as sessionRequests from "./session-requests.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
@@ -124,6 +125,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
+  // 소켓의 마지막 요청을 적는다(세션이 끝나 소켓을 부술 때 keep-alive 의 다음 요청을 건드리지 않게). 정적 파일보다 앞에
+  app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host));
   // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다.
@@ -155,6 +158,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(sessionMiddleware);
   // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
   app.use(noteDevice);
+  // 로그인한 요청을 그 세션에 묶는다(세션이 끝나면 진행 중인 요청을 멈춘다, 끝난 세션과 로그인하지 않은 세션은 저장하지 않는다)
+  app.use(sessionRequests.bind);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 

@@ -20,6 +20,7 @@ import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 const { listenForFetch } = listen;
 
 const servers: Server[] = [];
@@ -55,6 +56,7 @@ async function start(http: ReturnType<typeof fakeDiscord>, { store, maxAge }: { 
   // 믿는 프록시(시험은 같은 기기)가 HTTPS 라고 알리면 req.secure
   app.set("trust proxy", "loopback");
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: maxAge ? { maxAge } : {} }));
+  app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
   // 위험한 조작 경로, 로그인한 지 오래된 것처럼 만들기(테스트만)

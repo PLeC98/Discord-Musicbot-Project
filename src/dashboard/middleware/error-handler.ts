@@ -4,6 +4,7 @@ import logger from "../../infra/log/logger.ts";
 import { PROBLEMS, type Code } from "../../rules/problems.ts";
 import { noticeFor } from "../../ui/text/ko/errors.ts";
 import { sendProblem } from "../problem.ts";
+import { SessionEndedError, isEnded, sessionEnded } from "../session-requests.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택, 내부 경로, 의존성 버전이 실리지 않게 한다.
@@ -60,6 +61,12 @@ function notFoundJson(req: Request, res: Response, next: NextFunction) {
 }
 
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
+  // 진행 중에 세션이 끝나 멈췄다(바꾸는 자리 앞의 확인, 봇이 끊은 업로드의 본문 받기 실패). 사용자 때문이고 그 사용자만, 봇에 영향 없음
+  if (err instanceof SessionEndedError || isEnded(req)) {
+    log.debug(`${req.method} ${req.originalUrl} → 401 세션이 진행 중에 끝남`);
+    if (!sessionEnded(res, err) && !res.headersSent) sendProblem(res, "login-required");
+    return;
+  }
   const errorId = crypto.randomBytes(4).toString("hex");
   const code = classify(err);
   const { status } = PROBLEMS[code];

@@ -21,6 +21,7 @@ import type { LoginDevices, SignedOut } from "../../src/dashboard/contract/ident
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 
 const CHROME = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -56,6 +57,7 @@ before(async () => {
   app.use(express.json());
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
   app.use(noteDevice);
+  app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http }));
   app.use("/api/me/devices", createLoginDevicesRouter({ places: { load: async () => true, locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "대한민국" }) }, http }));
   // 세션을 바꾼 채 풀어 줄 때까지 걸려 있는 요청(훔친 쿠키로 걸어 둔 요청)

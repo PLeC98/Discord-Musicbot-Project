@@ -9,6 +9,7 @@ import type { SessionData } from "express-session";
 import { fake } from "./fake.ts";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { _resetUserGuilds } from "../../src/dashboard/user-guilds.ts";
+import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
@@ -35,12 +36,12 @@ function userGuildsFixture() {
     store.set(sid, fake<SessionData>({ cookie: { expires: new Date(Date.now() + 60_000).toISOString() }, user: { id: userId }, loginAt: Date.now() }));
     if (token) store.saveDiscordToken(sid, `tok-${userId}`);
   };
-  /** 요청에 그 사용자의 세션, 세션 저장소를 붙인다 */
-  const middleware = (user: () => { id: string } | null) => (req: Request, _res: Response, next: NextFunction) => {
+  /** 요청에 그 사용자의 세션, 세션 저장소를 붙이고 그 세션에 묶는다(대시보드의 세션 미들웨어 뒤와 같다) */
+  const middleware = (user: () => { id: string } | null) => (req: Request, res: Response, next: NextFunction) => {
     const u = user();
     // save: 진짜 세션처럼 있다(스트림이 묶기 전에 부른다). 이 가짜는 저장할 것이 없다
     Object.assign(req, { session: fake<Request["session"]>({ user: u, loginAt: Date.now(), save: (done?: () => void) => done?.() }), sessionID: `sid-${u?.id ?? "none"}`, sessionStore: store });
-    next();
+    sessionRequests.bind(req, res, next);
   };
   const reset = () => {
     _resetUserGuilds();

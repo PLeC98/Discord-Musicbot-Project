@@ -1,4 +1,4 @@
-// src/dashboard/session-streams.ts: 스트림(SSE)을 연 로그인 세션에 묶고 세션이 끝나면 끊는다.
+// src/dashboard/session-requests.ts: 스트림(SSE)을 연 로그인 세션에 묶고 세션이 끝나면 끊는다(스트림 밖의 요청은 session-requests-inflight).
 // 훔친 쿠키를 쥔 쪽의 자리에서 본다: 열어 둔 스트림, 읽지 않는 연결, 세션을 바꾼 채 연 스트림. 진짜 express-session, 저장소, 소켓으로
 
 import { test, before, after, afterEach } from "node:test";
@@ -13,13 +13,13 @@ import session from "express-session";
 import type { Server } from "node:http";
 import { SqliteSessionStore, SESSION_MAX_MS } from "../../src/dashboard/session-store.ts";
 import { noteDevice, openRecord } from "../../src/dashboard/login-devices.ts";
-import * as sessionStreams from "../../src/dashboard/session-streams.ts";
+import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0.0.0 Safari/537.36";
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-streams-"));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-requests-"));
 let store: SqliteSessionStore;
 let server: Server;
 let base: string;
@@ -33,6 +33,7 @@ before(async () => {
   const app = express();
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(noteDevice);
+  app.use(sessionRequests.bind);
   // 로그인(시험): 사용자와 로그인 시각을 세션에 둔다
   app.post("/login", (req, res) => {
     req.session.user = { id: String(req.query.u), username: String(req.query.u), globalName: String(req.query.u), avatar: null };
@@ -49,13 +50,13 @@ before(async () => {
       const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(req.sessionID) as string;
       store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify({ ...JSON.parse(row), csrfToken: "다른 요청의 것" }), req.sessionID);
     }
-    if (!req.session?.user || !sessionStreams.admit(req)) return res.status(401).end();
+    if (!req.session?.user || !sessionRequests.admit(req)) return res.status(401).end();
     // plain: Connection: close 없이(소켓 부수기만 시험한다. 그 머리가 있으면 이 PC 에서는 끝내기만으로도 닫힌다)
     res.writeHead(200, req.query.plain ? { "Content-Type": "text/event-stream" } : { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
     res.write(": open\n\n");
     opened.push({ res, socket: req.socket });
-    sessionStreams.track(req, res, "시험 스트림", () => dropped++);
+    sessionRequests.track(req, res, "시험 스트림", () => dropped++);
   });
   server = await listen.listenForFetch(app);
   // 끝낸 연결이 keep-alive 시간으로 닫히지 않게(소켓 부수기가 빠지면 기다리다 실패한다)
@@ -63,7 +64,7 @@ before(async () => {
   base = listen.baseUrl(server);
 });
 after(() => {
-  sessionStreams._reset();
+  sessionRequests._reset();
   server.closeAllConnections();
   server.close();
   store.close();
@@ -71,7 +72,7 @@ after(() => {
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 afterEach(() => {
-  sessionStreams._reset();
+  sessionRequests._reset();
   opened.length = 0;
   dropped = 0;
 });
@@ -151,7 +152,7 @@ test("알림 없는 끝(날 SQL 로 지움)은 다시 보기가 끊는다. 세�
   const stream = await openStream(thief, { "user-agent": `${UA} Changed` });
   const sid = thief.sid();
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(sid);
-  sessionStreams.recheck();
+  sessionRequests.recheck();
   await within(stream.ended);
   await settle(50);
   assert.equal(rowOf(sid), undefined, "되살아나지 않는다");
@@ -254,11 +255,11 @@ test("저장소를 읽다 실패하면 한두 번은 두고, 세 번 잇달아�
     throw new Error("database is locked");
   };
   try {
-    sessionStreams.recheck();
-    sessionStreams.recheck();
+    sessionRequests.recheck();
+    sessionRequests.recheck();
     await settle(30);
     assert.doesNotMatch(stream.text(), /session-ended/, "두 번은 둔다");
-    sessionStreams.recheck();
+    sessionRequests.recheck();
     await within(stream.ended);
     assert.match(stream.text(), /session-ended/);
   } finally {
@@ -275,7 +276,7 @@ test("로그인 30일이 지나면 저장소가 망가져 있어도 끊는다(�
     throw new Error("database is locked");
   };
   try {
-    sessionStreams.recheck(Date.now() + 120_000);
+    sessionRequests.recheck(Date.now() + 120_000);
     await within(stream.ended);
     assert.match(stream.text(), /session-ended/);
   } finally {
@@ -294,7 +295,7 @@ test("클라이언트가 끊으면 묶음에서 빠진다(다시 보기가 끝�
     stream.abort();
     await within(stream.ended);
     await settle(50);
-    sessionStreams.recheck();
+    sessionRequests.recheck();
     assert.equal(reads, 0);
   } finally {
     store.liveSession = real;

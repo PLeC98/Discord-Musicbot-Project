@@ -7,7 +7,7 @@ import { sendProblem } from "../problem.ts";
 import { memberOf, seesGuild } from "../guild-access.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import type { DiscordHttp } from "../discord-api.ts";
-import * as sessionStreams from "../session-streams.ts";
+import * as sessionRequests from "../session-requests.ts";
 
 // 대시보드발 상태 변경(비-GET 성공) → 그 서버를 볼 수 있는 SSE 구독자에게 넛지.
 // req.params 는 라우터를 빠져나오면 되돌아가므로, 요청 주소(originalUrl)에서 서버 ID 를 미리 추출해 finish 에서 쓴다.
@@ -49,10 +49,10 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
       const checked = ids ? await Promise.all(all.filter((guild) => ids.has(guild.id)).map(async (guild) => ((await memberOf(guild, user.id)) ? guild.id : null))) : all.filter((guild) => seesGuild(guild, user.id)).map((guild) => guild.id);
       const canSee = (guildId: string) => seesGuild(client.guilds.cache.get(guildId), user.id);
       // 기다리는 사이 세션이 끝났으면 열지 않는다(끝 알림은 연 스트림만 받는다). 확인, 열기, 묶기 사이에는 기다리지 않는다
-      if (!sessionStreams.admit(req)) return sendProblem(res, "login-required");
+      if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
       if (!stream.open(res, slot, canSee, new Set(checked.filter((id) => id !== null)))) return;
       handed = true;
-      sessionStreams.track(req, res, "재생 상태", () => stream.drop(res));
+      sessionRequests.track(req, res, "재생 상태", () => stream.drop(res));
     } finally {
       if (!handed) slot.release();
     }

@@ -8,6 +8,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { ranBy } from "../ran-by.ts";
 import { sendProblem } from "../problem.ts";
 import { saveBody } from "../body-to-file.ts";
+import { isEnded } from "../session-requests.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
 import { josa } from "../../rules/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
@@ -103,8 +104,8 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   if (!saved.ok) {
     store.removeFolder(id);
     if (saved.why === "no-space") return saved.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "background-no-space", { size: saved.room });
-    // 올리던 사람이 끊었다
-    if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
+    // 올리던 사람이 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 때문, 봇 영향 없음)
+    if (saved.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }

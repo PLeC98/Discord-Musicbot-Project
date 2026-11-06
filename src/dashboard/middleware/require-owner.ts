@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { isRealOwner } from "../owner.ts";
 import { sendProblem } from "../problem.ts";
+import { assertSignedIn } from "../session-requests.ts";
 
 // 봇 운영자(OWNER_ID) 전용 게이트. 디스코드 서버 쪽 권한과는 무관하다.
 // 그쪽은 permissions.ts의 isServerManager가 다룬다.
@@ -8,6 +9,7 @@ import { sendProblem } from "../problem.ts";
 // 여기까지 낮추면 운영자가 스스로를 잠근다.
 function requireOwner<P>(req: Request<P>, res: Response, next: NextFunction) {
   if (!req.session?.user) return sendProblem(res, "login-required");
+  assertSignedIn(req as Request);
   if (!isRealOwner(req)) return sendProblem(res, "must-owner");
   next();
 }

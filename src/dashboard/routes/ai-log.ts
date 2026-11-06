@@ -12,7 +12,7 @@ import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import * as requests from "../../store/ai-requests.ts";
 import * as aiLogStream from "../ai-log-stream.ts";
-import * as sessionStreams from "../session-streams.ts";
+import * as sessionRequests from "../session-requests.ts";
 import { dayKey, firstDay, usageReport } from "../../rules/ai-usage.ts";
 import { AI_LOG_PAGE, AI_USAGE_PERIODS, isAiLogSource, type AiLogEntry, type AiLogPage, type AiLogQuery, type AiLogStorage, type AiUsagePeriod, type AiUsageReport } from "../contract/ai-log.ts";
 
@@ -52,9 +52,9 @@ function intOf(raw: unknown): number | null {
 aiLogRouter.get("/logs/stream", requireOwner, (req, res) => {
   const after = intOf(req.get("Last-Event-ID") ?? req.query.after) ?? 0;
   // 열자마자 놓친 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
-  if (!sessionStreams.admit(req)) return sendProblem(res, "login-required");
+  if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
   if (!aiLogStream.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionStreams.track(req, res, "AI 리퀘스트 로그", () => aiLogStream.drop(res));
+  sessionRequests.track(req, res, "AI 리퀘스트 로그", () => aiLogStream.drop(res));
 });
 
 aiLogRouter.get("/logs", requireOwner, (req, res) => {

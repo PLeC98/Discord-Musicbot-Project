@@ -16,6 +16,7 @@ import * as uploads from "../archive-uploads.ts";
 import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
+import { isEnded } from "../session-requests.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -82,8 +83,8 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   if (!got.ok) {
     if (got.why === "no-space") return got.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "disk-full", { size: got.room });
     if (got.why === "empty") return sendProblem(res, "nothing-to-save");
-    // 올리던 사람이 끊었다
-    if (got.why === "aborted") log.warn({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);
+    // 올리던 사람이 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 때문, 봇 영향 없음)
+    if (got.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
