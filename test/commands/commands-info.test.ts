@@ -373,6 +373,13 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP
   assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
 });
 
+// ── /ping ─────────────────────────────────────────────────────────────
+
+test("/ping: 누구나(응답 시간만 부른 사람에게 보인다). 기본 권한을 걸지 않는다", async () => {
+  const json = (await command("ping")).data.toJSON();
+  assert.equal(json.default_member_permissions ?? null, null);
+});
+
 // ── 설정 명령 ─────────────────────────────────────────────────────────
 
 test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 채널을 안 주면 지금 채널", async () => {
