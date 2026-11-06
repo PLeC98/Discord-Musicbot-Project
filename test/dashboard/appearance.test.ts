@@ -186,3 +186,15 @@ test("운영자만", async () => {
   assert.deepEqual(await codeOf(await put(32, await square(32))), [403, "must-owner"]);
   assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, { url: "https://example.com/a.png" })), [403, "must-owner"]);
 });
+
+test("그림을 검사하고 바꾼 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 쓰지 않는다", async () => {
+  const png = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 200, g: 0, b: 0, alpha: 1 } } })
+    .png()
+    .toBuffer();
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  await assert.rejects(store.addFavicon(32, png, ended), /세션이 끝났다/);
+  assert.equal(store.faviconCount(), 0);
+  assert.deepEqual(fs.existsSync(DIR) ? fs.readdirSync(DIR).filter((name) => name.endsWith(".png")) : [], []);
+});

@@ -264,6 +264,8 @@ test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠
   assert.equal(((await res.json()) as Unsaved).code, "sign-out-unsaved");
   assert.match(res.headers.get("set-cookie") ?? "", new RegExp(`${sessionCookieName(false)}=;.*Expires=Thu, 01 Jan 1970`), "이 브라우저의 쿠키를 지운다");
   assert.equal((await pc.go("/api/me/devices")).status, 401);
+  assert.equal(store.unsavedOf("unsaved2").length, 1, "그 사용자의 못 지운 것으로 둔다(다른 기기 로그아웃이 다시 지운다)");
+  store.retryUnsaved();
 });
 
 test("끊을 세션의 디스코드 토큰을 읽지 못해도(DB 오류) 세션은 끊는다", async () => {

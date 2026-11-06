@@ -210,10 +210,14 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     }
     forgetGuilds(req.sessionID);
     release(req);
-    req.session.destroy((error) => {
-      if (error) return sendProblem(res, "sign-out-unsaved");
-      res.status(204).end();
-    });
+    const done = (error?: unknown) => (error ? sendProblem(res, "sign-out-unsaved") : res.status(204).end());
+    const store = tokenStoreOf(req);
+    if (!store) return req.session.destroy(done);
+    // 저장소에 사용자를 넘긴다(지우지 못하면 그 사용자의 다른 기기 로그아웃이 다시 지운다). express-session 의 destroy 와 같게 요청에서 세션을 뗀다
+    const { sessionID: sid } = req;
+    const userId = req.session.user.id;
+    (req as { session: unknown }).session = null;
+    store.destroy(sid, done, userId);
   });
 
   return router;

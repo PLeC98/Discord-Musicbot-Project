@@ -142,7 +142,8 @@ type Continued = { added: number; skipped: number; total: number | null; remaini
 type CollectionResult = { success: false; code: string; skipped?: number } | (PlaybackResult & Continued);
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
+/** 담을 곡과 담는 방식. go: 서버별 줄을 선 뒤, 담기 앞의 확인(대시보드: 세션이 끝남). 던지면 담지 않는다 */
+type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean; go?: () => void };
 /**
  * 넣은 것. count 는 넣은 곡 수(쉬던 플레이어에 곧바로 튼 곡도 센다), position 은 넣은 첫 곡의 대기열 순번(1부터, 곧바로 틀었으면 null),
  * collection 은 여러 곡의 출처 종류(한 곡이면 null), total 은 출처 전체 곡 수(일부만 불러왔을 때), skipped 는 받을 수 없어 뺀 곡 수, first 는 넣은 첫 곡
@@ -175,15 +176,16 @@ async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<Playba
   if (isRefused(checked)) return { success: false, ...checked };
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다(곧 되살아날 세션을 새 플레이어가 지우지 않게). 복원한 플레이어에 넣는다
   await waitForRestore(guild.id);
+  const textChannel = await textChannelFor(bot, request);
   request.go?.();
-  const player = await playerFor(bot, request);
+  const player = ensurePlayer(bot, { guild, textChannel, voiceChannel: request.voiceChannel ?? null });
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
   if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
 
   const trackData = trimmed(checked, request.single);
   withKnownLengths(trackData.tracks);
-  const toAdd: TrackData = { ...trackData, ...placement(request) };
+  const toAdd: TrackData = { ...trackData, ...placement(request), go: request.go };
 
   const result = await defaultAdder(bot, guild.id, toAdd, who, responder);
   logOutcome(result, player);
@@ -200,13 +202,10 @@ function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
   return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
-// 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
-async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
-  let resolvedTextChannel = textChannel;
-  if (!resolvedTextChannel && !bot.players.get(guild.id)?.textChannel) {
-    resolvedTextChannel = await resolveFallbackTextChannel(guild);
-  }
-  return ensurePlayer(bot, { guild, textChannel: resolvedTextChannel, voiceChannel });
+// 서버의 플레이어에 줄 텍스트 채널. 요청에도 플레이어에도 없으면 전용 채널을 쓴다
+async function textChannelFor(bot: Bot, { guild, textChannel = null }: PlaybackRequest) {
+  if (textChannel || bot.players.get(guild.id)?.textChannel) return textChannel;
+  return resolveFallbackTextChannel(guild);
 }
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 그 까닭
@@ -425,7 +424,11 @@ const adding = keyedSerial();
 
 /** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
 function queueTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
-  return adding.run(guildId, () => processTracks(bot, guildId, trackData, requester, responder));
+  return adding.run(guildId, () => {
+    // 줄을 서는 사이 그만뒀으면 담지 않는다
+    trackData.go?.();
+    return processTracks(bot, guildId, trackData, requester, responder);
+  });
 }
 
 async function processTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {

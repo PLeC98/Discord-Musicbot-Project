@@ -36,12 +36,14 @@ after(() => {
 // 가짜 디스코드. 부른 것을 적고, 정한 답을 준다
 type Call = { method: string; url: string; body?: Record<string, string>; auth?: string };
 
-function fakeDiscord({ fail = null as Error | null } = {}) {
+// hold: 토큰 교환을 풀어 줄 때까지 멈춘다(디스코드를 기다리는 사이)
+function fakeDiscord({ fail = null as Error | null, hold = null as Promise<void> | null } = {}) {
   const calls: Call[] = [];
   return {
     calls,
     async post(url: string, body: URLSearchParams) {
       calls.push({ method: "post", url, body: Object.fromEntries(body) });
+      if (hold && url.endsWith("/oauth2/token")) await hold;
       if (fail) throw fail;
       return { data: { access_token: "tok", token_type: "Bearer" } };
     },
@@ -329,4 +331,27 @@ test("콜백: 세션을 저장하지 못하면 로그인 실패로 돌려보내�
     assert.deepEqual(jar.names(), [], "세션 쿠키가 없다");
     assert.deepEqual(store.db.prepare("SELECT sid FROM sessions").all(), []);
     assert.equal(await (await go("/me")).json(), null);
+  }));
+
+test("팝업 다시 로그인: 디스코드를 기다리는 사이 다른 기기에서 옛 세션을 끊어도 새 로그인의 쿠키는 나간다", () =>
+  withStore(async (store) => {
+    let release: () => void = () => {};
+    const hold = new Promise<void>((done) => (release = done));
+    const discord = fakeDiscord();
+    const { go, jar } = await start(discord, { store });
+    await go(`/auth/callback?code=abc&state=${stateOf(await go("/auth/login"))}`);
+    const old = jar.get(SESSION);
+    const state = stateOf(await go("/auth/login?popup=1"));
+    const held = fakeDiscord({ hold });
+    discord.post = held.post;
+    const answer = go(`/auth/callback?code=abc&state=${state}`);
+    await new Promise((done) => setTimeout(done, 50));
+    const oldSid = decodeURIComponent(old ?? "")
+      .replace(/^s:/, "")
+      .split(".")[0];
+    store.destroy(oldSid);
+    release();
+    assert.equal(location(await answer), "/login-done");
+    assert.ok(jar.get(SESSION) && jar.get(SESSION) !== old, "새 세션 쿠키");
+    assert.deepEqual(await (await go("/me")).json(), { id: "u1", username: "user", globalName: "user", avatar: "av" });
   }));

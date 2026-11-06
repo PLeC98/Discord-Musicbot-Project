@@ -69,3 +69,25 @@ test("확인이 던지면(닿지 못함) 세션 끝으로 둔다(닫힌 쪽)", a
   await s.wait.abandoned();
   assert.equal(s.ended(), 1);
 });
+
+test("창이 끝난 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있던 긴 요청)은 확인해 살아 있으면 세션 끝으로 돌리지 않는다. 그 뒤는 곧바로", async () => {
+  const s = setup(true);
+  s.wait.opened();
+  await s.wait.signedIn();
+  s.wait.sessionEnded();
+  s.wait.sessionEnded();
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual([s.checks(), s.ended()], [1, 0], "겹치면 확인은 하나");
+  s.advance(120_000);
+  s.wait.sessionEnded();
+  assert.equal(s.ended(), 1);
+});
+
+test("창이 끝난 뒤 늦게 온 401 이라도 확인에서 살아 있지 않으면 세션 끝", async () => {
+  const s = setup(false);
+  s.wait.opened();
+  await s.wait.abandoned();
+  s.wait.sessionEnded();
+  await new Promise((done) => setImmediate(done));
+  assert.equal(s.ended(), 1);
+});

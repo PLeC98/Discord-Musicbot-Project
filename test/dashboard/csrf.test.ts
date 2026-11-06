@@ -98,3 +98,15 @@ test("allows unsafe methods with the session CSRF token", () => {
   );
   assert.equal(called, true);
 });
+
+test("로그인하지 않은(끝난) 세션의 로그아웃은 토큰 없이 지나간다(지킬 것이 없고 이 브라우저의 쿠키만 지운다). 로그인한 세션의 로그아웃은 토큰이 있어야 한다", () => {
+  let passed = 0;
+  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, get: () => undefined }), response(), () => passed++);
+  assert.equal(passed, 1);
+  const res = response();
+  requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: { user: { id: "u1" }, csrfToken: "t" }, get: () => undefined }), res, () => passed++);
+  assert.equal(passed, 1);
+  assert.equal(res.sentBody?.code, "bad-csrf-token");
+  requireCsrfToken(request({ method: "POST", path: "/api/x", session: {}, get: () => undefined }), response(), () => passed++);
+  assert.equal(passed, 1, "다른 경로는 그대로 막는다");
+});

@@ -107,9 +107,8 @@ appearanceRouter.put("/favicon/:size", express.raw({ type: "image/*", limit: APP
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
   if (!Buffer.isBuffer(req.body) || !req.body.length) return sendProblem(res, "bad-image");
-  // 본문을 받는 사이 세션이 끝났으면 쓰지 않는다
-  assertSignedIn(req);
-  return changing(req, res, [`${size}px 에 그림을 올렸습니다`, `${size}px 그림 올리기`], () => store.addFavicon(size, req.body as Buffer));
+  // 본문을 받고 그림을 바꾸는 사이 세션이 끝났으면 쓰지 않는다
+  return changing(req, res, [`${size}px 에 그림을 올렸습니다`, `${size}px 그림 올리기`], () => store.addFavicon(size, req.body as Buffer, () => assertSignedIn(req)));
 });
 
 appearanceRouter.put("/favicon/:size/current", (req, res) => {

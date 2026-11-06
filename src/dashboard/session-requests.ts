@@ -15,6 +15,7 @@ import { forgetGuilds } from "./user-guilds.ts";
 import { problemBody } from "./contract/problem.ts";
 import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 알림 없는 끝을 다시 보는 간격 */
@@ -59,6 +60,8 @@ const sidsOf = new WeakMap<Socket, Set<string>>();
 const heard = new WeakSet<SqliteSessionStore>();
 let timer: NodeJS.Timeout | null = null;
 let failures = 0;
+// 다시 보기의 저장소 읽기 실패. 같은 까닭이 이어지면 한 번만, 풀리면 한 줄
+const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "진행 중인 요청의 로그인 세션 확인");
 
 /** 모든 요청의 맨 앞(정적 파일보다 앞): 소켓의 마지막 요청을 적는다 */
 function noteSocket(req: Request, _res: Response, next: NextFunction) {
@@ -121,7 +124,8 @@ function wrap(req: Request, res: Response) {
   let replacing = false;
   const detach = () => {
     const session = req.session as Request["session"] | null | undefined;
-    if (session && (ended.has(req) || !session.user)) (req as { session: unknown }).session = null;
+    // 스스로 세션을 끝낸 요청(다시 로그인)은 새로 만든 세션을 지킨다
+    if (session && ((ended.has(req) && !released.has(req)) || !session.user)) (req as { session: unknown }).session = null;
   };
   // 끝난 GET 이 흘려 보내기로 머리를 쓰려 한다(sendFile, 파이프): 바꿀 수 없으니 부순다
   res.writeHead = function (this: Response, ...args: unknown[]) {
@@ -225,7 +229,12 @@ function onEnded(sid: string) {
     live.add(entry.req);
     stop(entry, "세션이 끝남");
   }
-  // 이미 끝난 답(한 번에 쓰고 끝낸 큰 답)의 바이트가 남은 소켓: 그 소켓의 마지막 요청이 이 세션의 것이면 부순다
+  sweepSockets(sid, live);
+}
+
+// 응답이 닫혀 묶음에서 빠진 뒤에도 바이트가 남은 소켓(한 번에 쓰고 끝낸 큰 답): 그 소켓의 마지막 요청이 이 세션의 것이면 부순다.
+// live: 묶음에 남아 stop 이 다룬 요청(스트림의 1초 유예, 401 로 답할 요청을 건드리지 않게)
+function sweepSockets(sid: string, live: Set<Request>) {
   for (const socket of [...(socketsOf.get(sid) ?? [])]) {
     const last = lastOf.get(socket);
     if (!last || live.has(last) || released.has(last) || entryOf.get(last)?.sid !== sid) continue;
@@ -233,17 +242,17 @@ function onEnded(sid: string) {
   }
 }
 
-// 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 흘려 보내는 답과 받는 중인 본문은 소켓을 부수고, 나머지는 표시만(감싸기와 확인이 멈춘다)
+// 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 머리를 보냈는데 다 나가지 않은 답(end 를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 부순다.
+// 나머지는 표시만 한다(감싸기와 확인이 멈춘다)
 function stop(entry: Entry, why: string) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
-  if (receiving(req) || (res.headersSent && !res.writableEnded)) {
-    if (entries.get(res) === entry) entries.delete(res);
-    if (!entries.size) disarm();
-    entry.socket.destroy();
-    log.debug(`세션이 끝나 진행 중인 요청을 끊었습니다(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
-  }
+  if (!receiving(req) && !(res.headersSent && !res.writableFinished)) return;
+  if (entries.get(res) === entry) entries.delete(res);
+  if (!entries.size) disarm();
+  entry.socket.destroy();
+  log.debug(`세션이 끝나 진행 중인 요청을 끊었습니다(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
 }
 
 // 본문을 아직 받는 중인가(큰 업로드). 본문 없는 요청은 핸들러가 동기로 도는 동안 complete 가 아직 거짓이라 본문이 있는지부터 본다
@@ -297,14 +306,17 @@ function recheck(now = Date.now()) {
       unchecked.push(...alive);
       continue;
     }
-    for (const entry of alive) if (session?.user?.id !== entry.userId) stop(entry, "세션이 끝남");
+    const gone = alive.filter((entry) => session?.user?.id !== entry.userId);
+    for (const entry of gone) stop(entry, "세션이 끝남");
+    if (gone.length) sweepSockets(sid, new Set(gone.map((entry) => entry.req)));
   }
   if (!firstError) {
     failures = 0;
+    readFailure.ok();
     return;
   }
   failures++;
-  log.warn(`진행 중인 요청의 로그인 세션을 확인하지 못했습니다(${failures}/${FAILURES_TO_CLOSE}): ${messageOf(firstError)}`);
+  readFailure.fail(messageOf(firstError));
   if (failures < FAILURES_TO_CLOSE) return;
   for (const entry of unchecked) stop(entry, "세션을 확인하지 못함");
   failures = 0;

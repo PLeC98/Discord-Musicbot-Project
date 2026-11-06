@@ -41,6 +41,7 @@ function newGate() {
 // 조작이 실제로 일어난 수, 서버 쪽 소켓
 let effects = 0;
 let lastSocket: Socket | null = null;
+let lastRes: express.Response | null = null;
 
 before(async () => {
   secrets._useKey(newSecretsKey());
@@ -78,6 +79,12 @@ before(async () => {
       res.status(500).json({ code: "change-failed" });
     }
   });
+  // 걸어 둔 조작이 풀린 뒤 봇 버그로 던진다
+  app.post("/hold-throw", requireAuth, async () => {
+    gate.enter();
+    await gate.opened;
+    throw new Error("봇 버그");
+  });
   // 흘려 보내는 내려받기(끊길 때까지)
   app.get("/download", requireAuth, (req, res) => {
     lastSocket = req.socket;
@@ -89,6 +96,7 @@ before(async () => {
   // 한 번에 쓰고 끝낸 큰 답(로그 파일 내려받기의 모양)
   app.get("/bulk", requireAuth, (req, res) => {
     lastSocket = req.socket;
+    lastRes = res;
     res.type("text/plain");
     for (let i = 0; i < 64; i++) res.write("x".repeat(256 * 1024));
     res.end();
@@ -206,6 +214,16 @@ test("걸어 둔 조작은 세션이 끝난 뒤 바꾸지 않고 401(경로의 c
   assert.deepEqual(res.headers.getSetCookie(), []);
 });
 
+test("끝난 요청에서 난 봇 버그는 세션 끝으로 숨기지 않는다(오류 처리기가 그대로 500)", async () => {
+  newGate();
+  const thief = await signedIn("throw");
+  const pending = thief.go("/hold-throw", { method: "POST" });
+  await gate.entered;
+  revoke(thief);
+  gate.open();
+  assert.equal((await pending).status, 500);
+});
+
 test("끊기 전에 바꾼 조작은 그대로 답한다", async () => {
   newGate();
   const owner = await signedIn("change-ok");
@@ -240,6 +258,9 @@ test("한 번에 쓰고 끝낸 큰 답이 읽지 않는 클라이언트의 소�
   await settle(50);
   const socket = lastSocket!;
   assert.equal(socket.destroyed, false);
+  // 이 PC(Windows 루프백)에서는 커널이 다 받아 응답이 끝나고 닫혀(writableFinished) 소켓 쓸기가 부순다. 끝냈지만 다 나가지 않은 응답(writableEnded 이고
+  // writableFinished 아님)은 여기서 만들 수 없어, 그때 소켓을 부수는 가지(stop)는 이 시험이 가르지 못한다
+  assert.equal(lastRes!.writableEnded, true);
   revoke(thief);
   assert.equal(await untilDestroyed(socket), true, "응답은 끝났지만 바이트가 남은 소켓");
   raw.destroy();

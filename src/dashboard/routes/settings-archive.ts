@@ -54,10 +54,12 @@ settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
 
 // 다운로드(티켓은 한 번만). 만드는 대로 스트리밍한다(로그인 배경은 수백 MB)
 settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
-  const ticket = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
+  const found = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
+  // 낸 세션만 받는다(다른 세션이 연 것으로는 티켓을 쓰지 않는다)
+  const ticket = found?.sid === req.sessionID ? found : undefined;
   if (ticket) tickets.delete(req.params.ticket);
   // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
-  if (!ticket || ticket.until < Date.now() || ticket.sid !== req.sessionID) return sendProblem(res, "route-not-found");
+  if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
   const { kind, withFiles } = ticket;
   const { inputs, release } = archive.build(kind, { withFiles });
   // 다 보냈거나 받던 쪽이 끊었을 때 담을 파일의 지킴을 푼다

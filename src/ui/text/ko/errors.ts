@@ -163,7 +163,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
   "account-changed": () => warning("permission", "다른 계정으로 로그인했어요!", "다른 창에서 다른 계정으로 로그인해서, 이 화면으로는 더 조작할 수 없어요. 새로고침하면 지금 계정으로 열려요."),
   // 화면이 새 토큰으로 한 번 다시 보내므로 사람에게는 그 뒤에도 거절됐을 때만 보인다
-  "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 10분 안에만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
+  "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 얼마 안 됐을 때만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
   "bad-csrf-token": (_, look) => warning("stale", "요청을 확인하지 못했어요!", `보안 토큰이 맞지 않아 요청을 받지 않았어요. ${stalePage(look)}`),
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
@@ -221,7 +221,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "log-file-not-found": () => warning("notFound", "없는 로그 파일이에요!", "보관 개수를 넘어 삭제됐거나 파일 로그를 껐어요. 페이지를 새로고침해 파일 목록을 다시 받아 주세요."),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  "sign-out-unsaved": () => error("failed", "로그아웃을 저장하지 못했어요!", "지금은 로그아웃됐지만 저장소에 남기지 못했어요. 봇을 다시 시작하면 로그인이 되살아날 수 있으니, 봇 운영자에게 저장 공간을 확인해 달라고 한 뒤 다시 로그아웃해 주세요."),
+  "sign-out-unsaved": () => error("failed", "로그인 기록을 지우지 못했어요!", "지금 실행 중인 봇에서는 로그아웃됐지만 저장소에서 로그인 기록을 지우지 못했어요. 봇이 계속 다시 지우고 있지만, 그 전에 봇을 다시 시작하면 로그인이 되살아날 수 있어요. 봇 운영자에게 저장 공간을 확인해 달라고 알려 주세요."),
   // 대시보드: 파비콘(업로드한 이미지, 링크로 다운로드하는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),

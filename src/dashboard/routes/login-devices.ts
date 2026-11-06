@@ -38,10 +38,10 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     return store.end(sid, userId);
   }
 
-  // 끊은 결과로 답한다. 하나라도 지우지 못했으면 성공으로 답하지 않는다
-  function answer(res: express.Response, results: boolean[]) {
-    const unsaved = results.filter((ok) => !ok).length;
-    if (unsaved) return sendProblem(res, "sign-out-unsaved", {}, { signedOutCount: results.length - unsaved, unsavedCount: unsaved });
+  // 끊은 결과로 답한다(count 는 이번에 끊은 기기). 하나라도 지우지 못했으면(지난번 것을 다시 지우기 포함) 성공으로 답하지 않는다
+  function answer(res: express.Response, results: boolean[], retried: boolean[] = []) {
+    const unsaved = [...results, ...retried].filter((ok) => !ok).length;
+    if (unsaved) return sendProblem(res, "sign-out-unsaved", {}, { signedOutCount: results.filter(Boolean).length, unsavedCount: unsaved });
     res.json({ count: results.length } satisfies SignedOut);
   }
 
@@ -76,12 +76,17 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const user = signedIn(req);
-    // 지난번에 지우지 못한 것도 다시 지운다(이 실행에서는 이미 끊겨 목록에 없다)
-    const others = new Set([...store.sessionsOf(user.id).map(({ sid }) => sid), ...store.unsavedOf(user.id)]);
-    others.delete(req.sessionID);
-    const results = [...others].map((sid) => signOut(store, sid, user.id));
-    if (others.size) log.info(`다른 기기 로그아웃: ${others.size}곳. 실행 ${user.username || user.id}`);
-    answer(res, results);
+    // 지난번에 지우지 못한 것(이 실행에서는 이미 끊겨 목록에 없고 토큰 폐기도 했다). 이번에 끊는 것보다 먼저 쥔다(이번 실패를 두 번 세지 않게)
+    const retried = store.unsavedOf(user.id).filter((sid) => sid !== req.sessionID);
+    const others = store.sessionsOf(user.id).filter(({ sid }) => sid !== req.sessionID);
+    const results = others.map(({ sid }) => signOut(store, sid, user.id));
+    if (others.length) log.info(`다른 기기 로그아웃: ${others.length}곳. 실행 ${user.username || user.id}`);
+    // 여전히 못 지웠으면 성공으로 답하지 않는다
+    answer(
+      res,
+      results,
+      retried.map((sid) => store.end(sid, user.id)),
+    );
   });
 
   return router;

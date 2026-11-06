@@ -78,6 +78,8 @@ watch(
   (shown) => {
     showDialog.value = shown;
     note.value = "";
+    // 다른 길(돌아온 탭의 확인, 로그인했어요 버튼)로 다시 로그인이 확인돼 닫혔다. 로그인 창을 기다리던 것도 끝낸다
+    if (!shown) void loginWindow.signedIn();
   },
 );
 
@@ -94,7 +96,11 @@ const switchedId = useId();
 const showSwitched = ref(false);
 watch(
   () => session.switched,
-  (on) => (showSwitched.value = on),
+  (on) => {
+    showSwitched.value = on;
+    // 다시 로그인을 기다리던 조작은 다른 계정으로 다시 보낼 수 없다. 거절대로 실패시킨다(처리 중으로 남지 않게)
+    if (on && session.reauth) endReauth(false);
+  },
 );
 const reload = () => window.location.reload();
 
