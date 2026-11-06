@@ -1531,3 +1531,19 @@ test("판정 테스트 후보: 정해 둔 시간을 넘기면 그만두고 그�
   const [one] = await assist.candidatesFromUrls(["https://www.youtube.com/watch?v=yyyyyyyyyyy"], { describe: () => "부르면 안 된다", timeoutMs: 20 });
   assert.deepEqual(one, { url: "https://www.youtube.com/watch?v=yyyyyyyyyyy", error: "시간 초과(0.02초)로 곡 정보를 불러오지 못했어요." });
 });
+
+test("운영자 패널의 시험(저장 전 초안)도 요청 시간 한도는 저장 때와 같은 범위로 묶는다(본문 값 그대로 걸어 두지 못하게)", async () => {
+  useConfig({ provider: "openai", model: "m" });
+  // 끊길 때까지 답하지 않는 서버
+  useFetch(
+    (_url, init) =>
+      new Promise<FakeResponse>((_, fail) => {
+        init.signal?.addEventListener("abort", () => fail(init.signal?.reason));
+      }),
+  );
+  const started = Date.now();
+  const result = await assist.ping({ provider: "openai", model: "m", timeoutMs: 1 });
+  const took = Date.now() - started;
+  assert.equal(result.ok, false);
+  assert.ok(took >= 900, `하한(1000ms)까지 기다린다(${took}ms)`);
+});

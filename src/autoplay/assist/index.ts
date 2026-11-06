@@ -15,6 +15,7 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
+import { AI_TIMEOUT_RANGE } from "../../config/schema/ai.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import { setTimeout as sleep } from "timers/promises";
@@ -146,6 +147,9 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
       out[key] = value;
     }
   }
+  // 요청 하나의 시간 한도는 저장 때와 같은 범위로(운영자 패널의 시험은 저장 전 초안을 그대로 받는다. 끝없이 걸어 두지 못하게)
+  const timeout = Number(out.timeoutMs);
+  out.timeoutMs = Number.isFinite(timeout) ? Math.min(AI_TIMEOUT_RANGE.max, Math.max(AI_TIMEOUT_RANGE.min, timeout)) : DEFAULTS.timeoutMs;
   return out as AiSettings;
 }
 

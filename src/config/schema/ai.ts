@@ -23,6 +23,9 @@ function lineFormatProblems(format: string): Problem[] {
 const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 필드. 범위를 벗어나거나 수가 아니면 같은 문구
+/** 요청 하나의 시간 한도(ms) 범위. 저장과 운영자 패널의 시험(저장 전 초안)이 같이 쓴다 */
+const AI_TIMEOUT_RANGE = { min: 1000, max: 600000 } as const;
+
 const between = (key: string, min: number, max: number) =>
   present((v) => {
     const value = Number(v);
@@ -55,7 +58,7 @@ const aiFile = z.preprocess(
       enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
       // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
       temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
-      timeoutMs: between("timeoutMs", 1000, 600000),
+      timeoutMs: between("timeoutMs", AI_TIMEOUT_RANGE.min, AI_TIMEOUT_RANGE.max),
       batchSize: between("batchSize", 1, 50),
       // 글자 "false" 는 참으로 읽힌다. 참, 거짓으로만 받는다
       skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 합니다."),
@@ -118,4 +121,4 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, lineFormatProblems };
+export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, AI_TIMEOUT_RANGE, lineFormatProblems };
