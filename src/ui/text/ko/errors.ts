@@ -241,6 +241,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 대시보드: 로그인 배경
   "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),
+  "upload-busy": () => warning("state", "다른 파일을 받고 있어요!", "받는 중인 파일이 쓸 공간을 미리 잡아 두었어요. 다 받은 뒤 다시 올려 주세요."),
   "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 시도해 주세요.`),
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 원인을 확인하고 다시 올려 주세요."),
   "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지, 영상, 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),
@@ -252,6 +253,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "regex-too-long": ({ max }) => warning("input", "정규식이 너무 길어요!", `${max}자까지 쓸 수 있어요.`),
   "unsafe-regex": () => warning("input", "쓸 수 없는 정규식이에요!", "반복 안에 반복이 겹친 식은 너무 오래 걸릴 수 있어 쓸 수 없어요."),
   "filter-timeout": () => warning("input", "필터가 너무 오래 걸렸어요!", "식을 더 단순하게 바꿔 주세요."),
+  "filter-failed": () => error("failed", "필터를 적용하지 못했어요.", "봇 로그를 확인해 주세요."),
   "bad-page-range": (_, look) => warning("input", "불러올 행의 범위가 올바르지 않아요!", stalePage(look)),
   "too-many-file-deletes": ({ max }) => warning("input", "한 번에 삭제할 수 있는 파일 수를 넘었어요!", `한 번에 ${max}개까지 삭제할 수 있어요.`),
   "not-single-track": () => warning("input", "곡 하나의 링크가 아니에요!", "재생목록, 앨범, 짧은 링크가 아닌 곡 하나의 주소를 적어 주세요."),

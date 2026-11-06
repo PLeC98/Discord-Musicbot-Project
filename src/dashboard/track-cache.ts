@@ -40,6 +40,7 @@ import * as pinnedSources from "../store/pinned-sources.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import * as sourceChecks from "../store/source-checks.ts";
 import type { LookupRow } from "../store/rows.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 import { matchRegexes } from "./regex-filter.ts";
 const log = logger.child({ category: "dashboard" });
@@ -286,7 +287,13 @@ async function read(query: TrackCacheQuery): Promise<{ ok: true; page: TrackCach
     if (i % FILTER_CHECK_EVERY === FILTER_CHECK_EVERY - 1 && performance.now() - started > FILTER_TIME_MS) return refusal("filter-timeout");
     if (matcher.matches(row)) plain.push(row);
   }
-  const matched = await withRegexes(plain, matcher.regexes);
+  let matched;
+  try {
+    matched = await withRegexes(plain, matcher.regexes);
+  } catch (error) {
+    log.warn(`캐시 DB 의 정규식 필터를 맞추지 못했습니다: ${messageOf(error)}`);
+    return refusal("filter-failed");
+  }
   if (!matched) return refusal("filter-timeout");
   const key = KEY_OF[table];
   matched.sort((a, b) => {
