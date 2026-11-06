@@ -6,6 +6,7 @@
 
 import { reactive } from "vue";
 import axios from "axios";
+import { loginWait } from "../utils/login-wait.ts";
 
 export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false });
 
@@ -15,8 +16,18 @@ export const session = reactive({ ended: false, reauth: false, offline: false, s
 
 const CHANNEL = "musicbot-session";
 
+// 로그인이 살아 있나(조용히). 계정 비교까지 하는 확인을 앱이 넘긴다(stores/user 의 resumeSession)
+let loginCheck: () => Promise<boolean> = async () => false;
+export function useLoginCheck(check: () => Promise<boolean>): void {
+  loginCheck = check;
+}
+
+/** 요청이 받은 401. 로그인 창을 기다리는 동안이면 모아 두었다가 창이 끝나면 확인한다(utils/login-wait) */
+export const loginWindow = loginWait({ end: () => (session.ended = true), check: () => loginCheck() });
+
 /** 로그인 창을 연다. 사용자가 누른 때에만 부른다(아니면 브라우저가 막는다) */
 export function openLoginWindow(): void {
+  loginWindow.opened();
   const width = 520;
   const height = 760;
   const left = Math.max(0, window.screenX + (window.outerWidth - width) / 2);

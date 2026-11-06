@@ -39,7 +39,7 @@ import axios from "axios";
 import BaseDialog from "./BaseDialog.vue";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
-import { session, openLoginWindow, onSignedIn, endReauth } from "../composables/session.ts";
+import { session, openLoginWindow, onSignedIn, endReauth, loginWindow } from "../composables/session.ts";
 import { useUserStore } from "../stores/user.ts";
 import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
@@ -68,6 +68,8 @@ watch(
 function close() {
   showDialog.value = false;
   if (session.reauth) endReauth(false);
+  // 로그인 창을 그만뒀다. 기다리는 동안 받은 401 이 있으면 확인한다
+  void loginWindow.abandoned();
 }
 const titleId = useId();
 
@@ -79,6 +81,8 @@ function openLogin() {
 
 // 로그인 창이 로그인을 마쳤다. 세션 끝이면 이어 쓰고, 다시 로그인이면 기다리던 요청을 다시 보낸다
 async function signedIn() {
+  // 기다리는 동안 받은 401(로그인이 옛 세션을 끝내 그때 진행 중이던 요청)은 확인해 살아 있으면 세션 끝으로 돌리지 않는다
+  await loginWindow.signedIn();
   if (session.ended) await check();
   if (session.reauth) {
     showDialog.value = false;
