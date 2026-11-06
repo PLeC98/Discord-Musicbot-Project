@@ -1,8 +1,9 @@
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
+import { messageOf } from "../rules/error-kind.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
-import express, { type NextFunction, type Request, type RequestHandler, type Response } from "express";
+import express, { type Express as App, type NextFunction, type Request, type RequestHandler, type Response } from "express";
 import type { BotContext } from "../app/bot-context.ts";
 import session from "express-session";
 import cors from "cors";
@@ -75,8 +76,45 @@ function plaintextAccessWarner(host: string, url: string): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!warned && !req.secure) {
       warned = true;
-      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞의 프록시가 같은 기기나 사설망 주소가 아니면 X-Forwarded-Proto를 믿지 않아 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시를 같은 기기나 사설망에 두세요.");
+      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞의 프록시를 믿지 않으면(.env 의 DASHBOARD_TRUST_PROXY, 기본은 이 기기) X-Forwarded-Proto를 보지 않아 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 다른 기기나 사설망 주소로 붙으면 그 주소를 DASHBOARD_TRUST_PROXY 에 넣으세요.");
       else log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
+    }
+    next();
+  };
+}
+
+/** 믿는 프록시. Express 가 받지 않는 값(모두 믿기 true, * 포함)은 warn 하고 이 기기(loopback)만 */
+function applyTrustProxy(app: App, value: string) {
+  try {
+    app.set("trust proxy", value);
+  } catch (error) {
+    log.warn(`DASHBOARD_TRUST_PROXY 값을 쓸 수 없습니다(${messageOf(error)}). 이 기기(loopback)의 프록시만 믿습니다. IP, CIDR, loopback 을 쉼표로 적으세요.`);
+    app.set("trust proxy", "loopback");
+  }
+}
+
+// 프록시가 사용자를 알리는 헤더
+const FORWARDED = ["x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"];
+/** 이만큼의 주소까지 따로 알린다 */
+const UNTRUSTED_WARN_MAX = 8;
+
+/** 믿지 않는 주소가 X-Forwarded-* 를 보내면 그 주소로 한 번 알린다. 프록시가 다른 기기에 있는데 DASHBOARD_TRUST_PROXY 에 넣지 않은 배치를 드러낸다 */
+function untrustedProxyWarner(value: string): RequestHandler {
+  const warned = new Set<string>();
+  let capped = false;
+  return (req, _res, next) => {
+    if (!capped && FORWARDED.some((name) => req.headers[name] !== undefined)) {
+      const peer = req.socket.remoteAddress ?? "";
+      const trusted = (req.app.get("trust proxy fn") as (addr: string, i: number) => boolean)(peer, 0);
+      if (!trusted && !warned.has(peer)) {
+        if (warned.size < UNTRUSTED_WARN_MAX) {
+          warned.add(peer);
+          log.warn(`${peer} 가 X-Forwarded-* 를 보냈지만 믿는 프록시가 아닙니다(DASHBOARD_TRUST_PROXY=${value}). 이 봇 앞의 프록시라면 그 주소를 넣으세요. 넣기 전까지 그 뒤의 사용자는 모두 이 주소로 보여 IP 요청 제한을 함께 쓰고, 로그인 쿠키에 Secure, __Host- 가 빠집니다.`);
+        } else {
+          capped = true;
+          log.warn(`X-Forwarded-* 를 보낸 믿지 않는 주소가 ${UNTRUSTED_WARN_MAX}개를 넘었습니다. 더는 남기지 않습니다.`);
+        }
+      }
     }
     next();
   };
@@ -125,13 +163,13 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   const app = express();
   const { host, url } = config.dashboard;
 
-  // X-Forwarded-* 는 사설망 프록시가 보낸 것만 믿는다(같은 기기나 LAN 의 Caddy).
-  // 공인 주소에서 바로 온 헤더는 무시하므로 클라이언트가 값을 꾸며낼 수 없다.
-  app.set("trust proxy", "loopback, linklocal, uniquelocal");
+  // X-Forwarded-* 는 믿는 프록시가 보낸 것만 믿는다(DASHBOARD_TRUST_PROXY, 기본은 이 기기). 같은 사설망의 다른 기기가 IP 를 꾸미지 못한다
+  applyTrustProxy(app, config.dashboard.trustProxy);
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
   // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓰는 때에 보므로 맨 앞에)
   app.use(closeOnUnreadBody);
+  app.use(untrustedProxyWarner(config.dashboard.trustProxy));
   // 소켓의 마지막 요청을 적는다(세션이 끝나 소켓을 부술 때 keep-alive 의 다음 요청을 건드리지 않게). 정적 파일보다 앞에
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);

@@ -7,7 +7,7 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { tooManyRequests } from "./problem.ts";
 import { isEnded } from "./session-requests.ts";
 
-// 로그인한 사용자로 센다. 로그인 전에는 IP(trust proxy 가 사설망 한정이라 믿을 수 있다)
+// 로그인한 사용자로 센다. 로그인 전에는 IP(믿는 프록시가 알린 것만 쓴다, DASHBOARD_TRUST_PROXY)
 const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
 
 // 일반 API 한도에서 빼는 경로와 메서드: SSE 연결(오래 붙어 있다), 볼륨(드래그하는 동안 잇달아 온다), 곡 추가 칸의 검색(치는 대로 온다), 앨범아트(대기열의 것이 한꺼번에 불린다),
