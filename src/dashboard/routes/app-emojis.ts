@@ -44,7 +44,7 @@ const assetLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ASSET_LIM
 /** 이름 검사. 맞으면 null, 아니면 문제 코드 */
 const nameProblem = (name: unknown): Code | null => (typeof name !== "string" || !NAME.test(name) ? "emoji-name-bad" : isManagedEmojiName(name) ? "emoji-name-reserved" : null);
 
-/** 조작을 돌리고 알려진 실패는 문제 응답으로. 그 밖은 던진다(오류 처리기가 받는다) */
+/** 조작을 돌리고 알려진 실패는 문제 응답으로. 그 밖은 던진다(오류 핸들러가 받는다) */
 async function answer(res: Response, run: () => Promise<void>) {
   try {
     await run();

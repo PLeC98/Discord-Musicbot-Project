@@ -69,12 +69,12 @@ function claim(folder: string, base: string): string {
   }
 }
 
-// 지운다. 지우지 못하면(Windows 에서 다른 프로그램이 열어 둠. force 는 없는 것만 넘긴다) 남기고 알린다. 다음 정리가 다시 지운다
+// 지운다. 삭제하지 못하면(Windows 에서 다른 프로그램이 열어 둠. force 는 없는 것만 넘긴다) 남기고 알린다. 다음 정리가 다시 삭제한다
 function removeQuietly(file: string) {
   try {
     fs.rmSync(file, { force: true });
   } catch (error) {
-    log.warn(`옛 스냅샷을 지우지 못했습니다: ${path.basename(file)}. 다음에 다시 지웁니다: ${messageOf(error)}`);
+    log.warn(`옛 스냅샷을 삭제하지 못했습니다: ${path.basename(file)}. 다음에 다시 삭제합니다: ${messageOf(error)}`);
   }
 }
 
@@ -118,7 +118,7 @@ function dropWal(file: string) {
 
 /**
  * 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다).
- * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). 거짓이면 부르는 쪽이 바꾸기를 정한 뒤 tidy() 를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 지우지 않게)
+ * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). 거짓이면 부르는 쪽이 바꾸기를 정한 뒤 tidy() 를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 삭제하지 않게)
  */
 async function take(kind: SnapshotKind, at = new Date(), { tidy: tidyAfter = true }: { tidy?: boolean } = {}): Promise<string> {
   const dir = dbDir();

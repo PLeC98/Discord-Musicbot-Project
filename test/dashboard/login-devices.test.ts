@@ -213,7 +213,7 @@ for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
   });
 }
 
-// 저장소의 지우기만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
+// 저장소의 삭제만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
 function breakDelete() {
   const real = store._deleteStmt;
   store._deleteStmt = fake<typeof real>({
@@ -226,7 +226,7 @@ function breakDelete() {
 
 type Unsaved = { code: string; signedOutCount: number; unsavedCount: number };
 
-test("다른 기기 로그아웃의 지우기가 실패하면 성공으로 답하지 않는다(503, 수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 못 지웠으면 503, DB 가 돌아오면 다시 지운다", async () => {
+test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 삭제하지 못했으면 503, DB 가 돌아오면 다시 삭제한다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   await pc.login("unsaved1");
@@ -238,17 +238,17 @@ test("다른 기기 로그아웃의 지우기가 실패하면 성공으로 답�
     const body = (await res.json()) as Unsaved;
     assert.deepEqual([body.code, body.signedOutCount, body.unsavedCount], ["sign-out-unsaved", 0, 1]);
     assert.equal((await phone.go("/api/me/devices")).status, 401, "끊은 쿠키는 이 실행에서 쓸 수 없다");
-    assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as Unsaved).unsavedCount, 1, "다시 해도 지우지 못한 것을 성공으로 답하지 않는다");
+    assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as Unsaved).unsavedCount, 1, "다시 해도 삭제하지 못한 것을 성공으로 답하지 않는다");
   } finally {
     restore();
   }
   const again = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
-  assert.equal(again.status, 200, "DB 가 돌아오면 지운다");
+  assert.equal(again.status, 200, "DB 가 돌아오면 삭제한다");
   assert.equal(store.sessionsOf("unsaved1").length, 1);
   assert.equal(store.unsavedOf("unsaved1").length, 0);
 });
 
-test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠키는 이 실행에서 401", async () => {
+test("로그아웃의 삭제가 실패해도 쿠키는 삭제하고 503. 그 쿠키는 이 실행에서 401", async () => {
   const pc = device(CHROME);
   await pc.login("unsaved2");
   const before = await pc.go("/api/me/devices");
@@ -262,9 +262,9 @@ test("로그아웃의 지우기가 실패해도 쿠키는 지우고 503. 그 쿠
   }
   assert.equal(res.status, 503);
   assert.equal(((await res.json()) as Unsaved).code, "sign-out-unsaved");
-  assert.match(res.headers.get("set-cookie") ?? "", new RegExp(`${sessionCookieName(false)}=;.*Expires=Thu, 01 Jan 1970`), "이 브라우저의 쿠키를 지운다");
+  assert.match(res.headers.get("set-cookie") ?? "", new RegExp(`${sessionCookieName(false)}=;.*Expires=Thu, 01 Jan 1970`), "이 브라우저의 쿠키를 삭제한다");
   assert.equal((await pc.go("/api/me/devices")).status, 401);
-  assert.equal(store.unsavedOf("unsaved2").length, 1, "그 사용자의 못 지운 것으로 둔다(다른 기기 로그아웃이 다시 지운다)");
+  assert.equal(store.unsavedOf("unsaved2").length, 1, "그 사용자의 삭제하지 못한 것으로 둔다(다른 기기 로그아웃이 다시 삭제한다)");
   store.retryUnsaved();
 });
 

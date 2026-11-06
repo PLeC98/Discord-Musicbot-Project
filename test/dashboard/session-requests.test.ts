@@ -51,7 +51,7 @@ before(async () => {
       store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify({ ...JSON.parse(row), csrfToken: "다른 요청의 것" }), req.sessionID);
     }
     if (!req.session?.user || !sessionRequests.admit(req)) return res.status(401).end();
-    // plain: Connection: close 없이(소켓 부수기만 시험한다. 그 머리가 있으면 이 PC 에서는 끝내기만으로도 닫힌다)
+    // plain: Connection: close 없이(소켓 부수기만 시험한다. 그 헤더가 있으면 이 PC 에서는 끝내기만으로도 닫힌다)
     res.writeHead(200, req.query.plain ? { "Content-Type": "text/event-stream" } : { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
     res.write(": open\n\n");
@@ -219,7 +219,7 @@ test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 
   raw.destroy();
 });
 
-// Connection: close 없이 열면 소켓 부수기가 빠졌을 때 연결이 keep-alive 로 남는다(위 시험은 이 PC 에서 그 머리만으로도 닫혀 부수기를 가르지 못한다)
+// Connection: close 없이 열면 소켓 부수기가 빠졌을 때 연결이 keep-alive 로 남는다(위 시험은 이 PC 에서 그 헤더만으로도 닫혀 부수기를 가르지 못한다)
 test("Connection: close 없이 연 스트림도: 쌓인 것이 많으면 곧바로 부순다", async () => {
   const thief = device();
   await thief.go("/login?u=s5b", { method: "POST" });
@@ -284,7 +284,7 @@ test("로그인 30일이 지나면 저장소가 망가져 있어도 끊는다(�
   }
 });
 
-test("클라이언트가 끊으면 묶음에서 빠진다(다시 보기가 끝난 스트림을 읽지 않는다)", async () => {
+test("클라이언트가 끊으면 목록에서 빠진다(다시 보기가 끝난 스트림을 읽지 않는다)", async () => {
   const thief = device();
   await thief.go("/login?u=s8", { method: "POST" });
   const stream = await openStream(thief);

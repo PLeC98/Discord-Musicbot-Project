@@ -99,7 +99,7 @@ test("allows unsafe methods with the session CSRF token", () => {
   assert.equal(called, true);
 });
 
-test("로그인하지 않은(끝난) 세션의 로그아웃은 토큰 없이 지나간다(지킬 것이 없고 이 브라우저의 쿠키만 지운다). 로그인한 세션의 로그아웃은 토큰이 있어야 한다", () => {
+test("로그인하지 않은(끝난) 세션의 로그아웃은 토큰 없이 지나간다(지킬 것이 없고 이 브라우저의 쿠키만 삭제한다). 로그인한 세션의 로그아웃은 토큰이 있어야 한다", () => {
   let passed = 0;
   requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, get: () => undefined }), response(), () => passed++);
   assert.equal(passed, 1);

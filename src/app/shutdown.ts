@@ -176,7 +176,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 
-  // 끊었지만 지우지 못한 로그인 세션을 마지막으로 다시 지운다(남으면 다시 시작한 뒤 되살아나니 그 수를 남긴다)
+  // 끊었지만 삭제하지 못한 로그인 세션을 마지막으로 다시 삭제한다(남으면 다시 시작한 뒤 되살아나니 그 수를 남긴다)
   finishSessions();
 
   log.info("종료 완료");

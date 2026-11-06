@@ -109,7 +109,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
-  // 받는 사이 세션이 끝났으면 만들지 않는다(받은 파일은 지운다)
+  // 받는 사이 세션이 끝났으면 만들지 않는다(받은 파일은 삭제한다)
   try {
     assertSignedIn(req);
   } catch (error) {

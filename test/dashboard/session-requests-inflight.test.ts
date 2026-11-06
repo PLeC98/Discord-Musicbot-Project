@@ -1,6 +1,6 @@
 // src/dashboard/session-requests.ts: 세션이 끝나면 그 세션으로 진행 중인 요청(스트림 밖)을 멈춘다.
 // 훔친 쿠키를 쥔 쪽의 자리에서 본다: 걸어 둔 읽기와 조작, 흘려 보내는 내려받기, 한 번에 쓰고 끝낸 큰 답, 받는 중인 업로드.
-// 진짜 express-session, 저장소, 소켓으로. 끊는 것은 다른 기기 로그아웃(저장소의 지우기)과 날 SQL(알림 없는 끝)
+// 진짜 express-session, 저장소, 소켓으로. 끊는 것은 다른 기기 로그아웃(저장소의 삭제)과 날 SQL(알림 없는 끝)
 
 import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -214,7 +214,7 @@ test("걸어 둔 조작은 세션이 끝난 뒤 바꾸지 않고 401(경로의 c
   assert.deepEqual(res.headers.getSetCookie(), []);
 });
 
-test("끝난 요청에서 난 봇 버그는 세션 끝으로 숨기지 않는다(오류 처리기가 그대로 500)", async () => {
+test("끝난 요청에서 난 봇 버그는 세션 끝으로 숨기지 않는다(오류 핸들러가 그대로 500)", async () => {
   newGate();
   const thief = await signedIn("throw");
   const pending = thief.go("/hold-throw", { method: "POST" });

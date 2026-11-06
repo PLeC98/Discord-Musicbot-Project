@@ -362,7 +362,7 @@ type ResetResult = { removed: number; kept: number; freedBytes: number; cleared:
  */
 function resetCache(parts: readonly AudioCachePart[], go?: () => void): Promise<ResetResult> {
   return underCleanupLock(() => {
-    // 잠금을 기다리는 사이 그만뒀으면 지우지 않는다(대시보드: 세션이 끝남)
+    // 잠금을 기다리는 사이 그만뒀으면 삭제하지 않는다(대시보드: 세션이 끝남)
     go?.();
     return resetLocked(parts);
   });
@@ -707,7 +707,7 @@ function useOf(audioKey: string): CacheUse | null {
  */
 function removeCached(audioKey: string, expect?: number | null, go?: () => void): Promise<RemoveResult> {
   return underCleanupLock(async (): Promise<RemoveResult> => {
-    // 잠금을 기다리는 사이 그만뒀으면 지우지 않는다(대시보드: 세션이 끝남)
+    // 잠금을 기다리는 사이 그만뒀으면 삭제하지 않는다(대시보드: 세션이 끝남)
     go?.();
     const row = lookupByAudioKey(audioKey);
     if (!row) return { ok: false, code: "gone" };

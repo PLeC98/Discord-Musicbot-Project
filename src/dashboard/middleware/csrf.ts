@@ -28,7 +28,7 @@ function issueCsrfToken(req: Request, res: Response) {
 
 function requireCsrfToken(req: Request, res: Response, next: NextFunction) {
   if (SAFE_METHODS.has(req.method)) return next();
-  // 로그인하지 않은(끝난) 세션의 로그아웃은 지킬 것이 없다. 이 브라우저의 쿠키만 지운다(교차 사이트 POST 에는 lax 쿠키가 실리지 않는다)
+  // 로그인하지 않은(끝난) 세션의 로그아웃은 지킬 것이 없다. 이 브라우저의 쿠키만 삭제한다(교차 사이트 POST 에는 lax 쿠키가 실리지 않는다)
   if (req.path === "/auth/logout" && !req.session?.user) return next();
 
   const expected = req.session?.csrfToken;

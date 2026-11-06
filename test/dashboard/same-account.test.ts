@@ -37,7 +37,7 @@ test("같은 계정이거나 싣지 않았으면 지나간다. 계정을 알아�
   assert.equal(await code(await fetch(`${base}/auth/logout`, { method: "POST", headers: { "x-dashboard-user": "A", "x-csrf-token": "token-b" } })), "ok");
 });
 
-test("머리를 못 싣는 스트림은 uid 쿼리로. 스트림 경로에서만 본다", async () => {
+test("헤더를 못 싣는 스트림은 uid 쿼리로. 스트림 경로에서만 본다", async () => {
   for (const stream of ["/api/guilds/events", "/api/admin/logs/stream", "/api/admin/ai/logs/stream"]) {
     assert.equal(await code(await fetch(`${base}${stream}?uid=A`)), "account-changed", stream);
     assert.equal(await code(await fetch(`${base}${stream}?uid=B`)), "ok", stream);

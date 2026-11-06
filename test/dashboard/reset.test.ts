@@ -1,5 +1,5 @@
 // src/dashboard/reset.ts: 봇 설정, 서버별 설정, 디스플레이 초기화. 설정이 바뀌는 줄은 바꾸기 전에 before-reset 스냅샷을 남기고,
-// 지운 뒤 메모리(설정 객체, 서버별 설정의 캐시, 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 지운다.
+// 지운 뒤 메모리(설정 객체, 서버별 설정의 캐시, 바깥 서비스 키)를 DB 에 맞춘다. 기본값을 써 넣지 않고 행을 삭제한다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -91,13 +91,13 @@ test("디스플레이: 파비콘 그림과 로그인 배경(기록, 화면 값, 
   assert.deepEqual([left.current, left.items, left.options, left.limits], [null, [], LOGIN_BG_OPTIONS_DEFAULT, LOGIN_BG_LIMITS_DEFAULT]);
 });
 
-// 바꾸기 앞의 확인(go). 대시보드는 세션이 끝났으면 던진다. 던지면 아무것도 바꾸지 않고, 뜬 스냅샷 말고는 앞 복원점도 지우지 않는다
+// 바꾸기 앞의 확인(go). 대시보드는 세션이 끝났으면 던진다. 던지면 아무것도 바꾸지 않고, 뜬 스냅샷 말고는 앞 복원점도 삭제하지 않는다
 const ended = () => {
   throw Object.assign(new Error("로그인 세션이 끝났다"), { name: "SessionEndedError" });
 };
 const names = () => snapshots.list().map((one) => one.name);
 
-test("봇 설정, 서버별 설정: 스냅샷을 뜨는 사이 그만두면(go 가 던짐) 지우지 않고 앞 스냅샷도 지우지 않는다", async () => {
+test("봇 설정, 서버별 설정: 스냅샷을 뜨는 사이 그만두면(go 가 던짐) 삭제하지 않고 앞 스냅샷도 삭제하지 않는다", async () => {
   for (let i = 0; i < snapshots.KEEP_OTHERS; i++) await snapshots.take("before-reset");
   settingsDocs.write("genres", { genres: [] }, settingsDocs.read("genres").revision);
   setGuild("g9", { botChannel: "c9" });
@@ -108,12 +108,12 @@ test("봇 설정, 서버별 설정: 스냅샷을 뜨는 사이 그만두면(go �
   assert.equal(guildSettings.guildCount(), 1, "서버별 설정이 남는다");
   assert.ok(
     before.every((name) => names().includes(name)),
-    "앞 스냅샷을 지우지 않는다",
+    "앞 스냅샷을 삭제하지 않는다",
   );
   await reset.resetBotSettings("tester");
   assert.ok(
     before.some((name) => !names().includes(name)),
-    "그만두지 않으면 오래된 것을 지운다",
+    "그만두지 않으면 오래된 것을 삭제한다",
   );
 });
 

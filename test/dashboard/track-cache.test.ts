@@ -305,7 +305,7 @@ test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중, 바뀜, 
   }
 });
 
-test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 확인한다(go 가 던지면 지우지 않는다)", async () => {
+test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 확인한다(go 가 던지면 삭제하지 않는다)", async () => {
   const target = audioCache.getFilePath("yt:ggggggggggg");
   fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
   fs.writeFileSync(target, "x");
@@ -314,7 +314,7 @@ test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 
     throw new Error("세션이 끝났다");
   };
   await assert.rejects(trackCache.write([{ op: "deleteFile", audioKey: "yt:ggggggggggg", expect: 88 }], "tester", ended), /세션이 끝났다/);
-  assert.equal(fs.existsSync(target), true, "지우지 않는다");
+  assert.equal(fs.existsSync(target), true, "삭제하지 않는다");
   let asked = 0;
   const result = await trackCache.write(
     [

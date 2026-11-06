@@ -25,7 +25,7 @@ import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 const { listenForFetch } = listen;
 
 const servers: Server[] = [];
-// 대시보드의 평문 세션 쿠키 이름(로그아웃이 같은 이름을 지운다)
+// 대시보드의 평문 세션 쿠키 이름(로그아웃이 같은 이름을 삭제한다)
 const SESSION = sessionCookieName(false);
 before(() => secrets._useKey(newSecretsKey()));
 after(() => {
@@ -137,7 +137,7 @@ test("로그인: HTTPS 로 들어오면(믿는 프록시가 알림) __Host- 이�
   assert.doesNotMatch(cookie, /Domain=/i);
 });
 
-test("콜백: 코드가 없거나, 쿠키가 없거나, state 가 안 맞거나, 위조한 쿠키면 디스코드를 부르지 않고 실패로 돌려보낸다. 쿠키는 모든 길에서 지운다", async () => {
+test("콜백: 코드가 없거나, 쿠키가 없거나, state 가 안 맞거나, 위조한 쿠키면 디스코드를 부르지 않고 실패로 돌려보낸다. 쿠키는 모든 길에서 삭제한다", async () => {
   const discord = fakeDiscord();
   const { go, jar } = await start(discord);
   assert.equal(location(await go("/auth/callback?code=c&state=x")), "/?error=auth_failed", "쿠키 없음");
@@ -145,11 +145,11 @@ test("콜백: 코드가 없거나, 쿠키가 없거나, state 가 안 맞거나,
   await go("/auth/login");
   const noCode = await go("/auth/callback");
   assert.equal(location(noCode), "/?error=no_code");
-  assert.match(loginCookieOf(noCode), /Expires=Thu, 01 Jan 1970/, "지운다");
+  assert.match(loginCookieOf(noCode), /Expires=Thu, 01 Jan 1970/, "삭제한다");
 
   await go("/auth/login");
   assert.equal(location(await go("/auth/callback?error=access_denied&state=x")), "/?error=denied", "승인 화면에서 취소");
-  assert.deepEqual(jar.names(), [], "취소해도 지운다");
+  assert.deepEqual(jar.names(), [], "취소해도 삭제한다");
 
   await go("/auth/login");
   assert.equal(location(await go("/auth/callback?code=c&state=wrong")), "/?error=auth_failed");
@@ -161,7 +161,7 @@ test("콜백: 코드가 없거나, 쿠키가 없거나, state 가 안 맞거나,
   assert.equal(discord.calls.length, 0);
 });
 
-test("콜백: 쓴 state 는 다시 받지 않는다(지우기를 따르지 않는 클라이언트). 10분이 지난 쿠키도", async (t) => {
+test("콜백: 쓴 state 는 다시 받지 않는다(삭제를 따르지 않는 클라이언트). 10분이 지난 쿠키도", async (t) => {
   const discord = fakeDiscord();
   const { go, jar } = await start(discord);
   const state = stateOf(await go("/auth/login"));
@@ -175,7 +175,7 @@ test("콜백: 쓴 state 는 다시 받지 않는다(지우기를 따르지 않�
   assert.equal(discord.calls.length, 2, "처음 한 번의 토큰 교환과 사용자 조회만");
 });
 
-test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대시보드로 보낸다(서버 목록은 받지 않는다). 로그인 쿠키는 지운다", async () => {
+test("콜백: 코드를 토큰으로 바꾸고 사용자를 세션에 담아 대시보드로 보낸다(서버 목록은 받지 않는다). 로그인 쿠키는 삭제한다", async () => {
   const discord = fakeDiscord();
   const { go, jar } = await start(discord);
   const login = await go("/auth/login");
@@ -277,7 +277,7 @@ async function withStore(run: (store: SqliteSessionStore) => Promise<void>) {
   }
 }
 
-test("토큰: 콜백이 세션 행에 암호문으로 두고, 로그아웃하면 디스코드에 폐기를 요청하고 행과 함께 지운다", () =>
+test("토큰: 콜백이 세션 행에 암호문으로 두고, 로그아웃하면 디스코드에 폐기를 요청하고 행과 함께 삭제한다", () =>
   withStore(async (store) => {
     const discord = fakeDiscord();
     const { go } = await start(discord, { store });

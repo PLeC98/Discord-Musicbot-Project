@@ -263,7 +263,7 @@ test("끝 알림: 듣는 쪽이 던져도 지우기는 성공으로 끝나고 �
   assert.deepEqual([calls, failed, heard], [1, null, ["sid1"]]);
 });
 
-// 지우기(DELETE)만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
+// 삭제(DELETE)만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
 function breakDelete(store: SqliteSessionStore) {
   const real = store._deleteStmt;
   store._deleteStmt = fake<typeof real>({
@@ -274,7 +274,7 @@ function breakDelete(store: SqliteSessionStore) {
   return () => (store._deleteStmt = real);
 }
 
-test("지우기가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰지도 않고, 끝을 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
+test("삭제가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰지도 않고, 끝을 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
   const store = makeStore("delete-fails.db");
   const heard: string[] = [];
   store.onEnded((sid) => heard.push(sid));
@@ -292,7 +292,7 @@ test("지우기가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰
   assert.equal(store.isUnsaved("sid1"), true);
 });
 
-test("못 지운 행은 다시 지운다(DB 가 돌아오면). 끝(finish)에도 남으면 그 수를 알린다", () => {
+test("삭제하지 못한 행은 다시 삭제한다(DB 가 돌아오면). 끝(finish)에도 남으면 그 수를 알린다", () => {
   const store = makeStore("delete-retry.db");
   store.set("a", makeSession({ id: "u1" }));
   store.set("b", makeSession({ id: "u1" }));
@@ -310,7 +310,7 @@ test("못 지운 행은 다시 지운다(DB 가 돌아오면). 끝(finish)에도
   assert.equal(store.finish(), 0);
 });
 
-test("다시 로그인(regenerate)의 지우기가 실패하면 그 사용자의 못 지운 것으로 둔다. 새 세션은 만든다", async () => {
+test("다시 로그인(regenerate)의 삭제가 실패하면 그 사용자의 삭제하지 못한 것으로 둔다. 새 세션은 만든다", async () => {
   const store = makeStore("regen-fails.db");
   store.set("old", makeSession({ id: "u7" }));
   let generated = 0;

@@ -109,7 +109,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   if (!file) return sendProblem(res, "upload-gone");
   try {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
-    // 스냅샷은 쓰기를 정한 뒤에 오래된 것을 지운다(뜨는 사이 세션이 끝나 그만두면 앞 복원점을 남긴다)
+    // 스냅샷은 쓰기를 정한 뒤에 오래된 것을 삭제한다(뜨는 사이 세션이 끝나 그만두면 앞 복원점을 남긴다)
     let snapshot = false;
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], {
       before: async () => {

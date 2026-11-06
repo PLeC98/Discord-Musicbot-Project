@@ -94,7 +94,7 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
     req.session.loginAt = Date.now();
     recordLogin(req, req.session.loginAt);
     await step((done) => req.session.save(done));
-    // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 지워진다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
+    // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 삭제된다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
     const store = tokenStoreOf(req);
     if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장한 세션 행이 없습니다");
     return true;
@@ -116,7 +116,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
-  // 쓴 state → 잊어도 되는 때. 쿠키만으로는 한 번만 쓰게 할 수 없다(지우기를 따르지 않는 클라이언트). 다시 시작하면 비지만 쿠키의 수명이 남은 틈을 묶는다
+  // 쓴 state → 잊어도 되는 때. 쿠키만으로는 한 번만 쓰게 할 수 없다(삭제를 따르지 않는 클라이언트). 다시 시작하면 비지만 쿠키의 수명이 남은 틈을 묶는다
   const used = new Map<string, number>();
 
   // 이 state 를 처음 쓰면 기억하고 true. 이미 썼으면 false
@@ -146,7 +146,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
   });
 
-  // OAuth2 콜백. 로그인 쿠키는 모든 길에서 지운다
+  // OAuth2 콜백. 로그인 쿠키는 모든 길에서 삭제한다
   router.get("/callback", async (req, res) => {
     const login = openLogin(takeLoginCookie(req, res));
     const { code, state } = req.query;
@@ -197,8 +197,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     }
   });
 
-  // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 지워지고, 디스코드에도 폐기를 요청한다.
-  // 결과와 상관없이 이 브라우저의 쿠키를 지운다(행을 지우지 못한 채 다시 시작해도 이 브라우저는 되살아나지 않는다). 지우지 못했으면 성공으로 답하지 않는다
+  // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 삭제되고, 디스코드에도 폐기를 요청한다.
+  // 결과와 상관없이 이 브라우저의 쿠키를 삭제한다(행을 삭제하지 못한 채 다시 시작해도 이 브라우저는 되살아나지 않는다). 삭제하지 못했으면 성공으로 답하지 않는다
   router.post("/logout", (req, res) => {
     clearSessionCookie(req, res);
     if (!req.session?.user) return res.status(204).end();
@@ -213,7 +213,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     const done = (error?: unknown) => (error ? sendProblem(res, "sign-out-unsaved") : res.status(204).end());
     const store = tokenStoreOf(req);
     if (!store) return req.session.destroy(done);
-    // 저장소에 사용자를 넘긴다(지우지 못하면 그 사용자의 다른 기기 로그아웃이 다시 지운다). express-session 의 destroy 와 같게 요청에서 세션을 뗀다
+    // 저장소에 사용자를 넘긴다(삭제하지 못하면 그 사용자의 다른 기기 로그아웃이 다시 삭제한다). express-session 의 destroy 와 같게 요청에서 세션을 뗀다
     const { sessionID: sid } = req;
     const userId = req.session.user.id;
     (req as { session: unknown }).session = null;

@@ -70,7 +70,7 @@ export const useUserStore = defineStore("user", {
   },
 });
 
-/** 스트림 주소에 이 탭의 사용자를 싣는다(EventSource 는 머리를 못 싣는다. 서버가 세션의 사용자와 다르면 409) */
+/** 스트림 주소에 이 탭의 사용자를 싣는다(EventSource 는 헤더를 못 싣는다. 서버가 세션의 사용자와 다르면 409) */
 export function withUid(url: string): string {
   const id = useUserStore().data?.id;
   return id ? `${url}${url.includes("?") ? "&" : "?"}uid=${encodeURIComponent(id)}` : url;

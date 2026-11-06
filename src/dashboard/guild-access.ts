@@ -56,7 +56,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
   const fetched = await memberOf(guild, userId);
-  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 처리기, 경로의 catch 가 401 로)
+  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 핸들러, 경로의 catch 가 401 로)
   assertSignedIn(req as Request);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
