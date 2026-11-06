@@ -1118,8 +1118,8 @@ function pollChecks() {
     const gen = gens.id;
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
     await refreshChecks(data.checkRevision, gen);
-    // 기다리는 사이 다시 읽었으면 그 세대가 새로 묻는다(낡은 목록으로 지금 확인 중 표시를 덮지 않게)
-    if (!gens.isCurrent(gen)) return;
+    // 기다리는 사이 다시 읽었으면 이 답은 버리고 새로 묻는다(낡은 목록으로 지금 확인 중 표시를 덮지 않게. 그만두면 확인 중 표시가 그대로 남는다)
+    if (!gens.isCurrent(gen)) return pollChecks();
     checking.value = data.checking;
     if (data.checking.length) pollChecks();
   }, PROBE_POLL_MS);
