@@ -24,12 +24,14 @@ logSink.addDestination((rec: unknown) => logLines.push(JSON.stringify(rec)));
 
 // ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;
+// 살아 있는 세션의 CSRF 토큰(본문을 푸는 데까지 닿게 실어 보낸다)
+const TOKEN = "t".repeat(43);
 const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
   if (storeBroken) {
     // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
     return next(Object.assign(new Error("database disk image is malformed"), { name: "SqliteError", code: "SQLITE_CORRUPT" }));
   }
-  req.session = fake<Request["session"]>({});
+  req.session = fake<Request["session"]>({ csrfToken: TOKEN });
   next();
 };
 
@@ -205,7 +207,7 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
   try {
     const res = await req("/api/guilds/x/player/queue", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-csrf-token": TOKEN },
       body: "{ this is not json",
     });
     assert.equal(res.status, 400);
@@ -213,6 +215,21 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
     assert.equal(JSON.parse(res.body).code, "bad-request");
     assert.match(JSON.parse(res.body).errorId, /^[0-9a-f]{8}$/);
     assert.ok(!res.body.includes("    at "));
+  } finally {
+    storeBroken = true;
+  }
+});
+
+test("CSRF 토큰이 없는 요청은 본문을 풀기 전에 403(잘못된 JSON 이어도 400 이 아니다)", async () => {
+  storeBroken = false;
+  try {
+    const res = await req("/api/guilds/x/player/queue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{ this is not json",
+    });
+    assert.equal(res.status, 403);
+    assert.equal(JSON.parse(res.body).code, "bad-csrf-token");
   } finally {
     storeBroken = true;
   }

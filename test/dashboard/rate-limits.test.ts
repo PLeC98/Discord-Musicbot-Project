@@ -3,15 +3,34 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
-import { limiter, unlimited } from "../../src/dashboard/rate-limits.ts";
+import type { Request } from "express";
+import { limiter, signedInLogout, unlimited } from "../../src/dashboard/rate-limits.ts";
+import { fake } from "../helpers/fake.ts";
 import { tunablesChanged } from "../../src/config/tunables-changed.ts";
 import { signedInAs } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 
-test("SSE 연결, 볼륨, 곡 추가 칸의 검색, 곡 그림만 일반 API 한도에서 뺀다(그 경로가 따로 센다)", () => {
-  const of = (url: string) => unlimited({ originalUrl: url });
-  for (const url of ["/api/admin/logs/stream", "/api/admin/ai/logs/stream", "/api/guilds/events", "/api/guilds/123/player/events", "/api/guilds/123/player/volume", "/api/guilds/123/player/volume?queue=0", "/api/guilds/123/player/search?q=x", "/api/guilds/123/art/0123456789abcdef0123.jpg"]) assert.equal(of(url), true, url);
-  for (const url of ["/api/guilds/123/player/skip", "/api/guilds/123/player", "/api/me", "/api/admin/logs", "/api/guilds/123/player/volume/x", "/api/guilds/123/player/search/x", "/api/guilds/123/art/a/b"]) assert.equal(of(url), false, url);
+// 한도에서 빼는지 묻는 요청. 기본은 로그인한 사람의 GET
+const ask = (url: string, { method = "GET", user = { id: "u1" } as object | null } = {}) => fake<Request>({ originalUrl: url, method, session: user ? { user } : {} });
+
+test("로그인한 사람의 SSE 연결, 볼륨, 곡 추가 칸의 검색, 곡 그림, 앱 이모지 그림, 토큰 받기만 일반 API 한도에서 뺀다(그 경로가 따로 센다)", () => {
+  for (const url of ["/api/admin/logs/stream", "/api/admin/ai/logs/stream", "/api/guilds/events", "/api/guilds/123/player/events", "/api/guilds/123/player/search?q=x", "/api/guilds/123/art/0123456789abcdef0123.jpg", "/api/app-emojis/x.png", "/api/csrf-token"]) assert.equal(unlimited(ask(url)), true, url);
+  for (const url of ["/api/guilds/123/player/volume", "/api/guilds/123/player/volume?queue=0"]) assert.equal(unlimited(ask(url, { method: "POST" })), true, url);
+  assert.equal(unlimited(ask("/api/guilds/123/art/a.jpg", { method: "HEAD" })), true, "GET 경로는 HEAD 도");
+  for (const url of ["/api/guilds/123/player/skip", "/api/guilds/123/player", "/api/me", "/api/admin/logs", "/api/guilds/123/player/volume/x", "/api/guilds/123/player/search/x", "/api/guilds/123/art/a/b"]) assert.equal(unlimited(ask(url)), false, url);
+});
+
+test("로그인하지 않은 요청, 다른 메서드는 그 경로여도 센다", () => {
+  for (const url of ["/api/guilds/events", "/api/guilds/123/player/search?q=x", "/api/app-emojis/x.png", "/api/csrf-token"]) assert.equal(unlimited(ask(url, { user: null })), false, url);
+  assert.equal(unlimited(ask("/api/guilds/123/player/volume", { user: null, method: "POST" })), false);
+  assert.equal(unlimited(ask("/api/guilds/123/player/search", { method: "POST" })), false, "검색 경로에 POST(본문을 실어)");
+  assert.equal(unlimited(ask("/api/guilds/123/player/volume")), false, "볼륨 경로에 GET");
+});
+
+test("로그인 한도에서는 로그인한 사람의 로그아웃만 뺀다", () => {
+  assert.equal(signedInLogout(ask("/auth/logout", { method: "POST" })), true);
+  assert.equal(signedInLogout(ask("/auth/logout", { method: "POST", user: null })), false);
+  assert.equal(signedInLogout(ask("/auth/login")), false);
 });
 
 test("로그인한 사람마다 세고, 넘으면 문제 응답 429", async () => {

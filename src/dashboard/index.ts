@@ -10,7 +10,7 @@ import path from "path";
 import fs from "fs";
 
 import { createCorsOptions } from "./cors.ts";
-import { bodyLimit } from "./body-limit.ts";
+import { bodyLimit, closeOnUnreadBody, continueBody } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
 import { sessionCookieName } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
@@ -42,7 +42,7 @@ import { createInviteRouter } from "./routes/invite.ts";
 import { sweepUploads } from "./archive-uploads.ts";
 import type { PlayerStream } from "./player-stream.ts";
 import { problemsRouter } from "./problem.ts";
-import { limiter, unlimited } from "./rate-limits.ts";
+import { CSRF_TOKEN_MAX, limiter, signedInLogout, unlimited } from "./rate-limits.ts";
 import { startStatus } from "./status/index.ts";
 import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -110,6 +110,9 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
 // index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
 const ASSETS = /[\\/]assets[\\/]/;
+// 공개 한도가 건너뛰는 경로(아래에서 따로 센다)와, 그 가운데 세션 앞에서 답하는 공개 경로. Express 처럼 대소문자, 끝의 / 를 가리지 않는다
+const COUNTED_LATER = /^\/(?:api|auth)(?:\/|$)/i;
+const PUBLIC_API = /^\/api\/login-background\/?$/i;
 function cacheAssets(res: Response, file: string) {
   res.setHeader("Cache-Control", ASSETS.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
 }
@@ -127,13 +130,15 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.set("trust proxy", "loopback, linklocal, uniquelocal");
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
+  // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓰는 때에 보므로 맨 앞에)
+  app.use(closeOnUnreadBody);
   // 소켓의 마지막 요청을 적는다(세션이 끝나 소켓을 부술 때 keep-alive 의 다음 요청을 건드리지 않게). 정적 파일보다 앞에
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host, url));
-  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다.
-  // 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
-  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => /^\/(?:api|auth)(?:\/|$)/.test(req.path) || ASSETS.test(req.path) }));
+  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다
+  // (세션 앞에서 답하는 /api 의 공개 경로는 여기서). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
+  app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path)) || ASSETS.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
@@ -155,17 +160,40 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
     res.sendFile(indexHtml, { headers: { "Cache-Control": "no-cache" } });
   });
 
-  app.use(bodyLimit());
   app.use(cors(createCorsOptions(url, { allowDevOrigin: config.dashboard.devOrigin })));
   app.use(sessionMiddleware);
-  // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
-  app.use(noteDevice);
   // 로그인한 요청을 그 세션에 묶는다(세션이 끝나면 진행 중인 요청을 멈춘다, 끝난 세션과 로그인하지 않은 세션은 저장하지 않는다)
   app.use(sessionRequests.bind);
+
+  // ── 요청 제한. 사용자로 세려고 세션 뒤, 기기 기록, CSRF 검사, 본문 읽기보다 앞(걸린 요청은 그 일을 하지 않는다) ──
+  const rl = config.dashboard.rateLimit;
+  // 일반 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 로그인한 요청의 SSE 연결, 볼륨, 곡 추가 칸의 검색, 앨범아트, 토큰 받기는 뺀다(rate-limits)
+  app.use(
+    "/api",
+    limiter(() => rl.apiMax, { skip: unlimited }),
+  );
+  // 토큰 받기는 따로 센다(일반 한도가 차도 받되 끝없이는 아니게)
+  app.use(
+    "/api/csrf-token",
+    limiter(() => CSRF_TOKEN_MAX),
+  );
+  // 로그인/OAuth. IP 로 센다. 로그인한 사람의 로그아웃은 뺀다
+  app.use(
+    "/auth",
+    limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true, skip: signedInLogout }),
+  );
+
+  // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
+  app.use(noteDevice);
   // 탭이 생각하는 사용자와 세션의 사용자가 다르면 409(다른 탭에서 다른 계정으로 로그인했다). CSRF 검사보다 앞에
   app.use(requireSameAccount);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
+  // 운영자 패널 앞의 문. 라우터마다 주인 검사를 하고, 여기서도 한 번 본다(검사 없이 더한 라우터를 잡는다). 본문을 읽기 전에(큰 본문 경로는 모두 운영자 패널이다)
+  app.use("/api/admin", requireOwner);
+  // 검사를 다 지난 요청만 본문을 받는다: 100-continue 를 기다리면 이제 100 을 보내고, JSON 을 푼다
+  app.use(continueBody);
+  app.use(bodyLimit());
 
   // 라우트에서 디스코드 클라이언트, 플레이어, 패널을 쓸 수 있게
   app.locals.bot = bot;
@@ -173,25 +201,10 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.locals.stream = stream;
   app.locals.restart = restart;
 
-  // ── API 요청 제한. 라우트 마운트보다 먼저 등록 ──
-  const rl = config.dashboard.rateLimit;
-  // 일반 인증 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. SSE 연결, 볼륨, 곡 추가 칸의 검색, 앨범아트는 뺀다(rate-limits)
-  app.use(
-    "/api",
-    limiter(() => rl.apiMax, { skip: unlimited }),
-  );
-  // 로그인/OAuth. 세션 전이라 IP 로 센다
-  app.use(
-    "/auth",
-    limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true }),
-  );
-
   // 로그인 관련(/auth/login, /auth/callback, /auth/logout)
   app.use("/auth", createAuthRouter());
 
-  // API 라우트
-  // 운영자 패널. 라우터마다 주인 검사를 하고, 여기서도 /api/admin 앞에서 한 번 본다(검사 없이 더한 라우터를 잡는다)
-  app.use("/api/admin", requireOwner);
+  // API 라우트. 운영자 패널은 표대로(admin-mounts)
   for (const [at, router] of ADMIN_MOUNTS) app.use(at, router);
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());
