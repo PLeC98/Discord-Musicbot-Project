@@ -4,6 +4,7 @@
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 import axios from "axios";
 import { eventLink } from "../utils/event-link.ts";
+import { aiLogSync } from "./ai-log-sync.ts";
 import { blocked, live as canStream } from "./session.ts";
 import { checkSession, withUid } from "../stores/user.ts";
 import { problemText } from "../utils/problem.ts";
@@ -186,36 +187,18 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  // 화면이 보이고(active), 탭이 보이고 세션이 살아 있을 때만 연다(다른 두 스트림과 같다). 읽기를 기다리는 사이 바뀌었거나 화면이 사라졌으면 열지 않는다.
-  // 다시 읽기는 처음 열 때, 화면을 떠났다 올 때, 세션이 끝났다 다시 로그인했을 때만. 탭을 숨겼다 보이는 것은 이어 받기로 충분하다(펼친 줄, 더 읽은 줄을 지킨다)
-  let disposed = false;
-  let turn = 0;
-  let stale = true;
-  const wanted = () => !disposed && active() && canStream();
-  async function sync() {
-    const mine = ++turn;
-    if (!active() || blocked()) stale = true;
-    if (!wanted()) return live.stop();
-    if (stale) {
-      await reload();
-      if (mine !== turn || !wanted()) return;
-      // 읽지 못했으면 다음에 다시 읽는다
-      stale = Boolean(list.loadError.value);
-    }
-    live.start();
-  }
+  // 여닫는 차례는 aiLogSync(화면이 보일 때만, 다시 읽기는 처음, 떠났다 올 때, 막힌 뒤, 읽지 못했을 때)
+  const opener = aiLogSync({ active, canStream, blocked, reload, loadFailed: () => Boolean(list.loadError.value), start: live.start, stop: live.stop });
   live.whenGap(() => void reload());
-  watch([active, blocked], () => void sync(), { immediate: true });
+  watch([active, blocked], () => void opener.sync(), { immediate: true });
   // 숨긴 탭의 값(document.hidden)은 반응형이 아니라 따로 듣는다
-  const onVisibility = () => void sync();
+  const onVisibility = () => void opener.sync();
   document.addEventListener("visibilitychange", onVisibility);
 
   onScopeDispose(() => {
-    disposed = true;
-    turn++;
+    opener.dispose();
     document.removeEventListener("visibilitychange", onVisibility);
     clearTimeout(searchTimer);
-    live.stop();
   });
 
   return { ...list, ...detail, ...live, clearing, reload, loadMore: () => list.load(true), clearAll };
