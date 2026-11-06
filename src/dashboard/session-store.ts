@@ -149,6 +149,16 @@ class SqliteSessionStore extends Store {
     })();
   }
 
+  /** 살아 있는 세션(끝내지 않음, 만료 전, 절대 기한 안). 없으면 null. 넘은 것은 지우고 알린다. DB 오류는 던진다(스트림의 확인이 콜백 없이 부른다) */
+  liveSession(sid: string): SessionData | null {
+    if (this.isEnded(sid)) return null;
+    const ended: string[] = [];
+    const row = this._getStmt.get(sid);
+    const found = row && row.expires_at > Date.now() ? this._parse(sid, row.data, ended) : null;
+    this._announce(ended);
+    return found;
+  }
+
   // express-session Store 계약: 콜백 (err, session|null). better-sqlite3는 동기라 즉시 호출. 콜백은 try 밖에서 한 번
   get(sid: string, cb: (err: unknown, session?: SessionData | null) => void) {
     let found: SessionData | null = null;

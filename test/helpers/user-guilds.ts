@@ -31,7 +31,8 @@ function userGuildsFixture() {
   /** 그 사용자의 세션 행을 만들고 토큰(tok-<사용자 ID>)을 둔다. token false 면 토큰 없는 세션 */
   const signIn = (userId: string, { token = true }: { token?: boolean } = {}) => {
     const sid = `sid-${userId}`;
-    store.set(sid, fake<SessionData>({ cookie: { expires: new Date(Date.now() + 60_000).toISOString() } }));
+    // 진짜 로그인 세션처럼 사용자와 로그인 시각을 둔다(스트림을 열 때 저장소에서 세션이 살아 있는지 본다)
+    store.set(sid, fake<SessionData>({ cookie: { expires: new Date(Date.now() + 60_000).toISOString() }, user: { id: userId }, loginAt: Date.now() }));
     if (token) store.saveDiscordToken(sid, `tok-${userId}`);
   };
   /** 요청에 그 사용자의 세션, 세션 저장소를 붙인다 */

@@ -172,6 +172,7 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
     writes: [] as string[],
     writableLength,
     ended: false,
+    destroyed: false,
     statusCode: null as number | null,
     body: null as unknown,
     handlers: {} as Record<string, () => void>,
@@ -183,6 +184,9 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
     },
     end() {
       res.ended = true;
+    },
+    destroy() {
+      res.destroyed = true;
     },
     status(code: number) {
       res.statusCode = code;
@@ -229,7 +233,7 @@ test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 
   const stuck = fakeRes({ writeResult: false, writableLength: 2 * 1024 * 1024 });
   lm.addClient(stuck, "owner");
   lm.record({ level: 30, time: 2, msg: "한 줄" });
-  assert.equal(stuck.ended, true);
+  assert.equal(stuck.destroyed, true, "끝내기로는 읽지 않는 소켓과 쌓인 바이트가 남아 부순다");
   assert.equal(lm.clients.size, 1, "정리까지 되어야 다음 기록에서 다시 만나지 않는다");
 });
 

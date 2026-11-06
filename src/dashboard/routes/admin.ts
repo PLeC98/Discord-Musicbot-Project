@@ -2,6 +2,7 @@
 // 경로가 /api/admin인 것은 대시보드 운영자 패널의 주소일 뿐, 디스코드 서버 쪽 권한과는 무관하다.
 
 import express from "express";
+import * as sessionStreams from "../session-streams.ts";
 import { toDiscordText } from "../../rules/app-emoji-token.ts";
 import { emojiBook } from "../../store/app-emoji-book.ts";
 import logger from "../../infra/log/logger.ts";
@@ -577,7 +578,10 @@ adminRouter.put("/config/:name", requireOwner, (req, res) => {
 // 화면이 닫았다 다시 열 때는 ?after= 를 싣는다
 adminRouter.get("/logs/stream", requireOwner, (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
-  if (!logManager.addClient(res, signedIn(req).id, after)) sendProblem(res, "too-many-streams");
+  // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
+  if (!sessionStreams.admit(req)) return sendProblem(res, "login-required");
+  if (!logManager.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
+  sessionStreams.track(req, res, "실시간 로그", () => logManager.drop(res));
 });
 
 // 권한 수준 오버라이드. { tier: "server-manager"|"dj"|"user"|null }. null이면 해제.

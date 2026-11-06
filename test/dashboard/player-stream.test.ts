@@ -213,18 +213,37 @@ test("설정 객체를 넘기면 상한, 하트비트를 다시 시작하지 않
   mock.timers.reset();
 });
 
-test("atCap: 상한에 찼는지 미리 본다(멤버 확인 전에). 연결이 닫히면 풀린다", () => {
+test("reserve: 상한의 한 칸을 먼저 잡는다(멤버 확인 전에). 연결이 닫히면 그 칸이 풀리고, 풀기는 몇 번 불러도 한 번", () => {
   const held = [];
   for (let i = 0; i < maxPerUser; i++) {
-    assert.equal(DashboardEvents.atCap("evCap"), false);
     const r = makeRes();
     DashboardEvents.addClient(r, sees(), "evCap");
     held.push(r);
   }
-  assert.equal(DashboardEvents.atCap("evCap"), true);
+  assert.equal(DashboardEvents.reserve("evCap"), null, "상한이면 잡지 못한다");
   held[0].emit("close");
-  assert.equal(DashboardEvents.atCap("evCap"), false);
+  const slot = DashboardEvents.reserve("evCap");
+  assert.ok(slot);
+  slot.release();
+  slot.release();
+  assert.equal(DashboardEvents.perKey.get("evCap"), maxPerUser - 1, "두 번 풀어도 한 칸");
   for (const r of held.slice(1)) r.emit("close");
+});
+
+test("open: 잡은 칸으로 연다. 그사이 닫힌 연결은 열지 않고 칸은 부른 쪽이 푼다. drop 은 닫힘을 기다리지 않고 뺀다", () => {
+  const slot = DashboardEvents.reserve("evOpen")!;
+  const closed = makeClosed();
+  assert.equal(DashboardEvents.open(closed, slot, sees()), false);
+  slot.release();
+  assert.equal(DashboardEvents.perKey.get("evOpen"), undefined);
+
+  const live = makeRes();
+  assert.equal(DashboardEvents.open(live, DashboardEvents.reserve("evOpen")!, sees()), true);
+  assert.equal(DashboardEvents.perKey.get("evOpen"), 1);
+  DashboardEvents.drop(live);
+  assert.equal(DashboardEvents.perKey.get("evOpen"), undefined);
+  live.emit("close");
+  assert.equal(DashboardEvents.perKey.get("evOpen"), undefined, "닫힘이 또 와도 한 번만 푼다");
 });
 
 test("watching, watch: 그 서버를 멤버로 확인한 연결의 사용자, 연결을 연 뒤 확인한 서버를 더한다", () => {

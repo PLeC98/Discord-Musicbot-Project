@@ -25,6 +25,8 @@ type SseClient = {
   /** 아직 보내지 못하고 쌓인 바이트 */
   readonly writableLength: number;
   end(): void;
+  /** 소켓까지 부순다(읽지 않는 클라이언트는 끝내도 닫히지 않는다) */
+  destroy(): unknown;
   on(event: "close" | "error", fn: () => void): unknown;
   writeHead(code: number, headers: Record<string, string>): unknown;
   flushHeaders(): void;
@@ -161,10 +163,11 @@ class LogManager {
     const payload = this._frameOf(entry);
     for (const res of this.clients) {
       try {
-        // 읽지 않는 소비자를 붙들고 있으면 메모리가 는다. 쌓인 양이 상한을 넘으면 끊는다(다시 열면 마지막 번호 뒤부터 받는다)
+        // 읽지 않는 소비자를 붙들고 있으면 메모리가 는다. 쌓인 양이 상한을 넘으면 끊는다(다시 열면 마지막 번호 뒤부터 받는다).
+        // 끝내기(end)로는 읽지 않는 소켓과 쌓인 바이트가 남는다. 부순다
         if (res.writableLength > MAX_PENDING_BYTES) {
-          res.end();
           this._dropClient(res);
+          res.destroy();
           continue;
         }
         res.write(payload);
@@ -274,7 +277,8 @@ class LogManager {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      // 끊을 때 이 연결의 소켓을 부수므로 다시 쓰지 않게
+      Connection: "close",
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
@@ -335,6 +339,11 @@ class LogManager {
         this._dropClient(res);
       }
     }
+  }
+
+  /** 연결 하나를 뺀다(세션이 끝나 끊을 때). 닫힘을 기다리지 않는다 */
+  drop(res: SseClient) {
+    this._dropClient(res);
   }
 
   /** 연결 정리. 쓰기 실패 경로에서도 함께 제거한다. */

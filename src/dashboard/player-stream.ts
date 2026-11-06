@@ -10,6 +10,8 @@ const log = logger.child({ category: "dashboard" });
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
 /** 연결 하나. canSee 는 보낼 때 그 서버의 보기 권한을 확인한다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
 type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
+/** 잡은 자리 하나(사용자당 연결 상한의 한 칸). 풀기는 몇 번 불러도 한 번 */
+type Slot = { userKey: string; release: () => void };
 
 /**
  * 대시보드 플레이어 상태 변화 넛지(SSE).
@@ -56,24 +58,31 @@ class PlayerStream {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      // 세션이 끝나 끊을 때 이 연결의 소켓을 부수므로 다시 쓰지 않게
+      Connection: "close",
       "X-Accel-Buffering": "no",
     });
     res.flushHeaders();
     res.write(": connected\n\n");
   }
 
-  /** 사용자당 연결 캡 확인 + 카운트 증가. 초과 시 429 응답 후 false. 이미 끊긴 연결도 false */
-  _capOk(res: Response, userKey: string) {
-    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않아 연결 수가 남는다
-    if (res.closed) return false;
+  /**
+   * 사용자당 연결 상한의 한 칸을 잡는다. 상한이면 null. 경로는 멤버 확인(디스코드 조회)을 기다리기 앞에서 잡고 조회가 끝날 때까지 쥔다:
+   * 연결이 그사이 닫혀도 곧바로 풀면 열고 끊기를 되풀이해 끝나지 않은 조회가 상한보다 많아진다
+   */
+  reserve(userKey: string): Slot | null {
     const count = this.perKey.get(userKey) || 0;
-    if (count >= this.options.maxPerUser) {
-      sendProblem(res, "too-many-streams");
-      return false;
-    }
+    if (count >= this.options.maxPerUser) return null;
     this.perKey.set(userKey, count + 1);
-    return true;
+    let held = true;
+    return {
+      userKey,
+      release: () => {
+        if (!held) return;
+        held = false;
+        this._releaseKey(userKey);
+      },
+    };
   }
 
   _releaseKey(userKey: string) {
@@ -82,14 +91,26 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 그 사용자의 연결이 상한에 찼나. 부르는 쪽이 멤버 확인(REST)을 하기 전에 본다(SSE 연결은 요청 한도 밖이다) */
-  atCap(userKey: string) {
-    return (this.perKey.get(userKey) || 0) >= this.options.maxPerUser;
+  /** 구독(자리 잡기와 열기를 함께). 상한이면 too-many-streams 로 답하고 false. 기다림 없이 여는 쪽(시험)이 쓴다 */
+  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
+    const slot = this.reserve(userKey);
+    if (!slot) {
+      sendProblem(res, "too-many-streams");
+      return false;
+    }
+    if (this.open(res, slot, canSee, guilds)) return true;
+    slot.release();
+    return false;
   }
 
-  /** 구독. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. guilds: 멤버로 확인한 서버. requireAuth 뒤 호출할 것 */
-  addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
-    if (!this._capOk(res, userKey)) return;
+  /**
+   * 잡은 자리로 연다. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. guilds: 멤버로 확인한 서버.
+   * 그사이 연결이 닫혔으면 열지 않고 false(자리는 부른 쪽이 푼다). 열면 이 연결의 닫힘, 오류, 쓰기 실패가 자리를 한 번 푼다
+   */
+  open(res: Response, slot: Slot, canSee: (guildId: string) => boolean, guilds = new Set<string>()) {
+    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않는다
+    if (res.closed) return false;
+    const { userKey } = slot;
     this._sseHead(res);
 
     // idempotent cleanup. close/error/쓰기 실패 어느 경로로 와도 회계(구독, perKey 캡)가 한 번만
@@ -103,7 +124,7 @@ class PlayerStream {
         if (done) return;
         done = true;
         this.subs.delete(sub);
-        this._releaseKey(userKey);
+        slot.release();
       },
     };
     this.subs.add(sub);
@@ -112,6 +133,12 @@ class PlayerStream {
       log.debug(`재생 상태 SSE 연결 오류: ${messageOf(error)}`);
       sub.cleanup();
     });
+    return true;
+  }
+
+  /** 연결 하나를 뺀다(세션이 끝나 끊을 때). 닫힘을 기다리지 않는다 */
+  drop(res: Response) {
+    for (const sub of this.subs) if (sub.res === res) sub.cleanup();
   }
 
   /** 서버 상태 변화 알림. coalesceMs 동안 몰린 호출을 한 번의 넛지로 합침. 그 서버를 볼 구독자가 없으면 타이머도 안 만듦. */
@@ -196,3 +223,4 @@ function createPlayerStream(options: StreamOptions = config.dashboard.sse) {
 }
 
 export { createPlayerStream, PlayerStream };
+export type { Slot };
