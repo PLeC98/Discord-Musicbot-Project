@@ -65,7 +65,7 @@ test("분류는 stderr가 있으면 그것을 본다(YouTube 쪽). errorKind는 
 
 // 글은 보지 않는다. 이름을 달지 않은 오류는 무엇이라 적혀 있든 unknown-error 다(단어로 구분하면 프로그램 버그가 엉뚱한 종류가 된다)
 test("errorKind는 이름이 없으면 unknown-error. 문자열과 빈 값도 받는다", () => {
-  for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "Could not find YouTube equivalent"]) {
+  for (const msg of ["fetch failed", "Missing Permissions", "Cannot read properties of undefined (reading 'geometry')", "Invalid regional indicator", "player.stream is not a function", "유튜브에서 같은 곡을 찾지 못했습니다"]) {
     assert.equal(errorKind(new Error(msg)), "unknown-error", msg);
   }
   assert.equal(errorKind("ERROR: Video unavailable"), "unknown-error");

@@ -91,3 +91,22 @@ data:text/plain,abc
   assert.equal(media.segments[0].key?.url, null, "http(s) 가 아닌 키 주소는 없음");
   assert.equal(media.ended, false, "끝 표시가 없으면 라이브");
 });
+
+test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 길이는 유한한 수, 순번과 바이트 구간은 안전한 정수만", () => {
+  const huge = "9".repeat(400);
+  const media = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:Infinity\n#EXT-X-MEDIA-SEQUENCE:x\n#EXTINF:Infinity,\na.ts\n#EXT-X-BYTERANGE:${huge}@0\n#EXTINF:-3,\nb.ts\n#EXT-X-BYTERANGE:0@10\n#EXTINF:4,\nc.ts\n`, BASE) as MediaPlaylist;
+  assert.deepEqual([media.targetDuration, media.mediaSequence], [0, 0]);
+  assert.deepEqual(
+    media.segments.map((s) => [s.duration, s.sequence, s.range]),
+    [
+      [0, 0, null],
+      [0, 1, null],
+      [4, 2, null],
+    ],
+  );
+  for (const big of [huge, "9007199254740992"]) {
+    assert.throws(() => parsePlaylist(`#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:${big}\n#EXTINF:4,\na.ts\n`, BASE), { code: "unsupported-link" }, "0 으로 바꾸면 복호화의 IV, 이어 받기가 틀린다");
+  }
+  const long = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:3000000\n#EXT-X-MEDIA-SEQUENCE:7\n#EXTINF:1e300,\na.ts\n`, BASE) as MediaPlaylist;
+  assert.deepEqual([long.targetDuration, long.mediaSequence, long.segments[0].duration], [60, 7, 86_400]);
+});

@@ -62,6 +62,8 @@ type TrackSource = { state: "same" | "changed" | "ok"; at: number } | { state: "
 type TrackRequestRow = {
   /** 원래 링크(링크 데이터의 키, canonicalUrl) 또는 자동재생 키(amq:, at: 등) */
   requestKey: string;
+  /** 사람에게 보여 줄 링크(링크 데이터의 page_url, 자동재생 키면 소스의 곡이나 작품 페이지). 링크 데이터 행이 없으면 null */
+  pageUrl: string | null;
   /** 링크 데이터의 출처. 직접 지정한 음원만 있는 행은 원래 링크의 종류(inputKind)에서 */
   platform: string;
   title: string | null;

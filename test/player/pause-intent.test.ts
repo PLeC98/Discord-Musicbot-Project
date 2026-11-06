@@ -48,7 +48,7 @@ function makePlayer(status: string) {
     audioPlayer: audio,
     pause,
     currentTrack: null,
-    onPlayerIdle() {},
+    onAudioIdle() {},
     _trackLabel: Player.prototype._trackLabel,
     _showTrackInVoiceStatus: Player.prototype._showTrackInVoiceStatus,
     _onAudioState: Player.prototype._onAudioState,

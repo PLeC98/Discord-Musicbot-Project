@@ -36,7 +36,7 @@ import type { AudioRow } from "../../src/store/audio-cache.ts";
 import type { LookupRow } from "../../src/store/rows.ts";
 
 // 가짜 ffmpeg 프로세스와 오디오 리소스. 테스트가 읽는 필드
-type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
+type FakeChild = EventEmitter & { args: string[]; label: string; stdout: PassThrough; stderr: PassThrough; stdin: Writable; written: Buffer[]; exitCode: number | null; signalCode: string | null; killed: boolean; kill(): boolean };
 // input 은 출력 스트림(media/opus-output)이다. 그 PCM 소스는 input.source
 type FakeResource = {
   input: OpusOutput;
@@ -48,7 +48,7 @@ type FakeResource = {
 };
 
 // 재생 입력이 fetch 에 넘기는 필드
-type FetchInit = { headers: Record<string, string> };
+type FetchInit = { headers: Record<string, string>; signal?: AbortSignal };
 
 // 판정 테스트에서 무엇이 불렸는지 모은다. 테스트마다 reset() 으로 비운다
 const calls = {
@@ -62,6 +62,7 @@ const calls = {
   downloads: [] as DownloadTrack[],
   persists: [] as string[],
   settings: 0, // 플레이어가 설정이 바뀌었다고 알린 횟수
+  positions: 0, // 지금 위치만 쓴 횟수
   directStreams: [] as string[],
   sink: [] as string[],
   steps: [] as string[],
@@ -155,12 +156,19 @@ function createAudioResource(input: OpusOutput, options: FakeResource["options"]
 
 // ── 2. ffmpeg ─────────────────────────────────────────────────────────
 function fakeChild(args: string[], label: string): FakeChild {
+  const written: Buffer[] = []; // 입력(stdin)으로 받은 것
   const child: FakeChild = Object.assign(new EventEmitter(), {
     args,
     label,
     stdout: new PassThrough(),
     stderr: new PassThrough(),
-    stdin: new Writable({ write: (_c, _e, done) => done() }),
+    stdin: new Writable({
+      write: (chunk: Buffer, _e, done) => {
+        written.push(chunk);
+        done();
+      },
+    }),
+    written,
     exitCode: null,
     signalCode: null,
     killed: false,
@@ -251,10 +259,10 @@ const fakeConnection = () =>
     subscribe() {},
   }) as unknown as VoiceConnection & { destroyed: string[] };
 class FakeVoice extends VoiceLink {
-  recover(why: string) {
+  override recover(why: string) {
     calls.recoveries.push(why);
   }
-  async connect() {
+  override async connect() {
     await behavior.connect?.();
     this.player.connection = fakeConnection();
     this.state = "ready";
@@ -264,21 +272,24 @@ class FakeVoice extends VoiceLink {
 
 // 대기열이 바뀔 때 세션 저장이 받는 알림(on…)은 어떤 알림이 어떤 순서로 가는지만 남긴다
 class FakePersistence extends SessionPersistence {
-  _mirror() {}
-  async persistState(reason: string) {
+  override _mirror() {}
+  override async save(reason: string) {
     calls.persists.push(reason);
   }
-  startStateSync() {}
-  stopStateSync() {}
+  override startPeriodicSave() {}
+  override stopPeriodicSave() {}
   // 잠깐 모았다가 쓰는 것은 세션 저장 테스트가 본다. 여기서는 알림만 센다
-  onSettingsChanged() {
+  override onSettingsChanged() {
     calls.settings++;
   }
-  removeSession() {
+  override savePosition() {
+    calls.positions++;
+  }
+  override removeSession() {
     calls.persists.push("remove");
   }
   // 테스트가 복원을 정했으면 그것으로(결과는 복원한 뒤의 상태로 구분한다). 아니면 진짜
-  async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
+  override async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
       await behavior.restore.call(this.player, record, options);
       if (this.player.lifecycle.parked) return "parked";
@@ -286,40 +297,40 @@ class FakePersistence extends SessionPersistence {
     }
     return super.restoreFromState(record, options);
   }
-  onSetCurrent() {
+  override onSetCurrent() {
     calls.sink.push("onSetCurrent");
   }
-  onEnqueue() {
+  override onEnqueue() {
     calls.sink.push("onEnqueue");
   }
-  onTake() {
+  override onTake() {
     calls.sink.push("onTake");
   }
-  onRetire() {
+  override onRetire() {
     calls.sink.push("onRetire");
   }
-  onRewind() {
+  override onRewind() {
     calls.sink.push("onRewind");
   }
-  onRemoveAt() {
+  override onRemoveAt() {
     calls.sink.push("onRemoveAt");
   }
-  onMove() {
+  override onMove() {
     calls.sink.push("onMove");
   }
-  onClearQueue() {
+  override onClearQueue() {
     calls.sink.push("onClearQueue");
   }
-  onReset() {
+  override onReset() {
     calls.sink.push("onReset");
   }
-  onReplace() {
+  override onReplace() {
     calls.sink.push("onReplace");
   }
 }
 
 class FakeWarmer extends QueueWarmer {
-  start() {}
+  override start() {}
 }
 
 // 테스트마다 바꾸는 협력자. 기본값은 "아무 일도 안 일어남"
@@ -372,7 +383,7 @@ const sponsorFor = async (track: QueuedTrack) => {
 // 다운로드 중 목록은 진짜 것을 쓴다. 그래야 다운로드 중인 파일을 캐시로 치지 않는 판정(findCacheFile)이 그대로 돈다
 const { inFlight } = TrackDownloader._internals;
 class FakeDownloader extends TrackDownloader {
-  downloadTrack(track: DownloadTrack) {
+  override downloadTrack(track: DownloadTrack) {
     calls.downloads.push(track);
     const key = audioKeyOf(track.audioUrl);
     if (key) audioCache.recordDownloadStart(key, track);
@@ -490,6 +501,7 @@ function reset() {
   for (const resource of calls.resources) resource.input.destroy();
   for (const list of Object.values(calls)) if (Array.isArray(list)) list.length = 0;
   calls.settings = 0;
+  calls.positions = 0;
   for (const k of Object.keys(behavior) as Array<keyof Behavior>) behavior[k] = null;
   inFlight.clear();
   Object.assign(caps, { ok: true, https: true, hls: true, dash: true, segMaxRetry: true });

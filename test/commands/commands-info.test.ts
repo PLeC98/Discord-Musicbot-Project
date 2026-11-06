@@ -325,6 +325,20 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
 
 // ── /cachestatus ──────────────────────────────────────────────────────
 
+test("/cachestatus: 봇 운영자만(모든 서버의 캐시라). 서버 관리 권한으로는 열리지 않는다", async () => {
+  const saved = config.dashboard.ownerId;
+  config.dashboard.ownerId = "owner";
+  try {
+    const { it, log, bot } = interaction({ userId: "u1" });
+    await run(await command("cachestatus"), it, bot);
+    assert.deepEqual(log, [["reply", noticeReply(errors.notice("must-owner"))]]);
+  } finally {
+    config.dashboard.ownerId = saved;
+  }
+  const json = (await command("cachestatus")).data.toJSON();
+  assert.equal(json.default_member_permissions ?? null, null, "운영자에게 서버 관리 권한이 없는 서버에서도 목록에 뜬다");
+});
+
 test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP, 최근)", async () => {
   const seed = (key: string, title: string, plays: number) => {
     const file = audioCache.getFilePath(key);
@@ -339,8 +353,14 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP
   seed("dl:abc", "직접", 1);
   trackLookup.recordTrackLookup({ requestKey: "https://youtu.be/aaaaaaaaaaa", pageUrl: "https://youtu.be/aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "많이 튼 곡", artist: "가수" });
 
-  const { it, log, bot } = interaction();
-  await run(await command("cachestatus"), it, bot);
+  const saved = config.dashboard.ownerId;
+  config.dashboard.ownerId = "owner";
+  const { it, log, bot } = interaction({ userId: "owner" });
+  try {
+    await run(await command("cachestatus"), it, bot);
+  } finally {
+    config.dashboard.ownerId = saved;
+  }
 
   assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
   const f = fieldsOf(log[1][1]);

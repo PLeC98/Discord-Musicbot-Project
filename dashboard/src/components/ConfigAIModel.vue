@@ -54,7 +54,7 @@
           <div class="flex items-center gap-2 flex-wrap">
             <SingleSelect v-if="models.length && !manualModel" class="flex-1 min-w-40" :model-value="draft.model ?? ''" :options="modelChoices.map((one) => ({ value: one.id, label: one.label }))" @update:model-value="pickModel" />
             <input v-else :value="draft.model" :placeholder="TM.modelPlaceholder" :class="[FIELD, 'flex-1 min-w-40']" @input="draft.model = valueOf($event)" @change="rememberModel(draft.provider, draft.model)" />
-            <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="loadingModels" :aria-label="TM.refreshList" v-tooltip="TM.refreshList" @click="loadModels()"><Icon name="refresh" :size="20" :class="loadingModels && 'animate-spin'" /></button>
+            <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="loadingModels || refreshing" :aria-label="TM.refreshList" v-tooltip="TM.refreshList" @click="refreshList()"><Icon name="refresh" :size="20" :class="(loadingModels || refreshing) && 'animate-spin'" /></button>
             <label class="flex items-center gap-2 cursor-pointer shrink-0" v-tooltip="models.length ? '' : TM.manualTip">
               <span class="text-sm" :class="models.length ? 'text-on-surface' : 'text-on-surface-variant'">{{ TM.manual }}</span>
               <BaseSwitch v-model="manualModel" :disabled="!models.length" />
@@ -102,10 +102,8 @@
   </BaseCard>
 
   <BaseCard v-if="on" icon="tune" :title="TP.title">
-    <template v-if="fieldInfo.fields.length" #actions>
-      <button type="button" :class="[ICON_BTN, 'size-8']" :disabled="refreshing" :aria-label="TP.refresh" v-tooltip="TP.refreshTip" @click="refreshModels"><Icon name="refresh" :size="20" :class="refreshing && 'animate-spin'" /></button>
-    </template>
     <div class="flex flex-col gap-4">
+      <p v-if="fieldInfo.profiled && draft.model && !fieldInfo.known" class="text-sm text-on-surface-variant">{{ TP.unknownModel }}</p>
       <div v-if="fieldInfo.fields.length" class="flex items-center gap-3">
         <span class="flex-1 min-w-0 truncate text-sm font-semibold text-on-surface">{{ modelName || draft.model }}</span>
         <label class="flex items-center gap-2 cursor-pointer shrink-0">
@@ -176,7 +174,7 @@ const {
   showAdvanced,
   showHide,
   refreshing,
-  refreshModels,
+  refreshList,
   params,
   jsonText,
   jsonBad,

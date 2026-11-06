@@ -15,6 +15,8 @@ const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
+// 다 받았거나 실패한 요청의 응답을 닫는 사유. 오류가 아니라 받는 쪽(guardedRanges)이 본문을 오류 없이 닫는다
+const RESPONSE_DONE = "응답을 다 썼다";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -97,12 +99,15 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다).
-// 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
+// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 Content-Range 가 있어야 하고(없이 처음부터 주면 같은 바이트가 두 번 들어간다)
+// 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다). 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
-  const cr = res.headers.get?.("content-range");
-  if (!cr) return;
+  const cr = res.headers.get?.("content-range") ?? "";
   const [, startText, totalText] = /bytes\s+(\d+)-\d+\/(\d+|\*)/i.exec(cr) ?? [];
+  if (startText === undefined) {
+    if (expected > 0) throw permanent(`Content-Range 가 없거나 읽을 수 없는 206 입니다(${expected}을 요청, ${cr || "없음"})`);
+    return;
+  }
   const start = Number(startText);
   if (Number.isFinite(start) && start !== expected) {
     throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
@@ -297,6 +302,8 @@ class ChunkedReader {
       throw err;
     } finally {
       clearTimeout(this.stallTimer);
+      // 다 받았어도 응답을 닫는다(더 보내는 서버면 읽지 않은 본문이 연결을 붙잡는다)
+      this.aborter?.abort(RESPONSE_DONE);
       this.aborter = null;
       // 첫 응답은 한 번만 읽는다. 끝났거나 끊겼으면 연결을 닫는다(크기를 적게 알린 서버면 본문이 남아 있다)
       this.firstBody?.destroy();
@@ -309,13 +316,16 @@ class ChunkedReader {
     this.settleReady?.(null);
   }
 
-  // 받은 바이트. 첫 바이트를 확인하는 중이면 모아 두었다가 확인한다
+  // 받은 바이트. 청크 끝을 넘는 것은 버린다(구간보다 더 보내는 서버). 첫 바이트를 확인하는 중이면 모아 두었다가 확인한다
   accept(value: Uint8Array) {
-    if (!this.verifying) return this.take(value);
-    this.probe.push(Buffer.from(value));
+    const held = this.probe.reduce((sum, b) => sum + b.length, 0);
+    const room = this.target - this.pos - held;
+    const bytes = value.length > room ? value.subarray(0, Math.max(0, room)) : value;
+    if (!this.verifying) return this.take(bytes);
+    this.probe.push(Buffer.from(bytes));
     this.lastReadAt = Date.now();
     this.armStall();
-    if (this.probe.reduce((sum, b) => sum + b.length, 0) >= (this.o.expectStart?.bytes ?? 0)) this.verifyFirst();
+    if (held + bytes.length >= Math.min(this.o.expectStart?.bytes ?? 0, this.target - this.pos)) this.verifyFirst();
   }
 
   // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 다시 받지 않는 실패(열림 전이라 prime 이 거부된다)

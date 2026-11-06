@@ -34,7 +34,8 @@ function world(guildIds = ["g1"]) {
   let active = 0;
   let maxActive = 0;
   const players = new Map<string, Player>(guildIds.map((name) => [idOf(name), fakePlayer({ guild: { id: idOf(name) }, currentTrack: { title: "지금" }, queue: [], nowPlayingMessage: null })]));
-  const bot = fakeBot({ players, panels: { createQueueAdditionMessage: () => "담음" } });
+  // 틀고 있는 플레이어에 담기만 하므로 패널은 부르지 않는다
+  const bot = fakeBot({ players, panels: {} });
 
   // 이 작업을 알리는 매체. 알리는 동안 붙잡는다
   const responder = (id: string): Responder => ({

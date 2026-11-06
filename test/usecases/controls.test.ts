@@ -46,7 +46,7 @@ const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
 
 // 부른 것을 적는 가짜 플레이어. 멈춤은 진짜 상태 모듈(오디오는 재생 중인 가짜). user, holds 로 처음 상태를 준다
-function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: boolean; holds?: Hold[] } & Record<string, unknown> = {}) {
+function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: boolean; holds?: Hold[] } & { [K in keyof Player]?: unknown } = {}) {
   const calls: string[] = [];
   const audio = { state: { status: "playing" }, pause: () => true, unpause: () => true };
   const pause = new PauseState(
@@ -57,7 +57,6 @@ function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: bo
   if (user) pause.setUser(true);
   calls.length = 0;
   const p = {
-    calls,
     guild,
     currentTrack: track("지금"),
     queue: [track("a"), track("b")],
@@ -85,9 +84,10 @@ function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: bo
     dispose: async (o: { session: string; panel?: string }) => calls.push(`dispose:${o.session}:${o.panel ?? "-"}`),
     _trackLabel: () => '"지금"',
     getCurrentTime: () => 65_000,
-    ...over,
   };
-  return asPlayer(p);
+  // 테스트가 준 필드로 덮는다(키는 매개변수 타입이 진짜 플레이어의 것만 받는다)
+  Object.assign(p, over);
+  return asPlayer(p, { calls });
 }
 
 // 패널에 알린 것

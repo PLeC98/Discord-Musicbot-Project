@@ -24,6 +24,8 @@ test("연결 이름(Node, undici), 시간 초과는 환경 탓. 원인 사슬에
     assert.equal(failureScope(new Error("fetch failed", { cause: coded(code) })), "environment", code);
   }
   assert.equal(failureScope(Object.assign(new Error("시간 초과"), { name: "TimeoutError" })), "environment");
+  // 단일 GET 의 응답 헤더 기다림을 끊는 사유(media/playback-input)
+  assert.equal(failureScope(new DOMException("응답이 10초 동안 없습니다", "TimeoutError")), "environment");
 });
 
 test("만든 곳이 붙인 범위가 이름보다 먼저다(같은 stream-failed 라도)", () => {

@@ -107,3 +107,62 @@ test("없는 이름, 폴더 밖 이름, 구조 버전이 다른 스냅샷은 예
   assert.ok(failsWith("SNAPSHOT_MISMATCH", () => snapshots.stage(name)));
   assert.equal(snapshots.staged(), null);
 });
+
+test("같은 초에 두 번 떠도 앞 복원점을 덮지 않는다(꼬리 -2), 꼬리가 붙은 것도 예약할 수 있다", async () => {
+  const at = new Date(2026, 9, 11, 9, 0, 0);
+  settingsDocs.write("status", { messages: ["첫째"] }, 0);
+  const first = await snapshots.take("before-import", at);
+  settingsDocs.write("status", { messages: ["둘째"] }, 1);
+  const [second, third] = await Promise.all([snapshots.take("before-import", at), snapshots.take("before-reset", at)]);
+  assert.deepEqual([first, second, third], ["settings-before-import-2026-10-11-090000.db", "settings-before-import-2026-10-11-090000-2.db", "settings-before-reset-2026-10-11-090000.db"]);
+  assert.equal(snapshots.list().length, 3);
+  assert.deepEqual(
+    fs.readdirSync(backups).filter((name) => !name.endsWith(".db")),
+    [],
+    "뜨던 파일(.part)이 남지 않는다",
+  );
+  snapshots.stage(second);
+  assert.equal(snapshots.staged(), second);
+});
+
+// 다른 프로그램이 앞 시점을 읽고 있으면 -wal 을 본체에 다 접지 못한다(Windows 는 열린 파일을 지우지 못해 교체가 RESTORE_FAILED 로 멈추므로 거기까지 가지 않는다)
+test("뜨다 멈춰 남은 .part 는 한 시간이 지나면 지우고, 뜨는 중일 수 있는 새 것은 둔다", async () => {
+  fs.mkdirSync(backups, { recursive: true });
+  const stale = path.join(backups, "settings-before-import-2026-11-01-000000.db.part");
+  const fresh = path.join(backups, "settings-before-import-2026-11-06-000000.db.part");
+  fs.writeFileSync(stale, "반쯤");
+  fs.writeFileSync(fresh, "뜨는 중");
+  const old = new Date(Date.now() - snapshots.STALE_PART_MS - 60_000);
+  fs.utimesSync(stale, old, old);
+  await snapshots.take("before-import");
+  assert.equal(fs.existsSync(stale), false);
+  assert.equal(fs.existsSync(fresh), true);
+});
+
+test("복원 전 사본: 다른 읽는 쪽이 있어 -wal 을 접지 못해도 -wal 에만 있는 내용까지 남긴다", { skip: process.platform === "win32" ? "Windows 는 열린 settings.db 를 지우지 못한다" : false }, async () => {
+  const name = await snapshots.take("daily", new Date(2026, 9, 12));
+  snapshots.stage(name);
+  stores.close();
+  const file = path.join(store.dir, "settings.db");
+  const reader = new Database(file);
+  const writer = new Database(file);
+  try {
+    writer.pragma("wal_autocheckpoint = 0");
+    reader.prepare("BEGIN").run();
+    reader.prepare("SELECT COUNT(*) FROM documents").get();
+    writer.prepare("INSERT INTO documents (name, data_json, revision) VALUES ('wal-only', '{}', 0)").run();
+    writer.close();
+    assert.equal(snapshots.applyStaged(store.dir), name);
+  } finally {
+    if (reader.inTransaction) reader.prepare("ROLLBACK").run();
+    reader.close();
+    stores.open(store.dir);
+  }
+  const kept = snapshots.list().find((one) => one.kind === "before-restore")!;
+  const db = new Database(path.join(backups, kept.name), { readonly: true });
+  try {
+    assert.ok(db.prepare("SELECT 1 FROM documents WHERE name = 'wal-only'").get(), "-wal 에만 있던 행");
+  } finally {
+    db.close();
+  }
+});

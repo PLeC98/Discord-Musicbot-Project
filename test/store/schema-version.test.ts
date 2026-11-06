@@ -16,6 +16,7 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as guildSettings from "../../src/store/guild-settings.ts";
 import * as panelRecords from "../../src/store/panel-records.ts";
 import * as voiceStatus from "../../src/store/voice-status.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-schema-"));
 let serial = 0;
@@ -147,4 +148,75 @@ test("서버에서 나가면 그 서버의 실행 상태만 삭제한다. 서버
   assert.deepEqual(voiceStatus.load(), [["stay-voice", "▶️ 곡"]]);
   assert.notEqual(sessions().load("stay"), null);
   assert.deepEqual(guildSettings.table.getDjRoles("gone"), ["r"], "다시 초대하면 그대로 쓴다");
+});
+
+test("표 만들기와 구조 버전은 한 번에: 만드는 도중 멈춘 파일은 표가 없어 다음에 새로 만든다", async () => {
+  const { DbFile } = await import("../../src/store/sqlite.ts");
+  const file = path.join(dir, "half.db");
+  let stop = true;
+  const spec = {
+    label: "시험 DB",
+    fileName: "half.db",
+    version: 3,
+    synchronous: "NORMAL" as const,
+    onMismatch: { lost: "없음" },
+    createTables(db: Database.Database) {
+      db.exec("CREATE TABLE IF NOT EXISTS one (id INTEGER PRIMARY KEY)");
+      if (stop) throw new Error("만드는 도중 멈춤");
+      db.exec("CREATE TABLE IF NOT EXISTS two (id INTEGER PRIMARY KEY)");
+    },
+  };
+  assert.throws(() => new DbFile(spec).open(file), /만드는 도중 멈춤/);
+  stop = false;
+  const again = new DbFile(spec);
+  again.open(file);
+  assert.deepEqual([again.get().pragma("user_version", { simple: true }), again.get().prepare("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'").pluck().get()], [3, 2]);
+  again.close();
+});
+
+test("지운 공간 돌려주기(auto_vacuum): 새 파일에 걸리고, 이 설정 없이 만든 파일은 열 때 바꾼다", async () => {
+  const { DbFile } = await import("../../src/store/sqlite.ts");
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const modeOf = (file: string, autoVacuum?: "INCREMENTAL") => {
+    const one = new DbFile(spec(autoVacuum));
+    one.open(file);
+    const mode = one.get().pragma("auto_vacuum", { simple: true });
+    one.close();
+    return mode;
+  };
+  assert.equal(modeOf(path.join(dir, "new.db"), "INCREMENTAL"), 2, "새 파일");
+  const old = path.join(dir, "old.db");
+  assert.equal(modeOf(old), 0, "설정 없이 만든 파일");
+  assert.equal(modeOf(old, "INCREMENTAL"), 2, "열 때 바꾼다");
+});
+
+test("지운 공간 돌려주기로 바꾸는 VACUUM 이 실패해도(디스크가 모자람 등) 그대로 열고 warn 을 남긴다. 다음에 다시 해 본다", async () => {
+  const { DbFile } = await import("../../src/store/sqlite.ts");
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const file = path.join(dir, "full.db");
+  const plain = new DbFile(spec());
+  plain.open(file);
+  plain.close();
+
+  const exec = Database.prototype.exec;
+  Database.prototype.exec = function (this: Database.Database, sql: string) {
+    if (sql === "VACUUM") throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    return exec.call(this, sql);
+  };
+  const from = sink.buffer.length;
+  const one = new DbFile(spec("INCREMENTAL"));
+  try {
+    one.open(file);
+  } finally {
+    Database.prototype.exec = exec;
+  }
+  assert.equal(one.get().prepare("SELECT COUNT(*) FROM t").pluck().get(), 0, "열렸다");
+  assert.equal(one.get().pragma("auto_vacuum", { simple: true }), 0);
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("database or disk is full")));
+  one.close();
+
+  const again = new DbFile(spec("INCREMENTAL"));
+  again.open(file);
+  assert.equal(again.get().pragma("auto_vacuum", { simple: true }), 2, "다음에 열 때 바꾼다");
+  again.close();
 });

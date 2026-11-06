@@ -283,7 +283,7 @@ function recordPlayback(audioKey: string) {
  * 저장된 세션에서 지켜야 할 캐시 파일. 기동 시 고아 파일 정리가 쓴다.
  * 그 시점엔 플레이어가 아직 없으므로 저장된 현재곡, 대기열이 유일한 근거다.
  */
-function getProtectedCacheFiles() {
+function savedSessionFiles() {
   return new Set([...sessionKeys()].map((key) => path.resolve(getFilePath(key))));
 }
 
@@ -434,7 +434,7 @@ async function cleanOrphanFiles() {
   );
 
   // 지키는 파일: 저장된 세션의 곡, 틀고 있거나 미리 다운로드한 곡
-  const sessionFiles = getProtectedCacheFiles();
+  const sessionFiles = savedSessionFiles();
   const liveFiles = new Set([...liveKeys()].map((k) => path.resolve(getFilePath(k))));
   const allProtected = new Set([...sessionFiles, ...liveFiles, ...protectedFiles]); // 마지막은 다운로드 중인 임시 파일
 
@@ -835,7 +835,7 @@ export {
   recordDownloadComplete,
   recordError,
   recordPlayback,
-  getProtectedCacheFiles,
+  savedSessionFiles,
   onStartup,
   resetCache,
   removeCached,

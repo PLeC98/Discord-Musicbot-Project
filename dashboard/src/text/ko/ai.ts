@@ -52,8 +52,8 @@ const model = {
 // 파라미터 카드
 const params = {
   title: "파라미터 설정",
-  refresh: "모델 정보 갱신",
-  refreshTip: "모델 정보를 다시 불러와요",
+  /** 고른 모델이 받아 둔 모델 정보에 없을 때 */
+  unknownModel: "모델 정보에 없는 모델이라 파라미터 입력란이 없어요. 필요한 값은 아래 추가 파라미터에 직접 적어 주세요.",
   advanced: "고급 파라미터 설정",
   default: "기본값",
   defaultWith: (value: unknown) => `기본값 (${String(value)})`,
@@ -331,7 +331,6 @@ const keyClearFailed = "키를 지우지 못했어요.";
 const markHints: Record<string, string> = { index: "1부터", genre: "자동재생 장르의 식별자(예: rock). 라벨이 아니라 식별자가 들어가요", title: "영상 제목 (필수)", duration: "길이. 형식 없이 쓰면 3:05, {{duration::m}} 처럼 형식을 지정할 수 있어요. 모르면 빈 값이에요" };
 const modelsRefreshed = "모델 정보를 갱신했어요";
 const modelCount = (count: number) => `모델 ${count}개`;
-const modelsCurrent = "모델 정보가 이미 최신이에요";
 const modelsRefreshFailed = "모델 정보를 불러오지 못했어요.";
 /** 파라미터 입력란의 범위 안내 */
 const atLeast = (value: number) => `${value} 이상`;
@@ -358,4 +357,4 @@ const failed = {
   send: "보내지 못했어요.",
 };
 
-export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, log, usage, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsCurrent, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };
+export { title, enable, desc, descTip, listMarkMissing, model, params, test, list, prompt, judge, log, usage, advanced, paid, preview, items, providerOff, endpointProject, endpointModel, keyPlaceholder, keySaved, keyCleared, keySaveFailed, keyClearFailed, markHints, modelsRefreshed, modelCount, modelsRefreshFailed, atLeast, atMost, contextTokens, outputTokens, savedNote, boxes, verdicts, hiddenCount, presetModels, failed };

@@ -59,40 +59,44 @@ function makeTrack(title: string) {
 const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
 
 function makePlayer() {
-  return fakePlayer({
-    bindChannels: RealPlayer.prototype.bindChannels,
-    movePanel: RealPlayer.prototype.movePanel,
-    restoreSettings: RealPlayer.prototype.restoreSettings,
-    calls: [] as unknown[][],
-    currentTrack: makeTrack("현재곡"),
-    queue: [entered("q0", 1), entered("q1", 2), entered("q2", 3)],
-    previousTracks: [],
-    volume: 50,
-    loop: false,
-    pause: { userPaused: false, heldBy: null },
-    audioPlayer: { state: { status: "playing" } },
-    getCurrentTime: () => 0,
-    async play(ms: number) {
-      this.calls.push(["play", ms]);
+  // 부른 것. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  const calls: unknown[][] = [];
+  return fakePlayer(
+    {
+      bindChannels: RealPlayer.prototype.bindChannels,
+      movePanel: RealPlayer.prototype.movePanel,
+      restoreSettings: RealPlayer.prototype.restoreSettings,
+      currentTrack: makeTrack("현재곡"),
+      queue: [entered("q0", 1), entered("q1", 2), entered("q2", 3)],
+      previousTracks: [],
+      volume: 50,
+      loop: false,
+      pause: { userPaused: false, heldBy: null },
+      audioPlayer: { state: { status: "playing" } },
+      getCurrentTime: () => 0,
+      async play(ms: number) {
+        calls.push(["play", ms]);
+      },
+      // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분하는 한 통로).
+      // 넘기기, 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
+      async untilSwitched() {},
+      async seek(ms: number, reason: string) {
+        calls.push(["seek", ms, reason]);
+      },
+      setVolume(v: number) {
+        calls.push(["setVolume", v]);
+        this.volume = v;
+      },
+      removeFromQueue(i: number) {
+        calls.push(["removeFromQueue", i]);
+        return this.queue.splice(i, 1)[0];
+      },
+      moveInQueue(from: number, to: number) {
+        calls.push(["moveInQueue", from, to]);
+      },
     },
-    // 위치 이동은 play()를 직접 부르지 않고 seek()를 지난다(사람이 옮긴 것과 봇이 넘긴 것을 로그에서 구분하는 한 통로).
-    // 넘기기, 이전 뒤 곡이 바뀔 때까지(가짜는 곧바로 바뀐다)
-    async untilSwitched() {},
-    async seek(ms: number, reason: string) {
-      this.calls.push(["seek", ms, reason]);
-    },
-    setVolume(v: number) {
-      this.calls.push(["setVolume", v]);
-      this.volume = v;
-    },
-    removeFromQueue(i: number) {
-      this.calls.push(["removeFromQueue", i]);
-      return this.queue.splice(i, 1)[0];
-    },
-    moveInQueue(from: number, to: number) {
-      this.calls.push(["moveInQueue", from, to]);
-    },
-  });
+    { calls },
+  );
 }
 
 let player: ReturnType<typeof makePlayer>;

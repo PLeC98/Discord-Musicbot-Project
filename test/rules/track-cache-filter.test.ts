@@ -97,3 +97,27 @@ test("모든 열에서: 낱말마다 어느 열에든 들어간 행", () => {
   assert.equal(matchWords(words.words, ["YOASOBI", "Idol (アイドル)", null]), true);
   assert.equal(matchWords(words.words, ["YOASOBI", "夜に駆ける", 12]), false);
 });
+
+// % 를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b 가 60자 제목에서 3초 넘게 걸렸다. 조각을 차례로 찾아 글자 수에 비례한다
+test("% 식은 조각을 차례로 찾는다. 조각이 많고 맞지 않아도 곧바로 끝난다", () => {
+  const expr = `${Array(40).fill("a").join("%")}%b`;
+  const started = performance.now();
+  assert.deepEqual(pick("text", expr, ["a".repeat(200)]), []);
+  assert.ok(performance.now() - started < 50, "글자 수에 비례");
+  assert.deepEqual(pick("text", "a%b%c", ["xAyBzC", "cba", "abc"]), ["xAyBzC", "abc"], "차례대로");
+  assert.deepEqual(pick("text", "%", ["무엇이든", "x"]), ["무엇이든", "x"]);
+});
+
+test("% 식은 % 를 .* 로 바꾼 정규식(i 플래그)과 같은 것에 맞는다: 그리스어 시그마, 독일어 ß, 터키어 İ, 줄 바꿈", () => {
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const exprs = ["ΟΣ%", "ος%", "%Σ", "ß%", "ss%", "SS%", "İ%", "i%", "ı%", "a%b", "k%", "%"];
+  const values = ["ΟΣΑ", "οσα", "ΑΟΣ", "aος", "ß", "SS", "ss", "İ", "i", "I", "ı", "a\nb", "ab", "K", "\u212a"];
+  for (const expr of exprs) {
+    const regex = new RegExp(expr.split("%").map(escape).join(".*"), "i");
+    assert.deepEqual(
+      pick("text", expr, values),
+      values.filter((value) => regex.test(value)),
+      expr,
+    );
+  }
+});

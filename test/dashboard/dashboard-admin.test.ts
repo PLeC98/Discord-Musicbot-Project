@@ -46,6 +46,9 @@ after(() => fs.rmSync(HASH_PATH, { force: true }));
 const { openTempStore, setGuild } = await import("../helpers/temp-store.ts");
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());
+// 모델이 받는 필드는 모델 프로필이 안다(테스트용 레지스트리 사본)
+const { useModelInfo } = await import("../helpers/model-info.ts");
+useModelInfo({ dir: store.dir, profiles: true });
 
 import express from "express";
 

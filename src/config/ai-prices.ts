@@ -2,8 +2,8 @@
  * AI 값표. 모델마다 100만 토큰당 달러(입력, 출력, 캐시 읽기). AI 사용량 통계의 비용을 기록할 때 센다.
  *
  * models.dev 의 공개 값표(MIT / https://github.com/sst/models.dev, https://models.dev/api.json)에서 우리 프로바이더 몫(PROVIDER_SPECS 의 prices)의
- * 가격 필드만 추려 둔다. 저장소의 `data/ai-prices.json` 은 함께 싣는 기본 사본이고, 갱신(대시보드의 모델 정보 갱신, `pnpm run update:models`)이 다운로드한 것은
- * 실행 위치(`database/ai-prices.json`)에 쓴다. 읽을 때는 둘 중 다운로드한 때(`fetchedAt`)가 새것을 쓴다(모델 프로필과 같은 방식, config/ai-models).
+ * 가격 필드만 추려 실행 위치(`database/ai-prices.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 비용은 모두 "가격 모름"이다.
+ * 받는 때는 config/ai-model-info 가 정한다(모델 프로필과 함께).
  * 구간 가격(긴 문맥 할증), 할인은 보지 않는다. 판정 요청은 짧아 기본 구간이다.
  */
 import fs from "fs";
@@ -19,23 +19,21 @@ import type { RefreshResult } from "./ai-model-types.ts";
 const log = logger.child({ category: "config" });
 
 const SOURCE = "https://models.dev/api.json";
-/** 저장소에 함께 싣는 기본 사본. 여기에는 쓰지 않는다 */
-const BUNDLED = path.join(PROJECT.data, "ai-prices.json");
-/** 다운로드한 사본(실행 위치) */
-const FETCHED = path.join(PROJECT.database, "ai-prices.json");
+/** 받은 사본 */
+let file = path.join(PROJECT.database, "ai-prices.json");
 
 /** 100만 토큰당 [입력, 출력, 캐시 읽기] */
 type Price = [number, number, number];
-/** 파일에 둔 한 버전. providers: 값표의 프로바이더 이름 → 모델 ID → 값 */
-type PriceBook = { fetchedAt?: string; source?: string; hash?: string; providers: Record<string, Record<string, Price>> };
+/** 파일에 둔 한 버전. providers: 값표의 프로바이더 이름 → 모델 ID → 값. etag: 받은 값표의 ETag(다음에 바뀌었는지만 묻는다) */
+type PriceBook = { fetchedAt?: string; source?: string; hash?: string; etag?: string; providers: Record<string, Record<string, Price>> };
 // 값표(api.json)의 모양. 여기서 읽는 필드만
 type SourceModel = { cost?: { input?: unknown; output?: unknown; cache_read?: unknown } };
 type SourceBook = Record<string, { models?: Record<string, SourceModel> } | undefined>;
 
 let held: PriceBook | null = null;
 
-// 다운로드한 사본은 없을 수 있다
-function readBook(file: string): PriceBook | null {
+// 받은 사본은 없을 수 있다
+function readBook(): PriceBook | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as PriceBook;
   } catch (error) {
@@ -44,18 +42,17 @@ function readBook(file: string): PriceBook | null {
   }
 }
 
-/** 다운로드한 때가 새것. 다운로드한 때를 모르면 가장 오래된 것으로 본다. 같으면 다운로드한 사본(b) */
-function newerOf(a: PriceBook | null, b: PriceBook | null): PriceBook | null {
-  const at = (one: PriceBook | null) => (one?.fetchedAt ? Date.parse(one.fetchedAt) || 0 : -1);
-  if (!a || !b) return a ?? b;
-  return at(a) > at(b) ? a : b;
-}
-
-/** 기본 사본과 다운로드한 사본 중 새것. 둘 다 없으면 빈 값표(비용은 모두 "가격 모름") */
+/** 받은 사본. 없으면 빈 값표(비용은 모두 "가격 모름") */
 function load({ reload = false } = {}): PriceBook {
   if (held && !reload) return held;
-  held = newerOf(readBook(BUNDLED), readBook(FETCHED)) ?? { providers: {} };
+  held = readBook() ?? { providers: {} };
   return held;
+}
+
+/** 받은 사본을 둘 폴더를 바꾼다(테스트). 들고 있던 것은 버린다 */
+function _setDir(dir: string) {
+  file = path.join(dir, "ai-prices.json");
+  held = null;
 }
 
 const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
@@ -78,10 +75,10 @@ function trim(source: SourceBook, fetchedAt = new Date().toISOString()): PriceBo
   return { fetchedAt, source: SOURCE, hash, providers };
 }
 
-/** 파일에 쓰는 형식: 모델 하나가 한 줄(저장소의 기본 사본이 바뀐 곳을 읽기 쉽게) */
+/** 파일에 쓰는 형식: 모델 하나가 한 줄(사람이 열어 보기 쉽게) */
 function serialize(book: PriceBook): string {
   const NL = String.fromCharCode(10);
-  const head = [`  "fetchedAt": ${JSON.stringify(book.fetchedAt ?? "")}`, `  "source": ${JSON.stringify(book.source ?? SOURCE)}`, `  "hash": ${JSON.stringify(book.hash ?? "")}`];
+  const head = [`  "fetchedAt": ${JSON.stringify(book.fetchedAt ?? "")}`, `  "source": ${JSON.stringify(book.source ?? SOURCE)}`, `  "hash": ${JSON.stringify(book.hash ?? "")}`, ...(book.etag ? [`  "etag": ${JSON.stringify(book.etag)}`] : [])];
   const providers = Object.entries(book.providers).map(
     ([name, models]) =>
       `    ${JSON.stringify(name)}: {${NL}${Object.entries(models)
@@ -113,21 +110,34 @@ function costOf(price: Price | 0 | null, tokens: AiTokens | null): number | null
 
 const modelsdev = httpFor("modelsdev");
 
-/** 다운로드해서 사본(`database/ai-prices.json`)에 쓴다. 선택한 값이 같으면 쓰지 않는다. 모델 정보 갱신과 같은 길이다 */
+/**
+ * 받아서 사본에 쓴다. 값표가 크다(수 MB). 지난번 ETag 로 바뀌었는지만 묻고 그대로면(304) 받지 않는다.
+ * 선택한 가격이 같으면 ETag 만 고쳐 둔다
+ */
 async function refresh({ timeoutMs = 30000, fetchImpl = modelsdev.fetch }: { timeoutMs?: number; fetchImpl?: typeof fetch } = {}): Promise<RefreshResult> {
   const now = load();
-  const res = await fetchImpl(SOURCE, { signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`값표 ${res.status}: ${SOURCE}`);
-  const got = trim((await res.json()) as SourceBook);
   const count = (book: PriceBook) => Object.values(book.providers).reduce((n, one) => n + Object.keys(one).length, 0);
-  if (got.hash === now.hash) return { changed: false, count: count(now), fetchedAt: now.fetchedAt };
+  const unchanged = { changed: false, count: count(now), fetchedAt: now.fetchedAt };
+  const res = await fetchImpl(SOURCE, { headers: now.etag ? { "If-None-Match": now.etag } : {}, signal: AbortSignal.timeout(timeoutMs) });
+  if (res.status === 304) return unchanged;
+  if (!res.ok) throw new Error(`값표 ${res.status}: ${SOURCE}`);
+  const etag = res.headers.get("etag") ?? undefined;
+  const got = { ...trim((await res.json()) as SourceBook), ...(etag ? { etag } : {}) };
+  if (got.hash === now.hash) {
+    if (etag !== now.etag) write({ ...now, etag });
+    return unchanged;
+  }
   // 저쪽 모양이 바뀌어 통째로 비었으면 쓰지 않는다(가진 값표로 계속 센다)
   if (!count(got)) throw new Error("값표에서 우리 프로바이더의 가격을 하나도 읽지 못했습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.");
-  fs.mkdirSync(path.dirname(FETCHED), { recursive: true });
-  fs.writeFileSync(FETCHED, serialize(got));
-  load({ reload: true });
+  write(got);
   return { changed: true, count: count(got), fetchedAt: got.fetchedAt };
 }
 
-export { SOURCE, BUNDLED, FETCHED, load, newerOf, trim, serialize, priceOf, costOf, refresh };
+function write(book: PriceBook) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, serialize(book));
+  load({ reload: true });
+}
+
+export { SOURCE, load, _setDir, trim, serialize, priceOf, costOf, refresh };
 export type { Price, PriceBook };

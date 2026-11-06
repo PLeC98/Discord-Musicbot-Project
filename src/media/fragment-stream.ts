@@ -2,12 +2,14 @@
 //
 // 무엇을 받을지는 출처(FragmentSource)가 정하고, 여기는 받아 흘리는 일만 한다: 다음 세그먼트를 미리 받아 두고, 멈추거나 5xx, 네트워크 오류면
 // 조금 기다렸다 다시 받고, 끝내 못 받거나 4xx 면 오류로 끝난다(재생 쪽이 캐시로 갈아타거나 그 위치부터 다시 연다).
+// 멈춤은 무응답으로 본다: 출처가 바이트를 받을 때마다 알리면(progress) 한도를 다시 잰다. 알리지 않는 출처는 다 받을 때까지가 한도다.
+// 출처가 큰 세그먼트를 스트림으로 주면 받는 쪽 속도에 맞춰 흘리고 끝나면 다음으로 간다. 흘린 뒤의 실패는 다시 받지 않는다(이미 내보냈다).
 //   유튜브 세그먼트  방송이 끝나고 다시보기를 다 만들기 전(post_live)에 소리를 세그먼트(약 2초)로만 준다. 세그먼트 주소는 포맷 주소 뒤에 `&sq=번호`이고
 //                   세그먼트마다 `ftyp`, `moov` 가 붙어 있어 하나씩 풀린다. ffmpeg 는 이어 붙인 것을 파이프로 읽는다(겹친 moov 는 건너뛴다)
 //   그 밖           출처가 만든다(직접 링크의 HLS 는 sources/hls)
 // 위치 이동은 그 위치가 든 세그먼트부터 받는다. 세그먼트 안의 나머지는 ffmpeg 의 -ss 가 맞춘다(startedAtMs).
 
-import { Readable } from "stream";
+import { Readable, finished } from "stream";
 import { messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -16,6 +18,9 @@ const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000; // 세그먼트 하나를 받는 데 이보다 오래 걸리면 끊고 다시 받는다
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const ignore = () => {
+  /* 받는 쪽이 따로 받는다 */
+};
 
 /**
  * 흘릴 세그먼트들. 세그먼트가 무엇인지(F)는 출처만 안다.
@@ -24,8 +29,11 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 type FragmentSource<F> = {
   /** 다음 세그먼트. 끝이면 null(끝난 뒤에도 null). 라이브는 목록에 새 세그먼트가 나올 때까지 기다린다 */
   next(): Promise<F | null>;
-  /** 세그먼트 하나의 바이트. signal 이 끊으면 그만둔다. 다시 받아도 같은 실패면 permanent 를 단 오류 */
-  fetch(fragment: F, signal: AbortSignal): Promise<Buffer>;
+  /**
+   * 세그먼트 하나. 모은 바이트거나 흘릴 스트림(흘린 뒤의 이어 받기, 실패는 그 스트림이 맡는다). signal 이 끊으면 그만둔다.
+   * 받는 동안 바이트가 올 때마다 progress 를 부르면 무응답 한도를 다시 잰다. 다시 받아도 같은 실패면 permanent 를 단 오류
+   */
+  fetch(fragment: F, signal: AbortSignal, progress: () => void): Promise<Buffer | Readable>;
   /** 곡 안의 어느 위치(ms)부터 흘리나. 받는 첫 세그먼트의 시작 */
   startedAtMs: number;
   /** 지금 상태 한 줄. sent 는 흘린 세그먼트 수 */
@@ -49,58 +57,102 @@ const permanent = (status: number) => Object.assign(new Error(`세그먼트 요�
 function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_DELAYS_MS, stallMs = STALL_MS }: StreamOptions = {}): FragmentStream {
   let sent = 0; // 흘린 세그먼트
   let retries = 0; // 지금까지 다시 받은 횟수(모든 세그먼트)
-  let ahead: Promise<Buffer | null> | null = null; // 미리 받는 다음 세그먼트
+  let ahead: Promise<Buffer | Readable | null> | null = null; // 미리 받는 다음 세그먼트
+  let pouring: Readable | null = null; // 흘리는 중인 세그먼트
+  let taking = false; // 다음 세그먼트를 꺼내는 중
+  let wanting = false; // 받는 쪽이 더 원한다(마지막 push 가 받아들여졌다)
   let closed = false;
+  const fetching = new Set<AbortController>(); // 받는 중인 세그먼트(닫을 때 끊는다)
 
-  // 세그먼트 하나. 멈추거나 5xx, 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
-  async function fetchOne(fragment: F): Promise<Buffer> {
+  // 세그먼트 하나. 멈추거나(무응답) 5xx, 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
+  async function fetchOne(fragment: F): Promise<Buffer | Readable> {
     for (let attempt = 0; ; attempt++) {
+      if (closed) throw new Error("세그먼트 스트림이 닫힘");
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(new Error(`세그먼트가 ${stallMs / 1000}초 안에 오지 않음`)), stallMs);
+      fetching.add(controller);
+      let timer: NodeJS.Timeout | undefined;
+      let settled = false;
+      const arm = () => {
+        if (settled) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => controller.abort(new Error(`세그먼트가 ${stallMs / 1000}초 동안 오지 않음`)), stallMs);
+      };
+      arm();
       try {
-        return await source.fetch(fragment, controller.signal);
+        const got = await source.fetch(fragment, controller.signal, arm);
+        // 미리 받아 둔 채 흘리기 전에 실패해도 처리되지 않은 오류가 되지 않게(흘릴 때 finished 가 받는다)
+        if (!Buffer.isBuffer(got)) got.on("error", ignore);
+        return got;
       } catch (error) {
         if ((error as { permanent?: boolean }).permanent || attempt >= retryDelaysMs.length || closed) throw error;
         log.trace(`세그먼트 다운로드 실패(재시도 ${attempt + 1}/${retryDelaysMs.length}): ${messageOf(error)}`);
         retries++;
         await sleep(retryDelaysMs[attempt]);
       } finally {
+        settled = true;
         clearTimeout(timer);
+        fetching.delete(controller);
       }
     }
   }
 
   // 다음 세그먼트를 정해 받는다. 끝이면 null
-  async function take(): Promise<Buffer | null> {
+  async function take(): Promise<Buffer | Readable | null> {
     const fragment = await source.next();
     return fragment === null ? null : fetchOne(fragment);
   }
 
+  // 세그먼트를 하나 꺼내 흘리고 그다음을 미리 받는다. 한 번에 하나만 꺼낸다(차례가 뒤바뀌지 않게)
+  function pump() {
+    taking = true;
+    const current = ahead ?? take();
+    ahead = take();
+    ahead.catch(ignore); // 미리 받는 세그먼트의 실패는 그 세그먼트를 흘릴 때 받는다
+    current.then(
+      (chunk) => {
+        taking = false;
+        if (closed) return void (chunk && !Buffer.isBuffer(chunk) && chunk.destroy());
+        if (chunk === null) return void stream.push(null);
+        sent++;
+        if (!Buffer.isBuffer(chunk)) return pour(chunk);
+        // 빈 push 는 read 를 다시 부르지 않는다
+        if (!chunk.length) return pump();
+        wanting = stream.push(chunk);
+      },
+      (error: unknown) => {
+        taking = false;
+        if (!closed) stream.destroy(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  }
+
+  // 받는 쪽 속도에 맞춰 흘린다. 끝나면 받는 쪽이 원할 때만 다음으로(아니면 다음 read 가 꺼낸다). 오류 없이 닫혀도 오류로 끝낸다
+  function pour(part: Readable) {
+    pouring = part;
+    part.on("data", (chunk: Buffer) => {
+      wanting = stream.push(chunk);
+      if (!wanting) part.pause();
+    });
+    finished(part, (error) => {
+      part.removeAllListeners("data");
+      pouring = null;
+      if (closed) return;
+      if (error) return void stream.destroy(error);
+      if (wanting) pump();
+    });
+  }
+
   const stream = new Readable({
-    // 소비자가 더 달라고 할 때 세그먼트를 하나씩 흘린다. 흘리는 동안 다음 세그먼트를 미리 받아 둔다
     read() {
-      const current = ahead ?? take();
-      ahead = take();
-      ahead.catch(() => {
-        /* 미리 받는 세그먼트의 실패는 그 세그먼트를 흘릴 때 받는다 */
-      });
-      current.then(
-        (chunk) => {
-          if (closed) return;
-          if (chunk === null) {
-            this.push(null);
-            return;
-          }
-          sent++;
-          this.push(chunk);
-        },
-        (error: unknown) => {
-          if (!closed) this.destroy(error instanceof Error ? error : new Error(String(error)));
-        },
-      );
+      wanting = true;
+      if (pouring) pouring.resume();
+      else if (!taking) pump();
     },
     destroy(error, callback) {
       closed = true;
+      for (const controller of fetching) controller.abort(new Error("세그먼트 스트림이 닫힘"));
+      pouring?.destroy();
+      void ahead?.then((chunk) => chunk && !Buffer.isBuffer(chunk) && chunk.destroy(), ignore);
       source.close?.();
       callback(error);
     },
@@ -136,9 +188,10 @@ type FragmentOptions = StreamOptions & {
 /** 세그먼트 하나의 길이(ms). 전체 길이를 세그먼트 수로 나눈다. 세그먼트마다의 길이는 yt-dlp 도 주지 않는다 */
 const fragmentMsOf = ({ count }: Fragments, durationMs: number) => durationMs / count;
 
-/** 이 위치가 든 세그먼트 번호와 그 세그먼트의 시작(ms) */
+/** 이 위치가 든 세그먼트 번호와 그 세그먼트의 시작(ms). 곡 길이를 모르면 처음부터 */
 function startOf(fragments: Fragments, durationMs: number, startMs: number) {
   const each = fragmentMsOf(fragments, durationMs);
+  if (!(each > 0) || !Number.isFinite(each)) return { index: 0, atMs: 0 };
   const index = Math.min(fragments.count - 1, Math.max(0, Math.floor(startMs / each)));
   return { index, atMs: Math.round(index * each) };
 }

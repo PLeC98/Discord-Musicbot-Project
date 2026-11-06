@@ -1,4 +1,4 @@
-// 저장소를 임시 폴더의 DB 들로 연다. 운영 DB 와 audio_cache 를 건드리지 않는다.
+// 저장소를 임시 폴더의 DB 들로 연다. 운영 DB 와 audio_cache, 받은 AI 모델 정보를 건드리지 않는다.
 //
 //   const store = openTempStore("guild-");
 //   after(() => store.close());
@@ -12,10 +12,13 @@ import * as stores from "../../src/store/stores.ts";
 import { cacheDb } from "../../src/store/cache-db.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import * as settings from "../../src/store/guild-settings.ts";
+import { useModelInfo } from "./model-info.ts";
 
 function openTempStore(prefix = "store-") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
   audioCache._setCacheDir(path.join(dir, "audio_cache"));
+  // 받은 AI 모델 정보도 같은 임시 폴더에서(비어 있다)
+  useModelInfo({ dir });
   stores.open(dir);
   audioCache.initialize();
   return {

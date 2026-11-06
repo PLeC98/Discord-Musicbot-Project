@@ -41,30 +41,31 @@ type Options = { autoplay?: string | false; current?: QueuedTrack | null; queue?
 
 function makePlayer({ autoplay = "팝", current = user("현재곡"), queue = [], loop = false, pick, prefetch = 1 }: Options = {}) {
   const calls = { picks: 0, slept: [] as number[] };
-  return asPlayer({
-    calls,
-    autoplay,
-    loop,
-    queue,
-    currentTrack: current,
-    previousTracks: [],
-    guild: { id: "g1" },
-    scheduleStatePersist() {},
-    // 프로토타입을 잇지 않는 목이므로, 코드가 부르는 헬퍼는 여기 옮겨 붙인다
-    _canPrefetchAutoplay: Player.prototype._canPrefetchAutoplay,
-    // 실제 장르 설정을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
-    _autoplayConfig: () => ({ prefetchCount: prefetch }),
-    // 뽑기 사이 쉬는 시간. 얼마나 쉬라고 했는지만 적고 기다리지 않는다
-    io: {
-      sleep: async (ms: number) => {
-        calls.slept.push(ms);
+  return asPlayer(
+    {
+      autoplay,
+      loop,
+      queue,
+      currentTrack: current,
+      previousTracks: [],
+      guild: { id: "g1" },
+      // 프로토타입을 잇지 않는 목이므로, 코드가 부르는 헬퍼는 여기 옮겨 붙인다
+      _canPrefetchAutoplay: Player.prototype._canPrefetchAutoplay,
+      // 실제 장르 설정을 읽으면 운영자가 값을 바꿀 때마다 테스트가 깨진다
+      _autoplayConfig: () => ({ prefetchCount: prefetch }),
+      // 뽑기 사이 쉬는 시간. 얼마나 쉬라고 했는지만 적고 기다리지 않는다
+      io: {
+        sleep: async (ms: number) => {
+          calls.slept.push(ms);
+        },
+      },
+      async pickAutoplayTrack() {
+        calls.picks++;
+        return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
       },
     },
-    async pickAutoplayTrack() {
-      calls.picks++;
-      return pick ? await pick.call(this) : auto(`자동${calls.picks}`);
-    },
-  });
+    { calls },
+  );
 }
 
 // ── trackState: 자동재생 곡의 위치 ────────────────────────────────────────
@@ -167,34 +168,34 @@ const handleAutoplay = Player.prototype.handleAutoplay;
 
 function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id: string } | null } = {}) {
   const calls = { sent: [] as string[] };
-  const player = asPlayer({
-    calls,
-    autoplay: "팝",
-    queue: [],
-    currentTrack: null,
-    previousTracks: [],
-    nowPlayingMessage,
-    guild: {
-      id: "g1",
-      members: { me: { user: { id: "bot", username: "봇" } } },
-      client: {},
-    },
-    async pickAutoplayTrack() {
-      return auto("첫곡");
-    },
-    async play() {},
-    takeOverSaved: () => 0,
-    // 곡을 못 고르면 알리고 끄는 길. 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
-    _giveUpAutoplay: Player.prototype._giveUpAutoplay,
-    setAutoplay: Player.prototype.setAutoplay,
-    scheduleStatePersist() {},
-    textChannel: {
-      async send(payload: unknown) {
-        calls.sent.push(textOf(payload));
+  const player = asPlayer(
+    {
+      autoplay: "팝",
+      queue: [],
+      currentTrack: null,
+      previousTracks: [],
+      nowPlayingMessage,
+      guild: {
+        id: "g1",
+        members: { me: { user: { id: "bot", username: "봇" } } },
+        client: {},
+      },
+      async pickAutoplayTrack() {
+        return auto("첫곡");
+      },
+      async play() {},
+      takeOverSaved: () => 0,
+      // 곡을 못 고르면 알리고 끄는 길. 목이 프로토타입을 잇지 않으므로 옮겨 붙인다
+      _giveUpAutoplay: Player.prototype._giveUpAutoplay,
+      setAutoplay: Player.prototype.setAutoplay,
+      textChannel: {
+        async send(payload: unknown) {
+          calls.sent.push(textOf(payload));
+        },
       },
     },
-    panel: [] as string[],
-  });
+    { calls, panel: [] as string[] },
+  );
   player.panel = recordPanel({ player }); // 패널에 알린 것을 적는다
   return player;
 }

@@ -207,8 +207,11 @@ type AiState = {
   /** 비운 입력란이 쓰는 값 */
   settingDefaults: AiDefaults;
 };
-/** 그 모델이 받는 필드. 프로필이 모르는 프로바이더면 known 이 false 이고 필드 그룹이 없다 */
-type AiFields = { known: boolean; fields: ModelField[]; groups?: ModelGroup[]; models: ModelSummary[] };
+/**
+ * 그 모델이 받는 필드. known: 모델 정보에 그 모델이 있다.
+ * profiled: 그 프로바이더는 모델 정보를 받는 곳이다(로컬, custom 은 아니다). 아니면 known 이 false 이고 필드 그룹이 없다
+ */
+type AiFields = { known: boolean; profiled: boolean; fields: ModelField[]; groups?: ModelGroup[]; models: ModelSummary[] };
 /** 입력란마다의 본문 토큰. exact 가 아니면 추산 */
 type TokensReply = { each: number[]; total: number; by: string; exact: boolean };
 type CandidatesReply = { candidates: TestCandidate[] };

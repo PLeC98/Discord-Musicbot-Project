@@ -171,3 +171,21 @@ test("받는 곳이 비워지기를 기다리는 사이 닫히면(다운로드�
   await assert.rejects(waiting, /받는 쪽이 닫혔습니다/);
   await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫혔습니다/);
 });
+
+test("이름에 NUL, 콜론(드라이브, 대체 데이터 스트림)이 있으면 거절한다", async () => {
+  for (const name of [`a${String.fromCharCode(0)}b`, "a.txt:secret", "x/C:y"]) assert.ok(rejects(await zipped([{ name, data: Buffer.from("x") }])), JSON.stringify(name));
+});
+
+test("흘려 읽기: 원본을 읽다 실패하면 받는 쪽이 오류로 받는다(처리되지 않은 예외가 아니다)", async () => {
+  // 줄어드는 바이트라 deflate 로 담긴다(풀기를 거친다)
+  const file = await written([{ name: "gone.bin", data: Buffer.alloc(200_000, 7) }]);
+  const opened = openZip(file);
+  try {
+    assert.equal(opened.entries[0].method, 8);
+    // 중앙 디렉터리는 읽었고, 본문을 읽을 때는 파일이 없다
+    fs.rmSync(file);
+    await assert.rejects(drain(opened.stream(opened.entries[0])), (error: { code?: string }) => error.code === "ENOENT" || error.code === "EPERM");
+  } finally {
+    opened.close();
+  }
+});

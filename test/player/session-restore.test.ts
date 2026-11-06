@@ -6,7 +6,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { RESTJSONErrorCodes } from "discord.js";
-import { resolveGuildForRestore, restoreSavedPlayers, waitForRestore } from "../../src/player/session-restore.ts";
+import { resolveGuildForRestore, restoreSessions, waitForRestore } from "../../src/player/session-restore.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Client, Guild } from "discord.js";
@@ -147,7 +147,7 @@ function fakePlayerClass({ restoreFails = false } = {}) {
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 
-type PlayerClass = Parameters<typeof restoreSavedPlayers>[2];
+type PlayerClass = Parameters<typeof restoreSessions>[2];
 
 // 서버들을 아는 클라이언트와 빈 레지스트리
 function clientWith(guilds: Guild[], fetch: (id: string) => Promise<unknown> = async () => null) {
@@ -165,7 +165,7 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
   const { client, players } = clientWith([guildWith("r1")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.equal(made.length, 1);
   assert.equal(made[0].voice.id, "vc1");
@@ -180,7 +180,7 @@ test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
   const { client, players } = clientWith([guildWith("r9")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  assert.deepEqual(await restoreSavedPlayers(client, players, FakePlayer, { skip: true }), ["r9"], "세션이 있던 서버를 알린다(이어받기가 건드리지 않게)");
+  assert.deepEqual(await restoreSessions(client, players, FakePlayer, { skip: true }), ["r9"], "세션이 있던 서버를 알린다(이어받기가 건드리지 않게)");
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), ["r9"]);
@@ -192,7 +192,7 @@ test("복원: 저장 상태를 복원하지 못하면(음성 연결 실패 등) 
   const { client, players } = clientWith([guildWith("r2")]);
   const { FakePlayer, made } = fakePlayerClass({ restoreFails: true });
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.deepEqual(made[0].calls, ["restore:r2", "dispose:세션 복원 실패:keep"]);
   assert.deepEqual(remaining(), ["r2"]);
@@ -204,7 +204,7 @@ test("복원: 텍스트 채널 기록이 없는 세션(전용 채널 없이 대�
   const { client, players } = clientWith([guildWith("r6")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.deepEqual(
     made.map((p) => [p.voice.id, p.text, p.calls]),
@@ -220,7 +220,7 @@ test("복원: 채널을 잠깐 못 불러왔으면(네트워크, 5xx) 세션을 
   const { client, players } = clientWith(guilds);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining().sort(), ["c500", "cECONNRESET"]);
@@ -233,7 +233,7 @@ test("복원: 음성 채널 기록이 없거나 음성 채널이 아니면 세�
   const { client, players } = clientWith([guildWith("r3"), guildWith("r4")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), []);
@@ -248,7 +248,7 @@ test("복원: 서버가 사라졌으면 세션을 삭제하고, 잠깐 못 불�
   });
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), ["flaky1"]);
@@ -258,7 +258,7 @@ test("복원: 서버가 사라졌으면 세션을 삭제하고, 잠깐 못 불�
 test("복원: 저장 세션이 없으면 아무것도 안 한다", async () => {
   const { client, players } = clientWith([]);
   const { FakePlayer, made } = fakePlayerClass();
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
   assert.equal(made.length, 0);
 });
 
@@ -269,7 +269,7 @@ test("복원: 기다리는 사이 그 서버에서 재생이 시작됐으면 건
   players.set("r5", live);
   const { FakePlayer, made } = fakePlayerClass();
 
-  await restoreSavedPlayers(client, players, FakePlayer);
+  await restoreSessions(client, players, FakePlayer);
 
   assert.equal(made.length, 0);
   assert.equal(players.get("r5"), live, "지금 도는 플레이어를 교체하지 않는다");
@@ -283,7 +283,7 @@ test("기동 복원을 기다리는 서버에 곡 추가 등이 오면 그 서�
   const { client, players } = clientWith([guildWith("w1"), guildWith("w2")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  const boot = restoreSavedPlayers(client, players, FakePlayer);
+  const boot = restoreSessions(client, players, FakePlayer);
   await waitForRestore("w2"); // 기동 복원이 w1 을 하는 동안 w2 에 곡을 넣었다
   assert.ok(players.has("w2"), "기다리고 나면 w2 가 복원돼 있다(넣을 플레이어가 있다)");
   await boot;
@@ -301,7 +301,7 @@ test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다.
   const { client, players } = clientWith([guildWith("x1"), guildWith("x2")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  const boot = restoreSavedPlayers(client, players, FakePlayer);
+  const boot = restoreSessions(client, players, FakePlayer);
   sessions().removeSession("x2"); // x1 을 복원하는 동안 x2 의 세션이 지워졌다(새로 틀기 등)
   await boot;
 

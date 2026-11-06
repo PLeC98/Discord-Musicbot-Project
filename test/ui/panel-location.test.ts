@@ -100,7 +100,7 @@ test("동시에 올라온 두 패널은 줄을 서서 마지막 것만 남는다
 
   assert.deepEqual(log, ["webhook:m0", "webhook:m1"]);
   assert.equal(store.records.get("g1")?.messageId, "m2");
-  assert.equal(panel.chains.size, 0);
+  assert.equal(panel.serial.size, 0);
 });
 
 test("기록된 패널을 제자리에서 고친다. 지워졌으면 기록을 비운다", async () => {

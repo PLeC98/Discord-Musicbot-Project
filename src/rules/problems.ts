@@ -219,6 +219,8 @@ const WEB = {
   "background-not-ready": { status: 409, title: "Background is not ready" },
   // 저장 위치 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
+  // 디스크에는 자리가 있지만 함께 받는 업로드가 앞으로 쓸 몫을 잡아 두었다
+  "upload-busy": { status: 409, title: "Another upload is still in progress" },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
   // 가져온 파일이 쓸 수 있는 이미지, 영상이 아니다(형식, 해상도, 길이, 초당 장면 수)
@@ -234,6 +236,8 @@ const WEB = {
   // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 필터링한다)
   "unsafe-regex": { status: 400, title: "Regular expression may run too long" },
   "filter-timeout": { status: 422, title: "Filtering took too long" },
+  // 정규식을 맞추는 스레드가 실패했다(봇 쪽)
+  "filter-failed": { status: 500, title: "Filtering failed" },
   "bad-page-range": { status: 400, title: "Invalid row range" },
   "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },
   // 지정할 요청이 곡 하나의 링크가 아니다(재생목록, 앨범, 세트, 짧은 링크, 검색어)

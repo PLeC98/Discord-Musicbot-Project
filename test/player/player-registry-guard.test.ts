@@ -37,58 +37,59 @@ after(() => {
 
 // playback-loop.test.ts와 같은 방식으로 코드가 건드리는 것만 나열한 목
 function makePlayer(current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
-  const p = fakePlayer({
-    lifecycle: new PlaybackState(),
-    watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
-    pauseReasons: new Set(),
-    currentTrack: current,
-    playback: { resource: { playbackDuration: (current?.duration || 0) * 1000 } },
-    lastPlaybackPosition: 0,
-    retry: { used: 0, stalled: 0 },
-    failedTracks: 0,
-    failedLabels: [],
-    _laterEnd: null,
-    _runLaterEnd: Player.prototype._runLaterEnd,
-    _scheduleEnd: Player.prototype._scheduleEnd,
-    _closeEnd: Player.prototype._closeEnd,
-    _toIdleOnEnd: Player.prototype._toIdleOnEnd,
-    _endScheduled: false,
-    _endWaiters: new Set(),
-    _resetFailures: Player.prototype._resetFailures,
-    previousTracks: [],
-    loop: false,
-    queue: [],
-    autoplay: false,
-    _endReason: null,
-    _stopWith: Player.prototype._stopWith,
-    guild: { id: GUILD, name: "TestGuild" },
-    disposeCalls: [] as string[],
-    _trackLabel: Player.prototype._trackLabel,
-    getCurrentTime: Player.prototype.getCurrentTime,
-    _describeEnd: Player.prototype._describeEnd,
-    _recoverDrop: Player.prototype._recoverDrop,
-    _countFailure: Player.prototype._countFailure,
-    _playNext: Player.prototype._playNext,
-    _continueAutoplay: Player.prototype._continueAutoplay,
-    finishQueue: Player.prototype.finishQueue,
-    warmer: { stop() {} },
-    _cancelRest() {},
-    _tellSkipped: Player.prototype._tellSkipped,
-    showIdleVoiceStatus: Player.prototype.showIdleVoiceStatus,
-    releaseAudioProtection() {},
-    scheduleStatePersist() {},
-    async persistState() {},
-    async play() {},
-    async updateVoiceStatus() {},
-    audioPlayer: { stop() {} },
-    // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
-    async dispose({ reason }: { reason: string }) {
-      if (this.lifecycle.disposed) return;
-      this.disposeCalls.push(reason);
-      this.lifecycle.to("disposed", reason);
-      playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
+  // 부른 dispose 의 까닭. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  const disposeCalls: string[] = [];
+  const p = fakePlayer(
+    {
+      lifecycle: new PlaybackState(),
+      watch: { stopOverflow() {}, stopBuffering() {}, stop() {}, startOverflow() {}, startBuffering() {} },
+      currentTrack: current,
+      playback: { resource: { playbackDuration: (current?.duration || 0) * 1000 } },
+      heldPositionMs: 0,
+      retry: { used: 0, stalled: 0 },
+      failedTracks: 0,
+      failedLabels: [],
+      _laterEnd: null,
+      _runLaterEnd: Player.prototype._runLaterEnd,
+      _scheduleEnd: Player.prototype._scheduleEnd,
+      _closeEnd: Player.prototype._closeEnd,
+      _toIdleOnEnd: Player.prototype._toIdleOnEnd,
+      _endScheduled: false,
+      _endWaiters: new Set(),
+      _resetFailures: Player.prototype._resetFailures,
+      previousTracks: [],
+      loop: false,
+      queue: [],
+      autoplay: false,
+      _endReason: null,
+      _stopWith: Player.prototype._stopWith,
+      guild: { id: GUILD, name: "TestGuild" },
+      _trackLabel: Player.prototype._trackLabel,
+      getCurrentTime: Player.prototype.getCurrentTime,
+      _describeEnd: Player.prototype._describeEnd,
+      _recoverDrop: Player.prototype._recoverDrop,
+      _countFailure: Player.prototype._countFailure,
+      _playNext: Player.prototype._playNext,
+      _continueAutoplay: Player.prototype._continueAutoplay,
+      finishQueue: Player.prototype.finishQueue,
+      warmer: { stop() {} },
+      _cancelRest() {},
+      _tellSkipped: Player.prototype._tellSkipped,
+      showIdleVoiceStatus: Player.prototype.showIdleVoiceStatus,
+      releaseAudioProtection() {},
+      async play() {},
+      async updateVoiceStatus() {},
+      audioPlayer: { stop() {} },
+      // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
+      async dispose({ reason }: { reason: string }) {
+        if (this.lifecycle.disposed) return;
+        disposeCalls.push(reason);
+        this.lifecycle.to("disposed", reason);
+        playerEvents.disposed(this as unknown as InstanceType<typeof Player>, reason, "stop");
+      },
     },
-  });
+    { disposeCalls },
+  );
   p.idle = new IdleLeave(p); // 대기열 소진 퇴장 타이머는 진짜로 돈다
   return p;
 }

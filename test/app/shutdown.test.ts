@@ -9,7 +9,8 @@ import sink from "../../src/infra/log/sink.ts";
 import { EXIT } from "../../src/app/exit-codes.ts";
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
-function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean } = {}) {
+// destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 때. 기본은 곧바로
+function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
   // destroy(false) 는 나감 메시지를 보내지 않는다(채널에 남는다)
@@ -27,7 +28,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
 
   const player = (id: string) => ({
     persistence: {
-      persistState: async (reason: string) => {
+      save: async (reason: string) => {
         steps.push(`save:${id}:${reason}`);
         if (saveFails) throw new Error("저장 실패");
       },
@@ -45,7 +46,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
     },
   });
   const bot = {
-    client: { guilds: { cache: new Map([["g1", { name: "서버1" }]]) }, destroy: () => steps.push("client:destroy") },
+    client: { guilds: { cache: new Map([["g1", { name: "서버1" }]]) }, destroy: () => (steps.push("client:destroy"), destroy()) },
     players: new Map([
       ["g1", player("g1")],
       ["g2", null],
@@ -126,6 +127,30 @@ test("상태 문구 지우기가 멈춰도 상한만 기다리고 끝낸다", as
   assert.ok(steps.includes("voice:g1:stay"));
 });
 
+test("봇 내리기(게이트웨이를 닫는 프레임)를 기다린 뒤 POToken 서버를 내린다", async () => {
+  const { steps, proc, exited } = setup({ destroy: () => new Promise((done) => setTimeout(() => done(steps.push("client:closed")), 20)) });
+  proc.emit("SIGTERM");
+  assert.equal(await exited, 0);
+  assert.deepEqual(steps.slice(steps.indexOf("client:destroy")), ["client:destroy", "client:closed", "pot:stop", "kill", "log:close"]);
+});
+
+test("봇 내리기가 멈춰도 상한만 기다리고 warn 을 남긴 뒤 끝낸다. 실패해도 끝까지 간다", async () => {
+  const from = sink.buffer.length;
+  const stuck = setup({ destroy: () => new Promise(() => {}) });
+  stuck.proc.emit("SIGTERM");
+  let late: NodeJS.Timeout | undefined;
+  const outcome = await Promise.race([stuck.exited, new Promise((done) => (late = setTimeout(done, 4000, "상한 없이 기다림")))]);
+  clearTimeout(late);
+  assert.equal(outcome, 0, "상한(2초) 근처에서 끝난다");
+  assert.ok(stuck.steps.includes("pot:stop"));
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("디스코드 연결이 2초 안에 닫히지 않아")));
+
+  const failing = setup({ destroy: async () => Promise.reject(new Error("이미 닫힘")) });
+  failing.proc.emit("SIGTERM");
+  assert.equal(await failing.exited, 0);
+  assert.equal(failing.steps.at(-2), "kill");
+});
+
 // 대시보드의 다시 시작. 끄기와 같은 정리를 하고 다시 시작 코드로 나간다(실행기가 다시 실행한다)
 test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 뒤 다시 시작 코드로 나간다. 그사이 신호가 와도 한 번만", async () => {
   const { steps, proc, exited, exits, shutdown } = setup();
@@ -149,11 +174,12 @@ test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다
 
 test("기동이 실패하면 기동 실패로 적고, 봇, POToken 서버, 자식 프로세스, 로그 파일을 내리고, 곧바로가 아니라 잠시 뒤 받은 코드로 나간다", async () => {
   const steps: string[] = [];
+  let potStopped: (() => void) | null = null;
   const exited = new Promise((resolve) => {
     stopFailedStart(
       { destroy: () => steps.push("client:destroy") },
       {
-        potServer: { stop: async () => (steps.push("pot:stop"), "stopped" as const) },
+        potServer: { stop: () => (steps.push("pot:stop"), new Promise<"stopped">((done) => (potStopped = () => done("stopped")))) },
         logFile: { close: () => steps.push("log:close") },
         killAll: () => (
           steps.push("kill"),
@@ -173,7 +199,9 @@ test("기동이 실패하면 기동 실패로 적고, 봇, POToken 서버, 자�
       0,
     );
   });
+  await new Promise((r) => setTimeout(r, 10));
   assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop"], "POToken 서버가 꺼지기를 기다리는 동안 나가지 않는다");
+  potStopped!();
   assert.equal(await exited, 75);
   assert.deepEqual(steps, ["record:startup-failed", "client:destroy", "pot:stop", "kill", "log:close", "exit:75"]);
 });

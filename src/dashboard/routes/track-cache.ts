@@ -23,10 +23,10 @@ const refuse = (res: Response, { code, params, errors }: trackCache.Refusal) => 
 // URL 쿼리 그대로(같은 키가 여럿인지를 보려고 express 가 읽은 req.query 를 쓰지 않는다)
 const searchOf = (req: Request) => new URL(req.originalUrl, "http://localhost").searchParams;
 
-trackCacheRouter.get("/", (req, res) => {
+trackCacheRouter.get("/", async (req, res) => {
   const query = trackCache.queryOf(searchOf(req));
   if (!query.ok) return refuse(res, query);
-  const read = trackCache.read(query.query);
+  const read = await trackCache.read(query.query);
   if (!read.ok) return refuse(res, read);
   res.json(read.page satisfies TrackCachePage);
 });

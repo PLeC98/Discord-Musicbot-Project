@@ -2,6 +2,7 @@
 // 메모리 참조(player.nowPlayingMessage)는 재생이 끝나거나 재시작하면 없어지므로, 옛 패널을 치우는 기준은 이 기록이다.
 
 import logger from "../infra/log/logger.ts";
+import { keyedSerial } from "../infra/keyed-serial.ts";
 const log = logger.child({ category: "player" });
 import * as panelRecords from "../store/panel-records.ts";
 import { codeOf, describeError } from "../rules/error-kind.ts";
@@ -22,7 +23,8 @@ type Payload = Parameters<WebhookClient["editMessage"]>[1];
 class PanelLocation {
   embeds: Embeds;
   store: Store;
-  chains = new Map<string, Promise<unknown>>(); // guildId → Promise 꼬리. 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게
+  /** 서버마다 차례(infra/keyed-serial). 기록을 읽고 바꾸는 사이에 다른 게시가 끼지 않게 */
+  serial = keyedSerial();
 
   constructor(embeds: Embeds, store: Store = panelRecords) {
     this.embeds = embeds;
@@ -30,15 +32,7 @@ class PanelLocation {
   }
 
   _serial<T>(guildId: string, fn: () => Promise<T>): Promise<T> {
-    const run = (this.chains.get(guildId) || Promise.resolve())
-      .catch(() => {
-        /* 앞 일의 실패는 그 호출자가 받는다. 뒤 일을 막지 않는다 */
-      })
-      .then(fn);
-    this.chains.set(guildId, run);
-    return run.finally(() => {
-      if (this.chains.get(guildId) === run) this.chains.delete(guildId);
-    });
+    return this.serial.run(guildId, fn);
   }
 
   /** 방금 올린 메시지를 이 서버의 패널로 삼는다. 기록돼 있던 옛 패널은 삭제한다. */

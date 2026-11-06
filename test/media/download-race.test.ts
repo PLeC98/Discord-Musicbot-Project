@@ -31,11 +31,11 @@ class RaceDownloader extends TrackDownloader {
     this.onDownload = onDownload;
   }
 
-  trackFilePath() {
+  override trackFilePath() {
     return finalPath;
   }
 
-  async _performDownload(t: DownloadTrack, file: string) {
+  override async _performDownload(t: DownloadTrack, file: string) {
     await this.onDownload(t, file);
     return file;
   }

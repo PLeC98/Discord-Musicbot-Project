@@ -110,7 +110,7 @@ async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream
   try {
     if (inputKind(url) !== "direct") throw new Error("직접 링크가 아님");
     opened = await openFollowing(url, { net, ...opts });
-    if (opened.kind === "hls") return { kind: "hls", hls: await openHls(opened.text, opened.url, { net }) };
+    if (opened.kind === "hls") return { kind: "hls", hls: await openHls(opened.text, opened.url, { net, bodyIdleMs: opts.bodyIdleMs }) };
   } catch (error) {
     if (refusedByResponse(error)) throw error;
     // SSRF 오라클 방지: 차단 사유는 로그로만, 사용자에겐 일반화된 오류만 (cause는 스택용. 사용자 노출 없음)

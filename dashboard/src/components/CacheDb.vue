@@ -113,7 +113,7 @@
           </template>
           <p v-else class="text-xs text-on-surface-variant">{{ T.editPane.readonly }}</p>
           <div class="flex flex-wrap justify-end gap-2">
-            <BaseButton v-if="isLink(pane.value)" variant="ghost" size="sm" :href="pane.value"><Icon name="open_in_new" :size="16" />{{ T.editPane.open }}</BaseButton>
+            <BaseButton v-if="paneLink" variant="ghost" size="sm" :href="paneLink" target="_blank" rel="noopener noreferrer"><Icon name="open_in_new" :size="16" />{{ T.editPane.open }}</BaseButton>
             <BaseButton v-if="focusInfo.editable" variant="ghost" size="sm" @click="clearCells([focus!])">{{ T.editPane.clear }}</BaseButton>
             <BaseButton v-if="focusInfo.editable" variant="secondary" size="sm" :disabled="!pane.dirty" v-tooltip="T.editPane.applyTip" @click="applyPane(true)">{{ T.editPane.apply }}</BaseButton>
           </div>
@@ -816,6 +816,15 @@ function onNewKey(event: KeyboardEvent, n: number) {
   }
 }
 const isLink = (value: string) => /^https?:\/\//.test(value.trim());
+// 요청을 여는 곳. 자동재생 키(amq:, vocadb: 등)는 주소가 아니라 링크 데이터의 페이지 링크로 연다
+const requestLink = (row: TrackRequestRow) => [row.requestKey, row.pageUrl].find((one) => one !== null && isLink(one)) ?? null;
+// 셀 편집 창의 열기: 셀 값이 주소면 그 주소, 요청 셀이면 요청을 여는 곳
+const paneLink = computed(() => {
+  if (isLink(pane.value)) return pane.value.trim();
+  if (!focus.value || table.value !== "requests" || shown.value[focus.value.i] !== "requestKey") return null;
+  const row = rowAt(focus.value.r) as TrackRequestRow | undefined;
+  return row ? requestLink(row) : null;
+});
 
 // ── 복사, 붙여넣기: 브라우저의 copy, paste 이벤트로(보안 연결이 아닌 주소에서도 된다) ─────
 
@@ -1050,7 +1059,8 @@ function openCellMenu(event: MouseEvent, r: number, i: number) {
     }
     if (c === "file") items.push({ label: T.cellMenu.deleteFile(one.sharedBy), hint: "Delete", danger: true, off: one.file === "none", run: clear });
     if (c === "ageMarkedAt") items.push({ label: T.cellMenu.clearAge, hint: "Delete", off: one.ageMarkedAt === null, run: clear });
-    items.push({ label: T.cellMenu.openRequest, off: !isLink(one.requestKey), run: () => window.open(one.requestKey, "_blank", "noopener") });
+    const link = requestLink(one);
+    items.push({ label: T.cellMenu.openRequest, off: !link, run: () => window.open(link!, "_blank", "noopener") });
   }
   if (table.value !== "age") {
     items.push({ label: T.cellMenu.openAudio, off: !isLink(rawText(row, "audioUrl")), run: () => window.open(rawText(row, "audioUrl"), "_blank", "noopener") });

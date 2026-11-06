@@ -1,8 +1,8 @@
 import { formatBytes, formatSpan } from "../../ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version as djsVersion } from "discord.js";
 import os from "os";
-import config from "../../config/index.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
+import { isBotOwner } from "../../usecases/permissions.ts";
 import type { Client } from "discord.js";
 import { SYSTEM, customId } from "../../ui/custom-ids.ts";
 import { colorOf } from "../../ui/colors.ts";
@@ -77,8 +77,8 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("system").setDescription("봇의 시스템 정보를 보여줘요"),
 
   async execute(interaction, bot) {
-    // 호스트 CPU, 메모리 정보가 나간다. 디스코드 권한으로는 나타낼 수 없는 봇 운영자(OWNER_ID) 전용
-    if (interaction.user.id !== config.dashboard.ownerId) {
+    // 호스트 CPU, 메모리 정보가 나간다
+    if (!isBotOwner(interaction.user.id)) {
       return noticeSelf(interaction, errors.notice("must-owner"));
     }
 

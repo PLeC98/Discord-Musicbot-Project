@@ -80,7 +80,7 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
 settingsArchiveRouter.post("/preview", async (req, res) => {
   const got = await uploads.receive(req);
   if (!got.ok) {
-    if (got.why === "no-space") return sendProblem(res, "disk-full", { size: got.room });
+    if (got.why === "no-space") return got.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "disk-full", { size: got.room });
     if (got.why === "empty") return sendProblem(res, "nothing-to-save");
     // 올리던 사람이 끊었다
     if (got.why === "aborted") log.warn({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);

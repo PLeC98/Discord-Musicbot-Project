@@ -27,8 +27,8 @@ const SPOTIFY_PIN_ONLY = "https://open.spotify.com/track/2222222222222222222222"
 const SC = "https://soundcloud.com/artist/song";
 const DIRECT = "https://cdn.example.net/a.mp3";
 
-function ledger(requestKey: string, audioUrl: string, platform: string, title: string) {
-  store.db().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, display_title, display_artist) VALUES (?, ?, ?, ?, ?, ?)").run(requestKey, requestKey, audioUrl, platform, title, "가수");
+function ledger(requestKey: string, audioUrl: string, platform: string, title: string, pageUrl = requestKey) {
+  store.db().prepare("INSERT INTO track_lookup (request_key, page_url, audio_url, platform, display_title, display_artist) VALUES (?, ?, ?, ?, ?, ?)").run(requestKey, pageUrl, audioUrl, platform, title, "가수");
 }
 function file(audioKey: string, { status = "cached", size = MB, plays = 1, last = null as number | null, downloaded = 100 as number | null } = {}) {
   store.db().prepare("INSERT INTO audio_cache (audio_key, status, file_size_bytes, play_count, last_played_at, downloaded_at, created_at) VALUES (?, ?, ?, ?, ?, ?, 0)").run(audioKey, status, size, plays, last, downloaded);
@@ -51,7 +51,7 @@ beforeEach(() => {
   store.db().prepare("INSERT INTO age_restricted (video_id, marked_at) VALUES ('aaaaaaaaaa4', 800)").run();
   sourceChecks.recordCheck("yt:aaaaaaaaaa4", { ok: false, code: "unavailable-contents", at: 900 });
   // 자동재생 키, 직접 링크 음원
-  ledger("amq:1", DIRECT, "anisongdb", "넷");
+  ledger("amq:1", DIRECT, "anisongdb", "넷", "https://anilist.co/anime/1");
   file(audioKeyOf(DIRECT)!, { status: "error", size: null as unknown as number, plays: 0, downloaded: null });
   // 요청이 가리키지 않는 파일, 되돌릴 수 없는 직접 링크 파일, 연령 제한만
   file("yt:aaaaaaaaaa5", { plays: 2, last: 2000 });
@@ -62,16 +62,16 @@ beforeEach(() => {
 function query<T extends TrackCacheTable>(table: T, more: Partial<Omit<Extract<TrackCacheQuery, { table: T }>, "table">> = {}): TrackCacheQuery {
   return { table, filters: {}, q: "", sort: [], offset: 0, limit: 200, ...more } as TrackCacheQuery;
 }
-function page(q: TrackCacheQuery) {
-  const result = trackCache.read(q);
+async function page(q: TrackCacheQuery) {
+  const result = await trackCache.read(q);
   assert.ok(result.ok, JSON.stringify(result));
   return result.page;
 }
-const requests = (q = query("requests")) => page(q).rows as TrackRequestRow[];
+const requests = async (q = query("requests")) => (await page(q)).rows as TrackRequestRow[];
 const byKey = (rows: TrackRequestRow[], key: string) => rows.find((row) => row.requestKey === key)!;
 
-test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원의 음원 키로 캐시 파일, 연령 제한, 재생 테스트에 잇는다", () => {
-  const rows = requests();
+test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원의 음원 키로 캐시 파일, 연령 제한, 재생 테스트에 잇는다", async () => {
+  const rows = await requests();
   assert.equal(rows.length, 6);
 
   const plain = byKey(rows, yt("aaaaaaaaaa1"));
@@ -88,10 +88,11 @@ test("요청 표: 링크 데이터 ∪ 직접 지정한 음원을 쓰는 음원�
 
   const direct = byKey(rows, "amq:1");
   assert.deepEqual([direct.audioKey?.slice(0, 3), direct.file, direct.size, direct.downloadedAt], ["dl:", "error", null, null]);
+  assert.deepEqual([direct.pageUrl, plain.pageUrl, pinOnly.pageUrl], ["https://anilist.co/anime/1", yt("aaaaaaaaaa1"), null], "페이지 링크는 링크 데이터의 것, 링크 데이터 행이 없으면 null");
 });
 
-test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크는 그 키를 가리키는 행에서), 요청 수를 센다", () => {
-  const rows = page(query("files")).rows as TrackFileRow[];
+test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크는 그 키를 가리키는 행에서), 요청 수를 센다", async () => {
+  const rows = (await page(query("files"))).rows as TrackFileRow[];
   const of = (key: string) => rows.find((row) => row.audioKey === key)!;
   assert.equal(rows.length, 5);
   assert.deepEqual([of("yt:aaaaaaaaaa2").audioUrl, of("yt:aaaaaaaaaa2").requests], [yt("aaaaaaaaaa2"), 2]);
@@ -101,64 +102,64 @@ test("캐시 파일 표: 음원 주소는 키에서 되돌리고(직접 링크�
 
   file("sc:artist/other");
   file("sc:on.soundcloud.com/x");
-  const more = page(query("files")).rows as TrackFileRow[];
+  const more = (await page(query("files"))).rows as TrackFileRow[];
   assert.equal(more.find((row) => row.audioKey === "sc:artist/other")?.audioUrl, "https://soundcloud.com/artist/other");
   assert.equal(more.find((row) => row.audioKey === "sc:on.soundcloud.com/x")?.audioUrl, "https://on.soundcloud.com/x");
 });
 
-test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐시 파일과 다르면 바뀜, 견줄 버전이 없으면 재생 가능", () => {
+test("캐시 파일의 원본: 받은 뒤의 확인만, 그때 본 버전이 캐시 파일과 다르면 바뀜, 견줄 버전이 없으면 재생 가능", async () => {
   store.db().prepare("UPDATE audio_cache SET audio_version = 'lmt:1' WHERE audio_key = 'yt:aaaaaaaaaa1'").run();
-  const source = () => (page(query("files")).rows as TrackFileRow[]).find((row) => row.audioKey === "yt:aaaaaaaaaa1")!.source;
-  assert.equal(source(), null, "확인하지 않았다");
+  const source = async () => ((await page(query("files"))).rows as TrackFileRow[]).find((row) => row.audioKey === "yt:aaaaaaaaaa1")!.source;
+  assert.equal(await source(), null, "확인하지 않았다");
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 99, version: "lmt:2" });
-  assert.equal(source(), null, "받기 전의 확인");
+  assert.equal(await source(), null, "받기 전의 확인");
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 200, version: "lmt:1" });
-  assert.deepEqual(source(), { state: "same", at: 200 });
+  assert.deepEqual(await source(), { state: "same", at: 200 });
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 300, version: "lmt:2" });
-  assert.deepEqual(source(), { state: "changed", at: 300 });
+  assert.deepEqual(await source(), { state: "changed", at: 300 });
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 400 });
-  assert.deepEqual(source(), { state: "changed", at: 400 }, "버전을 모르는 재생 테스트는 앞서 본 버전을 지킨다");
+  assert.deepEqual(await source(), { state: "changed", at: 400 }, "버전을 모르는 재생 테스트는 앞서 본 버전을 지킨다");
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: false, code: "unavailable-contents", at: 500 });
-  assert.deepEqual(source(), { state: "gone", code: "unavailable-contents", at: 500 });
+  assert.deepEqual(await source(), { state: "gone", code: "unavailable-contents", at: 500 });
   assert.deepEqual(
-    (page(query("files", { filters: { source: "=unavailable-contents" } })).rows as TrackFileRow[]).map((row) => row.audioKey),
+    ((await page(query("files", { filters: { source: "=unavailable-contents" } }))).rows as TrackFileRow[]).map((row) => row.audioKey),
     ["yt:aaaaaaaaaa1"],
     "필터는 원시 값으로",
   );
   store.db().prepare("DELETE FROM source_checks").run();
   sourceChecks.recordCheck("yt:aaaaaaaaaa1", { ok: true, at: 600 });
   store.db().prepare("UPDATE audio_cache SET audio_version = NULL").run();
-  assert.deepEqual(source(), { state: "ok", at: 600 });
+  assert.deepEqual(await source(), { state: "ok", at: 600 });
 });
 
-test("필터, 아무 열, 정렬(빈 값은 뒤로, 키가 끝 기준), 구간", () => {
+test("필터, 아무 열, 정렬(빈 값은 뒤로, 키가 끝 기준), 구간", async () => {
   assert.deepEqual(
-    requests(query("requests", { filters: { size: ">=2MB" } })).map((row) => row.requestKey),
+    (await requests(query("requests", { filters: { size: ">=2MB" } }))).map((row) => row.requestKey),
     [LASTFM, SPOTIFY, yt("aaaaaaaaaa1")].sort(),
   );
   assert.deepEqual(
-    requests(query("requests", { q: "둘 last" })).map((row) => row.requestKey),
+    (await requests(query("requests", { q: "둘 last" }))).map((row) => row.requestKey),
     [LASTFM],
   );
   assert.deepEqual(
-    requests(query("requests", { filters: { check: "=ok" } })).map((row) => row.requestKey),
+    (await requests(query("requests", { filters: { check: "=ok" } }))).map((row) => row.requestKey),
     [SPOTIFY_PIN_ONLY],
   );
 
-  const sorted = requests(query("requests", { sort: [{ column: "lastPlayedAt", dir: "desc" }] })).map((row) => row.requestKey);
+  const sorted = (await requests(query("requests", { sort: [{ column: "lastPlayedAt", dir: "desc" }] }))).map((row) => row.requestKey);
   assert.deepEqual(sorted.slice(0, 3), [yt("aaaaaaaaaa1"), SPOTIFY, LASTFM], "같은 값은 키 순서");
   assert.equal(sorted.length, 6);
   assert.deepEqual(sorted.slice(3), [SPOTIFY_PIN_ONLY, "amq:1", yt("aaaaaaaaaa3")].sort(), "빈 값은 내림차순에서도 뒤로");
 
-  const part = page(query("requests", { sort: [{ column: "lastPlayedAt", dir: "desc" }], offset: 1, limit: 2 }));
+  const part = await page(query("requests", { sort: [{ column: "lastPlayedAt", dir: "desc" }], offset: 1, limit: 2 }));
   assert.deepEqual([part.rows.map((row) => (row as TrackRequestRow).requestKey), part.offset, part.total, part.matched], [sorted.slice(1, 3), 1, 6, 6]);
 
-  const age = page(query("age", { filters: { markedAt: "<1970-01-02" } }));
+  const age = await page(query("age", { filters: { markedAt: "<1970-01-02" } }));
   assert.equal(age.matched, 2);
 });
 
-test("필터 식이 틀리면 그 열을 가리켜 거절한다", () => {
-  const result = trackCache.read(query("requests", { filters: { size: ">abc", title: "/(a+)+/" } }));
+test("필터 식이 틀리면 그 열을 가리켜 거절한다", async () => {
+  const result = await trackCache.read(query("requests", { filters: { size: ">abc", title: "/(a+)+/" } }));
   assert.ok(!result.ok);
   assert.deepEqual(result.errors, [
     { pointer: "/filters/size", code: "bad-filter" },
@@ -167,7 +168,7 @@ test("필터 식이 틀리면 그 열을 가리켜 거절한다", () => {
   assert.equal(result.code, "bad-filter");
 });
 
-test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열, 같은 키 여럿, 겹친 정렬, 구간 밖을 거절한다", () => {
+test("URL 쿼리: trackCacheSearch 의 역이고, 모르는 열, 같은 키 여럿, 겹친 정렬, 구간 밖을 거절한다", async () => {
   const sent = query("files", { filters: { title: "a", size: ">1MB" }, q: "x", sort: [{ column: "plays", dir: "desc" }], offset: 10, limit: 20 });
   assert.deepEqual(trackCache.queryOf(trackCacheSearch(sent)), { ok: true, query: sent });
 
@@ -259,7 +260,7 @@ test("쓰기: 조작마다 본 값과 대조한다(됨, 바뀜, 없음), 새 행
   assert.ok(result.ok);
   assert.deepEqual(result.written.results, [{ ok: true }, { ok: false, code: "changed", current: yt("aaaaaaaaaa4") }, { ok: false, code: "changed", current: null }, { ok: false, code: "gone" }, { ok: true }, { ok: false, code: "changed", current: yt("aaaaaaaaaa2") }, { ok: true }, { ok: false, code: "changed", current: { ledgerAudioUrl: null, pinned: SC } }, { ok: false, code: "gone" }, { ok: true }, { ok: false, code: "changed", current: 50 }]);
   assert.deepEqual(pinnedSources.getPin(yt("ccccccccccc"))?.audioUrl, yt("ddddddddddd"), "요청 키와 음원 모두 다듬은 것");
-  const rows = requests();
+  const rows = await requests();
   assert.equal(
     rows.some((row) => row.requestKey === SPOTIFY),
     false,
@@ -304,11 +305,36 @@ test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중, 바뀜, 
   }
 });
 
-test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키, 아니면 막힌 까닭", () => {
+test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키, 아니면 막힌 까닭", async () => {
   assert.deepEqual(trackCache.inspect({ requestKey: "https://youtu.be/ccccccccccc?si=x", audioUrl: "https://www.youtube.com/watch?v=ddddddddddd&list=PL" }), {
     request: { ok: true, canonical: yt("ccccccccccc"), platform: "youtube" },
     audio: { ok: true, canonical: yt("ddddddddddd"), kind: "youtube", audioKey: "yt:ddddddddddd" },
   });
   assert.deepEqual(trackCache.inspect({ audioUrl: SPOTIFY }), { audio: { ok: false, code: "not-audio-source" } });
   assert.deepEqual(trackCache.inspect({}), {});
+});
+
+// 정규식은 따로 도는 스레드에서 맞춘다(dashboard/regex-filter). 겹친 반복 거절을 빠져나간 무늬도 봇을 멈추지 않는다
+test("정규식 필터: 다른 조건과 함께 맞는 행만. 끝나지 않는 무늬는 시간 초과로 거절하고, 그 뒤에도 다시 맞춘다", async () => {
+  assert.deepEqual(
+    (await requests(query("requests", { filters: { title: "/^(둘|셋)$/", platform: "=youtube" } }))).map((row) => row.title),
+    ["셋"],
+  );
+
+  ledger(yt("aaaaaaaaaa6"), yt("aaaaaaaaaa6"), "youtube", `${"word ".repeat(10)}word!`);
+  const slow = await trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } }));
+  assert.deepEqual([slow.ok, !slow.ok && slow.code], [false, "filter-timeout"]);
+
+  assert.deepEqual(
+    (await requests(query("requests", { filters: { title: "/^하나$/" } }))).map((row) => row.title),
+    ["하나"],
+    "스레드를 새로 띄운다",
+  );
+});
+
+test("정규식 필터: 함께 들어온 맞추기는 하나씩 돌고, 상한은 저마다 시작한 때부터. 느린 하나가 기다리던 것까지 시간 초과로 만들지 않는다", async () => {
+  ledger(yt("aaaaaaaaaa7"), yt("aaaaaaaaaa7"), "youtube", `${"word ".repeat(10)}word!`);
+  const [slow, fast] = await Promise.all([trackCache.read(query("requests", { filters: { title: String.raw`/(\w+\s?)+$/` } })), trackCache.read(query("requests", { filters: { title: "/^하나$/" } }))]);
+  assert.deepEqual([slow.ok, !slow.ok && slow.code], [false, "filter-timeout"]);
+  assert.deepEqual(fast.ok && fast.page.rows.map((row) => (row as { title: string }).title), ["하나"]);
 });

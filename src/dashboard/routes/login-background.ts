@@ -102,7 +102,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   const saved = await saveBody(req, store.sourceOf(id), room);
   if (!saved.ok) {
     store.removeFolder(id);
-    if (saved.why === "no-space") return sendProblem(res, "background-no-space", { size: room });
+    if (saved.why === "no-space") return saved.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "background-no-space", { size: saved.room });
     // 올리던 사람이 끊었다
     if (saved.why === "aborted") log.warn({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");

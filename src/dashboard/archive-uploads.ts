@@ -29,7 +29,7 @@ async function receive(req: Request): Promise<(Saved & { ok: false; room: number
   const file = fileFor(token);
   const room = roomIn(dir);
   const saved = await saveBody(req, file, room);
-  if (!saved.ok) return { ...saved, room };
+  if (!saved.ok) return { room, ...saved };
   const timer = setTimeout(() => drop(token), KEEP_MS);
   timer.unref();
   uploads.set(token, timer);

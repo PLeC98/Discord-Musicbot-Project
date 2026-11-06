@@ -231,11 +231,11 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   // 끝을 알리지 못하는 입력의 마지막 그물. 곡 끝은 Idle 때 판정한다
   player.watch.startOverflow();
 
-  player.persistence.startStateSync();
+  player.persistence.startPeriodicSave();
   player.warmer.start();
   // 지금 곡의 파일 태그, 앨범아트를 먼저 찾게 한다(직접 링크만. 대기열은 예열의 틱이 넘긴다)
   embeddedArt.want([track], { first: true });
-  await player.persistence.persistState("play");
+  await player.persistence.save("play");
 
   // 다음 자동재생 곡을 미리 선택해 둔다. 기다리지 않는다. 재생 시작을 늦추면 안 된다.
   player.ensureAutoplayNext().catch((error) => log.warn(`자동재생 미리 선택 실패: ${messageOf(error)}`));

@@ -3,6 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { PassThrough, Readable, Writable } from "node:stream";
 import { createFragmentStream, openFragmentStream, streamFragments, startOf, type FragmentFetch, type FragmentSource } from "../../src/media/fragment-stream.ts";
 
 const base = "https://rr.test/videoplayback?live=1";
@@ -109,4 +110,180 @@ test("연 뒤 읽으면 받아 둔 첫 세그먼트부터 흘린다. 첫 세그�
   const s = await openFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
   assert.equal(asked.filter((u) => u.endsWith("&sq=0")).length, 1);
+});
+
+test("곡 길이를 모르면(0, NaN) 처음 세그먼트부터", () => {
+  for (const durationMs of [0, NaN]) assert.deepEqual(startOf({ base, count: 5 }, durationMs, 30_000), { index: 0, atMs: 0 });
+});
+
+test("닫으면 받는 중인 세그먼트(미리 받는 것까지)를 끊는다", async () => {
+  const signals: AbortSignal[] = [];
+  const source: FragmentSource<number> = {
+    next: async () => signals.length,
+    fetch: (_n, signal) => {
+      signals.push(signal);
+      return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+    },
+    startedAtMs: 0,
+    describe: () => "",
+  };
+  const s = streamFragments(source, { retryDelaysMs: [1], stallMs: 60_000 });
+  s.on("error", () => {});
+  s.resume();
+  await new Promise((done) => setImmediate(done));
+  assert.equal(signals.length, 2, "흘릴 것과 미리 받는 것");
+  s.destroy();
+  assert.deepEqual(
+    signals.map((one) => one.aborted),
+    [true, true],
+  );
+  await new Promise((done) => setTimeout(done, 5));
+  assert.equal(signals.length, 2, "끊긴 뒤 다시 받지 않는다");
+});
+
+// ── 흘리는 세그먼트(출처가 Readable 을 돌려준다) ──
+
+const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+// 차례대로 꺼내는 출처. 세그먼트마다 무엇을 돌려줄지 parts 가 정한다
+function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readable>>, extra: Partial<FragmentSource<number>> = {}) {
+  let given = 0;
+  const source: FragmentSource<number> = {
+    next: async () => (given < parts.length ? given++ : null),
+    fetch: async (index) => parts[index](),
+    startedAtMs: 0,
+    describe: (sent) => `흘림 ${sent}`,
+    ...extra,
+  };
+  return source;
+}
+
+test("흘리는 세그먼트: 버퍼와 Readable 이 섞여도 차례대로, 빈 것도 건너뛰고 이어진다", async () => {
+  const s = streamFragments(sourceOf([() => Buffer.from("a|"), () => Readable.from([Buffer.from("b1"), Buffer.from("b2|")]), () => Buffer.alloc(0), () => Readable.from([]), () => Buffer.from("c|")]), { retryDelaysMs: [] });
+  assert.equal(await readAll(s), "a|b1b2|c|");
+  assert.equal(s.describe(), "흘림 5");
+});
+
+test("흘리는 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 흘린 뒤 다음으로", async () => {
+  let produced = 0;
+  let paused = false;
+  const big = new Readable({
+    read() {
+      if (produced >= 1_000_000) return void this.push(null);
+      produced += 65_536;
+      this.push(Buffer.alloc(65_536, 1));
+    },
+  });
+  const s = streamFragments(sourceOf([() => big, () => Buffer.from("끝")]), { retryDelaysMs: [] });
+  let got = 0;
+  const slow = new Writable({
+    highWaterMark: 16_384,
+    write(chunk: Buffer, _encoding, done) {
+      got += chunk.length;
+      if (big.isPaused()) paused = true;
+      setTimeout(done, 1);
+    },
+  });
+  await new Promise<void>((resolve, reject) => s.pipe(slow).on("finish", resolve).on("error", reject));
+  assert.equal(got, 1_048_576 + Buffer.byteLength("끝"));
+  assert.ok(paused, "받는 쪽이 밀리면 출처가 멈췄다");
+});
+
+test("흘리는 세그먼트: 마지막 read 가 흘리는 중에 왔어도 끝나면 다음 세그먼트로 간다", async () => {
+  const inner = new PassThrough();
+  const s = streamFragments(sourceOf([() => inner, () => Buffer.from("다음")]), { retryDelaysMs: [] });
+  const chunks: string[] = [];
+  s.on("data", (chunk: Buffer) => chunks.push(chunk.toString()));
+  inner.write("x");
+  await sleep(20);
+  inner.end();
+  await new Promise((resolve, reject) => {
+    s.on("end", resolve);
+    s.on("error", reject);
+    setTimeout(() => reject(new Error("멈췄다")), 500);
+  });
+  assert.equal(chunks.join(""), "x다음");
+});
+
+test("흘리는 세그먼트: 받는 쪽이 멈추면 작은 출처를 줄줄이 꺼내 쌓지 않는다", async () => {
+  let fetched = 0;
+  const parts = Array.from({ length: 50 }, () => () => {
+    fetched++;
+    return Readable.from([Buffer.alloc(65_536)]);
+  });
+  const s = streamFragments(sourceOf(parts), { retryDelaysMs: [] });
+  const first = new Promise<void>((resolve) => s.once("data", () => (s.pause(), resolve())));
+  s.on("data", () => {});
+  await first;
+  await sleep(100);
+  assert.ok(fetched <= 4, `멈춘 동안 꺼낸 것 ${fetched}`);
+  s.destroy();
+});
+
+test("흘리는 세그먼트: 오류 없이 닫힌 출처는 다음으로 넘기지 않고 오류로 끝난다(재생 쪽이 다시 연다)", async () => {
+  const inner = new PassThrough();
+  const s = streamFragments(sourceOf([() => inner, () => Buffer.from("다음")]), { retryDelaysMs: [] });
+  const reading = readAll(s);
+  inner.write("x");
+  await sleep(10);
+  inner.destroy();
+  await assert.rejects(reading, { code: "ERR_STREAM_PREMATURE_CLOSE" });
+});
+
+test("흘리는 세그먼트: 미리 받아 둔 출처가 차례 전에 실패해도 처리되지 않은 오류가 되지 않고, 그 차례에 그 오류로 끝난다", async () => {
+  const failing = new PassThrough();
+  const s = streamFragments(sourceOf([async () => (await sleep(30), Buffer.from("a")), () => failing]), { retryDelaysMs: [] });
+  setTimeout(() => failing.destroy(new Error("끊김")), 5);
+  await assert.rejects(readAll(s), /끊김/);
+});
+
+test("흘리는 세그먼트: 흘리는 중 닫으면 그 출처와 미리 받은 것을, 닫은 뒤 받아진 것도 부순다", async () => {
+  const inner = new PassThrough();
+  const ahead = new PassThrough();
+  const s = streamFragments(sourceOf([() => inner, () => ahead]), { retryDelaysMs: [] });
+  s.on("data", () => {});
+  s.on("error", () => {});
+  inner.write("x");
+  await sleep(10);
+  s.destroy();
+  await sleep(10);
+  assert.deepEqual([inner.destroyed, ahead.destroyed], [true, true]);
+
+  const late = new PassThrough();
+  const t = streamFragments(sourceOf([async () => (await sleep(30), late)]), { retryDelaysMs: [] });
+  t.on("data", () => {});
+  t.on("error", () => {});
+  await sleep(5);
+  t.destroy();
+  await sleep(50);
+  assert.equal(late.destroyed, true);
+});
+
+test("무응답 기준: 받는 동안 progress 를 알리면 stallMs 를 넘겨도 끊지 않는다. 알리지 않으면 끊는다", async () => {
+  const slowButMoving: FragmentSource<number> = {
+    ...sourceOf([]),
+    next: (() => {
+      let given = 0;
+      return async () => (given < 1 ? given++ : null);
+    })(),
+    fetch: async (_index, signal, progress) => {
+      for (let i = 0; i < 6; i++) {
+        await sleep(20);
+        if (signal.aborted) throw signal.reason;
+        progress?.();
+      }
+      return Buffer.from("다 받음");
+    },
+  };
+  assert.equal(await readAll(streamFragments(slowButMoving, { retryDelaysMs: [], stallMs: 50 })), "다 받음");
+
+  const silent: FragmentSource<number> = {
+    ...slowButMoving,
+    next: (() => {
+      let given = 0;
+      return async () => (given < 1 ? given++ : null);
+    })(),
+    fetch: (_index, signal) => new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason))),
+  };
+  await assert.rejects(readAll(streamFragments(silent, { retryDelaysMs: [], stallMs: 50 })), /50ms|0\.05초/);
 });

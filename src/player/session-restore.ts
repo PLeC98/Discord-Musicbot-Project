@@ -51,7 +51,7 @@ type Registry = Pick<PlayerSeats, "has" | "set">;
  * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
  * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
-async function restoreSavedPlayers(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
+async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
@@ -180,4 +180,4 @@ async function restoreGuild(client: Client, players: Registry, PlayerCtor: Playe
   await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
 }
 
-export { resolveGuildForRestore, restoreSavedPlayers, restoreGuild, waitForRestore, ATTEMPTS, RETRY_DELAY_MS };
+export { resolveGuildForRestore, restoreSessions, restoreGuild, waitForRestore, ATTEMPTS, RETRY_DELAY_MS };

@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import { once } from "node:events";
-import { Readable, Transform, type Writable } from "node:stream";
+import { Readable, Transform, pipeline, type Writable } from "node:stream";
 import zlib from "node:zlib";
 
 /** 항목 하나. name 은 / 로 나눈 경로 */
@@ -212,9 +212,9 @@ function fileSource(file: string, fd: number): Source {
   };
 }
 
-// 폴더 밖을 가리키는 경로는 받지 않는다(풀어 쓰는 곳이 없어도 이름을 믿지 않는다)
+// 폴더 밖을 가리키는 경로는 받지 않는다(풀어 쓰는 곳이 없어도 이름을 믿지 않는다). NUL, 콜론(드라이브, Windows 의 대체 데이터 스트림)도. 역슬래시는 읽을 때 / 로 바꿨다
 function safeName(name: string) {
-  return !name.startsWith("/") && !/^[a-zA-Z]:/.test(name) && !name.split("/").includes("..");
+  return !name.startsWith("/") && !/[\0:]/.test(name) && !name.split("/").includes("..");
 }
 
 /** 중앙 디렉터리 레코드 하나 */
@@ -338,9 +338,11 @@ function bodyStream(src: Source, entry: Central): Readable {
       done(seen !== size || sum !== crc ? bad(`내용이 맞지 않습니다(${name})`) : null);
     },
   });
-  const unpacked = method === DEFLATE ? raw.pipe(zlib.createInflateRaw()) : raw;
-  unpacked.on("error", (error) => check.destroy(error));
-  return unpacked.pipe(check);
+  // 어느 쪽의 오류든 받는 쪽(check)에 가고, 받는 쪽이 끊으면 원본 읽기와 풀기도 닫는다
+  const settled = () => {
+    /* 오류는 check 가 받는 쪽에 넘긴다 */
+  };
+  return method === DEFLATE ? pipeline(raw, zlib.createInflateRaw(), check, settled) : pipeline(raw, check, settled);
 }
 
 /** 푼다(메모리의 작은 아카이브). maxEntries, maxBytes 를 넘으면 BAD_ZIP */

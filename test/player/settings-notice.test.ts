@@ -42,3 +42,31 @@ for (const [name, change] of changes) {
     }
   });
 }
+
+// 주기 저장은 멈춘 플레이어를 건너뛰고, 세션 행에는 사람의 멈춤만 있다. 멈춘 위치는 그때 곧바로 쓴다
+for (const [name, pause] of [
+  ["사람의 멈춤", (p: Player) => p.pause.setUser(true)],
+  ["억제 사유", (p: Player) => p.pause.setHolds(["alone"])],
+] as const) {
+  test(`멈추면 그 위치를 곧바로 쓴다: ${name}`, () => {
+    const p = h.makePlayer();
+    try {
+      pause(p);
+      assert.equal(h.calls.positions, 1);
+    } finally {
+      h.dispose(p);
+    }
+  });
+}
+
+test("멈춤을 풀 때는 위치를 쓰지 않는다(재생 중에는 주기 저장이 쓴다)", () => {
+  const p = h.makePlayer();
+  try {
+    p.pause.setUser(true);
+    h.calls.positions = 0;
+    p.pause.setUser(false);
+    assert.equal(h.calls.positions, 0);
+  } finally {
+    h.dispose(p);
+  }
+});

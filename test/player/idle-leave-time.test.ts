@@ -103,10 +103,10 @@ test("옮겨져도 혼자면 새 채널 기준으로 다시 잰다", () =>
 
 class RecordingPanel extends NowPlayingPanel {
   drawn: Array<{ reason: string; leavesAt?: number | null; dedicated: boolean }> = [];
-  async _showIdle(_player: Player, _live: PanelMessage | null, look: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
+  override async _showIdle(_player: Player, _live: PanelMessage | null, look: { reason: string; leavesAt?: number | null; dedicated: boolean }) {
     this.drawn.push(look);
   }
-  async _panelIsDedicated() {
+  override async _panelIsDedicated() {
     return true;
   }
 }

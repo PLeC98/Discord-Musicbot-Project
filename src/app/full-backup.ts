@@ -101,7 +101,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
 }
 
 /**
- * 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, hasEnv: .env 를 담았나, favicons, backgrounds: 담은 파비콘 파일, 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null)
+ * 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 를 담았나, favicons, backgrounds: 담은 파비콘 파일, 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null)
  * @param withAudio  오디오 캐시 번들에 캐시 파일까지(기본은 행 목록만)
  */
 async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { withAudio = false }: { withAudio?: boolean } = {}) {
@@ -130,11 +130,22 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
     copy.done();
     audio?.done();
   }
-  const replaced = fs.readdirSync(outDir).filter((one) => /^musicbot-full-.*\.zip$/.test(one));
-  for (const old of replaced) fs.rmSync(path.join(outDir, old), { force: true });
+  // 새 것을 제자리에 둔 뒤 앞의 것을 지운다(그사이 멈춰도 백업이 하나는 있다. 같은 이름이면 바꾸기가 덮는다).
+  // 지우지 못한 것은 남기고 알린다. 새 백업은 이미 제자리에 있다
+  const earlier = fs.readdirSync(outDir).filter((one) => /^musicbot-full-.*\.zip$/.test(one));
   fs.renameSync(part, out);
   ownerOnly(out);
-  return { file: out, replaced, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null };
+  const left: string[] = [];
+  for (const old of earlier) {
+    if (old === name) continue;
+    try {
+      fs.rmSync(path.join(outDir, old), { force: true });
+    } catch {
+      left.push(old);
+    }
+  }
+  const replaced = earlier.filter((one) => !left.includes(one));
+  return { file: out, replaced, left, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null };
 }
 
 export { makeFullBackup };

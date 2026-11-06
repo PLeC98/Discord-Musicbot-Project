@@ -51,7 +51,7 @@ class TestPanels extends NowPlayingPanel {
     super(client, players, { panelStore });
     this.calls = calls;
   }
-  async getOrCreateWebhook(channel: GuildBasedChannel) {
+  override async getOrCreateWebhook(channel: GuildBasedChannel) {
     const calls = this.calls;
     return fake<WebhookClient>({
       send: async (payload: Payload) => {

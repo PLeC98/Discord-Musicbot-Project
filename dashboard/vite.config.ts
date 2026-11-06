@@ -46,14 +46,17 @@ const PRECOMPRESS_AT_ONCE = 16;
 function precompress(): Plugin {
   let outDir = "";
   let cacheDir = "";
+  let writes = true; // 파일을 쓰지 않는 빌드(테스트의 write: false)는 dist 를 건드리지 않는다
   return {
     name: "precompress",
     apply: "build",
     configResolved(config) {
       outDir = path.resolve(config.root, config.build.outDir);
       cacheDir = path.resolve(config.root, "node_modules/.cache/precompress");
+      writes = config.build.write !== false;
     },
     async closeBundle() {
+      if (!writes) return;
       const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((one) => (one.isDirectory() ? walk(path.join(dir, one.name)) : [path.join(dir, one.name)]));
       const files = walk(outDir).filter((file) => /\.(js|css|html|svg|json)$/.test(file) && !path.basename(file).startsWith("."));
       fs.mkdirSync(cacheDir, { recursive: true });
