@@ -34,7 +34,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "bot-in-other-voice": () => warning("voice", "음성 채널에 들어갈 수 없어요!", "이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때까지 기다려 주세요."),
   "must-dj": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작을 하려면 DJ 역할을 갖고 있어야 해요."),
   // 설정 화면은 서버 관리 권한이 있어야 만진다
-  "must-moderator": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
+  "must-server-manager": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
   "stay-stage": () => warning("voice", "스테이지 채널에는 자리를 잡을 수 없어요.", "상주 모드는 일반 음성 채널에서만 쓸 수 있어요."),
   // 봇 운영자(OWNER_ID)만 쓰는 화면을 다른 사람이 열었다
   "must-owner": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작은 봇 운영자 전용이에요."),

@@ -193,7 +193,7 @@ test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여�
 
   currentMember = plainMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual([r.status, r.json.code], [403, "must-moderator"]);
+  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
   currentMember = null;
   currentUser = { id: "u1", username: "tester" };
 });

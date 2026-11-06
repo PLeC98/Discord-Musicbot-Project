@@ -70,14 +70,14 @@ test("help 를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 
 test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 명령(default_member_permissions)과 같다', () => {
   for (const command of COMMANDS) {
     const gated = Boolean(command.data.toJSON().default_member_permissions);
-    assert.equal(command.help?.tier === "moderator", gated, command.data.name);
+    assert.equal(command.help?.tier === "server-manager", gated, command.data.name);
   }
 });
 
 test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완성이 보인다). 권한 표시를 끝에 붙인다", () => {
   const [section] = helpSections([
     { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
-    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "moderator" } },
+    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "server-manager" } },
     { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ]);
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);

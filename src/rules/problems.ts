@@ -18,7 +18,7 @@ const SHARED = {
   // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다, 자리에서 내보내기는 서버 관리 권한이 있어야 한다
   "stay-stage": { status: 409, title: "Stay mode does not work in stage channels" },
   "must-dj": { status: 403, title: "DJ role required" },
-  "must-moderator": { status: 403, title: "Manage Server permission required" },
+  "must-server-manager": { status: 403, title: "Manage Server permission required" },
   "must-owner": { status: 403, title: "Bot owner only" },
   "search-owner-only": { status: 403, title: "Only the searcher can pick a result" },
   "only-in-bot-channel": { status: 403, title: "Only in the bot channel", params: ["channelId"] },

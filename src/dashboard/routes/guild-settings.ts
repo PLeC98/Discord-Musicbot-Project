@@ -80,7 +80,7 @@ function createGuildSettingsRouter() {
 
     const canEdit = isServerManager(member);
     if (!canEdit) {
-      return sendProblem(res, "must-moderator");
+      return sendProblem(res, "must-server-manager");
     }
 
     const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
@@ -128,7 +128,7 @@ function createGuildSettingsRouter() {
     const { guild, member, bot } = ctx;
 
     if (!isServerManager(member)) {
-      return sendProblem(res, "must-moderator");
+      return sendProblem(res, "must-server-manager");
     }
 
     const limits = GuildSettingsManager.playlistAddLimits();

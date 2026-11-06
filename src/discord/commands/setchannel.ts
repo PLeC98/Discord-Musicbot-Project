@@ -15,7 +15,7 @@ const log = logger.child({ category: "commands" });
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
-  help: { section: "channel", tier: "moderator" },
+  help: { section: "channel", tier: "server-manager" },
   data: new SlashCommandBuilder()
     .setName("setchannel")
     .setDescription("제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요)")

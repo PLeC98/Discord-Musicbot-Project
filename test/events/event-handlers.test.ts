@@ -83,7 +83,7 @@ type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who:
 type World = ReturnType<typeof world>;
 
 // 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 서버 관리자 여부, DJ 역할로 세계를 만든다
-function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; moderator?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
+function world({ botVoice = "v1", userVoice = "v1", manager = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; manager?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
   const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const guild = { id: "g1", name: "서버", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map([["dj", { id: "dj" }]]) } };
   const member = {
@@ -92,7 +92,7 @@ function world({ botVoice = "v1", userVoice = "v1", moderator = false, roles = [
     displayName: "사용자",
     guild,
     voice: { channel: voice(userVoice) },
-    permissions: { has: (p: bigint) => moderator && p === PermissionFlagsBits.ManageGuild },
+    permissions: { has: (p: bigint) => manager && p === PermissionFlagsBits.ManageGuild },
     roles: { cache: { has: (r: string) => roles.includes(r) } },
     toString: () => `<@${USER}>`,
   };

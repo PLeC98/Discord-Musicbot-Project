@@ -85,12 +85,12 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 레지스트리에 남는다
 });
 
 // 서버 관리자는 재적, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
-const moderatorOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
+const managerOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
 
 test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제, 나갈 예약)", async () => {
   const p = playingPlayer(yt("zzzzzzzzzzz", { title: "마지막 곡" }));
   p.queue = [];
-  const lines = await endLines(async () => assert.equal((await controls.skip(p, moderatorOf(p))).ok, true));
+  const lines = await endLines(async () => assert.equal((await controls.skip(p, managerOf(p))).ok, true));
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
   assert.deepEqual(lines, ['트랙 종료: "마지막 곡" (youtube) | 원인=skip']);
@@ -101,7 +101,7 @@ test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것
 
 test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 삭제한다", async () => {
   const p = playingPlayer(yt("bbbbbbbbbbb", { title: "둘째 곡" }));
-  const lines = await endLines(() => controls.stop(p, moderatorOf(p)));
+  const lines = await endLines(() => controls.stop(p, managerOf(p)));
   assert.deepEqual(lines, ['트랙 종료: "둘째 곡" (youtube) | 원인=stop']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false, "버리면 레지스트리가 스스로 뺀다");
@@ -109,7 +109,7 @@ test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 삭제한다", asyn
 
 test("/leave: 원인=leave. 세션을 저장하고 삭제하지 않는다", async () => {
   const p = playingPlayer(yt("ccccccccccc", { title: "셋째 곡" }));
-  const lines = await endLines(() => controls.leave(p.guild, moderatorOf(p), h.registryOf(p)!));
+  const lines = await endLines(() => controls.leave(p.guild, managerOf(p), h.registryOf(p)!));
   assert.deepEqual(lines, ['트랙 종료: "셋째 곡" (youtube) | 원인=leave']);
   assert.ok(calls.persists.includes("leave"));
   assert.equal(calls.persists.includes("remove"), false);

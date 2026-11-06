@@ -64,10 +64,10 @@ async function pressButton(interaction: ButtonInteraction<"cached">) {
 }
 
 // 명령 진입, 대시보드 서버 설정과 같은 기준을 다시 본다
-function moderatorOnly<I extends RoleSelectMenuInteraction<"cached"> | StringSelectMenuInteraction<"cached"> | ButtonInteraction<"cached">>(handle: (interaction: I) => unknown) {
-  return (interaction: I) => (isServerManager(interaction.member) ? handle(interaction) : noticeSelf(interaction, errors.notice("must-moderator")));
+function serverManagerOnly<I extends RoleSelectMenuInteraction<"cached"> | StringSelectMenuInteraction<"cached"> | ButtonInteraction<"cached">>(handle: (interaction: I) => unknown) {
+  return (interaction: I) => (isServerManager(interaction.member) ? handle(interaction) : noticeSelf(interaction, errors.notice("must-server-manager")));
 }
 
-const routes: Route[] = [route("roleSelect", "setting:dj", moderatorOnly(saveDjRoles)), route("select", "setting:sb-cats", moderatorOnly(saveSponsorCategories)), route("button", "setting:", moderatorOnly(pressButton))];
+const routes: Route[] = [route("roleSelect", "setting:dj", serverManagerOnly(saveDjRoles)), route("select", "setting:sb-cats", serverManagerOnly(saveSponsorCategories)), route("button", "setting:", serverManagerOnly(pressButton))];
 
 export { routes, panel };

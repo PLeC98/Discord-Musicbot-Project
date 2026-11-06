@@ -17,7 +17,7 @@ function getViewAs<P>(req: Request<P>): Tier | null {
 }
 
 // 서버 관리자 판정(isServerManager)은 서버 관리 권한 하나를 본다.
-const MOD_BITS = new PermissionsBitField(PermissionFlagsBits.ManageGuild);
+const MANAGER_BITS = new PermissionsBitField(PermissionFlagsBits.ManageGuild);
 const NO_BITS = new PermissionsBitField(0n);
 
 // isDj는 member.roles.cache.has(역할ID)만 본다. 서버마다 다른 DJ 역할 ID를 미리 알 필요 없이
@@ -26,7 +26,7 @@ const ANY_ROLE = { cache: { has: () => true } };
 const NO_ROLE = { cache: { has: () => false } };
 
 const SPEC: Partial<Record<Tier, { permissions: PermissionsBitField; roles: { cache: { has(id: string): boolean } } }>> = {
-  moderator: { permissions: MOD_BITS, roles: NO_ROLE }, // isDj가 서버 관리자에서 단락되므로 역할은 불필요
+  "server-manager": { permissions: MANAGER_BITS, roles: NO_ROLE }, // isDj가 서버 관리자에서 단락되므로 역할은 불필요
   dj: { permissions: NO_BITS, roles: ANY_ROLE },
   user: { permissions: NO_BITS, roles: NO_ROLE },
 };

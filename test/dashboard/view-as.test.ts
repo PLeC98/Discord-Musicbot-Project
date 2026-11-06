@@ -48,8 +48,8 @@ test("오버라이드가 없으면 원본을 그대로 돌려준다", () => {
   assert.equal(shadowMember(req("owner"), m), m, "운영자는 계층이 아니다(오버라이드 없음)");
 });
 
-test("moderator: 서버 관리자로 승격돼 재적 규칙까지 면제된다", async () => {
-  const m = shadowMember(req("moderator"), member({ voice: null, botVoice: "vc-A" }));
+test("server-manager: 서버 관리자로 승격돼 재적 규칙까지 면제된다", async () => {
+  const m = shadowMember(req("server-manager"), member({ voice: null, botVoice: "vc-A" }));
   assert.equal(isServerManager(m), true);
   assert.equal(checkVoice(m), null, "서버 관리자는 음성에 없어도 통과");
   assert.equal(await checkControl(m), null);
@@ -104,7 +104,7 @@ test("대역 멤버도 id, guild, voice는 원본 그대로다 (음성 재적은
 // ── 운영자 판정 ──────────────────────────────────────────────────────────────
 
 test("isOwner는 오버라이드를 따르고, isRealOwner는 따르지 않는다", () => {
-  for (const tier of ["moderator", "dj", "user"]) {
+  for (const tier of ["server-manager", "dj", "user"]) {
     assert.equal(isOwner(req(tier)), false, `${tier}로 낮추면 운영자 권한이 빠진다`);
     assert.equal(isRealOwner(req(tier)), true, `${tier}로 낮춰도 해제 경로(requireOwner)는 남는다`);
   }
@@ -114,7 +114,7 @@ test("isOwner는 오버라이드를 따르고, isRealOwner는 따르지 않는�
 });
 
 test("운영자가 아니면 오버라이드로 권한을 얻을 수 없다", () => {
-  for (const tier of [undefined, "owner", "moderator"]) {
+  for (const tier of [undefined, "owner", "server-manager"]) {
     assert.equal(isOwner(req(tier, "someone-else")), false);
     assert.equal(isRealOwner(req(tier, "someone-else")), false);
   }

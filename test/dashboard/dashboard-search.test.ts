@@ -26,14 +26,14 @@ const yt = (id: string, extra: object = {}): Song => ({ title: `곡 ${id}`, arti
 const sp: Song = { title: "스포티파이 곡", artist: "가수", album: "앨범", duration: 180, thumbnail: null, platform: "spotify", pageUrl: "https://open.spotify.com/track/abc", requestKey: "https://open.spotify.com/track/abc" };
 
 // 그 서버의 멤버. 기본은 서버 관리자(재적 규칙을 건너뛴다). sameVoice 가 거짓이면 봇과 다른 음성 채널의 일반 멤버
-let moderator = true;
+let manager = true;
 const guild = {
   id: GUILD_ID,
   name: "TestGuild",
   roles: { cache: new Map() },
   channels: { cache: new Map() },
   members: {
-    fetch: async (id: string) => ({ id, guild, permissions: { has: () => moderator }, voice: { channel: moderator ? null : { id: "other" } }, roles: { cache: new Map() } }),
+    fetch: async (id: string) => ({ id, guild, permissions: { has: () => manager }, voice: { channel: manager ? null : { id: "other" } }, roles: { cache: new Map() } }),
     me: { voice: { channel: { id: "bot-voice" } } },
   },
 };
@@ -69,7 +69,7 @@ const get = (q: string) => requestJson<SearchReply & { code?: string; status?: n
 function fresh(queue: object[] = []) {
   bot.players.set(GUILD_ID, makePlayer(queue) as unknown as Player);
   searched.length = 0;
-  moderator = true;
+  manager = true;
   answer = async () => ({ songs: [], gated: false });
 }
 
@@ -78,7 +78,7 @@ test("검색: 플레이어가 없으면 bot-not-in-voice, 봇과 다른 음성 �
   bot.players.delete(GUILD_ID);
   assert.equal((await get("q=아이유")).json.code, "bot-not-in-voice");
   fresh();
-  moderator = false;
+  manager = false;
   const r = await get("q=아이유");
   assert.equal(r.json.code, "must-be-in-same-voice");
   assert.deepEqual(searched, []);
