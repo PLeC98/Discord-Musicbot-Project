@@ -36,8 +36,8 @@ const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
  * 오디오 캐시에서 선택한 것을 삭제한다. 바깥 서비스 데이터면 메모리의 기억(SponsorBlock 구간, 스포티파이 익명 상태)도 버린다.
  * @param by  로그에 남길 실행한 사람
  */
-async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
-  const result = await audioCache.resetCache(parts);
+async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?: () => void) {
+  const result = await audioCache.resetCache(parts, go);
   // 기억한 파일 태그, 앨범아트는 캐시 파일의 버전을 가리킨다
   if (parts.includes("files")) embeddedArt.clear();
   if (parts.includes("external")) {
@@ -55,8 +55,10 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string) {
  * 기본값을 써 넣지 않는다(그 버전의 기본값이 굳어 다음 버전의 기본값을 따라가지 않는다). 순서는 불러오기와 같다: 스냅샷 → 한 트랜잭션 → 다시 읽기.
  * restart: 다시 시작해야 적용되는 값이 기동 시 값과 달라졌다
  */
-async function resetBotSettings(by: string) {
-  const snapshot = await snapshots.take("before-reset");
+async function resetBotSettings(by: string, go?: () => void) {
+  const snapshot = await snapshots.take("before-reset", undefined, { tidy: false });
+  go?.();
+  snapshots.tidy();
   const removed = settingsDb.get().transaction(() => ({ documents: settingsDocs.removeAll(), secrets: secrets.removeAll() }))();
   documents.reload();
   tunables.reload();
@@ -67,9 +69,11 @@ async function resetBotSettings(by: string) {
 }
 
 /** 모든 서버의 서버별 설정을 삭제한다. 바꾸기 전에 스냅샷을 남긴다 */
-async function resetGuildSettings(by: string) {
+async function resetGuildSettings(by: string, go?: () => void) {
+  const snapshot = await snapshots.take("before-reset", undefined, { tidy: false });
+  go?.();
+  snapshots.tidy();
   const guilds = guildSettings.guildCount();
-  const snapshot = await snapshots.take("before-reset");
   guildSettings.replaceAll({});
   guildSettings.forgetCache();
   log.warn({ sub: "admin" }, `대시보드에서 서버별 설정 초기화: 서버 ${guilds}곳(되돌릴 스냅샷 ${snapshot}). 실행 ${by}`);
@@ -115,11 +119,14 @@ function overview(botName: string, launcher: boolean): ResetOverview {
  * 봇 전체 초기화를 예약한다: 예약한 복원을 취소하고(남기면 초기화한 봇에 옛 설정이 들어온다) 스냅샷을 남긴 뒤 마커를 건다.
  * 삭제는 다음 기동(store/full-reset). 곧바로 다시 시작할지는 부르는 쪽(경로)이 정한다
  */
-async function stageFullReset(by: string, restarting: boolean) {
+async function stageFullReset(by: string, restarting: boolean, go?: () => void) {
+  // 스냅샷을 먼저 뜨고(더하기만) 그만두지 않았으면 예약한 복원을 취소한다. 뜨는 사이 그만둔 조작이 아무것도 바꾸지 않게
+  const snapshot = await snapshots.take("before-reset", undefined, { tidy: false });
+  go?.();
+  snapshots.tidy();
   const unstaged = stagedRestore();
   snapshots.unstage();
   fs.rmSync(stagedAudioFile(), { force: true });
-  const snapshot = await snapshots.take("before-reset");
   fullReset.request();
   log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
   return { snapshot, unstaged };

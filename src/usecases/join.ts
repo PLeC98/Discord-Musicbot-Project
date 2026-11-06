@@ -23,13 +23,14 @@ type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voic
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
  * restoring 은 세션 복원을 시작할 때 부른다(디스코드는 "불러오는 중"을 먼저 답한다).
- * 텍스트 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다
+ * 텍스트 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다.
+ * go 는 기다림(기동 복원, 채널 찾기) 뒤, 첫 바꿈 앞의 확인이다. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남)
  */
-async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring }: { restoring?: () => Promise<unknown> } = {}): Promise<JoinResult> {
+async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring, go }: { restoring?: () => Promise<unknown>; go?: () => void } = {}): Promise<JoinResult> {
   const channel = member.voice.channel;
   const refused = refusal(guild, channel);
   if (refused || !channel) return { kind: "refused", code: refused ?? "must-be-in-voice" };
-  return attach(bot, guild, channel, textChannel, restoring);
+  return attach(bot, guild, channel, textChannel, { restoring, go });
 }
 
 /** 정한 채널에 붙인다(24/7 자리 지킴이). 부른 사람이 없어 봇의 권한, 다른 채널만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널 */
@@ -39,13 +40,17 @@ async function joinChannel(bot: { players: Pick<PlayerSeats, "get" | "set"> }, {
   return attach(bot, guild, channel, textChannel);
 }
 
-async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild: Guild, channel: VoiceBasedChannel, textChannel: GuildTextBasedChannel | null, restoring?: () => Promise<unknown>): Promise<JoinResult> {
+async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild: Guild, channel: VoiceBasedChannel, textChannel: GuildTextBasedChannel | null, { restoring, go }: { restoring?: () => Promise<unknown>; go?: () => void } = {}): Promise<JoinResult> {
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다. 같은 세션을 기동 복원과 둘이 되살리지 않게
   await waitForRestore(guild.id);
 
   // 이미 붙어 있음(붙는 중, 끊겨 재연결하는 중 포함)
   const existing = bot.players.get(guild.id);
   if (existing?.voice.isAlive()) return { kind: "already", player: existing };
+
+  // 텍스트 채널을 먼저 찾는다(기다림을 모두 바꾸기 앞에 둔다)
+  const text = textChannel ?? (await resolveFallbackTextChannel(guild));
+  go?.();
 
   // /leave 나 종료가 저장해 둔 세션
   const saved = sessions().load(guild.id);
@@ -54,7 +59,7 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) await existing.dispose({ reason: "봇 부르기 교체", session: "keep", end: "replaced" });
 
-  const player = ensurePlayer(bot, { guild, textChannel: textChannel ?? (await resolveFallbackTextChannel(guild)), voiceChannel: channel });
+  const player = ensurePlayer(bot, { guild, textChannel: text, voiceChannel: channel });
   // 지금 곡이 없고 대기열만 있는 세션도 복원한다(첫 곡에서 멈춘 채)
   if (hasTracks(saved)) {
     await restoring?.();

@@ -578,6 +578,19 @@ test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 �
   assert.deepEqual(row, { audio_version: "lmt:1", version_checked_at: 1_700_000_000_000 });
 });
 
+test("정리 잠금을 기다린 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 초기화도 캐시 파일 삭제도 하지 않는다", async () => {
+  await withTempCacheDir(async () => {
+    const file = seedCached("yt:go", 1234);
+    const ended = () => {
+      throw new Error("세션이 끝났다");
+    };
+    await assert.rejects(audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT, ended), /세션이 끝났다/);
+    await assert.rejects(audioCache.removeCached("yt:go", undefined, ended), /세션이 끝났다/);
+    assert.ok(audioCache.lookupByAudioKey("yt:go"), "행이 남는다");
+    assert.ok(fs.existsSync(file), "파일이 남는다");
+  });
+});
+
 test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다시 열지 않는다", async () => {
   audioCache.recordDownloadComplete("yt:closed1", audioCache.getFilePath("yt:closed1"), 100, { title: "t" });
   audioCache.close();

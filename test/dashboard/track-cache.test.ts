@@ -305,6 +305,30 @@ test("쓰기: 캐시 파일 삭제는 DB 몫 뒤에 하고, 쓰는 중, 바뀜, 
   }
 });
 
+test("쓰기: 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 한 번 확인한다(go 가 던지면 지우지 않는다)", async () => {
+  const target = audioCache.getFilePath("yt:ggggggggggg");
+  fs.mkdirSync(audioCache.cacheDir(), { recursive: true });
+  fs.writeFileSync(target, "x");
+  store.db().prepare("INSERT INTO audio_cache (audio_key, status, file_path, file_size_bytes, downloaded_at, created_at) VALUES ('yt:ggggggggggg', 'cached', ?, 1, 88, 0)").run(target);
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  await assert.rejects(trackCache.write([{ op: "deleteFile", audioKey: "yt:ggggggggggg", expect: 88 }], "tester", ended), /세션이 끝났다/);
+  assert.equal(fs.existsSync(target), true, "지우지 않는다");
+  let asked = 0;
+  const result = await trackCache.write(
+    [
+      { op: "deleteFile", audioKey: "yt:ggggggggggg", expect: 88 },
+      { op: "deleteFile", audioKey: "yt:nnnnnnnnnnn", expect: null },
+    ],
+    "tester",
+    () => void asked++,
+  );
+  assert.ok(result.ok);
+  assert.equal(asked, 1, "첫 삭제 앞에서 한 번. 그 뒤는 이미 바꿨다");
+  assert.equal(fs.existsSync(target), false);
+});
+
 test("값 검사 미리 보기: 저장될 형식, 종류, 음원 키, 아니면 막힌 까닭", async () => {
   assert.deepEqual(trackCache.inspect({ requestKey: "https://youtu.be/ccccccccccc?si=x", audioUrl: "https://www.youtube.com/watch?v=ddddddddddd&list=PL" }), {
     request: { ok: true, canonical: yt("ccccccccccc"), platform: "youtube" },

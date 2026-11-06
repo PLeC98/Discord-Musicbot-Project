@@ -360,8 +360,12 @@ type ResetResult = { removed: number; kept: number; freedBytes: number; cleared:
  * 재생 중, 대기열 앞 곡과 다운로드 중인 파일은 남긴다(파일 잠금에 기대지 않는다: 리눅스는 재생 중인 파일도 삭제된다).
  * 삭제하지 못한 파일(다른 프로그램이 쥐고 있다)도 행과 함께 남기고 세어서 돌려준다.
  */
-function resetCache(parts: readonly AudioCachePart[]): Promise<ResetResult> {
-  return underCleanupLock(() => resetLocked(parts));
+function resetCache(parts: readonly AudioCachePart[], go?: () => void): Promise<ResetResult> {
+  return underCleanupLock(() => {
+    // 잠금을 기다리는 사이 그만뒀으면 지우지 않는다(대시보드: 세션이 끝남)
+    go?.();
+    return resetLocked(parts);
+  });
 }
 
 async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResult> {
@@ -701,8 +705,10 @@ function useOf(audioKey: string): CacheUse | null {
  * 캐시 파일 하나를 삭제한다(캐시 DB 의 캐시 파일 삭제). 파일 없는 error 행도 행만 삭제한다.
  * @param expect  화면이 본 다운로드 시각(downloaded_at). undefined 면 보지 않는다
  */
-function removeCached(audioKey: string, expect?: number | null): Promise<RemoveResult> {
+function removeCached(audioKey: string, expect?: number | null, go?: () => void): Promise<RemoveResult> {
   return underCleanupLock(async (): Promise<RemoveResult> => {
+    // 잠금을 기다리는 사이 그만뒀으면 지우지 않는다(대시보드: 세션이 끝남)
+    go?.();
     const row = lookupByAudioKey(audioKey);
     if (!row) return { ok: false, code: "gone" };
     if (expect !== undefined && row.downloaded_at !== expect) return { ok: false, code: "changed", current: row.downloaded_at };

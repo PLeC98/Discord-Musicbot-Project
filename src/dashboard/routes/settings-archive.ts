@@ -16,7 +16,7 @@ import * as uploads from "../archive-uploads.ts";
 import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
-import { isEnded } from "../session-requests.ts";
+import { assertSignedIn, isEnded, sessionEnded } from "../session-requests.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -32,8 +32,8 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 지나는 때 */
-const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; until: number }>();
+/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 낸 세션(그 세션만 받는다. 끊긴 세션, 다른 세션은 못 받는다), 지나는 때 */
+const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; sid: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
@@ -48,7 +48,7 @@ settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const now = Date.now();
   for (const [key, one] of tickets) if (one.until < now) tickets.delete(key);
   const ticket = crypto.randomBytes(16).toString("hex");
-  tickets.set(ticket, { kind, withFiles, by: ranBy(req), until: now + TICKET_MS });
+  tickets.set(ticket, { kind, withFiles, by: ranBy(req), sid: req.sessionID, until: now + TICKET_MS });
   res.json({ url: `${req.baseUrl}/download/${ticket}` } satisfies ArchiveDownload);
 });
 
@@ -57,7 +57,7 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   const ticket = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
   if (ticket) tickets.delete(req.params.ticket);
   // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
-  if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
+  if (!ticket || ticket.until < Date.now() || ticket.sid !== req.sessionID) return sendProblem(res, "route-not-found");
   const { kind, withFiles } = ticket;
   const { inputs, release } = archive.build(kind, { withFiles });
   // 다 보냈거나 받던 쪽이 끊었을 때 담을 파일의 지킴을 푼다
@@ -107,11 +107,21 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   if (!file) return sendProblem(res, "upload-gone");
   try {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
-    const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
+    // 스냅샷은 쓰기를 정한 뒤에 오래된 것을 지운다(뜨는 사이 세션이 끝나 그만두면 앞 복원점을 남긴다)
+    let snapshot = false;
+    const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], {
+      before: async () => {
+        await snapshots.take("before-import", undefined, { tidy: false });
+        snapshot = true;
+      },
+      go: () => assertSignedIn(req),
+    });
+    if (snapshot) snapshots.tidy();
     uploads.drop(token);
     log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     if (unreadable(res, error)) return;
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
     log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);

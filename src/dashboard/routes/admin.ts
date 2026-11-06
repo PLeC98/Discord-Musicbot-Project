@@ -140,10 +140,13 @@ adminRouter.post("/broadcast", requireOwner, async (req, res) => {
     [...client.guilds.cache.values()].map(async (guild) => {
       const ch = await announceChannel(guild);
       if (!ch) throw new Error("보낼 채널 없음");
+      // 채널을 찾는 사이 세션이 끝났으면 이 서버에는 보내지 않는다
+      sessionRequests.assertSignedIn(req);
       await ch.send({ embeds: [embed] });
     }),
   );
   const sent = results.filter((r) => r.status === "fulfilled").length;
+  if (sent === 0 && results.some((r) => r.status === "rejected" && r.reason instanceof sessionRequests.SessionEndedError)) throw new sessionRequests.SessionEndedError();
   const failed = results.length - sent;
 
   // 한 곳도 못 보낸 것을 성공으로 돌려주면 운영자가 보냈다고 믿는다. 일부 실패도 구분해 알린다.

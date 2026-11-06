@@ -304,7 +304,17 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
  * before: DB 를 쓰기 바로 앞에 부른다(스냅샷).
  * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
  */
-async function apply(file: string, items: ArchiveItem[], { before }: { before?: () => Promise<unknown> } = {}): Promise<ArchiveImported> {
+// 쓰기 직전: 설정 DB 항목을 불러올 때만 스냅샷(파비콘, 로그인 배경만이면 뜨지 않는다), 그다음 확인
+async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>, go?: () => void) {
+  if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
+  go?.();
+}
+
+/**
+ * 고른 항목을 불러온다. before: 쓰기 직전(설정 DB 항목일 때만, 스냅샷). go: 쓰기 바로 앞의 확인(대시보드: 세션이 살아 있나. 던지면 풀어 둔 로그인 배경을 버리고 아무것도 쓰지 않는다).
+ * 쓴 뒤의 오디오 캐시 합치기는 끝까지 한다
+ */
+async function apply(file: string, items: ArchiveItem[], { before, go }: { before?: () => Promise<unknown>; go?: () => void } = {}): Promise<ArchiveImported> {
   const parsed = parse(file);
   const { favicons, background } = await checkChosen(parsed, items);
   // 로그인 배경은 먼저 풀어 둔다(오래 걸리고 디스크가 차면 실패한다. 아직 보이지 않는다)
@@ -313,7 +323,7 @@ async function apply(file: string, items: ArchiveItem[], { before }: { before?: 
   let docItems: DocItem[];
   try {
     // 스냅샷은 설정 DB 의 것이라 DB 항목을 불러올 때만(파비콘, 로그인 배경만이면 뜨지 않는다. 불러오기 전 스냅샷은 몇 개만 남는다)
-    if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
+    await beforeWrite(items, before, go);
     docItems = writeChosen(parsed.json, items);
   } catch (error) {
     staged?.abort();

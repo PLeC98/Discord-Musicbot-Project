@@ -8,7 +8,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { ranBy } from "../ran-by.ts";
 import { sendProblem } from "../problem.ts";
 import { saveBody } from "../body-to-file.ts";
-import { isEnded } from "../session-requests.ts";
+import { assertSignedIn, isEnded } from "../session-requests.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
 import { josa } from "../../rules/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
@@ -108,6 +108,13 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
     if (saved.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
+  }
+  // 받는 사이 세션이 끝났으면 만들지 않는다(받은 파일은 지운다)
+  try {
+    assertSignedIn(req);
+  } catch (error) {
+    store.removeFolder(id);
+    throw error;
   }
   const one = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
   one.bytes = saved.bytes;

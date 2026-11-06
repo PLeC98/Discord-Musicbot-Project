@@ -9,6 +9,7 @@ import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
+import { assertSignedIn } from "./session-requests.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 멤버 조회의 답: 멤버가 아니다 */
@@ -55,6 +56,8 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
   const fetched = await memberOf(guild, userId);
+  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 처리기, 경로의 catch 가 401 로)
+  assertSignedIn(req as Request);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
     return null;

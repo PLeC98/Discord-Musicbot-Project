@@ -353,8 +353,8 @@ function applyDbOp(op: Exclude<TrackCacheOp, { op: "deleteFile" }>): TrackCacheO
 }
 
 // 캐시 파일 삭제 하나(정리 잠금 안). 삭제한 바이트는 화면에 보내지 않는다
-async function applyFileOp(op: Extract<TrackCacheOp, { op: "deleteFile" }>): Promise<TrackCacheOpResult> {
-  const removed = await audioCache.removeCached(op.audioKey, op.expect);
+async function applyFileOp(op: Extract<TrackCacheOp, { op: "deleteFile" }>, go?: () => void): Promise<TrackCacheOpResult> {
+  const removed = await audioCache.removeCached(op.audioKey, op.expect, go);
   return removed.ok ? { ok: true } : removed;
 }
 
@@ -365,14 +365,21 @@ const targetOf = (op: TrackCacheOp) => (op.op === "deleteFile" ? op.audioKey : o
 /**
  * 조작 목록을 쓴다. 모두 검사해 하나라도 걸리면 아무것도 쓰지 않고 거절한다. 결과는 조작 순서 그대로(모두 되거나 모두 안 됨으로 묶지 않는다).
  * @param by  로그에 남길 실행한 사람
+ * @param go  바꾸기 앞의 확인(대시보드: 세션이 살아 있나). DB 조작은 기다림 없이 먼저 해 확인이 필요 없고, 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 본다.
+ *            한 번 바꾼 뒤에는 끝까지 한다
  */
-async function write(input: TrackCacheOp[], by: string): Promise<{ ok: true; written: TrackCacheWritten } | Refusal> {
+async function write(input: TrackCacheOp[], by: string, go?: () => void): Promise<{ ok: true; written: TrackCacheWritten } | Refusal> {
   const valid = validate(input);
   if (!valid.ok) return valid;
   const { ops } = valid;
   const results: TrackCacheOpResult[] = new Array(ops.length);
+  let check = ops.some((op) => op.op !== "deleteFile") ? undefined : go;
   for (const [i, op] of ops.entries()) if (op.op !== "deleteFile") results[i] = applyDbOp(op);
-  for (const [i, op] of ops.entries()) if (op.op === "deleteFile") results[i] = await applyFileOp(op);
+  for (const [i, op] of ops.entries()) {
+    if (op.op !== "deleteFile") continue;
+    results[i] = await applyFileOp(op, check);
+    check = undefined;
+  }
 
   const counts = new Map<TrackCacheOpName, { done: number; failed: number }>();
   for (const [i, op] of ops.entries()) {

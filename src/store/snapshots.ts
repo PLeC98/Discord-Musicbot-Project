@@ -116,8 +116,11 @@ function dropWal(file: string) {
   }
 }
 
-/** 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다) */
-async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
+/**
+ * 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다).
+ * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). 거짓이면 부르는 쪽이 바꾸기를 정한 뒤 tidy() 를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 지우지 않게)
+ */
+async function take(kind: SnapshotKind, at = new Date(), { tidy: tidyAfter = true }: { tidy?: boolean } = {}): Promise<string> {
   const dir = dbDir();
   const folder = backupsOf(dir);
   fs.mkdirSync(folder, { recursive: true });
@@ -138,8 +141,13 @@ async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
     throw error;
   }
   ownerOnly(file);
-  prune(dir);
+  if (tidyAfter) prune(dir);
   return name;
+}
+
+/** 오래된 스냅샷을 삭제한다(take 를 tidy 없이 부른 뒤) */
+function tidy() {
+  prune(dbDir());
 }
 
 /** 오늘 것이 없으면 뜬다 */
@@ -259,4 +267,4 @@ function applyStaged(dir: string): string | null {
   return from;
 }
 
-export { list, take, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };
+export { list, take, tidy, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };

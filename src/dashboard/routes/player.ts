@@ -35,6 +35,7 @@ const ART_LIMIT_FACTOR = 5;
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 // ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -135,7 +136,7 @@ function joinRoute(router: Router) {
     if (!ctx) return;
     const { bot, guild, member } = ctx;
 
-    const result = await join(bot, { guild, member });
+    const result = await join(bot, { guild, member }, { go: () => assertSignedIn(req) });
     if (result.kind === "refused") return sendProblem(res, result.code);
     if (result.kind === "restore-error") return sendProblem(res, "restore-failed");
     const { player } = result;
@@ -368,7 +369,10 @@ function autoplayRoutes(router: Router) {
     const { genre } = body.value;
     // 새 플레이어의 텍스트 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
     const textChannel = genre && !ctx.player?.textChannel ? await resolveFallbackTextChannel(guild) : null;
-    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: async () => (await waitForRestore(guild.id), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null })) });
+    // 기동 복원을 기다린 뒤 세션이 끝났으면 만들지 않는다
+    const go = () => assertSignedIn(req);
+    const create = async () => (await waitForRestore(guild.id), go(), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }));
+    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create, go });
     if (!r.ok) return refuse(res, r);
     if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(genre, dashboardActor(req)));
     res.json(stateAfter(req));
@@ -408,6 +412,7 @@ function addRoutes(router: Router) {
         source: "대시보드",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
+        go: () => assertSignedIn(req),
       });
 
       if (!result.success) return refuseWith(res, addFailure(result));
@@ -417,6 +422,7 @@ function addRoutes(router: Router) {
       const shortfall = shortfallNotice({ dropped, queueLimited, skipped: result.placed?.skipped ?? 0, max: config.bot.maxQueueSize });
       res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, added: addedSummary(guildId, result.placed), shortfall, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
+      if (sessionEnded(res, err)) return;
       log.error("대시보드에서 곡 추가 실패:", err);
       sendProblem(res, "add-failed");
     }
@@ -448,12 +454,14 @@ function addRoutes(router: Router) {
         count: count.value,
         source: "대시보드 더 넣기",
         lookup: req.app.locals.lookup,
+        go: () => assertSignedIn(req),
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
       const note = resultText(state.kind, { added: result.added, dropped: result.dropped, skipped: result.skipped, total: result.total, remaining: result.remaining, next: result.next });
       res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, note, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
+      if (sessionEnded(res, err)) return;
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);
       sendProblem(res, "add-failed");
     }

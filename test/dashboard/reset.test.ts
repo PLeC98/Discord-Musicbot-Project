@@ -90,3 +90,39 @@ test("디스플레이: 파비콘 그림과 로그인 배경(기록, 화면 값, 
   const left = backgrounds.loaded();
   assert.deepEqual([left.current, left.items, left.options, left.limits], [null, [], LOGIN_BG_OPTIONS_DEFAULT, LOGIN_BG_LIMITS_DEFAULT]);
 });
+
+// 바꾸기 앞의 확인(go). 대시보드는 세션이 끝났으면 던진다. 던지면 아무것도 바꾸지 않고, 뜬 스냅샷 말고는 앞 복원점도 지우지 않는다
+const ended = () => {
+  throw Object.assign(new Error("로그인 세션이 끝났다"), { name: "SessionEndedError" });
+};
+const names = () => snapshots.list().map((one) => one.name);
+
+test("봇 설정, 서버별 설정: 스냅샷을 뜨는 사이 그만두면(go 가 던짐) 지우지 않고 앞 스냅샷도 지우지 않는다", async () => {
+  for (let i = 0; i < snapshots.KEEP_OTHERS; i++) await snapshots.take("before-reset");
+  settingsDocs.write("genres", { genres: [] }, settingsDocs.read("genres").revision);
+  setGuild("g9", { botChannel: "c9" });
+  const before = names();
+  await assert.rejects(reset.resetBotSettings("tester", ended), /세션이 끝났다/);
+  await assert.rejects(reset.resetGuildSettings("tester", ended), /세션이 끝났다/);
+  assert.deepEqual(settingsDocs.names(), ["genres"], "설정 문서가 남는다");
+  assert.equal(guildSettings.guildCount(), 1, "서버별 설정이 남는다");
+  assert.ok(
+    before.every((name) => names().includes(name)),
+    "앞 스냅샷을 지우지 않는다",
+  );
+  await reset.resetBotSettings("tester");
+  assert.ok(
+    before.some((name) => !names().includes(name)),
+    "그만두지 않으면 오래된 것을 지운다",
+  );
+});
+
+test("봇 전체 초기화: 스냅샷을 뜨는 사이 그만두면 예약한 복원을 취소하지 않고 예약도 걸지 않는다", async () => {
+  const kept = await snapshots.take("before-reset");
+  snapshots.stage(kept);
+  const fullReset = await import("../../src/store/full-reset.ts");
+  await assert.rejects(reset.stageFullReset("tester", false, ended), /세션이 끝났다/);
+  assert.equal(snapshots.staged(), kept, "예약한 복원이 남는다");
+  assert.equal(fullReset.requested(), false, "초기화를 예약하지 않는다");
+  snapshots.unstage();
+});

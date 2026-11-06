@@ -129,6 +129,8 @@ type PlaybackRequest = {
   source?: string;
   lookup?: Lookup;
   ffmpegReady?: () => boolean;
+  /** 곡을 찾고 기다린 뒤, 플레이어를 만들기(첫 바꿈) 앞의 확인. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남) */
+  go?: () => void;
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 그 까닭(code, kind), 목록이 더 남았으면 이어 불러올 상태(more) */
@@ -173,6 +175,7 @@ async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<Playba
   if (isRefused(checked)) return { success: false, ...checked };
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다(곧 되살아날 세션을 새 플레이어가 지우지 않게). 복원한 플레이어에 넣는다
   await waitForRestore(guild.id);
+  request.go?.();
   const player = await playerFor(bot, request);
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
@@ -310,6 +313,8 @@ type CollectionRequest = {
   source?: string;
   onProgress?: (done: number, want: number) => void;
   lookup?: Lookup;
+  /** 불러온 뒤, 넣기 앞의 확인(requestPlayback 의 go) */
+  go?: () => void;
 };
 
 const ignoreProgress = () => {
@@ -346,6 +351,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
     voiceChannel: request.voiceChannel,
     insertAfterId: state.insertFirst ? state.anchorId : null,
     source: request.source ?? "더 넣기",
+    go: request.go,
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;

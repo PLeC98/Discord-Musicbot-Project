@@ -15,6 +15,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import * as trackCache from "../track-cache.ts";
 import * as probes from "../track-cache-probe.ts";
 import type { TrackCacheChecks, TrackCacheInspected, TrackCachePage, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheWritten } from "../contract/track-cache.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 const trackCacheRouter = express.Router();
 trackCacheRouter.use(requireOwner);
@@ -42,8 +43,9 @@ trackCacheRouter.post("/", async (req, res) => {
   if (!body.ok) return sendProblem(res, body.code, {}, { errors: body.errors });
   let written;
   try {
-    written = await trackCache.write(body.value.ops, ranBy(req));
+    written = await trackCache.write(body.value.ops, ranBy(req), () => assertSignedIn(req));
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, `캐시 DB 저장 실패: ${messageOf(error)}`);
     return sendProblem(res, "track-cache-write-failed", {}, { detail: messageOf(error) });
   }

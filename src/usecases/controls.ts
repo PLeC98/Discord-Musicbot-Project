@@ -346,8 +346,17 @@ async function autoplayBlocked(actor: Actor) {
   return permission ? fail(permission) : null;
 }
 
+// 켤 장르를 쓸 수 없으면 그 거절(없는 장르, 키가 빠진 장르). 끄기는 null
+function genreRefusal(genre: string | false) {
+  if (genre === false) return null;
+  if (!genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
+  const missing = genreConfig.unusableGenre(genre);
+  return missing ? fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") }) : null;
+}
+
 /** 자동재생 켜기, 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
-type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown };
+/** go: 판정 뒤, 첫 바꿈(플레이어 만들기, 설정 바꾸기) 앞의 확인. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남) */
+type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown; go?: () => void };
 
 // 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
 async function joinedIdle(target: Player) {
@@ -365,14 +374,10 @@ async function joinedIdle(target: Player) {
  * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 선택한 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
  * 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 선택해 튼다(started). 틀고 있으면 지금 곡이 끝난 뒤에 이어진다
  */
-async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false, { create, onAccepted }: AutoplayOptions = {}) {
-  const blocked = await autoplayBlocked(actor);
+async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false, { create, onAccepted, go }: AutoplayOptions = {}) {
+  const blocked = (await autoplayBlocked(actor)) ?? genreRefusal(genre);
   if (blocked) return blocked;
-  if (genre !== false) {
-    if (!genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
-    const missing = genreConfig.unusableGenre(genre);
-    if (missing) return fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") });
-  }
+  go?.();
   const target = player ?? (genre === false ? null : await create?.());
   if (!target) return fail("no-song");
   // 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 튼다

@@ -262,12 +262,16 @@ class AppEmojis {
     return list;
   }
 
-  /** 운영자 패널에서 올리기. 이름은 부른 쪽이 규칙을 봤다. 앱에 같은 이름이 있거나 자리가 없으면 던진다 */
-  add(name: string, image: Buffer): Promise<Remote> {
+  /**
+   * 운영자 패널에서 올리기. 이름은 부른 쪽이 규칙을 봤다. 앱에 같은 이름이 있거나 자리가 없으면 던진다.
+   * go(이름 바꾸기, 지우기도): 줄을 서고 목록을 받은 뒤, 디스코드에 바꾸기를 보내기 앞의 확인(대시보드: 세션이 끝남)
+   */
+  add(name: string, image: Buffer, go?: () => void): Promise<Remote> {
     return this.serial(async () => {
       const list = await this.api.list();
       if (list.some((one) => one.name === name)) throw codedError("EMOJI_NAME_TAKEN", name);
       if (roomOf(list.length) < 1) throw codedError("EMOJI_FULL", String(list.length));
+      go?.();
       const created = await this.api.create(name, image);
       this.remember?.(created.id);
       await this.reload();
@@ -276,24 +280,26 @@ class AppEmojis {
   }
 
   /** 운영자 패널에서 이름 바꾸기. 아이콘(관리하는 이름)은 바꾸지 않는다 */
-  rename(id: string, name: string): Promise<void> {
+  rename(id: string, name: string, go?: () => void): Promise<void> {
     return this.serial(async () => {
       const list = await this.api.list();
       const target = list.find((one) => one.id === id);
       if (!target) throw codedError("EMOJI_NOT_FOUND", id);
       if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
       if (list.some((one) => one.name === name && one.id !== id)) throw codedError("EMOJI_NAME_TAKEN", name);
+      go?.();
       await this.api.rename(id, name);
       await this.reload();
     });
   }
 
   /** 운영자 패널에서 지우기. 아이콘은 지우지 않는다(동기화가 다시 올린다) */
-  remove(id: string): Promise<void> {
+  remove(id: string, go?: () => void): Promise<void> {
     return this.serial(async () => {
       const target = (await this.api.list()).find((one) => one.id === id);
       if (!target) throw codedError("EMOJI_NOT_FOUND", id);
       if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
+      go?.();
       await this.api.remove(id);
       await this.reload();
     });

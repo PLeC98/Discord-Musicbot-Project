@@ -498,3 +498,13 @@ test("멈춤: 휴면 중인 곡이면 ▶ 가 멈춤을 풀고 스트림을 다�
   assert.equal(r.userPaused, false);
   assert.equal(woke, 1);
 });
+
+test("자동재생: 판정 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 플레이어를 만들지도 설정을 바꾸지도 않는다", async () => {
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  const [genre] = Object.keys(genreConfig.genres().genres);
+  const p = fakePlayer({ setAutoplay: () => assert.fail("바꾸지 않는다") });
+  await assert.rejects(controls.autoplay(p, DJ, false, { go: ended }), /세션이 끝났다/);
+  await assert.rejects(controls.autoplay(null, DJ, genre, { create: () => assert.fail("만들지 않는다"), go: ended }), /세션이 끝났다/);
+});

@@ -804,3 +804,15 @@ test("재생목록을 넣으면 이어 불러올 상태를 결과에 싣는다",
   assert.equal(result.more?.offset, 2);
   assert.equal(result.more?.remaining, 118);
 });
+
+test("곡을 찾은 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 플레이어를 만들지도 곡을 넣지도 않는다", async () => {
+  mockResolve = () => ok("곡");
+  const bot = makeBot();
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  await assert.rejects(requestPlayback(bot, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, query: "곡", go: ended }), /세션이 끝났다/);
+  assert.equal(bot.players.get(GUILD_ID), undefined, "플레이어를 만들지 않는다");
+  assert.deepEqual(bot.embedCalls, [], "곡을 넣지 않는다");
+  assert.equal(resolverCalls.at(-1)?.query, "곡", "찾기는 했다(그 뒤에 본다)");
+});

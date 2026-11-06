@@ -12,6 +12,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import * as safeUrl from "../../infra/safe-url.ts";
 import { APPEARANCE_MAX_BYTES, FAVICON_SIZES, type FaviconSlots } from "../contract/appearance.ts";
 import * as store from "../appearance.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 /** 매니페스트가 부르는 아이콘 크기(안드로이드 홈 화면) */
 const MANIFEST_SIZES = [192, 256, 512];
@@ -64,6 +65,7 @@ async function changing(req: Request, res: Response, what: [string, string], job
   try {
     done = await job();
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, `파비콘 ${what[1]} 실패: ${messageOf(error)}`);
     return sendProblem(res, "appearance-save-failed", {}, { detail: messageOf(error) });
   }
@@ -105,6 +107,8 @@ appearanceRouter.put("/favicon/:size", express.raw({ type: "image/*", limit: APP
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
   if (!Buffer.isBuffer(req.body) || !req.body.length) return sendProblem(res, "bad-image");
+  // 본문을 받는 사이 세션이 끝났으면 쓰지 않는다
+  assertSignedIn(req);
   return changing(req, res, [`${size}px 에 그림을 올렸습니다`, `${size}px 그림 올리기`], () => store.addFavicon(size, req.body as Buffer));
 });
 
