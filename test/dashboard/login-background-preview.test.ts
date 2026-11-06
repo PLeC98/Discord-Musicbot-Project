@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { withFfmpeg as opts, encoderGate } from "../helpers/login-background-ffmpeg.ts";
+import { withFfmpeg as opts, encoderGate, skipFor, skipRest } from "../helpers/login-background-ffmpeg.ts";
 import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
@@ -26,6 +26,10 @@ const signal = new AbortController().signal;
 const withCodecs = await encoderGate();
 // 영상 미리보기는 H.264(MP4)다
 const video = withCodecs("h264");
+// 어림은 AV1 을 SVT-AV1 로 구운 값으로 잰다
+const NO_SVT = "이 ffmpeg 에 SVT-AV1(libsvtav1)이 없어 어림을 보지 않는다";
+const svt = () => encoders.encoderFor("av1") === "libsvtav1";
+const estimated = video.skip || svt() ? video : skipFor(NO_SVT);
 
 const sample = (name: string) => path.join(SAMPLES, name);
 const lavfi = (source: string, args: string[]) => runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", source, "-t", "3", ...args]);
@@ -55,7 +59,7 @@ const run = async (one: store.Stored) => {
   return { result, progress };
 };
 
-test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이하)와 초마다의 세트 어림", video, async () => {
+test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이하)와 초마다의 세트 어림", video, async (t) => {
   const one = await made("clip.mp4");
   const { result, progress } = await run(one);
   const file = previewOf(one.id)!;
@@ -63,7 +67,7 @@ test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이�
   const probed = await probeVideo(file, signal);
   assert.deepEqual([probed.width, probed.height, probed.fps], [854, 480, 30]);
   assert.ok(progress.length > 0 && progress.at(-1)! > 0.5, `진행 ${progress.at(-1)}`);
-  if (encoders.encoderFor("av1") !== "libsvtav1") return;
+  if (!svt()) return skipRest(t, NO_SVT);
   const estimate = result.estimate!;
   assert.equal(estimate.perSecond.length, 3);
   // 1080p 아래 원본: 1080p 세트 비율 + H.264 720p 2.5Mbps
@@ -101,8 +105,7 @@ test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 �
   assert.ok(half.stillBytes < one.estimate.stillBytes, `${half.stillBytes} < ${one.estimate.stillBytes}`);
 });
 
-test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 counted 에 적는다", video, async () => {
-  if (encoders.encoderFor("av1") !== "libsvtav1") return;
+test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 counted 에 적는다", estimated, async () => {
   const one = await made("clip.mp4");
   one.estimate = (await run(one)).result.estimate!;
   const next = await recount({ item: one, folder: store.folderOf(one.id), crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, range: [1, 2], signal });
@@ -155,8 +158,7 @@ test("이어 하기: 끊긴 미리보기 몫이 남아 있어도 다시 만든�
   assert.match(previewOf(one.id)!, /preview\.mp4$/);
 });
 
-test("유튜브: 480p 로 재고 고해상도로 굽는 어림은 넓이 비만큼 키운다", video, async () => {
-  if (encoders.encoderFor("av1") !== "libsvtav1") return;
+test("유튜브: 480p 로 재고 고해상도로 굽는 어림은 넓이 비만큼 키운다", estimated, async () => {
   const upload = await made("clip.mp4");
   const asUploaded = (await run(upload)).result.estimate!;
   const tube = await made("clip.mp4");
