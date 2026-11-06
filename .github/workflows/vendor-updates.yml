@@ -1,7 +1,7 @@
 name: Vendor updates
 
 # 외부 도구(bgutil, ffmpeg)의 기본 버전(src/config/vendor-versions.ts)을 Dependabot처럼 매주 확인한다.
-# 새 버전이 나오면 버전을 올리는 PR을 열고, 고정된 bgutil 버전의 lockfile에 알려진 취약점이 있는데 수정된 버전이 없으면 이슈를 연다.
+# 새 버전이 나오면 버전을 올리는 PR을 열고, 고정된 bgutil 버전의 lockfile에 알려진 취약점이 있으면 이슈 하나에서 매주 숫자를 고친다(없어지면 닫는다).
 # push, PR, 이슈 생성에는 GitHub App 토큰을 쓴다. GITHUB_TOKEN으로 만든 PR에서는 CI가 자동으로 실행되지 않기 때문이다.
 # App의 Client ID는 저장소 Variables의 VENDOR_APP_CLIENT_ID에, 개인 키는 Secrets의 VENDOR_APP_KEY에 넣는다. App 권한: Contents, Pull requests, Issues 읽기/쓰기.
 
@@ -88,23 +88,53 @@ jobs:
           } > body.md
           gh pr create --base "${{ github.event.repository.default_branch }}" --head "$branch" --title "$title" --body-file body.md
 
-      - name: Open an issue for lockfile vulnerabilities
+      # 이슈는 라벨로 찾는다(제목은 바뀔 수 있다). 라벨이 없던 옛 이슈는 제목의 낱말로 한 번 찾아 라벨을 붙인다.
+      # 열려 있으면 매주 제목과 본문의 숫자를 지금 것으로 고치고, 알려진 취약점이 없어지면 닫는다
+      - name: Track lockfile vulnerabilities in an issue
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
-          total=$(jq -r '.bgutil.audit.current.total' result.json)
-          newer=$(jq -r '.bgutil.audit.newer.total // empty' result.json)
-          # 취약점이 수정된 새 버전이 있으면 앞 단계의 PR에서 다룬다
-          if [ "$total" = "0" ] || [ "$newer" = "0" ]; then echo "이슈 열 필요 없음"; exit 0; fi
+          label="bgutil-audit"
           current=$(jq -r '.bgutil.current' result.json)
+          total=$(jq -r '.bgutil.audit.current.total' result.json)
+          newer=$(jq -r '.bgutil.newer // empty' result.json)
+          newerTotal=$(jq -r '.bgutil.audit.newer.total // empty' result.json)
+          gh label create "$label" --color B60205 --description "bgutil 잠금 파일의 알려진 취약점(vendor-updates)" --force > /dev/null
+          issue=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
+          if [ -z "$issue" ]; then
+            issue=$(gh issue list --state open --search "bgutil 취약점 in:title" --json number,title --jq '[.[] | select(.title | startswith("bgutil "))][0].number // empty')
+            [ -n "$issue" ] && gh issue edit "$issue" --add-label "$label" > /dev/null
+          fi
+
+          if [ "$total" = "0" ]; then
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --comment "고정된 bgutil 버전($current)의 \`server/package-lock.json\`에 알려진 취약점이 없습니다($(date -u +%F) 기준)."
+              echo "닫음: #$issue"
+            else
+              echo "알려진 취약점 없음"
+            fi
+            exit 0
+          fi
+
           title="bgutil $current lockfile에서 알려진 취약점 발견"
-          open=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq length)
-          if [ "$open" != "0" ]; then echo "이미 열려 있음: $title"; exit 0; fi
           {
-            echo "고정된 bgutil 버전($current)의 \`server/package-lock.json\`에서 알려진 취약점이 발견됐습니다(\`npm audit --package-lock-only\` 기준)."
+            echo "고정된 bgutil 버전($current)의 \`server/package-lock.json\`에서 알려진 취약점이 발견됐습니다(\`npm audit --package-lock-only\` 기준, $(date -u +%F) 갱신)."
             echo
-            jq -r '.bgutil.audit.current | "critical \(.critical), high \(.high), moderate \(.moderate), low \(.low)"' result.json
+            jq -r '.bgutil.audit.current | "critical \(.critical), high \(.high), moderate \(.moderate), low \(.low) (총 \(.total)건)"' result.json
             echo
-            echo "아직 취약점이 수정된 버전이 없습니다. 새 버전이 나오면 이 워크플로가 업데이트 PR을 엽니다."
+            if [ -z "$newer" ]; then
+              echo "아직 새 버전이 없습니다. 새 버전이 나오면 이 워크플로가 업데이트 PR을 엽니다."
+            elif [ "$newerTotal" = "0" ]; then
+              echo "새 버전 $newer 에는 알려진 취약점이 없습니다. 업데이트 PR을 머지하면 다음 확인에서 이 이슈를 닫습니다."
+            else
+              echo "새 버전 $newer 에도 알려진 취약점이 ${newerTotal}건 있습니다."
+            fi
+            echo
+            echo "이 워크플로가 매주 이 본문을 고칩니다."
           } > issue.md
-          gh issue create --title "$title" --body-file issue.md
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --title "$title" --body-file issue.md > /dev/null
+            echo "고침: #$issue"
+          else
+            gh issue create --title "$title" --body-file issue.md --label "$label"
+          fi
