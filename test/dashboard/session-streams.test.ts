@@ -44,6 +44,11 @@ before(async () => {
   app.get("/stream", (req, res) => {
     // revoke: 세션을 읽은 뒤 열기 앞에서 끝낸다(기다리는 사이 다른 기기에서 끊은 것)
     if (req.query.revoke) store.destroy(req.sessionID);
+    // other: 기다리는 사이 같은 세션의 다른 요청이 저장했다(CSRF 토큰을 처음 받음)
+    if (req.query.other) {
+      const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(req.sessionID) as string;
+      store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify({ ...JSON.parse(row), csrfToken: "다른 요청의 것" }), req.sessionID);
+    }
     if (!req.session?.user || !sessionStreams.admit(req)) return res.status(401).end();
     res.writeHead(200, { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
@@ -85,9 +90,9 @@ function device(ua = UA) {
 }
 
 // 스트림을 열고 받은 글을 모은다. ended: 서버가 끝냈을 때
-async function openStream(who: ReturnType<typeof device>, headers: Record<string, string> = {}) {
+async function openStream(who: ReturnType<typeof device>, headers: Record<string, string> = {}, query = "") {
   const controller = new AbortController();
-  const res = await who.go("/stream", { signal: controller.signal, headers });
+  const res = await who.go(`/stream${query}`, { signal: controller.signal, headers });
   let text = "";
   let resolveEnd: () => void = () => {};
   const ended = new Promise<void>((done) => (resolveEnd = done));
@@ -155,6 +160,16 @@ test("열기 바로 앞에서 본다: 세션을 읽은 뒤 끝난 세션은 열�
   const res = await thief.go("/stream?revoke=1");
   assert.equal(res.status, 401);
   assert.equal(opened.length, 0);
+});
+
+test("기기 기록은 지금 행에 그것만 쓴다(기다리는 사이 다른 요청이 저장한 것을 옛 사본으로 덮지 않는다)", async () => {
+  const thief = device();
+  await thief.go("/login?u=s10", { method: "POST" });
+  const stream = await openStream(thief, { "user-agent": `${UA} Changed` }, "?other=1");
+  const data = JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(thief.sid()) as string) as { device?: string; csrfToken?: string };
+  assert.equal(data.csrfToken, "다른 요청의 것");
+  assert.match(openRecord(thief.sid(), data.device)?.ua ?? "", /Changed/);
+  stream.abort();
 });
 
 test("스트림을 연 요청의 기기 기록(브라우저, 주소)은 세션을 떼기 전에 저장한다", async () => {

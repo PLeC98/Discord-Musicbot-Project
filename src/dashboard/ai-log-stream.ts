@@ -25,8 +25,8 @@ let heartbeatMs = 0;
 let decorate: Decorate = (entry) => entry;
 let offRecorded: (() => void) | null = null;
 
-/** 다시 붙을 때 놓친 줄을 다 보내지 못했다 */
-const GAP_FRAME = "event: gap\ndata: {}\n\n";
+/** 다시 붙을 때 놓친 줄을 다 보내지 못했다. 놓친 줄의 마지막 번호를 실어(브라우저가 다시 붙을 때 그 뒤부터) 보낸다 */
+const gapFrame = (lastId: number) => `id: ${lastId}\nevent: gap\ndata: {}\n\n`;
 const frameOf = (pushed: AiLogPushed) => `id: ${pushed.entry.id}\ndata: ${JSON.stringify(pushed)}\n\n`;
 
 function pushedOf(entry: AiLogEntry): AiLogPushed {
@@ -78,19 +78,7 @@ function addClient(res: Response, userKey: string, after: number): boolean {
   // 끊을 때 이 연결의 소켓을 부수므로 다시 쓰지 않게(Connection: close)
   res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "close", "X-Accel-Buffering": "no" });
   res.flushHeaders();
-  if (after > 0) {
-    let bytes = 0;
-    for (const entry of requests.since(after, RESUME_MAX)) {
-      const frame = frameOf(pushedOf(entry));
-      bytes += Buffer.byteLength(frame);
-      if (bytes > RESUME_MAX_BYTES) {
-        // 못 보낸 줄이 있다. 다음 새 줄이 이어 받을 자리를 앞으로 옮기므로 화면이 목록을 다시 읽게 알린다
-        res.write(GAP_FRAME);
-        break;
-      }
-      res.write(frame);
-    }
-  }
+  if (after > 0) replay(res, after);
   clients.set(res, userKey);
   syncHeartbeat();
   res.on("close", () => drop(res));
@@ -99,6 +87,25 @@ function addClient(res: Response, userKey: string, after: number): boolean {
     drop(res);
   });
   return true;
+}
+
+// 놓친 줄을 보낸다(줄 수, 바이트 상한까지). 못 보낸 줄이 있으면(줄 수를 넘으면 오래된 쪽, 바이트를 넘으면 새 쪽) gap 으로 알려
+// 화면이 목록을 다시 읽게 한다. 다음 새 줄이 이어 받을 자리를 앞으로 옮기므로 알리지 않으면 그 사이가 구멍으로 남는다
+function replay(res: Response, after: number) {
+  const missed = requests.since(after, RESUME_MAX + 1);
+  const rows = missed.length > RESUME_MAX ? missed.slice(1) : missed;
+  let cut = rows.length < missed.length;
+  let bytes = 0;
+  for (const entry of rows) {
+    const frame = frameOf(pushedOf(entry));
+    bytes += Buffer.byteLength(frame);
+    if (bytes > RESUME_MAX_BYTES) {
+      cut = true;
+      break;
+    }
+    res.write(frame);
+  }
+  if (cut && rows.length) res.write(gapFrame(rows[rows.length - 1].id));
 }
 
 /** 연결 하나를 뺀다(닫힘, 오류, 쓰기 실패, 세션이 끝나 끊을 때). 닫힘을 기다리지 않는다 */

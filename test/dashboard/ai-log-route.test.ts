@@ -156,3 +156,23 @@ test("SSE 연결: 읽지 않아 쌓인 양이 상한을 넘으면 쓰지 않고 
   t.mock.timers.tick(60_000);
   assert.equal(destroyed, true);
 });
+
+test("SSE 연결: 놓친 줄이 줄 수 상한(200)보다 많아도 gap 으로 알리고, 그 번호를 실어 다시 붙을 때 옛 줄이 다시 오지 않게", async () => {
+  requests.clearRequests();
+  const first = add();
+  let newest = first;
+  for (let i = 0; i < aiLogStream.RESUME_MAX + 20; i++) newest = add();
+  const controller = new AbortController();
+  const res = await fetch(`${base}/logs/stream?after=${first.id - 1}`, { signal: controller.signal });
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  const deadline = Date.now() + 1000;
+  while (!/event: gap\n/.test(text) && Date.now() < deadline) {
+    const got = await Promise.race([reader.read(), new Promise<null>((done) => setTimeout(() => done(null), 200))]);
+    if (!got || got.done) break;
+    text += decoder.decode(got.value, { stream: true });
+  }
+  controller.abort();
+  assert.match(text, new RegExp(`id: ${newest.id}\nevent: gap\n`));
+});

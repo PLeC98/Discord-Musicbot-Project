@@ -131,7 +131,14 @@ function liveState(list: List, open: { value: Set<number> }) {
     check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
     // gap: 다시 붙을 때 놓친 줄을 다 받지 못했다(서버의 상한). 목록을 다시 읽어 빈 곳을 채운다
-    events: { message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed), gap: () => onGap() },
+    events: {
+      message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed),
+      // 놓친 줄의 마지막 번호가 실려 온다. 화면이 다시 열 때도 그 뒤부터 받게
+      gap: (event) => {
+        lastId = Math.max(lastId, Number(event.lastEventId) || 0);
+        onGap();
+      },
+    },
   });
   let onGap: () => void = () => undefined;
   function start() {
@@ -192,7 +199,8 @@ export function useAiLog(active: () => boolean) {
     if (stale) {
       await reload();
       if (mine !== turn || !wanted()) return;
-      stale = false;
+      // 읽지 못했으면 다음에 다시 읽는다
+      stale = Boolean(list.loadError.value);
     }
     live.start();
   }

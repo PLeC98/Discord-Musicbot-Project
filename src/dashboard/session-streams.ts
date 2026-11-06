@@ -51,8 +51,7 @@ function track(req: Request, res: Response, kind: string, drop?: () => void) {
   const user = req.session?.user;
   if (!store || !user) return;
   const entry: Tracked = { res, socket: req.socket, sid: req.sessionID, userId: user.id, name: user.username || user.id, kind, deadline: (req.session.loginAt ?? 0) + SESSION_MAX_MS, store, drop: drop ?? (() => undefined) };
-  // 이 요청이 고친 기기 기록(브라우저, 주소, 마지막 활동)을 떼기 전에 저장한다(떼면 응답이 끝날 때 저장하지 않는다). 방금 살아 있음을 보았다
-  req.session.save(() => undefined);
+  keepDevice(store, req);
   (req as { session: unknown }).session = null;
   tracked.set(res, entry);
   const untrack = () => {
@@ -66,6 +65,17 @@ function track(req: Request, res: Response, kind: string, drop?: () => void) {
     store.onEnded(onEnded);
   }
   arm();
+}
+
+// 이 요청이 고친 기기 기록(브라우저, 주소, 마지막 활동)을 떼기 전에 저장한다(떼면 응답이 끝날 때 저장하지 않는다).
+// 지금 행에 그것만 쓴다: 열기 앞에서 기다린 사이(멤버 조회) 같은 세션의 다른 요청이 저장한 것(CSRF 토큰 등)을 이 요청의 옛 사본으로 덮지 않게
+function keepDevice(store: SqliteSessionStore, req: Request) {
+  const device = req.session.device;
+  const now = store.liveSession(req.sessionID);
+  if (!now || device === undefined || now.device === device) return;
+  store.set(req.sessionID, { ...now, device }, (error) => {
+    if (error) log.warn(`스트림을 연 기기의 기록을 저장하지 못했습니다: ${messageOf(error)}`);
+  });
 }
 
 // 저장소가 세션 끝을 알렸다
