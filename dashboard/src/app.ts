@@ -18,6 +18,9 @@ function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] 
     onSessionEnd: () => loginWindow.sessionEnded(),
     onReauth: waitForReauth,
     onReach: (ok) => (session.offline = !ok),
+    user: () => useUserStore().data?.id ?? null,
+    onAccountChanged: () => (session.switched = true),
+    switched: () => session.switched,
   });
 
   for (const route of extraRoutes) router.addRoute(route);

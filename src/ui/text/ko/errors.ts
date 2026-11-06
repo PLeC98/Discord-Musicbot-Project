@@ -161,6 +161,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
 
   // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지, 왜, 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속, 권한
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
+  "account-changed": () => warning("permission", "다른 계정으로 로그인했어요!", "다른 창에서 다른 계정으로 로그인해서, 이 화면으로는 더 조작할 수 없어요. 새로고침하면 지금 계정으로 열려요."),
   // 화면이 새 토큰으로 한 번 다시 보내므로 사람에게는 그 뒤에도 거절됐을 때만 보인다
   "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 10분 안에만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
   "bad-csrf-token": (_, look) => warning("stale", "요청을 확인하지 못했어요!", `보안 토큰이 맞지 않아 요청을 받지 않았어요. ${stalePage(look)}`),

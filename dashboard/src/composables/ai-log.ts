@@ -4,8 +4,8 @@
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 import axios from "axios";
 import { eventLink } from "../utils/event-link.ts";
-import { live as canStream, session } from "./session.ts";
-import { checkSession } from "../stores/user.ts";
+import { blocked, live as canStream } from "./session.ts";
+import { checkSession, withUid } from "../stores/user.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
 import { AI_LOG_PAGE, aiLogMatches, type AiLogDetail, type AiLogEntry, type AiLogPage, type AiLogPushed, type AiLogQuery, type AiLogSource, type AiLogStorage } from "../../../src/dashboard/contract/ai-log.ts";
@@ -126,7 +126,7 @@ function liveState(list: List, open: { value: Set<number> }) {
     fresh.value = [];
   }
   const link = eventLink({
-    url: () => `/api/admin/ai/logs/stream?after=${lastId}`,
+    url: () => withUid(`/api/admin/ai/logs/stream?after=${lastId}`),
     open: (url) => new EventSource(url, { withCredentials: true }),
     check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
@@ -194,7 +194,7 @@ export function useAiLog(active: () => boolean) {
   const wanted = () => !disposed && active() && canStream();
   async function sync() {
     const mine = ++turn;
-    if (!active() || session.ended) stale = true;
+    if (!active() || blocked()) stale = true;
     if (!wanted()) return live.stop();
     if (stale) {
       await reload();
@@ -205,7 +205,7 @@ export function useAiLog(active: () => boolean) {
     live.start();
   }
   live.whenGap(() => void reload());
-  watch([active, () => session.ended], () => void sync(), { immediate: true });
+  watch([active, blocked], () => void sync(), { immediate: true });
   // 숨긴 탭의 값(document.hidden)은 반응형이 아니라 따로 듣는다
   const onVisibility = () => void sync();
   document.addEventListener("visibilitychange", onVisibility);

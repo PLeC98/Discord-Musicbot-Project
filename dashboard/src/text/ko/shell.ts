@@ -27,6 +27,8 @@ const settings = "설정";
 const licenses = "라이선스";
 const logout = "로그아웃";
 const logoutFailed = "로그아웃하지 못했어요.";
+/** 계정이 바뀐 탭의 버튼 */
+const reload = "새로고침";
 const modeDark = "어둡게";
 const modeLight = "밝게";
 const modeSystem = "시스템";
@@ -81,6 +83,7 @@ export {
   licenses,
   logout,
   logoutFailed,
+  reload,
   modeDark,
   modeLight,
   modeSystem,

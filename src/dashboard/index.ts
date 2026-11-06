@@ -14,6 +14,7 @@ import { bodyLimit } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
 import { SESSION_COOKIE } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
+import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
@@ -160,6 +161,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(noteDevice);
   // 로그인한 요청을 그 세션에 묶는다(세션이 끝나면 진행 중인 요청을 멈춘다, 끝난 세션과 로그인하지 않은 세션은 저장하지 않는다)
   app.use(sessionRequests.bind);
+  // 탭이 생각하는 사용자와 세션의 사용자가 다르면 409(다른 탭에서 다른 계정으로 로그인했다). CSRF 검사보다 앞에
+  app.use(requireSameAccount);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
 

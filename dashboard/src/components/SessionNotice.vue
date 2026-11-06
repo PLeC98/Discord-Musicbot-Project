@@ -2,7 +2,13 @@
   <!-- 세션 끝, 연결 안 됨. 알림(ToastStack) 위에 남는 띠. 화면을 옮기지 않는다(고치던 설정을 지킨다) -->
   <!-- 알림(ToastStack)처럼 위에서 내려오고 오른쪽으로 빠진다 -->
   <Transition name="toast" mode="out-in">
-    <div v-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
+    <!-- 다른 탭에서 다른 계정으로 로그인했다. 새로고침할 때까지 요청을 막는다(고치던 내용은 화면에 남는다) -->
+    <div v-if="session.switched" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
+      <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="person" :size="20" /></span>
+      <span class="flex-1 min-w-0 text-on-surface font-medium">{{ switchedNotice.title }}</span>
+      <BaseButton variant="primary" size="sm" @click="reload">{{ T.reload }}</BaseButton>
+    </div>
+    <div v-else-if="session.ended || session.offline" role="alert" class="pointer-events-auto flex gap-3 items-center rounded-full pl-2 pr-2 py-2 text-body pane-menu">
       <span class="size-9 shrink-0 rounded-full bg-error-container text-on-error-container flex items-center justify-center"><Icon name="cloud_off" :size="20" /></span>
       <span class="flex-1 min-w-0 text-on-surface font-medium">{{ session.ended ? loginNotice.title : unansweredTitle("offline") }}</span>
       <BaseButton v-if="session.ended" variant="primary" size="sm" @click="showDialog = true">{{ T.loginAgain }}</BaseButton>
@@ -17,7 +23,17 @@
 
   <!-- 다른 대화상자(ConfirmDialog)와 같은 모양: 가운데 아이콘, 제목, 설명, 오른쪽 아래 버튼. 알림 띠보다 위(z-400).
        세션이 끝났을 때와 위험한 조작에 다시 로그인이 필요할 때(reauth, 세션은 살아 있다) 같은 대화상자를 쓴다 -->
-  <BaseDialog :open="(session.ended || session.reauth) && showDialog" width="md" layer="session" class="text-center" :aria-labelledby="titleId" @close="close">
+  <BaseDialog :open="session.switched && showSwitched" width="md" layer="session" class="text-center" :aria-labelledby="switchedId" @close="showSwitched = false">
+    <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="person" :size="24" /></span>
+    <h3 :id="switchedId" class="mb-4 text-xl font-round font-semibold text-on-surface">{{ switchedNotice.title }}</h3>
+    <p class="mb-6 text-sm text-on-surface-variant">{{ switchedNotice.body }}</p>
+    <p class="-mt-2 mb-6 text-on-surface-variant text-label">{{ codeLineOf("account-changed", 409) }}</p>
+    <div class="flex gap-2 justify-end flex-wrap">
+      <BaseButton variant="ghost" @click="showSwitched = false">{{ T.later }}</BaseButton>
+      <BaseButton variant="primary" @click="reload">{{ T.reload }}</BaseButton>
+    </div>
+  </BaseDialog>
+  <BaseDialog :open="(session.ended || session.reauth) && !session.switched && showDialog" width="md" layer="session" class="text-center" :aria-labelledby="titleId" @close="close">
     <span class="size-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mx-auto mb-4"><Icon name="key" :size="24" /></span>
     <h3 :id="titleId" class="mb-4 text-xl font-round font-semibold text-on-surface">{{ notice.title }}</h3>
     <p class="mb-1 text-sm text-on-surface-variant">{{ notice.body }}</p>
@@ -47,6 +63,7 @@ const T = text.shell;
 
 // 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required), 재로그인 안내는 reauth-required
 const loginNotice = noticeText("login-required");
+const switchedNotice = noticeText("account-changed");
 const notice = computed(() => (session.ended ? loginNotice : noticeText("reauth-required")));
 
 const user = useUserStore();
@@ -72,6 +89,14 @@ function close() {
   void loginWindow.abandoned();
 }
 const titleId = useId();
+const switchedId = useId();
+// 계정이 바뀐 것을 알게 된 때 한 번 연다. 닫아도 띠가 남는다
+const showSwitched = ref(false);
+watch(
+  () => session.switched,
+  (on) => (showSwitched.value = on),
+);
+const reload = () => window.location.reload();
 
 function openLogin() {
   // 사용자가 누른 때에만 연다(그렇지 않으면 브라우저가 팝업으로 막는다). 창을 닫지 않고 마치기를 기다린다

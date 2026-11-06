@@ -3,12 +3,17 @@
 // reauth: 위험한 조작(비밀값, 주소 바꾸기, 다시 시작)을 로그인한 지 10분이 지나 거절당했다. 세션은 살아 있고 로그인 창에서 다시 로그인하면 거절된 요청을 다시 보낸다
 // offline: 마지막 요청이 서버에 닿지 못했다(봇이 꺼졌거나 네트워크). 로그아웃이 아니다
 // streamDown: 탭의 SSE 연결(stores/guilds)이 열려 있지 않다. 재연결하는 동안은 30초마다 전부 다시 읽는다
+// switched: 다른 탭에서 다른 계정으로 로그인했다(서버의 account-changed, 확인의 계정 비교). 새로고침할 때까지 요청과 SSE 연결을 막는다.
+//   자동으로 새로고침하지 않는다(고치던 내용을 남겨 옮겨 적을 수 있게. 옛 계정으로 저장되는 길은 서버가 막는다)
 
 import { reactive } from "vue";
 import axios from "axios";
 import { loginWait } from "../utils/login-wait.ts";
 
-export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false });
+export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false, switched: false });
+
+/** SSE 연결, 주기 읽기를 멈출 때(세션 끝, 계정 바뀜). 여닫는 쪽이 이것을 지켜본다 */
+export const blocked = (): boolean => session.ended || session.switched;
 
 // ── 다시 로그인 ──
 // 로그인은 작은 창(로그인 창)에서 한다. 끝나면 그 창(/login-done)이 같은 주소의 탭들에 알리고 스스로 닫는다.
@@ -81,5 +86,5 @@ export async function ensureRecentLogin(): Promise<boolean> {
   }
 }
 
-/** SSE 연결, 주기 읽기를 해도 되는지. 탭이 보이고 세션이 살아 있을 때만 */
-export const live = (): boolean => !document.hidden && !session.ended;
+/** SSE 연결, 주기 읽기를 해도 되는지. 탭이 보이고 세션이 살아 있고 계정이 바뀌지 않았을 때만 */
+export const live = (): boolean => !document.hidden && !blocked();

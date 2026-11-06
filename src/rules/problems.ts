@@ -126,6 +126,8 @@ const WEB = {
   // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
   "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
+  // 탭이 생각하는 사용자와 세션의 사용자가 다르다(다른 탭에서 다른 계정으로 로그인했다)
+  "account-changed": { status: 409, title: "Signed in as another account" },
   "no-guild-access": { status: 403, title: "No access to this server" },
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태

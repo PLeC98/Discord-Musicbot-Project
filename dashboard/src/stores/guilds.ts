@@ -1,9 +1,9 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 import { watch } from "vue";
-import { session, live } from "../composables/session.ts";
+import { session, live, blocked } from "../composables/session.ts";
 import { eventLink } from "../utils/event-link.ts";
-import { checkSession } from "./user.ts";
+import { checkSession, withUid } from "./user.ts";
 import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/contract/guilds.ts";
 
 // 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
@@ -77,7 +77,7 @@ export const useGuildsStore = defineStore("guilds", {
       };
 
       const opened = eventLink({
-        url: "/api/guilds/events",
+        url: () => withUid("/api/guilds/events"),
         open: (url) => new EventSource(url, { withCredentials: true }),
         check: (quiet) => checkSession(quiet),
         events: {
@@ -118,7 +118,7 @@ export const useGuildsStore = defineStore("guilds", {
       };
       visHandler = onVisibility;
       document.addEventListener("visibilitychange", onVisibility);
-      stopSessionWatch = watch(() => session.ended, onVisibility);
+      stopSessionWatch = watch(blocked, onVisibility);
       missed = false;
       if (live()) opened.start();
     },
