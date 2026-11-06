@@ -11,11 +11,19 @@ import { messageOf } from "../rules/error-kind.ts";
 // express-session의 기본 MemoryStore 대체:
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
 // 파일은 로그인 세션 DB(database/sessions.db, store/session-db). 다른 DB 와 함께 열린다.
+//
+// 끝난 세션을 다시 쓰지 않는다. express-session 은 요청이 끝날 때 그 요청이 읽은 세션을 저장하므로, 로그아웃, 다른 기기 로그아웃 뒤에
+// 그 세션으로 걸려 있던 요청이 끝나면 지운 행을 다시 넣는다(set 이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
+// 그 sid 는 쓰지 않으며, 만료한 행은 정리 전이어도 늘리지 않는다. 로그인한 세션은 로그인 시각에서 SESSION_MAX_MS 를 넘지 못한다(절대 수명).
+// 세션이 끝나면 듣는 쪽(onEnded)에 알린다(열린 스트림을 끊는다)
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** 로그인한 세션의 절대 수명. 로그인 시각에서 이만큼이 지나면 쓰고 있어도 끝난다(NIST SP 800-63B-4 AAL1 30일) */
+const SESSION_MAX_MS = 30 * 24 * 60 * 60 * 1000;
 
 type Done = (err?: unknown) => void;
+type Ended = (sid: string) => void;
 // 부른 쪽이 결과를 기다리지 않을 때. 실패는 여기서 남긴다
 const unheard =
   (what: string): Done =>
@@ -23,16 +31,25 @@ const unheard =
     if (err) log.error(`로그인 세션 ${what} 실패: ${messageOf(err)}`);
   };
 
+/** 로그인한 세션의 절대 기한. 로그인했는데 로그인 시각이 없으면 이미 지난 것(0). 로그인 전 세션은 기한 없음(null) */
+function deadlineOf(session: Partial<SessionData> | null | undefined): number | null {
+  if (!session?.user) return null;
+  return typeof session.loginAt === "number" ? session.loginAt + SESSION_MAX_MS : 0;
+}
+
 class SqliteSessionStore extends Store {
   db: Database.Database;
   _getStmt: Statement<[string], { data: string; expires_at: number }>;
-  _setStmt: Statement<[string, string, number]>;
-  _touchStmt: Statement<[number, string]>;
-  _destroyStmt: Statement<[string]>;
-  _pruneStmt: Statement<[number]>;
+  _setStmt: Statement<[string, string, number, number]>;
+  _touchStmt: Statement<[number, string, number]>;
+  _deleteStmt: Statement<[string], { data: string }>;
+  _pruneStmt: Statement<[number], { sid: string; data: string }>;
   _pruneTimer: NodeJS.Timeout;
   // dbPath 로 따로 연 파일(테스트). 닫을 때 같이 닫는다
   _own: DbFile | null = null;
+  /** 끝낸 로그인 세션의 sid → 그 절대 기한. 그때까지 쓰지 않는다 */
+  _ended = new Map<string, number>();
+  _listeners = new Set<Ended>();
 
   // dbPath 는 테스트용(임시 DB, 운영 DB 를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
   constructor({ dbPath, pruneIntervalMs = 60 * 60 * 1000 }: { dbPath?: string; pruneIntervalMs?: number } = {}) {
@@ -44,11 +61,13 @@ class SqliteSessionStore extends Store {
     this.db = (this._own ?? sessionDb).get();
 
     this._getStmt = this.db.prepare("SELECT data, expires_at FROM sessions WHERE sid = ?");
-    this._setStmt = this.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at");
-    this._touchStmt = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ?");
-    this._destroyStmt = this.db.prepare("DELETE FROM sessions WHERE sid = ?");
-    this._pruneStmt = this.db.prepare("DELETE FROM sessions WHERE expires_at <= ?");
+    // 만료한 행(정리 전)은 늘리지 않는다: 있는 행이 만료했으면 바꾸지 않는다(changes 0)
+    this._setStmt = this.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET data = excluded.data, expires_at = excluded.expires_at WHERE sessions.expires_at > ?");
+    this._touchStmt = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ? AND expires_at > ?");
+    this._deleteStmt = this.db.prepare("DELETE FROM sessions WHERE sid = ? RETURNING data");
+    this._pruneStmt = this.db.prepare("DELETE FROM sessions WHERE expires_at <= ? RETURNING sid, data");
 
+    this._normalize();
     this.prune(); // 기동 시 1회 + 주기 정리
     this._pruneTimer = setInterval(() => {
       try {
@@ -61,77 +80,183 @@ class SqliteSessionStore extends Store {
     this._pruneTimer.unref();
   }
 
-  _expiresAt(session: SessionData) {
-    const expires = session?.cookie?.expires;
-    const ts = expires ? new Date(expires).getTime() : NaN;
-    return Number.isFinite(ts) ? ts : Date.now() + FALLBACK_TTL_MS;
+  /** 세션이 끝나면(지움, 정리, 절대 수명) 부른다. 끄는 함수를 돌려준다 */
+  onEnded(fn: Ended) {
+    this._listeners.add(fn);
+    return () => void this._listeners.delete(fn);
   }
 
-  // express-session Store 계약: 콜백 (err, session|null). better-sqlite3는 동기라 즉시 호출.
-  get(sid: string, cb: (err: unknown, session?: SessionData | null) => void) {
-    try {
-      const row = this._getStmt.get(sid);
-      if (!row || row.expires_at <= Date.now()) return cb(null, null);
-      cb(null, this._parse(sid, row.data));
-    } catch (e) {
-      cb(e);
+  // 듣는 쪽마다 따로 부른다(하나가 던져도 지우기가 실패로 돌아가지 않고 다른 쪽도 듣는다)
+  _announce(sids: string[]) {
+    for (const sid of sids) {
+      for (const fn of this._listeners) {
+        try {
+          fn(sid);
+        } catch (error) {
+          log.warn(`로그인 세션 끝 알림 처리 실패: ${messageOf(error)}`);
+        }
+      }
     }
   }
 
-  // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다
-  _parse(sid: string, data: string): SessionData | null {
+  /** 끝낸 sid 인가(묘비가 아직 있다) */
+  isEnded(sid: string, now = Date.now()) {
+    const until = this._ended.get(sid);
+    return until !== undefined && until > now;
+  }
+
+  // 지운 행의 내용으로 묘비를 남긴다. 로그인한 세션만, 그 절대 기한까지(그 뒤에는 저장해도 이미 만료라 다시 쓰이지 않는다).
+  // 읽을 수 없는 내용이면 넉넉히 지금부터 절대 수명만큼
+  _bury(sid: string, data: string | null, now = Date.now()) {
+    let deadline: number | null;
     try {
-      return JSON.parse(data);
+      deadline = data === null ? now + SESSION_MAX_MS : deadlineOf(JSON.parse(data) as SessionData);
+    } catch {
+      deadline = now + SESSION_MAX_MS;
+    }
+    if (deadline !== null && deadline > now) this._ended.set(sid, deadline);
+  }
+
+  // 행을 지우고 묘비를 남긴다. 알림은 부르는 쪽이 콜백 뒤에
+  _end(sid: string) {
+    const row = this._deleteStmt.get(sid);
+    if (row) this._bury(sid, row.data);
+  }
+
+  /** 저장소의 만료 시각: 쿠키 만료(없으면 폴백), 로그인한 세션이면 그 절대 기한까지 */
+  _expiresAt(session: SessionData, now = Date.now()) {
+    const expires = session?.cookie?.expires;
+    const ts = expires ? new Date(expires).getTime() : NaN;
+    const cookie = Number.isFinite(ts) ? ts : now + FALLBACK_TTL_MS;
+    const deadline = deadlineOf(session);
+    return deadline === null ? cookie : Math.min(cookie, deadline);
+  }
+
+  // 이 규칙 전에 쓴 행: 만료를 절대 기한으로 줄이고 넘은 것은 지운다(기동 때 한 번. 걸린 요청이 없으니 알리지 않는다)
+  _normalize(now = Date.now()) {
+    const rows = this.db.prepare("SELECT sid, data, expires_at FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string; expires_at: number }>;
+    const shorten = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ?");
+    this.db.transaction(() => {
+      for (const { sid, data, expires_at } of rows) {
+        let deadline: number | null;
+        try {
+          deadline = deadlineOf(JSON.parse(data) as SessionData);
+        } catch {
+          continue; // 읽을 수 없는 행은 읽을 때 지운다(_parse)
+        }
+        if (deadline !== null && deadline < expires_at) shorten.run(deadline, sid);
+      }
+    })();
+  }
+
+  // express-session Store 계약: 콜백 (err, session|null). better-sqlite3는 동기라 즉시 호출. 콜백은 try 밖에서 한 번
+  get(sid: string, cb: (err: unknown, session?: SessionData | null) => void) {
+    let found: SessionData | null = null;
+    const ended: string[] = [];
+    try {
+      const row = this._getStmt.get(sid);
+      if (row && row.expires_at > Date.now()) found = this._parse(sid, row.data, ended);
+    } catch (e) {
+      return cb(e);
+    }
+    cb(null, found);
+    this._announce(ended);
+  }
+
+  // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다.
+  // 절대 기한을 넘은 로그인 세션(이 규칙 전에 쓴 행)도 지우고 없는 세션으로 답한다. express-session 이 빈 새 세션을 만든다
+  _parse(sid: string, data: string, ended: string[] = []): SessionData | null {
+    let session: SessionData;
+    try {
+      session = JSON.parse(data);
     } catch (error) {
-      this._destroyStmt.run(sid);
+      this._end(sid);
+      ended.push(sid);
       log.warn(`손상된 로그인 세션 1개를 삭제했습니다(해당 사용자는 재로그인이 필요합니다): ${messageOf(error)}`);
       return null;
     }
+    const deadline = deadlineOf(session);
+    if (deadline !== null && deadline <= Date.now()) {
+      this._end(sid);
+      ended.push(sid);
+      return null;
+    }
+    return session;
   }
 
   set(sid: string, session: SessionData, cb: Done = unheard("저장")) {
+    const ended: string[] = [];
     try {
-      this._setStmt.run(sid, JSON.stringify(session), this._expiresAt(session));
-      cb(null);
+      const now = Date.now();
+      const expiresAt = this._expiresAt(session, now);
+      if (this.isEnded(sid, now)) {
+        // 끝낸 세션으로 걸려 있던 요청의 저장. 쓰지 않는다
+      } else if (expiresAt <= now) {
+        // 절대 기한, 쿠키가 지났다. 있는 행도 끝낸다
+        this._end(sid);
+        ended.push(sid);
+      } else if (this._setStmt.run(sid, JSON.stringify(session), expiresAt, now).changes === 0) {
+        // 있는 행이 이미 만료했다(정리 전). 늘리지 않고 끝낸다
+        this._end(sid);
+        ended.push(sid);
+      }
     } catch (e) {
-      cb(e);
+      return cb(e);
     }
+    cb(null);
+    this._announce(ended);
   }
 
-  // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장
+  // rolling/유휴 갱신. 데이터 재직렬화 없이 만료만 연장. 만료한 행, 끝낸 세션은 늘리지 않는다
   override touch(sid: string, session: SessionData, cb: Done = unheard("만료 연장")) {
+    const ended: string[] = [];
     try {
-      this._touchStmt.run(this._expiresAt(session), sid);
-      cb(null);
+      const now = Date.now();
+      const expiresAt = this._expiresAt(session, now);
+      if (expiresAt <= now) {
+        this._end(sid);
+        ended.push(sid);
+      } else if (!this.isEnded(sid, now)) {
+        this._touchStmt.run(expiresAt, sid, now);
+      }
     } catch (e) {
-      cb(e);
+      return cb(e);
     }
+    cb(null);
+    this._announce(ended);
   }
 
   destroy(sid: string, cb: Done = unheard("삭제")) {
     try {
-      this._destroyStmt.run(sid);
-      cb(null);
+      this._end(sid);
     } catch (e) {
-      cb(e);
+      return cb(e);
     }
+    cb(null);
+    this._announce([sid]);
   }
 
-  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개) */
+  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한을 넘은 것은 빼고 */
   sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData }> {
     const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
     return rows.flatMap(({ sid, data }) => {
       try {
         const session = JSON.parse(data) as SessionData;
-        return session.user?.id === userId ? [{ sid, session }] : [];
+        const deadline = deadlineOf(session);
+        return session.user?.id === userId && (deadline === null || deadline > now) ? [{ sid, session }] : [];
       } catch {
         return [];
       }
     });
   }
 
+  /** 만료한 행을 지운다. 지운 수. 로그인한 세션은 묘비를 남기고 끝났음을 알린다. 지난 묘비도 버린다 */
   prune(now = Date.now()) {
-    return this._pruneStmt.run(now).changes;
+    const gone = this._pruneStmt.all(now);
+    for (const { sid, data } of gone) this._bury(sid, data, now);
+    for (const [sid, until] of this._ended) if (until <= now) this._ended.delete(sid);
+    this._announce(gone.map(({ sid }) => sid));
+    return gone.length;
   }
 
   close() {
@@ -158,7 +283,7 @@ class SqliteSessionStore extends Store {
 // 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
 
-export { SqliteSessionStore };
+export { SqliteSessionStore, SESSION_MAX_MS };
 
 /** 요청의 세션 저장소가 디스코드 토큰을 다루면 그것. 아니면 null(테스트의 메모리 저장소) */
 function tokenStoreOf(req: { sessionStore?: unknown }): SqliteSessionStore | null {

@@ -40,6 +40,9 @@ function revokeToken(http: DiscordHttp, token: string) {
   return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
 
+/** 로그인 전 세션(OAuth state)의 수명. 콜백이 성공하면 새 세션(쿠키 수명)으로 바뀐다 */
+const PRE_LOGIN_MS = 10 * 60_000;
+
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
@@ -56,6 +59,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다
   router.get("/login", (req, res) => {
     const state = crypto.randomBytes(16).toString("hex");
+    // 로그인 전 세션(state 만 든다)은 짧게. 로그인한 세션이 다시 로그인하러 온 것(팝업)은 진짜 세션이라 줄이지 않는다(팝업을 닫으면 로그아웃된다)
+    if (!req.session.user) req.session.cookie.maxAge = PRE_LOGIN_MS;
     req.session.oauthState = state;
     if (req.query.popup === "1") req.session.oauthPopup = true;
     else delete req.session.oauthPopup;
@@ -126,7 +131,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         req.session.loginAt = Date.now();
         recordLogin(req, req.session.loginAt);
         req.session.save(() => {
-          // 토큰은 세션 행에 암호문으로(세션 JSON 밖). 7일이라 로그인 쿠키와 같이 끝난다. 리프레시 토큰은 두지 않는다
+          // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 지워진다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
           tokenStoreOf(req)?.saveDiscordToken(req.sessionID, access_token);
           res.redirect(popup ? "/login-done" : "/dashboard");
         });

@@ -42,9 +42,10 @@ function fakeDiscord({ fail = null as Error | null } = {}) {
   };
 }
 
-async function start(http: ReturnType<typeof fakeDiscord>, { store }: { store?: SqliteSessionStore } = {}) {
+// maxAge: 쿠키 수명(대시보드는 7일)
+async function start(http: ReturnType<typeof fakeDiscord>, { store, maxAge }: { store?: SqliteSessionStore; maxAge?: number } = {}) {
   const app = express();
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: maxAge ? { maxAge } : {} }));
   app.use("/auth", createAuthRouter({ http: fake<DiscordHttp>(http) }));
   app.get("/me", (req, res) => res.json(req.session.user ?? null));
   // 위험한 조작 경로, 로그인한 지 오래된 것처럼 만들기(테스트만)
@@ -185,6 +186,27 @@ test("토큰: 콜백이 세션 행에 암호문으로 두고, 로그아웃하면
       [["https://discord.com/api/v10/oauth2/token/revoke", "tok", "access_token"]],
     );
     assert.equal(store.readDiscordToken(sid), null);
+  } finally {
+    store.close();
+    secrets._useKey();
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  }
+});
+
+test("로그인 전 세션(state 만 든 것)은 10분. 로그인하면 새 세션은 쿠키 수명대로, 로그인한 세션이 다시 로그인하러 와도(팝업) 그 세션은 그대로", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-auth-"));
+  secrets._useKey(newSecretsKey());
+  const store = new SqliteSessionStore({ dbPath: path.join(dir, "sessions.db") });
+  const WEEK = 7 * 24 * 60 * 60_000;
+  const expiresOf = () => store.db.prepare("SELECT expires_at FROM sessions").pluck().get() as number;
+  try {
+    const { go } = await start(fakeDiscord(), { store, maxAge: WEEK });
+    const state = new URL(location(await go("/auth/login"))).searchParams.get("state");
+    assert.ok(expiresOf() <= Date.now() + 10 * 60_000, "로그인 전 세션은 10분");
+    await go(`/auth/callback?code=abc&state=${state}`);
+    assert.ok(expiresOf() > Date.now() + WEEK - 60_000, "로그인한 세션은 7일");
+    await go("/auth/login?popup=1");
+    assert.ok(expiresOf() > Date.now() + WEEK - 60_000, "팝업 다시 로그인이 진짜 세션을 줄이지 않는다");
   } finally {
     store.close();
     secrets._useKey();

@@ -17,7 +17,7 @@ import { RECENT_LOGIN_MS } from "../../src/dashboard/middleware/recent-login.ts"
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
-import type { LoginDevices } from "../../src/dashboard/contract/identity.ts";
+import type { LoginDevices, SignedOut } from "../../src/dashboard/contract/identity.ts";
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 
@@ -30,6 +30,9 @@ let server: Server;
 let base: string;
 const revoked: string[] = [];
 let userId = "u1";
+let release: () => void = () => {};
+let held = Promise.resolve();
+let holding: () => void = () => {};
 
 before(async () => {
   secrets._useKey(newSecretsKey());
@@ -54,6 +57,12 @@ before(async () => {
   app.use(noteDevice);
   app.use("/auth", createAuthRouter({ http }));
   app.use("/api/me/devices", createLoginDevicesRouter({ places: { load: async () => true, locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "대한민국" }) }, http }));
+  // 세션을 바꾼 채 풀어 줄 때까지 걸려 있는 요청(훔친 쿠키로 걸어 둔 요청)
+  app.post("/hold", async (_req, res) => {
+    holding();
+    await held;
+    res.status(204).end();
+  });
   // 로그인한 지 오래된 것처럼(최근 로그인 확인)
   app.post("/age-login", (req, res) => {
     req.session.loginAt = Date.now() - RECENT_LOGIN_MS - 1;
@@ -169,3 +178,34 @@ test("이 기능 전의 세션: 기록이 없으면 다음 요청 때 지금 것
   const again = openRecord(sid, (JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(sid) as string) as { device: string }).device);
   assert.equal(again?.seenAt, first?.seenAt, `${SEEN_EVERY_MS}ms 안에는 다시 적지 않는다`);
 });
+
+// 훔친 쿠키로 걸어 둔 요청: User-Agent 를 바꾸면 기기 기록이 바뀌어(noteDevice) 그 요청이 끝날 때 세션을 저장한다
+async function hangChanged(thief: ReturnType<typeof device>) {
+  let entered: () => void = () => {};
+  const inside = new Promise<void>((done) => (entered = done));
+  held = new Promise<void>((done) => (release = done));
+  holding = entered;
+  const hanging = thief.go("/hold", { method: "POST", headers: { "user-agent": `${IPHONE} Changed` } });
+  await inside;
+  return { hanging }; // 그대로 돌려주면 await 가 응답까지 기다린다
+}
+
+for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
+  test(`끊은 세션은 그 세션으로 걸려 있던 요청이 끝나도 되살아나지 않는다(${how})`, async () => {
+    const who = how === "로그아웃" ? "revive-logout" : "revive-others";
+    const pc = device(CHROME);
+    const thief = device(IPHONE);
+    await pc.login(who);
+    await thief.login(who);
+    const { hanging } = await hangChanged(thief);
+    try {
+      if (how === "다른 기기 로그아웃") assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as SignedOut).count, 1);
+      else assert.equal((await thief.go("/auth/logout", { method: "POST" })).status, 204);
+    } finally {
+      release();
+    }
+    await hanging;
+    assert.equal((await thief.go("/api/me/devices")).status, 401, "끊은 쿠키는 다시 쓸 수 없다");
+    assert.equal(store.sessionsOf(who).length, 1, "남은 것은 끊지 않은 기기뿐");
+  });
+}
