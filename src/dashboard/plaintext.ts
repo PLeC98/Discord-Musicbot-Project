@@ -33,7 +33,7 @@ const REASON_TEXT: Record<Reason, string> = {
   browser: "프록시가 인터넷 사용자의 평문(http) 접속을 알림",
 };
 
-const PAGE = '<!doctype html><meta charset="utf-8"><title>대시보드</title>' + "<p>인터넷을 평문(http)으로 지나는 연결이라 대시보드를 열지 않았어요. 로그인 정보가 그대로 보일 수 있어요.</p>" + "<p>봇 운영자라면 README의 공개 방법대로 HTTPS로 공개하세요.</p>";
+const PAGE = '<!doctype html><meta charset="utf-8"><title>대시보드</title>' + "<p>인터넷을 평문(http)으로 지나는 연결이라 대시보드를 열지 않았어요. 로그인 정보가 그대로 보일 수 있어요.</p>" + "<p>봇 운영자라면 docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요.</p>";
 
 /** 모든 요청의 앞(Host 확인 뒤, 정적 파일, 세션보다 앞): 인터넷 평문 요청에 403과 안내 */
 function plaintextGate(allow: boolean): RequestHandler {
@@ -43,7 +43,7 @@ function plaintextGate(allow: boolean): RequestHandler {
     const reason = plaintextReason(req);
     if (!reason) return next();
     const verdict = gate(reason);
-    if (verdict === "warn") log.warn(`인터넷 평문 접속을 막았습니다(${REASON_TEXT[reason]}, ${clientIp(req)}). README의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    if (verdict === "warn") log.warn(`인터넷 평문 접속을 막았습니다(${REASON_TEXT[reason]}, ${clientIp(req)}). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
     else if (verdict === "cap") log.warn("인터넷 평문 접속이 많아 1시간 동안 더는 로그에 남기지 않습니다(막는 것은 그대로).");
     res.status(403).type("html").send(PAGE);
   };

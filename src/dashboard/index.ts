@@ -303,7 +303,7 @@ async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
   }
   const verdict = await checkPublicUrl(url);
   if (!verdict.open) {
-    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷 평문이 되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). README의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷에 평문으로 노출되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
     return false;
   }
   if (verdict.note) log.warn(verdict.note);

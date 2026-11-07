@@ -90,7 +90,7 @@ function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable, s
   if (container) notes.push(...containerNotes(url));
   if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: `다른 기기에서 접속할 수 있는 주소: ${addresses}` });
   if (https && plan.reason === "env" && !envHostIsLoopback(envHost)) notes.push({ level: "info", text: "공개 주소가 https라 다른 기기에서 평문으로 바로 붙으면 로그인되지 않습니다(브라우저가 Secure 쿠키를 받지 않음)." });
-  if (!https && plan.reason === "plain-url") notes.push({ level: "info", text: "도메인과 인증서가 있으면 HTTPS로 쓸 수 있습니다(README의 공개 방법)." });
+  if (!https && plan.reason === "plain-url") notes.push({ level: "info", text: "도메인과 인증서가 있으면 HTTPS로 쓸 수 있습니다(docs/dashboard-network.md)." });
   const callback = callbackNote(url);
   if (callback) notes.push(callback);
   return notes;
