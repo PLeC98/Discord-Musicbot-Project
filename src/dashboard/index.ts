@@ -49,6 +49,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
 import { trustProxy } from "./client-ip.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
+import { hostCheck } from "./host-check.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -168,6 +169,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
   app.use(strictTransport(url));
+  // 허용하지 않은 호스트로 온 요청(DNS 리바인딩)을 막는다. 정적 파일, 세션보다 앞에 둔다
+  app.use(hostCheck(url));
   app.use(plaintextAccessWarner(host, url));
   // 로그인 없이 받는 경로(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP로 센다. /api, /auth는 아래에서 따로 센다
   // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다

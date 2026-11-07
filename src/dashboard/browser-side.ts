@@ -70,4 +70,4 @@ function strictTransport(url: string): RequestHandler {
   };
 }
 
-export { browserSecure, browserSide, strictTransport, httpsHostOf };
+export { browserSecure, browserSide, strictTransport, httpsHostOf, trustedPeer };
