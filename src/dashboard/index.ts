@@ -1,6 +1,5 @@
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import express, { type Express as App, type NextFunction, type Request, type RequestHandler, type Response } from "express";
@@ -48,6 +47,7 @@ import { startStatus } from "./status/index.ts";
 import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
+import { trustProxy } from "./client-ip.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -67,7 +67,7 @@ function resolveSessionSecret() {
 
 // 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
 // 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 안전망.
-// 대시보드 주소가 https인데 평문으로 보이면 앞단의 프록시를 신뢰하지 않는 상태다(로컬이나 사설망이 아님, trust proxy). 쿠키에 Secure, __Host-가 빠진다
+// 대시보드 주소가 https인데 평문으로 보이면 앞단의 프록시를 신뢰하지 않는 상태다(공인 IP의 프록시인데 DASHBOARD_TRUST_PROXY에 없음). 쿠키에 Secure, __Host-가 빠진다
 function plaintextAccessWarner(host: string, url: string): RequestHandler {
   if (isLoopbackHost(host)) return (_req, _res, next) => next();
 
@@ -76,48 +76,25 @@ function plaintextAccessWarner(host: string, url: string): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!warned && !req.secure) {
       warned = true;
-      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞단의 프록시를 신뢰하지 않으면(.env의 DASHBOARD_TRUST_PROXY, 기본값은 로컬) X-Forwarded-Proto를 무시해 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 다른 호스트나 사설망 주소로 연결되면 그 주소를 DASHBOARD_TRUST_PROXY에 추가하세요.");
+      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞단의 프록시를 신뢰하지 않으면 X-Forwarded-Proto를 무시해 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 공인 IP로 연결되면 그 주소를 .env의 DASHBOARD_TRUST_PROXY에 추가하세요(내부 주소는 자동으로 신뢰합니다).");
       else log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
     }
     next();
   };
 }
 
-/** 신뢰하는 프록시 설정. Express가 지원하지 않는 값(모두 신뢰하는 true, * 포함)은 경고 로그를 남기고 로컬(loopback)만 신뢰한다 */
+/** 신뢰하는 프록시를 설정한다(dashboard/client-ip). 내부 주소는 자동으로, 공인 IP의 원격 프록시는 DASHBOARD_TRUST_PROXY로 신뢰한다. 거부한 값과 필요 없는 값은 기동 로그용으로 돌려준다 */
 function applyTrustProxy(app: App, value: string) {
-  try {
-    app.set("trust proxy", value);
-  } catch (error) {
-    log.warn(`DASHBOARD_TRUST_PROXY 값을 쓸 수 없습니다(${messageOf(error)}). 로컬(loopback) 프록시만 신뢰합니다. IP, CIDR, loopback을 쉼표로 구분해 적으세요.`);
-    app.set("trust proxy", "loopback");
-  }
+  const { trust, accepted, inside, rejected } = trustProxy(value);
+  app.set("trust proxy", (addr: string) => trust(addr));
+  return { accepted, inside, rejected };
 }
 
-// 프록시가 원래 요청 정보를 전달하는 헤더
-const FORWARDED = ["x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"];
-/** 신뢰하지 않는 프록시 경고를 주소별로 남기는 최대 개수 */
-const UNTRUSTED_WARN_MAX = 8;
-
-/** 신뢰하지 않는 주소가 X-Forwarded-*를 보내면 주소마다 한 번씩 경고한다. 프록시가 다른 호스트에 있는데 DASHBOARD_TRUST_PROXY에 추가하지 않은 설정 누락을 알려 준다 */
-function untrustedProxyWarner(value: string): RequestHandler {
-  const warned = new Set<string>();
-  let capped = false;
-  return (req, _res, next) => {
-    if (!capped && FORWARDED.some((name) => req.headers[name] !== undefined)) {
-      const peer = req.socket.remoteAddress ?? "";
-      const trusted = (req.app.get("trust proxy fn") as (addr: string, i: number) => boolean)(peer, 0);
-      if (!trusted && !warned.has(peer)) {
-        if (warned.size < UNTRUSTED_WARN_MAX) {
-          warned.add(peer);
-          log.warn(`${peer}에서 X-Forwarded-*를 보냈지만 신뢰하는 프록시가 아닙니다(DASHBOARD_TRUST_PROXY=${value}). 이 봇 앞단의 프록시라면 그 주소를 추가하세요. 추가하기 전까지 프록시 뒤의 사용자는 모두 이 주소로 묶여 IP 요청 제한을 공유하고, 로그인 쿠키에 Secure, __Host-가 빠집니다.`);
-        } else {
-          capped = true;
-          log.warn(`X-Forwarded-*를 보낸 신뢰하지 않는 주소가 ${UNTRUSTED_WARN_MAX}개를 넘었습니다. 더는 남기지 않습니다.`);
-        }
-      }
-    }
-    next();
-  };
+/** 신뢰하는 프록시 설정 결과의 기동 로그 */
+function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof trustProxy>, "accepted" | "inside" | "rejected">) {
+  if (rejected.length) log.warn(`DASHBOARD_TRUST_PROXY에서 유효하지 않은 값을 제외했습니다: ${rejected.join(", ")}. 공인 IP의 프록시만 IP나 CIDR로 지정하세요(모든 주소를 신뢰하는 값은 허용하지 않습니다).`);
+  if (inside.length) log.info(`기본으로 신뢰하는 내부 주소는 DASHBOARD_TRUST_PROXY에서 생략해도 됩니다(loopback, 사설망, 이 기기의 주소): ${inside.join(", ")}`);
+  if (accepted.length) log.info(`신뢰하는 원격 프록시: ${accepted.join(", ")}`);
 }
 
 // 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
@@ -163,13 +140,12 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   const app = express();
   const { host, url } = config.dashboard;
 
-  // X-Forwarded-*는 신뢰하는 프록시가 보낸 것만 신뢰한다(DASHBOARD_TRUST_PROXY, 기본값은 로컬). 같은 사설망의 다른 호스트가 IP를 위조하지 못하게 한다
+  // X-Forwarded-*는 신뢰하는 홉이 보낸 것만 읽는다(내부 주소, DASHBOARD_TRUST_PROXY). 사용자 IP는 dashboard/client-ip의 clientIp
   applyTrustProxy(app, config.dashboard.trustProxy);
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
   // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓸 때 판단하므로 맨 앞에 둔다)
   app.use(closeOnUnreadBody);
-  app.use(untrustedProxyWarner(config.dashboard.trustProxy));
   // 소켓의 마지막 요청을 기록한다(세션이 끝나 소켓을 닫을 때 keep-alive의 다음 요청을 건드리지 않게 한다). 정적 파일 미들웨어보다 앞에 둔다
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
@@ -279,6 +255,7 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
     if (aiRequests.isOpen()) aiRequests.rotate(config.aiLog.maxBytes);
   });
 
+  logTrustProxy(trustProxy(config.dashboard.trustProxy));
   const server = listen(app, config.dashboard, () => {
     // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
     log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);

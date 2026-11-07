@@ -58,25 +58,27 @@ jobs:
         run: |
           bgutil=$(jq -r '.bgutil.newer // empty' result.json)
           ffmpeg=$(jq -r '.ffmpeg.newer // empty' result.json)
-          if [ -z "$bgutil$ffmpeg" ]; then echo "새 버전 없음"; exit 0; fi
-          branch="chore/vendor-${bgutil:-same}-${ffmpeg:-same}"
+          cloudflare=$(jq -r 'if .cloudflare.changed then "changed" else empty end' result.json)
+          if [ -z "$bgutil$ffmpeg$cloudflare" ]; then echo "새 버전 없음"; exit 0; fi
+          branch="chore/vendor-${bgutil:-same}-${ffmpeg:-same}${cloudflare:+-cloudflare-$(date -u +%F)}"
           if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then echo "브랜치가 이미 있음: $branch"; exit 0; fi
 
           parts=()
           [ -n "$bgutil" ] && parts+=("bgutil $(jq -r '.bgutil.current' result.json) → $bgutil")
           [ -n "$ffmpeg" ] && parts+=("ffmpeg $(jq -r '.ffmpeg.current' result.json) → $ffmpeg")
-          title="chore(vendor): ${parts[0]}${parts[1]:+, ${parts[1]}}"
+          [ -n "$cloudflare" ] && parts+=("Cloudflare IP 대역 갱신")
+          title="chore(vendor): $(IFS=,; echo "${parts[*]}" | sed 's/,/, /g')"
 
           bot="${{ steps.app.outputs.app-slug }}[bot]"
           git config user.name "$bot"
           git config user.email "$(gh api "/users/$bot" --jq .id)+$bot@users.noreply.github.com"
           git switch -c "$branch"
-          git add src/config/vendor-versions.ts
+          git add src/config/vendor-versions.ts data/cloudflare-ips.json
           git commit -m "$title"
           git push origin "$branch"
 
           {
-            echo "외부 도구의 기본 버전을 올립니다(\`src/config/vendor-versions.ts\`)."
+            echo "외부 도구의 기본 버전(\`src/config/vendor-versions.ts\`)이나 Cloudflare IP 대역(\`data/cloudflare-ips.json\`, 대시보드가 사용자 IP를 읽을 때 씀)을 갱신합니다."
             echo
             for part in "${parts[@]}"; do echo "- $part"; done
             if [ -n "$bgutil" ]; then
@@ -84,7 +86,7 @@ jobs:
               echo "bgutil lockfile의 알려진 취약점(npm audit, PR을 만든 시점 기준): 현재 버전 $(jq -r '.bgutil.audit.current.total' result.json)건 → $bgutil $(jq -r '.bgutil.audit.newer.total' result.json)건"
             fi
             echo
-            echo "이미 설치된 환경에서는 봇을 끈 뒤 업데이트하세요(bgutil은 \`pnpm run update:bgutil\`, ffmpeg는 \`pnpm run install:ffmpeg\`)."
+            echo "이미 설치된 환경에서는 봇을 끈 뒤 업데이트하세요(bgutil은 \`pnpm run update:bgutil\`, ffmpeg는 \`pnpm run install:ffmpeg\`, Cloudflare 대역은 봇을 다시 시작하면 적용)."
           } > body.md
           gh pr create --base "${{ github.event.repository.default_branch }}" --head "$branch" --title "$title" --body-file body.md
 

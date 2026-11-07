@@ -359,9 +359,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       // 바인딩 주소. 기본은 루프백. 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
       // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
       host: env("DASHBOARD_HOST", "127.0.0.1"),
-      // X-Forwarded-*(사용자 IP, HTTPS 여부)를 신뢰하는 프록시. Express의 trust proxy 값(IP, CIDR, loopback 등 쉼표 구분 목록)이며 기본값은 로컬(loopback)이다.
-      // 다른 호스트나 사설망 주소로 연결되는 프록시는 그 주소를 설정한다. 유효하지 않은 값은 대시보드를 만들 때 경고 로그를 남기고 loopback으로 처리한다
-      trustProxy: env("DASHBOARD_TRUST_PROXY", "loopback"),
+      // 추가로 신뢰할 원격 프록시(공인 IP나 CIDR을 쉼표로 구분한 목록). 내부 주소(loopback, 사설망, 이 기기의 주소)는 넣지 않아도 신뢰한다(dashboard/client-ip)
+      trustProxy: env("DASHBOARD_TRUST_PROXY", ""),
       url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
       ownerId: env("OWNER_ID"),
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.

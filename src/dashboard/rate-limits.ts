@@ -6,9 +6,11 @@ import config from "../config/index.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { tooManyRequests } from "./problem.ts";
 import { isEnded } from "./session-requests.ts";
+import { clientIp } from "./client-ip.ts";
 
-// 로그인한 요청은 사용자 ID로 세고, 로그인 전에는 IP로 센다(신뢰하는 프록시가 전달한 것만 쓴다, DASHBOARD_TRUST_PROXY)
-const userOrIp = (req: Request) => req.session?.user?.id || ipKeyGenerator(req.ip ?? "");
+// 로그인한 요청은 사용자 ID로 세고, 로그인 전에는 IP로 센다(dashboard/client-ip의 clientIp)
+const byClientIp = (req: Request) => ipKeyGenerator(clientIp(req));
+const userOrIp = (req: Request) => req.session?.user?.id || byClientIp(req);
 
 // 일반 API 한도에서 제외하는 경로와 메서드: SSE 연결(오래 유지된다), 볼륨(드래그하는 동안 잇달아 온다), 곡 추가 입력란의 검색(입력하는 대로 온다), 앨범아트(대기열의 것이 한꺼번에 불린다),
 // 앱 이모지 이미지와 글꼴(선택기를 열면 한꺼번에 불린다), CSRF 토큰 받기(일반 한도가 차도 받아 로그아웃할 수 있게).
@@ -50,7 +52,7 @@ function limiter(limitOf: () => number, { windowOf = () => config.dashboard.rate
       limit: () => limitOf(),
       standardHeaders: "draft-7",
       legacyHeaders: false,
-      ...(byIp ? {} : { keyGenerator: userOrIp }),
+      keyGenerator: byIp ? byClientIp : userOrIp,
       handler: tooManyRequests,
       skip,
       // 다시 만드는 것은 저장 요청을 처리하는 중이다. 요청마다 새로 만드는 실수를 잡는 검사라 여기서는 끈다

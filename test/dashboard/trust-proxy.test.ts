@@ -1,5 +1,5 @@
-// src/dashboard/index.ts의 믿는 프록시(DASHBOARD_TRUST_PROXY): 기본은 이 기기(loopback)만 믿고, 믿지 않는 주소의 X-Forwarded-*는
-// 사용자 IP를 바꾸지 않고 주소별로 한 번 경고를 남긴다. 받지 않는 값(모두 믿기 포함)은 경고를 남기고 loopback만 믿는다
+// src/dashboard/client-ip.ts, index.ts의 신뢰하는 프록시: 내부 주소(loopback, 사설망, 링크 로컬, 100.64/10, 이 기기의 주소와 on-link IPv6 프리픽스)는
+// 자동으로 신뢰하고, 공인 IP의 원격 프록시만 DASHBOARD_TRUST_PROXY로 추가한다. 모든 주소를 신뢰하는 값은 받지 않는다. Cloudflare 대역의 홉이면 CF-Connecting-IP를 쓴다
 
 process.env.OWNER_ID = "owner";
 // .env에 무엇이 있든 기본값을 본다(dotenv는 이미 있는 값을 덮지 않고, 빈 값은 기본값이다)
@@ -8,26 +8,24 @@ process.env.DASHBOARD_TRUST_PROXY = "";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { NextFunction, Request, Response } from "express";
+import os from "node:os";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { baseUrl, listenForFetch } from "../helpers/listen.ts";
-import logSink from "../../src/infra/log/sink.ts";
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("trust-proxy-");
 const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
-
-const logs: string[] = [];
-logSink.addDestination((rec: unknown) => logs.push(JSON.stringify(rec)));
+const { clientIp, isInside, trustProxy, _useInterfaces } = await import("../../src/dashboard/client-ip.ts");
 
 const anonymous = (req: Request, _res: Response, next: NextFunction) => {
   req.session = fake<Request["session"]>({});
   next();
 };
-const appWith = (trustProxy: string) => {
+const appWith = (trust: string) => {
   const saved = config.dashboard.trustProxy;
-  config.dashboard.trustProxy = trustProxy;
+  config.dashboard.trustProxy = trust;
   try {
     return createApp(fakeBot({ client: { user: null, isReady: () => false } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: anonymous });
   } finally {
@@ -40,64 +38,115 @@ after(() => {
   store.close();
 });
 
-/** 그 값으로 앱을 띄우고, X-Forwarded-For를 실은 익명 GET을 보내는 함수를 돌려준다(일반 한도가 1이라 같은 IP로 보면 둘째가 429다) */
-async function serve(trustProxy: string) {
-  const server = await listenForFetch(appWith(trustProxy), "127.0.0.1");
+/** 그 값으로 앱을 띄우고, 헤더를 실은 익명 GET을 그 경로로 보내는 함수를 돌려준다 */
+async function serve(trust: string, path: string) {
+  const server = await listenForFetch(appWith(trust), "127.0.0.1");
   servers.push(server);
-  return (xff: string) => fetch(`${baseUrl(server)}/api/bot`, { headers: { "x-forwarded-for": xff }, signal: AbortSignal.timeout(3000) }).then((r) => r.status);
+  return (headers: Record<string, string>) => fetch(`${baseUrl(server)}${path}`, { headers, redirect: "manual", signal: AbortSignal.timeout(3000) }).then((r) => r.status);
 }
-async function withApiMax<T>(fn: () => Promise<T>) {
-  const saved = config.dashboard.rateLimit.apiMax;
-  config.dashboard.rateLimit.apiMax = 1;
+/** 한도 하나를 1로 두고 돌린다(같은 키로 세면 둘째 요청이 429다) */
+async function withMax<T>(key: "apiMax" | "authMax", fn: () => Promise<T>) {
+  const saved = config.dashboard.rateLimit[key];
+  config.dashboard.rateLimit[key] = 1;
   try {
     return await fn();
   } finally {
-    config.dashboard.rateLimit.apiMax = saved;
+    config.dashboard.rateLimit[key] = saved;
   }
 }
+type Interfaces = ReturnType<typeof os.networkInterfaces>;
+const v6 = (address: string, cidr: string) => ({ address, netmask: "", family: "IPv6" as const, mac: "00:00:00:00:00:00", internal: false, cidr, scopeid: 0 });
 
-test("기본(loopback)은 127.0.0.1, ::1, ::ffff:127.0.0.1만 믿는다", () => {
-  assert.equal(config.dashboard.trustProxy, "loopback");
-  const trust = appWith("loopback").get("trust proxy fn") as (addr: string, i: number) => boolean;
-  for (const addr of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) assert.equal(trust(addr, 0), true, addr);
-  for (const addr of ["192.168.0.10", "10.0.0.5", "172.17.0.2", "fd00::1", "169.254.1.1", "8.8.8.8"]) assert.equal(trust(addr, 0), false, addr);
+test("기본: 내부 주소(loopback, 사설망, 링크 로컬, 100.64/10)는 신뢰하고 공인 주소는 신뢰하지 않는다", () => {
+  assert.equal(config.dashboard.trustProxy, "");
+  const trust = appWith("").get("trust proxy fn") as (addr: string, i: number) => boolean;
+  for (const addr of ["127.0.0.1", "::1", "::ffff:127.0.0.1", "192.168.0.10", "10.0.0.5", "172.17.0.2", "fd00::1", "169.254.1.1", "fe80::1%eth0", "100.100.1.2"]) assert.equal(trust(addr, 0), true, addr);
+  for (const addr of ["8.8.8.8", "203.0.113.5", "172.32.0.1", "100.128.0.1", "2001:db8::1", "::ffff:8.8.8.8", "::ffff:808:808"]) assert.equal(trust(addr, 0), false, addr);
 });
 
-test("믿는 프록시가 알린 사용자 IP로 센다", () =>
-  withApiMax(async () => {
-    const get = await serve("loopback");
-    assert.deepEqual([await get("203.0.113.1"), await get("203.0.113.2")], [200, 200], "사용자마다 따로 센다");
-    assert.equal(await get("203.0.113.1"), 429);
+test("내부 홉(이 테스트는 127.0.0.1)이 전달한 사용자 IP로 센다. 신뢰하지 않는 홉을 만나면 거기서 멈춘다", () =>
+  withMax("apiMax", async () => {
+    const get = await serve("", "/api/bot");
+    assert.deepEqual([await get({ "x-forwarded-for": "203.0.113.1" }), await get({ "x-forwarded-for": "203.0.113.2" })], [200, 200], "사용자마다 따로 센다");
+    assert.equal(await get({ "x-forwarded-for": "203.0.113.1" }), 429);
+    // 오른쪽의 공인 주소는 신뢰하지 않으므로 그 왼쪽의 값은 보지 않는다
+    assert.equal(await get({ "x-forwarded-for": "198.51.100.1, 203.0.113.50" }), 200);
+    assert.equal(await get({ "x-forwarded-for": "198.51.100.2, 203.0.113.50" }), 429, "왼쪽 값을 바꿔도 같은 사용자");
   }));
 
-test("믿지 않는 주소의 X-Forwarded-For는 사용자 IP를 바꾸지 않고, 주소별로 한 번 경고를 남긴다", () =>
-  withApiMax(async () => {
-    const before = logs.length;
-    const get = await serve("10.0.0.1");
-    assert.equal(await get("203.0.113.1"), 200);
-    assert.equal(await get("203.0.113.2"), 429, "꾸민 IP와 상관없이 소켓 주소로 센다");
-    const warned = logs.slice(before).filter((l) => l.includes("신뢰하는 프록시가 아닙니다"));
-    assert.equal(warned.length, 1, "주소마다 한 번");
-    assert.match(warned[0], /127\.0\.0\.1/);
-    assert.match(warned[0], /DASHBOARD_TRUST_PROXY=10\.0\.0\.1/);
+test("IP로 세는 한도(로그인, 공개 경로)도 Cloudflare 뒤에서는 CF-Connecting-IP로 센다", () =>
+  withMax("authMax", async () => {
+    const get = await serve("", "/auth/none");
+    const viaCloudflare = (ip: string) => get({ "x-forwarded-for": "104.16.0.1", "cf-connecting-ip": ip });
+    assert.notEqual(await viaCloudflare("198.51.100.1"), 429);
+    assert.notEqual(await viaCloudflare("198.51.100.2"), 429, "같은 엣지를 거친 다른 사용자");
+    assert.equal(await viaCloudflare("198.51.100.1"), 429);
   }));
 
-test("받지 않는 값(모두 믿기 true, *, 엉뚱한 글)은 알리고 이 기기(loopback)만 믿는다", async () => {
-  for (const value of ["true", "*", "banana"]) {
-    const before = logs.length;
-    const trust = appWith(value).get("trust proxy fn") as (addr: string, i: number) => boolean;
-    assert.ok(
-      logs.slice(before).some((l) => l.includes("DASHBOARD_TRUST_PROXY 값을 쓸 수 없습니다")),
-      value,
-    );
-    assert.equal(trust("127.0.0.1", 0), true, value);
-    assert.equal(trust("192.168.0.10", 0), false, value);
-    assert.equal(trust("8.8.8.8", 0), false, value);
+test("DASHBOARD_TRUST_PROXY: 공인 IP의 원격 프록시를 추가한다(쉼표 구분, CIDR). 내부 주소와 Express 키워드는 이미 신뢰한다고 따로 돌려준다", () => {
+  const parsed = trustProxy("203.0.113.7, 198.51.100.0/24, loopback, 192.168.0.10, 10.1.0.0/16");
+  assert.deepEqual(parsed.accepted, ["203.0.113.7", "198.51.100.0/24"]);
+  assert.deepEqual(parsed.inside, ["loopback", "192.168.0.10", "10.1.0.0/16"]);
+  assert.deepEqual(parsed.rejected, []);
+  for (const addr of ["203.0.113.7", "198.51.100.200", "192.168.0.11"]) assert.equal(parsed.trust(addr), true, addr);
+  for (const addr of ["203.0.113.8", "198.51.101.1"]) assert.equal(parsed.trust(addr), false, addr);
+});
+
+test("모든 주소를 신뢰하는 값과 잘못된 형식의 값은 받지 않는다(그 값만 빼고 나머지는 적용)", () => {
+  const parsed = trustProxy("*, true, 0.0.0.0/0, ::/0, ::ffff:0:0/96, ::/8, banana, 1.2.3.4/33, 203.0.113.7");
+  assert.deepEqual(parsed.rejected, ["*", "true", "0.0.0.0/0", "::/0", "::ffff:0:0/96", "::/8", "banana", "1.2.3.4/33"]);
+  assert.deepEqual(parsed.accepted, ["203.0.113.7"]);
+  for (const addr of ["8.8.8.8", "::ffff:8.8.8.8"]) assert.equal(parsed.trust(addr), false, addr);
+});
+
+test("이 기기 네트워크 인터페이스의 주소와 on-link IPv6 프리픽스는 내부 주소다. 프리픽스가 /64보다 좁은 인터페이스(VPS의 /96, /128 등)는 이웃이 없다", () => {
+  const cards = (): Interfaces => ({
+    eth0: [{ address: "203.0.113.9", netmask: "255.255.255.0", family: "IPv4", mac: "00:00:00:00:00:00", internal: false, cidr: "203.0.113.9/24" }, v6("2001:db8:1::5", "2001:db8:1::5/64")],
+    vps: [v6("2001:db8:9::9", "2001:db8:9::9/96")],
+  });
+  _useInterfaces(cards);
+  try {
+    assert.equal(isInside("203.0.113.9"), true, "이 기기의 공인 IPv4");
+    assert.equal(isInside("203.0.113.10"), false, "같은 IPv4 서브넷이어도 다른 기기는 공인");
+    assert.equal(isInside("2001:db8:1::77"), true, "같은 /64의 이웃");
+    assert.equal(isInside("2001:db8:2::1"), false);
+    assert.equal(isInside("2001:db8:9::9"), true, "이 기기 주소");
+    assert.equal(isInside("2001:0db8:0009:0000:0000:0000:0000:0009"), true, "표기가 달라도 같은 주소");
+    assert.equal(isInside("2001:db8:9::8"), false, "프리픽스가 /64보다 좁은 인터페이스는 이웃이 없다");
+  } finally {
+    _useInterfaces(os.networkInterfaces);
   }
 });
 
-test("설정에 넣은 주소는 믿는다(쉼표로 여럿, CIDR)", () => {
-  const trust = appWith("loopback, 192.168.0.10, 172.18.0.0/16").get("trust proxy fn") as (addr: string, i: number) => boolean;
-  for (const addr of ["127.0.0.1", "192.168.0.10", "172.18.3.4"]) assert.equal(trust(addr, 0), true, addr);
-  for (const addr of ["192.168.0.11", "172.19.0.1"]) assert.equal(trust(addr, 0), false, addr);
+test("이 기기의 주소는 60초가 지난 뒤 쓸 때 다시 읽는다(없어진 주소는 그때부터 신뢰하지 않는다)", (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+  let current: Interfaces = { eth0: [v6("2001:db8:1::5", "2001:db8:1::5/64")] };
+  let reads = 0;
+  _useInterfaces(() => {
+    reads += 1;
+    return current;
+  });
+  try {
+    assert.equal(isInside("2001:db8:1::77"), true);
+    current = { eth0: [v6("2001:db8:2::5", "2001:db8:2::5/64")] };
+    assert.equal(isInside("2001:db8:1::77"), true, "60초 안에는 읽은 것을 쓴다");
+    assert.equal(isInside("2001:db8:2::77"), false, "모르는 주소가 와도 60초 안에는 다시 읽지 않는다");
+    assert.equal(reads, 1);
+    t.mock.timers.tick(60_000);
+    assert.equal(isInside("2001:db8:1::77"), false, "없어진 프리픽스");
+    assert.equal(isInside("2001:db8:2::77"), true, "새 프리픽스");
+    assert.equal(reads, 2);
+  } finally {
+    _useInterfaces(os.networkInterfaces);
+  }
+});
+
+test("Cloudflare 대역의 홉이면 CF-Connecting-IP(값이 IP 하나일 때만)를 쓰고, 다른 홉이면 그 헤더를 무시한다", () => {
+  const req = (ip: string, cf?: string | string[]) => fake<Request>({ ip, socket: { remoteAddress: ip }, headers: cf === undefined ? {} : { "cf-connecting-ip": cf } });
+  assert.equal(clientIp(req("104.16.0.1", "198.51.100.7")), "198.51.100.7");
+  assert.equal(clientIp(req("2606:4700::1", "2001:db8::7")), "2001:db8::7");
+  assert.equal(clientIp(req("203.0.113.5", "198.51.100.7")), "203.0.113.5", "Cloudflare가 아닌 홉의 헤더는 위조할 수 있다");
+  for (const bad of ["1.1.1.1, 2.2.2.2", "1.2.3.4%foo,2.3.4.5", "1.2.3.4%eth0", "nope"]) assert.equal(clientIp(req("104.16.0.1", bad)), "104.16.0.1", bad);
+  assert.equal(clientIp(req("104.16.0.1", ["1.1.1.1", "2.2.2.2"])), "104.16.0.1");
+  assert.equal(clientIp(req("104.16.0.1")), "104.16.0.1");
 });
