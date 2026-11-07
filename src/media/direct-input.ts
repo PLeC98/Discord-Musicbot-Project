@@ -16,6 +16,7 @@ import { codedError, messageOf } from "../rules/error-kind.ts";
 import { streamFragments, type FragmentSource } from "./fragment-stream.ts";
 import { createChunkedStream, readerOf, type RangeFetch } from "./chunked-stream.ts";
 import { createResumingBody, type Resumed } from "./resuming-body.ts";
+import { segmentStart } from "../rules/hls-segment-start.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 
@@ -172,13 +173,16 @@ function paddingOf(block: Buffer): number | null {
 
 /**
  * AES-128-CBC를 스트리밍하며 복호화한다. 청크 사이에 남은 바이트를 이어 온전한 블록만 복호화하고, 복호화한 마지막 블록은 끝까지 들고 있다가 PKCS7 패딩을 뗀다.
- * 끝이 깨졌으면 warn을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 조각(16바이트 미만)만 버리거나(그 앞 블록은 마지막이 아니라 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
+ * 키 확인: 복호화한 앞부분이 HLS 컨테이너로 시작하는지(rules/hls-segment-start) 판정하기 전에는 아무것도 내보내지 않고, 컨테이너로 시작하지 않으면 다시 받지 않는 실패로 끝낸다.
+ * 판정할 만큼 모이기 전에 끝난 짧은 세그먼트는 암호문이 블록 단위로 다 왔고 끝 패딩과 컨테이너가 맞아야 내보낸다.
+ * 판정을 통과한 뒤 끝이 깨졌으면 warn을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 바이트(16바이트 미만)만 버리거나(그 앞 블록은 마지막 블록이 아니므로 패딩을 떼지 않고 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
  * 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
  */
 function decrypting(key: Buffer, iv: Buffer): Transform {
   const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv).setAutoPadding(false);
   let rest = Buffer.alloc(0); // 아직 블록이 되지 않은 암호문
   let held: Buffer | null = null; // 복호화한 마지막 블록(끝인지 아직 모른다)
+  let front: Buffer | null = Buffer.alloc(0); // 키를 확인하기 전에 복호화해 보류해 둔 앞부분 평문. 판정을 통과해 내보내면 null
   return new Transform({
     transform(chunk: Buffer, _encoding, done) {
       const data = rest.length ? Buffer.concat([rest, chunk]) : chunk;
@@ -188,9 +192,21 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       const plain = decipher.update(data.subarray(0, whole));
       const all = held ? Buffer.concat([held, plain]) : plain;
       held = all.subarray(all.length - 16);
-      done(null, all.subarray(0, all.length - 16));
+      const out = all.subarray(0, all.length - 16);
+      if (!front) return done(null, out);
+      front = Buffer.concat([front, out]);
+      const verdict = segmentStart(front);
+      if (verdict === "more") return done();
+      if (verdict === "bad") return done(wrongKey("복호화한 앞부분이 TS, ID3, fMP4 로 시작하지 않음"));
+      const checked = front;
+      front = null;
+      done(null, checked);
     },
     flush(done) {
+      if (front) {
+        const segment = shortSegment(front, rest, held);
+        return segment instanceof Error ? done(segment) : done(null, segment);
+      }
       if (rest.length) {
         log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버립니다(암호문이 잘림)`);
         return done(null, held ?? undefined);
@@ -203,6 +219,17 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       done(null, held.subarray(0, 16 - pad));
     },
   });
+}
+
+const wrongKey = (why: string) => permanent(`HLS 세그먼트의 키가 맞지 않습니다(${why})`);
+
+// 판정할 만큼 모이기 전에 끝난 짧은 세그먼트. 암호문이 블록 단위로 다 왔고, 끝 패딩이 맞고, 세그먼트 전체가 컨테이너 형식에 맞아야 내보낼 평문을 돌려준다. 아니면 키 불일치 오류
+function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer | Error {
+  if (rest.length || !held) return wrongKey("짧은 세그먼트의 암호문이 블록 단위가 아님");
+  const pad = paddingOf(held);
+  if (pad === null) return wrongKey("짧은 세그먼트의 끝 패딩이 깨짐");
+  const segment = Buffer.concat([front, held.subarray(0, 16 - pad)]);
+  return segmentStart(segment, true) === "ok" ? segment : wrongKey("짧은 세그먼트가 TS, ID3, fMP4 가 아님");
 }
 
 /**
@@ -253,5 +280,5 @@ async function firstBytes(body: Readable, limit: number, signal: AbortSignal): P
   }
 }
 
-export { openDirectInput, guardedRanges, validatorOf };
+export { openDirectInput, guardedRanges, validatorOf, decrypting };
 export type { DirectInput, InputOptions as DirectInputOptions, Resumable };

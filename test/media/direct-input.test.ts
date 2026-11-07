@@ -4,7 +4,8 @@ import crypto from "node:crypto";
 import { PassThrough, Readable } from "node:stream";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { openDirectInput, guardedRanges, validatorOf } from "../../src/media/direct-input.ts";
+import fs from "node:fs";
+import { openDirectInput, guardedRanges, validatorOf, decrypting } from "../../src/media/direct-input.ts";
 import * as SafeUrl from "../../src/infra/safe-url.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import type { DirectOpen } from "../../src/sources/direct.ts";
@@ -132,6 +133,12 @@ test("Range 어댑터: 신호를 가드에 넘기고, 응답을 기다리는 사
 
 const MB = 1024 * 1024;
 const bytesOf = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 13 + (i >> 9)) & 0xff));
+// MPEG-TS 처럼 188바이트마다 동기 바이트(0x47)가 있는 평문. AES 세그먼트는 키를 확인하려고 앞부분이 HLS 컨테이너인지 본다
+const tsOf = (size: number) => {
+  const bytes = bytesOf(size);
+  for (let i = 0; i < size; i += 188) bytes[i] = 0x47;
+  return bytes;
+};
 const KEY = Buffer.alloc(16, 3);
 const IV = Buffer.alloc(16, 9);
 const seal = (plain: Buffer, key = KEY) => {
@@ -196,7 +203,7 @@ test("HLS 큰 세그먼트: 첫 응답이 중간에 끊기면 그 위치부터 R
 });
 
 test("HLS 큰 AES 세그먼트: 블록 중간에서 끊겼다 이어도 통째로 복호화한 것과 같고, 스트리밍하기 전에 끝 32바이트로 키를 확인한다", async () => {
-  const plain = bytesOf(3 * MB + 5);
+  const plain = tsOf(3 * MB + 5);
   const sealed = seal(plain);
   const server = segmentServer(sealed, { dieAt: 1_000_003 });
   const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(true));
@@ -208,7 +215,7 @@ test("HLS 큰 AES 세그먼트: 블록 중간에서 끊겼다 이어도 통째�
 });
 
 test("HLS 큰 AES 세그먼트: 끝 패딩이 깨졌으면(확인을 건너뛴 서버) 마지막 블록만 버리고 warn을 남긴 채 깨끗이 끝난다", async () => {
-  const plain = bytesOf(2 * MB + 5);
+  const plain = tsOf(2 * MB + 5);
   const sealed = seal(plain);
   sealed[sealed.length - 1] ^= 0xff;
   const server = segmentServer(sealed, { probe: "ignore" });
@@ -222,7 +229,7 @@ test("HLS 큰 AES 세그먼트: 끝 패딩이 깨졌으면(확인을 건너뛴 �
 });
 
 test("HLS 큰 AES 세그먼트: 틀린 키나 블록 단위가 아닌 크기는 스트리밍하기 전에 재시도하지 않는 실패로 끝난다", async () => {
-  const sealed = seal(bytesOf(2 * MB));
+  const sealed = seal(tsOf(2 * MB));
   const wrong = segmentServer(sealed, { key: Buffer.alloc(16, 4) });
   const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, wrong.open(true));
   let got = 0;
@@ -236,7 +243,7 @@ test("HLS 큰 AES 세그먼트: 틀린 키나 블록 단위가 아닌 크기는 
 });
 
 test("HLS 큰 AES 세그먼트: 암호문이 블록 중간에서 끝나면 그 조각만 버리고 앞의 온전한 블록은 흘린다", async () => {
-  const plain = bytesOf(2 * MB);
+  const plain = tsOf(2 * MB);
   const sealed = seal(plain);
   const server = segmentServer(sealed.subarray(0, sealed.length - 1), { length: false });
   const from = sink.buffer.length;
@@ -250,7 +257,7 @@ test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를
   const plainServer = segmentServer(body, { length: false });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, plainServer.open(false))), body);
 
-  const plain = bytesOf(3 * MB + 9);
+  const plain = tsOf(3 * MB + 9);
   const aesServer = segmentServer(seal(plain), { length: false, chunk: 100_003 });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, aesServer.open(true))), plain);
 });
@@ -267,7 +274,7 @@ test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기
   assert.equal(again[0].bodyIdleMs, 6000, "이어 받는 응답에도 무응답 한도");
   assert.equal(resumed.length, 1);
 
-  const plain = bytesOf(3 * MB + 9);
+  const plain = tsOf(3 * MB + 9);
   const aes = segmentServer(seal(plain), { length: false, dieAt: 1_700_003, chunk: 100_003 });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, aes.open(true))), plain);
 
@@ -275,4 +282,69 @@ test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기
   const told: unknown[] = [];
   await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000, onResumed: (info) => void told.push(info) }, sized.open(false)));
   assert.equal(told.length, 1, "크기를 아는 세그먼트(청크 스트림)도 알린다");
+});
+
+// test/fixtures/hls 의 세그먼트(만든 방법은 test/rules/hls-segment-start.test.ts)를 이어 붙여 큰 세그먼트를 만든다
+const fixture = (name: string) => fs.readFileSync(new URL(`../fixtures/hls/${name}`, import.meta.url));
+const repeated = (one: Buffer, size: number) => Buffer.concat(Array.from({ length: Math.ceil(size / one.length) }, () => one));
+
+test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대로 흘리고, 틀린 키면 끝을 확인할 수 없어도(크기를 모름) 아무것도 흘리기 전에 다시 받지 않는 실패로 끝난다", async () => {
+  for (const name of ["segment.mpegts", "segment.m4s", "segment.aac"]) {
+    const plain = repeated(fixture(name), 2 * MB);
+    const right = segmentServer(seal(plain), { length: false });
+    assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, right.open(true))), plain, name);
+
+    const wrong = segmentServer(seal(plain, Buffer.alloc(16, 4)), { length: false });
+    const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, wrong.open(true));
+    let got = 0;
+    input.on("data", (chunk: Buffer) => (got += chunk.length));
+    await assert.rejects(new Promise((resolve, reject) => input.on("end", resolve).on("error", reject)), (e: Error & { permanent?: boolean }) => e.permanent === true && /키가 맞지 않/.test(e.message), name);
+    assert.equal(got, 0, `${name}: 아무것도 흘리지 않았다`);
+  }
+});
+
+// 복호화 단계에 암호문을 size 바이트씩 넣고 나온 것과 오류를 모은다
+async function decryptIn(sealed: Buffer, size: number, key: Buffer = KEY) {
+  const stage = decrypting(key, IV);
+  const out: Buffer[] = [];
+  const pushed: number[] = [];
+  stage.on("data", (chunk: Buffer) => out.push(chunk));
+  const ended = new Promise<Error | null>((resolve) => stage.on("end", () => resolve(null)).on("error", resolve));
+  for (let at = 0; at < sealed.length; at += size) {
+    stage.write(sealed.subarray(at, at + size));
+    pushed.push(Buffer.concat(out).length);
+  }
+  stage.end();
+  return { error: await ended, out: Buffer.concat(out), pushed };
+}
+
+test("AES 복호화: 판정할 만큼(TS 377바이트) 모이기 전에는 아무것도 내보내지 않는다", async () => {
+  const plain = fixture("segment.mpegts");
+  const { error, out, pushed } = await decryptIn(seal(plain), 1);
+  assert.equal(error, null);
+  assert.deepEqual(out, plain);
+  assert.equal(pushed.findIndex((n) => n > 0) >= 392, true, `처음 내보낸 때: 암호문 ${pushed.findIndex((n) => n > 0) + 1}바이트`);
+});
+
+test("AES 복호화: 판정할 만큼 모이기 전에 끝난 짧은 세그먼트는 블록 단위, 끝 패딩, 컨테이너가 다 맞아야 내보낸다", async () => {
+  const one = fixture("segment.mpegts").subarray(0, 188);
+  const ok = await decryptIn(seal(one), 64);
+  assert.equal(ok.error, null);
+  assert.deepEqual(ok.out, one, "패킷 하나짜리 TS");
+
+  const twoPackets = Buffer.from(fixture("segment.mpegts").subarray(0, 376));
+  twoPackets[188] = 0;
+  const badPad = Buffer.from(seal(one));
+  badPad[badPad.length - 1] ^= 0x01;
+  const cases: Array<[string, Buffer, Buffer?]> = [
+    ["끝 패딩이 깨짐", badPad],
+    ["블록 단위가 아님(온전한 암호문 뒤에 5바이트)", Buffer.concat([seal(one), Buffer.alloc(5)])],
+    ["틀린 키", seal(one), Buffer.alloc(16, 4)],
+    ["컨테이너가 아님(둘째 패킷의 동기 바이트가 틀린 377바이트 미만 TS)", seal(twoPackets)],
+  ];
+  for (const [name, sealed, key] of cases) {
+    const got = await decryptIn(sealed, 64, key);
+    assert.ok((got.error as (Error & { permanent?: boolean }) | null)?.permanent === true && /키가 맞지 않/.test(got.error!.message), name);
+    assert.equal(got.out.length, 0, `${name}: 아무것도 내보내지 않는다`);
+  }
 });
