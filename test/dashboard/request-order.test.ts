@@ -18,7 +18,7 @@ const store = openTempStore("request-order-");
 const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
-const { listen } = await import("../../src/dashboard/binding.ts");
+const { createServer } = await import("../../src/dashboard/binding.ts");
 const { tooManyRequests } = await import("../../src/dashboard/problem.ts");
 const { CSRF_TOKEN_MAX } = await import("../../src/dashboard/rate-limits.ts");
 
@@ -165,7 +165,7 @@ test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, �
 });
 
 test("100-continue: 검사에 걸리면 100 없이 거절하고, 통과하면 100을 보내고 본문을 받는다", async () => {
-  const server = listen(appOf(), { host: "127.0.0.1", port: 0, url: "http://localhost" });
+  const server = createServer(appOf()).listen(0, "127.0.0.1");
   servers.push(server);
   if (!server.listening) await once(server, "listening");
   const port = (server.address() as AddressInfo).port;

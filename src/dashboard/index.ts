@@ -2,7 +2,7 @@ import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
-import express, { type Express as App, type NextFunction, type Request, type RequestHandler, type Response } from "express";
+import express, { type Express as App, type RequestHandler, type Response } from "express";
 import type { BotContext } from "../app/bot-context.ts";
 import session from "express-session";
 import cors from "cors";
@@ -18,7 +18,9 @@ import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
-import { isLoopbackHost, listen } from "./binding.ts";
+import type { Server } from "node:http";
+import { createServer, listenAll } from "./binding.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
 import { clientFreshness, freshnessWarning } from "./client-freshness.ts";
 import { withGuildName } from "./routes/ai-log.ts";
@@ -50,6 +52,8 @@ import { precompressed } from "./precompressed.ts";
 import { trustProxy } from "./client-ip.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
+import { checkPublicUrl, plaintextGate } from "./plaintext.ts";
+import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -65,24 +69,6 @@ function resolveSessionSecret() {
   }
   log.warn("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 다시 시작할 때마다 대시보드 로그인이 전부 풀립니다.");
   return crypto.randomBytes(32).toString("hex");
-}
-
-// 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
-// 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 안전망.
-// 대시보드 주소가 https인데 평문으로 보이면 앞단의 프록시를 신뢰하지 않는 상태다(공인 IP의 프록시인데 DASHBOARD_TRUST_PROXY에 없음). 쿠키에 Secure, __Host-가 빠진다
-function plaintextAccessWarner(host: string, url: string): RequestHandler {
-  if (isLoopbackHost(host)) return (_req, _res, next) => next();
-
-  let warned = false;
-  const https = /^https:/i.test(url);
-  return (req: Request, _res: Response, next: NextFunction) => {
-    if (!warned && !req.secure) {
-      warned = true;
-      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞단의 프록시를 신뢰하지 않으면 X-Forwarded-Proto를 무시해 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 공인 IP로 연결되면 그 주소를 .env의 DASHBOARD_TRUST_PROXY에 추가하세요(내부 주소는 자동으로 신뢰합니다).");
-      else log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
-    }
-    next();
-  };
 }
 
 /** 신뢰하는 프록시를 설정한다(dashboard/client-ip). 내부 주소는 자동으로, 공인 IP의 원격 프록시는 DASHBOARD_TRUST_PROXY로 신뢰한다. 거부한 값과 필요 없는 값은 기동 로그용으로 돌려준다 */
@@ -155,7 +141,7 @@ function cacheAssets(res: Response, file: string) {
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼), restart: 봇 다시 시작(실행기로 켰을 때만). 조립이 넘긴다
 function createApp(bot: BotContext, { stream, deployCommands, restart = null, sessionMiddleware = createSessionMiddleware(), clientDist = PROJECT.dashboardDist }: AppDeps) {
   const app = express();
-  const { host, url } = config.dashboard;
+  const { url } = config.dashboard;
 
   // X-Forwarded-*는 신뢰하는 홉이 보낸 것만 읽는다(내부 주소, DASHBOARD_TRUST_PROXY). 사용자 IP는 dashboard/client-ip의 clientIp
   applyTrustProxy(app, config.dashboard.trustProxy);
@@ -171,7 +157,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(strictTransport(url));
   // 허용하지 않은 호스트로 온 요청(DNS 리바인딩)을 막는다. 정적 파일, 세션보다 앞에 둔다
   app.use(hostCheck(url));
-  app.use(plaintextAccessWarner(host, url));
+  // 인터넷 평문 접속은 모든 응답을 안내로 바꾼다(DASHBOARD_ALLOW_PLAINTEXT로만 푼다). 정적 파일, 세션보다 앞에 둔다
+  app.use(plaintextGate(config.dashboard.allowPlaintext));
   // 로그인 없이 받는 경로(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP로 센다. /api, /auth는 아래에서 따로 센다
   // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path) && req.method !== "OPTIONS") || ASSETS.test(req.path) }));
@@ -258,6 +245,71 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   return app;
 }
 
+/** 이전 실행에 연 범위(dashboard/bind-plan의 scopeOf)를 적어 두는 파일. 넓어졌으면 기동 로그가 알린다 */
+const SCOPE_FILE = path.join(PROJECT.database, "dashboard-scope.json");
+
+function readScope(file: string): string | null {
+  try {
+    const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { scope?: unknown };
+    return typeof saved.scope === "string" ? saved.scope : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeScope(file: string, scope: string) {
+  try {
+    fs.writeFileSync(file, JSON.stringify({ scope }));
+  } catch (error) {
+    log.warn(`대시보드를 연 범위를 적지 못했습니다(다음 기동 시 범위가 넓어져도 알리지 못함): ${messageOf(error)}`);
+  }
+}
+
+/**
+ * 대시보드를 연다: 인터넷 평문 공개 주소면 열지 않고, 열 주소를 정해(dashboard/bind-plan) 열고, 연 주소와 진단을 남긴다.
+ * 못 열면 봇은 대시보드 없이 돈다. 연 서버를 돌려준다. scopeFile: 연 범위를 적는 파일(테스트가 임시 폴더로)
+ */
+async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inContainer() }: { scopeFile?: string; container?: boolean } = {}): Promise<Server[]> {
+  const { url, port, host, allowPlaintext } = config.dashboard;
+  if (allowPlaintext) {
+    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않습니다.");
+  } else {
+    const verdict = await checkPublicUrl(url);
+    if (!verdict.open) {
+      log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷 평문이 되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). README의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+      return [];
+    }
+    if (verdict.note) log.warn(verdict.note);
+  }
+  const plan = planBind({ envHost: host, url, container, certs: false });
+  const opened = await listenAll(() => createServer(app), plan.hosts, port);
+  if (!opened.servers.length) return [];
+  // 봇 상태 탭의 업로드에 대시보드가 보낸 양을 넣는다
+  for (const server of opened.servers) countServer(server);
+  log.info(bindLine(plan, opened.hosts, port, "http"));
+  try {
+    logOpened(plan, scopeFile, container);
+  } catch (error) {
+    log.warn(`대시보드는 열었지만 기동 진단을 남기지 못했습니다: ${messageOf(error)}`);
+  }
+  return opened.servers;
+}
+
+/** 연 뒤의 기동 진단: 넓어진 범위, 연 범위에 따른 안내, 콜백 주소, 화면 빌드, 개발 모드 */
+function logOpened(plan: BindPlan, scopeFile: string, container: boolean) {
+  const { url, port, host } = config.dashboard;
+  const widened = widenedNote(readScope(scopeFile), plan);
+  for (const note of [...(widened ? [widened] : []), ...bindNotes(plan, { url, port, envHost: host, container, reachable: reachableAddresses() })]) log[note.level](note.text);
+  writeScope(scopeFile, scopeOf(plan));
+  // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
+  log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);
+  // 업데이트 뒤 화면을 다시 빌드하지 않으면 옛 화면이 새 서버와 어긋난다(pnpm install은 의존성이 그대로면 빌드를 건너뛴다)
+  const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
+  if (stale) log.warn(stale);
+  // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
+  if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
+}
+
 function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {
   const app = createApp(bot, { stream, deployCommands, restart });
   // 봇 상태 탭의 측정, 최근 15분, 게이트웨이 재연결은 화면을 열기 전부터 모은다
@@ -278,19 +330,9 @@ function startDashboard(bot: BotContext, { stream, deployCommands, restart }: Ap
   });
 
   logTrustProxy(trustProxy(config.dashboard.trustProxy));
-  const server = listen(app, config.dashboard, () => {
-    // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
-    log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);
-    // 업데이트 뒤 화면을 다시 빌드하지 않으면 옛 화면이 새 서버와 어긋난다(pnpm install 은 의존성이 그대로면 빌드를 건너뛴다)
-    const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
-    if (stale) log.warn(stale);
-    // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
-    if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
-  });
-  // 봇 상태 탭의 업로드에 대시보드가 보낸 양을 넣는다
-  countServer(server);
+  openDashboard(app).catch((error: unknown) => log.error(`대시보드 서버 실행 실패(대시보드 없이 계속 실행): ${messageOf(error)}`));
 
   return app;
 }
 
-export { startDashboard, createApp, createSessionMiddleware };
+export { startDashboard, openDashboard, createApp, createSessionMiddleware };

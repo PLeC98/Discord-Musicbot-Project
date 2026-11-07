@@ -15,7 +15,8 @@ const store = openTempStore("host-check-");
 const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
-const { normalizeHost, allowedHost, hostCheck, warnGate } = await import("../../src/dashboard/host-check.ts");
+const { normalizeHost, allowedHost, hostCheck } = await import("../../src/dashboard/host-check.ts");
+const { warnGate } = await import("../../src/dashboard/warn-gate.ts");
 
 const servers: Array<{ close(): unknown }> = [];
 after(() => {

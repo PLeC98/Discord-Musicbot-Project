@@ -9,7 +9,7 @@ import os from "node:os";
 import { BlockList } from "node:net";
 import type { Request } from "express";
 import CLOUDFLARE from "../../data/cloudflare-ips.json" with { type: "json" };
-import { blockOf, familyOf, inBlock, isInsideKind, normalizeIp, parseCidrList } from "../rules/net-address.ts";
+import { blockOf, familyOf, inBlock, isInsideKind, isTransition, normalizeIp, parseCidrList } from "../rules/net-address.ts";
 
 const cloudflare = blockOf([...CLOUDFLARE.v4, ...CLOUDFLARE.v6]);
 
@@ -30,9 +30,10 @@ function readOwn(): Own {
       if (!ip) continue;
       const family = familyOf(ip);
       addresses.addAddress(ip, family);
-      // 같은 서브넷(on-link)의 전역 IPv6 주소. 프리픽스가 /64보다 좁은 인터페이스(VPS의 /128 등)는 이웃이 없다고 본다
+      // 같은 서브넷(on-link)의 전역 IPv6 주소. 프리픽스가 /64보다 좁은 인터페이스(VPS의 /128 등)는 이웃이 없다고 본다.
+      // 전환 주소(Teredo, 6to4, NAT64)의 프리픽스는 인터넷의 다른 사용자도 들어 있어 이웃으로 보지 않는다
       const prefix = Number(String(a.cidr ?? "").split("/")[1]);
-      if (family === "ipv6" && !a.internal && Number.isInteger(prefix) && prefix > 0 && prefix <= 64 && !isInsideKind(ip)) onLink.addSubnet(ip, prefix, "ipv6");
+      if (family === "ipv6" && !a.internal && Number.isInteger(prefix) && prefix > 0 && prefix <= 64 && !isInsideKind(ip) && !isTransition(ip)) onLink.addSubnet(ip, prefix, "ipv6");
     }
   }
   return { addresses, onLink, readAt: Date.now() };

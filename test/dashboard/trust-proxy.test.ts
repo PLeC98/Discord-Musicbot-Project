@@ -38,11 +38,11 @@ after(() => {
   store.close();
 });
 
-/** 그 값으로 앱을 띄우고, 헤더를 실은 익명 GET을 그 경로로 보내는 함수를 돌려준다 */
+/** 그 값으로 앱을 띄우고, 헤더를 실은 익명 GET을 그 경로로 보내는 함수를 돌려준다. 같은 기기의 HTTPS 프록시처럼 X-Forwarded-Proto: https를 붙인다(인터넷 평문 막기에 걸리지 않게) */
 async function serve(trust: string, path: string) {
   const server = await listenForFetch(appWith(trust), "127.0.0.1");
   servers.push(server);
-  return (headers: Record<string, string>) => fetch(`${baseUrl(server)}${path}`, { headers, redirect: "manual", signal: AbortSignal.timeout(3000) }).then((r) => r.status);
+  return (headers: Record<string, string>) => fetch(`${baseUrl(server)}${path}`, { headers: { "x-forwarded-proto": "https", ...headers }, redirect: "manual", signal: AbortSignal.timeout(3000) }).then((r) => r.status);
 }
 /** 한도 하나를 1로 두고 돌린다(같은 키로 세면 둘째 요청이 429다) */
 async function withMax<T>(key: "apiMax" | "authMax", fn: () => Promise<T>) {
@@ -149,4 +149,15 @@ test("Cloudflare 대역의 홉이면 CF-Connecting-IP(값이 IP 하나일 때만
   for (const bad of ["1.1.1.1, 2.2.2.2", "1.2.3.4%foo,2.3.4.5", "1.2.3.4%eth0", "nope"]) assert.equal(clientIp(req("104.16.0.1", bad)), "104.16.0.1", bad);
   assert.equal(clientIp(req("104.16.0.1", ["1.1.1.1", "2.2.2.2"])), "104.16.0.1");
   assert.equal(clientIp(req("104.16.0.1")), "104.16.0.1");
+});
+
+test("IPv6 전환 주소(Teredo, 6to4)의 프리픽스는 /64 이하여도 이웃으로 보지 않는다(같은 프리픽스에 인터넷의 다른 사용자가 있다)", () => {
+  _useInterfaces((): Interfaces => ({ teredo: [v6("2001:0:4136:e378:8000:63bf:3fff:fdd2", "2001:0:4136:e378:8000:63bf:3fff:fdd2/64")], sixtofour: [v6("2002:cb00:7105::1", "2002:cb00:7105::1/16")] }));
+  try {
+    assert.equal(isInside("2001:0:4136:e378:8000:63bf:3fff:fdd2"), true, "이 기기 주소는 그대로");
+    assert.equal(isInside("2001:0:4136:e378:8000:1111:2222:3333"), false, "같은 Teredo 서버를 쓰는 인터넷 사용자");
+    assert.equal(isInside("2002:1234:5678::1"), false, "다른 6to4 사용자");
+  } finally {
+    _useInterfaces(os.networkInterfaces);
+  }
 });

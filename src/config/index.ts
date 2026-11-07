@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import { isIP } from "net";
 import pkg from "../../package.json" with { type: "json" };
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -154,6 +155,23 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return v;
   }
 
+  // 브라우저가 여는 주소의 origin(scheme, 호스트, 포트). 경로, 사용자 정보, ?, #이 있으면 받지 않는다(콜백, 쿠키, Host 확인이 origin만 쓴다)
+  function envOrigin(key: string, def: string) {
+    const v = envUrl(key, def);
+    const parsed = new URL(v);
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, "경로, 사용자 정보, ?, # 없이 주소만 적으세요 (예: https://example.com, http://bot.example.com:33333)", def);
+    return v;
+  }
+
+  // 여는 주소 하나: IP(0.0.0.0, :: 포함)나 localhost. 비우면 null
+  function envAddress(key: string) {
+    const v = env(key);
+    if (v === null) return null;
+    const text = v.trim();
+    if (text === "localhost" || isIP(text)) return text;
+    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있습니다", null);
+  }
+
   // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 던진다
   function envColor(key: string, def: HexColor) {
     const v = env(key);
@@ -190,7 +208,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있습니다", []) : list;
   }
 
-  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
+  return { env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
 }
 
 function resolveFromRoot(p: string): string;
@@ -352,16 +370,17 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그. 한 함수가 너무 길어 나눴다
-function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
-      // 바인딩 주소. 기본은 루프백. 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
-      // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
-      host: env("DASHBOARD_HOST", "127.0.0.1"),
+      // 여는 주소. 비우면 공개 주소, 컨테이너, 인증서 파일로 정한다(dashboard/bind-plan). 다른 기기의 프록시, 네트워크 인터페이스 하나에만 열 때, host 네트워크의 컨테이너
+      host: envAddress("DASHBOARD_HOST"),
       // 추가로 신뢰할 원격 프록시(공인 IP나 CIDR을 쉼표로 구분한 목록). 내부 주소(loopback, 사설망, 이 기기의 주소)는 넣지 않아도 신뢰한다(dashboard/client-ip)
       trustProxy: env("DASHBOARD_TRUST_PROXY", ""),
-      url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+      url: envOrigin("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+      // 인터넷 평문 접속을 막지 않는다(dashboard/plaintext). .env에서만 켠다(대시보드에서 못 바꿔 훔친 세션이 보안을 낮추지 못한다)
+      allowPlaintext: envBool("DASHBOARD_ALLOW_PLAINTEXT", false),
       ownerId: env("OWNER_ID"),
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",

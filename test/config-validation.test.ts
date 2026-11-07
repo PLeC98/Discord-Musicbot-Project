@@ -56,6 +56,14 @@ test("주소 설정은 형식과 스킴을 본다", () => {
   assert.deepEqual(tune({ WEBSITE: "https://example.com" }).tuneProblems, []);
 });
 
+test("대시보드 공개 주소는 origin만(경로, 사용자 정보, ?, # 없이), 여는 주소는 IP나 localhost만 받는다", () => {
+  for (const url of ["https://example.com/musicbot", "https://user:pw@example.com", "https://example.com/?a=1", "https://example.com/#x", "https://example.com?", "https://example.com#", "ftp://example.com"]) assert.equal(load({ DASHBOARD_URL: url }).problems.length, 1, url);
+  for (const url of ["https://example.com", "https://example.com/", "http://bot.example.com:33333"]) assert.deepEqual(load({ DASHBOARD_URL: url }).problems, [], url);
+  for (const host of ["example.com", "0.0.0.0:33333", "eth0"]) assert.equal(load({ DASHBOARD_HOST: host }).problems.length, 1, host);
+  for (const host of ["0.0.0.0", "::", "192.168.0.10", "::1", "localhost"]) assert.deepEqual(load({ DASHBOARD_HOST: host }).problems, [], host);
+  assert.deepEqual(load({ DASHBOARD_ALLOW_PLAINTEXT: "yes" }).problems.length, 1, "true, false만");
+});
+
 // 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 필드는 기본 색으로 돈다
 test("임베드 색은 #RRGGBB 만 받는다", () => {
   assert.deepEqual(tune({ EMBED_COLOR: "#2743d2" }).tuneProblems, []);

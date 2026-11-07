@@ -87,6 +87,20 @@ const KINDS: Array<[Exclude<Kind, "public">, BlockList]> = [
 ];
 const INSIDE_SUBNETS = [...LOOPBACK, ...PRIVATE, ...LINK_LOCAL, ...CGNAT];
 
+// IPv6 전환 주소(Teredo 2001::/32, 6to4 2002::/16, NAT64 64:ff9b::/96, 64:ff9b:1::/48). 같은 프리픽스 안에 인터넷의 다른 사용자가 있다
+const TRANSITION = ranges([
+  ["2001::", 32, "ipv6"],
+  ["2002::", 16, "ipv6"],
+  ["64:ff9b::", 96, "ipv6"],
+  ["64:ff9b:1::", 48, "ipv6"],
+]);
+
+/** IPv6 전환 주소인지(Teredo, 6to4, NAT64) */
+function isTransition(text: string | null | undefined) {
+  const ip = normalizeIp(text);
+  return ip !== null && familyOf(ip) === "ipv6" && TRANSITION.check(ip, "ipv6");
+}
+
 /** 주소의 종류. 유효한 IP가 아니면 null */
 function kindOf(text: string | null | undefined): Kind | null {
   const ip = normalizeIp(text);
@@ -176,5 +190,5 @@ function inBlock(block: BlockList, text: string | null | undefined) {
   return ip !== null && block.check(ip, familyOf(ip));
 }
 
-export { normalizeIp, kindOf, isInsideKind, parseCidr, parseCidrList, blockOf, inBlock, familyOf };
+export { normalizeIp, kindOf, isInsideKind, isTransition, parseCidr, parseCidrList, blockOf, inBlock, familyOf };
 export type { Kind, Family };

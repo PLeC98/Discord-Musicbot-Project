@@ -8,15 +8,12 @@ import { isIP } from "node:net";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import logger from "../infra/log/logger.ts";
 import { trustedPeer } from "./browser-side.ts";
+import { warnGate } from "./warn-gate.ts";
 
 const log = logger.child({ category: "dashboard" });
 
 /** 이 접미사로 끝나면 허용한다(로컬이나 사설망에서만 쓰이는 도메인) */
 const LOCAL_SUFFIXES = [".localhost", ".local", ".home.arpa", ".internal", ".lan"];
-/** 차단 경고 로그의 구간과 구간마다의 상한(같은 호스트는 구간마다 한 번) */
-const WARN_WINDOW_MS = 60 * 60_000;
-const WARN_MAX = 32;
-
 /**
  * Host 값 하나를 비교할 형태로: 소문자, IDNA(punycode), 포트와 끝의 점 제거, IPv6는 대괄호 포함.
  * 사용자 정보, 경로, 공백, % 같은 것이 섞였거나 형식이 잘못되면 null
@@ -57,28 +54,6 @@ function hostValues(req: Request): HostValue[] | null {
 
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** 차단 경고를 남길지: 같은 호스트는 구간마다 한 번, 구간마다 WARN_MAX까지. 상한에 닿으면 그 구간에 한 줄을 더 남긴다 */
-function warnGate(now = () => Date.now()) {
-  let windowStart = now();
-  const seen = new Set<string>();
-  let capped = false;
-  return (key: string): "warn" | "cap" | "skip" => {
-    if (now() - windowStart >= WARN_WINDOW_MS) {
-      windowStart = now();
-      seen.clear();
-      capped = false;
-    }
-    if (seen.has(key)) return "skip";
-    if (seen.size < WARN_MAX) {
-      seen.add(key);
-      return "warn";
-    }
-    if (capped) return "skip";
-    capped = true;
-    return "cap";
-  };
-}
-
 /** 모든 요청의 앞(정적 파일, 세션보다 앞): 허용하지 않은 호스트로 온 요청에 403과 안내를 보낸다 */
 function hostCheck(url: string): RequestHandler {
   let urlHost: string | null = null;
@@ -105,4 +80,4 @@ function hostCheck(url: string): RequestHandler {
   };
 }
 
-export { hostCheck, normalizeHost, allowedHost, warnGate };
+export { hostCheck, normalizeHost, allowedHost };
