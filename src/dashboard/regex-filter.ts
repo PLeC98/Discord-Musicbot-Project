@@ -8,7 +8,10 @@ import { Worker } from "worker_threads";
 /** 정규식 검사 한 번의 제한 시간이다 */
 const MATCH_TIMEOUT_MS = 1000;
 
-/** 정규식 검사 결과다. hits는 일치한 행의 인덱스, timeout은 시간 초과, aborted는 실행 전에 호출한 쪽이 취소해 큐에서 뺀 경우다. 스레드가 실패하면 reject한다 */
+/**
+ * 정규식 검사 결과다. hits는 일치한 행의 인덱스, timeout은 시간 초과나 정규식 엔진의 한도 초과(값이 너무 길어 난 RangeError, 둘 다 입력 탓),
+ * aborted는 실행 전에 호출한 쪽이 취소해 큐에서 뺀 경우다. 스레드가 실패하면 reject한다
+ */
 type MatchResult = { kind: "hits"; hits: number[] } | { kind: "timeout" } | { kind: "aborted" };
 type Job = { id: number; sources: string[]; rows: Array<Array<string | null>>; timeoutMs: number; resolve: (result: MatchResult) => void; reject: (error: Error) => void };
 let thread: Worker | null = null;
@@ -18,10 +21,11 @@ let lastId = 0;
 
 function spawn() {
   const one = new Worker(new URL("./regex-filter-worker.ts", import.meta.url));
-  one.on("message", ({ id, hits, error }: { id: number; hits?: number[]; error?: string }) => {
+  one.on("message", ({ id, hits, tooLarge, error }: { id: number; hits?: number[]; tooLarge?: boolean; error?: string }) => {
     if (thread !== one || running?.job.id !== id) return;
     const { job } = finish();
     if (hits) job.resolve({ kind: "hits", hits });
+    else if (tooLarge) job.resolve({ kind: "timeout" });
     else job.reject(new Error(error || "정규식을 검사하지 못했습니다"));
     next();
   });

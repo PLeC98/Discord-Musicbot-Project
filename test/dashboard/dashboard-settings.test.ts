@@ -31,7 +31,7 @@ type Reply = ProblemReply & {
   botInVoice?: boolean;
   userInVoice?: boolean;
   sameVoice?: boolean;
-  guilds?: { id: string; listening: boolean; canManageGuild: boolean }[];
+  guilds?: { id: string; listening: boolean }[];
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
@@ -419,7 +419,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래
 
 // ── GET /api/guilds 의 후보 ──
 
-test("GET guilds: 서버 관리 권한은 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
+test("GET player: canManage(서버 관리 권한)는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
   noVoice();
   currentUser = { id: "owner", username: "운영자" };
   try {
@@ -431,12 +431,8 @@ test("GET guilds: 서버 관리 권한은 권한 수준 오버라이드로 낮�
     ] as const) {
       currentMember = member();
       currentViewAs = viewAs;
-      const r = await req("GET", "/api/guilds");
-      assert.deepEqual(
-        r.json.guilds?.map((g) => g.canManageGuild),
-        [want],
-        `${member.name}: ${viewAs} 보기`,
-      );
+      const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+      assert.equal(r.json.canManage, want, `${member.name}: ${viewAs} 보기`);
     }
   } finally {
     currentViewAs = undefined;
@@ -444,21 +440,22 @@ test("GET guilds: 서버 관리 권한은 권한 수준 오버라이드로 낮�
   }
 });
 
-test("GET guilds: 봇이 든 서버 중 지금 멤버인 곳. 운영자는 멤버가 아니어도. 서버 관리 권한은 지금 멤버 권한", async () => {
+test("GET guilds: 봇이 있는 서버 중 사용자가 멤버인 곳만 돌려준다. 운영자도 멤버가 아니면 보이지 않는다", async () => {
   noVoice();
   currentUser = { id: "u1", username: "tester" };
   currentMember = modMember();
   let r = await req("GET", "/api/guilds");
   assert.deepEqual(
-    r.json.guilds?.map((g) => [g.id, g.canManageGuild]),
-    [[GUILD_ID, true]],
+    r.json.guilds?.map((g) => g.id),
+    [GUILD_ID],
   );
 
   currentMember = plainMember();
   r = await req("GET", "/api/guilds");
   assert.deepEqual(
-    r.json.guilds?.map((g) => g.canManageGuild),
-    [false],
+    r.json.guilds?.map((g) => g.id),
+    [GUILD_ID],
+    "일반 멤버",
   );
 
   currentMember = null; // 나간 서버

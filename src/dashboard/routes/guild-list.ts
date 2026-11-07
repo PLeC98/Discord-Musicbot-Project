@@ -2,10 +2,8 @@
 
 import express from "express";
 import { trackArtUrl } from "../player-view.ts";
-import { isServerManager } from "../../usecases/permissions.ts";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { memberOf, seesGuild, voiceFlags } from "../guild-access.ts";
-import { shadowMember } from "../view-as.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import type { DiscordHttp } from "../discord-api.ts";
 import { sendProblem } from "../problem.ts";
@@ -45,8 +43,6 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
           id: guild.id,
           name: guild.name,
           icon: guildIconUrl(guild.id, guild.icon),
-          // 해당 서버의 "서버 관리" 권한이다. 현재 멤버 권한으로 판정하며(권한 수준 오버라이드로 낮췄으면 그 계층 기준), 봇 운영자(isOwner) 여부와는 무관하다
-          canManageGuild: isServerManager(await shadowMember(req, member)),
           hasPlayer: players.has(guild.id),
           state: listState(voiceFlags(guild, user.id).botInVoice, player),
           memberCount: guild.memberCount,

@@ -8,8 +8,8 @@ type ListState = "idle" | "playing" | "paused" | "waiting";
 /** 서버 목록의 지금 곡. 곡이 없으면 null */
 type GuildTrack = { title: string | null; artist: string | null; thumbnail: string | null };
 
-/** 서버 목록의 한 줄. canManageGuild 는 그 서버의 "서버 관리" 권한, listening 은 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버의 지금 곡 */
-type GuildRow = { id: string; name: string; icon: string | null; canManageGuild: boolean; hasPlayer: boolean; state: ListState; memberCount: number; listening: boolean; nowPlaying: GuildTrack | null };
+/** 서버 목록의 한 항목. listening 은 사용자가 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버에서 재생 중인 곡. 설정 화면의 권한은 GET /player 의 canManage */
+type GuildRow = { id: string; name: string; icon: string | null; hasPlayer: boolean; state: ListState; memberCount: number; listening: boolean; nowPlaying: GuildTrack | null };
 /** relogin: 디스코드에서 사용자의 서버 목록을 받지 못해(토큰이 없거나 거절됨) 이미 확인한 서버만 보인다. 다시 로그인하면 모두 보인다 */
 type GuildList = { guilds: GuildRow[]; relogin?: true };
 
