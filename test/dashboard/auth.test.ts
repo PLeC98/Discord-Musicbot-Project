@@ -18,6 +18,7 @@ import path from "node:path";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
+import config from "../../src/config/index.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
 import { sessionCookieName } from "../../src/dashboard/cookies.ts";
@@ -82,6 +83,8 @@ async function start(http: ReturnType<typeof fakeDiscord>, { store, maxAge }: { 
   const server = await listenForFetch(app);
   servers.push(server);
   const base = listen.baseUrl(server);
+  // 로그인은 공개 주소에서 시작한다(다른 origin이면 공개 주소로 리다이렉트한다). 이 테스트 서버를 공개 주소로 둔다
+  config.dashboard.url = base;
   const jar = cookieJar();
   const go = async (path: string, init: RequestInit & { headers?: Record<string, string> } = {}) => {
     const res = await fetch(base + path, { redirect: "manual", ...init, headers: { cookie: jar.header(), ...init.headers } });
@@ -130,6 +133,7 @@ test("로그인: 세션을 만들지 않고 state를 암호화된 쿠키에 담�
 
 test("로그인: HTTPS로 들어오면(신뢰하는 프록시가 알림) 쿠키에 __Host- 접두사와 Secure 속성이 붙는다", async () => {
   const { go } = await start(fakeDiscord());
+  config.dashboard.url = config.dashboard.url.replace(/^http:/, "https:");
   const cookie = loginCookieOf(await go("/auth/login", { headers: { "x-forwarded-proto": "https" } }));
   assert.match(cookie, /^__Host-musicbot-login-/);
   assert.match(cookie, /Secure/);
@@ -355,3 +359,24 @@ test("팝업 다시 로그인: 디스코드를 기다리는 사이 다른 기기
     assert.ok(jar.get(SESSION) && jar.get(SESSION) !== old, "새 세션 쿠키");
     assert.deepEqual(await (await go("/me")).json(), { id: "u1", username: "user", globalName: "user", avatar: "av" });
   }));
+
+test("로그인: 공개 주소와 다른 origin(localhost, IP, http와 https)에서 시작하면 공개 주소의 로그인으로 리다이렉트한다(팝업은 그대로, 다시 리다이렉트하지 않는다)", async () => {
+  const { go } = await start(fakeDiscord());
+  const base = config.dashboard.url;
+  config.dashboard.url = "https://music.example.com";
+  try {
+    const moved = await go("/auth/login?popup=1");
+    assert.equal(moved.status, 302);
+    assert.equal(location(moved), "https://music.example.com/auth/login?popup=1&moved=1");
+    assert.equal(loginCookieOf(moved), "", "리다이렉트하기 전에는 로그인 쿠키를 붙이지 않는다");
+    assert.equal(location(await go("/auth/login", { headers: { "x-forwarded-host": "evil.example" } })), "https://music.example.com/auth/login?moved=1", "리다이렉트 대상은 설정의 공개 주소뿐");
+    // Host를 127.0.0.1로 바꾸는 프록시 뒤에서 리다이렉트되어 온 요청은 그대로 디스코드로 보낸다
+    const once = await go("/auth/login?moved=1");
+    assert.equal(new URL(location(once)).origin, "https://discord.com");
+    assert.match(loginCookieOf(once), /musicbot-login-/);
+  } finally {
+    config.dashboard.url = base;
+  }
+  const same = await go("/auth/login");
+  assert.equal(new URL(location(same)).origin, "https://discord.com", "공개 주소의 origin이면 리다이렉트하지 않는다");
+});

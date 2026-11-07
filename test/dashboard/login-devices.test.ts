@@ -21,6 +21,7 @@ import type { LoginDevices, SignedOut } from "../../src/dashboard/contract/ident
 import { fake } from "../helpers/fake.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import config from "../../src/config/index.ts";
 import { sessionCookieName } from "../../src/dashboard/cookies.ts";
 import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 
@@ -74,6 +75,8 @@ before(async () => {
   });
   server = await listen.listenForFetch(app);
   base = listen.baseUrl(server);
+  // 로그인은 공개 주소에서 시작한다(다른 origin이면 공개 주소로 리다이렉트한다). 이 테스트 서버를 공개 주소로 둔다
+  config.dashboard.url = base;
 });
 after(() => {
   server.close();

@@ -48,6 +48,22 @@ function revokeToken(http: DiscordHttp, token: string) {
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
+/** 브라우저가 연 주소의 origin이 공개 주소와 다르면 공개 주소의 로그인 주소(popup은 그대로, moved=1). 같거나 이미 리다이렉트했으면 null */
+function publicLogin(req: express.Request): string | null {
+  if (req.query.moved === "1") return null;
+  const target = new URL(config.dashboard.url);
+  let here: string;
+  try {
+    here = new URL(`${req.protocol}://${req.host}`).origin;
+  } catch {
+    here = "";
+  }
+  if (here === target.origin) return null;
+  target.pathname = "/auth/login";
+  target.search = new URLSearchParams({ ...(req.query.popup === "1" ? { popup: "1" } : {}), moved: "1" }).toString();
+  return target.toString();
+}
+
 // OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 생성 시각)은 세션이 아니라 쿠키 하나에 암호화해 둔다(Grafana의 oauth_state, Auth.js의 state 쿠키와 같다).
 // 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 재로그인이 기록한 state를 동시에 처리된 다른 요청이 이전 세션 사본으로 덮어써 지우게 된다
 type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
@@ -131,6 +147,10 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   // 디스코드 OAuth로 보낸다. popup=1: 화면이 연 재로그인 창이다. 끝나면 창을 닫는 화면(/login-done)으로 보낸다. 세션은 건드리지 않는다
   // PKCE(RFC 7636, S256): 가로챈 인가 코드는 이 브라우저의 verifier 없이 토큰으로 교환하지 못한다. RFC 9700 2.1.1은 confidential client에도 권고한다
   router.get("/login", (req, res) => {
+    // 로그인은 늘 공개 주소에서 시작한다: state 쿠키와 콜백이 공개 주소에 묶인다. 다른 이름(localhost, IP 등)으로 연 화면에서 오면 공개 주소의 로그인으로 보낸다.
+    // 리다이렉트한 요청에는 moved=1을 붙여 다시 리다이렉트하지 않는다(Host를 127.0.0.1로 바꾸는 프록시 뒤에서는 공개 주소로 와도 다른 이름으로 보인다)
+    const target = publicLogin(req);
+    if (target) return res.redirect(target);
     const state = crypto.randomBytes(32).toString("base64url");
     const verifier = crypto.randomBytes(32).toString("base64url");
     setLoginCookie(req, res, sealLogin({ state, verifier, popup: req.query.popup === "1", at: Date.now() }));
