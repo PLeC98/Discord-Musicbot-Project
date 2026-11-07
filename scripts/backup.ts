@@ -12,6 +12,8 @@ try {
   if (made.replaced.length) console.log(`이전 백업을 삭제했습니다: ${made.replaced.join(", ")}`);
   if (made.left.length) console.log(`주의: 이전 백업을 삭제하지 못했습니다(다른 프로그램이 열어 두었을 수 있습니다). 평문 비밀값이 든 파일이니 직접 삭제하세요: ${made.left.join(", ")}`);
   if (!made.hasEnv) console.log("주의: .env 가 없어 담지 못했습니다. 옮긴 곳에서 .env 를 따로 맞춰야 합니다");
+  if (made.legacyParts.length) console.log(`주의: 예전 버전에서 중단된 백업 임시 파일이 남아 있습니다. 평문 비밀값이 들어 있을 수 있으니, 지금 도는 다른 백업이 없으면 직접 삭제하세요: ${made.legacyParts.join(", ")}`);
+  if (made.tempLeft.length) console.log(`주의: 임시 사본을 삭제하지 못했습니다(설정 DB 사본에는 암호문 비밀값이 들어 있습니다). 직접 삭제하세요: ${made.tempLeft.join(", ")}`);
   console.log("");
   console.log("이 파일에는 봇 토큰과 SECRETS_KEY 가 평문으로 들어 있습니다. .env 처럼 다루고, 옮긴 뒤에는 삭제하세요.");
   console.log("옮기는 법: 옮길 봇 폴더에서 봇을 끄고, 이 ZIP 을 그 폴더에 풀어 덮어쓴 뒤 봇을 켭니다(설정 DB 는 시작할 때 교체하고, 오디오 캐시는 시작할 때 합칩니다).");

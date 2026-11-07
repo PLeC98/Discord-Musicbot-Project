@@ -89,8 +89,8 @@ function prune(dir: string, now = Date.now()) {
     for (const one of extra) for (const side of ["", "-wal", "-shm"]) removeQuietly(path.join(folder, one.name + side));
     for (const name of fs.readdirSync(folder)) {
       const file = path.join(folder, name);
-      // 본 파일이 없는 보조 파일(보조 파일을 남기고 삭제했던 것)
-      const main = /^(.+\.db)-(?:wal|shm)$/.exec(name)?.[1];
+      // 본 파일이 없는 보조 파일(보조 파일을 남기고 삭제했던 것, 뜨다 멈춘 .part의 것)
+      const main = /^(.+\.db(?:\.part)?)-(?:wal|shm|journal)$/.exec(name)?.[1];
       if (main && !fs.existsSync(path.join(folder, main))) removeQuietly(file);
       if (!name.endsWith(".db.part")) continue;
       const stat = fs.statSync(file, { throwIfNoEntry: false });
@@ -101,8 +101,10 @@ function prune(dir: string, now = Date.now()) {
   }
 }
 
-// 뜬 파일의 WAL 표시를 지운다. 그대로면 읽기 전용으로 열 때마다(복원 예약의 구조 확인, 사용자의 뷰어) -wal, -shm이 생겨 남는다.
-// 닫은 뒤에 이름을 바꾼다. 못 해도 스냅샷은 온전하다(보조 파일이 생길 수 있을 뿐). 복원한 settings.db는 열 때 다시 WAL이 된다
+/**
+ * 뜬 파일(스냅샷, 전체 백업 안의 DB 사본)의 WAL 표시를 지운다. 그대로면 읽기 전용으로 열 때마다(복원 예약의 구조 확인, 사용자의 뷰어) -wal, -shm이 생겨 남는다.
+ * 닫은 뒤에 이름을 바꾼다. WAL 표시를 지우지 못해도 사본은 온전하다(보조 파일이 생길 수 있을 뿐). 복원한 DB는 열 때 다시 WAL이 된다
+ */
 function dropWal(file: string) {
   try {
     const db = new Database(file, { fileMustExist: true });
@@ -112,7 +114,7 @@ function dropWal(file: string) {
       db.close();
     }
   } catch (error) {
-    log.warn(`설정 DB 스냅샷의 저널 방식을 바꾸지 못했습니다(읽기 전용으로 열면 -wal, -shm 파일이 생길 수 있습니다): ${messageOf(error)}`);
+    log.warn(`DB 사본의 저널 방식 변경 실패(읽기 전용으로 열면 -wal, -shm 파일이 생길 수 있음): ${path.basename(file)} | ${messageOf(error)}`);
   }
 }
 
@@ -267,4 +269,4 @@ function applyStaged(dir: string): string | null {
   return from;
 }
 
-export { list, take, tidy, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };
+export { list, take, tidy, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, dropWal, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };

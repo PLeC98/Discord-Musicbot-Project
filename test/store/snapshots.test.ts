@@ -150,14 +150,21 @@ test("뜬 스냅샷은 읽기 전용으로 열어도(복원 예약 시 스키마
   );
 });
 
-test("삭제한 스냅샷의 보조 파일, 본 파일 없이 남은 보조 파일도 삭제한다", async () => {
+test("삭제한 스냅샷의 보조 파일, 본 파일 없이 남은 보조 파일(-wal, -shm, -journal, 뜨다 멈춘 .part 의 것)도 삭제한다. 본 파일이 있으면 둔다", async () => {
   fs.mkdirSync(backups, { recursive: true });
-  for (const side of ["-wal", "-shm"]) fs.writeFileSync(path.join(backups, `settings-daily-2026-01-01.db${side}`), "");
+  for (const side of ["-wal", "-shm", "-journal"]) fs.writeFileSync(path.join(backups, `settings-daily-2026-01-01.db${side}`), "");
+  for (const side of ["-wal", "-journal"]) fs.writeFileSync(path.join(backups, `settings-before-import-2026-01-01-000000.db.part${side}`), "");
+  // 뜨는 중인 .part 와 그 보조 파일
+  const busy = path.join(backups, "settings-before-import-2026-11-06-000000.db.part");
+  fs.writeFileSync(busy, "");
+  fs.writeFileSync(`${busy}-journal`, "");
   await snapshots.take("before-import");
   assert.deepEqual(
-    fs.readdirSync(backups).filter((one) => /-(?:wal|shm)$/.test(one)),
-    [],
+    fs.readdirSync(backups).filter((one) => /-(?:wal|shm|journal)$/.test(one)),
+    [`${path.basename(busy)}-journal`],
   );
+  fs.rmSync(busy);
+  fs.rmSync(`${busy}-journal`);
 });
 
 test("오래된 스냅샷을 삭제하지 못해도(다른 프로그램이 열어 둠) 뜨기는 성공하고 다음에 다시 삭제한다", async () => {
