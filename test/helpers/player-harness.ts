@@ -342,7 +342,7 @@ type Behavior = {
   fetch: ((url: string, init: FetchInit) => unknown) | null;
   chunked: ((opts: ChunkedOptions) => unknown) | null;
   seekStart: ((request: SeekRequest) => SeekAnswer | Promise<SeekAnswer>) | null;
-  directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean }) => Readable | Promise<Readable>) | null;
+  directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean; onResumed?: (info: { attempts: number; downtimeMs: number; starvedMs: number }) => void }) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
   connect: (() => unknown) | null;
@@ -424,7 +424,7 @@ const fakes: Partial<Boundary> = {
     // 진짜(sources/stream-url)처럼 받은 음원 주소의 키를 싣는다. 테스트가 키를 정했으면(null 포함) 그대로
     return "audioKey" in got ? got : { ...got, audioKey: audioKeyOf((track as QueuedTrack).audioUrl) };
   },
-  directStream: (async (url: string, opts?: { startMs?: number; liveOnly?: boolean }) => {
+  directStream: (async (url: string, opts?: Parameters<NonNullable<typeof behavior.directStream>>[1]) => {
     calls.directStreams.push(url);
     return behavior.directStream ? behavior.directStream(url, opts) : Object.assign(new PassThrough(), { live: false, bounded: false });
   }) as unknown as Boundary["directStream"],

@@ -2,11 +2,11 @@
 //   live       끝이 없다(인터넷 라디오, 라이브 HLS). 캐시하지 않는다
 //   bounded    끝이 있고 크기, 길이를 안다(크기를 알린 파일, VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
-// HLS의 큰 세그먼트(sources/hls가 모으지 않고 넘긴 것)는 여기서 스트림으로 바꾼다: 크기를 알면 청크 스트림으로 끊긴 위치부터 잇고,
-// 모르면 모은 앞부분 뒤에 나머지를 잇는다. AES-128은 스트리밍하며 복호화한다(이어받는 것은 암호문이라 끊김과 상관없다)
+// HLS의 큰 세그먼트(sources/hls가 모으지 않고 넘긴 것)는 여기서 스트림으로 바꾼다: 크기를 알면 청크 스트림(media/chunked-stream)으로,
+// 모르면 이어 받는 스트림(media/resuming-body)으로 끊긴 위치부터 잇는다. AES-128은 스트리밍하며 복호화한다(이어받는 것은 암호문이라 끊김과 상관없다)
 
 import crypto from "crypto";
-import { PassThrough, Transform, pipeline, type Readable } from "stream";
+import { Transform, pipeline, type Readable } from "stream";
 import config from "../config/index.ts";
 import * as SafeUrl from "../infra/safe-url.ts";
 import * as DirectLink from "../sources/direct.ts";
@@ -15,6 +15,7 @@ import type { HlsFragments, HlsPart, HlsPour } from "../sources/hls.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { streamFragments, type FragmentSource } from "./fragment-stream.ts";
 import { createChunkedStream, readerOf, type RangeFetch } from "./chunked-stream.ts";
+import { createResumingBody, type Resumed } from "./resuming-body.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 
@@ -32,8 +33,9 @@ type DirectInput = Readable & {
 /**
  * startMs: 곡 안의 시작 위치(HLS VOD 만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg 의 -ss)
  * liveOnly: 라이브로 추가된 곡이다. HLS 의 목록이 끝났으면 틀지 않고 live-ended(다시보기를 처음부터 틀지 않는다)
+ * onResumed: HLS 세그먼트가 끊겼다 이어 받기 시작했을 때(파일은 여는 쪽의 청크 스트림이 알린다)
  */
-type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number };
+type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number; onResumed?: (info: Resumed) => void };
 type Open = (url: string, net?: undefined, opts?: { bodyIdleMs?: number }) => Promise<DirectLink.DirectOpen>;
 type GuardedGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
 
@@ -74,7 +76,7 @@ function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   };
 }
 
-async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs }: InputOptions = {}, open: Open = DirectLink.open): Promise<DirectInput> {
+async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs, onResumed }: InputOptions = {}, open: Open = DirectLink.open): Promise<DirectInput> {
   const opened = await open(url, undefined, { bodyIdleMs });
   if (opened.kind === "file") {
     const { body, radio, length } = opened;
@@ -85,7 +87,7 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
   }
   const { hls } = opened;
   if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS 의 목록이 끝났습니다: ${url}`);
-  return Object.assign(streamFragments(pouringSource(hls.fragments(startMs)), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
+  return Object.assign(streamFragments(pouringSource(hls.fragments(startMs), onResumed), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
 }
 
 const ignore = () => {
@@ -94,12 +96,12 @@ const ignore = () => {
 const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
 
 /** HLS의 세그먼트 출처를 세그먼트 스트림의 출처로 바꾼다. 모은 세그먼트는 그대로 두고, 넘긴 세그먼트는 스트림으로 바꾼다 */
-function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
+function pouringSource(fragments: HlsFragments, onResumed?: (info: Resumed) => void): FragmentSource<HlsPart> {
   return {
     next: () => fragments.next(),
     fetch: async (part, signal, progress) => {
       const got = await fragments.fetch(part, signal, progress);
-      return Buffer.isBuffer(got) ? got : pourOf(got, signal, progress);
+      return Buffer.isBuffer(got) ? got : pourOf(got, signal, progress, onResumed);
     },
     startedAtMs: fragments.startedAtMs,
     describe: (sent) => fragments.describe(sent),
@@ -111,7 +113,7 @@ function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
  * 넘긴 세그먼트를 스트림으로 바꾼다. 이제 이 함수가 본문의 주인이다(흘리기 전에 실패하면 닫는다).
  * 크기를 아는 AES는 흘리기 전에 키를 확인한다. 합계는 맨 끝에 센다(다시 받을 때 두 번 세지 않게): 크기를 알면 한 번에, 모르면 흐르는 바이트마다 센다
  */
-async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void): Promise<Readable> {
+async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void, onResumed?: (info: Resumed) => void): Promise<Readable> {
   const { totalBytes, key, iv } = pour;
   try {
     if (key && totalBytes !== null) {
@@ -135,22 +137,15 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void):
           ifRange: validatorOf(pour.headers),
           fetchImpl: guardedRanges((url, deps, opts) => pour.get(url, deps, { ...opts, bodyIdleMs: pour.idleMs })),
           stallMs: pour.idleMs,
+          onResumed,
         })
-      : withHead(pour.head, pour.body);
+      : createResumingBody({ url: pour.url, body: pour.body, head: pour.head, validator: validatorOf(pour.headers), get: pour.get, accept: OPEN_ACCEPT, idleMs: pour.idleMs, onResumed });
   // 각 단계는 pipeline으로 잇는다(끝을 닫으면 앞도 닫히고, 앞이 실패하면 끝도 닫힌다)
   const stages = [...(totalBytes === null ? [counter(pour.count)] : []), ...(key && iv ? [decrypting(key, iv)] : [])];
   for (const stage of stages) {
     pipeline(out, stage, ignore);
     out = stage;
   }
-  return out;
-}
-
-/** 모은 앞부분 뒤에 남은 본문을 이어 흘린다 */
-function withHead(head: Buffer | null, body: Readable): Readable {
-  const out = new PassThrough();
-  if (head?.length) out.write(head);
-  pipeline(body, out, ignore);
   return out;
 }
 

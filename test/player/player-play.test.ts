@@ -481,6 +481,23 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
+test("직접 링크는 이어 받았다는 알림(HLS 세그먼트)을 받아 스트림 재연결 줄을 남긴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = tracks.direct("https://files.test/live.m3u8");
+  behavior.stream = () => ({ url: "https://files.test/live.m3u8", platform: "direct" });
+  let told: ((info: { attempts: number; downtimeMs: number; starvedMs: number }) => void) | undefined;
+  behavior.directStream = (_url, opts) => {
+    told = opts?.onResumed;
+    return Object.assign(new PassThrough(), { live: false, bounded: false });
+  };
+  await playOnce(p);
+  assert.ok(told, "이어 받음 콜백을 넘긴다");
+  const from = sink.buffer.at(-1)?.id ?? -1;
+  told({ attempts: 2, downtimeMs: 1500, starvedMs: 0 });
+  assert.ok(sink.buffer.some((e) => e.id > from && e.level === "info" && e.text.startsWith("스트림 재연결:") && e.text.includes("재시도 2회")));
+  h.dispose(p);
+});
+
 test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
   for (const [bounded, downloads] of [
     [true, 1],

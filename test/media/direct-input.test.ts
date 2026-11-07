@@ -254,3 +254,25 @@ test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를
   const aesServer = segmentServer(seal(plain), { length: false, chunk: 100_003 });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, aesServer.open(true))), plain);
 });
+
+test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기면 받은 위치부터 이어 받아 원본과 같은 바이트를 받는다(AES면 블록 중간이어도). 두 경우 모두 이어 받았다고 알린다", async () => {
+  const body = bytesOf(3 * MB + 77);
+  const server = segmentServer(body, { length: false, dieAt: 2_000_001 });
+  const resumed: unknown[] = [];
+  const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000, onResumed: (info) => void resumed.push(info) }, server.open(false));
+  assert.deepEqual(await readInput(input), body);
+  const again = server.asked.filter((one) => one.from !== undefined);
+  assert.equal(again.length, 1);
+  assert.ok(again[0].from! > 1_000_000 && again[0].from! <= 2_000_001, `받은 위치부터(${again[0].from})`);
+  assert.equal(again[0].bodyIdleMs, 6000, "이어 받는 응답에도 무응답 한도");
+  assert.equal(resumed.length, 1);
+
+  const plain = bytesOf(3 * MB + 9);
+  const aes = segmentServer(seal(plain), { length: false, dieAt: 1_700_003, chunk: 100_003 });
+  assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, aes.open(true))), plain);
+
+  const sized = segmentServer(bytesOf(3 * MB), { dieAt: 1_500_000 });
+  const told: unknown[] = [];
+  await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000, onResumed: (info) => void told.push(info) }, sized.open(false)));
+  assert.equal(told.length, 1, "크기를 아는 세그먼트(청크 스트림)도 알린다");
+});

@@ -337,7 +337,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
  * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 흘리고, 끊기면 캐시 전환을 먼저 묻고 받은 자리부터 Range 로 잇는다
  */
 async function openDirect<R>(o: InputOptions<R>, url: string, hooks: Hooks): Promise<OpenedStream> {
-  const input = await o.io.directStream(url, { startMs: o.startMs, liveOnly: o.liveOnly });
+  const input = await o.io.directStream(url, { startMs: o.startMs, liveOnly: o.liveOnly, onResumed: (info) => hooks.resumed(info) });
   if (!input.resumable) return input;
   const { totalBytes, validator, fetch } = input.resumable;
   const chunked = await o.io.openChunkedStream({
