@@ -19,6 +19,7 @@ import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import type { Server } from "node:http";
+import type { X509Certificate } from "node:crypto";
 import { createServer, listenAll } from "./binding.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
@@ -53,7 +54,8 @@ import { trustProxy } from "./client-ip.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
 import { checkPublicUrl, plaintextGate } from "./plaintext.ts";
-import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
+import { bindLine, bindNotes, inContainer, isLoopbackName, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
+import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -269,37 +271,98 @@ function writeScope(file: string, scope: string) {
  * 대시보드를 연다: 인터넷 평문 공개 주소면 열지 않고, 열 주소를 정해(dashboard/bind-plan) 열고, 연 주소와 진단을 남긴다.
  * 못 열면 봇은 대시보드 없이 돈다. 연 서버를 돌려준다. scopeFile: 연 범위를 적는 파일(테스트가 임시 폴더로)
  */
-async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inContainer() }: { scopeFile?: string; container?: boolean } = {}): Promise<Server[]> {
+async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inContainer(), certsDir = PROJECT.certs }: { scopeFile?: string; container?: boolean; certsDir?: string } = {}): Promise<Server[]> {
   const { url, port, host, allowPlaintext } = config.dashboard;
-  if (allowPlaintext) {
-    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않습니다.");
-  } else {
-    const verdict = await checkPublicUrl(url);
-    if (!verdict.open) {
-      log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷 평문이 되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). README의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
-      return [];
-    }
-    if (verdict.note) log.warn(verdict.note);
-  }
-  const plan = planBind({ envHost: host, url, container, certs: false });
-  const opened = await listenAll(() => createServer(app), plan.hosts, port);
+  const tls = loadTls(certsDir);
+  if (tls === "error") return [];
+  // 인증서 파일로 열면 봇 포트는 TLS만 받아 그 포트로 오는 평문이 없고, 공개 주소도 https다
+  if (!tls && !(await plainUrlAllowed(url, allowPlaintext))) return [];
+  const plan = planBind({ envHost: host, url, container, certs: Boolean(tls) });
+  const opened = await listenAll(() => createServer(app, tls ? tls.options : undefined), plan.hosts, port);
   if (!opened.servers.length) return [];
   // 봇 상태 탭의 업로드에 대시보드가 보낸 양을 넣는다
   for (const server of opened.servers) countServer(server);
-  log.info(bindLine(plan, opened.hosts, port, "http"));
+  log.info(bindLine(plan, opened.hosts, port, tls ? "https" : "http"));
   try {
-    logOpened(plan, scopeFile, container);
+    if (tls) {
+      logTls(tls);
+      rotateTicketKeys(opened.servers);
+    }
+    logOpened(plan, scopeFile, container, tls ? "https" : "http");
   } catch (error) {
     log.warn(`대시보드는 열었지만 기동 진단을 남기지 못했습니다: ${messageOf(error)}`);
   }
   return opened.servers;
 }
 
+/** 기동 시 공개 주소 검사(dashboard/plaintext). 인터넷 평문이면 error를 남기고 false */
+async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
+  if (allowPlaintext) {
+    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않습니다.");
+    return true;
+  }
+  const verdict = await checkPublicUrl(url);
+  if (!verdict.open) {
+    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷 평문이 되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). README의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    return false;
+  }
+  if (verdict.note) log.warn(verdict.note);
+  return true;
+}
+
+type LoadedTls = { files: TlsFiles; options: ReturnType<typeof tlsOptions>; leaf: X509Certificate; notes: Array<{ level: "info" | "warn"; text: string }> };
+
+/** 연 뒤: 쓴 인증서와 기한, 확인에서 나온 warn. 하루 한 번 남은 기한을 다시 계산한다 */
+function logTls(tls: LoadedTls) {
+  log.info(`대시보드 인증서: ${tls.files.from === "env" ? `.env의 DASHBOARD_TLS_CERT(${tls.files.cert})` : "certs/cert.pem"}, 기한 ${tls.leaf.validTo}`);
+  for (const note of tls.notes) log[note.level](note.text);
+  watchExpiry(tls.leaf, tls.files.from);
+}
+
+/**
+ * 인증서 파일을 찾아 확인한다(dashboard/tls-files). 없으면 null, 문제가 있으면 까닭을 error로 남기고 "error"(대시보드를 열지 않는다)
+ */
+function loadTls(certsDir: string): LoadedTls | null | "error" {
+  const { url, tlsCert, tlsKey } = config.dashboard;
+  const found = findTlsFiles({ envCert: tlsCert, envKey: tlsKey, root: PROJECT.root, certsDir });
+  if (found.error) {
+    log.error(`${found.error} 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    return "error";
+  }
+  if (!found.files) return null;
+  const parsed = new URL(url);
+  // 끝의 점까지 제거하고 검사한다(https://localhost.도 이 기기 주소다)
+  const host = parsed.hostname
+    .replace(/^\[(.*)\]$/, "$1")
+    .replace(/\.$/, "")
+    .toLowerCase();
+  if (parsed.protocol !== "https:" || isLoopbackName(host)) {
+    log.error(`인증서 파일이 있는데 DASHBOARD_URL이 https 공개 주소가 아닙니다(${url}). DASHBOARD_URL을 https 주소로 바꾸거나, 프록시로 공개한다면 인증서 파일을 빼세요. 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    return "error";
+  }
+  let certPem: string;
+  let keyPem: string;
+  try {
+    certPem = fs.readFileSync(found.files.cert, "utf8");
+    keyPem = fs.readFileSync(found.files.key, "utf8");
+  } catch (error) {
+    log.error(`인증서 파일을 읽지 못했습니다: ${messageOf(error)}. 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    return "error";
+  }
+  const checked = checkTls({ certPem, keyPem, urlHost: host, keyWorldReadable: worldReadable(found.files.key) });
+  if (!checked.ok) {
+    for (const why of checked.errors) log.error(`대시보드 인증서: ${why}`);
+    log.error("인증서 파일에 문제가 있어 대시보드를 열지 않았습니다(봇은 계속 실행).");
+    return "error";
+  }
+  return { files: found.files, options: tlsOptions(certPem, keyPem), leaf: checked.leaf, notes: checked.notes };
+}
+
 /** 연 뒤의 기동 진단: 넓어진 범위, 연 범위에 따른 안내, 콜백 주소, 화면 빌드, 개발 모드 */
-function logOpened(plan: BindPlan, scopeFile: string, container: boolean) {
+function logOpened(plan: BindPlan, scopeFile: string, container: boolean, scheme: "http" | "https") {
   const { url, port, host } = config.dashboard;
   const widened = widenedNote(readScope(scopeFile), plan);
-  for (const note of [...(widened ? [widened] : []), ...bindNotes(plan, { url, port, envHost: host, container, reachable: reachableAddresses() })]) log[note.level](note.text);
+  for (const note of [...(widened ? [widened] : []), ...bindNotes(plan, { url, port, envHost: host, container, scheme, reachable: reachableAddresses() })]) log[note.level](note.text);
   writeScope(scopeFile, scopeOf(plan));
   // 로그인이 디스코드 승인 화면에서 막히면(콜백 주소 미등록) 봇은 알 길이 없다. 등록할 주소를 늘 보인다
   log.info(`디스코드 개발자 포털 OAuth2 → Redirects에 등록할 주소: ${callbackUrl()}`);

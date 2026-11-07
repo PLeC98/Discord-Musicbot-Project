@@ -381,6 +381,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
       url: envOrigin("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
       // 인터넷 평문 접속을 막지 않는다(dashboard/plaintext). .env에서만 켠다(대시보드에서 못 바꿔 훔친 세션이 보안을 낮추지 못한다)
       allowPlaintext: envBool("DASHBOARD_ALLOW_PLAINTEXT", false),
+      // 인증서 파일 경로(.env가 있는 폴더 기준). 둘 다 비우면 certs/cert.pem, certs/key.pem을 본다(dashboard/tls-files)
+      tlsCert: env("DASHBOARD_TLS_CERT"),
+      tlsKey: env("DASHBOARD_TLS_KEY"),
       ownerId: env("OWNER_ID"),
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",

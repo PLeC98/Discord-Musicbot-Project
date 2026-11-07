@@ -2,6 +2,8 @@
 // ::(모든 주소)를 열지 못하면(IPv6가 꺼진 기기) 0.0.0.0으로, ::1을 열지 못하면 그 주소만 빼고 연다. 포트가 겹치면 아무것도 열지 않는다
 
 import http, { type Server } from "node:http";
+import https from "node:https";
+import type { TlsOptions } from "node:tls";
 import type { Socket } from "node:net";
 import type { Duplex } from "node:stream";
 import type { RequestListener } from "node:http";
@@ -22,9 +24,9 @@ function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   socket.destroy(error);
 }
 
-/** 서버 하나를 만든다(요청을 읽지 못한 연결의 답, 100-continue를 앱으로) */
-function createServer(app: RequestListener): Server {
-  const server = http.createServer(app);
+/** 서버 하나를 만든다(요청을 읽지 못한 연결의 오류 응답, 100-continue를 앱으로 전달). tls가 있으면 HTTPS 서버(dashboard/tls-files) */
+function createServer(app: RequestListener, tls?: TlsOptions): Server {
+  const server: Server = tls ? https.createServer(tls, app) : http.createServer(app);
   server.on("clientError", onClientError);
   // 100-continue에 Node가 먼저 응답하지 않게 가로채 앱으로 넘긴다. 앱이 검사를 모두 통과한 뒤에 100을 보낸다(body-limit의 continueBody)
   server.on("checkContinue", (req, res) => server.emit("request", req, res));

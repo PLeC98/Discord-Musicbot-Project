@@ -48,8 +48,8 @@ const REASONS: Record<BindReason, string> = {
   env: "DASHBOARD_HOST",
   container: "컨테이너 안이라 모든 주소. 컨테이너 밖에 여는 범위는 -p가 정합니다. host 네트워크면 DASHBOARD_HOST를 넣으세요",
   "loopback-url": "이 기기 전용(공개 주소가 없거나 이 기기 주소)",
-  certs: "인증서 파일이 있어 모든 주소에 HTTPS",
-  "https-url": "이 기기 전용(공개 주소가 https라 같은 기기의 프록시가 붙는다고 봅니다). 프록시가 다른 기기나 다른 컨테이너면 DASHBOARD_HOST를 넣으세요",
+  certs: "인증서 파일이 있어 모든 주소에 직접 HTTPS",
+  "https-url": "이 기기 전용(공개 주소가 https라 같은 기기의 프록시가 붙는다고 봅니다). 프록시가 다른 기기나 다른 컨테이너면 DASHBOARD_HOST를, 프록시 없이 직접 HTTPS로 열려면 certs/에 cert.pem과 key.pem을 넣으세요",
   "plain-url": "모든 주소(공개 주소가 http라 다른 기기에서 바로 붙는다고 봅니다)",
 };
 
@@ -82,10 +82,10 @@ function callbackNote(url: string): Note | null {
 }
 
 /** 기동 진단(연 주소 한 줄 뒤). reachable: 다른 기기에서 접속할 수 있는 이 기기의 주소 */
-function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable }: { url: string; port: number; envHost: string | null; container: boolean; reachable: string[] }): Note[] {
+function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable, scheme = "http" }: { url: string; port: number; envHost: string | null; container: boolean; reachable: string[]; scheme?: "http" | "https" }): Note[] {
   const notes: Note[] = [];
   const https = url.startsWith("https:");
-  const addresses = reachable.map((ip) => `http://${isIP(ip) === 6 ? `[${ip}]` : ip}:${port}`).join(", ");
+  const addresses = reachable.map((ip) => `${scheme}://${isIP(ip) === 6 ? `[${ip}]` : ip}:${port}`).join(", ");
   if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요. 디스코드는 사설 IP의 콜백을 받지 않아 이 기기를 가리키는 도메인(공유기 DDNS, Tailscale의 MagicDNS 등)이 필요합니다.${addresses ? ` 이 기기의 주소: ${addresses}` : ""}` });
   if (container) notes.push(...containerNotes(url));
   if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: `다른 기기에서 접속할 수 있는 주소: ${addresses}` });

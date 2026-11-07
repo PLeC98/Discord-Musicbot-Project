@@ -70,7 +70,7 @@ type AdminStatus = {
    * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 실행해 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다.
    * bgutil: 설치된 버전, 설정한 버전(BGUTIL_VERSION), 그보다 새 릴리스(없으면 null). 설치돼 있지 않으면 null
    */
-  env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number };
+  env: { discordJs: string; ffmpeg: string | null; pid: number; launcher: boolean; ytdlp: { version: string | null; autoUpdate: boolean; checkedAt: number | null; nextCheckAt: number | null }; bgutil: { installed: string; target: string; newer: string | null; checkedAt: number | null } | null; commands: { count: number; scope: "global" | "guild" }; dashboardClients: number; tls: { from: "certs" | "env"; expiresAt: number; daysLeft: number } | null };
   /**
    * 재생 인코딩 워커(media/encode-pool). max: 워커 수 상한, maxDepth: 큐 깊이의 상한, quota: Linux CPU quota(코어 수, 없으면 null), sessions: 살아 있는 인코딩 세션 수(출력 스트림 하나에 하나라 일시정지한 것도 든다).
    * late, deaths: 봇이 켜진 뒤 워커가 늦어 생긴 누락 프레임 수, 워커가 죽거나 내린 수. 워커마다 streams: 맡은 세션, depth: 큐 깊이, rttP99: 지난 1초의 응답 시간 p99(ms), cpuPct: CPU(코어 하나 기준, 아직 모르면 null)
