@@ -447,3 +447,31 @@ test("합계: 모은 세그먼트는 받은 바이트로 세고, 넘긴 세그�
     (e: unknown) => (e as { permanent?: boolean }).permanent === true,
   );
 });
+
+test("라이브: 읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다). VOD 는 열지 않는다", async () => {
+  const bad = (name: string) => `#EXTINF:2,\n#EXT-X-BYTERANGE:0@0\n${name}\n`;
+  const good = (name: string) => `#EXTINF:2,\n${name}\n`;
+  const lists = [
+    // 지나간 s1 의 구간을 읽을 수 없다. 새 세그먼트 s3 은 읽는다
+    `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:1\n${bad("s1.ts")}${good("s2.ts")}${good("s3.ts")}`,
+    // 새 세그먼트 s4 는 받고, s5 에 이르면 실패한다
+    `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:3\n${good("s3.ts")}${good("s4.ts")}${bad("s5.ts")}${good("s6.ts")}`,
+  ];
+  const routes: Record<string, Reply | (() => Reply)> = { "https://l.test/index.m3u8": () => ({ body: lists.shift() ?? "" }) };
+  for (let i = 1; i <= 6; i++) routes[`https://l.test/s${i}.ts`] = { body: `s${i}` };
+  const { net } = netOf(routes);
+  const first = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:1\n${good("s1.ts")}${good("s2.ts")}`;
+  const hls = await openHls(first, "https://l.test/index.m3u8", { net, sleep: instant });
+  const fragments = hls.fragments();
+  const got: string[] = [];
+  await assert.rejects(
+    (async () => {
+      for (let part = await fragments.next(); part; part = await fragments.next()) got.push((await fragments.fetch(part, new AbortController().signal)).toString());
+    })(),
+    (e: Error & { permanent?: boolean }) => codeOf(e) === "unsupported-link" && e.permanent === true,
+  );
+  assert.deepEqual(got, ["s1", "s2", "s3", "s4"]);
+
+  const vod = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n${good("a.ts")}${bad("b.ts")}#EXT-X-ENDLIST\n`;
+  await assert.rejects(openHls(vod, "https://v.test/index.m3u8", { net, sleep: instant }), { code: "unsupported-link" });
+});

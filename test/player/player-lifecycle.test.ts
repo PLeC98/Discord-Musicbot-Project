@@ -443,6 +443,36 @@ for (const [ending, answer, line] of [
   });
 }
 
+test("끊긴 라이브를 다시 열다 환경 탓(망이 끊김)으로 실패하면 다음 곡으로 넘기지 않고 그 곡에서 멈춰 둔다(직접 링크의 일반 네트워크 오류는 넘긴다)", async () => {
+  const p = h.makePlayer();
+  const live = playing(p, yt("m8mmmmmmmmm", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+  const next = cached("m9mmmmmmmmm");
+  p.queue = [next];
+  embeds(p);
+  behavior.stream = () => {
+    throw codedError("network-error", "망이 끊김");
+  };
+
+  await p.onTrackEnd("idle");
+
+  assert.equal(p.currentTrack, live);
+  assert.equal(p.lifecycle.parked, true);
+  assert.deepEqual(p.queue, [next], "대기열을 소진하지 않는다");
+  h.dispose(p);
+
+  const q = h.makePlayer();
+  playing(q, tracks.direct("https://radio.test/live.m3u8", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
+  const after = cached("mammmmmmmmm");
+  q.queue = [after];
+  embeds(q);
+  behavior.stream = () => {
+    throw codedError("network-error", "망이 끊김");
+  };
+  await q.onTrackEnd("idle");
+  h.dispose(q);
+  assert.equal(q.currentTrack, after, "직접 링크는 그 서버만의 문제일 수 있어 넘긴다");
+});
+
 test("끊긴 라이브를 다시 여는 중에 이전 곡을 눌렀는데 방송이 끝났으면 이전 곡을 연다. 라이브는 다 튼 곡으로 기록하지 않는다(대기열에만 한 번)", async () => {
   const p = h.makePlayer();
   const before = cached("m5mmmmmmmmm");

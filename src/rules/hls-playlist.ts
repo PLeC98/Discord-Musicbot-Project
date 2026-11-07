@@ -5,7 +5,8 @@ import { codedError } from "./error-kind.ts";
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
-type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean };
+/** unreadable: 이 세그먼트나 초기화 세그먼트의 바이트 구간을 읽을 수 없다(range, init.range 는 null). 받을 차례에 실패한다(sources/hls) */
+type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean; unreadable: boolean };
 type MediaPlaylist = { kind: "media"; targetDuration: number; mediaSequence: number; ended: boolean; segments: Segment[] };
 type Variant = { url: string; bandwidth: number; audioGroup: string | null; codecs: string | null };
 type Rendition = { url: string; groupId: string; isDefault: boolean; autoselect: boolean };
@@ -49,7 +50,7 @@ function resolve(uri: string | undefined, base: string): string | null {
   }
 }
 
-/** 읽을 수 없는 바이트 구간. 그것을 쓰는 세그먼트가 나올 때 던진다(끝이 잘린 라이브 갱신의 마지막 태그는 쓰는 세그먼트가 없다) */
+/** 읽을 수 없는 바이트 구간. 이 구간을 쓰는 세그먼트에 표시한다(끝이 잘린 라이브 갱신의 마지막 태그는 쓰는 세그먼트가 없다) */
 const BAD_RANGE = "bad";
 type RangeTag = ByteRange | typeof BAD_RANGE | null;
 
@@ -63,9 +64,20 @@ function byteRangeOf(value: string | undefined, previousEnd: number): RangeTag {
   return { length, offset };
 }
 
-/** 세그먼트가 쓰는 구간. 읽을 수 없으면 던진다(파일 전체 받기로 바꾸면 그 세그먼트에 파일이 다 들어간다) */
-function usedRange(range: RangeTag): ByteRange | null {
-  if (range === BAD_RANGE) throw codedError("unsupported-link", "HLS 바이트 구간(BYTERANGE)을 읽을 수 없습니다");
+/**
+ * 세그먼트가 쓰는 구간. 오프셋이 없으면 같은 주소의 앞 구간 끝에서 잇는다(ends). 읽을 수 없으면 BAD_RANGE(파일 전체 다운로드로 바꾸면 그 세그먼트에 파일이 다 들어간다).
+ * 앞 구간을 읽을 수 없었으면 그 끝을 모르니 오프셋 없는 다음 구간도 읽을 수 없다
+ */
+function usedRange(tag: RangeTag, url: string, ends: Map<string, number | null>): ByteRange | typeof BAD_RANGE | null {
+  if (tag === null) return null;
+  const previousEnd = ends.has(url) ? ends.get(url) : 0;
+  const offset = tag === BAD_RANGE ? null : tag.offset >= 0 ? tag.offset : previousEnd;
+  const range = tag !== BAD_RANGE && typeof offset === "number" ? { length: tag.length, offset } : null;
+  if (!range || !Number.isSafeInteger(range.offset + range.length)) {
+    ends.set(url, null);
+    return BAD_RANGE;
+  }
+  ends.set(url, range.offset + range.length);
   return range;
 }
 
@@ -128,7 +140,7 @@ const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pendi
 function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   const out: MediaPlaylist = { kind: "media", targetDuration: 0, mediaSequence: 0, ended: false, segments: [] };
   const next: Pending = { duration: 0, range: null, init: null, key: null, discontinuity: false };
-  const ends = new Map<string, number>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE)
+  const ends = new Map<string, number | null>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE). null 은 앞 구간을 읽지 못한 상태
   for (const line of lines) {
     if (line === "#EXT-X-ENDLIST") out.ended = true;
     else if (line === "#EXT-X-DISCONTINUITY") next.discontinuity = true;
@@ -138,12 +150,11 @@ function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
     } else {
       const url = resolve(line, baseUrl);
       if (url) {
-        const tagged = usedRange(next.range);
-        const range = tagged ? { length: tagged.length, offset: tagged.offset >= 0 ? tagged.offset : (ends.get(url) ?? 0) } : null;
-        if (range && !Number.isSafeInteger(range.offset + range.length)) usedRange(BAD_RANGE);
-        if (range) ends.set(url, range.offset + range.length);
-        const init = next.init && { url: next.init.url, range: usedRange(next.init.range) };
-        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range, init, key: next.key, discontinuity: next.discontinuity });
+        const range = usedRange(next.range, url, ends);
+        const initRange = next.init?.range === BAD_RANGE ? BAD_RANGE : (next.init?.range ?? null);
+        const unreadable = range === BAD_RANGE || initRange === BAD_RANGE;
+        const init = next.init && { url: next.init.url, range: initRange === BAD_RANGE ? null : initRange };
+        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range: range === BAD_RANGE ? null : range, init, key: next.key, discontinuity: next.discontinuity, unreadable });
       }
       Object.assign(next, { duration: 0, range: null, discontinuity: false });
     }

@@ -1280,10 +1280,15 @@ class Player {
   }
 
   // 끊긴 라이브를 다시 연다. 열었거나 그사이 플레이어가 버려졌거나 종료 중이면 true(끝 처리가 더 할 일이 없다).
-  // 방송이 끝났거나 열지 못했으면 실패로 세지 않고 알리지 않는다. false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
+  // 환경 탓(망이 끊김 등, player/failure-scope)으로 열지 못했으면 다음 곡도 안 되니 넘기지 않고 멈춰 둔다(true).
+  // 방송이 끝났거나 그 밖의 까닭으로 열지 못했으면 실패로 세지 않고 알리지 않는다. false 면 끝 처리가 다 튼 곡처럼 기록에 넣고 다음 곡으로 넘긴다
   async _reopenLive(label: string) {
     const reopened = await this.play(0, { liveReopen: true });
     if (reopened.ok || reopened.code === "disposed" || reopened.code === "superseded" || reopened.code === "bot-shutting-down") return true;
+    if (reopened.error && failureScope(reopened.error, { direct: servedDirectly(this.currentTrack) }) === "environment") {
+      this.park(0, { kind: "environment", error: reopened.error });
+      return true;
+    }
     if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘깁니다: ${label} | 재확인 결과 라이브 아님`);
     else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
     else log.warn(`라이브를 다시 열지 못해 다음 곡으로 넘깁니다: ${label} | ${reopened.code}`);

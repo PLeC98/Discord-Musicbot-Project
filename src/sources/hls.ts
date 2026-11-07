@@ -1,9 +1,10 @@
 // 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
 // 모든 요청(상위, 하위 목록, 세그먼트, 초기화 세그먼트, 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
 //   상위 목록   오디오 전용 하위 목록이 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
-//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다
+//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다. 읽을 수 없는 바이트 구간이 있으면 열지 않는다
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
-//              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
+//              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게).
+//              읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다)
 //   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range로 받아 모은다. 구간을 무시하고 200으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
 // 구간 없는 세그먼트는 작고 빨리 오면 모으고(실패하면 처음부터 다시), 크거나 늦으면 모으지 않고 받는 쪽(media/direct-input)에 넘긴다(HlsPour).
@@ -211,6 +212,9 @@ function assertPlayable(playlist: MediaPlaylist): void {
   if (playlist.segments.some((segment) => segment.key?.method === "OTHER")) throw permanent(codedError("unsupported-link", "DRM 으로 잠긴 HLS 입니다"));
 }
 
+/** 읽을 수 없는 바이트 구간을 쓰는 세그먼트 */
+const unreadableRange = () => permanent(codedError("unsupported-link", "HLS 바이트 구간(BYTERANGE)을 읽을 수 없습니다"));
+
 /** 세그먼트 순번의 IV(16바이트 빅엔디언) */
 function sequenceIv(sequence: number): Buffer {
   const iv = Buffer.alloc(16);
@@ -236,6 +240,7 @@ async function openHls(text: string, url: string, { net = { getStream: SafeUrl.g
   const first = await mediaOf(text, url, net);
   assertPlayable(first.playlist);
   const live = !first.playlist.ended;
+  if (!live && first.playlist.segments.some((segment) => segment.unreadable)) throw unreadableRange();
   return {
     live,
     durationMs: live ? null : Math.round(lengthOf(first.playlist) * 1000),
@@ -302,6 +307,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
   // 세그먼트 하나를 받을 것들로(초기화 세그먼트가 바뀌었으면 그것 먼저)
   function partsOf(segment: Segment): HlsPart[] {
     lastSequence = segment.sequence;
+    if (segment.unreadable) throw unreadableRange();
     const parts: HlsPart[] = [];
     const init = segment.init ? `${segment.init.url}#${segment.init.range?.offset ?? ""}-${segment.init.range?.length ?? ""}` : null;
     if (segment.init && init !== lastInit) parts.push({ url: segment.init.url, range: segment.init.range, key: null, sequence: segment.sequence });
