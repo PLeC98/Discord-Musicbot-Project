@@ -254,7 +254,7 @@ function stop(entry: Entry, why: string) {
   if (entries.get(res) === entry) entries.delete(res);
   if (!entries.size) disarm();
   entry.socket.destroy();
-  log.debug(`세션이 끝나 진행 중인 요청을 끊었습니다(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
+  log.debug(`세션이 끝나 진행 중인 요청을 끊음(${why}): ${req.method} ${req.baseUrl}${req.path} | ${entry.name}`);
 }
 
 // 본문을 아직 받는 중인가(큰 업로드). 본문 없는 요청은 핸들러가 동기로 도는 동안 complete가 아직 거짓이라 본문이 있는지부터 본다
@@ -286,7 +286,7 @@ function closeStream(entry: Entry, why: string) {
     setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
   }
   // 로그아웃, 다시 로그인마다 탭 수만큼 나온다. 끊은 일 자체(다른 기기 로그아웃 등)는 그 경로가 남긴다
-  log.debug(`스트림을 끊었습니다(${why}): ${kind} | ${entry.name}`);
+  log.debug(`스트림을 끊음(${why}): ${kind} | ${entry.name}`);
 }
 
 /** 묶인 요청의 세션을 다시 본다(RECHECK_MS마다). 세션마다 저장소를 한 번 읽는다. 절대 기한은 저장소를 읽지 못해도 본다 */

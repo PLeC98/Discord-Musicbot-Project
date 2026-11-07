@@ -95,8 +95,8 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됐습니다 (${String(value)}): ${reason}.`);
-    else problems.push(`.env의 ${key} 값이 잘못됐습니다 (${String(value)}): ${reason}. 고친 뒤 다시 실행하세요.`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됨(${String(value)}): ${reason}`);
+    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
     return def;
   }
 
@@ -105,7 +105,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = v.trim().toLowerCase();
-    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 합니다", def);
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 함", def);
   }
 
   // 조절값(rules/tunables)을 그 형식, 범위, 기본값으로 읽는다
@@ -120,7 +120,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 합니다`, def);
+    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -129,12 +129,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return def;
 
     const raw = String(v).trim();
-    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있습니다", def);
+    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있음", def);
 
     const n = Number(raw);
-    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수입니다", def);
-    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 합니다`, def);
-    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 합니다`, def);
+    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수", def);
+    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 함`, def);
+    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 함`, def);
     return n;
   }
 
@@ -151,7 +151,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     } catch {
       return invalid(key, v, "주소 형식이 아닙니다 (예: https://example.com)", def);
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있습니다", def);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있음", def);
     return v;
   }
 
@@ -169,7 +169,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return null;
     const text = v.trim();
     if (text === "localhost" || isIP(text)) return text;
-    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있습니다", null);
+    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있음", null);
   }
 
   // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 던진다
@@ -182,7 +182,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
 
   function envQueueMax(key: string, def: number) {
     const n = envInt(key, def, { min: 0 });
-    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 합니다`, def);
+    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 함`, def);
     return n;
   }
 
@@ -190,7 +190,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envYtdlpVersion(key: string) {
     const v = env(key);
     if (v === null || !v.trim()) return null;
-    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
+    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 함", null);
   }
 
   // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
@@ -199,13 +199,13 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
-    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 합니다`, "");
+    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 함`, "");
   }
 
   function envClients(key: string) {
     const list = parseClients(env(key));
     const bad = list.filter((name) => !CLIENT_NAME.test(name));
-    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있습니다", []) : list;
+    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
   }
 
   return { env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };

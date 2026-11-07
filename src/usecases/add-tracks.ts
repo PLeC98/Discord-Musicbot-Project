@@ -106,7 +106,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
     return canSend(channel) ? channel : null;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`전용 채널 설정 읽기 실패, 안내 채널 없이 진행합니다 (${guild.id}): ${messageOf(error)}`);
+    log.warn(`전용 채널 설정 읽기 실패(안내 채널 없이 진행) (${guild.id}): ${messageOf(error)}`);
     return null;
   }
 }
@@ -364,7 +364,7 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
     return await lookup.getCollection(url, range);
   } catch (error) {
     if (gathered === 0) throw error;
-    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단합니다: ${messageOf(error)}`);
+    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단: ${messageOf(error)}`);
     return null;
   }
 }
@@ -478,7 +478,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const { tracks } = trackData;
   // 부르는 쪽(곡 찾기, 더 넣기)이 빈 결과를 거절한다
-  if (tracks.length === 0) throw new Error("담을 곡이 없습니다");
+  if (tracks.length === 0) throw new Error("추가할 곡이 없음");
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
   const outcome = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 

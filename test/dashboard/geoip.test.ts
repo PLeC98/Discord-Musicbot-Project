@@ -82,7 +82,7 @@ test("받은 것이 도시 DB 가 아니거나 받다 실패하면 쓰던 버전
   published.set(thisMonth, "asn-wrong");
   await assert.rejects(geoip.update());
   assert.deepEqual(files(), [`dbip-city-lite-${lastMonth}.mmdb`], "임시 파일도 남지 않는다");
-  assert.match(geoip.status().error ?? "", /도시 DB 가 아닙니다/);
+  assert.match(geoip.status().error ?? "", /도시 DB 가 아님/);
 });
 
 test("자동: 켜져 있고 가진 버전이 이번 달이 아니면 이번 달 버전을 받는다. 아직 없으면 받지 않고(내일 다시), 파일이 아예 없으면 지난달 버전이라도", async () => {

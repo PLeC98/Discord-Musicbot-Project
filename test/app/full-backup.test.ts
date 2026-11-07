@@ -99,7 +99,7 @@ test("같은 초에 이미 그 이름이 있으면 번호를 붙여 올린다. �
 
   const fullOut = path.join(work, "full-out");
   for (let n = 1; n <= 20; n++) fs.mkdirSync(path.join(fullOut, `musicbot-full-20261014-090000${n > 1 ? `-${n}` : ""}.zip`, "안"), { recursive: true });
-  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: fullOut }, new Date(2026, 9, 14, 9, 0)), /이름을 잡지 못했습니다/);
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: fullOut }, new Date(2026, 9, 14, 9, 0)), /이름 잡기 실패/);
   assert.deepEqual(
     fs.readdirSync(fullOut).filter((one) => one.endsWith(".part")),
     [],

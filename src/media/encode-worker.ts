@@ -80,7 +80,7 @@ function errorOf(id: number, seq: number, error: unknown) {
 }
 
 function encode(stream: Stream, frame: Frame) {
-  if (stream.failed || !stream.encoder) return errorOf(frame.id, frame.seq, new Error(stream.failed ?? "인코더가 없습니다"));
+  if (stream.failed || !stream.encoder) return errorOf(frame.id, frame.seq, new Error(stream.failed ?? "인코더가 없음"));
   const started = performance.now();
   const startedAt = performance.timeOrigin + started;
   try {

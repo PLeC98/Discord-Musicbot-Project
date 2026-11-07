@@ -28,7 +28,7 @@ const countOf = (value: string) => {
 /** 첫 순번. 숫자가 아니면 0. 안전한 정수를 넘는 숫자는 오류를 던진다(순번은 이어 받기와 복호화의 IV라 0으로 바꾸면 엉뚱한 곳을 받거나 복호화하지 못한다) */
 const sequenceOf = (value: string) => {
   const n = countOf(value);
-  if (n === null && /^\s*\d+\s*$/.test(value)) throw codedError("unsupported-link", `HLS 순번이 다룰 수 있는 크기를 넘습니다(${value.trim().slice(0, 30)})`);
+  if (n === null && /^\s*\d+\s*$/.test(value)) throw codedError("unsupported-link", `HLS 순번이 다룰 수 있는 크기를 넘음(${value.trim().slice(0, 30)})`);
   return n ?? 0;
 };
 

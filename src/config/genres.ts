@@ -85,7 +85,7 @@ function genres(): GenresConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 직전에 맞던 설정으로 돕니다." : "고칠 때까지 자동재생 장르가 없습니다. 운영자 패널의 자동재생 탭에서 고치세요."}`);
+    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 자동재생 장르가 없음. 운영자 패널의 자동재생 탭에서 고치세요"}`);
     reported = message;
     return lastGood ?? EMPTY;
   }
@@ -119,7 +119,7 @@ function checkedGenres(): GenresConfig {
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. 운영자 패널의 자동재생 탭에서 확인하세요.`), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`), { code: "CONFIG_INVALID" });
   }
   const missing: string[] = [];
   let alive = 0;

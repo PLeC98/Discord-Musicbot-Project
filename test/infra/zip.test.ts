@@ -168,8 +168,8 @@ test("받는 곳이 비워지기를 기다리는 사이 닫히면(다운로드�
   const sink = sinkOf(out);
   const waiting = sink(Buffer.alloc(16));
   out.destroy();
-  await assert.rejects(waiting, /받는 쪽이 닫혔습니다/);
-  await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫혔습니다/);
+  await assert.rejects(waiting, /받는 쪽이 닫힘/);
+  await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫힘/);
 });
 
 test("이름에 NUL, 콜론(드라이브, 대체 데이터 스트림)이 있으면 거절한다", async () => {

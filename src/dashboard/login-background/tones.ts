@@ -44,8 +44,8 @@ async function tones({ item, signal, progress }: StageJob): Promise<StageResult>
       if (at) times.push(Number(at[1]));
     },
   });
-  if (run.aborted) throw codedError("aborted", "그만뒀습니다");
-  if (run.code !== 0) throw codedError("background-failed", `장면 바뀜을 찾지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.aborted) throw codedError("aborted", "중단됨");
+  if (run.code !== 0) throw codedError("background-failed", `장면 전환 찾기 실패: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   const length = to - from;
   const starts = [0, ...cutsOf(times, length)];
   const scenes: LoginBackgroundScene[] = [];

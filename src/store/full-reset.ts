@@ -54,7 +54,7 @@ function applyRequested(dirs: Dirs = REAL, remove: Remove = removeTree): boolean
     emptyDir(dirs.database, remove, KEEP);
     emptyDir(dirs.audioCache, remove);
   } catch (error) {
-    throw codedError("RESET_FAILED", `봇 전체 초기화를 끝내지 못했습니다: ${messageOf(error)}. 그 파일을 연 프로그램을 닫고 다시 시작하면 이어서 지웁니다`, { cause: error });
+    throw codedError("RESET_FAILED", `봇 전체 초기화 실패: ${messageOf(error)}. 그 파일을 연 프로그램을 닫고 다시 시작하면 이어서 삭제함`, { cause: error });
   }
   fs.rmSync(path.join(dirs.database, MARKER), { force: true });
   return true;

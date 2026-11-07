@@ -198,7 +198,7 @@ function startOf(fragments: Fragments, durationMs: number, startMs: number) {
 
 /** 유튜브 세그먼트 목록의 출처. 위치가 든 세그먼트부터 번호 차례로 */
 function numberedFragments({ fragments, durationMs, startMs, headers = {}, fetchImpl = fetch as unknown as FragmentFetch }: FragmentOptions): FragmentSource<number> {
-  if (!Number.isInteger(fragments.count) || fragments.count <= 0) throw new TypeError(`세그먼트 수가 올바르지 않습니다: ${fragments.count}`);
+  if (!Number.isInteger(fragments.count) || fragments.count <= 0) throw new TypeError(`세그먼트 수가 올바르지 않음: ${fragments.count}`);
   const start = startOf(fragments, durationMs, startMs);
   let index = start.index;
   return {

@@ -89,11 +89,11 @@ const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | nu
  */
 function createChunkedStream(options: ChunkedOptions): ChunkedStream {
   const { totalBytes, chunkSize, startByte = 0 } = options;
-  if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
-  if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
-  if (!Number.isInteger(startByte) || startByte < 0 || startByte >= totalBytes) throw new TypeError(`startByte가 올바르지 않습니다: ${startByte}`);
+  if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않음: ${totalBytes}`);
+  if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않음: ${chunkSize}`);
+  if (!Number.isInteger(startByte) || startByte < 0 || startByte >= totalBytes) throw new TypeError(`startByte가 올바르지 않음: ${startByte}`);
   // 이미 열린 첫 응답은 파일 처음부터다
-  if (startByte > 0 && options.first) throw new TypeError("startByte와 first는 함께 줄 수 없습니다");
+  if (startByte > 0 && options.first) throw new TypeError("startByte와 first는 함께 줄 수 없음");
   const reader = new ChunkedReader(options);
   return Object.assign(reader.stream, { prime: () => reader.prime(), stats: () => reader.stats() });
 }
@@ -105,15 +105,15 @@ function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range") ?? "";
   const [, startText, totalText] = /bytes\s+(\d+)-\d+\/(\d+|\*)/i.exec(cr) ?? [];
   if (startText === undefined) {
-    if (expected > 0) throw permanent(`Content-Range가 없거나 읽을 수 없는 206입니다(${expected}바이트부터 요청, ${cr || "없음"})`);
+    if (expected > 0) throw permanent(`Content-Range가 없거나 읽을 수 없는 206(${expected}바이트부터 요청, ${cr || "없음"})`);
     return;
   }
   const start = Number(startText);
   if (Number.isFinite(start) && start !== expected) {
-    throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
+    throw permanent(`Range 응답이 어긋남: 요청 ${expected}, 응답 ${cr}`);
   }
   if (expected > 0 && totalText && totalText !== "*" && Number(totalText) !== totalBytes) {
-    throw permanent(`이어받은 파일의 전체 크기가 다릅니다: 처음 ${totalBytes}B, 지금 ${cr}`);
+    throw permanent(`이어받은 파일의 전체 크기가 다름: 처음 ${totalBytes}B, 지금 ${cr}`);
   }
 }
 
@@ -222,7 +222,7 @@ class ChunkedReader {
     clearTimeout(this.stallTimer);
     const request = this.aborter;
     const { stallMs } = this.o;
-    this.stallTimer = setTimeout(() => request?.abort(timeoutError(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`, { code: "STREAM_STALL" })), stallMs);
+    this.stallTimer = setTimeout(() => request?.abort(timeoutError(`${stallMs / 1000}초 동안 받은 데이터가 없음`, { code: "STREAM_STALL" })), stallMs);
     this.stallTimer.unref?.();
   }
 
@@ -262,7 +262,7 @@ class ChunkedReader {
       const err = httpError(res.status);
       throw mid && (res.status === 200 || res.status === 416) ? seekMismatch(err) : err;
     }
-    if (!res.body) throw permanent("응답 본문이 없습니다");
+    if (!res.body) throw permanent("응답 본문 없음");
     return res.body.getReader();
   }
 
@@ -296,7 +296,7 @@ class ChunkedReader {
         this.accept(value);
       }
       // 범위: 연결이 중간에 끊겼다(player/failure-scope)
-      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`), { scope: "environment" });
+      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝남 (${this.pos}/${this.target}B)`), { scope: "environment" });
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;
@@ -333,7 +333,7 @@ class ChunkedReader {
     if (!this.verifying) return;
     const head = Buffer.concat(this.probe);
     this.probe = [];
-    if (!this.o.expectStart?.check(head)) throw seekMismatch(permanent(`받은 첫 바이트가 색인이 가리킨 키프레임이 아닙니다(${this.pos}B)`));
+    if (!this.o.expectStart?.check(head)) throw seekMismatch(permanent(`받은 첫 바이트가 인덱스가 가리킨 키프레임이 아님(${this.pos}B)`));
     this.verifying = false;
     this.markPrimed();
     if (head.length) this.take(head);

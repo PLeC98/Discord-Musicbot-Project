@@ -292,7 +292,7 @@ test("진짜 소켓: 응답 헤더가 제한 시간 안에 오지 않으면 시�
       (e: unknown) => e as Error,
     );
     assert.equal(error?.name, "TimeoutError");
-    assert.match(error?.message ?? "", /응답이 50ms 동안 없습니다/);
+    assert.match(error?.message ?? "", /응답이 50ms 동안 없음/);
   } finally {
     server.closeAllConnections();
     server.close();
@@ -363,7 +363,7 @@ test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 �
 
   t.mock.timers.tick(1_000);
   await new Promise((done) => setImmediate(done));
-  assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않습니다/);
+  assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않음/);
   assert.equal(errors[0]?.name, "TimeoutError", "실패 범위를 네트워크 탓으로 본다");
 });
 

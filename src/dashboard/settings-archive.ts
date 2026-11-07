@@ -359,7 +359,7 @@ async function applyStagedAudio(dir: string): Promise<ArchiveImported | null> {
   if (!fs.existsSync(file)) return null;
   try {
     const shown = await preview(file);
-    if (shown.kind !== "audio-cache") throw codedError("BAD_ARCHIVE", "오디오 캐시 번들이 아닙니다");
+    if (shown.kind !== "audio-cache") throw codedError("BAD_ARCHIVE", "오디오 캐시 번들이 아님");
     const items = shown.rows.filter((row) => row.inFile).map((row) => row.item);
     const done = items.length ? await apply(file, items) : { imported: [], restart: false, cookiesSource: null };
     fs.rmSync(file, { force: true });

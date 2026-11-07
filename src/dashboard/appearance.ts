@@ -91,7 +91,7 @@ function loaded(): Map<number, Slot> {
     raw = JSON.parse(fs.readFileSync(path.join(dir, INDEX), "utf8"));
   } catch (error) {
     // 목록이 없거나 망가졌다: 빈 슬롯으로
-    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX})을 읽지 못해 빈 슬롯으로 시작합니다(목록에 없는 이미지 파일은 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 목록(${INDEX}) 읽기 실패(빈 슬롯으로 시작, 목록에 없는 이미지 파일은 삭제): ${messageOf(error)}`);
   }
   const present = new Set(names);
   slots = slotsFrom(raw, (id) => present.has(`${id}.png`) && present.has(`${id}.reserve.png`));

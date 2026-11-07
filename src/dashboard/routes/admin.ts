@@ -204,7 +204,7 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
   const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼은 명시적 재배포라 해시가 같아도 등록한다
   if (r.ok) {
     // 개수는 디스코드가 등록을 받고 돌려준 것이다
-    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 다시 등록했습니다.`);
+    log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 다시 등록`);
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
   log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}`);
@@ -387,8 +387,8 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
 // 입력할 수 없는 키면 까닭. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
 function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>) {
   const spec = assist.PROVIDER_SPECS[provider];
-  if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더입니다`;
-  if (typeof value !== "string") return `${provider}: 키는 문자열이어야 합니다`;
+  if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더`;
+  if (typeof value !== "string") return `${provider}: 키는 문자열이어야 함`;
   if (!value.trim()) return null;
   if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 입력하세요`;
   if (spec.serviceAccount) return accountProblem(spec.label, value);

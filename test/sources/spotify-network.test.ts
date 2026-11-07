@@ -238,7 +238,7 @@ const down = (): Route[] => [
 
 test("익명 상태: 추출이 실패하면 저장값, 그것도 없으면 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
   routes = down();
-  await assert.rejects(graphql._ensureState(true), /익명 상태를 얻지 못했습니다: 네트워크 끊김/);
+  await assert.rejects(graphql._ensureState(true), /익명 상태 받기 실패: 네트워크 끊김/);
   assert.equal(externalCaches.getSpotifyAnonState(), null);
 
   routes = anonRoutes();
@@ -258,9 +258,9 @@ test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 추출 
   routes = [home, (url) => (url.includes("web-player") ? reply("", { status: 404 }) : undefined)];
   await assert.rejects(graphql._ensureState(true), /번들 404/);
   routes = [home, (url) => (url.includes("web-player") ? reply("아무것도 없는 번들") : undefined)];
-  await assert.rejects(graphql._ensureState(true), /secret 을 찾지 못했습니다/);
+  await assert.rejects(graphql._ensureState(true), /secret을 찾지 못함/);
   routes = [() => reply("<html>번들 주소 없음</html>")];
-  await assert.rejects(graphql._ensureState(true), /번들 주소가 없습니다/);
+  await assert.rejects(graphql._ensureState(true), /번들 주소가 없음/);
 
   routes = anonRoutes();
   const fresh = await graphql._ensureState(true);
@@ -297,7 +297,7 @@ test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아
   Spotify._reset();
   cacheDb.get().exec("DELETE FROM spotify_anon;");
   routes = [...withBundle(onlyPlaylist), ...anonRoutes().slice(2)];
-  await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없습니다/);
+  await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없음/);
 });
 
 test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받고, 만료 전까지 재사용", async () => {

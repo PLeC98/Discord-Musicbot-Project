@@ -41,7 +41,7 @@ function load() {
     if (states.some((state) => state !== "ok" && state !== "none")) {
       log.warn(`${LABELS[service]} 키 복호화 실패(SECRETS_KEY가 변경되었거나 저장된 값이 손상됨). 운영자 패널의 API 키 탭에서 다시 입력하세요`);
     } else if (service === "spotify" && states.includes("none")) {
-      log.warn("Spotify API 키가 없습니다. 트랙, 앨범 링크는 열지 못하고 재생목록, 아티스트는 키 없이 엽니다. 운영자 패널의 API 키 탭에서 입력하세요");
+      log.warn("Spotify API 키 없음(곡, 앨범 링크는 열지 못하고 재생목록, 아티스트는 키 없이 열 수 있음). 운영자 패널의 API 키 탭에서 입력하세요");
     }
   }
 }
@@ -50,7 +50,7 @@ function load() {
 function save(service: ServiceId, values: Record<string, unknown>) {
   const entries = Object.entries(values).filter(([, value]) => typeof value === "string" && value.trim());
   if (!entries.length || Object.keys(values).some((field) => !fieldsOf(service).includes(field))) {
-    throw codedError("SECRET_INVALID", `${LABELS[service]} 키의 필드가 맞지 않습니다`);
+    throw codedError("SECRET_INVALID", `${LABELS[service]} 키의 필드가 맞지 않음`);
   }
   for (const [field, value] of entries) secrets.put(secretName(service, field), String(value).trim());
   apply(service);

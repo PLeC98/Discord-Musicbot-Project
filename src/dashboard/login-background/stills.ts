@@ -88,9 +88,9 @@ async function frameAt({ source, probed, at, crop, turn = {}, size, channels }: 
   const span = { from: Number(at.toFixed(3)), to: null };
   const graph = `${sourceFilter(probed, crop, span)}${turnFilter(turn)},${scaleTo(size, channels === 4 ? "rgba" : "rgb24")}[o]`;
   const run = await ffmpeg(["-v", "error", ...seekArgs(probed, span), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-map", "[o]", "-frames:v", "1", "-f", "rawvideo", "-"], { signal, timeoutMs: 600_000 });
-  if (run.aborted) throw codedError("aborted", "그만뒀습니다");
+  if (run.aborted) throw codedError("aborted", "중단됨");
   const bytes = size.width * size.height * channels;
-  if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", `장면을 뜨지 못했습니다(${at}초): ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.code !== 0 || run.output.length < bytes) throw codedError("background-failed", `장면 추출 실패(${at}초): ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   return run.output.subarray(0, bytes);
 }
 

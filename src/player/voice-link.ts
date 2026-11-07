@@ -112,7 +112,7 @@ class VoiceLink {
 
   /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리). 종료 중이면 붙지 않고 bot-shutting-down 예외를 던진다 */
   async connect() {
-    if (isShuttingDown()) throw codedError("bot-shutting-down", "종료 중이라 음성 채널에 붙지 않습니다");
+    if (isShuttingDown()) throw codedError("bot-shutting-down", "종료 중이라 음성 채널에 연결하지 않음");
     this.state = "joining";
     try {
       await this._join(JOIN_READY_MS);
@@ -124,7 +124,7 @@ class VoiceLink {
       this._drop({ leave: true });
       this.state = "idle";
       log.error("음성 채널 연결 실패:", messageOf(error));
-      throw codedError("voice-failed", "음성 채널에 붙지 못했습니다", { cause: error });
+      throw codedError("voice-failed", "음성 채널에 연결하지 못함", { cause: error });
     }
   }
 
@@ -133,7 +133,7 @@ class VoiceLink {
   async _join(readyMs: number) {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
-    if (!channelId) throw new Error("음성 채널이 없습니다");
+    if (!channelId) throw new Error("음성 채널 없음");
     // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들어 trace 를 남길 때만
     const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: log.level === "trace" });
     player.connection = connection;
@@ -143,7 +143,7 @@ class VoiceLink {
     try {
       await this.lib.entersState(connection, VoiceConnectionStatus.Ready, readyMs);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 붙지 못했습니다`, { cause: error });
+      if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 음성 채널에 연결하지 못함`, { cause: error });
       throw error;
     } finally {
       this._clearUnstick();
@@ -175,7 +175,7 @@ class VoiceLink {
     if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
     if (at === undefined) return this._armUnstick(connection, channelId, tries);
     if (tries === 0 || at !== channelId) {
-      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송합니다: ${this._label()}`);
+      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송: ${this._label()}`);
       connection.rejoin();
       return this._armUnstick(connection, channelId, tries + 1);
     }
@@ -185,7 +185,7 @@ class VoiceLink {
       this.selfLeave = null;
       return this._armUnstick(connection, channelId, tries);
     }
-    log.warn(`채널에 남아 있던 이전 연결을 끊고 다시 참가합니다: ${this._label()} | 참가 요청 응답 없음(디스코드상에는 채널에 남아 있음)`);
+    log.warn(`채널에 남아 있던 이전 연결을 끊고 다시 참가: ${this._label()} | 참가 요청 응답 없음(디스코드상에는 채널에 남아 있음)`);
     connection.rejoin();
   }
 
@@ -199,7 +199,7 @@ class VoiceLink {
       return (await this.player.guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
     } catch (error) {
       if (codeOf(error) === UNKNOWN_VOICE_STATE) return null;
-      log.debug(`디스코드에서 봇의 음성 상태를 조회하지 못해 대기합니다: ${messageOf(error)}`);
+      log.debug(`디스코드에서 봇의 음성 상태 조회 실패(대기): ${messageOf(error)}`);
       return undefined;
     }
   }
@@ -208,7 +208,7 @@ class VoiceLink {
   _adapterCreator() {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
-      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청 대상을 이동된 채널로 변경해 보냅니다: ${from} → ${to} (${guildName(player)})`),
+      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청 대상을 이동된 채널로 변경: ${from} → ${to} (${guildName(player)})`),
       onSend: (channelId: string, rewritten: boolean) => {
         if (!rewritten) this.lastPlainJoin = { channelId, at: Date.now() };
       },
@@ -287,7 +287,7 @@ class VoiceLink {
     if (this.state === "closed" || this.state === "idle" || code === DO_NOT_RECONNECT || !connection) return;
     if (!("networking" in connection.state) || connection.state.networking !== networking) return;
     if (connection.rejoinAttempts < MAX_LIB_REJOINS) return;
-    log.warn(`음성 서버 연결이 Ready 전에 ${connection.rejoinAttempts}회 닫혀(마지막 코드 ${code}) 라이브러리 자동 재연결을 중단하고 직접 재연결합니다: ${this._label()}`);
+    log.warn(`음성 서버 연결이 Ready 전에 ${connection.rejoinAttempts}회 닫혀(마지막 코드 ${code}) 라이브러리 자동 재연결을 중단하고 직접 재연결: ${this._label()}`);
     connection.destroy(false);
   }
 
@@ -341,7 +341,7 @@ class VoiceLink {
       this._leftChannel(this.player.voiceChannel?.id ?? null);
       return;
     }
-    log.warn(`자동 재연결 실패: ${this._label()} | 직접 재연결합니다`);
+    log.warn(`자동 재연결 실패(직접 재연결): ${this._label()}`);
     this.recover("자동 재연결 안 됨");
   }
 
@@ -395,7 +395,7 @@ class VoiceLink {
     if (!active()) return false;
     try {
       if (connection && this._mayReattach(at) && this._reattach(connection)) {
-        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결합니다: ${this._label()}`);
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결: ${this._label()}`);
         try {
           await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
         } catch (error) {
@@ -404,7 +404,7 @@ class VoiceLink {
           throw error;
         }
       } else {
-        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 새로 참가합니다: ${this._label()}`);
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 새로 참가: ${this._label()}`);
         this._drop({ leave: false });
         await this._join(RECOVER_READY_MS);
       }
@@ -440,14 +440,14 @@ class VoiceLink {
     const shardId = this.player.guild.shardId;
     const renewed = typeof shardId === "number" ? this.lib.newSessionAt?.(shardId) : null;
     if (!renewed || renewed < Math.max(this.waitAt - RENEWED_WINDOW_MS, this.readyAt ?? 0)) return false;
-    log.warn(`게이트웨이 세션 초기화로 음성 채널에 다시 참가합니다(강제 퇴장 아님): ${this._label()}`);
+    log.warn(`게이트웨이 세션 초기화로 음성 채널에 다시 참가(강제 퇴장 아님): ${this._label()}`);
     this.recover("게이트웨이 새 세션");
     return true;
   }
 
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
   _giveUp() {
-    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회를 넘었습니다. 세션을 저장하고 정리합니다`);
+    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)`);
     this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
   }
 
@@ -460,13 +460,13 @@ class VoiceLink {
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
-        log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가를 기다립니다: ${this._label()}`);
+        log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가 대기: ${this._label()}`);
         return { left: false, moved: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
       // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession 이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
-        log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이므로 강제 퇴장으로 처리하지 않습니다: ${this._label()}`);
+        log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이라 강제 퇴장으로 처리하지 않음: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
         return { left: false, moved: false };
       }
@@ -545,14 +545,14 @@ class VoiceLink {
     try {
       if (me && permissions?.has(PermissionFlagsBits.MuteMembers)) {
         await me.voice.setSuppressed(false);
-        log.info(`스테이지 발언자가 됐습니다: ${this._label()}`);
+        log.info(`스테이지 발언자가 됨: ${this._label()}`);
       } else if (me && permissions?.has(PermissionFlagsBits.RequestToSpeak)) {
         await me.voice.setRequestToSpeak(true);
-        log.info(`스테이지 발언을 요청했습니다(모더레이터의 수락을 기다립니다): ${this._label()}`);
+        log.info(`스테이지 발언 요청(모더레이터의 수락 대기): ${this._label()}`);
         if (this.stageNoticed !== channel.id) this.player.noticeStage("stage-requested");
         this.stageNoticed = channel.id;
       } else {
-        log.warn(`스테이지에서 발언자가 될 수도 요청할 수도 없습니다(멤버 음소거 및 발언권 요청 권한 없음): ${this._label()}`);
+        log.warn(`스테이지에서 발언자가 될 수도 발언권을 요청할 수도 없음(멤버 음소거 및 발언권 요청 권한 없음): ${this._label()}`);
         this.player.noticeStage("stage-cannot-speak");
       }
     } catch (error) {
@@ -580,7 +580,7 @@ class VoiceLink {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
       if (codeOf(error) === UNKNOWN_CHANNEL) return false;
-      log.debug(`디스코드에서 채널을 조회하지 못해 채널이 존재하는 것으로 간주합니다: ${describeError(error)}`);
+      log.debug(`디스코드에서 채널 조회 실패(채널이 있는 것으로 간주): ${describeError(error)}`);
       return true;
     }
   }
@@ -644,7 +644,7 @@ class VoiceLink {
       this.lastBounceFix = now;
       this.lastMove = null;
       player.voiceChannel = target;
-      log.warn(`음성 채널 이동 직후 원래 채널로 되돌아가 다시 이동합니다: "${target.name ?? target.id}" (${where})`);
+      log.warn(`음성 채널 이동 직후 원래 채널로 되돌려져 대상 채널로 다시 이동: "${target.name ?? target.id}" (${where})`);
       const connection = player.connection;
       if (connection) connection.rejoin({ channelId: target.id, selfDeaf: connection.joinConfig.selfDeaf, selfMute: connection.joinConfig.selfMute });
       return true;

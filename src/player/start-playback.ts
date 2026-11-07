@@ -41,7 +41,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   }
   // 붙지 못하면 voice-failed 로 던진다. play() 는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
   if (!player.connection) {
-    if (player.isRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중입니다");
+    if (player.isRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중");
     await player.voice.connect();
   }
 
@@ -52,13 +52,13 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   if (wanted === 0) {
     const track = player.currentTrack;
     try {
-      if (!track) throw new Error("틀 곡이 없습니다");
+      if (!track) throw new Error("재생할 곡 없음");
       if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
       const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
     } catch (error) {
       // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
-      log.debug(`인트로 종료 지점 조회 실패, 처음부터 재생합니다: ${messageOf(error)}`);
+      log.debug(`인트로 종료 지점 조회 실패(처음부터 재생): ${messageOf(error)}`);
     }
   }
   return { ok: true, startMs };
@@ -121,7 +121,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function askSponsor(player: Player, track: QueuedTrack) {
   return player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`SponsorBlock 구간 조회 실패, 구간 건너뛰기 없이 재생합니다: ${messageOf(error)}`);
+    log.debug(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
     return null;
   });
 }
@@ -180,7 +180,7 @@ function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, star
   const remainingMs = Math.max(0, (stream.duration || track.duration || 0) * 1000 - startMs);
   const state = reuseState(stream.url, remainingMs);
   if (state !== "ok") {
-    log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받습니다: ${logTitle(track.title)}`);
+    log.debug(`직전 스트림 주소는 ${state === "unknown" ? "만료 시각을 몰라" : "만료가 가까워"} 주소를 새로 받음: ${logTitle(track.title)}`);
     return null;
   }
   // 재사용한 주소다. 열리지 않으면 재생 쪽이 새로 받아 한 번 더 연다(media/playback-input)
@@ -194,7 +194,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const track = pb.track;
   const { streamInfo } = source;
   const { resource } = pb;
-  if (!resource) throw codedError("stream-failed", "열린 소리가 없습니다");
+  if (!resource) throw codedError("stream-failed", "열린 스트림 없음");
 
   // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
   pb.sponsor = await sponsorOfPlaying(player, track, source, pb.audioKey);

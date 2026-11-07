@@ -278,7 +278,7 @@ test("패킷 공급이 끊겨 멈추면 입력 종류, 입력이 끊긴 시간, 
     lines.some((l) => /^패킷 공급이 끊겨 플레이어가 멈춤: .* \| 입력 청크 · 입력 없음 1[23]\.\d초 · 청크 #3 · 이어받는 중$/.test(l)),
     lines.join("\n"),
   );
-  assert.ok(lines.some((l) => /^다시 열었습니다: .* \| \d+\.\d초 걸림$/.test(l)));
+  assert.ok(lines.some((l) => /^다시 열기 완료: .* \| \d+\.\d초 걸림$/.test(l)));
 
   h.reset();
   const q = h.makePlayer();
@@ -408,13 +408,13 @@ test("라이브가 코드 0 으로 끝나면(방송 종료) 다시 열지 않는
 
 // 방송이 끝나면 ffmpeg 가 종료 코드를 남기기 전에 플레이어가 멈추기도 해 끊김으로 보고 다시 연다. 다시 열어 보면 끝난 것을 안다
 for (const [ending, answer, line] of [
-  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: .* \| 재확인 결과 라이브 아님$/],
+  ["다시보기가 됐으면 다시보기를 틀지 않고", () => ({ url: "https://media.test/vod", duration: 3600, liveStatus: null }), /^info 라이브 방송이 종료되어 다음 곡으로 넘김: .* \| 재확인 결과 라이브 아님$/],
   [
     "yt-dlp 가 오류로 답하면",
     () => {
       throw new Error("ERROR: [youtube] m2mmmmmmmmm: We're experiencing technical difficulties.");
     },
-    /^warn 라이브를 다시 열지 못해 다음 곡으로 넘깁니다: /,
+    /^warn 라이브 다시 열기 실패\(다음 곡으로 넘김\): /,
   ],
 ] as const) {
   test(`끊긴 라이브를 다시 열었는데 ${ending} 다음 곡으로. 실패로 세지 않고 채널에 알리지 않으며 다 튼 곡처럼 기록한다`, async () => {
@@ -520,7 +520,7 @@ test("끊긴 라이브 HLS(직접 링크)를 다시 열었는데 목록이 끝�
   assert.equal(asked[0]?.liveOnly, true, "다시 열 때만 끝난 목록을 거절한다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 라이브 방송이 종료되어 다음 곡으로 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 라이브 방송이 종료되어 다음 곡으로 넘김: /.test(l)),
     lines.join(" / "),
   );
 });
@@ -552,7 +552,7 @@ test("라이브로 담은 HLS 를 처음 틀 때(세션 복원도 같다) 목록
   assert.ok(calls.sent.length > sent, "채널에 알린다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 종료된 라이브 방송이라 재생하지 않고 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 종료된 라이브 방송이라 재생하지 않고 넘김: /.test(l)),
     lines.join(" / "),
   );
   assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");
@@ -579,7 +579,7 @@ test("틀 차례에 아직 시작하지 않은 라이브면 알리고 다음 곡
   assert.ok(calls.sent.length > sent, "채널에 알린다");
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^info 아직 시작하지 않은 라이브라 재생하지 않고 넘깁니다: /.test(l)),
+    lines.some((l) => /^info 아직 시작하지 않은 라이브라 재생하지 않고 넘김: /.test(l)),
     lines.join(" / "),
   );
   assert.ok(!lines.some((l) => l.startsWith("error ")), "오류로 남기지 않는다");

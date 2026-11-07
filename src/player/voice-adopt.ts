@@ -24,7 +24,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     if (!channel?.isVoiceBased() || players.has(guild.id) || touched.includes(guild.id)) continue;
     // 저장된 세션이 있는 서버(이번 기동이 복원하지 않았다: 연달아 끊김, 일시적 조회 실패)는 /join 이 이어 튼다. 붙들면 /join 이 막히고 퇴장 때 세션을 삭제한다
     if (sessions().load(guild.id)) {
-      log.info(`저장된 세션이 있어 음성 채널 연결을 바로 이어받지 않습니다(/join으로 이어서 재생): "${channel.name}" (${guild.name})`);
+      log.info(`저장된 세션이 있어 음성 채널 연결을 바로 이어받지 않음(/join으로 이어서 재생): "${channel.name}" (${guild.name})`);
       continue;
     }
 
@@ -33,11 +33,11 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     try {
       await player.voice.connect();
     } catch (error) {
-      log.warn(`세션 없이 남은 음성 채널에 재연결하지 못해 정리합니다: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
+      log.warn(`세션 없이 남은 음성 채널에 재연결하지 못해 정리: "${channel.name}" (${guild.name}) | ${messageOf(error)}`);
       await player.dispose({ reason: "남은 채널 이어받기 실패", session: "keep", end: "adopt-failed" });
       continue;
     }
-    log.info(`세션 없이 음성 채널에 남아 있던 봇을 이어받습니다: "${channel.name}" (${guild.name})`);
+    log.info(`세션 없이 남아 있던 음성 채널 연결을 이어받음: "${channel.name}" (${guild.name})`);
     player.showIdleVoiceStatus();
     player.idle.scheduleEmpty("곡 없이 대기");
     // 혼자 남음은 붙을 때(connect) 억제 사유를 맞추며 이미 걸었다. 그때의 안내는 틀 게 없음 타이머 전이라 한 번 더 알린다

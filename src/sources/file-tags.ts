@@ -187,7 +187,7 @@ async function fromStream(source: Readable, limits: StreamLimits): Promise<Tags 
   const opened: Readable[] = [source];
   const budget = { left: limits.maxBytes };
   const timer = setTimeout(() => {
-    for (const stream of opened) stream.destroy(new Error(`태그를 ${limits.timeoutMs}ms 안에 읽지 못했습니다`));
+    for (const stream of opened) stream.destroy(new Error(`태그를 ${limits.timeoutMs}ms 안에 읽지 못함`));
   }, limits.timeoutMs);
   try {
     const next = reader(source);

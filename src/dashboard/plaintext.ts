@@ -43,8 +43,8 @@ function plaintextGate(allow: boolean): RequestHandler {
     const reason = plaintextReason(req);
     if (!reason) return next();
     const verdict = gate(reason);
-    if (verdict === "warn") log.warn(`인터넷 평문 접속을 막았습니다(${REASON_TEXT[reason]}, ${clientIp(req)}). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
-    else if (verdict === "cap") log.warn("인터넷 평문 접속이 많아 1시간 동안 더는 로그에 남기지 않습니다(막는 것은 그대로).");
+    if (verdict === "warn") log.warn(`인터넷 평문 접속 차단(${REASON_TEXT[reason]}, ${clientIp(req)}). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    else if (verdict === "cap") log.warn("인터넷 평문 접속이 많아 1시간 동안 더는 로그에 남기지 않음(차단은 그대로)");
     res.status(403).type("html").send(PAGE);
   };
 }

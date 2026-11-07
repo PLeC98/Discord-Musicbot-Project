@@ -26,11 +26,11 @@ function spawn() {
     const { job } = finish();
     if (hits) job.resolve({ kind: "hits", hits });
     else if (tooLarge) job.resolve({ kind: "timeout" });
-    else job.reject(new Error(error || "정규식을 검사하지 못했습니다"));
+    else job.reject(new Error(error || "정규식 검사 실패"));
     next();
   });
   one.on("error", (error) => stop(one, error));
-  one.on("exit", () => stop(one, new Error("정규식 스레드가 끝났습니다")));
+  one.on("exit", () => stop(one, new Error("정규식 스레드가 종료됨")));
   one.unref(); // 봇이 끝날 때 붙잡지 않는다
   return one;
 }

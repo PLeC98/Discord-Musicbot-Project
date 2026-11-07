@@ -191,7 +191,7 @@ test("스트림: 세그먼트 목록으로만 주면 세그먼트 주소의 모�
   assert.equal(s.liveStatus, null, "끝난 방송은 라이브가 아니다");
 
   respond = () => ({ ...video("qqqqqqqqqqq"), url: base, protocol: "http_dash_segments", fragments: fragments(3, (i) => `https://other.test/seg/${i}`) });
-  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=qqqqqqqqqqq"), /세그먼트 목록의 주소가 알던 모양/);
+  await assert.rejects(YouTube.getStream("https://www.youtube.com/watch?v=qqqqqqqqqqq"), /세그먼트 목록의 주소가 알던 형식/);
 });
 
 test("스트림: 헤더, 앞 광고 시각이 없으면 빈 값", async () => {
@@ -262,7 +262,7 @@ test("자동재생 재생목록 소스: 목록을 못 받으면 그 까닭, 곡 
   respond = () => ({ fail: "ERROR: [youtube:tab] PLzzz: The playlist does not exist." });
   await assert.rejects(playlists.youtube({ type: "playlist", url }), (e) => codeOf(e) === "unavailable-playlist");
   respond = () => ({ title: "믹스", entries: [video("mmmmmmmmmmm")], playlist_count: null });
-  await assert.rejects(playlists.youtube({ type: "playlist", url }), /유튜브 믹스는 소스로 쓸 수 없습니다/);
+  await assert.rejects(playlists.youtube({ type: "playlist", url }), /유튜브 믹스는 소스로 쓸 수 없음/);
 });
 
 // ── 다시 받기 ─────────────────────────────────────────────────────────

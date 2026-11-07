@@ -71,9 +71,9 @@ function hostCheck(url: string): RequestHandler {
     const shown = bad.host;
     const verdict = gate(`${bad.header}:${shown ?? ""}`);
     if (verdict === "warn") {
-      log.warn(shown ? `허용하지 않은 호스트로 온 요청을 막았습니다(${bad.header}): ${shown}. 이 주소로 접속하려면 DASHBOARD_URL을 이 주소로 바꾸세요.` : "Host 헤더가 없거나 여러 개이거나 형식이 잘못된 요청을 막았습니다.");
+      log.warn(shown ? `허용하지 않은 호스트로 온 요청 차단(${bad.header}): ${shown}. 이 주소로 접속하려면 DASHBOARD_URL을 이 주소로 바꾸세요.` : "Host 헤더가 없거나 여러 개이거나 형식이 잘못된 요청 차단");
     } else if (verdict === "cap") {
-      log.warn("허용하지 않은 호스트로 온 요청이 많아 1시간 동안 더는 로그에 남기지 않습니다(막는 것은 그대로).");
+      log.warn("허용하지 않은 호스트로 온 요청이 많아 1시간 동안 더는 로그에 남기지 않음(차단은 그대로)");
     }
     const body = shown ? `<p>이 주소(${escapeHtml(shown)})로는 대시보드를 열 수 없어요.</p><p>이 주소로 접속하려면 봇의 .env에서 <code>DASHBOARD_URL</code>을 이 주소로 바꾸고 봇을 다시 시작하세요.</p>` : "<p>요청의 Host 헤더가 잘못되어 대시보드를 열 수 없어요.</p>";
     res.status(403).type("html").send(`<!doctype html><meta charset="utf-8"><title>대시보드</title>${body}`);

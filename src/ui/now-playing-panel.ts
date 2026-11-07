@@ -467,7 +467,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
+      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -490,7 +490,7 @@ class NowPlayingPanel {
 
   // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적을 해제합니다 (${player.guild.name ?? player.guild.id}). 재생은 계속됩니다`);
+    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적 해제 (${player.guild.name ?? player.guild.id}). 재생은 계속`);
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -802,7 +802,7 @@ class NowPlayingPanel {
       await this._tickProgress(player);
     } catch (error) {
       // 고치기 실패는 _onEditFailed 가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신을 중단합니다 (${player.guild.name ?? guildId}):`, error);
+      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(${player.guild.name ?? guildId}):`, error);
       this.stopProgressUpdate(guildId);
       return;
     }

@@ -101,7 +101,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
     if (flooding()) {
-      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과했습니다`);
+      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과함`);
       fatalShutdown(players, error, { exit, record });
     }
   };

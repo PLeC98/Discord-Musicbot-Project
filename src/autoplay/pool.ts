@@ -79,7 +79,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
     if (!tracks.length) return null;
     pool = { tracks, fetchedAt: now, used: new Set() };
     pools.set(key, pool);
-    log.debug(`자동재생 풀을 채웠습니다 (${source?.type}): ${tracks.length}곡`);
+    log.debug(`자동재생 풀 채움(${source?.type}): ${tracks.length}곡`);
   }
 
   // 아직 안 쓴 것 중에서 무작위로. 부르는 쪽이 싫다는 것은 건너뛰되 썼다고 치지 않는다

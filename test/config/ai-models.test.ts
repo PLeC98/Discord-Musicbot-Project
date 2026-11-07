@@ -190,12 +190,12 @@ test("갱신: 목차와 카탈로그의 해시가 다르거나 형식 버전이 
     () => ({ schemaVersion: 4, hash: "h2" }),
     () => catalogOf("h1"),
   );
-  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: stale.fetchImpl }), /해시가 다릅니다/);
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: stale.fetchImpl }), /해시가 다름/);
   const newer = registry(
     () => ({ schemaVersion: 5, hash: "h3" }),
     () => catalogOf("h3", { schemaVersion: 5 }),
   );
-  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: newer.fetchImpl }), /형식 5/);
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: newer.fetchImpl }), /형식: 5\(4만 지원\)/);
   assert.equal(models.saved(), false, "가진 사본을 그대로 둔다");
   assert.deepEqual(models.load().profiles, {}, "받은 것이 없으면 빈 프로필로 돈다");
 });

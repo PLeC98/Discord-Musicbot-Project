@@ -128,14 +128,14 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   let restored: string | null;
   try {
     // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷, .env, 로그, 이번 실행의 기록은 남는다)
-    if (fullReset.applyRequested()) log.warn("봇 전체 초기화: DB, 캐시 파일, 디스플레이 파일을 삭제했습니다. 설정 스냅샷은 database/backups에 보관했습니다");
+    if (fullReset.applyRequested()) log.warn("봇 전체 초기화 완료: DB, 캐시 파일, 디스플레이 파일 삭제(설정 스냅샷은 database/backups에 보관)");
     // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
     restored = snapshots.applyStaged(PROJECT.database);
-    if (restored) log.warn(`설정 DB를 ${restored}로 복원했습니다. 기존 DB는 database/backups에 백업했습니다`);
+    if (restored) log.warn(`${restored}로 설정 DB 복원 완료(기존 DB는 database/backups에 백업)`);
     stores.open();
   } catch (error) {
     log.error(messageOf(error));
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB를 복원하려면 봇을 종료한 뒤 database/backups의 settings-*.db 파일을 database/settings.db로 복사하세요(같은 SECRETS_KEY여야 비밀값을 복호화할 수 있습니다)");
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB를 복원하려면 봇을 종료한 뒤 database/backups의 settings-*.db 파일을 database/settings.db로 복사하세요(같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }
@@ -146,7 +146,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   // 장르, 상태 문구, AI 설정, 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
   // 예전 기본값 그대로인 AI 줄 형식, 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
   const upgraded = documents.attach(settingsDocs);
-  if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신했습니다: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(", ")}`);
+  if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(", ")}`);
   // 복원한 설정이 AI 를 켜 두었는데 이 폴더에 받은 모델 정보가 없을 수 있다(전체 백업은 모델 정보를 담지 않는다)
   if (restored) fetchIfMissing();
   warnLegacyConfigFiles();
@@ -163,7 +163,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
 async function restoreAudioCache() {
   try {
     const done = await archive.applyStagedAudio(PROJECT.database);
-    if (done) log.info(`전체 백업의 오디오 캐시를 병합했습니다: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || "새로 불러온 것 없음"}`);
+    if (done) log.info(`전체 백업의 오디오 캐시 병합 완료: ${(Object.entries(done.added ?? {}) as Array<[ArchiveItem, number]>).map(([item, n]) => `${archive.ITEM_LABELS[item]} ${n}`).join(", ") || "새로 불러온 것 없음"}`);
   } catch (error) {
     log.warn(`전체 백업의 오디오 캐시 병합 실패: ${messageOf(error)}`);
   }
@@ -172,7 +172,7 @@ async function restoreAudioCache() {
 // 옛 설정 파일(config/*.yaml, ai-prompt.chatml)이 남아 있으면 한 줄. 읽지도 삭제하지도 않는다(보며 옮길 수 있게)
 function warnLegacyConfigFiles() {
   const left = ["genres.yaml", "status.yaml", "ai.yaml", "ai-prompt.chatml"].filter((name) => fs.existsSync(path.join(PROJECT.config, name)));
-  if (left.length) log.warn(`config/의 ${left.join(", ")}${josa(left.join(", "), "은")} 이제 읽지 않습니다. 운영자 패널(자동재생, 상태 문구, AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
+  if (left.length) log.warn(`config/의 ${left.join(", ")}${josa(left.join(", "), "은")} 이제 읽지 않음. 운영자 패널(자동재생, 상태 문구, AI 보조 탭)에서 다시 입력하고 이 파일들은 삭제하세요`);
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
@@ -285,7 +285,7 @@ function listenToLibrary(client: Client) {
     else dlog.debug(line);
   });
   // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP 를 한동안 막는다
-  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단합니다`));
+  client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단함`));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 
@@ -401,7 +401,7 @@ async function startEncoding() {
     const limit = quota ? `상한 ${max}, CPU quota ${quota.toFixed(1)}` : `상한 ${max}`;
     log.info({ tags: ["startup"] }, `Opus 인코더: ${libopusVersion} (WASM, 워커 스레드 ${limit})`);
   } catch (error) {
-    log.error(`Opus 인코더를 불러오지 못했습니다: ${messageOf(error)}`);
+    log.error(`Opus 인코더 불러오기 실패: ${messageOf(error)}`);
     throw new StartupStopped(messageOf(error), { cause: error });
   }
 }

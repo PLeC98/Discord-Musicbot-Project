@@ -162,7 +162,7 @@ async function publish(api: Api, remote: Remote[], { added, removed, total, skip
   const now = added || removed ? await api.list() : remote;
   useAppEmojis(now);
   forget?.(new Set(now.map((one) => one.id)));
-  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
+  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둠: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
   if (added || removed) log.info(`앱 이모지 동기화: ${total}개 중 ${added}개 추가, ${removed}개 삭제`);
   else log.debug(`앱 이모지 동기화: ${total}개 변경 없음`);
 }
@@ -311,7 +311,7 @@ class AppEmojis {
       const count = await loadKnown(this.api, this.protectedIds);
       log.debug(`앱 이모지 ${count}개를 불러옴`);
     } catch (error) {
-      log.warn(`앱 이모지 목록을 불러오지 못해 아이콘을 유니코드로 둡니다: ${messageOf(error)}`);
+      log.warn(`앱 이모지 목록 불러오기 실패(아이콘은 유니코드로 둠): ${messageOf(error)}`);
     }
   }
 

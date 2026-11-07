@@ -136,7 +136,7 @@ async function ensureNotEmpty(tempPath: string) {
   const stats = await fs.stat(tempPath);
   if (stats.size > 0) return;
   await bestEffort(log, fs.unlink(tempPath), "빈 임시 파일 삭제");
-  throw codedError("stream-failed", "다운로드한 파일이 비어 있습니다");
+  throw codedError("stream-failed", "다운로드한 파일이 비어 있음");
 }
 
 // 완료된 다운로드를 DB에 남긴다. 못 남겨도 파일은 이미 올라갔다. 기록 없는 파일은 기동 정리가 치운다
@@ -212,7 +212,7 @@ class TrackDownloader {
       const found = await this.deps.equivalent.findYouTubeEquivalent(track).catch((error: unknown) => {
         throw this._failed(track, error);
       });
-      if (!found) throw this._failed(track, codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못했습니다"));
+      if (!found) throw this._failed(track, codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함"));
     }
     const filepath = this.trackFilePath(track);
 
@@ -275,7 +275,7 @@ class TrackDownloader {
       if (audioKey) audioCache.recordDownloadStart(audioKey, track);
       // 빌려 오는 곡은 downloadTrack 이 먼저 채웠다
       const downloadUrl = track.audioUrl;
-      if (!downloadUrl) throw new Error("음원 주소가 없어 다운로드할 수 없습니다");
+      if (!downloadUrl) throw new Error("음원 주소가 없어 다운로드할 수 없음");
 
       // 음원이 정해진 지점. SponsorBlock 구간을 미리 받아 두면 재생할 때 기다리지 않는다.
       // 실패해도 다운로드, 재생을 막지 않는다(DB 가 열리지 않은 것만 던진다).
@@ -302,7 +302,7 @@ class TrackDownloader {
       // 다운로드한 양(봇 상태 탭의 다운로드). 먼저 끝낸 쪽이 있어 버려도 다운로드한 것은 다운로드한 것이다
       addDownloaded(fsSync.statSync(tempPath).size);
       const mine = await publish(tempPath, filepath);
-      if (!mine) log.debug(`다른 작업이 먼저 다운로드한 캐시 파일을 사용합니다: "${logTitle(track.title)}"`);
+      if (!mine) log.debug(`다른 작업이 먼저 다운로드한 캐시 파일을 사용: "${logTitle(track.title)}"`);
 
       correctInfo(track, got);
       const shown = shownDuration(track, measured, "measured");
@@ -370,7 +370,7 @@ class TrackDownloader {
     const ended = Date.now();
     const info = this._takeInfoJson(tempPath);
     // 사운드클라우드가 미리듣기 조각(30초)만 준 곡: 곡처럼 캐시하지 않는다(추가한 뒤 권리자가 미리듣기로 돌린 곡)
-    if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡이라 캐시하지 않습니다: ${downloadUrl}`);
+    if (/_preview$/.test(info.formatId ?? "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡이라 캐시하지 않음: ${downloadUrl}`);
     // 다운로드한 포맷과 리먹싱, 인코딩 여부(yt-dlp 의 ExtractAudio 는 Opus 면 리먹싱하고 아니면 인코딩한다)
     const codec = info.acodec?.split(".")[0] ?? "?";
     const format = `포맷 ${info.formatId ?? "?"}(${info.protocol ?? "?"}, ${codec === "opus" ? "옮김" : `${codec} → opus 구움`})`;

@@ -109,7 +109,7 @@ function createResumingBody(options: ResumingOptions): Readable {
         body.removeAllListeners("data");
         current = null;
         if (error) return reject(error);
-        if (left > 0) return reject(permanent(`구간을 무시한 응답이 받은 위치(${pos + left}B)보다 짧습니다`));
+        if (left > 0) return reject(permanent(`구간을 무시한 응답이 이미 받은 위치(${pos + left}B)보다 짧음`));
         resolve();
       });
     });
@@ -141,9 +141,9 @@ function createResumingBody(options: ResumingOptions): Readable {
   // 206: 받은 위치부터인지, 전체 크기가 그대로인지 본다
   function acceptedRange(headers: Record<string, unknown>): number {
     const [, start, size] = CONTENT_RANGE.exec(String(headers["content-range"] ?? "")) ?? [];
-    if (start === undefined || Number(start) !== pos) throw permanent(`이어 받은 구간이 어긋납니다: ${pos}B부터 요청, ${String(headers["content-range"] ?? "Content-Range 없음")}`);
+    if (start === undefined || Number(start) !== pos) throw permanent(`이어 받은 구간이 어긋남: ${pos}B부터 요청, ${String(headers["content-range"] ?? "Content-Range 없음")}`);
     if (size !== "*") {
-      if (total !== null && Number(size) !== total) throw permanent(`이어 받은 본문의 전체 크기가 다릅니다: 처음 ${total}B, 지금 ${size}B`);
+      if (total !== null && Number(size) !== total) throw permanent(`이어 받은 본문의 전체 크기가 다름: 처음 ${total}B, 지금 ${size}B`);
       total = Number(size);
     }
     return 0;
@@ -151,11 +151,11 @@ function createResumingBody(options: ResumingOptions): Readable {
 
   // 200(구간을 무시했다): 같은 본문인지(검사값, 전체 크기), 버릴 앞부분이 상한 안인지 본다
   function acceptedWhole(headers: Record<string, unknown>): number {
-    if (!validator) throw permanent("서버가 구간을 무시했는데 검사값이 없어 같은 본문인지 알 수 없습니다");
-    if (!sameValidator(headers, validator)) throw permanent("본문이 바뀌었습니다(검사값이 다름)");
+    if (!validator) throw permanent("서버가 구간을 무시했는데 검사값이 없어 같은 본문인지 알 수 없음");
+    if (!sameValidator(headers, validator)) throw permanent("본문이 바뀜(검사값이 다름)");
     const size = lengthOf(headers);
-    if (total !== null && size !== null && size !== total) throw permanent(`다시 받은 본문의 전체 크기가 다릅니다: 처음 ${total}B, 지금 ${size}B`);
-    if (pos > discardMaxBytes) throw permanent(`서버가 구간을 무시해서, 버릴 앞부분(${pos}B)이 상한(${discardMaxBytes}B)을 넘습니다`);
+    if (total !== null && size !== null && size !== total) throw permanent(`다시 받은 본문의 전체 크기가 다름: 처음 ${total}B, 지금 ${size}B`);
+    if (pos > discardMaxBytes) throw permanent(`서버가 구간을 무시해서, 버릴 앞부분(${pos}B)이 상한(${discardMaxBytes}B)을 넘음`);
     return pos;
   }
 
@@ -168,7 +168,7 @@ function createResumingBody(options: ResumingOptions): Readable {
         await pour(next.body, next.skip);
         next = null;
         if (total === null || pos >= total) return void out.push(null);
-        throw Object.assign(new Error(`본문을 다 받기 전에 끝났습니다(${pos}/${total}B)`), { code: "ERR_STREAM_PREMATURE_CLOSE" });
+        throw Object.assign(new Error(`본문을 다 받기 전에 끝남(${pos}/${total}B)`), { code: "ERR_STREAM_PREMATURE_CLOSE" });
       } catch (error) {
         next?.body.destroy();
         next = null;

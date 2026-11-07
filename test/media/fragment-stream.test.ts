@@ -87,7 +87,7 @@ test("세그먼트가 계속 멈춰 재시도를 다 쓰면 시간 초과(Timeou
 });
 
 test("세그먼트 수가 없으면 만들지 않는다", () => {
-  assert.throws(() => createFragmentStream({ fragments: { base, count: 0 }, durationMs: 1, startMs: 0 }), /세그먼트 수가 올바르지 않습니다/);
+  assert.throws(() => createFragmentStream({ fragments: { base, count: 0 }, durationMs: 1, startMs: 0 }), /세그먼트 수가 올바르지 않음/);
 });
 
 test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) 차례대로 흘리고, 닫으면 출처에 알린다", async () => {

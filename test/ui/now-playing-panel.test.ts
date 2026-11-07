@@ -309,7 +309,7 @@ test("진행 막대: 한 번 갱신이 모르는 오류로 던지면 남기고 �
       .slice(from)
       .filter((e) => e.text.startsWith("진행 막대"))
       .map((e) => [e.level, e.text.split("\n")[0]]),
-    [["error", "진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신을 중단합니다 (서버): Error: boom"]],
+    [["error", "진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(서버): Error: boom"]],
   );
 });
 

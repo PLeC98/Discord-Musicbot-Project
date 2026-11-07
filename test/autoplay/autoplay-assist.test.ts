@@ -301,9 +301,9 @@ test("재시도까지 모두 실패한 판정마다 warn 한 줄, 성공하면 �
   assert.deepEqual(
     lines.map((e) => [e.level, e.text]),
     [
-      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 선택합니다"],
-      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 선택합니다"],
-      ["warn", "AI 보조 실패: HTTP 401 (bad key). 이번 판정은 규칙만으로 선택합니다"],
+      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 선택"],
+      ["warn", "AI 보조 실패(3번 불러 모두 실패): HTTP 503 UNAVAILABLE (The model is overloaded.). 이번 판정은 규칙만으로 선택"],
+      ["warn", "AI 보조 실패: HTTP 401 (bad key). 이번 판정은 규칙만으로 선택"],
     ],
     "다시 불러 된 판정(D)은 남기지 않는다",
   );

@@ -48,7 +48,7 @@ function causeText() {
 function announce(shardId: number) {
   if (destroyed || announced || !attempt || !closedBy || routine()) return;
   announced = true;
-  log.warn(`게이트웨이 연결이 끊겼습니다 (샤드 ${shardId}): ${causeText()}. 재연결하는 중입니다`);
+  log.warn(`게이트웨이 연결 끊김(샤드 ${shardId}): ${causeText()}. 재연결 중`);
 }
 
 function onDebug(message: string, shardId: number) {
@@ -72,7 +72,7 @@ function onError(error: Error, shardId: number) {
 function onReconnecting(shardId: number) {
   if (destroyed) return;
   attempt += 1;
-  log.debug(`게이트웨이 연결이 끊겨 재연결하는 중입니다(${attempt}번째 시도)`);
+  log.debug(`게이트웨이 연결이 끊겨 재연결 중(${attempt}번째 시도)`);
   announce(shardId);
 }
 
@@ -92,7 +92,7 @@ function onConnected(how: string) {
 
 function onDisconnect(code: number, shardId: number) {
   const name = (GatewayCloseCodes as Record<number, string | undefined>)[code];
-  log.error(`게이트웨이 연결이 닫혀 재연결하지 않습니다 (샤드 ${shardId}): 닫힘 코드 ${code}${name ? ` ${name}` : ""}${errors ? ` · ${errors.first}` : ""}`);
+  log.error(`게이트웨이 연결이 닫혀 재연결하지 않음(샤드 ${shardId}): 닫힘 코드 ${code}${name ? ` ${name}` : ""}${errors ? ` · ${errors.first}` : ""}`);
   attempt = 0;
   closedBy = null;
   errors = null;

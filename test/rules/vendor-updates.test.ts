@@ -40,7 +40,7 @@ test("bgutil: 숫자로 견준다(2.0.10 > 2.0.9), 같거나 모양이 다르면
 test("상수 한 줄만 고친다. 그 줄이 없으면 던진다", () => {
   const text = 'const FFMPEG_RELEASE = "a";\nconst BGUTIL_VERSION = "2.0.2";\n';
   assert.equal(rewriteConstant(text, "BGUTIL_VERSION", "2.0.3"), 'const FFMPEG_RELEASE = "a";\nconst BGUTIL_VERSION = "2.0.3";\n');
-  assert.throws(() => rewriteConstant(text, "OTHER", "x"), /OTHER 줄을 찾지 못했습니다/);
+  assert.throws(() => rewriteConstant(text, "OTHER", "x"), /OTHER 줄을 찾지 못함/);
 });
 
 test("고칠 상수 줄이 실제 파일에 있다(워크플로가 고치는 파일의 모양)", () => {

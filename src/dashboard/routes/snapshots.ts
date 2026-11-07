@@ -28,17 +28,17 @@ snapshotsRouter.post("/restore", requireRecentLogin, (req, res) => {
   } catch (error) {
     if (codeOf(error) === "SNAPSHOT_NOT_FOUND") return sendProblem(res, "snapshot-not-found");
     if (codeOf(error) === "SNAPSHOT_MISMATCH") return sendProblem(res, "snapshot-mismatch", {}, { detail: messageOf(error) });
-    log.error({ sub: "admin" }, `설정 DB 복원을 예약하지 못했습니다: ${messageOf(error)}`);
+    log.error({ sub: "admin" }, `설정 DB 복원 예약 실패: ${messageOf(error)}`);
     return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
-  log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원을 예약했습니다: ${name}(다음 기동에 교체합니다). 실행 ${ranBy(req)}`);
+  log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약: ${name}(다음 기동에 교체). 실행 ${ranBy(req)}`);
   res.json(view());
 });
 
 snapshotsRouter.delete("/restore", (req, res) => {
   const was = snapshots.staged();
   snapshots.unstage();
-  if (was) log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약을 취소했습니다: ${was}. 실행 ${ranBy(req)}`);
+  if (was) log.warn({ sub: "admin" }, `대시보드에서 설정 DB 복원 예약 취소: ${was}. 실행 ${ranBy(req)}`);
   res.json(view());
 });
 

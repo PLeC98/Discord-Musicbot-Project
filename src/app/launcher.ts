@@ -35,13 +35,13 @@ function launch(entry: string, { spawn, proc, exit, say }: LauncherDeps) {
   const run = () => {
     child = spawn(proc.execPath, [...proc.execArgv, entry], { stdio: "inherit", env: { ...proc.env, [LAUNCHER_ENV]: "1" } });
     child.on("error", (error: Error) => {
-      say(`[실행기] 봇을 실행하지 못했습니다: ${error.message}`);
+      say(`[실행기] 봇 실행 실패: ${error.message}`);
       exit(1);
     });
     child.on("exit", (code: number | null, signal: NodeJS.Signals | null) => {
       child = null;
       if (code === EXIT.restart && !stopping) {
-        say("[실행기] 봇을 다시 실행합니다");
+        say("[실행기] 봇 다시 실행");
         run();
         return;
       }

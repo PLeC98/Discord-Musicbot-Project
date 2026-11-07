@@ -182,7 +182,7 @@ loginBackgroundRouter.put("/:id/edit", (req, res) => {
   one.estimate = null;
   runner.stopCounting(one.id);
   runner.kick();
-  changed(req, res, `"${one.name}" 의 편집을 적용했습니다`);
+  changed(req, res, `"${one.name}"의 편집 적용`);
 });
 
 loginBackgroundRouter.put("/:id/position", (req, res) => {
@@ -191,7 +191,7 @@ loginBackgroundRouter.put("/:id/position", (req, res) => {
   const body = parse(BackgroundPositionBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
   one.position = body.value;
-  changed(req, res, `"${one.name}" 의 보일 위치를 ${body.value.x}%, ${body.value.y}%로 바꿨습니다`);
+  changed(req, res, `"${one.name}"의 보일 위치를 ${body.value.x}%, ${body.value.y}%로 바꿈`);
 });
 
 // 편집 취소, 인코딩 취소: 배경을 버리고, 걸려 있던 배경이면 이전 배경으로
@@ -199,7 +199,7 @@ loginBackgroundRouter.post("/:id/cancel", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   runner.discard(one.id);
-  changed(req, res, `"${one.name}" 만들기를 그만뒀습니다`);
+  changed(req, res, `"${one.name}" 만들기 중단`);
 });
 
 loginBackgroundRouter.put("/current", (req, res) => {
@@ -209,13 +209,13 @@ loginBackgroundRouter.put("/current", (req, res) => {
   if (!one) return sendProblem(res, "route-not-found");
   if (!store.isReady(one)) return sendProblem(res, "background-not-ready");
   if (store.loaded().current !== one.id) store.show(one.id);
-  changed(req, res, `"${one.name}"${josa(one.name, "으로")} 바꿨습니다`);
+  changed(req, res, `"${one.name}"${josa(one.name, "으로")} 바꿈`);
 });
 
 // 비우기(봇 프로필 이미지 배경으로). 기록은 남는다
 loginBackgroundRouter.delete("/current", (req, res) => {
   store.show(null);
-  changed(req, res, "배경을 비웠습니다");
+  changed(req, res, "배경을 비움");
 });
 
 // 기록에서 삭제. 만드는 중이면 취소와 같다
@@ -223,13 +223,13 @@ loginBackgroundRouter.delete("/:id", (req, res) => {
   const one = itemFor(req, res);
   if (!one) return;
   runner.discard(one.id);
-  changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 삭제했습니다`);
+  changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 삭제`);
 });
 
 // 인코더를 다시 테스트한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking 으로 답한다
 loginBackgroundRouter.post("/encoders/check", (req, res) => {
   void encoders.recheck();
-  changed(req, res, "인코더를 다시 테스트합니다");
+  changed(req, res, "인코더 다시 테스트");
 });
 
 loginBackgroundRouter.put("/options", (req, res) => {

@@ -35,7 +35,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
     times.push(at);
     recent.set(guildId, times);
     if (times.length > MAX_RESETS) {
-      log.error(`서버 ${guildId}에서 알 수 없는 오류가 반복되어(${WINDOW_MS / 60_000}분 내 ${MAX_RESETS}회 초과) 이 서버의 재생을 멈추고 세션을 삭제합니다`);
+      log.error(`서버 ${guildId}에서 알 수 없는 오류가 반복되어(${WINDOW_MS / 60_000}분 내 ${MAX_RESETS}회 초과) 이 서버의 재생을 멈추고 세션 삭제`);
       await player.dispose({ reason: "되풀이 오류로 멈춤", session: "remove", panel: "stop", end: "fault" });
       return;
     }
@@ -47,7 +47,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
     }
     resetting.add(guildId);
     try {
-      log.warn(`서버 ${guildId}만 다시 시작합니다(세션 저장 → 정리 → 복원)`);
+      log.warn(`서버 ${guildId}만 다시 시작(세션 저장 → 정리 → 복원)`);
       await player.dispose({ reason: "모르는 오류로 다시 시작", session: "save", stay: true, end: "fault-restart" });
       await restore(guildId);
     } catch (e) {

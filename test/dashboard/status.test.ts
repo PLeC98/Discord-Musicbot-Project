@@ -142,7 +142,7 @@ test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.ShardReady, 0);
   });
-  assert.deepEqual(lines, ["40 게이트웨이 연결이 끊겼습니다 (샤드 0): 닫힘 코드 1006. 재연결하는 중입니다", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006; 연결 오류 1번(첫: connect ECONNREFUSED)"]);
+  assert.deepEqual(lines, ["40 게이트웨이 연결 끊김(샤드 0): 닫힘 코드 1006. 재연결 중", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006; 연결 오류 1번(첫: connect ECONNREFUSED)"]);
 });
 
 test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 warn 으로 남기고, 그 까닭이 다음 끊김에 남지 않는다", () => {
@@ -164,7 +164,7 @@ test("게이트웨이 로그: 재연결하지 않는 닫힘은 오류와 합쳐 
     client.emit(Events.Debug, destroying("none", 4004));
     client.emit(Events.ShardDisconnect, { code: 4004 }, 0);
   });
-  assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않습니다 (샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
+  assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않음(샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
 });
 
 test("자식 프로세스: 프로그램, 서버 이름, 일. 재생, 다음 곡 일인데 그 서버에 플레이어가 없으면 잔류 의심", () => {

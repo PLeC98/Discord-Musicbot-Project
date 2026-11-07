@@ -11,7 +11,7 @@ function field<T extends z.ZodType>(name: string, schema: T) {
   return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
-      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다릅니다(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속합니다`);
+      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다름(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속`);
     }
     return undefined;
   });

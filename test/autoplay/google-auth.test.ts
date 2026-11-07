@@ -96,7 +96,7 @@ test("파일 경로는 받지 않는다(읽으러 가지 않는다)", async () =
   fs.writeFileSync(file, SA_JSON);
   calls.length = 0;
   answers({ access_token: "x", expires_in: 3600 });
-  await assert.rejects(() => auth.accessToken(file, { fetch: net }), /JSON 내용이어야 합니다/);
+  await assert.rejects(() => auth.accessToken(file, { fetch: net }), /JSON 내용이어야 함/);
   assert.equal(calls.length, 0);
 });
 

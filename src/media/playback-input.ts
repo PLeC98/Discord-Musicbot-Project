@@ -90,7 +90,7 @@ const SWITCH_FADE_MS = 40; // 캐시로 갈아탈 때 등출력 크로스페이�
  * @returns cacheFile 은 결국 파일로 열었으면 그 경로. health 는 연 소스의 온전함(곡 끝 판정이 본다)
  */
 async function openInput<R>(o: InputOptions<R>): Promise<Opened<R>> {
-  if (!o.io.encoderAvailable()) throw codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없습니다");
+  if (!o.io.encoderAvailable()) throw codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
   // 주소 분기는 스트림 주소가 있어야 정해진다(transportOf)
   if (o.transport.via === "url" && o.streamInfo) return openUrl(o, o.streamInfo);
   if (o.transport.via === "pipe") {
@@ -121,7 +121,7 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
     // 범위: 이 ffmpeg 로는 이 꼴의 스트림이 모두 안 된다(player/failure-scope)
-    throw Object.assign(codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없습니다`), { scope: "environment" });
+    throw Object.assign(codedError("stream-failed", `이 ffmpeg 빌드로는 ${list === "other" ? (streamInfo.protocol ?? "없음") : list.toUpperCase()} 스트림을 재생할 수 없음`), { scope: "environment" });
   }
 
   // 라이브가 아닌 HLS(사운드클라우드 등)는 평소대로 캐시를 다운로드해 둔다. 재생은 기다리지 않는다.
@@ -155,10 +155,10 @@ function watchSegmentSkips<R>(o: InputOptions<R>, ffmpeg: FfmpegChild, health: I
     if (!skipped) return;
     const what = skipped.replace(/^\[[^\]]*\]\s*/, "").trim();
     if (live) {
-      log.warn(`라이브 HLS 세그먼트를 건너뛰고 재생을 이어갑니다: ${o.label} | ${what}`);
+      log.warn(`라이브 HLS 세그먼트를 건너뛰고 재생 계속: ${o.label} | ${what}`);
       return;
     }
-    log.warn(`HLS 세그먼트를 받지 못해 입력을 끊고 그 위치부터 다시 엽니다: ${o.label} | ${what}`);
+    log.warn(`HLS 세그먼트 받기 실패(입력을 끊고 그 위치부터 다시 열기): ${o.label} | ${what}`);
     health.mark(`HLS 세그먼트를 건너뜀: ${what}`);
     ffmpeg.kill("SIGKILL");
   });
@@ -200,7 +200,7 @@ async function openPipe<R>(o: InputOptions<R>, download: Download | null): Promi
   if (!audioStream || !streamInfo) return { resource: null, cacheFile: o.cacheFile, health: null };
   if (direct && download) {
     if (audioStream.bounded) download.start();
-    else log.debug(`길이나 크기를 알 수 없는 입력이므로 캐시하지 않고 스트림으로만 재생합니다: ${o.label}`);
+    else log.debug(`길이나 크기를 알 수 없는 입력이라 캐시하지 않고 스트림으로만 재생: ${o.label}`);
   }
   return { ...pipeResource(o, streamInfo, audioStream, hooks), ...(streamInfo !== o.streamInfo ? { streamInfo } : {}) };
 }
@@ -210,7 +210,7 @@ async function fallBack<R>(o: InputOptions<R>, download: Download | null, direct
   if (!download) throw error;
   if (direct) download.start();
   const file = await cacheFallback(download, error);
-  log.info(`스트림을 열지 못해 캐시 파일로 재생합니다: ${o.label} | ${describeStreamError(error)}`);
+  log.info(`스트림 열기 실패(캐시 파일로 재생): ${o.label} | ${describeStreamError(error)}`);
   return { resource: null, cacheFile: file, health: null };
 }
 
@@ -221,18 +221,18 @@ const branchOf = (t: Pick<Transport, "via" | "live">) => `${{ pipe: "파이프",
 // 새로 받아 한 번 더 연다. 그것도 안 되면 null(원래 오류로 캐시 폴백에 맡긴다)
 async function reopenFresh<R>(o: InputOptions<R>, hooks: Hooks, error: unknown): Promise<{ streamInfo: StreamInfo; audioStream: OpenedStream | null } | null> {
   if (!o.refresh) return null;
-  log.info(`재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다: ${o.label} | ${describeStreamError(error)}`);
+  log.info(`재사용한 스트림 URL이 열리지 않아 주소를 새로 받음: ${o.label} | ${describeStreamError(error)}`);
   try {
     const streamInfo = await o.refresh();
     // 새 답의 분기(파이프인가 주소인가, 라이브인가)가 처음과 다르면 이 자리에서 열지 않는다. 다음 열기가 새 답으로 분기부터 정한다
     const fresh = transportOf({ streamUrl: streamInfo.url, streamInfo });
     if (fresh.via !== o.transport.via || fresh.live !== o.transport.live) {
-      log.warn(`새로 받은 스트림의 분기가 처음과 달라 이 자리에서 열지 않습니다: ${o.label} | ${branchOf(o.transport)} → ${branchOf(fresh)}`);
+      log.warn(`새로 받은 스트림의 분기가 처음과 달라 이 위치에서 열지 않음: ${o.label} | ${branchOf(o.transport)} → ${branchOf(fresh)}`);
       return null;
     }
     return { streamInfo, audioStream: await openStream(o, streamInfo, hooks) };
   } catch (again) {
-    log.debug(`새로 받은 주소도 열리지 않았습니다: ${o.label} | ${describeStreamError(again)}`);
+    log.debug(`새로 받은 주소도 열리지 않음: ${o.label} | ${describeStreamError(again)}`);
     return null;
   }
 }
@@ -254,7 +254,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
   } catch (error) {
     const waitMs = adWaitMs(error, streamInfo.availableAt, Date.now());
     if (waitMs === null) throw error;
-    log.debug(`스트림이 사전 광고 구간이라 막혀 있어 ${sec(waitMs)}초 대기 후 다시 엽니다: ${o.label}`);
+    log.debug(`스트림이 사전 광고 구간이라 막혀 있음(${sec(waitMs)}초 대기 후 다시 열기): ${o.label}`);
     await o.io.sleep(waitMs);
     return openStreamOnce(o, streamInfo, hooks);
   }
@@ -286,14 +286,14 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
   if (totalBytes) return openChunked(o, { url, headers, totalBytes, durationMs: (streamInfo.duration || o.durationSec) * 1000 }, hooks);
   // 헤더 대기만 끊는다(fetch는 신호를 본문까지 물고 간다. 본문은 무응답 감시가 본다). 시간 초과(TimeoutError)라 실패 범위 판정이 네트워크 탓으로 본다
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new DOMException(`응답이 ${SINGLE_GET_HEADERS_MS / 1000}초 동안 없습니다`, "TimeoutError")), SINGLE_GET_HEADERS_MS);
+  const timer = setTimeout(() => controller.abort(new DOMException(`응답이 ${SINGLE_GET_HEADERS_MS / 1000}초 동안 없음`, "TimeoutError")), SINGLE_GET_HEADERS_MS);
   let response;
   try {
     response = await o.io.fetch(url, { headers, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
-  if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림을 받지 못했습니다(HTTP ${response.status})`), { status: response.status });
+  if (!response.ok) throw Object.assign(codedError("stream-failed", `스트림 받기 실패(HTTP ${response.status})`), { status: response.status });
   const { body } = response;
   const stream = body && "getReader" in body ? Readable.fromWeb(body) : body;
   if (!stream) return stream;
@@ -316,18 +316,18 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   if (!(o.startMs > 0)) return o.io.openChunkedStream(base);
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
-    if (seek.slow) log.warn(`인덱스를 불러오지 못해 처음부터 스트리밍합니다: ${o.label} | ${seek.why}`);
-    else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍합니다: ${o.label} | ${seek.why}`);
+    if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
+    else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${seek.why}`);
     return o.io.openChunkedStream(base);
   }
   const { header, startByte, startedAtMs, expectStart } = seek.start;
   try {
     const stream = await o.io.openChunkedStream({ ...base, startByte, prefix: header, expectStart });
-    log.debug(`인덱스로 키프레임부터 스트리밍합니다: ${o.label} | ${sec(startedAtMs)}초 지점(${startByte}B)에서 ${sec(o.startMs - startedAtMs)}초 디코딩 후 버림`);
+    log.debug(`인덱스로 키프레임부터 스트리밍: ${o.label} | ${sec(startedAtMs)}초 지점(${startByte}B)에서 ${sec(o.startMs - startedAtMs)}초 디코딩 후 버림`);
     return Object.assign(stream, { startedAtMs });
   } catch (error) {
     if (!isSeekMismatch(error)) throw error;
-    log.warn(`인덱스가 가리킨 위치에서 열지 못해 처음부터 스트리밍합니다: ${o.label} | ${describeStreamError(error)}`);
+    log.warn(`인덱스가 가리킨 위치에서 열기 실패(처음부터 스트리밍): ${o.label} | ${describeStreamError(error)}`);
     return o.io.openChunkedStream(base);
   }
 }
@@ -392,7 +392,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   };
   hooks.resumed = ({ attempts, downtimeMs, starvedMs }) => {
     const line = `스트림 재연결: ${o.label} | 재시도 ${attempts}회, ${sec(downtimeMs)}초`;
-    if (starvedMs > 0) log.warn({ tags: ["retry"] }, `${line}. 그동안 패킷 공급이 ${sec(starvedMs)}초 끊겼습니다`);
+    if (starvedMs > 0) log.warn({ tags: ["retry"] }, `${line}. 그동안 패킷 공급이 ${sec(starvedMs)}초 끊김`);
     else log.info({ tags: ["retry", "recovered"] }, line);
   };
   // 이어받기로도 못 살렸다. ffmpeg 입력을 닫아야 출력이 끝나 예약된 전환이나 Idle(→ 끊긴 위치부터 재개)로 넘어간다

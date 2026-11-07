@@ -72,7 +72,7 @@ class IdleLeave {
   _startAlone() {
     const player = this.player;
     if (this.aloneTimer || this.seated()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없습니다. ${Math.round(this.aloneMs / 1000)}초 뒤 정리합니다`);
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없음. ${Math.round(this.aloneMs / 1000)}초 뒤 정리`);
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
@@ -87,7 +87,7 @@ class IdleLeave {
   _endAlone() {
     const player = this.player;
     if (!this._clearAlone()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 복귀하여 정리를 취소합니다`);
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 돌아와 정리 취소`);
     this.announce();
   }
 

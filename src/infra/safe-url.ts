@@ -139,7 +139,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
     });
     const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청이 취소됨"));
     signal?.addEventListener("abort", stop, { once: true });
-    req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없습니다`)));
+    req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없음`)));
     req.on("error", (error) => {
       signal?.removeEventListener("abort", stop);
       reject(error);
@@ -212,7 +212,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(Object.assign(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과했습니다`), { permanent: true }));
+        cb(Object.assign(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과함`), { permanent: true }));
         return;
       }
       cb(null, chunk);
@@ -263,7 +263,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
   const timer = setInterval(
     () => {
       if (source.readableFlowing !== true) last = Date.now();
-      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(`본문이 ${idleMs}ms 동안 오지 않습니다`));
+      else if (Date.now() - last >= idleMs) source.destroy(timeoutError(`본문이 ${idleMs}ms 동안 오지 않음`));
     },
     Math.min(BODY_CHECK_MS, idleMs),
   );
@@ -305,14 +305,14 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs });
   const source = response.body;
-  const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않았습니다`)), accept.timeoutMs);
+  const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않음`)), accept.timeoutMs);
   try {
     assertResponseAllowed(response.headers, accept);
     const chunks: Buffer[] = [];
     let total = 0;
     for await (const chunk of source as AsyncIterable<Buffer>) {
       total += chunk.length;
-      if (total > accept.maxBytes) throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과했습니다`);
+      if (total > accept.maxBytes) throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과함`);
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);

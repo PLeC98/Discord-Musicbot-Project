@@ -146,7 +146,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       const piece = Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk) : null;
       if (!piece) {
         body.destroy();
-        return onError(new TypeError(`세그먼트 본문의 청크가 바이트가 아닙니다(${typeof chunk})`));
+        return onError(new TypeError(`세그먼트 본문의 청크가 바이트가 아님(${typeof chunk})`));
       }
       chunks.push(piece);
       length += piece.length;
@@ -163,7 +163,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
     };
     // 오류 없이 닫혔다(끝 전에). 다시 받을 수 있는 실패
     const onClose = () => {
-      if (!body.readableEnded) onError(Object.assign(new Error("세그먼트 본문이 끝나기 전에 닫혔습니다"), { code: "ERR_STREAM_PREMATURE_CLOSE" }));
+      if (!body.readableEnded) onError(Object.assign(new Error("세그먼트 본문이 끝나기 전에 닫힘"), { code: "ERR_STREAM_PREMATURE_CLOSE" }));
     };
     const onAbort = () => {
       cleanup();
@@ -193,10 +193,10 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
 /** 목록 하나를 받아 하위 목록으로(상위 목록이면 고른 하위 목록을 한 번 더). 상대 주소는 리다이렉트를 거친 마지막 주소 기준 */
 async function mediaOf(text: string, url: string, net: StreamNet, depth = 0): Promise<{ playlist: MediaPlaylist; url: string }> {
   const playlist = parsePlaylist(text, url);
-  if (!playlist) throw codedError("unsupported-link", "HLS 재생목록이 아닙니다");
+  if (!playlist) throw codedError("unsupported-link", "HLS 재생목록이 아님");
   if (playlist.kind === "media") return { playlist, url };
   const chosen = chooseMedia(playlist);
-  if (!chosen || depth > 0) throw codedError("unsupported-link", "HLS 상위 목록에 받을 하위 목록이 없습니다");
+  if (!chosen || depth > 0) throw codedError("unsupported-link", "HLS 상위 목록에 불러올 하위 목록이 없음");
   const next = await fetchList(chosen, net);
   return mediaOf(next.text, next.url, net, depth + 1);
 }
@@ -209,11 +209,11 @@ async function fetchList(url: string, net: StreamNet): Promise<{ text: string; u
 
 /** DRM(AES-128 밖의 암호)이 걸린 세그먼트가 있으면 거절 */
 function assertPlayable(playlist: MediaPlaylist): void {
-  if (playlist.segments.some((segment) => segment.key?.method === "OTHER")) throw permanent(codedError("unsupported-link", "DRM 으로 잠긴 HLS 입니다"));
+  if (playlist.segments.some((segment) => segment.key?.method === "OTHER")) throw permanent(codedError("unsupported-link", "DRM으로 잠긴 HLS"));
 }
 
 /** 읽을 수 없는 바이트 구간을 쓰는 세그먼트 */
-const unreadableRange = () => permanent(codedError("unsupported-link", "HLS 바이트 구간(BYTERANGE)을 읽을 수 없습니다"));
+const unreadableRange = () => permanent(codedError("unsupported-link", "HLS 바이트 구간(BYTERANGE)을 읽을 수 없음"));
 
 /** 세그먼트 순번의 IV(16바이트 빅엔디언) */
 function sequenceIv(sequence: number): Buffer {
@@ -228,7 +228,7 @@ function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
     return Buffer.concat([decipher.update(bytes), decipher.final()]);
   } catch (error) {
-    throw permanent(new Error(`HLS 세그먼트를 풀지 못했습니다: ${(error as Error).message}`));
+    throw permanent(new Error(`HLS 세그먼트 복호화 실패: ${(error as Error).message}`));
   }
 }
 
@@ -286,7 +286,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
       try {
         const fetched = await fetchList(first.url, net);
         const next = parsePlaylist(fetched.text, fetched.url);
-        if (!next || next.kind !== "media") throw new Error("라이브 목록이 하위 목록이 아닙니다");
+        if (!next || next.kind !== "media") throw new Error("라이브 목록이 하위 목록이 아님");
         assertPlayable(next);
         reloads++;
         failures = 0;
@@ -349,7 +349,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
   function count(bytes: number) {
     if (startMs === null) return;
     received += bytes;
-    if (received > SafeUrl.MAX_BYTES) throw permanent(new Error(`HLS가 최대 크기(${SafeUrl.MAX_BYTES} bytes)를 넘었습니다`));
+    if (received > SafeUrl.MAX_BYTES) throw permanent(new Error(`HLS가 최대 크기(${SafeUrl.MAX_BYTES} bytes)를 넘음`));
   }
 
   const parts: PartNet = { net, idleMs, keyOf, count };
@@ -378,7 +378,7 @@ type Cipher = { key: Buffer; iv: Buffer } | null;
 type Fetching = { signal: AbortSignal; progress: () => void; cipher: Cipher };
 
 async function fetchPart(ctx: PartNet, part: HlsPart, signal: AbortSignal, progress: () => void): Promise<Buffer | HlsPour> {
-  if (part.range && part.range.length > PART_ACCEPT.maxBytes) throw permanent(new Error(`HLS 세그먼트 구간이 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘습니다`));
+  if (part.range && part.range.length > PART_ACCEPT.maxBytes) throw permanent(new Error(`HLS 세그먼트 구간이 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘음`));
   // 키를 먼저(세그먼트를 연 채 키를 기다리지 않게)
   const cipher = await cipherOf(ctx, part, signal);
   if (cipher) progress();
@@ -389,7 +389,7 @@ async function fetchPart(ctx: PartNet, part: HlsPart, signal: AbortSignal, progr
 async function cipherOf(ctx: PartNet, part: HlsPart, signal: AbortSignal): Promise<Cipher> {
   if (part.key?.method !== "AES-128" || !part.key.url) return null;
   const key = await ctx.keyOf(part.key.url, signal);
-  if (key.length !== 16) throw permanent(new Error(`AES-128 키가 16바이트가 아닙니다(${key.length})`));
+  if (key.length !== 16) throw permanent(new Error(`AES-128 키가 16바이트가 아님(${key.length})`));
   return { key, iv: part.key.iv ? Buffer.from(part.key.iv) : sequenceIv(part.sequence) };
 }
 
@@ -419,12 +419,12 @@ async function fetchRange(ctx: PartNet, part: HlsPart, range: ByteRange, at: Fet
   const start = SafeUrl.servedFrom({ status: body.status ?? 200, headers }) ?? (range.offset === 0 ? 0 : null);
   if (start === null || start > range.offset) {
     body.destroy();
-    throw permanent(new Error(`HLS 서버가 요청한 구간(${range.offset}부터)이 아닌 곳을 보냈습니다(${String(headers["content-range"] ?? "Content-Range 없음")})`));
+    throw permanent(new Error(`HLS 서버가 요청한 구간(${range.offset}부터)이 아닌 곳을 보냄(${String(headers["content-range"] ?? "Content-Range 없음")})`));
   }
   const slice = { offset: range.offset - start, length: range.length };
   if (slice.offset + slice.length > PART_ACCEPT.maxBytes) {
     body.destroy();
-    throw permanent(new Error(`HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘습니다`));
+    throw permanent(new Error(`HLS 서버가 구간을 무시해 세그먼트가 최대 크기(${PART_ACCEPT.maxBytes} bytes)를 넘음`));
   }
   return finish(ctx, await collect(body, { signal: at.signal, slice, progress: at.progress }), at.cipher);
 }

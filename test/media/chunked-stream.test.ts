@@ -387,7 +387,7 @@ test("Content-Range의 시작 위치가 어긋나면 오류 (프록시가 엉뚱
       body: { getReader: () => ({ read: async () => ({ done: true }) }) },
     }),
   });
-  await assert.rejects(collect(s), /어긋납니다/);
+  await assert.rejects(collect(s), /어긋남/);
 });
 
 test("실패 상태 코드는 스트림 오류로 올라간다 (기존 캐시 폴백이 받도록)", async () => {
@@ -604,7 +604,7 @@ test("열린 뒤 끊기면 그 절대 위치부터 잇는다. 0바이트에서 �
 
 test("startByte 는 파일 안이어야 하고, 이미 열린 첫 응답(first)과 함께 줄 수 없다", () => {
   assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 100 }), /startByte/);
-  assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 10, first: NodeReadable.from([Buffer.alloc(1)]) }), /함께 줄 수 없습니다/);
+  assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 10, first: NodeReadable.from([Buffer.alloc(1)]) }), /함께 줄 수 없음/);
 });
 
 test("오류 설명은 cause 사슬을 따라가 진짜 사유를 드러낸다", () => {

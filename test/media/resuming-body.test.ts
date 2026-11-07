@@ -122,10 +122,10 @@ test("구간을 무시한 200: 검사값이 같으면 처음부터 받아 받은
   assert.deepEqual(await readAll(same.stream), data);
 
   const fails: Array<[string, ReturnType<typeof setup>, RegExp]> = [
-    ["검사값이 다름", setup(data, whole({ etag: '"v2"' }), { firstCut: 12_345 }), /바뀌었/],
-    ["약한 ETag 는 검사값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀌었/],
+    ["검사값이 다름", setup(data, whole({ etag: '"v2"' }), { firstCut: 12_345 }), /바뀜/],
+    ["약한 ETag 는 검사값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀜/],
     ["검사값이 없음", setup(data, whole({}), { firstCut: 12_345, validator: null, firstHeaders: {} }), /검사값이 없어/],
-    ["받은 위치보다 짧음", setup(data, whole({ etag: '"v1"' }, 10_000), { firstCut: 12_345 }), /짧습니다/],
+    ["받은 위치보다 짧음", setup(data, whole({ etag: '"v1"' }, 10_000), { firstCut: 12_345 }), /짧음/],
     ["전체 크기가 다름", setup(data, whole({ etag: '"v1"', "content-length": String(data.length + 1) }), { firstCut: 12_345, firstHeaders: { etag: '"v1"', "content-length": String(data.length) } }), /전체 크기/],
     ["버릴 앞부분이 상한을 넘음", setup(data, whole({ etag: '"v1"' }), { firstCut: 12_345, discardMaxBytes: 12_000 }), /상한/],
   ];

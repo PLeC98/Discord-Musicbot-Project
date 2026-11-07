@@ -49,7 +49,7 @@ const yearRange = remembered<YearRange>(
       const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
       return min && max && min <= max ? { min, max } : null;
     } catch (error) {
-      log.debug(`AnimeThemes 연도 범위를 불러오지 못했습니다: ${messageOf(error)}`);
+      log.debug(`AnimeThemes 연도 범위 불러오기 실패: ${messageOf(error)}`);
       return null;
     }
   },
@@ -109,7 +109,7 @@ async function catalog(): Promise<SourceTypeView[]> {
 /** 설정에 적힌 소스 하나를 곡 목록으로. 던지면 부르는 쪽이 다음 소스로 넘어간다. */
 async function fetchFrom(source: GenreSource, deps: FetchDeps = {}): Promise<Candidate[]> {
   const fetcher = FETCHERS[source?.type];
-  if (!fetcher) throw new Error(`모르는 소스입니다: ${source?.type}`);
+  if (!fetcher) throw new Error(`모르는 소스: ${source?.type}`);
   const tracks = await fetcher(source, deps);
   log.debug(`${source.type}: ${tracks.length}곡`);
   return tracks;

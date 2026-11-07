@@ -260,7 +260,7 @@ class EncodePool {
       entry.ids.delete(slot.id);
       control(entry, { type: "close", id: slot.id });
     }
-    log.warn("정리되지 않은 출력 스트림의 인코더를 GC가 해제했습니다. 리소스를 destroy 하지 않는 경로가 있습니다");
+    log.warn("정리되지 않은 출력 스트림의 인코더를 GC가 해제함(리소스를 destroy 하지 않는 경로가 있음)");
   });
 
   constructor({ workerUrl, maxWorkers, stallMs, calibrateFrames }: PoolOptions = {}) {
@@ -372,7 +372,7 @@ class EncodePool {
         entry.gone = true;
         port1.close();
         void thread.terminate();
-        reject(new Error(`인코딩 워커를 띄우지 못했습니다: ${why}`));
+        reject(new Error(`인코딩 워커 실행 실패: ${why}`));
       };
       const timer = setTimeout(() => fail(`${START_TIMEOUT_MS / 1000}초 안에 준비되지 않음`), START_TIMEOUT_MS);
       port1.on("message", (m: FromWorker) => {
@@ -384,7 +384,7 @@ class EncodePool {
         resolve(entry);
       });
       thread.on("error", (error) => fail(messageOf(error)));
-      thread.on("exit", (code) => fail(`스레드가 끝남(코드 ${code})`));
+      thread.on("exit", (code) => fail(`스레드가 종료됨(코드 ${code})`));
       // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
       port1.unref();
       thread.unref();
@@ -398,7 +398,7 @@ class EncodePool {
     // 준비된 뒤 풀에 넣기 전에 죽었다(크래시는 이미 셌다)
     if (entry.gone) return this.#rehome();
     this.#workers.push(entry);
-    if (this.#workers.length > 1) log.info(`재생 인코딩 워커를 늘렸습니다(${this.#workers.length}개, 상한 ${this.#limit()})`);
+    if (this.#workers.length > 1) log.info(`재생 인코딩 워커를 늘림(${this.#workers.length}개, 상한 ${this.#limit()})`);
     if (!this.#timers.length && !this.#closing) {
       this.#timers.push(setInterval(() => this.#checkStalls(), STALL_CHECK_MS).unref(), setInterval(() => this.#tick(), TICK_MS).unref());
     }
@@ -431,7 +431,7 @@ class EncodePool {
         moved++;
       }
     }
-    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n}${josa(String(fresh.n), "으로")} 스트림 ${moved}개를 옮겼습니다`);
+    if (moved) log.debug(`재생 인코딩 워커 ${fresh.n}${josa(String(fresh.n), "으로")} 스트림 ${moved}개를 옮김`);
   }
 
   #relocate(session: Session, target: Entry) {
@@ -552,7 +552,7 @@ class EncodePool {
     if (item.fatal) {
       // 어느 프레임에서 났는지 안다. 그 세션은 실패시키고, 이 크래시는 연속 크래시(백오프)에 세지 않는다
       if (session) this.#fail(session, new Error(`인코딩 중 WASM 오류: ${item.error ?? ""}`));
-      return this.#died(entry, `WASM 오류로 내렸습니다(${item.error ?? ""})`, { known: !!session });
+      return this.#died(entry, `WASM 오류로 내림(${item.error ?? ""})`, { known: !!session });
     }
     if (session) this.#answer(entry, session, item, received);
   }
@@ -560,7 +560,7 @@ class EncodePool {
   // 세션의 가장 오래된 프레임에 온 답
   #answer(entry: Entry, session: Session, item: Reply, received: number) {
     const head = session.sent[0];
-    if (!head || head.seq !== item.seq) return this.#fail(session, new Error(`인코딩 답의 순서가 어긋났습니다(기다린 ${head?.seq ?? "없음"}, 받은 ${item.seq})`));
+    if (!head || head.seq !== item.seq) return this.#fail(session, new Error(`인코딩 응답의 순서가 어긋남(기다린 순번 ${head?.seq ?? "없음"}, 받은 순번 ${item.seq})`));
     session.sent.shift();
     if (!session.sent.length) this.#busy.delete(session);
     // 메인이 받기를 미룬 시간은 빼고 워커가 걸린 시간을 본다. 스레드마다 시계 기준이 조금 다를 수 있어 받은 때를 넘지 않게 한다
@@ -615,7 +615,7 @@ class EncodePool {
         const head = this.#sessions.get(id)?.deref()?.sent[0];
         if (head?.sentAt && head.sentAt < oldest) oldest = head.sentAt;
       }
-      if (at - oldest > this.#stallMs) this.#died(entry, `${sec(this.#stallMs)}초 넘게 답이 없어 내렸습니다`);
+      if (at - oldest > this.#stallMs) this.#died(entry, `${sec(this.#stallMs)}초 넘게 응답이 없어 내림`);
     }
   }
 
@@ -638,15 +638,15 @@ class EncodePool {
     });
     const moved = sessions.length - poisoned.length;
     const what: string[] = [];
-    if (moved || !poisoned.length) what.push(`맡던 스트림 ${moved}개를 다른 워커로 옮깁니다`);
-    if (poisoned.length) what.push(`스트림 ${poisoned.length}개는 붙어 있던 워커가 잇달아 죽어 실패시킵니다`);
+    if (moved || !poisoned.length) what.push(`맡던 스트림 ${moved}개를 다른 워커로 옮김`);
+    if (poisoned.length) what.push(`스트림 ${poisoned.length}개는 붙어 있던 워커가 잇달아 죽어 실패 처리`);
     log.warn(`재생 인코딩 워커 ${entry.n}: ${why}. ${what.join(". ")}`);
     this.#stats.deaths++;
     if (!known) this.#noteDeath();
     this.#cancelMovesTo(entry);
     for (const session of sessions) {
       if (poisoned.includes(session)) {
-        this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽었습니다"));
+        this.#fail(session, new Error("이 스트림을 맡은 인코딩 워커가 잇달아 죽음"));
         continue;
       }
       session.moveTo = null;
@@ -681,7 +681,7 @@ class EncodePool {
     this.#deaths = [];
     this.#backoffUntil = at + wait;
     const alive = this.#workers.length;
-    log.error(`재생 인코딩 워커가 ${DEATH_WINDOW_MS / 1000}초 안에 ${DEATHS_TO_BACKOFF}번 죽어 ${wait / 60_000}분 동안 새 워커를 띄우지 않습니다(남은 워커 ${alive}개)` + (alive ? "" : ". 그동안 새 재생은 실패합니다"));
+    log.error(`재생 인코딩 워커가 ${DEATH_WINDOW_MS / 1000}초 안에 ${DEATHS_TO_BACKOFF}번 죽어 ${wait / 60_000}분 동안 새 워커를 실행하지 않음(남은 워커 ${alive}개)` + (alive ? "" : ". 그동안 새 재생은 실패함"));
   }
 
   // 워커를 띄우지 못했을 때 기다리던 세션: 남은 워커가 있으면 그리로, 없으면 실패
@@ -776,17 +776,17 @@ class EncodePool {
       this.#slowCalm = 0;
       const streams = this.#workers.reduce((sum, e) => sum + e.ids.size, 0);
       const cpu = worst?.load ? `${Math.round(worst.load.cpuUs / 10_000)}%` : "알 수 없음";
-      log.warn(`재생 인코딩이 지연되고 있습니다(워커 ${this.#workers.length}개/상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊깁니다`);
+      log.warn(`재생 인코딩 지연(워커 ${this.#workers.length}개/상한 ${this.#limit()}, 스트림 ${streams}개, 지연 워커 CPU ${cpu}). 지연된 만큼 소리가 끊김`);
     }
     if (this.#slowSince && this.#slowCalm >= SLOW_CALM_TICKS) {
-      log.info(`재생 인코딩 지연이 해소됐습니다(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);
+      log.info(`재생 인코딩 지연 해소(${Math.round((now() - this.#slowSince) / 1000)}초 동안 지연 프레임 ${this.#slowLate}개)`);
       this.#slowSince = 0;
       this.#slowLate = 0;
     }
   }
 }
 
-const unavailable = () => codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없습니다");
+const unavailable = () => codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
 
 const encodePool = new EncodePool();
 

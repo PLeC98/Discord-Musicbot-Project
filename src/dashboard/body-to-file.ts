@@ -27,7 +27,7 @@ async function saveBody(req: Request, file: string, room: number): Promise<Saved
   const guard = new Transform({
     transform(chunk: Buffer, _encoding, done) {
       me.written += chunk.length;
-      done(me.written > left ? Object.assign(new Error("남은 공간을 넘었습니다"), { [NO_SPACE]: true }) : null, chunk);
+      done(me.written > left ? Object.assign(new Error("남은 공간을 넘음"), { [NO_SPACE]: true }) : null, chunk);
     },
   });
   const part = `${file}.part`;

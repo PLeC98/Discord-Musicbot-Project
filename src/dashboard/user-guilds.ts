@@ -89,7 +89,7 @@ async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, 
     return { ids: new Set(guilds.map((g) => g.id)), relogin: false };
   } catch (error) {
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) log.debug(`디스코드에서 서버 목록을 불러오지 못해 멤버 캐시만 조회합니다: ${status ? `상태 코드 ${status}` : messageOf(error)}`);
+    if (status !== 401 && status !== 429) log.debug(`디스코드에서 서버 목록 불러오기 실패(멤버 캐시만 조회): ${status ? `상태 코드 ${status}` : messageOf(error)}`);
     return { ids: null, relogin: status === 401 };
   }
 }

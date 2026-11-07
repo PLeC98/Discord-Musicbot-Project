@@ -205,7 +205,7 @@ class StayKeeper {
   /** 기동: 자리가 있고 붙어 있지 않은 서버를 하나씩. skip 이면(짧은 간격의 비정상 종료가 되풀이됨) 붙지 않는다(자리는 남긴다) */
   async boot({ skip = false }: { skip?: boolean } = {}) {
     const seats = staySeats.all();
-    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜁니다(상주 설정은 유지)`);
+    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜀(상주 설정은 유지)`);
     if (!skip) {
       let first = true;
       for (const [guildId] of seats) {
@@ -227,7 +227,7 @@ class StayKeeper {
     if (end === "fault") {
       this.blocked.add(guildId);
       this._cancel(guildId);
-      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜁니다(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
+      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜀(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
       return;
     }
     const why = DROP[end];

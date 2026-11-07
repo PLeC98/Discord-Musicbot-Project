@@ -18,7 +18,7 @@ const CLIENT_ERROR_STATUS: Record<string, string> = { HPE_HEADER_OVERFLOW: "431 
 function onClientError(error: Error & { code?: string }, duplex: Duplex) {
   const socket = duplex as Socket & { _httpMessage?: { _headerSent?: boolean } | null };
   // 받는 도중 브라우저가 끊는 것(ECONNRESET)은 흔해 남기지 않는다
-  if (error.code !== "ECONNRESET") log.trace(`대시보드 요청을 읽지 못했습니다(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
+  if (error.code !== "ECONNRESET") log.trace(`대시보드 요청 읽기 실패(${socket.remoteAddress ?? "주소 모름"}): ${describeError(error)}`);
   // 나가던 응답의 헤더가 이미 소켓에 나갔으면 오류 응답을 끼워 쓰지 않는다
   if (socket.writable && !socket._httpMessage?._headerSent) socket.write(`HTTP/1.1 ${CLIENT_ERROR_STATUS[error.code ?? ""] ?? "400 Bad Request"}\r\nConnection: close\r\n\r\n`);
   socket.destroy(error);
@@ -75,7 +75,7 @@ async function listenAll(makeServer: () => Server, hosts: string[], port: number
       let error = first;
       if (codeOf(error) === "EADDRINUSE") {
         close();
-        log.error(`대시보드 포트(${port})를 다른 프로그램이 쓰고 있어 대시보드를 열지 못했습니다(대시보드 없이 계속 실행). .env의 DASHBOARD_PORT를 바꾸세요.`);
+        log.error(`대시보드 포트(${port})를 다른 프로그램이 쓰고 있어 대시보드를 열지 못함(대시보드 없이 계속 실행). .env의 DASHBOARD_PORT를 바꾸세요`);
         return opened;
       }
       if (host === "::" && familyMissing(error)) {
@@ -84,14 +84,14 @@ async function listenAll(makeServer: () => Server, hosts: string[], port: number
           await openOn(fallback, "0.0.0.0", port);
           opened.servers.push(fallback);
           opened.hosts.push("0.0.0.0");
-          log.info("IPv6를 쓸 수 없어 0.0.0.0(IPv4의 모든 주소)으로 열었습니다.");
+          log.info("IPv6를 쓸 수 없어 0.0.0.0(IPv4의 모든 주소)으로 바인딩");
           continue;
         } catch (fallbackError) {
           error = fallbackError;
         }
       }
       if (host === "::1" && familyMissing(error) && opened.servers.length) {
-        log.info("IPv6를 쓸 수 없어 ::1은 열지 않았습니다(127.0.0.1만).");
+        log.info("IPv6를 쓸 수 없어 ::1은 열지 않음(127.0.0.1만)");
         continue;
       }
       close();

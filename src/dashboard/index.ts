@@ -66,11 +66,11 @@ type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCom
 function resolveSessionSecret() {
   if (config.dashboard.sessionSecret) {
     if (config.dashboard.sessionSecret.length < 32) {
-      log.warn("SESSION_SECRET이 너무 짧습니다 (32자 미만). 64자 이상 랜덤 문자열을 권장합니다.");
+      log.warn("SESSION_SECRET이 너무 짧음(32자 미만). 64자 이상 랜덤 문자열로 바꾸세요");
     }
     return config.dashboard.sessionSecret;
   }
-  log.warn("SESSION_SECRET이 없어 랜덤 값을 사용합니다. 봇을 다시 시작할 때마다 대시보드 로그인이 전부 풀립니다.");
+  log.warn("SESSION_SECRET 없음(랜덤 값 사용). 봇을 다시 시작할 때마다 대시보드 로그인이 모두 풀림");
   return crypto.randomBytes(32).toString("hex");
 }
 
@@ -83,8 +83,8 @@ function applyTrustProxy(app: App, value: string) {
 
 /** 신뢰하는 프록시 설정 결과의 기동 로그 */
 function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof trustProxy>, "accepted" | "inside" | "rejected">) {
-  if (rejected.length) log.warn(`DASHBOARD_TRUST_PROXY에서 유효하지 않은 값을 제외했습니다: ${rejected.join(", ")}. 공인 IP의 프록시만 IP나 CIDR로 지정하세요(모든 주소를 신뢰하는 값은 허용하지 않습니다).`);
-  if (inside.length) log.info(`기본으로 신뢰하는 내부 주소는 DASHBOARD_TRUST_PROXY에서 생략해도 됩니다(loopback, 사설망, 이 기기의 주소): ${inside.join(", ")}`);
+  if (rejected.length) log.warn(`DASHBOARD_TRUST_PROXY에서 유효하지 않은 값 제외: ${rejected.join(", ")}. 공인 IP의 프록시만 IP나 CIDR로 지정하세요(모든 주소를 신뢰하는 값은 허용하지 않음).`);
+  if (inside.length) log.info(`기본으로 신뢰하는 내부 주소는 DASHBOARD_TRUST_PROXY에서 생략해도 됨(loopback, 사설망, 이 기기의 주소): ${inside.join(", ")}`);
   if (accepted.length) log.info(`신뢰하는 원격 프록시: ${accepted.join(", ")}`);
 }
 
@@ -123,7 +123,7 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
     (req.secure ? secure : plain)(req, res, (err?: unknown) => {
       if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);
       const how = req.secure ? "평문에서 만든 세션이 HTTPS 요청으로" : "HTTPS에서 만든 세션이 평문 요청으로";
-      log.info(`${how} 와서 받지 않고 삭제했습니다(사용자 ${req.session.user?.id ?? "없음"}).`);
+      log.info(`${how} 와서 받지 않고 삭제(사용자 ${req.session.user?.id ?? "없음"})`);
       req.session.regenerate((e) => next(e));
     });
 }
@@ -269,7 +269,7 @@ function writeScope(file: string, scope: string) {
   try {
     fs.writeFileSync(file, JSON.stringify({ scope }));
   } catch (error) {
-    log.warn(`대시보드를 연 범위를 적지 못했습니다(다음 기동 시 범위가 넓어져도 알리지 못함): ${messageOf(error)}`);
+    log.warn(`대시보드를 연 범위 기록 실패(다음 기동 시 범위가 넓어져도 알리지 못함): ${messageOf(error)}`);
   }
 }
 
@@ -296,7 +296,7 @@ async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inC
     }
     logOpened(plan, scopeFile, container, tls ? "https" : "http");
   } catch (error) {
-    log.warn(`대시보드는 열었지만 기동 진단을 남기지 못했습니다: ${messageOf(error)}`);
+    log.warn(`대시보드는 열었지만 기동 진단 기록 실패: ${messageOf(error)}`);
   }
   return opened.servers;
 }
@@ -304,12 +304,12 @@ async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inC
 /** 기동 시 공개 주소 검사(dashboard/plaintext). 인터넷 평문이면 error를 남기고 false */
 async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
   if (allowPlaintext) {
-    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않습니다.");
+    log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않음");
     return true;
   }
   const verdict = await checkPublicUrl(url);
   if (!verdict.open) {
-    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷에 평문으로 노출되어 대시보드를 열지 않았습니다(${url}, ${verdict.detail}. 봇은 계속 실행). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
+    log.error(`DASHBOARD_URL이 http이고 호스트가 공인 주소라 인터넷에 평문으로 노출되므로 대시보드를 열지 않음(${url}, ${verdict.detail}. 봇은 계속 실행). docs/dashboard-network.md의 공개 방법대로 HTTPS로 공개하세요. 위험을 감수한다면 .env에 DASHBOARD_ALLOW_PLAINTEXT=true`);
     return false;
   }
   if (verdict.note) log.warn(verdict.note);
@@ -332,7 +332,7 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
   const { url, tlsCert, tlsKey } = config.dashboard;
   const found = findTlsFiles({ envCert: tlsCert, envKey: tlsKey, root: PROJECT.root, certsDir });
   if (found.error) {
-    log.error(`${found.error} 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    log.error(`${found.error} 대시보드를 열지 않음(봇은 계속 실행)`);
     return "error";
   }
   if (!found.files) return null;
@@ -343,7 +343,7 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
     .replace(/\.$/, "")
     .toLowerCase();
   if (parsed.protocol !== "https:" || isLoopbackName(host)) {
-    log.error(`인증서 파일이 있는데 DASHBOARD_URL이 https 공개 주소가 아닙니다(${url}). DASHBOARD_URL을 https 주소로 바꾸거나, 프록시로 공개한다면 인증서 파일을 빼세요. 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    log.error(`인증서 파일이 있는데 DASHBOARD_URL이 https 공개 주소가 아님(${url}). DASHBOARD_URL을 https 주소로 바꾸거나, 프록시로 공개한다면 인증서 파일을 빼세요. 대시보드를 열지 않음(봇은 계속 실행)`);
     return "error";
   }
   let certPem: string;
@@ -352,13 +352,13 @@ function loadTls(certsDir: string): LoadedTls | null | "error" {
     certPem = fs.readFileSync(found.files.cert, "utf8");
     keyPem = fs.readFileSync(found.files.key, "utf8");
   } catch (error) {
-    log.error(`인증서 파일을 읽지 못했습니다: ${messageOf(error)}. 대시보드를 열지 않았습니다(봇은 계속 실행).`);
+    log.error(`인증서 파일 읽기 실패: ${messageOf(error)}. 대시보드를 열지 않음(봇은 계속 실행)`);
     return "error";
   }
   const checked = checkTls({ certPem, keyPem, urlHost: host, keyWorldReadable: worldReadable(found.files.key) });
   if (!checked.ok) {
     for (const why of checked.errors) log.error(`대시보드 인증서: ${why}`);
-    log.error("인증서 파일에 문제가 있어 대시보드를 열지 않았습니다(봇은 계속 실행).");
+    log.error("인증서 파일에 문제가 있어 대시보드를 열지 않음(봇은 계속 실행)");
     return "error";
   }
   return { files: found.files, options: tlsOptions(certPem, keyPem), leaf: checked.leaf, notes: checked.notes };
@@ -376,7 +376,7 @@ function logOpened(plan: BindPlan, scopeFile: string, container: boolean, scheme
   const stale = freshnessWarning(clientFreshness(PROJECT.dashboardDist, PROJECT.root));
   if (stale) log.warn(stale);
   // 평상시 실행과 다른 상태로 떠 있다는 것은 드러나 있어야 한다
-  if (config.dashboard.devOrigin) log.warn("개발 모드. Vite 개발 서버(http://localhost:5173)의 요청을 허용합니다.");
+  if (config.dashboard.devOrigin) log.warn("개발 모드: Vite 개발 서버(http://localhost:5173)의 요청 허용");
 }
 
 function startDashboard(bot: BotContext, { stream, deployCommands, restart }: AppDeps) {

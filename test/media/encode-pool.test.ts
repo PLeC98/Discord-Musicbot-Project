@@ -360,7 +360,7 @@ test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커
 
 test("지연 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
-  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 지연되고 있습니다") || e.text.includes("재생 인코딩 지연이 해소됐습니다"));
+  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.startsWith("재생 인코딩 지연(") || e.text.startsWith("재생 인코딩 지연 해소("));
   try {
     await pool.start();
     const { session } = opened(pool);

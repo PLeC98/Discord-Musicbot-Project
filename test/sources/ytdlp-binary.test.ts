@@ -90,7 +90,7 @@ test("최신은 하루 한 번만 묻는다. 기록은 디스크에 남아 다�
 
 test("GitHub 가 준 태그가 릴리스 태그 모양이 아니면 그 경로로 실행하거나 옮기지 않고 실패한다", async () => {
   const { w, bin } = world({ latest: "../../evil" });
-  await assert.rejects(bin.check(), /릴리스 태그의 모양이 아닙니다/);
+  await assert.rejects(bin.check(), /릴리스 태그 형식이 아님/);
   assert.deepEqual(
     w.runs.filter((run) => run.includes("evil") || run.includes("--update-to")),
     [],

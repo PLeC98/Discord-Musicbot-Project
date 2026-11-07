@@ -187,9 +187,9 @@ test("같은 이름이 여럿 오면 대표 이름, 별칭, 대소문자만 다�
 
 test("사이트에 없는 이름이면 곡을 묻지 않고 던진다. 부르는 쪽이 다음 소스로 넘어간다", async () => {
   const urls = serve(() => [song(1, [yt("https://y/1")])], { tags: { rock: 481 }, artists: [{ id: 5, name: "初音ミクP" }] });
-  await assert.rejects(vocaFamily(source({ tags: ["rock", "없는태그"] })), /vocadb에 없는 태그입니다: 없는태그/);
-  await assert.rejects(vocaFamily(source({ excludeTags: ["없는태그"] })), /없는 태그입니다/);
-  await assert.rejects(vocaFamily(source({ artists: ["初音ミク"] })), /vocadb에서 찾지 못한 이름입니다: 初音ミク/, "이름이 비슷하기만 한 것은 고르지 않는다");
+  await assert.rejects(vocaFamily(source({ tags: ["rock", "없는태그"] })), /vocadb에 없는 태그: 없는태그/);
+  await assert.rejects(vocaFamily(source({ excludeTags: ["없는태그"] })), /없는 태그:/);
+  await assert.rejects(vocaFamily(source({ artists: ["初音ミク"] })), /vocadb에서 찾지 못한 이름: 初音ミク/, "이름이 비슷하기만 한 것은 고르지 않는다");
   assert.deepEqual(songsAsked(urls), []);
 });
 
@@ -245,11 +245,11 @@ test("가수 분류는 advancedFilters 로, 가사 언어 뒤에 번호를 이�
     "번호가 겹치면 앞의 조건을 덮는다",
   );
 
-  await assert.rejects(vocaFamily(source({ type: "touhoudb", artistTypes: ["Vocaloid"] })), /touhoudb에는 가수 분류가 없습니다/);
+  await assert.rejects(vocaFamily(source({ type: "touhoudb", artistTypes: ["Vocaloid"] })), /touhoudb에는 가수 분류가 없음/);
 });
 
 test("VocaDB 계열이 아닌 종류로 부르면 던진다", async () => {
-  await assert.rejects(vocaFamily(source({ type: "lastfm" })), /VocaDB 계열이 아닙니다/);
+  await assert.rejects(vocaFamily(source({ type: "lastfm" })), /VocaDB 계열이 아님/);
 });
 
 test("자동완성: 태그는 이름 목록, 가수는 이름 풀기와 같은 분류로 필터링한 대표 이름", async () => {

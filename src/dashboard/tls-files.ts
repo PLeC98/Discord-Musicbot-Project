@@ -151,7 +151,7 @@ function watchExpiry(leaf: X509Certificate, from: TlsFiles["from"]) {
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     const left = daysLeft(leaf, Date.now());
-    if (left <= 0) log.error(`대시보드 인증서의 기한이 지났습니다(${dateText(Date.parse(leaf.validTo))}). 브라우저가 접속을 막습니다. 새 인증서로 바꾸고 봇을 다시 시작하세요.`);
+    if (left <= 0) log.error(`대시보드 인증서의 기한이 지남(${dateText(Date.parse(leaf.validTo))}). 브라우저가 접속을 막음. 새 인증서로 바꾸고 봇을 다시 시작하세요`);
     else if (left <= WARN_DAYS) log.warn(expiryText(left, leaf));
   }, DAY_MS);
   timer.unref();

@@ -47,7 +47,7 @@ function checked<T extends z.ZodType>(schema: T, row: unknown, what: string): z.
   const result = schema.safeParse(row);
   if (result.success) return result.data;
   const where = result.error.issues.map((i) => i.path.join(".")).join(", ");
-  log.warn(`${what} 행의 형식이 올바르지 않아 무시합니다(${where}): ${String((row as { request_key?: unknown }).request_key ?? "없음")}`);
+  log.warn(`${what} 행의 형식이 올바르지 않아 무시(${where}): ${String((row as { request_key?: unknown }).request_key ?? "없음")}`);
   return null;
 }
 

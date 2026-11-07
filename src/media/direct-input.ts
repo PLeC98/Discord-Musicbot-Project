@@ -87,7 +87,7 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
     return Object.assign(body, { live: radio, bounded, ...(resumable ? { resumable } : {}) });
   }
   const { hls } = opened;
-  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS 의 목록이 끝났습니다: ${url}`);
+  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS의 목록이 끝남: ${url}`);
   return Object.assign(streamFragments(pouringSource(hls.fragments(startMs), onResumed), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
 }
 
@@ -118,7 +118,7 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void, 
   const { totalBytes, key, iv } = pour;
   try {
     if (key && totalBytes !== null) {
-      if (totalBytes % 16 !== 0) throw permanent(`AES-128 세그먼트의 크기가 16의 배수가 아닙니다(${totalBytes})`);
+      if (totalBytes % 16 !== 0) throw permanent(`AES-128 세그먼트의 크기가 16의 배수가 아님(${totalBytes})`);
       await checkLastBlock(pour, totalBytes, key, signal);
       progress();
     }
@@ -208,12 +208,12 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
         return segment instanceof Error ? done(segment) : done(null, segment);
       }
       if (rest.length) {
-        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버립니다(암호문이 잘림)`);
+        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버림(암호문이 잘림)`);
         return done(null, held ?? undefined);
       }
       const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버립니다(패딩이 맞지 않음)`);
+        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버림(패딩이 맞지 않음)`);
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
@@ -221,7 +221,7 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
   });
 }
 
-const wrongKey = (why: string) => permanent(`HLS 세그먼트의 키가 맞지 않습니다(${why})`);
+const wrongKey = (why: string) => permanent(`HLS 세그먼트의 키가 맞지 않음(${why})`);
 
 // 판정할 만큼 모이기 전에 끝난 짧은 세그먼트. 암호문이 블록 단위로 다 왔고, 끝 패딩이 맞고, 세그먼트 전체가 컨테이너 형식에 맞아야 내보낼 평문을 돌려준다. 아니면 키 불일치 오류
 function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer | Error {
@@ -243,7 +243,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     body = await pour.get(pour.url, undefined, { accept: OPEN_ACCEPT, from, to: totalBytes - 1, signal, bodyIdleMs: pour.idleMs });
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(끝 블록을 받지 못함): ${messageOf(error)}`);
+    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 받지 못함): ${messageOf(error)}`);
     return;
   }
   let tail: Buffer | null = null;
@@ -252,14 +252,14 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     if (body.status === 206 && range && Number(range[1]) === from && Number(range[2]) === totalBytes - 1 && Number(range[3]) === totalBytes) tail = await firstBytes(body, 33, signal);
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(끝 블록을 읽지 못함): ${messageOf(error)}`);
+    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 읽지 못함): ${messageOf(error)}`);
     return;
   } finally {
     body.destroy();
   }
-  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(구간 응답이 아님)`);
+  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인 건너뜀(구간 응답이 아님)`);
   const last = crypto.createDecipheriv("aes-128-cbc", key, tail.subarray(0, 16)).setAutoPadding(false).update(tail.subarray(16));
-  if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않습니다(마지막 블록의 패딩이 깨짐)");
+  if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않음(마지막 블록의 패딩이 깨짐)");
 }
 
 /** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 던진다 */

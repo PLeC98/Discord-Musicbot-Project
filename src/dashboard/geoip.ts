@@ -103,7 +103,7 @@ async function load(): Promise<boolean> {
       reader = await open(fileOf(version));
       readerVersion = version;
     } catch (error) {
-      log.warn(`IP 위치 DB를 열지 못했습니다(위치 필드를 비웁니다): ${messageOf(error)}`);
+      log.warn(`IP 위치 DB 열기 실패(위치 필드를 비움): ${messageOf(error)}`);
       unload();
       return false;
     }
@@ -166,7 +166,7 @@ async function download(version: string) {
     await pipeline(body, createGunzip(), fs.createWriteStream(temp));
     // 읽히는지 본다(도시 DB 인지까지)
     const probe = await open(temp);
-    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB 가 아닙니다(${probe.metadata.databaseType})`);
+    if (!/City/i.test(probe.metadata.databaseType)) throw new Error(`도시 DB 가 아님(${probe.metadata.databaseType})`);
     unload();
     for (const old of versionsOnDisk()) fs.rmSync(fileOf(old), { force: true });
     fs.renameSync(temp, fileOf(version));
@@ -218,7 +218,7 @@ async function autoCheck() {
     await once(async () => {
       if ((await probe(thisMonth)) !== null) return download(thisMonth);
       if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
-      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없습니다. 내일 다시 확인합니다`);
+      log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없음(내일 다시 확인)`);
     });
   } catch {
     // 내일 다시 본다(까닭은 probe, download 가 남겼다)

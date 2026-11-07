@@ -31,7 +31,7 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
   if (isBadClient(response)) {
-    log.error({ status: response?.status }, "OAuth 토큰 교환 거절: CLIENT_SECRET이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다릅니다");
+    log.error({ status: response?.status }, "OAuth 토큰 교환 거절됨: CLIENT_SECRET이 디스코드 개발자 포털(OAuth2)의 클라이언트 시크릿과 다름");
     return "bad_client";
   }
   // 응답 없는 실패(시간 초과, 연결 실패)도 읽히게
@@ -112,7 +112,7 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
     await step((done) => req.session.save(done));
     // 토큰은 암호화해 세션 행에 별도로 저장하고(세션 JSON 밖), 세션 행과 함께 삭제한다. 디스코드 토큰의 수명(7일)이 세션보다 먼저 만료되면 서버 목록을 다시 불러올 때 재로그인을 안내한다. 리프레시 토큰은 저장하지 않는다
     const store = tokenStoreOf(req);
-    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장된 세션 행이 없습니다");
+    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장된 세션 행 없음");
     return true;
   } catch (error) {
     log.error(`로그인 세션 저장 실패(로그인 실패로 처리): ${messageOf(error)}`);

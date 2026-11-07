@@ -47,7 +47,7 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
       .catch((error: unknown) => {
         const retryMs = errorKind(error) === "network-error" ? RETRY_AFTER_MS[tries] : undefined;
         if (retryMs === undefined) return log.debug(`잠깐 보이는 메시지를 삭제하지 못함: ${messageOf(error)}`);
-        log.debug(`잠깐 보이는 메시지를 네트워크 오류로 삭제하지 못해 ${retryMs / 1000}초 뒤 다시 삭제합니다: ${messageOf(error)}`);
+        log.debug(`잠깐 보이는 메시지를 네트워크 오류로 삭제하지 못해 ${retryMs / 1000}초 뒤 다시 삭제: ${messageOf(error)}`);
         scheduleDelete(message, retryMs, tries + 1);
       });
   }, ms);

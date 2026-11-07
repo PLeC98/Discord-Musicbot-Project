@@ -68,7 +68,7 @@ function readSnapshot(): Snapshot | null {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as Snapshot;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 정보를 읽지 못했습니다(${path.basename(file)}): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`AI 모델 정보 읽기 실패(${path.basename(file)}): ${messageOf(error)}`);
     return null;
   }
 }
@@ -218,16 +218,16 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   const held = load();
   const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
   const index = await get<RegistryIndex>("index.json");
-  if (typeof index.hash !== "string") throw new Error("레지스트리 목차에 해시가 없습니다");
+  if (typeof index.hash !== "string") throw new Error("레지스트리 목차에 해시가 없음");
   const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
   if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
   // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 목차와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
-  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`레지스트리 카탈로그 형식 ${String(catalog.schemaVersion)}은 읽지 않습니다(${CATALOG_SCHEMA}만 읽습니다)`);
-  if (catalog.hash !== index.hash) throw new Error("레지스트리 목차와 카탈로그의 해시가 다릅니다(저쪽이 갱신하는 중). 다음에 다시 받습니다");
+  if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
+  if (catalog.hash !== index.hash) throw new Error("레지스트리 목차와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
   const { snapshot: got, skipped } = pick(catalog, registries);
-  if (skipped.length) log.warn(`AI 모델 정보에서 모양이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장합니다: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
+  if (skipped.length) log.warn(`AI 모델 정보에서 형식이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
 

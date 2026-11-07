@@ -323,7 +323,7 @@ test("yt-dlp 가 건너뛰면(파일 없음) 이유를 알 수 있는 오류로 
 test("빈 파일은 버린다", async () => {
   ytdlpBehavior = (_url, options) => fs.writeFileSync(options.output, "");
 
-  await assert.rejects(downloader().downloadTrack(yt("hhhhhhhhhhh")), { code: "stream-failed", message: "다운로드한 파일이 비어 있습니다" });
+  await assert.rejects(downloader().downloadTrack(yt("hhhhhhhhhhh")), { code: "stream-failed", message: "다운로드한 파일이 비어 있음" });
   assert.equal(fs.existsSync(audioCache.getFilePath("yt:hhhhhhhhhhh")), false);
   assert.deepEqual(leftovers(), []);
 });

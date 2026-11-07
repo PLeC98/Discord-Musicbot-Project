@@ -157,7 +157,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   await Promise.race([Promise.all(clears), new Promise((done) => (cap = setTimeout(done, STATUS_CLEAR_MS)))]);
   clearTimeout(cap);
   if (cleared) log.info(`음성 채널 상태 문구 지움: ${cleared}곳`);
-  if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행합니다: ${pending}곳`);
+  if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행: ${pending}곳`);
 
   // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
   for (const [, player] of players) player?.voice.release(reason);
@@ -178,7 +178,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   if (client) await closeClient(client);
   const pot = await potServer.stop();
   if (pot === "stopped") log.info("POToken 서버 내림");
-  else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내립니다");
+  else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내림");
 
   // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
   // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
@@ -204,7 +204,7 @@ async function closeClient(client: { destroy(): unknown }) {
   const how = await Promise.race([closing, new Promise<"timeout">((done) => (cap = setTimeout(done, CLIENT_CLOSE_MS, "timeout")))]);
   clearTimeout(cap);
   if (how === "closed") log.info("디스코드 연결 닫음");
-  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행합니다`);
+  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행`);
 }
 
 // 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"

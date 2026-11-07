@@ -751,7 +751,7 @@ function arraysIn(text: string): string[] {
  */
 function skipped(error: unknown) {
   const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
-  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택합니다`);
+  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택`);
 }
 
 /** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
@@ -850,7 +850,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(`AI 보조: 판정 응답을 파싱하지 못해 재요청합니다(${got.detail.slice(0, 80)})`);
+        log.debug(`AI 보조: 판정 응답 파싱 실패(재요청): ${got.detail.slice(0, 80)}`);
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
@@ -976,7 +976,7 @@ async function askModels(urls: string[], headers: Record<string, string>, one: A
     const text = mask(raw);
     if (last(res)) return { res, text };
   }
-  throw new Error("물을 주소가 없습니다");
+  throw new Error("요청할 주소가 없음");
 }
 
 // 가릴 것을 뺀 목록과 뺀 수

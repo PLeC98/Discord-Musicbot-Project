@@ -120,7 +120,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     });
     if (snapshot) snapshots.tidy();
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
     if (sessionEnded(res, error)) return;

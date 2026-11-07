@@ -64,7 +64,7 @@ async function resetBotSettings(by: string, go?: () => void) {
   tunables.reload();
   serviceKeys.load();
   const restart = tunables.view().pending.length > 0;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개, 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 설정 초기화: 설정 문서 ${removed.documents}개, 비밀값 ${removed.secrets}개 삭제(되돌릴 스냅샷 ${snapshot})${restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${by}`);
   return { snapshot, restart };
 }
 
@@ -128,14 +128,14 @@ async function stageFullReset(by: string, restarting: boolean, go?: () => void) 
   snapshots.unstage();
   fs.rmSync(stagedAudioFile(), { force: true });
   fullReset.request();
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화를 예약했습니다(${restarting ? "곧바로 다시 시작해 지웁니다" : "다음에 켤 때 지웁니다"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약(${restarting ? "곧바로 다시 시작해 삭제" : "다음 기동 시 삭제"}, 되돌릴 스냅샷 ${snapshot}${unstaged.snapshot ? `, 예약한 복원 ${unstaged.snapshot}${josa(unstaged.snapshot, "은")} 취소` : ""}${unstaged.audioCache ? ", 예약한 오디오 캐시 번들은 삭제" : ""}). 실행 ${by}`);
   return { snapshot, unstaged };
 }
 
 /** 봇 전체 초기화 예약을 취소한다. 예약되어 있었으면 true */
 function cancelFullReset(by: string): boolean {
   if (!fullReset.cancel()) return false;
-  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약을 취소했습니다. 실행 ${by}`);
+  log.warn({ sub: "admin" }, `대시보드에서 봇 전체 초기화 예약 취소. 실행 ${by}`);
   return true;
 }
 

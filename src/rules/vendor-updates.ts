@@ -31,7 +31,7 @@ function newerRelease(latest: string | null | undefined, current: string) {
 /** `const NAME = "값";` 한 줄의 값을 바꾼다. 그 줄이 없으면 던진다(파일 모양이 바뀌면 조용히 지나가지 않게) */
 function rewriteConstant(text: string, name: string, value: string) {
   const line = new RegExp(`^const ${name} = "[^"\\n]*";$`, "m");
-  if (!line.test(text)) throw new Error(`${name} 줄을 찾지 못했습니다`);
+  if (!line.test(text)) throw new Error(`${name} 줄을 찾지 못함`);
   return text.replace(line, `const ${name} = "${value}";`);
 }
 

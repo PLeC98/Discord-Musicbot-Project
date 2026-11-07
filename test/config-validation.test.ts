@@ -25,8 +25,8 @@ function load(env: Record<string, string>, opts?: { envFileFound?: boolean; tuna
 const tune = (tunables: Record<string, string>) => load({}, { tunables });
 
 test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", () => {
-  assert.deepEqual(load({ DASHBOARD_PORT: "120junk" }).problems, [".env의 DASHBOARD_PORT 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다. 고친 뒤 다시 실행하세요."]);
-  assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다."]);
+  assert.deepEqual(load({ DASHBOARD_PORT: "120junk" }).problems, [".env의 DASHBOARD_PORT 값이 잘못됨(120junk): 정수만 쓸 수 있음. 고친 뒤 다시 실행하세요"]);
+  assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됨(120junk): 정수만 쓸 수 있음"]);
 });
 
 // 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 필드만 기본값이다
@@ -93,7 +93,7 @@ test("범위 안의 값은 그대로 쓴다", () => {
 
 // 모르는 브라우저 이름을 yt-dlp 에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패한다
 test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
-  assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됐습니다 \(none\): file 또는 브라우저 이름/);
+  assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됨\(none\): file 또는 브라우저 이름/);
   for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
     assert.deepEqual(tune({ COOKIES_SOURCE: ok }).tuneProblems, [], ok);
   }

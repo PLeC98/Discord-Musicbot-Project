@@ -44,7 +44,7 @@ function status(): StatusConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 직전에 맞던 설정으로 돕니다." : "고칠 때까지 활동 문구를 걸지 않습니다. 운영자 패널의 상태 문구 탭에서 고치세요."}`);
+    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 활동 문구를 걸지 않음. 운영자 패널의 상태 문구 탭에서 고치세요"}`);
     reported = message;
     return lastGood ?? EMPTY;
   }
