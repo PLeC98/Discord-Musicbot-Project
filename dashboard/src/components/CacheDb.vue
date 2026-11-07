@@ -167,7 +167,8 @@ import NoticeBox from "./NoticeBox.vue";
 import SingleSelect from "./SingleSelect.vue";
 import SearchInput from "./SearchInput.vue";
 import { useSaveTarget } from "../composables/save-targets.ts";
-import { createLoadGenerations } from "../composables/load-generations.ts";
+import { createLoadGenerations, type BlockResult } from "../composables/load-generations.ts";
+import { createPoller } from "../composables/poller.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { noticeText } from "../utils/problem.ts";
 import { replyOf } from "../utils/request.ts";
@@ -292,28 +293,35 @@ function checkFilters(): boolean {
   return Object.keys(problems).length === 0;
 }
 
-async function loadBlock(block: number, gen = gens.id) {
-  if (!gens.isCurrent(gen)) return;
-  const ticket = gens.claim(block);
-  if (!ticket) return;
+// 현재 세대의 블록 하나를 불러와 반영한다. 블록을 불러오는 사이에 데이터가 바뀌었으면(리비전이 다름) 반영하지 않고 변경 알림을 표시한다. 실패하면 오류를 알리고 예외를 던진다
+async function fetchBlock(block: number): Promise<BlockResult> {
+  const gen = gens.id;
   try {
-    const { data } = await axios.get<TrackCachePage>(`${API}?${trackCacheSearch(queryOf(block * BLOCK, BLOCK))}`, { signal: ticket.signal });
-    if (!gens.isCurrent(ticket.id)) return;
-    data.rows.forEach((row, i) => rows.set(data.offset + i, row));
-    matched.value = data.matched;
-    total.value = data.total;
-    loadedRevision.value = data.revision;
-    checkRevision.value = data.checkRevision;
+    const result = await gens.load(
+      block,
+      async (signal) => (await axios.get<TrackCachePage>(`${API}?${trackCacheSearch(queryOf(block * BLOCK, BLOCK))}`, { signal })).data,
+      (data) => {
+        data.rows.forEach((row, i) => rows.set(data.offset + i, row));
+        matched.value = data.matched;
+        total.value = data.total;
+        checkRevision.value = data.checkRevision;
+      },
+    );
+    if (result === "changed") botChanged.value = true;
+    return result;
   } catch (e) {
-    if (gens.isCurrent(ticket.id)) notifyProblem(e, T.loadFailed);
-  } finally {
-    ticket.done();
+    if (gens.isCurrent(gen)) notifyProblem(e, T.loadFailed);
+    throw e;
   }
 }
-/** 아직 불러오지 않은 청크를 모두 불러온다(모든 행 선택) */
-async function loadAll() {
-  const gen = gens.id;
-  for (let b = 0; b * BLOCK < matched.value && gens.isCurrent(gen); b++) if (!rows.has(b * BLOCK)) await loadBlock(b, gen);
+/** 보이는 구간의 블록을 불러온다(실패는 fetchBlock 이 알린다) */
+async function loadBlock(block: number, gen = gens.id) {
+  if (!gens.isCurrent(gen)) return;
+  await fetchBlock(block).catch(() => undefined);
+}
+/** 아직 불러오지 않은 블록을 모두 불러온다(모든 행 선택). 시작한 세대의 모든 블록이 같은 리비전으로 다 왔을 때만 true */
+function loadAll() {
+  return gens.loadAll(Math.ceil(matched.value / BLOCK), (b) => rows.has(b * BLOCK), fetchBlock);
 }
 
 /** 처음부터 다시 읽는다(테이블, 필터, 정렬이 바뀌었거나 새로고침) */
@@ -330,8 +338,8 @@ async function reload() {
   await loadBlock(Math.floor(scrollTop.value / ROW_H / BLOCK), gen);
   // 그사이 또다시 읽었으면 이후 처리는 새 세대가 맡는다
   if (!gens.isCurrent(gen)) return;
-  // 불러오지 못했으면 이전 번호로 변경 확인을 이어 간다(0이면 다음에 불러올 때까지 변경 알림 버튼이 계속 표시되지 않는다)
-  if (!loadedRevision.value) loadedRevision.value = before;
+  // 세대의 리비전은 처음 반영한 블록의 것이다. 불러오지 못했으면 이전 번호로 변경 확인을 이어 간다(0이면 다음에 불러올 때까지 변경 알림 버튼이 계속 표시되지 않는다)
+  loadedRevision.value = gens.revision ?? before;
   loading.value = false;
   ensureVisible();
 }
@@ -495,8 +503,10 @@ async function selectAll() {
   rowAnchor.value = 0;
   if (rows.size < matched.value) {
     say(T.hints.loadingAll);
-    await loadAll();
+    const complete = await loadAll();
     hint.value = "";
+    // 그사이 새로고침했거나, 블록을 불러오는 사이에 데이터가 바뀌었거나, 불러오지 못했으면 선택하지 않는다(일부만 선택하거나 다른 세대의 행을 선택하지 않게)
+    if (!complete) return;
   }
   selectRowRange(0, matched.value - 1);
 }
@@ -1093,17 +1103,16 @@ async function probe(keys: string[]) {
   try {
     const { data } = await axios.post<TrackCacheProbeQueued>(`${API}/probe`, { audioUrls: urls });
     checking.value = [...new Set([...checking.value, ...data.keys.filter(Boolean)])];
-    pollChecks();
+    checkPoller.start();
   } catch (e) {
     notifyProblem(e, T.probeFailed);
   }
 }
-let checkTimer = 0;
 // 확인 번호가 바뀌었으면 보이는 행의 확인 결과, 원본만 다시 불러온다(다시 읽지 않아 선택, 바꾼 것이 남는다)
-async function refreshChecks(latest: number, gen = gens.id) {
+async function refreshChecks(latest: number, gen = gens.id, signal?: AbortSignal) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
-  const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
+  const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`, { signal })).data;
   // 응답을 기다리는 동안 다시 읽었으면 현재 행들의 결과가 아니므로 무시한다
   if (!gens.isCurrent(gen)) return;
   for (const row of rows.values()) {
@@ -1112,18 +1121,19 @@ async function refreshChecks(latest: number, gen = gens.id) {
   }
   checkRevision.value = got.checkRevision;
 }
-function pollChecks() {
-  clearTimeout(checkTimer);
-  checkTimer = window.setTimeout(async () => {
+// 확인 중인 것이 남아 있는 동안 조회한다. 요청이 실패하면 간격을 늘려 재시도하고(확인 중 표시가 남지 않게), 화면을 떠나면 멈춘다
+const checkPoller = createPoller(
+  async (signal) => {
     const gen = gens.id;
-    const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
-    await refreshChecks(data.checkRevision, gen);
+    const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`, { signal });
+    await refreshChecks(data.checkRevision, gen, signal);
     // 응답을 기다리는 동안 다시 읽었으면 이 응답은 버리고 다시 조회한다(stale 목록으로 현재의 확인 중 표시를 덮어쓰지 않기 위해서다. 폴링을 멈추면 확인 중 표시가 그대로 남는다)
-    if (!gens.isCurrent(gen)) return pollChecks();
+    if (!gens.isCurrent(gen)) return true;
     checking.value = data.checking;
-    if (data.checking.length) pollChecks();
-  }, PROBE_POLL_MS);
-}
+    return data.checking.length > 0;
+  },
+  { intervalMs: PROBE_POLL_MS },
+);
 
 // ── 변경 번호(탭이 보이는 동안 운영자 패널의 3초 읽기가 부른다) ─────────────
 
@@ -1226,7 +1236,9 @@ onMounted(() => {
   }
 });
 onUnmounted(() => {
-  clearTimeout(checkTimer);
+  // 행 불러오기와 폴링을 멈추고 늦게 온 응답을 반영하지 않는다
+  gens.dispose();
+  checkPoller.stop();
   clearTimeout(hintTimer);
   document.removeEventListener("copy", onCopy);
   document.removeEventListener("paste", onPaste);
