@@ -24,7 +24,7 @@ type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voic
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
  * restoring 은 세션 복원을 시작할 때 부른다(디스코드는 "불러오는 중"을 먼저 답한다).
  * 텍스트 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다.
- * go 는 기다림(기동 복원, 채널 찾기) 뒤, 첫 바꿈 앞의 확인이다. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남)
+ * go는 비동기 대기(기동 복원, 채널 조회)가 끝난 뒤, 첫 상태 변경 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료)
  */
 async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring, go }: { restoring?: () => Promise<unknown>; go?: () => void } = {}): Promise<JoinResult> {
   const channel = member.voice.channel;
@@ -48,7 +48,7 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   const existing = bot.players.get(guild.id);
   if (existing?.voice.isAlive()) return { kind: "already", player: existing };
 
-  // 텍스트 채널을 먼저 찾는다(기다림을 모두 바꾸기 앞에 둔다)
+  // 텍스트 채널을 먼저 찾는다(비동기 대기를 모두 상태 변경 전에 끝낸다)
   const text = textChannel ?? (await resolveFallbackTextChannel(guild));
   go?.();
 

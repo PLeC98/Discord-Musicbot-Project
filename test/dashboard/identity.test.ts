@@ -38,7 +38,7 @@ const get = async (urlPath: string) => {
   return { status: res.status, json: (await res.json()) as Record<string, unknown> };
 };
 
-test("/api/me: 권한 수준 오버라이드는 진짜 운영자의 세션에서만 보인다(OWNER_ID 가 바뀐 옛 운영자의 세션에 남은 값은 없는 것으로)", async () => {
+test("/api/me: 권한 수준 오버라이드는 진짜 운영자의 세션에서만 보인다(OWNER_ID가 바뀐 옛 운영자의 세션에 남은 값은 무시한다)", async () => {
   viewAs = "user";
   try {
     user = { id: "owner", username: "운영자" };

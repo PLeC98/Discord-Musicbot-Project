@@ -67,14 +67,14 @@ class RunRecord {
     const previous = this._read();
     const at = this.now();
     let shortStreak = 0;
-    let line = "직전 실행 기록 없음";
+    let line = "이전 실행 기록 없음";
     if (previous) {
       const end = previous.ended?.at ?? previous.aliveAt;
       const uptime = end - previous.startedAt;
       const cut = !previous.ended || previous.ended.how === "global-flood";
       if (cut && uptime < SHORT_RUN_MS) shortStreak = previous.shortStreak + 1;
       const how = previous.ended ? ENDINGS[previous.ended.how] : "기록 없이 끊김";
-      line = `직전 실행: ${how} | 가동 ${span(uptime)}${previous.ended ? "" : "(마지막으로 살아 있던 때까지)"}`;
+      line = `이전 실행: ${how} | 가동 ${span(uptime)}${previous.ended ? "" : "(마지막으로 살아 있던 때까지)"}`;
       if (shortStreak > 0) line += ` | 짧게 끊긴 실행 ${shortStreak}번 연달아`;
     }
     this.run = { startedAt: at, aliveAt: at, ended: null, shortStreak };

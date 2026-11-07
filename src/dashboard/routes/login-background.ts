@@ -104,12 +104,12 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   if (!saved.ok) {
     store.removeFolder(id);
     if (saved.why === "no-space") return saved.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "background-no-space", { size: saved.room });
-    // 올리던 사람이 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 때문, 봇 영향 없음)
-    if (saved.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `로그인 배경 "${name}" 업로드가 중간에 끊겼습니다: ${saved.detail}`);
+    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug로 남긴다(해당 사용자 문제라 봇에는 영향이 없다)
+    if (saved.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `로그인 배경 "${name}" 업로드 중단: ${saved.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
-  // 받는 사이 세션이 끝났으면 만들지 않는다(받은 파일은 삭제한다)
+  // 업로드하는 사이 세션이 끝났으면 항목을 만들지 않는다(저장된 임시 파일은 삭제한다)
   try {
     assertSignedIn(req);
   } catch (error) {

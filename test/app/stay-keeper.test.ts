@@ -138,8 +138,8 @@ test("끝의 종류: 자리에서 내보내지면 끄고 알린다. 자리가 �
   assert.deepEqual(w.calls, ["join:g1"], "사람이 다시 틀면 푼다");
 });
 
-test("채널을 묻는 사이 자리가 꺼지거나 바뀌면(/leave, /247) 그 시도는 붙지도 끄지도 않는다", async () => {
-  // 채널 답이 오기 전에 자리를 지운다
+test("채널을 조회하는 사이 상주 모드가 꺼지거나 채널이 바뀌면(/leave, /247) 접속하지도 상주 모드를 끄지도 않는다", async () => {
+  // 채널 조회 응답이 오기 전에 상주 설정을 해제한다
   const cleared = guildOf("g1");
   const fetchCleared = cleared.channels.fetch;
   Object.assign(cleared.channels, { fetch: async (...args: unknown[]) => (staySeats.clear("g1"), (fetchCleared as (...a: unknown[]) => unknown)(...args)) });
@@ -148,7 +148,7 @@ test("채널을 묻는 사이 자리가 꺼지거나 바뀌면(/leave, /247) 그
   assert.equal(await w.keeper.attempt("g1"), true);
   assert.deepEqual(w.calls, [], "붙지 않는다");
 
-  // 옛 자리의 채널은 없어졌는데 그사이 다른 채널로 새로 켰다: 새 자리를 지우지 않는다
+  // 이전 상주 채널은 삭제됐는데 그사이 다른 채널로 새로 켰으면 새 상주 설정을 해제하지 않는다
   const moved = guildOf("g2", { fetched: "gone" });
   const fetchMoved = moved.channels.fetch;
   Object.assign(moved.channels, { fetch: async (...args: unknown[]) => (staySeats.set("g2", "vc2"), (fetchMoved as (...a: unknown[]) => unknown)(...args)) });
@@ -158,14 +158,14 @@ test("채널을 묻는 사이 자리가 꺼지거나 바뀌면(/leave, /247) 그
   assert.equal(staySeats.seatOf("g2")?.channelId, "vc2");
   assert.deepEqual(v.calls, [], "알리지도 않는다");
 
-  // 끄고 같은 채널로 다시 켰다(권한이 돌아옴): 앞 시도의 낡은 거절로 새 자리를 끄지 않는다
+  // 끄고 같은 채널로 다시 켰다(권한이 복구됨): 이전 시도의 뒤늦은 거절 결과로 새 상주 모드를 끄지 않는다
   const again = guildOf("g3", { fetched: "denied" });
   const fetchAgain = again.channels.fetch;
   Object.assign(again.channels, { fetch: async (...args: unknown[]) => (staySeats.clear("g3"), staySeats.set("g3", "vc1"), (fetchAgain as (...a: unknown[]) => unknown)(...args)) });
   staySeats.set("g3", "vc1");
   const u = world([again]);
   assert.equal(await u.keeper.attempt("g3"), true);
-  assert.equal(staySeats.seatOf("g3")?.channelId, "vc1", "새 자리는 그대로");
+  assert.equal(staySeats.seatOf("g3")?.channelId, "vc1", "새 상주 채널은 그대로");
   assert.deepEqual(u.calls, []);
 });
 

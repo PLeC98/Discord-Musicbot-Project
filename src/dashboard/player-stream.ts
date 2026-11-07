@@ -10,7 +10,7 @@ const log = logger.child({ category: "dashboard" });
 type StreamOptions = { heartbeatMs: number; maxPerUser: number; coalesceMs: number };
 /** 연결 하나. canSee 는 보낼 때 그 서버의 보기 권한을 확인한다. guilds 는 연결을 열 때(와 그 뒤 봇이 든 서버에서) 멤버로 확인한 서버: 게이트웨이에 재연결해 멤버 캐시가 비면 이 서버들만 다시 채운다 */
 type Sub = { res: Response; canSee: (guildId: string) => boolean; userKey: string; guilds: Set<string>; cleanup: () => void };
-/** 잡은 자리 하나(사용자당 연결 상한의 한 칸). 풀기는 몇 번 불러도 한 번 */
+/** 확보한 슬롯 하나(사용자당 연결 상한의 슬롯). 해제는 여러 번 호출해도 한 번만 동작한다 */
 type Slot = { userKey: string; release: () => void };
 
 /**
@@ -58,7 +58,7 @@ class PlayerStream {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      // 세션이 끝나 끊을 때 이 연결의 소켓을 부수므로 다시 쓰지 않게
+      // 세션이 끝나 연결을 끊을 때 소켓을 강제로 닫으므로 재사용하지 않게 한다
       Connection: "close",
       "X-Accel-Buffering": "no",
     });
@@ -67,7 +67,7 @@ class PlayerStream {
   }
 
   /**
-   * 사용자당 연결 상한의 한 칸을 잡는다. 상한이면 null. 경로는 멤버 확인(디스코드 조회)을 기다리기 앞에서 잡고 조회가 끝날 때까지 쥔다:
+   * 사용자당 연결 슬롯을 하나 잡는다. 상한에 도달했으면 null을 반환한다. 라우트 핸들러는 멤버 확인(디스코드 조회) 전에 슬롯을 잡고 조회가 끝날 때까지 유지한다:
    * 연결이 그사이 닫혀도 곧바로 풀면 열고 끊기를 되풀이해 끝나지 않은 조회가 상한보다 많아진다
    */
   reserve(userKey: string): Slot | null {
@@ -91,7 +91,7 @@ class PlayerStream {
     else this.perKey.set(userKey, c);
   }
 
-  /** 구독(자리 잡기와 열기를 함께). 상한이면 too-many-streams 로 답하고 false. 기다림 없이 여는 쪽(시험)이 쓴다 */
+  /** 구독(슬롯 확보와 연결 열기를 함께 수행). 상한을 넘으면 too-many-streams로 답하고 false를 반환한다. 대기 없이 바로 여는 쪽(테스트)에서 쓴다 */
   addClient(res: Response, canSee: (guildId: string) => boolean, userKey: string, guilds = new Set<string>()) {
     const slot = this.reserve(userKey);
     if (!slot) {
@@ -104,11 +104,11 @@ class PlayerStream {
   }
 
   /**
-   * 잡은 자리로 연다. 볼 수 있는 서버(canSee)의 신호를 한 연결로. 연결을 연 뒤 들어간 서버도 보낼 때 본다. guilds: 멤버로 확인한 서버.
-   * 그사이 연결이 닫혔으면 열지 않고 false(자리는 부른 쪽이 푼다). 열면 이 연결의 닫힘, 오류, 쓰기 실패가 자리를 한 번 푼다
+   * 확보한 슬롯으로 연결을 연다. 보기 권한(canSee)이 있는 서버의 신호를 한 연결로 보내며, 연결 후 들어간 서버도 전송할 때 권한을 확인한다. guilds는 멤버로 확인한 서버다.
+   * 그사이 연결이 닫혔으면 열지 않고 false를 반환한다(슬롯은 호출한 쪽이 해제한다). 연결을 열면 닫힘, 오류, 쓰기 실패 시 슬롯을 한 번 해제한다
    */
   open(res: Response, slot: Slot, canSee: (guildId: string) => boolean, guilds = new Set<string>()) {
-    // 부르는 쪽이 멤버 확인을 기다리는 사이 끊겼다. 이제 건 close 감시는 불리지 않는다
+    // 호출한 쪽이 멤버 확인을 기다리는 사이에 연결이 끊겼다. 이미 닫힌 뒤라 close 리스너를 등록해도 호출되지 않는다
     if (res.closed) return false;
     const { userKey } = slot;
     this._sseHead(res);

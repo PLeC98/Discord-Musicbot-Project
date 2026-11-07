@@ -578,7 +578,7 @@ test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 �
   assert.deepEqual(row, { audio_version: "lmt:1", version_checked_at: 1_700_000_000_000 });
 });
 
-test("정리 잠금을 기다린 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 초기화도 캐시 파일 삭제도 하지 않는다", async () => {
+test("정리 잠금을 기다린 뒤 그만두면(go가 던짐, 대시보드의 세션 끝) 초기화도 캐시 파일 삭제도 하지 않는다", async () => {
   await withTempCacheDir(async () => {
     const file = seedCached("yt:go", 1234);
     const ended = () => {

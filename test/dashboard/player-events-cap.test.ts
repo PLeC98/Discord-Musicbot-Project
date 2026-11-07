@@ -1,5 +1,5 @@
-// src/dashboard/routes/player-events.ts 와 player-stream 의 자리 잡기: 연결 상한은 멤버 확인(디스코드 조회) 앞에서 잡고 조회가 끝날 때까지 쥔다.
-// 한꺼번에 열거나 열고 끊기를 되풀이해도 끝나지 않은 조회가 상한을 넘지 않는다. 진짜 PlayerStream, 조회는 막아 둔 가짜 서버로
+// src/dashboard/routes/player-events.ts와 player-stream의 슬롯 잡기: 연결 상한 슬롯은 멤버 확인(디스코드 조회) 전에 잡고 조회가 끝날 때까지 유지한다.
+// 한꺼번에 열거나 열고 끊기를 되풀이해도 끝나지 않은 조회가 상한을 넘지 않는다. 진짜 PlayerStream과 조회를 막아 둔 가짜 서버를 쓴다
 
 process.env.OWNER_ID = "owner";
 
@@ -51,7 +51,7 @@ after(() => {
 });
 
 const settle = (ms: number) => new Promise((done) => setTimeout(done, ms));
-// 연다. 답의 상태(429 는 곧바로 온다), 끊기
+// 연결을 열고 응답 상태 코드(429는 곧바로 온다)와 연결 끊기 함수를 돌려준다
 function connect() {
   const controller = new AbortController();
   const status = fetch(`${base}/api/guilds/events`, { signal: controller.signal }).then(
@@ -61,22 +61,22 @@ function connect() {
   return { status, abort: () => controller.abort() };
 }
 
-test("한꺼번에 열어도, 열고 끊기를 되풀이해도 끝나지 않은 멤버 조회는 상한까지만. 조회가 끝나면 자리가 한 번씩 풀린다", async () => {
+test("한꺼번에 열어도, 열고 끊기를 되풀이해도 끝나지 않은 멤버 조회는 상한까지만. 조회가 끝나면 슬롯이 한 번씩 풀린다", async () => {
   const first = Array.from({ length: 2 * MAX }, connect);
   await settle(200);
   assert.equal(g1.fetched, MAX, "상한만큼만 조회가 나갔다");
   assert.equal((await Promise.all(first.slice(MAX).map((one) => one.status))).filter((s) => s === 429).length, MAX, "나머지는 곧바로 거절");
 
-  // 기다리는 연결을 끊고 다시 연다: 조회가 끝나지 않았으니 자리는 그대로 쥐고 있다
+  // 기다리는 연결을 끊고 다시 연다: 조회가 끝나지 않았으니 슬롯은 그대로 쥐고 있다
   for (const one of first.slice(0, MAX)) one.abort();
   const again = Array.from({ length: MAX }, connect);
   assert.deepEqual(await Promise.all(again.map((one) => one.status)), Array(MAX).fill(429));
   assert.equal(g1.fetched, MAX, "끊고 다시 열어도 조회가 늘지 않는다");
 
-  // 조회를 풀면 끊긴 연결은 열지 않고 자리를 푼다
+  // 조회를 풀면 끊긴 연결은 열지 않고 슬롯을 푼다
   open();
   await settle(200);
-  assert.equal(stream.perKey.get("u1"), undefined, "자리가 모두 풀렸다");
+  assert.equal(stream.perKey.get("u1"), undefined, "슬롯이 모두 풀렸다");
   gate = new Promise<void>((done) => (open = done));
   open();
   const fresh = connect();
@@ -85,7 +85,7 @@ test("한꺼번에 열어도, 열고 끊기를 되풀이해도 끝나지 않은 
   fresh.abort();
 });
 
-test("Connection: close 로 연다(세션이 끝나 끊을 때 그 소켓을 부수므로 다시 쓰지 않게)", async () => {
+test("Connection: close로 연다(세션이 끝나 끊을 때 그 소켓을 강제로 닫으므로 다시 쓰지 않게)", async () => {
   gate = new Promise<void>((done) => (open = done));
   open();
   const controller = new AbortController();
@@ -96,7 +96,7 @@ test("Connection: close 로 연다(세션이 끝나 끊을 때 그 소켓을 부
   await settle(50);
 });
 
-test("멤버 조회를 기다리는 사이 세션이 끝나면(다른 기기에서 끊음) 열지 않고 401, 자리를 푼다", async () => {
+test("멤버 조회를 기다리는 사이 세션이 끝나면(다른 기기에서 끊음) 열지 않고 401, 슬롯을 푼다", async () => {
   gate = new Promise<void>((done) => (open = done));
   const one = connect();
   await settle(100);

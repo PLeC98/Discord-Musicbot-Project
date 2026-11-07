@@ -805,7 +805,7 @@ test("재생목록을 넣으면 이어 불러올 상태를 결과에 싣는다",
   assert.equal(result.more?.remaining, 118);
 });
 
-test("곡을 찾은 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 플레이어를 만들지도 곡을 넣지도 않는다", async () => {
+test("곡을 찾은 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 플레이어를 만들지도 곡을 추가하지도 않는다", async () => {
   mockResolve = () => ok("곡");
   const bot = makeBot();
   const ended = () => {
@@ -814,15 +814,15 @@ test("곡을 찾은 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 
   await assert.rejects(requestPlayback(bot, { guild: makeGuild(), requester: { id: "u1", user: { username: "carl" } }, lookup, ffmpegReady: () => true, query: "곡", go: ended }), /세션이 끝났다/);
   assert.equal(bot.players.get(GUILD_ID), undefined, "플레이어를 만들지 않는다");
   assert.deepEqual(bot.embedCalls, [], "곡을 넣지 않는다");
-  assert.equal(resolverCalls.at(-1)?.query, "곡", "찾기는 했다(그 뒤에 본다)");
+  assert.equal(resolverCalls.at(-1)?.query, "곡", "곡 찾기는 실행됐다(go는 그 뒤에 확인한다)");
 });
 
-test("서버별 담기 줄을 선 뒤 그만두면(go 가 던짐) 담지 않는다", async () => {
+test("서버별 추가 순서를 기다린 뒤 중단되면(go가 예외를 던짐) 곡을 추가하지 않는다", async () => {
   const bot = makeBot();
   bot.players.set(GUILD_ID, fakePlayer({ queue: [], currentTrack: null }));
   const ended = () => {
     throw new Error("세션이 끝났다");
   };
   await assert.rejects(queueTracks(bot, GUILD_ID, { isPlaylist: false, tracks: [track("곡")], go: ended }, null), /세션이 끝났다/);
-  assert.deepEqual(playerOf(bot).queue, [], "담지 않았다");
+  assert.deepEqual(playerOf(bot).queue, [], "추가하지 않았다");
 });

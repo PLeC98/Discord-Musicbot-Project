@@ -325,7 +325,7 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
 
 // ── /cachestatus ──────────────────────────────────────────────────────
 
-test("/cachestatus: 봇 운영자만(모든 서버의 캐시라). 서버 관리 권한으로는 열리지 않는다", async () => {
+test("/cachestatus: 모든 서버의 캐시이므로 봇 운영자만 쓸 수 있고, 서버 관리 권한으로는 열리지 않는다", async () => {
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {
@@ -375,7 +375,7 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP
 
 // ── /ping ─────────────────────────────────────────────────────────────
 
-test("/ping: 누구나(응답 시간만 부른 사람에게 보인다). 기본 권한을 걸지 않는다", async () => {
+test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
   const json = (await command("ping")).data.toJSON();
   assert.equal(json.default_member_permissions ?? null, null);
 });

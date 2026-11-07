@@ -1,5 +1,5 @@
 // src/dashboard/session-requests.ts: 스트림(SSE)을 연 로그인 세션에 묶고 세션이 끝나면 끊는다(스트림 밖의 요청은 session-requests-inflight).
-// 훔친 쿠키를 쥔 쪽의 자리에서 본다: 열어 둔 스트림, 읽지 않는 연결, 세션을 바꾼 채 연 스트림. 진짜 express-session, 저장소, 소켓으로
+// 훔친 쿠키를 가진 쪽의 입장에서 검증한다: 열어 둔 스트림, 읽지 않는 연결, 세션을 바꾼 채 연 스트림을 실제 express-session, 저장소, 소켓으로 테스트한다.
 
 import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +23,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-requests-"))
 let store: SqliteSessionStore;
 let server: Server;
 let base: string;
-// 서버가 연 스트림의 응답과 그 소켓, 모듈 정리를 부른 수
+// 서버가 연 스트림의 응답과 그 소켓, 스트림 정리 콜백을 호출한 횟수다.
 const opened: Array<{ res: Response; socket: Socket }> = [];
 let dropped = 0;
 
@@ -34,32 +34,32 @@ before(async () => {
   app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(noteDevice);
   app.use(sessionRequests.bind);
-  // 로그인(시험): 사용자와 로그인 시각을 세션에 둔다
+  // 로그인(테스트): 사용자와 로그인 시각을 세션에 둔다
   app.post("/login", (req, res) => {
     req.session.user = { id: String(req.query.u), username: String(req.query.u), globalName: String(req.query.u), avatar: null };
     req.session.loginAt = Number(req.query.at ?? Date.now());
     req.session.save(() => res.status(204).end());
   });
   app.post("/logout", (req, res) => req.session.destroy(() => res.status(204).end()));
-  // 대시보드 스트림 경로의 모양: 로그인, 열기 바로 앞의 확인, 머리, 묶기
+  // 대시보드 스트림 경로의 형태다: 로그인, 열기 직전 확인, 헤더 전송, 스트림 묶기
   app.get("/stream", (req, res) => {
-    // revoke: 세션을 읽은 뒤 열기 앞에서 끝낸다(기다리는 사이 다른 기기에서 끊은 것)
+    // revoke: 세션을 읽은 뒤 스트림을 열기 직전에 종료한다(대기하는 사이 다른 기기에서 끊은 상황)
     if (req.query.revoke) store.destroy(req.sessionID);
-    // other: 기다리는 사이 같은 세션의 다른 요청이 저장했다(CSRF 토큰을 처음 받음)
+    // other: 대기하는 사이 같은 세션의 다른 요청이 세션을 저장했다(CSRF 토큰을 처음 받음)
     if (req.query.other) {
       const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(req.sessionID) as string;
       store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify({ ...JSON.parse(row), csrfToken: "다른 요청의 것" }), req.sessionID);
     }
     if (!req.session?.user || !sessionRequests.admit(req)) return res.status(401).end();
-    // plain: Connection: close 없이(소켓 부수기만 시험한다. 그 헤더가 있으면 이 PC 에서는 끝내기만으로도 닫힌다)
+    // plain: Connection: close 없이 응답한다(소켓 강제 종료만 테스트한다. 그 헤더가 있으면 이 PC에서는 응답 종료만으로도 닫힌다)
     res.writeHead(200, req.query.plain ? { "Content-Type": "text/event-stream" } : { "Content-Type": "text/event-stream", Connection: "close" });
     res.flushHeaders();
     res.write(": open\n\n");
     opened.push({ res, socket: req.socket });
-    sessionRequests.track(req, res, "시험 스트림", () => dropped++);
+    sessionRequests.track(req, res, "테스트 스트림", () => dropped++);
   });
   server = await listen.listenForFetch(app);
-  // 끝낸 연결이 keep-alive 시간으로 닫히지 않게(소켓 부수기가 빠지면 기다리다 실패한다)
+  // 응답을 끝낸 연결이 keep-alive 타임아웃으로 닫히지 않게 한다(소켓 강제 종료가 빠지면 기다리다 실패한다)
   server.keepAliveTimeout = 60_000;
   base = listen.baseUrl(server);
 });
@@ -93,7 +93,7 @@ function device(ua = UA) {
   return { go, sid, cookie: () => cookie };
 }
 
-// 스트림을 열고 받은 글을 모은다. ended: 서버가 끝냈을 때
+// 스트림을 열고 수신한 텍스트를 모은다. ended는 서버가 스트림을 닫았을 때 완료된다
 async function openStream(who: ReturnType<typeof device>, headers: Record<string, string> = {}, query = "") {
   const controller = new AbortController();
   const res = await who.go(`/stream${query}`, { signal: controller.signal, headers });
@@ -121,10 +121,10 @@ async function openStream(who: ReturnType<typeof device>, headers: Record<string
 
 const rowOf = (sid: string) => store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(sid);
 const settle = (ms: number) => new Promise((done) => setTimeout(done, ms));
-// 고침이 빠지면 멈추지 말고 실패하게
+// 종료 처리가 빠지면 무한 대기하지 않고 실패하게 한다
 const within = <T>(promise: Promise<T>, ms = 3000) => Promise.race([promise, new Promise<never>((_, fail) => setTimeout(() => fail(new Error(`${ms}ms 안에 끝나지 않음`)), ms))]);
 
-test("로그아웃하면 그 세션의 스트림은 끝 이벤트를 받고 닫힌다. 다시 열면 401", async () => {
+test("로그아웃하면 그 세션의 스트림은 종료 이벤트를 받고 닫히며, 다시 열면 401을 반환한다", async () => {
   const thief = device();
   await thief.go("/login?u=s1", { method: "POST" });
   const stream = await openStream(thief);
@@ -132,11 +132,11 @@ test("로그아웃하면 그 세션의 스트림은 끝 이벤트를 받고 닫�
   await thief.go("/logout", { method: "POST" });
   await within(stream.ended);
   assert.match(stream.text(), /event: session-ended/);
-  assert.equal(dropped, 1, "모듈 정리를 곧바로 부른다");
+  assert.equal(dropped, 1, "스트림 정리 콜백을 곧바로 호출한다");
   assert.equal((await thief.go("/stream")).status, 401);
 });
 
-test("다른 기기에서 끊은 것(저장소의 지우기)도 곧바로 끊는다", async () => {
+test("다른 기기에서 세션을 끊어도(저장소의 삭제) 스트림을 곧바로 끊는다", async () => {
   const thief = device();
   await thief.go("/login?u=s2", { method: "POST" });
   const stream = await openStream(thief);
@@ -145,10 +145,10 @@ test("다른 기기에서 끊은 것(저장소의 지우기)도 곧바로 끊는
   assert.match(stream.text(), /event: session-ended/);
 });
 
-test("알림 없는 끝(날 SQL 로 지움)은 다시 보기가 끊는다. 세션을 바꾼 채 연 스트림이어도 끊은 뒤 행이 다시 생기지 않는다(요청에서 세션을 뗐다)", async () => {
+test("알림 없는 종료(SQL로 직접 삭제)는 재확인(recheck)이 끊는다. 세션을 바꾼 채 연 스트림이어도 끊은 뒤 행이 다시 생기지 않는다(요청에서 세션을 분리함)", async () => {
   const thief = device();
   await thief.go("/login?u=s3", { method: "POST" });
-  // User-Agent 를 바꾸면 기기 기록이 바뀌어 그 요청이 끝날 때 express-session 이 세션을 저장하려 한다
+  // User-Agent를 바꾸면 기기 기록이 바뀌어 그 요청이 끝날 때 express-session이 세션을 저장하려 한다
   const stream = await openStream(thief, { "user-agent": `${UA} Changed` });
   const sid = thief.sid();
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(sid);
@@ -158,7 +158,7 @@ test("알림 없는 끝(날 SQL 로 지움)은 다시 보기가 끊는다. 세�
   assert.equal(rowOf(sid), undefined, "되살아나지 않는다");
 });
 
-test("열기 바로 앞에서 본다: 세션을 읽은 뒤 끝난 세션은 열지 않고 한 바이트도 보내지 않는다", async () => {
+test("스트림을 열기 직전에 확인한다: 세션을 읽은 뒤 종료된 세션은 열지 않고 한 바이트도 보내지 않는다", async () => {
   const thief = device();
   await thief.go("/login?u=s4", { method: "POST" });
   const res = await thief.go("/stream?revoke=1");
@@ -166,7 +166,7 @@ test("열기 바로 앞에서 본다: 세션을 읽은 뒤 끝난 세션은 열�
   assert.equal(opened.length, 0);
 });
 
-test("기기 기록은 지금 행에 그것만 쓴다(기다리는 사이 다른 요청이 저장한 것을 옛 사본으로 덮지 않는다)", async () => {
+test("기기 기록을 저장할 때는 현재 행에서 기기 기록만 갱신한다(대기하는 사이 다른 요청이 저장한 값을 이전 사본으로 덮어쓰지 않는다)", async () => {
   const thief = device();
   await thief.go("/login?u=s10", { method: "POST" });
   const stream = await openStream(thief, { "user-agent": `${UA} Changed` }, "?other=1");
@@ -185,7 +185,7 @@ test("스트림을 연 요청의 기기 기록(브라우저, 주소)은 세션�
   stream.abort();
 });
 
-// 날 TCP 로 스트림을 열고 읽지 않는다(HTTP 클라이언트의 pause 는 소켓 읽기까지 멈추지 않는다). 서버 쪽 응답과 소켓
+// TCP 소켓으로 직접 스트림을 열고 읽지 않는다(HTTP 클라이언트의 pause는 소켓 읽기까지 멈추지 않는다). 서버 쪽 응답과 소켓을 반환한다
 async function openUnread(who: ReturnType<typeof device>, query = "") {
   const url = new URL(base + "/stream");
   const raw = net.connect(Number(url.port), url.hostname);
@@ -193,7 +193,7 @@ async function openUnread(who: ReturnType<typeof device>, query = "") {
   await new Promise((done) => raw.once("connect", done));
   raw.write(`GET /stream${query} HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${who.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
   raw.pause();
-  // 열리지 않으면(401) 멈추지 말고 실패하게
+  // 열리지 않으면(401) 멈추지 않고 실패하게 한다
   const started = Date.now();
   while (!opened.length) {
     if (Date.now() - started > 3000) throw new Error("스트림이 열리지 않았다");
@@ -202,14 +202,14 @@ async function openUnread(who: ReturnType<typeof device>, query = "") {
   return { raw, ...opened[0] };
 }
 
-// 소켓이 부서질 때까지 기다린 시간(ms). limit 까지 안 부서지면 null
+// 소켓이 강제 종료될 때까지 기다린 시간(ms)을 반환한다. limit까지 닫히지 않으면 null을 반환한다
 async function untilDestroyed(socket: Socket, limit = 4000) {
   const started = Date.now();
   while (!socket.destroyed && Date.now() - started < limit) await settle(20);
   return socket.destroyed ? Date.now() - started : null;
 }
 
-test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 남는다)", async () => {
+test("읽지 않는 연결도 서버 쪽 소켓이 강제 종료된다(res.end만으로는 연결이 남는다)", async () => {
   const thief = device();
   await thief.go("/login?u=s5", { method: "POST" });
   const { raw, res, socket } = await openUnread(thief);
@@ -219,13 +219,13 @@ test("읽지 않는 연결도 서버 쪽 소켓이 부서진다(끝내기로는 
   assert.ok(res.writableLength > 1024 * 1024, `막혔다 ${res.writableLength}`);
   store.destroy(thief.sid());
   const took = await untilDestroyed(socket);
-  assert.notEqual(took, null, "부서진다");
-  assert.ok(took! < 2000, `keep-alive 를 기다리지 않는다(${took}ms)`);
+  assert.notEqual(took, null, "소켓이 강제 종료된다");
+  assert.ok(took! < 2000, `keep-alive를 기다리지 않는다(${took}ms)`);
   raw.destroy();
 });
 
-// Connection: close 없이 열면 소켓 부수기가 빠졌을 때 연결이 keep-alive 로 남는다(위 시험은 이 PC 에서 그 헤더만으로도 닫혀 부수기를 가르지 못한다)
-test("Connection: close 없이 연 스트림도: 쌓인 것이 많으면 곧바로 부순다", async () => {
+// Connection: close 없이 열면 소켓 강제 종료가 빠졌을 때 연결이 keep-alive로 남는다(위 테스트는 이 PC에서 그 헤더만으로도 닫혀 강제 종료 여부를 구분하지 못한다)
+test("Connection: close 없이 연 스트림도 버퍼에 쌓인 데이터가 많으면 소켓을 곧바로 강제 종료한다", async () => {
   const thief = device();
   await thief.go("/login?u=s5b", { method: "POST" });
   const { raw, res, socket } = await openUnread(thief, "?plain=1");
@@ -234,24 +234,24 @@ test("Connection: close 없이 연 스트림도: 쌓인 것이 많으면 곧바�
   assert.ok(res.writableLength > 1024 * 1024, `막혔다 ${res.writableLength}`);
   store.destroy(thief.sid());
   const took = await untilDestroyed(socket);
-  assert.notEqual(took, null, "부서진다");
+  assert.notEqual(took, null, "소켓이 강제 종료된다");
   assert.ok(took! < 500, `곧바로(${took}ms)`);
   raw.destroy();
 });
 
-test("Connection: close 없이 연 스트림도: 쌓인 것이 적으면 끝 이벤트를 쓰고 1초 뒤에 부순다", async () => {
+test("Connection: close 없이 연 스트림도 버퍼에 쌓인 데이터가 적으면 종료 이벤트를 보내고 1초 뒤에 소켓을 강제 종료한다", async () => {
   const thief = device();
   await thief.go("/login?u=s5c", { method: "POST" });
   const { raw, res, socket } = await openUnread(thief, "?plain=1");
   assert.ok(res.writableLength < 512 * 1024);
   store.destroy(thief.sid());
   const took = await untilDestroyed(socket);
-  assert.notEqual(took, null, "부서진다(keep-alive 로 남지 않는다)");
-  assert.ok(took! >= 900 && took! < 2500, `끝 이벤트를 받을 틈을 두고(${took}ms)`);
+  assert.notEqual(took, null, "소켓이 강제 종료된다(keep-alive로 남지 않는다)");
+  assert.ok(took! >= 900 && took! < 2500, `종료 이벤트를 받을 여유를 두고(${took}ms)`);
   raw.destroy();
 });
 
-test("저장소를 읽다 실패하면 한두 번은 두고, 세 번 잇달아면 끊는다", async () => {
+test("저장소 읽기가 실패하면 한두 번은 유지하고, 세 번 연속 실패하면 끊는다", async () => {
   const thief = device();
   await thief.go("/login?u=s6", { method: "POST" });
   const stream = await openStream(thief);
@@ -289,7 +289,7 @@ test("로그인 30일이 지나면 저장소가 망가져 있어도 끊는다(�
   }
 });
 
-test("클라이언트가 끊으면 목록에서 빠진다(다시 보기가 끝난 스트림을 읽지 않는다)", async () => {
+test("클라이언트가 연결을 끊으면 목록에서 빠져 재확인할 때 닫힌 스트림을 조회하지 않는다", async () => {
   const thief = device();
   await thief.go("/login?u=s8", { method: "POST" });
   const stream = await openStream(thief);
@@ -307,19 +307,19 @@ test("클라이언트가 끊으면 목록에서 빠진다(다시 보기가 끝�
   }
 });
 
-// 다시 보기(알림 없는 끝, 로그인 30일)도 끝 이벤트를 받을 1초를 둔다(소켓 쓸기가 그 스트림의 소켓을 곧바로 부수지 않는다)
-for (const how of ["날 SQL 로 지움", "로그인 30일"] as const) {
-  test(`다시 보기가 끊는 스트림도 쌓인 것이 적으면 끝 이벤트를 쓰고 1초 뒤에 부순다(${how})`, async () => {
+// 재확인(알림 없는 종료, 로그인 30일)도 종료 이벤트를 받을 1초 유예를 둔다(소켓 정리가 그 스트림의 소켓을 곧바로 강제 종료하지 않는다)
+for (const how of ["SQL로 직접 삭제", "로그인 30일"] as const) {
+  test(`재확인으로 끊는 스트림도 버퍼에 쌓인 데이터가 적으면 종료 이벤트를 보내고 1초 뒤에 소켓을 강제 종료한다(${how})`, async () => {
     const thief = device();
-    // 로그인 30일: 기한 1분 전에 로그인해 두고 2분 뒤의 시각으로 다시 본다
+    // 로그인 30일: 기한 1분 전에 로그인해 두고 2분 뒤의 시각으로 재확인한다
     const at = how === "로그인 30일" ? `&at=${Date.now() - SESSION_MAX_MS + 60_000}` : "";
     await thief.go(`/login?u=grace-${how === "로그인 30일" ? "deadline" : "sql"}${at}`, { method: "POST" });
     const { raw, socket } = await openUnread(thief, "?plain=1");
-    if (how === "날 SQL 로 지움") store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
+    if (how === "SQL로 직접 삭제") store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
     sessionRequests.recheck(how === "로그인 30일" ? Date.now() + 120_000 : Date.now());
     const took = await untilDestroyed(socket);
-    assert.notEqual(took, null, "부서진다");
-    assert.ok(took! >= 900 && took! < 2500, `끝 이벤트를 받을 틈을 두고(${took}ms)`);
+    assert.notEqual(took, null, "소켓이 강제 종료된다");
+    assert.ok(took! >= 900 && took! < 2500, `종료 이벤트를 받을 여유를 두고(${took}ms)`);
     raw.destroy();
   });
 }

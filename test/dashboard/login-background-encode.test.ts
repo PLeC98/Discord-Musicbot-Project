@@ -1,4 +1,4 @@
-// src/dashboard/login-background/encode.ts: H.264, AV1, VP9 를 HLS(fMP4)로 인코딩하고 코덱마다 목록을 쓴다. 실제 ffmpeg 로 작은 영상을 인코딩한다(ffmpeg, 그 인코더가 없으면 건너뛴다)
+// src/dashboard/login-background/encode.ts: H.264, AV1, VP9를 HLS(fMP4)로 인코딩하고 코덱마다 목록을 쓴다. 실제 ffmpeg로 작은 영상을 인코딩한다(ffmpeg, 그 인코더가 없으면 건너뛴다)
 // 단계 크기 계산(4K, 세로, 작은 원본), 구간과 크롭, 이어 하기(끝난 단계는 건너뛰고 임시 폴더는 치운다), 마무리(원본 삭제), 코어 계산
 
 import { test, before, after } from "node:test";
@@ -56,7 +56,7 @@ test("단계 크기: AV1, VP9 는 짧은 변 1080, 2160(원본이 2160 이상일
   assert.ok(plansFor(["vp9"], { width: 640, height: 360 }, 60)[0].options.join(" ").includes("-g 60"));
 });
 
-test("H.264 단계: 720p 이하 HLS 와 코덱 목록(코덱 문자열, 2초 최대), 구간, 크롭을 따른다", withCodecs("h264"), async () => {
+test("H.264 단계: 720p 이하 HLS와 코덱 목록(코덱 문자열, 2초 최대), 구간, 크롭을 따른다", withCodecs("h264"), async () => {
   const one = await applied({ crop: { x: 0, y: 0, w: 0.5, h: 1 }, range: [0.5, 2.5], thumbAt: null });
   const progress: number[] = [];
   const result = await h264(job(one, (value) => progress.push(value)));
@@ -78,7 +78,7 @@ test("H.264 단계: 편집에서 돌렸으면 돌린 크기로(자른 뒤 돌린
   assert.match(fs.readFileSync(at(one, "h264", "index.m3u8"), "utf8"), /RESOLUTION=360x320/);
 });
 
-test("굽기 단계: AV1(10비트), VP9 를 굽고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", withCodecs("av1", "vp9"), async () => {
+test("인코딩 단계: AV1(10비트), VP9를 인코딩하고 목록을 쓴다. 끝난 단계는 건너뛰고 남은 임시 폴더는 치운다", withCodecs("av1", "vp9"), async () => {
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
   // 인코딩하는 동안 운영자 패널에 보이는 것: 함께 인코딩하는 단계, AV1 병렬 단계, 코어
   const seen: NonNullable<ReturnType<typeof bakeNow>>[] = [];
@@ -108,10 +108,10 @@ test("굽기 단계: AV1(10비트), VP9 를 굽고 목록을 쓴다. 끝난 단�
   assert.deepEqual(Object.keys(again.media!.rungs).sort(), ["av1", "vp9"]);
 });
 
-// 움직이는 그림(움직이는 WebP)을 굽는 테스트: 그 형식을 만들고 읽으며 그 코덱의 인코더가 있어야 한다
+// 움직이는 이미지(움직이는 WebP)를 인코딩하는 테스트: 그 형식을 만들고 읽으며 그 코덱의 인코더가 있어야 한다
 const withAnimated = (codec: "h264" | "vp9") => ({ skip: animatedWebp.skip || withCodecs(codec).skip });
 
-test("움직이는 그림: 30fps 로 고르게 펴 구간대로 굽는다(입력 앞 -ss 로 찾아가지 않는다)", withAnimated("h264"), async () => {
+test("움직이는 이미지: 30fps로 고르게 펴 구간대로 인코딩한다(입력 앞 -ss로 찾아가지 않는다)", withAnimated("h264"), async () => {
   const one = await applied({ crop: FULL, range: [1, 5], thumbAt: null }, ANIMATED);
   assert.equal(one.fps, 30);
   const [rung] = (await h264(job(one))).media!.rungs.h264!;
@@ -119,7 +119,7 @@ test("움직이는 그림: 30fps 로 고르게 펴 구간대로 굽는다(입력
   assert.ok(Math.abs(seconds(at(one, "h264", "180", "index.m3u8")) - 4) < 0.1);
 });
 
-test("움직이는 그림: VP9 도 구간대로", withAnimated("vp9"), async () => {
+test("움직이는 이미지: VP9도 구간대로", withAnimated("vp9"), async () => {
   const one = await applied({ crop: FULL, range: [1, 5], thumbAt: null }, ANIMATED);
   await encode(job(one));
   assert.ok(Math.abs(seconds(at(one, "vp9", "180", "index.m3u8")) - 4) < 0.1);
@@ -138,7 +138,7 @@ test("인코더가 없는 코덱은 만들지 않고 단계는 끝난다(로그�
   }
 });
 
-test("마무리: 원본, 미리보기, 장면 띠는 삭제하고 구운 것, 정지 그림은 남긴다", withCodecs("h264"), async () => {
+test("마무리: 원본, 미리보기, 장면 띠는 삭제하고 인코딩한 것, 정지 이미지는 남긴다", withCodecs("h264"), async () => {
   const one = await applied({ crop: FULL, range: null, thumbAt: null });
   for (const name of ["preview.mp4", "strip.webp", "still-640.webp", "download.info.json"]) fs.writeFileSync(at(one, name), "x");
   await h264(job(one));

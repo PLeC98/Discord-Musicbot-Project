@@ -1,4 +1,4 @@
-// src/dashboard/routes/player.ts 의 곡 추가 칸 검색(GET /player/search): 문(플레이어, 재적 규칙), 검색어 검사, 결과 모양, "대기열" 배지, 실패 코드.
+// src/dashboard/routes/player.ts 의 곡 추가 칸 검색(GET /player/search): 문(플레이어, 동일 음성 채널 규칙), 검색어 검사, 결과 모양, "대기열" 배지, 실패 코드.
 // 실 라우터 + 가짜 서버, 플레이어. 검색은 app.locals.findSongs 로 가짜를 넘긴다
 
 process.env.OWNER_ID = "owner";
@@ -25,7 +25,7 @@ const GUILD_ID = "100";
 const yt = (id: string, extra: object = {}): Song => ({ title: `곡 ${id}`, artist: "가수", duration: 200, thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`, platform: "youtube", id, pageUrl: `https://www.youtube.com/watch?v=${id}`, requestKey: `https://www.youtube.com/watch?v=${id}`, audioUrl: `https://www.youtube.com/watch?v=${id}`, isLive: false, liveStatus: null, ...extra });
 const sp: Song = { title: "스포티파이 곡", artist: "가수", album: "앨범", duration: 180, thumbnail: null, platform: "spotify", pageUrl: "https://open.spotify.com/track/abc", requestKey: "https://open.spotify.com/track/abc" };
 
-// 그 서버의 멤버. 기본은 서버 관리자(재적 규칙을 건너뛴다). sameVoice 가 거짓이면 봇과 다른 음성 채널의 일반 멤버
+// 그 서버의 멤버. 기본은 서버 관리자다(동일 음성 채널 규칙을 건너뛴다). sameVoice가 거짓이면 봇과 다른 음성 채널의 일반 멤버다
 let manager = true;
 const guild = {
   id: GUILD_ID,

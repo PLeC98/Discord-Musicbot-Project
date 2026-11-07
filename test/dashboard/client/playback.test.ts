@@ -67,7 +67,7 @@ test("빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람", () =>
   assert.equal(canRemove({ ...s, canControl: true }, { requestedBy: null }), true);
 });
 
-test("넣은 사람도 재적 규칙은 지킨다: 봇이 음성 채널에 있으면 같은 채널이어야 한다(서버 checkSkip, checkRemoveTrack 과 같다)", () => {
+test("넣은 사람도 동일 음성 채널 규칙은 지킨다: 봇이 음성 채널에 있으면 같은 채널이어야 한다(서버 checkSkip, checkRemoveTrack 과 같다)", () => {
   const mine = { requestedBy: { id: "u1" } };
   const s = { canControl: false, userId: "u1", currentTrack: mine };
   assert.equal(canRemove({ ...s, botInVoice: true, sameVoice: false }, mine), false);

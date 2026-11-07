@@ -114,7 +114,7 @@ test("Range 어댑터: 구간, If-Range 를 가드에 넘기고, 상태 오류�
   await assert.rejects(failing(new Error("ECONNRESET"))("https://f.test/a", { headers: { Range: "bytes=1-" }, signal: new AbortController().signal }), (e: unknown) => (e as { permanent?: boolean }).permanent !== true);
 });
 
-test("Range 어댑터: 신호를 가드에 넘기고, 응답을 기다리는 사이 끝난 취소면 본문을 곧바로 부순다", async () => {
+test("Range 어댑터: 신호를 가드에 넘기고, 응답을 기다리는 사이 취소됐으면 본문을 곧바로 강제로 닫는다", async () => {
   const controller = new AbortController();
   const body = Object.assign(PassThrough.from([Buffer.from("xyz")]), { headers: {}, status: 206 });
   body.on("error", () => {});
@@ -128,7 +128,7 @@ test("Range 어댑터: 신호를 가드에 넘기고, 응답을 기다리는 사
   assert.deepEqual([passed === controller.signal, body.destroyed], [true, true]);
 });
 
-// ── HLS 의 큰 세그먼트(모으지 않고 흘린다, 크기를 알리면 끊긴 자리부터 잇는다) ──
+// ── HLS의 큰 세그먼트(모으지 않고 스트리밍한다, 크기를 알면 끊긴 위치부터 잇는다) ──
 
 const MB = 1024 * 1024;
 const bytesOf = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 13 + (i >> 9)) & 0xff));
@@ -142,7 +142,7 @@ const HLS_URL = "https://h.test/index.m3u8";
 const SEGMENT = "https://h.test/big.ts";
 const playlistOf = (encrypted: boolean) => `#EXTM3U\n#EXT-X-TARGETDURATION:4\n${encrypted ? `#EXT-X-KEY:METHOD=AES-128,URI="k",IV=0x${IV.toString("hex")}\n` : ""}#EXTINF:4,\nbig.ts\n#EXT-X-ENDLIST\n`;
 
-// 큰 세그먼트를 주는 가짜 서버. dieAt: 첫 응답이 그 바이트에서 끊긴다. probe: 끝 32바이트 요청을 받을지(ignore 면 200 으로 전체를 준다)
+// 큰 세그먼트를 주는 가짜 서버. dieAt: 첫 응답이 그 바이트에서 끊긴다. probe: 끝 32바이트 요청을 받을지(ignore면 200으로 전체를 준다)
 function segmentServer(body: Buffer, { length = true, dieAt, probe = "honor", key = KEY, chunk = 65_536 }: { length?: boolean; dieAt?: number; probe?: "honor" | "ignore"; key?: Buffer; chunk?: number } = {}) {
   const asked: Array<{ url: string; from?: number; to?: number; ifRange?: string; bodyIdleMs?: number }> = [];
   const streams: Readable[] = [];
@@ -183,19 +183,19 @@ async function readInput(stream: NodeJS.ReadableStream) {
   return Buffer.concat(chunks);
 }
 
-test("HLS 큰 세그먼트: 첫 응답이 중간에 끊기면 그 자리부터 Range(If-Range)로 이어 원본과 같은 바이트", async () => {
+test("HLS 큰 세그먼트: 첫 응답이 중간에 끊기면 그 위치부터 Range(If-Range)로 이어 원본과 같은 바이트를 받는다", async () => {
   const body = bytesOf(3 * MB);
   const server = segmentServer(body, { dieAt: 1_500_000 });
   const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(false));
   assert.deepEqual(await readInput(input), body);
   const resumed = server.asked.filter((one) => one.from !== undefined);
-  // 끊길 때 받는 쪽에 닿지 않은 덩이는 버려지므로(운영체제마다 다르다) 받은 자리부터. 처음부터 다시 받지 않는다
-  assert.ok(resumed[0].from! > 1_000_000 && resumed[0].from! <= 1_500_000, `받은 자리부터(${resumed[0].from})`);
+  // 끊길 때 받는 쪽에 닿지 않은 청크는 버려지므로(운영체제마다 다르다) 받은 위치부터 잇는다. 처음부터 다시 받지 않는다
+  assert.ok(resumed[0].from! > 1_000_000 && resumed[0].from! <= 1_500_000, `받은 위치부터(${resumed[0].from})`);
   assert.ok(resumed.every((one) => one.ifRange === '"v1"'));
   assert.equal(server.asked[0].bodyIdleMs, 6000, "첫 응답에 무응답 한도");
 });
 
-test("HLS 큰 AES 세그먼트: 블록 중간에서 끊겼다 이어도 통째로 푼 것과 같고, 흘리기 전에 끝 32바이트로 키를 본다", async () => {
+test("HLS 큰 AES 세그먼트: 블록 중간에서 끊겼다 이어도 통째로 복호화한 것과 같고, 스트리밍하기 전에 끝 32바이트로 키를 확인한다", async () => {
   const plain = bytesOf(3 * MB + 5);
   const sealed = seal(plain);
   const server = segmentServer(sealed, { dieAt: 1_000_003 });
@@ -207,7 +207,7 @@ test("HLS 큰 AES 세그먼트: 블록 중간에서 끊겼다 이어도 통째�
   );
 });
 
-test("HLS 큰 AES 세그먼트: 끝 패딩이 깨졌으면(확인을 건너뛴 서버) 마지막 블록만 버리고 warn 을 남긴 채 깨끗이 끝난다", async () => {
+test("HLS 큰 AES 세그먼트: 끝 패딩이 깨졌으면(확인을 건너뛴 서버) 마지막 블록만 버리고 warn을 남긴 채 깨끗이 끝난다", async () => {
   const plain = bytesOf(2 * MB + 5);
   const sealed = seal(plain);
   sealed[sealed.length - 1] ^= 0xff;
@@ -218,10 +218,10 @@ test("HLS 큰 AES 세그먼트: 끝 패딩이 깨졌으면(확인을 건너뛴 �
   assert.deepEqual(out, plain.subarray(0, plain.length - 5), "마지막 블록(평문 5바이트)만 버렸다");
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("HLS 세그먼트의 끝")));
   const probe = server.streams.find((_, i) => server.asked[i]?.from === sealed.length - 32);
-  assert.equal(probe?.destroyed, true, "확인을 받지 않은 응답도 닫았다");
+  assert.equal(probe?.destroyed, true, "구간 요청을 무시한 확인 응답도 닫았다");
 });
 
-test("HLS 큰 AES 세그먼트: 틀린 키, 블록이 아닌 크기는 흘리기 전에 다시 받지 않는 실패", async () => {
+test("HLS 큰 AES 세그먼트: 틀린 키나 블록 단위가 아닌 크기는 스트리밍하기 전에 재시도하지 않는 실패로 끝난다", async () => {
   const sealed = seal(bytesOf(2 * MB));
   const wrong = segmentServer(sealed, { key: Buffer.alloc(16, 4) });
   const input = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, wrong.open(true));
@@ -241,11 +241,11 @@ test("HLS 큰 AES 세그먼트: 암호문이 블록 중간에서 끝나면 그 �
   const server = segmentServer(sealed.subarray(0, sealed.length - 1), { length: false });
   const from = sink.buffer.length;
   const out = await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(true)));
-  assert.deepEqual(out, plain, "패딩 블록 앞까지 다 흘렸다(평문 2MB 는 16 의 배수라 마지막 블록은 패딩뿐)");
+  assert.deepEqual(out, plain, "패딩 블록 앞까지 다 흘렸다(평문 2MB는 16의 배수라 마지막 블록은 패딩뿐)");
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("15바이트")));
 });
 
-test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를 이어 흘린다(AES 면 앞부분이 블록 중간에서 끝나도 이어 푼다)", async () => {
+test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를 이어 흘린다(AES면 앞부분이 블록 중간에서 끝나도 이어서 복호화한다)", async () => {
   const body = bytesOf(3 * MB + 77);
   const plainServer = segmentServer(body, { length: false });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, plainServer.open(false))), body);

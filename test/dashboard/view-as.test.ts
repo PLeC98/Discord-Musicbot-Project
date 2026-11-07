@@ -63,32 +63,32 @@ async function tierOfMember(m: GuildMember): Promise<Real> {
   return (await isDj(m)) ? "dj" : "user";
 }
 
-test("낮추기만: DJ 역할을 정한 서버에서 실제 계층 셋 × 고른 것 넷의 결과는 둘 중 낮은 쪽", async () => {
+test("낮추기만: DJ 역할을 지정한 서버에서 실제 계층 셋 × 선택한 값 넷의 결과는 둘 중 낮은 쪽이다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   for (const real of Object.keys(REAL) as Real[]) {
     for (const picked of [undefined, ...TIERS]) {
       const got = await tierOfMember(await shadowMember(req(picked), REAL[real]()));
       const want = picked === undefined || RANK[picked] >= RANK[real] ? real : picked;
-      assert.equal(got, want, `실제 ${real}, 고른 것 ${picked ?? "없음"}`);
+      assert.equal(got, want, `실제 ${real}, 선택한 값 ${picked ?? "없음"}`);
     }
   }
 });
 
-test("낮추기만: DJ 역할을 정하지 않은(또는 모두 삭제한) 서버는 모두 DJ 라, 일반으로 낮춰도 DJ 로 동작한다(그 서버의 진짜 동작)", async () => {
+test("낮추기만: DJ 역할을 지정하지 않은(또는 모두 삭제한) 서버는 모두 DJ라, 일반으로 낮춰도 DJ로 동작한다(그 서버의 진짜 동작)", async () => {
   for (const djRoles of [[], ["deleted-role"]]) {
     setGuild("g", { djRoles });
     const guildWithout = (m: GuildMember) => Object.assign(m, { guild: { ...m.guild, roles: { cache: { has: () => false } } } });
     for (const picked of [undefined, ...TIERS]) {
       const real = guildWithout(member({ voice: "vc-A", botVoice: "vc-A" }));
       const m = await shadowMember(req(picked), real);
-      assert.equal(isServerManager(m), false, `고른 것 ${picked ?? "없음"}: 서버 관리자로 오르지 않는다`);
+      assert.equal(isServerManager(m), false, `선택한 값 ${picked ?? "없음"}: 서버 관리자로 오르지 않는다`);
       assert.equal(await isDj(m), true);
       assert.equal(await checkControl(m), null);
     }
   }
 });
 
-test("서버 관리자로 보기는 평범한 멤버를 서버 관리자로 올리지 않는다(재적 규칙 면제도 없다)", async () => {
+test("서버 관리자로 보기는 평범한 멤버를 서버 관리자로 올리지 않는다(동일 음성 채널 규칙 면제도 없다)", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const m = await shadowMember(req("server-manager"), member({ voice: null, botVoice: "vc-A" }));
   assert.equal(isServerManager(m), false);
@@ -96,7 +96,7 @@ test("서버 관리자로 보기는 평범한 멤버를 서버 관리자로 올�
   assert.equal(await checkControl(m), "must-be-in-same-voice");
 });
 
-test("dj: 실제 서버 관리자를 낮추면 서버 관리자 면제가 사라지고 재적 규칙을 받는다", async () => {
+test("dj: 실제 서버 관리자를 낮추면 서버 관리자 면제가 사라지고 동일 음성 채널 규칙을 받는다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const same = await shadowMember(req("dj"), member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-A", botVoice: "vc-A" }));
   assert.equal(isServerManager(same), false, "원본이 서버 관리자여도 계층이 내려간다");
@@ -109,16 +109,16 @@ test("dj: 실제 서버 관리자를 낮추면 서버 관리자 면제가 사라
   assert.equal(checkAdd(nowhere), "must-be-in-same-voice");
 });
 
-test("user: DJ 역할이 설정된 서버에서 실제 DJ 를 낮추면 조작이 막히고 곡 추가는 된다", async () => {
+test("user: DJ 역할이 설정된 서버에서 실제 DJ를 낮추면 조작이 막히고 곡 추가는 된다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const m = await shadowMember(req("user"), member({ perms: [PermissionFlagsBits.ManageGuild], roles: ["dj-role"], voice: "vc-A", botVoice: "vc-A" }));
   assert.equal(isServerManager(m), false);
   assert.equal(await isDj(m), false, "원본이 DJ 역할을 갖고 있어도 계층이 내려간다");
   assert.equal(await checkControl(m), "must-dj");
-  assert.equal(checkAdd(m), null, "곡 추가는 계층 무관 — 재적만 맞으면 통과");
+  assert.equal(checkAdd(m), null, "곡 추가는 계층 무관, 동일 음성 채널만 맞으면 통과");
 });
 
-test("운영자가 아닌 세션(OWNER_ID 가 바뀐 옛 운영자 포함)에 남은 오버라이드는 쓰지 않는다", async () => {
+test("운영자가 아닌 세션(OWNER_ID가 바뀐 옛 운영자 포함)에 남은 오버라이드는 쓰지 않는다", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   for (const tier of TIERS) {
     const r = req(tier, "former-owner");
@@ -126,7 +126,7 @@ test("운영자가 아닌 세션(OWNER_ID 가 바뀐 옛 운영자 포함)에 �
     const real = member({ perms: [PermissionFlagsBits.ManageGuild], voice: "vc-A", botVoice: "vc-A" });
     assert.equal(await shadowMember(r, real), real, "낮추지도 않는다");
   }
-  // 운영자가 바뀌면 그 순간부터
+  // 운영자가 바뀌면 그 순간부터 적용된다
   const r = req("user");
   assert.equal(getViewAs(r), "user");
   config.dashboard.ownerId = "new-owner";
@@ -137,12 +137,12 @@ test("운영자가 아닌 세션(OWNER_ID 가 바뀐 옛 운영자 포함)에 �
   }
 });
 
-test("대역 멤버도 id, guild, voice는 원본 그대로다 (음성 재적은 권한이 아니라 사실)", async () => {
+test("대역 멤버도 id, guild, voice는 원본 그대로다 (음성 채널 접속은 권한이 아니라 사실)", async () => {
   setGuild("g", { djRoles: ["dj-role"] });
   const orig = member({ roles: ["dj-role"], voice: "vc-A", botVoice: "vc-A" });
   const m = await shadowMember(req("user"), orig);
 
-  assert.notEqual(m, orig, "실제 DJ 를 일반으로 낮췄다");
+  assert.notEqual(m, orig, "실제 DJ를 일반으로 낮췄다");
   assert.equal(m.id, "u1");
   assert.equal(m.guild.id, "g");
   assert.equal(m.voice.channel?.id, "vc-A");

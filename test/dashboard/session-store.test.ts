@@ -34,7 +34,7 @@ after(() => {
 
 const getAsync = (store: SqliteSessionStore, sid: string) => new Promise<SessionData | null | undefined>((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
 
-// 저장소가 받는 모양 그대로(JSON 으로 오가 만료는 글자다). 사용자는 테스트가 보는 필드만. loginAt: 로그인한 때(기본은 지금, null 이면 없음)
+// 저장소가 받는 형태 그대로 만든다(JSON으로 오가므로 만료 시각은 문자열이다). 사용자는 테스트가 보는 필드만 넣고, loginAt은 로그인 시각이다(기본값은 현재 시각, null이면 없음).
 function makeSession(user: object, expiresInMs = 60_000, loginAt: number | null = Date.now()) {
   return fake<SessionData>({ cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user, ...(loginAt === null ? {} : { loginAt }) });
 }
@@ -73,7 +73,7 @@ test("다시 시작 생존: 같은 DB 파일을 다시 열어도 세션 유지",
   assert.equal(loaded?.user?.id, "u1", "재시작 후에도 로그인 유지");
 });
 
-test("만료: 지난 세션은 null, prune이 만료분만 제거", async (t) => {
+test("만료: 만료된 세션은 null을 반환하고, prune은 만료된 세션만 삭제한다", async (t) => {
   const store = makeStore("expiry.db");
   store.set("살아있음", makeSession({ id: "a" }, 60_000));
   store.set("만료됨", makeSession({ id: "b" }, 1_000));
@@ -161,34 +161,34 @@ test("구조 버전이 다른 옛 파일(토큰 열이 없다)은 열지 않고 
 
 // ── 끝낸 세션, 절대 수명 ──
 
-test("끝낸 로그인 세션은 그 세션으로 걸려 있던 저장이 다시 넣지 못한다(로그아웃, 다른 기기 로그아웃, 정리). 하루가 지나도", async (t) => {
+test("종료된 로그인 세션은 진행 중이던 요청이 뒤늦게 저장해도 다시 생기지 않는다. 하루가 지나도 마찬가지다(로그아웃, 다른 기기 로그아웃, 정리)", async (t) => {
   const store = makeStore("tomb.db");
   const session = makeSession({ id: "u1" }, 7 * DAY);
   store.set("끝냄", session);
   store.destroy("끝냄");
-  store.set("끝냄", session); // 걸려 있던 요청의 저장
+  store.set("끝냄", session); // 진행 중이던 요청의 뒤늦은 저장이다
   assert.equal(rowOf(store, "끝냄"), undefined);
   store.touch("끝냄", session);
-  assert.equal(rowOf(store, "끝냄"), undefined, "시각 늘리기도");
+  assert.equal(rowOf(store, "끝냄"), undefined, "만료 연장도 막는다");
 
-  // 흘려 보내는 응답을 천천히 읽어 하루 넘게 걸린 저장
+  // 스트리밍 응답을 천천히 읽어 하루 넘게 걸린 요청이 뒤늦게 저장한다
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 2 * DAY });
   store.set("끝냄", session);
   assert.equal(rowOf(store, "끝냄"), undefined, "절대 기한까지 막는다");
 });
 
-test("만료한 행은 정리 전이어도 다시 늘리지 않는다(저장, 시각 늘리기 둘 다)", async (t) => {
+test("만료된 행은 정리 전이어도 다시 연장하지 않는다(저장, 만료 연장 둘 다)", async (t) => {
   const store = makeStore("expired-renew.db");
   store.set("만료", makeSession({ id: "u1" }, 1_000));
   t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5_000 });
   store.touch("만료", makeSession({ id: "u1" }, 60_000));
-  assert.ok((rowOf(store, "만료")?.expires_at ?? 0) <= Date.now(), "시각 늘리기");
+  assert.ok((rowOf(store, "만료")?.expires_at ?? 0) <= Date.now(), "만료 연장");
   store.set("만료", makeSession({ id: "u1" }, 60_000));
   assert.equal(await getAsync(store, "만료"), null, "저장");
   assert.ok(!rowOf(store, "만료") || rowOf(store, "만료")!.expires_at <= Date.now());
 });
 
-test("정리가 지운 로그인 세션도 걸려 있던 저장이 다시 넣지 못한다. 지운 것을 알린다", async (t) => {
+test("정리(prune)가 삭제한 로그인 세션도 진행 중이던 요청이 다시 저장하지 못하며, 삭제된 것을 알린다", async (t) => {
   const store = makeStore("prune-tomb.db");
   const ended: string[] = [];
   store.onEnded((sid) => ended.push(sid));
@@ -214,22 +214,22 @@ test("절대 수명: 로그인한 지 30일이 넘은 세션은 쓰지도 읽지
   store.set("로그인 시각 없음", makeSession({ id: "u1" }, 7 * DAY, null));
   assert.equal(rowOf(store, "로그인 시각 없음"), undefined, "로그인했는데 시각이 없으면 만료로 본다");
 
-  // 이 규칙 전에 쓴 행: 읽을 때 지우고 알린다
+  // 이 규칙 전에 쓴 행: 읽을 때 삭제하고 알린다
   store.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)").run("옛 행", JSON.stringify(makeSession({ id: "u1" }, 7 * DAY, Date.now() - 40 * DAY)), Date.now() + 7 * DAY);
   assert.equal(await getAsync(store, "옛 행"), null);
   assert.equal(rowOf(store, "옛 행"), undefined);
-  assert.deepEqual(ended, ["넘음", "로그인 시각 없음", "옛 행"], "쓰지 않은 것, 읽다 지운 것 모두 끝났다고 알린다");
+  assert.deepEqual(ended, ["넘음", "로그인 시각 없음", "옛 행"], "쓰지 않은 것, 읽다 삭제한 것 모두 끝났다고 알린다");
   assert.deepEqual(
     store.sessionsOf("u1").map(({ sid }) => sid),
     ["곧"],
     "로그인 기기 목록에도 넘은 것은 없다",
   );
-  // 로그인 전 세션(사용자 없음)은 이 규칙 밖
+  // 로그인 전 세션(사용자 없음)은 이 규칙 대상이 아니다
   store.set("로그인 전", fake<SessionData>({ cookie: { expires: new Date(Date.now() + 600_000).toISOString() }, csrfToken: "x" }));
   assert.notEqual(await getAsync(store, "로그인 전"), null);
 });
 
-test("다시 시작: 이 규칙 전에 쓴 행의 만료를 절대 기한으로 줄이고, 넘은 것은 지운다", () => {
+test("다시 시작: 이 규칙 전에 쓴 행의 만료를 절대 기한으로 줄이고, 넘은 것은 삭제한다", () => {
   const dbPath = path.join(tmpDir, "normalize.db");
   const first = new SqliteSessionStore({ dbPath });
   const loginAt = Date.now() - 29 * DAY;
@@ -246,11 +246,11 @@ test("다시 시작: 이 규칙 전에 쓴 행의 만료를 절대 기한으로 
   assert.equal(rowOf(second, "시각 없음"), undefined);
 });
 
-test("끝 알림: 듣는 쪽이 던져도 지우기는 성공으로 끝나고 다른 듣는 쪽도 듣는다. 콜백은 한 번", () => {
+test("종료 알림: 리스너가 예외를 던져도 삭제는 성공으로 끝나고 다른 리스너도 호출된다. 콜백은 한 번만 호출된다", () => {
   const store = makeStore("listeners.db");
   const heard: string[] = [];
   store.onEnded(() => {
-    throw new Error("듣는 쪽 오류");
+    throw new Error("리스너 오류");
   });
   store.onEnded((sid) => heard.push(sid));
   store.set("sid1", makeSession({ id: "u1" }));
@@ -274,7 +274,7 @@ function breakDelete(store: SqliteSessionStore) {
   return () => (store._deleteStmt = real);
 }
 
-test("삭제가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰지도 않고, 끝을 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
+test("삭제가 실패해도 세션은 종료된 것으로 처리한다: 묘비를 남겨 읽지도 쓰지도 않고, 종료를 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
   const store = makeStore("delete-fails.db");
   const heard: string[] = [];
   store.onEnded((sid) => heard.push(sid));
@@ -288,11 +288,11 @@ test("삭제가 실패해도 닫힌 쪽으로: 묘비를 남겨 읽지도 쓰지
   assert.ok(rowOf(store, "sid1"), "행은 남았다");
   assert.equal(await getAsync(store, "sid1"), null, "이 실행에서는 읽지 않는다");
   assert.deepEqual(store.sessionsOf("u1"), [], "끊은 기기를 살아 있다고 보이지 않는다");
-  assert.deepEqual(store.unsavedOf("u1"), [], "destroy 는 사용자를 모른다");
+  assert.deepEqual(store.unsavedOf("u1"), [], "destroy는 사용자를 모른다");
   assert.equal(store.isUnsaved("sid1"), true);
 });
 
-test("삭제하지 못한 행은 다시 삭제한다(DB 가 돌아오면). 끝(finish)에도 남으면 그 수를 알린다", () => {
+test("삭제하지 못한 행은 다시 삭제한다(DB가 돌아오면). 종료(finish) 시점에도 남으면 그 개수를 반환한다", () => {
   const store = makeStore("delete-retry.db");
   store.set("a", makeSession({ id: "u1" }));
   store.set("b", makeSession({ id: "u1" }));
@@ -300,7 +300,7 @@ test("삭제하지 못한 행은 다시 삭제한다(DB 가 돌아오면). 끝(f
   assert.equal(store.end("a", "u1"), false);
   assert.equal(store.end("b", "u1"), false);
   assert.deepEqual(store.unsavedOf("u1").sort(), ["a", "b"]);
-  assert.equal(store.retryUnsaved(), 2, "아직 못 지움");
+  assert.equal(store.retryUnsaved(), 2, "아직 삭제하지 못함");
   assert.equal(store.finish(), 2, "끝에도 남았다");
   restore();
   assert.equal(store.retryUnsaved(), 0);
@@ -310,7 +310,7 @@ test("삭제하지 못한 행은 다시 삭제한다(DB 가 돌아오면). 끝(f
   assert.equal(store.finish(), 0);
 });
 
-test("다시 로그인(regenerate)의 삭제가 실패하면 그 사용자의 삭제하지 못한 것으로 둔다. 새 세션은 만든다", async () => {
+test("다시 로그인(regenerate)할 때 이전 세션 삭제가 실패하면 해당 사용자의 미삭제 세션으로 기록하고 새 세션은 만든다", async () => {
   const store = makeStore("regen-fails.db");
   store.set("old", makeSession({ id: "u7" }));
   let generated = 0;

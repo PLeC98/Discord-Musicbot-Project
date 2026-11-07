@@ -1,10 +1,10 @@
 // 로그인 세션과 서버 연결의 상태. 요청 한 곳(utils/request)이 적고, 화면은 대화상자, 띠를 표시하며 SSE 연결, 주기 읽기를 멈춘다
 // ended: 401 을 받았다(세션이 끝났다). 다시 로그인할 때까지 SSE 연결을 닫는다. 편집 중인 화면은 그대로 둔다
-// reauth: 위험한 조작(비밀값, 주소 바꾸기, 다시 시작, 다른 기기 로그아웃)을 로그인한 지 오래돼 거절당했다(middleware/recent-login). 세션은 살아 있고 로그인 창에서 다시 로그인하면 거절된 요청을 다시 보낸다
+// reauth: 민감한 조작(비밀값, 주소 변경, 다시 시작, 다른 기기 로그아웃)이 로그인한 지 오래되어 거절됐다(middleware/recent-login). 세션은 살아 있으며 로그인 창에서 다시 로그인하면 거절된 요청을 다시 보낸다
 // offline: 마지막 요청이 서버에 닿지 못했다(봇이 꺼졌거나 네트워크). 로그아웃이 아니다
 // streamDown: 탭의 SSE 연결(stores/guilds)이 열려 있지 않다. 재연결하는 동안은 30초마다 전부 다시 읽는다
-// switched: 다른 탭에서 다른 계정으로 로그인했다(서버의 account-changed, 확인의 계정 비교). 새로고침할 때까지 요청과 SSE 연결을 막는다.
-//   자동으로 새로고침하지 않는다(고치던 내용을 남겨 옮겨 적을 수 있게. 옛 계정으로 저장되는 길은 서버가 막는다)
+// switched: 다른 탭에서 다른 계정으로 로그인했다(서버의 account-changed 응답 또는 세션 확인 시 계정 비교). 새로고침할 때까지 요청과 SSE 연결을 막는다.
+//   자동으로 새로고침하지 않는다(수정하던 내용을 남겨 옮겨 적을 수 있게 한다. 이전 계정으로 저장되는 것은 서버가 막는다)
 
 import { reactive } from "vue";
 import axios from "axios";
@@ -15,7 +15,7 @@ import { text } from "../text/index.ts";
 
 export const session = reactive({ ended: false, reauth: false, offline: false, streamDown: false, switched: false });
 
-/** SSE 연결, 주기 읽기를 멈출 때(세션 끝, 계정 바뀜). 여닫는 쪽이 이것을 지켜본다 */
+/** SSE 연결과 주기적 조회를 멈춰야 하는지 반환한다(세션 만료, 계정 변경). 연결을 여닫는 쪽에서 이 상태를 감시한다 */
 export const blocked = (): boolean => session.ended || session.switched;
 
 // ── 다시 로그인 ──
@@ -24,13 +24,13 @@ export const blocked = (): boolean => session.ended || session.switched;
 
 const CHANNEL = "musicbot-session";
 
-// 로그인이 살아 있나(조용히). 계정 비교까지 하는 확인을 앱이 넘긴다(stores/user 의 resumeSession)
+// 로그인 세션이 유효한지 조용히 확인하는 함수다. 계정 비교까지 수행하는 확인 함수를 앱이 넘긴다(stores/user의 resumeSession)
 let loginCheck: () => Promise<boolean> = async () => false;
 export function useLoginCheck(check: () => Promise<boolean>): void {
   loginCheck = check;
 }
 
-/** 요청이 받은 401. 로그인 창을 기다리는 동안이면 모아 두었다가 창이 끝나면 확인한다(utils/login-wait) */
+/** 요청에서 받은 401을 처리한다. 로그인 창을 기다리는 동안이면 모아 두었다가 로그인이 끝나면 확인한다(utils/login-wait) */
 export const loginWindow = loginWait({ end: () => (session.ended = true), check: () => loginCheck() });
 
 /** 로그인 창을 연다. 사용자가 누른 때에만 부른다(아니면 브라우저가 막는다) */
@@ -77,9 +77,9 @@ export function endReauth(signedIn: boolean): void {
 }
 
 /**
- * 최근 로그인이어야 하는 조작(초기화, 복원, 불러오기, 다른 기기 로그아웃)의 확인 창을 열기 전에. 로그인한 지 오래됐으면 로그인 창을 먼저 연다(요청 한 곳의 다시 로그인 흐름).
- * within: 그 조작이 받는 로그인 뒤의 시간(다른 기기 로그아웃은 짧다). 이어 가도 되면 true.
- * 다시 로그인을 그만뒀거나 봇에 닿지 못하면 false(확인 창을 열지 않는다). 그 밖의 실패는 알린다(말없이 멈추지 않게)
+ * 최근 로그인이 필요한 조작(초기화, 복원, 불러오기, 다른 기기 로그아웃)의 확인 창을 열기 전에 호출한다. 로그인한 지 오래됐으면 로그인 창을 먼저 연다(공통 요청 모듈의 재로그인 흐름).
+ * within은 해당 조작이 허용하는 로그인 후 경과 시간이다(다른 기기 로그아웃은 더 짧다). 계속 진행해도 되면 true를 반환한다.
+ * 재로그인을 취소했거나 서버에 연결하지 못하면 false를 반환한다(확인 창을 열지 않는다). 그 밖의 실패는 알림을 표시한다(아무 반응 없이 멈추지 않게 한다)
  */
 export async function ensureRecentLogin(within?: number): Promise<boolean> {
   try {
@@ -91,5 +91,5 @@ export async function ensureRecentLogin(within?: number): Promise<boolean> {
   }
 }
 
-/** SSE 연결, 주기 읽기를 해도 되는지. 탭이 보이고 세션이 살아 있고 계정이 바뀌지 않았을 때만 */
+/** SSE 연결과 주기적 조회를 해도 되는지 반환한다. 탭이 보이고 세션이 살아 있으며 계정이 바뀌지 않았을 때만 참이다 */
 export const live = (): boolean => !document.hidden && !blocked();

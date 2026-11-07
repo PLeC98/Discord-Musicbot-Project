@@ -24,7 +24,7 @@ logSink.addDestination((rec: unknown) => logLines.push(JSON.stringify(rec)));
 
 // ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;
-// 살아 있는 세션의 CSRF 토큰(본문을 푸는 데까지 닿게 실어 보낸다)
+// 살아 있는 세션의 CSRF 토큰. 본문 파싱 단계까지 도달하도록 실어 보낸다
 const TOKEN = "t".repeat(43);
 const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
   if (storeBroken) {
@@ -220,7 +220,7 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
   }
 });
 
-test("CSRF 토큰이 없는 요청은 본문을 풀기 전에 403(잘못된 JSON 이어도 400 이 아니다)", async () => {
+test("CSRF 토큰이 없는 요청은 본문을 파싱하기 전에 403을 반환한다(잘못된 JSON이어도 400이 아니다)", async () => {
   storeBroken = false;
   try {
     const res = await req("/api/guilds/x/player/queue", {

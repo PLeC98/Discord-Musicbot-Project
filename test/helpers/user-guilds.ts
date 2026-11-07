@@ -39,7 +39,7 @@ function userGuildsFixture() {
   /** 요청에 그 사용자의 세션, 세션 저장소를 붙이고 그 세션에 묶는다(대시보드의 세션 미들웨어 뒤와 같다) */
   const middleware = (user: () => { id: string } | null) => (req: Request, res: Response, next: NextFunction) => {
     const u = user();
-    // save: 진짜 세션처럼 있다(스트림이 묶기 전에 부른다). 이 가짜는 저장할 것이 없다
+    // save: 실제 세션처럼 메서드를 둔다(스트림이 묶기 전에 부른다). 이 가짜는 저장할 것이 없다
     Object.assign(req, { session: fake<Request["session"]>({ user: u, loginAt: Date.now(), save: (done?: () => void) => done?.() }), sessionID: `sid-${u?.id ?? "none"}`, sessionStore: store });
     sessionRequests.bind(req, res, next);
   };

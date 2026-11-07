@@ -131,10 +131,10 @@ function liveState(list: List, open: { value: Set<number> }) {
     open: (url) => new EventSource(url, { withCredentials: true }),
     check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
-    // gap: 다시 붙을 때 놓친 줄을 다 받지 못했다(서버의 상한). 목록을 다시 읽어 빈 곳을 채운다
+    // gap: 재연결할 때 놓친 줄을 다 받지 못했다(서버 상한 초과). 목록을 다시 읽어 빈 곳을 채운다
     events: {
       message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed),
-      // 놓친 줄의 마지막 번호가 실려 온다. 화면이 다시 열 때도 그 뒤부터 받게
+      // 놓친 줄의 마지막 번호가 실려 온다. 연결을 다시 열 때도 그 번호 뒤부터 받는다
       gap: (event) => {
         lastId = Math.max(lastId, Number(event.lastEventId) || 0);
         onGap();
@@ -187,11 +187,11 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  // 여닫는 차례는 aiLogSync(화면이 보일 때만, 다시 읽기는 처음, 떠났다 올 때, 막힌 뒤, 읽지 못했을 때)
+  // 연결을 여닫는 로직은 aiLogSync가 맡는다(화면이 보일 때만 열며, 다시 읽기는 처음 열 때, 떠났다가 돌아올 때, 차단된 뒤, 읽기 실패 시에만 수행)
   const opener = aiLogSync({ active, canStream, blocked, reload, loadFailed: () => Boolean(list.loadError.value), start: live.start, stop: live.stop });
   live.whenGap(() => void reload());
   watch([active, blocked], () => void opener.sync(), { immediate: true });
-  // 숨긴 탭의 값(document.hidden)은 반응형이 아니라 따로 듣는다
+  // 탭 숨김 상태(document.hidden)는 반응형이 아니므로 이벤트로 따로 감지한다
   const onVisibility = () => void opener.sync();
   document.addEventListener("visibilitychange", onVisibility);
 

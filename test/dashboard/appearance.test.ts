@@ -187,7 +187,7 @@ test("운영자만", async () => {
   assert.deepEqual(await codeOf(await send("POST", `${A}/fetch`, { url: "https://example.com/a.png" })), [403, "must-owner"]);
 });
 
-test("그림을 검사하고 바꾼 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 쓰지 않는다", async () => {
+test("이미지를 검사하고 변환한 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 저장하지 않는다", async () => {
   const png = await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 200, g: 0, b: 0, alpha: 1 } } })
     .png()
     .toBuffer();

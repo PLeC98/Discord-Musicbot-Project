@@ -32,7 +32,7 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 낸 세션(그 세션만 받는다. 끊긴 세션, 다른 세션은 못 받는다), 지나는 때 */
+/** 일회용 다운로드 티켓: 티켓 → 종류, 캐시 파일 포함 여부(오디오 캐시), 발급한 사용자, 발급한 세션(그 세션만 다운로드할 수 있다. 끊긴 세션, 다른 세션은 불가), 만료 시각 */
 const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; sid: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
@@ -55,7 +55,7 @@ settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
 // 다운로드(티켓은 한 번만). 만드는 대로 스트리밍한다(로그인 배경은 수백 MB)
 settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   const found = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
-  // 낸 세션만 받는다(다른 세션이 연 것으로는 티켓을 쓰지 않는다)
+  // 발급한 세션만 다운로드할 수 있다(다른 세션이 연 것으로는 티켓을 쓰지 않는다)
   const ticket = found?.sid === req.sessionID ? found : undefined;
   if (ticket) tickets.delete(req.params.ticket);
   // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
@@ -85,8 +85,8 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   if (!got.ok) {
     if (got.why === "no-space") return got.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "disk-full", { size: got.room });
     if (got.why === "empty") return sendProblem(res, "nothing-to-save");
-    // 올리던 사람이 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 때문, 봇 영향 없음)
-    if (got.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);
+    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(사용자 측 원인, 봇 영향 없음)
+    if (got.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `설정 불러오기 파일 업로드 중단: ${got.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
@@ -109,7 +109,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   if (!file) return sendProblem(res, "upload-gone");
   try {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
-    // 스냅샷은 쓰기를 정한 뒤에 오래된 것을 삭제한다(뜨는 사이 세션이 끝나 그만두면 앞 복원점을 남긴다)
+    // 오래된 스냅샷 삭제는 불러오기를 반영한 뒤에 한다(스냅샷을 뜨는 사이 세션이 끝나 중단되면 이전 복원점을 남긴다)
     let snapshot = false;
     const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], {
       before: async () => {

@@ -359,8 +359,8 @@ function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneTe
       // 바인딩 주소. 기본은 루프백. 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
       // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
       host: env("DASHBOARD_HOST", "127.0.0.1"),
-      // X-Forwarded-*(사용자 IP, HTTPS 여부)를 믿는 프록시. Express 의 값(IP, CIDR, loopback 등 쉼표 목록). 기본은 이 기기(loopback).
-      // 다른 기기나 사설망 주소로 붙는 프록시는 그 주소를 넣는다. 받지 않는 값은 대시보드를 만들 때 warn 하고 loopback
+      // X-Forwarded-*(사용자 IP, HTTPS 여부)를 신뢰하는 프록시. Express의 trust proxy 값(IP, CIDR, loopback 등 쉼표 구분 목록)이며 기본값은 로컬(loopback)이다.
+      // 다른 호스트나 사설망 주소로 연결되는 프록시는 그 주소를 설정한다. 유효하지 않은 값은 대시보드를 만들 때 경고 로그를 남기고 loopback으로 처리한다
       trustProxy: env("DASHBOARD_TRUST_PROXY", "loopback"),
       url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
       ownerId: env("OWNER_ID"),

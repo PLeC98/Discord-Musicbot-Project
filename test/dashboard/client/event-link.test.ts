@@ -35,7 +35,7 @@ class FakeSource {
     this.readyState = CLOSED;
     this.onerror?.();
   }
-  /** 서버가 세션이 끝나 끊었다(끝 이벤트) */
+  /** 세션이 끝나 서버가 연결을 끊었다(session-ended 이벤트) */
   ended() {
     this.listeners.get("session-ended")?.({} as never);
   }
@@ -53,7 +53,7 @@ function harness({ checks = [] as boolean[] } = {}) {
   const delays: number[] = [];
   const pending: { fn: () => void; ms: number; cancelled: boolean }[] = [];
   let urlCount = 0;
-  // 확인마다 조용했는지
+  // 확인마다 조용히(quiet) 호출했는지 기록한다
   const checked: boolean[] = [];
   const clock = { now: 0 };
   const link = eventLink({
@@ -91,7 +91,7 @@ function harness({ checks = [] as boolean[] } = {}) {
   return { link, sources, states, delays, pending, tick, checked, clock };
 }
 
-test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 열린 채 30초를 버티면 간격을 처음부터", async () => {
+test("닫히면(200이 아닌 응답) 2, 5, 15초로 늘려 가며 다시 열고, 열린 채 30초를 버티면 간격을 초기화한다", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();
@@ -109,7 +109,7 @@ test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 
   assert.deepEqual(h.states, ["down", "down", "down", "open", "down"]);
 });
 
-test("열자마자 또 닫히면 간격을 처음으로 돌리지 않는다(열 때와 다시 볼 때가 어긋나 되풀이되는 일이 폭주하지 않게)", async () => {
+test("열자마자 또 닫히면 간격을 처음으로 돌리지 않는다(연결과 세션 확인이 어긋나 재연결이 폭주하지 않게)", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();
@@ -122,7 +122,7 @@ test("열자마자 또 닫히면 간격을 처음으로 돌리지 않는다(열 
   assert.deepEqual(h.delays, [2000, 5000, 15000]);
 });
 
-test("브라우저가 스스로 다시 붙은 것(열림이 또 옴)은 버틴 시간을 처음부터 세지 않는다", async () => {
+test("브라우저가 자동 재연결한 경우(onopen 재호출)에는 유지 시간을 처음부터 다시 세지 않는다", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();
@@ -131,10 +131,10 @@ test("브라우저가 스스로 다시 붙은 것(열림이 또 옴)은 버틴 �
   await h.tick();
   h.sources[2].opened();
   h.clock.now += 60_000;
-  h.sources[2].dropped(); // 망이 잠깐 끊겨 브라우저가 다시 붙는다
+  h.sources[2].dropped(); // 네트워크가 잠깐 끊겨 브라우저가 재연결한다
   h.sources[2].opened();
   h.clock.now += 1_000;
-  h.sources[2].refused(); // 곧 다시 시작(503)
+  h.sources[2].refused(); // 직후 503 응답으로 닫힌다
   assert.deepEqual(h.delays, [2000, 5000, 2000], "한 시간 버틴 연결이라 처음부터");
 });
 
@@ -164,7 +164,7 @@ test("세션 끝 이벤트 뒤 확인을 기다리는 사이 다시 열려도 �
   link.start();
   sources[0].opened();
   sources[0].ended();
-  pending.shift()!(); // 차례가 와 조용히 묻는 중
+  pending.shift()!(); // 재연결 시점이 되어 조용히 세션을 확인한다
   link.start(); // 탭을 오가 곧바로 연다
   answer(true);
   await new Promise((done) => setImmediate(done));
@@ -173,14 +173,14 @@ test("세션 끝 이벤트 뒤 확인을 기다리는 사이 다시 열려도 �
   assert.deepEqual(quiet, [true, false], "다음 확인은 조용하지 않다");
 });
 
-test("세션 끝 이벤트: 닫고 끊김을 알리고, 차례 전에는 묻지 않는다. 첫 확인은 조용히, 그래도 아니면 다음 확인은 지금처럼(세션 끝으로)", async () => {
+test("세션 끝 이벤트: 연결을 닫아 끊김을 알리고, 대기 시간 전에는 확인하지 않는다. 첫 확인은 조용히 하고, 또 실패하면 다음 확인에서 세션을 끝낸다", async () => {
   const h = harness({ checks: [false, false] });
   h.link.start();
   h.sources[0].opened();
   h.sources[0].ended();
-  assert.equal(h.sources[0].closed, true, "브라우저가 스스로 다시 붙지 않게");
+  assert.equal(h.sources[0].closed, true, "브라우저가 자동 재연결하지 않게 닫는다");
   assert.deepEqual(h.states, ["open", "down"]);
-  assert.deepEqual(h.checked, [], "곧바로 묻지 않는다(다시 로그인한 브라우저의 새 쿠키가 닿기 전이다)");
+  assert.deepEqual(h.checked, [], "곧바로 확인하지 않는다(다시 로그인한 브라우저의 새 쿠키가 닿기 전이다)");
   await h.tick();
   await h.tick();
   assert.deepEqual(h.checked, [true, false]);

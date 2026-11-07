@@ -43,7 +43,7 @@ type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(
 type Saver = { persistence: { save(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
-// 디스코드 연결(게이트웨이)을 닫는 데 기다리는 상한. 닫는 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
+// 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
 const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
@@ -183,7 +183,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   if (logFile) logFile.close();
 }
 
-// 디스코드 연결을 닫고 닫는 프레임이 나가기를 상한까지 기다린다
+// 디스코드 연결을 닫고 close 프레임이 나가기를 상한까지 기다린다
 async function closeClient(client: { destroy(): unknown }) {
   let cap: NodeJS.Timeout | undefined;
   const closing = Promise.resolve()

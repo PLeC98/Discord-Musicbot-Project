@@ -78,7 +78,7 @@ watch(
   (shown) => {
     showDialog.value = shown;
     note.value = "";
-    // 다른 길(돌아온 탭의 확인, 로그인했어요 버튼)로 다시 로그인이 확인돼 닫혔다. 로그인 창을 기다리던 것도 끝낸다
+    // 다른 경로(탭 복귀 시 확인, 로그인했어요 버튼)로 재로그인이 확인되어 닫혔다. 로그인 창 대기 상태도 끝낸다
     if (!shown) void loginWindow.signedIn();
   },
 );
@@ -87,18 +87,18 @@ watch(
 function close() {
   showDialog.value = false;
   if (session.reauth) endReauth(false);
-  // 로그인 창을 그만뒀다. 기다리는 동안 받은 401 이 있으면 확인한다
+  // 재로그인을 취소했다. 기다리는 동안 받은 401이 있으면 로그인 상태를 확인한다
   void loginWindow.abandoned();
 }
 const titleId = useId();
 const switchedId = useId();
-// 계정이 바뀐 것을 알게 된 때 한 번 연다. 닫아도 띠가 남는다
+// 계정이 바뀐 것을 감지했을 때 대화상자를 한 번 연다. 닫아도 상단 배너는 남는다
 const showSwitched = ref(false);
 watch(
   () => session.switched,
   (on) => {
     showSwitched.value = on;
-    // 다시 로그인을 기다리던 조작은 다른 계정으로 다시 보낼 수 없다. 거절대로 실패시킨다(처리 중으로 남지 않게)
+    // 재로그인을 기다리던 요청은 다른 계정으로 다시 보낼 수 없다. 원래 거절 응답대로 실패 처리한다(처리 중 상태로 남지 않게 한다)
     if (on && session.reauth) endReauth(false);
   },
 );
@@ -112,7 +112,7 @@ function openLogin() {
 
 // 로그인 창이 로그인을 마쳤다. 세션 끝이면 이어 쓰고, 다시 로그인이면 기다리던 요청을 다시 보낸다
 async function signedIn() {
-  // 기다리는 동안 받은 401(로그인이 옛 세션을 끝내 그때 진행 중이던 요청)은 확인해 살아 있으면 세션 끝으로 돌리지 않는다
+  // 기다리는 동안 받은 401(새 로그인으로 이전 세션이 종료되어 실패한 진행 중 요청)은 세션이 유효한지 확인해 살아 있으면 세션 만료로 처리하지 않는다
   await loginWindow.signedIn();
   if (session.ended) await check();
   if (session.reauth) {

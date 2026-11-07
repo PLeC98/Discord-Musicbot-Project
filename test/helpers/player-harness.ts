@@ -156,7 +156,7 @@ function createAudioResource(input: OpusOutput, options: FakeResource["options"]
 
 // ── 2. ffmpeg ─────────────────────────────────────────────────────────
 function fakeChild(args: string[], label: string): FakeChild {
-  const written: Buffer[] = []; // 입력(stdin)으로 받은 것
+  const written: Buffer[] = []; // 입력(stdin)으로 들어온 데이터를 모은다
   const child: FakeChild = Object.assign(new EventEmitter(), {
     args,
     label,

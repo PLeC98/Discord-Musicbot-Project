@@ -49,7 +49,7 @@ async function runCommand(bot: BotContext, interaction: ChatInputCommandInteract
     // 서버 명령은 서버 안에서만. DM 에서도 쓰는 명령은 그대로 부른다
     if (command.anywhere) await command.execute(interaction, bot);
     else if (!interaction.inCachedGuild()) await noticeSelf(interaction, errors.notice("guild-only"));
-    // 서버 관리 계층(도움말의 표시)은 디스코드 기본 권한에 기대지 않고 다시 본다: 연동 탭에서 다른 역할에 열어 줄 수 있고, 설정 패널 단추와 대시보드도 이것을 본다
+    // 서버 관리 계층(도움말의 표시)은 디스코드 기본 권한에 기대지 않고 다시 본다: 연동 탭에서 다른 역할에 열어 줄 수 있고, 설정 패널 버튼과 대시보드도 이것을 본다
     else if (command.help?.tier === "server-manager" && !isServerManager(interaction.member)) await noticeSelf(interaction, errors.notice("must-server-manager"));
     else await command.execute(interaction, bot);
   } catch (error) {

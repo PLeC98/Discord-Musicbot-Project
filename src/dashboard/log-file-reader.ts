@@ -7,9 +7,9 @@
 // 지금 쓰는 파일은 꽉 차면 이름이 바뀌어 떼어진다(내용은 그대로). 그래서 파일을 첫 줄의 시각(since)으로 알아보고,
 // 보던 파일이 떼어졌으면 같은 첫 줄을 가진 떼어 낸 파일에서 이어 읽는다.
 // 파일마다 줄 수, 카테고리, 태그, 처음과 끝 시각은 한 번 훑어 기억한다(떼어 낸 파일은 바뀌지 않고, 지금 파일은 늘어난 부분만 더 훑는다).
-// 검색의 맞은 줄 수는 처음 받는 페이지마다 파일 전체를 앞에서부터 한 번 훑으며 세고, 그 페이지의 줄도 같이 고른다.
-// 파일 끝까지 갈 수 있는 훑기(목록, 맞은 줄 수, 드문 필터의 페이지, 다운로드)는 묶음(SCAN_BYTES)마다 이벤트 루프를 놓아 준다(파일 하나가 10GB 까지).
-// 검색어가 있으면 묶음째 다듬어 정규식으로 후보 줄만 고르고, 그 줄만 풀어 필터로 확인한다(prefilterOf)
+// 검색 조건에 맞는 줄 수는 첫 페이지를 받을 때마다 파일 전체를 앞에서부터 한 번 훑으며 세고, 그 페이지에 들어갈 줄도 함께 추린다.
+// 파일 끝까지 읽을 수 있는 작업(목록, 일치하는 줄 수, 드문 필터의 페이지, 다운로드)은 청크(SCAN_BYTES)마다 이벤트 루프를 양보한다(파일 하나가 최대 10GB까지).
+// 검색어가 있으면 청크째 정규화해 정규식으로 후보 줄만 추리고, 그 줄만 파싱해 필터로 확인한다(prefilterOf)
 
 import fs from "fs";
 import path from "path";
@@ -24,12 +24,12 @@ const log = logger.child({ category: "dashboard" });
 
 /** 짧게 읽을 때(첫 줄, 시각 찾기) 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;
-/** 오래 훑을 때 한 묶음의 바이트. 묶음마다 이벤트 루프를 놓아 준다(한 줄이 이보다 길면 그 줄까지) */
+/** 파일을 길게 훑을 때 한 청크의 바이트 수. 청크마다 이벤트 루프를 양보한다(한 줄이 이보다 길면 그 줄 끝까지) */
 const SCAN_BYTES = 256 * 1024;
 const NL = 0x0a;
 
 type Raw = { offset: number; bytes: Buffer };
-/** 줄 경계로 자른 바이트 구간(at 은 파일 안의 위치) */
+/** 줄 경계로 자른 바이트 구간(at은 파일 안의 위치) */
 type Chunk = { at: number; buf: Buffer };
 
 /** 한 줄을 읽는다. 레코드가 아니면 null */
@@ -50,7 +50,7 @@ function readAt(fd: number, from: number, length: number): Buffer {
   return got === length ? buf : buf.subarray(0, got);
 }
 
-/** from(줄의 시작)부터 end 까지를 줄 경계로 자른 묶음들. 마지막 묶음은 줄바꿈 없이 끝날 수 있다 */
+/** from(줄의 시작)부터 end까지를 줄 경계로 자른 청크들. 마지막 청크는 줄바꿈 없이 끝날 수 있다 */
 function* chunksForward(fd: number, from: number, end: number, bytes: number): Generator<Chunk> {
   for (let pos = from; pos < end;) {
     const first = readAt(fd, pos, Math.min(bytes, end - pos));
@@ -58,7 +58,7 @@ function* chunksForward(fd: number, from: number, end: number, bytes: number): G
     const pieces = [first];
     let length = first.length;
     let cut = first.lastIndexOf(NL) + 1;
-    // 한 줄이 묶음보다 길다: 줄바꿈이 나오거나 끝까지 더 읽는다(조각을 모았다가 한 번에 붙인다. 읽을 때마다 붙이면 줄 길이의 제곱만큼 복사한다)
+    // 한 줄이 청크보다 길면 줄바꿈이 나오거나 끝날 때까지 더 읽는다(버퍼를 모았다가 한 번에 합친다. 읽을 때마다 붙이면 줄 길이의 제곱만큼 복사한다)
     while (!cut && pos + length < end) {
       const more = readAt(fd, pos + length, Math.min(bytes, end - pos - length));
       if (!more.length) break;
@@ -74,16 +74,16 @@ function* chunksForward(fd: number, from: number, end: number, bytes: number): G
   }
 }
 
-/** before(줄의 시작이나 파일 끝) 앞을 뒤에서부터 줄 경계로 자른 묶음들(묶음 안은 앞에서부터) */
+/** before(줄의 시작이나 파일 끝) 앞을 뒤에서부터 줄 경계로 자른 청크들(청크 안은 앞에서부터) */
 function* chunksBackward(fd: number, before: number, bytes: number): Generator<Chunk> {
   for (let end = before; end > 0;) {
     let start = Math.max(0, end - bytes);
     const last = readAt(fd, start, end - start);
     const pieces = [last];
-    // 묶음은 줄의 시작에서 시작한다: 맨 앞이 아니면 첫 줄바꿈 뒤부터(마지막 바이트의 줄바꿈은 묶음 끝 줄의 것이라 치지 않는다)
+    // 청크는 줄의 시작에서 시작한다: 파일 맨 앞이 아니면 첫 줄바꿈 뒤부터 자른다(마지막 바이트의 줄바꿈은 청크 끝 줄의 것이라 제외한다)
     const i = last.indexOf(NL);
     let skip = start === 0 ? 0 : i >= 0 && i < last.length - 1 ? i + 1 : -1;
-    // 한 줄이 묶음보다 길다: 그 줄의 시작이 나올 때까지 앞으로 더 읽는다(조각을 모았다가 한 번에 붙인다)
+    // 한 줄이 청크보다 길면 그 줄의 시작이 나올 때까지 앞으로 더 읽는다(버퍼를 모았다가 한 번에 합친다)
     while (skip < 0) {
       const from = Math.max(0, start - bytes);
       const piece = readAt(fd, from, start - from);
@@ -99,7 +99,7 @@ function* chunksBackward(fd: number, before: number, bytes: number): Generator<C
   }
 }
 
-/** 묶음의 줄들(앞에서부터). 끝에 줄바꿈이 없는 줄도 낸다 */
+/** 청크 안의 줄들(앞에서부터). 끝에 줄바꿈이 없는 줄도 반환한다 */
 function linesOf({ at, buf }: Chunk): Raw[] {
   const out: Raw[] = [];
   let start = 0;
@@ -111,23 +111,23 @@ function linesOf({ at, buf }: Chunk): Raw[] {
   return out;
 }
 
-/** from(줄의 시작)부터 end 까지의 줄들을 앞에서부터 */
+/** from(줄의 시작)부터 end까지의 줄들을 앞에서부터 읽는다 */
 function* forward(fd: number, from: number, end: number): Generator<Raw> {
   for (const chunk of chunksForward(fd, from, end, CHUNK)) yield* linesOf(chunk);
 }
 
-// JSON 이 바꿔 쓰는 글자(", \, 제어 문자, 짝 없는 서로게이트), 바꿔 쓴 자리(\n 의 n 등) 바로 뒤에서 묶음째 다듬기와 필드의 다듬기가
-// 달라질 수 있는 글자(결합 문자는 앞 글자와 합쳐지고, 그리스 시그마는 앞 글자를 보고 꼴을 바꾼다)
+// JSON에서 이스케이프하는 문자(", \, 제어 문자, 짝 없는 서로게이트)나 이스케이프 시퀀스(\n의 n 등) 바로 뒤에서 청크 단위 정규화와 필드 단위 정규화 결과가
+// 달라질 수 있는 문자(결합 문자는 앞 글자와 합쳐지고, 그리스 시그마는 앞 글자에 따라 형태가 바뀐다)
 const UNSAFE_QUERY = /[\u0000-\u001f"\\σς\ud800-\udfff]|\p{M}/u;
-// 초성 사이에 건너는 공백: 그대로의 공백(줄바꿈 말고), JSON 이 바꿔 쓴 공백. 초성 글자와 겹치지 않는다
+// 초성 사이에서 건너뛰는 공백: 일반 공백(줄바꿈 제외), JSON에서 이스케이프된 공백. 초성 문자와 겹치지 않는다
 const JSON_GLUE = String.raw`(?:[^\S\n]|\\[nrtfb]|\\u[0-9a-f]{4})*`;
-// 화면 글이 바이트와 달라지는 줄(wireFields 가 바꾼다)도 늘 후보로: ANSI 를 걷어 낼 ESC, 글이 아닌 msg, 태그 안의 배열이나 객체.
-// 줄은 JSON.stringify 로 썼다(키 뒤에 공백이 없다). . 은 U+2028 을 건너지 못해 줄바꿈 말고 모두로 건넌다
+// 화면 표시 텍스트가 원본 바이트와 달라지는 줄(wireFields가 변환)도 늘 후보에 넣는다: ANSI를 제거할 ESC, 문자열이 아닌 msg, 태그 안의 배열이나 객체.
+// 각 줄은 JSON.stringify로 기록했다(키 뒤에 공백이 없다). 정규식 .은 U+2028을 넘지 못하므로 [^\n]으로 매칭한다
 const RECAST = String.raw`\\u001b|"msg":[[{]|"tags":\[[^\n]*[[{]`;
 
 /**
- * 묶음째 거르기의 정규식(쓸 수 없으면 null). 다듬은 묶음에서 이것이 걸린 줄만 후보이고, 판정은 matchesLog 가 다시 한다.
- * 키나 다른 필드에 걸린 줄도 후보가 되지만(확인에서 빠진다) 필드에서 맞는 줄은 늘 걸린다
+ * 청크 단위 사전 필터링 정규식(쓸 수 없으면 null). 정규화한 청크에서 이 정규식에 매칭된 줄만 후보로 추리고, 최종 판정은 matchesLog가 다시 한다.
+ * 키나 다른 필드에서 매칭된 줄도 후보가 되지만(최종 판정에서 제외된다) 대상 필드에서 일치하는 줄은 빠짐없이 포함된다
  */
 function prefilterOf(filter: LogFilter): RegExp | null {
   const q = filter.q ?? "";
@@ -136,7 +136,7 @@ function prefilterOf(filter: LogFilter): RegExp | null {
   return source ? new RegExp(`${source}|${RECAST}`, "g") : null;
 }
 
-/** 묶음에서 정규식이 걸린 줄들(앞에서부터) */
+/** 청크에서 정규식에 매칭된 줄들(앞에서부터) */
 function candidatesOf(chunk: Chunk, re: RegExp): Raw[] {
   const lines = linesOf(chunk);
   // 다듬어도 줄바꿈 수는 그대로라 글의 줄 번호가 바이트의 줄 번호다
@@ -159,8 +159,8 @@ function candidatesOf(chunk: Chunk, re: RegExp): Raw[] {
 }
 
 /**
- * 오래 훑는 길: 묶음마다 줄을(re 가 있으면 후보 줄만) 순서대로 내고, 묶음 사이에 이벤트 루프를 놓아 준다(후보가 없는 묶음도).
- * backward 면 뒤에서부터. stop 이 참이 되면 다음 묶음을 내지 않고 끝난다(받는 쪽이 떠났다. 끝까지 읽은 것과 구별하지 않는다)
+ * 파일을 길게 훑는 경로: 청크마다 줄을(re가 있으면 후보 줄만) 순서대로 내보내고, 청크 사이에 이벤트 루프를 양보한다(후보가 없는 청크도).
+ * backward면 뒤에서부터 읽는다. stop이 참이 되면 다음 청크를 내지 않고 끝난다(요청한 쪽 연결이 끊긴 경우로, 끝까지 읽은 것과 구별하지 않는다)
  */
 async function* paced(chunks: Generator<Chunk>, { re, backward = false, stop }: { re?: RegExp | null; backward?: boolean; stop?: () => boolean } = {}): AsyncGenerator<Raw[]> {
   for (const chunk of chunks) {
@@ -217,7 +217,7 @@ function firstTimeOf(fd: number, size: number): number {
 }
 const firstTime = (file: string) => withFile(file, firstTimeOf) ?? 0;
 
-/** 파일을 열어 fn 을 부른다. fn 이 Promise 를 돌려주면 그것이 끝난 뒤에 닫는다. 열 수 없으면 null */
+/** 파일을 열어 fn을 호출한다. fn이 Promise를 반환하면 그 작업이 끝난 뒤에 닫는다. 열 수 없으면 null */
 function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | null {
   let fd: number;
   try {
@@ -247,7 +247,7 @@ const scans = new Map<string, Scan>();
 /** 지금 훑는 파일. 같은 파일을 겹쳐 훑지 않는다(겹치면 늘어난 부분을 두 번 센다) */
 const scanning = new Map<string, Promise<Scan | null>>();
 
-/** 파일을 훑어 줄 수, 카테고리, 태그, 처음과 끝 시각을 센다. 지난번에 훑은 같은 파일이면 늘어난 부분만. 이미 훑는 중이면 그 결과를 기다린다 */
+/** 파일을 훑어 줄 수, 카테고리, 태그, 처음과 끝 시각을 집계한다. 이전에 훑은 같은 파일이면 늘어난 부분만 더 훑고, 이미 훑는 중이면 그 결과를 기다린다 */
 function scan(file: string): Promise<Scan | null> {
   const running = scanning.get(file);
   if (running) return running;
@@ -256,7 +256,7 @@ function scan(file: string): Promise<Scan | null> {
   return job;
 }
 
-/** scan 의 몸통. 기억한 것은 고치지 않고 사본을 늘려 다 훑은 뒤에 바꿔 넣는다(그동안 다른 요청이 기억한 것을 읽는다) */
+/** scan의 본체. 캐시된 값을 직접 수정하지 않고 사본에 누적해 다 훑은 뒤에 교체한다(그동안 다른 요청은 기존 캐시 값을 읽는다) */
 async function scanFile(file: string, fd: number, size: number): Promise<Scan> {
   const since = firstTimeOf(fd, size);
   const known = scans.get(file);
@@ -285,7 +285,7 @@ async function scanFile(file: string, fd: number, size: number): Promise<Scan> {
 
 const sorted = (set: Set<string>) => [...set].sort((a, b) => a.localeCompare(b));
 
-/** 로그 파일 목록: 지금 쓰는 파일이 먼저, 떼어 낸 파일은 최근 것부터. stop 이 참이 되면 다음 파일을 훑지 않고 그때까지의 목록 */
+/** 로그 파일 목록: 지금 쓰는 파일이 먼저 오고, 로테이션된 파일은 최근 것부터 온다. stop이 참이 되면 다음 파일을 훑지 않고 그때까지의 목록을 반환한다 */
 async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile[]> {
   const dir = path.dirname(file);
   const names = [path.basename(file), ...rotatedFilesOf(file).reverse()];
@@ -332,7 +332,7 @@ function resolveLogFile(file: string, name: string, since?: number): { name: str
 type PageQuery = { before?: number; after?: number; at?: number; limit: number; filter: LogFilter };
 type Keep = (raw: Raw) => FileLine | null;
 
-/** 묶음에서 keep 이 고른 줄을 limit 개까지. cut: 그 뒤에 고를 줄이 더 있었다 */
+/** 청크에서 keep을 통과한 줄을 limit개까지 모은다. cut: 그 뒤에도 조건에 맞는 줄이 더 있는지 여부 */
 async function take(batches: AsyncGenerator<Raw[]>, keep: Keep, limit: number): Promise<{ lines: FileLine[]; cut: boolean }> {
   const lines: FileLine[] = [];
   for await (const batch of batches) {
@@ -346,7 +346,7 @@ async function take(batches: AsyncGenerator<Raw[]>, keep: Keep, limit: number): 
   return { lines, cut: false };
 }
 
-/** 앞에서부터 파일 전체를 한 번: 맞은 줄 수와, end 앞에서 맞은 마지막 limit 줄. more: end 앞에 그보다 더 있었다 */
+/** 앞에서부터 파일 전체를 한 번 훑어 일치하는 줄 수와 end 앞의 마지막 limit개 줄을 구한다. more: end 앞에 일치하는 줄이 더 있는지 여부 */
 async function countAndLast(batches: AsyncGenerator<Raw[]>, keep: Keep, end: number, limit: number) {
   const ring: FileLine[] = [];
   let matches = 0;
@@ -366,7 +366,7 @@ async function countAndLast(batches: AsyncGenerator<Raw[]>, keep: Keep, end: num
   return { matches, lines, more: before > limit };
 }
 
-/** 한 페이지를 읽는다. 위치는 줄의 시작이어야 한다(아니면 그 다음 줄부터). stop 이 참이 되면 그때까지 읽은 것으로 끝낸다(받는 쪽이 떠났다) */
+/** 한 페이지를 읽는다. 위치는 줄의 시작이어야 한다(아니면 그다음 줄부터). stop이 참이 되면 그때까지 읽은 것으로 끝낸다(요청한 쪽 연결이 끊김) */
 async function readLogPage(target: { name: string; path: string }, query: PageQuery, stop?: () => boolean): Promise<FilePage | null> {
   return withFile(target.path, async (fd, size) => {
     const since = firstTimeOf(fd, size);
@@ -407,7 +407,7 @@ async function readLogPage(target: { name: string; path: string }, query: PageQu
   });
 }
 
-/** 필터에 맞는 줄들을 앞에서부터 묶음으로(다운로드). 맞는 줄이 없는 묶음은 내지 않는다 */
+/** 필터에 맞는 줄들을 앞에서부터 청크 단위로 내보낸다(다운로드용). 맞는 줄이 없는 청크는 건너뛴다 */
 async function* filteredLines(target: { path: string }, filter: LogFilter): AsyncGenerator<FileLine[]> {
   let fd: number;
   try {

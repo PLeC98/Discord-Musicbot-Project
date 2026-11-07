@@ -1,5 +1,5 @@
 // src/usecases/controls.ts: 재생 조작 코어. 전제 조건을 같은 순서로 보고, 조작하고, 패널에 알린다.
-// 플레이어는 부른 것을 적는 가짜. 권한은 진짜 판정에 가짜 멤버를 넘긴다(서버 관리자는 통과, 봇과 다른 곳에 있으면 거절).
+// 플레이어는 호출을 기록하는 가짜다. 권한 검사는 실제 판정 함수에 가짜 멤버를 넘긴다(서버 관리자는 통과, 봇과 다른 채널에 있으면 거절).
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -456,7 +456,7 @@ test("안내: 코드와 값의 안내", () => {
   assert.equal(plainText(controlMessage({ code: "bad-position", size: 3 })), "그 번호의 곡은 존재하지 않아요!\n대기열에는 3곡만 있어요. 1~3 사이로 적어 주세요.");
 });
 
-test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 중이면 거절). 나가기는 DJ 조작이라 자리까지 끄고(켜고 끄는 권한과 같다), 거절하면 자리는 그대로", async () => {
+test("상주 모드: 정지는 대기열만 비우고 채널에 남는다(재생 준비 중이면 거절). 나가기는 DJ 조작이라 상주 모드까지 끄고(켜고 끄는 권한과 같다), 거절하면 상주 모드는 유지된다", async () => {
   staySeats.set("g1", "vc1", "u1");
   try {
     const p = fakePlayer({ voiceChannel: { id: "vc1" }, stopStaying: async () => void p.calls.push("stop-staying") });
@@ -470,14 +470,14 @@ test("24/7 자리: 정지는 대기열만 비우고 채널에 남는다(여는 �
     const players = new Map<string, Player>([["g1", fakePlayer({ voiceChannel: { id: "vc1" } })]]);
     assert.equal(codeOf(await controls.leave(guild, OUTSIDER, players)), "must-be-in-same-voice");
     assert.ok(staySeats.seatOf("g1"), "거절하면 자리는 그대로");
-    assert.equal(accepted(await controls.leave(guild, { member: member({ mod: false }) }, players)).stayOff, true, "서버 관리 권한이 없는 DJ 도");
+    assert.equal(accepted(await controls.leave(guild, { member: member({ mod: false }) }, players)).stayOff, true, "서버 관리 권한이 없는 DJ도");
     assert.equal(staySeats.seatOf("g1"), null);
   } finally {
     staySeats.clear("g1");
   }
 });
 
-test("24/7 자리: 플레이어도 없고 봇이 음성에도 없으면(자리 지킴이가 다시 붙기를 기다리는 중) 나가기는 자리만 끈다고 답한다", async () => {
+test("상주 모드: 플레이어도 없고 봇이 음성 채널에도 없으면(상주 채널 재접속 대기 중) 나가기는 상주 모드만 끈다고 답한다", async () => {
   const away = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: null } } } });
   const someone = fake<GuildMember>({ id: "u1", user: { tag: "사람" }, guild: away, permissions: { has: () => false }, voice: { channel: null }, roles: { cache: new Map() } });
   const players = new Map<string, Player>();
@@ -485,7 +485,7 @@ test("24/7 자리: 플레이어도 없고 봇이 음성에도 없으면(자리 �
   try {
     assert.deepEqual(await controls.leave(away, { member: someone }, players), { ok: true, left: "seat-only", stayOff: true });
     assert.equal(staySeats.seatOf("g1"), null);
-    assert.equal(codeOf(await controls.leave(away, { member: someone }, players)), "no-song", "자리도 없으면 그대로");
+    assert.equal(codeOf(await controls.leave(away, { member: someone }, players)), "no-song", "상주 모드도 꺼져 있으면 no-song");
   } finally {
     staySeats.clear("g1");
   }
@@ -499,7 +499,7 @@ test("멈춤: 휴면 중인 곡이면 ▶ 가 멈춤을 풀고 스트림을 다�
   assert.equal(woke, 1);
 });
 
-test("자동재생: 판정 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 플레이어를 만들지도 설정을 바꾸지도 않는다", async () => {
+test("자동재생: 권한 판정 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 플레이어를 만들지도 설정을 바꾸지도 않는다", async () => {
   const ended = () => {
     throw new Error("세션이 끝났다");
   };

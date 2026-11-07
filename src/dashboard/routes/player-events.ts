@@ -39,7 +39,7 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
     const user = signedIn(req);
-    // 자리는 멤버 확인(REST) 앞에서 잡고 조회가 끝날 때까지 쥔다. 이 경로는 요청 한도 밖이라 열고 끊기를 되풀이해도 끝나지 않은 조회가 상한을 넘지 않게
+    // 슬롯은 멤버 확인(REST) 전에 확보하고 조회가 끝날 때까지 유지한다. 이 경로는 요청 한도 밖이라 열고 끊기를 되풀이해도 끝나지 않은 조회가 상한을 넘지 않게 한다
     const slot = res.closed ? null : stream.reserve(user.id);
     if (!slot) return res.closed ? undefined : sendProblem(res, "too-many-streams");
     let handed = false;

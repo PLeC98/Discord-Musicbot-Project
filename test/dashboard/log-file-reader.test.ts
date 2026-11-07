@@ -27,7 +27,7 @@ function writeLog(n: number, extra = "") {
 const all = { limit: 300, filter: {} };
 const texts = (page: { lines: Array<{ text: string }> } | null) => page?.lines.map((l) => Number(l.text.split(" ")[1])) ?? [];
 
-test("끝에서부터 쪽: 마지막 줄들이 차례대로, 앞에 더 있으면 more", async () => {
+test("끝에서부터 페이지: 마지막 줄들이 순서대로, 앞에 더 있으면 more", async () => {
   const { file } = writeLog(1000);
   const target = resolveLogFile(file, "bot.log");
   assert.ok(target);
@@ -56,7 +56,7 @@ test("뒤로 이어 읽기(after): 그 줄 다음부터, 끝까지 못 읽었으
   assert.equal(tail?.later, false);
 });
 
-test("시각으로 가기(at): 그 시각 이상인 첫 줄이 들고, 그 뒤 50줄까지 받는다", async () => {
+test("시각으로 가기(at): 그 시각 이상인 첫 줄이 포함되고, 그 뒤 50줄까지 받는다", async () => {
   const { file } = writeLog(1000);
   const target = resolveLogFile(file, "bot.log")!;
   const page = (await readLogPage(target, { ...all, limit: 100, at: T0 + 400_500 }))!;
@@ -69,7 +69,7 @@ test("시각으로 가기(at): 그 시각 이상인 첫 줄이 들고, 그 뒤 5
   assert.equal(texts(await readLogPage(target, { ...all, limit: 10, at: T0 + 10_000_000 })).at(-1), 999);
 });
 
-test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 규칙), 검색어가 있으면 파일 전체의 맞은 줄 수", async () => {
+test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 규칙), 검색어가 있으면 파일 전체에서 일치하는 줄 수", async () => {
   const { file } = writeLog(100);
   const target = resolveLogFile(file, "bot.log")!;
   const warn = (await readLogPage(target, { limit: 300, filter: { levels: new Set(["warn"] as const) } }))!;
@@ -85,7 +85,7 @@ test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 �
   assert.equal((await readLogPage(target, { limit: 3, filter: { levels: new Set() } }))!.lines.length, 0, "레벨을 모두 끄면 없다");
 });
 
-test("덜 된 마지막 줄, 읽을 수 없는 줄은 건너뛴다", async () => {
+test("덜 써진 마지막 줄, 읽을 수 없는 줄은 건너뛴다", async () => {
   const { file } = writeLog(5, 'not json\n{"time":1,"lev');
   const target = resolveLogFile(file, "bot.log")!;
   assert.deepEqual(texts(await readLogPage(target, all)), [0, 1, 2, 3, 4]);
@@ -93,7 +93,7 @@ test("덜 된 마지막 줄, 읽을 수 없는 줄은 건너뛴다", async () =>
   assert.equal(info.lines, 5);
 });
 
-test("목록: 지금 파일이 먼저, 떼어 낸 파일은 최근 것부터. 줄 수, 카테고리, 태그, 처음과 끝 시각", async () => {
+test("목록: 지금 파일이 먼저, 분리된 파일은 최근 것부터. 줄 수, 카테고리, 태그, 처음과 끝 시각", async () => {
   const { dir, file } = writeLog(10);
   fs.renameSync(file, backupPath(file, new Date(2026, 0, 1)));
   fs.writeFileSync(file, JSON.stringify(record(20)) + "\n");
@@ -125,7 +125,7 @@ test("이름: 목록의 이름만 받는다(경로, 다른 파일은 없음)", (
   assert.ok(resolveLogFile(file, "bot.log"));
 });
 
-test("보던 지금 파일이 떼어졌으면 첫 줄의 시각(since)으로 떼어 낸 파일을 찾아 이어 읽는다", async () => {
+test("보던 지금 파일이 분리됐으면 첫 줄의 시각(since)으로 분리된 파일을 찾아 이어 읽는다", async () => {
   const { file } = writeLog(50);
   const target = resolveLogFile(file, "bot.log")!;
   const page = (await readLogPage(target, { ...all, limit: 10 }))!;
@@ -142,7 +142,7 @@ test("보던 지금 파일이 떼어졌으면 첫 줄의 시각(since)으로 떼
   assert.equal(resolveLogFile(file, "bot.log", page.since), null);
 });
 
-test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보는 사람의 시간대", async () => {
+test("다운로드: 필터링한 줄을 화면과 같은 열로, 시각은 보는 사람의 시간대", async () => {
   const { file } = writeLog(10);
   const target = resolveLogFile(file, "bot.log")!;
   const lines = [];
@@ -154,7 +154,7 @@ test("내려받기: 필터링한 줄을 화면과 같은 열로, 시각은 보�
   assert.equal(formatLogLine(lines[1], 0).slice(0, 23), utc);
 });
 
-test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞, 뒤로 이어 읽는다", async () => {
+test("실제 파일 로거가 크기를 넘겨 파일을 분리해도, 보던 페이지에서 앞뒤로 이어 읽는다", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "logread-rotate-"));
   dirs.push(dir);
   const file = path.join(dir, "bot.log");
@@ -169,7 +169,7 @@ test("실제 기록기가 크기를 넘겨 떼어 내도, 보던 쪽에서 앞, 
     assert.deepEqual(texts(seen).slice(-2), [198, 199]);
     // 보는 동안 계속 쌓여 크기를 넘긴다: 지금 파일이 떼어지고 새 파일이 시작된다
     write(200, 2000);
-    assert.ok((await listLogFiles(file)).length > 1, "떼어 낸 파일이 생겼다");
+    assert.ok((await listLogFiles(file)).length > 1, "분리된 파일이 생겼다");
     // 앞 쪽: 보던 파일(첫 줄 0)을 따라가 그 앞의 줄
     const moved = resolveLogFile(file, "bot.log", seen.since)!;
     assert.notEqual(moved.name, "bot.log");

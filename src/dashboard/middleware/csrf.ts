@@ -27,7 +27,7 @@ function issueCsrfToken(req: Request, res: Response) {
   return res.json({ csrfToken: ensureCsrfToken(req) });
 }
 
-// 요청에 이 연결의 세션 쿠키가 실렸나
+// 요청에 이 연결의 세션 쿠키가 실렸는지 확인한다
 function carriesSessionCookie(req: Request) {
   const name = `${sessionCookieName(req.secure)}=`;
   return (req.headers.cookie ?? "").split(";").some((part) => part.trim().startsWith(name));
@@ -35,8 +35,8 @@ function carriesSessionCookie(req: Request) {
 
 function requireCsrfToken(req: Request, res: Response, next: NextFunction) {
   if (SAFE_METHODS.has(req.method)) return next();
-  // 끝난 세션의 로그아웃은 지킬 것이 없다. 이 브라우저의 쿠키만 삭제한다. 그 세션 쿠키가 실린 요청만이다: 교차 사이트 POST 에는 lax 쿠키가 실리지 않아
-  // 그것까지 받으면 다른 사이트의 폼이 이 브라우저의 로그인 쿠키를 삭제하게 된다(강제 로그아웃)
+  // 끝난 세션의 로그아웃은 보호할 상태가 없어 이 브라우저의 쿠키만 삭제한다. 단, 세션 쿠키가 실린 요청만 허용한다: 교차 사이트 POST에는 lax 쿠키가 실리지 않으므로
+  // 쿠키 없는 요청까지 허용하면 다른 사이트의 폼이 이 브라우저의 로그인 쿠키를 삭제하게 된다(강제 로그아웃)
   if (req.path === "/auth/logout" && !req.session?.user && carriesSessionCookie(req)) return next();
 
   const expected = req.session?.csrfToken;

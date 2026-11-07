@@ -13,7 +13,7 @@ const exported: GuildCommand = {
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
     const on = stay.seatChannelOf(guild.id) === null;
-    // 켜기는 음성에 붙을 수 있어 몇 초 걸린다. 본인에게만 미룬다(거절은 그 자리를 본인 안내로, 켬은 채널에 새로 보낸다)
+    // 켜기는 음성 채널에 연결할 수 있어 몇 초 걸린다. 응답 유예(defer)는 본인에게만 보이게 한다(거절은 그 자리에 안내하고, 켬은 채널에 새로 보낸다)
     if (on) await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     const r = on ? await stay.turnOn(bot, { guild, member, textChannel: channel }) : await stay.turnOff(bot, { guild, member });
     if (!r.ok) return noticeSelf(interaction, errors.notice(r.code));

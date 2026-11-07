@@ -24,7 +24,7 @@ test("연결 이름(Node, undici), 시간 초과는 환경 탓. 원인 사슬에
     assert.equal(failureScope(new Error("fetch failed", { cause: coded(code) })), "environment", code);
   }
   assert.equal(failureScope(Object.assign(new Error("시간 초과"), { name: "TimeoutError" })), "environment");
-  // 단일 GET 의 응답 헤더 기다림을 끊는 사유(media/playback-input)
+  // 단일 GET의 응답 헤더 대기를 끊는 사유다(media/playback-input)
   assert.equal(failureScope(new DOMException("응답이 10초 동안 없습니다", "TimeoutError")), "environment");
 });
 
@@ -91,8 +91,8 @@ test("재생 쪽에서 만드는 이름은 모두 갈래가 정해져 있다", (
 
 test("직접 링크로 받는 곡인가는 곡의 라벨(platform)이 아니라 소리를 받을 주소(audioUrl)로 본다", () => {
   assert.equal(servedDirectly({ platform: "direct", audioUrl: "https://files.test/a.mp3" }), true);
-  assert.equal(servedDirectly({ platform: "animethemes", audioUrl: "https://v.animethemes.test/a.webm" }), true, "자동재생이 고른 직접 파일");
-  assert.equal(servedDirectly({ platform: "youtube", audioUrl: "https://files.test/pinned.mp3" }), true, "유튜브 요청에 고정한 직접 링크 음원");
+  assert.equal(servedDirectly({ platform: "animethemes", audioUrl: "https://v.animethemes.test/a.webm" }), true, "자동재생이 선택한 직접 파일");
+  assert.equal(servedDirectly({ platform: "youtube", audioUrl: "https://files.test/pinned.mp3" }), true, "유튜브 요청에 직접 지정한 직접 링크 음원");
   assert.equal(servedDirectly({ platform: "spotify", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }), false);
   assert.equal(servedDirectly({ platform: "direct", audioUrl: null }), true, "주소를 아직 모르면 라벨로");
   assert.equal(servedDirectly(null), false);

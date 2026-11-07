@@ -379,7 +379,7 @@ test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다"
   assert.deepEqual(rows.genres.warnings, []);
 });
 
-test("불러오기: 스냅샷을 뜬 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 아무것도 쓰지 않는다", async () => {
+test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 던짐, 대시보드 세션 종료) 아무것도 쓰지 않는다", async () => {
   const archive = await import("../../src/dashboard/settings-archive.ts");
   const file = path.join(uploadDir, "go.zip");
   fs.writeFileSync(file, await exported());
@@ -399,7 +399,7 @@ test("불러오기: 스냅샷을 뜬 뒤 그만두면(go 가 던짐, 대시보�
     }),
     /세션이 끝났다/,
   );
-  assert.equal(snapped, 1, "스냅샷은 떴다(그 뒤에 본다)");
+  assert.equal(snapped, 1, "스냅샷은 떴다(그 뒤에 go를 확인한다)");
   assert.deepEqual(settingsDocs.read("genres"), now, "쓰지 않았다");
   fs.rmSync(file, { force: true });
 });

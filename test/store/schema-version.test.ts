@@ -150,12 +150,12 @@ test("서버에서 나가면 그 서버의 실행 상태만 삭제한다. 서버
   assert.deepEqual(guildSettings.table.getDjRoles("gone"), ["r"], "다시 초대하면 그대로 쓴다");
 });
 
-test("표 만들기와 구조 버전은 한 번에: 만드는 도중 멈춘 파일은 표가 없어 다음에 새로 만든다", async () => {
+test("테이블 생성과 스키마 버전 기록은 한 번에 처리한다: 만드는 도중 멈춘 파일은 테이블이 없어 다음에 새로 만든다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
   const file = path.join(dir, "half.db");
   let stop = true;
   const spec = {
-    label: "시험 DB",
+    label: "테스트 DB",
     fileName: "half.db",
     version: 3,
     synchronous: "NORMAL" as const,
@@ -174,9 +174,9 @@ test("표 만들기와 구조 버전은 한 번에: 만드는 도중 멈춘 파�
   again.close();
 });
 
-test("지운 공간 돌려주기(auto_vacuum): 새 파일에 걸리고, 이 설정 없이 만든 파일은 열 때 바꾼다", async () => {
+test("빈 공간 자동 회수(auto_vacuum): 새 파일에 적용되고, 이 설정 없이 만든 파일은 열 때 전환한다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const modeOf = (file: string, autoVacuum?: "INCREMENTAL") => {
     const one = new DbFile(spec(autoVacuum));
     one.open(file);
@@ -190,9 +190,9 @@ test("지운 공간 돌려주기(auto_vacuum): 새 파일에 걸리고, 이 설�
   assert.equal(modeOf(old, "INCREMENTAL"), 2, "열 때 바꾼다");
 });
 
-test("지운 공간 돌려주기로 바꾸는 VACUUM 이 실패해도(디스크가 모자람 등) 그대로 열고 warn 을 남긴다. 다음에 다시 해 본다", async () => {
+test("빈 공간 자동 회수로 전환하는 VACUUM이 실패해도(디스크 공간 부족 등) 그대로 열고 warn을 남긴다. 다음 기동에 다시 시도한다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "v.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const file = path.join(dir, "full.db");
   const plain = new DbFile(spec());
   plain.open(file);
@@ -221,15 +221,15 @@ test("지운 공간 돌려주기로 바꾸는 VACUUM 이 실패해도(디스크�
   again.close();
 });
 
-test("VACUUM 이 쓰다 실패해도 그만큼 커진 -wal 을 접어 둔다(디스크가 모자랄 때 공간을 돌려준다)", async () => {
+test("VACUUM이 쓰다 실패해도 그만큼 커진 -wal을 비워 줄인다(디스크 공간이 부족할 때 공간을 돌려준다)", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "w.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, blob BLOB)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "w.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, blob BLOB)") });
   const file = path.join(dir, "grown.db");
   const plain = new DbFile(spec());
   plain.open(file);
   plain.close();
 
-  // VACUUM 자리에서 큰 쓰기를 하다 되감고 실패한다. 캐시를 넘친 쪽은 -wal 에 쓰이고 되감아도 파일은 그 크기로 남는다(캐시를 줄여 넘치게 한다)
+  // VACUUM 대신 큰 쓰기를 하다 롤백하고 실패한다. 캐시를 넘친 데이터는 -wal에 쓰이고 롤백해도 파일은 그 크기로 남는다(캐시를 줄여 넘치게 한다)
   const exec = Database.prototype.exec;
   Database.prototype.exec = function (this: Database.Database, sql: string) {
     if (sql !== "VACUUM") return exec.call(this, sql);
@@ -253,18 +253,18 @@ test("VACUUM 이 쓰다 실패해도 그만큼 커진 -wal 을 접어 둔다(디
   }
 });
 
-test("다른 연결이 읽는 중이라 -wal 을 접지 못하면(던지지 않고 busy 로 알린다) warn 을 남긴다", async () => {
+test("다른 연결이 읽는 중이라 -wal을 줄이지 못하면(예외를 던지지 않고 busy로 알린다) warn을 남긴다", async () => {
   const { DbFile } = await import("../../src/store/sqlite.ts");
-  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "시험 DB", fileName: "r.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
+  const spec = (autoVacuum?: "INCREMENTAL") => ({ label: "테스트 DB", fileName: "r.db", version: 1, synchronous: "NORMAL" as const, onMismatch: { lost: "없음" }, autoVacuum, createTables: (db: Database.Database) => void db.exec("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)") });
   const file = path.join(dir, "read.db");
   const plain = new DbFile(spec());
   plain.open(file);
   plain.get().prepare("INSERT INTO t DEFAULT VALUES").run();
-  // 열어 둔 채 읽기 트랜잭션을 쥔다
+  // 열어 둔 채 읽기 트랜잭션을 유지한다
   const reader = new Database(file);
   reader.exec("BEGIN");
   reader.prepare("SELECT COUNT(*) FROM t").get();
-  // VACUUM 은 된 것으로 둔다(읽는 쪽이 있으면 VACUUM 도 기다리다 실패해 시험이 길어진다)
+  // VACUUM은 완료된 것으로 둔다(읽는 쪽이 있으면 VACUUM도 기다리다 실패해 테스트가 길어진다)
   const exec = Database.prototype.exec;
   Database.prototype.exec = function (this: Database.Database, sql: string) {
     return sql === "VACUUM" ? this : exec.call(this, sql);
@@ -275,7 +275,7 @@ test("다른 연결이 읽는 중이라 -wal 을 접지 못하면(던지지 않�
     one.open(file);
     assert.ok(
       sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("-wal")),
-      "접지 못한 것을 알린다",
+      "줄이지 못한 것을 알린다",
     );
   } finally {
     Database.prototype.exec = exec;

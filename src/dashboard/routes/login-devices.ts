@@ -32,13 +32,13 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
       const token = store.readDiscordToken(sid);
       if (token) bestEffort(log, revokeToken(http, token), "다른 기기의 디스코드 토큰 폐기");
     } catch (error) {
-      log.warn(`다른 기기의 디스코드 토큰을 읽지 못해 폐기를 요청하지 않았습니다(세션은 끊습니다): ${messageOf(error)}`);
+      log.warn(`다른 기기의 디스코드 토큰 읽기 실패(폐기 요청 생략, 세션은 끊음): ${messageOf(error)}`);
     }
     forgetGuilds(sid);
     return store.end(sid, userId);
   }
 
-  // 끊은 결과로 답한다(count 는 이번에 끊은 기기). 하나라도 삭제하지 못했으면(지난번 것을 다시 삭제하기 포함) 성공으로 답하지 않는다
+  // 끊은 결과로 답한다(count는 이번에 끊은 기기). 하나라도 삭제하지 못했으면(지난번 것을 다시 삭제하기 포함) 성공으로 답하지 않는다
   function answer(res: express.Response, results: boolean[], retried: boolean[] = []) {
     const unsaved = [...results, ...retried].filter((ok) => !ok).length;
     if (unsaved) return sendProblem(res, "sign-out-unsaved", {}, { signedOutCount: results.filter(Boolean).length, unsavedCount: unsaved });
@@ -57,7 +57,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
   });
 
   // 기기 하나. 지금 기기는 여기서 끊지 않는다(로그아웃으로)
-  // 끊기는 로그인한 지 2분 안(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id 도 바뀐다. 이 기기의 쿠키를 복제한 쪽도 끊긴다)
+  // 끊기는 로그인한 지 2분 안(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id도 바뀐다. 이 기기의 쿠키를 복제한 쪽도 끊긴다)
   const signOutLogin = recentLogin(SIGN_OUT_LOGIN_MS);
 
   router.delete("/:id", requireAuth, signOutLogin, (req, res) => {
@@ -76,7 +76,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const user = signedIn(req);
-    // 지난번에 삭제하지 못한 것(이 실행에서는 이미 끊겨 목록에 없고 토큰 폐기도 했다). 이번에 끊는 것보다 먼저 쥔다(이번 실패를 두 번 세지 않게)
+    // 지난번에 삭제하지 못한 것(이 실행에서는 이미 끊겨 목록에 없고 토큰 폐기도 했다). 이번에 끊는 것보다 먼저 구해 둔다(이번 실패를 두 번 세지 않게)
     const retried = store.unsavedOf(user.id).filter((sid) => sid !== req.sessionID);
     const others = store.sessionsOf(user.id).filter(({ sid }) => sid !== req.sessionID);
     const results = others.map(({ sid }) => signOut(store, sid, user.id));

@@ -128,7 +128,7 @@ function createPinnedAgent(protocol: string, pinnedIp: string, family: number) {
 
 /**
  * 요청 하나를 보낸다. 리다이렉트를 따라가지 않고, 프록시를 타지 않고, 주어진 에이전트(고정 IP)로만 접속한다.
- * 시간 제한은 소켓이 그만큼 조용하면 끊는다(응답을 기다릴 때도, 본문을 받는 중에도). signal 은 응답 헤더가 올 때까지만 본다(그 사유로 끊는다)
+ * 소켓이 제한 시간 동안 조용하면 연결을 끊는다(응답을 기다릴 때도, 본문을 받는 중에도). signal은 응답 헤더가 올 때까지만 본다(그 사유로 끊는다)
  */
 function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Promise<Incoming> {
   const client = url.protocol === "https:" ? https : http;
@@ -137,7 +137,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
       signal?.removeEventListener("abort", stop);
       resolve({ status: res.statusCode ?? 0, headers: res.headers, body: res });
     });
-    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청을 그만둠"));
+    const stop = () => req.destroy(signal?.reason instanceof Error ? signal.reason : new Error("요청이 취소됨"));
     signal?.addEventListener("abort", stop, { once: true });
     req.on("timeout", () => req.destroy(timeoutError(`응답이 ${timeoutMs}ms 동안 없습니다`)));
     req.on("error", (error) => {
@@ -149,7 +149,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
   });
 }
 
-/** 홉 하나를 보낸다. 실패하거나 응답 헤더가 오기 전에 signal 이 끊었으면 소켓을 정리하고 던진다(끊었으면 그 사유로) */
+/** 홉 하나를 보낸다. 실패하거나 응답 헤더가 오기 전에 signal이 끊었으면 소켓을 정리하고 던진다(끊었으면 그 사유로) */
 async function sendHop(request: HttpRequest, outgoing: Outgoing): Promise<Incoming> {
   const { agent, signal } = outgoing;
   let response;
@@ -170,7 +170,7 @@ async function sendHop(request: HttpRequest, outgoing: Outgoing): Promise<Incomi
 /**
  * 가드된 요청 + 수동 리다이렉트 루프. 각 홉을 재검증, 핀 접속한다.
  * 부르는 쪽이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
- * headers: 덧붙일 헤더(Range). signal: 응답 헤더가 올 때까지 끊으면 그 사유로 던진다
+ * headers: 덧붙일 헤더(Range). signal: 응답 헤더가 오기 전에 취소되면 그 사유로 던진다
  */
 async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, { timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, headers = {}, signal }: { timeoutMs?: number; headers?: Record<string, string>; signal?: AbortSignal } = {}) {
   let currentUrl = rawUrl;
@@ -205,7 +205,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
   throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
 }
 
-/** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform. 다시 받아도 같으니 permanent 를 단다 */
+/** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform이다. 다시 받아도 같으니 permanent를 단다 */
 function byteCap(maxBytes: number) {
   let total = 0;
   return new Transform({
@@ -277,7 +277,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
  * accept: 받을 것의 조건(Content-Type, 크기 상한, 홉마다의 응답 대기). 기본은 음원(직접 링크)
  * from, to: 이 바이트 구간을 받는다(Range, to 는 끝 바이트를 포함하고 없으면 끝까지). 서버가 따르지 않을 수 있어 받는 쪽이 상태, 헤더로 확인한다(servedFrom).
  * ifRange: 처음 응답의 강한 ETag 나 Last-Modified. 파일이 바뀌었으면 서버가 구간 대신 전체를 준다(200)
- * signal: 응답 헤더를 기다리는 동안 끊는다(그 사유로 던진다). 본문은 받는 쪽이 부순다
+ * signal: 응답 헤더를 기다리는 동안 취소되면 그 사유로 던진다. 본문은 받는 쪽이 닫는다
  */
 async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from, to, ifRange, signal }: { bodyIdleMs?: number; accept?: Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal } = {}) {
   const { response, agent, finalUrl } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, headers: rangeHeaders(from, to, ifRange), signal });

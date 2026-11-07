@@ -107,8 +107,8 @@ appearanceRouter.put("/favicon/:size", express.raw({ type: "image/*", limit: APP
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
   if (!Buffer.isBuffer(req.body) || !req.body.length) return sendProblem(res, "bad-image");
-  // 본문을 받고 그림을 바꾸는 사이 세션이 끝났으면 쓰지 않는다
-  return changing(req, res, [`${size}px 에 그림을 올렸습니다`, `${size}px 그림 올리기`], () => store.addFavicon(size, req.body as Buffer, () => assertSignedIn(req)));
+  // 본문을 받고 이미지를 바꾸는 사이 세션이 끝났으면 저장하지 않는다
+  return changing(req, res, [`${size}px에 이미지를 업로드했습니다`, `${size}px 이미지 업로드`], () => store.addFavicon(size, req.body as Buffer, () => assertSignedIn(req)));
 });
 
 appearanceRouter.put("/favicon/:size/current", (req, res) => {
@@ -116,19 +116,19 @@ appearanceRouter.put("/favicon/:size/current", (req, res) => {
   if (size === null) return sendProblem(res, "route-not-found");
   const body = parse(FaviconUseBody, req.body ?? {});
   if (!body.ok) return sendProblem(res, body.code);
-  return changing(req, res, [`${size}px 을 기록의 그림으로 바꿨습니다`, `${size}px 기록의 그림으로 바꾸기`], () => store.useFavicon(size, body.value.id));
+  return changing(req, res, [`${size}px을 기록의 이미지로 바꿨습니다`, `${size}px 기록의 이미지로 바꾸기`], () => store.useFavicon(size, body.value.id));
 });
 
 appearanceRouter.delete("/favicon/:size", (req, res) => {
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
-  return changing(req, res, [`${size}px 을 비웠습니다`, `${size}px 비우기`], () => store.clearFavicon(size));
+  return changing(req, res, [`${size}px을 비웠습니다`, `${size}px 비우기`], () => store.clearFavicon(size));
 });
 
 appearanceRouter.delete("/favicon/:size/history/:id", (req, res) => {
   const size = sizeOf(req);
   if (size === null) return sendProblem(res, "route-not-found");
-  return changing(req, res, [`${size}px 의 기록에서 그림을 삭제했습니다`, `${size}px 기록에서 그림 삭제`], () => store.removeFavicon(size, req.params.id));
+  return changing(req, res, [`${size}px의 기록에서 이미지를 삭제했습니다`, `${size}px 기록에서 이미지 삭제`], () => store.removeFavicon(size, req.params.id));
 });
 
 // 기록의 이미지 미리 보기(슬롯 크기 png). id 는 다시 쓰지 않으므로 오래 캐시한다

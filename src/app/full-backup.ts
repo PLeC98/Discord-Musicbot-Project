@@ -51,7 +51,7 @@ async function dbCopy(file: string): Promise<{ file: string; done: () => void }>
   return { file: temp, done };
 }
 
-// 다 쓴 ZIP 을 제 이름으로. 바꾸지 못하면 .part 를 지운다(.env 의 비밀이 평문으로 들어 있어 남기지 않는다)
+// 다 쓴 ZIP을 제 이름으로 바꾼다. 바꾸지 못하면 .part를 삭제한다(.env의 비밀값이 평문으로 들어 있어 남기지 않는다)
 function publish(part: string, out: string) {
   try {
     fs.renameSync(part, out);
@@ -111,7 +111,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
 }
 
 /**
- * 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 를 담았나, favicons, backgrounds: 담은 파비콘 파일, 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null)
+ * 전체 백업 ZIP을 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 포함 여부, favicons, backgrounds: 담은 파비콘 파일과 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null)
  * @param withAudio  오디오 캐시 번들에 캐시 파일까지(기본은 행 목록만)
  */
 async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { withAudio = false }: { withAudio?: boolean } = {}) {
@@ -140,8 +140,8 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
     copy.done();
     audio?.done();
   }
-  // 새 것을 제자리에 둔 뒤 앞의 것을 지운다(그사이 멈춰도 백업이 하나는 있다. 같은 이름이면 바꾸기가 덮는다).
-  // 지우지 못한 것은 남기고 알린다. 새 백업은 이미 제자리에 있다
+  // 새 백업을 제자리에 둔 뒤 이전 백업을 삭제한다(그사이 멈춰도 백업이 하나는 남는다. 이름이 같으면 덮어쓴다).
+  // 삭제하지 못한 것은 남기고 알린다. 새 백업은 이미 제자리에 있다
   const earlier = fs.readdirSync(outDir).filter((one) => /^musicbot-full-.*\.zip$/.test(one));
   publish(part, out);
   ownerOnly(out);

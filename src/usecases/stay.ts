@@ -1,5 +1,5 @@
 // 상주 모드(24/7) 켜기, 끄기(디스코드 /247). 판정과 일은 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
-// 자리는 봇이 지금 있는 채널, 없으면 부른 사람의 채널에 붙은 뒤 그 채널이다(봇을 옮기지 않는다). 머무는 판정은 player/idle-leave 가 자리를 본다.
+// 상주 채널은 봇이 지금 있는 채널이고, 없으면 요청자의 채널에 접속한 뒤 그 채널로 한다(봇을 옮기지 않는다). 상주 판정은 player/idle-leave가 이 설정을 본다.
 // 켜고 끄기는 재생 조작과 같은 DJ 조작이다(checkControl: DJ, 봇이 음성에 있으면 같은 채널)
 
 import { ChannelType, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
@@ -60,8 +60,8 @@ async function turnOff(bot: Pick<Bot, "players">, { guild, member }: { guild: Gu
 }
 
 /**
- * 자리를 지우고 로그를 남기고 대시보드에 알린다(권한은 부르는 쪽이 봤다). /247 끄기와 /leave 가 함께 쓴다. 자리가 없었으면 false.
- * 나갈 시각은 다시 걸지 않는다(끄기가 건다. 나가기는 곧 플레이어를 버리니 걸면 끝난 패널과 나갈 시각 표시가 겹친다)
+ * 상주 설정을 해제하고 로그를 남긴 뒤 대시보드에 알린다(권한은 호출하는 쪽에서 확인한다). /247 끄기와 /leave가 함께 쓴다. 설정된 채널이 없었으면 false다.
+ * 자동 퇴장 타이머는 다시 설정하지 않는다(/247 끄기에서 설정한다. /leave는 곧바로 플레이어를 정리하므로 타이머를 걸면 종료 패널과 퇴장 예정 시각 표시가 겹친다)
  */
 function clearSeat(guild: Guild, by: GuildMember) {
   if (!staySeats.clear(guild.id)) return false;

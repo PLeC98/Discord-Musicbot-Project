@@ -56,7 +56,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
   const fetched = await memberOf(guild, userId);
-  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 핸들러, 경로의 catch 가 401 로)
+  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 핸들러나 라우트의 catch가 401로 처리한다)
   assertSignedIn(req as Request);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
@@ -70,7 +70,7 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }
 
-// 음성 재적 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
+// 음성 채널 접속 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
 // botInVoice/userInVoice를 따로 보면 같은 서버 다른 채널을 구분하지 못한다.
 function voiceFlags(guild: Guild | null | undefined, userId: string | null | undefined) {
   // channelId가 아니라 channel?.id로 읽는다. permissions.ts의 checkVoice와 같은 경로여야

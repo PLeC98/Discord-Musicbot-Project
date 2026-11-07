@@ -45,7 +45,7 @@ let ready = true;
 const guilds = new Map<string, FakeGuild>();
 const client = { isReady: () => ready, guilds: { cache: guilds } };
 
-// 구독을 받으면 보기 권한 확인(canSee), 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full 이면 상한에 찼다(자리를 잡지 못한다)
+// 구독을 받으면 보기 권한 확인(canSee), 멤버로 확인한 서버(guilds)를 적어 두고 연결을 닫는다. full이면 상한에 찼다(슬롯을 잡지 못한다)
 const subscribed: Array<{ canSee: (guildId: string) => boolean; userId: string; guilds: Set<string> }> = [];
 const nudged: string[] = [];
 let full = false;

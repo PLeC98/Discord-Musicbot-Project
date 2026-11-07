@@ -1,5 +1,5 @@
 // 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
-// 권한, 재적, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
+// 권한, 동일 음성 채널, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";

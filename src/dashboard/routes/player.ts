@@ -95,7 +95,7 @@ function readRoutes(router: Router) {
     // 서버 설정(⚙) 진입 가능 여부. 서버 관리자만 (설정 화면 GET 게이트와 동일 기준)
     const manageable = isServerManager(member);
 
-    // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+    // hasPlayer: 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
     res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId } satisfies PlayerRead);
   });
@@ -143,7 +143,7 @@ function joinRoute(router: Router) {
     if (result.kind === "joined") announcer(bot, player)(replies.joined());
     if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.parked));
 
-    // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
+    // 방금 자기 채널로 봇을 불렀으므로 동일 음성 채널 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
     const manageable = isServerManager(member);
@@ -308,7 +308,7 @@ function queueEditRoutes(router: Router) {
 }
 
 // 자동재생. 판정과 일은 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
-// 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 재적 규칙)을 지난 사람만.
+// 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 동일 음성 채널 규칙)을 지난 사람만.
 // 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
 // 그래서 사람마다 한 번에 하나만 찾고(그사이 더 새 검색이 오면 앞 것은 찾지 않는다), 일반 API 한도에서 빼 검색만의 한도로 센다(치는 대로 오는 검색이 재생 조작의 몫을 먹지 않게)
 function searchRoute(router: Router) {
@@ -384,7 +384,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
+  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -393,7 +393,7 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(재적 규칙)
+    // 곡 추가 권한(동일 음성 채널 규칙)
     const err = checkAdd(actor.member);
     if (err) return sendProblem(res, err);
 
@@ -437,7 +437,7 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(재적 규칙)
+    // 곡 추가 권한(동일 음성 채널 규칙)
     const err = checkAdd(actor.member);
     if (err) return sendProblem(res, err);
 

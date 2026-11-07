@@ -170,7 +170,7 @@ test("응답 없는 실패의 종류", () => {
   assert.equal(failureKind(undefined), null);
 });
 
-// 계정이 바뀐 탭: 이 탭의 사용자를 싣고, 서버가 account-changed 로 거절하면 알리고 그 뒤로 보내지 않는다
+// 계정이 바뀐 탭: 이 탭의 사용자를 싣고, 서버가 account-changed로 거절하면 알리고 그 뒤로 보내지 않는다
 test("이 탭의 사용자를 싣는다. 계정을 알아보는 요청, 로그아웃, CSRF 토큰 받기에는 싣지 않는다", async () => {
   const { http, sent } = harness((req) => tokenRoute(req) ?? {}, { user: "A" });
   await http.get("/api/guilds");
@@ -191,7 +191,7 @@ test("이 탭의 사용자를 싣는다. 계정을 알아보는 요청, 로그�
   );
 });
 
-test("account-changed 를 받으면 알리고, 토큰을 버리고, 다시 보내지도 세션 끝으로 돌리지도 않는다", async () => {
+test("account-changed를 받으면 알리고, 토큰을 버리고, 다시 보내지도 세션 끝으로 돌리지도 않는다", async () => {
   const { http, sent, changed, ends } = harness((req) => tokenRoute(req) ?? { problem: "account-changed" }, { user: "A" });
   await assert.rejects(http.post("/api/x"));
   assert.deepEqual(changed, ["changed"]);
@@ -199,11 +199,11 @@ test("account-changed 를 받으면 알리고, 토큰을 버리고, 다시 보�
   assert.equal(sent.filter((one) => one.url === "/api/x").length, 1, "새 토큰으로 다시 보내지 않는다");
 });
 
-test("막힌 뒤로는 보내지 않고(알림 없는 끊음으로) 거절한다. 계정을 알아보는 요청과 로그아웃은 보낸다. 토큰을 기다리는 사이 막혀도 보내지 않는다", async () => {
+test("막힌 뒤로는 보내지 않고(알림 없는 취소로) 거절한다. 계정을 알아보는 요청과 로그아웃은 보낸다. 토큰을 기다리는 사이 막혀도 보내지 않는다", async () => {
   const blocked = { on: true };
   const { http, sent } = harness((req) => tokenRoute(req) ?? {}, { user: "A", blocked });
   const refused = await http.post("/api/x").catch((error: unknown) => error);
-  assert.equal(failureKind(refused), "aborted", "알림을 띄우지 않는다(막힘 대화상자가 알린다)");
+  assert.equal(failureKind(refused), "aborted", "알림을 표시하지 않는다(막힘 대화상자가 알린다)");
   await assert.rejects(http.get("/api/guilds"));
   await http.get("/api/me", { quietSession: true });
   await http.post("/auth/logout", undefined, { quietSession: true });

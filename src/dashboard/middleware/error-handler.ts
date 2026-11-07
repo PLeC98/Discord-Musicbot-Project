@@ -60,14 +60,14 @@ function notFoundJson(req: Request, res: Response, next: NextFunction) {
   sendProblem(res, "route-not-found");
 }
 
-// 본문을 받다 연결이 끊겼다(봇이 소켓을 부쉈거나 받던 쪽이 끊음)
+// 본문을 받는 중 연결이 끊겼다(봇이 소켓을 강제로 닫았거나 클라이언트가 끊음)
 function cutShort(err: unknown) {
   const { type, code } = fieldsOf(err);
   return type === "request.aborted" || code === "ECONNABORTED";
 }
 
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
-  // 진행 중에 세션이 끝나 멈췄다(바꾸는 자리 앞의 확인, 봇이 끊은 업로드의 본문 받기 실패). 사용자 때문이고 그 사용자만, 봇에 영향 없음.
+  // 요청 처리 중 세션이 끝나 중단됐다(상태 변경 직전의 세션 확인, 봇이 끊은 업로드의 본문 수신 실패). 해당 사용자의 세션 문제라 봇에는 영향이 없다.
   // 그 밖의 오류는 끝난 요청이어도 아래로 간다(봇 버그를 숨기지 않는다)
   if (err instanceof SessionEndedError || (isEnded(req) && cutShort(err))) {
     log.debug(`${req.method} ${req.originalUrl} → 401 세션이 진행 중에 끝남`);

@@ -1,5 +1,5 @@
-// src/dashboard/index.ts 의 createSessionMiddleware, cookies.ts: 세션 쿠키 이름은 요청마다. HTTPS(믿는 프록시가 알림)면 __Host- 이름에 Secure,
-// 평문이면 일반 이름(지금 되는 배치를 로그인 불가로 바꾸지 않는다). 두 이름이 같은 저장소의 세션을 쓴다. 임시 DB
+// src/dashboard/index.ts의 createSessionMiddleware, cookies.ts: 세션 쿠키 이름은 요청마다 정한다. HTTPS(신뢰하는 프록시가 알림)면 __Host- 이름에 Secure를 붙이고,
+// 평문이면 일반 이름을 쓴다(기존 배포 환경을 로그인 불가로 바꾸지 않는다). 두 이름이 같은 저장소의 세션을 쓴다. 임시 DB를 쓴다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -37,7 +37,7 @@ after(() => {
 
 const HTTPS = { "x-forwarded-proto": "https" };
 
-test("HTTPS 요청이면 __Host- 이름에 Secure, Path=/, Domain 없음", async () => {
+test("HTTPS 요청이면 __Host- 이름에 Secure, Path=/가 붙고 Domain은 없다", async () => {
   const [cookie] = (await fetch(`${base}/login`, { method: "POST", headers: HTTPS })).headers.getSetCookie();
   assert.ok(cookie.startsWith(`${sessionCookieName(true)}=`), cookie);
   assert.match(sessionCookieName(true), /^__Host-/);
@@ -46,7 +46,7 @@ test("HTTPS 요청이면 __Host- 이름에 Secure, Path=/, Domain 없음", async
   assert.doesNotMatch(cookie, /Domain=/i);
 });
 
-test("평문 요청이면 일반 이름, Secure 없음(로그인이 그대로 된다). 두 이름 모두 같은 저장소의 세션을 읽는다", async () => {
+test("평문 요청이면 일반 이름에 Secure가 없다(로그인이 그대로 된다). 두 이름 모두 같은 저장소의 세션을 읽는다", async () => {
   const [plain] = (await fetch(`${base}/login`, { method: "POST" })).headers.getSetCookie();
   assert.ok(plain.startsWith(`${sessionCookieName(false)}=`), plain);
   assert.doesNotMatch(plain, /Secure/);

@@ -1,4 +1,4 @@
-// 시험의 기준: src/rules/ko-search.ts 와 같은 규칙을 자모로 풀어 찾는 단순한 구현. 정규식 구현과 무작위 입력으로 대 본다
+// 테스트 기준 구현: src/rules/ko-search.ts와 같은 규칙을 자모로 풀어 찾는 단순한 구현이다. 정규식 구현과 무작위 입력으로 비교한다
 
 const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 const JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
@@ -70,7 +70,7 @@ function initialMatches(t: string, bare: string, all: boolean): Range[] {
   return out;
 }
 
-/** 겹치는 자리를 합친다 */
+/** 겹치는 구간을 합친다 */
 function merge(ranges: Range[]): Range[] {
   const out: Range[] = [];
   for (const r of [...ranges].sort((x, y) => x[0] - y[0])) {
@@ -91,15 +91,15 @@ function find(t: string, q: string, all: boolean): Range[] {
 
 const tidy = (s: string) => s.normalize("NFC").toLowerCase();
 
-/** text 에서 query 를 찾는다 */
+/** text에서 query를 찾는다 */
 export function koMatch(text: string, query: string): boolean {
   const q = tidy(query.trim());
   return !q || find(tidy(text), q, false).length > 0;
 }
 
 /**
- * text 에서 query 가 맞은 자리 [시작, 끝) 들(koMatch 와 같은 규칙, 겹치지 않게 앞에서부터). 맞은 글자를 칠할 때.
- * 다듬으면 글자 수가 바뀌는 글(NFC 로 합쳐지는 자모 등)은 자리를 되짚을 수 없어 빈 목록이다
+ * text에서 query가 맞은 구간 [시작, 끝) 목록을 돌려준다(koMatch와 같은 규칙, 겹치지 않게 앞에서부터). 맞은 글자를 강조할 때 쓴다.
+ * 정규화하면 글자 수가 바뀌는 문자열(NFC로 합쳐지는 자모 등)은 위치를 되짚을 수 없어 빈 목록을 돌려준다
  */
 export function koRanges(text: string, query: string): Range[] {
   const q = tidy(query.trim());
@@ -108,7 +108,7 @@ export function koRanges(text: string, query: string): Range[] {
   return find(t, q, true);
 }
 
-/** text 가 query 로 시작하는지(koMatch 와 같은 규칙, 맨 앞에서만). 앞에서 걸리는 것을 먼저 보일 때 */
+/** text가 query로 시작하는지 확인한다(koMatch와 같은 규칙, 맨 앞에서만). 앞에서 걸리는 것을 먼저 보여 줄 때 쓴다 */
 export function koStarts(text: string, query: string): boolean {
   const q = query.trim().normalize("NFC").toLowerCase();
   if (!q) return true;

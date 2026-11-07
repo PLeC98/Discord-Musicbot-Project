@@ -108,7 +108,7 @@ test("없는 이름, 폴더 밖 이름, 구조 버전이 다른 스냅샷은 예
   assert.equal(snapshots.staged(), null);
 });
 
-test("같은 초에 두 번 떠도 앞 복원점을 덮지 않는다(꼬리 -2), 꼬리가 붙은 것도 예약할 수 있다", async () => {
+test("같은 초에 두 번 떠도 앞선 스냅샷을 덮어쓰지 않고(-2 접미사), 접미사가 붙은 것도 예약할 수 있다", async () => {
   const at = new Date(2026, 9, 11, 9, 0, 0);
   settingsDocs.write("status", { messages: ["첫째"] }, 0);
   const first = await snapshots.take("before-import", at);
@@ -125,7 +125,7 @@ test("같은 초에 두 번 떠도 앞 복원점을 덮지 않는다(꼬리 -2),
   assert.equal(snapshots.staged(), second);
 });
 
-test("뜨다 멈춰 남은 .part 는 한 시간이 지나면 지우고, 뜨는 중일 수 있는 새 것은 둔다", async () => {
+test("뜨다 멈춰 남은 .part는 한 시간이 지나면 삭제하고, 뜨는 중일 수 있는 새 파일은 둔다", async () => {
   fs.mkdirSync(backups, { recursive: true });
   const stale = path.join(backups, "settings-before-import-2026-11-01-000000.db.part");
   const fresh = path.join(backups, "settings-before-import-2026-11-06-000000.db.part");
@@ -138,7 +138,7 @@ test("뜨다 멈춰 남은 .part 는 한 시간이 지나면 지우고, 뜨는 �
   assert.equal(fs.existsSync(fresh), true);
 });
 
-test("뜬 스냅샷은 읽기 전용으로 열어도(복원 예약의 구조 확인, 사용자의 뷰어) 곁 파일(-wal, -shm)이 생기지 않는다", async () => {
+test("뜬 스냅샷은 읽기 전용으로 열어도(복원 예약 시 스키마 확인, 외부 뷰어 열람) 보조 파일(-wal, -shm)이 생기지 않는다", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   snapshots.stage(name);
   const viewer = new Database(path.join(backups, name), { readonly: true });
@@ -150,7 +150,7 @@ test("뜬 스냅샷은 읽기 전용으로 열어도(복원 예약의 구조 확
   );
 });
 
-test("지운 스냅샷의 곁 파일, 본 파일 없이 남은 곁 파일도 지운다", async () => {
+test("삭제한 스냅샷의 보조 파일, 본 파일 없이 남은 보조 파일도 삭제한다", async () => {
   fs.mkdirSync(backups, { recursive: true });
   for (const side of ["-wal", "-shm"]) fs.writeFileSync(path.join(backups, `settings-daily-2026-01-01.db${side}`), "");
   await snapshots.take("before-import");
@@ -160,25 +160,25 @@ test("지운 스냅샷의 곁 파일, 본 파일 없이 남은 곁 파일도 지
   );
 });
 
-test("옛 스냅샷을 지우지 못해도(다른 프로그램이 열어 둠) 뜨기는 성공하고 다음에 다시 지운다", async () => {
+test("오래된 스냅샷을 삭제하지 못해도(다른 프로그램이 열어 둠) 뜨기는 성공하고 다음에 다시 삭제한다", async () => {
   fs.mkdirSync(backups, { recursive: true });
-  // 지우지 못하는 옛 것(이름만 같은 폴더는 rmSync 가 지우지 못한다). 매일 것 7개를 넘게
+  // 삭제하지 못하는 오래된 항목(이름만 같은 폴더는 rmSync가 삭제하지 못한다). 일일 스냅샷을 7개 넘게 만든다
   const stuck = path.join(backups, "settings-daily-2026-01-01.db");
   fs.mkdirSync(path.join(stuck, "안"), { recursive: true });
   const old = new Date(2026, 0, 1);
   fs.utimesSync(stuck, old, old);
   for (let d = 2; d <= 9; d++) await snapshots.take("daily", new Date(2026, 9, d));
-  assert.ok(fs.existsSync(stuck), "지우지 못했다");
+  assert.ok(fs.existsSync(stuck), "삭제하지 못했다");
   assert.equal(snapshots.list().filter((one) => one.kind === "daily" && one.name !== "settings-daily-2026-01-01.db").length, 7);
 });
 
-test("매일 것: 뜨다 죽어 남은 .part 가 있어도 그날 것을 뜬다", async () => {
+test("일일 스냅샷: 뜨다 죽어 남은 .part가 있어도 그날 스냅샷을 뜬다", async () => {
   fs.mkdirSync(backups, { recursive: true });
   fs.writeFileSync(path.join(backups, "settings-daily-2026-10-10.db.part"), "반쯤 뜬 것");
   assert.equal(await snapshots.take("daily", new Date(2026, 9, 10)), "settings-daily-2026-10-10.db");
 });
 
-test("새 PC 에 전체 백업을 풀었을 때(settings.db, backups 없이 예약만): 교체하고 기동을 멈추지 않는다", async () => {
+test("새 PC에 전체 백업을 풀었을 때(settings.db, backups 없이 예약만): 교체하고 기동을 멈추지 않는다", async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 10));
   const fresh = fs.mkdtempSync(path.join(path.dirname(store.dir), "fresh-"));
   fs.copyFileSync(path.join(backups, name), path.join(fresh, "settings.restore.db"));
@@ -187,8 +187,8 @@ test("새 PC 에 전체 백업을 풀었을 때(settings.db, backups 없이 예�
   fs.rmSync(fresh, { recursive: true, force: true });
 });
 
-// 다른 프로그램이 앞 시점을 읽고 있으면 -wal 을 본체에 다 접지 못한다(Windows 는 열린 파일을 지우지 못해 교체가 RESTORE_FAILED 로 멈추므로 거기까지 가지 않는다)
-test("복원 전 사본: 다른 읽는 쪽이 있어 -wal 을 접지 못해도 -wal 에만 있는 내용까지 남긴다", { skip: process.platform === "win32" ? "Windows 는 열린 settings.db 를 지우지 못한다" : false }, async () => {
+// 다른 프로그램이 이전 시점을 읽고 있으면 -wal을 본 파일에 다 반영하지 못한다(Windows는 열린 파일을 삭제하지 못해 교체가 RESTORE_FAILED로 멈추므로 거기까지 가지 않는다)
+test("복원 전 사본: 다른 연결이 읽는 중이라 -wal을 반영하지 못해도 -wal에만 있는 내용까지 남긴다", { skip: process.platform === "win32" ? "Windows는 열린 settings.db를 삭제하지 못한다" : false }, async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 12));
   snapshots.stage(name);
   stores.close();
@@ -210,7 +210,7 @@ test("복원 전 사본: 다른 읽는 쪽이 있어 -wal 을 접지 못해도 -
   const kept = snapshots.list().find((one) => one.kind === "before-restore")!;
   const db = new Database(path.join(backups, kept.name), { readonly: true });
   try {
-    assert.ok(db.prepare("SELECT 1 FROM documents WHERE name = 'wal-only'").get(), "-wal 에만 있던 행");
+    assert.ok(db.prepare("SELECT 1 FROM documents WHERE name = 'wal-only'").get(), "-wal에만 있던 행");
   } finally {
     db.close();
   }

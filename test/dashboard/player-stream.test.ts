@@ -213,7 +213,7 @@ test("설정 객체를 넘기면 상한, 하트비트를 다시 시작하지 않
   mock.timers.reset();
 });
 
-test("reserve: 상한의 한 칸을 먼저 잡는다(멤버 확인 전에). 연결이 닫히면 그 칸이 풀리고, 풀기는 몇 번 불러도 한 번", () => {
+test("reserve: 상한의 슬롯 하나를 먼저 잡는다(멤버 확인 전에). 연결이 닫히면 그 슬롯이 풀리고, 풀기는 몇 번 불러도 한 번", () => {
   const held = [];
   for (let i = 0; i < maxPerUser; i++) {
     const r = makeRes();
@@ -226,11 +226,11 @@ test("reserve: 상한의 한 칸을 먼저 잡는다(멤버 확인 전에). 연�
   assert.ok(slot);
   slot.release();
   slot.release();
-  assert.equal(DashboardEvents.perKey.get("evCap"), maxPerUser - 1, "두 번 풀어도 한 칸");
+  assert.equal(DashboardEvents.perKey.get("evCap"), maxPerUser - 1, "두 번 풀어도 슬롯 하나");
   for (const r of held.slice(1)) r.emit("close");
 });
 
-test("open: 잡은 칸으로 연다. 그사이 닫힌 연결은 열지 않고 칸은 부른 쪽이 푼다. drop 은 닫힘을 기다리지 않고 뺀다", () => {
+test("open: 잡은 슬롯으로 연다. 그사이 닫힌 연결은 열지 않고 슬롯은 부른 쪽이 푼다. drop은 닫힘을 기다리지 않고 뺀다", () => {
   const slot = DashboardEvents.reserve("evOpen")!;
   const closed = makeClosed();
   assert.equal(DashboardEvents.open(closed, slot, sees()), false);

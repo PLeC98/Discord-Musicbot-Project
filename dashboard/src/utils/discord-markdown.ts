@@ -143,7 +143,7 @@ export function discordMarkdown(text: string): string {
           const items = b.lines.map((l) => {
             const depth = Math.min(2, Math.floor((/^\s*/.exec(l)?.[0].length ?? 0) / 2));
             const content = l.replace(/^\s*(?:[-*]|\d+\.) /, "");
-            // 들여쓰기는 클래스로(CSP 가 style 속성을 막는다)
+            // 들여쓰기는 클래스로 처리한다(CSP가 style 속성을 막는다)
             return depth ? `<li class="dmd-depth-${depth}">${inline(content)}</li>` : `<li>${inline(content)}</li>`;
           });
           const start = b.kind === "ol" ? Number(/\d+/.exec(b.lines[0])?.[0] ?? 1) : 1;

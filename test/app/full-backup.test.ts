@@ -78,9 +78,9 @@ test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으�
   if (process.platform !== "win32") assert.equal(fs.statSync(second.file).mode & 0o777, 0o600);
 });
 
-test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다. 지우지 못한 것을 알린다", async () => {
+test("이전 백업을 삭제하지 못해도 새 백업은 남기고 성공한다. 삭제하지 못한 것을 알린다", async () => {
   const stuckOut = path.join(work, "stuck-out");
-  // 지우지 못하는 앞의 백업(이름만 같은 폴더는 rmSync 가 지우지 못한다)
+  // 삭제하지 못하는 이전 백업이다(이름만 같은 폴더는 rmSync가 삭제하지 못한다)
   const stuck = path.join(stuckOut, "musicbot-full-20261001-0900.zip");
   fs.mkdirSync(path.join(stuck, "안"), { recursive: true });
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: stuckOut }, new Date(2026, 9, 13, 9, 0));
@@ -89,9 +89,9 @@ test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다.
   assert.deepEqual(made.replaced, []);
 });
 
-test("다 쓴 ZIP 의 이름 바꾸기가 실패하면(같은 이름의 폴더) 비밀이 든 .part 를 지우고 실패한다", async () => {
+test("다 쓴 ZIP의 이름 바꾸기가 실패하면(같은 이름의 폴더) 비밀값이 든 .part를 삭제하고 실패한다", async () => {
   const blockedOut = path.join(work, "rename-out");
-  // 바꿀 이름에 비지 않은 폴더가 있다
+  // 바꿀 경로에 비어 있지 않은 폴더가 있다
   fs.mkdirSync(path.join(blockedOut, "musicbot-full-20261014-0900.zip", "안"), { recursive: true });
   await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: blockedOut }, new Date(2026, 9, 14, 9, 0)));
   assert.ok(!fs.existsSync(path.join(blockedOut, "musicbot-full-20261014-0900.zip.part")));

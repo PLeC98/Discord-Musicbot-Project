@@ -17,7 +17,7 @@ import { FILE_PAGE_LINES, FILE_PAGE_MAX, LOG_SEARCH_MAX, type FileLine, type Fil
 const log = logger.child({ category: "dashboard" });
 
 const logFilesRouter = express.Router();
-// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+// 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
 logFilesRouter.use(requireOwner);
 
 function intOf(raw: unknown): number | undefined {
@@ -44,8 +44,8 @@ function targetOf(req: Request) {
 }
 
 /**
- * 오래 읽는 동안 멈출 때. left 는 받는 쪽이 떠났다(답하지 않는다), stop 은 그것이나 이 로그인이 끝났다
- * (끝난 GET 의 답은 세션 쪽이 401 로 바꾼다)
+ * 오래 읽는 작업을 중단할지 확인한다. left는 클라이언트가 연결을 끊었는지(응답하지 않는다), stop은 연결이 끊겼거나 현재 로그인 세션이 끝났는지를 나타낸다
+ * (세션이 끝난 GET 요청의 응답은 세션 미들웨어가 401로 바꾼다)
  */
 function watchLeave(req: Request, res: Response) {
   let gone = false;
@@ -72,12 +72,12 @@ logFilesRouter.get("/file", async (req, res) => {
   res.json(page satisfies FilePage);
 });
 
-/** 걸러 낸 줄의 묶음을 글 조각으로 */
+/** 필터링한 줄의 배치를 문자열 청크로 변환한다 */
 async function* downloadText(batches: AsyncGenerator<FileLine[]>, offset: number): AsyncGenerator<string> {
   for await (const lines of batches) yield lines.map((line) => `${formatLogLine(line, offset)}\n`).join("");
 }
 
-// 다운로드: 화면과 같은 열(가린 것)을 지금 건 필터 그대로. 원본은 서버의 로그 폴더에 있다.
+// 다운로드: 화면에 표시하는 필드만 현재 적용된 필터 그대로 내보낸다. 원본은 서버의 로그 폴더에 있다.
 // 받는 쪽이 읽는 만큼만 읽어 보내고, 끊기면(로그인이 끝나 끊은 것도) 멈추고 파일을 닫는다
 logFilesRouter.get("/file/download", async (req, res) => {
   const target = targetOf(req);
@@ -86,10 +86,10 @@ logFilesRouter.get("/file/download", async (req, res) => {
   const name = `${path.basename(target.name, path.extname(target.name))}.txt`;
   res.type("text/plain; charset=utf-8").attachment(name);
   try {
-    // 바이트 단위 스트림으로: 쌓아 두는 양을 조각 수가 아니라 바이트로 센다
+    // 바이트 단위 스트림으로 만든다: 버퍼에 쌓아 두는 양을 청크 수가 아니라 바이트로 센다
     await pipeline(Readable.from(downloadText(filteredLines(target, filterOf(req)), offset), { objectMode: false }), res);
   } catch (error) {
-    // 끊긴 응답은 받는 쪽이 덜 받은 것을 안다(pipeline 이 응답을 부순다)
+    // 중간에 끊긴 응답은 pipeline이 스트림을 강제로 닫으므로 받는 쪽이 덜 받은 것을 안다
     if (codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") log.debug(`로그 파일 다운로드 중단: ${target.name}`);
     else log.warn(`로그 파일 다운로드 실패: ${target.name}: ${messageOf(error)}`);
   }

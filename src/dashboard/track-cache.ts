@@ -163,7 +163,7 @@ const KEY_OF: Record<TrackCacheTable, string> = { requests: "requestKey", files:
 
 // ── 읽기 ──
 
-/** 필터링 한 번의 시간 상한(정규식 밖, 정규식은 dashboard/regex-filter 의 상한). 음악 재생과 같은 이벤트 루프라 길게 막지 않는다 */
+/** 필터링 한 번의 시간 상한(정규식 제외, 정규식은 dashboard/regex-filter의 상한). 음악 재생과 같은 이벤트 루프라 길게 막지 않는다 */
 const FILTER_TIME_MS = 100;
 // 시각을 이 행 수마다 본다
 const FILTER_CHECK_EVERY = 256;
@@ -231,7 +231,7 @@ function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } 
 
 const problemOf = (pointer: string, problem: { code: Code; max?: number }): FieldProblem => ({ pointer, code: problem.code, ...(problem.max ? { max: problem.max } : {}) });
 
-// 열마다의 식과 아무 열에서나의 단어를 읽어 행 하나를 보는 함수로. 정규식은 따로(regexes, 따로 도는 스레드에서 맞춘다)
+// 열별 필터 식과 전체 열 검색어를 읽어 행 하나를 검사하는 함수를 만든다. 정규식은 따로 추려 별도 스레드에서 검사한다
 function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) => boolean; regexes: Array<{ column: string; source: string }> } | Refusal {
   const kinds = TRACK_CACHE_COLUMN_KINDS[query.table] as Record<string, ColumnKind>;
   const errors: FieldProblem[] = [];
@@ -258,7 +258,7 @@ function matcherOf(query: TrackCacheQuery): { ok: true; matches: (row: AnyRow) =
   return { ok: true, matches: (row) => inColumns(row) && inAny(row), regexes };
 }
 
-// 다른 조건에 맞은 행 가운데 정규식에도 맞는 것. 시간 상한을 넘기면 "timeout", 부른 쪽이 버렸으면 "aborted"
+// 다른 조건에 맞는 행 가운데 정규식에도 맞는 행만 추린다. 시간 상한을 넘기면 "timeout", 호출한 쪽이 취소했으면 "aborted"를 돌려준다
 async function withRegexes(rows: AnyRow[], regexes: Array<{ column: string; source: string }>, signal?: AbortSignal): Promise<AnyRow[] | "timeout" | "aborted"> {
   if (!regexes.length || !rows.length) return rows;
   const valueOf = (row: AnyRow, column: string) => {
@@ -274,7 +274,7 @@ async function withRegexes(rows: AnyRow[], regexes: Array<{ column: string; sour
 }
 
 type Read = { ok: true; page: TrackCachePage } | Refusal;
-/** 표 하나의 구간. 필터, 정렬은 메모리에서(SQL 을 만들지 않는다). signal: 부른 쪽이 기다리다 버리면(연결이 닫힘) 정규식을 맞추지 않고 null */
+/** 표 하나의 구간을 읽는다. 필터, 정렬은 메모리에서 한다(SQL을 만들지 않는다). signal: 호출한 쪽이 기다리다 취소하면(연결이 닫힘) 정규식을 검사하지 않고 null을 돌려준다 */
 async function read(query: TrackCacheQuery): Promise<Read>;
 async function read(query: TrackCacheQuery, options: { signal: AbortSignal }): Promise<Read | null>;
 async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal } = {}): Promise<Read | null> {
@@ -282,7 +282,7 @@ async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal }
   const matcher = matcherOf(query);
   if (!matcher.ok) return matcher;
   const src = load();
-  // 행과 같은 때의 버전(정규식을 기다리는 사이 바뀐 것은 다음 확인이 잡는다)
+  // 행을 읽은 시점의 버전을 함께 읽는다(정규식을 기다리는 사이 바뀐 것은 다음 확인이 잡는다)
   const { revision, checkRevision } = cacheRevision();
   const all: AnyRow[] = table === "requests" ? requestRows(src) : table === "files" ? fileRows(src) : ageRows(src);
   const started = performance.now();
@@ -295,10 +295,10 @@ async function read(query: TrackCacheQuery, { signal }: { signal?: AbortSignal }
   try {
     matched = await withRegexes(plain, matcher.regexes, signal);
   } catch (error) {
-    log.warn(`캐시 DB 의 정규식 필터를 맞추지 못했습니다: ${messageOf(error)}`);
+    log.warn(`캐시 DB의 정규식 필터 검사 실패: ${messageOf(error)}`);
     return refusal("filter-failed");
   }
-  // 돌던 맞추기는 끝까지 두므로, 끝난 뒤에도 그사이 버려졌는지 본다
+  // 이미 실행 중이던 정규식 검사는 끝까지 돌리므로, 끝난 뒤에도 그사이 취소되었는지 확인한다
   if (matched === "aborted" || signal?.aborted) return null;
   if (matched === "timeout") return refusal("filter-timeout");
   const key = KEY_OF[table];
@@ -365,7 +365,7 @@ const targetOf = (op: TrackCacheOp) => (op.op === "deleteFile" ? op.audioKey : o
 /**
  * 조작 목록을 쓴다. 모두 검사해 하나라도 걸리면 아무것도 쓰지 않고 거절한다. 결과는 조작 순서 그대로(모두 되거나 모두 안 됨으로 묶지 않는다).
  * @param by  로그에 남길 실행한 사람
- * @param go  바꾸기 앞의 확인(대시보드: 세션이 살아 있나). DB 조작은 기다림 없이 먼저 해 확인이 필요 없고, 파일 삭제만이면 첫 삭제의 정리 잠금 뒤에 본다.
+ * @param go  변경 직전 확인(대시보드: 세션이 살아 있나). DB 조작은 비동기 대기 없이 먼저 실행하므로 확인이 필요 없고, 파일 삭제만 있을 때는 첫 삭제에서 정리 잠금을 잡은 뒤에 확인한다.
  *            한 번 바꾼 뒤에는 끝까지 한다
  */
 async function write(input: TrackCacheOp[], by: string, go?: () => void): Promise<{ ok: true; written: TrackCacheWritten } | Refusal> {

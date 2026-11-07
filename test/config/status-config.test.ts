@@ -178,7 +178,7 @@ const NOT_READY = { isReady: () => false };
 // 건 활동. 여기서 보는 필드만
 type Activity = { name: string; type: number };
 
-// ready: 게이트웨이가 준비됐나(client.isReady). 끄기 시작하면 거짓이 된다
+// ready: 게이트웨이 준비 여부다(client.isReady). 종료를 시작하면 false가 된다
 function presenceClient() {
   const set: Activity[] = [];
   const state = { ready: true };
@@ -231,7 +231,7 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
   manager.stop(); // 두 번 불러도 된다
 });
 
-test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) 보내지 않는다. 끄는 중에 보내면 discord.js 가 잡지 않는 거절을 낸다", (t) => {
+test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) 보내지 않는다. 끄는 중에 보내면 discord.js가 잡지 않는 rejection을 낸다", (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { set, state, client } = presenceClient();
   const manager = new StatusManager(client, { load: () => ({ interval: 10, messages: ["하나", "둘"] }) });
@@ -243,7 +243,7 @@ test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) �
   assert.equal(set.length, 1);
   state.ready = false;
   t.mock.timers.tick(30_000);
-  assert.equal(set.length, 1, "끄는 중의 차례");
+  assert.equal(set.length, 1, "끄는 중의 주기에는 보내지 않는다");
   manager.stop();
 });
 

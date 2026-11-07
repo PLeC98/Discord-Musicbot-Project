@@ -287,7 +287,7 @@ test("받는 중에 데이터가 멈추면 정체로 보고 다시 요청한다"
   assert.deepEqual(await collect(s), body);
 });
 
-test("계속 멈춰 다시 요청을 다 쓰면 시간 초과(TimeoutError, STREAM_STALL)로 끝난다", async () => {
+test("계속 멈춰 재시도를 다 쓰면 시간 초과(TimeoutError, STREAM_STALL)로 끝난다", async () => {
   const body = makeBody(30_000);
   const s = createChunkedStream({
     url: URL_,
@@ -295,7 +295,7 @@ test("계속 멈춰 다시 요청을 다 쓰면 시간 초과(TimeoutError, STRE
     chunkSize: 30_000,
     ...FAST,
     stallMs: 30,
-    // 받는 만큼 다시 셈이 처음으로 돌아가므로, 한 바이트도 안 오게 멈춘다
+    // 바이트를 받으면 재시도 횟수가 초기화되므로, 한 바이트도 안 오게 멈춘다
     fetchImpl: fakeFetch(body, { sliceBytes: 1000, plan: () => ({ hangAfter: 0 }) }),
   });
   const error = await collect(s).then(
@@ -667,9 +667,9 @@ test("totalBytes, chunkSize가 올바르지 않으면 만들 때 거부한다", 
 });
 
 // ── 응답의 길이와 구간 ───────────────────────────────────────
-// 206 에는 Content-Range 가 있어야 한다(RFC 9110). 없이 0 부터 주면 같은 바이트가 두 번 들어간다. 더 보내는 서버의 남은 본문은 연결을 붙잡는다
+// 206에는 Content-Range가 있어야 한다(RFC 9110). 없이 0부터 주면 같은 바이트가 두 번 들어간다. 더 보내는 서버의 남은 본문은 연결을 붙잡는다
 
-// 요청마다 신호가 끊겼는지 적는 가짜. reply(start, end) 가 응답 모양을 정한다
+// 요청마다 신호가 끊겼는지 기록하는 가짜. reply(start, end)가 응답 모양을 정한다
 function scriptedFetch(reply: (start: number, end: number) => { status: number; range: string | null; payload: Buffer; endless?: boolean }) {
   const signals: AbortSignal[] = [];
   const fetchImpl: RangeFetch = async (_url, opts) => {
@@ -690,7 +690,7 @@ function scriptedFetch(reply: (start: number, end: number) => { status: number; 
               off += v.length;
               return { done: false as const, value: new Uint8Array(v) };
             }
-            // 끝없이 더 보내는 서버: 끊기 전까지 같은 덩이
+            // 끝없이 더 보내는 서버: 끊기 전까지 같은 청크를 보낸다
             if (endless) return { done: false as const, value: new Uint8Array(4096) };
             return { done: true as const, value: undefined };
           },
@@ -701,7 +701,7 @@ function scriptedFetch(reply: (start: number, end: number) => { status: number; 
   return { fetchImpl, signals };
 }
 
-test("이어 받는 206 에 Content-Range 가 없으면 다시 받지 않는 실패(같은 바이트를 두 번 넣지 않는다)", async () => {
+test("이어받는 206에 Content-Range가 없으면 재시도하지 않는 실패로 끝난다(같은 바이트를 두 번 넣지 않는다)", async () => {
   const body = makeBody(20_000);
   const { fetchImpl } = scriptedFetch((start, end) => (start === 0 ? { status: 206, range: `bytes 0-9999/${body.length}`, payload: body.subarray(0, 10_000) } : { status: 206, range: null, payload: body.subarray(0, end - start + 1) }));
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });

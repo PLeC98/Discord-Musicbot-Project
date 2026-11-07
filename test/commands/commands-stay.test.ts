@@ -1,4 +1,4 @@
-// src/discord/commands/247.ts: 켜기는 음성에 붙느라 몇 초 걸려 미뤄 두는데, 거절이 채널에 비치지 않게 본인에게만 미룬다
+// src/discord/commands/247.ts: 켜기는 음성 채널에 접속하느라 몇 초 걸려 응답을 보류(defer)하는데, 거절 안내가 채널에 보이지 않게 본인에게만 보이도록 보류한다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -11,8 +11,8 @@ import * as guildSettings from "../../src/store/guild-settings.ts";
 const store = openTempStore("commands-stay-");
 after(() => store.close());
 
-test("/247 켜기: 본인에게만 미뤄 두고, DJ 가 아니면 그 자리를 본인 안내로 바꾼다(채널에 대기 표시가 비치지 않는다)", async () => {
-  // DJ 역할(r1)을 정한 서버. 봇은 vc1 에 있고 부른 사람은 역할 없이 vc1 에 있다
+test("/247 켜기: 본인에게만 보이도록 응답을 보류해 두고, DJ가 아니면 본인에게만 보이는 안내로 바꾼다(채널에 대기 표시가 보이지 않는다)", async () => {
+  // DJ 역할(r1)을 지정한 서버다. 봇은 vc1에 있고 부른 사람은 역할 없이 vc1에 있다
   const guild = { id: "g1", name: "서버", roles: { cache: new Map([["r1", {}]]) }, members: { me: { voice: { channel: { id: "vc1" } } } } };
   const member = { id: "u2", user: { tag: "다른 사람" }, guild, permissions: { has: () => false }, roles: { cache: new Map() }, voice: { channel: { id: "vc1" } } };
   await guildSettings.setDjRoles("g1", ["r1"]);

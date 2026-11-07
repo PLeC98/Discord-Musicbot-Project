@@ -98,17 +98,17 @@ test("모든 열에서: 낱말마다 어느 열에든 들어간 행", () => {
   assert.equal(matchWords(words.words, ["YOASOBI", "夜に駆ける", 12]), false);
 });
 
-// % 를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b 가 60자 제목에서 3초 넘게 걸렸다. 조각을 차례로 찾아 글자 수에 비례한다
-test("% 식은 조각을 차례로 찾는다. 조각이 많고 맞지 않아도 곧바로 끝난다", () => {
+// %를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b가 60자 제목에서 3초 넘게 걸렸다. 조각을 순서대로 찾아 소요 시간이 글자 수에 비례한다
+test("% 식은 조각을 순서대로 찾는다. 조각이 많고 맞지 않아도 곧바로 끝난다", () => {
   const expr = `${Array(40).fill("a").join("%")}%b`;
   const started = performance.now();
   assert.deepEqual(pick("text", expr, ["a".repeat(200)]), []);
   assert.ok(performance.now() - started < 50, "글자 수에 비례");
-  assert.deepEqual(pick("text", "a%b%c", ["xAyBzC", "cba", "abc"]), ["xAyBzC", "abc"], "차례대로");
+  assert.deepEqual(pick("text", "a%b%c", ["xAyBzC", "cba", "abc"]), ["xAyBzC", "abc"], "순서대로");
   assert.deepEqual(pick("text", "%", ["무엇이든", "x"]), ["무엇이든", "x"]);
 });
 
-test("% 식은 % 를 .* 로 바꾼 정규식(i 플래그)과 같은 것에 맞는다: 그리스어 시그마, 독일어 ß, 터키어 İ, 줄 바꿈", () => {
+test("% 식은 %를 .*로 바꾼 정규식(i 플래그)과 매칭 결과가 같다: 그리스어 시그마, 독일어 ß, 터키어 İ, 줄바꿈", () => {
   const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const exprs = ["ΟΣ%", "ος%", "%Σ", "ß%", "ss%", "SS%", "İ%", "i%", "ı%", "a%b", "k%", "%"];
   const values = ["ΟΣΑ", "οσα", "ΑΟΣ", "aος", "ß", "SS", "ss", "İ", "i", "I", "ı", "a\nb", "ab", "K", "\u212a"];
@@ -122,7 +122,7 @@ test("% 식은 % 를 .* 로 바꾼 정규식(i 플래그)과 같은 것에 맞�
   }
 });
 
-// 낱글자마다의 접기(뜻의 기준): 대문자로 하되 여러 글자가 되거나 ASCII 밖에서 ASCII 로 가면 그대로
+// 글자별 케이스 폴딩(기준 구현): 대문자로 바꾸되 여러 글자가 되거나 비ASCII에서 ASCII로 바뀌면 그대로 둔다
 const unitFold = (text: string) =>
   text
     .split("")
@@ -132,7 +132,7 @@ const unitFold = (text: string) =>
     })
     .join("");
 
-test("대소문자 접기: 구간을 통째로 대문자로 해도 낱글자마다 한 것과 같다(BMP 의 모든 낱단위, 이모지, ß, 결합 문자, 그리스 문자가 섞인 글)", () => {
+test("케이스 폴딩: 구간을 통째로 대문자로 바꿔도 글자마다 변환한 것과 같다(BMP의 모든 코드 유닛, 이모지, ß, 결합 문자, 그리스 문자가 섞인 문자열)", () => {
   for (let code = 0; code < 0x10000; code++) {
     const unit = String.fromCharCode(code);
     assert.equal(foldCase(unit), unitFold(unit), code.toString(16));

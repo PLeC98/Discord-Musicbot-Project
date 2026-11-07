@@ -29,7 +29,7 @@ const logout = "로그아웃";
 const logoutFailed = "로그아웃하지 못했어요.";
 /** 계정이 바뀐 탭의 버튼 */
 const reload = "새로고침";
-/** 최근 로그인을 확인하지 못했다(위험한 조작 앞) */
+/** 최근 로그인을 확인하지 못했을 때의 안내 문구다(민감한 조작 실행 전) */
 const checkFailed = "로그인 상태를 확인하지 못했어요.";
 const modeDark = "어둡게";
 const modeLight = "밝게";

@@ -84,7 +84,7 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 레지스트리에 남는다
   assert.deepEqual(lines, ['트랙 종료: "첫 곡" (youtube) | 원인=skip']);
 });
 
-// 서버 관리자는 재적, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
+// 서버 관리자는 동일 음성 채널, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
 const managerOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
 
 test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제, 나갈 예약)", async () => {

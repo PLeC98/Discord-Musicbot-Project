@@ -79,7 +79,7 @@ async function load() {
   }
 }
 
-// 다른 기기 로그아웃은 서버가 로그인한 지 2분 안을 요구한다: 오래됐으면 로그인 창을 먼저 연다(초기화, 복원과 같다). 그 로그인이 이 기기의 세션 id 도 바꿔 이 기기의 쿠키를 복제한 쪽도 끊긴다
+// 다른 기기 로그아웃은 로그인한 지 2분 이내여야 한다. 오래됐으면 로그인 창을 먼저 연다(초기화, 복원과 같다). 재로그인하면 이 기기의 세션 id도 바뀌어 이 기기의 쿠키를 복제한 쪽도 끊긴다
 async function signOut(d: LoginDevice) {
   if (!(await ensureRecentLogin(SIGN_OUT_LOGIN_MS))) return;
   busy.value = true;

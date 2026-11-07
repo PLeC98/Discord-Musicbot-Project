@@ -15,7 +15,7 @@ const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
-// 다 받았거나 실패한 요청의 응답을 닫는 사유. 오류가 아니라 받는 쪽(guardedRanges)이 본문을 오류 없이 닫는다
+// 다 받았거나 실패한 요청의 응답을 닫는 사유다. 오류가 아니므로 받는 쪽(guardedRanges)이 본문을 오류 없이 닫는다
 const RESPONSE_DONE = "응답을 다 썼다";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,13 +99,13 @@ function createChunkedStream(options: ChunkedOptions): ChunkedStream {
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 Content-Range 가 있어야 하고(없이 처음부터 주면 같은 바이트가 두 번 들어간다)
+// 파일 처음이 아닌 위치(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 Content-Range가 있어야 하고(없이 처음부터 주면 같은 바이트가 두 번 들어간다)
 // 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다). 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range") ?? "";
   const [, startText, totalText] = /bytes\s+(\d+)-\d+\/(\d+|\*)/i.exec(cr) ?? [];
   if (startText === undefined) {
-    if (expected > 0) throw permanent(`Content-Range 가 없거나 읽을 수 없는 206 입니다(${expected}을 요청, ${cr || "없음"})`);
+    if (expected > 0) throw permanent(`Content-Range가 없거나 읽을 수 없는 206입니다(${expected}바이트부터 요청, ${cr || "없음"})`);
     return;
   }
   const start = Number(startText);

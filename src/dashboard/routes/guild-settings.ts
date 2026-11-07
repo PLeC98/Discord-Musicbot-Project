@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠를 재생할 곳). 서버 관리자만(봇 운영자도 그 서버의 권한대로)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 서버 관리자만 접근할 수 있다(봇 운영자도 해당 서버의 권한을 따른다)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -120,7 +120,7 @@ function createGuildSettingsRouter() {
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
   });
 
-  // 서버 설정 변경. 서버 관리자만. /setting, /setchannel 과 같은 기준.
+  // 서버 설정을 변경한다. 서버 관리자 전용이며 /setting, /setchannel과 같은 기준을 따른다.
   // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);

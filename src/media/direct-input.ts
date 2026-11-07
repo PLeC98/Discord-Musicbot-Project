@@ -2,8 +2,8 @@
 //   live       끝이 없다(인터넷 라디오, 라이브 HLS). 캐시하지 않는다
 //   bounded    끝이 있고 크기, 길이를 안다(크기를 알린 파일, VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
-// HLS 의 큰 세그먼트(sources/hls 가 모으지 않고 넘긴 것)는 여기서 흘릴 스트림으로 바꾼다: 크기를 알리면 청크 스트림으로 끊긴 자리부터 잇고,
-// 모르면 모은 앞부분 뒤에 나머지를 잇는다. AES-128 은 흘리며 푼다(이어 받는 것은 암호문이라 끊김과 상관없다)
+// HLS의 큰 세그먼트(sources/hls가 모으지 않고 넘긴 것)는 여기서 스트림으로 바꾼다: 크기를 알면 청크 스트림으로 끊긴 위치부터 잇고,
+// 모르면 모은 앞부분 뒤에 나머지를 잇는다. AES-128은 스트리밍하며 복호화한다(이어받는 것은 암호문이라 끊김과 상관없다)
 
 import crypto from "crypto";
 import { PassThrough, Transform, pipeline, type Readable } from "stream";
@@ -89,11 +89,11 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
 }
 
 const ignore = () => {
-  /* 사슬의 끝(세그먼트 스트림)이 오류를 받는다 */
+  /* 파이프라인의 끝(세그먼트 스트림)이 오류를 받는다 */
 };
 const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
 
-/** HLS 의 세그먼트 출처를 세그먼트 스트림의 출처로. 모은 세그먼트는 그대로, 넘긴 세그먼트는 흘릴 스트림으로 */
+/** HLS의 세그먼트 출처를 세그먼트 스트림의 출처로 바꾼다. 모은 세그먼트는 그대로 두고, 넘긴 세그먼트는 스트림으로 바꾼다 */
 function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
   return {
     next: () => fragments.next(),
@@ -108,8 +108,8 @@ function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
 }
 
 /**
- * 넘긴 세그먼트를 흘릴 스트림으로. 이제 이 함수가 본문의 주인이다(흘리기 전에 실패하면 닫는다).
- * 크기를 알린 AES 는 흘리기 전에 키를 본다. 합계는 맨 끝에(다시 받을 때 두 번 세지 않게): 알린 크기를 한 번, 모르면 흐르는 바이트를
+ * 넘긴 세그먼트를 스트림으로 바꾼다. 이제 이 함수가 본문의 주인이다(흘리기 전에 실패하면 닫는다).
+ * 크기를 아는 AES는 흘리기 전에 키를 확인한다. 합계는 맨 끝에 센다(다시 받을 때 두 번 세지 않게): 크기를 알면 한 번에, 모르면 흐르는 바이트마다 센다
  */
 async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void): Promise<Readable> {
   const { totalBytes, key, iv } = pour;
@@ -137,7 +137,7 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void):
           stallMs: pour.idleMs,
         })
       : withHead(pour.head, pour.body);
-  // 사슬은 pipeline 으로 잇는다(끝을 부수면 앞도, 앞이 실패하면 끝도)
+  // 각 단계는 pipeline으로 잇는다(끝을 닫으면 앞도 닫히고, 앞이 실패하면 끝도 닫힌다)
   const stages = [...(totalBytes === null ? [counter(pour.count)] : []), ...(key && iv ? [decrypting(key, iv)] : [])];
   for (const stage of stages) {
     pipeline(out, stage, ignore);
@@ -146,7 +146,7 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void):
   return out;
 }
 
-/** 모은 앞부분 뒤에 남은 본문 */
+/** 모은 앞부분 뒤에 남은 본문을 이어 흘린다 */
 function withHead(head: Buffer | null, body: Readable): Readable {
   const out = new PassThrough();
   if (head?.length) out.write(head);
@@ -168,7 +168,7 @@ function counter(count: (bytes: number) => void): Transform {
   });
 }
 
-/** PKCS7 패딩의 길이(1 ~ 16). 깨졌으면 null */
+/** PKCS7 패딩의 길이(1 ~ 16)를 구한다. 깨졌으면 null이다 */
 function paddingOf(block: Buffer): number | null {
   const pad = block[block.length - 1];
   if (block.length !== 16 || pad < 1 || pad > 16) return null;
@@ -176,14 +176,14 @@ function paddingOf(block: Buffer): number | null {
 }
 
 /**
- * AES-128-CBC 를 흘리며 푼다. 덩이 사이에 남은 바이트를 이어 온전한 블록만 풀고, 푼 마지막 블록은 끝까지 쥐었다가 PKCS7 을 뗀다.
- * 끝이 깨졌으면 warn 을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 조각(16바이트 미만)만 버리거나(그 앞 블록은 마지막이 아니라 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
+ * AES-128-CBC를 스트리밍하며 복호화한다. 청크 사이에 남은 바이트를 이어 온전한 블록만 복호화하고, 복호화한 마지막 블록은 끝까지 들고 있다가 PKCS7 패딩을 뗀다.
+ * 끝이 깨졌으면 warn을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 조각(16바이트 미만)만 버리거나(그 앞 블록은 마지막이 아니라 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
  * 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
  */
 function decrypting(key: Buffer, iv: Buffer): Transform {
   const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv).setAutoPadding(false);
   let rest = Buffer.alloc(0); // 아직 블록이 되지 않은 암호문
-  let held: Buffer | null = null; // 푼 마지막 블록(끝인지 아직 모른다)
+  let held: Buffer | null = null; // 복호화한 마지막 블록(끝인지 아직 모른다)
   return new Transform({
     transform(chunk: Buffer, _encoding, done) {
       const data = rest.length ? Buffer.concat([rest, chunk]) : chunk;
@@ -202,7 +202,7 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       }
       const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 풀지 못해 마지막 ${held?.length ?? 0}바이트를 버립니다(패딩이 맞지 않음)`);
+        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버립니다(패딩이 맞지 않음)`);
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
@@ -211,8 +211,8 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
 }
 
 /**
- * 흘리기 전에 키를 본다: 끝 32바이트를 Range 로 받아 앞 블록을 IV 로 마지막 블록을 풀고 PKCS7 이 맞는지. 틀리면 다시 받지 않는 실패(틀린 키면 쓰레기가 ffmpeg 로 먼저 간다).
- * 믿는 것은 그 자리, 그 전체의 206 에서 정확히 32바이트뿐. 구간을 주지 않거나(200) 받지 못하면 건너뛴다(끝은 decrypting 이 받는다). 신호의 취소만 던진다. 응답은 어느 길이든 닫는다
+ * 흘리기 전에 키를 확인한다: 끝 32바이트를 Range로 받아 앞 블록을 IV로 삼아 마지막 블록을 복호화하고 PKCS7 패딩이 맞는지 본다. 틀리면 다시 받지 않는 실패로 처리한다(틀린 키면 깨진 데이터가 ffmpeg로 먼저 간다).
+ * 요청한 구간과 전체 크기가 일치하는 206 응답의 32바이트만 신뢰한다. 구간을 주지 않거나(200) 받지 못하면 건너뛴다(끝 블록은 decrypting이 처리한다). signal 취소만 던지고, 응답은 어느 길이든 닫는다
  */
 async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, signal: AbortSignal) {
   const from = totalBytes - 32;
@@ -240,7 +240,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
   if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않습니다(마지막 블록의 패딩이 깨짐)");
 }
 
-/** 앞에서부터 많아야 limit 바이트. signal 이 끊으면 그 사유로 */
+/** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 던진다 */
 async function firstBytes(body: Readable, limit: number, signal: AbortSignal): Promise<Buffer> {
   const stop = () => body.destroy(signal.reason instanceof Error ? signal.reason : undefined);
   signal.addEventListener("abort", stop, { once: true });

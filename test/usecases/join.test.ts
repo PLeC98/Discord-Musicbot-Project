@@ -1,4 +1,4 @@
-// src/usecases/join.ts: 봇 부르기. 기다림(기동 복원, 채널 찾기) 뒤 그만두면(대시보드의 세션 끝) 아무것도 바꾸지 않는다
+// src/usecases/join.ts: 봇 부르기. 기다리는 작업(기동 복원, 채널 조회) 뒤 중단되면(대시보드 세션 종료) 아무것도 바꾸지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -8,7 +8,7 @@ import { fake } from "../helpers/fake.ts";
 
 const { join } = await import("../../src/usecases/join.ts");
 
-test("그만두면(go 가 던짐) 남은 플레이어를 정리하지도 새로 만들지도 않는다", async () => {
+test("중단되면(go가 예외를 던짐) 남은 플레이어를 정리하지도 새로 만들지도 않는다", async () => {
   const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
   const guild = fake<Guild>({ id: "g-join", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
   const member = fake<GuildMember>({ id: "u1", voice: { channel } });

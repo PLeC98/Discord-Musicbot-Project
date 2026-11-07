@@ -284,8 +284,8 @@ const drain = async (body: Readable) => {
   return bytes;
 };
 
-test("진짜 소켓: 응답 머리가 상한 안에 오지 않으면 시간 초과(TimeoutError)로 끊는다", async () => {
-  const { server, url } = await localServer(() => {}); // 답하지 않는다
+test("진짜 소켓: 응답 헤더가 제한 시간 안에 오지 않으면 시간 초과(TimeoutError)로 끊는다", async () => {
+  const { server, url } = await localServer(() => {}); // 응답하지 않는다
   try {
     const error = await send({ method: "GET", url: url("/slow"), agent: pinned(), timeoutMs: 50, headers: {} }).then(
       () => null,
@@ -364,7 +364,7 @@ test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 �
   t.mock.timers.tick(1_000);
   await new Promise((done) => setImmediate(done));
   assert.match(errors[0]?.message ?? "", /본문이 6000ms 동안 오지 않습니다/);
-  assert.equal(errors[0]?.name, "TimeoutError", "실패 범위가 망 탓으로 읽는다");
+  assert.equal(errors[0]?.name, "TimeoutError", "실패 범위를 네트워크 탓으로 본다");
 });
 
 // Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 실행할 때 읽으므로 자식으로 본다.
@@ -391,7 +391,7 @@ test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 �
   }
 });
 
-test("진짜 소켓: 응답 헤더를 기다리는 사이 신호가 끊으면 그 사유로 끝나고, 헤더가 온 뒤의 신호는 보지 않는다", async () => {
+test("진짜 소켓: 응답 헤더를 기다리는 사이 신호가 취소되면 그 사유로 끝나고, 헤더가 온 뒤의 신호는 보지 않는다", async () => {
   const { server, url } = await localServer((req, res) => {
     if (req.url === "/silent") return;
     res.writeHead(200, AUDIO).end(Buffer.alloc(16, 1));
@@ -416,7 +416,7 @@ test("진짜 소켓: 응답 헤더를 기다리는 사이 신호가 끊으면 �
   }
 });
 
-test("getStream: 이미 끊긴 신호면 요청하지 않고, 받는 중 크기 상한 초과는 다시 받지 않는 실패", async () => {
+test("getStream: 이미 취소된 신호면 요청하지 않고, 받는 중 크기 상한을 넘으면 재시도하지 않는 실패로 끝난다", async () => {
   lookupImpl = async () => [{ address: "93.184.216.34", family: 4 }];
   const gone = new AbortController();
   gone.abort(new Error("그만"));

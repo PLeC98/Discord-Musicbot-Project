@@ -338,7 +338,7 @@ test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드�
   documents._use("age-content");
 });
 
-// ── GET /player의 음성 재적 플래그 ───────────────────────────
+// ── GET /player의 음성 채널 접속 플래그 ───────────────────────────
 // botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
 // 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
 
@@ -435,7 +435,7 @@ test("GET guilds: 서버 관리 권한은 권한 수준 오버라이드로 낮�
       assert.deepEqual(
         r.json.guilds?.map((g) => g.canManageGuild),
         [want],
-        `${member.name} 로 ${viewAs} 보기`,
+        `${member.name}: ${viewAs} 보기`,
       );
     }
   } finally {
@@ -547,7 +547,7 @@ test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", 
   currentUser = { id: "u1", username: "tester" };
 });
 
-// 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+// 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
 // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 곡 추가 폼을 열면 409가 난다.
 test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () => {
   noDjRoles();

@@ -383,8 +383,8 @@ class VoiceLink {
   // 한 번 재연결해 본다. 됐으면 true. 채널에서는 나가지 않는다.
   // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 재연결한다.
   // 디스코드가 봇을 채널에서 뺐으면(게이트웨이가 끊겼던 것) 그 정보는 쓸 수 없어 옛 연결을 버리고 새로 참가한다.
-  // 디스코드에 닿는데도 재연결이 실패했으면 그 정보가 낡은 것이라 다음부터 새로 참가한다(답이 없으면 _unstick 이 푼다).
-  // 디스코드에 묻는 사이 정리됐으면(active 가 거짓) 아무것도 하지 않는다. 그 뒤에 만든 연결은 치울 쪽이 없다
+  // 디스코드와 통신이 되는데도 재연결이 실패했으면 그 정보가 만료된 것이라 다음부터 새로 참가한다(답이 없으면 _unstick이 푼다).
+  // 디스코드에 조회하는 사이 정리됐으면(active가 false) 아무것도 하지 않는다. 그 뒤에 만든 연결은 정리할 곳이 없다
   async _rejoin(active: () => boolean) {
     const connection = this.player.connection;
     const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord() : null;
@@ -412,7 +412,7 @@ class VoiceLink {
     }
   }
 
-  // 받아 둔 음성 서버 정보로 재연결해도 되나. 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못했고(at 이 undefined), 이번 복구에서 그 정보가 낡았다고 보지 않았다
+  // 캐시된 음성 서버 정보로 재연결해도 되는지 확인한다. 디스코드가 봇을 이 채널에 있다고 보거나 조회하지 못했고(at이 undefined), 이번 복구에서 그 정보가 만료됐다고 보지 않았다
   _mayReattach(at: string | null | undefined) {
     return !this.reattachRefused && (at === undefined || at === this.player.voiceChannel?.id);
   }

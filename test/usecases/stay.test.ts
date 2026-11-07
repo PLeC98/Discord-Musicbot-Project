@@ -34,13 +34,13 @@ test("켜기: 봇이 있는 채널을 자리로 적고 퇴장 판정을 다시 �
   assert.equal(seen.reconsider, 2);
 });
 
-// DJ 역할(r1)을 정한 서버에서 봇이 vc1 에 있다. roles: 그 사람의 역할, channel: 그 사람의 음성 채널
+// DJ 역할(r1)을 정한 서버에서 봇이 vc1에 있다. roles는 사용자의 역할, channel은 사용자의 음성 채널이다.
 function djServer() {
   const withRoles = fake<Guild>({ id: "g1", name: "서버", roles: { cache: new Map([["r1", {}]]) }, members: { me: { voice: { channel: { id: "vc1" } } } } });
   return (roles: string[], channel: string | null) => fake<GuildMember>({ id: "u2", user: { tag: "다른 사람" }, guild: withRoles, permissions: { has: () => false }, roles: { cache: new Map(roles.map((id) => [id, {}])) }, voice: { channel: channel ? { id: channel } : null } });
 }
 
-test("켜기, 끄기는 DJ 조작이다: 서버 관리 권한이 없어도 DJ 면 되고, DJ 가 아니거나 봇과 다른 채널이면 거절", async () => {
+test("켜기, 끄기는 DJ 조작이다: 서버 관리 권한이 없어도 DJ면 되고, DJ가 아니거나 봇과 다른 채널이면 거절한다", async () => {
   const voice = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   const someone = djServer();
   assert.equal((await stay.turnOn(voice.bot, { guild, member: someone([], "vc1") })).ok, true, "DJ 역할을 정하지 않은 서버는 모두 DJ");
@@ -57,13 +57,13 @@ test("켜기, 끄기는 DJ 조작이다: 서버 관리 권한이 없어도 DJ �
   }
 });
 
-test("켜기 거절: 스테이지면", async () => {
+test("켜기 거절: 스테이지 채널이면 거절한다", async () => {
   const stage = seated({ id: "st1", name: "무대", type: ChannelType.GuildStageVoice });
   assert.deepEqual(await stay.turnOn(stage.bot, { guild, member: member() }), { ok: false, code: "stay-stage" });
   assert.equal(staySeats.seatOf("g1"), null);
 });
 
-test("끄기: 자리를 지우고 다시 맞춘다. 없으면 already", async () => {
+test("끄기: 상주 설정을 삭제하고 퇴장 여부를 다시 판단한다. 켜져 있지 않았으면 already", async () => {
   const { bot, seen } = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
   staySeats.set("g1", "vc1", "u1");
   assert.deepEqual(await stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: false });

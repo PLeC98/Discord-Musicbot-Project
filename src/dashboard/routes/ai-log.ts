@@ -17,7 +17,7 @@ import { dayKey, firstDay, usageReport } from "../../rules/ai-usage.ts";
 import { AI_LOG_PAGE, AI_USAGE_PERIODS, isAiLogSource, type AiLogEntry, type AiLogPage, type AiLogQuery, type AiLogStorage, type AiUsagePeriod, type AiUsageReport } from "../contract/ai-log.ts";
 
 const aiLogRouter = express.Router();
-// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+// 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
 aiLogRouter.use(requireOwner);
 
 /** 한 번에 받는 줄의 상한 */

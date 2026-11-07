@@ -61,7 +61,7 @@ before(async () => {
   app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http }));
   app.use("/api/me/devices", createLoginDevicesRouter({ places: { load: async () => true, locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "대한민국" }) }, http }));
-  // 세션을 바꾼 채 풀어 줄 때까지 걸려 있는 요청(훔친 쿠키로 걸어 둔 요청)
+  // 세션을 바꾼 채 풀어 줄 때까지 대기하는 요청(훔친 쿠키로 시작해 둔 요청)
   app.post("/hold", async (_req, res) => {
     holding();
     await held;
@@ -182,7 +182,7 @@ test("이 기능 전의 세션: 기록이 없으면 다음 요청 때 지금 것
   assert.equal(again?.seenAt, first?.seenAt, `${SEEN_EVERY_MS}ms 안에는 다시 적지 않는다`);
 });
 
-// 훔친 쿠키로 걸어 둔 요청: User-Agent 를 바꾸면 기기 기록이 바뀌어(noteDevice) 그 요청이 끝날 때 세션을 저장한다
+// 훔친 쿠키로 시작해 둔 요청: User-Agent를 바꾸면 기기 기록이 바뀌어(noteDevice) 그 요청이 끝날 때 세션을 저장한다
 async function hangChanged(thief: ReturnType<typeof device>) {
   let entered: () => void = () => {};
   const inside = new Promise<void>((done) => (entered = done));
@@ -190,11 +190,11 @@ async function hangChanged(thief: ReturnType<typeof device>) {
   holding = entered;
   const hanging = thief.go("/hold", { method: "POST", headers: { "user-agent": `${IPHONE} Changed` } });
   await inside;
-  return { hanging }; // 그대로 돌려주면 await 가 응답까지 기다린다
+  return { hanging }; // 그대로 돌려주면 await가 응답까지 기다린다
 }
 
 for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
-  test(`끊은 세션은 그 세션으로 걸려 있던 요청이 끝나도 되살아나지 않는다(${how})`, async () => {
+  test(`끊은 세션은 그 세션으로 진행 중이던 요청이 끝나도 되살아나지 않는다(${how})`, async () => {
     const who = how === "로그아웃" ? "revive-logout" : "revive-others";
     const pc = device(CHROME);
     const thief = device(IPHONE);
@@ -226,7 +226,7 @@ function breakDelete() {
 
 type Unsaved = { code: string; signedOutCount: number; unsavedCount: number };
 
-test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 삭제하지 못했으면 503, DB 가 돌아오면 다시 삭제한다", async () => {
+test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 실패 건수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 삭제하지 못했으면 503, DB가 돌아오면 다시 삭제한다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   await pc.login("unsaved1");
@@ -243,7 +243,7 @@ test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하�
     restore();
   }
   const again = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
-  assert.equal(again.status, 200, "DB 가 돌아오면 삭제한다");
+  assert.equal(again.status, 200, "DB가 돌아오면 삭제한다");
   assert.equal(store.sessionsOf("unsaved1").length, 1);
   assert.equal(store.unsavedOf("unsaved1").length, 0);
 });
@@ -264,7 +264,7 @@ test("로그아웃의 삭제가 실패해도 쿠키는 삭제하고 503. 그 쿠
   assert.equal(((await res.json()) as Unsaved).code, "sign-out-unsaved");
   assert.match(res.headers.get("set-cookie") ?? "", new RegExp(`${sessionCookieName(false)}=;.*Expires=Thu, 01 Jan 1970`), "이 브라우저의 쿠키를 삭제한다");
   assert.equal((await pc.go("/api/me/devices")).status, 401);
-  assert.equal(store.unsavedOf("unsaved2").length, 1, "그 사용자의 삭제하지 못한 것으로 둔다(다른 기기 로그아웃이 다시 삭제한다)");
+  assert.equal(store.unsavedOf("unsaved2").length, 1, "그 사용자의 삭제하지 못한 세션으로 남겨 둔다(다른 기기 로그아웃이 다시 삭제한다)");
   store.retryUnsaved();
 });
 
@@ -285,7 +285,7 @@ test("끊을 세션의 디스코드 토큰을 읽지 못해도(DB 오류) 세션
   assert.equal((await phone.go("/api/me/devices")).status, 401);
 });
 
-test("다른 기기 로그아웃은 로그인한 지 2분 안이어야 한다(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id 도 바뀐다)", async () => {
+test("다른 기기 로그아웃은 로그인한 지 2분 안이어야 한다(거의 언제나 로그인 창을 거쳐 이 기기의 세션 id도 바뀐다)", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   await pc.login("two-minutes");

@@ -31,7 +31,7 @@ const REASONS: Record<string, string> = {
 };
 // 디스코드가 정상 절차로 재연결하게 한 것(오류가 아니다)
 const ROUTINE_REASONS = new Set(["Told to reconnect by Discord", "Got disconnected by Discord", "Invalid session"]);
-// client.destroy() 가 닫을 때의 까닭. discord.js 는 이때도 shardReconnecting 을 내지만 재연결하지 않는다
+// client.destroy()가 닫을 때의 까닭. discord.js는 이때도 shardReconnecting을 내지만 재연결하지 않는다
 const SELF_CLOSE = "Manager was destroyed";
 const ROUTINE_CODES = new Set([1000, 1001]);
 

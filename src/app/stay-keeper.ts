@@ -146,7 +146,7 @@ class StayKeeper {
       const seat = staySeats.seatOf(guildId);
       if (!seat || this.players.get(guildId)?.voice.isAlive()) return true;
       const found = await this._seatChannel(guild, seat.channelId);
-      // 묻는 사이 자리가 꺼지거나 새로 켜졌으면(/leave, /247, 같은 채널이어도 켤 때마다 새 자리) 이 답으로 붙지도 끄지도 않는다
+      // 조회하는 사이 상주 모드가 꺼지거나 새로 켜졌으면(/leave, /247, 같은 채널이어도 켤 때마다 새 항목) 이 결과로 접속하거나 해제하지 않는다
       if (staySeats.seatOf(guildId) !== seat) return true;
       if (!found) {
         this._later(guildId);

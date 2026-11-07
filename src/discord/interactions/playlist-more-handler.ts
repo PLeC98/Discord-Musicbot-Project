@@ -111,7 +111,7 @@ async function handleMore(interaction: MoreInteraction, bot: BotContext) {
   const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
   if (clickErr) return refuse(errors.notice(clickErr));
 
-  // 맨 앞에 넣는 메뉴(/playfirst 에서 이어진 것)는 /playfirst 와 같은 검사
+  // 맨 앞에 넣는 메뉴(/playfirst에서 이어진 것)는 /playfirst와 같은 검사를 한다
   const permErr = state.insertFirst ? await checkAddFirst(interaction.member) : checkAdd(interaction.member);
   if (permErr) return refuse(errors.notice(permErr));
 

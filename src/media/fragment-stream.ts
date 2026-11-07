@@ -30,8 +30,8 @@ type FragmentSource<F> = {
   /** 다음 세그먼트. 끝이면 null(끝난 뒤에도 null). 라이브는 목록에 새 세그먼트가 나올 때까지 기다린다 */
   next(): Promise<F | null>;
   /**
-   * 세그먼트 하나. 모은 바이트거나 흘릴 스트림(흘린 뒤의 이어 받기, 실패는 그 스트림이 맡는다). signal 이 끊으면 그만둔다.
-   * 받는 동안 바이트가 올 때마다 progress 를 부르면 무응답 한도를 다시 잰다. 다시 받아도 같은 실패면 permanent 를 단 오류
+   * 세그먼트 하나를 받는다. 모은 바이트거나 읽기 스트림이다(흘린 뒤의 이어받기, 실패는 그 스트림이 맡는다). signal이 취소되면 중단한다.
+   * 받는 동안 바이트가 올 때마다 progress를 부르면 무응답 한도를 다시 잰다. 다시 받아도 같은 실패면 permanent를 단 오류를 던진다
    */
   fetch(fragment: F, signal: AbortSignal, progress: () => void): Promise<Buffer | Readable>;
   /** 곡 안의 어느 위치(ms)부터 흘리나. 받는 첫 세그먼트의 시작 */
@@ -60,11 +60,11 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
   let ahead: Promise<Buffer | Readable | null> | null = null; // 미리 받는 다음 세그먼트
   let pouring: Readable | null = null; // 흘리는 중인 세그먼트
   let taking = false; // 다음 세그먼트를 꺼내는 중
-  let wanting = false; // 받는 쪽이 더 원한다(마지막 push 가 받아들여졌다)
+  let wanting = false; // 받는 쪽이 더 원한다(마지막 push가 받아들여졌다)
   let closed = false;
   const fetching = new Set<AbortController>(); // 받는 중인 세그먼트(닫을 때 끊는다)
 
-  // 세그먼트 하나. 멈추거나(무응답) 5xx, 네트워크 오류면 다시 받는다. 4xx 는 곧바로 실패
+  // 세그먼트 하나를 받는다. 멈추거나(무응답) 5xx, 네트워크 오류면 다시 받고, 4xx는 곧바로 실패한다
   async function fetchOne(fragment: F): Promise<Buffer | Readable> {
     for (let attempt = 0; ; attempt++) {
       if (closed) throw new Error("세그먼트 스트림이 닫힘");
@@ -80,7 +80,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
       arm();
       try {
         const got = await source.fetch(fragment, controller.signal, arm);
-        // 미리 받아 둔 채 흘리기 전에 실패해도 처리되지 않은 오류가 되지 않게(흘릴 때 finished 가 받는다)
+        // 미리 받아 둔 채 흘리기 전에 실패해도 미처리 오류가 되지 않게 한다(흘릴 때 finished가 받는다)
         if (!Buffer.isBuffer(got)) got.on("error", ignore);
         return got;
       } catch (error) {
@@ -102,7 +102,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     return fragment === null ? null : fetchOne(fragment);
   }
 
-  // 세그먼트를 하나 꺼내 흘리고 그다음을 미리 받는다. 한 번에 하나만 꺼낸다(차례가 뒤바뀌지 않게)
+  // 세그먼트를 하나 꺼내 흘리고 그다음을 미리 받는다. 한 번에 하나만 꺼낸다(순서가 뒤바뀌지 않게)
   function pump() {
     taking = true;
     const current = ahead ?? take();
@@ -115,7 +115,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
         if (chunk === null) return void stream.push(null);
         sent++;
         if (!Buffer.isBuffer(chunk)) return pour(chunk);
-        // 빈 push 는 read 를 다시 부르지 않는다
+        // 빈 push는 read를 다시 부르지 않는다
         if (!chunk.length) return pump();
         wanting = stream.push(chunk);
       },
@@ -126,7 +126,7 @@ function streamFragments<F>(source: FragmentSource<F>, { retryDelaysMs = RETRY_D
     );
   }
 
-  // 받는 쪽 속도에 맞춰 흘린다. 끝나면 받는 쪽이 원할 때만 다음으로(아니면 다음 read 가 꺼낸다). 오류 없이 닫혀도 오류로 끝낸다
+  // 받는 쪽 속도에 맞춰 흘린다. 끝나면 받는 쪽이 원할 때만 다음으로 넘어간다(아니면 다음 read가 꺼낸다). 끝 전에 오류 없이 닫혀도 오류로 끝낸다
   function pour(part: Readable) {
     pouring = part;
     part.on("data", (chunk: Buffer) => {
@@ -188,7 +188,7 @@ type FragmentOptions = StreamOptions & {
 /** 세그먼트 하나의 길이(ms). 전체 길이를 세그먼트 수로 나눈다. 세그먼트마다의 길이는 yt-dlp 도 주지 않는다 */
 const fragmentMsOf = ({ count }: Fragments, durationMs: number) => durationMs / count;
 
-/** 이 위치가 든 세그먼트 번호와 그 세그먼트의 시작(ms). 곡 길이를 모르면 처음부터 */
+/** 이 위치가 속한 세그먼트 번호와 그 세그먼트의 시작 시각(ms)을 구한다. 곡 길이를 모르면 처음부터 시작한다 */
 function startOf(fragments: Fragments, durationMs: number, startMs: number) {
   const each = fragmentMsOf(fragments, durationMs);
   if (!(each > 0) || !Number.isFinite(each)) return { index: 0, atMs: 0 };

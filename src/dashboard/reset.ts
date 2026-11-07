@@ -120,7 +120,7 @@ function overview(botName: string, launcher: boolean): ResetOverview {
  * 삭제는 다음 기동(store/full-reset). 곧바로 다시 시작할지는 부르는 쪽(경로)이 정한다
  */
 async function stageFullReset(by: string, restarting: boolean, go?: () => void) {
-  // 스냅샷을 먼저 뜨고(더하기만) 그만두지 않았으면 예약한 복원을 취소한다. 뜨는 사이 그만둔 조작이 아무것도 바꾸지 않게
+  // 스냅샷을 먼저 생성하고(이전 스냅샷 정리는 보류), 그사이 세션이 끝나 중단되지 않았으면 예약한 복원을 취소한다. 스냅샷 생성 중에 중단된 요청이 상태를 바꾸지 않게 한다
   const snapshot = await snapshots.take("before-reset", undefined, { tidy: false });
   go?.();
   snapshots.tidy();

@@ -4,8 +4,8 @@
 // 봇(캐시 DB 필터)과 화면(서버 목록, 선택지 검색 등)이 같이 쓴다. Node 를 부르지 않는다
 //
 // 검색어마다 이 규칙을 정규식 하나로 만들어 두고(최근 것 몇 개를 기억한다) 엔진으로 찾는다. 줄마다 자모로 풀지 않는다.
-// 정규식에는 되돌아갈 곳이 거의 없다: 마지막 글자의 갈래는 첫 글자로 서로 겹치지 않고(글자마다 자모가 하나),
-// 초성 사이의 공백은 초성 글자와 겹치지 않는다. 겹치게 바꾸면 되돌아가기가 늘어 긴 글에서 멈춘다
+// 정규식에는 백트래킹이 거의 없다: 마지막 글자의 분기는 첫 글자로 서로 겹치지 않고(글자마다 자모가 하나),
+// 초성 사이의 공백은 초성 글자와 겹치지 않는다. 겹치게 바꾸면 백트래킹이 늘어 긴 글에서 멈춘다
 
 const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 const JUNG = ["ㅏ", "ㅐ", "ㅑ", "ㅒ", "ㅓ", "ㅔ", "ㅕ", "ㅖ", "ㅗ", "ㅘ", "ㅙ", "ㅚ", "ㅛ", "ㅜ", "ㅝ", "ㅞ", "ㅟ", "ㅠ", "ㅡ", "ㅢ", "ㅣ"];
@@ -24,7 +24,7 @@ const JAMO_LAST = 0x318e;
 const isSyllableCode = (c: number) => c >= SYLLABLE_FIRST && c <= SYLLABLE_LAST;
 const split = (j: string) => SPLIT[j] ?? j;
 
-/** 글자 하나(UTF-16 한 칸)를 입력하는 순서의 자모로(한글 음절이 아니면 그 글자, 겹자모는 푼다) */
+/** 글자 하나(UTF-16 단위)를 입력하는 순서의 자모로 바꾼다(한글 음절이 아니면 그 글자, 겹자모는 푼다) */
 function jamoOf(c: string): string {
   const code = c.charCodeAt(0);
   if (!isSyllableCode(code)) return split(c);
@@ -52,10 +52,10 @@ function table(): Map<string, Entry[]> {
 const inTable = (code: number) => isSyllableCode(code) || (code >= JAMO_FIRST && code <= JAMO_LAST);
 
 const unit = (code: number) => `\\u${code.toString(16).padStart(4, "0")}`;
-/** 정규식에 글 그대로: 영문 소문자, 숫자, 공백 말고는 모두 \uXXXX 로(메타 문자, 줄 끝 문자가 뜻을 갖지 않게) */
+/** 정규식에 글 그대로: 영문 소문자, 숫자, 공백 말고는 모두 \uXXXX로(메타 문자, 줄 끝 문자가 뜻을 갖지 않게) */
 const literal = (s: string) => [...Array(s.length).keys()].map((i) => (/[a-z0-9 ]/.test(s[i]) ? s[i] : unit(s.charCodeAt(i)))).join("");
 
-/** 코드들의 글자 묶음([...]) */
+/** 문자 코드들의 문자 클래스([...]) */
 function charClass(codes: number[]): string {
   const sorted = [...new Set(codes)].sort((a, b) => a - b);
   if (sorted.length === 1) return unit(sorted[0]);
@@ -69,7 +69,7 @@ function charClass(codes: number[]): string {
   return `[${out}]`;
 }
 
-/** 자모가 jamo 로 시작하는 글자들(표 밖의 글자는 자모가 자기 자신이다) */
+/** 자모가 jamo로 시작하는 글자들(표 밖의 글자는 자모가 자기 자신이다) */
 function startingWith(jamo: string, exact: boolean): number[] {
   const codes = (table().get(jamo[0]) ?? []).filter((e) => (exact ? e.jamo === jamo : e.jamo.startsWith(jamo))).map((e) => e.code);
   const first = jamo.charCodeAt(0);
@@ -77,7 +77,7 @@ function startingWith(jamo: string, exact: boolean): number[] {
   return codes;
 }
 
-/** 자모로 풀면 rest 로 시작하는 글 1 ~ chars 글자(마지막 글자를 조합 중으로 본다). 갈래는 첫 글자로 서로 겹치지 않는다 */
+/** 자모로 풀면 rest로 시작하는 글 1 ~ chars 글자(마지막 글자를 조합 중으로 본다). 분기는 첫 글자로 서로 겹치지 않는다 */
 function tailPattern(rest: string, chars: number): string {
   const alts: string[] = [];
   const whole = startingWith(rest, false);
@@ -104,7 +104,7 @@ function initialClass(consonant: string): string {
 
 /** 다듬은 검색어(q)의 정규식 원문. tail: 그대로, 마지막 글자는 조합 중으로. initial: 자음만이면 초성(glue: 초성 사이에 건너는 공백, 초성 글자와 겹치면 안 된다) */
 function sourcesOf(q: string, glue: string): { tail: string; initial: string | null } {
-  // 마지막 칸은 표에 있거나 자기 자신이라 갈래가 비지 않는다
+  // 마지막 글자는 표에 있거나 자기 자신이라 분기가 비지 않는다
   const tail = literal(q.slice(0, -1)) + tailPattern(jamoOf(q.slice(-1)), 3);
   const bare = q.replace(/\s+/g, "");
   return { tail, initial: onlyConsonants(bare) ? [...bare].map(initialClass).join(glue) : null };
@@ -116,7 +116,7 @@ type Matcher = { any: RegExp; tail: RegExp; initial: RegExp | null; start: RegEx
 const CACHE_MAX = 16;
 const cache = new Map<string, Matcher | null>();
 
-/** 검색어의 정규식들(빈 검색어면 null). 최근 CACHE_MAX 개를 기억한다(목록을 걸러 낼 때 같은 검색어로 거듭 부른다) */
+/** 검색어의 정규식들(빈 검색어면 null). 최근 CACHE_MAX개를 캐시한다(목록을 필터링할 때 같은 검색어로 거듭 부른다) */
 function matcherOf(query: string): Matcher | null {
   const known = cache.get(query);
   if (known !== undefined) return known;
@@ -175,7 +175,7 @@ export function koStarts(text: string, query: string): boolean {
 }
 
 /**
- * koMatch 의 정규식 원문(빈 검색어면 null). 다듬은 글(koTidy)에 쓴다. glue: 초성 사이에 건너는 공백(바이트 그대로의 JSON 처럼
+ * koMatch의 정규식 원문(빈 검색어면 null). 다듬은 글(koTidy)에 쓴다. glue: 초성 사이에 건너는 공백(바이트 그대로의 JSON처럼
  * 공백을 다르게 쓴 글에 쓸 때). 초성 글자(음절, 자음)와 겹치는 것을 넣으면 안 된다
  */
 export function koPattern(query: string, glue = "\\s*"): string | null {
@@ -185,5 +185,5 @@ export function koPattern(query: string, glue = "\\s*"): string | null {
   return initial ? `${tail}|${initial}` : tail;
 }
 
-/** koMatch 가 비교하기 전에 글을 다듬는 것(NFC, 소문자) */
+/** koMatch가 비교하기 전에 글을 다듬는 함수(NFC, 소문자) */
 export const koTidy = tidy;

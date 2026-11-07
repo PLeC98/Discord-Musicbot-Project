@@ -45,7 +45,7 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
           id: guild.id,
           name: guild.name,
           icon: guildIconUrl(guild.id, guild.icon),
-          // 그 서버의 "서버 관리" 권한. 지금 멤버 권한으로 본다(권한 수준 오버라이드로 낮췄으면 그 계층으로). 봇 운영자(isOwner)와 무관
+          // 해당 서버의 "서버 관리" 권한이다. 현재 멤버 권한으로 판정하며(권한 수준 오버라이드로 낮췄으면 그 계층 기준), 봇 운영자(isOwner) 여부와는 무관하다
           canManageGuild: isServerManager(await shadowMember(req, member)),
           hasPlayer: players.has(guild.id),
           state: listState(voiceFlags(guild, user.id).botInVoice, player),

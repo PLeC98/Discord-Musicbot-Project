@@ -5,9 +5,9 @@
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게)
 //   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
-// 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range 로 받아 모은다. 구간을 무시하고 200 으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
+// 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range로 받아 모은다. 구간을 무시하고 200으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
 // 구간 없는 세그먼트는 작고 빨리 오면 모으고(실패하면 처음부터 다시), 크거나 늦으면 모으지 않고 받는 쪽(media/direct-input)에 넘긴다(HlsPour).
-// 모으는 동안은 ffmpeg 에 입력이 없어 재생 쪽 감시(끊김 10초, 버퍼링 15초)에 걸린다. 넘긴 세그먼트는 받는 쪽이 흘리고, 알린 크기가 있으면 끊긴 자리부터 잇는다
+// 모으는 동안은 ffmpeg에 입력이 없어 재생 쪽 감시(끊김 10초, 버퍼링 15초)에 걸린다. 넘긴 세그먼트는 받는 쪽이 흘리고, 알린 크기가 있으면 끊긴 위치부터 잇는다
 
 import crypto from "node:crypto";
 import type { Readable } from "node:stream";
@@ -22,8 +22,8 @@ const log = logger.child({ category: "link" });
 type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence: number };
 /**
  * 모으지 않고 넘긴 세그먼트. 받는 쪽(media/direct-input)이 주인이 되어 흘리고 닫는다.
- * totalBytes: 알린 크기로 곧바로 넘겼다(body 는 처음부터 남아 있다. 끊기면 url 로 Range 이어 받기). null 이면 모으다 넘겼다(head 뒤에 body 의 나머지, 잇지 않는다).
- * key, iv: AES-128 일 때. get: 이어 받기, 끝 블록 확인에 쓰는 요청(이 HLS 의 net). count: VOD 합계에 받은 바이트(암호문)를 더한다(넘으면 던진다)
+ * totalBytes: 알린 크기로 곧바로 넘겼다(body는 처음부터 남아 있다. 끊기면 url로 Range 이어 받기). null이면 모으다 넘겼다(head 뒤에 body의 나머지, 잇지 않는다).
+ * key, iv: AES-128일 때. get: 이어 받기, 끝 블록 확인에 쓰는 요청(이 HLS의 net). count: VOD 합계에 받은 바이트(암호문)를 더한다(넘으면 던진다)
  */
 type HlsPour = {
   kind: "pour";
@@ -38,7 +38,7 @@ type HlsPour = {
   get: StreamNet["getStream"];
   count(bytes: number): void;
 };
-/** media/fragment-stream 의 출처 모양(층 순서상 그 타입을 쓰지 않는다). 넘긴 세그먼트는 받는 쪽이 흘릴 스트림으로 바꾼다 */
+/** media/fragment-stream의 출처 모양(레이어 순서상 그 타입을 쓰지 않는다). 넘긴 세그먼트는 받는 쪽이 흘릴 스트림으로 바꾼다 */
 type HlsFragments = {
   next(): Promise<HlsPart | null>;
   fetch(part: HlsPart, signal: AbortSignal, progress?: () => void): Promise<Buffer | HlsPour>;
@@ -61,7 +61,7 @@ type HlsOptions = { net?: StreamNet; sleep?: (ms: number) => Promise<void>; body
 /** 목록, 키는 작다 */
 const LIST_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024 * 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
 const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 바이트 구간 세그먼트를 모으는 상한(받는 것과 미리 받는 것이 함께 메모리에 있다). 형식은 판정하지 않는다(ffmpeg 의 형식 필터가 본다) */
+/** 바이트 구간 세그먼트를 모으는 상한(받는 것과 미리 받는 것이 함께 메모리에 있다). 형식은 판정하지 않는다(ffmpeg의 형식 필터가 본다) */
 const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/, maxBytes: 64 * 1024 * 1024 };
 /** 바이트 구간 세그먼트. 구간을 무시하는 서버는 파일 전체의 크기를 알려 오니 파일 상한으로 열고, 모으는 양은 구간 끝까지로 묶는다(fetchPart) */
 const RANGED_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BYTES };
@@ -69,7 +69,7 @@ const RANGED_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BY
 const WHOLE_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BYTES };
 /** 여는 쪽이 무응답 한도를 주지 않을 때(캐시 다운로드). 재생은 플레이어가 버티는 10초보다 짧게 준다 */
 const HLS_IDLE_MS = 10_000;
-/** 이보다 크거나 모으는 데 이보다 오래 걸리면(응답 헤더부터) 모으지 않고 넘긴다. 0.6Mbps 에서 1MB 가 버퍼링 감시(15초) 안이다 */
+/** 이보다 크거나 모으는 데 이보다 오래 걸리면(응답 헤더부터) 모으지 않고 넘긴다. 0.6Mbps에서 1MB가 버퍼링 감시(15초) 안이다 */
 const GATHER_MAX_BYTES = 1024 * 1024;
 const GATHER_MAX_MS = 3000;
 /** 키를 몇 개까지 기억하나(키를 돌리는 라이브는 새 키만 쓴다) */
@@ -81,7 +81,7 @@ const RELOAD_FAILURES = 3;
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const ignore = () => {
-  /* 받는 쪽이 따로 받는다 */
+  /* 받는 쪽이 오류를 따로 처리한다 */
 };
 
 /** 다시 받아도 같은 실패(4xx, 상한, DRM) */
@@ -96,7 +96,7 @@ async function settled<T>(request: Promise<T>): Promise<T> {
   }
 }
 
-/** 본문을 끝까지(slice 가 있으면 그 구간까지만) 모은다. 덩이마다 progress. signal 이 끊으면(이미 끊겼어도) 본문을 부수고 그 사유로 던진다 */
+/** 본문을 끝까지(slice가 있으면 그 구간까지만) 모은다. 청크마다 progress. signal이 끊으면(이미 끊겼어도) 본문을 강제로 닫고 그 사유로 던진다 */
 async function collect(body: Readable, { signal, slice, progress }: { signal?: AbortSignal; slice?: ByteRange | null; progress?: () => void } = {}): Promise<Buffer> {
   const stop = () => body.destroy(signal?.reason instanceof Error ? signal.reason : new Error("그만 받음"));
   signal?.addEventListener("abort", stop, { once: true });
@@ -120,8 +120,8 @@ async function collect(body: Readable, { signal, slice, progress }: { signal?: A
 }
 
 /**
- * 구간 없는 세그먼트를 모은다. 끝나면 { done }, GATHER_MAX_BYTES 를 넘거나 GATHER_MAX_MS 가 지나면 본문을 멈추고(부수지 않는다) 모은 앞부분 { head }.
- * 덩이마다 progress. signal 이 끊으면 본문을 부수고 그 사유로 던진다
+ * 구간 없는 세그먼트를 모은다. 끝나면 { done }, GATHER_MAX_BYTES를 넘거나 GATHER_MAX_MS가 지나면 본문을 멈추고(부수지 않는다) 모은 앞부분 { head }.
+ * 청크마다 progress. signal이 끊으면 본문을 강제로 닫고 그 사유로 던진다
  */
 function gather(body: Readable, signal: AbortSignal, progress: () => void): Promise<{ done: Buffer } | { head: Buffer }> {
   return new Promise((resolve, reject) => {
@@ -140,12 +140,12 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       cleanup();
       resolve({ head: Buffer.concat(chunks) });
     };
-    // 문자열 덩이는 바이트로. 그 밖(객체)은 그 세그먼트의 실패로(이벤트 안에서 던지면 아무도 받지 못한다)
+    // 문자열 청크는 바이트로. 그 밖(객체)은 그 세그먼트의 실패로(이벤트 안에서 던지면 아무도 받지 못한다)
     const onData = (chunk: unknown) => {
       const piece = Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk) : null;
       if (!piece) {
         body.destroy();
-        return onError(new TypeError(`세그먼트 본문의 덩이가 바이트가 아닙니다(${typeof chunk})`));
+        return onError(new TypeError(`세그먼트 본문의 청크가 바이트가 아닙니다(${typeof chunk})`));
       }
       chunks.push(piece);
       length += piece.length;
@@ -162,7 +162,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
     };
     // 오류 없이 닫혔다(끝 전에). 다시 받을 수 있는 실패
     const onClose = () => {
-      if (!body.readableEnded) onError(Object.assign(new Error("세그먼트 본문이 끝 전에 닫혔습니다"), { code: "ERR_STREAM_PREMATURE_CLOSE" }));
+      if (!body.readableEnded) onError(Object.assign(new Error("세그먼트 본문이 끝나기 전에 닫혔습니다"), { code: "ERR_STREAM_PREMATURE_CLOSE" }));
     };
     const onAbort = () => {
       cleanup();
@@ -179,7 +179,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
   });
 }
 
-/** 기다리기만 신호로 끊는다(기다리는 것은 그대로 둔다. 키는 다른 세그먼트도 기다린다) */
+/** 현재 대기만 신호로 끊는다(진행 중인 요청은 그대로 둔다. 키는 다른 세그먼트도 기다린다) */
 function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   if (signal.aborted) return Promise.reject(signal.reason);
   return new Promise((resolve, reject) => {
@@ -292,7 +292,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
         if (next.ended) return false;
         unchanged = true;
       } catch (error) {
-        // 목록의 뜻이 다룰 수 없는 것(큰 순번, 읽을 수 없는 구간 등)은 다시 받아도 같다. 목록이 아닌 응답 같은 한때의 이상은 다시 받는다
+        // 목록 내용이 다룰 수 없는 것(큰 순번, 읽을 수 없는 구간 등)은 다시 받아도 같다. 목록이 아닌 응답 같은 일시적인 오류는 다시 받는다
         if ((error as { permanent?: boolean }).permanent || codeOf(error) === "unsupported-link" || ++failures >= RELOAD_FAILURES) throw error;
         log.trace(`라이브 HLS 플레이리스트 갱신 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
       }
@@ -343,7 +343,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
   function count(bytes: number) {
     if (startMs === null) return;
     received += bytes;
-    if (received > SafeUrl.MAX_BYTES) throw permanent(new Error(`HLS 가 최대 크기(${SafeUrl.MAX_BYTES} bytes)를 넘었습니다`));
+    if (received > SafeUrl.MAX_BYTES) throw permanent(new Error(`HLS가 최대 크기(${SafeUrl.MAX_BYTES} bytes)를 넘었습니다`));
   }
 
   const parts: PartNet = { net, idleMs, keyOf, count };
@@ -367,7 +367,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
 
 /** 세그먼트를 받는 데 쓰는 것: 망, 무응답 한도, 기억하는 키, VOD 합계 */
 type PartNet = { net: StreamNet; idleMs: number; keyOf(url: string, signal: AbortSignal): Promise<Buffer>; count(bytes: number): void };
-/** AES-128 의 키와 IV(암호화가 없으면 null) */
+/** AES-128의 키와 IV(암호화가 없으면 null) */
 type Cipher = { key: Buffer; iv: Buffer } | null;
 type Fetching = { signal: AbortSignal; progress: () => void; cipher: Cipher };
 
@@ -403,9 +403,9 @@ async function fetchWhole(ctx: PartNet, part: HlsPart, at: Fetching): Promise<Bu
   }
 }
 
-// 구간 세그먼트는 모은다. 응답이 시작한 자리(200 이면 0, 206 이면 Content-Range)에서 구간까지 건너뛰고 구간 길이만큼만 모은다.
-// 처음 자리의 206 은 Content-Range 가 없어도 받는다(청크 스트림의 처음 요청과 같다). 그 밖에 자리를 모르거나 구간 뒤에서 시작했으면 다른 바이트라 받지 않는다.
-// 구간 끝이 상한을 넘으면(구간을 무시한 200 이 처음부터 보낼 때) 받지 않는다. 짧게 끝났으면 받은 만큼(파일 끝을 넘은 마지막 구간은 서버가 끝에서 자른다)
+// 구간 세그먼트는 모은다. 응답이 시작한 위치(200이면 0, 206이면 Content-Range)에서 구간까지 건너뛰고 구간 길이만큼만 모은다.
+// 시작 위치의 206은 Content-Range가 없어도 받는다(청크 스트림의 처음 요청과 같다). 그 밖에 위치를 모르거나 구간 뒤에서 시작했으면 다른 바이트라 받지 않는다.
+// 구간 끝이 상한을 넘으면(구간을 무시한 200이 처음부터 보낼 때) 받지 않는다. 짧게 끝났으면 받은 만큼(파일 끝을 넘은 마지막 구간은 서버가 끝에서 자른다)
 async function fetchRange(ctx: PartNet, part: HlsPart, range: ByteRange, at: Fetching): Promise<Buffer> {
   const body = await settled(ctx.net.getStream(part.url, undefined, { accept: RANGED_ACCEPT, signal: at.signal, bodyIdleMs: ctx.idleMs, from: range.offset, to: range.offset + range.length - 1 }));
   at.progress();
@@ -423,13 +423,13 @@ async function fetchRange(ctx: PartNet, part: HlsPart, range: ByteRange, at: Fet
   return finish(ctx, await collect(body, { signal: at.signal, slice, progress: at.progress }), at.cipher);
 }
 
-// 모은 바이트(암호문)를 센 뒤 푼다
+// 모은 바이트(암호문)를 센 뒤 복호화한다
 function finish(ctx: PartNet, bytes: Buffer, cipher: Cipher): Buffer {
   ctx.count(bytes.length);
   return cipher ? decrypt(bytes, cipher.key, cipher.iv) : bytes;
 }
 
-// 넘긴다. 이제 받는 쪽이 본문의 주인이다(본문의 실패는 받는 쪽의 사슬이 받는다. 그 앞에 처리되지 않은 오류가 되지 않게 빈 리스너)
+// 넘긴다. 이제 받는 쪽이 본문을 맡는다(본문의 실패는 받는 쪽 파이프라인이 처리한다. 그 전에 처리되지 않은 오류가 되지 않게 빈 리스너를 단다)
 function pourOf(ctx: PartNet, part: HlsPart, body: AudioStream, { head, totalBytes }: { head: Buffer | null; totalBytes: number | null }, at: Fetching): HlsPour {
   at.signal.throwIfAborted();
   body.on("error", ignore);

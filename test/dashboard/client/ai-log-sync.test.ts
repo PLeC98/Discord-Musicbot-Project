@@ -1,5 +1,5 @@
-// dashboard/src/composables/ai-log-sync.ts: AI 리퀘스트 로그 화면의 SSE 연결을 여닫는 차례.
-// 보일 때만 열고, 다시 읽기는 처음, 떠났다 올 때, 세션이 끝났거나 계정이 바뀐 뒤, 읽지 못했을 때만. 읽는 사이 바뀌었거나 화면이 사라졌으면 열지 않는다
+// dashboard/src/composables/ai-log-sync.ts: AI 리퀘스트 로그 화면의 SSE 연결을 열고 닫는 순서를 다룬다.
+// 보일 때만 열고, 처음 열 때나 화면을 떠났다 올 때, 세션이 끝났거나 계정이 바뀐 뒤, 읽지 못했을 때만 다시 읽는다. 읽는 사이 상태가 바뀌었거나 화면이 사라졌으면 열지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -56,7 +56,7 @@ test("화면을 떠났다 오거나, 세션이 끝났거나 계정이 바뀐 뒤
   assert.deepEqual(s.did, ["stop", "reload", "start"], "다시 로그인한 뒤 다시 읽는다");
 });
 
-test("읽지 못했으면 다음 차례에 다시 읽는다", async () => {
+test("읽지 못했으면 다음번에 다시 읽는다", async () => {
   const s = setup();
   s.state.failed = true;
   await s.sync.sync();
@@ -68,7 +68,7 @@ test("읽지 못했으면 다음 차례에 다시 읽는다", async () => {
   assert.deepEqual(s.did, ["reload", "start", "stop", "reload", "start"]);
 });
 
-test("읽는 사이 탭을 숨겼거나 더 새 차례가 왔거나 화면이 사라졌으면 열지 않는다", async () => {
+test("읽는 사이 탭을 숨겼거나 새 호출이 들어왔거나 화면이 사라졌으면 열지 않는다", async () => {
   const hidden = setup();
   hidden.hold();
   const first = hidden.sync.sync();

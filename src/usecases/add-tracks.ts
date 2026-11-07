@@ -129,7 +129,7 @@ type PlaybackRequest = {
   source?: string;
   lookup?: Lookup;
   ffmpegReady?: () => boolean;
-  /** 곡을 찾고 기다린 뒤, 플레이어를 만들기(첫 바꿈) 앞의 확인. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남) */
+  /** 곡 검색과 대기가 끝난 뒤, 플레이어를 생성하기(첫 상태 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
   go?: () => void;
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
@@ -142,7 +142,7 @@ type Continued = { added: number; skipped: number; total: number | null; remaini
 type CollectionResult = { success: false; code: string; skipped?: number } | (PlaybackResult & Continued);
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-/** 담을 곡과 담는 방식. go: 서버별 줄을 선 뒤, 담기 앞의 확인(대시보드: 세션이 끝남). 던지면 담지 않는다 */
+/** 추가할 곡과 추가 방식이다. go는 서버별 실행 순서를 기다린 뒤, 곡을 추가하기 전에 하는 확인이다(대시보드: 세션 종료). 예외를 던지면 추가하지 않는다 */
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean; go?: () => void };
 /**
  * 넣은 것. count 는 넣은 곡 수(쉬던 플레이어에 곧바로 튼 곡도 센다), position 은 넣은 첫 곡의 대기열 순번(1부터, 곧바로 틀었으면 null),
@@ -202,7 +202,7 @@ function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
   return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
-// 서버의 플레이어에 줄 텍스트 채널. 요청에도 플레이어에도 없으면 전용 채널을 쓴다
+// 서버의 플레이어에 지정할 텍스트 채널이다. 요청에도 플레이어에도 없으면 전용 채널을 쓴다
 async function textChannelFor(bot: Bot, { guild, textChannel = null }: PlaybackRequest) {
   if (textChannel || bot.players.get(guild.id)?.textChannel) return textChannel;
   return resolveFallbackTextChannel(guild);
@@ -312,7 +312,7 @@ type CollectionRequest = {
   source?: string;
   onProgress?: (done: number, want: number) => void;
   lookup?: Lookup;
-  /** 불러온 뒤, 넣기 앞의 확인(requestPlayback 의 go) */
+  /** 곡을 불러온 뒤, 추가하기 전에 하는 확인이다(requestPlayback의 go) */
   go?: () => void;
 };
 
@@ -425,7 +425,7 @@ const adding = keyedSerial();
 /** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
 function queueTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
   return adding.run(guildId, () => {
-    // 줄을 서는 사이 그만뒀으면 담지 않는다
+    // 순서를 기다리는 사이에 중단됐으면 추가하지 않는다
     trackData.go?.();
     return processTracks(bot, guildId, trackData, requester, responder);
   });

@@ -34,7 +34,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)
 
-    // 곡 추가 권한: 봇 동작 중에는 재적 규칙(서버 관리자 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
+    // 곡 추가 권한: 봇 동작 중에는 동일 음성 채널 규칙(서버 관리자 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);
     if (permError) {
       const refused = errors.notice(permError);

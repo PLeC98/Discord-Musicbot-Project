@@ -61,7 +61,7 @@ function failureScope(error: unknown, { direct = false }: { direct?: boolean } =
 
 /**
  * 소리를 직접 링크(알려진 사이트 밖의 서버)에서 받는 곡인가. 곡의 라벨(platform)이 아니라 받을 주소(audioUrl)로 본다:
- * 자동재생이 고른 직접 파일, 유튜브 요청에 고정한 직접 링크 음원도 그 서버 하나의 일이다. 주소를 아직 모르면 라벨로
+ * 자동재생이 선택한 직접 파일, 유튜브 요청에 직접 지정한 직접 링크 음원도 그 서버 하나의 문제다. 주소를 아직 모르면 라벨로 본다
  */
 function servedDirectly(track: { platform?: string | null; audioUrl?: string | null } | null | undefined) {
   if (!track) return false;

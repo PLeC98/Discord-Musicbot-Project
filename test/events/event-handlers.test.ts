@@ -82,7 +82,7 @@ beforeEach(() => {
 type Handled = { guildId: string; trackData: { tracks: { id?: string }[] }; who: { username?: string | null } | null };
 type World = ReturnType<typeof world>;
 
-// 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 서버 관리자 여부, DJ 역할로 세계를 만든다
+// 봇이 있는 음성 채널, 사용자가 있는 음성 채널, 서버 관리자 여부, DJ 역할로 테스트 환경을 만든다
 function world({ botVoice = "v1", userVoice = "v1", manager = false, roles = [] as string[], handle = async (): Promise<object> => ({ success: true }) }: { botVoice?: string | null; userVoice?: string | null; manager?: boolean; roles?: string[]; handle?: (trackData: object, responder: unknown) => Promise<object> } = {}) {
   const voice = (id: string | null) => (id ? { id, name: id, permissionsFor: () => ({ has: () => true }) } : null);
   const guild = { id: "g1", name: "서버", members: { me: { id: "bot", voice: { channel: voice(botVoice) } } }, channels: { cache: new Map() }, roles: { cache: new Map([["dj", { id: "dj" }]]) } };
@@ -469,13 +469,13 @@ test("더 넣기: 시간이 지난 메뉴, 권한, 플레이어 없음은 거절
   assert.deepEqual(none.log, [["reply", said(errors.notice("no-song"))]]);
 });
 
-test("더 넣기: /playfirst 에서 이어진 메뉴(맨 앞에 넣기)는 /playfirst 처럼 DJ 만, 일반 메뉴는 DJ 를 보지 않는다", async () => {
+test("더 넣기: /playfirst에서 이어진 메뉴(맨 앞에 넣기)는 /playfirst처럼 DJ만 허용하고, 일반 메뉴는 DJ를 보지 않는다", async () => {
   await settings.setDjRoles("g1", ["dj"]);
   const first = moreInteraction(world(), { select: "10", customState: state({ insertFirst: true }) });
   await interactionCreate.execute(first.bot, first.it);
   assert.deepEqual(first.log, [["reply", said(errors.notice("must-dj"))]]);
 
-  // DJ 역할이 있으면 거절하지 않는다(그 뒤 이어 받기로 간다)
+  // DJ 역할이 있으면 거절하지 않는다(그 뒤 이어 불러오기로 넘어간다)
   const dj = moreInteraction(world({ roles: ["dj"] }), { select: "10", customState: state({ insertFirst: true }) });
   await interactionCreate.execute(dj.bot, dj.it);
   assert.notDeepEqual(dj.log[0], ["reply", said(errors.notice("must-dj"))]);

@@ -1,4 +1,4 @@
-// dashboard/src/utils/login-wait.ts: 로그인 창을 기다리는 동안의 401 은 곧바로 세션 끝으로 돌리지 않고, 창이 끝나면 한 번 확인한다
+// dashboard/src/utils/login-wait.ts: 로그인 창을 기다리는 동안의 401은 곧바로 세션 끝으로 돌리지 않고, 창이 닫히면 한 번 확인한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,13 +19,13 @@ function setup(alive: boolean | (() => boolean) = true) {
   return { wait, ended: () => ended, checks: () => checks, advance: (ms: number) => (at += ms) };
 }
 
-test("창을 열지 않았으면 401 은 곧바로 세션 끝", () => {
+test("창을 열지 않았으면 401은 곧바로 세션을 끝낸다", () => {
   const s = setup();
   s.wait.sessionEnded();
   assert.equal(s.ended(), 1);
 });
 
-test("창을 기다리는 동안의 401 은 모아 두고, 로그인을 마친 뒤 살아 있으면 세션 끝으로 돌리지 않는다", async () => {
+test("창을 기다리는 동안의 401은 모아 두고, 로그인을 마친 뒤 살아 있으면 세션 끝으로 돌리지 않는다", async () => {
   const s = setup(true);
   s.wait.opened();
   s.wait.sessionEnded();
@@ -35,7 +35,7 @@ test("창을 기다리는 동안의 401 은 모아 두고, 로그인을 마친 �
   assert.deepEqual([s.checks(), s.ended()], [1, 0], "확인은 한 번");
 });
 
-test("마친 뒤에도 살아 있지 않거나, 창을 그만뒀는데 살아 있지 않으면 세션 끝", async () => {
+test("로그인을 마친 뒤에도 살아 있지 않거나, 창을 닫았는데 살아 있지 않으면 세션을 끝낸다", async () => {
   const done = setup(false);
   done.wait.opened();
   done.wait.sessionEnded();
@@ -49,7 +49,7 @@ test("마친 뒤에도 살아 있지 않거나, 창을 그만뒀는데 살아 �
   assert.equal(quit.ended(), 1);
 });
 
-test("모아 둔 401 이 없으면 창이 끝나도 확인하지 않는다. 창을 연 지 10분이 지나면 기다리지 않는다", async () => {
+test("모아 둔 401이 없으면 창이 닫혀도 확인하지 않는다. 창을 연 지 10분이 지나면 기다리지 않는다", async () => {
   const s = setup(false);
   s.wait.opened();
   await s.wait.signedIn();
@@ -60,7 +60,7 @@ test("모아 둔 401 이 없으면 창이 끝나도 확인하지 않는다. 창�
   assert.equal(s.ended(), 1);
 });
 
-test("확인이 던지면(닿지 못함) 세션 끝으로 둔다(닫힌 쪽)", async () => {
+test("세션 확인 요청이 실패하면(네트워크 오류 등) 세션을 끝낸다", async () => {
   const s = setup(() => {
     throw new Error("offline");
   });
@@ -70,7 +70,7 @@ test("확인이 던지면(닿지 못함) 세션 끝으로 둔다(닫힌 쪽)", a
   assert.equal(s.ended(), 1);
 });
 
-test("창이 끝난 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있던 긴 요청)은 확인해 살아 있으면 세션 끝으로 돌리지 않는다. 그 뒤는 곧바로", async () => {
+test("창이 닫힌 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있던 긴 요청)은 확인해 살아 있으면 세션 끝으로 돌리지 않고, 그 뒤에는 곧바로 끝낸다", async () => {
   const s = setup(true);
   s.wait.opened();
   await s.wait.signedIn();
@@ -78,13 +78,13 @@ test("창이 끝난 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있�
   s.wait.sessionEnded();
   await new Promise((done) => setImmediate(done));
   await new Promise((done) => setImmediate(done));
-  assert.deepEqual([s.checks(), s.ended()], [2, 0], "겹치면 나가 있던 확인 뒤 한 번 더(몇 번이 겹쳐도 둘)");
+  assert.deepEqual([s.checks(), s.ended()], [2, 0], "확인 중에 또 오면 진행 중인 확인이 끝난 뒤 한 번만 더 확인한다(여러 번 겹쳐도 총 2번)");
   s.advance(120_000);
   s.wait.sessionEnded();
   assert.equal(s.ended(), 1);
 });
 
-test("창이 끝난 뒤 늦게 온 401 이라도 확인에서 살아 있지 않으면 세션 끝", async () => {
+test("창이 닫힌 뒤 늦게 온 401이라도 확인에서 살아 있지 않으면 세션을 끝낸다", async () => {
   const s = setup(false);
   s.wait.opened();
   await s.wait.abandoned();
@@ -93,7 +93,7 @@ test("창이 끝난 뒤 늦게 온 401 이라도 확인에서 살아 있지 않�
   assert.equal(s.ended(), 1);
 });
 
-test("확인이 나가 있는 동안 온 401 은 그 확인이 끝난 뒤 한 번 더 확인한다(먼저 나간 확인의 답은 그 401 보다 오래됐을 수 있다)", async () => {
+test("확인이 나가 있는 동안 온 401은 그 확인이 끝난 뒤 한 번 더 확인한다(먼저 나간 확인의 답은 그 401보다 오래됐을 수 있다)", async () => {
   let answers = [true, false];
   let checks = 0;
   let ended = 0;

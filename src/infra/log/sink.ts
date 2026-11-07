@@ -25,7 +25,7 @@ type SseClient = {
   /** 아직 보내지 못하고 쌓인 바이트 */
   readonly writableLength: number;
   end(): void;
-  /** 소켓까지 부순다(읽지 않는 클라이언트는 끝내도 닫히지 않는다) */
+  /** 소켓까지 강제로 닫는다(읽지 않는 클라이언트는 end()만으로는 닫히지 않는다) */
   destroy(): unknown;
   on(event: "close" | "error", fn: () => void): unknown;
   writeHead(code: number, headers: Record<string, string>): unknown;
@@ -164,7 +164,7 @@ class LogManager {
     for (const res of this.clients) {
       try {
         // 읽지 않는 소비자를 붙들고 있으면 메모리가 는다. 쌓인 양이 상한을 넘으면 끊는다(다시 열면 마지막 번호 뒤부터 받는다).
-        // 끝내기(end)로는 읽지 않는 소켓과 쌓인 바이트가 남는다. 부순다
+        // end()만으로는 읽지 않는 소켓과 쌓인 바이트가 남으므로 소켓을 강제로 닫는다
         if (res.writableLength > MAX_PENDING_BYTES) {
           this._dropClient(res);
           res.destroy();
@@ -277,7 +277,7 @@ class LogManager {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      // 끊을 때 이 연결의 소켓을 부수므로 다시 쓰지 않게
+      // 끊을 때 이 연결의 소켓을 강제로 닫으므로 재사용하지 않게 한다
       Connection: "close",
       "X-Accel-Buffering": "no",
     });

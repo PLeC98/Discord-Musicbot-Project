@@ -1,5 +1,5 @@
-// src/dashboard/log-file-reader.ts: 검색어가 있을 때 묶음째 거르기가 맞는 줄을 놓치지 않는다. 까다로운 글(바꿔 쓴 글자, 탭, 줄바꿈, NFD,
-// 시그마, 결합 문자, 이모지, 따옴표, 짝 없는 서로게이트, 묶음보다 긴 줄)로 만든 파일에서 쪽, 맞은 줄 수, 다운로드가 모든 줄을 푼 기준과 같다
+// src/dashboard/log-file-reader.ts: 검색어가 있을 때 청크 단위 사전 필터링이 일치하는 줄을 놓치지 않는다. 까다로운 문자열(이스케이프 문자, 탭, 줄바꿈, NFD,
+// 시그마, 결합 문자, 이모지, 따옴표, 짝 없는 서로게이트, 청크보다 긴 줄)로 만든 파일에서 페이지, 일치하는 줄 수, 다운로드 결과가 모든 줄을 파싱한 기준과 같다
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs";
@@ -25,10 +25,10 @@ for (let i = 0; i < 6000; i++) {
   if (rnd() < 0.5) rec.category = pick(["player", "youtube", "재생기"]);
   if (rnd() < 0.2) rec.tags = [pick(["retry", "재시도", "Σ"])];
   records.push(JSON.stringify(rec));
-  // 묶음(256KB)보다 긴 줄
+  // 청크(256KB)보다 긴 줄을 넣는다
   if (i === 2500) records.push(JSON.stringify({ time: T0 + i, level: 30, msg: "긴 줄 " + "재생 시작 ".repeat(40_000) + "끝" }));
   if (i === 4000) records.push("not json 재생 시작");
-  // 화면 글이 바이트와 다른 줄: 읽을 때 ANSI 를 걷어 내고, 글이 아닌 msg, 태그를 글로 바꾼다
+  // 화면 문자열이 원본 바이트와 다른 줄: 읽을 때 ANSI를 제거하고, 문자열이 아닌 msg와 태그를 문자열로 바꾼다
   if (i % 1000 === 500) {
     records.push(JSON.stringify({ time: T0 + i, level: 30, msg: "foo\x1b[31mbar" }));
     records.push(JSON.stringify({ time: T0 + i, level: 30, msg: ["foo", "bar"] }));
@@ -40,7 +40,7 @@ for (let i = 0; i < 6000; i++) {
 fs.writeFileSync(file, records.join("\n") + "\n");
 after(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }));
 
-// 기준: 모든 줄을 풀어 필터로
+// 기준: 모든 줄을 파싱해 필터링한다
 const all: FileLine[] = [];
 {
   const buf = fs.readFileSync(file);
@@ -50,7 +50,7 @@ const all: FileLine[] = [];
       const rec = JSON.parse(buf.toString("utf8", start, i));
       if (typeof rec.time === "number" && typeof rec.level === "number") all.push({ offset: start, ...wireFields(rec) });
     } catch {
-      // 레코드가 아닌 줄
+      // 레코드가 아닌 줄은 건너뛴다
     }
     start = i + 1;
   }
@@ -97,19 +97,19 @@ const queries = [
   "7",
 ];
 
-test("검색 첫 쪽: 마지막 쪽의 줄, more, 맞은 줄 수가 기준과 같다", async () => {
+test("검색 첫 조회: 마지막 페이지의 줄, more, 일치하는 줄 수가 기준과 같다", async () => {
   for (const q of queries) {
     const filter: LogFilter = { q };
     const want = all.filter((l) => matchesLog(l, filter));
     const page = (await readLogPage(target, { limit: 7, filter }))!;
     assert.deepEqual(offsets(page.lines), offsets(want.slice(-7)), JSON.stringify(q));
-    // 다듬으면 빈 검색어는 세지 않는다
+    // 공백만 있는 검색어는 일치하는 줄 수를 세지 않는다
     assert.equal(page.matches, q.trim() ? want.length : undefined, JSON.stringify(q));
     assert.equal(page.more, want.length > 7, JSON.stringify(q));
   }
 });
 
-test("이어 받는 쪽(앞, 뒤)과 레벨을 같이 건 검색도 기준과 같다", async () => {
+test("이어 받는 페이지(앞, 뒤)와 레벨을 같이 건 검색도 기준과 같다", async () => {
   for (const q of queries) {
     const filter: LogFilter = { q, levels: new Set(["warn", "error"]) };
     const want = all.filter((l) => matchesLog(l, filter));
@@ -122,20 +122,20 @@ test("이어 받는 쪽(앞, 뒤)과 레벨을 같이 건 검색도 기준과 �
   }
 });
 
-test("검색어가 있으면 후보 줄만 푼다", async () => {
+test("검색어가 있으면 후보 줄만 파싱한다", async () => {
   const parse = JSON.parse;
   let calls = 0;
   JSON.parse = ((...args: Parameters<typeof parse>) => (calls++, parse(...args))) as typeof JSON.parse;
   try {
     const page = (await readLogPage(target, { limit: 7, filter: { q: "닭갈비" } }))!;
     assert.ok(page.matches! > 0);
-    assert.ok(calls < page.matches! * 2 + 50, `푼 줄 ${calls} / 맞은 줄 ${page.matches} / 모든 줄 ${all.length}`);
+    assert.ok(calls < page.matches! * 2 + 50, `파싱한 줄 ${calls} / 일치한 줄 ${page.matches} / 전체 줄 ${all.length}`);
   } finally {
     JSON.parse = parse;
   }
 });
 
-test("다운로드도 기준과 같은 줄", async () => {
+test("다운로드도 기준과 같은 줄을 내보낸다", async () => {
   for (const q of queries.slice(0, 20)) {
     const filter: LogFilter = { q };
     const got: FileLine[] = [];

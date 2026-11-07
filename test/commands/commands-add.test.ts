@@ -201,7 +201,7 @@ function interaction(w: World, { options = {}, channelId = "c1" }: { options?: R
 
 // ── /play, /playfirst ────────────────────────────────────────────────
 
-test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
+test("/play: 권한(동일 음성 채널 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
   const w = world({ userVoice: "v2" });
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.bot);

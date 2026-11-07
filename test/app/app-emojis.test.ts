@@ -244,7 +244,7 @@ test("운영자 패널의 조작은 동기화가 끝난 뒤에 돈다(한 줄)",
   assert.equal(created.length, total + 1);
 });
 
-test("운영자 패널: 줄을 서고 목록을 받은 뒤 그만두면(go 가 던짐, 대시보드의 세션 끝) 디스코드에 바꾸기를 보내지 않는다", async () => {
+test("운영자 패널: 순서를 기다려 목록을 받은 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 디스코드에 변경 요청을 보내지 않는다", async () => {
   const app = fakeApp([{ id: "3", name: "party", animated: false, mine: false }]);
   const emojis = new AppEmojis(app.api, { onChanged: async () => {} });
   const ended = () => {

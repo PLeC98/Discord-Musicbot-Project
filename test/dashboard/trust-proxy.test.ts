@@ -1,8 +1,8 @@
-// src/dashboard/index.ts 의 믿는 프록시(DASHBOARD_TRUST_PROXY): 기본은 이 기기(loopback)만 믿고, 믿지 않는 주소의 X-Forwarded-* 는
-// 사용자 IP 를 바꾸지 않고 그 주소로 한 번 알린다. 받지 않는 값(모두 믿기 포함)은 알리고 loopback 으로
+// src/dashboard/index.ts의 믿는 프록시(DASHBOARD_TRUST_PROXY): 기본은 이 기기(loopback)만 믿고, 믿지 않는 주소의 X-Forwarded-*는
+// 사용자 IP를 바꾸지 않고 주소별로 한 번 경고를 남긴다. 받지 않는 값(모두 믿기 포함)은 경고를 남기고 loopback만 믿는다
 
 process.env.OWNER_ID = "owner";
-// .env 에 무엇이 있든 기본값을 본다(dotenv 는 이미 있는 값을 덮지 않고, 빈 값은 기본값이다)
+// .env에 무엇이 있든 기본값을 본다(dotenv는 이미 있는 값을 덮지 않고, 빈 값은 기본값이다)
 process.env.DASHBOARD_TRUST_PROXY = "";
 
 import { test, after } from "node:test";
@@ -40,7 +40,7 @@ after(() => {
   store.close();
 });
 
-/** 그 값으로 앱을 띄우고, X-Forwarded-For 를 실은 익명 GET 을 보내는 함수(일반 한도 1 이라 같은 IP 로 보면 둘째가 429) */
+/** 그 값으로 앱을 띄우고, X-Forwarded-For를 실은 익명 GET을 보내는 함수를 돌려준다(일반 한도가 1이라 같은 IP로 보면 둘째가 429다) */
 async function serve(trustProxy: string) {
   const server = await listenForFetch(appWith(trustProxy), "127.0.0.1");
   servers.push(server);
@@ -56,27 +56,27 @@ async function withApiMax<T>(fn: () => Promise<T>) {
   }
 }
 
-test("기본(loopback)은 127.0.0.1, ::1, ::ffff:127.0.0.1 만 믿는다", () => {
+test("기본(loopback)은 127.0.0.1, ::1, ::ffff:127.0.0.1만 믿는다", () => {
   assert.equal(config.dashboard.trustProxy, "loopback");
   const trust = appWith("loopback").get("trust proxy fn") as (addr: string, i: number) => boolean;
   for (const addr of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) assert.equal(trust(addr, 0), true, addr);
   for (const addr of ["192.168.0.10", "10.0.0.5", "172.17.0.2", "fd00::1", "169.254.1.1", "8.8.8.8"]) assert.equal(trust(addr, 0), false, addr);
 });
 
-test("믿는 프록시가 알린 사용자 IP 로 센다", () =>
+test("믿는 프록시가 알린 사용자 IP로 센다", () =>
   withApiMax(async () => {
     const get = await serve("loopback");
     assert.deepEqual([await get("203.0.113.1"), await get("203.0.113.2")], [200, 200], "사용자마다 따로 센다");
     assert.equal(await get("203.0.113.1"), 429);
   }));
 
-test("믿지 않는 주소의 X-Forwarded-For 는 사용자 IP 를 바꾸지 않고, 그 주소로 한 번 알린다", () =>
+test("믿지 않는 주소의 X-Forwarded-For는 사용자 IP를 바꾸지 않고, 주소별로 한 번 경고를 남긴다", () =>
   withApiMax(async () => {
     const before = logs.length;
     const get = await serve("10.0.0.1");
     assert.equal(await get("203.0.113.1"), 200);
-    assert.equal(await get("203.0.113.2"), 429, "꾸민 IP 와 상관없이 소켓 주소로 센다");
-    const warned = logs.slice(before).filter((l) => l.includes("믿는 프록시가 아닙니다"));
+    assert.equal(await get("203.0.113.2"), 429, "꾸민 IP와 상관없이 소켓 주소로 센다");
+    const warned = logs.slice(before).filter((l) => l.includes("신뢰하는 프록시가 아닙니다"));
     assert.equal(warned.length, 1, "주소마다 한 번");
     assert.match(warned[0], /127\.0\.0\.1/);
     assert.match(warned[0], /DASHBOARD_TRUST_PROXY=10\.0\.0\.1/);

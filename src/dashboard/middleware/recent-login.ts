@@ -6,7 +6,7 @@ import { assertSignedIn } from "../session-requests.ts";
 // 위험한 조작(비밀값 바꾸기, 내보내기, 불러오기, 스냅샷 복원, 초기화)은 로그인한 지 10분 안이어야 한다.
 // 훔친 로그인 쿠키(7일)로는 이 조작을 못 하게 디스코드 로그인을 다시 거치게 한다. 로그인 시각은 OAuth 콜백이 세션을 새로 만들 때 적는다.
 // 세션은 살아 있으므로 401(세션 끝)이 아니라 reauth-required(403). 화면은 새 창에서 다시 로그인하게 하고 고치던 내용은 그대로 둔다
-// within: 로그인 뒤 받는 시간(기본 10분. 다른 기기 로그아웃은 더 짧게)
+// within: 로그인 후 허용 시간(기본 10분. 다른 기기 로그아웃은 더 짧게 잡는다)
 function recentLogin(within = RECENT_LOGIN_MS) {
   return function requireRecentLogin<P>(req: Request<P>, res: Response, next: NextFunction) {
     if (!req.session?.user) return sendProblem(res, "login-required");

@@ -1,5 +1,5 @@
 // src/dashboard/login-background/stills.ts, tones.ts, rules/art-seed.ts: 썸네일, 정지 그림(폭별 WebP, sRGB, 편집의 회전과 반전), 대표색, 장면 바뀜과 장면 색.
-// 실제 ffmpeg 로 표본을 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다)
+// 실제 ffmpeg로 샘플을 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다)
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -186,7 +186,7 @@ test("장면 바뀜과 장면마다의 색(구간 처음부터 초)", opts, asyn
 
 // 움직이는 WebP, APNG 는 입력 앞 -ss 로 찾아가면 장면이 없거나 깨진다: 처음부터 풀어 자른다
 for (const name of ["cuts.webp", "cuts.png"]) {
-  test(`움직이는 그림(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, name.endsWith(".webp") ? animatedWebp : opts, async () => {
+  test(`움직이는 이미지(${name}): 썸네일은 선택한 장면, 장면 색은 구간 안의 장면 바뀜마다`, name.endsWith(".webp") ? animatedWebp : opts, async () => {
     const one = await applied(name, { crop: FULL, range: [1, 6], thumbAt: 3 });
     assert.equal(one.kind, "video");
     const shot = await thumb(job(one));

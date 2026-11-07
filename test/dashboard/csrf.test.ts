@@ -107,7 +107,7 @@ test("끝난 세션의 로그아웃은 그 세션 쿠키가 실렸으면 토큰 
   assert.equal(passed, 1);
   const crossSite = response();
   requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: {}, headers: {}, get: () => undefined }), crossSite, () => passed++);
-  assert.equal(passed, 1, "교차 사이트 POST 는 lax 쿠키를 싣지 못한다. 받으면 다른 사이트가 이 브라우저의 쿠키를 삭제하게 된다");
+  assert.equal(passed, 1, "교차 사이트 POST는 lax 쿠키를 싣지 못한다. 받으면 다른 사이트가 이 브라우저의 쿠키를 삭제하게 된다");
   assert.equal(crossSite.sentBody?.code, "bad-csrf-token");
   const res = response();
   requireCsrfToken(request({ method: "POST", path: "/auth/logout", session: { user: { id: "u1" }, csrfToken: "t" }, headers: { cookie }, get: () => undefined }), res, () => passed++);

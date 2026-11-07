@@ -25,8 +25,8 @@ identityRouter.get("/me", (req, res) => {
   res.json(me);
 });
 
-// 최근 로그인인지(204). 화면이 위험한 조작의 확인 창을 열기 전에 확인한다: 오래됐으면 reauth-required 로 로그인 창을 먼저 열고, 확인 창은 로그인을 마친 뒤에 연다.
-// 로그인만 본다(다른 기기 로그아웃은 누구나 한다). within: 그 조작이 받는 시간(ms). 기본보다 길게는 받지 않는다(확인일 뿐, 막는 것은 조작의 경로다)
+// 최근 로그인인지 확인한다(204). 화면이 위험한 작업의 확인 창을 열기 전에 확인하며, 오래됐으면 reauth-required로 응답해 로그인 창을 먼저 열게 하고 확인 창은 재로그인 뒤에 연다.
+// 로그인 여부만 확인한다(다른 기기 로그아웃은 일반 사용자도 쓰므로 운영자 전용이 아니다). within은 해당 작업의 로그인 후 허용 시간(ms)이며, 기본값보다 길게는 받지 않는다(사전 확인일 뿐 실제 차단은 각 작업 경로가 한다)
 identityRouter.get("/me/recent-login", requireAuth, (req, res) => {
   const asked = Number(req.query.within);
   const within = Number.isFinite(asked) && asked > 0 ? Math.min(asked, RECENT_LOGIN_MS) : RECENT_LOGIN_MS;

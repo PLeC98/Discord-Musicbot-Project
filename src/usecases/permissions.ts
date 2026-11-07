@@ -10,15 +10,15 @@ import { ownTrackDenied } from "../rules/controls.ts";
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
 
 /**
- * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 단추, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 재적 규칙 면제)가 이것을 본다.
- * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 걸고, 서버 관리자가 연동 탭에서 다른 역할에 열어 줄 수 있어 명령을 나눠 주는 곳이 다시 본다(events/interaction-create).
- * 서버 소유자와 Administrator 는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
+ * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 버튼, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 동일 음성 채널 규칙 면제)가 이것을 본다.
+ * 설정 명령은 같은 권한을 디스코드 기본 권한(default_member_permissions)으로 걸고, 서버 관리자가 연동 탭에서 다른 역할에 열어 줄 수 있으므로 명령 실행 진입점(events/interaction-create)에서 다시 확인한다.
+ * 서버 소유자와 Administrator는 discord.js 권한 검사가 통과시킨다. 봇 운영자(OWNER_ID, 아래 isBotOwner)와는 다르다.
  */
 function isServerManager(member: GuildMember) {
   return member.permissions.has(PermissionFlagsBits.ManageGuild);
 }
 
-/** 봇 운영자(OWNER_ID)인가. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID 가 비어 있으면 아무도 아니다 */
+/** 봇 운영자(OWNER_ID)인지 확인한다. 디스코드 권한으로는 나타낼 수 없다. OWNER_ID가 비어 있으면 아무도 아니다 */
 function isBotOwner(userId: string) {
   const ownerId = config.dashboard.ownerId;
   return !!ownerId && userId === ownerId;
@@ -44,9 +44,9 @@ async function isDj(member: GuildMember) {
 }
 
 /**
- * 재적 규칙. 서버 관리자는 어디서든 면제, 그 외는:
- *  - 봇이 음성 채널에서 동작 중이면 같은 채널 재적 필수(음성 채널 밖이든 다른 채널이든 같은 까닭)
- *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 재적은 checkSummon 이 본다
+ * 동일 음성 채널 규칙. 서버 관리자는 어디서든 면제, 그 외는:
+ *  - 봇이 음성 채널에서 동작 중이면 같은 채널 접속 필수(음성 채널 밖이든 다른 채널이든 같은 까닭)
+ *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 접속은 checkSummon 이 본다
  * 통과 시 null, 거부 시 그 까닭.
  */
 function checkVoice(member: GuildMember): PermissionDenied | null {
@@ -59,7 +59,7 @@ function checkVoice(member: GuildMember): PermissionDenied | null {
   return "must-be-in-same-voice";
 }
 
-/** 모든 재생 조작(🔒)의 단일 기준: 재적 규칙 + DJ 계층 */
+/** 모든 재생 조작(🔒)의 단일 기준: 동일 음성 채널 규칙 + DJ 계층 */
 async function checkControl(member: GuildMember): Promise<PermissionDenied | null> {
   const voiceErr = checkVoice(member);
   if (voiceErr) return voiceErr;
@@ -68,21 +68,21 @@ async function checkControl(member: GuildMember): Promise<PermissionDenied | nul
   return null;
 }
 
-/** 곡 추가(일반 추가): 계층 무관 전원 가능, 재적 규칙만 적용 (우선 추가는 checkAddFirst) */
+/** 곡 추가(일반 추가): 계층과 무관하게 누구나 가능하며, 동일 음성 채널 규칙만 적용한다(우선 추가는 checkAddFirst) */
 function checkAdd(member: GuildMember) {
   return checkVoice(member);
 }
 
-/** 우선 추가(대기열 맨 앞): 재생 순서를 바꾸는 조작이라 DJ 계층. 봇이 유휴면 부를 수 있는지도 본다. /playfirst 와 그 더 넣기 메뉴가 같이 쓴다 */
+/** 우선 추가(대기열 맨 앞): 재생 순서를 바꾸는 조작이라 DJ 계층이어야 한다. 봇이 유휴 상태면 부를 수 있는지도 본다. /playfirst와 그 더 넣기 메뉴가 같이 쓴다 */
 async function checkAddFirst(member: GuildMember): Promise<PermissionDenied | null> {
   return (await checkControl(member)) || checkSummon(member);
 }
 
 /**
- * 봇이 유휴 상태일 때 소환 가능한지. 요청자의 채널로 들어가야 하므로 서버 관리자여도 본인 접속 필수이며,
+ * 봇이 유휴 상태일 때 소환할 수 있는지 확인한다. 요청자의 채널로 들어가야 하므로 서버 관리자여도 본인이 접속해 있어야 하며,
  * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
  *
- * 재적 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
+ * 동일 음성 채널 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
  * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
  */
 function checkSummon(member: GuildMember): PermissionDenied | null {
@@ -99,7 +99,7 @@ function checkSummon(member: GuildMember): PermissionDenied | null {
   return null;
 }
 
-/** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 재적 규칙은 적용. rules/controls) */
+/** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 동일 음성 채널 규칙은 적용. rules/controls) */
 async function checkOwnTrack(member: GuildMember, track: Pick<QueuedTrack, "requestedBy"> | null | undefined) {
   const requesterId = track?.requestedBy?.id;
   return ownTrackDenied({ control: await checkControl(member), requester: Boolean(requesterId) && requesterId === member.id, voice: () => checkVoice(member) });

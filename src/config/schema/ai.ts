@@ -23,7 +23,7 @@ function lineFormatProblems(format: string): Problem[] {
 const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 필드. 범위를 벗어나거나 수가 아니면 같은 문구
-/** 요청 하나의 시간 한도(ms) 범위. 저장과 운영자 패널의 시험(저장 전 초안)이 같이 쓴다 */
+/** 요청 하나의 시간 한도(ms) 범위. 저장과 운영자 패널의 테스트(저장 전 초안)가 같이 쓴다 */
 const AI_TIMEOUT_RANGE = { min: 1000, max: 600000 } as const;
 
 const between = (key: string, min: number, max: number) =>

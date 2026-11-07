@@ -147,7 +147,7 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
       out[key] = value;
     }
   }
-  // 요청 하나의 시간 한도는 저장 때와 같은 범위로(운영자 패널의 시험은 저장 전 초안을 그대로 받는다. 끝없이 걸어 두지 못하게)
+  // 요청 하나의 시간 한도는 저장 시와 같은 범위로 제한한다(운영자 패널의 테스트는 저장 전 초안을 그대로 받으므로 무한정 대기하지 않게 한다)
   const timeout = Number(out.timeoutMs);
   out.timeoutMs = Number.isFinite(timeout) ? Math.min(AI_TIMEOUT_RANGE.max, Math.max(AI_TIMEOUT_RANGE.min, timeout)) : DEFAULTS.timeoutMs;
   return out as AiSettings;

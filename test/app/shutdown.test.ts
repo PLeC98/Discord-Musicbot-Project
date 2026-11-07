@@ -9,7 +9,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { EXIT } from "../../src/app/exit-codes.ts";
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
-// destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 때. 기본은 곧바로
+// destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
 function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
@@ -134,7 +134,7 @@ test("봇 내리기(게이트웨이를 닫는 프레임)를 기다린 뒤 POToke
   assert.deepEqual(steps.slice(steps.indexOf("client:destroy")), ["client:destroy", "client:closed", "pot:stop", "kill", "log:close"]);
 });
 
-test("봇 내리기가 멈춰도 상한만 기다리고 warn 을 남긴 뒤 끝낸다. 실패해도 끝까지 간다", async () => {
+test("봇 내리기가 멈춰도 상한만 기다리고 warn을 남긴 뒤 끝낸다. 실패해도 끝까지 간다", async () => {
   const from = sink.buffer.length;
   const stuck = setup({ destroy: () => new Promise(() => {}) });
   stuck.proc.emit("SIGTERM");

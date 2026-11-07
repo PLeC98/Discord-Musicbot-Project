@@ -19,7 +19,7 @@ type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: stri
 
 /**
  * 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=). 로그인 콜백: 승인 화면에서 취소, 인증 코드가 없음, 디스코드가 봇의 앱 자격(시크릿)을 거절, 그 밖의 실패.
- * 화면의 로그아웃: 로그아웃은 됐지만 저장소에 남기지 못했다(sign-out-unsaved)
+ * 화면의 로그아웃: 로그아웃은 됐지만 세션 저장소에 반영하지 못했다(sign-out-unsaved)
  */
 type LoginError = "denied" | "no_code" | "bad_client" | "auth_failed" | "sign_out_unsaved";
 /** 로그인 실패로 돌려보낼 주소 */
@@ -31,7 +31,7 @@ type ViewAsReply = { viewAs: Tier | null };
 /** 위험한 조작(비밀값 바꾸기 등)을 받는 로그인 뒤의 시간. 지나면 reauth-required(middleware/recent-login) */
 const RECENT_LOGIN_MS = 10 * 60_000;
 /**
- * 다른 기기 로그아웃이 받는 로그인 뒤의 시간. 거의 언제나 로그인 창을 거치게 해 그 로그인이 이 기기의 세션 id 도 바꾼다(세션 고정 방어의 새 id).
+ * 다른 기기 로그아웃을 재인증 없이 허용하는 로그인 후 유효 시간. 거의 언제나 재로그인을 거치게 해 현재 기기의 세션 ID도 바꾼다(세션 고정 방어용 새 ID 발급).
  * 그래서 이 기기의 쿠키를 복제한 쪽도 끊긴다
  */
 const SIGN_OUT_LOGIN_MS = 2 * 60_000;

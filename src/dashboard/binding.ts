@@ -59,7 +59,7 @@ function listen(app: Pick<Express, "listen">, { host, port, url }: { host: strin
     opened?.();
   });
   server.on("clientError", onClientError);
-  // 100-continue 를 Node 가 앞서 답하지 않게 받아 앱으로 넘긴다. 앱이 검사를 다 지난 뒤에 100 을 보낸다(body-limit 의 continueBody)
+  // 100-continue에 Node가 먼저 응답하지 않게 가로채 앱으로 넘긴다. 앱이 검사를 모두 통과한 뒤에 100을 보낸다(body-limit의 continueBody)
   server.on("checkContinue", (req, res) => server.emit("request", req, res));
   return server;
 }

@@ -1,5 +1,5 @@
-// 운영자 패널의 경로(/api/admin 아래)를 붙이는 표. createApp 이 이 차례로 붙이고(긴 주소가 먼저, adminRouter 가 마지막), 시험이 모든 경로를 훑는다.
-// 라우터마다 맨 위에서 requireOwner 를 지나고(어디에 붙든 지킨다), 앱은 /api/admin 앞에서 한 번 더 본다(검사 없이 더한 라우터를 잡는다)
+// 운영자 패널의 경로(/api/admin 하위)를 등록하는 목록이다. createApp이 이 순서로 마운트하고(긴 경로가 먼저, adminRouter가 마지막), 테스트에서 모든 경로를 검사한다.
+// 라우터마다 맨 위에서 requireOwner를 거치고(어디에 붙이든 지킨다), 앱은 /api/admin 앞에서 한 번 더 검사한다(검사 없이 추가된 라우터를 막는다)
 
 import type { Router } from "express";
 import { adminRouter } from "./admin.ts";

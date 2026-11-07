@@ -273,7 +273,7 @@ const problems = reactive<Record<string, string>>({});
 const scroller = ref<HTMLElement | null>(null);
 const scrollTop = ref(0);
 const viewHeight = ref(512);
-// 다시 읽을 때마다 새 세대. 앞 세대의 요청은 끊고, 늦게 끝난 앞 세대가 새 세대의 행, 받는 중 표시를 건드리지 않는다
+// 다시 읽을 때마다 새 세대를 연다. 이전 세대의 요청은 취소하고, 늦게 끝난 이전 세대가 새 세대의 행과 로딩 표시를 건드리지 않는다
 const gens = createLoadGenerations();
 
 const hasFilters = computed(() => Object.values(filters[table.value]).some(Boolean) || Boolean(q.value.trim()));
@@ -323,14 +323,14 @@ async function reload() {
   rows.clear();
   rowSel.clear();
   botChanged.value = false;
-  // 새 세대의 블록이 올 때까지 바뀜 확인을 쉰다(옛 번호와 견주면 막 끈 알약을 다시 켠다)
+  // 새 세대의 블록을 불러올 때까지 변경 확인을 멈춘다(이전 번호와 비교하면 방금 닫은 변경 알림 버튼이 다시 표시된다)
   const before = loadedRevision.value;
   loadedRevision.value = 0;
   loading.value = true;
   await loadBlock(Math.floor(scrollTop.value / ROW_H / BLOCK), gen);
-  // 그사이 또 다시 읽었으면 뒷일은 그 세대가 한다
+  // 그사이 또다시 읽었으면 이후 처리는 새 세대가 맡는다
   if (!gens.isCurrent(gen)) return;
-  // 받지 못했으면 앞 번호로 바뀜 확인을 이어 간다(0 이면 다음에 받을 때까지 알약이 영영 뜨지 않는다)
+  // 불러오지 못했으면 이전 번호로 변경 확인을 이어 간다(0이면 다음에 불러올 때까지 변경 알림 버튼이 계속 표시되지 않는다)
   if (!loadedRevision.value) loadedRevision.value = before;
   loading.value = false;
   ensureVisible();
@@ -1104,7 +1104,7 @@ async function refreshChecks(latest: number, gen = gens.id) {
   if (latest === checkRevision.value) return;
   const keys = [...new Set([...rows.values()].map((row) => (row as TrackRequestRow).audioKey ?? (row as TrackFileRow).audioKey).filter(Boolean))].slice(0, TRACK_CACHE_PAGE_MAX);
   const got = (await axios.get<TrackCacheChecks>(`${API}/checks?keys=${encodeURIComponent(keys.join(","))}`)).data;
-  // 기다리는 사이 다시 읽었으면 그 행들의 결과가 아니다
+  // 응답을 기다리는 동안 다시 읽었으면 현재 행들의 결과가 아니므로 무시한다
   if (!gens.isCurrent(gen)) return;
   for (const row of rows.values()) {
     if (table.value === "requests" && (row as TrackRequestRow).audioKey && got.checks[(row as TrackRequestRow).audioKey!]) (row as TrackRequestRow).check = got.checks[(row as TrackRequestRow).audioKey!];
@@ -1118,7 +1118,7 @@ function pollChecks() {
     const gen = gens.id;
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
     await refreshChecks(data.checkRevision, gen);
-    // 기다리는 사이 다시 읽었으면 이 답은 버리고 새로 묻는다(낡은 목록으로 지금 확인 중 표시를 덮지 않게. 그만두면 확인 중 표시가 그대로 남는다)
+    // 응답을 기다리는 동안 다시 읽었으면 이 응답은 버리고 다시 조회한다(stale 목록으로 현재의 확인 중 표시를 덮어쓰지 않기 위해서다. 폴링을 멈추면 확인 중 표시가 그대로 남는다)
     if (!gens.isCurrent(gen)) return pollChecks();
     checking.value = data.checking;
     if (data.checking.length) pollChecks();
@@ -1133,7 +1133,7 @@ async function checkChanged() {
   const gen = gens.id;
   try {
     const { data } = await axios.get<TrackCacheRevision>(`${API}/revision`);
-    // 나간 뒤 다시 읽었으면 그 번호는 낡았다
+    // 요청을 보낸 뒤 다시 읽었으면 이전 세대의 번호이므로 무시한다
     if (!gens.isCurrent(gen) || !loadedRevision.value) return;
     if (data.revision !== loadedRevision.value) botChanged.value = true;
     if (!checking.value.length) await refreshChecks(data.checkRevision, gen);

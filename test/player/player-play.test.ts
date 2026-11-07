@@ -199,7 +199,7 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운�
   assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
 });
 
-test("단일 GET: 응답 헤더 대기에 신호를 걸고, 무응답 감시를 거친 본문이 ffmpeg 에 그대로 들어간다", async () => {
+test("단일 GET: 응답 헤더 대기에 신호를 걸고, 무응답 감시를 거친 본문이 ffmpeg에 그대로 들어간다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("hhhhhhhhhhh");
   behavior.stream = () => ({ url: "https://media.test/c", duration: 100 });
@@ -1479,7 +1479,7 @@ test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입
   await playOnce(p);
   const ffmpeg = calls.spawns[0];
   body.emit("error", new Error("끊김"));
-  await new Promise((done) => setImmediate(done)); // 본문의 오류는 무응답 감시를 거쳐 다음 차례에 닿는다
+  await new Promise((done) => setImmediate(done)); // 본문의 오류는 무응답 감시를 거쳐 다음 틱에 전달된다
 
   assert.deepEqual(p.asked, [track]);
   assert.equal(ffmpeg.stdin.writableEnded, true, "입력을 닫아야 출력이 끝나 전환이나 Idle 로 넘어간다");

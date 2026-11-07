@@ -15,7 +15,7 @@ const SHARED = {
   "must-be-in-same-voice": { status: 409, title: "Join the bot's voice channel first" },
   // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join, 대시보드 참가)
   "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
-  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다
+  // 상주 모드(24/7): 스테이지 채널은 상주 채널로 받지 않는다
   "stay-stage": { status: 409, title: "Stay mode does not work in stage channels" },
   "must-dj": { status: 403, title: "DJ role required" },
   "must-server-manager": { status: 403, title: "Manage Server permission required" },
@@ -126,7 +126,7 @@ const WEB = {
   // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
   "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
-  // 탭이 생각하는 사용자와 세션의 사용자가 다르다(다른 탭에서 다른 계정으로 로그인했다)
+  // 탭이 알고 있는 사용자와 세션의 사용자가 다르다(다른 탭에서 다른 계정으로 로그인했다)
   "account-changed": { status: 409, title: "Signed in as another account" },
   "no-guild-access": { status: 403, title: "No access to this server" },
   "bad-tier": { status: 400, title: "Unknown permission tier" },
@@ -222,7 +222,7 @@ const WEB = {
   "background-not-ready": { status: 409, title: "Background is not ready" },
   // 저장 위치 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
-  // 디스크에는 자리가 있지만 함께 받는 업로드가 앞으로 쓸 몫을 잡아 두었다
+  // 디스크에 여유 공간은 있지만 동시에 진행 중인 업로드가 앞으로 쓸 몫을 잡아 두었다
   "upload-busy": { status: 409, title: "Another upload is still in progress" },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
@@ -239,7 +239,7 @@ const WEB = {
   // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 필터링한다)
   "unsafe-regex": { status: 400, title: "Regular expression may run too long" },
   "filter-timeout": { status: 422, title: "Filtering took too long" },
-  // 정규식을 맞추는 스레드가 실패했다(봇 쪽)
+  // 정규식을 실행하는 스레드가 실패했다(봇 쪽)
   "filter-failed": { status: 500, title: "Filtering failed" },
   "bad-page-range": { status: 400, title: "Invalid row range" },
   "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },

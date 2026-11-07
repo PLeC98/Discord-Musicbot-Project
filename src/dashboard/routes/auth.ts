@@ -48,8 +48,8 @@ function revokeToken(http: DiscordHttp, token: string) {
 /** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
-// OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 만든 때)은 세션이 아니라 쿠키 하나에 잠가 둔다(Grafana 의 oauth_state, Auth.js 의 state 쿠키와 같다).
-// 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 다시 로그인이 쓴 state 를 같은 때의 다른 요청이 옛 사본으로 저장해 지운다
+// OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 생성 시각)은 세션이 아니라 쿠키 하나에 암호화해 둔다(Grafana의 oauth_state, Auth.js의 state 쿠키와 같다).
+// 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 재로그인이 기록한 state를 동시에 처리된 다른 요청이 이전 세션 사본으로 덮어써 지우게 된다
 type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
 const LOGIN_PURPOSE = "oauth-login";
 // 잠근 값을 이 대시보드에 묶는다(다른 봇의 쿠키로 바꿔 넣어도 열리지 않는다)
@@ -59,7 +59,7 @@ function sealLogin(login: LoginRequest) {
   return secrets.sealBlob(LOGIN_PURPOSE, JSON.stringify(login), loginBound()).toString("base64url");
 }
 
-/** 쿠키의 로그인 요청. 없거나, 위조했거나, 다른 키로 잠갔거나, 형식이 다르면 null */
+/** 쿠키에 담긴 로그인 요청을 복호화한다. 없거나, 위조됐거나, 다른 키로 암호화됐거나, 형식이 다르면 null을 반환한다 */
 function openLogin(value: string | null): LoginRequest | null {
   if (!value) return null;
   const json = secrets.openBlob(LOGIN_PURPOSE, Buffer.from(value, "base64url"), loginBound());
@@ -72,21 +72,21 @@ function openLogin(value: string | null): LoginRequest | null {
   }
 }
 
-/** 같은 길이면 시간이 일정한 비교 */
+/** 두 문자열의 길이가 같을 때 상수 시간(constant-time)으로 비교한다 */
 function sameText(a: string, b: string) {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && crypto.timingSafeEqual(x, y);
 }
 
-/** 쓴 state 를 기억하는 수의 상한(넘으면 오래된 것부터 잊는다. 잊은 것도 쿠키의 수명이 지나면 만든 때로 거절된다) */
+/** 사용한 state를 기록해 두는 최대 개수다(넘으면 오래된 것부터 비우며, 비워진 것도 쿠키 수명이 지나면 생성 시각 검사에서 거절된다) */
 const USED_MAX = 10_000;
 
-// 새 세션에 사용자를 담아 저장하고 디스코드 토큰을 그 행에 둔다. 실패하면(세션 저장소) 요청에서 세션을 떼고 false:
-// 떼지 않으면 응답이 끝날 때 express-session 이 사용자를 담은 세션을 저장하고 쿠키를 실어, 실패로 돌려보내도 로그인이 된다
+// 새 세션에 사용자 정보를 담아 저장하고 같은 행에 디스코드 토큰을 기록한다. 세션 저장소에 저장하지 못하면 요청에서 세션을 분리하고 false를 반환한다:
+// 세션을 분리하지 않으면 응답이 끝날 때 express-session이 사용자 정보가 담긴 세션을 저장하고 쿠키를 실어, 실패로 응답해도 로그인 상태가 된다
 async function signIn(req: express.Request, user: SessionUser, token: string) {
   const step = (run: (done: (err?: unknown) => void) => void) => new Promise<void>((ok, fail) => run((err) => (err ? fail(err) : ok())));
-  // 이 요청이 옛 세션을 끝낸다(다시 로그인). 그 끝 알림에 이 요청이 멈추지 않게
+  // 이 요청이 기존 세션을 종료하므로(재로그인), 세션 종료 알림 때문에 이 요청 자체가 중단되지 않게 한다
   release(req);
   try {
     await step((done) => req.session.regenerate(done));
@@ -94,12 +94,12 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
     req.session.loginAt = Date.now();
     recordLogin(req, req.session.loginAt);
     await step((done) => req.session.save(done));
-    // 토큰은 세션 행에 암호문으로(세션 JSON 밖), 세션 행과 함께 삭제된다. 디스코드 토큰의 수명(7일)이 세션보다 짧을 수 있다(그러면 서버 목록을 다시 받을 때 다시 로그인을 묻는다). 리프레시 토큰은 두지 않는다
+    // 토큰은 암호화해 세션 행에 별도로 저장하고(세션 JSON 밖), 세션 행과 함께 삭제한다. 디스코드 토큰의 수명(7일)이 세션보다 먼저 만료되면 서버 목록을 다시 불러올 때 재로그인을 안내한다. 리프레시 토큰은 저장하지 않는다
     const store = tokenStoreOf(req);
-    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장한 세션 행이 없습니다");
+    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장된 세션 행이 없습니다");
     return true;
   } catch (error) {
-    log.error(`로그인 세션을 저장하지 못했습니다(로그인 실패로 돌려보냅니다): ${messageOf(error)}`);
+    log.error(`로그인 세션 저장 실패(로그인 실패로 처리): ${messageOf(error)}`);
     const sid = req.sessionID;
     (req as { session: unknown }).session = null;
     tokenStoreOf(req)?.destroy(sid, () => undefined);
@@ -116,10 +116,10 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
-  // 쓴 state → 잊어도 되는 때. 쿠키만으로는 한 번만 쓰게 할 수 없다(삭제를 따르지 않는 클라이언트). 다시 시작하면 비지만 쿠키의 수명이 남은 틈을 묶는다
+  // 사용한 state → 만료 시각. 쿠키 삭제를 무시하는 클라이언트가 있어 쿠키만으로는 재사용을 막을 수 없다. 다시 시작하면 초기화되지만 쿠키 수명이 남아 있는 동안의 재사용은 막는다
   const used = new Map<string, number>();
 
-  // 이 state 를 처음 쓰면 기억하고 true. 이미 썼으면 false
+  // 이 state를 처음 사용하면 기록하고 true를 반환한다. 이미 사용했으면 false를 반환한다
   function firstUse(state: string, now: number) {
     for (const [one, until] of used) if (until <= now) used.delete(one);
     if (used.has(state)) return false;
@@ -128,8 +128,8 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     return true;
   }
 
-  // 디스코드 OAuth 로 보낸다. popup=1: 화면이 연 로그인 창이다(다시 로그인). 끝나면 창을 닫는 화면(/login-done)으로 보낸다. 세션은 건드리지 않는다
-  // PKCE(RFC 7636, S256): 가로챈 인가 코드는 이 브라우저의 verifier 없이 토큰으로 바꾸지 못한다. RFC 9700 2.1.1 은 confidential client 에도 권한다
+  // 디스코드 OAuth로 보낸다. popup=1: 화면이 연 재로그인 창이다. 끝나면 창을 닫는 화면(/login-done)으로 보낸다. 세션은 건드리지 않는다
+  // PKCE(RFC 7636, S256): 가로챈 인가 코드는 이 브라우저의 verifier 없이 토큰으로 교환하지 못한다. RFC 9700 2.1.1은 confidential client에도 권고한다
   router.get("/login", (req, res) => {
     const state = crypto.randomBytes(32).toString("base64url");
     const verifier = crypto.randomBytes(32).toString("base64url");
@@ -146,7 +146,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     res.redirect(`${DISCORD_API}/oauth2/authorize?${params.toString()}`);
   });
 
-  // OAuth2 콜백. 로그인 쿠키는 모든 길에서 삭제한다
+  // OAuth2 콜백이다. 로그인 쿠키는 모든 분기에서 삭제한다
   router.get("/callback", async (req, res) => {
     const login = openLogin(takeLoginCookie(req, res));
     const { code, state } = req.query;
@@ -154,7 +154,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     if (req.query.error === "access_denied") return res.redirect(loginFailed("denied"));
     if (typeof code !== "string" || !code) return res.redirect(loginFailed("no_code"));
 
-    // 로그인 CSRF 를 막으려고 state 를 이 브라우저의 쿠키와 맞춰 본다(RFC 6749 10.12). 한 번만, 쿠키의 수명 안에서만
+    // 로그인 CSRF를 막으려고 state를 이 브라우저의 쿠키와 대조한다(RFC 6749 10.12). 쿠키의 수명 안에서 한 번만 허용한다
     const now = Date.now();
     if (!login || typeof state !== "string" || !sameText(state, login.state) || now - login.at > LOGIN_COOKIE_MS || !firstUse(login.state, now)) {
       return res.redirect(loginFailed("auth_failed"));
@@ -189,7 +189,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
         avatar: user.avatar,
       };
 
-      // 로그인 성공 시 세션 ID 재발급(session fixation 방어). 이 브라우저의 옛 세션(다시 로그인이면 진짜 세션)은 끝난다
+      // 로그인 성공 시 세션 ID를 재발급한다(session fixation 방어). 이 브라우저의 기존 세션(재로그인이면 이전 로그인 세션)은 종료된다
       if (!(await signIn(req, sessionUser, access_token))) return res.redirect(loginFailed("auth_failed"));
       res.redirect(login.popup ? "/login-done" : "/dashboard");
     } catch (error) {
@@ -198,7 +198,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   });
 
   // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 삭제되고, 디스코드에도 폐기를 요청한다.
-  // 결과와 상관없이 이 브라우저의 쿠키를 삭제한다(행을 삭제하지 못한 채 다시 시작해도 이 브라우저는 되살아나지 않는다). 삭제하지 못했으면 성공으로 답하지 않는다
+  // 결과와 상관없이 이 브라우저의 쿠키를 삭제한다(세션 행을 삭제하지 못한 채 다시 시작해도 이 브라우저의 세션은 되살아나지 않는다). 삭제하지 못했으면 성공으로 답하지 않는다
   router.post("/logout", (req, res) => {
     clearSessionCookie(req, res);
     if (!req.session?.user) return res.status(204).end();
@@ -206,14 +206,14 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
       if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기");
     } catch (error) {
-      log.warn(`디스코드 토큰을 읽지 못해 폐기를 요청하지 않았습니다(로그아웃은 합니다): ${messageOf(error)}`);
+      log.warn(`디스코드 토큰 읽기 실패(폐기 요청 생략, 로그아웃은 진행): ${messageOf(error)}`);
     }
     forgetGuilds(req.sessionID);
     release(req);
     const done = (error?: unknown) => (error ? sendProblem(res, "sign-out-unsaved") : res.status(204).end());
     const store = tokenStoreOf(req);
     if (!store) return req.session.destroy(done);
-    // 저장소에 사용자를 넘긴다(삭제하지 못하면 그 사용자의 다른 기기 로그아웃이 다시 삭제한다). express-session 의 destroy 와 같게 요청에서 세션을 뗀다
+    // 저장소에 사용자 ID를 함께 넘긴다(삭제하지 못하면 같은 사용자의 다른 기기 로그아웃 때 함께 삭제한다). express-session의 destroy와 같게 요청에서 세션을 뗀다
     const { sessionID: sid } = req;
     const userId = req.session.user.id;
     (req as { session: unknown }).session = null;

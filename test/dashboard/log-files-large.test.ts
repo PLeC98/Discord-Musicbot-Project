@@ -1,5 +1,5 @@
-// src/dashboard/routes/log-files.ts: 큰 파일에서 목록, 검색, 다운로드가 이벤트 루프를 놓아 주고, 받는 쪽이 떠나면 멈추고 파일을 닫는다.
-// 다운로드는 받는 쪽의 속도를 따라 흘려 보낸다
+// src/dashboard/routes/log-files.ts: 큰 파일에서 목록, 검색, 다운로드가 이벤트 루프를 양보하고, 클라이언트가 연결을 끊으면 멈추고 파일을 닫는다.
+// 다운로드는 받는 쪽의 속도에 맞춰 스트리밍한다
 
 import fs from "fs";
 import os from "os";
@@ -52,7 +52,7 @@ fs.readSync = ((fd: number, ...rest: never[]) => {
   return got;
 }) as typeof fs.readSync;
 
-// 요청마다 핸들러가 받은 때부터 답을 다 쓸 때까지 돈 이벤트 루프 차례(setImmediate)
+// 요청마다 핸들러가 받은 때부터 응답을 다 쓸 때까지 돈 이벤트 루프 턴 수(setImmediate)
 let turns = 0;
 let ticking = true;
 const tick = () => {
@@ -92,41 +92,41 @@ async function until(check: () => boolean, ms = 3000) {
   return true;
 }
 
-/** 답이 오기 시작하면(헤더) 그 응답 */
+/** 응답 헤더가 도착하면 그 응답 객체를 돌려준다 */
 function getRaw(url: string) {
   const req = http.get(url, { agent: false });
-  // 시험이 끊는다
+  // 테스트에서 연결을 끊는다
   req.on("error", () => {});
   return { req, response: new Promise<http.IncomingMessage>((resolve) => req.once("response", resolve)) };
 }
 
-// 목록의 훑기는 처음 한 번이라 이 시험이 먼저다
-test("목록: 같은 파일을 겹쳐 불러도 한 번만 훑고, 훑는 동안 이벤트 루프를 놓아 준다", async () => {
+// 목록을 훑는 작업은 처음 한 번뿐이라 이 테스트가 먼저다
+test("목록: 같은 파일을 동시에 불러도 한 번만 훑고, 훑는 동안 이벤트 루프를 양보한다", async () => {
   spans.length = 0;
   const [a, b] = await Promise.all([fetch(`${base}/files`), fetch(`${base}/files`)].map(async (one) => (await (await one).json()) as LogFileList));
   assert.deepEqual([a.files[0].lines, b.files[0].lines], [LINES, LINES]);
   assert.equal(opens, 1, "파일을 한 번만 열었다");
-  assert.ok(Math.max(...spans) >= 20, `훑는 동안 돈 차례 ${spans.join(", ")}`);
+  assert.ok(Math.max(...spans) >= 20, `훑는 동안 돈 턴 수 ${spans.join(", ")}`);
   assert.ok(await until(() => open.size === 0));
 });
 
-test("검색 첫 쪽: 맞은 줄 수를 세는 동안 이벤트 루프를 놓아 주고, 받는 쪽이 떠나면 멈추고 파일을 닫는다", async () => {
+test("검색 첫 페이지: 일치하는 줄 수를 세는 동안 이벤트 루프를 양보하고, 클라이언트가 연결을 끊으면 멈추고 파일을 닫는다", async () => {
   spans.length = 0;
   const page = (await (await fetch(`${base}/file?name=bot.log&q=${encodeURIComponent("없는 글")}`)).json()) as FilePage;
   assert.deepEqual([page.lines.length, page.matches], [0, 0]);
-  assert.ok(spans[0] >= 20, `읽는 동안 돈 차례 ${spans[0]}`);
+  assert.ok(spans[0] >= 20, `읽는 동안 돈 턴 수 ${spans[0]}`);
   assert.ok(await until(() => open.size === 0));
 
   readBytes = 0;
   const { req } = getRaw(`${base}/file?name=bot.log&q=${encodeURIComponent("다른 없는 글")}`);
   assert.ok(await until(() => readBytes > 0), "읽기 시작");
   req.destroy();
-  assert.ok(await until(() => open.size === 0), "떠나면 파일을 닫는다");
-  // 끝까지 가면 쪽(뒤에서부터 파일 전체)과 맞은 줄 수(앞에서부터 파일 전체)로 두 번 읽는다
-  assert.ok(readBytes < SIZE / 2, `떠난 뒤 읽은 양 ${readBytes} / 파일 ${SIZE}`);
+  assert.ok(await until(() => open.size === 0), "연결을 끊으면 파일을 닫는다");
+  // 끝까지 가면 페이지(뒤에서부터 파일 전체)와 일치하는 줄 수(앞에서부터 파일 전체)로 두 번 읽는다
+  assert.ok(readBytes < SIZE / 2, `연결을 끊은 뒤 읽은 양 ${readBytes} / 파일 ${SIZE}`);
 });
 
-test("다운로드, 읽지 않는 받는 쪽: 서버는 몇 조각만 쌓고 기다린다, 끊으면 멈추고 파일을 닫는다", async () => {
+test("다운로드, 읽지 않는 클라이언트: 서버는 몇 청크만 쌓고 기다리고, 연결을 끊으면 멈추고 파일을 닫는다", async () => {
   const { req, response } = getRaw(`${base}/file/download?name=bot.log&tz=0`);
   (await response).pause();
   // 커널 버퍼가 찰 때까지 둔다
@@ -138,7 +138,7 @@ test("다운로드, 읽지 않는 받는 쪽: 서버는 몇 조각만 쌓고 기
   assert.ok(await until(() => open.size === 0), "끊으면 파일을 닫는다");
 });
 
-test("다운로드, 읽는 받는 쪽: 걸러 낸 줄을 빠짐없이 순서대로 받고, 파일을 닫는다", async () => {
+test("다운로드, 읽는 클라이언트: 필터링한 줄을 빠짐없이 순서대로 받고, 파일을 닫는다", async () => {
   const res = await fetch(`${base}/file/download?name=bot.log&tz=0`);
   assert.equal(res.status, 200);
   const lines = (await res.text()).split("\n");
@@ -148,10 +148,10 @@ test("다운로드, 읽는 받는 쪽: 걸러 낸 줄을 빠짐없이 순서대�
   assert.ok(await until(() => open.size === 0));
 });
 
-test("다운로드: 맞는 줄이 없어도 파일을 훑는 동안 이벤트 루프를 놓아 준다", async () => {
+test("다운로드: 일치하는 줄이 없어도 파일을 훑는 동안 이벤트 루프를 양보한다", async () => {
   spans.length = 0;
   const res = await fetch(`${base}/file/download?name=bot.log&q=${encodeURIComponent("없는 글")}`);
   assert.equal(await res.text(), "");
   assert.ok(await until(() => spans.length > 0));
-  assert.ok(spans[0] >= 20, `훑는 동안 돈 차례 ${spans[0]}`);
+  assert.ok(spans[0] >= 20, `훑는 동안 돈 턴 수 ${spans[0]}`);
 });

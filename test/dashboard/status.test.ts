@@ -115,7 +115,7 @@ test("게이트웨이 로그: 디스코드가 재연결을 요청한 것은 재�
   assert.match(lines[0], /^30 게이트웨이 재연결: 세션 재개 \| 시도 1회 \| 원인=디스코드가 재연결을 요청함\(op 7\), 코드 4200/);
 });
 
-test("게이트웨이 로그: 봇이 스스로 닫은 것(client.destroy)은 끊김이 아니다. discord.js 가 시도 알림을 내도 아무 줄도 없고 시도로 세지 않는다", () => {
+test("게이트웨이 로그: 봇이 직접 닫은 종료(client.destroy)는 끊김이 아니다. discord.js가 재연결 이벤트를 내도 로그를 남기지 않고 시도로 세지 않는다", () => {
   const lines = gatewayRun((client) => {
     client.emit(Events.Debug, destroying("Manager was destroyed", 1000));
     client.emit(Events.ShardReconnecting, 0);
@@ -123,7 +123,7 @@ test("게이트웨이 로그: 봇이 스스로 닫은 것(client.destroy)은 끊
     assert.equal(gateway().retryAttempt, null);
   });
   assert.deepEqual(lines, []);
-  // 시도 알림이 까닭보다 먼저 와도 같다
+  // 재연결 이벤트가 닫힌 까닭보다 먼저 와도 같다
   const late = gatewayRun((client) => {
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.Debug, destroying("Manager was destroyed", 1000));

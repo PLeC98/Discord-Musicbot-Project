@@ -9,7 +9,7 @@ import { withConfig } from "../helpers/config.ts";
 import { memberOf, openGuild } from "../../src/dashboard/guild-access.ts";
 
 type Member = { id: string; permissions?: unknown };
-// 멤버의 실제 권한: 서버 관리자(그래야 보기 전환이 낮출 수 있다)
+// 멤버의 실제 권한은 서버 관리자다(그래야 권한 수준 오버라이드로 낮출 수 있다)
 const REAL_PERMISSIONS = { has: () => true };
 
 function setup({ ready = true, guild = true, member = true, viewAs }: { ready?: boolean; guild?: boolean; member?: boolean; viewAs?: string } = {}) {
@@ -82,7 +82,7 @@ test("운영자도 그 서버 멤버가 아니면 열지 못하고, 멤버면 �
   assert.equal(got?.actor.member, got?.member);
 });
 
-test("권한 보기 전환(viewAs)이 걸려 있으면 권한만 바꾼 멤버로 판정한다(운영자도 그 계층으로 낮아진다)", async () => {
+test("권한 수준 오버라이드(viewAs)가 걸려 있으면 권한만 바꾼 멤버로 판정한다(운영자도 그 계층으로 낮아진다)", async () => {
   const { req, res } = setup({ viewAs: "user" });
   const got = await withConfig({ dashboard: { ownerId: "u1" } }, () => openGuild(req, res, "g1"));
   const member = got?.actor.member as unknown as Member;

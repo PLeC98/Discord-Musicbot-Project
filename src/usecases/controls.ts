@@ -346,7 +346,7 @@ async function autoplayBlocked(actor: Actor) {
   return permission ? fail(permission) : null;
 }
 
-// 켤 장르를 쓸 수 없으면 그 거절(없는 장르, 키가 빠진 장르). 끄기는 null
+// 켤 장르를 쓸 수 없으면 거절 결과를 반환한다(없는 장르, 키가 빠진 장르). 끄기는 null이다
 function genreRefusal(genre: string | false) {
   if (genre === false) return null;
   if (!genreConfig.genres().genres[genre]) return fail("unknown-genre", { genre });
@@ -355,7 +355,7 @@ function genreRefusal(genre: string | false) {
 }
 
 /** 자동재생 켜기, 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
-/** go: 판정 뒤, 첫 바꿈(플레이어 만들기, 설정 바꾸기) 앞의 확인. 던지면 아무것도 바꾸지 않는다(대시보드: 세션이 끝남) */
+/** go: 판정 뒤, 첫 상태 변경(플레이어 생성, 설정 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
 type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown; go?: () => void };
 
 // 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
@@ -400,11 +400,11 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
-  // 24/7 자리도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 봤다). 버리기보다 먼저 지운다(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
+  // 24/7 상주 모드도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 확인했다). 플레이어를 정리하기 전에 먼저 해제한다(종료 알림을 받은 StayKeeper가 다시 접속하지 않게)
   const seated = clearSeat(guild, actor.member);
   const player = players.get(guild.id);
   if (!player) {
-    // 자리 지킴이가 다시 붙기를 기다리는 중이면 봇이 음성에 없다. 자리만 끈 것이다
+    // StayKeeper가 재접속을 기다리는 중이면 봇이 음성 채널에 없다. 상주 모드만 끈 것이다
     if (!guild.members.me?.voice?.channel) return seated ? done({ left: "seat-only" as const, stayOff: true }) : fail("no-song");
     await guild.members.me.voice.disconnect();
     return done({ left: "voice-only" as const, stayOff: seated });

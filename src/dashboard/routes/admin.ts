@@ -74,7 +74,7 @@ import * as staySeats from "../../store/stay-seats.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 
 const adminRouter = express.Router();
-// 운영자만. 경로마다 달지 않고 여기서 한 번(라우터를 어디에 붙이든 지킨다)
+// 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
 adminRouter.use(requireOwner);
 
 // 봇, Node, 시스템 상태(봇 상태 탭). 목록은 쿼리의 구간만(list-window)
@@ -90,7 +90,7 @@ adminRouter.get("/status", async (req, res) => {
 adminRouter.post("/restart", (req, res) => {
   const restart = req.app.locals.restart;
   if (!restart) return sendProblem(res, "restart-unavailable");
-  // 실행자는 먼저 쥔다(답을 보낸 뒤에는 요청에서 세션을 뗐을 수 있다)
+  // 실행자 정보는 먼저 읽어 둔다(응답을 보낸 뒤에는 요청에서 세션을 뗐을 수 있다)
   const by = ranBy(req);
   log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작. 실행 ${by}`);
   res.on("finish", () => restart(by));

@@ -161,7 +161,7 @@ const stamp = (ms: number) => {
   return `${two(d.getMonth() + 1)}-${two(d.getDate())} ${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
 };
 
-// 받는 중인 쪽. 새로 읽으면(필터, 검색어를 바꿈) 앞의 것을 끊는다(검색어가 있거나 맞는 줄이 드물면 서버가 파일 끝까지 훑는다)
+// 진행 중인 요청이다. 새로 읽으면(필터나 검색어 변경) 이전 요청을 취소한다(검색어가 있거나 일치하는 줄이 드물면 서버가 파일 끝까지 읽는다)
 let inFlight: AbortController | null = null;
 async function fetchPage(params: Record<string, string | number>, kind: "page" | "earlier" | "later"): Promise<FilePage | null> {
   inFlight?.abort();
@@ -184,7 +184,7 @@ async function fetchPage(params: Record<string, string | number>, kind: "page" |
     notifyProblem(err, T.loadFailed);
     return null;
   } finally {
-    // 끊긴 앞의 것은 뒤의 것의 받는 중 표시를 지우지 않는다
+    // 취소된 이전 요청은 새 요청의 로딩 표시를 지우지 않는다
     if (inFlight === own) {
       inFlight = null;
       loading.value = "";
@@ -307,6 +307,6 @@ onMounted(async () => {
   if (startAt != null) at.value = startAt;
   await reload(startAt == null ? {} : { at: startAt });
 });
-// 떠나면 받는 중인 쪽을 끊어 서버도 훑기를 멈추게
+// 화면을 떠나면 진행 중인 요청을 취소해 서버도 탐색을 멈추게 한다
 onBeforeUnmount(() => inFlight?.abort());
 </script>

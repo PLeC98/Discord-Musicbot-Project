@@ -1,6 +1,6 @@
-// src/dashboard/session-requests.ts: 세션이 끝나면 그 세션으로 진행 중인 요청(스트림 밖)을 멈춘다.
-// 훔친 쿠키를 쥔 쪽의 자리에서 본다: 걸어 둔 읽기와 조작, 흘려 보내는 내려받기, 한 번에 쓰고 끝낸 큰 답, 받는 중인 업로드.
-// 진짜 express-session, 저장소, 소켓으로. 끊는 것은 다른 기기 로그아웃(저장소의 삭제)과 날 SQL(알림 없는 끝)
+// src/dashboard/session-requests.ts: 세션이 끝나면 그 세션으로 진행 중인 요청(스트림 외)을 멈춘다.
+// 훔친 쿠키를 가진 쪽의 입장에서 본다: 대기 중인 읽기와 조작, 스트리밍 다운로드, 한 번에 쓰고 끝낸 큰 응답, 받는 중인 업로드를 확인한다.
+// 실제 express-session, 저장소, 소켓으로 테스트한다. 세션을 끊는 방식은 다른 기기 로그아웃(저장소에서 삭제)과 원시 SQL 직접 삭제(알림 없는 종료)다
 
 import { test, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -29,7 +29,7 @@ let server: Server;
 let base: string;
 const file = path.join(dir, "big.bin");
 
-// 풀어 줄 때까지 기다리는 문. 핸들러가 들어오면 entered
+// 열어 줄 때까지 대기하는 게이트다. 핸들러가 진입하면 entered가 풀린다
 let gate: { entered: Promise<void>; enter: () => void; open: () => void; opened: Promise<void> };
 function newGate() {
   let enter: () => void = () => {};
@@ -38,7 +38,7 @@ function newGate() {
   const opened = new Promise<void>((done) => (open = done));
   gate = { entered, enter, open, opened };
 }
-// 조작이 실제로 일어난 수, 서버 쪽 소켓
+// 조작이 실제로 실행된 횟수와 서버 쪽 소켓이다
 let effects = 0;
 let lastSocket: Socket | null = null;
 let lastRes: express.Response | null = null;
@@ -57,7 +57,7 @@ before(async () => {
     req.session.loginAt = Date.now();
     req.session.save(() => res.status(204).end());
   });
-  // 걸어 둔 읽기: 풀리면 답한다(json, redirect, file, 또는 HEAD)
+  // 대기 중인 읽기: 풀리면 응답한다(json, redirect, file, 또는 HEAD)
   app.all("/hold-read", requireAuth, async (req, res) => {
     lastSocket = req.socket;
     gate.enter();
@@ -66,7 +66,7 @@ before(async () => {
     if (req.query.as === "file") return res.sendFile(file);
     res.json({ secret: "끊긴 뒤에 나가면 안 되는 것" });
   });
-  // 걸어 둔 조작: 풀리면 바꾸기 앞에서 확인한다. 경로의 catch 를 거친다(그 catch 가 삼키지 않는다)
+  // 대기 중인 조작: 풀리면 변경 직전에 세션을 확인한다. 경로의 catch를 거친다(그 catch가 예외를 삼키지 않는다)
   app.post("/hold-change", requireAuth, async (req, res) => {
     gate.enter();
     await gate.opened;
@@ -79,13 +79,13 @@ before(async () => {
       res.status(500).json({ code: "change-failed" });
     }
   });
-  // 걸어 둔 조작이 풀린 뒤 봇 버그로 던진다
+  // 대기 중인 조작이 풀린 뒤 봇 버그 예외를 던진다
   app.post("/hold-throw", requireAuth, async () => {
     gate.enter();
     await gate.opened;
     throw new Error("봇 버그");
   });
-  // 흘려 보내는 내려받기(끊길 때까지)
+  // 스트리밍 다운로드다(끊길 때까지 데이터를 흘려보낸다)
   app.get("/download", requireAuth, (req, res) => {
     lastSocket = req.socket;
     res.writeHead(200, { "Content-Type": "application/octet-stream" });
@@ -93,7 +93,7 @@ before(async () => {
     res.on("close", () => clearInterval(timer));
     gate.enter();
   });
-  // 한 번에 쓰고 끝낸 큰 답(로그 파일 내려받기의 모양)
+  // 한 번에 쓰고 끝낸 큰 응답이다(로그 파일 다운로드 형태)
   app.get("/bulk", requireAuth, (req, res) => {
     lastSocket = req.socket;
     lastRes = res;
@@ -169,7 +169,7 @@ async function untilDestroyed(socket: Socket, limit = 3000) {
 const revoke = (who: ReturnType<typeof device>) => store.destroy(who.sid());
 
 for (const as of ["json", "redirect", "head"] as const) {
-  test(`걸어 둔 읽기(${as})가 세션이 끝난 뒤 답하면 그 답 대신 401 이고 쿠키를 싣지 않는다`, async () => {
+  test(`대기 중인 읽기(${as})가 세션이 끝난 뒤 응답하면 그 응답 대신 401이고 쿠키를 싣지 않는다`, async () => {
     newGate();
     const thief = await signedIn(`read-${as}`);
     const pending = thief.go(`/hold-read?as=${as}`, { method: as === "head" ? "HEAD" : "GET" });
@@ -185,7 +185,7 @@ for (const as of ["json", "redirect", "head"] as const) {
   });
 }
 
-test("걸어 둔 읽기가 파일을 흘려 보내려 하면(sendFile) 보내지 않고 소켓을 부순다", async () => {
+test("대기 중인 읽기가 파일을 흘려보내려 하면(sendFile) 보내지 않고 소켓을 강제로 닫는다", async () => {
   newGate();
   const thief = await signedIn("read-file");
   const pending = thief.go("/hold-read?as=file").then(
@@ -200,7 +200,7 @@ test("걸어 둔 읽기가 파일을 흘려 보내려 하면(sendFile) 보내지
   assert.equal(await untilDestroyed(lastSocket!), true);
 });
 
-test("걸어 둔 조작은 세션이 끝난 뒤 바꾸지 않고 401(경로의 catch 가 삼키지 않는다)", async () => {
+test("대기 중인 조작은 세션이 끝난 뒤 상태를 바꾸지 않고 401을 반환한다(경로의 catch가 삼키지 않는다)", async () => {
   newGate();
   const thief = await signedIn("change");
   const pending = thief.go("/hold-change", { method: "POST" });
@@ -214,7 +214,7 @@ test("걸어 둔 조작은 세션이 끝난 뒤 바꾸지 않고 401(경로의 c
   assert.deepEqual(res.headers.getSetCookie(), []);
 });
 
-test("끝난 요청에서 난 봇 버그는 세션 끝으로 숨기지 않는다(오류 핸들러가 그대로 500)", async () => {
+test("세션이 끝난 요청에서 발생한 봇 버그는 세션 종료로 가리지 않는다(오류 핸들러가 그대로 500을 반환한다)", async () => {
   newGate();
   const thief = await signedIn("throw");
   const pending = thief.go("/hold-throw", { method: "POST" });
@@ -224,7 +224,7 @@ test("끝난 요청에서 난 봇 버그는 세션 끝으로 숨기지 않는다
   assert.equal((await pending).status, 500);
 });
 
-test("끊기 전에 바꾼 조작은 그대로 답한다", async () => {
+test("세션이 끊기기 전에 완료한 조작은 그대로 응답한다", async () => {
   newGate();
   const owner = await signedIn("change-ok");
   const pending = owner.go("/hold-change", { method: "POST" });
@@ -234,7 +234,7 @@ test("끊기 전에 바꾼 조작은 그대로 답한다", async () => {
   assert.equal(effects, 1);
 });
 
-test("흘려 보내는 내려받기는 세션이 끝나면 소켓을 부순다", async () => {
+test("스트리밍 다운로드는 세션이 끝나면 소켓을 강제로 닫는다", async () => {
   newGate();
   const thief = await signedIn("download");
   const res = await thief.go("/download");
@@ -245,7 +245,7 @@ test("흘려 보내는 내려받기는 세션이 끝나면 소켓을 부순다",
   await res.body?.cancel().catch(() => {});
 });
 
-test("한 번에 쓰고 끝낸 큰 답이 읽지 않는 클라이언트의 소켓에 남아 있어도 부순다. 같은 연결의 다음 요청(다른 사용자)은 그대로", async () => {
+test("한 번에 쓰고 끝낸 큰 응답이 읽지 않는 클라이언트의 소켓에 남아 있어도 소켓을 강제로 닫는다. 같은 연결의 다음 요청(다른 사용자)은 그대로 둔다", async () => {
   newGate();
   const thief = await signedIn("bulk");
   const url = new URL(base);
@@ -258,14 +258,14 @@ test("한 번에 쓰고 끝낸 큰 답이 읽지 않는 클라이언트의 소�
   await settle(50);
   const socket = lastSocket!;
   assert.equal(socket.destroyed, false);
-  // 이 PC(Windows 루프백)에서는 커널이 다 받아 응답이 끝나고 닫혀(writableFinished) 소켓 쓸기가 부순다. 끝냈지만 다 나가지 않은 응답(writableEnded 이고
-  // writableFinished 아님)은 여기서 만들 수 없어, 그때 소켓을 부수는 가지(stop)는 이 시험이 가르지 못한다
+  // 이 PC(Windows 루프백)에서는 커널이 다 받아 응답이 끝나고 닫혀(writableFinished) sweepSockets가 소켓을 닫는다. 끝냈지만 다 나가지 않은 응답(writableEnded이고
+  // writableFinished 아님)은 여기서 만들 수 없어, 그때 소켓을 닫는 분기(stop)는 이 테스트가 검증하지 못한다
   assert.equal(lastRes!.writableEnded, true);
   revoke(thief);
   assert.equal(await untilDestroyed(socket), true, "응답은 끝났지만 바이트가 남은 소켓");
   raw.destroy();
 
-  // keep-alive 로 이어 쓴 연결: 끊긴 세션의 요청 뒤에 다른 사용자의 요청이 같은 소켓으로 왔으면 부수지 않는다
+  // keep-alive로 이어 쓴 연결: 끊긴 세션의 요청 뒤에 다른 사용자의 요청이 같은 소켓으로 왔으면 닫지 않는다
   newGate();
   const victim = await signedIn("bulk-victim");
   const other = await signedIn("bulk-other");
@@ -287,7 +287,7 @@ test("한 번에 쓰고 끝낸 큰 답이 읽지 않는 클라이언트의 소�
   agent.destroy();
 });
 
-test("받는 중인 업로드는 세션이 끝나면 소켓을 부수고 조작이 일어나지 않는다", async () => {
+test("받는 중인 업로드는 세션이 끝나면 소켓을 강제로 닫고 조작을 실행하지 않는다", async () => {
   newGate();
   const thief = await signedIn("upload");
   const url = new URL(base);
@@ -303,7 +303,7 @@ test("받는 중인 업로드는 세션이 끝나면 소켓을 부수고 조작�
   raw.destroy();
 });
 
-test("알림 없는 끝(날 SQL 로 지움)을 다시 보기가 찾으면, 세션을 바꾼 채 걸어 둔 요청이 끝나도 행이 다시 생기지 않는다", async () => {
+test("알림 없는 세션 종료(원시 SQL로 삭제)를 재확인(recheck)에서 감지하면, 세션을 바꾼 채 대기하던 요청이 끝나도 행이 다시 생기지 않는다", async () => {
   newGate();
   const thief = await signedIn("raw-sql");
   const pending = thief.go("/hold-change", { method: "POST", headers: { "user-agent": `${UA} Changed` } });

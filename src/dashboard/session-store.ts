@@ -13,11 +13,11 @@ import { messageOf } from "../rules/error-kind.ts";
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
 // 파일은 로그인 세션 DB(database/sessions.db, store/session-db). 다른 DB 와 함께 열린다.
 //
-// 끝난 세션을 다시 쓰지 않는다. express-session 은 요청이 끝날 때 그 요청이 읽은 세션을 저장하므로, 로그아웃, 다른 기기 로그아웃 뒤에
-// 그 세션으로 걸려 있던 요청이 끝나면 지운 행을 다시 넣는다(set 이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
-// 그 sid 는 쓰지 않으며, 만료한 행은 정리 전이어도 늘리지 않는다. 로그인한 세션은 로그인 시각에서 SESSION_MAX_MS 를 넘지 못한다(절대 수명).
+// 끝난 세션을 다시 쓰지 않는다. express-session은 요청이 끝날 때 그 요청이 읽은 세션을 저장하므로, 로그아웃, 다른 기기 로그아웃 뒤에
+// 그 세션으로 걸려 있던 요청이 끝나면 삭제한 행을 다시 넣는다(set이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
+// 그 sid는 쓰지 않으며, 만료한 행은 정리 전이어도 늘리지 않는다. 로그인한 세션은 로그인 시각에서 SESSION_MAX_MS를 넘지 못한다(절대 수명).
 // 세션이 끝나면 듣는 쪽(onEnded)에 알린다(열린 스트림을 끊는다).
-// 삭제가 실패해도(디스크가 가득 참 등) 닫힌 쪽으로: 묘비를 남겨 이 실행에서는 그 세션을 받지 않고, 삭제하지 못한 행은 다시 삭제한다.
+// 삭제에 실패해도(디스크가 가득 참 등) 차단하는 쪽(fail-closed)으로 처리한다: 묘비를 남겨 이 실행에서는 그 세션을 받지 않고, 삭제하지 못한 행은 다시 삭제한다.
 // 묘비는 메모리뿐이라 삭제하지 못한 채 다시 시작하면 그 로그인이 되살아난다. 그래서 실패는 부른 쪽에 넘기고(화면이 알린다) 끝(finish)에 남은 수를 남긴다
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
@@ -58,7 +58,7 @@ class SqliteSessionStore extends Store {
   /** 끝냈지만 삭제하지 못한 sid → 그 사용자 id(모르면 null). 다시 삭제한다 */
   _unsaved = new Map<string, string | null>();
   _retryTimer: NodeJS.Timeout | null = null;
-  /** 새 세션을 요청에 단다. express-session 이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
+  /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
   declare generate: (req: Request) => void;
 
   // dbPath 는 테스트용(임시 DB, 운영 DB 를 건드리지 않는다). 없으면 함께 연 로그인 세션 DB
@@ -91,13 +91,13 @@ class SqliteSessionStore extends Store {
     live.add(this);
   }
 
-  /** 세션이 끝나면(지움, 정리, 절대 수명) 부른다. 끄는 함수를 돌려준다 */
+  /** 세션이 끝나면(삭제, 정리, 절대 수명) 부른다. 해제 함수를 돌려준다 */
   onEnded(fn: Ended) {
     this._listeners.add(fn);
     return () => void this._listeners.delete(fn);
   }
 
-  // 듣는 쪽마다 따로 부른다(하나가 던져도 지우기가 실패로 돌아가지 않고 다른 쪽도 듣는다)
+  // 듣는 쪽마다 따로 부른다(하나가 던져도 삭제가 실패로 돌아가지 않고 다른 쪽도 듣는다)
   _announce(sids: string[]) {
     for (const sid of sids) {
       for (const fn of this._listeners) {
@@ -110,13 +110,13 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  /** 끝낸 sid 인가(묘비가 아직 있다) */
+  /** 끝낸 sid인가(묘비가 아직 있다) */
   isEnded(sid: string, now = Date.now()) {
     const until = this._ended.get(sid);
     return until !== undefined && until > now;
   }
 
-  // 지운 행의 내용으로 묘비를 남긴다. 로그인한 세션만, 그 절대 기한까지(그 뒤에는 저장해도 이미 만료라 다시 쓰이지 않는다).
+  // 삭제한 행의 내용으로 묘비를 남긴다. 로그인한 세션만, 그 절대 기한까지(그 뒤에는 저장해도 이미 만료라 다시 쓰이지 않는다).
   // 읽을 수 없는 내용이면 넉넉히 지금부터 절대 수명만큼
   _bury(sid: string, data: string | null, now = Date.now()) {
     let deadline: number | null;
@@ -128,7 +128,7 @@ class SqliteSessionStore extends Store {
     if (deadline !== null && deadline > now) this._ended.set(sid, deadline);
   }
 
-  // 행을 지우고 묘비를 남긴다. 알림은 부르는 쪽이 콜백 뒤에
+  // 행을 삭제하고 묘비를 남긴다. 알림은 부르는 쪽이 콜백 뒤에
   _end(sid: string) {
     const row = this._deleteStmt.get(sid);
     if (row) this._bury(sid, row.data);
@@ -143,7 +143,7 @@ class SqliteSessionStore extends Store {
       this._bury(sid, null);
       this._unsaved.set(sid, userId);
       this._armRetry();
-      log.error(`로그인 세션을 끊었지만 저장소에서 삭제하지 못했습니다(이 실행에서는 받지 않습니다. 다시 삭제합니다): ${messageOf(error)}`);
+      log.error(`끊은 로그인 세션 삭제 실패(이 실행에서는 받지 않으며 다시 삭제 시도): ${messageOf(error)}`);
       throw error;
     }
   }
@@ -171,12 +171,12 @@ class SqliteSessionStore extends Store {
     return this._unsaved.size;
   }
 
-  /** 끊었지만 아직 삭제하지 못한 sid 인가 */
+  /** 끊었지만 아직 삭제하지 못한 sid인가 */
   isUnsaved(sid: string) {
     return this._unsaved.has(sid);
   }
 
-  /** 그 사용자의, 끊었지만 아직 삭제하지 못한 sid 들 */
+  /** 그 사용자의, 끊었지만 아직 삭제하지 못한 sid들 */
   unsavedOf(userId: string) {
     return [...this._unsaved].filter(([, user]) => user === userId).map(([sid]) => sid);
   }
@@ -209,7 +209,7 @@ class SqliteSessionStore extends Store {
     return deadline === null ? cookie : Math.min(cookie, deadline);
   }
 
-  // 이 규칙 전에 쓴 행: 만료를 절대 기한으로 줄이고 넘은 것은 지운다(기동 때 한 번. 걸린 요청이 없으니 알리지 않는다)
+  // 이 규칙 전에 쓴 행: 만료를 절대 기한으로 줄이고 넘은 것은 삭제한다(기동 시 한 번. 걸린 요청이 없으니 알리지 않는다)
   _normalize(now = Date.now()) {
     const rows = this.db.prepare("SELECT sid, data, expires_at FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string; expires_at: number }>;
     const shorten = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ?");
@@ -219,14 +219,14 @@ class SqliteSessionStore extends Store {
         try {
           deadline = deadlineOf(JSON.parse(data) as SessionData);
         } catch {
-          continue; // 읽을 수 없는 행은 읽을 때 지운다(_parse)
+          continue; // 읽을 수 없는 행은 읽을 때 삭제한다(_parse)
         }
         if (deadline !== null && deadline < expires_at) shorten.run(deadline, sid);
       }
     })();
   }
 
-  /** 살아 있는 세션(끝내지 않음, 만료 전, 절대 기한 안). 없으면 null. 넘은 것은 지우고 알린다. DB 오류는 던진다(스트림의 확인이 콜백 없이 부른다) */
+  /** 살아 있는 세션(끝내지 않음, 만료 전, 절대 기한 안). 없으면 null. 넘은 것은 삭제하고 알린다. DB 오류는 던진다(스트림의 확인이 콜백 없이 부른다) */
   liveSession(sid: string): SessionData | null {
     if (this.isEnded(sid)) return null;
     const ended: string[] = [];
@@ -251,8 +251,8 @@ class SqliteSessionStore extends Store {
     this._announce(ended);
   }
 
-  // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500 이 된다.
-  // 절대 기한을 넘은 로그인 세션(이 규칙 전에 쓴 행)도 지우고 없는 세션으로 답한다. express-session 이 빈 새 세션을 만든다
+  // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500이 된다.
+  // 절대 기한을 넘은 로그인 세션(이 규칙 전에 쓴 행)도 삭제하고 없는 세션으로 답한다. express-session이 빈 새 세션을 만든다
   _parse(sid: string, data: string, ended: string[] = []): SessionData | null {
     let session: SessionData;
     try {
@@ -314,7 +314,7 @@ class SqliteSessionStore extends Store {
     this._announce(ended);
   }
 
-  // 실패해도 이 실행에서는 끝난 것이라 알린다(성공과 같은 차례로 콜백 다음에)
+  // 실패해도 이 실행에서는 끝난 것이라 알린다(성공과 같은 순서로 콜백 다음에)
   destroy(sid: string, cb: Done = unheard("삭제"), userId: string | null = null) {
     let failed: unknown = null;
     try {
@@ -326,7 +326,7 @@ class SqliteSessionStore extends Store {
     this._announce([sid]);
   }
 
-  // express-session 의 다시 로그인(옛 sid 를 삭제하고 새 세션). 삭제하지 못한 것에 그 사용자를 남기려고 덮는다
+  // express-session의 다시 로그인(옛 sid를 삭제하고 새 세션 생성). 삭제하지 못한 세션에 사용자 ID를 남기려고 오버라이드한다
   override regenerate(req: Request, fn: Done) {
     this.destroy(
       req.sessionID,
@@ -338,7 +338,7 @@ class SqliteSessionStore extends Store {
     );
   }
 
-  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한을 넘은 것은 빼고 */
+  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한을 넘은 것은 뺀다 */
   sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData }> {
     const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
     return rows.flatMap(({ sid, data }) => {
@@ -389,7 +389,7 @@ class SqliteSessionStore extends Store {
 // 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
 
-/** 열린 저장소들(종료 차례의 finishSessions) */
+/** 열린 저장소들(종료 순서의 finishSessions) */
 const live = new Set<SqliteSessionStore>();
 
 /** 종료 순서에서: 열린 저장소마다 삭제하지 못한 행을 마지막으로 다시 삭제한다 */

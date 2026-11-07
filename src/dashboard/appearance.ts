@@ -145,7 +145,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
 }
 
 /** 그 크기에 이미지를 올린다(정사각형 png, webp, jpeg, 변 16 이상, 또는 svg). 기록 맨 앞에 두어 지금 이미지로 쓰고, 기록을 넘친 옛 이미지는 삭제한다 */
-// go: 그림을 검사하고 바꾼 뒤, 첫 쓰기 앞의 확인(대시보드: 세션이 끝남). 던지면 쓰지 않는다
+// go: 이미지를 검사하고 변환한 뒤, 파일을 쓰기 직전에 부르는 확인 함수(대시보드: 그사이 세션이 끝났는지 확인). 예외를 던지면 쓰지 않는다
 async function addFavicon(size: number, raw: Buffer, go?: () => void): Promise<Added> {
   const checked = await inspect(raw, size);
   if (!checked.ok) return checked;

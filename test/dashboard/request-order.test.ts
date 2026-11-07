@@ -1,5 +1,5 @@
-// src/dashboard/index.ts, rate-limits.ts, body-limit.ts, binding.ts: 요청이 비싼 일(본문 풀기, 경로)에 닿기 전에 세이고,
-// 검사를 다 지난 요청만 본문을 받는다. 본문을 다 받지 않은 채 응답하면 연결을 닫고, 100-continue 는 검사를 지난 뒤에만 보낸다
+// src/dashboard/index.ts, rate-limits.ts, body-limit.ts, binding.ts: 요청이 비싼 작업(본문 파싱, 라우트 핸들러)에 닿기 전에 요청 수를 세고,
+// 검사를 다 통과한 요청만 본문을 받는다. 본문을 다 받지 않은 채 응답하면 연결을 닫고, 100-continue는 검사를 통과한 뒤에만 보낸다
 
 process.env.OWNER_ID = "owner";
 
@@ -24,7 +24,7 @@ const { CSRF_TOKEN_MAX } = await import("../../src/dashboard/rate-limits.ts");
 
 const TOKEN = "t".repeat(43);
 let user: object | null = null;
-// 실제 앱의 세션 자리: 로그인한 사람(user)과 CSRF 토큰
+// 실제 앱의 세션 미들웨어를 대신한다: 로그인한 사용자(user)와 CSRF 토큰을 넣는다
 const fakeSession = (req: Request, _res: Response, next: NextFunction) => {
   req.session = fake<Request["session"]>({ user: user ?? undefined, loginAt: Date.now(), csrfToken: TOKEN, destroy: (done: () => void) => done() });
   next();
@@ -55,7 +55,7 @@ async function withLimits<T>(limits: Partial<typeof config.dashboard.rateLimit>,
 }
 const SIGNED_IN = { id: "u1", username: "u1" };
 
-test("익명의 상태 바꾸는 요청은 본문을 풀기 전에 세여 한도를 넘으면 429(CSRF 403 이 먼저가 아니다)", () =>
+test("익명 사용자의 상태 변경 요청은 본문을 파싱하기 전에 요청 수를 세어 한도를 넘으면 429를 반환한다(CSRF 403이 먼저가 아니다)", () =>
   withLimits({ apiMax: 2 }, async () => {
     const server = await listenForFetch(appOf(), "127.0.0.1");
     servers.push(server);
@@ -67,7 +67,7 @@ test("익명의 상태 바꾸는 요청은 본문을 풀기 전에 세여 한도
     assert.equal(await put(), "HTTP/1.1 429");
   }));
 
-test("빼 주는 경로도 익명 요청, 다른 메서드는 센다. 로그인한 사람의 GET 은 빼 준다", () =>
+test("한도 제외 경로도 익명 요청, 다른 메서드는 센다. 로그인한 사용자의 GET은 빼 준다", () =>
   withLimits({ apiMax: 2 }, async () => {
     const anon = await fresh();
     const search = () => anon("/api/guilds/1/player/search?q=x");
@@ -80,10 +80,10 @@ test("빼 주는 경로도 익명 요청, 다른 메서드는 센다. 로그인�
     const post = () => signed("/api/guilds/1/player/search", { method: "POST", headers: { "content-type": "application/json", "x-csrf-token": TOKEN }, body: JSON.stringify({ x: "y".repeat(20_000) }) });
     await post();
     await post();
-    assert.equal((await post()).status, 429, "로그인했어도 검색 경로에 POST 는 센다");
+    assert.equal((await post()).status, 429, "로그인했어도 검색 경로에 POST는 센다");
   }));
 
-test("일반 한도가 차도 로그인한 사람은 토큰을 받는다. 토큰 받기에도 따로 한도가 있다", () =>
+test("일반 한도가 차도 로그인한 사용자는 토큰을 받는다. 토큰 받기에도 따로 한도가 있다", () =>
   withLimits({ apiMax: 1 }, async () => {
     user = SIGNED_IN;
     const at = await fresh();
@@ -93,7 +93,7 @@ test("일반 한도가 차도 로그인한 사람은 토큰을 받는다. 토큰
     assert.equal((await at("/api/csrf-token")).status, 429);
   }));
 
-test("로그인 한도가 차도 로그인한 사람의 로그아웃은 된다", () =>
+test("로그인 한도가 차도 로그인한 사용자의 로그아웃은 된다", () =>
   withLimits({ authMax: 1 }, async () => {
     const at = await fresh();
     await at("/auth/login");
@@ -102,7 +102,7 @@ test("로그인 한도가 차도 로그인한 사람의 로그아웃은 된다",
     assert.notEqual((await at("/auth/logout", { method: "POST", headers: { "x-csrf-token": TOKEN } })).status, 429);
   }));
 
-test("세션 앞에서 답하는 /api 의 공개 경로(로그인 배경 목록)도 공개 한도에 센다(끝의 /, 대문자도)", () =>
+test("세션 미들웨어 앞에서 응답하는 /api의 공개 경로(로그인 배경 목록)도 공개 한도에 센다(끝의 /, 대문자도)", () =>
   withLimits({ publicMax: 2 }, async () => {
     const at = await fresh();
     assert.notEqual((await at("/api/login-background")).status, 429);
@@ -110,7 +110,7 @@ test("세션 앞에서 답하는 /api 의 공개 경로(로그인 배경 목록)
     assert.equal((await at("/API/LOGIN-BACKGROUND")).status, 429);
   }));
 
-/** 원시 소켓으로 보내고, 받은 글과 서버가 닫았는지를 돌려준다 */
+/** 원시 소켓으로 요청을 보내고, 수신한 응답 문자열과 서버가 연결을 닫았는지를 돌려준다 */
 async function raw(port: number, head: string, body = "", { waitMs = 1500 } = {}) {
   const socket = net.connect(port, "127.0.0.1");
   await once(socket, "connect");
@@ -126,7 +126,7 @@ async function raw(port: number, head: string, body = "", { waitMs = 1500 } = {}
   return { got, closed };
 }
 
-test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, 본문을 읽지 않는 GET, 덩어리 본문). 다 받은 요청은 이어 쓴다", async () => {
+test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, 본문을 읽지 않는 GET, 청크 본문). 본문을 다 받은 요청은 연결을 이어 쓴다", async () => {
   const server = await listenForFetch(appOf(), "127.0.0.1");
   servers.push(server);
   const port = (server.address() as AddressInfo).port;
@@ -150,11 +150,11 @@ test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, �
   try {
     const ignored = await raw(port, "GET /api/csrf-token HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n", "{ not json");
     assert.match(ignored.got, /^HTTP\/1\.1 200/);
-    assert.equal(ignored.closed, true, "본문을 읽지 않는 GET 도 남은 본문을 기다리지 않고 닫는다");
-    // 본문 읽기 뒤의 GET 경로: 본문을 다 보내도 풀지 않는다(틀린 JSON 이어도 400 이 아니다)
+    assert.equal(ignored.closed, true, "본문을 읽지 않는 GET도 남은 본문을 기다리지 않고 닫는다");
+    // 본문 파싱 미들웨어 뒤의 GET 경로: 본문을 다 보내도 파싱하지 않는다(잘못된 JSON이어도 400이 아니다)
     const body = "{ not json";
     const unparsed = await raw(port, `GET /api/me HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n`, body);
-    assert.match(unparsed.got, /^HTTP\/1\.1 200/, "GET 의 본문은 풀지 않는다");
+    assert.match(unparsed.got, /^HTTP\/1\.1 200/, "GET의 본문은 파싱하지 않는다");
   } finally {
     user = null;
   }
@@ -164,7 +164,7 @@ test("본문을 다 받지 않은 채 응답하면 연결을 닫는다(거절, �
   assert.equal(whole.closed, false, "본문이 없는 요청은 연결을 이어 쓴다");
 });
 
-test("100-continue: 검사에 걸리면 100 없이 거절하고, 지나면 100 을 보내고 본문을 받는다", async () => {
+test("100-continue: 검사에 걸리면 100 없이 거절하고, 통과하면 100을 보내고 본문을 받는다", async () => {
   const server = listen(appOf(), { host: "127.0.0.1", port: 0, url: "http://localhost" });
   servers.push(server);
   if (!server.listening) await once(server, "listening");
@@ -178,7 +178,7 @@ test("100-continue: 검사에 걸리면 100 없이 거절하고, 지나면 100 �
   user = SIGNED_IN;
   try {
     const over = await raw(port, `POST /api/guilds/1/player/queue HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 2000000\r\nExpect: 100-continue\r\nx-csrf-token: ${TOKEN}\r\n\r\n`);
-    assert.doesNotMatch(over.got, /100 Continue/, "상한을 넘을 본문에는 100 을 보내지 않는다");
+    assert.doesNotMatch(over.got, /100 Continue/, "상한을 넘는 본문에는 100을 보내지 않는다");
     assert.match(over.got, /^HTTP\/1\.1 413/);
 
     const socket = net.connect(port, "127.0.0.1");
@@ -192,14 +192,14 @@ test("100-continue: 검사에 걸리면 100 없이 거절하고, 지나면 100 �
     assert.match(got, /^HTTP\/1\.1 100 Continue/, "검사를 지나면 100");
     socket.write(body);
     while (!/HTTP\/1\.1 400/.test(got) && Date.now() < deadline + 2000) await new Promise((r) => setTimeout(r, 20));
-    assert.match(got, /HTTP\/1\.1 400/, "본문을 받아 풀었다(틀린 JSON)");
+    assert.match(got, /HTTP\/1\.1 400/, "본문을 받아 파싱했다(잘못된 JSON)");
     socket.destroy();
   } finally {
     user = null;
   }
 });
 
-test("본문은 /api 만 푼다(로그아웃은 틀린 JSON 이어도 400 이 아니다). 운영자가 아닌 앱 이모지 쓰기는 본문을 풀기 전에 403", async () => {
+test("본문은 /api만 파싱한다(로그아웃은 잘못된 JSON이어도 400이 아니다). 운영자가 아닌 사용자의 앱 이모지 쓰기는 본문을 파싱하기 전에 403을 반환한다", async () => {
   user = SIGNED_IN;
   try {
     const at = await fresh();
@@ -212,15 +212,15 @@ test("본문은 /api 만 푼다(로그아웃은 틀린 JSON 이어도 400 이 �
   }
 });
 
-test("대문자 /API 도 화면 폴백이 답하지 않고 API 로 가서 센다", () =>
+test("대문자 /API도 화면 폴백이 답하지 않고 API로 가서 센다", () =>
   withLimits({ apiMax: 1 }, async () => {
     const at = await fresh();
     const first = await at("/API/admin/status");
-    assert.equal(first.status, 401, "HTML 이 아니라 운영자 문");
+    assert.equal(first.status, 401, "HTML이 아니라 운영자 인증 검사");
     assert.equal((await at("/API/admin/status")).status, 429);
   }));
 
-test("알린 길이가 상한을 넘으면 받지 않고 곧바로 413 에 닫고, 길이를 알리지 않은 본문이 넘으면 끊는다", async () => {
+test("Content-Length가 상한을 넘으면 받지 않고 곧바로 413으로 닫고, 길이를 알리지 않은 본문이 상한을 넘으면 연결을 끊는다", async () => {
   const server = await listenForFetch(appOf(), "127.0.0.1");
   servers.push(server);
   const port = (server.address() as AddressInfo).port;
@@ -232,13 +232,13 @@ test("알린 길이가 상한을 넘으면 받지 않고 곧바로 413 에 닫�
 
     const chunk = "x".repeat(40_000);
     const chunked = await raw(port, `POST /api/guilds/1/player/queue HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\nx-csrf-token: ${TOKEN}\r\n\r\n`, `${chunk.length.toString(16)}\r\n${chunk}\r\n`);
-    assert.equal(chunked.closed, true, "상한을 넘은 덩어리 본문은 남은 것을 기다리지 않고 끊는다");
+    assert.equal(chunked.closed, true, "상한을 넘은 청크 본문은 남은 것을 기다리지 않고 끊는다");
   } finally {
     user = null;
   }
 });
 
-test("남은 본문이 작아도 요청 제한에 걸렸거나 본문을 받을 일이 없는 메서드면 받아 버리지 않고 닫는다. OPTIONS 도 센다", () =>
+test("남은 본문이 작아도 요청 제한에 걸렸거나 본문을 받을 일이 없는 메서드면 받아 버리지 않고 닫는다. OPTIONS도 센다", () =>
   withLimits({ apiMax: 1, publicMax: 1 }, async () => {
     const server = await listenForFetch(appOf(), "127.0.0.1");
     servers.push(server);
@@ -253,14 +253,14 @@ test("남은 본문이 작아도 요청 제한에 걸렸거나 본문을 받을 
     assert.equal(limited.closed, true, "걸린 요청의 남은 본문은 받지 않는다");
 
     const getWithBody = await raw(port, "GET /login-background HTTP/1.1\r\nHost: x\r\nContent-Length: 1000\r\n\r\n", "x");
-    assert.equal(getWithBody.closed, true, "GET 의 남은 본문은 받지 않는다");
+    assert.equal(getWithBody.closed, true, "GET의 남은 본문은 받지 않는다");
 
     const options = () => raw(port, "OPTIONS /api/me HTTP/1.1\r\nHost: x\r\n\r\n", "", { waitMs: 300 }).then((r) => r.got.slice(0, 12));
     const statuses = [await options(), await options()];
-    assert.ok(statuses.includes("HTTP/1.1 429"), `OPTIONS 도 공개 한도에 센다: ${statuses.join(", ")}`);
+    assert.ok(statuses.includes("HTTP/1.1 429"), `OPTIONS도 공개 한도에 센다: ${statuses.join(", ")}`);
   }));
 
-test("JSON 이 아닌 업로드(이미지)는 JSON 상한을 받지 않는다(경로가 자기 상한으로 읽는다)", async () => {
+test("JSON이 아닌 업로드(이미지)는 JSON 상한을 적용받지 않는다(각 경로가 자체 상한으로 읽는다)", async () => {
   const server = await listenForFetch(appOf(), "127.0.0.1");
   servers.push(server);
   const port = (server.address() as AddressInfo).port;

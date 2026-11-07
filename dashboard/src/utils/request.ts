@@ -1,5 +1,5 @@
-// 요청 한 곳. 화면의 모든 axios 요청이 이 가로채기를 거친다: CSRF 토큰, 토큰 거절 뒤 한 번 다시 보내기, 세션 끝, 시간 한도,
-// 이 탭이 생각하는 사용자(X-Dashboard-User. 다른 탭에서 다른 계정으로 로그인했으면 서버가 409 account-changed 로 거절하고, 그 뒤로는 보내지 않는다)
+// 공통 요청 모듈이다. 화면의 모든 axios 요청이 이 인터셉터를 거친다: CSRF 토큰, 토큰 거절 시 1회 재전송, 세션 만료, 타임아웃,
+// 현재 탭의 사용자 ID(X-Dashboard-User. 다른 탭에서 다른 계정으로 로그인했으면 서버가 409 account-changed로 거절하고, 그 뒤로는 요청을 보내지 않는다)를 처리한다.
 // 시간 한도는 종류별이다. 기본은 조작, 읽기, 저장(10초), 부르기, 곡 추가, 더 넣기와 운영자의 오래 걸리는 일은 120초,
 // 바깥 AI 를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
@@ -71,15 +71,15 @@ export function failureKind(error: unknown): FailureKind | null {
  * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
  */
 /**
- * user: 이 탭이 생각하는 사용자 id(모르면 null). onAccountChanged: account-changed 를 받았을 때. switched: 그 뒤로 막혔나(계정을 알아보는 요청과 로그아웃만 보낸다)
+ * user: 현재 탭의 사용자 id다(모르면 null). onAccountChanged: account-changed를 받았을 때 호출한다. switched: 계정 변경으로 요청이 차단됐는지 반환한다(계정 확인 요청과 로그아웃만 보낸다)
  */
 type AccountHooks = { user?: () => string | null; onAccountChanged?: () => void; switched?: () => boolean };
 
-// 계정을 알아보는 요청과 로그아웃: 사용자를 싣지 않고, 막혀도 보낸다. CSRF 토큰 받기는 싣지 않는다(토큰을 쓰는 요청이 싣는다)
+// 계정 확인 요청과 로그아웃은 사용자 ID를 싣지 않고, 차단된 상태에서도 보낸다. CSRF 토큰 요청에도 사용자 ID를 싣지 않는다(토큰을 쓰는 요청에서 싣는다)
 const UNBOUND = /^\/(?:api\/me|auth\/logout)(?:[?#]|$)/;
 const TOKEN = /^\/api\/csrf-token(?:[?#]|$)/;
 
-// 막혀서 보내지 않은 요청. 화면 끊음(ERR_CANCELED)과 같게 다뤄 알림을 띄우지 않는다(막힘 대화상자가 알린다)
+// 차단되어 보내지 않은 요청이다. 요청 취소(ERR_CANCELED)와 같게 다뤄 알림을 표시하지 않는다(계정 변경 대화상자에서 알린다)
 function blockedError(request: InternalAxiosRequestConfig) {
   return Object.assign(new Error("not sent: signed in as another account"), { code: "ERR_CANCELED", config: request });
 }
@@ -115,7 +115,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     return request;
   });
 
-  // 이 탭의 사용자를 싣는다. 막혔으면 보내지 않는다. axios 는 나중에 건 요청 가로채기가 먼저 돌아 CSRF 토큰을 받으러 가기 전에 막힌다
+  // 현재 탭의 사용자 ID를 헤더에 싣는다. 차단된 상태면 보내지 않는다. axios는 나중에 등록한 요청 인터셉터가 먼저 실행되므로 CSRF 토큰을 받으러 가기 전에 차단된다
   // 토큰 받기는 막히지 않는다(로그아웃이 쓴다. 토큰을 쓰는 다른 요청은 여기서 먼저 막힌다)
   http.interceptors.request.use((request) => {
     const url = request.url ?? "";
@@ -146,13 +146,13 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     },
   );
 
-  // 서버에 닿았는지 알린다(답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
+  // 서버에 연결됐는지 알린다(응답이 왔거나 연결에 실패한 경우). 타임아웃이나 요청 취소는 알리지 않는다
   function reached(error: unknown, answered: boolean) {
     if (failureKind(error) === "offline") onReach(false);
     else if (answered) onReach(true);
   }
 
-  // 다른 탭에서 다른 계정으로 로그인했다. 쥔 토큰은 옛 세션의 것이라 버리고 막는다
+  // 다른 탭에서 다른 계정으로 로그인했다. 가지고 있던 토큰은 이전 세션의 것이므로 버리고 이후 요청을 막는다
   function accountChanged(data: unknown) {
     if (problemCodeOf(data) !== "account-changed") return false;
     token = null;

@@ -67,7 +67,7 @@ function resolveSessionSecret() {
 
 // 평문 접속 감지. 주 방어선이 아니다. 요청이 들어온 시점이면 세션 쿠키는 이미 평문으로
 // 오간 뒤라 문구도 사후 조치를 안내한다. 설정을 https로 적어놓고 실제로는 평문인 경우의 안전망.
-// 대시보드 주소가 https 인데 평문으로 보이면 앞의 프록시를 믿지 않는 것이다(같은 기기, 사설망이 아니다. trust proxy). 쿠키에 Secure, __Host- 가 빠진다
+// 대시보드 주소가 https인데 평문으로 보이면 앞단의 프록시를 신뢰하지 않는 상태다(로컬이나 사설망이 아님, trust proxy). 쿠키에 Secure, __Host-가 빠진다
 function plaintextAccessWarner(host: string, url: string): RequestHandler {
   if (isLoopbackHost(host)) return (_req, _res, next) => next();
 
@@ -76,29 +76,29 @@ function plaintextAccessWarner(host: string, url: string): RequestHandler {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!warned && !req.secure) {
       warned = true;
-      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞의 프록시를 믿지 않으면(.env 의 DASHBOARD_TRUST_PROXY, 기본은 이 기기) X-Forwarded-Proto를 보지 않아 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 다른 기기나 사설망 주소로 붙으면 그 주소를 DASHBOARD_TRUST_PROXY 에 넣으세요.");
+      if (https) log.warn("DASHBOARD_URL은 https인데 이 연결은 평문으로 보입니다. 앞단의 프록시를 신뢰하지 않으면(.env의 DASHBOARD_TRUST_PROXY, 기본값은 로컬) X-Forwarded-Proto를 무시해 로그인 쿠키가 Secure, __Host- 없이 나갑니다. 프록시가 다른 호스트나 사설망 주소로 연결되면 그 주소를 DASHBOARD_TRUST_PROXY에 추가하세요.");
       else log.warn("평문 HTTP 연결로 접속됨. 세션 쿠키가 암호화 없이 오갔습니다. HTTPS 설정 후 SESSION_SECRET을 변경해 기존 세션을 무효화하세요.");
     }
     next();
   };
 }
 
-/** 믿는 프록시. Express 가 받지 않는 값(모두 믿기 true, * 포함)은 warn 하고 이 기기(loopback)만 */
+/** 신뢰하는 프록시 설정. Express가 지원하지 않는 값(모두 신뢰하는 true, * 포함)은 경고 로그를 남기고 로컬(loopback)만 신뢰한다 */
 function applyTrustProxy(app: App, value: string) {
   try {
     app.set("trust proxy", value);
   } catch (error) {
-    log.warn(`DASHBOARD_TRUST_PROXY 값을 쓸 수 없습니다(${messageOf(error)}). 이 기기(loopback)의 프록시만 믿습니다. IP, CIDR, loopback 을 쉼표로 적으세요.`);
+    log.warn(`DASHBOARD_TRUST_PROXY 값을 쓸 수 없습니다(${messageOf(error)}). 로컬(loopback) 프록시만 신뢰합니다. IP, CIDR, loopback을 쉼표로 구분해 적으세요.`);
     app.set("trust proxy", "loopback");
   }
 }
 
-// 프록시가 사용자를 알리는 헤더
+// 프록시가 원래 요청 정보를 전달하는 헤더
 const FORWARDED = ["x-forwarded-for", "x-forwarded-proto", "x-forwarded-host"];
-/** 이만큼의 주소까지 따로 알린다 */
+/** 신뢰하지 않는 프록시 경고를 주소별로 남기는 최대 개수 */
 const UNTRUSTED_WARN_MAX = 8;
 
-/** 믿지 않는 주소가 X-Forwarded-* 를 보내면 그 주소로 한 번 알린다. 프록시가 다른 기기에 있는데 DASHBOARD_TRUST_PROXY 에 넣지 않은 배치를 드러낸다 */
+/** 신뢰하지 않는 주소가 X-Forwarded-*를 보내면 주소마다 한 번씩 경고한다. 프록시가 다른 호스트에 있는데 DASHBOARD_TRUST_PROXY에 추가하지 않은 설정 누락을 알려 준다 */
 function untrustedProxyWarner(value: string): RequestHandler {
   const warned = new Set<string>();
   let capped = false;
@@ -109,10 +109,10 @@ function untrustedProxyWarner(value: string): RequestHandler {
       if (!trusted && !warned.has(peer)) {
         if (warned.size < UNTRUSTED_WARN_MAX) {
           warned.add(peer);
-          log.warn(`${peer} 가 X-Forwarded-* 를 보냈지만 믿는 프록시가 아닙니다(DASHBOARD_TRUST_PROXY=${value}). 이 봇 앞의 프록시라면 그 주소를 넣으세요. 넣기 전까지 그 뒤의 사용자는 모두 이 주소로 보여 IP 요청 제한을 함께 쓰고, 로그인 쿠키에 Secure, __Host- 가 빠집니다.`);
+          log.warn(`${peer}에서 X-Forwarded-*를 보냈지만 신뢰하는 프록시가 아닙니다(DASHBOARD_TRUST_PROXY=${value}). 이 봇 앞단의 프록시라면 그 주소를 추가하세요. 추가하기 전까지 프록시 뒤의 사용자는 모두 이 주소로 묶여 IP 요청 제한을 공유하고, 로그인 쿠키에 Secure, __Host-가 빠집니다.`);
         } else {
           capped = true;
-          log.warn(`X-Forwarded-* 를 보낸 믿지 않는 주소가 ${UNTRUSTED_WARN_MAX}개를 넘었습니다. 더는 남기지 않습니다.`);
+          log.warn(`X-Forwarded-*를 보낸 신뢰하지 않는 주소가 ${UNTRUSTED_WARN_MAX}개를 넘었습니다. 더는 남기지 않습니다.`);
         }
       }
     }
@@ -122,9 +122,9 @@ function untrustedProxyWarner(value: string): RequestHandler {
 
 // 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
 // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조).
-// 쿠키 이름은 요청마다: HTTPS 면 __Host- 이름(dashboard/cookies). express-session 은 이름이 하나라 같은 저장소로 둘을 만들고 고른다.
-// 둘의 설정은 이름 말고 같아야 한다: express-session 은 만들 때마다 저장소의 새 세션 만들기(generate)를 덮어써 나중 것의 쿠키 설정이 모든 요청에 걸린다
-// store, secret 은 시험이 넘긴다(임시 DB). 없으면 로그인 세션 DB 와 설정의 비밀값
+// 쿠키 이름은 요청마다 다르다: HTTPS면 __Host- 이름을 쓴다(dashboard/cookies). express-session은 미들웨어당 이름을 하나만 받으므로 같은 저장소를 공유하는 미들웨어 둘을 만들어 선택한다.
+// 두 미들웨어의 설정은 이름 외에는 같아야 한다: express-session은 생성할 때마다 저장소의 세션 생성 함수(generate)를 덮어쓰므로 나중에 만든 쪽의 쿠키 설정이 모든 요청에 적용된다
+// store, secret은 테스트에서 넘긴다(임시 DB). 생략하면 로그인 세션 DB와 설정의 비밀값을 쓴다
 function createSessionMiddleware({ store = new SqliteSessionStore(), secret = resolveSessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
   const options = {
     secret,
@@ -148,7 +148,7 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
 // index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
 const ASSETS = /[\\/]assets[\\/]/;
-// 공개 한도가 건너뛰는 경로(아래에서 따로 센다)와, 그 가운데 세션 앞에서 답하는 공개 경로. Express 처럼 대소문자, 끝의 / 를 가리지 않는다
+// 공개 요청 제한에서 건너뛰는 경로(아래에서 따로 센다)와, 그중 세션 미들웨어 앞에서 응답하는 공개 경로. Express처럼 대소문자와 끝의 /를 가리지 않는다
 const COUNTED_LATER = /^\/(?:api|auth)(?:\/|$)/i;
 const PUBLIC_API = /^\/api\/login-background\/?$/i;
 function cacheAssets(res: Response, file: string) {
@@ -163,19 +163,19 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   const app = express();
   const { host, url } = config.dashboard;
 
-  // X-Forwarded-* 는 믿는 프록시가 보낸 것만 믿는다(DASHBOARD_TRUST_PROXY, 기본은 이 기기). 같은 사설망의 다른 기기가 IP 를 꾸미지 못한다
+  // X-Forwarded-*는 신뢰하는 프록시가 보낸 것만 신뢰한다(DASHBOARD_TRUST_PROXY, 기본값은 로컬). 같은 사설망의 다른 호스트가 IP를 위조하지 못하게 한다
   applyTrustProxy(app, config.dashboard.trustProxy);
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
-  // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓰는 때에 보므로 맨 앞에)
+  // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓸 때 판단하므로 맨 앞에 둔다)
   app.use(closeOnUnreadBody);
   app.use(untrustedProxyWarner(config.dashboard.trustProxy));
-  // 소켓의 마지막 요청을 적는다(세션이 끝나 소켓을 부술 때 keep-alive 의 다음 요청을 건드리지 않게). 정적 파일보다 앞에
+  // 소켓의 마지막 요청을 기록한다(세션이 끝나 소켓을 닫을 때 keep-alive의 다음 요청을 건드리지 않게 한다). 정적 파일 미들웨어보다 앞에 둔다
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
   app.use(plaintextAccessWarner(host, url));
-  // 로그인 없이 받는 것(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP 로 센다. /api, /auth 는 아래에서 따로 센다
-  // (세션 앞에서 답하는 /api 의 공개 경로와, 아래 CORS 가 세기 전에 답하는 OPTIONS 는 여기서). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 받으면 다시 묻지 않고, 이모지 선택은 그림 1900여 장을 한 장씩 받는다
+  // 로그인 없이 받는 경로(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP로 센다. /api, /auth는 아래에서 따로 센다
+  // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path) && req.method !== "OPTIONS") || ASSETS.test(req.path) }));
 
   // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
@@ -203,19 +203,19 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 로그인한 요청을 그 세션에 묶는다(세션이 끝나면 진행 중인 요청을 멈춘다, 끝난 세션과 로그인하지 않은 세션은 저장하지 않는다)
   app.use(sessionRequests.bind);
 
-  // ── 요청 제한. 사용자로 세려고 세션 뒤, 기기 기록, CSRF 검사, 본문 읽기보다 앞(걸린 요청은 그 일을 하지 않는다) ──
+  // ── 요청 제한. 사용자별로 세기 위해 세션 뒤에 두고, 기기 기록, CSRF 검사, 본문 읽기보다는 앞에 둔다(제한에 걸린 요청은 뒤쪽 처리를 하지 않는다) ──
   const rl = config.dashboard.rateLimit;
-  // 일반 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 로그인한 요청의 SSE 연결, 볼륨, 곡 추가 칸의 검색, 앨범아트, 토큰 받기는 뺀다(rate-limits)
+  // 일반 API. 정상 사용(폴링 12/분, 플레이리스트 1요청)을 넉넉히 넘는 값. 로그인한 요청의 SSE 연결, 볼륨, 곡 추가 입력란의 검색, 앨범아트, CSRF 토큰 발급은 뺀다(rate-limits)
   app.use(
     "/api",
     limiter(() => rl.apiMax, { skip: unlimited }),
   );
-  // 토큰 받기는 따로 센다(일반 한도가 차도 받되 끝없이는 아니게)
+  // CSRF 토큰 발급은 따로 센다(일반 한도가 차도 발급하되 무제한은 아니게 한다)
   app.use(
     "/api/csrf-token",
     limiter(() => CSRF_TOKEN_MAX),
   );
-  // 로그인/OAuth. IP 로 센다. 로그인한 사람의 로그아웃은 뺀다
+  // 로그인/OAuth. IP로 센다. 로그인한 사용자의 로그아웃은 뺀다
   app.use(
     "/auth",
     limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true, skip: signedInLogout }),
@@ -223,15 +223,15 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
   app.use(noteDevice);
-  // 탭이 생각하는 사용자와 세션의 사용자가 다르면 409(다른 탭에서 다른 계정으로 로그인했다). CSRF 검사보다 앞에
+  // 탭이 알고 있는 사용자와 세션의 사용자가 다르면 409를 반환한다(다른 탭에서 다른 계정으로 로그인한 경우). CSRF 검사보다 앞에 둔다
   app.use(requireSameAccount);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
-  // 운영자 패널 앞의 문. 라우터마다 주인 검사를 하고, 여기서도 한 번 본다(검사 없이 더한 라우터를 잡는다). 본문을 읽기 전에(큰 본문 경로는 모두 운영자 패널이다)
+  // 운영자 패널 공통 권한 검사. 하위 라우터마다 운영자 검사를 하지만, 누락된 라우터가 없도록 여기서도 한 번 막는다. 본문을 읽기 전에 둔다(큰 본문 경로는 모두 운영자 패널이다)
   app.use("/api/admin", requireOwner);
-  // 앱 이모지 쓰기(GET 이 아닌 것)도 운영자만이라 본문을 읽기 전에 본다(경로의 검사는 그대로)
+  // 앱 이모지 쓰기(GET이 아닌 요청)도 운영자 전용이므로 본문을 읽기 전에 검사한다(라우트의 검사는 그대로 유지한다)
   app.use("/api/app-emojis", (req, res, next) => (["GET", "HEAD", "OPTIONS"].includes(req.method) ? next() : requireOwner(req, res, next)));
-  // 검사를 다 지난 요청만 본문을 받는다: 100-continue 를 기다리면 이제 100 을 보내고, JSON 을 푼다
+  // 검사를 모두 통과한 요청만 본문을 받는다: 100-continue를 기다리면 이제 100을 보내고, JSON을 파싱한다
   app.use(continueBody);
   app.use(bodyLimit());
 
@@ -244,7 +244,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 로그인 관련(/auth/login, /auth/callback, /auth/logout)
   app.use("/auth", createAuthRouter());
 
-  // API 라우트. 운영자 패널은 표대로(admin-mounts)
+  // API 라우트. 운영자 패널은 ADMIN_MOUNTS 목록대로 마운트한다
   for (const [at, router] of ADMIN_MOUNTS) app.use(at, router);
   app.use("/api/guilds", createGuildsRouter({ stream }));
   app.use("/api/invite", createInviteRouter());

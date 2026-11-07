@@ -1,4 +1,4 @@
-// src/dashboard/login-background/preview.ts: 편집 창의 미리보기와 세트 크기 추산. 실제 ffmpeg 로 돌린다(ffmpeg, 그 인코더가 없으면 건너뛴다).
+// src/dashboard/login-background/preview.ts: 편집 창의 미리보기와 세트 크기 추산. 실제 ffmpeg로 돌린다(ffmpeg, 그 인코더가 없으면 건너뛴다).
 // 영상(보통, 투명이 있는 GIF, HDR)은 480p 안쪽 H.264 미리보기와 초마다의 추산, 이미지는 WebP 미리보기와 정지 그림 세트의 추산. 크롭을 정하면 그 구간만 다시 센다
 
 import { test, before, after } from "node:test";
@@ -26,19 +26,19 @@ const signal = new AbortController().signal;
 const withCodecs = await encoderGate();
 // 영상 미리보기는 H.264(MP4)다
 const video = withCodecs("h264");
-// 어림은 AV1 을 SVT-AV1 로 구운 값으로 잰다
-const NO_SVT = "이 ffmpeg 에 SVT-AV1(libsvtav1)이 없어 어림을 보지 않는다";
-const NO_SVT_HDR = "이 ffmpeg 에 SVT-AV1(libsvtav1)이 없어 HDR 원본을 만들지 않는다";
+// 추산은 AV1을 SVT-AV1로 인코딩한 값으로 잰다
+const NO_SVT = "이 ffmpeg에 SVT-AV1(libsvtav1)이 없어 추산을 확인하지 않는다";
+const NO_SVT_HDR = "이 ffmpeg에 SVT-AV1(libsvtav1)이 없어 HDR 원본을 만들지 않는다";
 const svt = () => encoders.encoderFor("av1") === "libsvtav1";
 const estimated = video.skip || svt() ? video : skipFor(NO_SVT);
 
 const sample = (name: string) => path.join(SAMPLES, name);
-// 만들지 못하면 그 자리에서 실패한다(만들지 못한 원본으로 뒤 시험이 엉뚱하게 깨지거나 비어 통과하지 않게)
+// 만들지 못하면 그 자리에서 실패한다(만들지 못한 원본으로 뒤 테스트가 엉뚱하게 깨지거나 비어 통과하지 않게)
 const lavfi = async (source: string, args: string[]) => {
   const made = await runFfmpeg(["-v", "error", "-y", "-f", "lavfi", "-i", source, "-t", "3", ...args]);
-  assert.equal(made.code, 0, `시험 원본을 만들지 못함: ${made.stderr}`);
+  assert.equal(made.code, 0, `테스트 원본을 만들지 못함: ${made.stderr}`);
 };
-// HDR 원본은 SVT-AV1 로 굽는다. 색 정보는 출력 옵션이 아니라 필터로 단다(출력 쪽 -color_trc, -color_primaries 는 떨어져 나가 HDR 로 읽히지 않는다)
+// HDR 원본은 SVT-AV1로 인코딩한다. 색 정보는 출력 옵션이 아니라 필터로 단다(출력 쪽 -color_trc, -color_primaries는 떨어져 나가 HDR로 읽히지 않는다)
 const HDR_SOURCE = "testsrc2=size=640x360:rate=30,format=yuv420p10le,setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc";
 
 before(async () => {
@@ -49,7 +49,7 @@ before(async () => {
   await lavfi("testsrc2=size=320x240:rate=10,format=rgba,colorchannelmixer=aa=0.5", ["-c:v", "gif", sample("alpha.gif")]);
   if (svt()) {
     await lavfi(HDR_SOURCE, ["-c:v", "libsvtav1", "-preset", "12", sample("hdr.mp4")]);
-    assert.equal((await probeVideo(sample("hdr.mp4"), signal))?.hdr, true, "HDR 원본이 HDR 로 읽힌다");
+    assert.equal((await probeVideo(sample("hdr.mp4"), signal))?.hdr, true, "HDR 원본이 HDR로 읽힌다");
   }
   await sharp({ create: { width: 2000, height: 1000, channels: 4, background: { r: 20, g: 120, b: 220, alpha: 0.5 } } })
     .png()
@@ -69,7 +69,7 @@ const run = async (one: store.Stored) => {
   return { result, progress };
 };
 
-test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이하)와 초마다의 세트 어림", video, async (t) => {
+test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이하)와 초마다의 세트 추산", video, async (t) => {
   const one = await made("clip.mp4");
   const { result, progress } = await run(one);
   const file = previewOf(one.id)!;
@@ -89,7 +89,7 @@ test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이�
   assert.deepEqual([estimate.crop, estimate.counted, estimate.rough], [{ x: 0, y: 0, w: 1, h: 1 }, null, false]);
 });
 
-test("투명이 있는 GIF, HDR 영상도 미리보기를 만든다(HDR 은 SDR 로 톤 매핑)", video, async (t) => {
+test("투명도가 있는 GIF, HDR 영상도 미리보기를 만든다(HDR은 SDR로 톤 매핑)", video, async (t) => {
   for (const name of svt() ? ["alpha.gif", "hdr.mp4"] : ["alpha.gif"]) {
     const one = await made(name);
     await run(one);
@@ -116,7 +116,7 @@ test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 �
   assert.ok(half.stillBytes < one.estimate.stillBytes, `${half.stillBytes} < ${one.estimate.stillBytes}`);
 });
 
-test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 counted 에 적는다", estimated, async () => {
+test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 counted에 적는다", estimated, async () => {
   const one = await made("clip.mp4");
   one.estimate = (await run(one)).result.estimate!;
   const next = await recount({ item: one, folder: store.folderOf(one.id), crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, range: [1, 2], signal });
@@ -162,14 +162,14 @@ test("H.264 인코더가 없으면 VP9(WebM) 미리보기, 둘 다 없으면 영
   }
 });
 
-test("이어 하기: 끊긴 미리보기 몫이 남아 있어도 다시 만든다", video, async () => {
+test("이어 하기: 중단된 미리보기 임시 파일(.part)이 남아 있어도 다시 만든다", video, async () => {
   const one = await made("clip.mp4");
   fs.writeFileSync(path.join(store.folderOf(one.id), "preview.mp4.part"), "끊긴 몫");
   await run(one);
   assert.match(previewOf(one.id)!, /preview\.mp4$/);
 });
 
-test("유튜브: 480p 로 재고 고해상도로 굽는 어림은 넓이 비만큼 키운다", estimated, async () => {
+test("유튜브: 480p로 재고 고해상도로 인코딩하는 추산은 넓이 비율만큼 키운다", estimated, async () => {
   const upload = await made("clip.mp4");
   const asUploaded = (await run(upload)).result.estimate!;
   const tube = await made("clip.mp4");

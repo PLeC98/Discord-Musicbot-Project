@@ -11,7 +11,7 @@ import * as DirectLink from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import * as SafeUrl from "../../src/infra/safe-url.ts";
 
-// raw: 그대로 돌려줄 상태와 머리(구간을 어긋나게 주는 서버). 없으면 구간을 따르는 서버는 206 과 Content-Range 를 붙인다
+// raw: 그대로 돌려줄 상태 코드와 헤더(구간을 어긋나게 주는 서버). 없으면 구간을 따르는 서버는 206과 Content-Range를 붙인다
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean; raw?: { status: number; headers: Record<string, string> } };
 
 /** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx, 5xx 는 SafeUrl 처럼 status 를 단 오류 */
@@ -90,7 +90,7 @@ test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버
   }
 });
 
-test("구간 응답(206)은 시작한 자리를 본다: 구간 뒤에서 시작했으면 다시 받지 않는 실패, 앞에서 시작했으면 건너뛴다, 처음 자리에서 Content-Range 가 없으면 받는다, 더 보내면 구간만, 파일 끝에서 잘렸으면 받은 만큼", async () => {
+test("구간 응답(206)은 시작 위치를 확인한다: 구간 뒤에서 시작했으면 재시도하지 않는 실패로 처리하고, 앞에서 시작했으면 건너뛰고, 시작 위치 0에서 Content-Range가 없으면 그대로 받고, 더 보내면 구간만큼만 자르고, 파일 끝에서 잘렸으면 받은 만큼만 쓴다", async () => {
   const one = (range: string) => `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\n#EXT-X-BYTERANGE:${range}\nmain.mp4\n#EXT-X-ENDLIST\n`;
   const served = async (range: string, reply: Reply) => {
     const { net } = netOf({ "https://v.test/main.mp4": reply });
@@ -105,10 +105,10 @@ test("구간 응답(206)은 시작한 자리를 본다: 구간 뒤에서 시작�
       (e: unknown) => e as { permanent?: boolean },
     );
   const file = "INIT" + "AAAA" + "BBBB";
-  assert.equal((await failed(served("4@4", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })))?.permanent, true, "구간 뒤의 바이트를 ffmpeg 에 주지 않는다");
-  assert.equal((await served("4@4", { body: file, raw: { status: 206, headers: { "content-range": "bytes 0-11/12" } } })).toString(), "AAAA", "앞부분부터 보냈으면 건너뛴다(구간을 무시한 200 과 같다)");
-  assert.equal((await failed(served("4@4", { body: "AAAA", raw: { status: 206, headers: {} } })))?.permanent, true, "처음 자리가 아니면 Content-Range 없이는 자리를 모른다");
-  assert.equal((await served("4@0", { body: file, raw: { status: 206, headers: {} } })).toString(), "INIT", "한 파일 HLS 의 첫 구간");
+  assert.equal((await failed(served("4@4", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })))?.permanent, true, "구간 뒤의 바이트를 ffmpeg에 주지 않는다");
+  assert.equal((await served("4@4", { body: file, raw: { status: 206, headers: { "content-range": "bytes 0-11/12" } } })).toString(), "AAAA", "앞부분부터 보냈으면 건너뛴다(구간을 무시한 200과 같다)");
+  assert.equal((await failed(served("4@4", { body: "AAAA", raw: { status: 206, headers: {} } })))?.permanent, true, "시작 위치가 0이 아니면 Content-Range 없이는 위치를 알 수 없다");
+  assert.equal((await served("4@0", { body: file, raw: { status: 206, headers: {} } })).toString(), "INIT", "한 파일 HLS의 첫 구간");
   assert.equal((await served("4@4", { body: "AAAABBBB", raw: { status: 206, headers: { "content-range": "bytes 4-11/12" } } })).toString(), "AAAA");
   assert.equal((await served("8@8", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })).toString(), "BBBB", "목록의 끝 구간이 파일 끝을 넘었다");
 });
@@ -197,7 +197,7 @@ test("라이브: 목록을 연달아 받지 못하면 오류로 끝나고(방송
   assert.equal(await closing.next(), null, "남은 세그먼트가 있어도");
 });
 
-test("라이브: 갱신한 목록이 다룰 수 없는 것(큰 순번)이면 다시 받지 않고 끝난다. 목록이 아닌 응답은 지금처럼 다시 받는다", async () => {
+test("라이브: 갱신한 목록을 처리할 수 없으면(큰 순번) 재시도하지 않고 끝난다. 목록이 아닌 응답은 다시 받는다", async () => {
   const text = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\ns1.ts\n`;
   const { net, asked } = netOf({ "https://l.test/index.m3u8": { body: "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:9007199254740992\n#EXTINF:2,\ns2.ts\n" }, "https://l.test/s1.ts": { body: "s1" } });
   const hls = await openHls(text, "https://l.test/index.m3u8", { net, sleep: instant });
@@ -233,7 +233,7 @@ test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 �
   await assert.rejects(DirectLink.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
 });
 
-test("세그먼트 상한: 구간을 무시한 200 의 구간 끝이 상한을 넘으면 받지 않고, 받는 중 상한 초과는 다시 받지 않는 실패", async () => {
+test("세그먼트 상한: 구간을 무시한 200의 구간 끝이 상한을 넘으면 받지 않고, 받는 중 상한을 초과하면 재시도하지 않는 실패로 끝난다", async () => {
   const permanentOf = (e: unknown) => (e as { permanent?: boolean }).permanent === true;
   let read = false;
   const net = {
@@ -255,7 +255,7 @@ test("세그먼트 상한: 구간을 무시한 200 의 구간 끝이 상한을 �
   await assert.rejects(fragments.fetch((await fragments.next())!, signal), permanentOf);
 });
 
-test("세그먼트 상한: 구간 요청은 파일 상한으로 연다(구간을 무시한 200 은 파일 전체 크기를 알린다). 구간 자체가 상한을 넘으면 요청하지 않는다", async () => {
+test("세그먼트 상한: 구간 요청은 파일 상한으로 연다(구간을 무시한 200은 파일 전체 크기를 알린다). 구간 자체가 상한을 넘으면 요청하지 않는다", async () => {
   const accepts: Array<[string, number | undefined]> = [];
   const net = {
     getStream: async (url: string, _deps?: undefined, opts: OpenOptions = {}) => {
@@ -277,7 +277,7 @@ test("세그먼트 상한: 구간 요청은 파일 상한으로 연다(구간을
   ]);
 });
 
-test("세그먼트 취소: 신호를 가드에 넘기고, 헤더를 기다리는 사이 끝난 취소도 본문을 읽지 않고 그 사유로 끝난다", async () => {
+test("세그먼트 취소: 신호를 가드에 넘기고, 헤더를 기다리는 사이에 취소되어도 본문을 읽지 않고 그 사유로 끝난다", async () => {
   const controller = new AbortController();
   const signals: Array<AbortSignal | undefined> = [];
   const body = Object.assign(new Readable({ read() {} }), { headers: {}, status: 200, url: "https://c.test/a.ts" }) as AudioStream;
@@ -293,7 +293,7 @@ test("세그먼트 취소: 신호를 가드에 넘기고, 헤더를 기다리는
   assert.deepEqual([signals[0] === controller.signal, body.destroyed], [true, true]);
 });
 
-test("라이브 목록의 비정상 수: 아주 큰 목표 길이도 다시 받기 대기는 상한 안이다", async () => {
+test("라이브 목록의 비정상 값: 목표 길이가 아주 커도 목록 갱신 대기 시간은 상한을 넘지 않는다", async () => {
   const live = (target: string) => `#EXTM3U\n#EXT-X-TARGETDURATION:${target}\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:2,\ns1.ts\n`;
   const { net } = netOf({ "https://l.test/index.m3u8": () => ({ body: `${live("1e300")}#EXTINF:2,\ns2.ts\n#EXT-X-ENDLIST\n` }), "https://l.test/s1.ts": { body: "s1" }, "https://l.test/s2.ts": { body: "s2" } });
   const waits: number[] = [];
@@ -304,7 +304,7 @@ test("라이브 목록의 비정상 수: 아주 큰 목표 길이도 다시 받�
     },
   });
   assert.deepEqual(await drain(hls.fragments()), ["s1", "s2"]);
-  assert.deepEqual(waits, [500], "Infinity 는 0(가장 짧은 대기)");
+  assert.deepEqual(waits, [500], "Infinity는 0(가장 짧은 대기)");
   const big = await openHls(live("9999999"), "https://l.test/index.m3u8", { net, sleep: async (ms) => void waits.push(ms) });
   await drain(big.fragments());
   assert.equal(waits.at(-1), 60_000, "목표 길이는 60초까지");
@@ -316,7 +316,7 @@ const MB = 1024 * 1024;
 const pattern = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 31 + (i >> 10)) & 0xff));
 const vodOf = (names: string[]) => `#EXTM3U\n#EXT-X-TARGETDURATION:4\n${names.map((name) => `#EXTINF:4,\n${name}\n`).join("")}#EXT-X-ENDLIST\n`;
 
-// 세그먼트를 덩이로 흘리는 가짜. length 면 content-length 를 단다. gapMs 마다 한 덩이
+// 세그먼트를 청크로 흘리는 가짜 네트워크다. length면 content-length를 달고, gapMs마다 한 청크씩 보낸다
 function pourNet(segments: Record<string, { body: Buffer; length?: boolean; chunk?: number; gapMs?: number }>) {
   const asked: Array<{ url: string } & OpenOptions> = [];
   const net = {
@@ -347,7 +347,7 @@ const readRest = async (stream: Readable) => {
   return Buffer.concat(chunks);
 };
 
-test("넘기기: 알린 크기가 1MB 를 넘으면 모으지 않고 곧바로 넘긴다(본문은 처음부터 남아 있고 이어 받을 주소, 헤더, 무응답 한도를 함께)", async () => {
+test("넘기기: 알린 크기가 1MB를 넘으면 모으지 않고 곧바로 넘긴다(본문은 처음부터 남아 있고 이어 받을 주소, 헤더, 무응답 한도를 함께 넘긴다)", async () => {
   const big = pattern(3 * MB);
   const { net, asked } = pourNet({ "https://p.test/big.ts": { body: big, length: true } });
   const hls = await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net, bodyIdleMs: 6000 });
@@ -360,7 +360,7 @@ test("넘기기: 알린 크기가 1MB 를 넘으면 모으지 않고 곧바로 �
   assert.deepEqual(await readRest(got.body), big);
 });
 
-test("넘기기: 크기를 모르면 1MB 를 넘는 데서 넘긴다. 앞부분과 나머지를 이으면 원본과 같다", async () => {
+test("넘기기: 크기를 모르면 1MB를 넘는 시점에 넘긴다. 앞부분과 나머지를 이으면 원본과 같다", async () => {
   const big = pattern(3 * MB + 123);
   const { net } = pourNet({ "https://p.test/big.ts": { body: big, chunk: 100_000 } });
   const fragments = (await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net })).fragments();
@@ -370,7 +370,7 @@ test("넘기기: 크기를 모르면 1MB 를 넘는 데서 넘긴다. 앞부분�
   assert.deepEqual(Buffer.concat([got.head, await readRest(got.body)]), big);
 });
 
-test("모으기: 작고 빠른 세그먼트는 버퍼로, 덩이마다 progress 를 알린다", async () => {
+test("모으기: 작고 빠른 세그먼트는 버퍼로 모으고, 청크마다 progress를 알린다", async () => {
   const small = pattern(300_000);
   const { net } = pourNet({ "https://p.test/s.ts": { body: small, length: true, chunk: 50_000 } });
   const fragments = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net })).fragments();
@@ -380,7 +380,7 @@ test("모으기: 작고 빠른 세그먼트는 버퍼로, 덩이마다 progress 
   assert.ok(progress >= 6, `progress ${progress}`);
 });
 
-test("넘기기: 작아도 모으는 데 3초가 넘으면 넘긴다(그동안은 ffmpeg 에 입력이 없다)", async () => {
+test("넘기기: 작아도 모으는 데 3초가 넘으면 넘긴다(그동안은 ffmpeg에 입력이 없다)", async () => {
   const slow = pattern(400_000);
   const { net } = pourNet({ "https://p.test/slow.ts": { body: slow, length: true, chunk: 40_000, gapMs: 400 } });
   const fragments = (await openHls(vodOf(["slow.ts"]), "https://p.test/index.m3u8", { net })).fragments();
@@ -392,17 +392,17 @@ test("넘기기: 작아도 모으는 데 3초가 넘으면 넘긴다(그동안�
   assert.deepEqual(Buffer.concat([got.head, await readRest(got.body)]), slow);
 });
 
-test("모으기: 문자열 덩이도 바이트로 받고, Buffer 도 문자열도 아닌 덩이는 그 세그먼트의 실패로(처리되지 않은 예외가 되지 않는다)", async () => {
+test("모으기: 문자열 청크도 바이트로 받고, Buffer도 문자열도 아닌 청크는 그 세그먼트의 실패로 처리한다(처리되지 않은 예외가 되지 않는다)", async () => {
   const bodyOf = (chunks: unknown[]) => ({
     getStream: async (url: string) => Object.assign(Readable.from(chunks, { objectMode: true }), { headers: {}, status: 200, url }) as AudioStream,
   });
   const words = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net: bodyOf(["가나", "다"]) })).fragments();
   assert.deepEqual(await words.fetch((await words.next())!, new AbortController().signal), Buffer.from("가나다"));
   const odd = (await openHls(vodOf(["s.ts"]), "https://p.test/index.m3u8", { net: bodyOf([{ x: 1 }]) })).fragments();
-  await assert.rejects(odd.fetch((await odd.next())!, new AbortController().signal), /덩이/);
+  await assert.rejects(odd.fetch((await odd.next())!, new AbortController().signal), /청크/);
 });
 
-test("모으기: 본문이 오류 없이 닫히면 그 자리에서 다시 받을 수 있는 실패로(넘길 때까지 기다리지 않는다)", async () => {
+test("모으기: 본문이 오류 없이 닫히면 그 자리에서 다시 받을 수 있는 실패로 처리한다(넘길 때까지 기다리지 않는다)", async () => {
   const net = {
     getStream: async (url: string) => {
       const body = new Readable({ read() {} });
@@ -417,7 +417,7 @@ test("모으기: 본문이 오류 없이 닫히면 그 자리에서 다시 받�
   assert.ok(Date.now() - started < 1000, "3초를 기다리지 않았다");
 });
 
-test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 신호가 끊으면 그 사유로 끝난다(세그먼트는 열지 않는다)", async () => {
+test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 취소 신호가 오면 그 사유로 끝난다(세그먼트는 열지 않는다)", async () => {
   const asked: string[] = [];
   const net = {
     getStream: async (url: string) => {
@@ -435,7 +435,7 @@ test("키: 세그먼트를 열기 전에 받고, 기다리는 사이 신호가 �
   assert.deepEqual(asked, ["https://k.test/k"]);
 });
 
-test("합계: 모은 세그먼트는 받은 바이트로 세고, 넘긴 세그먼트는 받는 쪽이 count 로 센다(넘으면 다시 받지 않는 실패)", async () => {
+test("합계: 모은 세그먼트는 받은 바이트로 세고, 넘긴 세그먼트는 받는 쪽이 count로 센다(상한을 넘으면 재시도하지 않는 실패)", async () => {
   const { net } = pourNet({ "https://p.test/big.ts": { body: pattern(2 * MB), length: true } });
   const fragments = (await openHls(vodOf(["big.ts"]), "https://p.test/index.m3u8", { net })).fragments();
   const got = await fragments.fetch((await fragments.next())!, new AbortController().signal);
