@@ -195,7 +195,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
     if (response.status < 200 || response.status >= 300) {
       response.body.destroy();
       agent.destroy();
-      // 받는 쪽이 상태로 구분한다(416 은 받을 구간이 없음, 4xx 는 다시 받아도 같다)
+      // 받는 쪽이 상태로 구분한다(416 은 받을 구간이 없음, 4xx 는 재시도해도 같다)
       throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
     }
 
@@ -205,7 +205,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
   throw new SsrfError(`리다이렉트 횟수 초과(>${MAX_REDIRECTS})`);
 }
 
-/** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform이다. 다시 받아도 같으니 permanent를 단다 */
+/** 최대 크기를 넘으면 오류로 스트림을 끊는 통과 Transform이다. 재시도해도 같으니 permanent를 단다 */
 function byteCap(maxBytes: number) {
   let total = 0;
   return new Transform({

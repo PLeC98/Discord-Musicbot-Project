@@ -566,7 +566,7 @@ test("expectStart: 응답이 확인할 양보다 짧게 끝나도 받은 만큼�
   assert.deepEqual(await collect(s), body.subarray(body.length - 2));
 });
 
-test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime 이 거부된다(색인 탓, 다시 받지 않는다)", async () => {
+test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime 이 거부된다(색인 탓, 재시도하지 않는다)", async () => {
   const body = makeBody(40_000);
   let requests = 0;
   const fetchImpl: RangeFetch = (url, opts) => {

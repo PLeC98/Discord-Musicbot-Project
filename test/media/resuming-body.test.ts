@@ -1,5 +1,5 @@
 // src/media/resuming-body.ts: 크기를 모르는 본문이 끊기면 받은 위치부터 이어 받는다. 206은 Content-Range 시작과 전체 크기를, 구간을 무시한 200은 검사값을 확인하고 받은 만큼 버린다.
-// 바뀐 본문, 어긋난 구간, 416, 짧은 응답, 버릴 앞부분 상한 초과는 다시 받지 않는 실패. 취소하면 요청과 본문을 닫고, 읽는 쪽이 멈추면 본문을 멈춘다
+// 바뀐 본문, 어긋난 구간, 416, 짧은 응답, 버릴 앞부분 상한 초과는 재시도하지 않는 실패. 취소하면 요청과 본문을 닫고, 읽는 쪽이 멈추면 본문을 멈춘다
 
 import { Readable } from "node:stream";
 import { test } from "node:test";
@@ -96,7 +96,7 @@ test("전체 크기를 아는데(처음 응답의 Content-Length) 다 받기 전
   assert.deepEqual(asked, [8_000]);
 });
 
-test("어긋난 구간, 다른 전체 크기, 416, 4xx 는 다시 받지 않고 실패한다", async () => {
+test("어긋난 구간, 다른 전체 크기, 416, 4xx 는 재시도하지 않고 실패한다", async () => {
   const data = bytesOf(20_000);
   const cases: Array<[string, (asked: Asked) => Body | Error, RegExp]> = [
     ["시작이 다름", ({ from }) => bodyOf(data, { from: from - 1, status: 206, headers: { "content-range": `bytes ${from - 1}-${data.length - 1}/${data.length}` } }), /어긋/],

@@ -2,7 +2,7 @@
 // 위치 N은 이 본문에서 받은 바이트 수(모아 둔 앞부분 포함)다. 이을 때 `Range: bytes=N-`와 처음 응답의 검사값(If-Range)을 보낸다.
 //   206   Content-Range 시작이 N이어야 잇는다. 전체 길이가 적혀 있으면 기억해 다음 응답과 같은지 본다(`*`면 시작만 본다)
 //   200   서버가 Range를 무시했다. 처음 응답과 검사값이 같을 때만 처음부터 받아 N바이트를 버린다(DISCARD_MAX_BYTES까지). 검사값이 없으면 잇지 않는다
-//   그 밖  검사값이 바뀜, 416, 4xx, 구간이 어긋남, 짧은 응답은 다시 받지 않는 실패로 끝낸다
+//   그 밖  검사값이 바뀜, 416, 4xx, 구간이 어긋남, 짧은 응답은 재시도하지 않는 실패로 끝낸다
 // 전체 길이를 모른 채 정상으로 끝나면 끝으로 본다. 아는데 모자라게 끝나면 끊김으로 보고 잇는다.
 // 본문은 data 이벤트로 흘린다(백프레셔가 걸리면 멈춘다). SafeUrl의 무응답 감시가 데이터가 흐르는 동안만 시간을 재기 때문이다
 
@@ -94,7 +94,7 @@ function createResumingBody(options: ResumingOptions): Readable {
     return out.push(piece);
   }
 
-  // 응답 하나를 끝까지 흘린다. 앞의 skip 바이트는 버린다. 다 버리기 전에 끝나면 다시 받지 않는 실패
+  // 응답 하나를 끝까지 흘린다. 앞의 skip 바이트는 버린다. 다 버리기 전에 끝나면 재시도하지 않는 실패
   function pour(body: Readable, skip: number): Promise<void> {
     current = body;
     let left = skip;
@@ -133,7 +133,7 @@ function createResumingBody(options: ResumingOptions): Readable {
     }
   }
 
-  // 다시 연 응답을 이어도 되는지 본다. 잇는다면 앞에서 버릴 바이트(206은 0, 구간을 무시한 200은 받은 만큼). 아니면 다시 받지 않는 실패
+  // 다시 연 응답을 이어도 되는지 본다. 잇는다면 앞에서 버릴 바이트(206은 0, 구간을 무시한 200은 받은 만큼). 아니면 재시도하지 않는 실패
   function accepted(status: number, headers: Record<string, unknown>): number {
     return status === 206 ? acceptedRange(headers) : acceptedWhole(headers);
   }

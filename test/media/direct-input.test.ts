@@ -90,7 +90,7 @@ test("이어받기: 크기를 알리고 상한 안인 파일만. 검사값은 �
   assert.equal(validatorOf({ etag: "" }), null);
 });
 
-test("Range 어댑터: 구간, If-Range 를 가드에 넘기고, 상태 오류는 응답으로, 가드가 막으면 다시 받지 않음, 끊으면 본문을 부순다", async () => {
+test("Range 어댑터: 구간, If-Range 를 가드에 넘기고, 상태 오류는 응답으로, 가드가 막으면 재시도하지 않음, 끊으면 본문을 부순다", async () => {
   const asked: unknown[] = [];
   const body = Object.assign(PassThrough.from([Buffer.from("xyz")]), { headers: { "content-range": "bytes 3-5/9" }, status: 206 });
   const fetch = guardedRanges(async (url, _deps, opts) => {
@@ -288,7 +288,7 @@ test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기
 const fixture = (name: string) => fs.readFileSync(new URL(`../fixtures/hls/${name}`, import.meta.url));
 const repeated = (one: Buffer, size: number) => Buffer.concat(Array.from({ length: Math.ceil(size / one.length) }, () => one));
 
-test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대로 흘리고, 틀린 키면 끝을 확인할 수 없어도(크기를 모름) 아무것도 흘리기 전에 다시 받지 않는 실패로 끝난다", async () => {
+test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대로 흘리고, 틀린 키면 끝을 확인할 수 없어도(크기를 모름) 아무것도 흘리기 전에 재시도하지 않는 실패로 끝난다", async () => {
   for (const name of ["segment.mpegts", "segment.m4s", "segment.aac"]) {
     const plain = repeated(fixture(name), 2 * MB);
     const right = segmentServer(seal(plain), { length: false });

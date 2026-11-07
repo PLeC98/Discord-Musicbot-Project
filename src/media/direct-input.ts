@@ -50,7 +50,7 @@ function validatorOf(headers: Record<string, unknown> = {}): string | null {
 
 /**
  * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
- * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 다시 받지 않는다
+ * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 재시도하지 않는다
  */
 function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   return async (url, { headers, signal }) => {
@@ -173,7 +173,7 @@ function paddingOf(block: Buffer): number | null {
 
 /**
  * AES-128-CBC를 스트리밍하며 복호화한다. 청크 사이에 남은 바이트를 이어 온전한 블록만 복호화하고, 복호화한 마지막 블록은 끝까지 들고 있다가 PKCS7 패딩을 뗀다.
- * 키 확인: 복호화한 앞부분이 HLS 컨테이너로 시작하는지(rules/hls-segment-start) 판정하기 전에는 아무것도 내보내지 않고, 컨테이너로 시작하지 않으면 다시 받지 않는 실패로 끝낸다.
+ * 키 확인: 복호화한 앞부분이 HLS 컨테이너로 시작하는지(rules/hls-segment-start) 판정하기 전에는 아무것도 내보내지 않고, 컨테이너로 시작하지 않으면 재시도하지 않는 실패로 끝낸다.
  * 판정할 만큼 모이기 전에 끝난 짧은 세그먼트는 암호문이 블록 단위로 다 왔고 끝 패딩과 컨테이너가 맞아야 내보낸다.
  * 판정을 통과한 뒤 끝이 깨졌으면 warn을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 바이트(16바이트 미만)만 버리거나(그 앞 블록은 마지막 블록이 아니므로 패딩을 떼지 않고 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
  * 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
@@ -233,7 +233,7 @@ function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer 
 }
 
 /**
- * 흘리기 전에 키를 확인한다: 끝 32바이트를 Range로 받아 앞 블록을 IV로 삼아 마지막 블록을 복호화하고 PKCS7 패딩이 맞는지 본다. 틀리면 다시 받지 않는 실패로 처리한다(틀린 키면 깨진 데이터가 ffmpeg로 먼저 간다).
+ * 흘리기 전에 키를 확인한다: 끝 32바이트를 Range로 받아 앞 블록을 IV로 삼아 마지막 블록을 복호화하고 PKCS7 패딩이 맞는지 본다. 틀리면 재시도하지 않는 실패로 처리한다(틀린 키면 깨진 데이터가 ffmpeg로 먼저 간다).
  * 요청한 구간과 전체 크기가 일치하는 206 응답의 32바이트만 신뢰한다. 구간을 주지 않거나(200) 받지 못하면 건너뛴다(끝 블록은 decrypting이 처리한다). signal 취소만 던지고, 응답은 어느 길이든 닫는다
  */
 async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, signal: AbortSignal) {

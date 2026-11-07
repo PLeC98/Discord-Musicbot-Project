@@ -164,7 +164,7 @@ class VoiceLink {
     this.stuckTimer = null;
   }
 
-  // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나감이 닿지 못한 채 남음)
+  // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나가기 요청이 닿지 못한 채 남음)
   // 같은 채널 참가에 답하지 않는 것이다. 디스코드에 물어(캐시는 끊긴 동안 낡는다) 묻지 못하면 기다리고, 처음에는 참가를 다시 보낸다.
   // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
   async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
@@ -272,7 +272,7 @@ class VoiceLink {
   }
 
   // 봇이 이미 채널에서 빠졌다(스테이지 종료 등). 라이브러리는 4014 가 아닌 닫힘이면 같은 채널로 다시 참가하므로(잠깐 청중으로 들어갔다 나온다)
-  // 이 리스너가 먼저 도는 동안 나감 없이 부순다. 나감은 디스코드가 이미 했다
+  // 이 리스너가 먼저 도는 동안 나가기 요청 없이 부순다. 봇은 디스코드가 이미 채널에서 뺐다
   _noRejoin(networking: object, code: number) {
     const connection = this.player.connection;
     if (this.state !== "closed" || code === DO_NOT_RECONNECT || !connection) return;
@@ -684,7 +684,7 @@ class VoiceLink {
     return connection;
   }
 
-  // 지금 연결을 떼어 부순다. 붙기에 실패했으면 나감을 보내고, 재연결 전이면 보내지 않는다(보내면 디스코드가 봇을 채널에서 뺀다)
+  // 지금 연결을 떼어 부순다. 붙기에 실패했으면 나가기 요청을 보내고, 재연결 전이면 보내지 않는다(보내면 디스코드가 봇을 채널에서 뺀다)
   _drop({ leave }: { leave: boolean }) {
     const connection = this._detach();
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
@@ -696,7 +696,7 @@ class VoiceLink {
     }
   }
 
-  /** 나감을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
+  /** 나가기 요청을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
   release(reason: string) {
     this.stop();
     this.state = "closed";
@@ -717,7 +717,7 @@ class VoiceLink {
     const connection = this._detach();
     if (!connection) return;
     try {
-      // 이미 부순 연결(채널에서 빠진 뒤 다시 참가하지 않게 부숨)이면 나감도 이미 된 것이다
+      // 이미 부순 연결(채널에서 빠진 뒤 다시 참가하지 않게 부숨)이면 채널에서도 이미 빠졌다
       if (connection.state.status !== VoiceConnectionStatus.Destroyed) connection.destroy();
       log.info(`음성 채널 떠남: ${this._label()} | 원인=${reason}`);
     } catch (error) {

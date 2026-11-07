@@ -25,7 +25,7 @@ test("아는 디스코드 오류: 못 답한, 두 번 답한 상호작용은 war
 
 // ── 안전 종료 ──
 
-// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 나감 없이 연결을 정리한다(release)
+// 치명 종료로 내릴 플레이어. 세션을 곧바로 쓰고(saveNow) 나가기 요청 없이 연결을 정리한다(release)
 function savable(id: string, steps: string[], { saveFails = false } = {}) {
   return {
     persistence: {
@@ -38,7 +38,7 @@ function savable(id: string, steps: string[], { saveFails = false } = {}) {
   };
 }
 
-test("안전 종료: 모든 플레이어의 세션을 저장하고 나감 없이 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
+test("안전 종료: 모든 플레이어의 세션을 저장하고 나가기 요청 없이 연결을 정리한 뒤, 전역 폭주로 적고 나간다", () => {
   const steps: string[] = [];
   const players = new Map([
     ["g1", savable("g1", steps)],

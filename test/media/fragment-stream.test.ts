@@ -57,7 +57,7 @@ test("5xx, 네트워크 오류는 그 세그먼트만 다시 받는다", async (
   assert.match(s.describe(), /세그먼트 3\/3\(시작 0\) · 다시 받음 2회/);
 });
 
-test("4xx 는 다시 받지 않고 오류로 끝난다. 다시 받아도 안 되면 오류로 끝난다", async () => {
+test("4xx 는 재시도하지 않고 오류로 끝난다. 재시도해도 안 되면 오류로 끝난다", async () => {
   const forbidden = fakeFetch((i) => (i === 1 ? 403 : "ok"));
   const a = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: forbidden.impl, retryDelaysMs: [1, 1] });
   await assert.rejects(readAll(a), /HTTP 403/);

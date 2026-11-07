@@ -85,9 +85,9 @@ const ignore = () => {
   /* 받는 쪽이 오류를 따로 처리한다 */
 };
 
-/** 다시 받아도 같은 실패(4xx, 상한, DRM) */
+/** 재시도해도 같은 실패(4xx, 상한, DRM) */
 const permanent = (error: Error) => Object.assign(error, { permanent: true });
-/** 가드가 막은 요청(내부 주소, 크기 상한, 받는 형식)과 4xx 로 거절한 요청은 다시 받지 않는다 */
+/** 가드가 막은 요청(내부 주소, 크기 상한, 받는 형식)과 4xx 로 거절한 요청은 재시도하지 않는다 */
 async function settled<T>(request: Promise<T>): Promise<T> {
   try {
     return await request;
@@ -222,7 +222,7 @@ function sequenceIv(sequence: number): Buffer {
   return iv;
 }
 
-/** AES-128-CBC 복호화. 실패하면(키, IV 가 틀림) 다시 받아도 같다 */
+/** AES-128-CBC 복호화. 실패하면(키, IV 가 틀림) 재시도해도 같다 */
 function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
   try {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
@@ -297,7 +297,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
         if (next.ended) return false;
         unchanged = true;
       } catch (error) {
-        // 목록 내용이 다룰 수 없는 것(큰 순번, 읽을 수 없는 구간 등)은 다시 받아도 같다. 목록이 아닌 응답 같은 일시적인 오류는 다시 받는다
+        // 목록 내용이 다룰 수 없는 것(큰 순번, 읽을 수 없는 구간 등)은 재시도해도 같다. 목록이 아닌 응답 같은 일시적인 오류는 재시도한다
         if ((error as { permanent?: boolean }).permanent || codeOf(error) === "unsupported-link" || ++failures >= RELOAD_FAILURES) throw error;
         log.trace(`라이브 HLS 플레이리스트 갱신 실패(${failures}/${RELOAD_FAILURES}): ${messageOf(error)}`);
       }
@@ -345,7 +345,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
     return untilAborted(key, signal);
   }
 
-  // VOD 합계(받은 바이트). 넘으면 다시 받지 않는 실패
+  // VOD 합계(받은 바이트). 넘으면 재시도하지 않는 실패
   function count(bytes: number) {
     if (startMs === null) return;
     received += bytes;

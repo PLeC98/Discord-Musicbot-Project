@@ -258,12 +258,12 @@ test("재연결: 디스코드가 봇을 이 채널에 있다고 보거나 묻지
     await until(() => link.state === "ready", "재연결");
     assert.equal(conn(), old, "같은 연결");
     assert.equal(old.reattaches, 1);
-    assert.deepEqual(old.destroyed, [], "나감을 보내지 않는다");
+    assert.deepEqual(old.destroyed, [], "나가기 요청을 보내지 않는다");
     assert.equal(joins.length, 1, "새로 참가하지 않는다");
   }
 });
 
-test("재연결: 디스코드가 봇을 채널에서 뺐거나 받아 둔 정보가 없으면, 옛 연결을 리스너를 떼고 나감 없이 부순 뒤 새로 참가한다. 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
+test("재연결: 디스코드가 봇을 채널에서 뺐거나 받아 둔 정보가 없으면, 옛 연결을 리스너를 떼고 나가기 요청 없이 부순 뒤 새로 참가한다. 옛 연결이 늦게 알린 것은 보지 않는다", async () => {
   for (const variant of ["빠짐", "정보 없음"]) {
     const { link, conn } = await ready(variant === "빠짐" ? { atDiscord: null } : {});
     const old = conn();
@@ -271,7 +271,7 @@ test("재연결: 디스코드가 봇을 채널에서 뺐거나 받아 둔 정보
     link.recover("시험");
     await until(() => link.state === "ready", "재연결");
     assert.notEqual(conn(), old, variant);
-    assert.deepEqual(old.destroyed, ["stay"], `${variant}: 나감을 보내면 디스코드가 봇을 채널에서 뺀다`);
+    assert.deepEqual(old.destroyed, ["stay"], `${variant}: 나가기 요청을 보내면 디스코드가 봇을 채널에서 뺀다`);
     assert.equal(old.listenerCount("stateChange"), 0);
     old.emit("stateChange", { status: "ready" }, { status: VoiceConnectionStatus.Destroyed });
     await sleep(10);
@@ -412,7 +412,7 @@ test("스테이지에서 빠졌다: 음성 서버가 모두를 끊었으면(4022
   assert.deepEqual(await leave({}), ["dispose:remove:disconnected:stage-disconnect"]);
 });
 
-test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이브러리가 같은 채널로 다시 참가하기 전에 나감 없이 부순다", async () => {
+test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이브러리가 같은 채널로 다시 참가하기 전에 나가기 요청 없이 부순다", async () => {
   const s = await ready();
   s.player.voiceChannel = { id: "vc1", name: "무대", type: ChannelType.GuildStageVoice } as typeof s.player.voiceChannel;
   const net = new EventEmitter();
@@ -432,7 +432,7 @@ test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이
   assert.deepEqual(live.conn().destroyed, []);
 });
 
-test("라이브러리가 Ready 없이 다섯 번 다시 참가한 뒤의 닫힘(4021 등)이면 다시 참가하기 전에 나감 없이 부숴 우리 복구로 넘긴다", async () => {
+test("라이브러리가 Ready 없이 다섯 번 다시 참가한 뒤의 닫힘(4021 등)이면 다시 참가하기 전에 나가기 요청 없이 부숴 우리 복구로 넘긴다", async () => {
   const s = await ready();
   const net = new EventEmitter();
   s.conn().to(VoiceConnectionStatus.Ready, { networking: net });
@@ -594,7 +594,7 @@ test("답 없는 참가: 봇이 그 채널에 없으면(10065, 다른 채널) �
   await meanwhile.link._unstick(meanwhile.c as never, "vc1", 1);
   assert.deepEqual([meanwhile.c.sent, meanwhile.c.rejoins], [[], []]);
 
-  // 게이트웨이가 나감을 받지 못했다. 나간 것으로 치지 않고 다시 지켜본다
+  // 게이트웨이가 나가기 요청을 받지 못했다. 나간 것으로 치지 않고 다시 지켜본다
   const unsent = stuckJoin("vc1");
   unsent.c.state = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: () => false } };
   await unsent.link._unstick(unsent.c as never, "vc1", 1);

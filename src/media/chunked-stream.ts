@@ -328,7 +328,7 @@ class ChunkedReader {
     if (held + bytes.length >= Math.min(this.o.expectStart?.bytes ?? 0, this.target - this.pos)) this.verifyFirst();
   }
 
-  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 다시 받지 않는 실패(열림 전이라 prime 이 거부된다)
+  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 재시도하지 않는 실패(열림 전이라 prime 이 거부된다)
   verifyFirst() {
     if (!this.verifying) return;
     const head = Buffer.concat(this.probe);

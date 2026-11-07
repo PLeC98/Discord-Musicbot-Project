@@ -14,7 +14,7 @@ import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.t
 function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
-  // destroy(false) 는 나감 메시지를 보내지 않는다(채널에 남는다)
+  // destroy(false) 는 나가기 요청을 보내지 않는다(채널에 남는다)
   const live = new Map();
   const connection = (id: string, fails = false) => ({
     destroy: (adapterAvailable = true) => {
@@ -84,7 +84,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
   _resetShutdown();
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
@@ -104,7 +104,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   );
 });
 
-test("레지스트리에 없는 음성 연결도 나감 없이 정리한다. 저장, 상태 지우기, 정리가 실패해도 끝까지 간다", async () => {
+test("레지스트리에 없는 음성 연결도 나가기 요청 없이 정리한다. 저장, 상태 지우기, 정리가 실패해도 끝까지 간다", async () => {
   const { steps, proc, exited } = setup({ saveFails: true, status: async () => Promise.reject(new Error("권한 없음")) });
   proc.emit("SIGHUP");
   assert.equal(await exited, 0);

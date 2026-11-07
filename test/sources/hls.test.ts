@@ -141,7 +141,7 @@ test("DRM(AES-128 밖의 암호), 목록이 아님은 열 때 unsupported-link",
   }
 });
 
-test("세그먼트, 키: 4xx 와 가드가 막은 주소는 다시 받아도 같은 실패, 5xx 는 아니다", async () => {
+test("세그먼트, 키: 4xx 와 가드가 막은 주소는 재시도해도 같은 실패, 5xx 는 아니다", async () => {
   const { net } = netOf({ "https://e.test/gone.ts": { status: 404 }, "https://e.test/busy.ts": { status: 503 } });
   const blocked = {
     getStream: async (url: string, deps?: undefined, opts?: OpenOptions) => {

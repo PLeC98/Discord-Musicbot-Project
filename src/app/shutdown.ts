@@ -108,7 +108,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 }
 
-// 레지스트리에 없던 연결도 나감 없이 정리한다
+// 레지스트리에 없던 연결도 나가기 요청 없이 정리한다
 function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: string) {
   for (const [guildId, connection] of connections) {
     const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
@@ -121,7 +121,7 @@ function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>,
   }
 }
 
-// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결을 정리한다
+// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결을 정리한다
 async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
