@@ -90,7 +90,7 @@ jobs:
           } > body.md
           gh pr create --base "${{ github.event.repository.default_branch }}" --head "$branch" --title "$title" --body-file body.md
 
-      # 이슈는 라벨로 찾는다(제목은 바뀔 수 있다). 라벨이 없던 옛 이슈는 제목의 낱말로 한 번 찾아 라벨을 붙인다.
+      # 이슈는 라벨로 찾는다(제목은 바뀔 수 있다). 라벨이 붙은 이슈가 없으면 이 워크플로의 계정이 연 "bgutil " 제목 이슈를 찾아 라벨을 붙인다(scripts/vendor-issue).
       # 열려 있으면 매주 제목과 본문의 숫자를 지금 것으로 고치고, 알려진 취약점이 없어지면 닫는다
       - name: Track lockfile vulnerabilities in an issue
         env:
@@ -102,11 +102,8 @@ jobs:
           newer=$(jq -r '.bgutil.newer // empty' result.json)
           newerTotal=$(jq -r '.bgutil.audit.newer.total // empty' result.json)
           gh label create "$label" --color B60205 --description "bgutil 잠금 파일의 알려진 취약점(vendor-updates)" --force > /dev/null
-          issue=$(gh issue list --state open --label "$label" --json number --jq '.[0].number // empty')
-          if [ -z "$issue" ]; then
-            issue=$(gh issue list --state open --search "bgutil 취약점 in:title" --json number,title --jq '[.[] | select(.title | startswith("bgutil "))][0].number // empty')
-            [ -n "$issue" ] && gh issue edit "$issue" --add-label "$label" > /dev/null
-          fi
+          issue=$(gh issue list --state open --limit 500 --json number,title,author,labels | node scripts/vendor-issue.ts "$label" "${{ steps.app.outputs.app-slug }}")
+          [ -n "$issue" ] && gh issue edit "$issue" --add-label "$label" > /dev/null
 
           if [ "$total" = "0" ]; then
             if [ -n "$issue" ]; then
