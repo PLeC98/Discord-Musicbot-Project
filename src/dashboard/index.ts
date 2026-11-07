@@ -48,6 +48,7 @@ import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
 import { trustProxy } from "./client-ip.ts";
+import { browserSide, strictTransport } from "./browser-side.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
@@ -100,7 +101,11 @@ function logTrustProxy({ accepted, inside, rejected }: Pick<ReturnType<typeof tr
 // 로그인 세션. SQLite 영속 스토어라 다시 시작해도 로그인이 유지된다(SESSION_SECRET이 .env에 고정일 때.
 // 랜덤 폴백이면 쿠키 서명이 무효화되어 어차피 풀림. resolveSessionSecret 경고 참조).
 // 쿠키 이름은 요청마다 다르다: HTTPS면 __Host- 이름을 쓴다(dashboard/cookies). express-session은 미들웨어당 이름을 하나만 받으므로 같은 저장소를 공유하는 미들웨어 둘을 만들어 선택한다.
-// 두 미들웨어의 설정은 이름 외에는 같아야 한다: express-session은 생성할 때마다 저장소의 세션 생성 함수(generate)를 덮어쓰므로 나중에 만든 쪽의 쿠키 설정이 모든 요청에 적용된다
+// 두 미들웨어의 설정은 이름 외에는 같아야 한다: express-session은 생성할 때마다 저장소의 세션 생성 함수(generate)를 덮어쓰므로 나중에 만든 쪽의 쿠키 설정이 모든 요청에 적용된다.
+// 세션을 만들 때 쿠키의 Secure와 createdOverHttps를 브라우저 쪽 판정(req.secure, dashboard/browser-side)으로 정한다. 쿠키 이름과 같은 판정이다
+// (express-session의 "auto"는 소켓이 TLS면 신뢰하는 프록시가 http라고 알려도 Secure를 붙여, 평문으로 접속한 브라우저가 쿠키를 받지 않는다).
+// 다른 쪽 이름으로 온 세션은 받지 않는다: 평문에서 가로챈 세션 id를 __Host- 이름으로 HTTPS 요청에 보내지 못한다.
+// 받지 않은 세션은 저장소에서 삭제하고 새 세션으로 바꾼다(가로챈 id라면 원래 브라우저의 로그인도 끝난다). 이 값이 없는 세션은 평문으로 만든 것으로 본다
 // store, secret은 테스트에서 넘긴다(임시 DB). 생략하면 로그인 세션 DB와 설정의 비밀값을 쓴다
 function createSessionMiddleware({ store = new SqliteSessionStore(), secret = resolveSessionSecret() }: { store?: SqliteSessionStore; secret?: string } = {}): RequestHandler {
   const options = {
@@ -110,8 +115,7 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      // "auto" 는 Secure 를 실제 연결에 맞춘다. HTTPS 로 서비스하면(믿는 프록시 경유) 붙고,
-      // 그냥 http://localhost 면 빠져서 로컬 테스트가 그대로 된다.
+      // 세션을 만들 때 브라우저 쪽 판정으로 덮어쓴다(아래 generate). http://localhost 같은 평문에서는 Secure가 빠져서 로컬 테스트가 그대로 된다
       secure: "auto" as const,
       sameSite: "lax" as const,
       maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -119,7 +123,19 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
   };
   const secure = session({ ...options, name: sessionCookieName(true) });
   const plain = session({ ...options, name: sessionCookieName(false) });
-  return (req, res, next) => (req.secure ? secure : plain)(req, res, next);
+  const generate = store.generate;
+  store.generate = (req) => {
+    generate.call(store, req);
+    req.session.cookie.secure = req.secure;
+    req.session.createdOverHttps = req.secure;
+  };
+  return (req, res, next) =>
+    (req.secure ? secure : plain)(req, res, (err?: unknown) => {
+      if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);
+      const how = req.secure ? "평문에서 만든 세션이 HTTPS 요청으로" : "HTTPS에서 만든 세션이 평문 요청으로";
+      log.info(`${how} 와서 받지 않고 삭제했습니다(사용자 ${req.session.user?.id ?? "없음"}).`);
+      req.session.regenerate((e) => next(e));
+    });
 }
 
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
@@ -142,6 +158,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
 
   // X-Forwarded-*는 신뢰하는 홉이 보낸 것만 읽는다(내부 주소, DASHBOARD_TRUST_PROXY). 사용자 IP는 dashboard/client-ip의 clientIp
   applyTrustProxy(app, config.dashboard.trustProxy);
+  // req.secure, req.protocol을 브라우저 쪽 판정으로 바꾼다. 이것을 읽는 쿠키, 세션, 평문 경고보다 앞에 둔다
+  app.use(browserSide(url));
   app.disable("x-powered-by"); // 서버 스택을 광고하지 않는다
 
   // 본문을 다 받지 않은 채 응답하면 연결을 닫는다(응답 헤더를 쓸 때 판단하므로 맨 앞에 둔다)
@@ -149,6 +167,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 소켓의 마지막 요청을 기록한다(세션이 끝나 소켓을 닫을 때 keep-alive의 다음 요청을 건드리지 않게 한다). 정적 파일 미들웨어보다 앞에 둔다
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
+  app.use(strictTransport(url));
   app.use(plaintextAccessWarner(host, url));
   // 로그인 없이 받는 경로(오류 설명, 파비콘, 로그인 배경, 화면 폴백)의 요청 제한. 세션 전이라 IP로 센다. /api, /auth는 아래에서 따로 센다
   // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다

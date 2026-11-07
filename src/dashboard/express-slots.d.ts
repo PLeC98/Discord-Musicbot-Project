@@ -19,6 +19,8 @@ declare module "express-session" {
     viewAs: Tier;
     /** 이 세션의 기기 기록(User-Agent, IP, 시각). IP 가 들어 있어 암호화해 둔다(dashboard/login-devices) */
     device: string;
+    /** 브라우저 쪽이 HTTPS인 요청에서 만든 세션인지. 세션을 만들 때 적는다(dashboard/index의 createSessionMiddleware) */
+    createdOverHttps: boolean;
   }
 }
 
