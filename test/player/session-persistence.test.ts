@@ -17,6 +17,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
+import { codedError } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { stateDb } from "../../src/store/state-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { textOf } from "../helpers/cv2.ts";
@@ -732,4 +734,18 @@ test("재생을 시작한 차례(주기 저장에 넣고, 재생 저장으로 �
   } finally {
     sp.stopPeriodicSave();
   }
+});
+
+test("복원: 종료 중이라 음성에 붙지 않았으면 error 줄 없이 그 원인(bot-shutting-down)을 그대로 던진다", async () => {
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  const record = loaded(saved.guild.id);
+  const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id }, connection: null });
+  p.voice = fake<Player["voice"]>({ connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) });
+  const start = sink.buffer.at(-1)?.id ?? -1;
+  await assert.rejects(sp.restoreFromState(record), { code: "bot-shutting-down" });
+  assert.deepEqual(
+    sink.buffer.filter((r) => r.id > start && r.level === "error").map((r) => r.text),
+    [],
+  );
 });

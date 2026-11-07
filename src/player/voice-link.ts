@@ -6,6 +6,7 @@ import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedCh
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
@@ -109,8 +110,9 @@ class VoiceLink {
 
   // ── 붙기 ──
 
-  /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리) */
+  /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리). 종료 중이면 붙지 않고 bot-shutting-down 예외를 던진다 */
   async connect() {
+    if (isShuttingDown()) throw codedError("bot-shutting-down", "종료 중이라 음성 채널에 붙지 않습니다");
     this.state = "joining";
     try {
       await this._join(JOIN_READY_MS);
@@ -126,7 +128,8 @@ class VoiceLink {
     }
   }
 
-  // 새 연결을 만들어 전이를 듣고 오디오 플레이어를 구독시킨 뒤, 준비될 때까지 기다린다
+  // 새 연결을 만들어 전이를 듣고 오디오 플레이어를 구독시킨 뒤, 준비될 때까지 기다린다. 모든 새 음성 연결이 여기를 지난다.
+  // 종료 중에는 부르지 않는다(connect 와 복구 루프가 바로 앞에서 확인한다)
   async _join(readyMs: number) {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
@@ -359,7 +362,8 @@ class VoiceLink {
 
   // 시도 → 기다림 → 쉼을 차례로 되풀이한다. 세대가 바뀌면(정리, 새 복구) 늦게 돌아온 결과로 아무것도 하지 않는다
   async _recoverLoop(gen: number) {
-    const active = () => gen === this.gen && this.state === "recovering";
+    // 종료가 시작되면 복구를 멈춘다(새 연결을 만들지 않는다. 남은 연결은 종료가 정리한다)
+    const active = () => gen === this.gen && this.state === "recovering" && !isShuttingDown();
     while (active()) {
       this.recoveryAttempts++;
       if (this.recoveryAttempts > RECOVERY_ATTEMPTS_MAX) return this._giveUp();

@@ -41,6 +41,7 @@ const addTracks = await import("../../src/usecases/add-tracks.ts");
 const messageHandler = (await import("../../src/discord/events/message-handler.ts")).default;
 const panelPin = (await import("../../src/discord/events/panel-pin.ts")).default;
 const interactionCreate = (await import("../../src/discord/events/interaction-create.ts")).default;
+const { beginShutdown, _resetShutdown } = await import("../../src/infra/shutdown-state.ts");
 
 const channelDelete = (await import("../../src/discord/events/channel-delete.ts")).default;
 const guildDelete = (await import("../../src/discord/events/guild-delete.ts")).default;
@@ -648,4 +649,30 @@ test("모달: 처리 중 던지면 일반 오류 문장", async () => {
   const r = menu(w, { customId: "panel:volume", volume: "10", select: false });
   await interactionCreate.execute(r.bot, r.it);
   assert.deepEqual(r.log, [["reply", said(errors.notice("processing-failed"))]]);
+});
+
+test("종료 중이면 전용 채널 메시지와 상호작용은 새 일을 시작하지 않고 종료 중이라고 알린다(자동완성은 빈 목록)", async (t) => {
+  t.after(() => _resetShutdown());
+  const w = world();
+  await settings.setBotChannel("g1", "bot-channel");
+  resolved.length = 0;
+  beginShutdown();
+
+  const msg = message(w);
+  await messageHandler.execute(w.bot, msg);
+  assert.deepEqual(resolved, []);
+  assert.deepEqual(msg.sent, [], "검색 중 플레이스홀더를 보내지 않는다");
+  assert.deepEqual(
+    msg.replies.map((r) => r.text),
+    [said(errors.notice("bot-shutting-down"))],
+  );
+
+  const { it, log } = moreInteraction(w, { select: "10" });
+  await interactionCreate.execute(w.bot, it);
+  assert.deepEqual(log, [["reply", said(errors.notice("bot-shutting-down"))]]);
+
+  const answered: unknown[] = [];
+  const auto = fakeWith<Menu>()({ ...interactionKind("autocomplete"), guild: w.guild, user: { id: USER }, respond: async (choices: unknown) => void answered.push(choices) });
+  await interactionCreate.execute(w.bot, auto);
+  assert.deepEqual(answered, [[]]);
 });

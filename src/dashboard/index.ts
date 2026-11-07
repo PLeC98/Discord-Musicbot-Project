@@ -44,7 +44,8 @@ import { registerStages } from "./login-background/stages.ts";
 import { createInviteRouter } from "./routes/invite.ts";
 import { sweepUploads } from "./archive-uploads.ts";
 import type { PlayerStream } from "./player-stream.ts";
-import { problemsRouter } from "./problem.ts";
+import { problemsRouter, sendProblem } from "./problem.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { CSRF_TOKEN_MAX, limiter, signedInLogout, unlimited } from "./rate-limits.ts";
 import { startStatus } from "./status/index.ts";
 import { countServer } from "../infra/upload-meter.ts";
@@ -126,6 +127,9 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
       req.session.regenerate((e) => next(e));
     });
 }
+
+// 상태를 바꾸지 않는 메서드
+const READ_ONLY = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
 // index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
@@ -214,6 +218,8 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   app.use(requireSameAccount);
   app.get("/api/csrf-token", issueCsrfToken);
   app.use(requireCsrfToken);
+  // 종료 중이면 상태를 바꾸는 요청을 받지 않는다(새 재생, 참가를 시작하지 않는다). 로그인, CSRF 검사가 먼저다
+  app.use("/api", (req, res, next) => (isShuttingDown() && !READ_ONLY.has(req.method) ? sendProblem(res, "bot-shutting-down") : next()));
   // 운영자 패널 공통 권한 검사. 하위 라우터마다 운영자 검사를 하지만, 누락된 라우터가 없도록 여기서도 한 번 막는다. 본문을 읽기 전에 둔다(큰 본문 경로는 모두 운영자 패널이다)
   app.use("/api/admin", requireOwner);
   // 앱 이모지 쓰기(GET이 아닌 요청)도 운영자 전용이므로 본문을 읽기 전에 검사한다(라우트의 검사는 그대로 유지한다)

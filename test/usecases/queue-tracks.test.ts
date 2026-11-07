@@ -53,7 +53,7 @@ class RecordingPanels extends NowPlayingPanel {
 
 // 글 채널에 보낸 안내. 삭제했는지 본다
 type Sent = { id: string; content: string; deleted: boolean; delete(): Promise<unknown> };
-type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean; connects?: boolean };
+type Setup = { current?: QueuedTrack | null; queue?: QueuedTrack[]; plays?: Array<{ ok: boolean; code?: string } | Error>; connected?: boolean; connects?: boolean | string };
 
 // 연결, 재생 결과를 테스트마다 정하는 가짜 플레이어
 function setup({ current = null, queue = [], plays = [{ ok: true }], connected = false, connects = true }: Setup = {}) {
@@ -77,7 +77,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     voice: {
       connect: async () => {
         calls.push("connect");
-        if (!connects) throw codedError("voice-failed", "음성 채널에 붙지 못했습니다");
+        if (connects !== true) throw codedError(connects || "voice-failed", "음성 채널에 붙지 못했습니다");
         Object.assign(player, { connection: {} });
         return true;
       },
@@ -224,6 +224,13 @@ test("음성 채널에 붙지 못하면 voice-failed. 틀지 않고, 재생목�
 });
 
 // 담기는 세션 미러의 첫 쓰기라 앞 플레이어가 남긴 세션을 지우고 넘겨받는다. 붙지 못했으면 넘겨받을 까닭이 없다
+test("종료 중이라 음성 채널에 붙지 않았으면 bot-shutting-down 으로 알린다. 재생하지 않고 플레이어를 정리한다(세션은 남긴다)", async () => {
+  const one = setup({ connects: "bot-shutting-down" });
+  assert.deepEqual(said(await one.add({ isPlaylist: true, tracks: [track("a"), track("b")] }, who)), { success: false, code: "bot-shutting-down", message: plainText(errors.notice("bot-shutting-down")) });
+  assert.equal(one.player.currentTrack, null);
+  assert.deepEqual(one.calls, ["connect", "dispose"]);
+});
+
 test("음성 채널에 붙지 못하면 재생목록의 나머지도 담지 않는다. 앞 플레이어가 남긴 세션이 남는다(/join 으로 이어 듣기)", async () => {
   const store = openTempStore("queue-tracks-voice-");
   try {

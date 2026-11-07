@@ -3,6 +3,7 @@
 // 같은 서버에서 짧은 시간에 되풀이되면 세션이 원인일 수 있으니 세션을 삭제하고 그 서버만 멈춘다.
 
 import logger from "../infra/log/logger.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { Player } from "../player/player.ts";
 
 const log = logger.child({ category: "core" });
@@ -25,8 +26,9 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
   return async function fault(guildId: string, error: unknown, where: string) {
     log.error(`서버 ${guildId}에서 알 수 없는 오류 (${where}):`, error);
     const player = players.get(guildId);
-    // 복원할 플레이어가 없다(명령, 화면 쪽 일). 로그만 남긴다. 다시 시작하는 중에 난 것은 그 다시 시작이 맡는다
-    if (!player || resetting.has(guildId)) return;
+    // 복원할 플레이어가 없다(명령, 대시보드 작업). 로그만 남긴다. 다시 시작하는 중에 난 오류는 진행 중인 다시 시작이 처리한다.
+    // 종료 중이면 다시 시작하지 않는다(종료가 세션을 저장하고 정리한다)
+    if (!player || resetting.has(guildId) || isShuttingDown()) return;
 
     const at = now();
     const times = (recent.get(guildId) ?? []).filter((t) => at - t < WINDOW_MS);

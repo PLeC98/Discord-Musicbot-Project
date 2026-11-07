@@ -3,6 +3,7 @@
 
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { codedError } from "../../src/rules/error-kind.ts";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
@@ -444,6 +445,10 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
   assert.deepEqual(disposed, [{ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" }]);
+  // 종료 중이라 붙지 않았으면 bot-shutting-down 으로 거절한다
+  const stopping = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) }, setAutoplay: () => assert.fail("켜지 않는다"), dispose: async (o: (typeof disposed)[number]) => void disposed.push(o) });
+  assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stopping }), { ok: false, code: "bot-shutting-down" });
+  assert.equal(disposed.length, 2);
 
   // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 갱신한다
   const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });

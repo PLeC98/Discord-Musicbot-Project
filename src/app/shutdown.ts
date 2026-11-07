@@ -14,6 +14,7 @@ import { EXIT, type ExitCode } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { PotStop } from "../sources/youtube/pot-server.ts";
 import { finishSessions } from "../dashboard/session-store.ts";
+import { beginShutdown } from "../infra/shutdown-state.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -50,7 +51,7 @@ const CLIENT_CLOSE_MS = 2000;
 const FAILED_START_GRACE_MS = 1000;
 
 /** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
-type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
+type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]>; stay?: { stop(): unknown } };
 
 /** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
@@ -63,21 +64,16 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
+    // 새 음성 연결과 새 작업을 시작하지 않게 한다(막는 곳은 infra/shutdown-state)
+    beginShutdown();
     const client = bot?.client ?? null;
     const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
     log.info(`종료 시작: ${reason}`);
+    // 상주 모드가 재접속을 예약하거나 플레이어 정리 때 상주 설정을 지우지 않게 세션 저장 전에 멈춘다
+    bot?.stay?.stop();
     if (bot) await savePlayers(bot.players, reason);
 
-    // 레지스트리에 없던 연결도 나감 없이 정리한다
-    for (const [guildId, connection] of voiceConnections()) {
-      const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
-      try {
-        connection.destroy(false);
-        log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
-      } catch (error) {
-        log.error(`음성 연결 정리 실패: ${name}`, error);
-      }
-    }
+    destroyLeftovers(voiceConnections(), client, reason);
     record.end(restart ? "restart" : "shutdown");
     await release(client, { potServer, logFile, killAll });
     exit(restart ? EXIT.restart : EXIT.stopped);
@@ -110,6 +106,19 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
       stop(by, true);
     },
   };
+}
+
+// 레지스트리에 없던 연결도 나감 없이 정리한다
+function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: string) {
+  for (const [guildId, connection] of connections) {
+    const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
+    try {
+      connection.destroy(false);
+      log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+    } catch (error) {
+      log.error(`음성 연결 정리 실패: ${name}`, error);
+    }
+  }
 }
 
 // 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결을 정리한다

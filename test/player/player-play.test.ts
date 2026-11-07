@@ -1362,6 +1362,9 @@ test("끊긴 라이브를 다시 여는 사이에 플레이어가 버려지면 �
   const p = h.makePlayer();
   p.play = async () => ({ ok: false, code: "disposed" });
   assert.equal(await p._reopenLive("곡"), true);
+  // 종료 중이라 붙지 않았을 때도 넘기지 않는다
+  p.play = async () => ({ ok: false, code: "bot-shutting-down" });
+  assert.equal(await p._reopenLive("곡"), true);
   h.dispose(p);
 });
 

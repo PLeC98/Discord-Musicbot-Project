@@ -2,6 +2,7 @@
 // 가짜 서버, 플레이어로 어느 서버에 무엇을 했는지만 본다.
 
 import { test, after } from "node:test";
+import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 import assert from "node:assert/strict";
 import type { Client } from "discord.js";
 import { adoptLingeringVoice } from "../../src/player/voice-adopt.ts";
@@ -94,4 +95,13 @@ test("이번 기동에 세션 복원이 손댄 서버(복원하다 실패해 세
   await adoptLingeringVoice(client, players, FakePlayer, { touched: ["g1"] });
   assert.ok(!steps.some((s) => s.startsWith("g1:")));
   assert.ok(steps.includes("g2:connect"));
+});
+
+test("종료 중이면 이어받지 않는다(플레이어를 만들지 않는다)", async (t) => {
+  t.after(() => _resetShutdown());
+  const { client, players, steps, FakePlayer } = world([guildWith("g1")]);
+  beginShutdown();
+  await adoptLingeringVoice(client, players, FakePlayer);
+  assert.deepEqual(steps, []);
+  assert.equal(players.has("g1"), false);
 });

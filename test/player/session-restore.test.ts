@@ -5,8 +5,11 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { codedError } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { RESTJSONErrorCodes } from "discord.js";
 import { resolveGuildForRestore, restoreSessions, waitForRestore } from "../../src/player/session-restore.ts";
+import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Client, Guild } from "discord.js";
@@ -119,7 +122,7 @@ function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", 
 }
 
 // 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
-function fakePlayerClass({ restoreFails = false } = {}) {
+function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
   const made: FakePlayer[] = [];
   class FakePlayer {
     guild: Guild;
@@ -136,7 +139,7 @@ function fakePlayerClass({ restoreFails = false } = {}) {
     persistence = {
       restoreFromState: async (record: { guildId: string }) => {
         this.calls.push(`restore:${record.guildId}`);
-        if (restoreFails) throw new Error("복원 실패");
+        if (restoreFails) throw restoreFails === true ? new Error("복원 실패") : restoreFails;
       },
     };
     async dispose(o: { reason: string; session: string }) {
@@ -310,4 +313,45 @@ test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다.
     [["restore:x1"]],
   );
   sessions().removeSession("x1");
+});
+
+test("종료 중이면 기동 복원이 플레이어를 만들지 않는다(세션은 남겨 다음 기동 때 복원한다)", async (t) => {
+  t.after(() => _resetShutdown());
+  saved("r7");
+  const { client, players } = clientWith([guildWith("r7")]);
+  const { FakePlayer, made } = fakePlayerClass();
+  beginShutdown();
+  await restoreSessions(client, players, FakePlayer);
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), ["r7"]);
+  sessions().removeSession("r7");
+});
+
+test("서버를 조회하는 사이 종료가 시작되면 플레이어를 만들지 않는다(세션은 남긴다)", async (t) => {
+  t.after(() => _resetShutdown());
+  saved("r8");
+  const { client, players } = clientWith([], async (id) => {
+    beginShutdown();
+    return guildWith(id);
+  });
+  const { FakePlayer, made } = fakePlayerClass();
+  await restoreSessions(client, players, FakePlayer);
+  assert.equal(made.length, 0);
+  assert.deepEqual(remaining(), ["r8"]);
+  sessions().removeSession("r8");
+});
+
+test("복원 중 종료 때문에 붙지 못하면 오류 로그 없이 세션을 남기고 플레이어를 정리한다", async () => {
+  saved("r9");
+  const { client, players } = clientWith([guildWith("r9")]);
+  const { FakePlayer, made } = fakePlayerClass({ restoreFails: codedError("bot-shutting-down", "종료 중") });
+  const start = sink.buffer.at(-1)?.id ?? -1;
+  await restoreSessions(client, players, FakePlayer);
+  assert.deepEqual(made[0].calls, ["restore:r9", "dispose:세션 복원 실패:keep"]);
+  assert.deepEqual(remaining(), ["r9"]);
+  assert.deepEqual(
+    sink.buffer.filter((r) => r.id > start && r.level === "error").map((r) => r.text),
+    [],
+  );
+  sessions().removeSession("r9");
 });

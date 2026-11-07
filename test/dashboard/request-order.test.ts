@@ -21,6 +21,7 @@ const { createPlayerStream } = await import("../../src/dashboard/player-stream.t
 const { createServer } = await import("../../src/dashboard/binding.ts");
 const { tooManyRequests } = await import("../../src/dashboard/problem.ts");
 const { CSRF_TOKEN_MAX } = await import("../../src/dashboard/rate-limits.ts");
+const { beginShutdown, _resetShutdown } = await import("../../src/infra/shutdown-state.ts");
 
 const TOKEN = "t".repeat(43);
 let user: object | null = null;
@@ -289,4 +290,18 @@ test("요청 제한에 걸린 요청은 그 요청에서만 세션을 떼어 응
   tooManyRequests(req, res);
   assert.equal(req.session, null);
   assert.equal(session.user, SIGNED_IN, "세션 자체는 그대로다");
+});
+
+test("종료 중이면 상태를 바꾸는 API 요청은 핸들러에 닿기 전에 503 bot-shutting-down 으로 거절하고, 읽기 요청은 그대로 받는다", async (t) => {
+  user = SIGNED_IN;
+  t.after(() => {
+    _resetShutdown();
+    user = null;
+  });
+  const at = await fresh();
+  beginShutdown();
+  const search = await at("/api/guilds/1/player/search", { method: "POST", headers: { "content-type": "application/json", "x-csrf-token": TOKEN }, body: "{}" });
+  assert.equal(search.status, 503);
+  assert.match(search.text, /bot-shutting-down/);
+  assert.equal((await at("/api/csrf-token")).status, 200);
 });

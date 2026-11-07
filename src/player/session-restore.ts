@@ -4,6 +4,7 @@ const log = logger.child({ category: "session" });
 import { sessions, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 
@@ -124,7 +125,8 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   if (alreadyPlaying()) return;
 
   const channels = await savedChannels(guild, record.session);
-  if (alreadyPlaying()) return;
+  // 종료가 시작됐으면 플레이어를 만들지 않는다(세션은 남긴다)
+  if (alreadyPlaying() || isShuttingDown()) return;
   if (channels === "gone") {
     sessions().removeSession(guildId);
     return;
@@ -138,8 +140,9 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     const outcome = await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
-    // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다)
-    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+    // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다). 종료 중이라 붙지 않은 것은 실패가 아니다
+    if (codeOf(error) === "bot-shutting-down") log.info(`서버 ${guild.name}의 세션 복원 중단: 종료 중(세션은 남김)`);
+    else log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
     await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
   }
 }

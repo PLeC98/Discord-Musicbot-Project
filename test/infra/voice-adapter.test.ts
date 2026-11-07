@@ -5,6 +5,7 @@ import type { TestContext } from "node:test";
 import type { DiscordGatewayAdapterCreator, DiscordGatewayAdapterLibraryMethods } from "@discordjs/voice";
 import assert from "node:assert/strict";
 import { holdingAdapterCreator, HOLD_MS } from "../../src/infra/voice-adapter.ts";
+import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 
 type VoiceState = Parameters<DiscordGatewayAdapterLibraryMethods["onVoiceStateUpdate"]>[0];
 // 게이트웨이로 보낸 것. 여기서 보는 필드만
@@ -93,4 +94,17 @@ test("부수면 붙잡아 둔 것을 버리고 디스코드 쪽 어댑터도 부
   t.mock.timers.tick(HOLD_MS);
   assert.equal(sent.length, 0);
   assert.equal(destroyed(), true);
+});
+
+test("종료가 시작되면 보류해 둔 참가 요청과 새 참가 요청을 버린다(라이브러리의 재참가도). 나가기는 그대로 보낸다", (t) => {
+  t.after(() => _resetShutdown());
+  const { adapter, sent } = setup(t);
+  adapter.sendPayload(join("a"));
+  beginShutdown();
+  t.mock.timers.tick(HOLD_MS);
+  assert.deepEqual(sent, [], "보류해 둔 참가 요청");
+  assert.equal(adapter.sendPayload(join("b")), false, "새 참가");
+  const leave = { op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: false, self_mute: false } };
+  assert.equal(adapter.sendPayload(leave), true);
+  assert.deepEqual(sent, [leave]);
 });

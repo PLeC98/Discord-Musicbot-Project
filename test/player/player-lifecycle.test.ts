@@ -2301,3 +2301,23 @@ test("여는 중 이전 곡을 눌렀는데 열지 못해 멈춰 뒀으면 이�
   assert.deepEqual(p.queue, [failing, after], "지금 곡은 이전 곡 뒤로");
   assert.deepEqual(p.previousTracks, [], "기록에 열지 못한 곡을 더하지 않는다");
 });
+
+test("종료 중이라 음성에 붙지 않았으면 play 는 bot-shutting-down 을 돌려주고 곡을 그대로 둔다(알리지도, 실패로 세지도, 넘기지도, 정리하지도 않는다)", async () => {
+  const p = h.makePlayer({ connected: false });
+  behavior.connect = () => {
+    throw codedError("bot-shutting-down", "종료 중");
+  };
+  p.currentTrack = yt("c1ccccccccc");
+  p.queue = [yt("c2ccccccccc")];
+  const sent = calls.sent.length;
+
+  const result = await p.play(0);
+
+  assert.equal(!result.ok && result.code, "bot-shutting-down");
+  assert.equal(p.currentTrack?.title, yt("c1ccccccccc").title);
+  assert.equal(p.queue.length, 1);
+  assert.equal(p.failedTracks, 0);
+  assert.equal(p.lifecycle.disposed, false);
+  assert.equal(calls.sent.length, sent, "채널에 알리지 않는다");
+  h.dispose(p);
+});

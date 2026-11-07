@@ -464,7 +464,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
     const start = await startFirst(panel, player, stamped[0], responder);
     // 음성 채널에 붙지 못했으면 나머지도 담지 않는다. 담기는 세션의 첫 쓰기라 앞 플레이어가 남긴 세션(/join 으로 이어 들을 것)을 넘겨받아 지운다.
     // 다음 곡도 붙지 못하니 틀어 보지 않는다
-    const voiceFailed = start.failure?.code === "voice-failed";
+    const voiceFailed = notJoined(start.failure);
     const addition = enqueue(player, trackData, voiceFailed ? [] : stamped.slice(1));
     const opened = start.failure ? (voiceFailed ? null : await startNext(panel, player, responder)) : start.opened;
     if (opened) return { kind: "started", opened, started: start.started, addition };
@@ -486,7 +486,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
   if (outcome.kind === "failed") {
-    if (outcome.refused.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+    if (notJoined(outcome.refused)) await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
     return { success: false, ...outcome.refused };
   }
@@ -507,14 +507,18 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   return { ...opened, placed };
 }
 
+// 음성 채널에 붙지 못한 까닭: 종료 중이라 붙지 않았거나(bot-shutting-down) 연결에 실패했다(voice-failed)
+const voiceRefusal = (error: unknown) => (codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed");
+const notJoined = (failure: Refused | null) => failure?.code === "voice-failed" || failure?.code === "bot-shutting-down";
+
 // 쉬던 플레이어에 첫 곡을 튼다
 async function startFirst(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<FirstStart> {
   // 음성에 먼저 붙는다. 첫 곡 지정은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게
   if (!player.connection) {
     try {
       await player.voice.connect();
-    } catch {
-      return { opened: null, failure: { code: "voice-failed" } };
+    } catch (error) {
+      return { opened: null, failure: { code: voiceRefusal(error) } };
     }
   }
   player.takeOverSaved();
@@ -535,8 +539,8 @@ async function startPlayback(player: Player): Promise<Refused | null> {
   if (!player.connection) {
     try {
       await player.voice.connect();
-    } catch {
-      return { code: "voice-failed" };
+    } catch (error) {
+      return { code: voiceRefusal(error) };
     }
   }
   try {

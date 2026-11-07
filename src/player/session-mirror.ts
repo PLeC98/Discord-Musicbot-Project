@@ -5,7 +5,7 @@ import { sessions } from "../store/player-sessions.ts";
 import * as trackState from "./track-state.ts";
 import config from "../config/index.ts";
 import * as playerEvents from "./events.ts";
-import { messageOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/player-sessions.ts";
@@ -404,6 +404,8 @@ class SessionPersistence {
     try {
       await this.player.voice.connect();
     } catch (error) {
+      // 종료 중이라 붙지 않았다. 연결 실패가 아니므로 그대로 던진다(부른 쪽이 세션을 남기고 정리한다)
+      if (codeOf(error) === "bot-shutting-down") throw error;
       log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
       throw codedError("voice-failed", "음성 채널에 다시 연결하지 못했습니다", { cause: error });
     }

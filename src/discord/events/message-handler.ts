@@ -12,7 +12,9 @@ import { frame, noticeFrame, post } from "../../ui/frame.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
+import { messageOf } from "../../rules/error-kind.ts";
 import { noticeMs, unlessGone } from "../../ui/delivery.ts";
+import { isShuttingDown } from "../../infra/shutdown-state.ts";
 
 const USER_MESSAGE_DELETE_MS = 1500; // 곡 요청 메시지를 삭제하기까지
 
@@ -33,6 +35,12 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     const member = message.member;
     if (!member) return; // 서버 메시지인데 멤버가 없다(웹훅 등)
+
+    // 종료 중이면 곡을 찾지 않고 알린다(새 재생을 시작하지 않는다). 디스코드 연결을 닫은 뒤면 알림도 못 보낸다
+    if (isShuttingDown()) {
+      await message.reply(post(noticeFrame(errors.notice("bot-shutting-down")))).catch((error: unknown) => log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`));
+      return;
+    }
 
     // 곡 추가 권한: 봇 동작 중에는 동일 음성 채널 규칙(서버 관리자 면제), 유휴 시에는 소환 가능 여부. /play와 동일 기준
     const permError = checkAdd(member) || checkSummon(member);

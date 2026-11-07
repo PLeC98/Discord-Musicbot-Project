@@ -358,7 +358,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
     commandLoader.followEnabledCommands(() => loadCommands(commands), deploySlashCommands);
     loadEvents(bot, onFault);
     // 이제부터 끄면 세션을 저장하고 연결, 봇까지 정리한다
-    shutdown.attach({ client, players });
+    shutdown.attach({ client, players, stay: bot.stay });
     await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;

@@ -9,6 +9,13 @@ import { openTempStore } from "../helpers/temp-store.ts";
 import { fake } from "../helpers/fake.ts";
 import type { PlayerSeats } from "../../src/player/registry.ts";
 import type { JoinResult } from "../../src/usecases/join.ts";
+import sink from "../../src/infra/log/sink.ts";
+
+// 이 시점부터 찍힌 warn 이상의 줄
+function capture() {
+  const start = sink.buffer.at(-1)?.id ?? -1;
+  return () => sink.buffer.filter((r) => r.id > start && (r.level === "warn" || r.level === "error" || r.level === "fatal")).map((r) => r.text);
+}
 
 const store = openTempStore("stay-keeper-");
 after(() => store.close());
@@ -179,4 +186,76 @@ test("자리 채널이 지워지면(봇이 없던 동안도) 끄고 한 번만 �
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(staySeats.seatOf("g1"), null);
   assert.deepEqual(w.calls, ["notice:g1:머물던 음성 채널이 삭제돼서 상주 모드를 껐어요."]);
+});
+
+test("멈춘 뒤에는 붙지도, 재시도를 예약하지도, 상주 설정을 지우지도 않는다(종료가 플레이어를 정리하거나 채널 삭제가 와도)", async () => {
+  staySeats.set("g1", "vc1");
+  const w = world([guildOf("g1")]);
+  w.keeper.stop();
+  assert.equal(await w.keeper.attempt("g1"), true);
+  await w.keeper.boot();
+  w.keeper.onDisposed(fake({ guild: guildOf("g1"), voiceChannel: { id: "vc1" } }), "kicked");
+  w.keeper.onDisposed(fake({ guild: guildOf("g1"), voiceChannel: { id: "vc1" } }), "voice-lost");
+  w.keeper.onChannelDeleted(guildOf("g1"), "vc1");
+  w.keeper.onGuildAvailable(guildOf("g1"));
+  await new Promise(setImmediate);
+  assert.deepEqual(w.calls, []);
+  assert.equal(w.keeper.timers.size, 0);
+  assert.ok(staySeats.seatOf("g1"), "상주 설정은 남는다");
+});
+
+test("붙는 사이 상주 설정이 바뀌거나 상주 모드가 멈추면 연결 결과를 무시한다(실패로 세지 않고 warn, 재시도도 없다)", async () => {
+  const warns = capture();
+  for (const how of ["leave", "stop", "go", "throw"] as const) {
+    staySeats.set("g1", "vc1");
+    const w = world([guildOf("g1")]);
+    let continued = false;
+    w.keeper.join = async (_bot, _req, opts) => {
+      if (how === "stop" || how === "throw") w.keeper.stop();
+      else staySeats.clear("g1");
+      if (how === "throw") throw new Error("연결 오류");
+      if (how === "go") opts?.go?.();
+      continued = true; // go 가 던지지 않으면 진짜 join 은 여기서 플레이어를 만든다
+      return { kind: "refused", code: "voice-failed" };
+    };
+    assert.equal(await w.keeper.attempt("g1"), true, how);
+    assert.equal(w.keeper.timers.size, 0, how);
+    if (how === "go") assert.equal(continued, false, "go 가 예외를 던져 접속을 멈춘다");
+    staySeats.clear("g1");
+  }
+  assert.deepEqual(warns(), []);
+});
+
+test("채널 조회 실패는 상주 설정을 다시 확인한 뒤에 센다(그사이 꺼졌으면 warn 없이 끝)", async () => {
+  const warns = capture();
+  const guild = guildOf("g1", { fetched: "fails" });
+  const fetchFails = guild.channels.fetch;
+  Object.assign(guild.channels, { fetch: async (...args: unknown[]) => (staySeats.clear("g1"), (fetchFails as (...a: unknown[]) => unknown)(...args)) });
+  staySeats.set("g1", "vc1");
+  const w = world([guild]);
+  assert.equal(await w.keeper.attempt("g1"), true);
+  assert.equal(w.keeper.timers.size, 0);
+  assert.deepEqual(warns(), []);
+});
+
+test("채널을 조회하는 사이 멈추면 붙지 않는다. 기동 중에 멈추면 다음 서버로 가지 않는다", async () => {
+  staySeats.set("g1", "vc1");
+  const guild = guildOf("g1");
+  const w = world([guild]);
+  const fetchOk = guild.channels.fetch;
+  Object.assign(guild.channels, { fetch: async (...args: unknown[]) => (w.keeper.stop(), (fetchOk as (...a: unknown[]) => unknown)(...args)) });
+  assert.equal(await w.keeper.attempt("g1"), true);
+  assert.deepEqual(w.calls, []);
+
+  staySeats.clear("g1");
+  staySeats.set("g2", "vc1");
+  staySeats.set("g3", "vc1");
+  const b = world([guildOf("g2"), guildOf("g3")]);
+  const join = b.keeper.join;
+  b.keeper.join = async (...args) => {
+    b.keeper.stop();
+    return join(...args);
+  };
+  await b.keeper.boot();
+  assert.deepEqual(b.calls, ["join:g2"], "대기하지도, 다음 서버에 붙지도 않는다");
 });

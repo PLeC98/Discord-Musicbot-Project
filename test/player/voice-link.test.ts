@@ -2,6 +2,7 @@
 // 음성 라이브러리의 joinVoiceChannel, entersState 는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange 를 쏘아 흉내 낸다.
 
 import { test, beforeEach, afterEach } from "node:test";
+import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason } from "@discordjs/voice";
@@ -852,4 +853,23 @@ test("서버 헤드셋 끄기: 같은 채널에서 사람이 풀면 그 연결 �
   await again.link.connect();
   await sleep(0);
   assert.equal(againDeafs.length, 1, "새 연결은 다시 건다");
+});
+
+test("종료가 시작되면 새로 붙지 않고(bot-shutting-down, 연결을 만들지 않는다) 복구도 새 연결 없이 멈춘다", async (t) => {
+  t.after(() => _resetShutdown());
+  joins.length = 0;
+  const fresh = setup();
+  beginShutdown();
+  await assert.rejects(fresh.link.connect(), { code: "bot-shutting-down" });
+  assert.equal(joins.length, 0);
+  _resetShutdown();
+
+  const live = await ready({ atDiscord: null });
+  joins.length = 0;
+  beginShutdown();
+  live.link.recover("테스트");
+  await sleep(30);
+  assert.equal(joins.length, 0, "새로 참가하지 않는다");
+  assert.equal(live.link.recoveryAttempts, 0, "시도하지 않고 멈춘다");
+  assert.notEqual(live.link.state, "ready");
 });

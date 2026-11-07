@@ -5,9 +5,11 @@
 // 봇이 원래 채널로 끌려갔다가 돌아온다(사람이 봇을 자기 채널로 불러올 때 잘 난다).
 // 참가 요청(op 4)을 잠깐 붙잡아, 그사이 게이트웨이가 봇이 다른 채널로 옮겨졌다고 알려 오면 그 채널로 고쳐 보낸다.
 // 내보낼 때 고쳤는지 알린다(onSend). 고치지 않은 요청이 나간 뒤 봇이 그 채널로 돌아오면 라이브러리의 되돌림이다(voiceLink).
+// 종료가 시작됐으면 참가 요청(새 요청, 보류해 둔 요청)을 버린다. 라이브러리가 다시 참가하려고 보내는 요청도 여기서 막힌다. 나가기는 그대로 보낸다
 
 import type { DiscordGatewayAdapterCreator } from "@discordjs/voice";
 import logger from "./log/logger.ts";
+import { isShuttingDown } from "./shutdown-state.ts";
 const log = logger.child({ category: "voice" });
 
 // 게이트웨이로 보내는 것. 여기서 보는 필드만
@@ -46,6 +48,7 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
       const { payload, timer, rewritten } = pending;
       clearTimeout(timer);
       pending = null;
+      if (isShuttingDown()) return void log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 버림(종료 중)`);
       onSend?.(payload.d.channel_id, rewritten);
       // 붙잡는 동안 라이브러리에는 보냈다고 답했다. 못 보낸 것은 여기서만 안다
       if (!adapter.sendPayload(payload)) log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청 전송 실패(샤드 미준비)`);
@@ -57,6 +60,10 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
         if (payload?.op !== VOICE_STATE_UPDATE || !payload.d?.channel_id) {
           flush();
           return adapter.sendPayload(payload);
+        }
+        if (isShuttingDown()) {
+          log.debug(`음성 채널 ${payload.d.channel_id} 참가 요청을 버림(종료 중)`);
+          return false;
         }
         // 새 참가 요청이 옛 것을 대신한다
         if (pending) clearTimeout(pending.timer);

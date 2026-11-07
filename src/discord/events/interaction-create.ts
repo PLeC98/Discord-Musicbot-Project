@@ -16,6 +16,7 @@ import { ROUTES } from "../interactions/index.ts";
 import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import type { BotContext } from "../../app/bot-context.ts";
+import { isShuttingDown } from "../../infra/shutdown-state.ts";
 
 /**
  * 처리가 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크, 봇 감지 등)는
@@ -124,9 +125,16 @@ function noteLate(interaction: Interaction, now: number) {
   lateReceive(now, (more) => `상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${more} | 늘 이러면 봇 PC 의 시계를 확인하세요`);
 }
 
+// 종료 중에 온 상호작용. 새 일을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
+async function refuseWhileStopping(interaction: Interaction) {
+  if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.debug(`종료 중 자동완성 응답 실패: ${messageOf(error)}`));
+  if (interaction.isRepliable()) return noticeSelf(interaction, errors.notice("bot-shutting-down")).catch((error: unknown) => log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`));
+}
+
 /** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯, now 는 받은 시각 */
 async function route(bot: BotContext, interaction: Interaction, routes: readonly Route[] = ROUTES, now = Date.now()) {
   noteLate(interaction, now);
+  if (isShuttingDown()) return refuseWhileStopping(interaction);
   if (interaction.isChatInputCommand()) return runCommand(bot, interaction);
   if (interaction.isAutocomplete()) return runAutocomplete(bot, interaction);
   return runComponent(bot, interaction, routes);

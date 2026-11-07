@@ -11,7 +11,7 @@ const log = logger.child({ category: "control" });
 import * as perm from "./permissions.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import * as playerEvents from "../player/events.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { VOLUME_MAX } from "../rules/limits.ts";
 import { canGoBack } from "../rules/controls.ts";
 import * as guildSettings from "../store/guild-settings.ts";
@@ -359,14 +359,15 @@ function genreRefusal(genre: string | false) {
 type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown; go?: () => void };
 
 // 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
-async function joinedIdle(target: Player) {
-  if (target.connection) return true;
+// 붙었으면 null, 못 붙었으면 그 까닭(종료 중이면 bot-shutting-down)
+async function joinIdle(target: Player) {
+  if (target.connection) return null;
   try {
     await target.voice.connect();
-    return true;
-  } catch {
+    return null;
+  } catch (error) {
     await target.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
-    return false;
+    return codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed";
   }
 }
 
@@ -382,7 +383,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
   if (!target) return fail("no-song");
   // 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 튼다
   const starts = genre !== false && !target.currentTrack;
-  if (starts && !(await joinedIdle(target))) return fail("voice-failed");
+  const refused = starts ? await joinIdle(target) : null;
+  if (refused) return fail(refused);
   target.setAutoplay(genre);
   await onAccepted?.();
   if (starts) {

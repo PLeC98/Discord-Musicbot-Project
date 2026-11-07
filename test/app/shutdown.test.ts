@@ -7,6 +7,7 @@ import { installShutdown, stopFailedStart, type ShutdownBoundary } from "../../s
 import { fakeWith } from "../helpers/fake.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { EXIT } from "../../src/app/exit-codes.ts";
+import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
 // destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
@@ -46,6 +47,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
     },
   });
   const bot = {
+    stay: { stop: () => void steps.push("stay:stop") },
     client: { guilds: { cache: new Map([["g1", { name: "서버1" }]]) }, destroy: () => (steps.push("client:destroy"), destroy()) },
     players: new Map([
       ["g1", player("g1")],
@@ -83,10 +85,12 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
 }
 
 test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
+  _resetShutdown();
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
+  assert.equal(isShuttingDown(), true, "새 작업을 시작하지 않게 종료 플래그를 곧바로 켠다");
   assert.equal(await exited, 0);
-  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill", "log:close"]);
+  assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
 test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다", async () => {
@@ -159,7 +163,7 @@ test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 
   assert.equal(await exited, EXIT.restart);
   await new Promise((r) => setImmediate(r));
   assert.equal(exits(), 1);
-  assert.deepEqual(steps, ["save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
+  assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
 test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {

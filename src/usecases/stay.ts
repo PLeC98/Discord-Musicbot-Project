@@ -12,7 +12,7 @@ import type { Code } from "../rules/problems.ts";
 import { checkControl } from "./permissions.ts";
 import { join } from "./join.ts";
 
-type StayRefusal = Extract<Code, "stay-stage" | "must-dj" | "must-be-in-same-voice" | "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "restore-failed">;
+type StayRefusal = Extract<Code, "stay-stage" | "must-dj" | "must-be-in-same-voice" | "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "restore-failed" | "bot-shutting-down">;
 /** on: 켰다(이미 켜져 있던 같은 채널이면 already), off: 껐다(이미 꺼져 있었으면 already) */
 type StayResult = { ok: true; kind: "on"; channelId: string; already: boolean } | { ok: true; kind: "off"; already: boolean } | { ok: false; code: StayRefusal };
 
