@@ -277,15 +277,15 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
     }
     x += 4 + length;
   }
-  if (flags & ENCRYPTED) throw bad(`암호가 걸린 항목입니다(${name})`);
-  if (!safeName(name)) throw bad(`받을 수 없는 경로입니다(${name})`);
+  if (flags & ENCRYPTED) throw bad(`암호가 걸린 항목(${name})`);
+  if (!safeName(name)) throw bad(`받을 수 없는 경로(${name})`);
   return { entry: { name, flags, method, crc, packed, size, localAt }, next: at + 46 + nameLength + extraLength + head.readUInt16LE(32) };
 }
 
 /** 중앙 디렉터리(폴더 항목은 뺀다). maxEntries 를 넘으면 BAD_ZIP */
 function entriesOf(src: Source, maxEntries: number): Central[] {
   const { at, count } = directoryOf(src);
-  if (count > maxEntries) throw bad(`항목이 너무 많습니다(${count}개)`);
+  if (count > maxEntries) throw bad(`항목이 너무 많음(${count}개)`);
   const out: Central[] = [];
   let cursor = at;
   for (let i = 0; i < count; i++) {
@@ -299,7 +299,7 @@ function entriesOf(src: Source, maxEntries: number): Central[] {
 /** 항목 본문의 위치 */
 function bodyAt(src: Source, { name, localAt }: Central): number {
   const local = src.read(localAt, 30);
-  if (local.length < 30 || local.readUInt32LE(0) !== SIG.local) throw bad(`항목이 깨졌습니다(${name})`);
+  if (local.length < 30 || local.readUInt32LE(0) !== SIG.local) throw bad(`항목이 깨짐(${name})`);
   return localAt + 30 + local.readUInt16LE(26) + local.readUInt16LE(28);
 }
 
@@ -307,24 +307,24 @@ function bodyAt(src: Source, { name, localAt }: Central): number {
 function bodyOf(src: Source, entry: Central): Buffer {
   const { name, method, crc, packed, size } = entry;
   const body = src.read(bodyAt(src, entry), packed);
-  if (body.length !== packed) throw bad(`항목이 잘렸습니다(${name})`);
+  if (body.length !== packed) throw bad(`항목이 잘림(${name})`);
   let data: Buffer;
   if (method === STORE) data = Buffer.from(body);
   else if (method === DEFLATE) {
     try {
       data = zlib.inflateRawSync(body, { maxOutputLength: size });
     } catch {
-      throw bad(`풀지 못했습니다(${name})`);
+      throw bad(`압축 해제 실패(${name})`);
     }
-  } else throw bad(`모르는 압축 방식입니다(${name})`);
-  if (data.length !== size || zlib.crc32(data) !== crc) throw bad(`내용이 맞지 않습니다(${name})`);
+  } else throw bad(`모르는 압축 방식(${name})`);
+  if (data.length !== size || zlib.crc32(data) !== crc) throw bad(`내용이 맞지 않음(${name})`);
   return data;
 }
 
 /** 항목을 스트림으로 읽는다(큰 항목). 끝에서 크기, CRC 가 맞지 않으면 BAD_ZIP 으로 끊는다 */
 function bodyStream(src: Source, entry: Central): Readable {
   const { name, method, crc, packed, size } = entry;
-  if (method !== STORE && method !== DEFLATE) throw bad(`모르는 압축 방식입니다(${name})`);
+  if (method !== STORE && method !== DEFLATE) throw bad(`모르는 압축 방식(${name})`);
   const raw = src.stream(bodyAt(src, entry), packed);
   let sum = 0;
   let seen = 0;
@@ -332,10 +332,10 @@ function bodyStream(src: Source, entry: Central): Readable {
     transform(chunk: Buffer, _encoding, done) {
       sum = zlib.crc32(chunk, sum);
       seen += chunk.length;
-      done(seen > size ? bad(`풀린 크기가 맞지 않습니다(${name})`) : null, chunk);
+      done(seen > size ? bad(`압축을 푼 크기가 맞지 않음(${name})`) : null, chunk);
     },
     flush(done) {
-      done(seen !== size || sum !== crc ? bad(`내용이 맞지 않습니다(${name})`) : null);
+      done(seen !== size || sum !== crc ? bad(`내용이 맞지 않음(${name})`) : null);
     },
   });
   // 어느 쪽의 오류든 받는 쪽(check)으로 전달되고, 받는 쪽이 끊으면 원본 읽기와 압축 해제 스트림도 닫는다
@@ -365,7 +365,7 @@ function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number }
     return {
       entries,
       read(entry: Central, maxBytes: number): Buffer {
-        if (entry.size > maxBytes) throw bad(`항목이 너무 큽니다(${entry.name})`);
+        if (entry.size > maxBytes) throw bad(`항목이 너무 큼(${entry.name})`);
         return bodyOf(src, entry);
       },
       stream: (entry: Central) => bodyStream(src, entry),

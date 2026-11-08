@@ -99,7 +99,7 @@ class PlaybackWatch {
   checkIdle(): void {
     const player = this.player;
     this.idleTimer = null;
-    // 실패로 멈춰 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
+    // 실패로 일시정지해 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
     if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
     // 곡을 여는 중, 끝 처리 중, 음성 복구 중이면 그 일이 끝난 뒤 다시 본다
     if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();

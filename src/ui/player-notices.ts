@@ -41,7 +41,7 @@ const VIEW: { [C in NoticeCode]: (detail: Notices[C]) => Shown } = {
   "skipped-after-error": ({ error, removed = 0 }) => shown(withLine(errorMessage(error), removed > 0 ? notices.copiesRemoved(removed) : null)),
   // 연달아 넘긴 곡 중 하나씩 알리지 않고 모은 것
   "skipped-more": ({ count }) => shown(notices.skippedMore(count)),
-  // 그 곡에서 멈춰 뒀다(player.park). 재생 버튼으로 다시 연다
+  // 그 곡에서 일시정지해 뒀다(player.park). 재생 버튼으로 다시 연다
   parked: (why) => shown(why.kind === "environment" ? withLine(errorMessage(why.error), notices.parkedLine()) : why.kind === "failures" ? notices.parkedFailures(why.count) : notices.parkedDropped()),
   // /join 없이 새로 틀어 앞 플레이어가 남긴 세션을 지웠다
   "saved-session-replaced": ({ count }) => shown(notices.savedSessionReplaced(count)),

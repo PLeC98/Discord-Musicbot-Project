@@ -237,7 +237,7 @@ test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 
   ]);
   const { status, json } = await preview(full);
   assert.deepEqual([status, json.code], [400, "bad-archive"]);
-  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없습니다/);
+  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없음/);
 });
 
 test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 bad-archive", async () => {
@@ -285,9 +285,9 @@ test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하�
   await appearance.addFavicon(32, await square(32));
   const file = await exported("favicon");
   const missing = await zipped(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
-  assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있습니다."]);
+  assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있어요"]);
   const broken = await zipped(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
-  assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["망가졌거나 크기가 맞지 않는 이미지가 있습니다."]);
+  assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["깨졌거나 크기가 맞지 않는 이미지가 있어요"]);
   assert.notEqual((await send("import?items=favicon", broken)).status, 200);
   assert.deepEqual(currents(), [32], "불러오지 않았다");
 

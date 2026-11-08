@@ -254,7 +254,7 @@ const BODY_CHECK_MS = 1000;
  * 본문 무응답 감시. 받는 쪽이 받으려는데 idleMs 동안 아무것도 오지 않으면 스트림을 오류로 닫는다.
  * 받는 쪽이 멈춰(일시정지 등) 흐름을 막은 동안은 서버가 조용한 것이 정상이라 세지 않는다.
  * 소켓의 시간 제한은 이 둘을 구분하지 못해 오래 멈춘 재생을 끊는다. 그래서 응답이 오면 소켓 쪽은 끄고 이것으로 바꾼다.
- * pipeline 뒤에 건다. 먼저 걸면 data 리스너가 흐름을 먼저 열어 받는 쪽 없이 흘린다
+ * pipeline 뒤에 건다. 먼저 걸면 data 리스너가 흐름을 먼저 열어 받는 쪽 없이 데이터를 내보낸다
  */
 function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, idleMs: number) {
   source.setTimeout?.(0);

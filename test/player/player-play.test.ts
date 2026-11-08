@@ -333,7 +333,7 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
 });
 
 // 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 세그먼트 목록뿐이다. 주소 하나로 열면 첫 세그먼트(2초)만 틀고 끝난다
-test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 흘리고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
+test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 넘기고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
   const p = h.makePlayer();
   p.currentTrack = yt("pppppppppp1", { duration: 20 });
@@ -517,7 +517,7 @@ test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다�
   }
 });
 
-test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검증값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/big.mp3");
   behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });

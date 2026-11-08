@@ -21,7 +21,7 @@ test("글로 아는 것: #EXTM3U 에 #EXT-X- 가 있으면 HLS, 없으면 단순
 
 test("형식 판별: 실제 MP3(ID3), 프레임만 있는 MPEG 는 음원, 그림은 그 밖, 헤더 없이 모르는 바이트는 그 밖", async (t) => {
   const mp3 = await taggedMp3();
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   assert.equal(await contentOf("application/octet-stream", mp3.subarray(0, 4100)), "audio", "octet-stream 의 MP3");
   assert.equal(await contentOf(null, frames(4)), "audio", "헤더 없이 MPEG 프레임 넷");
   const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]);
@@ -39,7 +39,7 @@ test("형식 판별: 실제 MP3(ID3), 프레임만 있는 MPEG 는 음원, 그�
 test("우연히 맞은 MPEG 동기 바이트는 프레임 둘이 잇달지 않으면 믿지 않는다(헤더가 음원이면 헤더대로)", async () => {
   const lone = Uint8Array.from([...frame().subarray(0, 4), ...new Array(4096).fill(0x41)]);
   assert.equal(await contentOf("application/octet-stream", lone), "other");
-  assert.equal(await contentOf("audio/mpeg", lone), "audio", "라디오가 프레임 중간부터 흘리는 등 헤더를 믿는다");
+  assert.equal(await contentOf("audio/mpeg", lone), "audio", "라디오가 프레임 중간부터 보내는 등 헤더를 믿는다");
 });
 
 test("헤더만으로: 음원, 영상 형식이면 음원, 재생목록 형식인데 글이 주소 줄이면 목록, HTML 은 웹 페이지, 비면 그 밖", async () => {

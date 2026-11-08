@@ -149,7 +149,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     try {
       parsed = new URL(v);
     } catch {
-      return invalid(key, v, "주소 형식이 아닙니다 (예: https://example.com)", def);
+      return invalid(key, v, "주소 형식이 아님(예: https://example.com)", def);
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있음", def);
     return v;
@@ -177,7 +177,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const color = v.trim();
-    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 합니다 (예: #2743D2)", def);
+    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 함(예: #2743D2)", def);
   }
 
   function envQueueMax(key: string, def: number) {
@@ -242,7 +242,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   const problems: string[] = [];
   const warnings: string[] = [];
   const tuneProblems: string[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
+  if (!envFileFound) problems.push(".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요");
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
@@ -258,15 +258,15 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   }
   // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키, 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
-  const remake = `만들기: ${SECRETS_KEY_COMMAND} 의 출력을 .env 의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 못 풀어 다시 입력해야 합니다.`;
-  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY 가 비어 있습니다(비밀값 암호화 키). ${remake}`);
-  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env 의 SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다. ${remake}`);
+  const remake = `만들기: ${SECRETS_KEY_COMMAND}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`;
+  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`);
+  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`);
   if (!env("OWNER_ID")) {
-    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
+    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음");
   }
   // 대시보드(운영자 패널)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다. 입력할 탭마다 알린다
   const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
-  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env 의 ${names.join(", ")} 는 이제 쓰지 않습니다. 운영자 패널의 ${tab} 탭에서 입력하고 .env 에서 삭제하세요.`);
+  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env의 ${names.join(", ")}는 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");

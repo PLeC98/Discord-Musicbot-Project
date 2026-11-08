@@ -389,7 +389,7 @@ class TrackDownloader {
     // 끝이 없는 것(인터넷 라디오, 라이브 HLS)은 받지 않는다. 추가할 때 라이브로 적어 여기 오지 않지만, 직접 지정한 음원은 그 검사를 거치지 않는다
     if (audioStream.live) {
       audioStream.destroy();
-      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 라이브(인터넷 라디오, 라이브 HLS)라 캐시하지 않습니다: ${downloadUrl}`);
+      throw codedError(track.audioFoundBy === "pinned" ? "pinned-live" : "stream-failed", `끝이 없는 라이브(인터넷 라디오, 라이브 HLS)라 캐시하지 않음: ${downloadUrl}`);
     }
     const audioVersion = versionOf.fromHeaders(audioStream.headers);
 

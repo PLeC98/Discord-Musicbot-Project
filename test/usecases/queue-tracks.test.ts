@@ -276,7 +276,7 @@ test("쉬던 중 재생목록이 상한에 걸려 일부만 담기면 첫 곡을
   }
 });
 
-test("쉬던 중 재생목록의 첫 곡에서 멈춰 두면(parked) 그 곡으로 패널을 세우고 담은 안내를 낸다", async () => {
+test("쉬던 중 재생목록의 첫 곡에서 일시정지해 두면(parked) 그 곡으로 패널을 세우고 담은 안내를 낸다", async () => {
   const { add, calls, sent, player } = setup({ plays: [{ ok: false, code: "parked" }] });
   const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b")] }, who);
   assert.deepEqual(withPlaced(r), { success: true, dropped: 0, queueLimited: false, placed: { count: 2, position: null, collection: "playlist", total: null, skipped: 0, first: "a" } });
@@ -285,7 +285,7 @@ test("쉬던 중 재생목록의 첫 곡에서 멈춰 두면(parked) 그 곡으�
   assert.equal(sent.length, 1);
 });
 
-test("첫 곡이 실패하고 다음 곡에서 멈춰 두면(parked) 그 곡으로 패널을 세운다", async () => {
+test("첫 곡이 실패하고 다음 곡에서 일시정지해 두면(parked) 그 곡으로 패널을 세운다", async () => {
   const { add, calls, player } = setup({ plays: [{ ok: false }, { ok: false, code: "parked" }] });
   const r = await add({ isPlaylist: true, collection: "playlist", tracks: [track("a"), track("b"), track("c")] }, who);
   assert.equal(r.success, true);

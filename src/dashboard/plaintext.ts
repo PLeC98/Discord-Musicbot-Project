@@ -86,9 +86,9 @@ async function checkPublicUrl(url: string, { lookup = defaultLookup, timeoutMs =
   } catch (error) {
     const code = (error as { code?: string }).code;
     const why = code === "ENOTFOUND" || code === "EAI_NONAME" ? "찾지 못해" : `조회하지 못해(${code ?? "알 수 없음"})`;
-    return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${why} 공인 주소인지 확인하지 못했습니다. 대시보드는 열고 요청마다 인터넷 평문을 검사합니다.` };
+    return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${why} 공인 주소인지 확인하지 못함. 대시보드는 열고 요청마다 인터넷 평문을 검사` };
   }
-  if (found === "timeout") return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${timeoutMs / 1000}초 안에 조회하지 못해 공인 주소인지 확인하지 못했습니다. 대시보드는 열고 요청마다 인터넷 평문을 검사합니다.` };
+  if (found === "timeout") return { open: true, note: `DASHBOARD_URL의 호스트(${host})를 ${timeoutMs / 1000}초 안에 조회하지 못해 공인 주소인지 확인하지 못함. 대시보드는 열고 요청마다 인터넷 평문을 검사` };
   const publicAddress = found.map((a) => a.address).find((a) => kindOf(a) === "public");
   return publicAddress ? { open: false, detail: `${host} → ${publicAddress}` } : { open: true };
 }

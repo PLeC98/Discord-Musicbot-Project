@@ -205,7 +205,7 @@ async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
   return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
 }
 
-// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 흘린다고 알린다
+// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 내보낸다고 알린다
 function openFragmentStream(opts: FragmentOptions) {
   calls.fragments.push(opts);
   const { atMs } = startOf(opts.fragments, opts.durationMs, opts.startMs);

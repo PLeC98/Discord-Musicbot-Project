@@ -51,7 +51,7 @@ test("문구가 128자를 넘으면 걸린다", () => {
 });
 
 test("interval은 10초 미만일 수 없다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10 이상/);
+  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10초 이상/);
   assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
 });
 
@@ -61,7 +61,7 @@ test("날짜, 시간은 두 자리로 적어야 한다", () => {
 
   assert.match(of({ 봄: { date: "3-1 ~ 3-31", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 심야: { time: "2:00 ~ 6:00", messages: ["x"] } }), /두 자리/);
-  assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~ 로 나눠/);
+  assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~로 나눠/);
   assert.match(of({ 이상: { date: "13-01 ~ 13-05", messages: ["x"] } }), /두 자리/);
 
   assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
@@ -75,7 +75,7 @@ test("조건이 하나도 없는 항목은 걸린다", () => {
 });
 
 test("항목 이름 규칙은 장르와 같다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋납니다/);
+  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋나요/);
   assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
 });
 
@@ -87,7 +87,7 @@ test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문�
   useDocument("status", { interval: 1, messages: [] });
   assert.deepEqual(statusConfig.status(), { messages: [] });
   const said = sink.buffer.slice(from).find((e) => e.level === "error");
-  assert.ok(said?.text.startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")), said?.text);
+  assert.ok(said?.text.startsWith(["활동 문구 설정 읽기 실패:", "   interval은 10초 이상이어야 해요", "   평소 문구: 문구가 하나는 있어야 해요"].join("\n")), said?.text);
 });
 
 test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {

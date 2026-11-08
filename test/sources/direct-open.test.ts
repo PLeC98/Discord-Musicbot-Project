@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { openLink, type AudioStream, type OpenOptions } from "../../src/sources/direct-open.ts";
 import { taggedMp3 } from "../helpers/tagged-audio.ts";
 
-/** 가짜 SafeUrl: 그 응답(헤더, 본문, 마지막 주소). endless 면 다 보낸 뒤에도 닫지 않고 같은 청크를 흘린다 */
+/** 가짜 SafeUrl: 그 응답(헤더, 본문, 마지막 주소). endless 면 다 보낸 뒤에도 닫지 않고 같은 청크를 계속 보낸다 */
 function netOf(body: Buffer, headers: Record<string, unknown>, { url = "https://final.test/x", endless = false } = {}) {
   const asked: OpenOptions[] = [];
   const net = {
@@ -35,7 +35,7 @@ const read = async (stream: Readable) => {
 
 test("음원: 앞부분을 읽어 판정하고 되돌려 넣는다(본문이 원본과 같다). 크기, 라디오가 아님", async (t) => {
   const mp3 = await taggedMp3();
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net } = netOf(mp3, { "content-type": "application/octet-stream", "content-length": String(mp3.length) });
   const opened = await openLink("https://files.test/a", { net });
   assert.equal(opened.kind, "file");
@@ -62,7 +62,7 @@ test("HLS, 단순 목록: 다 읽고, 상대 주소의 기준은 리다이렉트
 
 test("인터넷 라디오(끝이 없는 응답): 앞부분만 읽고 바로 답하고, 본문은 이어 흐른다", { timeout: 10_000 }, async (t) => {
   const mp3 = await taggedMp3();
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net } = netOf(mp3.subarray(0, 8000), { "content-type": "audio/mpeg", "icy-name": "라디오" }, { endless: true });
   const opened = await openLink("https://radio.test/stream", { net });
   assert.equal(opened.kind, "file");

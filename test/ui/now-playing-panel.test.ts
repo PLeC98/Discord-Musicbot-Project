@@ -58,7 +58,7 @@ test("그림이 없는 곡은 음표 썸네일: 패널 메시지에 한 번만 �
 
 test("직접 링크 곡의 파일 태그 그림: 첨부해 걸고 같은 그림이면 다시 올리지 않는다. 음표 → 그림 → 같은 그림 → 주소 그림 → 음표", async (t) => {
   const url = "https://files.test/panel-art.mp3";
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const mem = newManager();
   const player = fakePlayer({ guild: { id: "g-file-art" }, getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
   const bare: QueuedTrack = { title: "파일", pageUrl: "https://files.test/none.mp3", requestKey: "https://files.test/none.mp3", audioUrl: "https://files.test/none.mp3", duration: 127, platform: "direct", thumbnail: null };
@@ -408,7 +408,7 @@ test("진행 막대: 멈춰 있으면 고치지 않고 쉬다가 소리가 다�
   assert.equal(mem.progressTimers.has("g1"), false, "멈춤 때문에 쉰 것이 아니면 되살리지 않는다");
 });
 
-test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 멈춰 뒀으면 일시정지를 덧붙이고, 버튼은 사람의 멈춤을 따른다", async () => {
+test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 일시정지했으면 일시정지를 덧붙이고, 버튼은 사람의 멈춤을 따른다", async () => {
   const mem = newManager();
   const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
   const look = async (pause: { heldBy: string | null; userPaused: boolean }) => {
@@ -423,6 +423,6 @@ test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 멈춰
   assert.match(heldAndUser.text, /음소거됨 • 일시정지/);
   const userOnly = await look({ heldBy: null, userPaused: true });
   assert.match(userOnly.text, /일시정지/);
-  assert.notEqual(heldOnly.emoji, heldAndUser.emoji, "억제만이면 일시정지 버튼(누르면 멈춰 둔다), 사람이 멈췄으면 재생 버튼");
+  assert.notEqual(heldOnly.emoji, heldAndUser.emoji, "억제만이면 일시정지 버튼(누르면 일시정지한다), 사람이 멈췄으면 재생 버튼");
   assert.equal(heldAndUser.emoji, userOnly.emoji);
 });

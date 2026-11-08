@@ -1,10 +1,10 @@
-// 크기를 모르는 응답 본문(HLS가 모으지 않고 넘긴 세그먼트)을 흘리다 끊기면 받은 위치부터 이어 받는 읽기 스트림(media/direct-input 이 쓴다).
-// 위치 N은 이 본문에서 받은 바이트 수(모아 둔 앞부분 포함)다. 이을 때 `Range: bytes=N-`와 처음 응답의 검사값(If-Range)을 보낸다.
+// 크기를 모르는 응답 본문(HLS가 모으지 않고 넘긴 세그먼트)을 스트리밍하다 끊기면 받은 위치부터 이어 받는 읽기 스트림(media/direct-input 이 쓴다).
+// 위치 N은 이 본문에서 받은 바이트 수(모아 둔 앞부분 포함)다. 이을 때 `Range: bytes=N-`와 처음 응답의 검증값(If-Range)을 보낸다.
 //   206   Content-Range 시작이 N이어야 잇는다. 전체 길이가 적혀 있으면 기억해 다음 응답과 같은지 본다(`*`면 시작만 본다)
-//   200   서버가 Range를 무시했다. 처음 응답과 검사값이 같을 때만 처음부터 받아 N바이트를 버린다(DISCARD_MAX_BYTES까지). 검사값이 없으면 잇지 않는다
-//   그 밖  검사값이 바뀜, 416, 4xx, 구간이 어긋남, 짧은 응답은 재시도하지 않는 실패로 끝낸다
+//   200   서버가 Range를 무시했다. 처음 응답과 검증값이 같을 때만 처음부터 받아 N바이트를 버린다(DISCARD_MAX_BYTES까지). 검증값이 없으면 잇지 않는다
+//   그 밖  검증값이 바뀜, 416, 4xx, 구간이 어긋남, 짧은 응답은 재시도하지 않는 실패로 끝낸다
 // 전체 길이를 모른 채 정상으로 끝나면 끝으로 본다. 아는데 모자라게 끝나면 끊김으로 보고 잇는다.
-// 본문은 data 이벤트로 흘린다(백프레셔가 걸리면 멈춘다). SafeUrl의 무응답 감시가 데이터가 흐르는 동안만 시간을 재기 때문이다
+// 본문은 data 이벤트로 내보낸다(백프레셔가 걸리면 멈춘다). SafeUrl의 무응답 감시가 데이터가 흐르는 동안만 시간을 재기 때문이다
 
 import { Readable, finished } from "stream";
 import * as SafeUrl from "../infra/safe-url.ts";
@@ -17,16 +17,16 @@ type ResumeGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; 
 type Resumed = { attempts: number; downtimeMs: number; starvedMs: number };
 type ResumingOptions = {
   url: string;
-  /** 처음 응답의 본문(head 뒤부터 남은 것). 헤더로 검사값과 전체 길이를 읽는다 */
+  /** 처음 응답의 본문(head 뒤부터 남은 것). 헤더로 검증값과 전체 길이를 읽는다 */
   body: Readable & { headers?: Record<string, unknown> };
-  /** 이미 받아 둔 앞부분(맨 앞에 흘리고 위치에 더한다) */
+  /** 이미 받아 둔 앞부분(맨 앞에 내보내고 위치에 더한다) */
   head: Buffer | null;
-  /** 이을 때 보낼 검사값(처음 응답의 강한 ETag나 Last-Modified). 없으면 206일 때만 잇는다 */
+  /** 이을 때 보낼 검증값(처음 응답의 강한 ETag나 Last-Modified). 없으면 206일 때만 잇는다 */
   validator: string | null;
   get: ResumeGet;
   accept: SafeUrl.Accept;
   idleMs: number;
-  /** 끊긴 뒤 다시 흘리기 시작했을 때. starvedMs는 그동안 받는 쪽이 기다린 시간이다 */
+  /** 끊긴 뒤 다시 내보내기 시작했을 때. starvedMs는 그동안 받는 쪽이 기다린 시간이다 */
   onResumed?: ((info: Resumed) => void) | null;
   retryDelaysMs?: number[];
   discardMaxBytes?: number;
@@ -46,7 +46,7 @@ function lengthOf(headers: Record<string, unknown> = {}): number | null {
   return headers["content-length"] !== undefined && Number.isSafeInteger(length) && length >= 0 ? length : null;
 }
 
-/** 처음 응답의 검사값과 같은지 확인(강한 ETag, 없으면 Last-Modified) */
+/** 처음 응답의 검증값과 같은지 확인(강한 ETag, 없으면 Last-Modified) */
 function sameValidator(headers: Record<string, unknown>, validator: string) {
   const etag = headers.etag;
   if (typeof etag === "string" && etag && !etag.startsWith("W/")) return etag === validator;
@@ -57,9 +57,9 @@ function createResumingBody(options: ResumingOptions): Readable {
   const { url, head, validator, get, accept, idleMs, onResumed = null, retryDelaysMs = RETRY_DELAYS_MS, discardMaxBytes = DISCARD_MAX_BYTES } = options;
   let total = lengthOf(options.body.headers);
   let pos = 0;
-  let current: Readable | null = null; // 흘리는 중인 응답
+  let current: Readable | null = null; // 스트리밍 중인 응답
   let started = false;
-  let failures = 0; // 연속 실패. 바이트를 흘리면 0
+  let failures = 0; // 연속 실패. 바이트를 내보내면 0
   let interruptedAt = 0;
   let starvedSince = 0;
   const aborter = new AbortController();
@@ -81,7 +81,7 @@ function createResumingBody(options: ResumingOptions): Readable {
     },
   });
 
-  // 흘린다. 끊긴 뒤 처음 흘리는 바이트면 이어 받았다고 알린다. 백프레셔가 걸렸으면 false
+  // 내보낸다. 끊긴 뒤 처음 내보내는 바이트면 이어 받았다고 알린다. 백프레셔가 걸렸으면 false
   function emit(piece: Buffer) {
     if (interruptedAt) {
       const now = Date.now();
@@ -94,7 +94,7 @@ function createResumingBody(options: ResumingOptions): Readable {
     return out.push(piece);
   }
 
-  // 응답 하나를 끝까지 흘린다. 앞의 skip 바이트는 버린다. 다 버리기 전에 끝나면 재시도하지 않는 실패
+  // 응답 하나를 끝까지 내보낸다. 앞의 skip 바이트는 버린다. 다 버리기 전에 끝나면 재시도하지 않는 실패
   function pour(body: Readable, skip: number): Promise<void> {
     current = body;
     let left = skip;
@@ -115,7 +115,7 @@ function createResumingBody(options: ResumingOptions): Readable {
     });
   }
 
-  // 받은 위치부터 다시 연다. 이어 흘릴 응답과 그 앞에서 버릴 바이트
+  // 받은 위치부터 다시 연다. 이어 내보낼 응답과 그 앞에서 버릴 바이트
   async function reopen(): Promise<{ body: Readable; skip: number }> {
     let res;
     try {
@@ -149,10 +149,10 @@ function createResumingBody(options: ResumingOptions): Readable {
     return 0;
   }
 
-  // 200(구간을 무시했다): 같은 본문인지(검사값, 전체 크기), 버릴 앞부분이 상한 안인지 본다
+  // 200(구간을 무시했다): 같은 본문인지(검증값, 전체 크기), 버릴 앞부분이 상한 안인지 본다
   function acceptedWhole(headers: Record<string, unknown>): number {
-    if (!validator) throw permanent("서버가 구간을 무시했는데 검사값이 없어 같은 본문인지 알 수 없음");
-    if (!sameValidator(headers, validator)) throw permanent("본문이 바뀜(검사값이 다름)");
+    if (!validator) throw permanent("서버가 구간을 무시했는데 검증값이 없어 같은 본문인지 알 수 없음");
+    if (!sameValidator(headers, validator)) throw permanent("본문이 바뀜(검증값이 다름)");
     const size = lengthOf(headers);
     if (total !== null && size !== null && size !== total) throw permanent(`다시 받은 본문의 전체 크기가 다름: 처음 ${total}B, 지금 ${size}B`);
     if (pos > discardMaxBytes) throw permanent(`서버가 구간을 무시해서, 버릴 앞부분(${pos}B)이 상한(${discardMaxBytes}B)을 넘음`);

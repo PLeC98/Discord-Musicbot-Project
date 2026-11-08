@@ -32,14 +32,14 @@ function findTlsFiles({ envCert, envKey, root, certsDir, exists = fs.existsSync 
     const cert = path.resolve(root, envCert);
     const key = path.resolve(root, envKey);
     const missing = [cert, key].filter((f) => !exists(f));
-    if (missing.length) return { files: null, error: `.env의 DASHBOARD_TLS_CERT, DASHBOARD_TLS_KEY가 가리키는 파일이 없습니다: ${missing.join(", ")}` };
+    if (missing.length) return { files: null, error: `.env의 DASHBOARD_TLS_CERT, DASHBOARD_TLS_KEY가 가리키는 파일이 없음: ${missing.join(", ")}` };
     return { files: { cert, key, from: "env" }, error: null };
   }
   const cert = path.join(certsDir, "cert.pem");
   const key = path.join(certsDir, "key.pem");
   const has = [exists(cert), exists(key)];
   if (has[0] && has[1]) return { files: { cert, key, from: "certs" }, error: null };
-  if (has[0] || has[1]) return { files: null, error: `certs/에 ${has[0] ? "key.pem" : "cert.pem"}이 없습니다. cert.pem과 key.pem을 둘 다 두거나 둘 다 빼세요.` };
+  if (has[0] || has[1]) return { files: null, error: `certs/에 ${has[0] ? "key.pem" : "cert.pem"}이 없음. cert.pem과 key.pem을 둘 다 두거나 둘 다 빼세요` };
   return { files: null, error: null };
 }
 
@@ -61,12 +61,12 @@ const daysLeft = (leaf: X509Certificate, now: number) => Math.ceil((Date.parse(l
 
 /** 키 PEM을 읽는다. 암호가 걸렸거나 읽지 못하면 그 까닭 */
 function keyProblem(keyPem: string): string | null {
-  if (/ENCRYPTED/.test(keyPem)) return "키에 암호가 걸려 있어 쓸 수 없습니다. 암호를 푼 키를 쓰세요(예: openssl pkey -in 암호키.pem -out key.pem).";
+  if (/ENCRYPTED/.test(keyPem)) return "키에 암호가 걸려 있어 쓸 수 없음. 암호를 푼 키를 쓰세요(예: openssl pkey -in 암호키.pem -out key.pem)";
   try {
     createPrivateKey(keyPem);
     return null;
   } catch (error) {
-    return `키를 읽지 못했습니다(PEM 형식의 개인 키인지 확인하세요): ${messageOf(error)}`;
+    return `키 읽기 실패(PEM 형식의 개인 키인지 확인하세요): ${messageOf(error)}`;
   }
 }
 
@@ -76,12 +76,12 @@ function keyProblem(keyPem: string): string | null {
  */
 function checkTls({ certPem, keyPem, urlHost, now = Date.now(), keyWorldReadable = false }: { certPem: string; keyPem: string; urlHost: string; now?: number; keyWorldReadable?: boolean }): Checked {
   const blocks = certPem.match(CERT_BLOCK) ?? [];
-  if (!blocks.length) return { ok: false, errors: ["인증서 파일이 PEM 형식이 아닙니다(-----BEGIN CERTIFICATE-----로 시작하는 파일)."] };
+  if (!blocks.length) return { ok: false, errors: ["인증서 파일이 PEM 형식이 아님(-----BEGIN CERTIFICATE-----로 시작하는 파일)"] };
   let certs: X509Certificate[];
   try {
     certs = blocks.map((b) => new X509Certificate(b));
   } catch (error) {
-    return { ok: false, errors: [`인증서를 읽지 못했습니다: ${messageOf(error)}`] };
+    return { ok: false, errors: [`인증서 읽기 실패: ${messageOf(error)}`] };
   }
   const [leaf, ...rest] = certs;
   const errors = fatalProblems(leaf, keyPem, now);
@@ -92,13 +92,13 @@ function checkTls({ certPem, keyPem, urlHost, now = Date.now(), keyWorldReadable
 function fatalProblems(leaf: X509Certificate, keyPem: string, now: number) {
   const errors: string[] = [];
   // 깨진 날짜는 OpenSSL에서 "Bad time value"가 되어 Date.parse가 NaN이 된다(그대로 두면 유효 기간 검사를 모두 통과한다)
-  if (!validRange(leaf)) return [...errors, `인증서의 유효 기간을 읽지 못했습니다(${leaf.validFrom} ~ ${leaf.validTo}). 다시 발급받은 인증서를 쓰세요.`];
-  if (leaf.ca) errors.push("인증서 파일의 맨 앞이 서버 인증서가 아닙니다(CA 인증서). 서버 인증서 다음에 중간 인증서를 이어 붙이세요.");
+  if (!validRange(leaf)) return [...errors, `인증서의 유효 기간 읽기 실패(${leaf.validFrom} ~ ${leaf.validTo}). 다시 발급받은 인증서를 쓰세요`];
+  if (leaf.ca) errors.push("인증서 파일의 맨 앞이 서버 인증서가 아님(CA 인증서). 서버 인증서 다음에 중간 인증서를 이어 붙이세요");
   const badKey = keyProblem(keyPem);
   if (badKey) errors.push(badKey);
-  else if (!leaf.ca && !leaf.checkPrivateKey(createPrivateKey(keyPem))) errors.push("키가 인증서와 짝이 아닙니다. 그 인증서를 발급받을 때 쓴 키를 넣으세요.");
-  if (Date.parse(leaf.validFrom) > now) errors.push(`인증서가 아직 유효하지 않습니다(유효 시작 ${dateText(Date.parse(leaf.validFrom))}). 기기의 시각을 확인하세요.`);
-  if (Date.parse(leaf.validTo) <= now) errors.push(`인증서의 기한이 지났습니다(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요.`);
+  else if (!leaf.ca && !leaf.checkPrivateKey(createPrivateKey(keyPem))) errors.push("키가 인증서와 짝이 아님. 그 인증서를 발급받을 때 쓴 키를 넣으세요");
+  if (Date.parse(leaf.validFrom) > now) errors.push(`인증서가 아직 유효하지 않음(유효 시작 ${dateText(Date.parse(leaf.validFrom))}). 기기의 시각을 확인하세요`);
+  if (Date.parse(leaf.validTo) <= now) errors.push(`인증서의 기한이 지남(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요`);
   return errors;
 }
 
@@ -106,17 +106,17 @@ function fatalProblems(leaf: X509Certificate, keyPem: string, now: number) {
 function softProblems({ leaf, rest, urlHost, now, keyWorldReadable }: { leaf: X509Certificate; rest: X509Certificate[]; urlHost: string; now: number; keyWorldReadable: boolean }) {
   const notes: Note[] = [];
   const issued = rest.some((c) => leaf.checkIssued(c));
-  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: "인증서 파일에 중간 인증서가 없습니다. 브라우저는 대개 스스로 찾지만 일부 기기는 붙지 못할 수 있습니다(fullchain.pem처럼 서버 인증서 다음에 중간 인증서를 이은 파일을 쓰세요)." });
+  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: "인증서 파일에 중간 인증서가 없음. 브라우저는 대개 스스로 찾지만 일부 기기는 접속하지 못할 수 있음(fullchain.pem처럼 서버 인증서 다음에 중간 인증서를 이은 파일을 쓰세요)" });
   // 호스트 이름 검증은 현행 표준(RFC 9525)대로: 부분 와일드카드(a*.example.com), SAN이 없을 때 CN으로 대체하는 것은 허용하지 않는다
   const named = isIP(urlHost) ? leaf.checkIP(urlHost) : leaf.checkHost(urlHost, { partialWildcards: false, subject: "never" });
-  if (!named) notes.push({ level: "warn", text: `인증서의 이름에 공개 주소의 호스트(${urlHost})가 없습니다. 브라우저가 경고합니다(인증서 이름: ${leaf.subjectAltName ?? leaf.subject}).` });
+  if (!named) notes.push({ level: "warn", text: `인증서의 이름에 공개 주소의 호스트(${urlHost})가 없음. 브라우저가 경고함(인증서 이름: ${leaf.subjectAltName ?? leaf.subject})` });
   const left = daysLeft(leaf, now);
   if (left <= WARN_DAYS) notes.push({ level: "warn", text: expiryText(left, leaf) });
-  if (keyWorldReadable) notes.push({ level: "warn", text: "키 파일을 이 기기의 다른 사용자도 읽을 수 있습니다(chmod 600)." });
+  if (keyWorldReadable) notes.push({ level: "warn", text: "키 파일을 이 기기의 다른 사용자도 읽을 수 있음(chmod 600)" });
   return notes;
 }
 
-const expiryText = (left: number, leaf: X509Certificate) => `대시보드 인증서의 기한이 ${left}일 남았습니다(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요.`;
+const expiryText = (left: number, leaf: X509Certificate) => `대시보드 인증서의 기한이 ${left}일 남음(${dateText(Date.parse(leaf.validTo))}). 새 인증서로 바꾸고 봇을 다시 시작하세요`;
 
 /** Mozilla intermediate(TLS 1.2 cipher suite, TLS 1.3은 OpenSSL 기본 세 가지). Node 기본에는 CBC cipher suite가 들어 있다 */
 const CIPHERS = ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256", "ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305", "ECDHE-RSA-CHACHA20-POLY1305", "DHE-RSA-AES128-GCM-SHA256", "DHE-RSA-AES256-GCM-SHA384", "DHE-RSA-CHACHA20-POLY1305"].join(":");

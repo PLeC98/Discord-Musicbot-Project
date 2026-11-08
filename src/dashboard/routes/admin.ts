@@ -328,7 +328,7 @@ adminRouter.post("/ai/tokens", async (req, res) => {
   }
 });
 
-/** 모델 정보(모델 프로필, 가격표)를 받는다. 목차의 해시가 같으면 받지 않는다. AI 설정 화면을 열 때, 모델 목록 새로고침이 부른다. 답의 수는 모델 프로필의 것 */
+/** 모델 정보(모델 프로필, 가격표)를 받는다. 인덱스의 해시가 같으면 받지 않는다. AI 설정 화면을 열 때나 모델 목록을 새로고침할 때 부른다. 답의 수는 모델 프로필의 것 */
 adminRouter.post("/ai/models/refresh", async (req, res) => {
   try {
     res.json(await refreshModelInfo({ force: !!req.body?.force }));
@@ -390,14 +390,14 @@ function aiKeyProblem(provider: string, value: unknown, draft: Record<string, un
   if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더`;
   if (typeof value !== "string") return `${provider}: 키는 문자열이어야 함`;
   if (!value.trim()) return null;
-  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없습니다. 주소를 먼저 입력하세요`;
+  if (!/^https?:\/\//.test(assist.keyBinding({ ...draft, provider }))) return `${spec.label}: 키를 묶을 주소가 없음. 주소를 먼저 입력하세요`;
   if (spec.serviceAccount) return accountProblem(spec.label, value);
   return null;
 }
 
 // 서비스 계정은 쓸 때 읽는 것(googleAuth.readAccount)과 같은 검사로 저장 전에 본다. 잘못 붙여넣은 것이 쓸 때야 드러나지 않게
 function accountProblem(label: string, value: string) {
-  if (!value.trim().startsWith("{")) return `${label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않습니다)`;
+  if (!value.trim().startsWith("{")) return `${label}: 서비스 계정 JSON 내용을 붙여넣으세요(파일 경로는 받지 않음)`;
   try {
     googleAuth.readAccount(value);
     return null;

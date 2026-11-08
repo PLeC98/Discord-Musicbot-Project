@@ -43,7 +43,7 @@ test("전환이 없으면 소스를 그대로 통과시킨다", async () => {
   assert.deepEqual(await collect(sp), body);
 });
 
-test("프레임보다 짧은 꼬리도 흘리지 않고 끝낸다", async () => {
+test("프레임보다 짧은 꼬리도 버리지 않고 내보낸 뒤 끝낸다", async () => {
   // 'end'는 버퍼를 다 비워야 온다. 꼬리를 남기면 스트림이 영영 안 끝나 트랙이 멈춘다
   const src = new PassThrough();
   const sp = new AudioSplicer(src);

@@ -20,7 +20,7 @@ const CATEGORY_LABELS: Readonly<Record<SkipCategory, string>> = {
 
 // 구간 종류마다의 설명. 설정 화면이 이름 옆에 보인다
 const CATEGORY_DESCRIPTIONS: Readonly<Record<SkipCategory, string>> = {
-  music_offtopic: "이 구간은 뮤직비디오에서만 해당합니다.",
+  music_offtopic: "뮤직비디오에만 해당하는 구간",
   intro: "반복되는 애니메이션이나 정적 프레임과 같은 내용을 포함하는 구간",
   outro: "최종 화면이나 크레딧 내용을 포함하는 구간",
   sponsor: "유료 광고, 유료 협찬과 같은 직접적인 광고 내용을 포함하는 구간",

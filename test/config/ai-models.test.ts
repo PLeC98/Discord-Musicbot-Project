@@ -134,7 +134,7 @@ test("갱신 모양 검사: 레지스트리 사본은 스스로와 견줘 통과
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
 
-// ── 갱신: 목차(index.json)의 해시로 보고 카탈로그(catalog.json) 하나를 받는다 ──
+// ── 갱신: 인덱스(index.json)의 해시로 보고 카탈로그(catalog.json) 하나를 받는다 ──
 
 const FIELD = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
 const catalogOf = (hash: string, more: Record<string, unknown> = {}) => ({
@@ -184,7 +184,7 @@ test("갱신: 해시가 같으면 카탈로그를 받지 않는다. force 면 �
   assert.deepEqual(asked, ["index.json", "index.json", "catalog.json?h=h1"]);
 });
 
-test("갱신: 목차와 카탈로그의 해시가 다르거나 형식 버전이 다르면 쓰지 않는다", async () => {
+test("갱신: 인덱스와 카탈로그의 해시가 다르거나 형식 버전이 다르면 쓰지 않는다", async () => {
   useModelInfo();
   const stale = registry(
     () => ({ schemaVersion: 4, hash: "h2" }),

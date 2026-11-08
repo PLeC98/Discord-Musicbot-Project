@@ -17,7 +17,7 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
 
 /**
  * refused: 부르지 않았다, already: 이미 그 채널에 있다, joined: 붙어서 곡을 기다린다,
- * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 멈춰 뒀다), restore-error: 복원하다가 오류가 나 플레이어를 버렸다
+ * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 일시정지해 뒀다), restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
 type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "bot-shutting-down" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number; parked: boolean } | { kind: "restore-error" };
 
@@ -62,7 +62,7 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머, 상태 동기화, 캐시 퇴거 보호가
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
   if (existing) {
-    await existing.dispose({ reason: "봇 부르기 교체", session: "keep", end: "replaced" });
+    await existing.dispose({ reason: "다시 접속하며 교체", session: "keep", end: "replaced" });
     go?.();
     if (isShuttingDown()) return SHUTTING_DOWN;
   }

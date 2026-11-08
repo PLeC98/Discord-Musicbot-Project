@@ -454,7 +454,7 @@ function firstBody(body: Buffer, dieAt?: number) {
   });
 }
 
-test("첫 응답을 받으면 그 본문을 끝까지 흘리고 Range 요청은 하지 않는다", async () => {
+test("첫 응답을 받으면 그 본문을 끝까지 내보내고 Range 요청은 하지 않는다", async () => {
   const body = makeBody(50_000);
   const seen: unknown[] = [];
   const first = firstBody(body);
@@ -545,7 +545,7 @@ const HEAD = Buffer.from("MEDIA-HEADER");
 /** 키프레임 자리의 앞 4바이트를 확인한다 */
 const expectAt = (body: Buffer, at: number) => ({ bytes: 4, check: (head: Buffer) => Buffer.compare(head.subarray(0, 4), body.subarray(at, at + 4)) === 0 });
 
-test("startByte, prefix: 헤더를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
+test("startByte, prefix: 헤더를 먼저 내보내고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
   const body = makeBody(50_000);
   const seen: Array<{ start: number }> = [];
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 30_000, prefix: HEAD, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
@@ -554,7 +554,7 @@ test("startByte, prefix: 헤더를 먼저 흘리고 그 바이트부터 받는�
   assert.deepEqual([s.stats().received, s.stats().totalBytes, s.stats().startByte], [body.length, body.length, 30_000]);
 });
 
-test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(청크가 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 흘린다", async () => {
+test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(청크가 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 내보낸다", async () => {
   const body = makeBody(40_000);
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 20_000, prefix: HEAD, expectStart: expectAt(body, 20_000), fetchImpl: fakeFetch(body, { sliceBytes: 3 }) });
   assert.deepEqual(await collect(s), Buffer.concat([HEAD, body.subarray(20_000)]));

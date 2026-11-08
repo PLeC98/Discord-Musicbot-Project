@@ -1,4 +1,4 @@
-// src/media/resuming-body.ts: 크기를 모르는 본문이 끊기면 받은 위치부터 이어 받는다. 206은 Content-Range 시작과 전체 크기를, 구간을 무시한 200은 검사값을 확인하고 받은 만큼 버린다.
+// src/media/resuming-body.ts: 크기를 모르는 본문이 끊기면 받은 위치부터 이어 받는다. 206은 Content-Range 시작과 전체 크기를, 구간을 무시한 200은 검증값을 확인하고 받은 만큼 버린다.
 // 바뀐 본문, 어긋난 구간, 416, 짧은 응답, 버릴 앞부분 상한 초과는 재시도하지 않는 실패. 취소하면 요청과 본문을 닫고, 읽는 쪽이 멈추면 본문을 멈춘다
 
 import { Readable } from "node:stream";
@@ -12,7 +12,7 @@ const ACCEPT = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/ };
 const bytesOf = (size: number) => Buffer.from(Array.from({ length: size }, (_, i) => (i * 7 + (i >> 8)) & 0xff));
 
 type Body = Readable & { headers: Record<string, unknown>; status: number };
-// data 를 from 부터 chunk 씩 흘리고 cut(절대 위치)에서 끊는다
+// data 를 from 부터 chunk 씩 내보내고 cut(절대 위치)에서 끊는다
 function bodyOf(data: Buffer, { from = 0, cut, chunk = 1000, headers = {}, status = 200 }: { from?: number; cut?: number; chunk?: number; headers?: Record<string, unknown>; status?: number } = {}): Body {
   let off = from;
   const stream = new Readable({
@@ -59,7 +59,7 @@ const ranged =
   ({ from }: Asked, n: number) =>
     bodyOf(data, { from, cut: cuts[n - 1], status: 206, headers: { "content-range": `bytes ${from}-${data.length - 1}/${size}`, etag: '"v1"' } });
 
-test("청크 경계가 아닌 위치에서 여러 번 끊겨도 받은 위치부터 If-Range 로 이어 받아 원본과 같은 바이트를 흘리고, 이어 받을 때마다 알린다", async () => {
+test("청크 경계가 아닌 위치에서 여러 번 끊겨도 받은 위치부터 If-Range 로 이어 받아 원본과 같은 바이트를 내보내고, 이어 받을 때마다 알린다", async () => {
   const data = bytesOf(50_003);
   const { stream, asked, resumed } = setup(data, ranged(data, [20_001, 33_337]), { headBytes: 3_001, firstCut: 7_777 });
   assert.deepEqual(await readAll(stream), data);
@@ -111,7 +111,7 @@ test("어긋난 구간, 다른 전체 크기, 416, 4xx 는 재시도하지 않�
   }
 });
 
-test("구간을 무시한 200: 검사값이 같으면 처음부터 받아 받은 만큼 버린다. 다르거나 검사값이 없거나 받은 위치보다 짧거나 상한을 넘으면 실패한다", async () => {
+test("구간을 무시한 200: 검증값이 같으면 처음부터 받아 받은 만큼 버린다. 다르거나 검증값이 없거나 받은 위치보다 짧거나 상한을 넘으면 실패한다", async () => {
   const data = bytesOf(40_000);
   const whole =
     (headers: Record<string, unknown>, size = data.length) =>
@@ -122,9 +122,9 @@ test("구간을 무시한 200: 검사값이 같으면 처음부터 받아 받은
   assert.deepEqual(await readAll(same.stream), data);
 
   const fails: Array<[string, ReturnType<typeof setup>, RegExp]> = [
-    ["검사값이 다름", setup(data, whole({ etag: '"v2"' }), { firstCut: 12_345 }), /바뀜/],
-    ["약한 ETag 는 검사값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀜/],
-    ["검사값이 없음", setup(data, whole({}), { firstCut: 12_345, validator: null, firstHeaders: {} }), /검사값이 없어/],
+    ["검증값이 다름", setup(data, whole({ etag: '"v2"' }), { firstCut: 12_345 }), /바뀜/],
+    ["약한 ETag 는 검증값이 아니다", setup(data, whole({ etag: 'W/"v1"' }), { firstCut: 12_345 }), /바뀜/],
+    ["검증값이 없음", setup(data, whole({}), { firstCut: 12_345, validator: null, firstHeaders: {} }), /검증값이 없어/],
     ["받은 위치보다 짧음", setup(data, whole({ etag: '"v1"' }, 10_000), { firstCut: 12_345 }), /짧음/],
     ["전체 크기가 다름", setup(data, whole({ etag: '"v1"', "content-length": String(data.length + 1) }), { firstCut: 12_345, firstHeaders: { etag: '"v1"', "content-length": String(data.length) } }), /전체 크기/],
     ["버릴 앞부분이 상한을 넘음", setup(data, whole({ etag: '"v1"' }), { firstCut: 12_345, discardMaxBytes: 12_000 }), /상한/],
@@ -135,7 +135,7 @@ test("구간을 무시한 200: 검사값이 같으면 처음부터 받아 받은
   }
 });
 
-test("검사값이 Last-Modified 여도 같은 본문인지 확인한다", async () => {
+test("검증값이 Last-Modified 여도 같은 본문인지 확인한다", async () => {
   const data = bytesOf(20_000);
   const modified = "Wed, 21 Oct 2026 07:28:00 GMT";
   const { stream, asked } = setup(data, () => bodyOf(data, { headers: { "last-modified": modified } }), { firstCut: 6_000, validator: modified, firstHeaders: { "last-modified": modified } });
@@ -165,7 +165,7 @@ test("재시도할 수 있는 실패는 연달아 세 번까지 재시도하고,
   assert.equal(dead.asked.length, 3, "네 번째는 없다");
 });
 
-test("취소하면 기다리던 요청을 끊고 흘리던 본문을 닫는다. 그 뒤로 다시 받지 않는다", async () => {
+test("취소하면 기다리던 요청을 끊고 스트리밍하던 본문을 닫는다. 그 뒤로 다시 받지 않는다", async () => {
   const data = bytesOf(30_000);
   let signal: AbortSignal | null = null;
   const pending = setup(data, () => new Error("쓰지 않는다"), {

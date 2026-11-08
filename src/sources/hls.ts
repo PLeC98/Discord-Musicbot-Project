@@ -1,14 +1,14 @@
-// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 흘리는 것은 media/fragment-stream 이 한다.
+// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 내보내는 것은 media/fragment-stream 이 한다.
 // 모든 요청(상위, 하위 목록, 세그먼트, 초기화 세그먼트, 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
 //   상위 목록   오디오 전용 하위 목록이 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
-//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 위치가 든 세그먼트부터, 끝까지 받으면 끝. 받은 크기를 합쳐 음원 상한으로 센다. 읽을 수 없는 바이트 구간이 있으면 열지 않는다
+//   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 시작 위치를 포함한 세그먼트부터, 끝까지 받으면 끝. 받은 크기의 합을 음원 크기 상한과 비교한다. 읽을 수 없는 바이트 구간이 있으면 열지 않는다
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
-//              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 "방송이 끝남"으로 읽지 않게).
+//              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 방송 종료로 오인하지 않게).
 //              읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다)
 //   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range로 받아 모은다. 구간을 무시하고 200으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
 // 구간 없는 세그먼트는 작고 빨리 오면 모으고(실패하면 처음부터 다시), 크거나 늦으면 모으지 않고 받는 쪽(media/direct-input)에 넘긴다(HlsPour).
-// 모으는 동안은 ffmpeg에 입력이 없어 재생 쪽 감시(끊김 10초, 버퍼링 15초)에 걸린다. 넘긴 세그먼트는 받는 쪽이 흘리고, 알린 크기가 있으면 끊긴 위치부터 잇는다
+// 모으는 동안은 ffmpeg에 입력이 없어 재생 쪽 감시(끊김 10초, 버퍼링 15초)에 걸린다. 넘긴 세그먼트는 받는 쪽이 내보내고, 알린 크기가 있으면 끊긴 위치부터 잇는다
 
 import crypto from "node:crypto";
 import type { Readable } from "node:stream";
@@ -22,7 +22,7 @@ const log = logger.child({ category: "link" });
 /** 받을 것 하나: 세그먼트거나, 초기화 세그먼트가 바뀌었을 때의 초기화 세그먼트 */
 type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence: number };
 /**
- * 모으지 않고 넘긴 세그먼트. 받는 쪽(media/direct-input)이 주인이 되어 흘리고 닫는다.
+ * 모으지 않고 넘긴 세그먼트. 받는 쪽(media/direct-input)이 주인이 되어 내보내고 닫는다.
  * totalBytes: 알린 크기로 곧바로 넘겼다(body는 처음부터 남아 있다. 끊기면 url로 Range 이어 받기). null이면 모으다 넘겼다(head 뒤에 body의 나머지, 잇지 않는다).
  * key, iv: AES-128일 때. get: 이어 받기, 끝 블록 확인에 쓰는 요청(이 HLS의 net). count: VOD 합계에 받은 바이트(암호문)를 더한다(넘으면 던진다)
  */
@@ -39,7 +39,7 @@ type HlsPour = {
   get: StreamNet["getStream"];
   count(bytes: number): void;
 };
-/** media/fragment-stream의 출처 모양(레이어 순서상 그 타입을 쓰지 않는다). 넘긴 세그먼트는 받는 쪽이 흘릴 스트림으로 바꾼다 */
+/** media/fragment-stream의 출처 모양(레이어 순서상 그 타입을 쓰지 않는다). 넘긴 세그먼트는 받는 쪽이 내보낼 스트림으로 바꾼다 */
 type HlsFragments = {
   next(): Promise<HlsPart | null>;
   fetch(part: HlsPart, signal: AbortSignal, progress?: () => void): Promise<Buffer | HlsPour>;
@@ -66,7 +66,7 @@ const KEY_ACCEPT: SafeUrl.Accept = { contentType: /(?:)/, maxBytes: 1024, timeou
 const PART_ACCEPT: SafeUrl.Accept = { ...SafeUrl.DIRECT_LINK, contentType: /(?:)/, maxBytes: 64 * 1024 * 1024 };
 /** 바이트 구간 세그먼트. 구간을 무시하는 서버는 파일 전체의 크기를 알려 오니 파일 상한으로 열고, 모으는 양은 구간 끝까지로 묶는다(fetchPart) */
 const RANGED_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BYTES };
-/** 구간 없는 세그먼트. 크면 모으지 않고 흘리니 파일 상한으로 연다 */
+/** 구간 없는 세그먼트. 크면 모으지 않고 스트리밍하니 파일 상한으로 연다 */
 const WHOLE_ACCEPT: SafeUrl.Accept = { ...PART_ACCEPT, maxBytes: SafeUrl.MAX_BYTES };
 /** 여는 쪽이 무응답 한도를 주지 않을 때(캐시 다운로드). 재생은 플레이어가 버티는 10초보다 짧게 준다 */
 const HLS_IDLE_MS = 10_000;
@@ -362,7 +362,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
     },
     fetch: (part, signal, progress = ignore) => fetchPart(parts, part, signal, progress),
     startedAtMs,
-    describe: (sent) => `HLS ${startMs === null ? "라이브" : "VOD"} · 세그먼트 ${sent}개 흘림 · 마지막 순번 ${lastSequence}${startMs === null ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
+    describe: (sent) => `HLS ${startMs === null ? "라이브" : "VOD"} · 세그먼트 ${sent}개 내보냄 · 마지막 순번 ${lastSequence}${startMs === null ? ` · 목록 다시 받음 ${reloads}회` : ""}`,
     close() {
       closed = true;
     },

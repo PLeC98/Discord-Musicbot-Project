@@ -98,7 +98,7 @@ class DbFile {
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return;
     const rule = this.spec.onMismatch;
-    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 종료하고 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듭니다. 삭제하면 ${rule.lost}`;
+    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않음(DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 종료하고 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듦. 삭제하면 ${rule.lost}`;
     throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
   }
 

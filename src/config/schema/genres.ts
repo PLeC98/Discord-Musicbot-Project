@@ -23,50 +23,50 @@ function sourceOf(type: string) {
   return z
     .looseObject({
       type: z.literal(type),
-      weight: present((v) => Number(v) >= 1, "{where}: weight는 1 이상이어야 합니다."),
-      minScore: present((v) => Number(v) >= 0, "{where}: minScore는 0 이상이어야 합니다."),
+      weight: present((v) => Number(v) >= 1, "{where}: weight는 1 이상이어야 해요"),
+      minScore: present((v) => Number(v) >= 0, "{where}: minScore는 0 이상이어야 해요"),
     })
     .superRefine((source, ctx) => {
       // 안쪽 배열은 "이 중 하나는 있어야 한다"
       for (const group of spec.need) {
-        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: `${at}: ${group.join(" 또는 ")} 를 적어야 합니다.` });
+        if (!group.some((key) => filled(source[key]))) ctx.addIssue({ code: "custom", message: `${at}: ${group.join(" 또는 ")} 중 하나를 적어야 해요` });
       }
       // 값이 정해져 있는 필드의 오타. 여기서 안 잡으면 저쪽이 422를 주고 그 소스가 조용히 빈손이 된다
       for (const [key, allowed] of Object.entries(spec.enums || {})) {
         if (source[key] == null) continue;
         for (const one of Array.isArray(source[key]) ? source[key] : [source[key]]) {
-          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${String(one)}"는 쓸 수 없습니다. 쓸 수 있는 것: ${allowed.join(", ")}` });
+          if (!allowed.includes(one as string)) ctx.addIssue({ code: "custom", message: `${at}: ${key}에 "${String(one)}" 값은 쓸 수 없어요. 쓸 수 있는 것: ${allowed.join(", ")}` });
         }
       }
-      if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "{where}: yearFrom이 yearTo보다 큽니다." });
-      if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) ctx.addIssue({ code: "custom", message: "{where}: minLength가 maxLength보다 큽니다." });
+      if (source.yearFrom != null && source.yearTo != null && Number(source.yearFrom) > Number(source.yearTo)) ctx.addIssue({ code: "custom", message: "{where}: yearFrom이 yearTo보다 커요" });
+      if (source.minLength != null && source.maxLength != null && Number(source.minLength) > Number(source.maxLength)) ctx.addIssue({ code: "custom", message: "{where}: minLength가 maxLength보다 커요" });
     }, ALWAYS);
 }
 
 const [firstSource, ...restSources] = TYPES.map((type) => sourceOf(type));
 const source = z.discriminatedUnion("type", [firstSource, ...restSources], {
-  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 합니다." : `{where}: 모르는 종류입니다(${String((issue.input as { type?: unknown }).type)}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
+  error: (issue) => (!issue.input || typeof issue.input !== "object" ? "{where}: type과 값을 적어야 해요" : `{where}: 모르는 종류예요(${String((issue.input as { type?: unknown }).type)}). 쓸 수 있는 것: ${TYPES.join(", ")}`),
 });
 
 const genre = z.preprocess(
   plain,
   z.object({
     // 보여 줄 이름(디스코드 메뉴, 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
-    label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비우지 않은 글(100자까지)이어야 합니다."),
-    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "{id}: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 합니다."),
+    label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비울 수 없고 100자까지 쓸 수 있어요"),
+    emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "{id}: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 해요"),
     // 맨 위 keywords: 는 읽지 않고 sources 로 옮기라고 알린다(두 형식을 함께 받지 않는다)
     keywords: z
       .unknown()
-      .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
+      .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords:는 더 이상 쓰지 않아요. sources:로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
       .optional(),
-    sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 합니다." }),
+    sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }),
     // 기본값의 길이는 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile 이 본다(제외 키워드는 키워드 출처 필드가 덮어쓴다)
-    minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 합니다."),
-    maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 합니다."),
+    minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 해요"),
+    maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 해요"),
     // 미리 준비해 둘 곡 수는 기본값에만 둔다. 재생도 장르와 상관없이 기본값만 본다
     prefetchCount: z
       .unknown()
-      .refine((v) => v === undefined, { error: "{id}: prefetchCount는 장르마다 둘 수 없습니다. defaults 에만 적어 주세요." })
+      .refine((v) => v === undefined, { error: "{id}: prefetchCount는 장르마다 둘 수 없어요. defaults에만 적어 주세요" })
       .optional(),
   }),
 );
@@ -75,15 +75,15 @@ const genres = z.preprocess(
   keyed,
   z.record(z.string(), genre).superRefine((all, ctx) => {
     const ids = Object.keys(all);
-    if (ids.length === 0) ctx.addIssue({ code: "custom", message: "장르가 하나도 없습니다." });
+    if (ids.length === 0) ctx.addIssue({ code: "custom", message: "장르가 하나도 없어요" });
     // 장르 선택은 디스코드 선택 메뉴 하나다
-    if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개입니다. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여줍니다.` });
+    if (ids.length > SELECT_MAX) ctx.addIssue({ code: "custom", message: `장르가 ${ids.length}개예요. 디스코드 선택 메뉴는 ${SELECT_MAX}개까지만 보여 줘요` });
     for (const id of ids) {
       // 키가 식별자다(주소, 버튼 id, AI의 {{genre}}). 화면처럼 앞뒤 공백을 뺀 이름으로 본다
-      if (!id.trim()) ctx.addIssue({ code: "custom", message: "장르 식별자가 비었습니다." });
-      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 순서가 어긋납니다. "${id}s"처럼 글자를 붙여 주세요.` });
+      if (!id.trim()) ctx.addIssue({ code: "custom", message: "장르 식별자가 비어 있어요" });
+      if (NUMERIC_NAME.test(id)) ctx.addIssue({ code: "custom", message: `"${id}": 숫자만으로 된 식별자는 순서가 어긋나요. "${id}s"처럼 글자를 붙여 주세요` });
       // 디스코드 선택지 값(식별자)은 100자까지
-      if (id.length > 100) ctx.addIssue({ code: "custom", message: `"${id.slice(0, 20)}…": 식별자는 100자까지입니다.` });
+      if (id.length > 100) ctx.addIssue({ code: "custom", message: `"${id.slice(0, 20)}…": 식별자는 100자까지 쓸 수 있어요` });
     }
   }, ALWAYS),
 );
@@ -95,17 +95,17 @@ const defaults = z.preprocess(
   plain,
   z
     .object({
-      prefetchCount: present((v) => Number(v) >= 1, "prefetchCount는 1 이상이어야 합니다."),
-      minDurationSec: present((v) => Number(v) >= 0, "minDurationSec은 0 이상이어야 합니다."),
-      maxDurationSec: present((v) => Number(v) > 0, "maxDurationSec은 비우거나 0보다 커야 합니다."),
+      prefetchCount: present((v) => Number(v) >= 1, "prefetchCount는 1 이상이어야 해요"),
+      minDurationSec: present((v) => Number(v) >= 0, "minDurationSec은 0 이상이어야 해요"),
+      maxDurationSec: present((v) => Number(v) > 0, "maxDurationSec은 비우거나 0보다 커야 해요"),
       // 제외 키워드. 키워드 출처의 후보(유튜브 검색 결과)에만 건다. 다른 출처는 곡 이름이 확실해 오탐만 낸다
-      blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 합니다."),
+      blockedKeywords: present(Array.isArray, "blockedKeywords는 목록으로 적어야 해요"),
     })
     .superRefine((d, ctx) => {
       if (d.maxDurationSec == null) return;
       const min = d.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       if (Number(min) <= Number(d.maxDurationSec)) return;
-      const message = d.minDurationSec == null ? `maxDurationSec(${String(d.maxDurationSec)})이 비운 minDurationSec의 기본값(${String(min)})보다 작습니다.` : "minDurationSec이 maxDurationSec보다 큽니다.";
+      const message = d.minDurationSec == null ? `maxDurationSec(${String(d.maxDurationSec)})이 minDurationSec의 기본값(${String(min)})보다 작아요` : "minDurationSec이 maxDurationSec보다 커요";
       ctx.addIssue({ code: "custom", message });
     }, ALWAYS),
 );
@@ -120,7 +120,7 @@ const genresFile = z.preprocess(
       if (own.minDurationSec == null && own.maxDurationSec == null) continue;
       const min = own.minDurationSec ?? base.minDurationSec ?? GENRE_DEFAULTS.minDurationSec;
       const max = own.maxDurationSec ?? base.maxDurationSec;
-      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${String(min)})이 maxDurationSec(${String(max)})보다 큽니다.` });
+      if (min != null && max != null && Number(min) > Number(max)) ctx.addIssue({ code: "custom", message: `${id}: 이 장르의 minDurationSec(${String(min)})이 maxDurationSec(${String(max)})보다 커요` });
     }
   }, ALWAYS),
 );

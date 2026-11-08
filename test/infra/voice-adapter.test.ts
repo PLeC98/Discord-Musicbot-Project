@@ -11,7 +11,7 @@ type VoiceState = Parameters<DiscordGatewayAdapterLibraryMethods["onVoiceStateUp
 // 게이트웨이로 보낸 것. 여기서 보는 필드만
 type Payload = { op: number; d: { channel_id: string | null } };
 
-// 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 흘려 넣을 수 있게 한다
+// 디스코드 쪽 어댑터 대신. 보낸 것을 적고, 게이트웨이 알림을 주입할 수 있게 한다
 function setup(t: TestContext) {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const sent: Payload[] = [];

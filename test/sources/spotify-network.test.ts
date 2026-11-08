@@ -148,7 +148,7 @@ test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 �
   const seen: Array<[string, Record<string, unknown>]> = [];
   const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e2", undefined, { query: anonQuery(seen) })).tracks;
   assert.equal(t.title, "익명 곡");
-  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && /키가 틀렸습니다/.test(e.text)));
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && /키가 틀림/.test(e.text)));
   assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/track/gone", undefined, { query: anonQuery(seen) }), { tracks: [], total: null, nextOffset: null });
 });
 

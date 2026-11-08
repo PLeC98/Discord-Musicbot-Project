@@ -119,7 +119,7 @@ loginBackgroundRouter.post("/upload", async (req, res) => {
   const one = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
   one.bytes = saved.bytes;
   runner.kick();
-  changed(req, res, `"${name}"${josa(name, "을")} 올렸습니다(${formatBytes(saved.bytes)})`);
+  changed(req, res, `"${name}"${josa(name, "을")} 업로드(${formatBytes(saved.bytes)})`);
 });
 
 // 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림, 영상
@@ -131,7 +131,7 @@ loginBackgroundRouter.post("/link", (req, res) => {
   const youtube = isYouTubeURL(url);
   store.create({ kind: youtube ? "video" : "image", from: youtube ? "youtube" : "link", name: url, link: url });
   runner.kick();
-  changed(req, res, `링크로 추가했습니다(${url})`);
+  changed(req, res, `링크로 추가(${url})`);
 });
 
 // 편집 창의 미리보기(영상 480p, 그림). 원본과 함께 삭제하므로 없으면 404. 배경마다 같은 파일이라 오래 캐시한다
@@ -237,7 +237,7 @@ loginBackgroundRouter.put("/options", (req, res) => {
   if (!body.ok) return sendProblem(res, body.code);
   const options = body.value;
   store.loaded().options = options;
-  changed(req, res, `화면 값을 바꿨습니다(블러 ${options.blur}%, 오버레이 ${options.cover}%, 테마 색 ${options.follow ? "켬" : "끔"}, 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
+  changed(req, res, `화면 값을 바꿈(블러 ${options.blur}%, 오버레이 ${options.cover}%, 테마 색 ${options.follow ? "켬" : "끔"}, 반복 전환 ${options.seam.kind} ${options.seam.seconds}초)`);
 });
 
 // 한도를 바꾸면 바로 지킨다
@@ -247,7 +247,7 @@ loginBackgroundRouter.put("/limits", (req, res) => {
   const limits = body.value;
   store.loaded().limits = limits;
   const removed = store.enforceLimits();
-  changed(req, res, `한도를 바꿨습니다(보관 ${limits.history}개, 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
+  changed(req, res, `한도를 바꿈(보관 ${limits.history}개, 최대 ${limits.maxBytes ? formatBytes(limits.maxBytes) : "무제한"})${removed.length ? `. 기록에서 삭제: ${removed.join(", ")}` : ""}`);
 });
 
 export { loginBackgroundRouter };

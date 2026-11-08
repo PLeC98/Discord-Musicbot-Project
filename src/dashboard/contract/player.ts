@@ -56,9 +56,9 @@ type PlayerState = {
   boot: number;
   seq: number;
   playing: boolean;
-  /** 소리가 멈춰 있어야 하나(사람이 멈춰 뒀거나 억제 사유가 있다) */
+  /** 소리가 멈춰 있어야 하나(사람이 일시정지했거나 억제 사유가 있다) */
   paused: boolean;
-  /** 사람이 멈춰 뒀나. 재생 버튼은 이것을 뒤집는다(억제로 소리가 멈춰 있어도 이것이 거짓이면 일시정지 버튼) */
+  /** 사람이 일시정지했나. 재생 버튼은 이것을 뒤집는다(억제로 소리가 멈춰 있어도 이것이 거짓이면 일시정지 버튼) */
   userPaused: boolean;
   /** 소리를 함께 멈추고 있는 억제 사유(rules/holds, 보여 줄 첫째). 없으면 null */
   heldBy: Hold | null;

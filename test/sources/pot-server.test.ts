@@ -186,12 +186,12 @@ test("콘솔 종료 신호로 끝났으면(0xC000013A, 창 닫기 등) 비정상
   void server.stop();
 });
 
-test("서버 출력은 토큰을 가려 흘린다(오류 줄도 멈추지 않는다)", async () => {
+test("서버 출력은 토큰을 가려 로그로 남긴다(오류 줄도 멈추지 않는다)", async () => {
   const { spawn, spawned } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   const { proc } = spawned[0];
-  // 표준 출력은 debug 로 흘리므로 그동안만 debug 를 남긴다
+  // 표준 출력은 debug 로 남기므로 그동안만 debug 를 남긴다
   const level = logger.level;
   logger.level = "debug";
   const from = sink.buffer.length;

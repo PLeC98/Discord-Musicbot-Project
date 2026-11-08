@@ -142,7 +142,7 @@ test("24/7 자리의 정지: 대기열을 비우고 지금 곡을 끝내 곡 없
   assert.equal(p._halting, false);
 });
 
-test("상주 자리의 정지: 사람이 멈춰 둔 곡을 정지 전에 다시 틀지 않는다(멈춤은 정지를 건 뒤에 푼다)", async () => {
+test("상주 자리의 정지: 사람이 일시정지한 곡을 정지 전에 다시 틀지 않는다(멈춤은 정지를 건 뒤에 푼다)", async () => {
   const p = h.makePlayer();
   playing(p, yt("cccccccccc2"));
   p.pause.setUser(true);
@@ -310,7 +310,7 @@ test("패킷 공급이 끊겨 멈추면 출력 쪽(워커, 응답 대기 프레�
   );
 });
 
-test("다시 틀기를 두 번 써도 끊기면 포기하고 끊긴 위치에서 멈춰 둔다. 다음 곡으로 넘기지 않는다", async () => {
+test("다시 틀기를 두 번 써도 끊기면 포기하고 끊긴 위치에서 일시정지해 둔다. 다음 곡으로 넘기지 않는다", async () => {
   const p = h.makePlayer();
   const track = starved(p, yt("fffffffffff"), 30000);
   const next = cached("ggggggggggg");
@@ -443,7 +443,7 @@ for (const [ending, answer, line] of [
   });
 }
 
-test("끊긴 라이브를 다시 열다 환경 탓(망이 끊김)으로 실패하면 다음 곡으로 넘기지 않고 그 곡에서 멈춰 둔다(직접 링크의 일반 네트워크 오류는 넘긴다)", async () => {
+test("끊긴 라이브를 다시 열다 환경 탓(망이 끊김)으로 실패하면 다음 곡으로 넘기지 않고 그 곡에서 일시정지해 둔다(직접 링크의 일반 네트워크 오류는 넘긴다)", async () => {
   const p = h.makePlayer();
   const live = playing(p, yt("m8mmmmmmmmm", { isLive: true, duration: 0 }), 90_000, { live: true, input: { exitCode: null } });
   const next = cached("m9mmmmmmmmm");
@@ -1011,7 +1011,7 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   assert.ok(p.connection, "연결은 현행 플레이어 것일 수 있어 끊지 않는다");
 });
 
-test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 사람이 멈춰 둔 것은 남는다", () => {
+test("사람이 돌아오면 예약을 취소하고 alone 만 푼다. 사람이 일시정지한 것은 남는다", () => {
   const p = h.makePlayer();
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Paused };
   p.pause.setUser(true);
@@ -1120,7 +1120,7 @@ function unplayable() {
   };
 }
 
-test("까닭 모를 실패가 연달아 셋이면 넘기기를 그만두고 셋째 곡에서 멈춰 둔다. 지금 곡, 대기열을 두고, 멈춤으로 저장하고, 채널에 알린다", async () => {
+test("까닭 모를 실패가 연달아 셋이면 넘기기를 그만두고 셋째 곡에서 일시정지해 둔다. 지금 곡, 대기열을 두고, 멈춤으로 저장하고, 채널에 알린다", async () => {
   const p = h.makePlayer();
   const [a, b, c, d] = ["f1fffffffff", "f2fffffffff", "f3fffffffff", "f4fffffffff"].map((id) => yt(id));
   unplayable();
@@ -1163,7 +1163,7 @@ test("곡을 못 열어 다음 곡으로 넘기면 앞 곡의 위치를 버린�
   assert.deepEqual([...new Set(seen)], [0]);
 });
 
-test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈춰 두면 채널에 알리지 않는다(/join 이 응답으로 말한다)", async () => {
+test("세션을 복원하는 동안(quietFailures) 연달아 실패해 일시정지해 두면 채널에 알리지 않는다(/join 이 응답으로 말한다)", async () => {
   const p = h.makePlayer();
   const [a, b, c, d] = ["q1fffffffff", "q2fffffffff", "q3fffffffff", "q4fffffffff"].map((id) => yt(id));
   unplayable();
@@ -1182,7 +1182,7 @@ test("세션을 복원하는 동안(quietFailures) 연달아 실패해 멈춰 �
   );
 });
 
-test("연달아 실패해 멈춰 둘 때 남은 곡이 없어도 끝내지 않는다: 마지막 곡에서 멈춰 두고 세션을 남긴다", async () => {
+test("연달아 실패해 일시정지해 둘 때 남은 곡이 없어도 끝내지 않는다: 마지막 곡에서 일시정지해 두고 세션을 남긴다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   const [a, b, c] = ["f9aaaaaaaaa", "f9bbbbbbbbb", "f9ccccccccc"].map((id) => yt(id));
@@ -1236,7 +1236,7 @@ test("곡 담기가 첫 곡을 트는 동안(finishByCaller)은 열리지 않아
   assert.equal(leaveTimer, null);
 });
 
-test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 없으면 마지막 곡에서 멈춰 둔다(끝내지 않는다)", async () => {
+test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 없으면 마지막 곡에서 일시정지해 둔다(끝내지 않는다)", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   const [a, b, c] = ["l3aaaaaaaaa", "l3bbbbbbbbb", "l3ccccccccc"].map((id) => yt(id));
@@ -1248,7 +1248,7 @@ test("곡 담기가 첫 곡을 트는 동안 연달아 실패해 남은 곡이 �
   await p.play(0);
   h.dispose(p);
 
-  assert.equal(p.currentTrack, c, "셋째 곡에서 멈춰 둔다");
+  assert.equal(p.currentTrack, c, "셋째 곡에서 일시정지해 둔다");
   assert.equal(p.lifecycle.parked, true);
   assert.equal(seen.includes("end:queue-end"), false);
   assert.equal(calls.persists.includes("remove"), false);
@@ -1271,7 +1271,7 @@ test("소리를 낸 곡이 끝나면 연달아 실패한 수를 다시 센다", 
   assert.equal(q.failedTracks, 1, "5초도 못 낸 곡은 살아난 것이 아니다");
 });
 
-test("끊긴 곡을 다시 열다 실패하면(곡 탓이 아니면) 그 위치에서 멈춰 둔다. 들리던 곡을 넘기지 않고 세지도 않는다", async () => {
+test("끊긴 곡을 다시 열다 실패하면(곡 탓이 아니면) 그 위치에서 일시정지해 둔다. 들리던 곡을 넘기지 않고 세지도 않는다", async () => {
   const p = h.makePlayer();
   const track = starved(p, yt("f7fffffffff", { duration: 2 * 3600 }), 30_000);
   const next = cached("f8fffffffff");
@@ -1288,7 +1288,7 @@ test("끊긴 곡을 다시 열다 실패하면(곡 탓이 아니면) 그 위치�
   assert.equal(p.failedTracks, 0);
 });
 
-test("끊김 복구를 다 쓴 곡은 그 위치에서, 멎어서 넘긴 곡은 연달아 실패 한도에 닿으면 그 곡에서 멈춰 둔다. 다음 곡을 열지 않는다", async () => {
+test("끊김 복구를 다 쓴 곡은 그 위치에서, 멎어서 넘긴 곡은 연달아 실패 한도에 닿으면 그 곡에서 일시정지해 둔다. 다음 곡을 열지 않는다", async () => {
   for (const [reason, setup] of [
     ["idle", (p: Player, t: QueuedTrack) => ((p._retryTrack = t), (p.retry = { used: 2, stalled: 0 }), starved(p, t, 1_000))],
     ["stuck", (p: Player, t: QueuedTrack) => playing(p, t, 0)],
@@ -1310,7 +1310,7 @@ test("끊김 복구를 다 쓴 곡은 그 위치에서, 멎어서 넘긴 곡은 
   }
 });
 
-// ── 실패의 범위, 그 곡에서 멈춰 둠 ────────────────────────────────────
+// ── 실패의 범위, 그 곡에서 일시정지해 둠 ────────────────────────────────────
 
 // 다음 곡도 같이 안 되는 실패(망 끊김)
 function networkDown() {
@@ -1327,7 +1327,7 @@ function removedVideo() {
   };
 }
 
-test("환경 탓(망 끊김)은 넘기지 않고 그 곡, 그 위치에서 멈춰 둔다. 세지 않고, 멈춤으로 저장하고, 한 번 알린다", async () => {
+test("환경 탓(망 끊김)은 넘기지 않고 그 곡, 그 위치에서 일시정지해 둔다. 세지 않고, 멈춤으로 저장하고, 한 번 알린다", async () => {
   const p = h.makePlayer();
   const [a, b] = [yt("e1eeeeeeeee"), yt("e2eeeeeeeee")];
   networkDown();
@@ -1360,7 +1360,7 @@ test("곡 탓(영상 내려감)은 넘기고 세지 않는다. 다섯이 이어�
   await p.play(0);
   h.dispose(p);
 
-  assert.equal(p.lifecycle.parked, false, "멈춰 두지 않는다");
+  assert.equal(p.lifecycle.parked, false, "일시정지해 두지 않는다");
   assert.equal(p.currentTrack, null, "다 넘기고 대기열이 끝났다");
   assert.equal(p.failedTracks, 0);
   assert.ok(calls.sent.map(textOf).some((t) => t.includes("대기열에 같은 곡이 1번 더 있어서 함께 뺐어요.")));
@@ -1384,7 +1384,7 @@ test("곡 탓 넘기기 알림은 셋까지 하나씩, 그 뒤는 모았다가 �
   );
 });
 
-test("까닭 모를 실패만 센다: 모름, 곡 탓, 모름, 곡 탓, 모름이면 다섯째(모름 셋째)에서 멈춰 둔다", async () => {
+test("까닭 모를 실패만 센다: 모름, 곡 탓, 모름, 곡 탓, 모름이면 다섯째(모름 셋째)에서 일시정지해 둔다", async () => {
   const p = h.makePlayer();
   const ids = ["m1mmmmmmmmm", "m2mmmmmmmmm", "m3mmmmmmmmm", "m4mmmmmmmmm", "m5mmmmmmmmm", "m6mmmmmmmmm"];
   const list = ids.map((id) => yt(id));
@@ -1429,7 +1429,7 @@ test("자동재생이 고른 곡은 갈래와 상관없이 따로 세어 셋이�
   assert.ok(picks <= 3, `고른 횟수 ${picks}`);
 });
 
-test("멈춰 둔 곡: 멎음 감시가 넘기지 않는다", async () => {
+test("일시정지해 둔 곡: 멎음 감시가 넘기지 않는다", async () => {
   const p = h.makePlayer();
   networkDown();
   p.currentTrack = yt("w1wwwwwwwww");
@@ -1442,7 +1442,7 @@ test("멈춰 둔 곡: 멎음 감시가 넘기지 않는다", async () => {
   assert.equal(p.currentTrack?.id, "w1wwwwwwwww");
 });
 
-test("멈춰 둔 곡에서 넘기면 다음 곡을 연다. 멈춤은 풀린 채(사람이 멈춰 둔 채 실패했으면 멈춘 채)", async () => {
+test("일시정지해 둔 곡에서 넘기면 다음 곡을 연다. 멈춤은 풀린 채(사람이 일시정지한 채 실패했으면 멈춘 채)", async () => {
   for (const userPausedBefore of [false, true]) {
     h.reset();
     const p = h.makePlayer();
@@ -1464,7 +1464,7 @@ test("멈춰 둔 곡에서 넘기면 다음 곡을 연다. 멈춤은 풀린 채(
   }
 });
 
-test("▶ 는 멈춰 둔 곡을 그 위치부터 다시 연다. 다시 실패하면 다시 멈춰 둔다. 넘기기가 걸려 있으면 아무것도 안 한다", async () => {
+test("▶ 는 일시정지해 둔 곡을 그 위치부터 다시 연다. 다시 실패하면 다시 일시정지해 둔다. 넘기기가 걸려 있으면 아무것도 안 한다", async () => {
   const p = h.makePlayer();
   networkDown();
   p.currentTrack = yt("r1rrrrrrrrr");
@@ -1490,7 +1490,7 @@ test("▶ 는 멈춰 둔 곡을 그 위치부터 다시 연다. 다시 실패하
   h.dispose(p);
 });
 
-test("멈춰 둔 곡: 음성이 다시 붙어도 저절로 열지 않는다. 대시보드는 곡을 멈춤으로 보인다", async () => {
+test("일시정지해 둔 곡: 음성이 다시 붙어도 저절로 열지 않는다. 대시보드는 곡을 멈춤으로 보인다", async () => {
   const p = h.makePlayer();
   networkDown();
   let opens = 0;
@@ -1512,7 +1512,7 @@ test("멈춰 둔 곡: 음성이 다시 붙어도 저절로 열지 않는다. 대
   h.dispose(p);
 });
 
-test("소리가 재생 중일 때 멈춰 두면(위치 이동, 음성 복구가 다시 열다 실패) 소리를 내려도 곡 끝 처리가 돌지 않는다", async () => {
+test("소리가 재생 중일 때 일시정지해 두면(위치 이동, 음성 복구가 다시 열다 실패) 소리를 내려도 곡 끝 처리가 돌지 않는다", async () => {
   const p = h.makePlayer();
   const track = yt("y1yyyyyyyyy");
   const next = cached("y2yyyyyyyyy");
@@ -1536,7 +1536,7 @@ test("소리가 재생 중일 때 멈춰 두면(위치 이동, 음성 복구가 
   assert.equal(p.heldPositionMs, 61_000);
 });
 
-test("멈춰 둔 동안은 자동재생 곡을 미리 고르지 않는다", async () => {
+test("일시정지해 둔 동안은 자동재생 곡을 미리 고르지 않는다", async () => {
   const p = h.makePlayer();
   networkDown();
   p.setAutoplay("팝");
@@ -1991,7 +1991,7 @@ test("음성이 다시 붙으면 멈춰 있던 곡도 그 위치에서 다시 �
   assert.equal(p.getCurrentTime(), 30_000);
 });
 
-test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못해 그 곡에서 멈춰 뒀으면 그때 넘긴다", async () => {
+test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연 뒤에 넘긴다. 전에는 넘기기가 사라졌다. 열지 못해 그 곡에서 일시정지해 뒀으면 그때 넘긴다", async () => {
   const p = h.makePlayer();
   const next = cached("ps2aaaaaaaa");
   p.currentTrack = cached("ps1aaaaaaaa");
@@ -2013,7 +2013,7 @@ test("동작 바뀜: 곡을 여는 중(소리가 아직 없다)에 넘기면 연
   failing.skip();
   await failed;
   await failing.untilSwitched();
-  assert.equal(failing.currentTrack, after, "멈춰 둔 곡에 넘기기를 마저 걸었다");
+  assert.equal(failing.currentTrack, after, "일시정지해 둔 곡에 넘기기를 마저 걸었다");
   assert.equal(failing._endWhileStarting, null);
   h.dispose(failing);
   h.dispose(p);
@@ -2312,7 +2312,7 @@ test("소리가 붙은 채 다시 여는 중에 옛 소리가 저절로 끝나�
   assert.equal(p.getCurrentTime(), 30_000);
 });
 
-test("여는 중 이전 곡을 눌렀는데 열지 못해 멈춰 뒀으면 이전 곡을 마저 건다(되감은 대기열이 남지 않는다)", async () => {
+test("여는 중 이전 곡을 눌렀는데 열지 못해 일시정지해 뒀으면 이전 곡을 마저 건다(되감은 대기열이 남지 않는다)", async () => {
   const p = h.makePlayer();
   const before = cached("op1aaaaaaaa");
   const failing = yt("op2aaaaaaaa");

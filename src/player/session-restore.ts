@@ -148,7 +148,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
 }
 
 // 복원한 결과를 로그에
-const RESTORE_OUTCOME = { restored: "이어 틂", parked: "열지 못해 그 곡에서 멈춰 둠", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
+const RESTORE_OUTCOME = { restored: "이어 재생", parked: "열지 못해 그 곡에서 일시정지해 둠", failed: "재생할 곡을 열지 못함", empty: "재생할 곡 없음" } as const;
 
 // 채널이 없다는 디스코드의 확답(삭제됨, 볼 수 없음). 그 밖의 조회 실패는 잠깐일 수 있다
 const CHANNEL_GONE = new Set<unknown>([RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess]);

@@ -190,7 +190,7 @@ function keyBinding(one: Partial<AiSettings> | null | undefined): string {
  * 키는 입력할 때의 주소에 묶여 있어 지금 주소가 다르면 나오지 않는다(주소를 바꾸면 다시 입력해야 한다).
  *
  * custom은 저장된 주소와 같을 때만 붙인다. 대시보드 미리보기는 저장 안 한 초안을 그대로 받는데,
- * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 흘릴 수 있다.
+ * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 유출할 수 있다.
  */
 function storedKey(one: Partial<AiSettings>): string {
   if (!wantsKey(one) || !one.provider) return "";
@@ -342,7 +342,7 @@ function parseExtra(text: unknown): Extra {
 // 한 줄(이름=값)을 담는다. 못 읽으면 까닭을 problems 에
 function readExtraLine(line: string, out: Extra) {
   const at = line.indexOf("=");
-  if (at < 1) return out.problems.push(`이름이 없습니다: ${line}`);
+  if (at < 1) return out.problems.push(`이름이 없음: ${line}`);
   const name = line.slice(0, at).trim();
   const value = line.slice(at + 1).trim();
   const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
@@ -353,13 +353,13 @@ function readExtraLine(line: string, out: Extra) {
     out.headers[header] = value;
     return;
   }
-  if (value === "") return out.problems.push(`값이 없습니다: ${name}`);
-  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름입니다: ${name}`);
+  if (value === "") return out.problems.push(`값이 없음: ${name}`);
+  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름: ${name}`);
 
   if (value.startsWith("json::")) {
     const got = readJson(value.slice(6));
     if (got.ok) setPath(out.body, name, got.value);
-    else out.problems.push(`JSON 으로 못 읽었습니다: ${name}`);
+    else out.problems.push(`JSON으로 읽지 못함: ${name}`);
     return;
   }
   setPath(out.body, name, scalarOf(value));
@@ -683,7 +683,7 @@ function withExtra(body: Body, extra: Extra) {
   return out;
 }
 
-// gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
+// gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 내보내는 일이 있다.
 // JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 위치의 그것만 공백으로 되돌린다.
 // 같은 위치에 오는 다른 폭의 공백(U+00A0, U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
@@ -929,14 +929,14 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
  */
 async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
+  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있어요(provider=${one.provider || "off"})` };
 
   // 키가 있어야 하는데 없다. 저쪽에 물어 봐야 거절(401)이라 묻지 않고 다운로드해 둔 목록으로 채운다
-  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 저쪽에 묻지 않았습니다." });
+  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 요청하지 않았어요" });
 
   const dialect = dialectOf(one);
   const first = dialect.modelsUrl(one);
-  if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
+  if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있어요(custom이면 직접 적어야 해요)" };
 
   // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
   // 그래야 어느 버전을 쓰는 프로젝트든 목록이 표시된다. 404 가 아니면 그 답이 곧 사실이다.
@@ -1020,8 +1020,8 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  */
 async function ping(draft: Draft): Promise<PingCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
-  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
+  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있어요(provider=${one.provider || "off"})` };
+  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있어요" };
 
   const dialect = dialectOf(one);
   const url = dialect.chatUrl(one);

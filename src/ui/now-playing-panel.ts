@@ -108,7 +108,7 @@ const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length 
 // 상태 줄: 일시정지, 대기열 수, 24/7 등. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
-  // 억제 사유가 있으면 그것을, 사람만 멈췄으면 일시정지를. 억제 중에 사람이 멈춰 뒀으면(사유가 풀려도 멈춘 채) 그것도 붙인다
+  // 억제 사유가 있으면 그것을, 사람만 일시정지했으면 일시정지를 붙인다. 억제 중에 사람이 일시정지했으면(사유가 풀려도 멈춘 채) 그것도 붙인다
   const held = player.pause.heldBy;
   if (held) parts.push(panelText.pausedStatus(held));
   if (player.pause.userPaused) parts.push(held ? panelText.userPausedMark() : panelText.pausedStatus("other"));
@@ -699,7 +699,7 @@ class NowPlayingPanel {
     const pauseButton = new ButtonBuilder()
       .setCustomId(id("pause"))
       .setStyle(ButtonStyle.Secondary)
-      // 버튼은 사람의 멈춤을 뒤집는다. 억제로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
+      // 버튼은 사람의 일시정지를 뒤집는다. 억제로 소리가 멈춰 있어도 사람이 일시정지하지 않았으면 일시정지 버튼(누르면 일시정지한다)
       .setEmoji(buttonEmoji(player.pause.userPaused ? "play" : "pause"))
       .setDisabled(disabled);
 

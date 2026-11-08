@@ -1,5 +1,5 @@
 // src/rules/hls-segment-start.ts: HLS 세그먼트가 TS, Packed Audio(ID3), fMP4 로 시작하는지 판정한다. 판정에 필요한 만큼 없으면 more, 세그먼트 전체면 있는 만큼으로 판정한다.
-// 시료는 test/fixtures/hls: ffmpeg 로 만든 1초 사인파 AAC 의 MPEG-TS(segment.mpegts), fMP4 미디어 세그먼트(segment.m4s, -f hls -hls_segment_type fmp4),
+// 픽스처는 test/fixtures/hls: ffmpeg 로 만든 1초 사인파 AAC 의 MPEG-TS(segment.mpegts), fMP4 미디어 세그먼트(segment.m4s, -f hls -hls_segment_type fmp4),
 // ADTS 앞에 RFC 8216 의 ID3 타임스탬프(PRIV com.apple.streaming.transportStreamTimestamp)를 붙인 Packed Audio(segment.aac)
 
 import fs from "node:fs";

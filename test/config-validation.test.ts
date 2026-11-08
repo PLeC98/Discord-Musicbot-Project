@@ -40,7 +40,7 @@ test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드
 test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
-  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX는 이제 쓰지 않음. 운영자 패널의 일반 탭에서 입력하고 .env에서 삭제하세요"]);
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
@@ -125,21 +125,21 @@ test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문�
 
 test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
   const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY는 이제 쓰지 않음. 운영자 패널의 API 키 탭에서 입력하고 .env에서 삭제하세요"]);
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {
-  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요."]);
+  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요"]);
 });
 
 test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
   const empty = load({ SECRETS_KEY: "" }).problems;
   assert.equal(empty.length, 1);
-  assert.match(empty[0], /^SECRETS_KEY 가 비어 있습니다\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 합니다\.$/);
+  assert.match(empty[0], /^SECRETS_KEY가 비어 있음\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 함$/);
   for (const wrong of ["짧다", Buffer.alloc(16).toString("base64"), `${KEY}x`]) {
-    assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다/, wrong);
+    assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY가 base64로 인코딩한 32바이트가 아님/, wrong);
   }
   assert.deepEqual(load({}).problems, []);
 });

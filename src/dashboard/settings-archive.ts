@@ -3,7 +3,7 @@
 //   favicon   파비콘: 슬롯, 기록(봇 설정 백업에는 들지 않는다. 봇 설정과 함께 파비콘을 담은 옛 형식 파일도 불러온다)
 //   login-background  로그인 배경: 다 만든 배경, 화면 값, 한도(login-background/archive). 불러오면 통째로 바꾼다
 //   audio-cache  오디오 캐시: 캐시 파일, 링크 데이터, 직접 지정한 음원, 연령 제한, SponsorBlock 구간(audio-cache-archive). 불러오면 지금 캐시에 합친다
-// 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러올 파일은 올린 파일(archive-uploads)을 열어 목차만 읽고 필요한 항목만 메모리로 읽는다
+// 내보내기는 담을 항목을 넘기고 경로가 스트리밍으로 쓴다(writeZip). 불러오기는 올린 파일(archive-uploads)을 열어 중앙 디렉터리만 읽고 필요한 항목만 메모리로 읽는다
 // .env 는 어느 쪽에도 없다. 대시보드는 비밀을 읽어 내지도, .env 를 쓰지도 않는다(그건 봇 폴더의 몫: scripts/backup).
 // 불러오기는 선택한 항목을 모두 저장과 같은 검사로 먼저 보고, DB 는 한 트랜잭션으로 쓴다(하나라도 틀리면 아무것도 바꾸지 않는다).
 // 로그인 배경은 DB 앞에 풀어 두고(실패하면 푼 것만 삭제한다), 파비콘, 로그인 배경은 DB 뒤에 교체한다.
@@ -99,25 +99,25 @@ function build(kind: ArchiveKind, { withFiles = true }: { withFiles?: boolean } 
   return { inputs: [jsonEntry(manifest(kind, { tunables: tunables.view().values, documents: Object.fromEntries(DOC_ITEMS.map((name) => [name, documents.get(name)])) }))], release: KEEP_NOTHING };
 }
 
-/** 올린 파일을 읽는다(목차와 settings.json, 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
+/** 올린 파일을 읽는다(중앙 디렉터리와 settings.json, 파비콘만 메모리로). 이 봇의 내보내기가 아니면 BAD_ARCHIVE(ZIP 자체가 깨졌으면 BAD_ZIP) */
 function parse(file: string): Parsed {
   const zipped = openZip(file);
   try {
     const entry = zipped.entries.find((one) => one.name === JSON_NAME);
     // 명령 전체 백업(pnpm run backup)은 봇 폴더에 풀어 덮어쓰는 것이라 여기서 불러오지 않는다
-    if (!entry && zipped.entries.some((one) => one.name === FULL_BACKUP_MARK)) throw badArchive("전체 백업은 불러올 수 없습니다. 봇을 끈 채 봇 폴더에 풀어 덮어쓰세요(다음에 켤 때 설정 DB 를 교체하고 오디오 캐시를 합칩니다).");
-    if (!entry) throw badArchive(`${JSON_NAME} 이 없습니다. 이 봇의 설정 내보내기 파일이 아닙니다.`);
-    if (entry.size > JSON_MAX_BYTES) throw badArchive(`${JSON_NAME} 이 너무 큽니다.`);
+    if (!entry && zipped.entries.some((one) => one.name === FULL_BACKUP_MARK)) throw badArchive("전체 백업은 불러올 수 없음. 봇을 종료한 채 봇 폴더에 풀어 덮어쓰세요(다음 기동 시 설정 DB를 교체하고 오디오 캐시를 합침)");
+    if (!entry) throw badArchive(`${JSON_NAME}이 없음. 이 봇의 설정 내보내기 파일이 아님`);
+    if (entry.size > JSON_MAX_BYTES) throw badArchive(`${JSON_NAME}이 너무 큼`);
     let json: unknown;
     try {
       json = JSON.parse(zipped.read(entry, JSON_MAX_BYTES).toString("utf8"));
     } catch {
-      throw badArchive(`${JSON_NAME} 이 JSON 이 아닙니다.`);
+      throw badArchive(`${JSON_NAME}이 JSON이 아님`);
     }
-    if (!isTable(json)) throw badArchive(`${JSON_NAME} 이 객체 형식이 아닙니다.`);
-    if (json.format !== FORMAT) throw badArchive(`모르는 형식입니다(format ${String(json.format)}). 이 봇이 읽는 형식은 ${FORMAT} 입니다.`);
+    if (!isTable(json)) throw badArchive(`${JSON_NAME}이 객체 형식이 아님`);
+    if (json.format !== FORMAT) throw badArchive(`모르는 형식(format ${String(json.format)}). 이 봇이 읽는 형식은 ${FORMAT}`);
     const faviconEntries = zipped.entries.filter((one) => one.name.startsWith(FAVICON_DIR) && one.name.length > FAVICON_DIR.length);
-    if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive("파비콘 파일이 너무 큽니다.");
+    if (faviconEntries.reduce((sum, one) => sum + one.size, 0) > FAVICON_MAX_BYTES) throw badArchive("파비콘 파일이 너무 큼");
     const favicons = faviconEntries.map((one) => ({ name: one.name.slice(FAVICON_DIR.length), data: zipped.read(one, FAVICON_MAX_BYTES) }));
     return { json: json as Partial<ArchiveJson>, favicons, file };
   } finally {
@@ -158,8 +158,8 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
 
 /** 문서 하나의 검사. 프롬프트는 AI 를 켠 설정과 함께일 때만 {{list}} 를 따진다 */
 function docProblems(item: DocItem, data: unknown, aiDoc: unknown): string[] {
-  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아닙니다."];
-  if (!isTable(data)) return ["객체 형식이 아닙니다."];
+  if (item === "ai-prompt") return Array.isArray(data) ? promptProblems(data, !aiSwitchedOff(aiDoc)) : ["프롬프트가 섹션 목록이 아니에요"];
+  if (!isTable(data)) return ["객체 형식이 아니에요"];
   return { genres: genreProblems, status: statusProblems, ai: aiProblems }[item](data);
 }
 
@@ -200,9 +200,9 @@ function docRow(item: DocItem, json: Partial<ArchiveJson>, aiDoc: unknown): Arch
 
 // 파비콘 검사에 걸린 까닭을 한 줄로
 const FAVICON_WHY: Record<appearance.FaviconFault, string> = {
-  index: "파비콘 목록(index.json)을 읽을 수 없습니다.",
-  missing: "목록에 있는 이미지 파일이 빠져 있습니다.",
-  broken: "망가졌거나 크기가 맞지 않는 이미지가 있습니다.",
+  index: "파비콘 목록(index.json)을 읽을 수 없어요",
+  missing: "목록에 있는 이미지 파일이 빠져 있어요",
+  broken: "깨졌거나 크기가 맞지 않는 이미지가 있어요",
 };
 
 /** 파일에 파비콘이 있는지: 목록(index.json)이 함께 담겼어야 한다 */
@@ -282,7 +282,7 @@ async function checkChosen(parsed: Parsed, items: ArchiveItem[]): Promise<{ favi
   const audioRows = items.some(audioArchive.isAudioItem) ? (kindOf(parsed.json) === "audio-cache" ? audioArchive.previewRows(audioArchive.readBundle(parsed.file)) : []) : [];
   const audioRow = (item: ArchiveItem) => audioRows.find((one) => one.item === item) ?? { item, inFile: false, same: false, problems: [], warnings: [], count: null };
   const rows = await Promise.all(items.map((item) => (item === "login-background" ? background!.row : audioArchive.isAudioItem(item) ? audioRow(item) : rowFor(item, parsed, aiDoc))));
-  const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없습니다."]), ...row.problems].map((line) => `${ITEM_LABELS[row.item]}: ${line}`));
+  const problems = rows.flatMap((row) => [...(row.inFile ? [] : ["파일에 없어요"]), ...row.problems].map((line) => `${ITEM_LABELS[row.item]}: ${line}`));
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
   const checked = items.includes("favicon") ? await appearance.checkFavicons(parsed.favicons) : null;
   return { favicons: checked?.ok ? checked.prepared : null, background: background?.plan ?? null };

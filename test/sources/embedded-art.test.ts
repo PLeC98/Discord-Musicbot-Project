@@ -1,5 +1,5 @@
 // src/sources/embedded-art.ts: 직접 링크 곡의 파일 태그, 앨범아트를 찾아 기억한다.
-// 원본을 여는 곳은 가짜(useOpen), 캐시 파일, DB 는 임시 저장소. 시료는 ffmpeg 로 만든다(없으면 건너뛴다)
+// 원본을 여는 곳은 가짜(useOpen), 캐시 파일, DB 는 임시 저장소. 픽스처는 ffmpeg 로 만든다(없으면 건너뛴다)
 
 import path from "node:path";
 import fs from "node:fs";
@@ -66,7 +66,7 @@ async function settled() {
 }
 
 test("원본에서 찾는다: 태그, 그림(다시 구운 JPEG)을 기억하고 알린다. 같은 키는 한 번만, 곡 그림이 있거나 직접 링크가 아니면 그림이 없다", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const track = direct("a");
   embeddedArt.want([track, track]);
   await settled();
@@ -91,7 +91,7 @@ test("원본에서 찾는다: 태그, 그림(다시 구운 JPEG)을 기억하고
 });
 
 test("단순 목록(M3U)은 첫 주소를 따라가 그 파일의 태그를 읽는다. 빈 목록은 다시 찾지 않는다", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const list = (text: string) => ({ body: Buffer.from(text), type: "audio/x-mpegurl" });
   reply = (url) => (url.endsWith("list.m3u") ? list("#EXTM3U\nhttps://files.test/inner.mp3\n") : url.endsWith("empty.m3u") ? list("#EXTM3U\n") : { body: mp3 });
   const track = { audioUrl: "https://files.test/list.m3u", thumbnail: null };
@@ -112,7 +112,7 @@ test("단순 목록(M3U)은 첫 주소를 따라가 그 파일의 태그를 읽�
 });
 
 test("한 번에 둘, 지금 곡(first)이 기다리는 것보다 먼저", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   reply = () => ({ body: mp3, hold: 50 });
   let most = 0;
   const watch = setInterval(() => (most = Math.max(most, embeddedArt._internals.running.size)), 2);
@@ -128,7 +128,7 @@ test("한 번에 둘, 지금 곡(first)이 기다리는 것보다 먼저", async
 });
 
 test("통신 실패는 바로 다시 찾지 않는다(몇 분 뒤)", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   reply = () => ({ body: null });
   embeddedArt.want([direct("down")]);
   await settled();
@@ -139,7 +139,7 @@ test("통신 실패는 바로 다시 찾지 않는다(몇 분 뒤)", async (t) =
 });
 
 test("캐시 파일이 있으면 그 태그에서 찾고 원본을 열지 않는다. 다운로드가 알린 결과도 쓰고, 밀려난 그림은 캐시 파일에서 다시 꺼낸다", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const track = direct("cached");
   const key = audioKeyOf(track.audioUrl)!;
   const file = audioCache.getFilePath(key);
@@ -174,7 +174,7 @@ test("캐시 파일이 있으면 그 태그에서 찾고 원본을 열지 않는
 });
 
 test("담을 때 읽기(readFromBody)를 기억하고, 캐시 다운로드가 시작되면 끊고 다운로드가 알릴 때까지 다시 찾지 않는다", async (t) => {
-  if (!mp3) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const track = direct("enqueued");
   const key = audioKeyOf(track.audioUrl)!;
   await embeddedArt.readFromBody(key, track.audioUrl, Readable.from([mp3]));

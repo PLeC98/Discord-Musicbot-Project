@@ -208,7 +208,7 @@ test("넘긴 뒤의 끝 처리는 패널 고치기(디스코드 메시지 수정
   }
 });
 
-test("연달아 실패해 멈춰 둘 때 실패한 곡을 모두 적는다", async () => {
+test("연달아 실패해 일시정지해 둘 때 실패한 곡을 모두 적는다", async () => {
   const p = threeTracks();
   const from = sink.buffer.length;
   try {

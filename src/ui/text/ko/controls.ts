@@ -19,7 +19,7 @@ const requestedBy = () => `${icon("person")} 요청한 사람`;
 /** 대시보드에서 한 조작의 누가 했나(사람 멘션 뒤에 붙인다) */
 const viaDashboard = (who: string) => `${who} (대시보드)`;
 
-// 억제 사유(rules/holds)로 소리가 함께 멈춰 있을 때 덧붙이는 말: 멈춰 둠, 아직 멈춘 까닭, 언제 이어 트나
+// 억제 사유(rules/holds)로 소리가 함께 멈춰 있을 때 덧붙이는 말: 멈춘 채로 둠, 아직 멈춘 까닭, 언제 이어 트나
 const HELD_AFTER: Record<Hold, { keep: string; still: string; when: string }> = {
   mute: { keep: "음소거가 풀려도 멈춘 채로 둘게요.", still: "아직 음소거 상태라 멈춰 있어요.", when: "음소거가 풀리면" },
   stage: { keep: "발언자가 돼도 멈춘 채로 둘게요.", still: "아직 스테이지 청중이라 멈춰 있어요.", when: "발언자가 되면" },

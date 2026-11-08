@@ -348,7 +348,7 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
-    // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림, /join 응답이 말한다). 패널은 멈춘 곡으로
+    // 열지 못해 그 곡에서 일시정지해 뒀다. 이어 튼다고 알리지 않는다(까닭은 일시정지해 둘 때의 알림, /join 응답이 말한다). 패널은 일시정지한 곡으로
     if (player.lifecycle.parked) {
       await this._announceRestored(false);
       return "parked";

@@ -41,14 +41,14 @@ test("인증서 파일 찾기: .env 경로가 있으면 그것만(둘 다, .env 
   const inCerts = [path.join(certsDir, "cert.pem"), path.join(certsDir, "key.pem")];
   assert.deepEqual(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has(inCerts) }), { files: { cert: inCerts[0], key: inCerts[1], from: "certs" }, error: null });
   assert.deepEqual(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([]) }), { files: null, error: null });
-  assert.match(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([inCerts[0]]) }).error ?? "", /key\.pem이 없습니다/);
+  assert.match(findTlsFiles({ envCert: null, envKey: null, root, certsDir, exists: has([inCerts[0]]) }).error ?? "", /key\.pem이 없음/);
 
   const live = [path.resolve(root, "le/fullchain.pem"), path.resolve(root, "le/privkey.pem")];
   assert.deepEqual(findTlsFiles({ envCert: "le/fullchain.pem", envKey: "le/privkey.pem", root, certsDir, exists: has([...live, ...inCerts]) }).files, { cert: live[0], key: live[1], from: "env" });
   assert.match(findTlsFiles({ envCert: "le/fullchain.pem", envKey: null, root, certsDir, exists: has([...live, ...inCerts]) }).error ?? "", /둘 다/);
   const missing = findTlsFiles({ envCert: "le/fullchain.pem", envKey: "le/privkey.pem", root, certsDir, exists: has(inCerts) });
   assert.equal(missing.files, null, "경로가 틀리면 certs/로 폴백하지 않는다");
-  assert.match(missing.error ?? "", /파일이 없습니다/);
+  assert.match(missing.error ?? "", /파일이 없음/);
 });
 
 test("확인: 서버 인증서 다음에 중간 인증서, 짝이 맞는 키, 일치하는 이름(SAN, 와일드카드, IP)이면 통과한다", () => {
@@ -64,13 +64,13 @@ test("확인: 열지 않는 문제(PEM이 아님, 맨 앞이 CA, 짝이 아닌 �
     const checked = checkTls({ certPem: read("chain.pem"), keyPem: read("key.pem"), urlHost: "music.example.com", now: VALID, ...over });
     return checked.ok ? [] : checked.errors;
   };
-  assert.match(errorsOf({ certPem: "그냥 글자" }).join(), /PEM 형식이 아닙니다/);
-  assert.match(errorsOf({ certPem: read("ca-first.pem") }).join(), /맨 앞이 서버 인증서가 아닙니다/);
-  assert.match(errorsOf({ keyPem: read("other-key.pem") }).join(), /짝이 아닙니다/);
+  assert.match(errorsOf({ certPem: "그냥 글자" }).join(), /PEM 형식이 아님/);
+  assert.match(errorsOf({ certPem: read("ca-first.pem") }).join(), /맨 앞이 서버 인증서가 아님/);
+  assert.match(errorsOf({ keyPem: read("other-key.pem") }).join(), /짝이 아님/);
   assert.match(errorsOf({ keyPem: read("encrypted-key.pem") }).join(), /암호가 걸려/);
-  assert.match(errorsOf({ keyPem: "x" }).join(), /키를 읽지 못했습니다/);
-  assert.match(errorsOf({ now: Date.parse(leaf.validFrom) - 86_400_000 }).join(), /아직 유효하지 않습니다/);
-  assert.match(errorsOf({ now: Date.parse(leaf.validTo) + 1000 }).join(), /기한이 지났습니다/);
+  assert.match(errorsOf({ keyPem: "x" }).join(), /키 읽기 실패/);
+  assert.match(errorsOf({ now: Date.parse(leaf.validFrom) - 86_400_000 }).join(), /아직 유효하지 않음/);
+  assert.match(errorsOf({ now: Date.parse(leaf.validTo) + 1000 }).join(), /기한이 지남/);
 });
 
 test("확인: 열고 warn하는 문제(중간 인증서 없음(Cloudflare Origin 제외), 이름 불일치, 기한 14일 이내, 다른 사용자가 읽는 키)는 경고를 남긴다", () => {
@@ -79,11 +79,11 @@ test("확인: 열고 warn하는 문제(중간 인증서 없음(Cloudflare Origin
     assert.ok(checked.ok);
     return checked.ok ? checked.notes.map((n) => n.text).join("\n") : "";
   };
-  assert.match(notesOf({ certPem: read("leaf.pem") }), /중간 인증서가 없습니다/);
+  assert.match(notesOf({ certPem: read("leaf.pem") }), /중간 인증서가 없음/);
   assert.equal(notesOf({ certPem: read("cf-origin.pem") }), "", "Cloudflare Origin 인증서는 중간 인증서 없이 쓰는 것이 정상");
-  assert.match(notesOf({ urlHost: "other.example.org" }), /이름에 공개 주소의 호스트\(other\.example\.org\)가 없습니다/);
+  assert.match(notesOf({ urlHost: "other.example.org" }), /이름에 공개 주소의 호스트\(other\.example\.org\)가 없음/);
   assert.match(notesOf({ urlHost: "10.0.0.1" }), /이름에 공개 주소의 호스트/);
-  assert.match(notesOf({ now: Date.parse(leaf.validTo) - 10 * 86_400_000 }), /기한이 10일 남았습니다/);
+  assert.match(notesOf({ now: Date.parse(leaf.validTo) - 10 * 86_400_000 }), /기한이 10일 남음/);
   assert.equal(notesOf({ now: Date.parse(leaf.validTo) - 20 * 86_400_000 }), "");
   assert.match(notesOf({ keyWorldReadable: true }), /chmod 600/);
 });
@@ -207,5 +207,5 @@ test("기동: 공개 주소가 끝에 점이 붙은 이 기기 주소(https://lo
 test("확인: 유효 기간을 읽지 못한 인증서는 대시보드를 열지 않는다", () => {
   // 깨진 날짜는 OpenSSL의 X509Certificate에서 이 문자열이 된다(그런 인증서를 만들기 어려워 속성만 흉내 낸다)
   const broken = fake<X509Certificate>({ ca: false, validFrom: "Bad time value", validTo: "Bad time value", checkPrivateKey: () => true });
-  assert.match(fatalProblems(broken, read("key.pem"), VALID).join(), /유효 기간을 읽지 못했습니다/);
+  assert.match(fatalProblems(broken, read("key.pem"), VALID).join(), /유효 기간 읽기 실패/);
 });

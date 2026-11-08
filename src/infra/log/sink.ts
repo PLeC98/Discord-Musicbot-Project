@@ -125,7 +125,7 @@ class LogManager {
     this._heartbeatMs = 0;
     this.destinations = []; // file(file.ts) 등 레코드를 받는 함수
     // destination이 붙기 전에 지나간 레코드. 파일 로그는 설정을 읽은 뒤에야 열 수 있는데,
-    // 설정 경고와 기동 오류가 바로 그 전에 나온다. 첫 destination이 붙을 때 흘려보내고 모으기를 멈춘다.
+    // 설정 경고와 기동 오류가 바로 그 전에 나온다. 첫 destination이 붙을 때 모아 둔 레코드를 내보내고 모으기를 멈춘다.
     this.earlyRecords = [];
 
     // 터미널 사정(색, TTY)은 여기서만 본다.

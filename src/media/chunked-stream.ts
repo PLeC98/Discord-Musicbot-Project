@@ -3,9 +3,9 @@
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
-// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
-// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
-// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
+// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 내보내고, 끊긴 뒤에만 Range 로 잇는다.
+// 이을 때 처음 응답의 검증값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
+// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 내보낸다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
 import { Readable } from "stream";
@@ -41,7 +41,7 @@ type ChunkedOptions = {
   ifRange?: string | null;
   /** 첫 요청의 자리(파일 안의 바이트). 받은 양은 이 자리부터 센 절대 위치다 */
   startByte?: number;
-  /** 맨 앞에 흘릴 바이트(파일의 헤더). 받은 양에 세지 않는다 */
+  /** 맨 앞에 내보낼 바이트(파일의 헤더). 받은 양에 세지 않는다 */
   prefix?: Buffer | null;
   /** 첫 요청에서 받은 앞 bytes 바이트를 확인한다. 줄 때만 열림(prime)을 그 확인 뒤로 미룬다 */
   expectStart?: { bytes: number; check(head: Buffer): boolean } | null;
@@ -128,7 +128,7 @@ function readerOf(stream: Readable) {
   };
 }
 
-// 스트림 하나의 상태. 청크를 받아 줄에 쌓고, 소비자가 원하는 만큼 흘려보낸다
+// 스트림 하나의 상태. 청크를 받아 큐에 쌓고, 소비자가 원하는 만큼 내보낸다
 class ChunkedReader {
   readonly stream: Readable;
   readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed" | "first" | "ifRange" | "prefix" | "expectStart">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed" | "ifRange" | "expectStart">;

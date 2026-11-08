@@ -39,7 +39,7 @@ test("artFor: 곡 그림 주소가 있으면 그 큰 것, 직접 링크 곡은 �
   assert.deepEqual(await artFor({ thumbnail: yt("artforvideo") }), { url: yt("artforvideo", "maxresdefault") });
   const url = "https://files.test/artfor.mp3";
   assert.equal(await artFor({ thumbnail: null, audioUrl: url }), null, "아직 모른다");
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const art = await artFor({ thumbnail: null, audioUrl: url });
   assert.equal(art?.url, "attachment://art.jpg");
   assert.equal(art?.file?.name, "art.jpg");

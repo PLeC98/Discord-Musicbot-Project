@@ -590,7 +590,7 @@ test("추가 파라미터: 값, JSON, 헤더, 빼기", () => {
   assert.deepEqual(got.body, { think: false, reasoning_effort: "low", top_p: 0.9, response_format: { type: "json_object" } });
   assert.deepEqual(got.headers, { "X-Title": "Discord Musicbot" });
   assert.deepEqual(got.drop, ["temperature"]);
-  assert.deepEqual(got.problems, ["이름이 없습니다: 이름없음"]);
+  assert.deepEqual(got.problems, ["이름이 없음: 이름없음"]);
 });
 
 // 점 표기가 없으면 추론 레벨을 여기로 우회할 수 없다. 키 이름이 통째로 들어가 조용히 무시된다.
@@ -621,8 +621,8 @@ test("추가 파라미터: 못 읽은 줄을 알려 준다", () => {
 
   assert.deepEqual(got.body, { ok: 1 }, "멀쩡한 줄은 살린다");
   assert.equal(got.problems.length, 2);
-  assert.match(got.problems.join(" "), /JSON 으로 못 읽었습니다: cfg/);
-  assert.match(got.problems.join(" "), /값이 없습니다: empty/);
+  assert.match(got.problems.join(" "), /JSON으로 읽지 못함: cfg/);
+  assert.match(got.problems.join(" "), /값이 없음: empty/);
 });
 
 // {{none}} 을 header:: 보다 먼저 봐야 한다. 반대로 보면 헤더에 "{{none}}" 을 넣게 된다.
@@ -1286,7 +1286,7 @@ test("유료 확인은 짧은 물음 하나만 보낸다. 판정 프롬프트가
 
 // ── 모델이 공백을 이상하게 뱉을 때 ────────────────────────────────────────
 
-// gemma 계열이 토크나이저의 공백 표시(U+2581)를 답에 그대로 흘리면
+// gemma 계열이 토크나이저의 공백 표시(U+2581)를 답에 그대로 내보내면
 // JSON.parse 가 `Unexpected token '▁'` 로 죽는다.
 test("답에 U+2581 이 섞여 와도 읽는다", async () => {
   useConfig(ON);

@@ -176,7 +176,7 @@ test("/nowplaying: 앱 이모지를 맞춘 뒤에 그리면 머리의 아이콘�
 
 test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
   const url = "https://files.test/nowplaying-art.mp3";
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const track = { title: "파일", url, pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 3, thumbnail: null };
   const { it, log, bot } = interaction({ player: nowPlayer(track) });
   await run(await command("nowplaying"), it, bot);

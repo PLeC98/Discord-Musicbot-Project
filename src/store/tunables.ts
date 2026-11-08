@@ -90,7 +90,7 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
 function problemsOf(values: Record<string, unknown>): string[] {
   const unknown = Object.keys(values).filter((key) => !TUNABLE_KEYS.has(key));
   const wrongType = Object.entries(values).filter(([, value]) => typeof value !== "string" && value !== null);
-  return [...unknown.map((key) => `${key}: 모르는 설정입니다.`), ...wrongType.map(([key]) => `${key}: 문자열로 보내야 합니다.`), ...root.loadConfig(process.env, { tunables: shape(values) }).tuneProblems];
+  return [...unknown.map((key) => `${key}: 모르는 설정`), ...wrongType.map(([key]) => `${key}: 문자열이어야 함`), ...root.loadConfig(process.env, { tunables: shape(values) }).tuneProblems];
 }
 
 // 저장한 값을 설정 객체에 올리고 알린다(다시 시작해야 적용되는 값은 기동 시 값으로)

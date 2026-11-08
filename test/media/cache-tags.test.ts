@@ -77,15 +77,15 @@ before(async () => {
 });
 
 test("굽기: 움직이는 GIF 는 첫 장", async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const gif = fs.readFileSync(at("moving.gif"));
-  assert.ok(((await sharp(gif, { animated: true }).metadata()).pages ?? 1) > 1, "시료가 여러 장");
+  assert.ok(((await sharp(gif, { animated: true }).metadata()).pages ?? 1) > 1, "픽스처가 여러 장");
   const frame = await bakeCover(gif);
   assert.deepEqual([frame?.width, frame?.height], [40, 80]);
 });
 
 test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3, Ogg Vorbis, 이미 Opus 라 옮기기). 다시 읽으면 같고, 임시 그림 파일은 남지 않는다", { timeout: 60_000 }, async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const cover = await bakeCover(fs.readFileSync(at("src.jpg")));
   assert.ok(cover);
   const tags = { title: "제목 = ; # \\ 끝", artist: "가수", album: "앨범" };

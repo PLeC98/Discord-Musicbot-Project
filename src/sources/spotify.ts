@@ -235,7 +235,7 @@ const official = {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     // 400, 401 은 자격증명이 틀린 것이다(운영자 설정). 라우팅이 익명 GraphQL 로 넘기고 이 줄은 운영자 로그에 남는다
-    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀렸습니다. 운영자 패널의 API 키 탭)" : ""}`);
+    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀림. 운영자 패널의 API 키 탭)" : ""}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;

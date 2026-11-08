@@ -67,14 +67,14 @@ type OnTrack = { onTrack?: number };
 
 /**
  * 사람의 멈춤을 뒤집는다. 억제 사유(서버 음소거, 스테이지 청중, 혼자 남음)는 보지 않는다:
- * 그 사유로 소리가 이미 멈춰 있어도 멈춰 두면 사유가 풀려도 멈춘 채로, 풀어 두면 사유가 풀리는 순간 이어 튼다.
+ * 그 사유로 소리가 이미 멈춰 있어도 일시정지하면 사유가 풀려도 멈춘 채로, 일시정지를 풀면 사유가 풀리는 순간 이어 튼다.
  * heldBy: 지금 소리를 함께 멈추고 있는 억제 사유(결과 안내가 그 사유가 풀린 뒤를 말한다)
  */
 async function pause(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
-  // 실패로 멈춰 둔 곡이면 ▶ 는 그 위치부터 다시 연다(멈춤만 풀면 열린 소리가 없어 아무 일도 없다)
+  // 실패로 일시정지해 둔 곡이면 ▶는 그 위치부터 다시 연다(일시정지만 풀면 열린 소리가 없어 아무 일도 없다)
   if (player.parked) {
     await player.retryParked();
     return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
@@ -158,7 +158,7 @@ function seekBlocked(player: Player) {
   if (player.isLive) return fail("live-no-seek");
   // 여는 중에는 옮길 곡이 아직 자리 잡지 않았다
   if (player.isPlayStarting) return fail("still-starting");
-  // 무음을 흘려보내며 멈추는 중이면 곡이 곧 바뀐다(옮기면 새 소리가 무음을 덮어 멈춤을 무른다)
+  // 무음을 내보내며 멈추는 중이면 곡이 곧 바뀐다(옮기면 새 소리가 무음을 덮어 멈춤을 무른다)
   if (player.isStopping) return fail("track-changed");
   return null;
 }

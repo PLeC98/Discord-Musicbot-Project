@@ -85,7 +85,7 @@ before(async () => {
     await gate.opened;
     throw new Error("봇 버그");
   });
-  // 스트리밍 다운로드다(끊길 때까지 데이터를 흘려보낸다)
+  // 스트리밍 다운로드다(끊길 때까지 데이터를 계속 보낸다)
   app.get("/download", requireAuth, (req, res) => {
     lastSocket = req.socket;
     res.writeHead(200, { "Content-Type": "application/octet-stream" });
@@ -185,7 +185,7 @@ for (const as of ["json", "redirect", "head"] as const) {
   });
 }
 
-test("대기 중인 읽기가 파일을 흘려보내려 하면(sendFile) 보내지 않고 소켓을 강제로 닫는다", async () => {
+test("대기 중인 읽기가 파일을 보내려 하면(sendFile) 보내지 않고 소켓을 강제로 닫는다", async () => {
   newGate();
   const thief = await signedIn("read-file");
   const pending = thief.go("/hold-read?as=file").then(

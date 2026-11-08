@@ -60,17 +60,17 @@ test("기동 진단: 공개 주소가 없으면 다른 기기에서 쓰는 법�
 test("기동 진단: 모든 주소면 접속할 수 있는 주소, http면 HTTPS 사용법, https인데 DASHBOARD_HOST로 망에 열면 평문 직접 접속 시 로그인되지 않음을 안내한다", () => {
   const plain = bindNotes(plan({ url: "http://bot.example.com" }), { url: "http://bot.example.com", port: 33333, envHost: null, container: false, reachable: ["192.168.0.10"] }).map((n) => n.text);
   assert.ok(plain.some((t) => t.includes("다른 기기에서 접속할 수 있는 주소: http://192.168.0.10:33333")));
-  assert.ok(plain.some((t) => t.includes("HTTPS로 쓸 수 있습니다")));
+  assert.ok(plain.some((t) => t.includes("HTTPS로 쓸 수 있음")));
   const https = bindNotes(plan({ envHost: "0.0.0.0", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "0.0.0.0", container: false, reachable: [] }).map((n) => n.text);
-  assert.ok(https.some((t) => t.includes("로그인되지 않습니다")));
+  assert.ok(https.some((t) => t.includes("로그인되지 않음")));
   const local = bindNotes(plan({ envHost: "127.0.0.1", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "127.0.0.1", container: false, reachable: [] });
   assert.deepEqual(local, [], "DASHBOARD_HOST가 이 기기 주소면 없다");
 });
 
 test("콜백 안내: 사설 IP의 http는 디스코드가 받지 않는다(warn), 사설 IP의 https와 100.64/10은 받지 않을 수 있다", () => {
-  assert.match(callbackNote("http://192.168.0.10:33333")?.text ?? "", /받지 않아 로그인할 수 없습니다/);
-  assert.match(callbackNote("https://192.168.0.10")?.text ?? "", /받지 않을 수 있습니다/);
-  assert.match(callbackNote("http://100.101.1.2:33333")?.text ?? "", /받지 않을 수 있습니다/);
+  assert.match(callbackNote("http://192.168.0.10:33333")?.text ?? "", /받지 않아 로그인할 수 없음/);
+  assert.match(callbackNote("https://192.168.0.10")?.text ?? "", /받지 않을 수 있음/);
+  assert.match(callbackNote("http://100.101.1.2:33333")?.text ?? "", /받지 않을 수 있음/);
   for (const url of ["http://localhost:33333", "https://music.example.com", "http://203.0.113.5"]) assert.equal(callbackNote(url), null, url);
 });
 
@@ -78,8 +78,8 @@ test("넓어진 범위: 이전 실행이 이 기기 전용이었는데 이번에
   assert.equal(scopeOf(plan({})), "loopback");
   assert.equal(scopeOf(plan({ url: "http://bot.example.com" })), "all");
   assert.equal(scopeOf(plan({ envHost: "192.168.0.10" })), "192.168.0.10");
-  assert.match(widenedNote("loopback", plan({ url: "http://bot.example.com" }))?.text ?? "", /더 넓게 열었습니다\(모든 주소:/);
-  assert.match(widenedNote("loopback", plan({ envHost: "192.168.0.10" }))?.text ?? "", /더 넓게 열었습니다\(192\.168\.0\.10:/);
+  assert.match(widenedNote("loopback", plan({ url: "http://bot.example.com" }))?.text ?? "", /더 넓게 열림\(모든 주소:/);
+  assert.match(widenedNote("loopback", plan({ envHost: "192.168.0.10" }))?.text ?? "", /더 넓게 열림\(192\.168\.0\.10:/);
   assert.equal(widenedNote("loopback", plan({ url: "https://music.example.com" })), null);
   assert.equal(widenedNote(null, plan({ url: "http://bot.example.com" })), null, "처음 실행");
   assert.equal(widenedNote("all", plan({ url: "http://bot.example.com" })), null);
@@ -93,7 +93,7 @@ test("컨테이너 안이면 공개 주소, 여는 주소와 상관없이 출발
   ] as const) {
     const texts = bindNotes(planBind({ envHost, url, container: true, certs: false }), { url, port: 33333, envHost, container: true, reachable: [] }).map((n) => n.text);
     assert.ok(
-      texts.some((t) => t.includes("인터넷 평문 접속을 감지하지 못합니다")),
+      texts.some((t) => t.includes("인터넷 평문 접속을 감지하지 못함")),
       `${envHost} ${url}`,
     );
   }

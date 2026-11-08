@@ -19,7 +19,7 @@ const PAUSED = { mute: ["muted", "음소거됨"], stage: ["voice", "발언자 �
 const pausedStatus = (reason: keyof typeof PAUSED) => `${icon(PAUSED[reason][0])} ${PAUSED[reason][1]}`;
 /** 멈춘 까닭의 아이콘, 글(대시보드 배지가 패널과 같은 말을 쓴다) */
 const pausedLabel = (reason: keyof typeof PAUSED) => ({ icon: PAUSED[reason][0], text: PAUSED[reason][1] });
-/** 억제 사유 옆에 붙이는 "사람이 멈춰 둠"(그 사유가 풀려도 멈춘 채) */
+/** 억제 사유 옆에 붙이는 사람의 일시정지 표시(그 사유가 풀려도 멈춘 채) */
 const userPausedMark = () => "일시정지";
 /** 상태 줄의 대기열 곡 수 */
 const queuedStatus = (count: number) => `대기열 ${count}곡`;

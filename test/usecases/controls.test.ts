@@ -117,13 +117,13 @@ test("멈춤: 곡이 없으면 거절, 있으면 사람의 멈춤을 뒤집고 �
 });
 
 test("억제 사유(서버 음소거, 스테이지 청중, 혼자 남음)로 멈춰 있어도 사람의 멈춤만 뒤집는다. 거절하지 않는다", async () => {
-  // 억제로 멈춘 채 누르면 멈춰 둔다: 소리는 이미 멈춰 있고, 사유가 풀려도 멈춘 채로
+  // 억제로 멈춘 채 누르면 일시정지한다: 소리는 이미 멈춰 있고, 사유가 풀려도 멈춘 채로
   const muted = fakePlayer({ holds: ["mute"] });
   assert.deepEqual(await controls.pause(muted, DJ), { ok: true, userPaused: true, heldBy: "mute", track: muted.currentTrack });
   muted.pause.setHolds([]);
   assert.equal(muted.paused, true, "음소거가 풀려도 멈춘 채");
 
-  // 멈춰 둔 것을 풀면 사유가 남아 있는 동안은 조용하고, 사유가 풀리면 이어 튼다
+  // 일시정지를 풀면 사유가 남아 있는 동안은 조용하고, 사유가 풀리면 이어 튼다
   const alone = fakePlayer({ user: true, holds: ["alone"] });
   assert.deepEqual(await controls.pause(alone, DJ), { ok: true, userPaused: false, heldBy: "alone", track: alone.currentTrack });
   assert.equal(alone.paused, true);

@@ -33,7 +33,7 @@ function complaint(fn: () => unknown = () => genreConfig.genres()) {
 test("true, false, null도 장르 식별자로 쓸 수 있고, 비었거나 공백뿐인 식별자는 거절한다", () => {
   const one = (id: string) => genreConfig.validateGenres({ genres: { [id]: { sources: [{ type: "keyword", keywords: ["a"] }] } } });
   for (const id of ["true", "false", "null"]) assert.deepEqual(one(id), [], id);
-  for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비었습니다."], JSON.stringify(id));
+  for (const id of ["", "  "]) assert.deepEqual(one(id), ["장르 식별자가 비어 있어요"], JSON.stringify(id));
 });
 
 test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
@@ -42,9 +42,9 @@ test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
 
   const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
-  assert.match(err.message, /순서가 어긋납니다/);
+  assert.match(err.message, /순서가 어긋나요/);
 
-  assert.match(genreConfig.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /순서가 어긋납니다/);
+  assert.match(genreConfig.validateGenres({ genres: { 80: { sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" "), /순서가 어긋나요/);
   assert.deepEqual(genreConfig.validateGenres({ genres: { "80년대": { sources: [{ type: "keyword", keywords: ["a"] }] } } }), [], "글자가 붙으면 괜찮다");
 });
 
@@ -78,7 +78,7 @@ test("검사: 쓸 만하면 아무 말이 없다", () => {
 });
 
 test("검사: 장르가 없거나 25개를 넘으면 걸린다", () => {
-  assert.match(genreConfig.validateGenres({ genres: {} }).join(" "), /하나도 없습니다/);
+  assert.match(genreConfig.validateGenres({ genres: {} }).join(" "), /하나도 없어요/);
 
   const many: Record<string, unknown> = {};
   for (let i = 0; i < 26; i++) many["장르" + i] = { sources: [{ type: "keyword", keywords: ["a"] }] };
@@ -102,7 +102,7 @@ test("검사: 모르는 소스 종류는 걸린다", () => {
 // 맨 위 keywords:는 옛 형식이다. 조용히 읽어 주면 두 형식을 영원히 들고 가게 된다.
 test("검사: 맨 위 keywords: 는 옮기라고 알려 준다", () => {
   const problems = genreConfig.validateGenres({ genres: { 팝: { keywords: ["a"], sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
-  assert.match(problems, /sources: 로 옮겨/);
+  assert.match(problems, /sources:로 옮겨/);
 });
 
 // 값이 정해져 있는 필드는 오타를 여기서 잡는다. 안 잡으면 저쪽이 422를 주고 그 소스가 조용히
@@ -166,8 +166,8 @@ test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤
 test("검사: 최소 길이를 비우면 기본값과 상한을 견준다", () => {
   const of = (defaults: object, genre: object = {}) => genreConfig.validateGenres({ defaults, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   const min = GENRE_DEFAULTS.minDurationSec;
-  assert.ok(of({ maxDurationSec: 30 }).includes(`maxDurationSec(30)이 비운 minDurationSec의 기본값(${min})보다 작습니다.`));
-  assert.ok(of({}, { maxDurationSec: 30 }).includes(`팝: 이 장르의 minDurationSec(${min})이 maxDurationSec(30)보다 큽니다.`));
+  assert.ok(of({ maxDurationSec: 30 }).includes(`maxDurationSec(30)이 minDurationSec의 기본값(${min})보다 작아요`));
+  assert.ok(of({}, { maxDurationSec: 30 }).includes(`팝: 이 장르의 minDurationSec(${min})이 maxDurationSec(30)보다 커요`));
   assert.equal(of({ maxDurationSec: 600 }), "");
 });
 
@@ -188,7 +188,7 @@ test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장
   const err = complaint();
   assert.equal(err.code, "CONFIG_INVALID");
   const lines = err.message.split("\n");
-  assert.equal(lines[0], "자동재생 장르 설정을 읽을 수 없습니다:");
+  assert.equal(lines[0], "자동재생 장르 설정 읽기 실패:");
   assert.match(err.message, /"80": 숫자만으로 된 식별자는/);
   assert.match(err.message, /팝: emoji는 이모지 한 글자나 봇의 앱 이모지/);
   assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);

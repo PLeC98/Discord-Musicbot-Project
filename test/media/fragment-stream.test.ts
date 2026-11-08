@@ -1,4 +1,4 @@
-// src/media/fragment-stream.ts: 세그먼트 목록으로만 주는 오디오(유튜브 post_live)를 순서대로 받아 흘린다.
+// src/media/fragment-stream.ts: 세그먼트 목록으로만 주는 오디오(유튜브 post_live)를 순서대로 받아 내보낸다.
 // 요청은 가짜다. 세그먼트 번호를 본문에 싣는다
 
 import { test } from "node:test";
@@ -33,7 +33,7 @@ async function readAll(stream: NodeJS.ReadableStream) {
   return text;
 }
 
-test("처음부터 순서대로 흘리고 마지막 세그먼트 뒤에 끝난다. 세그먼트 주소는 base 뒤 &sq=번호", async () => {
+test("처음부터 순서대로 내보내고 마지막 세그먼트 뒤에 끝난다. 세그먼트 주소는 base 뒤 &sq=번호", async () => {
   const { impl, asked } = fakeFetch();
   const s = createFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
@@ -90,7 +90,7 @@ test("세그먼트 수가 없으면 만들지 않는다", () => {
   assert.throws(() => createFragmentStream({ fragments: { base, count: 0 }, durationMs: 1, startMs: 0 }), /세그먼트 수가 올바르지 않음/);
 });
 
-test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) 차례대로 흘리고, 닫으면 출처에 알린다", async () => {
+test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) 차례대로 내보내고, 닫으면 출처에 알린다", async () => {
   const names = ["a", "b", "c"];
   let given = 0;
   let closed = 0;
@@ -99,12 +99,12 @@ test("출처를 넘기면: 다음 세그먼트가 늦게 나와도(라이브) �
     next: () => new Promise((resolve) => setTimeout(() => resolve(names[given++] ?? null), 5)),
     fetch: async (name) => Buffer.from(`${name}|`),
     startedAtMs: 1_000,
-    describe: (sent) => `흘림 ${sent}`,
+    describe: (sent) => `내보냄 ${sent}`,
     close: () => closed++,
   };
   const s = streamFragments(source, { retryDelaysMs: [] });
   assert.equal(await readAll(s), "a|b|c|");
-  assert.deepEqual([s.startedAtMs, s.describe(), closed], [1_000, "흘림 3", 1]);
+  assert.deepEqual([s.startedAtMs, s.describe(), closed], [1_000, "내보냄 3", 1]);
 
   const endless = streamFragments({ ...source, next: async () => "x" }, { retryDelaysMs: [] });
   for await (const _ of endless) break;
@@ -117,7 +117,7 @@ test("열 때 첫 세그먼트까지 받는다: 막혔으면(403, 주소 만료�
   assert.deepEqual(asked, [`${base}&sq=0`]);
 });
 
-test("연 뒤 읽으면 받아 둔 첫 세그먼트부터 흘린다. 첫 세그먼트를 두 번 받지 않는다", async () => {
+test("연 뒤 읽으면 받아 둔 첫 세그먼트부터 내보낸다. 첫 세그먼트를 두 번 받지 않는다", async () => {
   const { impl, asked } = fakeFetch();
   const s = await openFragmentStream({ fragments: { base, count: 3 }, durationMs: 6_000, startMs: 0, fetchImpl: impl, retryDelaysMs: [] });
   assert.equal(await readAll(s), "세그먼트 0|세그먼트 1|세그먼트 2|");
@@ -143,7 +143,7 @@ test("닫으면 받는 중인 세그먼트(미리 받는 것까지)를 끊는다
   s.on("error", () => {});
   s.resume();
   await new Promise((done) => setImmediate(done));
-  assert.equal(signals.length, 2, "흘릴 것과 미리 받는 것");
+  assert.equal(signals.length, 2, "내보낼 것과 미리 받는 것");
   s.destroy();
   assert.deepEqual(
     signals.map((one) => one.aborted),
@@ -164,7 +164,7 @@ function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readab
     next: async () => (given < parts.length ? given++ : null),
     fetch: async (index) => parts[index](),
     startedAtMs: 0,
-    describe: (sent) => `흘림 ${sent}`,
+    describe: (sent) => `내보냄 ${sent}`,
     ...extra,
   };
   return source;
@@ -173,10 +173,10 @@ function sourceOf(parts: Array<() => Buffer | Readable | Promise<Buffer | Readab
 test("스트림 세그먼트: 버퍼와 Readable이 섞여도 순서대로, 빈 것도 건너뛰고 이어진다", async () => {
   const s = streamFragments(sourceOf([() => Buffer.from("a|"), () => Readable.from([Buffer.from("b1"), Buffer.from("b2|")]), () => Buffer.alloc(0), () => Readable.from([]), () => Buffer.from("c|")]), { retryDelaysMs: [] });
   assert.equal(await readAll(s), "a|b1b2|c|");
-  assert.equal(s.describe(), "흘림 5");
+  assert.equal(s.describe(), "내보냄 5");
 });
 
-test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 흘린 뒤 다음으로 넘어간다", async () => {
+test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 내보낸 뒤 다음으로 넘어간다", async () => {
   let produced = 0;
   let paused = false;
   const big = new Readable({
@@ -201,7 +201,7 @@ test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 �
   assert.ok(paused, "받는 쪽이 밀리면 출처를 멈춘다");
 });
 
-test("스트림 세그먼트: 마지막 read가 흘리는 중에 왔어도 끝나면 다음 세그먼트로 간다", async () => {
+test("스트림 세그먼트: 마지막 read가 내보내는 중에 왔어도 끝나면 다음 세그먼트로 간다", async () => {
   const inner = new PassThrough();
   const s = streamFragments(sourceOf([() => inner, () => Buffer.from("다음")]), { retryDelaysMs: [] });
   const chunks: string[] = [];
@@ -249,7 +249,7 @@ test("스트림 세그먼트: 미리 받아 둔 세그먼트가 순서 전에 �
   await assert.rejects(readAll(s), /끊김/);
 });
 
-test("스트림 세그먼트: 흘리는 중 닫으면 현재 세그먼트와 미리 받은 것, 닫은 뒤 도착한 것까지 강제로 닫는다", async () => {
+test("스트림 세그먼트: 내보내는 중 닫으면 현재 세그먼트와 미리 받은 것, 닫은 뒤 도착한 것까지 강제로 닫는다", async () => {
   const inner = new PassThrough();
   const ahead = new PassThrough();
   const s = streamFragments(sourceOf([() => inner, () => ahead]), { retryDelaysMs: [] });

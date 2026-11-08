@@ -205,12 +205,12 @@ test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고�
 test("결과 한 줄", () => {
   const lines = [describe({ kind: "current", version: "a" }), describe({ kind: "installed", from: "a", to: "b", channel: "nightly" }), describe({ kind: "reused", from: "b", to: "a" }), describe({ kind: "available", from: "a", to: "b", channel: "stable" }), describe({ kind: "failed", current: "a", target: "b", reason: "ERROR: x", channel: "nightly" }), describe({ kind: "capped", current: "a", target: "c", got: "b", channel: "nightly" })];
   assert.deepEqual(lines, [
-    { level: "info", line: "yt-dlp가 목표 버전입니다(a)" },
-    { level: "info", line: "yt-dlp를 업데이트했습니다: a → b" },
-    { level: "info", line: "yt-dlp를 저장된 버전으로 교체했습니다: b → a" },
-    { level: "info", line: "yt-dlp에 업데이트가 있습니다: a → b (stable). (업데이트: pnpm run update:ytdlp)" },
-    { level: "warn", line: "yt-dlp 업데이트 실패. 기존 버전을 유지합니다: a → b (nightly) - ERROR: x" },
-    { level: "warn", line: "yt-dlp 업데이트 불가. 기존 버전을 유지합니다: a → c (nightly) - 이 환경에서 다운로드할 수 있는 최고 버전은 b" },
+    { level: "info", line: "yt-dlp 버전이 목표와 같음(a)" },
+    { level: "info", line: "yt-dlp 업데이트 완료: a → b" },
+    { level: "info", line: "yt-dlp를 저장된 버전으로 교체: b → a" },
+    { level: "info", line: "yt-dlp 업데이트 있음: a → b (stable). (업데이트: pnpm run update:ytdlp)" },
+    { level: "warn", line: "yt-dlp 업데이트 실패(기존 버전 유지): a → b (nightly) - ERROR: x" },
+    { level: "warn", line: "yt-dlp 업데이트 불가(기존 버전 유지): a → c (nightly) - 이 환경에서 다운로드할 수 있는 최고 버전은 b" },
   ]);
 });
 

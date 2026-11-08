@@ -26,7 +26,7 @@ const row = (key: string) => store.db().prepare<[string], { display_title: strin
 const FILE = "https://files.test/my_song.mp3";
 const TAGS = { title: "태그 제목", artist: "태그 가수", album: "태그 앨범", picture: null };
 
-/** ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null) */
+/** ffmpeg 로 만든 태그 단 MP3(픽스처가 없으면 null) */
 const samples = new Map<string, Buffer | null>();
 function ffmpeg(args: string[]): Promise<boolean> {
   return new Promise((resolve) => {
@@ -42,7 +42,7 @@ function ffmpeg(args: string[]): Promise<boolean> {
 }
 
 /**
- * ffmpeg 로 만든 태그 단 MP3(시료가 없으면 null).
+ * ffmpeg 로 만든 태그 단 MP3(픽스처가 없으면 null).
  * art: 앨범아트가 든 태그(1200px, 앞 8KB 를 크게 넘는다). 담을 때 앞부분 판정 뒤 태그의 나머지가 느리게 오는 것을 흉내 낸다
  */
 async function mp3(title: string, artist: string, album: string, { art = false } = {}): Promise<Buffer | null> {
@@ -102,7 +102,7 @@ test("반영: 쓰는 곡이면 고치고 링크 데이터에 확인된 제목으
 
 test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 대기는 HEAD 와 같다", async (t) => {
   const body = await mp3("태그 제목", "태그 가수", "태그 앨범");
-  if (!body) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!body) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net, seen } = netOf(body);
   const got: Tags[] = [];
   const [track] = await DirectLink.getInfo(FILE, { net, tags: (t, tags) => (got.push(tags), applyTags(t, tags)) });
@@ -114,7 +114,7 @@ test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 �
 
 test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같은 곡을 고친다", { timeout: 20_000 }, async (t) => {
   const body = await mp3("늦은 제목", "늦은 가수", "늦은 앨범", { art: true });
-  if (!body) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!body) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   // 앞부분(판정)은 바로 오고, 앨범아트가 든 태그의 나머지가 느리게 온다
   const { net } = netOf(body, { laterDelayMs: 400, chunk: 8192 });
   let late: () => void = () => {};

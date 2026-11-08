@@ -12,7 +12,7 @@ import { saveBody } from "../../src/dashboard/body-to-file.ts";
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "body-to-file-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-/** 본문을 나중에 흘리는 가짜 요청 */
+/** 본문을 나중에 보내는 가짜 요청 */
 function request(length?: number) {
   const body = new PassThrough();
   return { body, req: Object.assign(body, { headers: length === undefined ? {} : { "content-length": String(length) } }) as unknown as Request };

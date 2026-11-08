@@ -1,5 +1,5 @@
 // src/dashboard/routes/player.ts, player-view.ts: 대시보드의 직접 링크 곡 앨범아트. 상태(player-view)에 이 봇의 이미지 주소를 싣고, 그 경로가 다시 인코딩한 JPEG 을 준다.
-// 그 서버의 지금 곡, 대기열에서 찾은 이미지만, 통신 없이(메모리, 캐시 파일). 시료는 ffmpeg 로 만든다(없으면 건너뛴다)
+// 그 서버의 지금 곡, 대기열에서 찾은 이미지만, 통신 없이(메모리, 캐시 파일). 픽스처는 ffmpeg 로 만든다(없으면 건너뛴다)
 
 process.env.OWNER_ID = "owner";
 
@@ -78,7 +78,7 @@ before(async () => {
 after(() => server?.close());
 
 test("상태: 직접 링크 곡은 이 봇의 그림 주소, 곡 그림이 있는 곡은 그 주소", async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { json } = await requestJson<PlayerRead>(base, "GET", `/api/guilds/${GUILD_ID}/player`, undefined, { timeoutMs: 3000 });
   const fingerprint = embeddedArt.artFor(fileTrack(FILE))!.fingerprint;
   assert.equal(json.currentTrack?.thumbnail, `/api/guilds/${GUILD_ID}/art/${fingerprint}.jpg`);
@@ -86,7 +86,7 @@ test("상태: 직접 링크 곡은 이 봇의 그림 주소, 곡 그림이 있�
 });
 
 test("그림 경로: 그 서버 곡의 그림만 JPEG 으로(오래 기억), 아니면 404", async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const fingerprint = embeddedArt.artFor(fileTrack(FILE))!.fingerprint;
   const got = await fetch(`${base}/api/guilds/${GUILD_ID}/art/${fingerprint}.jpg`, { signal: AbortSignal.timeout(3000) });
   assert.equal(got.status, 200);

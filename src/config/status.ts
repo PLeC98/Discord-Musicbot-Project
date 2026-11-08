@@ -27,7 +27,7 @@ function checkedStatus(): StatusConfig {
   const data = documents.get("status");
   const problems = validateStatus(data);
   if (problems.length) {
-    throw Object.assign(new Error(["활동 문구 설정을 읽을 수 없습니다:", ...problems.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(["활동 문구 설정 읽기 실패:", ...problems.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
   return data as StatusConfig;
 }

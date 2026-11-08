@@ -40,7 +40,7 @@ type Profile = {
 };
 /** 파일에 둔 한 버전. hash 는 받은 카탈로그의 해시, registries 는 담은 레지스트리(담을 목록이 바뀌면 해시가 같아도 다시 받는다) */
 type Snapshot = { fetchedAt?: string; hash?: string; registries?: string[]; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
-/** 목차(index.json)에서 읽는 것: 카탈로그 전체의 해시 */
+/** 인덱스(index.json)에서 읽는 것: 카탈로그 전체의 해시 */
 type RegistryIndex = { hash?: unknown };
 /** 카탈로그(catalog.json): 레지스트리 전체가 든 파일 하나 */
 type Catalog = { schemaVersion?: unknown; hash?: unknown; baseProviders?: Record<string, BaseProvider>; profiles?: Record<string, Profile> };
@@ -206,8 +206,8 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 }
 
 /**
- * 목차의 해시가 받은 사본과 다를 때만 카탈로그를 받아 사본에 쓴다(force 면 해시와 상관없이).
- * 받은 것이 모양 검사(lostShape)에 걸리거나 목차와 해시가 다르면 던지고 가진 사본을 그대로 둔다.
+ * 인덱스의 해시가 받은 사본과 다를 때만 카탈로그를 받아 사본에 쓴다(force 면 해시와 상관없이).
+ * 받은 것이 모양 검사(lostShape)에 걸리거나 인덱스와 해시가 다르면 오류를 던지고 기존 사본을 그대로 둔다.
  */
 async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl = github.fetch }: { registries: string[]; force?: boolean; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<RefreshResult> {
   const get = async <T>(at: string): Promise<T> => {
@@ -218,18 +218,18 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   const held = load();
   const count = (one: Snapshot) => Object.keys(one.profiles || {}).length;
   const index = await get<RegistryIndex>("index.json");
-  if (typeof index.hash !== "string") throw new Error("레지스트리 목차에 해시가 없음");
+  if (typeof index.hash !== "string") throw new Error("레지스트리 인덱스에 해시가 없음");
   const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
   if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
-  // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 목차와 해시가 같은 짝만 쓴다
+  // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 인덱스와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
   if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
-  if (catalog.hash !== index.hash) throw new Error("레지스트리 목차와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
+  if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
   const { snapshot: got, skipped } = pick(catalog, registries);
   if (skipped.length) log.warn(`AI 모델 정보에서 형식이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
   const lost = lostShape(registries, held, got);
-  if (lost.length) throw new Error(`${lost.join(", ")} 의 모델 필드가 통째로 비었습니다. 저쪽 모양이 바뀐 것 같아 쓰지 않았습니다.`);
+  if (lost.length) throw new Error(`${lost.join(", ")}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`);
 
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(got, null, 2) + String.fromCharCode(10));

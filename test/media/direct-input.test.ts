@@ -32,7 +32,7 @@ function hlsOf(live: boolean, asked: number[] = []): () => Promise<DirectOpen> {
         },
         fetch: async (part) => Buffer.from(part.url),
         startedAtMs: 4000,
-        describe: (sent) => `흘림 ${sent}`,
+        describe: (sent) => `내보냄 ${sent}`,
         close: () => {},
       };
     },
@@ -60,7 +60,7 @@ test("HLS: VOD 는 bounded 이고 위치를 세그먼트 단위로 넘긴다, �
   let text = "";
   for await (const chunk of vod) text += String(chunk);
   assert.equal(text, "ab");
-  assert.equal(vod.describe?.(), "흘림 2");
+  assert.equal(vod.describe?.(), "내보냄 2");
 
   const live = await openDirectInput("https://h.test/l.m3u8", {}, hlsOf(true));
   assert.deepEqual([live.live, live.bounded], [true, false]);
@@ -74,7 +74,7 @@ test("끊긴 라이브를 다시 열 때(liveOnly) 목록이 끝났으면 live-e
   reopened.destroy();
 });
 
-test("이어받기: 크기를 알리고 상한 안인 파일만. 검사값은 강한 ETag, 없으면 Last-Modified", async () => {
+test("이어받기: 크기를 알리고 상한 안인 파일만. 검증값은 강한 ETag, 없으면 Last-Modified", async () => {
   const resumableOf = async (radio: boolean, length: number | null, headers: Record<string, unknown> = {}) => {
     const input = await openDirectInput("https://f.test/a", {}, file(radio, length, headers));
     input.destroy();
@@ -83,7 +83,7 @@ test("이어받기: 크기를 알리고 상한 안인 파일만. 검사값은 �
   const got = await resumableOf(false, 4096, { etag: '"abc"' });
   assert.deepEqual([got?.totalBytes, got?.validator], [4096, '"abc"']);
   assert.equal((await resumableOf(false, 4096, { etag: 'W/"weak"', "last-modified": "Tue, 20 Oct 2026 00:00:00 GMT" }))?.validator, "Tue, 20 Oct 2026 00:00:00 GMT");
-  assert.equal((await resumableOf(false, 4096))?.validator, null, "검사값이 없으면 If-Range 없이(바뀐 파일은 전체 크기 · 구간으로 가린다)");
+  assert.equal((await resumableOf(false, 4096))?.validator, null, "검증값이 없으면 If-Range 없이(바뀐 파일은 전체 크기 · 구간으로 가린다)");
   assert.equal(await resumableOf(false, null), undefined, "크기를 모르면 잇지 않는다");
   assert.equal(await resumableOf(true, 4096), undefined, "라디오는 잇지 않는다");
   assert.equal(await resumableOf(false, SafeUrl.DIRECT_LINK.maxBytes + 1), undefined, "상한을 넘으면 잇지 않는다");
@@ -235,24 +235,24 @@ test("HLS 큰 AES 세그먼트: 틀린 키나 블록 단위가 아닌 크기는 
   let got = 0;
   input.on("data", (chunk: Buffer) => (got += chunk.length));
   await assert.rejects(new Promise((resolve, reject) => input.on("end", resolve).on("error", reject)), (e: Error & { permanent?: boolean }) => e.permanent === true && /키가 맞지 않/.test(e.message));
-  assert.equal(got, 0, "아무것도 흘리지 않았다");
+  assert.equal(got, 0, "아무것도 내보내지 않았다");
 
   const odd = segmentServer(Buffer.concat([sealed, Buffer.alloc(3)]));
   const oddInput = await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, odd.open(true));
   await assert.rejects(readInput(oddInput), (e: Error & { permanent?: boolean }) => e.permanent === true && /16/.test(e.message));
 });
 
-test("HLS 큰 AES 세그먼트: 암호문이 블록 중간에서 끝나면 그 조각만 버리고 앞의 온전한 블록은 흘린다", async () => {
+test("HLS 큰 AES 세그먼트: 암호문이 블록 중간에서 끝나면 그 조각만 버리고 앞의 온전한 블록은 내보낸다", async () => {
   const plain = tsOf(2 * MB);
   const sealed = seal(plain);
   const server = segmentServer(sealed.subarray(0, sealed.length - 1), { length: false });
   const from = sink.buffer.length;
   const out = await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, server.open(true)));
-  assert.deepEqual(out, plain, "패딩 블록 앞까지 다 흘렸다(평문 2MB는 16의 배수라 마지막 블록은 패딩뿐)");
+  assert.deepEqual(out, plain, "패딩 블록 앞까지 다 내보냈다(평문 2MB는 16의 배수라 마지막 블록은 패딩뿐)");
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("15바이트")));
 });
 
-test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를 이어 흘린다(AES면 앞부분이 블록 중간에서 끝나도 이어서 복호화한다)", async () => {
+test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를 이어 내보낸다(AES면 앞부분이 블록 중간에서 끝나도 이어서 복호화한다)", async () => {
   const body = bytesOf(3 * MB + 77);
   const plainServer = segmentServer(body, { length: false });
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, plainServer.open(false))), body);
@@ -262,7 +262,7 @@ test("HLS 큰 세그먼트: 크기를 모르면 모은 앞부분과 나머지를
   assert.deepEqual(await readInput(await openDirectInput(HLS_URL, { bodyIdleMs: 6000 }, aesServer.open(true))), plain);
 });
 
-test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기면 받은 위치부터 이어 받아 원본과 같은 바이트를 받는다(AES면 블록 중간이어도). 두 경우 모두 이어 받았다고 알린다", async () => {
+test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 스트리밍하다 끊기면 받은 위치부터 이어 받아 원본과 같은 바이트를 받는다(AES면 블록 중간이어도). 두 경우 모두 이어 받았다고 알린다", async () => {
   const body = bytesOf(3 * MB + 77);
   const server = segmentServer(body, { length: false, dieAt: 2_000_001 });
   const resumed: unknown[] = [];
@@ -288,7 +288,7 @@ test("HLS 큰 세그먼트: 크기를 모르는 세그먼트도 흘리다 끊기
 const fixture = (name: string) => fs.readFileSync(new URL(`../fixtures/hls/${name}`, import.meta.url));
 const repeated = (one: Buffer, size: number) => Buffer.concat(Array.from({ length: Math.ceil(size / one.length) }, () => one));
 
-test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대로 흘리고, 틀린 키면 끝을 확인할 수 없어도(크기를 모름) 아무것도 흘리기 전에 재시도하지 않는 실패로 끝난다", async () => {
+test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대로 내보내고, 틀린 키면 끝을 확인할 수 없어도(크기를 모름) 아무것도 내보내기 전에 재시도하지 않는 실패로 끝난다", async () => {
   for (const name of ["segment.mpegts", "segment.m4s", "segment.aac"]) {
     const plain = repeated(fixture(name), 2 * MB);
     const right = segmentServer(seal(plain), { length: false });
@@ -299,7 +299,7 @@ test("HLS 큰 AES 세그먼트: 맞는 키면 TS, fMP4, Packed Audio 를 그대�
     let got = 0;
     input.on("data", (chunk: Buffer) => (got += chunk.length));
     await assert.rejects(new Promise((resolve, reject) => input.on("end", resolve).on("error", reject)), (e: Error & { permanent?: boolean }) => e.permanent === true && /키가 맞지 않/.test(e.message), name);
-    assert.equal(got, 0, `${name}: 아무것도 흘리지 않았다`);
+    assert.equal(got, 0, `${name}: 아무것도 내보내지 않았다`);
   }
 });
 

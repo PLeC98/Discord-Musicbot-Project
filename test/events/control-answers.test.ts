@@ -79,7 +79,7 @@ test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로
 
 test("처음부터: 직접 링크 곡은 결과에 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
   const url = "https://files.test/replay-art.mp3";
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { it, sentFiles } = asked();
   const { p } = player({ currentTrack: { title: "파일", pageUrl: url, requestKey: url, audioUrl: url, duration: 300, thumbnail: null, platform: "direct" } });
   await answerReplay(it, p);

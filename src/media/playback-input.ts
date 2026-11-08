@@ -27,7 +27,7 @@ import { watchBodyIdle } from "../infra/safe-url.ts";
 type Splicer = InstanceType<typeof AudioSplicer>;
 // 바깥 경계에서 여기서 부르고 읽는 필드만. R 은 오디오 리소스(건드리지 않고 돌려준다)
 type FfmpegChild = { stdout: Readable; stderr: Readable; stdin: Writable; kill(signal?: NodeJS.Signals): boolean; once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown };
-// startedAtMs: 곡 안의 어디부터 흘리나(세그먼트 스트림은 위치가 든 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
+// startedAtMs: 내보내기 시작하는 곡 안의 위치(세그먼트 스트림은 그 위치를 포함한 세그먼트부터, 청크 스트림은 위치 앞의 키프레임부터 받는다. 나머지는 ffmpeg 의 -ss). describe: 끊겼을 때 남길 입력 상태.
 // bounded: 직접 링크가 끝이 있고 크기, 길이를 안다(나란히 다운로드해도 된다). resumable: 끊기면 이을 수 있다(media/direct-input)
 type OpenedStream = Readable & {
   headers?: Record<string, unknown>;
@@ -141,8 +141,8 @@ function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   return { ...resourceOf(o, ffmpeg.stdout), cacheFile: null, health };
 }
 
-// HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 흘린 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
-// 다시보기는 그 자리에서 입력을 끊는다. 이어 흘린 채 끝나면 끊긴 위치가 빠진 길이만큼 앞당겨져, 그 위치부터 다시 열 때 들은 끝부분을 되풀이한다.
+// HLS 는 세그먼트를 끝내 못 받으면 건너뛰고 이어 내보낸 뒤 0 으로 끝난다(빠진 만큼 소리가 짧다).
+// 다시보기는 그 자리에서 입력을 끊는다. 이어 내보낸 채 끝나면 끊긴 위치가 빠진 길이만큼 앞당겨져, 그 위치부터 다시 열 때 들은 끝부분을 되풀이한다.
 // 끊어 두면 곡 끝 판정이 입력 깨짐으로 보고 빠진 세그먼트 앞에서 다시 연다. 라이브는 짧은 빈틈보다 재연결 공백이 길어 이어 튼다
 const SEGMENT_SKIPPED = /failed too many times, skipping/;
 
@@ -307,7 +307,7 @@ async function openStreamOnce<R>(o: InputOptions<R>, streamInfo: StreamInfo, hoo
 }
 
 /**
- * 청크 스트림. 먼 위치면 파일의 색인으로 목표 앞의 키프레임 바이트부터 받고(헤더를 먼저 흘린다, media/seek-start) 나머지는 ffmpeg 의 -ss 가 맞춘다.
+ * 청크 스트림. 먼 위치면 파일의 인덱스로 목표 앞의 키프레임 바이트부터 받고(헤더를 먼저 내보낸다, media/seek-start) 나머지는 ffmpeg 의 -ss 가 맞춘다.
  * 색인이 없거나, 받지 못하거나, 그 자리가 색인 탓으로 열리지 않으면 처음부터 받는다(주소, 네트워크 탓의 실패는 그대로 던진다)
  */
 async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, durationMs }: { url: string; headers: Record<string, string>; totalBytes: number; durationMs: number }, hooks: Hooks): Promise<OpenedStream> {
@@ -334,7 +334,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
 
 /**
  * 직접 링크는 SSRF 가드(SafeUrl)를 통과해 연다. HLS VOD 는 위치가 든 세그먼트부터 받는다.
- * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 흘리고, 끊기면 캐시 전환을 먼저 묻고 받은 자리부터 Range 로 잇는다
+ * 이을 수 있는 파일은 청크 스트림으로: 연 응답을 끝까지 내보내고, 끊기면 캐시 전환을 먼저 묻고 받은 위치부터 Range 로 잇는다
  */
 async function openDirect<R>(o: InputOptions<R>, url: string, hooks: Hooks): Promise<OpenedStream> {
   const input = await o.io.directStream(url, { startMs: o.startMs, liveOnly: o.liveOnly, onResumed: (info) => hooks.resumed(info) });
@@ -369,7 +369,7 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
 }
 
 function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream: OpenedStream, hooks: Hooks): Opened<R> {
-  // 스트림이 곡 중간부터 흘리면(세그먼트 스트림) 그 앞은 이미 건너뛰었다
+  // 스트림이 곡 중간부터 내보내면(세그먼트 스트림) 그 앞은 이미 건너뛰었다
   const ffmpeg = o.io.spawnFfmpeg(buildFfmpegArgs({ seekMs: o.startMs - (audioStream.startedAtMs ?? 0) }), "stream");
   // 입력을 닫아 ffmpeg 가 0 으로 끝나도 스트림이 깨졌으면 끝이 아니다. 오류와 덜 받은 채 끝남을 따로 적는다
   const kind = streamInfo.fragments ? "세그먼트" : audioStream.stats ? "청크" : streamInfo.platform === "direct" ? "직접 링크" : "단일 GET";
@@ -385,7 +385,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
     return st ? `청크 #${st.requests} · ${st.received}/${st.totalBytes}B · 마지막 수신 ${sec(st.idleMs)}초 전 · URL 만료 ${st.expiresInS ?? "?"}초 후${st.startByte ? ` · 시작 ${st.startByte}B` : ""}${st.resuming ? " · 이어받는 중" : ""}` : "단일 GET";
   };
   health.detail = () => (audioStream.stats || audioStream.describe ? streamDetail() : null);
-  // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 흘린다
+  // 끊기면 캐시 전환을 먼저 시도한다. 예약되면 청크 스트림은 이어받지 않고 받아 둔 데까지만 내보낸다
   hooks.interrupt = (err) => {
     log.debug(`스트림 중단: ${describeStreamError(err)} | ${streamDetail()}`);
     return o.onStreamLost(playSource);
@@ -405,7 +405,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   // ffmpeg가 끝나면 입력 스트림도 닫는다. .pipe 바깥이라 자동 정리 대상이 아니다.
   ffmpeg.once("exit", () => audioStream.destroy());
   audioStream.pipe(ffmpeg.stdin);
-  // 캐시로 넘겨주기로 한 청크 스트림은 받은 데까지만 흘리고 끝난다. 전체 크기를 아는 스트림만 구분할 수 있다
+  // 캐시로 넘겨주기로 한 청크 스트림은 받은 데까지만 내보내고 끝난다. 전체 크기를 아는 스트림만 구분할 수 있다
   audioStream.once("end", () => {
     const st = audioStream.stats?.();
     if (st && st.received < st.totalBytes) health.mark(`입력 스트림이 덜 받고 끝남 (${st.received}/${st.totalBytes}B)`);

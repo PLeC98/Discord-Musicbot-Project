@@ -138,7 +138,7 @@ function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ icon: t.icon, title: t.title, body: t.body });
 }
-/** 복원한 결과. 열지 못해 그 곡에서 멈춰 뒀으면 그 까닭과 ▶, 이어 튼 곡이 있으면 그 곡, 없으면 틀 곡이 남지 않았다 */
+/** 복원한 결과. 열지 못해 그 곡에서 일시정지해 뒀으면 그 까닭과 ▶, 이어 튼 곡이 있으면 그 곡, 없으면 틀 곡이 남지 않았다 */
 function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) {
   if (parked) return noticeFrame(errors.notice("restore-parked"));
   if (track) return restored(track, isPaused);
