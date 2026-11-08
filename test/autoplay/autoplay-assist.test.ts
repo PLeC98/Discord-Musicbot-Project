@@ -912,7 +912,8 @@ test("확인 실패는 상태 코드와 본문을 그대로 전한다", async ()
   assert.match(String(got.reason), /429/);
   assert.match(String(got.response), /rate limit exceeded/);
 
-  assert.match(String((await assist.listModels({ provider: "off" })).reason), /provider=off/, "왜 안 도는지도 그대로 말한다");
+  assert.equal((await assist.listModels({ provider: "off" })).reason, "프로바이더가 설정되지 않았어요", "왜 안 도는지도 말한다");
+  assert.equal((await assist.listModels({ provider: "nope" })).reason, "모르는 프로바이더예요(nope)");
 });
 
 // ── 무료 확인(모델 목록)과 유료 확인(짧은 생성) ───────────────────────────

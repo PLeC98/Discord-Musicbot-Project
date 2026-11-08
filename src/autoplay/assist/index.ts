@@ -155,6 +155,8 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
 
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
+/** 화면의 테스트가 요청을 보낼 수 없는 까닭(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
+const notLive = (one: Partial<AiSettings>) => (live(one) ? null : !one.provider || one.provider === "off" ? "프로바이더가 설정되지 않았어요" : `모르는 프로바이더예요(${one.provider})`);
 
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
 function stripTrailingSlash(text: unknown) {
@@ -929,7 +931,8 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
  */
 async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있어요(provider=${one.provider || "off"})` };
+  const why = notLive(one);
+  if (why) return { ok: false, reason: why };
 
   // 키가 있어야 하는데 없다. 저쪽에 물어 봐야 거절(401)이라 묻지 않고 다운로드해 둔 목록으로 채운다
   if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 요청하지 않았어요" });
@@ -1020,7 +1023,8 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  */
 async function ping(draft: Draft): Promise<PingCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있어요(provider=${one.provider || "off"})` };
+  const why = notLive(one);
+  if (why) return { ok: false, reason: why };
   if (!one.model) return { ok: false, reason: "모델 이름이 비어 있어요" };
 
   const dialect = dialectOf(one);
