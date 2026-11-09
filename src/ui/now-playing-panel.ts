@@ -149,6 +149,7 @@ class NowPlayingPanel {
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 연속 갱신 실패(네트워크)
   attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표, 파일 태그 이미지의 fingerprint)
+  drawing = new Map<string, { player: Player; again: boolean; done: Promise<void> }>(); // guildId → 그리는 중인 재생 패널. again: 그사이 고치기가 왔다
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -427,16 +428,50 @@ class NowPlayingPanel {
     return container;
   }
 
-  /** 재생 중 패널을 제자리에서 다시 그린다 */
-  async updatePlaying(player: Player) {
-    if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+  /**
+   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST 를 기다리는 동안 온 고치기(조작, 5초 갱신)는
+   * 표시만 하고 끝난 뒤 지금 상태로 한 번 더 그린다. 그래서 같은 메시지에 대한 고치기가 순서대로 나가고, 낡은 모양이 마지막에 덮지 않는다
+   */
+  updatePlaying(player: Player): Promise<void> {
+    const guildId = player?.guild?.id;
+    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+    if (!guildId) return this._drawPlaying(player);
+    const running = this.drawing.get(guildId);
+    if (running) {
+      running.player = player;
+      running.again = true;
+      return running.done;
+    }
+    const state = { player, again: false, done: Promise.resolve() };
+    state.done = (async () => {
+      try {
+        do {
+          state.again = false;
+          await this._drawPlaying(state.player);
+        } while (state.again);
+      } finally {
+        this.drawing.delete(guildId);
+      }
+    })();
+    this.drawing.set(guildId, state);
+    return state.done;
+  }
+
+  async _drawPlaying(player: Player) {
     const panel = player.nowPlayingMessage;
-    if (!panel || !player.currentTrack) return;
+    const track = player.currentTrack;
+    if (!panel || !track) return;
     if (this.reposting.has(player.guild.id)) return; // 다시 올리는 중. 그쪽이 최신 내용으로 보낸다
     if (!player.paused && this.heldProgress.delete(player.guild.id)) this.startProgressUpdate(player);
 
     try {
-      const payload = await this._playingPayload(player, player.currentTrack);
+      const payload = await this._playingPayload(player, track);
+      // 썸네일을 기다린 사이 정리됐거나 곡, 패널이 바뀌었거나 다시 올리는 중이면 보내지 않는다(늦은 재생 모양이 끝난 패널, 새 곡을 덮지 않게).
+      // 만들며 적은 첨부 기록은 보내지 않았으니 지운다
+      if (player.lifecycle?.disposed || player.currentTrack !== track || player.nowPlayingMessage !== panel || this.reposting.has(player.guild.id)) {
+        this.attachedArt.delete(player.guild.id);
+        return;
+      }
       // 웹훅이 없으면 채널로 보낸 Message 다
       if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(panel.id, payload);
       else if ("edit" in panel) await panel.edit(payload);
@@ -528,6 +563,7 @@ class NowPlayingPanel {
     this.stopProgressUpdate(guild?.id);
 
     const live = player.nowPlayingMessage;
+    const before = player.currentTrack;
     const textChannel = player.textChannel;
     const dedicated = await this._panelIsDedicated(player, live);
 
@@ -540,10 +576,20 @@ class NowPlayingPanel {
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
     if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
-    // 플레이어는 이제 틀고 있는 곡, 패널이 없다
-    trackState.setCurrent(player, null);
-    player.nowPlayingMessage = null;
-    player.nowPlayingWebhook = null;
+    this._releaseEnded(player, before, live);
+  }
+
+  /**
+   * 끝난 패널을 그린 뒤: 플레이어는 이제 틀고 있는 곡, 패널이 없다. before, live 는 그리기 시작할 때의 곡, 패널.
+   * 그리는 사이 새 곡, 새 패널이 생겼으면(정지 직후의 /play, 상주 모드는 같은 플레이어) 그것은 두고,
+   * 이미 비운 곡을 다시 비우지 않는다(정리한 플레이어의 세션 미러가 새 플레이어가 쓴 세션 행을 지우지 않게)
+   */
+  _releaseEnded(player: Player, before: QueuedTrack | null, live: PanelMessage | null) {
+    if (before && player.currentTrack === before) trackState.setCurrent(player, null);
+    if (player.nowPlayingMessage === live) {
+      player.nowPlayingMessage = null;
+      player.nowPlayingWebhook = null;
+    }
   }
 
   // 패널이 전용 채널에 있나. 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다

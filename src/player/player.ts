@@ -1394,12 +1394,12 @@ class Player {
     this.warmer.stop(); // 곡 없이 기다리는 동안 틱을 돌리지 않는다. 다음 곡을 열면 다시 켠다
 
     this.showIdleVoiceStatus();
+    // 세션은 끝난 패널을 기다리기 전에 지운다. 그리는 사이 새 곡이 시작되면(곧바른 /play) 그 곡의 세션을 지우지 않게
+    this.persistence?.removeSession();
 
     await playerEvents.ended(this, stopped ? "stay-stop" : "queue-end");
 
-    this.persistence?.removeSession();
-
-    this.idle.scheduleEmpty();
+    if (!this.currentTrack) this.idle.scheduleEmpty();
   }
 
   /**

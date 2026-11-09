@@ -177,6 +177,27 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
+test("대기열이 다 끝나 끝난 패널을 그리는 사이 새 곡이 시작되면 세션을 지우지 않고 나갈 예약도 걸지 않는다(곧바른 /play, 상주 모드 정지 뒤)", async () => {
+  const p = h.makePlayer();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const off = playerEvents.on("ended", () => gate);
+  try {
+    const finishing = p.finishQueue({ stopped: true });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(calls.persists.includes("remove"), "세션은 끝난 패널을 기다리기 전에 지운다");
+    const removedBefore = calls.persists.filter((one) => one === "remove").length;
+    trackState.setCurrent(p, yt("fffffffffff"));
+    release();
+    await finishing;
+    assert.equal(calls.persists.filter((one) => one === "remove").length, removedBefore, "기다린 뒤 새 곡의 세션을 지우지 않는다");
+    assert.equal(p.idle.emptyTimer, null, "새 곡이 있으면 나갈 예약을 걸지 않는다");
+  } finally {
+    off();
+    h.dispose(p);
+  }
+});
+
 test("패킷 공급이 끊겨 멈춘 곡은 끊긴 위치부터 다시 튼다", async () => {
   const p = h.makePlayer();
   const track = cached("ddddddddddd");

@@ -444,3 +444,136 @@ test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 일시
   assert.notEqual(heldOnly.emoji, heldAndUser.emoji, "억제만이면 일시정지 버튼(누르면 일시정지한다), 사람이 멈췄으면 재생 버튼");
   assert.equal(heldAndUser.emoji, userOnly.emoji);
 });
+
+// 풀기 전에는 끝나지 않는 promise. 느린 썸네일 확인, REST 를 흉내 낸다
+function held() {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => (release = resolve));
+  return { promise, release };
+}
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test("재생 패널 그리기: 서버마다 한 번에 하나. 그리는 중에 온 고치기는 끝난 뒤 지금 상태로 한 번만 다시 그린다", async () => {
+  const mem = newManager();
+  const gates: Array<ReturnType<typeof held>> = [];
+  let inFlight = 0;
+  let most = 0;
+  const edits: string[] = [];
+  const track = { title: "곡" };
+  const state = { loop: "off" };
+  const player = panelPlayer({
+    currentTrack: track,
+    nowPlayingMessage: { id: "m1" },
+    nowPlayingWebhook: {
+      editMessage: async (_id: string, payload: { loop: string }) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        const gate = held();
+        gates.push(gate);
+        await gate.promise;
+        inFlight--;
+        edits.push(payload.loop);
+      },
+    },
+  });
+  mem._playingPayload = async () => ({ loop: state.loop }) as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+
+  const first = mem.updatePlaying(player);
+  await settle();
+  assert.equal(gates.length, 1, "첫 그리기가 REST 에 걸려 있다");
+  state.loop = "queue";
+  const more = [mem.updatePlaying(player), mem.updatePlaying(player), mem.updatePlaying(player)];
+  await settle();
+  assert.equal(gates.length, 1, "그리는 중에는 둘째를 보내지 않는다");
+  gates[0].release();
+  await settle();
+  assert.equal(gates.length, 2, "끝난 뒤 한 번 다시 그린다");
+  gates[1].release();
+  await Promise.all([first, ...more]);
+  assert.deepEqual(edits, ["off", "queue"], "마지막은 지금 상태");
+  assert.equal(most, 1);
+});
+
+test("재생 패널 그리기: 페이로드를 만든 사이 정리됐거나, 곡이 없거나 바뀌었거나, 패널이 바뀌었거나, 다시 올리는 중이면 보내지 않고 붙인 썸네일 기록을 지운다", async () => {
+  const cases: Array<[string, (p: Record<string, unknown>, mem: NowPlayingPanel) => void]> = [
+    ["정리", (p) => (p.lifecycle = { disposed: true })],
+    ["곡 없음", (p) => (p.currentTrack = null)],
+    ["곡 바뀜", (p) => (p.currentTrack = { title: "다른 곡" })],
+    ["패널 바뀜", (p) => (p.nowPlayingMessage = { id: "m2" })],
+    ["다시 올리는 중", (_p, mem) => mem.reposting.add("g1")],
+  ];
+  for (const [name, change] of cases) {
+    const mem = newManager();
+    const gate = held();
+    const edits: unknown[] = [];
+    const player = panelPlayer({
+      lifecycle: { disposed: false },
+      currentTrack: { title: "곡" },
+      nowPlayingMessage: { id: "m1" },
+      nowPlayingWebhook: { editMessage: async (...args: unknown[]) => void edits.push(args) },
+    });
+    mem._playingPayload = async () => {
+      await gate.promise;
+      mem.attachedArt.set("g1", "no-art");
+      return { components: [] } as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+    };
+    const drawing = mem.updatePlaying(player);
+    await settle();
+    change(player as unknown as Record<string, unknown>, mem);
+    gate.release();
+    await drawing;
+    assert.deepEqual(edits, [], name);
+    assert.equal(mem.attachedArt.has("g1"), false, `${name}: 보내지 않은 첨부를 붙였다고 기억하지 않는다`);
+  }
+});
+
+test("끝난 패널: 그리는 사이 새 곡과 패널이 생기면(정지 직후의 /play, 상주 모드) 지금 곡과 패널 참조를 비우지 않는다", async () => {
+  const mem = newManager();
+  const gate = held();
+  const player = panelPlayer({
+    currentTrack: null,
+    nowPlayingMessage: { id: "old" },
+    nowPlayingWebhook: { editMessage: async () => gate.promise },
+    textChannel: { id: "chan-1", send: async () => {} },
+  });
+  const drawing = mem.drawEndedPanel(player, { reason: "stop" });
+  await settle();
+  const next = { title: "새 곡" };
+  const fresh = { id: "new" };
+  const freshWebhook = { editMessage: async () => {} };
+  Object.assign(player, { currentTrack: next, nowPlayingMessage: fresh, nowPlayingWebhook: freshWebhook });
+  gate.release();
+  await drawing;
+  assert.equal(player.currentTrack, next);
+  assert.equal(player.nowPlayingMessage, fresh);
+  assert.equal(player.nowPlayingWebhook, freshWebhook);
+
+  const plain = panelPlayer({ currentTrack: null, nowPlayingMessage: { id: "old" }, nowPlayingWebhook: { editMessage: async () => {} }, textChannel: { id: "chan-1", send: async () => {} } });
+  await newManager().drawEndedPanel(plain, { reason: "stop" });
+  assert.equal(plain.nowPlayingMessage, null, "바뀐 것이 없으면 지금처럼 놓는다");
+  assert.equal(plain.nowPlayingWebhook, null);
+});
+
+test("재생 패널 그리기: 그리는 사이 같은 서버의 새 플레이어가 고치기를 보내면 끝난 뒤 새 플레이어를 그린다", async () => {
+  const mem = newManager();
+  const gate = held();
+  const drawn: string[] = [];
+  const of = (name: string, wait: boolean) =>
+    panelPlayer({
+      currentTrack: { title: name },
+      nowPlayingMessage: { id: name },
+      nowPlayingWebhook: {
+        editMessage: async () => {
+          if (wait) await gate.promise;
+          drawn.push(name);
+        },
+      },
+    });
+  mem._playingPayload = async () => ({ components: [] }) as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+  const old = mem.updatePlaying(of("옛", true));
+  await settle();
+  const fresh = mem.updatePlaying(of("새", false));
+  gate.release();
+  await Promise.all([old, fresh]);
+  assert.deepEqual(drawn, ["옛", "새"]);
+});
