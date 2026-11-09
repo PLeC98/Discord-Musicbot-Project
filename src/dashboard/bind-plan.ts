@@ -44,16 +44,17 @@ function planBind({ envHost, url, container, certs }: { envHost: string | null; 
   return { hosts: ALL, all: true, reason: "plain-url" };
 }
 
+// 그 주소로 연 까닭만. 판단이 틀렸을 때 고칠 곳은 docs/dashboard-network.md
 const REASONS: Record<BindReason, string> = {
   env: "DASHBOARD_HOST",
-  container: "컨테이너 안이라 모든 주소. 컨테이너 밖에 여는 범위는 -p가 정함. host 네트워크면 DASHBOARD_HOST를 넣으세요",
-  "loopback-url": "이 기기 전용(공개 주소가 없거나 이 기기 주소)",
-  certs: "인증서 파일이 있어 모든 주소에 직접 HTTPS",
-  "https-url": "이 기기 전용(공개 주소가 https라 같은 기기의 프록시가 접속한다고 판단). 프록시가 다른 기기나 다른 컨테이너면 DASHBOARD_HOST를, 프록시 없이 직접 HTTPS로 열려면 certs/에 cert.pem과 key.pem을 넣으세요",
-  "plain-url": "모든 주소(공개 주소가 http라 다른 기기에서 바로 접속한다고 판단)",
+  container: "컨테이너 안. 밖에 여는 범위는 -p가 정함",
+  "loopback-url": "공개 주소가 없거나 이 기기 주소",
+  certs: "인증서 파일이 있어 직접 HTTPS",
+  "https-url": "공개 주소가 https라 프록시가 같은 기기에 있다고 판단",
+  "plain-url": "공개 주소가 http라 다른 기기에서 바로 접속한다고 판단",
 };
 
-/** 기동 로그의 연 주소 한 줄. opened: 실제로 연 주소(0.0.0.0으로 바꿔 연 것 포함) */
+/** 기동 로그의 연 주소 한 줄. opened: 실제로 연 주소(0.0.0.0으로 바꿔 연 것 포함). 범위는 주소가 보여 준다 */
 function bindLine(plan: BindPlan, opened: string[], port: number, scheme: "http" | "https") {
   const shown = opened.map((h) => (h === "::" || h === "0.0.0.0" ? `모든 주소(${h}):${port}` : `${scheme}://${isIP(h) === 6 ? `[${h}]` : h}:${port}`));
   return `🌐 Dashboard: ${shown.join(", ")} (${REASONS[plan.reason]})`;
