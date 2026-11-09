@@ -94,7 +94,7 @@ class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
-  // 이전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 연달아면 이번에는 세션을 복원하지 않는다
+  // 이전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 이어졌으면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
   // 이전 실행이 남긴 자식(POToken 서버, ffmpeg, yt-dlp)을 내리고 이번 실행의 자식을 적기 시작한다. 남은 POToken 서버가 포트를 쥐지 않게 서버를 실행하기 전에

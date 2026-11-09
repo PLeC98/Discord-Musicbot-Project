@@ -106,7 +106,7 @@ test("준비가 시간 안에 안 되면 기다림을 접는다(봇은 POToken �
   void server.stop();
 });
 
-test("포트를 열지 못하고 끝나면 새 포트로 곧바로 다시 실행하고, 세 번 연달아면 멈춘다(주소도 없앤다)", async () => {
+test("포트를 열지 못하고 끝나면 새 포트로 곧바로 다시 실행하고, 세 번 연달아 그러면 멈춘다(주소도 없앤다)", async () => {
   const { spawn, spawned } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
   const bindFail = (i: number) => {

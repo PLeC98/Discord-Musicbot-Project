@@ -12,7 +12,7 @@ const autoplayGenreUnusable = (genre: string, keys: string) => noticeOf("warning
 const autoplayGaveUp = (genre: string) => noticeOf("warning", "autoplay", `\`${genre}\` 장르에서 틀 곡을 찾지 못해 자동재생을 종료했어요.`);
 /** 곡을 열지 못해 그 곡에서 일시정지했다(다음 곡도 같은 이유로 안 된다). 까닭 안내 끝에 붙는 줄 */
 const parkedLine = () => "다음 곡으로 넘기지 않고 일시정지했어요. 재생 버튼을 누르면 다시 시도해요.";
-/** 까닭을 모르는 실패가 연달아 그 곡에서 일시정지했다 */
+/** 까닭을 모르는 실패가 이어져 그 곡에서 일시정지했다 */
 const parkedFailures = (count: number) => noticeOf("error", "failed", `${count}곡이 연달아 재생되지 않아 일시정지했어요.`, "재생 버튼으로 다시 시도하거나 다음 곡 버튼으로 넘길 수 있어요.");
 /** 들리던 곡이 끊겨 다시 열지 못해 그 자리에서 일시정지했다 */
 const parkedDropped = () => noticeOf("error", "failed", "재생이 중간에 끊겨 일시정지했어요.", "재생 버튼을 누르면 끊긴 위치부터 다시 재생해요.");

@@ -178,7 +178,7 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
   sessions().removeSession("r1");
 });
 
-test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 만들지 않고 세션은 남긴다", async () => {
+test("복원하지 않기(짧게 끊긴 실행이 이어짐): 플레이어를 만들지 않고 세션은 남긴다", async () => {
   saved("r9");
   const { client, players } = clientWith([guildWith("r9")]);
   const { FakePlayer, made } = fakePlayerClass();

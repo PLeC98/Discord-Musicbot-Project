@@ -75,7 +75,8 @@ class RunRecord {
       if (cut && uptime < SHORT_RUN_MS) shortStreak = previous.shortStreak + 1;
       const how = previous.ended ? ENDINGS[previous.ended.how] : "기록 없이 끊김";
       line = `이전 실행: ${how} | 가동 ${span(uptime)}${previous.ended ? "" : "(마지막으로 살아 있던 때까지)"}`;
-      if (shortStreak > 0) line += ` | 짧게 끊긴 실행 ${shortStreak}번 연달아`;
+      // 한 번은 앞 칸(끝난 방식, 가동)이 이미 말한다
+      if (shortStreak >= 2) line += ` | 연속 크래시 ${shortStreak}회`;
     }
     this.run = { startedAt: at, aliveAt: at, ended: null, shortStreak };
     this._write();
