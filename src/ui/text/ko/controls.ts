@@ -118,7 +118,8 @@ const alreadyJoined = (parked = false): Head => ({ icon: "done", title: "이미 
 /** /join 이 저장한 세션을 복원하는 동안 */
 const restoring = () => `${icon("progress")} 듣던 곡을 불러오는 중...`;
 const joining = () => `${icon("progress")} 음성 채널에 참가하는 중...`;
+const leaving = () => `${icon("progress")} 음성 채널에서 나가는 중...`;
 /** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean): Head => (isPaused ? { icon: "pause", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { icon: "play", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, leaving, restored };

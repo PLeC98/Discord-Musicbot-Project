@@ -136,6 +136,7 @@ function alreadyJoined(parked = false) {
 /** /join 이 저장한 세션을 복원하는 동안, 복원했다 */
 const restoring = () => frame({ body: controlText.restoring() });
 const joining = () => frame({ body: controlText.joining() });
+const leaving = () => frame({ body: controlText.leaving() });
 function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ icon: t.icon, title: t.title, body: t.body });
@@ -147,4 +148,4 @@ function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) 
   return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
-export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, reopening, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, joining, restored, restoreResult };
+export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, reopening, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, joining, leaving, restored, restoreResult };

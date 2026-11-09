@@ -16,7 +16,8 @@ import { VOLUME_MAX } from "../rules/limits.ts";
 import { canGoBack } from "../rules/controls.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import * as genreConfig from "../config/genres.ts";
-import type { Guild, GuildMember } from "discord.js";
+import { RESTJSONErrorCodes, Status, type Guild, type GuildMember, type VoiceState } from "discord.js";
+import { leavePayload } from "../infra/voice-adapter.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
@@ -438,11 +439,56 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
   if (answerError) throw answerError.error;
 }
 
+const GATEWAY_LEAVE_WAIT_MS = 1500; // 게이트웨이로 나가기를 보낸 뒤 봇의 음성 상태가 비기를 기다리는 시간. 넘으면 REST 로
+const LEFT_BY = { gateway: "게이트웨이", rest: "REST", already: "이미 나가 있음" } as const;
+
+/**
+ * 플레이어 없이 음성 채널에만 남은 봇을 뺀다. 먼저 게이트웨이(op 4, 자기 음성 상태라 권한이 들지 않는다)로 보내고 봇의 음성 상태가 비기를 기다린다.
+ * 비지 않으면 REST(멤버 옮기기 권한이 든다)로. 이전 프로세스가 남긴 음성 상태를 새 게이트웨이 세션의 op 4 가 빼는지 몰라 REST 를 남긴다.
+ * 그사이 플레이어가 생겼으면(누가 다시 불렀다) 새로 붙은 연결을 쫓아내지 않는다(superseded). REST 의 40032 는 늦게 먹힌 op 4 로 이미 나간 것
+ */
+async function leaveLingering(guild: Guild, players: Pick<PlayerRegistry, "get">): Promise<keyof typeof LEFT_BY | "superseded" | "failed"> {
+  const voice = guild.members.me?.voice;
+  if (guild.shard.status === Status.Ready && voice) {
+    const left = botLeftVoice(guild, GATEWAY_LEAVE_WAIT_MS);
+    guild.shard.send(leavePayload(guild.id, { selfDeaf: Boolean(voice.selfDeaf), selfMute: Boolean(voice.selfMute) }));
+    if (await left) return "gateway";
+  }
+  if (players.get(guild.id)) return "superseded";
+  const lingering = guild.members.me?.voice;
+  if (!lingering?.channel) return "already";
+  try {
+    await lingering.disconnect();
+    return "rest";
+  } catch (error) {
+    if (codeOf(error) === RESTJSONErrorCodes.TargetUserIsNotConnectedToVoice) return "already";
+    log.warn(`플레이어 없이 남은 음성 채널에서 나가기 실패: ${guild.name} | ${messageOf(error)}`);
+    return "failed";
+  }
+}
+
+/** 봇의 이 서버 음성 상태가 비면 true, ms 안에 비지 않으면 false. 듣기는 보내기 전에 걸고(부르는 쪽이 이것을 먼저 부른다) 끝나면 뗀다 */
+function botLeftVoice(guild: Guild, ms: number): Promise<boolean> {
+  const client = guild.client;
+  return new Promise((resolve) => {
+    const finish = (left: boolean) => {
+      clearTimeout(timer);
+      client.off("voiceStateUpdate", listen);
+      resolve(left);
+    };
+    const listen = (_before: VoiceState, after: VoiceState) => {
+      if (after.guild.id === guild.id && after.id === client.user?.id && !after.channelId) finish(true);
+    };
+    const timer = setTimeout(() => finish(false), ms);
+    client.on("voiceStateUpdate", listen);
+  });
+}
+
 /**
  * 나가기. 세션을 남겨 /join 이 복구한다. 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
-async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">, { onAccepted }: Accepting<{ left: "player"; track: QueuedTrack | null; saved: { queue: number; positionSec: number }; stayOff: boolean }> = {}) {
+async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">, { onAccepted, onLeaving }: Accepting<{ left: "player"; track: QueuedTrack | null; saved: { queue: number; positionSec: number }; stayOff: boolean }> & { onLeaving?: () => unknown } = {}) {
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
   // 24/7 상주 모드도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 확인했다). 플레이어를 정리하기 전에 먼저 해제한다(종료 알림을 받은 StayKeeper가 다시 접속하지 않게)
@@ -451,7 +497,12 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   if (!player) {
     // StayKeeper가 재접속을 기다리는 중이면 봇이 음성 채널에 없다. 상주 모드만 끈 것이다
     if (!guild.members.me?.voice?.channel) return seated ? done({ left: "seat-only" as const, stayOff: true }) : fail("no-song");
-    await guild.members.me.voice.disconnect();
+    // 나가기는 게이트웨이를 기다리고 REST 로 넘어가 몇 초 걸릴 수 있어 먼저 답한다(onLeaving)
+    await onLeaving?.();
+    const how = await leaveLingering(guild, players);
+    if (how === "superseded") return fail("leave-superseded");
+    if (how === "failed") return fail("leave-failed");
+    log.info(`플레이어 없이 남은 음성 채널에서 나감(${LEFT_BY[how]}): ${guild.name}`);
     return done({ left: "voice-only" as const, stayOff: seated });
   }
   const track = player.currentTrack;

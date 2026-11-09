@@ -21,6 +21,11 @@ const HOLD_MS = 300; // 붙잡는 시간. 닫힘과 상태 패킷은 보통 몇 
 /** onRewrite: 붙잡은 참가 요청의 채널을 고쳤을 때, onSend: 참가 요청을 내보낼 때(고쳤는지와 함께) */
 type Hooks = { holdMs?: number; onRewrite?: (from: string, to: string) => void; onSend?: (channelId: string, rewritten: boolean) => void };
 
+/** 봇이 이 서버의 음성 채널에서 나가는 게이트웨이 요청(op 4, channel_id null). 음소거 상태는 지금 값을 그대로 보낸다 */
+function leavePayload(guildId: string, { selfDeaf, selfMute }: { selfDeaf: boolean; selfMute: boolean }) {
+  return { op: VOICE_STATE_UPDATE, d: { guild_id: guildId, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } };
+}
+
 /** creator(디스코드 쪽 어댑터 생성기, guild.voiceAdapterCreator)를 감싸 참가 요청을 holdMs 동안 붙잡는다 */
 function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs = HOLD_MS, onRewrite, onSend }: Hooks = {}): DiscordGatewayAdapterCreator {
   return (methods) => {
@@ -79,4 +84,4 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
   };
 }
 
-export { holdingAdapterCreator, HOLD_MS };
+export { holdingAdapterCreator, HOLD_MS, leavePayload };

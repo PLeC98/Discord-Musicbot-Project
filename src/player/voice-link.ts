@@ -5,7 +5,7 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChanne
 import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
-import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
+import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
@@ -29,7 +29,6 @@ const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본
 const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 스스로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
 const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
-const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가, 나가기
 const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const CALL_TERMINATED = 4022; // 음성 서버의 닫힘 코드. 통화를 끝내 모두를 끊었다(스테이지 종료, 채널 삭제 등)
@@ -181,7 +180,7 @@ class VoiceLink {
     }
     const { selfDeaf, selfMute } = connection.joinConfig;
     this.selfLeave = channelId;
-    if (!state.adapter.sendPayload({ op: VOICE_STATE_UPDATE, d: { guild_id: this.player.guild.id, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } })) {
+    if (!state.adapter.sendPayload(leavePayload(this.player.guild.id, { selfDeaf, selfMute }))) {
       this.selfLeave = null;
       return this._armUnstick(connection, channelId, tries);
     }

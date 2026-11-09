@@ -104,4 +104,4 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   return toAll(interaction, replies.highlighted(r.ms), LIFETIME.result);
 }
 
-export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight, acceptWith };
+export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight, acceptWith, refuse };

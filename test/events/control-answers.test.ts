@@ -3,7 +3,7 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { MessageFlags, type Guild, type GuildMember } from "discord.js";
+import { MessageFlags, Status, type Guild, type GuildMember } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
 import { answerPause, answerReplay, answerSeek, answerStop, answerVolume } from "../../src/discord/interactions/control-answers.ts";
@@ -201,4 +201,42 @@ test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인
   await answerPause(plain.it, player({ pause: { userPaused: false, heldBy: null, setUser: () => {} } }).p);
   assert.notDeepEqual(plain.log[0]?.[2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "보통 곡은 자리표시자 없이");
   assert.equal(plain.log.length, 1, "결과 하나만");
+});
+
+test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인에게 "나가는 중"을, 나간 결과는 그것을 지우고 모두에게. 나가지 못하면 그 자리를 안내로', async () => {
+  for (const fails of [false, true]) {
+    const { it, log } = asked();
+    const at: number[] = [];
+    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 길은 usecases/controls 테스트)
+    const lingering = fake<Guild>({
+      id: "g1",
+      name: "서버",
+      shard: { status: Status.Disconnected },
+      members: {
+        me: {
+          voice: {
+            channel: { id: "vc1" },
+            disconnect: async () => {
+              at.push(log.length);
+              if (fails) throw Object.assign(new Error("Missing Permissions"), { code: 50013 });
+            },
+          },
+        },
+      },
+    });
+    await run(await command("leave"), Object.assign(it, { guild: lingering }), fakeBot({ players: new Map() }));
+    assert.deepEqual(at, [1], "나가기 전에 답했다");
+    assert.equal(log[0][0], "reply");
+    assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
+    assert.match(log[0][1].join(), /나가는 중/);
+    if (fails) {
+      assert.deepEqual(log.slice(1), [["editReply", textsOf(noticeFrame(errors.notice("leave-failed"))), [MessageFlags.IsComponentsV2]]], "그 자리를 안내로");
+    } else {
+      assert.deepEqual(
+        log.slice(1).map((one) => one[0]),
+        ["deleteReply", "send"],
+        "결과는 자리표시자를 지우고 채널에",
+      );
+    }
+  }
 });
