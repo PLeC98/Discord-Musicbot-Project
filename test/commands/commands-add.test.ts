@@ -787,6 +787,7 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
   const away = world({ player: null, roles: ["dj"], botVoice: null, userVoice: null });
   const [genre] = Object.keys(genreConfig.genres().genres);
   const log: unknown[] = [];
+  const menuComponents = [{ type: "떠 있는 장르 메뉴" }];
   const pick = fakeWith<StringSelectMenuInteraction<"cached">>()({
     guild: away.guild,
     member: away.member,
@@ -795,7 +796,9 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
     customId: "autoplay:genre",
     values: [genre],
     ...interactionKind("select"),
+    message: { components: menuComponents },
     reply: async (m: unknown) => log.push(m),
+    editReply: async (m: { components?: unknown }) => log.push(m.components === menuComponents ? "editReply:같은 메뉴" : "editReply:다른 화면"),
     update: async () => log.push("update"),
     async deferUpdate(this: { deferred: boolean }) {
       this.deferred = true;
@@ -806,7 +809,7 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
 
   await interactionCreate.execute(away.bot, pick);
 
-  assert.deepEqual(log, ["deferUpdate", noticeReply(errors.notice("must-be-in-voice"))], "먼저 받아 두고 거절은 후속 메시지로 알린다");
+  assert.deepEqual(log, ["deferUpdate", "editReply:같은 메뉴", noticeReply(errors.notice("must-be-in-voice"))], "먼저 받아 두고, 메뉴를 그대로 다시 그려 고른 값을 비운 뒤 거절은 후속 메시지로 알린다");
   assert.equal(away.bot.players.has("g1"), false);
 });
 

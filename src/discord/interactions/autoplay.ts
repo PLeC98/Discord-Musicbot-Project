@@ -14,7 +14,10 @@ import { codeOf } from "../../infra/error-text.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
 import type { AppEmojis } from "../../app/app-emojis.ts";
-import { LIFETIME, noticeSelf, toAll, toSelf } from "../../ui/delivery.ts";
+import { LIFETIME, noticeSelf, toAll, toSelf, unlessGone } from "../../ui/delivery.ts";
+import logger from "../../infra/log/logger.ts";
+
+const log = logger.child({ category: "events" });
 
 type Menu = ReturnType<typeof buildGenreMenu>;
 
@@ -63,7 +66,8 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
 }
 
 // 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게 알린다.
-// 플레이어 만들기(기동 복원), 음성 연결이 3초를 넘을 수 있어 먼저 받아 둔다. 거절은 후속 메시지로 본인에게 알린다(메뉴는 남는다)
+// 플레이어 만들기(기동 복원), 음성 연결이 3초를 넘을 수 있어 먼저 받아 둔다. 거절은 후속 메시지로 본인에게 알린다(메뉴는 남는다).
+// 거절하면 메뉴를 떠 있는 그대로 다시 그린다. 고른 값을 디스코드 앱이 들고 있으면 같은 장르를 다시 고를 수 없다
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
@@ -77,7 +81,10 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
     create,
     onAccepted: () => toAll(interaction, autoplayOn(genre, member), LIFETIME.result),
   });
-  if (!r.ok) return noticeSelf(interaction, controlMessage(r));
+  if (!r.ok) {
+    await interaction.editReply({ components: interaction.message.components }).catch(unlessGone(log, "장르 메뉴 선택 비우기"));
+    return noticeSelf(interaction, controlMessage(r));
+  }
 }
 
 // 접두사가 재생 패널 버튼(panel:)보다 좁아 자동재생 버튼은 여기로 온다

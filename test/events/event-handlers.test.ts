@@ -533,6 +533,8 @@ test("더 넣기: 선택한 수만큼 이어 받아 넣고, 채널의 메뉴는 
 
 // ── 모달, 선택 메뉴 ──────────────────────────────────────────────────
 
+const MENU_COMPONENTS = [{ type: "떠 있는 메뉴" }];
+
 function menu(w: World, { customId, values = [], volume = null, select = true }: { customId: string; values?: string[]; volume?: string | null; select?: boolean }) {
   const log: Entry[] = [];
   const room = channel("c1");
@@ -548,10 +550,15 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     fields: { getTextInputValue: () => volume },
     ...interactionKind(select ? "select" : "modal"),
     isFromMessage: () => true,
+    // 메뉴가 달린 메시지의 구성 요소(떠 있는 그대로)
+    message: { components: MENU_COMPONENTS },
     reply: async (p: Shown) => {
       it.replied = true;
       log.push(["reply", shown(p)]);
       return { resource: { message: { id: "reply" } } };
+    },
+    editReply: async (p: { components?: unknown }) => {
+      log.push(["editReply", p.components === MENU_COMPONENTS ? "같은 메뉴" : "다른 화면"]);
     },
     update: async (p: Shown) => {
       it.replied = true;
@@ -595,15 +602,16 @@ test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 �
   await interactionCreate.execute(unknown.bot, unknown.it);
   assert.deepEqual(
     unknown.log.map((one) => one[0]),
-    ["deferUpdate", "followUp"],
+    ["deferUpdate", "editReply", "followUp"],
     "먼저 받아 두고 거절은 후속 메시지로(메뉴는 남는다)",
   );
-  assert.match(unknown.log[1][1] ?? "", /`없는장르`는 없어졌어요/);
+  assert.deepEqual(unknown.log[1], ["editReply", "같은 메뉴"], "메뉴를 그대로 다시 그려 고른 값을 비운다(디스코드 앱이 들고 있으면 같은 장르를 다시 고를 수 없다)");
+  assert.match(unknown.log[2][1] ?? "", /`없는장르`는 없어졌어요/);
 
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(denied.bot, denied.it);
-  assert.deepEqual(denied.log, [["deferUpdate"], ["followUp", said(errors.notice("must-dj"))]]);
+  assert.deepEqual(denied.log, [["deferUpdate"], ["editReply", "같은 메뉴"], ["followUp", said(errors.notice("must-dj"))]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
