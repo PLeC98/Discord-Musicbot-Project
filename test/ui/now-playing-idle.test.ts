@@ -14,6 +14,8 @@ import type { Player } from "../../src/player/player.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
 import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { youtube } from "../helpers/tracks.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
 
 const BOT = "bot-chan";
 // 전용 채널은 임시 DB 에 둔다. null 이면 없앤다
@@ -242,6 +244,35 @@ test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다. 
   assert.equal(calls.sent.length, 0);
   assert.equal(calls.edited.length, 1);
   assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요.*곡을 입력하면/);
+});
+
+test("기동: 되살릴 곡이 저장된 서버(복원을 건너뛰었다)는 /join으로 이어 들을 수 있다고 적는다. 곡 없이 저장된 세션은 쉬는 중", async () => {
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: BOT, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  try {
+    const empty = setup({ record: { channelId: BOT, messageId: "900" } });
+    await empty.mem.restorePanels();
+    assert.match(textOf(empty.calls.edited[0].payload), /쉬는 중이에요/);
+
+    sessions().append("g1", [youtube("bbbbbbbbbbb")]);
+    const queued = setup({ record: { channelId: BOT, messageId: "900" } });
+    await queued.mem.restorePanels();
+    assert.match(textOf(queued.calls.edited[0].payload), /듣고 있던 곡이 있어요.*\/join/, "대기열만 있어도");
+
+    sessions().removeSession("g1");
+    sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: BOT, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+    sessions().setCurrent("g1", { ...youtube("aaaaaaaaaaa"), requestedBy: { id: "u1" } });
+    const saved = setup({ record: { channelId: BOT, messageId: "900" } });
+    await saved.mem.restorePanels();
+    assert.match(textOf(saved.calls.edited[0].payload), /듣고 있던 곡이 있어요.*\/join/, "지금 곡만 있어도");
+
+    // 묻혀 다시 올려도 같은 모양
+    const buried = setup({ record: { channelId: BOT, messageId: "900" } });
+    bury(buried.channels.get(BOT), Date.now());
+    await buried.mem.repinIdlePanel(buried.guild, BOT);
+    assert.match(textOf(buried.calls.sent[0].payload), /듣고 있던 곡이 있어요/);
+  } finally {
+    sessions().removeSession("g1");
+  }
 });
 
 test("기동: 전용 채널 패널이 없거나 지워졌으면 새로 올린다", async () => {

@@ -21,8 +21,15 @@ const HOLD_MS = 300; // 붙잡는 시간. 닫힘과 상태 패킷은 보통 몇 
 /** onRewrite: 붙잡은 참가 요청의 채널을 고쳤을 때, onSend: 참가 요청을 내보낼 때(고쳤는지와 함께) */
 type Hooks = { holdMs?: number; onRewrite?: (from: string, to: string) => void; onSend?: (channelId: string, rewritten: boolean) => void };
 
+type SelfFlags = { selfDeaf: boolean; selfMute: boolean };
+
+/** 봇이 이 서버의 음성 채널에 참가하는(이미 있으면 음성 상태를 이 접속으로 넘겨받는) 게이트웨이 요청(op 4). 음소거 상태는 지금 값을 그대로 보낸다 */
+function joinPayload(guildId: string, channelId: string, { selfDeaf, selfMute }: SelfFlags) {
+  return { op: VOICE_STATE_UPDATE, d: { guild_id: guildId, channel_id: channelId, self_deaf: selfDeaf, self_mute: selfMute } };
+}
+
 /** 봇이 이 서버의 음성 채널에서 나가는 게이트웨이 요청(op 4, channel_id null). 음소거 상태는 지금 값을 그대로 보낸다 */
-function leavePayload(guildId: string, { selfDeaf, selfMute }: { selfDeaf: boolean; selfMute: boolean }) {
+function leavePayload(guildId: string, { selfDeaf, selfMute }: SelfFlags) {
   return { op: VOICE_STATE_UPDATE, d: { guild_id: guildId, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } };
 }
 
@@ -84,4 +91,4 @@ function holdingAdapterCreator(creator: DiscordGatewayAdapterCreator, { holdMs =
   };
 }
 
-export { holdingAdapterCreator, HOLD_MS, leavePayload };
+export { holdingAdapterCreator, HOLD_MS, joinPayload, leavePayload };

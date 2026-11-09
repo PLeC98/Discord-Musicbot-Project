@@ -25,6 +25,7 @@ import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
+import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
@@ -654,9 +655,14 @@ class NowPlayingPanel {
     await this._postIdle(guild, channel);
   }
 
+  // 끝난 패널의 모양. 이번 실행에서 그린 적이 없으면(재시작 뒤) 음성 밖이다. 되살릴 곡이 저장돼 있으면 /join 으로 이어 들을 수 있다고 적는다
+  _idleView(guild: Guild): IdleView {
+    return this.idleViews.get(guild.id) ?? { reason: hasTracks(sessions().load(guild.id)) ? "leave" : "stop" };
+  }
+
   // 끝난 패널을 이 채널 맨 아래에 올리고 이 서버의 패널로 삼는다
   async _postIdle(guild: Guild, channel: GuildTextBasedChannel, { dedicated = true } = {}) {
-    const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" }; // 재시작 뒤라면 음성 밖이다
+    const view = this._idleView(guild);
     const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
     const { message, webhook } = await this._sendPanel(channel, payload);
     await this.location.commit(guild, channel, message, webhook);
@@ -690,7 +696,7 @@ class NowPlayingPanel {
         if (this.players.get(guild.id)?.nowPlayingMessage) continue;
         const record = await this.location.store.getPanel(guild.id);
         if (!record) continue;
-        const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" };
+        const view = this._idleView(guild);
         const dedicated = record.channelId === (await GuildSettingsManager.getBotChannel(guild.id));
         const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
         await this.location.edit(guild, payload);
@@ -725,7 +731,7 @@ class NowPlayingPanel {
     const channel = await this._dedicatedChannel(guild);
     const record = await this.location.store.getPanel(guild.id);
     if (record && (!channel || record.channelId === channel.id)) {
-      const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+      const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
       if (await this.location.edit(guild, payload)) return;
     }
     if (canSend(channel)) await this._postIdle(guild, channel);

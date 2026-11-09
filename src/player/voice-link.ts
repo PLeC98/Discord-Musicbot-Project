@@ -7,6 +7,7 @@ import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
+import { botChannelAtDiscord } from "./voice-leave.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
@@ -29,7 +30,6 @@ const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본
 const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 스스로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
 const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
-const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const CALL_TERMINATED = 4022; // 음성 서버의 닫힘 코드. 통화를 끝내 모두를 끊었다(스테이지 종료, 채널 삭제 등)
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
@@ -193,14 +193,8 @@ class VoiceLink {
   }
 
   // 디스코드가 보는 봇의 음성 채널(REST). 채널에 없으면 null, 묻지 못하면 undefined
-  async _botChannelAtDiscord(): Promise<string | null | undefined> {
-    try {
-      return (await this.player.guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
-    } catch (error) {
-      if (codeOf(error) === UNKNOWN_VOICE_STATE) return null;
-      log.debug(`디스코드에서 봇의 음성 상태 조회 실패(대기): ${messageOf(error)}`);
-      return undefined;
-    }
+  _botChannelAtDiscord(): Promise<string | null | undefined> {
+    return botChannelAtDiscord(this.player.guild);
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voice-adapter)

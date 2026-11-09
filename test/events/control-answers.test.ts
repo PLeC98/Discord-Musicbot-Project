@@ -207,15 +207,17 @@ test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인�
   for (const fails of [false, true]) {
     const { it, log } = asked();
     const at: number[] = [];
-    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 경로는 usecases/controls 테스트)
+    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 경로는 player/voice-leave 테스트)
     const lingering = fake<Guild>({
       id: "g1",
       name: "서버",
       shard: { status: Status.Disconnected },
+      voiceStates: { fetch: async () => ({ channelId: "vc1" }) },
       members: {
         me: {
           voice: {
             channel: { id: "vc1" },
+            channelId: "vc1",
             disconnect: async () => {
               at.push(log.length);
               if (fails) throw Object.assign(new Error("Missing Permissions"), { code: 50013 });

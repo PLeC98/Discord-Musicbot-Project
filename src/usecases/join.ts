@@ -7,7 +7,7 @@ import * as playerEvents from "../player/events.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import type { PlayerSeats } from "../player/registry.ts";
-import { sessions, type RestoredSession } from "../store/player-sessions.ts";
+import { hasTracks, sessions, type RestoredSession } from "../store/player-sessions.ts";
 import { waitForRestore } from "../player/session-restore.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
@@ -135,9 +135,6 @@ async function restore(player: Player, saved: RestoredSession): Promise<JoinResu
     return { kind: "restore-error" };
   }
 }
-
-// 되살릴 곡이 있는 세션인가
-const hasTracks = (saved: RestoredSession | null): saved is RestoredSession => Boolean(saved && (saved.current || saved.queue.length > 0));
 
 // 틀 것 없이 들어왔다. 곡이 끝났을 때처럼 잠시 뒤 나가고, 패널에도 그렇게 적는다
 function waitEmpty(player: Player) {

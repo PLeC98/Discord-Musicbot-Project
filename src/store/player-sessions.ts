@@ -424,7 +424,10 @@ function sessions(): PlayerSessionStore {
   return bound;
 }
 
-export { PlayerSessionStore, sessions, GAP, SEQ_LIMIT };
+/** 되살릴 곡(지금 곡이나 대기열)이 있는 세션인가 */
+const hasTracks = (saved: RestoredSession | null): saved is RestoredSession => Boolean(saved && (saved.current || saved.queue.length > 0));
+
+export { PlayerSessionStore, sessions, hasTracks, GAP, SEQ_LIMIT };
 
 type RestoredSession = NonNullable<ReturnType<PlayerSessionStore["load"]>>;
 export type { TrackIn, SessionState, RestoredTrack, RestoredSession, LoopMode };
