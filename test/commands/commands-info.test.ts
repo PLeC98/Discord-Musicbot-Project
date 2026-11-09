@@ -18,6 +18,7 @@ import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { remember } from "../helpers/tagged-audio.ts";
+import { _internals as discordArt } from "../../src/ui/discord-art.ts";
 import { fakePlayer, fakeWith, fakeBot } from "../helpers/fake.ts";
 import type { Player } from "../../src/player/player.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
@@ -144,6 +145,20 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.match(lines[10], /^-# 🎲 \*\*자동재생\*\* 켜짐 · /);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
+});
+
+test("/nowplaying: 유튜브 큰 그림 확인을 기다리지 않고 답한다(아는 답, 모르면 hqdefault)", async () => {
+  let release!: (value: { ok: boolean; status: number }) => void;
+  discordArt.useHead(() => new Promise((resolve) => (release = resolve)));
+  try {
+    const { it, log, bot } = interaction({ player: nowPlayer({ title: "곡", pageUrl: "https://youtu.be/nowplaying1", thumbnail: "https://i.ytimg.com/vi/nowplaying1/mqdefault.jpg", duration: 200 }) });
+    await run(await command("nowplaying"), it, bot);
+    assert.equal(log.length, 1, "확인이 끝나기 전에 답했다");
+    assert.equal(thumbnailOf(log[0][1] as never), "https://i.ytimg.com/vi/nowplaying1/hqdefault.jpg");
+  } finally {
+    release({ ok: true, status: 200 });
+    discordArt.useHead(async () => ({ ok: true, status: 200 }));
+  }
 });
 
 test("/nowplaying: 대기열 곡의 길이를 다 모르면(라이브, 길이 0) 합계 칸을 빼고 곡 수만", async () => {
@@ -397,7 +412,7 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   assert.equal(await settings.getBotChannel("g1"), "c6");
 });
 
-test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실패는 본인에게만", async () => {
+test("/setchannel remove: 삭제하고 안내한 뒤 패널을 옮긴다. 저장 실패는 본인에게만", async () => {
   await settings.setBotChannel("g1", "c5");
   const { it, log, seen, bot } = interaction({ options: { action: "remove" } });
   await run(await command("setchannel"), it, bot);
@@ -412,6 +427,27 @@ test("/setchannel remove: 삭제하고 패널을 옮긴 뒤 안내. 저장 실�
     await run(await command("setchannel"), failed.it, failed.bot);
     assert.deepEqual(failed.log[0][1], noticeReply(errors.notice("channel-set-failed")));
   });
+});
+
+test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 옮기고(옮기기를 기다리지 않고 답한다), 안내가 실패해도 패널은 옮긴다", async () => {
+  for (const action of ["set", "remove"]) {
+    const ok = interaction({ channelId: "c5", options: { action } });
+    let repliedFirst = false;
+    ok.bot.panels.onBotChannelChanged = async () => void (repliedFirst = ok.log.length === 1);
+    await run(await command("setchannel"), ok.it, ok.bot);
+    assert.equal(repliedFirst, true, `${action}: 안내 뒤에 옮긴다`);
+
+    const broken = interaction({ channelId: "c5", options: { action } });
+    let moved = false;
+    broken.bot.panels.onBotChannelChanged = async () => void (moved = true);
+    broken.it.reply = async () => {
+      throw new Error("응답 실패");
+    };
+    const setchannel = await command("setchannel");
+    await assert.rejects(async () => run(setchannel, broken.it, broken.bot), /응답 실패/);
+    assert.equal(moved, true, `${action}: 안내가 실패해도 설정과 패널이 어긋나지 않게 옮긴다`);
+  }
+  await settings.clearBotChannel("g1");
 });
 
 test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ 로 보이고 메뉴의 기본값으로 둔다", async () => {

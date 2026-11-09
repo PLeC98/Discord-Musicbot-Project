@@ -37,10 +37,10 @@ async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.previous(r.restarted, r.track), LIFETIME.result);
 }
 
+// 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 답한다(유스케이스의 onAccepted)
 async function answerStop(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.stop(player, { member: interaction.member });
+  const r = await controls.stop(player, { member: interaction.member }, { onAccepted: (facts) => toAll(interaction, replies.stopped(facts.cleared, interaction.member, facts.stayed), LIFETIME.farewell) });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.stopped(r.cleared, interaction.member, r.stayed), LIFETIME.farewell);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {

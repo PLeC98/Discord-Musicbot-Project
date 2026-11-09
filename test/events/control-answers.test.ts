@@ -146,3 +146,21 @@ test("수명: 조작 결과는 결과 수명, 정지, 나가기는 더 오래", 
   assert.deepEqual(lifetimesOf(leave.it), [LIFETIME.farewell]);
   assert.ok(LIFETIME.farewell > LIFETIME.result);
 });
+
+test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 전에 답한다", async () => {
+  for (const name of ["stop", "leave"]) {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const order: string[] = [];
+    const { it, log } = asked();
+    const { p } = player({ queue: [], _trackLabel: () => "곡", getCurrentTime: () => 0, dispose: () => gate.then(() => void order.push("disposed")) });
+    const answering = name === "stop" ? answerStop(it, p) : run(await command("leave"), Object.assign(it, { guild }), fakeBot({ players: new Map([["g1", p]]) }));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(log.length, 1, `${name}: 정리가 끝나기 전에 답했다`);
+    assert.deepEqual(order, [], name);
+    release();
+    await answering;
+    assert.deepEqual(order, ["disposed"], name);
+    assert.equal(log.length, 1, `${name}: 정리 뒤에 다시 답하지 않는다`);
+  }
+});

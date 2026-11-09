@@ -18,6 +18,7 @@ import * as guildSettings from "../store/guild-settings.ts";
 import * as genreConfig from "../config/genres.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { Player } from "../player/player.ts";
+import type { QueuedTrack } from "../player/track.ts";
 import type { PlayerRegistry } from "../player/registry.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { PermissionDenied } from "./permissions.ts";
@@ -39,7 +40,8 @@ const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true 
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
-// 조작 뒤 패널을 지금 상태로. 패널을 못 고쳐도 조작은 된 것이다
+// 조작 뒤 패널을 지금 상태로. 기다리지 않는다(응답이 패널 REST, 썸네일 확인을 기다리지 않게. 그리기는 패널이 서버마다 차례로 한다).
+// 패널을 못 고쳐도 조작은 된 것이다
 const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
 
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
@@ -82,7 +84,7 @@ async function pause(player: MaybePlayer, actor: Actor) {
   player.pause.setUser(!player.pause.userPaused);
   // 휴면 중인 곡이면 스트림을 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 답한다(여는 동안에도 화면은 곡을 보인다)
   if (player.resting) void player.wake().catch((error: unknown) => log.warn(`휴면 스트림 다시 열기 실패: ${messageOf(error)}`));
-  await refresh(player);
+  void refresh(player);
   return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
 }
 
@@ -96,12 +98,28 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
   if (!track) return blocked;
   const restarted = player.loop === "track";
   if (!player.skip()) return fail("switch-failed");
-  if (!restarted && player.currentTrack) await refresh(player);
+  if (!restarted && player.currentTrack) void refresh(player);
   return done({ track, restarted });
 }
 
+/**
+ * 정리를 시작해 둔 채 답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work 를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
+ * 정리의 거부는 곧바로 잡아 warn 으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 던져도 정리는 끝까지 기다린 뒤 그 오류를 올린다
+ */
+async function answerDuring<T>(work: Promise<unknown>, what: string, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
+  const ending = work.catch((error: unknown) => log.warn(`${what} 실패: ${messageOf(error)}`));
+  try {
+    await onAccepted?.(facts);
+  } finally {
+    await ending;
+  }
+}
+
+/** 정리를 시작한 뒤, 끝을 기다리기 전에 부른다(응답). 받는 것은 돌려줄 결과와 같다 */
+type Accepting<T> = { onAccepted?: (facts: T) => unknown };
+
 /** 멈추고 대기열을 비우고 나간다. 세션도 삭제한다 */
-async function stop(player: MaybePlayer, actor: Actor) {
+async function stop(player: MaybePlayer, actor: Actor, { onAccepted }: Accepting<{ track: QueuedTrack | null; cleared: number; stayed: boolean }> = {}) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
@@ -111,12 +129,14 @@ async function stop(player: MaybePlayer, actor: Actor) {
   if (seatedIn(player.guild?.id ?? "", player.voiceChannel?.id)) {
     if (player.isPlayStarting) return fail("still-starting");
     log.info(`정지(상주 모드라 채널에 남음): ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
-    await player.stopStaying();
-    return done({ track, cleared, stayed: true });
+    const facts = { track, cleared, stayed: true };
+    await answerDuring(player.stopStaying(), "상주 모드 정지", facts, onAccepted);
+    return done(facts);
   }
   log.info(`정지: ${player._trackLabel()} | 대기열 ${cleared}곡 비움`);
-  await player.dispose({ reason: "정지", session: "remove", panel: "stop", end: "stop" });
-  return done({ track, cleared, stayed: false });
+  const facts = { track, cleared, stayed: false };
+  await answerDuring(player.dispose({ reason: "정지", session: "remove", panel: "stop", end: "stop" }), "정지", facts, onAccepted);
+  return done(facts);
 }
 
 /** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
@@ -146,7 +166,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
   if (durationMs > 0 && ms >= durationMs) return fail("beyond-end", { durationMs });
   await onAccepted?.();
   await player.seek(ms, reason);
-  await refresh(player);
+  void refresh(player);
   return done({ ms, track });
 }
 
@@ -228,7 +248,7 @@ async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   // 끝이 없는 것은 반복할 수 없다. 끄는 것은 언제나 통한다
   if (mode && player.hasLiveTrack()) return fail("live-no-loop");
   player.setLoop(mode);
-  await refresh(player);
+  void refresh(player);
   return done({ mode, track });
 }
 
@@ -239,7 +259,7 @@ async function shuffle(player: MaybePlayer, actor: Actor) {
   if (blocked) return blocked;
   if (player.queue.length < 2) return fail("too-few-to-shuffle");
   player.shuffleQueue();
-  await refresh(player);
+  void refresh(player);
   return done({ count: player.queue.length });
 }
 
@@ -255,7 +275,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
   const at = player.queue.indexOf(target);
   if (at < 0) return fail("entry-gone");
   const track = player.removeFromQueue(at);
-  await refresh(player);
+  void refresh(player);
   return done({ track, left: player.queue.length });
 }
 
@@ -270,7 +290,7 @@ async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknow
   if (from === to) return fail("same-position");
   const track = player.queue[from];
   player.moveInQueue(from, to);
-  await refresh(player);
+  void refresh(player);
   return done({ track, from, to });
 }
 
@@ -286,7 +306,7 @@ async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
   const index = at();
   if (index < 0) return fail("entry-gone");
   const track = player.removeFromQueue(index);
-  await refresh(player);
+  void refresh(player);
   return done({ track, left: player.queue.length });
 }
 
@@ -306,7 +326,7 @@ async function moveEntry(player: MaybePlayer, actor: Actor, entry: number, befor
   if (from === to) return fail("same-position");
   const track = player.queue[from];
   player.moveInQueue(from, to);
-  await refresh(player);
+  void refresh(player);
   return done({ track, from, to });
 }
 
@@ -318,7 +338,7 @@ async function clear(player: MaybePlayer, actor: Actor) {
   const count = player.queue.length;
   if (count === 0) return fail("queue-empty");
   player.clearQueue();
-  await refresh(player);
+  void refresh(player);
   return done({ count, track: player.currentTrack });
 }
 
@@ -393,7 +413,7 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
     await target.handleAutoplay();
     return done({ genre, started: true });
   }
-  await refresh(target);
+  void refresh(target);
   return done({ genre, started: false });
 }
 
@@ -401,7 +421,7 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
  * 나가기. 세션을 남겨 /join 이 복구한다. 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
-async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">) {
+async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">, { onAccepted }: Accepting<{ left: "player"; track: QueuedTrack | null; saved: { queue: number; positionSec: number }; stayOff: boolean }> = {}) {
   const permission = await perm.checkControl(actor.member);
   if (permission) return fail(permission);
   // 24/7 상주 모드도 함께 끈다(켜고 끄는 권한과 같은 DJ 조작이라 위에서 이미 확인했다). 플레이어를 정리하기 전에 먼저 해제한다(종료 알림을 받은 StayKeeper가 다시 접속하지 않게)
@@ -415,8 +435,9 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   }
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
-  await player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected", end: "leave" });
-  return done({ left: "player" as const, track, saved, stayOff: seated });
+  const facts = { left: "player" as const, track, saved, stayOff: seated };
+  await answerDuring(player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected", end: "leave" }), "나가기", facts, onAccepted);
+  return done(facts);
 }
 
 export type { Actor, Refusal };

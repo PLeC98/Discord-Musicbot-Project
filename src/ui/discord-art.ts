@@ -58,11 +58,13 @@ type DiscordArt = { url: string; file?: { attachment: Buffer; name: string }; fi
 /**
  * 이 곡에 붙일 썸네일. 곡의 썸네일 주소가 있으면 그 큰 것(유튜브는 큰 썸네일이 있는지 확인해 둔다), 직접 링크 곡이면 찾아 둔 파일 태그 이미지의 첨부.
  * 파일 태그 이미지는 메모리, 캐시 파일에서만 읽는다(통신을 기다리지 않는다. 모르면 null 이고, 찾으면 플레이어가 새로 그린다)
+ * wait: false 면 유튜브 큰 썸네일 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다(상호작용의 3초 응답처럼 기다릴 수 없는 곳)
  */
-async function artFor(track: { thumbnail?: string | null; audioUrl?: string } | null | undefined): Promise<DiscordArt | null> {
+async function artFor(track: { thumbnail?: string | null; audioUrl?: string } | null | undefined, { wait = true }: { wait?: boolean } = {}): Promise<DiscordArt | null> {
   if (!track) return null;
   if (artOf(track.thumbnail)) {
-    await prepare(track.thumbnail);
+    if (wait) await prepare(track.thumbnail);
+    else void prepare(track.thumbnail);
     const url = urlOf(track.thumbnail);
     return url ? { url } : null;
   }

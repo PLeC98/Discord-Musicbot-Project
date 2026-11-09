@@ -27,11 +27,15 @@ const exported: GuildCommand = {
     const guildId = interaction.guild.id;
     const action = interaction.options.getString("action") || "set";
 
+    // 안내를 먼저 보내고(패널 옮기기를 기다리지 않고 답한다) 패널은 그 뒤에 옮긴다. 안내가 실패해도 설정과 패널이 어긋나지 않게 끝까지 옮긴다
     if (action === "remove") {
       await GuildSettingsManager.clearBotChannel(guildId);
-      await movePanel(interaction, bot);
-
-      return await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
+      try {
+        await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
+      } finally {
+        await movePanel(interaction, bot);
+      }
+      return;
     }
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
@@ -42,9 +46,12 @@ const exported: GuildCommand = {
       return await noticeSelf(interaction, errors.notice("channel-set-failed"));
     }
 
-    await interaction.reply(post(screens.channelSet(channel.toString())));
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
-    await movePanel(interaction, bot);
+    try {
+      await interaction.reply(post(screens.channelSet(channel.toString())));
+    } finally {
+      await movePanel(interaction, bot);
+    }
   },
 };
 export default exported;

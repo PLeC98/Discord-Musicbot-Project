@@ -525,3 +525,139 @@ test("자동재생: 권한 판정 뒤 중단되면(go가 예외를 던짐, 대�
   await assert.rejects(controls.autoplay(p, DJ, false, { go: ended }), /세션이 끝났다/);
   await assert.rejects(controls.autoplay(null, DJ, genre, { create: () => assert.fail("만들지 않는다"), go: ended }), /세션이 끝났다/);
 });
+
+// 풀기 전에는 끝나지 않는 promise. 느린 패널 REST, 정리를 흉내 낸다
+function held() {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => (release = resolve));
+  return { promise, release };
+}
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+// 돌아온 결과, 아직 기다리는 중이면 "waiting"
+const raced = async <T>(work: Promise<T>) =>
+  Promise.race([
+    work,
+    settle()
+      .then(settle)
+      .then(() => "waiting" as const),
+  ]);
+
+test("조작은 패널 고치기를 기다리지 않고 돌아온다(응답이 패널 REST 를 기다리지 않게). 고치기가 실패해도 처리되지 않은 거부가 없다", async () => {
+  const gate = held();
+  const off = playerEvents.on("refresh", () => gate.promise);
+  try {
+    const runs: Array<[string, () => Promise<{ ok: boolean }>]> = [
+      ["멈춤", () => controls.pause(fakePlayer(), DJ)],
+      ["넘기기", () => controls.skip(fakePlayer(), DJ)],
+      ["반복", () => controls.loop(fakePlayer(), DJ, "queue")],
+      ["섞기", () => controls.shuffle(fakePlayer({ queue: [track("a"), track("b"), track("c")] }), DJ)],
+      ["빼기", () => controls.remove(fakePlayer(), DJ, 0)],
+      ["옮기기", () => controls.move(fakePlayer(), DJ, 0, 1)],
+      ["대기열 ID 로 빼기", () => controls.removeEntry(fakePlayer({ queue: [entered("a", 1)] }), DJ, 1)],
+      ["대기열 ID 로 옮기기", () => controls.moveEntry(fakePlayer({ queue: [entered("a", 1), entered("b", 2)] }), DJ, 1, null)],
+      ["비우기", () => controls.clear(fakePlayer(), DJ)],
+      ["자동재생 끄기", () => controls.autoplay(fakePlayer({ autoplay: "kpop", setAutoplay: () => {} }), DJ, false)],
+    ];
+    for (const [name, run] of runs) {
+      const r = await raced(run());
+      assert.notEqual(r, "waiting", `${name}: 패널 고치기를 기다리지 않는다`);
+      assert.equal(r !== "waiting" && r.ok, true, `${name}: 받아들인 조작이어야 이 테스트가 뜻이 있다`);
+    }
+  } finally {
+    off();
+    gate.release();
+  }
+
+  const rejected: unknown[] = [];
+  const onRejection = (error: unknown) => void rejected.push(error);
+  process.on("unhandledRejection", onRejection);
+  const failing = playerEvents.on("refresh", async () => {
+    throw new Error("REST 실패");
+  });
+  try {
+    await controls.loop(fakePlayer(), DJ, "track");
+    await settle();
+    await settle();
+    assert.deepEqual(rejected, []);
+  } finally {
+    failing();
+    process.off("unhandledRejection", onRejection);
+  }
+});
+
+test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리가 끝난 뒤 돌아온다. 답이 던져도 정리는 끝까지 하고 그 오류를 올린다", async () => {
+  const order: string[] = [];
+  const slow = (gate: { promise: Promise<void> }) =>
+    fakePlayer({
+      dispose: (o: { session: string }) => {
+        order.push(`dispose:${o.session}`);
+        return gate.promise.then(() => void order.push("disposed"));
+      },
+    });
+
+  const gate = held();
+  const p = slow(gate);
+  const stopping = controls.stop(p, DJ, { onAccepted: (facts) => void order.push(`accepted:${facts.cleared}`) });
+  await settle();
+  assert.deepEqual(order, ["dispose:remove", "accepted:2"], "정리를 먼저 시작하고 답한다");
+  assert.equal(await raced(stopping), "waiting", "정리가 끝나기 전에는 돌아오지 않는다");
+  gate.release();
+  assert.deepEqual(await stopping, { ok: true, track: p.currentTrack, cleared: 2, stayed: false });
+  assert.equal(order.at(-1), "disposed");
+
+  order.length = 0;
+  const failing = held();
+  const broken = controls.stop(slow(failing), DJ, {
+    onAccepted: () => {
+      throw new Error("응답 실패");
+    },
+  });
+  await settle();
+  failing.release();
+  await assert.rejects(broken, /응답 실패/);
+  assert.deepEqual(order, ["dispose:remove", "disposed"], "답이 실패해도 정리는 끝난다");
+
+  order.length = 0;
+  const leaving = held();
+  const lp = slow(leaving);
+  const players = new Map<string, Player>([["g1", lp]]);
+  const left = controls.leave(guild, DJ, players, { onAccepted: (facts) => void order.push(`accepted:${facts.left}`) });
+  await settle();
+  assert.deepEqual(order, ["dispose:save", "accepted:player"]);
+  leaving.release();
+  assert.equal(accepted(await left).left, "player");
+});
+
+test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝난 패널을 기다리는 사이 정리가 실패해도 처리되지 않은 거부 없이 warn 으로 남긴다", async () => {
+  staySeats.set("g1", "vc1", "u1");
+  const rejected: unknown[] = [];
+  const onRejection = (error: unknown) => void rejected.push(error);
+  process.on("unhandledRejection", onRejection);
+  try {
+    const order: string[] = [];
+    const gate = held();
+    const p = fakePlayer({
+      voiceChannel: { id: "vc1" },
+      stopStaying: () => {
+        order.push("stop-staying");
+        return gate.promise.then(() => Promise.reject(new Error("끝난 패널 실패")));
+      },
+    });
+    const from = sink.buffer.length;
+    const stopping = controls.stop(p, DJ, {
+      onAccepted: async () => {
+        order.push("accepted");
+        gate.release();
+        await settle();
+        await settle();
+      },
+    });
+    assert.deepEqual(await stopping, { ok: true, track: p.currentTrack, cleared: 2, stayed: true });
+    assert.deepEqual(order, ["stop-staying", "accepted"]);
+    assert.deepEqual(rejected, []);
+    assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("끝난 패널 실패")));
+  } finally {
+    process.off("unhandledRejection", onRejection);
+    staySeats.clear("g1");
+  }
+});
