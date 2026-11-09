@@ -147,7 +147,7 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
 
-test("/nowplaying: 유튜브 큰 그림 확인을 기다리지 않고 답한다(아는 답, 모르면 hqdefault)", async () => {
+test("/nowplaying: 유튜브 큰 썸네일 확인을 기다리지 않고 답한다(아는 답, 모르면 hqdefault)", async () => {
   let release!: (value: { ok: boolean; status: number }) => void;
   discordArt.useHead(() => new Promise((resolve) => (release = resolve)));
   try {
@@ -412,7 +412,7 @@ test("/setchannel: 지정하면 저장하고 안내한 뒤 패널을 옮긴다. 
   assert.equal(await settings.getBotChannel("g1"), "c6");
 });
 
-test("/setchannel remove: 삭제하고 안내한 뒤 패널을 옮긴다. 저장 실패는 본인에게만", async () => {
+test("/setchannel remove: 해제하고 안내한 뒤 패널을 옮긴다. 저장 실패는 본인에게만 알린다", async () => {
   await settings.setBotChannel("g1", "c5");
   const { it, log, seen, bot } = interaction({ options: { action: "remove" } });
   await run(await command("setchannel"), it, bot);

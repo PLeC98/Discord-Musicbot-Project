@@ -166,19 +166,19 @@ test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 
   }
 });
 
-test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"을 답하고, 결과는 그것을 지우고 모두에게. 답한 사이 곡이 바뀌면 그 자리를 안내로 바꾼다', async () => {
+test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"을 답하고, 결과는 자리표시자를 지우고 모두에게 알린다. 답한 사이 곡이 바뀌면 자리표시자를 안내로 바꾼다', async () => {
   const order: string[] = [];
   const { it, log } = asked();
   const { p } = player({ parked: true, retryParked: async () => void order.push(`retry(답 ${log.length}개 뒤)`), pause: { userPaused: false, heldBy: null } });
   await answerPause(it, p);
   assert.deepEqual(order, ["retry(답 1개 뒤)"], "다시 열기 전에 답했다");
   assert.deepEqual(log[0][0], "reply");
-  assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
+  assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "자리표시자는 본인에게 보낸다");
   assert.match(log[0][1].join(), /다시 트는 중/);
   assert.deepEqual(
     log.slice(1).map((one) => one[0]),
     ["deleteReply", "send"],
-    "결과는 자리표시자를 지우고 채널에",
+    "결과는 자리표시자를 지우고 채널에 보낸다",
   );
 
   const changed = asked();
@@ -199,15 +199,15 @@ test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인
 
   const plain = asked();
   await answerPause(plain.it, player({ pause: { userPaused: false, heldBy: null, setUser: () => {} } }).p);
-  assert.notDeepEqual(plain.log[0]?.[2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "보통 곡은 자리표시자 없이");
+  assert.notDeepEqual(plain.log[0]?.[2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "보통 곡은 자리표시자를 보내지 않는다");
   assert.equal(plain.log.length, 1, "결과 하나만");
 });
 
-test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인에게 "나가는 중"을, 나간 결과는 그것을 지우고 모두에게. 나가지 못하면 그 자리를 안내로', async () => {
+test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인에게 "나가는 중"을 보내고, 나간 결과는 자리표시자를 지우고 모두에게 알린다. 나가지 못하면 자리표시자를 안내로 바꾼다', async () => {
   for (const fails of [false, true]) {
     const { it, log } = asked();
     const at: number[] = [];
-    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 길은 usecases/controls 테스트)
+    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 경로는 usecases/controls 테스트)
     const lingering = fake<Guild>({
       id: "g1",
       name: "서버",
@@ -225,12 +225,12 @@ test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인�
       },
     });
     await run(await command("leave"), Object.assign(it, { guild: lingering }), fakeBot({ players: new Map() }));
-    assert.deepEqual(at, [1], "나가기 전에 답했다");
+    assert.deepEqual(at, [1], "나가기 전에 답한다");
     assert.equal(log[0][0], "reply");
     assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
     assert.match(log[0][1].join(), /나가는 중/);
     if (fails) {
-      assert.deepEqual(log.slice(1), [["editReply", textsOf(noticeFrame(errors.notice("leave-failed"))), [MessageFlags.IsComponentsV2]]], "그 자리를 안내로");
+      assert.deepEqual(log.slice(1), [["editReply", textsOf(noticeFrame(errors.notice("leave-failed"))), [MessageFlags.IsComponentsV2]]], "자리표시자를 안내로 바꾼다");
     } else {
       assert.deepEqual(
         log.slice(1).map((one) => one[0]),

@@ -9,7 +9,7 @@ import { acceptWith } from "../interactions/control-answers.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 
-// 결과를 알린다. 거절, "이미 있어요"는 본인에게(받아들인 뒤면 "참가하는 중" 자리표시자를 고쳐서), 붙었거나 복원한 결과는 자리표시자를 삭제하고 모두에게
+// 결과를 알린다. 거절, "이미 있어요"는 본인에게(받아들인 뒤면 "참가하는 중" 자리표시자를 고쳐서), 붙었거나 복원한 결과는 자리표시자를 삭제하고 모두에게 알린다
 async function answer(interaction: ChatInputCommandInteraction<"cached">, result: JoinResult) {
   const placed = interaction.replied;
   switch (result.kind) {
@@ -40,7 +40,7 @@ const exported: GuildCommand = {
       { guild, member, textChannel: channel },
       {
         accepted: acceptWith(interaction, replies.joining()),
-        restoring: () => interaction.editReply(post(replies.restoring())).catch(unlessGone(log, "/join 자리표시자 고치기")),
+        restoring: () => interaction.editReply(post(replies.restoring())).catch(unlessGone(log, "/join 자리표시자 갱신")),
       },
     );
     await answer(interaction, result);

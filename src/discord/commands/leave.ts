@@ -12,7 +12,7 @@ const exported: GuildCommand = {
   async execute(interaction, bot) {
     const { guild, member } = interaction;
     // 플레이어가 있으면 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 답한다(유스케이스의 onAccepted).
-    // 플레이어 없이 음성에만 남았으면 나가기가 몇 초 걸릴 수 있어 "나가는 중"을 먼저 본인에게(onLeaving). 그 뒤의 거절은 그 자리를 고친다(refuse)
+    // 플레이어 없이 음성에만 남았으면 나가기가 몇 초 걸릴 수 있어 "나가는 중" 자리표시자를 먼저 본인에게 보낸다(onLeaving). 그 뒤의 거절은 그 자리표시자를 안내로 바꾼다(refuse)
     const r = await controls.leave(guild, { member }, bot.players, {
       onAccepted: (facts) => toAll(interaction, replies.left(facts.track ? { track: facts.track, ...facts.saved } : null, member, facts.stayOff), LIFETIME.farewell),
       onLeaving: acceptWith(interaction, replies.leaving()),

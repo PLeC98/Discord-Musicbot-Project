@@ -62,8 +62,8 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
   return answerAutoplay(interaction, player, appEmojis);
 }
 
-// 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게.
-// 플레이어 만들기(기동 복원), 음성 연결이 3초를 넘을 수 있어 먼저 받아 둔다. 거절은 후속 메시지로 본인에게(메뉴는 남는다)
+// 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게 알린다.
+// 플레이어 만들기(기동 복원), 음성 연결이 3초를 넘을 수 있어 먼저 받아 둔다. 거절은 후속 메시지로 본인에게 알린다(메뉴는 남는다)
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];

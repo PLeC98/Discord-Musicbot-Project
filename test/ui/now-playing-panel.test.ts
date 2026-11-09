@@ -453,7 +453,7 @@ function held() {
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
-test("재생 패널 그리기: 서버마다 한 번에 하나. 그리는 중에 온 고치기는 끝난 뒤 지금 상태로 한 번만 다시 그린다", async () => {
+test("재생 패널 그리기: 서버마다 한 번에 하나. 그리는 중에 온 갱신은 끝난 뒤 지금 상태로 한 번만 다시 그린다", async () => {
   const mem = newManager();
   const gates: Array<ReturnType<typeof held>> = [];
   let inFlight = 0;
@@ -494,7 +494,7 @@ test("재생 패널 그리기: 서버마다 한 번에 하나. 그리는 중에 
   assert.equal(most, 1);
 });
 
-test("재생 패널 그리기: 페이로드를 만든 사이 정리됐거나, 곡이 없거나 바뀌었거나, 패널이 바뀌었거나, 다시 올리는 중이면 보내지 않고 붙인 썸네일 기록을 지운다", async () => {
+test("재생 패널 그리기: 페이로드를 만드는 사이 정리됐거나, 곡이 없거나 바뀌었거나, 패널이 바뀌었거나, 다시 올리는 중이면 보내지 않고 붙인 썸네일 기록을 지운다", async () => {
   const cases: Array<[string, (p: Record<string, unknown>, mem: NowPlayingPanel) => void]> = [
     ["정리", (p) => (p.lifecycle = { disposed: true })],
     ["곡 없음", (p) => (p.currentTrack = null)],
@@ -550,11 +550,11 @@ test("끝난 패널: 그리는 사이 새 곡과 패널이 생기면(정지 직�
 
   const plain = panelPlayer({ currentTrack: null, nowPlayingMessage: { id: "old" }, nowPlayingWebhook: { editMessage: async () => {} }, textChannel: { id: "chan-1", send: async () => {} } });
   await newManager().drawEndedPanel(plain, { reason: "stop" });
-  assert.equal(plain.nowPlayingMessage, null, "바뀐 것이 없으면 지금처럼 놓는다");
+  assert.equal(plain.nowPlayingMessage, null, "바뀐 것이 없으면 원래대로 비운다");
   assert.equal(plain.nowPlayingWebhook, null);
 });
 
-test("재생 패널 그리기: 그리는 사이 같은 서버의 새 플레이어가 고치기를 보내면 끝난 뒤 새 플레이어를 그린다", async () => {
+test("재생 패널 그리기: 그리는 사이 같은 서버의 새 플레이어가 갱신을 보내면 끝난 뒤 새 플레이어를 그린다", async () => {
   const mem = newManager();
   const gate = held();
   const drawn: string[] = [];

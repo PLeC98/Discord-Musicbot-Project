@@ -16,7 +16,7 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
     return await noticeSelf(interaction, errors.notice("stale-session"));
   }
 
-  // 대기열 ID 가 아닌 값은 번호를 값으로 쓰던 옛 메뉴다(재기동과 맞물린 패널)
+  // 대기열 ID 가 아닌 값은 번호를 값으로 쓰던 옛 메뉴의 값이다(재기동과 맞물린 패널)
   const entry = entryOfJump(interaction.values[0]);
   if (entry === null) return await noticeSelf(interaction, errors.notice("jump-target-gone"));
   const r = await controls.jump(player, { member: interaction.member }, entry);

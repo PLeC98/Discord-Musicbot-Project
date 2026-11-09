@@ -1,5 +1,5 @@
-// 응답 상태와 부른 순서를 흉내 내는 가짜 상호작용. src/ui/delivery 는 replied, deferred 로 갈래를 고르므로
-// reply, deferReply, deferUpdate 가 그 값을 바꿔야 응답 갈래 테스트가 헛되이 통과하지 않는다.
+// 응답 상태와 부른 순서를 흉내 내는 가짜 상호작용. src/ui/delivery 는 replied, deferred 로 분기하므로
+// reply, deferReply, deferUpdate 가 그 값을 바꿔야 응답 분기 테스트가 헛되이 통과하지 않는다.
 // 보낸 것은 flags 로 본인(self), 모두(all)를 구분해 calls 에 적는다
 
 import { MessageFlags, type RepliableInteraction } from "discord.js";

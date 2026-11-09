@@ -534,7 +534,7 @@ test("/search 결과 선택: 검색한 사람만, 모양이 틀린 값은 모른
 
 // ── /join ─────────────────────────────────────────────────────────────
 
-test('/join: 음성에 없거나 봇에게 권한이 없으면 곧바로 거절, 이미 붙어 있으면 "참가하는 중"을 그렇다고 고친다', async () => {
+test('/join: 음성에 없거나 봇에게 권한이 없으면 곧바로 거절, 이미 붙어 있으면 "참가하는 중"을 이미 들어와 있다는 안내로 고친다', async () => {
   const noVoice = world({ userVoice: null, player: null });
   const a = interaction(noVoice);
   await runCommand(await command("join"), a.it, noVoice.bot);
@@ -597,7 +597,7 @@ test('/join: "참가하는 중"은 음성 연결을 기다리기 전에 답한�
   assert.equal(answeredAtConnect, 1, "연결할 때 이미 답했다");
 });
 
-test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
+test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나가기를 예약한다", async () => {
   const w = world({ player: null });
   const { it, log, sentOnChannel } = interaction(w);
   // 끝난 패널로 알리는 것은 플레이어 알림을 거친다
@@ -617,7 +617,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
     assert.deepEqual(
       sentOnChannel.map((m) => m.payload),
       [post(replies.joined())],
-      "결과는 모두에게",
+      "결과는 모두에게 알린다",
     );
     assert.ok(w.seen.includes("end:joined"));
     assert.ok(player.idle.emptyTimer, "곡 없이 대기");
@@ -646,7 +646,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 중"으로 고치고, 그 메시지를 삭제하고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
+test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 중"으로 고치고, 그 메시지를 삭제하고 결과는 모두에게 알린다(재생, 일시정지, 재생 실패, 연달아 실패, 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
 
@@ -806,7 +806,7 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
 
   await interactionCreate.execute(away.bot, pick);
 
-  assert.deepEqual(log, ["deferUpdate", noticeReply(errors.notice("must-be-in-voice"))], "먼저 받아 두고 거절은 후속 메시지로");
+  assert.deepEqual(log, ["deferUpdate", noticeReply(errors.notice("must-be-in-voice"))], "먼저 받아 두고 거절은 후속 메시지로 알린다");
   assert.equal(away.bot.players.has("g1"), false);
 });
 

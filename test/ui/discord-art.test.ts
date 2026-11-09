@@ -47,7 +47,7 @@ test("artFor: 곡 그림 주소가 있으면 그 큰 것, 직접 링크 곡은 �
   assert.equal(await artFor(null), null);
 });
 
-test("artFor wait:false: 유튜브 큰 그림 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다", async () => {
+test("artFor wait:false: 유튜브 큰 썸네일 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다", async () => {
   let release!: (value: { ok: boolean; status: number }) => void;
   _internals.useHead(() => new Promise((resolve) => (release = resolve)));
   assert.deepEqual(await artFor({ thumbnail: yt("nowaitvideo") }, { wait: false }), { url: yt("nowaitvideo", "hqdefault") });

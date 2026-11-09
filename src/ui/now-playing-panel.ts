@@ -149,7 +149,7 @@ class NowPlayingPanel {
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 연속 갱신 실패(네트워크)
   attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표, 파일 태그 이미지의 fingerprint)
-  drawing = new Map<string, { player: Player; again: boolean; done: Promise<void> }>(); // guildId → 그리는 중인 재생 패널. again: 그사이 고치기가 왔다
+  drawing = new Map<string, { player: Player; again: boolean; done: Promise<void> }>(); // guildId → 그리는 중인 재생 패널. again: 그사이 갱신 요청이 왔다
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -429,8 +429,8 @@ class NowPlayingPanel {
   }
 
   /**
-   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST 를 기다리는 동안 온 고치기(조작, 5초 갱신)는
-   * 표시만 하고 끝난 뒤 지금 상태로 한 번 더 그린다. 그래서 같은 메시지에 대한 고치기가 순서대로 나가고, 낡은 모양이 마지막에 덮지 않는다
+   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST 를 기다리는 동안 온 갱신(조작, 5초 갱신)은
+   * 표시만 하고 끝난 뒤 지금 상태로 한 번 더 그린다. 그래서 같은 메시지에 대한 갱신이 순서대로 나가고, 낡은 모양이 마지막에 덮지 않는다
    */
   updatePlaying(player: Player): Promise<void> {
     const guildId = player?.guild?.id;
@@ -580,9 +580,9 @@ class NowPlayingPanel {
   }
 
   /**
-   * 끝난 패널을 그린 뒤: 플레이어는 이제 틀고 있는 곡, 패널이 없다. before, live 는 그리기 시작할 때의 곡, 패널.
+   * 끝난 패널을 그린 뒤: 플레이어는 이제 재생 중인 곡, 패널이 없다. before, live 는 그리기 시작할 때의 곡, 패널.
    * 그리는 사이 새 곡, 새 패널이 생겼으면(정지 직후의 /play, 상주 모드는 같은 플레이어) 그것은 두고,
-   * 이미 비운 곡을 다시 비우지 않는다(정리한 플레이어의 세션 미러가 새 플레이어가 쓴 세션 행을 지우지 않게)
+   * 이미 비운 지금 곡을 다시 비우지 않는다(정리한 플레이어의 세션 미러가 새 플레이어가 쓴 세션 행을 삭제하지 않게)
    */
   _releaseEnded(player: Player, before: QueuedTrack | null, live: PanelMessage | null) {
     if (before && player.currentTrack === before) trackState.setCurrent(player, null);
@@ -799,7 +799,7 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 고른 곡을 가리킨다. 번호는 이름에만 쓴다.
+   * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 선택한 곡을 가리킨다. 번호는 이름에만 쓴다.
    * ID 가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id 가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {

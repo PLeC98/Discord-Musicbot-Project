@@ -369,7 +369,7 @@ test("점프: 대기열 ID 의 곡을 맨 앞으로 옮기고 jump 로 넘긴다
   );
 });
 
-test("점프: 메뉴를 그린 뒤 앞 곡이 빠져도 고른 곡으로 간다. 없는 ID, 권한을 기다린 사이 빠진 곡은 entry-gone", async () => {
+test("점프: 메뉴를 그린 뒤 앞 곡이 빠져도 선택한 곡으로 간다. 없는 ID, 권한을 기다린 사이 빠진 곡은 entry-gone", async () => {
   const shifted = fakePlayer({ queue: [entered("b", 2), entered("c", 3)] });
   assert.equal(accepted(await controls.jump(shifted, DJ, 3)).track.title, "c", "번호(2)가 아니라 ID 로 찾는다");
   assert.deepEqual(shifted.calls, ["move:1->0", "skip:jump"]);
@@ -393,7 +393,7 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
 
   let disconnected = 0;
-  // 샤드가 끊겨 있으면 게이트웨이 없이 REST 로 나간다(게이트웨이 길은 아래 테스트)
+  // 샤드가 끊겨 있으면 게이트웨이 없이 REST 로 나간다(게이트웨이 경로는 아래 테스트)
   const lingering = fake<Guild>({ id: "g2", shard: { status: Status.Disconnected }, members: { me: { voice: { channel: { id: "vc1" }, disconnect: async () => disconnected++ } } } });
   assert.deepEqual(await controls.leave(lingering, DJ, players), { ok: true, left: "voice-only", stayOff: false });
   assert.equal(disconnected, 1);
@@ -544,7 +544,7 @@ const raced = async <T>(work: Promise<T>) =>
       .then(() => "waiting" as const),
   ]);
 
-test("조작은 패널 고치기를 기다리지 않고 돌아온다(응답이 패널 REST 를 기다리지 않게). 고치기가 실패해도 처리되지 않은 거부가 없다", async () => {
+test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패널 REST 를 기다리지 않게). 갱신이 실패해도 처리되지 않은 거부가 없다", async () => {
   const gate = held();
   const off = playerEvents.on("refresh", () => gate.promise);
   try {
@@ -562,7 +562,7 @@ test("조작은 패널 고치기를 기다리지 않고 돌아온다(응답이 �
     ];
     for (const [name, run] of runs) {
       const r = await raced(run());
-      assert.notEqual(r, "waiting", `${name}: 패널 고치기를 기다리지 않는다`);
+      assert.notEqual(r, "waiting", `${name}: 패널 갱신을 기다리지 않는다`);
       assert.equal(r !== "waiting" && r.ok, true, `${name}: 받아들인 조작이어야 이 테스트가 뜻이 있다`);
     }
   } finally {
@@ -630,7 +630,7 @@ test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리
   assert.equal(accepted(await left).left, "player");
 });
 
-test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝난 패널을 기다리는 사이 정리가 실패해도 처리되지 않은 거부 없이 warn 으로 남긴다", async () => {
+test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝난 패널을 기다리는 사이 끝난 패널 그리기가 실패해도 처리되지 않은 거부 없이 warn 으로 남긴다", async () => {
   staySeats.set("g1", "vc1", "u1");
   const rejected: unknown[] = [];
   const onRejection = (error: unknown) => void rejected.push(error);
@@ -704,7 +704,7 @@ test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 
     ),
     /답 실패/,
   );
-  assert.deepEqual(order, ["first"], "봇이 음성에 붙은 채 아무것도 틀지 않는 일이 없게");
+  assert.deepEqual(order, ["first"], "봇이 음성에 붙은 채 아무것도 틀지 않는 일이 없다");
 
   const from = sink.buffer.length;
   const both = idle(async () => {
@@ -724,7 +724,7 @@ test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 
   );
 });
 
-// 플레이어 없이 음성 채널에만 남은 봇의 서버. gatewayLeaves: op 4 를 보내면 봇의 음성 상태가 빈다는 알림이 온다
+// 봇이 플레이어 없이 음성 채널에만 남은 서버. gatewayLeaves: op 4 를 보내면 봇의 음성 상태가 빈다는 알림이 온다
 function lingeringGuild({ ready = true, gatewayLeaves = true, restError = null as Error | null } = {}) {
   const client = Object.assign(new EventEmitter(), { user: { id: "bot" } });
   const sent: unknown[] = [];
@@ -763,17 +763,17 @@ function lingeringGuild({ ready = true, gatewayLeaves = true, restError = null a
   return { guild, client, sent, order, rests: () => rest };
 }
 
-test("나가기(음성에만 남음): 먼저 답하고 게이트웨이 op 4(channel_id null, 지금의 selfDeaf, selfMute)로 나간다. 봇의 음성 상태가 비면 REST 를 부르지 않고 듣기를 뗀다", async () => {
+test("나가기(음성에만 남음): 먼저 답하고 게이트웨이 op 4(channel_id null, 지금의 selfDeaf, selfMute)로 나간다. 봇의 음성 상태가 비면 REST 를 부르지 않고 리스너를 뗀다", async () => {
   const { guild, client, sent, order, rests } = lingeringGuild();
   const r = await controls.leave(guild, DJ, new Map(), { onLeaving: () => void order.push("answer") });
   assert.deepEqual(r, { ok: true, left: "voice-only", stayOff: false });
   assert.deepEqual(order, ["answer", "op4"], "나가기 전에 답한다");
   assert.deepEqual(sent, [{ op: 4, d: { guild_id: "g9", channel_id: null, self_deaf: true, self_mute: false } }]);
   assert.equal(rests(), 0);
-  assert.equal(client.listenerCount("voiceStateUpdate"), 0, "듣기를 뗀다");
+  assert.equal(client.listenerCount("voiceStateUpdate"), 0, "리스너를 뗀다");
 });
 
-test("나가기(음성에만 남음): 게이트웨이로 빠지지 않으면 1.5초 뒤 REST 로. 40032(이미 음성에 없음)는 나간 것, 그 밖의 실패는 leave-failed. 샤드가 끊겼으면 op 4 없이 REST", async (t) => {
+test("나가기(음성에만 남음): 게이트웨이로 빠지지 않으면 1.5초 뒤 REST 로 뺀다. 40032(이미 음성에 없음)는 나간 것, 그 밖의 실패는 leave-failed. 샤드가 끊겼으면 op 4 없이 REST 로 뺀다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const wait = async <T>(work: Promise<T>) => {
     await new Promise((resolve) => setImmediate(resolve));
@@ -788,7 +788,7 @@ test("나가기(음성에만 남음): 게이트웨이로 빠지지 않으면 1.5
   assert.equal(ignored.client.listenerCount("voiceStateUpdate"), 0);
 
   const gone = lingeringGuild({ gatewayLeaves: false, restError: Object.assign(new Error("Target user is not connected to voice"), { code: 40032 }) });
-  assert.deepEqual(await wait(controls.leave(gone.guild, DJ, new Map())), { ok: true, left: "voice-only", stayOff: false }, "늦게 먹힌 op 4 로 이미 나갔다");
+  assert.deepEqual(await wait(controls.leave(gone.guild, DJ, new Map())), { ok: true, left: "voice-only", stayOff: false }, "늦게 먹힌 op 4 로 이미 나간 것으로 본다");
 
   const stuck = lingeringGuild({ gatewayLeaves: false, restError: Object.assign(new Error("Missing Permissions"), { code: 50013 }) });
   assert.equal(codeOf(await wait(controls.leave(stuck.guild, DJ, new Map()))), "leave-failed");

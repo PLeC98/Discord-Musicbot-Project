@@ -41,8 +41,8 @@ const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true 
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 
-// 조작 뒤 패널을 지금 상태로. 기다리지 않는다(응답이 패널 REST, 썸네일 확인을 기다리지 않게. 그리기는 패널이 서버마다 차례로 한다).
-// 패널을 못 고쳐도 조작은 된 것이다
+// 조작 뒤 패널을 지금 상태로 다시 그린다. 기다리지 않는다(응답이 패널 REST, 썸네일 확인을 기다리지 않게. 그리기는 패널이 서버마다 순서대로 한다).
+// 패널을 갱신하지 못해도 조작은 된 것이다
 const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
 
 // 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
@@ -109,7 +109,7 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
 
 /**
  * 정리를 시작해 둔 채 답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work 를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
- * 정리의 거부는 곧바로 잡아 warn 으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 던져도 정리는 끝까지 기다린 뒤 그 오류를 올린다
+ * 정리의 실패는 곧바로 잡아 warn 으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 실패해도 정리는 끝까지 기다린 뒤 그 오류를 올린다
  */
 async function answerDuring<T>(work: Promise<unknown>, what: string, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
   const ending = work.catch((error: unknown) => log.warn(`${what} 실패: ${messageOf(error)}`));
@@ -347,12 +347,12 @@ async function clear(player: MaybePlayer, actor: Actor) {
   return done({ count, track: player.currentTrack });
 }
 
-/** 대기열 ID 의 곡으로 바로 넘어간다. 한곡 반복 중에도 그 곡으로 간다. 그 곡이 대기열에 없으면 entry-gone */
+/** 대기열 ID 의 곡으로 바로 넘어간다. 한 곡 반복 중에도 그 곡으로 간다. 그 곡이 대기열에 없으면 entry-gone */
 async function jump(player: MaybePlayer, actor: Actor, entry: number) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
-  // 권한을 기다린 뒤에 찾는다(그 사이 위치가 바뀌었을 수 있다)
+  // 권한 확인을 기다린 뒤에 찾는다(그사이 위치가 바뀌었을 수 있다)
   const index = player.queue.findIndex((t) => t.entry === entry);
   if (index < 0) return fail("entry-gone");
   const track = player.queue[index];
@@ -418,8 +418,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 }
 
 /**
- * 켠 뒤: 답하고(onAccepted), 틀고 있지 않았으면 첫 곡을 선택한다. 틀고 있었으면 패널만 고친다.
- * 답이 던져도 첫 곡은 선택한다(봇이 음성에 붙은 채 아무것도 틀지 않게). 둘 다 던지면 첫 곡의 오류는 warn 으로 남기고 답의 오류를 올린다
+ * 켠 뒤: 답하고(onAccepted), 틀고 있지 않았으면 첫 곡을 선택한다. 틀고 있었으면 패널만 갱신한다.
+ * 답이 실패해도 첫 곡은 선택한다(봇이 음성에 붙은 채 아무것도 틀지 않게). 둘 다 실패하면 첫 곡의 오류는 warn 으로 남기고 답의 오류를 올린다
  */
 async function answerThenStart(target: Player, starts: boolean, onAccepted: (() => unknown) | undefined) {
   let answerError: { error: unknown } | null = null;
@@ -439,12 +439,12 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
   if (answerError) throw answerError.error;
 }
 
-const GATEWAY_LEAVE_WAIT_MS = 1500; // 게이트웨이로 나가기를 보낸 뒤 봇의 음성 상태가 비기를 기다리는 시간. 넘으면 REST 로
+const GATEWAY_LEAVE_WAIT_MS = 1500; // 게이트웨이로 나가기 요청을 보낸 뒤 봇의 음성 상태가 비기를 기다리는 시간. 넘으면 REST 로 뺀다
 const LEFT_BY = { gateway: "게이트웨이", rest: "REST", already: "이미 나가 있음" } as const;
 
 /**
- * 플레이어 없이 음성 채널에만 남은 봇을 뺀다. 먼저 게이트웨이(op 4, 자기 음성 상태라 권한이 들지 않는다)로 보내고 봇의 음성 상태가 비기를 기다린다.
- * 비지 않으면 REST(멤버 옮기기 권한이 든다)로. 이전 프로세스가 남긴 음성 상태를 새 게이트웨이 세션의 op 4 가 빼는지 몰라 REST 를 남긴다.
+ * 플레이어 없이 음성 채널에만 남은 봇을 뺀다. 먼저 게이트웨이(op 4, 자기 음성 상태라 권한이 필요 없다)로 나가기 요청을 보내고 봇의 음성 상태가 비기를 기다린다.
+ * 비지 않으면 REST(멤버 옮기기 권한이 필요하다)로 뺀다. 이전 프로세스가 남긴 음성 상태를 새 게이트웨이 세션의 op 4 가 빼는지 몰라 REST 를 남긴다.
  * 그사이 플레이어가 생겼으면(누가 다시 불렀다) 새로 붙은 연결을 쫓아내지 않는다(superseded). REST 의 40032 는 늦게 먹힌 op 4 로 이미 나간 것
  */
 async function leaveLingering(guild: Guild, players: Pick<PlayerRegistry, "get">): Promise<keyof typeof LEFT_BY | "superseded" | "failed"> {
@@ -467,7 +467,7 @@ async function leaveLingering(guild: Guild, players: Pick<PlayerRegistry, "get">
   }
 }
 
-/** 봇의 이 서버 음성 상태가 비면 true, ms 안에 비지 않으면 false. 듣기는 보내기 전에 걸고(부르는 쪽이 이것을 먼저 부른다) 끝나면 뗀다 */
+/** 봇의 이 서버 음성 상태가 비면 true, ms 안에 비지 않으면 false. 리스너는 요청을 보내기 전에 붙이고(부르는 쪽이 이 함수를 먼저 부른다) 끝나면 뗀다 */
 function botLeftVoice(guild: Guild, ms: number): Promise<boolean> {
   const client = guild.client;
   return new Promise((resolve) => {

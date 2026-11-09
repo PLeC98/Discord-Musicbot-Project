@@ -177,7 +177,7 @@ test("대기열이 비면 현재 곡과 이전 곡 기록을 비우고 패널을
   assert.ok(calls.sink.includes("onReset"), "기록 비움도 저장소에 반영");
 });
 
-test("대기열이 다 끝나 끝난 패널을 그리는 사이 새 곡이 시작되면 세션을 지우지 않고 나갈 예약도 걸지 않는다(곧바른 /play, 상주 모드 정지 뒤)", async () => {
+test("대기열이 비어 끝난 패널을 그리는 사이 새 곡이 시작되면 세션을 지우지 않고 나가기를 예약하지도 않는다(정지 직후의 /play, 상주 모드 정지 뒤)", async () => {
   const p = h.makePlayer();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => (release = resolve));
@@ -191,7 +191,7 @@ test("대기열이 다 끝나 끝난 패널을 그리는 사이 새 곡이 시�
     release();
     await finishing;
     assert.equal(calls.persists.filter((one) => one === "remove").length, removedBefore, "기다린 뒤 새 곡의 세션을 지우지 않는다");
-    assert.equal(p.idle.emptyTimer, null, "새 곡이 있으면 나갈 예약을 걸지 않는다");
+    assert.equal(p.idle.emptyTimer, null, "새 곡이 있으면 나가기를 예약하지 않는다");
   } finally {
     off();
     h.dispose(p);
