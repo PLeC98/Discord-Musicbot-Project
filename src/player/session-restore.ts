@@ -49,8 +49,8 @@ type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
  * 기동 시 저장된 재생 세션을 모두 복원한다.
- * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
- * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
+ * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 이어졌다, app/run-record). 세션은 남긴다.
+ * 돌려주는 것: 복원을 시도한 서버 ID(복원했든 못 했든, 건너뛰면 없음). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
 async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
@@ -58,7 +58,8 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
   if (saved.length === 0) return touched;
   if (skip) {
     log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜀(세션은 유지): 서버 ID ${touched.join(", ")}`);
-    return touched;
+    // 손대지 않았다. 음성에 남은 봇은 이어받기가 뺀다
+    return [];
   }
 
   log.info(`저장된 재생 세션 ${saved.length}개 복원 시작`);

@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { Status, type Client } from "discord.js";
 import type { Player } from "../../src/player/player.ts";
 import { adoptLingeringVoice } from "../../src/player/voice-adopt.ts";
+import { restoreSessions } from "../../src/player/session-restore.ts";
 import { fake } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
@@ -88,13 +89,15 @@ test("재연결하지 못하면 그 서버는 정리하고(세션은 남김) 다
   assert.ok(steps.includes("g2:connect"));
 });
 
-test("저장된 세션이 있는 서버(이번에 복원하지 않았다)는 이어받지 않고 음성 채널에서 나간다. 세션은 건드리지 않아 /join 이 이어 튼다", async () => {
+test("복원을 건너뛴 기동: 저장된 세션이 있는 서버는 이어받지 않고 음성 채널에서 나간다. 세션은 건드리지 않아 /join이 이어 튼다", async () => {
   sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "t1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   try {
     const saved = guildWith("g1");
     const fresh = guildWith("g2");
     const { client, players, steps, FakePlayer } = world([saved, fresh]);
-    await adoptLingeringVoice(client, players, FakePlayer);
+    // 기동과 같은 차례로: 복원(건너뜀)이 돌려준 서버를 이어받기에 넘긴다
+    const touched = await restoreSessions(client, players, FakePlayer, { skip: true });
+    await adoptLingeringVoice(client, players, FakePlayer, { touched });
     assert.ok(!steps.some((s) => s.startsWith("g1:")), "플레이어를 만들지 않는다");
     assert.deepEqual(saved.left, ["rest"], "음성 채널에서 나간다");
     assert.deepEqual(fresh.left, [], "세션이 없는 서버는 이어받는다(나가지 않는다)");

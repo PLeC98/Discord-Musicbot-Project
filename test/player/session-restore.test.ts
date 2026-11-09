@@ -183,7 +183,7 @@ test("복원하지 않기(짧게 끊긴 실행이 연달아): 플레이어를 �
   const { client, players } = clientWith([guildWith("r9")]);
   const { FakePlayer, made } = fakePlayerClass();
 
-  assert.deepEqual(await restoreSessions(client, players, FakePlayer, { skip: true }), ["r9"], "세션이 있던 서버를 알린다(이어받기가 건드리지 않게)");
+  assert.deepEqual(await restoreSessions(client, players, FakePlayer, { skip: true }), [], "손댄 서버가 없다(음성에 남은 봇은 이어받기가 뺀다)");
 
   assert.equal(made.length, 0);
   assert.deepEqual(remaining(), ["r9"]);
