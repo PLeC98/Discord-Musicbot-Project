@@ -3,7 +3,7 @@
 // 지키는 것: 기동하면 libopus 버전과 프레임 하나의 인코딩 시간을 알린다. 프레임마다 반드시 답하고(패킷이든 오류든),
 // 한 스트림의 답은 보낸 순서대로 온다(인코더를 만드는 동안 온 프레임도). 한 차례에 처리한 답은 메시지 하나로 묶인다. 볼륨 배율이 소리에 걸린다.
 // 크기가 틀린 프레임, 열리지 않은 스트림은 그 프레임만 오류로 답하고 스트림은 이어진다. 생성 중에 닫아도 스레드가 멀쩡하다.
-// 1초마다 인코딩에 쓴 시간, 스레드 CPU 시간, 인코더 수, GC 를 보고한다.
+// 1초마다 인코딩에 쓴 시간, 스레드 CPU 시간, 인코더 수, GC를 보고한다.
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -190,7 +190,7 @@ test("인코더를 만드는 동안 닫아도 스레드가 멀쩡하고, 같은 
 test("1초마다의 보고에 이 스레드의 GC 횟수와 멈춘 시간(합, 최대)이 실린다", async () => {
   const id = 6;
   post({ type: "open", id });
-  // 프레임마다 버퍼를 새로 만들어 GC 가 돌게 한다
+  // 프레임마다 버퍼를 새로 만들어 GC가 돌게 한다
   for (let seq = 0; seq < 3000; seq++) sendFrame(id, seq);
   await take(packetOf(id), 3000, 20_000);
   inbox.splice(0, inbox.length, ...inbox.filter((m) => !isLoad(m)));

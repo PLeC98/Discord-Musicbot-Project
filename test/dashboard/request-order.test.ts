@@ -37,7 +37,7 @@ after(() => {
   for (const s of servers) s.close();
   store.close();
 });
-// 한도마다 앱을 새로 띄운다(센 수가 섞이지 않게). 리다이렉트는 따라가지 않는다(로그인은 공개 주소로 보내 이 PC 의 실제 봇에 닿는다)
+// 한도마다 앱을 새로 띄운다(센 수가 섞이지 않게). 리다이렉트는 따라가지 않는다(로그인은 공개 주소로 보내 이 PC의 실제 봇에 닿는다)
 async function fresh() {
   const server = await listenForFetch(appOf(), "127.0.0.1");
   servers.push(server);

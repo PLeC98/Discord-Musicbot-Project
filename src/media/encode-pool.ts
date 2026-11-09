@@ -89,7 +89,7 @@ type Entry = {
   // 지난 틱의 지연 프레임 수. 지연 경고에 지연 프레임이 가장 많은 워커의 CPU 를 적는다
   lastLate: number;
   load: Load | null;
-  // 그 앞의 보고. 보고는 워커의 1초라 틱의 1초와 어긋나, 상세의 GC 는 두 보고(최근 2초)로 본다
+  // 그 앞의 보고. 보고는 워커의 1초라 틱의 1초와 어긋나, 상세의 GC는 두 보고(최근 2초)로 본다
   prevLoad: Load | null;
   calm: number;
   depthChanges: number[];
@@ -219,7 +219,7 @@ function p99(values: number[]) {
 // 워커가 CPU 를 기다리느라 늦는가: 인코딩에 걸린 실제 경과 시간(wall-clock)보다 실제로 쓴 CPU 시간이 훨씬 적다
 const contendedOf = (load: Load | null) => !!load && load.busyUs > 200_000 && load.cpuUs < load.busyUs * 0.6;
 
-// PC 의 모든 코어를 합친 시간(ms)과 코어 수. 컨테이너 안에서는 호스트의 값이다
+// PC의 모든 코어를 합친 시간(ms)과 코어 수. 컨테이너 안에서는 호스트의 값이다
 function machineCpu() {
   const cpus = os.cpus();
   let idle = 0;
@@ -232,7 +232,7 @@ function machineCpu() {
 }
 
 type CpuMark = { at: number; idle: number; total: number; proc: number };
-/** 두 시점 사이의 PC 전체 CPU 와 이 프로세스의 CPU(%, 모든 코어를 합친 것의 몫). 잴 수 없으면 null */
+/** 두 시점 사이의 PC 전체 CPU와 이 프로세스의 CPU(%, 모든 코어를 합친 것의 몫). 잴 수 없으면 null */
 function cpuBetween(from: CpuMark | null, to: CpuMark, cores: number) {
   if (!from || to.total <= from.total || to.at <= from.at) return null;
   const pc = 100 * (1 - (to.idle - from.idle) / (to.total - from.total));
@@ -800,7 +800,7 @@ class EncodePool {
     return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)} · ${gcText(entry)} · ${this.#cpuText()}`;
   }
 
-  // 대기가 PC 의 다른 일 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
+  // 대기가 PC의 다른 일 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
   #cpuText() {
     if (!this.#cpu) return "PC CPU 알 수 없음";
     const quota = this.#quota === null ? "" : `, 할당 ${Math.round(this.#quota * 10) / 10}코어`;

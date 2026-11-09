@@ -254,7 +254,7 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 �
   }
 });
 
-test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세(워커 GC, PC CPU 포함)를 debug 로 남긴다", async () => {
+test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세(워커 GC, PC CPU 포함)를 debug로 남긴다", async () => {
   process.env.STUB_ENCODE_GC = JSON.stringify({ gcCount: 2, gcMs: 6, gcMaxMs: 4.5 });
   // 보고를 틱보다 자주 보내 첫 상세부터 두 보고가 다 와 있게 한다
   process.env.STUB_ENCODE_LOAD_MS = "300";
@@ -309,7 +309,7 @@ test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커�
 
 test("cpuBetween: 두 시점 사이 PC 전체의 쉬지 않은 몫과 이 프로세스가 모든 코어 중 쓴 몫(%)", () => {
   const from = { at: 0, idle: 1000, total: 2000, proc: 0 };
-  // 4코어로 1초: PC 는 4000ms 중 1000ms 쉼(75%), 봇은 CPU 400ms(10%)
+  // 4코어로 1초: PC는 4000ms 중 1000ms 쉼(75%), 봇은 CPU 400ms(10%)
   assert.deepEqual(cpuBetween(from, { at: 1000, idle: 2000, total: 6000, proc: 400_000 }, 4), { pc: 75, bot: 10 });
   assert.equal(cpuBetween(null, from, 4), null, "첫 틱");
   assert.equal(cpuBetween(from, { ...from, at: 1000 }, 4), null, "카운터가 그대로");
