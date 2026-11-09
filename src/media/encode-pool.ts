@@ -89,6 +89,8 @@ type Entry = {
   // 지난 틱의 지연 프레임 수. 지연 경고에 지연 프레임이 가장 많은 워커의 CPU 를 적는다
   lastLate: number;
   load: Load | null;
+  // 그 앞의 보고. 보고는 워커의 1초라 틱의 1초와 어긋나, 상세의 GC 는 두 보고(최근 2초)로 본다
+  prevLoad: Load | null;
   calm: number;
   depthChanges: number[];
   gone: boolean;
@@ -217,6 +219,27 @@ function p99(values: number[]) {
 // 워커가 CPU 를 기다리느라 늦는가: 인코딩에 걸린 실제 경과 시간(wall-clock)보다 실제로 쓴 CPU 시간이 훨씬 적다
 const contendedOf = (load: Load | null) => !!load && load.busyUs > 200_000 && load.cpuUs < load.busyUs * 0.6;
 
+// PC 의 모든 코어를 합친 시간(ms)과 코어 수. 컨테이너 안에서는 호스트의 값이다
+function machineCpu() {
+  const cpus = os.cpus();
+  let idle = 0;
+  let total = 0;
+  for (const { times } of cpus) {
+    idle += times.idle;
+    total += times.user + times.nice + times.sys + times.idle + times.irq;
+  }
+  return { idle, total, cores: cpus.length };
+}
+
+type CpuMark = { at: number; idle: number; total: number; proc: number };
+/** 두 시점 사이의 PC 전체 CPU 와 이 프로세스의 CPU(%, 모든 코어를 합친 것의 몫). 잴 수 없으면 null */
+function cpuBetween(from: CpuMark | null, to: CpuMark, cores: number) {
+  if (!from || to.total <= from.total || to.at <= from.at) return null;
+  const pc = 100 * (1 - (to.idle - from.idle) / (to.total - from.total));
+  const bot = (100 * (to.proc - from.proc)) / 1000 / ((to.at - from.at) * cores);
+  return { pc: Math.round(Math.min(100, Math.max(0, pc))), bot: Math.round(Math.min(100, Math.max(0, bot))) };
+}
+
 type PoolOptions = { workerUrl?: URL; maxWorkers?: number; stallMs?: number; calibrateFrames?: number };
 
 class EncodePool {
@@ -250,6 +273,9 @@ class EncodePool {
   #stats = { deaths: 0, late: 0 };
   // 상태 탭의 최근 15분: 지난 구간에서 가장 느린 워커의 응답 시간 p99(ms)
   #peakRtt = 0;
+  // 지난 틱의 CPU 시점과 그 틱까지 1초의 PC 전체, 봇 CPU(상세에 싣는다)
+  #cpuMark: CpuMark | null = null;
+  #cpu: { pc: number; bot: number } | null = null;
 
   // 해제하지 않은 채 GC 된 세션의 인코더를 워커에서 해제한다. 여기 닿았다면 리소스를 정리하지 않는 경로가 있다
   readonly #unreleased = new FinalizationRegistry<Slot>((slot) => {
@@ -362,7 +388,7 @@ class EncodePool {
     this.#spawning++;
     const thread = new Worker(this.#url);
     const { port1, port2 } = new MessageChannel();
-    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], wait: [], encode: [], receive: [], underrun: 0, lastP99: 0, late: 0, lastLate: 0, load: null, calm: 0, depthChanges: [], gone: false };
+    const entry: Entry = { n: ++this.#lastN, thread, port: port1, ids: new Set(), depth: START_DEPTH, rtt: [], wait: [], encode: [], receive: [], underrun: 0, lastP99: 0, late: 0, lastLate: 0, load: null, prevLoad: null, calm: 0, depthChanges: [], gone: false };
     return new Promise<Entry>((resolve, reject) => {
       let ready = false;
       const fail = (why: string) => {
@@ -533,6 +559,7 @@ class EncodePool {
 
   #receive(entry: Entry, m: FromWorker) {
     if (m.type === "load") {
+      entry.prevLoad = entry.load;
       entry.load = m;
       return;
     }
@@ -699,6 +726,7 @@ class EncodePool {
   // 1초마다 워커별로 응답 시간을 보고 늘리기, 큐 깊이를 정한다
   #tick() {
     const at = now();
+    this.#sampleCpu(at);
     let late = 0;
     let worst: Entry | null = null;
     const details: string[] = [];
@@ -712,6 +740,14 @@ class EncodePool {
     }
     if (details.length) log.debug(`재생 인코딩 상세: ${details.join(" | ")}`);
     this.#noteSlow(late, worst);
+  }
+
+  #sampleCpu(at: number) {
+    const { idle, total, cores } = machineCpu();
+    const used = process.cpuUsage();
+    const mark = { at, idle, total, proc: used.user + used.system };
+    this.#cpu = cpuBetween(this.#cpuMark, mark, cores);
+    this.#cpuMark = mark;
   }
 
   // 워커 하나의 지난 1초 응답 시간으로 늘리기, 큐 깊이를 정해 적용한다
@@ -761,7 +797,14 @@ class EncodePool {
     const ms = (values: number[]) => (values.length ? `${p99(values).toFixed(1)}ms` : "-");
     const max = entry.rtt.length ? Math.max(...entry.rtt) : 0;
     const cpu = entry.load ? `${Math.round(entry.load.cpuUs / 10_000)}%` : "알 수 없음";
-    return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)}`;
+    return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)} · ${gcText(entry)} · ${this.#cpuText()}`;
+  }
+
+  // 대기가 PC 의 다른 일 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
+  #cpuText() {
+    if (!this.#cpu) return "PC CPU 알 수 없음";
+    const quota = this.#quota === null ? "" : `, 할당 ${Math.round(this.#quota * 10) / 10}코어`;
+    return `${this.#quota === null ? "PC" : "호스트"} CPU ${this.#cpu.pc}%(봇 ${this.#cpu.bot}%${quota})`;
   }
 
   // 지연 프레임이 이어지면 처음 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info. worst: 이번 틱에 지연 프레임이 가장 많은 워커
@@ -786,9 +829,18 @@ class EncodePool {
   }
 }
 
+// 워커의 최근 두 보고(2초 안팎)의 GC. 대기가 GC 때문인지 가른다
+function gcText(entry: Entry) {
+  const loads = [entry.prevLoad, entry.load].filter((l): l is Load => !!l);
+  if (!loads.length) return "워커 GC 알 수 없음";
+  const count = loads.reduce((sum, l) => sum + l.gcCount, 0);
+  const max = Math.max(...loads.map((l) => l.gcMaxMs));
+  return count ? `워커 GC(최근 2초) ${count}번, 최대 ${max.toFixed(1)}ms` : "워커 GC(최근 2초) 없음";
+}
+
 const unavailable = () => codedError("encoder-unavailable", "쓸 수 있는 재생 인코딩 워커가 없음");
 
 const encodePool = new EncodePool();
 
-export { encodePool, EncodePool, decideDepth, workerLimit, START_DEPTH, MAX_DEPTH };
+export { encodePool, EncodePool, decideDepth, workerLimit, cpuBetween, START_DEPTH, MAX_DEPTH };
 export type { EncodeSession, SessionHooks };

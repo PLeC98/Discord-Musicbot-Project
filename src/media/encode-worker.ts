@@ -7,6 +7,7 @@
  * 받는 것(parentPort): init, open, frame, close. 주는 것(init 때 받은 포트): ready, replies, load
  */
 import { parentPort, type MessagePort } from "worker_threads";
+import { PerformanceObserver } from "perf_hooks";
 import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts";
 
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
@@ -19,8 +20,8 @@ type FromWorker =
   | { type: "ready"; libopusVersion: string; frameUs: number }
   // 한 스트림의 답은 보낸 순서대로 들어 있다
   | { type: "replies"; items: Reply[] }
-  // 지난 보고 뒤로 인코딩에 쓴 시간과 스레드 CPU 시간(µs), 살아 있는 인코더 수
-  | { type: "load"; busyUs: number; cpuUs: number; encoders: number };
+  // 지난 보고 뒤로 인코딩에 쓴 시간과 스레드 CPU 시간(µs), 살아 있는 인코더 수, 이 스레드의 GC 횟수와 멈춘 시간의 합, 최대(ms)
+  | { type: "load"; busyUs: number; cpuUs: number; encoders: number; gcCount: number; gcMs: number; gcMaxMs: number };
 
 const FRAME_BYTES = 3840;
 const LOAD_EVERY_MS = 1000;
@@ -33,6 +34,7 @@ const streams = new Map<number, Stream>();
 let reply: MessagePort | null = null;
 let busyUs = 0;
 let lastCpu = 0;
+const gc = { count: 0, ms: 0, maxMs: 0 };
 
 let pending: Reply[] = [];
 let transfer: ArrayBuffer[] = [];
@@ -152,13 +154,27 @@ async function init(port: MessagePort, calibrateFrames: number) {
     encoder.free();
   }
   lastCpu = cpuNow();
+  watchGc();
   send({ type: "ready", libopusVersion, frameUs });
   setInterval(() => {
     const cpu = cpuNow();
-    send({ type: "load", busyUs: Math.round(busyUs), cpuUs: Math.round(cpu - lastCpu), encoders: streams.size });
+    const round = (ms: number) => Math.round(ms * 10) / 10;
+    send({ type: "load", busyUs: Math.round(busyUs), cpuUs: Math.round(cpu - lastCpu), encoders: streams.size, gcCount: gc.count, gcMs: round(gc.ms), gcMaxMs: round(gc.maxMs) });
     busyUs = 0;
     lastCpu = cpu;
+    Object.assign(gc, { count: 0, ms: 0, maxMs: 0 });
   }, LOAD_EVERY_MS).unref();
+}
+
+// GC 동안은 이 스레드가 프레임을 받아도 인코딩을 시작하지 못한다. 메인이 늦은 초의 까닭을 가르도록 1초씩 모아 보고한다
+function watchGc() {
+  new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      gc.count++;
+      gc.ms += entry.duration;
+      gc.maxMs = Math.max(gc.maxMs, entry.duration);
+    }
+  }).observe({ entryTypes: ["gc"] });
 }
 
 // 이 스레드가 실제로 CPU 를 쓴 시간(µs). 실제 경과 시간(wall-clock)으로 재는 ELU 는 코어를 다른 데 뺏긴 시간도 바쁨으로 센다
