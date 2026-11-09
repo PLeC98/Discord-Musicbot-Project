@@ -70,7 +70,7 @@ const PIN_SETTLE_MS = 12000;
 const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME, unlessGone } from "./delivery.ts";
-import { panelId, IDLE_SESSION } from "./custom-ids.ts";
+import { panelId, IDLE_SESSION, jumpValue } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
 import * as discordArt from "./discord-art.ts";
@@ -753,19 +753,23 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 대기열이 비었거나 세션 id 가 없으면 null
+   * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 고른 곡을 가리킨다. 번호는 이름에만 쓴다.
+   * ID 가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id 가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
 
-    const tracks = player.queue.slice(0, SELECT_MAX);
-    const options = tracks.map((track, i) => {
+    const seen = new Set<number>();
+    const options = player.queue.slice(0, SELECT_MAX).flatMap((track, i) => {
+      if (track.entry === undefined || seen.has(track.entry)) return [];
+      seen.add(track.entry);
       const label = clipText(`${i + 1}. ${songTitle(track.title)}`, 100);
-      const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
+      const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(jumpValue(track.entry));
       const description = jumpDescription(track);
       if (description) opt.setDescription(description);
-      return opt;
+      return [opt];
     });
+    if (options.length === 0) return null;
 
     const placeholder = panelText.jumpPlaceholder();
     const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);

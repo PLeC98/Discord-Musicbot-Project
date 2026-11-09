@@ -23,4 +23,13 @@ function partsOf(id: string) {
 
 const panelId = (action: string, sessionId: string) => customId(PANEL, action, sessionId);
 
-export { PANEL, AUTOPLAY, QUEUE, HELP, SYSTEM, SEARCH, IDLE_SESSION, customId, partsOf, panelId };
+/** 곡으로 건너뛰기 메뉴의 값: 대기열 ID. 번호는 메뉴를 그린 뒤 대기열이 바뀌면 다른 곡을 가리켜 쓰지 않는다 */
+const jumpValue = (entry: number) => `entry:${entry}`;
+
+/** 메뉴 값의 대기열 ID. 그 모양이 아니면(번호를 값으로 쓰던 옛 메뉴 포함) null */
+function entryOfJump(value: string | undefined) {
+  const found = /^entry:(\d+)$/.exec(value ?? "");
+  return found ? Number(found[1]) : null;
+}
+
+export { PANEL, AUTOPLAY, QUEUE, HELP, SYSTEM, SEARCH, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };

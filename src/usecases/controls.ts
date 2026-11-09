@@ -322,12 +322,14 @@ async function clear(player: MaybePlayer, actor: Actor) {
   return done({ count, track: player.currentTrack });
 }
 
-/** 대기열의 한 곡으로 바로 넘어간다. 한곡 반복 중에도 그 곡으로 간다 */
-async function jump(player: MaybePlayer, actor: Actor, index: unknown) {
+/** 대기열 ID 의 곡으로 바로 넘어간다. 한곡 반복 중에도 그 곡으로 간다. 그 곡이 대기열에 없으면 entry-gone */
+async function jump(player: MaybePlayer, actor: Actor, entry: number) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
   if (blocked) return blocked;
-  if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
+  // 권한을 기다린 뒤에 찾는다(그 사이 위치가 바뀌었을 수 있다)
+  const index = player.queue.findIndex((t) => t.entry === entry);
+  if (index < 0) return fail("entry-gone");
   const track = player.queue[index];
   player.moveInQueue(index, 0);
   if (!player.skip("jump")) {

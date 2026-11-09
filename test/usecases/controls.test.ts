@@ -354,19 +354,31 @@ test("대기열 ID로 옮기기: 그 곡 앞으로(null 이면 맨 끝). 그 사
   assert.equal(codeOf(await controls.moveEntry(fakePlayer({ queue: queue() }), OUTSIDER, 1, 3)), "must-be-in-same-voice");
 });
 
-test("점프: 그 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
-  const p = fakePlayer();
-  assert.equal(accepted(await controls.jump(p, DJ, 1)).track.title, "b");
+test("점프: 대기열 ID 의 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
+  const p = fakePlayer({ queue: [entered("a", 1), entered("b", 2)] });
+  assert.equal(accepted(await controls.jump(p, DJ, 2)).track.title, "b");
   assert.deepEqual(p.calls, ["move:1->0", "skip:jump"]);
 
-  const stuck = fakePlayer({ skip: () => false });
-  assert.equal(codeOf(await controls.jump(stuck, DJ, 1)), "switch-failed");
+  const stuck = fakePlayer({ queue: [entered("a", 1), entered("b", 2)], skip: () => false });
+  assert.equal(codeOf(await controls.jump(stuck, DJ, 2)), "switch-failed");
   assert.deepEqual(
     stuck.queue.map((t) => t.title),
     ["a", "b"],
     "자리를 되돌린다",
   );
-  assert.equal(codeOf(await controls.jump(fakePlayer(), DJ, 9)), "bad-position");
+});
+
+test("점프: 메뉴를 그린 뒤 앞 곡이 빠져도 고른 곡으로 간다. 없는 ID, 권한을 기다린 사이 빠진 곡은 entry-gone", async () => {
+  const shifted = fakePlayer({ queue: [entered("b", 2), entered("c", 3)] });
+  assert.equal(accepted(await controls.jump(shifted, DJ, 3)).track.title, "c", "번호(2)가 아니라 ID 로 찾는다");
+  assert.deepEqual(shifted.calls, ["move:1->0", "skip:jump"]);
+
+  assert.equal(codeOf(await controls.jump(fakePlayer({ queue: [entered("a", 1)] }), DJ, 9)), "entry-gone");
+
+  const racing = fakePlayer({ queue: [entered("a", 1), entered("b", 2)] });
+  queueMicrotask(() => racing.queue.splice(1, 1));
+  assert.equal(codeOf(await controls.jump(racing, DJ, 2)), "entry-gone");
+  assert.deepEqual(racing.calls, [], "넘기지 않는다");
 });
 
 test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼고 알리고, 없어도 봇이 음성에 있으면 나간다", async () => {

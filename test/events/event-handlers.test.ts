@@ -611,11 +611,14 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   }
 });
 
+// 대기열 ID 가 붙은 곡(track-state 가 넣을 때 찍는 열거되지 않는 필드)
+const entered = <T extends object>(item: T, entry: number) => Object.defineProperty(item, "entry", { value: entry, enumerable: false });
+
 test("대기열 점프: 선택한 곡을 맨 앞으로 옮기고 jump 로 넘긴다. 못 넘기면 되돌린다", async () => {
   const w = world();
-  const [a, b, c] = [{ title: "A" }, { title: "B" }, { title: "C", pageUrl: "https://c.test" }];
+  const [a, b, c] = [entered({ title: "A" }, 1), entered({ title: "B" }, 2), entered({ title: "C", pageUrl: "https://c.test" }, 3)];
   w.player.queue = [a, b, c];
-  const jump = menu(w, { customId: "panel:jump:S1", values: ["2"] });
+  const jump = menu(w, { customId: "panel:jump:S1", values: ["entry:3"] });
   await interactionCreate.execute(jump.bot, jump.it);
   assert.deepEqual(w.player.queue, [c, a, b]);
   assert.deepEqual(w.seen, ["skip:jump"]);
@@ -624,21 +627,25 @@ test("대기열 점프: 선택한 곡을 맨 앞으로 옮기고 jump 로 넘긴
   const w2 = world();
   w2.player.queue = [a, b, c];
   w2.player.skipResult = false;
-  const fail = menu(w2, { customId: "panel:jump:S1", values: ["1"] });
+  const fail = menu(w2, { customId: "panel:jump:S1", values: ["entry:2"] });
   await interactionCreate.execute(fail.bot, fail.it);
   assert.deepEqual(w2.player.queue, [a, b, c], "되돌린다");
   assert.deepEqual(fail.log, [["reply", said(errors.notice("switch-failed"))]]);
 });
 
-test("대기열 점프: 옛 세션의 메뉴, 없는 번호는 거절", async () => {
+test("대기열 점프: 옛 세션의 메뉴는 stale-session, 없는 대기열 ID 와 번호로 된 옛 값은 jump-target-gone", async () => {
   const w = world();
-  w.player.queue = [{ title: "A" }];
-  const stale = menu(w, { customId: "panel:jump:OLD", values: ["0"] });
+  w.player.queue = [entered({ title: "A" }, 1)];
+  const stale = menu(w, { customId: "panel:jump:OLD", values: ["entry:1"] });
   await interactionCreate.execute(stale.bot, stale.it);
   assert.deepEqual(stale.log, [["reply", said(errors.notice("stale-session"))]]);
-  const bad = menu(w, { customId: "panel:jump:S1", values: ["5"] });
-  await interactionCreate.execute(bad.bot, bad.it);
-  assert.deepEqual(bad.log, [["reply", said(errors.notice("jump-target-gone"))]]);
+  // "1" 은 번호를 값으로 쓰던 옛 메뉴의 둘째 곡이다. 지금 곡 A 의 대기열 ID(1)와 같아도 A 로 가지 않는다
+  for (const value of ["entry:5", "1", "entry:", "entry:1x"]) {
+    const bad = menu(w, { customId: "panel:jump:S1", values: [value] });
+    await interactionCreate.execute(bad.bot, bad.it);
+    assert.deepEqual(bad.log, [["reply", said(errors.notice("jump-target-gone"))]], value);
+  }
+  assert.deepEqual(w.seen, [], "넘기지 않는다");
 });
 
 test("모달: 처리 중 던지면 일반 오류 문장", async () => {

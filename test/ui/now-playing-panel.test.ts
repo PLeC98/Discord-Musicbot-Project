@@ -17,6 +17,24 @@ discordArt.useHead(async () => ({ ok: true, status: 200 }));
 
 const newManager = () => new NowPlayingPanel(fake<Client>({}), new Map());
 
+test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID 가 없거나 겹치는 곡은 빼고(값이 겹친 메뉴는 디스코드가 메시지째 거절한다), 남는 곡이 없으면 메뉴 없음", async () => {
+  const entered = (title: string, entry?: number) => {
+    const track = { title } as QueuedTrack;
+    return entry === undefined ? track : Object.defineProperty(track, "entry", { value: entry, enumerable: false });
+  };
+  const a = entered("A", 7);
+  const row = await newManager().createJumpToRow({ sessionId: "s1", queue: [a, entered("B", 3), a, entered("ID 없음")] });
+  const options = row?.toJSON().components[0].options ?? [];
+  assert.deepEqual(
+    options.map((o) => [o.label, o.value]),
+    [
+      ["1. A", "entry:7"],
+      ["2. B", "entry:3"],
+    ],
+  );
+  assert.equal(await newManager().createJumpToRow({ sessionId: "s1", queue: [entered("ID 없음")] }), null);
+});
+
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
 // 직접 링크는 thumbnail이 null 일 수 있다(그대로 보내면 갱신이 매번 CombinedError 로 실패한다).
 test("now-playing 컨테이너: 썸네일 유무와 무관하게 전송 가능한 형태여야 한다", async () => {
