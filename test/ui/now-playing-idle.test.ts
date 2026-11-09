@@ -275,6 +275,77 @@ test("기동: 되살릴 곡이 저장된 서버(복원을 건너뛰었다)는 /j
   }
 });
 
+// 곡이 든 저장된 세션. textChannelId: 세션을 시작한 글 채널
+function savedSession(textChannelId: string | null) {
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  sessions().append("g1", [youtube("bbbbbbbbbbb")]);
+}
+// 패널(웹훅)이 아니라 채널에 바로 보낸 메시지
+const plainSent = (calls: Calls) => calls.sent.filter((s) => s.id.startsWith("plain-"));
+
+test("복원을 건너뛴 기동: 패널에 까닭을 적는다. 전용 채널이면 패널만, 다시 그려도 같은 모양", async () => {
+  savedSession(BOT);
+  try {
+    const { mem, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
+    await mem.restorePanels({ skip: true });
+    assert.match(textOf(calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요.*\/join/);
+    assert.equal(plainSent(calls).length, 0, "전용 채널은 패널이 맨 아래다. 따로 알리지 않는다");
+
+    await mem.redrawIdlePanels();
+    assert.match(textOf(calls.edited[1].payload), /오류가 반복되어 재생을 멈췄어요/, "아이콘이 바뀌어 다시 그려도 까닭을 남긴다");
+
+    const normal = setup({ record: { channelId: BOT, messageId: "900" } });
+    await normal.mem.restorePanels();
+    assert.match(textOf(normal.calls.edited[0].payload), /듣고 있던 곡이 있어요/, "건너뛰지 않은 기동(복원 실패)은 그대로");
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
+test("복원을 건너뛴 기동: 전용 채널 밖이면 세션의 글 채널에 까닭을 알린다. 패널 기록이 없어도", async () => {
+  setBotChannel(null);
+  savedSession("general");
+  try {
+    const recorded = setup({ record: { channelId: "general", messageId: "800" } });
+    await recorded.mem.restorePanels({ skip: true });
+    assert.match(textOf(recorded.calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요/);
+    const [notice] = plainSent(recorded.calls);
+    assert.equal(notice?.channel, "general");
+    assert.match(textOf(notice.payload), /오류가 반복되어 재생을 멈췄어요.*짧은 시간에 여러 번 꺼져서.*\/join/);
+
+    const unrecorded = setup();
+    await unrecorded.mem.restorePanels({ skip: true });
+    assert.equal(plainSent(unrecorded.calls).length, 1, "알릴 곳이 이 안내뿐이다");
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
+test("복원을 건너뛴 기동: 알릴 글 채널이 없거나(대시보드로 시작) 사라졌으면 보내지 않는다. 곡 없는 세션도 알리지 않는다", async () => {
+  setBotChannel(null);
+  for (const textChannelId of [null, "deleted"]) {
+    savedSession(textChannelId);
+    try {
+      const { mem, calls } = setup({ record: { channelId: "general", messageId: "800" } });
+      await mem.restorePanels({ skip: true });
+      assert.equal(plainSent(calls).length, 0, String(textChannelId));
+      assert.match(textOf(calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요/, "패널은 고친다");
+    } finally {
+      sessions().removeSession("g1");
+    }
+  }
+
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "general", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  try {
+    const { mem, calls } = setup({ record: { channelId: "general", messageId: "800" } });
+    await mem.restorePanels({ skip: true });
+    assert.equal(plainSent(calls).length, 0);
+    assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요/);
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
 test("기동: 전용 채널 패널이 없거나 지워졌으면 새로 올린다", async () => {
   const fresh = setup();
   await fresh.mem.restorePanels();

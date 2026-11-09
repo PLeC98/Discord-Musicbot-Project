@@ -536,7 +536,7 @@ class NowPlayingPanel {
   /**
    * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 슬롯은 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
-   * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
+   * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | restore-skipped(세션 저장됨, 기동이 이어 틀지 않음) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
     const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
@@ -710,17 +710,18 @@ class NowPlayingPanel {
    * 시작할 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
    */
-  async restorePanels() {
+  /** skip: 이번 기동은 세션 복원을 건너뛰었다(짧게 끊긴 실행이 이어졌다, app/run-record) */
+  async restorePanels({ skip = false }: { skip?: boolean } = {}) {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
-        await this._restorePanel(guild);
+        await this._restorePanel(guild, { skip });
       } catch (error) {
         log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
     }
   }
 
-  async _restorePanel(guild: Guild) {
+  async _restorePanel(guild: Guild, { skip = false }: { skip?: boolean } = {}) {
     const player = this.players.get(guild.id);
     if (player?.nowPlayingMessage) return;
     // 음성에 붙어 곡을 기다리는 서버(24/7 자리, 이어받기)는 기다리는 모양으로. 이번 실행에서 이미 그렸으면 그대로 둔다(음성 밖 모양으로 덮지 않게)
@@ -729,12 +730,30 @@ class NowPlayingPanel {
       return;
     }
     const channel = await this._dedicatedChannel(guild);
+    if (skip && !player) await this._explainRestoreSkipped(guild, Boolean(channel));
     const record = await this.location.store.getPanel(guild.id);
     if (record && (!channel || record.channelId === channel.id)) {
       const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
       if (await this.location.edit(guild, payload)) return;
     }
     if (canSend(channel)) await this._postIdle(guild, channel);
+  }
+
+  /**
+   * 복원을 건너뛰어 이어 틀지 않은 서버(곡이 든 세션이 있다). 사람들은 봇이 왜 멈췄는지 모른다.
+   * 패널에 까닭을 적고, 전용 채널 밖이면 패널이 묻혀 있을 수 있어 세션을 시작한 글 채널에 따로 알린다.
+   * 끝 안내(drawEndedPanel)와 달리 살아 있는 패널이 없어도 알린다. 이 기동 말고는 알릴 곳이 없다. 글 채널이 없으면(대시보드로 시작, 채널 삭제) 보내지 않는다
+   */
+  async _explainRestoreSkipped(guild: Guild, dedicated: boolean) {
+    const saved = sessions().load(guild.id);
+    if (!hasTracks(saved)) return;
+    this.idleViews.set(guild.id, { reason: "restore-skipped" });
+    if (dedicated) return;
+    const textChannelId = saved.session.textChannelId;
+    const target = textChannelId ? guild.channels?.cache?.get(textChannelId) : null;
+    if (!canSend(target)) return void log.info(`복원을 건너뛴 안내를 보낼 글 채널 없음: ${guild.name ?? guild.id}`);
+    const notice = panelText.restoreSkipped();
+    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기");
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.

@@ -333,7 +333,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   // 24/7 자리에 붙어 있지 않은 서버를 하나씩. 패널 복원보다 먼저(자리에서 기다리는 끝난 패널을 정지 모양으로 덮지 않게)
   await stay.boot({ skip: skipRestore });
   // 기록된 패널을 지금 상태로. 세션을 복원한 서버는 이미 새로 올렸다
-  await panels.restorePanels();
+  await panels.restorePanels({ skip: skipRestore });
   // 이미지 비교, 업로드, 삭제는 백그라운드에서(운영자 색이 바뀌면 다시)
   appEmojis.start();
   log.info({ tags: ["startup"] }, "저장된 세션 복원 완료");

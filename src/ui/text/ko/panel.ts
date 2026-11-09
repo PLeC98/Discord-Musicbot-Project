@@ -30,6 +30,9 @@ const stayStatus = () => `${icon("stay")} 상주 모드`;
 /** 패널 아래의 대시보드 링크 */
 const dashboardLink = (url: string) => `${icon("dashboard")} [대시보드](${url})`;
 
+// 복원을 건너뛴 기동의 끝난 패널 제목. 채널 안내의 제목과 같다
+const RESTORE_SKIPPED_TITLE = "오류가 반복되어 재생을 멈췄어요";
+
 /**
  * 끝난 패널. reason 은 nowPlayingPanel.createIdleContainer 와 같다. leavesAt 은 음성에서 나갈 시각(ms),
  * staying 은 상주 모드의 자리에서 곡을 기다리는지, dedicated 는 전용 채널의 패널인지(그러면 곡 이름만 적어도 다시 온다)
@@ -39,6 +42,8 @@ function idle({ reason, leavesAt, staying = false, dedicated }: { reason: string
   const waitingTitle = reason === "queue-end" ? "재생이 끝났어요" : "곡을 기다리고 있어요";
   if (reason === "leave") {
     [title, status] = ["듣고 있던 곡이 있어요", `${icon("resume")} \`/join\`으로 이어 들을 수 있어요`];
+  } else if (reason === "restore-skipped") {
+    [title, status] = [RESTORE_SKIPPED_TITLE, `${icon("resume")} \`/join\`으로 이어 들을 수 있어요`];
   } else if (staying) {
     [title, status] = [waitingTitle, `${icon("stay")} 상주 모드라 나가지 않고 다음 곡을 기다려요`];
   } else if (leavesAt) {
@@ -69,4 +74,7 @@ const CUT_OFF: Record<string, string> = {
 /** 전용 채널 밖에서 끊겨 끝났다는 안내. 알릴 까닭이 아니면(stop, leave 등) null */
 const cutOff = (cause: string): EndNotice | null => (CUT_OFF[cause] ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
 
-export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, pausedLabel, userPausedMark, queuedStatus, segmentsStatus, stayStatus, dashboardLink, idle, ended, cutOff };
+/** 짧게 끊긴 실행이 이어져 기동이 세션을 이어 틀지 않았다는 안내(전용 채널 밖). 봇이 이미 음성에서 빠져 있었을 수 있어 나왔다고 하지 않는다 */
+const restoreSkipped = (): EndNotice => ({ title: `⚠️ ${RESTORE_SKIPPED_TITLE}`, body: "짧은 시간에 여러 번 꺼져서 일부러 이어 틀지 않았어요. `/join`으로 이어 들을 수 있어요." });
+
+export { playingTitle, loopLabel, buttons, jumpPlaceholder, pausedStatus, pausedLabel, userPausedMark, queuedStatus, segmentsStatus, stayStatus, dashboardLink, idle, ended, cutOff, restoreSkipped };
