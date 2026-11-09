@@ -72,12 +72,16 @@ type OnTrack = { onTrack?: number };
  * 그 사유로 소리가 이미 멈춰 있어도 일시정지하면 사유가 풀려도 멈춘 채로, 일시정지를 풀면 사유가 풀리는 순간 이어 튼다.
  * heldBy: 지금 소리를 함께 멈추고 있는 억제 사유(결과 안내가 그 사유가 풀린 뒤를 말한다)
  */
-async function pause(player: MaybePlayer, actor: Actor) {
+async function pause(player: MaybePlayer, actor: Actor, { onAccepted }: { onAccepted?: () => unknown } = {}) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
-  // 실패로 일시정지해 둔 곡이면 ▶는 그 위치부터 다시 연다(일시정지만 풀면 열린 소리가 없어 아무 일도 없다)
+  // 실패로 일시정지해 둔 곡이면 ▶는 그 위치부터 다시 연다(일시정지만 풀면 열린 소리가 없어 아무 일도 없다).
+  // 곡을 여는 데 몇 초 걸려 onAccepted(응답)를 먼저 부르고, 답한 사이 곡이 바뀌었거나 정리됐으면 다시 열지 않는다
   if (player.parked) {
+    await onAccepted?.();
+    if (!player.currentTrack) return fail("no-song");
+    if (player.currentTrack !== track) return fail("track-changed");
     await player.retryParked();
     return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
   }
@@ -408,13 +412,30 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
   const refused = starts ? await joinIdle(target) : null;
   if (refused) return fail(refused);
   target.setAutoplay(genre);
-  await onAccepted?.();
-  if (starts) {
-    await target.handleAutoplay();
-    return done({ genre, started: true });
+  await answerThenStart(target, starts, onAccepted);
+  return done({ genre, started: starts });
+}
+
+/**
+ * 켠 뒤: 답하고(onAccepted), 틀고 있지 않았으면 첫 곡을 선택한다. 틀고 있었으면 패널만 고친다.
+ * 답이 던져도 첫 곡은 선택한다(봇이 음성에 붙은 채 아무것도 틀지 않게). 둘 다 던지면 첫 곡의 오류는 warn 으로 남기고 답의 오류를 올린다
+ */
+async function answerThenStart(target: Player, starts: boolean, onAccepted: (() => unknown) | undefined) {
+  let answerError: { error: unknown } | null = null;
+  try {
+    await onAccepted?.();
+  } catch (error) {
+    answerError = { error };
   }
-  void refresh(target);
-  return done({ genre, started: false });
+  if (starts) {
+    try {
+      await target.handleAutoplay();
+    } catch (error) {
+      if (!answerError) throw error;
+      log.warn(`자동재생 첫 곡 선택 실패: ${messageOf(error)}`);
+    }
+  } else void refresh(target);
+  if (answerError) throw answerError.error;
 }
 
 /**

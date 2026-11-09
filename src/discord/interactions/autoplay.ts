@@ -62,10 +62,12 @@ async function handleAutoplayButton(interaction: ButtonInteraction<"cached">, { 
   return answerAutoplay(interaction, player, appEmojis);
 }
 
-// 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게
+// 장르 메뉴에서 선택했다. 메뉴(본인)를 삭제하고 켠 결과는 모두에게.
+// 플레이어 만들기(기동 복원), 음성 연결이 3초를 넘을 수 있어 먼저 받아 둔다. 거절은 후속 메시지로 본인에게(메뉴는 남는다)
 async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cached">, bot: BotContext) {
   const { guild, member } = interaction;
   const genre = interaction.values[0];
+  await interaction.deferUpdate();
   // 기동 복원을 기다리는 서버면 먼저 복원한다(복원한 플레이어가 있으면 그것을 쓴다)
   const create = async () => {
     await waitForRestore(guild.id);
@@ -73,10 +75,7 @@ async function handleAutoplayGenre(interaction: StringSelectMenuInteraction<"cac
   };
   const r = await controls.autoplay(bot.players.get(guild.id), { member }, genre, {
     create,
-    onAccepted: async () => {
-      await interaction.deferUpdate();
-      await toAll(interaction, autoplayOn(genre, member), LIFETIME.result);
-    },
+    onAccepted: () => toAll(interaction, autoplayOn(genre, member), LIFETIME.result),
   });
   if (!r.ok) return noticeSelf(interaction, controlMessage(r));
 }

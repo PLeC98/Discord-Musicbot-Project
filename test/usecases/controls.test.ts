@@ -661,3 +661,63 @@ test("상주 모드 정지: 대기열 비우기를 시작한 뒤 답하고, 끝�
     staySeats.clear("g1");
   }
 });
+
+test("멈춤(▶): 실패로 일시정지해 둔 곡이면 onAccepted 로 먼저 답한 뒤 다시 연다. 답한 사이 곡이 바뀌면 track-changed, 정리되면 no-song. 보통 곡은 onAccepted 를 부르지 않는다", async () => {
+  const order: string[] = [];
+  const parked = (over: object = {}) => fakePlayer({ parked: true, retryParked: async () => void order.push("retry"), ...over });
+
+  const p = parked();
+  const r = await controls.pause(p, DJ, { onAccepted: () => void order.push("accepted") });
+  assert.equal(accepted(r).track, p.currentTrack);
+  assert.deepEqual(order, ["accepted", "retry"]);
+
+  order.length = 0;
+  const changed = parked();
+  const r2 = await controls.pause(changed, DJ, { onAccepted: () => void (changed.currentTrack = track("다른 곡")) });
+  assert.equal(codeOf(r2), "track-changed");
+  assert.deepEqual(order, [], "다시 열지 않는다");
+
+  const gone = parked();
+  const r3 = await controls.pause(gone, DJ, { onAccepted: () => void (gone.currentTrack = null) });
+  assert.equal(codeOf(r3), "no-song");
+  assert.deepEqual(order, []);
+
+  const plain = fakePlayer();
+  await controls.pause(plain, DJ, { onAccepted: () => assert.fail("보통 곡은 곧바로 답한다") });
+});
+
+test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 곡을 선택하고 답의 오류를 올린다. 둘 다 던지면 첫 곡의 오류는 warn 으로 남긴다", async () => {
+  const [genre] = Object.keys(genreConfig.genres().genres);
+  const order: string[] = [];
+  const idle = (first: () => Promise<void>) => fakePlayer({ currentTrack: null, connection: {}, setAutoplay: () => {}, handleAutoplay: first });
+  const answerFails = () => {
+    throw new Error("답 실패");
+  };
+  await assert.rejects(
+    controls.autoplay(
+      idle(async () => void order.push("first")),
+      DJ,
+      genre,
+      { onAccepted: answerFails },
+    ),
+    /답 실패/,
+  );
+  assert.deepEqual(order, ["first"], "봇이 음성에 붙은 채 아무것도 틀지 않는 일이 없게");
+
+  const from = sink.buffer.length;
+  const both = idle(async () => {
+    throw new Error("첫 곡 실패");
+  });
+  await assert.rejects(controls.autoplay(both, DJ, genre, { onAccepted: answerFails }), /답 실패/);
+  assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("첫 곡 실패")));
+
+  await assert.rejects(
+    controls.autoplay(
+      idle(async () => Promise.reject(new Error("첫 곡 실패"))),
+      DJ,
+      genre,
+    ),
+    /첫 곡 실패/,
+    "답이 멀쩡하면 첫 곡의 오류는 그대로 올린다",
+  );
+});

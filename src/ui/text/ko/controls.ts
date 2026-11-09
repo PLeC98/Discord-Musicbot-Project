@@ -63,6 +63,8 @@ const highlighted = (at: string): Head => ({ icon: "highlight_jump", title: "하
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => `${icon("progress")} 처음부터 다시 트는 중...`;
+// 실패로 일시정지해 둔 곡을 재생 버튼으로 다시 열 때
+const reopening = () => `${icon("progress")} 곡을 다시 트는 중...`;
 /** 처음부터 다시 */
 const replayed = (track: Linked): Head => ({ icon: "replay", title: "곡을 되감았어요!", body: `${linkObject(track)} 처음부터 재생할게요.` });
 
@@ -115,7 +117,8 @@ const joined = (): Head => ({ icon: "done", title: "음성 채널에 접속했�
 const alreadyJoined = (parked = false): Head => ({ icon: "done", title: "이미 음성 채널에 있어요.", body: parked ? "곡이 재생되지 않아 일시정지 상태예요. 재생 버튼을 누르면 다시 시도해요." : "저는 준비됐어요. 언제든지 곡을 넣어 주세요." });
 /** /join 이 저장한 세션을 복원하는 동안 */
 const restoring = () => `${icon("progress")} 듣던 곡을 불러오는 중...`;
+const joining = () => `${icon("progress")} 음성 채널에 참가하는 중...`;
 /** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean): Head => (isPaused ? { icon: "pause", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { icon: "play", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, restored };

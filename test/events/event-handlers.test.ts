@@ -551,10 +551,15 @@ function menu(w: World, { customId, values = [], volume = null, select = true }:
     reply: async (p: Shown) => {
       it.replied = true;
       log.push(["reply", shown(p)]);
+      return { resource: { message: { id: "reply" } } };
     },
     update: async (p: Shown) => {
       it.replied = true;
       log.push(["update", shown(p)?.split("\n")[0]]);
+    },
+    followUp: async (p: Shown) => {
+      log.push(["followUp", shown(p)]);
+      return { id: "follow" };
     },
     deferUpdate: async () => {
       it.deferred = true;
@@ -588,12 +593,17 @@ test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 �
 
   const unknown = menu(world(), { customId: "autoplay:genre", values: ["없는장르"] });
   await interactionCreate.execute(unknown.bot, unknown.it);
-  assert.match(unknown.log[0][1] ?? "", /`없는장르`는 없어졌어요/);
+  assert.deepEqual(
+    unknown.log.map((one) => one[0]),
+    ["deferUpdate", "followUp"],
+    "먼저 받아 두고 거절은 후속 메시지로(메뉴는 남는다)",
+  );
+  assert.match(unknown.log[1][1] ?? "", /`없는장르`는 없어졌어요/);
 
   await settings.setDjRoles("g1", ["dj"]);
   const denied = menu(world(), { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(denied.bot, denied.it);
-  assert.deepEqual(denied.log, [["reply", said(errors.notice("must-dj"))]]);
+  assert.deepEqual(denied.log, [["deferUpdate"], ["followUp", said(errors.notice("must-dj"))]]);
 });
 
 test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {

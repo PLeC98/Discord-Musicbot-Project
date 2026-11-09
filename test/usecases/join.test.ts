@@ -96,3 +96,28 @@ test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed 가 
   assert.deepEqual(result, { kind: "refused", code: "bot-shutting-down" });
   assert.deepEqual(disposed, ["replaced:keep", "connect-failed:keep"]);
 });
+
+test("명령의 받아들임(accepted): 동기 거절이면 부르지 않는다. 답한 사이 사람이 나갔거나 다른 채널로 옮겼으면 지금 채널로 다시 본다", async () => {
+  const ok = { permissionsFor: () => ({ has: () => true }) };
+  const guild = fake<Guild>({ id: "g-accept", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
+  const players = new Map<string, Player>();
+  const text = fake<GuildTextBasedChannel>({ id: "t1" });
+
+  // 음성에 없으면 받아들이지 않는다
+  const nowhere = fake<GuildMember>({ id: "u1", voice: { channel: null } });
+  const calls: string[] = [];
+  assert.deepEqual(await join({ players }, { guild, member: nowhere, textChannel: text }, { accepted: async () => void calls.push("accepted") }), { kind: "refused", code: "must-be-in-voice" });
+  assert.deepEqual(calls, []);
+
+  // 답하는 사이 음성에서 나갔다
+  const leaving = { id: "u2", voice: { channel: fake<VoiceBasedChannel>({ id: "v1", ...ok }) as VoiceBasedChannel | null } };
+  const left = await join({ players }, { guild, member: fake<GuildMember>(leaving), textChannel: text }, { accepted: async () => void (leaving.voice.channel = null) });
+  assert.deepEqual(left, { kind: "refused", code: "must-be-in-voice" });
+
+  // 답하는 사이 봇이 들어갈 수 없는 채널로 옮겼다
+  const moving = { id: "u3", voice: { channel: fake<VoiceBasedChannel>({ id: "v1", ...ok }) } };
+  const locked = fake<VoiceBasedChannel>({ id: "v2", permissionsFor: () => ({ has: () => false }) });
+  const moved = await join({ players }, { guild, member: fake<GuildMember>(moving), textChannel: text }, { accepted: async () => void (moving.voice.channel = locked) });
+  assert.deepEqual(moved, { kind: "refused", code: "permission-voice" }, "옮긴 채널로 다시 본다");
+  assert.equal(players.size, 0, "거절하면 플레이어를 만들지 않는다");
+});

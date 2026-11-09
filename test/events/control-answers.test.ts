@@ -6,10 +6,11 @@ import assert from "node:assert/strict";
 import { MessageFlags, type Guild, type GuildMember } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
-import { answerReplay, answerSeek, answerStop, answerVolume } from "../../src/discord/interactions/control-answers.ts";
+import { answerPause, answerReplay, answerSeek, answerStop, answerVolume } from "../../src/discord/interactions/control-answers.ts";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import { command, run } from "../helpers/commands.ts";
 import { failureShow } from "../../src/ui/failure-notice.ts";
+import { noticeFrame } from "../../src/ui/frame.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
@@ -163,4 +164,41 @@ test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 
     assert.deepEqual(order, ["disposed"], name);
     assert.equal(log.length, 1, `${name}: 정리 뒤에 다시 답하지 않는다`);
   }
+});
+
+test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"을 답하고, 결과는 그것을 지우고 모두에게. 답한 사이 곡이 바뀌면 그 자리를 안내로 바꾼다', async () => {
+  const order: string[] = [];
+  const { it, log } = asked();
+  const { p } = player({ parked: true, retryParked: async () => void order.push(`retry(답 ${log.length}개 뒤)`), pause: { userPaused: false, heldBy: null } });
+  await answerPause(it, p);
+  assert.deepEqual(order, ["retry(답 1개 뒤)"], "다시 열기 전에 답했다");
+  assert.deepEqual(log[0][0], "reply");
+  assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
+  assert.match(log[0][1].join(), /다시 트는 중/);
+  assert.deepEqual(
+    log.slice(1).map((one) => one[0]),
+    ["deleteReply", "send"],
+    "결과는 자리표시자를 지우고 채널에",
+  );
+
+  const changed = asked();
+  const moving = player({ parked: true, retryParked: async () => assert.fail("다시 열지 않는다") });
+  changed.it.reply = async (payload: never) => {
+    changed.log.push(["reply", textsOf(payload), null]);
+    Object.assign(changed.it, { replied: true });
+    moving.p.currentTrack = { title: "다른 곡" } as never;
+    return { resource: { message: { id: "r1" } } } as never;
+  };
+  await answerPause(changed.it, moving.p);
+  assert.deepEqual(
+    changed.log.map((one) => one[0]),
+    ["reply", "editReply"],
+    "자리표시자를 안내로 바꾼다",
+  );
+  assert.deepEqual(changed.log[1][1], textsOf(noticeFrame(errors.notice("track-changed"))));
+
+  const plain = asked();
+  await answerPause(plain.it, player({ pause: { userPaused: false, heldBy: null, setUser: () => {} } }).p);
+  assert.notDeepEqual(plain.log[0]?.[2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "보통 곡은 자리표시자 없이");
+  assert.equal(plain.log.length, 1, "결과 하나만");
 });

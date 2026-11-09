@@ -68,6 +68,7 @@ function highlighted(ms: number) {
 
 /** 처음부터 다시 트는 동안 */
 const replaying = () => frame({ body: controlText.replaying() });
+const reopening = () => frame({ body: controlText.reopening() });
 /** 처음부터 다시 틀었다. art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
 function replayed(track: Track, by: Actor, art?: DiscordArt | null) {
   const t = controlText.replayed(track);
@@ -134,6 +135,7 @@ function alreadyJoined(parked = false) {
 
 /** /join 이 저장한 세션을 복원하는 동안, 복원했다 */
 const restoring = () => frame({ body: controlText.restoring() });
+const joining = () => frame({ body: controlText.joining() });
 function restored(track: Track, isPaused: boolean) {
   const t = controlText.restored(track, isPaused);
   return frame({ icon: t.icon, title: t.title, body: t.body });
@@ -145,4 +147,4 @@ function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) 
   return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
-export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, restored, restoreResult };
+export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, reopening, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, joining, restored, restoreResult };

@@ -27,13 +27,27 @@ type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voic
  * 텍스트 채널을 주지 않으면(대시보드) 서버의 전용 채널을 쓴다.
  * go는 비동기 대기(기동 복원, 채널 조회)가 끝난 뒤, 첫 상태 변경 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료).
  * 남은 플레이어를 정리하는 대기 뒤, 새 플레이어를 만들기 직전에 한 번 더 부른다(그때 던지면 남은 플레이어를 정리한 것만 반영된다).
- * 종료가 시작됐으면 플레이어를 만들기 전에 bot-shutting-down 으로 거절한다. 만든 뒤에는 음성 연결이 막혀(player/voice-link) 실패 경로로 세션을 남기고 정리한다
+ * 종료가 시작됐으면 플레이어를 만들기 전에 bot-shutting-down 으로 거절한다. 만든 뒤에는 음성 연결이 막혀(player/voice-link) 실패 경로로 세션을 남기고 정리한다.
+ * accepted 는 동기 거절 검사를 지난 뒤, 기동 복원과 음성 연결을 기다리기 전에 부른다(디스코드는 "참가하는 중"을 먼저 답한다).
+ * 그 답과 기동 복원을 기다린 사이 사람이 나갔거나 다른 채널로 옮겼을 수 있어, 사람의 지금 채널로 거절 검사를 다시 하고 그 채널에 붙인다
  */
-async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring, go }: { restoring?: () => Promise<unknown>; go?: () => void } = {}): Promise<JoinResult> {
+async function join(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, member, textChannel = null }: JoinRequest, { restoring, go, accepted }: { restoring?: () => Promise<unknown>; go?: () => void; accepted?: () => Promise<unknown> } = {}): Promise<JoinResult> {
+  let target = targetOf(guild, member);
+  if ("refused" in target) return target.refused;
+  if (accepted) {
+    await accepted();
+    await waitForRestore(guild.id);
+    target = targetOf(guild, member);
+    if ("refused" in target) return target.refused;
+  }
+  return attach(bot, guild, target.channel, textChannel, { restoring, go });
+}
+
+// 사람의 지금 음성 채널. 부를 수 없으면 그 거절 결과
+function targetOf(guild: Guild, member: GuildMember): { channel: VoiceBasedChannel } | { refused: JoinResult } {
   const channel = member.voice.channel;
   const refused = refusal(guild, channel);
-  if (refused || !channel) return { kind: "refused", code: refused ?? "must-be-in-voice" };
-  return attach(bot, guild, channel, textChannel, { restoring, go });
+  return refused || !channel ? { refused: { kind: "refused", code: refused ?? "must-be-in-voice" } } : { channel };
 }
 
 /** 지정한 채널에 붙인다(24/7 상주). 요청한 사용자가 없어 봇의 권한과 다른 채널 접속 여부만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널. go 는 join 과 같다 */

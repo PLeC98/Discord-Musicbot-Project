@@ -17,10 +17,15 @@ type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 
-const refuse = (interaction: Asked, r: Problem) => noticeSelf(interaction, controlMessage(r));
+// 거절. "하는 중" 자리표시자를 이미 답했으면(받아들인 뒤의 거절) 그 자리를 안내로 바꾼다
+function refuse(interaction: Asked, r: Problem) {
+  const notice = controlMessage(r);
+  return interaction.replied ? replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)) : noticeSelf(interaction, notice);
+}
 
+// 실패로 일시정지해 둔 곡의 ▶는 곡을 다시 열어 몇 초 걸린다. 받아들이면 "다시 트는 중"을 먼저 본인에게
 async function answerPause(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.pause(player, { member: interaction.member });
+  const r = await controls.pause(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.reopening()) });
   if (!r.ok) return refuse(interaction, r);
   return toAll(interaction, replies.paused(r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
 }
@@ -99,4 +104,4 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   return toAll(interaction, replies.highlighted(r.ms), LIFETIME.result);
 }
 
-export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight };
+export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight, acceptWith };
