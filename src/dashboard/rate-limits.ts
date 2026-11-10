@@ -7,6 +7,7 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { tooManyRequests } from "./problem.ts";
 import { isEnded } from "./session-requests.ts";
 import { clientIp } from "./client-ip.ts";
+import { isRealOwner } from "./owner.ts";
 
 // 로그인한 요청은 사용자 ID로 세고, 로그인 전에는 IP로 센다(dashboard/client-ip의 clientIp)
 const byClientIp = (req: Request) => ipKeyGenerator(clientIp(req));
@@ -24,7 +25,6 @@ const UNLIMITED: Array<[string, RegExp]> = [
   ["GET", /^\/api\/guilds\/[^/]+\/art\/[^/]+$/],
   ["GET", /^\/api\/app-emojis\/[^/]+$/],
   ["GET", /^\/api\/csrf-token$/],
-  ["PUT", /^\/api\/admin\/uploads\/[^/]+$/],
 ];
 
 /** 로그인했고 끝나지 않은 세션의 요청인가. 한도에서 빼 주는 것은 이런 요청만이다(그 경로들은 로그인 없이 쓰는 일이 없다) */
@@ -33,8 +33,12 @@ const pathOf = (req: Pick<Request, "originalUrl">) => req.originalUrl.split("?")
 // GET 경로는 HEAD도 받는다
 const methodIs = (req: Request, method: string) => req.method === method || (method === "GET" && req.method === "HEAD");
 
+// 큰 파일 업로드의 청크. 운영자만 뺀다(운영자가 아니면 앱의 운영자 검사가 청크 한도보다 먼저 거절해 어느 한도에도 세지 않게 된다)
+const CHUNK = /^\/api\/admin\/uploads\/[^/]+$/;
+const ownerChunk = (req: Request) => req.method === "PUT" && CHUNK.test(pathOf(req)) && isRealOwner(req);
+
 /** 일반 API 한도에서 제외하는 요청인지 확인한다 */
-const unlimited = (req: Request) => signedInLive(req) && UNLIMITED.some(([method, re]) => methodIs(req, method) && re.test(pathOf(req)));
+const unlimited = (req: Request) => signedInLive(req) && (UNLIMITED.some(([method, re]) => methodIs(req, method) && re.test(pathOf(req))) || ownerChunk(req));
 
 /** 로그인 한도에서 제외하는 요청인지 확인한다(로그인한 사용자의 로그아웃은 한도가 차도 허용한다) */
 const signedInLogout = (req: Request) => signedInLive(req) && req.method === "POST" && /^\/auth\/logout\/?$/i.test(pathOf(req));

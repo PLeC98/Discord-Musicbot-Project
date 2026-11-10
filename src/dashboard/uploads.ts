@@ -36,6 +36,8 @@ type Started = { ok: true; upload: Upload } | { ok: false; why: "busy" } | { ok:
 
 /** 업로드를 연다. 남은 공간에서 다른 업로드의 예약 공간을 빼고도 size가 들어가야 한다. targetOf는 업로드 id로 저장 위치를 잡는다(열지 못하면 지운다) */
 function start({ sid, purpose, size, targetOf }: { sid: string; purpose: Purpose; size: number; targetOf: (id: string) => Target }): Started {
+  // 같은 세션, 같은 용도로 다시 시작했다: 쥐지 않은 옛 업로드는 버려진 것이다(창을 닫았거나 다시 고름). 그 예약 때문에 자기 업로드가 막히지 않게 지운다
+  for (const one of [...uploads.values()]) if (one.sid === sid && one.purpose === purpose && one.state === "open" && !one.held) close(one);
   const id = crypto.randomBytes(16).toString("hex");
   const target = targetOf(id);
   const live = [...uploads.values()].filter((one) => one.state !== "closed").length;

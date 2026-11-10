@@ -87,17 +87,29 @@ async function rawTwice(head: string, body: Buffer) {
 const BODY = Buffer.alloc(1024 * 1024, 1);
 const headFor = (id: string, { csrf = true } = {}) => `PUT /api/admin/uploads/${id}?offset=0 HTTP/1.1\r\nHost: x\r\nContent-Type: application/octet-stream\r\n${csrf ? `X-CSRF-Token: ${TOKEN}\r\n` : ""}Content-Length: ${BODY.length}\r\n\r\n`;
 
-test("청크를 읽기 전에 거절해도 로그인한 요청이면 남은 본문을 읽어서 버리고 응답이 닿는다(연결도 이어 쓴다): CSRF, 운영자 아님, 위치 어긋남", async () => {
+test("청크를 읽기 전에 거절해도 운영자의 요청이면 남은 본문을 읽어서 버리고 응답이 닿는다(연결도 이어 쓴다): CSRF, 위치 어긋남", async () => {
   const { id } = await started(4 * 1024 * 1024);
   const csrf = await rawTwice(headFor(id, { csrf: false }), BODY);
   assert.deepEqual([csrf.statuses, csrf.error], [[403, 200], null]);
   const before = await rawTwice(`PUT /api/admin/uploads/${id}?offset=5 HTTP/1.1\r\nHost: x\r\nContent-Type: application/octet-stream\r\nX-CSRF-Token: ${TOKEN}\r\nContent-Length: ${BODY.length}\r\n\r\n`, BODY);
   assert.deepEqual([before.statuses, before.error], [[409, 200], null]);
+});
+
+test("운영자가 아닌 사용자의 청크 요청은 읽어 주지 않고 닫으며, 일반 요청 한도에 센다", async () => {
+  const { id } = await started(4 * 1024 * 1024);
+  const saved = config.dashboard.rateLimit.apiMax;
   user = { id: "u1", username: "u1" };
   try {
     const notOwner = await rawTwice(headFor(id), BODY);
-    assert.deepEqual([notOwner.statuses, notOwner.error], [[403, 200], null]);
+    assert.ok(notOwner.statuses.length < 2, `같은 연결로 다음 요청을 받지 않는다: ${notOwner.statuses}`);
+    if (notOwner.statuses.length) assert.match(notOwner.got, /connection: close/i);
+    config.dashboard.rateLimit.apiMax = 2;
+    const statuses = [];
+    for (let i = 0; i < 3; i++) statuses.push((await chunk(id, 0, Buffer.alloc(1))).status);
+    // 같은 창에서 앞의 요청까지 세므로 몇 번째에 걸리는지는 정하지 않는다. 한도에서 빠졌다면 모두 403 이다
+    assert.ok(statuses.every((one) => one === 403 || one === 429) && statuses.at(-1) === 429, String(statuses));
   } finally {
+    config.dashboard.rateLimit.apiMax = saved;
     user = { id: "owner", username: "owner" };
   }
 });

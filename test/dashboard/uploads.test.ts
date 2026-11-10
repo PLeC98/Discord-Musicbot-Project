@@ -44,6 +44,20 @@ test("시작: 남은 공간에서 다른 업로드가 앞으로 쓸 몫을 빼�
   assert.equal(uploads.start({ sid: "s2", purpose: "archive", size: 500, targetOf }).ok, true, "끝나면 그 몫을 돌려준다");
 });
 
+test("같은 세션, 같은 용도로 다시 시작하면 쥐지 않은 옛 업로드를 지운다(받는 중인 것, 다른 용도는 둔다)", () => {
+  room = 1000;
+  const old = open(600);
+  const other = uploads.start({ sid: "s1", purpose: "login-background", size: 100, targetOf });
+  assert.ok(other.ok);
+  const again = open(600);
+  assert.equal(uploads.find(old.id, "s1"), null);
+  assert.ok(uploads.find(other.upload.id, "s1"));
+  assert.ok(uploads.begin(again.id, "s1", 0).ok);
+  open(10);
+  assert.ok(uploads.find(again.id, "s1"), "받는 중인 것은 둔다");
+  uploads.release(again);
+});
+
 test(`동시에 ${uploads.MAX_ACTIVE}개까지만 연다(봇 전체)`, () => {
   room = 1e9;
   for (let i = 0; i < uploads.MAX_ACTIVE; i++) open(1, `s${i}`);

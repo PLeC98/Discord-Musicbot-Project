@@ -6,6 +6,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { sendProblem } from "./problem.ts";
 import { CHUNK_SIZE } from "./uploads.ts";
+import { isRealOwner } from "./owner.ts";
 
 // 본문을 읽지 않는 메서드
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -54,11 +55,11 @@ const DRAIN_MAX = 64 * 1024;
 const CHUNK_PATH = /^\/api\/admin\/uploads\/[^/]+$/i;
 
 /**
- * 청크를 읽기 전에 거절했다(운영자 아님, CSRF, 위치 어긋남, 크기): 로그인한 요청이고 남은 본문이 청크 하나 이하면 닫지 않고 Node가 마저 읽어 비우게 둔다.
- * 닫으면 업로드 중인 브라우저가 거절 이유 대신 연결 리셋을 본다. 로그인 전 요청, 요청 제한(429), 길이를 명시하지 않은 요청은 닫는다(남의 본문을 받아 주지 않는다)
+ * 청크를 읽기 전에 거절했다(CSRF, 위치 어긋남, 크기): 운영자의 요청이고 남은 본문이 청크 하나 이하면 닫지 않고 Node가 마저 읽어 비우게 둔다.
+ * 닫으면 업로드 중인 브라우저가 거절 이유 대신 연결 리셋을 본다. 운영자가 아닌 요청, 요청 제한(429), 길이를 명시하지 않은 요청은 닫는다(남의 본문을 받아 주지 않는다)
  */
 function drainsChunk(req: Request, status: number) {
-  if (req.method !== "PUT" || status === 429 || req.headers["transfer-encoding"] !== undefined || !req.session?.user) return false;
+  if (req.method !== "PUT" || status === 429 || req.headers["transfer-encoding"] !== undefined || !isRealOwner(req)) return false;
   const length = Number(req.headers["content-length"]);
   return Number.isFinite(length) && length <= CHUNK_SIZE && CHUNK_PATH.test(req.originalUrl.split("?")[0]);
 }
