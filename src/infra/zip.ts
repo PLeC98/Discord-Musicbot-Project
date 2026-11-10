@@ -1,11 +1,13 @@
-// ZIP 읽기, 쓰기(설정 내보내기, 불러오기, 전체 백업, 로그인 배경 백업). Node 의 zlib 만 쓴다(deflate, crc32). 이 봇이 만든 파일과 흔한 압축 프로그램이 만든 파일을 읽는다.
+// ZIP 읽기, 쓰기(설정 내보내기, 불러오기, 전체 백업, 로그인 배경 백업, yt-dlp 풀기). Node 의 zlib 만 쓴다(deflate, crc32). 이 봇이 만든 파일과 흔한 압축 프로그램이 만든 파일을 읽는다.
 // 쓰기는 스트림으로(writeZip, 파일, 응답) 쓴다: 바이트로 준 항목은 줄어들면 deflate, 파일로 준 항목은 그대로 담는다(영상 세그먼트, 이미지는 이미 압축됐다).
 // 4GB 를 넘는 항목, 위치, 중앙 디렉터리, 65535 개를 넘는 항목은 ZIP64 로 적는다.
 // 읽기는 읽을 곳(메모리, 파일)만 다르고 중앙 디렉터리 읽기, 항목 풀기는 같다. 읽을 때는 항목 수, 풀린 크기에 상한을 두고,
 // 경로가 폴더 밖을 가리키거나(.., 절대 경로) 암호, 모르는 압축이면 거절한다. 풀린 내용은 크기, CRC 를 맞춰 본다
 
 import fs from "node:fs";
+import path from "node:path";
 import { once } from "node:events";
+import { pipeline as pipelineAsync } from "node:stream/promises";
 import { Readable, Transform, pipeline, type Writable } from "node:stream";
 import zlib from "node:zlib";
 
@@ -197,7 +199,7 @@ const bad = (why: string) => Object.assign(new Error(`ZIP 파일 읽기 실패: 
 /** 읽을 곳: 크기, 그 위치의 바이트, 그 위치부터 스트림 읽기 */
 type Source = { size: number; read(at: number, length: number): Buffer; stream(at: number, length: number): Readable };
 
-const bufferSource = (buf: Buffer): Source => ({ size: buf.length, read: (at, length) => buf.subarray(at, at + length), stream: (at, length) => Readable.from([buf.subarray(at, at + length)]) });
+const bufferSource = (buf: Buffer): Source => ({ size: buf.length, read: (at, length) => buf.subarray(at, at + length), stream: (at, length) => Readable.from(length ? [buf.subarray(at, at + length)] : []) });
 
 function fileSource(file: string, fd: number): Source {
   const size = fs.fstatSync(fd).size;
@@ -208,7 +210,8 @@ function fileSource(file: string, fd: number): Source {
       if (out.length) fs.readSync(fd, out, 0, out.length, at);
       return out;
     },
-    stream: (at, length) => fs.createReadStream(file, { start: at, end: at + length - 1 }),
+    // end 는 마지막 바이트를 포함한다. 길이 0 이면 end 가 start 보다 작아 createReadStream 이 던진다
+    stream: (at, length) => (length ? fs.createReadStream(file, { start: at, end: at + length - 1 }) : Readable.from([])),
   };
 }
 
@@ -217,8 +220,13 @@ function safeName(name: string) {
   return !name.startsWith("/") && !/[\0:]/.test(name) && !name.split("/").includes("..");
 }
 
-/** 중앙 디렉터리 레코드 하나 */
-type Central = { name: string; flags: number; method: number; crc: number; packed: number; size: number; localAt: number };
+/** 중앙 디렉터리 레코드 하나. mode 는 유닉스에서 만든 항목의 파일 모드(형식과 권한 비트), 그 밖에서 만들었으면 null */
+type Central = { name: string; flags: number; method: number; crc: number; packed: number; size: number; localAt: number; mode: number | null };
+
+/** 만든 OS(version made by 의 위 바이트)가 유닉스. 외부 속성의 위 16비트가 파일 모드다 */
+const UNIX_HOST = 3;
+const S_IFMT = 0o170000;
+const S_IFREG = 0o100000;
 
 /** 중앙 디렉터리의 위치, 크기, 항목 수. 끝 레코드(EOCD)는 맨 뒤 22바이트에 주석(최대 65535)이 붙을 수 있고, ZIP64 면 그 앞의 로케이터가 ZIP64 끝 레코드를 가리킨다 */
 function directoryOf(src: Source): { at: number; count: number } {
@@ -279,7 +287,8 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
   }
   if (flags & ENCRYPTED) throw bad(`암호가 걸린 항목(${name})`);
   if (!safeName(name)) throw bad(`받을 수 없는 경로(${name})`);
-  return { entry: { name, flags, method, crc, packed, size, localAt }, next: at + 46 + nameLength + extraLength + head.readUInt16LE(32) };
+  const mode = head.readUInt16LE(4) >> 8 === UNIX_HOST ? head.readUInt32LE(38) >>> 16 : null;
+  return { entry: { name, flags, method, crc, packed, size, localAt, mode }, next: at + 46 + nameLength + extraLength + head.readUInt16LE(32) };
 }
 
 /** 중앙 디렉터리(폴더 항목은 뺀다). maxEntries 를 넘으면 BAD_ZIP */
@@ -377,5 +386,40 @@ function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number }
   }
 }
 
-export { writeZip, sinkOf, unzip, openZip };
+// Windows 는 이 이름(확장자가 붙어도)을 어느 폴더에서나 장치로 연다
+const DEVICE_NAME = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+
+/**
+ * 파일의 ZIP 을 폴더로 푼다. dir 은 없어야 하고 여기서 만든다(이미 있는 폴더 안의 링크를 타고 밖에 쓰지 않게).
+ * 폴더 항목은 쓰지 않고 파일의 상위 폴더만 만든다(빈 폴더는 생기지 않는다). 유닉스에서 만든 항목은 일반 파일만 받고, 실행 비트가 있으면 0o755, 없으면 0o644 로 쓴다.
+ * 항목 수, 풀린 크기가 상한을 넘거나 받을 수 없는 항목이면 BAD_ZIP(같은 이름이 두 번이면 파일 오류). 실패하면 푼 것을 남긴 채 던진다(dir 은 부르는 쪽이 지운다)
+ */
+async function extractZip(file: string, dir: string, { maxEntries, maxBytes }: { maxEntries: number; maxBytes: number }): Promise<void> {
+  const zip = openZip(file, { maxEntries });
+  try {
+    let total = 0;
+    for (const { name, mode, size } of zip.entries) {
+      const type = mode === null ? 0 : mode & S_IFMT;
+      if (type !== 0 && type !== S_IFREG) throw bad(`일반 파일이 아닌 항목(${name})`);
+      if (name.split("/").some((part) => DEVICE_NAME.test(part))) throw bad(`받을 수 없는 이름(${name})`);
+      total += size;
+    }
+    // 스트림이 항목마다 선언한 크기를 넘지 않게 끊으므로 선언한 크기의 합이 쓰는 양의 상한이다
+    if (total > maxBytes) throw bad("풀린 크기가 너무 큼");
+    fs.mkdirSync(dir);
+    const root = path.resolve(dir);
+    for (const entry of zip.entries) {
+      const to = path.resolve(root, ...entry.name.split("/"));
+      const inside = path.relative(root, to);
+      if (!inside || inside === ".." || inside.startsWith(`..${path.sep}`) || path.isAbsolute(inside)) throw bad(`받을 수 없는 경로(${entry.name})`);
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      const runnable = entry.mode !== null && (entry.mode & 0o111) !== 0;
+      await pipelineAsync(zip.stream(entry), fs.createWriteStream(to, { flags: "wx", mode: runnable ? 0o755 : 0o644 }));
+    }
+  } finally {
+    zip.close();
+  }
+}
+
+export { writeZip, sinkOf, unzip, openZip, extractZip };
 export type { ZipEntry, ZipInput, Central as ZipItem };
