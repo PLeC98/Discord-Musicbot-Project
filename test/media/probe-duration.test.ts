@@ -19,7 +19,7 @@ const BIN = (() => {
     return null;
   }
 })();
-const opts = { skip: BIN && fs.existsSync(BIN) ? false : "ffmpeg 바이너리 없음" };
+const opts = { skip: BIN && (BIN === "ffmpeg" || fs.existsSync(BIN)) ? false : "ffmpeg 바이너리 없음" };
 
 const TONE = path.join(os.tmpdir(), `musicbot-probe-${process.pid}.mp3`);
 const SECONDS = 7;
