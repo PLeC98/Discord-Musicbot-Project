@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, MessageFlags, RESTJSONErrorCodes } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { interactionResponder } from "../../usecases/responders.ts";
@@ -8,6 +8,11 @@ import type { GuildCommand } from "../../app/command-loader.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { DISCORD_LOOK } from "../../ui/mentions.ts";
 import { noticeSelf, unlessGone } from "../../ui/delivery.ts";
+import { canPostPanel } from "../../ui/channels.ts";
+import { codeOf } from "../../rules/error-kind.ts";
+
+// 채널 권한이 모자라 패널을 올리지 못한 오류(Missing Access, Missing Permissions)
+const PERMISSION_CODES = new Set<unknown>([RESTJSONErrorCodes.MissingAccess, RESTJSONErrorCodes.MissingPermissions]);
 
 const exported: GuildCommand = {
   help: { section: "channel", tier: "dj-outside-bot-channel" },
@@ -30,17 +35,26 @@ const exported: GuildCommand = {
     }
 
     const player = bot.players.get(guild.id);
+    // 패널을 올리는 일(웹훅 조회, 전송, 옛 패널 삭제)이 3초를 넘을 수 있어 먼저 본인 표시로 미뤄 두고, 올린 뒤 지운다
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       await bot.panels.repostIdlePanel(guild, channel);
       return interaction.deleteReply().catch(unlessGone(log, "/dashboard 응답 삭제"));
     }
 
+    // 패널을 올릴 수 없는 채널이면 옮기지 않는다(옮긴 뒤 올리지 못하면 패널이 갈 곳을 잃는다)
+    if (!canPostPanel(channel)) return noticeSelf(interaction, errors.notice("permission-text"));
     player.movePanel(channel);
     bot.panels.stopProgressUpdate(guild.id);
 
-    await bot.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction), { reuse: false });
+    try {
+      await bot.panels.postPlaying(player, player.currentTrack, interactionResponder(interaction), { reuse: false });
+    } catch (error) {
+      if (PERMISSION_CODES.has(codeOf(error))) return noticeSelf(interaction, errors.notice("permission-text"));
+      throw error;
+    }
+    await interaction.deleteReply().catch(unlessGone(log, "/dashboard 응답 삭제"));
   },
 };
 export default exported;

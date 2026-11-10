@@ -4,12 +4,12 @@
 // 해제한 세션에는 늦은 답이 오지 않는다. 워커가 죽거나 멈추면 그 세션들이 다른 워커에서 이어지고, 고장 난 워커에 보낸 프레임은 무음으로 채워 빠짐, 겹침이 없다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 무음이 없다.
 // 한 세션이 워커를 잇달아 죽이면 그 세션만 실패하고, 잇달아 죽으면 새 워커를 늦추며 그동안 새 세션은 encoder-unavailable 로 실패한다.
-// 큐 깊이, 워커 늘리기 판단(decideDepth)과 워커 수 상한. 늘려도 옮길 스트림이 없으면(늦는 스트림이 하나뿐) 늘리지 않고 큐 깊이를 올린다.
+// 큐 깊이, 워커 늘리기 판단(decideDepth)과 워커 수 상한, 늦은 초의 상세에 싣는 PC CPU(cpuBetween). 늘려도 옮길 스트림이 없으면(늦는 스트림이 하나뿐) 늘리지 않고 큐 깊이를 올린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BroadcastChannel } from "worker_threads";
-import { EncodePool, decideDepth, workerLimit, START_DEPTH, MAX_DEPTH, type EncodeSession } from "../../src/media/encode-pool.ts";
+import { EncodePool, decideDepth, workerLimit, cpuBetween, START_DEPTH, MAX_DEPTH, type EncodeSession } from "../../src/media/encode-pool.ts";
 import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import sink from "../../src/infra/log/sink.ts";
@@ -254,7 +254,10 @@ test("워커가 늦고 늘릴 수 없으면 큐 깊이를 필요한 만큼만 �
   }
 });
 
-test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세를 debug 로 남긴다", async () => {
+test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커를 늘리지 않고 큐 깊이를 올리며, 그 초의 상세(워커 GC, PC CPU 포함)를 debug로 남긴다", async () => {
+  process.env.STUB_ENCODE_GC = JSON.stringify({ gcCount: 2, gcMs: 6, gcMaxMs: 4.5 });
+  // 보고를 틱보다 자주 보내 첫 상세부터 두 보고가 다 와 있게 한다
+  process.env.STUB_ENCODE_LOAD_MS = "300";
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 4, calibrateFrames: 0 });
   const details = (from: number) => sink.buffer.slice(from).filter((e) => e.text.startsWith("재생 인코딩 상세: 워커 1(활성 스트림 1/1"));
   const level = logger.level;
@@ -280,11 +283,36 @@ test("늦는 스트림이 하나뿐이면 늘려도 옮길 것이 없어 워커�
     assert.ok(session.depth > START_DEPTH, `큐 깊이 ${session.depth}`);
     assert.ok(details(from).length >= 1, "상세 로그");
     assert.equal(details(from)[0].level, "debug");
+    const texts = details(from).map((e) => e.text);
+    // 워커의 최근 보고 둘을 합친다
+    const all = texts.join("\n");
+    assert.ok(
+      texts.some((x) => x.includes("워커 GC(최근 2초) 4번, 최대 4.5ms")),
+      all,
+    );
+    assert.ok(
+      texts.every((x) => /PC CPU (\d+%\(봇 \d+%\)|알 수 없음)$/.test(x)),
+      all,
+    );
+    assert.ok(
+      texts.some((x) => /PC CPU \d+%\(봇 \d+%\)$/.test(x)),
+      all,
+    );
     session.free();
   } finally {
+    delete process.env.STUB_ENCODE_GC;
+    delete process.env.STUB_ENCODE_LOAD_MS;
     logger.level = level;
     await pool.close();
   }
+});
+
+test("cpuBetween: 두 시점 사이 PC 전체의 쉬지 않은 몫과 이 프로세스가 모든 코어 중 쓴 몫(%)", () => {
+  const from = { at: 0, idle: 1000, total: 2000, proc: 0 };
+  // 4코어로 1초: PC는 4000ms 중 1000ms 쉼(75%), 봇은 CPU 400ms(10%)
+  assert.deepEqual(cpuBetween(from, { at: 1000, idle: 2000, total: 6000, proc: 400_000 }, 4), { pc: 75, bot: 10 });
+  assert.equal(cpuBetween(null, from, 4), null, "첫 틱");
+  assert.equal(cpuBetween(from, { ...from, at: 1000 }, 4), null, "카운터가 그대로");
 });
 
 test("워커가 늦어 하나를 늘리면 새 워커로 활성 세션을 리밸런싱한다", async () => {
@@ -360,7 +388,7 @@ test("아직 보내지 않은 세션도 센다: 몰려 연 뒤 늦게 뜬 워커
 
 test("지연 경고: 한두 프레임은 넘기고, 스트림마다 100ms 넘게 늦으면(한 틱에 몰려도) 한 줄 warn, 30초 동안 지연이 없으면 해소됐다고 한 줄 info", async () => {
   const pool = new EncodePool({ workerUrl: STUB, maxWorkers: 1, calibrateFrames: 0 });
-  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.includes("재생 인코딩이 지연되고 있습니다") || e.text.includes("재생 인코딩 지연이 해소됐습니다"));
+  const slowLines = (from: number) => sink.buffer.slice(from).filter((e) => e.text.startsWith("재생 인코딩 지연(") || e.text.startsWith("재생 인코딩 지연 해소("));
   try {
     await pool.start();
     const { session } = opened(pool);

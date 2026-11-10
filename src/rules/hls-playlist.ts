@@ -5,7 +5,8 @@ import { codedError } from "./error-kind.ts";
 
 type ByteRange = { offset: number; length: number };
 type Key = { method: "NONE" | "AES-128" | "OTHER"; url: string | null; iv: Uint8Array | null };
-type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean };
+/** unreadable: 이 세그먼트나 초기화 세그먼트의 바이트 구간을 읽을 수 없다(range, init.range 는 null). 받을 차례에 실패한다(sources/hls) */
+type Segment = { url: string; duration: number; sequence: number; range: ByteRange | null; init: { url: string; range: ByteRange | null } | null; key: Key | null; discontinuity: boolean; unreadable: boolean };
 type MediaPlaylist = { kind: "media"; targetDuration: number; mediaSequence: number; ended: boolean; segments: Segment[] };
 type Variant = { url: string; bandwidth: number; audioGroup: string | null; codecs: string | null };
 type Rendition = { url: string; groupId: string; isDefault: boolean; autoselect: boolean };
@@ -24,10 +25,10 @@ const countOf = (value: string) => {
   const n = Number(value);
   return Number.isSafeInteger(n) && n >= 0 ? n : null;
 };
-/** 첫 순번. 숫자가 아니면 0. 안전한 정수를 넘는 숫자는 던진다(순번은 이어 받기와 복호화의 IV 라 0 으로 바꾸면 엉뚱한 곳을 받거나 풀지 못한다) */
+/** 첫 순번. 숫자가 아니면 0. 안전한 정수를 넘는 숫자는 오류를 던진다(순번은 이어 받기와 복호화의 IV라 0으로 바꾸면 엉뚱한 곳을 받거나 복호화하지 못한다) */
 const sequenceOf = (value: string) => {
   const n = countOf(value);
-  if (n === null && /^\s*\d+\s*$/.test(value)) throw codedError("unsupported-link", `HLS 순번이 다룰 수 있는 크기를 넘습니다(${value.trim().slice(0, 30)})`);
+  if (n === null && /^\s*\d+\s*$/.test(value)) throw codedError("unsupported-link", `HLS 순번이 다룰 수 있는 크기를 넘음(${value.trim().slice(0, 30)})`);
   return n ?? 0;
 };
 
@@ -49,12 +50,35 @@ function resolve(uri: string | undefined, base: string): string | null {
   }
 }
 
-/** "길이[@오프셋]". 오프셋이 없으면 앞 구간 끝에서 잇는다(같은 주소일 때) */
-function byteRangeOf(value: string | undefined, previousEnd: number): ByteRange | null {
-  const m = /^(\d+)(?:@(\d+))?$/.exec(value?.trim() ?? "");
+/** 읽을 수 없는 바이트 구간. 이 구간을 쓰는 세그먼트에 표시한다(끝이 잘린 라이브 갱신의 마지막 태그는 쓰는 세그먼트가 없다) */
+const BAD_RANGE = "bad";
+type RangeTag = ByteRange | typeof BAD_RANGE | null;
+
+/** "길이[@오프셋]". 오프셋이 없으면 앞 구간 끝에서 잇는다(같은 주소일 때). 값이 없으면 null, 있는데 읽을 수 없으면(길이 0, 안전한 정수를 넘음, 끝이 넘침) BAD_RANGE */
+function byteRangeOf(value: string | undefined, previousEnd: number): RangeTag {
+  if (value === undefined) return null;
+  const m = /^(\d+)(?:@(\d+))?$/.exec(value.trim());
   const length = m ? countOf(m[1]) : null;
   const offset = m?.[2] === undefined ? previousEnd : countOf(m[2]);
-  return length && offset !== null ? { length, offset } : null;
+  if (!length || offset === null || (offset >= 0 && !Number.isSafeInteger(offset + length))) return BAD_RANGE;
+  return { length, offset };
+}
+
+/**
+ * 세그먼트가 쓰는 구간. 오프셋이 없으면 같은 주소의 앞 구간 끝에서 잇는다(ends). 읽을 수 없으면 BAD_RANGE(파일 전체 다운로드로 바꾸면 그 세그먼트에 파일이 다 들어간다).
+ * 앞 구간을 읽을 수 없었으면 그 끝을 모르니 오프셋 없는 다음 구간도 읽을 수 없다
+ */
+function usedRange(tag: RangeTag, url: string, ends: Map<string, number | null>): ByteRange | typeof BAD_RANGE | null {
+  if (tag === null) return null;
+  const previousEnd = ends.has(url) ? ends.get(url) : 0;
+  const offset = tag === BAD_RANGE ? null : tag.offset >= 0 ? tag.offset : previousEnd;
+  const range = tag !== BAD_RANGE && typeof offset === "number" ? { length: tag.length, offset } : null;
+  if (!range || !Number.isSafeInteger(range.offset + range.length)) {
+    ends.set(url, null);
+    return BAD_RANGE;
+  }
+  ends.set(url, range.offset + range.length);
+  return range;
 }
 
 function ivOf(value: string | undefined): Uint8Array | null {
@@ -85,7 +109,7 @@ function parseMaster(lines: string[], baseUrl: string): MasterPlaylist {
 }
 
 /** 하위 목록을 읽는 동안 다음 세그먼트에 걸릴 것 */
-type Pending = { duration: number; range: ByteRange | null; init: Segment["init"]; key: Key | null; discontinuity: boolean };
+type Pending = { duration: number; range: RangeTag; init: { url: string; range: RangeTag } | null; key: Key | null; discontinuity: boolean };
 
 /** 세그먼트 앞의 태그 하나를 읽어 목록, 다음 세그먼트에 적는다 */
 const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pending, baseUrl: string) => void]> = [
@@ -116,7 +140,7 @@ const MEDIA_TAGS: Array<[string, (value: string, out: MediaPlaylist, next: Pendi
 function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
   const out: MediaPlaylist = { kind: "media", targetDuration: 0, mediaSequence: 0, ended: false, segments: [] };
   const next: Pending = { duration: 0, range: null, init: null, key: null, discontinuity: false };
-  const ends = new Map<string, number>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE)
+  const ends = new Map<string, number | null>(); // 주소마다 앞 구간의 끝(오프셋 없는 BYTERANGE). null 은 앞 구간을 읽지 못한 상태
   for (const line of lines) {
     if (line === "#EXT-X-ENDLIST") out.ended = true;
     else if (line === "#EXT-X-DISCONTINUITY") next.discontinuity = true;
@@ -126,9 +150,11 @@ function parseMedia(lines: string[], baseUrl: string): MediaPlaylist {
     } else {
       const url = resolve(line, baseUrl);
       if (url) {
-        const range = next.range ? { length: next.range.length, offset: next.range.offset >= 0 ? next.range.offset : (ends.get(url) ?? 0) } : null;
-        if (range) ends.set(url, range.offset + range.length);
-        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range, init: next.init, key: next.key, discontinuity: next.discontinuity });
+        const range = usedRange(next.range, url, ends);
+        const initRange = next.init?.range === BAD_RANGE ? BAD_RANGE : (next.init?.range ?? null);
+        const unreadable = range === BAD_RANGE || initRange === BAD_RANGE;
+        const init = next.init && { url: next.init.url, range: initRange === BAD_RANGE ? null : initRange };
+        out.segments.push({ url, duration: next.duration, sequence: out.mediaSequence + out.segments.length, range: range === BAD_RANGE ? null : range, init, key: next.key, discontinuity: next.discontinuity, unreadable });
       }
       Object.assign(next, { duration: 0, range: null, discontinuity: false });
     }

@@ -117,7 +117,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
       fd = fs.openSync(file, "a");
       return true;
     } catch (err) {
-      fail("파일을 열 수 없습니다", err);
+      fail("파일을 열 수 없음", err);
       return false;
     }
   }
@@ -129,7 +129,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
     lastTry = now();
     if (!open()) return false;
     failures.ok();
-    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: `파일 로그가 ${Math.round((now() - down) / 1000)}초 동안 멈췄다가 다시 씁니다. 그동안 ${lost}줄을 남기지 못했습니다` })}\n`;
+    const gap = `${JSON.stringify({ time: now(), level: 40, category: "log", msg: `파일 로그가 ${Math.round((now() - down) / 1000)}초 동안 멈췄다가 재개됨. 그동안 ${lost}줄을 남기지 못함` })}\n`;
     down = null;
     lost = 0;
     writeLine(gap);

@@ -1,7 +1,7 @@
-// 따로 받는 도구(bgutil, ffmpeg)의 새 버전과 고정한 bgutil 잠금 파일의 취약점을 본다. 주마다 도는 vendor-updates 워크플로가 부르고, 로컬에서도 돈다.
+// 외부 도구(bgutil, ffmpeg)의 새 버전, 고정한 bgutil lockfile의 취약점, Cloudflare IP 대역(data/cloudflare-ips.json, 대시보드의 사용자 IP 확인용) 변경을 확인한다. 매주 실행되는 vendor-updates 워크플로가 호출하고, 로컬에서도 실행할 수 있다.
 //
 //   node scripts/check-vendor-updates.ts           결과를 JSON 으로 찍는다
-//   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts 의 기본값을 고치고 찍는다
+//   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts의 기본값을, Cloudflare 대역이 바뀌었으면 data/cloudflare-ips.json을 갱신하고 결과를 출력한다
 //
 // 설정 모듈, .env 를 부르지 않는다(워크플로 실행기에는 .env 가 없다. 비교하는 것은 저장소의 기본값이다).
 // GITHUB_TOKEN 이 있으면 GitHub API 에 실어 보낸다(요청 한도). 잠금 파일은 package.json 과 함께 받아 npm audit --package-lock-only 로 본다(설치하지 않는다)
@@ -12,11 +12,13 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { FFMPEG_RELEASE, BGUTIL_VERSION } from "../src/config/vendor-versions.ts";
+import { parseCidr } from "../src/rules/net-address.ts";
 import { auditCounts, newerFfmpegRelease, newerRelease, rewriteConstant, type AuditCounts } from "../src/rules/vendor-updates.ts";
 
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
 const FFMPEG_REPO = "BtbN/FFmpeg-Builds";
 const VERSIONS_FILE = path.join(PROJECT.root, "src", "config", "vendor-versions.ts");
+const CLOUDFLARE_FILE = path.join(PROJECT.root, "data", "cloudflare-ips.json");
 const TIMEOUT_MS = 30_000;
 
 async function github(pathname: string) {
@@ -55,12 +57,22 @@ async function auditBgutil(tag: string): Promise<AuditCounts> {
   }
 }
 
+// Cloudflare가 공개하는 IP 대역 목록(한 줄에 CIDR 하나). 대역마다 프리픽스까지 검사한다
+async function cloudflareList(family: "v4" | "v6") {
+  const res = await fetch(`https://www.cloudflare.com/ips-${family}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`Cloudflare ips-${family}: ${res.status}`);
+  const list = (await res.text()).split(/\s+/).filter(Boolean);
+  if (!list.length || !list.every((c) => c.includes("/") && parseCidr(c)?.family === (family === "v4" ? "ipv4" : "ipv6"))) throw new Error(`Cloudflare ips-${family}: 목록 형식이 아님`);
+  return list;
+}
+
 const write = process.argv.includes("--write");
 
 const latestBgutil = String(((await github(`/repos/${BGUTIL_REPO}/releases/latest`)) as { tag_name?: unknown }).tag_name ?? "");
 const ffmpegTags = ((await github(`/repos/${FFMPEG_REPO}/releases?per_page=100`)) as Array<{ tag_name?: unknown }>).map((r) => String(r.tag_name ?? ""));
 const bgutilNewer = newerRelease(latestBgutil, BGUTIL_VERSION);
 const ffmpegNewer = newerFfmpegRelease(ffmpegTags, FFMPEG_RELEASE);
+const [cfV4, cfV6] = await Promise.all([cloudflareList("v4"), cloudflareList("v6")]);
 
 const result = {
   bgutil: {
@@ -70,14 +82,26 @@ const result = {
     audit: { current: await auditBgutil(BGUTIL_VERSION), newer: bgutilNewer ? await auditBgutil(bgutilNewer) : null },
   },
   ffmpeg: { current: FFMPEG_RELEASE, newer: ffmpegNewer },
+  cloudflare: { changed: false, v4: cfV4.length, v6: cfV6.length },
   wrote: false,
 };
+const savedCf = JSON.parse(fs.readFileSync(CLOUDFLARE_FILE, "utf8")) as { v4: string[]; v6: string[] };
+const sameList = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+result.cloudflare.changed = !sameList(savedCf.v4, cfV4) || !sameList(savedCf.v6, cfV6);
 
 if (write && (bgutilNewer || ffmpegNewer)) {
   let text = fs.readFileSync(VERSIONS_FILE, "utf8");
   if (bgutilNewer) text = rewriteConstant(text, "BGUTIL_VERSION", bgutilNewer);
   if (ffmpegNewer) text = rewriteConstant(text, "FFMPEG_RELEASE", ffmpegNewer);
   fs.writeFileSync(VERSIONS_FILE, text);
+  result.wrote = true;
+}
+if (write && result.cloudflare.changed) {
+  fs.writeFileSync(
+    CLOUDFLARE_FILE,
+    `${JSON.stringify({ ...savedCf, v4: cfV4, v6: cfV6 }, null, 2)}
+`,
+  );
   result.wrote = true;
 }
 

@@ -1,9 +1,18 @@
 // 던져진 값에서 이름(code)과 메시지를 꺼낸다. 오류가 아닌 값도 받는다. 화면도 rules 를 거쳐 부르므로 Node 타입을 쓰지 않는다
 
-/** 오류가 달고 온 이름(code). 문자열도 숫자도 온다(디스코드 API 는 숫자) */
+/** 오류 코드(code)를 꺼낸다. 문자열도 숫자도 온다(디스코드 API는 숫자). DOMException의 옛 숫자 code(TimeoutError 23 등)는 뜻이 이름(name)에 있어 보지 않는다 */
 function codeOf(error: unknown): string | number | undefined {
+  if (typeof DOMException !== "undefined" && error instanceof DOMException) return undefined;
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
   return typeof code === "string" || typeof code === "number" ? code : undefined;
+}
+
+/**
+ * 기다려도 응답이 오지 않아 끊은 오류다(무응답, 응답 헤더 시간 초과). 이름이 TimeoutError라 실패 범위, 종류를 AbortSignal.timeout과 같게 네트워크 탓으로 본다.
+ * 일반 Error에 name만 붙인다(DOMException은 code를 덮어쓰면 예외가 난다). extra는 함께 붙일 필드(code 등)다
+ */
+function timeoutError(message: string, extra: object = {}) {
+  return Object.assign(new Error(message), { name: "TimeoutError" }, extra);
 }
 
 // 이름만으로는 무슨 오류인지 모르는 것
@@ -42,4 +51,4 @@ function summaryOf(error: object): string | null {
   }
 }
 
-export { codeOf, messageOf };
+export { codeOf, messageOf, timeoutError };

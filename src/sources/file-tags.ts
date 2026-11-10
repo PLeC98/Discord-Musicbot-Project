@@ -144,7 +144,7 @@ async function mp4Tags(prefix: Prefix, limits: StreamLimits, budget: { left: num
   }
 }
 
-/** 그 밖: 받는 대로 라이브러리에 흘리고, 라이브러리가 끝나면(태그가 있는 헤더를 다 읽음) 받기를 그만둔다 */
+/** 그 밖: 받는 대로 라이브러리에 넘기고, 라이브러리가 끝나면(태그가 있는 헤더를 다 읽음) 받기를 그만둔다 */
 async function streamTags(prefix: Prefix, next: () => Promise<IteratorResult<Buffer>>, budget: { left: number }): Promise<Tags | null> {
   const feed = new PassThrough();
   // 라이브러리가 끝났는지(읽었든 못 읽었든). 못 읽은 것은 "없음"이고, 보내는 쪽(스트림)의 오류만 던진다
@@ -187,7 +187,7 @@ async function fromStream(source: Readable, limits: StreamLimits): Promise<Tags 
   const opened: Readable[] = [source];
   const budget = { left: limits.maxBytes };
   const timer = setTimeout(() => {
-    for (const stream of opened) stream.destroy(new Error(`태그를 ${limits.timeoutMs}ms 안에 읽지 못했습니다`));
+    for (const stream of opened) stream.destroy(new Error(`태그를 ${limits.timeoutMs}ms 안에 읽지 못함`));
   }, limits.timeoutMs);
   try {
     const next = reader(source);

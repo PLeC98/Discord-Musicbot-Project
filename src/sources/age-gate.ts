@@ -27,10 +27,10 @@ function usePlace(fn?: PlaceOf) {
 /** what: 로그에 남길 대상(영상 id 등). cause: 연령 제한을 알린 오류 */
 function assertAgeAllowed(what: string, cause?: unknown) {
   const options = cause === undefined ? undefined : { cause };
-  if (!ageContentOn()) throw codedError("age-content-off", `연령 제한 콘텐츠가 꺼져 있습니다 (${what})`, options);
+  if (!ageContentOn()) throw codedError("age-content-off", `연령 제한 콘텐츠가 꺼져 있음 (${what})`, options);
   const guildId = currentGuild();
   if (!guildId || GuildSettingsManager.resolveAgePlace(guildId) === "all") return;
-  if (placeOf(guildId, currentVoiceTarget()) === false) throw codedError("age-channel-only", `연령 제한 채널이 아닌 음성 채널입니다 (${what})`, options);
+  if (placeOf(guildId, currentVoiceTarget()) === false) throw codedError("age-channel-only", `음성 채널이 연령 제한 채널이 아님(${what})`, options);
 }
 
 /** 연령 제한으로 적어 둔 영상인가. 기록을 읽지 못하면 아닌 것으로 본다 */
@@ -40,7 +40,7 @@ function markedAgeRestricted(videoId: string | null | undefined) {
     return externalCaches.isAgeRestricted(videoId);
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`연령 제한 기록 읽기 실패, 제한 없는 영상으로 봅니다 (${videoId}): ${messageOf(error)}`);
+    log.warn(`연령 제한 기록 읽기 실패(제한 없는 영상으로 봄) (${videoId}): ${messageOf(error)}`);
     return false;
   }
 }

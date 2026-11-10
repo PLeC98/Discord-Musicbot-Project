@@ -77,7 +77,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     pushText(text.slice(i, open));
     const close = closingOf(text, open);
     if (close < 0) {
-      problems.push({ at: offset + open, end: offset + text.length, message: "{{ 를 닫는 }} 가 없습니다." });
+      problems.push({ at: offset + open, end: offset + text.length, message: "{{를 닫는 }}가 없어요" });
       pushText(text.slice(open));
       break;
     }
@@ -87,7 +87,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     tag(inner, raw, at, open + 2);
     i = close + 2;
   }
-  for (const frame of stack) problems.push({ at: frame.node.at, end: frame.node.end, message: `${EXIST} 블록을 닫는 {{/}} 가 없습니다.` });
+  for (const frame of stack) problems.push({ at: frame.node.at, end: frame.node.end, message: `${EXIST} 블록을 닫는 {{/}}가 없어요` });
   return root;
 
   // 태그 하나. 블록 여닫기, 그 밖은 이름
@@ -97,11 +97,11 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     if (word === EXIST || word.startsWith(`${EXIST} `)) return openExist(inner, at, end, innerStart);
     if (word === ":else") return elseOf(at, end);
     if (word === "/" || word === `/${EXIST.slice(1)}`) {
-      if (!stack.pop()) problems.push({ at, end, message: "닫을 블록이 없는데 {{/}} 가 있습니다." });
+      if (!stack.pop()) problems.push({ at, end, message: "닫을 블록이 없는데 {{/}}가 있어요" });
       return;
     }
     if (/^[#/:]/.test(word)) {
-      problems.push({ at, end, message: `모르는 블록 ${raw}. 블록은 {{${EXIST} 값}} … {{:else}} … {{/}} 하나입니다.` });
+      problems.push({ at, end, message: `모르는 블록이에요(${raw}). 블록은 {{${EXIST} 값}} … {{:else}} … {{/}} 하나뿐이에요` });
       return pushText(raw);
     }
     mark(word, raw, at, end);
@@ -110,7 +110,7 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
   function openExist(inner: string, at: number, end: number, innerStart: number) {
     const from = inner.indexOf(EXIST) + EXIST.length;
     const testText = inner.slice(from);
-    if (!testText.trim()) problems.push({ at, end, message: `${EXIST} 뒤에 볼 값을 입력해야 합니다. 예: {{${EXIST} {{duration}}}}` });
+    if (!testText.trim()) problems.push({ at, end, message: `${EXIST} 뒤에 확인할 값을 입력해야 해요. 예: {{${EXIST} {{duration}}}}` });
     const node: Extract<Node, { kind: "exist" }> = { kind: "exist", test: parseAt(testText, names, offset + innerStart + from, problems), then: [], otherwise: [], at, end };
     here().push(node);
     stack.push({ node, inElse: false });
@@ -118,8 +118,8 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
 
   function elseOf(at: number, end: number) {
     const frame = stack[stack.length - 1];
-    if (!frame) problems.push({ at, end, message: `{{:else}} 는 ${EXIST} 블록 안에만 쓸 수 있습니다.` });
-    else if (frame.inElse) problems.push({ at, end, message: "{{:else}} 가 한 블록에 둘입니다." });
+    if (!frame) problems.push({ at, end, message: `{{:else}}는 ${EXIST} 블록 안에만 쓸 수 있어요` });
+    else if (frame.inElse) problems.push({ at, end, message: "{{:else}}가 한 블록에 두 개 있어요" });
     else frame.inElse = true;
   }
 
@@ -132,8 +132,8 @@ function parseAt(text: string, names: Names, offset: number, problems: Problem[]
     const known = Object.keys(names)
       .map((n) => `{{${n}}}`)
       .join(", ");
-    if (!spec) problems.push({ at, end, message: now ? `{{${name}}} 은 이제 ${now} 입니다.` : `모르는 이름 ${raw}. 쓸 수 있는 것: ${known}` });
-    else if (arg !== null && !spec.arg) problems.push({ at, end, message: `{{${name}}} 은 :: 뒤의 값을 받지 않습니다.` });
+    if (!spec) problems.push({ at, end, message: now ? `이름이 바뀌었어요: {{${name}}} → ${now}` : `모르는 이름이에요(${raw}). 쓸 수 있는 것: ${known}` });
+    else if (arg !== null && !spec.arg) problems.push({ at, end, message: `{{${name}}}에는 :: 뒤의 값을 붙일 수 없어요` });
     here().push({ kind: "mark", name, arg, raw, at });
   }
 }

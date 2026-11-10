@@ -251,7 +251,7 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
 function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
   if (!cand.audioUrl) return true;
   const ok = confidence === "high" || !!top?.breakdown?.title;
-  if (!ok) log.debug(`음원을 그대로 씁니다(유튜브 쪽 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
+  if (!ok) log.debug(`음원을 그대로 씀(유튜브 매칭 근거 부족: ${confidence}) [${cand.sourceKey}]: ${cand.title}`);
   return ok;
 }
 

@@ -58,7 +58,7 @@ function resolve(): Resolved {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
       // 범위: 모든 곡이 같이 안 된다(player/failure-scope)
-      throw Object.assign(codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없습니다: ${configured}`), { scope: "environment" });
+      throw Object.assign(codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없음: ${configured}`), { scope: "environment" });
     }
     resolved = { path: configured, version, source: "FFMPEG_PATH" };
     return resolved;
@@ -77,7 +77,7 @@ function resolve(): Resolved {
     }
   }
 
-  throw Object.assign(codedError("stream-failed", "ffmpeg를 찾을 수 없습니다. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg)."), { scope: "environment" });
+  throw Object.assign(codedError("stream-failed", "ffmpeg를 찾을 수 없음. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg)."), { scope: "environment" });
 }
 
 /** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
@@ -135,7 +135,7 @@ function capabilities(): Capabilities {
 
   caps = { https, hls, dash, segMaxRetry, ok: https && hls };
   if (!caps.ok) {
-    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않습니다 (https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
+    log.warn(`이 ffmpeg 빌드는 라이브(HLS) 재생을 지원하지 않음(https:${https ? "있음" : "없음"}, hls:${hls ? "있음" : "없음"}). \`pnpm run install:ffmpeg\`로 다운로드한 빌드를 쓰거나 FFMPEG_PATH를 확인하세요`);
   }
   return caps;
 }

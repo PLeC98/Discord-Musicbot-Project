@@ -51,7 +51,7 @@ function detectPlatform(query: string) {
 /**
  * 봇이 다루지 않는 링크인가(유튜브 클립, 채널, 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
  *
- * 이런 주소를 검색으로 흘리면 URL 문자열 자체가 검색어가 되어 엉뚱한 영상이 재생되기에 재생을 거절한다.
+ * 이런 주소를 검색으로 넘기면 URL 문자열 자체가 검색어가 되어 엉뚱한 영상이 재생되기에 재생을 거절한다.
  * (클립은 유튜브가 없앤 기능이라 지원 대상이 아니다.)
  */
 function isUnsupportedLink(query: string): boolean {
@@ -87,13 +87,13 @@ async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pi
       list = await youtube.getPlaylist(query, range);
     } catch (error) {
       if (!video) throw error;
-      log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리합니다: ${messageOf(error).split("\n")[0]}`);
+      log.warn(`재생목록을 불러오지 못해 단일 영상으로 처리: ${messageOf(error).split("\n")[0]}`);
       return single([await youtube.getInfo(query)]);
     }
     if (list?.tracks?.length) return { tracks: list.tracks, isPlaylist: true, collection: "playlist", total: list.total ?? null, nextOffset: list.nextOffset ?? null };
     if (!video) return single([]);
     // yt-dlp 가 비공개, 개인 목록(LL 등)을 알아보지 못하면 영상 하나만 준다
-    log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리합니다 (${video})`);
+    log.info(`재생목록이 비었거나 열리지 않아 단일 영상으로 처리(${video})`);
   }
   return single([await youtube.getInfo(query)]);
 }
@@ -113,7 +113,7 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   const found = await soundcloud.find(query, { ...range, what: links.parseSoundCloud(query)?.kind === "set" ? "set" : "track" });
   if (found.kind === "track") return single([found.track]);
   const { skipped } = found;
-  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외합니다(미리듣기, 지역 제한 등): ${found.title ?? query}`);
+  if (skipped > 0) log.info(`사운드클라우드 세트에서 재생할 수 없는 ${skipped}곡을 제외(미리듣기, 지역 제한 등): ${found.title ?? query}`);
   const secret = links.parseSoundCloud(query)?.secret ?? false;
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }

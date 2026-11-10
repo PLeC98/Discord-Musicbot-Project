@@ -199,7 +199,7 @@ test("캐시 상한보다 긴 곡은 스트림으로만 틀고 캐시를 다운�
   assert.ok(calls.resources[0].input.source instanceof AudioSplicer, "다운로드 없이도 스트림 분기로 연다");
 });
 
-test("단일 GET: 응답 헤더 대기에 신호를 걸고, 무응답 감시를 거친 본문이 ffmpeg 에 그대로 들어간다", async () => {
+test("단일 GET: 응답 헤더 대기에 신호를 걸고, 무응답 감시를 거친 본문이 ffmpeg에 그대로 들어간다", async () => {
   const p = h.makePlayer();
   p.currentTrack = yt("hhhhhhhhhhh");
   behavior.stream = () => ({ url: "https://media.test/c", duration: 100 });
@@ -327,13 +327,13 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   assert.equal(calls.chunked[0].startByte, undefined);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
-    lines.some((l) => /^warn 인덱스를 불러오지 못해 처음부터 스트리밍합니다: .* \| 헤더 요청이 3초를 넘김$/.test(l)),
+    lines.some((l) => /^warn 인덱스 불러오기 실패\(처음부터 스트리밍\): .* \| 헤더 요청이 3초를 넘김$/.test(l)),
     lines.join(" / "),
   );
 });
 
 // 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 세그먼트 목록뿐이다. 주소 하나로 열면 첫 세그먼트(2초)만 틀고 끝난다
-test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 흘리고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
+test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 넘기고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
   const p = h.makePlayer();
   p.currentTrack = yt("pppppppppp1", { duration: 20 });
@@ -395,7 +395,7 @@ test("다시 쓴 주소가 열리지 않으면 새로 받아 한 번 더 연다.
     ["n=old", "n=new"],
   );
   assert.equal(p.playback?.stream?.url, "https://rr1.googlevideo.com/videoplayback?clen=4096&n=new");
-  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받습니다")));
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.startsWith("재사용한 스트림 URL이 열리지 않아 주소를 새로 받음")));
 });
 
 test("다시 쓴 주소가 열리지 않아 새로 받았는데 분기가 다르면(파이프 → m3u8) 그 자리에서 열지 않고 캐시 폴백에 맡긴다", async () => {
@@ -481,6 +481,23 @@ test("직접 링크는 SafeUrl 을 거치는 DirectLink 로 연다", async () =>
   assert.equal(calls.fetches.length, 0);
 });
 
+test("직접 링크는 이어 받았다는 알림(HLS 세그먼트)을 받아 스트림 재연결 줄을 남긴다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = tracks.direct("https://files.test/live.m3u8");
+  behavior.stream = () => ({ url: "https://files.test/live.m3u8", platform: "direct" });
+  let told: ((info: { attempts: number; downtimeMs: number; starvedMs: number }) => void) | undefined;
+  behavior.directStream = (_url, opts) => {
+    told = opts?.onResumed;
+    return Object.assign(new PassThrough(), { live: false, bounded: false });
+  };
+  await playOnce(p);
+  assert.ok(told, "이어 받음 콜백을 넘긴다");
+  const from = sink.buffer.at(-1)?.id ?? -1;
+  told({ attempts: 2, downtimeMs: 1500, starvedMs: 0 });
+  assert.ok(sink.buffer.some((e) => e.id > from && e.level === "info" && e.text.startsWith("스트림 재연결:") && e.text.includes("재시도 2회")));
+  h.dispose(p);
+});
+
 test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다운로드한다. 모르면 스트림으로만 튼다", async () => {
   for (const [bounded, downloads] of [
     [true, 1],
@@ -500,7 +517,7 @@ test("직접 링크는 끝이 있고 크기, 길이를 알 때만 나란히 다�
   }
 });
 
-test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검사값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
+test("이을 수 있는 직접 링크 파일은 연 응답을 첫 청크로 청크 스트림에 넘긴다(검증값, 받는 함수 그대로). 나란히 다운로드도 한다", async () => {
   const p = h.makePlayer();
   p.currentTrack = tracks.direct("https://files.test/big.mp3");
   behavior.stream = () => ({ url: "https://files.test/big.mp3", platform: "direct" });
@@ -589,7 +606,7 @@ test("스트림이 실패해도 그사이 캐시 다운로드가 끝났으면 �
   assert.equal(calls.spawns.length, 1, "스트림 ffmpeg 는 실행하지 않고 파일만");
   assert.equal(calls.spawns[0].label, "playback");
   assert.ok(
-    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림을 열지 못해 캐시 파일로 재생합니다")),
+    sink.buffer.slice(from).some((e) => e.text.startsWith("스트림 열기 실패(캐시 파일로 재생)")),
     "넘어간 것을 남긴다(조용히 넘어가면 스트림 쪽 결함이 가려진다)",
   );
 });
@@ -844,7 +861,7 @@ test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만�
 
   let from = sink.buffer.length;
   await p.play(30000);
-  assert.ok(lines().some((l) => l.startsWith("직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받습니다:")));
+  assert.ok(lines().some((l) => l.startsWith("직전 스트림 주소는 만료 시각을 몰라 주소를 새로 받음:")));
 
   h.seedCache("yt:pc1cccccccc", track);
   from = sink.buffer.length;
@@ -1362,6 +1379,9 @@ test("끊긴 라이브를 다시 여는 사이에 플레이어가 버려지면 �
   const p = h.makePlayer();
   p.play = async () => ({ ok: false, code: "disposed" });
   assert.equal(await p._reopenLive("곡"), true);
+  // 종료 중이라 붙지 않았을 때도 넘기지 않는다
+  p.play = async () => ({ ok: false, code: "bot-shutting-down" });
+  assert.equal(await p._reopenLive("곡"), true);
   h.dispose(p);
 });
 
@@ -1479,7 +1499,7 @@ test("스트림이 복구 불가로 끊기면 캐시 전환을 걸고 ffmpeg 입
   await playOnce(p);
   const ffmpeg = calls.spawns[0];
   body.emit("error", new Error("끊김"));
-  await new Promise((done) => setImmediate(done)); // 본문의 오류는 무응답 감시를 거쳐 다음 차례에 닿는다
+  await new Promise((done) => setImmediate(done)); // 본문의 오류는 무응답 감시를 거쳐 다음 틱에 전달된다
 
   assert.deepEqual(p.asked, [track]);
   assert.equal(ffmpeg.stdin.writableEnded, true, "입력을 닫아야 출력이 끝나 전환이나 Idle 로 넘어간다");

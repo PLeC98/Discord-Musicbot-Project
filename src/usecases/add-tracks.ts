@@ -106,7 +106,7 @@ async function resolveFallbackTextChannel(guild: Guild) {
     return canSend(channel) ? channel : null;
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.warn(`전용 채널 설정 읽기 실패, 안내 채널 없이 진행합니다 (${guild.id}): ${messageOf(error)}`);
+    log.warn(`전용 채널 설정 읽기 실패(안내 채널 없이 진행) (${guild.id}): ${messageOf(error)}`);
     return null;
   }
 }
@@ -129,6 +129,8 @@ type PlaybackRequest = {
   source?: string;
   lookup?: Lookup;
   ffmpegReady?: () => boolean;
+  /** 곡 검색과 대기가 끝난 뒤, 플레이어를 생성하기(첫 상태 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
+  go?: () => void;
 } & ({ query: string; tracks?: null } | { tracks: TrackInfo[]; query?: string | null });
 
 /** 곡 담기 결과. 실패면 그 까닭(code, kind), 목록이 더 남았으면 이어 불러올 상태(more) */
@@ -140,7 +142,8 @@ type Continued = { added: number; skipped: number; total: number | null; remaini
 type CollectionResult = { success: false; code: string; skipped?: number } | (PlaybackResult & Continued);
 
 /** 곡 담기 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean };
+/** 추가할 곡과 추가 방식이다. go는 서버별 실행 순서를 기다린 뒤, 곡을 추가하기 전에 하는 확인이다(대시보드: 세션 종료). 예외를 던지면 추가하지 않는다 */
+type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean; go?: () => void };
 /**
  * 넣은 것. count 는 넣은 곡 수(쉬던 플레이어에 곧바로 튼 곡도 센다), position 은 넣은 첫 곡의 대기열 순번(1부터, 곧바로 틀었으면 null),
  * collection 은 여러 곡의 출처 종류(한 곡이면 null), total 은 출처 전체 곡 수(일부만 불러왔을 때), skipped 는 받을 수 없어 뺀 곡 수, first 는 넣은 첫 곡
@@ -173,14 +176,16 @@ async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<Playba
   if (isRefused(checked)) return { success: false, ...checked };
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다(곧 되살아날 세션을 새 플레이어가 지우지 않게). 복원한 플레이어에 넣는다
   await waitForRestore(guild.id);
-  const player = await playerFor(bot, request);
+  const textChannel = await textChannelFor(bot, request);
+  request.go?.();
+  const player = ensurePlayer(bot, { guild, textChannel, voiceChannel: request.voiceChannel ?? null });
 
   // 끝이 없는 것은 반복할 수 없다. 라이브가 들어오면 걸려 있던 반복을 푼다.
   if (checked.tracks.some((t) => t.isLive)) player.releaseLoopForLive();
 
   const trackData = trimmed(checked, request.single);
   withKnownLengths(trackData.tracks);
-  const toAdd: TrackData = { ...trackData, ...placement(request) };
+  const toAdd: TrackData = { ...trackData, ...placement(request), go: request.go };
 
   const result = await defaultAdder(bot, guild.id, toAdd, who, responder);
   logOutcome(result, player);
@@ -197,13 +202,10 @@ function findTracks(bot: Bot, request: PlaybackRequest, batch: number) {
   return inVoiceTarget(target?.id ?? null, () => tracksFor(existing, request, batch));
 }
 
-// 서버의 플레이어. 요청에도 플레이어에도 텍스트 채널이 없으면 전용 채널을 쓴다
-async function playerFor(bot: Bot, { guild, textChannel = null, voiceChannel = null }: PlaybackRequest) {
-  let resolvedTextChannel = textChannel;
-  if (!resolvedTextChannel && !bot.players.get(guild.id)?.textChannel) {
-    resolvedTextChannel = await resolveFallbackTextChannel(guild);
-  }
-  return ensurePlayer(bot, { guild, textChannel: resolvedTextChannel, voiceChannel });
+// 서버의 플레이어에 지정할 텍스트 채널이다. 요청에도 플레이어에도 없으면 전용 채널을 쓴다
+async function textChannelFor(bot: Bot, { guild, textChannel = null }: PlaybackRequest) {
+  if (textChannel || bot.players.get(guild.id)?.textChannel) return textChannel;
+  return resolveFallbackTextChannel(guild);
 }
 
 // 넣을 곡. 이미 찾은 곡이면 그대로, 검색어면 찾는다. 넣을 수 없으면 그 까닭
@@ -219,8 +221,9 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
 
 async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 불러올 곡 수. 한 번에 넣는 배치와 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더.
-  // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
+  // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 자리가 없으면 곡을 찾기 전에 거절한다(찾는 사이 자리가 나도 기다리지 않는다)
   const room = roomFor(player ?? { queue: [], currentTrack: null }, config.bot.maxQueueSize);
+  if (room <= 0) return { code: "queue-full" };
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   // 로그의 하위 이름. 진입점 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙으므로 그대로 두면 track//play 가 된다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });
@@ -310,6 +313,8 @@ type CollectionRequest = {
   source?: string;
   onProgress?: (done: number, want: number) => void;
   lookup?: Lookup;
+  /** 곡을 불러온 뒤, 추가하기 전에 하는 확인이다(requestPlayback의 go) */
+  go?: () => void;
 };
 
 const ignoreProgress = () => {
@@ -346,6 +351,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
     voiceChannel: request.voiceChannel,
     insertAfterId: state.insertFirst ? state.anchorId : null,
     source: request.source ?? "더 넣기",
+    go: request.go,
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
@@ -359,7 +365,7 @@ async function nextPart(lookup: Lookup, url: string, range: { offset: number; li
     return await lookup.getCollection(url, range);
   } catch (error) {
     if (gathered === 0) throw error;
-    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단합니다: ${messageOf(error)}`);
+    log.warn(`재생목록 추가 불러오기를 ${gathered}곡에서 중단: ${messageOf(error)}`);
     return null;
   }
 }
@@ -419,7 +425,11 @@ const adding = keyedSerial();
 
 /** 곡을 서버의 플레이어에 담는다. 쉬고 있으면 첫 곡을 틀고 패널을 세우고, 나머지는 대기열에. responder: 결과를 알릴 매체 */
 function queueTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder = silentResponder) {
-  return adding.run(guildId, () => processTracks(bot, guildId, trackData, requester, responder));
+  return adding.run(guildId, () => {
+    // 순서를 기다리는 사이에 중단됐으면 추가하지 않는다
+    trackData.go?.();
+    return processTracks(bot, guildId, trackData, requester, responder);
+  });
 }
 
 async function processTracks(bot: Bot, guildId: string, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
@@ -455,7 +465,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
     const start = await startFirst(panel, player, stamped[0], responder);
     // 음성 채널에 붙지 못했으면 나머지도 담지 않는다. 담기는 세션의 첫 쓰기라 앞 플레이어가 남긴 세션(/join 으로 이어 들을 것)을 넘겨받아 지운다.
     // 다음 곡도 붙지 못하니 틀어 보지 않는다
-    const voiceFailed = start.failure?.code === "voice-failed";
+    const voiceFailed = notJoined(start.failure);
     const addition = enqueue(player, trackData, voiceFailed ? [] : stamped.slice(1));
     const opened = start.failure ? (voiceFailed ? null : await startNext(panel, player, responder)) : start.opened;
     if (opened) return { kind: "started", opened, started: start.started, addition };
@@ -469,7 +479,7 @@ async function startAndEnqueue(panel: Panel, player: Player, trackData: TrackDat
 async function place(panel: Panel, player: Player, trackData: TrackData, requester: Requester | null, responder: Responder): Promise<AddResult> {
   const { tracks } = trackData;
   // 부르는 쪽(곡 찾기, 더 넣기)이 빈 결과를 거절한다
-  if (tracks.length === 0) throw new Error("담을 곡이 없습니다");
+  if (tracks.length === 0) throw new Error("추가할 곡이 없음");
   const stamp = (track: QueuedTrack): QueuedTrack => ({ ...track, requestedBy: requester });
   const outcome = await startAndEnqueue(panel, player, trackData, tracks.map(stamp), responder);
 
@@ -477,7 +487,7 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   // 음성 채널에 붙지 못한 플레이어는 버린다(저장한 세션은 둔다). 틀 곡이 남지 않았으면 다 튼 것과 같이 끝낸다(나갈 예약).
   // 연달아 실패해 멈추고 남은 곡이 있으면 그 패널 그대로 둔다
   if (outcome.kind === "failed") {
-    if (outcome.refused.code === "voice-failed") await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+    if (notJoined(outcome.refused)) await player.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     else if (!player.currentTrack && player.queue.length === 0) await player.finishQueue();
     return { success: false, ...outcome.refused };
   }
@@ -498,20 +508,24 @@ async function place(panel: Panel, player: Player, trackData: TrackData, request
   return { ...opened, placed };
 }
 
+// 음성 채널에 붙지 못한 까닭: 종료 중이라 붙지 않았거나(bot-shutting-down) 연결에 실패했다(voice-failed)
+const voiceRefusal = (error: unknown) => (codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed");
+const notJoined = (failure: Refused | null) => failure?.code === "voice-failed" || failure?.code === "bot-shutting-down";
+
 // 쉬던 플레이어에 첫 곡을 튼다
 async function startFirst(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<FirstStart> {
   // 음성에 먼저 붙는다. 첫 곡 지정은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게
   if (!player.connection) {
     try {
       await player.voice.connect();
-    } catch {
-      return { opened: null, failure: { code: "voice-failed" } };
+    } catch (error) {
+      return { opened: null, failure: { code: voiceRefusal(error) } };
     }
   }
   player.takeOverSaved();
   trackState.setCurrent(player, track);
   const failure = await startPlayback(player);
-  // 그 곡에서 멈춰 뒀다(다음 곡도 같은 이유로 안 된다, 까닭 모를 실패가 연달아). 곡을 지우지도 다음 곡을 열지도 않고 멈춘 패널을 세운다. 까닭은 채널 알림이 말한다
+  // 그 곡에서 일시정지해 뒀다(다음 곡도 같은 이유로 안 된다, 까닭 모를 실패가 이어짐). 곡을 지우지도 다음 곡을 열지도 않고 멈춘 패널을 세운다. 까닭은 채널 알림이 말한다
   if (failure?.code === "parked") return { opened: await openPanel(panel, player, track, responder), failure: null, started: track };
   if (failure) {
     // 실패한 곡으로는 패널을 세우지 않고 대기열에도 넣지 않는다(다시 틀어도 실패한다)
@@ -526,8 +540,8 @@ async function startPlayback(player: Player): Promise<Refused | null> {
   if (!player.connection) {
     try {
       await player.voice.connect();
-    } catch {
-      return { code: "voice-failed" };
+    } catch (error) {
+      return { code: voiceRefusal(error) };
     }
   }
   try {
@@ -548,7 +562,7 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
   if (player.currentTrack || player.queue.length === 0) return null;
   try {
     const nextResult = await player.play(0);
-    // 그 곡에서 멈춰 뒀어도 패널을 세운다(멈춘 곡으로)
+    // 그 곡에서 일시정지해 뒀어도 패널을 세운다(멈춘 곡으로)
     if (nextResult && (nextResult.ok !== false || nextResult.code === "parked" || nextResult.code === "superseded") && player.currentTrack) {
       return await openPanel(panel, player, player.currentTrack, responder);
     }

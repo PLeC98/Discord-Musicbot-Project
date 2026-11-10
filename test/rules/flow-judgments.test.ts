@@ -40,19 +40,19 @@ test("liveBlockReason: 라이브가 아니면 null, 예정이면 upcoming, ffmpe
   assert.equal(asked, 5, "직접 링크는 묻지 않는다");
 });
 
-test("transportOf: 받아서 흘릴 수 없는 것만 url, 캐시 파일이 있으면 file, 나머지는 pipe. 라이브는 캐시하지 않는다", () => {
+test("transportOf: 받아서 파이프로 넘길 수 없는 것만 url, 캐시 파일이 있으면 file, 나머지는 pipe. 라이브는 캐시하지 않는다", () => {
   const hls = { protocol: "m3u8_native" };
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: { ...hls, liveStatus: "is_live" } }), { via: "url", live: true, cacheable: false, list: "hls" });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "url", live: false, cacheable: true, list: "hls" });
   assert.deepEqual(transportOf({ file: "/c/a.opus", streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "file", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.webm", streamInfo: { protocol: "https" } }), { via: "pipe", live: false, cacheable: true });
-  assert.deepEqual(transportOf({ file: null, streamUrl: "https://radio.test/s", streamInfo: { platform: "direct", liveStatus: "is_live" } }), { via: "pipe", live: true, cacheable: false }, "인터넷 라디오는 받아서 흘리되 라이브다");
+  assert.deepEqual(transportOf({ file: null, streamUrl: "https://radio.test/s", streamInfo: { platform: "direct", liveStatus: "is_live" } }), { via: "pipe", live: true, cacheable: false }, "인터넷 라디오는 받아서 파이프로 넘기되 라이브다");
   assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url 이 아니다");
   // DASH 도 파이프에 안 담긴다. 세그먼트 목록이다
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.mpd", streamInfo: { protocol: "http_dash_segments" } }), { via: "url", live: false, cacheable: true, list: "dash" });
-  // 세그먼트 주소의 모양을 알면 우리가 세그먼트를 받아 흘린다(유튜브 post_live)
+  // 세그먼트 주소의 모양을 알면 우리가 세그먼트를 받아 파이프로 넘긴다(유튜브 post_live)
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/v?live=1", streamInfo: { protocol: "http_dash_segments", fragments: { base: "https://x/v?live=1", count: 9 } } }), { via: "pipe", live: false, cacheable: true });
-  assert.equal(transportOf({ file: null, streamUrl: "https://x/a", streamInfo: { protocol: "ism" } }).list, "other", "모르는 방식도 받아서 흘릴 수는 없다");
+  assert.equal(transportOf({ file: null, streamUrl: "https://x/a", streamInfo: { protocol: "ism" } }).list, "other", "모르는 방식도 받아서 파이프로 넘길 수는 없다");
   assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { protocol: "http" } }).via, "pipe");
   assert.equal(transportOf({ file: null, streamUrl: "https://x/a.mp3", streamInfo: { platform: "direct" } }).via, "pipe", "방식을 모르는 직접 링크");
   assert.equal(isHlsStream({ protocol: "http_dash_segments" }), false);

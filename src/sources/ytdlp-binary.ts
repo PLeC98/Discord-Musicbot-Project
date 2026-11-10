@@ -63,7 +63,7 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
     child.stdout.setEncoding("utf8").on("data", (chunk: string) => (stdout += chunk));
     child.stderr.setEncoding("utf8").on("data", (chunk: string) => (stderr += chunk));
     const timer = setTimeout(() => {
-      stderr += `\n${timeoutMs / 1000}초 안에 끝나지 않아 멈췄습니다`;
+      stderr += `\n${timeoutMs / 1000}초 안에 끝나지 않아 중단`;
       child.kill();
     }, timeoutMs);
     // 실행 실패면 error 뒤에 close 가 또 온다. 한 번만
@@ -141,7 +141,7 @@ class YtdlpBinary {
   async _version(file: string) {
     const ran = await this.io.run(file, ["--version"], VERSION_TIMEOUT_MS);
     const version = ran.stdout.trim();
-    if (ran.status !== 0 || !version) throw new Error(`yt-dlp 버전을 읽지 못했습니다(${reasonOf(ran)}): ${file}`);
+    if (ran.status !== 0 || !version) throw new Error(`yt-dlp 버전 읽기 실패(${reasonOf(ran)}): ${file}`);
     return version;
   }
 
@@ -149,7 +149,7 @@ class YtdlpBinary {
   async prepare(): Promise<{ version: string; seeded: boolean }> {
     this.state = this._read();
     if (this.state) return { version: this.state.version, seeded: false };
-    if (!fs.existsSync(this.io.seed)) throw new Error(`yt-dlp 바이너리가 없습니다: ${this.io.seed}`);
+    if (!fs.existsSync(this.io.seed)) throw new Error(`yt-dlp 바이너리 없음: ${this.io.seed}`);
     const version = await this._version(this.io.seed);
     this._place(this.io.seed, version, "copy");
     this._write({ version, previous: null, lastChecked: 0, capped: null });
@@ -168,7 +168,7 @@ class YtdlpBinary {
   // 받은 태그는 설치 폴더 이름과 실행 경로가 된다. 형식이 다르면 쓰지 않는다
   async _latestTag(channel: Channel) {
     const tag = await this.io.latestTag(channel);
-    if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그의 모양이 아닙니다: ${tag.slice(0, 40)}`);
+    if (!isYtdlpTag(tag)) throw new Error(`yt-dlp 릴리스 태그 형식이 아님: ${tag.slice(0, 40)}`);
     return tag;
   }
 
@@ -317,17 +317,17 @@ function updateText(mode: Mode, pinned: boolean) {
 function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
   switch (outcome.kind) {
     case "current":
-      return { level: "info", line: `yt-dlp가 목표 버전입니다(${outcome.version})` };
+      return { level: "info", line: `yt-dlp 버전이 목표와 같음(${outcome.version})` };
     case "installed":
-      return { level: "info", line: `yt-dlp를 업데이트했습니다: ${outcome.from} → ${outcome.to}` };
+      return { level: "info", line: `yt-dlp 업데이트 완료: ${outcome.from} → ${outcome.to}` };
     case "reused":
-      return { level: "info", line: `yt-dlp를 저장된 버전으로 교체했습니다: ${outcome.from} → ${outcome.to}` };
+      return { level: "info", line: `yt-dlp를 저장된 버전으로 교체: ${outcome.from} → ${outcome.to}` };
     case "available":
-      return { level: "info", line: `yt-dlp에 업데이트가 있습니다: ${outcome.from} → ${outcome.to} (${outcome.channel}). (업데이트: pnpm run update:ytdlp)` };
+      return { level: "info", line: `yt-dlp 업데이트 있음: ${outcome.from} → ${outcome.to} (${outcome.channel}). (업데이트: pnpm run update:ytdlp)` };
     case "capped":
-      return { level: "warn", line: `yt-dlp 업데이트 불가. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 다운로드할 수 있는 최고 버전은 ${outcome.got}` };
+      return { level: "warn", line: `yt-dlp 업데이트 불가(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 다운로드할 수 있는 최고 버전은 ${outcome.got}` };
     case "failed":
-      return { level: "warn", line: `yt-dlp 업데이트 실패. 기존 버전을 유지합니다: ${outcome.current} → ${outcome.target} (${outcome.channel}) - ${outcome.reason}` };
+      return { level: "warn", line: `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - ${outcome.reason}` };
   }
 }
 

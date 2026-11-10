@@ -7,8 +7,9 @@ import path from "node:path";
 import { test, after } from "node:test";
 import type { SessionData } from "express-session";
 import Database from "better-sqlite3";
+import type { Request } from "express";
 import assert from "node:assert/strict";
-import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
+import { SqliteSessionStore, SESSION_MAX_MS } from "../../src/dashboard/session-store.ts";
 import { fake } from "../helpers/fake.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
@@ -33,10 +34,12 @@ after(() => {
 
 const getAsync = (store: SqliteSessionStore, sid: string) => new Promise<SessionData | null | undefined>((res, rej) => store.get(sid, (e, s) => (e ? rej(e) : res(s))));
 
-// 저장소가 받는 모양 그대로(JSON 으로 오가 만료는 글자다). 사용자는 테스트가 보는 필드만
-function makeSession(user: object, expiresInMs = 60_000) {
-  return fake<SessionData>({ cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user });
+// 저장소가 받는 형태 그대로 만든다(JSON으로 오가므로 만료 시각은 문자열이다). 사용자는 테스트가 보는 필드만 넣고, loginAt은 로그인 시각이다(기본값은 현재 시각, null이면 없음).
+function makeSession(user: object, expiresInMs = 60_000, loginAt: number | null = Date.now()) {
+  return fake<SessionData>({ cookie: { expires: new Date(Date.now() + expiresInMs).toISOString() }, user, ...(loginAt === null ? {} : { loginAt }) });
 }
+const DAY = 24 * 60 * 60_000;
+const rowOf = (store: SqliteSessionStore, sid: string) => store.db.prepare("SELECT expires_at FROM sessions WHERE sid = ?").get(sid) as { expires_at: number } | undefined;
 
 test("set/get 라운드트립: 세션 객체 보존", async () => {
   const store = makeStore("roundtrip.db");
@@ -70,10 +73,11 @@ test("다시 시작 생존: 같은 DB 파일을 다시 열어도 세션 유지",
   assert.equal(loaded?.user?.id, "u1", "재시작 후에도 로그인 유지");
 });
 
-test("만료: 지난 세션은 null, prune이 만료분만 제거", async () => {
+test("만료: 만료된 세션은 null을 반환하고, prune은 만료된 세션만 삭제한다", async (t) => {
   const store = makeStore("expiry.db");
   store.set("살아있음", makeSession({ id: "a" }, 60_000));
-  store.set("만료됨", makeSession({ id: "b" }, -1_000));
+  store.set("만료됨", makeSession({ id: "b" }, 1_000));
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 2_000 });
 
   assert.equal(await getAsync(store, "만료됨"), null, "만료 세션은 조회 불가");
   assert.equal(store.prune(), 1, "만료분 1건만 삭제");
@@ -99,7 +103,7 @@ test("touch: 만료를 연장해 prune에서 생존", async (t) => {
 
 test("cookie.expires 없는 세션(브라우저 세션 쿠키)은 폴백 TTL로 보관", async () => {
   const store = makeStore("fallback.db");
-  store.set("sid1", fake<SessionData>({ cookie: {}, user: { id: "u1" } }));
+  store.set("sid1", fake<SessionData>({ cookie: {}, user: { id: "u1" }, loginAt: Date.now() }));
   assert.notEqual(await getAsync(store, "sid1"), null, "즉시 만료되지 않음");
   assert.equal(store.prune(), 0);
 });
@@ -153,4 +157,170 @@ test("구조 버전이 다른 옛 파일(토큰 열이 없다)은 열지 않고 
     () => makeStore("old.db"),
     (error: Error & { code?: string }) => error.code === "SCHEMA_MISMATCH" && /로그인 세션 DB.*삭제/.test(error.message),
   );
+});
+
+// ── 끝낸 세션, 절대 수명 ──
+
+test("종료된 로그인 세션은 진행 중이던 요청이 뒤늦게 저장해도 다시 생기지 않는다. 하루가 지나도 마찬가지다(로그아웃, 다른 기기 로그아웃, 정리)", async (t) => {
+  const store = makeStore("tomb.db");
+  const session = makeSession({ id: "u1" }, 7 * DAY);
+  store.set("끝냄", session);
+  store.destroy("끝냄");
+  store.set("끝냄", session); // 진행 중이던 요청의 뒤늦은 저장이다
+  assert.equal(rowOf(store, "끝냄"), undefined);
+  store.touch("끝냄", session);
+  assert.equal(rowOf(store, "끝냄"), undefined, "만료 연장도 막는다");
+
+  // 스트리밍 응답을 천천히 읽어 하루 넘게 걸린 요청이 뒤늦게 저장한다
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 2 * DAY });
+  store.set("끝냄", session);
+  assert.equal(rowOf(store, "끝냄"), undefined, "절대 기한까지 막는다");
+});
+
+test("만료된 행은 정리 전이어도 다시 연장하지 않는다(저장, 만료 연장 둘 다)", async (t) => {
+  const store = makeStore("expired-renew.db");
+  store.set("만료", makeSession({ id: "u1" }, 1_000));
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5_000 });
+  store.touch("만료", makeSession({ id: "u1" }, 60_000));
+  assert.ok((rowOf(store, "만료")?.expires_at ?? 0) <= Date.now(), "만료 연장");
+  store.set("만료", makeSession({ id: "u1" }, 60_000));
+  assert.equal(await getAsync(store, "만료"), null, "저장");
+  assert.ok(!rowOf(store, "만료") || rowOf(store, "만료")!.expires_at <= Date.now());
+});
+
+test("정리(prune)가 삭제한 로그인 세션도 진행 중이던 요청이 다시 저장하지 못하며, 삭제된 것을 알린다", async (t) => {
+  const store = makeStore("prune-tomb.db");
+  const ended: string[] = [];
+  store.onEnded((sid) => ended.push(sid));
+  const session = makeSession({ id: "u1" }, 1_000);
+  store.set("정리됨", session);
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5_000 });
+  assert.equal(store.prune(), 1);
+  assert.deepEqual(ended, ["정리됨"]);
+  store.set("정리됨", makeSession({ id: "u1" }, 60_000, session.loginAt));
+  assert.equal(rowOf(store, "정리됨"), undefined);
+});
+
+test("절대 수명: 로그인한 지 30일이 넘은 세션은 쓰지도 읽지도 않는다. 만료는 로그인 시각 + 30일을 넘지 않는다", async () => {
+  const store = makeStore("absolute.db");
+  const ended: string[] = [];
+  store.onEnded((sid) => ended.push(sid));
+  const loginAt = Date.now() - SESSION_MAX_MS + 60_000; // 1분 남음
+  store.set("곧", makeSession({ id: "u1" }, 7 * DAY, loginAt));
+  assert.ok(Math.abs((rowOf(store, "곧")?.expires_at ?? 0) - (loginAt + SESSION_MAX_MS)) < 5, "쿠키 7일이 아니라 절대 기한");
+
+  store.set("넘음", makeSession({ id: "u1" }, 7 * DAY, Date.now() - SESSION_MAX_MS - 1));
+  assert.equal(rowOf(store, "넘음"), undefined, "넘은 것은 쓰지 않는다");
+  store.set("로그인 시각 없음", makeSession({ id: "u1" }, 7 * DAY, null));
+  assert.equal(rowOf(store, "로그인 시각 없음"), undefined, "로그인했는데 시각이 없으면 만료로 본다");
+
+  // 이 규칙 전에 쓴 행: 읽을 때 삭제하고 알린다
+  store.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)").run("옛 행", JSON.stringify(makeSession({ id: "u1" }, 7 * DAY, Date.now() - 40 * DAY)), Date.now() + 7 * DAY);
+  assert.equal(await getAsync(store, "옛 행"), null);
+  assert.equal(rowOf(store, "옛 행"), undefined);
+  assert.deepEqual(ended, ["넘음", "로그인 시각 없음", "옛 행"], "쓰지 않은 것, 읽다 삭제한 것 모두 끝났다고 알린다");
+  assert.deepEqual(
+    store.sessionsOf("u1").map(({ sid }) => sid),
+    ["곧"],
+    "로그인 기기 목록에도 넘은 것은 없다",
+  );
+  // 로그인 전 세션(사용자 없음)은 이 규칙 대상이 아니다
+  store.set("로그인 전", fake<SessionData>({ cookie: { expires: new Date(Date.now() + 600_000).toISOString() }, csrfToken: "x" }));
+  assert.notEqual(await getAsync(store, "로그인 전"), null);
+});
+
+test("다시 시작: 이 규칙 전에 쓴 행의 만료를 절대 기한으로 줄이고, 넘은 것은 삭제한다", () => {
+  const dbPath = path.join(tmpDir, "normalize.db");
+  const first = new SqliteSessionStore({ dbPath });
+  const loginAt = Date.now() - 29 * DAY;
+  const insert = first.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)");
+  insert.run("29일", JSON.stringify(makeSession({ id: "u1" }, 7 * DAY, loginAt)), Date.now() + 7 * DAY);
+  insert.run("40일", JSON.stringify(makeSession({ id: "u1" }, 7 * DAY, Date.now() - 40 * DAY)), Date.now() + 7 * DAY);
+  insert.run("시각 없음", JSON.stringify(makeSession({ id: "u1" }, 7 * DAY, null)), Date.now() + 7 * DAY);
+  first.close();
+
+  const second = new SqliteSessionStore({ dbPath });
+  stores.push(second);
+  assert.ok(Math.abs((rowOf(second, "29일")?.expires_at ?? 0) - (loginAt + SESSION_MAX_MS)) < 5);
+  assert.equal(rowOf(second, "40일"), undefined);
+  assert.equal(rowOf(second, "시각 없음"), undefined);
+});
+
+test("종료 알림: 리스너가 예외를 던져도 삭제는 성공으로 끝나고 다른 리스너도 호출된다. 콜백은 한 번만 호출된다", () => {
+  const store = makeStore("listeners.db");
+  const heard: string[] = [];
+  store.onEnded(() => {
+    throw new Error("리스너 오류");
+  });
+  store.onEnded((sid) => heard.push(sid));
+  store.set("sid1", makeSession({ id: "u1" }));
+  let calls = 0;
+  let failed: unknown = null;
+  store.destroy("sid1", (error) => {
+    calls++;
+    failed = error ?? null;
+  });
+  assert.deepEqual([calls, failed, heard], [1, null, ["sid1"]]);
+});
+
+// 삭제(DELETE)만 실패하게 한다(디스크가 가득 참). 되돌리는 함수를 돌려준다
+function breakDelete(store: SqliteSessionStore) {
+  const real = store._deleteStmt;
+  store._deleteStmt = fake<typeof real>({
+    get() {
+      throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    },
+  });
+  return () => (store._deleteStmt = real);
+}
+
+test("삭제가 실패해도 세션은 종료된 것으로 처리한다: 묘비를 남겨 읽지도 쓰지도 않고, 종료를 알리고, 실패를 콜백으로 넘긴다. 기기 목록에도 없다", async () => {
+  const store = makeStore("delete-fails.db");
+  const heard: string[] = [];
+  store.onEnded((sid) => heard.push(sid));
+  store.set("sid1", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  let failed: unknown = null;
+  store.destroy("sid1", (error) => (failed = error));
+  restore();
+  assert.equal((failed as { code?: string } | null)?.code, "SQLITE_FULL");
+  assert.deepEqual(heard, ["sid1"], "열린 스트림, 진행 중인 요청이 끊긴다");
+  assert.ok(rowOf(store, "sid1"), "행은 남았다");
+  assert.equal(await getAsync(store, "sid1"), null, "이 실행에서는 읽지 않는다");
+  assert.deepEqual(store.sessionsOf("u1"), [], "끊은 기기를 살아 있다고 보이지 않는다");
+  assert.deepEqual(store.unsavedOf("u1"), [], "destroy는 사용자를 모른다");
+  assert.equal(store.isUnsaved("sid1"), true);
+});
+
+test("삭제하지 못한 행은 다시 삭제한다(DB가 돌아오면). 종료(finish) 시점에도 남으면 그 개수를 반환한다", () => {
+  const store = makeStore("delete-retry.db");
+  store.set("a", makeSession({ id: "u1" }));
+  store.set("b", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  assert.equal(store.end("a", "u1"), false);
+  assert.equal(store.end("b", "u1"), false);
+  assert.deepEqual(store.unsavedOf("u1").sort(), ["a", "b"]);
+  assert.equal(store.retryUnsaved(), 2, "아직 삭제하지 못함");
+  assert.equal(store.finish(), 2, "끝에도 남았다");
+  restore();
+  assert.equal(store.retryUnsaved(), 0);
+  assert.equal(rowOf(store, "a"), undefined);
+  assert.equal(rowOf(store, "b"), undefined);
+  assert.equal(store.isUnsaved("a"), false);
+  assert.equal(store.finish(), 0);
+});
+
+test("다시 로그인(regenerate)할 때 이전 세션 삭제가 실패하면 해당 사용자의 미삭제 세션으로 기록하고 새 세션은 만든다", async () => {
+  const store = makeStore("regen-fails.db");
+  store.set("old", makeSession({ id: "u7" }));
+  let generated = 0;
+  store.generate = () => void generated++;
+  const restore = breakDelete(store);
+  let failed: unknown = null;
+  store.regenerate(fake<Request>({ sessionID: "old", session: fake<Request["session"]>({ user: { id: "u7", username: "u7", globalName: "u7", avatar: null } }) }), (error) => (failed = error));
+  restore();
+  assert.equal(generated, 1);
+  assert.ok(failed);
+  assert.deepEqual(store.unsavedOf("u7"), ["old"]);
+  assert.equal(await getAsync(store, "old"), null);
 });

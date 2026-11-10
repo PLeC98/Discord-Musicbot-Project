@@ -19,7 +19,7 @@ test("다음 곡: 대기열, 한 곡 반복, 자동재생 중 하나면", () => 
   assert.equal(canGoNext({ queue: 0, loop: false, autoplay: "록" }), true, "자동재생은 켠 장르 이름이다");
 });
 
-test("넣은 사람의 조작: 조작 권한이 되면 통과, 넣은 사람이면 재적 규칙의 까닭, 아니면 조작 권한의 까닭", () => {
+test("넣은 사람의 조작: 조작 권한이 되면 통과, 넣은 사람이면 동일 음성 채널 규칙의 까닭, 아니면 조작 권한의 까닭", () => {
   const voiceOk = () => null;
   const voiceBad = () => "must-be-in-same-voice";
   assert.equal(ownTrackDenied({ control: null, requester: false, voice: voiceBad }), null);

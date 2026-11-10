@@ -72,12 +72,12 @@ test("압축 없이 담은 항목, 폴더 항목, 끝의 주석이 있어도 읽
   assert.equal(zlib.crc32(unzip(withComment)[0].data), zlib.crc32(Buffer.from("ab")));
 });
 
-// ── 흘려 쓰기, 파일 읽기, ZIP64 ──
+// ── 스트리밍 쓰기, 파일 읽기, ZIP64 ──
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "zip-stream-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-/** 흘려 묶어 파일로 */
+/** 스트리밍으로 묶어 파일로 */
 async function written(inputs: ZipInput[], zip64 = false) {
   const file = path.join(DIR, `${Math.random().toString(36).slice(2)}.zip`);
   const out = fs.createWriteStream(file);
@@ -92,7 +92,7 @@ const drain = async (stream: NodeJS.ReadableStream) => {
   return Buffer.concat(chunks);
 };
 
-test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄면 deflate. 파일에서 열어 메모리, 흘려 읽기", async () => {
+test("스트리밍 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄면 deflate. 파일에서 열어 메모리, 스트리밍 읽기", async () => {
   const media = path.join(DIR, "seg.m4s");
   fs.writeFileSync(media, crypto.randomBytes(300_000));
   const text = Buffer.from("가".repeat(5000));
@@ -115,11 +115,11 @@ test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄�
       );
       assert.deepEqual(opened.read(opened.entries[0], 1_000_000), text);
       assert.deepEqual(await drain(opened.stream(opened.entries[1])), fs.readFileSync(media));
-      assert.throws(() => opened.read(opened.entries[1], 1000), /너무 큽니다/);
+      assert.throws(() => opened.read(opened.entries[1], 1000), /너무 큼/);
     } finally {
       opened.close();
     }
-    // 메모리 풀기도 같은 목차 읽기(ZIP64 형식 포함)
+    // 메모리 풀기도 같은 중앙 디렉터리 읽기(ZIP64 형식 포함)
     assert.deepEqual(
       unzip(fs.readFileSync(file), { maxBytes: 1_000_000 }).map((one) => one.name),
       ["index.json", "a/seg-000.m4s"],
@@ -127,7 +127,7 @@ test("흘려 쓰기: 파일 항목은 그대로 담고 바이트 항목은 줄�
   }
 });
 
-test("흘려 쓰기: 사라진 optional 파일은 건너뛰고, build 는 앞에서 담은 이름들로 쓸 때 만든다", async () => {
+test("스트리밍 쓰기: 사라진 optional 파일은 건너뛰고, build 는 앞에서 담은 이름들로 쓸 때 만든다", async () => {
   const kept = path.join(DIR, "kept.opus");
   fs.writeFileSync(kept, "있음");
   const gone = path.join(DIR, "gone.opus");
@@ -145,7 +145,7 @@ test("흘려 쓰기: 사라진 optional 파일은 건너뛰고, build 는 앞에
   await assert.rejects(written([{ name: "files/gone.opus", file: gone }]), { code: "ENOENT" }, "optional 이 아니면 그대로 실패");
 });
 
-test("흘려 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊는다", async () => {
+test("스트리밍 읽기는 내용이 맞지 않으면 끝에서 BAD_ZIP 으로 끊는다", async () => {
   const media = path.join(DIR, "body.bin");
   fs.writeFileSync(media, Buffer.alloc(50_000, 7));
   const file = await written([{ name: "body.bin", file: media }]);
@@ -168,16 +168,16 @@ test("받는 곳이 비워지기를 기다리는 사이 닫히면(다운로드�
   const sink = sinkOf(out);
   const waiting = sink(Buffer.alloc(16));
   out.destroy();
-  await assert.rejects(waiting, /받는 쪽이 닫혔습니다/);
-  await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫혔습니다/);
+  await assert.rejects(waiting, /받는 쪽이 닫힘/);
+  await assert.rejects(sink(Buffer.alloc(1)), /받는 쪽이 닫힘/);
 });
 
 test("이름에 NUL, 콜론(드라이브, 대체 데이터 스트림)이 있으면 거절한다", async () => {
   for (const name of [`a${String.fromCharCode(0)}b`, "a.txt:secret", "x/C:y"]) assert.ok(rejects(await zipped([{ name, data: Buffer.from("x") }])), JSON.stringify(name));
 });
 
-test("흘려 읽기: 원본을 읽다 실패하면 받는 쪽이 오류로 받는다(처리되지 않은 예외가 아니다)", async () => {
-  // 줄어드는 바이트라 deflate 로 담긴다(풀기를 거친다)
+test("스트림으로 읽기: 원본을 읽다 실패하면 받는 쪽이 오류를 받는다(처리되지 않은 예외가 아니다)", async () => {
+  // 압축하면 줄어드는 바이트라 deflate로 담긴다(압축 해제를 거친다)
   const file = await written([{ name: "gone.bin", data: Buffer.alloc(200_000, 7) }]);
   const opened = openZip(file);
   try {

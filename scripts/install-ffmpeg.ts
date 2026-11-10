@@ -20,6 +20,7 @@ import config from "../src/config/index.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 import { TARGETS, RELEASES_URL, assetFor } from "../src/media/ffmpeg/release.ts";
+import { download } from "./download.ts";
 
 const ROOT = PROJECT.root;
 const BIN_DIR = PROJECT.bin;
@@ -29,12 +30,6 @@ const force = process.argv.includes("--force");
 function skip(reason: string): never {
   console.log(`ℹ️  [ffmpeg] ${reason}`);
   process.exit(0);
-}
-
-async function download(url: string) {
-  const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}. ${url}`);
-  return Buffer.from(await res.arrayBuffer());
 }
 
 /**

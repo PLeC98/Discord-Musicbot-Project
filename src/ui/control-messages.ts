@@ -7,7 +7,7 @@ import type { Problem } from "../rules/problems.ts";
 
 /** 거절 결과({ ok: false, code, …값 })의 안내. 코드마다 드는 값은 타입이 맞췄지만 코드가 실행 중에 정해져 그리기 전에 한 번 더 검사한다 */
 function controlMessage({ code, ...params }: Problem) {
-  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체합니다: ${code} (${names.join(", ")})`));
+  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
 }
 
 export { controlMessage };

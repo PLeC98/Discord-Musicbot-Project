@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠를 재생할 곳). 모더레이터만(봇 운영자도 그 서버의 권한대로)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 서버 관리자만 접근할 수 있다(봇 운영자도 해당 서버의 권한을 따른다)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -7,7 +7,7 @@ const log = logger.child({ category: "dashboard" });
 import { ChannelType, type Guild } from "discord.js";
 import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { isModerator } from "../../usecases/permissions.ts";
+import { isServerManager } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
@@ -72,15 +72,15 @@ function createGuildSettingsRouter() {
   const router = express.Router();
 
   // 서버 설정 조회. DJ 역할, 봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-  // 조회, 변경 모두 모더레이터 전용(일반 멤버는 ⚙ 진입 자체 불가).
+  // 조회, 변경 모두 서버 관리자 전용(일반 멤버는 ⚙ 진입 자체 불가).
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member } = ctx;
 
-    const canEdit = isModerator(member);
+    const canEdit = isServerManager(member);
     if (!canEdit) {
-      return sendProblem(res, "must-moderator");
+      return sendProblem(res, "must-server-manager");
     }
 
     const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
@@ -120,15 +120,15 @@ function createGuildSettingsRouter() {
     res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
   });
 
-  // 서버 설정 변경. 모더레이터만. /setting, /setchannel 과 같은 기준.
+  // 서버 설정을 변경한다. 서버 관리자 전용이며 /setting, /setchannel과 같은 기준을 따른다.
   // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    if (!isModerator(member)) {
-      return sendProblem(res, "must-moderator");
+    if (!isServerManager(member)) {
+      return sendProblem(res, "must-server-manager");
     }
 
     const limits = GuildSettingsManager.playlistAddLimits();

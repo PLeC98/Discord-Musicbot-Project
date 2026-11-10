@@ -119,8 +119,8 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
 function deployErrorLines(result: { scope: string; error?: unknown }) {
   const lines = [`❌ 명령어 배포 실패 (${result.scope}): ${messageOf(result.error)}`];
   if (codeOf(result.error) === 50001) {
-    lines.push('   → 봇이 대상 서버에 없거나 "applications.commands" 스코프로 초대되지 않았습니다.');
-    lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환됩니다.");
+    lines.push('   → 봇이 대상 서버에 없거나 "applications.commands" 스코프로 초대되지 않음');
+    lines.push("   → .env의 GUILD_ID를 비우면 전역 배포로 전환");
   }
   return lines;
 }

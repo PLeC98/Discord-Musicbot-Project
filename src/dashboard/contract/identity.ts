@@ -2,7 +2,7 @@
 // contract/ 는 서버 경로가 이 모양으로 답하고 화면이 타입으로 받는 곳이다. 브라우저도 부르므로 Node 를 부르지 않는다
 
 /** 권한 수준 오버라이드의 계층. 높은 쪽부터(화면이 이 순서로 그린다) */
-const TIERS = ["moderator", "dj", "user"] as const;
+const TIERS = ["server-manager", "dj", "user"] as const;
 type Tier = (typeof TIERS)[number];
 const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);
 
@@ -17,8 +17,11 @@ type Me = { id: string; username: string; globalName: string; avatar: string | n
  *  faviconVersion 은 파비콘의 버전(올리거나 지울 때마다 오른다) */
 type BotInfo = { name: string | null; avatarUrl: string | null; sourceRepo: string; projectRepo: string; brandColor: string; faviconVersion: number };
 
-/** 로그인 콜백이 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=): 승인 화면에서 취소, 인증 코드가 없음, 디스코드가 봇의 앱 자격(시크릿)을 거절, 그 밖의 실패 */
-type LoginError = "denied" | "no_code" | "bad_client" | "auth_failed";
+/**
+ * 로그인 화면으로 돌려보낼 때 싣는 까닭(?error=). 로그인 콜백: 승인 화면에서 취소, 인증 코드가 없음, 디스코드가 봇의 앱 자격(시크릿)을 거절, 그 밖의 실패.
+ * 화면의 로그아웃: 로그아웃은 됐지만 세션 저장소에 반영하지 못했다(sign-out-unsaved)
+ */
+type LoginError = "denied" | "no_code" | "bad_client" | "auth_failed" | "sign_out_unsaved";
 /** 로그인 실패로 돌려보낼 주소 */
 const loginFailed = (why: LoginError) => `/?error=${why}`;
 
@@ -27,8 +30,13 @@ type ViewAsReply = { viewAs: Tier | null };
 
 /** 위험한 조작(비밀값 바꾸기 등)을 받는 로그인 뒤의 시간. 지나면 reauth-required(middleware/recent-login) */
 const RECENT_LOGIN_MS = 10 * 60_000;
+/**
+ * 다른 기기 로그아웃을 재인증 없이 허용하는 로그인 후 유효 시간. 거의 언제나 재로그인을 거치게 해 현재 기기의 세션 ID도 바꾼다(세션 고정 방어용 새 ID 발급).
+ * 그래서 이 기기의 쿠키를 복제한 쪽도 끊긴다
+ */
+const SIGN_OUT_LOGIN_MS = 2 * 60_000;
 
-export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS };
+export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS, SIGN_OUT_LOGIN_MS };
 /** 로그인한 기기가 있는 곳. private: 내부망(집, 같은 망), geo: IP 위치(모르는 필드는 null), null: 모름(위치 DB 를 껐거나 없다) */
 type DevicePlace = { kind: "private" } | { kind: "geo"; city: string | null; region: string | null; country: string | null } | null;
 /**

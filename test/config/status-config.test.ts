@@ -51,7 +51,7 @@ test("문구가 128자를 넘으면 걸린다", () => {
 });
 
 test("interval은 10초 미만일 수 없다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10 이상/);
+  assert.match(statusConfig.validateStatus({ ...ok, interval: 5 }).join(" "), /10초 이상/);
   assert.deepEqual(statusConfig.validateStatus({ ...ok, interval: 10 }), []);
 });
 
@@ -61,7 +61,7 @@ test("날짜, 시간은 두 자리로 적어야 한다", () => {
 
   assert.match(of({ 봄: { date: "3-1 ~ 3-31", messages: ["x"] } }), /두 자리/);
   assert.match(of({ 심야: { time: "2:00 ~ 6:00", messages: ["x"] } }), /두 자리/);
-  assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~ 로 나눠/);
+  assert.match(of({ 겨울: { date: "12-01", messages: ["x"] } }), /~로 나눠/);
   assert.match(of({ 이상: { date: "13-01 ~ 13-05", messages: ["x"] } }), /두 자리/);
 
   assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { 봄: { date: "03-01 ~ 03-31", messages: ["x"] } } }), []);
@@ -75,7 +75,7 @@ test("조건이 하나도 없는 항목은 걸린다", () => {
 });
 
 test("항목 이름 규칙은 장르와 같다", () => {
-  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋납니다/);
+  assert.match(statusConfig.validateStatus({ ...ok, special: { 2024: { date: "01-01 ~ 01-02", messages: ["x"] } } }).join(" "), /순서가 어긋나요/);
   assert.deepEqual(statusConfig.validateStatus({ ...ok, special: { "2024년": { date: "01-01 ~ 01-02", messages: ["x"] } } }), []);
 });
 
@@ -87,7 +87,7 @@ test("처음 읽을 때 틀렸으면 문제를 한 줄씩 알리고 활동 문�
   useDocument("status", { interval: 1, messages: [] });
   assert.deepEqual(statusConfig.status(), { messages: [] });
   const said = sink.buffer.slice(from).find((e) => e.level === "error");
-  assert.ok(said?.text.startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")), said?.text);
+  assert.ok(said?.text.startsWith(["활동 문구 설정 읽기 실패:", "   interval은 10초 이상이어야 해요", "   평소 문구: 문구가 하나는 있어야 해요"].join("\n")), said?.text);
 });
 
 test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈다. 고치면 새 설정이 들어간다", () => {
@@ -108,7 +108,7 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
 
 // 오늘이 언제인지를 정해 조건을 테스트한다
 function managerAt({ date = "06-15", lunar = "05-10", time = "12:00" }) {
-  return new StatusManager({}, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
+  return new StatusManager(NOT_READY, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
 }
 
 // 선택한 문구의 글자. 선택하지 못하면 실패
@@ -172,12 +172,17 @@ test("풀어 적은 문구의 종류가 그대로 온다", () => {
 
 // ── 걸기 ──────────────────────────────────────────────────────────────────
 
+// 활동을 보내지 않는 클라이언트(달력, 설정만 볼 때)
+const NOT_READY = { isReady: () => false };
+
 // 건 활동. 여기서 보는 필드만
 type Activity = { name: string; type: number };
 
+// ready: 게이트웨이 준비 여부다(client.isReady). 종료를 시작하면 false가 된다
 function presenceClient() {
   const set: Activity[] = [];
-  return { set, client: { user: { setActivity: (a: Activity) => set.push(a) } } };
+  const state = { ready: true };
+  return { set, state, client: { isReady: () => state.ready, user: { setActivity: (a: Activity) => set.push(a) } } };
 }
 
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
@@ -194,7 +199,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
   ]);
 
   // 로그인 전이거나 고를 문구가 없으면 건드리지 않는다
-  const loggedOut = new StatusManager({}, { load: () => ({ messages: ["x"] }) });
+  const loggedOut = new StatusManager(NOT_READY, { load: () => ({ messages: ["x"] }) });
   loggedOut.apply();
   config = { messages: [] };
   manager.apply();
@@ -226,8 +231,24 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
   manager.stop(); // 두 번 불러도 된다
 });
 
+test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) 보내지 않는다. 끄는 중에 보내면 discord.js가 잡지 않는 rejection을 낸다", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const { set, state, client } = presenceClient();
+  const manager = new StatusManager(client, { load: () => ({ interval: 10, messages: ["하나", "둘"] }) });
+  state.ready = false;
+  manager.start();
+  assert.equal(set.length, 0, "로그인 중에 늦게 온 시작");
+  state.ready = true;
+  t.mock.timers.tick(10_000);
+  assert.equal(set.length, 1);
+  state.ready = false;
+  t.mock.timers.tick(30_000);
+  assert.equal(set.length, 1, "끄는 중의 주기에는 보내지 않는다");
+  manager.stop();
+});
+
 test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
-  const calendar = new StatusManager({}).calendar;
+  const calendar = new StatusManager(NOT_READY).calendar;
   assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
   assert.match(calendar.today(), /^\d{2}-\d{2}$/);
   assert.match(calendar.todayLunar(), /^\d{2}-\d{2}$/);
@@ -235,7 +256,7 @@ test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
 });
 
 test("load 는 설정 로더의 status() 를 부른다", () => {
-  assert.equal(new StatusManager({}).load(), statusConfig.status());
+  assert.equal(new StatusManager(NOT_READY).load(), statusConfig.status());
 });
 
 // 비운 간격은 봇, 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)

@@ -117,15 +117,15 @@ function readBundle(file: string): Bundle {
   const zipped = openZip(file);
   try {
     const entry = zipped.entries.find((one) => one.name === ROWS_NAME);
-    if (!entry) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 없습니다. 오디오 캐시 내보내기 파일이 아닙니다.`);
+    if (!entry) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 없음. 오디오 캐시 내보내기 파일이 아님`);
     let raw: unknown;
     try {
       raw = JSON.parse(zipped.read(entry, ROWS_MAX_BYTES).toString("utf8"));
     } catch {
-      throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 JSON 이 아니거나 너무 큽니다.`);
+      throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 이 JSON 이 아니거나 너무 큼`);
     }
     const parsed = RowsSchema.safeParse(raw);
-    if (!parsed.success) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 의 모양이 맞지 않습니다: ${parsed.error.issues[0]?.path.join(".")}`);
+    if (!parsed.success) throw codedError("BAD_ARCHIVE", `${ROWS_NAME} 의 형식이 맞지 않음: ${parsed.error.issues[0]?.path.join(".")}`);
     return { rows: parsed.data, entries: new Map(zipped.entries.filter((one) => one.name.startsWith(FILES_DIR)).map((one) => [one.name, one])) };
   } finally {
     zipped.close();

@@ -58,8 +58,8 @@ const CALENDAR: Calendar = {
   },
 };
 
-/** 활동을 거는 쪽. 로그인 전에는 user 가 없다 */
-type PresenceClient = { user?: { setActivity(activity: { name: string; type: ActivityType }): unknown } | null };
+/** 활동을 설정하는 클라이언트다. 로그인 전에는 user가 없다. isReady는 게이트웨이 준비 여부다(종료를 시작하면 곧바로 false가 된다) */
+type PresenceClient = { isReady(): boolean; user?: { setActivity(activity: { name: string; type: ActivityType }): unknown } | null };
 type Deps = { load?: () => StatusConfig; calendar?: Calendar };
 
 class StatusManager {
@@ -108,6 +108,8 @@ class StatusManager {
   }
 
   apply() {
+    // 종료 중(client.destroy를 시작한 뒤)에 보내면 discord.js가 처리하지 않는 rejection을 낸다(샤드가 끊겼거나 없다)
+    if (!this.client.isReady()) return;
     const config = this.load();
     const entry = this.getCurrentEntry(config);
     if (!entry || !this.client.user) return;

@@ -8,20 +8,25 @@ import App from "./App.vue";
 import router from "./router/index.ts";
 import tooltip from "./directives/tooltip.ts";
 import { installRequests } from "./utils/request.ts";
-import { session, waitForReauth } from "./composables/session.ts";
+import { session, loginWindow, useLoginCheck, waitForReauth } from "./composables/session.ts";
+import { useUserStore } from "./stores/user.ts";
 
 /** extraRoutes: 더할 라우트. 라우터를 앱에 거는 순간 첫 주소를 정하므로 그 전에 더한다 */
 function createDashboard({ extraRoutes = [] }: { extraRoutes?: RouteRecordRaw[] } = {}) {
   // 다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다. 옛 토큰은 거절되고 가로채기가 새 토큰으로 다시 보낸다
   installRequests(axios, {
-    onSessionEnd: () => (session.ended = true),
+    onSessionEnd: () => loginWindow.sessionEnded(),
     onReauth: waitForReauth,
     onReach: (ok) => (session.offline = !ok),
+    user: () => useUserStore().data?.id ?? null,
+    onAccountChanged: () => (session.switched = true),
+    switched: () => session.switched,
   });
 
   for (const route of extraRoutes) router.addRoute(route);
   const app = createApp(App);
   app.use(createPinia());
+  useLoginCheck(() => useUserStore().resumeSession());
   app.use(router);
   app.directive("tooltip", tooltip);
   return app;

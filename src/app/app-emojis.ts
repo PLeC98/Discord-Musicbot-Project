@@ -162,7 +162,7 @@ async function publish(api: Api, remote: Remote[], { added, removed, total, skip
   const now = added || removed ? await api.list() : remote;
   useAppEmojis(now);
   forget?.(new Set(now.map((one) => one.id)));
-  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둡니다: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
+  if (skipped.length) log.warn(`운영자가 올린 동명 앱 이모지가 있어 해당 아이콘은 유니코드로 둠: ${skipped.join(", ")}. 운영자 패널이나 개발자 포털에서 이모지 이름을 바꾸거나 삭제하세요`);
   if (added || removed) log.info(`앱 이모지 동기화: ${total}개 중 ${added}개 추가, ${removed}개 삭제`);
   else log.debug(`앱 이모지 동기화: ${total}개 변경 없음`);
 }
@@ -262,12 +262,16 @@ class AppEmojis {
     return list;
   }
 
-  /** 운영자 패널에서 올리기. 이름은 부른 쪽이 규칙을 봤다. 앱에 같은 이름이 있거나 자리가 없으면 던진다 */
-  add(name: string, image: Buffer): Promise<Remote> {
+  /**
+   * 운영자 패널에서 이모지를 업로드한다. 이름 형식은 호출하는 쪽에서 검증한다. 앱에 같은 이름이 있거나 남은 슬롯이 없으면 예외를 던진다.
+   * go(이름 바꾸기, 삭제도 동일): 대기열 차례가 되어 목록을 불러온 뒤, 디스코드에 변경 요청을 보내기 직전에 실행하는 확인 콜백이다(대시보드: 그사이 세션이 만료됐는지 확인)
+   */
+  add(name: string, image: Buffer, go?: () => void): Promise<Remote> {
     return this.serial(async () => {
       const list = await this.api.list();
       if (list.some((one) => one.name === name)) throw codedError("EMOJI_NAME_TAKEN", name);
       if (roomOf(list.length) < 1) throw codedError("EMOJI_FULL", String(list.length));
+      go?.();
       const created = await this.api.create(name, image);
       this.remember?.(created.id);
       await this.reload();
@@ -276,24 +280,26 @@ class AppEmojis {
   }
 
   /** 운영자 패널에서 이름 바꾸기. 아이콘(관리하는 이름)은 바꾸지 않는다 */
-  rename(id: string, name: string): Promise<void> {
+  rename(id: string, name: string, go?: () => void): Promise<void> {
     return this.serial(async () => {
       const list = await this.api.list();
       const target = list.find((one) => one.id === id);
       if (!target) throw codedError("EMOJI_NOT_FOUND", id);
       if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
       if (list.some((one) => one.name === name && one.id !== id)) throw codedError("EMOJI_NAME_TAKEN", name);
+      go?.();
       await this.api.rename(id, name);
       await this.reload();
     });
   }
 
   /** 운영자 패널에서 지우기. 아이콘은 지우지 않는다(동기화가 다시 올린다) */
-  remove(id: string): Promise<void> {
+  remove(id: string, go?: () => void): Promise<void> {
     return this.serial(async () => {
       const target = (await this.api.list()).find((one) => one.id === id);
       if (!target) throw codedError("EMOJI_NOT_FOUND", id);
       if (isManagedEmojiName(target.name)) throw codedError("EMOJI_IS_ICON", target.name);
+      go?.();
       await this.api.remove(id);
       await this.reload();
     });
@@ -305,7 +311,7 @@ class AppEmojis {
       const count = await loadKnown(this.api, this.protectedIds);
       log.debug(`앱 이모지 ${count}개를 불러옴`);
     } catch (error) {
-      log.warn(`앱 이모지 목록을 불러오지 못해 아이콘을 유니코드로 둡니다: ${messageOf(error)}`);
+      log.warn(`앱 이모지 목록 불러오기 실패(아이콘은 유니코드로 둠): ${messageOf(error)}`);
     }
   }
 

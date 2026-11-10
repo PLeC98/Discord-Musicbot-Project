@@ -4,6 +4,7 @@ const log = logger.child({ category: "session" });
 import { sessions, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 
@@ -37,7 +38,7 @@ async function resolveGuildForRestore(client: Client, guildId: string, { attempt
     }
   }
 
-  log.warn(`서버 ID ${guildId} 조회 ${attempts}회 실패. 세션을 유지하고 다음 기동 시 재시도합니다: ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
+  log.warn(`서버 ID ${guildId} 조회 ${attempts}회 실패(세션을 유지하고 다음 기동 시 재시도): ${lastError ? messageOf(lastError) : "길드를 불러오지 못함"}`);
   return { guild: null, gone: false };
 }
 
@@ -48,19 +49,20 @@ type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
  * 기동 시 저장된 재생 세션을 모두 복원한다.
- * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 연달아였다, app/run-record). 세션은 남긴다.
- * 돌려주는 것: 저장된 세션이 있던 서버 ID(복원했든 못 했든). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
+ * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 이어졌다, app/run-record). 세션은 남긴다.
+ * 돌려주는 것: 복원을 시도한 서버 ID(복원했든 못 했든, 건너뛰면 없음). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
 async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
   const saved = sessions().loadAll();
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {
-    log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜁니다(세션은 유지): 서버 ID ${touched.join(", ")}`);
-    return touched;
+    log.warn(`짧은 간격의 비정상 종료가 반복되어 저장된 세션 ${saved.length}개의 복원을 건너뜀(세션은 유지): 서버 ID ${touched.join(", ")}`);
+    // 손대지 않았다. 음성에 남은 봇은 이어받기가 뺀다
+    return [];
   }
 
-  log.info(`저장된 재생 세션 ${saved.length}개를 복원합니다`);
+  log.info(`저장된 재생 세션 ${saved.length}개 복원 시작`);
 
   // 차례를 기다리는 서버로 올려 둔다. 그사이 곡 추가, 자동재생 켜기, /join 이 오면 그 서버를 먼저 복원한다(waitForRestore)
   for (const { guildId } of saved) {
@@ -109,7 +111,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   if (!guild) {
     // 일시적 조회 실패면 세션을 남긴다. 다음 기동에서 다시 시도한다
     if (gone) {
-      log.warn(`서버 ID ${guildId}을(를) 찾을 수 없거나 접근할 수 없어 저장된 세션을 삭제합니다`);
+      log.warn(`서버를 찾을 수 없거나 접근할 수 없어 저장된 세션 삭제: 서버 ID ${guildId}`);
       sessions().removeSession(guildId);
     }
     return;
@@ -118,13 +120,14 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   // 기다리는 사이 사람이 이 서버에서 재생을 시작했으면 그쪽이 이긴다. 세션 기록도 이미 그 플레이어가 쓰고 있어 건드리지 않는다
   const alreadyPlaying = () => {
     if (!players.has(guildId)) return false;
-    log.info(`서버 ${guild.name}은(는) 이미 재생 중이라 저장 세션 복원을 건너뜁니다`);
+    log.info(`서버 ${guild.name}에서 이미 재생 중이라 저장 세션 복원을 건너뜀`);
     return true;
   };
   if (alreadyPlaying()) return;
 
   const channels = await savedChannels(guild, record.session);
-  if (alreadyPlaying()) return;
+  // 종료가 시작됐으면 플레이어를 만들지 않는다(세션은 남긴다)
+  if (alreadyPlaying() || isShuttingDown()) return;
   if (channels === "gone") {
     sessions().removeSession(guildId);
     return;
@@ -138,14 +141,15 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
     const outcome = await player.persistence.restoreFromState(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
-    // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다)
-    log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
+    // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다). 종료 중이라 붙지 않은 것은 실패가 아니다
+    if (codeOf(error) === "bot-shutting-down") log.info(`서버 ${guild.name}의 세션 복원 중단: 종료 중(세션은 남김)`);
+    else log.error(`서버 ${guild.name} (${guildId}) 세션 복원 중 오류(세션은 남김):`, messageOf(error));
     await player.dispose({ reason: "세션 복원 실패", session: "keep", end: "restore-failed" });
   }
 }
 
 // 복원한 결과를 로그에
-const RESTORE_OUTCOME = { restored: "이어 틂", parked: "열지 못해 그 곡에서 멈춰 둠", failed: "틀 곡을 열지 못함", empty: "틀 곡 없음" } as const;
+const RESTORE_OUTCOME = { restored: "이어 재생", parked: "열지 못해 그 곡에서 일시정지해 둠", failed: "재생할 곡을 열지 못함", empty: "재생할 곡 없음" } as const;
 
 // 채널이 없다는 디스코드의 확답(삭제됨, 볼 수 없음). 그 밖의 조회 실패는 잠깐일 수 있다
 const CHANNEL_GONE = new Set<unknown>([RESTJSONErrorCodes.UnknownChannel, RESTJSONErrorCodes.MissingAccess]);
@@ -169,7 +173,7 @@ async function savedChannels(guild: Guild, { voiceChannelId, textChannelId }: Se
   const text = textChannelId ? await find(textChannelId) : null;
   if (voice === lookupFailed || text === lookupFailed) return "unknown" as const;
   if (!voice?.isVoiceBased()) {
-    log.warn(`서버 ${guild.name}의 저장된 음성 채널이 없어 저장된 세션을 삭제합니다`);
+    log.warn(`서버 ${guild.name}의 저장된 음성 채널이 없어 저장된 세션 삭제`);
     return "gone" as const;
   }
   return { voice, text: text?.isTextBased() ? text : null };

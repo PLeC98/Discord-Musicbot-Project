@@ -92,14 +92,14 @@ async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined):
   const waited = Date.now() - asked;
   if (waited > WAIT_NOTE_MS[lane]) {
     const { running, size, waiting } = lanes[lane].stats();
-    log.debug(`yt-dlp 실행 슬롯을 ${sec(waited)}초 대기했습니다 (${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
+    log.debug(`yt-dlp 실행 슬롯을 ${sec(waited)}초 대기(${LANE_NAME[lane]} ${running}/${size}, 대기 ${waiting})`);
   }
   return leave;
 }
 
 /** 줄을 닫는다(봇을 끌 때). 기다리던 호출은 거절되고 새로 띄우지 않는다 */
 function closeLanes() {
-  const closed = new Error("봇을 끄는 중이라 yt-dlp 를 띄우지 않습니다");
+  const closed = new Error("봇을 끄는 중이라 yt-dlp 를 실행하지 않음");
   for (const lane of Object.values(lanes)) lane.close(closed);
 }
 
@@ -123,7 +123,7 @@ function countExtraction(url: string, flags: YtDlpFlags) {
   }
   if (extractionWarned) return;
   extractionWarned = true;
-  log.warn(`지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽었습니다. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작합니다`);
+  log.warn(`지난 1시간 동안 유튜브 영상 정보를 ${count}번 읽음. 로그인 없는 세션은 시간당 약 300편에서 막히기 시작함`);
 }
 
 /** 봇 상태 탭: 줄마다 도는 수, 크기, 기다리는 수와 지난 1시간 영상 정보 추출 수(nearLimit: 알리는 수를 넘었다) */
@@ -289,8 +289,8 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
     return out;
   } catch (error) {
     // 한도에서 내렸다. 플랫폼이 답하지 않은 것으로 보고 다른 클라이언트로 재시도하지 않는다(stderr 를 싣지 않아 클라이언트 탓으로 읽히지 않는다)
-    if (timedOut) throw Object.assign(new Error(`yt-dlp 가 ${infoTimeoutMs / 1000}초 안에 끝나지 않아 내렸습니다`), { code: "network-error" }) satisfies YtDlpError;
-    if (stalled) throw Object.assign(new Error(`yt-dlp 다운로드가 ${stall.limitMs / 60_000}분 동안 나아가지 않아 내렸습니다`), { code: "network-error" }) satisfies YtDlpError;
+    if (timedOut) throw Object.assign(new Error(`yt-dlp 가 ${infoTimeoutMs / 1000}초 안에 끝나지 않아 내림`), { code: "network-error" }) satisfies YtDlpError;
+    if (stalled) throw Object.assign(new Error(`yt-dlp 다운로드가 ${stall.limitMs / 60_000}분 동안 진행되지 않아 중단`), { code: "network-error" }) satisfies YtDlpError;
     // tinyspawn의 오류를 youtube-dl-exec와 같은 모양(message = stderr)으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
     // 어떤 실패인지는 여기서 한 번 구분해 code 로 붙인다. 부르는 쪽은 메시지 텍스트가 아니라 code 를 본다.

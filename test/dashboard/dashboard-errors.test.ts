@@ -1,4 +1,4 @@
-// src/dashboard/index.ts, middleware/error-handler.ts, binding.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
+// src/dashboard/index.ts, middleware/error-handler.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
 // 세션 스토어가 죽어도 (1) 브라우저에 스택 트레이스를 보이지 않고, (2) 정적 자산은 세션 앞이라 앱 껍데기는 뜬다.
@@ -24,12 +24,14 @@ logSink.addDestination((rec: unknown) => logLines.push(JSON.stringify(rec)));
 
 // ── 로그인 세션: "언마운트로 스토어가 죽은" 상태. 실 SQLite를 건드리지 않는다 ──────────────
 let storeBroken = true;
+// 살아 있는 세션의 CSRF 토큰. 본문 파싱 단계까지 도달하도록 실어 보낸다
+const TOKEN = "t".repeat(43);
 const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
   if (storeBroken) {
     // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
     return next(Object.assign(new Error("database disk image is malformed"), { name: "SqliteError", code: "SQLITE_CORRUPT" }));
   }
-  req.session = fake<Request["session"]>({});
+  req.session = fake<Request["session"]>({ csrfToken: TOKEN });
   next();
 };
 
@@ -40,7 +42,6 @@ after(() => store.close());
 
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
-const { describeBinding, isLoopbackHost } = await import("../../src/dashboard/binding.ts");
 const { _internals } = await import("../../src/dashboard/middleware/error-handler.ts");
 const { errorHandler } = await import("../../src/dashboard/middleware/error-handler.ts");
 
@@ -97,30 +98,6 @@ test("헤더가 이미 나간 응답(SSE)은 건드리지 않고 넘긴다", () 
   const err = new Error("boom");
   errorHandler(err, fake<Request>({ method: "GET", originalUrl: "/api/x", path: "/api/x" }), fake<Response>(res), (e) => (passed = e));
   assert.equal(passed, err);
-});
-
-// ── 기동 로그 문구 ─────────────────────────────────────────────────────────────
-
-test("바인딩 안내: 루프백은 조용히, 외부+http는 경고", () => {
-  const loopback = describeBinding("127.0.0.1", 33333, "http://localhost:33333");
-  assert.match(loopback.line, /127\.0\.0\.1:33333/);
-  assert.match(loopback.line, /DASHBOARD_HOST/); // 다른 기기에서 접속이 안 될 때 무엇을 바꿀지 바로 알 수 있게
-  assert.deepEqual(loopback.warnings, []);
-
-  const openPlain = describeBinding("0.0.0.0", 33333, "http://example.com");
-  assert.match(openPlain.line, /0\.0\.0\.0:33333/);
-  assert.match(openPlain.line, /모든 인터페이스/);
-  assert.equal(openPlain.warnings.length, 1);
-  assert.match(openPlain.warnings[0], /평문 HTTP/);
-
-  // https로 선언했으면 통과. 실제로 평문인 경우는 요청 때의 검사가 잡는다
-  assert.deepEqual(describeBinding("0.0.0.0", 33333, "https://example.com").warnings, []);
-
-  // 특정 IP 바인딩은 "모든 인터페이스"가 아니다
-  assert.match(describeBinding("192.168.0.10", 33333, "https://example.com").line, /외부 접속 허용/);
-
-  assert.equal(isLoopbackHost("::1"), true);
-  assert.equal(isLoopbackHost("0.0.0.0"), false);
 });
 
 // ── 실 앱: 스토어가 죽은 상태 ──────────────────────────────────────────────────
@@ -205,7 +182,7 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
   try {
     const res = await req("/api/guilds/x/player/queue", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", "x-csrf-token": TOKEN },
       body: "{ this is not json",
     });
     assert.equal(res.status, 400);
@@ -213,6 +190,21 @@ test("잘못된 JSON 본문은 400. 500으로 뭉개지 않는다", async () => 
     assert.equal(JSON.parse(res.body).code, "bad-request");
     assert.match(JSON.parse(res.body).errorId, /^[0-9a-f]{8}$/);
     assert.ok(!res.body.includes("    at "));
+  } finally {
+    storeBroken = true;
+  }
+});
+
+test("CSRF 토큰이 없는 요청은 본문을 파싱하기 전에 403을 반환한다(잘못된 JSON이어도 400이 아니다)", async () => {
+  storeBroken = false;
+  try {
+    const res = await req("/api/guilds/x/player/queue", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{ this is not json",
+    });
+    assert.equal(res.status, 403);
+    assert.equal(JSON.parse(res.body).code, "bad-csrf-token");
   } finally {
     storeBroken = true;
   }

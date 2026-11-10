@@ -201,7 +201,7 @@ function interaction(w: World, { options = {}, channelId = "c1" }: { options?: R
 
 // ── /play, /playfirst ────────────────────────────────────────────────
 
-test("/play: 권한(재적 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
+test("/play: 권한(동일 음성 채널 규칙)이 없으면 본인에게만 알리고 찾지 않는다", async () => {
   const w = world({ userVoice: "v2" });
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.bot);
@@ -534,7 +534,7 @@ test("/search 결과 선택: 검색한 사람만, 모양이 틀린 값은 모른
 
 // ── /join ─────────────────────────────────────────────────────────────
 
-test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 붙어 있으면 그렇다고", async () => {
+test('/join: 음성에 없거나 봇에게 권한이 없으면 곧바로 거절, 이미 붙어 있으면 "참가하는 중"을 이미 들어와 있다는 안내로 고친다', async () => {
   const noVoice = world({ userVoice: null, player: null });
   const a = interaction(noVoice);
   await runCommand(await command("join"), a.it, noVoice.bot);
@@ -549,7 +549,10 @@ test("/join: 음성에 없거나 봇에게 권한이 없으면 거절, 이미 �
   joined.player.voice = fake<Player["voice"]>({ isAlive: () => true });
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.bot);
-  assert.deepEqual(c.log, [["reply", reply(replies.alreadyJoined())]]);
+  assert.deepEqual(c.log, [
+    ["reply", reply(replies.joining())],
+    ["editReply", post(replies.alreadyJoined())],
+  ]);
   assert.deepEqual(lifetimesOf(c.it), [LIFETIME.glance], "아무것도 바뀌지 않았다");
 });
 
@@ -561,7 +564,7 @@ test("/join: 봇이 다른 음성 채널에 있으면 옮기지 않고 거절한
   assert.equal(w.bot.players.has("g1"), false);
 });
 
-test("/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 본인에게 알린다", async () => {
+test('/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 "참가하는 중"을 그 안내로 고친다', async () => {
   const w = world({ player: null });
   behavior.connect = () => {
     throw new Error("붙지 못함");
@@ -572,13 +575,31 @@ test("/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 
   } finally {
     behavior.connect = null;
   }
-  assert.deepEqual(log, [["reply", noticeReply(errors.notice("voice-failed"))]]);
+  assert.deepEqual(log, [
+    ["reply", reply(replies.joining())],
+    ["editReply", post(noticeFrame(errors.notice("voice-failed")))],
+  ]);
   assert.equal(w.bot.players.has("g1"), false, "붙지 못한 플레이어가 남지 않는다");
 });
 
-test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나갈 예약을 건다", async () => {
+test('/join: "참가하는 중"은 음성 연결을 기다리기 전에 답한다(연결이 3초를 넘어도 상호작용이 만료되지 않게)', async () => {
   const w = world({ player: null });
   const { it, log } = interaction(w);
+  let answeredAtConnect = -1;
+  behavior.connect = () => void (answeredAtConnect = log.length);
+  try {
+    await runCommand(await command("join"), it, w.bot);
+  } finally {
+    behavior.connect = null;
+    const p = w.bot.players.get("g1");
+    if (p) h.dispose(p);
+  }
+  assert.equal(answeredAtConnect, 1, "연결할 때 이미 답했다");
+});
+
+test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나가기를 예약한다", async () => {
+  const w = world({ player: null });
+  const { it, log, sentOnChannel } = interaction(w);
   // 끝난 패널로 알리는 것은 플레이어 알림을 거친다
   const off = playerEvents.on("ended", async (_p, reason) => w.seen.push(`end:${reason}`));
 
@@ -592,7 +613,12 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", { ...post(replies.joined()), withResponse: true }]], "모두에게");
+    assert.deepEqual(log, [["reply", reply(replies.joining())], ["deleteReply"]], '음성 연결 전에 "참가하는 중"을 답하고 결과 때 지운다');
+    assert.deepEqual(
+      sentOnChannel.map((m) => m.payload),
+      [post(replies.joined())],
+      "결과는 모두에게 알린다",
+    );
     assert.ok(w.seen.includes("end:joined"));
     assert.ok(player.idle.emptyTimer, "곡 없이 대기");
   } finally {
@@ -620,7 +646,7 @@ test("/join: 붙지 않은 채 남은 플레이어는 저장된 세션을 남긴
   h.dispose(replaced);
 });
 
-test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 먼저 답하고, 그 메시지를 삭제하고 결과는 모두에게(재생 · 일시정지 · 틀다 실패 · 연달아 실패 · 오류)', async () => {
+test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 중"으로 고치고, 그 메시지를 삭제하고 결과는 모두에게 알린다(재생, 일시정지, 재생 실패, 연달아 실패, 오류)', async () => {
   sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
   sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
 
@@ -647,7 +673,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(options, [{ announce: false }], "채널 알림은 내지 않는다(이 응답이 말한다)");
   const saved = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
-  assert.deepEqual(playing.log, [["reply", reply(replies.restoring())], ["deleteReply"]]);
+  assert.deepEqual(playing.log, [["reply", reply(replies.joining())], ["editReply", post(replies.restoring())], ["deleteReply"]], "참가하는 중 → 불러오는 중 → 결과 때 지움");
   assert.deepEqual(playing.shown(), [post(replies.restored(saved, false))]);
   assert.match(JSON.stringify(playing.shown()), /을 듣고 있었어요\. 이어서 재생할게요!/);
   assert.deepEqual(lifetimesOf(playing.it), [LIFETIME.result], "결과 수명 뒤 지운다");
@@ -658,7 +684,7 @@ test('/join: 저장된 세션이 있으면 "불러오는 중"을 본인에게 �
   });
   assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
 
-  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음, 열지 못해 그 곡에서 멈춰 둠, 틀다 실패해 남은 곡 없음, 틀 곡 없음)
+  // 복원한 결과(restoreFromState)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음, 열지 못해 그 곡에서 일시정지해 둠, 틀다 실패해 남은 곡 없음, 틀 곡 없음)
   const nothingLeft = await run(async function () {
     this.queue.push(tracks.youtube("ddddddddddd")); // 가짜가 "틀다 실패"로 보는 모양
   });
@@ -738,8 +764,15 @@ test("/autoplay 장르 선택: 플레이어가 없으면 선택한 그때 만들
     },
     deleteReply: async () => log.push("deleteReply"),
   });
+  let answeredAtConnect: unknown[] = [];
+  behavior.connect = () => void (answeredAtConnect = [...log]);
 
-  await interactionCreate.execute(fresh.bot, pick);
+  try {
+    await interactionCreate.execute(fresh.bot, pick);
+  } finally {
+    behavior.connect = null;
+  }
+  assert.deepEqual(answeredAtConnect, ["deferUpdate"], "음성 연결을 기다리기 전에 받아 둔다(3초 안에)");
 
   const created = fresh.bot.players.get("g1");
   assert.ok(created instanceof h.Player, JSON.stringify(log));
@@ -754,6 +787,7 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
   const away = world({ player: null, roles: ["dj"], botVoice: null, userVoice: null });
   const [genre] = Object.keys(genreConfig.genres().genres);
   const log: unknown[] = [];
+  const menuComponents = [{ type: "떠 있는 장르 메뉴" }];
   const pick = fakeWith<StringSelectMenuInteraction<"cached">>()({
     guild: away.guild,
     member: away.member,
@@ -762,13 +796,20 @@ test("/autoplay 장르 선택: 플레이어가 없는데 부를 수 없으면(�
     customId: "autoplay:genre",
     values: [genre],
     ...interactionKind("select"),
+    message: { components: menuComponents },
     reply: async (m: unknown) => log.push(m),
+    editReply: async (m: { components?: unknown }) => log.push(m.components === menuComponents ? "editReply:같은 메뉴" : "editReply:다른 화면"),
     update: async () => log.push("update"),
+    async deferUpdate(this: { deferred: boolean }) {
+      this.deferred = true;
+      log.push("deferUpdate");
+    },
+    followUp: async (m: unknown) => (log.push(m), { id: "follow" }),
   });
 
   await interactionCreate.execute(away.bot, pick);
 
-  assert.deepEqual(log, [noticeReply(errors.notice("must-be-in-voice"))]);
+  assert.deepEqual(log, ["deferUpdate", "editReply:같은 메뉴", noticeReply(errors.notice("must-be-in-voice"))], "먼저 받아 두고, 메뉴를 그대로 다시 그려 고른 값을 비운 뒤 거절은 후속 메시지로 알린다");
   assert.equal(away.bot.players.has("g1"), false);
 });
 
@@ -793,6 +834,44 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   assert.deepEqual(n.log, [["reply", noticeReply(errors.notice("must-dj"))]]);
 });
 
+// 봇이 패널을 올릴 수 있는 채널(보기, 보내기, 첨부). allowed 가 거짓이면 그 권한이 없다
+const postable = (it: { channel: object }, allowed = true) => Object.assign(it.channel, { viewable: true, isThread: () => false, permissionsFor: () => ({ has: () => allowed }), guild: { members: { me: { isCommunicationDisabled: () => false } } } });
+
+test("/dashboard(곡 있음): 패널을 올리기 전에 본인 표시로 미뤄 두고 올린 뒤 지운다. 패널을 올릴 수 없는 채널이면 옮기지 않고, 올리다 권한 오류가 나도 같은 안내", async () => {
+  const busy = world();
+  busy.player.currentTrack = tracks.youtube("ddddddddddd", { title: "지금 곡" });
+  const ok = interaction(busy, { channelId: "c8" });
+  postable(ok.it);
+  let answeredAtPost: unknown[] = [];
+  busy.bot.panels.postPlaying = async () => {
+    answeredAtPost = ok.log.map((one) => one[0]);
+    return { success: true };
+  };
+  await runCommand(await command("dashboard"), ok.it, busy.bot);
+  assert.deepEqual(answeredAtPost, ["deferReply"], "패널을 올리기 전에 미뤄 둔다(3초 안에)");
+  assert.deepEqual(ok.log, [["deferReply", { flags: MessageFlags.Ephemeral }], ["deleteReply"]]);
+
+  const locked = world();
+  locked.player.currentTrack = tracks.youtube("ddddddddddd", { title: "지금 곡" });
+  const before = locked.player.textChannel;
+  const denied = interaction(locked, { channelId: "c9" });
+  postable(denied.it, false);
+  locked.bot.panels.postPlaying = async () => assert.fail("올리지 않는다");
+  await runCommand(await command("dashboard"), denied.it, locked.bot);
+  assert.equal(locked.player.textChannel, before, "패널을 옮기지 않는다");
+  assert.deepEqual(lastSent(denied.log), noticeReply(errors.notice("permission-text")));
+
+  const refused = world();
+  refused.player.currentTrack = tracks.youtube("ddddddddddd", { title: "지금 곡" });
+  const late = interaction(refused, { channelId: "c10" });
+  postable(late.it);
+  refused.bot.panels.postPlaying = async () => {
+    throw Object.assign(new Error("Missing Permissions"), { code: 50013 });
+  };
+  await runCommand(await command("dashboard"), late.it, refused.bot);
+  assert.deepEqual(lastSent(late.log), noticeReply(errors.notice("permission-text")));
+});
+
 test("/dashboard: 곡이 없으면 끝난 패널을 여기에 다시 올리고, 있으면 새 패널을 여기에 만든다", async () => {
   const idle = world();
   const a = interaction(idle, { channelId: "c7" });
@@ -804,6 +883,7 @@ test("/dashboard: 곡이 없으면 끝난 패널을 여기에 다시 올리고, 
   busy.player.currentTrack = tracks.youtube("ddddddddddd", { title: "지금 곡" });
   busy.player.nowPlayingMessage = fake<PanelMessage>({});
   const b = interaction(busy, { channelId: "c8" });
+  postable(b.it);
   await runCommand(await command("dashboard"), b.it, busy.bot);
   assert.equal(busy.player.nowPlayingMessage, null);
   assert.equal(busy.player.textChannel?.id, "c8");

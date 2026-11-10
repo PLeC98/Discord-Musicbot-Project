@@ -15,7 +15,7 @@ type TopTracks = { tracks?: { track?: Array<{ name?: string; url?: string; artis
 // 길이를 안 준다(유튜브에서 찾은 영상이 길이 신호 없이 필터를 거친다). 상위 페이지보다 깊은 쪽이 오히려 알차서 무작위 페이지를 불러온다.
 async function lastfm(source: GenreSource): Promise<Candidate[]> {
   const key = config.sources?.lastfmKey;
-  if (!key) throw new Error("Last.fm 키가 없습니다");
+  if (!key) throw new Error("Last.fm 키 없음");
   const tag = pick(source.tags || []);
   if (!tag) return [];
 

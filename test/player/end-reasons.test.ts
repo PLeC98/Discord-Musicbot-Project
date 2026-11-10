@@ -84,13 +84,13 @@ test("스킵: 원인=skip, 곡 이름이 남는다. 레지스트리에 남는다
   assert.deepEqual(lines, ['트랙 종료: "첫 곡" (youtube) | 원인=skip']);
 });
 
-// 모더레이터는 재적, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
-const moderatorOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
+// 서버 관리자는 동일 음성 채널, DJ 판정을 건너뛴다(usecases/permissions). 진입점(controls)을 그대로 지난다
+const managerOf = (p: Player) => ({ member: fake<GuildMember>({ id: "mod", guild: p.guild, permissions: { has: () => true }, voice: { channel: null } }) });
 
 test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것과 같이 끝낸다(세션 삭제, 나갈 예약)", async () => {
   const p = playingPlayer(yt("zzzzzzzzzzz", { title: "마지막 곡" }));
   p.queue = [];
-  const lines = await endLines(async () => assert.equal((await controls.skip(p, moderatorOf(p))).ok, true));
+  const lines = await endLines(async () => assert.equal((await controls.skip(p, managerOf(p))).ok, true));
   const leaveTimer = p.idle.emptyTimer;
   h.dispose(p);
   assert.deepEqual(lines, ['트랙 종료: "마지막 곡" (youtube) | 원인=skip']);
@@ -101,7 +101,7 @@ test("대기열의 마지막 곡을 건너뛰면 거절하지 않고 다 튼 것
 
 test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 삭제한다", async () => {
   const p = playingPlayer(yt("bbbbbbbbbbb", { title: "둘째 곡" }));
-  const lines = await endLines(() => controls.stop(p, moderatorOf(p)));
+  const lines = await endLines(() => controls.stop(p, managerOf(p)));
   assert.deepEqual(lines, ['트랙 종료: "둘째 곡" (youtube) | 원인=stop']);
   assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
   assert.equal(registered(p), false, "버리면 레지스트리가 스스로 뺀다");
@@ -109,7 +109,7 @@ test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 삭제한다", asyn
 
 test("/leave: 원인=leave. 세션을 저장하고 삭제하지 않는다", async () => {
   const p = playingPlayer(yt("ccccccccccc", { title: "셋째 곡" }));
-  const lines = await endLines(() => controls.leave(p.guild, moderatorOf(p), h.registryOf(p)!));
+  const lines = await endLines(() => controls.leave(p.guild, managerOf(p), h.registryOf(p)!));
   assert.deepEqual(lines, ['트랙 종료: "셋째 곡" (youtube) | 원인=leave']);
   assert.ok(calls.persists.includes("leave"));
   assert.equal(calls.persists.includes("remove"), false);
@@ -208,12 +208,12 @@ test("넘긴 뒤의 끝 처리는 패널 고치기(디스코드 메시지 수정
   }
 });
 
-test("연달아 실패해 멈춰 둘 때 실패한 곡을 모두 적는다", async () => {
+test("연달아 실패해 일시정지해 둘 때 실패한 곡을 모두 적는다", async () => {
   const p = threeTracks();
   const from = sink.buffer.length;
   try {
     for (let i = 0; i < 3; i++) await p.onTrackEnd("stuck");
-    const line = sink.buffer.slice(from).find((e) => e.text.includes("연달아 실패했습니다"));
+    const line = sink.buffer.slice(from).find((e) => e.text.includes("연달아 실패:"));
     assert.ok(line, "멈췄다");
     for (const title of ["첫 곡", "둘째 곡", "셋째 곡"]) assert.ok(line.text.includes(title), `${title}: ${line.text}`);
   } finally {

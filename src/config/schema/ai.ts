@@ -7,7 +7,7 @@ import { z, ALWAYS, present, plain, problemsOf } from "./problems.ts";
 import { LINE_NAMES, parseFormat, usesName, type Problem } from "../../rules/line-format.ts";
 
 // 추가 인자에 비밀 헤더를 적었을 때
-const SECRET_HEADER = "extra 에 비밀 헤더(Authorization, x-api-key, Cookie 등)는 적을 수 없습니다. 키는 API 키 입력란에 입력하세요(암호화해 둡니다).";
+const SECRET_HEADER = "extra에 비밀 헤더(Authorization, x-api-key, Cookie 등)는 적을 수 없어요. 키는 API 키 입력란에 입력해 주세요(암호화해 저장해요)";
 
 /**
  * 줄 형식의 문제(글자 위치와 함께, 화면이 그 위치를 표시한다). 비우면 기본 형식이라 문제가 없다. 제목이 없으면 판정할 거리가 없다.
@@ -16,18 +16,21 @@ const SECRET_HEADER = "extra 에 비밀 헤더(Authorization, x-api-key, Cookie 
 function lineFormatProblems(format: string): Problem[] {
   if (!format.trim()) return [];
   const { nodes, problems } = parseFormat(format, LINE_NAMES);
-  return usesName(nodes, "title") ? problems : [...problems, { at: 0, end: 0, message: "{{title}} 이 있어야 합니다. 판정할 거리가 제목입니다." }];
+  return usesName(nodes, "title") ? problems : [...problems, { at: 0, end: 0, message: "{{title}}이 있어야 해요. 판정할 대상이 제목이에요" }];
 }
 
 // AI 설정의 키 순서(기본 설정 문서와 같다). 저장은 받은 순서대로 두므로 대시보드가 이 순서로 보낸다(내보내기 글이 읽기 좋게)
 const AI_KEY_ORDER = ["enabled", "provider", "baseUrl", "location", "project", "timeoutMs", "retries", "totalTimeoutMs", "retryTimeouts", "retryDelayMs", "retryDelayMaxMs", "retryStatus", "batchSize", "skipConfident", "list", "model", "params", "extra", "hideModels", "promptNames"] as const;
 
 // 모델이 받는 수치 필드. 범위를 벗어나거나 수가 아니면 같은 문구
+/** 요청 하나의 시간 한도(ms) 범위. 저장과 운영자 패널의 테스트(저장 전 초안)가 같이 쓴다 */
+const AI_TIMEOUT_RANGE = { min: 1000, max: 600000 } as const;
+
 const between = (key: string, min: number, max: number) =>
   present((v) => {
     const value = Number(v);
     return Number.isFinite(value) && value >= min && value <= max;
-  }, `${key}는 ${min}~${max} 사이여야 합니다.`);
+  }, `${key}는 ${min}~${max} 사이여야 해요`);
 
 // 옛 필드. 남아 있으면 조용히 무시되므로 알린다
 const gone = (message: string) => present(() => false, message);
@@ -36,13 +39,13 @@ const list = z
   .object(
     {
       lineFormat: z
-        .string({ error: "list.lineFormat은 글로 적어야 합니다." })
+        .string({ error: "list.lineFormat은 글자로 적어야 해요" })
         .superRefine((f, ctx) => {
           for (const one of lineFormatProblems(f)) ctx.addIssue({ code: "custom", message: `list.lineFormat ${one.at + 1}번째 글자: ${one.message}` });
         })
         .nullish(),
     },
-    { error: "list는 이름:값 형식이어야 합니다." },
+    { error: "list는 이름:값 형식이어야 해요" },
   )
   .nullish();
 
@@ -50,59 +53,59 @@ const aiFile = z.preprocess(
   plain,
   z
     .looseObject({
-      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`),
+      provider: present((v) => typeof v === "string" && PROVIDERS.includes(v), `provider는 ${PROVIDERS.join(", ")} 중 하나여야 해요`),
       // 켜고 끄기. 끄면(false) 선택한 프로바이더, 모델은 그대로 두고 부르지만 않는다. 없으면 provider 로 판단한다(off 면 꺼짐)
-      enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 합니다."),
+      enabled: present((v) => typeof v === "boolean", "enabled는 true 또는 false여야 해요"),
       // 온도도 모델이 받는 필드 하나라 params 아래에 모델별로 둔다
-      temperature: gone("temperature는 params 아래에 모델별로 적습니다."),
-      timeoutMs: between("timeoutMs", 1000, 600000),
+      temperature: gone("temperature는 params 아래에 모델별로 적어요"),
+      timeoutMs: between("timeoutMs", AI_TIMEOUT_RANGE.min, AI_TIMEOUT_RANGE.max),
       batchSize: between("batchSize", 1, 50),
       // 글자 "false" 는 참으로 읽힌다. 참, 거짓으로만 받는다
-      skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 합니다."),
+      skipConfident: present((v) => typeof v === "boolean", "skipConfident는 true 또는 false여야 해요"),
       // 재시도. 빠진 필드의 기본값은 assist 의 DEFAULTS
       retries: between("retries", 0, 10),
-      totalTimeoutMs: present((v) => Number(v) === 0 || (Number(v) >= 1000 && Number(v) <= 3600000), "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 합니다."),
-      retryTimeouts: present((v) => typeof v === "boolean", "retryTimeouts는 true 또는 false여야 합니다."),
+      totalTimeoutMs: present((v) => Number(v) === 0 || (Number(v) >= 1000 && Number(v) <= 3600000), "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 해요"),
+      retryTimeouts: present((v) => typeof v === "boolean", "retryTimeouts는 true 또는 false여야 해요"),
       retryDelayMs: between("retryDelayMs", 0, 60000),
       retryDelayMaxMs: between("retryDelayMaxMs", 0, 600000),
-      retryStatus: present((v) => Array.isArray(v) && v.every((one) => Number.isInteger(one) && one >= 400 && one <= 599), "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."),
+      retryStatus: present((v) => Array.isArray(v) && v.every((one) => Number.isInteger(one) && one >= 400 && one <= 599), "retryStatus는 400~599 사이 상태 코드 목록이어야 해요(예: [429, 503])"),
       // 추가 파라미터는 한 줄에 하나씩 적는 글이다(assist/index 의 parseExtra)
       // 비밀 헤더(Authorization 등)는 적지 못한다. 설정은 평문으로 남고 내보내기에도 실린다. 키는 키 입력란에(암호화해 둔다)
       extra: z
-        .string({ error: "extra는 한 줄에 하나씩 적는 글이어야 합니다." })
+        .string({ error: "extra는 한 줄에 하나씩 적어야 해요" })
         .refine((v) => !setsSecretHeader(v), SECRET_HEADER)
         .nullish(),
-      prompt: gone("프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 필드는 쓰이지 않습니다."),
-      project: z.string({ error: "project는 글자로 적어야 합니다." }).nullish(),
+      prompt: gone("프롬프트는 AI 보조 탭의 프롬프트 입력란에 적어요. AI 설정의 prompt 필드는 쓰이지 않아요"),
+      project: z.string({ error: "project는 글자로 적어야 해요" }).nullish(),
       location: z
-        .string({ error: "location는 글자로 적어야 합니다." })
-        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 합니다(영문 소문자, 숫자, 하이픈. 예: us-central1, global).")
+        .string({ error: "location은 글자로 적어야 해요" })
+        .refine((v) => !v.trim() || VERTEX_LOCATION.test(v.trim()), "location은 버텍스 리전 이름이어야 해요(영문 소문자, 숫자, 하이픈. 예: us-central1, global)")
         .nullish(),
       // 모델이 받는 필드의 값. 모델 이름으로 한 겹 나뉜다. 안 그러면 모델을 바꿨을 때
       // 앞 모델 값이 따라온다. 필드 이름이 맞는지는 모델 프로필이 판단한다(assist/index 의 withParams).
       params: z
         .record(
           z.string(),
-          present((v) => typeof v === "object" && !Array.isArray(v), "params.{model} 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다)."),
-          { error: "params는 모델 이름 아래에 필드를 적는 표여야 합니다." },
+          present((v) => typeof v === "object" && !Array.isArray(v), "params.{model}은 필드 이름과 값을 적는 표여야 해요(모델 이름으로 한 단계 나눠요)"),
+          { error: "params는 모델 이름 아래에 필드를 적는 표여야 해요" },
         )
         .nullish(),
       // 모델 목록에서 가릴 이름(글롭). 저쪽 목록에는 영상, 이미지 모델도 섞여 나온다.
-      hideModels: present((v) => Array.isArray(v) && v.every((one) => typeof one === "string"), 'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).'),
+      hideModels: present((v) => Array.isArray(v) && v.every((one) => typeof one === "string"), 'hideModels는 글자 목록이어야 해요(예: ["*sora*", "gpt-3.5*"])'),
       // 대시보드에서 어느 섹션인지 알아보려고 붙이는 이름. 프롬프트 섹션에는 이름 필드가 없어 여기 두므로 순서가 섹션과 같아야 한다
-      promptNames: present((v) => Array.isArray(v) && v.every((one) => one == null || typeof one === "string"), "promptNames는 글자 목록이어야 합니다."),
+      promptNames: present((v) => Array.isArray(v) && v.every((one) => one == null || typeof one === "string"), "promptNames는 글자 목록이어야 해요"),
       list,
     })
     // 켰는데 프로바이더가 없으면 알리고, 프로바이더를 골랐을 때만 주소, 모델을 따진다
     .superRefine((data, ctx) => {
-      if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 선택해야 합니다." });
+      if (data.enabled === true && (!data.provider || data.provider === "off")) ctx.addIssue({ code: "custom", message: "켜려면 provider를 선택해야 해요" });
       if (!data.provider || data.provider === "off") return;
       // baseUrl 은 custom 일 때만 쓴다. 나머지는 프로바이더에 박힌 주소로 간다(assist/index)
       if (data.provider === "custom") {
-        if (!String(data.baseUrl || "").trim()) ctx.addIssue({ code: "custom", message: "provider가 custom이면 baseUrl을 적어야 합니다." });
-        else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) ctx.addIssue({ code: "custom", message: "baseUrl은 http:// 또는 https:// 로 시작해야 합니다." });
+        if (!String(data.baseUrl || "").trim()) ctx.addIssue({ code: "custom", message: "provider가 custom이면 baseUrl을 적어야 해요" });
+        else if (!/^https?:\/\//.test(String(data.baseUrl).trim())) ctx.addIssue({ code: "custom", message: "baseUrl은 http:// 또는 https://로 시작해야 해요" });
       }
-      if (!String(data.model || "").trim()) ctx.addIssue({ code: "custom", message: "model을 적어야 합니다." });
+      if (!String(data.model || "").trim()) ctx.addIssue({ code: "custom", message: "model을 적어야 해요" });
     }, ALWAYS),
 );
 
@@ -118,4 +121,4 @@ function aiProblems(data: unknown): string[] {
   return problemsOf(aiFile, data, (path) => ({ model: path[0] === "params" ? path[1] : undefined }));
 }
 
-export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, lineFormatProblems };
+export { aiProblems, aiSwitchedOff, AI_KEY_ORDER, AI_TIMEOUT_RANGE, lineFormatProblems };

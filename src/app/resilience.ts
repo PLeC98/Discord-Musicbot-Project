@@ -42,9 +42,9 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
 
 // 다시 해도 결과가 같은 디스코드 API 오류. 여기까지 왔으면 난 위치가 받지 않은 것이라 로그만 남긴다
 const KNOWN_DISCORD_ERRORS: Record<number, { level: "warn" | "error"; message: string }> = {
-  10062: { level: "warn", message: "상호작용에 3초 안에 답하지 못했습니다(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 돌고 있다) (10062 Unknown interaction)" },
-  40060: { level: "warn", message: "이미 답한 상호작용에 다시 답했습니다(코드가 두 번 답했거나, 같은 토큰으로 다른 봇이 돌고 있다) (40060 Interaction already acknowledged)" },
-  50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없습니다 (50013 Missing permissions)" },
+  10062: { level: "warn", message: "상호작용에 3초 안에 응답하지 못함(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 실행 중) (10062 Unknown interaction)" },
+  40060: { level: "warn", message: "이미 응답한 상호작용에 다시 응답함(코드가 두 번 응답했거나, 같은 토큰으로 다른 봇이 실행 중) (40060 Interaction already acknowledged)" },
+  50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없음(50013 Missing permissions)" },
 };
 
 function knownDiscordError(err: unknown) {
@@ -52,8 +52,8 @@ function knownDiscordError(err: unknown) {
   return (typeof code === "number" && KNOWN_DISCORD_ERRORS[code]) || null;
 }
 
-// 치명적 오류: 세션을 저장하고 나감 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
-// 세션이 원인이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 연달아면 복원하지 않는다, app/run-record).
+// 치명적 오류: 세션을 저장하고 나가기 요청 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
+// 세션이 원인이라 켤 때마다 다시 죽는 것은 실행 기록이 막는다(짧게 끊긴 실행이 이어지면 복원하지 않는다, app/run-record).
 // exit, record 는 테스트가 넘긴다. 기본은 전역 폭주 코드로 나가기와 봇의 실행 기록
 function fatalShutdown(players: Savables | null | undefined, error: unknown, { exit = () => process.exit(EXIT.globalFlood), record = runRecord }: { exit?: () => void; record?: Pick<typeof runRecord, "end"> } = {}) {
   players?.forEach((player, guildId) => {
@@ -73,7 +73,7 @@ function fatalShutdown(players: Savables | null | undefined, error: unknown, { e
   // 이 줄 다음에 프로세스가 죽는다. 레벨로 필터링할 때 "봇이 죽은 순간"만 추출할 수 있어야 한다
   const stack = error && typeof error === "object" && "stack" in error ? error.stack : undefined;
   flog.fatal(
-    `특정 서버와 무관한 오류가 폭주해 봇을 종료합니다. 재생 세션은 저장했습니다(다시 시작하면 이어서 재생합니다).
+    `특정 서버와 무관한 오류가 폭주해 봇을 종료함. 재생 세션은 저장함(다시 시작하면 이어서 재생)
 ${String(stack || error)}`,
   );
   exit();
@@ -101,7 +101,7 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
     if (errorKind(error) === "network-error") coreLog.warn(`오류 경계 밖의 네트워크 오류 (${source}): ${messageOf(error)}`);
     else coreLog.error(`오류 경계가 없는 경로에서 발생한 미처리 오류 (${source}):`, error);
     if (flooding()) {
-      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과했습니다`);
+      coreLog.error(`${FLOOD_WINDOW_MS / 1000}초 동안 서버를 특정할 수 없는 오류가 ${FLOOD_MAX}회를 초과함`);
       fatalShutdown(players, error, { exit, record });
     }
   };

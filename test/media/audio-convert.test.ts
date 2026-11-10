@@ -201,7 +201,7 @@ test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 �
     child.on("error", () => resolve(false));
     child.on("exit", (code) => resolve(code === 0));
   });
-  if (!made) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!made) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
 
   const info = await probeAudio(TONE);
   assert.equal(info.codec, "opus", "만든 것을 다시 읽을 수 있어야 한다");

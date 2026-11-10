@@ -9,6 +9,7 @@ import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
 import { shadowMember } from "./view-as.ts";
 import { sendProblem } from "./problem.ts";
+import { assertSignedIn } from "./session-requests.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 멤버 조회의 답: 멤버가 아니다 */
@@ -55,19 +56,21 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   // 조회 인가는 세션의 굳은 서버 목록이 아니라 실멤버십으로 판정 (추방 즉시 차단). member는 후속 권한 계산에 재사용.
   const userId = signedIn(req).id;
   const fetched = await memberOf(guild, userId);
+  // 조회를 기다리는 사이 세션이 끝났으면 멈춘다(오류 핸들러나 라우트의 catch가 401로 처리한다)
+  assertSignedIn(req as Request);
   if (!fetched) {
     sendProblem(res, "no-guild-access");
     return null;
   }
 
   // 권한 수준 오버라이드가 걸려 있으면 여기서 대역 멤버로 바꾼다. 이 한 곳이면 아래의
-  // checkControl/checkAdd/isModerator가 전부 그 계층으로 판정된다.
-  const member = shadowMember(req, fetched);
+  // checkControl/checkAdd/isServerManager가 전부 그 계층으로 판정된다.
+  const member = await shadowMember(req, fetched);
   const actor: Actor = { member };
   return { bot, guild, player: bot.players.get(guildId) ?? null, member, actor };
 }
 
-// 음성 재적 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
+// 음성 채널 접속 상태. 채널 단위로 본다. "봇과 같은 채널인가"가 조작 가능 여부(checkVoice)의 기준이고,
 // botInVoice/userInVoice를 따로 보면 같은 서버 다른 채널을 구분하지 못한다.
 function voiceFlags(guild: Guild | null | undefined, userId: string | null | undefined) {
   // channelId가 아니라 channel?.id로 읽는다. permissions.ts의 checkVoice와 같은 경로여야

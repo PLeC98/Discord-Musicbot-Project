@@ -19,6 +19,8 @@ const PROJECT = {
   database: path.join(ROOT, "database"),
   /** 대시보드가 쓰는 실행 상태(운영자 패널에서 올린 이미지 등). 사람이 건드리지 않는다 */
   dashboardData: path.join(ROOT, "database", "dashboard"),
+  /** 대시보드를 직접 HTTPS로 열 인증서 파일(cert.pem, key.pem). git은 추적하지 않는다 */
+  certs: path.join(ROOT, "certs"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
   /** 설치 스크립트가 다운로드하는 실행 파일(ffmpeg, yt-dlp) */

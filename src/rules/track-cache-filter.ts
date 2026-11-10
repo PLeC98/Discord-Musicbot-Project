@@ -2,8 +2,8 @@
 // 식: 그냥 쓰면 포함(대소문자 무시. 한국어는 조합 중인 마지막 글자, 초성으로도 찾는다: rules/ko-search, 서버 목록 검색과 같다. % 를 넣으면 아무 글자들), =값, <>값, >값 <값 >=값 <=값, 값~값(사이), /정규식/(\/ 로 / 를 쓴다), ='' (빔), <>'' (빔 아님).
 // 열의 형식에 따라 값을 읽는다: 크기는 10MB 같은 단위(없으면 바이트), 시각은 2026-10-17, 2026-10-17 12:30 같은 날짜(이 기기의 시간대), 길이는 3:30 같은 분:초(없으면 초).
 // 날짜 하나는 그날 하루다: =날짜 는 그날 안, >날짜 는 그날 뒤, >=날짜 는 그날부터, <날짜 는 그날 전, <=날짜 는 그날까지.
-// 정규식은 무늬에 따라 백트래킹이 끝없이 늘 수 있어 서버가 따로 도는 스레드에서 시간 상한을 두고 맞춘다(dashboard/regex-filter). 여기의 길이 상한과
-// 겹친 반복(오래 걸리는 흔한 형태) 거절은 입력란에서 먼저 알리려는 것이다. % 는 정규식으로 바꾸지 않고 조각을 차례로 찾는다(글자 수에 비례).
+// 정규식은 패턴에 따라 백트래킹이 끝없이 늘 수 있어 백엔드가 별도 스레드에서 시간 상한을 두고 실행한다(dashboard/regex-filter). 여기의 길이 상한과
+// 겹친 반복(오래 걸리는 흔한 형태) 거절은 입력란에서 먼저 알리려는 것이다. %는 정규식으로 바꾸지 않고 조각을 순서대로 찾는다(글자 수에 비례).
 
 import type { Code } from "./problems.ts";
 import { koMatch } from "./ko-search.ts";
@@ -110,22 +110,21 @@ function sameAs(filter: Extract<Filter, { kind: "equals" | "not-equals" }>, valu
   return filter.until === undefined ? n === filter.value : n >= filter.value && n <= filter.until;
 }
 
+// 문자 단위 대소문자 변환이 그대로 두는 것: 대문자로 바꾸면 여러 글자가 되거나 ASCII 밖에서 ASCII로 가는 BMP 코드 유닛(104개, 테스트가 BMP 전체로 다시 만들어 비교한다)과 서로게이트
+const FOLDABLE = /[^\u00DF\u0131\u0149\u017F\u01F0\u0390\u03B0\u0587\u1E96-\u1E9A\u1F50\u1F52\u1F54\u1F56\u1F80-\u1FAF\u1FB2-\u1FB4\u1FB6\u1FB7\u1FBC\u1FC2-\u1FC4\u1FC6\u1FC7\u1FCC\u1FD2\u1FD3\u1FD6\u1FD7\u1FE2-\u1FE4\u1FE6\u1FE7\u1FF2-\u1FF4\u1FF6\u1FF7\u1FFC\uFB00-\uFB06\uFB13-\uFB17\uD800-\uDFFF]+/g;
+
 /**
- * 정규식의 i 플래그(u 없음)와 같은 대소문자 접기. 글자(UTF-16 단위)마다 대문자로 바꾸되, 여러 글자가 되거나 ASCII 밖에서 ASCII 로 바뀌면 그대로 둔다.
- * 길이가 바뀌지 않는다. toLowerCase 는 낱말 끝의 Σ 를 ς 로 바꾸는 것처럼 앞뒤를 보아 정규식과 달라진다
+ * 정규식의 i 플래그(u 없음)와 같은 대소문자 변환(case folding). 글자(UTF-16 단위)마다 대문자로 바꾸되, 여러 글자가 되거나 ASCII 밖에서 ASCII로 바뀌면 그대로 둔다.
+ * 길이가 바뀌지 않는다. toLowerCase는 단어 끝의 Σ를 ς로 바꾸는 것처럼 앞뒤를 보아 정규식과 달라진다.
+ * 그대로 둘 것 사이의 구간은 통째로 대문자로 한다(기본 대문자화는 앞뒤를 보지 않아 낱글자마다 한 것과 같고, 글자마다 하면 큰 캐시에서 필터 예산을 넘는다)
  */
 function foldCase(text: string) {
-  let out = "";
-  for (const unit of text.split("")) {
-    const upper = unit.toUpperCase();
-    out += upper.length !== 1 || (unit.charCodeAt(0) >= 128 && upper.charCodeAt(0) < 128) ? unit : upper;
-  }
-  return out;
+  return text.replace(FOLDABLE, (run) => run.toUpperCase());
 }
 
 const LINE_BREAK = /[\n\r\u2028\u2029]/;
 
-/** % 식: 조각이 그 차례로 한 줄 안에 들어 있다(대소문자 무시, % 를 .* 로 바꾼 정규식과 같다). 앞에서부터 가장 이른 자리를 잡아 나간다 */
+/** % 식: 조각이 그 순서대로 한 줄 안에 들어 있다(대소문자 무시, %를 .*로 바꾼 정규식과 같다). 앞에서부터 가장 앞선 위치를 잡아 나간다 */
 function likeMatch(parts: string[], value: string) {
   return value.split(LINE_BREAK).some((line) => {
     const text = foldCase(line);
@@ -169,5 +168,5 @@ const matchWords = (words: string[], values: Array<string | number | null>) => {
   return words.every((word) => texts.some((text) => koMatch(text, word)));
 };
 
-export { FILTER_MAX, REGEX_MAX, parseFilter, matchFilter, parseWords, matchWords, readValue };
+export { FILTER_MAX, REGEX_MAX, parseFilter, matchFilter, parseWords, matchWords, readValue, foldCase };
 export type { ColumnKind, Filter, Parsed, Words };

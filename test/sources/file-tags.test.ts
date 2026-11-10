@@ -1,5 +1,5 @@
 // src/sources/file-tags.ts: 음원 파일의 태그(제목, 가수, 앨범, 앨범아트). 파일은 그대로, 스트림은 헤더까지만 받고 끊는다.
-// 시료는 ffmpeg 로 만든다(앨범아트가 붙은 MP3, FLAC, M4A(moov 앞, 끝), Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
+// 픽스처는 ffmpeg 로 만든다(앨범아트가 붙은 MP3, FLAC, M4A(moov 앞, 끝), Ogg Vorbis). ffmpeg 가 없으면 건너뛴다
 
 import path from "node:path";
 import os from "node:os";
@@ -47,7 +47,7 @@ before(async () => {
   if (ready) cover = fs.readFileSync(at("cover.jpg"));
 });
 
-/** 파일을 조금씩(16KB) 흘리는 스트림. end 가 false 면 다 보낸 뒤에도 닫지 않는다(끝이 없는 응답 흉내). 보낸 양을 센다 */
+/** 파일을 조금씩(16KB) 내보내는 스트림. end 가 false 면 다 보낸 뒤에도 닫지 않는다(끝이 없는 응답 흉내). 보낸 양을 센다 */
 function trickle(bytes: Buffer, { end = true, from = 0 } = {}) {
   let at = from;
   const sent = { bytes: 0, destroyed: false };
@@ -76,7 +76,7 @@ const LIMITS: StreamLimits = { maxBytes: 8 * 1024 * 1024, timeoutMs: 10_000 };
 const sameCover = (data: Uint8Array | undefined) => Buffer.compare(Buffer.from(data ?? []), cover) === 0;
 
 test("파일: 형식마다 제목, 가수, 앨범과 그림(원본과 같은 바이트). MP4 는 moov 가 끝이어도", async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const name of ["a.mp3", "a.flac", "end.m4a", "front.m4a"]) {
     const tags = await fromFile(at(name));
     assert.deepEqual([tags?.title, tags?.artist, tags?.album], ["노래 제목", "가수", "앨범"], name);
@@ -89,7 +89,7 @@ test("파일: 형식마다 제목, 가수, 앨범과 그림(원본과 같은 바
 });
 
 test("스트림: 헤더까지만 받고 끊는다. 끝이 없는 응답이어도 기다리지 않는다", { timeout: 30_000 }, async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const name of ["a.mp3", "a.flac", "a.ogg", "front.m4a"]) {
     const bytes = fs.readFileSync(at(name));
     const { stream, sent } = trickle(bytes, { end: false });
@@ -105,7 +105,7 @@ test("스트림: 헤더까지만 받고 끊는다. 끝이 없는 응답이어도
 });
 
 test("스트림 MP4: moov 가 mdat 뒤면 그 자리를 따로 받고, 받을 길이 없으면 null", { timeout: 30_000 }, async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const bytes = fs.readFileSync(at("end.m4a"));
   const asked: number[] = [];
   const main = trickle(bytes, { end: false });
@@ -124,7 +124,7 @@ test("스트림 MP4: moov 가 mdat 뒤면 그 자리를 따로 받고, 받을 �
 });
 
 test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면 던진다, 스트림 오류도 던진다", { timeout: 30_000 }, async (t) => {
-  if (!ready) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const mp3 = fs.readFileSync(at("a.mp3"));
   assert.ok(cover.length > 25_000, `그림 ${cover.length}B`);
   assert.equal(await fromStream(trickle(mp3).stream, { ...LIMITS, maxBytes: 4096 }), null, "첫 청크부터 넘는다");

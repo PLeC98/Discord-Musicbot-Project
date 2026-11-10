@@ -8,10 +8,10 @@ let warnedDevOrigin = false;
 function normalizeDashboardOrigin(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 합니다");
+    throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 함");
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error("DASHBOARD_URL 은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 합니다");
+    throw new Error("DASHBOARD_URL 은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 함");
   }
   return parsed.origin;
 }
@@ -40,7 +40,7 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
       // 개발 서버가 막혔을 때 브라우저 콘솔만 보면 원인을 알기 어렵다. 켜는 방법을 한 번 알려 준다.
       if (!allowed && normalized === DEV_ORIGIN && !warnedDevOrigin) {
         warnedDevOrigin = true;
-        log.warn("개발 서버(5173)에서 온 요청을 막았습니다. 대시보드 UI를 개발 중이라면 `pnpm run dev`로 봇을 실행하세요.");
+        log.warn("개발 서버(5173)에서 온 요청 차단. 대시보드 UI를 개발 중이라면 `pnpm run dev`로 봇을 실행하세요.");
       }
       return callback(null, allowed);
     },

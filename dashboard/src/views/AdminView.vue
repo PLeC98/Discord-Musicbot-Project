@@ -153,7 +153,8 @@
 </template>
 
 <script setup lang="ts">
-import { session, live } from "../composables/session.ts";
+import { live, blocked } from "../composables/session.ts";
+import { checkSession, withUid } from "../stores/user.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { ref, shallowRef, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from "vue";
 import { eventLink } from "../utils/event-link.ts";
@@ -494,9 +495,9 @@ watch(tab, () => {
 const wantLogs = () => tab.value === "logs" && live();
 // 끊기면 브라우저가 마지막 id 를 실어 재연결하고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
 const logLink = eventLink({
-  url: () => `/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`,
+  url: () => withUid(`/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`),
   open: (url) => new EventSource(url, { withCredentials: true }),
-  check: async () => (await axios.get("/api/me")).status === 200,
+  check: (quiet) => checkSession(quiet),
   onState: (state) => (sseConnected.value = state === "open"),
   events: {
     // 봇을 다시 시작해 줄 번호가 처음부터다. 옛 실행의 줄은 두고 그 자리에 표시 줄을 넣는다
@@ -573,7 +574,7 @@ onMounted(() => {
   };
   visHandler = onVisibility;
   document.addEventListener("visibilitychange", onVisibility);
-  stopSessionWatch = watch(() => session.ended, onVisibility);
+  stopSessionWatch = watch(blocked, onVisibility);
   window.addEventListener("beforeunload", onBeforeUnload);
   if (live()) startPoll();
   syncLogs();

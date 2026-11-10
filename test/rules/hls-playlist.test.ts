@@ -92,9 +92,9 @@ data:text/plain,abc
   assert.equal(media.ended, false, "끝 표시가 없으면 라이브");
 });
 
-test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 길이는 유한한 수, 순번과 바이트 구간은 안전한 정수만", () => {
+test("하위 목록의 비정상 값: 목표 길이는 0 ~ 60초, 세그먼트 길이는 유한한 수로 맞추고 순번은 안전한 정수만 받는다", () => {
   const huge = "9".repeat(400);
-  const media = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:Infinity\n#EXT-X-MEDIA-SEQUENCE:x\n#EXTINF:Infinity,\na.ts\n#EXT-X-BYTERANGE:${huge}@0\n#EXTINF:-3,\nb.ts\n#EXT-X-BYTERANGE:0@10\n#EXTINF:4,\nc.ts\n`, BASE) as MediaPlaylist;
+  const media = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:Infinity\n#EXT-X-MEDIA-SEQUENCE:x\n#EXTINF:Infinity,\na.ts\n#EXTINF:-3,\nb.ts\n#EXTINF:4,\nc.ts\n`, BASE) as MediaPlaylist;
   assert.deepEqual([media.targetDuration, media.mediaSequence], [0, 0]);
   assert.deepEqual(
     media.segments.map((s) => [s.duration, s.sequence, s.range]),
@@ -105,8 +105,48 @@ test("하위 목록의 비정상 수: 목표 길이는 0 ~ 60초, 세그먼트 �
     ],
   );
   for (const big of [huge, "9007199254740992"]) {
-    assert.throws(() => parsePlaylist(`#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:${big}\n#EXTINF:4,\na.ts\n`, BASE), { code: "unsupported-link" }, "0 으로 바꾸면 복호화의 IV, 이어 받기가 틀린다");
+    assert.throws(() => parsePlaylist(`#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:${big}\n#EXTINF:4,\na.ts\n`, BASE), { code: "unsupported-link" }, "0으로 바꾸면 복호화의 IV, 이어받기가 틀린다");
   }
   const long = parsePlaylist(`#EXTM3U\n#EXT-X-TARGETDURATION:3000000\n#EXT-X-MEDIA-SEQUENCE:7\n#EXTINF:1e300,\na.ts\n`, BASE) as MediaPlaylist;
   assert.deepEqual([long.targetDuration, long.mediaSequence, long.segments[0].duration], [60, 7, 86_400]);
+});
+
+test("읽을 수 없는 바이트 구간(길이 0, 안전한 정수를 넘음, 빈 값, 끝이 넘침)은 이 구간을 쓰는 세그먼트에 unreadable 로 표시한다. 파일 전체 다운로드로 바꾸지 않는다", () => {
+  const huge = "9".repeat(400);
+  const max = "9007199254740991";
+  const list = (...lines: string[]) => `${["#EXTM3U", ...lines].join("\n")}\n`;
+  const unreadable = (text: string) => (parsePlaylist(text, BASE) as MediaPlaylist).segments.map((segment) => [segment.unreadable, segment.range]);
+  for (const range of [`${huge}@0`, "0@10", "", `2@${max}`, "x"]) {
+    assert.deepEqual(
+      unreadable(list("#EXTINF:4,", `#EXT-X-BYTERANGE:${range}`, "main.mp4", "#EXTINF:4,", "next.ts")),
+      [
+        [true, null],
+        [false, null],
+      ],
+      range,
+    );
+  }
+  // 오프셋 없이 이어지는 위치가 넘친다. 그 뒤 오프셋 없는 구간도 앞 구간의 끝을 몰라 읽을 수 없다. 오프셋을 다시 지정하면 읽는다
+  assert.deepEqual(unreadable(list("#EXTINF:4,", `#EXT-X-BYTERANGE:${max}@0`, "main.mp4", "#EXTINF:4,", "#EXT-X-BYTERANGE:2", "main.mp4", "#EXTINF:4,", "#EXT-X-BYTERANGE:2", "main.mp4", "#EXTINF:4,", "#EXT-X-BYTERANGE:2@8", "main.mp4")), [
+    [false, { length: Number(max), offset: 0 }],
+    [true, null],
+    [true, null],
+    [false, { length: 2, offset: 8 }],
+  ]);
+  // 읽을 수 없는 구간 뒤의 오프셋 없는 구간은 그 앞 정상 구간의 끝에서 잇지 않는다(이으면 엉뚱한 바이트를 받는다)
+  assert.deepEqual(unreadable(list("#EXTINF:4,", "#EXT-X-BYTERANGE:4@0", "main.mp4", "#EXTINF:4,", "#EXT-X-BYTERANGE:0@10", "main.mp4", "#EXTINF:4,", "#EXT-X-BYTERANGE:4", "main.mp4")), [
+    [false, { length: 4, offset: 0 }],
+    [true, null],
+    [true, null],
+  ]);
+  const init = (parsePlaylist(list('#EXT-X-MAP:URI="init.mp4",BYTERANGE="0@0"', "#EXTINF:4,", "seg.m4s"), BASE) as MediaPlaylist).segments[0];
+  assert.deepEqual([init.unreadable, init.init], [true, { url: `${BASE.replace(/[^/]*$/, "")}init.mp4`, range: null }], "초기화 세그먼트의 읽을 수 없는 구간도 표시한다");
+  // 갱신 중에 받아 끝이 잘린 라이브 목록: 그 구간을 쓰는 세그먼트가 없으니 읽는다
+  const cut = parsePlaylist(["#EXTM3U", "#EXTINF:4,", "a.ts", "#EXTINF:4,", "#EXT-X-BYTERANGE:"].join("\n"), BASE) as MediaPlaylist;
+  assert.deepEqual(
+    cut.segments.map((segment) => segment.unreadable),
+    [false],
+  );
+  const ok = parsePlaylist(list('#EXT-X-MAP:URI="init.mp4"', "#EXTINF:4,", "#EXT-X-BYTERANGE:4@4", "main.mp4"), BASE) as MediaPlaylist;
+  assert.deepEqual([ok.segments[0].range, ok.segments[0].init?.range], [{ length: 4, offset: 4 }, null], "구간이 없는 것은 그대로 null");
 });

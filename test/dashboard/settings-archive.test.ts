@@ -237,7 +237,7 @@ test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 
   ]);
   const { status, json } = await preview(full);
   assert.deepEqual([status, json.code], [400, "bad-archive"]);
-  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없습니다/);
+  assert.match(json.detail ?? "", /전체 백업은 불러올 수 없음/);
 });
 
 test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 bad-archive", async () => {
@@ -285,9 +285,9 @@ test("파비콘: 빠지거나 망가진 이미지는 미리 보기가 표시하�
   await appearance.addFavicon(32, await square(32));
   const file = await exported("favicon");
   const missing = await zipped(unzip(file).filter((one) => !one.name.endsWith(".reserve.png")));
-  assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있습니다."]);
+  assert.deepEqual(rowsOf((await preview(missing)).json).favicon.problems, ["목록에 있는 이미지 파일이 빠져 있어요"]);
   const broken = await zipped(unzip(file).map((one) => (one.name.endsWith(".reserve.png") ? { name: one.name, data: Buffer.from("깨진 것") } : one)));
-  assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["망가졌거나 크기가 맞지 않는 이미지가 있습니다."]);
+  assert.deepEqual(rowsOf((await preview(broken)).json).favicon.problems, ["깨졌거나 크기가 맞지 않는 이미지가 있어요"]);
   assert.notEqual((await send("import?items=favicon", broken)).status, 200);
   assert.deepEqual(currents(), [32], "불러오지 않았다");
 
@@ -377,4 +377,29 @@ test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다"
   assert.match(rows.ai.warnings.join(), /evil\.example/);
   assert.match(rows.status.warnings.join(), /phish\.example\/free/);
   assert.deepEqual(rows.genres.warnings, []);
+});
+
+test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 던짐, 대시보드 세션 종료) 아무것도 쓰지 않는다", async () => {
+  const archive = await import("../../src/dashboard/settings-archive.ts");
+  const file = path.join(uploadDir, "go.zip");
+  fs.writeFileSync(file, await exported());
+  const before = settingsDocs.read("genres");
+  settingsDocs.write("genres", { genres: [] }, before.revision);
+  const now = settingsDocs.read("genres");
+  let snapped = 0;
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  await assert.rejects(
+    archive.apply(file, ["genres"], {
+      before: async () => {
+        snapped++;
+      },
+      go: ended,
+    }),
+    /세션이 끝났다/,
+  );
+  assert.equal(snapped, 1, "스냅샷은 떴다(그 뒤에 go를 확인한다)");
+  assert.deepEqual(settingsDocs.read("genres"), now, "쓰지 않았다");
+  fs.rmSync(file, { force: true });
 });

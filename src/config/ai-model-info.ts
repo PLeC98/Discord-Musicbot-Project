@@ -35,11 +35,11 @@ async function both(force: boolean): Promise<RefreshResult> {
   try {
     got = await models.refresh({ registries: registries(), force });
   } catch (error) {
-    log.warn(`AI 모델 정보를 받지 못했습니다(PocketRisu 레지스트리): ${messageOf(error)}. 가진 정보를 씁니다`);
+    log.warn(`AI 모델 정보 불러오기 실패(PocketRisu 레지스트리): ${messageOf(error)}. 기존 정보를 씀`);
     throw error;
   }
   const priced = await prices.refresh().catch((error: unknown) => {
-    log.warn(`AI 가격표를 받지 못했습니다(models.dev): ${messageOf(error)}. 가진 가격표로 비용을 계산합니다`);
+    log.warn(`AI 가격표 불러오기 실패(models.dev): ${messageOf(error)}. 기존 가격표로 비용 계산`);
     return null;
   });
   return { ...got, changed: got.changed || !!priced?.changed };

@@ -108,10 +108,10 @@ async function removeFile(fp: string): Promise<boolean> {
     if (result === "ok") return true;
     if (result === "late") {
       stuckFiles.add(target);
-      log.warn(`캐시 파일 삭제가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행에서는 건너뜁니다(다른 프로세스가 파일을 점유 중일 수 있음): ${path.basename(target)}`);
+      log.warn(`캐시 파일 삭제가 ${removeTimeoutMs / 1000}초 안에 끝나지 않아 이번 실행에서는 건너뜀(다른 프로세스가 파일을 점유 중일 수 있음): ${path.basename(target)}`);
       return false;
     }
-    log.debug(`캐시 파일을 삭제하지 못했습니다: ${path.basename(target)} | ${messageOf(result)}`);
+    log.debug(`캐시 파일 삭제 실패: ${path.basename(target)} | ${messageOf(result)}`);
     return false;
   } finally {
     clearTimeout(timer);
@@ -360,8 +360,12 @@ type ResetResult = { removed: number; kept: number; freedBytes: number; cleared:
  * 재생 중, 대기열 앞 곡과 다운로드 중인 파일은 남긴다(파일 잠금에 기대지 않는다: 리눅스는 재생 중인 파일도 삭제된다).
  * 삭제하지 못한 파일(다른 프로그램이 쥐고 있다)도 행과 함께 남기고 세어서 돌려준다.
  */
-function resetCache(parts: readonly AudioCachePart[]): Promise<ResetResult> {
-  return underCleanupLock(() => resetLocked(parts));
+function resetCache(parts: readonly AudioCachePart[], go?: () => void): Promise<ResetResult> {
+  return underCleanupLock(() => {
+    // 잠금을 기다리는 사이 그만뒀으면 삭제하지 않는다(대시보드: 세션이 끝남)
+    go?.();
+    return resetLocked(parts);
+  });
 }
 
 async function resetLocked(parts: readonly AudioCachePart[]): Promise<ResetResult> {
@@ -554,10 +558,10 @@ async function checkAndEvict() {
   if (!overSize && !overFiles && !lowDisk) return;
 
   if (lowDisk) {
-    log.warn(`디스크 여유 공간 부족 (${MB(diskFree)}MB 남음, 최소 ${MB(cfg.minFreeDiskBytes)}MB). 오디오 캐시를 정리합니다.`);
+    log.warn(`디스크 여유 공간 부족 (${MB(diskFree)}MB 남음, 최소 ${MB(cfg.minFreeDiskBytes)}MB). 오디오 캐시 정리`);
   } else {
     const over = [overSize && `용량 ${MB(totalSize)}MB / ${MB(cfg.maxSizeBytes)}MB`, overFiles && `파일 ${fileCount}개 / ${cfg.maxFiles}개`].filter(Boolean).join(", ");
-    log.info(`오디오 캐시가 상한을 넘었습니다 (${over}) - 상한의 ${cfg.evictTargetPercent}%까지 정리합니다.`);
+    log.info(`오디오 캐시가 상한을 넘음(${over}). 상한의 ${cfg.evictTargetPercent}%까지 정리`);
   }
 
   await evictLocked({ totalSize, fileCount, diskFree });
@@ -701,8 +705,10 @@ function useOf(audioKey: string): CacheUse | null {
  * 캐시 파일 하나를 삭제한다(캐시 DB 의 캐시 파일 삭제). 파일 없는 error 행도 행만 삭제한다.
  * @param expect  화면이 본 다운로드 시각(downloaded_at). undefined 면 보지 않는다
  */
-function removeCached(audioKey: string, expect?: number | null): Promise<RemoveResult> {
+function removeCached(audioKey: string, expect?: number | null, go?: () => void): Promise<RemoveResult> {
   return underCleanupLock(async (): Promise<RemoveResult> => {
+    // 잠금을 기다리는 사이 그만뒀으면 삭제하지 않는다(대시보드: 세션이 끝남)
+    go?.();
     const row = lookupByAudioKey(audioKey);
     if (!row) return { ok: false, code: "gone" };
     if (expect !== undefined && row.downloaded_at !== expect) return { ok: false, code: "changed", current: row.downloaded_at };
@@ -716,12 +722,12 @@ function removeCached(audioKey: string, expect?: number | null): Promise<RemoveR
   });
 }
 
-// 퇴거 결과 한 줄. 시작 줄("상한을 넘었습니다")에는 늘 이 줄이 따른다
+// 퇴거 결과 한 줄. 시작 줄("상한을 넘음")에는 늘 이 줄이 따른다
 function reportEviction({ evicted, failed, guarded, files, size, reached }: { evicted: number; failed: number; guarded: number; files: number; size: number; reached: boolean }) {
   const why = [guarded > 0 && `재생 중이거나 대기열 앞에 있는 곡 ${guarded}개는 지키고`, failed > 0 && `${failed}개는 삭제하지 못해`].filter(Boolean).join(", ");
-  const short = reached ? "" : ` - 목표선까지 내려가지 못했습니다${why ? ` (${why})` : ""}`;
-  const unremoved = reached && failed > 0 ? ` - ${failed}개는 삭제하지 못했습니다` : "";
-  log.info(`오디오 캐시 ${evicted}개를 삭제했습니다 (${files}개 남음, ${MB(size)}MB)${short}${unremoved}`);
+  const short = reached ? "" : ` - 목표선까지 내려가지 못함${why ? `(${why})` : ""}`;
+  const unremoved = reached && failed > 0 ? ` - ${failed}개는 삭제하지 못함` : "";
+  log.info(`오디오 캐시 ${evicted}개 삭제(${files}개 남음, ${MB(size)}MB)${short}${unremoved}`);
 }
 
 /** 정기 퇴거를 건다(간격은 설정) */

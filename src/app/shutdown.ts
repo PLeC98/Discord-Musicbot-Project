@@ -13,6 +13,8 @@ import { messageOf } from "../rules/error-kind.ts";
 import { EXIT, type ExitCode } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { PotStop } from "../sources/youtube/pot-server.ts";
+import { finishSessions } from "../dashboard/session-store.ts";
+import { beginShutdown } from "../infra/shutdown-state.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -42,14 +44,14 @@ type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(
 type Saver = { persistence: { save(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
-// 디스코드 연결(게이트웨이)을 닫는 데 기다리는 상한. 닫는 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
+// 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
 const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
 /** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
-type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]> };
+type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]>; stay?: { stop(): unknown } };
 
 /** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
@@ -62,21 +64,16 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
+    // 새 음성 연결과 새 작업을 시작하지 않게 한다(막는 곳은 infra/shutdown-state)
+    beginShutdown();
     const client = bot?.client ?? null;
     const reason = restart ? `다시 시작(${why})` : `프로세스 종료(${why})`;
     log.info(`종료 시작: ${reason}`);
+    // 상주 모드가 재접속을 예약하거나 플레이어 정리 때 상주 설정을 지우지 않게 세션 저장 전에 멈춘다
+    bot?.stay?.stop();
     if (bot) await savePlayers(bot.players, reason);
 
-    // 레지스트리에 없던 연결도 나감 없이 정리한다
-    for (const [guildId, connection] of voiceConnections()) {
-      const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
-      try {
-        connection.destroy(false);
-        log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
-      } catch (error) {
-        log.error(`음성 연결 정리 실패: ${name}`, error);
-      }
-    }
+    destroyLeftovers(voiceConnections(), client, reason);
     record.end(restart ? "restart" : "shutdown");
     await release(client, { potServer, logFile, killAll });
     exit(restart ? EXIT.restart : EXIT.stopped);
@@ -111,7 +108,20 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 }
 
-// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나감 없이 연결을 정리한다
+// 레지스트리에 없던 연결도 나가기 요청 없이 정리한다
+function destroyLeftovers(connections: ReturnType<Boundary["voiceConnections"]>, client: ShutdownBot["client"] | null, reason: string) {
+  for (const [guildId, connection] of connections) {
+    const name = client?.guilds.cache.get(guildId)?.name ?? guildId;
+    try {
+      connection.destroy(false);
+      log.info(`음성 연결 정리: ${name} | 원인=${reason} | 레지스트리에 없던 연결`);
+    } catch (error) {
+      log.error(`음성 연결 정리 실패: ${name}`, error);
+    }
+  }
+}
+
+// 플레이어의 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결을 정리한다
 async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
@@ -147,7 +157,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   await Promise.race([Promise.all(clears), new Promise((done) => (cap = setTimeout(done, STATUS_CLEAR_MS)))]);
   clearTimeout(cap);
   if (cleared) log.info(`음성 채널 상태 문구 지움: ${cleared}곳`);
-  if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행합니다: ${pending}곳`);
+  if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행: ${pending}곳`);
 
   // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
   for (const [, player] of players) player?.voice.release(reason);
@@ -168,18 +178,21 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   if (client) await closeClient(client);
   const pot = await potServer.stop();
   if (pot === "stopped") log.info("POToken 서버 내림");
-  else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내립니다");
+  else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내림");
 
   // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
   // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 
+  // 끊었지만 삭제하지 못한 로그인 세션을 마지막으로 다시 삭제한다(남으면 다시 시작한 뒤 되살아나니 그 수를 남긴다)
+  finishSessions();
+
   log.info("종료 완료");
   if (logFile) logFile.close();
 }
 
-// 디스코드 연결을 닫고 닫는 프레임이 나가기를 상한까지 기다린다
+// 디스코드 연결을 닫고 close 프레임이 나가기를 상한까지 기다린다
 async function closeClient(client: { destroy(): unknown }) {
   let cap: NodeJS.Timeout | undefined;
   const closing = Promise.resolve()
@@ -191,7 +204,7 @@ async function closeClient(client: { destroy(): unknown }) {
   const how = await Promise.race([closing, new Promise<"timeout">((done) => (cap = setTimeout(done, CLIENT_CLOSE_MS, "timeout")))]);
   clearTimeout(cap);
   if (how === "closed") log.info("디스코드 연결 닫음");
-  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행합니다`);
+  else if (how === "timeout") log.warn(`디스코드 연결이 ${CLIENT_CLOSE_MS / 1000}초 안에 닫히지 않아 그대로 진행`);
 }
 
 // 라벨별 개수. 예: "ffmpeg:playback 2 · yt-dlp 1"

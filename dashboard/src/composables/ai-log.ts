@@ -4,6 +4,9 @@
 import { computed, onScopeDispose, reactive, ref, watch } from "vue";
 import axios from "axios";
 import { eventLink } from "../utils/event-link.ts";
+import { aiLogSync } from "./ai-log-sync.ts";
+import { blocked, live as canStream } from "./session.ts";
+import { checkSession, withUid } from "../stores/user.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
 import { AI_LOG_PAGE, aiLogMatches, type AiLogDetail, type AiLogEntry, type AiLogPage, type AiLogPushed, type AiLogQuery, type AiLogSource, type AiLogStorage } from "../../../src/dashboard/contract/ai-log.ts";
@@ -124,12 +127,21 @@ function liveState(list: List, open: { value: Set<number> }) {
     fresh.value = [];
   }
   const link = eventLink({
-    url: () => `/api/admin/ai/logs/stream?after=${lastId}`,
+    url: () => withUid(`/api/admin/ai/logs/stream?after=${lastId}`),
     open: (url) => new EventSource(url, { withCredentials: true }),
-    check: async () => (await axios.get("/api/me")).status === 200,
+    check: (quiet) => checkSession(quiet),
     onState: (state) => (connected.value = state === "open"),
-    events: { message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed) },
+    // gap: 재연결할 때 놓친 줄을 다 받지 못했다(서버 상한 초과). 목록을 다시 읽어 빈 곳을 채운다
+    events: {
+      message: (event) => onPushed(JSON.parse(String(event.data)) as AiLogPushed),
+      // 놓친 줄의 마지막 번호가 실려 온다. 연결을 다시 열 때도 그 번호 뒤부터 받는다
+      gap: (event) => {
+        lastId = Math.max(lastId, Number(event.lastEventId) || 0);
+        onGap();
+      },
+    },
   });
+  let onGap: () => void = () => undefined;
   function start() {
     lastId = list.entries.value[0]?.id ?? 0;
     link.start();
@@ -138,7 +150,7 @@ function liveState(list: List, open: { value: Set<number> }) {
     link.stop();
     connected.value = false;
   }
-  return { fresh, atTop, connected, showFresh, start, stop };
+  return { fresh, atTop, connected, showFresh, start, stop, whenGap: (fn: () => void) => (onGap = fn) };
 }
 
 /** 리퀘스트 로그 화면 하나. active: 화면이 보이는가(보일 때 읽고 SSE 연결을 연다) */
@@ -175,19 +187,18 @@ export function useAiLog(active: () => boolean) {
       searchTimer = setTimeout(() => void reload(), SEARCH_WAIT_MS);
     },
   );
-  watch(
-    active,
-    async (on) => {
-      if (!on) return live.stop();
-      await reload();
-      live.start();
-    },
-    { immediate: true },
-  );
+  // 연결을 여닫는 로직은 aiLogSync가 맡는다(화면이 보일 때만 열며, 다시 읽기는 처음 열 때, 떠났다가 돌아올 때, 차단된 뒤, 읽기 실패 시에만 수행)
+  const opener = aiLogSync({ active, canStream, blocked, reload, loadFailed: () => Boolean(list.loadError.value), start: live.start, stop: live.stop });
+  live.whenGap(() => void reload());
+  watch([active, blocked], () => void opener.sync(), { immediate: true });
+  // 탭 숨김 상태(document.hidden)는 반응형이 아니므로 이벤트로 따로 감지한다
+  const onVisibility = () => void opener.sync();
+  document.addEventListener("visibilitychange", onVisibility);
 
   onScopeDispose(() => {
+    opener.dispose();
+    document.removeEventListener("visibilitychange", onVisibility);
     clearTimeout(searchTimer);
-    live.stop();
   });
 
   return { ...list, ...detail, ...live, clearing, reload, loadMore: () => list.load(true), clearAll };

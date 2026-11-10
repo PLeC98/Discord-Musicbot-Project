@@ -1,5 +1,5 @@
 // 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
-// 권한, 재적, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
+// 권한, 동일 음성 채널, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";
@@ -17,10 +17,15 @@ type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 
-const refuse = (interaction: Asked, r: Problem) => noticeSelf(interaction, controlMessage(r));
+// 거절. "하는 중" 자리표시자로 이미 답했으면(받아들인 뒤의 거절) 그 자리표시자를 안내로 바꾼다
+function refuse(interaction: Asked, r: Problem) {
+  const notice = controlMessage(r);
+  return interaction.replied ? replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)) : noticeSelf(interaction, notice);
+}
 
+// 실패로 일시정지해 둔 곡의 ▶는 곡을 다시 열어 몇 초 걸린다. 받아들이면 "다시 트는 중"을 먼저 본인에게 답한다
 async function answerPause(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.pause(player, { member: interaction.member });
+  const r = await controls.pause(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.reopening()) });
   if (!r.ok) return refuse(interaction, r);
   return toAll(interaction, replies.paused(r.userPaused, r.track, interaction.member, r.heldBy), LIFETIME.result);
 }
@@ -37,10 +42,10 @@ async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.previous(r.restarted, r.track), LIFETIME.result);
 }
 
+// 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 답한다(유스케이스의 onAccepted)
 async function answerStop(interaction: Asked, player: MaybePlayer) {
-  const r = await controls.stop(player, { member: interaction.member });
+  const r = await controls.stop(player, { member: interaction.member }, { onAccepted: (facts) => toAll(interaction, replies.stopped(facts.cleared, interaction.member, facts.stayed), LIFETIME.farewell) });
   if (!r.ok) return refuse(interaction, r);
-  return toAll(interaction, replies.stopped(r.cleared, interaction.member, r.stayed), LIFETIME.farewell);
 }
 
 async function answerShuffle(interaction: Asked, player: MaybePlayer) {
@@ -99,4 +104,4 @@ async function answerHighlight(interaction: Asked, player: MaybePlayer, { onNone
   return toAll(interaction, replies.highlighted(r.ms), LIFETIME.result);
 }
 
-export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight };
+export { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerVolume, answerReplay, answerSeek, answerHighlight, acceptWith, refuse };

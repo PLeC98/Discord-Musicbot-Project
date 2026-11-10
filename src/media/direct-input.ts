@@ -2,11 +2,11 @@
 //   live       끝이 없다(인터넷 라디오, 라이브 HLS). 캐시하지 않는다
 //   bounded    끝이 있고 크기, 길이를 안다(크기를 알린 파일, VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
-// HLS 의 큰 세그먼트(sources/hls 가 모으지 않고 넘긴 것)는 여기서 흘릴 스트림으로 바꾼다: 크기를 알리면 청크 스트림으로 끊긴 자리부터 잇고,
-// 모르면 모은 앞부분 뒤에 나머지를 잇는다. AES-128 은 흘리며 푼다(이어 받는 것은 암호문이라 끊김과 상관없다)
+// HLS의 큰 세그먼트(sources/hls가 모으지 않고 넘긴 것)는 여기서 스트림으로 바꾼다: 크기를 알면 청크 스트림(media/chunked-stream)으로,
+// 모르면 이어 받는 스트림(media/resuming-body)으로 끊긴 위치부터 잇는다. AES-128은 스트리밍하며 복호화한다(이어받는 것은 암호문이라 끊김과 상관없다)
 
 import crypto from "crypto";
-import { PassThrough, Transform, pipeline, type Readable } from "stream";
+import { Transform, pipeline, type Readable } from "stream";
 import config from "../config/index.ts";
 import * as SafeUrl from "../infra/safe-url.ts";
 import * as DirectLink from "../sources/direct.ts";
@@ -15,29 +15,32 @@ import type { HlsFragments, HlsPart, HlsPour } from "../sources/hls.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { streamFragments, type FragmentSource } from "./fragment-stream.ts";
 import { createChunkedStream, readerOf, type RangeFetch } from "./chunked-stream.ts";
+import { createResumingBody, type Resumed } from "./resuming-body.ts";
+import { segmentStart } from "../rules/hls-segment-start.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "link" });
 
-/** 이어받을 재료: 전체 크기, 처음 응답의 검사값(If-Range), 가드를 지나는 Range 요청 */
+/** 이어받을 재료: 전체 크기, 처음 응답의 검증값(If-Range), 가드를 지나는 Range 요청 */
 type Resumable = { totalBytes: number; validator: string | null; fetch: RangeFetch };
 type DirectInput = Readable & {
   headers?: Record<string, unknown>;
   live: boolean;
   bounded: boolean;
   resumable?: Resumable;
-  /** 곡 안의 어느 위치(ms)부터 흘리나(HLS VOD 는 위치가 든 세그먼트부터) */
+  /** 내보내기 시작하는 곡 안의 위치(ms). HLS VOD 는 그 위치를 포함한 세그먼트부터 */
   startedAtMs?: number;
   describe?(): string;
 };
 /**
  * startMs: 곡 안의 시작 위치(HLS VOD 만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg 의 -ss)
  * liveOnly: 라이브로 추가된 곡이다. HLS 의 목록이 끝났으면 틀지 않고 live-ended(다시보기를 처음부터 틀지 않는다)
+ * onResumed: HLS 세그먼트가 끊겼다 이어 받기 시작했을 때(파일은 여는 쪽의 청크 스트림이 알린다)
  */
-type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number };
+type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number; onResumed?: (info: Resumed) => void };
 type Open = (url: string, net?: undefined, opts?: { bodyIdleMs?: number }) => Promise<DirectLink.DirectOpen>;
 type GuardedGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
 
-/** 처음 응답의 검사값. 강한 ETag(W/ 가 아닌 것), 없으면 Last-Modified */
+/** 처음 응답의 검증값. 강한 ETag(W/ 가 아닌 것), 없으면 Last-Modified */
 function validatorOf(headers: Record<string, unknown> = {}): string | null {
   const etag = headers.etag;
   if (typeof etag === "string" && etag && !etag.startsWith("W/")) return etag;
@@ -47,7 +50,7 @@ function validatorOf(headers: Record<string, unknown> = {}): string | null {
 
 /**
  * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
- * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 다시 받지 않는다
+ * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 재시도하지 않는다
  */
 function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   return async (url, { headers, signal }) => {
@@ -74,7 +77,7 @@ function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   };
 }
 
-async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs }: InputOptions = {}, open: Open = DirectLink.open): Promise<DirectInput> {
+async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs, onResumed }: InputOptions = {}, open: Open = DirectLink.open): Promise<DirectInput> {
   const opened = await open(url, undefined, { bodyIdleMs });
   if (opened.kind === "file") {
     const { body, radio, length } = opened;
@@ -84,22 +87,22 @@ async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bod
     return Object.assign(body, { live: radio, bounded, ...(resumable ? { resumable } : {}) });
   }
   const { hls } = opened;
-  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS 의 목록이 끝났습니다: ${url}`);
-  return Object.assign(streamFragments(pouringSource(hls.fragments(startMs)), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
+  if (liveOnly && !hls.live) throw codedError("live-ended", `라이브 HLS의 목록이 끝남: ${url}`);
+  return Object.assign(streamFragments(pouringSource(hls.fragments(startMs), onResumed), { stallMs: hls.idleMs }), { live: hls.live, bounded: !hls.live });
 }
 
 const ignore = () => {
-  /* 사슬의 끝(세그먼트 스트림)이 오류를 받는다 */
+  /* 파이프라인의 끝(세그먼트 스트림)이 오류를 받는다 */
 };
 const permanent = (message: string) => Object.assign(new Error(message), { permanent: true });
 
-/** HLS 의 세그먼트 출처를 세그먼트 스트림의 출처로. 모은 세그먼트는 그대로, 넘긴 세그먼트는 흘릴 스트림으로 */
-function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
+/** HLS의 세그먼트 출처를 세그먼트 스트림의 출처로 바꾼다. 모은 세그먼트는 그대로 두고, 넘긴 세그먼트는 스트림으로 바꾼다 */
+function pouringSource(fragments: HlsFragments, onResumed?: (info: Resumed) => void): FragmentSource<HlsPart> {
   return {
     next: () => fragments.next(),
     fetch: async (part, signal, progress) => {
       const got = await fragments.fetch(part, signal, progress);
-      return Buffer.isBuffer(got) ? got : pourOf(got, signal, progress);
+      return Buffer.isBuffer(got) ? got : pourOf(got, signal, progress, onResumed);
     },
     startedAtMs: fragments.startedAtMs,
     describe: (sent) => fragments.describe(sent),
@@ -108,14 +111,14 @@ function pouringSource(fragments: HlsFragments): FragmentSource<HlsPart> {
 }
 
 /**
- * 넘긴 세그먼트를 흘릴 스트림으로. 이제 이 함수가 본문의 주인이다(흘리기 전에 실패하면 닫는다).
- * 크기를 알린 AES 는 흘리기 전에 키를 본다. 합계는 맨 끝에(다시 받을 때 두 번 세지 않게): 알린 크기를 한 번, 모르면 흐르는 바이트를
+ * 넘긴 세그먼트를 스트림으로 바꾼다. 이제 이 함수가 본문의 주인이다(내보내기 전에 실패하면 닫는다).
+ * 크기를 아는 AES는 내보내기 전에 키를 확인한다. 합계는 맨 끝에 센다(다시 받을 때 두 번 세지 않게): 크기를 알면 한 번에, 모르면 내보내는 바이트마다 센다
  */
-async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void): Promise<Readable> {
+async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void, onResumed?: (info: Resumed) => void): Promise<Readable> {
   const { totalBytes, key, iv } = pour;
   try {
     if (key && totalBytes !== null) {
-      if (totalBytes % 16 !== 0) throw permanent(`AES-128 세그먼트의 크기가 16의 배수가 아닙니다(${totalBytes})`);
+      if (totalBytes % 16 !== 0) throw permanent(`AES-128 세그먼트의 크기가 16의 배수가 아님(${totalBytes})`);
       await checkLastBlock(pour, totalBytes, key, signal);
       progress();
     }
@@ -135,22 +138,15 @@ async function pourOf(pour: HlsPour, signal: AbortSignal, progress: () => void):
           ifRange: validatorOf(pour.headers),
           fetchImpl: guardedRanges((url, deps, opts) => pour.get(url, deps, { ...opts, bodyIdleMs: pour.idleMs })),
           stallMs: pour.idleMs,
+          onResumed,
         })
-      : withHead(pour.head, pour.body);
-  // 사슬은 pipeline 으로 잇는다(끝을 부수면 앞도, 앞이 실패하면 끝도)
+      : createResumingBody({ url: pour.url, body: pour.body, head: pour.head, validator: validatorOf(pour.headers), get: pour.get, accept: OPEN_ACCEPT, idleMs: pour.idleMs, onResumed });
+  // 각 단계는 pipeline으로 잇는다(끝을 닫으면 앞도 닫히고, 앞이 실패하면 끝도 닫힌다)
   const stages = [...(totalBytes === null ? [counter(pour.count)] : []), ...(key && iv ? [decrypting(key, iv)] : [])];
   for (const stage of stages) {
     pipeline(out, stage, ignore);
     out = stage;
   }
-  return out;
-}
-
-/** 모은 앞부분 뒤에 남은 본문 */
-function withHead(head: Buffer | null, body: Readable): Readable {
-  const out = new PassThrough();
-  if (head?.length) out.write(head);
-  pipeline(body, out, ignore);
   return out;
 }
 
@@ -168,7 +164,7 @@ function counter(count: (bytes: number) => void): Transform {
   });
 }
 
-/** PKCS7 패딩의 길이(1 ~ 16). 깨졌으면 null */
+/** PKCS7 패딩의 길이(1 ~ 16)를 구한다. 깨졌으면 null이다 */
 function paddingOf(block: Buffer): number | null {
   const pad = block[block.length - 1];
   if (block.length !== 16 || pad < 1 || pad > 16) return null;
@@ -176,14 +172,17 @@ function paddingOf(block: Buffer): number | null {
 }
 
 /**
- * AES-128-CBC 를 흘리며 푼다. 덩이 사이에 남은 바이트를 이어 온전한 블록만 풀고, 푼 마지막 블록은 끝까지 쥐었다가 PKCS7 을 뗀다.
- * 끝이 깨졌으면 warn 을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 조각(16바이트 미만)만 버리거나(그 앞 블록은 마지막이 아니라 그대로 흘린다), 패딩이 깨진 마지막 블록을 버린다.
+ * AES-128-CBC를 스트리밍하며 복호화한다. 청크 사이에 남은 바이트를 이어 온전한 블록만 복호화하고, 복호화한 마지막 블록은 끝까지 들고 있다가 PKCS7 패딩을 뗀다.
+ * 키 확인: 복호화한 앞부분이 HLS 컨테이너로 시작하는지(rules/hls-segment-start) 판정하기 전에는 아무것도 내보내지 않고, 컨테이너로 시작하지 않으면 재시도하지 않는 실패로 끝낸다.
+ * 판정할 만큼 모이기 전에 끝난 짧은 세그먼트는 암호문이 블록 단위로 다 왔고 끝 패딩과 컨테이너가 맞아야 내보낸다.
+ * 판정을 통과한 뒤 끝이 깨졌으면 warn을 남기고 깨끗이 끝낸다: 블록이 되지 않은 끝 바이트(16바이트 미만)만 버리거나(그 앞 블록은 마지막 블록이 아니므로 패딩을 떼지 않고 그대로 내보낸다), 패딩이 깨진 마지막 블록을 버린다.
  * 오류로 끝내면 재생 쪽이 같은 세그먼트를 처음부터 다시 받아 같은 곳에서 또 실패한다
  */
 function decrypting(key: Buffer, iv: Buffer): Transform {
   const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv).setAutoPadding(false);
   let rest = Buffer.alloc(0); // 아직 블록이 되지 않은 암호문
-  let held: Buffer | null = null; // 푼 마지막 블록(끝인지 아직 모른다)
+  let held: Buffer | null = null; // 복호화한 마지막 블록(끝인지 아직 모른다)
+  let front: Buffer | null = Buffer.alloc(0); // 키를 확인하기 전에 복호화해 보류해 둔 앞부분 평문. 판정을 통과해 내보내면 null
   return new Transform({
     transform(chunk: Buffer, _encoding, done) {
       const data = rest.length ? Buffer.concat([rest, chunk]) : chunk;
@@ -193,16 +192,28 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       const plain = decipher.update(data.subarray(0, whole));
       const all = held ? Buffer.concat([held, plain]) : plain;
       held = all.subarray(all.length - 16);
-      done(null, all.subarray(0, all.length - 16));
+      const out = all.subarray(0, all.length - 16);
+      if (!front) return done(null, out);
+      front = Buffer.concat([front, out]);
+      const verdict = segmentStart(front);
+      if (verdict === "more") return done();
+      if (verdict === "bad") return done(wrongKey("복호화한 앞부분이 TS, ID3, fMP4 로 시작하지 않음"));
+      const checked = front;
+      front = null;
+      done(null, checked);
     },
     flush(done) {
+      if (front) {
+        const segment = shortSegment(front, rest, held);
+        return segment instanceof Error ? done(segment) : done(null, segment);
+      }
       if (rest.length) {
-        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버립니다(암호문이 잘림)`);
+        log.warn(`HLS 세그먼트의 끝이 블록이 되지 않아 마지막 ${rest.length}바이트를 버림(암호문이 잘림)`);
         return done(null, held ?? undefined);
       }
       const pad = held ? paddingOf(held) : null;
       if (!held || pad === null) {
-        log.warn(`HLS 세그먼트의 끝을 풀지 못해 마지막 ${held?.length ?? 0}바이트를 버립니다(패딩이 맞지 않음)`);
+        log.warn(`HLS 세그먼트의 끝을 복호화하지 못해 마지막 ${held?.length ?? 0}바이트를 버림(패딩이 맞지 않음)`);
         return done();
       }
       done(null, held.subarray(0, 16 - pad));
@@ -210,9 +221,20 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
   });
 }
 
+const wrongKey = (why: string) => permanent(`HLS 세그먼트의 키가 맞지 않음(${why})`);
+
+// 판정할 만큼 모이기 전에 끝난 짧은 세그먼트. 암호문이 블록 단위로 다 왔고, 끝 패딩이 맞고, 세그먼트 전체가 컨테이너 형식에 맞아야 내보낼 평문을 돌려준다. 아니면 키 불일치 오류
+function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer | Error {
+  if (rest.length || !held) return wrongKey("짧은 세그먼트의 암호문이 블록 단위가 아님");
+  const pad = paddingOf(held);
+  if (pad === null) return wrongKey("짧은 세그먼트의 끝 패딩이 깨짐");
+  const segment = Buffer.concat([front, held.subarray(0, 16 - pad)]);
+  return segmentStart(segment, true) === "ok" ? segment : wrongKey("짧은 세그먼트가 TS, ID3, fMP4 가 아님");
+}
+
 /**
- * 흘리기 전에 키를 본다: 끝 32바이트를 Range 로 받아 앞 블록을 IV 로 마지막 블록을 풀고 PKCS7 이 맞는지. 틀리면 다시 받지 않는 실패(틀린 키면 쓰레기가 ffmpeg 로 먼저 간다).
- * 믿는 것은 그 자리, 그 전체의 206 에서 정확히 32바이트뿐. 구간을 주지 않거나(200) 받지 못하면 건너뛴다(끝은 decrypting 이 받는다). 신호의 취소만 던진다. 응답은 어느 길이든 닫는다
+ * 내보내기 전에 키를 확인한다: 끝 32바이트를 Range로 받아 앞 블록을 IV로 삼아 마지막 블록을 복호화하고 PKCS7 패딩이 맞는지 본다. 틀리면 재시도하지 않는 실패로 처리한다(틀린 키면 깨진 데이터가 ffmpeg로 먼저 간다).
+ * 요청한 구간과 전체 크기가 일치하는 206 응답의 32바이트만 신뢰한다. 구간을 주지 않거나(200) 받지 못하면 건너뛴다(끝 블록은 decrypting이 처리한다). signal 취소만 던지고, 응답은 어느 길이든 닫는다
  */
 async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, signal: AbortSignal) {
   const from = totalBytes - 32;
@@ -221,7 +243,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     body = await pour.get(pour.url, undefined, { accept: OPEN_ACCEPT, from, to: totalBytes - 1, signal, bodyIdleMs: pour.idleMs });
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(끝 블록을 받지 못함): ${messageOf(error)}`);
+    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 받지 못함): ${messageOf(error)}`);
     return;
   }
   let tail: Buffer | null = null;
@@ -230,17 +252,17 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
     if (body.status === 206 && range && Number(range[1]) === from && Number(range[2]) === totalBytes - 1 && Number(range[3]) === totalBytes) tail = await firstBytes(body, 33, signal);
   } catch (error) {
     if (signal.aborted) throw signal.reason;
-    log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(끝 블록을 읽지 못함): ${messageOf(error)}`);
+    log.debug(`HLS 세그먼트의 키 확인 건너뜀(끝 블록을 읽지 못함): ${messageOf(error)}`);
     return;
   } finally {
     body.destroy();
   }
-  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인을 건너뜁니다(구간 응답이 아님)`);
+  if (tail?.length !== 32) return void log.debug(`HLS 세그먼트의 키 확인 건너뜀(구간 응답이 아님)`);
   const last = crypto.createDecipheriv("aes-128-cbc", key, tail.subarray(0, 16)).setAutoPadding(false).update(tail.subarray(16));
-  if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않습니다(마지막 블록의 패딩이 깨짐)");
+  if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않음(마지막 블록의 패딩이 깨짐)");
 }
 
-/** 앞에서부터 많아야 limit 바이트. signal 이 끊으면 그 사유로 */
+/** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 던진다 */
 async function firstBytes(body: Readable, limit: number, signal: AbortSignal): Promise<Buffer> {
   const stop = () => body.destroy(signal.reason instanceof Error ? signal.reason : undefined);
   signal.addEventListener("abort", stop, { once: true });
@@ -258,5 +280,5 @@ async function firstBytes(body: Readable, limit: number, signal: AbortSignal): P
   }
 }
 
-export { openDirectInput, guardedRanges, validatorOf };
+export { openDirectInput, guardedRanges, validatorOf, decrypting };
 export type { DirectInput, InputOptions as DirectInputOptions, Resumable };

@@ -34,9 +34,8 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "bot-in-other-voice": () => warning("voice", "음성 채널에 들어갈 수 없어요!", "이미 다른 채널에 접속해 있어요. 먼저 그 채널에서 내보내거나, 더 이상 그 채널에서 사용하지 않을 때까지 기다려 주세요."),
   "must-dj": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작을 하려면 DJ 역할을 갖고 있어야 해요."),
   // 설정 화면은 서버 관리 권한이 있어야 만진다
-  "must-moderator": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
+  "must-server-manager": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작에는 서버 관리 권한이 필요해요!"),
   "stay-stage": () => warning("voice", "스테이지 채널에는 자리를 잡을 수 없어요.", "상주 모드는 일반 음성 채널에서만 쓸 수 있어요."),
-  "stay-leave-moderator": () => warning("permission", "상주 모드가 켜져 있어서 나갈 수 없어요.", "서버 관리 권한이 있는 사람만 `/leave`로 내보내거나 `/247`로 상주 모드를 끌 수 있어요."),
   // 봇 운영자(OWNER_ID)만 쓰는 화면을 다른 사람이 열었다
   "must-owner": () => warning("permission", "이 조작을 할 권한이 없어요.", "이 조작은 봇 운영자 전용이에요."),
   // 검색 결과 버튼은 검색한 사람만 누른다
@@ -130,6 +129,10 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "network-error": () => error("failed", "연결 오류가 발생했어요!", "해당 플랫폼에 연결하지 못했어요. 보통은 일시적인 오류이니 잠시 뒤에 다시 시도해 보세요. 오류가 계속되면 봇 운영자에게 알려주세요."),
   "stream-failed": () => error("failed", "오디오를 받아오지 못했어요!", "링크에 성공적으로 접속했지만 정상적으로 재생 가능한 음원을 가져오지 못했어요. 다시 시도하거나 다른 버전을 넣어 주세요."),
   "voice-failed": () => error("voice", "음성 채널에 들어가지 못했어요!", "채널 인원 제한이나 네트워크 문제일 수 있어요. 잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 알려 주세요."),
+  // 플레이어 없이 음성 채널에만 남은 봇을 게이트웨이로도, REST 로도 빼지 못했다(멤버 옮기기 권한이 없는 등)
+  "leave-failed": () => error("voice", "음성 채널에서 나가지 못했어요!", "잠시 후 다시 시도해 보고, 계속되면 서버 관리자에게 봇을 음성 채널에서 내보내 달라고 해 주세요."),
+  // 나가기를 기다리는 사이 누가 봇을 다시 불렀다. 새로 붙은 연결은 쫓아내지 않는다
+  "leave-superseded": () => warning("stale", "그사이 누가 봇을 다시 불렀어요!", "그래서 나가지 않았어요. 나가게 하려면 다시 실행해 주세요."),
   // 운영자 설정, 잠시 못 함
   "rate-limited": () => error("failed", "요청이 너무 많아요...!", "해당 플랫폼이 제 요청을 차단했어요. 몇 분 뒤에 다시 해 보고, 계속되거나 자주 발생하면 봇 운영자에게 알려주세요."),
   // 운영자가 쿠키를 다시 넣으면 풀린다
@@ -162,14 +165,16 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
 
   // 대시보드: 웹 오류 화면처럼 무엇이 안 됐는지, 왜, 어떻게 하면 되는지(코드는 화면이 끝 줄에 붙인다). 접속, 권한
   "login-required": () => warning("permission", "로그인이 필요해요!", "로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요."),
+  "account-changed": () => warning("permission", "다른 계정으로 로그인했어요!", "다른 창에서 다른 계정으로 로그인해서, 이 화면으로는 더 조작할 수 없어요. 새로고침하면 지금 계정으로 열려요."),
   // 화면이 새 토큰으로 한 번 다시 보내므로 사람에게는 그 뒤에도 거절됐을 때만 보인다
-  "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 10분 안에만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
+  "reauth-required": () => warning("permission", "다시 로그인해 주세요!", "보안을 위해 이 조작은 로그인한 지 얼마 안 됐을 때만 할 수 있어요. 새 창에서 다시 로그인한 뒤 다시 시도해 주세요."),
   "bad-csrf-token": (_, look) => warning("stale", "요청을 확인하지 못했어요!", `보안 토큰이 맞지 않아 요청을 받지 않았어요. ${stalePage(look)}`),
   "no-guild-access": () => warning("permission", "이 서버를 볼 수 없어요!", "봇이 있는 서버 중 내가 멤버인 서버만 볼 수 있어요. 그 서버에서 나갔다면 서버 목록에서도 빠져요."),
   "bad-tier": (_, look) => warning("input", "알 수 없는 권한 수준이에요!", stalePage(look)),
   // 대시보드: 상태
   "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
+  "bot-shutting-down": () => error("waiting", "봇이 종료 중이에요!", "봇이 다시 시작되면 그때 시도해 주세요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 선택해 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),
@@ -211,7 +216,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 표시된 입력란을 고친 뒤에 다시 저장해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
-  "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP 이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
+  "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
   "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),
   "archive-too-many-files": ({ max }) => warning("state", "캐시 파일이 너무 많아요!", `한 번에 ${max ?? 0}개까지 내보낼 수 있어요. 캐시 파일 제외로 내보내 주세요.`),
   "upload-gone": () => warning("stale", "올린 파일이 없어졌어요!", "올린 지 1시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요."),
@@ -221,6 +226,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "log-file-not-found": () => warning("notFound", "없는 로그 파일이에요!", "보관 개수를 넘어 삭제됐거나 파일 로그를 껐어요. 페이지를 새로고침해 파일 목록을 다시 받아 주세요."),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
+  "sign-out-unsaved": () => error("failed", "로그인 기록을 삭제하지 못했어요!", "지금 실행 중인 봇에서는 로그아웃됐지만 저장소에서 로그인 기록을 삭제하지 못했어요. 봇이 계속 삭제를 재시도하고 있지만, 그 전에 봇을 다시 시작하면 로그인이 되살아날 수 있어요. 봇 운영자에게 저장 공간을 확인해 달라고 알려 주세요."),
   // 대시보드: 파비콘(업로드한 이미지, 링크로 다운로드하는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),
@@ -241,7 +247,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 대시보드: 로그인 배경
   "background-not-editable": () => warning("state", "지금은 편집할 수 없어요!", "편집은 올린 뒤 한 번만 할 수 있어요. 바꾸려면 다시 올려 주세요."),
   "background-not-ready": () => warning("state", "아직 만드는 중인 배경이에요!", "완성된 배경만 기록에서 선택할 수 있어요."),
-  "upload-busy": () => warning("state", "다른 파일을 받고 있어요!", "받는 중인 파일이 쓸 공간을 미리 잡아 두었어요. 다 받은 뒤 다시 올려 주세요."),
+  "upload-busy": () => warning("state", "다른 파일을 업로드하는 중이에요!", "업로드 중인 파일이 쓸 공간을 미리 잡아 두었어요. 업로드가 끝난 뒤 다시 올려 주세요."),
   "background-no-space": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 기록을 지우거나 디스크를 비운 뒤 다시 시도해 주세요.`),
   "background-failed": () => error("failed", "배경을 만들지 못했어요!", "봇 로그에 적힌 원인을 확인하고 다시 올려 주세요."),
   "background-bad-source": () => warning("input", "쓸 수 없는 파일이에요!", "이미지, 영상, 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요."),

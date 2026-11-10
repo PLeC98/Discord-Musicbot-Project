@@ -243,3 +243,16 @@ test("운영자 패널의 조작은 동기화가 끝난 뒤에 돈다(한 줄)",
   assert.equal(created.at(-1), "create dancing", "동기화가 아이콘을 다 올린 뒤");
   assert.equal(created.length, total + 1);
 });
+
+test("운영자 패널: 순서를 기다려 목록을 받은 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 디스코드에 변경 요청을 보내지 않는다", async () => {
+  const app = fakeApp([{ id: "3", name: "party", animated: false, mine: false }]);
+  const emojis = new AppEmojis(app.api, { onChanged: async () => {} });
+  const ended = () => {
+    throw new Error("세션이 끝났다");
+  };
+  await assert.rejects(emojis.add("dancing", Buffer.from("x"), ended), /세션이 끝났다/);
+  await assert.rejects(emojis.rename("3", "party_two", ended), /세션이 끝났다/);
+  await assert.rejects(emojis.remove("3", ended), /세션이 끝났다/);
+  assert.deepEqual(app.calls, []);
+  assert.deepEqual(names(app), ["party"]);
+});

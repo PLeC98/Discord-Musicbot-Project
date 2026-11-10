@@ -11,6 +11,7 @@ import { isPublicIp } from "../infra/public-address.ts";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace, LoginDevice } from "./contract/identity.ts";
+import { clientIp } from "./client-ip.ts";
 const log = logger.child({ category: "dashboard" });
 
 /** 기기 기록. ip 는 그때 요청의 주소(믿는 프록시 뒤면 실제 주소) */
@@ -47,7 +48,7 @@ const userAgentOf = (req: Request) => String(req.get("user-agent") ?? "").slice(
 
 /** 로그인 때(세션을 새로 만든 뒤) 처음 적는다 */
 function recordLogin(req: Request, now = Date.now()) {
-  const sealed = seal(req.sessionID, { ua: userAgentOf(req), ip: req.ip ?? "", signedInAt: now, seenAt: now });
+  const sealed = seal(req.sessionID, { ua: userAgentOf(req), ip: clientIp(req), signedInAt: now, seenAt: now });
   if (sealed) req.session.device = sealed;
 }
 
@@ -59,7 +60,7 @@ function noteDevice(req: Request, _res: Response, next: NextFunction) {
   if (req.session?.user) {
     const now = Date.now();
     const ua = userAgentOf(req);
-    const ip = req.ip ?? "";
+    const ip = clientIp(req);
     const was = openRecord(req.sessionID, req.session.device);
     if (!was || now - was.seenAt >= SEEN_EVERY_MS || was.ip !== ip || was.ua !== ua) {
       const sealed = seal(req.sessionID, { ua, ip, signedInAt: was?.signedInAt ?? req.session.loginAt ?? now, seenAt: now });

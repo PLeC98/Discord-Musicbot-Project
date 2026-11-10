@@ -65,7 +65,7 @@ const REAL: Boundary = {
       return fs.readdirSync(dir);
     } catch (error) {
       // 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 폴더를 읽지 못했습니다: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 폴더 읽기 실패: ${messageOf(error)}`);
       return [];
     }
   },
@@ -140,7 +140,7 @@ function readRecords(dir: string, io: Boundary): Found[] {
     const record = parse(io.read(file));
     if (record) found.push({ file, record });
     else {
-      log.debug(`자식 프로세스 기록을 읽지 못해 삭제합니다: ${name}`);
+      log.debug(`자식 프로세스 기록을 읽지 못해 삭제: ${name}`);
       io.remove(file);
     }
   }
@@ -176,7 +176,7 @@ function sweepLeftoverChildren(dir: string, boundary: Partial<Boundary> = {}, is
   if (!procs) {
     const old = records.filter(({ record }) => io.now() - record.owner.startedAt > GIVE_UP_MS);
     for (const { file } of old) io.remove(file);
-    log.warn(`잔류 자식 프로세스를 확인하지 못해 기록 ${records.length - old.length}개를 두고 다음 기동에서 다시 확인합니다${old.length ? `(7일 넘은 기록 ${old.length}개는 삭제)` : ""}`);
+    log.warn(`잔류 자식 프로세스를 확인하지 못해 기록 ${records.length - old.length}개를 두고 다음 기동에서 다시 확인${old.length ? `(7일 넘은 기록 ${old.length}개는 삭제)` : ""}`);
     return [];
   }
 
@@ -185,12 +185,12 @@ function sweepLeftoverChildren(dir: string, boundary: Partial<Boundary> = {}, is
   for (const found of records) {
     const { owner } = found.record;
     if (owner.pid !== io.self.pid && same(byPid.get(owner.pid), owner)) {
-      log.warn(`기록을 남긴 봇 프로세스(pid ${owner.pid})가 아직 실행 중이어서 그 기록의 잔류 자식 프로세스 정리를 건너뜁니다. 봇이 중복 실행 중인지 확인하세요`);
+      log.warn(`기록을 남긴 봇 프로세스(pid ${owner.pid})가 아직 실행 중이라 그 기록의 잔류 자식 프로세스 정리를 건너뜀. 봇이 중복 실행 중인지 확인하세요`);
       continue;
     }
     killed.push(...sweepRecord(found, procs, byPid, io, isWin));
   }
-  if (killed.length) log.warn(`이전 실행의 잔류 자식 프로세스 ${killed.length}개를 종료했습니다: ${killed.join(", ")}`);
+  if (killed.length) log.warn(`이전 실행의 잔류 자식 프로세스 ${killed.length}개 종료: ${killed.join(", ")}`);
   return killed;
 }
 

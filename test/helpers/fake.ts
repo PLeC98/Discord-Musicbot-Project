@@ -27,7 +27,7 @@ type PlayerKeys<X> = { [K in keyof X]: K extends keyof Player ? unknown : never 
 /**
  * 가짜 플레이어. fields 는 진짜 플레이어의 키만, extras 는 테스트만 쓰는 필드(호출 기록 등).
  * fields 의 메서드 안에서 this 는 fields 만 본다. 테스트만 쓰는 값을 메서드가 읽으려면 바깥 변수로 둔다.
- * 재생 단계(lifecycle)를 주지 않았으면 쉬는 단계를 붙인다(실패로 멈춰 뒀나, 여는 중인가를 여러 곳이 본다). 받은 객체에 붙이므로 게터는 그대로다
+ * 재생 단계(lifecycle)를 주지 않았으면 쉬는 단계를 붙인다(실패로 일시정지해 뒀나, 여는 중인가를 여러 곳이 본다). 받은 객체에 붙이므로 게터는 그대로다
  */
 const fakePlayer = <X extends PlayerKeys<X>, E extends object = Record<never, never>>(fields: X, extras?: E) => {
   if (extras) Object.assign(fields, extras);

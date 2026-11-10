@@ -161,7 +161,7 @@ class QueueWarmer {
 
     autoplayRoute.markDead(track);
     trackState.removeAt(this.player, index);
-    log.info(`자동재생 곡을 대기열에서 제거합니다(영상 없음): "${logTitle(track.title)}". 다른 곡을 선택합니다`);
+    log.info(`자동재생 곡을 대기열에서 제거(영상 없음): "${logTitle(track.title)}". 다른 곡 선택`);
 
     // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
     if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 슬롯의 자동재생 곡 선택");
@@ -235,7 +235,7 @@ class QueueWarmer {
           // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
           // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 다운로드한다.
           // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
-          log.debug(`사전 캐싱 실패, 재생할 때 다시 다운로드합니다: "${logTitle(track.title)}"`);
+          log.debug(`사전 캐싱 실패(재생할 때 다시 다운로드): "${logTitle(track.title)}"`);
           this._failed.add(track);
         }
 

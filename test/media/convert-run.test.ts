@@ -23,7 +23,7 @@ function longFlac(): boolean {
 }
 
 test("진행이 오는 동안은 멈춤 한도보다 오래 걸려도 끊지 않는다", { timeout: 120_000 }, async (t) => {
-  if (!longFlac()) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!longFlac()) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   audioConvert.useConvertStall(1000);
   const started = Date.now();
   const made = await audioConvert.toCacheOpus(at("long.flac"), at("long.opus"));

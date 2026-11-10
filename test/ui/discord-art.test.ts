@@ -39,10 +39,19 @@ test("artFor: 곡 그림 주소가 있으면 그 큰 것, 직접 링크 곡은 �
   assert.deepEqual(await artFor({ thumbnail: yt("artforvideo") }), { url: yt("artforvideo", "maxresdefault") });
   const url = "https://files.test/artfor.mp3";
   assert.equal(await artFor({ thumbnail: null, audioUrl: url }), null, "아직 모른다");
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const art = await artFor({ thumbnail: null, audioUrl: url });
   assert.equal(art?.url, "attachment://art.jpg");
   assert.equal(art?.file?.name, "art.jpg");
   assert.ok(art?.file?.attachment.length && art.fingerprint);
   assert.equal(await artFor(null), null);
+});
+
+test("artFor wait:false: 유튜브 큰 썸네일 확인을 기다리지 않고 아는 답(모르면 hqdefault)을 쓴다. 확인은 뒤에서 해 둔다", async () => {
+  let release!: (value: { ok: boolean; status: number }) => void;
+  _internals.useHead(() => new Promise((resolve) => (release = resolve)));
+  assert.deepEqual(await artFor({ thumbnail: yt("nowaitvideo") }, { wait: false }), { url: yt("nowaitvideo", "hqdefault") });
+  release({ ok: true, status: 200 });
+  await prepare(yt("nowaitvideo"));
+  assert.equal(urlOf(yt("nowaitvideo")), yt("nowaitvideo", "maxresdefault"), "뒤에서 확인해 둔 답은 다음부터 쓴다");
 });

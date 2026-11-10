@@ -133,7 +133,7 @@ test("줄에서 기다린 시간은 정보 호출의 한도에 들지 않는다"
   const outcome = (url: string) =>
     run(url, { dumpSingleJson: true }).then(
       () => "ok",
-      (error: YtDlpError) => (/끝나지 않아 내렸습니다/.test(error.message) ? "한도" : "실패"),
+      (error: YtDlpError) => (/끝나지 않아 내림/.test(error.message) ? "한도" : "실패"),
     );
 
   const a = outcome("https://youtu.be/a");
@@ -203,7 +203,7 @@ test("다운로드는 파일 묶음이 한도 동안 그대로면 내리고 연�
     // 가짜 자식은 스스로 끝나지 않으므로 이 오류가 온 것이 감시가 내렸다는 뜻이다.
     // 한도 뒤 곧 알리는지는 아래 감시 테스트가 본다(여기서 시간을 재면 taskkill 이 섞인다. 부하가 걸리면 그것만 몇 초)
     assert.equal(error?.code, "network-error");
-    assert.match(String(error?.message), /나아가지 않아/);
+    assert.match(String(error?.message), /진행되지 않아/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -256,7 +256,7 @@ test("다운로드는 파일 묶음이 바뀌는 동안 둔다(크기가 줄어�
       );
       await new Promise((wait) => setTimeout(wait, 1000)); // 한도(300ms)의 세 배 넘게 바뀌는 동안
       finish("https://youtu.be/x", true);
-      assert.doesNotMatch(await done, /나아가지 않아/);
+      assert.doesNotMatch(await done, /진행되지 않아/);
     } finally {
       clearInterval(writer);
     }

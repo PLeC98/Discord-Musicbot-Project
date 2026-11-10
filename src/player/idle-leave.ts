@@ -72,7 +72,7 @@ class IdleLeave {
   _startAlone() {
     const player = this.player;
     if (this.aloneTimer || this.seated()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없습니다. ${Math.round(this.aloneMs / 1000)}초 뒤 정리합니다`);
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 없음. ${Math.round(this.aloneMs / 1000)}초 뒤 정리`);
     this.aloneAt = Date.now() + Math.max(this.aloneMs, 0);
     this.aloneTimer = setTimeout(
       () => {
@@ -87,7 +87,7 @@ class IdleLeave {
   _endAlone() {
     const player = this.player;
     if (!this._clearAlone()) return;
-    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 복귀하여 정리를 취소합니다`);
+    log.info(`서버 ${player.guild?.name ?? player.guild?.id}의 채널 ${player.voiceChannel?.name ?? player.voiceChannel?.id ?? "없음"}에 사람이 돌아와 정리 취소`);
     this.announce();
   }
 
@@ -113,7 +113,7 @@ class IdleLeave {
     const listeners = channel?.isVoiceBased() ? listenersIn(channel.members.values()) : 0;
     if (listeners > 0) return; // 사유, 패널은 syncHolds 가 풀었다
 
-    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 실패로 멈춰 둔 곡이면 세션을 남긴다(사람이 고른 끝이 아니다. /join 이 이어 튼다)
+    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 실패로 일시정지해 둔 곡이면 세션을 남긴다(사람이 고른 끝이 아니다. /join 이 이어 튼다)
     await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: player.lifecycle.parked ? "save" : "remove", panel: "disconnected", end: "alone-timeout" });
   }
 

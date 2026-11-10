@@ -36,7 +36,7 @@ test("유튜브 곡은 그대로 자기 주소를 쓴다", async () => {
   assert.equal(asks.at(-1)?.url, "https://www.youtube.com/watch?v=zzz");
 });
 
-test("음원을 직접 트는 곡은 주소 서술자만 돌려준다. 여기서 열면 프리로드가 연결을 흘린다", async () => {
+test("음원을 직접 트는 곡은 주소 서술자만 돌려준다. 여기서 열면 프리로드에서 연결 누수가 생긴다", async () => {
   const got = await streamUrl.getStream({ platform: "animethemes", audioUrl: "https://a.animethemes.moe/X.ogg" }, { youtube });
   assert.deepEqual(got, { url: "https://a.animethemes.moe/X.ogg", platform: "direct", httpHeaders: {}, liveStatus: null, audioKey: `dl:${md5("https://a.animethemes.moe/X.ogg")}` });
 });

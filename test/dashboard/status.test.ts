@@ -115,6 +115,24 @@ test("게이트웨이 로그: 디스코드가 재연결을 요청한 것은 재�
   assert.match(lines[0], /^30 게이트웨이 재연결: 세션 재개 \| 시도 1회 \| 원인=디스코드가 재연결을 요청함\(op 7\), 코드 4200/);
 });
 
+test("게이트웨이 로그: 봇이 직접 닫은 종료(client.destroy)는 끊김이 아니다. discord.js가 재연결 이벤트를 내도 로그를 남기지 않고 시도로 세지 않는다", () => {
+  const lines = gatewayRun((client) => {
+    client.emit(Events.Debug, destroying("Manager was destroyed", 1000));
+    client.emit(Events.ShardReconnecting, 0);
+    client.emit(Events.ShardError, new Error("socket hang up"), 0);
+    assert.equal(gateway().retryAttempt, null);
+  });
+  assert.deepEqual(lines, []);
+  // 재연결 이벤트가 닫힌 까닭보다 먼저 와도 같다
+  const late = gatewayRun((client) => {
+    client.emit(Events.ShardReconnecting, 0);
+    client.emit(Events.Debug, destroying("Manager was destroyed", 1000));
+    client.emit(Events.ShardReconnecting, 0);
+    assert.equal(gateway().retryAttempt, null);
+  });
+  assert.deepEqual(late, []);
+});
+
 test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 때 info. 까닭이 시도 알림보다 늦게 와도 같다", () => {
   const lines = gatewayRun((client) => {
     // 디스코드 쪽에서 닫혔다: 시도 알림이 먼저, 닫은 까닭은 그 뒤
@@ -124,7 +142,7 @@ test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.ShardReady, 0);
   });
-  assert.deepEqual(lines, ["40 게이트웨이 연결이 끊겼습니다 (샤드 0): 닫힘 코드 1006. 재연결하는 중입니다", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006; 연결 오류 1번(첫: connect ECONNREFUSED)"]);
+  assert.deepEqual(lines, ["40 게이트웨이 연결 끊김(샤드 0): 닫힘 코드 1006. 재연결 중", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006; 연결 오류 1번(첫: connect ECONNREFUSED)"]);
 });
 
 test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 warn 으로 남기고, 그 까닭이 다음 끊김에 남지 않는다", () => {
@@ -146,7 +164,7 @@ test("게이트웨이 로그: 재연결하지 않는 닫힘은 오류와 합쳐 
     client.emit(Events.Debug, destroying("none", 4004));
     client.emit(Events.ShardDisconnect, { code: 4004 }, 0);
   });
-  assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않습니다 (샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
+  assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않음(샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
 });
 
 test("자식 프로세스: 프로그램, 서버 이름, 일. 재생, 다음 곡 일인데 그 서버에 플레이어가 없으면 잔류 의심", () => {

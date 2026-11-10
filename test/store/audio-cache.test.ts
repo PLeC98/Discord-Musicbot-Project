@@ -147,8 +147,8 @@ test("evict: 저장된 세션은 지금 곡과 대기열 앞부분(사전 캐시
       left,
       [0, 1, 2, 3, 4].map((i) => `yt:${id(i)}`),
     );
-    const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개를 삭제했습니다"));
-    assert.equal(line?.text, "오디오 캐시 4개를 삭제했습니다 (5개 남음, 5MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 5개는 지키고)");
+    const line = sink.buffer.slice(from).find((e) => e.text.startsWith("오디오 캐시 4개 삭제"));
+    assert.equal(line?.text, "오디오 캐시 4개 삭제(5개 남음, 5MB) - 목표선까지 내려가지 못함(재생 중이거나 대기열 앞에 있는 곡 5개는 지키고)");
   } finally {
     sessions().removeSession("g-front");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -163,7 +163,7 @@ test("evict: 삭제할 수 있는 곡이 없어도 결과 줄을 남긴다", asy
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 0 }, () => audioCache.evict());
-    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개를 삭제했습니다 (1개 남음, 1MB) - 목표선까지 내려가지 못했습니다 (재생 중이거나 대기열 앞에 있는 곡 1개는 지키고)"));
+    assert.ok(sink.buffer.slice(from).some((e) => e.text === "오디오 캐시 0개 삭제(1개 남음, 1MB) - 목표선까지 내려가지 못함(재생 중이거나 대기열 앞에 있는 곡 1개는 지키고)"));
   } finally {
     audioCache.unprotect("g-evict");
     conn.prepare("DELETE FROM audio_cache").run();
@@ -200,8 +200,8 @@ test("evict: 응답 없는 파일은 기다리지 않고 행을 남기며, 이�
     assert.ok(left().includes("stuck"), "삭제하지 못한 파일의 행은 남는다");
     assert.equal(left().length, 2, "나머지를 삭제해 목표선(3의 90%) 아래로: stuck 과 하나");
     const logs = sink.buffer.slice(from).map((e) => e.text);
-    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행에서는 건너뜁니다")));
-    assert.ok(logs.some((t) => t.includes(" - 1개는 삭제하지 못했습니다")));
+    assert.ok(logs.some((t) => t.startsWith("캐시 파일 삭제가 0.05초 안에 끝나지 않아 이번 실행에서는 건너뜀")));
+    assert.ok(logs.some((t) => t.includes(" - 1개는 삭제하지 못함")));
 
     calls.length = 0;
     await withCacheLimits({ maxFiles: 1 }, () => audioCache.evict());
@@ -228,10 +228,10 @@ test("evictIfNeeded: 넘은 상한을 알리고, 겹쳐 불러도 한 번만 돈
   const from = sink.buffer.length;
   try {
     await withCacheLimits({ maxFiles: 5 }, () => Promise.all([audioCache.evictIfNeeded(), audioCache.evictIfNeeded()]));
-    const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("오디오 캐시가 상한을 넘었습니다"));
+    const lines = sink.buffer.slice(from).filter((e) => e.text.startsWith("오디오 캐시가 상한을 넘음"));
     assert.deepEqual(
       lines.map((e) => e.text),
-      ["오디오 캐시가 상한을 넘었습니다 (파일 6개 / 5개) - 상한의 90%까지 정리합니다."],
+      ["오디오 캐시가 상한을 넘음(파일 6개 / 5개). 상한의 90%까지 정리"],
       "넘은 것만 적는다(용량은 넘지 않았다)",
     );
     assert.equal(unlinks, 2, "6개 → 4개(5의 90%). 겹친 부름이 같은 행을 또 지우지 않는다");
@@ -576,6 +576,19 @@ test("캐시 불러오기(adoptFile): 버전이 있으면 그 파일을 받은 �
   assert.equal(adopted, true);
   const row = cacheDb.get().prepare("SELECT audio_version, version_checked_at FROM audio_cache WHERE audio_key = ?").get("yt:adoptadopt1");
   assert.deepEqual(row, { audio_version: "lmt:1", version_checked_at: 1_700_000_000_000 });
+});
+
+test("정리 잠금을 기다린 뒤 그만두면(go가 던짐, 대시보드의 세션 끝) 초기화도 캐시 파일 삭제도 하지 않는다", async () => {
+  await withTempCacheDir(async () => {
+    const file = seedCached("yt:go", 1234);
+    const ended = () => {
+      throw new Error("세션이 끝났다");
+    };
+    await assert.rejects(audioCache.resetCache(AUDIO_CACHE_PARTS_DEFAULT, ended), /세션이 끝났다/);
+    await assert.rejects(audioCache.removeCached("yt:go", undefined, ended), /세션이 끝났다/);
+    assert.ok(audioCache.lookupByAudioKey("yt:go"), "행이 남는다");
+    assert.ok(fs.existsSync(file), "파일이 남는다");
+  });
 });
 
 test("다운로드 기록 직후 닫혀도 예약된 캐시 정리가 DB를 다시 열지 않는다", async () => {

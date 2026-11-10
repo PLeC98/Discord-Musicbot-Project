@@ -46,7 +46,7 @@ function clientFreshness(dist: string, root: string): Freshness {
   return changed.length ? { state: "stale", changed } : { state: "fresh" };
 }
 
-const REBUILD = "pnpm run build:dashboard로 빌드하세요(봇은 다시 시작하지 않아도 됩니다)";
+const REBUILD = "pnpm run build:dashboard로 빌드하세요(봇은 다시 시작하지 않아도 됨)";
 const SHOWN = 3;
 
 /** 운영자에게 남길 경고. 새것이면 null */
@@ -55,13 +55,13 @@ function freshnessWarning(freshness: Freshness): string | null {
     case "fresh":
       return null;
     case "missing":
-      return `대시보드 화면이 빌드되지 않았습니다. ${REBUILD}.`;
+      return `대시보드 화면이 빌드되지 않음. ${REBUILD}`;
     case "unknown":
-      return `대시보드 화면 빌드가 언제 것인지 알 수 없습니다(빌드 정보 없음). ${REBUILD}.`;
+      return `대시보드 화면 빌드 시점을 알 수 없음(빌드 정보 없음). ${REBUILD}`;
     case "stale": {
       const { changed } = freshness;
       const more = changed.length > SHOWN ? ` 외 ${changed.length - SHOWN}개` : "";
-      return `대시보드 빌드 결과물이 소스 코드보다 오래됐습니다(빌드 후 변경된 화면 소스 ${changed.length}개: ${changed.slice(0, SHOWN).join(", ")}${more}). ${REBUILD}.`;
+      return `대시보드 빌드 결과물이 소스 코드보다 오래됨(빌드 후 변경된 화면 소스 ${changed.length}개: ${changed.slice(0, SHOWN).join(", ")}${more}). ${REBUILD}`;
     }
   }
 }

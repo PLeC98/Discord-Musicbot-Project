@@ -77,7 +77,7 @@ async function run(args: string[]): Promise<void> {
   const done = await runFfmpeg([...PROGRESS_ARGS, ...args], { label: "download", stallMs, discardStdout: true });
   if (done.code === 0) return;
   const tail = done.stderr.trim().slice(-1000);
-  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊었습니다` : `FFmpeg 종료 (code=${done.code ?? "없음"}, signal=${done.signal ?? "없음"})`;
+  const why = done.timedOut ? `진행이 ${stallMs / 1000}초 동안 멈춰 끊음` : `FFmpeg 종료 (code=${done.code ?? "없음"}, signal=${done.signal ?? "없음"})`;
   throw codedError("stream-failed", tail ? `${why}: ${tail}` : why);
 }
 

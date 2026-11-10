@@ -85,7 +85,7 @@ function genres(): GenresConfig {
   } catch (error) {
     if (codeOf(error) !== "CONFIG_INVALID") throw error;
     const message = messageOf(error);
-    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 직전에 맞던 설정으로 돕니다." : "고칠 때까지 자동재생 장르가 없습니다. 운영자 패널의 자동재생 탭에서 고치세요."}`);
+    if (message !== reported) log.error(`${message}\n   ${lastGood ? "고칠 때까지 이전 정상 설정으로 동작" : "고칠 때까지 자동재생 장르가 없음. 운영자 패널의 자동재생 탭에서 고치세요"}`);
     reported = message;
     return lastGood ?? EMPTY;
   }
@@ -102,7 +102,7 @@ function checkedGenres(): GenresConfig {
   // 이름, 숫자 이름, 이모지도 같은 검사가 본다(대시보드 저장 전 검사와 같은 문구). 문제를 한 번에 다 알린다
   const shape = validateGenres(loaded);
   if (shape.length) {
-    throw Object.assign(new Error(["자동재생 장르 설정을 읽을 수 없습니다:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(["자동재생 장르 설정 읽기 실패:", ...shape.map((p) => `   ${p}`)].join("\n")), { code: "CONFIG_INVALID" });
   }
   const data = loaded as Partial<GenresConfig>; // 검사를 지났다
 
@@ -119,7 +119,7 @@ function checkedGenres(): GenresConfig {
 function keyCheck(name: string, genre: Genre) {
   const list = Array.isArray(genre?.sources) ? genre.sources : [];
   if (!list.length) {
-    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없습니다. 운영자 패널의 자동재생 탭에서 확인하세요.`), { code: "CONFIG_INVALID" });
+    throw Object.assign(new Error(`자동재생 장르 ${name}에 소스와 키워드가 하나도 없음. 운영자 패널의 자동재생 탭에서 확인하세요`), { code: "CONFIG_INVALID" });
   }
   const missing: string[] = [];
   let alive = 0;
@@ -158,10 +158,10 @@ function checkSourceKeys(genres: Record<string, Genre>) {
   }
 
   for (const [missing, names] of grouped) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 씁니다.`);
+    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 그 소스를 빼고 나머지 소스만 사용`);
   }
   for (const [missing, names] of dead) {
-    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없습니다. 키를 입력하기 전까지 이 장르는 선택할 수 없습니다.`);
+    lines.push(`자동재생 장르 ${names.join(", ")}: ${missing} 키가 없어 쓸 소스가 없음. 키를 입력하기 전까지 이 장르는 선택할 수 없음`);
   }
 
   // 곡을 선택할 때마다 불리므로 내용이 달라졌을 때만 남긴다

@@ -6,7 +6,7 @@ import * as helpText from "./text/ko/help.ts";
 /** 도움말의 섹션. 순서는 SECTIONS */
 type HelpSection = "play" | "queue" | "mode" | "explore" | "channel" | "info";
 /** 누가 쓸 수 있나. dj-or-requester 는 자기가 넣은 곡이면 누구나, dj-outside-bot-channel 은 봇 전용 채널에서는 누구나 */
-type HelpTier = "everyone" | "dj" | "dj-or-requester" | "dj-outside-bot-channel" | "moderator" | "owner";
+type HelpTier = "everyone" | "dj" | "dj-or-requester" | "dj-outside-bot-channel" | "server-manager" | "owner";
 /** 명령 모듈이 적는 도움말 항목. null 이면 도움말에 싣지 않는다(/help 자신) */
 type HelpEntry = { section: HelpSection; tier: HelpTier };
 

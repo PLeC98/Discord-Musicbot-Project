@@ -12,7 +12,7 @@ const aiLogDb = new DbFile({
   fileName: "ai-requests.db",
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: { lost: "AI 리퀘스트 로그와 사용량 통계가 사라집니다." },
+  onMismatch: { lost: "AI 리퀘스트 로그와 사용량 통계가 사라짐" },
   // 삭제한 공간을 파일에서 돌려준다(로그를 계속 순환 삭제하고, 비우면 파일도 줄어야 한다)
   autoVacuum: "INCREMENTAL",
   createTables,

@@ -6,7 +6,7 @@ import * as controls from "../../usecases/controls.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
 import { answerVolume } from "./control-answers.ts";
 import { route, type Route } from "./route.ts";
-import { PANEL, customId, partsOf } from "../../ui/custom-ids.ts";
+import { PANEL, customId, partsOf, entryOfJump } from "../../ui/custom-ids.ts";
 import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
 
 async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, { players }: BotContext) {
@@ -16,8 +16,11 @@ async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, 
     return await noticeSelf(interaction, errors.notice("stale-session"));
   }
 
-  const r = await controls.jump(player, { member: interaction.member }, Number(interaction.values[0]));
-  if (!r.ok && r.code === "bad-position") return await noticeSelf(interaction, errors.notice("jump-target-gone"));
+  // 대기열 ID 가 아닌 값은 번호를 값으로 쓰던 옛 메뉴의 값이다(재기동과 맞물린 패널)
+  const entry = entryOfJump(interaction.values[0]);
+  if (entry === null) return await noticeSelf(interaction, errors.notice("jump-target-gone"));
+  const r = await controls.jump(player, { member: interaction.member }, entry);
+  if (!r.ok && r.code === "entry-gone") return await noticeSelf(interaction, errors.notice("jump-target-gone"));
   if (!r.ok) return await noticeSelf(interaction, controlMessage(r));
 
   await toAll(interaction, replies.jumped(r.track), LIFETIME.result);

@@ -16,8 +16,10 @@ import type { Candidate } from "./sources/candidate.ts";
 
 const TTL_MS = 60 * 60 * 1000; // 며칠 켜 둔 봇이 같은 풀에 갇히지 않게
 const MAX_POOLS = 64; // 설정을 자주 고쳐도 무한히 늘지 않게
+const MAX_TRACKS = 2000; // 함께 채운 목록을 보탤 때 한 풀이 쥐는 곡 수 상한(소스 한 번은 많아야 1000곡)
 
-const pools = new Map<string, { tracks: Candidate[]; fetchedAt: number; used: Set<string> }>();
+type Pool = { tracks: Candidate[]; fetchedAt: number; used: Set<string> };
+const pools = new Map<string, Pool>();
 
 // 키는 설정 내용으로 만든다. 키 순서가 달라도 같은 설정이면 같은 풀이어야 한다.
 // weight는 뺀다. 어느 풀을 선택할지에만 쓰이지, 풀 내용과는 상관이 없다.
@@ -41,6 +43,19 @@ function keyOf(source: unknown): string {
 
 // 곡 하나를 가리키는 값. 같은 곡이 두 번 나오지 않게 하는 데만 쓴다.
 const idOf = (track: Candidate | null | undefined) => String(track?.sourceKey ?? track?.youtubeUrl ?? track?.audioUrl ?? `${track?.artist ?? ""}|${track?.title ?? ""}`);
+
+// 같은 곡은 한 번만(skip에 든 곡은 빼고). 풀은 곡 수로 다 썼는지 본다
+function unique(tracks: Candidate[], skip = new Set<string>()) {
+  return tracks.filter((track) => {
+    const id = idOf(track);
+    if (skip.has(id)) return false;
+    skip.add(id);
+    return true;
+  });
+}
+
+// 아직 낼 곡이 있고 오래되지 않았다
+const usable = (pool: Pool, at: number) => pool.used.size < pool.tracks.length && at - pool.fetchedAt <= TTL_MS;
 
 function sweep(now: number) {
   for (const [key, pool] of pools) if (now - pool.fetchedAt > TTL_MS) pools.delete(key);
@@ -66,8 +81,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
   let pool = pools.get(key);
 
   // 비었거나, 다 썼거나, 오래됐으면 다시 채운다. 채울 때 무작위 오프셋을 새로 정하는 것은 fill의 몫이다.
-  const spent = pool && pool.used.size >= pool.tracks.length;
-  if (!pool || spent || now - pool.fetchedAt > TTL_MS) {
+  if (!pool || !usable(pool, now)) {
     let tracks: Candidate[];
     try {
       tracks = (await fill(source)) || [];
@@ -77,9 +91,17 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
       return null;
     }
     if (!tracks.length) return null;
-    pool = { tracks, fetchedAt: now, used: new Set() };
-    pools.set(key, pool);
-    log.debug(`자동재생 풀을 채웠습니다 (${source?.type}): ${tracks.length}곡`);
+    // 채우는 사이 다른 서버가 이 소스를 새로 채웠으면 받은 곡을 그 풀에 보탠다. 덮으면 그 풀에서 이미 낸 곡이 다시 나오고,
+    // 버리면 그 풀에 남은 곡이 이 서버가 싫다는 곡뿐일 때 빈손이 된다
+    const other = pools.get(key);
+    if (other && usable(other, Date.now())) {
+      other.tracks.push(...unique(tracks, new Set(other.tracks.map(idOf))).slice(0, Math.max(0, MAX_TRACKS - other.tracks.length)));
+      pool = other;
+    } else {
+      pool = { tracks: unique(tracks), fetchedAt: now, used: new Set() };
+      pools.set(key, pool);
+      log.debug(`자동재생 풀 채움(${source?.type}): ${tracks.length}곡`);
+    }
   }
 
   // 아직 안 쓴 것 중에서 무작위로. 부르는 쪽이 싫다는 것은 건너뛰되 썼다고 치지 않는다
@@ -105,4 +127,4 @@ function _reset() {
   pools.clear();
 }
 
-export { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS };
+export { take, stats, keyOf, _reset, TTL_MS, MAX_POOLS, MAX_TRACKS };

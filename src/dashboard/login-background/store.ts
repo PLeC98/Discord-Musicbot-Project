@@ -157,7 +157,7 @@ function readIndex(folder = dir): Index {
     raw = JSON.parse(fs.readFileSync(path.join(folder, INDEX), "utf8")) as Partial<Index>;
   } catch (error) {
     // 아직 없거나 망가졌다: 빈 기록으로
-    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 기록(${INDEX})을 읽지 못해 빈 기록으로 시작합니다(기록에 없는 배경 폴더는 삭제): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 기록(${INDEX}) 읽기 실패(빈 기록으로 시작, 기록에 없는 배경 폴더는 삭제): ${messageOf(error)}`);
   }
   const items = (Array.isArray(raw?.items) ? raw.items : []).filter(isStored).filter((one) => fs.existsSync(path.join(folder, one.id)));
   const current = items.some((one) => one.id === raw?.current) ? (raw!.current as string) : null;

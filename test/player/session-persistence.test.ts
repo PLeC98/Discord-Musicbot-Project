@@ -17,6 +17,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
+import { codedError } from "../../src/rules/error-kind.ts";
+import sink from "../../src/infra/log/sink.ts";
 import { stateDb } from "../../src/store/state-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { textOf } from "../helpers/cv2.ts";
@@ -297,7 +299,7 @@ test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남�
   ({ session } = loaded(p.guild.id));
   assert.equal(session.loopMode, "queue");
   assert.equal(session.autoplay, "kpop");
-  assert.equal(session.userPaused, true, "혼자 남아 멈춘 동안 사람이 멈춰 둔 것도 남는다");
+  assert.equal(session.userPaused, true, "혼자 남아 멈춘 동안 사람이 일시정지한 것도 남는다");
 });
 
 test("곡도 대기열도 없으면 세션을 삭제한다", async () => {
@@ -361,7 +363,7 @@ async function restore(record: RestoredSession, setup: (p: TestPlayer) => void =
   return p;
 }
 
-test("복원: 사람이 멈춰 둔 세션은 멈춘 상태로", async () => {
+test("복원: 사람이 일시정지한 세션은 멈춘 상태로", async () => {
   const p = await restore(makeRecord({ userPaused: true }));
   assert.deepEqual(p.calls[0], ["play", 30_000, true], "play 시작 시점에 이미 사람의 뜻이 걸려 즉시 멈춘다");
   assert.equal(p.paused, true);
@@ -585,7 +587,7 @@ test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다
   assert.ok(playing.sent[0].content.startsWith("### 🔄 봇이 복구됐어요\n기록된 마지막 재생 상태를 이어갈게요."), playing.sent[0].content);
 });
 
-test("복원: 무엇이 됐나를 돌려준다(이어 틂, 틀 곡을 열지 못함, 틀 곡 없음)", async () => {
+test("복원: 무엇이 됐나를 돌려준다(이어 재생, 재생할 곡을 열지 못함, 재생할 곡 없음)", async () => {
   const { sp } = makeRestorePlayer();
   assert.equal(await sp.restoreFromState(makeRecord()), "restored");
 
@@ -732,4 +734,18 @@ test("재생을 시작한 차례(주기 저장에 넣고, 재생 저장으로 �
   } finally {
     sp.stopPeriodicSave();
   }
+});
+
+test("복원: 종료 중이라 음성에 붙지 않았으면 error 줄 없이 그 원인(bot-shutting-down)을 그대로 던진다", async () => {
+  const { p: saved } = makePlayer();
+  trackState.setCurrent(saved, t("now"));
+  const record = loaded(saved.guild.id);
+  const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id }, connection: null });
+  p.voice = fake<Player["voice"]>({ connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) });
+  const start = sink.buffer.at(-1)?.id ?? -1;
+  await assert.rejects(sp.restoreFromState(record), { code: "bot-shutting-down" });
+  assert.deepEqual(
+    sink.buffer.filter((r) => r.id > start && r.level === "error").map((r) => r.text),
+    [],
+  );
 });

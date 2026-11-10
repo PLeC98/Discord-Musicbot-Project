@@ -22,7 +22,7 @@ const TIER_MARK: Record<HelpTier, () => string> = {
   dj: () => icon("dj"),
   "dj-or-requester": () => `${icon("dj")} (자기가 추가한 곡은 누구나)`,
   "dj-outside-bot-channel": () => `(봇 전용 채널에서는 전원, 그 외 ${icon("dj")})`,
-  moderator: () => icon("shield"),
+  "server-manager": () => icon("shield"),
   owner: () => "(봇 운영자)",
 };
 /** 줄 끝의 권한 표시. 누구나 쓰면 빈 문자열 */

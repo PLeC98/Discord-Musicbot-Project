@@ -208,10 +208,10 @@ test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정�
   const cases: Array<[Buffer, RegExp]> = [
     [await rezip(file, (entries) => [...entries, { name: at("source"), data: Buffer.from("원본") }]), /모르는 파일/],
     [await rezip(file, (entries) => [...entries, { name: "login-background/abcdefghijklmnopqrstuvwx/still-1280.webp", data: Buffer.from("x") }]), /모르는 파일/],
-    [await rezip(file, (entries) => entries.filter((entry) => entry.name !== at("still-1280.webp"))), /정지 그림\(still-1280\.webp\)이 없습니다/],
-    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from("#EXTM3U\nhttps://evil.example/seg.m4s\n") } : entry))), /목록을 쓸 수 없습니다/],
-    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://evil.example/key"\nseg-000.m4s\n') } : entry))), /목록을 쓸 수 없습니다/],
-    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("still-1280.webp") ? { ...entry, data: Buffer.from("그림 아님") } : entry))), /그 폭의 WebP 가 아닙니다/],
+    [await rezip(file, (entries) => entries.filter((entry) => entry.name !== at("still-1280.webp"))), /정지 이미지\(still-1280\.webp\)가 없어요/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from("#EXTM3U\nhttps://evil.example/seg.m4s\n") } : entry))), /목록을 쓸 수 없어요/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("h264/720/index.m3u8") ? { ...entry, data: Buffer.from('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://evil.example/key"\nseg-000.m4s\n') } : entry))), /목록을 쓸 수 없어요/],
+    [await rezip(file, (entries) => entries.map((entry) => (entry.name === at("still-1280.webp") ? { ...entry, data: Buffer.from("그림 아님") } : entry))), /그 폭의 WebP가 아니에요/],
   ];
   for (const [bad, why] of cases) {
     const { row } = await preview(bad);
@@ -222,11 +222,11 @@ test("남이 준 파일: 모르는 파일, 기록에 없는 배경, 빠진 정�
   const index = indexOf(file);
   index.items[0].done = ["receive"];
   const unfinished = await rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
-  assert.match((await preview(unfinished)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
+  assert.match((await preview(unfinished)).row.problems.join(), /완성된 배경 형식이 아닌 기록/);
   index.items[0].done = [...one.stages];
   index.items[0].media.color = "url(https://evil.example)";
   const colored = await rezip(file, (entries) => entries.map((entry) => (entry.name === "login-background/index.json" ? { ...entry, data: Buffer.from(JSON.stringify(index)) } : entry)));
-  assert.match((await preview(colored)).row.problems.join(), /다 만든 배경의 형식이 아닌 기록/);
+  assert.match((await preview(colored)).row.problems.join(), /완성된 배경 형식이 아닌 기록/);
 
   assert.deepEqual(
     store.items().map((one) => one.id),
@@ -253,10 +253,10 @@ test("풀다 실패하면(내용이 깨졌다) 푼 것을 삭제하고 지금 �
   store.show(one.id);
   store.save();
   const file = await exported();
-  // 세그먼트의 몸통을 바꾼다(목차의 CRC 와 어긋나 풀 때 걸린다)
+  // 세그먼트의 몸통을 바꾼다(중앙 디렉터리의 CRC 와 어긋나 풀 때 걸린다)
   const at = file.indexOf(Buffer.from("segment"));
   file[at] ^= 0xff;
-  assert.deepEqual((await preview(file)).row.problems, [], "미리 보기는 목차 · 목록 · 그림만 본다");
+  assert.deepEqual((await preview(file)).row.problems, [], "미리 보기는 중앙 디렉터리, 목록, 이미지만 본다");
   const res = await imported(file);
   assert.deepEqual([res.status, ((await res.json()) as { code: string }).code], [400, "bad-archive"]);
   assert.deepEqual(

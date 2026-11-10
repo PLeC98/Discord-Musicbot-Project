@@ -41,7 +41,7 @@ const expand = (ikm: Buffer, info: string, bytes: number) => Buffer.from(crypto.
 
 function keys(purpose = "secrets") {
   const raw = keyOverride ?? config.secrets.key;
-  if (!raw) throw codedError("SECRETS_KEY_MISSING", "SECRETS_KEY 가 없어 비밀값을 다룰 수 없습니다");
+  if (!raw) throw codedError("SECRETS_KEY_MISSING", "SECRETS_KEY 가 없어 비밀값을 다룰 수 없음");
   if (derived?.raw !== raw) {
     const ikm = Buffer.from(raw, "base64");
     derived = { raw, ikm, id: expand(ikm, "musicbot secrets v1 key-id", 8).toString("hex"), enc: new Map() };
@@ -74,7 +74,7 @@ const conn = () => settingsDb.get();
 /** 저장(덮어쓰기). 값은 1바이트 이상 1MB 이하 */
 function put(name: string, value: string, binding: Binding = {}) {
   const bytes = Buffer.from(value, "utf8");
-  if (!value.trim() || bytes.length > MAX_BYTES) throw codedError("SECRET_INVALID", `비밀값 ${name} 은 비어 있지 않고 1MB 이하여야 합니다`);
+  if (!value.trim() || bytes.length > MAX_BYTES) throw codedError("SECRET_INVALID", `비밀값 ${name}: 비어 있으면 안 되고 1MB 이하여야 함`);
   const { enc, id } = keys();
   const provider = binding.provider ?? "";
   const endpoint = originOf(binding.endpoint);

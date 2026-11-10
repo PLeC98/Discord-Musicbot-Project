@@ -75,7 +75,7 @@ function playCommand({ name, description, help, permission, insertFirst = false 
   };
 }
 
-// 곡 추가는 전 계층 가능. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부
+// 곡 추가는 전 계층 가능. 봇 동작 중에는 동일 음성 채널 규칙, 유휴 시에는 소환 가능 여부
 const exported = playCommand({
   help: { section: "play", tier: "everyone" },
   name: "play",

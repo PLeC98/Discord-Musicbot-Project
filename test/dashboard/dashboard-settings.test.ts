@@ -31,7 +31,7 @@ type Reply = ProblemReply & {
   botInVoice?: boolean;
   userInVoice?: boolean;
   sameVoice?: boolean;
-  guilds?: { id: string; listening: boolean; canManageGuild: boolean }[];
+  guilds?: { id: string; listening: boolean }[];
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
@@ -132,6 +132,8 @@ function plainMember() {
 
 // ── 앱 구성 ──────────────────────────────────────────────────
 let currentUser: object | null;
+// 권한 수준 오버라이드(세션의 viewAs). 테스트가 걸고 되돌린다
+let currentViewAs: string | undefined;
 let server: Server;
 let base: string;
 
@@ -140,6 +142,10 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use(signedInAs(() => currentUser));
+  app.use((req, _res, next) => {
+    if (currentViewAs) Object.assign(req.session, { viewAs: currentViewAs });
+    next();
+  });
   app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {} } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
@@ -152,7 +158,7 @@ const req = (method: string, urlPath: string, body?: unknown) => requestJson<Rep
 
 // ── GET /settings ────────────────────────────────────────────
 
-test("GET settings: 모더레이터. 현황 + 드롭다운 목록", async () => {
+test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1", "deleted-role"]);
   store.botChannel.set(GUILD_ID, "c2");
@@ -176,13 +182,13 @@ test("GET settings: 모더레이터. 현황 + 드롭다운 목록", async () => 
   );
 });
 
-test("GET settings: 일반 멤버는 조회도 403 (모더레이터 전용)", async () => {
+test("GET settings: 일반 멤버는 조회도 403 (서버 관리자 전용)", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
 });
 
-test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 모더레이터가 아니면 403(서버 안 우대 없음)", async () => {
+test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
   currentMember = null;
   let r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 403);
@@ -193,7 +199,7 @@ test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여�
 
   currentMember = plainMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual([r.status, r.json.code], [403, "must-moderator"]);
+  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
   currentMember = null;
   currentUser = { id: "u1", username: "tester" };
 });
@@ -209,7 +215,7 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
 
 // ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: canManage. 일반 멤버 false / 모더레이터 true", async () => {
+test("GET player: canManage. 일반 멤버 false / 서버 관리자 true", async () => {
   currentMember = plainMember();
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.status, 200);
@@ -332,7 +338,7 @@ test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드�
   documents._use("age-content");
 });
 
-// ── GET /player의 음성 재적 플래그 ───────────────────────────
+// ── GET /player의 음성 채널 접속 플래그 ───────────────────────────
 // botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
 // 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
 
@@ -389,7 +395,7 @@ test("GET player: 같은 채널이면 sameVoice가 참이고 조작이 열린다
   assert.equal(r.json.canAdd, true);
 });
 
-test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래도 조작 가능", async () => {
+test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래도 조작 가능", async () => {
   noDjRoles();
   noVoice();
   guild.members.me = { voice: voiceState("v1") };
@@ -400,7 +406,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
   assert.equal(r.json.sameVoice, false);
   assert.equal(r.json.canControl, false);
 
-  // 모더레이터는 checkVoice 면제라 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
+  // 서버 관리자는 checkVoice 면제라 화면을 가리는 조건(sameVoice)과 조작 권한이 갈린다
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.json.sameVoice, false);
@@ -413,21 +419,43 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 모더레이터는 그래�
 
 // ── GET /api/guilds 의 후보 ──
 
-test("GET guilds: 봇이 든 서버 중 지금 멤버인 곳. 운영자는 멤버가 아니어도. 서버 관리 권한은 지금 멤버 권한", async () => {
+test("GET player: canManage(서버 관리 권한)는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
+  noVoice();
+  currentUser = { id: "owner", username: "운영자" };
+  try {
+    for (const [member, viewAs, want] of [
+      [modMember, "user", false],
+      [modMember, "dj", false],
+      [modMember, "server-manager", true],
+      [plainMember, "server-manager", false],
+    ] as const) {
+      currentMember = member();
+      currentViewAs = viewAs;
+      const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+      assert.equal(r.json.canManage, want, `${member.name}: ${viewAs} 보기`);
+    }
+  } finally {
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+  }
+});
+
+test("GET guilds: 봇이 있는 서버 중 사용자가 멤버인 곳만 돌려준다. 운영자도 멤버가 아니면 보이지 않는다", async () => {
   noVoice();
   currentUser = { id: "u1", username: "tester" };
   currentMember = modMember();
   let r = await req("GET", "/api/guilds");
   assert.deepEqual(
-    r.json.guilds?.map((g) => [g.id, g.canManageGuild]),
-    [[GUILD_ID, true]],
+    r.json.guilds?.map((g) => g.id),
+    [GUILD_ID],
   );
 
   currentMember = plainMember();
   r = await req("GET", "/api/guilds");
   assert.deepEqual(
-    r.json.guilds?.map((g) => g.canManageGuild),
-    [false],
+    r.json.guilds?.map((g) => g.id),
+    [GUILD_ID],
+    "일반 멤버",
   );
 
   currentMember = null; // 나간 서버
@@ -516,7 +544,7 @@ test("GET guilds: listening은 멤버 캐시가 비어 있어도 판정된다", 
   currentUser = { id: "u1", username: "tester" };
 });
 
-// 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+// 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
 // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 곡 추가 폼을 열면 409가 난다.
 test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () => {
   noDjRoles();

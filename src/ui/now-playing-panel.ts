@@ -25,6 +25,7 @@ import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
+import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
@@ -70,7 +71,7 @@ const PIN_SETTLE_MS = 12000;
 const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME, unlessGone } from "./delivery.ts";
-import { panelId, IDLE_SESSION } from "./custom-ids.ts";
+import { panelId, IDLE_SESSION, jumpValue } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
 import * as discordArt from "./discord-art.ts";
@@ -108,7 +109,7 @@ const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length 
 // 상태 줄: 일시정지, 대기열 수, 24/7 등. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
-  // 억제 사유가 있으면 그것을, 사람만 멈췄으면 일시정지를. 억제 중에 사람이 멈춰 뒀으면(사유가 풀려도 멈춘 채) 그것도 붙인다
+  // 억제 사유가 있으면 그것을, 사람만 일시정지했으면 일시정지를 붙인다. 억제 중에 사람이 일시정지했으면(사유가 풀려도 멈춘 채) 그것도 붙인다
   const held = player.pause.heldBy;
   if (held) parts.push(panelText.pausedStatus(held));
   if (player.pause.userPaused) parts.push(held ? panelText.userPausedMark() : panelText.pausedStatus("other"));
@@ -149,6 +150,7 @@ class NowPlayingPanel {
   repinTimers = new Map<string, NodeJS.Timeout>(); // guildId → 전용 채널 재고정 디바운스
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 연속 갱신 실패(네트워크)
   attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표, 파일 태그 이미지의 fingerprint)
+  drawing = new Map<string, { player: Player; again: boolean; done: Promise<void> }>(); // guildId → 그리는 중인 재생 패널. again: 그사이 갱신 요청이 왔다
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -427,16 +429,50 @@ class NowPlayingPanel {
     return container;
   }
 
-  /** 재생 중 패널을 제자리에서 다시 그린다 */
-  async updatePlaying(player: Player) {
-    if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+  /**
+   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST 를 기다리는 동안 온 갱신(조작, 5초 갱신)은
+   * 표시만 하고 끝난 뒤 지금 상태로 한 번 더 그린다. 그래서 같은 메시지에 대한 갱신이 순서대로 나가고, 낡은 모양이 마지막에 덮지 않는다
+   */
+  updatePlaying(player: Player): Promise<void> {
+    const guildId = player?.guild?.id;
+    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+    if (!guildId) return this._drawPlaying(player);
+    const running = this.drawing.get(guildId);
+    if (running) {
+      running.player = player;
+      running.again = true;
+      return running.done;
+    }
+    const state = { player, again: false, done: Promise.resolve() };
+    state.done = (async () => {
+      try {
+        do {
+          state.again = false;
+          await this._drawPlaying(state.player);
+        } while (state.again);
+      } finally {
+        this.drawing.delete(guildId);
+      }
+    })();
+    this.drawing.set(guildId, state);
+    return state.done;
+  }
+
+  async _drawPlaying(player: Player) {
     const panel = player.nowPlayingMessage;
-    if (!panel || !player.currentTrack) return;
+    const track = player.currentTrack;
+    if (!panel || !track) return;
     if (this.reposting.has(player.guild.id)) return; // 다시 올리는 중. 그쪽이 최신 내용으로 보낸다
     if (!player.paused && this.heldProgress.delete(player.guild.id)) this.startProgressUpdate(player);
 
     try {
-      const payload = await this._playingPayload(player, player.currentTrack);
+      const payload = await this._playingPayload(player, track);
+      // 썸네일을 기다린 사이 정리됐거나 곡, 패널이 바뀌었거나 다시 올리는 중이면 보내지 않는다(늦은 재생 모양이 끝난 패널, 새 곡을 덮지 않게).
+      // 만들며 적은 첨부 기록은 보내지 않았으니 지운다
+      if (player.lifecycle?.disposed || player.currentTrack !== track || player.nowPlayingMessage !== panel || this.reposting.has(player.guild.id)) {
+        this.attachedArt.delete(player.guild.id);
+        return;
+      }
       // 웹훅이 없으면 채널로 보낸 Message 다
       if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(panel.id, payload);
       else if ("edit" in panel) await panel.edit(payload);
@@ -467,7 +503,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않았습니다. 다음 갱신에서 다시 합니다 (${where})`);
+      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -490,7 +526,7 @@ class NowPlayingPanel {
 
   // 패널을 올린 텍스트 채널이 삭제됐다. 다시 올릴 곳이 없어 패널을 놓는다
   _dropPanel(player: Player) {
-    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적을 해제합니다 (${player.guild.name ?? player.guild.id}). 재생은 계속됩니다`);
+    log.info(`재생 패널이 있던 텍스트 채널이 삭제되어 패널 추적 해제 (${player.guild.name ?? player.guild.id}). 재생은 계속`);
     this.stopProgressUpdate(player.guild.id);
     player.nowPlayingMessage = null;
     player.nowPlayingWebhook = null;
@@ -500,7 +536,7 @@ class NowPlayingPanel {
   /**
    * 끝난 패널. 재생 화면과 같은 구조에 버튼만 끈다. 썸네일 슬롯은 투명 이미지로 채워 줄 구성을 맞춘다.
    * 곡 정보는 쓰지 않는다. 부르는 곳이 현재 곡을 먼저 비운다.
-   * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | joined(/join만 함)
+   * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | restore-skipped(세션 저장됨, 기동이 이어 틀지 않음) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
     const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
@@ -528,6 +564,7 @@ class NowPlayingPanel {
     this.stopProgressUpdate(guild?.id);
 
     const live = player.nowPlayingMessage;
+    const before = player.currentTrack;
     const textChannel = player.textChannel;
     const dedicated = await this._panelIsDedicated(player, live);
 
@@ -540,10 +577,20 @@ class NowPlayingPanel {
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
     if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
 
-    // 플레이어는 이제 틀고 있는 곡, 패널이 없다
-    trackState.setCurrent(player, null);
-    player.nowPlayingMessage = null;
-    player.nowPlayingWebhook = null;
+    this._releaseEnded(player, before, live);
+  }
+
+  /**
+   * 끝난 패널을 그린 뒤: 플레이어는 이제 재생 중인 곡, 패널이 없다. before, live 는 그리기 시작할 때의 곡, 패널.
+   * 그리는 사이 새 곡, 새 패널이 생겼으면(정지 직후의 /play, 상주 모드는 같은 플레이어) 그것은 두고,
+   * 이미 비운 지금 곡을 다시 비우지 않는다(정리한 플레이어의 세션 미러가 새 플레이어가 쓴 세션 행을 삭제하지 않게)
+   */
+  _releaseEnded(player: Player, before: QueuedTrack | null, live: PanelMessage | null) {
+    if (before && player.currentTrack === before) trackState.setCurrent(player, null);
+    if (player.nowPlayingMessage === live) {
+      player.nowPlayingMessage = null;
+      player.nowPlayingWebhook = null;
+    }
   }
 
   // 패널이 전용 채널에 있나. 패널은 요청한 채널이 아니라 전용 채널에 있을 수 있다. textChannel로 판단하면 엉뚱한 채널에 종료 메시지가 간다
@@ -608,9 +655,14 @@ class NowPlayingPanel {
     await this._postIdle(guild, channel);
   }
 
+  // 끝난 패널의 모양. 이번 실행에서 그린 적이 없으면(재시작 뒤) 음성 밖이다. 되살릴 곡이 저장돼 있으면 /join 으로 이어 들을 수 있다고 적는다
+  _idleView(guild: Guild): IdleView {
+    return this.idleViews.get(guild.id) ?? { reason: hasTracks(sessions().load(guild.id)) ? "leave" : "stop" };
+  }
+
   // 끝난 패널을 이 채널 맨 아래에 올리고 이 서버의 패널로 삼는다
   async _postIdle(guild: Guild, channel: GuildTextBasedChannel, { dedicated = true } = {}) {
-    const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" }; // 재시작 뒤라면 음성 밖이다
+    const view = this._idleView(guild);
     const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
     const { message, webhook } = await this._sendPanel(channel, payload);
     await this.location.commit(guild, channel, message, webhook);
@@ -644,7 +696,7 @@ class NowPlayingPanel {
         if (this.players.get(guild.id)?.nowPlayingMessage) continue;
         const record = await this.location.store.getPanel(guild.id);
         if (!record) continue;
-        const view: IdleView = this.idleViews.get(guild.id) ?? { reason: "stop" };
+        const view = this._idleView(guild);
         const dedicated = record.channelId === (await GuildSettingsManager.getBotChannel(guild.id));
         const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
         await this.location.edit(guild, payload);
@@ -658,17 +710,18 @@ class NowPlayingPanel {
    * 시작할 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
    */
-  async restorePanels() {
+  /** skip: 이번 기동은 세션 복원을 건너뛰었다(짧게 끊긴 실행이 이어졌다, app/run-record) */
+  async restorePanels({ skip = false }: { skip?: boolean } = {}) {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {
-        await this._restorePanel(guild);
+        await this._restorePanel(guild, { skip });
       } catch (error) {
         log.warn(`패널 확인 실패 (${guild.name ?? guild.id}): ${messageOf(error)}`);
       }
     }
   }
 
-  async _restorePanel(guild: Guild) {
+  async _restorePanel(guild: Guild, { skip = false }: { skip?: boolean } = {}) {
     const player = this.players.get(guild.id);
     if (player?.nowPlayingMessage) return;
     // 음성에 붙어 곡을 기다리는 서버(24/7 자리, 이어받기)는 기다리는 모양으로. 이번 실행에서 이미 그렸으면 그대로 둔다(음성 밖 모양으로 덮지 않게)
@@ -677,12 +730,30 @@ class NowPlayingPanel {
       return;
     }
     const channel = await this._dedicatedChannel(guild);
+    if (skip && !player) await this._explainRestoreSkipped(guild, Boolean(channel));
     const record = await this.location.store.getPanel(guild.id);
     if (record && (!channel || record.channelId === channel.id)) {
-      const payload: Payload = { ...(await this.createIdleContainer({ reason: "stop", dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+      const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
       if (await this.location.edit(guild, payload)) return;
     }
     if (canSend(channel)) await this._postIdle(guild, channel);
+  }
+
+  /**
+   * 복원을 건너뛰어 이어 틀지 않은 서버(곡이 든 세션이 있다). 사람들은 봇이 왜 멈췄는지 모른다.
+   * 패널에 까닭을 적고, 전용 채널 밖이면 패널이 묻혀 있을 수 있어 세션을 시작한 글 채널에 따로 알린다.
+   * 끝 안내(drawEndedPanel)와 달리 살아 있는 패널이 없어도 알린다. 이 기동 말고는 알릴 곳이 없다. 글 채널이 없으면(대시보드로 시작, 채널 삭제) 보내지 않는다
+   */
+  async _explainRestoreSkipped(guild: Guild, dedicated: boolean) {
+    const saved = sessions().load(guild.id);
+    if (!hasTracks(saved)) return;
+    this.idleViews.set(guild.id, { reason: "restore-skipped" });
+    if (dedicated) return;
+    const textChannelId = saved.session.textChannelId;
+    const target = textChannelId ? guild.channels?.cache?.get(textChannelId) : null;
+    if (!canSend(target)) return void log.info(`복원을 건너뛴 안내를 보낼 글 채널 없음: ${guild.name ?? guild.id}`);
+    const notice = panelText.restoreSkipped();
+    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기");
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
@@ -699,7 +770,7 @@ class NowPlayingPanel {
     const pauseButton = new ButtonBuilder()
       .setCustomId(id("pause"))
       .setStyle(ButtonStyle.Secondary)
-      // 버튼은 사람의 멈춤을 뒤집는다. 억제로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
+      // 버튼은 사람의 일시정지를 뒤집는다. 억제로 소리가 멈춰 있어도 사람이 일시정지하지 않았으면 일시정지 버튼(누르면 일시정지한다)
       .setEmoji(buttonEmoji(player.pause.userPaused ? "play" : "pause"))
       .setDisabled(disabled);
 
@@ -753,19 +824,23 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 대기열이 비었거나 세션 id 가 없으면 null
+   * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 선택한 곡을 가리킨다. 번호는 이름에만 쓴다.
+   * ID 가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id 가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
 
-    const tracks = player.queue.slice(0, SELECT_MAX);
-    const options = tracks.map((track, i) => {
+    const seen = new Set<number>();
+    const options = player.queue.slice(0, SELECT_MAX).flatMap((track, i) => {
+      if (track.entry === undefined || seen.has(track.entry)) return [];
+      seen.add(track.entry);
       const label = clipText(`${i + 1}. ${songTitle(track.title)}`, 100);
-      const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(String(i));
+      const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(jumpValue(track.entry));
       const description = jumpDescription(track);
       if (description) opt.setDescription(description);
-      return opt;
+      return [opt];
     });
+    if (options.length === 0) return null;
 
     const placeholder = panelText.jumpPlaceholder();
     const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
@@ -802,7 +877,7 @@ class NowPlayingPanel {
       await this._tickProgress(player);
     } catch (error) {
       // 고치기 실패는 _onEditFailed 가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
-      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신을 중단합니다 (${player.guild.name ?? guildId}):`, error);
+      log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(${player.guild.name ?? guildId}):`, error);
       this.stopProgressUpdate(guildId);
       return;
     }

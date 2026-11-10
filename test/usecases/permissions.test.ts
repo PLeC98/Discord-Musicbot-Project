@@ -1,4 +1,4 @@
-// src/usecases/permissions.ts: 권한 3계층(모더레이터/DJ/일반) 판정.
+// src/usecases/permissions.ts: 권한 3계층(서버 관리자/DJ/일반) 판정.
 // 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 import { test, after } from "node:test";
@@ -10,7 +10,7 @@ import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { MOD_PERMISSIONS, isModerator, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = await import("../../src/usecases/permissions.ts");
+const { isServerManager, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = await import("../../src/usecases/permissions.ts");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
@@ -33,14 +33,14 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
   });
 }
 
-// ── isModerator ──────────────────────────────────────────────
+// ── isServerManager ──────────────────────────────────────────
 
-test("모더레이터: MOD_PERMISSIONS 중 하나라도 있으면 통과", () => {
-  for (const perm of MOD_PERMISSIONS) {
-    assert.equal(isModerator(fakeMember({ perms: [perm] })), true);
+test("서버 관리자: 서버 관리 권한만 인정되고 차단, 추방, 타임아웃 권한은 해당하지 않는다", () => {
+  assert.equal(isServerManager(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), true);
+  for (const perm of [PermissionFlagsBits.BanMembers, PermissionFlagsBits.KickMembers, PermissionFlagsBits.ModerateMembers, PermissionFlagsBits.SendMessages]) {
+    assert.equal(isServerManager(fakeMember({ perms: [perm] })), false);
   }
-  assert.equal(isModerator(fakeMember()), false);
-  assert.equal(isModerator(fakeMember({ perms: [PermissionFlagsBits.SendMessages] })), false, "일반 권한은 모더레이터 아님");
+  assert.equal(isServerManager(fakeMember()), false);
 });
 
 // ── isDj (복수 역할) ─────────────────────────────────────────
@@ -57,7 +57,7 @@ test("DJ 판정: 복수 역할 중 하나만 보유해도 DJ", async () => {
   assert.equal(await isDj(fakeMember({ roles: ["other"] })), false);
 });
 
-test("DJ 판정: 미보유라도 모더레이터는 항상 DJ", async () => {
+test("DJ 판정: 미보유라도 서버 관리자는 항상 DJ", async () => {
   setGuild("g", { djRoles: ["r1"] });
   assert.equal(await isDj(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), true);
 });
@@ -73,36 +73,37 @@ test("DJ 판정: 일부만 삭제되면 남은 역할로 판정", async () => {
   assert.equal(await isDj(fakeMember({ roles: ["r1"], guildRoles: ["r2"] })), false);
 });
 
-// ── checkVoice (재적 규칙) ───────────────────────────────────
+// ── checkVoice (동일 음성 채널 규칙) ───────────────────────────────────
 
-test("재적 규칙: 봇 유휴(음성 미접속)면 제약 없음", () => {
+test("동일 음성 채널 규칙: 봇 유휴(음성 미접속)면 제약 없음", () => {
   assert.equal(checkVoice(fakeMember()), null);
 });
 
-test("재적 규칙: 봇과 같은 채널이면 통과", () => {
+test("동일 음성 채널 규칙: 봇과 같은 채널이면 통과", () => {
   assert.equal(checkVoice(fakeMember({ voice: "vc1", botVoice: "vc1" })), null);
 });
 
-test("재적 규칙: 다른 채널이면 거부", () => {
+test("동일 음성 채널 규칙: 다른 채널이면 거부", () => {
   assert.equal(checkVoice(fakeMember({ voice: "vc2", botVoice: "vc1" })), "must-be-in-same-voice");
 });
 
-test("재적 규칙: 봇이 음성 채널에 있으면 음성 미참가도 같은 채널에 오라고 거부", () => {
+test("동일 음성 채널 규칙: 봇이 음성 채널에 있으면 음성 미참가도 같은 채널에 오라고 거부", () => {
   assert.equal(checkVoice(fakeMember({ botVoice: "vc1" })), "must-be-in-same-voice");
 });
 
-test("재적 규칙: 모더레이터는 어디서든 면제", () => {
-  assert.equal(checkVoice(fakeMember({ perms: [PermissionFlagsBits.BanMembers], botVoice: "vc1" })), null);
+test("동일 음성 채널 규칙: 서버 관리자는 어디서든 면제. 차단 권한만으로는 면제가 아니다", () => {
+  assert.equal(checkVoice(fakeMember({ perms: [PermissionFlagsBits.ManageGuild], botVoice: "vc1" })), null);
+  assert.equal(checkVoice(fakeMember({ perms: [PermissionFlagsBits.BanMembers], botVoice: "vc1" })), "must-be-in-same-voice");
 });
 
-// ── checkControl (재생 조작 = 재적 + DJ) ─────────────────────
+// ── checkControl (재생 조작 = 동일 음성 채널 + DJ) ─────────────────────
 
 test("재생 조작: 같은 채널 + DJ면 허용", async () => {
   setGuild("g", { djRoles: ["r1"] });
   assert.equal(await checkControl(fakeMember({ roles: ["r1"], voice: "vc1", botVoice: "vc1" })), null);
 });
 
-test("재생 조작: 재적 위반이 DJ 판정보다 먼저", async () => {
+test("재생 조작: 동일 음성 채널 위반이 DJ 판정보다 먼저", async () => {
   setGuild("g", { djRoles: ["r1"] });
   assert.equal(await checkControl(fakeMember({ roles: ["r1"], voice: "vc2", botVoice: "vc1" })), "must-be-in-same-voice");
 });
@@ -114,7 +115,7 @@ test("재생 조작: 같은 채널이어도 비-DJ는 거부", async () => {
 
 // ── checkSkip / checkRemoveTrack (요청자 본인 예외) ──────────
 
-test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (재적 규칙은 적용)", async () => {
+test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (동일 음성 채널 규칙은 적용)", async () => {
   setGuild("g", { djRoles: ["r1"] });
   const player = { currentTrack: { requestedBy: { id: "u1" } } };
 
@@ -122,7 +123,7 @@ test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (재적 규칙�
   assert.equal(await checkSkip(requester, player), null);
 
   const requesterWrongChannel = fakeMember({ id: "u1", voice: "vc2", botVoice: "vc1" });
-  assert.notEqual(await checkSkip(requesterWrongChannel, player), null, "요청자도 재적 규칙은 적용");
+  assert.notEqual(await checkSkip(requesterWrongChannel, player), null, "요청자도 동일 음성 채널 규칙은 적용");
 
   const other = fakeMember({ id: "u2", voice: "vc1", botVoice: "vc1" });
   assert.equal(await checkSkip(other, player), "must-dj");
@@ -150,7 +151,7 @@ test("소환: 봇 유휴 + 요청자 음성 미참가는 거부", () => {
   assert.equal(checkSummon(fakeMember()), "must-be-in-voice");
 });
 
-test("소환: 모더레이터여도 본인이 음성 채널에 있어야 한다 (재적 규칙과 달리 면제 없음)", () => {
+test("소환: 서버 관리자여도 본인이 음성 채널에 있어야 한다 (동일 음성 채널 규칙과 달리 면제 없음)", () => {
   assert.equal(checkSummon(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), "must-be-in-voice");
 });
 
@@ -164,14 +165,14 @@ test("소환: 요청자가 음성에 있고 봇 권한이 갖춰지면 통과", 
   assert.equal(checkSummon(fakeMember({ voice: "vc1" })), null);
 });
 
-// 곡 추가 진입점(/play, /playfirst, 전용 채널)은 재적 규칙과 소환 검사를 이어 붙인다.
+// 곡 추가 진입점(/play, /playfirst, 전용 채널)은 동일 음성 채널 규칙과 소환 검사를 이어 붙인다.
 // 둘 중 하나만 쓰면 한쪽 상태가 빈다. checkAdd는 봇 유휴 시 항상 통과, checkSummon은 봇 접속 시 항상 통과.
 test("진입점 조합: checkAdd + checkSummon이 봇의 두 상태를 모두 덮는다", () => {
   // 봇 유휴 → 소환 검사가 담당
   assert.equal(checkAdd(fakeMember()), null, "checkAdd 단독은 봇 유휴 시 통과시킨다");
   assert.equal(checkAdd(fakeMember()) || checkSummon(fakeMember()), "must-be-in-voice");
 
-  // 봇 접속 중 → 재적 규칙이 담당
+  // 봇 접속 중 → 동일 음성 채널 규칙이 담당
   const other = { voice: "vc2", botVoice: "vc1" };
   assert.equal(checkSummon(fakeMember(other)), null, "checkSummon 단독은 봇 접속 시 통과시킨다");
   assert.equal(checkAdd(fakeMember(other)) || checkSummon(fakeMember(other)), "must-be-in-same-voice");

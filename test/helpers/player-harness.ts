@@ -156,7 +156,7 @@ function createAudioResource(input: OpusOutput, options: FakeResource["options"]
 
 // ── 2. ffmpeg ─────────────────────────────────────────────────────────
 function fakeChild(args: string[], label: string): FakeChild {
-  const written: Buffer[] = []; // 입력(stdin)으로 받은 것
+  const written: Buffer[] = []; // 입력(stdin)으로 들어온 데이터를 모은다
   const child: FakeChild = Object.assign(new EventEmitter(), {
     args,
     label,
@@ -205,7 +205,7 @@ async function seekStart(request: SeekRequest): Promise<SeekAnswer> {
   return behavior.seekStart ? behavior.seekStart(request) : { ok: false, why: "시험", near: true };
 }
 
-// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 흘린다고 알린다
+// 세그먼트 스트림 가짜. 진짜처럼 위치가 든 세그먼트의 시작부터 내보낸다고 알린다
 function openFragmentStream(opts: FragmentOptions) {
   calls.fragments.push(opts);
   const { atMs } = startOf(opts.fragments, opts.durationMs, opts.startMs);
@@ -248,7 +248,7 @@ playerEvents.on("disposed", (player) => registryOf(player)?.forget(player));
 
 // 협력 모듈 가짜. 플레이어의 바깥 경계(createVoice, createPersistence, createWarmer)로 넘긴다
 // 붙은 것으로 둔 연결. 테스트는 emit 으로 상태를 흉내 낸다
-// 부순 방식(leave: 나감 메시지, stay: 채널에 남음)을 destroyed 에 적는다
+// 부순 방식(leave: 나가기 요청, stay: 채널에 남음)을 destroyed 에 적는다
 const fakeConnection = () =>
   Object.assign(new EventEmitter(), {
     state: { status: "ready" },
@@ -342,7 +342,7 @@ type Behavior = {
   fetch: ((url: string, init: FetchInit) => unknown) | null;
   chunked: ((opts: ChunkedOptions) => unknown) | null;
   seekStart: ((request: SeekRequest) => SeekAnswer | Promise<SeekAnswer>) | null;
-  directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean }) => Readable | Promise<Readable>) | null;
+  directStream: ((url: string, opts?: { startMs?: number; liveOnly?: boolean; onResumed?: (info: { attempts: number; downtimeMs: number; starvedMs: number }) => void }) => Readable | Promise<Readable>) | null;
   restore: ((this: Player, record: RestoredSession | null | undefined, options?: { announce?: boolean }) => unknown) | null;
   autoplay: (() => QueuedTrack | null) | null;
   connect: (() => unknown) | null;
@@ -424,7 +424,7 @@ const fakes: Partial<Boundary> = {
     // 진짜(sources/stream-url)처럼 받은 음원 주소의 키를 싣는다. 테스트가 키를 정했으면(null 포함) 그대로
     return "audioKey" in got ? got : { ...got, audioKey: audioKeyOf((track as QueuedTrack).audioUrl) };
   },
-  directStream: (async (url: string, opts?: { startMs?: number; liveOnly?: boolean }) => {
+  directStream: (async (url: string, opts?: Parameters<NonNullable<typeof behavior.directStream>>[1]) => {
     calls.directStreams.push(url);
     return behavior.directStream ? behavior.directStream(url, opts) : Object.assign(new PassThrough(), { live: false, bounded: false });
   }) as unknown as Boundary["directStream"],

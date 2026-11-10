@@ -16,6 +16,7 @@ import { makeEmojiImage, type Rotation } from "../app-emoji-image.ts";
 import { APPEARANCE_MAX_BYTES } from "../contract/appearance.ts";
 import type { AppEmojiList, AppEmojiUses } from "../contract/app-emojis.ts";
 import type { Code } from "../../rules/problems.ts";
+import { assertSignedIn } from "../session-requests.ts";
 
 /** 이미지, 글꼴 요청의 한도: 일반 API 한도의 몇 배(선택기를 열면 아이콘만 100개 넘게 불린다) */
 const ASSET_LIMIT_FACTOR = 4;
@@ -43,7 +44,7 @@ const assetLimiter = limiter(() => config.dashboard.rateLimit.apiMax * ASSET_LIM
 /** 이름 검사. 맞으면 null, 아니면 문제 코드 */
 const nameProblem = (name: unknown): Code | null => (typeof name !== "string" || !NAME.test(name) ? "emoji-name-bad" : isManagedEmojiName(name) ? "emoji-name-reserved" : null);
 
-/** 조작을 돌리고 알려진 실패는 문제 응답으로. 그 밖은 던진다(오류 처리기가 받는다) */
+/** 작업을 실행하고 알려진 오류는 문제 응답으로 바꾸며, 그 밖의 오류는 그대로 던진다(오류 핸들러가 처리한다) */
 async function answer(res: Response, run: () => Promise<void>) {
   try {
     await run();
@@ -71,7 +72,7 @@ appEmojisRouter.post("/", requireOwner, express.raw({ type: "image/*", limit: AP
   if (!Buffer.isBuffer(req.body) || !req.body.length) return sendProblem(res, "emoji-image-bad");
   await answer(res, async () => {
     const image = await makeEmojiImage(req.body as Buffer, { rotate: rotate as Rotation, flip: req.query.flip === "1", left, top, side });
-    const created = await emojis.add(name as string, image.data);
+    const created = await emojis.add(name as string, image.data, () => assertSignedIn(req));
     res.status(201).json(emojiItems().find((one) => one.id === created.id) ?? null);
   });
 });
@@ -83,7 +84,7 @@ appEmojisRouter.patch("/:id", requireOwner, async (req: Request<{ id: string }>,
   const problem = nameProblem(name);
   if (problem) return sendProblem(res, problem);
   await answer(res, async () => {
-    await emojis.rename(req.params.id, name as string);
+    await emojis.rename(req.params.id, name as string, () => assertSignedIn(req));
     res.json(emojiItems().find((one) => one.id === req.params.id) ?? null);
   });
 });
@@ -92,7 +93,7 @@ appEmojisRouter.delete("/:id", requireOwner, async (req: Request<{ id: string }>
   const emojis = req.app.locals.bot.appEmojis;
   if (!emojis) return sendProblem(res, "bot-not-ready");
   await answer(res, async () => {
-    await emojis.remove(req.params.id);
+    await emojis.remove(req.params.id, () => assertSignedIn(req));
     res.status(204).end();
   });
 });

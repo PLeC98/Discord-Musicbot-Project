@@ -57,7 +57,7 @@ class BgutilVersion {
     if (!this.installed) return;
     const target = config.bgutil.version;
     // 코드를 업데이트해 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 조회하지 않아도 안다
-    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다릅니다: 설치 ${this.installed}, 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
+    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다름: 설치 ${this.installed}, 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
     await this._tick();
   }
 
@@ -68,7 +68,7 @@ class BgutilVersion {
       this.checkedAt = this.io.now();
       const target = config.bgutil.version;
       const newer = newerRelease(this.latest, target);
-      if (newer) log.info(`bgutil 새 버전이 있습니다: ${target} → ${newer}. .env의 BGUTIL_VERSION을 수정한 뒤 봇을 종료하고 pnpm run update:bgutil을 실행하세요`);
+      if (newer) log.info(`bgutil 새 버전 있음: ${target} → ${newer}. .env의 BGUTIL_VERSION을 수정한 뒤 봇을 종료하고 pnpm run update:bgutil을 실행하세요`);
     } catch (error) {
       failed = true;
       log.warn(`bgutil 새 버전 조회 실패: ${messageOf(error)}`);

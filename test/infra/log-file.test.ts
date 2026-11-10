@@ -159,7 +159,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   clock += 10_000;
   dest.write(rec("못 남김 2")); // 아직 간격 전: 다시 열어 보지 않는다
   assert.equal(notices.length, 1, "처음 한 번만 알린다");
-  assert.match(notices[0], /파일 로그\(.*\) 실패: 파일을 열 수 없습니다/);
+  assert.match(notices[0], /파일 로그\(.*\) 실패: 파일을 열 수 없음/);
 
   clock += 30_000;
   dest.write(rec("못 남김 3")); // 간격이 지났지만 아직 막혀 있다: 같은 까닭은 다시 알리지 않는다
@@ -172,7 +172,7 @@ test("멈춘 파일 로그는 간격마다 다시 열어 보고, 열리면 한 �
   assert.equal(notices.length, 2);
   assert.match(notices[1], /복구\(실패 2회\)/);
   const got = lines(path.join(dir, "bot.log"));
-  assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 다시 씁니다\. 그동안 3줄을 남기지 못했습니다$/);
+  assert.match(String(got[0].msg), /^파일 로그가 70초 동안 멈췄다가 재개됨\. 그동안 3줄을 남기지 못함$/);
   assert.equal(got[1].msg, "다시 남김");
 });
 

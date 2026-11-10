@@ -149,7 +149,7 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
       if (ms !== null) scheduleDelete(message, ms);
       return;
     } catch (error) {
-      log.debug(`채널에 보내지 못해 후속 메시지로 보냅니다: ${messageOf(error)}`);
+      log.debug(`채널에 보내지 못해 후속 메시지로 보냄: ${messageOf(error)}`);
     }
   }
   const message = await interaction.followUp(post(view, files));

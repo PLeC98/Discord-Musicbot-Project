@@ -62,7 +62,7 @@ function fakeInteraction(kind: InteractionKind, customId: string, { values = [] 
     values,
     guild,
     message: { id: "m1" },
-    memberPermissions: { has: (p: bigint) => canManage && p === PermissionFlagsBits.ManageGuild },
+    member: { permissions: { has: (p: bigint) => canManage && p === PermissionFlagsBits.ManageGuild } },
     ...interactionKind(kind),
     replied: false,
     deferred: false,

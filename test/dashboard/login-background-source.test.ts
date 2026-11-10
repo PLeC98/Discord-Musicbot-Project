@@ -1,5 +1,5 @@
 // src/dashboard/login-background/source.ts: 로그인 배경 원본을 읽어 보고(정지 그림은 sharp, 움직이는 것은 ffmpeg), 링크에서 다운로드한다.
-// 표본은 실제 ffmpeg 로 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
+// 샘플은 실제 ffmpeg로 만든다(ffmpeg, 그 형식을 만들고 읽지 못하면 건너뛴다). 다른 파일을 읽는 형식(HLS 목록)은 막히고, 터무니없는 크기는 거절한다
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
@@ -66,11 +66,11 @@ async function assertMoving(name: string) {
   assert.ok(got.fps > 0, name);
 }
 
-test("영상, 움짤(GIF, APNG)은 ffmpeg 로, 길이를 적지 않은 것은 패킷을 세어", opts, async () => {
+test("영상, 움짤(GIF, APNG)은 ffmpeg로 읽고, 길이가 적히지 않은 것은 패킷을 세어 길이를 구한다", opts, async () => {
   for (const name of ["clip.mp4", "anim.gif", "anim.png"]) await assertMoving(name);
 });
 
-test("움직이는 WebP 도 ffmpeg 로", animatedWebp, () => assertMoving("anim.webp"));
+test("움직이는 WebP도 ffmpeg로 읽는다", animatedWebp, () => assertMoving("anim.webp"));
 
 test("다른 파일을 읽는 형식, 그림이 아닌 것, 너무 작은 그림은 거절한다", opts, async () => {
   assert.equal(await reject("evil.m3u8"), "background-bad-source");

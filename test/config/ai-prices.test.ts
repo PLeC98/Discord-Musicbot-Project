@@ -83,6 +83,6 @@ test("갱신: 저쪽에서 선택한 것이 하나도 없으면 쓰지 않고 �
   const now = prices.load();
   const empty = async () => new Response(JSON.stringify({}));
   // 빈 값표는 지금 것과 해시가 다르지만 선택한 것이 하나도 없어 쓰지 않는다
-  await assert.rejects(prices.refresh({ fetchImpl: empty }), /하나도 읽지 못했습니다/);
+  await assert.rejects(prices.refresh({ fetchImpl: empty }), /하나도 읽지 못함/);
   assert.equal(prices.load(), now);
 });

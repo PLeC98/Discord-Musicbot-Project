@@ -13,7 +13,7 @@ const settingsDb = new DbFile({
   version: VERSION,
   synchronous: "FULL",
   onMismatch: {
-    hint: (found, file) => `설정 DB 구조가 이 봇과 맞지 않아 열지 않습니다 (DB v${found}, 봇 v${VERSION}): ${file}. 설정을 삭제하지 않으려고 멈춥니다. 이 DB 를 만든 버전의 봇으로 실행하세요.`,
+    hint: (found, file) => `설정 DB 구조가 이 봇과 맞지 않아 열지 않음(DB v${found}, 봇 v${VERSION}): ${file}. 설정을 삭제하지 않도록 기동 중단. 이 DB를 만든 버전의 봇으로 실행하세요`,
   },
   createTables,
 });

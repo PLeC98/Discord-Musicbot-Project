@@ -8,7 +8,7 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Seoul"
-    # 출시 2주가 지난 버전만 올린다(손으로 올릴 때도 pnpm update 에 minimum-release-age=20160 을 준다)
+    # 출시 2주가 지난 버전만 올린다(pnpm-workspace.yaml의 minimumReleaseAge와 같은 기간)
     cooldown:
       default-days: 14
     open-pull-requests-limit: 5

@@ -217,10 +217,16 @@ test("끝난 패널로 바꾸기가 네트워크로 실패하면 warn", async ()
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
 
-test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않는다", async () => {
+test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않고, 다시 올린 뒤 새 메시지를 고친다", async () => {
   let release = () => {};
   const blocked = new Promise<void>((r) => (release = r));
-  const { mem, player, calls } = makeSetup({ editError: gone(), onSend: () => blocked });
+  // 지워진 것은 옛 메시지뿐이다. 새로 올린 메시지는 고칠 수 있다
+  const state: State = { editError: gone() };
+  state.onSend = async () => {
+    await blocked;
+    state.editError = undefined;
+  };
+  const { mem, player, calls } = makeSetup(state);
 
   const first = mem.updatePlaying(player);
   const second = mem.updatePlaying(player);
@@ -228,6 +234,7 @@ test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않
   await Promise.all([first, second]);
 
   assert.equal(calls.sent.length, 1, "동시 갱신이 있어도 새 메시지는 하나");
+  assert.equal(calls.edited.at(-1), calls.sent[0], "그사이 온 갱신은 다시 올린 메시지를 고친다");
 });
 
 test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지운다", async () => {

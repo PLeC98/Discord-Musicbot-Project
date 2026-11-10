@@ -50,19 +50,19 @@ let lastId = 0;
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
-    if (problem) log.warn(`Gemma 토크나이저 파일을 읽지 못해 tik으로 추산합니다: ${problem}`);
+    if (problem) log.warn(`Gemma 토크나이저 파일 읽기 실패(tik으로 추산): ${problem}`);
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
     clearTimeout(job.timer);
     if (counted) job.resolve(counted);
-    else job.reject(new Error(error || "토큰을 세지 못했습니다"));
+    else job.reject(new Error(error || "토큰 계산 실패"));
   });
   one.on("error", (error) => {
-    log.warn(`토큰 계산 워커가 중단됐습니다(${messageOf(error)}). 다음 계산 시 다시 시작합니다`);
+    log.warn(`토큰 계산 워커 중단(${messageOf(error)}). 다음 계산 시 다시 시작`);
     stop(one, error);
   });
-  one.on("exit", () => stop(one, new Error("토큰 세는 스레드가 끝났습니다")));
+  one.on("exit", () => stop(one, new Error("토큰 계산 워커가 종료됨")));
   one.unref(); // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
   return one;
 }
@@ -90,8 +90,8 @@ function countAll(texts: unknown[], tokenizer = "tik", { timeoutMs = COUNT_TIMEO
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       const chars = bodies.reduce((sum, one) => sum + one.length, 0);
-      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 중단합니다(${tokenizer}, ${chars}자). 다음 계산 시 다시 시작합니다`);
-      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘겼습니다`));
+      log.warn(`토큰 계산이 ${timeoutMs / 1000}초를 초과해 워커 중단(${tokenizer}, ${chars}자). 다음 계산 시 다시 시작`);
+      stop(worker, new Error(`토큰 세기가 ${timeoutMs / 1000}초를 넘김`));
     }, timeoutMs);
     waiting.set(id, { resolve, reject, timer });
     worker.postMessage({ id, texts: bodies, tokenizer });

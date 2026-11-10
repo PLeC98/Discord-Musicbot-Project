@@ -240,10 +240,10 @@ test("큐 반복 + 이전곡: 복원 뒤(기록과 대기열이 다른 객체)�
 
 // ── 조기 종료 재시도 ──────────────────────────────────────────
 
-test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 멈춰 둔 뒤 넘긴 다음 곡은 처음부터 재시도한다", async () => {
+test("재시도 예산은 곡마다. 앞 곡이 다 쓰고 일시정지해 둔 뒤 넘긴 다음 곡은 처음부터 재시도한다", async () => {
   const [A, B] = ["A", "B"].map((t) => makeTrack(t));
   const p = makePlayer({ current: A, queue: [B] });
-  // 예산을 다 쓰면 그 곡에서 멈춰 둔다. 사람이 넘긴 것처럼 다음 곡으로 옮긴다
+  // 예산을 다 쓰면 그 곡에서 일시정지해 둔다. 사람이 넘긴 것처럼 다음 곡으로 옮긴다
   const parked: Array<string | null | undefined> = [];
   p.park = () => {
     parked.push(p.currentTrack?.title);

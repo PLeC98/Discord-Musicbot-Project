@@ -89,7 +89,7 @@ function linuxSnapshot(): Proc[] | null {
   try {
     names = fs.readdirSync("/proc");
   } catch (error) {
-    log.warn(`프로세스 목록을 읽지 못했습니다(/proc): ${String(error)}`);
+    log.warn(`프로세스 목록 읽기 실패(/proc): ${String(error)}`);
     return null;
   }
   const out: Proc[] = [];
@@ -139,10 +139,10 @@ function psSnapshot(): Proc[] | null {
 
 // 실행하지 못했거나, 시간을 넘겼거나, 0이 아닌 코드로 끝났으면 읽지 못한 것이다
 function succeeded(what: string, result: { error?: Error; status: number | null; stderr?: Buffer | null }) {
-  if (result.error) log.warn(`프로세스 목록을 읽지 못했습니다(${what}): ${result.error.message}`);
+  if (result.error) log.warn(`프로세스 목록 읽기 실패(${what}): ${result.error.message}`);
   else if (result.status !== 0) {
     const stderr = result.stderr ? consoleText(result.stderr).trim() : "";
-    log.warn(`프로세스 목록을 읽지 못했습니다(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
+    log.warn(`프로세스 목록 읽기 실패(${what} 종료 코드 ${String(result.status)})${stderr ? `: ${stderr}` : ""}`);
   }
   return !result.error && result.status === 0;
 }

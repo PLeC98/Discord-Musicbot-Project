@@ -11,6 +11,7 @@ import type { SessionData } from "express-session";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { requestJson, type ProblemReply } from "../helpers/dashboard.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
+import * as sessionRequests from "../../src/dashboard/session-requests.ts";
 import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import { createInviteRouter } from "../../src/dashboard/routes/invite.ts";
 import { _setAppInfo, canInvite, loadAppInfo, managedGuilds } from "../../src/dashboard/invite.ts";
@@ -45,9 +46,9 @@ const http = fake<DiscordHttp>({
 
 let sid = "sid-1";
 const app = express();
-app.use((req: Request, _res: Response, next: NextFunction) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   Object.assign(req, { session: fake<Request["session"]>({ user: { id: "u1", username: "u1" }, loginAt: Date.now() }), sessionID: sid, sessionStore: store });
-  next();
+  sessionRequests.bind(req, res, next);
 });
 app.locals.bot = fakeBot({ client: { isReady: () => true, guilds: { cache: new Map([["14", {}]]) } } });
 app.use("/api/invite", createInviteRouter({ http }));

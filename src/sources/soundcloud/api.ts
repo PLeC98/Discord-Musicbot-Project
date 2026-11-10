@@ -48,7 +48,7 @@ function trackOf(item: YtInfo): ScTrack | null {
 
 // 곡 하나. 미리듣기만 열린 곡은 30초 조각을 곡처럼 틀지 않는다
 function oneTrack(item: YtInfo): ScTrack {
-  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${item.title ?? item.webpage_url ?? "없음"}`);
+  if (previewOnly(item)) throw codedError("sc-preview-only", `미리듣기만 열린 곡: ${item.title ?? item.webpage_url ?? "없음"}`);
   const track = trackOf(item);
   if (!track) throw new Error(`사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=${item.id ?? "없음"}`);
   return track;
@@ -87,7 +87,7 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
   } catch (error) {
     if (codeOf(error) !== "no-formats") throw error;
     // 범위: mp3 가 있는 곡은 된다(player/failure-scope)
-    if (!canPlayHls) throw Object.assign(codedError("stream-failed", "이 ffmpeg 는 HLS 를 열지 못하고, 이 곡에는 mp3 가 없습니다", { cause: error }), { scope: "track" });
+    if (!canPlayHls) throw Object.assign(codedError("stream-failed", "이 ffmpeg는 HLS를 열지 못하고, 이 곡에는 mp3가 없음", { cause: error }), { scope: "track" });
     return ask("lookup");
   }
 }
@@ -101,7 +101,7 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
   const info = readInfo(raw);
   if (!info) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
   if (!info.url) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=${info.format_id ?? "없음"}`);
-  if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡입니다: ${info.title ?? url}`);
+  if (/_preview$/.test(info.format_id || "")) throw codedError("sc-preview-only", `미리듣기만 열린 곡: ${info.title ?? url}`);
   return {
     url: info.url,
     protocol: info.protocol || null,

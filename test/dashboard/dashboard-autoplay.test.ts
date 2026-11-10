@@ -20,7 +20,7 @@ const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.t
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 
 const GUILD_ID = "100";
-// 그 서버의 모더레이터(재적, DJ 판정을 건너뛴다). 봇은 음성 채널에 있다
+// 그 서버의 서버 관리자(동일 음성 채널, DJ 판정을 건너뛴다). 봇은 음성 채널에 있다
 const guild = {
   id: GUILD_ID,
   name: "서버",

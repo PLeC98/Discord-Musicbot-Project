@@ -50,7 +50,7 @@ function assetFor(checksumsText: string, target: Target, key: string): Asset {
     }
   }
 
-  if (!best) throw new Error(`이 릴리스에 ${key}용 ${VARIANT} 빌드가 없습니다`);
+  if (!best) throw new Error(`이 릴리스에 ${key}용 ${VARIANT} 빌드가 없음`);
   return { assetName: best.assetName, sha256: best.sha256, version: best.version, branch: best.branch };
 }
 

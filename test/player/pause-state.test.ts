@@ -51,12 +51,12 @@ test("억제 사유는 통째로 맞추고 더해진 것, 빠진 것을 알린�
   assert.equal(a.state.status, "playing");
 });
 
-test("사람이 멈춰 둔 것은 사유가 풀려도 멈춘 채, 사람이 풀어도 사유가 있으면 멈춘 채", () => {
+test("사람이 일시정지한 것은 사유가 풀려도 멈춘 채, 사람이 풀어도 사유가 있으면 멈춘 채", () => {
   const { a, state } = make();
   state.setHolds(["mute"]);
   state.setUser(true);
   state.setHolds([]);
-  assert.equal(a.state.status, "paused", "음소거가 풀려도 멈춰 둔다");
+  assert.equal(a.state.status, "paused", "음소거가 풀려도 멈춘 채로 둔다");
   state.setHolds(["mute"]);
   state.setUser(false);
   assert.equal(a.state.status, "paused", "음소거가 남아 있다");
