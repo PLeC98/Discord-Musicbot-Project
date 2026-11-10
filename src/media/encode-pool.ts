@@ -800,7 +800,7 @@ class EncodePool {
     return `워커 ${entry.n}(활성 스트림 ${this.#activeOf(entry)}/${entry.ids.size}, 큐 깊이 ${entry.depth}, 응답 한도 ${(entry.depth - 1) * FRAME_MS}ms, CPU ${cpu}): ` + `지연 프레임 ${late}개 · 입력 언더런 ${entry.underrun}개 · 응답 시간 p99 ${rttP99.toFixed(1)}ms(최대 ${max.toFixed(1)}ms; 대기 p99 ${ms(entry.wait)} · 인코딩 p99 ${ms(entry.encode)}) · 메인이 받기까지 p99 ${ms(entry.receive)} · ${gcText(entry)} · ${this.#cpuText()}`;
   }
 
-  // 대기가 PC의 다른 일 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
+  // 대기가 PC의 다른 작업 때문인지 가른다. 컨테이너 안에서는 호스트 전체라 할당량을 함께 적는다
   #cpuText() {
     if (!this.#cpu) return "PC CPU 알 수 없음";
     const quota = this.#quota === null ? "" : `, 할당 ${Math.round(this.#quota * 10) / 10}코어`;

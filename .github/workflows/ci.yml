@@ -46,9 +46,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # arm64 는 라즈베리파이, 클라우드 ARM 같은 자체 호스팅 환경. CPU 마다 yt-dlp, ffmpeg, 네이티브 모듈의 빌드가 다르다
         os:
           - ubuntu-latest
           - windows-latest
+          - ubuntu-24.04-arm
+          - windows-11-arm
+          - macos-latest
 
     env:
       NODE_ENV: test
@@ -79,7 +83,15 @@ jobs:
       - name: Create test environment file
         run: node -e "require('node:fs').writeFileSync('.env', '')"
 
-      # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다)
+      # macOS 는 설치 스크립트가 ffmpeg 를 다운로드하지 않는다(BtbN 빌드가 없다). 사용자 안내와 같이 brew 로 깔아 PATH 에 둔다
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+
+      # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다). yt-dlp 도 설치한다
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

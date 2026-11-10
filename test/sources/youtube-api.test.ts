@@ -38,7 +38,7 @@ let savedOrder: string[] = [];
 before(() => {
   savedOrder = playerClients.order;
   playerClients.order = [];
-  // 가짜는 tinyspawn 약속의 stdout, stderr 만 준다
+  // 가짜는 실행 래퍼(ytdlp-exec)가 주는 약속의 stdout, stderr 만 준다
   useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.push({ url, flags });
     const out = respond(url, flags);
@@ -91,7 +91,7 @@ test("정보: 필드를 옮겨 담는다(포맷 목록은 담지 않는다). 라
   assert.equal(calls[0].flags.dumpSingleJson, true);
   // 재생 주소와 같은 옵션이라 받은 것을 재생 주소, 다운로드가 다시 쓴다
   assert.equal(calls[0].flags.format, "bestaudio/best");
-  assert.equal(calls[0].flags.preferFreeFormats, undefined);
+  assert.equal((calls[0].flags as Record<string, unknown>).preferFreeFormats, undefined);
   assert.equal(t.title, "원제");
   assert.equal("formats" in t, false);
   assert.equal(t.isLive, true);

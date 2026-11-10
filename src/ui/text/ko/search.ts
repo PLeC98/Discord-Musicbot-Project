@@ -2,12 +2,12 @@
 
 import { clipText } from "../../../rules/clip-text.ts";
 import { icon } from "../../icons.ts";
-import { escapeMd } from "../../mentions.ts";
+import { escapeMd, linkLabel } from "../../mentions.ts";
 
 /** /search 결과 카드의 헤더 줄(아이콘은 그리는 쪽이 붙인다) */
 const resultsTitle = (query: string) => `"${escapeMd(query)}" 검색 결과`;
 /** 결과 한 줄: 번호와 제목 링크, 아랫줄 작은 글씨에 출처 아이콘과 `채널 | 길이`. 제목이 없으면 알 수 없는 곡, 채널이 없으면 뺀다. 제목 70자, 채널 40자(가수를 모두 이은 스포티파이 곡도 10줄이 글 표시 4000자 안에 들게) */
-const resultLine = (rank: number, { title, link, source, artist, length }: { title: string | null; link: string; source: string; artist?: string | null; length: string }) => `**${rank}.** [${escapeMd(clipText(title || "알 수 없는 곡", 70))}](${link})\n-# ${source} ${[artist ? escapeMd(clipText(artist, 40)) : null, length].filter(Boolean).join(" | ")}`;
+const resultLine = (rank: number, { title, link, source, artist, length }: { title: string | null; link: string; source: string; artist?: string | null; length: string }) => `**${rank}.** [${linkLabel(clipText(title || "알 수 없는 곡", 70))}](${link})\n-# ${source} ${[artist ? escapeMd(clipText(artist, 40)) : null, length].filter(Boolean).join(" | ")}`;
 /** 유튜브가 연령 인증을 걸어 스포티파이 곡만 보일 때의 카드 푸터 */
 const gatedFooter = () => "유튜브가 연령 인증을 요구하는 검색어예요";
 /** 결과 카드 밖의 선택 메뉴 */

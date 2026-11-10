@@ -68,7 +68,7 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
   for (const { guildId } of saved) {
     waiting.set(guildId, async () => {
       try {
-        // 서버 문맥으로: 복원한 재생이 여는 일(연령 제한 판정, 자식 프로세스 기록)이 그 서버의 일로 돈다
+        // 서버 문맥으로: 복원한 재생이 여는 작업(연령 제한 판정, 자식 프로세스 기록)이 그 서버의 작업으로 돈다
         await inGuild(guildId, () => restoreOne(client, players, PlayerCtor, guildId));
       } catch (error) {
         // 지우지 않는다. 다음 기동, /join 이 다시 해 본다(지운 대기열은 되찾을 수 없다)

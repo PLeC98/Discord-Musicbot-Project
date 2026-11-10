@@ -5,6 +5,8 @@
 //
 // 장르마다 덮어쓸 수 있는 필드는 최소, 최대 길이 둘이다. 비우면 그 필드를 빼서 전역 값을 쓴다(재생은 { ...defaults, ...장르 } 로 합친다)
 
+import { keysFrom } from "./row-keys.ts";
+
 /** 소스 하나(장르 문서의 그대로). 필드는 소스 종류마다 다르다(schema/genre-sources 의 SPEC). _key 는 편집 중 행을 붙잡아 두는 번호 */
 type SourceData = Record<string, unknown> & { type?: string; _key?: number };
 /** 장르 하나(장르 문서의 그대로). 화면이 모르는 필드도 들고 있다가 그대로 돌려보낸다 */
@@ -28,9 +30,16 @@ const nextKey = () => ++serial;
 /** 장르마다 덮어쓸 수 있는 필드(제외 키워드는 키워드 출처 필드가 덮어쓴다) */
 const OVERRIDES = ["minDurationSec", "maxDurationSec"] as const;
 
-const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[] =>
-  Object.entries(genres || {}).map(([name, g]) => ({
-    key: nextKey(),
+/** before: 지금 행. 이름이 같은 장르(없으면 같은 자리)는 key 를 물려받는다(저장, 되돌리기, utils/row-keys) */
+const toRows = (genres: Record<string, GenreData> | null | undefined, before: GenreRow[] = []): GenreRow[] => {
+  const entries = Object.entries(genres || {});
+  const keys = keysFrom(
+    entries.map(([name]) => name),
+    before,
+    nextKey,
+  );
+  return entries.map(([name, g], i) => ({
+    key: keys[i],
     name,
     label: g.label || "",
     emoji: g.emoji || "",
@@ -39,6 +48,7 @@ const toRows = (genres: Record<string, GenreData> | null | undefined): GenreRow[
     maxDurationSec: g.maxDurationSec ?? null,
     kept: g,
   }));
+};
 
 // 새 행. 들고 있을 원래 장르가 없다
 const newRow = (): GenreRow => ({ key: nextKey(), name: "", label: "", emoji: "", sources: [], minDurationSec: null, maxDurationSec: null, kept: {} });

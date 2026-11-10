@@ -68,6 +68,9 @@ const stacked = (probed: Pick<Probed, "format">) => STACKED_FORMATS.includes(pro
  */
 const frameRate = (probed: Pick<Probed, "format" | "fps">) => (stacked(probed) ? FPS_CAP : Math.min(probed.fps ?? FPS_CAP, FPS_CAP));
 
+/** HDR(PQ, HLG)을 SDR(BT.709)로 톤 매핑하는 필터. zscale(libzimg)이 있어야 한다(encoders 가 봇이 켜질 때 돌려 본다) */
+const HDR_TO_SDR = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv";
+
 /** 구간을 찾아가는 입력 인자(-i 앞): 영상은 -ss, -to, 움직이는 그림은 없다(sourceFilter 가 자른다) */
 function seekArgs(probed: Probed, span: Span): string[] {
   if (stacked(probed)) return [];
@@ -87,7 +90,7 @@ function evenedSpan(probed: Probed, span?: Span): string | null {
  */
 function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null, span?: Span): string {
   const steps: string[] = [];
-  if (probed.hdr) steps.push("zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709", "tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv");
+  if (probed.hdr) steps.push(HDR_TO_SDR);
   if (!stacked(probed) && (probed.fps ?? FPS_CAP) > FPS_CAP) steps.push(`fps=${FPS_CAP}`);
   if (crop && (crop.w < 1 || crop.h < 1)) steps.push(`crop=trunc(iw*${crop.w}/2)*2:trunc(ih*${crop.h}/2)*2:trunc(iw*${crop.x}):trunc(ih*${crop.y})`);
   const chain = steps.length ? steps.join(",") : "null";
@@ -103,5 +106,5 @@ function sourceFilter(probed: Probed, crop?: LoginBackgroundCrop | null, span?: 
 /** 크기를 맞추는 필터 분기 하나(lanczos, 픽셀 형식은 인코딩이면 4:2:0, 장면을 뜰 때는 RGB) */
 const scaleTo = ({ width, height }: { width: number; height: number }, format = "yuv420p") => `scale=${width}:${height}:flags=lanczos,format=${format}`;
 
-export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, turned, turnFilter, squareCrop, stillWidths, rungShorts, stacked, frameRate, seekArgs, sourceFilter, scaleTo };
+export { TRANSPARENT_FILL, FHD, UHD, FPS_CAP, fitShort, cropped, turned, turnFilter, squareCrop, stillWidths, rungShorts, stacked, frameRate, seekArgs, sourceFilter, scaleTo, HDR_TO_SDR };
 export type { Span };

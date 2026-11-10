@@ -1,8 +1,6 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import youtubedl from "youtube-dl-exec";
-import type { Flags } from "youtube-dl-exec";
 import type { SpawnOptions } from "child_process";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
@@ -14,6 +12,7 @@ import { isYouTubeURL } from "../rules/links.ts";
 import * as errors from "./youtube/errors.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
+import { execWith, isJSON, type Exec, type YtDlpFlags } from "./ytdlp-exec.ts";
 import { sec } from "../infra/log/seconds.ts";
 const log = logger.child({ category: "ytdlp" });
 
@@ -23,23 +22,12 @@ const IS_WIN = process.platform === "win32";
 // Windows: taskkill /T가 트리를 처리하므로 detached는 콘솔 분리 부작용만 남긴다.
 const SPAWN_OPTS = IS_WIN ? {} : { detached: true };
 
-/**
- * yt-dlp 플래그(camelCase). 라이브러리 타입에 없는 것 중 쓰는 필드를 더한다.
- * 출력 템플릿은 하나만 쓴다(yt-dlp 는 종류마다 -o 를 따로 받지만 다운로드 파일 그룹 감시가 하나를 전제한다)
- */
-type YtDlpFlags = Omit<Flags, "output"> & { output?: string; cookiesFromBrowser?: string; extractorArgs?: string | string[]; pluginDirs?: string; fragmentRetries?: number; concurrentFragments?: number; loadInfoJson?: string };
-
 /** yt-dlp 가 실패했을 때 던지는 것. message 는 stderr 와 같고, 어떤 실패인지 code 로 구분해 붙인다 */
 type YtDlpError = Error & { stderr?: string; stdout?: string; exitCode?: number; code?: string };
 
 /** spawn 옵션과 줄에 쓰는 것. retry: 재시도다(줄 맨 앞에 선다), job: 작업(없으면 문맥에서) */
 type RunOptions = SpawnOptions & { retry?: boolean; job?: Job };
 
-// 라이브러리가 내보내지만 타입에는 없는 것
-const { isJSON } = youtubedl as typeof youtubedl & { isJSON(text: string): boolean };
-
-/** yt-dlp 프로세스를 실행하는 것(라이브러리의 exec). Promise 가 stdout, stderr 를 준다 */
-type Exec = typeof youtubedl.exec;
 // 테스트는 useExec 로 가짜를 넘긴다(기본은 실제 실행). 응답, 오류 형식 맞추기는 그대로 돈다
 let fake: Exec | null = null;
 function useExec(exec: Exec | null) {
@@ -55,8 +43,8 @@ function useInfoTimeout(ms: number | null) {
   infoTimeoutMs = ms ?? INFO_TIMEOUT_MS;
 }
 
-// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 일(곡 찾기, 검색, 재생목록, 재생 주소), background: 다운로드(파일로 받는 호출), 미리 받기(prefetch 문맥).
-// 오래 도는 뒤의 일이 앞의 일을 막지 않게 따로 센다. 슬롯은 실행하는 동안만 잡는다(재시도는 슬롯을 돌려주고 줄 맨 앞에 다시 선다)
+// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 작업(곡 찾기, 검색, 재생목록, 재생 주소), background: 다운로드(파일로 받는 호출), 미리 받기(prefetch 문맥).
+// 오래 도는 뒤의 작업이 앞의 작업을 막지 않게 따로 센다. 슬롯은 실행하는 동안만 잡는다(재시도는 슬롯을 돌려주고 줄 맨 앞에 다시 선다)
 type Lane = "lookup" | "background";
 const GB = 1024 ** 3;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -80,7 +68,7 @@ const lanes: Record<Lane, SlotQueue> = {
   lookup: new SlotQueue(() => fixedSizes?.lookup ?? (config.ytdlp.lookupSlots || autoSize("lookup"))),
   background: new SlotQueue(() => fixedSizes?.background ?? (config.ytdlp.backgroundSlots || autoSize("background"))),
 };
-// 줄 안의 순서: 재시도가 맨 앞, 그다음 지금 곡의 일, 미리 받기는 뒤
+// 줄 안의 순서: 재시도가 맨 앞, 그다음 지금 곡의 작업, 미리 받기는 뒤
 const RANK = { retry: 0, now: 1, prefetch: 2 };
 // 이보다 오래 기다렸으면 debug 로그를 남긴다(ms)
 const WAIT_NOTE_MS: Record<Lane, number> = { lookup: 5_000, background: 30_000 };
@@ -222,18 +210,19 @@ let bound: { file: string; exec: Exec } | null = null;
 function execNow(): Exec {
   if (fake) return fake;
   const file = ytdlpBinary.path();
-  if (bound?.file !== file) bound = { file, exec: youtubedl.create(file).exec };
+  // 설치 전이거나 실행 파일이 사라졌다(ytdlpBinary 가 설치를 예약한다). 띄우지 못한 것과 같은 코드로 알린다
+  if (!file) throw Object.assign(new Error("yt-dlp 가 설치되지 않음(pnpm run update:ytdlp)"), { code: "ENOENT" }) satisfies YtDlpError;
+  if (bound?.file !== file) bound = { file, exec: execWith(file) };
   return bound.exec;
 }
 
 /**
- * youtube-dl-exec의 드롭인 대체. 반환, 예외 형식은 원본과 같다(성공 시 JSON이나 문자열, 실패 시 stderr를 담은 Error).
- * 원본은 Promise만 돌려줘 pid를 잡을 수 없어서, pid가 나오는 `.exec()`로 우회해 레지스트리에 등록한다.
- * yt-dlp 는 이것으로만 부른다. youtube-dl-exec 를 바로 부르면 실행한 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+ * yt-dlp 를 부르는 곳. 성공하면 JSON 이나 문자열, 실패하면 stderr 를 담은 Error(code 로 어떤 실패인지)를 준다.
+ * 띄운 프로세스를 레지스트리에 등록한다. yt-dlp 는 이것으로만 부른다(바로 띄우면 실행한 yt-dlp 와 그 자식 ffmpeg 를 추적하지 못해 좀비가 남는다).
  * 띄우기 전에 줄에서 슬롯을 기다린다(기다리는 시간은 한도에 들지 않는다). signal 이 끊기면 기다리다가도 빠진다.
  */
 async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ...opts }: RunOptions = {}): Promise<unknown> {
-  // 일은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
+  // 작업은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
   const doing = job ?? currentJob() ?? (flags.output ? "play" : "lookup");
   const lane: Lane = flags.output || doing === "prefetch" ? "background" : "lookup";
   const leave = await enter(lane, retry ? RANK.retry : doing === "prefetch" ? RANK.prefetch : RANK.now, opts.signal ?? undefined);
@@ -291,7 +280,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
     // 한도에서 내렸다. 플랫폼이 답하지 않은 것으로 보고 다른 클라이언트로 재시도하지 않는다(stderr 를 싣지 않아 클라이언트 탓으로 읽히지 않는다)
     if (timedOut) throw Object.assign(new Error(`yt-dlp 가 ${infoTimeoutMs / 1000}초 안에 끝나지 않아 내림`), { code: "network-error" }) satisfies YtDlpError;
     if (stalled) throw Object.assign(new Error(`yt-dlp 다운로드가 ${stall.limitMs / 60_000}분 동안 진행되지 않아 중단`), { code: "network-error" }) satisfies YtDlpError;
-    // tinyspawn의 오류를 youtube-dl-exec와 같은 모양(message = stderr)으로 맞춘다.
+    // 실행 래퍼(ytdlp-exec)의 오류를 message = stderr 모양으로 맞춘다.
     // spawn 자체가 실패하면(ENOENT 등) stderr가 없으므로 원래 message를 쓴다.
     // 어떤 실패인지는 여기서 한 번 구분해 code 로 붙인다. 부르는 쪽은 메시지 텍스트가 아니라 code 를 본다.
     const failed = error as { stderr?: string; stdout?: string; exitCode?: number; message?: string; code?: string };

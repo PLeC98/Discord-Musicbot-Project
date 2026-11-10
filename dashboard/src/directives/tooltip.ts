@@ -1,5 +1,6 @@
 // v-tooltip="text". 네이티브 title 대신 커스텀 디자인 툴팁.
 // 단일 DOM 노드를 body에 붙여 재사용, 대상 위(공간 없으면 아래) 4px 떨어진 위치에 중앙 정렬로 표시(M3 일반 툴팁, 꼬리 없음).
+// 대상 안에 data-tooltip-anchor 를 단 요소가 있으면 그 요소에 맞춘다(넓은 줄 안의 아이콘: 사이드바 서버 목록은 스크롤바 칸만큼 줄이 좁아 줄 가운데가 아이콘과 어긋난다).
 //
 // 마우스: 올리면 뜨고 떠나거나 누르면 꺼진다. 키보드: 포커스가 오면 뜬다(누른 버튼에 오는 포커스는 빼고). 어디든 스크롤되면 꺼진다.
 // v-tooltip.stay: 눌러도 끄지 않는다(누를 때마다 글이 바뀌는 버튼).
@@ -57,7 +58,9 @@ function show(el: HTMLElement) {
   t.style.left = "0px";
   t.style.top = "0px";
 
-  const r = el.getBoundingClientRect();
+  // 기준 요소가 크기 없이 그려지면(display: contents) 대상에 맞춘다
+  const anchor = el.querySelector<HTMLElement>("[data-tooltip-anchor]")?.getBoundingClientRect();
+  const r = anchor?.width ? anchor : el.getBoundingClientRect();
   const tr = t.getBoundingClientRect();
   const pad = 6;
   let left = r.left + r.width / 2 - tr.width / 2;

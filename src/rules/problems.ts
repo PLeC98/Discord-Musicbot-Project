@@ -4,7 +4,7 @@
 // 410 그 사이 사라짐, 422 받을 수 없는 내용, 500 봇 안쪽 실패, 502 외부(플랫폼, 디스코드) 실패, 503 운영자 설정, 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자, 숫자, _, 3자 이상)을 따른다 */
-type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
+type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; received?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
@@ -119,7 +119,7 @@ const SHARED = {
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-parked": { status: 500, title: "Could not open the saved track, paused on it" },
   "restore-failed": { status: 500, title: "Could not restore the session" },
-  // 봇이 종료 중이라 새 일을 시작하지 않는다(명령, 메시지 요청, 대시보드 조작)
+  // 봇이 종료 중이라 새 작업을 시작하지 않는다(명령, 메시지 요청, 대시보드 조작)
   "bot-shutting-down": { status: 503, title: "Bot is shutting down" },
 } as const satisfies Record<string, ProblemSpec>;
 
@@ -228,6 +228,8 @@ const WEB = {
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 디스크에 여유 공간은 있지만 동시에 진행 중인 업로드가 앞으로 쓸 몫을 잡아 두었다
   "upload-busy": { status: 409, title: "Another upload is still in progress" },
+  // 청크 업로드: 보낸 위치가 받은 위치(received)와 다르거나 그 업로드가 다른 청크를 받는 중이다. 화면은 받은 위치부터 다시 보낸다
+  "upload-offset": { status: 409, title: "Upload offset does not match", params: ["received"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
   // 가져온 파일이 쓸 수 있는 이미지, 영상이 아니다(형식, 해상도, 길이, 초당 장면 수)
@@ -236,6 +238,8 @@ const WEB = {
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
   // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264, VP9)가 없다. 이미지 배경은 된다
   "background-no-video-encoder": { status: 409, title: "No encoder for video backgrounds" },
+  // 원본이 HDR 인데 봇의 ffmpeg 에 SDR 로 톤 매핑할 필터(zscale)가 없다. SDR 영상, 이미지 배경은 된다
+  "background-hdr-unsupported": { status: 409, title: "No filter to convert HDR video" },
   // 대시보드: 캐시 DB. 필터 식(열마다, 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
   "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },

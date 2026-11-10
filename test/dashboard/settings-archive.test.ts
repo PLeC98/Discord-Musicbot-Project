@@ -27,6 +27,8 @@ const snapshots = await import("../../src/store/snapshots.ts");
 const { RECENT_LOGIN_MS } = await import("../../src/dashboard/middleware/recent-login.ts");
 const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
+const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
+const { uploadVia } = await import("../helpers/chunk-upload.ts");
 
 const store = openTempStore("settings-archive-");
 const faviconDir = fs.mkdtempSync(path.join(os.tmpdir(), "settings-archive-favicon-"));
@@ -39,9 +41,12 @@ app.use((req, _res, next) => {
   req.session = fake<typeof req.session>({ user: { id: "owner", username: "owner" }, loginAt });
   next();
 });
+app.use(express.json());
 app.use("/api/admin/settings-archive", settingsArchiveRouter);
+app.use("/api/admin/uploads", uploadsRouter);
 const server = await listenForFetch(app);
-const base = `${baseUrl(server)}/api/admin/settings-archive`;
+const origin = baseUrl(server);
+const base = `${origin}/api/admin/settings-archive`;
 
 beforeEach(() => {
   loginAt = Date.now();
@@ -76,7 +81,7 @@ async function exported(kind: "settings" | "favicon" = "settings") {
   assert.match(res.headers.get("content-disposition") ?? "", new RegExp(`attachment; filename="musicbot-${kind}-\\d{8}-\\d{4}\\.zip"`));
   return Buffer.from(await res.arrayBuffer());
 }
-const upload = (file: Buffer) => fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+const upload = async (file: Buffer) => fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
 async function preview(file: Buffer) {
   const res = await upload(file);
   return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
@@ -327,7 +332,8 @@ test("올린 파일: 불러오면 삭제하고(같은 티켓으로 다시 못 �
 
   assert.equal((await preview(Buffer.from("그냥 글"))).status, 400);
   assert.deepEqual(fs.readdirSync(uploadDir), [], "못 읽은 파일");
-  assert.equal((await upload(Buffer.alloc(0))).status, 400, "빈 본문");
+  const empty = await fetch(`${origin}/api/admin/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ purpose: "archive", size: 0 }) });
+  assert.equal(empty.status, 400, "빈 파일은 업로드를 시작하지 않는다");
 
   await preview(file);
   uploads.sweepUploads();

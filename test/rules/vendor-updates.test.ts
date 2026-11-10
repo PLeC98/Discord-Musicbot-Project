@@ -60,17 +60,25 @@ test("갱신할 이슈: 라벨이 붙은 것을 먼저 선택하고, 없으면 �
   const app = { number: 7, title: "bgutil 2.0.2 lockfile에서 알려진 취약점 발견", author: { login: "app/musicbot-vendor" }, labels: [] };
   const actions = { number: 9, title: "bgutil 취약점", author: { login: "app/github-actions" }, labels: [] };
   const labeled = { number: 11, title: "아무 제목", author: { login: "someone" }, labels: [{ name: "bgutil-audit" }] };
-  assert.equal(trackedIssue([human, app], "bgutil-audit", "musicbot-vendor"), 7);
-  assert.equal(trackedIssue([human, actions], "bgutil-audit", "musicbot-vendor"), 9);
-  assert.equal(trackedIssue([human], "bgutil-audit", "musicbot-vendor"), null, "사람이 연 같은 제목 이슈");
-  assert.equal(trackedIssue([human, app, labeled], "bgutil-audit", "musicbot-vendor"), 11, "라벨은 triage 이상 권한이 있는 사람만 붙인다");
-  assert.equal(trackedIssue([{ ...app, title: "취약점 bgutil" }], "bgutil-audit", "musicbot-vendor"), null, "제목이 bgutil 로 시작해야 한다");
-  assert.equal(trackedIssue([{ ...human, author: null }], "bgutil-audit", ""), null, "작성자를 알 수 없는 이슈(삭제된 계정)");
-  assert.equal(trackedIssue([app], "bgutil-audit", ""), null, "App slug 가 없으면 github-actions 만 선택한다");
+  assert.equal(trackedIssue([human, app], "bgutil-audit", "musicbot-vendor", "bgutil "), 7);
+  assert.equal(trackedIssue([human, actions], "bgutil-audit", "musicbot-vendor", "bgutil "), 9);
+  assert.equal(trackedIssue([human], "bgutil-audit", "musicbot-vendor", "bgutil "), null, "사람이 연 같은 제목 이슈");
+  assert.equal(trackedIssue([human, app, labeled], "bgutil-audit", "musicbot-vendor", "bgutil "), 11, "라벨은 triage 이상 권한이 있는 사람만 붙인다");
+  assert.equal(trackedIssue([{ ...app, title: "취약점 bgutil" }], "bgutil-audit", "musicbot-vendor", "bgutil "), null, "제목이 bgutil 로 시작해야 한다");
+  assert.equal(trackedIssue([{ ...human, author: null }], "bgutil-audit", "", "bgutil "), null, "작성자를 알 수 없는 이슈(삭제된 계정)");
+  assert.equal(trackedIssue([app], "bgutil-audit", "", "bgutil "), null, "App slug 가 없으면 github-actions 만 선택한다");
+});
+
+test("갱신할 이슈: 제목 접두사를 넘기지 않으면 라벨로만 찾는다(yt-dlp 키 단계가 bgutil 이슈를 고르지 않는다)", () => {
+  const bgutil = { number: 7, title: "bgutil 2.0.2 lockfile에서 알려진 취약점 발견", author: { login: "app/musicbot-vendor" }, labels: [{ name: "bgutil-audit" }] };
+  const key = { number: 12, title: "yt-dlp 릴리스 서명 키가 data/ 의 키와 다름", author: { login: "app/musicbot-vendor" }, labels: [{ name: "ytdlp-signing-key" }] };
+  assert.equal(trackedIssue([bgutil], "ytdlp-signing-key", "musicbot-vendor"), null);
+  assert.equal(trackedIssue([bgutil, key], "ytdlp-signing-key", "musicbot-vendor"), 12);
+  assert.equal(trackedIssue([{ ...bgutil, labels: [] }], "ytdlp-signing-key", "musicbot-vendor", ""), null);
 });
 
 test("워크플로가 실행하는 스크립트: gh 의 JSON 을 받아 번호를 출력하고, 없으면 아무것도 출력하지 않는다", () => {
-  const run = (issues: unknown) => execFileSync(process.execPath, ["scripts/vendor-issue.ts", "bgutil-audit", "musicbot-vendor"], { input: JSON.stringify(issues), encoding: "utf8" });
+  const run = (issues: unknown) => execFileSync(process.execPath, ["scripts/vendor-issue.ts", "bgutil-audit", "musicbot-vendor", "bgutil "], { input: JSON.stringify(issues), encoding: "utf8" });
   assert.equal(run([{ number: 7, title: "bgutil x", author: { login: "app/musicbot-vendor" }, labels: [] }]).trim(), "7");
   assert.equal(run([{ number: 3, title: "bgutil x", author: { login: "someone" }, labels: [] }]), "");
   assert.equal(run([]), "");

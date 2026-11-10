@@ -140,6 +140,7 @@ test("모든 문장", () => {
       "bad-archive": shown(notice("bad-archive")),
       "disk-full": shown(notice("disk-full", { size: 512 * 1024 * 1024 })),
       "upload-gone": shown(notice("upload-gone")),
+      "upload-offset": shown(notice("upload-offset", { received: 1024 })),
       "storage-unavailable": shown(notice("storage-unavailable")),
       "bad-image": shown(notice("bad-image")),
       "image-not-square": shown(notice("image-not-square")),
@@ -153,6 +154,7 @@ test("모든 문장", () => {
       "background-bad-source": shown(notice("background-bad-source")),
       "background-link-failed": shown(notice("background-link-failed")),
       "background-no-video-encoder": shown(notice("background-no-video-encoder")),
+      "background-hdr-unsupported": shown(notice("background-hdr-unsupported")),
     },
     {
       "must-be-in-voice": "warning 🎧 먼저 음성 채널에 접속해 주세요!\n그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요.",
@@ -284,7 +286,8 @@ test("모든 문장", () => {
       "config-save-failed": "error ❌ 설정을 저장하지 못했어요!\n설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요.",
       "bad-archive": "warning ✏️ 불러올 수 없는 파일이에요!\n이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요.",
       "disk-full": "warning ⚠️ 저장 공간이 모자라요!\n남은 공간이 512.0 MB 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.",
-      "upload-gone": "warning ⌛ 올린 파일이 없어졌어요!\n올린 지 1시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요.",
+      "upload-gone": "warning ⌛ 올린 파일이 없어졌어요!\n시간이 지났거나 봇이 다시 시작됐어요. 파일을 다시 올려 주세요.",
+      "upload-offset": "warning ⌛ 업로드가 어긋났어요!\n파일을 다시 올려 주세요.",
       "storage-unavailable": "error ❌ 저장소를 쓸 수 없어요!\n데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요.",
       "bad-image": "warning ✏️ 쓸 수 없는 이미지예요!\npng, webp, jpg, svg 이미지만 쓸 수 있어요.",
       "image-not-square": "warning ✏️ 정사각형 이미지만 쓸 수 있어요!\n가로와 세로가 같은 이미지를 올려 주세요.",
@@ -298,6 +301,7 @@ test("모든 문장", () => {
       "background-bad-source": "warning ✏️ 쓸 수 없는 파일이에요!\n이미지, 영상, 움짤 파일인지, 너무 크거나 깨지지 않았는지 확인해 주세요.",
       "background-link-failed": "warning ✏️ 링크에서 가져오지 못했어요!\n주소가 이미지나 영상 파일, 또는 유튜브 영상을 가리키는지, 그 사이트에 접속이 되는지 확인해 주세요.",
       "background-no-video-encoder": "warning ⚠️ 이 기기에서는 영상 배경을 만들 수 없어요!\n봇의 ffmpeg 에 H.264 나 VP9 인코더가 있어야 해요. 이미지 배경은 쓸 수 있어요.",
+      "background-hdr-unsupported": "warning ⚠️ 이 기기에서는 HDR 영상을 쓸 수 없어요!\n봇의 ffmpeg 에 HDR 을 SDR 로 바꾸는 zscale 필터가 있어야 해요. SDR 영상이나 이미지 배경은 쓸 수 있어요.",
     },
   );
 });

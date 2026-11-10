@@ -30,6 +30,8 @@ function ffmpeg(args: string[]): Promise<boolean> {
 
 const META = ["-metadata", "title=노래 제목", "-metadata", "artist=가수", "-metadata", "album=앨범"];
 const TONE = ["-f", "lavfi", "-i", "sine=frequency=440:duration=20"];
+// Ogg Vorbis 픽스처는 ffmpeg 에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis 는 빌드마다 없을 수 있다(macOS 의 brew 기본 빌드)
+const VORBIS = ["-c:a", "vorbis", "-strict", "experimental", "-ac", "2"];
 let ready = false;
 let cover: Buffer;
 
@@ -40,7 +42,7 @@ before(async () => {
     await ffmpeg([...TONE, "-i", at("cover.jpg"), "-map", "0:a", "-map", "1:v", "-c:a", "flac", "-c:v", "copy", "-disposition:v", "attached_pic", ...META, "-y", at("a.flac")]),
     await ffmpeg([...TONE, "-i", at("cover.jpg"), "-map", "0:a", "-map", "1:v", "-c:a", "aac", "-c:v", "copy", "-disposition:v", "attached_pic", ...META, "-y", at("end.m4a")]),
     await ffmpeg(["-i", at("end.m4a"), "-map", "0", "-c", "copy", "-movflags", "+faststart", "-y", at("front.m4a")]),
-    await ffmpeg([...TONE, "-c:a", "libvorbis", ...META, "-y", at("a.ogg")]),
+    await ffmpeg([...TONE, ...VORBIS, ...META, "-y", at("a.ogg")]),
     await ffmpeg([...TONE, "-c:a", "libmp3lame", "-y", at("bare.mp3")]),
   ];
   ready = made.every(Boolean);
@@ -142,4 +144,12 @@ test("스트림 상한: 바이트를 넘으면 null(없음), 시간을 넘으면
   await assert.rejects(fromStream(broken, LIMITS), /ECONNRESET/);
 
   assert.equal(await fromStream(Readable.from([Buffer.from("<html>not audio</html>")]), LIMITS), null, "음원이 아니면 null");
+});
+
+// 태그에는 줄바꿈이 들어올 수 있다. 줄바꿈이 남으면 링크 라벨이 두 줄로 갈라진다
+test("태그의 줄바꿈, 이어진 공백은 한 칸으로", async (t) => {
+  const made = await ffmpeg([...TONE, ...VORBIS, "-metadata", "title=첫 줄\n\n둘째\t 줄", "-metadata", "artist= 가수 \r\n이름 ", "-y", at("lines.ogg")]);
+  if (!made) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
+  const tags = await fromFile(at("lines.ogg"));
+  assert.deepEqual([tags?.title, tags?.artist], ["첫 줄 둘째 줄", "가수 이름"]);
 });

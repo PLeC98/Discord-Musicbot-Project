@@ -65,12 +65,14 @@ test("굽기: CMYK JPEG 도 sRGB JPEG 으로", async () => {
   assert.equal((await sharp(baked!.jpeg).metadata()).space, "srgb");
 });
 
+// Ogg Vorbis 픽스처는 ffmpeg 에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis 는 빌드마다 없을 수 있다(macOS 의 brew 기본 빌드)
+const VORBIS = ["-c:a", "vorbis", "-strict", "experimental", "-ac", "2"];
 let ready = false;
 before(async () => {
   ready = [
     await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=600x600:d=1", "-frames:v", "1", "-y", at("src.jpg")]),
     await ffmpeg(["-f", "lavfi", "-i", "sine=duration=3", "-i", at("src.jpg"), "-map", "0:a", "-map", "1:v", "-c:a", "libmp3lame", "-c:v", "copy", "-disposition:v", "attached_pic", "-metadata", "title=원본 제목", "-metadata", "comment=버릴 것", "-y", at("a.mp3")]),
-    await ffmpeg(["-f", "lavfi", "-i", "sine=duration=3", "-c:a", "libvorbis", "-metadata", "title=원본", "-y", at("a.ogg")]),
+    await ffmpeg(["-f", "lavfi", "-i", "sine=duration=3", ...VORBIS, "-metadata", "title=원본", "-y", at("a.ogg")]),
     await ffmpeg(["-f", "lavfi", "-i", "sine=duration=3", "-c:a", "libopus", "-b:a", "96k", "-metadata", "title=원본", "-f", "opus", "-y", at("a.opus")]),
     await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=40x80:d=1:r=4", "-y", at("moving.gif")]),
   ].every(Boolean);

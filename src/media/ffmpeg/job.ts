@@ -1,4 +1,4 @@
-// 끝까지 돌리는 ffmpeg 일(테스트, 검사, 인코딩). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
+// 끝까지 돌리는 ffmpeg 작업(테스트, 검사, 인코딩). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
 // signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 인코딩의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
 // 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 인코딩용 코어로 묶는다(infra/cpu-affinity)
 
@@ -51,6 +51,9 @@ function progressWatch(stallMs: number, onStall: () => void) {
 /** 끝난 코드(실행하지 못했거나 신호로 끝났으면 null), 끝낸 신호, 모은 출력(글, 바이트 그대로), 멈춘 까닭 */
 type FfmpegResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
+/** setTimeout 이 받는 가장 긴 지연(ms, 32비트 부호 정수, 약 24.8일). 넘기면 Node 가 1ms 로 바꿔 곧바로 끊는다(긴 영상의 작업 시간 상한이 넘는다) */
+const MAX_TIMER_MS = 2 ** 31 - 1;
+
 function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardStdout = false, onStderrLine, label = "job", job, bindCores = false }: FfmpegJob = {}): Promise<FfmpegResult> {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve({ code: null, signal: null, stdout: "", output: Buffer.alloc(0), stderr: "", aborted: true, timedOut: false });
@@ -69,7 +72,7 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
     let partial = "";
     let timedOut = false;
     const kill = () => child.kill("SIGKILL");
-    const timer = timeoutMs ? setTimeout(() => ((timedOut = true), kill()), timeoutMs) : null;
+    const timer = timeoutMs ? setTimeout(() => ((timedOut = true), kill()), Math.min(timeoutMs, MAX_TIMER_MS)) : null;
     const watch = stallMs ? progressWatch(stallMs, () => ((timedOut = true), kill())) : null;
     signal?.addEventListener("abort", kill, { once: true });
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -106,5 +109,5 @@ function runFfmpeg(args: string[], { input, signal, timeoutMs, stallMs, discardS
   });
 }
 
-export { runFfmpeg, progressWatch, PROGRESS_ARGS };
+export { runFfmpeg, progressWatch, PROGRESS_ARGS, MAX_TIMER_MS };
 export type { FfmpegJob, FfmpegResult };

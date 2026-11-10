@@ -10,9 +10,9 @@
       tabindex="0"
       role="spinbutton"
       :aria-label="label"
-      :aria-valuenow="modelValue"
-      :aria-valuemin="0"
-      :aria-valuemax="count - 1"
+      :aria-valuenow="modelValue + first"
+      :aria-valuemin="first"
+      :aria-valuemax="count - 1 + first"
       @scroll="onScroll"
       @wheel.prevent="onWheel"
       @keydown.up.prevent="stepBy(-1)"
@@ -25,7 +25,7 @@
     >
       <div :style="{ height: `${rowPx}px` }"></div>
       <button v-for="i in count * COPIES" :key="i" type="button" tabindex="-1" class="snap-center w-full flex items-center justify-center nums cursor-pointer" :class="[big ? 'text-2xl' : 'text-lg', (i - 1) % count === modelValue ? 'font-semibold text-on-secondary-container' : 'text-on-surface-variant']" :style="{ height: `${rowPx}px` }" @click="clickRow(i - 1)">
-        {{ pad((i - 1) % count) }}
+        {{ pad(((i - 1) % count) + first) }}
       </button>
       <div :style="{ height: `${rowPx}px` }"></div>
     </div>
@@ -38,8 +38,8 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { scrollMotion } from "../utils/motion.ts";
 
-/** count: 값의 수(0 ~ count-1, 시 24, 분 60). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
-const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; step?: number; big?: boolean }>(), { step: 1, big: false });
+/** count: 값의 수(0 ~ count-1, 시 24, 분 60). first: 보이는 첫 숫자(값 0 이 보이는 글자. 월, 일은 1). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
+const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; first?: number; step?: number; big?: boolean }>(), { first: 0, step: 1, big: false });
 const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 
 /** 한 줄 높이(px) */
@@ -70,6 +70,11 @@ function show(value: number, smooth = false) {
 onMounted(() => show(props.modelValue));
 // 줄 높이가 바뀌면(화면을 돌리면) 다시 그린 뒤 같은 값으로 맞춘다
 watch(rowPx, () => void nextTick(() => show(props.modelValue)));
+// 칸 수가 바뀌면(달마다 다른 일 수) 다시 그린 뒤 맞춘다. 값이 칸 밖이면 부르는 쪽이 줄여 준다
+watch(
+  () => props.count,
+  () => void nextTick(() => show(Math.min(props.modelValue, props.count - 1))),
+);
 watch(
   () => props.modelValue,
   (v) => {
@@ -158,7 +163,7 @@ function commit() {
   if (!typing.value) return;
   typing.value = false;
   list.value?.focus({ preventScroll: true });
-  const n = Number(draft.value);
+  const n = Number(draft.value) - props.first;
   if (draft.value.trim() !== "" && Number.isInteger(n) && n >= 0 && n < props.count) emit("update:modelValue", n);
 }
 </script>

@@ -10,7 +10,7 @@ import * as registry from "../../src/infra/process-registry.ts";
 
 let child: ChildProcess | null = null;
 
-// youtube-dl-exec 의 exec 와 같은 모양: 자식 프로세스이면서 끝나면 { stdout, stderr } 로 풀리는 약속
+// 실행 래퍼(ytdlp-exec)의 Exec 와 같은 모양: 자식 프로세스이면서 끝나면 { stdout, stderr } 로 풀리는 약속
 const silent = ((..._args: unknown[]) => {
   const proc = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { windowsHide: true });
   child = proc;

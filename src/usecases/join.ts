@@ -1,4 +1,4 @@
-// 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 일은 여기서, 결과를 어떻게 알릴지는 진입점이 정한다
+// 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 처리는 여기서, 결과를 어떻게 알릴지는 진입점이 정한다
 
 import { PermissionFlagsBits, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";

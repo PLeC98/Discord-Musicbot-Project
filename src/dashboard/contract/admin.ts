@@ -47,7 +47,7 @@ type AdminStatus = {
   /**
    * 자식 프로세스(ffmpeg, yt-dlp, 헬퍼). 행은 쿼리(procs, sort, desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
    * stray: 잔류 의심 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
-   * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 일, background: 다운로드, 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
+   * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 작업, background: 다운로드, 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
    * reused, missed: 지난 1시간 캐시한 영상 정보를 다시 쓴 수, 캐시가 가득 차 밀려난 뒤 필요해져 다시 추출한 수
    */
   processes: {

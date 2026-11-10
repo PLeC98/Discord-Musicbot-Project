@@ -167,7 +167,7 @@ test("게이트웨이 로그: 재연결하지 않는 닫힘은 오류와 합쳐 
   assert.deepEqual(lines, ["50 게이트웨이 연결이 닫혀 재연결하지 않음(샤드 0): 닫힘 코드 4004 AuthenticationFailed · Authentication failed"]);
 });
 
-test("자식 프로세스: 프로그램, 서버 이름, 일. 재생, 다음 곡 일인데 그 서버에 플레이어가 없으면 잔류 의심", () => {
+test("자식 프로세스: 프로그램, 서버 이름, 작업. 재생, 다음 곡 작업인데 그 서버에 플레이어가 없으면 잔류 의심", () => {
   let pid = 910_001;
   const spawn = (file: string, label: string) => registry.register({ pid: pid++, exitCode: null, signalCode: null, spawnfile: file }, label);
   const releases = [inGuild("g1", () => spawn("ffmpeg", "ffmpeg:playback"), "play"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "prefetch"), inGuild("g2", () => spawn("yt-dlp", "yt-dlp"), "lookup"), spawn("node", "bgutil")];
@@ -201,7 +201,7 @@ test("자식 프로세스: 구간만 행으로, 잔류 의심 프로세스는 �
   }
 });
 
-// 정렬 테스트용 행: 이름, 일, 나이만 다르게
+// 정렬 테스트용 행: 이름, 작업, 나이만 다르게
 const proc = (pid: number, ageMs: number, more: Partial<ProcessRow> = {}): ProcessRow => ({ pid, label: "ffmpeg", ageMs, memMb: null, guildId: null, guildName: null, job: null, stray: false, ...more });
 const pids = (rows: ProcessRow[]) => rows.map((p) => p.pid);
 

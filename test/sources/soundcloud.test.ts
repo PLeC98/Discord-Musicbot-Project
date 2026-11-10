@@ -52,7 +52,7 @@ test("곡 링크: 곡 찾기용 포맷(aac, mp3)만 묻고, 공통 옵션만 쓴
   assert.equal(flags.extractorArgs, "soundcloud:formats=hls_aac,http_mp3");
   assert.equal(flags.retries, 3);
   assert.equal(flags.jsRuntimes, undefined, "유튜브 전용 옵션은 없다");
-  assert.equal(flags.noWarnings, undefined, "경고를 끄지 않는다");
+  assert.equal((flags as Record<string, unknown>).noWarnings, undefined, "경고를 끄지 않는다");
 });
 
 test("짧은 링크, API 주소로 들어와도 곡 페이지 주소가 키다", async () => {

@@ -158,7 +158,7 @@ async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack 
 
 /**
  * 곡 안의 위치로. reason 은 로그에 남는 원인(seek, replay, highlight, dashboard).
- * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 일 전에 부른다(응답 미루기 등).
+ * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 작업 전에 부른다(응답 미루기 등).
  * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
  */
 async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted, onTrack }: SeekOptions = {}) {

@@ -23,7 +23,7 @@ import * as panelText from "./text/ko/panel.ts";
 import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
-import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
+import { ALLOWED_MENTIONS, escapeMd, linkLabel } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
@@ -239,15 +239,17 @@ class NowPlayingPanel {
    *
    * 상호작용이 있어도 늘 채널 웹훅(없으면 일반 채널 메시지)으로 보낸다. 상호작용 응답(@original)으로 보내면 이후 편집이
    * 상호작용 토큰을 쓰는데, 토큰은 15분 뒤 만료되어 긴 세션의 진행 막대, 곡 갱신이 50027(Invalid Webhook Token)로 실패한다.
-   * 웹훅, 봇 토큰은 만료되지 않는다(메시지에 webhook_id 가 붙어 CV2 이모지 링크도 제대로 그려진다).
+   * 웹훅, 봇 토큰은 만료되지 않는다.
    */
   async _sendNowPlaying(player: Player, track: QueuedTrack, channel: GuildTextBasedChannel) {
-    return this._sendPanel(channel, await this._playingPayload(player, track, true));
+    return this._sendPanel(channel, (byWebhook) => this._playingPayload(player, track, true, byWebhook));
   }
 
-  // 캐시해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 캐시에서 지우고 새로 만들어 한 번 더 보낸다
-  async _sendPanel(channel: GuildTextBasedChannel, payload: Payload, retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
+  // 캐시해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 캐시에서 지우고 새로 만들어 한 번 더 보낸다.
+  // content 가 함수면 웹훅으로 보내는지(byWebhook)를 넘겨 내용을 받는다
+  async _sendPanel(channel: GuildTextBasedChannel, content: Payload | ((byWebhook: boolean) => Promise<Payload>), retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
     const webhook = await this.getOrCreateWebhook(channel);
+    const payload = typeof content === "function" ? await content(Boolean(webhook)) : content;
     if (!webhook) return { message: await channel.send(payload), webhook: null };
 
     const me = this.client.user;
@@ -261,17 +263,18 @@ class NowPlayingPanel {
     } catch (error) {
       if (retried || codeOf(error) !== UNKNOWN_WEBHOOK) throw error;
       this.deleteWebhookCache(channel.id);
-      return this._sendPanel(channel, payload, true);
+      return this._sendPanel(channel, content, true);
     }
   }
 
   /**
    * 재생 중 패널 내용. 첨부하는 썸네일(앨범아트가 없는 곡의 음표, 직접 링크 곡의 파일 태그 이미지)은 바뀔 때만 올린다(5초 갱신마다 다시 올리지 않는다):
-   * 새로 올리는 패널(fresh), 붙어 있는 것과 다르면 올리고, 썸네일을 주소로 거는 곡으로 바뀌면 뗀다
+   * 새로 올리는 패널(fresh), 붙어 있는 것과 다르면 올리고, 썸네일을 주소로 거는 곡으로 바뀌면 뗀다.
+   * byWebhook: 웹훅으로 보내거나 고치는 패널. 아니면(채널 메시지) 디스코드가 라벨 안의 이모지를 받지 않아 제목의 이모지를 글자 모양으로 바꾼다
    */
-  async _playingPayload(player: Player, track: QueuedTrack, fresh = false): Promise<Payload> {
+  async _playingPayload(player: Player, track: QueuedTrack, fresh = false, byWebhook?: boolean): Promise<Payload> {
     const art = await discordArt.artFor(track);
-    const container = await this.createNowPlayingContainer(player, track, false, art);
+    const container = await this.createNowPlayingContainer(player, track, false, art, byWebhook);
     const jumpToRow = await this.createJumpToRow(player);
     const payload: Payload = { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
     const guildId = player.guild?.id ?? "";
@@ -306,8 +309,8 @@ class NowPlayingPanel {
     if ((await this._dedicatedChannel(player.guild, channel))?.id !== channel.id) return null;
     const record = await this.location.store.getPanel(player.guild.id);
     if (record?.channelId !== channel.id || this._buriedAt(channel, record.messageId)) return null;
-    // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다
-    const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track, true)), attachments: [] });
+    // 종료 모양이 붙여 둔 투명 썸네일 첨부를 뗀다. 기록된 패널은 웹훅으로만 고친다
+    const edited = await this.location.edit(player.guild, { ...(await this._playingPayload(player, track, true, true)), attachments: [] });
     return edited ? { message: { id: edited.messageId, channel_id: channel.id }, webhook: edited.webhook } : null;
   }
 
@@ -383,8 +386,8 @@ class NowPlayingPanel {
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
-  /** 재생 중 패널의 화면(Components V2). art: 붙일 썸네일(ui/discord-art, 주지 않으면 여기서 구한다) */
-  async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false, art?: discordArt.DiscordArt | null) {
+  /** 재생 중 패널의 화면(Components V2). art: 붙일 썸네일(ui/discord-art, 주지 않으면 여기서 구한다), byWebhook: 웹훅으로 보내는 패널 */
+  async createNowPlayingContainer(player: Player, track: QueuedTrack, buttonsDisabled = false, art?: discordArt.DiscordArt | null, byWebhook = false) {
     const nowPlayingTitle = panelText.playingTitle();
 
     const currentMs = player.getCurrentTime ? player.getCurrentTime() : 0;
@@ -396,9 +399,9 @@ class NowPlayingPanel {
     const platformValue = labelOf(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(artistValue)}` : "";
-    // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
+    // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(mentions.ts)
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
-    const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
+    const linkText = `### ${nowPlayingTitle}\n**[${linkLabel(songTitle(track.title), { emojiLinks: byWebhook })}](${track.pageUrl})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
     // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)
@@ -466,7 +469,7 @@ class NowPlayingPanel {
     if (!player.paused && this.heldProgress.delete(player.guild.id)) this.startProgressUpdate(player);
 
     try {
-      const payload = await this._playingPayload(player, track);
+      const payload = await this._playingPayload(player, track, false, Boolean(player.nowPlayingWebhook));
       // 썸네일을 기다린 사이 정리됐거나 곡, 패널이 바뀌었거나 다시 올리는 중이면 보내지 않는다(늦은 재생 모양이 끝난 패널, 새 곡을 덮지 않게).
       // 만들며 적은 첨부 기록은 보내지 않았으니 지운다
       if (player.lifecycle?.disposed || player.currentTrack !== track || player.nowPlayingMessage !== panel || this.reposting.has(player.guild.id)) {

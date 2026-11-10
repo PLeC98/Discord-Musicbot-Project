@@ -22,6 +22,8 @@ const { AUDIO_CACHE_PARTS } = await import("../../src/rules/audio-cache-parts.ts
 const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const archive = await import("../../src/dashboard/settings-archive.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
+const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
+const { uploadVia } = await import("../helpers/chunk-upload.ts");
 
 const store = openTempStore("audio-cache-archive-");
 const uploadDir = fs.mkdtempSync(`${store.dir}-upload`);
@@ -31,9 +33,12 @@ app.use((req, _res, next) => {
   req.session = fake<typeof req.session>({ user: { id: "owner", username: "owner" }, loginAt: Date.now() });
   next();
 });
+app.use(express.json());
 app.use("/api/admin/settings-archive", settingsArchiveRouter);
+app.use("/api/admin/uploads", uploadsRouter);
 const server = await listenForFetch(app);
-const base = `${baseUrl(server)}/api/admin/settings-archive`;
+const origin = baseUrl(server);
+const base = `${origin}/api/admin/settings-archive`;
 const saved = { ...config.cache };
 after(() => {
   Object.assign(config.cache, saved);
@@ -68,7 +73,7 @@ async function exported(files = true) {
 }
 type Row = { item: string; inFile: boolean; breakdown?: { added: number; existing: number; changed: number; overLimit: number; bytes: number | null } };
 async function preview(file: Buffer) {
-  const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+  const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
   return (await res.json()) as { token: string; kind: string; rows: Row[]; room?: number };
 }
 const breakdownOf = (shown: { rows: Row[] }, item: string) => shown.rows.find((one) => one.item === item)?.breakdown;
@@ -213,7 +218,7 @@ test("행 목록이 없거나 모양이 틀리면 bad-archive. 받은 이름이 
   rows.files[0].audioKey = "../../x";
   const broken = await zipped(entries.map((one) => (one.name === "audio-cache/rows.json" ? { name: one.name, data: Buffer.from(JSON.stringify(rows)) } : one)));
   for (const bad of [noRows, broken]) {
-    const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: bad });
+    const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", bad) }) });
     assert.deepEqual([res.status, ((await res.json()) as { code: string }).code], [400, "bad-archive"]);
   }
 });

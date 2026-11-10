@@ -5,6 +5,7 @@ import os from "node:os";
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";
 import { vitals } from "../../infra/vitals.ts";
+import { availableMemory } from "../../infra/available-memory.ts";
 import { BOT_VERSION } from "../../infra/version.ts";
 import * as YouTube from "../../sources/youtube/index.ts";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -51,14 +52,14 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
   return {
     bot: botStatus(client, uptime),
     node: { version: process.version, platform: process.platform, arch: process.arch, memory: { heapUsed: Math.round(mem.heapUsed / MB), heapTotal: Math.round(mem.heapTotal / MB), heapLimit, rss: Math.round(mem.rss / MB) } },
-    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(os.freemem() / MB), loadAvg: os.loadavg(), uptime: Math.floor(os.uptime()) },
+    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(availableMemory() / MB), loadAvg: os.loadavg(), uptime: Math.floor(os.uptime()) },
     cpu,
     loop,
     download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
     upload: uploadView(),
     activePlayers: players.size,
     players: playerRows(client, players, query, viewer.id, viewer.memberIds),
-    // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 일이 새는 신호다
+    // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 작업이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),

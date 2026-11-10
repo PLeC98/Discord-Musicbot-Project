@@ -4,7 +4,7 @@ import { answerShape, readInfo } from "../ytdlp-info.ts";
 import { artOf } from "../../rules/track-art.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
-import youtubedl from "../ytdlp-spawn.ts";
+import ytdlp from "../ytdlp-spawn.ts";
 import * as run from "./run.ts";
 import type { YtInfo } from "../ytdlp-info.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
@@ -70,7 +70,7 @@ function setOf(info: YtInfo, offset: number): ScSet {
  * 곡(과 곡인지 모르는 짧은 링크)은 mp3 까지 요청해 미리듣기를 원인으로 알리고, 세트는 AAC 만 요청해 API 요청을 줄인다(미리듣기도 받을 수 없는 곡으로 센다).
  * 실패는 이름을 단 오류로 던진다(없는 곡, 세트, 지역 차단, 미리듣기, 요청 제한, 네트워크)
  */
-async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track" }: { offset?: number; limit?: number; what?: run.What } = {}, exec: RunYtDlp = youtubedl): Promise<Found> {
+async function find(url: string, { offset = 0, limit = SET_BATCH, what = "track" }: { offset?: number; limit?: number; what?: run.What } = {}, exec: RunYtDlp = ytdlp): Promise<Found> {
   const size = Math.max(1, Math.min(limit, SET_BATCH));
   const raw = await run.read(url, what === "set" ? "play" : "lookup", what, { playlistItems: `${offset + 1}:${offset + size}` }, exec);
   const info = readInfo(raw);
@@ -96,7 +96,7 @@ async function streamInfo(url: string, canPlayHls: boolean, exec: RunYtDlp) {
  * 재생용 스트림 서술자. AAC(HLS)를 요청하고, HLS 를 못 여는 ffmpeg 면 mp3 를 요청한다.
  * AAC 가 없는 곡은 mp3 까지 요청해 한 번 더 본다. 미리듣기 조각이 선택되면 틀지 않는다. 탐색은 ffmpeg 가 한다.
  */
-async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = youtubedl) {
+async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: boolean } = {}, exec: RunYtDlp = ytdlp) {
   const raw = await streamInfo(url, canPlayHls, exec);
   const info = readInfo(raw);
   if (!info) throw codedError("stream-failed", `사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | ${answerShape(raw)}`);
@@ -115,7 +115,7 @@ async function getStream(url: string, { canPlayHls = true }: { canPlayHls?: bool
  * 캐시로 다운로드한다(extra 는 다운로드할 파일, 변환 옵션). AAC 를 다운로드하고, AAC 가 없는 곡은 mp3 까지 요청해 미리듣기 조각이 아닌 것을 다운로드한다.
  * 미리듣기만 열린 곡은 다운로드할 것이 없어 "포맷 없음"으로 실패한다
  */
-async function download(url: string, extra: YtDlpFlags, exec: RunYtDlp = youtubedl) {
+async function download(url: string, extra: YtDlpFlags, exec: RunYtDlp = ytdlp) {
   try {
     return await run.call(url, "play", "track", extra, exec);
   } catch (error) {

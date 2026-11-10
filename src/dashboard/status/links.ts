@@ -1,5 +1,5 @@
 // 봇 상태 탭의 연결: 바깥 서비스마다 봇이 실제로 부른 결과(infra/link-status)와 설정으로 매긴다(상태를 보려고 따로 부르지 않는다).
-// 디스코드는 게이트웨이 연결, POToken 은 서버 프로세스로 본다(봇 안의 일이라 부른 결과가 없다)
+// 디스코드는 게이트웨이 연결, POToken 은 서버 프로세스로 본다(봇 안에서 도는 것이라 부른 결과가 없다)
 
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";

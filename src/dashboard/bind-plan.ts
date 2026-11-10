@@ -73,27 +73,16 @@ function reachableAddresses(read: typeof os.networkInterfaces = os.networkInterf
   return found;
 }
 
-/** 공개 주소가 도메인이 아닌 IP인데 디스코드가 그 콜백을 받지 않거나 받지 않을 수 있을 때의 안내 */
-function callbackNote(url: string): Note | null {
-  const parsed = new URL(url);
-  const kind = kindOf(hostOf(parsed));
-  if (kind === "private" && parsed.protocol === "http:") return { level: "warn", text: `DASHBOARD_URL(${url})이 사설 IP의 http라 디스코드가 이 콜백을 받지 않아 로그인할 수 없음. 이 주소를 가리키는 도메인(공유기 DDNS, Tailscale의 MagicDNS 등)을 쓰세요` };
-  if (kind === "private" || kind === "cgnat" || kind === "link-local") return { level: "warn", text: `DASHBOARD_URL(${url})이 사설 IP라 디스코드가 이 콜백을 받지 않을 수 있음. 로그인이 막히면 이 주소를 가리키는 도메인을 쓰세요` };
-  return null;
-}
-
 /** 기동 진단(연 주소 한 줄 뒤). reachable: 다른 기기에서 접속할 수 있는 이 기기의 주소 */
 function bindNotes(plan: BindPlan, { url, port, envHost, container, reachable, scheme = "http" }: { url: string; port: number; envHost: string | null; container: boolean; reachable: string[]; scheme?: "http" | "https" }): Note[] {
   const notes: Note[] = [];
   const https = url.startsWith("https:");
   const addresses = reachable.map((ip) => `${scheme}://${isIP(ip) === 6 ? `[${ip}]` : ip}:${port}`).join(", ");
-  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요. 디스코드는 사설 IP의 콜백을 받지 않아 이 기기를 가리키는 도메인(공유기 DDNS, Tailscale의 MagicDNS 등)이 필요함.${addresses ? ` 이 기기의 주소: ${addresses}` : ""}` });
+  if (plan.reason === "loopback-url" && !container) notes.push({ level: "info", text: `다른 기기에서 쓰려면 .env의 DASHBOARD_URL에 그 기기에서 접속할 주소를 넣으세요.${addresses ? ` 이 기기의 주소: ${addresses}` : ""}` });
   if (container) notes.push(...containerNotes(url));
   if (plan.all && plan.reason !== "container" && addresses) notes.push({ level: "info", text: `다른 기기에서 접속할 수 있는 주소: ${addresses}` });
   if (https && plan.reason === "env" && !envHostIsLoopback(envHost)) notes.push({ level: "info", text: "공개 주소가 https라 다른 기기에서 평문으로 바로 접속하면 로그인되지 않음(브라우저가 Secure 쿠키를 받지 않음)" });
   if (!https && plan.reason === "plain-url") notes.push({ level: "info", text: "도메인과 인증서가 있으면 HTTPS로 쓸 수 있음(docs/dashboard-network.md)" });
-  const callback = callbackNote(url);
-  if (callback) notes.push(callback);
   return notes;
 }
 
@@ -120,5 +109,5 @@ function widenedNote(previous: string | null, plan: BindPlan): Note | null {
   return { level: "warn", text: `이전 실행은 이 기기 전용이었는데 이번에는 더 넓게 열림(${now === "all" ? "모든 주소" : now}: ${REASONS[plan.reason]}). 의도한 것이 아니면 .env의 DASHBOARD_URL, DASHBOARD_HOST를 확인하세요` };
 }
 
-export { planBind, inContainer, bindLine, bindNotes, reachableAddresses, callbackNote, scopeOf, widenedNote, isLoopbackName };
+export { planBind, inContainer, bindLine, bindNotes, reachableAddresses, scopeOf, widenedNote, isLoopbackName };
 export type { BindPlan, BindReason, Note };

@@ -35,7 +35,7 @@ const exported: GuildCommand = {
     }
 
     const player = bot.players.get(guild.id);
-    // 패널을 올리는 일(웹훅 조회, 전송, 옛 패널 삭제)이 3초를 넘을 수 있어 먼저 본인 표시로 미뤄 두고, 올린 뒤 지운다
+    // 패널을 올리는 작업(웹훅 조회, 전송, 옛 패널 삭제)이 3초를 넘을 수 있어 먼저 본인 표시로 미뤄 두고, 올린 뒤 지운다
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     // 곡이 없으면 끝난 패널을 이 채널에 다시 올린다
     if (!player?.currentTrack) {

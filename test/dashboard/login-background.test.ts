@@ -17,6 +17,8 @@ import { LOGIN_BG_STAGES, type LoginBackgroundItem, type LoginBackgroundStage, t
 const store = await import("../../src/dashboard/login-background/store.ts");
 const runner = await import("../../src/dashboard/login-background/runner.ts");
 const { loginBackgroundRouter } = await import("../../src/dashboard/routes/login-background.ts");
+const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
+const { uploadVia } = await import("../helpers/chunk-upload.ts");
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-background-"));
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
@@ -25,8 +27,10 @@ const app = express();
 app.use(express.json());
 app.use(signedInAs(() => ({ id: "owner", username: "운영자" })));
 app.use("/api/admin/appearance/login-background", loginBackgroundRouter);
+app.use("/api/admin/uploads", uploadsRouter);
 const server = await listenForFetch(app);
 after(() => server.close());
+const origin = baseUrl(server);
 const A = `${baseUrl(server)}/api/admin/appearance/login-background`;
 
 /** 도는 단계마다 끝낼 핸들. 실패를 넣으면 그 단계가 실패한다 */
@@ -68,7 +72,7 @@ async function stepUntil(id: string, done: (one: LoginBackgroundItem) => boolean
   assert.fail(`${id} 가 끝나지 않는다`);
 }
 const upload = async (name = "영상.mp4") => {
-  const res = await fetch(`${A}/upload?name=${encodeURIComponent(name)}`, { method: "POST", headers: { "content-type": "video/mp4" }, body: Buffer.alloc(1000, 1) });
+  const res = await send("POST", "/upload", { upload: await uploadVia(origin, "login-background", Buffer.alloc(1000, 1)), name, type: "video/mp4" });
   assert.equal(res.status, 200);
   return ((await res.json()) as LoginBackgroundState).list[0].id;
 };
@@ -247,7 +251,7 @@ test("실행기가 없는 단계는 시작하지 않고 기다린다. 달면 이
 test("봇이 다시 시작하면 하던 단계부터 이어서 한다", async () => {
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "encode");
-  // 봇이 꺼진 것처럼: 도는 일을 잊고 기록을 다시 읽는다
+  // 봇이 꺼진 것처럼: 도는 작업을 잊고 기록을 다시 읽는다
   runner._reset();
   useFakeExecutors();
   store._useDir(DIR);
@@ -279,12 +283,16 @@ test("요청 검사: 크롭, 구간, 썸네일 장면, 영상 길이, 한도, �
   assert.deepEqual(await codeOf(await send("PUT", "/abcdefghijklmnopqrstuvwx/position", { x: 1, y: 2 })), [404, "route-not-found"]);
 });
 
-test("올린 파일 이름은 제어 문자를 빼고 자른다. 빈 파일은 받지 않는다", async () => {
+test("올린 파일 이름은 제어 문자를 빼고 자른다. 빈 파일, 모르는 업로드, 덜 받은 업로드로는 만들지 않는다", async () => {
   const id = await upload(`a\u0000b‮${"긴".repeat(300)}`);
   const one = await item(id);
   assert.equal(one.name, `ab${"긴".repeat(198)}`);
-  const res = await fetch(`${A}/upload`, { method: "POST", headers: { "content-type": "image/png" }, body: Buffer.alloc(0) });
-  assert.deepEqual(await codeOf(res), [400, "bad-request"]);
+  const empty = await fetch(`${origin}/api/admin/uploads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ purpose: "login-background", size: 0 }) });
+  assert.deepEqual(await codeOf(empty), [400, "bad-request"]);
+  assert.deepEqual(await codeOf(await send("POST", "/upload", { upload: "0".repeat(32), name: "x", type: "image/png" })), [410, "upload-gone"]);
+  const started = await fetch(`${origin}/api/admin/uploads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ purpose: "login-background", size: 10 }) });
+  const half = ((await started.json()) as { id: string }).id;
+  assert.deepEqual(await codeOf(await send("POST", "/upload", { upload: half, name: "x", type: "image/png" })), [400, "bad-request"], "덜 받은 업로드");
   assert.equal((await state()).list.length, 1);
 });
 

@@ -8,7 +8,7 @@ import { colorOf } from "./colors.ts";
 import * as discordArt from "./discord-art.ts";
 import { formatDuration } from "./format.ts";
 import { knownTotal } from "../rules/duration-shown.ts";
-import { escapeMd } from "./mentions.ts";
+import { escapeMd, linkLabel } from "./mentions.ts";
 import { playbackStatus } from "./player-status.ts";
 import { progressBar } from "./progress-bar.ts";
 import * as infoText from "./text/ko/info.ts";
@@ -45,7 +45,7 @@ function nextValue(player: Player) {
   const T = infoText.nowPlaying();
   const next = player.queue?.[0];
   if (!next) return player.autoplay ? T.nextByAutoplay : T.nextNone;
-  return `[${songTitle(next.title)}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
+  return `[${linkLabel(songTitle(next.title))}](${next.pageUrl})${next.artist ? ` · ${escapeMd(next.artist)}` : ""}`;
 }
 
 /** 이어질 것: 다음 곡, 대기열(곡 수, 남은 길이), 자동재생(켜져 있을 때만) */
@@ -59,9 +59,9 @@ function whatsNext(player: Player) {
 /** art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
 function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | null) {
   const T = infoText.nowPlaying();
-  // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 보인다(ui/mentions)
+  // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(ui/mentions)
   const byline = [track.artist ? `${T.artist} ${escapeMd(track.artist)}` : null, track.album ? `${T.album} ${escapeMd(track.album)}` : null].filter(Boolean).join(" · ");
-  const head = [`### ${T.title}`, `**[${songTitle(track.title)}](${track.pageUrl})**`, byline ? `-# ${byline}` : null].filter(Boolean).join("\n");
+  const head = [`### ${T.title}`, `**[${linkLabel(songTitle(track.title))}](${track.pageUrl})**`, byline ? `-# ${byline}` : null].filter(Boolean).join("\n");
 
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
   const text = new TextDisplayBuilder().setContent(head);

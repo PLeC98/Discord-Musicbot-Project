@@ -296,6 +296,29 @@ test("패널을 새로 올리는데 기억해 둔 웹훅이 지워졌으면(1001
   assert.deepEqual(sent, ["stale-destroyed", "fresh"]);
 });
 
+// 디스코드는 웹훅 메시지에서만 링크 라벨 안의 이모지를 받는다. 패널 내용은 실제로 보내는 길에 맞춘다
+test("패널 내용은 웹훅으로 보내는지를 받는다: 새로 올릴 때는 보내는 길, 고칠 때는 패널의 웹훅", async () => {
+  const mem = newManager();
+  const asked: boolean[] = [];
+  const build = async (byWebhook: boolean) => (asked.push(byWebhook), { components: [], flags: MessageFlags.IsComponentsV2 as const });
+  const thread = fake<GuildTextBasedChannel>({ id: "t1", send: async () => ({ id: "m-thread" }) });
+  assert.equal((await mem._sendPanel(thread, build)).webhook, null);
+  mem.webhookCache.set("c1", fake<WebhookClient>({ send: async () => ({ id: "m-hook" }) }));
+  try {
+    assert.equal((await mem._sendPanel(fake<GuildTextBasedChannel>({ id: "c1" }), build)).message.id, "m-hook");
+  } finally {
+    mem.webhookCache.delete("c1");
+  }
+  assert.deepEqual(asked, [false, true]);
+
+  const drawn: boolean[] = [];
+  mem._playingPayload = async (_player, _track, _fresh, byWebhook = false) => (drawn.push(byWebhook), { components: [], flags: 0 }) as unknown as Awaited<ReturnType<typeof mem._playingPayload>>;
+  const panelOf = (nowPlayingWebhook: unknown) => fakePlayer({ guild: { id: "g1", name: "서버" }, paused: true, currentTrack: { title: "곡" }, nowPlayingMessage: { id: "m1", edit: async () => {} }, nowPlayingWebhook });
+  await mem.updatePlaying(panelOf({ editMessage: async () => {} }));
+  await mem.updatePlaying(panelOf(null));
+  assert.deepEqual(drawn, [true, false]);
+});
+
 test("24/7 자리에서 기다리는 끝난 패널은 나갈 시각 대신 자리에서 기다린다고 적는다", async () => {
   const mem = newManager();
   const json = JSON.stringify((await mem.createIdleContainer({ reason: "queue-end", leavesAt: null, staying: true })).components[0].toJSON());

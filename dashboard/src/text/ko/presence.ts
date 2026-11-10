@@ -27,7 +27,27 @@ const messages = "문구";
 const namePlaceholder = "항목 이름 (예: 크리스마스)";
 const removeSpecial = "이 항목 삭제";
 const conditions = "조건";
-const conditionsDesc = "둘 이상 넣으면 모두 맞을 때만 사용해요. 연말이나 자정을 넘겨도 돼요(12-28 ~ 01-05, 22:00 ~ 06:00).";
+const conditionsDesc = "둘 이상 넣으면 모두 맞을 때만 사용해요. 끝을 시작보다 앞으로 고르면 연말이나 자정을 넘겨요.";
+
+/** 조건의 범위 고르개(components/ConditionRangeField, utils/condition-range) */
+const range = {
+  /** 고른 것이 없을 때 입력란 */
+  none: "설정 안 함",
+  start: "시작",
+  end: "끝",
+  month: "월",
+  day: "일",
+  hour: "시",
+  minute: "분",
+  clear: "지우기",
+  apply: "적용",
+  monthDay: (m: number, d: number) => `${m}월 ${d}일`,
+  /** 끝이 시작보다 앞일 때 끝 */
+  nextYear: (what: string) => `다음 해 ${what}`,
+  nextDay: (what: string) => `다음 날 ${what}`,
+  /** 하루만 고른 날짜 */
+  oneDay: (what: string) => `${what} 하루`,
+};
 
 // 검사
 const problems = {
@@ -43,4 +63,4 @@ const removeMessage = "이 문구 삭제";
 /** 디스코드 활동 종류(빈 값은 기본) */
 const activityTypes = { "": "기본", Listening: "듣는 중", Playing: "게임 중", Watching: "시청 중", Competing: "경쟁 중", Custom: "말머리 없음" };
 
-export { conditionDate, conditionLunar, conditionTime, title, addSpecial, desc, defaults, messageCount, dragToReorder, noCondition, noName, empty, savedNote, defaultsDesc, interval, ifEmpty, messages, namePlaceholder, removeSpecial, conditions, conditionsDesc, problems, activity, removeMessage, activityTypes };
+export { conditionDate, conditionLunar, conditionTime, title, addSpecial, desc, defaults, messageCount, dragToReorder, noCondition, noName, empty, savedNote, defaultsDesc, interval, ifEmpty, messages, namePlaceholder, removeSpecial, conditions, conditionsDesc, range, problems, activity, removeMessage, activityTypes };

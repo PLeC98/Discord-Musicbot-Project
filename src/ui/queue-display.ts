@@ -2,6 +2,7 @@
 
 import { formatDuration, liveMarkOf } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
+import { escapeMd, linkLabel } from "./mentions.ts";
 import { ICONS, icon } from "./icons.ts";
 import type { QueuedTrack } from "../player/track.ts";
 
@@ -31,10 +32,10 @@ type Listed = Pick<QueuedTrack, "title" | "pageUrl" | "autoplay" | "requestedBy"
 const TITLE_MAX = 60;
 const shorten = (title: string) => (title.length > TITLE_MAX ? `${title.slice(0, TITLE_MAX - 3)}...` : title);
 
-/** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함). link 가 거짓이면 제목만 */
+/** 대기열 한 줄: `` `3.` [제목](url) | 요청자 `` (줄바꿈 포함). link가 거짓이면 제목만(라벨 밖이라 이스케이프한다) */
 function queueLine(track: Listed, number: number, { link = true }: { link?: boolean } = {}) {
   const title = shorten(songTitle(track.title));
-  const head = `\`${number}.\` **${link && track.pageUrl ? `[${title}](${track.pageUrl})` : title}**`;
+  const head = `\`${number}.\` **${link && track.pageUrl ? `[${linkLabel(title, { emojiLinks: true })}](${track.pageUrl})` : escapeMd(title)}**`;
   const who = requesterLabel(track);
   return `${who ? `${head} | ${who}` : head}\n`;
 }

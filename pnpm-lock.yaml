@@ -80,9 +80,6 @@ importers:
       ua-parser-js:
         specifier: ^2.0.10
         version: 2.0.10
-      youtube-dl-exec:
-        specifier: ^3.1.19
-        version: 3.1.19(debug@4.4.3(supports-color@7.2.0))
       youtubei.js:
         specifier: 18.3.0
         version: 18.3.0
@@ -569,10 +566,6 @@ packages:
 
   '@keyv/serialize@1.1.1':
     resolution: {integrity: sha512-dXn3FZhPv0US+7dtJsIi2R+c7qWYiReoEh5zUntWCf4oSpMNib8FDhSoed6m3QyZdx5hK7iLFkYk3rNxwt8vTA==}
-
-  '@kikobeats/time-span@1.0.13':
-    resolution: {integrity: sha512-CfBK4/EZ73uN/6b5/wOfvWju1Ev/6H+uXqS2Vqd7/dEQTyOsvv4BdOHDqESp4Efa9YyrPPvN3IHU+C4z9FAo3Q==}
-    engines: {node: '>= 18'}
 
   '@material/material-color-utilities@0.4.0':
     resolution: {integrity: sha512-dlq6VExJReb8dhjj3a/yTigr3ncNwoFmL5Iy2ENtbDX03EmNeOEdZ+vsaGrj7RTuO+mB7L58II4LCsl4NpM8uw==}
@@ -1274,16 +1267,6 @@ packages:
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
-  dargs@7.0.0:
-    resolution: {integrity: sha512-2iy1EkLdlBzQGvbweYRFxmFath8+K7+AKB0TlhHWkNuH+TmovaMH/Wp7V7R4u7f4SnX3OgLsU9t1NI9ioDnUpg==}
-    engines: {node: '>=8'}
-
-  debug-logfmt@1.4.15:
-    resolution: {integrity: sha512-tMgdJRAlvf0sv3We8KpVlAnv0V9hnOoB3QqmvkXSGYnYMUJvJTGawqipROgh5WaPKXyt79cdPYx30jSu9aO7Rg==}
-    engines: {node: '>= 8'}
-    peerDependencies:
-      debug: '*'
-
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
     peerDependencies:
@@ -1661,10 +1644,6 @@ packages:
   is-standalone-pwa@0.1.1:
     resolution: {integrity: sha512-9Cbovsa52vNQCjdXOzeQq5CnCbAcRk05aU62K20WO372NrTv0NxibLFCK6lQ4/iZEFdEA3p3t2VNOn8AJ53F5g==}
 
-  is-unix@2.0.14:
-    resolution: {integrity: sha512-ZE+Iq0h1pxZu/IGsBKobH5PZ0L3ylv7WHEmKiRG8kEzue6f+w0i3ckwnDY7Ckej2jjq1c7NDYljEkNqOxv4w9A==}
-    engines: {node: '>= 12'}
-
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
@@ -1965,10 +1944,6 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  null-prototype-object@1.2.7:
-    resolution: {integrity: sha512-pSZWCUew0zed2gxCerA4zdXRGg8ezLiWwvE8RvncezTcROXL0uz3PjSZXl5NsI04Egz0Uu46o1wyX6qr3u/ZWA==}
-    engines: {node: '>= 20'}
-
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
@@ -2005,10 +1980,6 @@ packages:
 
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
-
-  parse-ms@2.1.0:
-    resolution: {integrity: sha512-kHt7kzLoS9VBZfUsiKjv43mr91ea+U05EyKkEtqp7vNbHxmaVuEqN7XxeEVnGrMtYOAxGrDElSi96K7EgO1zCA==}
-    engines: {node: '>=6'}
 
   parseurl@1.3.3:
     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
@@ -2080,10 +2051,6 @@ packages:
     resolution: {integrity: sha512-skGHTH1Yb9QvaTC4hWnRTzEYtCpApF0UMBPz+t/0ZPzP8ihefo/btKd+QA7pUE0fEwA1SbS/NmhyEcstdXOIdA==}
     engines: {node: '>=14'}
     hasBin: true
-
-  pretty-ms@7.0.1:
-    resolution: {integrity: sha512-973driJZvxiGOQ5ONsFhOF/DtzPMOMtgC11kCpUrPGMTgqp2q/1gwzCquocrN33is0VZ5GFHXZYMM9l6h67v2Q==}
-    engines: {node: '>=10'}
 
   prism-media@1.3.5:
     resolution: {integrity: sha512-IQdl0Q01m4LrkN1EGIE9lphov5Hy7WWlH6ulf5QdGePLlPas9p2mhgddTEHrlaXYjjFToM1/rWuwF37VF4taaA==}
@@ -2241,10 +2208,6 @@ packages:
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
-
-  tinyspawn@1.5.10:
-    resolution: {integrity: sha512-bZ5HikC4mL7ZqQHXM0JqrWZBVHC+urj/AX7EZY1vBZZhk8TpUcEqu7bHAqOP8PL4D39WQskPuwPWPApQUp6vew==}
-    engines: {node: '>= 20'}
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -2520,10 +2483,6 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  youtube-dl-exec@3.1.19:
-    resolution: {integrity: sha512-u4cHHqMgUKhHLhJKj8yKixbE0YkR/w/UkcZF6bu5PP5LOwg8x1c8MmRGL4L7wYOnMbvlUHnoZk+TL+0xlCHgbA==}
-    engines: {node: '>= 18'}
 
   youtubei.js@18.3.0:
     resolution: {integrity: sha512-6Cwn/U8a+OjpZp5XgqOjwy7Lk0RrGavm3I5zO7qZWO+fes20vhWMZnlUs0h/97SwjS0AsxAZrZ5bJ85XBJVWTw==}
@@ -2857,8 +2816,6 @@ snapshots:
       keyv: 5.6.0
 
   '@keyv/serialize@1.1.1': {}
-
-  '@kikobeats/time-span@1.0.13': {}
 
   '@material/material-color-utilities@0.4.0(patch_hash=64001191cd06bfecdc3b428821e6a39026cafce3a326a070351bd18e90d3a0f3)': {}
 
@@ -3542,15 +3499,6 @@ snapshots:
 
   csstype@3.2.3: {}
 
-  dargs@7.0.0: {}
-
-  debug-logfmt@1.4.15(debug@4.4.3(supports-color@7.2.0)):
-    dependencies:
-      '@kikobeats/time-span': 1.0.13
-      debug: 4.4.3(supports-color@7.2.0)
-      null-prototype-object: 1.2.7
-      pretty-ms: 7.0.1
-
   debug@2.6.9(supports-color@7.2.0):
     dependencies:
       ms: 2.0.0
@@ -3976,8 +3924,6 @@ snapshots:
 
   is-standalone-pwa@0.1.1: {}
 
-  is-unix@2.0.14: {}
-
   isexe@2.0.0: {}
 
   jiti@2.7.0: {}
@@ -4213,8 +4159,6 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  null-prototype-object@1.2.7: {}
-
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
@@ -4249,8 +4193,6 @@ snapshots:
   pako@0.2.9: {}
 
   pako@1.0.11: {}
-
-  parse-ms@2.1.0: {}
 
   parseurl@1.3.3: {}
 
@@ -4312,10 +4254,6 @@ snapshots:
   pretendard@1.3.9: {}
 
   prettier@3.9.10: {}
-
-  pretty-ms@7.0.1:
-    dependencies:
-      parse-ms: 2.1.0
 
   prism-media@1.3.5: {}
 
@@ -4519,8 +4457,6 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
 
-  tinyspawn@1.5.10: {}
-
   toidentifier@1.0.1: {}
 
   token-types@6.1.2:
@@ -4723,15 +4659,6 @@ snapshots:
     optional: true
 
   yocto-queue@0.1.0: {}
-
-  youtube-dl-exec@3.1.19(debug@4.4.3(supports-color@7.2.0)):
-    dependencies:
-      dargs: 7.0.0
-      debug-logfmt: 1.4.15(debug@4.4.3(supports-color@7.2.0))
-      is-unix: 2.0.14
-      tinyspawn: 1.5.10
-    transitivePeerDependencies:
-      - debug
 
   youtubei.js@18.3.0:
     dependencies:

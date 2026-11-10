@@ -11,7 +11,7 @@ import { ffmpeg, longJob, PROGRESS_ARGS } from "./ffmpeg.ts";
 import type { Estimate, Stored } from "./store.ts";
 import * as store from "./store.ts";
 import type { Recounter, StageJob, StageResult } from "./runner.ts";
-import { encoderFor, encodersReady } from "./encoders.ts";
+import { canToneMapHdr, encoderFor, encodersReady } from "./encoders.ts";
 import { enoughMemory, needOf } from "./memory.ts";
 import { MAX_PIXELS, probeVideo, READ_ARGS } from "./source.ts";
 import { cropped, fitShort, scaleTo, seekArgs, sourceFilter, stillWidths, TRANSPARENT_FILL, UHD } from "./ladder.ts";
@@ -91,16 +91,23 @@ async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
   return { estimate: { perSecond: [], stillBytes: stillBytesOf(item.width, item.height, perPixel), crop: FULL, counted: null, encodeRatio: 0, rough: false } };
 }
 
-async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progress: (value: number) => void): Promise<StageResult> {
-  await encodersReady();
-  // 편집 창이 트는 미리보기: H.264, 없으면 VP9. 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다)
+/**
+ * 편집 창이 트는 미리보기의 인코더와 담을 형식: H.264(MP4), 없으면 VP9(WebM). 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다).
+ * HDR 원본인데 SDR 로 톤 매핑할 수 없으면(zscale 이 없는 ffmpeg) 거절한다
+ */
+function previewTarget(hdr: boolean): { encoder: string; ext: "mp4" | "webm"; container: string[] } {
   const h264 = encoderFor("h264");
   const encoder = h264 ?? encoderFor("vp9");
   if (!encoder) throw codedError("background-no-video-encoder", "H.264와 VP9 인코더가 없어 영상 배경을 만들 수 없음");
-  const ext = h264 ? "mp4" : "webm";
-  const container = h264 ? ["-movflags", "+faststart", "-f", "mp4"] : ["-f", "webm"];
+  if (hdr && !canToneMapHdr()) throw codedError("background-hdr-unsupported", "ffmpeg에 zscale 필터가 없어 HDR 영상을 SDR로 바꿀 수 없음");
+  return h264 ? { encoder, ext: "mp4", container: ["-movflags", "+faststart", "-f", "mp4"] } : { encoder, ext: "webm", container: ["-f", "webm"] };
+}
+
+async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progress: (value: number) => void): Promise<StageResult> {
+  await encodersReady();
   const source = store.sourceOf(item.id);
   const probed = await probeVideo(source, signal);
+  const { encoder, ext, container } = previewTarget(probed.hdr);
   const probe = canProbe();
   const view = fitShort(probed.width, probed.height, PREVIEW_SHORT);
   const measure = fitShort(probed.width, probed.height, PROBE_SHORT);

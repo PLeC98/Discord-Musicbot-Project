@@ -81,11 +81,16 @@ export function useListDetail<R extends Row>({ param, rows, paneEl }: { param: s
     return rows.value.findIndex((r) => r.name.trim() === q);
   }
   // 선택한 항목은 화면 안에서 key 로 붙잡는다. 주소는 여기서 따라 쓴다(이름을 고치는 동안 옛 이름으로 다시 찾으면 다른 항목으로 튄다).
-  // 주소가 바뀌면(뒤로가기, 새로고침, 저장 뒤 다시 읽은 항목) 주소에서 다시 찾는다
+  // 주소가 바뀌면(뒤로가기, 새로고침) 주소에서 다시 찾는다. 행을 새로 받았을 때(저장, 되돌리기)는 그 key 가 남아 있으면 그대로 둔다
+  // (행이 key 를 물려받는다, utils/row-keys. 이름을 고쳤다 되돌리면 주소의 이름으로는 찾지 못한다. 주소는 아래 이름 따라 고치기가 맞춘다)
   const selectedKey = ref<number | null>(null);
-  watch([() => route.query[param], rows], () => {
+  const findFromQuery = () => {
     const i = indexOfQuery();
     selectedKey.value = i >= 0 ? rows.value[i].key : null;
+  };
+  watch(() => route.query[param], findFromQuery);
+  watch(rows, () => {
+    if (!rows.value.some((r) => r.key === selectedKey.value)) findFromQuery();
   });
   const keyIndex = computed(() => rows.value.findIndex((r) => r.key === selectedKey.value));
   /** 목록 첫 항목의 전역 값을 열었는지 */

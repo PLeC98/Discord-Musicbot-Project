@@ -16,7 +16,7 @@ type CacheTags = { tags?: Partial<TagInfo> | null; cover?: Cover | null };
 
 /**
  * yt-dlp 분기도 같은 목표를 쓴다. 숫자가 두 군데에 적히지 않게 여기서 가져간다.
- * `--postprocessor-args` 의 `이름:인자` 한 줄이다. youtube-dl-exec 는 객체 값을 인자로 바꾸지 않고 버린다.
+ * `--postprocessor-args` 의 `이름:인자` 한 줄이다. 플래그를 인자로 바꿀 때(ytdlp-exec) 객체 값은 버려진다.
  * `ffmpeg:` 는 출력 파일 앞에 붙는다.
  */
 const ytdlpPostprocessorArgs = () => `ffmpeg:-b:a ${TRANSCODE_TARGET_KBPS}k`;

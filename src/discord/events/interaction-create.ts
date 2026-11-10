@@ -125,7 +125,7 @@ function noteLate(interaction: Interaction, now: number) {
   lateReceive(now, (more) => `상호작용 늦게 받음: ${nameOf(interaction)} | 생성 뒤 ${age}ms${more} | 늘 이러면 봇 PC 의 시계를 확인하세요`);
 }
 
-// 종료 중에 온 상호작용. 새 일을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
+// 종료 중에 온 상호작용. 새 작업을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
 async function refuseWhileStopping(interaction: Interaction) {
   if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.debug(`종료 중 자동완성 응답 실패: ${messageOf(error)}`));
   if (interaction.isRepliable()) return noticeSelf(interaction, errors.notice("bot-shutting-down")).catch((error: unknown) => log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`));

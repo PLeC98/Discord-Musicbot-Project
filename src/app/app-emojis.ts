@@ -242,7 +242,7 @@ class AppEmojis {
     this.color = config.bot.embedColor;
   }
 
-  /** 앞의 일이 끝난 뒤 task 를 돌린다(실패해도 줄은 이어진다) */
+  /** 앞 작업이 끝난 뒤 task 를 돌린다(실패해도 줄은 이어진다) */
   serial<T>(task: () => Promise<T>): Promise<T> {
     const run = this.tail.then(task, task);
     this.tail = run.catch(() => undefined);

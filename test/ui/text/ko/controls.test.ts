@@ -4,6 +4,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as controls from "../../../../src/ui/text/ko/controls.ts";
 
+test("곡 링크: 제목이 라벨을 닫지 못한다(라벨 안이라 역슬래시는 넣지 않는다)", () => {
+  assert.equal(controls.skipped({ title: "x](https://evil.example) [y", pageUrl: "https://example.com/v" }).body, "**[x]\u200b(https://evil.example) [y](https://example.com/v)**를 건너뛰었어요.");
+  assert.equal(controls.skipped({ title: "my_song", pageUrl: "https://example.com/v" }).body, "**[my_song](https://example.com/v)**을 건너뛰었어요.");
+});
+
 test("모든 문장", () => {
   assert.deepEqual(
     [

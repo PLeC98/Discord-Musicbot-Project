@@ -81,10 +81,10 @@ function harness({ checks = [] as boolean[] } = {}) {
       if (timer) (timer as { cancelled: boolean }).cancelled = true;
     },
   });
-  /** 걸린 일 하나를 돌리고 check 를 기다린다 */
+  /** 걸린 작업 하나를 돌리고 check 를 기다린다 */
   const tick = async () => {
     const one = pending.shift();
-    assert.ok(one, "걸린 일이 없다");
+    assert.ok(one, "걸린 작업이 없다");
     if (!one.cancelled) one.fn();
     await new Promise((done) => setImmediate(done));
   };

@@ -168,7 +168,7 @@ function apply(data: Record<string, unknown>) {
   defaults.blockedKeywords = [...new Set((defaults.blockedKeywords || []).map((k) => String(k).trim().toLowerCase()))];
   const genres = (data.genres as Record<string, GenreData> | undefined) || {};
   draft.value = { defaults, genres };
-  rows.value = toRows(genres);
+  rows.value = toRows(genres, rows.value);
 }
 
 const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert, loadDefault } = useConfigFile({ tab: "autoplay", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("genres") });

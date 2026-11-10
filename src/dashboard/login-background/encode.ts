@@ -10,6 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import logger from "../../infra/log/logger.ts";
+import { availableMemory } from "../../infra/available-memory.ts";
 const log = logger.child({ category: "dashboard" });
 import { codedError } from "../../rules/error-kind.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundBake, type LoginBackgroundCodec, type LoginBackgroundRung } from "../contract/login-background.ts";
@@ -225,7 +226,7 @@ async function encodePlans({ item, signal, progress }: StageJob, codecs: LoginBa
     const uhd = plan.short >= UHD;
     const lp = plan.codec === "av1" ? await av1LpFor(uhd, what, signal) : AV1_LP_MAX;
     if (plan.codec !== "av1") await enoughMemory(needOf({ codec: plan.codec, uhd }), what, signal);
-    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" ${what}: 여유 메모리(${formatBytes(os.freemem())})에 맞춰 AV1 병렬 단계를 ${lp}로 낮춤`);
+    if (lp < AV1_LP_MAX) log.info({ sub: "admin" }, `로그인 배경 "${item.name}" ${what}: 여유 메모리(${formatBytes(availableMemory())})에 맞춰 AV1 병렬 단계를 ${lp}로 낮춤`);
     const failure = await encodeTogether(item, probed, { plans: [plan], lp }, signal, (value) => progress(Math.min(1, (finished + value) / total)));
     if (!failure) {
       finished++;

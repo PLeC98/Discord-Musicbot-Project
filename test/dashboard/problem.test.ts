@@ -16,7 +16,7 @@ test("본문: type 은 /problems/<코드>, code 는 같은 코드, 상태, 제�
   for (const code of Object.keys(PROBLEMS) as Array<keyof typeof PROBLEMS>) assert.equal(problemBody(code).type, `/problems/${problemBody(code).code}`, code);
 });
 
-test("본문: 값은 그 코드가 목록에 적은 것만 싣고, 이번 일의 것(detail, errors, 확장 필드)은 그대로", () => {
+test("본문: 값은 그 코드가 목록에 적은 것만 싣고, 이번 요청의 것(detail, errors, 확장 필드)은 그대로", () => {
   assert.deepEqual(problemBody("no-song-result", { max: 100, skipped: 3 }), { type: "/problems/no-song-result", code: "no-song-result", status: 404, title: "No track found" });
   assert.deepEqual(problemBody("nothing-playable", { skipped: 3, max: 100 }).skipped, 3);
   assert.equal("max" in problemBody("nothing-playable", { skipped: 3, max: 100 }), false);
