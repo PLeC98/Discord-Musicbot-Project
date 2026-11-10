@@ -23,8 +23,7 @@ after(() => {
 
 const YouTube = await import("../../src/sources/youtube/index.ts");
 const equivalent = await import("../../src/sources/youtube/equivalent.ts");
-// 라이브러리가 플래그를 인자로 펴는 함수. 내보내지만 타입에는 없다
-const { args: argsOf } = (await import("youtube-dl-exec")).default as unknown as { args(flags: object): string[] };
+const { argsOf } = await import("../../src/sources/ytdlp-exec.ts");
 
 test("_detectLive: is_live / live_status의 라이브, 예정만 참", () => {
   assert.equal(YouTube._detectLive({ is_live: true }), true);

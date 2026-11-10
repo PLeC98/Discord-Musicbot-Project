@@ -35,7 +35,7 @@ const net = {
 const info = { net };
 
 before(() => {
-  // 가짜는 tinyspawn 약속의 stdout, stderr 만 준다
+  // 가짜는 실행 래퍼(ytdlp-exec)가 주는 약속의 stdout, stderr 만 준다
   useExec(((url: string, flags: YtDlpFlags = {}) => {
     calls.ytdlp.push({ url, flags });
     const out = respond(url, flags);

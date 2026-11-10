@@ -21,11 +21,11 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
   const opts = YouTube.getYtDlpOptions({ dumpSingleJson: true });
   assert.equal(opts.dumpSingleJson, true);
   // noWarnings는 켜지 않는다. yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
-  assert.equal(opts.noWarnings, undefined);
+  assert.equal((opts as Record<string, unknown>).noWarnings, undefined);
   assert.match(String(opts.jsRuntimes), /^node:/, "JS 런타임은 자기 node 실행 파일 (deno 불필요)");
   // User-Agent를 덮지 않는다. yt-dlp가 클라이언트마다 고른 값이 http_headers로 실려 와
   // 재생 요청 헤더가 되므로, 우리가 끼어들면 낡은 단일 값으로 뭉개진다.
-  assert.equal(opts.addHeader, undefined);
+  assert.equal((opts as Record<string, unknown>).addHeader, undefined);
 });
 
 test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 필드가 없다", () => {
@@ -46,7 +46,7 @@ test("공통 옵션은 재시도뿐이고 유튜브 전용 필드가 없다. 경
   const youtube = YouTube.getYtDlpOptions();
   assert.equal(youtube.retries, 3);
   assert.ok(youtube.jsRuntimes, "유튜브는 JS 런타임을 얹는다");
-  assert.equal(youtube.noWarnings, undefined);
+  assert.equal((youtube as Record<string, unknown>).noWarnings, undefined);
 });
 
 test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약)", () => {

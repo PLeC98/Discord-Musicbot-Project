@@ -1,5 +1,5 @@
 // yt-dlp 를 띄우는 가장 아래 층. 플래그(camelCase 객체)를 명령줄 인자로 바꾸고, 띄워서 stdout, stderr 를 모은다.
-// 인자, 돌려주는 것, 오류 모양은 youtube-dl-exec 3.1(dargs 7, tinyspawn 1.5)과 같다. 부르는 곳은 ytdlp-spawn 하나다(레지스트리, 우선순위, 줄).
+// 부르는 곳은 ytdlp-spawn 하나다(레지스트리, 우선순위, 줄).
 // 띄운 실행 파일의 폴더에 사용권을 잡고 그 프로세스가 끝날 때(exit) 놓는다. 버전 정리(ytdlp-binary)는 사용권이 있는 폴더를 지우지 않는다(onedir 판은 돌면서 _internal 의 파일을 읽는다).
 
 import path from "node:path";
@@ -44,11 +44,11 @@ type Exec = (url: string, flags?: YtDlpFlags, options?: SpawnOptions) => Running
 // 넘기면 Windows onedir 판의 실행 파일이 onefile 로 덮인다(yt-dlp 가 자기를 onefile 로 알아본다). 버전은 ytdlp-binary 가 바꾼다
 const SELF_UPDATE = new Set(["update", "updateTo", "U"]);
 
-/** dargs 의 인자 이름: 접두사는 바꾸기 전 키 길이로(한 글자면 -), 대문자 앞에 - 를 넣고 소문자로 */
+/** 인자 이름: 접두사는 바꾸기 전 키 길이로(한 글자면 -), 대문자 앞에 - 를 넣고 소문자로 */
 const optionOf = (key: string) => (key.length === 1 ? "-" : "--") + key.replace(/[A-Z]/g, "-$&").toLowerCase();
 
 /**
- * 플래그를 인자로(dargs 의 useEquals: false 와 youtube-dl-exec 의 filter(Boolean)).
+ * 플래그를 인자로. 이름과 값은 따로 넘기고(이름=값 이 아니다), 빈 것은 뺀다.
  * true 는 이름만, false 는 --no-이름, 문자열, 수(NaN 빼고)는 이름과 값(빈 문자열이면 이름만), 배열은 원소마다 이름과 값(truthy 인 원소만, 바꾸지 않고). 그 밖(undefined, null, 객체)은 버린다
  */
 function argsOf(flags: YtDlpFlags): string[] {
@@ -69,7 +69,7 @@ function argsOf(flags: YtDlpFlags): string[] {
   return out.filter(Boolean) as string[];
 }
 
-/** 실행 결과가 JSON 인가(youtube-dl-exec 와 같이 { 로 시작하면) */
+/** 실행 결과가 JSON 인가({ 로 시작하면) */
 const isJSON = (text = "") => text.startsWith("{");
 
 // ── 버전 폴더 사용권 ──
@@ -102,7 +102,7 @@ function inUse(dir: string): boolean {
 
 // ── 실행 ──
 
-// tinyspawn 이 Promise 에 묶는 자식 프로세스의 메서드
+// Promise 에 묶는 자식 프로세스의 메서드(이벤트, kill)
 const BOUND = Object.getOwnPropertyNames(EventEmitter.prototype)
   .filter((name) => !name.startsWith("_"))
   .concat(["kill", "ref", "unref"]);
@@ -138,7 +138,7 @@ function launch(file: string, args: string[], options: SpawnOptions): Running {
       reject(Object.assign(new Error(`yt-dlp 종료(코드 ${String(child.exitCode)}, 신호 ${String(child.signalCode)}): ${command}`), { command, exitCode: child.exitCode, signalCode: child.signalCode, pid: child.pid, spawnfile: child.spawnfile, ...out }));
     });
   });
-  // tinyspawn 처럼 띄운 때의 필드를 복사한다. exitCode, signalCode 는 늘 null 로 남아 레지스트리가 release 전까지 살아 있는 것으로 본다
+  // 띄운 때의 필드를 복사한다. exitCode, signalCode 는 늘 null 로 남아 레지스트리가 release 전까지 살아 있는 것으로 본다
   // (지금 값을 읽으면 yt-dlp 만 먼저 끝나고 stdout 을 물려받은 손자가 남았을 때 그룹 종료를 건너뛴다)
   const running = Object.assign(done, child) as unknown as Running & Record<string, unknown>;
   // spawn 이 바로 던졌으면(인자가 틀렸다) 묶을 자식이 없다. done 이 그 오류로 거절된다

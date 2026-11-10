@@ -3,8 +3,8 @@
 // SoundCloud 는 요청이 몰리면 IP 를 몇 분 막는다(403). 곡 하나에 드는 API 요청은
 // 요청하는 포맷 수에 달렸다(정보 1 + 포맷마다 1, 기본값이면 5). 그래서 쓰임마다 필요한 포맷만 요청한다.
 
-// youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlp-spawn.ts";
+// yt-dlp 는 ytdlp-spawn 으로만 띄운다. 바로 띄우면 그 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+import ytdlp from "../ytdlp-spawn.ts";
 import { baseOptions } from "../ytdlp-options.ts";
 import { codedError, codeOf } from "../../rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../ytdlp-spawn.ts";
@@ -79,7 +79,7 @@ const TRACK_SIDE = new Set(["unavailable-contents", "unavailable-playlist", "no-
  * yt-dlp 를 한 번 부른다. 실패는 사운드클라우드의 이름을 단 오류로 던진다(원래 오류는 cause).
  * 여러 곡에서 일부만 못 불러온 것은 실패가 아니다. 부른 결과는 봇 상태의 연결(infra/link-status)에 남긴다(HTTP 가 아니라 여기서)
  */
-async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl): Promise<unknown> {
+async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = ytdlp): Promise<unknown> {
   let started = 0;
   const ms = () => Math.round(performance.now() - started);
   const once = () => {
@@ -113,7 +113,7 @@ async function call(url: string, formats: Formats, what: What, extra: YtDlpFlags
 }
 
 /** 정보만 읽는다(JSON) */
-const read = (url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = youtubedl) => call(url, formats, what, { dumpSingleJson: true, ...extra }, exec);
+const read = (url: string, formats: Formats, what: What, extra: YtDlpFlags = {}, exec: RunYtDlp = ytdlp) => call(url, formats, what, { dumpSingleJson: true, ...extra }, exec);
 
 export { FORMATS, flagsFor, call, read, nameOf, partialPlaylist };
 export type { Formats, What };

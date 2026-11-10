@@ -1,61 +1,40 @@
-// src/sources/ytdlp-spawn.ts: youtube-dl-exec 드롭인 래퍼의 계약.
-//
-// 왜 래퍼가 필요한가: 원본 youtubedl(url, flags)는 Promise만 돌려줘 spawn된 프로세스를 잡을 수 없다.
-// 그러면 봇을 종료해도 yt-dlp와 그 자식 ffmpeg가 고아로 남는다.
-// 래퍼는 pid를 노출하는 .exec()로 우회해 ChildProcessRegistry에 등록한다.
-//
-// 우회하며 반환/오류 모양을 직접 재구현했다. 원본과 어긋나면
-// isAgeRestrictedError/isVideoUnavailableError(error.stderr를 읽는다)가 조용히 오작동한다.
-// 그래서 원본과 나란히 돌려 동등성을 확인한다. 네트워크 없이 yt-dlp 바이너리만 사용.
-// 바이너리는 둘 다 지금 버전(ytdlpBinary.path())이다. 래퍼는 실행할 때마다 지금 버전을 조회한다.
-//
-// 검사용 인자는 url이 아니라 flags로 넘긴다. youtube-dl-exec는 url을 `--` 뒤 positional로
-// 두므로(3.1.14+), url 위치에 플래그를 넣으면 yt-dlp가 리터럴 URL로 해석한다.
+// src/sources/ytdlp-spawn.ts: 실제 yt-dlp 바이너리(ytdlpBinary.path(), 지금 버전)로 부르는 계약. 네트워크 없이 --version 과 모르는 플래그만 쓴다.
+// 연령 제한, 삭제 영상 판별(youtube/errors)이 error.stderr 와 message 를 읽으므로 실패 모양을 지킨다. 실행한 yt-dlp 는 레지스트리가 추적하고 끝나면 놓는다.
+// 검사용 인자는 url 이 아니라 flags 로 넘긴다(url 은 -- 뒤에 붙어 yt-dlp 가 글자 그대로의 URL 로 읽는다).
+// 바이너리가 없으면 로컬은 건너뛰고, CI 에서는 실패한다(설치가 깨졌다는 뜻이다).
 
 import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import ytdlExec from "youtube-dl-exec";
 import run from "../../src/sources/ytdlp-spawn.ts";
 import type { YtDlpFlags, YtDlpError } from "../../src/sources/ytdlp-spawn.ts";
 import * as registry from "../../src/infra/process-registry.ts";
 import { ytdlpBinary } from "../../src/sources/ytdlp-binary.ts";
 
 const BINARY = ytdlpBinary.path();
-const youtubedl = ytdlExec.create(BINARY) as (url: string, flags?: YtDlpFlags) => Promise<unknown>;
-const hasBinary = fs.existsSync(BINARY);
-const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY})` };
+const hasBinary = BINARY !== null && fs.existsSync(BINARY);
+if (!hasBinary && process.env.CI) throw new Error(`yt-dlp 가 설치되지 않음(CI 의 postinstall 이 설치해야 한다): ${BINARY ?? "기록 없음"}`);
+const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY ?? "기록 없음"})` };
 
-test("성공 계약: 원본과 같은 값을 돌려주고 프로세스 등록을 해제한다", opts, async () => {
+test("성공 계약: 버전 문자열을 돌려주고 프로세스 등록을 해제한다", opts, async () => {
   const before = registry.size();
-  const [mine, theirs] = await Promise.all([run("", { version: true }), youtubedl("", { version: true })]);
-
-  assert.equal(mine, theirs, "원본과 동일한 반환값");
-  assert.match(String(mine), /^\d{4}\.\d{2}\.\d{2}/, "yt-dlp 버전 문자열");
+  const version = await run("", { version: true });
+  assert.match(String(version), /^[0-9]{4}[.][0-9]{2}[.][0-9]{2}/, "yt-dlp 버전 문자열");
   assert.equal(registry.size(), before, "정상 종료 후 레지스트리에 남으면 안 된다(누수)");
 });
 
 test("실패 계약: stderr를 담은 Error. 연령제한/삭제영상 판별이 이걸 읽는다", opts, async () => {
   const before = registry.size();
-
   // 모르는 플래그를 넘겨 본다
-  const bogus = { definitelyBogusFlag: true } as YtDlpFlags;
-  const mine = await run("", bogus).then(
+  const failed = await run("", { definitelyBogusFlag: true } as YtDlpFlags).then(
     () => null,
     (e: YtDlpError) => e,
   );
-  const theirs = await youtubedl("", bogus).then(
-    () => null,
-    (e: YtDlpError) => e,
-  );
-
-  assert.ok(mine instanceof Error, "실패는 Error로 던져야 한다");
-  assert.match(mine.stderr ?? "", /no such option/i, "stderr가 실려 있어야 한다");
-  assert.equal(mine.message, mine.stderr, "원본과 같이 message = stderr");
-  assert.equal(mine.stderr, theirs && theirs.stderr, "원본과 같은 stderr");
-  assert.notEqual(mine.exitCode, 0);
-
+  assert.ok(failed instanceof Error, "실패는 Error로 던져야 한다");
+  assert.match(failed.stderr ?? "", /no such option: --definitely-bogus-flag/i, "stderr가 실려 있어야 한다");
+  assert.equal(failed.message, failed.stderr, "message = stderr");
+  assert.equal(failed.exitCode, 2);
   assert.equal(registry.size(), before, "실패해도 레지스트리에 남으면 안 된다(누수)");
 });
 

@@ -3,7 +3,7 @@
 // `postprocessorArgs` 에 코덱을 못 박지 않는다. yt-dlp 의 ExtractAudio 는 소스 코덱을 보고 `-acodec copy`(이미 Opus)
 // 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이 그 뒤에 붙으면 이겨서 유튜브 251(Opus)까지 다시 인코딩된다.
 //
-// 옵션 객체가 아니라 yt-dlp 가 받는 인자로 본다. youtube-dl-exec 는 객체 값을 조용히 버린다.
+// 옵션 객체가 아니라 yt-dlp 가 받는 인자로 본다. 플래그를 인자로 바꿀 때 객체 값은 조용히 버려진다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -11,12 +11,8 @@ import assert from "node:assert/strict";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { TrackDownloader } from "../../src/media/cache-download.ts";
 import * as YouTube from "../../src/sources/youtube/index.ts";
-import youtubedl from "youtube-dl-exec";
-import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
+import { argsOf as toArgv, type YtDlpFlags } from "../../src/sources/ytdlp-exec.ts";
 import type { Sources } from "../../src/media/cache-download.ts";
-
-// exec 가 쓰는 인자 변환. 모듈에 있지만 타입 선언에는 빠져 있다
-const { args: toArgv } = youtubedl as typeof youtubedl & { args(flags: YtDlpFlags): string[] };
 
 /** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다. 실제로 다운로드하지는 않는다. 다운로드 전에 캐시 행을 적으므로 임시 DB 를 연다 */
 async function captureOptions(): Promise<YtDlpFlags | undefined> {

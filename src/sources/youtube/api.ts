@@ -7,8 +7,8 @@ import * as links from "../../rules/links.ts";
 import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import { canonicalUrl } from "../../rules/canonical-url.ts";
 import { answerShape, readInfo } from "../ytdlp-info.ts";
-// youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlp-spawn.ts";
+// yt-dlp 는 ytdlp-spawn 으로만 띄운다. 바로 띄우면 그 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+import ytdlp from "../ytdlp-spawn.ts";
 import config from "../../config/index.ts";
 import * as trackLookup from "../../store/track-lookup.ts";
 import * as auth from "./auth.ts";
@@ -200,7 +200,7 @@ function playlistTrack(entry: YtInfo) {
 // offset부터 limit개만 불러온다. 유튜브는 시작점까지 순서대로 넘겨 가야 해서 비용이 끝 위치에 비례한다.
 // 총 곡 수(playlist_count)는 구간만 불러와도 오지만, 믹스(RD…)는 끝이 없어 null이다.
 // 그 구간에 곡이 없으면 null(목록 끝을 넘은 이어 불러오기 등). 목록을 불러오지 못한 것(없는, 비공개 목록, 네트워크)은 던진다
-async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = youtubedl }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
+async function getPlaylist(url: string, { offset = 0, limit = config.bot.playlistAddDefault, exec = ytdlp }: { offset?: number; limit?: number; exec?: RunYtDlp } = {}) {
   const raw = await exec(
     url,
     auth.getYtDlpOptions({

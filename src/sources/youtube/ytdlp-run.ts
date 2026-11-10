@@ -3,8 +3,8 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "youtube" });
 import * as links from "../../rules/links.ts";
-// youtube-dl-exec 직접 호출 금지. spawn된 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
-import youtubedl from "../ytdlp-spawn.ts";
+// yt-dlp 는 ytdlp-spawn 으로만 띄운다. 바로 띄우면 그 yt-dlp(와 그 자식 ffmpeg)를 추적하지 못해 좀비가 남는다.
+import ytdlp from "../ytdlp-spawn.ts";
 
 import type { YtDlpFlags as Flags, RunYtDlp } from "../ytdlp-spawn.ts";
 import { argList } from "../ytdlp-options.ts";
@@ -38,7 +38,7 @@ const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
  *  - 틀어도 되는 곳이 아니면(운영자가 껐거나 서버가 연령 제한 채널에서만인데 아닌 채널) 둘 다 하지 않고 거절한다(sources/age-gate).
  * exec: yt-dlp 를 실행하는 함수. 생략하면 실제 구현(ytdlp-spawn)
  */
-async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
+async function runYtDlp(url: string, buildOptions: BuildOptions, exec: RunYtDlp = ytdlp): Promise<unknown> {
   const videoId = links.extractVideoId(url);
   const known = markedAgeRestricted(videoId);
   if (known && videoId) {
@@ -163,7 +163,7 @@ function requireAudioOnly(result: unknown, options: Flags) {
  * 호출부가 유튜브 추출기 인자(youtube:…)를 직접 넘겼으면 그쪽이 이긴다. 명시적 지정을 폴백이 덮지 않는다. 다른 추출기 인자(POToken 주소 등)에는 이어 붙인다.
  * 클라이언트를 하나씩만 넘긴다. 여러 개 넘기면 yt-dlp 가 전부 호출해 포맷을 병합할 뿐 폴백하지 않는다(clients.ts).
  */
-async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = youtubedl, retry = false): Promise<unknown> {
+async function _runOnce(url: string, options: Flags, client: string | null, exec: RunYtDlp = ytdlp, retry = false): Promise<unknown> {
   const own = argList(options.extractorArgs);
   const clientArg = `youtube:player_client=${client ?? ""}`;
   const opts = client && !own.some((arg) => arg.startsWith("youtube:")) ? { ...options, extractorArgs: own.length ? [...own, clientArg] : clientArg } : options;
@@ -218,7 +218,7 @@ const FETCH_FAILED = new Set(["stale-media", "rate-limited", "network-error"]);
  * (--load-info-json. 불러온 정보에는 클라이언트 바꾸기, 낡은 주소 다시 받기, 쿠키가 소용없어 그 길을 타지 않는다).
  * 다운로드가 실패하면 받다 만 파일을 지우고 추출부터 다시 한다. 끝나면(성공, 실패) 캐시된 정보를 지운다(다음부터는 캐시 파일로 튼다)
  */
-async function downloadAudio(url: string, buildOptions: BuildOptions, exec: RunYtDlp = youtubedl): Promise<unknown> {
+async function downloadAudio(url: string, buildOptions: BuildOptions, exec: RunYtDlp = ytdlp): Promise<unknown> {
   const id = links.extractVideoId(url);
   try {
     const known = id ? recentInfo.recall(id) : null;
