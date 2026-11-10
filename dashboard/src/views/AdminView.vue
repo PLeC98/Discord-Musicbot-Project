@@ -183,7 +183,7 @@ import ConfigCookies from "../components/ConfigCookies.vue";
 import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
 import SaveDock from "../components/SaveDock.vue";
-import { revertAll, saveAll, saveTargets } from "../composables/save-targets.ts";
+import { revertAll, saveAll, saveTargets, tabAfterFailure } from "../composables/save-targets.ts";
 import { restartNow } from "../composables/bot-restart.ts";
 import { groupsIn } from "../../../src/rules/tunables.ts";
 import { draft as tunableDraft } from "../composables/tunables.ts";
@@ -238,7 +238,8 @@ const ALL_TABS: Tab[] = [
 // 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만 있다
 const TABS = computed(() => ALL_TABS.filter((t) => t.id !== "age" || ageContent.value.enabled));
 // ── 저장 막대 ─────────────────────────────────────────────────────────────────
-// 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다)
+// 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다).
+// 지금 탭에 문제가 있으면 그대로 둔다(setTab 은 지금 탭을 받으면 상세를 닫는다)
 const targets = computed(() => [...saveTargets]);
 const savingAll = ref(false);
 const dockDirty = computed(() => targets.value.some((one) => one.dirty.value));
@@ -254,7 +255,8 @@ async function saveEverything(restarting = false) {
       ALL_TABS.map((t) => t.id),
       restarting,
     );
-    if (failed) setTab(failed.tab);
+    const to = failed && tabAfterFailure(failed, tab.value);
+    if (to) setTab(to);
     return !failed;
   } finally {
     savingAll.value = false;

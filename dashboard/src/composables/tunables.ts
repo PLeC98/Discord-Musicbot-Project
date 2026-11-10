@@ -7,7 +7,8 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { addSaveTarget } from "./save-targets.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
-import { RESTART_KEYS, TUNABLES, parseTuneProblem, tunableValue } from "../../../src/rules/tunables.ts";
+import { GROUP_TAB, RESTART_KEYS, TUNABLES, TUNABLE_KEYS, parseTuneProblem, tunable, tunableValue } from "../../../src/rules/tunables.ts";
+import { problemDetails } from "../utils/problem.ts";
 import type { TunablesView } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
@@ -43,15 +44,29 @@ export function problemLine(line: string): string {
 const ALL_KEYS = TUNABLES.map((one) => one.key);
 const changedKey = (key: string) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? "");
 const saving = ref(false);
+// 마지막 저장 거절에서 틀린 값이 든 탭. 이름을 모르는 실패(충돌, 연결)면 비어 있다
+let failedTabs: string[] = [];
+
+/** 저장 거절의 줄에서 틀린 값이 든 탭 */
+export const tabsOf = (error: unknown) => [
+  ...new Set(
+    problemDetails(error).flatMap((line) => {
+      const key = parseTuneProblem(line)?.key;
+      return key && TUNABLE_KEYS.has(key) ? [GROUP_TAB[tunable(key).group]] : [];
+    }),
+  ),
+];
 
 /** 저장. 됐으면 true. restarting 이면 다시 시작해야 먹는다는 안내는 빼고 알린다(곧 다시 시작한다) */
 async function saveAllKeys(restarting: boolean): Promise<boolean> {
   saving.value = true;
+  failedTabs = [];
   try {
     const view = await saveKeys(ALL_KEYS);
     notifyDone(T.savedDone, view.pending.length && !restarting ? T.savedRestart(namesOf(view.pending)) : "");
     return true;
   } catch (err) {
+    failedTabs = tabsOf(err);
     notifyProblem(err, T.saveFailed, problemLine);
     return false;
   } finally {
@@ -65,6 +80,7 @@ const target = {
   saving,
   // 다시 시작해야 먹는 값을 고쳤거나, 저장해 두고 아직 다시 시작하지 않은 값이 있다
   restart: computed(() => [...RESTART_KEYS].some(changedKey) || pending.value.length > 0),
+  failedTabs: () => failedTabs,
   save: saveAllKeys,
   revert: () => revertKeys(ALL_KEYS),
 };

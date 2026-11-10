@@ -8,6 +8,8 @@ type Flag = Readonly<Ref<boolean>> | ComputedRef<boolean>;
 export type SaveTarget = {
   /** 편집기가 있는 운영자 패널 탭(주소 ?tab=). 저장 순서, 고칠 것이 남은 탭 알림, 저장에 실패하면 옮겨 갈 탭 */
   tab: string;
+  /** 여러 탭에 걸친 편집기: 마지막 저장 실패에서 문제가 있는 탭들(tab 대신 옮겨 갈 곳). 빈 목록이면 옮기지 않는다 */
+  failedTabs?: () => readonly string[];
   dirty: Flag;
   saving: Flag;
   /** 검사에 걸린 값이 있다(저장을 막는다) */
@@ -42,6 +44,12 @@ export async function saveAll(order: readonly string[], restarting = false): Pro
   const dirty = [...saveTargets].filter((one) => one.dirty.value).sort((a, b) => rank(a) - rank(b));
   for (const one of dirty) if (!(await one.save(restarting))) return one;
   return null;
+}
+
+/** 저장에 실패한 편집기 failed 를 보러 옮겨 갈 탭. 지금 탭(current)에 문제가 있거나 옮길 곳이 없으면 null */
+export function tabAfterFailure(failed: SaveTarget, current: string | null): string | null {
+  const tabs = failed.failedTabs?.() ?? [failed.tab];
+  return tabs.length && !tabs.includes(current ?? "") ? tabs[0]! : null;
 }
 
 export function revertAll(): void {
