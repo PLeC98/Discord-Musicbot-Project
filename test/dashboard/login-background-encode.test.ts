@@ -45,7 +45,7 @@ const at = (one: store.Stored, ...parts: string[]) => path.join(store.folderOf(o
 const seconds = (playlist: string) => [...fs.readFileSync(playlist, "utf8").matchAll(/#EXTINF:([\d.]+)/g)].reduce((sum, m) => sum + Number(m[1]), 0);
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 
-test("단계 크기: AV1, VP9 는 짧은 변 1080, 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264 는 720", opts, () => {
+test("단계 크기: AV1, VP9 는 짧은 변 1080, 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264 는 720", withCodecs("av1", "vp9", "h264"), () => {
   const shorts = (width: number, height: number) => plansFor(["av1", "vp9", "h264"], { width, height }, 30).map((plan) => `${plan.codec} ${plan.width}x${plan.height}`);
   assert.deepEqual(shorts(3840, 2160), ["av1 1920x1080", "av1 3840x2160", "vp9 1920x1080", "vp9 3840x2160", "h264 1280x720"]);
   assert.deepEqual(shorts(2160, 3840), ["av1 1080x1920", "av1 2160x3840", "vp9 1080x1920", "vp9 2160x3840", "h264 720x1280"]);
