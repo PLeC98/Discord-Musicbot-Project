@@ -24,10 +24,16 @@ async function tryEncoder(encoder: string, options: string[]): Promise<{ ok: tru
   return code === 0 ? { ok: true } : { ok: false, reason: reasonOf(stderr, encoder) || `끝난 코드 ${code ?? "없음"}` };
 }
 
+/** 그 필터 그래프를 테스트 영상(source, lavfi) 한 프레임에 돌려 본다. 필터가 없거나 실패하면 false */
+async function tryFilter(graph: string, source = "testsrc2=size=64x36:rate=30"): Promise<boolean> {
+  const { code } = await runFfmpeg(["-v", "error", "-f", "lavfi", "-i", source, "-frames:v", "1", "-vf", graph, "-f", "null", "-"], { timeoutMs: TRIAL_MS, label: "encoder-check" });
+  return code === 0;
+}
+
 /** 애니메이션 WebP 를 읽는가(두 프레임을 다 읽어야 참). 형식은 ffmpeg 가 판별하게 둔다(webp_pipe 로 지정하면 애니메이션을 못 읽는다) */
 async function readsAnimatedWebp(): Promise<boolean> {
   const { code, stdout } = await runFfmpeg(["-v", "error", "-i", "pipe:0", "-f", "framecrc", "-"], { input: ANIMATED_WEBP, timeoutMs: TRIAL_MS, label: "encoder-check" });
   return code === 0 && stdout.split("\n").filter((line) => line && !line.startsWith("#")).length >= 2;
 }
 
-export { tryEncoder, readsAnimatedWebp, reasonOf };
+export { tryEncoder, tryFilter, readsAnimatedWebp, reasonOf };

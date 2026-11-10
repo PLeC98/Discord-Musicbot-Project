@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { withFfmpeg as opts, encoderGate, skipFor, skipRest } from "../helpers/login-background-ffmpeg.ts";
+import { withFfmpeg as opts, encoderGate, skipFor, skipRest, knownGap } from "../helpers/login-background-ffmpeg.ts";
 import { runFfmpeg } from "../../src/media/ffmpeg/job.ts";
 import * as store from "../../src/dashboard/login-background/store.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
@@ -29,6 +29,7 @@ const video = withCodecs("h264");
 // 추산은 AV1을 SVT-AV1로 인코딩한 값으로 잰다
 const NO_SVT = "이 ffmpeg에 SVT-AV1(libsvtav1)이 없어 추산을 확인하지 않는다";
 const NO_SVT_HDR = "이 ffmpeg에 SVT-AV1(libsvtav1)이 없어 HDR 원본을 만들지 않는다";
+const NO_ZSCALE = "이 ffmpeg에 zscale 필터가 없어 HDR 원본을 SDR로 톤 매핑하지 못한다";
 const svt = () => encoders.encoderFor("av1") === "libsvtav1";
 const estimated = video.skip || svt() ? video : skipFor(NO_SVT);
 
@@ -90,7 +91,8 @@ test("영상: 원본보다 크게 만들지 않는 480p 미리보기(30fps 이�
 });
 
 test("투명도가 있는 GIF, HDR 영상도 미리보기를 만든다(HDR은 SDR로 톤 매핑)", video, async (t) => {
-  for (const name of svt() ? ["alpha.gif", "hdr.mp4"] : ["alpha.gif"]) {
+  const hdr = svt() && encoders.canToneMapHdr();
+  for (const name of hdr ? ["alpha.gif", "hdr.mp4"] : ["alpha.gif"]) {
     const one = await made(name);
     await run(one);
     const probed = await probeVideo(previewOf(one.id)!, signal);
@@ -101,6 +103,22 @@ test("투명도가 있는 GIF, HDR 영상도 미리보기를 만든다(HDR은 SD
   const frame = await runFfmpeg(["-v", "error", "-i", previewOf(gif.id)!, "-frames:v", "1", "-vf", "scale=1:1,format=gray", "-f", "rawvideo", "-"]);
   assert.ok(frame.output[0] < 140, `밝기 ${frame.output[0]}`);
   if (!svt()) skipRest(t, NO_SVT_HDR);
+  else if (!hdr) {
+    if (knownGap("zscale")) t.skip(`${NO_ZSCALE}(이 플랫폼의 CI 빌드에 원래 없다)`);
+    else skipRest(t, NO_ZSCALE);
+  }
+});
+
+test("HDR 원본인데 톤 매핑 필터(zscale)가 없으면 HDR 을 쓸 수 없다고 거절한다(SDR 영상은 된다)", svt() ? video : skipFor(NO_SVT_HDR), async () => {
+  const could = encoders.canToneMapHdr();
+  try {
+    encoders._useHdrToSdr(false);
+    const one = await made("hdr.mp4");
+    await assert.rejects(run(one), (error) => codeOf(error) === "background-hdr-unsupported");
+    await run(await made("clip.mp4"));
+  } finally {
+    encoders._useHdrToSdr(could);
+  }
 });
 
 test("그림: 긴 변 1280 WebP 미리보기(투명은 검정), 정지 그림 세트 어림. 크롭하면 넓이만큼", opts, async () => {

@@ -19,8 +19,8 @@ const ffmpegBin = (() => {
 const NO_FFMPEG = "ffmpeg 바이너리 없음";
 const IN_CI = Boolean(process.env.CI);
 // CI 가 쓰는 빌드에 원래 없는 기능(코덱, 인코더 이름. "OS-CPU" 나 "OS" 마다). 이것만 빠졌으면 CI 에서도 실패가 아니라 건너뛴다.
-// BtbN 은 winarm64 빌드에서 libvpx(VP9)를 빼고 만든다(scripts.d/50-libvpx.sh). macOS 는 CI 가 brew 의 ffmpeg 를 깔고, 그 빌드에는 libwebp_anim 이 없다(움직이는 WebP 읽기는 된다)
-const BUILD_GAPS: Partial<Record<string, readonly string[]>> = { "win32-arm64": ["vp9"], darwin: ["libwebp_anim"] };
+// BtbN 은 winarm64 빌드에서 libvpx(VP9)를 빼고 만든다(scripts.d/50-libvpx.sh). macOS 는 CI 가 brew 의 ffmpeg 를 깔고, 그 빌드에는 libwebp_anim(움직이는 WebP 읽기는 된다), zscale(HDR 톤 매핑, 봇은 HDR 원본을 거절한다)이 없다
+const BUILD_GAPS: Partial<Record<string, readonly string[]>> = { "win32-arm64": ["vp9"], darwin: ["libwebp_anim", "zscale"] };
 /** 이 플랫폼에서 CI 가 쓰는 빌드에 원래 없는 기능인가 */
 const knownGap = (feature: string) => [BUILD_GAPS[`${process.platform}-${process.arch}`], BUILD_GAPS[process.platform]].some((gaps) => gaps?.includes(feature));
 /** 원래 없는 기능이면 CI 에서도 건너뛰기만, 아니면 skipFor */
@@ -71,4 +71,4 @@ async function encoderGate(): Promise<(...codecs: LoginBackgroundCodec[]) => { s
   };
 }
 
-export { withFfmpeg, withAnimatedWebp, encoderGate, skipFor, skipRest };
+export { withFfmpeg, withAnimatedWebp, encoderGate, skipFor, skipRest, knownGap };

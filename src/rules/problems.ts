@@ -238,6 +238,8 @@ const WEB = {
   "background-link-failed": { status: 502, title: "Could not get the file from the link" },
   // 봇의 ffmpeg 에 영상 배경을 만들 인코더(H.264, VP9)가 없다. 이미지 배경은 된다
   "background-no-video-encoder": { status: 409, title: "No encoder for video backgrounds" },
+  // 원본이 HDR 인데 봇의 ffmpeg 에 SDR 로 톤 매핑할 필터(zscale)가 없다. SDR 영상, 이미지 배경은 된다
+  "background-hdr-unsupported": { status: 409, title: "No filter to convert HDR video" },
   // 대시보드: 캐시 DB. 필터 식(열마다, 아무 열에서나)과 읽는 구간
   "bad-filter": { status: 400, title: "Invalid filter expression" },
   "filter-too-long": { status: 400, title: "Filter expression is too long", params: ["max"] },

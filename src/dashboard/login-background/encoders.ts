@@ -6,7 +6,8 @@
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { messageOf } from "../../rules/error-kind.ts";
-import { readsAnimatedWebp, tryEncoder } from "../../media/ffmpeg/trial.ts";
+import { readsAnimatedWebp, tryEncoder, tryFilter } from "../../media/ffmpeg/trial.ts";
+import { HDR_TO_SDR } from "./ladder.ts";
 import { LOGIN_BG_CODECS, type LoginBackgroundCodec, type LoginBackgroundEncoder } from "../contract/login-background.ts";
 
 /** 후보 하나. options 는 테스트에 거는 옵션(실제 인코딩의 핵심만: 10비트, 비트레이트 방식 등, 거기서 실패하면 인코딩도 실패한다) */
@@ -25,6 +26,10 @@ const ABSENT = /cannot load|no .*capable devices|CUDA_ERROR_NO_DEVICE|could not 
 
 let encoders: LoginBackgroundEncoder[] = [];
 let animatedWebp = false;
+// HDR 을 SDR 로 톤 매핑할 수 있나. 아직 보지 않았으면 null(막지 않고 ffmpeg 에 맡긴다)
+let hdrToSdr: boolean | null = null;
+// 톤 매핑 확인의 입력: 10비트 PQ, BT.2020 테스트 영상
+const HDR_TRIAL_SOURCE = "testsrc2=size=64x36:rate=30,format=yuv420p10le,setparams=color_trc=smpte2084:color_primaries=bt2020:colorspace=bt2020nc";
 let running: Promise<void> | null = null;
 
 /** 코덱 하나: 후보를 순서대로 테스트해 처음 되는 것. 앞 후보가 장치가 있는데 실패했으면 그 까닭을 남긴다 */
@@ -43,8 +48,10 @@ async function check() {
   for (const codec of LOGIN_BG_CODECS) picked.push(await pick(codec));
   encoders = picked;
   animatedWebp = await readsAnimatedWebp();
+  hdrToSdr = await tryFilter(HDR_TO_SDR, HDR_TRIAL_SOURCE);
   log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못함(ffmpeg 9.0 이상 필요)"}`);
   for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
+  if (!hdrToSdr) log.warn("로그인 배경: ffmpeg에 HDR을 SDR로 바꾸는 필터(zscale)가 없어 HDR 영상은 쓸 수 없음(libzimg를 넣어 빌드한 ffmpeg 필요)");
 }
 
 /** 테스트한다(이미 하는 중이면 그것을 기다린다) */
@@ -70,17 +77,25 @@ const isChecking = () => running !== null;
 /** 그 코덱으로 인코딩하는 인코더(없으면 null) */
 const encoderFor = (codec: LoginBackgroundCodec) => encoders.find((one) => one.codec === codec)?.encoder ?? null;
 const canReadAnimatedWebp = () => animatedWebp;
+/** HDR 원본을 SDR 로 톤 매핑할 수 있나(아직 보지 않았으면 참) */
+const canToneMapHdr = () => hdrToSdr !== false;
 
 /** 테스트: 선택한 인코더를 바꿔 넣는다(인코더가 없는 기기 흉내) */
 function _useEncoders(list: LoginBackgroundEncoder[]) {
   encoders = list;
 }
 
+/** 테스트: 톤 매핑을 할 수 있는지 바꿔 넣는다(zscale 이 없는 ffmpeg 흉내) */
+function _useHdrToSdr(value: boolean | null) {
+  hdrToSdr = value;
+}
+
 /** 테스트: 선택한 것을 잊는다 */
 function _reset() {
   encoders = [];
   animatedWebp = false;
+  hdrToSdr = null;
   running = null;
 }
 
-export { startEncoderCheck, recheck, encodersReady, encoderList, isChecking, encoderFor, canReadAnimatedWebp, _reset, _useEncoders, CANDIDATES };
+export { startEncoderCheck, recheck, encodersReady, encoderList, isChecking, encoderFor, canReadAnimatedWebp, canToneMapHdr, _reset, _useEncoders, _useHdrToSdr, CANDIDATES };
