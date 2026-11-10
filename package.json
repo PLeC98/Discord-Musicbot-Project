@@ -45,7 +45,7 @@
     "sharp": "^0.35.5",
     "ua-parser-js": "^2.0.10",
     "youtube-dl-exec": "^3.1.19",
-    "youtubei.js": "18.2.0",
+    "youtubei.js": "18.3.0",
     "zod": "^4.6.7"
   },
   "engines": {
@@ -64,14 +64,14 @@
     "cmu-pronouncing-dictionary": "3.0.0",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-vue": "^10.11.1",
+    "eslint-plugin-vue": "^10.12.0",
     "fontkit": "^2.0.4",
     "globals": "^17.13.0",
     "jiti": "^2.7.0",
     "prettier": "^3.9.10",
     "subset-font": "^2.9.0",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.72.0",
+    "typescript-eslint": "^8.72.1",
     "wawoff2": "^2.0.1"
   }
 }
