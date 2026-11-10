@@ -52,9 +52,8 @@ test("열 주소마다 서버를 열고 실제로 연 주소를 돌려준다", a
 });
 
 test("포트가 쓰이고 있으면 연 것도 닫고 DASHBOARD_PORT를 안내한다", async () => {
-  const taken = http.createServer();
-  await new Promise<void>((done) => taken.listen(0, "127.0.0.1", done));
-  const { port } = taken.address() as net.AddressInfo;
+  // 첫 주소는 열리고 둘째(::1)에서 포트가 겹친다(가짜). 첫 주소는 macOS 에도 있는 127.0.0.1(macOS 의 루프백은 127.0.0.1 하나뿐이다)
+  const port = await freePort();
   lines.length = 0;
   // 만든 서버를 모두 모아 두고 끝에 닫는다(닫지 않고 남기면 테스트가 끝나지 않는다)
   const made: http.Server[] = [];
@@ -66,19 +65,18 @@ test("포트가 쓰이고 있으면 연 것도 닫고 DASHBOARD_PORT를 안내�
         made.push(server);
         return server;
       },
-      ["127.0.0.2", "::1"],
+      ["127.0.0.1", "::1"],
       port,
     );
     assert.deepEqual(opened.servers, []);
     assert.deepEqual(opened.hosts, []);
     const failed = lines.find((l) => l.level >= 50);
     assert.match(failed?.msg ?? "", /DASHBOARD_PORT/);
-    // 앞에서 연 127.0.0.2도 닫았다
+    // 앞에서 연 127.0.0.1도 닫았다
     const again = http.createServer();
-    await new Promise<void>((done, fail) => again.once("error", fail).listen(port, "127.0.0.2", done));
+    await new Promise<void>((done, fail) => again.once("error", fail).listen(port, "127.0.0.1", done));
     await new Promise((done) => again.close(done));
   } finally {
-    taken.close();
     for (const server of made) if (server.listening) server.close();
   }
 });
