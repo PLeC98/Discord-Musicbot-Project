@@ -21,7 +21,7 @@
 
     <router-link to="/servers" v-tooltip="vertical && !open ? T.allServers : null" :class="item" :aria-label="T.allServers">
       <span :class="pip(isHome)"></span>
-      <span :class="slot">
+      <span :class="slot" data-tooltip-anchor>
         <!-- 봇 프로필 그림(로그인 화면과 같은 그림). 없거나 못 불러오면 기호 -->
         <span class="size-11 overflow-hidden flex items-center justify-center motion-shape" :class="isHome ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-on-surface group-hover:rounded-[32%]'">
           <img v-if="shell.botAvatar && !avatarBroken" :src="shell.botAvatar" alt="" class="size-full object-cover" @error="avatarBroken = true" />
@@ -40,13 +40,13 @@
     <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full rail-list overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] pt-0.5 pb-1 -mb-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="onListLeave">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
         <span :class="pip(isGuild(g.id))"></span>
-        <span :class="slot"><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>
+        <span :class="slot" data-tooltip-anchor><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>
         <span v-if="vertical" :class="label">{{ g.name }}</span>
       </router-link>
       <!-- 봇 초대(디스코드의 "서버 추가"처럼 목록 끝). 서버 아이콘과 같은 크기, 누르면 초대 화면. 초대할 수 있는 사람만 -->
       <router-link v-if="user.canInvite" to="/invite" v-tooltip="vertical && !open ? text.invite.title : null" :aria-label="text.invite.title" :class="item">
         <span :class="pip(isInvite)"></span>
-        <span :class="slot">
+        <span :class="slot" data-tooltip-anchor>
           <span class="size-11 flex items-center justify-center motion-shape" :class="isInvite ? 'rounded-[32%] bg-primary text-on-primary' : 'rounded-[50%] bg-surface-container-high text-primary group-hover:rounded-[32%] group-hover:bg-primary group-hover:text-on-primary'">
             <Icon name="add" :size="26" :weight="600" />
           </span>
