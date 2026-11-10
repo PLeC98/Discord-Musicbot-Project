@@ -24,7 +24,8 @@ const OPTIONS: IOptions = { duration: false, skipPostHeaders: true };
 /** 상한을 넘어 그만둔 것(실패가 아니라 "이 크기 안에는 없다") */
 class TooBig extends Error {}
 
-const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+// 줄바꿈, 이어진 공백은 한 칸으로. 태그에는 줄바꿈이 들어올 수 있고, 남으면 메시지의 링크 라벨이 두 줄로 갈라진다
+const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.replace(/\s+/g, " ").trim() : null);
 
 function tagsOf({ common }: IAudioMetadata): Tags {
   const cover = selectCover(common.picture);
