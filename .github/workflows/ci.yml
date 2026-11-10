@@ -46,9 +46,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # arm64 는 라즈베리파이, 클라우드 ARM 같은 자체 호스팅 환경. CPU 마다 yt-dlp, ffmpeg, 네이티브 모듈의 빌드가 다르다
         os:
           - ubuntu-latest
           - windows-latest
+          - ubuntu-24.04-arm
+          - windows-11-arm
+          - macos-latest
 
     env:
       NODE_ENV: test
@@ -78,6 +82,14 @@ jobs:
 
       - name: Create test environment file
         run: node -e "require('node:fs').writeFileSync('.env', '')"
+
+      # macOS 는 설치 스크립트가 ffmpeg 를 다운로드하지 않는다(BtbN 빌드가 없다). 사용자 안내와 같이 brew 로 깔아 PATH 에 둔다
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
 
       # postinstall 이 대시보드 화면도 빌드한다(빌드가 깨지면 여기서 멈춘다). yt-dlp 도 설치한다
       - name: Install dependencies
@@ -109,49 +121,3 @@ jobs:
           disable_search: true
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
-  # 위 matrix 에 없는 yt-dlp 판(macOS universal2, Linux arm64)의 다운로드, 서명, 압축 풀기, 실행만 본다.
-  # 전체 테스트는 돌리지 않는다(macOS 는 ffmpeg 를 받지 않아 ffmpeg 가 있다고 보는 테스트가 실패한다)
-  ytdlp:
-    name: yt-dlp (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - macos-latest
-          - ubuntu-24.04-arm
-
-    env:
-      NODE_ENV: test
-      DISCORD_TOKEN: ci-placeholder
-      CLIENT_ID: "000000000000000000"
-      SECRETS_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up pnpm
-        run: npm install -g pnpm@12.11.2
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24"
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Create test environment file
-        run: node -e "require('node:fs').writeFileSync('.env', '')"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      # CI 에서는 바이너리가 없으면 건너뛰지 않고 실패한다(설치가 깨졌다는 뜻이다)
-      - name: Run yt-dlp tests
-        run: node --test test/sources/ytdlp-wrapper.test.ts
