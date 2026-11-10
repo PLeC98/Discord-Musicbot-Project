@@ -5,7 +5,7 @@
 // restart: 기동 시 한 번 잡는 값. 저장해도 다시 시작하기 전까지는 기동 시 값으로 돈다(반쯤 적용되는 일이 없게. store/tunables).
 // 나머지는 저장하면 바로 적용된다. 기동 시 만들어 둔 것(요청 제한기, 하트비트, 캐시 정리 타이머, 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 // advanced: 동작을 알아야 고치는 값. 운영자 패널은 "고급 설정 보기"를 켰을 때만 보인다
-// box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 일의 출처별 값)
+// box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 용도의 출처별 값)
 
 /** 그룹(화면의 카드 순서) */
 const TUNABLE_GROUPS = ["queue", "look", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;

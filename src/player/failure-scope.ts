@@ -46,7 +46,7 @@ function scopeOf(one: unknown, direct: boolean): FailureScope | null {
   return ENVIRONMENT.has(code) ? "environment" : null;
 }
 
-/** 이 실패가 어디까지 닿는가. direct: 직접 링크 곡이다(HTTP 상태를 링크 하나의 일로 본다) */
+/** 이 실패가 어디까지 닿는가. direct: 직접 링크 곡이다(HTTP 상태를 링크 하나의 문제로 본다) */
 function failureScope(error: unknown, { direct = false }: { direct?: boolean } = {}): FailureScope {
   if (deadSourceCode(error)) return "track";
   const chain = chainOf(error);

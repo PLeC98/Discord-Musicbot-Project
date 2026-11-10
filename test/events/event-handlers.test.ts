@@ -676,7 +676,7 @@ test("모달: 처리 중 던지면 일반 오류 문장", async () => {
   assert.deepEqual(r.log, [["reply", said(errors.notice("processing-failed"))]]);
 });
 
-test("종료 중이면 전용 채널 메시지와 상호작용은 새 일을 시작하지 않고 종료 중이라고 알린다(자동완성은 빈 목록)", async (t) => {
+test("종료 중이면 전용 채널 메시지와 상호작용은 새 작업을 시작하지 않고 종료 중이라고 알린다(자동완성은 빈 목록)", async (t) => {
   t.after(() => _resetShutdown());
   const w = world();
   await settings.setBotChannel("g1", "bot-channel");

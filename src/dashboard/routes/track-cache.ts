@@ -1,4 +1,4 @@
-// 캐시 DB(운영자 패널 "캐시 DB" 탭). /api/admin/track-cache. 모양은 contract/track-cache, 일은 dashboard/track-cache, track-cache-probe.
+// 캐시 DB(운영자 패널 "캐시 DB" 탭). /api/admin/track-cache. 모양은 contract/track-cache, 처리는 dashboard/track-cache, track-cache-probe.
 // 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 삭제한 캐시는 다시 다운로드하면 된다).
 // 재생 테스트는 yt-dlp 를 실행하므로 곡 추가와 같은 한도로 따로 센다.
 

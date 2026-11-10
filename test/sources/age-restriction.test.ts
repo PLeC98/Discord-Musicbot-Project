@@ -186,7 +186,7 @@ test("서버 단위: 처음 알게 된 연령 제한은 쿠키, 판정과 상관
   }
 });
 
-test("서버 단위: 봇이 음성 밖이면 곡을 넣는 일이 실은 붙을 채널로 판정한다(첫 곡도 찾을 때 막는다)", () => {
+test("서버 단위: 봇이 음성 밖이면 곡을 넣는 작업이 실은 붙을 채널로 판정한다(첫 곡도 찾을 때 막는다)", () => {
   documents._use("age-content", { enabled: true, changedAt: 1 });
   externalCaches.markAgeRestricted("agechan0003");
   const url = "https://www.youtube.com/watch?v=agechan0003";

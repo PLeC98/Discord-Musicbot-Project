@@ -801,7 +801,7 @@ function togglePlayerState(k: PlayerState) {
 const playerFilters = computed(() => PLAYER_STATES.map((k) => ({ key: k, label: PLAYER_STATE_WORD[k], count: props.status.players.counts[k], on: query.value.states.includes(k), toggle: () => togglePlayerState(k) })));
 const NOT_MEMBER_TIP = T.notMemberTip;
 const ORPHAN_TIP = T.strayTip;
-// 작업: 봇 헬퍼는 이름, 서버의 일은 서버 이름(다음 곡, 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
+// 작업: 봇 헬퍼는 이름, 서버의 작업은 서버 이름(다음 곡, 곡 찾기는 덧붙인다). 서버를 나갔으면 이름이 없다
 const HELPER_JOB: Partial<Record<NonNullable<ProcessRow["job"]>, string>> = { "pot-server": T.jobs.potServer, "ytdlp-update": T.jobs.ytdlpUpdate, "login-background": T.jobs.loginBackground, "net-stats": T.jobs.netStats };
 function processJob(p: ProcessRow) {
   const helper = p.job && HELPER_JOB[p.job];

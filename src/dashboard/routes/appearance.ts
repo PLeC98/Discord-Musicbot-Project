@@ -59,7 +59,7 @@ appearanceRouter.use(requireOwner);
 const ranBy = (req: Request) => signedIn(req).username || signedIn(req).id;
 const reply = (req: Request): FaviconSlots => store.faviconSlots(Boolean(avatarUrl(req)));
 
-/** 저장을 바꾸는 일 하나. 파일 쓰기에 실패하면 appearance-save-failed, 됐으면 로그를 남기고 슬롯들로 답한다. what: [한 일, 실패했을 때의 일] */
+/** 저장을 바꾸는 작업 하나. 파일 쓰기에 실패하면 appearance-save-failed, 됐으면 로그를 남기고 슬롯들로 답한다. what: [한 일, 실패했을 때의 일] */
 async function changing(req: Request, res: Response, what: [string, string], job: () => Promise<boolean | store.Added> | boolean) {
   let done: boolean | store.Added;
   try {

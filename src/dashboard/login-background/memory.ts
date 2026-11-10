@@ -27,7 +27,7 @@ const AV1_LP_WAIT = 2;
 
 const bytes = (gb: number) => gb * MARGIN * GB;
 
-/** 일 하나의 대략의 최대 메모리(바이트). AV1 은 그 병렬 단계에서 */
+/** 작업 하나의 대략의 최대 메모리(바이트). AV1 은 그 병렬 단계에서 */
 function needOf(job: { codec: "av1" | "vp9" | "h264" | "probe"; uhd?: boolean; lp?: number }): number {
   const size = job.uhd ? "uhd" : "fhd";
   if (job.codec === "av1") return bytes(AV1_GB[size][(job.lp ?? AV1_LP_MAX) - 1]);

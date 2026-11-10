@@ -1,4 +1,4 @@
-// 주기마다 도는 일이 같은 까닭으로 잇달아 실패할 때, 로그가 사건 수와 맞게 남긴다.
+// 주기마다 도는 작업이 같은 까닭으로 잇달아 실패할 때, 로그가 사건 수와 맞게 남긴다.
 // 처음 한 번은 error, 이어지는 같은 실패는 세기만 하고, 풀리면 몇 번 실패했는지 한 줄.
 
 type FailureLog = { error(line: string): unknown; info(line: string): unknown };

@@ -46,7 +46,7 @@
         <p v-if="T.groups[group].desc" class="mb-3 text-sm text-on-surface-variant">{{ T.groups[group].desc }}</p>
         <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
           <ReuseField v-for="one in looseOf(group)" :key="one.key" :one="one" />
-          <!-- 같은 일의 출처별 값은 박스 하나로(예: 원본 다시 확인 간격). 제목, 설명은 박스 위에 한 번, 칸에는 짧은 이름만(SponsorBlock 구간 선택과 같은 모양) -->
+          <!-- 같은 용도의 출처별 값은 박스 하나로(예: 원본 다시 확인 간격). 제목, 설명은 박스 위에 한 번, 칸에는 짧은 이름만(SponsorBlock 구간 선택과 같은 모양) -->
           <div v-for="box in boxesOf(group)" :key="box" class="min-w-0 @md/card:col-span-2">
             <span class="flex items-center gap-1 mb-2 text-xs text-on-surface-variant">{{ T.boxes[box].title }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.boxes[box].help" /></span>
             <div class="grid grid-cols-1 @md/card:grid-cols-3 gap-3 rounded-(--r-inner) border border-outline-variant/50 p-3">

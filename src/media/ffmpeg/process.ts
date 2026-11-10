@@ -27,7 +27,7 @@ function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }
   const child = spawn(bin, args, { windowsHide: true });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 스스로 끝나지 않는다).
-  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 일(지금 곡, 다음 곡)
+  // 소리를 내는 것은 재생, 검사는 실행한 문맥의 작업(지금 곡, 다음 곡)
   const release = procRegistry.register(child, `ffmpeg:${label}`, { job: PLAYING.has(label) ? "play" : undefined });
 
   // stderr 끝 1000자를 모아 두기만 하고, 실패로 끝났을 때만 종료 줄에 함께 남긴다.

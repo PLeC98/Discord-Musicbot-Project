@@ -10,7 +10,7 @@ import { isCode } from "../../rules/problems.ts";
 import { LOGIN_BG_ENCODE_STAGES, type LoginBackgroundCrop, type LoginBackgroundStage } from "../contract/login-background.ts";
 import * as store from "./store.ts";
 
-/** 단계 하나의 일. item 은 지금 기록(바꾸지 않는다), folder 는 배경의 폴더, signal 은 취소, progress 는 그 단계의 0 ~ 1 */
+/** 단계 하나의 작업. item 은 지금 기록(바꾸지 않는다), folder 는 배경의 폴더, signal 은 취소, progress 는 그 단계의 0 ~ 1 */
 type StageJob = { item: Readonly<store.Stored>; folder: string; signal: AbortSignal; progress: (value: number) => void };
 /** 단계가 알아낸 것(다운로드: 종류, 크기, 길이, 미리보기: 추산, 장면 띠, 인코딩한 것). 기록에 덧쓴다 */
 type StageResult = Partial<Pick<store.Stored, "kind" | "width" | "height" | "duration" | "fps" | "strip" | "estimate" | "media">>;
@@ -35,7 +35,7 @@ function useExecutors(map: Partial<Record<LoginBackgroundStage, Executor>>) {
   executors = { ...executors, ...map };
 }
 
-/** 크기 추산을 다시 세는 일을 단다 */
+/** 크기 추산을 다시 세는 작업을 단다 */
 function useRecounter(fn: Recounter) {
   recounter = fn;
 }
@@ -103,7 +103,7 @@ function start(one: store.Stored, stage: LoginBackgroundStage) {
     );
 }
 
-/** 이 일이 아직 그 배경의 것인가(그 사이 취소, 삭제로 빠졌으면 결과를 버린다) */
+/** 이 작업이 아직 그 배경의 것인가(그 사이 취소, 삭제로 빠졌으면 결과를 버린다) */
 const stillOurs = (one: store.Stored, run: Run) => running.get(one.id) === run && store.find(one.id) === one;
 
 function finished(one: store.Stored, run: Run, result: StageResult) {
@@ -173,7 +173,7 @@ function resume() {
   kick();
 }
 
-/** 테스트: 도는 일을 모두 멈추고 잊는다 */
+/** 테스트: 도는 작업을 모두 멈추고 잊는다 */
 function _reset() {
   stopAll();
   executors = {};

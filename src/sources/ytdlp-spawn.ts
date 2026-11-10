@@ -55,8 +55,8 @@ function useInfoTimeout(ms: number | null) {
   infoTimeoutMs = ms ?? INFO_TIMEOUT_MS;
 }
 
-// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 일(곡 찾기, 검색, 재생목록, 재생 주소), background: 다운로드(파일로 받는 호출), 미리 받기(prefetch 문맥).
-// 오래 도는 뒤의 일이 앞의 일을 막지 않게 따로 센다. 슬롯은 실행하는 동안만 잡는다(재시도는 슬롯을 돌려주고 줄 맨 앞에 다시 선다)
+// 동시에 도는 yt-dlp 의 줄. lookup: 사용자가 기다리는 작업(곡 찾기, 검색, 재생목록, 재생 주소), background: 다운로드(파일로 받는 호출), 미리 받기(prefetch 문맥).
+// 오래 도는 뒤의 작업이 앞의 작업을 막지 않게 따로 센다. 슬롯은 실행하는 동안만 잡는다(재시도는 슬롯을 돌려주고 줄 맨 앞에 다시 선다)
 type Lane = "lookup" | "background";
 const GB = 1024 ** 3;
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
@@ -80,7 +80,7 @@ const lanes: Record<Lane, SlotQueue> = {
   lookup: new SlotQueue(() => fixedSizes?.lookup ?? (config.ytdlp.lookupSlots || autoSize("lookup"))),
   background: new SlotQueue(() => fixedSizes?.background ?? (config.ytdlp.backgroundSlots || autoSize("background"))),
 };
-// 줄 안의 순서: 재시도가 맨 앞, 그다음 지금 곡의 일, 미리 받기는 뒤
+// 줄 안의 순서: 재시도가 맨 앞, 그다음 지금 곡의 작업, 미리 받기는 뒤
 const RANK = { retry: 0, now: 1, prefetch: 2 };
 // 이보다 오래 기다렸으면 debug 로그를 남긴다(ms)
 const WAIT_NOTE_MS: Record<Lane, number> = { lookup: 5_000, background: 30_000 };
@@ -233,7 +233,7 @@ function execNow(): Exec {
  * 띄우기 전에 줄에서 슬롯을 기다린다(기다리는 시간은 한도에 들지 않는다). signal 이 끊기면 기다리다가도 빠진다.
  */
 async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ...opts }: RunOptions = {}): Promise<unknown> {
-  // 일은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
+  // 작업은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
   const doing = job ?? currentJob() ?? (flags.output ? "play" : "lookup");
   const lane: Lane = flags.output || doing === "prefetch" ? "background" : "lookup";
   const leave = await enter(lane, retry ? RANK.retry : doing === "prefetch" ? RANK.prefetch : RANK.now, opts.signal ?? undefined);

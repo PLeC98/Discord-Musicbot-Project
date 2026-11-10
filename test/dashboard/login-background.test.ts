@@ -251,7 +251,7 @@ test("실행기가 없는 단계는 시작하지 않고 기다린다. 달면 이
 test("봇이 다시 시작하면 하던 단계부터 이어서 한다", async () => {
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "encode");
-  // 봇이 꺼진 것처럼: 도는 일을 잊고 기록을 다시 읽는다
+  // 봇이 꺼진 것처럼: 도는 작업을 잊고 기록을 다시 읽는다
   runner._reset();
   useFakeExecutors();
   store._useDir(DIR);

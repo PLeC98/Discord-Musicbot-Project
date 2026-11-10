@@ -29,7 +29,7 @@ const IS_WIN = process.platform === "win32";
 
 // spawn 된 프로세스(ChildProcess)나 pid 를 가진 래퍼. 살아 있는지 보는 필드와 실행한 실행 파일
 type Tracked = { pid?: number; exitCode?: number | null; signalCode?: string | null; spawnfile?: string };
-/** guildId, job: 실행한 문맥의 서버와 일(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 일"로 보인다 */
+/** guildId, job: 실행한 문맥의 서버와 작업(infra/guild-context). 봇 상태 탭이 "어느 서버의 무슨 작업"으로 보인다 */
 type Entry = { pid: number; label: string; group: boolean; child: Tracked; startedAt: number; startKey: string | null; guildId: string | null; job: Job | null };
 /**
  * 기록 파일의 모양. owner: 적은 봇 프로세스, children: 그때 살아 있던 자식.
@@ -103,7 +103,7 @@ function install() {
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
  * label 은 로그용 이름, group=true 면 detached 로 실행해 자체 프로세스 그룹을 가진 경우.
- * 서버, 일은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
+ * 서버, 작업은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
  * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
 function register(child: Tracked | null | undefined, label = "child", { group = false, job }: { group?: boolean; job?: Job } = {}): () => void {

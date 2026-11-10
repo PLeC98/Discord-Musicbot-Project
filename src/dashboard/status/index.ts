@@ -58,7 +58,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     upload: uploadView(),
     activePlayers: players.size,
     players: playerRows(client, players, query, viewer.id, viewer.memberIds),
-    // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 일이 새는 신호다
+    // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 작업이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
     youtube: YouTube.statusSnapshot(),

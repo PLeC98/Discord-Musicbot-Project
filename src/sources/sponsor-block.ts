@@ -186,7 +186,7 @@ async function _load(videoId: string, entry: Entry) {
 }
 
 // 답이 오래됐으면 뒤에서 한 번 다시 받는다(지금 곡은 가진 답을 쓴다). 나가 있으면 합치고, 실패하면 답을 그대로 두고 RETRY_STALE_MS 쉰다.
-// 뒤에서 도는 일이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
+// 뒤에서 도는 작업이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
 function _refreshIfStale(videoId: string, entry: Entry) {
   const now = Date.now();
   if (!entry.got || entry.refreshing || !isStale(entry.got, now) || now - entry.missedAt < RETRY_STALE_MS) return;

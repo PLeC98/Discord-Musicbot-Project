@@ -119,7 +119,7 @@ const SHARED = {
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-parked": { status: 500, title: "Could not open the saved track, paused on it" },
   "restore-failed": { status: 500, title: "Could not restore the session" },
-  // 봇이 종료 중이라 새 일을 시작하지 않는다(명령, 메시지 요청, 대시보드 조작)
+  // 봇이 종료 중이라 새 작업을 시작하지 않는다(명령, 메시지 요청, 대시보드 조작)
   "bot-shutting-down": { status: 503, title: "Bot is shutting down" },
 } as const satisfies Record<string, ProblemSpec>;
 

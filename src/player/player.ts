@@ -348,7 +348,7 @@ class Player {
     this.trackSink = this.persistence; // trackState가 바뀐 것을 저장으로 알린다
     this.settingsSink = this.persistence; // 설정이 바뀐 것도
     this.warmer = this.io.createWarmer(this, {
-      // 다음 곡 미리 다운로드. 실행한 프로세스가 이 서버의 일로 적히게 문맥을 붙인다(예열 루프는 대시보드 요청에서 시작될 수도 있다)
+      // 다음 곡 미리 다운로드. 실행한 프로세스가 이 서버의 작업으로 적히게 문맥을 붙인다(예열 루프는 대시보드 요청에서 시작될 수도 있다)
       warm: (track) => {
         const before = infoOf(track);
         return inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch").then((done) => {
@@ -1406,7 +1406,7 @@ class Player {
    * 자동재생 후보 한 곡을 선택한다. 선택하지 못하면 null.
    *
    * 선택만 한다. 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(handleAutoplay)
-   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다. job: 실행한 yt-dlp 의 일(미리 선택은 prefetch 라 yt-dlp 의 백그라운드 큐에 선다)
+   * 미리 대기열에 둘지(ensureAutoplayNext) 정한다. job: 실행한 yt-dlp 의 작업(미리 선택은 prefetch 라 yt-dlp 의 백그라운드 큐에 선다)
    */
   async pickAutoplayTrack(job: Job | null = null) {
     if (!this.autoplay || typeof this.autoplay !== "string") return null;

@@ -1,5 +1,5 @@
 /**
- * yt-dlp 를 목표 버전(.env 의 YTDLP_CHANNEL, YTDLP_VERSION)으로 맞춘다. 일은 src/sources/ytdlp-binary.ts 가 한다.
+ * yt-dlp 를 목표 버전(.env 의 YTDLP_CHANNEL, YTDLP_VERSION)으로 맞춘다. 실제 처리는 src/sources/ytdlp-binary.ts 가 한다.
  *
  * 설치 뒤(postinstall): YTDLP_UPDATE=off 면 설치 때 다운로드한 것을 옮겨 두기만 한다. 실패해도 설치를 깨지 않는다.
  * 사람이 부르면(update:ytdlp): YTDLP_UPDATE 와 상관없이 목표 버전으로 다운로드하고, 실패하면 1 로 끝난다.

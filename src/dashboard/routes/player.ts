@@ -129,7 +129,7 @@ function readRoutes(router: Router) {
   });
 }
 
-// 음성 참가. 판정과 일은 디스코드 /join 과 같다(usecases/join). 붙었거나 복원한 결과는 디스코드의 패널 채널에도 알린다
+// 음성 참가. 판정과 처리는 디스코드 /join 과 같다(usecases/join). 붙었거나 복원한 결과는 디스코드의 패널 채널에도 알린다
 function joinRoute(router: Router) {
   router.post("/:guildId/player/join", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
@@ -307,7 +307,7 @@ function queueEditRoutes(router: Router) {
   });
 }
 
-// 자동재생. 판정과 일은 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
+// 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
 // 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 동일 음성 채널 규칙)을 지난 사람만.
 // 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
 // 그래서 사람마다 한 번에 하나만 찾고(그사이 더 새 검색이 오면 앞 것은 찾지 않는다), 일반 API 한도에서 빼 검색만의 한도로 센다(치는 대로 오는 검색이 재생 조작의 몫을 먹지 않게)
