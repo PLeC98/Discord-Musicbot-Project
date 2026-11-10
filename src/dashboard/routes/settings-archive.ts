@@ -90,7 +90,7 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   const token = taken.upload.id;
   let file: string;
   try {
-    file = archiveUploads.adopt(token);
+    file = archiveUploads.adopt(token, req.sessionID);
     uploads.finish(taken.upload);
   } catch (error) {
     uploads.close(taken.upload);

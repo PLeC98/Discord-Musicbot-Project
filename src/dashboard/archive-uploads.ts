@@ -1,5 +1,6 @@
 // 백업 불러오기에 올린 파일. 미리 보기 전에 청크로 올려(dashboard/uploads) database/tmp/archive-<토큰>.zip에 두고, 불러오기는 그 토큰으로 쓴다(수백 MB인 파일을 두 번 올리지 않게).
-// 토큰은 업로드 id다. 받는 동안은 archive-<토큰>.zip.part다. 불러오거나 닫으면 삭제하고, 1시간이 지나도 삭제한다. 봇이 켜질 때 남은 것을 치운다(꺼지기 전에 올린 것)
+// 토큰은 업로드 id다. 받는 동안은 archive-<토큰>.zip.part다. 불러오거나 닫으면 삭제하고, 1시간이 지나도 삭제한다. 봇이 켜질 때 남은 것을 치운다(꺼지기 전에 올린 것).
+// 세션마다 하나만 둔다: 같은 세션이 새로 올리면 앞의 것을, 세션이 끝나면 그 세션의 것을 삭제한다(닫지 않고 되풀이해 올려 디스크를 채우지 않게)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -16,7 +17,7 @@ const TOKEN = /^[0-9a-f]{32}$/;
 const KEEP_MS = 60 * 60_000;
 
 let dir = path.join(PROJECT.database, "tmp");
-const uploads = new Map<string, NodeJS.Timeout>();
+const uploads = new Map<string, { timer: NodeJS.Timeout; sid: string }>();
 
 const fileFor = (token: string) => path.join(dir, `${PREFIX}${token}.zip`);
 
@@ -27,13 +28,14 @@ function targetFor(id: string): Target {
   return { file, room: () => roomIn(dir), discard: () => fs.rmSync(file, { force: true }), ref: id };
 }
 
-/** 다 받은 업로드를 토큰으로 등록한다(.part를 원래 이름으로 바꾸고 1시간 뒤 삭제를 예약한다). 받은 파일 */
-function adopt(id: string): string {
+/** 다 받은 업로드를 세션 sid 의 토큰으로 등록한다(.part를 원래 이름으로 바꾸고 1시간 뒤 삭제를 예약한다). 그 세션의 앞의 것은 삭제한다. 받은 파일 */
+function adopt(id: string, sid: string): string {
   const file = fileFor(id);
   fs.renameSync(`${file}.part`, file);
+  dropSession(sid);
   const timer = setTimeout(() => drop(id), KEEP_MS);
   timer.unref();
-  uploads.set(id, timer);
+  uploads.set(id, { timer, sid });
   return file;
 }
 
@@ -43,9 +45,14 @@ const fileOf = (token: string) => (TOKEN.test(token) && uploads.has(token) && fs
 /** 올린 파일을 삭제하고 타이머를 멈춘다. 모르는 토큰은 무시한다 */
 function drop(token: string) {
   if (!TOKEN.test(token) || !uploads.has(token)) return;
-  clearTimeout(uploads.get(token));
+  clearTimeout(uploads.get(token)!.timer);
   uploads.delete(token);
   fs.rmSync(fileFor(token), { force: true });
+}
+
+/** 그 세션의 올린 파일을 삭제한다(새로 올림, 세션 끝) */
+function dropSession(sid: string) {
+  for (const [token, one] of [...uploads]) if (one.sid === sid) drop(token);
 }
 
 /** 봇이 켜질 때: 이전 실행이 남긴 업로드 파일을 모두 삭제한다 */
@@ -65,4 +72,4 @@ function _useDir(folder: string) {
   dir = folder;
 }
 
-export { targetFor, adopt, fileOf, drop, sweepUploads, _useDir };
+export { targetFor, adopt, fileOf, drop, dropSession, sweepUploads, _useDir };

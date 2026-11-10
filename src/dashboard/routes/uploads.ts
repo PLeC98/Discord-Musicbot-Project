@@ -24,13 +24,14 @@ uploadsRouter.use(requireOwner);
 const CHUNKS_PER_SECOND = 20;
 const chunkLimiter = limiter(() => (CHUNKS_PER_SECOND * config.dashboard.rateLimit.windowMs) / 1000);
 
-// 세션이 끝나면(로그아웃, 기기 로그아웃, 만료) 그 세션의 업로드를 지운다. 저장소마다 리스너를 한 번만 등록한다
+// 세션이 끝나면(로그아웃, 기기 로그아웃, 만료) 그 세션의 업로드와 미리 보기에 둔 백업을 지운다. 저장소마다 리스너를 한 번만 등록한다
 const heard = new WeakSet<SqliteSessionStore>();
 uploadsRouter.use((req, _res, next) => {
   const store = tokenStoreOf(req);
   if (store && !heard.has(store)) {
     heard.add(store);
     store.onEnded(uploads.dropSession);
+    store.onEnded(archiveUploads.dropSession);
   }
   next();
 });
