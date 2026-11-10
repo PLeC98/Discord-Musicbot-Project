@@ -20,6 +20,11 @@ const CATALOG_SCHEMA = 4;
 /** 받은 사본 */
 let file = path.join(PROJECT.database, "ai-models.json");
 
+// 레지스트리가 기본값, 필드로 건드리지 못하는 본문 칸: 모델과 프롬프트. 우리가 채우고, 바뀌면 다른 모델로 가거나 지시가 통째로 바뀐다.
+// 나머지(최대 토큰, 추론 정도 등)는 모델마다 레지스트리가 정한다. 잘못 정해도 요청이 실패할 뿐이고 비용은 AI 비용 상한이 막는다
+const OURS = new Set(["model", "messages", "system", "contents", "systemInstruction"]);
+const ours = (bodyPath: string) => OURS.has(bodyPath.split(".")[0] ?? "");
+
 // 레지스트리의 모양. 여기서 읽는 필드만
 type SchemaField = { key: string; type?: string; label?: string; mapsTo?: { target?: string; path?: string }; enum?: unknown[]; min?: number; max?: number; step?: number; default?: unknown };
 type UiField = { key: string; widget?: string; group?: string; visibility?: string; showIf?: ShowIf; order?: number };
@@ -128,7 +133,7 @@ function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()
   const hints = new Map([...(base?.uiSchema?.fields || []), ...(profile.uiSchema?.fields || [])].map((f) => [f.key, f]));
 
   return mergeSchemas(base?.requestSchema, profile.schema)
-    .flatMap((f) => (f?.mapsTo?.target === "body" && f.mapsTo.path && f.key !== "modelId" ? [{ f, path: f.mapsTo.path }] : []))
+    .flatMap((f) => (f?.mapsTo?.target === "body" && f.mapsTo.path && !ours(f.mapsTo.path) ? [{ f, path: f.mapsTo.path }] : []))
     .map(({ f, path }) => {
       const hint: Partial<UiField> = hints.get(f.key) || {};
       const out: ModelField = { key: f.key, path, type: f.type, label: f.label };
@@ -167,7 +172,26 @@ function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return {};
   const base = baseOf(snapshot, found.profile);
-  return { ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) };
+  return Object.fromEntries(Object.entries({ ...(base?.defaultBody || {}), ...(found.profile.defaults || {}) }).filter(([key]) => !OURS.has(key)));
+}
+
+/** 모델, 프롬프트 칸을 바꾸려는 기본값, 필드의 자리(`<id> 기본값 <칸>`, `<id> 필드 <키>`). 모델 ID 필드(modelId → model)는 정상이라 빼고 센다 */
+function touchingOurs(snapshot: Snapshot): string[] {
+  const out: string[] = [];
+  const scan = (id: string, defaults: Record<string, unknown> | undefined, fields: SchemaField[] | undefined) => {
+    for (const key of Object.keys(defaults || {})) if (OURS.has(key)) out.push(`${id} 기본값 ${key}`);
+    for (const f of fields || []) if (f?.mapsTo?.target === "body" && f.mapsTo.path && ours(f.mapsTo.path) && f.key !== "modelId") out.push(`${id} 필드 ${f.key}`);
+  };
+  for (const [id, base] of Object.entries(snapshot.baseProviders || {})) scan(id, base.defaultBody, base.requestSchema);
+  for (const [id, profile] of Object.entries(snapshot.profiles || {})) scan(id, profile.defaults, profile.schema);
+  return out;
+}
+
+// 정상 레지스트리는 이 칸을 건드리지 않는다. 받은 것이 건드리면 저장은 하되 쓰지 않고 알린다
+function warnTouchingOurs(snapshot: Snapshot) {
+  const touched = touchingOurs(snapshot);
+  if (!touched.length) return;
+  log.warn(`AI 모델 정보가 모델, 프롬프트 칸을 바꾸려 해 그 값은 쓰지 않음(${touched.length}곳): ${touched.slice(0, 5).join(", ")}${touched.length > 5 ? " 등" : ""}`);
 }
 
 const github = httpFor("github");
@@ -228,6 +252,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");
   const { snapshot: got, skipped } = pick(catalog, registries);
   if (skipped.length) log.warn(`AI 모델 정보에서 형식이 맞지 않는 프로필 ${skipped.length}개를 빼고 저장: ${skipped.slice(0, 5).join(", ")}${skipped.length > 5 ? " 등" : ""}`);
+  warnTouchingOurs(got);
   const lost = lostShape(registries, held, got);
   if (lost.length) throw new Error(`${lost.join(", ")}의 모델 필드가 통째로 비어 있음. 원격 형식이 바뀐 것으로 보여 쓰지 않음`);
 
