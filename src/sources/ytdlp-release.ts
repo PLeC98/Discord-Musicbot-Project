@@ -169,5 +169,5 @@ async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature =
 /** 테스트가 가짜 전송을 넣는다. null 이면 진짜 fetch */
 const useFetch = (fake: typeof fetch | null) => github.useFetch(fake);
 
-export { assetFor, assetHere, fetchRelease, sumOf, useFetch };
+export { assetFor, assetHere, fetchRelease, sumOf, useFetch, signingKey, SIGNING_FINGERPRINT };
 export type { Asset, Channel as YtdlpChannel, FailureKind as ReleaseFailureKind, ReleaseError, Libc };

@@ -51,14 +51,16 @@ type IssueRow = { number: number; title: string; author?: { login?: string } | n
 
 /**
  * vendor-updates 워크플로가 갱신할 열린 이슈 번호(없으면 null). 라벨이 붙은 것이 먼저다(라벨은 triage 이상 권한이 있는 사람만 붙인다).
- * 라벨이 없으면 제목이 "bgutil "로 시작하고 작성자가 이 워크플로의 계정(설정한 GitHub App 은 app/<slug>, 또는 github-actions)인 것만 선택한다.
+ * 라벨이 없으면 제목이 titlePrefix 로 시작하고 작성자가 이 워크플로의 계정(설정한 GitHub App 은 app/<slug>, 또는 github-actions)인 것만 선택한다. titlePrefix 가 비면 라벨로만 찾는다.
  * 공개 저장소라 사람이 같은 제목으로 연 이슈는 선택하지 않는다(선택하면 워크플로가 그 이슈에 라벨을 붙이고 제목과 본문을 덮어쓴다).
+ * 도구마다 접두사가 달라야 한다(같으면 한 도구의 단계가 다른 도구의 이슈를 고쳐 쓰고 닫는다).
  */
-function trackedIssue(issues: readonly IssueRow[], label: string, appSlug: string): number | null {
+function trackedIssue(issues: readonly IssueRow[], label: string, appSlug: string, titlePrefix = ""): number | null {
   const labeled = issues.find((issue) => issue.labels?.some((one) => one.name === label));
   if (labeled) return labeled.number;
+  if (!titlePrefix) return null;
   const ours = new Set(["app/github-actions", `app/${appSlug}`]);
-  return issues.find((issue) => issue.title.startsWith("bgutil ") && ours.has(issue.author?.login ?? ""))?.number ?? null;
+  return issues.find((issue) => issue.title.startsWith(titlePrefix) && ours.has(issue.author?.login ?? ""))?.number ?? null;
 }
 
 export { isMonthEndBuild, newerFfmpegRelease, compareVersions, newerRelease, rewriteConstant, auditCounts, trackedIssue };
