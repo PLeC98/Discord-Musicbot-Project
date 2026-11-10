@@ -23,7 +23,7 @@ import * as panelText from "./text/ko/panel.ts";
 import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
-import { ALLOWED_MENTIONS, escapeMd } from "./mentions.ts";
+import { ALLOWED_MENTIONS, escapeMd, linkLabel } from "./mentions.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
@@ -396,9 +396,9 @@ class NowPlayingPanel {
     const platformValue = labelOf(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(artistValue)}` : "";
-    // 제목은 이스케이프하지 않는다. 링크 라벨 안에서는 백슬래시가 그대로 노출된다(mentions.ts).
+    // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(mentions.ts)
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
-    const linkText = `### ${nowPlayingTitle}\n**[${songTitle(track.title)}](${track.pageUrl})**${artistLine}`;
+    const linkText = `### ${nowPlayingTitle}\n**[${linkLabel(songTitle(track.title))}](${track.pageUrl})**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
     // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)

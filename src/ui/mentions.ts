@@ -8,10 +8,16 @@ import config from "../config/index.ts";
 const ALLOWED_MENTIONS = { parse: [], repliedUser: false };
 
 // 메시지 본문용. maskedLink 옵션이 `[클릭](url)`의 여는 대괄호를 막는다. 없으면 제목이 클릭되는 링크로 렌더링된다.
-// 마스크드 링크 라벨 안에는 쓰지 말 것. 거기서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
+// 마스크드 링크 라벨 안에는 쓰지 말고 linkLabel을 쓸 것. 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
 const escapeMd = (text: unknown) => escapeMarkdown(String(text ?? ""), { maskedLink: true });
+
+/**
+ * 마스크드 링크 라벨 `[여기](url)`에 넣는 외부 문자열. 디스코드는 라벨 안의 `](`에서 라벨을 닫으므로 그 사이에 폭 없는 공백을 넣는다.
+ * 넣지 않으면 `x](https://다른곳) [y` 같은 제목의 x가 다른 주소로 가는 링크가 된다. 나머지 글자(괄호, 서식)는 라벨 안에서만 먹어 그대로 둔다
+ */
+const linkLabel = (text: string) => text.replaceAll("](", "]\u200b(");
 
 // 오류, 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env 의 SOURCE_REPO_URL, 없으면 원본)
 const DISCORD_LOOK: Look = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };
 
-export { ALLOWED_MENTIONS, escapeMd, DISCORD_LOOK };
+export { ALLOWED_MENTIONS, escapeMd, linkLabel, DISCORD_LOOK };

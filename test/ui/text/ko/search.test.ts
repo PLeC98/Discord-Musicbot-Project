@@ -23,6 +23,12 @@ test("결과 화면의 문장", () => {
   );
 });
 
+test("결과 줄의 제목: 링크 라벨 안이라 역슬래시를 넣지 않고, 라벨을 닫는 ](만 끊는다", () => {
+  const line = (title: string) => search.resultLine(1, { title, link: "https://y/1", source: "🔴", length: "3:00" });
+  assert.equal(line("my_song *Remix*"), "**1.** [my_song *Remix*](https://y/1)\n-# 🔴 3:00");
+  assert.equal(line("x](https://evil.example) [y"), "**1.** [x]\u200b(https://evil.example) [y](https://y/1)\n-# 🔴 3:00");
+});
+
 test("자동완성의 문장: 맨 위 줄, 곡 후보, 고친 이름에서 검색어 꺼내기", () => {
   assert.deepEqual([search.resultsChoice("노래"), search.songChoice({ title: "곡", artist: "가수", length: "3:00" }), search.songChoice({ title: null, length: "🔴LIVE" }), search.songChoice({ title: "곡", artist: "가수", length: "3:00", spotify: true })], ['🔍 "노래" 검색 결과 보기', "곡 - 가수 (3:00)", "알 수 없는 곡 (🔴LIVE)", "곡 - 가수 (3:00) (Spotify)"]);
   assert.deepEqual(['🔍 "노래" 검색 결과 보기', '🔍 "노', "곡 - 가수 (3:00)", "곡 - 가수 (1:02:03) (Spotify)", "그냥 검색어"].map(search.queryOfTyped), ["노래", "노", "곡 - 가수", "곡 - 가수", "그냥 검색어"]);

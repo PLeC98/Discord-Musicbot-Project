@@ -4,13 +4,14 @@
 import { josa } from "../../../rules/josa.ts";
 import { icon, type IconKey } from "../../icons.ts";
 import { songTitle } from "./labels.ts";
+import { linkLabel } from "../../mentions.ts";
 import type { Hold } from "../../../rules/holds.ts";
 
 type Linked = { title: string | null; pageUrl: string };
 /** 헤더 줄(아이콘 키 + 제목)과 본문 */
 type Head = { icon: IconKey; title: string; body: string };
 
-const link = (track: Linked) => `**[${songTitle(track.title)}](${track.pageUrl})**`;
+const link = (track: Linked) => `**[${linkLabel(songTitle(track.title))}](${track.pageUrl})**`;
 // 곡 링크 뒤에 목적격 조사(보이는 제목의 끝소리로 정한다)
 const linkObject = (track: Linked) => `${link(track)}${josa(songTitle(track.title), "을")}`;
 

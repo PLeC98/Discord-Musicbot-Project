@@ -6,7 +6,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { WebhookClient, MessagePayload } from "discord.js";
-import { ALLOWED_MENTIONS, escapeMd } from "../../src/ui/mentions.ts";
+import { ALLOWED_MENTIONS, escapeMd, linkLabel } from "../../src/ui/mentions.ts";
+import { nowPlayingView } from "../../src/ui/now-playing-info.ts";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import type { Client } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
@@ -19,6 +20,9 @@ const addedText = (tracks: Array<{ title?: string }>, collection: string | null,
 
 const EVIL_MENTION = "@everyone 눌러줘 <@1234567890>";
 const EVIL_LINK = "[여기를 클릭](https://evil.example)";
+// 링크 라벨 안에서 라벨을 닫고 다른 주소의 링크를 만드는 제목(디스코드에서 x가 evil로 가는 링크가 된다)
+const EVIL_LABEL = "x](https://evil.example) [y";
+const escapesLabel = (text: string) => text.includes("](https://evil");
 
 test("기본값: 어떤 멘션도 파싱하지 않는다", () => {
   assert.deepEqual(ALLOWED_MENTIONS.parse, []);
@@ -71,11 +75,14 @@ test("대기열 추가 안내: 제목의 마스크드 링크가 살아나지 않
   assert.ok(msg.includes("여기를 클릭"), "제목 텍스트 자체는 보여준다");
 });
 
-// now-playing 제목은 마스크드 링크의 "라벨" 위치라 이스케이프하지 않는다.
-// 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
-// 라벨 밖으로 탈출해 다른 URL을 걸 수도 없다. 라벨이 깨지면
-// 디스코드가 링크 자체를 만들지 않는다.
-test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () => {
+// 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 보인다. 라벨을 닫는 ](만 끊는다
+test("링크 라벨: ]( 사이에 폭 없는 공백을 넣어 라벨을 닫지 못하게 하고 나머지 글자는 그대로 둔다", () => {
+  assert.equal(linkLabel(EVIL_LABEL), "x]\u200b(https://evil.example) [y");
+  assert.equal(linkLabel("a](b](c"), "a]\u200b(b]\u200b(c");
+  for (const title of ["[MV] Song (Official Video)", "my_song_name", "Song *Remix* ~ A|B"]) assert.equal(linkLabel(title), title);
+});
+
+test("now-playing 제목은 라벨에 들어가고, 라벨을 닫는 ](만 끊긴다", async () => {
   const mem = new NowPlayingPanel(fake<Client>({}), new Map());
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
@@ -85,4 +92,13 @@ test("now-playing 제목은 원문 그대로 라벨에 들어간다", async () =
 
   assert.ok(json.includes("게임 실황 [Official] my_song_name"), "제목이 변형 없이 들어가야 한다");
   assert.ok(!json.includes("my\\\\_song"), "라벨에 백슬래시가 들어가면 화면에 그대로 노출된다");
+  const evil = JSON.stringify((await mem.createNowPlayingContainer(player, { ...track, title: EVIL_LABEL })).toJSON());
+  assert.ok(!escapesLabel(evil), evil);
+});
+
+test("/nowplaying 곡 정보: 지금 곡과 다음 곡의 제목이 라벨을 닫지 못한다", () => {
+  const song = (n: number): QueuedTrack => ({ title: EVIL_LABEL, pageUrl: `https://ok.example/${n}`, requestKey: `https://ok.example/${n}`, duration: 100, platform: "youtube", thumbnail: null });
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [song(2)], previousTracks: [], loop: false, paused: false, autoplay: null, pause: { heldBy: null, userPaused: false } });
+  const json = JSON.stringify(nowPlayingView(player, song(1)).toJSON());
+  assert.ok(!escapesLabel(json), json);
 });
