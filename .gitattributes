@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.patch -text
+# 서명을 확인하는 픽스처는 바이트 그대로 둔다
+test/fixtures/ytdlp/* -text

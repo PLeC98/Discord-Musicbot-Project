@@ -208,3 +208,13 @@ Downloaded at runtime (not in this directory): database/geoip/dbip-city-lite-YYY
   License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
   Attribution: "IP Geolocation by DB-IP" (https://db-ip.com), shown under the
   signed-in device list.
+
+--------------------------------------------------------------------------------
+yt-dlp-signing-key.asc
+
+  The OpenPGP public key the yt-dlp project signs its release checksums with
+  (SHA2-256SUMS.sig), unmodified (public.key at the root of the yt-dlp
+  repository). The bot checks downloaded yt-dlp releases against it.
+  Fingerprint: AC0C BBE6 848D 6A87 3464 AF4E 57CF 6593 3B5A 7581
+  Source:  https://github.com/yt-dlp/yt-dlp/blob/master/public.key
+  License: The Unlicense (https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE)
