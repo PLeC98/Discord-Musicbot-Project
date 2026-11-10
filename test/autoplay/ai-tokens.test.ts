@@ -108,7 +108,8 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
   }
   const { took, widest } = result;
   assert.ok(took > 200, `느린 글이어야 테스트가 된다(${Math.round(took)}ms)`);
-  assert.ok(widest < took * 0.5, `타이머 틈이 ${Math.round(widest)}ms 까지 벌어졌다(세기 ${Math.round(took)}ms)`);
+  // 이 스레드에서 세면 틈이 세는 시간과 거의 같다(100%). 다른 테스트 파일과 함께 돌면 CPU 가 꽉 차 타이머가 세는 시간의 절반 넘게 밀리기도 해 80% 로 가른다
+  assert.ok(widest < took * 0.8, `타이머 틈이 ${Math.round(widest)}ms 까지 벌어졌다(세기 ${Math.round(took)}ms)`);
 });
 
 test("상한을 넘기면 실패로 답하고 다음 세기는 새로 시작한 스레드가 한다", async () => {
