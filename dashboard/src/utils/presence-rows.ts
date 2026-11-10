@@ -16,10 +16,10 @@ type ConditionKey = "date" | "lunar" | "time";
 type MessageData = string | { text?: string; type?: ActivityType | "" };
 type SpecialData = Partial<Record<ConditionKey, string>> & { messages?: MessageData[] };
 
-const CONDITIONS: Array<{ key: ConditionKey; label: string; placeholder: string }> = [
-  { key: "date", label: text.presence.conditionDate, placeholder: "12-24 ~ 12-26" },
-  { key: "lunar", label: text.presence.conditionLunar, placeholder: "01-01 ~ 01-15" },
-  { key: "time", label: text.presence.conditionTime, placeholder: "22:00 ~ 06:00" },
+const CONDITIONS: Array<{ key: ConditionKey; label: string }> = [
+  { key: "date", label: text.presence.conditionDate },
+  { key: "lunar", label: text.presence.conditionLunar },
+  { key: "time", label: text.presence.conditionTime },
 ];
 
 let serial = 0;

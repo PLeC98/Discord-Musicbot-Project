@@ -77,10 +77,10 @@
                 <p class="mt-1 text-xs text-on-surface-variant">{{ T.conditionsDesc }}</p>
               </div>
               <div class="grid grid-cols-1 @lg/card:grid-cols-3 gap-3">
-                <label v-for="cond in CONDITIONS" :key="cond.key" class="block">
+                <div v-for="cond in CONDITIONS" :key="cond.key">
                   <span :class="FIELD_LABEL">{{ cond.label }}</span>
-                  <input :value="selected[cond.key]" :placeholder="cond.placeholder" :class="[FIELD, 'w-full nums']" @input="selected[cond.key] = valueOf($event)" />
-                </label>
+                  <ConditionRangeField v-model="selected[cond.key]" :kind="cond.key" :label="cond.label" />
+                </div>
               </div>
             </section>
 
@@ -104,6 +104,7 @@ import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import PresenceMessageList from "./PresenceMessageList.vue";
 import NumberInput from "./NumberInput.vue";
+import ConditionRangeField from "./ConditionRangeField.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { SELECT_ROW_ON } from "../utils/select-row.ts";
 import { useScrollFade } from "../composables/scroll-fade.ts";
@@ -113,6 +114,7 @@ import { useDragReorder } from "../composables/drag-reorder.ts";
 import { useListDetail, LIST_ROW } from "../composables/list-detail.ts";
 import { CONDITIONS, newMessage, newSpecial, toMessages, fromMessages, toSpecial, fromSpecial, type MessageRow, type SpecialRow, type MessageData, type SpecialData } from "../utils/presence-rows.ts";
 import { INTERVAL_DEFAULT, statusProblems } from "../../../src/config/schema/status.ts";
+import { parseRange, rangeText } from "../utils/condition-range.ts";
 import { text } from "../text/index.ts";
 const T = text.presence;
 
@@ -154,7 +156,10 @@ function conditionIcon(entry: SpecialRow) {
 }
 const conditionText = (entry: SpecialRow) =>
   CONDITIONS.filter((c) => entry[c.key].trim())
-    .map((c) => `${c.label} ${entry[c.key].trim()}`)
+    .map((c) => {
+      const range = parseRange(c.key, entry[c.key]);
+      return `${c.label} ${range ? rangeText(c.key, range) : entry[c.key].trim()}`;
+    })
     .join("\n");
 
 // 항목마다의 문제: 이름이 비었거나 겹침 + 서버 검사(schema/status)를 그 항목 하나에만 돌린 것. 목록 항목의 아이콘(툴팁)과 편집 영역 맨 위에 보인다.
