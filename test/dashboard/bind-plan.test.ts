@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type os from "node:os";
-import { bindLine, bindNotes, callbackNote, inContainer, planBind, reachableAddresses, scopeOf, widenedNote } from "../../src/dashboard/bind-plan.ts";
+import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote } from "../../src/dashboard/bind-plan.ts";
 
 const plan = (over: Partial<Parameters<typeof planBind>[0]>) => planBind({ envHost: null, url: "http://localhost:33333", container: false, certs: false, ...over });
 
@@ -65,13 +65,6 @@ test("기동 진단: 모든 주소면 접속할 수 있는 주소, http면 HTTPS
   assert.ok(https.some((t) => t.includes("로그인되지 않음")));
   const local = bindNotes(plan({ envHost: "127.0.0.1", url: "https://music.example.com" }), { url: "https://music.example.com", port: 33333, envHost: "127.0.0.1", container: false, reachable: [] });
   assert.deepEqual(local, [], "DASHBOARD_HOST가 이 기기 주소면 없다");
-});
-
-test("콜백 안내: 사설 IP의 http는 디스코드가 받지 않는다(warn), 사설 IP의 https와 100.64/10은 받지 않을 수 있다", () => {
-  assert.match(callbackNote("http://192.168.0.10:33333")?.text ?? "", /받지 않아 로그인할 수 없음/);
-  assert.match(callbackNote("https://192.168.0.10")?.text ?? "", /받지 않을 수 있음/);
-  assert.match(callbackNote("http://100.101.1.2:33333")?.text ?? "", /받지 않을 수 있음/);
-  for (const url of ["http://localhost:33333", "https://music.example.com", "http://203.0.113.5"]) assert.equal(callbackNote(url), null, url);
 });
 
 test("넓어진 범위: 이전 실행이 이 기기 전용이었는데 이번에 더 넓게 열면 경고한다", () => {
