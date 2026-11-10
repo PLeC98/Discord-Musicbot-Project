@@ -86,7 +86,7 @@ DASHBOARD_TLS_KEY=/etc/letsencrypt/live/music.example.com/privkey.pem
 
 ## 막는 것
 
-- **인터넷 평문**: `DASHBOARD_URL`이 `http://`이고 그 호스트가 공인 주소(공인 IP, 또는 공인 IP를 가리키는 도메인)면 대시보드를 열지 않습니다. 인터넷에서 평문으로 들어온 요청에는 안내 화면을 보입니다. 같은 네트워크(사설망, Tailscale)의 평문은 막지 않습니다. 공인 IP를 내부망으로 쓰는 곳처럼 위험을 감수할 때만 `.env`에 `DASHBOARD_ALLOW_PLAINTEXT=true`를 넣습니다(대시보드에서는 바꿀 수 없습니다).
+- **인터넷 평문**: `DASHBOARD_URL`이 `http://`이고 그 호스트가 공인 주소(공인 IP, 또는 공인 IP를 가리키는 도메인)면 대시보드를 열지 않습니다. 인터넷에서 평문으로 들어온 요청에는 안내 화면을 보입니다. 같은 네트워크(사설망, Tailscale)의 평문은 막지 않습니다. 이때 로그인 쿠키가 암호화되지 않고 오가므로 같은 망의 다른 사람이 엿볼 수 있습니다. 공용 Wi-Fi처럼 믿을 수 없는 망이면 HTTPS로 공개하세요. 공인 IP를 내부망으로 쓰는 곳처럼 위험을 감수할 때만 `.env`에 `DASHBOARD_ALLOW_PLAINTEXT=true`를 넣습니다(대시보드에서는 바꿀 수 없습니다).
 - **다른 이름**: `DASHBOARD_URL`의 호스트, `localhost`, IP, 점 없는 이름, `.local`, `.lan`, `.internal`, `.home.arpa`로 들어온 요청만 받습니다. 다른 도메인으로 열려면 `DASHBOARD_URL`을 그 주소로 바꾸세요. 로그인은 늘 `DASHBOARD_URL`에서 시작합니다.
 - **원격 프록시의 IP**: 이 기기, 사설망, Docker, Tailscale 주소의 프록시는 자동으로 신뢰합니다. 공인 IP에 있는 프록시만 `DASHBOARD_TRUST_PROXY`에 넣습니다.
 
