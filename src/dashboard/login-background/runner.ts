@@ -94,7 +94,7 @@ function start(one: store.Stored, stage: LoginBackgroundStage) {
   void Promise.resolve()
     .then(() => {
       // 원본으로 만드는 단계인데 원본이 없다(봇 폴더에서 삭제됐다): 다시 올리게 한다
-      if (FROM_SOURCE.includes(stage) && !fs.existsSync(store.sourceOf(one.id))) throw codedError("background-failed", "원본이 없습니다. 다시 올려 주세요");
+      if (FROM_SOURCE.includes(stage) && !fs.existsSync(store.sourceOf(one.id))) throw codedError("background-failed", "원본 없음. 다시 업로드하세요");
       return executor(job);
     })
     .then(
@@ -120,7 +120,7 @@ function finished(one: store.Stored, run: Run, result: StageResult) {
     one.resumed = false;
     log.info({ sub: "admin" }, `로그인 배경 "${one.name}" 생성 완료`);
     const removed = store.enforceLimits();
-    if (removed.length) log.info({ sub: "admin" }, `로그인 배경 한도를 넘어 기록에서 삭제했습니다: ${removed.join(", ")}`);
+    if (removed.length) log.info({ sub: "admin" }, `로그인 배경 기록이 한도를 넘어 삭제: ${removed.join(", ")}`);
   }
   store.save();
   kick();

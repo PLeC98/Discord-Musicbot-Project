@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readInfo } from "../../src/sources/ytdlp-info.ts";
 
-test("쓰는 필드만 뽑고 나머지는 흘려보낸다", () => {
+test("쓰는 필드만 뽑고 나머지는 버린다", () => {
   const info = readInfo({ id: "abc", title: "곡", duration: 200, webpage_url: "https://www.youtube.com/watch?v=abc", requested_subtitles: {}, _version: { v: 1 } });
   assert.deepEqual(info, { id: "abc", title: "곡", duration: 200, webpage_url: "https://www.youtube.com/watch?v=abc" });
 });

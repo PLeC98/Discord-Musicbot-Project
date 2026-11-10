@@ -14,7 +14,7 @@ async function latestReleaseTag(repo: string) {
   });
   if (!res.ok) throw new Error(`GitHub 릴리스 조회 ${res.status} (${repo})`);
   const { tag_name: tag } = (await res.json()) as { tag_name?: unknown };
-  if (typeof tag !== "string" || !tag) throw new Error(`GitHub 릴리스에 태그가 없습니다 (${repo})`);
+  if (typeof tag !== "string" || !tag) throw new Error(`GitHub 릴리스에 태그가 없음 (${repo})`);
   return tag;
 }
 

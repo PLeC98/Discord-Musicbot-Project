@@ -15,7 +15,7 @@ configCheck.stopOnConfigProblems(loadedConfig, logger.child({ category: "config"
 // 같은 폴더에서 둘째 실행은 DB를 열기 전에 멈춘다. 다시 시작해도 같으므로 설정 오류와 같은 코드로(실행기가 다시 띄우지 않는다)
 const lock = await acquireInstanceLock(PROJECT.database);
 if (!lock.ok) {
-  logger.child({ category: "core" }).error(`이 폴더에서 봇이 이미 실행 중입니다${lock.holder ? `(pid ${lock.holder})` : ""}. 같은 폴더에서는 하나만 실행할 수 있습니다`);
+  logger.child({ category: "core" }).error(`이 폴더에서 봇이 이미 실행 중${lock.holder ? `(pid ${lock.holder})` : ""}. 같은 폴더에서는 하나만 실행할 수 있음`);
   process.exit(EXIT.badSetup);
 }
 
@@ -24,7 +24,7 @@ let main: () => void;
 try {
   ({ main } = await import("./app/main.ts"));
 } catch (error) {
-  logger.child({ category: "core" }).error("메인 모듈을 불러오지 못해 기동을 중단합니다:", error);
+  logger.child({ category: "core" }).error("메인 모듈 불러오기 실패(기동 중단):", error);
   process.exit(EXIT.badSetup);
 }
 main();

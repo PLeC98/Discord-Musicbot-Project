@@ -26,7 +26,7 @@ function findPluginRoot(dir: string): string | null {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (error) {
     // 설치 안 됨
-    if (codeOf(error) !== "ENOENT") log.warn(`POToken 플러그인 폴더를 읽지 못했습니다: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`POToken 플러그인 폴더 읽기 실패: ${dir} | ${messageOf(error)}`);
     return null;
   }
   for (const e of entries) {
@@ -90,14 +90,14 @@ function logAuthMode() {
   // 막지는 않는다. NEEDS_POT은 지금의 유튜브 기준일 뿐이고, 실제 판정은 실행 결과가 한다.
   const needy = clients.filter((c) => NEEDS_POT.includes(c));
   if (needy.length && !potEnabled()) {
-    log.warn(`${needy.join(", ")}${josa(needy.join(", "), "은")} POToken이 있어야 제대로 동작합니다. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
+    log.warn(`${needy.join(", ")}${josa(needy.join(", "), "은")} POToken이 있어야 제대로 동작함. 유튜브 탭의 "POToken 서버 사용"을 켜거나 "유튜브 클라이언트 순서"에서 빼세요`);
   }
 
   // KNOWN에 없는 이름. 필터링하지 않는다. yt-dlp가 새로 추가한 것일 수 있고,
   // 유효한지는 yt-dlp가 판단한다. 오타를 찾을 수 있게 경고 한 줄만 남긴다.
   const unknown = clients.filter((c) => !KNOWN.includes(c));
   if (unknown.length) {
-    log.warn(`${unknown.join(", ")}${josa(unknown.join(", "), "은")} 확인된 클라이언트 목록에 없습니다. yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옵니다`);
+    log.warn(`${unknown.join(", ")}${josa(unknown.join(", "), "은")} 확인된 클라이언트 목록에 없음(yt-dlp가 받아들이면 그대로 동작하고, 아니면 아래에 경고가 나옴)`);
   }
 }
 

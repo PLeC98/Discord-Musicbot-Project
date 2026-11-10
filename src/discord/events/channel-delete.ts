@@ -16,7 +16,7 @@ const exported: ClientEvent<Events.ChannelDelete> = {
     stay.onChannelDeleted(guild, channel.id);
     if ((await GuildSettingsManager.getBotChannel(guild.id)) !== channel.id) return;
     await GuildSettingsManager.clearBotChannel(guild.id);
-    log.info(`전용 채널 "${channel.name}"${josa(channel.name, "이")} 삭제되어 전용 채널 설정을 비웁니다 (${guild.name})`);
+    log.info(`전용 채널 "${channel.name}"${josa(channel.name, "이")} 삭제되어 전용 채널 설정을 비움(${guild.name})`);
     await panels.onBotChannelChanged(guild);
   },
 };

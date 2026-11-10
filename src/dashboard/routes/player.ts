@@ -4,7 +4,7 @@ import express, { type Request, type Response, type Router } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { checkControl, checkAdd, isModerator } from "../../usecases/permissions.ts";
+import { checkControl, checkAdd, isServerManager } from "../../usecases/permissions.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
@@ -35,6 +35,7 @@ const ART_LIMIT_FACTOR = 5;
 import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 // ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls 가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP 로 옮긴다.
@@ -91,10 +92,10 @@ function readRoutes(router: Router) {
     // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member 는 openGuild 가 지금 멤버십으로 가져온다.
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    // 서버 설정(⚙) 진입 가능 여부. 모더레이터만 (설정 화면 GET 게이트와 동일 기준)
-    const manageable = isModerator(member);
+    // 서버 설정(⚙) 진입 가능 여부. 서버 관리자만 (설정 화면 GET 게이트와 동일 기준)
+    const manageable = isServerManager(member);
 
-    // hasPlayer: 봇의 음성 재적(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
+    // hasPlayer: 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
     res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId } satisfies PlayerRead);
   });
@@ -135,17 +136,17 @@ function joinRoute(router: Router) {
     if (!ctx) return;
     const { bot, guild, member } = ctx;
 
-    const result = await join(bot, { guild, member });
+    const result = await join(bot, { guild, member }, { go: () => assertSignedIn(req) });
     if (result.kind === "refused") return sendProblem(res, result.code);
     if (result.kind === "restore-error") return sendProblem(res, "restore-failed");
     const { player } = result;
     if (result.kind === "joined") announcer(bot, player)(replies.joined());
     if (result.kind === "restored") announcer(bot, player)(replies.restoreResult(result.track, player.paused, result.parked));
 
-    // 방금 자기 채널로 봇을 불렀으므로 재적 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
+    // 방금 자기 채널로 봇을 불렀으므로 동일 음성 채널 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    const manageable = isModerator(member);
+    const manageable = isServerManager(member);
     res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id } satisfies PlayerRead);
   });
 }
@@ -307,7 +308,7 @@ function queueEditRoutes(router: Router) {
 }
 
 // 자동재생. 판정과 일은 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
-// 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 재적 규칙)을 지난 사람만.
+// 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 동일 음성 채널 규칙)을 지난 사람만.
 // 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
 // 그래서 사람마다 한 번에 하나만 찾고(그사이 더 새 검색이 오면 앞 것은 찾지 않는다), 일반 API 한도에서 빼 검색만의 한도로 센다(치는 대로 오는 검색이 재생 조작의 몫을 먹지 않게)
 function searchRoute(router: Router) {
@@ -368,7 +369,10 @@ function autoplayRoutes(router: Router) {
     const { genre } = body.value;
     // 새 플레이어의 텍스트 채널은 곡 넣기와 같다(전용 채널이 있으면 그것)
     const textChannel = genre && !ctx.player?.textChannel ? await resolveFallbackTextChannel(guild) : null;
-    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create: async () => (await waitForRestore(guild.id), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null })) });
+    // 기동 복원을 기다린 뒤 세션이 끝났으면 만들지 않는다
+    const go = () => assertSignedIn(req);
+    const create = async () => (await waitForRestore(guild.id), go(), ensurePlayer(bot, { guild, textChannel, voiceChannel: member.voice?.channel ?? null }));
+    const r = await controls.autoplay(ctx.player, ctx.actor, genre ?? false, { create, go });
     if (!r.ok) return refuse(res, r);
     if (genre) announcer(bot, bot.players.get(guild.id))(autoplayOn(genre, dashboardActor(req)));
     res.json(stateAfter(req));
@@ -380,7 +384,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 재적 규칙만 적용
+  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -389,7 +393,7 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(재적 규칙)
+    // 곡 추가 권한(동일 음성 채널 규칙)
     const err = checkAdd(actor.member);
     if (err) return sendProblem(res, err);
 
@@ -408,6 +412,7 @@ function addRoutes(router: Router) {
         source: "대시보드",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
+        go: () => assertSignedIn(req),
       });
 
       if (!result.success) return refuseWith(res, addFailure(result));
@@ -417,6 +422,7 @@ function addRoutes(router: Router) {
       const shortfall = shortfallNotice({ dropped, queueLimited, skipped: result.placed?.skipped ?? 0, max: config.bot.maxQueueSize });
       res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, added: addedSummary(guildId, result.placed), shortfall, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
+      if (sessionEnded(res, err)) return;
       log.error("대시보드에서 곡 추가 실패:", err);
       sendProblem(res, "add-failed");
     }
@@ -431,7 +437,7 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(재적 규칙)
+    // 곡 추가 권한(동일 음성 채널 규칙)
     const err = checkAdd(actor.member);
     if (err) return sendProblem(res, err);
 
@@ -448,12 +454,14 @@ function addRoutes(router: Router) {
         count: count.value,
         source: "대시보드 더 넣기",
         lookup: req.app.locals.lookup,
+        go: () => assertSignedIn(req),
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
       const note = resultText(state.kind, { added: result.added, dropped: result.dropped, skipped: result.skipped, total: result.total, remaining: result.remaining, next: result.next });
       res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, note, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
+      if (sessionEnded(res, err)) return;
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);
       sendProblem(res, "add-failed");
     }

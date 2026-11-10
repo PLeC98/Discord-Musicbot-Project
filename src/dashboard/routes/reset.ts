@@ -13,6 +13,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import * as reset from "../reset.ts";
 import * as fullReset from "../../store/full-reset.ts";
 import type { ResetDone, ResetOverview } from "../contract/reset.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 const resetRouter = express.Router();
 resetRouter.use(requireOwner);
@@ -35,20 +36,23 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
     if (fullReset.requested()) return sendProblem(res, "reset-already-staged");
   }
   let done: ResetDone;
+  // 기다리는 사이(스냅샷, 정리 잠금) 세션이 끝났으면 바꾸지 않는다
+  const go = () => assertSignedIn(req);
   try {
     if (request.kind === "audio-cache") {
-      const result = await reset.resetAudioCache([...new Set(request.parts)], by);
+      const result = await reset.resetAudioCache([...new Set(request.parts)], by, go);
       done = { kind: "audio-cache", removedFiles: result.removed, freedBytes: result.freedBytes, keptFiles: result.kept, cleared: result.cleared };
-    } else if (request.kind === "bot-settings") done = { kind: "bot-settings", ...(await reset.resetBotSettings(by)) };
-    else if (request.kind === "guild-settings") done = { kind: "guild-settings", ...(await reset.resetGuildSettings(by)) };
+    } else if (request.kind === "bot-settings") done = { kind: "bot-settings", ...(await reset.resetBotSettings(by, go)) };
+    else if (request.kind === "guild-settings") done = { kind: "guild-settings", ...(await reset.resetGuildSettings(by, go)) };
     else if (request.kind === "display") done = { kind: "display", ...reset.resetDisplay(by) };
     else {
       const restart = req.app.locals.restart;
-      done = { kind: "all", ...(await reset.stageFullReset(by, Boolean(restart))), restarting: Boolean(restart) };
+      done = { kind: "all", ...(await reset.stageFullReset(by, Boolean(restart), go)), restarting: Boolean(restart) };
       // 실행기로 켰으면 답을 보낸 뒤 다시 시작한다(다음 기동이 삭제한다)
       if (restart) res.on("finish", () => restart(by));
     }
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, `초기화(${request.kind}) 실패: ${messageOf(error)}`);
     return sendProblem(res, "reset-failed", {}, { detail: messageOf(error) });
   }

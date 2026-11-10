@@ -7,18 +7,18 @@ import { installRequests, failureKind, LIMIT } from "../../../dashboard/src/util
 import { problemBody } from "../../../src/dashboard/contract/problem.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 
-type Sent = { method: string; url: string; token: string | undefined };
+type Sent = { method: string; url: string; token: string | undefined; user?: string };
 /** blob: 파일 다운로드 요청처럼 문제 응답을 Blob 으로 준다 */
 type Reply = { problem?: Code; data?: unknown; fail?: string; blob?: boolean };
 
 /** 가짜 서버. route 가 요청마다 답을 고르고, 보낸 요청(토큰 받기 포함)을 순서대로 적는다. signsIn: 재로그인 안내에서 로그인을 마치는가(기본은 그만둔다) */
-function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }: { signsIn?: boolean } = {}) {
+function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false, user = null as string | null, blocked = { on: false } }: { signsIn?: boolean; user?: string | null; blocked?: { on: boolean } } = {}) {
   const sent: Sent[] = [];
   const ends: string[] = [];
   const reach: boolean[] = [];
   const http = axios.create({
     adapter: async (config: InternalAxiosRequestConfig): Promise<AxiosResponse> => {
-      const req = { method: (config.method || "get").toUpperCase(), url: config.url || "", token: config.headers.get("X-CSRF-Token")?.toString() };
+      const req = { method: (config.method || "get").toUpperCase(), url: config.url || "", token: config.headers.get("X-CSRF-Token")?.toString(), user: config.headers.get("X-Dashboard-User")?.toString() };
       sent.push(req);
       const reply = route(req, sent);
       if (reply.fail) throw new AxiosError(reply.fail, reply.fail, config);
@@ -36,8 +36,9 @@ function harness(route: (req: Sent, sent: Sent[]) => Reply, { signsIn = false }:
     reauths.push("reauth");
     return Promise.resolve(signsIn);
   };
-  installRequests(http, { onSessionEnd: () => ends.push("end"), onReauth, onReach: (ok) => reach.push(ok) });
-  return { http, sent, ends, reach, reauths };
+  const changed: string[] = [];
+  installRequests(http, { onSessionEnd: () => ends.push("end"), onReauth, onReach: (ok) => reach.push(ok), user: () => user, onAccountChanged: () => changed.push("changed"), switched: () => blocked.on });
+  return { http, sent, ends, reach, reauths, changed };
 }
 
 let issued = 0;
@@ -167,4 +168,72 @@ test("응답 없는 실패의 종류", () => {
   assert.equal(failureKind({ response: { status: 504 } }), "offline");
   assert.equal(failureKind({ response: { status: 503, data: { code: "bot-not-ready" } } }), null);
   assert.equal(failureKind(undefined), null);
+});
+
+// 계정이 바뀐 탭: 이 탭의 사용자를 싣고, 서버가 account-changed로 거절하면 알리고 그 뒤로 보내지 않는다
+test("이 탭의 사용자를 싣는다. 계정을 알아보는 요청, 로그아웃, CSRF 토큰 받기에는 싣지 않는다", async () => {
+  const { http, sent } = harness((req) => tokenRoute(req) ?? {}, { user: "A" });
+  await http.get("/api/guilds");
+  await http.post("/api/x");
+  await http.get("/api/me", { quietSession: true });
+  await http.get("/api/me/devices");
+  await http.post("/auth/logout", undefined, { quietSession: true });
+  assert.deepEqual(
+    sent.map((one) => [one.url, one.user ?? null]),
+    [
+      ["/api/guilds", "A"],
+      ["/api/csrf-token", null],
+      ["/api/x", "A"],
+      ["/api/me", null],
+      ["/api/me/devices", "A"],
+      ["/auth/logout", null],
+    ],
+  );
+});
+
+test("account-changed를 받으면 알리고, 토큰을 버리고, 다시 보내지도 세션 끝으로 돌리지도 않는다", async () => {
+  const { http, sent, changed, ends } = harness((req) => tokenRoute(req) ?? { problem: "account-changed" }, { user: "A" });
+  await assert.rejects(http.post("/api/x"));
+  assert.deepEqual(changed, ["changed"]);
+  assert.deepEqual(ends, []);
+  assert.equal(sent.filter((one) => one.url === "/api/x").length, 1, "새 토큰으로 다시 보내지 않는다");
+});
+
+test("막힌 뒤로는 보내지 않고(알림 없는 취소로) 거절한다. 계정을 알아보는 요청과 로그아웃은 보낸다. 토큰을 기다리는 사이 막혀도 보내지 않는다", async () => {
+  const blocked = { on: true };
+  const { http, sent } = harness((req) => tokenRoute(req) ?? {}, { user: "A", blocked });
+  const refused = await http.post("/api/x").catch((error: unknown) => error);
+  assert.equal(failureKind(refused), "aborted", "알림을 표시하지 않는다(막힘 대화상자가 알린다)");
+  await assert.rejects(http.get("/api/guilds"));
+  await http.get("/api/me", { quietSession: true });
+  await http.post("/auth/logout", undefined, { quietSession: true });
+  assert.deepEqual(
+    sent.map((one) => one.url),
+    ["/api/me", "/api/csrf-token", "/auth/logout"],
+  );
+
+  // 토큰을 받는 사이 막혔다
+  const later = { on: false };
+  let release: () => void = () => {};
+  let asking: () => void = () => {};
+  const gate = new Promise<void>((done) => (release = done));
+  const asked = new Promise<void>((done) => (asking = done));
+  const slow = harness((req) => (req.url === "/api/csrf-token" ? { data: { csrfToken: "t" } } : {}), { user: "A", blocked: later });
+  const tokenWait = slow.http.interceptors.request.use(async (request) => {
+    if (request.url === "/api/csrf-token") {
+      asking();
+      await gate;
+    }
+    return request;
+  });
+  const pending = slow.http.post("/api/x").catch((error: unknown) => error);
+  await asked;
+  later.on = true;
+  release();
+  assert.equal(failureKind(await pending), "aborted");
+  assert.deepEqual(
+    slow.sent.map((one) => one.url),
+    ["/api/csrf-token"],
+  );
+  slow.http.interceptors.request.eject(tokenWait);
 });

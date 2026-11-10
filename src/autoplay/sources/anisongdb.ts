@@ -54,7 +54,7 @@ async function loadAnisongStats(): Promise<AnisongStats | null> {
       ...(years.length ? { min: Math.min(...years), max: Math.max(...years) } : {}),
     };
   } catch (error) {
-    log.debug(`AnisongDB 목록을 불러오지 못했습니다: ${messageOf(error)}`);
+    log.debug(`AnisongDB 목록 불러오기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -149,7 +149,7 @@ async function anilistCovers(ids: number[]): Promise<Map<number, string>> {
       for (const [id, url] of coversIn(body)) covers.set(id, url);
     } catch (error) {
       // 표지가 없어도 곡은 튼다. 소스를 죽일 이유가 아니다
-      log.debug(`AniList 커버 이미지를 불러오지 못했습니다: ${messageOf(error)}`);
+      log.debug(`AniList 커버 이미지 불러오기 실패: ${messageOf(error)}`);
     }
   }
   return covers;

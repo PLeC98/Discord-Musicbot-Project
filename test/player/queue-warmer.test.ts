@@ -56,7 +56,7 @@ function makeWarmer({ queue = [], currentTrack = null, loop = false, cached = ne
   return { warmer, player, warmed, protection, cached, busy };
 }
 
-// 틱은 비동기 루프를 깨울 뿐이므로, 루프가 끝날 때까지 마이크로태스크를 흘려보낸다.
+// 틱은 비동기 루프를 깨울 뿐이므로, 루프가 끝날 때까지 마이크로태스크를 다 처리한다.
 const settle = async (n = 50) => {
   for (let i = 0; i < n; i++) await Promise.resolve();
 };

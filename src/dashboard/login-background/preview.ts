@@ -96,7 +96,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   // 편집 창이 트는 미리보기: H.264, 없으면 VP9. 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다)
   const h264 = encoderFor("h264");
   const encoder = h264 ?? encoderFor("vp9");
-  if (!encoder) throw codedError("background-no-video-encoder", "H.264와 VP9 인코더가 없어 영상 배경을 만들 수 없습니다");
+  if (!encoder) throw codedError("background-no-video-encoder", "H.264와 VP9 인코더가 없어 영상 배경을 만들 수 없음");
   const ext = h264 ? "mp4" : "webm";
   const container = h264 ? ["-movflags", "+faststart", "-f", "mp4"] : ["-f", "webm"];
   const source = store.sourceOf(item.id);
@@ -119,10 +119,10 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
       if (time) progress(Number(time[1]) / 1e6 / item.duration);
     },
   });
-  if (run.aborted) throw codedError("aborted", "그만뒀습니다");
+  if (run.aborted) throw codedError("aborted", "중단됨");
   if (run.code !== 0) {
     fs.rmSync(part, { force: true });
-    throw codedError("background-failed", `미리보기를 만들지 못했습니다: ${run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
+    throw codedError("background-failed", `미리보기 만들기 실패: ${run.timedOut ? "시간 초과" : run.stderr.split("\n").filter(Boolean).slice(-3).join(" ")}`);
   }
   fs.renameSync(part, previewVideo(item.id, ext));
   if (!probe) return {};
@@ -152,7 +152,7 @@ async function preview({ item, signal, progress }: StageJob): Promise<StageResul
 /** 크기 추산 다시 세기: 그 크롭, 구간만 인코딩해 그 초의 크기를 바꾼다(영상만, 그림은 넓이로 다시 계산) */
 const recount: Recounter = async ({ item, crop, range, signal }) => {
   const before = item.estimate;
-  if (!before) throw codedError("background-failed", "어림이 없습니다");
+  if (!before) throw codedError("background-failed", "추산값 없음");
   const size = cropped(item.width, item.height, crop);
   // 그림은 잰 화소당 크기 그대로 넓이만 다시 센다
   if (item.kind === "image") return { ...before, crop, stillBytes: stillBytesOf(size.width, size.height, before.stillBytes / stillPixels(item.width, item.height)) };
@@ -162,7 +162,7 @@ const recount: Recounter = async ({ item, crop, range, signal }) => {
   const [from, to] = range ?? [0, item.duration];
   const graph = `${sourceFilter(probed, crop, { from, to })},${scaleTo(fitShort(size.width, size.height, PROBE_SHORT))}[e]`;
   const run = await ffmpeg(["-v", "error", ...PROGRESS_ARGS, ...seekArgs(probed, { from, to }), ...READ_ARGS, "-i", source, "-filter_complex", graph, "-an", ...probeOutput("[e]")], { signal, ...longJob(to - from) });
-  if (run.code !== 0) throw codedError("background-failed", `어림을 다시 세지 못했습니다: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (run.code !== 0) throw codedError("background-failed", `추산값 재계산 실패: ${run.stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   // 이 구간의 초만 새 크롭의 크기로(구간 밖은 앞선 추산 그대로, 넓히면 화면이 다시 세게 한다)
   const scale = upscale(item, probed, crop);
   const counted = toSet(

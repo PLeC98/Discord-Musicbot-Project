@@ -27,7 +27,7 @@ function regionOf(edit: EmojiEdit, width: number, height: number): Region {
   const side = Math.round(edit.side);
   const left = Math.round(edit.left);
   const top = Math.round(edit.top);
-  if (left < 0 || top < 0 || side < 1 || left + side > turnedW || top + side > turnedH) throw codedError("EMOJI_EDIT", "자를 영역이 이미지 밖입니다");
+  if (left < 0 || top < 0 || side < 1 || left + side > turnedW || top + side > turnedH) throw codedError("EMOJI_EDIT", "자를 영역이 이미지를 벗어남");
   // 뒤집기를 되돌리고(돌린 이미지 위), 회전을 되돌린다(시계 방향 회전의 역)
   const x = edit.flip ? turnedW - left - side : left;
   const y = top;
@@ -49,13 +49,13 @@ async function sourceOf(source: Buffer) {
   try {
     meta = await sharp(source, { animated: true }).metadata();
   } catch {
-    throw codedError("EMOJI_IMAGE", "그림을 읽지 못했습니다");
+    throw codedError("EMOJI_IMAGE", "이미지 읽기 실패");
   }
   const pages = meta.pages ?? 1;
   // 여러 프레임 이미지(GIF, WebP)에는 EXIF 방향이 없다
   const width = pages > 1 ? meta.width : meta.autoOrient.width;
   const height = pages > 1 ? (meta.pageHeight ?? meta.height) : meta.autoOrient.height;
-  if (!width || !height) throw codedError("EMOJI_IMAGE", "그림을 읽지 못했습니다");
+  if (!width || !height) throw codedError("EMOJI_IMAGE", "이미지 읽기 실패");
   if (pages > MAX_FRAMES || width * height > MAX_FRAME_PIXELS) throw codedError("EMOJI_IMAGE_TOO_BIG", `프레임 ${pages}개, ${width}×${height}`);
   return { pages, width, height, delay: meta.delay, loop: meta.loop };
 }

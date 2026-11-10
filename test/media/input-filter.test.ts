@@ -37,7 +37,7 @@ function run(args: string[], input?: Buffer): Promise<{ code: number | null; byt
   });
 }
 
-/** 시료: 음원 둘(mp3, 캐시 opus)과 그 mp3 를 상대 경로로 가리키는 목록 둘(concat, HLS) */
+/** 픽스처: 음원 둘(mp3, 캐시 opus)과 그 mp3 를 상대 경로로 가리키는 목록 둘(concat, HLS) */
 async function samples() {
   const mp3 = await run(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libmp3lame", "-y", at("song.mp3")]);
   const opus = await run(["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=2", "-c:a", "libopus", "-f", "opus", "-y", at("cache.opus")]);
@@ -69,7 +69,7 @@ test("인자: 파일(캐시)은 ogg 만, 표준 입력은 음원 형식만, 둘 
 });
 
 test("실물: 목록(concat, HLS)은 캐시 변환, probeAudio, 표준 입력 재생, 캐시 파일 재생 모두에서 열리지 않고, 음원은 열린다", async (t) => {
-  if (!(await samples())) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await samples())) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
 
   for (const list of ["concat.raw", "hls.raw"]) {
     await assert.rejects(audioConvert.toCacheOpus(at(list), at(`${list}.opus`)), `캐시 변환: ${list}`);
@@ -85,14 +85,14 @@ test("실물: 목록(concat, HLS)은 캐시 변환, probeAudio, 표준 입력 �
 });
 
 test("실물: HLS 의 TS 세그먼트(영상이 섞인 화질 목록)를 이어 붙이면 표준 입력 재생, 캐시 변환 모두 세그먼트를 합친 길이가 나온다(mp3 2초와 견준다)", async (t) => {
-  if (!(await samples())) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await samples())) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const [name, freq] of [
     ["seg0.ts", 440],
     ["seg1.ts", 660],
   ] as const) {
     const video = ["-f", "lavfi", "-i", "testsrc=size=64x64:rate=10:duration=2", "-c:v", "mpeg2video"];
     const made = await run(["-hide_banner", "-loglevel", "error", ...video, "-f", "lavfi", "-i", `sine=frequency=${freq}:duration=2`, "-c:a", "aac", "-shortest", "-f", "mpegts", "-y", at(name)]);
-    if (made.code !== 0) return t.skip("ffmpeg로 TS 시료를 만들 수 없음");
+    if (made.code !== 0) return t.skip("ffmpeg로 TS 픽스처를 만들 수 없음");
   }
   const joined = Buffer.concat([fs.readFileSync(at("seg0.ts")), fs.readFileSync(at("seg1.ts"))]);
   const two = (await run(buildFfmpegArgs({}), fs.readFileSync(at("song.mp3")))).bytes;

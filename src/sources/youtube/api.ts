@@ -176,7 +176,7 @@ function fragmentsOf(info: YtInfo) {
   const list = info.fragments;
   if (!list?.length || !info.url) return null;
   const base = info.url;
-  if (!list.every((f, i) => f.url === `${base}&sq=${i}`)) throw codedError("stream-failed", "세그먼트 목록의 주소가 알던 모양(포맷 주소 뒤 &sq=번호)이 아닙니다");
+  if (!list.every((f, i) => f.url === `${base}&sq=${i}`)) throw codedError("stream-failed", "세그먼트 목록의 주소가 알던 형식(포맷 주소 뒤 &sq=번호)이 아님");
   return { base, count: list.length };
 }
 

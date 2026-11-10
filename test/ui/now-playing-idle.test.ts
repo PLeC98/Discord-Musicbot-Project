@@ -14,6 +14,8 @@ import type { Player } from "../../src/player/player.ts";
 import type { PanelStore } from "../../src/ui/panel-location.ts";
 import type { PanelRecord } from "../../src/store/panel-records.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
+import { youtube } from "../helpers/tracks.ts";
+import { sessions } from "../../src/store/player-sessions.ts";
 
 const BOT = "bot-chan";
 // 전용 채널은 임시 DB 에 둔다. null 이면 없앤다
@@ -242,6 +244,106 @@ test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다. 
   assert.equal(calls.sent.length, 0);
   assert.equal(calls.edited.length, 1);
   assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요.*곡을 입력하면/);
+});
+
+test("기동: 되살릴 곡이 저장된 서버(복원을 건너뛰었다)는 /join으로 이어 들을 수 있다고 적는다. 곡 없이 저장된 세션은 쉬는 중", async () => {
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: BOT, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  try {
+    const empty = setup({ record: { channelId: BOT, messageId: "900" } });
+    await empty.mem.restorePanels();
+    assert.match(textOf(empty.calls.edited[0].payload), /쉬는 중이에요/);
+
+    sessions().append("g1", [youtube("bbbbbbbbbbb")]);
+    const queued = setup({ record: { channelId: BOT, messageId: "900" } });
+    await queued.mem.restorePanels();
+    assert.match(textOf(queued.calls.edited[0].payload), /듣고 있던 곡이 있어요.*\/join/, "대기열만 있어도");
+
+    sessions().removeSession("g1");
+    sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: BOT, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+    sessions().setCurrent("g1", { ...youtube("aaaaaaaaaaa"), requestedBy: { id: "u1" } });
+    const saved = setup({ record: { channelId: BOT, messageId: "900" } });
+    await saved.mem.restorePanels();
+    assert.match(textOf(saved.calls.edited[0].payload), /듣고 있던 곡이 있어요.*\/join/, "지금 곡만 있어도");
+
+    // 묻혀 다시 올려도 같은 모양
+    const buried = setup({ record: { channelId: BOT, messageId: "900" } });
+    bury(buried.channels.get(BOT), Date.now());
+    await buried.mem.repinIdlePanel(buried.guild, BOT);
+    assert.match(textOf(buried.calls.sent[0].payload), /듣고 있던 곡이 있어요/);
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
+// 곡이 든 저장된 세션. textChannelId: 세션을 시작한 글 채널
+function savedSession(textChannelId: string | null) {
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId, volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  sessions().append("g1", [youtube("bbbbbbbbbbb")]);
+}
+// 패널(웹훅)이 아니라 채널에 바로 보낸 메시지
+const plainSent = (calls: Calls) => calls.sent.filter((s) => s.id.startsWith("plain-"));
+
+test("복원을 건너뛴 기동: 패널에 까닭을 적는다. 전용 채널이면 패널만, 다시 그려도 같은 모양", async () => {
+  savedSession(BOT);
+  try {
+    const { mem, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
+    await mem.restorePanels({ skip: true });
+    assert.match(textOf(calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요.*\/join/);
+    assert.equal(plainSent(calls).length, 0, "전용 채널은 패널이 맨 아래다. 따로 알리지 않는다");
+
+    await mem.redrawIdlePanels();
+    assert.match(textOf(calls.edited[1].payload), /오류가 반복되어 재생을 멈췄어요/, "아이콘이 바뀌어 다시 그려도 까닭을 남긴다");
+
+    const normal = setup({ record: { channelId: BOT, messageId: "900" } });
+    await normal.mem.restorePanels();
+    assert.match(textOf(normal.calls.edited[0].payload), /듣고 있던 곡이 있어요/, "건너뛰지 않은 기동(복원 실패)은 그대로");
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
+test("복원을 건너뛴 기동: 전용 채널 밖이면 세션의 글 채널에 까닭을 알린다. 패널 기록이 없어도", async () => {
+  setBotChannel(null);
+  savedSession("general");
+  try {
+    const recorded = setup({ record: { channelId: "general", messageId: "800" } });
+    await recorded.mem.restorePanels({ skip: true });
+    assert.match(textOf(recorded.calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요/);
+    const [notice] = plainSent(recorded.calls);
+    assert.equal(notice?.channel, "general");
+    assert.match(textOf(notice.payload), /오류가 반복되어 재생을 멈췄어요.*짧은 시간에 여러 번 꺼져서.*\/join/);
+
+    const unrecorded = setup();
+    await unrecorded.mem.restorePanels({ skip: true });
+    assert.equal(plainSent(unrecorded.calls).length, 1, "알릴 곳이 이 안내뿐이다");
+  } finally {
+    sessions().removeSession("g1");
+  }
+});
+
+test("복원을 건너뛴 기동: 알릴 글 채널이 없거나(대시보드로 시작) 사라졌으면 보내지 않는다. 곡 없는 세션도 알리지 않는다", async () => {
+  setBotChannel(null);
+  for (const textChannelId of [null, "deleted"]) {
+    savedSession(textChannelId);
+    try {
+      const { mem, calls } = setup({ record: { channelId: "general", messageId: "800" } });
+      await mem.restorePanels({ skip: true });
+      assert.equal(plainSent(calls).length, 0, String(textChannelId));
+      assert.match(textOf(calls.edited[0].payload), /오류가 반복되어 재생을 멈췄어요/, "패널은 고친다");
+    } finally {
+      sessions().removeSession("g1");
+    }
+  }
+
+  sessions().saveSession("g1", { voiceChannelId: "vc1", textChannelId: "general", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
+  try {
+    const { mem, calls } = setup({ record: { channelId: "general", messageId: "800" } });
+    await mem.restorePanels({ skip: true });
+    assert.equal(plainSent(calls).length, 0);
+    assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요/);
+  } finally {
+    sessions().removeSession("g1");
+  }
 });
 
 test("기동: 전용 채널 패널이 없거나 지워졌으면 새로 올린다", async () => {

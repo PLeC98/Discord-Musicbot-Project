@@ -95,7 +95,7 @@ function byHeader(mime: string, text: string): LinkContent {
   // 재생목록, 목록 형식이라 하는데 글이 #EXTM3U, [playlist] 가 아니면 주소 줄만 있는 목록이다
   if (HLS_TYPES.has(mime) || PLS_TYPES.has(mime)) return /^https?:\/\//im.test(text) ? "list" : "other";
   if (mime === "text/html" || mime === "application/xhtml+xml") return "page";
-  // 앞부분으로 모르지만 헤더가 음원이라 한다(라디오가 프레임 중간부터 흘리는 등)
+  // 앞부분만으로는 알 수 없지만 헤더가 음원이라고 알린다(라디오가 프레임 중간부터 보내는 등)
   return isMedia(mime) ? "audio" : "other";
 }
 

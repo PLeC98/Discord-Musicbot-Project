@@ -4,6 +4,7 @@ import logger from "../../infra/log/logger.ts";
 import { PROBLEMS, type Code } from "../../rules/problems.ts";
 import { noticeFor } from "../../ui/text/ko/errors.ts";
 import { sendProblem } from "../problem.ts";
+import { SessionEndedError, isEnded, sessionEnded } from "../session-requests.ts";
 const log = logger.child({ category: "dashboard" });
 
 // 오류 응답에 스택, 내부 경로, 의존성 버전이 실리지 않게 한다.
@@ -59,7 +60,20 @@ function notFoundJson(req: Request, res: Response, next: NextFunction) {
   sendProblem(res, "route-not-found");
 }
 
+// 본문을 받는 중 연결이 끊겼다(봇이 소켓을 강제로 닫았거나 클라이언트가 끊음)
+function cutShort(err: unknown) {
+  const { type, code } = fieldsOf(err);
+  return type === "request.aborted" || code === "ECONNABORTED";
+}
+
 function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {
+  // 요청 처리 중 세션이 끝나 중단됐다(상태 변경 직전의 세션 확인, 봇이 끊은 업로드의 본문 수신 실패). 해당 사용자의 세션 문제라 봇에는 영향이 없다.
+  // 그 밖의 오류는 끝난 요청이어도 아래로 간다(봇 버그를 숨기지 않는다)
+  if (err instanceof SessionEndedError || (isEnded(req) && cutShort(err))) {
+    log.debug(`${req.method} ${req.originalUrl} → 401 세션이 진행 중에 끝남`);
+    if (!sessionEnded(res, err) && !res.headersSent) sendProblem(res, "login-required");
+    return;
+  }
   const errorId = crypto.randomBytes(4).toString("hex");
   const code = classify(err);
   const { status } = PROBLEMS[code];

@@ -771,7 +771,7 @@ function modelList(s: State, io: Exchange, reads: ReturnType<typeof serverReads>
     draft.value.model = String(value);
     rememberModel(draft.value.provider, draft.value.model);
   }
-  // 모델 정보(파라미터 필드, 한도, 이름)는 봇이 받아 두는 레지스트리 사본에서 온다. 봇이 목차의 해시로 보고 바뀌었을 때만 받는다.
+  // 모델 정보(파라미터 필드, 한도, 이름)는 봇이 받아 두는 레지스트리 사본에서 온다. 봇이 인덱스의 해시를 보고 바뀌었을 때만 받는다.
   // 바뀌었으면 필드를 다시 읽는다. explicit: 사람이 누른 것(바뀌었을 때, 실패했을 때 알린다). 화면을 열 때는 조용히
   async function syncInfo({ explicit = false } = {}) {
     refreshing.value = true;

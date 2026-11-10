@@ -35,6 +35,10 @@ class FakeSource {
     this.readyState = CLOSED;
     this.onerror?.();
   }
+  /** 세션이 끝나 서버가 연결을 끊었다(session-ended 이벤트) */
+  ended() {
+    this.listeners.get("session-ended")?.({} as never);
+  }
   /** 연 뒤 끊김: 브라우저가 스스로 재연결하는 중 */
   dropped() {
     this.readyState = CONNECTING;
@@ -49,7 +53,9 @@ function harness({ checks = [] as boolean[] } = {}) {
   const delays: number[] = [];
   const pending: { fn: () => void; ms: number; cancelled: boolean }[] = [];
   let urlCount = 0;
-  const checked: number[] = [];
+  // 확인마다 조용히(quiet) 호출했는지 기록한다
+  const checked: boolean[] = [];
+  const clock = { now: 0 };
   const link = eventLink({
     url: () => `/events?n=${++urlCount}`,
     open: (url) => {
@@ -59,10 +65,11 @@ function harness({ checks = [] as boolean[] } = {}) {
     },
     events: { message: () => {} },
     onState: (state) => states.push(state),
-    check: async () => {
-      checked.push(1);
+    check: async (quiet) => {
+      checked.push(quiet);
       return checks.shift() ?? true;
     },
+    now: () => clock.now,
     delay: (attempt) => [2000, 5000, 15000, 30000, 60000][Math.min(attempt, 4)],
     schedule: (fn, ms) => {
       const one = { fn, ms, cancelled: false };
@@ -81,10 +88,10 @@ function harness({ checks = [] as boolean[] } = {}) {
     if (!one.cancelled) one.fn();
     await new Promise((done) => setImmediate(done));
   };
-  return { link, sources, states, delays, pending, tick, checked };
+  return { link, sources, states, delays, pending, tick, checked, clock };
 }
 
-test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 열리면 간격을 처음부터", async () => {
+test("닫히면(200이 아닌 응답) 2, 5, 15초로 늘려 가며 다시 열고, 열린 채 30초를 버티면 간격을 초기화한다", async () => {
   const h = harness();
   h.link.start();
   h.sources[0].refused();
@@ -96,9 +103,111 @@ test("닫히면(200 이 아닌 답) 2, 5, 15초로 늘려 가며 다시 열고, 
   assert.deepEqual(h.delays, [2000, 5000, 15000]);
   assert.equal(h.sources.length, 4);
   h.sources[3].opened();
+  h.clock.now += 30_000;
   h.sources[3].refused();
   assert.deepEqual(h.delays, [2000, 5000, 15000, 2000]);
   assert.deepEqual(h.states, ["down", "down", "down", "open", "down"]);
+});
+
+test("열자마자 또 닫히면 간격을 처음으로 돌리지 않는다(연결과 세션 확인이 어긋나 재연결이 폭주하지 않게)", async () => {
+  const h = harness();
+  h.link.start();
+  h.sources[0].refused();
+  await h.tick();
+  h.sources[1].opened();
+  h.sources[1].refused();
+  await h.tick();
+  h.sources[2].opened();
+  h.sources[2].ended();
+  assert.deepEqual(h.delays, [2000, 5000, 15000]);
+});
+
+test("브라우저가 자동 재연결한 경우(onopen 재호출)에는 유지 시간을 처음부터 다시 세지 않는다", async () => {
+  const h = harness();
+  h.link.start();
+  h.sources[0].refused();
+  await h.tick();
+  h.sources[1].refused();
+  await h.tick();
+  h.sources[2].opened();
+  h.clock.now += 60_000;
+  h.sources[2].dropped(); // 네트워크가 잠깐 끊겨 브라우저가 재연결한다
+  h.sources[2].opened();
+  h.clock.now += 1_000;
+  h.sources[2].refused(); // 직후 503 응답으로 닫힌다
+  assert.deepEqual(h.delays, [2000, 5000, 2000], "한 시간 버틴 연결이라 처음부터");
+});
+
+test("세션 끝 이벤트 뒤 확인을 기다리는 사이 다시 열려도 조용한 확인이 남지 않는다", async () => {
+  let answer: (ok: boolean) => void = () => {};
+  const h = harness();
+  const quiet: boolean[] = [];
+  const pending: Array<() => void> = [];
+  const sources: FakeSource[] = [];
+  const link = eventLink({
+    url: "/events",
+    open: (url) => {
+      const one = new FakeSource(url);
+      sources.push(one);
+      return one;
+    },
+    events: {},
+    check: (q) => {
+      quiet.push(q);
+      return new Promise<boolean>((done) => (answer = done));
+    },
+    delay: () => 2000,
+    schedule: (fn) => (pending.push(fn), pending.length),
+    cancel: () => {},
+  });
+  void h;
+  link.start();
+  sources[0].opened();
+  sources[0].ended();
+  pending.shift()!(); // 재연결 시점이 되어 조용히 세션을 확인한다
+  link.start(); // 탭을 오가 곧바로 연다
+  answer(true);
+  await new Promise((done) => setImmediate(done));
+  sources[1].refused();
+  pending.shift()!();
+  assert.deepEqual(quiet, [true, false], "다음 확인은 조용하지 않다");
+});
+
+test("세션 끝 이벤트: 연결을 닫아 끊김을 알리고, 대기 시간 전에는 확인하지 않는다. 첫 확인은 조용히 하고, 또 실패하면 다음 확인에서 세션을 끝낸다", async () => {
+  const h = harness({ checks: [false, false] });
+  h.link.start();
+  h.sources[0].opened();
+  h.sources[0].ended();
+  assert.equal(h.sources[0].closed, true, "브라우저가 자동 재연결하지 않게 닫는다");
+  assert.deepEqual(h.states, ["open", "down"]);
+  assert.deepEqual(h.checked, [], "곧바로 확인하지 않는다(다시 로그인한 브라우저의 새 쿠키가 닿기 전이다)");
+  await h.tick();
+  await h.tick();
+  assert.deepEqual(h.checked, [true, false]);
+  assert.equal(h.sources.length, 1);
+});
+
+test("세션 끝 이벤트 뒤 확인이 되면(다시 로그인했다) 다시 연다", async () => {
+  const h = harness({ checks: [true] });
+  h.link.start();
+  h.sources[0].opened();
+  h.sources[0].ended();
+  await h.tick();
+  assert.deepEqual(h.checked, [true]);
+  assert.equal(h.sources.length, 2);
+  h.sources[1].refused();
+  await h.tick();
+  assert.deepEqual(h.checked, [true, false], "조용한 확인은 그 한 번뿐");
+});
+
+test("멈춘 뒤 옛 연결의 세션 끝 이벤트는 무시한다", () => {
+  const h = harness();
+  h.link.start();
+  const old = h.sources[0];
+  h.link.stop();
+  old.ended();
+  assert.equal(h.pending.length, 0);
+  assert.deepEqual(h.states, []);
 });
 
 test("열 때마다 주소를 새로 만든다(운영자 로그의 이어 받기)", async () => {

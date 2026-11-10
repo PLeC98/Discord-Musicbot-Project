@@ -82,7 +82,7 @@ const put = (name: DocName, data: unknown, revision: number): number => putAll([
 function putAll(puts: DocPut[]): number[] {
   const nows = puts.map(({ name }) => revisionOf(name));
   puts.forEach(({ name, revision }, i) => {
-    if (revision !== undefined && revision !== nows[i]) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀌었습니다(읽은 번호 ${revision}, 지금 ${nows[i]})`);
+    if (revision !== undefined && revision !== nows[i]) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀜(읽은 번호 ${revision}, 지금 ${nows[i]})`);
   });
   const next = store ? store.writeAll(puts.map(({ name, data }, i) => ({ name, data, revision: nows[i] }))) : nows.map((now) => now + 1);
   puts.forEach(({ name, data }, i) => held.set(name, { data: structuredClone(data), revision: next[i] }));

@@ -43,12 +43,13 @@ export const useUserStore = defineStore("user", {
       }
     },
 
-    // 세션이 끝난 뒤 다시 로그인했는지 본다. 다른 계정으로 들어왔으면 화면 전체가 남의 것이라 새로 연다
-    async resumeSession() {
+    // 세션이 만료된 뒤 다시 로그인했는지 확인한다. 다른 계정으로 로그인했으면 화면 전체가 이전 계정의 상태이므로 막는다(새로고침하면 새 계정으로 열린다).
+    // quiet: 401이어도 세션 만료로 처리하지 않는다(기본값). false면 401일 때 평소처럼 세션 만료로 처리한다
+    async resumeSession({ quiet = true }: { quiet?: boolean } = {}) {
       try {
-        const res = await axios.get<Me>("/api/me", { quietSession: true });
+        const res = await axios.get<Me>("/api/me", { quietSession: quiet });
         if (this.data && res.data.id !== this.data.id) {
-          window.location.reload();
+          session.switched = true;
           return false;
         }
         this.data = res.data;
@@ -68,3 +69,17 @@ export const useUserStore = defineStore("user", {
     },
   },
 });
+
+/** 스트림 주소에 이 탭의 사용자 ID를 붙인다(EventSource는 커스텀 헤더를 보낼 수 없다. 서버 세션의 사용자와 다르면 409를 반환한다) */
+export function withUid(url: string): string {
+  const id = useUserStore().data?.id;
+  return id ? `${url}${url.includes("?") ? "&" : "?"}uid=${encodeURIComponent(id)}` : url;
+}
+
+/**
+ * 스트림을 다시 열어도 되는지 확인한다(로그인이 유효한지, utils/event-link의 check). 다른 계정으로 로그인했으면 계정 변경 상태로 막는다(resumeSession).
+ * quiet면 401이어도 세션 만료로 처리하지 않는다
+ */
+export function checkSession(quiet: boolean): Promise<boolean> {
+  return useUserStore().resumeSession({ quiet });
+}

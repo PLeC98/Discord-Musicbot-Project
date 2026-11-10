@@ -2,50 +2,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MessageFlags, type RepliableInteraction } from "discord.js";
 import { LIFETIME, TOKEN_MS, noticeMs, toSelf, replaceSelf, noticeSelf, noticeInstead, toAll, selfOnly, lifetimesOf } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
 import { notice } from "../../src/ui/text/ko/errors.ts";
 import { noticeOf } from "../../src/ui/text/notice.ts";
-import { fake } from "../helpers/fake.ts";
-
-type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };
-
-// 부른 순서를 적는 상호작용. 보낸 것은 flags 로 본인, 모두를 구분한다
-function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
-  const calls: string[] = [];
-  // 보낸 첨부 이름(응답, 후속, 채널)
-  const files: string[][] = [];
-  const visible = (p: { flags?: unknown; files?: Array<{ name: string }> }) => {
-    if (p.files) files.push(p.files.map((file) => file.name));
-    return [p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all";
-  };
-  const it = {
-    replied,
-    deferred,
-    isChatInputCommand: () => command,
-    isMessageComponent: () => component,
-    reply: async (p: { flags?: unknown }) => {
-      calls.push(`reply:${visible(p)}`);
-      it.replied = true;
-      return { resource: { message: { id: "R" } } };
-    },
-    followUp: async (p: { flags?: unknown }) => (calls.push(`followUp:${visible(p)}`), { id: "F" }),
-    editReply: async () => calls.push("editReply"),
-    deferUpdate: async () => ((it.deferred = true), calls.push("deferUpdate")),
-    deleteReply: async (id?: string) => calls.push(id ? `delete:${id}` : "delete"),
-    channel: channel
-      ? {
-          send: async (p: { files?: Array<{ name: string }> }) => {
-            calls.push(`send:${visible(p)}`.replace(":all", ""));
-            if (denied) throw new Error("Missing Permissions");
-            return { id: "C", delete: async () => calls.push("delete:C") };
-          },
-        }
-      : null,
-  };
-  return { it, calls, files, real: fake<RepliableInteraction>(it) };
-}
+import { asked } from "../helpers/interaction-calls.ts";
 
 const view = () => frame({ title: "결과" });
 

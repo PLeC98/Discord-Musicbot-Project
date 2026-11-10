@@ -19,7 +19,7 @@ import { PROVIDERS } from "../../src/autoplay/assist/index.ts";
 type Case = [name: string, input: unknown, want: string[]];
 
 const GENRES: Case[] = [
-  ["장르가 없다", {}, ["장르가 하나도 없습니다."]],
+  ["장르가 없다", {}, ["장르가 하나도 없어요"]],
   [
     "공백뿐인 이름 · 숫자 이름 · 이모지가 아닌 값",
     {
@@ -51,7 +51,7 @@ const GENRES: Case[] = [
         },
       },
     },
-    ["가요: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 합니다.", '"80": 숫자만으로 된 식별자는 순서가 어긋납니다. "80s"처럼 글자를 붙여 주세요.', "장르 식별자가 비었습니다."],
+    ["가요: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 해요", '"80": 숫자만으로 된 식별자는 순서가 어긋나요. "80s"처럼 글자를 붙여 주세요', "장르 식별자가 비어 있어요"],
   ],
   [
     "맨 위 keywords · 소스 없음",
@@ -62,7 +62,7 @@ const GENRES: Case[] = [
         },
       },
     },
-    ["옛모양: 맨 위 keywords: 는 더 이상 쓰지 않습니다. sources: 로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]", "옛모양: 소스(sources)가 하나는 있어야 합니다."],
+    ["옛모양: 맨 위 keywords:는 더 이상 쓰지 않아요. sources:로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]", "옛모양: 소스(sources)가 하나는 있어야 해요"],
   ],
   [
     "소스 필드 문제",
@@ -101,15 +101,15 @@ const GENRES: Case[] = [
       },
     },
     [
-      "소스의 1번째 소스: type과 값을 적어야 합니다.",
-      "소스의 2번째 소스: 모르는 종류입니다(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube",
-      "소스의 3번째 소스(키워드): keywords 를 적어야 합니다.",
-      '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane"는 쓸 수 없습니다. 쓸 수 있는 것: easy, medium, hard',
-      '소스의 5번째 소스(AnisongDB): songTypes에 "bad"는 쓸 수 없습니다. 쓸 수 있는 것: opening, ending, insert',
-      "소스의 6번째 소스: weight는 1 이상이어야 합니다.",
-      "소스의 6번째 소스: minScore는 0 이상이어야 합니다.",
-      "소스의 6번째 소스: yearFrom이 yearTo보다 큽니다.",
-      "소스의 6번째 소스: minLength가 maxLength보다 큽니다.",
+      "소스의 1번째 소스: type과 값을 적어야 해요",
+      "소스의 2번째 소스: 모르는 종류예요(nope). 쓸 수 있는 것: keyword, lastfm, lbradio, animethemes, anisongdb, vocadb, utaitedb, touhoudb, spotify, youtube",
+      "소스의 3번째 소스(키워드): keywords 중 하나를 적어야 해요",
+      '소스의 4번째 소스(ListenBrainz Radio): mode에 "insane" 값은 쓸 수 없어요. 쓸 수 있는 것: easy, medium, hard',
+      '소스의 5번째 소스(AnisongDB): songTypes에 "bad" 값은 쓸 수 없어요. 쓸 수 있는 것: opening, ending, insert',
+      "소스의 6번째 소스: weight는 1 이상이어야 해요",
+      "소스의 6번째 소스: minScore는 0 이상이어야 해요",
+      "소스의 6번째 소스: yearFrom이 yearTo보다 커요",
+      "소스의 6번째 소스: minLength가 maxLength보다 커요",
     ],
   ],
   [
@@ -131,7 +131,7 @@ const GENRES: Case[] = [
         maxDurationSec: 0,
       },
     },
-    ["prefetchCount는 1 이상이어야 합니다.", "minDurationSec은 0 이상이어야 합니다.", "maxDurationSec은 비우거나 0보다 커야 합니다."],
+    ["prefetchCount는 1 이상이어야 해요", "minDurationSec은 0 이상이어야 해요", "maxDurationSec은 비우거나 0보다 커야 해요"],
   ],
   [
     "기본값 길이 범위가 뒤집힘",
@@ -151,7 +151,7 @@ const GENRES: Case[] = [
         maxDurationSec: 60,
       },
     },
-    ["minDurationSec이 maxDurationSec보다 큽니다."],
+    ["minDurationSec이 maxDurationSec보다 커요"],
   ],
 ];
 
@@ -161,7 +161,7 @@ const STATUSES: Case[] = [
     {
       interval: 5,
     },
-    ["interval은 10 이상이어야 합니다(초).", "평소 문구: 문구가 하나는 있어야 합니다."],
+    ["interval은 10초 이상이어야 해요", "평소 문구: 문구가 하나는 있어야 해요"],
   ],
   [
     "문구 모양",
@@ -180,7 +180,7 @@ const STATUSES: Case[] = [
         },
       ],
     },
-    ["평소 문구: 문구는 글자로 적거나 text/type으로 풀어 적어야 합니다.", "평소 문구: 빈 문구가 있습니다.", '평소 문구: 문구가 128자를 넘습니다. "xxxxxxxxxxxxxxxxxxxx…"', '평소 문구: "Streaming"은 쓸 수 없는 활동 종류입니다(Playing, Listening, Watching, Competing, Custom).'],
+    ["평소 문구: 문구는 글자로 적거나 text/type으로 나눠 적어야 해요", "평소 문구: 빈 문구가 있어요", '평소 문구: 문구가 128자를 넘어요("xxxxxxxxxxxxxxxxxxxx…")', '평소 문구: "Streaming"은 쓸 수 없는 활동 종류예요(Playing, Listening, Watching, Competing, Custom)'],
   ],
   [
     "special 이 표가 아니다",
@@ -188,7 +188,7 @@ const STATUSES: Case[] = [
       messages: ["ok"],
       special: ["a"],
     },
-    ["special은 이름을 붙인 목록이어야 합니다."],
+    ["special은 이름을 붙인 목록이어야 해요"],
   ],
   [
     "special 이름 · 조건 · 범위",
@@ -219,7 +219,7 @@ const STATUSES: Case[] = [
         },
       },
     },
-    ["빈것: 내용이 비었습니다.", "조건없음: date, lunar, time 중 하나는 있어야 합니다(없으면 항상 이 문구만 나옵니다).", '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 합니다', '범위의 lunar: "12-24 ~ 12-26"처럼 ~ 로 나눠 적어야 합니다', '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 합니다', "숫자의 date: 글자로 적어야 합니다", "숫자: 문구가 하나는 있어야 합니다.", '"2026": 숫자만으로 된 이름은 순서가 어긋납니다. "2026년"처럼 글자를 붙여 주세요.', "문구 이름이 비었습니다."],
+    ["빈것: 내용이 비어 있어요", "조건없음: date, lunar, time 중 하나는 있어야 해요(없으면 항상 이 문구만 나와요)", '범위의 date: "1-1"는 MM-DD 두 자리로 적어야 해요', '범위의 lunar: "12-24 ~ 12-26"처럼 ~로 나눠 적어야 해요', '범위의 time: "25:00"는 HH:MM 두 자리로 적어야 해요', "숫자의 date: 글자로 적어야 해요", "숫자: 문구가 하나는 있어야 해요", '"2026": 숫자만으로 된 이름은 순서가 어긋나요. "2026년"처럼 글자를 붙여 주세요', "문구 이름이 비어 있어요"],
   ],
 ];
 
@@ -230,17 +230,17 @@ const AIS: Case[] = [
       provider: "nope",
       enabled: true,
     },
-    [`provider는 ${PROVIDERS.join(", ")} 중 하나여야 합니다.`, "model을 적어야 합니다."],
+    [`provider는 ${PROVIDERS.join(", ")} 중 하나여야 해요`, "model을 적어야 해요"],
   ],
-  ["켰는데 provider 를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 합니다."]],
-  ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 합니다."]],
+  ["켰는데 provider 를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 해요"]],
+  ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 해요"]],
   ["꺼 두면 나머지 필드는 따지지 않는다", { enabled: false, provider: "nope", timeoutMs: "x" }, []],
   [
     "custom 에 baseUrl 없음 · model 없음",
     {
       provider: "custom",
     },
-    ["provider가 custom이면 baseUrl을 적어야 합니다.", "model을 적어야 합니다."],
+    ["provider가 custom이면 baseUrl을 적어야 해요", "model을 적어야 해요"],
   ],
   [
     "custom baseUrl 이 http 가 아님",
@@ -249,7 +249,7 @@ const AIS: Case[] = [
       baseUrl: "ftp://x",
       model: "m",
     },
-    ["baseUrl은 http:// 또는 https:// 로 시작해야 합니다."],
+    ["baseUrl은 http:// 또는 https://로 시작해야 해요"],
   ],
   [
     "필드 모양",
@@ -269,18 +269,18 @@ const AIS: Case[] = [
       list: [],
     },
     [
-      "temperature는 params 아래에 모델별로 적습니다.",
-      "timeoutMs는 1000~600000 사이여야 합니다.",
-      "batchSize는 1~50 사이여야 합니다.",
-      "skipConfident는 true 또는 false여야 합니다.",
-      "extra는 한 줄에 하나씩 적는 글이어야 합니다.",
-      "프롬프트는 AI 보조 탭의 프롬프트에 적습니다. AI 설정의 prompt 필드는 쓰이지 않습니다.",
-      "project는 글자로 적어야 합니다.",
-      "location는 글자로 적어야 합니다.",
-      "params는 모델 이름 아래에 필드를 적는 표여야 합니다.",
-      'hideModels는 글자 목록이어야 합니다(예: ["*sora*", "gpt-3.5*"]).',
-      "promptNames는 글자 목록이어야 합니다.",
-      "list는 이름:값 형식이어야 합니다.",
+      "temperature는 params 아래에 모델별로 적어요",
+      "timeoutMs는 1000~600000 사이여야 해요",
+      "batchSize는 1~50 사이여야 해요",
+      "skipConfident는 true 또는 false여야 해요",
+      "extra는 한 줄에 하나씩 적어야 해요",
+      "프롬프트는 AI 보조 탭의 프롬프트 입력란에 적어요. AI 설정의 prompt 필드는 쓰이지 않아요",
+      "project는 글자로 적어야 해요",
+      "location은 글자로 적어야 해요",
+      "params는 모델 이름 아래에 필드를 적는 표여야 해요",
+      'hideModels는 글자 목록이어야 해요(예: ["*sora*", "gpt-3.5*"])',
+      "promptNames는 글자 목록이어야 해요",
+      "list는 이름:값 형식이어야 해요",
     ],
   ],
   [
@@ -294,7 +294,7 @@ const AIS: Case[] = [
       retryDelayMaxMs: 600001,
       retryStatus: [429, 200],
     },
-    ["retries는 0~10 사이여야 합니다.", "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 합니다.", "retryTimeouts는 true 또는 false여야 합니다.", "retryDelayMs는 0~60000 사이여야 합니다.", "retryDelayMaxMs는 0~600000 사이여야 합니다.", "retryStatus는 400~599 사이 상태 코드 목록이어야 합니다(예: [429, 503])."],
+    ["retries는 0~10 사이여야 해요", "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 해요", "retryTimeouts는 true 또는 false여야 해요", "retryDelayMs는 0~60000 사이여야 해요", "retryDelayMaxMs는 0~600000 사이여야 해요", "retryStatus는 400~599 사이 상태 코드 목록이어야 해요(예: [429, 503])"],
   ],
   [
     "params 안쪽 · list 필드",
@@ -313,7 +313,7 @@ const AIS: Case[] = [
       },
     },
     // 옛 필드(unknownDuration, unknownText)는 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
-    ["params.m1 은 필드 이름과 값을 적는 표여야 합니다(모델 이름으로 한 겹 나눕니다).", "list.lineFormat 1번째 글자: 모르는 이름 {{가수}}. 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "list.lineFormat 1번째 글자: {{title}} 이 있어야 합니다. 판정할 거리가 제목입니다."],
+    ["params.m1은 필드 이름과 값을 적는 표여야 해요(모델 이름으로 한 단계 나눠요)", "list.lineFormat 1번째 글자: 모르는 이름이에요({{가수}}). 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "list.lineFormat 1번째 글자: {{title}}이 있어야 해요. 판정할 대상이 제목이에요"],
   ],
   [
     "list.lineFormat 이 글이 아님",
@@ -323,13 +323,13 @@ const AIS: Case[] = [
         lineFormat: 7,
       },
     },
-    ["list.lineFormat은 글로 적어야 합니다."],
+    ["list.lineFormat은 글자로 적어야 해요"],
   ],
 ];
 
 // [이름, 프롬프트 섹션, 켜 둠, 지금 나오는 문구]
 const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]> = [
-  ["목록이 아님", "text", true, ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."]],
+  ["목록이 아님", "text", true, ["프롬프트는 섹션 목록이어야 해요(역할과 내용이 있는 항목)"]],
   [
     "섹션 모양",
     [
@@ -344,7 +344,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
       },
     ],
     false,
-    ["1번째 섹션: 역할과 내용을 적어야 합니다.", "2번째 섹션: 역할은 system, user, assistant 중 하나여야 합니다.", "2번째 섹션: 내용은 글로 적어야 합니다.", "3번째 섹션: 내용에 <|im_start|>, <|im_end|>를 적을 수 없습니다."],
+    ["1번째 섹션: 역할과 내용을 적어야 해요", "2번째 섹션: 역할은 system, user, assistant 중 하나여야 해요", "2번째 섹션: 내용은 글자로 적어야 해요", "3번째 섹션: 내용에 <|im_start|>, <|im_end|>를 적을 수 없어요"],
   ],
   [
     "켜 둔 채 {{list}} 이 없음",
@@ -355,7 +355,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
       },
     ],
     true,
-    ["어딘가에 {{list}} 이 있어야 합니다. 그 위치에 판정할 후보가 들어갑니다."],
+    ["어딘가에 {{list}}가 있어야 해요. 그 위치에 판정할 후보가 들어가요"],
   ],
   [
     "꺼 두면 {{list}} 을 안 따진다",
@@ -372,7 +372,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
 
 test("장르 검사: 장르가 25개를 넘는다(디스코드 선택 메뉴 한도)", () => {
   const genres = Object.fromEntries(Array.from({ length: 26 }, (_, i) => [`g${i}a`, { sources: [{ type: "keyword", keywords: ["x"] }] }]));
-  assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개입니다. 디스코드 선택 메뉴는 25개까지만 보여줍니다."]);
+  assert.deepEqual(genreConfig.validateGenres({ genres }), ["장르가 26개예요. 디스코드 선택 메뉴는 25개까지만 보여 줘요"]);
 });
 
 for (const [name, input, want] of GENRES) test(`장르 검사: ${name}`, () => assert.deepEqual(genreConfig.validateGenres(input), want));
@@ -393,12 +393,12 @@ function firstComplaint(read: () => unknown) {
 
 test("장르 문서가 검사에 걸리면 알리고 빈 장르로 돈다. 문구는 한 줄씩 들여 쓴다", () => {
   useDocument("genres", { genres: { 가요: { sources: [] } } });
-  assert.ok(firstComplaint(() => assert.deepEqual(genreConfig.genres().genres, {})).startsWith(["자동재생 장르 설정을 읽을 수 없습니다:", "   가요: 소스(sources)가 하나는 있어야 합니다."].join("\n")));
+  assert.ok(firstComplaint(() => assert.deepEqual(genreConfig.genres().genres, {})).startsWith(["자동재생 장르 설정 읽기 실패:", "   가요: 소스(sources)가 하나는 있어야 해요"].join("\n")));
 });
 
 test("상태 문서도 처음부터 검사에 걸리면 알리고 문구 없이 돈다. 문구는 장르와 같은 모양으로 한 줄씩", () => {
   useDocument("status", { interval: 5, messages: [] });
-  assert.ok(firstComplaint(() => assert.deepEqual(statusConfig.status().messages, [])).startsWith(["활동 문구 설정을 읽을 수 없습니다:", "   interval은 10 이상이어야 합니다(초).", "   평소 문구: 문구가 하나는 있어야 합니다."].join("\n")));
+  assert.ok(firstComplaint(() => assert.deepEqual(statusConfig.status().messages, [])).startsWith(["활동 문구 설정 읽기 실패:", "   interval은 10초 이상이어야 해요", "   평소 문구: 문구가 하나는 있어야 해요"].join("\n")));
 });
 
 test("AI 문서는 검사에 걸리면 끈 채로 돌려준다", () => {

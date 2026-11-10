@@ -15,6 +15,7 @@ import { messageOf } from "../../rules/error-kind.ts";
 import * as trackCache from "../track-cache.ts";
 import * as probes from "../track-cache-probe.ts";
 import type { TrackCacheChecks, TrackCacheInspected, TrackCachePage, TrackCacheProbeQueued, TrackCacheRevision, TrackCacheWritten } from "../contract/track-cache.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 const trackCacheRouter = express.Router();
 trackCacheRouter.use(requireOwner);
@@ -26,7 +27,13 @@ const searchOf = (req: Request) => new URL(req.originalUrl, "http://localhost").
 trackCacheRouter.get("/", async (req, res) => {
   const query = trackCache.queryOf(searchOf(req));
   if (!query.ok) return refuse(res, query);
-  const read = await trackCache.read(query.query);
+  // 화면이 이 요청을 취소하면(새로고침, 필터 수정) 정규식 대기열에서 뺀다. 응답을 다 보낸 뒤의 close는 무시한다
+  const cancel = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) cancel.abort();
+  });
+  const read = await trackCache.read(query.query, { signal: cancel.signal });
+  if (!read || cancel.signal.aborted) return; // 요청이 취소됐다(닫힌 연결에 답하지 않는다)
   if (!read.ok) return refuse(res, read);
   res.json(read.page satisfies TrackCachePage);
 });
@@ -36,8 +43,9 @@ trackCacheRouter.post("/", async (req, res) => {
   if (!body.ok) return sendProblem(res, body.code, {}, { errors: body.errors });
   let written;
   try {
-    written = await trackCache.write(body.value.ops, ranBy(req));
+    written = await trackCache.write(body.value.ops, ranBy(req), () => assertSignedIn(req));
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, `캐시 DB 저장 실패: ${messageOf(error)}`);
     return sendProblem(res, "track-cache-write-failed", {}, { detail: messageOf(error) });
   }

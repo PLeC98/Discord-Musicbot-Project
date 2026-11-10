@@ -26,18 +26,18 @@ const b64url = (input: string) => Buffer.from(input).toString("base64url");
  */
 function readAccount(where: unknown): Account {
   const raw = String(where || "").trim();
-  if (!raw) throw new Error("서비스 계정이 설정돼 있지 않습니다");
-  if (!raw.startsWith("{")) throw new Error("서비스 계정은 JSON 내용이어야 합니다(파일 경로는 받지 않습니다. 파일 내용을 붙여넣으세요)");
+  if (!raw) throw new Error("서비스 계정이 설정되지 않음");
+  if (!raw.startsWith("{")) throw new Error("서비스 계정은 JSON 내용이어야 함(파일 경로는 받지 않음). 파일 내용을 붙여넣으세요");
 
   let account: Partial<Account> | null;
   try {
     account = JSON.parse(raw);
   } catch {
-    throw new Error("서비스 계정 JSON 을 읽지 못했습니다(형식이 깨졌습니다)");
+    throw new Error("서비스 계정 JSON 읽기 실패: 형식이 깨짐");
   }
 
   const { client_email, private_key } = account ?? {};
-  if (!client_email || !private_key) throw new Error("서비스 계정 JSON 에 client_email 또는 private_key 가 없습니다");
+  if (!client_email || !private_key) throw new Error("서비스 계정 JSON 에 client_email 또는 private_key 가 없음");
   return { ...account, client_email, private_key };
 }
 
@@ -68,7 +68,7 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
     signature = crypto.createSign("RSA-SHA256").update(signing).sign(account.private_key, "base64url");
   } catch {
     // 오류에 키가 섞여 나올 수 있다. 저쪽 문구를 그대로 싣지 않는다
-    throw new Error("서비스 계정 키로 서명하지 못했습니다(private_key 를 확인하세요)");
+    throw new Error("서비스 계정 키로 서명 실패. private_key 를 확인하세요");
   }
 
   const res = await send(account.token_uri || TOKEN_URL, {
@@ -79,15 +79,15 @@ async function accessToken(where: unknown, { timeoutMs = 15000, fetch: send = fe
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`토큰을 받지 못했습니다: HTTP ${res.status} ${text.slice(0, 200)}`);
+  if (!res.ok) throw new Error(`토큰 발급 실패: HTTP ${res.status} ${text.slice(0, 200)}`);
 
   let token: { access_token?: string; expires_in?: unknown } | null;
   try {
     token = JSON.parse(text);
   } catch {
-    throw new Error("토큰 응답을 읽지 못했습니다");
+    throw new Error("토큰 응답 읽기 실패");
   }
-  if (!token?.access_token) throw new Error("토큰 응답에 access_token 이 없습니다");
+  if (!token?.access_token) throw new Error("토큰 응답에 access_token 이 없음");
 
   cache.set(account.client_email, {
     token: token.access_token,

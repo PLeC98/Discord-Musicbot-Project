@@ -19,7 +19,7 @@ function parse(name: string, raw: string | undefined): unknown {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    log.warn(`설정 문서 ${name}의 JSON 파싱에 실패해 없는 것으로 처리합니다: ${messageOf(error)}`);
+    log.warn(`설정 문서 ${name}의 JSON 파싱 실패(없는 것으로 처리): ${messageOf(error)}`);
     return null;
   }
 }
@@ -34,7 +34,7 @@ type Write = { name: string; data: unknown; revision: number };
 
 function writeOne({ name, data, revision }: Write): number {
   const now = read(name).revision;
-  if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀌었습니다(읽은 번호 ${revision}, 지금 ${now})`);
+  if (now !== revision) throw codedError("REVISION_CONFLICT", `${name} 문서가 그사이 바뀜(읽은 번호 ${revision}, 지금 ${now})`);
   conn()
     .prepare(
       `INSERT INTO documents (name, data_json, revision) VALUES (?, ?, ?)

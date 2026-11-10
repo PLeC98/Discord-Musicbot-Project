@@ -31,7 +31,7 @@ function newerRelease(latest: string | null | undefined, current: string) {
 /** `const NAME = "값";` 한 줄의 값을 바꾼다. 그 줄이 없으면 던진다(파일 모양이 바뀌면 조용히 지나가지 않게) */
 function rewriteConstant(text: string, name: string, value: string) {
   const line = new RegExp(`^const ${name} = "[^"\\n]*";$`, "m");
-  if (!line.test(text)) throw new Error(`${name} 줄을 찾지 못했습니다`);
+  if (!line.test(text)) throw new Error(`${name} 줄을 찾지 못함`);
   return text.replace(line, `const ${name} = "${value}";`);
 }
 
@@ -46,5 +46,20 @@ function auditCounts(json: unknown): AuditCounts | null {
   return { total: v.total, critical: n("critical"), high: n("high"), moderate: n("moderate"), low: n("low") };
 }
 
-export { isMonthEndBuild, newerFfmpegRelease, compareVersions, newerRelease, rewriteConstant, auditCounts };
-export type { AuditCounts };
+/** gh issue list --json number,title,author,labels 의 한 항목(쓰는 필드만) */
+type IssueRow = { number: number; title: string; author?: { login?: string } | null; labels?: ReadonlyArray<{ name: string }> | null };
+
+/**
+ * vendor-updates 워크플로가 갱신할 열린 이슈 번호(없으면 null). 라벨이 붙은 것이 먼저다(라벨은 triage 이상 권한이 있는 사람만 붙인다).
+ * 라벨이 없으면 제목이 "bgutil "로 시작하고 작성자가 이 워크플로의 계정(설정한 GitHub App 은 app/<slug>, 또는 github-actions)인 것만 선택한다.
+ * 공개 저장소라 사람이 같은 제목으로 연 이슈는 선택하지 않는다(선택하면 워크플로가 그 이슈에 라벨을 붙이고 제목과 본문을 덮어쓴다).
+ */
+function trackedIssue(issues: readonly IssueRow[], label: string, appSlug: string): number | null {
+  const labeled = issues.find((issue) => issue.labels?.some((one) => one.name === label));
+  if (labeled) return labeled.number;
+  const ours = new Set(["app/github-actions", `app/${appSlug}`]);
+  return issues.find((issue) => issue.title.startsWith("bgutil ") && ours.has(issue.author?.login ?? ""))?.number ?? null;
+}
+
+export { isMonthEndBuild, newerFfmpegRelease, compareVersions, newerRelease, rewriteConstant, auditCounts, trackedIssue };
+export type { AuditCounts, IssueRow };

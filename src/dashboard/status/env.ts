@@ -7,6 +7,7 @@ import { ffmpegVersion } from "../../media/ffmpeg/path.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
 import { bgutilVersion } from "../../sources/bgutil-version.ts";
 import type { AdminStatus } from "../contract/admin.ts";
+import { tlsStatus } from "../tls-files.ts";
 
 /** commandCount: 켜진 슬래시 명령 수, dashboardClients: 지금 열린 대시보드 연결 수, launcher: 다시 시작할 수 있는가(조립이 넘긴 다시 시작이 있다) */
 function envStatus(commandCount: number, dashboardClients: number, launcher: boolean): AdminStatus["env"] {
@@ -21,6 +22,8 @@ function envStatus(commandCount: number, dashboardClients: number, launcher: boo
     bgutil: bgutilVersion.state(),
     commands: { count: commandCount, scope: config.discord.guildId ? "guild" : "global" },
     dashboardClients,
+    // 인증서 파일로 직접 HTTPS를 열었으면 그 인증서의 기한(수동으로 갱신하는 사람이 잊지 않게)
+    tls: tlsStatus(),
   };
 }
 

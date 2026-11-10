@@ -27,6 +27,6 @@ const SIDE_BTN = "size-12 text-on-surface hover:not-disabled:scale-105";
 const props = withDefaults(defineProps<{ player: PlayerSeen; busy: (key: string) => boolean; spread?: boolean; playSize?: string }>(), { spread: false, playSize: "size-16" });
 const emit = defineEmits<{ shuffle: []; previous: []; pause: []; skip: []; loop: [] }>();
 
-// 재생 버튼은 사람의 멈춤을 뒤집는다. 억제(음소거, 혼자 남음 등)로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 멈춰 둔다)
+// 재생 버튼은 사람의 멈춤을 뒤집는다. 억제(음소거, 혼자 남음 등)로 소리가 멈춰 있어도 사람이 멈추지 않았으면 일시정지 버튼(누르면 일시정지한다)
 const running = computed(() => Boolean(props.player.currentTrack) && !props.player.userPaused);
 </script>

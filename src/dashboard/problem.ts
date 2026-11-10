@@ -19,6 +19,8 @@ function refuseWith(res: Response, { code, ...params }: LooseProblem, extra?: Ex
 
 /** 요청 제한(express-rate-limit)에 걸렸다. 다시 보낼 수 있을 때까지의 초를 Retry-After 에 */
 function tooManyRequests(req: Request & { rateLimit?: RateLimitInfo }, res: Response) {
+  // 걸린 요청은 응답 끝에 세션을 갱신, 저장하지 않는다(그 요청에서만 뗀다. 세션은 그대로다)
+  (req as { session: unknown }).session = null;
   const reset = req.rateLimit?.resetTime;
   if (reset) res.set("Retry-After", String(Math.max(1, Math.ceil((reset.getTime() - Date.now()) / 1000))));
   return sendProblem(res, "too-many-requests");

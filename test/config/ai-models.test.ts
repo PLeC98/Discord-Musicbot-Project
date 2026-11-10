@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as models from "../../src/config/ai-models.ts";
 import { useModelInfo } from "../helpers/model-info.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 /** 테스트용 레지스트리 사본(실제 레지스트리에서 테스트가 쓰는 모델만 고른 것) */
 const fixture = (): models.Snapshot => JSON.parse(fs.readFileSync(path.join(useModelInfo({ profiles: true }), "ai-models.json"), "utf8"));
@@ -93,6 +94,26 @@ test("늘 붙는 값은 base 와 프로필을 겹쳐서 준다", () => {
   assert.deepEqual(models.defaultsOf("p", "m", snapshot), { stream: false, max_tokens: 4096 });
 });
 
+// 모델과 프롬프트는 우리가 채운다. 레지스트리가 바꾸면 다른 모델로 가거나 지시가 통째로 바뀐다
+test("모델, 프롬프트 칸(model, messages, system, contents, systemInstruction)은 기본값으로도 필드로도 넣지 않는다", () => {
+  const field = (key: string, at: string) => ({ key, mapsTo: { target: "body", path: at } });
+  const snapshot = {
+    baseProviders: {
+      p: {
+        defaultBody: { model: "other", messages: [], system: "s", max_tokens: 1024 },
+        requestSchema: [field("modelId", "model"), field("prompt", "messages"), field("sys", "system"), field("temperature", "generationConfig.temperature")],
+      },
+    },
+    profiles: { "p:m": { modelId: "m", providerBaseId: "p", defaults: { contents: [], systemInstruction: { parts: [] }, top_p: 0.5 }, schema: [field("instruction", "systemInstruction.parts"), field("turns", "contents")] } },
+  };
+
+  assert.deepEqual(models.defaultsOf("p", "m", snapshot), { max_tokens: 1024, top_p: 0.5 });
+  assert.deepEqual(
+    models.fieldsOf("p", "m", snapshot).map((f) => f.path),
+    ["generationConfig.temperature"],
+  );
+});
+
 test("모르는 모델은 빈 손으로. 던지지 않는다", () => {
   const snapshot = { baseProviders: {}, profiles: {} };
   assert.deepEqual(models.fieldsOf("p", "없는모델", snapshot), []);
@@ -134,7 +155,7 @@ test("갱신 모양 검사: 레지스트리 사본은 스스로와 견줘 통과
   assert.deepEqual(models.lostShape(registries, held, held), []);
 });
 
-// ── 갱신: 목차(index.json)의 해시로 보고 카탈로그(catalog.json) 하나를 받는다 ──
+// ── 갱신: 인덱스(index.json)의 해시로 보고 카탈로그(catalog.json) 하나를 받는다 ──
 
 const FIELD = { key: "topP", type: "number", mapsTo: { target: "body", path: "top_p" } };
 const catalogOf = (hash: string, more: Record<string, unknown> = {}) => ({
@@ -184,18 +205,18 @@ test("갱신: 해시가 같으면 카탈로그를 받지 않는다. force 면 �
   assert.deepEqual(asked, ["index.json", "index.json", "catalog.json?h=h1"]);
 });
 
-test("갱신: 목차와 카탈로그의 해시가 다르거나 형식 버전이 다르면 쓰지 않는다", async () => {
+test("갱신: 인덱스와 카탈로그의 해시가 다르거나 형식 버전이 다르면 쓰지 않는다", async () => {
   useModelInfo();
   const stale = registry(
     () => ({ schemaVersion: 4, hash: "h2" }),
     () => catalogOf("h1"),
   );
-  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: stale.fetchImpl }), /해시가 다릅니다/);
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: stale.fetchImpl }), /해시가 다름/);
   const newer = registry(
     () => ({ schemaVersion: 5, hash: "h3" }),
     () => catalogOf("h3", { schemaVersion: 5 }),
   );
-  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: newer.fetchImpl }), /형식 5/);
+  await assert.rejects(models.refresh({ registries: ["a"], fetchImpl: newer.fetchImpl }), /형식: 5\(4만 지원\)/);
   assert.equal(models.saved(), false, "가진 사본을 그대로 둔다");
   assert.deepEqual(models.load().profiles, {}, "받은 것이 없으면 빈 프로필로 돈다");
 });
@@ -249,4 +270,34 @@ test("모델 ID 를 직접 넣어 쓰는 틀(빈 modelId)은 저장하되 모델
     models.modelsOf("a").map((one) => one.modelId),
     ["m"],
   );
+});
+
+test("갱신: 모델, 프롬프트 칸을 바꾸려는 값이 있으면 warn 한 줄로 알린다(모델 ID 필드는 정상이라 세지 않는다)", async () => {
+  useModelInfo();
+  const warns = (from: number) => sink.buffer.slice(from).filter((e) => e.level === "warn" && e.text.startsWith("AI 모델 정보가 모델, 프롬프트 칸을"));
+  const plain = registry(
+    () => ({ schemaVersion: 4, hash: "h1" }),
+    () => {
+      const one = catalogOf("h1");
+      return { ...one, profiles: { ...one.profiles, "a:m": { modelId: "m", providerBaseId: "a-base", schema: [{ key: "modelId", mapsTo: { target: "body", path: "model" } }] } } };
+    },
+  );
+  let from = sink.buffer.length;
+  await models.refresh({ registries: ["a"], fetchImpl: plain.fetchImpl });
+  assert.deepEqual(warns(from), []);
+
+  const tampered = registry(
+    () => ({ schemaVersion: 4, hash: "h2" }),
+    () => {
+      const one = catalogOf("h2");
+      return { ...one, profiles: { ...one.profiles, "a:m": { modelId: "m", providerBaseId: "a-base", defaults: { model: "other" }, schema: [{ key: "sys", mapsTo: { target: "body", path: "system" } }] } } };
+    },
+  );
+  from = sink.buffer.length;
+  await models.refresh({ registries: ["a"], fetchImpl: tampered.fetchImpl });
+  assert.deepEqual(
+    warns(from).map((e) => e.text),
+    ["AI 모델 정보가 모델, 프롬프트 칸을 바꾸려 해 그 값은 쓰지 않음(2곳): a:m 기본값 model, a:m 필드 sys"],
+  );
+  assert.deepEqual(models.defaultsOf("a", "m"), {}, "저장은 하되 쓰지 않는다");
 });

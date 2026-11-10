@@ -3,13 +3,14 @@
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { MessageFlags, type Guild, type GuildMember } from "discord.js";
+import { MessageFlags, Status, type Guild, type GuildMember } from "discord.js";
 import fs from "node:fs";
 import path from "node:path";
-import { answerReplay, answerSeek, answerStop, answerVolume } from "../../src/discord/interactions/control-answers.ts";
+import { answerPause, answerReplay, answerSeek, answerStop, answerVolume } from "../../src/discord/interactions/control-answers.ts";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import { command, run } from "../helpers/commands.ts";
 import { failureShow } from "../../src/ui/failure-notice.ts";
+import { noticeFrame } from "../../src/ui/frame.ts";
 import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
@@ -79,7 +80,7 @@ test("처음부터: 하는 중을 본인에게만 먼저 보내고, 처음으로
 
 test("처음부터: 직접 링크 곡은 결과에 찾아 둔 파일 태그 그림을 첨부해 건다(패널과 같게)", async (t) => {
   const url = "https://files.test/replay-art.mp3";
-  if (!(await remember(url))) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!(await remember(url))) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { it, sentFiles } = asked();
   const { p } = player({ currentTrack: { title: "파일", pageUrl: url, requestKey: url, audioUrl: url, duration: 300, thumbnail: null, platform: "direct" } });
   await answerReplay(it, p);
@@ -145,4 +146,99 @@ test("수명: 조작 결과는 결과 수명, 정지, 나가기는 더 오래", 
   await run(await command("leave"), Object.assign(leave.it, { guild }), fakeBot({ players: new Map([["g1", p]]) }));
   assert.deepEqual(lifetimesOf(leave.it), [LIFETIME.farewell]);
   assert.ok(LIFETIME.farewell > LIFETIME.result);
+});
+
+test("정지, 나가기: 결과는 정리(끝난 패널 그리기)가 끝나기 전에 답한다", async () => {
+  for (const name of ["stop", "leave"]) {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const order: string[] = [];
+    const { it, log } = asked();
+    const { p } = player({ queue: [], _trackLabel: () => "곡", getCurrentTime: () => 0, dispose: () => gate.then(() => void order.push("disposed")) });
+    const answering = name === "stop" ? answerStop(it, p) : run(await command("leave"), Object.assign(it, { guild }), fakeBot({ players: new Map([["g1", p]]) }));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(log.length, 1, `${name}: 정리가 끝나기 전에 답했다`);
+    assert.deepEqual(order, [], name);
+    release();
+    await answering;
+    assert.deepEqual(order, ["disposed"], name);
+    assert.equal(log.length, 1, `${name}: 정리 뒤에 다시 답하지 않는다`);
+  }
+});
+
+test('▶(실패로 일시정지해 둔 곡): 곡을 다시 열기 전에 본인에게 "다시 트는 중"을 답하고, 결과는 자리표시자를 지우고 모두에게 알린다. 답한 사이 곡이 바뀌면 자리표시자를 안내로 바꾼다', async () => {
+  const order: string[] = [];
+  const { it, log } = asked();
+  const { p } = player({ parked: true, retryParked: async () => void order.push(`retry(답 ${log.length}개 뒤)`), pause: { userPaused: false, heldBy: null } });
+  await answerPause(it, p);
+  assert.deepEqual(order, ["retry(답 1개 뒤)"], "다시 열기 전에 답했다");
+  assert.deepEqual(log[0][0], "reply");
+  assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "자리표시자는 본인에게 보낸다");
+  assert.match(log[0][1].join(), /다시 트는 중/);
+  assert.deepEqual(
+    log.slice(1).map((one) => one[0]),
+    ["deleteReply", "send"],
+    "결과는 자리표시자를 지우고 채널에 보낸다",
+  );
+
+  const changed = asked();
+  const moving = player({ parked: true, retryParked: async () => assert.fail("다시 열지 않는다") });
+  changed.it.reply = async (payload: never) => {
+    changed.log.push(["reply", textsOf(payload), null]);
+    Object.assign(changed.it, { replied: true });
+    moving.p.currentTrack = { title: "다른 곡" } as never;
+    return { resource: { message: { id: "r1" } } } as never;
+  };
+  await answerPause(changed.it, moving.p);
+  assert.deepEqual(
+    changed.log.map((one) => one[0]),
+    ["reply", "editReply"],
+    "자리표시자를 안내로 바꾼다",
+  );
+  assert.deepEqual(changed.log[1][1], textsOf(noticeFrame(errors.notice("track-changed"))));
+
+  const plain = asked();
+  await answerPause(plain.it, player({ pause: { userPaused: false, heldBy: null, setUser: () => {} } }).p);
+  assert.notDeepEqual(plain.log[0]?.[2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "보통 곡은 자리표시자를 보내지 않는다");
+  assert.equal(plain.log.length, 1, "결과 하나만");
+});
+
+test('/leave(플레이어 없이 음성에만 남음): 나가기 전에 본인에게 "나가는 중"을 보내고, 나간 결과는 자리표시자를 지우고 모두에게 알린다. 나가지 못하면 자리표시자를 안내로 바꾼다', async () => {
+  for (const fails of [false, true]) {
+    const { it, log } = asked();
+    const at: number[] = [];
+    // 샤드가 끊겨 있어 REST 로 바로 나간다(게이트웨이 경로는 player/voice-leave 테스트)
+    const lingering = fake<Guild>({
+      id: "g1",
+      name: "서버",
+      shard: { status: Status.Disconnected },
+      voiceStates: { fetch: async () => ({ channelId: "vc1" }) },
+      members: {
+        me: {
+          voice: {
+            channel: { id: "vc1" },
+            channelId: "vc1",
+            disconnect: async () => {
+              at.push(log.length);
+              if (fails) throw Object.assign(new Error("Missing Permissions"), { code: 50013 });
+            },
+          },
+        },
+      },
+    });
+    await run(await command("leave"), Object.assign(it, { guild: lingering }), fakeBot({ players: new Map() }));
+    assert.deepEqual(at, [1], "나가기 전에 답한다");
+    assert.equal(log[0][0], "reply");
+    assert.deepEqual(log[0][2], [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "하는 중은 본인에게");
+    assert.match(log[0][1].join(), /나가는 중/);
+    if (fails) {
+      assert.deepEqual(log.slice(1), [["editReply", textsOf(noticeFrame(errors.notice("leave-failed"))), [MessageFlags.IsComponentsV2]]], "자리표시자를 안내로 바꾼다");
+    } else {
+      assert.deepEqual(
+        log.slice(1).map((one) => one[0]),
+        ["deleteReply", "send"],
+        "결과는 자리표시자를 지우고 채널에",
+      );
+    }
+  }
 });

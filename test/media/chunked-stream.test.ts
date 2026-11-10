@@ -287,6 +287,24 @@ test("받는 중에 데이터가 멈추면 정체로 보고 다시 요청한다"
   assert.deepEqual(await collect(s), body);
 });
 
+test("계속 멈춰 재시도를 다 쓰면 시간 초과(TimeoutError, STREAM_STALL)로 끝난다", async () => {
+  const body = makeBody(30_000);
+  const s = createChunkedStream({
+    url: URL_,
+    totalBytes: body.length,
+    chunkSize: 30_000,
+    ...FAST,
+    stallMs: 30,
+    // 바이트를 받으면 재시도 횟수가 초기화되므로, 한 바이트도 안 오게 멈춘다
+    fetchImpl: fakeFetch(body, { sliceBytes: 1000, plan: () => ({ hangAfter: 0 }) }),
+  });
+  const error = await collect(s).then(
+    () => null,
+    (e: unknown) => e as { name?: string; code?: string },
+  );
+  assert.deepEqual([error?.name, error?.code], ["TimeoutError", "STREAM_STALL"]);
+});
+
 test("첫 요청이 네트워크 오류로 실패해도 다시 시도해 연다. 재생 전이라 넘겨받기는 묻지 않는다", async () => {
   const body = makeBody(20_000);
   let asked = 0;
@@ -369,7 +387,7 @@ test("Content-Range의 시작 위치가 어긋나면 오류 (프록시가 엉뚱
       body: { getReader: () => ({ read: async () => ({ done: true }) }) },
     }),
   });
-  await assert.rejects(collect(s), /어긋납니다/);
+  await assert.rejects(collect(s), /어긋남/);
 });
 
 test("실패 상태 코드는 스트림 오류로 올라간다 (기존 캐시 폴백이 받도록)", async () => {
@@ -436,7 +454,7 @@ function firstBody(body: Buffer, dieAt?: number) {
   });
 }
 
-test("첫 응답을 받으면 그 본문을 끝까지 흘리고 Range 요청은 하지 않는다", async () => {
+test("첫 응답을 받으면 그 본문을 끝까지 내보내고 Range 요청은 하지 않는다", async () => {
   const body = makeBody(50_000);
   const seen: unknown[] = [];
   const first = firstBody(body);
@@ -527,7 +545,7 @@ const HEAD = Buffer.from("MEDIA-HEADER");
 /** 키프레임 자리의 앞 4바이트를 확인한다 */
 const expectAt = (body: Buffer, at: number) => ({ bytes: 4, check: (head: Buffer) => Buffer.compare(head.subarray(0, 4), body.subarray(at, at + 4)) === 0 });
 
-test("startByte, prefix: 헤더를 먼저 흘리고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
+test("startByte, prefix: 헤더를 먼저 내보내고 그 바이트부터 받는다. 받은 양은 절대 위치라 끝까지 받으면 전체 크기와 같다", async () => {
   const body = makeBody(50_000);
   const seen: Array<{ start: number }> = [];
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 30_000, prefix: HEAD, fetchImpl: fakeFetch(body, { onRequest: (r) => seen.push(r) }) });
@@ -536,7 +554,7 @@ test("startByte, prefix: 헤더를 먼저 흘리고 그 바이트부터 받는�
   assert.deepEqual([s.stats().received, s.stats().totalBytes, s.stats().startByte], [body.length, body.length, 30_000]);
 });
 
-test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(청크가 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 흘린다", async () => {
+test("expectStart: 받은 첫 바이트를 확인한 뒤에 열린다(청크가 잘게 나뉘어 와도 모아서). 맞으면 그 바이트도 그대로 내보낸다", async () => {
   const body = makeBody(40_000);
   const s = await openChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 8192, startByte: 20_000, prefix: HEAD, expectStart: expectAt(body, 20_000), fetchImpl: fakeFetch(body, { sliceBytes: 3 }) });
   assert.deepEqual(await collect(s), Buffer.concat([HEAD, body.subarray(20_000)]));
@@ -548,7 +566,7 @@ test("expectStart: 응답이 확인할 양보다 짧게 끝나도 받은 만큼�
   assert.deepEqual(await collect(s), body.subarray(body.length - 2));
 });
 
-test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime 이 거부된다(색인 탓, 다시 받지 않는다)", async () => {
+test("expectStart: 첫 바이트가 어긋나면 스트림 오류가 아니라 prime 이 거부된다(색인 탓, 재시도하지 않는다)", async () => {
   const body = makeBody(40_000);
   let requests = 0;
   const fetchImpl: RangeFetch = (url, opts) => {
@@ -586,7 +604,7 @@ test("열린 뒤 끊기면 그 절대 위치부터 잇는다. 0바이트에서 �
 
 test("startByte 는 파일 안이어야 하고, 이미 열린 첫 응답(first)과 함께 줄 수 없다", () => {
   assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 100 }), /startByte/);
-  assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 10, first: NodeReadable.from([Buffer.alloc(1)]) }), /함께 줄 수 없습니다/);
+  assert.throws(() => createChunkedStream({ url: URL_, totalBytes: 100, chunkSize: 10, startByte: 10, first: NodeReadable.from([Buffer.alloc(1)]) }), /함께 줄 수 없음/);
 });
 
 test("오류 설명은 cause 사슬을 따라가 진짜 사유를 드러낸다", () => {
@@ -649,9 +667,9 @@ test("totalBytes, chunkSize가 올바르지 않으면 만들 때 거부한다", 
 });
 
 // ── 응답의 길이와 구간 ───────────────────────────────────────
-// 206 에는 Content-Range 가 있어야 한다(RFC 9110). 없이 0 부터 주면 같은 바이트가 두 번 들어간다. 더 보내는 서버의 남은 본문은 연결을 붙잡는다
+// 206에는 Content-Range가 있어야 한다(RFC 9110). 없이 0부터 주면 같은 바이트가 두 번 들어간다. 더 보내는 서버의 남은 본문은 연결을 붙잡는다
 
-// 요청마다 신호가 끊겼는지 적는 가짜. reply(start, end) 가 응답 모양을 정한다
+// 요청마다 신호가 끊겼는지 기록하는 가짜. reply(start, end)가 응답 모양을 정한다
 function scriptedFetch(reply: (start: number, end: number) => { status: number; range: string | null; payload: Buffer; endless?: boolean }) {
   const signals: AbortSignal[] = [];
   const fetchImpl: RangeFetch = async (_url, opts) => {
@@ -672,7 +690,7 @@ function scriptedFetch(reply: (start: number, end: number) => { status: number; 
               off += v.length;
               return { done: false as const, value: new Uint8Array(v) };
             }
-            // 끝없이 더 보내는 서버: 끊기 전까지 같은 덩이
+            // 끝없이 더 보내는 서버: 끊기 전까지 같은 청크를 보낸다
             if (endless) return { done: false as const, value: new Uint8Array(4096) };
             return { done: true as const, value: undefined };
           },
@@ -683,7 +701,7 @@ function scriptedFetch(reply: (start: number, end: number) => { status: number; 
   return { fetchImpl, signals };
 }
 
-test("이어 받는 206 에 Content-Range 가 없으면 다시 받지 않는 실패(같은 바이트를 두 번 넣지 않는다)", async () => {
+test("이어받는 206에 Content-Range가 없으면 재시도하지 않는 실패로 끝난다(같은 바이트를 두 번 넣지 않는다)", async () => {
   const body = makeBody(20_000);
   const { fetchImpl } = scriptedFetch((start, end) => (start === 0 ? { status: 206, range: `bytes 0-9999/${body.length}`, payload: body.subarray(0, 10_000) } : { status: 206, range: null, payload: body.subarray(0, end - start + 1) }));
   const s = createChunkedStream({ url: URL_, totalBytes: body.length, chunkSize: 10_000, fetchImpl, ...FAST });

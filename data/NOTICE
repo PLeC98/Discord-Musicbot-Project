@@ -189,6 +189,16 @@ kanji-finals.json
   authorization of the copyright holder.
 
 --------------------------------------------------------------------------------
+cloudflare-ips.json
+
+  The IP ranges Cloudflare publishes for traffic from its network to origin
+  servers. The dashboard reads the visitor IP from CF-Connecting-IP only when
+  the connecting hop is in these ranges (src/dashboard/client-ip.ts). The
+  weekly vendor-updates workflow (scripts/check-vendor-updates.ts) refreshes it.
+  Source:  https://www.cloudflare.com/ips/ (ips-v4, ips-v6)
+  This is a list of network addresses (facts), copied as published.
+
+--------------------------------------------------------------------------------
 Downloaded at runtime (not in this directory): database/geoip/dbip-city-lite-YYYY-MM.mmdb
 
   DB-IP City Lite, the IP-to-city database the dashboard uses to show the

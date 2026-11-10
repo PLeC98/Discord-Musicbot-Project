@@ -182,7 +182,7 @@ test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일�
     "본문 무응답 한도를 그대로 넘긴다",
   );
 
-  await assert.rejects(DirectLink.open("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
+  await assert.rejects(DirectLink.open("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
   // 음원이 아닌 응답은 받은 응답으로 안 것이라 숨기지 않는다
   await assert.rejects(DirectLink.open("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
   const blocked = {
@@ -190,7 +190,7 @@ test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일�
       throw new Error("SSRF 차단: 127.0.0.1");
     },
   };
-  await assert.rejects(DirectLink.open("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크입니다" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
+  await assert.rejects(DirectLink.open("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
 });
 
 test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이름만 구분자를 공백으로, 대소문자는 그대로", () => {

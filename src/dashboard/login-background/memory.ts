@@ -55,7 +55,7 @@ async function enoughMemory(need: number, what: string, signal: AbortSignal): Pr
   const started = Date.now();
   let told = false;
   while (os.freemem() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
-    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기합니다(${(os.freemem() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
+    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기(${(os.freemem() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
     told = true;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }

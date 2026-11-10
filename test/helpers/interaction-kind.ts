@@ -6,6 +6,7 @@ type Kind = "button" | "select" | "roleSelect" | "modal" | "command" | "autocomp
 const interactionKind = (kind: Kind) => ({
   isChatInputCommand: () => kind === "command",
   isAutocomplete: () => kind === "autocomplete",
+  isRepliable: () => kind !== "autocomplete",
   isButton: () => kind === "button",
   isStringSelectMenu: () => kind === "select",
   isRoleSelectMenu: () => kind === "roleSelect",

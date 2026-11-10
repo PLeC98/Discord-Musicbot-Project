@@ -1,4 +1,4 @@
-// src/rules/links.ts, canonical-url.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 흘리지 않는다
+// src/rules/links.ts, canonical-url.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 넘기지 않는다
 
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
@@ -55,7 +55,7 @@ test("YouTube URL 형태별 인식: /live/ 포함", () => {
   assert.equal(canonicalUrl("https://www.youtube.com/live/rmn4m0Ieajk"), "https://www.youtube.com/watch?v=rmn4m0Ieajk");
 });
 
-test("모르는 형태의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
+test("모르는 형태의 유튜브 링크는 검색으로 넘기지 않고 거절한다", async () => {
   // 클립은 유튜브가 없앤 기능이다. 채널, 검색 결과 페이지도 재생 대상이 아니다.
   const unsupported = ["https://www.youtube.com/clip/UgkxDwCneHNsPn-e8AtJkR6rRVpNlHqHOZDE", "https://www.youtube.com/@someChannel", "https://www.youtube.com/results?search_query=test"];
 
@@ -80,7 +80,7 @@ test("캐시 키 정규화는 실제 유튜브 주소만 표준 형태로 바꾼
   assert.equal(canonicalUrl("https://youtu.be/dQw4w9WgXcQ"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 });
 
-// 알려진 사이트 밖의 링크는 직접 링크 후보다. 열어 보니 웹 페이지면 거절한다(검색으로 흘리지 않는다)
+// 알려진 사이트 밖의 링크는 직접 링크 후보다. 열어 보니 웹 페이지면 거절한다(검색으로 넘기지 않는다)
 test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async () => {
   const opened: string[] = [];
   const direct = {

@@ -18,23 +18,23 @@ const hasListMark = (sections: readonly unknown[]) => sections.some((section) =>
 /** 프롬프트의 문제 목록. 비우면 기본 구성을 쓰므로 적었을 때만 따진다. on: AI 보조가 켜져 있다(후보 목록 위치가 있어야 한다) */
 function promptProblems(prompt: unknown, on: boolean): string[] {
   if (prompt == null) return [];
-  if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 합니다(역할과 내용을 가진 항목들)."];
+  if (!Array.isArray(prompt)) return ["프롬프트는 섹션 목록이어야 해요(역할과 내용이 있는 항목)"];
   if (!prompt.length) return [];
 
   const problems: string[] = [];
   prompt.forEach((item: unknown, i) => {
     const where = `${i + 1}번째 섹션`;
-    if (!item || typeof item !== "object") return problems.push(`${where}: 역할과 내용을 적어야 합니다.`);
+    if (!item || typeof item !== "object") return problems.push(`${where}: 역할과 내용을 적어야 해요`);
     const section = item as { role?: unknown; text?: unknown };
-    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(", ")} 중 하나여야 합니다.`);
-    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글로 적어야 합니다.`);
+    if (!AI_ROLES.includes(section.role as string)) problems.push(`${where}: 역할은 ${AI_ROLES.join(", ")} 중 하나여야 해요`);
+    if (section.text != null && typeof section.text !== "string") problems.push(`${where}: 내용은 글자로 적어야 해요`);
     else for (const one of parseFormat(textOf(section), PROMPT_NAMES).problems) problems.push(`${where} ${one.at + 1}번째 글자: ${one.message}`);
     // 역할 표시 문자열은 넣지 못하게 한다. ChatML 템플릿으로 프롬프트를 짜는 모델에 섹션 경계로 섞여 들어가지 않게
-    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>, <|im_end|>를 적을 수 없습니다.`);
+    if (/<\|im_(start|end)\|>/.test(String(section?.text ?? ""))) problems.push(`${where}: 내용에 <|im_start|>, <|im_end|>를 적을 수 없어요`);
   });
 
   // 켜 둔 채 후보 목록 위치가 없으면 요청마다 헛돈다
-  if (on && !hasListMark(prompt)) problems.push(`어딘가에 ${LIST_MARK} 이 있어야 합니다. 그 위치에 판정할 후보가 들어갑니다.`);
+  if (on && !hasListMark(prompt)) problems.push(`어딘가에 ${LIST_MARK}가 있어야 해요. 그 위치에 판정할 후보가 들어가요`);
   return problems;
 }
 

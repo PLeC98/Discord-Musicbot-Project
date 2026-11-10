@@ -9,7 +9,7 @@ test("모든 문장", () => {
     [
       help.intro(),
       [help.sectionName("play"), help.sectionName("queue"), help.sectionName("mode"), help.sectionName("explore"), help.sectionName("channel"), help.sectionName("info")],
-      [help.tierMark("everyone"), help.tierMark("dj"), help.tierMark("dj-or-requester"), help.tierMark("dj-outside-bot-channel"), help.tierMark("moderator"), help.tierMark("owner")],
+      [help.tierMark("everyone"), help.tierMark("dj"), help.tierMark("dj-or-requester"), help.tierMark("dj-outside-bot-channel"), help.tierMark("server-manager"), help.tierMark("owner")],
       help.platforms(),
       help.stats({ guilds: 3, users: 12345, active: 1, uptime: "1시간 2분" }),
       help.links({ invite: "https://invite", website: null }),

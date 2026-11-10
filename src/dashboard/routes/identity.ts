@@ -2,13 +2,15 @@
 
 import express from "express";
 import config from "../../config/index.ts";
-import { isOwner, isRealOwner } from "../owner.ts";
-import { getViewAs } from "../view-as.ts";
+import { isRealOwner } from "../owner.ts";
+import { getViewAs, isOwner } from "../view-as.ts";
 import type { BotInfo, Me } from "../contract/identity.ts";
 import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
 import { canInvite } from "../invite.ts";
 import { sendProblem } from "../problem.ts";
+import { requireAuth } from "../middleware/require-auth.ts";
+import { recentLogin, RECENT_LOGIN_MS } from "../middleware/recent-login.ts";
 
 const identityRouter = express.Router();
 
@@ -21,6 +23,14 @@ identityRouter.get("/me", (req, res) => {
   const { id, username, globalName, avatar } = req.session.user;
   const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id) };
   res.json(me);
+});
+
+// 최근 로그인인지 확인한다(204). 화면이 위험한 작업의 확인 창을 열기 전에 확인하며, 오래됐으면 reauth-required로 응답해 로그인 창을 먼저 열게 하고 확인 창은 재로그인 뒤에 연다.
+// 로그인 여부만 확인한다(다른 기기 로그아웃은 일반 사용자도 쓰므로 운영자 전용이 아니다). within은 해당 작업의 로그인 후 허용 시간(ms)이며, 기본값보다 길게는 받지 않는다(사전 확인일 뿐 실제 차단은 각 작업 경로가 한다)
+identityRouter.get("/me/recent-login", requireAuth, (req, res) => {
+  const asked = Number(req.query.within);
+  const within = Number.isFinite(asked) && asked > 0 ? Math.min(asked, RECENT_LOGIN_MS) : RECENT_LOGIN_MS;
+  recentLogin(within)(req, res, () => res.status(204).end());
 });
 
 // 소스 저장소(AGPL 13조 고지)는 봇 준비와 무관하게 늘 준다. 이름, 프로필 이미지는 준비 전이면 null.

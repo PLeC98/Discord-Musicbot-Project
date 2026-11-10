@@ -4,6 +4,7 @@
 //   자리를 끔   강제 퇴장, 채널 삭제, 권한 잃음(디스코드의 확답). 서버 채널에 알린다
 //   차단        같은 오류가 되풀이되어 멈춘 서버(fault). 봇을 다시 시작하거나 곡을 다시 틀 때까지 재접속하지 않는다
 // 일시적 실패는 1, 2, 5, 10, 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
+// 붙는 동안 상주 설정이 바뀌면(/leave, /247) 연결 결과를 무시한다(실패로 세지 않는다). 종료가 stop()을 호출하면 시도, 예약, onDisposed 처리를 모두 멈춘다
 
 import { PermissionFlagsBits, RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -47,8 +48,11 @@ async function announce(guild: Guild, notice: Notice) {
 /** join, announce, sleep 은 시험이 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
-// 자리 채널을 디스코드에 물은 결과: 붙을 채널, 자리를 끌 까닭, 묻지 못함(null)
-type Found = { channel: VoiceBasedChannel } | { why: Why } | null;
+// 상주 채널을 디스코드에서 조회한 결과: 붙을 채널, 상주 설정을 끌 원인, 조회 실패(그 원인)
+type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: string };
+
+/** 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다(go 가 예외를 던진다). 실패가 아니다 */
+class SeatChanged extends Error {}
 
 class StayKeeper {
   client: Client;
@@ -62,6 +66,7 @@ class StayKeeper {
   blocked = new Set<string>(); // 되풀이 오류로 차단한 서버
   busy = new Set<string>(); // 붙는 중
   ready = false; // 기동 차례가 끝났다(그 전의 GuildAvailable 은 기동이 맡는다)
+  stopped = false; // 종료로 멈춘 상태. 다시 붙지 않고, 예약하지 않고, 상주 설정을 지우지 않는다
 
   constructor({ client, players, join = joinChannel, announce: tell = announce, sleep = (ms) => new Promise((done) => setTimeout(done, ms)) }: Deps) {
     this.client = client;
@@ -123,8 +128,7 @@ class StayKeeper {
     } catch (error) {
       if (codeOf(error) === RESTJSONErrorCodes.UnknownChannel) return { why: "gone" };
       if (codeOf(error) === RESTJSONErrorCodes.MissingAccess) return { why: "permission" };
-      this._failure(guild.id).fail(`채널을 묻지 못함: ${messageOf(error)}`);
-      return null;
+      return { failed: `채널 조회 실패: ${messageOf(error)}` };
     }
   }
 
@@ -146,7 +150,10 @@ class StayKeeper {
       const seat = staySeats.seatOf(guildId);
       if (!seat || this.players.get(guildId)?.voice.isAlive()) return true;
       const found = await this._seatChannel(guild, seat.channelId);
-      if (!found) {
+      // 조회하는 사이 상주 모드가 꺼지거나 새로 켜졌으면(/leave, /247, 같은 채널이어도 켤 때마다 새 항목) 이 결과로 접속하거나 해제하지 않는다
+      if (this.stopped || staySeats.seatOf(guildId) !== seat) return true;
+      if ("failed" in found) {
+        this._failure(guildId).fail(found.failed);
         this._later(guildId);
         return false;
       }
@@ -154,8 +161,10 @@ class StayKeeper {
         await this._drop(guild, found.why);
         return true;
       }
-      return await this._join(guild, found.channel);
+      return await this._join(guild, found.channel, seat);
     } catch (error) {
+      // 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다. 실패로 세지 않는다
+      if (error instanceof SeatChanged || this.stopped) return true;
       this._failure(guildId).fail(messageOf(error));
       this._later(guildId);
       return false;
@@ -164,8 +173,19 @@ class StayKeeper {
     }
   }
 
-  async _join(guild: Guild, channel: VoiceBasedChannel) {
-    const result = await this.join({ players: this.players }, { guild, channel });
+  // seat: 붙기 시작할 때의 상주 설정. 붙는 동안 바뀌거나 상주 모드가 멈추면 연결 결과를 무시한다
+  async _join(guild: Guild, channel: VoiceBasedChannel, seat: staySeats.Seat) {
+    const changed = () => this.stopped || staySeats.seatOf(guild.id) !== seat;
+    const result = await this.join(
+      { players: this.players },
+      { guild, channel },
+      {
+        go: () => {
+          if (changed()) throw new SeatChanged();
+        },
+      },
+    );
+    if (changed()) return true;
     if (result.kind === "refused" && result.code === "permission-voice") {
       await this._drop(guild, "permission");
       return true;
@@ -185,10 +205,11 @@ class StayKeeper {
   /** 기동: 자리가 있고 붙어 있지 않은 서버를 하나씩. skip 이면(짧은 간격의 비정상 종료가 되풀이됨) 붙지 않는다(자리는 남긴다) */
   async boot({ skip = false }: { skip?: boolean } = {}) {
     const seats = staySeats.all();
-    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜁니다(상주 설정은 유지)`);
+    if (skip && seats.length) log.warn(`단시간 내 비정상 종료가 반복되어 상주 채널 ${seats.length}곳의 자동 재접속을 건너뜀(상주 설정은 유지)`);
     if (!skip) {
       let first = true;
       for (const [guildId] of seats) {
+        if (this.stopped) break;
         if (this.players.get(guildId)?.voice.isAlive()) continue;
         if (!first) await this.sleep(BOOT_GAP_MS);
         first = false;
@@ -202,11 +223,11 @@ class StayKeeper {
   onDisposed(player: Pick<Player, "guild" | "voiceChannel">, end: PlayerEnd) {
     const guildId = player.guild.id;
     const seat = staySeats.seatOf(guildId);
-    if (!seat) return;
+    if (this.stopped || !seat) return;
     if (end === "fault") {
       this.blocked.add(guildId);
       this._cancel(guildId);
-      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜁니다(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
+      log.warn(`동일 오류 반복으로 차단된 서버라 상주 채널 재접속을 건너뜀(봇 재시작 또는 곡 재생 시 해제): ${player.guild.name}`);
       return;
     }
     const why = DROP[end];
@@ -234,10 +255,14 @@ class StayKeeper {
 
   /** 자리 채널이 지워졌다(봇이 없던 동안도) */
   onChannelDeleted(guild: Guild, channelId: string) {
+    // 멈춘 뒤에는 지우지 않는다. 다음 기동 때 채널을 다시 조회해 없으면 끈다
+    if (this.stopped) return;
     if (staySeats.seatOf(guild.id)?.channelId === channelId) void this._drop(guild, "gone");
   }
 
+  /** 종료: 예약을 취소하고, 이제부터 붙지도 예약하지도 상주 설정을 지우지도 않는다. 진행 중인 연결 시도는 대기(복원 대기, 채널 조회) 뒤에 멈춘다 */
   stop() {
+    this.stopped = true;
     for (const timer of this.timers.values()) clearTimeout(timer);
     this.timers.clear();
   }

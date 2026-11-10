@@ -60,7 +60,7 @@ export function retime(clock: Clock, now: number, { at = positionAt(clock, now),
 
 /**
  * 그 곡을 넣은 사람도 하는 조작(넘기기, 빼기)을 할 수 있나. 서버(usecases/permissions)와 같은 규칙(rules/controls)에
- * 받은 상태를 넣는다: 조작 권한(canControl), 재적 규칙(봇이 음성 채널에 없거나 같은 채널이다)
+ * 받은 상태를 넣는다: 조작 권한(canControl), 동일 음성 채널 규칙(봇이 음성 채널에 없거나 같은 채널이다)
  */
 function mayTouch(s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean {
   const requester = Boolean(track?.requestedBy?.id) && track?.requestedBy?.id === s?.userId;

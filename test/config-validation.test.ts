@@ -25,8 +25,8 @@ function load(env: Record<string, string>, opts?: { envFileFound?: boolean; tuna
 const tune = (tunables: Record<string, string>) => load({}, { tunables });
 
 test("숫자 뒤에 글자가 붙으면 문제다 (parseInt가 삼키던 것)", () => {
-  assert.deepEqual(load({ DASHBOARD_PORT: "120junk" }).problems, [".env의 DASHBOARD_PORT 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다. 고친 뒤 다시 실행하세요."]);
-  assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됐습니다 (120junk): 정수만 쓸 수 있습니다."]);
+  assert.deepEqual(load({ DASHBOARD_PORT: "120junk" }).problems, [".env의 DASHBOARD_PORT 값이 잘못됨(120junk): 정수만 쓸 수 있음. 고친 뒤 다시 실행하세요"]);
+  assert.deepEqual(tune({ RATE_LIMIT_API_MAX: "120junk" }).tuneProblems, ["RATE_LIMIT_API_MAX 값이 잘못됨(120junk): 정수만 쓸 수 있음"]);
 });
 
 // 조절값은 대시보드가 저장 전에 같은 검사로 거절한다. 그래도 DB 에 틀린 값이 있으면(바깥에서 고침) 기동을 멈추지 않고 그 필드만 기본값이다
@@ -40,7 +40,7 @@ test("조절값의 문제는 기동을 멈추지 않고(tuneProblems) 그 필드
 test(".env 에 남은 조절값 이름은 읽지 않고 경고만 한다", () => {
   const { warnings, cfg } = load({ OWNER_ID: "9", RATE_LIMIT_API_MAX: "300", QUEUE_MAX_TRACKS: "100" });
   assert.equal(cfg.apiMax, 120);
-  assert.deepEqual(warnings, [".env 의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX 는 이제 쓰지 않습니다. 운영자 패널의 일반 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env의 QUEUE_MAX_TRACKS, RATE_LIMIT_API_MAX는 이제 쓰지 않음. 운영자 패널의 일반 탭에서 입력하고 .env에서 삭제하세요"]);
   assert.equal(load({ RATE_LIMIT_API_MAX: "300" }, { tunables: { RATE_LIMIT_API_MAX: "200" } }).cfg.apiMax, 200, "조절값 문서가 이긴다");
 });
 
@@ -54,6 +54,14 @@ test("주소 설정은 형식과 스킴을 본다", () => {
   assert.equal(tune({ WEBSITE: "javascript:alert(1)" }).tuneProblems.length, 1, "http·https만");
   assert.equal(tune({ SPONSORBLOCK_API_BASE: "file:///etc" }).tuneProblems.length, 1, "요청을 보내는 주소도 같다");
   assert.deepEqual(tune({ WEBSITE: "https://example.com" }).tuneProblems, []);
+});
+
+test("대시보드 공개 주소는 origin만(경로, 사용자 정보, ?, # 없이), 여는 주소는 IP나 localhost만 받는다", () => {
+  for (const url of ["https://example.com/musicbot", "https://user:pw@example.com", "https://example.com/?a=1", "https://example.com/#x", "https://example.com?", "https://example.com#", "ftp://example.com"]) assert.equal(load({ DASHBOARD_URL: url }).problems.length, 1, url);
+  for (const url of ["https://example.com", "https://example.com/", "http://bot.example.com:33333"]) assert.deepEqual(load({ DASHBOARD_URL: url }).problems, [], url);
+  for (const host of ["example.com", "0.0.0.0:33333", "eth0"]) assert.equal(load({ DASHBOARD_HOST: host }).problems.length, 1, host);
+  for (const host of ["0.0.0.0", "::", "192.168.0.10", "::1", "localhost"]) assert.deepEqual(load({ DASHBOARD_HOST: host }).problems, [], host);
+  assert.deepEqual(load({ DASHBOARD_ALLOW_PLAINTEXT: "yes" }).problems.length, 1, "true, false만");
 });
 
 // 틀린 색을 그대로 두면 임베드를 보낼 때마다 던진다. 그 필드는 기본 색으로 돈다
@@ -85,7 +93,7 @@ test("범위 안의 값은 그대로 쓴다", () => {
 
 // 모르는 브라우저 이름을 yt-dlp 에 넘기면 사용법 오류로 끝나 모든 곡 찾기가 실패한다
 test("쿠키 출처는 file 이거나 yt-dlp 가 받는 브라우저 이름이다(프로필 모양은 그대로 둔다)", () => {
-  assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됐습니다 \(none\): file 또는 브라우저 이름/);
+  assert.match(tune({ COOKIES_SOURCE: "none" }).tuneProblems.join(), /COOKIES_SOURCE 값이 잘못됨\(none\): file 또는 브라우저 이름/);
   for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
     assert.deepEqual(tune({ COOKIES_SOURCE: ok }).tuneProblems, [], ok);
   }
@@ -117,21 +125,21 @@ test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문�
 
 test("대시보드로 옮긴 키가 .env 에 남아 있으면 쓰지 않고 경고만 한다", () => {
   const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env 의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY 는 이제 쓰지 않습니다. 운영자 패널의 API 키 탭에서 입력하고 .env 에서 삭제하세요."]);
+  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY는 이제 쓰지 않음. 운영자 패널의 API 키 탭에서 입력하고 .env에서 삭제하세요"]);
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
   assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
 });
 
 test(".env 가 없으면 그 문제 하나만 알린다", () => {
-  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요."]);
+  assert.deepEqual(loadConfig({}, { envFileFound: false }).problems, [".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요"]);
 });
 
 test("SECRETS_KEY: 비었거나 32바이트 base64 가 아니면 만드는 명령과 함께 멈춘다", () => {
   const empty = load({ SECRETS_KEY: "" }).problems;
   assert.equal(empty.length, 1);
-  assert.match(empty[0], /^SECRETS_KEY 가 비어 있습니다\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 합니다\.$/);
+  assert.match(empty[0], /^SECRETS_KEY가 비어 있음\(비밀값 암호화 키\)\. 만들기: node -e .*randomBytes\(32\).* 다시 입력해야 함$/);
   for (const wrong of ["짧다", Buffer.alloc(16).toString("base64"), `${KEY}x`]) {
-    assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다/, wrong);
+    assert.match(load({ SECRETS_KEY: wrong }).problems.join(), /SECRETS_KEY가 base64로 인코딩한 32바이트가 아님/, wrong);
   }
   assert.deepEqual(load({}).problems, []);
 });

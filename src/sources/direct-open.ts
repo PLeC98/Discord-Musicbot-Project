@@ -28,7 +28,7 @@ const LIST_MAX_BYTES = 1024 * 1024;
 /** 첫 바이트를 받은 뒤 앞부분을 더 기다리는 시간. 넘으면 받은 만큼으로 판정한다(조금 보내고 멈추는 서버, 느린 라디오) */
 const HEAD_WAIT_MS = 1500;
 
-/** 앞부분을 want 바이트(또는 끝, 첫 바이트 뒤 HEAD_WAIT_MS)까지 읽는다. 다 읽으면 멈춰 둔다 */
+/** 앞부분을 want 바이트(또는 끝, 첫 바이트 뒤 HEAD_WAIT_MS)까지 읽는다. 다 읽으면 스트림을 멈춰 둔다(pause) */
 function readHead(stream: Readable, want: number): Promise<{ head: Buffer; ended: boolean }> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -113,7 +113,7 @@ async function openLink(url: string, { net = { getStream: SafeUrl.getStream }, .
   try {
     source = await net.getStream(url, undefined, { accept: OPEN_ACCEPT, ...opts });
   } catch (error) {
-    if (isIcyStatusLine(error)) throw codedError("shoutcast-v1", `옛 SHOUTcast(ICY 첫 줄) 방송입니다: ${url}`, { cause: error });
+    if (isIcyStatusLine(error)) throw codedError("shoutcast-v1", `옛 SHOUTcast(ICY 첫 줄) 방송: ${url}`, { cause: error });
     throw error;
   }
   const file = fileOf(source);
@@ -159,7 +159,7 @@ const refusedByResponse = (error: unknown) => ["unsupported-link", "shoutcast-v1
 async function openFollowing(url: string, options: Parameters<typeof openLink>[1], depth = 0): Promise<Exclude<Opened, { kind: "list" }>> {
   const opened = await openLink(url, options);
   if (opened.kind !== "list") return opened;
-  if (!opened.target || depth >= LIST_DEPTH) throw codedError("unsupported-link", `음원이 아닌 링크입니다(${opened.target ? "목록이 너무 깊음" : "빈 목록"})`);
+  if (!opened.target || depth >= LIST_DEPTH) throw codedError("unsupported-link", `음원이 아닌 링크(${opened.target ? "목록이 너무 깊음" : "빈 목록"})`);
   return openFollowing(opened.target, options, depth + 1);
 }
 

@@ -16,7 +16,7 @@ const VITE = pathToFileURL(createRequire(path.join(CLIENT, "package.json")).reso
 type Chunk = { type: "chunk" | "asset"; fileName: string; code?: string; source?: string | Uint8Array; isDynamicEntry?: boolean };
 // vite 가 크기 경고를 내는 한도(build.chunkSizeWarningLimit 기본, kB)
 const WARN_KB = 500;
-// 진짜 빌드 결과(dist)의 파일과 고친 시각. 파일을 쓰지 않는 빌드가 건드리면 안 된다
+// 실제 빌드 결과(dist)의 파일과 수정 시각. 파일을 쓰지 않는 빌드가 건드리면 안 된다
 function distState(): string[] {
   const dist = path.join(CLIENT, "dist");
   if (!fs.existsSync(dist)) return [];
@@ -33,7 +33,7 @@ test("화면 빌드: 공유 안내와 영어 끝소리 표가 들어가고, Node
     if (nodeEnv === undefined) delete process.env.NODE_ENV;
     else process.env.NODE_ENV = nodeEnv;
   });
-  assert.deepEqual(distState(), before, "파일을 쓰지 않는 빌드는 dist 를 건드리지 않는다(미리 압축도)");
+  assert.deepEqual(distState(), before, "파일을 쓰지 않는 빌드는 dist를 건드리지 않는다(사전 압축도)");
   const output = (Array.isArray(result) ? result : [result]).flatMap((one) => one.output);
   const chunks = output.filter((one) => one.type === "chunk");
 

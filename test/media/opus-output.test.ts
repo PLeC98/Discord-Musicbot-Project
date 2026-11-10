@@ -83,7 +83,7 @@ function sine(frames: number, amplitude = 12000) {
   return buf;
 }
 
-// 주어진 크기들로 잘라 흘리는 소스
+// 주어진 크기들로 잘라 내보내는 소스
 function chunked(buf: Buffer, sizes: number[]) {
   const parts: Buffer[] = [];
   for (let o = 0, i = 0; o < buf.length; i++) {

@@ -46,7 +46,7 @@ for (const [name, file] of [
 ] as const) {
   test(`실제 파일 ${name}: 색인을 읽고, 고른 키프레임 자리의 실제 바이트가 확인을 통과한다`, (t) => {
     const buf = file();
-    if (!buf) return t.skip("ffmpeg로 시료를 만들 수 없음");
+    if (!buf) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
     const index = indexOf(buf);
     assert.ok(index.points.length >= 20, `키프레임 ${index.points.length}`);
     assert.ok(Math.abs(index.points.at(-1)!.ms - 58_000) < 3000, `마지막 ${index.points.at(-1)!.ms}`);
@@ -62,7 +62,7 @@ for (const [name, file] of [
 }
 
 test("실제 파일: 헤더는 첫 클러스터, moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
-  if (!webm || !m4a) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!webm || !m4a) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const w = indexOf(webm);
   const header = headerOf(webm, w);
   assert.equal(header.length, w.headerEnd);
@@ -78,7 +78,7 @@ test("실제 파일: 헤더는 첫 클러스터, moov 까지, webm 은 Segment �
 });
 
 test("실제 파일: 앞부분이 모자라면 더 받을 양을 알린다", (t) => {
-  if (!webm || !m4a) return t.skip("ffmpeg로 시료를 만들 수 없음");
+  if (!webm || !m4a) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const file of [webm, m4a]) {
     const read = readIndex(file.subarray(0, 60), file.length);
     assert.ok(!read.ok && "need" in read && read.need > 60, JSON.stringify(read));

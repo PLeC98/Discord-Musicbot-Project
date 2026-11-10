@@ -127,7 +127,7 @@ test("봇이 만드는 모달, 메뉴의 custom_id 는 목록의 그 경로로 �
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal().toJSON().custom_id, "panel:volume");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
-  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [tracks.youtube("aaaaaaaaaaa")] });
+  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
   const results = searchResultsView({ query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
   sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");

@@ -10,7 +10,7 @@ const sessionDb = new DbFile({
   // 1: 세션마다 디스코드 접근 토큰(sessions.discord_token)
   version: 1,
   synchronous: "NORMAL",
-  onMismatch: { lost: "대시보드 로그인이 모두 풀립니다(다시 로그인하면 됩니다)." },
+  onMismatch: { lost: "대시보드 로그인이 모두 풀림(다시 로그인하면 됨)" },
   createTables,
 });
 

@@ -113,7 +113,7 @@ test("세는 동안 이벤트 루프가 멈추지 않는다", async () => {
 
 test("상한을 넘기면 실패로 답하고 다음 세기는 새로 시작한 스레드가 한다", async () => {
   // 상한은 1ms: 20만 자는 어느 버전, 어느 호스트에서도 그보다 오래 걸린다
-  await assert.rejects(tokens.countAll(["가".repeat(200_000)], "tik", { timeoutMs: 1 }), /넘겼습니다/);
+  await assert.rejects(tokens.countAll(["가".repeat(200_000)], "tik", { timeoutMs: 1 }), /넘김/);
   assert.deepEqual(await tokens.countAll(["a", "hello world"], "tik"), [
     { tokens: 1, by: "tik", exact: true },
     { tokens: 2, by: "tik", exact: true },

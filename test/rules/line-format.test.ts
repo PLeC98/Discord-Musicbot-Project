@@ -48,7 +48,7 @@ test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그�
   const { nodes, problems } = parseFormat("{{번호}}. {{길이분}}분 {{titel}} {{제목}}", LINE_NAMES);
   assert.deepEqual(
     problems.map((one) => one.message),
-    ["{{번호}} 은 이제 {{index}} 입니다.", "{{길이분}} 은 이제 {{duration::m}} 입니다.", "모르는 이름 {{titel}}. 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "{{제목}} 은 이제 {{title}} 입니다."],
+    ["이름이 바뀌었어요: {{번호}} → {{index}}", "이름이 바뀌었어요: {{길이분}} → {{duration::m}}", "모르는 이름이에요({{titel}}). 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "이름이 바뀌었어요: {{제목}} → {{title}}"],
   );
   assert.equal(problems[0].at, 0);
   assert.equal(problems[1].at, 8);
@@ -57,21 +57,21 @@ test("옛 한글 이름은 새 이름을 알려 주고, 모르는 이름은 그�
 
 test("블록 문제는 위치와 함께: 닫히지 않음, 짝 없는 닫기, else 둘, 모르는 블록, 볼 값 없음", () => {
   const messages = (format: string) => parseFormat(format, LINE_NAMES).problems.map((one) => [one.at, one.message.split(".")[0]]);
-  assert.deepEqual(messages("a {{#if-exist {{duration}}}}b"), [[2, "#if-exist 블록을 닫는 {{/}} 가 없습니다"]]);
-  assert.deepEqual(messages("a{{/}}"), [[1, "닫을 블록이 없는데 {{/}} 가 있습니다"]]);
-  assert.deepEqual(messages("{{#if-exist {{genre}}}}a{{:else}}b{{:else}}c{{/}}"), [[34, "{{:else}} 가 한 블록에 둘입니다"]]);
+  assert.deepEqual(messages("a {{#if-exist {{duration}}}}b"), [[2, "#if-exist 블록을 닫는 {{/}}가 없어요"]]);
+  assert.deepEqual(messages("a{{/}}"), [[1, "닫을 블록이 없는데 {{/}}가 있어요"]]);
+  assert.deepEqual(messages("{{#if-exist {{genre}}}}a{{:else}}b{{:else}}c{{/}}"), [[34, "{{:else}}가 한 블록에 두 개 있어요"]]);
   assert.deepEqual(messages("{{#if {{genre}}}}a{{/}}"), [
-    [0, "모르는 블록 {{#if {{genre}}}}"],
-    [18, "닫을 블록이 없는데 {{/}} 가 있습니다"],
+    [0, "모르는 블록이에요({{#if {{genre}}}})"],
+    [18, "닫을 블록이 없는데 {{/}}가 있어요"],
   ]);
-  assert.deepEqual(messages("{{#if-exist}}a{{/}}"), [[0, "#if-exist 뒤에 볼 값을 입력해야 합니다"]]);
-  assert.deepEqual(messages("{{title"), [[0, "{{ 를 닫는 }} 가 없습니다"]]);
-  assert.deepEqual(messages("{{title::x}}"), [[0, "{{title}} 은 :: 뒤의 값을 받지 않습니다"]]);
+  assert.deepEqual(messages("{{#if-exist}}a{{/}}"), [[0, "#if-exist 뒤에 확인할 값을 입력해야 해요"]]);
+  assert.deepEqual(messages("{{title"), [[0, "{{를 닫는 }}가 없어요"]]);
+  assert.deepEqual(messages("{{title::x}}"), [[0, "{{title}}에는 :: 뒤의 값을 붙일 수 없어요"]]);
 });
 
 test("겹친 값 안의 문제 위치도 원래 글 기준", () => {
   const { problems } = parseFormat("ab {{#if-exist {{길이초}}}}x{{/}}", LINE_NAMES);
-  assert.deepEqual(problems, [{ at: 15, end: 22, message: "{{길이초}} 은 이제 {{duration::s}} 입니다." }], "end 는 그 태그 끝");
+  assert.deepEqual(problems, [{ at: 15, end: 22, message: "이름이 바뀌었어요: {{길이초}} → {{duration::s}}" }], "end 는 그 태그 끝");
 });
 
 test("이름이 어딘가에 있는가(필수 이름, 목록 위치 검사)", () => {

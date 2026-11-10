@@ -51,7 +51,7 @@ async function download(id: string, animated: boolean, file: string): Promise<Im
     fs.writeFileSync(file, data);
     return { data, animated };
   } catch (error) {
-    log.warn(`앱 이모지 이미지 다운로드 실패(대시보드에 그 이모지가 빈 칸으로 보입니다): ${id}: ${messageOf(error)}`);
+    log.warn(`앱 이모지 이미지 다운로드 실패(대시보드에 그 이모지가 빈 칸으로 보임): ${id}: ${messageOf(error)}`);
     return null;
   }
 }

@@ -35,7 +35,7 @@ async function pick(codec: LoginBackgroundCodec): Promise<LoginBackgroundEncoder
     if (result.ok) return { codec, encoder: candidate.encoder, hardware: candidate.hardware, why };
     if (!ABSENT.test(result.reason)) why ??= `${candidate.encoder}: ${result.reason}`;
   }
-  return { codec, encoder: null, hardware: false, why: why ?? "쓸 수 있는 인코더가 없습니다" };
+  return { codec, encoder: null, hardware: false, why: why ?? "쓸 수 있는 인코더가 없음" };
 }
 
 async function check() {
@@ -43,7 +43,7 @@ async function check() {
   for (const codec of LOGIN_BG_CODECS) picked.push(await pick(codec));
   encoders = picked;
   animatedWebp = await readsAnimatedWebp();
-  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못합니다(ffmpeg 9.0 이상 필요)"}`);
+  log.info(`로그인 배경 인코더: ${picked.map((one) => `${one.codec} ${one.encoder ?? "없음"}`).join(", ")}${animatedWebp ? "" : ". 움직이는 WebP를 읽지 못함(ffmpeg 9.0 이상 필요)"}`);
   for (const one of picked) if (one.why) log.warn(`로그인 배경 ${one.codec}: ${one.why}`);
 }
 

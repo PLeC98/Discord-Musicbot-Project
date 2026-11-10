@@ -118,7 +118,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   function run(newPort: boolean) {
     starting = launch(newPort).catch((error: unknown) => {
       current = null;
-      log.error({ sub: "bgutil" }, `POToken 서버를 실행하지 못해 POToken 없이 진행합니다: ${messageOf(error)}`);
+      log.error({ sub: "bgutil" }, `POToken 서버 실행 실패(POToken 없이 진행): ${messageOf(error)}`);
     });
     return starting;
   }
@@ -130,12 +130,12 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     // 꺼 두었으면 조용히 넘어간다. 인증 없는 로컬 HTTP 서버를 상시 실행하지 않는 것이
     // 이 설정의 목적이다.
     if (!config.bgutil.enabled) {
-      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있습니다. POToken 서버를 실행하지 않고 진행합니다.");
+      if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있음(POToken 서버를 실행하지 않고 진행)");
       return;
     }
     // 켜 두었는데 설치돼 있지 않으면 error 로 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
-      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않습니다(pnpm run install:bgutil). POToken 없이 진행합니다");
+      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행). pnpm run install:bgutil로 설치하세요");
       return;
     }
     if (newPort || port === null) port = await freePort();
@@ -158,22 +158,22 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       proc = null;
       if (stopping) return;
       if (code === CONSOLE_EXIT) {
-        log.debug({ sub: "bgutil" }, "POToken 서버가 콘솔 종료 신호로 끝났습니다. 봇도 곧 끝나므로 다시 실행하지 않습니다");
+        log.debug({ sub: "bgutil" }, "POToken 서버가 콘솔 종료 신호로 끝남(봇도 곧 끝나므로 다시 실행하지 않음)");
         return;
       }
       // 포트를 열지 못해 끝났다(받은 빈 포트를 그 사이 남이 잡았다). 새 포트로 곧바로 다시
       if (bindFailed && code === 1) {
         if (++bindFailures >= BIND_TRIES) {
           current = null;
-          log.error({ sub: "bgutil" }, `POToken 서버가 빈 포트를 ${BIND_TRIES}번 연달아 열지 못해 다시 실행하지 않습니다. POToken 없이 진행합니다`);
+          log.error({ sub: "bgutil" }, `POToken 서버가 빈 포트를 ${BIND_TRIES}번 연달아 열지 못해 다시 실행하지 않음(POToken 없이 진행)`);
           return;
         }
-        log.debug({ sub: "bgutil" }, `포트 ${String(port)}를 열지 못해 새 포트로 POToken 서버를 다시 실행합니다`);
+        log.debug({ sub: "bgutil" }, `포트 ${String(port)}번을 열지 못해 새 포트로 POToken 서버 다시 실행`);
         void run(true);
         return;
       }
       bindFailures = 0;
-      log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 재시작합니다`);
+      log.warn({ sub: "bgutil" }, `POToken 서버 비정상 종료 (code=${code ?? "없음"}), 5초 후 다시 시작`);
       setTimeout(() => void run(false), RESTART_MS);
     });
     log.debug({ sub: "bgutil" }, `POToken 서버 시작(포트 ${port})`);
@@ -223,7 +223,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
-    log.warn({ sub: "bgutil" }, `POToken 서버가 ${timeoutMs / 1000}초 안에 응답하지 않아 POToken 없이 봇을 기동합니다.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
+    log.warn({ sub: "bgutil" }, `POToken 서버가 ${timeoutMs / 1000}초 안에 응답하지 않아 POToken 없이 봇 기동.${lastError ? ` 마지막 확인: ${lastError}` : ""}`);
     return false;
   }
 

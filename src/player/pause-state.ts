@@ -18,7 +18,7 @@ class PauseState {
     this.#changed = changed;
   }
 
-  /** 사람이 멈춰 뒀나(저장된다) */
+  /** 사람이 일시정지했나(저장된다) */
   get userPaused() {
     return this.#user;
   }

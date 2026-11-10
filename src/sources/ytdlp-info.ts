@@ -1,4 +1,4 @@
-// yt-dlp JSON 경계. 쓰는 필드만 추출하고 나머지는 흘려보낸다.
+// yt-dlp JSON 경계. 쓰는 필드만 추출하고 나머지는 버린다.
 // 필드 하나의 모양이 바뀌면(yt-dlp 가 필드를 바꾸면) 그 필드만 버리고 한 번 알린다. 곡 하나를 통째로 버리지 않는다.
 
 import { z } from "zod";
@@ -11,7 +11,7 @@ function field<T extends z.ZodType>(name: string, schema: T) {
   return schema.nullish().catch((ctx: { input: unknown }) => {
     if (!reported.has(name)) {
       reported.add(name);
-      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다릅니다(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속합니다`);
+      log.warn(`yt-dlp 응답의 ${name} 필드 형식이 예상과 다름(받은 타입: ${typeof ctx.input}). 이 필드를 제외하고 계속`);
     }
     return undefined;
   });

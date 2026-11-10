@@ -1,4 +1,4 @@
-// 앨범아트, 태그가 붙은 MP3 시료(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 테스트가 건너뛴다.
+// 앨범아트, 태그가 붙은 MP3 픽스처(ffmpeg 로 만든다). ffmpeg 가 없으면 null 이라 부르는 테스트가 건너뛴다.
 // 파일 태그 앨범아트를 기억 모듈(sources/embedded-art)에 넣어 두는 것까지(remember)
 
 import fs from "node:fs";
@@ -40,7 +40,7 @@ function taggedMp3(): Promise<Buffer | null> {
   return made;
 }
 
-/** 이 주소의 음원 파일 태그, 앨범아트를 기억 모듈에 넣어 둔다. 시료를 만들 수 없으면 false */
+/** 이 주소의 음원 파일 태그, 앨범아트를 기억 모듈에 넣어 둔다. 픽스처를 만들 수 없으면 false */
 async function remember(url: string): Promise<boolean> {
   const mp3 = await taggedMp3();
   if (!mp3) return false;

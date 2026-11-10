@@ -17,7 +17,7 @@ function watchGoneGuilds(client: GoneClient) {
     // 그 샤드의 서버만(다른 샤드의 서버는 그 샤드의 READY 가 본다)
     const gone = [...client.guilds.cache.values()].filter((guild) => guild.shardId === shardId && !present.has(guild.id));
     for (const guild of gone) {
-      log.info(`끊긴 동안 나간 서버를 정리합니다: ${guild.name} (${guild.id})`);
+      log.info(`끊긴 동안 나간 서버 정리: ${guild.name} (${guild.id})`);
       client.emit(Events.GuildDelete, guild);
       for (const id of guild.channels.cache.keys()) client.channels.cache.delete(id);
       client.guilds.cache.delete(guild.id);

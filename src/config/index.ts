@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import { isIP } from "net";
 import pkg from "../../package.json" with { type: "json" };
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -94,8 +95,8 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됐습니다 (${String(value)}): ${reason}.`);
-    else problems.push(`.env의 ${key} 값이 잘못됐습니다 (${String(value)}): ${reason}. 고친 뒤 다시 실행하세요.`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됨(${String(value)}): ${reason}`);
+    else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
     return def;
   }
 
@@ -104,7 +105,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = v.trim().toLowerCase();
-    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 합니다", def);
+    return lower === "true" ? true : lower === "false" ? false : invalid(key, v, "true, false 중 하나여야 함", def);
   }
 
   // 조절값(rules/tunables)을 그 형식, 범위, 기본값으로 읽는다
@@ -119,7 +120,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const lower = String(v).trim().toLowerCase();
-    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 합니다`, def);
+    return allowed.find((one) => one === lower) ?? invalid(key, v, `${allowed.join(", ")} 중 하나여야 함`, def);
   }
 
   // parseInt는 "120junk"를 120으로 삼킨다. 숫자만 있는지 먼저 보고, 범위와 안전 정수까지 확인한다.
@@ -128,12 +129,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (v === null) return def;
 
     const raw = String(v).trim();
-    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있습니다", def);
+    if (!/^-?\d+$/.test(raw)) return invalid(key, v, "정수만 쓸 수 있음", def);
 
     const n = Number(raw);
-    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수입니다", def);
-    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 합니다`, def);
-    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 합니다`, def);
+    if (!Number.isSafeInteger(n)) return invalid(key, v, "다룰 수 있는 범위를 넘는 수", def);
+    if (min !== undefined && n < min) return invalid(key, v, `${min} 이상이어야 함`, def);
+    if (max !== undefined && n > max) return invalid(key, v, `${max} 이하여야 함`, def);
     return n;
   }
 
@@ -148,10 +149,27 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     try {
       parsed = new URL(v);
     } catch {
-      return invalid(key, v, "주소 형식이 아닙니다 (예: https://example.com)", def);
+      return invalid(key, v, "주소 형식이 아님(예: https://example.com)", def);
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있습니다", def);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return invalid(key, v, "http, https 주소만 쓸 수 있음", def);
     return v;
+  }
+
+  // 브라우저가 여는 주소의 origin(scheme, 호스트, 포트). 경로, 사용자 정보, ?, #이 있으면 받지 않는다(콜백, 쿠키, Host 확인이 origin만 쓴다)
+  function envOrigin(key: string, def: string) {
+    const v = envUrl(key, def);
+    const parsed = new URL(v);
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || /[?#]/.test(v)) return invalid(key, v, "경로, 사용자 정보, ?, # 없이 주소만 적으세요 (예: https://example.com, http://bot.example.com:33333)", def);
+    return v;
+  }
+
+  // 여는 주소 하나: IP(0.0.0.0, :: 포함)나 localhost. 비우면 null
+  function envAddress(key: string) {
+    const v = env(key);
+    if (v === null) return null;
+    const text = v.trim();
+    if (text === "localhost" || isIP(text)) return text;
+    return invalid(key, v, "IP 주소(0.0.0.0, :: 포함)나 localhost만 쓸 수 있음", null);
   }
 
   // 임베드 색. 틀린 값을 그대로 두면 임베드를 보낼 때마다 던진다
@@ -159,12 +177,12 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     const v = env(key);
     if (v === null) return def;
     const color = v.trim();
-    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 합니다 (예: #2743D2)", def);
+    return isHexColor(color) ? color : invalid(key, v, "#RRGGBB 형식의 색이어야 함(예: #2743D2)", def);
   }
 
   function envQueueMax(key: string, def: number) {
     const n = envInt(key, def, { min: 0 });
-    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 합니다`, def);
+    if (n !== 0 && n < QUEUE_MAX_FLOOR) return invalid(key, n, `0(끔)이거나 ${QUEUE_MAX_FLOOR} 이상이어야 함`, def);
     return n;
   }
 
@@ -172,7 +190,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envYtdlpVersion(key: string) {
     const v = env(key);
     if (v === null || !v.trim()) return null;
-    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 합니다", null);
+    return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 함", null);
   }
 
   // 쿠키 출처. file 이거나 yt-dlp 의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
@@ -181,16 +199,16 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
   function envCookies(key: string) {
     const v = String(env(key) || "").trim();
     if (!v || v.toLowerCase() === "file" || COOKIE_BROWSERS.some((one) => one === cookieBrowserOf(v))) return v;
-    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 합니다`, "");
+    return invalid(key, v, `file 또는 브라우저 이름(${COOKIE_BROWSERS.join(", ")})이어야 함`, "");
   }
 
   function envClients(key: string) {
     const list = parseClients(env(key));
     const bad = list.filter((name) => !CLIENT_NAME.test(name));
-    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있습니다", []) : list;
+    return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
   }
 
-  return { env, envEnum, envInt, envUrl, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
+  return { env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText };
 }
 
 function resolveFromRoot(p: string): string;
@@ -224,7 +242,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   const problems: string[] = [];
   const warnings: string[] = [];
   const tuneProblems: string[] = [];
-  if (!envFileFound) problems.push(".env 파일이 없습니다. 봇을 실행하면 .env.example 로 만들고 비밀 키를 채웁니다. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요.");
+  if (!envFileFound) problems.push(".env 파일이 없음. 봇을 실행하면 .env.example로 만들고 비밀 키를 채움. 그 뒤 파일 안의 주석을 참고해 [필수] 값을 채우세요");
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
@@ -240,15 +258,15 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   }
   // 비밀값 암호화 키. 대시보드에 저장하는 비밀값(바깥 서비스 키, 쿠키)을 이것으로 암호화한다(store/secrets). 바꾸면 저장한 비밀값을 복호화하지 못한다
   const secretsKey = env("SECRETS_KEY");
-  const remake = `만들기: ${SECRETS_KEY_COMMAND} 의 출력을 .env 의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 못 풀어 다시 입력해야 합니다.`;
-  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY 가 비어 있습니다(비밀값 암호화 키). ${remake}`);
-  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env 의 SECRETS_KEY 가 base64 로 적은 32바이트가 아닙니다. ${remake}`);
+  const remake = `만들기: ${SECRETS_KEY_COMMAND}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`;
+  if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`);
+  else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`);
   if (!env("OWNER_ID")) {
-    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system 에 아무도 들어갈 수 없습니다.");
+    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음");
   }
   // 대시보드(운영자 패널)로 옮긴 값. .env 에 남아 있어도 쓰지 않는다. 입력할 탭마다 알린다
   const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
-  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env 의 ${names.join(", ")} 는 이제 쓰지 않습니다. 운영자 패널의 ${tab} 탭에서 입력하고 .env 에서 삭제하세요.`);
+  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env의 ${names.join(", ")}는 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
 
   // 쿠키 출처(file 이거나 브라우저). 모양은 envCookies 가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
@@ -352,14 +370,20 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그. 한 함수가 너무 길어 나눴다
-function serviceConfig({ env, envInt, envEnum, envUrl, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
+function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
       port: dashboardPort,
-      // 바인딩 주소. 기본은 루프백. 모르는 사이에 외부로 열려 있는 상태를 만들지 않는다.
-      // 다른 기기에서 접속하려면 0.0.0.0 (HTTPS 리버스 프록시 뒤에 두는 것을 전제).
-      host: env("DASHBOARD_HOST", "127.0.0.1"),
-      url: envUrl("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+      // 여는 주소. 비우면 공개 주소, 컨테이너, 인증서 파일로 정한다(dashboard/bind-plan). 다른 기기의 프록시, 네트워크 인터페이스 하나에만 열 때, host 네트워크의 컨테이너
+      host: envAddress("DASHBOARD_HOST"),
+      // 추가로 신뢰할 원격 프록시(공인 IP나 CIDR을 쉼표로 구분한 목록). 내부 주소(loopback, 사설망, 이 기기의 주소)는 넣지 않아도 신뢰한다(dashboard/client-ip)
+      trustProxy: env("DASHBOARD_TRUST_PROXY", ""),
+      url: envOrigin("DASHBOARD_URL", `http://localhost:${dashboardPort}`),
+      // 인터넷 평문 접속을 막지 않는다(dashboard/plaintext). .env에서만 켠다(대시보드에서 못 바꿔 훔친 세션이 보안을 낮추지 못한다)
+      allowPlaintext: envBool("DASHBOARD_ALLOW_PLAINTEXT", false),
+      // 인증서 파일 경로(.env가 있는 폴더 기준). 둘 다 비우면 certs/cert.pem, certs/key.pem을 본다(dashboard/tls-files)
+      tlsCert: env("DASHBOARD_TLS_CERT"),
+      tlsKey: env("DASHBOARD_TLS_KEY"),
       ownerId: env("OWNER_ID"),
       // Vite 개발 서버(5173)를 CORS 허용 목록에 넣을지. `pnpm run dev`가 켠다. 평상시 실행은 닫힌다.
       devOrigin: env("DASHBOARD_DEV_ORIGIN") === "true",

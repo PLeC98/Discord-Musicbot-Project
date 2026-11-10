@@ -32,7 +32,7 @@ test("READY 에 없는 서버는 GuildDelete 핸들러에 보내고 캐시(서�
   assert.deepEqual([...client.guilds.cache.keys()], ["kept", "unavailable"]);
   assert.equal(client.channels.cache.has("ch-gone"), false);
   assert.ok(
-    sink.buffer.slice(from).some((e) => e.level === "info" && e.text.includes("끊긴 동안 나간 서버를 정리합니다: 서버 gone (gone)")),
+    sink.buffer.slice(from).some((e) => e.level === "info" && e.text.includes("끊긴 동안 나간 서버 정리: 서버 gone (gone)")),
     "빼는 서버를 남긴다",
   );
 });

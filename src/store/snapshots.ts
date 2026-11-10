@@ -16,7 +16,7 @@ import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 const KEEP_DAILY = 7;
 const KEEP_OTHERS = 5;
 const CHECK_MS = 60 * 60_000;
-// 뜨다 멈춰 남은 .part 를 이만큼 지나면 지운다(뜨는 중인 것은 건드리지 않게)
+// 뜨다 멈춰 남은 .part를 이만큼 지나면 삭제한다(뜨는 중인 것은 건드리지 않게)
 const STALE_PART_MS = 60 * 60_000;
 const NAME = /^settings-(daily|before-import|before-restore|before-reset)-[0-9-]+\.db$/;
 const STAGED = "settings.restore.db";
@@ -51,8 +51,8 @@ function list(dir = dbDir()): Snapshot[] {
 }
 
 /**
- * backups/ 에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 뜨는 동안의 <이름>.part 를 빈 파일로 잡아 겹쳐 뜨는 것끼리도 갈린다.
- * 다 뜨면 부르는 쪽이 .part 를 그 이름으로 바꾼다(멈춰도 목록에는 반쯤 뜬 것이 없다)
+ * backups/에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 뜨는 동안의 <이름>.part를 빈 파일로 잡아 겹쳐 뜨는 것끼리도 구분된다.
+ * 다 뜨면 부르는 쪽이 .part를 그 이름으로 바꾼다(멈춰도 목록에는 반쯤 뜬 것이 없다)
  */
 function claim(folder: string, base: string): string {
   for (let n = 1; ; n++) {
@@ -69,51 +69,100 @@ function claim(folder: string, base: string): string {
   }
 }
 
-// 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로). 뜨다 멈춰 남은 .part 도
-function prune(dir: string, now = Date.now()) {
-  const all = list(dir);
-  const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
-  const folder = backupsOf(dir);
-  for (const one of extra) fs.rmSync(path.join(folder, one.name), { force: true });
-  for (const name of fs.readdirSync(folder)) {
-    if (!name.endsWith(".db.part")) continue;
-    const file = path.join(folder, name);
-    const stat = fs.statSync(file, { throwIfNoEntry: false });
-    if (stat && now - stat.mtimeMs > STALE_PART_MS) fs.rmSync(file, { force: true });
+// 파일을 삭제한다. 삭제하지 못하면(Windows에서 다른 프로그램이 열어 둠. force는 없는 것만 넘긴다) 남기고 알린다. 다음 정리가 다시 삭제한다
+function removeQuietly(file: string) {
+  try {
+    fs.rmSync(file, { force: true });
+  } catch (error) {
+    log.warn(`옛 스냅샷 삭제 실패(다음에 다시 삭제): ${path.basename(file)} | ${messageOf(error)}`);
   }
 }
 
-/** 지금 settings.db 를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다) */
-async function take(kind: SnapshotKind, at = new Date()): Promise<string> {
+// 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로). 보조 파일(-wal, -shm), 뜨다 멈춰 남은 .part도.
+// 이미 끝낸 일(뜨기, 교체) 뒤에 부르므로 던지지 않는다. backups/가 없으면(새 PC에 푼 전체 백업) 할 일이 없다
+function prune(dir: string, now = Date.now()) {
+  const folder = backupsOf(dir);
+  try {
+    if (!fs.existsSync(folder)) return;
+    const all = list(dir);
+    const extra = [...all.filter((one) => one.kind === "daily").slice(KEEP_DAILY), ...all.filter((one) => one.kind !== "daily").slice(KEEP_OTHERS)];
+    for (const one of extra) for (const side of ["", "-wal", "-shm"]) removeQuietly(path.join(folder, one.name + side));
+    for (const name of fs.readdirSync(folder)) {
+      const file = path.join(folder, name);
+      // 본 파일이 없는 보조 파일(보조 파일을 남기고 삭제했던 것, 뜨다 멈춘 .part의 것)
+      const main = /^(.+\.db(?:\.part)?)-(?:wal|shm|journal)$/.exec(name)?.[1];
+      if (main && !fs.existsSync(path.join(folder, main))) removeQuietly(file);
+      if (!name.endsWith(".db.part")) continue;
+      const stat = fs.statSync(file, { throwIfNoEntry: false });
+      if (stat && now - stat.mtimeMs > STALE_PART_MS) removeQuietly(file);
+    }
+  } catch (error) {
+    log.warn(`옛 스냅샷 정리 실패(다음에 다시 정리): ${messageOf(error)}`);
+  }
+}
+
+/**
+ * 뜬 파일(스냅샷, 전체 백업 안의 DB 사본)의 WAL 표시를 지운다. 그대로면 읽기 전용으로 열 때마다(복원 예약의 구조 확인, 사용자의 뷰어) -wal, -shm이 생겨 남는다.
+ * 닫은 뒤에 이름을 바꾼다. WAL 표시를 지우지 못해도 사본은 온전하다(보조 파일이 생길 수 있을 뿐). 복원한 DB는 열 때 다시 WAL이 된다
+ */
+function dropWal(file: string) {
+  try {
+    const db = new Database(file, { fileMustExist: true });
+    try {
+      db.pragma("journal_mode = DELETE");
+    } finally {
+      db.close();
+    }
+  } catch (error) {
+    log.warn(`DB 사본의 저널 방식 변경 실패(읽기 전용으로 열면 -wal, -shm 파일이 생길 수 있음): ${path.basename(file)} | ${messageOf(error)}`);
+  }
+}
+
+/**
+ * 지금 settings.db를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다).
+ * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). false면 부르는 쪽이 교체를 확정한 뒤 tidy()를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 삭제하지 않게)
+ */
+async function take(kind: SnapshotKind, at = new Date(), { tidy: tidyAfter = true }: { tidy?: boolean } = {}): Promise<string> {
   const dir = dbDir();
   const folder = backupsOf(dir);
   fs.mkdirSync(folder, { recursive: true });
   const name = kind === "daily" ? `settings-daily-${day(at)}.db` : claim(folder, `settings-${kind}-${stamp(at)}`);
   const file = path.join(folder, name);
+  // 매일 것은 이름을 잡지 않으니 .part를 여기서 소유자만 읽게 만든다. 뜨다 죽어 남은 것은 비운다(wx면 그것에 막혀 매일 뜨기가 멈춘다)
+  if (kind === "daily") {
+    fs.closeSync(fs.openSync(`${file}.part`, "w", 0o600));
+    ownerOnly(`${file}.part`);
+  }
   // 다 뜬 뒤에 그 이름으로(뜨다 멈춰도 반쯤 뜬 파일이 목록에 남지 않는다)
   try {
     await settingsDb.get().backup(`${file}.part`);
+    dropWal(`${file}.part`);
     fs.renameSync(`${file}.part`, file);
   } catch (error) {
     fs.rmSync(`${file}.part`, { force: true });
     throw error;
   }
   ownerOnly(file);
-  prune(dir);
+  if (tidyAfter) prune(dir);
   return name;
+}
+
+/** 오래된 스냅샷을 삭제한다(take를 tidy 없이 부른 뒤) */
+function tidy() {
+  prune(dbDir());
 }
 
 /** 오늘 것이 없으면 뜬다 */
 async function ensureDaily(at = new Date()) {
   if (list().some((one) => one.name === `settings-daily-${day(at)}.db`)) return null;
   const name = await take("daily", at);
-  log.info(`설정 DB 스냅샷을 남겼습니다: ${name}`);
+  log.info(`설정 DB 스냅샷 기록: ${name}`);
   return name;
 }
 
 /** 기동 시. 오늘 것을 뜨고 한 시간마다 살핀다(자정을 넘겨 돌아도 하루 한 번) */
 function startDaily() {
-  const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅샷을 남기지 못했습니다: ${messageOf(error)}`));
+  const check = () => ensureDaily().catch((error: unknown) => log.warn(`설정 DB 스냅샷 기록 실패: ${messageOf(error)}`));
   void check();
   timer = setInterval(() => void check(), CHECK_MS);
   timer.unref();
@@ -129,7 +178,7 @@ function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
     const found = db.pragma("user_version", { simple: true }) as number;
-    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", `구조 버전이 다른 스냅샷입니다(v${found}, 봇 v${VERSION}).`);
+    if (found !== VERSION) throw codedError("SNAPSHOT_MISMATCH", `구조 버전이 다른 스냅샷(v${found}, 봇 v${VERSION})`);
     db.prepare("SELECT COUNT(*) FROM documents").get();
   } finally {
     db.close();
@@ -140,7 +189,7 @@ function checkSnapshot(file: string) {
 function stage(name: string) {
   const dir = dbDir();
   const found = NAME.test(name) ? list(dir).find((one) => one.name === name) : undefined;
-  if (!found) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷입니다: ${name}`);
+  if (!found) throw codedError("SNAPSHOT_NOT_FOUND", `없는 스냅샷: ${name}`);
   const from = path.join(backupsOf(dir), found.name);
   checkSnapshot(from);
   const to = path.join(dir, STAGED);
@@ -169,8 +218,8 @@ function staged(dir = dbDir()): string | null {
   }
 }
 
-// 교체하기 전의 settings.db 를 before-restore 로 남긴다. SQLite 를 거쳐 읽어(-wal 의 내용까지) 한 파일로 쓴다.
-// 다른 프로그램이 읽고 있어 -wal 을 본체에 접지 못해도 같다. 깨진 파일이라 읽지 못하면(복원이 가장 필요한 때) 있는 그대로 복사한다
+// 교체하기 전의 settings.db를 before-restore로 남긴다. SQLite를 거쳐 읽어(-wal의 내용까지) 한 파일로 쓴다.
+// 다른 프로그램이 읽고 있어 -wal을 본 파일에 병합하지 못해도 같다. 깨진 파일이라 읽지 못하면(복원이 가장 필요한 때) 있는 그대로 복사한다
 function keepCurrent(dir: string, current: string) {
   const folder = backupsOf(dir);
   fs.mkdirSync(folder, { recursive: true });
@@ -182,8 +231,9 @@ function keepCurrent(dir: string, current: string) {
     } finally {
       db.close();
     }
+    dropWal(`${kept}.part`);
   } catch (error) {
-    log.warn(`교체할 설정 DB 를 읽지 못해 파일 그대로 남깁니다: ${messageOf(error)}`);
+    log.warn(`교체할 설정 DB 읽기 실패(파일 그대로 남김): ${messageOf(error)}`);
     fs.copyFileSync(current, `${kept}.part`);
   }
   fs.renameSync(`${kept}.part`, kept);
@@ -202,7 +252,7 @@ function applyStaged(dir: string): string | null {
   try {
     checkSnapshot(path.join(dir, STAGED));
   } catch (error) {
-    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 을 교체하지 않았습니다: ${messageOf(error)} 그 버전의 봇으로 시작하거나 database/${STAGED} 를 삭제하세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 건너뜀: ${messageOf(error)}. 그 버전의 봇으로 시작하거나 database/${STAGED}를 삭제하세요`), { dbFile: "settings.db" });
   }
   try {
     if (fs.existsSync(current)) keepCurrent(dir, current);
@@ -212,11 +262,11 @@ function applyStaged(dir: string): string | null {
     for (const leftover of [`${STAGED}-wal`, `${STAGED}-shm`]) fs.rmSync(path.join(dir, leftover), { force: true });
   } catch (error) {
     // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 삭제하지 못한다. 예약은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 을 교체하지 못했습니다: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
+    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 실패: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);
   return from;
 }
 
-export { list, take, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };
+export { list, take, tidy, ensureDaily, startDaily, stopDaily, stage, unstage, staged, applyStaged, dropWal, KEEP_DAILY, KEEP_OTHERS, STALE_PART_MS };

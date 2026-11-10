@@ -32,11 +32,11 @@ const EXPECTED = [
   },
   {
     name: "📡 채널 & 세션",
-    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/247`: 상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요 🛡️", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
+    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/247`: 상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
   },
   {
     name: "📊 봇 정보",
-    lines: ["`/ping`: 봇의 응답 시간을 측정해요 🛡️", "`/system`: 봇의 시스템 정보를 보여줘요 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 (봇 운영자)", "`/license`: 라이선스와 소스 코드 저장소를 표시해요"],
+    lines: ["`/ping`: 봇의 응답 시간을 측정해요", "`/system`: 봇의 시스템 정보를 보여줘요 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 (봇 운영자)", "`/license`: 라이선스와 소스 코드 저장소를 표시해요"],
   },
   {
     name: "🌐 지원 플랫폼",
@@ -70,14 +70,14 @@ test("help 를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 
 test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 명령(default_member_permissions)과 같다', () => {
   for (const command of COMMANDS) {
     const gated = Boolean(command.data.toJSON().default_member_permissions);
-    assert.equal(command.help?.tier === "moderator", gated, command.data.name);
+    assert.equal(command.help?.tier === "server-manager", gated, command.data.name);
   }
 });
 
 test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완성이 보인다). 권한 표시를 끝에 붙인다", () => {
   const [section] = helpSections([
     { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
-    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "moderator" } },
+    { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "server-manager" } },
     { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ]);
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);

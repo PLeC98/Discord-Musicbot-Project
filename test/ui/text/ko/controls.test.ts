@@ -87,7 +87,7 @@ test("제목 없는 곡은 알 수 없는 곡으로 적고, 조사도 그 글자
   assert.deepEqual(controls.paused(true, { title: null, pageUrl: "https://example.com/v" }), { icon: "pause", title: "일시정지했어요!", body: "**[알 수 없는 곡](https://example.com/v)**을 일시정지했어요." });
 });
 
-test("억제 사유로 소리가 함께 멈춰 있으면: 멈춰 둘 때는 풀려도 멈춘 채, 풀 때는 지금 멈춘 까닭과 언제 이어 트는지", () => {
+test("억제 사유로 소리가 함께 멈춰 있으면: 일시정지할 때는 풀려도 멈춘 채, 재개할 때는 지금 멈춘 까닭과 언제 이어 트는지", () => {
   const track = { title: "곡", pageUrl: "u" };
   assert.deepEqual(
     (["mute", "stage", "alone"] as const).map((held) => controls.paused(true, track, held).body),

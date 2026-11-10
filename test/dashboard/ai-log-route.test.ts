@@ -95,6 +95,7 @@ test("SSE 연결: 새 기록을 서버 이름과 저장 상태를 붙여 보내�
   const controller = new AbortController();
   const res = await fetch(`${base}/logs/stream?after=${missed.id - 1}`, { signal: controller.signal });
   assert.equal(res.status, 200);
+  assert.equal(res.headers.get("connection"), "close", "연결을 끊을 때 그 소켓을 강제로 닫으므로 재사용하지 않게 한다");
   const reader = res.body!.getReader();
   const decoder = new TextDecoder();
   let text = "";
@@ -108,4 +109,71 @@ test("SSE 연결: 새 기록을 서버 이름과 저장 상태를 붙여 보내�
   const pushed = JSON.parse(frame.split("data: ")[1]) as AiLogPushed;
   assert.deepEqual([pushed.entry.genre, pushed.entry.guildName, pushed.total], ["jazz", "음악 감상실", 2]);
   controller.abort();
+});
+
+test("SSE 연결: 재연결할 때 보내는 놓친 줄은 바이트 크기로도 제한한다(줄 요약의 글은 길이가 일정하지 않다)", async () => {
+  requests.clearRequests();
+  const first = add({ genre: "x".repeat(8 * 1024) });
+  for (let i = 0; i < 150; i++) add({ genre: "x".repeat(8 * 1024) });
+  const controller = new AbortController();
+  const res = await fetch(`${base}/logs/stream?after=${first.id - 1}`, { signal: controller.signal });
+  const reader = res.body!.getReader();
+  let bytes = 0;
+  let text = "";
+  const decoder = new TextDecoder();
+  const deadline = Date.now() + 1000;
+  while (Date.now() < deadline) {
+    const got = await Promise.race([reader.read(), new Promise<null>((done) => setTimeout(() => done(null), 200))]);
+    if (!got || got.done) break;
+    bytes += got.value.length;
+    text += decoder.decode(got.value, { stream: true });
+  }
+  controller.abort();
+  assert.match(text, /event: gap\n/, "못 보낸 줄이 있다고 알린다(화면이 목록을 다시 읽는다)");
+  assert.ok(bytes > aiLogStream.RESUME_MAX_BYTES / 2 && bytes <= aiLogStream.RESUME_MAX_BYTES + 16 * 1024, `${bytes}B`);
+});
+
+test("SSE 연결: 읽지 않아 쌓인 양이 상한을 넘으면 쓰지 않고 소켓까지 강제로 닫는다(하트비트, 새 줄 모두)", (t) => {
+  t.mock.timers.enable({ apis: ["setInterval"] });
+  const handlers: Record<string, () => void> = {};
+  let destroyed = false;
+  const res = fake<import("express").Response>({
+    writableLength: aiLogStream.MAX_PENDING_BYTES + 1,
+    writeHead() {},
+    flushHeaders() {},
+    write() {
+      throw new Error("쓰면 안 된다");
+    },
+    destroy() {
+      destroyed = true;
+    },
+    on(event: string, fn: () => void) {
+      handlers[event] = fn;
+    },
+  });
+  aiLogStream.stop();
+  aiLogStream.start((entry) => entry);
+  assert.equal(aiLogStream.addClient(res, "slow", 0), true);
+  t.mock.timers.tick(60_000);
+  assert.equal(destroyed, true);
+});
+
+test("SSE 연결: 놓친 줄이 줄 수 상한(200)보다 많아도 gap으로 알리고, 그 번호를 실어 재연결할 때 이전 줄이 다시 오지 않게 한다", async () => {
+  requests.clearRequests();
+  const first = add();
+  let newest = first;
+  for (let i = 0; i < aiLogStream.RESUME_MAX + 20; i++) newest = add();
+  const controller = new AbortController();
+  const res = await fetch(`${base}/logs/stream?after=${first.id - 1}`, { signal: controller.signal });
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  const deadline = Date.now() + 1000;
+  while (!/event: gap\n/.test(text) && Date.now() < deadline) {
+    const got = await Promise.race([reader.read(), new Promise<null>((done) => setTimeout(() => done(null), 200))]);
+    if (!got || got.done) break;
+    text += decoder.decode(got.value, { stream: true });
+  }
+  controller.abort();
+  assert.match(text, new RegExp(`id: ${newest.id}\nevent: gap\n`));
 });

@@ -1,4 +1,5 @@
-// 요청 한 곳. 화면의 모든 axios 요청이 이 가로채기를 거친다: CSRF 토큰, 토큰 거절 뒤 한 번 다시 보내기, 세션 끝, 시간 한도
+// 공통 요청 모듈이다. 화면의 모든 axios 요청이 이 인터셉터를 거친다: CSRF 토큰, 토큰 거절 시 1회 재전송, 세션 만료, 타임아웃,
+// 현재 탭의 사용자 ID(X-Dashboard-User. 다른 탭에서 다른 계정으로 로그인했으면 서버가 409 account-changed로 거절하고, 그 뒤로는 요청을 보내지 않는다)를 처리한다.
 // 시간 한도는 종류별이다. 기본은 조작, 읽기, 저장(10초), 부르기, 곡 추가, 더 넣기와 운영자의 오래 걸리는 일은 120초,
 // 바깥 AI 를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
@@ -69,7 +70,21 @@ export function failureKind(error: unknown): FailureKind | null {
  *   다시 로그인을 마치면 true 로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false 면 거절대로 실패한다
  * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
  */
-export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void }): void {
+/**
+ * user: 현재 탭의 사용자 id다(모르면 null). onAccountChanged: account-changed를 받았을 때 호출한다. switched: 계정 변경으로 요청이 차단됐는지 반환한다(계정 확인 요청과 로그아웃만 보낸다)
+ */
+type AccountHooks = { user?: () => string | null; onAccountChanged?: () => void; switched?: () => boolean };
+
+// 계정 확인 요청과 로그아웃은 사용자 ID를 싣지 않고, 차단된 상태에서도 보낸다. CSRF 토큰 요청에도 사용자 ID를 싣지 않는다(토큰을 쓰는 요청에서 싣는다)
+const UNBOUND = /^\/(?:api\/me|auth\/logout)(?:[?#]|$)/;
+const TOKEN = /^\/api\/csrf-token(?:[?#]|$)/;
+
+// 차단되어 보내지 않은 요청이다. 요청 취소(ERR_CANCELED)와 같게 다뤄 알림을 표시하지 않는다(계정 변경 대화상자에서 알린다)
+function blockedError(request: InternalAxiosRequestConfig) {
+  return Object.assign(new Error("not sent: signed in as another account"), { code: "ERR_CANCELED", config: request });
+}
+
+export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void } & AccountHooks): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;
 
@@ -95,6 +110,19 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
       // 토큰을 못 받은 실패는 이 요청의 실패다(세션 끝이면 이 요청의 quietSession 을 따른다). 같은 토큰 요청을 기다린 다른 요청과 오류를 나눠 쓰지 않게 복사한다
       throw Object.assign(Object.create(Object.getPrototypeOf(error)), error, { config: request });
     }
+    // 토큰을 기다리는 사이 막혔다
+    if (switched() && !UNBOUND.test(request.url ?? "")) throw blockedError(request);
+    return request;
+  });
+
+  // 현재 탭의 사용자 ID를 헤더에 싣는다. 차단된 상태면 보내지 않는다. axios는 나중에 등록한 요청 인터셉터가 먼저 실행되므로 CSRF 토큰을 받으러 가기 전에 차단된다
+  // 토큰 받기는 막히지 않는다(로그아웃이 쓴다. 토큰을 쓰는 다른 요청은 여기서 먼저 막힌다)
+  http.interceptors.request.use((request) => {
+    const url = request.url ?? "";
+    if (UNBOUND.test(url) || TOKEN.test(url)) return request;
+    if (switched()) throw blockedError(request);
+    const id = user();
+    if (id) request.headers["X-Dashboard-User"] = id;
     return request;
   });
 
@@ -106,8 +134,8 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     async (error: unknown) => {
       const { response, config: request } = failedOf(error);
       if (response) response.data = await unblobbed(response.data);
-      if (failureKind(error) === "offline") onReach(false);
-      else if (response) onReach(true);
+      reached(error, Boolean(response));
+      if (accountChanged(response?.data)) return Promise.reject(error);
       // 토큰은 핸들러보다 앞에서 거절되므로 다시 보내도 같은 일이 두 번 되지 않는다. 새 토큰으로 정확히 한 번만
       if (problemCodeOf(response?.data) === "bad-csrf-token") {
         token = null;
@@ -117,6 +145,20 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
       return afterReauth(problemCodeOf(response?.data), request, error) ?? Promise.reject(error);
     },
   );
+
+  // 서버에 연결됐는지 알린다(응답이 왔거나 연결에 실패한 경우). 타임아웃이나 요청 취소는 알리지 않는다
+  function reached(error: unknown, answered: boolean) {
+    if (failureKind(error) === "offline") onReach(false);
+    else if (answered) onReach(true);
+  }
+
+  // 다른 탭에서 다른 계정으로 로그인했다. 가지고 있던 토큰은 이전 세션의 것이므로 버리고 이후 요청을 막는다
+  function accountChanged(data: unknown) {
+    if (problemCodeOf(data) !== "account-changed") return false;
+    token = null;
+    onAccountChanged();
+    return true;
+  }
 
   // reauth-required 면 다시 로그인을 마친 뒤 그 요청을 한 번 다시 보낸다(다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다). 해당 없으면 null
   function afterReauth(code: string | undefined, request: InternalAxiosRequestConfig | undefined, error: unknown) {

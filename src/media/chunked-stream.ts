@@ -3,19 +3,19 @@
 // googlevideo는 순차 GET을 재생 속도의 약 2배로 조이고(Range는 우회한다), 재생 속도 이하로 읽히는
 // 연결은 수십 초 안에 리셋한다. 그래서 청크 본문은 최대 속도로 받아 두고 공급만 소비 속도에 맞춘다.
 // 끊기면 onInterrupt에 먼저 묻고(호출부가 캐시로 넘겨받을 수 있다), 아니면 받은 위치부터 이어받는다.
-// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 흘리고, 끊긴 뒤에만 Range 로 잇는다.
-// 이을 때 처음 응답의 검사값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
-// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 흘린다(media/seek-start). 그때는 받은 첫 바이트가
+// 이미 열린 첫 응답(first, 직접 링크의 GET)을 받으면 그 본문을 끝까지 내보내고, 끊긴 뒤에만 Range 로 잇는다.
+// 이을 때 처음 응답의 검증값(ifRange)을 보내 파일이 바뀌었으면(200), 구간이 어긋나면, 전체 크기가 다르면 이어받기를 그만둔다.
+// 위치를 옮길 때는 목표 앞의 키프레임 바이트(startByte)부터 받고 그 앞에 파일의 헤더(prefix)를 내보낸다(media/seek-start). 그때는 받은 첫 바이트가
 // 그 키프레임인지(expectStart) 확인한 뒤에야 열렸다고 알리고, 색인 탓의 실패(seekMismatch)를 따로 표시해 여는 쪽이 처음부터 다시 열게 한다.
 
 import { Readable } from "stream";
-import { codeOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, codedError, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 
 const RETRY_DELAYS_MS = [500, 1000, 2000];
 const STALL_MS = 10_000;
-// 다 받았거나 실패한 요청의 응답을 닫는 사유. 오류가 아니라 받는 쪽(guardedRanges)이 본문을 오류 없이 닫는다
+// 다 받았거나 실패한 요청의 응답을 닫는 사유다. 오류가 아니므로 받는 쪽(guardedRanges)이 본문을 오류 없이 닫는다
 const RESPONSE_DONE = "응답을 다 썼다";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -41,7 +41,7 @@ type ChunkedOptions = {
   ifRange?: string | null;
   /** 첫 요청의 자리(파일 안의 바이트). 받은 양은 이 자리부터 센 절대 위치다 */
   startByte?: number;
-  /** 맨 앞에 흘릴 바이트(파일의 헤더). 받은 양에 세지 않는다 */
+  /** 맨 앞에 내보낼 바이트(파일의 헤더). 받은 양에 세지 않는다 */
   prefix?: Buffer | null;
   /** 첫 요청에서 받은 앞 bytes 바이트를 확인한다. 줄 때만 열림(prime)을 그 확인 뒤로 미룬다 */
   expectStart?: { bytes: number; check(head: Buffer): boolean } | null;
@@ -89,31 +89,31 @@ const isSeekMismatch = (err: unknown) => (err as { seekMismatch?: boolean } | nu
  */
 function createChunkedStream(options: ChunkedOptions): ChunkedStream {
   const { totalBytes, chunkSize, startByte = 0 } = options;
-  if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않습니다: ${totalBytes}`);
-  if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않습니다: ${chunkSize}`);
-  if (!Number.isInteger(startByte) || startByte < 0 || startByte >= totalBytes) throw new TypeError(`startByte가 올바르지 않습니다: ${startByte}`);
+  if (!Number.isFinite(totalBytes) || totalBytes <= 0) throw new TypeError(`totalBytes가 올바르지 않음: ${totalBytes}`);
+  if (!Number.isFinite(chunkSize) || chunkSize <= 0) throw new TypeError(`chunkSize가 올바르지 않음: ${chunkSize}`);
+  if (!Number.isInteger(startByte) || startByte < 0 || startByte >= totalBytes) throw new TypeError(`startByte가 올바르지 않음: ${startByte}`);
   // 이미 열린 첫 응답은 파일 처음부터다
-  if (startByte > 0 && options.first) throw new TypeError("startByte와 first는 함께 줄 수 없습니다");
+  if (startByte > 0 && options.first) throw new TypeError("startByte와 first는 함께 줄 수 없음");
   const reader = new ChunkedReader(options);
   return Object.assign(reader.stream, { prime: () => reader.prime(), stats: () => reader.stats() });
 }
 
 // Content-Range: "bytes <start>-<end>/<total>". 프록시가 엉뚱한 구간을 주면 여기서 잡는다.
-// 파일 처음이 아닌 자리(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 Content-Range 가 있어야 하고(없이 처음부터 주면 같은 바이트가 두 번 들어간다)
+// 파일 처음이 아닌 위치(expected > 0, 이어받기, 위치를 옮긴 첫 요청)는 Content-Range가 있어야 하고(없이 처음부터 주면 같은 바이트가 두 번 들어간다)
 // 전체 크기도 처음과 같아야 한다(다르면 다른 파일이다). 0바이트에서 시작한 첫 요청의 크기는 추산값(유튜브 clen)이라 보지 않는다
 function assertRange(res: RangeResponse, expected: number, totalBytes: number) {
   const cr = res.headers.get?.("content-range") ?? "";
   const [, startText, totalText] = /bytes\s+(\d+)-\d+\/(\d+|\*)/i.exec(cr) ?? [];
   if (startText === undefined) {
-    if (expected > 0) throw permanent(`Content-Range 가 없거나 읽을 수 없는 206 입니다(${expected}을 요청, ${cr || "없음"})`);
+    if (expected > 0) throw permanent(`Content-Range가 없거나 읽을 수 없는 206(${expected}바이트부터 요청, ${cr || "없음"})`);
     return;
   }
   const start = Number(startText);
   if (Number.isFinite(start) && start !== expected) {
-    throw permanent(`Range 응답이 어긋납니다: ${expected}을 요청했는데 ${cr}`);
+    throw permanent(`Range 응답이 어긋남: 요청 ${expected}, 응답 ${cr}`);
   }
   if (expected > 0 && totalText && totalText !== "*" && Number(totalText) !== totalBytes) {
-    throw permanent(`이어받은 파일의 전체 크기가 다릅니다: 처음 ${totalBytes}B, 지금 ${cr}`);
+    throw permanent(`이어받은 파일의 전체 크기가 다름: 처음 ${totalBytes}B, 지금 ${cr}`);
   }
 }
 
@@ -128,7 +128,7 @@ function readerOf(stream: Readable) {
   };
 }
 
-// 스트림 하나의 상태. 청크를 받아 줄에 쌓고, 소비자가 원하는 만큼 흘려보낸다
+// 스트림 하나의 상태. 청크를 받아 큐에 쌓고, 소비자가 원하는 만큼 내보낸다
 class ChunkedReader {
   readonly stream: Readable;
   readonly o: Required<Omit<ChunkedOptions, "onInterrupt" | "onResumed" | "first" | "ifRange" | "prefix" | "expectStart">> & Pick<ChunkedOptions, "onInterrupt" | "onResumed" | "ifRange" | "expectStart">;
@@ -222,7 +222,7 @@ class ChunkedReader {
     clearTimeout(this.stallTimer);
     const request = this.aborter;
     const { stallMs } = this.o;
-    this.stallTimer = setTimeout(() => request?.abort(Object.assign(new Error(`${stallMs / 1000}초 동안 받은 데이터가 없습니다`), { code: "STREAM_STALL" })), stallMs);
+    this.stallTimer = setTimeout(() => request?.abort(timeoutError(`${stallMs / 1000}초 동안 받은 데이터가 없음`, { code: "STREAM_STALL" })), stallMs);
     this.stallTimer.unref?.();
   }
 
@@ -262,7 +262,7 @@ class ChunkedReader {
       const err = httpError(res.status);
       throw mid && (res.status === 200 || res.status === 416) ? seekMismatch(err) : err;
     }
-    if (!res.body) throw permanent("응답 본문이 없습니다");
+    if (!res.body) throw permanent("응답 본문 없음");
     return res.body.getReader();
   }
 
@@ -296,7 +296,7 @@ class ChunkedReader {
         this.accept(value);
       }
       // 범위: 연결이 중간에 끊겼다(player/failure-scope)
-      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝났습니다 (${this.pos}/${this.target}B)`), { scope: "environment" });
+      if (this.pos < this.target) throw Object.assign(codedError("stream-failed", `응답이 일찍 끝남 (${this.pos}/${this.target}B)`), { scope: "environment" });
     } catch (err) {
       this.aborter?.abort(); // 버린 요청이 열린 채 남지 않게
       throw err;
@@ -328,12 +328,12 @@ class ChunkedReader {
     if (held + bytes.length >= Math.min(this.o.expectStart?.bytes ?? 0, this.target - this.pos)) this.verifyFirst();
   }
 
-  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 다시 받지 않는 실패(열림 전이라 prime 이 거부된다)
+  // 모은 첫 바이트가 그 키프레임인가. 맞으면 열림을 알리고 줄에 넣는다. 아니면 재시도하지 않는 실패(열림 전이라 prime 이 거부된다)
   verifyFirst() {
     if (!this.verifying) return;
     const head = Buffer.concat(this.probe);
     this.probe = [];
-    if (!this.o.expectStart?.check(head)) throw seekMismatch(permanent(`받은 첫 바이트가 색인이 가리킨 키프레임이 아닙니다(${this.pos}B)`));
+    if (!this.o.expectStart?.check(head)) throw seekMismatch(permanent(`받은 첫 바이트가 인덱스가 가리킨 키프레임이 아님(${this.pos}B)`));
     this.verifying = false;
     this.markPrimed();
     if (head.length) this.take(head);

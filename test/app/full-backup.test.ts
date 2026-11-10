@@ -1,7 +1,8 @@
 // src/app/full-backup.ts: 명령 전체 백업(.env, 설정 DB, 파비콘, 로그인 배경). 다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고 배경 기록을 바꾼다
 
 import fs from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import { pathToFileURL } from "node:url";
 import os from "node:os";
 import path from "node:path";
@@ -70,7 +71,7 @@ test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으�
   const first = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 10, 9, 0));
   assert.deepEqual(
     unzip(fs.readFileSync(first.file)).map((one) => one.name),
-    [".env", "database/settings.restore.db", "database/settings.restore.db.json", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png"],
+    ["database/settings.restore.db", "database/settings.restore.db.json", "database/audio-cache.restore.zip", "database/dashboard/favicon/index.json", "database/dashboard/favicon/lz0abc12ff.reserve.png", ".env"],
   );
   const second = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir }, new Date(2026, 9, 11, 9, 0));
   assert.deepEqual(second.replaced, [path.basename(first.file)]);
@@ -78,9 +79,9 @@ test("켜져 있는 봇에서 만들고(.env, 설정 DB 를 교체할 이름으�
   if (process.platform !== "win32") assert.equal(fs.statSync(second.file).mode & 0o777, 0o600);
 });
 
-test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다. 지우지 못한 것을 알린다", async () => {
+test("이전 백업을 삭제하지 못해도 새 백업은 남기고 성공한다. 삭제하지 못한 것을 알린다", async () => {
   const stuckOut = path.join(work, "stuck-out");
-  // 지우지 못하는 앞의 백업(이름만 같은 폴더는 rmSync 가 지우지 못한다)
+  // 삭제하지 못하는 이전 백업이다(이름만 같은 폴더는 rmSync가 삭제하지 못한다)
   const stuck = path.join(stuckOut, "musicbot-full-20261001-0900.zip");
   fs.mkdirSync(path.join(stuck, "안"), { recursive: true });
   const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: stuckOut }, new Date(2026, 9, 13, 9, 0));
@@ -89,16 +90,31 @@ test("앞의 백업을 지우지 못해도 새 백업은 남기고 성공한다.
   assert.deepEqual(made.replaced, []);
 });
 
+test("같은 초에 이미 그 이름이 있으면 번호를 붙여 올린다. 이름을 끝내 잡지 못하면 비밀값이 든 .part를 삭제하고 실패한다", async () => {
+  const sameOut = path.join(work, "same-out");
+  // 같은 이름의 폴더(삭제하지 못하는 이전 백업)
+  fs.mkdirSync(path.join(sameOut, "musicbot-full-20261014-090000.zip", "안"), { recursive: true });
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: sameOut }, new Date(2026, 9, 14, 9, 0));
+  assert.equal(path.basename(made.file), "musicbot-full-20261014-090000-2.zip");
+
+  const fullOut = path.join(work, "full-out");
+  for (let n = 1; n <= 20; n++) fs.mkdirSync(path.join(fullOut, `musicbot-full-20261014-090000${n > 1 ? `-${n}` : ""}.zip`, "안"), { recursive: true });
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: fullOut }, new Date(2026, 9, 14, 9, 0)), /이름 잡기 실패/);
+  assert.deepEqual(
+    fs.readdirSync(fullOut).filter((one) => one.endsWith(".part")),
+    [],
+  );
+});
+
 // root 는 읽기 전용 파일도 쓸 수 있다
-test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다)", { skip: process.getuid?.() === 0 }, async () => {
+test("ZIP 을 쓰지 못하면 그 까닭으로 실패한다(잡히지 않은 예외로 새지 않는다). 같은 .part 가 이미 있으면(다른 백업의 것) 삭제하지 않는다", async (t) => {
   const blockedOut = path.join(work, "blocked-out");
-  const part = path.join(blockedOut, "musicbot-full-20261012-0900.zip.part");
-  // 쓸 자리에 읽기 전용 파일이 있으면 열기가 실패한다
+  t.mock.method(crypto, "randomBytes", () => Buffer.from("0badc0de", "hex"));
+  const part = path.join(blockedOut, `musicbot-full-20261012-090000.zip.${process.pid}.0badc0de.part`);
   fs.mkdirSync(blockedOut);
-  fs.writeFileSync(part, "");
-  fs.chmodSync(part, 0o444);
-  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: blockedOut }, new Date(2026, 9, 12, 9, 0)), (error) => ["EPERM", "EACCES"].includes(String(codeOf(error))));
-  assert.ok(!fs.existsSync(part), "쓰다 만 파일을 지운다");
+  fs.writeFileSync(part, "다른 백업");
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: blockedOut }, new Date(2026, 9, 12, 9, 0)), (error) => codeOf(error) === "EEXIST");
+  assert.equal(fs.readFileSync(part, "utf8"), "다른 백업");
 });
 
 test("다른 봇 폴더에 풀어 덮어쓰면 다음 기동이 설정 DB 를 교체하고, 그 봇의 것은 스냅샷으로 남긴다", async () => {
@@ -232,4 +248,119 @@ fs.writeFileSync(${JSON.stringify(result)}, JSON.stringify(await makeFullBackup(
   const made = JSON.parse(fs.readFileSync(result, "utf8")) as { file: string; audioFiles: number | null };
   assert.equal(made.audioFiles, 0);
   assert.ok(unzip(fs.readFileSync(made.file), { maxBytes: 10_000_000 }).some((one) => one.name === "database/audio-cache.restore.zip"));
+});
+
+// 끝난 프로세스의 pid(곧바로 끝나는 자식)
+function deadPid() {
+  const child = spawnSync(process.execPath, ["-e", ""]);
+  assert.ok(child.pid);
+  return child.pid;
+}
+
+test("끝난 프로세스가 남긴 .part 만 삭제한다. 살아 있거나 확인할 수 없는(EPERM) 프로세스의 것, 잘못된 이름은 두고, 옛 형식은 남긴 채 알린다", async () => {
+  const sweptOut = path.join(work, "swept-out");
+  fs.mkdirSync(sweptOut);
+  const dead = `musicbot-full-20261001-090000.zip.${deadPid()}.abcd1234.part`;
+  const alive = `musicbot-full-20261001-090000.zip.${process.pid}.abcd1234.part`;
+  const legacy = "musicbot-full-20261001-0900.zip.part";
+  // 잘못된 이름(pid 가 십진수가 아님. 0x7ffffffe 는 숫자로 읽으면 끝난 pid 다)
+  const odd = ["musicbot-full-20261001-090000.zip.12x.abcd1234.part", "musicbot-full-20261001-090000.zip.0x7ffffffe.abcd1234.part"];
+  const names = [dead, alive, legacy, ...odd];
+  // 권한이 없어 확인할 수 없는 프로세스(Windows 의 System, POSIX 의 init)
+  const system = process.platform === "win32" ? 4 : 1;
+  const denied = `musicbot-full-20261001-090000.zip.${system}.abcd1234.part`;
+  if (process.getuid?.() !== 0) names.push(denied);
+  for (const name of names) fs.writeFileSync(path.join(sweptOut, name), "평문");
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: sweptOut }, new Date(2026, 9, 15, 9, 0));
+  const left = fs.readdirSync(sweptOut);
+  assert.ok(!left.includes(dead), "끝난 프로세스의 것");
+  assert.ok(left.includes(alive) && left.includes(legacy) && odd.every((one) => left.includes(one)));
+  if (process.getuid?.() !== 0) assert.ok(left.includes(denied), "EPERM 은 모른다");
+  assert.deepEqual(made.legacyParts, [legacy]);
+});
+
+test("겹쳐 도는 두 백업은 서로의 .part 를 덮지 않고 둘 다 끝난다(같은 초면 번호를 붙인다)", async () => {
+  const bothOut = path.join(work, "both-out");
+  const at = new Date(2026, 9, 16, 9, 0);
+  const [a, b] = await Promise.all([makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: bothOut }, at), makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: bothOut }, at)]);
+  assert.notEqual(a.file, b.file);
+  const left = fs.readdirSync(bothOut);
+  assert.deepEqual(
+    left.filter((one) => one.endsWith(".part")),
+    [],
+  );
+  for (const zip of left) assert.equal(unzip(fs.readFileSync(path.join(bothOut, zip))).at(-1)?.name, ".env", "남은 것은 온전한 ZIP 이다");
+});
+
+test("담은 설정 DB 사본은 WAL 표시가 없다(풀어 둔 것을 읽기 전용으로 열어도 -wal, -shm 이 생기지 않는다)", async () => {
+  const walOut = path.join(work, "wal-out");
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: walOut }, new Date(2026, 9, 17, 9, 0));
+  const db = unzip(fs.readFileSync(made.file)).find((one) => one.name === "database/settings.restore.db")!.data;
+  // SQLite 헤더 18, 19 바이트: 쓰기, 읽기 형식(1 은 롤백 저널, 2 는 WAL)
+  assert.deepEqual([db[18], db[19]], [1, 1]);
+});
+
+test("하드링크를 쓸 수 없는 파일 시스템(FAT32, exFAT)이면 이름을 바꿔 올린다. 이름이 있으면 번호를 붙인다", async (t) => {
+  t.mock.method(fs, "linkSync", () => {
+    throw Object.assign(new Error("operation not permitted, link"), { code: "EPERM" });
+  });
+  const fatOut = path.join(work, "fat-out");
+  fs.mkdirSync(path.join(fatOut, "musicbot-full-20261018-090000.zip", "안"), { recursive: true });
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: fatOut }, new Date(2026, 9, 18, 9, 0));
+  assert.equal(path.basename(made.file), "musicbot-full-20261018-090000-2.zip");
+  assert.equal(unzip(fs.readFileSync(made.file)).at(-1)?.name, ".env");
+  assert.deepEqual(
+    fs.readdirSync(fatOut).filter((one) => one.endsWith(".part")),
+    [],
+  );
+});
+
+test("목록을 읽은 뒤 겹쳐 도는 백업이 이전 백업을 삭제해 이 백업이 그 이름에 올라가도 자기 백업을 삭제하지 않는다", async (t) => {
+  const raceOut = path.join(work, "race-out");
+  fs.mkdirSync(raceOut);
+  const old = path.join(raceOut, "musicbot-full-20261019-090000.zip");
+  fs.writeFileSync(old, "이전 백업");
+  const link = fs.linkSync;
+  let first = true;
+  t.mock.method(fs, "linkSync", (from: fs.PathLike, to: fs.PathLike) => {
+    // 올리기 직전에 다른 백업이 이전 백업을 삭제한다
+    if (first) fs.rmSync(old);
+    first = false;
+    return link(from, to);
+  });
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: raceOut }, new Date(2026, 9, 19, 9, 0));
+  assert.equal(made.file, old);
+  assert.ok(fs.existsSync(made.file), "자기가 올린 백업은 남는다");
+  assert.deepEqual(made.replaced, []);
+});
+
+test("ZIP 을 다 쓴 뒤 올리기 전에 실패하면 평문 .env 가 든 .part 를 삭제한다. 임시 사본을 삭제하지 못해도 백업은 끝내고 알린다", async (t) => {
+  const failOut = path.join(work, "fail-out");
+  fs.mkdirSync(failOut);
+  const readdir = fs.readdirSync;
+  let reads = 0;
+  t.mock.method(fs, "readdirSync", ((dir: fs.PathLike, ...rest: unknown[]) => {
+    // 처음(남은 .part 정리)은 그대로, 두 번째(이전 백업 목록)에 실패한다
+    if (String(dir) === failOut && ++reads === 2) throw Object.assign(new Error("읽기 실패"), { code: "EIO" });
+    return (readdir as (...args: unknown[]) => unknown)(dir, ...rest);
+  }) as typeof fs.readdirSync);
+  await assert.rejects(makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: failOut }, new Date(2026, 9, 20, 9, 0)), /읽기 실패/);
+  t.mock.restoreAll();
+  assert.deepEqual(fs.readdirSync(failOut), []);
+
+  const tempOut = path.join(work, "temp-out");
+  const rm = fs.rmSync;
+  const kept: string[] = [];
+  t.mock.method(fs, "rmSync", ((target: fs.PathLike, opts?: fs.RmOptions) => {
+    if (path.basename(String(target)).startsWith("musicbot-backup-")) {
+      kept.push(String(target));
+      throw Object.assign(new Error("다른 프로그램이 열어 둠"), { code: "EBUSY" });
+    }
+    return rm(target, opts);
+  }) as typeof fs.rmSync);
+  const made = await makeFullBackup({ envFile, databaseDir: store.dir, faviconDir, backgroundDir, outDir: tempOut }, new Date(2026, 9, 21, 9, 0));
+  t.mock.restoreAll();
+  assert.ok(fs.existsSync(made.file));
+  assert.ok(made.tempLeft.length > 0);
+  for (const dir of kept) fs.rmSync(dir, { recursive: true, force: true });
 });

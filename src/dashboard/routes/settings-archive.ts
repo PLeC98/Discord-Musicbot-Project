@@ -16,6 +16,7 @@ import * as uploads from "../archive-uploads.ts";
 import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
+import { assertSignedIn, isEnded, sessionEnded } from "../session-requests.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -31,8 +32,8 @@ function unreadable(res: Response, error: unknown) {
   return false;
 }
 
-/** 한 번 쓰는 다운로드 티켓: 티켓 → 종류, 캐시 파일까지(오디오 캐시), 낸 사람, 지나는 때 */
-const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; until: number }>();
+/** 일회용 다운로드 티켓: 티켓 → 종류, 캐시 파일 포함 여부(오디오 캐시), 발급한 사용자, 발급한 세션(그 세션만 다운로드할 수 있다. 끊긴 세션, 다른 세션은 불가), 만료 시각 */
+const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: string; sid: string; until: number }>();
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
@@ -47,13 +48,15 @@ settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const now = Date.now();
   for (const [key, one] of tickets) if (one.until < now) tickets.delete(key);
   const ticket = crypto.randomBytes(16).toString("hex");
-  tickets.set(ticket, { kind, withFiles, by: ranBy(req), until: now + TICKET_MS });
+  tickets.set(ticket, { kind, withFiles, by: ranBy(req), sid: req.sessionID, until: now + TICKET_MS });
   res.json({ url: `${req.baseUrl}/download/${ticket}` } satisfies ArchiveDownload);
 });
 
 // 다운로드(티켓은 한 번만). 만드는 대로 스트리밍한다(로그인 배경은 수백 MB)
 settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
-  const ticket = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
+  const found = TICKET.test(req.params.ticket) ? tickets.get(req.params.ticket) : undefined;
+  // 발급한 세션만 다운로드할 수 있다(다른 세션이 연 것으로는 티켓을 쓰지 않는다)
+  const ticket = found?.sid === req.sessionID ? found : undefined;
   if (ticket) tickets.delete(req.params.ticket);
   // 없거나 지난 티켓: 브라우저가 바로 연 주소라 화면 안내 없이 404
   if (!ticket || ticket.until < Date.now()) return sendProblem(res, "route-not-found");
@@ -82,8 +85,8 @@ settingsArchiveRouter.post("/preview", async (req, res) => {
   if (!got.ok) {
     if (got.why === "no-space") return got.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "disk-full", { size: got.room });
     if (got.why === "empty") return sendProblem(res, "nothing-to-save");
-    // 올리던 사람이 끊었다
-    if (got.why === "aborted") log.warn({ sub: "admin" }, `설정 불러오기 파일 업로드가 중간에 끊겼습니다: ${got.detail}`);
+    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(사용자 측 원인, 봇 영향 없음)
+    if (got.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `설정 불러오기 파일 업로드 중단: ${got.detail}`);
     if (!res.headersSent) sendProblem(res, "bad-request");
     return;
   }
@@ -106,11 +109,21 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
   if (!file) return sendProblem(res, "upload-gone");
   try {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
-    const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], { before: () => snapshots.take("before-import") });
+    // 오래된 스냅샷 삭제는 불러오기를 반영한 뒤에 한다(스냅샷을 뜨는 사이 세션이 끝나 중단되면 이전 복원점을 남긴다)
+    let snapshot = false;
+    const imported = await archive.apply(file, [...new Set(items)] as ArchiveItem[], {
+      before: async () => {
+        await snapshots.take("before-import", undefined, { tidy: false });
+        snapshot = true;
+      },
+      go: () => assertSignedIn(req),
+    });
+    if (snapshot) snapshots.tidy();
     uploads.drop(token);
-    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있습니다" : ""}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
+    if (sessionEnded(res, error)) return;
     if (unreadable(res, error)) return;
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
     log.error({ sub: "admin" }, `설정 불러오기 실패: ${messageOf(error)}`);

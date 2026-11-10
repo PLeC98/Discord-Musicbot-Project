@@ -33,7 +33,7 @@ let glyphs: Record<string, string> | null = null;
 function glyphPath(name: string) {
   glyphs ??= (JSON.parse(fs.readFileSync(path.join(DIR, "glyphs.json"), "utf8")) as { glyphs: Record<string, string> }).glyphs;
   const d = glyphs[name];
-  if (!d) throw new Error(`기호 윤곽이 없습니다: ${name} (node scripts/build-discord-icons.ts 로 다시 만드세요)`);
+  if (!d) throw new Error(`아이콘 SVG 패스가 없음: ${name} (node scripts/build-discord-icons.ts 로 다시 만드세요)`);
   return d;
 }
 
@@ -66,7 +66,7 @@ function svgOf(spec: IconSpec, tint: Tint, rotate = 0) {
 
 // 로고 타일. SVG 는 크게 그린 뒤 줄인다(작게 그리면 가장자리가 뭉개진다)
 async function logoTile(spec: IconSpec): Promise<Buffer> {
-  if (!spec.brand) throw new Error(`로고의 회사가 없습니다: ${spec.glyph}`);
+  if (!spec.brand) throw new Error(`로고 브랜드가 없음: ${spec.glyph}`);
   const file = path.join(DIR, spec.glyph);
   const source = spec.glyph.endsWith(".svg") ? sharp(file, { density: 600 }) : sharp(file);
   const trimmed = await source.png().trim({ threshold: 1 }).toBuffer({ resolveWithObject: true });

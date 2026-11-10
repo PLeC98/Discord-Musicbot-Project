@@ -15,11 +15,10 @@ const SHARED = {
   "must-be-in-same-voice": { status: 409, title: "Join the bot's voice channel first" },
   // 봇을 부를 때 봇이 다른 음성 채널에 있다(디스코드 /join, 대시보드 참가)
   "bot-in-other-voice": { status: 409, title: "Bot is busy in another voice channel" },
-  // 상주 모드(24/7): 스테이지 채널은 자리로 받지 않는다, 자리에서 내보내기는 서버 관리 권한이 있어야 한다
+  // 상주 모드(24/7): 스테이지 채널은 상주 채널로 받지 않는다
   "stay-stage": { status: 409, title: "Stay mode does not work in stage channels" },
-  "stay-leave-moderator": { status: 403, title: "Manage Server permission required to leave while stay mode is on" },
   "must-dj": { status: 403, title: "DJ role required" },
-  "must-moderator": { status: 403, title: "Manage Server permission required" },
+  "must-server-manager": { status: 403, title: "Manage Server permission required" },
   "must-owner": { status: 403, title: "Bot owner only" },
   "search-owner-only": { status: 403, title: "Only the searcher can pick a result" },
   "only-in-bot-channel": { status: 403, title: "Only in the bot channel", params: ["channelId"] },
@@ -97,6 +96,8 @@ const SHARED = {
   "network-error": { status: 502, title: "Could not reach the platform" },
   "stream-failed": { status: 502, title: "Could not fetch audio" },
   "voice-failed": { status: 502, title: "Could not join the voice channel" },
+  "leave-failed": { status: 502, title: "Could not leave the voice channel" },
+  "leave-superseded": { status: 409, title: "The bot was called back in the meantime" },
   // 운영자 설정, 잠시 못 함
   "rate-limited": { status: 503, title: "Platform rate limit" },
   "yt-age-cookies-invalid": { status: 503, title: "Age-restricted videos are temporarily unavailable" },
@@ -118,6 +119,8 @@ const SHARED = {
   "restore-nothing-left": { status: 500, title: "Could not play the saved track" },
   "restore-parked": { status: 500, title: "Could not open the saved track, paused on it" },
   "restore-failed": { status: 500, title: "Could not restore the session" },
+  // 봇이 종료 중이라 새 일을 시작하지 않는다(명령, 메시지 요청, 대시보드 조작)
+  "bot-shutting-down": { status: 503, title: "Bot is shutting down" },
 } as const satisfies Record<string, ProblemSpec>;
 
 // 대시보드 HTTP 층에서만 나는 것. 화면은 웹 오류 화면처럼 문장 끝에 코드와 HTTP 상태를 함께 보인다
@@ -127,6 +130,8 @@ const WEB = {
   // 위험한 조작(비밀값, 주소 바꾸기 등)은 로그인한 지 얼마 안 됐어야 한다. 세션은 살아 있어 401 이 아니다
   "reauth-required": { status: 403, title: "Recent login required" },
   "bad-csrf-token": { status: 403, title: "Invalid CSRF token" },
+  // 탭이 알고 있는 사용자와 세션의 사용자가 다르다(다른 탭에서 다른 계정으로 로그인했다)
+  "account-changed": { status: 409, title: "Signed in as another account" },
   "no-guild-access": { status: 403, title: "No access to this server" },
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
@@ -194,6 +199,8 @@ const WEB = {
   // 로그 파일 보기: 보관 개수를 넘어 삭제됐거나 파일 로그를 껐다
   "log-file-not-found": { status: 404, title: "Log file not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
+  // 로그인 세션을 끊었지만 저장소에서 삭제하지 못했다(디스크가 가득 참 등). 이 실행에서는 끊겼고 봇이 다시 삭제한다. 그 전에 다시 시작하면 되살아난다
+  "sign-out-unsaved": { status: 503, title: "Signed-out session could not be deleted" },
   // 대시보드: 파비콘(올린 이미지, 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
   "image-not-square": { status: 400, title: "Image must be square" },
@@ -219,7 +226,7 @@ const WEB = {
   "background-not-ready": { status: 409, title: "Background is not ready" },
   // 저장 위치 디스크의 남은 크기가 모자라다(size: 남은 크기)
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
-  // 디스크에는 자리가 있지만 함께 받는 업로드가 앞으로 쓸 몫을 잡아 두었다
+  // 디스크에 여유 공간은 있지만 동시에 진행 중인 업로드가 앞으로 쓸 몫을 잡아 두었다
   "upload-busy": { status: 409, title: "Another upload is still in progress" },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
@@ -236,7 +243,7 @@ const WEB = {
   // 겹친 반복처럼 오래 걸릴 수 있는 정규식(서버가 재생과 같은 이벤트 루프에서 필터링한다)
   "unsafe-regex": { status: 400, title: "Regular expression may run too long" },
   "filter-timeout": { status: 422, title: "Filtering took too long" },
-  // 정규식을 맞추는 스레드가 실패했다(봇 쪽)
+  // 정규식을 실행하는 스레드가 실패했다(봇 쪽)
   "filter-failed": { status: 500, title: "Filtering failed" },
   "bad-page-range": { status: 400, title: "Invalid row range" },
   "too-many-file-deletes": { status: 400, title: "Too many files to delete at once", params: ["max"] },

@@ -25,9 +25,9 @@ async function waitForGateway(client: LoginClient, waits: number[], wait: (ms: n
     try {
       return await client.rest.get(Routes.gatewayBot());
     } catch (error) {
-      if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", "디스코드 토큰이 틀렸습니다", { cause: error });
+      if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", "디스코드 토큰이 틀림", { cause: error });
       if (failedStartCode(error, false) === EXIT.badSetup || attempt >= waits.length) throw error;
-      log.warn(`디스코드 게이트웨이 정보를 불러오지 못했습니다: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 재시도합니다 (${attempt + 1}/${waits.length})`);
+      log.warn(`디스코드 게이트웨이 정보 불러오기 실패: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 재시도(${attempt + 1}/${waits.length})`);
       await wait(waits[attempt]);
     }
   }

@@ -58,10 +58,10 @@ function someLanguages(list: string[] | undefined): Array<string | null> {
 async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
   const site = source.type;
   // 레지스트리가 셋에만 이 함수를 준다
-  if (!isSite(site)) throw new Error(`VocaDB 계열이 아닙니다: ${site}`);
+  if (!isSite(site)) throw new Error(`VocaDB 계열이 아님: ${site}`);
   const base = `https://${VOCA_HOSTS[site]}/api/songs`;
   const artistTypes = source.artistTypes || [];
-  if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없습니다`);
+  if (artistTypes.length && !VOCA_ARTIST_TYPES[site]) throw new Error(`${site}에는 가수 분류가 없음`);
   const common = await filtersOf(source, site);
   const depth = windowDepth(VOCA_WINDOW, source);
 
@@ -125,7 +125,7 @@ async function tagId(site: Site, name: string) {
   if (known !== undefined) return known;
   // 별칭, 대소문자도 풀린다(ロック → rock). 없으면 null
   const tag = await getJson<Tag>(site, `https://${VOCA_HOSTS[site]}/api/tags/byName/${encodeURIComponent(name)}`);
-  if (!tag?.id) throw new Error(`${site}에 없는 태그입니다: ${name}`);
+  if (!tag?.id) throw new Error(`${site}에 없는 태그: ${name}`);
   ids.set(key, tag.id);
   return tag.id;
 }
@@ -138,7 +138,7 @@ async function artistId(site: Site, name: string) {
   const types = VOCA_ARTIST_TYPES[site];
   const page = await getJson<{ items?: Artist[] } | null>(site, `https://${VOCA_HOSTS[site]}/api/artists?${query({ query: name, nameMatchMode: "Exact", fields: "Names", sort: "SongCount", maxResults: 20, artistTypes: types?.join(",") })}`);
   const found = sameName(page?.items || [], name);
-  if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름입니다: ${name}`);
+  if (!found?.id) throw new Error(`${site}에서 찾지 못한 이름: ${name}`);
   log.debug(`${site} 이름 조회: ${name} → ${found.name ?? "없음"} (${found.id})`);
   ids.set(key, found.id);
   return found.id;
@@ -186,7 +186,7 @@ async function vocaWindow(base: string, filters: Record<string, unknown>, type: 
   const total = Number(head?.totalCount) || 0;
   if (!total) return [];
 
-  if (total > depth) log.debug(`${type}: 조건에 맞는 ${total.toLocaleString("en-US")}곡 중 상위 ${depth.toLocaleString("en-US")}곡에서 선택합니다`);
+  if (total > depth) log.debug(`${type}: 조건에 맞는 ${total.toLocaleString("en-US")}곡 중 상위 ${depth.toLocaleString("en-US")}곡에서 선택`);
   const span = Math.min(total, depth);
   const start = span > VOCA_PAGE ? rand(span - VOCA_PAGE) : 0;
   // fields=Names로 원어, 로마자, 영문이 한 번에 온다. 표기를 선택할 일이 없다

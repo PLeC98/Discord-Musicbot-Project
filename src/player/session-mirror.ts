@@ -5,7 +5,7 @@ import { sessions } from "../store/player-sessions.ts";
 import * as trackState from "./track-state.ts";
 import config from "../config/index.ts";
 import * as playerEvents from "./events.ts";
-import { messageOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { QueuedTrack } from "./track.ts";
 import type { PlayerSessionStore, RestoredTrack, RestoredSession } from "../store/player-sessions.ts";
@@ -86,7 +86,7 @@ class SessionPersistence {
       const botId = this.player.guild?.client?.user?.id ?? null;
       const human = [saved.current, ...saved.queue].filter((t) => t && t.requesterId !== botId).length;
       store.removeSession(guildId);
-      log.info(`저장된 세션을 지우고 새로 시작합니다: 사람이 넣은 곡 ${human}곡 (서버 ID ${guildId})`);
+      log.info(`저장된 세션을 삭제하고 새로 시작: 사람이 추가한 곡 ${human}곡 (서버 ID ${guildId})`);
       return human;
     } catch (error) {
       log.error(`저장된 세션 정리 실패 (서버 ID ${guildId}):`, messageOf(error));
@@ -111,7 +111,7 @@ class SessionPersistence {
       if (write(store, guildId) === false) this.resync(store);
     } catch (error) {
       this.dirty = true;
-      log.warn(`세션 트랙 저장 실패. 다음 변경에서 통째로 다시 씁니다 (서버 ID ${guildId}): ${messageOf(error)}`);
+      log.warn(`세션 곡 저장 실패(다음 변경에서 통째로 다시 씀, 서버 ID ${guildId}): ${messageOf(error)}`);
     }
   }
 
@@ -348,7 +348,7 @@ class SessionPersistence {
       player.quietFailures = false;
     }
     if (!player.currentTrack) return "failed";
-    // 열지 못해 그 곡에서 멈춰 뒀다. 이어 튼다고 알리지 않는다(까닭은 멈춰 둘 때의 알림, /join 응답이 말한다). 패널은 멈춘 곡으로
+    // 열지 못해 그 곡에서 일시정지해 뒀다. 이어 튼다고 알리지 않는다(까닭은 일시정지해 둘 때의 알림, /join 응답이 말한다). 패널은 일시정지한 곡으로
     if (player.lifecycle.parked) {
       await this._announceRestored(false);
       return "parked";
@@ -404,8 +404,10 @@ class SessionPersistence {
     try {
       await this.player.voice.connect();
     } catch (error) {
+      // 종료 중이라 붙지 않았다. 연결 실패가 아니므로 그대로 던진다(부른 쪽이 세션을 남기고 정리한다)
+      if (codeOf(error) === "bot-shutting-down") throw error;
       log.error("세션 복원 중 음성 연결 실패:", messageOf(error));
-      throw codedError("voice-failed", "음성 채널에 다시 연결하지 못했습니다", { cause: error });
+      throw codedError("voice-failed", "음성 채널 재연결 실패", { cause: error });
     }
   }
 
@@ -426,7 +428,7 @@ class SessionPersistence {
         // 실제로 튼 곡과 위치(복원하던 곡을 곡 탓으로 넘겼으면 다른 곡, 처음부터다)
         await playerEvents.notice(player, "restored", { title: player.currentTrack.title, atSec: Math.floor(player.getCurrentTime() / 1000), paused: player.pause.userPaused });
       } catch (error) {
-        log.warn(`복원 알림을 보내지 못했습니다: ${messageOf(error)}`);
+        log.warn(`복원 알림 보내기 실패: ${messageOf(error)}`);
       }
     }
   }

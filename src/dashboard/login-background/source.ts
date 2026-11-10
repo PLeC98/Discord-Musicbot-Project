@@ -62,7 +62,7 @@ async function inspectStill(file: string): Promise<Inspected | null> {
   if ((meta.pages ?? 1) > 1 || (meta.format === "png" && isApng(file))) return null;
   // EXIF 방향을 따른 크기
   const { width, height } = meta.autoOrient;
-  if (!sideOk(width) || !sideOk(height)) throw badSource(`그림 크기가 범위 밖입니다: ${width} × ${height}`);
+  if (!sideOk(width) || !sideOk(height)) throw badSource(`이미지 크기가 범위를 벗어남: ${width} × ${height}`);
   return { kind: "image", width, height, duration: 0, fps: 0 };
 }
 
@@ -99,9 +99,9 @@ function parseInput(stderr: string): Probed | null {
 async function probeVideo(file: string, signal: AbortSignal): Promise<Probed> {
   // 출력 없이 열기만 하면 헤더를 적고 "출력이 없다"로 끝난다(끝난 코드는 보지 않는다)
   const { stderr, aborted } = await ffmpeg([...READ_ARGS, "-i", file], { signal, timeoutMs: INSPECT_MS });
-  if (aborted) throw codedError("aborted", "그만뒀습니다");
+  if (aborted) throw codedError("aborted", "중단됨");
   const input = parseInput(stderr);
-  if (!input) throw badSource(`ffmpeg 가 영상으로 읽지 못했습니다: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
+  if (!input) throw badSource(`ffmpeg가 영상으로 읽지 못함: ${stderr.split("\n").filter(Boolean).at(-1) ?? ""}`);
   return input;
 }
 
@@ -123,13 +123,13 @@ async function countedDuration(file: string, signal: AbortSignal): Promise<numbe
 /** 영상, 움직이는 그림 */
 async function inspectMoving(file: string, signal: AbortSignal): Promise<Inspected> {
   const input = await probeVideo(file, signal);
-  if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(`영상 크기가 범위 밖입니다: ${input.width} × ${input.height}`);
+  if (!sideOk(input.width) || !sideOk(input.height)) throw badSource(`영상 크기가 범위를 벗어남: ${input.width} × ${input.height}`);
   const fps = input.fps ?? 30;
-  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 프레임 수가 범위 밖입니다: ${fps}`);
+  if (!(fps > 0 && fps <= MAX_FPS)) throw badSource(`초당 프레임 수가 범위를 벗어남: ${fps}`);
   const duration = input.duration ?? (await countedDuration(file, signal));
-  if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없습니다");
+  if (!duration || !Number.isFinite(duration) || duration <= 0) throw badSource("길이를 알 수 없음");
   // 장면이 하나뿐인 것(sharp 가 못 읽은 정지 그림이 영상 형식으로 열린 것 등)은 영상이 아니다
-  if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없습니다(${duration}초)`);
+  if (duration * fps < 1.5) throw badSource(`움직이는 장면이 없음(${duration}초)`);
   // 움직이는 그림은 고르게 편 초당 프레임 수(편집 창의 미리보기, 한 프레임 이동이 그것)
   return { kind: "video", width: input.width, height: input.height, duration: Math.round(duration * 1000) / 1000, fps: stacked(input) ? frameRate(input) : fps };
 }
@@ -149,8 +149,8 @@ async function download(url: string, file: string, room: number, signal: AbortSi
   } catch (error) {
     fs.rmSync(part, { force: true });
     if (signal.aborted) throw error;
-    if (/최대 크기/.test(messageOf(error))) throw codedError("background-no-space", `남은 공간을 넘는 파일입니다: ${messageOf(error)}`, { cause: error });
-    throw codedError("background-link-failed", `링크에서 다운로드하지 못했습니다: ${messageOf(error)}`, { cause: error });
+    if (/최대 크기/.test(messageOf(error))) throw codedError("background-no-space", `파일이 남은 공간을 넘음: ${messageOf(error)}`, { cause: error });
+    throw codedError("background-link-failed", `링크에서 다운로드 실패: ${messageOf(error)}`, { cause: error });
   }
 }
 
@@ -158,7 +158,7 @@ async function download(url: string, file: string, room: number, signal: AbortSi
 async function receive({ item, signal }: StageJob): Promise<StageResult> {
   const file = store.sourceOf(item.id);
   if (item.from === "link" && item.link) await download(item.link, file, store.room(), signal);
-  if (!fs.existsSync(file)) throw codedError("background-failed", "원본이 없습니다");
+  if (!fs.existsSync(file)) throw codedError("background-failed", "원본 없음");
   return inspectSource(file, signal);
 }
 

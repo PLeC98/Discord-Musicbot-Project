@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import type { AnywhereCommand } from "../../app/command-loader.ts";
 import { colorOf } from "../../ui/colors.ts";
 import * as infoText from "../../ui/text/ko/info.ts";
@@ -9,9 +9,9 @@ import { latencyGrade, type LatencyGrade } from "../../rules/latency.ts";
 const MARK: Record<LatencyGrade, string> = { good: "🟢", fair: "🟡", poor: "🔴" };
 
 const exported: AnywhereCommand = {
-  help: { section: "info", tier: "moderator" },
+  help: { section: "info", tier: "everyone" },
   anywhere: true,
-  data: new SlashCommandBuilder().setName("ping").setDescription("봇의 응답 시간을 측정해요").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+  data: new SlashCommandBuilder().setName("ping").setDescription("봇의 응답 시간을 측정해요"),
 
   async execute(interaction) {
     const { resource } = await interaction.reply({ content: infoText.pinging(), withResponse: true, flags: MessageFlags.Ephemeral });

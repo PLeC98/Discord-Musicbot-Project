@@ -5,7 +5,9 @@ import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChanne
 import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
-import { holdingAdapterCreator } from "../infra/voice-adapter.ts";
+import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
+import { isShuttingDown } from "../infra/shutdown-state.ts";
+import { botChannelAtDiscord } from "./voice-leave.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
@@ -28,8 +30,6 @@ const STUCK_MS = 5000; // 참가 요청에 이만큼 답이 없으면 풀어 본
 const MAX_LIB_REJOINS = 5; // 라이브러리가 Ready 없이 스스로 다시 참가하는 횟수의 상한. 넘으면 우리 복구(시도 사이를 둔다)로
 const RENEWED_WINDOW_MS = 30_000; // 4014 앞으로 이만큼 안에 받은 게이트웨이 새 세션은 그 4014 의 까닭으로 본다
 const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
-const VOICE_STATE_UPDATE = 4; // 게이트웨이 op. 음성 채널 참가, 나가기
-const UNKNOWN_VOICE_STATE = RESTJSONErrorCodes.UnknownVoiceState; // 봇이 음성 채널에 없다
 const DO_NOT_RECONNECT = 4014; // 음성 서버의 닫힘 코드. 쫓겨났거나 옮겨졌다
 const CALL_TERMINATED = 4022; // 음성 서버의 닫힘 코드. 통화를 끝내 모두를 끊었다(스테이지 종료, 채널 삭제 등)
 const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되돌림이 되풀이돼도 핑퐁이 되지 않게
@@ -109,8 +109,9 @@ class VoiceLink {
 
   // ── 붙기 ──
 
-  /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리) */
+  /** 음성 채널에 붙는다. 못 붙으면 던진다(부른 쪽이 처리). 종료 중이면 붙지 않고 bot-shutting-down 예외를 던진다 */
   async connect() {
+    if (isShuttingDown()) throw codedError("bot-shutting-down", "종료 중이라 음성 채널에 연결하지 않음");
     this.state = "joining";
     try {
       await this._join(JOIN_READY_MS);
@@ -122,15 +123,16 @@ class VoiceLink {
       this._drop({ leave: true });
       this.state = "idle";
       log.error("음성 채널 연결 실패:", messageOf(error));
-      throw codedError("voice-failed", "음성 채널에 붙지 못했습니다", { cause: error });
+      throw codedError("voice-failed", "음성 채널에 연결하지 못함", { cause: error });
     }
   }
 
-  // 새 연결을 만들어 전이를 듣고 오디오 플레이어를 구독시킨 뒤, 준비될 때까지 기다린다
+  // 새 연결을 만들어 상태 변화 이벤트를 걸고 오디오 플레이어를 구독한 뒤, 준비될 때까지 기다린다. 모든 새 음성 연결이 여기를 지난다.
+  // 종료 중에는 부르지 않는다(connect 와 복구 루프가 바로 앞에서 확인한다)
   async _join(readyMs: number) {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
-    if (!channelId) throw new Error("음성 채널이 없습니다");
+    if (!channelId) throw new Error("음성 채널 없음");
     // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들어 trace 를 남길 때만
     const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: log.level === "trace" });
     player.connection = connection;
@@ -140,7 +142,7 @@ class VoiceLink {
     try {
       await this.lib.entersState(connection, VoiceConnectionStatus.Ready, readyMs);
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 붙지 못했습니다`, { cause: error });
+      if (error instanceof Error && error.name === "AbortError") throw new Error(`${readyMs / 1000}초 안에 음성 채널에 연결하지 못함`, { cause: error });
       throw error;
     } finally {
       this._clearUnstick();
@@ -161,7 +163,7 @@ class VoiceLink {
     this.stuckTimer = null;
   }
 
-  // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나감이 닿지 못한 채 남음)
+  // 참가 요청에 답이 없다. 끊긴 동안 보낸 요청이 사라졌거나, 디스코드가 봇이 이미 그 채널에 있다고 보아(나가기 요청이 닿지 못한 채 남음)
   // 같은 채널 참가에 답하지 않는 것이다. 디스코드에 물어(캐시는 끊긴 동안 낡는다) 묻지 못하면 기다리고, 처음에는 참가를 다시 보낸다.
   // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
   async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
@@ -172,17 +174,17 @@ class VoiceLink {
     if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
     if (at === undefined) return this._armUnstick(connection, channelId, tries);
     if (tries === 0 || at !== channelId) {
-      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송합니다: ${this._label()}`);
+      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송: ${this._label()}`);
       connection.rejoin();
       return this._armUnstick(connection, channelId, tries + 1);
     }
     const { selfDeaf, selfMute } = connection.joinConfig;
     this.selfLeave = channelId;
-    if (!state.adapter.sendPayload({ op: VOICE_STATE_UPDATE, d: { guild_id: this.player.guild.id, channel_id: null, self_deaf: selfDeaf, self_mute: selfMute } })) {
+    if (!state.adapter.sendPayload(leavePayload(this.player.guild.id, { selfDeaf, selfMute }))) {
       this.selfLeave = null;
       return this._armUnstick(connection, channelId, tries);
     }
-    log.warn(`채널에 남아 있던 이전 연결을 끊고 다시 참가합니다: ${this._label()} | 참가 요청 응답 없음(디스코드상에는 채널에 남아 있음)`);
+    log.warn(`채널에 남아 있던 이전 연결을 끊고 다시 참가: ${this._label()} | 참가 요청 응답 없음(디스코드상에는 채널에 남아 있음)`);
     connection.rejoin();
   }
 
@@ -191,21 +193,15 @@ class VoiceLink {
   }
 
   // 디스코드가 보는 봇의 음성 채널(REST). 채널에 없으면 null, 묻지 못하면 undefined
-  async _botChannelAtDiscord(): Promise<string | null | undefined> {
-    try {
-      return (await this.player.guild.voiceStates.fetch("@me", { force: true, cache: false })).channelId;
-    } catch (error) {
-      if (codeOf(error) === UNKNOWN_VOICE_STATE) return null;
-      log.debug(`디스코드에서 봇의 음성 상태를 조회하지 못해 대기합니다: ${messageOf(error)}`);
-      return undefined;
-    }
+  _botChannelAtDiscord(): Promise<string | null | undefined> {
+    return botChannelAtDiscord(this.player.guild);
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voice-adapter)
   _adapterCreator() {
     const player = this.player;
     return holdingAdapterCreator(player.guild.voiceAdapterCreator, {
-      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청 대상을 이동된 채널로 변경해 보냅니다: ${from} → ${to} (${guildName(player)})`),
+      onRewrite: (from: string, to: string) => log.info(`음성 재참가 요청 대상을 이동된 채널로 변경: ${from} → ${to} (${guildName(player)})`),
       onSend: (channelId: string, rewritten: boolean) => {
         if (!rewritten) this.lastPlainJoin = { channelId, at: Date.now() };
       },
@@ -269,7 +265,7 @@ class VoiceLink {
   }
 
   // 봇이 이미 채널에서 빠졌다(스테이지 종료 등). 라이브러리는 4014 가 아닌 닫힘이면 같은 채널로 다시 참가하므로(잠깐 청중으로 들어갔다 나온다)
-  // 이 리스너가 먼저 도는 동안 나감 없이 부순다. 나감은 디스코드가 이미 했다
+  // 이 리스너가 먼저 도는 동안 나가기 요청 없이 부순다. 봇은 디스코드가 이미 채널에서 뺐다
   _noRejoin(networking: object, code: number) {
     const connection = this.player.connection;
     if (this.state !== "closed" || code === DO_NOT_RECONNECT || !connection) return;
@@ -284,7 +280,7 @@ class VoiceLink {
     if (this.state === "closed" || this.state === "idle" || code === DO_NOT_RECONNECT || !connection) return;
     if (!("networking" in connection.state) || connection.state.networking !== networking) return;
     if (connection.rejoinAttempts < MAX_LIB_REJOINS) return;
-    log.warn(`음성 서버 연결이 Ready 전에 ${connection.rejoinAttempts}회 닫혀(마지막 코드 ${code}) 라이브러리 자동 재연결을 중단하고 직접 재연결합니다: ${this._label()}`);
+    log.warn(`음성 서버 연결이 Ready 전에 ${connection.rejoinAttempts}회 닫혀(마지막 코드 ${code}) 라이브러리 자동 재연결을 중단하고 직접 재연결: ${this._label()}`);
     connection.destroy(false);
   }
 
@@ -338,7 +334,7 @@ class VoiceLink {
       this._leftChannel(this.player.voiceChannel?.id ?? null);
       return;
     }
-    log.warn(`자동 재연결 실패: ${this._label()} | 직접 재연결합니다`);
+    log.warn(`자동 재연결 실패(직접 재연결): ${this._label()}`);
     this.recover("자동 재연결 안 됨");
   }
 
@@ -359,7 +355,8 @@ class VoiceLink {
 
   // 시도 → 기다림 → 쉼을 차례로 되풀이한다. 세대가 바뀌면(정리, 새 복구) 늦게 돌아온 결과로 아무것도 하지 않는다
   async _recoverLoop(gen: number) {
-    const active = () => gen === this.gen && this.state === "recovering";
+    // 종료가 시작되면 복구를 멈춘다(새 연결을 만들지 않는다. 남은 연결은 종료가 정리한다)
+    const active = () => gen === this.gen && this.state === "recovering" && !isShuttingDown();
     while (active()) {
       this.recoveryAttempts++;
       if (this.recoveryAttempts > RECOVERY_ATTEMPTS_MAX) return this._giveUp();
@@ -383,15 +380,15 @@ class VoiceLink {
   // 한 번 재연결해 본다. 됐으면 true. 채널에서는 나가지 않는다.
   // 디스코드가 봇을 이 채널에 있다고 보는 동안은 같은 채널 참가에 답하지 않으므로, 연결이 받아 둔 음성 서버 정보로 음성 서버에 재연결한다.
   // 디스코드가 봇을 채널에서 뺐으면(게이트웨이가 끊겼던 것) 그 정보는 쓸 수 없어 옛 연결을 버리고 새로 참가한다.
-  // 디스코드에 닿는데도 재연결이 실패했으면 그 정보가 낡은 것이라 다음부터 새로 참가한다(답이 없으면 _unstick 이 푼다).
-  // 디스코드에 묻는 사이 정리됐으면(active 가 거짓) 아무것도 하지 않는다. 그 뒤에 만든 연결은 치울 쪽이 없다
+  // 디스코드와 통신이 되는데도 재연결이 실패했으면 그 정보가 만료된 것이라 다음부터 새로 참가한다(답이 없으면 _unstick이 푼다).
+  // 디스코드에 조회하는 사이 정리됐으면(active가 false) 아무것도 하지 않는다. 그 뒤에 만든 연결은 정리할 곳이 없다
   async _rejoin(active: () => boolean) {
     const connection = this.player.connection;
     const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord() : null;
     if (!active()) return false;
     try {
       if (connection && this._mayReattach(at) && this._reattach(connection)) {
-        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결합니다: ${this._label()}`);
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 캐시된 음성 서버 정보로 재연결: ${this._label()}`);
         try {
           await this.lib.entersState(connection, VoiceConnectionStatus.Ready, RECOVER_READY_MS);
         } catch (error) {
@@ -400,7 +397,7 @@ class VoiceLink {
           throw error;
         }
       } else {
-        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 새로 참가합니다: ${this._label()}`);
+        log.debug(`연결 복구 ${this.recoveryAttempts}회차: 새로 참가: ${this._label()}`);
         this._drop({ leave: false });
         await this._join(RECOVER_READY_MS);
       }
@@ -412,7 +409,7 @@ class VoiceLink {
     }
   }
 
-  // 받아 둔 음성 서버 정보로 재연결해도 되나. 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못했고(at 이 undefined), 이번 복구에서 그 정보가 낡았다고 보지 않았다
+  // 캐시된 음성 서버 정보로 재연결해도 되는지 확인한다. 디스코드가 봇을 이 채널에 있다고 보거나 조회하지 못했고(at이 undefined), 이번 복구에서 그 정보가 만료됐다고 보지 않았다
   _mayReattach(at: string | null | undefined) {
     return !this.reattachRefused && (at === undefined || at === this.player.voiceChannel?.id);
   }
@@ -436,14 +433,14 @@ class VoiceLink {
     const shardId = this.player.guild.shardId;
     const renewed = typeof shardId === "number" ? this.lib.newSessionAt?.(shardId) : null;
     if (!renewed || renewed < Math.max(this.waitAt - RENEWED_WINDOW_MS, this.readyAt ?? 0)) return false;
-    log.warn(`게이트웨이 세션 초기화로 음성 채널에 다시 참가합니다(강제 퇴장 아님): ${this._label()}`);
+    log.warn(`게이트웨이 세션 초기화로 음성 채널에 다시 참가(강제 퇴장 아님): ${this._label()}`);
     this.recover("게이트웨이 새 세션");
     return true;
   }
 
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
   _giveUp() {
-    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회를 넘었습니다. 세션을 저장하고 정리합니다`);
+    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)`);
     this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
   }
 
@@ -456,13 +453,13 @@ class VoiceLink {
       // 답 없는 참가를 풀려고 스스로 나갔다. 다시 참가가 뒤따른다
       if (this.selfLeave === oldState.channelId) {
         this.selfLeave = null;
-        log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가를 기다립니다: ${this._label()}`);
+        log.debug(`봇이 직접 끊은 연결의 퇴장 이벤트라 재참가 대기: ${this._label()}`);
         return { left: false, moved: false };
       }
       // 재연결하는 중이면 쫓겨난 것이 아니다. 봇의 게이트웨이가 끊기면 디스코드가 음성 상태를 지운다. 복구가 다시 참가한다
       // 4014("재연결하지 말 것")로 끊겨 기다리는 중이면 쫓겨난 것이다(게이트웨이 새 세션은 _renewedSession 이 가른다). 음성 서버의 닫힘이 게이트웨이의 빠짐 알림보다 먼저 올 때가 있다
       if (this.state === "recovering" || (this.state === "waiting" && this.waitCloseCode !== DO_NOT_RECONNECT)) {
-        log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이므로 강제 퇴장으로 처리하지 않습니다: ${this._label()}`);
+        log.info(`디스코드에서 음성 채널 연결이 해제됐으나 재연결 중이라 강제 퇴장으로 처리하지 않음: ${this._label()}`);
         this.recover("음성 상태가 지워짐");
         return { left: false, moved: false };
       }
@@ -541,14 +538,14 @@ class VoiceLink {
     try {
       if (me && permissions?.has(PermissionFlagsBits.MuteMembers)) {
         await me.voice.setSuppressed(false);
-        log.info(`스테이지 발언자가 됐습니다: ${this._label()}`);
+        log.info(`스테이지 발언자가 됨: ${this._label()}`);
       } else if (me && permissions?.has(PermissionFlagsBits.RequestToSpeak)) {
         await me.voice.setRequestToSpeak(true);
-        log.info(`스테이지 발언을 요청했습니다(모더레이터의 수락을 기다립니다): ${this._label()}`);
+        log.info(`스테이지 발언 요청(모더레이터의 수락 대기): ${this._label()}`);
         if (this.stageNoticed !== channel.id) this.player.noticeStage("stage-requested");
         this.stageNoticed = channel.id;
       } else {
-        log.warn(`스테이지에서 발언자가 될 수도 요청할 수도 없습니다(멤버 음소거 및 발언권 요청 권한 없음): ${this._label()}`);
+        log.warn(`스테이지에서 발언자가 될 수도 발언권을 요청할 수도 없음(멤버 음소거 및 발언권 요청 권한 없음): ${this._label()}`);
         this.player.noticeStage("stage-cannot-speak");
       }
     } catch (error) {
@@ -576,7 +573,7 @@ class VoiceLink {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
       if (codeOf(error) === UNKNOWN_CHANNEL) return false;
-      log.debug(`디스코드에서 채널을 조회하지 못해 채널이 존재하는 것으로 간주합니다: ${describeError(error)}`);
+      log.debug(`디스코드에서 채널 조회 실패(채널이 있는 것으로 간주): ${describeError(error)}`);
       return true;
     }
   }
@@ -640,7 +637,7 @@ class VoiceLink {
       this.lastBounceFix = now;
       this.lastMove = null;
       player.voiceChannel = target;
-      log.warn(`음성 채널 이동 직후 원래 채널로 되돌아가 다시 이동합니다: "${target.name ?? target.id}" (${where})`);
+      log.warn(`음성 채널 이동 직후 원래 채널로 되돌려져 대상 채널로 다시 이동: "${target.name ?? target.id}" (${where})`);
       const connection = player.connection;
       if (connection) connection.rejoin({ channelId: target.id, selfDeaf: connection.joinConfig.selfDeaf, selfMute: connection.joinConfig.selfMute });
       return true;
@@ -680,7 +677,7 @@ class VoiceLink {
     return connection;
   }
 
-  // 지금 연결을 떼어 부순다. 붙기에 실패했으면 나감을 보내고, 재연결 전이면 보내지 않는다(보내면 디스코드가 봇을 채널에서 뺀다)
+  // 지금 연결을 떼어 부순다. 붙기에 실패했으면 나가기 요청을 보내고, 재연결 전이면 보내지 않는다(보내면 디스코드가 봇을 채널에서 뺀다)
   _drop({ leave }: { leave: boolean }) {
     const connection = this._detach();
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
@@ -692,7 +689,7 @@ class VoiceLink {
     }
   }
 
-  /** 나감을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
+  /** 나가기 요청을 보내지 않고 이 쪽 연결만 정리한다. 채널에서 빠지는 것은 게이트웨이 세션에 따른다: 정상 종료는 연결을 닫자마자, 프로세스가 죽으면 세션이 끝날 때 디스코드가 뺀다 */
   release(reason: string) {
     this.stop();
     this.state = "closed";
@@ -713,7 +710,7 @@ class VoiceLink {
     const connection = this._detach();
     if (!connection) return;
     try {
-      // 이미 부순 연결(채널에서 빠진 뒤 다시 참가하지 않게 부숨)이면 나감도 이미 된 것이다
+      // 이미 부순 연결(채널에서 빠진 뒤 다시 참가하지 않게 부숨)이면 채널에서도 이미 빠졌다
       if (connection.state.status !== VoiceConnectionStatus.Destroyed) connection.destroy();
       log.info(`음성 채널 떠남: ${this._label()} | 원인=${reason}`);
     } catch (error) {

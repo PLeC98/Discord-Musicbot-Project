@@ -458,7 +458,7 @@ function loadIfAtEnd(el: HTMLElement | null) {
 const onQueueScroll = (e: Event) => loadIfAtEnd(e.target as HTMLElement);
 
 // 봇과 다른 채널(또는 음성 밖)이면 서버가 조작을 전부 막는다. 카드를 가려 이유를 먼저 보여준다.
-// 모더레이터는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
+// 서버 관리자는 checkVoice 면제라 canControl이 참이므로 여기 걸리지 않는다.
 const channelLocked = computed(() => !player.value.canControl && player.value.botInVoice && !player.value.sameVoice);
 
 async function refresh() {

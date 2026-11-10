@@ -10,7 +10,7 @@ const canGoNext = ({ queue, loop, autoplay }: { queue: number; loop: Loop | unde
 
 /**
  * 넣은 사람도 하는 조작(넘기기, 대기열 빼기)이 막힌 까닭. 조작 권한이 막지 않으면 통과(null),
- * 그 곡을 넣은 사람이면 재적 규칙이 막은 까닭, 아니면 조작 권한이 막은 까닭
+ * 그 곡을 넣은 사람이면 동일 음성 채널 규칙이 막은 까닭, 아니면 조작 권한이 막은 까닭
  */
 function ownTrackDenied<Why>({ control, requester, voice }: { control: Why | null; requester: boolean; voice: () => Why | null }): Why | null {
   if (control === null) return null;

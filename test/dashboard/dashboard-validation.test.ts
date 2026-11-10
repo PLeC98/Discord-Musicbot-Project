@@ -1,7 +1,7 @@
 // src/dashboard/routes/player.ts: 플레이어 조작 API의 입력 검증
 // 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity", "50junk" 같은 느슨한 숫자,
 // 로그, yt-dlp 로 흘러갈 제어문자를 막는다.
-// 실 라우터 + fake client/player, 모더레이터 멤버로 권한 게이트를 지나 검증 로직만 조준.
+// 실 라우터 + fake client/player, 서버 관리자 멤버로 권한 게이트를 지나 검증 로직만 확인한다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -106,7 +106,7 @@ const guild = {
   roles: { cache: new Map() },
   channels: { cache: new Map() },
   members: {
-    // 그 서버의 모더레이터(재적, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
+    // 그 서버의 서버 관리자(동일 음성 채널, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
     fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },

@@ -200,7 +200,7 @@ const exported: GuildCommand & {
     const query = interaction.options.getString("query", true).trim();
     const member = interaction.member;
 
-    // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 재적 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
+    // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 동일 음성 채널 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
     const permErr = checkAdd(member) || checkSummon(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 

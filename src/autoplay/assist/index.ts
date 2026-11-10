@@ -15,6 +15,7 @@ import * as YouTube from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
+import { AI_TIMEOUT_RANGE } from "../../config/schema/ai.ts";
 import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import { setTimeout as sleep } from "timers/promises";
@@ -146,11 +147,16 @@ function withDefaults(...layers: Array<Partial<AiSettings> | null | undefined>):
       out[key] = value;
     }
   }
+  // 요청 하나의 시간 한도는 저장 시와 같은 범위로 제한한다(운영자 패널의 테스트는 저장 전 초안을 그대로 받으므로 무한정 대기하지 않게 한다)
+  const timeout = Number(out.timeoutMs);
+  out.timeoutMs = Number.isFinite(timeout) ? Math.min(AI_TIMEOUT_RANGE.max, Math.max(AI_TIMEOUT_RANGE.min, timeout)) : DEFAULTS.timeoutMs;
   return out as AiSettings;
 }
 
 const specOf = (provider: string | undefined) => (provider && PROVIDER_SPECS[provider]) || null;
 const live = (one: Partial<AiSettings> | null | undefined) => !!one?.provider && one.provider !== "off" && !!specOf(one.provider);
+/** 화면의 테스트가 요청을 보낼 수 없는 까닭(프로바이더를 고르지 않았거나 모르는 이름). 보낼 수 있으면 null */
+const notLive = (one: Partial<AiSettings>) => (live(one) ? null : !one.provider || one.provider === "off" ? "프로바이더가 설정되지 않았어요" : `모르는 프로바이더예요(${one.provider})`);
 
 // 끝의 슬래시를 뗀다. `/\/+$/`로 하면 끝에 없는 슬래시 더미에 역추적이 붙어 O(n²)가 된다.
 function stripTrailingSlash(text: unknown) {
@@ -186,7 +192,7 @@ function keyBinding(one: Partial<AiSettings> | null | undefined): string {
  * 키는 입력할 때의 주소에 묶여 있어 지금 주소가 다르면 나오지 않는다(주소를 바꾸면 다시 입력해야 한다).
  *
  * custom은 저장된 주소와 같을 때만 붙인다. 대시보드 미리보기는 저장 안 한 초안을 그대로 받는데,
- * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 흘릴 수 있다.
+ * 그 주소로 키까지 보내면 운영자 세션을 쥔 쪽이 아무 데로나 키를 유출할 수 있다.
  */
 function storedKey(one: Partial<AiSettings>): string {
   if (!wantsKey(one) || !one.provider) return "";
@@ -338,7 +344,7 @@ function parseExtra(text: unknown): Extra {
 // 한 줄(이름=값)을 담는다. 못 읽으면 까닭을 problems 에
 function readExtraLine(line: string, out: Extra) {
   const at = line.indexOf("=");
-  if (at < 1) return out.problems.push(`이름이 없습니다: ${line}`);
+  if (at < 1) return out.problems.push(`이름이 없음: ${line}`);
   const name = line.slice(0, at).trim();
   const value = line.slice(at + 1).trim();
   const header = /^header::/i.test(name) ? name.slice(8).trim() : null;
@@ -349,13 +355,13 @@ function readExtraLine(line: string, out: Extra) {
     out.headers[header] = value;
     return;
   }
-  if (value === "") return out.problems.push(`값이 없습니다: ${name}`);
-  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름입니다: ${name}`);
+  if (value === "") return out.problems.push(`값이 없음: ${name}`);
+  if (!safeKeys(name)) return out.problems.push(`쓸 수 없는 이름: ${name}`);
 
   if (value.startsWith("json::")) {
     const got = readJson(value.slice(6));
     if (got.ok) setPath(out.body, name, got.value);
-    else out.problems.push(`JSON 으로 못 읽었습니다: ${name}`);
+    else out.problems.push(`JSON으로 읽지 못함: ${name}`);
     return;
   }
   setPath(out.body, name, scalarOf(value));
@@ -679,7 +685,7 @@ function withExtra(body: Body, extra: Extra) {
   return out;
 }
 
-// gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 흘리는 일이 있다.
+// gemma 계열은 토크나이저의 공백 표시(U+2581 ▁)를 답에 그대로 내보내는 일이 있다.
 // JSON.parse 가 `Unexpected token '▁'` 로 죽으므로 들여쓰기 위치의 그것만 공백으로 되돌린다.
 // 같은 위치에 오는 다른 폭의 공백(U+00A0, U+3000)도 함께 본다.
 const ODD_SPACE = new RegExp("[\u2581\u00a0\u3000]", "g");
@@ -747,7 +753,7 @@ function arraysIn(text: string): string[] {
  */
 function skipped(error: unknown) {
   const calls = error instanceof AskFailure && error.calls > 1 ? `(${error.calls}번 불러 모두 실패)` : "";
-  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택합니다`);
+  log.warn(`AI 보조 실패${calls}: ${messageOf(error)}. 이번 판정은 규칙만으로 선택`);
 }
 
 /** 판정 하나(재시도, 다시 묻기까지 끝낸 것)의 실패. reason 은 까닭, detail 은 저쪽 문구, calls 는 부른 수 */
@@ -846,7 +852,7 @@ async function askBatch(one: AiSettings, cands: Judged[], genre: string | undefi
       if (got.ok) return got.verdicts;
       if (got.unreadable && !reasked) {
         reasked = true;
-        log.debug(`AI 보조: 판정 응답을 파싱하지 못해 재요청합니다(${got.detail.slice(0, 80)})`);
+        log.debug(`AI 보조: 판정 응답 파싱 실패(재요청): ${got.detail.slice(0, 80)}`);
         continue;
       }
       const wait = waitBefore(limited, used, got, endsAt);
@@ -925,14 +931,15 @@ async function accepts(candidate: Judged | null | undefined, about: About = {}):
  */
 async function listModels(draft: Draft): Promise<ModelsCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
+  const why = notLive(one);
+  if (why) return { ok: false, reason: why };
 
   // 키가 있어야 하는데 없다. 저쪽에 물어 봐야 거절(401)이라 묻지 않고 다운로드해 둔 목록으로 채운다
-  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 저쪽에 묻지 않았습니다." });
+  if (wantsKey(one) && !storedKey(one)) return withPreset(one, { ok: false, reason: "키가 없어 요청하지 않았어요" });
 
   const dialect = dialectOf(one);
   const first = dialect.modelsUrl(one);
-  if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있습니다(custom 이면 직접 적어야 합니다)." };
+  if (!first) return { ok: false, reason: "엔드포인트 주소가 비어 있어요(custom이면 직접 적어야 해요)" };
 
   // 같은 곳인데 API 버전마다 주소 체계가 다른 데가 있다(버텍스). 404 면 다음 것을 물어본다.
   // 그래야 어느 버전을 쓰는 프로젝트든 목록이 표시된다. 404 가 아니면 그 답이 곧 사실이다.
@@ -972,7 +979,7 @@ async function askModels(urls: string[], headers: Record<string, string>, one: A
     const text = mask(raw);
     if (last(res)) return { res, text };
   }
-  throw new Error("물을 주소가 없습니다");
+  throw new Error("요청할 주소가 없음");
 }
 
 // 가릴 것을 뺀 목록과 뺀 수
@@ -1016,8 +1023,9 @@ const PING_TEXT = "한 문장으로 인사하고 17 + 25 의 값을 알려 주�
  */
 async function ping(draft: Draft): Promise<PingCheck> {
   const one = withDefaults(draft);
-  if (!live(one)) return { ok: false, reason: `프로바이더가 꺼져 있습니다(provider=${one.provider || "off"}).` };
-  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있습니다." };
+  const why = notLive(one);
+  if (why) return { ok: false, reason: why };
+  if (!one.model) return { ok: false, reason: "모델 이름이 비어 있어요" };
 
   const dialect = dialectOf(one);
   const url = dialect.chatUrl(one);

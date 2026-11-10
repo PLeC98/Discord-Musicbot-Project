@@ -70,7 +70,7 @@ test("미지원 플랫폼은 null. macOS는 PATH/FFMPEG_PATH로 처리한다", (
 
 test("쓸 수 있는 빌드가 없으면 조용히 엉뚱한 것을 받지 않고 던진다", () => {
   const onlyShared = "aaa4  ffmpeg-n9.0.1-11-ge47273f4d9-linux64-lgpl-shared-9.0.tar.xz";
-  assert.throws(() => resolveAsset(onlyShared, "linux-x64"), /빌드가 없습니다/);
+  assert.throws(() => resolveAsset(onlyShared, "linux-x64"), /빌드가 없음/);
 });
 
 test("bgutil 은 기본 브랜치가 아니라 릴리스 태그로 고정한다", () => {

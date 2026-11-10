@@ -1,20 +1,21 @@
 // 곡을 못 틀었을 때 그 까닭이 어디까지 닿는가. 넘길지, 셀지, 그 곡에서 멈출지를 이것으로 정한다(player 의 실패 처리).
 //   track       이 곡만 안 된다. 다음 곡은 된다 → 넘기고 세지 않는다
 //   environment 봇, 망, 음원 서비스가 지금 안 된다. 다음 곡도 같이 안 된다 → 넘기지 않고 그 곡에서 멈춘다(넘기면 멀쩡한 대기열을 태운다)
-//   unknown     어느 쪽인지 근거가 없다 → 넘기고 센다(연달아면 멈춘다)
+//   unknown     어느 쪽인지 근거가 없다 → 넘기고 센다(한도까지 이어지면 멈춘다)
 // 판정은 오류 사슬을 가까운 것부터: 만든 곳이 붙인 범위(scope) → HTTP 상태 → 이름 → 연결 이름. 같은 이름(stream-failed 등)이 곡 탓도 환경 탓도 되는 곳은 만든 곳이 scope 를 붙인다.
 // 아래 층(yt-dlp, 청크, 조각 재시도, 클라이언트 바꾸기 등)이 다 해 보고 올라온 실패다. 그래서 환경 탓은 몇 초 안에 풀릴 일이 아니다
 
 import { chainOf, codeOf, isNetworkCode } from "../rules/error-kind.ts";
 import { deadSourceCode } from "../sources/dead-source.ts";
 import { SsrfError } from "../infra/safe-url.ts";
+import { inputKind } from "../rules/input-kind.ts";
 
 type FailureScope = "track" | "environment" | "unknown";
 
 // 이 곡의 성질이나 이 곡에만 걸리는 설정. 연령 제한, 쿠키는 대기열의 다른 곡에 걸리지 않는다
 const TRACK = new Set(["unavailable-contents", "sc-preview-only", "geo-blocked", "age-content-off", "age-channel-only", "yt-age-no-cookies", "yt-age-cookies-invalid", "sp-no-youtube-match", "unsupported-link", "shoutcast-v1", "pinned-live", "live-ended", "live-upcoming"]);
-// 다음 곡도 같은 이유로 안 된다
-const ENVIRONMENT = new Set(["network-error", "rate-limited", "yt-bot-check", "encoder-unavailable"]);
+// 다음 곡도 같은 이유로 안 된다(종료 중이라 음성 채널에 붙지 않음 포함. 곡을 건너뛰지 않고 그 자리에 둔다)
+const ENVIRONMENT = new Set(["network-error", "rate-limited", "yt-bot-check", "encoder-unavailable", "bot-shutting-down"]);
 // 근거가 없다고 아는 이름. 유튜브 클라이언트 탓은 아래 재시도를 다 쓰고 올라온 것이라 다음 곡에도 걸릴 수 있다. 판정은 표에 없는 이름과 같다(모름). 테스트가 재생 쪽 이름이 빠짐없이 어느 표에 있는지 본다
 const UNKNOWN = new Set(["stream-failed", "direct-unavailable", "no-audio-only", "client-fault", "stale-media", "skipped-client", "no-formats", "unknown-error"]);
 
@@ -58,5 +59,14 @@ function failureScope(error: unknown, { direct = false }: { direct?: boolean } =
   return "unknown";
 }
 
-export { failureScope, TRACK, ENVIRONMENT, UNKNOWN };
+/**
+ * 소리를 직접 링크(알려진 사이트 밖의 서버)에서 받는 곡인가. 곡의 라벨(platform)이 아니라 받을 주소(audioUrl)로 본다:
+ * 자동재생이 선택한 직접 파일, 유튜브 요청에 직접 지정한 직접 링크 음원도 그 서버 하나의 문제다. 주소를 아직 모르면 라벨로 본다
+ */
+function servedDirectly(track: { platform?: string | null; audioUrl?: string | null } | null | undefined) {
+  if (!track) return false;
+  return track.audioUrl ? inputKind(track.audioUrl) === "direct" : track.platform === "direct";
+}
+
+export { failureScope, servedDirectly, TRACK, ENVIRONMENT, UNKNOWN };
 export type { FailureScope };

@@ -86,7 +86,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
-  // 목록만 가리키는 주소: 비면 없음, 못 받으면 그 까닭(검색으로 흘리지 않는다)
+  // 목록만 가리키는 주소: 비면 없음, 못 받으면 그 까닭(검색으로 넘기지 않는다)
   const noSearch = (getPlaylist: () => Promise<null>) => ({ youtube: { ...YouTube, getPlaylist, getInfo: async () => assert.fail("영상을 읽으면 안 된다"), searchText: async () => assert.fail("검색하면 안 된다") } });
   assert.deepEqual(
     await lookup.getTrackData(
@@ -117,7 +117,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
   }
 });
 
-test("조회: 모르는 모양의 유튜브 링크는 검색으로 흘리지 않고 거절한다", async () => {
+test("조회: 모르는 모양의 유튜브 링크는 검색으로 넘기지 않고 거절한다", async () => {
   const noSearch = { youtube: { ...YouTube, getInfo: async () => assert.fail("영상을 읽으면 안 된다"), searchText: async () => assert.fail("검색하면 안 된다") } };
   assert.deepEqual(await lookup.getTrackData("https://www.youtube.com/@channel", undefined, undefined, noSearch), { success: false, code: "yt-unplayable" });
 });

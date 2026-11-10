@@ -1,5 +1,5 @@
 // src/player/player.ts 의 _stopWith: 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈추고(stop()), 그 밖이면 바로 멈춘다(stop(true)).
-// 무음을 흘려보내는 동안은 멈추는 중이고, 상한이 지나도 Idle 이 아니면 바로 멈춘다. 대시보드는 그동안도 곡이 바뀌기를 기다린다.
+// 무음을 내보내는 동안은 멈추는 중이고, 상한이 지나도 Idle 이 아니면 바로 멈춘다. 대시보드는 그동안도 곡이 바뀌기를 기다린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ function fakePlayer(status: AudioPlayerStatus) {
   return { player, stops };
 }
 
-test("재생 중이면 무음을 흘려보내며 멈추고, Idle 이 오면 멈추는 중이 끝난다", () => {
+test("재생 중이면 무음을 내보내며 멈추고, Idle 이 오면 멈추는 중이 끝난다", () => {
   const { player, stops } = fakePlayer(AudioPlayerStatus.Playing);
   player._stopWith("skip");
   assert.deepEqual(stops, [undefined], "강제 없이");
@@ -71,7 +71,7 @@ test("무음 멈춤이 상한 안에 Idle 에 닿지 못하면(그새 일시정�
   assert.equal(player.isStopping, false);
 });
 
-test("대시보드는 무음을 흘려보내는 동안에도 곡이 바뀌기를 기다린다", async (t) => {
+test("대시보드는 무음을 내보내는 동안에도 곡이 바뀌기를 기다린다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { player } = fakePlayer(AudioPlayerStatus.Playing);
   player._stopWith("skip");

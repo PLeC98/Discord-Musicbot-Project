@@ -235,7 +235,7 @@ const official = {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     // 400, 401 은 자격증명이 틀린 것이다(운영자 설정). 라우팅이 익명 GraphQL 로 넘기고 이 줄은 운영자 로그에 남는다
-    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀렸습니다. 운영자 패널의 API 키 탭)" : ""}`);
+    if (!r.ok) throw codedError("spotify-failed", `토큰 발급 실패 ${r.status}${r.status === 400 || r.status === 401 ? "(키가 틀림. 운영자 패널의 API 키 탭)" : ""}`);
     const j = (await r.json()) as { access_token: string; expires_in?: number };
     this._token = { value: j.access_token, expiresAt: Date.now() + (j.expires_in || 3600) * 1000, auth };
     return this._token.value;
@@ -287,11 +287,11 @@ const official = {
 async function searchChunkHash(js: string, bundleUrl: string): Promise<string> {
   const id = js.match(new RegExp(`(\\d+):"${SEARCH_CHUNK}"`))?.[1];
   const chunk = id ? js.match(new RegExp(`[,{]${id}:"([a-f0-9]{8})"`))?.[1] : undefined;
-  if (!chunk) throw new Error("번들에 검색 화면 청크가 없습니다");
+  if (!chunk) throw new Error("번들에 검색 화면 청크가 없음");
   const res = await send(new URL(`${SEARCH_CHUNK}.${chunk}.js`, bundleUrl).href, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`검색 청크 ${res.status}`);
   const hash = (await res.text()).match(/"searchTracks","query","([0-9a-f]{64})"/)?.[1];
-  if (!hash) throw new Error("검색 청크에 searchTracks 해시가 없습니다");
+  if (!hash) throw new Error("검색 청크에 searchTracks 해시가 없음");
   return hash;
 }
 
@@ -347,7 +347,7 @@ const graphql = {
       externalCaches.setSpotifyAnonState(extracted);
     } catch (e) {
       this._failedAt = Date.now();
-      if (!usable) throw new Error(`익명 상태를 얻지 못했습니다: ${messageOf(e)}`, { cause: e });
+      if (!usable) throw new Error(`익명 상태 받기 실패: ${messageOf(e)}`, { cause: e });
       log.warn({ tags: ["fallback"] }, `익명 상태 추출 실패: ${messageOf(e)}. 저장값 사용`);
       this._state = usable;
     }
@@ -371,12 +371,12 @@ const graphql = {
       }
     }
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
-    if (!scriptUrl) throw new Error("홈에 웹플레이어 번들 주소가 없습니다");
+    if (!scriptUrl) throw new Error("홈에 웹플레이어 번들 주소가 없음");
     const jsRes = await send(scriptUrl, { headers: { "User-Agent": ua() }, signal: AbortSignal.timeout(BUNDLE_TIMEOUT_MS) });
     if (!jsRes.ok) throw new Error(`번들 ${jsRes.status}`);
     const js = await jsRes.text();
     const secrets = parseSecrets(js);
-    if (!secrets.length) throw new Error("번들에서 secret 을 찾지 못했습니다");
+    if (!secrets.length) throw new Error("번들에서 secret을 찾지 못함");
     const hashes = { ...previous?.hashes };
     for (const name of OPERATIONS) {
       const found = js.match(new RegExp(`"${name}","query","([0-9a-f]{64})"`));
@@ -443,7 +443,7 @@ const graphql = {
     } catch (e) {
       const status = (e as { status?: unknown } | null)?.status;
       if (status === 400 || status === 403) {
-        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${status}. secret을 다시 추출해 재시도합니다`);
+        log.warn({ tags: ["retry"] }, `익명 토큰 오류 ${status}(secret을 다시 추출해 재시도)`);
         await this._ensureState(true);
         j = await this._mintToken();
       } else throw e;
@@ -459,7 +459,7 @@ const graphql = {
     const run = async () => {
       const state = await this._ensureState(false);
       // 번들에서 못 찾은 해시. 해시 만료와 같이 다시 추출하게 한다
-      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없습니다(번들에서 못 찾음)`), { retry: "hash" });
+      if (!state.hashes[hashKey]) throw Object.assign(new Error(`${hashKey} 해시가 없음(번들에서 못 찾음)`), { retry: "hash" });
       const tok = await this._token();
       const r = await send(PARTNER, { method: "POST", headers: partnerHeaders(tok, state.clientVersion), body: JSON.stringify({ operationName, variables, extensions: { persistedQuery: { version: 1, sha256Hash: state.hashes[hashKey] } } }), signal: AbortSignal.timeout(TIMEOUT_MS) });
       if (r.status === 401) {
@@ -485,12 +485,12 @@ const graphql = {
     } catch (e) {
       const retry = (e as { retry?: unknown } | null)?.retry;
       if (retry === "hash") {
-        log.warn({ tags: ["retry"] }, "저장된 해시 만료. 다시 추출해 재시도합니다");
+        log.warn({ tags: ["retry"] }, "저장된 해시 만료(다시 추출해 재시도)");
         await this._ensureState(true);
         return run();
       }
       if (retry === "token") {
-        log.warn({ tags: ["retry"] }, "익명 토큰이 거절됐습니다. 새로 받아 재시도합니다");
+        log.warn({ tags: ["retry"] }, "익명 토큰이 거절됨(새로 받아 재시도)");
         return run();
       }
       throw e;
@@ -642,7 +642,7 @@ async function prepareAnonymous() {
     await graphql._ensureState(false);
     await graphql._token();
   } catch (e) {
-    log.warn(`익명 경로 준비 실패(쓸 때 다시 합니다): ${messageOf(e)}`);
+    log.warn(`익명 경로 준비 실패(쓸 때 다시 시도): ${messageOf(e)}`);
   }
 }
 
