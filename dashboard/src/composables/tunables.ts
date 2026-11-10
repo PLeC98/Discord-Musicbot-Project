@@ -7,7 +7,7 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { addSaveTarget } from "./save-targets.ts";
 import { notifyDone, notifyProblem } from "./toasts.ts";
-import { RESTART_KEYS, TUNABLES, tunableValue } from "../../../src/rules/tunables.ts";
+import { RESTART_KEYS, TUNABLES, parseTuneProblem, tunableValue } from "../../../src/rules/tunables.ts";
 import type { TunablesView } from "../../../src/dashboard/contract/admin.ts";
 import { text } from "../text/index.ts";
 const T = text.tunables;
@@ -34,6 +34,12 @@ function apply(view: TunablesView, keys: readonly string[]) {
 export const labelOf = (key: string) => T.fields[key]?.label ?? key;
 export const namesOf = (keys: string[]) => keys.map(labelOf).join(", ");
 
+/** 저장 거절의 줄(틀린 조절값)을 "라벨 [넣은 값]: 까닭" 으로. 다른 모양은 그대로 */
+export function problemLine(line: string): string {
+  const found = parseTuneProblem(line);
+  return found ? T.problemLine(labelOf(found.key), found.value, found.reason) : line;
+}
+
 const ALL_KEYS = TUNABLES.map((one) => one.key);
 const changedKey = (key: string) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? "");
 const saving = ref(false);
@@ -46,7 +52,7 @@ async function saveAllKeys(restarting: boolean): Promise<boolean> {
     notifyDone(T.savedDone, view.pending.length && !restarting ? T.savedRestart(namesOf(view.pending)) : "");
     return true;
   } catch (err) {
-    notifyProblem(err, T.saveFailed);
+    notifyProblem(err, T.saveFailed, problemLine);
     return false;
   } finally {
     saving.value = false;

@@ -55,9 +55,10 @@ function problemOf(error: unknown): Partial<ProblemBody> | undefined {
 
 /**
  * 요청 오류(axios)의 안내: 제목 줄, 본문, 운영자용 원문(detail), 끝 줄(codeLine, 웹 쪽 오류와 응답 없는 실패만), 심각한 정도.
+ * detail 이 없고 필드별 문제(errors)가 있으면 그 원문을 줄마다 detailLine 으로 바꿔 detail 로 잇는다.
  * 문제 응답도 응답 없는 실패도 아니면 fallback 을 제목 줄로
  */
-export function problemNotice(error: unknown, fallback: string): ProblemNotice {
+export function problemNotice(error: unknown, fallback: string, detailLine: (line: string) => string = (line) => line): ProblemNotice {
   const data = problemOf(error);
   if (data && typeof data.code === "string" && isCode(data.code)) {
     // 문장이 봇 개발자를 불렀는지 본다. 불렀으면 보고할 곳을 붙인다
@@ -66,7 +67,8 @@ export function problemNotice(error: unknown, fallback: string): ProblemNotice {
     const { title, body, severity } = noticeFor(data.code, paramsOf({ ...data, code: data.code }), look);
     const status = statusOf(error) ?? data.status;
     const codeLine = isWebCode(data.code) ? codeLineOf(data.code, status) : "";
-    return { title: plain(title), body: body ? plain(body) : "", detail: typeof data.detail === "string" ? data.detail : "", codeLine, severity, reportUrl: asked ? reportTo : "" };
+    const detail = typeof data.detail === "string" && data.detail ? data.detail : problemDetails(error).map(detailLine).join("\n");
+    return { title: plain(title), body: body ? plain(body) : "", detail, codeLine, severity, reportUrl: asked ? reportTo : "" };
   }
   const kind = failureKind(error);
   if (kind === "timeout" || kind === "offline") return unansweredNotice(kind);

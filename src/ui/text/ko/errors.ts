@@ -213,7 +213,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "urls-empty": () => warning("input", "유튜브 주소가 없어요!", "판정해 볼 곡의 유튜브 주소를 적어 주세요."),
   "nothing-to-save": (_, look) => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${stalePage(look)}`),
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
-  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 표시된 입력란을 고친 뒤에 다시 저장해 주세요."),
+  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "값을 고친 뒤 다시 시도해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),

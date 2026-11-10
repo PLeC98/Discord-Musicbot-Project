@@ -6,7 +6,7 @@ import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
@@ -95,7 +95,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됨(${String(value)}): ${reason}`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblemLine(key, String(value), reason));
     else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
     return def;
   }

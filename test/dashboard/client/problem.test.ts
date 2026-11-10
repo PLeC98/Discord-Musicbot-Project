@@ -76,3 +76,12 @@ test("필드별 원문 목록", () => {
   );
   assert.deepEqual(problemDetails(failed(problemBody("bad-request"))), []);
 });
+
+test("detail 이 없으면 필드별 원문을 줄마다 detailLine 으로 바꿔 아래 줄에 잇는다. detail 이 있으면 그것만", () => {
+  const rejected = failed(problemBody("config-invalid", {}, { errors: [{ code: "config-invalid", detail: "가" }, { code: "config-invalid" }, { code: "config-invalid", detail: "나" }] }));
+  assert.equal(problemNotice(rejected, "실패").detail, "가\n나");
+  assert.equal(problemNotice(rejected, "실패", (line) => `[${line}]`).detail, "[가]\n[나]");
+  assert.equal(problemText(rejected, "실패"), "설정에 문제가 있어요!\n값을 고친 뒤 다시 시도해 주세요.\n가\n나\n오류 코드: config-invalid (HTTP 400)");
+  const both = failed(problemBody("config-invalid", {}, { detail: "원문", errors: [{ code: "config-invalid", detail: "가" }] }));
+  assert.equal(problemNotice(both, "실패").detail, "원문");
+});

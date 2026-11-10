@@ -74,12 +74,12 @@ export function notifyDone(title: string, body = ""): void {
 }
 
 /** 요청 오류의 알림. 세션 끝(401), 다시 로그인, 연결 안 됨은 SessionNotice 가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
-export function notifyProblem(error: unknown, fallback: string): void {
+export function notifyProblem(error: unknown, fallback: string, detailLine?: (line: string) => string): void {
   const kind = failureKind(error);
   // 세션 만료, 재로그인, 계정 변경은 대화상자와 상단 배너로 알린다
   const code = problemCodeOf(replyOf(error));
   if (statusOf(error) === 401 || code === "reauth-required" || code === "account-changed" || kind === "aborted" || kind === "offline") return;
-  notify(problemNotice(error, fallback));
+  notify(problemNotice(error, fallback, detailLine));
 }
 
 export type { Toast, Severity, InboxItem };
