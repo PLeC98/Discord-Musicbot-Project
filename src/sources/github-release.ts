@@ -8,8 +8,9 @@ const github = httpFor("github");
 
 /** repo: "소유자/이름". 릴리스가 없거나 태그가 비면 던진다 */
 async function latestReleaseTag(repo: string) {
+  const token = config.github.token;
   const res = await github.fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
-    headers: { Accept: "application/vnd.github+json", "User-Agent": config.userAgents.bot },
+    headers: { Accept: "application/vnd.github+json", "User-Agent": config.userAgents.bot, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     signal: AbortSignal.timeout(API_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`GitHub 릴리스 조회 ${res.status} (${repo})`);
@@ -18,4 +19,7 @@ async function latestReleaseTag(repo: string) {
   return tag;
 }
 
-export { latestReleaseTag };
+/** 테스트가 가짜 전송을 넣는다. null 이면 진짜 fetch */
+const useFetch = (fake: typeof fetch | null) => github.useFetch(fake);
+
+export { latestReleaseTag, useFetch };

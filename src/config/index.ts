@@ -288,6 +288,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
     // 비밀값 암호화 키(base64 32바이트). 응답, 로그에 내보내지 않는다
     secrets: { key: secretsKey },
 
+    // GitHub API 토큰(선택, 보통 비운다). 있으면 릴리스 조회에 실어 인증 없는 한도(IP 마다 시간당 60회)를 넘는다. 설치 단계(대시보드가 없다)에서도 써서 환경 변수로 받는다. 응답, 로그에 내보내지 않는다
+    github: { token: env("GITHUB_TOKEN") },
+
     // 바깥 서비스 키. 대시보드에서 입력해 비밀 표에 두고, 기동, 저장 때 store/service-keys 가 여기에 올린다
     spotify: {
       clientId: null as string | null,
