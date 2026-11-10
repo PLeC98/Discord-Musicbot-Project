@@ -3,6 +3,7 @@
 
 import type { ActivityType } from "../../../src/config/schema/status.ts";
 import { text } from "../text/index.ts";
+import { keysFrom } from "./row-keys.ts";
 
 /** 문구 한 줄. type 이 "" 이면 파일에 종류를 적지 않는다(기본 = 듣는 중) */
 type MessageRow = { key: number; text: string; type: ActivityType | "" };
@@ -27,18 +28,31 @@ const nextKey = () => ++serial;
 const newMessage = (): MessageRow => ({ key: nextKey(), text: "", type: "" });
 const newSpecial = (): SpecialRow => ({ key: nextKey(), name: "", date: "", lunar: "", time: "", messages: [newMessage()] });
 
-const toMessages = (list: MessageData[] | null | undefined): MessageRow[] => (list || []).map((m) => (typeof m === "string" ? { key: nextKey(), text: m, type: "" } : { key: nextKey(), text: m?.text || "", type: m?.type || "" }));
+/** before: 지금 행. 같은 자리의 문구는 key 를 물려받는다(저장, 되돌리기, utils/row-keys) */
+const toMessages = (list: MessageData[] | null | undefined, before: MessageRow[] = []): MessageRow[] =>
+  (list || []).map((m, i) => {
+    const key = before[i]?.key ?? nextKey();
+    return typeof m === "string" ? { key, text: m, type: "" } : { key, text: m?.text || "", type: m?.type || "" };
+  });
 const fromMessages = (list: MessageRow[]): MessageData[] => list.map((m) => (m.type ? { text: m.text, type: m.type } : m.text));
 
-const toSpecial = (map: Record<string, SpecialData> | null | undefined): SpecialRow[] =>
-  Object.entries(map || {}).map(([name, e]) => ({
-    key: nextKey(),
+/** before: 지금 행. 이름이 같은 항목(없으면 같은 자리)은 key 와 문구의 key 를 물려받는다(utils/row-keys) */
+const toSpecial = (map: Record<string, SpecialData> | null | undefined, before: SpecialRow[] = []): SpecialRow[] => {
+  const entries = Object.entries(map || {});
+  const keys = keysFrom(
+    entries.map(([name]) => name),
+    before,
+    nextKey,
+  );
+  return entries.map(([name, e], i) => ({
+    key: keys[i],
     name,
     date: e?.date || "",
     lunar: e?.lunar || "",
     time: e?.time || "",
-    messages: toMessages(e?.messages),
+    messages: toMessages(e?.messages, before.find((one) => one.key === keys[i])?.messages),
   }));
+};
 
 const fromSpecial = (list: SpecialRow[]): Record<string, SpecialData> =>
   Object.fromEntries(

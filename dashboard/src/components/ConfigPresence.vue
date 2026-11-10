@@ -125,8 +125,8 @@ const payload = computed(() => ({ interval: draft.value.interval, messages: from
 function apply(data: Record<string, unknown>) {
   // 파일에 없으면 봇이 쓰는 기본값을 보인다(손대지 않고 저장해도 동작이 바뀌지 않게)
   draft.value = { interval: (data.interval as number | null | undefined) ?? INTERVAL_DEFAULT };
-  messages.value = toMessages(data.messages as MessageData[] | undefined);
-  special.value = toSpecial(data.special as Record<string, SpecialData> | undefined);
+  messages.value = toMessages(data.messages as MessageData[] | undefined, messages.value);
+  special.value = toSpecial(data.special as Record<string, SpecialData> | undefined, special.value);
 }
 
 const { loaded, dirty, saving, loadError, serverProblems, fetch, save, revert } = useConfigFile({ tab: "presence", savedNote: T.savedNote, payload: () => payload.value, apply, ...configFileIo("status") });
