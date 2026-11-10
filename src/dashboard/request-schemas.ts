@@ -10,6 +10,7 @@ import { SEARCH_MAX_LEN } from "../rules/limits.ts";
 import { isCode, type Code } from "../rules/problems.ts";
 import { AUDIO_CACHE_PARTS } from "../rules/audio-cache-parts.ts";
 import type { FieldProblem } from "./contract/problem.ts";
+import { UPLOAD_PURPOSES } from "./contract/uploads.ts";
 import { LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ID, SEAM_KINDS, SEAM_SECONDS } from "./contract/login-background.ts";
 
 // 필드의 위치를 JSON Pointer 로(빈 위치는 본문 전체)
@@ -157,6 +158,17 @@ const BackgroundUseBody = z.object({ id: z.string(BAD_BACKGROUND).regex(LOGIN_BG
 // 링크로 추가 { url }. 다운로드하는 쪽(safe-url, yt-dlp)이 주소를 본다
 const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1, BAD_BACKGROUND).max(2048, BAD_BACKGROUND) }, BAD_BACKGROUND);
 
+// ── 큰 파일 업로드(dashboard/uploads) ──
+
+// 업로드 id(32자 16진수). 모르는 id는 uploads가 upload-gone으로 답한다
+const UploadId = z.string().regex(/^[0-9a-f]{32}$/);
+// 시작 { purpose, size }
+const UploadStartBody = z.object({ purpose: z.enum(UPLOAD_PURPOSES), size: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER) });
+// 백업 미리 보기 { upload }
+const ArchivePreviewBody = z.object({ upload: UploadId });
+// 로그인 배경 올리기 { upload, name: 보일 이름, type: 브라우저가 알린 종류(짐작만 한다) }
+const BackgroundUploadBody = z.object({ upload: UploadId, name: z.string().max(1024), type: z.string().max(255) });
+
 // ── 캐시 DB ──
 
 // 조작의 모양만 본다. 주소가 쓸 수 있는지, 개수 상한, 지울 것이 있는지는 dashboard/track-cache 가 조작 번호와 함께 본다
@@ -189,5 +201,5 @@ const ResetBody = z.discriminatedUnion(
   BAD_RESET,
 );
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery };
+export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, UploadStartBody, ArchivePreviewBody, BackgroundUploadBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery };
 export type { SettingsRequest };

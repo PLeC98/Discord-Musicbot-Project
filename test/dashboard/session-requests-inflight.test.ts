@@ -21,6 +21,10 @@ import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import * as listen from "../helpers/listen.ts";
 import { cookieJar } from "../helpers/cookie-jar.ts";
+import config from "../../src/config/index.ts";
+import { uploadsRouter } from "../../src/dashboard/routes/uploads.ts";
+import * as uploads from "../../src/dashboard/uploads.ts";
+import * as archiveUploads from "../../src/dashboard/archive-uploads.ts";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0.0.0 Safari/537.36";
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-inflight-"));
@@ -45,6 +49,7 @@ let lastRes: express.Response | null = null;
 
 before(async () => {
   secrets._useKey(newSecretsKey());
+  archiveUploads._useDir(path.join(dir, "uploads"));
   store = new SqliteSessionStore({ dbPath: path.join(dir, "sessions.db") });
   fs.writeFileSync(file, Buffer.alloc(16 * 1024 * 1024, 1));
   const app = express();
@@ -118,6 +123,8 @@ before(async () => {
     res.json({ ok: true });
   });
   app.get("/ping", (_req, res) => res.json({ ok: true }));
+  // 큰 파일 업로드(세션이 끝나면 그 세션의 업로드를 지운다)
+  app.use("/api/admin/uploads", express.json(), uploadsRouter);
   app.use(errorHandler);
   server = await listen.listenForFetch(app);
   server.keepAliveTimeout = 60_000;
@@ -322,4 +329,23 @@ test("로그인하지 않은 세션은 바꿔도 저장하지 않고 쿠키도 �
   assert.equal(res.status, 200);
   assert.deepEqual(res.headers.getSetCookie(), []);
   assert.equal(store.db.prepare("SELECT COUNT(*) FROM sessions").pluck().get(), before);
+});
+
+test("세션이 끝나면(다른 기기에서 로그아웃) 그 세션의 업로드와 임시 파일을 지운다", async () => {
+  const saved = config.dashboard.ownerId;
+  config.dashboard.ownerId = "upload-owner";
+  try {
+    const owner = await signedIn("upload-owner");
+    const res = await owner.go("/api/admin/uploads", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ purpose: "archive", size: 10 }) });
+    assert.equal(res.status, 200);
+    const { id } = (await res.json()) as { id: string };
+    assert.ok(uploads.find(id, owner.sid()));
+    await revoke(owner);
+    await settle(50);
+    assert.equal(uploads.find(id, owner.sid()), null);
+    assert.deepEqual(fs.readdirSync(path.join(dir, "uploads")), []);
+  } finally {
+    config.dashboard.ownerId = saved;
+    uploads._reset();
+  }
 });

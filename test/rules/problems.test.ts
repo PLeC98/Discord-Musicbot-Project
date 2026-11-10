@@ -6,7 +6,7 @@ import { PROBLEMS, isCode, type Code, type Params } from "../../src/rules/proble
 import { noticeFor } from "../../src/ui/text/ko/errors.ts";
 
 const codes = Object.keys(PROBLEMS) as Code[];
-const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2 };
+const SAMPLE: Required<Params> = { max: 100, min: 1, queueCap: 50, size: 3, skipped: 7, durationMs: 185000, genre: "가요", keys: "Last.fm", channelId: "42", length: 2100, left: 2, received: 1024 };
 /** 그 코드의 목록에 적은 값만 견본으로 채운다 */
 const paramsFor = (code: Code) => {
   const spec = PROBLEMS[code];

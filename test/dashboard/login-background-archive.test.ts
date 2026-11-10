@@ -22,6 +22,8 @@ const runner = await import("../../src/dashboard/login-background/runner.ts");
 const uploads = await import("../../src/dashboard/archive-uploads.ts");
 const { publicOf } = await import("../../src/dashboard/routes/login-background-public.ts");
 const { settingsArchiveRouter } = await import("../../src/dashboard/routes/settings-archive.ts");
+const { uploadsRouter } = await import("../../src/dashboard/routes/uploads.ts");
+const { uploadVia } = await import("../helpers/chunk-upload.ts");
 
 const temp = openTempStore("login-bg-archive-");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-archive-"));
@@ -36,9 +38,12 @@ app.use((req, _res, next) => {
   req.session = fake<typeof req.session>({ user: { id: "owner", username: "owner" }, loginAt: Date.now() });
   next();
 });
+app.use(express.json());
 app.use("/api/admin/settings-archive", settingsArchiveRouter);
+app.use("/api/admin/uploads", uploadsRouter);
 const server = await listenForFetch(app);
-const base = `${baseUrl(server)}/api/admin/settings-archive`;
+const origin = baseUrl(server);
+const base = `${origin}/api/admin/settings-archive`;
 
 beforeEach(() => {
   runner._reset();
@@ -98,7 +103,7 @@ async function exported() {
   return Buffer.from(await res.arrayBuffer());
 }
 async function preview(file: Buffer) {
-  const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/zip" }, body: file });
+  const res = await fetch(`${base}/preview`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ upload: await uploadVia(origin, "archive", file) }) });
   const json = (await res.json()) as { token: string; kind: string; rows: Row[]; code?: string };
   return { status: res.status, json, row: json.rows?.[0] };
 }

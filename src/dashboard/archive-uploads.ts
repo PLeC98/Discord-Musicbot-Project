@@ -1,15 +1,13 @@
-// 백업 불러오기에 올린 파일. 미리 보기 때 한 번 올려 database/tmp/archive-<토큰>.zip 에 두고, 불러오기는 그 토큰으로 쓴다(수백 MB 인 파일을 두 번 올리지 않게).
-// 불러오거나 닫으면 삭제하고, 1시간이 지나도 삭제한다. 봇이 켜질 때 남은 것을 치운다(꺼지기 전에 올린 것)
+// 백업 불러오기에 올린 파일. 미리 보기 전에 청크로 올려(dashboard/uploads) database/tmp/archive-<토큰>.zip에 두고, 불러오기는 그 토큰으로 쓴다(수백 MB인 파일을 두 번 올리지 않게).
+// 토큰은 업로드 id다. 받는 동안은 archive-<토큰>.zip.part다. 불러오거나 닫으면 삭제하고, 1시간이 지나도 삭제한다. 봇이 켜질 때 남은 것을 치운다(꺼지기 전에 올린 것)
 
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import type { Request } from "express";
 import { PROJECT } from "../infra/project-paths.ts";
 import { roomIn } from "../infra/disk.ts";
 import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
-import { saveBody, type Saved } from "./body-to-file.ts";
+import type { Target } from "./uploads.ts";
 const log = logger.child({ category: "dashboard" });
 
 const PREFIX = "archive-";
@@ -22,18 +20,21 @@ const uploads = new Map<string, NodeJS.Timeout>();
 
 const fileFor = (token: string) => path.join(dir, `${PREFIX}${token}.zip`);
 
-/** 올린 파일을 받는다. 받았으면 토큰, 못 받았으면 까닭과 남은 공간 */
-async function receive(req: Request): Promise<(Saved & { ok: false; room: number }) | { ok: true; token: string; file: string; bytes: number }> {
+/** 업로드 파일을 받는 동안 쓸 위치(업로드 id를 붙인 .part)와 그 드라이브의 남은 공간 */
+function targetFor(id: string): Target {
   fs.mkdirSync(dir, { recursive: true });
-  const token = crypto.randomBytes(16).toString("hex");
-  const file = fileFor(token);
-  const room = roomIn(dir);
-  const saved = await saveBody(req, file, room);
-  if (!saved.ok) return { room, ...saved };
-  const timer = setTimeout(() => drop(token), KEEP_MS);
+  const file = `${fileFor(id)}.part`;
+  return { file, room: () => roomIn(dir), discard: () => fs.rmSync(file, { force: true }), ref: id };
+}
+
+/** 다 받은 업로드를 토큰으로 등록한다(.part를 원래 이름으로 바꾸고 1시간 뒤 삭제를 예약한다). 받은 파일 */
+function adopt(id: string): string {
+  const file = fileFor(id);
+  fs.renameSync(`${file}.part`, file);
+  const timer = setTimeout(() => drop(id), KEEP_MS);
   timer.unref();
-  uploads.set(token, timer);
-  return { ok: true, token, file, bytes: saved.bytes };
+  uploads.set(id, timer);
+  return file;
 }
 
 /** 그 토큰의 파일(없거나 지났으면 null) */
@@ -64,4 +65,4 @@ function _useDir(folder: string) {
   dir = folder;
 }
 
-export { receive, fileOf, drop, sweepUploads, _useDir };
+export { targetFor, adopt, fileOf, drop, sweepUploads, _useDir };

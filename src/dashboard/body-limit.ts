@@ -5,6 +5,7 @@
  */
 import express, { type NextFunction, type Request, type Response } from "express";
 import { sendProblem } from "./problem.ts";
+import { CHUNK_SIZE } from "./uploads.ts";
 
 // 본문을 읽지 않는 메서드
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -49,12 +50,25 @@ function bodyLimit() {
 /** 덜 읽은 본문을 Node가 마저 읽어 비우게(drain) 두는 상한(Content-Length 기준). 이보다 작으면 연결을 유지해 응답이 정상적으로 전달된다(정상 본문은 대개 32KB 미만) */
 const DRAIN_MAX = 64 * 1024;
 
+// 큰 파일 업로드의 청크(dashboard/uploads, routes/uploads)
+const CHUNK_PATH = /^\/api\/admin\/uploads\/[^/]+$/i;
+
+/**
+ * 청크를 읽기 전에 거절했다(운영자 아님, CSRF, 위치 어긋남, 크기): 로그인한 요청이고 남은 본문이 청크 하나 이하면 닫지 않고 Node가 마저 읽어 비우게 둔다.
+ * 닫으면 업로드 중인 브라우저가 거절 이유 대신 연결 리셋을 본다. 로그인 전 요청, 요청 제한(429), 길이를 명시하지 않은 요청은 닫는다(남의 본문을 받아 주지 않는다)
+ */
+function drainsChunk(req: Request, status: number) {
+  if (req.method !== "PUT" || status === 429 || req.headers["transfer-encoding"] !== undefined || !req.session?.user) return false;
+  const length = Number(req.headers["content-length"]);
+  return Number.isFinite(length) && length <= CHUNK_SIZE && CHUNK_PATH.test(req.originalUrl.split("?")[0]);
+}
+
 /**
  * 읽지 않은 본문이 남았을 때 연결을 닫을 요청인가: 요청 제한에 걸렸거나(마저 읽으면 제한에 걸린 뒤에도 본문을 끝까지 받는다), 본문을 읽지 않는 메서드이거나,
  * 명시된 길이가 DRAIN_MAX를 넘거나, 길이를 명시하지 않은(청크 전송) 요청이다
  */
 function closesOnUnread(req: Request, status: number) {
-  if (req.complete) return false;
+  if (req.complete || drainsChunk(req, status)) return false;
   if (status === 429 || SAFE_METHODS.has(req.method) || req.headers["transfer-encoding"] !== undefined) return true;
   return Number(req.headers["content-length"] ?? 0) > DRAIN_MAX;
 }

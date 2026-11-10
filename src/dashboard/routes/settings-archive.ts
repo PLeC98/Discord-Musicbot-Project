@@ -12,11 +12,13 @@ import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { sinkOf, writeZip } from "../../infra/zip.ts";
 import * as archive from "../settings-archive.ts";
-import * as uploads from "../archive-uploads.ts";
+import * as archiveUploads from "../archive-uploads.ts";
+import * as uploads from "../uploads.ts";
+import { parse, ArchivePreviewBody } from "../request-schemas.ts";
 import * as snapshots from "../../store/snapshots.ts";
 import { isArchiveItem, isArchiveKind, type ArchiveDownload, type ArchiveImported, type ArchiveItem, type ArchiveKind, type ArchivePreview } from "../contract/settings-archive.ts";
 import type { Response } from "express";
-import { assertSignedIn, isEnded, sessionEnded } from "../session-requests.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 
 const settingsArchiveRouter = express.Router();
 settingsArchiveRouter.use(requireOwner);
@@ -79,21 +81,26 @@ settingsArchiveRouter.get("/download/:ticket", async (req, res) => {
   }
 });
 
-// 파일 그대로 올린다. 읽을 수 있으면 올린 파일을 두고 그 토큰(token)과 미리 보기, 못 읽으면 삭제한다
+// { upload }: 다 올린 업로드(routes/uploads)를 가져온다. 읽을 수 있으면 올린 파일을 두고 그 토큰(업로드 id)과 미리 보기, 못 읽으면 삭제한다
 settingsArchiveRouter.post("/preview", async (req, res) => {
-  const got = await uploads.receive(req);
-  if (!got.ok) {
-    if (got.why === "no-space") return got.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "disk-full", { size: got.room });
-    if (got.why === "empty") return sendProblem(res, "nothing-to-save");
-    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(사용자 측 원인, 봇 영향 없음)
-    if (got.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `설정 불러오기 파일 업로드 중단: ${got.detail}`);
-    if (!res.headersSent) sendProblem(res, "bad-request");
-    return;
+  const body = parse(ArchivePreviewBody, req.body ?? {});
+  if (!body.ok) return sendProblem(res, body.code);
+  const taken = uploads.take(body.value.upload, req.sessionID, "archive");
+  if (!taken.ok) return sendProblem(res, taken.why === "gone" ? "upload-gone" : "bad-request");
+  const token = taken.upload.id;
+  let file: string;
+  try {
+    file = archiveUploads.adopt(token);
+    uploads.finish(taken.upload);
+  } catch (error) {
+    uploads.close(taken.upload);
+    uploads.release(taken.upload);
+    throw error;
   }
   try {
-    res.json({ ...(await archive.preview(got.file)), token: got.token } satisfies ArchivePreview);
+    res.json({ ...(await archive.preview(file)), token } satisfies ArchivePreview);
   } catch (error) {
-    uploads.drop(got.token);
+    archiveUploads.drop(token);
     if (!unreadable(res, error)) throw error;
   }
 });
@@ -105,7 +112,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
     .split(",")
     .filter(Boolean);
   if (!items.length || !items.every(isArchiveItem)) return sendProblem(res, "nothing-to-save");
-  const file = uploads.fileOf(token);
+  const file = archiveUploads.fileOf(token);
   if (!file) return sendProblem(res, "upload-gone");
   try {
     // 쓰기 직전에 지금 설정을 스냅샷으로 남긴다(검사에 걸리면 뜨지 않는다, 설정 DB 항목을 불러올 때만)
@@ -119,7 +126,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
       go: () => assertSignedIn(req),
     });
     if (snapshot) snapshots.tidy();
-    uploads.drop(token);
+    archiveUploads.drop(token);
     log.warn({ sub: "admin" }, `대시보드에서 설정 불러오기: ${imported.imported.join(", ")}${imported.restart ? ". 다시 시작해야 적용되는 값이 있음" : ""}. 실행 ${ranBy(req)}`);
     res.json(imported satisfies ArchiveImported);
   } catch (error) {
@@ -133,7 +140,7 @@ settingsArchiveRouter.post("/import", requireRecentLogin, async (req, res) => {
 
 // 불러오기 창을 닫았다: 올린 파일을 삭제한다
 settingsArchiveRouter.delete("/upload/:token", (req, res) => {
-  uploads.drop(req.params.token);
+  archiveUploads.drop(req.params.token);
   res.status(204).end();
 });
 

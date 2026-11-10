@@ -22,7 +22,10 @@
     <BaseCard icon="upload" :title="T.importTitle">
       <p class="mb-1 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.importDesc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.tips.import" /></p>
       <p class="mb-3 text-sm text-on-surface-variant">{{ T.importFullBackup }}</p>
-      <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
+      <div class="flex flex-wrap items-center gap-3">
+        <BaseButton variant="secondary" :disabled="busy" @click="fileEl?.click()"><Icon name="upload" :size="18" />{{ T.importButton }}</BaseButton>
+        <span v-if="progress !== null" class="text-sm text-on-surface-variant tabular-nums">{{ T.uploading(Math.floor(progress * 100)) }}</span>
+      </div>
       <input ref="fileEl" type="file" accept=".zip,application/zip" class="hidden" @change="picked" />
     </BaseCard>
 
@@ -68,6 +71,7 @@ import BaseButton from "./BaseButton.vue";
 import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import { LIMIT } from "../utils/request.ts";
+import { uploadFile } from "../utils/chunk-upload.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { askRestart } from "../composables/bot-restart.ts";
@@ -82,6 +86,8 @@ const fileEl = ref<HTMLInputElement | null>(null);
 const busy = ref(false);
 const applying = ref(false);
 const noFiles = ref(false);
+/** 백업 파일을 올리는 중이면 진행률(0 ~ 1) */
+const progress = ref<number | null>(null);
 const preview = ref<ArchivePreview | null>(null);
 const chosen = reactive(Object.fromEntries(ARCHIVE_ITEMS.map((item) => [item, false])) as Record<ArchiveItem, boolean>);
 
@@ -124,7 +130,10 @@ async function picked(event: Event) {
   if (!one || !(await ensureRecentLogin())) return;
   busy.value = true;
   try {
-    const res = await axios.request<ArchivePreview>({ method: "POST", url: `${BASE}/preview`, headers: { "Content-Type": "application/zip" }, timeout: LIMIT.long, data: one });
+    progress.value = 0;
+    const upload = await uploadFile(one, "archive", { onProgress: (share) => (progress.value = share) });
+    progress.value = null;
+    const res = await axios.post<ArchivePreview>(`${BASE}/preview`, { upload }, { timeout: LIMIT.long });
     preview.value = res.data;
     for (const item of ARCHIVE_ITEMS) chosen[item] = false;
     for (const row of res.data.rows) chosen[row.item] = usable(row);
@@ -132,6 +141,7 @@ async function picked(event: Event) {
     notifyProblem(err, T.previewFailed);
   } finally {
     busy.value = false;
+    progress.value = null;
   }
 }
 

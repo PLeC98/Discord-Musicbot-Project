@@ -1,18 +1,19 @@
 // 로그인 배경(운영자 패널). /api/admin/appearance/login-background. 상태 하나(LoginBackgroundState)를 읽고, 바꾸는 요청들도 그것으로 답한다.
-// 올리기는 본문을 그대로 배경 폴더에 스트리밍으로 쓴다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner 가 돌린다
+// 올리기는 청크로 다 올린 업로드(routes/uploads)를 가져온다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner가 돌린다
 
+import fs from "node:fs";
 import express, { type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireOwner } from "../middleware/require-owner.ts";
 import { ranBy } from "../ran-by.ts";
 import { sendProblem } from "../problem.ts";
-import { saveBody } from "../body-to-file.ts";
-import { assertSignedIn, isEnded } from "../session-requests.ts";
+import * as uploads from "../uploads.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { isHttpLink, isYouTubeURL } from "../../rules/links.ts";
 import { josa } from "../../rules/josa.ts";
 import { formatBytes } from "../../ui/format.ts";
-import { parse, BackgroundEditBody, BackgroundEstimateBody, BackgroundLimitsBody, BackgroundLinkBody, BackgroundOptionsBody, BackgroundPositionBody, BackgroundUseBody } from "../request-schemas.ts";
+import { parse, BackgroundEditBody, BackgroundEstimateBody, BackgroundLimitsBody, BackgroundLinkBody, BackgroundOptionsBody, BackgroundPositionBody, BackgroundUseBody, BackgroundUploadBody } from "../request-schemas.ts";
 import type { LoginBackgroundItem, LoginBackgroundState } from "../contract/login-background.ts";
 import * as store from "../login-background/store.ts";
 import * as runner from "../login-background/runner.ts";
@@ -94,32 +95,31 @@ loginBackgroundRouter.get("/", (_req, res) => {
   reply(res);
 });
 
-// 파일 그대로(Content-Type 은 종류를 짐작만 한다, 다운로드 단계가 원본을 읽어 다시 정한다). ?name= 은 보일 이름
-loginBackgroundRouter.post("/upload", async (req, res) => {
-  const name = store.cleanName(String(req.query.name ?? "")) || "file";
-  const room = store.room();
-  const type = String(req.headers["content-type"] ?? "");
-  const id = store.reserve();
-  const saved = await saveBody(req, store.sourceOf(id), room);
-  if (!saved.ok) {
-    store.removeFolder(id);
-    if (saved.why === "no-space") return saved.busy ? sendProblem(res, "upload-busy") : sendProblem(res, "background-no-space", { size: saved.room });
-    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug로 남긴다(해당 사용자 문제라 봇에는 영향이 없다)
-    if (saved.why === "aborted") log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `로그인 배경 "${name}" 업로드 중단: ${saved.detail}`);
-    if (!res.headersSent) sendProblem(res, "bad-request");
-    return;
-  }
-  // 업로드하는 사이 세션이 끝났으면 항목을 만들지 않는다(저장된 임시 파일은 삭제한다)
+// { upload, name: 보일 이름, type: 브라우저가 알린 종류 }. 다 올린 업로드의 폴더로 기록을 만든다(종류는 짐작만 한다, 다운로드 단계가 원본을 읽어 다시 정한다)
+loginBackgroundRouter.post("/upload", (req, res) => {
+  const body = parse(BackgroundUploadBody, req.body ?? {});
+  if (!body.ok) return sendProblem(res, body.code);
+  const name = store.cleanName(body.value.name) || "file";
+  const type = body.value.type;
+  const taken = uploads.take(body.value.upload, req.sessionID, "login-background");
+  if (!taken.ok) return sendProblem(res, taken.why === "gone" ? "upload-gone" : "bad-request");
+  const one = taken.upload;
+  const id = one.target.ref;
   try {
+    // 올리는 사이 세션이 끝났으면 기록을 만들지 않는다(받은 파일은 삭제한다)
     assertSignedIn(req);
+    fs.renameSync(one.target.file, store.sourceOf(id));
   } catch (error) {
-    store.removeFolder(id);
+    uploads.close(one);
+    uploads.release(one);
+    if (sessionEnded(res, error)) return;
     throw error;
   }
-  const one = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
-  one.bytes = saved.bytes;
+  uploads.finish(one);
+  const created = store.create({ id, kind: type.startsWith("video/") || type === "image/gif" ? "video" : "image", from: "upload", name });
+  created.bytes = one.size;
   runner.kick();
-  changed(req, res, `"${name}"${josa(name, "을")} 업로드(${formatBytes(saved.bytes)})`);
+  changed(req, res, `"${name}"${josa(name, "을")} 업로드(${formatBytes(one.size)})`);
 });
 
 // 링크로 추가. 유튜브는 다운로드 대행(고해상도는 편집을 적용한 뒤), 그 밖은 직접 링크의 그림, 영상

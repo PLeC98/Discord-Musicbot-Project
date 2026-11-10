@@ -36,6 +36,8 @@ const importDesc = "백업 파일을 불러와 원하는 항목만 적용해요.
 /** 전체 백업은 불러오지 않는다 */
 const importFullBackup = "전체 백업은 불러올 수 없어요. 봇을 끄고 봇 폴더에 풀어 덮어써 주세요.";
 const importButton = "파일 선택";
+/** 올리는 중(진행률, 0 ~ 100) */
+const uploading = (percent: number) => `올리는 중 ${percent}%`;
 const exported = "내보냈어요";
 const exportFailed = "내보내지 못했어요.";
 const previewFailed = "파일을 읽지 못했어요.";
@@ -82,4 +84,4 @@ const importFailed = "백업을 불러오지 못했어요.";
 /** 불러온 뒤: 쿠키 출처가 바뀌었다(file: 쿠키 직접 입력, 그 밖은 브라우저) */
 const cookiesChanged = (source: string) => (source === "file" ? { title: "쿠키 출처가 '쿠키 직접 입력'으로 바뀌었어요", body: "쿠키는 백업에 없어요. 연령 제한 탭에서 입력해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." } : { title: `쿠키 출처가 '${source}'(으)로 바뀌었어요`, body: "연령 제한 탭에서 확인해 주세요(일반 탭에서 연령 제한 콘텐츠를 켜면 생겨요)." });
 
-export { exportTitle, exportDescBefore, backupCommand, exportDescAfter, exports, withoutFiles, withoutFilesTip, importTitle, importDesc, importFullBackup, importButton, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, dialogNoteMerge, items, counts, breakdown, room, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed, cookiesChanged, tips };
+export { exportTitle, exportDescBefore, backupCommand, exportDescAfter, exports, withoutFiles, withoutFilesTip, importTitle, importDesc, importFullBackup, importButton, uploading, exported, exportFailed, previewFailed, dialogTitle, kinds, madeAt, dialogNote, dialogNoteMerge, items, counts, breakdown, room, notInFile, same, differs, problem, cancel, apply, imported, importedBody, importFailed, cookiesChanged, tips };

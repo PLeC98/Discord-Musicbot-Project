@@ -175,7 +175,7 @@ import LoginView from "../views/LoginView.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
 import { ICON_BTN } from "../utils/icon-button.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
-import { LIMIT } from "../utils/request.ts";
+import { uploadFile } from "../utils/chunk-upload.ts";
 import { noticeText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { useSaveTarget } from "../composables/save-targets.ts";
@@ -381,14 +381,9 @@ function onPick(event: Event) {
   void run(async () => {
     uploading.value = { name: file.name, progress: 0 };
     try {
-      // 파일 그대로(종류는 봇이 원본을 읽어 다시 정한다). 큰 영상이라 시간 한도를 두지 않는다
-      const next = (
-        await axios.post<LoginBackgroundState>(`${API}/upload?name=${encodeURIComponent(file.name)}`, file, {
-          headers: { "Content-Type": file.type || "application/octet-stream" },
-          timeout: LIMIT.none,
-          onUploadProgress: (e) => uploading.value && (uploading.value.progress = e.total ? e.loaded / e.total : 0),
-        })
-      ).data;
+      // 청크로 올린 뒤 그 업로드로 기록을 만든다(종류는 봇이 원본을 읽어 다시 정한다)
+      const upload = await uploadFile(file, "login-background", { onProgress: (share) => uploading.value && (uploading.value.progress = share) });
+      const next = (await axios.post<LoginBackgroundState>(`${API}/upload`, { upload, name: file.name, type: file.type })).data;
       // 봇이 미리보기를 만들면 편집 창이 열린다(링크와 같다). 그동안 팝업이 진행을 보인다
       pendingEdit.value = next.list[0]?.id ?? null;
       apply(next);

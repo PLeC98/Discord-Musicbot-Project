@@ -13,8 +13,8 @@ const byClientIp = (req: Request) => ipKeyGenerator(clientIp(req));
 const userOrIp = (req: Request) => req.session?.user?.id || byClientIp(req);
 
 // 일반 API 한도에서 제외하는 경로와 메서드: SSE 연결(오래 유지된다), 볼륨(드래그하는 동안 잇달아 온다), 곡 추가 입력란의 검색(입력하는 대로 온다), 앨범아트(대기열의 것이 한꺼번에 불린다),
-// 앱 이모지 이미지와 글꼴(선택기를 열면 한꺼번에 불린다), CSRF 토큰 받기(일반 한도가 차도 받아 로그아웃할 수 있게).
-// 볼륨, 검색, 앨범아트, 앱 이모지, 토큰 받기는 따로 센다
+// 앱 이모지 이미지와 글꼴(선택기를 열면 한꺼번에 불린다), CSRF 토큰 받기(일반 한도가 차도 받아 로그아웃할 수 있게), 큰 파일 업로드의 청크(같은 망이면 1분에 수백 번).
+// 볼륨, 검색, 앨범아트, 앱 이모지, 토큰 받기, 청크는 따로 센다
 const UNLIMITED: Array<[string, RegExp]> = [
   ["GET", /^\/api\/admin\/logs\/stream$/],
   ["GET", /^\/api\/admin\/ai\/logs\/stream$/],
@@ -24,6 +24,7 @@ const UNLIMITED: Array<[string, RegExp]> = [
   ["GET", /^\/api\/guilds\/[^/]+\/art\/[^/]+$/],
   ["GET", /^\/api\/app-emojis\/[^/]+$/],
   ["GET", /^\/api\/csrf-token$/],
+  ["PUT", /^\/api\/admin\/uploads\/[^/]+$/],
 ];
 
 /** 로그인했고 끝나지 않은 세션의 요청인가. 한도에서 빼 주는 것은 이런 요청만이다(그 경로들은 로그인 없이 쓰는 일이 없다) */

@@ -4,7 +4,7 @@
 // 410 그 사이 사라짐, 422 받을 수 없는 내용, 500 봇 안쪽 실패, 502 외부(플랫폼, 디스코드) 실패, 503 운영자 설정, 잠시 못 함
 
 /** 문장에 드는 값. 이름은 RFC 9457 확장 필드 규칙(글자로 시작, 글자, 숫자, _, 3자 이상)을 따른다 */
-type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
+type Params = { max?: number; min?: number; queueCap?: number | null; size?: number; received?: number; skipped?: number; durationMs?: number; genre?: string; keys?: string; channelId?: string; length?: number; left?: number };
 type Param = keyof Params;
 type ProblemSpec = { status: number; title: string; params?: readonly Param[] };
 
@@ -228,6 +228,8 @@ const WEB = {
   "background-no-space": { status: 409, title: "Not enough free disk space", params: ["size"] },
   // 디스크에 여유 공간은 있지만 동시에 진행 중인 업로드가 앞으로 쓸 몫을 잡아 두었다
   "upload-busy": { status: 409, title: "Another upload is still in progress" },
+  // 청크 업로드: 보낸 위치가 받은 위치(received)와 다르거나 그 업로드가 다른 청크를 받는 중이다. 화면은 받은 위치부터 다시 보낸다
+  "upload-offset": { status: 409, title: "Upload offset does not match", params: ["received"] },
   // 단계가 실패했다(까닭은 로그에). 배경의 실패 까닭으로도 싣는다
   "background-failed": { status: 500, title: "Could not make the background" },
   // 가져온 파일이 쓸 수 있는 이미지, 영상이 아니다(형식, 해상도, 길이, 초당 장면 수)
