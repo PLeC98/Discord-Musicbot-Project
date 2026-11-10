@@ -28,11 +28,13 @@ function wait(ms: number, signal?: AbortSignal) {
   });
 }
 
-/** 재시도할 오류인가: 봇에게서 응답을 못 받음(끊김, 시간 초과), 요청 제한, 봇 쪽 오류, 위치 어긋남 */
+/** 재시도할 오류인가: 봇에게서 응답을 못 받음(끊김, 시간 초과. 화면이 취소한 것은 빼고), 요청 제한, 봇 쪽 오류, 위치 어긋남.
+ *  응답 없는 실패는 오류 코드로 가르지 않는다(브라우저는 ERR_NETWORK, 연결이 끊기면 ECONNRESET 처럼 환경마다 다르다) */
 function retryable(error: unknown) {
   const kind = failureKind(error);
   if (kind === "timeout" || kind === "offline") return true;
   const status = statusOf(error);
+  if (status === undefined) return kind !== "aborted";
   return status === 429 || (status !== undefined && status >= 500) || problemCodeOf(replyOf(error)) === "upload-offset";
 }
 

@@ -72,6 +72,23 @@ test("끊기면 기다렸다 봇이 받은 위치를 물어 그 위치부터 이
   );
 });
 
+test("응답 없이 끊긴 것은 오류 코드와 상관없이 다시 해 본다(ECONNRESET 등). 화면이 취소한 것은 다시 하지 않는다", async () => {
+  let failed = false;
+  const { http } = serve((req) => {
+    if (req.method === "POST") return started(8);
+    if (req.method === "GET") return { data: { received: 0, size: 8 } };
+    if (!failed) {
+      failed = true;
+      return { fail: "ECONNRESET" };
+    }
+    return { data: { received: 8 } };
+  });
+  assert.equal(await uploadFile(file(8), "archive", { http }), ID);
+  const stopped = serve((req) => (req.method === "POST" ? started(8) : req.method === "DELETE" ? {} : { fail: "ERR_CANCELED" }));
+  await assert.rejects(uploadFile(file(8), "archive", { http: stopped.http }));
+  assert.equal(stopped.sent.filter((one) => one.method === "PUT").length, 1);
+});
+
 test("위치가 어긋나면 응답의 받은 위치로 맞추고, 요청 제한은 Retry-After 만큼 기다린다", async () => {
   let received = 0;
   let limited = false;
