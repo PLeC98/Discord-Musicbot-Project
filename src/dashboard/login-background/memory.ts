@@ -3,8 +3,8 @@
 // 단계 2 도 들지 않으면 기다리고(5초마다 본다), 30분을 기다려도 모자라면 드는 단계(없으면 1)로 인코딩한다(기기 메모리가 원래 작다).
 // 나눠 인코딩하기는 VP9 4K 가 시간을 잡아 AV1 을 3 으로 내려도 시간이 거의 같아 3(모자라면 2)으로 인코딩하고, 2 도 들지 않으면 따로 인코딩한다
 
-import os from "node:os";
 import logger from "../../infra/log/logger.ts";
+import { availableMemory } from "../../infra/available-memory.ts";
 const log = logger.child({ category: "dashboard" });
 
 const GB = 1024 ** 3;
@@ -36,13 +36,13 @@ function needOf(job: { codec: "av1" | "vp9" | "h264" | "probe"; uhd?: boolean; l
 }
 
 /** 지금 남은 메모리(free)에 드는 AV1 의 가장 높은 병렬 단계(하나도 들지 않으면 null) */
-function av1Lp(uhd: boolean, free = os.freemem()): number | null {
+function av1Lp(uhd: boolean, free = availableMemory()): number | null {
   for (let lp = AV1_LP_MAX; lp >= 1; lp--) if (needOf({ codec: "av1", uhd, lp }) <= free) return lp;
   return null;
 }
 
 /** 나눠 인코딩하기의 병렬 단계(남은 메모리에 들지 않으면 null = 따로 인코딩한다). 4K 가 없으면 1080p 둘(AV1, VP9)을 더한 값으로 */
-function splitLp(uhd: boolean, free = os.freemem()): number | null {
+function splitLp(uhd: boolean, free = availableMemory()): number | null {
   const need = (lp: number) => (uhd ? bytes(SPLIT_UHD_GB[lp]) : needOf({ codec: "av1", lp }) + needOf({ codec: "vp9" }));
   return SPLIT_LPS.find((lp) => need(lp) <= free) ?? null;
 }
@@ -54,8 +54,8 @@ const WAIT_MAX_MS = 30 * 60_000;
 async function enoughMemory(need: number, what: string, signal: AbortSignal): Promise<void> {
   const started = Date.now();
   let told = false;
-  while (os.freemem() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
-    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기(${(os.freemem() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
+  while (availableMemory() < need && !signal.aborted && Date.now() - started < WAIT_MAX_MS) {
+    if (!told) log.info({ sub: "admin" }, `로그인 배경 ${what}: 여유 메모리가 부족해 대기(${(availableMemory() / GB).toFixed(1)}GB / ${(need / GB).toFixed(1)}GB)`);
     told = true;
     await new Promise((resolve) => setTimeout(resolve, POLL_MS));
   }

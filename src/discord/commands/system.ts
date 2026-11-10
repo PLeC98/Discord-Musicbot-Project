@@ -1,6 +1,7 @@
 import { formatBytes, formatSpan } from "../../ui/format.ts";
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, version as djsVersion } from "discord.js";
 import os from "os";
+import { availableMemory } from "../../infra/available-memory.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { isBotOwner } from "../../usecases/permissions.ts";
 import type { Client } from "discord.js";
@@ -25,7 +26,7 @@ function buildSystemEmbed(client: Client<true>, players: { size: number }) {
   const cpus = os.cpus();
   const load = os.loadavg();
   const totalMem = os.totalmem();
-  const freeMem = os.freemem();
+  const freeMem = availableMemory();
   const usedMem = totalMem - freeMem;
   const guildCount = client.guilds.cache.size;
   const activeCount = players.size;
