@@ -221,8 +221,9 @@ async function tracksFor(player: Player | null, request: PlaybackRequest, batch:
 
 async function search(player: Player | null, query: string, { single = false, source = "play", lookup = defaultLookup }: PlaybackRequest, batch: number): Promise<Found | Refused> {
   // 불러올 곡 수. 한 번에 넣는 배치와 남은 자리 중 작은 쪽. 비어 있으면 첫 곡은 지금 곡이 되니 한 자리 더.
-  // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 가득 차도 한 곡은 받아 그쪽이 실패를 알리게 한다.
+  // 추산값이다: 최종 판정은 서버별로 줄 선 추가 구간(enqueue)이 한다. 자리가 없으면 곡을 찾기 전에 거절한다(찾는 사이 자리가 나도 기다리지 않는다)
   const room = roomFor(player ?? { queue: [], currentTrack: null }, config.bot.maxQueueSize);
+  if (room <= 0) return { code: "queue-full" };
   const limit = single ? 1 : Math.max(1, Math.min(batch, room));
   // 로그의 하위 이름. 진입점 이름의 "/"(슬래시 명령)는 뺀다. 카테고리와 "/" 로 이어 붙으므로 그대로 두면 track//play 가 된다
   const found = await lookup.resolveQuery(query, `${source.replace(/^\//, "")}.resolveQuery`, { limit });

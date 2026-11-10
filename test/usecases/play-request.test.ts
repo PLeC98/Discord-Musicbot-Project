@@ -606,8 +606,10 @@ async function requestWith({ queued = 0, playing = false, single = false, resolv
   const player = playerOf(bot);
   player.queue = Array.from({ length: queued }, (_, i) => track(`q${i}`));
   if (playing) player.currentTrack = track("now");
-  await requestPlayback(bot, args);
-  return { limit: resolverCalls.at(-1)?.range?.limit, trackData: bot.embedCalls[0]?.trackData };
+  const before = resolverCalls.length;
+  const result = await requestPlayback(bot, args);
+  // 곡을 찾지 않았으면 limit이 없다(앞 테스트의 조회를 읽지 않게)
+  return { result, limit: resolverCalls.length > before ? resolverCalls.at(-1)?.range?.limit : undefined, trackData: bot.embedCalls[0]?.trackData };
 }
 
 test("불러올 곡 수: 한 번에 넣는 배치와 남은 자리 중 작은 쪽", () =>
@@ -616,8 +618,26 @@ test("불러올 곡 수: 한 번에 넣는 배치와 남은 자리 중 작은 �
     assert.equal((await requestWith({ playing: true, queued: 25 })).limit, 5);
     // 비어 있으면 첫 곡은 현재곡이 되니 한 자리 더(31)를 세지만, 배치가 대기열 상한(30)으로 잘려 있어 30에서 멈춘다
     assert.equal((await requestWith({ playing: false })).limit, 30);
-    assert.equal((await requestWith({ playing: true, queued: 30 })).limit, 1, "가득 차도 한 곡은 받아 추가 구간이 실패를 알린다");
+    assert.equal((await requestWith({ playing: false, queued: 30 })).limit, 1, "쉬는 플레이어는 가득 차도 한 곡을 찾고 넣기 구간이 판정한다");
     assert.equal((await requestWith({ playing: true, single: true })).limit, 1);
+  }));
+
+test("대기열이 가득 차 있으면 곡을 찾기 전에 queue-full로 거절하고 로그는 요청 줄 하나", () =>
+  withLimits(30, 50, async () => {
+    const from = sink.buffer.length;
+    const full = await requestWith({ playing: true, queued: 30 });
+    assert.equal(full.limit, undefined, "곡을 찾지 않는다");
+    assert.deepEqual([full.result.success, (full.result as { code?: string }).code], [false, "queue-full"]);
+    assert.equal(full.trackData, undefined, "넣기 구간에 가지 않는다");
+    const lines = sink.buffer
+      .slice(from)
+      .filter((e) => e.text.startsWith("곡 요청:") || e.text.startsWith("곡 추가 실패:"))
+      .map((e) => `${e.level} ${e.text}`);
+    assert.equal(lines.length, 1, lines.join("\n"));
+    assert.match(lines[0], /^info 곡 요청: .* \| carl \| "목록" → 대기열 추가 불가: queue-full$/);
+    // 곡 찾기가 실패할 답이어도 가득 찬 것을 먼저 알린다(넣을 수 없는 상태다)
+    const failing = await requestWith({ playing: true, queued: 31, resolve: () => ({ success: false, code: "no-song-result" }) });
+    assert.equal((failing.result as { code?: string }).code, "queue-full");
   }));
 
 test("불러올 곡 수: 상한이 꺼져 있으면 배치 크기", () =>
