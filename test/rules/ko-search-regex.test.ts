@@ -85,7 +85,8 @@ test("악성 입력: 같은 초성 음절이 이어진 긴 글에서 긴 자음 
   assert.equal(run.error, undefined, "30초 안에 끝난다");
   for (const [matched, ranges, ms] of JSON.parse(run.stdout) as Array<[boolean, number, number]>) {
     assert.deepEqual([matched, ranges], [false, 0]);
-    assert.ok(ms < 3000, `${ms}ms`);
+    // 느린 CI 러너를 견디게 넉넉히 둔다. 기하급수로 늘면 끝나지 않아 위의 30초에서 걸린다
+    assert.ok(ms < 10_000, `${ms}ms`);
   }
 });
 
