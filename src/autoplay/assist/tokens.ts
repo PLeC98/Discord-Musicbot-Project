@@ -39,7 +39,7 @@ const FRAMING: Record<string, { perMessage: number; perRequest: number }> = {
 // 세기는 따로 도는 스레드 하나가 맡는다. tik 은 공백 없는 긴 글에서 글 길이의 제곱이 들어
 // 이 스레드에서 세면 그동안 봇 전체가 멈춘다. 스레드는 처음 셀 때 시작하고 계속 쓴다(표를 다시 읽지 않게).
 
-// 맡긴 일 하나의 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
+// 맡긴 작업 하나의 시간 상한. 넘기면 스레드를 끝내고 다음 세기에 새로 시작한다
 const COUNT_TIMEOUT_MS = 10_000;
 
 type Waiting = { resolve: (counted: Counted[]) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
@@ -67,7 +67,7 @@ function spawn() {
   return one;
 }
 
-// 스레드를 끝내고 맡긴 일을 전부 실패로 돌린다
+// 스레드를 끝내고 맡긴 작업을 전부 실패로 돌린다
 function stop(one: Worker, error: Error) {
   if (thread !== one) return;
   thread = null;
