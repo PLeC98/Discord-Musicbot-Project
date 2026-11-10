@@ -11,11 +11,33 @@ const ALLOWED_MENTIONS = { parse: [], repliedUser: false };
 // 마스크드 링크 라벨 안에는 쓰지 말고 linkLabel을 쓸 것. 라벨 안에서는 백슬래시가 이스케이프로 해석되지 않고 화면에 그대로 노출된다.
 const escapeMd = (text: unknown) => escapeMarkdown(String(text ?? ""), { maskedLink: true });
 
+// 글자 모양 선택자(VS15). 디스코드가 라벨을 검사하기 전에 걸러 내는 폭 없는 공백과 달리 남아서, 뒤따르는 모양을 끊는다
+const VS15 = "\uFE0E";
+// 이모지 안에서 그대로 두는 이음 글자(ZWJ, 키캡, 태그 국기의 태그)와 빼는 글자(VS16, 피부색). 피부색은 글자 모양에서 회색 네모로 따로 보인다
+const isJoiner = (cp: number) => cp === 0x200d || cp === 0x20e3 || (cp >= 0xe0020 && cp <= 0xe007f);
+const isDropped = (cp: number) => cp === 0xfe0f || (cp >= 0x1f3fb && cp <= 0x1f3ff);
+const textStyle = (emoji: string) =>
+  [...emoji]
+    .map((c) => {
+      const cp = c.codePointAt(0) ?? 0;
+      return isDropped(cp) ? "" : isJoiner(cp) ? c : c + VS15;
+    })
+    .join("");
+
 /**
- * 마스크드 링크 라벨 `[여기](url)`에 넣는 외부 문자열. 디스코드는 라벨 안의 `](`에서 라벨을 닫으므로 그 사이에 폭 없는 공백을 넣는다.
- * 넣지 않으면 `x](https://다른곳) [y` 같은 제목의 x가 다른 주소로 가는 링크가 된다. 나머지 글자(괄호, 서식)는 라벨 안에서만 먹어 그대로 둔다
+ * 마스크드 링크 라벨 `[여기](url)`에 넣는 외부 문자열. 디스코드가 라벨을 닫거나 링크를 버리는 모양을 보이지 않는 글자로 끊는다.
+ * `](`: 라벨을 닫아 다른 주소의 링크가 된다(`x](https://다른곳) [y`의 x). 사이에 폭 없는 공백.
+ * `<…>` 모양(멘션, 커스텀 이모지, 명령), `@everyone`, `@here`, `:이름:`: 링크를 버린다. 첫 글자 뒤에 VS15.
+ * emojiLinks: 라벨 안의 이모지를 받는 곳(웹훅 메시지, 임베드)이면 true. 아니면 이모지도 링크를 버려 글자 모양(흑백)으로 바꾼다
  */
-const linkLabel = (text: string) => text.replaceAll("](", "]\u200b(");
+function linkLabel(text: string, { emojiLinks = false } = {}) {
+  const shaped = emojiLinks ? text : text.replace(/\p{RGI_Emoji}/gv, textStyle);
+  return shaped
+    .replaceAll("](", "]\u200b(")
+    .replaceAll("<", `<${VS15}`)
+    .replace(/@(?=everyone|here)/g, `@${VS15}`)
+    .replace(/:(?=[\w+-]+:)/g, `:${VS15}`);
+}
 
 // 오류, 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env 의 SOURCE_REPO_URL, 없으면 원본)
 const DISCORD_LOOK: Look = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };

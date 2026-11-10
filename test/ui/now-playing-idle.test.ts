@@ -132,6 +132,7 @@ async function play(mem: NowPlayingPanel, player: Player) {
 test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화면으로 고친다. 새로 올리지 않는다", async () => {
   const { mem, guild, calls, records, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const player = makePlayer(guild, text(BOT));
+  if (player.currentTrack) player.currentTrack.title = "곡 \u{1F3B5}";
 
   await play(mem, player);
 
@@ -140,6 +141,7 @@ test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화�
   assert.equal(calls.edited[0].id, "900");
   assert.deepEqual(calls.edited[0].payload.attachments, [], "종료 모양의 투명 썸네일 첨부를 뗀다");
   assert.match(textOf(calls.edited[0].payload), /현재 재생 중/);
+  assert.ok(textOf(calls.edited[0].payload).includes("[곡 \u{1F3B5}]("), "기록된 패널은 웹훅으로 고쳐 이모지를 그대로 둔다");
   assert.equal(player.nowPlayingMessage?.id, "900");
   assert.deepEqual(records.get("g1"), { channelId: BOT, messageId: "900" });
 });
@@ -160,10 +162,13 @@ test("전용 채널: 끝난 패널이 묻혀 있으면 맨 아래에 새로 올�
   const { mem, guild, channels, calls, records, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   bury(channels.get(BOT), Date.now());
 
-  await play(mem, makePlayer(guild, text(BOT)));
+  const player = makePlayer(guild, text(BOT));
+  if (player.currentTrack) player.currentTrack.title = "곡 \u{1F3B5}";
+  await play(mem, player);
 
   assert.equal(calls.edited.length, 0);
   assert.equal(calls.sent.length, 1);
+  assert.ok(textOf(calls.sent[0].payload).includes("[곡 \u{1F3B5}]("), "웹훅으로 올린 패널은 이모지를 그대로 둔다");
   assert.ok(calls.deleted.includes(`${BOT}:900`));
   assert.equal(records.get("g1")?.messageId, calls.sent[0].id);
 });

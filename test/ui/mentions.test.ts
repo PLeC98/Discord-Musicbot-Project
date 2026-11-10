@@ -82,6 +82,28 @@ test("링크 라벨: ]( 사이에 폭 없는 공백을 넣어 라벨을 닫지 �
   for (const title of ["[MV] Song (Official Video)", "my_song_name", "Song *Remix* ~ A|B"]) assert.equal(linkLabel(title), title);
 });
 
+// 디스코드는 라벨 안에 이모지, 멘션 모양, :이름: 이 있으면 링크를 버린다. 보이지 않는 VS15(\uFE0E)로 끊는다
+const T = "\uFE0E";
+test("링크 라벨: 웹훅이 아닌 곳은 이모지를 글자 모양으로(VS16, 피부색은 빼고 이음 글자는 그대로, 글자마다 VS15)", () => {
+  assert.equal(linkLabel("Song \u{1F3B5} Remix"), `Song \u{1F3B5}${T} Remix`);
+  assert.equal(linkLabel("\u{1F1F0}\u{1F1F7}"), `\u{1F1F0}${T}\u{1F1F7}${T}`, "국기는 지역 글자마다");
+  assert.equal(linkLabel("\u{1F44D}\u{1F3FD}"), `\u{1F44D}${T}`, "피부색은 뺀다");
+  assert.equal(linkLabel("\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"), `\u{1F468}${T}\u200D\u{1F469}${T}\u200D\u{1F467}${T}`, "ZWJ 는 그대로");
+  assert.equal(linkLabel("1\uFE0F\u20E3"), `1${T}\u20E3`, "키캡은 VS16 을 VS15 로");
+  assert.equal(linkLabel("\u2764\uFE0F"), `\u2764${T}`);
+  const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
+  assert.equal(linkLabel(england), `\u{1F3F4}${T}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}`, "태그 국기의 태그는 그대로");
+  // 디스코드가 이모지로 보지 않는 글자(VS16 없는 ❤, 기호)는 그대로
+  for (const title of ["\u2764 \u2665 \u266A \u2605 \u00A9 \u2122 \u203C", "[MV] Song (Official Video)", "Re:Zero 12:30"]) assert.equal(linkLabel(title), title);
+});
+
+test("링크 라벨: 웹훅, 임베드(emojiLinks)는 이모지를 그대로 두고, 멘션 모양과 :이름: 은 어디서나 끊는다", () => {
+  const title = "\u{1F525} <@123> <:pepe:1> </play:1> @everyone @here :fire:";
+  const cut = `<${T}@123> <${T}:${T}pepe:1> <${T}/play:1> @${T}everyone @${T}here :${T}fire:`;
+  assert.equal(linkLabel(title, { emojiLinks: true }), `\u{1F525} ${cut}`);
+  assert.equal(linkLabel(title), `\u{1F525}${T} ${cut}`);
+});
+
 test("now-playing 제목은 라벨에 들어가고, 라벨을 닫는 ](만 끊긴다", async () => {
   const mem = new NowPlayingPanel(fake<Client>({}), new Map());
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
@@ -94,6 +116,9 @@ test("now-playing 제목은 라벨에 들어가고, 라벨을 닫는 ](만 끊�
   assert.ok(!json.includes("my\\\\_song"), "라벨에 백슬래시가 들어가면 화면에 그대로 노출된다");
   const evil = JSON.stringify((await mem.createNowPlayingContainer(player, { ...track, title: EVIL_LABEL })).toJSON());
   assert.ok(!escapesLabel(evil), evil);
+  const emoji = { ...track, title: "Song \u{1F3B5}" };
+  assert.ok(JSON.stringify((await mem.createNowPlayingContainer(player, emoji, false, null, true)).toJSON()).includes("[Song \u{1F3B5}]("), "웹훅 패널은 이모지 그대로");
+  assert.ok(JSON.stringify((await mem.createNowPlayingContainer(player, emoji, false, null)).toJSON()).includes("[Song \u{1F3B5}\uFE0E]("), "채널 메시지 패널은 글자 모양");
 });
 
 test("/nowplaying 곡 정보: 지금 곡과 다음 곡의 제목이 라벨을 닫지 못한다", () => {

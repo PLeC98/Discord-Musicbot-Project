@@ -18,6 +18,8 @@ test("대기열 줄: 제목이 링크 라벨을 닫지 못하고, 링크를 뗀 
   assert.equal(queueLine(evil, 1), "`1.` **[x]\u200b(https://evil.example) [y](https://y/1)**\n");
   const plain = queueLine(song({ title: "[클릭](https://evil.example)" }), 1, { link: false });
   assert.ok(!/(^|[^\\])\[[^\]]*\]\(/.test(plain), plain);
+  // 대기열은 임베드라 디스코드가 라벨 안의 이모지를 받는다. 글자 모양으로 바꾸지 않는다
+  assert.equal(queueLine(song({ title: "곡 \u{1F3B5}" }), 1), "`1.` **[곡 \u{1F3B5}](https://y/1)**\n");
 });
 
 test("대기열 줄: 요청자는 멘션으로", () => {
