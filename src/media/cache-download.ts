@@ -230,7 +230,9 @@ class TrackDownloader {
     const filepath = this.trackFilePath(track);
 
     if (fsSync.existsSync(filepath)) {
-      const stats = await fs.stat(filepath);
+      const stats = await fs.stat(filepath).catch((error: unknown) => {
+        throw this._failed(track, error);
+      });
       if (stats.size > 0) {
         return filepath;
       }
