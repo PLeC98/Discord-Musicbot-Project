@@ -12,6 +12,7 @@ import path from "node:path";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
+import { isShuttingDown } from "./shutdown-state.ts";
 import * as processRegistry from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
@@ -77,6 +78,7 @@ let restartAt = 0;
 let restarts = 0;
 
 function startShell(): Shell {
+  const startedAt = Date.now();
   const child = spawn("powershell.exe", ["-NoProfile", "-NoLogo", "-NonInteractive", "-EncodedCommand", Buffer.from(SCRIPT, "utf16le").toString("base64")], { windowsHide: true });
   const self: Shell = { child, release: processRegistry.register(child, "powershell", { job: "net-stats" }), lines: [], rest: "", answer: null, stderr: "" };
   child.stdout.setEncoding("utf8");
@@ -97,14 +99,20 @@ function startShell(): Shell {
   child.stdin.on("error", () => {
     /* 끝난 뒤 쓰면 EPIPE 가 난다. 끝남은 exit 가 알린다 */
   });
-  // 묻는 중이 아니면(봇이 내려가며 내렸다 등) 조용히 비우고, 다음 구간에 다시 띄운다
-  const gone = (why: string) => {
+  // 묻는 중이 아니면 비우고 다음 구간에 다시 띄운다. 봇이 내려가며 내린 것이 아니면 warn 으로 알리고 재실행을 미룬다
+  const gone = (why: string, exit?: string) => {
+    const idle = shell === self && !self.answer;
     if (shell === self) shell = null;
     self.release();
     self.answer?.({ failed: why });
+    if (idle && !isShuttingDown()) {
+      const delay = RESTART_DELAYS_MS[Math.min(restarts++, RESTART_DELAYS_MS.length - 1)];
+      restartAt = Date.now() + delay;
+      log.warn(`시스템 업로드 측정 PowerShell 헬퍼 유휴 중 종료(대기 중인 쿼리 없음): 종료=${exit ?? why} | 실행 시간=${Math.round((Date.now() - startedAt) / 1000)}초 | 재실행 대기=${delay / 1000}초 | stderr=${self.stderr.trim()}`);
+    }
   };
   child.on("error", (error) => gone(messageOf(error)));
-  child.on("exit", (code, signal) => gone(`PowerShell 종료(${signal ?? `종료 코드 ${String(code)}`})${self.stderr.trim() ? ` · ${self.stderr.trim()}` : ""}`));
+  child.on("exit", (code, signal) => gone(`PowerShell 종료(${signal ?? `종료 코드 ${String(code)}`})${self.stderr.trim() ? ` · ${self.stderr.trim()}` : ""}`, signal ?? String(code)));
   // 봇이 나가는 것을 붙잡지 않는다
   child.unref();
   for (const stream of [child.stdin, child.stdout, child.stderr]) (stream as unknown as { unref?: () => void }).unref?.();

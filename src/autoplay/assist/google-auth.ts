@@ -101,6 +101,7 @@ function projectOf(where: unknown): string {
   try {
     return readAccount(where).project_id || "";
   } catch {
+    // 같은 오류를 실제 요청의 accessToken 이 다시 던지고, 그때 warn 으로 남는다
     return "";
   }
 }

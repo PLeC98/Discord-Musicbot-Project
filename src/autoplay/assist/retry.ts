@@ -14,6 +14,7 @@ function readBody(text: string): ErrorBody["error"] {
     const parsed = JSON.parse(text) as ErrorBody;
     return parsed && typeof parsed === "object" && parsed.error && typeof parsed.error === "object" ? parsed.error : undefined;
   } catch {
+    // JSON 이 아닌 응답은 원문을 그대로 실패 원인으로 쓴다
     return undefined;
   }
 }
@@ -65,4 +66,4 @@ function backoffMs(n: number, firstMs: number, maxMs: number, random = Math.rand
   return Math.round(full / 2 + (random() * full) / 2);
 }
 
-export { summaryOf, exhausted, adviceMs, backoffMs };
+export { summaryOf, exhausted, adviceMs, backoffMs, readBody };

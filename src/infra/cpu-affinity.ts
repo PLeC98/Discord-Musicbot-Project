@@ -25,14 +25,24 @@ function bindCommand(file: string, args: string[]): { file: string; args: string
   return { file: TASKSET, args: ["-c", `${first}-${total - 1}`, file, ...args] };
 }
 
+// 프로세스가 아직 살아 있는지 확인한다(신호 0은 실제 신호를 보내지 않고 프로세스가 있는지만 본다. 권한이 없어 거절되면 살아 있다)
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as { code?: unknown }).code === "EPERM";
+  }
+}
+
 /** 실행한 프로세스를 묶는다(Windows). 실패해도 작업은 그대로 돈다(묶이지 않을 뿐) */
 function bindProcess(pid: number | undefined) {
   if (process.platform !== "win32" || !pid) return;
   const { first, count } = encodeCores();
   const mask = ((2n ** BigInt(count) - 1n) << BigInt(first)).toString();
   execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { encoding: "buffer", windowsHide: true, timeout: 15_000 }, (error, _stdout, stderr) => {
-    // 묶지 못해도 인코딩은 그대로 돈다(코어를 다 쓸 뿐)
-    if (error) log.debug(`CPU 코어 고정(affinity) 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
+    // 묶지 못해도 인코딩은 그대로 돈다(코어를 다 쓸 뿐). PowerShell이 붙기 전에 끝난 짧은 작업은 묶을 것이 없어 debug
+    if (error) log[alive(pid) ? "warn" : "debug"](`CPU 코어 고정(affinity) 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
   });
 }
 

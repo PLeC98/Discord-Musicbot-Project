@@ -367,7 +367,7 @@ const graphql = {
         clientVersion = JSON.parse(Buffer.from(cfg[1], "base64").toString()).clientVersion || clientVersion;
       } catch (e) {
         // 버전을 못 읽으면 직전 값
-        log.debug(`clientVersion 읽기 실패(직전 값 ${clientVersion}): ${messageOf(e)}`);
+        log.warn(`clientVersion 읽기 실패(직전 값 ${clientVersion}): ${messageOf(e)}`);
       }
     }
     const scriptUrl = (home.match(/https:\/\/[^"']*\/web-player\.[a-f0-9]+\.js/) || [])[0];
@@ -706,10 +706,10 @@ async function checkCredentials(): Promise<KeyCheck> {
     });
     if (r.ok) return { ok: true };
     if (r.status === 400 || r.status === 401) return { ok: false, reason: "rejected" };
-    log.debug(`API 키 확인 실패: HTTP ${r.status}`);
+    log.warn(`API 키 확인 실패: HTTP ${r.status}`);
     return { ok: false, reason: "unreachable" };
   } catch (e) {
-    log.debug(`API 키 확인 실패: ${messageOf(e)}`);
+    log.warn(`API 키 확인 실패: ${messageOf(e)}`);
     return { ok: false, reason: "unreachable" };
   }
 }

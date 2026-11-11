@@ -14,6 +14,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
 import { execWith, isJSON, type Exec, type YtDlpFlags } from "./ytdlp-exec.ts";
 import { sec } from "../infra/log/seconds.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 const log = logger.child({ category: "ytdlp" });
 
 const IS_WIN = process.platform === "win32";
@@ -147,7 +148,7 @@ function clearOutput(output: string): number {
   try {
     names = fs.readdirSync(dir).filter(has);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일 조회 실패: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`임시 조각 파일 조회 실패: ${dir} | ${messageOf(error)}`);
     return 0;
   }
   let removed = 0;
@@ -157,26 +158,47 @@ function clearOutput(output: string): number {
       removed++;
     } catch (error) {
       // 잠겨 있음. 부르는 쪽의 정리가 받는다
-      log.debug(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
+      log.warn(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
     }
   }
   return removed;
 }
 
-async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>): Promise<string> {
-  const names = (await fs.promises.readdir(dir).catch(() => [] as string[])).filter(has).sort();
+type WatchLog = { listWarned: boolean; size: ReturnType<typeof repeatingFailure> };
+
+function watchLog(): WatchLog {
+  return { listWarned: false, size: repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "yt-dlp 다운로드 파일 크기 읽기") };
+}
+
+async function snapshotOf({ dir, has }: ReturnType<typeof familyOf>, watch: WatchLog): Promise<string> {
+  const listed = await fs.promises.readdir(dir).catch((error: unknown) => {
+    if (codeOf(error) !== "ENOENT" && !watch.listWarned) {
+      watch.listWarned = true;
+      log.warn(`yt-dlp 다운로드 정체 감시 readdir 실패(진행 확인 불가): ${dir} | ${codeOf(error) ?? messageOf(error)}`);
+    }
+    return [] as string[];
+  });
+  const names = listed.filter(has).sort();
+  const sizeFailures: Array<string | number> = [];
   const parts = await Promise.all(
     names.map(async (name) => {
-      const stat = await fs.promises.stat(path.join(dir, name)).catch(() => null);
+      // yt-dlp 가 다운로드하는 동안 파일 이름을 바꾸므로 사라진 파일(ENOENT)은 정상이다. 나머지는 남긴다
+      const stat = await fs.promises.stat(path.join(dir, name)).catch((error: unknown) => {
+        if (codeOf(error) !== "ENOENT") sizeFailures.push(codeOf(error) ?? messageOf(error));
+        return null;
+      });
       return stat ? `${name}:${stat.size}:${stat.mtimeMs}` : name;
     }),
   );
+  if (sizeFailures.length) watch.size.fail(`${dir} | ${sizeFailures[0]}`);
+  else watch.size.ok();
   return parts.join("|");
 }
 
 /** output 의 파일 그룹을 감시해 멎으면 onStall. 돌려주는 것은 감시를 멈추는 함수. read 는 테스트가 바꾼다 */
 function watchDownload(output: string, onStall: () => void, read = snapshotOf): () => void {
   const family = familyOf(output);
+  const watch = watchLog();
   const { everyMs, limitMs } = stall;
   let last: string | null = null;
   let changedAt = Date.now();
@@ -185,7 +207,7 @@ function watchDownload(output: string, onStall: () => void, read = snapshotOf): 
   const timer = setInterval(() => {
     if (busy) return;
     busy = true;
-    void read(family).then((now) => {
+    void read(family, watch).then((now) => {
       busy = false;
       if (stopped) return;
       if (now !== last) {

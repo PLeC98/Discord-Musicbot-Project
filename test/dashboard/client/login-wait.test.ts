@@ -84,6 +84,17 @@ test("창이 닫힌 뒤 2분 안에 늦게 온 401(옛 세션으로 나가 있�
   assert.equal(s.ended(), 1);
 });
 
+test("다른 탭이 로그인을 마쳤거나 세션 id를 바꾼 뒤 2분 안에 온 401은 확인해 살아 있으면 세션 끝으로 돌리지 않고, 그 뒤에는 곧바로 끝낸다", async () => {
+  const s = setup(true);
+  s.wait.elsewhere();
+  s.wait.sessionEnded();
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual([s.checks(), s.ended()], [1, 0]);
+  s.advance(120_000);
+  s.wait.sessionEnded();
+  assert.equal(s.ended(), 1);
+});
+
 test("창이 닫힌 뒤 늦게 온 401이라도 확인에서 살아 있지 않으면 세션을 끝낸다", async () => {
   const s = setup(false);
   s.wait.opened();

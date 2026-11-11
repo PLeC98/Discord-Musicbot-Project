@@ -54,8 +54,13 @@ before(async () => {
   fs.writeFileSync(file, Buffer.alloc(16 * 1024 * 1024, 1));
   const app = express();
   app.use(sessionRequests.noteSocket);
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, rolling: true, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(noteDevice);
+  // x-change 헤더: 이 요청이 세션 내용을 바꾼다(요청이 끝날 때 express-session이 세션을 저장하려 한다)
+  app.use((req, _res, next) => {
+    if (req.get("x-change") && req.session?.user) req.session.csrfToken = String(req.get("x-change"));
+    next();
+  });
   app.use(sessionRequests.bind);
   app.post("/login", (req, res) => {
     req.session.user = { id: String(req.query.u), username: String(req.query.u), globalName: String(req.query.u), avatar: null };
@@ -106,6 +111,21 @@ before(async () => {
     for (let i = 0; i < 64; i++) res.write("x".repeat(256 * 1024));
     res.end();
     gate.enter();
+  });
+  // 끝냈지만 다 나가지 않은 응답이다. 소켓 쓰기의 콜백을 부르지 않고 붙잡아, 운영체제와 상관없이 writableEnded이고 writableFinished는 아닌 상태로 둔다
+  app.get("/held", requireAuth, (req, res) => {
+    lastSocket = req.socket;
+    lastRes = res;
+    const socket = req.socket as Socket & { _write: unknown; _writev: unknown };
+    socket._write = () => undefined;
+    socket._writev = () => undefined;
+    res.json({ secret: "끊긴 뒤에 나가면 안 되는 것" });
+    gate.enter();
+  });
+  // 바로 응답하고 소켓을 남긴다(keep-alive)
+  app.get("/socket", requireAuth, (req, res) => {
+    lastSocket = req.socket;
+    res.json({ ok: true });
   });
   // 받는 중인 업로드: 본문을 다 받으면 조작한다
   app.post("/upload", requireAuth, (req, res) => {
@@ -231,6 +251,22 @@ test("세션이 끝난 요청에서 발생한 봇 버그는 세션 종료로 가
   assert.equal((await pending).status, 500);
 });
 
+test("저장 때의 쿠키 만료 시각이 지났어도 활동으로 행의 만료 기한이 남은 세션의 요청은 기한 만료로 멈추지 않는다", async () => {
+  newGate();
+  const owner = await signedIn("rolling");
+  // 마지막 저장(set)은 오래전이고 그 뒤로는 touch만 했다. 내용의 쿠키 만료 시각은 지났고 행의 만료 기한은 남았다
+  const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(owner.sid()) as string;
+  const data = JSON.parse(row) as { cookie: { expires: string } };
+  data.cookie.expires = new Date(Date.now() - 60_000).toISOString();
+  store.db.prepare("UPDATE sessions SET data = ?, expires_at = ? WHERE sid = ?").run(JSON.stringify(data), Date.now() + 6 * 24 * 60 * 60_000, owner.sid());
+  const pending = owner.go("/hold-change", { method: "POST" });
+  // 라우트 핸들러에 진입하기 전에 막히면(401) 기다리지 않고 실패한다
+  assert.equal(await Promise.race([gate.entered.then(() => "라우트 핸들러 진입"), pending.then((r) => r.status)]), "라우트 핸들러 진입");
+  gate.open();
+  assert.equal((await pending).status, 200);
+  assert.equal(effects, 1);
+});
+
 test("세션이 끊기기 전에 완료한 조작은 그대로 응답한다", async () => {
   newGate();
   const owner = await signedIn("change-ok");
@@ -265,8 +301,8 @@ test("한 번에 쓰고 끝낸 큰 응답이 읽지 않는 클라이언트의 �
   await settle(50);
   const socket = lastSocket!;
   assert.equal(socket.destroyed, false);
-  // 이 PC(Windows 루프백)에서는 커널이 다 받아 응답이 끝나고 닫혀(writableFinished) sweepSockets가 소켓을 닫는다. 끝냈지만 다 나가지 않은 응답(writableEnded이고
-  // writableFinished 아님)은 여기서 만들 수 없어, 그때 소켓을 닫는 분기(stop)는 이 테스트가 검증하지 못한다
+  // 루프백은 커널이 바로 다 받아 응답이 끝나고(writableFinished) 목록에서 빠진다. 그래서 이 소켓은 그 뒤의 sweepSockets가 닫는다.
+  // 끝냈지만 다 나가지 않은 응답을 stop이 닫는 분기는 다음 테스트에서 본다
   assert.equal(lastRes!.writableEnded, true);
   revoke(thief);
   assert.equal(await untilDestroyed(socket), true, "응답은 끝났지만 바이트가 남은 소켓");
@@ -294,6 +330,28 @@ test("한 번에 쓰고 끝낸 큰 응답이 읽지 않는 클라이언트의 �
   agent.destroy();
 });
 
+test("끝냈지만 다 나가지 않은 응답은 세션이 끝나면 소켓을 강제로 닫아 본문을 보내지 않는다", async () => {
+  newGate();
+  const thief = await signedIn("held");
+  const url = new URL(base);
+  const raw = net.connect(Number(url.port), url.hostname);
+  raw.on("error", () => {});
+  let received = "";
+  raw.on("data", (chunk) => (received += chunk.toString("latin1")));
+  await new Promise((done) => raw.once("connect", done));
+  raw.write(`GET /held HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${thief.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
+  await gate.entered;
+  await settle(50);
+  const socket = lastSocket!;
+  assert.equal(lastRes!.writableEnded, true);
+  assert.equal(lastRes!.writableFinished, false, "쓰기를 붙잡아 다 나가지 않았다");
+  revoke(thief);
+  assert.equal(await untilDestroyed(socket), true);
+  await settle(50);
+  assert.equal(received, "", "헤더도 본문도 받지 못한다");
+  raw.destroy();
+});
+
 test("받는 중인 업로드는 세션이 끝나면 소켓을 강제로 닫고 조작을 실행하지 않는다", async () => {
   newGate();
   const thief = await signedIn("upload");
@@ -313,13 +371,35 @@ test("받는 중인 업로드는 세션이 끝나면 소켓을 강제로 닫고 
 test("알림 없는 세션 종료(원시 SQL로 삭제)를 재확인(recheck)에서 감지하면, 세션을 바꾼 채 대기하던 요청이 끝나도 행이 다시 생기지 않는다", async () => {
   newGate();
   const thief = await signedIn("raw-sql");
-  const pending = thief.go("/hold-change", { method: "POST", headers: { "user-agent": `${UA} Changed` } });
+  const pending = thief.go("/hold-change", { method: "POST", headers: { "x-change": "stolen" } });
   await gate.entered;
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
   sessionRequests.recheck();
   gate.open();
   assert.equal((await pending).status, 401);
   assert.equal(store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(thief.sid()), undefined);
+});
+
+test("재확인(recheck)이 알림 없이 끝난 세션을 찾으면 그 세션의 응답이 끝난 keep-alive 소켓도 닫는다", async () => {
+  newGate();
+  const thief = await signedIn("raw-sql-socket");
+  const url = new URL(base);
+  const raw = net.connect(Number(url.port), url.hostname);
+  raw.on("error", () => {});
+  let received = "";
+  raw.on("data", (chunk) => (received += chunk.toString("latin1")));
+  await new Promise((done) => raw.once("connect", done));
+  raw.write(`GET /socket HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${thief.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
+  while (!/\{"ok":true\}/.test(received)) await settle(10);
+  const idle = lastSocket!;
+  const pending = thief.go("/hold-read");
+  await gate.entered;
+  store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
+  sessionRequests.recheck();
+  assert.equal(await untilDestroyed(idle), true, "응답이 끝나 목록에서 빠진 요청의 소켓");
+  gate.open();
+  assert.equal((await pending).status, 401);
+  raw.destroy();
 });
 
 test("로그인하지 않은 세션은 바꿔도 저장하지 않고 쿠키도 싣지 않는다", async () => {

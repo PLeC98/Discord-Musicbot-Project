@@ -8,6 +8,8 @@ import util from "util";
 import config from "../../config/index.ts";
 import { styleText } from "node:util";
 import { LEVELS, KEPT_LINES, levelNameOf, wireFields, type LevelName, type LogGap, type WireEntry } from "./levels.ts";
+import { repeatingFailure } from "../repeating-failure.ts";
+import { messageOf } from "../error-text.ts";
 
 // 터미널 출력은 늘 가로채기 전의 console 로 한다. 가로챈 console 로 찍으면 다시 여기로 들어온다.
 const REAL = { log: console.log.bind(console), error: console.error.bind(console) };
@@ -105,10 +107,14 @@ class LogManager {
   isTTY: boolean;
   useColor: boolean;
   terminal: (rec: LogRecord) => void;
+  notice: (line: string) => unknown;
+  _destFailures: ReturnType<typeof repeatingFailure>;
 
-  /** terminal: 터미널에 찍는 함수. 생략하면 _renderTerminal */
-  constructor({ maxLines = KEPT_LINES, intercept = true, terminal }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void } = {}) {
+  /** terminal: 터미널에 찍는 함수. 생략하면 _renderTerminal. notice: destination이 오류를 던질 때 알리는 곳(기본은 표준 오류. 로거로 알리면 record로 되돌아온다) */
+  constructor({ maxLines = KEPT_LINES, intercept = true, terminal, notice = (line: string) => process.stderr.write(line) }: { maxLines?: number; intercept?: boolean; terminal?: (rec: LogRecord) => void; notice?: (line: string) => unknown } = {}) {
     this.maxLines = maxLines;
+    this.notice = notice;
+    this._destFailures = repeatingFailure({ error: (line) => notice(`[log] ${line}\n`), info: (line) => notice(`[log] ${line}\n`) }, "로그 출력 대상 기록");
     this.terminal = terminal ?? ((rec) => this._renderTerminal(rec));
     // 터미널에만 적용하는 하한. 파일, 대시보드는 레코드가 오는 대로 다 받는다.
     // 조사 중 debug를 켜도 터미널은 조용하게 둘 수 있어야 한다.
@@ -172,6 +178,7 @@ class LogManager {
         }
         res.write(payload);
       } catch {
+        // 쓰기에 실패하면 해당 관리자 화면이 닫힌 것이다. 재연결하며 Last-Event-ID 로 이어받는다. 여기서 로그를 남기면 record 로 다시 들어온다
         this._dropClient(res);
       }
     }
@@ -179,13 +186,17 @@ class LogManager {
     if (this.destinations.length === 0) {
       if (this.earlyRecords.length < this.maxLines) this.earlyRecords.push(safe);
     } else {
+      let failed: unknown = null;
       for (const dest of this.destinations) {
         try {
           dest(safe); // destination 은 가리기만 한 레코드를 그대로 받는다(ANSI 도 그대로)
-        } catch {
-          /* destination 오류가 로깅을 막지 않도록 삼킴 */
+        } catch (error) {
+          // destination 오류가 로깅을 막지 않게 넘긴다. notice로만 알린다(로거로 알리면 여기로 되돌아온다)
+          failed ??= error;
         }
       }
+      if (failed) this._destFailures.fail(`${messageOf(failed).split("\n")[0]} (해당 로그 유실)`);
+      else this._destFailures.ok();
     }
   }
 
@@ -196,13 +207,18 @@ class LogManager {
     if (!first) return;
     const replay = this.earlyRecords;
     this.earlyRecords = [];
+    // 재생 실패가 기동을 막지 않게 넘기고, 끝난 뒤 한 줄로 알린다(notice. 로거로 알리면 다시 모인다)
+    let failedCount = 0;
+    let firstError: unknown = null;
     for (const rec of replay) {
       try {
         dest(rec);
-      } catch {
-        /* 재생 실패가 기동을 막지 않도록 삼킴 */
+      } catch (error) {
+        failedCount++;
+        firstError ??= error;
       }
     }
+    if (failedCount) this.notice(`[log] 기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): ${failedCount}/${replay.length}건 | ${messageOf(firstError).split("\n")[0]}\n`);
   }
 
   _redact(rec: LogRecord): LogRecord {
@@ -308,6 +324,7 @@ class LogManager {
     this._cleanups.set(res, cleanup);
     this.syncHeartbeat();
     res.on("close", cleanup);
+    // 관리자 화면 연결이 끊겼다(ECONNRESET, EPIPE). 정리만 한다
     res.on("error", cleanup);
     return true;
   }
@@ -336,6 +353,7 @@ class LogManager {
       try {
         res.write(": ping\n\n");
       } catch {
+        // 쓰기에 실패하면 해당 화면이 닫힌 것이다. 여기서 로그를 남기면 record 로 다시 들어온다
         this._dropClient(res);
       }
     }

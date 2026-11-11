@@ -39,10 +39,15 @@ const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 �
 
 // 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고, 오류 안내처럼 수준에 맞는 수명 뒤 지운다
 async function announce(guild: Guild, notice: Notice) {
-  const channel = await resolveFallbackTextChannel(guild).catch(() => null);
+  const channel = await resolveFallbackTextChannel(guild).catch((error: unknown) => {
+    const code = codeOf(error);
+    // 설정 DB 가 이미 닫혔으면(종료 중) 알릴 채널을 찾을 수 없다. 그 밖의 실패는 남긴다
+    if (code !== "DB_NOT_OPEN") log.warn(`봇 채널 찾기 실패(상주 모드 해제 알림 전송 건너뜀): 서버=${guild.name} | ${messageOf(error)}${code === undefined ? "" : ` (${code})`}`);
+    return null;
+  });
   if (!channel) return;
   const sending = channel.send(post(noticeFrame(notice))).then((sent) => scheduleDelete(sent, noticeMs(notice)));
-  await bestEffort(log, sending, "상주 모드 해제 알림 전송");
+  await bestEffort(log, sending, "상주 모드 해제 알림 전송", "warn");
 }
 
 /** join, announce, sleep 은 시험이 바꾼다 */

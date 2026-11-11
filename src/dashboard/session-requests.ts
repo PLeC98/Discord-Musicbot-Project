@@ -201,22 +201,10 @@ function track(req: Request, res: Response, kind: string, drop?: () => void) {
   if (!entry) throw new Error("스트림을 연 요청이 세션 묶기(session-requests의 bind)를 지나지 않았다");
   entry.stream = kind;
   entry.drop = drop ?? (() => undefined);
-  keepDevice(store, req);
   (req as { session: unknown }).session = null;
   res.once("error", () => {
     if (entries.get(res) === entry) entries.delete(res);
     if (!entries.size) disarm();
-  });
-}
-
-// 이 요청이 갱신한 기기 기록(브라우저, 주소, 마지막 활동)을 세션을 떼기 전에 저장한다(떼면 응답이 끝날 때 저장하지 않는다).
-// 지금 행에 그것만 쓴다: 열기 앞에서 기다린 사이(멤버 조회) 같은 세션의 다른 요청이 저장한 것(CSRF 토큰 등)을 이 요청의 옛 사본으로 덮지 않게
-function keepDevice(store: SqliteSessionStore, req: Request) {
-  const device = req.session.device;
-  const now = store.liveSession(req.sessionID);
-  if (!now || device === undefined || now.device === device) return;
-  store.set(req.sessionID, { ...now, device }, (error) => {
-    if (error) log.warn(`스트림을 연 기기의 기록 저장 실패: ${messageOf(error)}`);
   });
 }
 
@@ -275,7 +263,7 @@ function closeStream(entry: Entry, why: string) {
   try {
     entry.drop();
   } catch (error) {
-    log.debug(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
+    log.warn(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
   }
   if (large || res.writableEnded || res.destroyed) {
     socket.destroy();

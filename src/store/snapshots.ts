@@ -11,6 +11,7 @@ const log = logger.child({ category: "core" });
 import { codeOf, codedError, messageOf } from "../rules/error-kind.ts";
 import { settingsDb, VERSION } from "./settings-db.ts";
 import { ownerOnly } from "../infra/owner-only.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import type { Snapshot, SnapshotKind } from "../rules/snapshots.ts";
 
 const KEEP_DAILY = 7;
@@ -22,6 +23,7 @@ const NAME = /^settings-(daily|before-import|before-restore|before-reset)-[0-9-]
 const STAGED = "settings.restore.db";
 
 let timer: NodeJS.Timeout | null = null;
+const listFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "설정 DB 스냅샷 폴더 읽기");
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const day = (at: Date) => `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
@@ -37,9 +39,10 @@ function list(dir = dbDir()): Snapshot[] {
   let names: string[];
   try {
     names = fs.readdirSync(folder).filter((name) => NAME.test(name));
+    listFailure.ok();
   } catch (error) {
     // 폴더가 없으면 아직 뜬 것이 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`설정 DB 스냅샷 목록 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") listFailure.fail(`${folder} | ${codeOf(error) ?? messageOf(error)} (빈 목록으로 처리)`);
     return [];
   }
   return names
@@ -213,7 +216,7 @@ function staged(dir = dbDir()): string | null {
     return (JSON.parse(fs.readFileSync(path.join(dir, `${STAGED}.json`), "utf8")) as { from?: string }).from ?? STAGED;
   } catch (error) {
     // 설명 파일이 없으면 예약한 파일 이름으로 부른다
-    if (codeOf(error) !== "ENOENT") log.debug(`예약한 설정 DB의 설명 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`예약한 설정 DB의 설명 읽기 실패: ${messageOf(error)}`);
     return STAGED;
   }
 }

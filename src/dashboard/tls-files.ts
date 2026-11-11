@@ -1,4 +1,4 @@
-// 인증서 파일로 봇이 직접 HTTPS를 연다(발급, 갱신은 하지 않는다). 설계는 notes/plan-dashboard-network.md 4.4.
+// 인증서 파일로 봇이 직접 HTTPS를 연다(발급, 갱신은 하지 않는다).
 // 찾는 곳: .env의 DASHBOARD_TLS_CERT, DASHBOARD_TLS_KEY(둘 다, .env가 있는 폴더 기준)가 있으면 그것만, 없으면 certs/cert.pem과 certs/key.pem(둘 다 있을 때만 켜진다).
 // 기동 시 확인: PEM인지, 맨 앞이 서버 인증서인지, 키가 짝인지, 암호가 걸린 키인지, 유효 기간 안인지(문제가 있으면 열지 않는다), 중간 인증서, 이름, 남은 기한 14일, 키 파일 권한(warn).
 // 파일을 바꾸면 봇을 다시 시작한다(다시 시작 없이 교체하지 않는다)
@@ -9,7 +9,7 @@ import { X509Certificate, createPrivateKey, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import type { SecureContextOptions, TlsOptions } from "node:tls";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -131,7 +131,8 @@ function worldReadable(file: string, platform = process.platform) {
   if (platform === "win32") return false;
   try {
     return (fs.statSync(file).mode & 0o004) !== 0;
-  } catch {
+  } catch (error) {
+    log.warn(`TLS 키 파일 stat 실패(다른 사용자 읽기 권한 확인 건너뜀): ${file} | ${codeOf(error) ?? messageOf(error)}`);
     return false;
   }
 }

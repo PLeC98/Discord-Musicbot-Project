@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
 import { consoleText } from "./console-text.ts";
+import { codeOf, messageOf } from "./error-text.ts";
 const log = logger.child({ category: "proc" });
 
 /**
@@ -27,23 +28,30 @@ const sameImage = (a: string | null, b: string | null) => !!a && !!b && (process
 
 let bootId: string | null | undefined;
 function linuxBootId() {
-  if (bootId === undefined) bootId = readText("/proc/sys/kernel/random/boot_id")?.trim() || null;
+  if (bootId === undefined) bootId = readText("/proc/sys/kernel/random/boot_id", SKIP_IDENTITY)?.trim() || null;
   return bootId;
 }
 
 let bootMs: number | null | undefined;
 function linuxBootMs() {
   if (bootMs === undefined) {
-    const btime = /^btime (\d+)$/m.exec(readText("/proc/stat") ?? "");
+    const btime = /^btime (\d+)$/m.exec(readText("/proc/stat", SKIP_IDENTITY) ?? "");
     bootMs = btime ? Number(btime[1]) * 1000 : null;
   }
   return bootMs;
 }
 
-function readText(file: string) {
+const PROC_GONE_OR_HIDDEN = new Set<unknown>(["ENOENT", "ESRCH", "EACCES", "EPERM"]);
+const SKIP_IDENTITY = "프로세스 식별 검증 생략";
+const SKIP_PROCESS = "해당 프로세스 확인 건너뜀";
+
+function readText(file: string, action: string, perPid = false) {
   try {
     return fs.readFileSync(file, "utf8");
-  } catch {
+  } catch (error) {
+    const code = codeOf(error);
+    // 각 pid의 stat은 그사이 프로세스가 끝났거나(ENOENT, ESRCH) 숨겨진(EACCES, EPERM) 경우가 정상이라 조용히 넘긴다
+    if (!(perPid && PROC_GONE_OR_HIDDEN.has(code))) log.warn(`프로세스 스냅샷 /proc 읽기 실패(${action}): ${file} | ${messageOf(error)} (${String(code)})`);
     return null;
   }
 }
@@ -73,13 +81,14 @@ function parseStat(pid: number, text: string): Proc | null {
   };
 }
 
-// Node 는 메인 스레드 이름을 MainThread 로 바꿔(uv_thread_setname) comm 이 실행 파일 이름이 아니다. 그때만 실행 파일 경로에서 읽는다.
+// Node 는 메인 스레드 이름을 바꿔(uv_thread_setname. 24 는 MainThread, 26 은 node-mainthread) comm 이 실행 파일 이름이 아니다. 그때만 실행 파일 경로에서 읽는다.
 // 늘 경로로 읽지 않는 것은 shebang 스크립트(yt-dlp)의 경로가 인터프리터라서다
-const RENAMED_MAIN_THREAD = "mainthread";
+const RENAMED_MAIN_THREAD = new Set(["mainthread", "node-mainthread"]);
 function exeImage(pid: number) {
   try {
     return imageName(path.basename(fs.readlinkSync(`/proc/${pid}/exe`).replace(/ \(deleted\)$/, "")));
   } catch {
+    // 다른 사용자의 프로세스는 EACCES, 이미 끝났으면 ENOENT 가 정상이다. 이름 없이 비교한다
     return null;
   }
 }
@@ -96,10 +105,10 @@ function linuxSnapshot(): Proc[] | null {
   for (const name of names) {
     if (!/^\d+$/.test(name)) continue;
     // 읽는 사이 끝난 프로세스는 없다고 본다
-    const text = readText(`/proc/${name}/stat`);
+    const text = readText(`/proc/${name}/stat`, SKIP_PROCESS, true);
     const proc = text && parseStat(Number(name), text);
     if (!proc) continue;
-    if (proc.image === RENAMED_MAIN_THREAD) proc.image = exeImage(proc.pid) ?? proc.image;
+    if (RENAMED_MAIN_THREAD.has(proc.image)) proc.image = exeImage(proc.pid) ?? proc.image;
     out.push(proc);
   }
   return out;
@@ -157,7 +166,7 @@ function snapshotProcesses(platform: NodeJS.Platform = process.platform): Proc[]
 /** 그 프로세스의 시계와 상관없는 시작 키(Linux). 다른 OS, 읽지 못하면 null */
 function startKeyOf(pid: number): string | null {
   if (process.platform !== "linux") return null;
-  const text = readText(`/proc/${pid}/stat`);
+  const text = readText(`/proc/${pid}/stat`, SKIP_IDENTITY, true);
   return (text && parseStat(pid, text)?.startKey) || null;
 }
 

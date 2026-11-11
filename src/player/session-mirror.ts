@@ -366,6 +366,7 @@ class SessionPersistence {
     if (!finished || player.loop === "track") return;
     trackState.retire(player, finished, { requeue: player.loop === "queue" });
     if (player.queue.length === 0 && player.autoplay) {
+      // pickAutoplayTrack 이 실패를 error 로 남기고 null 을 돌려준다. 여기서는 예외를 던지지 않게만 한다
       const picked = await player.pickAutoplayTrack().catch(() => null);
       if (picked) trackState.enqueue(player, [picked]);
     }

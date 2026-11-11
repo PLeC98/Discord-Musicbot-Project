@@ -26,7 +26,7 @@ async function adoptLingeringVoice(client: Client<true>, players: Pick<PlayerSea
     if (!channel?.isVoiceBased() || players.has(guild.id) || touched.includes(guild.id)) continue;
     // 이어받지 않는다(붙들면 /join 이 막히고 퇴장 때 세션을 삭제한다). 나가기만 하고 세션은 남긴다
     if (sessions().load(guild.id)) {
-      const how = await leaveLingeringVoice(guild, players);
+      const how = await leaveLingeringVoice(guild, players, "adopt");
       if (how === "superseded") log.info(`그사이 플레이어가 생겨 남은 음성 채널에서 나가지 않음: "${channel.name}" (${guild.name})`);
       else if (how !== "failed") log.info(`저장된 세션은 남기고 음성 채널에서 나감(${LEFT_BY[how]}, /join으로 이어서 재생): "${channel.name}" (${guild.name})`);
       continue;

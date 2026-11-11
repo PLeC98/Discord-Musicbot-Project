@@ -19,7 +19,7 @@ function mtimeOf(file: string) {
   try {
     return fs.statSync(file).mtimeMs;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`화면 소스 수정 시각 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`화면 소스 수정 시각 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -29,7 +29,7 @@ function readInputs(file: string): BuildInputs | null {
     const data = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<BuildInputs>;
     return typeof data.builtAt === "number" && Array.isArray(data.files) ? { builtAt: data.builtAt, files: data.files } : null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`화면 빌드 정보(${BUILD_INPUTS}) 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`화면 빌드 정보(${BUILD_INPUTS}) 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }

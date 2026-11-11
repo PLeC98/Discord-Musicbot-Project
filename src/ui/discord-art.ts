@@ -28,7 +28,7 @@ function prepare(url: string | null | undefined): Promise<void> {
     pending = head(youtubeArt(videoId, "large"))
       .then((res) => remember(videoId, res.ok))
       .catch((error: unknown) => {
-        log.debug(`고해상도 썸네일 확인 실패(hqdefault 사용): ${videoId}`, error);
+        log.warn(`고해상도 썸네일 확인 실패(hqdefault 사용): ${videoId}`, error);
         remember(videoId, false);
       })
       .finally(() => asking.delete(videoId));

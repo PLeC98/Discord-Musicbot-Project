@@ -170,6 +170,7 @@ function aiTarget(doc: unknown) {
   try {
     return new URL(String(doc.baseUrl)).host;
   } catch {
+    // 불러온 파일의 값을 보여 주기만 한다. 주소가 아니면 글자 그대로 보여 준다
     return String(doc.baseUrl ?? "");
   }
 }

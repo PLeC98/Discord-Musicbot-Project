@@ -12,7 +12,7 @@ import { frame, noticeFrame, post } from "../../ui/frame.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import * as searchText from "../../ui/text/ko/search.ts";
 import type { ClientEvent } from "../../app/main.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { describeError, messageOf } from "../../rules/error-kind.ts";
 import { noticeMs, unlessGone } from "../../ui/delivery.ts";
 import { isShuttingDown } from "../../infra/shutdown-state.ts";
 
@@ -38,7 +38,10 @@ const exported: ClientEvent<Events.MessageCreate> = {
 
     // 종료 중이면 곡을 찾지 않고 알린다(새 재생을 시작하지 않는다). 디스코드 연결을 닫은 뒤면 알림도 못 보낸다
     if (isShuttingDown()) {
-      await message.reply(post(noticeFrame(errors.notice("bot-shutting-down")))).catch((error: unknown) => log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`));
+      await message.reply(post(noticeFrame(errors.notice("bot-shutting-down")))).catch((error: unknown) => {
+        if (message.client.token === null) log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`);
+        else log.warn(`봇 채널 종료 안내 답장 실패: 채널=${message.channel.id} | ${describeError(error)}`);
+      });
       return;
     }
 

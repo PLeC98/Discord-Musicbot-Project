@@ -213,7 +213,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "urls-empty": () => warning("input", "유튜브 주소가 없어요!", "판정해 볼 곡의 유튜브 주소를 적어 주세요."),
   "nothing-to-save": (_, look) => warning("input", "저장할 내용이 없어요!", `보낸 내용이 비어 있어요. ${stalePage(look)}`),
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
-  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "함께 표시된 입력란을 고친 뒤에 다시 저장해 주세요."),
+  "config-invalid": () => warning("input", "설정에 문제가 있어요!", "값을 고친 뒤 다시 시도해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
@@ -226,7 +226,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "log-file-not-found": () => warning("notFound", "없는 로그 파일이에요!", "보관 개수를 넘어 삭제됐거나 파일 로그를 껐어요. 페이지를 새로고침해 파일 목록을 다시 받아 주세요."),
   "snapshot-mismatch": () => warning("state", "복원할 수 없는 스냅샷이에요!", "지금 봇과 설정 DB 구조가 다른 버전에서 만든 스냅샷이에요. 그 버전의 봇으로 복원해 주세요."),
   "storage-unavailable": () => error("failed", "저장소를 쓸 수 없어요!", "데이터베이스에 잠시 접근하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
-  "sign-out-unsaved": () => error("failed", "로그인 기록을 삭제하지 못했어요!", "지금 실행 중인 봇에서는 로그아웃됐지만 저장소에서 로그인 기록을 삭제하지 못했어요. 봇이 계속 삭제를 재시도하고 있지만, 그 전에 봇을 다시 시작하면 로그인이 되살아날 수 있어요. 봇 운영자에게 저장 공간을 확인해 달라고 알려 주세요."),
+  "sign-out-unsaved": () => error("failed", "로그인 기록을 삭제하지 못했어요!", "지금 실행 중인 봇에서는 로그아웃됐지만 저장소에서 로그인 기록을 삭제하지 못했어요. 봇이 계속 삭제를 재시도하고 있고, 그 전에 봇을 다시 시작하면 모든 기기에서 다시 로그인해야 해요. 드물게는 로그아웃한 기기의 로그인이 되살아날 수 있어요. 봇 운영자에게 저장 공간을 확인해 달라고 알려 주세요."),
   // 대시보드: 파비콘(업로드한 이미지, 링크로 다운로드하는 이미지)
   "bad-image": () => warning("input", "쓸 수 없는 이미지예요!", "png, webp, jpg, svg 이미지만 쓸 수 있어요."),
   "image-not-square": () => warning("input", "정사각형 이미지만 쓸 수 있어요!", "가로와 세로가 같은 이미지를 올려 주세요."),

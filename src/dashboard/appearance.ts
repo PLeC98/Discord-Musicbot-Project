@@ -10,6 +10,7 @@ import path from "path";
 import sharp from "sharp";
 import logger from "../infra/log/logger.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { FAVICON_HISTORY, FAVICON_MIN_SIDE, FAVICON_RESERVE_SIDE, FAVICON_SIZES, type FaviconImage, type FaviconSlot, type FaviconSlots } from "./contract/appearance.ts";
 import type { Code, Params } from "../rules/problems.ts";
@@ -39,6 +40,7 @@ let slots: Map<number, Slot> | null = null;
 let version = Date.now();
 const renders = new Map<string, Buffer>();
 let avatar: { url: string; input: Buffer | null } | null = null;
+const avatarFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "파비콘용 봇 프로필 이미지 다운로드");
 
 const refused = (code: Code, params?: Params): Refused => ({ ok: false, code, params });
 const pngOf = (id: string) => path.join(dir, `${id}.png`);
@@ -84,7 +86,7 @@ function loaded(): Map<number, Slot> {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.debug(`파비콘 경로 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`파비콘 경로 읽기 실패: ${messageOf(error)}`);
   }
   let raw: unknown = null;
   try {
@@ -120,6 +122,7 @@ const currentOf = (size: number) => {
 async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: Stored; png: Buffer; reserve: Buffer } | Refused> {
   const meta = await sharp(raw)
     .metadata()
+    // 읽을 수 없는 이미지는 사용자가 업로드한 입력이다. 요청이 bad-image 로 거절된다
     .catch(() => null);
   if (!meta) return refused("bad-image");
   const vector = meta.format === "svg";
@@ -139,7 +142,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
     const [png, reserve] = await Promise.all([draw(size), draw(reserveSide)]);
     return { ok: true, image: { id: newId(), bytes: raw.length, width, height, vector, at: Date.now(), reserveSide }, png, reserve };
   } catch (error) {
-    log.debug(`파비콘 변환 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
+    log.warn(`파비콘 변환 실패(${meta.format} ${width}×${height}): ${messageOf(error)}`);
     return refused("bad-image");
   }
 }
@@ -227,13 +230,15 @@ async function avatarInput(url: string | null): Promise<Buffer | null> {
   if (!url) return null;
   if (avatar?.url === url) return avatar.input;
   let input: Buffer | null = null;
+  const timeoutMs = 10_000;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
     if (res.ok) input = Buffer.from(await res.arrayBuffer());
-    else log.debug(`봇 프로필 이미지 다운로드 실패: HTTP ${res.status}`);
+    else log.warn(`봇 프로필 이미지 다운로드 실패: HTTP ${res.status}`);
+    avatarFailure.ok();
   } catch (error) {
     // 디스코드에 닿지 못했다: 기억하지 않고 다음 요청에서 다시 다운로드한다
-    log.debug(`봇 프로필 이미지 다운로드 실패: ${messageOf(error)}`);
+    avatarFailure.fail(`${url}, 타임아웃=${timeoutMs}ms | ${messageOf(error)}`);
     return null;
   }
   avatar = { url, input };

@@ -4,7 +4,8 @@
 import type { Request } from "express";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { messageOf } from "../rules/error-kind.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "./discord-api.ts";
 import { tokenStoreOf } from "./session-store.ts";
 
@@ -25,6 +26,20 @@ const kept = new Map<string, Kept>();
 const loading = new Map<string, Promise<UserGuild[]>>();
 
 const statusOf = (error: unknown) => (error as { response?: { status?: number } } | null)?.response?.status;
+const failureOf = (error: unknown) => {
+  const status = statusOf(error);
+  return status ? `HTTP ${status}` : String(codeOf(error) ?? messageOf(error));
+};
+// 로그인 세션(key)마다 따로 센다(한 사용자만 계속 실패하면 다른 사용자의 성공이 복구로 잘못 찍힌다). 해소되면 삭제한다
+const failures = new Map<string, { refresh: ReturnType<typeof repeatingFailure>; list: ReturnType<typeof repeatingFailure> }>();
+const failuresOf = (key: string) => {
+  let one = failures.get(key);
+  if (!one) {
+    const to = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
+    failures.set(key, (one = { refresh: repeatingFailure(to, "사용자 서버 목록 백그라운드 갱신"), list: repeatingFailure(to, "사용자 서버 목록 조회") }));
+  }
+  return one;
+};
 
 function sweep(now: number) {
   for (const [key, entry] of kept) if (now - entry.usedAt >= IDLE_MS) kept.delete(key);
@@ -37,6 +52,10 @@ function load(key: string, token: string, http: DiscordHttp, now: number) {
     .get<UserGuild[]>(`${DISCORD_API}/users/@me/guilds`, { headers: { Authorization: `Bearer ${token}` } })
     .then((res) => {
       kept.set(key, { at: now, usedAt: now, guilds: res.data });
+      const one = failures.get(key);
+      one?.refresh.ok();
+      one?.list.ok();
+      failures.delete(key);
       return res.data;
     })
     .catch((error: unknown) => {
@@ -71,8 +90,10 @@ async function userGuilds(key: string, token: string, options: ListOptions = {})
   if (usable) return usable;
   const next = load(key, token, http, now);
   if (!hit?.guilds || !stale || fresh) return next;
-  next.catch(() => {
-    /* 뒤에서 받다 실패하면 다음 요청이 다시 받는다 */
+  next.catch((error: unknown) => {
+    // 뒤에서 받다 실패하면 다음 요청이 다시 받는다
+    const status = statusOf(error);
+    if (status !== 401 && status !== 429) failuresOf(key).refresh.fail(`${failureOf(error)} (stale 목록 유지)`);
   });
   return hit.guilds;
 }
@@ -89,7 +110,7 @@ async function memberGuildIds(req: Pick<Request, "sessionID" | "sessionStore">, 
     return { ids: new Set(guilds.map((g) => g.id)), relogin: false };
   } catch (error) {
     const status = statusOf(error);
-    if (status !== 401 && status !== 429) log.debug(`디스코드에서 서버 목록 불러오기 실패(멤버 캐시만 조회): ${status ? `상태 코드 ${status}` : messageOf(error)}`);
+    if (status !== 401 && status !== 429) failuresOf(req.sessionID).list.fail(`${failureOf(error)} (멤버 캐시로 대체)`);
     return { ids: null, relogin: status === 401 };
   }
 }

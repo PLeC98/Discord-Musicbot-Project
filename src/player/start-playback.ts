@@ -18,7 +18,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
 import { gainOf } from "../rules/volume-gain.ts";
-import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, messageOf, codedError, describeError, errorKind } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { CurrentPlayback } from "./current-playback.ts";
 import type { QueuedTrack } from "./track.ts";
@@ -51,14 +51,22 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   // 인트로 끝을 시작 위치로 삼는다(0부터 틀고 옮기는 이중 재생을 피한다).
   if (wanted === 0) {
     const track = player.currentTrack;
+    let searching = false;
     try {
       if (!track) throw new Error("재생할 곡 없음");
-      if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
+      if (!track.audioUrl) {
+        searching = true;
+        await player.io.findEquivalent(track); // 멱등. 영상 id 확정
+        searching = false;
+      }
       const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
     } catch (error) {
-      // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
-      log.debug(`인트로 종료 지점 조회 실패(처음부터 재생): ${messageOf(error)}`);
+      if (codeOf(error) === "DB_NOT_OPEN") throw error;
+      // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생. 검색 실패는 검색 모듈이 이미 warn으로 남겼다
+      const line = `재생 전 유튜브 매칭 및 SponsorBlock 인트로 조회 실패(0초부터 재생): ${player._trackLabel(track)} (${track?.requestKey ?? "?"}) | 분류=${errorKind(error)} | ${describeError(error)}`;
+      if (searching) log.debug(line);
+      else log.warn(line);
     }
   }
   return { ok: true, startMs };
@@ -121,7 +129,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function askSponsor(player: Player, track: QueuedTrack) {
   return player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
+    log.warn(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
     return null;
   });
 }
@@ -212,18 +220,14 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   if (shown) Object.assign(track, shown);
   // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
   const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
-  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}`);
+  // 일시정지한 채 여는 곡은 그 이유를 이 줄에 붙인다(곡 하나의 info는 시작, 끝 두 줄). 일시정지하는 건 Playing 리스너다. 지금은 아직 버퍼링 상태라 pause()가 먹지 않는다
+  const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
+  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
 
   player.audioPlayer.play(resource);
   player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (!player.isLive) recordPlayed(track, pb.audioKey, verifiedFor(track, source), { countPlay: !continued });
-
-  if (player.paused) {
-    // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
-    const why = [...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds];
-    log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${why.join(", ")}`);
-  }
 
   // 파일로 틀면 다시 쓸 주소가 없다(캐시 폴백이면 그 주소는 열리지 않았다)
   pb.stream = pb.cacheFile ? null : streamInfo;

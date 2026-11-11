@@ -40,6 +40,7 @@ function httpsHostOf(url: string) {
     const parsed = new URL(url);
     return parsed.protocol === "https:" ? hostKey(parsed.hostname) : null;
   } catch {
+    // DASHBOARD_URL 은 설정을 읽을 때 이미 검사했다. 여기까지 오지 않는다
     return null;
   }
 }

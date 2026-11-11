@@ -393,6 +393,7 @@ async function joinIdle(target: Player) {
     await target.voice.connect();
     return null;
   } catch (error) {
+    // VoiceLink.connect 가 실패 원인을 error 로 남기고 던졌다. 나간 것은 정리(dispose)가 남긴다
     await target.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     return codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed";
   }

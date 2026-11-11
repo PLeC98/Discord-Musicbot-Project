@@ -65,6 +65,7 @@ function tokensFrom(call: Call, text: string): AiTokens | null {
     const usage = call.tokensOf(JSON.parse(text));
     return usage ? { input: usage.input, output: usage.output ?? 0, cached: usage.cached ?? 0, reasoning: usage.thoughts ?? 0 } : null;
   } catch {
+    // 외부 서비스의 응답이 JSON 이 아니면 사용량을 알 수 없다(null). 원문은 같은 로그 줄에 남는다
     return null;
   }
 }

@@ -72,7 +72,7 @@ function readDeployedFingerprint(hashPath: string) {
   try {
     return JSON.parse(fs.readFileSync(hashPath, "utf8")).fingerprint || null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`명령어 배포 해시 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`명령어 배포 해시 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -83,7 +83,7 @@ function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
     fs.mkdirSync(path.dirname(hashPath), { recursive: true });
     fs.writeFileSync(hashPath, JSON.stringify({ fingerprint, deployedAt: new Date().toISOString() }));
   } catch (error) {
-    log.debug(`명령어 배포 해시 저장 실패: ${messageOf(error)}`);
+    log.warn(`명령어 배포 해시 저장 실패: ${messageOf(error)}`);
   }
 }
 

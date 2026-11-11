@@ -95,6 +95,8 @@ const savedDone = "운영 조절값을 저장했어요";
 /** names: 다시 시작해야 적용되는 필드의 이름(쉼표로 이음) */
 const savedRestart = (names: string) => `봇을 다시 시작해야 적용돼요: ${names}`;
 const saveFailed = "운영 조절값을 저장하지 못했어요.";
+/** 저장 거절의 아래 줄 하나. reason 은 서버의 문장 그대로 */
+const problemLine = (label: string, value: string, reason: string) => `${label} [${value}]: ${reason}`;
 const loadFailed = "운영 조절값을 읽지 못했어요.";
 
-export { groups, fields, boxes, title, visibility, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, loadFailed };
+export { groups, fields, boxes, title, visibility, defaultWith, restartTip, pending, restartBadge, pickColor, youtubeDoc, cookies, on, off, savedDone, savedRestart, saveFailed, problemLine, loadFailed };

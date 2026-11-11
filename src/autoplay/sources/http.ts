@@ -39,7 +39,7 @@ async function probe(service: SourceService, url: string, headers: Record<string
     return await send(service, url, { headers: { Accept: "application/json", "User-Agent": userAgent(), ...headers }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   } catch (error) {
     // 주소에 키가 실려 있어(Last.fm) 주소는 싣지 않는다
-    log.debug(`${service} 키 확인 요청 실패: ${messageOf(error)}`);
+    log.warn(`${service} 키 확인 요청 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -55,6 +55,7 @@ async function postJson<T = unknown>(service: SourceService, url: string, body: 
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
+    // 본문을 읽지 못해도 상태 오류는 그대로 던진다. 덧붙일 본문만 빠진다
     const detail = res.status === 422 ? await res.text().catch(() => "") : "";
     throw new Error(`HTTP ${res.status} (${new URL(url).host})${detail ? `: ${detail.slice(0, 200)}` : ""}`);
   }

@@ -627,7 +627,7 @@ class EncodePool {
     try {
       session.hooks.onError(error);
     } catch (thrown) {
-      log.debug(`출력 스트림의 인코딩 오류 처리 중 실패: ${messageOf(thrown)}`);
+      log.warn(`출력 스트림의 인코딩 오류 처리 중 실패: ${messageOf(thrown)}`);
     }
   }
 

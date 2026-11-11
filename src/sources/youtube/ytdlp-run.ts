@@ -72,7 +72,7 @@ async function _retryWithCookies(url: string, videoId: string, buildOptions: Bui
     externalCaches.markAgeRestricted(videoId);
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`연령 제한 기록 실패(${videoId}): ${messageOf(error)}`);
+    log.warn(`연령 제한 기록 실패(${videoId}): ${messageOf(error)}`);
   }
   assertAgeAllowed(videoId, error);
   if (!auth.cookiesConfigured()) throw error;
@@ -245,7 +245,9 @@ async function fromInfo(info: unknown, options: Flags, output: string, exec: Run
     return { result: await exec("", { ...flags, loadInfoJson: file }) };
   } catch (error) {
     if (!FETCH_FAILED.has(String((error as { code?: unknown } | null)?.code))) throw error;
-    log.debug(`캐시된 영상 정보로 다운로드 실패(정보 추출부터 다시 시도): ${errors.briefError(error, 1)}`);
+    const line = `캐시된 영상 정보로 다운로드 실패(정보 추출부터 다시 시도): ${errors.briefError(error, 1)}`;
+    if (codeOf(error) === "stale-media") log.debug(line);
+    else log.warn(line);
     clearOutput(output);
     return null;
   } finally {

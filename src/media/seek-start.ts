@@ -8,8 +8,8 @@ import type { RangeFetch } from "./chunked-stream.ts";
 
 type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: number; startMs: number; durationMs: number; chunkBytes: number };
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
-/** near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다) */
-type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean };
+/** near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다) */
+type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
 
 /** 헤더, 색인을 처음 받는 양. 아주 긴 곡도 대개 이 안에 든다(넘으면 아래 횟수만큼 더 받는다) */
@@ -55,7 +55,7 @@ async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as
     return { ok: true, start: { header: headerOf(head, read.index), startByte: point.byte, startedAtMs: point.startedAtMs, expectStart: { bytes: FIRST_BYTES[read.index.kind], check: point.expectStart } } };
   } catch (error) {
     if (controller.signal.aborted) return { ok: false, why: `헤더 요청이 ${timeoutMs / 1000}초를 넘김`, slow: true };
-    return { ok: false, why: `헤더를 받지 못함: ${messageOf(error)}` };
+    return { ok: false, why: `헤더를 받지 못함: ${messageOf(error)}`, failed: true };
   } finally {
     clearTimeout(timer);
     controller.abort();

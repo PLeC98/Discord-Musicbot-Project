@@ -5,7 +5,6 @@ import fs from "fs";
 import path from "path";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
-import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { newerRelease } from "../rules/vendor-updates.ts";
@@ -26,7 +25,7 @@ function readInstalled() {
     const { version } = JSON.parse(fs.readFileSync(path.join(PROJECT.bgutil, "server", "package.json"), "utf8")) as { version?: unknown };
     return typeof version === "string" && version ? version : null;
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`bgutil 설치 버전 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`bgutil 설치 버전 읽기 실패: ${messageOf(error)}`);
     return null;
   }
 }
@@ -79,7 +78,11 @@ class BgutilVersion {
   _schedule(delayMs: number) {
     this.stop();
     this.timer = setTimeout(() => {
-      bestEffort(log, this._tick(), "bgutil 새 버전 조회");
+      void this._tick().catch((error: unknown) => {
+        const frames = error instanceof Error ? (error.stack ?? "").split("\n") : [];
+        const at = frames.find((line) => line.trimStart().startsWith("at "))?.trim();
+        log.warn(`bgutil 버전 확인 타이머 실패(재예약 안 됨, 주기 확인 중단): ${messageOf(error)}${at ? ` | ${at}` : ""}`);
+      });
     }, delayMs);
     this.timer.unref?.();
   }

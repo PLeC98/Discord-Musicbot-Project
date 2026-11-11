@@ -17,6 +17,7 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace } from "./contract/identity.ts";
 import type { GeoipCheck, GeoipStatus } from "./contract/admin.ts";
@@ -44,6 +45,13 @@ let job: GeoipStatus["job"] = "idle";
 let progress: { received: number; total: number | null } | null = null;
 let lastError: string | null = null;
 let busy: Promise<unknown> | null = null;
+const folderFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 폴더 읽기");
+const statFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "GeoIP 파일 정보 조회");
+const loggedErrors = new WeakSet<object>();
+const markLogged = (error: unknown) => {
+  if (error && typeof error === "object") loggedErrors.add(error);
+};
+const alreadyLogged = (error: unknown) => Boolean(error && typeof error === "object" && loggedErrors.has(error));
 
 /** 이번 달, 지난달(YYYY-MM, UTC) */
 function monthsNow(now = new Date()) {
@@ -54,14 +62,16 @@ function monthsNow(now = new Date()) {
 /** 가진 버전들(새 것부터) */
 function versionsOnDisk(): string[] {
   try {
-    return fs
+    const versions = fs
       .readdirSync(DIR)
       .flatMap((name) => FILE.exec(name)?.[1] ?? [])
       .sort()
       .reverse();
+    folderFailure.ok();
+    return versions;
   } catch (error) {
     // 폴더가 아직 없다(다운로드한 적이 없다)
-    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 경로 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") folderFailure.fail(`${DIR} | ${codeOf(error) ?? messageOf(error)} (DB 없음으로 처리)`);
     return [];
   }
 }
@@ -75,9 +85,10 @@ function status(): GeoipStatus {
   if (version) {
     try {
       bytes = fs.statSync(fileOf(version)).size;
+      statFailure.ok();
     } catch (error) {
       // 그새 새 버전으로 바뀌었다
-      if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 파일 크기 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") statFailure.fail(`${fileOf(version)} | stat ${codeOf(error) ?? messageOf(error)} (파일 크기 생략)`);
       bytes = null;
     }
   }
@@ -127,7 +138,7 @@ async function sizeOf(version: string): Promise<number | null> {
   const res = await http.fetch(urlOf(version), { method: "HEAD", signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     // 없는 버전이면 404. 다른 거절도 없는 버전으로 보되 까닭을 남긴다
-    if (res.status !== 404) log.debug(`IP 위치 DB ${version} 버전 확인: HTTP ${res.status}`);
+    if (res.status !== 404) log.warn(`IP 위치 DB ${version} 버전 확인: HTTP ${res.status}`);
     return null;
   }
   return Number(res.headers.get("content-length")) || 0;
@@ -175,11 +186,12 @@ async function download(version: string) {
   } catch (error) {
     lastError = messageOf(error);
     log.warn(`IP 위치 DB 다운로드 실패(기존 버전 유지): ${lastError}`);
+    markLogged(error);
     throw error;
   } finally {
-    fs.rmSync(temp, { force: true });
     job = "idle";
     progress = null;
+    fs.rmSync(temp, { force: true });
   }
 }
 
@@ -197,6 +209,7 @@ const update = () =>
     // 받기 실패는 download 가 남긴다
     const { latest } = await check().catch((error: unknown) => {
       log.warn(`IP 위치 DB 버전 확인 실패: ${messageOf(error)}`);
+      markLogged(error);
       throw error;
     });
     if (latest && latest !== current()) await download(latest);
@@ -211,7 +224,8 @@ async function autoCheck() {
   if (have === thisMonth) return;
   const probe = (version: string) =>
     sizeOf(version).catch((error: unknown) => {
-      log.debug(`IP 위치 DB ${version} 버전 확인 실패: ${messageOf(error)}`);
+      log.warn(`IP 위치 DB ${version} 버전 확인 실패: ${messageOf(error)}`);
+      markLogged(error);
       throw error;
     });
   try {
@@ -220,8 +234,9 @@ async function autoCheck() {
       if (!have && (await probe(lastMonth)) !== null) return download(lastMonth);
       log.debug(`IP 위치 DB ${thisMonth} 버전이 아직 없음(내일 다시 확인)`);
     });
-  } catch {
+  } catch (error) {
     // 내일 다시 본다(까닭은 probe, download 가 남겼다)
+    if (!alreadyLogged(error)) log.warn(`GeoIP 다운로드 실패: ${messageOf(error)}`);
   }
 }
 
@@ -231,7 +246,7 @@ function start() {
     for (const name of fs.readdirSync(DIR)) if (name.startsWith(".download-")) fs.rmSync(path.join(DIR, name), { force: true });
   } catch (error) {
     // 폴더가 아직 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`IP 위치 DB 임시 파일 삭제 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`IP 위치 DB 임시 파일 삭제 실패: ${messageOf(error)}`);
   }
   setTimeout(() => void autoCheck(), FIRST_CHECK_MS).unref();
   setInterval(() => void autoCheck(), CHECK_EVERY_MS).unref();
@@ -253,4 +268,4 @@ function _use({ dir = path.join(PROJECT.database, "geoip"), opener = (file: stri
   lastError = null;
 }
 
-export { status, load, locate, check, update, autoCheck, start, monthsNow, http as _http, _use };
+export { status, load, locate, check, update, autoCheck, start, monthsNow, alreadyLogged, http as _http, _use };

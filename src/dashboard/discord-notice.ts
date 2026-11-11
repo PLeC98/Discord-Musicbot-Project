@@ -25,7 +25,7 @@ const dashboardActor = (req: Request) => controlText.viaDashboard(`<@${signedIn(
 function channelOf({ panels }: Pick<BotContext, "panels">, player: Player | null | undefined): Promise<Channel> {
   if (!player) return Promise.resolve(null);
   return panels.panelChannel(player).catch((error: unknown) => {
-    log.debug("대시보드 조작 알림 전송 실패(패널 채널을 찾지 못함):", error);
+    log.warn("대시보드 조작 알림 전송 실패(패널 채널을 찾지 못함):", error);
     return null;
   });
 }
@@ -40,7 +40,7 @@ async function sendTo(channel: Promise<Channel>, view: ContainerBuilder, ms: num
 function announcer(bot: Pick<BotContext, "panels">, player: Player | null | undefined) {
   const channel = channelOf(bot, player);
   return (view: ContainerBuilder, ms: number = LIFETIME.result) => {
-    bestEffort(log, sendTo(channel, view, ms), "대시보드 조작 안내");
+    bestEffort(log, sendTo(channel, view, ms), "대시보드 조작 안내", "warn");
   };
 }
 

@@ -66,6 +66,20 @@ test("평문 요청이면 일반 이름에 Secure가 없다(로그인이 그대�
   assert.equal(store.db.prepare("SELECT COUNT(*) FROM sessions").pluck().get(), 3, "세 로그인 모두 한 저장소에");
 });
 
+test("세션을 바꾸지 않은 요청의 응답에도 쿠키를 다시 보낸다(쓰는 동안 쿠키 만료 시각을 연장한다)", async () => {
+  const [cookie] = (await fetch(`${base}/login`, { method: "POST" })).headers.getSetCookie();
+  const again = await fetch(`${base}/me`, { headers: { cookie: cookie.split(";")[0] } });
+  assert.equal(await again.json(), "u1");
+  const [rolled] = again.headers.getSetCookie();
+  assert.ok(rolled?.startsWith(`${sessionCookieName(false)}=`), String(rolled));
+  assert.match(rolled, /Expires=/);
+
+  const [secure] = (await fetch(`${base}/login`, { method: "POST", headers: HTTPS })).headers.getSetCookie();
+  const [rolledSecure] = (await fetch(`${base}/me`, { headers: { ...HTTPS, cookie: secure.split(";")[0] } })).headers.getSetCookie();
+  assert.ok(rolledSecure?.startsWith(`${sessionCookieName(true)}=`), String(rolledSecure));
+  assert.match(rolledSecure, /; Secure/, "HTTPS 요청에서 세션 쿠키를 다시 보낼 때도 __Host- 접두사와 Secure 속성을 유지한다");
+});
+
 test("HTTPS 쿠키는 평문 요청에 쓰이지 않는다(이름이 다르다)", async () => {
   const [secure] = (await fetch(`${base}/login`, { method: "POST", headers: HTTPS })).headers.getSetCookie();
   assert.equal(await (await fetch(`${base}/me`, { headers: { cookie: secure.split(";")[0] } })).json(), null);
@@ -117,4 +131,28 @@ test("세션 쿠키의 Secure는 이름과 같은 판정(req.secure)을 따른�
   store.generate(https);
   assert.equal(https.session.cookie.secure, true);
   assert.equal(https.session.createdOverHttps, true);
+});
+
+// ── 같은 상위 도메인의 다른 사이트가 심은 쿠키(평문 도메인 이름 배치) ──
+
+const pairOf = (line: string) => line.split(";")[0]!;
+const meWith = async (cookie: string, headers: Record<string, string> = {}) => (await fetch(`${base}/me`, { headers: { ...headers, cookie } })).json();
+
+test("같은 이름의 세션 쿠키가 둘이면(다른 Domain, Path로 심은 것) 어느 것도 받지 않는다. 피해자의 세션은 저장소에 그대로 남는다", async () => {
+  const victim = pairOf((await fetch(`${base}/login`, { method: "POST" })).headers.getSetCookie()[0]!);
+  const planted = pairOf((await fetch(`${base}/relogin`, { method: "POST" })).headers.getSetCookie()[0]!);
+  assert.equal(await meWith(`${planted}; ${victim}`), null, "심은 쿠키가 앞에 와도");
+  assert.equal(await meWith(`${victim}; ${planted}`), null, "뒤에 와도");
+  assert.equal(await meWith(victim), "u1", "심은 쿠키가 없어지면 피해자는 그대로 로그인");
+});
+
+test("HTTPS에서는 __Host- 쿠키 하나와 일반 이름 쿠키 하나가 함께 와도 __Host- 쿠키를 쓴다(다른 이름이다)", async () => {
+  const secure = pairOf((await fetch(`${base}/login`, { method: "POST", headers: HTTPS })).headers.getSetCookie()[0]!);
+  const plain = pairOf((await fetch(`${base}/relogin`, { method: "POST" })).headers.getSetCookie()[0]!);
+  assert.equal(await meWith(`${plain}; ${secure}`, HTTPS), "u1");
+});
+
+test("남는 틈: 우리 쿠키가 없는 브라우저에 심은 세션 쿠키 하나는 가를 수 없어 받아들인다(평문 도메인 이름 배치의 기동 안내가 알린다)", async () => {
+  const planted = pairOf((await fetch(`${base}/relogin`, { method: "POST" })).headers.getSetCookie()[0]!);
+  assert.equal(await meWith(planted), "u2", "심은 쪽의 계정으로 대시보드를 쓴다(화면에 그 계정 이름이 보인다)");
 });

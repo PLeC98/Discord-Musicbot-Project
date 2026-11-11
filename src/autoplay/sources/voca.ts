@@ -67,7 +67,7 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
 
   const out: Candidate[] = [];
   const seen = new Set<string>();
-  let failure: unknown = null;
+  const failures: Array<{ lang: string | null; error: unknown }> = [];
   for (const lang of someLanguages(source.languages)) {
     // 언어마다 요청이 두 번이다. 하나가 실패했다고 나머지까지 버릴 이유는 없다.
     // 하나도 못 불러왔을 때만 던져서 부르는 쪽이 다음 소스로 넘어가게 한다.
@@ -79,11 +79,12 @@ async function vocaFamily(source: GenreSource): Promise<Candidate[]> {
         out.push(track);
       }
     } catch (error) {
-      failure = failure || error;
+      failures.push({ lang, error });
       log.debug(`${site} ${lang || "전체"}: ${messageOf(error)}`);
     }
   }
-  if (!out.length && failure) throw failure;
+  if (!out.length && failures.length) throw failures[0]!.error;
+  for (const { lang, error } of failures) log.warn(`${site} 언어별 곡 조회 실패(나머지 언어 결과만 사용): 언어=${lang || "전체"} | ${messageOf(error)}`);
   return out;
 }
 

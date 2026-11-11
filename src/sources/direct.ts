@@ -49,7 +49,11 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
       (read) => {
         if (read) tags(track, read);
       },
-      (error) => log.debug(`직접 링크 태그 읽기 실패(파일 이름 사용): ${messageOf(error)}`),
+      (error) => {
+        const line = `직접 링크 태그 읽기 실패(파일 이름 사용): ${messageOf(error)}`;
+        if (embeddedArt.linkOrCancelled(error)) log.debug(line);
+        else log.warn(line);
+      },
     );
     let timer: NodeJS.Timeout | undefined;
     await Promise.race([reading, new Promise((resolve) => (timer = setTimeout(resolve, Math.max(0, TAG_WAIT_MS - (Date.now() - started)))))]);

@@ -20,7 +20,6 @@ import { leaseFor, inUse } from "./ytdlp-exec.ts";
 import { extractZip } from "../infra/zip.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
-import { bestEffort } from "../infra/best-effort.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 
 const log = logger.child({ category: "ytdlp" });
@@ -52,6 +51,8 @@ type State = { version: string | null; previous: string | null; lastChecked: num
 type Ran = { kind: "exited"; status: number; stdout: string; stderr: string } | { kind: "spawn-failed"; code: string } | { kind: "timeout" } | { kind: "signal"; signal: string };
 /** 잠금을 놓는 함수 */
 type Unlock = () => Promise<void>;
+/** 버전 폴더를 옮기지 못했다. failed는 실패 줄에 실을 원인 */
+type RenameFailed = { failed: string };
 /** 바깥 경계. 테스트는 가짜를 넘긴다 */
 type Io = {
   /** 버전마다 폴더를 둘 곳 */
@@ -87,7 +88,7 @@ function emptyTrash(folders: string[]) {
     try {
       fs.rmSync(full, { recursive: true, force: true, maxRetries: 2 });
     } catch (error) {
-      log.debug(`yt-dlp 옛 폴더 삭제 실패(${path.basename(full)}): ${messageOf(error)}`);
+      log.warn(`yt-dlp 옛 폴더 삭제 실패(${path.basename(full)}): ${messageOf(error)}`);
     }
   }
 }
@@ -237,7 +238,7 @@ class YtdlpBinary {
         unusable: typeof raw.unusable === "string" ? raw.unusable : null,
       };
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.debug(`yt-dlp 버전 기록 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(`yt-dlp 버전 기록 읽기 실패: ${messageOf(error)}`);
       return null;
     }
   }
@@ -424,16 +425,16 @@ class YtdlpBinary {
     const done = await this._publish(target, path.join(staging, "dir"), replace);
     if (done === "published") return { kind: "installed", from: current, to: target, channel };
     if (done === "locked") return failed("버전 기록 잠금을 잡지 못함", "transient");
-    if (done === "rename-failed") return failed("버전 폴더로 옮기지 못함", "transient");
+    if (typeof done === "object") return failed(done.failed, "transient");
     return null;
   }
 
   /**
    * 잠금 안에서 버전 폴더를 공개하고 기록을 바꾼다. from 이 null 이면 이미 있는 목적지를 쓴다.
    * 목적지에 이 판의 실행 파일이 없으면(옛 판의 폴더) 휴지통으로 옮기고 그 자리에 둔다. replace 면 실행 파일이 있어도(다른 버전이 들었다) 옮긴다.
-   * published: 끝남, locked: 잠금을 못 잡음, moved: 확인한 목적지가 사라졌거나(남의 정리) 공개하려던 자리에 남이 먼저 공개함, rename-failed: 옮기지 못함
+   * published: 끝남, locked: 잠금을 못 잡음, moved: 확인한 목적지가 사라졌거나(남의 정리) 공개하려던 자리에 남이 먼저 공개함, { failed }: 옮기지 못함(그 까닭)
    */
-  async _publish(target: string, from: string | null, replace = false): Promise<"published" | "locked" | "moved" | "rename-failed"> {
+  async _publish(target: string, from: string | null, replace = false): Promise<"published" | "locked" | "moved" | RenameFailed> {
     const unlock = await this.io.lock();
     if (!unlock) return "locked";
     try {
@@ -453,7 +454,7 @@ class YtdlpBinary {
   }
 
   // 잠금 안에서 from 을 버전 폴더로 옮긴다. 목적지에 이 판의 실행 파일이 없거나 replace 면 먼저 휴지통으로
-  async _place(target: string, from: string, replace: boolean): Promise<"placed" | "moved" | "rename-failed"> {
+  async _place(target: string, from: string, replace: boolean): Promise<"placed" | "moved" | RenameFailed> {
     const dest = path.join(this.io.dir, target);
     const ours = this.fileOf(target);
     if (fs.existsSync(dest) && (replace || !ours || !fs.existsSync(ours))) {
@@ -461,7 +462,7 @@ class YtdlpBinary {
         fs.renameSync(dest, path.join(this.io.dir, `.trash-${target}-${this.io.pid}-${this.io.now()}`));
       } catch (error) {
         log.debug(`yt-dlp 옛 버전 폴더 옮기기 실패(${target}): ${messageOf(error)}`);
-        return "rename-failed";
+        return { failed: `기존 버전 폴더를 삭제 대기 폴더로 옮기지 못함(${String(codeOf(error) ?? messageOf(error))})` };
       }
     }
     for (let attempt = 1; ; attempt++) {
@@ -478,7 +479,7 @@ class YtdlpBinary {
           continue;
         }
         log.debug(`yt-dlp 버전 폴더로 옮기기 실패: ${messageOf(error)}`);
-        return "rename-failed";
+        return { failed: `스테이징 폴더를 버전 폴더로 옮기지 못함(${attempt}회 시도, ${String(codeOf(error) ?? messageOf(error))})` };
       }
     }
   }
@@ -489,7 +490,7 @@ class YtdlpBinary {
     try {
       fs.rmSync(staging, { recursive: true, force: true, maxRetries: 2 });
     } catch (error) {
-      log.debug(`yt-dlp 다운로드 임시 폴더 삭제 실패: ${messageOf(error)}`);
+      log.warn(`yt-dlp 스테이징 폴더 삭제 실패(다음 정리 시 재시도): ${staging} | ${codeOf(error) ?? messageOf(error)}`);
     }
   }
 
@@ -501,7 +502,7 @@ class YtdlpBinary {
   async cleanup() {
     if (!fs.existsSync(this.io.dir)) return;
     const unlock = await this.io.lock();
-    if (!unlock) return void log.debug("yt-dlp 정리 건너뜀(버전 기록 잠금을 잡지 못함)");
+    if (!unlock) return void log.warn("yt-dlp 정리 건너뜀(버전 기록 잠금을 잡지 못함)");
     const trash: string[] = [];
     try {
       const state = this._read();
@@ -521,7 +522,7 @@ class YtdlpBinary {
           fs.renameSync(full, to);
           trash.push(to);
         } catch (error) {
-          log.debug(`yt-dlp 옛 폴더 옮기기 실패(${entry.name}): ${messageOf(error)}`);
+          log.warn(`yt-dlp 옛 폴더 옮기기 실패(${entry.name}): ${messageOf(error)}`);
         }
       }
     } finally {
@@ -580,7 +581,7 @@ class YtdlpBinary {
     this.nextAt = this.io.now() + wait;
     this.timer = setTimeout(() => {
       this.nextAt = null;
-      bestEffort(log, this._tick(), "yt-dlp 업데이트 조회");
+      void this._tick().catch((error: unknown) => log.warn(`yt-dlp 업데이트 및 설치 타이머 작업 실패(이후 확인 예약 중단): ${messageOf(error)}`));
     }, wait);
     this.timer.unref?.();
   }

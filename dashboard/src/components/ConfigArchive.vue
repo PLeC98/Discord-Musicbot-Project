@@ -45,7 +45,7 @@
               </span>
             </label>
             <ul v-if="row.problems.length" class="ml-16 mb-1 text-label text-error list-disc pl-4">
-              <li v-for="line in row.problems" :key="line">{{ line }}</li>
+              <li v-for="line in row.problems" :key="line">{{ row.item === "tunables" ? problemLine(line) : line }}</li>
             </ul>
             <ul v-if="(row.warnings.length || row.breakdown?.overLimit) && usable(row)" class="ml-16 mb-1 text-label text-(--warn-ink) list-disc pl-4">
               <li v-for="line in row.warnings" :key="line">{{ line }}</li>
@@ -74,6 +74,7 @@ import { LIMIT } from "../utils/request.ts";
 import { uploadFile } from "../utils/chunk-upload.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { problemLine } from "../composables/tunables.ts";
 import { askRestart } from "../composables/bot-restart.ts";
 import { ensureRecentLogin } from "../composables/session.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
@@ -82,6 +83,11 @@ import { text } from "../text/index.ts";
 const T = text.archive;
 
 const BASE = "/api/admin/settings-archive";
+// 불러오기 거절의 줄은 "항목 이름: 까닭". 운영 조절값의 까닭은 미리 보기처럼 라벨로
+const importProblemLine = (line: string) => {
+  const at = line.indexOf(": ");
+  return at < 0 ? line : `${line.slice(0, at)}: ${problemLine(line.slice(at + 2))}`;
+};
 const fileEl = ref<HTMLInputElement | null>(null);
 const busy = ref(false);
 const applying = ref(false);
@@ -168,7 +174,7 @@ async function apply() {
     if (data.restart) askRestart();
     else if (!merging) setTimeout(() => location.reload(), 800);
   } catch (err) {
-    notifyProblem(err, T.importFailed);
+    notifyProblem(err, T.importFailed, importProblemLine);
     applying.value = false;
   }
 }

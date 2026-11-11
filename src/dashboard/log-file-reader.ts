@@ -21,6 +21,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { koPattern, koTidy } from "../rules/ko-search.ts";
 import { AT_AFTER_LINES, matchesLog, type FileLine, type FilePage, type LogFile, type LogFilter } from "./contract/log-files.ts";
 const log = logger.child({ category: "dashboard" });
+const viewerReport = { caller: "로그 뷰어", line: (text: string) => log.warn(text) };
 
 /** 짧게 읽을 때(첫 줄, 시각 찾기) 한 번에 읽는 바이트 */
 const CHUNK = 64 * 1024;
@@ -223,7 +224,7 @@ function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | nul
   try {
     fd = fs.openSync(file, "r");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 열기 실패: ${messageOf(error)}`);
     return null;
   }
   let result: T;
@@ -288,7 +289,7 @@ const sorted = (set: Set<string>) => [...set].sort((a, b) => a.localeCompare(b))
 /** 로그 파일 목록: 지금 쓰는 파일이 먼저 오고, 로테이션된 파일은 최근 것부터 온다. stop이 참이 되면 다음 파일을 훑지 않고 그때까지의 목록을 반환한다 */
 async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile[]> {
   const dir = path.dirname(file);
-  const names = [path.basename(file), ...rotatedFilesOf(file).reverse()];
+  const names = [path.basename(file), ...rotatedFilesOf(file, viewerReport).reverse()];
   const out: LogFile[] = [];
   for (const [i, name] of names.entries()) {
     if (stop?.()) return out;
@@ -298,7 +299,7 @@ async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile
       stat = fs.statSync(full);
     } catch (error) {
       // 지금 파일이 아직 없다(기록 전), 그새 삭제됐다
-      if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 정보 읽기 실패: ${messageOf(error)}`);
       continue;
     }
     const s = await scan(full);
@@ -317,7 +318,7 @@ async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile
 function resolveLogFile(file: string, name: string, since?: number): { name: string; path: string } | null {
   const dir = path.dirname(file);
   const base = path.basename(file);
-  const rotated = rotatedFilesOf(file);
+  const rotated = rotatedFilesOf(file, viewerReport);
   // 그 폴더에 있는 로그 파일 이름 가운데 하나만(요청 값이 아니라 찾은 이름으로 경로를 만든다)
   const picked = [base, ...rotated].find((one) => one === name);
   if (!picked) return null;
@@ -413,7 +414,7 @@ async function* filteredLines(target: { path: string }, filter: LogFilter): Asyn
   try {
     fd = fs.openSync(target.path, "r");
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`로그 파일 열기 실패(다운로드): ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`로그 파일 열기 실패(다운로드): ${messageOf(error)}`);
     return;
   }
   try {

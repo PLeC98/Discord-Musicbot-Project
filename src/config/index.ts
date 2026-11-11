@@ -2,11 +2,12 @@ import path from "path";
 import fs from "fs";
 import { isIP } from "net";
 import pkg from "../../package.json" with { type: "json" };
+import { nodeSupportWarning } from "../rules/node-support.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
-import { GROUP_TAB, TUNABLE_KEYS, tunable } from "../rules/tunables.ts";
+import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
@@ -95,7 +96,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
    * 사이 의도하지 않은 값으로 계속 돈다. 비워 두는 것은 "기본값을 쓰겠다"는 뜻이라 통과시킨다.
    */
   function invalid<T>(key: string, value: unknown, reason: string, def: T): T {
-    if (TUNABLE_KEYS.has(key)) tuneProblems.push(`${key} 값이 잘못됨(${String(value)}): ${reason}`);
+    if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblemLine(key, String(value), reason));
     else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
     return def;
   }
@@ -477,6 +478,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
 const envFileFound = fs.existsSync(ENV_PATH);
 // 문제, 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
+// 지원 범위 밖의 Node 로 돌면 기동 때 알린다. pnpm 은 engineStrict 를 켜지 않으면 프로젝트의 engines 를 보지 않아 설치 때 알리지 않는다
+const nodeWarning = nodeSupportWarning(process.versions.node, pkg.engines.node);
+if (nodeWarning) warnings.push(nodeWarning);
 
 /** 설정 */
 type Config = typeof config;

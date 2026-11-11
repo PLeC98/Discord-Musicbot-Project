@@ -175,7 +175,7 @@ function loaded(): Index {
     names = fs.readdirSync(dir);
   } catch (error) {
     // 아직 하나도 올리지 않았다
-    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 경로 읽기 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 경로 읽기 실패: ${messageOf(error)}`);
   }
   const kept = new Set(items.map((one) => one.id));
   for (const name of names) if (LOGIN_BG_ID.test(name) && !kept.has(name)) fs.rmSync(path.join(dir, name), { recursive: true, force: true });
@@ -241,7 +241,7 @@ function removeFolder(id: string) {
   try {
     fs.rmSync(folder, { recursive: true, force: true });
   } catch {
-    bestEffort(log, fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }), `로그인 배경 폴더(${id}) 삭제`);
+    bestEffort(log, fs.promises.rm(folder, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }), `로그인 배경 폴더(${id}) 삭제`, "warn");
   }
 }
 
@@ -328,7 +328,7 @@ function folderBytes(id: string): number {
     walk(folderOf(id));
   } catch (error) {
     // 폴더가 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 폴더(${id}) 용량 계산 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 폴더(${id}) 용량 계산 실패: ${messageOf(error)}`);
   }
   return sum;
 }

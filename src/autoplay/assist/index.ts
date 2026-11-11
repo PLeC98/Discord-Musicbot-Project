@@ -607,7 +607,7 @@ async function countTokens(one: AiSettings, messages: Wire[]): Promise<TokenCoun
     return await tokens.countMessages(messages, by, spec?.dialect || "openai");
   } catch (error) {
     // 못 세도 요청은 나가야 한다
-    log.debug(`토큰 세기 실패(${String(one.provider)}, ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
+    log.warn(`토큰 세기 실패(${String(one.provider)}, ${String(one.model ?? "")}): ${mask(messageOf(error))}`);
     return null;
   }
 }
@@ -965,6 +965,7 @@ async function listModels(draft: Draft): Promise<ModelsCheck> {
     // 영상, 이미지 모델이나 한참 옛 모델이 섞여 나온다.
     return { ok: true, url, status: res.status, ...visibleModels(all, one), response: text, tookMs: took };
   } catch (error) {
+    // 운영자가 누른 연결 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
     return withPreset(one, { ok: false, url, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) });
   }
 }
@@ -1049,6 +1050,7 @@ async function ping(draft: Draft): Promise<PingCheck> {
     }
     return { ok: res.ok, url, headers: safeHeaders(headers), body, status: res.status, response: text, answer, tookMs: took, reason: res.ok ? "" : `HTTP ${res.status}` };
   } catch (error) {
+    // 연결 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
     return { ok: false, url, headers: safeHeaders(headers), body, status: null, response: mask(messageOf(error)), tookMs: Date.now() - started, reason: mask(messageOf(error)) };
   }
 }
@@ -1129,9 +1131,11 @@ async function judgeTest(draft: Draft, cands: TestCandidate[] | null | undefined
       const answered = readVerdicts(dialectOf(one).answerOf(json), usable.length);
       out.verdicts = answered ? usable.map((cand, i) => ({ title: cand.title, url: cand.url, ...(answered[i] || { song: null, fits: null }) })) : null;
     } catch {
+      // 판정을 읽지 못한 응답은 원문 그대로 화면에 표시되고, 원인은 AI 리퀘스트 로그에 남는다
       out.verdicts = null;
     }
   } catch (error) {
+    // 판정 테스트의 응답이다. 실패 원인은 화면으로 돌려주고 요청은 AI 리퀘스트 로그에 남았다
     out.response = mask(String((error as Error | null)?.message));
   }
   out.tookMs = Date.now() - started;

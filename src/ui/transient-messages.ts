@@ -1,9 +1,10 @@
 // 잠시 표시됐다가 스스로 삭제될 봇 메시지. 현재 재생 메시지가 "묻혔는지" 셀 때 빼기 위해 기억한다.
 // 삭제하기로 한 시각이 지나면 잊는다(삭제가 실패해 남았다면 그때부터는 보통 메시지로 센다).
 
+import { RESTJSONErrorCodes } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
-import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { codeOf, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
 const SLACK_MS = 5000;
 const until = new Map<string, number>(); // messageId → 잊을 시각
@@ -28,6 +29,7 @@ function isTransient(messageId: string, now = Date.now()) {
 }
 
 const AUTO_DELETE_MS = 10000;
+const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook]);
 
 // 삭제할 수 있는 메시지나 응답. 여기서 읽고 부르는 필드만
 type Deletable = { id: string; delete?: () => Promise<unknown> };
@@ -46,7 +48,8 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
       .then(() => remove.call(message))
       .catch((error: unknown) => {
         const retryMs = errorKind(error) === "network-error" ? RETRY_AFTER_MS[tries] : undefined;
-        if (retryMs === undefined) return log.debug(`잠깐 보이는 메시지를 삭제하지 못함: ${messageOf(error)}`);
+        if (retryMs === undefined && GONE_CODES.has(codeOf(error))) return log.debug(`잠깐 보이는 메시지를 삭제하지 못함: ${messageOf(error)}`);
+        if (retryMs === undefined) return log.warn(`잠깐 보이는 메시지를 삭제하지 못함: ${describeError(error)}`);
         log.debug(`잠깐 보이는 메시지를 네트워크 오류로 삭제하지 못해 ${retryMs / 1000}초 뒤 다시 삭제: ${messageOf(error)}`);
         scheduleDelete(message, retryMs, tries + 1);
       });

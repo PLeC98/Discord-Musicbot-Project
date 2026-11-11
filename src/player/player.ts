@@ -107,13 +107,13 @@ function overtaken(player: Pick<Player, "lifecycle" | "_playGen">, gen: number):
 }
 
 // voice 에 넘기지 못한 리소스를 destroy 한다. 넘긴 것은 voice 가 교체, Idle 때 destroy 한다
-function dropUnplayed(pb: CurrentPlayback | null) {
+function dropUnplayed(player: Pick<Player, "_trackLabel">, pb: CurrentPlayback | null) {
   const resource = pb?.resource;
-  if (!resource || resource.audioPlayer) return;
+  if (!pb || !resource || resource.audioPlayer) return;
   try {
     resource.playStream.destroy();
   } catch (error) {
-    log.debug(`미재생 오디오 리소스 해제 실패: ${messageOf(error)}`);
+    log.warn(`미재생 출력 스트림 정리 실패(ffmpeg 및 인코딩 세션 잔류 가능): ${player._trackLabel(pb.track)} | 입력=${pb.input?.kind ?? "?"}${pb.transport ? `(${pb.transport.via})` : ""} | ${messageOf(error)}`);
   }
 }
 
@@ -121,7 +121,7 @@ function dropUnplayed(pb: CurrentPlayback | null) {
 const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string; cause?: string | null };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
 function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
@@ -157,7 +157,31 @@ function starvedDetail(pb: CurrentPlayback | null) {
 }
 
 // 채널 알림을 못 보낸 것(권한, 삭제된 채널)은 재생을 막지 않는다
-const noticeFailed = (error: unknown) => log.warn(`채널 알림 전송 실패: ${messageOf(error)}`);
+const noticeFailed = (player: Pick<Player, "guild" | "textChannel">, notice: string) => (error: unknown) => log.warn(`텍스트 채널 알림 전송 실패: 알림=${notice}, 서버=${guildLabel(player)}, 채널=${player.textChannel?.id ?? "?"} | ${withCode(error)}`);
+const guildLabel = (player: Pick<Player, "guild">) => `${player.guild.name} (${player.guild.id})`;
+const withCode = (error: unknown) => {
+  const code = codeOf(error);
+  return code === undefined ? messageOf(error) : `${messageOf(error)} (코드=${code})`;
+};
+function writeVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updateVoiceStatus">, status: string) {
+  const channel = player.voiceChannel?.id;
+  player.updateVoiceStatus(status).catch((error: unknown) => {
+    // 채널이 방금 삭제됐으면(10003) 쓸 곳이 없다. 나머지는 남긴다
+    if (codeOf(error) === 10003) return;
+    log.warn(`현재 곡 정보로 음성 채널 상태 갱신 실패: 서버=${guildLabel(player)}, 채널=${channel ?? "?"} | ${withCode(error)}`);
+  });
+}
+function clearVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updateVoiceStatus">) {
+  const channel = player.voiceChannel?.id;
+  const connected = Boolean(channel) && player.guild.members?.me?.voice?.channelId === channel;
+  player.updateVoiceStatus("").catch((error: unknown) => {
+    // 채널이 삭제됐거나(10003) 이미 나간 채널이라 채널 관리 권한이 없으면(50013) 지울 상태도 없다. 나머지는 남긴다
+    const code = codeOf(error);
+    if (code === 10003 || (code === 50013 && !connected)) return;
+    log.warn(`플레이어 정리 중 음성 채널 상태 지우기 실패: 서버=${guildLabel(player)}, 채널=${channel ?? "?"}, 음성 채널 접속=${connected ? "y" : "n"} | ${withCode(error)}`);
+  });
+}
+const refreshPanel = (player: Player, content: string) => playerEvents.refresh(player).catch((error: unknown) => log.warn(`재생 패널 갱신 실패: ${guildLabel(player)} | 내용=${content} | ${messageOf(error)}`));
 
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
@@ -352,7 +376,7 @@ class Player {
       warm: (track) => {
         const before = infoOf(track);
         return inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch").then((done) => {
-          if (this._noteTrackInfo(track, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+          if (this._noteTrackInfo(track, before)) void refreshPanel(this, "미리 받기 곡 정보");
           return done;
         });
       },
@@ -399,11 +423,13 @@ class Player {
     );
 
     // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류, 전이로 온다(voiceLink).
-    // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop)
+    // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop).
+    // 스트림 중단이라 debug이고, 오류 메시지는 재생에 적어 두고 다시 열기나 복구 실패 줄이 원인으로 싣는다
     this.audioPlayer.on(
       "error",
       own((error: Error) => {
-        log.error(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        log.debug(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        if (!this._endReason && this.playback) this.playback.streamError = messageOf(error);
         this._endReason ??= "stream-error";
       }),
     );
@@ -522,7 +548,7 @@ class Player {
       pb.input = input.health;
       const stale = overtaken(this, gen);
       if (stale) {
-        dropUnplayed(pb);
+        dropUnplayed(this, pb);
         return stale;
       }
 
@@ -530,7 +556,7 @@ class Player {
       // 넘기는 사이에 버려졌거나(넘긴 리소스는 정리가 destroy 했다) 다른 재생이 시작했다. 넘기지 못한 소리는 버린다(넘긴 것은 그대로 둔다)
       const lost = overtaken(this, gen);
       if (lost) {
-        dropUnplayed(pb);
+        dropUnplayed(this, pb);
         return lost;
       }
       this.lifecycle.to("playing");
@@ -612,7 +638,7 @@ class Player {
   // (방송이 막 끝나면 yt-dlp 가 오류로 답하기도 한다("technical difficulties"). 끝난 것인지 사고인지 구분할 수 없어 끝 처리가 남긴다)
   async _playFailed(error: unknown, liveReopen: boolean, pb: CurrentPlayback | null, { at, continued }: { at: number; continued: boolean }) {
     // 만들었지만 voice 에 넘기지 못한 리소스는 voice 도 정리도 destroy 하지 않는다. 그대로 두면 ffmpeg, Opus 인코더가 남는다
-    dropUnplayed(pb);
+    dropUnplayed(this, pb);
     if (this.lifecycle.disposed) return { ok: false, code: "disposed" } satisfies PlayResult;
     // 종료 중이라 음성 채널에 붙지 않았다. 곡을 그대로 두고 알리지도, 실패로 세지도, 넘기지도 않는다(종료가 세션을 저장하고 정리한다)
     if (codeOf(error) === "bot-shutting-down") return { ok: false, code: "bot-shutting-down" } satisfies PlayResult;
@@ -668,7 +694,7 @@ class Player {
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(track)} → ${file}`);
         if (this.currentTrack === track) this._learnLength(track);
-        if (this._noteTrackInfo(track, before)) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+        if (this._noteTrackInfo(track, before)) void refreshPanel(this, "백그라운드 다운로드 곡 정보");
       })
       .catch(() => {
         // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
@@ -698,7 +724,7 @@ class Player {
       applyTags(track, found.tags);
       if (this._noteTrackInfo(track, before)) changed = true;
     }
-    if (changed || found.art) bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+    if (changed || found.art) void refreshPanel(this, "파일 태그");
   }
 
   /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
@@ -863,7 +889,11 @@ class Player {
     else if (removed.includes("alone")) this.idle.onAlone(false);
     else if (moved && this.pause.holds.has("alone")) this.idle.restartAlone();
     // 억제 사유가 모두 빠지고 사람도 멈추지 않았으면 휴면 중인 곡의 스트림을 다시 연다. 음성 상태 이벤트 안이라 실패를 여기서 받는다
-    if (removed.length && !this.paused && this.lifecycle.resting) bestEffort(log, this.wake(), "휴면 스트림 다시 열기");
+    if (removed.length && !this.paused && this.lifecycle.resting) {
+      const label = this._trackLabel();
+      const at = this.getCurrentTime();
+      this.wake().catch((error: unknown) => log.error(`스트림 휴면 해제 후 다시 재생 실패(재생 재개 안 됨): ${label} | 재개 지점=${sec(at)}초, 풀린 억제 사유=${removed.join(", ")} | ${messageOf(error)}`));
+    }
   }
 
   // 억제 사유를 계산할 지금 음성 상태. 봇이 이 플레이어의 채널에 붙어 있지 않으면 null
@@ -887,7 +917,7 @@ class Player {
     if (this.paused) this.persistence?.savePosition();
     if (this.paused) this._armRest();
     else this._cancelRest();
-    if (this.currentTrack) bestEffort(log, playerEvents.refresh(this), "멈춤 바뀜 뒤 패널 갱신");
+    if (this.currentTrack) playerEvents.refresh(this).catch((error: unknown) => log.warn(`일시정지 상태 변경 후 재생 패널 갱신 실패: 서버=${guildLabel(this)} | ${messageOf(error)}`));
   }
 
   // 일시정지한 채 열린 곡이면 휴면 타이머를 건다. 이미 걸려 있으면 그대로(억제 사유가 오락가락해도 처음 멈춘 때부터 잰다)
@@ -944,7 +974,7 @@ class Player {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
-      bestEffort(log, this.updateVoiceStatus(""), "음성 채널 상태 지우기");
+      clearVoiceStatus(this);
       if (session === "save") await this.persistence.save("leave");
       else if (session === "remove") this.persistence?.removeSession();
       // 남긴다: 아래에서 메모리를 비우는 것(_endPlayback)이 미러를 타고 저장된 곡 행까지 지우지 않게 미러를 뗀다
@@ -976,7 +1006,7 @@ class Player {
     try {
       this.playback?.resource?.playStream?.destroy();
     } catch (error) {
-      log.debug(`재생 스트림 닫기 실패: ${messageOf(error)}`);
+      log.warn(`재생 종료 중 출력 스트림 해제 실패: ${ending ?? this._trackLabel(null)} | 종료 원인=${end}, 입력=${this.playback?.input?.kind ?? "?"} | ${messageOf(error)}`);
     }
     this.playback = null;
     this.heldPositionMs = 0;
@@ -1113,7 +1143,7 @@ class Player {
     if (changed) {
       const dropped = trackState.dropAutoplay(this);
       if (dropped > 0) clog.info(`미리 선택해 둔 자동재생 곡 ${dropped}곡을 대기열에서 뺌`);
-      if (next) bestEffort(log, this.ensureAutoplayNext(), "자동재생 곡 미리 선택");
+      if (next) this.ensureAutoplayNext().catch((error: unknown) => log.warn(`자동재생 장르 변경 후 다음 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${guildLabel(this)}, 장르=${next} | ${messageOf(error)}`));
     }
     this.settingsSink?.onSettingsChanged();
     return this.autoplay;
@@ -1234,11 +1264,11 @@ class Player {
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
       log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
     }
-    return { playedMs, label, dropped, live: dropped && facts.live, why };
+    return { playedMs, label, dropped, live: dropped && facts.live, why, cause: reason === "stream-error" ? (this.playback?.streamError ?? null) : null };
   }
 
   // 사고로 끊겼으면 다시 튼다. 다시 틀었거나 연달아 실패해 멈췄으면 true, 다음 곡으로 넘길 것이면 false
-  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why }: EndShape) {
+  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why, cause }: EndShape) {
     if (!dropped) {
       this.retry = FRESH;
       return false;
@@ -1252,15 +1282,16 @@ class Player {
     this.retry = step.state;
     const tries = `${step.state.used}/${live ? MAX_LIVE_REOPENS : MAX_TRACK_RETRIES}`;
     const at = `${sec(playedMs)}초`;
+    const causeText = cause ? ` | 원인=${cause}` : "";
     if (step.reopen && live) {
-      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})`);
+      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})${causeText}`);
       // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 재연결해도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
       return this._reopenLive(label);
     }
     if (step.reopen) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})`);
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})${causeText}`);
       const started = Date.now();
       const reopened = await this.play(playedMs, { continued: true });
       if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열기 완료: ${label} | ${sec(Date.now() - started)}초 걸림`);
@@ -1268,12 +1299,12 @@ class Player {
     }
     // 들리던 곡이다(곡 탓으로 볼 근거가 없다). 끊긴 위치에서 일시정지해 둔다. 라이브는 끊긴 위치가 의미 없어 세고 넘긴다
     if (!live) {
-      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}`);
+      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}${causeText}`);
       this.park(playedMs, { kind: "dropped" });
       return true;
     }
     const stopping = this._countFailure();
-    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}`);
+    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}${causeText}`);
     if (!stopping) return false;
     this.park(0, { kind: "failures", count: this._takeFailures() });
     return true;
@@ -1351,14 +1382,14 @@ class Player {
     if (!genres[genre]) {
       // 알 수 없는 장르(장르 목록 변경 전에 저장된 세션 등). 끄고 알린 뒤 일반 대기열 종료 흐름으로
       log.warn(`자동재생 종료: 알 수 없는 장르: ${genre}`);
-      if (!this.quietFailures) playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed);
+      if (!this.quietFailures) playerEvents.notice(this, "autoplay-unknown-genre", { genre }).catch(noticeFailed(this, "autoplay-unknown-genre"));
       this.setAutoplay(false);
       return false;
     }
     const missing = genreConfig.unusableGenre(genre);
     if (missing) {
       log.warn(`자동재생 종료: 장르 ${genre}에 ${missing.join(", ")} 키가 없어 쓸 소스가 없음`);
-      if (!this.quietFailures) playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed);
+      if (!this.quietFailures) playerEvents.notice(this, "autoplay-genre-unusable", { genre, keys: missing.join(", ") }).catch(noticeFailed(this, "autoplay-genre-unusable"));
       this.setAutoplay(false);
       return false;
     }
@@ -1452,7 +1483,7 @@ class Player {
     if (!this.autoplay) return;
     const genre = this.autoplay;
     log.warn(`자동재생 종료: 곡을 찾지 못함(장르 ${genre})`);
-    playerEvents.notice(this, "autoplay-gave-up", { genre }).catch(noticeFailed);
+    playerEvents.notice(this, "autoplay-gave-up", { genre }).catch(noticeFailed(this, "autoplay-gave-up"));
     this.setAutoplay(false);
   }
 
@@ -1517,7 +1548,7 @@ class Player {
         added++;
       }
 
-      if (added) await bestEffort(log, playerEvents.refresh(this), "패널 고치기");
+      if (added) await refreshPanel(this, "자동재생 곡");
       return added > 0;
     } finally {
       this._autoplayPicking = false;
@@ -1633,7 +1664,7 @@ class Player {
 
   // 곡 탓으로 넘겼다고 알린다. 연달아 넘긴 것이 셋을 넘으면 그 뒤는 모았다가 소리가 나기 시작할 때 한 번에(삭제된 곡만 든 재생목록에 알림이 쌓이지 않게)
   _tellSkip(error: unknown, removed: number) {
-    if (++this.skippedInRow <= SKIP_NOTICES_IN_ROW) playerEvents.notice(this, "skipped-after-error", { error, removed }).catch(noticeFailed);
+    if (++this.skippedInRow <= SKIP_NOTICES_IN_ROW) playerEvents.notice(this, "skipped-after-error", { error, removed }).catch(noticeFailed(this, "skipped-after-error"));
     else this.skippedQuiet++;
   }
 
@@ -1642,7 +1673,7 @@ class Player {
     const quiet = this.skippedQuiet;
     this.skippedInRow = 0;
     this.skippedQuiet = 0;
-    if (quiet > 0) playerEvents.notice(this, "skipped-more", { count: quiet }).catch(noticeFailed);
+    if (quiet > 0) playerEvents.notice(this, "skipped-more", { count: quiet }).catch(noticeFailed(this, "skipped-more"));
   }
 
   /**
@@ -1671,7 +1702,7 @@ class Player {
     this._showTrackInVoiceStatus();
     log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
     // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
-    if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed);
+    if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed(this, `parked(${why.kind})`));
   }
 
   // 일시정지해 둔 곡을 떠난다(넘기기, 점프, 이전, 대기열 소진). park 가 건 일시정지를 되돌린다. 사람이 이미 일시정지했으면 남긴다
@@ -1748,7 +1779,7 @@ class Player {
   /** 앞 플레이어가 남긴 세션을 지우고 이 플레이어의 것으로 삼는다. 사람이 넣은 곡이 있었으면 채널에 알린다(이어 듣기는 /join). 음성에 붙은 뒤 첫 쓰기 전에 부른다 */
   takeOverSaved() {
     const count = this.persistence.claimSaved();
-    if (count > 0) playerEvents.notice(this, "saved-session-replaced", { count }).catch(noticeFailed);
+    if (count > 0) playerEvents.notice(this, "saved-session-replaced", { count }).catch(noticeFailed(this, "saved-session-replaced"));
     return count;
   }
 
@@ -1779,12 +1810,12 @@ class Player {
   _showTrackInVoiceStatus() {
     if (!this.currentTrack) return;
     const { playingPrefix, pausedPrefix } = config.voiceStatus;
-    bestEffort(log, this.updateVoiceStatus(voiceStatusText(this.paused ? pausedPrefix : playingPrefix, this.currentTrack.title ?? "", emojiBook())), "음성 채널 상태 바꾸기");
+    writeVoiceStatus(this, voiceStatusText(this.paused ? pausedPrefix : playingPrefix, this.currentTrack.title ?? "", emojiBook()));
   }
 
   /** 곡 없이 기다리는 동안의 음성 채널 상태(대기 중 문구) */
   showIdleVoiceStatus() {
-    bestEffort(log, this.updateVoiceStatus(voiceStatusText(config.voiceStatus.idleText, "", emojiBook())), "음성 채널 상태 바꾸기");
+    writeVoiceStatus(this, voiceStatusText(config.voiceStatus.idleText, "", emojiBook()));
   }
 
   /** 음성 채널 상태를 지금 모습으로 다시 쓴다(앱 이모지 id 가 바뀐 뒤 옛 id 를 가리키지 않게) */
@@ -1796,17 +1827,22 @@ class Player {
 
   /** 스테이지에서 발언을 요청했다, 발언자가 될 길이 없다(voice-link 가 알린다) */
   noticeStage(code: "stage-requested" | "stage-cannot-speak") {
-    playerEvents.notice(this, code, {}).catch(noticeFailed);
+    playerEvents.notice(this, code, {}).catch(noticeFailed(this, code));
   }
 
   /** 봇이 다른 음성 채널로 옮겨졌다. 옛 채널에 우리가 쓴 상태를 지우고(사람이 남아 있으면 디스코드가 지우지 않는다) 새 채널에 지금 상태를 쓴다 */
   movedVoiceStatus(fromId: string) {
-    bestEffort(log, this.updateVoiceStatus("", fromId), "옛 음성 채널 상태 지우기");
+    this.updateVoiceStatus("", fromId).catch((error: unknown) => {
+      // 이전 채널이 삭제됐거나(10003) 이미 나간 채널이라 채널 관리 권한이 없으면(50013) 지울 상태도 없다. 나머지는 남긴다
+      const code = codeOf(error);
+      if (code === 10003 || code === 50013) return;
+      log.warn(`음성 채널 이동 후 이전 채널 상태 지우기 실패: 서버=${guildLabel(this)}, 이전 채널=${fromId} | ${withCode(error)}`);
+    });
     if (this.currentTrack) this._showTrackInVoiceStatus();
     else this.showIdleVoiceStatus();
   }
 
-  // 실패는 던진다. 부르는 쪽이 모두 bestEffort 로 받아 남긴다. channelId 를 주지 않으면 지금 음성 채널
+  // 실패는 던진다. 부르는 쪽이 받는다. channelId 를 주지 않으면 지금 음성 채널
   async updateVoiceStatus(status: string | null, channelId = this.voiceChannel?.id) {
     const channel = channelId ? this.guild.channels.cache.get(channelId) : null;
     // 상태 문구는 일반 음성 채널에만 있다(스테이지에는 없다)

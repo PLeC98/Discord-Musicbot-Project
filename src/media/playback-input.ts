@@ -117,6 +117,10 @@ const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean
 
 // HLS, DASH. 목록은 "받아 둔 바이트"가 아니라 "받아 올 주소"를 줘야 열린다
 function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
+  // yt-dlp 가 준 주소만 온다. 맨 앞이 http(s)가 아니면(file:, concat: 등) ffmpeg 에 넘기지 않는다. 그 안쪽에서 여는 것은 ffmpeg 의 http 기본 목록이 좁힌다
+  if (!/^https?:\/\//i.test(String(streamInfo.url))) {
+    throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "방식 모름"})`), { scope: "track" });
+  }
   // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
   if (!CAN_OPEN[list](o.io.ffmpegCapabilities())) {
@@ -254,7 +258,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
   } catch (error) {
     const waitMs = adWaitMs(error, streamInfo.availableAt, Date.now());
     if (waitMs === null) throw error;
-    log.debug(`스트림이 사전 광고 구간이라 막혀 있음(${sec(waitMs)}초 대기 후 다시 열기): ${o.label}`);
+    log.warn(`스트림이 사전 광고 구간이라 막혀 있음(${sec(waitMs)}초 대기 후 다시 열기): ${o.label}`);
     await o.io.sleep(waitMs);
     return openStreamOnce(o, streamInfo, hooks);
   }
@@ -317,6 +321,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
     if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
+    else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${seek.why}`);
     else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${seek.why}`);
     return o.io.openChunkedStream(base);
   }
@@ -362,7 +367,7 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
     try {
       return await inFlight;
     } catch {
-      /* 다운로드도 실패. 원래 스트리밍 오류를 던진다 */
+      // 다운로드 실패는 cache-download 가 error 로 남겼다. 원래 스트림 오류를 다시 던진다
     }
   }
   throw streamError;

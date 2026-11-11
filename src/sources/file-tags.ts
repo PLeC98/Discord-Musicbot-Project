@@ -4,7 +4,7 @@
 
 import { PassThrough, type Readable } from "node:stream";
 import { parseBuffer, parseFile, parseStream, selectCover, type IAudioMetadata, type IOptions } from "music-metadata";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf, timeoutError } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 
@@ -42,7 +42,11 @@ async function fromFile(file: string): Promise<Tags | null> {
   try {
     return tagsOf(await parseFile(file, { ...OPTIONS, maxMemoryAllocation: FILE_MAX_ALLOCATION }));
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`파일 태그 읽기 실패: ${file} | ${messageOf(error)}`);
+    if (codeOf(error) === "ENOENT") return null;
+    const line = `파일 태그 읽기 실패: ${file} | ${messageOf(error)}`;
+    // 파일 시스템 오류(syscall이 있다)는 봇 쪽 문제라 warn, 형식을 읽지 못한 것은 그 파일 탓이라 debug
+    if (typeof (error as { syscall?: unknown } | null)?.syscall === "string") log.warn(line);
+    else log.debug(line);
     return null;
   }
 }
@@ -188,7 +192,7 @@ async function fromStream(source: Readable, limits: StreamLimits): Promise<Tags 
   const opened: Readable[] = [source];
   const budget = { left: limits.maxBytes };
   const timer = setTimeout(() => {
-    for (const stream of opened) stream.destroy(new Error(`태그를 ${limits.timeoutMs}ms 안에 읽지 못함`));
+    for (const stream of opened) stream.destroy(timeoutError(`태그를 ${limits.timeoutMs}ms 안에 읽지 못함`));
   }, limits.timeoutMs);
   try {
     const next = reader(source);

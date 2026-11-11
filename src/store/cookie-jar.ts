@@ -78,7 +78,7 @@ function sweep() {
     left = fs.readdirSync(dir).filter((name) => name.startsWith(PREFIX));
   } catch (error) {
     // 폴더가 없으면 치울 것도 없다
-    if (codeOf(error) !== "ENOENT") log.debug(`잔류 쿠키 파일 조회 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`잔류 쿠키 파일 조회 실패: ${messageOf(error)}`);
     return;
   }
   for (const name of left) fs.rmSync(path.join(dir, name), { force: true });

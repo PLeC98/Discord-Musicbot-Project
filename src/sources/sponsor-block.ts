@@ -14,7 +14,7 @@ import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
-import { httpFor, type Judged } from "../infra/http.ts";
+import { httpFor, reasonOf, type Judged } from "../infra/http.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
@@ -26,6 +26,10 @@ const useFetch = http.useFetch;
 
 // 주소가 SponsorBlock 구간 API가 아니면 처음 한 번 경고하고, 다시 답을 받으면 한 줄
 const wrongAnswer = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 조회");
+
+const apiFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock API 요청");
+const refreshWrite = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 갱신 중 캐시 DB 쓰기");
+const loadStore = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "SponsorBlock 구간 조회 중 캐시 DB 읽기와 쓰기");
 
 /** 원시 구간 하나(카테고리 전부). 캐시에도 이 모양으로 담는다 */
 type RawSegment = { category: string; actionType: string; start?: number; end?: number; votes?: number; locked?: number };
@@ -132,14 +136,19 @@ async function _fetchRaw(videoId: string, apiBase: string): Promise<RawSegment[]
     answer = await http.read(url, { headers: { "User-Agent": config.userAgents.bot }, signal: AbortSignal.timeout(sb.timeoutMs) }, judgeSegments);
   } catch (error) {
     log.debug(`SponsorBlock 조회 실패: ${videoId} | ${messageOf(error)}`);
+    apiFailure.fail(`${reasonOf(error)} (${apiBase})`);
     return null;
   }
   if ("failed" in answer) {
     if (answer.notApi) wrongAnswer.fail(`${apiBase}의 응답이 SponsorBlock 구간 API 응답이 아님(${answer.failed}). SponsorBlock API 주소와 해시 접두어 길이 설정을 확인하세요`);
-    else log.debug(`SponsorBlock 조회 실패: ${videoId} | ${answer.failed}`);
+    else {
+      log.debug(`SponsorBlock 조회 실패: ${videoId} | ${answer.failed}`);
+      apiFailure.fail(`${answer.failed} (${apiBase})`);
+    }
     return null;
   }
   wrongAnswer.ok();
+  apiFailure.ok();
   return answer.videos
     .filter((v) => v.videoID === videoId)
     .flatMap((v) =>
@@ -193,13 +202,16 @@ function _refreshIfStale(videoId: string, entry: Entry) {
   entry.refreshing = true;
   void _live(videoId)
     .then((got) => {
-      if (got) Object.assign(entry, { got, source: "live" });
-      else entry.missedAt = Date.now();
+      if (got) {
+        Object.assign(entry, { got, source: "live" });
+        refreshWrite.ok();
+      } else entry.missedAt = Date.now();
     })
     .catch((error: unknown) => {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
       entry.missedAt = Date.now();
       log.debug(`SponsorBlock 구간 다시 받기 실패: ${videoId} | ${messageOf(error)}`);
+      refreshWrite.fail(messageOf(error));
     })
     .finally(() => (entry.refreshing = false));
 }
@@ -232,11 +244,15 @@ async function forTrack(track: { audioUrl?: string | null; [field: string]: unkn
 function _remember(videoId: string) {
   const entry: Entry = { loading: null, got: null, source: "none", missedAt: 0, refreshing: false };
   entry.loading = _load(videoId, entry)
-    .catch((error: unknown) => {
-      if (codeOf(error) === "DB_NOT_OPEN") throw error;
-      entry.missedAt = Date.now();
-      log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
-    })
+    .then(
+      () => loadStore.ok(),
+      (error: unknown) => {
+        if (codeOf(error) === "DB_NOT_OPEN") throw error;
+        entry.missedAt = Date.now();
+        log.debug(`SponsorBlock 구간 조회 실패: ${videoId} | ${messageOf(error)}`);
+        loadStore.fail(messageOf(error));
+      },
+    )
     .finally(() => (entry.loading = null));
   remembered.delete(videoId);
   remembered.set(videoId, entry);

@@ -5,7 +5,7 @@ import express, { type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import config from "../../config/index.ts";
-import { messageOf } from "../../rules/error-kind.ts";
+import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { requireOwner } from "../middleware/require-owner.ts";
 import { limiter } from "../rate-limits.ts";
 import { sendProblem } from "../problem.ts";
@@ -24,13 +24,14 @@ uploadsRouter.use(requireOwner);
 const CHUNKS_PER_SECOND = 20;
 const chunkLimiter = limiter(() => (CHUNKS_PER_SECOND * config.dashboard.rateLimit.windowMs) / 1000);
 
-// 세션이 끝나면(로그아웃, 기기 로그아웃, 만료) 그 세션의 업로드를 지운다. 저장소마다 리스너를 한 번만 등록한다
+// 세션이 끝나면(로그아웃, 기기 로그아웃, 만료) 그 세션의 업로드와 미리 보기에 둔 백업을 지운다. 저장소마다 리스너를 한 번만 등록한다
 const heard = new WeakSet<SqliteSessionStore>();
 uploadsRouter.use((req, _res, next) => {
   const store = tokenStoreOf(req);
   if (store && !heard.has(store)) {
     heard.add(store);
     store.onEnded(uploads.dropSession);
+    store.onEnded(archiveUploads.dropSession);
   }
   next();
 });
@@ -64,6 +65,7 @@ uploadsRouter.post("/", (req, res) => {
 });
 
 const OFFSET = /^\d+$/;
+const CLIENT_ABORTED = new Set<unknown>(["ECONNABORTED", "ECONNRESET"]);
 const readChunk = express.raw({ type: "application/octet-stream", limit: uploads.CHUNK_SIZE, inflate: false });
 
 /** 본문(청크)을 메모리로 받는다. 끊기거나 형식이 다르면 던진다 */
@@ -88,8 +90,8 @@ async function receiveChunk(req: Request, res: Response, one: uploads.Upload) {
   try {
     chunk = await bodyOf(req, res);
   } catch (error) {
-    // 업로드하던 사용자가 연결을 끊었다. 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 문제라 봇에는 영향이 없다)
-    log[isEnded(req) ? "debug" : "warn"]({ sub: "admin" }, `대시보드 업로드 중단(${one.purpose}, ${one.received}/${one.size}바이트): ${messageOf(error)}`);
+    // 업로드하던 사용자가 연결을 끊었거나 세션이 끝나 봇이 끊은 것이면 debug(그 사용자 문제라 봇에는 영향이 없다)
+    log[isEnded(req) || CLIENT_ABORTED.has(codeOf(error)) ? "debug" : "warn"]({ sub: "admin" }, `대시보드 업로드 중단(${one.purpose}, ${one.received}/${one.size}바이트): ${messageOf(error)}`);
     if (!res.headersSent && !req.destroyed) sendProblem(res, "bad-request");
     return;
   }

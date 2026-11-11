@@ -94,6 +94,7 @@ appearanceRouter.post("/favicon/fetch", async (req, res) => {
   const format = await sharp(data)
     .metadata()
     .then((meta) => meta.format ?? "")
+    // 운영자가 입력한 주소의 내용이다. 이미지가 아니면 bad-image 로 응답한다
     .catch(() => "");
   const type = LINK_TYPES[format];
   if (!type) return sendProblem(res, "bad-image");

@@ -93,7 +93,7 @@ function loadGemma(): Map<string, number> | false {
     gemma = rank;
   } catch (error) {
     gemma = false; // 파일이 없으면 tik 로 떨어진다
-    if (codeOf(error) !== "ENOENT") gemmaProblem = describeError(error);
+    gemmaProblem = `${GEMMA_FILE} (${codeOf(error) ?? describeError(error)})`;
   }
   return gemma;
 }

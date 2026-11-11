@@ -39,7 +39,8 @@ jobs:
         run: pnpm audit --audit-level high
 
   test-and-build:
-    name: Test and build (${{ matrix.os }})
+    # Node 24 는 체크 이름을 그대로 둔다(저장소의 필수 체크가 이 이름을 본다)
+    name: Test and build (${{ matrix.os }}${{ matrix.node != '24' && format(', Node {0}', matrix.node) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
 
@@ -53,6 +54,8 @@ jobs:
           - ubuntu-24.04-arm
           - windows-11-arm
           - macos-latest
+        # 지원하는 LTS 줄(package.json 의 engines). 각 줄의 최신 판을 받는다
+        node: ["24", "26"]
 
     env:
       NODE_ENV: test
@@ -76,7 +79,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24"
+          node-version: ${{ matrix.node }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
@@ -105,16 +108,16 @@ jobs:
         run: pnpm run format:check
 
       - name: Run tests
-        if: matrix.os != 'ubuntu-latest'
+        if: matrix.os != 'ubuntu-latest' || matrix.node != '24'
         run: pnpm test
 
       # 커버리지는 참고용이라 한 곳에서만 재서 올린다. 테스트는 같은 것을 돌린다
       - name: Run tests with coverage
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
         run: pnpm run test:coverage
 
       - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: coverage/lcov.info

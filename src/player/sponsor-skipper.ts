@@ -3,11 +3,12 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 import type { Player } from "./player.ts";
 import type { SkipSegment } from "../sources/sponsor-block.ts";
-import { bestEffort } from "../infra/best-effort.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 구간을 넘기며 읽고 부르는 플레이어 필드 */
-type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "isStopping" | "paused" | "play" | "skip" | "sponsor" | "playback">;
+type SkipHost = Pick<Player, "audioPlayer" | "currentTrack" | "getCurrentTime" | "isPlayStarting" | "isStopping" | "paused" | "play" | "skip" | "sponsor" | "playback"> & { guild?: Pick<Player["guild"], "id"> };
 type Decision = { action: "seek"; toSec: number; prevSec: number } | { action: "end" | null; toSec?: undefined; prevSec: number };
 
 // 재생 중 SponsorBlock 구간을 자동으로 건너뛴다.
@@ -26,6 +27,13 @@ const END_EPSILON_SEC = 1.5; // seg.end가 곡 끝에서 이 이내면 아웃트
 
 // 곡 끝 구간은 트는 음원의 길이로 본다. 모르면 표시 길이
 const lengthSecOf = (p: SkipHost) => (p.playback?.lengthMs ?? 0) / 1000 || Number(p.currentTrack?.duration) || 0;
+
+const tickFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
+function tickFailureOf(guildId: string) {
+  let failures = tickFailures.get(guildId);
+  if (!failures) tickFailures.set(guildId, (failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `SponsorBlock 구간 건너뛰기 확인(서버=${guildId})`)));
+  return failures;
+}
 
 class SponsorSkipper {
   player: SkipHost;
@@ -68,7 +76,11 @@ class SponsorSkipper {
   _start() {
     if (this._interval) return;
     this._interval = setInterval(() => {
-      bestEffort(log, this._tick(), "건너뛸 구간 보기");
+      const failures = tickFailureOf(this.player.guild?.id ?? "?");
+      this._tick().then(
+        () => failures.ok(),
+        (error: unknown) => failures.fail(messageOf(error)),
+      );
     }, TICK_MS);
     if (this._interval.unref) this._interval.unref();
   }
@@ -103,7 +115,8 @@ class SponsorSkipper {
     } else if (d.action === "seek") {
       log.info(`${logTitle(p.currentTrack?.title)}: 구간 건너뜀 → ${Math.round(d.toSec)}s`);
       // play()가 onPlayStart를 다시 호출해 prevSec를 seek 지점으로 재설정한다.
-      bestEffort(log, p.play(Math.round(d.toSec * 1000), { continued: true }), "구간 건너뛰기");
+      const title = logTitle(p.currentTrack?.title);
+      Promise.resolve(p.play(Math.round(d.toSec * 1000), { continued: true })).catch((error: unknown) => log.error(`SponsorBlock 구간 건너뛰기 실패: ${title} | 이동 지점=${Math.round(d.toSec)}초 | ${messageOf(error)}`));
     }
   }
 }
