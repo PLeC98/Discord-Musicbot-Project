@@ -395,26 +395,39 @@ function logsFrom() {
   const start = sink.buffer.at(-1)?.id ?? -1;
   return () => sink.buffer.filter((r) => r.id > start && (r.level === "warn" || r.level === "error")).map((r) => `${r.level} ${r.text}`);
 }
-// 표시 파일에서만 예외를 던지게 하고 나머지 파일은 그대로 둔다
-function failOnMarker(t: { mock: { method: typeof import("node:test").mock.method } }, method: "rmSync" | "writeFileSync", code = "EBUSY") {
-  const real = fs[method] as (...args: unknown[]) => unknown;
-  return t.mock.method(fs, method, (file: unknown, ...rest: unknown[]) => {
-    if (String(file).endsWith("-intact")) throw Object.assign(new Error(`${code}: marker`), { code });
-    return real.call(fs, file, ...rest);
-  });
+// 표시 파일이 "끊은 세션 없음"("1")인가
+const intact = (name: string) => {
+  try {
+    return fs.readFileSync(markerOf(name), "utf8") === "1";
+  } catch {
+    return false;
+  }
+};
+type Mocker = { mock: { method: typeof import("node:test").mock.method } };
+const isMarker = (file: unknown) => String(file).endsWith("-intact");
+// 표시 파일에서만 예외를 던지게 하고 나머지 파일은 그대로 둔다. drop: "0"으로 고치기와 지우기, restore: "1"로 되돌리기. 원래대로 되돌리는 함수를 반환한다
+function failOnMarker(t: Mocker, what: "drop" | "restore", code = "EBUSY") {
+  const fail = () => {
+    throw Object.assign(new Error(`${code}: marker`), { code });
+  };
+  const open = fs.openSync as (...args: unknown[]) => number;
+  const rm = fs.rmSync as (...args: unknown[]) => void;
+  const mocks: Array<{ mock: { restore(): void } }> = [t.mock.method(fs, "openSync", ((file: unknown, flags: unknown, ...rest: unknown[]) => (isMarker(file) && flags === (what === "drop" ? "r+" : "w") ? fail() : open.call(fs, file, flags, ...rest))) as never)];
+  if (what === "drop") mocks.push(t.mock.method(fs, "rmSync", ((file: unknown, ...rest: unknown[]) => (isMarker(file) ? fail() : rm.call(fs, file, ...rest))) as never));
+  return () => mocks.forEach((one) => one.mock.restore());
 }
 // 기동 시 전체 삭제를 포함해 행 삭제가 모두 실패하게 하는 트리거
 const blockDeletes = (db: Database.Database) => db.exec("CREATE TRIGGER block_delete BEFORE DELETE ON sessions BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END");
 
 test("끊은 세션을 지우지 못한 채 다시 시작하면(강제 종료 포함) 기동 시 로그인 세션을 모두 지워 끊은 세션이 되살아나지 않는다", async () => {
   const store = makeStore("revive.db");
-  assert.ok(fs.existsSync(markerOf("revive.db")), "새 DB 파일이어도 기동 시 표시 파일을 만든다");
+  assert.ok(intact("revive.db"), "새 DB 파일이어도 기동 시 표시 파일을 만든다");
   store.set("끊음", makeSession({ id: "u1" }));
   store.set("다른 사용자", makeSession({ id: "u2" }));
   const logs = logsFrom();
   breakDelete(store);
   assert.equal(store.end("끊음", "u1"), false);
-  assert.equal(fs.existsSync(markerOf("revive.db")), false, "행 삭제 전에 표시 파일을 지운다");
+  assert.equal(intact("revive.db"), false, "행 삭제 전에 표시 파일을 지운다");
   assert.match(logs().join("\n"), /다시 시작하면 로그인 세션을 모두 삭제/);
   store.close(); // finish 호출 없는 강제 종료
 
@@ -423,10 +436,10 @@ test("끊은 세션을 지우지 못한 채 다시 시작하면(강제 종료 �
   assert.equal(await getAsync(again, "끊음"), null);
   assert.equal(rowOf(again, "끊음"), undefined);
   assert.equal(rowOf(again, "다른 사용자"), undefined, "어느 것이 끊은 것인지 모르니 모두 지운다");
-  assert.ok(fs.existsSync(markerOf("revive.db")));
+  assert.ok(intact("revive.db"));
   const lines = next().filter((line) => line.includes("로그인 세션"));
   assert.equal(lines.length, 1, lines.join("\n"));
-  assert.match(lines[0]!, /^warn .*표시.*없어 기동 시 로그인 세션 2개 삭제/);
+  assert.match(lines[0]!, /^warn .*표시.*확인하지 못해 기동 시 로그인 세션 2개 삭제/);
 });
 
 test("표시 파일이 있으면 기동 시 세션을 지우지 않는다. 세션을 끊고 행 삭제에 성공하면 표시 파일을 다시 만들고, 지울 행이 없는 세션을 끊을 때는 표시 파일을 건드리지 않는다", (t) => {
@@ -435,16 +448,16 @@ test("표시 파일이 있으면 기동 시 세션을 지우지 않는다. 세�
   store.set("남음", makeSession({ id: "u1" }));
   store.generate = () => {};
   const removed: string[] = [];
-  const realRm = fs.rmSync;
-  t.mock.method(fs, "rmSync", (file: string, options?: fs.RmOptions) => {
-    if (String(file).endsWith("-intact")) removed.push("표시");
-    return realRm.call(fs, file, options);
-  });
+  const open = fs.openSync as (...args: unknown[]) => number;
+  t.mock.method(fs, "openSync", ((file: unknown, flags: unknown, ...rest: unknown[]) => {
+    if (isMarker(file) && flags === "r+") removed.push("표시");
+    return open.call(fs, file, flags, ...rest);
+  }) as never);
   store.regenerate(fake<Request>({ sessionID: "행 없음", session: fake<Request["session"]>({}) }), () => {});
   assert.deepEqual(removed, [], "되살아날 것이 없으면 건드리지 않는다");
   assert.equal(store.end("끊음", "u1"), true);
   assert.deepEqual(removed, ["표시"]);
-  assert.ok(fs.existsSync(markerOf("kept.db")), "세션을 끊고 행 삭제에 성공하면 표시 파일을 다시 만든다");
+  assert.ok(intact("kept.db"), "세션을 끊고 행 삭제에 성공하면 표시 파일을 다시 만든다");
   store.close();
 
   const again = makeStore("kept.db");
@@ -455,7 +468,7 @@ test("다른 프로그램이 열어 두어 표시 파일을 지우지 못해도 
   const store = makeStore("busy-marker.db");
   store.set("a", makeSession({ id: "u1" }));
   store.set("b", makeSession({ id: "u1" }));
-  failOnMarker(t, "rmSync");
+  failOnMarker(t, "drop");
   const logs = logsFrom();
   assert.equal(store.end("a", "u1"), true);
   assert.equal(rowOf(store, "a"), undefined);
@@ -470,13 +483,13 @@ test("다른 프로그램이 열어 두어 표시 파일을 지우지 못해도 
 test("표시 파일을 지우지 못한 채 행 삭제도 실패하면 다시 하기에서 표시 파일을 다시 지운다. 그 뒤 종료하면 다음 기동 시 로그인 세션을 모두 지운다고 로그에 남긴다", (t) => {
   const store = makeStore("busy-then-free.db");
   store.set("a", makeSession({ id: "u1" }));
-  const rm = failOnMarker(t, "rmSync");
+  const free = failOnMarker(t, "drop");
   breakDelete(store);
   assert.equal(store.end("a", "u1"), false);
-  assert.ok(fs.existsSync(markerOf("busy-then-free.db")), "잠긴 표시 파일은 남는다");
-  rm.mock.restore();
+  assert.ok(intact("busy-then-free.db"), "잠긴 표시 파일은 남는다");
+  free();
   assert.equal(store.retryUnsaved(), 1);
-  assert.equal(fs.existsSync(markerOf("busy-then-free.db")), false, "다시 하기에서 표시 파일을 지운다");
+  assert.equal(intact("busy-then-free.db"), false, "다시 하기에서 표시 파일을 지운다");
   const logs = logsFrom();
   assert.equal(store.finish(), 1);
   assert.match(
@@ -491,17 +504,17 @@ test("표시 파일을 만들지 못하면 warn을 남기고, 그 상태로 다�
   const store = makeStore("no-marker.db");
   store.set("끊음", makeSession({ id: "u1" }));
   store.set("남음", makeSession({ id: "u1" }));
-  const write = failOnMarker(t, "writeFileSync", "ENOSPC");
+  const undo = failOnMarker(t, "restore", "ENOSPC");
   const logs = logsFrom();
   assert.equal(store.end("끊음", "u1"), true);
-  assert.equal(fs.existsSync(markerOf("no-marker.db")), false);
+  assert.equal(intact("no-marker.db"), false);
   assert.ok(logs().some((line) => line.startsWith("warn ") && line.includes("다시 시작하면 로그인 세션을 모두 삭제")));
   assert.ok(store._retryTimer, "다시 하기 타이머가 켜져 있다");
   assert.equal(store.retryUnsaved(), 0);
   assert.ok(store._retryTimer, "표시 파일을 만들 때까지 타이머를 끄지 않는다");
-  write.mock.restore();
+  undo();
   assert.equal(store.retryUnsaved(), 0);
-  assert.ok(fs.existsSync(markerOf("no-marker.db")), "다시 하기에서 만든다");
+  assert.ok(intact("no-marker.db"), "다시 하기에서 만든다");
   assert.equal(store._retryTimer, null, "다 되면 타이머를 끈다");
 });
 
@@ -543,13 +556,108 @@ test("기동 시 전체 삭제가 실패하면 기동 전 세션(사용자 없�
   assert.equal(await getAsync(store, "로그인 전"), null, "사용자 없는 세션도 허용하지 않는다");
   assert.deepEqual(store.sessionsOf("u1"), []);
   assert.deepEqual(store.unsavedOf("u1"), ["로그인"]);
-  assert.equal(fs.existsSync(markerOf("wipe-fails.db")), false);
+  assert.equal(intact("wipe-fails.db"), false);
 
   store.db.exec("DROP TRIGGER block_delete");
   assert.equal(store.retryUnsaved(), 0);
   assert.equal(rowOf(store, "로그인"), undefined);
   assert.equal(rowOf(store, "로그인 전"), undefined);
-  assert.ok(fs.existsSync(markerOf("wipe-fails.db")));
+  assert.ok(intact("wipe-fails.db"));
+});
+
+test('표시 파일은 지우지 않고 내용을 바꾼다: 세션을 끊는 동안 "0", 끝나면 "1". 바꿀 때마다 디스크까지 쓴다(fsync). "1"이 아니면(옛 빈 파일 포함) 기동 시 모두 지운다', (t) => {
+  const store = makeStore("content.db");
+  store.set("a", makeSession({ id: "u1" }));
+  store.set("b", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  let synced = 0;
+  const fsync = fs.fsyncSync;
+  t.mock.method(fs, "fsyncSync", (fd: number) => {
+    synced++;
+    return fsync.call(fs, fd);
+  });
+  assert.equal(store.end("a", "u1"), false);
+  assert.equal(fs.readFileSync(markerOf("content.db"), "utf8"), "0", "파일은 남고 내용만 바뀐다");
+  assert.equal(synced, 1, "0으로 바꾸고 디스크까지 쓴다");
+  restore();
+  assert.equal(store.retryUnsaved(), 0);
+  assert.equal(fs.readFileSync(markerOf("content.db"), "utf8"), "1");
+  assert.equal(synced, 2, "1로 되돌리고 디스크까지 쓴다");
+  store.close();
+
+  fs.writeFileSync(markerOf("content.db"), "");
+  const again = makeStore("content.db");
+  assert.equal(rowOf(again, "b"), undefined, "내용이 1이 아니면 모두 지운다");
+  assert.ok(intact("content.db"));
+});
+
+test("여러 세션을 함께 끊으면 표시 파일은 처음에 한 번 바꾸고 마지막에 한 번 되돌린다(세션마다 디스크까지 쓰지 않는다)", (t) => {
+  const store = makeStore("batch.db");
+  for (const sid of ["a", "b", "c"]) store.set(sid, makeSession({ id: "u1" }));
+  const heard: string[] = [];
+  store.onEnded((sid) => heard.push(sid));
+  let synced = 0;
+  const fsync = fs.fsyncSync;
+  t.mock.method(fs, "fsyncSync", (fd: number) => {
+    synced++;
+    return fsync.call(fs, fd);
+  });
+  assert.deepEqual(store.endAll(["a", "b", "c"], "u1"), [true, true, true]);
+  assert.equal(synced, 2);
+  assert.ok(intact("batch.db"));
+  assert.deepEqual(heard, ["a", "b", "c"]);
+  assert.deepEqual(store.sessionsOf("u1"), []);
+});
+
+test("기동 시 전체 삭제와 행 읽기가 모두 실패하면 이번 실행에서 처음 저장한 세션만 받고, 다시 하기에서 읽히면 기동 전 세션을 지운 뒤 표시 파일을 되돌린다", async (t) => {
+  const dbPath = path.join(tmpDir, "unreadable.db");
+  const first = new SqliteSessionStore({ dbPath });
+  first.set("기동 전", makeSession({ id: "u1" }));
+  blockDeletes(first.db);
+  first.close();
+  fs.rmSync(markerOf("unreadable.db"));
+
+  let unreadable = true;
+  const prepare = Database.prototype.prepare;
+  t.mock.method(Database.prototype, "prepare", function (this: Database.Database, sql: string) {
+    if (unreadable && sql === "SELECT sid, data FROM sessions") throw Object.assign(new Error("disk I/O error"), { code: "SQLITE_IOERR" });
+    return prepare.call(this, sql);
+  });
+  const logs = logsFrom();
+  const store = makeStore("unreadable.db");
+  assert.match(logs().join("\n"), /^error 기동 시 로그인 세션 삭제와 읽기 실패/m);
+  assert.equal(await getAsync(store, "기동 전"), null);
+  assert.deepEqual(store.sessionsOf("u1"), []);
+  store.set("이번 실행", makeSession({ id: "u2" }));
+  assert.equal((await getAsync(store, "이번 실행"))?.user?.id, "u2", "이번 실행에서 처음 저장한 세션은 받는다");
+  assert.equal(intact("unreadable.db"), false);
+  assert.equal(store.retryUnsaved(), 0, "아직 읽지 못하면 다시 하기도 가려낼 것이 없다");
+  assert.equal(intact("unreadable.db"), false, "기동 전 세션을 가려낼 때까지 표시 파일을 되돌리지 않는다");
+
+  unreadable = false;
+  store.db.exec("DROP TRIGGER block_delete");
+  assert.equal(store.retryUnsaved(), 0);
+  assert.equal(rowOf(store, "기동 전"), undefined);
+  assert.equal((await getAsync(store, "이번 실행"))?.user?.id, "u2");
+  assert.ok(intact("unreadable.db"));
+});
+
+test("기동 시 전체 삭제와 정리가 모두 실패해도(디스크 가득 참) 저장소는 열리고, 기동 전 세션은 허용하지 않는다", async () => {
+  const dbPath = path.join(tmpDir, "boot-fails.db");
+  const first = new SqliteSessionStore({ dbPath });
+  first.set("로그인", makeSession({ id: "u1" }));
+  first.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)").run("만료", JSON.stringify(makeSession({ id: "u1" })), Date.now() - 1_000);
+  blockDeletes(first.db);
+  first.close();
+  fs.rmSync(markerOf("boot-fails.db"));
+
+  const logs = logsFrom();
+  const store = makeStore("boot-fails.db");
+  assert.equal(await getAsync(store, "로그인"), null);
+  assert.ok(
+    logs().some((line) => line.startsWith("warn 만료된 로그인 세션 정리 실패")),
+    logs().join("\n"),
+  );
 });
 
 test("종료(finish) 시 삭제하지 못한 세션이 남았을 때 표시 파일을 지웠으면 다음 기동 시 모두 지운다고 남기고, 표시 파일이 남았으면 되살아난다고 로그에 남긴다", (t) => {
@@ -565,7 +673,7 @@ test("종료(finish) 시 삭제하지 못한 세션이 남았을 때 표시 파�
 
   const other = makeStore("finish-text-2.db");
   other.set("a", makeSession({ id: "u1" }));
-  failOnMarker(t, "rmSync");
+  failOnMarker(t, "drop");
   breakDelete(other);
   other.end("a", "u1");
   const later = logsFrom();

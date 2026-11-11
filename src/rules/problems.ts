@@ -199,7 +199,7 @@ const WEB = {
   // 로그 파일 보기: 보관 개수를 넘어 삭제됐거나 파일 로그를 껐다
   "log-file-not-found": { status: 404, title: "Log file not found" },
   "storage-unavailable": { status: 503, title: "Storage is temporarily unavailable" },
-  // 로그인 세션을 끊었지만 저장소에서 삭제하지 못했다(디스크 가득 참 등). 현재 실행에서는 끊겼고 봇이 계속 다시 삭제를 시도한다. 그 전에 다시 시작하면 로그인 세션을 모두 지운다
+  // 로그인 세션을 끊었지만 저장소에서 삭제하지 못했다(디스크 가득 참 등). 현재 실행에서는 끊겼고 봇이 계속 다시 삭제를 시도한다. 그 전에 다시 시작하면 로그인 세션을 모두 지운다(표시 파일도 지우지 못했으면 되살아난다)
   "sign-out-unsaved": { status: 503, title: "Signed-out session could not be deleted" },
   // 대시보드: 파비콘(올린 이미지, 링크로 다운로드하는 이미지)
   "bad-image": { status: 400, title: "Not a supported image" },
