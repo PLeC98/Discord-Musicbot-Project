@@ -133,6 +133,59 @@ test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error �
   assert.equal(bound.category, "test", "패턴에 걸리지 않는 글은 그대로");
 });
 
+// ── sink: 글 값의 길이 상한 ──────────────────────────────────
+const HEAD = 12 * 1024;
+const TAIL = 4 * 1024;
+
+test("긴 글 값: 앞 12K자와 뒤 4K자를 남기고 가운데를 줄여 터미널, 줄 버퍼, 경고, SSE, destination 이 같은 값을 받는다", () => {
+  const terminal: LogRecord[] = [];
+  const lm = new LogManager({ intercept: false, terminal: (r) => terminal.push(r) });
+  const res = fakeRes();
+  lm.clients.add(res);
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const long = "H".repeat(13_000) + "M".repeat(10_000) + "T".repeat(5_000);
+  const clipped = `${"H".repeat(HEAD)}…(가운데 ${long.length - HEAD - TAIL}자 생략)…${"T".repeat(TAIL)}`;
+  const list = ["x".repeat(20_000)];
+  lm.record({ level: 50, time: 7, msg: long, err: long, body: long, list, short: "짧은 글" });
+  assert.equal(got[0].msg, clipped);
+  assert.equal(got[0].err, clipped);
+  assert.equal(got[0].body, clipped);
+  assert.equal(got[0].list, list, "글 아닌 값은 그대로");
+  assert.equal(got[0].short, "짧은 글");
+  assert.equal(terminal[0].msg, clipped);
+  assert.equal(lm.buffer[0].text, clipped);
+  assert.equal(lm.problems[0].text, clipped);
+  assert.equal(JSON.parse(res.writes[0].split("data: ")[1]).text, clipped);
+});
+
+test("긴 글 값: 상한까지는 그대로, 기동 초기 레코드도 잘린 채로 재생한다", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const exact = "가".repeat(HEAD + TAIL);
+  lm.record({ level: 30, time: 1, msg: exact });
+  lm.record({ level: 30, time: 2, msg: exact + "나" });
+  const got: LogRecord[] = [];
+  lm.addDestination((r) => got.push(r));
+  assert.equal(got[0].msg, exact);
+  assert.equal(got[1].msg, `${"가".repeat(HEAD)}…(가운데 1자 생략)…${"가".repeat(TAIL - 1)}나`);
+});
+
+test("긴 글 값: 가린 뒤에 자른다(잘린 자리에 걸린 토큰이 남지 않는다), 서로게이트 짝을 쪼개지 않는다", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  // 토큰이 앞 12K자의 끝에 걸친다: 자른 뒤에 가리면 "Bearer SEC" 는 패턴(6자 이상)에 맞지 않아 남는다
+  const straddle = "가".repeat(HEAD - 10) + "Bearer SECRETTOKENVALUE123 " + "가".repeat(20_000);
+  // 앞의 끝과 뒤의 시작이 이모지의 가운데
+  const emoji = "가".repeat(HEAD - 1) + "😀" + "나".repeat(5_000) + "😀" + "다".repeat(TAIL - 1);
+  lm.record({ level: 30, time: 1, msg: straddle });
+  lm.record({ level: 30, time: 2, msg: emoji });
+  assert.doesNotMatch(String(got[0].msg), /SEC/);
+  const text = String(got[1].msg);
+  assert.ok(text.isWellFormed(), "짝 없는 서로게이트가 없다");
+  assert.ok(text.startsWith("가".repeat(HEAD - 1) + "…") && text.endsWith("…" + "다".repeat(TAIL - 1)), text.slice(HEAD - 3, HEAD + 30));
+});
+
 // ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
 test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });

@@ -1,7 +1,7 @@
 // 로그 싱크(LogManager). 모든 로그 레코드가 지나는 한 곳.
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
-// 순서: 가리기(redact) → 터미널 출력 → 줄 버퍼 → SSE → destinations(파일)
+// 순서: 가리기(redact)와 길이 자르기 → 터미널 출력 → 줄 버퍼 → SSE → destinations(파일)
 // 들어오는 길은 둘: (1) logger.ts facade  (2) 아래 console 브리지(서드파티 console.* 를 받는다)
 
 import util from "util";
@@ -91,6 +91,22 @@ function redactText(text: string): string {
   return out;
 }
 
+// 글 값 하나의 상한(UTF-16 글자 수). 넘으면 앞 TEXT_HEAD 자와 뒤 나머지를 남기고 가운데를 줄인다.
+// 레코드가 터미널, 줄 버퍼, 대시보드, 파일에 그 길이만큼 실리고, 로그 파일 보기는 한 줄을 통째로 읽는다
+const TEXT_MAX = 16 * 1024;
+// 오류 stack 은 앞(메시지, 위쪽 프레임)이, 외부 프로그램의 stderr 는 뒤(마지막 오류 줄)가 중요하다
+const TEXT_HEAD = 12 * 1024;
+
+function clipText(text: string): string {
+  if (text.length <= TEXT_MAX) return text;
+  let head = TEXT_HEAD;
+  let tail = text.length - (TEXT_MAX - TEXT_HEAD);
+  // 서로게이트 짝을 쪼개지 않는다
+  if (/[\ud800-\udbff]/.test(text[head - 1]!)) head--;
+  if (/[\udc00-\udfff]/.test(text[tail]!)) tail++;
+  return `${text.slice(0, head)}…(가운데 ${tail - head}자 생략)…${text.slice(tail)}`;
+}
+
 /** 지난 1시간 경고, 오류. fatal 은 오류로 */
 type Problem = { ts: number; level: "warn" | "error"; text: string };
 const PROBLEM_WINDOW_MS = 60 * 60_000;
@@ -164,7 +180,7 @@ class LogManager {
 
   // facade와 브리지가 공통으로 부르는 진입점.
   record(rec: LogRecord) {
-    const safe = this._redact(rec);
+    const safe = this._safe(rec);
     if (safe.level >= this.consoleLevel) this.terminal(safe);
 
     const entry = this._toWire(safe);
@@ -195,7 +211,7 @@ class LogManager {
       let failed: unknown = null;
       for (const dest of this.destinations) {
         try {
-          dest(safe); // destination 은 가리기만 한 레코드를 그대로 받는다(ANSI 도 그대로)
+          dest(safe); // destination 은 가리고 자르기만 한 레코드를 그대로 받는다(ANSI 도 그대로)
         } catch (error) {
           // destination 오류가 로깅을 막지 않게 넘긴다. notice로만 알린다(로거로 알리면 여기로 되돌아온다)
           failed ??= error;
@@ -227,7 +243,8 @@ class LogManager {
     if (failedCount) this.notice(`[log] 기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): ${failedCount}/${replay.length}건 | ${messageOf(firstError).split("\n")[0]}\n`);
   }
 
-  _redact(rec: LogRecord): LogRecord {
+  // 가리기 뒤에 자른다. 먼저 자르면 잘린 자리에 걸린 토큰이 패턴에 맞지 않아 앞부분이 남는다
+  _safe(rec: LogRecord): LogRecord {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rec)) {
       if (k !== "msg" && k !== "level" && k !== "time" && REDACT_KEYS.has(String(k).toLowerCase())) {
@@ -235,7 +252,7 @@ class LogManager {
         continue;
       }
       // 메시지 패턴은 글 값 모두에 건다. Error 는 stack 이 msg 와 err 둘에 실린다(logger.ts)
-      out[k] = typeof v === "string" ? redactText(v) : v;
+      out[k] = typeof v === "string" ? clipText(redactText(v)) : v;
     }
     return out as LogRecord;
   }
