@@ -76,7 +76,7 @@ function catColor(name: string) {
 }
 
 // 가리기(redact). 레코드가 터미널, 버퍼, SSE, 파일로 나가기 전 한 곳에서 한다.
-// 맨 위 키 이름과 메시지 패턴만 본다(중첩된 필드는 보지 않는다).
+// 맨 위 키 이름과 맨 위 글 값의 메시지 패턴만 본다(중첩된 필드는 보지 않는다).
 const REDACT_KEYS = new Set(["authorization", "cookie", "password", "secret", "client_secret", "clientsecret", "access_token", "accesstoken", "refresh_token", "refreshtoken", "token", "totp", "totpserver", "apikey", "api_key"]);
 const MSG_PATTERNS = [
   { re: /(Bearer\s+)[A-Za-z0-9._~+/=-]{6,}/gi, repl: "$1[REDACTED]" },
@@ -84,6 +84,12 @@ const MSG_PATTERNS = [
   // JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄: 참가, 세션 설명, 상태 바뀜). 값은 글, 배열, 객체(Uint8Array)
   { re: /"(token|secret_?key)":("[^"]*"|\[[^\]]*\]|\{[^}]*\})/gi, repl: '"$1":"[REDACTED]"' },
 ];
+
+function redactText(text: string): string {
+  let out = text;
+  for (const { re, repl } of MSG_PATTERNS) out = out.replace(re, repl);
+  return out;
+}
 
 /** 지난 1시간 경고, 오류. fatal 은 오류로 */
 type Problem = { ts: number; level: "warn" | "error"; text: string };
@@ -224,16 +230,12 @@ class LogManager {
   _redact(rec: LogRecord): LogRecord {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(rec)) {
-      if (k === "msg" || k === "level" || k === "time") {
-        out[k] = v;
+      if (k !== "msg" && k !== "level" && k !== "time" && REDACT_KEYS.has(String(k).toLowerCase())) {
+        out[k] = "[REDACTED]";
         continue;
       }
-      out[k] = REDACT_KEYS.has(String(k).toLowerCase()) ? "[REDACTED]" : v;
-    }
-    if (typeof out.msg === "string") {
-      let msg = out.msg;
-      for (const { re, repl } of MSG_PATTERNS) msg = msg.replace(re, repl);
-      out.msg = msg;
+      // 메시지 패턴은 글 값 모두에 건다. Error 는 stack 이 msg 와 err 둘에 실린다(logger.ts)
+      out[k] = typeof v === "string" ? redactText(v) : v;
     }
     return out as LogRecord;
   }

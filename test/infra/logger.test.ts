@@ -116,6 +116,23 @@ test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결�
   assert.equal(plain, '[WS] << {"op":2,"d":{"ssrc":1}}', "비밀이 없는 줄은 그대로");
 });
 
+test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error 의 stack 은 err 에도 실린다)", () => {
+  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const got: LogRecord[] = [];
+  lm.destinations.push((r) => got.push(r));
+  const log = createLogger({ category: "test" }, null, (rec) => lm.record(rec));
+  log.error(new Error("요청 실패 Bearer abcDEF123456ghized"));
+  log.error({ body: JSON.stringify({ error: "x", token: "body-token-5678" }), status: 401 }, "토큰 교환 실패");
+  const [thrown, bound] = got;
+  for (const field of [thrown.msg, thrown.err]) {
+    assert.match(String(field), /Bearer \[REDACTED\]/);
+    assert.doesNotMatch(String(field), /abcDEF123456/);
+  }
+  assert.equal(bound.body, '{"error":"x","token":"[REDACTED]"}');
+  assert.equal(bound.status, 401);
+  assert.equal(bound.category, "test", "패턴에 걸리지 않는 글은 그대로");
+});
+
 // ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
 test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
   const lm = new LogManager({ intercept: false, terminal: quiet });
