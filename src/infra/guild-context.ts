@@ -35,9 +35,22 @@ function currentJob(): Job | null {
   return store.getStore()?.job ?? null;
 }
 
-/** 리스너를 guildId 문맥에 묶는다. 누가 쏘든 그 서버의 작업으로 돈다 */
-function bindToGuild<A extends unknown[], R>(guildId: string, fn: (...args: A) => R): (...args: A) => R {
-  return store.run({ guildId, job: null }, () => AsyncLocalStorage.bind(fn));
+/**
+ * 리스너를 guildId 문맥에 묶는다. 누가 쏘든 그 서버의 작업으로 돈다.
+ * 리스너가 동기로 던지면 쏜 쪽으로 넘기지 않고 그 서버 문맥에서 따로 던진다(app/resilience 가 그 서버의 오류로 받는다).
+ * @discordjs/voice 는 모든 플레이어의 프레임을 타이머 하나로 돌리며 그 안에서 상태 이벤트를 쏜다. 거기로 던지면 루프가 끊겨 모든 서버의 소리가 멈추고, 오류는 루프를 시작한 서버의 것으로 보인다
+ */
+function bindToGuild<A extends unknown[]>(guildId: string, fn: (...args: A) => void): (...args: A) => void {
+  const guarded = (...args: A) => {
+    try {
+      fn(...args);
+    } catch (error) {
+      process.nextTick(() => {
+        throw error;
+      });
+    }
+  };
+  return store.run({ guildId, job: null }, () => AsyncLocalStorage.bind(guarded));
 }
 
 export { inGuild, currentGuild, currentJob, bindToGuild, inVoiceTarget, currentVoiceTarget };
