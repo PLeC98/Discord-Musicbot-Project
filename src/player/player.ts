@@ -181,7 +181,7 @@ function clearVoiceStatus(player: Pick<Player, "guild" | "voiceChannel" | "updat
     log.warn(`플레이어 정리 중 음성 채널 상태 지우기 실패: 서버=${guildLabel(player)}, 채널=${channel ?? "?"}, 음성 채널 접속=${connected ? "y" : "n"} | ${withCode(error)}`);
   });
 }
-const refreshPanel = (player: Player, trigger: string) => playerEvents.refresh(player).catch((error: unknown) => log.warn(`재생 패널 갱신 실패: ${guildLabel(player)} | 계기=${trigger} | ${messageOf(error)}`));
+const refreshPanel = (player: Player, content: string) => playerEvents.refresh(player).catch((error: unknown) => log.warn(`재생 패널 갱신 실패: ${guildLabel(player)} | 내용=${content} | ${messageOf(error)}`));
 
 /** 다운로드가 고칠 수 있는 곡 정보 */
 const infoOf = (track: QueuedTrack) => ({ title: track.title, artist: track.artist, album: track.album, duration: track.duration });
@@ -376,7 +376,7 @@ class Player {
       warm: (track) => {
         const before = infoOf(track);
         return inGuild(this.guild.id, () => this.downloader.warm(track), "prefetch").then((done) => {
-          if (this._noteTrackInfo(track, before)) void refreshPanel(this, "미리 받기 곡 정보 변경");
+          if (this._noteTrackInfo(track, before)) void refreshPanel(this, "미리 받기 곡 정보");
           return done;
         });
       },
@@ -694,7 +694,7 @@ class Player {
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(track)} → ${file}`);
         if (this.currentTrack === track) this._learnLength(track);
-        if (this._noteTrackInfo(track, before)) void refreshPanel(this, "백그라운드 다운로드 반영");
+        if (this._noteTrackInfo(track, before)) void refreshPanel(this, "백그라운드 다운로드 곡 정보");
       })
       .catch(() => {
         // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
@@ -724,7 +724,7 @@ class Player {
       applyTags(track, found.tags);
       if (this._noteTrackInfo(track, before)) changed = true;
     }
-    if (changed || found.art) void refreshPanel(this, "파일 태그 반영");
+    if (changed || found.art) void refreshPanel(this, "파일 태그");
   }
 
   /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
@@ -1548,7 +1548,7 @@ class Player {
         added++;
       }
 
-      if (added) await refreshPanel(this, "자동재생 곡 추가");
+      if (added) await refreshPanel(this, "자동재생 곡");
       return added > 0;
     } finally {
       this._autoplayPicking = false;
