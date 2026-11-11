@@ -14,7 +14,7 @@ const store = openTempStore("plaintext-");
 const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
-const { plaintextReason, checkPublicUrl } = await import("../../src/dashboard/plaintext.ts");
+const { plaintextReason, checkPublicUrl, siblingCookieNote } = await import("../../src/dashboard/plaintext.ts");
 const { browserSecure } = await import("../../src/dashboard/browser-side.ts");
 const { trustProxy } = await import("../../src/dashboard/client-ip.ts");
 const { sessionCookieName } = await import("../../src/dashboard/cookies.ts");
@@ -125,6 +125,30 @@ test("기동: 공개 주소가 인터넷 평문이면 대시보드를 열지 않
   }
 });
 
+test("기동: 평문 허용(DASHBOARD_ALLOW_PLAINTEXT)이어도 http 도메인 이름 공개 주소면 쿠키 심기 안내를 남긴다", async () => {
+  const { openDashboard } = await import("../../src/dashboard/index.ts");
+  const { default: sink } = await import("../../src/infra/log/sink.ts");
+  const path = await import("node:path");
+  const scopeFile = path.join(store.dir, "dashboard-scope-sibling.json");
+  const app = createApp(fakeBot({ client: { user: null, isReady: () => false } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: anonymous });
+  const saved = { url: config.dashboard.url, port: config.dashboard.port, host: config.dashboard.host, allowPlaintext: config.dashboard.allowPlaintext };
+  const start = sink.buffer.at(-1)?.id ?? -1;
+  try {
+    const probe = await listenForFetch(app, "127.0.0.1");
+    const port = (probe.address() as { port: number }).port;
+    await new Promise((done) => probe.close(done));
+    Object.assign(config.dashboard, { url: `http://dash.example.com:${port}`, port, host: "127.0.0.1", allowPlaintext: true });
+    servers.push(...(await openDashboard(app, { scopeFile, container: false })));
+    const warns = sink.buffer.filter((r) => r.id > start && r.level === "warn").map((r) => r.text);
+    assert.ok(
+      warns.some((line) => line.startsWith("DASHBOARD_URL이 http이고 도메인 이름(dash.example.com)")),
+      warns.join("\n"),
+    );
+  } finally {
+    Object.assign(config.dashboard, saved);
+  }
+});
+
 // 접속 경로마다 막는지, 막지 않으면 어느 세션 쿠키 이름을 쓰는지 본다. 실제 앱과 같은 순서로 브라우저 쪽 판정(req.secure)을 먼저 하고, 평문 차단이 그 값을 본다.
 // 사용자 IP(user)는 Express가 신뢰하는 홉의 X-Forwarded-For로 구한 값이다(신뢰하지 않는 홉이면 소켓의 상대 주소)
 test("접속 경로별 판정: 신뢰하지 않는 공인 IP의 평문은 헤더와 상관없이 막고, __Host- 이름이 아닌 쿠키는 같은 네트워크의 평문과 평문 허용에서만 쓴다", () => {
@@ -157,4 +181,9 @@ test("접속 경로별 판정: 신뢰하지 않는 공인 IP의 평문은 헤더
     const got = reason ?? (sessionCookieName(secure).startsWith("__Host-") ? "host" : "plain");
     assert.equal(got, row.expect, row.note);
   }
+});
+
+test("기동 안내: 공개 주소가 http이고 점이 있는 도메인 이름이면 같은 상위 도메인의 쿠키 심기를 알린다. IP, localhost, 점 없는 이름, https는 알리지 않는다", () => {
+  for (const url of ["http://dash.example.com:3000", "http://pc.tailnet.ts.net:3000", "http://Dash.Example.com./"]) assert.match(siblingCookieNote(url) ?? "", /^DASHBOARD_URL이 http이고 도메인 이름\(dash\.example\.com|pc\.tailnet\.ts\.net\)/, url);
+  for (const url of ["https://dash.example.com", "http://192.168.0.10:3000", "http://[::1]:3000", "http://[::ffff:10.0.0.1]:3000", "http://localhost:3000", "http://app.localhost:3000", "http://mypc:3000"]) assert.equal(siblingCookieNote(url), null, url);
 });

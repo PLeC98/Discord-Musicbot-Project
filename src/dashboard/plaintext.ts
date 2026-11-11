@@ -93,4 +93,16 @@ async function checkPublicUrl(url: string, { lookup = defaultLookup, timeoutMs =
   return publicAddress ? { open: false, detail: `${host} → ${publicAddress}` } : { open: true };
 }
 
-export { plaintextGate, plaintextReason, checkPublicUrl, LOOKUP_TIMEOUT_MS };
+/**
+ * 기동 시: 공개 주소가 http이고 호스트가 점이 있는 도메인 이름이면 안내 한 줄(평문 허용과 상관없이). 아니면 null.
+ * 같은 상위 도메인의 다른 사이트가 쿠키를 심을 수 있다. 같은 이름이 둘이면 받지 않지만(dashboard/cookies), 우리 쿠키가 없는 브라우저에 심은 하나는 가를 수 없다
+ */
+function siblingCookieNote(url: string): string | null {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:") return null;
+  const host = parsed.hostname.replace(/\.$/, "").toLowerCase();
+  if (!host.includes(".") || isLoopbackName(host) || kindOf(host.replace(/^\[(.*)\]$/, "$1"))) return null;
+  return `DASHBOARD_URL이 http이고 도메인 이름(${host})이라 같은 상위 도메인의 다른 사이트가 쿠키를 심어 다른 계정으로 로그인시키거나 자기 세션을 쓰게 할 수 있음. HTTPS로 공개하세요`;
+}
+
+export { plaintextGate, plaintextReason, checkPublicUrl, siblingCookieNote, LOOKUP_TIMEOUT_MS };

@@ -165,6 +165,19 @@ test("콜백: 코드가 없거나, 쿠키가 없거나, state가 안 맞거나, 
   assert.equal(discord.calls.length, 0);
 });
 
+test("콜백: 같은 이름의 로그인 쿠키가 둘이면(다른 사이트가 심은 것) 어느 것도 받지 않는다", async () => {
+  const discord = fakeDiscord();
+  const victim = await start(discord);
+  await victim.go("/auth/login");
+  const mine = victim.jar.header();
+  // 공격자가 자기 로그인 쿠키를 심고 자기가 받은 콜백 주소(자기 state)로 피해자를 보낸다
+  const attacker = await start(discord);
+  const state = stateOf(await attacker.go("/auth/login"));
+  const planted = attacker.jar.header();
+  assert.equal(location(await victim.go(`/auth/callback?code=c&state=${state}`, { headers: { cookie: `${planted}; ${mine}` } })), "/?error=auth_failed");
+  assert.equal(discord.calls.length, 0, "디스코드를 부르지 않는다");
+});
+
 test("콜백: 이미 사용한 state는 다시 받지 않으며(쿠키 삭제를 따르지 않는 클라이언트), 10분이 지난 쿠키도 받지 않는다", async (t) => {
   const discord = fakeDiscord();
   const { go, jar } = await start(discord);

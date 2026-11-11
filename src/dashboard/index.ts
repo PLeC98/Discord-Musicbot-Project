@@ -12,7 +12,7 @@ import fs from "fs";
 import { createCorsOptions } from "./cors.ts";
 import { bodyLimit, closeOnUnreadBody, continueBody } from "./body-limit.ts";
 import { SqliteSessionStore } from "./session-store.ts";
-import { sessionCookieName } from "./cookies.ts";
+import { dropDuplicateCookie, sessionCookieName } from "./cookies.ts";
 import * as sessionRequests from "./session-requests.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
@@ -51,10 +51,11 @@ import { startStatus } from "./status/index.ts";
 import { countServer } from "../infra/upload-meter.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { precompressed } from "./precompressed.ts";
-import { trustProxy } from "./client-ip.ts";
+import { clientIp, trustProxy } from "./client-ip.ts";
+import { warnGate } from "./warn-gate.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
-import { checkPublicUrl, plaintextGate } from "./plaintext.ts";
+import { checkPublicUrl, plaintextGate, siblingCookieNote } from "./plaintext.ts";
 import { bindLine, bindNotes, inContainer, isLoopbackName, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 
@@ -121,13 +122,21 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
     req.session.cookie.secure = req.secure;
     req.session.createdOverHttps = req.secure;
   };
-  return (req, res, next) =>
-    (req.secure ? secure : plain)(req, res, (err?: unknown) => {
+  // 같은 이름의 세션 쿠키가 둘 이상이면 받지 않는다(dashboard/cookies). 심은 쪽이 할 수 있는 것은 피해자를 로그아웃시키는 것까지다
+  const duplicates = warnGate();
+  return (req, res, next) => {
+    if (dropDuplicateCookie(req, sessionCookieName(req.secure))) {
+      const verdict = duplicates(clientIp(req));
+      if (verdict === "warn") log.warn(`같은 이름의 로그인 세션 쿠키가 여러 개라 받지 않음(${clientIp(req)}). 같은 상위 도메인의 다른 사이트가 심은 쿠키일 수 있으니 HTTPS로 공개하세요`);
+      else if (verdict === "cap") log.warn("같은 이름의 로그인 세션 쿠키가 여러 개인 요청이 많아 1시간 동안 더는 로그에 남기지 않음(받지 않는 것은 그대로)");
+    }
+    return (req.secure ? secure : plain)(req, res, (err?: unknown) => {
       if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);
       const how = req.secure ? "평문에서 만든 세션이 HTTPS 요청으로" : "HTTPS에서 만든 세션이 평문 요청으로";
       log.info(`${how} 와서 받지 않고 삭제(사용자 ${req.session.user?.id ?? "없음"})`);
       req.session.regenerate((e) => next(e));
     });
+  };
 }
 
 // 상태를 바꾸지 않는 메서드
@@ -304,8 +313,10 @@ async function openDashboard(app: App, { scopeFile = SCOPE_FILE, container = inC
   return opened.servers;
 }
 
-/** 기동 시 공개 주소 검사(dashboard/plaintext). 인터넷 평문이면 error를 남기고 false */
+/** 기동 시 공개 주소 검사(dashboard/plaintext). 인터넷 평문이면 error를 남기고 false. 평문 도메인 이름의 쿠키 심기 안내는 평문 허용과 상관없이 남긴다 */
 async function plainUrlAllowed(url: string, allowPlaintext: boolean) {
+  const sibling = siblingCookieNote(url);
+  if (sibling) log.warn(sibling);
   if (allowPlaintext) {
     log.warn("DASHBOARD_ALLOW_PLAINTEXT가 켜져 있어 인터넷 평문 접속을 막지 않음");
     return true;
