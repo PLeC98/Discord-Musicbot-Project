@@ -31,10 +31,12 @@ async function leaveDeadPin(track: Seeking, error: unknown, equivalent: Refind):
   const code = deadSourceCode(error);
   if (!code) return null;
   const key = audioKeyOf(track.audioUrl);
-  try {
-    if (key) sourceChecks.recordCheck(key, { ok: false, code, at: Date.now() });
-  } catch (recordError) {
-    log.debug(`재생 테스트 결과 기록 실패: ${messageOf(recordError)}`);
+  if (key) {
+    try {
+      sourceChecks.recordCheck(key, { ok: false, code, at: Date.now() });
+    } catch (recordError) {
+      log.warn(`직접 지정한 음원의 source_checks DB 기록 실패: ${key} | 검사 코드=${code} | ${messageOf(recordError)}`);
+    }
   }
   log.warn(`직접 지정한 음원을 재생할 수 없어 이번에는 다시 찾음(지정은 그대로): "${logTitle(track.title)}" | ${track.audioUrl ?? "없음"} | ${code}`);
 

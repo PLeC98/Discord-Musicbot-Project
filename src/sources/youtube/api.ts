@@ -192,7 +192,7 @@ function playlistTrack(entry: YtInfo) {
   } catch (error) {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
     // 재생목록 제목 그대로 간다
-    log.debug(`상세 제목 조회 실패(목록 제목 사용): ${messageOf(error)}`);
+    log.warn(`검증된 곡 제목 DB 조회 실패(재생목록 제목 사용): ${track.requestKey} | ${messageOf(error)}`);
   }
   return track;
 }

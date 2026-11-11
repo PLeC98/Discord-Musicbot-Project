@@ -355,6 +355,30 @@ test("400, 429, 5xx, 연결 오류는 실패: 저장하지 않고 연결 실패�
   assert.deepEqual(notices(from), []);
 });
 
+test("API 요청 실패는 까닭마다 처음 한 번 경고하고, 다시 답을 받으면 한 줄", async () => {
+  stubFetch("vidApiUp0", []);
+  assert.equal((await ask("vidApiUp0"))?.source, "live");
+  const from = sink.buffer.length;
+  net.fetch = async () => reply({ message: "x" }, 503);
+  for (const id of ["vidDown0", "vidDown1"]) assert.equal((await ask(id))?.source, "none");
+  net.fetch = async () => {
+    throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+  };
+  for (const id of ["vidDown2", "vidDown3"]) assert.equal((await ask(id))?.source, "none");
+  stubFetch("vidApiUp1", []);
+  assert.equal((await ask("vidApiUp1"))?.source, "live");
+
+  const lines = sink.buffer
+    .slice(from)
+    .filter((e) => e.text.startsWith("SponsorBlock API 요청"))
+    .map((e) => [e.level, e.text]);
+  assert.deepEqual(lines, [
+    ["warn", `SponsorBlock API 요청 실패: HTTP 503 (${BASE})`],
+    ["warn", `SponsorBlock API 요청 실패: ECONNREFUSED (${BASE})`],
+    ["info", "SponsorBlock API 요청 복구(실패 2회)"],
+  ]);
+});
+
 test("시간 초과는 연결 실패 timeout으로 남는다", async (t) => {
   resetLinks();
   const timeoutMs = config.sponsorblock.timeoutMs;

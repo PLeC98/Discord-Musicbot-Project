@@ -15,7 +15,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { artOf } from "../rules/track-art.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import * as fileTags from "./file-tags.ts";
 import type { Tags } from "./file-tags.ts";
 import { checkCover, bakeCover, type Cover } from "./cover.ts";
@@ -70,7 +70,7 @@ function versionOf(audioKey: string): { version: string; file: string | null } {
     const stat = fs.statSync(row.file_path);
     return { version: `file:${row.downloaded_at ?? `${stat.size}-${stat.mtimeMs}`}`, file: row.file_path };
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일 확인 실패(원본 사용): ${audioKey} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`캐시 파일 확인 실패(원본 사용): ${audioKey} | ${messageOf(error)}`);
     return { version: "source", file: null };
   }
 }
@@ -127,6 +127,15 @@ async function readFromBody(audioKey: string, url: string, body: Readable): Prom
   }
 }
 
+const LINK_FAILURE_NAMES = new Set(["SsrfError", "TimeoutError", "AbortError"]);
+
+function linkOrCancelled(error: unknown): boolean {
+  if (refusedByResponse(error) || errorKind(error) === "network-error" || codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") return true;
+  if (!error || typeof error !== "object") return false;
+  const { name, status, permanent } = error as { name?: unknown; status?: unknown; permanent?: unknown };
+  return LINK_FAILURE_NAMES.has(String(name)) || typeof status === "number" || permanent === true;
+}
+
 /** 이어 받기(MP4 의 끝 moov). 서버가 그 위치부터 주지 않으면 null */
 async function rangeFrom(url: string, start: number): Promise<Readable | null> {
   const part = await open(url, { accept: ACCEPT, from: start });
@@ -140,7 +149,7 @@ async function find(audioKey: string, url: string) {
   const { version, file } = versionOf(audioKey);
   if (file) {
     const tags = await fileTags.fromFile(file);
-    const cover = tags?.picture ? await checkCover(tags.picture.data) : null;
+    const cover = tags?.picture ? await checkCover(tags.picture.data, file) : null;
     settle(audioKey, version, tagsOf(tags), cover);
     return;
   }
@@ -166,7 +175,9 @@ function pump() {
     running.add(next.audioKey);
     find(next.audioKey, next.url)
       .catch((error) => {
-        log.debug(`파일 태그 조회 실패(${Math.round(RETRY_MS / 60_000)}분 뒤 재시도): ${next.audioKey} | ${messageOf(error)}`);
+        const line = `파일 태그 조회 실패(${Math.round(RETRY_MS / 60_000)}분 뒤 재시도): ${next.audioKey} | ${messageOf(error)}`;
+        if (linkOrCancelled(error)) log.debug(line);
+        else log.warn(line);
         if (results.get(next.audioKey)?.state !== "failed") keep(next.audioKey, { version: "source", state: "failed", retryAt: Date.now() + RETRY_MS });
       })
       .finally(() => {
@@ -228,7 +239,7 @@ async function imageOf(fingerprint: string): Promise<Buffer | null> {
     if (result.state !== "found" || result.art?.fingerprint !== fingerprint || !result.version.startsWith("file:")) continue;
     const { file } = versionOf(audioKey);
     const tags = file ? await fileTags.fromFile(file) : null;
-    const cover = tags?.picture ? await checkCover(tags.picture.data) : null;
+    const cover = file && tags?.picture ? await checkCover(tags.picture.data, file) : null;
     if (cover && fingerprintOf(cover.jpeg) === fingerprint) return keepImage(audioKey, cover) && cover.jpeg;
   }
   return null;
@@ -262,7 +273,7 @@ function clear() {
   queue.length = 0;
 }
 
-export { want, artFor, tagsFor, imageOf, readFromBody, noteFile, cancelSource, onFound, clear, directKeyOf };
+export { want, artFor, tagsFor, imageOf, readFromBody, noteFile, cancelSource, onFound, clear, directKeyOf, linkOrCancelled };
 export const _internals = {
   /** 원본을 여는 곳을 바꾼다(테스트) */
   useOpen(fake: Open) {

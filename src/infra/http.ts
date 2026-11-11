@@ -72,5 +72,5 @@ function httpFor(service: Service) {
 
 type HttpClient = ReturnType<typeof httpFor>;
 
-export { httpFor };
+export { httpFor, reasonOf };
 export type { HttpClient, Judged };

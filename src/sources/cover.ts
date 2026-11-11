@@ -32,14 +32,14 @@ async function bakeCover(data: Uint8Array): Promise<Cover | null> {
  * 캐시 파일 태그에서 꺼낸 앨범아트. bakeCover 결과 형식(JPEG, 긴 변 1000px 이하)이면 그대로, 아니면 다시 인코딩한다.
  * 백업으로 불러온 남의 캐시 파일도 같은 확인을 지난다(누가 만든 파일인지 가리지 않는다)
  */
-async function checkCover(data: Uint8Array): Promise<Cover | null> {
+async function checkCover(data: Uint8Array, file: string): Promise<Cover | null> {
   if (data.length === 0 || data.length > MAX_INPUT_BYTES) return null;
   try {
     const isJpeg = data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
     const { format, width = 0, height = 0 } = await sharp(data, { limitInputPixels: MAX_PIXELS }).metadata();
     if (isJpeg && format === "jpeg" && width > 0 && height > 0 && width <= SIDE && height <= SIDE) return { jpeg: Buffer.from(data), width, height };
   } catch (error) {
-    log.debug(`앨범아트를 확인하지 못함(앨범아트 없이 진행): ${messageOf(error)}`);
+    log.warn(`캐시 파일 앨범아트 sharp 메타데이터 읽기 실패(앨범아트 무시): ${file} | ${messageOf(error)}`);
     return null;
   }
   return bakeCover(data);

@@ -50,6 +50,7 @@ function installedVersion(): string | null {
     const version = (JSON.parse(fs.readFileSync(path.join(SERVER_DIR, "package.json"), "utf8")) as { version?: unknown }).version;
     return typeof version === "string" ? version : null;
   } catch {
+    // 파일이 없으면 설치되지 않은 것이다(launch 가 알린다). 다른 실패는 bgutil-version 이 기동 시 남긴다
     return null;
   }
 }
@@ -96,6 +97,7 @@ async function versionOf(res: { json?(): Promise<unknown> }) {
     const version = ((await res.json?.()) as { version?: unknown } | undefined)?.version;
     return typeof version === "string" ? version : null;
   } catch {
+    // 응답에 버전이 없으면 알 수 없는 버전이다. 버전 필드가 없는 서버와 동일하게 받아들인다
     return null;
   }
 }
@@ -168,7 +170,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
           log.error({ sub: "bgutil" }, `POToken 서버가 빈 포트를 ${BIND_TRIES}번 연달아 열지 못해 다시 실행하지 않음(POToken 없이 진행)`);
           return;
         }
-        log.debug({ sub: "bgutil" }, `포트 ${String(port)}번을 열지 못해 새 포트로 POToken 서버 다시 실행`);
+        log.warn({ sub: "bgutil" }, `포트 ${String(port)}번을 열지 못해 새 포트로 POToken 서버 다시 실행`);
         void run(true);
         return;
       }
