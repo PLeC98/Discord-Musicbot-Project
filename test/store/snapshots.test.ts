@@ -194,6 +194,20 @@ test("새 PC에 전체 백업을 풀었을 때(settings.db, backups 없이 예�
   fs.rmSync(fresh, { recursive: true, force: true });
 });
 
+test("손으로 복원(기동 실패 안내대로 스냅샷을 settings.restore.db로 둠): 지금 settings.db가 깨지고 그 -wal이 남아 있어도 스냅샷이 그대로 들어간다", async () => {
+  const name = await snapshots.take("daily", new Date(2026, 9, 11));
+  const dir = fs.mkdtempSync(path.join(path.dirname(store.dir), "manual-"));
+  fs.writeFileSync(path.join(dir, "settings.db"), "깨진 파일");
+  fs.writeFileSync(path.join(dir, "settings.db-wal"), "앞 실행이 남긴 -wal");
+  fs.copyFileSync(path.join(backups, name), path.join(dir, "settings.restore.db"));
+  assert.equal(snapshots.applyStaged(dir), "settings.restore.db");
+  assert.equal(fs.existsSync(path.join(dir, "settings.db-wal")), false, "남은 -wal이 스냅샷 위에 얹히지 않는다");
+  const db = new Database(path.join(dir, "settings.db"), { readonly: true });
+  assert.equal(db.pragma("integrity_check", { simple: true }), "ok");
+  db.close();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 // 다른 프로그램이 이전 시점을 읽고 있으면 -wal을 본 파일에 다 반영하지 못한다(Windows는 열린 파일을 삭제하지 못해 교체가 RESTORE_FAILED로 멈추므로 거기까지 가지 않는다)
 test("복원 전 사본: 다른 연결이 읽는 중이라 -wal을 반영하지 못해도 -wal에만 있는 내용까지 남긴다", { skip: process.platform === "win32" ? "Windows는 열린 settings.db를 삭제하지 못한다" : false }, async () => {
   const name = await snapshots.take("daily", new Date(2026, 9, 12));
