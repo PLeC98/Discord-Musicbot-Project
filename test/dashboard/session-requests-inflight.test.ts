@@ -107,6 +107,21 @@ before(async () => {
     res.end();
     gate.enter();
   });
+  // 끝냈지만 다 나가지 않은 응답이다. 소켓 쓰기의 콜백을 부르지 않고 붙잡아, 운영체제와 상관없이 writableEnded이고 writableFinished는 아닌 상태로 둔다
+  app.get("/held", requireAuth, (req, res) => {
+    lastSocket = req.socket;
+    lastRes = res;
+    const socket = req.socket as Socket & { _write: unknown; _writev: unknown };
+    socket._write = () => undefined;
+    socket._writev = () => undefined;
+    res.json({ secret: "끊긴 뒤에 나가면 안 되는 것" });
+    gate.enter();
+  });
+  // 바로 응답하고 소켓을 남긴다(keep-alive)
+  app.get("/socket", requireAuth, (req, res) => {
+    lastSocket = req.socket;
+    res.json({ ok: true });
+  });
   // 받는 중인 업로드: 본문을 다 받으면 조작한다
   app.post("/upload", requireAuth, (req, res) => {
     lastSocket = req.socket;
@@ -265,8 +280,8 @@ test("한 번에 쓰고 끝낸 큰 응답이 읽지 않는 클라이언트의 �
   await settle(50);
   const socket = lastSocket!;
   assert.equal(socket.destroyed, false);
-  // 이 PC(Windows 루프백)에서는 커널이 다 받아 응답이 끝나고 닫혀(writableFinished) sweepSockets가 소켓을 닫는다. 끝냈지만 다 나가지 않은 응답(writableEnded이고
-  // writableFinished 아님)은 여기서 만들 수 없어, 그때 소켓을 닫는 분기(stop)는 이 테스트가 검증하지 못한다
+  // 루프백은 커널이 바로 다 받아 응답이 끝나고(writableFinished) 목록에서 빠진다. 그래서 이 소켓은 그 뒤의 sweepSockets가 닫는다.
+  // 끝냈지만 다 나가지 않은 응답을 stop이 닫는 분기는 다음 테스트에서 본다
   assert.equal(lastRes!.writableEnded, true);
   revoke(thief);
   assert.equal(await untilDestroyed(socket), true, "응답은 끝났지만 바이트가 남은 소켓");
@@ -292,6 +307,28 @@ test("한 번에 쓰고 끝낸 큰 응답이 읽지 않는 클라이언트의 �
   gate.open();
   while (!/secret/.test(received)) await settle(10);
   agent.destroy();
+});
+
+test("끝냈지만 다 나가지 않은 응답은 세션이 끝나면 소켓을 강제로 닫아 본문을 보내지 않는다", async () => {
+  newGate();
+  const thief = await signedIn("held");
+  const url = new URL(base);
+  const raw = net.connect(Number(url.port), url.hostname);
+  raw.on("error", () => {});
+  let received = "";
+  raw.on("data", (chunk) => (received += chunk.toString("latin1")));
+  await new Promise((done) => raw.once("connect", done));
+  raw.write(`GET /held HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${thief.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
+  await gate.entered;
+  await settle(50);
+  const socket = lastSocket!;
+  assert.equal(lastRes!.writableEnded, true);
+  assert.equal(lastRes!.writableFinished, false, "쓰기를 붙잡아 다 나가지 않았다");
+  revoke(thief);
+  assert.equal(await untilDestroyed(socket), true);
+  await settle(50);
+  assert.equal(received, "", "헤더도 본문도 받지 못한다");
+  raw.destroy();
 });
 
 test("받는 중인 업로드는 세션이 끝나면 소켓을 강제로 닫고 조작을 실행하지 않는다", async () => {
@@ -320,6 +357,28 @@ test("알림 없는 세션 종료(원시 SQL로 삭제)를 재확인(recheck)에
   gate.open();
   assert.equal((await pending).status, 401);
   assert.equal(store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(thief.sid()), undefined);
+});
+
+test("재확인(recheck)이 알림 없이 끝난 세션을 찾으면 그 세션의 응답이 끝난 keep-alive 소켓도 닫는다", async () => {
+  newGate();
+  const thief = await signedIn("raw-sql-socket");
+  const url = new URL(base);
+  const raw = net.connect(Number(url.port), url.hostname);
+  raw.on("error", () => {});
+  let received = "";
+  raw.on("data", (chunk) => (received += chunk.toString("latin1")));
+  await new Promise((done) => raw.once("connect", done));
+  raw.write(`GET /socket HTTP/1.1\r\nHost: ${url.host}\r\nCookie: ${thief.cookie()}\r\nUser-Agent: ${UA}\r\n\r\n`);
+  while (!/\{"ok":true\}/.test(received)) await settle(10);
+  const idle = lastSocket!;
+  const pending = thief.go("/hold-read");
+  await gate.entered;
+  store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
+  sessionRequests.recheck();
+  assert.equal(await untilDestroyed(idle), true, "응답이 끝나 목록에서 빠진 요청의 소켓");
+  gate.open();
+  assert.equal((await pending).status, 401);
+  raw.destroy();
 });
 
 test("로그인하지 않은 세션은 바꿔도 저장하지 않고 쿠키도 싣지 않는다", async () => {

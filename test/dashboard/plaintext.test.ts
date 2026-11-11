@@ -15,6 +15,9 @@ const { default: config } = await import("../../src/config/index.ts");
 const { createApp } = await import("../../src/dashboard/index.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 const { plaintextReason, checkPublicUrl } = await import("../../src/dashboard/plaintext.ts");
+const { browserSecure } = await import("../../src/dashboard/browser-side.ts");
+const { trustProxy } = await import("../../src/dashboard/client-ip.ts");
+const { sessionCookieName } = await import("../../src/dashboard/cookies.ts");
 
 const servers: Array<{ close(): unknown }> = [];
 after(() => {
@@ -119,5 +122,39 @@ test("기동: 공개 주소가 인터넷 평문이면 대시보드를 열지 않
     assert.deepEqual(JSON.parse(fs.readFileSync(scopeFile, "utf8")), { scope: "loopback" });
   } finally {
     Object.assign(config.dashboard, saved);
+  }
+});
+
+// 접속 경로마다 막는지, 막지 않으면 어느 세션 쿠키 이름을 쓰는지 본다. 실제 앱과 같은 순서로 브라우저 쪽 판정(req.secure)을 먼저 하고, 평문 차단이 그 값을 본다.
+// 사용자 IP(user)는 Express가 신뢰하는 홉의 X-Forwarded-For로 구한 값이다(신뢰하지 않는 홉이면 소켓의 상대 주소)
+test("접속 경로별 판정: 신뢰하지 않는 공인 IP의 평문은 헤더와 상관없이 막고, __Host- 이름이 아닌 쿠키는 같은 네트워크의 평문과 평문 허용에서만 쓴다", () => {
+  const { trust } = trustProxy("198.51.100.7");
+  type Row = { peer: string; tls?: boolean; proto?: string; urlHttps?: boolean; user?: string; allow?: boolean; expect: "hop" | "browser" | "host" | "plain"; note: string };
+  const rows: Row[] = [
+    { peer: "203.0.113.5", expect: "hop", note: "신뢰하지 않는 공인 IP의 평문" },
+    { peer: "203.0.113.5", proto: "https", expect: "hop", note: "신뢰하지 않는 홉의 X-Forwarded-Proto는 무시한다" },
+    { peer: "203.0.113.5", urlHttps: true, expect: "hop", note: "공개 주소가 https여도 신뢰하지 않는 홉의 평문은 막는다" },
+    { peer: "203.0.113.5", tls: true, expect: "host", note: "신뢰하지 않는 공인 IP의 TLS 소켓" },
+    { peer: "203.0.113.5", tls: true, proto: "http", expect: "host", note: "신뢰하지 않는 홉의 X-Forwarded-Proto: http는 무시한다" },
+    { peer: "198.51.100.7", proto: "https", user: "203.0.113.9", expect: "hop", note: "신뢰하는 공인 IP 프록시도 평문으로 붙으면 막는다" },
+    { peer: "198.51.100.7", tls: true, proto: "https", user: "203.0.113.9", expect: "host", note: "신뢰하는 공인 IP 프록시의 TLS" },
+    { peer: "198.51.100.7", tls: true, proto: "http", user: "203.0.113.9", expect: "browser", note: "신뢰하는 홉의 X-Forwarded-Proto: http가 소켓 TLS보다 우선한다" },
+    { peer: "127.0.0.1", proto: "https", user: "203.0.113.9", expect: "host", note: "이 기기의 프록시가 전달한 https" },
+    { peer: "127.0.0.1", proto: "http", user: "203.0.113.9", expect: "browser", note: "인터넷 사용자의 http를 이 기기의 프록시가 전달" },
+    { peer: "127.0.0.1", urlHttps: true, user: "203.0.113.9", expect: "host", note: "신뢰하는 홉에 헤더가 없으면 https 공개 주소를 따른다" },
+    { peer: "127.0.0.1", user: "203.0.113.9", expect: "browser", note: "신뢰하는 홉에 헤더 없음, http 공개 주소, 인터넷 사용자" },
+    { peer: "192.168.0.5", expect: "plain", note: "같은 네트워크의 평문" },
+    { peer: "100.101.1.2", expect: "plain", note: "Tailscale 망의 평문" },
+    { peer: "fd00::5", expect: "plain", note: "IPv6 사설 주소의 평문" },
+    { peer: "192.168.0.5", proto: "http", urlHttps: true, expect: "plain", note: "같은 네트워크의 프록시가 전달한 http" },
+    { peer: "192.168.0.5", urlHttps: true, expect: "host", note: "같은 네트워크의 평문이라도 https 공개 주소면 Secure(브라우저가 받지 않아 로그인이 안 되는 차단하는 쪽, fail-closed)" },
+    { peer: "203.0.113.5", allow: true, expect: "plain", note: "평문 허용" },
+  ];
+  for (const row of rows) {
+    const base = { app: { get: () => trust }, socket: { remoteAddress: row.peer, encrypted: row.tls ?? false }, headers: row.proto ? { "x-forwarded-proto": row.proto } : {}, ip: row.user ?? row.peer };
+    const secure = browserSecure(fake<Request>(base), row.urlHttps ?? false);
+    const reason = row.allow ? null : plaintextReason(fake<Request>({ ...base, secure }));
+    const got = reason ?? (sessionCookieName(secure).startsWith("__Host-") ? "host" : "plain");
+    assert.equal(got, row.expect, row.note);
   }
 });
