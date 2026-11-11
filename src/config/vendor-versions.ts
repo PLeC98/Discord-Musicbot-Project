@@ -2,8 +2,10 @@
 // 주마다 도는 vendor-updates 워크플로(scripts/check-vendor-updates)가 이 파일만 읽고 고친다. 값은 한 줄에 하나, 글자 그대로 둔다
 //   ffmpeg  BtbN/FFmpeg-Builds 의 월말 autobuild 태그. 그 외 autobuild 는 2주 뒤 삭제된다(월말은 2년 보관)
 //   bgutil  bgutil-ytdlp-pot-provider 의 릴리스 태그. 서버와 yt-dlp 플러그인이 같은 체크아웃에서 나온다
+//           BGUTIL_COMMIT 은 그 태그가 가리키는 커밋이다. 태그는 옮길 수 있어 설치가 둘을 맞춰 본다(.env 로 태그를 바꾸면 커밋도 .env 에)
 
 const FFMPEG_RELEASE = "autobuild-2026-10-31-12-59";
 const BGUTIL_VERSION = "2.0.2";
+const BGUTIL_COMMIT = "26475e9d3665b972c4aeb83b4dbaafcf64b88438";
 
-export { FFMPEG_RELEASE, BGUTIL_VERSION };
+export { FFMPEG_RELEASE, BGUTIL_VERSION, BGUTIL_COMMIT };
