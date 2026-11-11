@@ -22,3 +22,11 @@ test("실패는 삼키고 무엇이 왜 실패했는지 debug 한 줄로 남긴�
   await bestEffort(log, Promise.reject("글자"), "지우기");
   assert.equal(log.lines[1], "지우기 실패: 글자");
 });
+
+test("수준을 주면 그 수준으로 남긴다", async () => {
+  const lines: string[] = [];
+  const log = { warn: (line: string) => lines.push(`warn ${line}`), error: (line: string) => lines.push(`error ${line}`) };
+  await bestEffort(log, Promise.reject(new Error("끊김")), "알림 전송", "warn");
+  await bestEffort(log, Promise.reject(new Error("버그")), "기동", "error");
+  assert.deepEqual(lines, ["warn 알림 전송 실패: 끊김", "error 기동 실패: 버그"]);
+});

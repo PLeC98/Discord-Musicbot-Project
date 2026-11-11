@@ -379,3 +379,32 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
     mock.timers.reset();
   }
 });
+
+// ── sink: destination 이 던지면 로거가 아니라 notice 로 알린다(로거로 알리면 record 로 되돌아온다) ─────
+test("destination 이 던지면 처음 한 번과 풀릴 때 notice 로 한 줄씩, 다른 destination 은 계속 받는다", () => {
+  const notes: string[] = [];
+  const m = new LogManager({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
+  const got: LogRecord[] = [];
+  let broken = true;
+  m.addDestination(() => {
+    if (broken) throw new Error("디스크 가득 참");
+  });
+  m.addDestination((rec) => got.push(rec));
+  const at = (msg: string) => m.record({ level: LEVELS.info, time: Date.now(), msg });
+  at("하나");
+  at("둘");
+  broken = false;
+  at("셋");
+  assert.equal(got.length, 3);
+  assert.deepEqual(notes, ["[log] 로그 출력 대상 기록 실패: 디스크 가득 참 (해당 로그 유실)\n", "[log] 로그 출력 대상 기록 복구(실패 2회)\n"]);
+});
+
+test("기동 초기 레코드를 재생하다 던지면 끝난 뒤 실패 수와 첫 오류를 notice 로 한 줄", () => {
+  const notes: string[] = [];
+  const m = new LogManager({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
+  for (const msg of ["a", "b", "c"]) m.record({ level: LEVELS.info, time: Date.now(), msg });
+  m.addDestination((rec) => {
+    if (rec.msg !== "b") throw new Error("열 수 없음");
+  });
+  assert.deepEqual(notes, ["[log] 기동 초기 버퍼 로그 기록 실패(실패 건 파일에서 누락): 2/3건 | 열 수 없음\n"]);
+});
