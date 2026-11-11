@@ -67,6 +67,8 @@ class VoiceLink {
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0;
+  // 이번 복구의 마지막 시도가 실패한 까닭. 포기 줄이 싣는다(회차마다의 실패는 debug)
+  lastRecoveryError: string | null = null;
   /** 사람이 서버 헤드셋 끄기를 풀었다. 다투지 않게 이 연결(복구, 옮겨짐 포함) 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다 */
   undeafened = false;
   // 기다리는 시간. 테스트가 줄인다
@@ -351,6 +353,7 @@ class VoiceLink {
     this._clearWait();
     this.state = "recovering";
     this.recoveryAttempts = 0;
+    this.lastRecoveryError = null;
     this.reattachRefused = false;
     const gen = ++this.gen;
     log.warn(`연결 복구 시작: ${this._label()} | 원인=${why} | 최대 ${RECOVERY_ATTEMPTS_MAX}회`);
@@ -409,6 +412,7 @@ class VoiceLink {
     } catch (error) {
       // 중간 시도의 실패. 다음 시도가 받고, 끝내 못 붙으면 포기 줄이 남긴다
       log.debug(`연결 복구 ${this.recoveryAttempts}회차 실패: ${messageOf(error)}`);
+      this.lastRecoveryError = messageOf(error);
       return false;
     }
   }
@@ -444,7 +448,7 @@ class VoiceLink {
 
   // 재연결하지 못했다. 세션을 저장하고 버린다. /join 이 저장된 세션으로 이어서 튼다
   _giveUp() {
-    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)`);
+    log.error(`연결 복구 포기: ${this._label()} | 최대 ${RECOVERY_ATTEMPTS_MAX}회 넘음(세션을 저장하고 정리)${this.lastRecoveryError ? ` | 마지막 오류=${this.lastRecoveryError}` : ""}`);
     this._end({ reason: "음성 연결 복구 포기", session: "save", panel: "disconnected", end: "voice-lost" });
   }
 

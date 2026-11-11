@@ -706,6 +706,25 @@ test("오디오 오류는 음원 쪽이다: 음성 연결을 건드리지 않고
   assert.deepEqual(ends, ["stream-error"]);
 });
 
+test("재생 스트림 오류의 글은 그 재생에 적어 두고, stream-error 로 끝날 때만 원인으로 넘긴다(다음 재생에는 새 재생이라 붙지 않는다)", async () => {
+  const p = h.makePlayer();
+  const track = yt("qqqqqqqqqqq", { duration: 0 });
+  p.currentTrack = track;
+  p.playback = new (await import("../../src/player/current-playback.ts")).CurrentPlayback(track);
+  p.audioPlayer.emit("error", new Error("ECONNRESET 소켓 끊김"));
+  assert.equal(p._describeEnd(track, "stream-error").cause, "ECONNRESET 소켓 끊김");
+  assert.equal(p._describeEnd(track, "idle").cause, null, "다른 끝 까닭이면 싣지 않는다");
+
+  const other = h.makePlayer();
+  other.currentTrack = track;
+  other.playback = new (await import("../../src/player/current-playback.ts")).CurrentPlayback(track);
+  other._endReason = "skip";
+  other.audioPlayer.emit("error", new Error("늦게 온 오류"));
+  assert.equal(other.playback.streamError, null, "이미 다른 까닭으로 끝나는 중이면 적지 않는다");
+  h.dispose(p);
+  h.dispose(other);
+});
+
 test("곡 끝 처리: stream-error 는 길이를 모르는 곡도 끊긴 것으로 보고 같은 곡을 다시 연다", () => {
   const p = h.makePlayer();
   const track = yt("ooooooooooo", { duration: 0 });

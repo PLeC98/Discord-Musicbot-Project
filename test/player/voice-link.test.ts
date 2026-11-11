@@ -341,6 +341,7 @@ test("다섯 번 모두 실패하면 세션을 저장하고 버린다", async ()
   assert.deepEqual(steps, ["dispose:save:disconnected:voice-lost"]);
   assert.equal(link.state, "closed");
   assert.equal(link.isAlive(), false);
+  assert.ok(link.lastRecoveryError, "포기 줄에 실을 마지막 시도의 까닭이 있다");
 });
 
 test("복구 중에 채널이 사라졌으면 채널 사라짐으로 버린다", async () => {

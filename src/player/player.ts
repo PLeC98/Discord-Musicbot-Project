@@ -121,7 +121,7 @@ function dropUnplayed(player: Pick<Player, "_trackLabel">, pb: CurrentPlayback |
 const AUDIO_FROM: Partial<Record<ReturnType<typeof inputKind>, string>> = { youtube: "유튜브", soundcloud: "사운드클라우드", direct: "음원 직접" };
 
 // 곡이 어떻게 끝났나. dropped: 사고로 끊겼다, live: 그중 라이브가 끊긴 것
-type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string };
+type EndShape = { playedMs: number; label: string; dropped: boolean; live: boolean; why: string; cause?: string | null };
 
 // 끝 판정에 넘길 사실. 판정은 rules/end-verdict
 function endFactsOf(pb: CurrentPlayback | null, reason: string, positionMs: number): EndFacts {
@@ -423,11 +423,13 @@ class Player {
     );
 
     // 오디오 플레이어의 오류는 재생 스트림(음원) 쪽이다. 음성 연결 쪽은 연결의 오류, 전이로 온다(voiceLink).
-    // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop)
+    // 오디오 플레이어는 이것을 알린 뒤 Idle 로 가므로 끝 까닭만 적어 둔다. 곡 끝 처리가 같은 곡을 끊긴 곳에서 다시 연다(_recoverDrop).
+    // 스트림 중단이라 debug 이고, 오류 글은 재생에 적어 다시 열기, 복구 실패 줄이 원인으로 싣는다
     this.audioPlayer.on(
       "error",
       own((error: Error) => {
-        log.error(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        log.debug(`재생 스트림 오류: ${this._trackLabel()} | ${messageOf(error)}`);
+        if (!this._endReason && this.playback) this.playback.streamError = messageOf(error);
         this._endReason ??= "stream-error";
       }),
     );
@@ -1262,11 +1264,11 @@ class Player {
     if (!dropped && reason === "idle" && facts.lengthMs && Math.abs(playedMs - facts.lengthMs) > LENGTH_MISMATCH_LOG_MS) {
       log.info(`곡이 길이와 다른 위치에서 끝남: ${label} | 재생 ${sec(playedMs)}초 / 길이 ${lengthText}`);
     }
-    return { playedMs, label, dropped, live: dropped && facts.live, why };
+    return { playedMs, label, dropped, live: dropped && facts.live, why, cause: reason === "stream-error" ? (this.playback?.streamError ?? null) : null };
   }
 
   // 사고로 끊겼으면 다시 튼다. 다시 틀었거나 연달아 실패해 멈췄으면 true, 다음 곡으로 넘길 것이면 false
-  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why }: EndShape) {
+  async _recoverDrop(finishedTrack: QueuedTrack | null, { playedMs, label, dropped, live, why, cause }: EndShape) {
     if (!dropped) {
       this.retry = FRESH;
       return false;
@@ -1280,15 +1282,16 @@ class Player {
     this.retry = step.state;
     const tries = `${step.state.used}/${live ? MAX_LIVE_REOPENS : MAX_TRACK_RETRIES}`;
     const at = `${sec(playedMs)}초`;
+    const causeText = cause ? ` | 원인=${cause}` : "";
     if (step.reopen && live) {
-      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})`);
+      log.warn({ tags: ["retry"] }, `라이브 연결이 끊겨 다시 열기: ${label} | ${why} (${tries})${causeText}`);
       // 주소에는 수명이 있고, 만료된 주소로는 몇 번을 재연결해도 실패한다.
       // 위치 0으로 트는 것이 곧 "yt-dlp로 주소를 새로 받는다"이고, 라이브는 애초에 엣지로만 붙는다.
       await new Promise((done) => setTimeout(done, LIVE_REOPEN_DELAY_MS * step.state.used));
       return this._reopenLive(label);
     }
     if (step.reopen) {
-      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})`);
+      log.warn({ tags: ["retry"] }, `재생이 끊겨 ${at} 지점부터 다시 재생: ${label} | ${why} (${tries})${causeText}`);
       const started = Date.now();
       const reopened = await this.play(playedMs, { continued: true });
       if (reopened.ok) log.info({ tags: ["retry"] }, `다시 열기 완료: ${label} | ${sec(Date.now() - started)}초 걸림`);
@@ -1296,12 +1299,12 @@ class Player {
     }
     // 들리던 곡이다(곡 탓으로 볼 근거가 없다). 끊긴 위치에서 일시정지해 둔다. 라이브는 끊긴 위치가 의미 없어 세고 넘긴다
     if (!live) {
-      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}`);
+      log.error(`재생 복구 실패(그 곡에서 일시정지해 둠): ${label} | ${at} 지점, ${step.why}${causeText}`);
       this.park(playedMs, { kind: "dropped" });
       return true;
     }
     const stopping = this._countFailure();
-    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}`);
+    log.error(`라이브 다시 열기 실패(${stopping ? "일시정지해 둠" : "다음 곡으로 넘김"}): ${label} | ${step.why}${causeText}`);
     if (!stopping) return false;
     this.park(0, { kind: "failures", count: this._takeFailures() });
     return true;
