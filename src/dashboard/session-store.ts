@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { Store, type SessionData } from "express-session";
 import type Database from "better-sqlite3";
 import type { Statement } from "better-sqlite3";
@@ -18,6 +20,8 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 // 그 세션으로 걸려 있던 요청이 끝나면 삭제한 행을 다시 넣는다(set이 upsert). 그래서 끝낸 로그인 세션을 그 절대 기한까지 기억하고(묘비)
 // 그 sid는 쓰지 않으며, 만료한 행은 정리 전이어도 늘리지 않는다. 로그인한 세션은 로그인 시각에서 SESSION_MAX_MS를 넘지 못한다(절대 수명).
 // 세션이 끝나면 듣는 쪽(onEnded)에 알린다(열린 스트림을 끊는다).
+// 세션을 끊는 삭제(로그아웃, 다른 기기 로그아웃, 다시 로그인, 다시 삭제)는 디스크까지 쓴다(synchronous=FULL). 커밋한 삭제가 정전으로 사라져 끊은 세션이 되살아나지 않게 한다.
+// 한 DB 파일에는 저장소를 하나만 둔다(묘비와 삭제할 것을 저장소마다 따로 관리하므로, 둘이면 한쪽이 끊은 세션을 다른 쪽이 저장할 때 다시 넣는다).
 // 삭제에 실패해도(디스크가 가득 참 등) 차단하는 쪽(fail-closed)으로 처리한다: 묘비를 남겨 이 실행에서는 그 세션을 받지 않고, 삭제하지 못한 행은 다시 삭제한다.
 // 묘비는 메모리뿐이라 삭제하지 못한 채 다시 시작하면 그 로그인이 되살아난다. 그래서 실패는 부른 쪽에 넘기고(화면이 알린다) 끝(finish)에 남은 수를 남긴다
 
@@ -62,6 +66,8 @@ class SqliteSessionStore extends Store {
   _pruneFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "만료된 로그인 세션 정리");
   _retryFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그아웃된 세션 행 삭제 재시도");
   _warnedBroken = new Set<string>();
+  // 열린 DB 파일의 실제 경로. 메모리 DB면 null
+  _file: string | null = null;
   /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
   declare generate: (req: Request) => void;
 
@@ -73,6 +79,11 @@ class SqliteSessionStore extends Store {
       this._own.open(dbPath);
     }
     this.db = (this._own ?? sessionDb).get();
+    this._file = this.db.memory ? null : realFile(this.db.name);
+    if (this._file && [...live].some((other) => other._file === this._file)) {
+      this._own?.close();
+      throw new Error(`로그인 세션 DB를 열고 있는 저장소가 이미 있음(${this._file})`);
+    }
 
     this._getStmt = this.db.prepare("SELECT data, expires_at FROM sessions WHERE sid = ?");
     // 만료한 행(정리 전)은 늘리지 않는다: 있는 행이 만료했으면 바꾸지 않는다(changes 0)
@@ -147,10 +158,21 @@ class SqliteSessionStore extends Store {
     if (row) this._bury(sid, row.data);
   }
 
+  // 쿼리를 실행하는 동안만 synchronous를 FULL로 둔다(WAL에서 커밋마다 -wal을 fsync). 트랜잭션 안에서는 바꿀 수 없어 밖에서만 호출한다
+  _durably<T>(fn: () => T): T {
+    const before = this.db.pragma("synchronous", { simple: true }) as number;
+    this.db.pragma("synchronous = FULL");
+    try {
+      return fn();
+    } finally {
+      this.db.pragma(`synchronous = ${before}`);
+    }
+  }
+
   // 끝낸다. 삭제가 실패해도 묘비를 남기고(지금부터 절대 수명만큼) 삭제하지 못한 것으로 둔다. 알림은 부르는 쪽이 콜백 뒤에
   _endOrBury(sid: string, userId: string | null) {
     try {
-      this._end(sid);
+      this._durably(() => this._end(sid));
       this._unsaved.delete(sid);
     } catch (error) {
       this._bury(sid, null);
@@ -171,7 +193,7 @@ class SqliteSessionStore extends Store {
   retryUnsaved() {
     for (const sid of [...this._unsaved.keys()]) {
       try {
-        this._deleteStmt.get(sid);
+        this._durably(() => this._deleteStmt.get(sid));
         this._unsaved.delete(sid);
       } catch (error) {
         this._retryFailure.fail(`${codeOf(error) ?? messageOf(error)} (삭제 전 다시 시작 시 세션 유지됨)`);
@@ -405,6 +427,15 @@ class SqliteSessionStore extends Store {
 
 // 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
+
+// 같은 파일을 다른 표기(대소문자, ..)로 열어도 같은 파일로 인식하도록 실제 경로를 구한다. 구하지 못하면 절대 경로를 반환한다
+function realFile(file: string) {
+  try {
+    return fs.realpathSync.native(file);
+  } catch {
+    return path.resolve(file);
+  }
+}
 
 /** 열린 저장소들(종료 순서의 finishSessions) */
 const live = new Set<SqliteSessionStore>();

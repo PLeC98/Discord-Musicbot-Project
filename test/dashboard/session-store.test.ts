@@ -324,3 +324,64 @@ test("다시 로그인(regenerate)할 때 이전 세션 삭제가 실패하면 �
   assert.deepEqual(store.unsavedOf("u7"), ["old"]);
   assert.equal(await getAsync(store, "old"), null);
 });
+
+// ── 한 DB 파일에 저장소 하나, 세션을 끊는 삭제는 디스크까지 쓰기 ──
+
+test("한 DB 파일에는 저장소 하나: 같은 파일을 열고 있는 저장소가 있으면 다른 표기로 열어도 예외를 던지고, 기존 저장소를 닫으면 다시 열 수 있다", () => {
+  const dbPath = path.join(tmpDir, "one.db");
+  const first = makeStore("one.db");
+  first.set("sid1", makeSession({ id: "u1" }));
+  for (const other of [dbPath, path.join(tmpDir, "x", "..", "one.db"), ...(process.platform === "win32" ? [path.join(tmpDir, "ONE.DB")] : [])]) {
+    assert.throws(() => new SqliteSessionStore({ dbPath: other }), /열고 있는 저장소가 이미 있음/, other);
+  }
+  first.close();
+  const second = makeStore("one.db");
+  assert.ok(rowOf(second, "sid1"), "기존 저장소를 닫으면 같은 파일을 다시 열 수 있다");
+});
+
+// 쿼리가 실행되는 시점의 synchronous 값을 기록한다(2는 FULL, 1은 NORMAL). 원래대로 되돌리는 함수를 반환한다
+function watchSync<K extends "_deleteStmt" | "_pruneStmt" | "_setStmt">(store: SqliteSessionStore, key: K, seen: string[], label: string) {
+  const real = store[key];
+  store[key] = new Proxy(real, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        seen.push(`${label} ${store.db.pragma("synchronous", { simple: true }) as number}`);
+        return (value as (...a: unknown[]) => unknown).apply(target, args);
+      };
+    },
+  });
+  return () => (store[key] = real);
+}
+
+test("세션을 끊는 삭제(로그아웃, 다른 기기 로그아웃, 다시 로그인, 다시 삭제)만 FULL로 디스크까지 쓰고 끝나면 NORMAL로 돌아간다. 저장, 정리, 만료 삭제는 NORMAL 그대로 둔다", async (t) => {
+  const store = makeStore("durable.db");
+  const sync = () => store.db.pragma("synchronous", { simple: true }) as number;
+  assert.equal(sync(), 1);
+  for (const sid of ["로그아웃", "다른 기기", "다시 로그인", "다시 삭제"]) store.set(sid, makeSession({ id: "u1" }));
+  store.generate = () => {};
+  const seen: string[] = [];
+
+  // 다시 삭제할 것을 하나 만든다
+  const restore = breakDelete(store);
+  assert.equal(store.end("다시 삭제", "u1"), false);
+  restore();
+
+  const undo = [watchSync(store, "_deleteStmt", seen, "삭제"), watchSync(store, "_setStmt", seen, "저장"), watchSync(store, "_pruneStmt", seen, "정리")];
+  store.destroy("로그아웃");
+  assert.equal(store.end("다른 기기", "u1"), true);
+  store.regenerate(fake<Request>({ sessionID: "다시 로그인", session: fake<Request["session"]>({ user: { id: "u1", username: "u1", globalName: "u1", avatar: null } }) }), () => {});
+  assert.equal(store.retryUnsaved(), 0);
+  assert.equal(sync(), 1, "세션을 끊는 삭제가 끝나면 NORMAL");
+
+  store.set("저장", makeSession({ id: "u2" }, 1_000));
+  store.db.prepare("INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)").run("절대 기한 넘음", JSON.stringify(makeSession({ id: "u2" }, 7 * DAY, Date.now() - 40 * DAY)), Date.now() + 7 * DAY);
+  assert.equal(await getAsync(store, "절대 기한 넘음"), null);
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5_000 });
+  assert.equal(store.prune(), 1);
+  for (const fn of undo) fn();
+
+  assert.deepEqual(seen, ["삭제 2", "삭제 2", "삭제 2", "삭제 2", "저장 1", "삭제 1", "정리 1"]);
+  assert.equal(sync(), 1);
+});
