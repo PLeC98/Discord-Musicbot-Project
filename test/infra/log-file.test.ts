@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp } from "../../src/infra/log/file.ts";
+import { createFileDestination, backupPath, nextBackupPath, stripAnsi, stamp, LINE_MAX } from "../../src/infra/log/file.ts";
 const dirs: string[] = [];
 after(() => {
   for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
@@ -136,6 +136,29 @@ test("직렬화 불가(순환 참조)여도 던지지 않고 메시지는 남긴
   dest.close();
 
   assert.equal(lines(file)[0].msg, "순환 포함");
+});
+
+test("한 줄이 상한(LINE_MAX)을 넘으면 시각, 레벨, 카테고리, 글만 남기고 뺀 필드를 글 뒤에 적는다. 상한까지는 그대로", () => {
+  const file = path.join(tmpdir(), "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 0, keep: 0 });
+  // 상한에 1바이트 모자란 줄(줄바꿈 포함)
+  const base = JSON.stringify(rec("", { category: "youtube", body: "" })).length + 1;
+  dest.write(rec("", { category: "youtube", body: "a".repeat(LINE_MAX - base) }));
+  dest.write(rec("", { category: "youtube", body: "a".repeat(LINE_MAX - base + 1) }));
+  dest.write(rec("\x1b[31m긴 응답\x1b[0m", { category: "youtube", sub: "search", tags: ["retry"], list: ["가".repeat(200_000), "나".repeat(200_000)] }));
+  dest.close();
+
+  const raw = fs.readFileSync(file, "utf8").split("\n").filter(Boolean);
+  assert.deepEqual(
+    raw.map((line) => Buffer.byteLength(line) + 1 <= LINE_MAX),
+    [true, true, true],
+  );
+  const [exact, over, list] = raw.map((line) => JSON.parse(line));
+  assert.equal(Buffer.byteLength(raw[0]) + 1, LINE_MAX);
+  assert.equal(exact.body.length, LINE_MAX - base, "상한까지는 그대로");
+  assert.deepEqual(over, { time: 1757400000000, level: 30, category: "youtube", msg: ` | 기록 줄이 상한을 넘어(${LINE_MAX + 1}바이트) 뺀 필드: body` });
+  const listBytes = Buffer.byteLength(JSON.stringify(rec("긴 응답", { category: "youtube", sub: "search", tags: ["retry"], list: ["가".repeat(200_000), "나".repeat(200_000)] }))) + 1;
+  assert.deepEqual(list, { time: 1757400000000, level: 30, category: "youtube", sub: "search", msg: `긴 응답 | 기록 줄이 상한을 넘어(${listBytes}바이트) 뺀 필드: tags, list` });
 });
 
 test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
