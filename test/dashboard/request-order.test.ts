@@ -58,12 +58,14 @@ const SIGNED_IN = { id: "u1", username: "u1" };
 
 test("익명 사용자의 상태 변경 요청은 본문을 파싱하기 전에 요청 수를 세어 한도를 넘으면 429를 반환한다(CSRF 403이 먼저가 아니다)", () =>
   withLimits({ apiMax: 2 }, async () => {
-    const server = await listenForFetch(appOf(), "127.0.0.1");
+    // 100-continue 를 앱으로 넘기는 운영 서버(dashboard/binding)로 띄운다
+    const server = createServer(appOf()).listen(0, "127.0.0.1");
     servers.push(server);
+    if (!server.listening) await once(server, "listening");
     const port = (server.address() as AddressInfo).port;
-    // 원시 소켓으로: 서버는 본문을 다 받지 않고 답하고 닫으므로, 올리는 도중에 끊긴 것을 실패로 보는 fetch 대신 받은 응답 줄을 본다
-    const big = JSON.stringify({ x: "y".repeat(500_000) });
-    const put = async () => (await raw(port, `PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: ${big.length}\r\n\r\n`, big)).got.slice(0, 12);
+    // 원시 소켓으로, 큰 본문을 100-continue 로 알리고 보내지 않는다. 서버는 검사를 통과한 요청에만 100 을 보내므로 거절은 본문 없이 온다.
+    // 본문을 보내는 중에 서버가 답하고 닫으면 받지 않은 본문 때문에 연결이 리셋돼, 받아 둔 응답까지 버려질 수 있다(Windows)
+    const put = async () => (await raw(port, "PUT /api/admin/ai/settings HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 500000\r\nExpect: 100-continue\r\n\r\n")).got.slice(0, 12);
     assert.deepEqual([await put(), await put()], ["HTTP/1.1 403", "HTTP/1.1 403"]);
     assert.equal(await put(), "HTTP/1.1 429");
   }));
