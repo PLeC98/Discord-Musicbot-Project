@@ -64,28 +64,18 @@ function* chunksForward(fd: number, from: number, end: number, bytes: number): G
     const pieces = [first];
     let length = first.length;
     let cut = first.lastIndexOf(NL) + 1;
-    // pos 에서 시작하는 줄의 줄바꿈 위치(pos 기준). 첫 조각에 줄바꿈이 있으면 그 줄은 조각보다 짧아 따지지 않는다
-    let newline = cut ? 0 : -1;
-    // 한 줄이 청크보다 길면 줄바꿈이 나오거나 끝날 때까지 더 읽는다(버퍼를 모았다가 한 번에 합친다. 읽을 때마다 붙이면 줄 길이의 제곱만큼 복사한다)
+    // 한 줄이 청크보다 길면 줄바꿈이 나오거나 끝날 때까지 더 읽는다(버퍼를 모았다가 한 번에 합친다. 읽을 때마다 붙이면 줄 길이의 제곱만큼 복사한다).
+    // LINE_MAX 바이트까지만 모으니 그 안에서 찾은 줄바꿈의 줄은 상한보다 짧다
     while (!cut && pos + length < end && length < LINE_MAX) {
-      const more = readAt(fd, pos + length, Math.min(bytes, end - pos - length));
+      const more = readAt(fd, pos + length, Math.min(bytes, end - pos - length, LINE_MAX - length));
       if (!more.length) break;
       const i = more.lastIndexOf(NL);
-      if (i >= 0) {
-        cut = length + i + 1;
-        newline = length + more.indexOf(NL);
-      }
+      if (i >= 0) cut = length + i + 1;
       pieces.push(more);
       length += more.length;
     }
-    if (newline >= LINE_MAX) {
-      // 긴 줄 뒤에 함께 읽힌 줄들은 다음 청크로 다시 읽는다(건너뛴 줄 양쪽을 한 청크로 잇지 않는다)
-      pos += newline + 1;
-      yield { at: pos, buf: EMPTY };
-      continue;
-    }
-    if (newline < 0 && length >= LINE_MAX) {
-      // 끝까지 줄바꿈이 없거나, 상한까지 읽어도 줄바꿈이 없다: 모으지 않고 줄바꿈까지 읽기만 한다
+    if (!cut && length >= LINE_MAX) {
+      // 상한까지 읽어도 줄바꿈이 없다(파일 끝의 덜 된 줄도): 모으지 않고 줄바꿈까지 읽기만 한다
       pos = yield* passForward(fd, pos + length, end, bytes);
       continue;
     }

@@ -174,3 +174,24 @@ test("목록 훑기 캐시: 긴 줄이 가운데, 끝에 있어도 다시 훑을
   fs.appendFileSync(file, `${line(7, "e")}\n`);
   assert.equal(await count(), 5);
 });
+
+test("첫 줄이 긴 줄이면 파일은 그 뒤 첫 줄의 시각으로 알아보고, 읽을 줄이 하나도 없는 파일도 앞뒤 어느 쪽으로든 끝난다", async () => {
+  const first = tmpFile();
+  fs.writeFileSync(first, `${line(0, "huge", LINE_MAX + 3)}\n${line(1, "a")}\n${line(2, "b")}\n`);
+  const [listed] = await listLogFiles(first);
+  assert.deepEqual([listed!.lines, listed!.firstAt], [2, T0 + 1000]);
+  const page = await readLogPage(target(first), { limit: 5, filter: {} });
+  assert.deepEqual([page!.since, page!.lines.map((one) => one.text)], [T0 + 1000, ["a", "b"]]);
+
+  const none = tmpFile();
+  fs.writeFileSync(none, `${line(0, "huge", LINE_MAX + 3)}\n${line(1, "huge", 2 * LINE_MAX)}\n${line(2, "huge", LINE_MAX)}`);
+  const [empty] = await listLogFiles(none);
+  assert.deepEqual([empty!.lines, empty!.firstAt], [0, 0]);
+  for (const query of [{}, { after: -1 }, { at: T0 + 1000 }, { filter: { q: "huge" } }]) {
+    const got = await readLogPage(target(none), { limit: 5, filter: {}, ...query });
+    assert.deepEqual([got!.lines.length, got!.more], [0, false], JSON.stringify(query));
+  }
+  const downloaded: FileLine[] = [];
+  for await (const batch of filteredLines(target(none), {})) downloaded.push(...batch);
+  assert.equal(downloaded.length, 0);
+});
