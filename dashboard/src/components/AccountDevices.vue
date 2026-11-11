@@ -17,12 +17,12 @@
       <a v-if="geoip" href="https://db-ip.com" target="_blank" rel="noopener noreferrer" class="whitespace-nowrap text-xs text-on-surface-variant hover:underline">{{ T.attribution }}</a>
       <BaseButton variant="danger" size="sm" class="ml-auto" :disabled="busy" @click="askOthers">{{ T.signOutOthers }}</BaseButton>
     </div>
-    <ConfirmDialog v-model="asking" icon="logout" :title="T.confirmTitle" :body="T.confirmBody(others)" :confirm-label="T.signOutOthers" :busy="busy" @confirm="signOutOthers" />
+    <ConfirmDialog v-model="asking" icon="logout" :title="T.confirmTitle" :body="T.confirmBody" :confirm-label="T.signOutOthers" :busy="busy" @confirm="signOutOthers" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
@@ -43,7 +43,6 @@ const geoip = ref(false);
 const loadError = ref("");
 const busy = ref(false);
 const asking = ref(false);
-const others = computed(() => devices.value.filter((d) => !d.current).length);
 
 // 마지막 활동: 5분 안이면 지금(서버가 5분마다 적는다), 그 밖은 "3시간 전"
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
