@@ -15,7 +15,7 @@ const log = logger.child({ category: "dashboard" });
 
 /** 멤버 조회의 답: 멤버가 아니다 */
 const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONErrorCodes.UnknownUser]);
-// 서버마다 따로 센다(한 서버만 계속 실패하면 다른 서버의 성공이 복구로 잘못 찍힌다). 풀리면 지운다
+// 서버마다 따로 센다(한 서버만 계속 실패하면 다른 서버의 성공이 복구로 잘못 찍힌다). 해소되면 삭제한다
 const memberFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 const memberFailureOf = (guildId: string) => {
   let one = memberFailures.get(guildId);

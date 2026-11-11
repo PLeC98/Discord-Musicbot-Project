@@ -22,7 +22,8 @@ type Stored = { version: string | null; durationSec: number | null };
  * same: 같은 원본(version 은 적어 둔 버전과 같은 값).
  * changed: 바뀜(version 은 원본의 지금 버전). durationChanged: 유튜브에서 오디오 길이가 캐시와 다른가(모르면 null).
  * uncompared: 원본은 답했지만 비교할 버전이 없다(적어 둔 버전이 없는 캐시, 버전을 주지 않는 서버. 다시 물어도 같다, 까닭).
- * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(일시 오류 등, 까닭)
+ * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(일시 오류 등, 까닭).
+ * unknown의 code: 반복 실패의 원인으로 쓰는 값(HTTP 상태나 오류 종류). reason은 원문이다
  */
 type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string; code?: string };
 

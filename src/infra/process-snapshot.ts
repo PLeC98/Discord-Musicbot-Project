@@ -50,6 +50,7 @@ function readText(file: string, action: string, perPid = false) {
     return fs.readFileSync(file, "utf8");
   } catch (error) {
     const code = codeOf(error);
+    // 각 pid의 stat은 그사이 프로세스가 끝났거나(ENOENT, ESRCH) 숨겨진(EACCES, EPERM) 경우가 정상이라 조용히 넘긴다
     if (!(perPid && PROC_GONE_OR_HIDDEN.has(code))) log.warn(`프로세스 스냅샷 /proc 읽기 실패(${action}): ${file} | ${messageOf(error)} (${String(code)})`);
     return null;
   }

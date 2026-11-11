@@ -44,6 +44,7 @@ async function fromFile(file: string): Promise<Tags | null> {
   } catch (error) {
     if (codeOf(error) === "ENOENT") return null;
     const line = `파일 태그 읽기 실패: ${file} | ${messageOf(error)}`;
+    // 파일 시스템 오류(syscall이 있다)는 봇 쪽 문제라 warn, 형식을 읽지 못한 것은 그 파일 탓이라 debug
     if (typeof (error as { syscall?: unknown } | null)?.syscall === "string") log.warn(line);
     else log.debug(line);
     return null;

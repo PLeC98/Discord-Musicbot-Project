@@ -161,6 +161,7 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
+    // 본문을 읽지 못하면 오류 유형 없이 남기고 추산으로 넘어간다
     const type = readBody(await res.text().catch(() => ""))?.type;
     anthropicFailure.fail(`HTTP ${res.status}${typeof type === "string" && type ? ` (${type})` : ""} | 모델=${model} | tik 추산으로 대체`);
     return null;

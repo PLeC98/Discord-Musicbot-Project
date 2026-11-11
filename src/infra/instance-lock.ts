@@ -44,7 +44,7 @@ function holderOf(name: string): Promise<number | null> {
     const socket = net.connect(name);
     socket.setTimeout(2000, () => socket.destroy());
     socket.on("data", (chunk) => (text += String(chunk)));
-    // 연결하지 못하면 잡은 프로세스가 없다는 뜻이다. 남은 소켓 파일은 위에서 삭제하고 다시 잡는다
+    // 연결하지 못하면 잡은 프로세스가 없다는 뜻이다. 남은 소켓 파일은 acquireInstanceLock이 삭제하고 다시 잡는다
     socket.on("error", () => resolve(null));
     socket.on("close", () => resolve(/^\d+$/.test(text) ? Number(text) : null));
   });

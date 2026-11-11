@@ -191,7 +191,7 @@ const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track
 // 세그먼트로 다운로드하는 포맷(유튜브 post_live 의 DASH 세그먼트, 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 세그먼트가 아닌 포맷에는 걸리지 않는다.
 // 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
-// 캐시를 찾을 때마다 부르므로 폴더 권한 같은 장애는 처음과 복구만 warn, 파일마다의 줄은 debug
+// 캐시를 찾을 때마다 불리므로 폴더 권한 같은 장애는 처음과 복구만 warn, 파일별 줄은 debug
 const cacheFileChecks = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 확인");
 
 class TrackDownloader {

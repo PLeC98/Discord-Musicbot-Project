@@ -8,7 +8,7 @@ import type { RangeFetch } from "./chunked-stream.ts";
 
 type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: number; startMs: number; durationMs: number; chunkBytes: number };
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
-/** near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다) */
+/** near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다) */
 type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
 

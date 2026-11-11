@@ -63,7 +63,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
       if (introEnd > 0) startMs = introEnd;
     } catch (error) {
       if (codeOf(error) === "DB_NOT_OPEN") throw error;
-      // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
+      // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생. 검색 실패는 검색 모듈이 이미 warn으로 남겼다
       const line = `재생 전 유튜브 매칭 및 SponsorBlock 인트로 조회 실패(0초부터 재생): ${player._trackLabel(track)} (${track?.requestKey ?? "?"}) | 분류=${errorKind(error)} | ${describeError(error)}`;
       if (searching) log.debug(line);
       else log.warn(line);
@@ -220,7 +220,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   if (shown) Object.assign(track, shown);
   // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
   const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
-  // 멈춘 채 여는 곡은 그 까닭을 이 줄에 붙인다(곡 하나의 info 는 시작, 끝 두 줄). 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
+  // 일시정지한 채 여는 곡은 그 이유를 이 줄에 붙인다(곡 하나의 info는 시작, 끝 두 줄). 일시정지하는 건 Playing 리스너다. 지금은 아직 버퍼링 상태라 pause()가 먹지 않는다
   const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
   log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
 

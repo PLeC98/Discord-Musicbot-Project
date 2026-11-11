@@ -129,6 +129,7 @@ async function readFromBody(audioKey: string, url: string, body: Readable): Prom
 
 const LINK_FAILURE_NAMES = new Set(["SsrfError", "TimeoutError", "AbortError"]);
 
+/** 사용자 링크 쪽의 실패이거나 봇이 일부러 끊은 것인지 판별한다(참이면 debug로 둔다). 리스너 예외나 DB 오류 같은 봇 쪽 실패는 거짓이다 */
 function linkOrCancelled(error: unknown): boolean {
   if (refusedByResponse(error) || errorKind(error) === "network-error" || codeOf(error) === "ERR_STREAM_PREMATURE_CLOSE") return true;
   if (!error || typeof error !== "object") return false;

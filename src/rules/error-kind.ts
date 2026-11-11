@@ -9,8 +9,8 @@ import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
 // 연결이 끊기거나 닿지 않은 것(Node, undici 가 붙이는 이름)
 const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
-// 받을 포맷을 끝내 얻지 못한 소스 쪽 이름(유튜브 클라이언트를 다 써 봄, 사운드클라우드 포맷 없음). 사용자에게는 오디오를 받지 못한 같은 일이다.
-// 문제 목록에는 없어 사슬의 다른 이름이 먼저 이기고, 아무것도 없을 때만 stream-failed 다
+// 받을 포맷을 끝내 얻지 못한 소스 쪽 이름(유튜브 클라이언트를 다 써 봄, 사운드클라우드 포맷 없음). 사용자에게는 오디오를 받지 못한 것과 같다.
+// 문제 목록에는 없어 사슬의 다른 이름이 우선하고, 아무것도 없을 때만 stream-failed다
 const STREAM_FAILED = new Set(["no-audio-only", "client-fault", "stale-media", "skipped-client", "no-formats"]);
 // 디스코드 API 오류 번호. 50001 접근 없음, 50013 권한 없음
 const PERMISSION_CODES = new Set([50001, 50013]);

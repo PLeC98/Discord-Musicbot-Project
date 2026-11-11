@@ -1,8 +1,8 @@
-// 실패해도 흐름을 멈추지 않는 작업. 실패는 부른 쪽 로거에 한 줄로 남긴다.
-// 수준은 부른 쪽이 정한다. 기본 debug 는 네 물음(사용자로 인해, 봇에 영향 없음, 그 사용자만, 일시적)이 다 "예"인 실패에만 쓴다.
-// 삼켜도 되는 까닭이 분명해 남길 것도 없으면 빈 catch 에 그 까닭을 주석으로 적는다.
+// 실패해도 흐름을 멈추지 않는 작업. 실패는 호출한 쪽 로거에 한 줄로 남긴다.
+// 로그 레벨은 호출한 쪽이 정한다. 기본 debug는 네 가지 질문(사용자로 인함, 봇에 영향 없음, 그 사용자만, 일시적)이 다 "예"인 실패에만 쓴다.
+// 삼켜도 되는 이유가 분명해 남길 것도 없으면 빈 catch에 그 이유를 주석으로 적는다.
 
-import { messageOf } from "./error-text.ts";
+import { codeOf, messageOf } from "./error-text.ts";
 
 type Level = "debug" | "warn" | "error";
 
@@ -13,7 +13,10 @@ function bestEffort(log: Partial<Record<Level, (line: string) => unknown>>, work
   return Promise.resolve(work).then(
     () => undefined,
     (error: unknown) => {
-      log[level]?.(`${what} 실패: ${messageOf(error)}`);
+      const text = messageOf(error);
+      const code = codeOf(error);
+      // 오류 코드가 있으면 붙인다(디스코드 오류 번호 등. rules/error-kind 의 describeError 와 같은 모양)
+      log[level]?.(`${what} 실패: ${code === undefined || text === `오류 코드 ${code}` ? text : `${text} (${code})`}`);
     },
   );
 }

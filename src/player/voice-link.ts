@@ -67,7 +67,7 @@ class VoiceLink {
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
   recoveryAttempts = 0;
-  // 이번 복구의 마지막 시도가 실패한 까닭. 포기 줄이 싣는다(회차마다의 실패는 debug)
+  // 이번 복구의 마지막 시도가 실패한 원인. 포기 줄이 싣는다(회차별 실패는 debug)
   lastRecoveryError: string | null = null;
   /** 사람이 서버 헤드셋 끄기를 풀었다. 다투지 않게 이 연결(복구, 옮겨짐 포함) 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다 */
   undeafened = false;
@@ -581,6 +581,7 @@ class VoiceLink {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
       if (codeOf(error) === UNKNOWN_CHANNEL) return false;
+      // 접근 권한 없음(50001)은 채널이 봇에게 숨겨진 것이라 있는 것으로 본다
       if (codeOf(error) === RESTJSONErrorCodes.MissingAccess) log.debug(`디스코드에서 채널 조회 실패(채널이 있는 것으로 간주): ${describeError(error)}`);
       else log.warn(`음성 채널에서 나간 뒤 채널 REST 조회 실패(강제 퇴장으로 간주): ${this._label()} | ${describeError(error)}`);
       return true;

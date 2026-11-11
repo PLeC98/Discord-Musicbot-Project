@@ -30,3 +30,9 @@ test("수준을 주면 그 수준으로 남긴다", async () => {
   await bestEffort(log, Promise.reject(new Error("버그")), "기동", "error");
   assert.deepEqual(lines, ["warn 알림 전송 실패: 끊김", "error 기동 실패: 버그"]);
 });
+
+test("오류 코드가 있으면 메시지 뒤에 붙인다", async () => {
+  const lines: string[] = [];
+  await bestEffort({ warn: (line: string) => lines.push(line) }, Promise.reject(Object.assign(new Error("Missing Permissions"), { code: 50013 })), "알림 전송", "warn");
+  assert.deepEqual(lines, ["알림 전송 실패: Missing Permissions (50013)"]);
+});

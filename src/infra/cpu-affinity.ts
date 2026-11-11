@@ -25,7 +25,7 @@ function bindCommand(file: string, args: string[]): { file: string; args: string
   return { file: TASKSET, args: ["-c", `${first}-${total - 1}`, file, ...args] };
 }
 
-// 아직 살아 있는 프로세스인가(신호 0 은 보내지 않고 있는지만 본다. 권한이 없어 거절되면 살아 있다)
+// 프로세스가 아직 살아 있는지 확인한다(신호 0은 실제 신호를 보내지 않고 프로세스가 있는지만 본다. 권한이 없어 거절되면 살아 있다)
 function alive(pid: number) {
   try {
     process.kill(pid, 0);
@@ -41,7 +41,7 @@ function bindProcess(pid: number | undefined) {
   const { first, count } = encodeCores();
   const mask = ((2n ** BigInt(count) - 1n) << BigInt(first)).toString();
   execFile("powershell", ["-NoProfile", "-NonInteractive", "-Command", `(Get-Process -Id ${pid}).ProcessorAffinity = [IntPtr]${mask}`], { encoding: "buffer", windowsHide: true, timeout: 15_000 }, (error, _stdout, stderr) => {
-    // 묶지 못해도 인코딩은 그대로 돈다(코어를 다 쓸 뿐). PowerShell 이 붙기 전에 끝난 짧은 작업은 묶을 것이 없어 debug
+    // 묶지 못해도 인코딩은 그대로 돈다(코어를 다 쓸 뿐). PowerShell이 붙기 전에 끝난 짧은 작업은 묶을 것이 없어 debug
     if (error) log[alive(pid) ? "warn" : "debug"](`CPU 코어 고정(affinity) 실패(pid ${pid}): ${consoleText(stderr).trim() || error.message}`);
   });
 }

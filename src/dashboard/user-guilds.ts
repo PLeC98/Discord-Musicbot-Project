@@ -30,7 +30,7 @@ const failureOf = (error: unknown) => {
   const status = statusOf(error);
   return status ? `HTTP ${status}` : String(codeOf(error) ?? messageOf(error));
 };
-// 로그인 세션(key)마다 따로 센다(한 사용자만 계속 실패하면 다른 사용자의 성공이 복구로 잘못 찍힌다). 풀리면 지운다
+// 로그인 세션(key)마다 따로 센다(한 사용자만 계속 실패하면 다른 사용자의 성공이 복구로 잘못 찍힌다). 해소되면 삭제한다
 const failures = new Map<string, { refresh: ReturnType<typeof repeatingFailure>; list: ReturnType<typeof repeatingFailure> }>();
 const failuresOf = (key: string) => {
   let one = failures.get(key);

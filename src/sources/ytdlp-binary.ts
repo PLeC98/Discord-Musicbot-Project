@@ -51,7 +51,7 @@ type State = { version: string | null; previous: string | null; lastChecked: num
 type Ran = { kind: "exited"; status: number; stdout: string; stderr: string } | { kind: "spawn-failed"; code: string } | { kind: "timeout" } | { kind: "signal"; signal: string };
 /** 잠금을 놓는 함수 */
 type Unlock = () => Promise<void>;
-/** 버전 폴더를 옮기지 못했다. failed 는 실패 줄에 실을 까닭 */
+/** 버전 폴더를 옮기지 못했다. failed는 실패 줄에 실을 원인 */
 type RenameFailed = { failed: string };
 /** 바깥 경계. 테스트는 가짜를 넘긴다 */
 type Io = {
