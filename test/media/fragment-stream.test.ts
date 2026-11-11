@@ -176,9 +176,11 @@ test("스트림 세그먼트: 버퍼와 Readable이 섞여도 순서대로, 빈 
   assert.equal(s.describe(), "내보냄 5");
 });
 
+// 멈췄는지는 pause 를 부른 횟수와 쌓인 양으로 본다. 쓰는 순간의 isPaused() 는 Node 판마다 다시 흘리는 때가 달라(26 은 더 빨리 푼다) 보는 시점에 따라 갈린다
 test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 내보낸 뒤 다음으로 넘어간다", async () => {
   let produced = 0;
-  let paused = false;
+  let pauses = 0;
+  let buffered = 0;
   const big = new Readable({
     read() {
       if (produced >= 1_000_000) return void this.push(null);
@@ -186,19 +188,25 @@ test("스트림 세그먼트: 받는 쪽이 느리면 출처를 멈추고 다 �
       this.push(Buffer.alloc(65_536, 1));
     },
   });
+  const pause = big.pause.bind(big);
+  big.pause = () => {
+    pauses++;
+    return pause();
+  };
   const s = streamFragments(sourceOf([() => big, () => Buffer.from("끝")]), { retryDelaysMs: [] });
   let got = 0;
   const slow = new Writable({
     highWaterMark: 16_384,
     write(chunk: Buffer, _encoding, done) {
       got += chunk.length;
-      if (big.isPaused()) paused = true;
+      buffered = Math.max(buffered, big.readableLength + s.readableLength);
       setTimeout(done, 1);
     },
   });
   await new Promise<void>((resolve, reject) => s.pipe(slow).on("finish", resolve).on("error", reject));
   assert.equal(got, 1_048_576 + Buffer.byteLength("끝"));
-  assert.ok(paused, "받는 쪽이 밀리면 출처를 멈춘다");
+  assert.ok(pauses > 0, "받는 쪽이 밀리면 출처를 멈춘다");
+  assert.ok(buffered <= 2 * 65_536, `쌓인 양 ${buffered}바이트(출처 하나를 다 읽어 들이지 않는다)`);
 });
 
 test("스트림 세그먼트: 마지막 read가 내보내는 중에 왔어도 끝나면 다음 세그먼트로 간다", async () => {
