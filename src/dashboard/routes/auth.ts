@@ -5,7 +5,7 @@ import crypto from "crypto";
 import config from "../../config/index.ts";
 import type { SessionUser } from "../express-slots.d.ts";
 import { loginFailed, type LoginError } from "../contract/identity.ts";
-import { tokenStoreOf } from "../session-store.ts";
+import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../user-guilds.ts";
@@ -109,11 +109,11 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
     await step((done) => req.session.regenerate(done));
     req.session.user = user;
     req.session.loginAt = Date.now();
-    recordLogin(req, req.session.loginAt);
     await step((done) => req.session.save(done));
     // 토큰은 암호화해 세션 행에 별도로 저장하고(세션 JSON 밖), 세션 행과 함께 삭제한다. 디스코드 토큰의 수명(7일)이 세션보다 먼저 만료되면 서버 목록을 다시 불러올 때 재로그인을 안내한다. 리프레시 토큰은 저장하지 않는다
     const store = tokenStoreOf(req);
     if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장된 세션 행 없음");
+    if (store) recordFirstDevice(req, store, req.session.loginAt);
     return true;
   } catch (error) {
     log.error(`로그인 세션 저장 실패(로그인 실패로 처리): ${messageOf(error)}`);
@@ -121,6 +121,15 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
     (req as { session: unknown }).session = null;
     tokenStoreOf(req)?.destroy(sid, () => undefined);
     return false;
+  }
+}
+
+// 로그인한 기기의 첫 기록. 적지 못해도 로그인은 그대로 유지된다(다음 요청에서 noteDevice가 적는다)
+function recordFirstDevice(req: express.Request, store: SqliteSessionStore, now: number) {
+  try {
+    recordLogin(req, store, now);
+  } catch (error) {
+    log.warn(`로그인 기기 첫 기록 실패(다음 요청에서 다시 기록): ${messageOf(error)}`);
   }
 }
 

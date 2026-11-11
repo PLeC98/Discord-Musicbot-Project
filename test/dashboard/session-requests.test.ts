@@ -31,8 +31,13 @@ before(async () => {
   secrets._useKey(newSecretsKey());
   store = new SqliteSessionStore({ dbPath: path.join(dir, "sessions.db") });
   const app = express();
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, rolling: true, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(noteDevice);
+  // x-change 헤더: 이 요청이 세션 내용을 바꾼다(요청이 끝날 때 express-session이 세션을 저장하려 한다)
+  app.use((req, _res, next) => {
+    if (req.get("x-change") && req.session?.user) req.session.csrfToken = String(req.get("x-change"));
+    next();
+  });
   app.use(sessionRequests.bind);
   // 로그인(테스트): 사용자와 로그인 시각을 세션에 둔다
   app.post("/login", (req, res) => {
@@ -148,8 +153,7 @@ test("다른 기기에서 세션을 끊어도(저장소의 삭제) 스트림을 
 test("알림 없는 종료(SQL로 직접 삭제)는 재확인(recheck)이 끊는다. 세션을 바꾼 채 연 스트림이어도 끊은 뒤 행이 다시 생기지 않는다(요청에서 세션을 분리함)", async () => {
   const thief = device();
   await thief.go("/login?u=s3", { method: "POST" });
-  // User-Agent를 바꾸면 기기 기록이 바뀌어 그 요청이 끝날 때 express-session이 세션을 저장하려 한다
-  const stream = await openStream(thief, { "user-agent": `${UA} Changed` });
+  const stream = await openStream(thief, { "x-change": "stolen" });
   const sid = thief.sid();
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(sid);
   sessionRequests.recheck();
@@ -166,22 +170,21 @@ test("스트림을 열기 직전에 확인한다: 세션을 읽은 뒤 종료된
   assert.equal(opened.length, 0);
 });
 
-test("기기 기록을 저장할 때는 현재 행에서 기기 기록만 갱신한다(대기하는 사이 다른 요청이 저장한 값을 이전 사본으로 덮어쓰지 않는다)", async () => {
+test("스트림을 연 요청이 기기 기록을 바꿔도 대기하는 사이 다른 요청이 저장한 값을 이전 사본으로 덮어쓰지 않는다", async () => {
   const thief = device();
   await thief.go("/login?u=s10", { method: "POST" });
   const stream = await openStream(thief, { "user-agent": `${UA} Changed` }, "?other=1");
-  const data = JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(thief.sid()) as string) as { device?: string; csrfToken?: string };
+  const data = JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(thief.sid()) as string) as { csrfToken?: string };
   assert.equal(data.csrfToken, "다른 요청의 것");
-  assert.match(openRecord(thief.sid(), data.device)?.ua ?? "", /Changed/);
+  assert.match(openRecord(thief.sid(), store.readDevice(thief.sid()))?.ua ?? "", /Changed/);
   stream.abort();
 });
 
-test("스트림을 연 요청의 기기 기록(브라우저, 주소)은 세션을 떼기 전에 저장한다", async () => {
+test("스트림을 연 요청의 기기 기록(브라우저, IP)은 요청에서 세션을 분리해도 표에 남는다", async () => {
   const thief = device();
   await thief.go("/login?u=s9", { method: "POST" });
   const stream = await openStream(thief, { "user-agent": `${UA} Changed` });
-  const data = JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(thief.sid()) as string) as { device?: string };
-  assert.match(openRecord(thief.sid(), data.device)?.ua ?? "", /Changed/);
+  assert.match(openRecord(thief.sid(), store.readDevice(thief.sid()))?.ua ?? "", /Changed/);
   stream.abort();
 });
 

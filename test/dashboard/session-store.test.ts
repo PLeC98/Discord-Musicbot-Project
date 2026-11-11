@@ -572,3 +572,48 @@ test("종료(finish) 시 삭제하지 못한 세션이 남았을 때 표시 파�
   assert.equal(other.finish(), 1);
   assert.match(finished(later()).join("\n"), /^error .*다시 시작하면 그 로그인이 되살아나/);
 });
+
+// ── 기기 기록 표, 쿠키 만료 ──
+
+test("기기 기록: 만료 전 세션 행이 있을 때만 적고, 끝낸 세션에는 적지 않는다. 세션을 저장해도 남고 세션 행과 함께 지워진다", (t) => {
+  const store = makeStore("devices.db");
+  const blob = Buffer.from("암호문");
+  assert.equal(store.saveDevice("없음", blob), false, "행이 없다");
+  store.set("a", makeSession({ id: "u1" }, 1_000));
+  assert.equal(store.saveDevice("a", blob), true);
+  assert.deepEqual(store.readDevice("a"), blob);
+  store.set("a", makeSession({ id: "u1" }, 1_000));
+  assert.deepEqual(store.readDevice("a"), blob, "세션을 저장(upsert)해도 남는다");
+  assert.deepEqual(
+    store.sessionsOf("u1").map(({ sid, device }) => [sid, device]),
+    [["a", blob]],
+  );
+
+  store.set("b", makeSession({ id: "u1" }));
+  const restore = breakDelete(store);
+  store.end("b", "u1");
+  restore();
+  assert.ok(rowOf(store, "b"), "삭제하지 못해 행이 남았다");
+  assert.equal(store.saveDevice("b", blob), false, "끝낸 세션");
+  store.set("c", makeSession({ id: "u1" }));
+  store.saveDevice("c", blob);
+  store.destroy("c");
+  assert.equal(store.readDevice("c"), null, "세션 행과 함께 지워진다");
+
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 5_000 });
+  assert.equal(store.saveDevice("a", Buffer.from("새것")), false, "만료된 행");
+  store.prune();
+  assert.equal(store.readDevice("a"), null, "정리할 때도 함께 지워진다");
+});
+
+test("읽은 세션의 쿠키 만료는 행의 만료(touch가 늘린 값)다. 바꾸지 않고 쓰기만 한 세션이 저장 때의 만료에 묶이지 않는다", async () => {
+  const store = makeStore("expires.db");
+  const session = makeSession({ id: "u1" }, DAY);
+  store.set("sid1", session);
+  const later = makeSession({ id: "u1" }, 6 * DAY, session.loginAt);
+  store.touch("sid1", later);
+  const loaded = await getAsync(store, "sid1");
+  assert.equal(new Date(loaded!.cookie.expires!).getTime(), rowOf(store, "sid1")?.expires_at);
+  assert.equal(new Date(store.liveSession("sid1")!.cookie.expires!).getTime(), rowOf(store, "sid1")?.expires_at, "liveSession도 같다");
+  assert.ok(new Date(loaded!.cookie.expires!).getTime() > Date.now() + 5 * DAY);
+});

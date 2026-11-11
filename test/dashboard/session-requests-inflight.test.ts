@@ -54,8 +54,13 @@ before(async () => {
   fs.writeFileSync(file, Buffer.alloc(16 * 1024 * 1024, 1));
   const app = express();
   app.use(sessionRequests.noteSocket);
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, rolling: true, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(noteDevice);
+  // x-change 헤더: 이 요청이 세션 내용을 바꾼다(요청이 끝날 때 express-session이 세션을 저장하려 한다)
+  app.use((req, _res, next) => {
+    if (req.get("x-change") && req.session?.user) req.session.csrfToken = String(req.get("x-change"));
+    next();
+  });
   app.use(sessionRequests.bind);
   app.post("/login", (req, res) => {
     req.session.user = { id: String(req.query.u), username: String(req.query.u), globalName: String(req.query.u), avatar: null };
@@ -246,6 +251,22 @@ test("세션이 끝난 요청에서 발생한 봇 버그는 세션 종료로 가
   assert.equal((await pending).status, 500);
 });
 
+test("저장 때의 쿠키 만료 시각이 지났어도 활동으로 행의 만료 기한이 남은 세션의 요청은 기한 만료로 멈추지 않는다", async () => {
+  newGate();
+  const owner = await signedIn("rolling");
+  // 마지막 저장(set)은 오래전이고 그 뒤로는 touch만 했다. 내용의 쿠키 만료 시각은 지났고 행의 만료 기한은 남았다
+  const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(owner.sid()) as string;
+  const data = JSON.parse(row) as { cookie: { expires: string } };
+  data.cookie.expires = new Date(Date.now() - 60_000).toISOString();
+  store.db.prepare("UPDATE sessions SET data = ?, expires_at = ? WHERE sid = ?").run(JSON.stringify(data), Date.now() + 6 * 24 * 60 * 60_000, owner.sid());
+  const pending = owner.go("/hold-change", { method: "POST" });
+  // 라우트 핸들러에 진입하기 전에 막히면(401) 기다리지 않고 실패한다
+  assert.equal(await Promise.race([gate.entered.then(() => "라우트 핸들러 진입"), pending.then((r) => r.status)]), "라우트 핸들러 진입");
+  gate.open();
+  assert.equal((await pending).status, 200);
+  assert.equal(effects, 1);
+});
+
 test("세션이 끊기기 전에 완료한 조작은 그대로 응답한다", async () => {
   newGate();
   const owner = await signedIn("change-ok");
@@ -350,7 +371,7 @@ test("받는 중인 업로드는 세션이 끝나면 소켓을 강제로 닫고 
 test("알림 없는 세션 종료(원시 SQL로 삭제)를 재확인(recheck)에서 감지하면, 세션을 바꾼 채 대기하던 요청이 끝나도 행이 다시 생기지 않는다", async () => {
   newGate();
   const thief = await signedIn("raw-sql");
-  const pending = thief.go("/hold-change", { method: "POST", headers: { "user-agent": `${UA} Changed` } });
+  const pending = thief.go("/hold-change", { method: "POST", headers: { "x-change": "stolen" } });
   await gate.entered;
   store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(thief.sid());
   sessionRequests.recheck();

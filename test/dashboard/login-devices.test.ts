@@ -57,8 +57,13 @@ before(async () => {
   });
   const app = express();
   app.use(express.json());
-  app.use(session({ name: sessionCookieName(false), secret: "test-secret", resave: false, saveUninitialized: false, store }));
+  app.use(session({ name: sessionCookieName(false), secret: "test-secret", resave: false, saveUninitialized: false, rolling: true, store }));
   app.use(noteDevice);
+  // x-change 헤더: 이 요청이 세션 내용을 바꾼다(요청이 끝날 때 express-session이 세션을 저장한다)
+  app.use((req, _res, next) => {
+    if (req.get("x-change") && req.session?.user) req.session.csrfToken = String(req.get("x-change"));
+    next();
+  });
   app.use(sessionRequests.bind);
   app.use("/auth", createAuthRouter({ http }));
   app.use("/api/me/devices", createLoginDevicesRouter({ places: { load: async () => true, locate: (ip) => ({ kind: "geo", city: `도시 ${ip}`, region: null, country: "대한민국" }) }, http }));
@@ -66,6 +71,11 @@ before(async () => {
   app.post("/hold", async (_req, res) => {
     holding();
     await held;
+    res.status(204).end();
+  });
+  // 같은 세션의 다른 요청이 바꾸는 값(운영자의 view-as)
+  app.post("/view-as", (req, res) => {
+    req.session.viewAs = "user";
     res.status(204).end();
   });
   // 로그인한 지 오래된 것처럼(최근 로그인 확인)
@@ -128,13 +138,15 @@ test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라�
   );
 });
 
-test("기록은 세션 내용에 봉해 둔다(IP 가 평문으로 남지 않는다). 다른 행으로 옮기면 풀리지 않는다", () => {
-  const rows = store.db.prepare("SELECT sid, data FROM sessions").all() as Array<{ sid: string; data: string }>;
+test("기록은 세션 내용 밖의 표에 암호화해 둔다(IP가 평문으로 남지 않는다). 다른 행으로 옮기면 풀리지 않고, 세션 행을 지우면 함께 지워진다", () => {
+  const rows = store.db.prepare("SELECT s.sid, s.data, d.device FROM sessions s JOIN session_devices d ON d.sid = s.sid").all() as Array<{ sid: string; data: string; device: Buffer }>;
   const [a, b] = rows;
-  const sealed = (JSON.parse(a.data) as { device: string }).device;
-  assert.doesNotMatch(a.data, /127\.0\.0\.1|Chrome/);
-  assert.equal(openRecord(a.sid, sealed)?.ip.endsWith("127.0.0.1"), true);
-  assert.equal(openRecord(b.sid, sealed), null);
+  assert.equal("device" in JSON.parse(a.data), false, "세션 내용에는 없다");
+  assert.doesNotMatch(a.device.toString("latin1"), /127\.0\.0\.1|Chrome/);
+  assert.equal(openRecord(a.sid, a.device)?.ip.endsWith("127.0.0.1"), true);
+  assert.equal(openRecord(b.sid, a.device), null);
+  store.db.prepare("DELETE FROM sessions WHERE sid = ?").run(a.sid);
+  assert.equal(store.readDevice(a.sid), null);
 });
 
 test("하나 끊기, 모두 끊기: 최근 로그인만, 끊는 세션의 디스코드 토큰 폐기 요청. 다른 사용자의 세션은 그대로, 지금 기기는 하나 끊기로 끊지 않는다", async () => {
@@ -168,30 +180,62 @@ test("하나 끊기, 모두 끊기: 최근 로그인만, 끊는 세션의 디스
   assert.equal((await other.list()).devices.length, 1, "다른 사용자는 그대로");
 });
 
-test("이 기능 전의 세션: 기록이 없으면 다음 요청 때 지금 것으로 만들고, 그 뒤로는 몇 분마다만 다시 적는다", async () => {
+test("기록이 없으면 다음 요청 때 현재 요청 정보로 만들고, 그 뒤로는 몇 분 간격으로만 다시 적는다", async () => {
   const pc = device(CHROME);
   await pc.login("u5");
   const sid = (store.sessionsOf("u5")[0] ?? { sid: "" }).sid;
-  // 기록을 지운다(기능 전 세션)
-  const row = store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(sid) as string;
-  const data = JSON.parse(row) as Record<string, unknown>;
-  delete data.device;
-  store.db.prepare("UPDATE sessions SET data = ? WHERE sid = ?").run(JSON.stringify(data), sid);
+  store.db.prepare("DELETE FROM session_devices WHERE sid = ?").run(sid);
   const listed = (await pc.list()).devices[0];
   assert.equal(listed.known, true, "목록을 부른 요청이 기록을 만들었다");
-  const first = openRecord(sid, (JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(sid) as string) as { device: string }).device);
+  const first = openRecord(sid, store.readDevice(sid));
   await pc.list();
-  const again = openRecord(sid, (JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(sid) as string) as { device: string }).device);
+  const again = openRecord(sid, store.readDevice(sid));
   assert.equal(again?.seenAt, first?.seenAt, `${SEEN_EVERY_MS}ms 안에는 다시 적지 않는다`);
 });
 
-// 훔친 쿠키로 시작해 둔 요청: User-Agent를 바꾸면 기기 기록이 바뀌어(noteDevice) 그 요청이 끝날 때 세션을 저장한다
+test("로그인할 때 첫 기기 기록을 적지 못해도 로그인은 그대로 유지되고, 다음 요청에서 적는다", async (t) => {
+  const pc = device(CHROME);
+  const real = store.saveDevice.bind(store);
+  let calls = 0;
+  t.mock.method(store, "saveDevice", (...args: Parameters<typeof real>) => {
+    if (++calls === 1) throw Object.assign(new Error("database or disk is full"), { code: "SQLITE_FULL" });
+    return real(...args);
+  });
+  await pc.login("first-record");
+  const [listed] = (await pc.list()).devices;
+  assert.equal(calls, 2, "로그인에서 한 번, 다음 요청에서 한 번");
+  assert.equal(listed?.known, true);
+});
+
+test("오래 걸리는 요청이 기다리는 사이 같은 세션에서 바꾼 값(view-as)은 그 요청이 끝나도 되돌아가지 않는다(기기 기록을 다시 적는 요청이 세션 전체를 저장하지 않는다)", async () => {
+  const pc = device(CHROME);
+  await pc.login("view-as-kept");
+  const sid = store.sessionsOf("view-as-kept")[0]!.sid;
+  let entered: () => void = () => {};
+  const inside = new Promise<void>((done) => (entered = done));
+  held = new Promise<void>((done) => (release = done));
+  holding = entered;
+  // 브라우저가 바뀌어 기기 기록을 다시 적는 요청
+  const hanging = pc.go("/hold", { method: "POST", headers: { "user-agent": `${CHROME} Changed` } });
+  await inside;
+  try {
+    assert.equal((await pc.go("/view-as", { method: "POST", headers: { "user-agent": `${CHROME} Changed` } })).status, 204);
+  } finally {
+    release();
+  }
+  await hanging;
+  const [row] = store.sessionsOf("view-as-kept");
+  assert.equal(row?.session.viewAs, "user");
+  assert.match(openRecord(sid, row?.device)?.ua ?? "", /Changed/, "기기 기록은 표에 적었다");
+});
+
+// 훔친 쿠키로 시작해 둔 요청: 세션 내용을 바꿔(x-change) 그 요청이 끝날 때 세션을 저장한다
 async function hangChanged(thief: ReturnType<typeof device>) {
   let entered: () => void = () => {};
   const inside = new Promise<void>((done) => (entered = done));
   held = new Promise<void>((done) => (release = done));
   holding = entered;
-  const hanging = thief.go("/hold", { method: "POST", headers: { "user-agent": `${IPHONE} Changed` } });
+  const hanging = thief.go("/hold", { method: "POST", headers: { "x-change": "stolen" } });
   await inside;
   return { hanging }; // 그대로 돌려주면 await가 응답까지 기다린다
 }
@@ -202,7 +246,9 @@ for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
     const pc = device(CHROME);
     const thief = device(IPHONE);
     await pc.login(who);
+    const kept = new Set(store.sessionsOf(who).map(({ sid }) => sid));
     await thief.login(who);
+    const stolen = store.sessionsOf(who).find(({ sid }) => !kept.has(sid))!.sid;
     const { hanging } = await hangChanged(thief);
     try {
       if (how === "다른 기기 로그아웃") assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as SignedOut).count, 1);
@@ -213,6 +259,7 @@ for (const how of ["다른 기기 로그아웃", "로그아웃"] as const) {
     await hanging;
     assert.equal((await thief.go("/api/me/devices")).status, 401, "끊은 쿠키는 다시 쓸 수 없다");
     assert.equal(store.sessionsOf(who).length, 1, "남은 것은 끊지 않은 기기뿐");
+    assert.equal(store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(stolen), undefined, "진행 중이던 요청이 끝나도 로그아웃한 세션이 DB에 다시 저장되지 않는다");
   });
 }
 

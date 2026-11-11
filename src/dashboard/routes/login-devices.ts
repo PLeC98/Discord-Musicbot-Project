@@ -45,13 +45,13 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     res.json({ count: results.length } satisfies SignedOut);
   }
 
-  // 최근 활동 순, 지금 기기가 맨 앞. 지금 기기는 이 요청이 고친 세션(저장은 답한 뒤)으로
+  // 최근 활동순, 현재 기기가 맨 앞. 현재 기기의 기록은 이 요청에서 noteDevice가 이미 갱신했다
   router.get("/", requireAuth, async (req, res) => {
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const geoip = await places.load();
     const locate: Locate = geoip ? places.locate : () => null;
-    const rows = store.sessionsOf(signedIn(req).id).map(({ sid, session }) => describe(sid, sid === req.sessionID ? req.session : session, req.sessionID, locate));
+    const rows = store.sessionsOf(signedIn(req).id).map(({ sid, session, device }) => describe(sid, session, device, req.sessionID, locate));
     rows.sort((a, b) => Number(b.current) - Number(a.current) || (b.seenAt ?? 0) - (a.seenAt ?? 0));
     res.json({ devices: rows, geoip } satisfies LoginDevices);
   });

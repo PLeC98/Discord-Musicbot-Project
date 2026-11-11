@@ -56,6 +56,7 @@ class SqliteSessionStore extends Store {
   _touchStmt: Statement<[number, string, number]>;
   _deleteStmt: Statement<[string], { data: string }>;
   _pruneStmt: Statement<[number], { sid: string; data: string }>;
+  _saveDeviceStmt: Statement<[string, Buffer, string, number]>;
   _pruneTimer: NodeJS.Timeout;
   // dbPath 로 따로 연 파일(테스트). 닫을 때 같이 닫는다
   _own: DbFile | null = null;
@@ -99,6 +100,8 @@ class SqliteSessionStore extends Store {
     this._touchStmt = this.db.prepare("UPDATE sessions SET expires_at = ? WHERE sid = ? AND expires_at > ?");
     this._deleteStmt = this.db.prepare("DELETE FROM sessions WHERE sid = ? RETURNING data");
     this._pruneStmt = this.db.prepare("DELETE FROM sessions WHERE expires_at <= ? RETURNING sid, data");
+    // 만료 전 세션 행이 있을 때만 쓴다. SELECT의 WHERE를 빼면 SQLite가 ON을 조인 조건으로 읽는다
+    this._saveDeviceStmt = this.db.prepare("INSERT INTO session_devices (sid, device) SELECT ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE sid = ? AND expires_at > ?) ON CONFLICT(sid) DO UPDATE SET device = excluded.device");
 
     if (this._marker && !fs.existsSync(this._marker)) this._wipe();
     this._normalize();
@@ -340,7 +343,7 @@ class SqliteSessionStore extends Store {
     if (this.isEnded(sid)) return null;
     const ended: string[] = [];
     const row = this._getStmt.get(sid);
-    const found = row && row.expires_at > Date.now() ? this._parse(sid, row.data, ended) : null;
+    const found = row && row.expires_at > Date.now() ? this._load(sid, row, ended) : null;
     this._announce(ended);
     return found;
   }
@@ -352,12 +355,20 @@ class SqliteSessionStore extends Store {
     if (this.isEnded(sid)) return cb(null, null);
     try {
       const row = this._getStmt.get(sid);
-      if (row && row.expires_at > Date.now()) found = this._parse(sid, row.data, ended);
+      if (row && row.expires_at > Date.now()) found = this._load(sid, row, ended);
     } catch (e) {
       return cb(e);
     }
     cb(null, found);
     this._announce(ended);
+  }
+
+  // 행에서 세션을 읽는다. 쿠키 만료 시각은 행의 만료 시각(touch가 늘린 값)으로 맞춘다. 세션 내용의 값은 마지막 저장(set) 때의 것이라,
+  // 바꾸지 않고 쓰기만 한 세션이면 진행 중인 요청의 기한(session-requests의 bind)이 예전 만료 시각에 만료되어 버린다
+  _load(sid: string, row: { data: string; expires_at: number }, ended: string[]): SessionData | null {
+    const session = this._parse(sid, row.data, ended);
+    if (session?.cookie?.expires) session.cookie.expires = new Date(row.expires_at).toISOString() as unknown as Date;
+    return session;
   }
 
   // 읽을 수 없는 행은 없는 세션으로 보고 삭제한다. 오류로 넘기면 그 쿠키의 요청이 쿠키가 끝날 때까지 모두 500이 된다.
@@ -448,15 +459,15 @@ class SqliteSessionStore extends Store {
     );
   }
 
-  /** 그 사용자의 살아 있는 세션들(세션 id, 내용). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한을 넘은 것은 뺀다 */
-  sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData }> {
-    const rows = this.db.prepare("SELECT sid, data FROM sessions WHERE expires_at > ?").all(now) as Array<{ sid: string; data: string }>;
-    return rows.flatMap(({ sid, data }) => {
+  /** 해당 사용자의 살아 있는 세션 목록(세션 id, 내용, 암호화한 기기 기록). 내용을 행마다 읽어 필터링한다(사용자 열은 따로 두지 않는다. 세션은 많아야 수십 개). 절대 기한이 지난 것은 뺀다 */
+  sessionsOf(userId: string, now = Date.now()): Array<{ sid: string; session: SessionData; device: Buffer | null }> {
+    const rows = this.db.prepare("SELECT s.sid, s.data, d.device FROM sessions s LEFT JOIN session_devices d ON d.sid = s.sid WHERE s.expires_at > ?").all(now) as Array<{ sid: string; data: string; device: Buffer | null }>;
+    return rows.flatMap(({ sid, data, device }) => {
       try {
         if (this.isEnded(sid, now)) return [];
         const session = JSON.parse(data) as SessionData;
         const deadline = deadlineOf(session);
-        return session.user?.id === userId && (deadline === null || deadline > now) ? [{ sid, session }] : [];
+        return session.user?.id === userId && (deadline === null || deadline > now) ? [{ sid, session, device }] : [];
       } catch (error) {
         this._brokenRow(sid, `사용자 세션 목록 조회 중 세션 행 파싱 실패(건너뜀): ${messageOf(error)}`);
         return [];
@@ -494,6 +505,20 @@ class SqliteSessionStore extends Store {
   readDiscordToken(sid: string) {
     const blob = this.db.prepare("SELECT discord_token FROM sessions WHERE sid = ? AND expires_at > ?").pluck().get(sid, Date.now()) as Buffer | null | undefined;
     return blob ? secrets.openBlob(TOKEN_PURPOSE, blob, sid) : null;
+  }
+
+  // ── 기기 기록 ──
+  // 암호화한 기기 기록(dashboard/login-devices)을 세션 내용 밖의 표에 둔다. 세션 행과 함께 지워진다
+
+  /** 기기 기록을 적는다. 끝낸 세션, 만료된 행, 없는 행이면 적지 않고 false */
+  saveDevice(sid: string, sealed: Buffer, now = Date.now()) {
+    if (this.isEnded(sid, now)) return false;
+    return this._saveDeviceStmt.run(sid, sealed, sid, now).changes > 0;
+  }
+
+  /** 암호화한 기기 기록. 없으면 null */
+  readDevice(sid: string) {
+    return (this.db.prepare("SELECT device FROM session_devices WHERE sid = ?").pluck().get(sid) as Buffer | undefined) ?? null;
   }
 }
 

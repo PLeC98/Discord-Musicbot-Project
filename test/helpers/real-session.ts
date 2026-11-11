@@ -33,7 +33,7 @@ async function realSessionApp(prefix: string, mount: (app: express.Express) => v
   const store = new SqliteSessionStore({ dbPath: path.join(dir, "sessions.db") });
   const app = express();
   app.use(sessionRequests.noteSocket);
-  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
+  app.use(session({ secret: "test-secret", resave: false, saveUninitialized: false, rolling: true, store, cookie: { maxAge: 7 * 24 * 60 * 60_000 } }));
   app.use(sessionRequests.bind);
   app.post("/login", (req, res) => {
     const id = String(req.query.u);

@@ -103,6 +103,8 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
     store,
     resave: false,
     saveUninitialized: false,
+    // 세션이 있는 응답마다 만료 기한(7일)을 갱신한 쿠키를 다시 보낸다. 세션 내용을 바꾸지 않는 요청만 보내는 동안에도 브라우저의 쿠키가 7일 뒤에 만료되지 않게 한다
+    rolling: true,
     cookie: {
       httpOnly: true,
       // 세션을 만들 때 브라우저 쪽 판정으로 덮어쓴다(아래 generate). http://localhost 같은 평문에서는 Secure가 빠져서 로컬 테스트가 그대로 된다
@@ -212,7 +214,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
     limiter(() => rl.authMax, { windowOf: () => rl.authWindowMs, byIp: true, skip: signedInLogout }),
   );
 
-  // 로그인한 기기 기록(마지막 활동, IP). 몇 분마다만 세션을 다시 쓴다
+  // 로그인한 기기 기록(마지막 활동, IP). 몇 분 간격으로만 기기 기록 표에 다시 쓴다
   app.use(noteDevice);
   // 탭이 알고 있는 사용자와 세션의 사용자가 다르면 409를 반환한다(다른 탭에서 다른 계정으로 로그인한 경우). CSRF 검사보다 앞에 둔다
   app.use(requireSameAccount);
