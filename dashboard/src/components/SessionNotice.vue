@@ -153,7 +153,10 @@ let stopListening: (() => void) | null = null;
 onMounted(() => {
   window.addEventListener("focus", onReturn);
   document.addEventListener("visibilitychange", onReturn);
-  stopListening = onSignedIn(() => void signedIn());
+  stopListening = onSignedIn(() => {
+    loginWindow.elsewhere();
+    void signedIn();
+  });
 });
 onUnmounted(() => {
   window.removeEventListener("focus", onReturn);

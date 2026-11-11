@@ -276,7 +276,7 @@ function breakDelete() {
 
 type Unsaved = { code: string; signedOutCount: number; unsavedCount: number };
 
-test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 실패 건수). 끊은 쿠키는 이 실행에서 곧바로 401, 다시 해도 삭제하지 못했으면 503, DB가 돌아오면 다시 삭제한다", async () => {
+test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 실패 건수). 이 기기의 이전 세션도 지우지 못해 이 기기도 로그아웃되고, 끊은 쿠키는 이 실행에서 곧바로 401, DB가 돌아오면 다시 삭제한다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   await pc.login("unsaved1");
@@ -286,12 +286,15 @@ test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하�
     const res = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
     assert.equal(res.status, 503);
     const body = (await res.json()) as Unsaved;
-    assert.deepEqual([body.code, body.signedOutCount, body.unsavedCount], ["sign-out-unsaved", 0, 1]);
+    assert.deepEqual([body.code, body.signedOutCount, body.unsavedCount], ["sign-out-unsaved", 0, 2], "다른 기기 하나와 이 기기의 이전 세션");
+    assert.deepEqual(res.headers.getSetCookie(), [], "새 세션 쿠키를 싣지 않는다");
     assert.equal((await phone.go("/api/me/devices")).status, 401, "끊은 쿠키는 이 실행에서 쓸 수 없다");
-    assert.equal(((await (await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).json()) as Unsaved).unsavedCount, 1, "다시 해도 삭제하지 못한 것을 성공으로 답하지 않는다");
+    assert.equal((await pc.go("/api/me/devices")).status, 401, "이 기기도 로그아웃됐다");
+    assert.equal(store.unsavedOf("unsaved1").length, 2);
   } finally {
     restore();
   }
+  await pc.login("unsaved1");
   const again = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
   assert.equal(again.status, 200, "DB가 돌아오면 삭제한다");
   assert.equal(store.sessionsOf("unsaved1").length, 1);
@@ -346,4 +349,82 @@ test("다른 기기 로그아웃은 로그인한 지 2분 안이어야 한다(�
   assert.equal(late.status, 403);
   assert.equal(((await late.json()) as { code: string }).code, "reauth-required");
   assert.equal(store.sessionsOf("two-minutes").length, 2, "끊지 않았다");
+});
+
+// ── 다른 기기 로그아웃은 이 기기도 새 세션 id로 옮긴다 ──
+
+// 이 쿠키를 그대로 복사해 간 쪽
+const copied =
+  (cookie: string) =>
+  (p: string, init: RequestInit = {}) =>
+    fetch(base + p, { redirect: "manual", ...init, headers: { cookie, "user-agent": CHROME, ...(init.headers as Record<string, string>) } });
+const rowData = (sid: string) => JSON.parse(store.db.prepare("SELECT data FROM sessions WHERE sid = ?").pluck().get(sid) as string) as { loginAt: number; viewAs?: string; csrfToken?: string };
+
+test("로그인 뒤 2분 안에 복사한 쿠키도 다른 기기 로그아웃 뒤에는 401이다. 이 기기는 새 쿠키로 로그인이 이어지고 로그인 시각, view-as, 디스코드 토큰, 기기 기록을 옮기며 CSRF 토큰은 새로 만든다", async () => {
+  const pc = device(CHROME);
+  await pc.login("rotate");
+  await pc.go("/view-as", { method: "POST", headers: { "x-change": "old-token" } });
+  const [before] = store.sessionsOf("rotate");
+  const oldSid = before!.sid;
+  const was = { data: rowData(oldSid), token: store.readDiscordToken(oldSid), record: openRecord(oldSid, store.readDevice(oldSid)) };
+  const thief = copied(pc.cookie());
+  assert.equal((await thief("/api/me/devices")).status, 200, "복사한 쿠키는 이 기기와 같은 세션이다");
+
+  const res = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
+  assert.deepEqual(await res.json(), { count: 0 });
+  assert.equal((await thief("/api/me/devices")).status, 401, "복사한 쿠키는 끊겼다");
+  assert.equal(store.db.prepare("SELECT sid FROM sessions WHERE sid = ?").get(oldSid), undefined, "이전 세션 행은 없다");
+
+  const [after] = store.sessionsOf("rotate");
+  assert.ok(after && after.sid !== oldSid, "새 세션 id");
+  assert.equal(store.sessionsOf("rotate").length, 1);
+  const now = rowData(after.sid);
+  assert.deepEqual([now.loginAt, now.viewAs], [was.data.loginAt, "user"], "로그인 시각(절대 기한이 늘지 않게)과 view-as는 그대로");
+  assert.equal(was.data.csrfToken, "old-token");
+  assert.equal(now.csrfToken, undefined, "CSRF 토큰은 옮기지 않는다(다음 요청이 새로 받는다)");
+  assert.equal(store.readDiscordToken(after.sid), was.token);
+  assert.equal(openRecord(after.sid, store.readDevice(after.sid))?.signedInAt, was.record?.signedInAt, "기기 기록의 로그인 시각도 그대로");
+  assert.equal((await pc.go("/api/me/devices")).status, 200, "이 기기는 새 쿠키로 이어진다");
+});
+
+test("같은 쿠키로 다른 기기 로그아웃을 동시에 두 번 누르면 하나만 새 세션을 받고 다른 하나는 401이다. 그 사용자의 살아 있는 세션은 하나다", async () => {
+  const pc = device(CHROME);
+  await pc.login("rotate-twice");
+  const twin = copied(pc.cookie());
+  const [a, b] = await Promise.all([pc.go("/api/me/devices/sign-out-others", { method: "POST" }), twin("/api/me/devices/sign-out-others", { method: "POST" })]);
+  assert.deepEqual([a.status, b.status].sort(), [200, 401]);
+  const loser = a.status === 401 ? a : b;
+  assert.deepEqual(loser.headers.getSetCookie(), [], "진 쪽은 쿠키를 싣지 않는다");
+  assert.equal(store.sessionsOf("rotate-twice").length, 1);
+});
+
+test("이전 세션 id로 나가 있던 요청은 세션 id를 바꾼 뒤 끝나도 이전 쿠키를 싣지 않는다(새 쿠키를 덮지 않는다)", async () => {
+  const pc = device(CHROME);
+  await pc.login("rotate-inflight");
+  let entered: () => void = () => {};
+  const inside = new Promise<void>((done) => (entered = done));
+  held = new Promise<void>((done) => (release = done));
+  holding = entered;
+  const hanging = copied(pc.cookie())("/hold", { method: "POST" });
+  await inside;
+  try {
+    assert.equal((await pc.go("/api/me/devices/sign-out-others", { method: "POST" })).status, 200);
+  } finally {
+    release();
+  }
+  assert.deepEqual((await hanging).headers.getSetCookie(), []);
+  assert.equal((await pc.go("/api/me/devices")).status, 200);
+});
+
+test("새 세션을 저장하지 못하면 이 기기도 로그아웃이다(401, 쿠키 없음, 남은 세션 없음)", async (t) => {
+  const pc = device(CHROME);
+  await pc.login("rotate-fails");
+  t.mock.method(store, "saveDiscordToken", () => false);
+  const res = await pc.go("/api/me/devices/sign-out-others", { method: "POST" });
+  t.mock.restoreAll();
+  assert.equal(res.status, 401);
+  assert.equal(((await res.json()) as { code: string }).code, "login-required");
+  assert.deepEqual(res.headers.getSetCookie(), []);
+  assert.equal((await pc.go("/api/me/devices")).status, 401);
+  assert.deepEqual(store.sessionsOf("rotate-fails"), []);
 });

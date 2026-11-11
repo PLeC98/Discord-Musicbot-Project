@@ -1,7 +1,8 @@
 // 로그인한 기기(설정 창 "계정"). 지금 사용자의 세션만 보이고 끊는다(세션 표에는 모든 사용자의 세션이 함께 있다).
 // 끊기는 최근 로그인만, 로그아웃과 같게: 그 세션의 디스코드 토큰 폐기 요청, 서버 목록 캐시 삭제, 세션 행 삭제.
 // 디스코드 토큰은 로그인마다 따로라 다른 기기의 것을 폐기해도 지금 기기의 토큰은 그대로다.
-// 행을 삭제하지 못하면(디스크가 가득 참 등) 성공으로 답하지 않는다(sign-out-unsaved). 이 실행에서는 끊겼고 저장소가 다시 삭제한다
+// 행을 삭제하지 못하면(디스크가 가득 참 등) 성공으로 답하지 않는다(sign-out-unsaved). 이 실행에서는 끊겼고 저장소가 다시 삭제한다.
+// "다른 기기 모두"는 이 기기도 새 세션 id로 옮긴다: 이 기기의 쿠키를 복사해 간 쪽은 이 기기와 같은 세션 id라 목록에 따로 보이지 않는다
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -11,7 +12,7 @@ import { recentLogin } from "../middleware/recent-login.ts";
 import { SIGN_OUT_LOGIN_MS } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { describe, handleOf, type Locate } from "../login-devices.ts";
-import { revokeToken } from "./auth.ts";
+import { revokeToken, startSession } from "./auth.ts";
 import { forgetGuilds } from "../user-guilds.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
@@ -71,8 +72,18 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     answer(res, results);
   });
 
-  // 지금 기기 말고 모두
-  router.post("/sign-out-others", requireAuth, signOutLogin, (req, res) => {
+  // 이 기기의 디스코드 토큰. 이전 세션 행이 지워지기 전에 읽어 새 세션 id로 옮긴다. 읽지 못하면 옮기지 않는다(서버 목록이 다시 로그인을 안내한다)
+  function tokenOf(store: SqliteSessionStore, sid: string) {
+    try {
+      return store.readDiscordToken(sid);
+    } catch (error) {
+      log.warn(`이 기기의 디스코드 토큰 읽기 실패(새 세션에 옮기지 않음): ${messageOf(error)}`);
+      return null;
+    }
+  }
+
+  // 지금 기기 말고 모두. 이 기기도 새 세션 id로 옮긴다(로그인 시각, view-as, 디스코드 토큰, 기기 기록은 그대로, CSRF 토큰은 새로)
+  router.post("/sign-out-others", requireAuth, signOutLogin, async (req, res) => {
     const store = tokenStoreOf(req);
     if (!store) return sendProblem(res, "unknown-error");
     const user = signedIn(req);
@@ -81,12 +92,15 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     const others = store.sessionsOf(user.id).filter(({ sid }) => sid !== req.sessionID);
     const results = others.map(({ sid }) => signOut(store, sid, user.id));
     if (others.length) log.info(`다른 기기 로그아웃: ${others.length}곳. 실행 ${user.username || user.id}`);
+    const retriedResults = retried.map((sid) => store.end(sid, user.id));
+    const oldSid = req.sessionID;
+    // 최근 로그인 확인을 지났으니 있다. 없으면 0(새 세션은 절대 기한이 지나 곧바로 끝난다). 기기 기록의 로그인 시각도 이것이다
+    const loginAt = req.session.loginAt ?? 0;
+    const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: "다른 기기 로그아웃 뒤 이 기기의 새 세션 저장 실패(이 기기도 로그아웃)" });
+    // 이전 세션 행을 지우지 못했으면 다른 기기와 같게 성공으로 답하지 않는다. 새 세션을 저장하지 못했으면 이 기기도 로그아웃이다
+    if (!moved) return store.isUnsaved(oldSid) ? answer(res, results, [...retriedResults, false]) : sendProblem(res, "login-required");
     // 여전히 삭제하지 못했으면 성공으로 답하지 않는다
-    answer(
-      res,
-      results,
-      retried.map((sid) => store.end(sid, user.id)),
-    );
+    answer(res, results, retriedResults);
   });
 
   return router;

@@ -13,9 +13,9 @@
       </span>
       <BaseButton v-if="!d.current" variant="ghost" size="sm" :disabled="busy" @click="signOut(d)">{{ T.signOut }}</BaseButton>
     </div>
-    <div v-if="others > 0 || geoip" class="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2 pt-2">
       <a v-if="geoip" href="https://db-ip.com" target="_blank" rel="noopener noreferrer" class="whitespace-nowrap text-xs text-on-surface-variant hover:underline">{{ T.attribution }}</a>
-      <BaseButton v-if="others > 0" variant="danger" size="sm" class="ml-auto" :disabled="busy" @click="askOthers">{{ T.signOutOthers }}</BaseButton>
+      <BaseButton variant="danger" size="sm" class="ml-auto" :disabled="busy" @click="askOthers">{{ T.signOutOthers }}</BaseButton>
     </div>
     <ConfirmDialog v-model="asking" icon="logout" :title="T.confirmTitle" :body="T.confirmBody(others)" :confirm-label="T.signOutOthers" :busy="busy" @confirm="signOutOthers" />
   </div>
@@ -28,7 +28,7 @@ import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { ensureRecentLogin } from "../composables/session.ts";
+import { announceSignedIn, ensureRecentLogin, loginWindow } from "../composables/session.ts";
 import { problemText } from "../utils/problem.ts";
 import { relativeTime } from "../utils/locale.ts";
 import type { IconName } from "../icons.ts";
@@ -98,14 +98,19 @@ async function askOthers() {
   if (await ensureRecentLogin(SIGN_OUT_LOGIN_MS)) asking.value = true;
 }
 
+// 이 기기도 새 세션 id로 옮긴다(이 기기의 쿠키를 복사해 간 쪽도 끊긴다). 그사이 이전 세션으로 나가 있던 요청의 401은 로그인 창을 기다릴 때처럼 모아 두었다가 끝나면 확인한다.
+// 다른 탭에도 알려 그 탭의 늦은 401을 세션 끝으로 돌리지 않게 한다. 실패해도(새 세션을 받지 못했어도) 확인으로 가린다
 async function signOutOthers() {
   busy.value = true;
+  loginWindow.opened();
   try {
     const { data } = await axios.post<SignedOut>("/api/me/devices/sign-out-others");
     notifyDone(T.done(data.count));
   } catch (e) {
     notifyProblem(e, T.failed);
   } finally {
+    announceSignedIn();
+    void loginWindow.signedIn();
     busy.value = false;
     asking.value = false;
     void load();

@@ -53,9 +53,9 @@ function openRecord(sid: string, sealed: Buffer | null | undefined): DeviceRecor
 
 const userAgentOf = (req: Request) => String(req.get("user-agent") ?? "").slice(0, 512);
 
-/** 로그인할 때(세션 행을 저장한 뒤) 기기 기록을 처음 적는다. 저장소 오류는 잡지 않고 그대로 던진다 */
-function recordLogin(req: Request, store: SqliteSessionStore, now = Date.now()) {
-  const sealed = seal(req.sessionID, { ua: userAgentOf(req), ip: clientIp(req), signedInAt: now, seenAt: now });
+/** 새 세션 id로 연 세션(로그인, 다른 기기 로그아웃)에 기기 기록을 처음 적는다. signedInAt: 이 기기가 로그인한 때. 저장소 오류는 잡지 않고 그대로 던진다 */
+function recordDevice(req: Request, store: SqliteSessionStore, signedInAt: number, now = Date.now()) {
+  const sealed = seal(req.sessionID, { ua: userAgentOf(req), ip: clientIp(req), signedInAt, seenAt: now });
   if (sealed) store.saveDevice(req.sessionID, sealed, now);
 }
 
@@ -108,5 +108,5 @@ function describe(sid: string, session: Partial<SessionData>, sealed: Buffer | n
   return { ...base, known: true, browser: browser.name ?? null, os: os.name ?? null, kind, signedInAt: record.signedInAt, seenAt: record.seenAt, place: placeOf(record.ip, locate) };
 }
 
-export { recordLogin, noteDevice, describe, handleOf, placeOf, openRecord, SEEN_EVERY_MS };
+export { recordDevice, noteDevice, describe, handleOf, placeOf, openRecord, SEEN_EVERY_MS };
 export type { DeviceRecord, Locate };

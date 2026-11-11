@@ -4,12 +4,12 @@ const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import config from "../../config/index.ts";
 import type { SessionUser } from "../express-slots.d.ts";
-import { loginFailed, type LoginError } from "../contract/identity.ts";
+import { loginFailed, type LoginError, type Tier } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
 import { DISCORD_API, discordHttp, type DiscordHttp } from "../discord-api.ts";
 import { bestEffort } from "../../infra/best-effort.ts";
 import { forgetGuilds } from "../user-guilds.ts";
-import { recordLogin } from "../login-devices.ts";
+import { recordDevice } from "../login-devices.ts";
 import { release } from "../session-requests.ts";
 import { LOGIN_COOKIE_MS, clearSessionCookie, setLoginCookie, takeLoginCookie } from "../cookies.ts";
 import * as secrets from "../../store/secrets.ts";
@@ -99,24 +99,30 @@ function sameText(a: string, b: string) {
 /** 사용한 state를 기록해 두는 최대 개수다(넘으면 오래된 것부터 비우며, 비워진 것도 쿠키 수명이 지나면 생성 시각 검사에서 거절된다) */
 const USED_MAX = 10_000;
 
-// 새 세션에 사용자 정보를 담아 저장하고 같은 행에 디스코드 토큰을 기록한다. 세션 저장소에 저장하지 못하면 요청에서 세션을 분리하고 false를 반환한다:
-// 세션을 분리하지 않으면 응답이 끝날 때 express-session이 사용자 정보가 담긴 세션을 저장하고 쿠키를 실어, 실패로 응답해도 로그인 상태가 된다
-async function signIn(req: express.Request, user: SessionUser, token: string) {
+/** 새 세션 id로 여는 세션에 담을 값. token: 디스코드 토큰(없으면 적지 않는다), signedInAt: 기기 기록의 로그인 시각, failure: 실패 로그의 앞부분 */
+type Fresh = { user: SessionUser; loginAt: number; viewAs?: Tier; token: string | null; signedInAt: number; failure: string };
+
+// 이 요청의 세션을 끝내고 새 세션 id로 연다(로그인, 다른 기기 로그아웃). 사용자 정보를 담아 저장하고 같은 행에 디스코드 토큰과 기기 기록을 적는다.
+// 이전 세션 삭제나 새 세션 저장에 실패하면 요청에서 세션을 분리하고 false를 반환한다:
+// 세션을 분리하지 않으면 응답이 끝날 때 express-session이 사용자 정보가 담긴 세션을 저장하고 쿠키를 실어, 실패로 응답해도 로그인 상태가 된다.
+// release부터 regenerate까지는 기다림 없이 이어서 한다. 같은 쿠키로 동시에 온 요청은 이전 세션이 이미 끝나 401이 된다
+async function startSession(req: express.Request, fresh: Fresh) {
   const step = (run: (done: (err?: unknown) => void) => void) => new Promise<void>((ok, fail) => run((err) => (err ? fail(err) : ok())));
-  // 이 요청이 기존 세션을 종료하므로(재로그인), 세션 종료 알림 때문에 이 요청 자체가 중단되지 않게 한다
+  // 이 요청이 기존 세션을 끝내므로, 세션 종료 알림 때문에 이 요청 자체가 중단되지 않게 한다
   release(req);
   try {
     await step((done) => req.session.regenerate(done));
-    req.session.user = user;
-    req.session.loginAt = Date.now();
+    req.session.user = fresh.user;
+    req.session.loginAt = fresh.loginAt;
+    if (fresh.viewAs) req.session.viewAs = fresh.viewAs;
     await step((done) => req.session.save(done));
     // 토큰은 암호화해 세션 행에 별도로 저장하고(세션 JSON 밖), 세션 행과 함께 삭제한다. 디스코드 토큰의 수명(7일)이 세션보다 먼저 만료되면 서버 목록을 다시 불러올 때 재로그인을 안내한다. 리프레시 토큰은 저장하지 않는다
     const store = tokenStoreOf(req);
-    if (store && !store.saveDiscordToken(req.sessionID, token)) throw new Error("저장된 세션 행 없음");
-    if (store) recordFirstDevice(req, store, req.session.loginAt);
+    if (store && fresh.token && !store.saveDiscordToken(req.sessionID, fresh.token)) throw new Error("저장된 세션 행 없음");
+    if (store) recordFirstDevice(req, store, fresh.signedInAt);
     return true;
   } catch (error) {
-    log.error(`로그인 세션 저장 실패(로그인 실패로 처리): ${messageOf(error)}`);
+    log.error(`${fresh.failure}: ${messageOf(error)}`);
     const sid = req.sessionID;
     (req as { session: unknown }).session = null;
     tokenStoreOf(req)?.destroy(sid, () => undefined);
@@ -124,10 +130,15 @@ async function signIn(req: express.Request, user: SessionUser, token: string) {
   }
 }
 
+function signIn(req: express.Request, user: SessionUser, token: string) {
+  const now = Date.now();
+  return startSession(req, { user, loginAt: now, token, signedInAt: now, failure: "로그인 세션 저장 실패(로그인 실패로 처리)" });
+}
+
 // 로그인한 기기의 첫 기록. 적지 못해도 로그인은 그대로 유지된다(다음 요청에서 noteDevice가 적는다)
-function recordFirstDevice(req: express.Request, store: SqliteSessionStore, now: number) {
+function recordFirstDevice(req: express.Request, store: SqliteSessionStore, signedInAt: number) {
   try {
-    recordLogin(req, store, now);
+    recordDevice(req, store, signedInAt);
   } catch (error) {
     log.warn(`로그인 기기 첫 기록 실패(다음 요청에서 다시 기록): ${messageOf(error)}`);
   }
@@ -253,4 +264,4 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   return router;
 }
 
-export { createAuthRouter, callbackUrl, revokeToken };
+export { createAuthRouter, callbackUrl, revokeToken, startSession };
