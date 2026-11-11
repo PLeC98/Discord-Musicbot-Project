@@ -1336,6 +1336,23 @@ test("재생 시작 줄: 제목은 따옴표로 묶고, 시작 위치와 음원 
   assert.deepEqual(lines, ['info 재생: "A | B" (youtube) | 시작 42초 / 길이 202초 | 출처=캐시']);
 });
 
+test("멈춘 채 여는 곡은 재생 시작 줄 끝에 일시정지 까닭을 붙이고, info 줄을 따로 더하지 않는다", async () => {
+  const track = yt("wwwwwwwwwwx", { title: "C" });
+  h.seedCache("yt:wwwwwwwwwwx", track, { durationSec: 100 });
+  const p = h.makePlayer();
+  p.currentTrack = track;
+  p.pause.setUser(true);
+  const from = sink.buffer.length;
+
+  await playOnce(p, 0);
+
+  const infos = sink.buffer
+    .slice(from)
+    .filter((e) => e.level === "info" && e.category === "player")
+    .map((e) => e.text);
+  assert.deepEqual(infos, ['재생: "C" (youtube) | 시작 0초 / 길이 100초 | 출처=캐시 | 일시정지(user)']);
+});
+
 test("리소스를 만든 뒤 voice 에 넘기기 전에 실패하면 그 출력을 destroy 한다(ffmpeg, 인코더가 남지 않게)", async () => {
   const track = yt("vvvvvvvvvvv");
   h.seedCache("yt:vvvvvvvvvvv", track);

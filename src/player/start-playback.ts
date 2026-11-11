@@ -220,18 +220,14 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   if (shown) Object.assign(track, shown);
   // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
   const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
-  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}`);
+  // 멈춘 채 여는 곡은 그 까닭을 이 줄에 붙인다(곡 하나의 info 는 시작, 끝 두 줄). 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
+  const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
+  log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
 
   player.audioPlayer.play(resource);
   player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.
   if (!player.isLive) recordPlayed(track, pb.audioKey, verifiedFor(track, source), { countPlay: !continued });
-
-  if (player.paused) {
-    // 멈추는 건 Playing 리스너다. 지금은 아직 버퍼링이라 pause()가 먹지 않는다
-    const why = [...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds];
-    log.info(`곡을 불러와 일시정지 상태로 둠: 원인=${why.join(", ")}`);
-  }
 
   // 파일로 틀면 다시 쓸 주소가 없다(캐시 폴백이면 그 주소는 열리지 않았다)
   pb.stream = pb.cacheFile ? null : streamInfo;
