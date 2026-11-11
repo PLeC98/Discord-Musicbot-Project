@@ -75,8 +75,10 @@ class SqliteSessionStore extends Store {
   _file: string | null = null;
   // 표시 파일 경로. 메모리 DB면 null
   _marker: string | null = null;
-  // 표시 파일을 "0"으로 바꿨거나 지웠고 아직 "1"로 되돌리지 못한 상태다. 다음 기동 시 로그인 세션을 모두 지운다
-  _markerGone = false;
+  // 표시 파일이 "1"이 아님을 디스크까지 확인했다("0"을 쓰고 fsync했거나 파일이 없다). 아니면 행이 있는 세션을 끊기 전에 다시 "0"으로 바꾼다
+  _markerDirty = false;
+  // 표시 파일을 "1"로 되돌려야 한다
+  _markerPending = false;
   /** 기동 전 세션을 가려내지 못했다(전체 삭제와 행 읽기가 모두 실패). 그동안은 이번 실행에서 처음 저장한 세션만 받는다. 아니면 null */
   _bornHere: Set<string> | null = null;
   /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
@@ -216,40 +218,36 @@ class SqliteSessionStore extends Store {
     }
   }
 
-  // 표시 파일을 "0"으로 바꾼다(없으면 그대로). 고치지 못하면 지워 보고, 다른 프로그램이 열어 두었거나 권한 문제로 그것도 못 하면 그대로 두고 다시 하기에서 다시 한다
+  // 표시 파일을 "0"으로 바꾸고 디스크까지 쓴다(없으면 그대로). 다른 프로그램이 열어 두었거나 권한 문제로 못 하면 그대로 두고 다시 하기에서 다시 한다.
+  // 지우는 것으로 대신하지 않는다: 디렉터리 기록은 정전에 되돌아와 "1"이 살아날 수 있다
   _dropMarker() {
-    if (!this._marker || this._markerGone) return;
+    if (!this._marker || this._markerDirty) return;
+    this._markerPending = true;
     try {
       writeMarker(this._marker, false);
-      this._markerGone = true;
+      this._markerDirty = true;
     } catch (error) {
-      if (codeOf(error) === "ENOENT") {
-        this._markerGone = true;
-        return;
-      }
-      try {
-        fs.rmSync(this._marker, { force: true });
-        this._markerGone = true;
-      } catch {
-        // 표시 파일이 남았다. 뒤이어 행 삭제도 실패하면 다시 하기에서 표시 파일과 행을 다시 다룬다
-      }
+      // 파일이 없으면 기동이 모두 지운다. 그 밖은 "1"이 남았을 수 있다
+      if (codeOf(error) === "ENOENT") this._markerDirty = true;
     }
   }
 
   // 지금 다시 시작하면 로그인 세션을 모두 지우는지 여부. 표시 파일이 "1"이 아닌 상태를 뜻하며, 메모리 DB는 원래 세션이 남지 않는다
   _wipesNext() {
-    return !this._marker || this._markerGone;
+    return !this._marker || this._markerDirty;
   }
 
   // 삭제할 것이 비었고 기동 전 세션을 모두 가려냈으면 표시 파일을 "1"로 되돌린다. 하지 못하면 다시 하기에서 다시 한다
   _restoreMarker() {
-    if (!this._marker || !this._markerGone || this._unsaved.size || this._bornHere) return;
+    if (!this._marker || !this._markerPending || this._unsaved.size || this._bornHere) return;
+    // 쓰다 실패해도 "1"이 디스크에 닿았을 수 있다. 다음 끊기는 다시 "0"으로 바꾸고 시작한다
+    this._markerDirty = false;
     try {
       writeMarker(this._marker, true);
-      this._markerGone = false;
+      this._markerPending = false;
       this._markerFailure.ok();
     } catch (error) {
-      this._markerFailure.fail(`${codeOf(error) ?? messageOf(error)}(다시 만들기 전에 다시 시작하면 로그인 세션을 모두 삭제)`);
+      this._markerFailure.fail(`${codeOf(error) ?? messageOf(error)}(되돌리기 전에 다시 시작하면 로그인 세션을 모두 삭제할 수 있음)`);
       this._armRetry();
     }
   }
@@ -257,7 +255,9 @@ class SqliteSessionStore extends Store {
   // 기동 시 표시 파일이 "1"이 아니면 로그인 세션을 모두 지운다. 지우지 못하면 묘비로 막아 현재 실행에서도 그 세션들을 허용하지 않고 다시 삭제한다.
   // 행을 읽지도 못하면 이번 실행에서 처음 저장한 세션만 받다가 다시 하기에서 읽어 묘비로 바꾼다
   _wipe() {
-    this._markerGone = true;
+    // 읽지 못했을 뿐 "1"일 수 있다. 다시 하기가 끝나기 전에 다시 시작해도 모두 지우게 먼저 "0"으로 바꾼다
+    this._markerPending = true;
+    this._dropMarker();
     let gone: number;
     try {
       gone = this._durably(() => this.db.prepare("DELETE FROM sessions").run().changes);
@@ -305,7 +305,7 @@ class SqliteSessionStore extends Store {
   /** 삭제하지 못한 행을 다시 삭제한다. 남은 수 */
   retryUnsaved() {
     if (this._bornHere) this._buryBooted();
-    if (this._unsaved.size && !this._wipesNext()) this._dropMarker();
+    if ((this._unsaved.size || this._bornHere) && !this._wipesNext()) this._dropMarker();
     for (const sid of [...this._unsaved.keys()]) {
       try {
         this._durably(() => this._deleteStmt.get(sid));
@@ -316,7 +316,7 @@ class SqliteSessionStore extends Store {
     }
     if (!this._unsaved.size) this._retryFailure.ok();
     this._restoreMarker();
-    if (!this._unsaved.size && !this._markerGone && this._retryTimer) {
+    if (!this._unsaved.size && !this._markerPending && this._retryTimer) {
       clearInterval(this._retryTimer);
       this._retryTimer = null;
     }

@@ -405,15 +405,13 @@ const intact = (name: string) => {
 };
 type Mocker = { mock: { method: typeof import("node:test").mock.method } };
 const isMarker = (file: unknown) => String(file).endsWith("-intact");
-// 표시 파일에서만 예외를 던지게 하고 나머지 파일은 그대로 둔다. drop: "0"으로 고치기와 지우기, restore: "1"로 되돌리기. 원래대로 되돌리는 함수를 반환한다
+// 표시 파일에서만 예외를 던지게 하고 나머지 파일은 그대로 둔다. drop: "0"으로 고치기, restore: "1"로 되돌리기. 원래대로 되돌리는 함수를 반환한다
 function failOnMarker(t: Mocker, what: "drop" | "restore", code = "EBUSY") {
   const fail = () => {
     throw Object.assign(new Error(`${code}: marker`), { code });
   };
   const open = fs.openSync as (...args: unknown[]) => number;
-  const rm = fs.rmSync as (...args: unknown[]) => void;
   const mocks: Array<{ mock: { restore(): void } }> = [t.mock.method(fs, "openSync", ((file: unknown, flags: unknown, ...rest: unknown[]) => (isMarker(file) && flags === (what === "drop" ? "r+" : "w") ? fail() : open.call(fs, file, flags, ...rest))) as never)];
-  if (what === "drop") mocks.push(t.mock.method(fs, "rmSync", ((file: unknown, ...rest: unknown[]) => (isMarker(file) ? fail() : rm.call(fs, file, ...rest))) as never));
   return () => mocks.forEach((one) => one.mock.restore());
 }
 // 기동 시 전체 삭제를 포함해 행 삭제가 모두 실패하게 하는 트리거
@@ -552,6 +550,7 @@ test("기동 시 전체 삭제가 실패하면 기동 전 세션(사용자 없�
   const logs = logsFrom();
   const store = makeStore("wipe-fails.db");
   assert.match(logs().join("\n"), /^error 기동 시 로그인 세션 삭제 실패/m);
+  assert.match(logs().join("\n"), /^warn 로그아웃된 세션 행 삭제 재시도 실패: .*삭제 전에 다시 시작하면 로그인 세션을 모두 삭제/m, "표시 파일이 없으면 다음 기동도 모두 지운다");
   assert.equal(await getAsync(store, "로그인"), null);
   assert.equal(await getAsync(store, "로그인 전"), null, "사용자 없는 세션도 허용하지 않는다");
   assert.deepEqual(store.sessionsOf("u1"), []);
@@ -589,6 +588,52 @@ test('표시 파일은 지우지 않고 내용을 바꾼다: 세션을 끊는 �
   const again = makeStore("content.db");
   assert.equal(rowOf(again, "b"), undefined, "내용이 1이 아니면 모두 지운다");
   assert.ok(intact("content.db"));
+});
+
+test('표시 파일을 되돌리다 실패하면("1"이 디스크에 닿았을 수 있다) 다음 끊기는 다시 "0"으로 바꾸고 시작한다', (t) => {
+  const store = makeStore("restore-fails.db");
+  store.set("a", makeSession({ id: "u1" }));
+  store.set("b", makeSession({ id: "u1" }));
+  let calls = 0;
+  const fsync = fs.fsyncSync;
+  t.mock.method(fs, "fsyncSync", (fd: number) => {
+    // 첫째는 a를 끊기 전의 "0", 둘째는 a를 끊은 뒤의 "1"
+    if (++calls === 2) throw Object.assign(new Error("EIO: fsync"), { code: "EIO" });
+    return fsync.call(fs, fd);
+  });
+  assert.equal(store.end("a", "u1"), true);
+  assert.equal(fs.readFileSync(markerOf("restore-fails.db"), "utf8"), "1", "쓰기는 됐고 fsync만 실패했다");
+  breakDelete(store);
+  assert.equal(store.end("b", "u1"), false);
+  assert.equal(fs.readFileSync(markerOf("restore-fails.db"), "utf8"), "0", '다시 "0"으로 바꿨다');
+});
+
+test('기동 시 표시 파일을 잠깐 읽지 못했을 뿐 "1"이어도, 전체 삭제와 행 읽기가 실패하면 "0"으로 바꿔 둔다', async (t) => {
+  const dbPath = path.join(tmpDir, "unread-marker.db");
+  const first = new SqliteSessionStore({ dbPath });
+  first.set("기동 전", makeSession({ id: "u1" }));
+  blockDeletes(first.db);
+  first.close();
+  assert.ok(intact("unread-marker.db"));
+  const prepare = Database.prototype.prepare;
+  t.mock.method(Database.prototype, "prepare", function (this: Database.Database, sql: string) {
+    if (sql === "SELECT sid, data FROM sessions") throw Object.assign(new Error("disk I/O error"), { code: "SQLITE_IOERR" });
+    return prepare.call(this, sql);
+  });
+  const read = fs.readFileSync as (...args: unknown[]) => unknown;
+  let once = true;
+  t.mock.method(fs, "readFileSync", ((file: unknown, ...rest: unknown[]) => {
+    if (once && isMarker(file)) {
+      once = false;
+      throw Object.assign(new Error("EBUSY: marker"), { code: "EBUSY" });
+    }
+    return read.call(fs, file, ...rest);
+  }) as never);
+  const store = makeStore("unread-marker.db");
+  t.mock.restoreAll();
+  assert.equal(fs.readFileSync(markerOf("unread-marker.db"), "utf8"), "0");
+  assert.equal(rowOf(store, "기동 전") !== undefined, true, "행은 남았지만 다음 기동도 모두 지운다");
+  assert.equal(await getAsync(store, "기동 전"), null);
 });
 
 test("여러 세션을 함께 끊으면 표시 파일은 처음에 한 번 바꾸고 마지막에 한 번 되돌린다(세션마다 디스크까지 쓰지 않는다)", (t) => {
