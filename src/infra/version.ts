@@ -14,7 +14,7 @@ const read = (file: string) => {
     return fs.readFileSync(file, "utf8").trim();
   } catch (error) {
     const code = codeOf(error);
-    if (code !== "ENOENT" && code !== "EISDIR" && code !== "ENOTDIR") log.debug(`버전 정보 읽기 실패(${file}): ${messageOf(error)}`);
+    if (code !== "ENOENT" && code !== "EISDIR" && code !== "ENOTDIR") log.warn(`버전 정보 읽기 실패(${file}): ${messageOf(error)}`);
     return null;
   }
 };

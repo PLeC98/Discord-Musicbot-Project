@@ -5,7 +5,20 @@ import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
 import { messageOf } from "./error-text.ts";
+import { repeatingFailure } from "./repeating-failure.ts";
 const log = logger.child({ category: "core" });
+
+const failureLog = { error: (line: string) => log.warn(line), info: (line: string) => log.info(line) };
+const driveFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
+const freeFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
+
+function failuresOf(byTarget: Map<string, ReturnType<typeof repeatingFailure>>, target: string, what: string) {
+  let failures = byTarget.get(target);
+  if (!failures) byTarget.set(target, (failures = repeatingFailure(failureLog, what)));
+  return failures;
+}
+const driveFailure = (target: string) => failuresOf(driveFailures, target, `${target} 디스크 용량 statfs 조회`);
+const freeFailure = (target: string) => failuresOf(freeFailures, target, `${target} 디스크 여유 공간 statfs 조회`);
 
 /** 마운트 지점: target 과 dev 가 같은 가장 위 폴더 */
 function mountPoint(target: string) {
@@ -28,9 +41,11 @@ function driveOf(target: string): { drive: string; usedBytes: number; totalBytes
   try {
     const stat = fs.statfsSync(target);
     const totalBytes = stat.blocks * stat.bsize;
-    return { drive: driveName(target), usedBytes: totalBytes - stat.bfree * stat.bsize, totalBytes };
+    const drive = { drive: driveName(target), usedBytes: totalBytes - stat.bfree * stat.bsize, totalBytes };
+    driveFailure(target).ok();
+    return drive;
   } catch (error) {
-    log.debug(`드라이브 전체 용량 조회 실패(${target}): ${messageOf(error)}`);
+    driveFailure(target).fail(`${messageOf(error)} (드라이브 카드에 알 수 없음으로 표시)`);
     return null;
   }
 }
@@ -42,9 +57,10 @@ const KEEP_FREE_BYTES = 256 * 1024 * 1024;
 function freeBytesOf(target: string): number | null {
   try {
     const stat = fs.statfsSync(target);
+    freeFailure(target).ok();
     return stat.bavail * stat.bsize;
   } catch (error) {
-    log.debug(`디스크 여유 공간 조회 실패(${target}): ${messageOf(error)}`);
+    freeFailure(target).fail(`${messageOf(error)} (여유 공간 0바이트로 처리)`);
     return null;
   }
 }

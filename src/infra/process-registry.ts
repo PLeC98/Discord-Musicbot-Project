@@ -6,6 +6,7 @@ import { codeOf, messageOf } from "./error-text.ts";
 import { consoleText } from "./console-text.ts";
 import { currentGuild, currentJob } from "./guild-context.ts";
 import { startKeyOf } from "./process-snapshot.ts";
+import { repeatingFailure } from "./repeating-failure.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
 
@@ -41,6 +42,7 @@ type Record = { owner: Identity; children: Array<Identity & { label: string; gro
 const active = new Map<number, Entry>();
 let hooksInstalled = false;
 let recordFile: string | null = null;
+const saveFailures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 레지스트리 기록 파일 쓰기");
 
 /** 실행 파일 이름(경로, .exe 를 뗀 소문자) */
 const imageOf = (file: string | undefined) =>
@@ -61,13 +63,17 @@ function save() {
     owner: SELF,
     children: [...active.values()].map((e) => ({ pid: e.pid, label: e.label, image: imageOf(e.child.spawnfile), group: e.group, startedAt: e.startedAt, startKey: e.startKey })),
   };
+  let step = "임시 파일 쓰기";
   try {
     const temp = `${recordFile}.${process.pid}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(record));
+    step = "이름 변경";
     fs.renameSync(temp, recordFile);
   } catch (error) {
-    log.debug(`자식 프로세스 기록 실패: ${messageOf(error)}`);
+    saveFailures.fail(`${recordFile} | 단계=${step} | ${messageOf(error)} (${String(codeOf(error))}) (비정상 종료 시 잔류 프로세스 정리 불가)`);
+    return;
   }
+  saveFailures.ok();
 }
 
 /** 이 실행의 기록 파일 이름 */
@@ -204,7 +210,7 @@ function killAll(): Array<{ label: string; pid: number }> {
     result = killTrees(entries);
   } catch (error) {
     // 종료 경로에서는 실패해도 더 할 수 있는 일이 없다. 기록은 그대로 두어 다음 기동이 다시 본다
-    log.debug(`자식 프로세스 종료 실패: ${messageOf(error)}`);
+    log.warn(`자식 프로세스 종료 실패: ${messageOf(error)}`);
     return [];
   }
   // 내리지 못한 것만 기록에 남긴다

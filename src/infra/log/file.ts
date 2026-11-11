@@ -51,7 +51,7 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
 }
 
 /** file 에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
-function rotatedFilesOf(file: string): string[] {
+function rotatedFilesOf(file: string, report?: { caller: string; line: (text: string) => unknown }): string[] {
   const base = path.basename(file);
   const ext = path.extname(base);
   const stem = ext ? base.slice(0, -ext.length) : base;
@@ -62,7 +62,9 @@ function rotatedFilesOf(file: string): string[] {
       .readdirSync(path.dirname(file))
       .filter((n) => re.test(n))
       .sort();
-  } catch {
+  } catch (error) {
+    const code = codeOf(error);
+    if (report && code !== "ENOENT") report.line(`로그 폴더 읽기 실패(로테이션된 로그 파일 없음으로 처리): ${path.dirname(file)} | 작업=${report.caller} | ${messageOf(error)} (${String(code)})`);
     return [];
   }
 }
@@ -138,7 +140,7 @@ function createFileDestination({ file, maxBytes, keep, notice = (line: string) =
 
   function prune() {
     if (keep <= 0) return;
-    const old = rotatedFilesOf(file);
+    const old = rotatedFilesOf(file, { caller: "로그 정리", line: (text) => notice(`[logFile] ${text}\n`) });
     for (const name of old.slice(0, Math.max(0, old.length - keep))) {
       try {
         fs.unlinkSync(path.join(path.dirname(file), name));

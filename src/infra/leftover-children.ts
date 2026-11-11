@@ -65,7 +65,7 @@ const REAL: Boundary = {
       return fs.readdirSync(dir);
     } catch (error) {
       // 없는 것은 첫 기동이다
-      if (codeOf(error) !== "ENOENT") log.debug(`자식 프로세스 기록 폴더 읽기 실패: ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(`기동 시 자식 프로세스 기록 폴더 읽기 실패(이전 실행의 잔류 프로세스 정리 건너뜀): ${dir} | ${messageOf(error)}`);
       return [];
     }
   },
@@ -73,7 +73,7 @@ const REAL: Boundary = {
     try {
       return fs.readFileSync(file, "utf8");
     } catch (error) {
-      log.debug(`자식 프로세스 기록 읽기 실패: ${messageOf(error)}`);
+      log.warn(`잔류 자식 프로세스 정리 중 기록 파일 읽기 실패(파일 삭제, 해당 자식 프로세스 확인 건너뜀): ${path.basename(file)} | ${messageOf(error)} (${String(codeOf(error))})`);
       return null;
     }
   },
@@ -96,15 +96,17 @@ function same(proc: Proc | undefined, who: ProcessIdentity): proc is Proc {
   return Math.abs(proc.startedAt - who.startedAt) <= START_SLACK_MS;
 }
 
-// 기록 파일의 내용. 읽지 못하거나 모양이 틀리면 null
-function parse(text: string | null): ChildRecord | null {
-  if (text === null) return null;
+// 기록 파일의 내용. 모양이 틀리면 그 까닭
+function parse(text: string): { record: ChildRecord } | { reason: string } {
+  let record: ChildRecord | null;
   try {
-    const record = JSON.parse(text) as ChildRecord;
-    return record && typeof record.owner?.pid === "number" && Array.isArray(record.children) ? record : null;
+    record = JSON.parse(text) as ChildRecord | null;
   } catch {
-    return null;
+    return { reason: "유효하지 않은 JSON" };
   }
+  if (typeof record?.owner?.pid !== "number") return { reason: "owner.pid 필드 누락" };
+  if (!Array.isArray(record.children)) return { reason: "children 필드가 배열이 아님" };
+  return { record };
 }
 
 type Target = { pid: number; group: boolean; label: string };
@@ -137,10 +139,11 @@ function readRecords(dir: string, io: Boundary): Found[] {
   for (const name of io.list(dir)) {
     if (!name.endsWith(".json")) continue;
     const file = path.join(dir, name);
-    const record = parse(io.read(file));
-    if (record) found.push({ file, record });
+    const text = io.read(file);
+    const parsed = text === null ? null : parse(text);
+    if (parsed && "record" in parsed) found.push({ file, record: parsed.record });
     else {
-      log.debug(`자식 프로세스 기록을 읽지 못해 삭제: ${name}`);
+      if (parsed) log.warn(`잔류 자식 프로세스 정리 중 기록 파일 파싱 실패(파일 삭제, 해당 자식 프로세스 확인 건너뜀): ${name} | 원인=${parsed.reason}`);
       io.remove(file);
     }
   }
