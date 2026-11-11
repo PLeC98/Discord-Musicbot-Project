@@ -23,7 +23,9 @@ import { repeatingFailure } from "../infra/repeating-failure.ts";
 // 세션을 끊는 삭제(로그아웃, 다른 기기 로그아웃, 다시 로그인, 다시 삭제)는 디스크까지 쓴다(synchronous=FULL). 커밋한 삭제가 정전으로 사라져 끊은 세션이 되살아나지 않게 한다.
 // 한 DB 파일에는 저장소를 하나만 둔다(묘비와 삭제할 것을 저장소마다 따로 관리하므로, 둘이면 한쪽이 끊은 세션을 다른 쪽이 저장할 때 다시 넣는다).
 // 삭제에 실패해도(디스크가 가득 참 등) 차단하는 쪽(fail-closed)으로 처리한다: 묘비를 남겨 이 실행에서는 그 세션을 받지 않고, 삭제하지 못한 행은 다시 삭제한다.
-// 묘비는 메모리뿐이라 삭제하지 못한 채 다시 시작하면 그 로그인이 되살아난다. 그래서 실패는 부른 쪽에 넘기고(화면이 알린다) 끝(finish)에 남은 수를 남긴다
+// 묘비는 메모리에만 있어서, 끊은 세션을 삭제하지 못한 채 다시 시작해도 되살아나지 않게 표시 파일(DB 경로 + "-intact")을 둔다. 표시 파일이 있으면 끊은 세션이 DB에 행으로 남아 있지 않다.
+// 행이 있는 세션을 끊을 때 표시 파일을 먼저 지우고(디스크가 가득 차도 파일 지우기는 된다), 삭제할 것이 비면 다시 만든다. 기동 시 표시 파일이 없으면 로그인 세션을 모두 지운다.
+// 실패는 호출한 쪽에 넘기고(화면에서 알린다) 종료(finish) 시 남은 수를 로그에 남긴다
 
 // maxAge 미설정 쿠키(브라우저 세션 쿠키)의 서버측 보관 기한 폴백
 const FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -65,9 +67,14 @@ class SqliteSessionStore extends Store {
   _retryTimer: NodeJS.Timeout | null = null;
   _pruneFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "만료된 로그인 세션 정리");
   _retryFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그아웃된 세션 행 삭제 재시도");
+  _markerFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 세션 표시 파일 생성");
   _warnedBroken = new Set<string>();
   // 열린 DB 파일의 실제 경로. 메모리 DB면 null
   _file: string | null = null;
+  // 표시 파일 경로. 메모리 DB면 null
+  _marker: string | null = null;
+  // 표시 파일을 지웠고 아직 다시 만들지 못한 상태다. 다음 기동 시 로그인 세션을 모두 지운다
+  _markerGone = false;
   /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
   declare generate: (req: Request) => void;
 
@@ -84,6 +91,7 @@ class SqliteSessionStore extends Store {
       this._own?.close();
       throw new Error(`로그인 세션 DB를 열고 있는 저장소가 이미 있음(${this._file})`);
     }
+    this._marker = this._file && `${this._file}-intact`;
 
     this._getStmt = this.db.prepare("SELECT data, expires_at FROM sessions WHERE sid = ?");
     // 만료한 행(정리 전)은 늘리지 않는다: 있는 행이 만료했으면 바꾸지 않는다(changes 0)
@@ -92,6 +100,7 @@ class SqliteSessionStore extends Store {
     this._deleteStmt = this.db.prepare("DELETE FROM sessions WHERE sid = ? RETURNING data");
     this._pruneStmt = this.db.prepare("DELETE FROM sessions WHERE expires_at <= ? RETURNING sid, data");
 
+    if (this._marker && !fs.existsSync(this._marker)) this._wipe();
     this._normalize();
     this.prune(); // 기동 시 1회 + 주기 정리
     this._pruneTimer = setInterval(() => {
@@ -172,15 +181,75 @@ class SqliteSessionStore extends Store {
   // 끝낸다. 삭제가 실패해도 묘비를 남기고(지금부터 절대 수명만큼) 삭제하지 못한 것으로 둔다. 알림은 부르는 쪽이 콜백 뒤에
   _endOrBury(sid: string, userId: string | null) {
     try {
+      if (this._hasRow(sid)) this._dropMarker();
       this._durably(() => this._end(sid));
       this._unsaved.delete(sid);
     } catch (error) {
       this._bury(sid, null);
       this._unsaved.set(sid, userId);
       this._armRetry();
-      log.error(`끊은 로그인 세션 삭제 실패(이 실행에서는 받지 않으며 다시 삭제 시도): ${messageOf(error)}`);
+      log.error(`끊은 로그인 세션 삭제 실패(현재 실행에서는 허용하지 않으며 다시 삭제 시도, ${this._wipesNext() ? "삭제 전에 다시 시작하면 로그인 세션을 모두 삭제" : "삭제 전에 다시 시작하면 그 로그인이 되살아남"}): ${messageOf(error)}`);
       throw error;
     }
+    this._restoreMarker();
+  }
+
+  // 세션 행이 있는지 확인한다. 읽지 못하면 표시 파일을 지우도록 행이 있다고 본다
+  _hasRow(sid: string) {
+    try {
+      return this._getStmt.get(sid) !== undefined;
+    } catch {
+      return true;
+    }
+  }
+
+  // 표시 파일을 지운다. 다른 프로그램이 열어 두었거나 권한 문제로 지우지 못하면 그대로 두고 다시 하기에서 다시 지운다
+  _dropMarker() {
+    if (!this._marker) return;
+    try {
+      fs.rmSync(this._marker, { force: true });
+      this._markerGone = true;
+    } catch {
+      // 표시 파일이 남았다. 뒤이어 행 삭제도 실패하면 다시 하기에서 표시 파일과 행을 다시 지운다
+    }
+  }
+
+  // 지금 다시 시작하면 로그인 세션을 모두 지우는지 여부. 표시 파일이 없는 상태를 뜻하며, 메모리 DB는 원래 세션이 남지 않는다
+  _wipesNext() {
+    return !this._marker || this._markerGone;
+  }
+
+  // 삭제할 것이 비었으면 표시 파일을 다시 만든다. 만들지 못하면 다시 하기에서 다시 만든다
+  _restoreMarker() {
+    if (!this._marker || !this._markerGone || this._unsaved.size) return;
+    try {
+      fs.writeFileSync(this._marker, "", { mode: 0o600 });
+      this._markerGone = false;
+      this._markerFailure.ok();
+    } catch (error) {
+      this._markerFailure.fail(`${codeOf(error) ?? messageOf(error)}(다시 만들기 전에 다시 시작하면 로그인 세션을 모두 삭제)`);
+      this._armRetry();
+    }
+  }
+
+  // 기동 시 표시 파일이 없으면 로그인 세션을 모두 지운다. 지우지 못하면 묘비로 막아 현재 실행에서도 그 세션들을 허용하지 않고 다시 삭제한다
+  _wipe() {
+    this._markerGone = true;
+    let gone: number;
+    try {
+      gone = this._durably(() => this.db.prepare("DELETE FROM sessions").run().changes);
+    } catch (error) {
+      const rows = this.db.prepare("SELECT sid, data FROM sessions").all() as Array<{ sid: string; data: string }>;
+      for (const { sid, data } of rows) {
+        this._bury(sid, null);
+        this._unsaved.set(sid, userOf(data));
+      }
+      this._armRetry();
+      log.error(`기동 시 로그인 세션 삭제 실패(현재 실행에서는 기동 전 세션 ${rows.length}개를 허용하지 않으며 다시 삭제 시도): ${messageOf(error)}`);
+      return;
+    }
+    if (gone) log.warn(`끊은 세션이 남지 않았다는 표시(${path.basename(this._marker ?? "")})가 없어 기동 시 로그인 세션 ${gone}개 삭제(모두 다시 로그인해야 함)`);
+    this._restoreMarker();
   }
 
   _armRetry() {
@@ -191,16 +260,18 @@ class SqliteSessionStore extends Store {
 
   /** 삭제하지 못한 행을 다시 삭제한다. 남은 수 */
   retryUnsaved() {
+    if (this._unsaved.size && !this._wipesNext()) this._dropMarker();
     for (const sid of [...this._unsaved.keys()]) {
       try {
         this._durably(() => this._deleteStmt.get(sid));
         this._unsaved.delete(sid);
       } catch (error) {
-        this._retryFailure.fail(`${codeOf(error) ?? messageOf(error)} (삭제 전 다시 시작 시 세션 유지됨)`);
+        this._retryFailure.fail(`${codeOf(error) ?? messageOf(error)}(${this._wipesNext() ? "삭제 전에 다시 시작하면 로그인 세션을 모두 삭제" : "삭제 전에 다시 시작하면 끊은 로그인이 되살아남"})`);
       }
     }
     if (!this._unsaved.size) this._retryFailure.ok();
-    if (!this._unsaved.size && this._retryTimer) {
+    this._restoreMarker();
+    if (!this._unsaved.size && !this._markerGone && this._retryTimer) {
       clearInterval(this._retryTimer);
       this._retryTimer = null;
     }
@@ -229,10 +300,11 @@ class SqliteSessionStore extends Store {
     return ok;
   }
 
-  /** 종료 순서에서: 삭제하지 못한 행을 마지막으로 다시 삭제한다. 남은 수(다시 시작하면 그 로그인들이 되살아난다) */
+  /** 종료할 때 삭제하지 못한 행을 마지막으로 다시 삭제하고 남은 수를 반환한다. 표시 파일을 지웠으면 다음 기동 시 로그인 세션을 모두 지우고, 지우지 못했으면 끊은 로그인이 되살아난다 */
   finish() {
     const left = this.retryUnsaved();
-    if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인하고, 되살아난 기기는 다른 기기 로그아웃으로 끊으세요`);
+    if (left && this._wipesNext()) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료. 다시 시작하면 로그인 세션을 모두 삭제하니(모두 다시 로그인) 저장 공간을 확인하세요`);
+    else if (left) log.error(`끊은 로그인 세션 ${left}개를 저장소에서 삭제하지 못한 채 종료. 다시 시작하면 그 로그인이 되살아나니 저장 공간을 확인하고, 되살아난 기기는 다른 기기 로그아웃으로 끊으세요`);
     return left;
   }
 
@@ -427,6 +499,15 @@ class SqliteSessionStore extends Store {
 
 // 비밀값과 다른 키로 암호화한다(store/secrets 의 용도)
 const TOKEN_PURPOSE = "discord-token";
+
+// 세션 내용의 사용자 id. 읽지 못하면 null
+function userOf(data: string) {
+  try {
+    return (JSON.parse(data) as SessionData).user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // 같은 파일을 다른 표기(대소문자, ..)로 열어도 같은 파일로 인식하도록 실제 경로를 구한다. 구하지 못하면 절대 경로를 반환한다
 function realFile(file: string) {
