@@ -578,7 +578,7 @@ class NowPlayingPanel {
     // 전용 채널 밖의 패널은 대화에 밀려 어디까지 올라갔을지 모른다. 다 틀었거나 끊겼으면 따로 알린다.
     // 사람이 멈추거나 내보낸 것(/stop, /leave)은 명령 응답이, 연달아 실패는 채널 알림이 이미 말한다
     const ended = reason === "queue-end" ? panelText.ended() : cause ? panelText.cutOff(cause) : null;
-    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기");
+    if (ended && live && !dedicated && canSend(textChannel)) await bestEffort(log, textChannel.send(post(frame({ icon: ended.icon, title: ended.title, body: ended.body }))), "끝 안내 보내기", "warn");
 
     this._releaseEnded(player, before, live);
   }
@@ -756,7 +756,7 @@ class NowPlayingPanel {
     const target = textChannelId ? guild.channels?.cache?.get(textChannelId) : null;
     if (!canSend(target)) return void log.info(`복원을 건너뛴 안내를 보낼 글 채널 없음: ${guild.name ?? guild.id}`);
     const notice = panelText.restoreSkipped();
-    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기");
+    await bestEffort(log, target.send(post(frame({ title: notice.title, body: notice.body }))), "복원 건너뜀 안내 보내기", "warn");
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.

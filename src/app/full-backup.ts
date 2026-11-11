@@ -26,8 +26,9 @@ import { exportInputs } from "../dashboard/login-background/archive.ts";
 import * as archive from "../dashboard/settings-archive.ts";
 import { cacheDb } from "../store/cache-db.ts";
 import { dropWal } from "../store/snapshots.ts";
-import { codeOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 
+type PartLeft = { path: string; code: string };
 type Paths = { envFile: string; databaseDir: string; faviconDir: string; backgroundDir: string; outDir: string };
 const REAL: Paths = {
   envFile: PROJECT.env,
@@ -89,10 +90,10 @@ async function dbCopy(file: string): Promise<{ file: string; done: () => void }>
 }
 
 /**
- * 다 쓴 ZIP을 최종 이름에 올리고 그 경로를 돌려준다. 이름이 있으면 -2, -3을 붙인다. 하드링크는 이름이 있으면 실패해 겹쳐 도는 백업끼리 덮지 않는다.
+ * 다 쓴 ZIP을 최종 이름에 올리고 그 경로(out)와 삭제하지 못한 .part(partLeft)를 돌려준다. 이름이 있으면 -2, -3을 붙인다. 하드링크는 이름이 있으면 실패해 겹쳐 도는 백업끼리 덮지 않는다.
  * 올리지 못하면 .part를 삭제한다(.env의 비밀값이 평문으로 들어 있어 남기지 않는다)
  */
-function publish(part: string, dir: string, name: string): string {
+function publish(part: string, dir: string, name: string): { out: string; partLeft: PartLeft | null } {
   try {
     for (let n = 1; n <= NAME_TRIES; n++) {
       const out = path.join(dir, n > 1 ? name.replace(/\.zip$/, `-${n}.zip`) : name);
@@ -103,10 +104,9 @@ function publish(part: string, dir: string, name: string): string {
         // 하드링크를 쓸 수 없는 파일 시스템(FAT32, exFAT). 있는지 본 뒤 바꾸는 사이에 겹쳐 도는 백업이 그 이름에 올렸으면 덮는다.
         // 덮는 것도 덮이는 것도 온전한 백업이라 받아들인다(덮지 않는 이름 바꾸기가 없고, 복사는 수 GB를 다시 쓴다)
         fs.renameSync(part, out);
-        return out;
+        return { out, partLeft: null };
       }
-      removeLeftPart(part);
-      return out;
+      return { out, partLeft: removeLeftPart(part) };
     }
     throw new Error(`백업 이름 잡기 실패: ${name}부터 ${NAME_TRIES}개가 이미 있음`);
   } catch (error) {
@@ -116,11 +116,13 @@ function publish(part: string, dir: string, name: string): string {
 }
 
 // 하드링크로 올린 뒤의 .part. 삭제하지 못하면 남는다(이 프로세스가 끝나면 다음 백업이 삭제한다)
-function removeLeftPart(part: string) {
+function removeLeftPart(part: string): PartLeft | null {
   try {
     fs.rmSync(part, { force: true });
-  } catch {
+    return null;
+  } catch (error) {
     /* 다음 백업의 sweepParts 가 삭제한다 */
+    return { path: part, code: String(codeOf(error) ?? messageOf(error)) };
   }
 }
 
@@ -176,7 +178,7 @@ async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ f
 
 /**
  * 전체 백업 ZIP을 만든다. file: 만든 ZIP, replaced: 삭제한 이전 백업, left: 삭제하지 못한 이전 백업(다른 프로그램이 열어 둠 등), hasEnv: .env 포함 여부, favicons, backgrounds: 담은 파비콘 파일과 로그인 배경 수, audioFiles: 담은 캐시 파일 수(오디오 캐시가 없으면 null),
- * legacyParts: 남아 있는 옛 형식의 중단된 백업(쓰는 프로세스를 알 수 없어 삭제하지 않았다), tempLeft: 삭제하지 못한 임시 사본 폴더
+ * legacyParts: 남아 있는 옛 형식의 중단된 백업(쓰는 프로세스를 알 수 없어 삭제하지 않았다), tempLeft: 삭제하지 못한 임시 사본 폴더, partLeft: 삭제하지 못한 .part
  * @param withAudio  오디오 캐시 번들에 캐시 파일까지(기본은 행 목록만)
  */
 async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { withAudio = false }: { withAudio?: boolean } = {}) {
@@ -207,8 +209,8 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
   } finally {
     tempLeft = removeTemps([copy, audio]);
   }
-  const { out, replaced, left } = replaceEarlier(part, outDir, name);
-  return { file: out, replaced, left, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null, legacyParts, tempLeft };
+  const { out, replaced, left, partLeft } = replaceEarlier(part, outDir, name);
+  return { file: out, replaced, left, partLeft, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null, legacyParts, tempLeft };
 }
 
 // 임시 사본을 삭제한다. 삭제하지 못해도 백업은 계속하고, 남은 폴더를 돌려준다(부르는 쪽이 알린다)
@@ -236,7 +238,7 @@ function replaceEarlier(part: string, outDir: string, name: string) {
     fs.rmSync(part, { force: true });
     throw error;
   }
-  const out = publish(part, outDir, name);
+  const { out, partLeft } = publish(part, outDir, name);
   ownerOnly(out);
   // 목록을 읽은 뒤 겹쳐 도는 백업이 그 이름을 비워 이 백업이 그 이름에 올라갔으면 목록에서 뺀다
   const others = earlier.filter((one) => path.join(outDir, one) !== out);
@@ -248,7 +250,7 @@ function replaceEarlier(part: string, outDir: string, name: string) {
       left.push(old);
     }
   }
-  return { out, replaced: others.filter((one) => !left.includes(one)), left };
+  return { out, replaced: others.filter((one) => !left.includes(one)), left, partLeft };
 }
 
 export { makeFullBackup };

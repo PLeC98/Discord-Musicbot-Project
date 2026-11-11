@@ -6,7 +6,7 @@
 import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
+import { codeOf, describeError } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Notice } from "./text/notice.ts";
 import { canSend } from "./channels.ts";
@@ -149,7 +149,7 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
       if (ms !== null) scheduleDelete(message, ms);
       return;
     } catch (error) {
-      log.debug(`채널에 보내지 못해 후속 메시지로 보냄: ${messageOf(error)}`);
+      log.warn({ tags: ["fallback"] }, `채널에 보내지 못해 후속 메시지로 보냄: ${describeError(error)}`);
     }
   }
   const message = await interaction.followUp(post(view, files));

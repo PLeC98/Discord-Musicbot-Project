@@ -62,16 +62,26 @@ async function runCommand(bot: BotContext, interaction: ChatInputCommandInteract
 // 서버 밖(DM)이나 자동완성이 없는 명령도 빈 목록
 async function runAutocomplete(bot: BotContext, interaction: AutocompleteInteraction) {
   const command = bot.commands.get(interaction.commandName);
+  let lateLogged = false;
   try {
     if (command && !command.anywhere && command.autocomplete && interaction.inCachedGuild()) await command.autocomplete(interaction, bot);
   } catch (error) {
     // 마감(3초)을 넘겨 토큰이 죽었거나 이미 답했다. 봇 쪽 사정이라 남기되, 입력할 때마다 오므로 묶는다
     if (isDeadInteraction(error)) {
+      lateLogged = true;
       const now = Date.now();
       lateAnswer(now, (more) => `자동완성 답 실패(늦음): /${interaction.commandName} | 생성 뒤 ${now - interaction.createdTimestamp}ms${more} | ${describeError(error)}`);
     } else log.error(`/${interaction.commandName} 자동완성 처리 실패:`, error);
   }
-  if (!interaction.responded) await interaction.respond([]).catch((error: unknown) => log.debug(`자동완성 빈 답 실패: ${describeError(error)}`));
+  if (!interaction.responded)
+    await interaction.respond([]).catch((error: unknown) => {
+      const dead = isDeadInteraction(error);
+      if (dead && lateLogged) return;
+      const now = Date.now();
+      const line = (more: string) => `자동완성 빈 응답 폴백 실패: /${interaction.commandName} | 경과 ${now - interaction.createdTimestamp}ms${more} | ${describeError(error)}`;
+      if (dead) lateAnswer(now, line);
+      else log.warn(line(""));
+    });
 }
 
 // 버튼, 메뉴, 모달. 서버 안의 것만 받는다
@@ -127,8 +137,8 @@ function noteLate(interaction: Interaction, now: number) {
 
 // 종료 중에 온 상호작용. 새 작업을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
 async function refuseWhileStopping(interaction: Interaction) {
-  if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.debug(`종료 중 자동완성 응답 실패: ${messageOf(error)}`));
-  if (interaction.isRepliable()) return noticeSelf(interaction, errors.notice("bot-shutting-down")).catch((error: unknown) => log.debug(`종료 중 안내 전송 실패: ${messageOf(error)}`));
+  if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.warn(`종료 중 자동완성 응답 실패: ${describeError(error)}`));
+  if (interaction.isRepliable()) return noticeSelf(interaction, errors.notice("bot-shutting-down")).catch((error: unknown) => log.warn(`종료 중 안내 전송 실패: ${describeError(error)}`));
 }
 
 /** 상호작용 하나를 맡는다. routes 는 테스트가 가짜 표를 넘기는 슬롯, now 는 받은 시각 */

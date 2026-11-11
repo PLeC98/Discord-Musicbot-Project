@@ -6,7 +6,7 @@ import { markTransient, isTransient, scheduleDelete, RETRY_AFTER_MS } from "../.
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 
-test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 까닭을 debug 로 남긴다(삼키지 않는다)", async (t) => {
+test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 까닭을 warn 으로 남긴다(삼키지 않는다)", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const level = logger.level;
   logger.level = "debug";
@@ -21,7 +21,7 @@ test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 �
     t.mock.timers.tick(1);
     await new Promise(setImmediate);
     assert.deepEqual(deleted, ["ok"]);
-    assert.ok(sink.buffer.slice(from).some((e) => e.level === "debug" && e.text.includes("Missing Access")));
+    assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("Missing Access")));
 
     // 지우는 함수가 바로 던져도 타이머 밖으로 새지 않고 같은 길로 남긴다
     scheduleDelete(
@@ -35,7 +35,7 @@ test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 �
     );
     t.mock.timers.tick(100);
     await new Promise(setImmediate);
-    assert.ok(sink.buffer.slice(from).some((e) => e.level === "debug" && e.text.includes("즉시 실패")));
+    assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("즉시 실패")));
   } finally {
     logger.level = level;
   }

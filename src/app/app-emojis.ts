@@ -102,7 +102,7 @@ async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) 
 
 /** 올라가 있는 것이 그 이미지인가. CDN 에서 못 받으면 아니라고 본다 */
 async function uploadedAs(api: Api, remote: Remote, image: Image) {
-  const there = await api.download(remote).catch((error: unknown) => (log.debug(`앱 이모지 ${remote.name} 이미지 다운로드 실패: ${messageOf(error)}`), null));
+  const there = await api.download(remote).catch((error: unknown) => (log.warn(`앱 이모지 ${remote.name} 이미지 다운로드 실패: ${messageOf(error)}`), null));
   return there !== null && (await sameImage(image, there));
 }
 

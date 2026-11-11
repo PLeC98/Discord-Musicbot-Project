@@ -519,6 +519,7 @@ async function startFirst(panel: Panel, player: Player, track: QueuedTrack, resp
     try {
       await player.voice.connect();
     } catch (error) {
+      // VoiceLink.connect 가 실패 원인을 error 로 남기고 던졌다. 요청 결과 코드는 곡 요청 줄에 남는다
       return { opened: null, failure: { code: voiceRefusal(error) } };
     }
   }
