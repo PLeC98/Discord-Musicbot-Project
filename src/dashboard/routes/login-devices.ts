@@ -30,7 +30,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
   function signOut(store: SqliteSessionStore, sid: string, userId: string) {
     try {
       const token = store.readDiscordToken(sid);
-      if (token) bestEffort(log, revokeToken(http, token), "다른 기기의 디스코드 토큰 폐기");
+      if (token) bestEffort(log, revokeToken(http, token), "다른 기기의 디스코드 토큰 폐기", "warn");
     } catch (error) {
       log.warn(`다른 기기의 디스코드 토큰 읽기 실패(폐기 요청 생략, 세션은 끊음): ${messageOf(error)}`);
     }

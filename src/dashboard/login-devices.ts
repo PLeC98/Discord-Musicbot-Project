@@ -9,6 +9,7 @@ import { UAParser } from "ua-parser-js";
 import * as secrets from "../store/secrets.ts";
 import { isPublicIp } from "../infra/public-address.ts";
 import logger from "../infra/log/logger.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { DevicePlace, LoginDevice } from "./contract/identity.ts";
 import { clientIp } from "./client-ip.ts";
@@ -20,13 +21,16 @@ type DeviceRecord = { ua: string; ip: string; signedInAt: number; seenAt: number
 const PURPOSE = "login-device";
 /** 마지막 활동을 다시 적는 간격. 그 사이에도 IP, 브라우저가 바뀌면 바로 적는다 */
 const SEEN_EVERY_MS = 5 * 60_000;
+const sealFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 기기 기록 암호화");
 
 // 암호화하지 못하면(SECRETS_KEY 가 없는 테스트, 스크립트) 적지 않는다. 기록이 없어도 로그인, 요청은 그대로다
 function seal(sid: string, record: DeviceRecord): string | undefined {
   try {
-    return secrets.sealBlob(PURPOSE, JSON.stringify(record), sid).toString("base64");
+    const sealed = secrets.sealBlob(PURPOSE, JSON.stringify(record), sid).toString("base64");
+    sealFailure.ok();
+    return sealed;
   } catch (error) {
-    if (codeOf(error) !== "SECRETS_KEY_MISSING") log.debug(`로그인 기기 기록 암호화 실패: ${messageOf(error)}`);
+    if (codeOf(error) !== "SECRETS_KEY_MISSING") sealFailure.fail(messageOf(error));
     return undefined;
   }
 }

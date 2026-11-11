@@ -275,7 +275,7 @@ function closeStream(entry: Entry, why: string) {
   try {
     entry.drop();
   } catch (error) {
-    log.debug(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
+    log.warn(`스트림 정리 실패(${kind}): ${messageOf(error)}`);
   }
   if (large || res.writableEnded || res.destroyed) {
     socket.destroy();

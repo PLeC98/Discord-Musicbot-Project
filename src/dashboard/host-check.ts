@@ -60,6 +60,7 @@ function hostCheck(url: string): RequestHandler {
   try {
     urlHost = normalizeHost(new URL(url).host);
   } catch {
+    // 설정 값은 읽을 때 이미 검사했다. 여기까지 오지 않는다
     urlHost = null;
   }
   const gate = warnGate();

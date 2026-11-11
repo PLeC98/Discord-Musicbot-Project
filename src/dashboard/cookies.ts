@@ -41,6 +41,7 @@ function cookieValue(req: Request, name: string): string | null {
       try {
         return decodeURIComponent(part.slice(at + 1).trim());
       } catch {
+        // Cookie 헤더는 신뢰할 수 없는 입력이다. 형식이 잘못되면 쿠키가 없는 것과 같다
         return null;
       }
     }

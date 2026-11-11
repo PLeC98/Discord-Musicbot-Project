@@ -9,7 +9,7 @@ import { X509Certificate, createPrivateKey, randomBytes } from "node:crypto";
 import { isIP } from "node:net";
 import type { SecureContextOptions, TlsOptions } from "node:tls";
 import logger from "../infra/log/logger.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 
 const log = logger.child({ category: "dashboard" });
 
@@ -131,7 +131,8 @@ function worldReadable(file: string, platform = process.platform) {
   if (platform === "win32") return false;
   try {
     return (fs.statSync(file).mode & 0o004) !== 0;
-  } catch {
+  } catch (error) {
+    log.warn(`TLS 키 파일 stat 실패(다른 사용자 읽기 권한 확인 건너뜀): ${file} | ${codeOf(error) ?? messageOf(error)}`);
     return false;
   }
 }

@@ -21,7 +21,7 @@ import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import type { Server } from "node:http";
 import type { X509Certificate } from "node:crypto";
 import { createServer, listenAll } from "./binding.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { callbackUrl, createAuthRouter } from "./routes/auth.ts";
 import { clientFreshness, freshnessWarning } from "./client-freshness.ts";
 import { withGuildName } from "./routes/ai-log.ts";
@@ -260,7 +260,8 @@ function readScope(file: string): string | null {
   try {
     const saved = JSON.parse(fs.readFileSync(file, "utf8")) as { scope?: unknown };
     return typeof saved.scope === "string" ? saved.scope : null;
-  } catch {
+  } catch (error) {
+    if (codeOf(error) !== "ENOENT") log.warn(`이전 실행의 대시보드 노출 범위 읽기 실패(노출 범위 확대 안내 건너뜀): ${file} | ${messageOf(error)}`);
     return null;
   }
 }

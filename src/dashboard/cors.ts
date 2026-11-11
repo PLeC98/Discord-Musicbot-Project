@@ -33,6 +33,7 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
       try {
         normalized = new URL(origin).origin;
       } catch {
+        // Origin 이 주소가 아니면 허용된 출처가 아니다. 차단은 브라우저가 한다
         return callback(null, false);
       }
 

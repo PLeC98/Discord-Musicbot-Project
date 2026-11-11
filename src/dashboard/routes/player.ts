@@ -14,7 +14,7 @@ import { shortfallNotice } from "../../ui/text/ko/added-parts.ts";
 import { findSongs } from "../../usecases/song-search.ts";
 import { SEARCH_MAX_LEN, SEARCH_MIN_LEN } from "../../rules/limits.ts";
 import { graphemeLength } from "../../rules/clip-text.ts";
-import { errorKind } from "../../rules/error-kind.ts";
+import { errorKind, messageOf } from "../../rules/error-kind.ts";
 import { latestOnly } from "../latest-only.ts";
 import { requestPlayback, continueCollection, ensurePlayer, resolveFallbackTextChannel } from "../../usecases/add-tracks.ts";
 import { waitForRestore } from "../../player/session-restore.ts";
@@ -307,6 +307,11 @@ function queueEditRoutes(router: Router) {
   });
 }
 
+function searchFailed(guildId: string, q: string, error: unknown) {
+  const at = error instanceof Error ? error.stack?.split("\n").find((line) => line.trim().startsWith("at ")) : undefined;
+  log.error({ sub: "search" }, `검색 요청 처리 실패: 서버=${guildId} | 검색어=${q} | ${messageOf(error)}${at ? ` | ${at.trim()}` : ""}`);
+}
+
 // 자동재생. 판정과 처리는 디스코드의 장르 메뉴와 같다(usecases/controls 의 autoplay)
 // 곡 추가 칸의 실시간 검색 GET /:guildId/player/search?q=. 곡 추가와 같은 문(플레이어, 동일 음성 채널 규칙)을 지난 사람만.
 // 검색은 봇과 같은 IP 로 유튜브에 묻는 일이고, 봇 전체가 함께 쓰는 검색 자리(동시 넷)를 재생할 곡의 매칭, 자동재생, /play 와 나눠 쓴다.
@@ -333,18 +338,24 @@ function searchRoute(router: Router) {
     if (graphemeLength(q) < SEARCH_MIN_LEN) return res.json(EMPTY);
 
     const requester = requesterOf(req);
+    // 테스트가 검색을 가짜로 넘기는 슬롯. 없으면 진짜
+    const search: typeof findSongs = req.app.locals.findSongs ?? findSongs;
+    let found: Awaited<ReturnType<typeof search>> | null;
     try {
-      // 테스트가 검색을 가짜로 넘기는 슬롯. 없으면 진짜
-      const search: typeof findSongs = req.app.locals.findSongs ?? findSongs;
-      const found = await oneAtATime(requester.id, () => search(q));
-      if (!found) return res.json(EMPTY);
+      found = await oneAtATime(requester.id, () => search(q));
+    } catch (e) {
+      // 실패는 검색 모듈이 남겼다(되풀이되면 한 번만). 화면은 그 까닭의 코드와 HTTP 상태를 보인다
+      return sendProblem(res, errorKind(e));
+    }
+    if (!found) return res.json(EMPTY);
+    try {
       const queued = queuedUrls(player);
       const tracks = found.songs.map((song) => searchTrack(guildId, song, queued));
       const spotify = tracks.filter((t) => t.platform === "spotify").length;
       log.debug({ sub: "search" }, `곡 검색: 대시보드 | ${requester.username} | "${q}" → ${tracks.length ? `유튜브 ${tracks.length - spotify}, 스포티파이 ${spotify}` : "결과 없음"}${found.gated ? "(유튜브 연령 인증 안내)" : ""}`);
       res.json({ tracks, gated: found.gated } satisfies SearchReply);
     } catch (e) {
-      // 실패는 검색 모듈이 남겼다(되풀이되면 한 번만). 화면은 그 까닭의 코드와 HTTP 상태를 보인다
+      searchFailed(guildId, q, e);
       sendProblem(res, errorKind(e));
     }
   });

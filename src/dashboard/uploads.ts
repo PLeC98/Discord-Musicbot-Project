@@ -99,6 +99,7 @@ async function write(one: Upload, chunk: Buffer): Promise<Written> {
       one.pending += bytesWritten;
     }
   } catch (error) {
+    // 이미 깨졌을 수 있는 핸들을 닫는다. 원래 오류는 그대로 던지거나 no-space 로 바꿔 던진다
     await handle?.close().catch(() => undefined);
     handle = null;
     one.pending = 0;

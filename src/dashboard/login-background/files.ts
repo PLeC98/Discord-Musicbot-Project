@@ -31,7 +31,7 @@ function servedFiles(folder: string): string[] {
     try {
       entries = fs.readdirSync(path.join(folder, ...parts), { withFileTypes: true });
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.debug(`로그인 배경 파일 목록 읽기 실패(${path.join(folder, ...parts)}): ${messageOf(error)}`);
+      if (codeOf(error) !== "ENOENT") log.warn(`로그인 배경 파일 목록 읽기 실패(${path.join(folder, ...parts)}): ${messageOf(error)}`);
       return;
     }
     for (const entry of entries) {

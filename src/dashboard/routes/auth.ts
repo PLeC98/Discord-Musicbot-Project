@@ -56,6 +56,7 @@ function publicLogin(req: express.Request): string | null {
   try {
     here = new URL(`${req.protocol}://${req.host}`).origin;
   } catch {
+    // Host 헤더는 신뢰할 수 없는 입력이다. 읽지 못하면 공개 로그인 주소로 보낸다
     here = "";
   }
   if (here === target.origin) return null;
@@ -224,7 +225,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     if (!req.session?.user) return res.status(204).end();
     try {
       const token = tokenStoreOf(req)?.readDiscordToken(req.sessionID) ?? null;
-      if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기");
+      if (token) bestEffort(log, revokeToken(http, token), "디스코드 토큰 폐기", "warn");
     } catch (error) {
       log.warn(`디스코드 토큰 읽기 실패(폐기 요청 생략, 로그아웃은 진행): ${messageOf(error)}`);
     }

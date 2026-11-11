@@ -65,6 +65,7 @@ import * as models from "../../config/ai-models.ts";
 import { refreshModelInfo } from "../../config/ai-model-info.ts";
 import { adminStatus } from "../status/index.ts";
 import { ranBy } from "../ran-by.ts";
+import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
@@ -232,6 +233,13 @@ adminRouter.get("/source-types", async (req, res) => {
 // 소스 편집기의 자동완성(VocaDB 계열의 태그, 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
 // 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
 const SUGGEST_TERM_MAX = 100;
+const suggestFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
+function suggestFailure(type: string, what: string) {
+  const key = `${type} ${what}`;
+  let one = suggestFailures.get(key);
+  if (!one) suggestFailures.set(key, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `출처 자동완성 조회(${type}, ${what})`)));
+  return one;
+}
 adminRouter.get("/source-suggest", async (req, res) => {
   const type = String(req.query.type || "");
   const what = String(req.query.field || "");
@@ -240,9 +248,11 @@ adminRouter.get("/source-suggest", async (req, res) => {
   if (what !== "tags" && what !== "artists") return sendProblem(res, "bad-suggest-field");
   if (!term || term.length > SUGGEST_TERM_MAX) return sendProblem(res, "bad-suggest-term", { max: SUGGEST_TERM_MAX });
   try {
-    res.json({ items: await autoplaySources.suggest(type, what, term) } satisfies Suggestions);
+    const items = await autoplaySources.suggest(type, what, term);
+    suggestFailure(type, what).ok();
+    res.json({ items } satisfies Suggestions);
   } catch (error) {
-    log.debug(`자동완성 실패 (${type} ${what}): ${messageOf(error)}`);
+    suggestFailure(type, what).fail(messageOf(error));
     sendProblem(res, "suggest-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -285,15 +295,22 @@ adminRouter.get("/ai/fields", (req, res) => {
   } satisfies AiFields);
 });
 
+const claudeCountFailure = repeatingFailure({ error: (line) => log.warn({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "Anthropic 토큰 수 조회");
+const tokenCountFailure = repeatingFailure({ error: (line) => log.error({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "토큰 계산");
+
 // 앤트로픽에서 받은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 추산한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
   const apiKey = assist.storedKey({ provider });
   const wrap = tokens.FRAMING.anthropic.perRequest;
   const ask = (one: string) =>
     tokens.countByAnthropic([{ role: "user", content: one }], { model, apiKey }).then(
-      (got) => (got === null ? null : got - wrap),
+      (got) => {
+        if (got === null) return null;
+        claudeCountFailure.ok();
+        return got - wrap;
+      },
       (error: unknown) => {
-        log.debug({ sub: "admin" }, `Anthropic 토큰 계산 실패(tik으로 추산): ${messageOf(error)}`);
+        claudeCountFailure.fail(`${model} | ${messageOf(error)} (추산값으로 대체)`);
         return null;
       },
     );
@@ -322,8 +339,10 @@ adminRouter.post("/ai/tokens", async (req, res) => {
 
   try {
     const { each, by, exact } = await countBodies(cut, String(req.body?.provider || ""), String(req.body?.model || ""));
+    tokenCountFailure.ok();
     res.json({ each, total: each.reduce((sum, one) => sum + one, 0), by, exact } satisfies TokensReply);
   } catch (error) {
+    tokenCountFailure.fail(messageOf(error));
     sendProblem(res, "token-count-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -333,6 +352,7 @@ adminRouter.post("/ai/models/refresh", async (req, res) => {
   try {
     res.json(await refreshModelInfo({ force: !!req.body?.force }));
   } catch (error) {
+    // 모델 정보 갱신 실패는 config/ai-model-info 가 warn 으로 남기고 다시 던진다
     sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -378,6 +398,7 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
       else aiKeys.put(provider, value.trim(), assist.keyBinding({ ...draft, provider }));
     }
   } catch (error) {
+    log.error({ sub: "admin" }, `AI 키 저장 실패: ${Object.keys(keys).join(", ")} | 요청자=${ranBy(req)} | ${messageOf(error)}`);
     return sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
   log.warn({ sub: "admin" }, `대시보드에서 AI 키 저장: ${Object.keys(keys).join(", ")}. 실행 ${ranBy(req)}`);
@@ -469,6 +490,7 @@ adminRouter.put("/cookies", requireRecentLogin, (req, res) => {
     cookieJar.save(text);
     res.json(cookieState());
   } catch (error) {
+    log.error({ sub: "admin" }, `유튜브 쿠키 ${text.trim() ? "저장" : "삭제"} 실패: 요청자=${ranBy(req)} | ${messageOf(error)}`);
     sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -534,8 +556,9 @@ adminRouter.post("/geoip/check", async (_req, res) => {
 
 adminRouter.post("/geoip/update", (req, res) => {
   log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
-  geoip.update().catch(() => {
-    /* 까닭은 geoip 가 로그에 남긴다(다운로드 실패는 상태의 error 에도) */
+  geoip.update().catch((error: unknown) => {
+    // 까닭은 geoip 가 로그에 남긴다(다운로드 실패는 상태의 error 에도)
+    if (!geoip.alreadyLogged(error)) log.error({ sub: "admin" }, `GeoIP 수동 업데이트 실패: ${messageOf(error)}`);
   });
   res.status(202).json(geoip.status() satisfies GeoipStatus);
 });

@@ -7,7 +7,8 @@ import { sessionDb } from "../store/session-db.ts";
 import * as secrets from "../store/secrets.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 
 // express-session의 기본 MemoryStore 대체:
 // 다시 시작할 때 세션 소실(로그인 풀림)과 메모리 누수 경고를 SQLite 영속화로 해소.
@@ -58,6 +59,9 @@ class SqliteSessionStore extends Store {
   /** 끝냈지만 삭제하지 못한 sid → 그 사용자 id(모르면 null). 다시 삭제한다 */
   _unsaved = new Map<string, string | null>();
   _retryTimer: NodeJS.Timeout | null = null;
+  _pruneFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "만료된 로그인 세션 정리");
+  _retryFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그아웃된 세션 행 삭제 재시도");
+  _warnedBroken = new Set<string>();
   /** 새 세션을 요청에 단다. express-session이 세션 미들웨어를 만들 때 이 저장소에 붙인다 */
   declare generate: (req: Request) => void;
 
@@ -82,9 +86,10 @@ class SqliteSessionStore extends Store {
     this._pruneTimer = setInterval(() => {
       try {
         this.prune();
+        this._pruneFailure.ok();
       } catch (error) {
         // 다음 주기에 다시 한다. 서비스에 영향 없음
-        log.debug(`만료된 로그인 세션 정리 실패: ${messageOf(error)}`);
+        this._pruneFailure.fail(describeError(error));
       }
     }, pruneIntervalMs);
     this._pruneTimer.unref();
@@ -122,10 +127,18 @@ class SqliteSessionStore extends Store {
     let deadline: number | null;
     try {
       deadline = data === null ? now + SESSION_MAX_MS : deadlineOf(JSON.parse(data) as SessionData);
-    } catch {
+    } catch (error) {
+      this._brokenRow(sid, `세션 묘비 기록 중 삭제된 세션 행 파싱 실패(최대 수명 적용): ${messageOf(error)}`);
       deadline = now + SESSION_MAX_MS;
     }
+    this._warnedBroken.delete(sid);
     if (deadline !== null && deadline > now) this._ended.set(sid, deadline);
+  }
+
+  _brokenRow(sid: string, line: string) {
+    if (this._warnedBroken.has(sid)) return;
+    this._warnedBroken.add(sid);
+    log.warn(line);
   }
 
   // 행을 삭제하고 묘비를 남긴다. 알림은 부르는 쪽이 콜백 뒤에
@@ -161,9 +174,10 @@ class SqliteSessionStore extends Store {
         this._deleteStmt.get(sid);
         this._unsaved.delete(sid);
       } catch (error) {
-        log.debug(`끊은 로그인 세션 다시 삭제 실패: ${messageOf(error)}`);
+        this._retryFailure.fail(`${codeOf(error) ?? messageOf(error)} (삭제 전 다시 시작 시 세션 유지됨)`);
       }
     }
+    if (!this._unsaved.size) this._retryFailure.ok();
     if (!this._unsaved.size && this._retryTimer) {
       clearInterval(this._retryTimer);
       this._retryTimer = null;
@@ -218,7 +232,8 @@ class SqliteSessionStore extends Store {
         let deadline: number | null;
         try {
           deadline = deadlineOf(JSON.parse(data) as SessionData);
-        } catch {
+        } catch (error) {
+          this._brokenRow(sid, `기동 시 세션 정규화 중 세션 행 파싱 실패(건너뜀): ${messageOf(error)}`);
           continue; // 읽을 수 없는 행은 읽을 때 삭제한다(_parse)
         }
         if (deadline !== null && deadline < expires_at) shorten.run(deadline, sid);
@@ -258,6 +273,7 @@ class SqliteSessionStore extends Store {
     try {
       session = JSON.parse(data);
     } catch (error) {
+      this._warnedBroken.add(sid);
       this._end(sid);
       ended.push(sid);
       log.warn(`손상된 로그인 세션 1개 삭제(해당 사용자는 다시 로그인해야 함): ${messageOf(error)}`);
@@ -347,7 +363,8 @@ class SqliteSessionStore extends Store {
         const session = JSON.parse(data) as SessionData;
         const deadline = deadlineOf(session);
         return session.user?.id === userId && (deadline === null || deadline > now) ? [{ sid, session }] : [];
-      } catch {
+      } catch (error) {
+        this._brokenRow(sid, `사용자 세션 목록 조회 중 세션 행 파싱 실패(건너뜀): ${messageOf(error)}`);
         return [];
       }
     });

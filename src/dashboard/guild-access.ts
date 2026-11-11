@@ -4,7 +4,8 @@
 import { RESTJSONErrorCodes, type Guild, type GuildMember } from "discord.js";
 import type { Request, Response } from "express";
 import logger from "../infra/log/logger.ts";
-import { codeOf, describeError } from "../rules/error-kind.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
 import { shadowMember } from "./view-as.ts";
@@ -14,10 +15,27 @@ const log = logger.child({ category: "dashboard" });
 
 /** 멤버 조회의 답: 멤버가 아니다 */
 const NOT_MEMBER = new Set<unknown>([RESTJSONErrorCodes.UnknownMember, RESTJSONErrorCodes.UnknownUser]);
+// 서버마다 따로 센다(한 서버만 계속 실패하면 다른 서버의 성공이 복구로 잘못 찍힌다). 풀리면 지운다
+const memberFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
+const memberFailureOf = (guildId: string) => {
+  let one = memberFailures.get(guildId);
+  if (!one) memberFailures.set(guildId, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `디스코드 서버 멤버 조회(${guildId})`)));
+  return one;
+};
+const memberAnswered = (guildId: string) => {
+  memberFailures.get(guildId)?.ok();
+  memberFailures.delete(guildId);
+};
 
 /** members.fetch 의 catch. 멤버가 아니라는 답은 조용히, 다른 실패는 까닭을 남긴다. 어느 쪽이든 null(멤버로 보지 않는다) */
 const notMember = (guildId: string, userId: string) => (error: unknown) => {
-  if (!NOT_MEMBER.has(codeOf(error))) log.debug(`멤버 조회 실패: 서버 ${guildId}, 사용자 ${userId} | ${describeError(error)}`);
+  const code = codeOf(error);
+  if (NOT_MEMBER.has(code)) {
+    memberAnswered(guildId);
+    return null;
+  }
+  memberFailureOf(guildId).fail(`${code === undefined ? "" : `${code} | `}${messageOf(error)} (멤버 아님으로 처리)`);
+  log.debug(`멤버 조회 실패: 서버 ${guildId}, 사용자 ${userId} | ${describeError(error)}`);
   return null;
 };
 
@@ -30,7 +48,13 @@ type MemberSource = { id: string; available?: boolean; members: { fetch(options:
  */
 function memberOf(guild: MemberSource, userId: string): Promise<GuildMember | null> {
   const asked = guild.available === false ? guild.members.fetch({ user: userId, force: true }) : guild.members.fetch(userId);
-  return asked.catch(notMember(guild.id, userId));
+  return asked.then(
+    (member) => {
+      memberAnswered(guild.id);
+      return member;
+    },
+    notMember(guild.id, userId),
+  );
 }
 
 /** SSE 연결의 보기 권한 확인(보낼 때 동기로). 멤버 캐시를 보되, 사용 불가 서버는 캐시를 믿지 않는다 */

@@ -31,6 +31,7 @@ function precompressed(root: string, setHeaders: (res: Response, file: string) =
     try {
       rel = decodeURIComponent(req.path);
     } catch {
+      // 형식이 잘못된 경로는 다음 핸들러(정적 파일, 404)에 맡긴다
       return next();
     }
     const file = path.resolve(base, `.${rel.endsWith("/") ? `${rel}index.html` : rel}`);
