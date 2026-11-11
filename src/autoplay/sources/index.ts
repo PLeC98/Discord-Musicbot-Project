@@ -49,7 +49,7 @@ const yearRange = remembered<YearRange>(
       const [min, max] = ends.map((r) => Number(r?.anime?.[0]?.year));
       return min && max && min <= max ? { min, max } : null;
     } catch (error) {
-      log.debug(`AnimeThemes 연도 범위 불러오기 실패: ${messageOf(error)}`);
+      log.warn(`AnimeThemes 연도 범위 불러오기 실패: ${messageOf(error)}`);
       return null;
     }
   },

@@ -71,7 +71,7 @@ async function checkListenbrainzToken(): Promise<KeyCheck> {
   const res = await probe("listenbrainz", "https://api.listenbrainz.org/1/validate-token", { Authorization: `Token ${token}` });
   if (!res) return { ok: false, reason: "unreachable" };
   const body = (await res.json().catch((error: unknown) => {
-    log.debug(`ListenBrainz 토큰 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
+    log.warn(`ListenBrainz 토큰 확인 응답 파싱 실패(HTTP ${res.status}): ${messageOf(error)}`);
     return null;
   })) as { valid?: boolean } | null;
   if (res.ok && body?.valid === true) return { ok: true };

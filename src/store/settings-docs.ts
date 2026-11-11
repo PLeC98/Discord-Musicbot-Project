@@ -4,7 +4,7 @@
 import Database from "better-sqlite3";
 import fs from "fs";
 import logger from "../infra/log/logger.ts";
-import { codedError, messageOf } from "../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { settingsDb } from "./settings-db.ts";
 const log = logger.child({ category: "config" });
 
@@ -72,8 +72,10 @@ function peek(file: string, name: string): unknown {
   try {
     const row = db.prepare("SELECT data_json FROM documents WHERE name = ?").get(name) as { data_json: string } | undefined;
     return parse(name, row?.data_json);
-  } catch {
-    return null; // 표가 없다(옛 파일)
+  } catch (error) {
+    if (codeOf(error) === "SQLITE_ERROR" && /^no such table/.test(messageOf(error))) return null; // 표가 없다(옛 파일)
+    log.warn(`설정 DB 읽기 전용 조회 실패(기본값 사용): ${file}, 문서=${name} | ${codeOf(error) ?? messageOf(error)}`);
+    return null;
   } finally {
     db.close();
   }

@@ -26,7 +26,7 @@ function mask(text: unknown): string {
         const inner = JSON.parse(key)?.private_key;
         if (inner) out = out.split(inner).join(REDACTED);
       } catch {
-        /* JSON 이 아니면 경로였던 것이다 */
+        // JSON 이 아니면 서비스 계정 파일의 경로다. 값 전체는 위에서 이미 가렸다
       }
     }
   }

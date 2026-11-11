@@ -12,10 +12,13 @@ import { Worker } from "worker_threads";
 import * as models from "../../config/ai-models.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
+import { repeatingFailure } from "../../infra/repeating-failure.ts";
+import { readBody } from "./retry.ts";
 import { GEMMA_FILE, readPieces } from "./tokenizers.ts";
 import type { Counted } from "./tokenizers.ts";
 
 const log = logger.child({ category: "autoplay" });
+const anthropicFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "Anthropic count_tokens 조회");
 
 /** 셀 메시지. 본문은 content 나 text 에 */
 type Message = { role?: string; content?: string; text?: string };
@@ -50,7 +53,7 @@ let lastId = 0;
 function spawn() {
   const one = new Worker(new URL("./tokenizer-worker.ts", import.meta.url));
   one.on("message", ({ id, counted, error, problem }: { id: number; counted?: Counted[]; error?: string; problem?: string | null }) => {
-    if (problem) log.warn(`Gemma 토크나이저 파일 읽기 실패(tik으로 추산): ${problem}`);
+    if (problem) log.warn(`Gemma 토크나이저 모델 읽기 실패(tik 추산으로 대체): ${problem}`);
     const job = waiting.get(id);
     if (!job) return;
     waiting.delete(id);
@@ -62,7 +65,10 @@ function spawn() {
     log.warn(`토큰 계산 워커 중단(${messageOf(error)}). 다음 계산 시 다시 시작`);
     stop(one, error);
   });
-  one.on("exit", () => stop(one, new Error("토큰 계산 워커가 종료됨")));
+  one.on("exit", (code) => {
+    if (thread === one) log.warn(`토크나이저 워커 비정상 종료(다음 계산 시 다시 실행): 종료 코드=${code} | 대기 작업 ${waiting.size}개 실패 처리`);
+    stop(one, new Error("토큰 계산 워커가 종료됨"));
+  });
   one.unref(); // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
   return one;
 }
@@ -155,9 +161,11 @@ async function countByAnthropic(messages: Message[] | null | undefined, { model,
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
-    log.debug(`Anthropic 토큰 계산 실패(추산값 사용): HTTP ${res.status}`);
+    const type = readBody(await res.text().catch(() => ""))?.type;
+    anthropicFailure.fail(`HTTP ${res.status}${typeof type === "string" && type ? ` (${type})` : ""} | 모델=${model} | tik 추산으로 대체`);
     return null;
   }
+  anthropicFailure.ok();
   const json = (await res.json()) as { input_tokens?: unknown } | null;
   return typeof json?.input_tokens === "number" ? json.input_tokens : null;
 }
