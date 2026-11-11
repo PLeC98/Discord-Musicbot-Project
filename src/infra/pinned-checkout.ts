@@ -18,6 +18,8 @@ const realGit: Git = (args, cwd) => execFileSync("git", args, { cwd, encoding: "
  * tag 는 isPlainTag, commit 은 isCommitSha 를 통과한 것이어야 한다
  */
 function checkoutPinned({ dir, repo, tag, commit, git = realGit, log }: { dir: string; repo: string; tag: string; commit: string; git?: Git; log?: (line: string) => void }) {
+  // 폴더는 있는데 .git 이 없으면 git 이 위로 올라가 바깥 저장소(봇 저장소)를 집는다
+  if (fs.existsSync(dir) && !fs.existsSync(path.join(dir, ".git"))) throw new Error(`${dir} 는 git 체크아웃이 아닙니다. 지우고 다시 설치하세요`);
   if (!fs.existsSync(dir)) {
     log?.(`git clone --no-checkout ${repo}`);
     fs.mkdirSync(path.dirname(dir), { recursive: true });

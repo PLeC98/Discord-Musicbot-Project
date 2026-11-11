@@ -49,6 +49,12 @@ test("경량 태그, 주석 태그를 받아 그 커밋에 선다. 같은 이름
   assert.equal(git(["rev-parse", "HEAD"], dir).trim(), c2);
 });
 
+test("받을 폴더가 있는데 git 체크아웃이 아니면 바깥 저장소를 건드리지 않고 멈춘다", () => {
+  const dir = path.join(origin, "server");
+  assert.throws(() => run(dir, "v1", c1), /git 체크아웃이 아닙니다/);
+  assert.equal(git(["status", "--porcelain"], origin), "", "원본 저장소는 그대로");
+});
+
 test("받을 폴더의 상위 폴더가 없으면 만들어 클론한다", () => {
   const dir = path.join(root, "no-parent", "deep", "bgutil");
   run(dir, "v1", c1);
