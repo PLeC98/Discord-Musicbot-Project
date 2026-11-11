@@ -26,15 +26,15 @@ const TABLE: Row[] = [
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
   ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
-  // 클라이언트, 포맷
-  ["ERROR: Requested format is not available", "unknown-error", F, F, T, F, F],
-  ["ERROR: Only images are available for download", "unknown-error", F, F, T, F, F],
-  ["WARNING: web client https formats require a PO Token which was not provided", "unknown-error", F, F, T, F, F],
-  ['WARNING: Skipping client "android" since it does not support cookies\nERROR: Requested format is not available', "unknown-error", F, F, F, F, T],
-  ["ERROR: nsig extraction failed: Some formats may be missing", "unknown-error", F, F, T, F, F],
+  // 클라이언트, 포맷. 받을 포맷을 끝내 얻지 못한 것이라 사용자에게는 stream-failed
+  ["ERROR: Requested format is not available", "stream-failed", F, F, T, F, F],
+  ["ERROR: Only images are available for download", "stream-failed", F, F, T, F, F],
+  ["WARNING: web client https formats require a PO Token which was not provided", "stream-failed", F, F, T, F, F],
+  ['WARNING: Skipping client "android" since it does not support cookies\nERROR: Requested format is not available', "stream-failed", F, F, F, F, T],
+  ["ERROR: nsig extraction failed: Some formats may be missing", "stream-failed", F, F, T, F, F],
   // 미디어 주소 어긋남
-  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "unknown-error", F, F, T, T, F], // 403 은 봇 감지가 아니다
-  ["ERROR: unable to download fragment 12", "unknown-error", F, F, T, T, F],
+  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "stream-failed", F, F, T, T, F], // 403 은 봇 감지가 아니다
+  ["ERROR: unable to download fragment 12", "stream-failed", F, F, T, T, F],
   ["HTTP Error 429: Too Many Requests", "rate-limited", F, F, T, T, F],
   // 요청 한도(yt-dlp 위키 "This content isn't available, try again later"). 영상 없음과 문장이 겹친다. 영상 없음으로 보면 자동재생이 곡을 영구히 버린다
   ["ERROR: [youtube] abcdefghijk: This content isn't available, try again later. The current session has been rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to add a delay between video requests to avoid exceeding the rate limit.", "rate-limited", F, F, F, F, F],
@@ -158,5 +158,7 @@ test("errorKind 는 오류 자신 → 원인(cause) → 시스템, 디스코드 
   assert.equal(errorKind(refused(50013)), "permission-other", "주소가 없으면 그 밖");
   assert.equal(errorKind(refused(10062, "https://discord.com/api/v10/channels/123/messages")), "unknown-error", "권한이 아닌 번호는 종류가 아니다");
   assert.equal(errorKind(new Error("음성 채널에 다시 연결하지 못했습니다", { cause: codedError("voice-failed", "음성 채널에 붙지 못했습니다") })), "voice-failed");
-  assert.equal(errorKind(quiet("skipped-client")), "unknown-error", "종류가 아닌 이름(다시 시도용)은 종류가 되지 않는다");
+  // 포맷을 끝내 얻지 못한 소스 쪽 이름은 사슬에 다른 종류가 없을 때만 stream-failed
+  for (const name of ["no-audio-only", "client-fault", "stale-media", "skipped-client", "no-formats"]) assert.equal(errorKind(quiet(name)), "stream-failed", name);
+  assert.equal(errorKind(Object.assign(new Error("포맷 없음", { cause: codedError("network-error", "연결 실패") }), { code: "client-fault" })), "network-error", "원인 사슬의 종류가 먼저 이긴다");
 });
