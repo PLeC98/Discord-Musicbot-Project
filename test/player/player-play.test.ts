@@ -350,6 +350,17 @@ test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트�
   assert.equal(p.playback?.live, false);
 });
 
+test("주소로 여는 스트림(HLS, DASH)인데 주소가 http(s)가 아니면 ffmpeg 에 넘기지 않는다", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("fffffffffff", { duration: 20 });
+  behavior.stream = () => ({ url: "file:///etc/passwd", duration: 20, protocol: "m3u8_native", liveStatus: null });
+  await playOnce(p).catch(() => undefined);
+  assert.deepEqual(
+    calls.spawns.map((child) => argsOf(child)).filter((args) => args.includes("file:")),
+    [],
+  );
+});
+
 // 유튜브는 앞 광고가 붙은 응답이면 광고가 끝날 때까지 본편 요청을 403 으로 막는다. yt-dlp 는 그 시각을 available_at 으로 준다
 test("앞 광고로 막힌 스트림(403)은 광고가 끝나는 시각까지 기다렸다 한 번 더 연다", async () => {
   const p = h.makePlayer();
