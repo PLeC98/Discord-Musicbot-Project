@@ -2,6 +2,7 @@ import path from "path";
 import fs from "fs";
 import { isIP } from "net";
 import pkg from "../../package.json" with { type: "json" };
+import { nodeSupportWarning } from "../rules/node-support.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { LEVEL_NAMES } from "../infra/log/levels.ts";
@@ -477,6 +478,9 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
 const envFileFound = fs.existsSync(ENV_PATH);
 // 문제, 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
 const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
+// 지원 범위 밖의 Node 로 돌면 기동 때 알린다(pnpm 은 설치 때 막지만 Node 만 바꾼 운영자는 설치를 다시 하지 않는다)
+const nodeWarning = nodeSupportWarning(process.versions.node, pkg.engines.node);
+if (nodeWarning) warnings.push(nodeWarning);
 
 /** 설정 */
 type Config = typeof config;
