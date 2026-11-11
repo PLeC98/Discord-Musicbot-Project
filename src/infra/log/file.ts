@@ -75,8 +75,11 @@ function stripAnsi(s: unknown): unknown {
 
 /** 파일에 쓰는 한 줄의 상한(바이트, 줄바꿈 포함). 로그 파일 보기는 이보다 긴 줄을 깨진 줄로 보고 건너뛴다 */
 const LINE_MAX = 1024 * 1024;
-// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것. 글 값은 싱크가 16K자로 잘라 둬 셋을 합쳐도 상한 안이다
+// 줄인 레코드에 남기는 필드: 로그 파일 보기가 쓰는 것. 글 값은 싱크가 16K자로 잘라 두고 뺀 필드 이름은 몇 개만 적어, 줄인 레코드는 상한 안이다
 const KEPT_ON_REDUCE = ["category", "sub", "msg"];
+// 줄인 레코드에 적는 뺀 필드 이름의 수와 이름 하나의 글자 수
+const DROPPED_NAMES = 10;
+const DROPPED_NAME_CHARS = 40;
 
 /** 레코드 한 줄(줄바꿈 포함). 상한을 넘으면 시각, 레벨과 글 값 몇 개만 남기고 뺀 필드를 msg 뒤에 적는다 */
 function lineOf(rec: LogRecord): string {
@@ -94,7 +97,9 @@ function lineOf(rec: LogRecord): string {
   const kept: Record<string, unknown> = { time: rec.time, level: rec.level };
   for (const key of KEPT_ON_REDUCE) if (typeof rec[key] === "string") kept[key] = stripAnsi(rec[key]);
   const dropped = Object.keys(rec).filter((key) => !(key in kept));
-  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 기록 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${dropped.join(", ")}`;
+  const names = dropped.slice(0, DROPPED_NAMES).map((key) => key.slice(0, DROPPED_NAME_CHARS));
+  const more = dropped.length > DROPPED_NAMES ? ` 외 ${dropped.length - DROPPED_NAMES}개` : "";
+  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 기록 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${names.join(", ")}${more}`;
   return `${JSON.stringify(kept)}\n`;
 }
 

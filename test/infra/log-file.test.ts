@@ -161,6 +161,18 @@ test("한 줄이 상한(LINE_MAX)을 넘으면 시각, 레벨, 카테고리, 글
   assert.deepEqual(list, { time: 1757400000000, level: 30, category: "youtube", sub: "search", msg: `긴 응답 | 기록 줄이 상한을 넘어(${listBytes}바이트) 뺀 필드: tags, list` });
 });
 
+test("필드가 아주 많아 상한을 넘어도 줄인 레코드는 뺀 필드 이름을 몇 개만 적어 상한 안이다", () => {
+  const file = path.join(tmpdir(), "bot.log");
+  const dest = createFileDestination({ file, maxBytes: 0, keep: 0 });
+  const many = Object.fromEntries(Array.from({ length: 20_000 }, (_, i) => [`${"k".repeat(60)}${i}`, i]));
+  dest.write(rec("필드 많음", many));
+  dest.close();
+  const [raw] = fs.readFileSync(file, "utf8").split("\n");
+  assert.ok(Buffer.byteLength(raw!) + 1 <= LINE_MAX, `${Buffer.byteLength(raw!)}바이트`);
+  const names = Array.from({ length: 10 }, () => "k".repeat(40)).join(", ");
+  assert.match(JSON.parse(raw!).msg, new RegExp(`^필드 많음 \\| 기록 줄이 상한을 넘어\\(\\d+바이트\\) 뺀 필드: ${names} 외 19990개$`));
+});
+
 test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {
   const blocker = path.join(tmpdir(), "blocked");
   fs.writeFileSync(blocker, "이건 파일이라 디렉터리로 못 만든다");
