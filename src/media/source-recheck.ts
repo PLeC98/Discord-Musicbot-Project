@@ -12,7 +12,7 @@ import * as SafeUrl from "../infra/safe-url.ts";
 import { OPEN_ACCEPT } from "../sources/direct-open.ts";
 import { deadSourceCode } from "../sources/dead-source.ts";
 import { inputKind } from "../rules/input-kind.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { errorKind, messageOf } from "../rules/error-kind.ts";
 import * as versionOf from "./audio-version.ts";
 
 /** 다운로드할 때 적어 둔 것(audio_cache). version 은 audio_version, durationSec 는 캐시 파일의 길이 */
@@ -24,7 +24,7 @@ type Stored = { version: string | null; durationSec: number | null };
  * uncompared: 원본은 답했지만 비교할 버전이 없다(적어 둔 버전이 없는 캐시, 버전을 주지 않는 서버. 다시 물어도 같다, 까닭).
  * gone: 원본에서 틀 수 없다(문제 코드). unknown: 이번에는 모른다(일시 오류 등, 까닭)
  */
-type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string };
+type Recheck = { kind: "same"; version: string } | { kind: "changed"; version: string; durationChanged: boolean | null } | { kind: "uncompared"; reason: string } | { kind: "gone"; code: string } | { kind: "unknown"; reason: string; code?: string };
 
 /** 원본에 묻는 길. 테스트가 가짜를 넘긴다 */
 type Deps = {
@@ -98,7 +98,7 @@ function failed(error: unknown, kind: string): Recheck {
   // 직접 링크는 묻는 길이 가드된 요청이라 상태로 구분한다(404, 410 은 사라짐, 그 밖은 일시 오류, 막힘, 만료된 주소일 수 있다)
   const status = (error as { status?: unknown } | null)?.status;
   if (kind === "direct" && (status === 404 || status === 410)) return { kind: "gone", code: "direct-unavailable" };
-  return { kind: "unknown", reason: messageOf(error) };
+  return { kind: "unknown", reason: messageOf(error), code: typeof status === "number" ? `HTTP ${status}` : errorKind(error) };
 }
 
 export { recheck };

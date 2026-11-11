@@ -6,6 +6,7 @@ import path from "path";
 import crypto from "crypto";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import fsSync from "fs";
 import { pipeline } from "stream/promises";
 import * as audioConvert from "./convert.ts";
@@ -80,16 +81,18 @@ function tempPathFor(filepath: string): string {
 }
 
 /** 내 임시 파일과 그 부스러기(.part, 조각, info.json)만 삭제한다. 남이 다운로드 중인 파일은 건드리지 않는다 */
-function cleanTemp(tempPath: string): number {
+function cleanTemp(tempPath: string, title?: string | null): number {
   const dir = path.dirname(tempPath);
   let removed = 0;
   let names: string[];
   try {
     names = fsSync.readdirSync(dir);
   } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일을 찾지 못함: ${dir} | ${messageOf(error)}`);
+    if (codeOf(error) !== "ENOENT") log.warn(`캐시 다운로드 임시 파일 정리 중 디렉터리 읽기 실패(임시 파일 정리 건너뜀): ${dir} | 곡=${logTitle(title)} | ${messageOf(error)} (${String(codeOf(error))})`);
     return 0;
   }
+  let left = 0;
+  let first: { name: string; code: string } | null = null;
   for (const name of names) {
     if (!audioCache.isTempPiece(name, path.basename(tempPath))) continue;
     try {
@@ -97,9 +100,12 @@ function cleanTemp(tempPath: string): number {
       removed++;
     } catch (error) {
       // 아직 잠겨 있거나 이미 없음. 기동 스윕이 처리
-      if (codeOf(error) !== "ENOENT") log.debug(`임시 조각 파일 삭제 실패: ${name} | ${messageOf(error)}`);
+      if (codeOf(error) === "ENOENT") continue;
+      left++;
+      first ??= { name, code: String(codeOf(error) ?? messageOf(error)) };
     }
   }
+  if (first) log.warn(`캐시 다운로드 임시 파일 삭제 실패(${left}개 남음): 첫 실패 파일=${first.name} (${first.code}) | 곡=${logTitle(title)}`);
   return removed;
 }
 
@@ -162,9 +168,13 @@ function finish(audioKey: string, filepath: string, track: DownloadTrack, got: F
  * 올리기 전에 최종 경로를 보호한다. 옮긴 직후부터 DB에 기록되기 전까지는 DB에도 없는 파일이라
  * 그 순간 기동 스윕이 돌면 고아로 보고 삭제한다. 푸는 것은 다운로드가 끝날 때(_performDownload의 finally).
  */
-async function publish(tempPath: string, filepath: string): Promise<boolean> {
+async function publish(tempPath: string, filepath: string, title?: string | null): Promise<boolean> {
   if (fsSync.existsSync(filepath) && fsSync.statSync(filepath).size > 0) {
-    await bestEffort(log, fs.unlink(tempPath), "다운로드하던 임시 파일 삭제");
+    try {
+      await fs.unlink(tempPath);
+    } catch (error) {
+      log.warn(`중복 다운로드된 캐시 임시 파일 삭제 실패(다음 기동 시 정리): ${tempPath} | 곡=${logTitle(title)} | 원인=${codeOf(error) ?? messageOf(error)}`);
+    }
     return false;
   }
   audioCache.protectFile(filepath);
@@ -181,6 +191,9 @@ const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track
 // 세그먼트로 다운로드하는 포맷(유튜브 post_live 의 DASH 세그먼트, 사운드클라우드 HLS)을 몇 개씩 나란히 다운로드하나. 세그먼트가 아닌 포맷에는 걸리지 않는다.
 // 유튜브는 넷 이상이면 도중에 HTTP 401 로 막히고 둘은 막히지 않는다(재생이 같은 곡을 나란히 다운로드해도). 사운드클라우드는 여덟까지 막히지 않는다.
 const CONCURRENT_FRAGMENTS = { youtube: 2, soundcloud: 4 } as const;
+// 캐시를 찾을 때마다 부르므로 폴더 권한 같은 장애는 처음과 복구만 warn, 파일마다의 줄은 debug
+const cacheFileChecks = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 확인");
+
 class TrackDownloader {
   player: Owner;
   deps: Sources;
@@ -281,7 +294,7 @@ class TrackDownloader {
       // 실패해도 다운로드, 재생을 막지 않는다(DB 가 열리지 않은 것만 던진다).
       await this.deps.sponsor.forTrack(track, player.guild.id).catch((error: unknown) => {
         if (codeOf(error) === "DB_NOT_OPEN") throw error;
-        log.debug(`SponsorBlock 구간 미리 불러오기 실패: ${messageOf(error)}`);
+        log.warn(`SponsorBlock 구간 미리 불러오기 실패: ${messageOf(error)}`);
       });
 
       // 라이브 스트림은 캐시 다운로드 대상이 아니다. 끝이 없어서 yt-dlp가 외부 다운로더로 실행한
@@ -301,7 +314,7 @@ class TrackDownloader {
       const measureMs = Date.now() - measureStarted;
       // 다운로드한 양(봇 상태 탭의 다운로드). 먼저 끝낸 쪽이 있어 버려도 다운로드한 것은 다운로드한 것이다
       addDownloaded(fsSync.statSync(tempPath).size);
-      const mine = await publish(tempPath, filepath);
+      const mine = await publish(tempPath, filepath, track.title);
       if (!mine) log.debug(`다른 작업이 먼저 다운로드한 캐시 파일을 사용: "${logTitle(track.title)}"`);
 
       correctInfo(track, got);
@@ -319,7 +332,7 @@ class TrackDownloader {
       // (같은 곡의 부스러기를 전부 훑으면 다른 쪽이 다운로드 중인 작업 파일을 삭제한다).
       // 'downloading'이 된 DB 행은 'error'로 되돌린다(아니면 다음 기동까지 'downloading'으로 남는다).
       try {
-        const removed = cleanTemp(tempPath);
+        const removed = cleanTemp(tempPath, track.title);
         if (removed > 0) log.debug(`캐시 다운로드 중단으로 생성된 조각 파일 ${removed}개 정리: ${logTitle(track.title)}`);
         if (audioKey) audioCache.recordError(audioKey);
       } catch (cleanupError) {
@@ -415,7 +428,7 @@ class TrackDownloader {
         fsSync.unlinkSync(rawPath);
       } catch (error) {
         // 이미 없거나 잠겨 있음. cleanTemp와 기동 스윕이 받는다
-        if (codeOf(error) !== "ENOENT") log.debug(`다운로드한 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
+        if (codeOf(error) !== "ENOENT") log.warn(`다운로드한 원본 임시 파일 삭제 실패: ${rawPath} | ${messageOf(error)}`);
       }
     }
   }
@@ -441,12 +454,12 @@ class TrackDownloader {
           ...formatOf(info),
         };
       } catch (error) {
-        log.debug(`info.json 읽기 실패(제목, 길이, 버전 생략): ${p} | ${messageOf(error)}`);
+        log.warn(`info.json 읽기 실패(제목, 길이, 버전 생략): ${p} | ${messageOf(error)}`);
         try {
           fsSync.unlinkSync(p);
         } catch (unlinkError) {
           // 남아도 기동 스윕이 치운다
-          if (codeOf(unlinkError) !== "ENOENT") log.debug(`info.json 삭제 실패: ${p} | ${messageOf(unlinkError)}`);
+          if (codeOf(unlinkError) !== "ENOENT") log.warn(`info.json 삭제 실패: ${p} | ${messageOf(unlinkError)}`);
         }
       }
     }
@@ -496,9 +509,17 @@ class TrackDownloader {
     if (!key) return null;
     const file = audioCache.getFilePath(key);
     try {
-      return fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
+      const found = fsSync.statSync(file).size > 0 && !TrackDownloader.isDownloading(file) ? file : null;
+      cacheFileChecks.ok();
+      return found;
     } catch (error) {
-      if (codeOf(error) !== "ENOENT") log.debug(`캐시 파일 확인 실패: ${file} | ${messageOf(error)}`);
+      const code = codeOf(error);
+      if (code === "ENOENT") {
+        cacheFileChecks.ok();
+        return null;
+      }
+      cacheFileChecks.fail(String(code ?? messageOf(error)));
+      log.debug(`캐시 파일 확인 실패: ${file} | ${messageOf(error)}`);
       return null;
     }
   }

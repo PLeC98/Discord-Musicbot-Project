@@ -254,7 +254,7 @@ async function openStream<R>(o: InputOptions<R>, streamInfo: StreamInfo, hooks: 
   } catch (error) {
     const waitMs = adWaitMs(error, streamInfo.availableAt, Date.now());
     if (waitMs === null) throw error;
-    log.debug(`스트림이 사전 광고 구간이라 막혀 있음(${sec(waitMs)}초 대기 후 다시 열기): ${o.label}`);
+    log.warn(`스트림이 사전 광고 구간이라 막혀 있음(${sec(waitMs)}초 대기 후 다시 열기): ${o.label}`);
     await o.io.sleep(waitMs);
     return openStreamOnce(o, streamInfo, hooks);
   }
@@ -317,6 +317,7 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
     if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
+    else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${seek.why}`);
     else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${seek.why}`);
     return o.io.openChunkedStream(base);
   }
@@ -362,7 +363,7 @@ async function cacheFallback(download: Download, streamError: unknown): Promise<
     try {
       return await inFlight;
     } catch {
-      /* 다운로드도 실패. 원래 스트리밍 오류를 던진다 */
+      // 다운로드 실패는 cache-download 가 error 로 남겼다. 원래 스트림 오류를 다시 던진다
     }
   }
   throw streamError;

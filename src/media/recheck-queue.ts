@@ -19,6 +19,8 @@ import * as sourceChecks from "../store/source-checks.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { labelOf } from "../rules/platforms.ts";
+import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { recheck, type Recheck, type Stored } from "./source-recheck.ts";
 const log = logger.child({ category: "cache" });
 
@@ -45,6 +47,13 @@ const replacing = new Map<string, { expect: number | null; title: string | null 
 let running = false;
 let timer: NodeJS.Timeout | null = null;
 let retryTimer: NodeJS.Timeout | null = null;
+
+const failures = new Map<Platform, ReturnType<typeof repeatingFailure>>();
+const failuresOf = (platform: Platform) => {
+  let one = failures.get(platform);
+  if (!one) failures.set(platform, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `${labelOf(platform)} 캐시 원본 재확인`)));
+  return one;
+};
 
 const platformOf = (audioUrl: string): Platform | null => {
   const kind = inputKind(audioUrl);
@@ -115,7 +124,7 @@ async function step() {
       await apply(job, row, result);
     }
   } catch (error) {
-    log.debug(`원본 다시 확인 실패(${logTitle(job.title)}): ${messageOf(error)}`);
+    log.warn(`원본 다시 확인 실패(${logTitle(job.title)}): ${messageOf(error)}`);
   } finally {
     running = false;
     if (queue.length) schedule(0);
@@ -127,6 +136,7 @@ const WHAT_CHANGED = (result: Extract<Recheck, { kind: "changed" }>) => (result.
 async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   const at = deps.now();
   const where = `"${logTitle(job.title ?? row.title)}" | ${job.audioUrl}`;
+  if (result.kind !== "unknown") failuresOf(job.platform).ok();
   if (result.kind === "same") {
     sourceChecks.recordCheck(job.audioKey, { ok: true, at, version: result.version });
     log.debug(`원본 다시 확인: 같음 ${where}`);
@@ -144,6 +154,7 @@ async function apply(job: Job, row: audioCache.AudioRow, result: Recheck) {
   }
   if (result.kind === "unknown") {
     held.set(job.audioKey, at + UNKNOWN_HOLD_MS);
+    failuresOf(job.platform).fail(`${result.code ?? result.reason} (해당 곡 24시간 뒤 재시도)`);
     log.debug(`원본 다시 확인: 모름(${result.reason}), 하루 뒤에 다시 ${where}`);
     return;
   }
@@ -181,6 +192,7 @@ function _reset(over: Partial<typeof deps> = {}) {
   queue.length = 0;
   held.clear();
   replacing.clear();
+  failures.clear();
   Object.assign(lastAsked, { youtube: 0, soundcloud: 0, direct: 0 });
   running = false;
   if (timer) clearTimeout(timer);

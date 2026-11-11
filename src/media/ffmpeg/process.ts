@@ -125,7 +125,7 @@ function probeAudio(file: string): Promise<ProbeInfo> {
     try {
       child = spawnFfmpeg(["-hide_banner", ...inputFilter(AUDIO_FORMATS, "file"), "-i", file, "-c", "copy", "-f", "null", "-"], "probe", { killOnStdoutClose: false });
     } catch (error) {
-      log.debug(`ffmpeg(probe) 실행 실패: ${file} | ${messageOf(error)}`);
+      log.warn(`ffmpeg(probe) 실행 실패: ${file} | ${messageOf(error)}`);
       return resolve(unknown);
     }
 

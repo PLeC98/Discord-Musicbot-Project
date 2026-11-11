@@ -1,4 +1,4 @@
-import { codedError, messageOf } from "../../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
@@ -22,18 +22,18 @@ let resolved: Resolved | null = null;
 let caps: Capabilities | null = null;
 
 /** 후보가 실제로 실행 가능한 ffmpeg인지 확인하고 버전 문자열을 추출한다. 아니면 null. */
-function probe(candidate: string | null | undefined): string | null {
+function probe(candidate: string | null | undefined, source = "?"): string | null {
   if (!candidate) return null;
   try {
     const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000 });
     if (result.error || result.status !== 0) {
-      log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${result.error ? messageOf(result.error) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
+      log.warn(`ffmpeg 후보 실행 확인(-version) 실패: ${candidate} | 출처=${source} | 원인=${result.error ? (codeOf(result.error) ?? messageOf(result.error)) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
       return null;
     }
     const match = /ffmpeg version (\S+)/i.exec(result.stdout || "");
     return match ? match[1] : "unknown";
   } catch (error) {
-    log.debug(`ffmpeg 후보를 실행하지 못함: ${candidate} | ${messageOf(error)}`);
+    log.warn(`ffmpeg 후보 실행 확인(-version) 실패: ${candidate} | 출처=${source} | 원인=${codeOf(error) ?? messageOf(error)}`);
     return null;
   }
 }
@@ -53,7 +53,7 @@ function resolve(): Resolved {
 
   const configured = config.ffmpeg && config.ffmpeg.path;
   if (configured) {
-    const version = probe(configured);
+    const version = probe(configured, "FFMPEG_PATH");
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
       // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
@@ -70,7 +70,7 @@ function resolve(): Resolved {
   ];
   for (const candidate of candidates) {
     if (!candidate.path) continue;
-    const version = probe(candidate.path);
+    const version = probe(candidate.path, candidate.source);
     if (version) {
       resolved = { path: candidate.path, version, source: candidate.source };
       return resolved;
@@ -85,6 +85,7 @@ function ffmpegVersion(): string | null {
   try {
     return resolve().version;
   } catch {
+    // 기동 시 ffmpeg 를 찾지 못하면 멈추므로 여기까지 오지 않는다. 상태 탭에는 모름으로 보인다
     return null;
   }
 }
@@ -113,12 +114,12 @@ function capabilities(): Capabilities {
     try {
       const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
       if (result.error) {
-        log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
+        log.warn(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
         return "";
       }
       return `${result.stdout || ""}${result.stderr || ""}`;
     } catch (error) {
-      log.debug(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
+      log.warn(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(error)}`);
       return "";
     }
   };
