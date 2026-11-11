@@ -10,7 +10,7 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import * as playerEvents from "./events.ts";
 import type { Player } from "./player.ts";
-import { bestEffort } from "../infra/best-effort.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import { listenersIn } from "../rules/holds.ts";
 import * as staySeats from "../store/stay-seats.ts";
 
@@ -128,8 +128,9 @@ class IdleLeave {
       this.emptyTimer = null;
       this.emptyAt = null;
       if (player.queue.length !== 0 || player.currentTrack || this.seated()) return;
+      const channel = player.voiceChannel?.id ?? "?";
       // 끝난 패널의 "쉬러 갈게요"를 음성 밖 문구로
-      bestEffort(log, player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }), "대기열 소진으로 나가기");
+      player.dispose({ reason, session: "remove", panel: "disconnected", end: "queue-drained" }).catch((error: unknown) => log.error(`대기열 소진 자동 퇴장 중 플레이어 정리 실패(세션 및 음성 연결 잔류 가능): ${player.guild?.name ?? player.guild?.id} | 채널=${channel} | ${messageOf(error)}`));
     }, config.bot.leaveDelayQueueEmptyMs);
   }
 
@@ -157,7 +158,9 @@ class IdleLeave {
   // 곡이 없을 때만. 재생 중이면 패널이 나갈 시각을 보이지 않는다
   announce() {
     if (this.player.currentTrack) return;
-    bestEffort(log, playerEvents.leaving(this.player, this.leavesAt()), "끝난 패널의 나갈 시각 고치기");
+    const player = this.player;
+    const leavesAt = this.leavesAt();
+    playerEvents.leaving(player, leavesAt).catch((error: unknown) => log.warn(`종료 패널 퇴장 예정 시각 갱신 실패: ${player.guild?.name ?? player.guild?.id} | 퇴장 예정=${leavesAt === null ? "없음" : new Date(leavesAt).toISOString()} | ${messageOf(error)}`));
   }
 
   /** 두 타이머를 모두 지운다(플레이어를 버릴 때). 알리지 않는다 */

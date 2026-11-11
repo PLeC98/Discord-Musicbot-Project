@@ -18,7 +18,7 @@ import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { reuseState } from "../rules/stream-reuse.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
 import { gainOf } from "../rules/volume-gain.ts";
-import { codeOf, messageOf, codedError } from "../rules/error-kind.ts";
+import { codeOf, messageOf, codedError, describeError, errorKind } from "../rules/error-kind.ts";
 import type { Player } from "./player.ts";
 import type { CurrentPlayback } from "./current-playback.ts";
 import type { QueuedTrack } from "./track.ts";
@@ -51,14 +51,22 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   // 인트로 끝을 시작 위치로 삼는다(0부터 틀고 옮기는 이중 재생을 피한다).
   if (wanted === 0) {
     const track = player.currentTrack;
+    let searching = false;
     try {
       if (!track) throw new Error("재생할 곡 없음");
-      if (!track.audioUrl) await player.io.findEquivalent(track); // 멱등. 영상 id 확정
+      if (!track.audioUrl) {
+        searching = true;
+        await player.io.findEquivalent(track); // 멱등. 영상 id 확정
+        searching = false;
+      }
       const introEnd = introOffsetMs(await player.io.sponsorFor(track, player.guild.id));
       if (introEnd > 0) startMs = introEnd;
     } catch (error) {
+      if (codeOf(error) === "DB_NOT_OPEN") throw error;
       // 조회 실패는 넘긴다(fail-open). 오프셋 없이 재생
-      log.debug(`인트로 종료 지점 조회 실패(처음부터 재생): ${messageOf(error)}`);
+      const line = `재생 전 유튜브 매칭 및 SponsorBlock 인트로 조회 실패(0초부터 재생): ${player._trackLabel(track)} (${track?.requestKey ?? "?"}) | 분류=${errorKind(error)} | ${describeError(error)}`;
+      if (searching) log.debug(line);
+      else log.warn(line);
     }
   }
   return { ok: true, startMs };
@@ -121,7 +129,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
 function askSponsor(player: Player, track: QueuedTrack) {
   return player.io.sponsorFor(track, player.guild.id).catch((error: unknown) => {
     if (codeOf(error) === "DB_NOT_OPEN") throw error;
-    log.debug(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
+    log.warn(`SponsorBlock 구간 조회 실패(구간 건너뛰기 없이 재생): ${messageOf(error)}`);
     return null;
   });
 }

@@ -6,13 +6,12 @@ import * as autoplayRoute from "../autoplay/route.ts";
 import * as trackState from "./track-state.ts";
 import type { Tracks } from "./track-state.ts";
 import type { QueuedTrack } from "./track.ts";
-import { bestEffort } from "../infra/best-effort.ts";
 import { tooLongToCache } from "../media/cache-download.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { messageOf } from "../rules/error-kind.ts";
 
 /** 예열이 읽는 플레이어 필드. 뺀 슬롯을 메울 때 자동재생을 부른다 */
-type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string } | null; ensureAutoplayNext?(): Promise<unknown> };
+type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string; name?: string } | null; autoplay?: string | false; ensureAutoplayNext?(): Promise<unknown> };
 /** 협력자. 간격 셋은 생략하면 설정값 */
 type WarmerDeps = {
   intervalMs?: number;
@@ -163,8 +162,9 @@ class QueueWarmer {
     trackState.removeAt(this.player, index);
     log.info(`자동재생 곡을 대기열에서 제거(영상 없음): "${logTitle(track.title)}". 다른 곡 선택`);
 
+    const player = this.player;
     // 뺀 슬롯을 메운다. 기다리지 않는다. 예열 루프를 잡아 두면 뒤 곡이 밀린다.
-    if (this.player.ensureAutoplayNext) bestEffort(log, this.player.ensureAutoplayNext(), "뺀 슬롯의 자동재생 곡 선택");
+    if (player.ensureAutoplayNext) Promise.resolve(player.ensureAutoplayNext()).catch((error: unknown) => log.warn(`재생 불가 자동재생 곡 제거 후 대체 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${player.guild?.name ?? "?"} (${player.guild?.id ?? "?"}), 장르=${player.autoplay || "off"} | ${messageOf(error)}`));
     return true;
   }
 

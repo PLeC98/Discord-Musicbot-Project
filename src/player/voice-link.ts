@@ -168,13 +168,15 @@ class VoiceLink {
   // 다시 보내도 답이 없고 봇이 그 채널에 있으면 게이트웨이로 나갔다가 다시 참가한다(REST 로 빼기는 멤버 옮기기 권한이 든다)
   async _unstick(connection: VoiceConnection, channelId: string, tries: number) {
     if (!this._stillSignalling(connection)) return;
-    const at = await this._botChannelAtDiscord();
+    const at = await this._botChannelAtDiscord("unstick", "대기");
     // 묻는 사이에 붙었거나 연결이 바뀌었으면 할 일이 없다
     const state = connection.state;
     if (connection !== this.player.connection || state.status !== VoiceConnectionStatus.Signalling) return;
     if (at === undefined) return this._armUnstick(connection, channelId, tries);
     if (tries === 0 || at !== channelId) {
-      log.debug(`음성 채널 참가 요청에 응답이 없어 재전송: ${this._label()}`);
+      const line = `음성 채널 참가 요청에 응답이 없어 재전송: ${this._label()}`;
+      if (tries === 0) log.warn(line);
+      else log.debug(line);
       connection.rejoin();
       return this._armUnstick(connection, channelId, tries + 1);
     }
@@ -193,8 +195,8 @@ class VoiceLink {
   }
 
   // 디스코드가 보는 봇의 음성 채널(REST). 채널에 없으면 null, 묻지 못하면 undefined
-  _botChannelAtDiscord(): Promise<string | null | undefined> {
-    return botChannelAtDiscord(this.player.guild);
+  _botChannelAtDiscord(caller: string, fallback: string): Promise<string | null | undefined> {
+    return botChannelAtDiscord(this.player.guild, caller, fallback);
   }
 
   // 옮겨질 때 옛 채널로 다시 참가하지 않게 참가 요청을 잠깐 붙잡는 어댑터(infra/voice-adapter)
@@ -256,7 +258,9 @@ class VoiceLink {
     if (!networking || ("networking" in oldState && oldState.networking === networking)) return;
     this.lastCloseCode = null;
     networking.prependOnceListener("close", (code: number) => {
-      log.debug(`음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`);
+      const line = `음성 서버 연결 닫힘: 코드 ${code} | ${this._label()}`;
+      if (code !== DO_NOT_RECONNECT && code !== CALL_TERMINATED && this.state === "ready" && this.player.connection?.state.status === VoiceConnectionStatus.Ready) log.warn(line);
+      else log.debug(line);
       this.lastCloseCode = code;
       for (const done of this.closeWaiters.splice(0)) done(code);
       this._noRejoin(networking, code);
@@ -291,7 +295,7 @@ class VoiceLink {
       this.recover(`네트워크 오류(${messageOf(error)})`);
       return;
     }
-    log.error("음성 연결 오류:", error);
+    log.warn(`음성 연결 오류: ${this._label()} | 상태=${this.state} | 분류=${errorKind(error)} | ${describeError(error)}`);
     this.recover("연결 오류");
   }
 
@@ -384,7 +388,7 @@ class VoiceLink {
   // 디스코드에 조회하는 사이 정리됐으면(active가 false) 아무것도 하지 않는다. 그 뒤에 만든 연결은 정리할 곳이 없다
   async _rejoin(active: () => boolean) {
     const connection = this.player.connection;
-    const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord() : null;
+    const at = connection && connection.state.status !== VoiceConnectionStatus.Destroyed ? await this._botChannelAtDiscord("rejoin", "재연결") : null;
     if (!active()) return false;
     try {
       if (connection && this._mayReattach(at) && this._reattach(connection)) {
@@ -573,7 +577,8 @@ class VoiceLink {
       return Boolean(await channels.fetch(channelId, { force: true }));
     } catch (error) {
       if (codeOf(error) === UNKNOWN_CHANNEL) return false;
-      log.debug(`디스코드에서 채널 조회 실패(채널이 있는 것으로 간주): ${describeError(error)}`);
+      if (codeOf(error) === RESTJSONErrorCodes.MissingAccess) log.debug(`디스코드에서 채널 조회 실패(채널이 있는 것으로 간주): ${describeError(error)}`);
+      else log.warn(`음성 채널에서 나간 뒤 채널 REST 조회 실패(강제 퇴장으로 간주): ${this._label()} | ${describeError(error)}`);
       return true;
     }
   }
@@ -681,11 +686,12 @@ class VoiceLink {
   _drop({ leave }: { leave: boolean }) {
     const connection = this._detach();
     if (!connection || connection.state.status === VoiceConnectionStatus.Destroyed) return;
+    const status = connection.state.status;
     try {
       connection.destroy(leave);
     } catch (error) {
       // 새 연결로 진행
-      log.debug(`이전 음성 연결 해제(destroy) 실패: ${messageOf(error)}`);
+      log.warn(`기존 음성 연결 정리 실패(새 연결 진행): ${this._label()} | 이전 상태=${status}, 나가기 요청=${leave} | ${messageOf(error)}`);
     }
   }
 
