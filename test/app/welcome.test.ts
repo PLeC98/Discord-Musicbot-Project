@@ -91,7 +91,8 @@ test("화면: 대시보드가 밖에서 열리면 대시보드 줄과 버튼, �
   ]);
 });
 
-test("화면: 서버 이름의 마크다운과 멘션은 글자 그대로", () => {
-  const text = textOf(welcomeView(guild({ channels: [], name: "**@everyone** _방_" })));
-  assert.ok(text.includes("**\\*\\*@everyone\\*\\* \\_방\\_** 서버에서"), text);
+test("화면: 서버 이름의 마크다운(링크 포함)은 글자 그대로, 멘션은 울리지 않는다", () => {
+  const view = welcomeView(guild({ channels: [], name: "**@everyone** _방_ [링크](https://x.y)" }));
+  assert.ok(textOf(view).includes("**\\*\\*@everyone\\*\\* \\_방\\_ \\[링크](https://x.y)** 서버에서"), textOf(view));
+  assert.deepEqual(view.allowedMentions, { parse: [] });
 });

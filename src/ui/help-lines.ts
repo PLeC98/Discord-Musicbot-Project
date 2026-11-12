@@ -39,5 +39,5 @@ function helpSections(commands: Array<{ defined: Defined; help: HelpEntry | null
   }).filter((one) => one.lines.length > 0);
 }
 
-export { helpSections, inHelpOrder, SECTIONS };
+export { helpSections, SECTIONS };
 export type { HelpSection, HelpTier, HelpEntry };
