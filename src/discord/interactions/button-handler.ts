@@ -15,7 +15,7 @@ import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
-import { LIFETIME, noticeInstead, noticeSelf, selfOnly, toSelf } from "../../ui/delivery.ts";
+import { LIFETIME, keepSelf, noticeInstead, noticeSelf, selfOnly, toSelf, updateSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
 
 /** 서버 메시지의 버튼 */
@@ -70,7 +70,7 @@ async function handleQueuePage(interaction: Press, { players }: BotContext) {
   if (!info || info.queue.length === 0) {
     return noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
   }
-  return interaction.update(queueView(info, pageOf(interaction.customId) ?? 1));
+  return updateSelf(interaction, queueView(info, pageOf(interaction.customId) ?? 1), LIFETIME.screen);
 }
 
 async function handleVolumeButton(interaction: Press) {
@@ -98,6 +98,7 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
     await interaction.deferUpdate();
     const { embed, row } = await build(interaction.client);
     await interaction.editReply({ embeds: [embed], components: [row] });
+    keepSelf(interaction, LIFETIME.screen);
   } catch (error) {
     log.error(failed, error);
     try {

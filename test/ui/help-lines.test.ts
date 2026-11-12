@@ -15,15 +15,15 @@ const sectionsNow = () => helpSections(enabledCommands().map((command) => ({ def
 const EXPECTED = [
   {
     key: "play",
-    lines: ["`/play`: 곡을 재생해요", "`/playfirst`: 대기열 맨 앞에 곡을 넣어요 🔒", "`/pause`: 일시정지 상태를 전환해요 🔒", "`/stop`: 재생을 멈추고 음성 채널에서 나가요 🔒", "`/skip`: 현재 재생 중인 곡을 건너뛰어요 🔒 (자기가 추가한 곡은 누구나)", "`/previous`: 이전 곡으로 되돌아가요 🔒", "`/replay`: 현재 곡을 처음부터 재생해요 🔒", "`/seek`: 현재 곡의 특정 시간으로 이동해요 🔒", "`/highlight`: 현재 곡의 하이라이트로 이동해요 🔒"],
+    lines: ["`/play`: 곡을 재생해요", "`/playfirst`: 대기열 맨 앞에 곡을 넣어요 💿", "`/pause`: 일시정지 상태를 전환해요 💿", "`/stop`: 재생을 멈추고 음성 채널에서 나가요 💿", "`/skip`: 현재 재생 중인 곡을 건너뛰어요 💿 (자기가 추가한 곡은 누구나)", "`/previous`: 이전 곡으로 되돌아가요 💿", "`/replay`: 현재 곡을 처음부터 재생해요 💿", "`/seek`: 현재 곡의 특정 시간으로 이동해요 💿", "`/highlight`: 현재 곡의 하이라이트로 이동해요 💿"],
   },
   {
     key: "queue",
-    lines: ["`/queue`: 대기열을 보여줘요", "`/clear`: 대기열을 비워요 🔒", "`/remove`: 대기열에서 선택한 곡을 빼요 🔒 (자기가 추가한 곡은 누구나)", "`/move`: 대기열에서 곡의 순번을 옮겨요 🔒", "`/shuffle`: 대기열을 무작위로 섞어요 🔒"],
+    lines: ["`/queue`: 대기열을 보여줘요", "`/clear`: 대기열을 비워요 💿", "`/remove`: 대기열에서 선택한 곡을 빼요 💿 (자기가 추가한 곡은 누구나)", "`/move`: 대기열에서 곡의 순번을 옮겨요 💿", "`/shuffle`: 대기열을 무작위로 섞어요 💿"],
   },
   {
     key: "mode",
-    lines: ["`/loop`: 반복 모드를 설정해요 🔒", "`/autoplay`: 자동재생을 켜거나 꺼요 🔒", "`/volume`: 볼륨을 설정해요 🔒"],
+    lines: ["`/loop`: 반복 모드를 설정해요 💿", "`/autoplay`: 자동재생을 켜거나 꺼요 💿", "`/volume`: 볼륨을 설정해요 💿"],
   },
   {
     key: "explore",
@@ -31,11 +31,11 @@ const EXPECTED = [
   },
   {
     key: "channel",
-    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 🔒", "`/247`: 상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요 🔒", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 전원, 그 외 🔒)"],
+    lines: ["`/join`: 봇을 음성 채널에 참가시켜요", "`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿", "`/247`: 상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요 💿", "`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️", "`/setting`: 서버 설정을 열어요 🛡️", "`/setplaylistlimit`: 재생목록을 넣을 때 한 번에 넣을 곡 수를 정해요 🛡️", "`/dashboard`: 재생 패널을 이 채널의 맨 아래에 다시 표시해요 (봇 전용 채널에서는 누구나, 그 외 💿)"],
   },
   {
     key: "info",
-    lines: ["`/ping`: 봇의 응답 시간을 측정해요", "`/system`: 봇의 시스템 정보를 보여줘요 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 (봇 운영자)", "`/license`: 라이선스와 소스 코드 저장소를 표시해요", "`/invite`: 봇 초대 링크를 보여줘요"],
+    lines: ["`/ping`: 봇의 응답 시간을 측정해요", "`/system`: 봇의 시스템 정보를 보여줘요 🔑", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 🔑", "`/license`: 라이선스와 소스 코드 저장소를 표시해요", "`/invite`: 봇 초대 링크를 보여줘요"],
   },
 ];
 
@@ -79,7 +79,18 @@ test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완�
     { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "server-manager" } },
     { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ]);
-  assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);
+  assert.deepEqual(section.lines, ["`/x`: 설명 💿", "`/y`: 설명 🛡️", "`/z`: 설명"]);
+});
+
+test("보는 사람이 못 쓰는 등급의 줄에는 자물쇠, 섹션에 자물쇠가 붙었는지도 준다", () => {
+  const commands = [
+    { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
+    { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
+  ] as const;
+  const [locked] = helpSections([...commands], null, (tier) => tier !== "dj");
+  assert.deepEqual(locked.lines, ["`/x`: 설명 💿 🔒", "`/z`: 설명"]);
+  assert.equal(locked.locked, true);
+  assert.equal(helpSections([...commands])[0].locked, false, "판정을 주지 않으면 모두 열림");
 });
 
 test("앱 이모지와 19자리 명령 id 를 실어도(줄마다 45자 안팎 길어진다) 화면마다 글자 합이 Components V2 상한(4000자) 안, 여유 500자", async () => {

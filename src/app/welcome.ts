@@ -46,7 +46,7 @@ function welcomeView(guild: Guild) {
   const labels = welcomeText.buttons(fork);
   const dashboard = dashboardButton(labels.dashboard);
   const t = welcomeText.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork });
-  const container = frame({ icon: "music", title: t.title, body: t.intro, thumbnail: guild.client.user.displayAvatarURL() })
+  const container = frame({ icon: "music", title: t.title, body: t.intro.join("\n"), thumbnail: guild.client.user.displayAvatarURL() })
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))
     .addSeparatorComponents(divider())

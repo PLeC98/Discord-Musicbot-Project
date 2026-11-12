@@ -69,7 +69,7 @@ test("화면: 봇 프로필 썸네일, 서버 이름, 쓰는 법, 원본 저장�
   const view = withConfig({ dashboard: { url: "http://localhost:33333" } }, () => welcomeView(guild({ channels: [], name: "음악방" })));
   const text = textOf(view);
   assert.equal(thumbnailOf(view), "https://cdn.discordapp.com/avatars/bot/a.png");
-  assert.ok(text.includes("**음악방** 서버에서"), text);
+  assert.ok(text.startsWith("### 🎵 반가워요!\n**음악방** 서버에 초대해 주셔서 고마워요!"), text);
   assert.ok(text.includes("`/play`로 곡을 재생해요") && text.includes("`/setchannel`로") && text.includes("`/help`를"), text);
   assert.ok(!text.includes("대시보드"), "닿지 않는 대시보드는 말하지 않는다");
   assert.ok(text.includes(`[GitHub 페이지](${config.bot.projectRepo})`) && !text.includes("포크"), text);
@@ -93,6 +93,6 @@ test("화면: 대시보드가 밖에서 열리면 대시보드 줄과 버튼, �
 
 test("화면: 서버 이름의 마크다운(링크 포함)은 글자 그대로, 멘션은 울리지 않는다", () => {
   const view = welcomeView(guild({ channels: [], name: "**@everyone** _방_ [링크](https://x.y)" }));
-  assert.ok(textOf(view).includes("**\\*\\*@everyone\\*\\* \\_방\\_ \\[링크](https://x.y)** 서버에서"), textOf(view));
+  assert.ok(textOf(view).includes("**\\*\\*@everyone\\*\\* \\_방\\_ \\[링크](https://x.y)** 서버에 초대해"), textOf(view));
   assert.deepEqual(view.allowedMentions, { parse: [] });
 });

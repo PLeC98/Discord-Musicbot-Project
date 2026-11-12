@@ -111,7 +111,10 @@ const ICONS = {
   alone: { glyph: "person_off", unicode: "⏳" },
   dashboard: { glyph: "dashboard", unicode: "🔗" },
   invite: { glyph: "person_add", unicode: "📄" },
-  dj: { glyph: "lock", unicode: "🔒" },
+  // /help 의 권한 표시: DJ, 봇 운영자, 지금 그 사람이 쓸 수 없는 명령
+  dj: { glyph: "album", unicode: "💿" },
+  owner: { glyph: "key", unicode: "🔑" },
+  locked: { glyph: "lock", unicode: "🔒" },
 
   // 운영자 공지(대시보드에서 보내는 임베드의 제목)
   announce_maintenance: { glyph: "build", unicode: "🔧", tints: ["warning"] },

@@ -7,7 +7,7 @@ import { route, type Route } from "./route.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { post } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
-import { noticeInstead, noticeSelf } from "../../ui/delivery.ts";
+import { LIFETIME, noticeInstead, noticeSelf, updateSelf } from "../../ui/delivery.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 import { isServerManager } from "../../usecases/permissions.ts";
 
@@ -32,7 +32,7 @@ async function saveDjRoles(interaction: RoleSelectMenuInteraction<"cached">) {
   const roleIds = interaction.values.filter((id) => guild.roles.cache.has(id));
   if (!roleIds.length) await GuildSettingsManager.clearDjRoles(guild.id);
   else if (!(await GuildSettingsManager.setDjRoles(guild.id, roleIds))) return noticeInstead(interaction, errors.notice("dj-role-save-failed"));
-  return interaction.update(post(await panel(guild)));
+  return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
 
 // 구간 메뉴(setting:sb-cats). 켜고 끄기는 그대로 둔다. 모르는 구간은 뺀다
@@ -42,7 +42,7 @@ async function saveSponsorCategories(interaction: StringSelectMenuInteraction<"c
     const valid = new Set(SKIP_CATEGORIES);
     await GuildSettingsManager.setSponsorBlock(guild.id, { categories: [...new Set(interaction.values.filter((c) => valid.has(c)))] });
   }
-  return interaction.update(post(await panel(guild)));
+  return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
 
 const AGE_BUTTONS: Record<string, AgePlace> = { "setting:age-channel": "channel", "setting:age-all": "all" };
@@ -60,7 +60,7 @@ async function pressButton(interaction: ButtonInteraction<"cached">) {
   }
   const place = AGE_BUTTONS[interaction.customId];
   if (place && ageContentOn()) await GuildSettingsManager.setAgePlace(guild.id, place);
-  return interaction.update(post(await panel(guild)));
+  return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
 
 // 명령 진입, 대시보드 서버 설정과 같은 기준을 다시 본다
