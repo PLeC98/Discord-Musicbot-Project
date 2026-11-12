@@ -262,12 +262,11 @@
               <div
                 v-for="{ key, row: item, index: i } in queueSlots"
                 :key="key"
-                class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg"
+                class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg select-none [-webkit-touch-callout:none]"
                 :class="[isPicked(item) ? 'bg-secondary-container text-on-secondary-container' : 'hover:bg-on-surface/6', picking && removeAllowed(player, item) && 'cursor-pointer']"
                 data-reorder
                 :data-index="i"
                 @click="pickClick($event, item)"
-                @mousedown="pickMouseDown"
                 @pointerdown="pressStart($event, item)"
                 @pointermove="pressMove"
                 @pointerup="cancelPress"
@@ -598,7 +597,7 @@ async function removeTrack(track: QueueTrackView) {
 
 // ── 대기열에서 여러 곡 골라 빼기 ───────────────────────────────────────────────
 
-const { selecting: picking, count: pickedCount, isPicked, entries: pickedEntries, clear: clearPicks, rowClick: pickClick, rowMouseDown: pickMouseDown, rowContextMenu: pickContextMenu, pressStart, pressMove, cancelPress } = useQueueSelect({ rows: () => player.value.queue, selectable: (t) => Number.isInteger(t.entry) && removeAllowed(player.value, t) });
+const { selecting: picking, count: pickedCount, isPicked, entries: pickedEntries, clear: clearPicks, rowClick: pickClick, rowContextMenu: pickContextMenu, pressStart, pressMove, cancelPress } = useQueueSelect({ rows: () => player.value.queue, selectable: (t) => Number.isInteger(t.entry) && removeAllowed(player.value, t) });
 
 // 고른 곡을 한 번에 뺀다. 응답을 기다린다(실패하면 고른 것은 그대로 둔다)
 async function removePicked() {

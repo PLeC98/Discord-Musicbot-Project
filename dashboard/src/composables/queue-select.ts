@@ -51,8 +51,12 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
     anchor = null;
   }
 
-  // 행 안의 버튼(빼기, 옮기기 손잡이)을 누른 것은 그 버튼이 받는다
-  const ownControl = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("button, a, .touch-none"));
+  // 행 안의 버튼(빼기, 옮기기 손잡이)을 누른 것은 그 버튼이 받는다. 행 바깥의 조상은 보지 않는다(휴대폰 시트는 펼치기 전에 목록째 touch-none 이다)
+  function ownControl(e: Event) {
+    const row = e.currentTarget;
+    const own = e.target instanceof Element ? e.target.closest("button, a, .touch-none") : null;
+    return Boolean(own && row instanceof Element && own !== row && row.contains(own));
+  }
 
   // 길게 누르기. 누른 손가락이 놓이면 브라우저가 click 을 보내므로 그 click 은 한 번 버린다(고른 곡을 바로 빼지 않게)
   let press: { id: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -65,7 +69,7 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
   }
   function pressStart(e: PointerEvent, row: T) {
     lastTouch = e.pointerType !== "mouse";
-    if (!lastTouch || selecting.value || !selectable(row) || ownControl(e.target)) return;
+    if (!lastTouch || selecting.value || !selectable(row) || ownControl(e)) return;
     cancelPress();
     press = {
       id: e.pointerId,
@@ -88,14 +92,9 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
       swallowClick = false;
       return;
     }
-    if (ownControl(e.target)) return;
+    if (ownControl(e)) return;
     if (e.shiftKey && anchor !== null) extendTo(row);
     else if (e.shiftKey || e.ctrlKey || e.metaKey || selecting.value) toggle(row);
-  }
-
-  /** Shift+클릭이 글자를 끌어 고르지 않게 */
-  function rowMouseDown(e: MouseEvent) {
-    if (e.shiftKey) e.preventDefault();
   }
 
   /** 길게 누르면 휴대폰이 띄우는 메뉴(복사 등)를 막는다 */
@@ -106,5 +105,5 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
   /** 고른 곡의 대기열 ID(목록 차례) */
   const entries = () => rows().flatMap((r) => (r.entry !== null && picked.value.has(r.entry) ? [r.entry] : []));
 
-  return { selecting, count, isPicked, entries, clear, rowClick, rowMouseDown, rowContextMenu, pressStart, pressMove, cancelPress };
+  return { selecting, count, isPicked, entries, clear, rowClick, rowContextMenu, pressStart, pressMove, cancelPress };
 }
