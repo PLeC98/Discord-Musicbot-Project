@@ -193,7 +193,7 @@ test("맨 앞에 넣기(first, 맨 앞에 넣은 목록의 이어 넣기)는 DJ 
   const fetchMember = guild.members.fetch;
   guild.roles.cache.set("dj", { id: "dj" });
   await settings.setDjRoles(GUILD_ID, ["dj"]);
-  guild.members.fetch = async (id: string) => ({ id, guild, permissions: { has: () => false }, voice: { channel: null }, roles: { cache: new Map() } });
+  guild.members.fetch = async (id: string) => ({ id, guild, permissions: { has: () => false }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } });
   try {
     const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };
     const add = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡", first: true });

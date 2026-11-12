@@ -23,7 +23,8 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
     permissions: { has: (p: bigint) => perms.includes(p) },
     guild: {
       id: "g",
-      roles: { cache: { has: (id: string) => guildRoles.includes(id) } },
+      // rbot 은 봇 역할(디스코드가 봇에 붙인 역할)
+      roles: { cache: new Map(guildRoles.map((id) => [id, { id, tags: id === "rbot" ? { botId: "bot" } : null }])) },
       members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } },
     },
     roles: { cache: { has: (id: string) => roles.includes(id) } },
@@ -34,6 +35,21 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
 }
 
 // ── isServerManager ──────────────────────────────────────────
+
+test("DJ 역할 후보: 서버에 있는 역할 가운데 @everyone, 봇 역할은 아니다. 봇 역할뿐이면 미설정과 같아 전원 DJ", async () => {
+  const { isDjRoleCandidate } = await import("../../src/usecases/permissions.ts");
+  const guild = fakeMember({ guildRoles: ["r1", "rbot", "g"] }).guild;
+  assert.deepEqual(
+    ["r1", "rbot", "g", "gone"].filter((id) => isDjRoleCandidate(guild, id)),
+    ["r1"],
+  );
+  setGuild("g", { djRoles: ["rbot"] });
+  try {
+    assert.equal(await isDj(fakeMember({ guildRoles: ["r1", "rbot"] })), true, "봇 역할은 사람에게 줄 수 없어 전원 잠금이 된다");
+  } finally {
+    setGuild("g", { djRoles: [] });
+  }
+});
 
 test("서버 관리자: 서버 관리 권한만 인정되고 차단, 추방, 타임아웃 권한은 해당하지 않는다", () => {
   assert.equal(isServerManager(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), true);

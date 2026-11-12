@@ -35,7 +35,7 @@ function member({ perms = [] as bigint[], roles = [] as string[], voice = null a
     id: "u1",
     permissions: { has: (p: bigint) => perms.includes(p) },
     roles: { cache: { has: (id: string) => roles.includes(id) } },
-    guild: { id: "g", roles: { cache: { has: () => true } }, members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } } },
+    guild: { id: "g", roles: { cache: { has: () => true, get: (id: string) => ({ id }) } }, members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } } },
     voice: { channel: voice ? { id: voice } : null },
   });
 }
@@ -77,7 +77,7 @@ test("낮추기만: DJ 역할을 지정한 서버에서 실제 계층 셋 × 선
 test("낮추기만: DJ 역할을 지정하지 않은(또는 모두 삭제한) 서버는 모두 DJ라, 일반으로 낮춰도 DJ로 동작한다(그 서버의 진짜 동작)", async () => {
   for (const djRoles of [[], ["deleted-role"]]) {
     setGuild("g", { djRoles });
-    const guildWithout = (m: GuildMember) => Object.assign(m, { guild: { ...m.guild, roles: { cache: { has: () => false } } } });
+    const guildWithout = (m: GuildMember) => Object.assign(m, { guild: { ...m.guild, roles: { cache: { has: () => false, get: () => undefined } } } });
     for (const picked of [undefined, ...TIERS]) {
       const real = guildWithout(member({ voice: "vc-A", botVoice: "vc-A" }));
       const m = await shadowMember(req(picked), real);

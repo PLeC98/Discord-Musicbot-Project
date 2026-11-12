@@ -2,7 +2,7 @@ import { PermissionFlagsBits } from "discord.js";
 import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
-import type { GuildMember } from "discord.js";
+import type { Guild, GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
@@ -25,11 +25,20 @@ function isBotOwner(userId: string) {
 }
 
 /**
+ * DJ 역할로 쓸 수 있는 역할인가: 서버에 있고, @everyone(서버 ID)이 아니고, 봇 역할이 아니다.
+ * 봇 역할(디스코드가 봇에 붙인 역할, tags.botId)은 사람에게 줄 수 없고 봇이 나가면 지워진다. 서버 부스터 같은 다른 관리 역할은 사람이 가지므로 쓸 수 있다
+ */
+function isDjRoleCandidate(guild: Guild, roleId: string) {
+  const role = guild.roles.cache.get(roleId);
+  return Boolean(role && role.id !== guild.id && !role.tags?.botId);
+}
+
+/**
  * DJ 계층 이상인가. 재생 조작 권한의 기준.
  *  - 서버 관리자: 항상 DJ 취급
  *  - DJ 역할이 설정된 서버(/setting, 대시보드 서버 설정, 복수 가능): 그 중 하나라도 보유한 유저만
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
- *  - 설정된 역할이 서버에서 전부 삭제된 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
+ *  - 설정된 역할이 서버에서 전부 삭제됐거나 봇 역할뿐인 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
  */
 async function isDj(member: GuildMember) {
   if (isServerManager(member)) return true;
@@ -37,7 +46,7 @@ async function isDj(member: GuildMember) {
   const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
   if (!djRoleIds.length) return true;
 
-  const validIds = djRoleIds.filter((id) => member.guild.roles.cache.has(id));
+  const validIds = djRoleIds.filter((id) => isDjRoleCandidate(member.guild, id));
   if (!validIds.length) return true;
 
   return validIds.some((id) => member.roles.cache.has(id));
@@ -127,5 +136,5 @@ function canKickBot(member: GuildMember) {
   return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
 }
 
-export { isServerManager, isBotOwner, isDj, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
+export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };

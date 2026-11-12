@@ -28,7 +28,17 @@ beforeEach(() => {
   documents._use("age-content", { enabled: true, changedAt: 1 });
 });
 
-const guild = { id: "g1", roles: { cache: { has: (id: string) => ["r1", "r2"].includes(id) } } } as unknown as Parameters<typeof panel>[0];
+// rbot 은 봇 역할(사람에게 줄 수 없어 DJ 역할로 받지 않는다)
+const guild = {
+  id: "g1",
+  roles: {
+    cache: new Map([
+      ["r1", { id: "r1" }],
+      ["r2", { id: "r2" }],
+      ["rbot", { id: "rbot", tags: { botId: "bot" } }],
+    ]),
+  },
+} as unknown as Parameters<typeof panel>[0];
 
 type Payload = { components: Array<{ toJSON(): unknown }> };
 type Node = { type: number; custom_id?: string; label?: string; style?: number; disabled?: boolean; components?: Node[]; accessory?: Node };
@@ -118,8 +128,8 @@ test("봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 �
   assert.equal(screenOf(shown).rows, 2, "역할 메뉴 줄 · 닫기 줄");
 });
 
-test("역할 메뉴: 고르면 바로 저장하고 화면을 다시 그린다. 서버에 없는 역할은 빼고, 비우면 푼다", async () => {
-  const picked = await run(fakeInteraction("roleSelect", "setting:dj", { values: ["r1", "gone"] }));
+test("역할 메뉴: 고르면 바로 저장하고 화면을 다시 그린다. 서버에 없는 역할, 봇 역할은 빼고, 비우면 푼다", async () => {
+  const picked = await run(fakeInteraction("roleSelect", "setting:dj", { values: ["r1", "gone", "rbot"] }));
   assert.deepEqual(settings.table.getDjRoles("g1"), ["r1"]);
   assert.deepEqual(screenOf(picked.updatedWith).roles, ["r1"]);
   assert.match(textOf(picked.updatedWith), /현재 DJ 역할: <@&r1>/);

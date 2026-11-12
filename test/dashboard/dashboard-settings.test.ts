@@ -86,11 +86,13 @@ function makeRole(id: string, name: string, position: number, color = 0) {
   return { id, name, position, color, hexColor: color ? "#" + color.toString(16).padStart(6, "0") : "#000000" };
 }
 
-const roles = new Map([
+const roles = new Map<string, ReturnType<typeof makeRole> & { tags?: { botId: string } }>([
   [GUILD_ID, makeRole(GUILD_ID, "@everyone", 0)],
   ["r1", makeRole("r1", "DJ", 5, 0x7c6ff6)],
   ["r2", makeRole("r2", "VIP", 3)],
   ["r3", makeRole("r3", "Mod", 8, 0xff0000)],
+  // 봇 역할(디스코드가 봇에 붙인 역할). DJ 역할 목록에 없고 저장도 하지 않는다
+  ["rbot", { ...makeRole("rbot", "뮤직봇", 9), tags: { botId: "bot" } }],
 ]);
 // 음성 채널 v1 을 보는 사람이 볼 수 있는가(비공개 채널 흉내)
 let voiceVisible = true;
@@ -193,7 +195,7 @@ test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () =>
   assert.deepEqual(
     r.json.dj?.roles.map((x) => x.id),
     ["r3", "r1", "r2"],
-    "@everyone 제외 + position 내림차순",
+    "@everyone, 봇 역할 제외 + position 내림차순",
   );
   assert.equal(r.json.dj?.roles.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
   assert.deepEqual(
@@ -284,7 +286,7 @@ test("PUT settings: 일반 사용자, DJ 모두 403(저장 본문으로 고칠 �
 
 test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
   currentMember = modMember();
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1", "r2", "r1", "ghost"], botChannelId: "c1" });
+  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1", "r2", "r1", "ghost", "rbot"], botChannelId: "c1" });
   assert.equal(r.status, 200);
   assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1", "r2"]);
   assert.equal(store.botChannel.get(GUILD_ID), "c1");

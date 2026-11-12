@@ -10,6 +10,7 @@ import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { leaveGuild } from "../../usecases/leave-guild.ts";
+import { isDjRoleCandidate } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
@@ -42,7 +43,7 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
   }
 
   if (djRoleIds !== undefined) {
-    plan.roles = [...new Set(djRoleIds)].filter((id) => id !== guild.id && guild.roles.cache.has(id));
+    plan.roles = [...new Set(djRoleIds)].filter((id) => isDjRoleCandidate(guild, id));
     // 디스코드 /setting 의 역할 선택 메뉴와 같은 상한
     if (plan.roles.length > DJ_ROLE_MAX) return { refused: { code: "too-many-dj-roles", max: DJ_ROLE_MAX } };
   }
@@ -108,10 +109,10 @@ function createGuildSettingsRouter() {
     }
 
     if (cards.includes("dj")) {
-      const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
-      // @everyone(서버 ID와 동일)은 제외. "전원 DJ"는 미설정이 이미 그 의미
+      const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => isDjRoleCandidate(guild, id));
+      // @everyone 은 제외("전원 DJ"는 미설정이 이미 그 의미), 봇 역할도 제외(사람에게 줄 수 없다)
       const roles = [...guild.roles.cache.values()]
-        .filter((r) => r.id !== guild.id)
+        .filter((r) => isDjRoleCandidate(guild, r.id))
         .sort((a, b) => b.position - a.position)
         .map((r) => ({ id: r.id, name: r.name, color: r.color ? r.hexColor : null }));
       reply.dj = { djRoleIds, roles };
