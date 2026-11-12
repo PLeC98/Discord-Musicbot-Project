@@ -113,7 +113,7 @@
               </span>
               <span v-if="track.inQueue" class="h-6 px-3 rounded-full bg-surface-container-highest text-xs font-semibold text-on-surface-variant inline-flex items-center gap-1 shrink-0"><Icon name="queue_music" :size="14" />{{ T.inQueue }}</span>
               <!-- 맨 앞에 넣기(DJ 만). 휴대폰은 늘, 그보다 넓으면 고른 줄(마우스를 올린 줄)에만 보인다. 자리는 늘 잡아 두어 줄이 흔들리지 않는다 -->
-              <button v-if="canFirst" type="button" :class="[iconButton(32), !isPhone && i !== active && 'invisible']" :aria-label="T.addFirst" v-tooltip="T.addFirst" @click.stop="pick(i, true)"><Icon name="queue_play_next" :size="20" /></button>
+              <button v-if="canFirst" type="button" :class="[iconButton(32), !isPhone && i !== active && 'invisible']" :aria-label="T.addFirst" v-tooltip="T.addFirst" @click.stop="pick(i, true)"><Icon name="vertical_align_top" :size="20" /></button>
             </div>
           </div>
         </div>
@@ -389,7 +389,7 @@ const segments = computed(() => (link.value?.list ? 1 : 0) + 1 + (canFirst.value
 const shapeOf = (index: number) => (segments.value === 1 ? "motion-toggle rounded-xl" : segmentShape(false, index, segments.value));
 // 넣을 자리 메뉴가 열려 있다(키 입력을 메뉴에 양보한다)
 const menuOpen = ref(false);
-const placeItems = computed(() => [{ label: T.addLast, icon: "arrow_upward" as const, select: () => submit(false) }, { label: T.addFirst, icon: "queue_play_next" as const, select: () => submit(true) }, ...(link.value?.list ? [{ label: T.addOneFirst, icon: "queue_play_next" as const, select: () => send(true, true) }] : [])]);
+const placeItems = computed(() => [{ label: T.addFirst, icon: "vertical_align_top" as const, select: () => submit(true) }, ...(link.value?.list ? [{ label: T.addOneFirst, icon: "vertical_align_top" as const, select: () => send(true, true) }] : [])]);
 // 보내기(↑, 메뉴): 주소면 그것 전부, 아니면 고른 결과나 그 글
 function submit(first: boolean) {
   if (link.value) send(false, first);
