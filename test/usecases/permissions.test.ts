@@ -10,7 +10,7 @@ import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { isServerManager, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = await import("../../src/usecases/permissions.ts");
+const { isServerManager, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTracks } = await import("../../src/usecases/permissions.ts");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
@@ -129,7 +129,7 @@ test("재생 조작: 같은 채널이어도 비-DJ는 거부", async () => {
   assert.equal(await checkControl(fakeMember({ roles: [], voice: "vc1", botVoice: "vc1" })), "must-dj");
 });
 
-// ── checkSkip / checkRemoveTrack (요청자 본인 예외) ──────────
+// ── checkSkip / checkRemoveTracks (요청자 본인 예외) ──────────
 
 test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (동일 음성 채널 규칙은 적용)", async () => {
   setGuild("g", { djRoles: ["r1"] });
@@ -150,10 +150,15 @@ test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async 
   const track = { requestedBy: { id: "u1" } };
 
   const requester = fakeMember({ id: "u1", voice: "vc1", botVoice: "vc1" });
-  assert.equal(await checkRemoveTrack(requester, track), null);
+  assert.equal(await checkRemoveTracks(requester, [track]), null);
 
   const other = fakeMember({ id: "u2", voice: "vc1", botVoice: "vc1" });
-  assert.equal(await checkRemoveTrack(other, track), "must-dj");
+  assert.equal(await checkRemoveTracks(other, [track]), "must-dj");
+
+  assert.equal(await checkRemoveTracks(requester, [track, track]), null, "여러 곡이 모두 자기 곡");
+  assert.equal(await checkRemoveTracks(requester, [track, { requestedBy: { id: "u2" } }]), "must-dj", "한 곡이라도 남의 곡이면 DJ 판정");
+  assert.equal(await checkRemoveTracks(requester, [{ requestedBy: null }]), "must-dj", "넣은 사람이 없는 곡(자동재생)은 DJ 만");
+  assert.equal(await checkRemoveTracks(requester, []), "must-dj", "빈 목록은 자기 곡으로 치지 않는다");
 });
 
 // ── checkSummon (봇 유휴 시 소환 가능 여부) ─────────────────

@@ -77,8 +77,8 @@ const seeked = (at: string): Head => ({ icon: "seek", title: "위치를 옮겼�
 /** 대기열 비우기. count 는 버린 곡 수 */
 const cleared = (count: number): Head => ({ icon: "cleared", title: "대기열을 비웠어요!", body: `대기열에 있던 ${count}곡을 삭제했어요.` });
 
-/** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
-const removed = (left: number): Head => ({ icon: "cleared", title: "선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
+/** 대기열에서 빼기. count 는 뺀 곡 수, left 는 남은 곡 수 */
+const removed = (count: number, left: number): Head => ({ icon: "cleared", title: count > 1 ? `선택한 ${count}곡을 삭제했어요!` : "선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
 
 /** 대기열 순서 바꾸기. from, to 는 사람이 센 위치(1부터) */
 const moved = (track: Linked, from: number, to: number): Head & { by: string } => ({

@@ -70,7 +70,7 @@ function makePlayer(state: string, acts: string[]) {
     setLoop: rec("setLoop", (m) => m),
     shuffleQueue: rec("shuffleQueue"),
     clearQueue: rec("clearQueue", () => 2),
-    removeFromQueue: rec("removeFromQueue", () => track("q1")),
+    removeFromQueue: rec("removeFromQueue", () => [track("q1")]),
     moveInQueue: rec("moveInQueue"),
     get isLive() {
       return Boolean(this.currentTrack?.isLive);
@@ -209,7 +209,7 @@ const DASHBOARD: Record<string, { method?: string; route: string; body?: object 
   volume: { route: "volume", body: { volume: 50 } },
   loop: { route: "loop", body: { mode: "track" } },
   shuffle: { route: "shuffle" },
-  remove: { method: "DELETE", route: "queue/entry/1" },
+  remove: { route: "queue/remove", body: { entries: [1] } },
   move: { route: "queue/move-entry", body: { entry: 1, before: null } },
 };
 

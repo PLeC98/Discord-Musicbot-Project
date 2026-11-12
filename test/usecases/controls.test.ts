@@ -40,9 +40,19 @@ function accepted<R extends { ok: boolean }>(r: R) {
   return r as Extract<R, { ok: true }>;
 }
 
-const guild = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: { id: "vc1" } } } } });
+const guild = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { channel: { id: "vc1" } } } }, roles: { cache: new Map([["dj", { id: "dj" }]]) } });
 const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, user: { tag: `사람 ${id}` }, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
 const DJ: Actor = { member: member() };
+
+// DJ 역할을 정해 둔 동안(정하지 않으면 모든 멤버가 DJ 다). 역할이 없는 멤버는 DJ 가 아니다
+async function withDjRole(run: () => Promise<void>) {
+  guildSettings.setDjRoles("g1", ["dj"]);
+  try {
+    await run();
+  } finally {
+    guildSettings.clearDjRoles("g1");
+  }
+}
 const OUTSIDER: Actor = { member: member({ mod: false, inVoice: false }) };
 
 const track = (title: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title, pageUrl: "", requestKey: title, platform: "youtube", duration: 0, ...extra });
@@ -80,7 +90,14 @@ function fakePlayer({ user = false, holds = [] as Hold[], ...over }: { user?: bo
     setLoop: (m: unknown) => calls.push(`loop:${m}`),
     hasLiveTrack: () => false,
     shuffleQueue: () => calls.push("shuffle"),
-    removeFromQueue: (i: number) => (calls.push(`remove:${i}`), p.queue.splice(i, 1)[0]),
+    removeFromQueue: (tracks: QueuedTrack[]) => {
+      const gone = new Set(tracks);
+      const at = p.queue.flatMap((t: QueuedTrack, i: number) => (gone.has(t) ? [i] : []));
+      if (at.length) calls.push(`remove:${at.join(",")}`);
+      const removed = p.queue.filter((t: QueuedTrack) => gone.has(t));
+      p.queue = p.queue.filter((t: QueuedTrack) => !gone.has(t));
+      return removed;
+    },
     moveInQueue: (f: number, t: number) => (calls.push(`move:${f}->${t}`), p.queue.splice(t, 0, p.queue.splice(f, 1)[0]), true),
     clearQueue: () => (calls.push("clear"), (p.queue = [])),
     dispose: async (o: { session: string; panel?: string }) => calls.push(`dispose:${o.session}:${o.panel ?? "-"}`),
@@ -269,16 +286,34 @@ test("빼기: 빈 대기열, 범위 밖 거절, 권한은 그 곡을 보고(넣�
   const p = fakePlayer({ queue: [track("남의 곡"), track("내 곡", { requestedBy: { id: "u9" } })] });
   const requester = { member: member({ mod: false, id: "u9" }) };
   assert.equal(codeOf(await controls.remove(p, OUTSIDER, 0)), "must-be-in-same-voice");
-  assert.equal(accepted(await controls.remove(p, requester, 1)).track?.title, "내 곡");
+  assert.equal(accepted(await controls.remove(p, requester, 1)).removed[0].title, "내 곡");
 
   // 권한을 기다리는 사이 앞 곡이 빠져도 권한을 본 그 곡을 뺀다. 그 곡이 빠졌으면 다른 곡을 빼지 않고 거절한다
   const shifted = fakePlayer({ queue: [track("a"), track("b"), track("c")] });
   queueMicrotask(() => shifted.queue.splice(0, 1));
-  assert.equal(accepted(await controls.remove(shifted, DJ, 1)).track?.title, "b");
+  assert.equal(accepted(await controls.remove(shifted, DJ, 1)).removed[0].title, "b");
   const gone = fakePlayer({ queue: [track("a"), track("b"), track("c")] });
   queueMicrotask(() => gone.queue.splice(1, 1));
   assert.equal(codeOf(await controls.remove(gone, DJ, 1)), "entry-gone");
   assert.deepEqual(gone.calls, [], "아무것도 빼지 않았다");
+});
+
+test("구간 빼기(/remove 번호 끝번호): 둘 다 넣고 거꾸로 줘도 된다, 범위 밖은 거절. 넣은 사람은 구간이 모두 자기 곡일 때만", async () => {
+  const titles = (r: Awaited<ReturnType<typeof controls.remove>>) => accepted(r).removed.map((t: QueuedTrack) => t.title);
+  const five = () => fakePlayer({ queue: ["a", "b", "c", "d", "e"].map((t) => track(t)) });
+  const p = five();
+  assert.deepEqual(titles(await controls.remove(p, DJ, 1, 3)), ["b", "c", "d"]);
+  assert.deepEqual([p.calls, accepted(await controls.remove(five(), DJ, 3, 1)).left], [["remove:1,2,3"], 2]);
+  assert.deepEqual(await controls.remove(five(), DJ, 1, 5), { ok: false, code: "bad-position", size: 5 });
+
+  const requester = { member: member({ mod: false, id: "u9" }) };
+  const mine = (extra: Partial<QueuedTrack> = {}) => track("내 곡", { requestedBy: { id: "u9" }, ...extra });
+  const mixed = fakePlayer({ queue: [mine(), track("남의 곡"), mine()] });
+  await withDjRole(async () => {
+    assert.equal(codeOf(await controls.remove(mixed, requester, 0, 2)), "must-dj");
+    assert.deepEqual(mixed.calls, [], "한 곡이라도 남의 곡이면 아무것도 빼지 않는다");
+    assert.deepEqual(titles(await controls.remove(mixed, requester, 2, 2)), ["내 곡"]);
+  });
 });
 
 test("옮기기: 두 곡 미만, 범위 밖, 같은 위치 거절", async () => {
@@ -317,22 +352,40 @@ test("지금 곡 확인(onTrack): 지금 곡이 그 줄이 아니면 건너뛰�
   assert.deepEqual(p.calls, ["skip", "seek:30000:highlight"]);
 });
 
-test("대기열 ID로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 사이 빠졌으면 entry-gone, 권한은 그 곡을 보고", async () => {
+test("대기열 ID로 빼기: 보던 순번이 밀려도 그 곡을 뺀다. 그 사이 다 빠졌으면 entry-gone, 권한은 그 곡을 보고", async () => {
   const p = fakePlayer({ queue: [entered("새로 들어온 곡", 9), entered("a", 1), entered("b", 2)] });
-  assert.equal(accepted(await controls.removeEntry(p, DJ, 2)).track?.title, "b");
+  assert.equal(accepted(await controls.removeEntries(p, DJ, [2])).removed[0].title, "b");
   assert.deepEqual(p.calls, ["remove:2"]);
-  assert.equal(codeOf(await controls.removeEntry(p, DJ, 2)), "entry-gone");
+  assert.equal(codeOf(await controls.removeEntries(p, DJ, [2])), "entry-gone");
 
   // 권한을 기다리는 사이 그 곡이 빠지면 다른 곡을 빼지 않고 거절한다
   const racing = fakePlayer({ queue: [entered("a", 1), entered("b", 2), entered("c", 3)] });
   queueMicrotask(() => racing.queue.splice(0, 1));
-  assert.equal(codeOf(await controls.removeEntry(racing, DJ, 1)), "entry-gone");
+  assert.equal(codeOf(await controls.removeEntries(racing, DJ, [1])), "entry-gone");
   assert.deepEqual(racing.calls, [], "아무것도 빼지 않았다");
 
   const mine = fakePlayer({ queue: [entered("남의 곡", 1), entered("내 곡", 2, { requestedBy: { id: "u9" } })] });
   const requester = { member: member({ mod: false, id: "u9" }) };
-  assert.equal(codeOf(await controls.removeEntry(mine, OUTSIDER, 2)), "must-be-in-same-voice");
-  assert.equal(accepted(await controls.removeEntry(mine, requester, 2)).track?.title, "내 곡");
+  assert.equal(codeOf(await controls.removeEntries(mine, OUTSIDER, [2])), "must-be-in-same-voice");
+  assert.equal(accepted(await controls.removeEntries(mine, requester, [2])).removed[0].title, "내 곡");
+});
+
+test("대기열 ID로 여러 곡 빼기: 대기열 차례로 빼고 없는 ID 는 건너뛴다. 넣은 사람은 모두 자기 곡일 때만(하나라도 남의 곡이면 모두 거절)", async () => {
+  const p = fakePlayer({ queue: [entered("a", 1), entered("b", 2), entered("c", 3), entered("d", 4)] });
+  const r = accepted(await controls.removeEntries(p, DJ, [4, 99, 2]));
+  assert.deepEqual([r.removed.map((t: QueuedTrack) => t.title), r.left, p.calls], [["b", "d"], 2, ["remove:1,3"]]);
+
+  const requester = { member: member({ mod: false, id: "u9" }) };
+  const own = { requestedBy: { id: "u9" } };
+  const mixed = fakePlayer({ queue: [entered("내 곡", 1, own), entered("남의 곡", 2), entered("내 곡 2", 3, own)] });
+  await withDjRole(async () => {
+    assert.equal(codeOf(await controls.removeEntries(mixed, requester, [1, 2])), "must-dj");
+    assert.deepEqual(mixed.calls, [], "아무것도 빼지 않았다");
+    assert.deepEqual(
+      accepted(await controls.removeEntries(mixed, requester, [1, 3])).removed.map((t: QueuedTrack) => t.title),
+      ["내 곡", "내 곡 2"],
+    );
+  });
 });
 
 test("대기열 ID로 옮기기: 그 곡 앞으로(null 이면 맨 끝). 그 사이 빠졌으면 entry-gone, 제자리면 same-position", async () => {
@@ -555,7 +608,7 @@ test("조작은 패널 갱신을 기다리지 않고 돌아온다(응답이 패�
       ["섞기", () => controls.shuffle(fakePlayer({ queue: [track("a"), track("b"), track("c")] }), DJ)],
       ["빼기", () => controls.remove(fakePlayer(), DJ, 0)],
       ["옮기기", () => controls.move(fakePlayer(), DJ, 0, 1)],
-      ["대기열 ID 로 빼기", () => controls.removeEntry(fakePlayer({ queue: [entered("a", 1)] }), DJ, 1)],
+      ["대기열 ID 로 빼기", () => controls.removeEntries(fakePlayer({ queue: [entered("a", 1)] }), DJ, [1])],
       ["대기열 ID 로 옮기기", () => controls.moveEntry(fakePlayer({ queue: [entered("a", 1), entered("b", 2)] }), DJ, 1, null)],
       ["비우기", () => controls.clear(fakePlayer(), DJ)],
       ["자동재생 끄기", () => controls.autoplay(fakePlayer({ autoplay: "kpop", setAutoplay: () => {} }), DJ, false)],

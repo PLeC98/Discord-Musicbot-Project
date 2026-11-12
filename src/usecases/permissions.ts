@@ -117,8 +117,11 @@ async function checkOwnTrack(member: GuildMember, track: Pick<QueuedTrack, "requ
 /** 스킵: 지금 곡을 넣은 사람도 된다 */
 const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) => checkOwnTrack(member, player?.currentTrack);
 
-/** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
-const checkRemoveTrack = checkOwnTrack;
+/** 대기열 곡 제거: DJ 계층이거나, 빼는 곡이 모두 그 사람이 넣은 곡(요청자도 동일 음성 채널 규칙은 적용). 한 곡이라도 남의 곡이면 DJ 판정의 까닭 */
+async function checkRemoveTracks(member: GuildMember, tracks: ReadonlyArray<Pick<QueuedTrack, "requestedBy">>) {
+  const ownsAll = tracks.length > 0 && tracks.every((t) => Boolean(t.requestedBy?.id) && t.requestedBy?.id === member.id);
+  return ownTrackDenied({ control: await checkControl(member), requester: ownsAll, voice: () => checkVoice(member) });
+}
 
 /**
  * 디스코드에서 봇을 추방할 수 있는 사람인가: 멤버 추방 권한(관리자 포함)이 있고, 서버 소유자이거나 가장 높은 역할이 봇의 가장 높은 역할보다 위(디스코드의 역할 순서 규칙).
@@ -136,5 +139,5 @@ function canKickBot(member: GuildMember) {
   return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
 }
 
-export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
+export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTracks };
 export type { PermissionDenied };

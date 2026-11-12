@@ -88,9 +88,12 @@ function makePlayer() {
         calls.push(["setVolume", v]);
         this.volume = v;
       },
-      removeFromQueue(i: number) {
-        calls.push(["removeFromQueue", i]);
-        return this.queue.splice(i, 1)[0];
+      removeFromQueue(tracks: unknown[]) {
+        const gone = new Set(tracks);
+        calls.push(["removeFromQueue", this.queue.flatMap((t: unknown, i: number) => (gone.has(t) ? [i] : []))]);
+        const removed = this.queue.filter((t: unknown) => gone.has(t));
+        this.queue = this.queue.filter((t: unknown) => !gone.has(t));
+        return removed;
       },
       moveInQueue(from: number, to: number) {
         calls.push(["moveInQueue", from, to]);
@@ -313,7 +316,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
     ["POST", "loop", { mode: "track" }],
     ["POST", "shuffle"],
     ["POST", "queue/move-entry", { entry: 1, before: null }],
-    ["DELETE", "queue/entry/1"],
+    ["POST", "queue/remove", { entries: [1] }],
     ["POST", "stop"],
   ];
   const seen: State[] = [];
@@ -334,7 +337,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
+test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 다 빠졌으면 410, 잘못된 값은 400", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), queue: [entered("새 곡", 14), entered("q0", 11), entered("q1", 12), entered("q2", 13)] });
   Object.assign(p, {
@@ -346,13 +349,16 @@ test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨�
   const state = await rowsReq("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.deepEqual([state.json.currentTrack?.entry, state.json.queue.map((t) => t.entry)], [10, [14, 11, 12, 13]]);
 
-  const removed = await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`);
+  const remove = (entries: unknown) => rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/remove`, { entries });
+  const removed = await remove([12]);
   assert.equal(removed.status, 200);
   assert.deepEqual(
     removed.json.queue.map((t) => t.title),
     ["새 곡", "q0", "q2"],
   );
-  assert.deepEqual([(await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`)).json.code, (await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/x`)).status], ["entry-gone", 400]);
+  assert.equal((await remove([12])).json.code, "entry-gone");
+  for (const bad of [[], ["x"], [1.5], [0], 12, null]) assert.equal((await remove(bad)).status, 400, JSON.stringify(bad));
+  assert.equal((await remove(Array.from({ length: 1001 }, (_, i) => i + 1))).status, 400, "한 요청에 1000곡까지");
 
   const moved = await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 13, before: 14 });
   assert.deepEqual(
@@ -447,7 +453,7 @@ test("볼륨, 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
-    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/1`);
+    await req("POST", `/api/guilds/${GUILD_ID}/player/queue/remove`, { entries: [1] });
     await new Promise((done) => setTimeout(done, VOLUME_SETTLE_MS + 50));
   } finally {
     off();

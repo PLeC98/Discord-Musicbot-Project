@@ -89,9 +89,9 @@ function cleared(count: number, by: Actor) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
-function removed(left: number, by: Actor) {
-  const t = controlText.removed(left);
+/** 대기열에서 빼기. count 는 뺀 곡 수, left 는 남은 곡 수 */
+function removed(count: number, left: number, by: Actor) {
+  const t = controlText.removed(count, left);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 

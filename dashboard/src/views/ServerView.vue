@@ -246,15 +246,36 @@
           </div>
         </template>
 
-        <QueueAddBox :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
+        <!-- 대기열에서 곡을 고르는 동안은 곡 추가 칸 자리(같은 48px 캡슐)에 고른 곡 막대. 곡 추가 칸은 숨기기만 한다(치던 것, 열린 패널을 잃지 않게) -->
+        <QueueAddBox v-show="!picking" :guild-id="guildId" :player="player" :queue-window="loadedCount" @state="applyState" />
+        <div v-if="picking" class="shrink-0 h-12 flex items-center gap-1 pl-1 pr-1 rounded-[1.5rem] bg-secondary-container text-on-secondary-container">
+          <button type="button" :class="iconButton(40, 'plain')" v-tooltip="T.clearPicks" :aria-label="T.clearPicks" @click="clearPicks"><Icon name="close" :size="24" /></button>
+          <span class="flex-1 min-w-0 truncate text-sm font-medium nums">{{ T.picked(pickedCount) }}</span>
+          <button type="button" :class="iconButton(40, 'plain')" v-tooltip="T.removePicked" :aria-label="T.removePicked" :disabled="isBusy('remove-picked')" @click="removePicked"><Icon name="delete" :size="24" /></button>
+        </div>
 
         <!-- 떠 있는 재생 바 밑으로도 곡이 지나가고, 끝 곡은 바 위까지 올릴 수 있게 바 높이만큼 아래를 비운다.
              받은 곡 가운데 보이는 행 둘레만 그리고 위아래는 스페이서로 높이만(composables/row-window). 행 높이 64px 고정, 드래그도 그 높이로 순번을 계산한다 -->
         <Transition name="fade" mode="out-in">
           <div v-if="player.queue?.length > 0" ref="queueBoxRef" data-reorder-scroller class="mt-3 -mx-2 px-1 flex-1 min-h-0 overflow-y-auto flex flex-col md:pb-(--player)" :class="sheetMode && 'pb-[max(1rem,env(safe-area-inset-bottom))]'" :style="queueFade" @scroll.passive="onQueueScroll">
             <div class="shrink-0 flex flex-col" :style="{ paddingTop: `${queueTop}px`, paddingBottom: `${queueBottom}px` }">
-              <div v-for="{ key, row: item, index: i } in queueSlots" :key="key" class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg hover:bg-on-surface/6" data-reorder :data-index="i">
-                <span class="text-outline group-hover/item:text-on-surface-variant transition-colors touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
+              <div
+                v-for="{ key, row: item, index: i } in queueSlots"
+                :key="key"
+                class="group/item relative shrink-0 flex items-center gap-3 h-16 pl-1 pr-1 rounded-lg"
+                :class="[isPicked(item) ? 'bg-secondary-container text-on-secondary-container' : 'hover:bg-on-surface/6', picking && removeAllowed(player, item) && 'cursor-pointer']"
+                data-reorder
+                :data-index="i"
+                @click="pickClick($event, item)"
+                @mousedown="pickMouseDown"
+                @pointerdown="pressStart($event, item)"
+                @pointermove="pressMove"
+                @pointerup="cancelPress"
+                @pointercancel="cancelPress"
+                @contextmenu="pickContextMenu"
+              >
+                <span v-if="picking" class="shrink-0 flex" :class="isPicked(item) ? 'text-primary' : removeAllowed(player, item) ? 'text-outline' : 'text-outline opacity-38'"><Icon :name="isPicked(item) ? 'check_circle' : 'radio_button_unchecked'" :size="20" :fill="isPicked(item)" /></span>
+                <span v-else class="text-outline group-hover/item:text-on-surface-variant transition-colors touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
                 <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
                 <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
                 <div class="flex-1 min-w-0">
@@ -266,7 +287,7 @@
                   </div>
                 </div>
                 <span v-if="item.autoplay" class="shrink-0 text-tertiary" v-tooltip="T.pickedByAutoplay"><Icon name="auto_awesome" :size="16" fill /></span>
-                <button type="button" :class="[iconButton(32, 'quiet'), 'group-hover/item:text-on-surface-variant']" v-tooltip="T.removeSong" :aria-label="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
+                <button type="button" :class="[iconButton(32, 'quiet'), 'group-hover/item:text-on-surface-variant', picking && 'invisible']" v-tooltip="T.removeSong" :aria-label="T.removeSong" :disabled="!removeAllowed(player, item) || !Number.isInteger(item.entry) || isBusy(`remove:${item.entry}`)" @click="removeTrack(item)"><Icon name="close" :size="20" /></button>
               </div>
             </div>
             <div v-if="player.queue.length < (player.queueTotal ?? 0)" class="flex items-center justify-center gap-2 py-4 text-xs text-on-surface-variant">
@@ -300,6 +321,7 @@ import { useSeekBar } from "../composables/seek-bar.ts";
 import { useArtSwipe } from "../composables/art-swipe.ts";
 import { useBusy } from "../composables/busy.ts";
 import { usePointerReorder } from "../composables/pointer-reorder.ts";
+import { useQueueSelect } from "../composables/queue-select.ts";
 import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { rem } from "../utils/rem.ts";
 import { TOPBAR_BTN, TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
@@ -553,13 +575,20 @@ async function doStop() {
   if (await send("stop", "stop", undefined, T.failed.stop)) void refresh();
 }
 
-// 빼기는 그 항목 번호로(그 사이 대기열이 바뀌어도 그 곡). 응답을 기다린다
+// 빼기는 대기열 ID로(그 사이 대기열이 바뀌어도 그 곡). 한 요청에 QUEUE_WINDOW_MAX 곡까지라 넘으면 나눠 보낸다
+async function removeEntries(entries: number[]) {
+  for (let at = 0; at < entries.length; at += QUEUE_WINDOW_MAX) {
+    applyState((await axios.post<PlayerState>(`/api/guilds/${guildId}/player/queue/remove${qs()}`, { entries: entries.slice(at, at + QUEUE_WINDOW_MAX) })).data);
+  }
+}
+
+// 한 곡 빼기(행의 빼기 버튼). 응답을 기다린다
 async function removeTrack(track: QueueTrackView) {
   const entry = track.entry;
   if (entry === null || !Number.isInteger(entry)) return;
   await whileBusy(`remove:${entry}`, async () => {
     try {
-      applyState((await axios.delete<PlayerState>(`/api/guilds/${guildId}/player/queue/entry/${entry}${qs()}`)).data);
+      await removeEntries([entry]);
     } catch (e) {
       notifyProblem(e, T.failed.remove);
       void refresh();
@@ -567,13 +596,47 @@ async function removeTrack(track: QueueTrackView) {
   });
 }
 
+// ── 대기열에서 여러 곡 골라 빼기 ───────────────────────────────────────────────
+
+const { selecting: picking, count: pickedCount, isPicked, entries: pickedEntries, clear: clearPicks, rowClick: pickClick, rowMouseDown: pickMouseDown, rowContextMenu: pickContextMenu, pressStart, pressMove, cancelPress } = useQueueSelect({ rows: () => player.value.queue, selectable: (t) => Number.isInteger(t.entry) && removeAllowed(player.value, t) });
+
+// 고른 곡을 한 번에 뺀다. 응답을 기다린다(실패하면 고른 것은 그대로 둔다)
+async function removePicked() {
+  const entries = pickedEntries();
+  if (entries.length === 0) return;
+  await whileBusy("remove-picked", async () => {
+    try {
+      await removeEntries(entries);
+      clearPicks();
+    } catch (e) {
+      notifyProblem(e, T.failed.removePicked);
+      void refresh();
+    }
+  });
+}
+
+// 고르는 동안 Delete 는 빼기, Esc 는 고르기 그만(입력란에서 친 것은 그 칸이 받는다)
+function pickKeys(e: KeyboardEvent) {
+  if (!picking.value || e.defaultPrevented) return;
+  if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]")) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    clearPicks();
+  } else if (e.key === "Delete") {
+    e.preventDefault();
+    void removePicked();
+  }
+}
+onMounted(() => window.addEventListener("keydown", pickKeys));
+onUnmounted(() => window.removeEventListener("keydown", pickKeys));
+
 // ── 대기열 드래그해서 옮기기 ───────────────────────────────────────────────────
 
 // 대기열 행 높이(h-16). 보이는 행만 그리므로 드래그도 이 높이로 순번을 계산한다
 const QUEUE_ROW = 4 * rem(1);
 const { startDrag, draggedIndex } = usePointerReorder({
   // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 반영한다. end 는 그 뒤(놓지 않고 끝난 때도)
-  enabled: () => Boolean(player.value.canControl) && !isBusy("move"),
+  enabled: () => Boolean(player.value.canControl) && !isBusy("move") && !picking.value,
   start: () => (isDragging.value = true),
   end: releaseHeld,
   drop: (from, insertAt) => void moveQueue(from, insertAt),

@@ -1643,19 +1643,35 @@ test("대기열 조작: 빼기, 옮기기", () => {
   const from = sink.buffer.length;
   assert.equal(p.moveInQueue(0, 2), true);
   assert.deepEqual(p.queue, [b, c, a]);
-  assert.equal(p.removeFromQueue(1), c);
+  assert.deepEqual(p.removeFromQueue([c]), [c]);
   const lines = sink.buffer.slice(from).map((e) => e.text);
   assert.ok(
     lines.some((t) => t.startsWith("대기열 이동:") && t.endsWith("1번 → 3번")),
     "로그의 번호는 대기열 화면처럼 1부터",
   );
   assert.ok(lines.some((t) => t.startsWith("대기열 제거: 2번 ")));
-  assert.equal(p.removeFromQueue(9), null);
+  assert.deepEqual(p.removeFromQueue([c]), [], "이미 빠진 곡은 건너뛴다");
   assert.equal(p.shuffleQueue(), true);
   assert.equal(p.clearQueue(), 2);
   assert.equal(p.shuffleQueue(), false, "한 곡 이하는 섞지 않는다");
   h.dispose(p);
   assert.deepEqual(calls.sink, ["onMove", "onRemoveAt", "onReplace", "onClearQueue"]);
+});
+
+test("대기열 여러 곡 빼기: 준 차례와 상관없이 대기열 차례로 돌려주고, 로그는 한 줄", () => {
+  const p = h.makePlayer();
+  const [a, b, c, d] = ["c1ccccccccc", "c2ccccccccc", "c3ccccccccc", "c4ccccccccc"].map((id) => yt(id, { duration: 10 }));
+  p.currentTrack = yt("c0ccccccccc", { duration: 5 });
+  p.queue = [a, b, c, d];
+  const from = sink.buffer.length;
+  assert.deepEqual(p.removeFromQueue([d, b]), [b, d]);
+  assert.deepEqual(p.queue, [a, c]);
+  const lines = sink.buffer
+    .slice(from)
+    .map((e) => e.text)
+    .filter((t) => t.startsWith("대기열 제거:"));
+  assert.deepEqual(lines, ["대기열 제거: 2곡(2번부터) | 남은 2곡"]);
+  h.dispose(p);
 });
 
 test("반복: 라이브가 있으면 켜지 않고, 라이브가 들어오면 풀린다", () => {

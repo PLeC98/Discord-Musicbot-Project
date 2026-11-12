@@ -1157,13 +1157,16 @@ class Player {
   }
 
   // 위치는 0부터, 로그는 대기열 화면처럼 1부터 센다
-  removeFromQueue(index: number) {
-    const removed = trackState.removeAt(this, index);
-    if (removed) {
-      clog.info(`대기열 제거: ${index + 1}번 "${logTitle(removed.title)}" | 남은 ${this.queue.length}곡`);
-      return removed;
-    }
-    return null;
+  /** 대기열에서 그 곡들을 뺀다(같은 객체로 찾는다). 이미 빠진 곡은 건너뛴다. 뺀 곡을 대기열 차례로 돌려준다 */
+  removeFromQueue(tracks: readonly QueuedTrack[]) {
+    const wanted = new Set(tracks);
+    const at = this.queue.flatMap((t, i) => (wanted.has(t) ? [i] : []));
+    // 뒤에서부터 빼야 앞의 순번이 그대로다
+    const removed = at.toReversed().flatMap((i) => trackState.removeAt(this, i) ?? []);
+    removed.reverse();
+    if (removed.length === 1) clog.info(`대기열 제거: ${at[0] + 1}번 "${logTitle(removed[0].title)}" | 남은 ${this.queue.length}곡`);
+    else if (removed.length > 1) clog.info(`대기열 제거: ${removed.length}곡(${at[0] + 1}번부터) | 남은 ${this.queue.length}곡`);
+    return removed;
   }
 
   moveInQueue(from: number, to: number) {

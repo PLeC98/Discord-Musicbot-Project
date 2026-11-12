@@ -39,6 +39,9 @@ const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_P
 // 대기열 ID로 옮기기 { entry, before }. before 곡 앞으로, null 이면 맨 끝
 const MoveEntryBody = z.object({ entry: Entry, before: Entry.nullable() }, BAD_ENTRY);
 
+// 대기열 ID로 여러 곡 빼기 { entries }. 한 요청에 QUEUE_WINDOW_MAX 곡까지(화면은 그보다 많으면 나눠 보낸다)
+const RemoveEntriesBody = z.object({ entries: z.array(Entry, BAD_ENTRY).min(1, BAD_ENTRY).max(QUEUE_WINDOW_MAX, BAD_ENTRY) }, BAD_ENTRY);
+
 // 자동재생 { genre }. 장르 이름이면 켜고(바꾸고) null 이면 끈다. 모르는 장르는 코어가 거절한다(unknown-genre)
 const BAD_GENRE = { error: "bad-request" satisfies Code };
 const AutoplayBody = z.object({ genre: z.string(BAD_GENRE).trim().min(1, BAD_GENRE).max(100, BAD_GENRE).nullable() }, BAD_GENRE);
@@ -209,5 +212,5 @@ const ResetBody = z.discriminatedUnion(
   BAD_RESET,
 );
 
-export { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, StayBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, UploadStartBody, ArchivePreviewBody, BackgroundUploadBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery };
+export { parse, OnTrackBody, SeekBody, MoveEntryBody, RemoveEntriesBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, settingsBody, StayBody, FaviconUseBody, FaviconLinkBody, BackgroundEditBody, BackgroundEstimateBody, BackgroundPositionBody, BackgroundOptionsBody, BackgroundLimitsBody, BackgroundUseBody, BackgroundLinkBody, UploadStartBody, ArchivePreviewBody, BackgroundUploadBody, TrackCacheWriteBody, TrackCacheInspectBody, TrackCacheProbeBody, ResetBody, QUERY_MAX_LEN, SearchQuery };
 export type { SettingsRequest };

@@ -64,14 +64,15 @@ test("하이라이트, 위치 이동: 옮긴 위치를 본문에", () => {
 
 test("비우기, 빼기: 곡 수와 누가 했나", () => {
   assert.deepEqual(shown(replies.cleared(3, by)), ["### 🗑️ 대기열을 비웠어요!\n대기열에 있던 3곡을 삭제했어요.", BY]);
-  assert.deepEqual(shown(replies.removed(4, by)), ["### 🗑️ 선택한 곡을 삭제했어요!\n대기열에 4곡이 남았어요.", BY]);
+  assert.deepEqual(shown(replies.removed(1, 4, by)), ["### 🗑️ 선택한 곡을 삭제했어요!\n대기열에 4곡이 남았어요.", BY]);
+  assert.deepEqual(shown(replies.removed(3, 4, by)), ["### 🗑️ 선택한 3곡을 삭제했어요!\n대기열에 4곡이 남았어요.", BY], "여러 곡이면 뺀 곡 수");
 });
 
 test("순서: 옮기기 전, 뒤 위치와 누가", () => {
   const moved = post(replies.moved(track, 3, 1, by));
   assert.deepEqual(textsOf(moved), ["### 🔀 곡의 순서를 바꿨어요\n**[곡](https://u.test)**\n📍 기존 순번: 3번째\n📍 현재 순번: 1번째", "-# 👤 변경한 사람 <@1>"]);
   assert.equal(separatorsOf(moved), 1, "변경한 사람 줄 위에 구분선");
-  assert.equal(separatorsOf(post(replies.removed(4, by))), 1, "요청한 사람 줄이 있는 결과도 그 위에 구분선");
+  assert.equal(separatorsOf(post(replies.removed(1, 4, by))), 1, "요청한 사람 줄이 있는 결과도 그 위에 구분선");
   assert.equal(separatorsOf(post(replies.previous(false, track))), 0, "누가 했나 줄이 없으면 구분선도 없다");
 });
 

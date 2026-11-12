@@ -26,7 +26,7 @@ import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playl
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack, trackArtUrl } from "../player-view.ts";
-import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery } from "../request-schemas.ts";
+import { parse, OnTrackBody, SeekBody, MoveEntryBody, RemoveEntriesBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
@@ -280,16 +280,16 @@ function controlRoutes(router: Router) {
 
 // 대기열 빼기, 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove, /move 는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
-  // 대기열 ID로 빼기. DJ 계층이거나 그 곡의 요청자 본인
-  router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
+  // 대기열 ID로 빼기 { entries }(빼기 버튼은 한 곡, 고른 곡 빼기는 여러 곡). 곡마다 DJ 계층이거나 그 곡의 요청자 본인이고, 하나라도 아니면 모두 거절
+  router.post("/:guildId/player/queue/remove", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const entry = parse(Entry, toInt(req.params.entry));
-    if (!entry.ok) return sendProblem(res, entry.code);
+    const body = parse(RemoveEntriesBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.removeEntry(ctx.player, ctx.actor, entry.value);
+    const r = await controls.removeEntries(ctx.player, ctx.actor, body.value.entries);
     if (!r.ok) return refuse(res, r);
-    announce(replies.removed(r.left, dashboardActor(req)));
+    announce(replies.removed(r.removed.length, r.left, dashboardActor(req)));
     res.json(stateAfter(req));
   });
 
