@@ -9,9 +9,8 @@ import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
 
-import { PANEL, HELP, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
+import { PANEL, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
-import { buildHelpEmbed } from "../commands/help.ts";
 import { buildSystemEmbed } from "../commands/system.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -109,10 +108,6 @@ async function refreshMessage(interaction: Press, build: (client: Client<true>) 
   }
 }
 
-function handleHelpRefresh(interaction: Press, bot: BotContext) {
-  return refreshMessage(interaction, (client) => buildHelpEmbed(client, bot), { failed: "명령어 도움말 새로고침 실패:", notice: errors.notice("refresh-failed") });
-}
-
 async function handleSystemRefresh(interaction: Press, { players }: BotContext) {
   // /system과 동일하게 봇 운영자 전용
   if (!isBotOwner(interaction.user.id)) {
@@ -123,11 +118,10 @@ async function handleSystemRefresh(interaction: Press, { players }: BotContext) 
 
 // custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
 const routes: Route[] = [
-  route("button", customId(HELP, "refresh"), handleHelpRefresh),
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),
   // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay 가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleHelpRefresh, handleSystemRefresh };
+export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleSystemRefresh };

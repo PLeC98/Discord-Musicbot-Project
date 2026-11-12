@@ -1,7 +1,7 @@
 // /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 선택하면 /play 와 같은 길로 넣는다. 선택하지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 선택한다.
 // 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick 이 받는다
 
-import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
 import * as YouTube from "../../sources/youtube/index.ts";
 import * as Spotify from "../../sources/spotify.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
@@ -159,11 +159,14 @@ async function showResults(interaction: ChatInputCommandInteraction<"cached">, q
   expireMessage(message.id, () => interaction.deleteReply(), LIFETIME.search);
 }
 
+// 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 동일 음성 채널 규칙, 유휴 시에는 소환 가능 여부
+const canAdd = (member: GuildMember) => checkAdd(member) || checkSummon(member);
+
 const exported: GuildCommand & {
   execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown;
   autocomplete(interaction: AutocompleteInteraction<"cached">, bot: BotContext, deps?: SearchDeps): Promise<unknown>;
 } = {
-  help: { section: "explore", tier: "everyone" },
+  help: { section: "explore", tier: "everyone", gate: canAdd },
   data: new SlashCommandBuilder()
     .setName("search")
     .setDescription("곡을 검색해요")
@@ -200,8 +203,8 @@ const exported: GuildCommand & {
     const query = interaction.options.getString("query", true).trim();
     const member = interaction.member;
 
-    // 검색 뒤 선택은 곡 추가 경로. 봇 동작 중에는 동일 음성 채널 규칙, 유휴 시에는 소환 가능 여부. 거절은 본인에게만
-    const permErr = checkAdd(member) || checkSummon(member);
+    // 거절은 본인에게만
+    const permErr = canAdd(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
     // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다

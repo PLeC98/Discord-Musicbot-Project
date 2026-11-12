@@ -98,7 +98,6 @@ const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
   ["button", "panel:autoplay:s1", "autoplay"],
   ["button", "queue:page:2", "buttonHandler"],
-  ["button", "help:refresh", "buttonHandler"],
   ["button", "system:refresh", "buttonHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],

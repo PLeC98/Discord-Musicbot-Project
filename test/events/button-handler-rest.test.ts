@@ -412,21 +412,7 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   assert.deepEqual(log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 });
 
-// ── 도움말, 시스템 새로고침 ──────────────────────────────────────────
-
-test("도움말 새로고침: 제자리에서 다시 그린다. 실패하면 뒤따라 알린다", async () => {
-  const w = world();
-  const ok = press(w, "help:refresh");
-  await interactionCreate.execute(ok.bot, ok.it);
-  assert.deepEqual(ok.log, [["deferUpdate"], ["editReply", "🎵 도움말"]]);
-
-  w.client.user.displayAvatarURL = () => {
-    throw new Error("x");
-  };
-  const bad = press(w, "help:refresh");
-  await interactionCreate.execute(bad.bot, bad.it);
-  assert.deepEqual(bad.log, [["deferUpdate"], ["followUp", said(errors.notice("refresh-failed"))]]);
-});
+// ── 시스템 새로고침 ──────────────────────────────────────────
 
 test("시스템 새로고침: 봇 운영자만", async () => {
   const saved = config.dashboard.ownerId;

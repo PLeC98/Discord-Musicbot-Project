@@ -10,7 +10,7 @@ import * as playerEvents from "../player/events.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import type { Code } from "../rules/problems.ts";
 import { checkControl } from "./permissions.ts";
-import { join } from "./join.ts";
+import { join, joinRefusal } from "./join.ts";
 
 type StayRefusal = Extract<Code, "stay-stage" | "must-dj" | "must-be-in-same-voice" | "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "restore-failed" | "bot-shutting-down">;
 /** on: 켰다(이미 켜져 있던 같은 채널이면 already), off: 껐다(이미 꺼져 있었으면 already) */
@@ -70,5 +70,17 @@ function clearSeat(guild: Guild, by: GuildMember) {
   return true;
 }
 
-export { turnOn, turnOff, clearSeat, seatChannelOf };
+/**
+ * 그 사람이 지금 /247 을 쓸 수 없는 까닭(/help 의 "지금은"이 쓴다). 되면 null.
+ * 켜져 있으면 끄기라 DJ 조작만, 꺼져 있으면 켜기라 turnOn 처럼 봇이 쉬면 부를 수 있는지와 스테이지 채널을 더 본다
+ */
+async function stayDenied(member: GuildMember) {
+  const denied = await checkControl(member);
+  if (denied || seatChannelOf(member.guild.id)) return denied;
+  const botChannel = member.guild.members.me?.voice?.channel ?? null;
+  if (!botChannel) return isStage(member.voice.channel) ? "stay-stage" : joinRefusal(member);
+  return isStage(botChannel) ? "stay-stage" : null;
+}
+
+export { turnOn, turnOff, clearSeat, seatChannelOf, stayDenied };
 export type { StayResult, StayRefusal };

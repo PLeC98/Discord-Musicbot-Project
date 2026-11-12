@@ -72,6 +72,7 @@ import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { welcomeGuild } from "./welcome.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { josa } from "../rules/josa.ts";
 
@@ -234,6 +235,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기", "warn");
+    bestEffort(log, welcomeGuild(guild), `새 서버 ${guild.id}의 안내 메시지`, "warn");
   });
   // 게이트웨이에 재연결해 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
   client.on(Events.GuildAvailable, (guild) => {

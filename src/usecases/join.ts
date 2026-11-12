@@ -143,5 +143,8 @@ function waitEmpty(player: Player) {
   playerEvents.ended(player, "joined").catch((error) => log.warn(`참가 뒤 패널 갱신 실패: ${messageOf(error)}`));
 }
 
-export { join, joinChannel };
+/** 그 사람이 지금 봇을 부를 수 없는 까닭(/help 의 "지금은"도 쓴다). 되면 null */
+const joinRefusal = (member: GuildMember) => refusal(member.guild, member.voice.channel);
+
+export { join, joinChannel, joinRefusal };
 export type { JoinResult };

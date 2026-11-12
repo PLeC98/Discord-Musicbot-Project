@@ -60,7 +60,8 @@ async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | 
 
 function playCommand({ name, description, help, permission, insertFirst = false }: PlayOptions): GuildCommand {
   return {
-    help,
+    // /help 의 "지금은"도 실행과 같은 확인을 쓴다
+    help: { ...help, gate: permission },
     data: new SlashCommandBuilder()
       .setName(name)
       .setDescription(description)

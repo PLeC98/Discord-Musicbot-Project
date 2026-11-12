@@ -8,7 +8,6 @@ import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { enabledCommands } from "../../src/app/command-loader.ts";
 import { withConfig } from "../helpers/config.ts";
 import { iconEntries, useUploaded } from "../../src/ui/icons.ts";
-import * as helpText from "../../src/ui/text/ko/help.ts";
 
 // 실행 목록(켜진 명령)으로 만든다. /help 가 client.commands 로 하는 것과 같다
 const sectionsNow = () => helpSections(enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })));
@@ -36,11 +35,7 @@ const EXPECTED = [
   },
   {
     name: "📊 봇 정보",
-    lines: ["`/ping`: 봇의 응답 시간을 측정해요", "`/system`: 봇의 시스템 정보를 보여줘요 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 (봇 운영자)", "`/license`: 라이선스와 소스 코드 저장소를 표시해요"],
-  },
-  {
-    name: "🌐 지원 플랫폼",
-    lines: ["🔴 **YouTube** - 영상 링크 및 검색", "🟢 **Spotify** - 곡, 재생목록, 앨범 링크", "🟠 **SoundCloud** - 곡 링크 및 검색", "🔗 **직접 링크** - 미디어 파일 URL (MP3, FLAC, M4A, MP4 등)"],
+    lines: ["`/ping`: 봇의 응답 시간을 측정해요", "`/system`: 봇의 시스템 정보를 보여줘요 (봇 운영자)", "`/cachestatus`: 오디오 캐시 통계를 보여줘요 (봇 운영자)", "`/license`: 라이선스와 소스 코드 저장소를 표시해요", "`/invite`: 봇 초대 링크를 보여줘요"],
   },
 ];
 
@@ -83,21 +78,31 @@ test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완�
   assert.deepEqual(section.lines, ["`/x`: 설명 🔒", "`/y`: 설명 🛡️", "`/z`: 설명"]);
 });
 
-test("앱 이모지를 맞춰도(<:이름:19자리 id> 는 유니코드보다 25자 안팎 길다) 도움말 임베드가 디스코드 상한 안", () => {
+test("앱 이모지와 19자리 명령 id 를 실어도(줄마다 45자 안팎 길어진다) 요약 화면의 글자 합이 Components V2 상한(4000자) 안, 여유 500자", async () => {
+  const { summaryView } = await import("../../src/discord/commands/help.ts");
+  const { rememberCommandIds } = await import("../../src/ui/command-mentions.ts");
   useUploaded(new Map(iconEntries().map((entry, i) => [entry.name, { id: String(1514244801397260398n + BigInt(i)), animated: entry.spec.shape === "spin" }])));
+  const commands = withConfig({ sponsorblock: { enabled: true } }, enabledCommands);
+  rememberCommandIds(commands.map((command, i) => ({ name: command.data.name, id: String(1514244801397260398n + BigInt(i)) })));
   try {
-    const intro = helpText.intro();
-    const fields = [...sectionsNow(), helpText.platforms(), helpText.stats({ guilds: 1234, users: 1234567, active: 99, uptime: "123일 23시간 59분" }), helpText.links({ invite: `https://discord.com/oauth2/authorize?client_id=${"9".repeat(19)}&scope=bot`, website: "https://example.com/very/long/website/path" })];
-    assert.match(fields[0].name, /^<:music:\d{19}> /, "앱 이모지가 실렸다");
-    assert.ok(intro.title.length <= 256, "제목");
-    assert.ok(intro.description.length <= 4096, "설명");
-    for (const { name, lines } of fields) {
-      assert.ok(name.length <= 256, `필드 이름: ${name}`);
-      assert.ok(lines.join("\n").length <= 1024, `${name}: ${lines.join("\n").length}자`);
-    }
-    const total = intro.title.length + intro.description.length + fields.reduce((sum, { name, lines }) => sum + name.length + lines.join("\n").length, 0);
-    assert.ok(total <= 6000, `임베드 전체 ${total}자`);
+    const view = summaryView(new Map(commands.map((command) => [command.data.name, command]))).toJSON();
+    const texts: string[] = [];
+    const walk = (node: unknown) => {
+      if (Array.isArray(node)) node.forEach(walk);
+      else if (node && typeof node === "object") {
+        const { content } = node as { content?: unknown };
+        if (typeof content === "string") texts.push(content);
+        Object.values(node).forEach(walk);
+      }
+    };
+    walk(view);
+    const total = texts.reduce((sum, text) => sum + text.length, 0);
+    const all = texts.join("\n");
+    assert.match(all, /<\/play:\d{19}>/, "명령 멘션이 실렸다");
+    assert.match(all, /<:music:\d{19}>/, "앱 이모지가 실렸다");
+    assert.ok(total <= 3500, `글자 합 ${total}자`);
   } finally {
     useUploaded(new Map());
+    rememberCommandIds([]);
   }
 });

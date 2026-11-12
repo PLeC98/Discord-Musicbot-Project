@@ -190,5 +190,26 @@ function inBlock(block: BlockList, text: string | null | undefined) {
   return ip !== null && block.check(ip, familyOf(ip));
 }
 
-export { normalizeIp, kindOf, isInsideKind, isTransition, parseCidr, parseCidrList, blockOf, inBlock, familyOf };
+/** URL의 호스트(대괄호, 끝의 점 없이 소문자) */
+const hostOf = (url: URL) =>
+  url.hostname
+    .replace(/^\[(.*)\]$/, "$1")
+    .replace(/\.$/, "")
+    .toLowerCase();
+
+/** 이 기기 주소인지(localhost, *.localhost, 127/8, ::1) */
+function isLoopbackName(host: string) {
+  return host === "localhost" || host.endsWith(".localhost") || kindOf(host) === "loopback";
+}
+
+/** 주소가 이 기기에서만 열리는지. 주소가 아니면 false */
+function isLoopbackUrl(url: string) {
+  try {
+    return isLoopbackName(hostOf(new URL(url)));
+  } catch {
+    return false;
+  }
+}
+
+export { normalizeIp, kindOf, isInsideKind, isTransition, parseCidr, parseCidrList, blockOf, inBlock, familyOf, hostOf, isLoopbackName, isLoopbackUrl };
 export type { Kind, Family };

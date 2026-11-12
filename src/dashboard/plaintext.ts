@@ -9,9 +9,8 @@ import dns from "node:dns/promises";
 import type { TLSSocket } from "node:tls";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import logger from "../infra/log/logger.ts";
-import { kindOf } from "../rules/net-address.ts";
+import { isLoopbackName, kindOf } from "../rules/net-address.ts";
 import { clientIp, isInside } from "./client-ip.ts";
-import { isLoopbackName } from "./bind-plan.ts";
 import { warnGate } from "./warn-gate.ts";
 
 const log = logger.child({ category: "dashboard" });

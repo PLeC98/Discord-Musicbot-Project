@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import { isIP } from "node:net";
-import { kindOf, normalizeIp } from "../rules/net-address.ts";
+import { hostOf, isLoopbackName, kindOf, normalizeIp } from "../rules/net-address.ts";
 
 type BindReason = "env" | "container" | "loopback-url" | "certs" | "https-url" | "plain-url";
 /** hosts: 열 주소(::는 열지 못하면 0.0.0.0으로), all: 모든 주소인지 */
@@ -20,18 +20,6 @@ const ALL = ["::"];
 /** 컨테이너 안인지(Docker, Podman, Kubernetes). 추정이다 */
 function inContainer(exists: (file: string) => boolean = fs.existsSync, env: NodeJS.ProcessEnv = process.env) {
   return exists("/.dockerenv") || exists("/run/.containerenv") || Boolean(env.KUBERNETES_SERVICE_HOST);
-}
-
-/** URL의 호스트(대괄호, 끝의 점 없이 소문자) */
-const hostOf = (url: URL) =>
-  url.hostname
-    .replace(/^\[(.*)\]$/, "$1")
-    .replace(/\.$/, "")
-    .toLowerCase();
-
-/** 이 기기 주소인지(localhost, *.localhost, 127/8, ::1) */
-function isLoopbackName(host: string) {
-  return host === "localhost" || host.endsWith(".localhost") || kindOf(host) === "loopback";
 }
 
 function planBind({ envHost, url, container, certs }: { envHost: string | null; url: string; container: boolean; certs: boolean }): BindPlan {
@@ -109,5 +97,5 @@ function widenedNote(previous: string | null, plan: BindPlan): Note | null {
   return { level: "warn", text: `이전 실행은 이 기기 전용이었는데 이번에는 더 넓게 열림(${now === "all" ? "모든 주소" : now}: ${REASONS[plan.reason]}). 의도한 것이 아니면 .env의 DASHBOARD_URL, DASHBOARD_HOST를 확인하세요` };
 }
 
-export { planBind, inContainer, bindLine, bindNotes, reachableAddresses, scopeOf, widenedNote, isLoopbackName };
+export { planBind, inContainer, bindLine, bindNotes, reachableAddresses, scopeOf, widenedNote };
 export type { BindPlan, BindReason, Note };

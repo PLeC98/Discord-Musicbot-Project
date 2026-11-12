@@ -6,6 +6,7 @@ import path from "path";
 import config from "../config/index.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { COMMANDS } from "../discord/commands/index.ts";
+import { rememberCommandIds } from "../ui/command-mentions.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import type { BotContext } from "./bot-context.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -89,27 +90,37 @@ function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
 
 /** 명령 등록 요청. 경로와 정의를 받아 디스코드가 등록한 명령 목록을 돌려준다 */
 type PutCommands = (route: `/${string}`, body: RESTPostAPIApplicationCommandsJSONBody[]) => Promise<RESTPutAPIApplicationCommandsResult>;
+/** 등록된 명령 목록 읽기(등록을 건너뛴 기동에서 명령 id 를 받는다) */
+type GetCommands = (route: `/${string}`) => Promise<Array<{ name: string; id: string }>>;
 // 디스코드 API 의 답을 등록한 명령 목록으로 본다
 const putCommands: PutCommands = async (route, body) => (await new REST().setToken(config.discord.token).put(route, { body })) as RESTPutAPIApplicationCommandsResult;
+const getCommands: GetCommands = async (route) => (await new REST().setToken(config.discord.token).get(route)) as Array<{ name: string; id: string }>;
 
 type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
 
 // 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록, 수동 스크립트는 force 로 늘 등록한다.
-// hashPath, put 은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하지 않는다)
-async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands }: { force?: boolean; hashPath?: string; put?: PutCommands } = {}): Promise<DeployResult> {
+// 등록한 명령의 id 는 명령 멘션 표(ui/command-mentions)에 둔다. 건너뛰었으면 등록된 목록을 한 번 읽어 온다(못 읽으면 멘션이 글자로 남을 뿐이다).
+// hashPath, put, get 은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하거나 읽지 않는다)
+async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands, get = getCommands }: { force?: boolean; hashPath?: string; put?: PutCommands; get?: GetCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;
   const commands = definitions();
   const fingerprint = deployFingerprint(scope, guildId, commands);
+  const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
 
   if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
+    try {
+      rememberCommandIds(await get(route), guildId);
+    } catch (error) {
+      log.warn(`등록된 슬래시 명령 읽기 실패(도움말의 명령이 누를 수 없는 글자로 보임): ${messageOf(error)}`);
+    }
     return { ok: true, skipped: true, count: commands.length, scope, guildId, names: commands.map((c) => c.name) };
   }
 
   try {
-    const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
     const data = await put(route, commands);
     writeDeployedFingerprint(hashPath, fingerprint); // 성공 시에만 기록. 실패하면 다음 기동에 재시도
+    rememberCommandIds(data, guildId);
     return { ok: true, skipped: false, count: data.length, scope, guildId, names: data.map((c) => c.name) };
   } catch (error) {
     return { ok: false, error, scope, guildId };
@@ -126,4 +137,4 @@ function deployErrorLines(result: { scope: string; error?: unknown }) {
 }
 
 export { enabledCommands, followEnabledCommands, definitions, deployCommands, deployErrorLines };
-export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, DeployResult };
+export type { SlashCommand, GuildCommand, AnywhereCommand, PutCommands, GetCommands, DeployResult };

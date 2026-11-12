@@ -36,6 +36,7 @@ function buildSystemEmbed(client: Client<true>, players: { size: number }) {
     osUptime: formatSpan(os.uptime(), UPTIME),
     guilds: guildCount,
     playing: activeCount,
+    users: client.guilds.cache.reduce((sum, guild) => sum + guild.memberCount, 0),
     memoryBar: loadBar(usedMem, totalMem),
     memoryUsed: formatBytes(usedMem),
     memoryTotal: formatBytes(totalMem),

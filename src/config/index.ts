@@ -308,6 +308,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
       embedColor: envColor("EMBED_COLOR", tunable("EMBED_COLOR").def as HexColor),
       website: envUrl("WEBSITE"),
+      // /invite 를 등록할지(끄면 등록에서 빠진다), 봇이 새 서버에 들어왔을 때 안내 메시지를 올릴지
+      inviteCommand: tuneBool("INVITE_COMMAND_ENABLED"),
+      welcomeMessage: tuneBool("WELCOME_MESSAGE_ENABLED"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
       invite: inviteUrl(env("CLIENT_ID", "")),

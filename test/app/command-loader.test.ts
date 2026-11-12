@@ -7,7 +7,7 @@ import path from "node:path";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { RESTPostAPIApplicationCommandsJSONBody, RESTPutAPIApplicationCommandsResult } from "discord.js";
-import type { PutCommands } from "../../src/app/command-loader.ts";
+import type { GetCommands, PutCommands } from "../../src/app/command-loader.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 import { fake } from "../helpers/fake.ts";
 
@@ -17,7 +17,14 @@ const freshHashPath = () => path.join(tmpDir, `hash-${hashSeq++}.json`);
 after(() => fs.rmSync(tmpDir, { recursive: true, force: true, maxRetries: 5 }));
 
 // 등록 요청 가짜. 보낸 정의의 이름을 등록한 것으로 돌려준다
-const echo: PutCommands = async (_route, body) => fake<RESTPutAPIApplicationCommandsResult>(body.map((c) => ({ name: c.name })));
+const echo: PutCommands = async (_route, body) => fake<RESTPutAPIApplicationCommandsResult>(body.map((c) => ({ name: c.name, id: `id-${c.name}` })));
+// 등록된 목록 읽기 가짜(등록을 건너뛴 기동). getImpl 을 바꿔 실패를 낸다
+let getImpl: GetCommands = async () => definitions().map((c) => ({ name: c.name, id: `got-${c.name}` }));
+let getCalls = 0;
+const get: GetCommands = (route) => {
+  getCalls++;
+  return getImpl(route);
+};
 let putImpl: PutCommands = echo;
 let putCalls: Array<{ route: string; body: RESTPostAPIApplicationCommandsJSONBody[] }> = [];
 const put: PutCommands = (route, body) => {
@@ -108,7 +115,7 @@ test("커맨드 이름 중복 없음 (중복은 Discord 등록 시 덮어씀)", 
 
 test("deployCommands: 성공 경로. 현재 로드된 세트 전체를 1회 PUT", async () => {
   putCalls = [];
-  const result = await deployCommands({ hashPath: freshHashPath(), put });
+  const result = await deployCommands({ hashPath: freshHashPath(), put, get });
 
   assert.ok(result.ok);
   assert.equal(result.skipped, false);
@@ -123,14 +130,14 @@ test("deployCommands: 정의 변경 없는 재기동은 PUT 생략, force는 항
   const hashPath = freshHashPath();
   putCalls = [];
 
-  await deployCommands({ hashPath, put }); // 첫 배포: 해시 기록
-  const second = await deployCommands({ hashPath, put }); // 변경 없는 재기동
+  await deployCommands({ hashPath, put, get }); // 첫 배포: 해시 기록
+  const second = await deployCommands({ hashPath, put, get }); // 변경 없는 재기동
   assert.ok(second.ok);
   assert.equal(second.skipped, true);
   assert.equal(second.count, commands.length, "생략이어도 카운트/이름은 보고");
   assert.equal(putCalls.length, 1, "두 번째는 PUT 없음");
 
-  const forced = await deployCommands({ hashPath, force: true, put }); // 대시보드 버튼/수동 스크립트
+  const forced = await deployCommands({ hashPath, force: true, put, get }); // 대시보드 버튼/수동 스크립트
   assert.ok(forced.ok);
   assert.equal(forced.skipped, false);
   assert.equal(putCalls.length, 2, "force는 지문이 같아도 PUT");
@@ -141,7 +148,7 @@ test("deployCommands: 실패 시 던지지 않고 {ok:false, error} 반환 + 지
   putImpl = async () => {
     throw Object.assign(new Error("Missing Access"), { code: 50001 });
   };
-  const result = await deployCommands({ hashPath, put });
+  const result = await deployCommands({ hashPath, put, get });
   putImpl = echo;
 
   assert.ok(!result.ok);
@@ -149,10 +156,31 @@ test("deployCommands: 실패 시 던지지 않고 {ok:false, error} 반환 + 지
   assert.ok(["guild", "global"].includes(result.scope));
 
   putCalls = [];
-  const retry = await deployCommands({ hashPath, put });
+  const retry = await deployCommands({ hashPath, put, get });
   assert.ok(retry.ok);
   assert.equal(retry.skipped, false, "실패는 배포된 것으로 기록되지 않음");
   assert.equal(putCalls.length, 1);
+});
+
+test("deployCommands: 등록한 명령의 id 로 멘션을 만든다. 등록을 건너뛴 기동은 등록된 목록을 읽어 오고, 못 읽으면 글자로 남긴다", async () => {
+  const { commandMention } = await import("../../src/ui/command-mentions.ts");
+  const hashPath = freshHashPath();
+  getCalls = 0;
+  await deployCommands({ hashPath, put, get });
+  assert.equal(commandMention("play"), "</play:id-play>");
+  assert.equal(getCalls, 0, "등록했으면 읽지 않는다");
+
+  await deployCommands({ hashPath, put, get });
+  assert.equal(getCalls, 1);
+  assert.equal(commandMention("play"), "</play:got-play>");
+
+  getImpl = async () => {
+    throw new Error("network down");
+  };
+  const result = await deployCommands({ hashPath, put, get });
+  getImpl = async () => definitions().map((c) => ({ name: c.name, id: `got-${c.name}` }));
+  assert.ok(result.ok && result.skipped, "읽기 실패는 등록 결과를 바꾸지 않는다");
+  assert.equal(commandMention("없는명령"), "`/없는명령`");
 });
 
 test("deployErrorLines: 50001은 초대 스코프 힌트 포함, 일반 오류는 1줄", () => {

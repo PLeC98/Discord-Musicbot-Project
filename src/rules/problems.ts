@@ -65,6 +65,8 @@ const SHARED = {
   "more-not-requester-close": { status: 403, title: "Only the requester can close the menu" },
   // 대상이나 핸들러가 없음
   "unknown-command": { status: 404, title: "Command is not available" },
+  // /help 명령: 에 넣은 이름이 켜진 명령에 없다
+  "help-no-such-command": { status: 404, title: "No such command" },
   "unknown-interaction": { status: 404, title: "Unknown or expired button" },
   "more-unknown-menu": { status: 404, title: "Unknown menu" },
   "no-song-result": { status: 404, title: "No track found" },

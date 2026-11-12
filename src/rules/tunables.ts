@@ -30,6 +30,8 @@ const TUNABLES: readonly Tunable[] = [
   // 표시
   { key: "EMBED_COLOR", group: "look", kind: "color", def: "#2743D2" },
   { key: "WEBSITE", group: "look", kind: "url", def: "" },
+  { key: "INVITE_COMMAND_ENABLED", group: "look", kind: "bool", def: "true" },
+  { key: "WELCOME_MESSAGE_ENABLED", group: "look", kind: "bool", def: "true" },
   { key: "VOICE_PLAYING_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_PAUSED_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_IDLE_STATUS", group: "look", kind: "text", def: "" },
