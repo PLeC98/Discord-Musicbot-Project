@@ -65,6 +65,11 @@ const AddBody = z.object(
       .unknown()
       .optional()
       .transform((v) => v === true),
+    // 대기열 맨 앞에(/playfirst). 참일 때만 켜진다
+    first: z
+      .unknown()
+      .optional()
+      .transform((v) => v === true),
   },
   BAD_QUERY,
 );

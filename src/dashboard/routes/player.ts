@@ -395,7 +395,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용
+  // 곡 추가 { query, single?, first? }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용. 맨 앞에 넣기(first)는 /playfirst 와 같이 DJ 조작
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -404,13 +404,13 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(동일 음성 채널 규칙)
-    const err = checkAdd(actor.member);
-    if (err) return sendProblem(res, err);
-
     const body = parse(AddBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code, { max: QUERY_MAX_LEN });
-    const { query, single } = body.value;
+    const { query, single, first } = body.value;
+
+    // 맨 앞에 넣기는 DJ 조작(checkControl). 플레이어가 있어 봇을 부를 수 있는지는 보지 않는다(화면의 canControl 과 같은 기준)
+    const err = first ? await checkControl(actor.member) : checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     try {
       // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
@@ -420,6 +420,7 @@ function addRoutes(router: Router) {
         requester: requesterOf(req),
         query,
         single,
+        insertFirst: first,
         source: "대시보드",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
@@ -448,14 +449,13 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(동일 음성 채널 규칙)
-    const err = checkAdd(actor.member);
-    if (err) return sendProblem(res, err);
-
-    // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
-    const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
+    const state = validState({ ...(req.body || {}), requesterId: null });
     const count = parse(MoreCount, req.body?.count);
     if (!state || !count.ok) return sendProblem(res, "bad-more-state");
+
+    // 맨 앞에 넣은 재생목록의 이어 넣기는 맨 앞에 넣기와 같은 권한
+    const err = state.insertFirst ? await checkControl(actor.member) : checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     try {
       const result = await continueCollection(bot, {

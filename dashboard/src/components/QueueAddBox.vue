@@ -55,12 +55,14 @@
               <!-- "한 곡만"은 폭을 넓히며 나오고 ↑ 의 왼쪽 모서리가 이어 붙은 모양으로 바뀐다. 폭의 상한은 넘기는 동안에만 둔다(평소 클래스에 두면 시작값 max-w-0 을 이겨 단번에 바뀐다) -->
               <Transition enter-from-class="max-w-0 opacity-0" enter-to-class="max-w-24" enter-active-class="transition-[max-width,opacity] spring-fast" leave-from-class="max-w-24" leave-active-class="transition-[max-width,opacity] effects-fast" leave-to-class="max-w-0 opacity-0">
                 <span v-if="link?.list" class="flex overflow-hidden">
-                  <button type="button" class="tap state-layer h-10 px-3 mr-0.5 flex items-center text-sm font-medium whitespace-nowrap cursor-pointer bg-secondary-container text-on-secondary-container disabled:cursor-not-allowed disabled:bg-on-surface/12 disabled:text-on-surface/38" :class="segmentShape(false, 0, 2)" :disabled="busy" @click="send(true)">{{ T.addOne }}</button>
+                  <button type="button" class="tap state-layer h-10 px-3 mr-0.5 flex items-center text-sm font-medium whitespace-nowrap cursor-pointer bg-secondary-container text-on-secondary-container disabled:cursor-not-allowed disabled:bg-on-surface/12 disabled:text-on-surface/38" :class="shapeOf(0)" :disabled="busy" @click="send(true)">{{ T.addOne }}</button>
                 </span>
               </Transition>
-              <button type="button" class="tap state-layer size-10 flex items-center justify-center cursor-pointer bg-primary text-on-primary disabled:cursor-not-allowed disabled:bg-on-surface/12 disabled:text-on-surface/38" :class="link?.list ? segmentShape(false, 1, 2) : 'motion-toggle rounded-xl'" :disabled="sendOff" :aria-label="T.addSubmit" @click="link ? send(false) : sendQuery()">
+              <button type="button" class="tap state-layer size-10 flex items-center justify-center cursor-pointer bg-primary text-on-primary disabled:cursor-not-allowed disabled:bg-on-surface/12 disabled:text-on-surface/38" :class="[shapeOf(link?.list ? 1 : 0), canFirst && 'mr-0.5']" :disabled="sendOff" :aria-label="T.addSubmit" @click="submit(false)">
                 <Icon :name="adding ? 'progress_activity' : 'arrow_upward'" :size="24" :class="adding && 'animate-spin'" />
               </button>
+              <!-- 넣을 자리(DJ 만). ↑ 와 이어 붙은 분할 버튼 -->
+              <MoreMenu v-if="canFirst" :items="placeItems" :label="T.addPlace" icon="expand_more" :disabled="sendOff" keep-focus :button-class="['tap state-layer h-10 w-7 flex items-center justify-center cursor-pointer bg-primary text-on-primary disabled:cursor-not-allowed disabled:bg-on-surface/12 disabled:text-on-surface/38', shapeOf(segments - 1)]" @open="menuOpen = $event" />
             </div>
           </div>
         </Transition>
@@ -110,6 +112,8 @@
                 >
               </span>
               <span v-if="track.inQueue" class="h-6 px-3 rounded-full bg-surface-container-highest text-xs font-semibold text-on-surface-variant inline-flex items-center gap-1 shrink-0"><Icon name="queue_music" :size="14" />{{ T.inQueue }}</span>
+              <!-- 맨 앞에 넣기(DJ 만). 휴대폰은 늘, 그보다 넓으면 고른 줄(마우스를 올린 줄)에만 보인다. 자리는 늘 잡아 두어 줄이 흔들리지 않는다 -->
+              <button v-if="canFirst" type="button" :class="[iconButton(32), !isPhone && i !== active && 'invisible']" :aria-label="T.addFirst" v-tooltip="T.addFirst" @click.stop="pick(i, true)"><Icon name="queue_play_next" :size="20" /></button>
             </div>
           </div>
         </div>
@@ -128,6 +132,7 @@ import { useMediaQuery, useResizeObserver } from "@vueuse/core";
 import axios from "axios";
 import Icon from "./BaseIcon.vue";
 import BaseButton from "./BaseButton.vue";
+import MoreMenu from "./MoreMenu.vue";
 import NoticeBox from "./NoticeBox.vue";
 import PlaylistMore from "./PlaylistMore.vue";
 import TrackArt from "./TrackArt.vue";
@@ -278,15 +283,15 @@ function search(now: string, delay: number) {
       if (!waiting.value) return;
       // 기다리던 보내기: 고른 줄, 결과가 없으면 봇에게 그 글을
       waiting.value = false;
-      if (data.tracks.length) pick(active.value);
-      else void sendText();
+      if (data.tracks.length) pick(active.value, waitingFirst);
+      else void sendText(waitingFirst);
     } catch (e) {
       const kind = failureKind(e);
       if (mine !== token || kind === "aborted") return;
       failure.value = { code: problemCodeOf(replyOf(e)) ?? (kind ? unansweredCode(kind) : undefined), status: statusOf(e) };
       if (!waiting.value) return;
       waiting.value = false;
-      void sendText();
+      void sendText(waitingFirst);
     } finally {
       if (inFlight === own) inFlight = null;
     }
@@ -313,6 +318,11 @@ const KEYS: Record<string, Action> = { ArrowDown: "down", ArrowUp: "up", Enter: 
 function onKey(event: KeyboardEvent) {
   // 조합 중에 눌린 키는 입력기가 글자를 끝내는 데 쓰고, 끝낸 뒤 같은 키를 한 번 더 보낸다(크롬, 윈도우 한글 입력기). 그쪽만 받는다
   if (event.isComposing) return;
+  // 넣을 자리 메뉴가 열려 있으면 키는 메뉴 몫이다. Esc 는 막지 않아 메뉴가 닫히고(close-layer), 그 밖(Enter 등)은 보내지 않는다
+  if (menuOpen.value) {
+    if (event.key !== "Escape") event.preventDefault();
+    return;
+  }
   // Esc 는 막아서(preventDefault) 시트, 판이 함께 닫히지 않게 한다(close-layer). 포커스가 풀린 뒤의 Esc 는 시트를 접는다
   if (event.key === "Escape") {
     event.preventDefault();
@@ -323,25 +333,29 @@ function onKey(event: KeyboardEvent) {
   // key 가 Process 로 오면 자리(code)로 읽는다
   const action = KEYS[event.key === "Process" ? event.code : event.key];
   if (!action) return;
+  // Shift+Enter 는 맨 앞에(DJ 만. 아니면 Enter 와 같다)
+  const first = action === "pick" && event.shiftKey && canFirst.value;
   // 결과가 떠 있지 않으면 Enter 는 보내기(↑)와 같다
   if (!open.value) {
     if (action !== "pick" || !query.value.trim()) return;
     event.preventDefault();
-    if (link.value) void send(false);
-    else sendQuery();
+    submit(first);
     return;
   }
   event.preventDefault();
-  act(action);
+  act(action, first);
 }
-function act(action: Action) {
+function act(action: Action, first = false) {
   if (action === "pick") {
     // 넣는 중이면 끝날 때까지 받지 않는다(기다리게 걸어 두면 결과가 와도 넣지 못해 보내기가 계속 돈다)
     if (busy.value) return;
     // 실패했거나 결과가 없으면 봇에게 그 검색어를 보낸다(봇의 검색이 찾을 수도 있다. 찾으면 1위를 넣는다)
-    if (failure.value || results.value?.length === 0) void sendText();
-    else if (results.value) void pick(active.value);
-    else waiting.value = true;
+    if (failure.value || results.value?.length === 0) void sendText(first);
+    else if (results.value) void pick(active.value, first);
+    else {
+      waiting.value = true;
+      waitingFirst = first;
+    }
     return;
   }
   if (!results.value?.length) return;
@@ -354,6 +368,8 @@ function act(action: Action) {
 // 넣는 중. waiting: 결과가 오기 전에 Enter, 보내기를 눌렀다(오면 고른 줄을 넣는다)
 const busy = ref(false);
 const waiting = ref(false);
+// 기다리던 보내기가 맨 앞에 넣기인가
+let waitingFirst = false;
 // 보내기가 도는 때
 const adding = computed(() => waiting.value || busy.value);
 const sendOff = computed(() => adding.value || (link.value ? !link.value.url : !query.value.trim()));
@@ -364,24 +380,40 @@ let sent = 0;
 const moreBusy = ref(false);
 const queueMax = ref(0);
 
-// 고른 결과(처음엔 맨 위)를 넣는다. 결과가 떠 있지 않으면(한 글자, 결과를 닫은 뒤) 봇에게 그대로 보낸다(/play 와 같다)
-function sendQuery() {
-  if (!query.value.trim() || adding.value) return;
-  if (open.value) return act("pick");
-  void sendText();
+// ── 넣을 자리 ──
+// first: 대기열 맨 앞에(/playfirst). DJ 만(canControl. 서버도 같은 기준으로 다시 본다). 보내는 길마다 끝까지 들고 간다
+
+const canFirst = computed(() => props.player.canControl === true);
+// ↑ 와 이어 붙은 버튼 수(한 곡만, ↑, 넣을 자리)와 index 번째의 모양. 하나뿐이면 둥근 단추
+const segments = computed(() => (link.value?.list ? 1 : 0) + 1 + (canFirst.value ? 1 : 0));
+const shapeOf = (index: number) => (segments.value === 1 ? "motion-toggle rounded-xl" : segmentShape(false, index, segments.value));
+// 넣을 자리 메뉴가 열려 있다(키 입력을 메뉴에 양보한다)
+const menuOpen = ref(false);
+const placeItems = computed(() => [{ label: T.addLast, icon: "arrow_upward" as const, select: () => submit(false) }, { label: T.addFirst, icon: "queue_play_next" as const, select: () => submit(true) }, ...(link.value?.list ? [{ label: T.addOneFirst, icon: "queue_play_next" as const, select: () => send(true, true) }] : [])]);
+// 보내기(↑, 메뉴): 주소면 그것 전부, 아니면 고른 결과나 그 글
+function submit(first: boolean) {
+  if (link.value) send(false, first);
+  else sendQuery(first);
 }
-const sendText = () => request({ query: query.value.trim(), single: false }, "");
+
+// 고른 결과(처음엔 맨 위)를 넣는다. 결과가 떠 있지 않으면(한 글자, 결과를 닫은 뒤) 봇에게 그대로 보낸다(/play 와 같다)
+function sendQuery(first = false) {
+  if (!query.value.trim() || adding.value) return;
+  if (open.value) return act("pick", first);
+  void sendText(first);
+}
+const sendText = (first = false) => request({ query: query.value.trim(), single: false, first }, "");
 // 결과 하나를 넣는다. 그 곡의 주소를 보낸다(디스코드 /search 의 선택과 같다)
-function pick(i: number) {
+function pick(i: number, first = false) {
   const track = results.value?.[i];
   if (!track || busy.value) return;
-  void request({ query: track.url, single: false }, track.url);
+  void request({ query: track.url, single: false, first }, track.url);
 }
 // 주소를 넣는다. one: 한 곡만(곡 + 목록 주소면 그 곡, 목록만이면 첫 곡), 아니면 주소가 가리키는 것 전부(목록은 첫 배치)
-function send(one: boolean) {
+function send(one: boolean, first = false) {
   const target = link.value?.url;
   if (!target || busy.value) return;
-  void request(one ? singlePayload(target) : { query: target, single: false }, target);
+  void request({ ...(one ? singlePayload(target) : { query: target, single: false }), first }, target);
 }
 // 한 곡만 넣을 때 보낼 것. 영상 ID 가 링크에 있으면 재생목록 조회 없이 그 영상만 가리키게 바꾼다(빠름). 그 밖(playlist?list= 만)은 single 로 첫 곡
 function singlePayload(raw: string) {
@@ -391,7 +423,7 @@ function singlePayload(raw: string) {
 
 // 보낸다. 입력란을 바로 비우고(포커스는 둔다) 더 넣기 패널을 닫는다(넣은 곡 한 줄과 겹친다. 재생목록이면 새 패널이 뜬다).
 // retry: 넣지 못했을 때 입력란에 되돌릴 링크
-async function request(payload: { query: string; single: boolean }, retry: string) {
+async function request(payload: { query: string; single: boolean; first: boolean }, retry: string) {
   if (busy.value) return;
   clear();
   more.value = null;
@@ -406,7 +438,7 @@ async function request(payload: { query: string; single: boolean }, retry: strin
     // 다 넣지 못했다(대기열이 찼다, 받을 수 없는 곡을 뺐다): 경고 알림. 문장은 디스코드 추가 안내와 같다
     if (shortfall) notify({ title: shortfall.title, body: shortfall.lines.join("\n"), severity: "warning" });
     if (summary?.count) {
-      const line = lineOf(summary);
+      const line = lineOf(summary, payload.first);
       // 더 넣을 곡이 남았으면 결과는 더 넣기 패널에(제목 자리라 끝 마침표는 뗀다), 아니면 넣은 곡 한 줄로
       if (nextMore) moreAdded.value = line.rest.replace(/\.$/, "");
       else showAdded(line);
@@ -465,12 +497,12 @@ type AddedLine = { thumbnail: string | null; name: string | null; rest: string }
 const added = ref<AddedLine | null>(null);
 const showAdded = (line: AddedLine) => (added.value = line);
 // 넣은 첫 곡의 제목, 그림은 응답의 요약에서(응답의 대기열은 펼쳐 둔 만큼만 실어 긴 대기열 끝에 넣은 곡이 없을 수 있다)
-function lineOf(summary: AddedSummary): AddedLine {
+function lineOf(summary: AddedSummary, first: boolean): AddedLine {
   const addition: AddedTracks = {
     tracks: summary.collection ? Array.from({ length: summary.count }, () => ({})) : [{ title: summary.title }],
     collection: summary.collection ? labels.collection(summary.collection) : null,
     total: summary.total,
-    first: false,
+    first,
     position: summary.position,
   };
   const { name, rest } = addedParts(addition);

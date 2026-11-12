@@ -16,6 +16,11 @@ const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
 /** 재생목록 링크에서 그 곡(곡 + 목록 주소면 그 곡, 목록만이면 첫 곡)만 넣는 버튼 */
 const addOne = "한 곡만";
+/** 넣을 자리(DJ 만): 보내기 옆 메뉴의 이름과 항목, 검색 결과 줄의 버튼 */
+const addPlace = "넣을 자리";
+const addLast = "맨 뒤에 넣기";
+const addFirst = "맨 앞에 넣기";
+const addOneFirst = "한 곡만 맨 앞에 넣기";
 /** 검색 결과가 이미 대기열에 있는 곡의 배지 */
 const inQueue = "대기열";
 /** 검색 실패(결과 자리의 제목 줄, 보조 줄). 끝 줄에는 오류 코드 */
@@ -69,4 +74,4 @@ const failed = {
   autoplayOff: "자동재생을 끄지 못했어요.",
 };
 
-export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, addOne, inQueue, searchLimited, searchFailed, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
+export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, addOne, addPlace, addLast, addFirst, addOneFirst, inQueue, searchLimited, searchFailed, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
