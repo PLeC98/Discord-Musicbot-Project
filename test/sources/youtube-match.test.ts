@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { rankCandidates, scoreCandidate, W, _internal as I } from "../../src/sources/youtube/match.ts";
+import { buildSearchQueries, rankCandidates, scoreCandidate, W, _internal as I } from "../../src/sources/youtube/match.ts";
 
 // ── 용어 판정 ────────────────────────────────────────────────
 
@@ -118,6 +118,40 @@ test("버전 표기: 공백 뒤의 단어은 수식어가 붙어야 버전이다
   assert.equal(I.detectVersionKind("Idol (TV)"), "tv");
   assert.equal(I.detectVersionKind("Idol【TV】"), "tv");
   assert.equal(I.detectVersionKind("Song - Short -"), "short");
+});
+
+const pick = (b: { channel: number; junk: number }) => ({ channel: b.channel, junk: b.junk });
+test("이름이 다른 토픽계, VEVO 가 feat. 로 다른 사람을 올리면 공식 가점 없이 정크 하나(길이가 맞아도). 아티스트를 올리면, 일반 채널, 아티스트 채널은 그대로", () => {
+  const target = { title: "気まぐれメルシィ", artist: "Hachioji P, Hatsune Miku", durationSec: 204 };
+  const score = (channel: string, title: string) => scoreCandidate({ id: "x", channel, title, durationSec: 204 }, target).breakdown;
+  const others = "気まぐれメルシィ (feat. 花里みのり & 桐谷遥)";
+  assert.deepEqual(pick(score("MORE MORE JUMP! - Topic", others)), { channel: 0, junk: W.junkEach });
+  assert.deepEqual(pick(score("SomeoneVEVO", others)), { channel: 0, junk: W.junkEach });
+  assert.deepEqual(pick(score("Someone - Topic", "気まぐれメルシィ (feat. Hatsune Miku)")), { channel: W.channelOfficialStandalone, junk: 0 });
+  assert.deepEqual(pick(score("누군가", others)), { channel: 0, junk: 0 });
+  assert.deepEqual(pick(score("Hachioji P - Topic", others)), { channel: W.channelMatch + W.channelOfficialBonus, junk: 0 });
+  // 아티스트의 이름이 채널과 다른 문자여도 feat. 의 사람이 곡 제목에 있으면 그 곡의 녹음이다(유닛곡). 아티스트를 다른 문자로 적어도 남의 녹음은 남의 것
+  assert.deepEqual(pick(scoreCandidate({ id: "x", channel: "MORE MORE JUMP! - Topic", title: others, durationSec: 204 }, { ...target, artist: "八王子P" }).breakdown), { channel: 0, junk: W.junkEach });
+  const unit = { title: "Shadow Shadow (feat. 宵崎奏&鏡音レン)", artist: "25時、ナイトコードで。", durationSec: 200 };
+  const own = scoreCandidate({ id: "x", channel: "Nightcord at 25:00 - Topic", title: "Shadow Shadow (feat. 宵崎奏 & 鏡音レン)", durationSec: 200 }, unit).breakdown;
+  assert.deepEqual(pick(own), { channel: W.channelOfficialStandalone, junk: 0 });
+});
+
+test("feat. 이름: 괄호나 ' - ', ' | ' 앞까지 읽고, feat. 이 여럿이면 모두 본다", () => {
+  assert.equal(I.featOthers("Song feat. Guest - Official Audio", { title: "Song (feat. Guest)", artist: "Producer" }), false);
+  for (const title of ["Song (feat. Alice) (feat. Bob)", "Song feat. Alice featuring Bob", "Song feat. Alice | feat. Bob", "Song ft. Alice Ft. Bob"]) assert.equal(I.featOthers(title, { title: "Song", artist: "Alice" }), true, title);
+  assert.equal(I.featOthers("Left Behind (Daft Mix)", { title: "Left Behind", artist: "Alice" }), false);
+  assert.equal(I.featOthers("Song (feat. Alice) [Official]", { title: "Song", artist: "Alice" }), false);
+  assert.equal(I.featOthers("Song ft. Jay-Z", { title: "Song", artist: "Jay-Z" }), false);
+});
+
+test("검색어: 단어 앞의 대시는 떼고(유튜브의 빼기), 단어 가운데, 뒤의 대시와 띄어 쓴 대시는 둔다", () => {
+  const { primary, secondary } = buildSearchQueries({ title: "初音ミクの消失 -MIKUNOPOLIS in LOS ANGELES Live-", artist: "cosMo@Bousou-P" });
+  assert.deepEqual(primary, ["初音ミクの消失 MIKUNOPOLIS in LOS ANGELES Live- cosMo@Bousou-P"]);
+  assert.deepEqual(secondary, ["初音ミクの消失 MIKUNOPOLIS in LOS ANGELES Live-"]);
+  assert.equal(I.plainQuery("Song - Remastered 2011 Artist"), "Song - Remastered 2011 Artist");
+  assert.equal(I.plainQuery("-Intro- --Remix x-ray"), "Intro- Remix x-ray");
+  assert.deepEqual(buildSearchQueries({ title: "残響散歌 -TV ver.-", artist: "Aimer" }).primary, ["残響散歌 TV ver.- Aimer", "残響散歌 Aimer tv size", "残響散歌 tv size", "残響散歌 Aimer tvサイズ"]);
 });
 
 // ── 아티스트 채널(아티스트만 검색해 알아본 채널) ─────────────────

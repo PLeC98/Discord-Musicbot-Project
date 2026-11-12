@@ -159,20 +159,38 @@ test("검색: exact 는 아티스트 채널을 알아보고 그 채널의 이 �
   const search = async (query: string, limit: number) => {
     asked.push([query, limit]);
     if (query === TARGET.artist) return [own("o1", "A - Song (TV Size)", 240), own("o2", "다른 노래", 240), own("o3", "A - Song (TV Size) MV", 250), own("o4", "또 다른 노래", 200), { id: "x1", audioUrl: "u", title: "Song", artist: "남", duration: 240 }];
-    return [];
+    return query === primary[0] ? HIT : [];
   };
   const found = await searchCandidates(TARGET, search, "exact");
   assert.deepEqual(found.artistChannels, ["공식"]);
   assert.deepEqual(
     found.candidates.map((c) => c.id),
-    ["o1", "o3"],
+    ["v1", "o1", "o3"],
   );
   assert.ok(
-    found.candidates.every((c) => (c.rank ?? 0) >= 8),
+    found.candidates.filter((c) => c.id !== "v1").every((c) => (c.rank ?? 0) >= 8),
     "2차 자리(순위를 뒤로)",
   );
   asked.length = 0;
   const cheap = await searchCandidates(TARGET, search, "cheap");
   assert.deepEqual(cheap.artistChannels, []);
   assert.ok(!asked.some(([q]) => q === TARGET.artist));
+});
+
+test("검색: 1차가 비면 2차를 밀지 않는다(아티스트 채널 영상은 그대로 2차 자리). 제목이 기호뿐이면 2차가 아무 영상이라 그대로 민다", async () => {
+  const video = (id: string, title = id, artist = "누구") => ({ id, audioUrl: `https://www.youtube.com/watch?v=${id}`, title, artist, duration: 240 });
+  for (const [title, pushed] of [
+    ["Song", false],
+    ["......", true],
+  ] as const) {
+    const target = { artist: "A", title, durationSec: 240 };
+    const only = buildSearchQueries(target).secondary;
+    const own = [video("o1", `A - ${title} Remix`, "공식"), video("o2", `A - ${title}`, "공식"), video("o3", title, "공식")];
+    const search = async (query: string) => (only.includes(query) ? [video("s1"), video("s2")] : query === "A" ? own : []);
+    for (const profile of ["exact", "cheap"] as const) {
+      const ranks: Record<string, number | undefined> = Object.fromEntries((await searchCandidates(target, search, profile)).candidates.map((c) => [String(c.id), c.rank]));
+      assert.deepEqual([ranks.s1, ranks.s2], pushed ? [8, 9] : [0, 1], `${title} ${profile}`);
+      if (profile === "exact") assert.ok(ranks.o3 !== undefined && Object.entries(ranks).every(([id, r]) => !id.startsWith("o") || (r ?? 0) >= 8), `${title} 아티스트 채널 영상 ${JSON.stringify(ranks)}`);
+    }
+  }
 });

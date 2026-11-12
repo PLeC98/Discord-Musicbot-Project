@@ -273,7 +273,15 @@ function stripVersionTag(title: unknown): string {
   );
 }
 
-const dedupe = (arr: string[]) => [...new Set(arr.filter(Boolean))];
+const dedupe = (arr: string[]) => [...new Set(arr.map(plainQuery).filter(Boolean))];
+
+// 유튜브 검색은 단어 앞의 "-" 를 빼기로 읽는다("-TV ver.-" 가 TV 버전을 뺀다). 단어 안, 뒤의 대시와 띄어 쓴 대시는 그대로 둔다
+function plainQuery(query: string): string {
+  return query
+    .replace(/(^|\s)-+(?=\S)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * 사람이 검색하듯 따옴표 없는 쿼리들. { primary, secondary }로 반환한다.
@@ -335,6 +343,29 @@ function mergeCandidateLists<C extends Candidate>(primaryLists: CandidateLists<C
   return [...byId.values()];
 }
 
+// 후보 제목이 feat. 로 아티스트가 아닌 사람을 올리는가(곡 제목에 든 이름은 뺀다). feat. 마다 괄호나 " - ", " | " 앞까지가 이름이다
+function featOthers(candidateTitle: unknown, target: Target): boolean {
+  const clauses = String(candidateTitle || "")
+    .split(/\b(?:feat|ft|featuring)\b\.?/i)
+    .slice(1);
+  const names = clauses.flatMap((part) => splitArtists(part.split(/[)\]）】([（【]|\s[-–—|]\s/)[0]));
+  const artists = splitArtists(target.artist);
+  const inTitle = normLoose(target.title);
+  return names.some((n) => !inTitle.includes(n) && !artists.some((a) => a.includes(n) || n.includes(a)));
+}
+
+// 남의 녹음인 토픽계, VEVO: 채널 이름이 아티스트와 다르고 후보 제목이 feat. 로 다른 사람을 올린다(프로세카 유닛이 부른 보카로 곡)
+function othersRecordingOf(candidate: Candidate, target: Target, ch: { match: boolean; isTopic: boolean; isVevo: boolean }): boolean {
+  return !ch.match && (ch.isTopic || ch.isVevo) && featOthers(candidate.title, target);
+}
+
+// 후보 채널: 아티스트 채널인가, 공식 계열(토픽계, VEVO)인가, 남의 녹음인가
+function channelOf(candidate: Candidate, target: Target) {
+  const ch = artistChannelOf(candidate.channel, target);
+  const others = othersRecordingOf(candidate, target, ch);
+  return { ...ch, official: (ch.isTopic || ch.isVevo) && !others, others };
+}
+
 // 채널 점수. 가수 채널이면서 공식 계열이면 가점을 더 준다
 function channelScore(match: boolean, official: boolean) {
   if (match) return W.channelMatch + (official ? W.channelOfficialBonus : 0);
@@ -373,8 +404,8 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   const b: Breakdown = { rank: 0, channel: 0, duration: 0, junk: 0, version: 0, reupload: 0, title: 0, artistInTitle: 0, officialTag: 0 };
   b.rank = Math.max(0, RANK_BASE - rank) * W.rankPerPosition;
 
-  const ch = artistChannelOf(candidate.channel, target);
-  const official = ch.isTopic || ch.isVevo;
+  const ch = channelOf(candidate, target);
+  const official = ch.official;
   const officialUploader = ch.match || official;
   b.channel = channelScore(ch.match, official);
 
@@ -386,7 +417,8 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   const durNear = d.label.startsWith("near");
   const junk = countJunk(candidate.title, target.title);
   const junkWaived = (officialUploader || durNear) && junk > 0;
-  b.junk = junkWaived ? 0 : junk * W.junkEach;
+  // 남의 녹음은 정크 하나를 더한다(길이로 면제하지 않는다)
+  b.junk = (junkWaived ? 0 : junk * W.junkEach) + (ch.others ? W.junkEach : 0);
 
   // 다른 버전은 면제하지 않는다(VERSION_TERMS 설명 참고).
   const version = countVersion(candidate.title, target.title);
@@ -508,20 +540,20 @@ async function searchCandidates(target: Target, search: Search, profile: SearchP
   // 결과는 검색어 순서대로 둔다(병합 순위가 그 순서다)
   const run = (queries: string[]) => Promise.all(queries.slice(0, p.queries).map((query) => one(query)));
   const both = p.secondary === "always";
-  const artist = p.artistSearch
-    ? String(target.artist || "")
-        .split(",")[0]
-        .trim()
-    : "";
+  const artist = p.artistSearch ? plainQuery(String(target.artist || "").split(",")[0] ?? "") : "";
   const [primaryLists, alongside, artistList] = await Promise.all([run(primary), both ? run(secondary) : null, artist ? one(artist, p.artistSearch) : null]);
   const secondaryLists = alongside ?? (primaryLists.some((l) => l.length) ? [] : await run(secondary));
   const channel = artistList ? dominantChannel(artistList) : null;
   // 아티스트 채널의 영상은 2차와 같은 자리(순위를 뒤로 민다)에 더한다
   const extra = channel && artistList ? [ownUploads(artistList, channel, target)] : [];
-  const candidates = mergeCandidateLists(primaryLists, [...secondaryLists, ...extra]).filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
+  // 1차가 비면 2차 검색이 유일한 검색 결과라 1차 자리에 둔다(아티스트 채널 영상은 그대로 2차 자리).
+  // 제목이 기호뿐이면 2차 검색어가 기호 그 자체라 결과가 아무 영상이어서 그대로 민다
+  const asPrimary = !primaryLists.some((l) => l.length) && normLoose(target.title) !== "";
+  const merged = asPrimary ? mergeCandidateLists(secondaryLists, extra) : mergeCandidateLists(primaryLists, [...secondaryLists, ...extra]);
+  const candidates = merged.filter((c): c is typeof c & { url: string } => !!c.url && !c.isLive);
   return { candidates, artistChannels: channel ? [channel] : [], failed: answered ? null : failed };
 }
 
 export { buildSearchQueries, mergeCandidateLists, rankCandidates, scoreCandidate, searchCandidates, SEARCH_PROFILES, W, JUNK_TERMS, VERSION_TERMS, REUPLOAD_TERMS };
-export const _internal = { normLoose, normChannel, analyzeChannel, artistChannelOf, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag, dominantChannel, ownUploads };
+export const _internal = { plainQuery, featOthers, othersRecordingOf, normLoose, normChannel, analyzeChannel, artistChannelOf, durationScore, countJunk, countVersion, isReupload, splitArtists, detectVersionKind, stripVersionTag, dominantChannel, ownUploads };
 export type { Candidate, Target, SearchProfile };
