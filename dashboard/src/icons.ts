@@ -82,6 +82,7 @@ const ICONS = {
   light_mode: 0xe518,
   link: 0xe250,
   list: 0xe896,
+  local_convenience_store: 0xe543,
   lock: 0xe899,
   login: 0xea77,
   logout: 0xe9ba,

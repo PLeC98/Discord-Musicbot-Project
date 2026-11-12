@@ -1,9 +1,24 @@
-// 서버 설정 화면(서버 관리 권한이 있는 사람)
+// 서버 설정 화면(카드마다 볼 수 있는 계층은 서버의 dashboard/settings-cards)
 
 const backToPlayer = "재생 화면으로";
 const back = "돌아가기";
 const loadFailed = "설정을 불러오지 못했어요.";
 const saveFailed = "설정을 저장하지 못했어요.";
+
+/**
+ * 상주 모드(디스코드 /247). enabledIn 은 켜져 있을 때의 스위치 글: 채널 이름이 길면 이름만 줄이게 앞뒤를 나눈다(볼 수 없는 채널이면 enabled).
+ * locked: 바꿀 수 없을 때 잠근 스위치의 툴팁(지금 상태). 바꿀 수 없는 까닭은 봇 문장표의 거절 문장
+ */
+const stay = {
+  title: "상주 모드",
+  desc: "켜면 사람이 없어도 음성 채널에서 나가지 않고 계속 머물러요.",
+  enable: "상주 모드 켜기",
+  /** 켜져 있지만 머무는 채널을 볼 수 없을 때 */
+  enabled: "상주 모드 켜짐",
+  enabledIn: { before: "상주 모드 켜짐 (", after: ")" },
+  locked: (on: boolean) => (on ? "켜져 있지만 조작할 수 없어요!" : "꺼져 있지만 조작할 수 없어요!"),
+  failed: "상주 모드를 바꾸지 못했어요.",
+};
 
 /** 봇 전용 채널 */
 const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", none: "지정 안 함" };
@@ -55,4 +70,4 @@ const agePlace = {
   allWarning: "이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, channel, dj, sponsor, playlistAdd, agePlace };
+export { backToPlayer, back, loadFailed, saveFailed, stay, channel, dj, sponsor, playlistAdd, agePlace };

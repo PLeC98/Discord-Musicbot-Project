@@ -4,21 +4,26 @@ import express from "express";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 const log = logger.child({ category: "dashboard" });
-import { ChannelType, type Guild } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember } from "discord.js";
 import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
+import { assertSignedIn } from "../session-requests.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 import { openGuild } from "../guild-access.ts";
-import { parse, settingsBody } from "../request-schemas.ts";
+import { parse, settingsBody, StayBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
-import type { GuildSettings, Saved } from "../contract/guilds.ts";
+import type { GuildSettings, Saved, StayCard } from "../contract/guilds.ts";
+import type { BotContext } from "../../app/bot-context.ts";
+import * as stay from "../../usecases/stay.ts";
+import * as replies from "../../ui/control-replies.ts";
+import { announcer, dashboardActor } from "../discord-notice.ts";
 import { tierOf } from "../view-as.ts";
-import { shownCards, editsAny, noCardRefusal, fieldRefusal } from "../settings-cards.ts";
+import { shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
 
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
@@ -68,6 +73,14 @@ async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAd
   return channelChanged;
 }
 
+// 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/stay)
+async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): Promise<StayCard> {
+  const seat = stay.seatChannelOf(guild.id);
+  const found = seat ? guild.channels.cache.get(seat) : undefined;
+  const visible = found?.permissionsFor(member)?.has(PermissionFlagsBits.ViewChannel) ?? false;
+  return { on: seat !== null, channel: found && visible ? { id: found.id, name: found.name } : null, refusal: await stay.stayRefusal(bot, member) };
+}
+
 function createGuildSettingsRouter() {
   const router = express.Router();
 
@@ -75,11 +88,13 @@ function createGuildSettingsRouter() {
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const { guild, member } = ctx;
+    const { guild, member, bot } = ctx;
 
     const cards = shownCards(await tierOf(member));
     if (!cards.length) return sendProblem(res, noCardRefusal());
     const reply: GuildSettings = { guildName: guild.name, cards };
+
+    if (cards.includes("stay")) reply.stay = await stayCardOf(bot, guild, member);
 
     if (cards.includes("channel")) {
       const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
@@ -125,7 +140,7 @@ function createGuildSettingsRouter() {
     const { guild, member, bot } = ctx;
 
     const tier = await tierOf(member);
-    if (!editsAny(tier)) return sendProblem(res, noCardRefusal());
+    if (!editsAny(tier)) return sendProblem(res, noBodyCardRefusal());
 
     const limits = GuildSettingsManager.playlistAddLimits();
     const body = parse(settingsBody(limits), req.body ?? {});
@@ -145,6 +160,25 @@ function createGuildSettingsRouter() {
     const user = signedIn(req);
     log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${user.username || user.id}`);
     res.json({ success: true } satisfies Saved);
+  });
+
+  // 상주 모드 켜기, 끄기 { on }. 디스코드 /247 과 같은 처리(usecases/stay). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 답은 바뀐 뒤의 카드
+  router.post("/:guildId/settings/stay", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { guild, member, bot } = ctx;
+
+    if (!shownCards(await tierOf(member)).includes("stay")) return sendProblem(res, cardRefusal("stay"));
+    const body = parse(StayBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
+
+    const r = body.value.on ? await stay.turnOn(bot, { guild, member }, { go: () => assertSignedIn(req) }) : await stay.turnOff(bot, { guild, member });
+    if (!r.ok) return sendProblem(res, r.code);
+    if (!r.already) {
+      const view = r.kind === "on" ? replies.stayOn(r.channelId, false, dashboardActor(req)) : replies.stayOff(false, dashboardActor(req));
+      announcer(bot, bot.players.get(guild.id))(view);
+    }
+    res.json(await stayCardOf(bot, guild, member));
   });
 
   return router;

@@ -22,6 +22,7 @@ type Reply = ProblemReply & {
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd?: unknown;
   agePlace?: string;
+  stay?: { on: boolean; channel: { id: string; name: string } | null; refusal: string | null };
   hasSettings?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
@@ -91,10 +92,12 @@ const roles = new Map([
   ["r2", makeRole("r2", "VIP", 3)],
   ["r3", makeRole("r3", "Mod", 8, 0xff0000)],
 ]);
+// 음성 채널 v1 을 보는 사람이 볼 수 있는가(비공개 채널 흉내)
+let voiceVisible = true;
 const channels = new Map([
   ["c1", { id: "c1", name: "general", type: ChannelType.GuildText, rawPosition: 0 }],
   ["c2", { id: "c2", name: "music", type: ChannelType.GuildText, rawPosition: 1 }],
-  ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2 }],
+  ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2, permissionsFor: () => ({ has: () => voiceVisible }) }],
 ]);
 
 let currentMember: object | null; // 테스트마다 교체 (null = 비멤버)
@@ -122,10 +125,20 @@ const client = {
 const players = new Map<string, Player>();
 
 function modMember() {
-  return { permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
 }
 function plainMember() {
-  return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
+}
+
+/** DJ 역할(r1)을 정한 서버에서. 그래야 역할 없는 멤버가 일반 사용자다(DJ 역할이 없는 서버는 모두가 DJ) */
+async function withDjRole<T>(fn: () => Promise<T>) {
+  store.djRoles.set(GUILD_ID, ["r1"]);
+  try {
+    return await fn();
+  } finally {
+    store.djRoles.delete(GUILD_ID);
+  }
 }
 
 // ── 앱 구성 ──────────────────────────────────────────────────
@@ -144,7 +157,7 @@ before(async () => {
     if (currentViewAs) Object.assign(req.session, { viewAs: currentViewAs });
     next();
   });
-  app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {} } });
+  app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {}, panelChannel: async () => null } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
   server = await listenForFetch(app);
   base = baseUrl(server);
@@ -179,14 +192,26 @@ test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () =>
   );
 });
 
-test("GET settings: 일반 멤버는 보이는 카드가 없어 403, 카드의 값을 싣지 않는다", async () => {
+test("GET settings: 일반 사용자는 보이는 카드가 없어 403(가장 낮은 카드는 DJ), 카드의 값을 싣지 않는다", async () => {
   currentMember = plainMember();
-  const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
+  const r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+  assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
   assert.deepEqual(
-    ["cards", "channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
+    ["cards", "stay", "channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
     [],
   );
+});
+
+test("GET settings: DJ 는 상주 모드 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
+  currentMember = plainMember();
+  const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.cards, ["stay"]);
+  assert.deepEqual(
+    ["channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
+    [],
+  );
+  assert.deepEqual(r.json.stay, { on: false, channel: null, refusal: "must-be-in-voice" }, "봇이 쉬고 음성 채널 밖이면 켤 수 없다(봇을 부를 채널이 없다)");
 });
 
 test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
@@ -199,8 +224,8 @@ test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여�
   assert.deepEqual([r.status, r.json.code], [403, "no-guild-access"]);
 
   currentMember = plainMember();
-  r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
+  r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+  assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
   currentMember = null;
   currentUser = { id: "u1", username: "tester" };
 });
@@ -216,11 +241,14 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
 
 // ── GET /player의 hasSettings (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 멤버 false / 서버 관리자 true", async () => {
+test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 사용자 false / DJ, 서버 관리자 true", async () => {
   currentMember = plainMember();
-  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  let r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`));
   assert.equal(r.status, 200);
   assert.equal(r.json.hasSettings, false);
+
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.hasSettings, true, "DJ 역할이 없는 서버는 모두가 DJ 라 상주 모드 카드가 보인다");
 
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
@@ -229,14 +257,18 @@ test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 멤버 f
 
 // ── PUT /settings ────────────────────────────────────────────
 
-test("PUT settings: 일반 멤버 403, 아무것도 반영하지 않는다(빈 본문도)", async () => {
+test("PUT settings: 일반 사용자, DJ 모두 403(저장 본문으로 고칠 카드는 서버 관리자 것뿐), 아무것도 반영하지 않는다(빈 본문도)", async () => {
   currentMember = plainMember();
-  const before = settingsRow();
-  for (const body of [{ djRoleIds: ["r1"] }, {}, { agePlace: "all" }]) {
-    const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
-    assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"], JSON.stringify(body));
+  for (const asUser of [true, false]) {
+    if (asUser) store.djRoles.set(GUILD_ID, ["r1"]);
+    const before = settingsRow();
+    for (const body of [{ djRoleIds: ["r1"] }, {}, { agePlace: "all" }, { playlistAddMax: null, botChannelId: "c1" }]) {
+      const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
+      assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"], `${asUser ? "일반" : "DJ"} ${JSON.stringify(body)}`);
+    }
+    assert.deepEqual(settingsRow(), before);
+    if (asUser) store.djRoles.delete(GUILD_ID);
   }
-  assert.deepEqual(settingsRow(), before);
 });
 
 test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
@@ -429,23 +461,70 @@ test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라�
   noVoice();
   currentUser = { id: "owner", username: "운영자" };
   try {
-    for (const [member, viewAs, want] of [
-      [modMember, "user", false],
-      [modMember, "dj", false],
-      [modMember, "server-manager", true],
-      [plainMember, "server-manager", false],
-    ] as const) {
-      currentMember = member();
-      currentViewAs = viewAs;
-      const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-      assert.equal(r.json.hasSettings, want, `${member.name}: ${viewAs} 보기`);
-      const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-      const write = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: null });
-      assert.deepEqual([read.status, write.status], want ? [200, 200] : [403, 403], `${member.name}: ${viewAs} 보기의 설정 읽기, 쓰기`);
-    }
+    // want: [설정 버튼, 읽기, 서버 관리자 카드 쓰기, 읽은 카드]. DJ 역할을 정한 서버라 역할 없는 멤버는 일반 사용자다
+    await withDjRole(async () => {
+      for (const [member, viewAs, want] of [
+        [modMember, "user", [false, 403, 403, undefined]],
+        [modMember, "dj", [true, 200, 403, ["stay"]]],
+        [modMember, "server-manager", [true, 200, 200, ["stay", "channel", "dj", "sponsorblock", "playlistAdd"]]],
+        [plainMember, "server-manager", [false, 403, 403, undefined]],
+      ] as const) {
+        currentMember = member();
+        currentViewAs = viewAs;
+        const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+        const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+        const write = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: null });
+        assert.deepEqual([r.json.hasSettings, read.status, write.status, read.json.cards?.filter((card) => card !== "agePlace")], want, `${member.name}: ${viewAs} 보기`);
+      }
+    });
   } finally {
     currentViewAs = undefined;
     currentUser = { id: "u1", username: "tester" };
+  }
+});
+
+// ── POST /settings/stay(상주 모드) ───────────────────────────
+
+type StayReply = ProblemReply & { on?: boolean; channel?: { id: string; name: string } | null; refusal?: string | null };
+const stayReq = (body: unknown) => requestJson<StayReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/stay`, body);
+
+test("POST settings/stay: 일반 사용자 403, on 이 참, 거짓이 아니면 400, DJ 가 봇을 부를 수 없으면 디스코드 /247 과 같은 거절", async () => {
+  currentMember = plainMember();
+  const user = await withDjRole(() => stayReq({ on: true }));
+  assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
+
+  currentMember = modMember();
+  for (const body of [{ on: "true" }, {}, { on: 1 }, null]) assert.equal((await stayReq(body)).status, 400, JSON.stringify(body));
+
+  currentMember = plainMember();
+  const out = await stayReq({ on: true });
+  assert.deepEqual([out.status, out.json.code], [409, "must-be-in-voice"], "봇이 쉬고 DJ 가 음성 채널 밖");
+});
+
+test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄고, 답은 바뀐 뒤의 카드. 설정 읽기도 같은 카드", async () => {
+  players.set(GUILD_ID, fakePlayer({ voice: { isAlive: () => true }, voiceChannel: channels.get("v1"), idle: { reconsider() {} } }));
+  currentMember = modMember();
+  try {
+    const on = await stayReq({ on: true });
+    assert.deepEqual([on.status, on.json.on, on.json.channel, on.json.refusal], [200, true, { id: "v1", name: "voice" }, null]);
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, { on: true, channel: { id: "v1", name: "voice" }, refusal: null });
+    voiceVisible = false;
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, { on: true, channel: null, refusal: null }, "볼 수 없는 채널이면 켜졌다는 것만(비공개 채널의 이름을 알리지 않는다)");
+    voiceVisible = true;
+    assert.equal((await stayReq({ on: true })).status, 200, "이미 켜져 있으면 그대로");
+
+    currentMember = plainMember();
+    currentViewAs = undefined;
+    const read = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+    assert.equal(read.status, 403, "일반 사용자는 켜져 있어도 카드를 보지 않는다");
+
+    currentMember = modMember();
+    const off = await stayReq({ on: false });
+    assert.deepEqual([off.status, off.json.on, off.json.channel], [200, false, null]);
+  } finally {
+    voiceVisible = true;
+    await stayReq({ on: false });
+    players.delete(GUILD_ID);
   }
 });
 

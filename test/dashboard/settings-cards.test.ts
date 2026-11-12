@@ -2,21 +2,29 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CARDS, shownCards, editsAny, noCardRefusal, fieldRefusal, type CardTable } from "../../src/dashboard/settings-cards.ts";
+import { CARDS, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal, type CardTable } from "../../src/dashboard/settings-cards.ts";
 import { useDefaultDocuments, useDocument } from "../helpers/config-docs.ts";
 import { settingsBody } from "../../src/dashboard/request-schemas.ts";
 
-test("지금 카드는 모두 서버 관리자 전용이다(계층을 낮추면 화면, 저장, 설정 버튼이 함께 바뀐다)", () => {
-  assert.deepEqual(Object.fromEntries(Object.entries(CARDS).map(([card, rule]) => [card, rule.tier])), { channel: "server-manager", dj: "server-manager", sponsorblock: "server-manager", playlistAdd: "server-manager", agePlace: "server-manager" });
-  assert.deepEqual(shownCards("dj"), []);
+test("지금 카드의 계층: 상주 모드는 DJ(/247 과 같다), 나머지는 서버 관리자(계층을 바꾸면 화면, 저장, 설정 버튼이 함께 바뀐다)", () => {
+  assert.deepEqual(Object.fromEntries(Object.entries(CARDS).map(([card, rule]) => [card, rule.tier])), { stay: "dj", channel: "server-manager", dj: "server-manager", sponsorblock: "server-manager", playlistAdd: "server-manager", agePlace: "server-manager" });
+  assert.deepEqual(shownCards("dj"), ["stay"]);
   assert.deepEqual(shownCards("user"), []);
-  assert.equal(noCardRefusal(), "must-server-manager");
+  assert.equal(noCardRefusal(), "must-dj");
+  assert.equal(cardRefusal("stay"), "must-dj");
+});
+
+test("상주 모드 카드는 저장 본문(PUT)으로 고치지 않는다: DJ 는 PUT 으로 고칠 카드가 없고, 그 거절은 서버 관리자", () => {
+  assert.deepEqual(CARDS.stay.fields, []);
+  assert.equal(editsAny("dj"), false);
+  assert.equal(editsAny("server-manager"), true);
+  assert.equal(noBodyCardRefusal(), "must-server-manager");
 });
 
 test("연령 제한 카드는 운영자가 켰을 때만 보인다(고치는 것은 막지 않는다)", () => {
   try {
     useDocument("age-content", { enabled: false, changedAt: 1 });
-    assert.deepEqual(shownCards("server-manager"), ["channel", "dj", "sponsorblock", "playlistAdd"]);
+    assert.deepEqual(shownCards("server-manager"), ["stay", "channel", "dj", "sponsorblock", "playlistAdd"]);
     assert.equal(fieldRefusal("server-manager", { agePlace: "all" }), null);
     useDocument("age-content", { enabled: true, changedAt: 2 });
     assert.ok(shownCards("server-manager").includes("agePlace"));
@@ -35,7 +43,7 @@ test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지
 const WITH_DJ: CardTable = { ...CARDS, playlistAdd: { tier: "dj", fields: ["playlistAddMax"] } };
 
 test("DJ 카드가 있으면: DJ 는 그 카드만 보고, 그 카드의 필드만 고친다. 다른 카드의 필드가 하나라도 있으면 서버 관리자 거절", () => {
-  assert.deepEqual(shownCards("dj", WITH_DJ), ["playlistAdd"]);
+  assert.deepEqual(shownCards("dj", WITH_DJ), ["stay", "playlistAdd"]);
   assert.equal(fieldRefusal("dj", { playlistAddMax: 50 }, WITH_DJ), null);
   assert.equal(fieldRefusal("dj", { playlistAddMax: 50, djRoleIds: ["r1"] }, WITH_DJ), "must-server-manager");
   assert.equal(fieldRefusal("dj", { botChannelId: null }, WITH_DJ), "must-server-manager", "해제(null)도 고치는 것이다");

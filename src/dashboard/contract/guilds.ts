@@ -1,6 +1,7 @@
 // 백엔드와 화면이 주고받는 모양: 서버 목록, 실시간 알림, 서버 설정(/api/guilds 아래)
 
 import type { AgePlace } from "../../rules/age-place.ts";
+import type { Code } from "../../rules/problems.ts";
 
 /** 서버 목록의 상태: 봇이 음성 채널 밖 = idle, 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting */
 type ListState = "idle" | "playing" | "paused" | "waiting";
@@ -17,7 +18,13 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 type GuildEvent = { t: "changed"; g: string };
 
 /** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards 의 표 */
-type SettingsCard = "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace";
+type SettingsCard = "stay" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace";
+
+/**
+ * 상주 모드 카드. on: 켜져 있는가, channel: 머무는 음성 채널(꺼져 있거나 보는 사람이 볼 수 없는 채널이면 null),
+ * refusal: 보는 사람이 지금 바꿀 수 없는 까닭(바꿀 수 있으면 null). 켜고 끄기(POST .../settings/stay)의 답도 이 모양
+ */
+type StayCard = { on: boolean; channel: { id: string; name: string } | null; refusal: Code | null };
 
 /**
  * 서버 설정 화면. cards 는 보는 사람에게 보이는 카드이고, 카드의 값은 보이는 카드만 싣는다(안 보이는 카드의 목록, 값은 보내지 않는다).
@@ -26,6 +33,7 @@ type SettingsCard = "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlac
 type GuildSettings = {
   guildName: string;
   cards: SettingsCard[];
+  stay?: StayCard;
   channel?: { botChannelId: string | null; channels: Array<{ id: string; name: string }> };
   dj?: { djRoleIds: string[]; roles: Array<{ id: string; name: string; color: string | null }> };
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
@@ -37,4 +45,4 @@ type GuildSettings = {
 /** 서버 설정 저장의 답 */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, GuildSettings, Saved };
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, GuildSettings, Saved };

@@ -22,6 +22,26 @@
     <template v-else>
       <!-- 카드는 폭을 다 쓰고 바탕화면이 넓어질수록 열이 는다(카드 한 장 360px 쯤: 768px~ 2열, 1152px~ 3열). 높이를 맞춘 격자가 아니라 열마다 위에서부터 채운다(카드 높이가 제각각이라 빈칸이 생기지 않게) -->
       <div class="columns-1 @3xl/desk:columns-2 @6xl/desk:columns-3 gap-(--gap-in) *:break-inside-avoid">
+        <!-- 상주 모드(디스코드 /247, DJ 부터). 바꿀 수 없으면 스위치 줄 자리에 같은 높이의 안내 상자: 까닭(봇 문장표)과 잠근 스위치(지금 상태는 툴팁) -->
+        <BaseCard v-if="s.stay" icon="local_convenience_store" :title="T.stay.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.stay.desc }}</p>
+          <label v-if="!s.stay.refusal" class="flex items-center justify-between gap-3 py-2 text-sm cursor-pointer">
+            <!-- 채널 이름이 길면 이름만 줄인다 -->
+            <span v-if="s.stay.channel" class="min-w-0 flex"
+              ><span class="shrink-0 whitespace-pre">{{ T.stay.enabledIn.before }}</span
+              ><span class="truncate">{{ s.stay.channel.name }}</span
+              ><span class="shrink-0">{{ T.stay.enabledIn.after }}</span></span
+            >
+            <span v-else>{{ s.stay.on ? T.stay.enabled : T.stay.enable }}</span>
+            <BaseSwitch :model-value="stayShown" :disabled="stayBusy" @update:model-value="toggleStay" />
+          </label>
+          <NoticeBox v-else variant="gate" :icon="REFUSAL_ICON[s.stay.refusal] ?? 'block'" icon-class="text-on-surface-variant" class="min-h-0! py-2!">
+            <span class="flex-1 min-w-0">{{ noticeText(s.stay.refusal).title }}</span>
+            <!-- 꺼진 입력은 마우스 이벤트를 받지 않아 덮개가 툴팁을 받는다 -->
+            <span v-tooltip="T.stay.locked(stayShown)" class="relative inline-flex shrink-0"><BaseSwitch :model-value="stayShown" disabled /><span class="absolute inset-0 z-20"></span></span>
+          </NoticeBox>
+        </BaseCard>
+
         <!-- 봇 전용 채널 -->
         <BaseCard v-if="s.channel" icon="keep" :title="T.channel.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.channel.desc }}</p>
@@ -104,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { problemText } from "../utils/problem.ts";
+import { noticeText, problemText } from "../utils/problem.ts";
 import { notifyProblem } from "../composables/toasts.ts";
 import { TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
@@ -121,7 +141,7 @@ import SingleSelect from "../components/SingleSelect.vue";
 import SearchInput from "../components/SearchInput.vue";
 import BaseSwitch from "../components/BaseSwitch.vue";
 import SponsorCategories from "../components/SponsorCategories.vue";
-import { useGuildsStore } from "../stores/guilds.ts";
+import { onGuildNudge, useGuildsStore } from "../stores/guilds.ts";
 import { HOLD, NO_ART, releasePageArt, setPageArt } from "../theme/theme.ts";
 import Icon from "../components/BaseIcon.vue";
 import { segment } from "../utils/segment.ts";
@@ -130,7 +150,9 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
-import type { GuildSettings, Saved } from "../../../src/dashboard/contract/guilds.ts";
+import type { GuildSettings, Saved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
+import type { Code } from "../../../src/rules/problems.ts";
+import type { IconName } from "../icons.ts";
 import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
@@ -247,6 +269,46 @@ function syncSbForm() {
   sbCategories.value = sb ? [...(sb.categories || [])] : [];
 }
 
+// ── 상주 모드 ──
+// 켜고 끄기는 저장(PUT)이 아니라 바로 보낸다(/247 과 같은 처리). 보내는 동안은 누른 쪽을 보이고, 실패하면 되돌린다
+
+/** 바꿀 수 없는 까닭의 아이콘(곡 추가 칸과 같은 짝). 그 밖은 막힘 */
+const REFUSAL_ICON: Partial<Record<Code, IconName>> = { "must-be-in-voice": "headset_off", "must-be-in-same-voice": "headphones" };
+const stayBusy = ref(false);
+const stayWant = ref<boolean | null>(null);
+const stayShown = computed(() => stayWant.value ?? Boolean(s.value.stay?.on));
+
+async function toggleStay(on: boolean) {
+  if (stayBusy.value) return;
+  stayBusy.value = true;
+  stayWant.value = on;
+  try {
+    s.value = { ...s.value, stay: (await axios.post<StayCard>(`/api/guilds/${guildId}/settings/stay`, { on })).data };
+  } catch (e) {
+    notifyProblem(e, T.stay.failed);
+  } finally {
+    stayWant.value = null;
+    stayBusy.value = false;
+  }
+}
+
+// 다른 곳(디스코드 /247, 음성 채널 들고 남)에서 바뀌면 상주 모드 카드만 다시 읽는다(다른 카드의 고치던 값은 둔다)
+let nudgeTimer = 0;
+async function refreshStay() {
+  if (!s.value.stay || stayBusy.value) return;
+  try {
+    const { stay } = (await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data;
+    if (stay && !stayBusy.value) s.value = { ...s.value, stay };
+  } catch {
+    // 다음 신호에 다시 읽는다
+  }
+}
+const offNudge = onGuildNudge((changed) => {
+  if (changed && changed !== guildId) return;
+  clearTimeout(nudgeTimer);
+  nudgeTimer = window.setTimeout(() => void refreshStay(), 600);
+});
+
 function apply(data: GuildSettings) {
   s.value = data;
   selectedRoles.value = [...(data.dj?.djRoleIds ?? [])];
@@ -339,6 +401,8 @@ onBeforeRouteLeave(async () => {
 onUnmounted(() => {
   clearTimeout(saveTimer);
   clearTimeout(doneTimer);
+  clearTimeout(nudgeTimer);
+  offNudge();
 });
 
 // 화면 색, 배경화면은 이 서버의 지금 곡에서(서버 화면과 같은 앨범아트라 재생 화면에서 들어오면 색이 그대로다).

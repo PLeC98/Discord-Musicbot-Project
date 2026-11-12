@@ -76,7 +76,7 @@ test("부르면 /join 과 같이 붙고, 사람이 채널에 있어도 곡 없�
   const r = await join();
   assert.equal(r.status, 200);
   assert.equal(r.json.hasPlayer, true);
-  assert.equal(r.json.hasSettings, false, "설정 화면 진입 여부도 GET /player 와 같은 필드로");
+  assert.equal(r.json.hasSettings, true, "설정 화면 진입 여부도 GET /player 와 같은 필드로(DJ 역할이 없는 서버는 모두가 DJ 라 상주 모드 카드가 보인다)");
   const player = players.get("g1");
   assert.ok(player?.connection, "붙었다");
   assert.ok(player.idle.emptyTimer, "곡 없이 대기");

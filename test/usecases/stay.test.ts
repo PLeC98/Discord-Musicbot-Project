@@ -71,3 +71,21 @@ test("끄기: 상주 설정을 삭제하고 퇴장 여부를 다시 판단한다
   assert.equal(seen.reconsider, 1);
   assert.deepEqual(await stay.turnOff(bot, { guild, member: member() }), { ok: true, kind: "off", already: true });
 });
+
+test("켜기: 저장 직전에 확인(go, 대시보드의 로그인 세션)을 다시 부르고, 던지면 자리를 적지 않는다", async () => {
+  const { bot } = seated({ id: "vc1", name: "음성", type: ChannelType.GuildVoice });
+  const ended = new Error("세션 끝남");
+  await assert.rejects(
+    stay.turnOn(
+      bot,
+      { guild, member: member() },
+      {
+        go: () => {
+          throw ended;
+        },
+      },
+    ),
+    ended,
+  );
+  assert.equal(staySeats.seatOf("g1"), null);
+});
