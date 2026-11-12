@@ -7,7 +7,7 @@ import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
 
 // 상주 모드(24/7): 음성 채널에 머물기. 켜져 있으면 끄고, 꺼져 있으면 켠다. 지금 상태는 재생 패널의 상태 줄, 끝난 패널이 보인다
 const exported: GuildCommand = {
-  help: { section: "channel", tier: "dj", gate: stay.stayDenied },
+  help: { section: "channel", tier: "dj" },
   data: new SlashCommandBuilder().setName("247").setDescription("상주 모드를 켜거나 꺼요. 켜면 음성 채널에서 나가지 않고 계속 머물러요"),
 
   async execute(interaction, bot) {

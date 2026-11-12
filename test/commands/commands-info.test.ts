@@ -10,14 +10,13 @@ import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
-import { MessageFlags, PermissionFlagsBits, type Client } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, type ButtonInteraction, type Client, type StringSelectMenuInteraction } from "discord.js";
 
 import { cacheDb } from "../../src/store/cache-db.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { withConfig } from "../helpers/config.ts";
-import type { GuildCommand } from "../../src/app/command-loader.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
@@ -288,24 +287,60 @@ test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어
 
 // ── /help, /system ───────────────────────────────────────────────────
 
-test("/help: 시작 안내와 섹션마다의 명령 줄을 본인에게만. 대시보드 주소가 이 기기 주소면 버튼이 없고, 밖에서 열리는 주소면 웹 대시보드 링크", async () => {
+test("/help: 시작 안내와 분류 메뉴를 본인에게만. 대시보드 주소가 이 기기 주소면 버튼과 대시보드 줄이 없고, 밖에서 열리는 주소면 웹 대시보드 링크", async () => {
   const local = interaction({ player: { any: 1 } });
   await withConfig({ dashboard: { url: "http://localhost:33333" } }, async () => run(await command("help"), local.it, local.bot));
   const text = textOf(local.log[0][1]);
-  assert.ok(text.includes("**🎵 재생**\n`/play`: 곡을 재생해요"), text);
-  assert.ok(!text.includes("📊 통계") && !text.includes("지원 플랫폼") && !text.includes("oauth2"), "통계, 지원 플랫폼, 초대 링크를 싣지 않는다");
-  assert.equal(JSON.stringify(local.log[0][1]).includes('"style":5'), false, "링크 버튼 없음");
+  assert.ok(text.includes("`/play`로 곡을 틀어요"), text);
+  assert.ok(!text.includes("대시보드"), "닿지 않는 대시보드는 말하지 않는다");
+  assert.ok(!text.includes("`/pause`"), "명령 줄은 분류 화면에만");
+  const json = JSON.stringify(local.log[0][1]);
+  assert.equal(json.includes('"style":5'), false, "링크 버튼 없음");
+  assert.deepEqual(
+    [...json.matchAll(/"value":"(\w+)"/g)].map((m) => m[1]),
+    ["play", "queue", "mode", "explore", "channel", "info"],
+    "분류 메뉴",
+  );
   assert.deepEqual(lifetimesOf(local.it), [LIFETIME.screen]);
 
   const open = interaction();
   await withConfig({ dashboard: { url: "https://music.example.com" } }, async () => run(await command("help"), open.it, open.bot));
   assert.ok(JSON.stringify(open.log[0][1]).includes('"url":"https://music.example.com"'), "웹 대시보드 링크 버튼");
+  assert.ok(textOf(open.log[0][1]).includes("웹 대시보드에서도"));
 });
 
-test("/help: 켜진 명령을 모두 적는다(/help 자신은 빼고)", async () => {
-  const { it, log, bot } = interaction();
-  await run(await command("help"), it, bot);
-  const text = textOf(log[0][1]);
+/** 분류 메뉴, 뒤로 버튼을 누른 것. update 로 고친 화면을 모은다 */
+function pressed(bot: ReturnType<typeof interaction>["bot"], { values = [] as string[] } = {}) {
+  const shown: unknown[] = [];
+  const it = fakeWith<StringSelectMenuInteraction<"cached"> & ButtonInteraction<"cached">>()({ guildId: "g1", values, update: async (payload: unknown) => void shown.push(payload) });
+  return { it, shown, bot };
+}
+
+test("/help 분류 메뉴: 고른 분류의 명령 줄과 그 분류에 나온 권한 표시의 뜻, 뒤로 버튼은 첫 화면", async () => {
+  const { handleHelpSection, handleHelpHome } = await import("../../src/discord/interactions/help.ts");
+  const { bot } = interaction();
+  const play = pressed(bot, { values: ["play"] });
+  await handleHelpSection(play.it, bot);
+  const text = textOf(play.shown[0]);
+  assert.ok(text.includes("재생\n`/play`: 곡을 재생해요\n`/playfirst`"), text);
+  assert.ok(text.includes("🔒 봇과 같은 음성 채널에 있는 DJ만"), "DJ 표시의 뜻");
+  assert.ok(!text.includes("🛡️"), "그 분류에 없는 표시는 적지 않는다");
+  assert.ok(JSON.stringify(play.shown[0]).includes('"custom_id":"help:home"'), "뒤로 버튼");
+
+  const gone = pressed(bot, { values: ["없는분류"] });
+  await handleHelpSection(gone.it, bot);
+  assert.ok(textOf(gone.shown[0]).includes("`/play`로 곡을 틀어요"), "모르는 분류(메뉴를 그린 뒤 꺼진 분류)면 첫 화면");
+
+  const back = pressed(bot);
+  await handleHelpHome(back.it, bot);
+  assert.ok(textOf(back.shown[0]).includes("`/play`로 곡을 틀어요"));
+});
+
+test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신은 빼고)", async () => {
+  const { sectionView } = await import("../../src/discord/commands/help.ts");
+  const { SECTIONS } = await import("../../src/ui/help-lines.ts");
+  const { bot } = interaction();
+  const text = SECTIONS.map((key) => textOf({ components: [sectionView(bot.commands, key)] })).join("\n");
   const names = [...bot.commands.keys()].filter((name) => name !== "help");
   assert.deepEqual(
     names.filter((name) => !text.includes(`\`/${name}\``)),
@@ -315,63 +350,13 @@ test("/help: 켜진 명령을 모두 적는다(/help 자신은 빼고)", async (
 
 test("/help: 만들다 던지면 진입점이 알린다", async () => {
   const { it, log, bot } = interaction();
-  it.options.getString = () => {
-    throw new Error("x");
-  };
+  Object.defineProperty(it, "guildId", {
+    get() {
+      throw new Error("x");
+    },
+  });
   await runViaEntrance(await command("help"), it, bot);
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
-});
-
-test("/help 명령: 그 명령의 입력, 쓸 수 있는 사람, 지금 그 사람이 쓸 수 있는지(못 쓰면 까닭)", async () => {
-  const play = interaction({ options: { command: "/play" } });
-  // 곡 추가 확인(checkAdd, checkSummon)이 읽는 것: 봇이 쉬고 있고 사람은 음성 채널 밖
-  Object.assign(play.it.member, { permissions: { has: () => false }, guild: { members: { me: { voice: { channel: null } } } }, voice: { channel: null } });
-  await run(await command("help"), play.it, play.bot);
-  const text = textOf(play.log[0][1]);
-  assert.match(text, /`\/play`/);
-  assert.ok(text.includes("**입력**\n- `곡`: "), text);
-  assert.ok(text.includes("**쓸 수 있는 사람**: 누구나"), text);
-
-  const saved = config.dashboard.ownerId;
-  config.dashboard.ownerId = "owner";
-  try {
-    const system = interaction({ options: { command: "system" }, userId: "u1" });
-    await run(await command("help"), system.it, system.bot);
-    assert.ok(textOf(system.log[0][1]).includes("**지금은**: 쓸 수 없어요. 이 조작은 봇 운영자 전용이에요."));
-    const mine = interaction({ options: { command: "system" }, userId: "owner" });
-    await run(await command("help"), mine.it, mine.bot);
-    assert.ok(textOf(mine.log[0][1]).includes("**지금은**: 쓸 수 있어요."));
-    assert.deepEqual(lifetimesOf(mine.it), [LIFETIME.screen]);
-  } finally {
-    config.dashboard.ownerId = saved;
-  }
-
-  const unknown = interaction({ options: { command: "없는명령" } });
-  await run(await command("help"), unknown.it, unknown.bot);
-  assert.deepEqual(unknown.log, [["reply", noticeReply(errors.notice("help-no-such-command"))]]);
-});
-
-test("/help 명령 자동완성: 이름이 입력으로 시작하는 것 먼저, 이름이나 설명에 든 것 다음. 비면 도움말 순서로 25개", async () => {
-  const { bot } = interaction();
-  const answer = async (typed: string) => {
-    let sent: Array<{ name: string; value: string }> = [];
-    const it = { options: { getFocused: () => typed }, respond: async (choices: typeof sent) => (sent = choices) };
-    const help = (await command("help")) as GuildCommand;
-    await help.autocomplete!(fakeWith<Parameters<NonNullable<GuildCommand["autocomplete"]>>[0]>()(it), bot);
-    return sent;
-  };
-  assert.deepEqual(
-    (await answer("pl")).map((c) => c.value),
-    ["play", "playfirst", "replay", "autoplay", "nowplaying", "setplaylistlimit"],
-  );
-  assert.deepEqual((await answer("/pla")).map((c) => c.value).slice(0, 2), ["play", "playfirst"], "앞의 / 는 뗀다");
-  assert.ok(
-    (await answer("대기열")).some((c) => c.value === "clear"),
-    "설명으로도 찾는다",
-  );
-  const empty = await answer("");
-  assert.equal(empty.length, 25);
-  assert.deepEqual(empty[0], { name: "/play: 곡을 재생해요", value: "play" });
 });
 
 test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄면 등록하지 않는다", async () => {

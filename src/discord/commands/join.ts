@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { join, joinRefusal, type JoinResult } from "../../usecases/join.ts";
+import { join, type JoinResult } from "../../usecases/join.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { noticeFrame, post, reply } from "../../ui/frame.ts";
 import * as replies from "../../ui/control-replies.ts";
@@ -29,7 +29,7 @@ async function answer(interaction: ChatInputCommandInteraction<"cached">, result
 }
 
 const exported: GuildCommand = {
-  help: { section: "channel", tier: "everyone", gate: joinRefusal },
+  help: { section: "channel", tier: "everyone" },
   data: new SlashCommandBuilder().setName("join").setDescription("봇을 음성 채널에 참가시켜요"),
 
   async execute(interaction, bot) {

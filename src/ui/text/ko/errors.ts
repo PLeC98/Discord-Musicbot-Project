@@ -95,7 +95,6 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 대상이나 핸들러가 없음
   // 실행 목록에 없는 명령(꺼진 기능이 디스코드에 아직 남아 있다)
   "unknown-command": () => warning("stale", "사용할 수 없는 명령어예요!", "비활성화되었거나 변경된 명령어예요. 디스코드를 다시 시작해도 보이면 봇 운영자에게 알려 주세요."),
-  "help-no-such-command": () => warning("notFound", "그런 명령어가 없어요!", "명령 칸에 이름을 치면 나오는 목록에서 골라 주세요."),
   // 버튼, 메뉴를 받을 핸들러가 없다. 봇을 업데이트하기 전에 올린 메시지의 것이 대개 이렇다(custom_id 형식이 바뀌었다). 꺼진 기능의 버튼, 메뉴도 이렇다
   "unknown-interaction": () => warning("stale", "만료되었거나 알 수 없는 버튼이에요.", "새 패널의 버튼을 눌러 주세요.\n새 패널이 없다면, 명령을 다시 실행하거나 패널을 새로 불러와서 사용해 주세요!"),
   "more-unknown-menu": () => warning("stale", "알 수 없는 메뉴예요."),

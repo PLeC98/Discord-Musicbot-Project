@@ -369,13 +369,8 @@ async function jump(player: MaybePlayer, actor: Actor, entry: number) {
  * 장르 메뉴를 표시하기 전에 진입점이 본다. 막히면 거절, 지나가면 null
  */
 async function autoplayBlocked(actor: Actor) {
-  const permission = await autoplayDenied(actor.member);
+  const permission = (await perm.checkControl(actor.member)) || perm.checkSummon(actor.member);
   return permission ? fail(permission) : null;
-}
-
-/** 자동재생을 시킬 수 없는 까닭(/help 의 "지금은"도 쓴다). 되면 null */
-async function autoplayDenied(member: GuildMember) {
-  return (await perm.checkControl(member)) || perm.checkSummon(member);
 }
 
 // 켤 장르를 쓸 수 없으면 거절 결과를 반환한다(없는 장르, 키가 빠진 장르). 끄기는 null이다
@@ -474,4 +469,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
 }
 
 export type { Actor, Refusal };
-export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplayDenied, autoplay, leave };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };

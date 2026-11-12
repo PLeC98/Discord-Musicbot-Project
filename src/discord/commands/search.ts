@@ -166,7 +166,7 @@ const exported: GuildCommand & {
   execute(interaction: ChatInputCommandInteraction<"cached">, bot: BotContext, deps?: SearchDeps): unknown;
   autocomplete(interaction: AutocompleteInteraction<"cached">, bot: BotContext, deps?: SearchDeps): Promise<unknown>;
 } = {
-  help: { section: "explore", tier: "everyone", gate: canAdd },
+  help: { section: "explore", tier: "everyone" },
   data: new SlashCommandBuilder()
     .setName("search")
     .setDescription("곡을 검색해요")

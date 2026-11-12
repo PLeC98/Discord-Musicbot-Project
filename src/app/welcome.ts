@@ -1,11 +1,11 @@
-// 봇이 새 서버에 들어왔을 때 올리는 안내 메시지 하나(시작하는 법, /help, 전용 채널, 웹 대시보드). 운영 조절값 WELCOME_MESSAGE_ENABLED 로 끈다.
+// 봇이 새 서버에 들어왔을 때 올리는 안내 메시지 하나(시작하는 법, 전용 채널, /help, 웹 대시보드, 소스 저장소). 운영 조절값 WELCOME_MESSAGE_ENABLED 로 끈다.
 // 공개로 올려 지울 수 없으니, 들어온 지 얼마 안 된 서버에만 올린다(이벤트가 이미 있던 서버로 와도 올리지 않게)
 
-import { ActionRowBuilder, ChannelType, PermissionFlagsBits, type ButtonBuilder, type Guild, type GuildTextBasedChannel } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, MessageFlags, PermissionFlagsBits, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, escapeMarkdown, type Guild, type GuildTextBasedChannel } from "discord.js";
 import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
-import { frame, post } from "../ui/frame.ts";
+import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
 import * as welcomeText from "../ui/text/ko/welcome.ts";
 import logger from "../infra/log/logger.ts";
@@ -35,13 +35,26 @@ async function welcomeChannel(guild: Guild): Promise<GuildTextBasedChannel | nul
   return candidates.find((channel) => writable(guild, channel)) ?? null;
 }
 
-function welcomeView(guildId: string) {
-  const mention = (name: string) => commandMention(name, guildId);
-  const t = welcomeText.welcome({ play: mention("play"), join: mention("join"), help: mention("help"), setchannel: mention("setchannel") });
-  const container = frame({ icon: "music", title: t.title, body: t.lines.join("\n") });
-  const button = dashboardButton(t.dashboard);
-  if (button) container.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(button));
-  return container;
+const link = (label: string, url: string) => new ButtonBuilder().setStyle(ButtonStyle.Link).setLabel(label).setURL(url);
+const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small);
+
+/** 안내 메시지. 버튼은 컨테이너 밖 줄에 둔다. 서버 이름에 든 멘션이 울리지 않게 멘션을 모두 끈다 */
+function welcomeView(guild: Guild) {
+  const mention = (name: string) => commandMention(name, guild.id);
+  const { projectRepo, sourceRepo } = config.bot;
+  const fork = sourceRepo !== projectRepo;
+  const labels = welcomeText.buttons(fork);
+  const dashboard = dashboardButton(labels.dashboard);
+  const t = welcomeText.welcome({ server: escapeMarkdown(guild.name), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork });
+  const container = frame({ icon: "music", title: t.title, body: t.intro, thumbnail: guild.client.user.displayAvatarURL() })
+    .addSeparatorComponents(divider())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))
+    .addSeparatorComponents(divider())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.source.join("\n")))
+    .addSeparatorComponents(divider())
+    .addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${t.license}`));
+  const buttons = [dashboard, link(labels.project, projectRepo), fork ? link(labels.source, sourceRepo) : null].filter((button) => button !== null);
+  return { components: [container, new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)], flags: [MessageFlags.IsComponentsV2] as const, allowedMentions: { parse: [] } };
 }
 
 /** 새 서버에 안내를 올린다. 보내다 실패하면 던진다(부르는 쪽이 남긴다) */
@@ -56,7 +69,7 @@ async function welcomeGuild(guild: Guild, now = Date.now()) {
     log.warn(`새 서버 ${guild.name}(${guild.id})에 안내 메시지를 올릴 채널이 없음(봇이 보고 쓸 수 있는 텍스트 채널 없음)`);
     return;
   }
-  await channel.send(post(welcomeView(guild.id)));
+  await channel.send(welcomeView(guild));
 }
 
 export { welcomeGuild, welcomeChannel, welcomeView, RECENT_MS };

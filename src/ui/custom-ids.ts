@@ -7,6 +7,7 @@ const AUTOPLAY = "autoplay"; // 자동재생 장르 메뉴
 const QUEUE = "queue"; // 대기열 보기의 넘기기
 const SYSTEM = "system";
 const SEARCH = "search"; // 검색 결과 화면의 선택 메뉴 search:pick:검색한 사람
+const HELP = "help"; // /help 의 분류 메뉴 help:section, 첫 화면으로 돌아가는 버튼 help:home
 
 /** 끝난 패널의 세션 필드 마커. 세션이 없다는 뜻이라 어느 플레이어에도 통한다 */
 const IDLE_SESSION = "idle";
@@ -31,4 +32,4 @@ function entryOfJump(value: string | undefined) {
   return found ? Number(found[1]) : null;
 }
 
-export { PANEL, AUTOPLAY, QUEUE, SYSTEM, SEARCH, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };
+export { PANEL, AUTOPLAY, QUEUE, SYSTEM, SEARCH, HELP, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };
