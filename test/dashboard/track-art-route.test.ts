@@ -37,7 +37,7 @@ const guild = {
   name: "TestGuild",
   roles: { cache: new Map() },
   channels: { cache: new Map() },
-  members: { fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }), me: null },
+  members: { fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } }), me: null },
 };
 const client = { isReady: () => true, guilds: { cache: new Map([[GUILD_ID, guild]]) } };
 const players = new Map<string, Player>();

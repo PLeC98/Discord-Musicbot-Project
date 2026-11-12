@@ -237,10 +237,10 @@ function settleAudio(guildId: string, pb: CurrentPlayback, source: Parameters<ty
 const reasonAfter = (player: Partial<Pick<Player, "_endInstead">>, reason: string) => player._endInstead ?? reason;
 /**
  * 플레이어가 왜 끝났나(dispose). 끝난 패널의 끊김 안내(cause), 끝 알림(disposed)을 듣는 쪽이 가른다.
- * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, alone-timeout. 디스코드 쪽: kicked, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave.
+ * 사람이 끝냄: stop, leave. 기다리다 나감: queue-drained, alone-timeout. 디스코드 쪽: kicked, stage-ended, stage-disconnect, channel-gone, voice-lost, guild-gone, operator-leave, dashboard-leave.
  * 세션을 남기고 버림: connect-failed, restore-failed, adopt-failed, replaced(새 플레이어가 곧 선다). 오류: fault(되풀이되어 멈춤), fault-cleared(곡 없이 정리), fault-restart(곧 복원한다)
  */
-type PlayerEnd = "stop" | "leave" | "queue-drained" | "alone-timeout" | "kicked" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
+type PlayerEnd = "stop" | "leave" | "queue-drained" | "alone-timeout" | "kicked" | "stage-ended" | "stage-disconnect" | "channel-gone" | "voice-lost" | "guild-gone" | "operator-leave" | "dashboard-leave" | "connect-failed" | "restore-failed" | "adopt-failed" | "replaced" | "fault" | "fault-cleared" | "fault-restart";
 /** 갭리스 전환에서 스플라이서에게 묻고 부르는 필드 */
 type Switchable = Pick<AudioSplicer, "destroyed" | "switchPending" | "emittedMs" | "slips" | "planSwitch"> & { once(event: "switched", listener: (ms: number) => void): unknown };
 let defaultBoundary: Boundary = REAL;

@@ -5,8 +5,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import { checkControl, checkAdd } from "../../usecases/permissions.ts";
-import { tierOf } from "../view-as.ts";
-import { shownCards } from "../settings-cards.ts";
+import { shownCards, viewerOf } from "../settings-cards.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
@@ -95,7 +94,7 @@ function readRoutes(router: Router) {
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
     // 서버 설정 버튼: 보이는 카드가 있는가(설정 화면 GET 과 같은 표)
-    const hasSettings = shownCards(await tierOf(member)).length > 0;
+    const hasSettings = shownCards(await viewerOf(req, member)).length > 0;
 
     // hasPlayer: 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
@@ -148,7 +147,7 @@ function joinRoute(router: Router) {
     // 방금 자기 채널로 봇을 불렀으므로 동일 음성 채널 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    const hasSettings = shownCards(await tierOf(member)).length > 0;
+    const hasSettings = shownCards(await viewerOf(req, member)).length > 0;
     res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, hasSettings, userId: member.id } satisfies PlayerRead);
   });
 }

@@ -7,7 +7,9 @@ const log = logger.child({ category: "dashboard" });
 import { ChannelType, PermissionFlagsBits, type Guild, type GuildMember } from "discord.js";
 import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { assertSignedIn } from "../session-requests.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
+import { requireRecentLogin } from "../middleware/recent-login.ts";
+import { leaveGuild } from "../../usecases/leave-guild.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
@@ -22,8 +24,7 @@ import type { BotContext } from "../../app/bot-context.ts";
 import * as stay from "../../usecases/stay.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { announcer, dashboardActor } from "../discord-notice.ts";
-import { tierOf } from "../view-as.ts";
-import { shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
+import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
 
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
@@ -90,7 +91,7 @@ function createGuildSettingsRouter() {
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    const cards = shownCards(await tierOf(member));
+    const cards = shownCards(await viewerOf(req, member));
     if (!cards.length) return sendProblem(res, noCardRefusal());
     const reply: GuildSettings = { guildName: guild.name, cards };
 
@@ -139,15 +140,15 @@ function createGuildSettingsRouter() {
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    const tier = await tierOf(member);
-    if (!editsAny(tier)) return sendProblem(res, noBodyCardRefusal());
+    const viewer = await viewerOf(req, member);
+    if (!editsAny(viewer)) return sendProblem(res, noBodyCardRefusal());
 
     const limits = GuildSettingsManager.playlistAddLimits();
     const body = parse(settingsBody(limits), req.body ?? {});
     // 필드별 문제. 재생목록 곡 수는 범위를 같이 싣는다
     if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
 
-    const denied = fieldRefusal(tier, body.value);
+    const denied = fieldRefusal(viewer, body.value);
     if (denied) return sendProblem(res, denied);
 
     const plan = planSettings(guild, body.value);
@@ -168,7 +169,7 @@ function createGuildSettingsRouter() {
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    if (!shownCards(await tierOf(member)).includes("stay")) return sendProblem(res, cardRefusal("stay"));
+    if (!shownCards(await viewerOf(req, member)).includes("stay")) return sendProblem(res, cardRefusal("stay"));
     const body = parse(StayBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code);
 
@@ -179,6 +180,28 @@ function createGuildSettingsRouter() {
       announcer(bot, bot.players.get(guild.id))(view);
     }
     res.json(await stayCardOf(bot, guild, member));
+  });
+
+  // 봇 내보내기. 디스코드에서 봇을 추방할 수 있는 사람만(카드 표의 kick-bot, 판정은 이 요청 때 다시). 되돌릴 수 없어 로그인한 지 오래되면 다시 로그인하게 한다.
+  // 정리하고 나가는 순서는 usecases/leave-guild. 나간 뒤 그 서버를 보던 화면은 서버 목록으로 간다
+  router.post("/:guildId/settings/leave", requireAuth, requireRecentLogin, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { guild, member, bot } = ctx;
+
+    if (!shownCards(await viewerOf(req, member)).includes("leave")) return sendProblem(res, cardRefusal("leave"));
+    // 이름은 바꿀 수 있어 사용자 id 를 함께 남긴다(나간 서버에는 기록이 남지 않는다)
+    const user = signedIn(req);
+    const who = `${user.username || "?"} (${user.id})`;
+    try {
+      await leaveGuild(bot.players, guild, { reason: "대시보드 서버 설정에서 봇 내보내기", end: "dashboard-leave", go: () => assertSignedIn(req) });
+      log.info(`대시보드 서버 설정에서 봇 내보내기: ${guild.name} (${guild.id}). 실행 ${who}`);
+      res.json({ success: true } satisfies Saved);
+    } catch (error) {
+      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 멈춤(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
+      log.error(`대시보드에서 봇 내보내기 실패: ${guild.name} (${guild.id}). 실행 ${who}:`, error);
+      sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+    }
   });
 
   return router;

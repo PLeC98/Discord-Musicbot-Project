@@ -70,4 +70,15 @@ const agePlace = {
   allWarning: "이 서버의 모든 음성 채널에서 연령 제한이 걸린 곡을 재생할 수 있어요. 봇은 청취자의 연령을 확인하지 않아요.",
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, stay, channel, dj, sponsor, playlistAdd, agePlace };
+/** 봇 내보내기(디스코드에서 봇을 추방할 수 있는 사람). 확인 대화상자는 운영자 패널의 나가기와 같은 결 */
+const leave = {
+  title: "봇 내보내기",
+  desc: "이 서버에서 봇을 내보내요. 다시 쓰려면 봇을 다시 초대해야 해요.",
+  button: "봇 내보내기",
+  confirmTitle: (name: string) => `'${name}'에서 봇을 내보낼까요?`,
+  confirmBody: "되돌릴 수 없어요. 재생 중인 곡과 대기열, 상주 모드는 사라지고, 서버 설정은 남아서 다시 초대하면 그대로 써요.",
+  done: (name: string) => `'${name}'에서 봇을 내보냈어요.`,
+  failed: "봇을 내보내지 못했어요.",
+};
+
+export { backToPlayer, back, loadFailed, saveFailed, stay, channel, dj, sponsor, playlistAdd, agePlace, leave };

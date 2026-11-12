@@ -181,3 +181,28 @@ test("진입점 조합: checkAdd + checkSummon이 봇의 두 상태를 모두 �
   const ok = { voice: "vc1", botVoice: "vc1" };
   assert.equal(checkAdd(fakeMember(ok)) || checkSummon(fakeMember(ok)), null);
 });
+
+test("canKickBot: 멤버 추방 권한이 있고, 서버 소유자이거나 가장 높은 역할이 봇보다 위여야 한다(디스코드의 역할 순서 규칙). 타임아웃 중이면 아니다(소유자, 관리자는 그대로)", async () => {
+  const { canKickBot } = await import("../../src/usecases/permissions.ts");
+  const role = (position: number) => ({ position, comparePositionTo: (other: { position: number }) => position - other.position });
+  type Options = { kick?: boolean; admin?: boolean; owner?: boolean; mine?: number; bots?: number | null; timedOut?: boolean; botRoles?: string[] };
+  const member = ({ kick = true, admin = false, owner = false, mine = 5, bots = 3, timedOut = false, botRoles = ["rb"] }: Options) =>
+    fake<GuildMember>({
+      id: "u1",
+      permissions: { has: (p: bigint) => (kick && p === PermissionFlagsBits.KickMembers) || (admin && p === PermissionFlagsBits.Administrator) },
+      isCommunicationDisabled: () => timedOut,
+      roles: { highest: role(mine) },
+      guild: { ownerId: owner ? "u1" : "owner", roles: { cache: new Map([["rb", {}]]) }, members: { me: bots === null ? null : { _roles: botRoles, roles: { highest: role(bots) } } } },
+    });
+  assert.equal(canKickBot(member({})), true);
+  assert.equal(canKickBot(member({ kick: false })), false, "추방 권한이 없으면 역할이 높아도 안 된다");
+  assert.equal(canKickBot(member({ mine: 3 })), false, "봇과 같은 높이면 안 된다");
+  assert.equal(canKickBot(member({ mine: 1 })), false);
+  assert.equal(canKickBot(member({ mine: 1, owner: true })), true, "서버 소유자는 역할 순서와 상관없다");
+  assert.equal(canKickBot(member({ owner: true, kick: false })), false, "권한 판정을 따른다(디스코드는 소유자에게 모든 권한을 준다)");
+  assert.equal(canKickBot(member({ bots: null })), false, "봇 멤버를 모르면 아니다");
+  assert.equal(canKickBot(member({ timedOut: true })), false, "타임아웃 중이면 디스코드가 권한을 거둔다");
+  assert.equal(canKickBot(member({ timedOut: true, admin: true })), true, "관리자는 타임아웃 중에도 권한이 남는다");
+  assert.equal(canKickBot(member({ timedOut: true, owner: true })), true);
+  assert.equal(canKickBot(member({ botRoles: ["rb", "missing"] })), false, "봇의 역할 가운데 캐시에 없는 것이 있으면 봇의 높이를 알 수 없다");
+});

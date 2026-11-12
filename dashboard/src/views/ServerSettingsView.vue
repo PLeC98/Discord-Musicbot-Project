@@ -118,19 +118,27 @@
           </div>
           <NoticeBox v-if="agePlace === 'all'" variant="note" tone="notice" icon="warning">{{ T.agePlace.allWarning }}</NoticeBox>
         </BaseCard>
+
+        <!-- 봇 내보내기(디스코드에서 봇을 추방할 수 있는 사람). 되돌릴 수 없어 확인을 받는다 -->
+        <BaseCard v-if="s.cards.includes('leave')" icon="logout" :title="T.leave.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.leave.desc }}</p>
+          <BaseButton variant="danger" :disabled="leaving" @click="leaveAsking = true"><Icon name="logout" :size="20" />{{ T.leave.button }}</BaseButton>
+        </BaseCard>
       </div>
     </template>
+    <ConfirmDialog v-model="leaveAsking" icon="logout" :title="T.leave.confirmTitle(s.guildName ?? '')" :body="T.leave.confirmBody" :confirm-label="T.leave.button" :busy="leaving" @confirm="leaveGuild" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { noticeText, problemText } from "../utils/problem.ts";
-import { notifyProblem } from "../composables/toasts.ts";
+import { notify, notifyProblem } from "../composables/toasts.ts";
 import { TOPBAR_TEXT_BTN } from "../utils/topbar.ts";
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import BaseCard from "../components/BaseCard.vue";
+import ConfirmDialog from "../components/ConfirmDialog.vue";
 import BaseButton from "../components/BaseButton.vue";
 import NoticeBox from "../components/NoticeBox.vue";
 import PageError from "../components/PageError.vue";
@@ -308,6 +316,26 @@ const offNudge = onGuildNudge((changed) => {
   clearTimeout(nudgeTimer);
   nudgeTimer = window.setTimeout(() => void refreshStay(), 600);
 });
+
+// ── 봇 내보내기 ──
+// 나가면 이 서버의 설정, 재생 화면을 다시 읽을 수 없다(봇이 없다). 서버 목록으로 간다
+const leaveAsking = ref(false);
+const leaving = ref(false);
+async function leaveGuild() {
+  if (leaving.value) return;
+  leaving.value = true;
+  const name = s.value.guildName ?? "";
+  try {
+    await axios.post<Saved>(`/api/guilds/${guildId}/settings/leave`);
+    leaveAsking.value = false;
+    notify({ title: T.leave.done(name), severity: "success" });
+    void router.push("/servers");
+  } catch (e) {
+    notifyProblem(e, T.leave.failed);
+  } finally {
+    leaving.value = false;
+  }
+}
 
 function apply(data: GuildSettings) {
   s.value = data;

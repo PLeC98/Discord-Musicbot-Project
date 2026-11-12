@@ -111,5 +111,21 @@ const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrac
 /** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
 const checkRemoveTrack = checkOwnTrack;
 
-export { isServerManager, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
+/**
+ * 디스코드에서 봇을 추방할 수 있는 사람인가: 멤버 추방 권한(관리자 포함)이 있고, 서버 소유자이거나 가장 높은 역할이 봇의 가장 높은 역할보다 위(디스코드의 역할 순서 규칙).
+ * 타임아웃 중이면 디스코드가 권한을 거두므로 아니다(소유자, 관리자는 그대로). 봇의 역할 가운데 캐시에 없는 것이 있으면 봇의 높이를 알 수 없어 아니다.
+ * 대시보드 서버 설정의 봇 내보내기가 본다
+ */
+function canKickBot(member: GuildMember) {
+  const owner = member.guild.ownerId === member.id;
+  if (!member.permissions.has(PermissionFlagsBits.KickMembers)) return false;
+  if (!owner && member.isCommunicationDisabled() && !member.permissions.has(PermissionFlagsBits.Administrator)) return false;
+  if (owner) return true;
+  const me = member.guild.members.me;
+  // 역할 id 목록은 discord.js 가 캐시에 없는 역할을 빼고 roles 로 보여 주기 전의 원본이다
+  if (!me || me["_roles"].some((id) => !member.guild.roles.cache.has(id))) return false;
+  return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
+}
+
+export { isServerManager, isBotOwner, isDj, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
 export type { PermissionDenied };

@@ -117,7 +117,11 @@ const guild = {
     },
     me: null as object | null,
   },
+  ownerId: "owner-of-guild",
+  // 봇이 서버에서 나간 횟수(봇 내보내기)
+  leave: async () => void leaves.push("leave"),
 };
+const leaves: string[] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
@@ -130,6 +134,13 @@ function modMember() {
 function plainMember() {
   return { id: "u1", user: { tag: "tester#0" }, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
 }
+
+// 역할 순서: 봇의 가장 높은 역할이 3. kicker 는 멤버 추방 권한이 있고 가장 높은 역할이 position
+const roleAt = (position: number) => ({ position, comparePositionTo: (other: { position: number }) => position - other.position });
+function kicker(position = 5) {
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.KickMembers }, isCommunicationDisabled: () => false, guild, roles: { cache: new Map(), highest: roleAt(position) }, voice: {} };
+}
+const withBotRole = () => (guild.members.me = { voice: { channel: null }, _roles: ["r3"], roles: { highest: roleAt(3) } });
 
 /** DJ 역할(r1)을 정한 서버에서. 그래야 역할 없는 멤버가 일반 사용자다(DJ 역할이 없는 서버는 모두가 DJ) */
 async function withDjRole<T>(fn: () => Promise<T>) {
@@ -525,6 +536,66 @@ test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄�
     voiceVisible = true;
     await stayReq({ on: false });
     players.delete(GUILD_ID);
+  }
+});
+
+// ── POST /settings/leave(봇 내보내기) ───────────────────────────
+
+const leaveReq = () => requestJson<ProblemReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/leave`);
+
+test("봇 내보내기: 디스코드에서 봇을 추방할 수 있는 사람(추방 권한, 역할이 봇보다 위)만 카드와 설정 버튼을 보고 내보낸다. 일반 사용자여도", async () => {
+  withBotRole();
+  leaves.length = 0;
+  try {
+    currentMember = kicker();
+    const read = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+    assert.deepEqual([read.status, read.json.cards], [200, ["leave"]], "DJ 가 아닌 사람에게는 이 카드 하나");
+    assert.equal((await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`))).json.hasSettings, true);
+
+    for (const [member, why] of [
+      [kicker(3), "봇과 같은 높이"],
+      [modMember(), "서버 관리 권한만 있고 추방 권한이 없다"],
+    ] as const) {
+      currentMember = member;
+      const r = await leaveReq();
+      assert.deepEqual([r.status, r.json.code], [403, "cannot-kick-bot"], why);
+      assert.ok(!(await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.cards?.includes("leave"), why);
+    }
+    assert.deepEqual(leaves, [], "막힌 요청은 나가지 않았다");
+
+    currentMember = kicker();
+    assert.equal((await leaveReq()).status, 200);
+    assert.deepEqual(leaves, ["leave"]);
+  } finally {
+    leaves.length = 0;
+    guild.members.me = null;
+  }
+});
+
+test("봇 내보내기: 재생 중이면 플레이어를 먼저 정리하고 나간다(세션도 지운다). 권한 수준 오버라이드 중이면 추방 권한이 있어도 막는다", async () => {
+  withBotRole();
+  leaves.length = 0;
+  const order: string[] = [];
+  players.set(GUILD_ID, fakePlayer({ dispose: async (opts: { end: string; session: string }) => void order.push(`dispose:${opts.end}:${opts.session}`) }));
+  const leave = guild.leave;
+  guild.leave = async () => void order.push("leave");
+  try {
+    currentMember = kicker();
+    currentUser = { id: "owner", username: "운영자" };
+    currentViewAs = "server-manager";
+    const viewing = await leaveReq();
+    assert.deepEqual([viewing.status, viewing.json.code], [403, "cannot-kick-bot"]);
+    assert.deepEqual(order, []);
+
+    currentViewAs = undefined;
+    assert.equal((await leaveReq()).status, 200);
+    assert.deepEqual(order, ["dispose:dashboard-leave:remove", "leave"]);
+  } finally {
+    guild.leave = leave;
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+    players.delete(GUILD_ID);
+    guild.members.me = null;
   }
 });
 

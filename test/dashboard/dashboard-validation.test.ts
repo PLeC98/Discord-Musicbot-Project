@@ -108,7 +108,7 @@ const guild = {
   channels: { cache: new Map() },
   members: {
     // 그 서버의 서버 관리자(동일 음성 채널, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
-    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
+    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
 };

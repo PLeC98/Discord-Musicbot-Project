@@ -18,7 +18,7 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 type GuildEvent = { t: "changed"; g: string };
 
 /** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards 의 표 */
-type SettingsCard = "stay" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace";
+type SettingsCard = "stay" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "leave";
 
 /**
  * 상주 모드 카드. on: 켜져 있는가, channel: 머무는 음성 채널(꺼져 있거나 보는 사람이 볼 수 없는 채널이면 null),

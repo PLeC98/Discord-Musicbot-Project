@@ -166,6 +166,8 @@ const WEB = {
   "announce-no-guilds": { status: 409, title: "Bot is in no servers" },
   "announce-failed": { status: 502, title: "Announcement reached no server" },
   "leave-guild-failed": { status: 502, title: "Could not leave the server" },
+  // 대시보드 서버 설정의 봇 내보내기: 디스코드에서 봇을 추방할 수 있는 사람이 아니다
+  "cannot-kick-bot": { status: 403, title: "Not allowed to remove the bot" },
   "deploy-failed": { status: 502, title: "Command deployment failed" },
   "suggest-failed": { status: 502, title: "Could not fetch suggestions" },
   "model-refresh-failed": { status: 502, title: "Could not fetch model information" },

@@ -202,6 +202,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "announce-no-guilds": () => warning("state", "공지를 보낼 서버가 없어요!", "봇이 들어가 있는 서버가 하나도 없어요."),
   "announce-failed": () => error("failed", "어느 서버에도 보내지 못했어요!", "보낼 수 있는 채널이 없거나 봇에게 메시지를 올릴 권한이 없어요. 서버마다 봇의 권한을 확인해 주세요."),
   "leave-guild-failed": () => error("failed", "서버에서 나가지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요."),
+  "cannot-kick-bot": () => warning("permission", "봇을 내보낼 권한이 없어요!", "디스코드에서 봇을 추방할 수 있는 사람만 내보낼 수 있어요."),
   "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 아래 오류 내용을 확인해 주세요."),
   "suggest-failed": () => error("failed", "자동완성 후보를 받지 못했어요!", "그 출처에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
