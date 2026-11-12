@@ -167,9 +167,12 @@ function linesOf({ at, buf }: Chunk): Raw[] {
   return out;
 }
 
-/** from(줄의 시작)부터 end까지의 줄들을 앞에서부터 읽는다 */
-function* forward(fd: number, from: number, end: number): Generator<Raw> {
-  for (const chunk of chunksForward(fd, from, end, CHUNK)) yield* linesOf(chunk);
+/** from(줄의 시작)부터 end까지의 줄들을 앞에서부터 읽는다. 긴 줄을 건너뛰는 동안은 조각마다 이벤트 루프를 양보한다 */
+async function* forward(fd: number, from: number, end: number): AsyncGenerator<Raw> {
+  for (const chunk of chunksForward(fd, from, end, CHUNK)) {
+    if (chunk.buf.length) yield* linesOf(chunk);
+    else await nextTurn();
+  }
 }
 
 // JSON에서 이스케이프하는 문자(", \, 제어 문자, 짝 없는 서로게이트)나 이스케이프 시퀀스(\n의 n 등) 바로 뒤에서 청크 단위 정규화와 필드 단위 정규화 결과가
@@ -227,10 +230,11 @@ async function* paced(chunks: Generator<Chunk>, { re, backward = false, stop }: 
   }
 }
 
-/** at 이상에서 처음 시작하는 줄의 위치(없으면 end) */
-function nextLineStart(fd: number, at: number, end: number): number {
+/** at 이상에서 처음 시작하는 줄의 위치(없으면 end). 첫 조각에 줄바꿈이 없으면 조각마다 이벤트 루프를 양보한다 */
+async function nextLineStart(fd: number, at: number, end: number): Promise<number> {
   if (at <= 0) return 0;
   for (let pos = at - 1; pos < end; pos += CHUNK) {
+    if (pos >= at) await nextTurn();
     const chunk = readAt(fd, pos, Math.min(CHUNK, end - pos));
     const i = chunk.indexOf(NL);
     if (i >= 0) return pos + i + 1;
@@ -239,22 +243,22 @@ function nextLineStart(fd: number, at: number, end: number): number {
 }
 
 /** 시각이 at 이상인 첫 줄의 위치(없으면 end). 줄이 시간 순서라 반씩 좁힌다. 읽을 수 없는 줄은 앞의 시각으로 친다 */
-function lowerBound(fd: number, at: number, end: number): number {
+async function lowerBound(fd: number, at: number, end: number): Promise<number> {
   // lo 앞의 줄은 모두 at 보다 이르고, hi 는 at 이상인 줄의 시작이거나 끝이다
   let lo = 0;
   let hi = end;
   while (lo < hi) {
     const mid = Math.floor((lo + hi) / 2);
-    const start = nextLineStart(fd, mid, hi);
+    const start = await nextLineStart(fd, mid, hi);
     if (start >= hi) {
       // 남은 사이에 줄이 한두 줄뿐: 앞에서부터 본다
-      for (const raw of forward(fd, lo, hi)) {
+      for await (const raw of forward(fd, lo, hi)) {
         const line = parse(raw);
         if (line && line.ts >= at) return raw.offset;
       }
       return hi;
     }
-    const first = forward(fd, start, hi).next();
+    const first = await forward(fd, start, hi).next();
     if (first.done) {
       // start 부터 hi 앞까지 건너뛴 긴 줄뿐이다: 답은 lo 부터 start 사이에 있거나 start(그 뒤로 보이는 줄은 hi 부터라 같다)
       hi = start;
@@ -269,14 +273,14 @@ function lowerBound(fd: number, at: number, end: number): number {
 }
 
 /** 파일 첫 줄의 시각(줄이 없으면 0). 파일을 알아보는 값 */
-function firstTimeOf(fd: number, size: number): number {
-  for (const raw of forward(fd, 0, size)) {
+async function firstTimeOf(fd: number, size: number): Promise<number> {
+  for await (const raw of forward(fd, 0, size)) {
     const line = parse(raw);
     if (line) return line.ts;
   }
   return 0;
 }
-const firstTime = (file: string) => withFile(file, firstTimeOf) ?? 0;
+const firstTime = async (file: string) => (await withFile(file, firstTimeOf)) ?? 0;
 
 /** 파일을 열어 fn을 호출한다. fn이 Promise를 반환하면 그 작업이 끝난 뒤에 닫는다. 열 수 없으면 null */
 function withFile<T>(file: string, fn: (fd: number, size: number) => T): T | null {
@@ -319,7 +323,7 @@ function scan(file: string): Promise<Scan | null> {
 
 /** scan의 본체. 캐시된 값을 직접 수정하지 않고 사본에 누적해 다 훑은 뒤에 교체한다(그동안 다른 요청은 기존 캐시 값을 읽는다) */
 async function scanFile(file: string, fd: number, size: number): Promise<Scan> {
-  const since = firstTimeOf(fd, size);
+  const since = await firstTimeOf(fd, size);
   const known = scans.get(file);
   const base = known && known.since === since && known.size <= size ? known : null;
   if (base?.size === size) return base;
@@ -375,7 +379,7 @@ async function listLogFiles(file: string, stop?: () => boolean): Promise<LogFile
  * 읽을 파일. name 은 목록의 이름이어야 한다(경로를 받지 않는다). since 를 주면 그 첫 줄의 파일: 지금 파일이 떼어졌으면 떼어 낸 파일.
  * 없으면 null
  */
-function resolveLogFile(file: string, name: string, since?: number): { name: string; path: string } | null {
+async function resolveLogFile(file: string, name: string, since?: number): Promise<{ name: string; path: string } | null> {
   const dir = path.dirname(file);
   const base = path.basename(file);
   const rotated = rotatedFilesOf(file, viewerReport);
@@ -385,9 +389,9 @@ function resolveLogFile(file: string, name: string, since?: number): { name: str
   const found = { name: picked, path: path.join(dir, picked) };
   if (!fs.existsSync(found.path)) return null;
   // 빈 파일(since 0)은 떼어지지 않는다
-  if (since === undefined || !since || picked !== base || firstTime(found.path) === since) return found;
-  const moved = rotated.reverse().find((one) => firstTime(path.join(dir, one)) === since);
-  return moved ? { name: moved, path: path.join(dir, moved) } : null;
+  if (since === undefined || !since || picked !== base || (await firstTime(found.path)) === since) return found;
+  for (const moved of rotated.reverse()) if ((await firstTime(path.join(dir, moved))) === since) return { name: moved, path: path.join(dir, moved) };
+  return null;
 }
 
 type PageQuery = { before?: number; after?: number; at?: number; limit: number; filter: LogFilter };
@@ -430,7 +434,7 @@ async function countAndLast(batches: AsyncGenerator<Raw[]>, keep: Keep, end: num
 /** 한 페이지를 읽는다. 위치는 줄의 시작이어야 한다(아니면 그다음 줄부터). stop이 참이 되면 그때까지 읽은 것으로 끝낸다(요청한 쪽 연결이 끊김) */
 async function readLogPage(target: { name: string; path: string }, query: PageQuery, stop?: () => boolean): Promise<FilePage | null> {
   return withFile(target.path, async (fd, size) => {
-    const since = firstTimeOf(fd, size);
+    const since = await firstTimeOf(fd, size);
     const keep: Keep = (raw) => {
       const line = parse(raw);
       return line && matchesLog(line, query.filter) ? line : null;
@@ -439,17 +443,17 @@ async function readLogPage(target: { name: string; path: string }, query: PageQu
 
     if (query.after !== undefined) {
       // 그 줄 뒤에서부터 아래로
-      const from = nextLineStart(fd, Math.min(query.after, size) + 1, size);
+      const from = await nextLineStart(fd, Math.min(query.after, size) + 1, size);
       const { lines, cut } = await take(paced(chunksForward(fd, from, size, SCAN_BYTES), { re, stop }), keep, query.limit);
       return { name: target.name, since, lines, more: from > 0, later: cut };
     }
 
     // 앞의 줄: before 앞에서부터 위로. 시각으로 가면 그 줄 뒤로 몇 줄을 더 받도록 끝을 정한다
-    let end = query.before === undefined ? size : nextLineStart(fd, Math.min(query.before, size), size);
+    let end = query.before === undefined ? size : await nextLineStart(fd, Math.min(query.before, size), size);
     if (query.at !== undefined) {
-      end = lowerBound(fd, query.at, size);
+      end = await lowerBound(fd, query.at, size);
       let n = 0;
-      for (const raw of forward(fd, end, size)) {
+      for await (const raw of forward(fd, end, size)) {
         end = raw.offset + raw.bytes.length + 1;
         if (++n > AT_AFTER_LINES + 1) {
           end = raw.offset;
@@ -466,6 +470,19 @@ async function readLogPage(target: { name: string; path: string }, query: PageQu
     const { lines, cut } = await take(paced(chunksBackward(fd, end, SCAN_BYTES), { re, backward: true, stop }), keep, query.limit);
     return { name: target.name, since, lines: lines.reverse(), more: cut, later: end < size };
   });
+}
+
+/**
+ * 이름과 첫 줄 시각(since)으로 찾은 파일의 한 페이지. 찾은 뒤 읽기 전에 그 파일이 떼어졌으면(읽은 파일의 첫 줄 시각이 since 와 다르다) 다시 찾는다.
+ * 없으면 null
+ */
+async function readNamedLogPage(file: string, name: string, since: number | undefined, query: PageQuery, stop?: () => boolean): Promise<FilePage | null> {
+  for (let tries = 0; tries < 3; tries++) {
+    const target = await resolveLogFile(file, name, since);
+    const page = target && (await readLogPage(target, query, stop));
+    if (!page || !since || page.since === since) return page;
+  }
+  return null;
 }
 
 /** 필터에 맞는 줄들을 앞에서부터 청크 단위로 내보낸다(다운로드용). 맞는 줄이 없는 청크는 건너뛴다 */
@@ -502,5 +519,5 @@ function formatLogLine(line: FileLine, offsetMin: number): string {
   return [when, line.level.toUpperCase().padEnd(5), cat, tags, line.text].filter(Boolean).join(" ");
 }
 
-export { listLogFiles, resolveLogFile, readLogPage, filteredLines, formatLogLine };
+export { listLogFiles, resolveLogFile, readLogPage, readNamedLogPage, filteredLines, formatLogLine };
 export type { PageQuery };

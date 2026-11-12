@@ -11,7 +11,7 @@ import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { requireOwner } from "../middleware/require-owner.ts";
 import { isEnded } from "../session-requests.ts";
 import { sendProblem } from "../problem.ts";
-import { filteredLines, formatLogLine, listLogFiles, readLogPage, resolveLogFile } from "../log-file-reader.ts";
+import { filteredLines, formatLogLine, listLogFiles, readNamedLogPage, resolveLogFile } from "../log-file-reader.ts";
 import { isLevel } from "../../infra/log/levels.ts";
 import { FILE_PAGE_LINES, FILE_PAGE_MAX, LOG_SEARCH_MAX, type FileLine, type FilePage, type LogFileList, type LogFilter } from "../contract/log-files.ts";
 const log = logger.child({ category: "dashboard" });
@@ -38,7 +38,7 @@ function filterOf(req: Request): LogFilter {
 }
 
 /** 읽을 파일(파일 로그를 껐거나 없는 이름이면 null) */
-function targetOf(req: Request) {
+async function targetOf(req: Request) {
   if (!config.logging.fileEnabled) return null;
   return resolveLogFile(config.logging.file, textOf(req.query.name), intOf(req.query.since));
 }
@@ -63,10 +63,10 @@ logFilesRouter.get("/files", async (req, res) => {
 });
 
 logFilesRouter.get("/file", async (req, res) => {
-  const target = targetOf(req);
   const limit = Math.min(Math.max(intOf(req.query.limit) ?? FILE_PAGE_LINES, 1), FILE_PAGE_MAX);
   const { left, stop } = watchLeave(req, res);
-  const page = target && (await readLogPage(target, { before: intOf(req.query.before), after: intOf(req.query.after), at: intOf(req.query.at), limit, filter: filterOf(req) }, stop));
+  const query = { before: intOf(req.query.before), after: intOf(req.query.after), at: intOf(req.query.at), limit, filter: filterOf(req) };
+  const page = config.logging.fileEnabled ? await readNamedLogPage(config.logging.file, textOf(req.query.name), intOf(req.query.since), query, stop) : null;
   if (left()) return;
   if (!page) return sendProblem(res, "log-file-not-found");
   res.json(page satisfies FilePage);
@@ -80,7 +80,7 @@ async function* downloadText(batches: AsyncGenerator<FileLine[]>, offset: number
 // 다운로드: 화면에 표시하는 필드만 현재 적용된 필터 그대로 내보낸다. 원본은 서버의 로그 폴더에 있다.
 // 받는 쪽이 읽는 만큼만 읽어 보내고, 끊기면(로그인이 끝나 끊은 것도) 멈추고 파일을 닫는다
 logFilesRouter.get("/file/download", async (req, res) => {
-  const target = targetOf(req);
+  const target = await targetOf(req);
   if (!target) return sendProblem(res, "log-file-not-found");
   const offset = intOf(req.query.tz) ?? 0;
   const name = `${path.basename(target.name, path.extname(target.name))}.txt`;

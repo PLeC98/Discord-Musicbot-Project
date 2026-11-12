@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { listLogFiles, readLogPage, filteredLines } from "../../src/dashboard/log-file-reader.ts";
-import { LINE_MAX } from "../../src/infra/log/file.ts";
+import { listLogFiles, readLogPage, readNamedLogPage, filteredLines, resolveLogFile } from "../../src/dashboard/log-file-reader.ts";
+import { backupPath, LINE_MAX } from "../../src/infra/log/file.ts";
 import { AT_AFTER_LINES, type FileLine } from "../../src/dashboard/contract/log-files.ts";
 
 const T0 = 1_760_000_000_000;
@@ -155,6 +155,64 @@ test("긴 줄을 건너뛰는 동안 이벤트 루프를 양보한다(줄을 다
   assert.ok(scanned >= 100, `목록을 훑는 동안 돈 턴 수 ${scanned}`);
   assert.ok(searched - scanned >= 100, `검색하는 동안 돈 턴 수 ${searched - scanned}`);
   assert.ok(turns - searched >= 100, `끝에서부터 읽는 동안 돈 턴 수 ${turns - searched}`);
+});
+
+/** run 이 끝날 때까지 이벤트 루프가 돈 턴 수 */
+async function turnsDuring<T>(run: () => Promise<T>): Promise<{ value: T; turns: number }> {
+  let turns = 0;
+  let ticking = true;
+  const tick = () => {
+    turns++;
+    if (ticking) setImmediate(tick);
+  };
+  setImmediate(tick);
+  const value = await run();
+  ticking = false;
+  return { value, turns };
+}
+
+test("줄바꿈 없는 큰 구간을 지나는 첫 줄 찾기, 줄 시작 찾기, 시각 찾기도 이벤트 루프를 양보한다", async () => {
+  const region = "x".repeat(16 * 1024 * 1024);
+  const rest = `${Array.from({ length: 100 }, (_, k) => line(k + 1, `line ${k + 1}`)).join("\n")}\n`;
+  const front = tmpFile();
+  fs.writeFileSync(front, `${region}\n${rest}`);
+  const middle = tmpFile();
+  const head = `${line(0, "line 0")}\n`;
+  fs.writeFileSync(middle, `${head}${region}\n${rest}`);
+
+  // 64KB 조각마다 한 번: 16MB 면 256번 남짓. 아래 셋은 뒤따르는 읽기가 짧아 그 턴이 거의 다 구간을 지나는 동안이다
+  const resolved = await turnsDuring(() => resolveLogFile(front, "bot.log", T0 + 1000));
+  assert.equal(resolved.value?.path, front);
+  assert.ok(resolved.turns >= 100, `첫 줄을 찾는 동안 돈 턴 수 ${resolved.turns}`);
+
+  const next = await turnsDuring(() => readLogPage(target(middle), { after: head.length + 10, limit: 3, filter: {} }));
+  assert.deepEqual(
+    next.value!.lines.map((one) => one.text),
+    ["line 1", "line 2", "line 3"],
+  );
+  assert.ok(next.turns >= 100, `다음 줄을 찾는 동안 돈 턴 수 ${next.turns}`);
+
+  const at = await turnsDuring(() => readLogPage(target(middle), { at: T0 + 20_000, limit: 5, filter: {} }));
+  assert.deepEqual(
+    at.value!.lines.map((one) => one.text),
+    [66, 67, 68, 69, 70].map((k) => `line ${k}`),
+  );
+  assert.ok(at.turns >= 100, `시각을 찾는 동안 돈 턴 수 ${at.turns}`);
+});
+
+test("첫 줄을 찾는 사이 지금 파일이 떼어지면 다시 찾아 보던 파일(첫 줄 시각이 같은 파일)을 읽는다", async () => {
+  const file = tmpFile();
+  const rest = `${Array.from({ length: 10 }, (_, k) => line(k + 1, `line ${k + 1}`)).join("\n")}\n`;
+  fs.writeFileSync(file, `${"x".repeat(4 * 1024 * 1024)}\n${rest}`);
+  const reading = readNamedLogPage(file, "bot.log", T0 + 1000, { limit: 3, filter: {} });
+  // 첫 줄을 찾느라 이벤트 루프를 놓은 사이에 기록기처럼 이름을 바꾸고 새 파일을 시작한다
+  const moved = backupPath(file, new Date(2026, 5, 1));
+  setImmediate(() => {
+    fs.renameSync(file, moved);
+    fs.writeFileSync(file, `${line(100, "line 100")}\n`);
+  });
+  const page = await reading;
+  assert.deepEqual([page?.name, page?.since, page?.lines.map((one) => one.text)], [path.basename(moved), T0 + 1000, ["line 8", "line 9", "line 10"]]);
 });
 
 test("목록 훑기 캐시: 긴 줄이 가운데, 끝에 있어도 다시 훑을 때 두 번 세지 않고, 끝의 덜 된 긴 줄은 마저 써도 세지 않는다", async () => {
