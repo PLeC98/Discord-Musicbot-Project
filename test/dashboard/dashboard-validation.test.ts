@@ -284,7 +284,7 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
 });
 
 // 화면이 받은 상태를 만든 순서로 구분해 늦게 온 옛 응답이 새 상태를 덮지 않게 한다
-type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; canManage?: boolean };
+type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; hasSettings?: boolean };
 const stateReq = (method: string, urlPath: string, body?: unknown) => requestJson<State>(base, method, urlPath, body, { timeoutMs: 3000 });
 
 test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른다. 정지 뒤에는 빈 상태", async () => {

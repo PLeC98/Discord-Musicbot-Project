@@ -16,7 +16,7 @@
       <span class="hidden lg:flex items-center gap-1 text-xs text-on-surface-variant truncate"
         ><Icon :name="voiceLine.icon" :size="16" :fill="player.sameVoice" :class="player.sameVoice ? 'text-primary' : ''" /><span class="truncate">{{ voiceLine.text }}</span></span
       >
-      <router-link v-if="player.canManage" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
+      <router-link v-if="player.hasSettings" :to="`/servers/${guildId}/settings`" v-tooltip="T.serverSettings" :class="TOPBAR_BTN" :aria-label="T.serverSettings"><Icon name="tune" /></router-link>
     </Teleport>
 
     <!-- 휴대폰: 글, 버튼 뒤의 받침 오버레이. 곡마다 배경화면 색이 달라 앨범아트 아래 글이 묻혀서, 세로는 아래로(35~72%), 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
@@ -355,7 +355,7 @@ const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
 // 처음 읽기 전의 모양. 봇이 없는 서버와 같다
-const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, userPaused: false, heldBy: null, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, canManage: false, userId: "", hasPrevious: false });
+const player = ref<PlayerSeen>({ boot: 0, seq: 0, playing: false, paused: false, userPaused: false, heldBy: null, queue: [], queueTotal: 0, currentTrack: null, volume: 100, loop: false, hasLive: false, botInVoice: false, userInVoice: false, sameVoice: false, hasPlayer: false, canControl: false, canAdd: false, hasSettings: false, userId: "", hasPrevious: false });
 
 // 대기열은 앞에서부터 한 페이지씩 받는다. 서버 응답도 지금 펼쳐 둔 만큼(loadedCount)만 싣는다.
 const loadedCount = ref(QUEUE_PAGE);

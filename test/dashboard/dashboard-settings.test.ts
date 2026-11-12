@@ -15,16 +15,14 @@ import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard
 
 /** 이 테스트가 읽는 답의 필드(서버 설정, 플레이어, 서버 목록) */
 type Reply = ProblemReply & {
-  canEdit?: boolean;
   guildName?: string;
-  djRoleIds?: string[];
-  botChannelId?: string | null;
-  roles?: { id: string; name: string; color: string | null }[];
-  channels?: { id: string; name: string }[];
+  cards?: string[];
+  channel?: { botChannelId: string | null; channels: { id: string; name: string }[] };
+  dj?: { djRoleIds: string[]; roles: { id: string; name: string; color: string | null }[] };
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
   playlistAdd?: unknown;
-  agePlace?: string | null;
-  canManage?: boolean;
+  agePlace?: string;
+  hasSettings?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
   hasPlayer?: boolean;
@@ -165,27 +163,30 @@ test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () =>
 
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
-  assert.equal(r.json.canEdit, true);
   assert.equal(r.json.guildName, "TestGuild");
-  assert.deepEqual(r.json.djRoleIds, ["r1"], "삭제된 역할은 응답에서 필터링");
-  assert.equal(r.json.botChannelId, "c2");
+  assert.deepEqual(r.json.dj?.djRoleIds, ["r1"], "삭제된 역할은 응답에서 필터링");
+  assert.equal(r.json.channel?.botChannelId, "c2");
   assert.deepEqual(
-    r.json.roles?.map((x) => x.id),
+    r.json.dj?.roles.map((x) => x.id),
     ["r3", "r1", "r2"],
     "@everyone 제외 + position 내림차순",
   );
-  assert.equal(r.json.roles?.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
+  assert.equal(r.json.dj?.roles.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
   assert.deepEqual(
-    r.json.channels?.map((x) => x.id),
+    r.json.channel?.channels.map((x) => x.id),
     ["c1", "c2"],
     "일반 텍스트 채널만",
   );
 });
 
-test("GET settings: 일반 멤버는 조회도 403 (서버 관리자 전용)", async () => {
+test("GET settings: 일반 멤버는 보이는 카드가 없어 403, 카드의 값을 싣지 않는다", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.equal(r.status, 403);
+  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
+  assert.deepEqual(
+    ["cards", "channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
+    [],
+  );
 });
 
 test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
@@ -213,25 +214,29 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
   currentUser = { id: "u1", username: "tester" };
 });
 
-// ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────
+// ── GET /player의 hasSettings (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: canManage. 일반 멤버 false / 서버 관리자 true", async () => {
+test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 멤버 false / 서버 관리자 true", async () => {
   currentMember = plainMember();
   let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.equal(r.status, 200);
-  assert.equal(r.json.canManage, false);
+  assert.equal(r.json.hasSettings, false);
 
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-  assert.equal(r.json.canManage, true);
+  assert.equal(r.json.hasSettings, true);
 });
 
 // ── PUT /settings ────────────────────────────────────────────
 
-test("PUT settings: 일반 멤버 403", async () => {
+test("PUT settings: 일반 멤버 403, 아무것도 반영하지 않는다(빈 본문도)", async () => {
   currentMember = plainMember();
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1"] });
-  assert.equal(r.status, 403);
+  const before = settingsRow();
+  for (const body of [{ djRoleIds: ["r1"] }, {}, { agePlace: "all" }]) {
+    const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
+    assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"], JSON.stringify(body));
+  }
+  assert.deepEqual(settingsRow(), before);
 });
 
 test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
@@ -322,10 +327,11 @@ test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기
   assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
 });
 
-test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드가 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장, 되돌리기, 모르는 값은 400", async () => {
+test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 카드가 없다(저장은 받는다), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장, 되돌리기, 모르는 값은 400", async () => {
   currentMember = modMember();
   documents._use("age-content", { enabled: false, changedAt: 1 });
-  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, null);
+  const off = (await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json;
+  assert.deepEqual([off.agePlace, off.cards?.includes("agePlace")], [undefined, false]);
 
   documents._use("age-content", { enabled: true, changedAt: 2 });
   assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, "channel");
@@ -419,7 +425,7 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래
 
 // ── GET /api/guilds 의 후보 ──
 
-test("GET player: canManage(서버 관리 권한)는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
+test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
   noVoice();
   currentUser = { id: "owner", username: "운영자" };
   try {
@@ -432,7 +438,10 @@ test("GET player: canManage(서버 관리 권한)는 권한 수준 오버라이�
       currentMember = member();
       currentViewAs = viewAs;
       const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-      assert.equal(r.json.canManage, want, `${member.name}: ${viewAs} 보기`);
+      assert.equal(r.json.hasSettings, want, `${member.name}: ${viewAs} 보기`);
+      const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+      const write = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: null });
+      assert.deepEqual([read.status, write.status], want ? [200, 200] : [403, 403], `${member.name}: ${viewAs} 보기의 설정 읽기, 쓰기`);
     }
   } finally {
     currentViewAs = undefined;

@@ -1,7 +1,7 @@
 import { PermissionsBitField, PermissionFlagsBits, type GuildMember } from "discord.js";
 import type { Request } from "express";
 import { isDj, isServerManager } from "../usecases/permissions.ts";
-import { isTier, type Tier } from "./contract/identity.ts";
+import { isTier, TIER_RANK, type Tier } from "./contract/identity.ts";
 import { isRealOwner } from "./owner.ts";
 
 /**
@@ -26,9 +26,6 @@ function getViewAs<P>(req: Request<P>): Tier | null {
 function isOwner<P>(req: Request<P>) {
   return isRealOwner(req) && !getViewAs(req);
 }
-
-/** 계층의 높이다(높을수록 큰 수) */
-const RANK: Record<Tier, number> = { "server-manager": 2, dj: 1, user: 0 };
 
 /** 그 서버에서의 실제 계층을 구한다 */
 async function tierOf(member: GuildMember): Promise<Tier> {
@@ -62,7 +59,7 @@ async function shadowMember<M extends GuildMember | null, P>(req: Request<P>, me
   const tier = getViewAs(req);
   const spec = tier && SPEC[tier];
   if (!spec || !member) return member;
-  if (RANK[tier] >= RANK[await tierOf(member)]) return member;
+  if (TIER_RANK[tier] >= TIER_RANK[await tierOf(member)]) return member;
 
   return Object.create(member, {
     permissions: { value: spec.permissions, enumerable: true },
@@ -70,4 +67,4 @@ async function shadowMember<M extends GuildMember | null, P>(req: Request<P>, me
   });
 }
 
-export { getViewAs, isOwner, shadowMember };
+export { getViewAs, isOwner, shadowMember, tierOf };

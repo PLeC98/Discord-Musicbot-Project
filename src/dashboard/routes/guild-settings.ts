@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 서버 관리자만 접근할 수 있다(봇 운영자도 해당 서버의 권한을 따른다)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 카드마다 볼 수 있는 계층은 dashboard/settings-cards 의 표(봇 운영자도 해당 서버의 권한을 따른다)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -7,11 +7,9 @@ const log = logger.child({ category: "dashboard" });
 import { ChannelType, type Guild } from "discord.js";
 import type { z } from "zod";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { isServerManager } from "../../usecases/permissions.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
-import { ageContentOn } from "../../config/age-content.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 import { openGuild } from "../guild-access.ts";
 import { parse, settingsBody } from "../request-schemas.ts";
@@ -19,6 +17,8 @@ import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
 import type { GuildSettings, Saved } from "../contract/guilds.ts";
+import { tierOf } from "../view-as.ts";
+import { shownCards, editsAny, noCardRefusal, fieldRefusal } from "../settings-cards.ts";
 
 /** 검사를 지난 본문. 필드마다 undefined 는 변경 없음 */
 type SettingsBody = z.output<ReturnType<typeof settingsBody>>;
@@ -71,70 +71,69 @@ async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAd
 function createGuildSettingsRouter() {
   const router = express.Router();
 
-  // 서버 설정 조회. DJ 역할, 봇 전용 채널 현황 + 드롭다운용 역할/채널 목록.
-  // 조회, 변경 모두 서버 관리자 전용(일반 멤버는 ⚙ 진입 자체 불가).
+  // 서버 설정 조회. 보는 사람에게 보이는 카드와 그 카드의 값만 싣는다(안 보이는 카드의 역할, 채널 목록은 보내지 않는다)
   router.get("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member } = ctx;
 
-    const canEdit = isServerManager(member);
-    if (!canEdit) {
-      return sendProblem(res, "must-server-manager");
+    const cards = shownCards(await tierOf(member));
+    if (!cards.length) return sendProblem(res, noCardRefusal());
+    const reply: GuildSettings = { guildName: guild.name, cards };
+
+    if (cards.includes("channel")) {
+      const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+      // /setchannel과 동일하게 일반 텍스트 채널만
+      const channels = [...guild.channels.cache.values()]
+        .filter((c) => c.type === ChannelType.GuildText)
+        .sort((a, b) => a.rawPosition - b.rawPosition)
+        .map((c) => ({ id: c.id, name: c.name }));
+      reply.channel = { botChannelId: rawChannelId && guild.channels.cache.has(rawChannelId) ? rawChannelId : null, channels };
     }
 
-    const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
-    const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
-    const botChannelId = rawChannelId && guild.channels.cache.has(rawChannelId) ? rawChannelId : null;
+    if (cards.includes("dj")) {
+      const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => guild.roles.cache.has(id));
+      // @everyone(서버 ID와 동일)은 제외. "전원 DJ"는 미설정이 이미 그 의미
+      const roles = [...guild.roles.cache.values()]
+        .filter((r) => r.id !== guild.id)
+        .sort((a, b) => b.position - a.position)
+        .map((r) => ({ id: r.id, name: r.name, color: r.color ? r.hexColor : null }));
+      reply.dj = { djRoleIds, roles };
+    }
 
-    // @everyone(서버 ID와 동일)은 제외. "전원 DJ"는 미설정이 이미 그 의미
-    const roles = [...guild.roles.cache.values()]
-      .filter((r) => r.id !== guild.id)
-      .sort((a, b) => b.position - a.position)
-      .map((r) => ({ id: r.id, name: r.name, color: r.color ? r.hexColor : null }));
-
-    // /setchannel과 동일하게 일반 텍스트 채널만
-    const channels = [...guild.channels.cache.values()]
-      .filter((c) => c.type === ChannelType.GuildText)
-      .sort((a, b) => a.rawPosition - b.rawPosition)
-      .map((c) => ({ id: c.id, name: c.name }));
-
-    // SponsorBlock 서버별 설정 (유효값 + 마스터 상태 + 카테고리 목록)
-    const sbEff = GuildSettingsManager.resolveSponsorBlock(guild.id);
-    const sponsorblock = {
-      masterEnabled: config.sponsorblock.enabled, // 전역 off면 서버 설정 무의미
-      enabled: sbEff.enabled,
-      categories: sbEff.categories,
-    };
+    if (cards.includes("sponsorblock")) {
+      const sbEff = GuildSettingsManager.resolveSponsorBlock(guild.id);
+      // 전역 off면 서버 설정 무의미
+      reply.sponsorblock = { masterEnabled: config.sponsorblock.enabled, enabled: sbEff.enabled, categories: sbEff.categories };
+    }
 
     // 재생목록 한 번에 넣는 곡 수. 저장값(null=기본), 실제 값, 설정할 수 있는 범위
-    const playlistAdd = {
-      value: await GuildSettingsManager.getPlaylistAddMax(guild.id),
-      effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id),
-      ...GuildSettingsManager.playlistAddLimits(),
-    };
+    if (cards.includes("playlistAdd")) {
+      reply.playlistAdd = { value: await GuildSettingsManager.getPlaylistAddMax(guild.id), effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id), ...GuildSettingsManager.playlistAddLimits() };
+    }
 
-    // 연령 제한 콘텐츠를 재생할 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 필드가 없다
-    const agePlace = ageContentOn() ? GuildSettingsManager.resolveAgePlace(guild.id) : null;
+    if (cards.includes("agePlace")) reply.agePlace = GuildSettingsManager.resolveAgePlace(guild.id);
 
-    res.json({ guildName: guild.name, canEdit, djRoleIds, botChannelId, roles, channels, sponsorblock, playlistAdd, agePlace } satisfies GuildSettings);
+    res.json(reply);
   });
 
-  // 서버 설정을 변경한다. 서버 관리자 전용이며 /setting, /setchannel과 같은 기준을 따른다.
-  // 부분 적용 방지를 위해 전체 검증 후 일괄 반영.
+  // 서버 설정을 변경한다. 필드마다 그 카드를 고칠 수 있는 계층이어야 하고(서버 관리자 카드는 /setting, /setchannel과 같은 기준),
+  // 하나라도 막히거나 틀리면 아무것도 반영하지 않는다. 운영자가 끈 기능의 카드(연령 제한)도 고칠 수 있는 계층이면 저장한다(켜면 쓰인다)
   router.put("/:guildId/settings", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    if (!isServerManager(member)) {
-      return sendProblem(res, "must-server-manager");
-    }
+    const tier = await tierOf(member);
+    if (!editsAny(tier)) return sendProblem(res, noCardRefusal());
 
     const limits = GuildSettingsManager.playlistAddLimits();
     const body = parse(settingsBody(limits), req.body ?? {});
     // 필드별 문제. 재생목록 곡 수는 범위를 같이 싣는다
     if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
+
+    const denied = fieldRefusal(tier, body.value);
+    if (denied) return sendProblem(res, denied);
 
     const plan = planSettings(guild, body.value);
     if ("refused" in plan) return refuseWith(res, plan.refused);

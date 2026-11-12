@@ -19,7 +19,7 @@ import { listenForFetch, baseUrl } from "../helpers/listen.ts";
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 
-type Reply = ProblemReply & { hasPlayer?: boolean; sameVoice?: boolean; canManage?: boolean; currentTrack?: { title: string } | null };
+type Reply = ProblemReply & { hasPlayer?: boolean; sameVoice?: boolean; hasSettings?: boolean; currentTrack?: { title: string } | null };
 
 const voice = (id: string) => ({ id, name: id, permissionsFor: () => ({ has: () => true }) });
 let botVoice: string | null = null;
@@ -76,7 +76,7 @@ test("부르면 /join 과 같이 붙고, 사람이 채널에 있어도 곡 없�
   const r = await join();
   assert.equal(r.status, 200);
   assert.equal(r.json.hasPlayer, true);
-  assert.equal(r.json.canManage, false, "설정 화면 진입 여부도 GET /player 와 같은 필드로");
+  assert.equal(r.json.hasSettings, false, "설정 화면 진입 여부도 GET /player 와 같은 필드로");
   const player = players.get("g1");
   assert.ok(player?.connection, "붙었다");
   assert.ok(player.idle.emptyTimer, "곡 없이 대기");

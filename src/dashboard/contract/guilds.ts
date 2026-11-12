@@ -8,7 +8,7 @@ type ListState = "idle" | "playing" | "paused" | "waiting";
 /** 서버 목록의 지금 곡. 곡이 없으면 null */
 type GuildTrack = { title: string | null; artist: string | null; thumbnail: string | null };
 
-/** 서버 목록의 한 항목. listening 은 사용자가 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버에서 재생 중인 곡. 설정 화면의 권한은 GET /player 의 canManage */
+/** 서버 목록의 한 항목. listening 은 사용자가 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버에서 재생 중인 곡. 설정 화면을 열 수 있는지는 GET /player 의 hasSettings */
 type GuildRow = { id: string; name: string; icon: string | null; hasPlayer: boolean; state: ListState; memberCount: number; listening: boolean; nowPlaying: GuildTrack | null };
 /** relogin: 디스코드에서 사용자의 서버 목록을 받지 못해(토큰이 없거나 거절됨) 이미 확인한 서버만 보인다. 다시 로그인하면 모두 보인다 */
 type GuildList = { guilds: GuildRow[]; relogin?: true };
@@ -16,21 +16,25 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 /** 실시간 알림(/api/guilds/events)의 한 건. 받은 화면이 그 서버의 상태를 다시 읽는다 */
 type GuildEvent = { t: "changed"; g: string };
 
-/** 서버 설정 화면. value 는 저장값(null 이면 기본), effective 는 실제로 쓰는 값 */
+/** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards 의 표 */
+type SettingsCard = "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace";
+
+/**
+ * 서버 설정 화면. cards 는 보는 사람에게 보이는 카드이고, 카드의 값은 보이는 카드만 싣는다(안 보이는 카드의 목록, 값은 보내지 않는다).
+ * playlistAdd 의 value 는 저장값(null 이면 기본), effective 는 실제로 쓰는 값
+ */
 type GuildSettings = {
   guildName: string;
-  canEdit: boolean;
-  djRoleIds: string[];
-  botChannelId: string | null;
-  roles: Array<{ id: string; name: string; color: string | null }>;
-  channels: Array<{ id: string; name: string }>;
-  sponsorblock: { masterEnabled: boolean; enabled: boolean; categories: string[] };
-  playlistAdd: { value: number | null; effective: number; min: number; max: number; default: number };
-  /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 null(화면에 입력란이 없다) */
-  agePlace: AgePlace | null;
+  cards: SettingsCard[];
+  channel?: { botChannelId: string | null; channels: Array<{ id: string; name: string }> };
+  dj?: { djRoleIds: string[]; roles: Array<{ id: string; name: string; color: string | null }> };
+  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
+  playlistAdd?: { value: number | null; effective: number; min: number; max: number; default: number };
+  /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 */
+  agePlace?: AgePlace;
 };
 
 /** 서버 설정 저장의 답 */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, GuildSettings, Saved };
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, GuildSettings, Saved };
