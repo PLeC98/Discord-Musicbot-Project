@@ -141,7 +141,8 @@ before(async () => {
   app.locals.stream = fake<PlayerStream>({ subs: new Set([{}, {}]) });
   // 재배포 버튼 경로. 등록 요청은 받은 명령 이름을 그대로 돌려준다(디스코드가 돌려주는 필드 중 이름만)
   const put = fake<PutCommands>(async (_route: string, body: { name: string }[]) => body.map((c) => ({ name: c.name })));
-  app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put });
+  // 등록을 건너뛰는 경로도 실제로 읽지 않게 읽기 가짜를 넘긴다
+  app.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put, get: async () => [] });
   app.use("/api/admin", adminRouter);
   server = await listenForFetch(app);
   base = baseUrl(server);

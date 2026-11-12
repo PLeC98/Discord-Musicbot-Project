@@ -111,9 +111,6 @@ const ICONS = {
   alone: { glyph: "person_off", unicode: "⏳" },
   dashboard: { glyph: "dashboard", unicode: "🔗" },
   invite: { glyph: "person_add", unicode: "📄" },
-  servers: { glyph: "dns", unicode: "🏠" },
-  users: { glyph: "group", unicode: "👥" },
-  players: { glyph: "graphic_eq", unicode: "🎵" },
   dj: { glyph: "lock", unicode: "🔒" },
 
   // 운영자 공지(대시보드에서 보내는 임베드의 제목)
@@ -155,8 +152,11 @@ const RETIRED_EMOJI_NAMES: Readonly<Record<string, { renamed: string } | { unico
   platform_utaitedb: { unicode: "🎤" },
   platform_vocadb: { unicode: "🎹" },
   platform_youtube_error: { unicode: "🔴" },
+  players: { unicode: "🎵" },
+  servers: { unicode: "🏠" },
   stale_error: { unicode: "⌛" },
   state_error: { unicode: "⚠️" },
+  users: { unicode: "👥" },
   voice: { unicode: "🎧" },
 };
 
