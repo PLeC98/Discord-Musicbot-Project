@@ -54,7 +54,7 @@ const autoplayOn = "자동재생 켜기";
 const autoplayOff = "자동재생 끄기";
 const whichGenre = "어떤 장르의 곡들을 틀까요?";
 const dragToReorder = "드래그해서 순서 바꾸기";
-const pickedByAutoplay = "자동재생이 선택한 곡";
+const pickedByAutoplay = "자동재생";
 const removeSong = "빼기";
 const queueEmpty = "대기열이 비어 있어요";
 /** 아직 받지 않은 곡이 뒤에 있어 맨 끝으로 옮길 수 없을 때 */
