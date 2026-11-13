@@ -54,7 +54,8 @@ type SessionHooks = { onPacket(packet: Buffer): void; onError(error: Error): voi
 type EncodeSession = {
   /** 큐 깊이: 미리 보내 둘 프레임 수(보낸 것 + 송출 대기 패킷). 바뀌면 다음 보내기부터 따른다 */
   readonly depth: number;
-  send(frame: Buffer, gain: number): void;
+  /** gain: 곱할 게인(선형), press: 리미터 켜짐 여부(media/limiter) */
+  send(frame: Buffer, gain: number, press?: boolean): void;
   /** 읽을 때 부르는 동기 수신. 와 있는 답을 이 자리에서 받는다 */
   drain(): void;
   /** 읽을 때 보낸 것은 있는데 받은 패킷이 없었다(워커가 늦다) */
@@ -67,7 +68,7 @@ type EncodeSession = {
 };
 
 // frame: 아직 워커에 보내지 않은 프레임(보내면 null). sentAt: 보낸 때(보내지 않았으면 0)
-type Sent = { seq: number; frame: Buffer | null; gain: number; sentAt: number };
+type Sent = { seq: number; frame: Buffer | null; gain: number; press: boolean; sentAt: number };
 type Load = Extract<FromWorker, { type: "load" }>;
 type Slot = { id: number; entry: Entry | null };
 
@@ -122,9 +123,9 @@ class Session implements EncodeSession {
     return this.slot.entry?.depth ?? START_DEPTH;
   }
 
-  send(frame: Buffer, gain: number) {
+  send(frame: Buffer, gain: number, press = false) {
     if (this.freed) return;
-    const item: Sent = { seq: this.#seq++, frame, gain, sentAt: 0 };
+    const item: Sent = { seq: this.#seq++, frame, gain, press, sentAt: 0 };
     this.sent.push(item);
     this.pool.hold(this);
     this.lastSend = now();
@@ -163,7 +164,7 @@ function post(entry: Entry, id: number, item: Sent) {
   // 버퍼를 통째로 가진 프레임은 그대로 넘긴다. Buffer 풀 조각은 넘기면 풀 전체가 비워지므로 잘라 넘긴다
   const whole = frame.byteOffset === 0 && frame.byteLength === frame.buffer.byteLength;
   const pcm = (whole ? frame.buffer : frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength)) as ArrayBuffer;
-  const message: ToWorker = { type: "frame", id, seq: item.seq, gain: item.gain, pcm };
+  const message: ToWorker = { type: "frame", id, seq: item.seq, gain: item.gain, press: item.press, pcm };
   entry.thread.postMessage(message, [pcm]);
 }
 

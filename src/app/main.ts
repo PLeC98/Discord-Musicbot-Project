@@ -22,6 +22,7 @@ import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
+import { measureQueue } from "../media/loudness-measure.ts";
 import { encodePool } from "../media/encode-pool.ts";
 import { Player } from "../player/player.ts";
 import { restoreSessions, restoreGuild } from "../player/session-restore.ts";
@@ -231,6 +232,10 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
+  // 캐시 파일의 음량을 측정했으면 그 곡을 트는 모든 서버가 새 고정 게인으로 램프한다(같은 곡을 여러 서버가 틀 수 있다)
+  measureQueue.onMeasured((audioKey) => {
+    for (const player of players.values()) player.gain.valueArrived(audioKey);
+  });
   playerEvents.on("started", (player) => stay.wake(player.guild.id));
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {

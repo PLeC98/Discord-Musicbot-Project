@@ -54,6 +54,8 @@ import { PauseState, type PauseChange } from "./pause-state.ts";
 import { holdsOf, listenersIn, type VoiceView } from "../rules/holds.ts";
 import { PlaybackState } from "./playback-state.ts";
 import { CurrentPlayback } from "./current-playback.ts";
+import { GainControl } from "./gain-control.ts";
+import { measureQueue } from "../media/loudness-measure.ts";
 import { leaveDeadPin } from "../sources/pinned-fallback.ts";
 import * as playerEvents from "./events.ts";
 import { prepareStart, resolveSource, commitPlaying, playingKey } from "./start-playback.ts";
@@ -323,6 +325,8 @@ class Player {
   settingsSink: { onSettingsChanged(): void } | null;
   warmer: QueueWarmer;
   sponsorSkipper: SponsorSkipper;
+  /** 볼륨 정규화의 게인 조절기 */
+  gain: GainControl;
   _retryTrack?: QueuedTrack | null;
   _autoplayPicking?: boolean;
   /** 자동재생 길 찾기의 바깥 경계. 테스트만 넘긴다 */
@@ -364,6 +368,7 @@ class Player {
     );
 
     // 협력 모듈. 각자 자기 상태와 타이머를 가진다
+    this.gain = new GainControl({ isOn: () => this._normalizing(), measure: (key) => measureQueue.request(key, { current: true }) });
     this.voice = this.io.createVoice(this);
     this.watch = new PlaybackWatch(this); // 넘침 안전망, 버퍼링 감시, 멎음 감시
     this.idle = new IdleLeave(this); // 혼자 남음, 틀 게 없음 퇴장
@@ -381,6 +386,13 @@ class Player {
         });
       },
       wantArt: (tracks) => embeddedArt.want(tracks),
+      wantLoudness: (tracks) => {
+        if (!this._normalizing()) return;
+        for (const track of tracks) {
+          const key = audioKeyOf(track.audioUrl);
+          if (key) measureQueue.request(key);
+        }
+      },
       isCached: (track) => this.downloader.isCached(track),
       isBusy: (track) => TrackDownloader.isDownloading(this.downloader.trackFilePath(track)),
       keyOf: (track) => audioKeyOf(track?.audioUrl),
@@ -389,6 +401,11 @@ class Player {
     this.sponsorSkipper = new SponsorSkipper(this);
 
     this._listenToAudioPlayer();
+  }
+
+  /** 이 서버의 볼륨 정규화 켜짐 여부(프레임마다 부르므로 메모리에서 읽는다) */
+  _normalizing() {
+    return guildSettings.resolveNormalize(this.guild.id);
   }
 
   _listenToAudioPlayer() {
@@ -531,7 +548,7 @@ class Player {
       this.heldPositionMs = start.startMs;
       const track = pb.track;
 
-      const open = () => this._openSource(opening, start.startMs, previous, liveReopen);
+      const open = () => this._openSource(opening, start.startMs, previous, { liveReopen, continued });
       const opened = await open().catch(async (error: unknown) => {
         // 직접 지정한 음원이 여는 순간 사라졌으면(직접 링크는 여기서야 연다) 이번 재생은 지정을 건너뛰고 다시 찾아 한 번 더.
         // 스트림 주소로 여는 음원(유튜브, 사운드클라우드)은 sources/stream-url 이 이미 했다
@@ -543,6 +560,7 @@ class Player {
       if (!input.resource) throw codedError("stream-failed", "오디오 리소스 만들기 실패");
       pb.resource = input.resource;
       pb.output = input.output ?? null;
+      pb.tap = input.tap ?? null;
       pb.cacheFile = input.cacheFile;
       settleAudio(this.guild.id, pb, source);
       pb.input = input.health;
@@ -598,7 +616,8 @@ class Player {
   }
 
   // 소리를 어디서 받을지 정하고 연다. 끊긴 라이브를 다시 여는데 방송이 끝났으면 null(다시보기를 처음부터 틀지 않는다. 사용자가 추가한 것은 방송이다)
-  async _openSource(pb: CurrentPlayback, startMs: number, previous: CurrentPlayback | null, liveReopen: boolean) {
+  // continued, liveReopen: 같은 곡을 이어 튼다(볼륨 정규화의 재생 상태를 이어 간다)
+  async _openSource(pb: CurrentPlayback, startMs: number, previous: CurrentPlayback | null, { liveReopen, continued }: { liveReopen: boolean; continued: boolean }) {
     const track = pb.track;
     const source = await resolveSource(this, track, startMs, previous);
     const { streamInfo, cacheFile } = source;
@@ -620,6 +639,8 @@ class Player {
       // 오류는 곡이 바뀐 뒤, 같은 곡의 새 재생을 여는 동안에 도착할 수 있다. 이 재생을 붙잡아 두어 엉뚱한 곡, 위치로 갈아타지 않게 한다
       onStreamLost: (splicer) => this._planCacheSwitch(splicer, pb),
       gain: gainOf(this.volume),
+      // 입력 방식이 정해진 뒤 연다. 키는 잠정이고 확정할 때 다시 본다
+      openTap: (facts) => this.gain.openTap({ key: pb.audioKey, continued: continued || liveReopen }, facts),
       onProgress: () => {
         pb.inputProgressAt = Date.now();
       },
@@ -693,7 +714,10 @@ class Player {
       .downloadTrack(track)
       .then((file) => {
         log.debug(`백그라운드 캐시 다운로드 완료: ${this._trackLabel(track)} → ${file}`);
-        if (this.currentTrack === track) this._learnLength(track);
+        if (this.currentTrack === track) {
+          this._learnLength(track);
+          this._loudnessAfterDownload();
+        }
         if (this._noteTrackInfo(track, before)) void refreshPanel(this, "백그라운드 다운로드 곡 정보");
       })
       .catch(() => {
@@ -729,6 +753,14 @@ class Player {
 
   /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
    *  곡이 그사이 다른 음원으로 다시 찾아졌으면 받은 것은 그 음원의 길이라 적지 않는다(트는 음원의 행에 길이가 없다) */
+  // 지금 곡의 캐시 다운로드가 끝났다. 다시 받은 파일이 기존 측정값과 맞으면 바로 쓰고, 아니면 측정을 요청한다
+  _loudnessAfterDownload() {
+    const key = this.playback?.audioKey;
+    if (!key || !this._normalizing()) return;
+    this.gain.valueArrived(key);
+    measureQueue.request(key, { current: true });
+  }
+
   _learnLength(track: QueuedTrack) {
     const pb = this.playback;
     if (!pb || pb.track !== track || pb.lengthMs || !pb.audioKey) return;
@@ -1009,6 +1041,7 @@ class Player {
       log.warn(`재생 종료 중 출력 스트림 해제 실패: ${ending ?? this._trackLabel(null)} | 종료 원인=${end}, 입력=${this.playback?.input?.kind ?? "?"} | ${messageOf(error)}`);
     }
     this.playback = null;
+    this.gain.end();
     this.heldPositionMs = 0;
   }
 

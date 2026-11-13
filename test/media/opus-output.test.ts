@@ -208,6 +208,39 @@ test("볼륨 게인은 1 위로도 걸리고 넘치는 샘플은 ±1 로 클립�
   assert.ok(mean(clipped) > 12000 * 2, `게인 10 이 곱해지지 않았다: ${mean(clipped)}`);
 });
 
+test("볼륨 정규화의 게인 탭: 프레임마다 시작 위치로 묻고, 정규화 게인(dB)을 선형으로 바꿔 볼륨 게인에 곱한 뒤 리미터 켜짐 여부와 함께 싣는다. 끝나면 탭을 닫는다", async () => {
+  const asked: number[] = [];
+  const sent: Array<[number, boolean | undefined]> = [];
+  let closed = 0;
+  const tap = {
+    frame: (pos: number) => (asked.push(pos), { gain: pos >= 960 * 3 ? -6 : 0, press: pos >= 960 * 3 }),
+    metering: () => false,
+    block: () => {},
+    close: () => void closed++,
+  };
+  const open: OpenEncoder = (hooks) => {
+    const session = pool.open(hooks);
+    return {
+      get depth() {
+        return session.depth;
+      },
+      send: (frame, gain, press) => (sent.push([gain, press]), session.send(frame, gain, press)),
+      drain: () => session.drain(),
+      late: () => session.late(),
+      underrun: () => session.underrun(),
+      describe: () => session.describe(),
+      free: () => session.free(),
+    };
+  };
+  const packets = await readAll(attachOpusOutput(chunked(sine(6), [65536]), { gain: 0.5, openEncoder: open, tap }));
+  assert.equal(packets.length, 6);
+  assert.deepEqual(asked, [0, 960, 1920, 2880, 3840, 4800]);
+  assert.deepEqual(sent[0], [0.5, false]);
+  const [gain, press] = sent[4] as [number, boolean];
+  assert.ok(Math.abs(gain - 0.5 * 10 ** (-6 / 20)) < 1e-9 && press, JSON.stringify(sent[4]));
+  assert.equal(closed, 1);
+});
+
 test("읽지 않으면 큐 깊이를 넘겨 보내지 않고 받은 청크의 callback 이 미뤄진다. 읽으면 이어 간다", async () => {
   const output = new OpusOutput({ gain: 1, openEncoder: real });
   let written = false;

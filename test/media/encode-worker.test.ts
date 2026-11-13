@@ -74,8 +74,8 @@ function frame(amplitude = 0.37, at = (v: number, _i: number) => v) {
   return samples.buffer;
 }
 
-function sendFrame(id: number, seq: number, gain = 1, pcm = frame()) {
-  post({ type: "frame", id, seq, gain, pcm }, [pcm]);
+function sendFrame(id: number, seq: number, gain = 1, pcm = frame(), press = false) {
+  post({ type: "frame", id, seq, gain, press, pcm }, [pcm]);
 }
 
 async function rmsOf(packets: ArrayBuffer[]) {
@@ -165,6 +165,18 @@ test("깨진 샘플은 0 으로 보고 그 뒤 프레임을 망치지 않으며,
   assert.ok(Math.abs(after / steady - 1) < 0.1, `깨진 프레임 뒤 ${after / steady}`);
   const loud = rms.slice(25).reduce((a, b) => a + b) / 5;
   assert.ok(loud / steady < 5, `게인 10 에서 ${loud / steady}`);
+  post({ type: "close", id });
+});
+
+test("리미터를 켜면 게인으로 넘친 소리를 상한 아래로 줄인다", async () => {
+  const id = 8;
+  post({ type: "open", id });
+  for (let seq = 0; seq < 20; seq++) sendFrame(id, seq, 10, frame(), seq >= 10);
+  const rms = await rmsOf((await take(packetOf(id), 20)).map((p) => p.packet));
+  const clipped = rms.slice(4, 9).reduce((a, b) => a + b) / 5;
+  const limited = rms.slice(14).reduce((a, b) => a + b) / 6;
+  // 클립은 ±1 의 사각파에 가깝고, 리미터는 -1.5 dBTP 아래의 사인파를 낸다
+  assert.ok(limited < clipped * 0.8, `리미터 ${limited}, 클립 ${clipped}`);
   post({ type: "close", id });
 });
 

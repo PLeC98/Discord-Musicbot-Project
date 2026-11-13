@@ -10,6 +10,7 @@ import logger from "../infra/log/logger.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { FRAME_BYTES } from "./audio-splicer.ts";
 import type { EncodeSession, SessionHooks } from "./encode-pool.ts";
+import type { GainTap, TapFrame } from "./gain-tap.ts";
 import { addVoicePacket } from "../infra/upload-meter.ts";
 const log = logger.child({ category: "player" });
 
@@ -20,6 +21,9 @@ type OutputState = { inflight: number; ready: number; frames: number; depth: num
 class OpusOutput extends Duplex {
   readonly #session: EncodeSession;
   #gain: number;
+  readonly #tap: GainTap | null;
+  // 보낸 프레임의 시작 위치(채널당 샘플 수). 게인 탭이 측정 블록과 프레임을 이 위치로 맞춘다
+  #pos = 0;
   #frame = Buffer.alloc(FRAME_BYTES);
   #fill = 0;
   // 다 채웠지만 큐 깊이가 차서 아직 못 보낸 프레임(많아야 하나)
@@ -40,11 +44,13 @@ class OpusOutput extends Duplex {
   /**
    * @param o.gain  처음 볼륨 게인(0 ~ MAX_GAIN, 곱하는 값). 만든 뒤 바로 데이터가 흐르므로 처음부터 받는다
    * @param o.openEncoder  인코딩 세션을 여는 함수(media/encode-pool)
+   * @param o.tap  볼륨 정규화의 게인 탭(media/gain-tap). 없으면 정규화 게인 0 dB, 리미터 끔
    */
-  constructor({ gain, openEncoder }: { gain: number; openEncoder: OpenEncoder }) {
+  constructor({ gain, openEncoder, tap = null }: { gain: number; openEncoder: OpenEncoder; tap?: GainTap | null }) {
     // 쓰는 쪽 버퍼는 바이트 단위다(f32le 로 약 85ms). Node 기본값은 플랫폼, 버전마다 달라 숫자로 둔다
     super({ readableObjectMode: true, readableHighWaterMark: 1, writableHighWaterMark: 32 * 1024 });
     this.#gain = clampGain(gain);
+    this.#tap = tap;
     // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
     this.#session = openEncoder({ onPacket: (packet) => this.#onPacket(packet), onError: (err) => this.destroy(err) });
     // play() 전에 난 오류는 voice 의 리스너가 아직 없다. 그 경우는 play() 가 "already ended" 로 던져 재생 실패로 간다
@@ -103,6 +109,7 @@ class OpusOutput extends Duplex {
   override _destroy(err: Error | null, done: (err?: Error | null) => void) {
     this.#last = this.describe();
     this.#session.free();
+    this.#tap?.close();
     this.#pending = null;
     this.#frames = [];
     this.#ready = [];
@@ -151,7 +158,10 @@ class OpusOutput extends Duplex {
     while (this.#frames.length && this.#inflight + this.#ready.length + this.readableLength < this.#session.depth) {
       const frame = this.#frames.shift() as Buffer;
       this.#inflight++;
-      this.#session.send(frame, this.#gain);
+      // 볼륨 게인과 정규화 게인을 곱해 싣는다. 정규화 게인은 프레임을 보낼 때 정해지므로 큐에 쌓인 만큼 늦게 들린다
+      const { gain, press }: TapFrame = this.#tap?.frame(this.#pos) ?? NO_TAP;
+      this.#pos += FRAME_BYTES / 8;
+      this.#session.send(frame, clampGain(this.#gain * 10 ** (gain / 20)), press);
     }
   }
 
@@ -184,10 +194,11 @@ class OpusOutput extends Duplex {
 
 // 볼륨 게인의 상한(+24 dB). 볼륨 125(+10 dB)에 정규화 게인의 상한(+12 dB)을 더한 것보다 조금 위다. 넘치는 피크는 워커가 클립한다
 const MAX_GAIN = 16;
+const NO_TAP: TapFrame = { gain: 0, press: false };
 const clampGain = (gain: number) => (Number.isFinite(gain) ? Math.max(0, Math.min(MAX_GAIN, gain)) : 1);
 
 /** PCM 소스 뒤에 출력 스트림을 붙인다. pipeline 이라 voice 가 출력 스트림을 destroy 하면 소스(ffmpeg stdout)까지 destroy 되고, 소스 오류도 출력 스트림의 error 가 된다 */
-function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEncoder }): OpusOutput {
+function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEncoder; tap?: GainTap | null }): OpusOutput {
   const output = new OpusOutput(o);
   output.source = pcm;
   pipeline(pcm, output, () => {

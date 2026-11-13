@@ -11,7 +11,7 @@ import { PerformanceObserver } from "perf_hooks";
 import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts";
 import { Limiter } from "./limiter.ts";
 
-type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
+type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; press: boolean; pcm: ArrayBuffer } | { type: "close"; id: number };
 // 프레임 하나의 답. packet 이 없으면 error 다.
 // doneAt: 답을 낸 때(timeOrigin + now, ms). 메인이 받기를 미룬 시간을 빼고 워커가 걸린 시간을 잰다.
 // startedAt, encodeMs: 인코딩을 시작한 때(timeOrigin + now)와 걸린 시간(ms). 메인이 응답 시간을 대기, 인코딩으로 나눠 본다. 인코딩 전에 난 오류에는 없다.
@@ -90,7 +90,7 @@ function encode(stream: Stream, frame: Frame) {
   try {
     if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(${FRAME_BYTES}B 여야 한다)`);
     const samples = new Float32Array(frame.pcm);
-    stream.limiter.run(samples, stream.lastGain ?? frame.gain, frame.gain, false);
+    stream.limiter.run(samples, stream.lastGain ?? frame.gain, frame.gain, frame.press);
     stream.lastGain = frame.gain;
     const packet = stream.encoder.encode(samples);
     // encode 가 돌려준 것은 WASM 힙의 복사본이라 그 ArrayBuffer 를 그대로 넘겨도 된다
