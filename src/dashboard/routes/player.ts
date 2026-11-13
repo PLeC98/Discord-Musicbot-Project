@@ -230,7 +230,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 볼륨 { volume: 0 ~ 100 }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
+  // 볼륨 { volume: 0 ~ VOLUME_MAX }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
   const volumeLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);

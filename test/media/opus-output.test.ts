@@ -2,7 +2,7 @@
 //
 // 지키는 것: 청크 크기와 상관없이 20ms 프레임(f32le 7680바이트) 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
 // 미리 만드는 것은 세션의 큐 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 청크의 callback 이 미뤄진다.
-// 볼륨은 바꾼 뒤 큐 깊이 + 1 패킷 안에 들린다. read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
+// 볼륨은 바꾼 뒤 큐 깊이 + 2 패킷 안에 들린다(바꾼 프레임 안에서 게인을 램프한다). read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
 // 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류, 세션 오류는 출력 스트림의 error 가 되며 위쪽 스트림까지 destroy 된다.
 // voice 의 실제 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩 오른다.
 
@@ -16,6 +16,7 @@ import { OpusOutput, attachOpusOutput, type OpenEncoder } from "../../src/media/
 import { EncodePool, type SessionHooks } from "../../src/media/encode-pool.ts";
 import { createOpusEncoder } from "../../src/media/opus-encoder.ts";
 import { FRAME_BYTES } from "../../src/media/audio-splicer.ts";
+import { Limiter } from "../../src/media/limiter.ts";
 
 const pool = new EncodePool({ calibrateFrames: 0 });
 after(() => pool.close());
@@ -155,7 +156,7 @@ test("쓰기 없이 끝나도 end 를 낸다", async () => {
   assert.equal(packets.length, 0);
 });
 
-test("볼륨 배율(gain)을 곱해 인코딩하고, 곡 중간 setVolume 은 큐 깊이 + 1 패킷 안에 먹는다", async () => {
+test("볼륨 게인을 곱해 인코딩하고, 곡 중간 setVolume 은 큐 깊이 + 2 패킷 안에 먹는다", async () => {
   const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 1, openEncoder: real });
   const packets: Buffer[] = [];
   let depth = 0;
@@ -171,9 +172,9 @@ test("볼륨 배율(gain)을 곱해 인코딩하고, 곡 중간 setVolume 은 �
   const quiet = rms.slice(40).reduce((a, b) => a + b) / (rms.length - 40);
   // 0.25 배면 RMS 도 약 0.25 배(Opus 손실 때문에 정확하지 않다)
   assert.ok(Math.abs(quiet / loud - 0.25) < 0.05, `비율 ${(quiet / loud).toFixed(3)}`);
-  // 30번째를 받은 뒤 바꿨다. 이미 보낸 큐 깊이만큼은 옛 크기다. 디코더는 앞 프레임과 겹쳐 풀므로 그다음 하나는 섞여 나온다
+  // 30번째를 받은 뒤 바꿨다. 이미 보낸 큐 깊이만큼은 이전 크기다. 그다음 프레임 안에서 게인을 램프하고, 디코더가 앞 프레임과 겹쳐 디코딩하므로 하나가 더 섞여 나온다
   assert.ok(rms[29] > loud * 0.8, `30번째 패킷 RMS ${rms[29]}`);
-  const heard = 30 + depth + 1;
+  const heard = 30 + depth + 2;
   assert.ok(rms[heard] < loud * 0.35, `${heard + 1}번째 패킷 RMS ${rms[heard]}(큐 깊이 ${depth})`);
 });
 
@@ -187,13 +188,24 @@ test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다
   for (const [i, r] of rms.slice(1).entries()) assert.ok(r < full * 0.15, `${i + 2}번째 패킷 RMS ${r}`);
 });
 
-test("볼륨 배율 1 이면 PCM 을 건드리지 않는다(곱하지 않은 인코딩과 같은 패킷)", async () => {
+test("볼륨 게인 1 이면 리미터의 지연만큼 늦춘 입력과 같은 패킷이다(리미터를 끈 서버는 소리를 바꾸지 않는다)", async () => {
   const pcm = sine(5);
   const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, openEncoder: real }));
+  const delayed = Buffer.concat([Buffer.alloc(new Limiter().delaySamples * 8), pcm]);
   const enc = await createOpusEncoder();
-  const b = Array.from({ length: 5 }, (_, i) => enc.encode(new Float32Array(pcm.buffer, pcm.byteOffset + i * FRAME_BYTES, FRAME_BYTES / 4)));
+  const b = Array.from({ length: 5 }, (_, i) => enc.encode(new Float32Array(delayed.buffer.slice(delayed.byteOffset + i * FRAME_BYTES, delayed.byteOffset + (i + 1) * FRAME_BYTES))));
   enc.free();
   assert.deepEqual(a, b);
+});
+
+test("볼륨 게인은 1 위로도 걸리고 넘치는 샘플은 ±1 로 클립된다", async () => {
+  const quiet = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 3000), [65536]), { gain: 1, openEncoder: real })));
+  const raised = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 3000), [65536]), { gain: 2, openEncoder: real })));
+  const clipped = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 12000), [65536]), { gain: 10, openEncoder: real })));
+  const mean = (r: number[]) => r.slice(5).reduce((x, y) => x + y) / (r.length - 5);
+  assert.ok(Math.abs(mean(raised) / mean(quiet) - 2) < 0.1, `게인 2: ${mean(raised) / mean(quiet)}`);
+  assert.ok(mean(clipped) < 32768 * 1.01, `게인 10: ${mean(clipped)}`);
+  assert.ok(mean(clipped) > 12000 * 2, `게인 10 이 곱해지지 않았다: ${mean(clipped)}`);
 });
 
 test("읽지 않으면 큐 깊이를 넘겨 보내지 않고 받은 청크의 callback 이 미뤄진다. 읽으면 이어 간다", async () => {

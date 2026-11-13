@@ -6,7 +6,7 @@
 
 import { Application, createEncoder, loadLibopus } from "libopus-wasm";
 
-/** 48kHz 스테레오 20ms(960 샘플) 실수 PCM(채널을 번갈아 1920개, ±1) 한 프레임을 raw Opus 패킷 하나로 */
+/** 48kHz 스테레오 20ms(960 샘플) 실수 PCM(인터리브 1920개, ±1) 한 프레임을 raw Opus 패킷 하나로 인코딩한다 */
 type OpusEncoder = {
   encode(frame: Float32Array): Buffer;
   free(): void;

@@ -4,6 +4,7 @@
 import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
+import { VOLUME_MAX } from "../../../rules/limits.ts";
 import { PROBLEMS, type Code, type NeedsParams, type Params, type ParamsOf } from "../../../rules/problems.ts";
 
 // 봇 쪽 문제, 외부 실패로 못 했다
@@ -81,7 +82,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 입력이 틀림
   // 시간 입력(/seek)을 읽지 못했다
   "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽을 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
-  "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", "볼륨은 0에서 100 까지의 숫자로 적어야 해요."),
+  "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", `볼륨은 0에서 ${VOLUME_MAX}까지의 숫자로 적어야 해요.`),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
   "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${formatMs(durationMs, "--:--")})보다 뒤로 이동할 수는 없어요.`),

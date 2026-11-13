@@ -1,14 +1,15 @@
 /**
- * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임(f32le)에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
+ * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임(f32le)에 볼륨 게인과 리미터를 걸어(media/limiter) Opus 패킷으로 돌려준다.
  * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연, 멈춤을 잰다.
  * 답은 이벤트 루프 한 바퀴에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
- * media/opus-encoder 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
+ * media/opus-encoder, media/limiter 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
  *
  * 받는 것(parentPort): init, open, frame, close. 주는 것(init 때 받은 포트): ready, replies, load
  */
 import { parentPort, type MessagePort } from "worker_threads";
 import { PerformanceObserver } from "perf_hooks";
 import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts";
+import { Limiter } from "./limiter.ts";
 
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; pcm: ArrayBuffer } | { type: "close"; id: number };
 // 프레임 하나의 답. packet 이 없으면 error 다.
@@ -24,13 +25,12 @@ type FromWorker =
   | { type: "load"; busyUs: number; cpuUs: number; encoders: number; gcCount: number; gcMs: number; gcMaxMs: number };
 
 const FRAME_BYTES = 7680;
-// 이 크기 밖의 샘플은 깨진 값으로 보고 0 으로 둔다(+36 dBFS)
-const BROKEN = 64;
 const LOAD_EVERY_MS = 1000;
 
 type Frame = Extract<ToWorker, { type: "frame" }>;
 // 인코더를 만드는 동안 온 프레임은 모아 두고, 만든 뒤 순서대로 처리한다(답의 순서가 보낸 순서와 같게)
-type Stream = { encoder: OpusEncoder | null; waiting: Frame[]; closed: boolean; failed: string | null };
+// lastGain: 앞 프레임의 볼륨 게인. 프레임 안에서 이 게인에서 이 프레임의 게인으로 램프한다. 첫 프레임은 램프하지 않는다(1 에서 시작하면 줄인 곡이 20ms 동안 크게 나간다)
+type Stream = { encoder: OpusEncoder | null; waiting: Frame[]; closed: boolean; failed: string | null; limiter: Limiter; lastGain: number | null };
 
 const streams = new Map<number, Stream>();
 let reply: MessagePort | null = null;
@@ -90,7 +90,8 @@ function encode(stream: Stream, frame: Frame) {
   try {
     if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(${FRAME_BYTES}B 여야 한다)`);
     const samples = new Float32Array(frame.pcm);
-    gainAndClip(samples, frame.gain);
+    stream.limiter.run(samples, stream.lastGain ?? frame.gain, frame.gain, false);
+    stream.lastGain = frame.gain;
     const packet = stream.encoder.encode(samples);
     // encode 가 돌려준 것은 WASM 힙의 복사본이라 그 ArrayBuffer 를 그대로 넘겨도 된다
     const owned = packet.byteOffset === 0 && packet.byteLength === packet.buffer.byteLength ? (packet.buffer as ArrayBuffer) : packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
@@ -102,17 +103,8 @@ function encode(stream: Stream, frame: Frame) {
   }
 }
 
-// NaN 은 ±1 막기를 그대로 지나고, libopus 는 NaN 이 든 프레임 전체를 무음으로 낸다. 그래서 곱하기 전에 샘플마다 거른다
-function gainAndClip(samples: Float32Array, gain: number) {
-  for (let i = 0; i < samples.length; i++) {
-    const v = samples[i];
-    const out = (v > -BROKEN && v < BROKEN ? v : 0) * gain;
-    samples[i] = out > 1 ? 1 : out < -1 ? -1 : out;
-  }
-}
-
 function open(id: number) {
-  const stream: Stream = { encoder: null, waiting: [], closed: false, failed: null };
+  const stream: Stream = { encoder: null, waiting: [], closed: false, failed: null, limiter: new Limiter(), lastGain: null };
   streams.set(id, stream);
   createOpusEncoder().then(
     (encoder) => {
@@ -153,12 +145,16 @@ async function init(port: MessagePort, calibrateFrames: number) {
   let frameUs = 0;
   if (calibrateFrames > 0) {
     const encoder = await createOpusEncoder();
-    const pcm = new Float32Array(FRAME_BYTES / 4);
-    for (let i = 0; i < pcm.length; i++) pcm[i] = 0.25 * Math.sin(i / 18.5);
-    encoder.encode(pcm);
+    // 리미터를 켜고 피크를 줄이는 경우(가장 무거운 경로)로 잰다
+    const limiter = new Limiter();
+    const wave = new Float32Array(FRAME_BYTES / 4);
+    for (let i = 0; i < wave.length; i++) wave[i] = Math.sin(i / 18.5);
+    const pcm = new Float32Array(wave.length);
+    encoder.encode(wave);
     const started = performance.now();
     for (let i = 0; i < calibrateFrames; i++) {
-      gainAndClip(pcm, 1);
+      pcm.set(wave);
+      limiter.run(pcm, 1, 1, true);
       encoder.encode(pcm);
     }
     frameUs = ((performance.now() - started) * 1000) / calibrateFrames;

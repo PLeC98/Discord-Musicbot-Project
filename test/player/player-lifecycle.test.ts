@@ -1613,7 +1613,7 @@ test("새 플레이어는 그 서버에서 마지막으로 정한 볼륨으로 �
   await guildSettings.saveVolume("g7", 100);
 });
 
-test("볼륨은 0~100 으로 자르고 지금 출력 스트림에 볼륨 배율(dB)로 바로 건다", () => {
+test("볼륨은 0~125 로 자르고 지금 출력 스트림에 볼륨 게인으로 바로 건다", () => {
   const p = h.makePlayer();
   let applied: number | null = null;
   p.playback = playback({
@@ -1624,7 +1624,9 @@ test("볼륨은 0~100 으로 자르고 지금 출력 스트림에 볼륨 배율(
     },
   });
 
-  assert.equal(p.setVolume(150), 100);
+  assert.equal(p.setVolume(150), 125);
+  assert.equal(applied, gainOf(125));
+  assert.equal(p.setVolume(100), 100);
   assert.equal(applied, 1);
   assert.equal(p.setVolume(50), 50);
   assert.equal(applied, gainOf(50));

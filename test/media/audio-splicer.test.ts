@@ -174,7 +174,7 @@ test("크로스페이드는 볼륨 딥을 만들지 않는다 (등출력)", asyn
   assert.ok(peak > 0.24, `페이드 한가운데 진폭이 유지돼야 한다 (실제 ${peak})`);
 });
 
-test("섞을 때 샘플 경계에 맞지 않는 꼬리(끝난 소스)는 모자란 샘플을 무음으로 본다", () => {
+test("섞을 때 끝난 소스의 끝부분이 샘플 경계에 맞지 않으면 모자란 샘플을 무음으로 본다", () => {
   const sp = new AudioSplicer(new PassThrough(), { fadeMs: 40 });
   const tail = pcm(20, 1).subarray(0, 6);
   const mixed = sp._mix(tail, pcm(20, 2));

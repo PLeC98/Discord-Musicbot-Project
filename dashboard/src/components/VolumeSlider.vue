@@ -1,7 +1,9 @@
 <template>
-  <!-- 볼륨 막대(M3 슬라이더). 숫자는 늘 두지 않고, 올리거나 드래그하는 동안 핸들 위 말풍선에만 보인다(M3 값 표시) -->
+  <!-- 볼륨 슬라이더(M3). 숫자는 늘 두지 않고, 마우스를 올리거나 드래그하는 동안 핸들 위 말풍선에만 보인다(M3 값 표시).
+       원래 크기(VOLUME_BASE)에 눈금을 둔다. 그 위는 증폭이다 -->
   <span class="group/vol relative inline-flex">
     <input type="range" min="0" :max="VOLUME_MAX" step="1" :value="level" class="peer m3-slider m3-slider-thin w-full" :style="style" :disabled="disabled" :aria-label="T.volume" @pointerdown="grab" @input="emit('input', valueOf($event))" @change="emit('change', valueOf($event))" />
+    <span class="pointer-events-none absolute top-1/2 size-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full" :class="[level > VOLUME_BASE ? 'bg-on-primary' : 'bg-on-secondary-container', { 'opacity-0': Math.abs(level - VOLUME_BASE) < 4, 'opacity-38': disabled }]" :style="{ left: `calc(2px + (100% - 4px) * ${VOLUME_BASE / VOLUME_MAX})` }" aria-hidden="true"></span>
     <!-- 핸들(폭 4px) 가운데에 맞춘다 -->
     <span
       v-if="bubble && !disabled"
@@ -17,7 +19,7 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from "vue";
 import { valueOf } from "../utils/dom.ts";
-import { VOLUME_MAX } from "../../../src/rules/limits.ts";
+import { VOLUME_BASE, VOLUME_MAX } from "../../../src/rules/limits.ts";
 import { text } from "../text/index.ts";
 const T = text.player;
 

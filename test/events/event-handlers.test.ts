@@ -614,7 +614,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 �
   assert.deepEqual(denied.log, [["deferUpdate"], ["editReply", "같은 메뉴"], ["followUp", said(errors.notice("must-dj"))]]);
 });
 
-test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
+test("볼륨 모달: 0~125 숫자만. 적용한 값으로 답한다", async () => {
   const w = world();
   const ok = menu(w, { customId: "panel:volume", volume: "35", select: false });
   await interactionCreate.execute(ok.bot, ok.it);
@@ -622,10 +622,10 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   assert.match(String(ok.log[0][1]), /^### 🔊 볼륨을 조절했어요!\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 요청한 사람 /);
 
   // "50abc" 를 parseInt 처럼 50 으로 읽지 않는다
-  for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
+  for (const bad of ["abc", "126", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.bot, r.it);
-    assert.deepEqual(r.log, [["reply", "### ✏️ 정해진 범위의 숫자로 입력해 주세요!\n볼륨은 0에서 100 까지의 숫자로 적어야 해요."]], bad);
+    assert.deepEqual(r.log, [["reply", "### ✏️ 정해진 범위의 숫자로 입력해 주세요!\n볼륨은 0에서 125까지의 숫자로 적어야 해요."]], bad);
   }
 });
 

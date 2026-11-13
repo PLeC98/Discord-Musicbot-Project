@@ -206,9 +206,10 @@ test("하이라이트: 지점이 없으면 거절, 있으면 그 위치로(원�
   assert.deepEqual(p.calls, ["seek:42500:highlight"]);
 });
 
-test("볼륨: 0 ~ 100 정수만, 전후를 돌려준다", async () => {
-  for (const bad of [-1, 101, 5.5, NaN, "50"]) assert.equal(codeOf(await controls.volume(fakePlayer(), DJ, bad)), "bad-volume", String(bad));
+test("볼륨: 0 ~ 125 정수만 받고 변경 전후 볼륨을 돌려준다", async () => {
+  for (const bad of [-1, 126, 5.5, NaN, "50"]) assert.equal(codeOf(await controls.volume(fakePlayer(), DJ, bad)), "bad-volume", String(bad));
   assert.deepEqual(await controls.volume(fakePlayer(), DJ, 80), { ok: true, before: 50, level: 80 });
+  assert.deepEqual(await controls.volume(fakePlayer(), DJ, 125), { ok: true, before: 50, level: 125 });
 });
 
 test("볼륨: 잇달아 바꾸면 소리는 바로, 로그 한 줄과 패널 고치기는 멈춘 뒤 한 번", async (t) => {

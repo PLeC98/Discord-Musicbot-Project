@@ -1,7 +1,7 @@
 // 출력 스트림. PCM(f32le 48kHz 스테레오)을 20ms 프레임으로 모아 인코딩 세션(media/encode-pool)에 보내고, 돌아온 Opus 패킷을 내준다.
 // @discordjs/voice 에는 StreamType.Opus 로 넘긴다. inlineVolume 을 같이 넘기면 voice 가 prism 의 디코더, 볼륨, 인코더를 다시 끼운다.
 //
-// 미리 만드는 패킷은 세션의 큐 깊이(depth)까지다: 보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼. 볼륨 배율(gain)은 보낼 때 곱하므로 바꾼 뒤 그만큼 지나 들린다.
+// 미리 만드는 패킷은 세션의 큐 깊이(depth)까지다: 보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼. 볼륨 게인은 프레임을 보낼 때 실으므로 바꾼 뒤 큐에 쌓인 만큼 늦게 들린다.
 // 받은 PCM 청크는 프레임으로 다 잘라 보낼 때까지 쓰기 callback 을 미뤄 위쪽(스플라이서, ffmpeg 파이프)에 쌓아 둔다.
 // 패킷은 voice 가 read() 할 때 그 자리에서 받는다(drain). 기다리는 동안 이벤트로 온 패킷은 바로 push 한다(처음, 일시정지).
 
@@ -38,11 +38,11 @@ class OpusOutput extends Duplex {
   source: Readable | null = null;
 
   /**
-   * @param o.gain  처음 볼륨 배율(0 ~ 1). 만든 뒤 바로 데이터가 흐르므로 처음부터 받는다
+   * @param o.gain  처음 볼륨 게인(0 ~ MAX_GAIN, 곱하는 값). 만든 뒤 바로 데이터가 흐르므로 처음부터 받는다
    * @param o.openEncoder  인코딩 세션을 여는 함수(media/encode-pool)
    */
   constructor({ gain, openEncoder }: { gain: number; openEncoder: OpenEncoder }) {
-    // 쓰는 쪽 버퍼는 바이트로 적는다(약 85ms). Node 기본값은 플랫폼, 버전마다 다르다
+    // 쓰는 쪽 버퍼는 바이트 단위다(f32le 로 약 85ms). Node 기본값은 플랫폼, 버전마다 달라 숫자로 둔다
     super({ readableObjectMode: true, readableHighWaterMark: 1, writableHighWaterMark: 32 * 1024 });
     this.#gain = clampGain(gain);
     // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
@@ -182,7 +182,9 @@ class OpusOutput extends Duplex {
   }
 }
 
-const clampGain = (gain: number) => (Number.isFinite(gain) ? Math.max(0, Math.min(1, gain)) : 1);
+// 볼륨 게인의 상한(+24 dB). 볼륨 125(+10 dB)에 정규화 게인의 상한(+12 dB)을 더한 것보다 조금 위다. 넘치는 피크는 워커가 클립한다
+const MAX_GAIN = 16;
+const clampGain = (gain: number) => (Number.isFinite(gain) ? Math.max(0, Math.min(MAX_GAIN, gain)) : 1);
 
 /** PCM 소스 뒤에 출력 스트림을 붙인다. pipeline 이라 voice 가 출력 스트림을 destroy 하면 소스(ffmpeg stdout)까지 destroy 되고, 소스 오류도 출력 스트림의 error 가 된다 */
 function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEncoder }): OpusOutput {

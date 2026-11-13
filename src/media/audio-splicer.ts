@@ -33,7 +33,7 @@ class AudioSplicer extends Readable {
    * @param {number}   fadeMs  크로스페이드 길이(ms). 한 프레임(20ms)보다 짧으면 20ms
    */
   constructor(source: Readable, { fadeMs = 40 }: { fadeMs?: number } = {}) {
-    // 읽는 쪽 버퍼는 바이트라 형식에 따라 길이가 바뀐다. 약 340ms
+    // 읽는 쪽 버퍼는 바이트 단위다(f32le 로 약 340ms)
     super({ highWaterMark: 128 * 1024 });
     this.a = source; // 현재 소스
     this.b = null; // 갈아탈 소스
