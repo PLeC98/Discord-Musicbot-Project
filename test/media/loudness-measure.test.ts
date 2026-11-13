@@ -1,4 +1,4 @@
-// src/media/loudness-measure.ts: 캐시 파일의 음량 측정과 측정 큐
+// src/media/loudness-measure.ts: 캐시 파일의 볼륨 측정과 측정 큐
 //
 // 지키는 것: 진행 줄이 섞여도 ebur128 의 100ms 줄과 요약을 읽고, 피크 상위 1% 는 게이트(-70 LUFS)를 넘은 프레임에서만 구한다.
 // 실패 분류: 진행 멈춤, 0 이 아닌 종료 코드, 줄이나 요약을 못 읽은 것은 환경 탓(기록하지 않는다), 줄 수가 길이와 안 맞거나 너무 조용하거나 게이트를 넘은 프레임이 없는 것은 파일 탓(file-failed).
@@ -261,7 +261,7 @@ test("실제 ffmpeg: 자체 테스트를 통과하고, 테스트용 사인파 �
   const timeout = new Promise<string>((resolve) => setTimeout(() => resolve("제한 시간 안에 끝나지 않음(자체 테스트 실패일 수 있음. warn 로그 확인)"), 60_000).unref());
   assert.equal(await Promise.race([done, timeout]), key);
   const value = loudness.rowsOf(key).file;
-  assert.ok(value && Math.abs(value.integrated - -20) < 1, `통합 음량 ${value?.integrated}`);
+  assert.ok(value && Math.abs(value.integrated - -20) < 1, `통합 볼륨 ${value?.integrated}`);
   assert.ok(value && value.truePeak < 0 && value.peakP99 <= value.truePeak + 0.1, JSON.stringify(value));
   assert.equal(path.basename(file), path.basename(audioCache.getFilePath(key)));
 });

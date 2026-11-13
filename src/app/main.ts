@@ -232,7 +232,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
-  // 캐시 파일의 음량을 측정했으면 그 곡을 트는 모든 서버가 새 고정 게인으로 램프한다(같은 곡을 여러 서버가 틀 수 있다)
+  // 캐시 파일의 볼륨을 측정했으면 그 곡을 트는 모든 서버가 새 고정 게인으로 램프한다(같은 곡을 여러 서버가 틀 수 있다)
   measureQueue.onMeasured((audioKey) => {
     for (const player of players.values()) player.gain.valueArrived(audioKey);
   });

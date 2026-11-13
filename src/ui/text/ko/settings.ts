@@ -28,7 +28,7 @@ const playlistLimitNow = ({ count, isDefault, min, max }: { count: number; isDef
 const playlistLimitSet = (count: number) => ({ icon: "done" as const, title: "재생목록에 한 번에 넣을 곡 수를 바꿨어요", description: `이제 재생목록을 넣으면 한 번에 **${count}곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.` });
 
 /** 동작 없이 실행한 /normalize: 지금 상태 */
-const normalizeNow = (on: boolean) => ({ icon: "volume" as const, title: on ? "볼륨 정규화가 켜져 있어요" : "볼륨 정규화가 꺼져 있어요", description: "곡과 영상마다 다른 소리 크기를 비슷하게 맞추는 기능이에요." });
+const normalizeNow = (on: boolean) => ({ icon: "volume" as const, title: on ? "볼륨 정규화가 켜져 있어요" : "볼륨 정규화가 꺼져 있어요", description: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞추는 기능이에요." });
 
 /** /setting 한 화면: DJ 역할, SponsorBlock, 연령 제한 콘텐츠. 선택하면 바로 저장한다 */
 const panel = {

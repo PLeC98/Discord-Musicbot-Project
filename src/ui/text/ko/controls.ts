@@ -56,7 +56,7 @@ const stayOn = (channel: string, already: boolean): Head => (already ? { icon: "
 const stayOff = (already: boolean): Head => (already ? { icon: "done", title: "이미 상주 모드가 꺼져 있어요.", body: "대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 가요." } : { icon: "done", title: "상주 모드를 껐어요!", body: "이제 대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 갈게요." });
 
 /** 볼륨 정규화 켬, 끔. already 면 이미 그 상태였다 */
-const normalizeSet = (on: boolean, already: boolean): Head => (on ? { icon: "volume", title: already ? "이미 볼륨 정규화가 켜져 있어요." : "볼륨 정규화를 켰어요!", body: "곡과 영상마다 다른 소리 크기를 비슷하게 맞춰요. 곡 안의 강약은 그대로예요." } : { icon: "done", title: already ? "이미 볼륨 정규화가 꺼져 있어요." : "볼륨 정규화를 껐어요!", body: "곡과 영상을 원래 소리 크기로 틀어요." });
+const normalizeSet = (on: boolean, already: boolean): Head => (on ? { icon: "volume", title: already ? "이미 볼륨 정규화가 켜져 있어요." : "볼륨 정규화를 켰어요!", body: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞춰요." } : { icon: "done", title: already ? "이미 볼륨 정규화가 꺼져 있어요." : "볼륨 정규화를 껐어요!", body: "곡과 영상을 원래 볼륨대로 틀어요." });
 
 /** 섞기 */
 const shuffled = (count: number): Head => ({ icon: "shuffle", title: "대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });

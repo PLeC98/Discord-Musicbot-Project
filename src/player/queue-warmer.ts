@@ -24,7 +24,7 @@ type WarmerDeps = {
   setProtection(guildId: string, keys: string[]): void;
   /** 직접 링크 곡의 파일 태그, 앨범아트를 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
   wantArt?(tracks: Array<QueuedTrack | null>): void;
-  /** 미리 받는 범위의 곡(앞의 것이 먼저). 볼륨 정규화용으로 캐시 파일의 음량을 측정하게 한다. 이미 측정했거나 측정 큐에 있으면 받는 쪽이 건너뛴다 */
+  /** 미리 받는 범위의 곡(앞의 것이 먼저). 볼륨 정규화용으로 캐시 파일의 볼륨을 측정하게 한다. 이미 측정했거나 측정 큐에 있으면 받는 쪽이 건너뛴다 */
   wantLoudness?(tracks: QueuedTrack[]): void;
 };
 /** 파일 태그, 앨범아트를 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */

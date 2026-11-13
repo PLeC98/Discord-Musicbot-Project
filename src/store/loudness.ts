@@ -1,4 +1,4 @@
-// 음원의 음량 값(loudness 표). 볼륨 정규화가 게인을 정할 때 쓴다. 키는 (오디오 키, 종류).
+// 음원의 볼륨 값(loudness 표). 볼륨 정규화가 게인을 정할 때 쓴다. 키는 (오디오 키, 종류).
 // 종류: file(캐시 파일 전체를 잰 값), heard-full(처음부터 끝까지 들으며 잰 값), heard-part(일부만 들으며 잰 값, 라이브와 라디오에서 이전에 잰 값),
 // file-failed(측정에 실패한 캐시 파일. 게인에 쓰지 않고 다시 재지 않기 위한 표시).
 // 캐시 파일이 정리돼도 값은 남는다. 오디오 캐시 초기화에서 캐시 파일(files)을 비울 때 함께 지워진다.
@@ -17,7 +17,7 @@ const UNUSED_MS = 180 * 24 * 3600 * 1000;
 const MEDIAN_MIN = 30;
 
 type Kind = "file" | "heard-full" | "heard-part" | "file-failed";
-/** 잰 값. integrated: 통합 음량(LUFS), truePeak: 피크(dBTP, heard-* 는 샘플 피크 dBFS), peakP99: 100ms 프레임 피크의 상위 1%(dB) */
+/** 잰 값. integrated: 통합 볼륨(LUFS), truePeak: 피크(dBTP, heard-* 는 샘플 피크 dBFS), peakP99: 100ms 프레임 피크의 상위 1%(dB) */
 type Measured = { integrated: number; truePeak: number; peakP99: number };
 /** 잰 소리의 식별 정보. 모르는 것은 null */
 type Identity = { sizeBytes: number | null; durationSec: number | null; audioVersion: string | null };
@@ -111,7 +111,7 @@ function failedBefore(audioKey: string, identity: Pick<Identity, "sizeBytes" | "
   return Boolean(row && row.algo === ALGO && row.sizeBytes === identity.sizeBytes && row.durationSec === identity.durationSec);
 }
 
-/** file 값의 통합 음량 중앙값. MEDIAN_MIN 개보다 적으면 null. 메모리에 캐시하고 file 값을 저장하거나 초기화하면 다시 계산한다 */
+/** file 값의 통합 볼륨 중앙값. MEDIAN_MIN 개보다 적으면 null. 메모리에 캐시하고 file 값을 저장하거나 초기화하면 다시 계산한다 */
 function fileMedian(): number | null {
   if (median) return median.value;
   const count = conn().prepare("SELECT COUNT(*) FROM loudness WHERE kind = 'file'").pluck().get() as number;

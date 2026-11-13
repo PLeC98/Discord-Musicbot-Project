@@ -1,5 +1,5 @@
 // 볼륨 정규화의 게인 조절기. 플레이어마다 하나. 곡을 한 번 트는 동안의 재생 상태(근거, 목표 게인, 보낸 게인, 추종, 재생 중 측정값)와
-// 파이프라인별 게인 탭(media/gain-tap)을 가진다. 출력 스트림이 프레임마다 탭에 게인을 묻고, 측정 단계가 블록마다 탭에 순간 음량을 넘긴다.
+// 파이프라인별 게인 탭(media/gain-tap)을 가진다. 출력 스트림이 프레임마다 탭에 게인을 묻고, 측정 단계가 블록마다 탭에 순간 볼륨을 넘긴다.
 //
 // 근거: 캐시 파일 측정값(고정 게인), 끝까지 재생하며 측정한 값(고정 게인), 그 밖에는 재생 중 측정으로 느리게 따라간다(player/loudness-follower).
 // 이어 트는 재생(위치 이동, 끊김 복구, 라이브 다시 열기)은 같은 재생 상태에 새 탭을 붙이고, 새 재생(다른 곡, 한 곡 반복의 다음 회차)은
@@ -15,7 +15,7 @@ import type { GainTap, PathFacts, TapFrame } from "../media/gain-tap.ts";
 import type { EndFacts } from "../rules/end-verdict.ts";
 const log = logger.child({ category: "player", sub: "gain" });
 
-/** 목표 음량(LUFS) */
+/** 목표 볼륨(LUFS) */
 const TARGET = -14;
 /** 증폭 상한(dB). 캐시 파일 측정값, 끝까지 재생하며 측정한 값에 쓴다 */
 const FILE_BOOST = 12;
@@ -24,7 +24,7 @@ const HEARD_BOOST = 6;
 const CEILING = -1.5;
 /** 재생 중 측정한 값은 샘플 피크라 이만큼 더해 쓴다(dB) */
 const HEARD_PEAK_MARGIN = 0.5;
-/** 이보다 낮은 음량 측정값은 쓰지 않는다(LUFS) */
+/** 이보다 낮은 볼륨 측정값은 쓰지 않는다(LUFS) */
 const QUIET = -50;
 const FRAMES_PER_SEC = 50;
 const FS = 48_000;
@@ -36,7 +36,7 @@ const MOVE_DOWN_SEC = 1;
 const SETTLED = 1e-6;
 /** 추종 값을 프레임의 시작 위치 + 이만큼(샘플)에서 읽는다(측정이 소리보다 앞서 본 만큼) */
 const LOOK_SAMPLES = FS;
-/** 측정값이 곧 올 곡을 음악으로 가정한 음량(LUFS). file 값이 MEDIAN_MIN 개 이상 쌓이면 그 중앙값을 쓴다(store/loudness) */
+/** 측정값이 곧 올 곡을 음악으로 가정한 볼륨(LUFS). file 값이 MEDIAN_MIN 개 이상 쌓이면 그 중앙값을 쓴다(store/loudness) */
 const MUSIC_PRIOR = -8;
 /** 이 길이(초)를 넘거나 길이를 모르는 곡은 음악으로 가정하지 않고 0 dB 에서 시작한다(긴 것은 측정값이 늦게 오고 발매 음원일 가능성이 낮다) */
 const PRIOR_MAX_SEC = 600;
@@ -65,7 +65,7 @@ const lk = (z: number) => -0.691 + 10 * Math.log10(z);
 
 /** 저장할 재생 중 측정값. 추종이 모은 블록과 따로, 그 재생에서 들은 것 전부를 모은다(추종은 시작 광고를 빼기도 한다) */
 class Heard {
-  // 순간 음량 -70 ~ +20 LUFS(0.01 단위), 샘플 피크 -60 ~ +12 dB(0.1 단위)
+  // 순간 볼륨 -70 ~ +20 LUFS(0.01 단위), 샘플 피크 -60 ~ +12 dB(0.1 단위)
   readonly #bins = new Float64Array(9001);
   readonly #peaks = new Float64Array(721);
   #sum = 0;
@@ -87,7 +87,7 @@ class Heard {
     this.#max = Math.max(this.#max, peak);
   }
 
-  /** 게이트 통합 음량, 샘플 피크, 프레임 피크 상위 1%, 들은 양(초). 게이트를 넘은 블록이 없으면 null */
+  /** 게이트 통합 볼륨, 샘플 피크, 프레임 피크 상위 1%, 들은 양(초). 게이트를 넘은 블록이 없으면 null */
   value(): (loudness.Measured & { heardSec: number }) | null {
     if (!this.#count) return null;
     const rel = lk(this.#sum / this.#count) - 10;
@@ -245,7 +245,7 @@ class PlaybackState {
       if (fullGain !== null) loudness.touch(this.key, "heard-full");
       return fullGain;
     } catch (error) {
-      log.warn(`음량 값 읽기 실패(정규화 게인 0 dB 에서 추종): ${this.key} | ${messageOf(error)}`);
+      log.warn(`볼륨 값 읽기 실패(정규화 게인 0 dB 에서 추종): ${this.key} | ${messageOf(error)}`);
       return null;
     }
   }
@@ -256,7 +256,7 @@ class PlaybackState {
     return length !== null && row.durationSec !== null && Math.abs(row.durationSec - length) <= LENGTH_TOL_SEC && row.sizeBytes !== null && row.sizeBytes === this.facts.sizeBytes;
   }
 
-  // 추종의 시작값: 저장된 지난 값, 측정값이 곧 올 10분 이하의 곡은 음악으로 가정한 음량, 그 밖에는 0 dB
+  // 추종의 시작값: 저장된 지난 값, 측정값이 곧 올 10분 이하의 곡은 음악으로 가정한 볼륨, 그 밖에는 0 dB
   #startOf(): FollowerStart {
     const key = this.key;
     try {
@@ -269,7 +269,7 @@ class PlaybackState {
       const valueSoon = this.facts.kind === "file" || (this.facts.downloading && this.info.downloadMatches);
       if (valueSoon && length !== null && length <= PRIOR_MAX_SEC) return { prior: loudness.fileMedian() ?? MUSIC_PRIOR };
     } catch (error) {
-      log.warn(`음량 값 읽기 실패(0 dB 에서 추종): ${String(key)} | ${messageOf(error)}`);
+      log.warn(`볼륨 값 읽기 실패(0 dB 에서 추종): ${String(key)} | ${messageOf(error)}`);
     }
     return {};
   }

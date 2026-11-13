@@ -170,7 +170,7 @@ type TrackCacheOpName = TrackCacheOp["op"];
 /** 쓰기. 먼저 모두 검사한다: 하나라도 걸리면 아무것도 쓰지 않고 문제로 답한다(errors 의 pointer 가 /ops/<번호>/<필드>) */
 type TrackCacheWrite = { ops: TrackCacheOp[] };
 
-/** 파일이 쓰이는 곳: 재생 중, 대기열 앞(미리 다운로드하는 곡), 저장된 세션 앞, 내보내는 중, 음량을 재는 중 */
+/** 파일이 쓰이는 곳: 재생 중, 대기열 앞(미리 다운로드하는 곡), 저장된 세션 앞, 내보내는 중, 볼륨을 재는 중 */
 type TrackFileUse = "playing" | "queued" | "saved-session" | "exporting" | "measuring";
 
 /** 바뀐 지금 값(조작의 expect 와 같은 형식) */

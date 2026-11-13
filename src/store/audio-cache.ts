@@ -51,7 +51,7 @@ const protectedFiles = new Set<string>(); // 지금 다운로드 중인 파일 �
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
 // 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC, 담기) 그동안 퇴거, 삭제, 초기화가 삭제하지 않게 한다
 const exportingKeys = new Set<Set<string>>();
-// 음량을 재는 중인 키와 그 키를 막은 횟수(같은 키를 겹쳐 막을 수 있다)
+// 볼륨을 재는 중인 키와 그 키를 막은 횟수(같은 키를 겹쳐 막을 수 있다)
 const measuringKeys = new Map<string, number>();
 let evictInterval: NodeJS.Timeout | null = null;
 let evictEveryMs = 0;
@@ -229,7 +229,7 @@ function holdForExport(audioKeys: Iterable<string>): () => void {
   return () => void exportingKeys.delete(held);
 }
 
-/** 음량을 재는 동안 이 파일이 삭제되지 않게 막는다. 푸는 함수를 돌려준다(여러 번 불러도 한 번만 푼다) */
+/** 볼륨을 재는 동안 이 파일이 삭제되지 않게 막는다. 푸는 함수를 돌려준다(여러 번 불러도 한 번만 푼다) */
 function holdForMeasure(audioKey: string): () => void {
   measuringKeys.set(audioKey, (measuringKeys.get(audioKey) ?? 0) + 1);
   let held = true;
@@ -779,11 +779,11 @@ function startPeriodicEviction() {
   evictEveryMs = config.cache.evictIntervalMs;
   evictInterval = setInterval(() => {
     evictIfNeeded().catch((err: unknown) => log.error("오디오 캐시 정기 정리 중 오류:", messageOf(err)));
-    // 음량 값은 캐시 파일과 따로, 오래 쓰지 않은 것만 지운다(하루에 한 번)
+    // 볼륨 값은 캐시 파일과 따로, 오래 쓰지 않은 것만 지운다(하루에 한 번)
     bestEffort(
       log,
       Promise.resolve().then(() => pruneLoudness()),
-      "오래된 음량 값 지우기",
+      "오래된 볼륨 값 지우기",
       "warn",
     );
   }, evictEveryMs);

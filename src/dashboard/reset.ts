@@ -39,7 +39,7 @@ const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
  */
 async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?: () => void) {
   const result = await audioCache.resetCache(parts, go);
-  // 기억한 파일 태그, 앨범아트는 캐시 파일의 버전을 가리킨다. 음량 값의 표는 캐시 파일 표와 함께 비웠으니 메모리 캐시도 비운다
+  // 기억한 파일 태그, 앨범아트는 캐시 파일의 버전을 가리킨다. 볼륨 값의 표는 캐시 파일 표와 함께 비웠으니 메모리 캐시도 비운다
   if (parts.includes("files")) {
     embeddedArt.clear();
     loudness.forgetMemory();

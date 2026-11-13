@@ -23,7 +23,7 @@ const stay = {
 /** 볼륨 정규화(디스코드 /normalize). locked, failed 는 상주 모드와 같은 자리 */
 const normalize = {
   title: "볼륨 정규화",
-  desc: "곡과 영상마다 다른 소리 크기를 비슷하게 맞춰요. 곡 안의 강약은 그대로예요.",
+  desc: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞춰요.",
   enable: "볼륨 정규화 켜기",
   enabled: "볼륨 정규화 켜짐",
   locked: stay.locked,

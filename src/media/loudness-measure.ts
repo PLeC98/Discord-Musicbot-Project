@@ -1,4 +1,4 @@
-// 캐시 파일의 음량 측정(볼륨 정규화가 쓰는 file 값). ffmpeg 의 ebur128 필터가 100ms 마다 내는 줄과 끝의 요약을 읽는다.
+// 캐시 파일의 볼륨 측정(볼륨 정규화가 쓰는 file 값). ffmpeg 의 ebur128 필터가 100ms 마다 내는 줄과 끝의 요약을 읽는다.
 // 한 번에 하나씩 재는 큐다. 지금 재생 중인 곡이 먼저고, 미리 받는 곡을 재는 중이면 그것을 취소해 뒤로 돌린다.
 // 큐는 서버와 상관없는 봇 작업이라 서버 문맥 밖에서 돈다(요청하는 쪽은 서버 문맥 안이다). 재는 동안 캐시 파일이 삭제되지 않게 막는다.
 // 실패는 둘로 나눈다. 파일 탓(ffmpeg 는 끝까지 돌았는데 값이 맞지 않음)은 file-failed 로 기록해 다시 재지 않고,
@@ -24,11 +24,11 @@ const STALL_MS = 30_000;
 const ENV_RETRY_MS = 10 * 60 * 1000;
 /** 이보다 긴 파일은 무거운 작업용 코어에 묶는다(짧은 것은 묶는 비용이 더 크다) */
 const BIND_CORES_SEC = 600;
-/** 통합 음량이 이보다 낮게 나온 값은 쓰지 않는다(무음이거나 잘못 잰 것) */
+/** 통합 볼륨이 이보다 낮게 나온 값은 쓰지 않는다(무음이거나 잘못 잰 것) */
 const QUIET_LUFS = -50;
-/** 순간 음량이 이 아래인 프레임은 피크 상위 1% 에 넣지 않는다(절대 게이트) */
+/** 순간 볼륨이 이 아래인 프레임은 피크 상위 1% 에 넣지 않는다(절대 게이트) */
 const GATE_LUFS = -70;
-// 자체 테스트: 1kHz 사인파(진폭 0.1, 2초)는 줄 20개, 통합 음량과 피크가 -20.0
+// 자체 테스트: 1kHz 사인파(진폭 0.1, 2초)는 줄 20개, 통합 볼륨과 피크가 -20.0
 const PROBE_SEC = 2;
 const PROBE_DB = -20;
 
@@ -76,7 +76,7 @@ function readingOf() {
   };
 }
 
-/** 음량 측정용 ffmpeg 인자. input 은 -i 까지의 입력 인자 */
+/** 볼륨 측정용 ffmpeg 인자. input 은 -i 까지의 입력 인자 */
 const measureArgs = (input: string[]) => [...PROGRESS_ARGS, ...input, "-af", FILTER, "-f", "null", "-"];
 
 /**
@@ -90,7 +90,7 @@ function verdictOf(result: Pick<FfmpegResult, "code" | "timedOut">, reading: Rea
   if (reading.lines === 0 || reading.integrated === null || reading.truePeak === null) return { kind: "env", why: "ebur128 줄이나 요약을 읽지 못함" };
   if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > 1) return { kind: "file", why: `100ms 줄 ${reading.lines}개, 길이 ${durationSec}초와 맞지 않음` };
   if (reading.peakP99 === null) return { kind: "file", why: "게이트를 넘은 프레임이 없음" };
-  if (reading.integrated < QUIET_LUFS) return { kind: "file", why: `통합 음량 ${reading.integrated} LUFS` };
+  if (reading.integrated < QUIET_LUFS) return { kind: "file", why: `통합 볼륨 ${reading.integrated} LUFS` };
   return { kind: "ok", value: { integrated: reading.integrated, truePeak: reading.truePeak, peakP99: reading.peakP99 } };
 }
 
@@ -98,7 +98,7 @@ type Job = { key: string; current: boolean };
 type Running = Job & { controller: AbortController };
 
 /**
- * 음량 측정 큐. run 은 바깥 경계(ffmpeg 작업, media/ffmpeg/job)
+ * 볼륨 측정 큐. run 은 바깥 경계(ffmpeg 작업, media/ffmpeg/job)
  * onMeasured: file 값을 저장한 뒤 부른다(그 음원을 트는 재생에 바로 반영되게)
  */
 class MeasureQueue {
@@ -107,7 +107,7 @@ class MeasureQueue {
   #running: Running | null = null;
   #probe: Promise<boolean> | null = null;
   #onMeasured: ((audioKey: string) => void) | null = null;
-  readonly #env = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 음량 측정");
+  readonly #env = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 볼륨 측정");
   // 환경 탓으로 실패한 키와 다시 재도 되는 시각
   readonly #retryAt = new Map<string, number>();
   readonly #now: () => number;
@@ -131,7 +131,7 @@ class MeasureQueue {
     try {
       outsideGuild(() => this.#enqueue(audioKey, current));
     } catch (error) {
-      log.warn(`캐시 파일 음량 측정 요청 실패: ${audioKey} | ${messageOf(error)}`);
+      log.warn(`캐시 파일 볼륨 측정 요청 실패: ${audioKey} | ${messageOf(error)}`);
     }
   }
 
@@ -156,7 +156,7 @@ class MeasureQueue {
     this.#insert({ key, current });
     // 다른 서버의 지금 곡을 재는 중이면 밀어내지 않는다(긴 파일을 트는 두 서버가 서로를 끝없이 취소한다)
     if (current && this.#running && !this.#running.current) {
-      log.debug(`지금 곡을 먼저 재려고 미리 받는 곡의 음량 측정을 뒤로 돌림: ${this.#running.key}`);
+      log.debug(`지금 곡을 먼저 재려고 미리 받는 곡의 볼륨 측정을 뒤로 돌림: ${this.#running.key}`);
       this.#running.controller.abort();
     }
     void this.#pump();
@@ -185,7 +185,7 @@ class MeasureQueue {
       const again = await this.#measure(running);
       if (again) this.#insert({ key: running.key, current: running.current });
     } catch (error) {
-      log.warn(`캐시 파일 음량 측정 중 오류: ${running.key} | ${messageOf(error)}`);
+      log.warn(`캐시 파일 볼륨 측정 중 오류: ${running.key} | ${messageOf(error)}`);
     } finally {
       this.#running = null;
       void this.#pump();
@@ -221,13 +221,13 @@ class MeasureQueue {
       }
       this.#env.ok();
       if (verdict.kind === "file") {
-        log.warn(`캐시 파일 음량을 재지 못해 이 파일은 다시 재지 않음: ${job.key} | ${verdict.why}`);
+        log.warn(`캐시 파일 볼륨을 재지 못해 이 파일은 다시 재지 않음: ${job.key} | ${verdict.why}`);
         loudness.recordFileFailed(job.key, identity);
         return false;
       }
       loudness.recordFile(job.key, verdict.value, identity);
       const { integrated, truePeak, peakP99 } = verdict.value;
-      log.debug(`캐시 파일 음량: ${job.key} | ${integrated} LUFS, 피크 ${truePeak} dBTP, 프레임 피크 상위 1% ${peakP99} dB | ${((performance.now() - started) / 1000).toFixed(1)}초`);
+      log.debug(`캐시 파일 볼륨: ${job.key} | ${integrated} LUFS, 피크 ${truePeak} dBTP, 프레임 피크 상위 1% ${peakP99} dB | ${((performance.now() - started) / 1000).toFixed(1)}초`);
       this.#onMeasured?.(job.key);
       return false;
     } finally {
@@ -239,11 +239,11 @@ class MeasureQueue {
   #probeOnce(): Promise<boolean> {
     this.#probe ??= this.#selfTest().then(
       (why) => {
-        if (why) log.warn(`볼륨 정규화의 캐시 파일 음량 측정을 끔(이 ffmpeg 의 ebur128 출력을 읽지 못함): ${why}`);
+        if (why) log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(이 ffmpeg 의 ebur128 출력을 읽지 못함): ${why}`);
         return !why;
       },
       (error: unknown) => {
-        log.warn(`볼륨 정규화의 캐시 파일 음량 측정을 끔(자체 테스트 실패): ${messageOf(error)}`);
+        log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(자체 테스트 실패): ${messageOf(error)}`);
         return false;
       },
     );
@@ -260,7 +260,7 @@ class MeasureQueue {
     const got = reading.result();
     const near = (value: number | null) => value !== null && Math.abs(value - PROBE_DB) <= 0.5;
     if (result.code !== 0) return `종료 코드 ${result.code ?? "없음"}`;
-    if (got.lines !== PROBE_SEC * 10 || !near(got.integrated) || !near(got.truePeak)) return `줄 ${got.lines}개, 통합 음량 ${String(got.integrated)}, 피크 ${String(got.truePeak)}`;
+    if (got.lines !== PROBE_SEC * 10 || !near(got.integrated) || !near(got.truePeak)) return `줄 ${got.lines}개, 통합 볼륨 ${String(got.integrated)}, 피크 ${String(got.truePeak)}`;
     return null;
   }
 }
@@ -275,7 +275,7 @@ function needsMeasure(audioKey: string): boolean {
   return !loudness.failedBefore(audioKey, identity);
 }
 
-/** 봇이 쓰는 음량 측정 큐 하나(값을 받을 곳은 조립에서 연결한다) */
+/** 봇이 쓰는 볼륨 측정 큐 하나(값을 받을 곳은 조립에서 연결한다) */
 const measureQueue = new MeasureQueue();
 
 export { MeasureQueue, measureQueue, readingOf, verdictOf, measureArgs, needsMeasure };

@@ -1,4 +1,4 @@
-// src/media/loudness-meter.ts: 재생 중 측정 단계(BS.1770 순간 음량과 100ms 샘플 피크)
+// src/media/loudness-meter.ts: 재생 중 측정 단계(BS.1770 순간 볼륨과 100ms 샘플 피크)
 //
 // 지키는 것: EBU Tech 3341 기준 신호(1kHz 사인파 -23 dBFS 스테레오)가 -23.0 LUFS. 블록은 100ms 마다, 끝난 위치(채널당 샘플 수)와 함께 처음 400ms 뒤부터 나온다.
 // 청크가 1바이트씩, 홀수 길이로 와도 같은 블록이 나오고 청크는 손대지 않고 넘긴다. 깨진 샘플은 무음으로 보고 뒤의 블록을 망치지 않는다.
@@ -52,7 +52,7 @@ test("EBU Tech 3341: 1kHz 사인파 -23 dBFS 스테레오는 -23.0 LUFS 이고, 
     [19_200, 24_000, 28_800],
   );
   for (const [, m, peak] of got) {
-    assert.ok(Math.abs(m - -23) < 0.05, `순간 음량 ${m}`);
+    assert.ok(Math.abs(m - -23) < 0.05, `순간 볼륨 ${m}`);
     assert.ok(Math.abs(peak - -23) < 0.01, `피크 ${peak}`);
   }
 });

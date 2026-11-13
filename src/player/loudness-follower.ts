@@ -1,5 +1,5 @@
-// 재생 중 측정의 느린 추종. 100ms 마다 순간 음량(400ms 블록)과 그 100ms 의 샘플 피크를 넣으면 걸 정규화 게인(dB)을 돌려준다.
-// 측정값(캐시 파일, 끝까지 재생하며 측정한 값)이 없는 소리에 쓴다. 곡 안의 강약은 건드리지 않고 지금까지 들은 것의 통합 음량을 천천히 따라간다.
+// 재생 중 측정의 느린 추종. 100ms 마다 순간 볼륨(400ms 블록)과 그 100ms 의 샘플 피크를 넣으면 걸 정규화 게인(dB)을 돌려준다.
+// 측정값(캐시 파일, 끝까지 재생하며 측정한 값)이 없는 소리에 쓴다. 곡 안의 조용한 부분과 큰 부분의 차이는 건드리지 않고 지금까지 들은 것의 통합 볼륨을 천천히 따라간다.
 
 const TARGET = -14;
 const BIN = 0.1;
@@ -36,9 +36,9 @@ class Hist {
   }
 }
 
-/** 절대 게이트를 넘은 블록들: 음량 히스토그램과 에너지 합 */
+/** 절대 게이트를 넘은 블록들: 볼륨 히스토그램과 에너지 합 */
 class Evidence {
-  // 최대 크기의 고역 사인파나 사각파는 순간 음량이 0 LUFS 를 넘는다(+3 ~ +6)
+  // 최대 크기의 고역 사인파나 사각파는 순간 볼륨이 0 LUFS 를 넘는다(+3 ~ +6)
   readonly h = new Hist(-70, 20);
   sum = 0;
   count = 0;
@@ -49,7 +49,7 @@ class Evidence {
     this.count++;
   }
 
-  /** 게이트 통합 음량과 상대 게이트를 넘은 블록 수. 블록이 없으면 null */
+  /** 게이트 통합 볼륨과 상대 게이트를 넘은 블록 수. 블록이 없으면 null */
   read(): { level: number; n: number } | null {
     if (!this.count) return null;
     const rel = lk(this.sum / this.count) - 10;
@@ -78,16 +78,16 @@ class Evidence {
 
 /** 추종 파라미터. 시간은 초, 속도는 dB/s */
 const RULES = {
-  // 가정 음량보다 작은 소리를 믿는 데 드는 들은 양(초), 큰 소리는 n0Down
+  // 가정 볼륨보다 작은 소리를 믿는 데 드는 들은 양(초), 큰 소리는 n0Down
   n0: 30,
   n0Down: 5,
-  // 3초 단기 음량의 천장: 목표 + H. H 는 h0 부터 관찰한 폭(단기 최대 - 통합 + 1)까지, hMax 를 넘지 않게, 들은 양 / (들은 양 + hGrowS) 만큼 넓어진다
+  // 3초 단기 볼륨의 천장: 목표 + H. H 는 h0 부터 관찰한 폭(단기 최대 - 통합 + 1)까지, hMax 를 넘지 않게, 들은 양 / (들은 양 + hGrowS) 만큼 넓어진다
   h0: 3,
   hMax: 14,
   hGrowS: 180,
   // 폭은 이만큼 전까지 본 것으로만 넓힌다. 지금 막 들어온 큰 소리가 스스로 천장을 높이지 못하게 한다
   crestLagS: 30,
-  // 순간 음량의 천장은 목표 + H + mExtra. 큰 소리가 돌아올 때 3초를 기다리지 않게 한다
+  // 순간 볼륨의 천장은 목표 + H + mExtra. 큰 소리가 돌아올 때 3초를 기다리지 않게 한다
   mExtra: 4,
   upRate: 0.15,
   downRate: 4,
@@ -111,7 +111,7 @@ const RULES = {
 };
 
 /**
- * prior: 시작할 때 가정하는 음량(LUFS). startGain: 시작 게인(dB, 없으면 가정에서). 증폭이면 maxBoost 와 startCap 으로 제한한다.
+ * prior: 시작할 때 가정하는 볼륨(LUFS). startGain: 시작 게인(dB, 없으면 가정에서). 증폭이면 maxBoost 와 startCap 으로 제한한다.
  * startCap: 지난 값의 증폭 한도(dB). 이번 재생에서 모은 블록으로 한도를 계산하기 전까지 쓰고, 없으면 그동안 증폭하지 않는다
  */
 type FollowerStart = { prior?: number; startGain?: number | null; startCap?: number | null };
@@ -145,7 +145,7 @@ class LoudnessFollower {
     this.gain = Math.max(RULES.minGain, start > 0 ? Math.min(start, RULES.maxBoost, this.#cap) : start);
   }
 
-  /** momentary: 순간 음량(LUFS), peak: 그 100ms 의 샘플 피크(dBFS, 모르면 null). 깨진 값은 무음으로 본다. 돌려주는 값은 지금 걸 게인(dB) */
+  /** momentary: 순간 볼륨(LUFS), peak: 그 100ms 의 샘플 피크(dBFS, 모르면 null). 깨진 값은 무음으로 본다. 돌려주는 값은 지금 걸 게인(dB) */
   push(momentary: number, peak: number | null = null): number {
     const m = Math.min(Number.isFinite(momentary) ? momentary : -120, 20);
     const pk = peak !== null && Number.isFinite(peak) ? peak : null;
@@ -163,7 +163,7 @@ class LoudnessFollower {
     return this.gain;
   }
 
-  // 3초 단기 음량(LUFS)
+  // 3초 단기 볼륨(LUFS)
   #short(m: number) {
     const p = pw(m);
     this.#s3Sum += p - (this.#s3[this.#s3At] as number);
@@ -185,7 +185,7 @@ class LoudnessFollower {
     }
   }
 
-  // 0.5초마다: 앞부분 재확인, 통합 음량, 증폭 한도
+  // 0.5초마다: 앞부분 재확인, 통합 볼륨, 증폭 한도
   #review() {
     this.#startCheck();
     const r = this.#ev.read();
@@ -217,7 +217,7 @@ class LoudnessFollower {
     }
   }
 
-  // 믿는 음량과 천장으로 정한 게인까지 속도 제한을 지키며 바꾼다
+  // 믿는 볼륨과 천장으로 정한 게인까지 속도 제한을 지키며 바꾼다
   #move(m: number, s3: number) {
     const sec = this.#n / 10;
     let trusted = this.#prior;

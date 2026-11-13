@@ -9,7 +9,7 @@ type GainTap = {
   frame(pos: number): TapFrame;
   /** 지금 측정해야 하는지(측정 단계가 청크마다 본다) */
   metering(): boolean;
-  /** 측정 단계가 400ms 블록마다(100ms 간격) 부른다. endPos: 그 블록이 끝난 위치, momentary: 순간 음량(LUFS), peak: 그 100ms 의 샘플 피크(dBFS) */
+  /** 측정 단계가 400ms 블록마다(100ms 간격) 부른다. endPos: 그 블록이 끝난 위치, momentary: 순간 볼륨(LUFS), peak: 그 100ms 의 샘플 피크(dBFS) */
   block(endPos: number, momentary: number, peak: number): void;
   /** 파이프라인이 끝났을 때 부른다 */
   close(): void;
