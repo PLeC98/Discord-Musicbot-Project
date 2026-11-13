@@ -41,7 +41,7 @@ const REAL: Boundary = {
 /** 내릴 POToken 서버, 닫을 로그 파일(없으면 null), 나머지는 바깥 경계(생략하면 실제 구현) */
 type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(): unknown } | null } & Partial<Boundary>;
 /** 종료할 때 세션을 저장하고 음성 연결을 정리할 플레이어 */
-type Saver = { persistence: { save(reason: string): Promise<unknown> }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
+type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
 // 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
@@ -126,6 +126,8 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
     if (!player) continue;
+    // 볼륨 정규화의 재생 중 측정값도 지금 저장해 둔다. 이 뒤에는 DB 가 닫힌다
+    player.gain?.checkpoint();
     saves.push(
       player.persistence.save("shutdown").then(
         () => true,

@@ -145,6 +145,8 @@ const fakePlayer = (overrides = {}) => {
     loop: false,
     heldPositionMs: 0,
     _trackLabel: () => '"x" (youtube)',
+    // 볼륨 정규화의 게인 조절기. 곡이 끝날 때 부른다
+    gain: { finish() {}, end() {} },
     ...overrides,
   });
   player.watch = new PlaybackWatch(player);

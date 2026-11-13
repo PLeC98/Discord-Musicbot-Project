@@ -11,6 +11,7 @@ import { messageOf } from "../rules/error-kind.ts";
 import { FRAME_BYTES } from "./audio-splicer.ts";
 import type { EncodeSession, SessionHooks } from "./encode-pool.ts";
 import type { GainTap, TapFrame } from "./gain-tap.ts";
+import { LoudnessMeter } from "./loudness-meter.ts";
 import { addVoicePacket } from "../infra/upload-meter.ts";
 const log = logger.child({ category: "player" });
 
@@ -201,9 +202,12 @@ const clampGain = (gain: number) => (Number.isFinite(gain) ? Math.max(0, Math.mi
 function attachOpusOutput(pcm: Readable, o: { gain: number; openEncoder: OpenEncoder; tap?: GainTap | null }): OpusOutput {
   const output = new OpusOutput(o);
   output.source = pcm;
-  pipeline(pcm, output, () => {
+  const done = () => {
     /* 오류는 출력 스트림의 error 로도 나오고 voice, 우리 리스너가 받는다 */
-  });
+  };
+  // 볼륨 정규화의 측정 단계는 같은 pipeline 에 넣는다. 따로 pipe 로 이으면 출력 스트림을 destroy 할 때 ffmpeg 까지 닿지 않아 넘길 때마다 ffmpeg 가 남는다
+  if (o.tap) pipeline(pcm, new LoudnessMeter(o.tap), output, done);
+  else pipeline(pcm, output, done);
   return output;
 }
 
