@@ -20,6 +20,8 @@ const log = logger.child({ category: "ffmpeg", sub: "loudness" });
 const FILTER = "aresample=48000,aformat=channel_layouts=stereo,ebur128=peak=true";
 /** 진행이 이만큼(ms) 멈추면 끊는다 */
 const STALL_MS = 30_000;
+/** 환경 탓으로 실패한 파일은 이 시간(ms) 동안 다시 재지 않는다. 미리 받기 점검이 틱마다 요청하므로 이 제한이 없으면 같은 실패를 계속 되풀이한다 */
+const ENV_RETRY_MS = 10 * 60 * 1000;
 /** 이보다 긴 파일은 무거운 작업용 코어에 묶는다(짧은 것은 묶는 비용이 더 크다) */
 const BIND_CORES_SEC = 600;
 /** 통합 음량이 이보다 낮게 나온 값은 쓰지 않는다(무음이거나 잘못 잰 것) */
@@ -106,9 +108,13 @@ class MeasureQueue {
   #probe: Promise<boolean> | null = null;
   #onMeasured: ((audioKey: string) => void) | null = null;
   readonly #env = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "캐시 파일 음량 측정");
+  // 환경 탓으로 실패한 키와 다시 재도 되는 시각
+  readonly #retryAt = new Map<string, number>();
+  readonly #now: () => number;
 
-  constructor({ run = runFfmpeg }: { run?: Run } = {}) {
+  constructor({ run = runFfmpeg, now = Date.now }: { run?: Run; now?: () => number } = {}) {
     this.#run = run;
+    this.#now = now;
   }
 
   /** 값을 저장할 때마다 부를 함수(조립에서 연결한다) */
@@ -121,7 +127,12 @@ class MeasureQueue {
    * current: 어느 서버에서든 지금 재생 중인 곡이다(먼저 재고, 미리 받는 곡의 측정을 밀어낸다)
    */
   request(audioKey: string, { current = false }: { current?: boolean } = {}) {
-    outsideGuild(() => this.#enqueue(audioKey, current));
+    // 호출하는 쪽은 재생 경로(곡 확정, 프레임, 다운로드 완료)라 여기서 예외를 던지면 재생이 실패한다
+    try {
+      outsideGuild(() => this.#enqueue(audioKey, current));
+    } catch (error) {
+      log.warn(`캐시 파일 음량 측정 요청 실패: ${audioKey} | ${messageOf(error)}`);
+    }
   }
 
   /** 큐에 있거나 재는 중인지 */
@@ -135,6 +146,8 @@ class MeasureQueue {
       this.#running.current ||= current;
       return;
     }
+    if ((this.#retryAt.get(key) ?? 0) > this.#now()) return;
+    this.#retryAt.delete(key);
     const queued = this.#waiting.findIndex((job) => job.key === key);
     if (queued >= 0) {
       if (!current || (this.#waiting[queued] as Job).current) return;
@@ -203,6 +216,7 @@ class MeasureQueue {
       const verdict: Verdict = fs.existsSync(file) ? verdictOf(result, reading.result(), row.duration_sec) : { kind: "env", why: "재는 사이 파일이 사라짐" };
       if (verdict.kind === "env") {
         this.#env.fail(verdict.why);
+        this.#retryAt.set(job.key, this.#now() + ENV_RETRY_MS);
         return false;
       }
       this.#env.ok();

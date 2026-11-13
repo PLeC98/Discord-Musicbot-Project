@@ -161,7 +161,8 @@ test("지금 곡은 미리 받는 곡의 측정을 밀어내고, 밀린 것은 �
 
 test("파일 탓이면 file-failed 로 기록해 다시 재지 않고, 환경 탓이면 기록하지 않는다", async () => {
   const { calls, run } = fakeRun();
-  const queue = new MeasureQueue({ run });
+  let now = 1_000_000;
+  const queue = new MeasureQueue({ run, now: () => now });
   seed("yt:short", 61);
   seed("yt:env");
   queue.request("yt:short");
@@ -173,10 +174,39 @@ test("파일 탓이면 file-failed 로 기록해 다시 재지 않고, 환경 �
   await settle();
   assert.ok(loudness.rowsOf("yt:short")["file-failed"]);
   assert.deepEqual(loudness.rowsOf("yt:env"), {});
+  now += 11 * 60 * 1000;
   queue.request("yt:short");
   queue.request("yt:env");
   await settle();
-  assert.equal(calls.length, 3, "환경 탓만 다시 잰다");
+  assert.equal(calls.length, 3, "환경 탓으로 실패한 파일만 일정 시간 뒤에 다시 잰다");
+});
+
+test("환경 탓으로 실패한 파일은 한동안 다시 재지 않고, 그 뒤에는 다시 잰다", async () => {
+  const { calls, run } = fakeRun();
+  let now = 1_000_000;
+  const queue = new MeasureQueue({ run, now: () => now });
+  seed("yt:flaky");
+  queue.request("yt:flaky");
+  await settle();
+  calls[0]?.finish([], { code: 1 });
+  await settle();
+  for (let i = 0; i < 5; i++) queue.request("yt:flaky");
+  await settle();
+  assert.equal(calls.length, 1, "미리 받기 점검이 틱마다 요청해도 다시 돌지 않는다");
+  now += 11 * 60 * 1000;
+  queue.request("yt:flaky");
+  await settle();
+  assert.equal(calls.length, 2);
+});
+
+test("측정 요청은 호출하는 쪽(재생 경로)으로 예외를 던지지 않는다", () => {
+  const queue = new MeasureQueue({ run: fakeRun().run });
+  store.db().exec("ALTER TABLE audio_cache RENAME TO audio_cache_off");
+  try {
+    assert.doesNotThrow(() => queue.request("yt:any", { current: true }));
+  } finally {
+    store.db().exec("ALTER TABLE audio_cache_off RENAME TO audio_cache");
+  }
 });
 
 test("재는 동안 파일 삭제를 막고 서버 문맥 밖에서 돈다. 다 재면 값을 알린다", async () => {

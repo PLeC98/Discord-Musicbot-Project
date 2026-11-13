@@ -571,6 +571,21 @@ test("POST settings/normalize: 일반 사용자 403, on 이 boolean 이 아니�
   }
 });
 
+test("POST settings/normalize: 권한 수준 오버라이드를 일반 사용자로 두면 설정을 바꿀 수 없다", async () => {
+  currentUser = { id: "owner", username: "운영자" };
+  currentMember = modMember();
+  currentViewAs = "user";
+  try {
+    const r = await withDjRole(() => normalizeReq({ on: true }));
+    assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
+    assert.equal(settings.resolveNormalize(GUILD_ID), false);
+  } finally {
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+    await settings.setNormalize(GUILD_ID, false);
+  }
+});
+
 test("POST settings/normalize: 봇이 음성 채널 밖이어도 DJ 가 켜고 끈다. 응답은 바뀐 뒤의 카드이고 설정 읽기도 같다", async () => {
   currentMember = plainMember();
   try {
