@@ -393,3 +393,13 @@ test("voice 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이�
   assert.equal(resource.playbackDuration, 80);
   assert.equal(reads.length - audio.length, 5);
 });
+
+test("볼륨 정규화의 측정 단계가 끼어 있어도 출력 스트림을 destroy 하면 위쪽 스트림까지 destroy 된다", async () => {
+  const src = new PassThrough();
+  const tap = { frame: () => ({ gain: 0, press: false }), metering: () => true, block: () => {}, close: () => {} };
+  const output = attachOpusOutput(src, { gain: 1, openEncoder: real, tap });
+  src.write(sine(3));
+  output.destroy();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(src.destroyed, true);
+});

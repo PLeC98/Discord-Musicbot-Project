@@ -257,7 +257,9 @@ test("실제 ffmpeg: 자체 테스트를 통과하고, 테스트용 사인파 �
   const queue = new MeasureQueue();
   const done = new Promise<string>((resolve) => queue.onMeasured(resolve));
   queue.request(key);
-  assert.equal(await done, key);
+  // 현재 빌드에서 자체 테스트가 실패하면 측정이 끝나지 않는다. 취소로 묻히지 않게 타임아웃을 두어 실패로 드러낸다
+  const timeout = new Promise<string>((resolve) => setTimeout(() => resolve("제한 시간 안에 끝나지 않음(자체 테스트 실패일 수 있음. warn 로그 확인)"), 60_000).unref());
+  assert.equal(await Promise.race([done, timeout]), key);
   const value = loudness.rowsOf(key).file;
   assert.ok(value && Math.abs(value.integrated - -20) < 1, `통합 음량 ${value?.integrated}`);
   assert.ok(value && value.truePeak < 0 && value.peakP99 <= value.truePeak + 0.1, JSON.stringify(value));

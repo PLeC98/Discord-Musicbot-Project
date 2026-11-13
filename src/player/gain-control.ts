@@ -278,7 +278,8 @@ class PlaybackState {
   #storedOf(rows: loudness.Rows): loudness.Row | null {
     const length = this.info.lengthSec;
     const file = rows.file && length !== null && rows.file.durationSec !== null && Math.abs(rows.file.durationSec - length) <= LENGTH_TOL_SEC ? rows.file : null;
-    const stored = rows["heard-full"] ?? rows["heard-part"] ?? file;
+    // 우선순위는 file > heard-full > heard-part(store/loudness). file 값을 저장해도 예전 heard-part 는 남는다
+    const stored = file ?? rows["heard-full"] ?? rows["heard-part"];
     return stored && Number.isFinite(stored.integrated) && stored.integrated >= QUIET ? stored : null;
   }
 

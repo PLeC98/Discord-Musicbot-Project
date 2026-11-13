@@ -204,6 +204,10 @@ test("시작값: 측정값이 곧 올 10분 이하의 곡은 음악 가정(-8 LU
 
   loudness.recordHeard("dl:radio", "heard-part", { value: { integrated: -30, truePeak: -12, peakP99: -14 }, identity: { sizeBytes: null, durationSec: null, audioVersion: null }, heardSec: 600 });
   assert.equal(gain.openTap(info("dl:radio"), { ...STREAM, live: true, downloading: false }).frame(0).gain, 6, "+16 이 아니라 +6");
+  // 캐시 파일이 정리된 곡을 스트림으로 다시 틀 때: 길이가 맞는 file 값이 예전 heard-part 보다 우선한다
+  loudness.recordHeard("yt:evicted", "heard-part", { value: { integrated: -30, truePeak: -12, peakP99: -14 }, identity: { sizeBytes: null, durationSec: null, audioVersion: null }, heardSec: 600 });
+  loudness.recordFile("yt:evicted", { integrated: -10, truePeak: -1, peakP99: -2 }, { sizeBytes: 1000, durationSec: 200, audioVersion: null });
+  assert.equal(gain.openTap(info("yt:evicted", { lengthSec: 201 }), STREAM).frame(0).gain, -4);
   loudness.recordHeard("dl:hot", "heard-part", { value: { integrated: -20, truePeak: -1, peakP99: -2 }, identity: { sizeBytes: null, durationSec: null, audioVersion: null }, heardSec: 600 });
   assert.equal(gain.openTap(info("dl:hot"), { ...STREAM, live: true, downloading: false }).frame(0).gain, 0, "지난 값의 증폭 한도(-1.5 - (-2 + 0.5) = 0)");
 });

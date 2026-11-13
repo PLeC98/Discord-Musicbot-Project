@@ -4,7 +4,7 @@
 
 import type { Guild, GuildMember } from "discord.js";
 import logger from "../infra/log/logger.ts";
-const log = logger.child({ category: "player", sub: "normalize" });
+const log = logger.child({ category: "control", sub: "normalize" });
 import * as guildSettings from "../store/guild-settings.ts";
 import * as playerEvents from "../player/events.ts";
 import type { Code } from "../rules/problems.ts";
