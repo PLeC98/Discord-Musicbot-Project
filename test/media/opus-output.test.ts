@@ -1,6 +1,6 @@
 // src/media/opus-output.ts: PCM 을 20ms 프레임으로 모아 인코딩 세션에 보내고 Opus 패킷을 내주는 출력 스트림
 //
-// 지키는 것: 청크 크기와 상관없이 3840바이트 프레임 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
+// 지키는 것: 청크 크기와 상관없이 20ms 프레임(f32le 7680바이트) 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
 // 미리 만드는 것은 세션의 큐 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 청크의 callback 이 미뤄진다.
 // 볼륨은 바꾼 뒤 큐 깊이 + 1 패킷 안에 들린다. read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
 // 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류, 세션 오류는 출력 스트림의 error 가 되며 위쪽 스트림까지 destroy 된다.
@@ -72,13 +72,13 @@ function manual(depth = 2) {
   return { open, stats, control, fail: (error: Error) => hooks?.onError(error) };
 }
 
-// 진폭이 일정한 사인파(왼쪽, 오른쪽 같음)
+// 진폭이 일정한 사인파(왼쪽, 오른쪽 같음). 진폭은 디코더가 내는 16비트 정수의 크기로 적는다
 function sine(frames: number, amplitude = 12000) {
   const buf = Buffer.alloc(frames * FRAME_BYTES);
-  for (let i = 0, t = 0; i < buf.length; i += 4, t++) {
-    const v = Math.round(amplitude * Math.sin((2 * Math.PI * 440 * t) / 48000));
-    buf.writeInt16LE(v, i);
-    buf.writeInt16LE(v, i + 2);
+  for (let i = 0, t = 0; i < buf.length; i += 8, t++) {
+    const v = (amplitude / 32768) * Math.sin((2 * Math.PI * 440 * t) / 48000);
+    buf.writeFloatLE(v, i);
+    buf.writeFloatLE(v, i + 4);
   }
   return buf;
 }
@@ -135,7 +135,7 @@ test("청크가 프레임 크기와 같아도(스플라이서) 읽지 않으면 
   output.destroy();
 });
 
-test("청크 크기와 상관없이 3840바이트 프레임 하나가 Buffer 패킷 하나가 된다(1바이트, 홀수 크기 포함)", async () => {
+test("청크 크기와 상관없이 20ms 프레임 하나가 Buffer 패킷 하나가 된다(1바이트, 홀수 크기 포함)", async () => {
   for (const sizes of [[1], [3, 7, 4093], [FRAME_BYTES], [65536]]) {
     const output = attachOpusOutput(chunked(sine(10), sizes), { gain: 1, openEncoder: real });
     const packets = await readAll(output);
@@ -191,7 +191,7 @@ test("볼륨 배율 1 이면 PCM 을 건드리지 않는다(곱하지 않은 인
   const pcm = sine(5);
   const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, openEncoder: real }));
   const enc = await createOpusEncoder();
-  const b = Array.from({ length: 5 }, (_, i) => enc.encode(pcm.subarray(i * FRAME_BYTES, (i + 1) * FRAME_BYTES)));
+  const b = Array.from({ length: 5 }, (_, i) => enc.encode(new Float32Array(pcm.buffer, pcm.byteOffset + i * FRAME_BYTES, FRAME_BYTES / 4)));
   enc.free();
   assert.deepEqual(a, b);
 });

@@ -1,5 +1,5 @@
 /**
- * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
+ * 재생 인코딩 스레드. 메인(media/encode-pool)이 보낸 20ms PCM 프레임(f32le)에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려준다.
  * 프레임마다 반드시 답한다(패킷이든 오류든). 메인은 보낸 것과 받은 것으로 지연, 멈춤을 잰다.
  * 답은 이벤트 루프 한 바퀴에 처리한 것을 모아 메시지 하나로 보낸다. 밀릴수록 배치가 커져 메인의 메시지 비용이 준다.
  * media/opus-encoder 와 Node 내장만 부른다. logger 를 부르면 이 스레드에 파일 출력이 없는 sink 가 따로 생긴다(로그는 메인이 남긴다).
@@ -23,7 +23,9 @@ type FromWorker =
   // 지난 보고 뒤로 인코딩에 쓴 시간과 스레드 CPU 시간(µs), 살아 있는 인코더 수, 이 스레드의 GC 횟수와 멈춘 시간의 합, 최대(ms)
   | { type: "load"; busyUs: number; cpuUs: number; encoders: number; gcCount: number; gcMs: number; gcMaxMs: number };
 
-const FRAME_BYTES = 3840;
+const FRAME_BYTES = 7680;
+// 이 크기 밖의 샘플은 깨진 값으로 보고 0 으로 둔다(+36 dBFS)
+const BROKEN = 64;
 const LOAD_EVERY_MS = 1000;
 
 type Frame = Extract<ToWorker, { type: "frame" }>;
@@ -86,13 +88,10 @@ function encode(stream: Stream, frame: Frame) {
   const started = performance.now();
   const startedAt = performance.timeOrigin + started;
   try {
-    if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(3840B 여야 한다)`);
-    if (frame.gain !== 1) {
-      // 볼륨 배율은 0 ~ 1 이라 범위를 넘지 않는다. Int16Array 에 넣을 때 소수는 0 쪽으로 잘린다
-      const samples = new Int16Array(frame.pcm);
-      for (let i = 0; i < samples.length; i++) samples[i] *= frame.gain;
-    }
-    const packet = stream.encoder.encode(Buffer.from(frame.pcm));
+    if (frame.pcm.byteLength !== FRAME_BYTES) throw new RangeError(`프레임 크기 ${frame.pcm.byteLength}B(${FRAME_BYTES}B 여야 한다)`);
+    const samples = new Float32Array(frame.pcm);
+    gainAndClip(samples, frame.gain);
+    const packet = stream.encoder.encode(samples);
     // encode 가 돌려준 것은 WASM 힙의 복사본이라 그 ArrayBuffer 를 그대로 넘겨도 된다
     const owned = packet.byteOffset === 0 && packet.byteLength === packet.buffer.byteLength ? (packet.buffer as ArrayBuffer) : packet.buffer.slice(packet.byteOffset, packet.byteOffset + packet.byteLength);
     answer({ id: frame.id, seq: frame.seq, doneAt: doneAt(), startedAt, encodeMs: performance.now() - started, packet: owned as ArrayBuffer });
@@ -100,6 +99,15 @@ function encode(stream: Stream, frame: Frame) {
     errorOf(frame.id, frame.seq, error);
   } finally {
     busyUs += (performance.now() - started) * 1000;
+  }
+}
+
+// NaN 은 ±1 막기를 그대로 지나고, libopus 는 NaN 이 든 프레임 전체를 무음으로 낸다. 그래서 곱하기 전에 샘플마다 거른다
+function gainAndClip(samples: Float32Array, gain: number) {
+  for (let i = 0; i < samples.length; i++) {
+    const v = samples[i];
+    const out = (v > -BROKEN && v < BROKEN ? v : 0) * gain;
+    samples[i] = out > 1 ? 1 : out < -1 ? -1 : out;
   }
 }
 
@@ -138,18 +146,21 @@ function close(id: number) {
   stream.encoder = null;
 }
 
-// 기동 시 한 번: 모듈을 불러 두고 프레임 하나를 인코딩하는 데 드는 시간을 잰다(메인이 처음 워커 수를 정하는 데 쓴다)
+// 기동 시 한 번: 모듈을 불러 두고 프레임 하나를 처리하는 데 드는 시간을 잰다(메인이 처음 워커 수를 정하는 데 쓴다). 실제 프레임과 같은 처리를 거친다
 async function init(port: MessagePort, calibrateFrames: number) {
   reply = port;
   const { libopusVersion } = await loadOpus();
   let frameUs = 0;
   if (calibrateFrames > 0) {
     const encoder = await createOpusEncoder();
-    const pcm = Buffer.alloc(FRAME_BYTES);
-    for (let i = 0; i < pcm.length; i += 2) pcm.writeInt16LE(Math.round(8000 * Math.sin(i / 37)), i);
+    const pcm = new Float32Array(FRAME_BYTES / 4);
+    for (let i = 0; i < pcm.length; i++) pcm[i] = 0.25 * Math.sin(i / 18.5);
     encoder.encode(pcm);
     const started = performance.now();
-    for (let i = 0; i < calibrateFrames; i++) encoder.encode(pcm);
+    for (let i = 0; i < calibrateFrames; i++) {
+      gainAndClip(pcm, 1);
+      encoder.encode(pcm);
+    }
     frameUs = ((performance.now() - started) * 1000) / calibrateFrames;
     encoder.free();
   }

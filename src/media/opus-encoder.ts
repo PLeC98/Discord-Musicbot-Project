@@ -6,9 +6,9 @@
 
 import { Application, createEncoder, loadLibopus } from "libopus-wasm";
 
-/** 48kHz 스테레오 20ms(960 샘플) s16le PCM 한 프레임을 raw Opus 패킷 하나로 */
+/** 48kHz 스테레오 20ms(960 샘플) 실수 PCM(채널을 번갈아 1920개, ±1) 한 프레임을 raw Opus 패킷 하나로 */
 type OpusEncoder = {
-  encode(frame: Buffer): Buffer;
+  encode(frame: Float32Array): Buffer;
   free(): void;
 };
 
@@ -28,7 +28,7 @@ async function createOpusEncoder(): Promise<OpusEncoder> {
   return {
     // 돌려받는 패킷은 WASM 힙의 복사본이다. voice 의 DAVE 경로가 Buffer.equals 를 부르므로 Buffer 로 감싼다
     encode(frame) {
-      const packet = encoder.encode(frame);
+      const packet = encoder.encodeFloat(frame);
       return Buffer.from(packet.buffer, packet.byteOffset, packet.byteLength);
     },
     free() {

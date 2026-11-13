@@ -118,7 +118,7 @@ function pcmOf(stream: Readable, seekMs: number): Promise<Buffer> {
     const child = spawnFfmpeg(buildFfmpegArgs({ seekMs }), "probe", { killOnStdoutClose: false });
     const chunks: Buffer[] = [];
     let got = 0;
-    const want = 48000 * 4 * 2;
+    const want = 48000 * 8 * 2;
     child.stdout.on("data", (chunk: Buffer) => {
       chunks.push(chunk);
       got += chunk.length;
@@ -136,7 +136,7 @@ function pcmOf(stream: Readable, seekMs: number): Promise<Buffer> {
 
 /** 왼쪽 채널로 b 를 a 에 대어 ±5ms 안의 가장 잘 맞는 어긋남(ms)과 상관 */
 function bestLag(a: Buffer, b: Buffer) {
-  const at = (buf: Buffer, i: number) => buf.readInt16LE(i * 4);
+  const at = (buf: Buffer, i: number) => buf.readFloatLE(i * 8);
   let best = { lagMs: 0, corr: -1 };
   for (let lag = -240; lag <= 240; lag++) {
     let xy = 0;

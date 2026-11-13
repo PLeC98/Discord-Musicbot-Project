@@ -1,7 +1,8 @@
-// src/media/encode-worker.ts: 메인이 보낸 PCM 프레임에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려주는 인코딩 스레드
+// src/media/encode-worker.ts: 메인이 보낸 PCM 프레임(f32le)에 볼륨 배율(gain)을 곱해 Opus 패킷으로 돌려주는 인코딩 스레드
 //
 // 지키는 것: 기동하면 libopus 버전과 프레임 하나의 인코딩 시간을 알린다. 프레임마다 반드시 답하고(패킷이든 오류든),
 // 한 스트림의 답은 보낸 순서대로 온다(인코더를 만드는 동안 온 프레임도). 한 차례에 처리한 답은 메시지 하나로 묶인다. 볼륨 배율이 소리에 걸린다.
+// 깨진 샘플(NaN, 무한대, 터무니없이 큰 값)은 0 이 되어 그 뒤 프레임을 망치지 않고, ±1 을 넘는 샘플은 막힌다.
 // 크기가 틀린 프레임, 열리지 않은 스트림은 그 프레임만 오류로 답하고 스트림은 이어진다. 생성 중에 닫아도 스레드가 멀쩡하다.
 // 1초마다 인코딩에 쓴 시간, 스레드 CPU 시간, 인코더 수, GC를 보고한다.
 
@@ -63,14 +64,14 @@ const answerOf =
 const isLoad = (m: In): m is Extract<In, { type: "load" }> => m.type === "load";
 
 // 진폭이 일정한 사인파 프레임 하나(자기 ArrayBuffer 를 가진다. 넘기면 메인 쪽은 비워진다)
-function frame(amplitude = 12000) {
-  const buf = Buffer.alloc(FRAME_BYTES);
-  for (let i = 0, t = 0; i < buf.length; i += 4, t++) {
-    const v = Math.round(amplitude * Math.sin((2 * Math.PI * 440 * t) / 48000));
-    buf.writeInt16LE(v, i);
-    buf.writeInt16LE(v, i + 2);
+function frame(amplitude = 0.37, at = (v: number, _i: number) => v) {
+  const samples = new Float32Array(FRAME_BYTES / 4);
+  for (let i = 0; i < samples.length; i += 2) {
+    const v = at(amplitude * Math.sin((2 * Math.PI * 440 * (i / 2)) / 48000), i);
+    samples[i] = v;
+    samples[i + 1] = v;
   }
-  return buf.buffer;
+  return samples.buffer;
 }
 
 function sendFrame(id: number, seq: number, gain = 1, pcm = frame()) {
@@ -131,6 +132,39 @@ test("열자마자 보낸 프레임도 보낸 순서대로 패킷이 되고, 볼
   const loud = rms.slice(5, 20).reduce((a, b) => a + b) / 15;
   const quiet = rms.slice(25).reduce((a, b) => a + b) / 15;
   assert.ok(Math.abs(quiet / loud - 0.25) < 0.05, `배율 ${quiet / loud}`);
+  post({ type: "close", id });
+});
+
+test("깨진 샘플은 0 으로 보고 그 뒤 프레임을 망치지 않으며, ±1 을 넘는 샘플은 막는다", async () => {
+  const id = 7;
+  post({ type: "open", id });
+  for (let seq = 0; seq < 10; seq++) sendFrame(id, seq);
+  // 깨진 값만 든 프레임 셋. 막기로만 다루면 최대 크기의 소리가 된다. NaN 이 든 프레임은 libopus 가 스스로 무음으로 내므로 따로 본다
+  const broken = [Infinity, -Infinity, 1e30, -1e30];
+  for (let seq = 10; seq < 13; seq++)
+    sendFrame(
+      id,
+      seq,
+      1,
+      frame(0, (_v, i) => broken[Math.floor(i / 200) % broken.length] as number),
+    );
+  sendFrame(
+    id,
+    13,
+    1,
+    frame(0.37, (v, i) => (i % 50 === 0 ? NaN : v)),
+  );
+  for (let seq = 14; seq < 20; seq++) sendFrame(id, seq);
+  // 배율로 ±1 을 넘긴 프레임은 막혀 원래 크기의 몇 배가 되지 못한다
+  for (let seq = 20; seq < 30; seq++) sendFrame(id, seq, 10);
+  const rms = await rmsOf((await take(packetOf(id), 30)).map((p) => p.packet));
+  assert.ok(rms.every(Number.isFinite), `rms ${rms.join(", ")}`);
+  const steady = rms.slice(5, 10).reduce((a, b) => a + b) / 5;
+  assert.ok((rms[11] as number) < steady * 0.1, `깨진 프레임 ${rms[11]}, 평소 ${steady}`);
+  const after = rms.slice(15, 20).reduce((a, b) => a + b) / 5;
+  assert.ok(Math.abs(after / steady - 1) < 0.1, `깨진 프레임 뒤 ${after / steady}`);
+  const loud = rms.slice(25).reduce((a, b) => a + b) / 5;
+  assert.ok(loud / steady < 5, `배율 10 에서 ${loud / steady}`);
   post({ type: "close", id });
 });
 

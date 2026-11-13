@@ -27,7 +27,7 @@ type ArgsOptions = { file?: string | null; url?: string | null; hls?: boolean; s
  */
 function buildFfmpegArgs({ file = null, url = null, hls = true, seekMs = 0, caps = null }: ArgsOptions = {}): string[] {
   const seek = seekMs > 0 ? ["-ss", (Number(seekMs) / 1000).toFixed(3)] : [];
-  const output = ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"];
+  const output = ["-f", "f32le", "-ar", "48000", "-ac", "2", "pipe:1"];
 
   if (url) {
     // 잔끊김은 ffmpeg 안에서 흡수시키고 우리 재시도는 진짜 실패에만 돌게 나눈다.

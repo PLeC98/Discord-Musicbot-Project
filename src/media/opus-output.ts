@@ -1,4 +1,4 @@
-// 출력 스트림. PCM(s16le 48kHz 스테레오)을 20ms 프레임으로 모아 인코딩 세션(media/encode-pool)에 보내고, 돌아온 Opus 패킷을 내준다.
+// 출력 스트림. PCM(f32le 48kHz 스테레오)을 20ms 프레임으로 모아 인코딩 세션(media/encode-pool)에 보내고, 돌아온 Opus 패킷을 내준다.
 // @discordjs/voice 에는 StreamType.Opus 로 넘긴다. inlineVolume 을 같이 넘기면 voice 가 prism 의 디코더, 볼륨, 인코더를 다시 끼운다.
 //
 // 미리 만드는 패킷은 세션의 큐 깊이(depth)까지다: 보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼. 볼륨 배율(gain)은 보낼 때 곱하므로 바꾼 뒤 그만큼 지나 들린다.
@@ -42,7 +42,8 @@ class OpusOutput extends Duplex {
    * @param o.openEncoder  인코딩 세션을 여는 함수(media/encode-pool)
    */
   constructor({ gain, openEncoder }: { gain: number; openEncoder: OpenEncoder }) {
-    super({ readableObjectMode: true, readableHighWaterMark: 1 });
+    // 쓰는 쪽 버퍼는 바이트로 적는다(약 85ms). Node 기본값은 플랫폼, 버전마다 다르다
+    super({ readableObjectMode: true, readableHighWaterMark: 1, writableHighWaterMark: 32 * 1024 });
     this.#gain = clampGain(gain);
     // 패킷, 오류는 이 출력 스트림의 read() 밖(다른 출력 스트림의 read(), 이벤트, 풀의 타이머)에서도 온다
     this.#session = openEncoder({ onPacket: (packet) => this.#onPacket(packet), onError: (err) => this.destroy(err) });
