@@ -20,6 +20,16 @@ const stay = {
   failed: "상주 모드를 바꾸지 못했어요.",
 };
 
+/** 볼륨 정규화(디스코드 /normalize). locked, failed 는 상주 모드와 같은 자리 */
+const normalize = {
+  title: "볼륨 정규화",
+  desc: "곡과 영상마다 다른 소리 크기를 비슷하게 맞춰요. 곡 안의 강약은 그대로예요.",
+  enable: "볼륨 정규화 켜기",
+  enabled: "볼륨 정규화 켜짐",
+  locked: stay.locked,
+  failed: "볼륨 정규화를 바꾸지 못했어요.",
+};
+
 /** 봇 전용 채널 */
 const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", none: "지정 안 함" };
 
@@ -81,4 +91,4 @@ const leave = {
   failed: "봇을 내보내지 못했어요.",
 };
 
-export { backToPlayer, back, loadFailed, saveFailed, stay, channel, dj, sponsor, playlistAdd, agePlace, leave };
+export { backToPlayer, back, loadFailed, saveFailed, stay, normalize, channel, dj, sponsor, playlistAdd, agePlace, leave };

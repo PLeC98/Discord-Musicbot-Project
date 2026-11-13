@@ -55,6 +55,9 @@ const stayOn = (channel: string, already: boolean): Head => (already ? { icon: "
 /** 상주 모드 끔. already 면 이미 꺼져 있었다 */
 const stayOff = (already: boolean): Head => (already ? { icon: "done", title: "이미 상주 모드가 꺼져 있어요.", body: "대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 가요." } : { icon: "done", title: "상주 모드를 껐어요!", body: "이제 대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 갈게요." });
 
+/** 볼륨 정규화 켬, 끔. already 면 이미 그 상태였다 */
+const normalizeSet = (on: boolean, already: boolean): Head => (on ? { icon: "volume", title: already ? "이미 볼륨 정규화가 켜져 있어요." : "볼륨 정규화를 켰어요!", body: "곡과 영상마다 다른 소리 크기를 비슷하게 맞춰요. 곡 안의 강약은 그대로예요." } : { icon: "done", title: already ? "이미 볼륨 정규화가 꺼져 있어요." : "볼륨 정규화를 껐어요!", body: "곡과 영상을 원래 소리 크기로 틀어요." });
+
 /** 섞기 */
 const shuffled = (count: number): Head => ({ icon: "shuffle", title: "대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });
 
@@ -124,4 +127,4 @@ const leaving = () => `${icon("progress")} 음성 채널에서 나가는 중...`
 /** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean): Head => (isPaused ? { icon: "pause", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { icon: "play", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, leaving, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, normalizeSet, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, leaving, restored };

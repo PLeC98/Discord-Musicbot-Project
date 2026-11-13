@@ -18,13 +18,16 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 type GuildEvent = { t: "changed"; g: string };
 
 /** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards 의 표 */
-type SettingsCard = "stay" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "leave";
+type SettingsCard = "stay" | "normalize" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "leave";
 
 /**
  * 상주 모드 카드. on: 켜져 있는가, channel: 머무는 음성 채널(꺼져 있거나 보는 사람이 볼 수 없는 채널이면 null),
  * refusal: 보는 사람이 지금 바꿀 수 없는 까닭(바꿀 수 있으면 null). 켜고 끄기(POST .../settings/stay)의 답도 이 모양
  */
 type StayCard = { on: boolean; channel: { id: string; name: string } | null; refusal: Code | null };
+
+/** 볼륨 정규화 카드. refusal 은 상주 모드 카드와 같다. 켜고 끄기(POST .../settings/normalize)의 응답도 같은 형식 */
+type NormalizeCard = { on: boolean; refusal: Code | null };
 
 /**
  * 서버 설정 화면. cards 는 보는 사람에게 보이는 카드이고, 카드의 값은 보이는 카드만 싣는다(안 보이는 카드의 목록, 값은 보내지 않는다).
@@ -34,6 +37,7 @@ type GuildSettings = {
   guildName: string;
   cards: SettingsCard[];
   stay?: StayCard;
+  normalize?: NormalizeCard;
   channel?: { botChannelId: string | null; channels: Array<{ id: string; name: string }> };
   dj?: { djRoleIds: string[]; roles: Array<{ id: string; name: string; color: string | null }> };
   sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
@@ -45,4 +49,4 @@ type GuildSettings = {
 /** 서버 설정 저장의 답 */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, GuildSettings, Saved };
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, NormalizeCard, GuildSettings, Saved };

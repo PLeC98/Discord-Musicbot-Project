@@ -25,6 +25,8 @@ type Viewer = { tier: Tier; kicksBot: boolean };
 const CARDS: CardTable = {
   // 상주 모드는 디스코드 /247 과 같은 DJ 조작. 켜고 끄기는 POST .../settings/stay(usecases/stay)
   stay: { gate: "dj", fields: [] },
+  // 볼륨 정규화는 디스코드 /normalize 와 같은 DJ 조작. 켜고 끄기는 POST .../settings/normalize(usecases/normalize). 저장 본문에 넣으면 gate 가 계층만 봐서 음성 채널 규칙을 건너뛴다
+  normalize: { gate: "dj", fields: [] },
   channel: { gate: "server-manager", fields: ["botChannelId"] },
   dj: { gate: "server-manager", fields: ["djRoleIds"] },
   sponsorblock: { gate: "server-manager", fields: ["sponsorblock"] },

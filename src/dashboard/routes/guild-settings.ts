@@ -16,13 +16,14 @@ import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
 import type { AgePlace } from "../../rules/age-place.ts";
 import { openGuild } from "../guild-access.ts";
-import { parse, settingsBody, StayBody } from "../request-schemas.ts";
+import { parse, settingsBody, ToggleBody } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import type { Problem } from "../../rules/problems.ts";
 import { DJ_ROLE_MAX } from "../../rules/limits.ts";
-import type { GuildSettings, Saved, StayCard } from "../contract/guilds.ts";
+import type { GuildSettings, NormalizeCard, Saved, StayCard } from "../contract/guilds.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import * as stay from "../../usecases/stay.ts";
+import * as normalize from "../../usecases/normalize.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { announcer, dashboardActor } from "../discord-notice.ts";
 import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
@@ -83,6 +84,11 @@ async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): P
   return { on: seat !== null, channel: found && visible ? { id: found.id, name: found.name } : null, refusal: await stay.stayRefusal(bot, member) };
 }
 
+// 볼륨 정규화 카드: 켜졌는지, 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/normalize)
+async function normalizeCardOf(guild: Guild, member: GuildMember): Promise<NormalizeCard> {
+  return { on: normalize.normalizeOn(guild.id), refusal: await normalize.normalizeRefusal(member) };
+}
+
 function createGuildSettingsRouter() {
   const router = express.Router();
 
@@ -97,6 +103,7 @@ function createGuildSettingsRouter() {
     const reply: GuildSettings = { guildName: guild.name, cards };
 
     if (cards.includes("stay")) reply.stay = await stayCardOf(bot, guild, member);
+    if (cards.includes("normalize")) reply.normalize = await normalizeCardOf(guild, member);
 
     if (cards.includes("channel")) {
       const rawChannelId = await GuildSettingsManager.getBotChannel(guild.id);
@@ -171,7 +178,7 @@ function createGuildSettingsRouter() {
     const { guild, member, bot } = ctx;
 
     if (!shownCards(await viewerOf(req, member)).includes("stay")) return sendProblem(res, cardRefusal("stay"));
-    const body = parse(StayBody, req.body ?? {});
+    const body = parse(ToggleBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code);
 
     const r = body.value.on ? await stay.turnOn(bot, { guild, member }, { go: () => assertSignedIn(req) }) : await stay.turnOff(bot, { guild, member });
@@ -181,6 +188,22 @@ function createGuildSettingsRouter() {
       announcer(bot, bot.players.get(guild.id))(view);
     }
     res.json(await stayCardOf(bot, guild, member));
+  });
+
+  // 볼륨 정규화 켜기, 끄기 { on }. 디스코드 /normalize 와 같은 처리(usecases/normalize). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 응답은 바뀐 뒤의 카드
+  router.post("/:guildId/settings/normalize", requireAuth, async (req, res) => {
+    const ctx = await openGuild(req, res, req.params.guildId);
+    if (!ctx) return;
+    const { guild, member, bot } = ctx;
+
+    // 카드 계층을 먼저 보지 않는다. 판정은 /normalize 와 같은 순서(usecases/normalize 의 checkControl: 같은 음성 채널, 그다음 DJ)로 하나다
+    const body = parse(ToggleBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
+
+    const r = await normalize.setNormalize({ guild, member }, body.value.on);
+    if (!r.ok) return sendProblem(res, r.code);
+    if (!r.already) announcer(bot, bot.players.get(guild.id))(replies.normalizeSet(r.on, false, dashboardActor(req)));
+    res.json(await normalizeCardOf(guild, member));
   });
 
   // 봇 내보내기. 디스코드에서 봇을 추방할 수 있는 사람만(카드 표의 kick-bot, 판정은 이 요청 때 다시). 되돌릴 수 없어 로그인한 지 오래되면 다시 로그인하게 한다.

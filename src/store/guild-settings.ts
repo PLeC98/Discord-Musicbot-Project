@@ -31,6 +31,7 @@ const FIELDS = {
   playlistAddMax: z.number().int().positive(),
   agePlace: z.enum(AGE_PLACES),
   volume: z.number().int().min(0).max(VOLUME_MAX),
+  normalize: z.boolean(),
 };
 type GuildDoc = { [K in keyof typeof FIELDS]?: z.infer<(typeof FIELDS)[K]> };
 
@@ -157,6 +158,16 @@ const table = {
   setVolume(guildId: string, level: number) {
     writeField(guildId, "volume", level === config.bot.defaultVolume ? undefined : level);
   },
+
+  /** 볼륨 정규화 켜짐 여부. 미설정이면 끔 */
+  getNormalize(guildId: string): boolean {
+    return readDoc(guildId).normalize ?? false;
+  },
+
+  /** 끄면(기본값) 필드를 뺀다 */
+  setNormalize(guildId: string, on: boolean) {
+    writeField(guildId, "normalize", on ? true : undefined);
+  },
 };
 
 /** 설정이 있는 서버 수(초기화 카드) */
@@ -174,7 +185,7 @@ function replaceAll(docs: Record<string, GuildDoc>) {
 }
 
 // 서버, 필드마다 담아 두는 값. 키는 `${guildId}_${필드}`
-type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null };
+type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: number | null; sb: SponsorBlockSetting; agePlace: AgePlace; volume: number | null; normalize: boolean };
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
@@ -379,6 +390,38 @@ async function saveVolume(guildId: string, level: number) {
   }
 }
 
+// ── 볼륨 정규화 ──
+
+/**
+ * 이 서버의 볼륨 정규화 켜짐 여부. 재생이 프레임마다(초당 50번) 부르므로 메모리에 담는다.
+ * 못 읽으면 끔으로 기억하고 오류 로그를 한 번만 남긴다(다음에 바꾸거나 초기화하면 다시 읽는다). DB 가 열리지 않았으면 끔
+ */
+function resolveNormalize(guildId: string): boolean {
+  const hit = cached(guildId, "normalize");
+  if (hit !== undefined) return hit;
+  if (!settingsDb.isOpen()) return false;
+  let value = false;
+  try {
+    value = table.getNormalize(guildId);
+  } catch (error) {
+    log.error("볼륨 정규화 설정 읽기 실패(끔으로 적용):", error);
+  }
+  remember(guildId, "normalize", value);
+  return value;
+}
+
+async function setNormalize(guildId: string, on: boolean) {
+  try {
+    table.setNormalize(guildId, on);
+    remember(guildId, "normalize", on);
+    return true;
+  } catch (error) {
+    unlessNotOpen(error);
+    log.error("볼륨 정규화 설정 저장 실패:", error);
+    return false;
+  }
+}
+
 // ── SponsorBlock 서버별 설정 ──
 
 /** 서버가 정한 그대로의 설정. null 은 전역을 따른다 */
@@ -435,5 +478,5 @@ function resolveSponsorBlock(guildId: string): { enabled: boolean; categories: s
   };
 }
 
-export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
+export { table, forgetCache, guildCount, replaceAll, setBotChannel, getBotChannel, clearBotChannel, setDjRoles, getDjRoles, clearDjRoles, playlistAddLimits, getPlaylistAddMax, setPlaylistAddMax, resolvePlaylistAddMax, resolveAgePlace, setAgePlace, resolveVolume, saveVolume, resolveNormalize, setNormalize, getSponsorBlock, setSponsorBlock, resolveSponsorBlock };
 export type { SponsorBlockSetting, GuildDoc };

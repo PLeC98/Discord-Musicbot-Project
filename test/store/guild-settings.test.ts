@@ -153,6 +153,34 @@ test("SponsorBlock 유효값: 전역이 꺼져 있으면 서버 설정과 무관
   }
 });
 
+test("볼륨 정규화: 기본 끔, 켜고 끄기. 끄면 필드를 뺀다", async () => {
+  assert.equal(settings.resolveNormalize("g1"), false);
+  assert.equal(await settings.setNormalize("g1", true), true);
+  fresh();
+  assert.equal(settings.resolveNormalize("g1"), true);
+  await settings.setNormalize("g1", false);
+  fresh();
+  assert.equal(settings.resolveNormalize("g1"), false);
+  assert.equal(guildTable.getNormalize("g1"), false);
+});
+
+test("볼륨 정규화: 프레임마다 읽으므로 읽기 실패는 끔으로 기억하고 오류 로그를 한 번만 남긴다. 저장하면 다시 그 값을 쓴다", async () => {
+  const from = sink.buffer.length;
+  try {
+    await settings.setNormalize("g3", true);
+    fresh();
+    await whenDbDown(() => {
+      for (let i = 0; i < 50; i++) assert.equal(settings.resolveNormalize("g3"), false);
+    });
+    assert.equal(sink.buffer.slice(from).filter((e) => e.text.startsWith("볼륨 정규화 설정 읽기 실패")).length, 1);
+    assert.equal(settings.resolveNormalize("g3"), false, "DB 가 돌아와도 바꾸거나 초기화하기 전에는 기억한 끔");
+    fresh();
+    assert.equal(settings.resolveNormalize("g3"), true);
+  } finally {
+    await settings.setNormalize("g3", false);
+  }
+});
+
 test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () => {
   await settings.setBotChannel("g1", "c1");
   await whenDbDown(async () => {

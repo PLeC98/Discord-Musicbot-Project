@@ -42,6 +42,19 @@
           </NoticeBox>
         </BaseCard>
 
+        <!-- 볼륨 정규화(디스코드 /normalize, DJ 부터). 봇이 음성 채널 밖이어도 바꿀 수 있다. 바꿀 수 없으면 상주 모드 카드와 같은 안내 상자 -->
+        <BaseCard v-if="s.normalize" icon="graphic_eq" :title="T.normalize.title" class="mb-(--gap-in)">
+          <p class="text-on-surface-variant text-sm mb-3">{{ T.normalize.desc }}</p>
+          <label v-if="!s.normalize.refusal" class="flex items-center justify-between gap-3 py-2 text-sm cursor-pointer">
+            <span>{{ normalizeShown ? T.normalize.enabled : T.normalize.enable }}</span>
+            <BaseSwitch :model-value="normalizeShown" :disabled="normalizeBusy" @update:model-value="toggleNormalize" />
+          </label>
+          <NoticeBox v-else variant="gate" :icon="REFUSAL_ICON[s.normalize.refusal] ?? 'block'" icon-class="text-on-surface-variant" class="min-h-0! py-2!">
+            <span class="flex-1 min-w-0">{{ noticeText(s.normalize.refusal).title }}</span>
+            <span v-tooltip="T.normalize.locked(normalizeShown)" class="relative inline-flex shrink-0"><BaseSwitch :model-value="normalizeShown" disabled /><span class="absolute inset-0 z-20"></span></span>
+          </NoticeBox>
+        </BaseCard>
+
         <!-- 봇 전용 채널 -->
         <BaseCard v-if="s.channel" icon="keep" :title="T.channel.title" class="mb-(--gap-in)">
           <p class="text-on-surface-variant text-sm mb-3">{{ T.channel.desc }}</p>
@@ -158,7 +171,7 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
-import type { GuildSettings, Saved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
+import type { GuildSettings, NormalizeCard, Saved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 import type { IconName } from "../icons.ts";
 import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
@@ -300,13 +313,34 @@ async function toggleStay(on: boolean) {
   }
 }
 
-// 다른 곳(디스코드 /247, 음성 채널 들고 남)에서 바뀌면 상주 모드 카드만 다시 읽는다(다른 카드의 고치던 값은 둔다)
-let nudgeTimer = 0;
-async function refreshStay() {
-  if (!s.value.stay || stayBusy.value) return;
+// ── 볼륨 정규화 ──
+// 상주 모드와 같이 저장(PUT)이 아니라 바로 보낸다(/normalize 와 같은 처리)
+const normalizeBusy = ref(false);
+const normalizeWant = ref<boolean | null>(null);
+const normalizeShown = computed(() => normalizeWant.value ?? Boolean(s.value.normalize?.on));
+
+async function toggleNormalize(on: boolean) {
+  if (normalizeBusy.value) return;
+  normalizeBusy.value = true;
+  normalizeWant.value = on;
   try {
-    const { stay } = (await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data;
+    s.value = { ...s.value, normalize: (await axios.post<NormalizeCard>(`/api/guilds/${guildId}/settings/normalize`, { on })).data };
+  } catch (e) {
+    notifyProblem(e, T.normalize.failed);
+  } finally {
+    normalizeWant.value = null;
+    normalizeBusy.value = false;
+  }
+}
+
+// 다른 곳(디스코드 /247, /normalize, 음성 채널 출입)에서 바뀌면 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)만 다시 읽는다(다른 카드의 고치던 값은 둔다)
+let nudgeTimer = 0;
+async function refreshToggles() {
+  if (!s.value.stay && !s.value.normalize) return;
+  try {
+    const { stay, normalize } = (await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data;
     if (stay && !stayBusy.value) s.value = { ...s.value, stay };
+    if (normalize && !normalizeBusy.value) s.value = { ...s.value, normalize };
   } catch {
     // 다음 신호에 다시 읽는다
   }
@@ -314,7 +348,7 @@ async function refreshStay() {
 const offNudge = onGuildNudge((changed) => {
   if (changed && changed !== guildId) return;
   clearTimeout(nudgeTimer);
-  nudgeTimer = window.setTimeout(() => void refreshStay(), 600);
+  nudgeTimer = window.setTimeout(() => void refreshToggles(), 600);
 });
 
 // ── 봇 내보내기 ──

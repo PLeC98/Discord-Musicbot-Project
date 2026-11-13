@@ -23,6 +23,7 @@ type Reply = ProblemReply & {
   playlistAdd?: unknown;
   agePlace?: string;
   stay?: { on: boolean; channel: { id: string; name: string } | null; refusal: string | null };
+  normalize?: { on: boolean; refusal: string | null };
   hasSettings?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
@@ -215,16 +216,17 @@ test("GET settings: 일반 사용자는 보이는 카드가 없어 403(가장 �
   );
 });
 
-test("GET settings: DJ 는 상주 모드 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
+test("GET settings: DJ 는 상주 모드와 볼륨 정규화 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
-  assert.deepEqual(r.json.cards, ["stay"]);
+  assert.deepEqual(r.json.cards, ["stay", "normalize"]);
   assert.deepEqual(
     ["channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
     [],
   );
   assert.deepEqual(r.json.stay, { on: false, channel: null, refusal: "must-be-in-voice" }, "봇이 쉬고 음성 채널 밖이면 켤 수 없다(봇을 부를 채널이 없다)");
+  assert.deepEqual(r.json.normalize, { on: false, refusal: null }, "볼륨 정규화는 봇이 음성 채널 밖이어도 바꿀 수 있다");
 });
 
 test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
@@ -478,8 +480,8 @@ test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라�
     await withDjRole(async () => {
       for (const [member, viewAs, want] of [
         [modMember, "user", [false, 403, 403, undefined]],
-        [modMember, "dj", [true, 200, 403, ["stay"]]],
-        [modMember, "server-manager", [true, 200, 200, ["stay", "channel", "dj", "sponsorblock", "playlistAdd"]]],
+        [modMember, "dj", [true, 200, 403, ["stay", "normalize"]]],
+        [modMember, "server-manager", [true, 200, 200, ["stay", "normalize", "channel", "dj", "sponsorblock", "playlistAdd"]]],
         [plainMember, "server-manager", [false, 403, 403, undefined]],
       ] as const) {
         currentMember = member();
@@ -538,6 +540,49 @@ test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄�
     voiceVisible = true;
     await stayReq({ on: false });
     players.delete(GUILD_ID);
+  }
+});
+
+// ── POST /settings/normalize(볼륨 정규화) ───────────────────────────
+
+type NormalizeReply = ProblemReply & { on?: boolean; refusal?: string | null };
+const normalizeReq = (body: unknown) => requestJson<NormalizeReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/normalize`, body);
+
+test("POST settings/normalize: 일반 사용자 403, on 이 boolean 이 아니면 400, 봇이 다른 음성 채널에 있으면 디스코드 /normalize 와 같은 거절", async () => {
+  currentMember = plainMember();
+  const user = await withDjRole(() => normalizeReq({ on: true }));
+  assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
+
+  currentMember = modMember();
+  for (const body of [{ on: "true" }, {}, { on: 1 }, null]) assert.equal((await normalizeReq(body)).status, 400, JSON.stringify(body));
+
+  guild.members.me = { voice: { channel: channels.get("v1") } };
+  try {
+    currentMember = plainMember();
+    const elsewhere = await normalizeReq({ on: true });
+    assert.deepEqual([elsewhere.status, elsewhere.json.code], [409, "must-be-in-same-voice"]);
+    const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+    assert.deepEqual(read.json.normalize, { on: false, refusal: "must-be-in-same-voice" }, "카드에도 같은 까닭");
+    const notDj = await withDjRole(() => normalizeReq({ on: true }));
+    assert.deepEqual([notDj.status, notDj.json.code], [409, "must-be-in-same-voice"], "DJ 가 아니어도 다른 채널이면 명령과 같이 채널부터 본다");
+    assert.equal(settings.resolveNormalize(GUILD_ID), false);
+  } finally {
+    guild.members.me = null;
+  }
+});
+
+test("POST settings/normalize: 봇이 음성 채널 밖이어도 DJ 가 켜고 끈다. 응답은 바뀐 뒤의 카드이고 설정 읽기도 같다", async () => {
+  currentMember = plainMember();
+  try {
+    const on = await normalizeReq({ on: true });
+    assert.deepEqual([on.status, on.json.on, on.json.refusal], [200, true, null]);
+    assert.equal(settings.resolveNormalize(GUILD_ID), true);
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.normalize, { on: true, refusal: null });
+    assert.equal((await normalizeReq({ on: true })).status, 200, "이미 켜져 있으면 그대로");
+    const off = await normalizeReq({ on: false });
+    assert.deepEqual([off.status, off.json.on], [200, false]);
+  } finally {
+    await settings.setNormalize(GUILD_ID, false);
   }
 });
 

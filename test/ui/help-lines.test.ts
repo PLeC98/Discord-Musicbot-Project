@@ -23,7 +23,7 @@ const EXPECTED = [
   },
   {
     key: "mode",
-    lines: ["`/loop`: 반복 모드를 설정해요 💿", "`/autoplay`: 자동재생을 켜거나 꺼요 💿", "`/volume`: 볼륨을 설정해요 💿"],
+    lines: ["`/loop`: 반복 모드를 설정해요 💿", "`/autoplay`: 자동재생을 켜거나 꺼요 💿", "`/volume`: 볼륨을 설정해요 💿", "`/normalize`: 볼륨 정규화를 켜거나 꺼요 💿"],
   },
   {
     key: "explore",

@@ -123,6 +123,12 @@ function stayOff(already: boolean, by: Actor) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
 }
 
+/** 볼륨 정규화 켬, 끔 */
+function normalizeSet(on: boolean, already: boolean, by: Actor) {
+  const t = controlText.normalizeSet(on, already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+}
+
 /** 음성 채널에 들어왔다, 이미 들어와 있다 */
 function joined() {
   const t = controlText.joined();
@@ -148,4 +154,4 @@ function restoreResult(track: Track | null, isPaused: boolean, parked: boolean) 
   return noticeFrame(errors.notice("restore-nothing-left"));
 }
 
-export { stayOn, stayOff, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, reopening, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, joining, leaving, restored, restoreResult };
+export { stayOn, stayOff, normalizeSet, paused, skipped, previous, jumped, stopped, shuffled, loopSet, highlighting, highlighted, replaying, reopening, replayed, seeking, seeked, cleared, removed, moved, volumeSet, left, joined, alreadyJoined, restoring, joining, leaving, restored, restoreResult };
