@@ -95,8 +95,28 @@ function createTables(db: Db) {
                 fetched_at  INTEGER NOT NULL
             );
 
+            -- 음원의 음량 값(store/loudness). 키는 (audio_key, kind). kind: file, heard-full, heard-part, file-failed.
+            -- integrated: 통합 음량(LUFS), true_peak: 피크(dBTP, heard-* 는 샘플 피크), peak_p99: 100ms 프레임 피크의 상위 1%(dB). file-failed 는 셋 다 NULL
+            -- heard_sec: 들은 양(절대 게이트를 넘은 블록 x 0.1초). size_bytes, duration_sec, audio_version: 잰 소리의 식별 정보. algo: 측정 방식의 버전
+            CREATE TABLE IF NOT EXISTS loudness (
+                audio_key      TEXT NOT NULL,
+                kind           TEXT NOT NULL,
+                integrated     REAL,
+                true_peak      REAL,
+                peak_p99       REAL,
+                heard_sec      REAL,
+                size_bytes     INTEGER,
+                duration_sec   REAL,
+                audio_version  TEXT,
+                algo           INTEGER NOT NULL,
+                measured_at    INTEGER NOT NULL,
+                used_at        INTEGER NOT NULL,
+                PRIMARY KEY (audio_key, kind)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ac_status      ON audio_cache(status);
             CREATE INDEX IF NOT EXISTS idx_ac_last_played ON audio_cache(last_played_at);
+            CREATE INDEX IF NOT EXISTS idx_loudness_used  ON loudness(used_at);
         `);
   createRevisionTriggers(db);
 }
@@ -120,7 +140,7 @@ function cacheRevision(): { revision: number; checkRevision: number } {
 
 /** 오디오 캐시 초기화의 선택마다 비우는 표. 모든 표가 꼭 하나에 든다(새 표가 초기화에서 빠지지 않게 테스트가 본다) */
 const TABLES_OF_PART: Record<AudioCachePart, readonly string[]> = {
-  files: ["audio_cache"],
+  files: ["audio_cache", "loudness"],
   ledger: ["track_lookup", "source_checks"],
   external: ["sponsorblock_cache", "age_restricted", "spotify_anon"],
   pins: ["pinned_sources"],

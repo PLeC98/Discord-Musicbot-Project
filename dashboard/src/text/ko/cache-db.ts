@@ -166,7 +166,7 @@ const results = {
   gone: "그사이 삭제된 행이에요",
   downloading: "캐시 파일을 다운로드하는 중이라 삭제하지 않았어요",
   failed: "캐시 파일을 삭제하지 못했어요(다른 프로그램이 열고 있을 수 있어요)",
-  inUse: { playing: "재생 중인 곡이라 삭제하지 않았어요", queued: "대기열 앞쪽 곡이라 삭제하지 않았어요", "saved-session": "저장된 대기열 앞쪽 곡이라 삭제하지 않았어요", exporting: "내보내는 중이라 삭제하지 않았어요" } as Record<TrackFileUse, string>,
+  inUse: { playing: "재생 중인 곡이라 삭제하지 않았어요", queued: "대기열 앞쪽 곡이라 삭제하지 않았어요", "saved-session": "저장된 대기열 앞쪽 곡이라 삭제하지 않았어요", exporting: "내보내는 중이라 삭제하지 않았어요", measuring: "음량을 재는 중이라 삭제하지 않았어요" } as Record<TrackFileUse, string>,
   doneTitle: "캐시 DB 에 저장했어요",
   partialTitle: "일부 변경을 저장하지 못했어요",
   done: (ok: number, failed: number) => `${ok}건 저장${failed ? ` · ${failed}건 실패(셀에 표시)` : ""}`,

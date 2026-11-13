@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as audioCache from "../store/audio-cache.ts";
+import * as loudness from "../store/loudness.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import { settingsDb } from "../store/settings-db.ts";
 import { rowCounts } from "../store/cache-db.ts";
@@ -38,8 +39,11 @@ const MB = (bytes: number) => Math.round(bytes / 1024 / 1024);
  */
 async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?: () => void) {
   const result = await audioCache.resetCache(parts, go);
-  // 기억한 파일 태그, 앨범아트는 캐시 파일의 버전을 가리킨다
-  if (parts.includes("files")) embeddedArt.clear();
+  // 기억한 파일 태그, 앨범아트는 캐시 파일의 버전을 가리킨다. 음량 값의 표는 캐시 파일 표와 함께 비웠으니 메모리 캐시도 비운다
+  if (parts.includes("files")) {
+    embeddedArt.clear();
+    loudness.forgetMemory();
+  }
   if (parts.includes("external")) {
     sponsorBlock.forget();
     spotify.forgetAnonState();
