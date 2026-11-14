@@ -15,6 +15,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import Database from "better-sqlite3";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { codedError } from "../../src/rules/error-kind.ts";
@@ -181,6 +182,50 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   trackState.enqueue(p, [t("B")]);
   assert.equal(sp.dirty, false);
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
+});
+
+// 다른 프로세스(DB 편집기)가 실행 상태 DB 의 쓰기 잠금을 쥔다. 잠금을 풀 때까지 쓰기는 실패한다
+function holdWriteLock() {
+  const other = new Database(path.join(DB_DIR, "state.db"));
+  other.exec("BEGIN IMMEDIATE");
+  return () => {
+    other.exec("ROLLBACK");
+    other.close();
+  };
+}
+
+test("다른 프로세스가 쓰기 잠금을 쥔 동안 곡이 바뀌어도 재생이 멎지 않게 기다리지 않고, 잠금이 풀린 뒤 다음 변경 때 DB 를 메모리와 맞춘다", () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  trackState.enqueue(p, [t("A"), t("B")]);
+  const release = holdWriteLock();
+  const started = performance.now();
+  try {
+    trackState.shiftNext(p);
+    trackState.enqueue(p, [t("C")]);
+  } finally {
+    release();
+  }
+  assert.ok(performance.now() - started < 1000, `잠금을 기다리지 않는다: ${Math.round(performance.now() - started)}ms`);
+  assert.equal(sp.dirty, true, "실패를 적어 둔다");
+
+  trackState.enqueue(p, [t("D")]);
+  assert.equal(sp.dirty, false);
+  assert.deepEqual(stored(p.guild.id), memory(p));
+});
+
+test("다시 쓸 기회가 없는 쓰기(나가며 저장)는 잠긴 동안 실패한 채 남는다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("changed");
+  const release = holdWriteLock();
+  try {
+    await sp.save("leave-for-join");
+  } finally {
+    release();
+  }
+  assert.equal(loaded(p.guild.id).session.autoResume, true, "/join 전용으로 바꾸지 못했다");
+  assert.equal(sp.frozen, true, "마지막 저장이라 더 옮기지 않는다");
 });
 
 // 알림을 빠뜨린 길은 주기 저장(saveTick)이 잡는다. 세션 행의 열이 지난 저장과 다르면 쓴다

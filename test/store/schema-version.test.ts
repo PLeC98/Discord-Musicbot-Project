@@ -285,3 +285,14 @@ test("다른 연결이 읽는 중이라 -wal을 줄이지 못하면(예외를 �
     plain.close();
   }
 });
+
+test("실행 상태 DB 는 재생이 멎지 않게 잠금을 기다리지 않고, 설정과 캐시 DB 는 5초 동안 기다린다", () => {
+  stores.open(dir);
+  try {
+    assert.equal(stateDb.get().pragma("busy_timeout", { simple: true }), 0);
+    assert.equal(settingsDb.get().pragma("busy_timeout", { simple: true }), 5000);
+    assert.equal(cacheDb.get().pragma("busy_timeout", { simple: true }), 5000);
+  } finally {
+    stores.close();
+  }
+});
