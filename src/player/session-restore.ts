@@ -89,7 +89,9 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
 
 // 기동 복원을 동시에 돌릴 서버 수. 복원도 곡을 열 때 사람의 곡 찾기와 같은 yt-dlp 줄에 같은 순위로 선다.
 // 줄의 슬롯 수보다 하나 적게 돌려, 그사이 다른 서버에서 곡을 찾는 사람이 빈 슬롯을 바로 얻게 한다
-const restoreAtOnce = () => Math.max(1, ytdlpLoad().lookup.size - 1);
+const restoreAtOnce = () => Math.max(1, Math.min(RESTORE_AT_ONCE_MAX, ytdlpLoad().lookup.size - 1));
+// 슬롯이 넉넉해도 이보다 많이는 돌리지 않는다. yt-dlp 가 더 많이 한꺼번에 뜨면 다른 서버의 곡 찾기가 느려진다
+const RESTORE_AT_ONCE_MAX = 3;
 
 // 기동 복원의 차례를 기다리는 서버, 지금 복원 중인 서버. 같은 서버를 두 번 복원하지 않는다
 const waiting = new Map<string, () => Promise<void>>();

@@ -356,7 +356,7 @@ test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다.
   );
 });
 
-test("기동 복원은 yt-dlp 곡 찾기 줄의 슬롯 수보다 하나 적게 동시에 돌고, 슬롯이 둘이면 한 곳씩 돈다", async (t) => {
+test("기동 복원은 yt-dlp 곡 찾기 줄의 슬롯 수보다 하나 적게 동시에 돈다. 슬롯이 둘이면 한 곳씩, 넉넉해도 세 곳까지만 돈다", async (t) => {
   const ids = ["p1", "p2", "p3", "p4", "p5"];
   const { client, players } = clientWith(ids.map((id) => guildWith(id)));
   t.after(() => {
@@ -386,6 +386,8 @@ test("기동 복원은 yt-dlp 곡 찾기 줄의 슬롯 수보다 하나 적게 �
   useLaneSizes({ lookup: 2, background: 2 });
   assert.equal(await boot(), 1, "슬롯 2개: 한 곳씩(남은 슬롯 하나는 그사이 다른 서버의 곡 찾기가 쓴다)");
   assert.equal(made.length, 10);
+  useLaneSizes({ lookup: 8, background: 4 });
+  assert.equal(await boot(), 3, "슬롯 8개: 3곳까지");
 });
 
 test("종료 중이면 기동 복원이 플레이어를 만들지 않는다(세션은 남겨 다음 기동 때 복원한다)", async (t) => {
