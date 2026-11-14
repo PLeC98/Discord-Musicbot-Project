@@ -140,6 +140,8 @@
       </div>
     </template>
     <ConfirmDialog v-model="leaveAsking" icon="logout" :title="T.leave.confirmTitle(s.guildName ?? '')" :body="T.leave.confirmBody" :confirm-label="T.leave.button" :busy="leaving" @confirm="leaveGuild" />
+    <!-- 저장하지 못한 고친 값을 두고 떠날 때(운영자 패널과 같은 확인) -->
+    <ConfirmDialog :model-value="unsavedOpen" icon="edit_off" :title="text.admin.leaveConfirm.title" :body="text.admin.leaveConfirm.body" :confirm-label="text.admin.leaveConfirm.confirm" @update:model-value="(v) => !v && answerUnsaved(false)" @confirm="answerUnsaved(true)" />
   </div>
 </template>
 
@@ -171,10 +173,11 @@ import { koMatch } from "../../../src/rules/ko-search.ts";
 import { useOverflowing } from "../composables/overflowing.ts";
 import { DJ_ROLE_MAX } from "../../../src/rules/limits.ts";
 import { AGE_PLACES, type AgePlace } from "../../../src/rules/age-place.ts";
-import type { GuildSettings, NormalizeCard, Saved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
+import type { GuildSettings, NormalizeCard, Saved, SettingsSaved, StayCard } from "../../../src/dashboard/contract/guilds.ts";
 import type { Code } from "../../../src/rules/problems.ts";
 import type { IconName } from "../icons.ts";
-import type { SettingsRequest } from "../../../src/dashboard/request-schemas.ts";
+import { valueAt, type SettingsKey, type SettingsValues } from "../../../src/rules/guild-settings-values.ts";
+import { createSettingsSaver } from "../utils/settings-draft.ts";
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
 
@@ -203,21 +206,12 @@ const sbEnabled = ref(true);
 const sbCategories = ref<string[]>([]);
 // 연령 제한 콘텐츠를 틀 곳. 카드가 없으면(운영자가 꺼 두었다) 보내지 않는다
 const agePlace = ref<AgePlace>("channel");
-const ageDirty = computed(() => s.value.agePlace !== undefined && agePlace.value !== s.value.agePlace);
 const roleListEl = ref<HTMLElement | null>(null);
 const roleListOverflowing = useOverflowing(roleListEl);
-
-const saving = ref(false);
 
 const filteredRoles = computed(() => {
   const roles = s.value.dj?.roles ?? [];
   return roleFilter.value.trim() ? roles.filter((r) => koMatch(r.name, roleFilter.value)) : roles;
-});
-
-const sbDirty = computed(() => {
-  const sb = s.value.sponsorblock;
-  if (!sb) return false;
-  return sbEnabled.value !== sb.enabled || JSON.stringify([...sbCategories.value].sort()) !== JSON.stringify([...(sb.categories || [])].sort());
 });
 
 // 한 번에 넣을 재생목록 곡 수. 기본값(null) 또는 직접 지정한 값
@@ -240,7 +234,6 @@ function paClamp(n: number) {
   return pa ? Math.min(pa.max, Math.max(pa.min, n)) : n;
 }
 const paEffective = computed(() => paClamp(paValue.value ?? s.value.playlistAdd?.default ?? 0));
-const paDirty = computed(() => Boolean(s.value.playlistAdd) && paValue.value !== s.value.playlistAdd?.value);
 
 function pickPreset(n: number) {
   paUseDefault.value = false;
@@ -261,17 +254,6 @@ function onPaInput(e: Event) {
   paCount.value = Number(raw);
 }
 
-function syncPaForm() {
-  const v = s.value.playlistAdd?.value ?? null;
-  paUseDefault.value = v === null;
-  paCount.value = v;
-}
-
-// 보이는 카드만 본다(안 보이는 카드의 입력은 기본값 그대로라 늘 바뀐 것처럼 보인다)
-const channelDirty = computed(() => s.value.channel !== undefined && selectedChannel.value !== s.value.channel.botChannelId);
-const rolesDirty = computed(() => s.value.dj !== undefined && JSON.stringify([...selectedRoles.value].sort()) !== JSON.stringify([...s.value.dj.djRoleIds].sort()));
-const dirty = computed(() => channelDirty.value || rolesDirty.value || sbDirty.value || paDirty.value || ageDirty.value);
-
 function toggleSbCategory(id: string) {
   const i = sbCategories.value.indexOf(id);
   if (i >= 0) sbCategories.value.splice(i, 1);
@@ -284,14 +266,8 @@ function toggleRole(id: string) {
   else if (selectedRoles.value.length < DJ_ROLE_MAX) selectedRoles.value.push(id);
 }
 
-function syncSbForm() {
-  const sb = s.value.sponsorblock;
-  sbEnabled.value = sb ? sb.enabled : true;
-  sbCategories.value = sb ? [...(sb.categories || [])] : [];
-}
-
 // ── 상주 모드 ──
-// 켜고 끄기는 저장(PUT)이 아니라 바로 보낸다(/247 과 같은 처리). 보내는 동안은 누른 쪽을 보이고, 실패하면 되돌린다
+// 켜고 끄기는 저장(PATCH)이 아니라 바로 보낸다(/247 과 같은 처리). 보내는 동안은 바꾼 상태를 보여 주고, 실패하면 되돌린다. 요청은 저장과 같은 큐에 넣는다
 
 /** 바꿀 수 없는 까닭의 아이콘(곡 추가 칸과 같은 짝). 그 밖은 막힘 */
 const REFUSAL_ICON: Partial<Record<Code, IconName>> = { "must-be-in-voice": "headset_off", "must-be-in-same-voice": "headphones" };
@@ -299,68 +275,66 @@ const stayBusy = ref(false);
 const stayWant = ref<boolean | null>(null);
 const stayShown = computed(() => stayWant.value ?? Boolean(s.value.stay?.on));
 
-async function toggleStay(on: boolean) {
+function toggleStay(on: boolean) {
   if (stayBusy.value) return;
   stayBusy.value = true;
   stayWant.value = on;
-  try {
-    s.value = { ...s.value, stay: (await axios.post<StayCard>(`/api/guilds/${guildId}/settings/stay`, { on })).data };
-  } catch (e) {
-    notifyProblem(e, T.stay.failed);
-  } finally {
-    stayWant.value = null;
-    stayBusy.value = false;
-  }
+  void saver.run(async () => {
+    try {
+      s.value = { ...s.value, stay: (await axios.post<StayCard>(`/api/guilds/${guildId}/settings/stay`, { on })).data };
+    } catch (e) {
+      notifyProblem(e, T.stay.failed);
+    } finally {
+      stayWant.value = null;
+      stayBusy.value = false;
+    }
+  });
 }
 
 // ── 볼륨 정규화 ──
-// 상주 모드와 같이 저장(PUT)이 아니라 바로 보낸다(/normalize 와 같은 처리)
+// 상주 모드처럼 저장(PATCH)이 아니라 바로 보낸다(/normalize 와 같은 처리)
 const normalizeBusy = ref(false);
 const normalizeWant = ref<boolean | null>(null);
 const normalizeShown = computed(() => normalizeWant.value ?? Boolean(s.value.normalize?.on));
 
-async function toggleNormalize(on: boolean) {
+function toggleNormalize(on: boolean) {
   if (normalizeBusy.value) return;
   normalizeBusy.value = true;
   normalizeWant.value = on;
-  try {
-    s.value = { ...s.value, normalize: (await axios.post<NormalizeCard>(`/api/guilds/${guildId}/settings/normalize`, { on })).data };
-  } catch (e) {
-    notifyProblem(e, T.normalize.failed);
-  } finally {
-    normalizeWant.value = null;
-    normalizeBusy.value = false;
-  }
+  void saver.run(async () => {
+    try {
+      s.value = { ...s.value, normalize: (await axios.post<NormalizeCard>(`/api/guilds/${guildId}/settings/normalize`, { on })).data };
+    } catch (e) {
+      notifyProblem(e, T.normalize.failed);
+    } finally {
+      normalizeWant.value = null;
+      normalizeBusy.value = false;
+    }
+  });
 }
 
-// 다른 곳(디스코드 /247, /normalize, 음성 채널 출입)에서 바뀌면 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)만 다시 읽는다(다른 카드의 고치던 값은 둔다)
+// 다른 곳(디스코드 명령, 다른 탭, 음성 채널 출입)에서 바뀌었다는 신호. 모아서 다시 읽는다(고치던 값은 둔다)
 let nudgeTimer = 0;
-async function refreshToggles() {
-  if (!s.value.stay && !s.value.normalize) return;
-  try {
-    const { stay, normalize } = (await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data;
-    if (stay && !stayBusy.value) s.value = { ...s.value, stay };
-    if (normalize && !normalizeBusy.value) s.value = { ...s.value, normalize };
-  } catch {
-    // 다음 신호에 다시 읽는다
-  }
-}
 const offNudge = onGuildNudge((changed) => {
   if (changed && changed !== guildId) return;
   clearTimeout(nudgeTimer);
-  nudgeTimer = window.setTimeout(() => void refreshToggles(), 600);
+  nudgeTimer = window.setTimeout(() => saver.nudged(), 600);
 });
 
 // ── 봇 내보내기 ──
 // 나가면 이 서버의 설정, 재생 화면을 다시 읽을 수 없다(봇이 없다). 서버 목록으로 간다
 const leaveAsking = ref(false);
 const leaving = ref(false);
+let leftGuild = false;
 async function leaveGuild() {
   if (leaving.value) return;
   leaving.value = true;
   const name = s.value.guildName ?? "";
   try {
     await axios.post<Saved>(`/api/guilds/${guildId}/settings/leave`);
+    // 서버가 없어졌다. 남은 저장, 떠날 때 확인을 하지 않는다
+    leftGuild = true;
+    saver.stop();
     leaveAsking.value = false;
     notify({ title: T.leave.done(name), severity: "success" });
     void router.push("/servers");
@@ -371,18 +345,9 @@ async function leaveGuild() {
   }
 }
 
-function apply(data: GuildSettings) {
-  s.value = data;
-  selectedRoles.value = [...(data.dj?.djRoleIds ?? [])];
-  selectedChannel.value = data.channel?.botChannelId ?? null;
-  syncSbForm();
-  syncPaForm();
-  agePlace.value = data.agePlace ?? "channel";
-}
-
 async function load() {
   try {
-    apply((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
+    saver.load((await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data);
   } catch (e) {
     loadError.value = problemText(e, T.loadFailed);
     loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
@@ -398,70 +363,107 @@ function retryLoad() {
 }
 
 // ── 자동 저장 ──
-// 선택하면 0.4초 뒤 저장한다. 곡 수 직접 입력은 입력하는 동안(typing) 저장하지 않고 입력란을 벗어나거나 Enter 에 저장한다. 범위를 벗어나면 저장하지 않는다(입력란 아래 안내).
-// 저장 중에 또 바뀌면 끝난 뒤 한 번 더. 저장한 값은 그대로 기준(s)으로 삼는다(다시 읽으면 그사이 고친 것을 덮는다). 실패는 표시, 알림으로 알리고 고친 값은 둔다
+// 고치면 0.4초 뒤 저장한다. 언제 무엇을 보낼지, 응답과 다시 읽은 값을 어떻게 반영할지는 utils/settings-draft 의 저장 컨트롤러가 정한다.
+// 곡 수를 직접 입력하는 동안(typing)이나 값이 범위를 벗어난 동안에는 그 카드만 저장하지 않는다(입력란 아래 안내). 실패 표시는 다음에 저장될 때까지 둔다
 const typing = ref(false);
 const saveState = ref<SaveState>("idle");
-let saveTimer = 0;
 let doneTimer = 0;
-let again = false;
 
-function schedule() {
-  clearTimeout(saveTimer);
-  if (!dirty.value || typing.value || paInvalid.value) return;
-  saveTimer = window.setTimeout(() => void save(), 400);
-}
-watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue, agePlace], schedule, { deep: true });
-watch(typing, (now) => !now && schedule());
-
-async function save() {
-  clearTimeout(saveTimer);
-  if (saving.value) return void (again = true);
-  saving.value = true;
-  clearTimeout(doneTimer);
-  saveState.value = "saving";
-  // 보낸 그대로를 붙잡아 둔다(저장 중에 또 고친 것은 기준에 넣지 않아 다음 저장이 보낸다)
-  const sent = { roles: [...selectedRoles.value], channel: selectedChannel.value, sbOn: sbEnabled.value, sbCats: [...sbCategories.value], pa: paValue.value, age: agePlace.value };
-  // 보이는 카드의 필드만 보낸다(서버는 고칠 수 없는 카드의 필드가 오면 전체를 거절한다)
-  const body: SettingsRequest = {
-    ...(s.value.dj && { djRoleIds: sent.roles }),
-    ...(s.value.channel && { botChannelId: sent.channel }),
-    ...(s.value.sponsorblock && { sponsorblock: { enabled: sent.sbOn, categories: sent.sbCats } }),
-    ...(s.value.playlistAdd && { playlistAddMax: sent.pa }),
-    ...(s.value.agePlace && { agePlace: sent.age }),
+// 화면 입력의 지금 값(보이는 카드만)
+function readValues(): SettingsValues {
+  const v = s.value;
+  return {
+    ...(v.channel && { botChannelId: selectedChannel.value }),
+    ...(v.dj && { djRoleIds: [...selectedRoles.value] }),
+    ...(v.sponsorblock && { sponsorblock: { enabled: sbEnabled.value, categories: [...sbCategories.value] } }),
+    ...(v.playlistAdd && { playlistAddMax: paValue.value }),
+    ...(v.agePlace !== undefined && { agePlace: agePlace.value }),
   };
-  try {
+}
+
+// 키마다 그 입력만 고쳐 쓴다(다른 키의 고친 값을 덮지 않게). 구간이 null(운영자 기본을 따름)이면 기본 구간을 보여 준다
+const WRITE: Record<SettingsKey, (value: unknown) => void> = {
+  botChannelId: (value) => (selectedChannel.value = (value as string | null | undefined) ?? null),
+  djRoleIds: (value) => (selectedRoles.value = [...((value as string[] | undefined) ?? [])]),
+  "sponsorblock.enabled": (value) => (sbEnabled.value = (value as boolean | undefined) ?? true),
+  "sponsorblock.categories": (value) => (sbCategories.value = [...((value as string[] | null | undefined) ?? s.value.sponsorblock?.defaultCategories ?? [])]),
+  playlistAddMax(value) {
+    const count = (value as number | null | undefined) ?? null;
+    paUseDefault.value = count === null;
+    paCount.value = count;
+  },
+  agePlace: (value) => (agePlace.value = (value as AgePlace | undefined) ?? "channel"),
+};
+function writeValues(values: SettingsValues, keys: readonly SettingsKey[]) {
+  for (const key of keys) WRITE[key](valueAt(values, key));
+}
+
+const saver = createSettingsSaver({
+  async send(patch) {
     const began = Date.now();
-    await axios.put<Saved>(`/api/guilds/${guildId}/settings`, body);
+    const { data } = await axios.patch<SettingsSaved>(`/api/guilds/${guildId}/settings`, patch);
     // 너무 빨리 끝나면 링이 깜빡이고 만다. 도는 모습을 0.6초는 보인다
     await new Promise((r) => setTimeout(r, Math.max(0, 600 - (Date.now() - began))));
-    const sb = s.value.sponsorblock;
-    const pa = s.value.playlistAdd;
-    const { dj, channel } = s.value;
-    s.value = { ...s.value, dj: dj && { ...dj, djRoleIds: sent.roles }, channel: channel && { ...channel, botChannelId: sent.channel }, sponsorblock: sb && { ...sb, enabled: sent.sbOn, categories: sent.sbCats }, playlistAdd: pa && { ...pa, value: sent.pa }, agePlace: s.value.agePlace && sent.age };
+    return data;
+  },
+  fetch: async () => (await axios.get<GuildSettings>(`/api/guilds/${guildId}/settings`)).data,
+  read: readValues,
+  write: writeValues,
+  hold: () => (typing.value || paInvalid.value ? ["playlistAddMax"] : []),
+  // 켜고 끄는 중인 카드는 바꾼 상태를 보여 주고 있으니 덮어쓰지 않는다
+  settings: (data) => (s.value = { ...data, stay: stayBusy.value ? s.value.stay : data.stay, normalize: normalizeBusy.value ? s.value.normalize : data.normalize }),
+  saving() {
+    clearTimeout(doneTimer);
+    saveState.value = "saving";
+  },
+  saved() {
     saveState.value = "done";
-  } catch (e) {
-    saveState.value = "error";
-    notifyProblem(e, T.saveFailed);
-  } finally {
-    saving.value = false;
     doneTimer = window.setTimeout(() => (saveState.value = "idle"), 1600);
-    if (again) {
-      again = false;
-      schedule();
-    }
-  }
+  },
+  failed(error, failure) {
+    saveState.value = failure.kind === "other" ? "error" : "idle";
+    // 권한이 바뀌었으면 설정을 다시 읽어 카드를 맞춘다(따로 알리지 않는다)
+    if (failure.kind !== "permission") notifyProblem(error, T.saveFailed);
+  },
+  lost(error) {
+    loadError.value = problemText(error, T.loadFailed);
+    loadGone.value = true;
+  },
+});
+watch([selectedChannel, selectedRoles, sbEnabled, sbCategories, paValue, agePlace], () => saver.edited(), { deep: true });
+watch(typing, (now) => !now && saver.edited());
+
+// 떠날 때는 남은 저장을 먼저 끝낸다(입력 중이던 값, 실패했던 것도 한 번 더 보낸다). 그래도 저장하지 못한 고친 값이 있으면 묻는다.
+// 봇을 내보냈거나 이 화면을 더 볼 수 없으면 저장할 곳이 없다
+const unsavedOpen = ref(false);
+let unsavedAnswer: ((go: boolean) => void) | null = null;
+onBeforeRouteLeave(async () => {
+  if (leftGuild || loadError.value) return true;
+  typing.value = false;
+  if (!(await saver.flush()).length) return true;
+  unsavedOpen.value = true;
+  return new Promise<boolean>((resolve) => (unsavedAnswer = resolve));
+});
+/** 확인 대화상자의 답(떠나기, 취소, 바깥 누르기) */
+function answerUnsaved(go: boolean) {
+  unsavedOpen.value = false;
+  unsavedAnswer?.(go);
+  unsavedAnswer = null;
+}
+// 창 닫기, 새로고침은 브라우저가 묻는다
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!saver.unsaved().length) return;
+  e.preventDefault();
+  e.returnValue = "";
 }
 
-onMounted(load);
-
-// 떠날 때 저장할 것이 남았으면(기다리는 중, 입력 중) 마치고 떠난다. 범위를 벗어난 입력은 버린다
-onBeforeRouteLeave(async () => {
-  typing.value = false;
-  if (dirty.value && !paInvalid.value) await save();
+onMounted(() => {
+  window.addEventListener("beforeunload", onBeforeUnload);
+  void load();
 });
 onUnmounted(() => {
-  clearTimeout(saveTimer);
+  window.removeEventListener("beforeunload", onBeforeUnload);
+  saver.stop();
   clearTimeout(doneTimer);
   clearTimeout(nudgeTimer);
   offNudge();

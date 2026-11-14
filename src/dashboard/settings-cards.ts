@@ -1,11 +1,11 @@
-// 서버 설정 화면의 카드마다 누가 보고 고치는가. 화면에 보내는 것(GET), 받는 것(PUT), 카드의 경로, 서버 화면의 설정 버튼(hasSettings)이 이 표 하나를 본다.
+// 서버 설정 화면의 카드마다 누가 보고 고치는가. 화면에 보내는 것(GET), 받는 것(PATCH), 카드의 경로, 서버 화면의 설정 버튼(hasSettings)이 이 표 하나를 본다.
 // 보는 사람(Viewer)은 권한 수준 오버라이드를 반영한 계층(view-as 의 tierOf)과 봇을 추방할 수 있는지(오버라이드 중이면 늘 아니다)
 
 import type { Request } from "express";
 import type { GuildMember } from "discord.js";
 import { TIER_RANK, type Tier } from "./contract/identity.ts";
 import type { SettingsCard } from "./contract/guilds.ts";
-import type { SettingsRequest } from "./request-schemas.ts";
+import type { SettingsPatch } from "./request-schemas.ts";
 import type { Code } from "../rules/problems.ts";
 import { ageContentOn } from "../config/age-content.ts";
 import { canKickBot } from "../usecases/permissions.ts";
@@ -14,10 +14,10 @@ import { getViewAs, tierOf } from "./view-as.ts";
 /** 카드를 보는 조건: 이 계층 이상, 또는 디스코드에서 봇을 추방할 수 있는 사람(kick-bot) */
 type Gate = Exclude<Tier, "user"> | "kick-bot";
 /**
- * 카드 하나. gate: 보고 고칠 수 있는 사람, fields: 저장 본문(PUT)에서 이 카드의 필드(없으면 그 카드는 자기 경로로 고친다),
+ * 카드 하나. gate: 보고 고칠 수 있는 사람, fields: 저장 본문(PATCH)에서 이 카드의 필드(없으면 그 카드는 자기 경로로 고친다),
  * shown: 지금 쓰는 기능인가(아니면 화면에 없다. 고치는 것은 막지 않는다)
  */
-type CardRule = { gate: Gate; fields: ReadonlyArray<keyof SettingsRequest>; shown?: () => boolean };
+type CardRule = { gate: Gate; fields: ReadonlyArray<keyof SettingsPatch>; shown?: () => boolean };
 type CardTable = Readonly<Record<SettingsCard, CardRule>>;
 /** 보는 사람 */
 type Viewer = { tier: Tier; kicksBot: boolean };
@@ -54,7 +54,7 @@ function shownCards(viewer: Viewer, table: CardTable = CARDS): SettingsCard[] {
     .map(([card]) => card);
 }
 
-/** 그 사람이 저장 본문(PUT)으로 고칠 수 있는 카드가 하나라도 있나(지금 쓰지 않는 기능의 카드 포함) */
+/** 그 사람이 저장 본문(PATCH)으로 고칠 수 있는 카드가 하나라도 있나(지금 쓰지 않는 기능의 카드 포함) */
 const editsAny = (viewer: Viewer, table: CardTable = CARDS) => entries(table).some(([, rule]) => rule.fields.length > 0 && reaches(viewer, rule));
 
 // 계층 카드들 가운데 가장 낮은 계층의 거절(봇 추방 카드는 계층이 아니라 세지 않는다)
@@ -70,7 +70,7 @@ const noCardRefusal = (table: CardTable = CARDS) => lowestRefusal(entries(table)
 const noBodyCardRefusal = (table: CardTable = CARDS) => lowestRefusal(entries(table).flatMap(([, rule]) => (rule.fields.length ? [rule] : [])));
 
 /** 저장 본문에 그 사람이 고칠 수 없는 카드의 필드가 있으면 그 카드의 거절. 하나라도 있으면 본문 전체를 거절한다(부분 저장 없음) */
-function fieldRefusal(viewer: Viewer, body: Partial<Record<keyof SettingsRequest, unknown>>, table: CardTable = CARDS): Code | null {
+function fieldRefusal(viewer: Viewer, body: Partial<Record<keyof SettingsPatch, unknown>>, table: CardTable = CARDS): Code | null {
   for (const [, rule] of entries(table)) {
     if (!reaches(viewer, rule) && rule.fields.some((field) => body[field] !== undefined)) return REFUSAL[rule.gate];
   }

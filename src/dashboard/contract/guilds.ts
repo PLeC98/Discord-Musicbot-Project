@@ -2,6 +2,7 @@
 
 import type { AgePlace } from "../../rules/age-place.ts";
 import type { Code } from "../../rules/problems.ts";
+import type { SettingsKey, SettingsValues } from "../../rules/guild-settings-values.ts";
 
 /** 서버 목록의 상태: 봇이 음성 채널 밖 = idle, 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting */
 type ListState = "idle" | "playing" | "paused" | "waiting";
@@ -40,13 +41,20 @@ type GuildSettings = {
   normalize?: NormalizeCard;
   channel?: { botChannelId: string | null; channels: Array<{ id: string; name: string }> };
   dj?: { djRoleIds: string[]; roles: Array<{ id: string; name: string; color: string | null }> };
-  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
+  /** categories 가 null 이면 운영자의 기본 구간(defaultCategories)을 따른다 */
+  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] | null; defaultCategories: string[] };
   playlistAdd?: { value: number | null; effective: number; min: number; max: number; default: number };
   /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 */
   agePlace?: AgePlace;
 };
 
-/** 서버 설정 저장의 답 */
+/** 바로 처리하는 요청의 응답(봇 내보내기 등) */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, NormalizeCard, GuildSettings, Saved };
+/** 서버 설정 저장(PATCH)의 응답. 보낸 키가 저장된 뒤의 값(서버가 거른 역할 포함) */
+type SettingsSaved = { values: SettingsValues };
+
+/** 서버 설정 저장이 그사이 다른 곳의 변경과 충돌했을 때(config-changed) 문제 응답에 덧붙는 값. current 에는 conflicts 의 키만 담는다 */
+type SettingsConflict = { conflicts: SettingsKey[]; current: SettingsValues };
+
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, NormalizeCard, GuildSettings, Saved, SettingsSaved, SettingsConflict };

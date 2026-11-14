@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CARDS, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal, type CardTable, type Viewer } from "../../src/dashboard/settings-cards.ts";
 import { useDefaultDocuments, useDocument } from "../helpers/config-docs.ts";
-import { settingsBody } from "../../src/dashboard/request-schemas.ts";
+import { settingsPatch } from "../../src/dashboard/request-schemas.ts";
 
 // 보는 사람: 계층과 봇을 추방할 수 있는지
 const as = (tier: Viewer["tier"], kicksBot = false): Viewer => ({ tier, kicksBot });
@@ -26,10 +26,10 @@ test("봇 내보내기는 계층과 따로 본다: 서버 관리자라도 추방
   assert.ok(!shownCards(MANAGER).includes("leave"));
   assert.deepEqual(shownCards(as("user", true)), ["leave"]);
   assert.ok(shownCards(as("server-manager", true)).includes("leave"));
-  assert.equal(editsAny(as("user", true)), false, "봇 내보내기는 저장 본문(PUT)으로 고치지 않는다");
+  assert.equal(editsAny(as("user", true)), false, "봇 내보내기는 저장 본문(PATCH)으로 고치지 않는다");
 });
 
-test("상주 모드, 볼륨 정규화, 봇 내보내기는 저장 본문(PUT)으로 고치지 않는다: DJ 는 PUT 으로 고칠 카드가 없고, 거절 까닭은 서버 관리자 권한 필요", () => {
+test("상주 모드, 볼륨 정규화, 봇 내보내기는 저장 본문(PATCH)으로 고치지 않는다: DJ 는 PATCH 로 고칠 카드가 없고, 거절 까닭은 서버 관리자 권한 필요", () => {
   assert.deepEqual([CARDS.stay.fields, CARDS.normalize.fields, CARDS.leave.fields], [[], [], []]);
   assert.equal(editsAny(DJ), false);
   assert.equal(editsAny(MANAGER), true);
@@ -50,7 +50,7 @@ test("연령 제한 카드는 운영자가 켰을 때만 보인다(고치는 것
 
 test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지 않은 필드는 권한 확인 없이 지나간다)", () => {
   const claimed = Object.values(CARDS).flatMap((rule) => rule.fields);
-  assert.deepEqual([...claimed].sort(), Object.keys(settingsBody({ min: 1, max: 10 }).shape).sort());
+  assert.deepEqual([...claimed].sort(), Object.keys(settingsPatch({ min: 1, max: 10 }).shape).sort());
   assert.equal(new Set(claimed).size, claimed.length, "한 필드는 한 카드에만");
 });
 
