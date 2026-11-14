@@ -169,11 +169,11 @@ test("해석기는 구간을 어댑터에 넘기고 총 곡 수, 다음 위치�
       },
     },
   };
-  const r = await lookup.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 }, sources);
+  const r = await lookup.findTracks("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 }, sources);
   assert.deepEqual(seen[0], { offset: 0, limit: 7 });
   assert.equal(r.total, 9946);
   assert.equal(r.nextOffset, 1);
 
-  const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
+  const single = await lookup.findTracks("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
   assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
 });

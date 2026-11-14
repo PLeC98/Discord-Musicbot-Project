@@ -127,7 +127,7 @@ function findOn(platform: string, query: string, range: Range, { youtube, spotif
 }
 
 /** offset, limit: 여러 곡 출처에서 불러올 구간(한 곡이면 무시). tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
-async function getTrackData(query: string, context: string | null = "lookup.getTrackData", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
+async function findTracks(query: string, context: string | null = "lookup.findTracks", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
   const platform = detectPlatform(query);
   if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필, 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
@@ -155,7 +155,7 @@ function lookupFailed(error: unknown, context: string | null): LookupResult {
   return { success: false, code: "lookup-failed", error };
 }
 
-// 여러 곡 출처의 구간만. 더 넣기용. getTrackData와 달리 못 불러오면 검색으로 넘어가지 않고 던진다
+// 여러 곡 출처의 구간만. 더 넣기용. findTracks 와 달리 못 불러오면 검색으로 넘어가지 않고 던진다
 // (유튜브는 목록 끝을 넘는 구간이면 항목이 비어 getPlaylist가 null이다. 그건 없음이다).
 async function getCollection(url: string, range?: Range, sources: Partial<Sources> = {}): Promise<Collection> {
   const { youtube, spotify, soundcloud } = { ...REAL, ...sources };
@@ -191,7 +191,7 @@ async function resolveQuery(query: string, context?: string | null, range: Range
     log.debug(`캐시 히트(조회, 검색 생략): "${logTitle(cacheHit.track.title)}" → ${cacheHit.track.audioUrl}`);
     return { success: true, isPlaylist: false, tracks: [cacheHit.track] };
   }
-  return getTrackData(query, context, range, sources);
+  return findTracks(query, context, range, sources);
 }
 
 /**
@@ -202,11 +202,11 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
   const known = trackLookup.displayOf(query);
   let track: FoundTrack | null = known ? { ...known, duration: 0 } : null;
   if (!track) {
-    const original = await getTrackData(query, context, {}, sources);
+    const original = await findTracks(query, context, {}, sources);
     track = original.success ? original.tracks[0] : null;
   }
   if (!track) {
-    const audio = await getTrackData(pin.audioUrl, context, {}, sources, { tags: false });
+    const audio = await findTracks(pin.audioUrl, context, {}, sources, { tags: false });
     const from = audio.success ? audio.tracks[0] : null;
     track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
   }
@@ -215,6 +215,6 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
   return track;
 }
 
-export { detectPlatform, isUnsupportedLink, getTrackData, getCollection, resolveQuery };
+export { detectPlatform, isUnsupportedLink, findTracks, getCollection, resolveQuery };
 
 export type { FoundTrack, Range, Collection, Sources, LookupResult };

@@ -122,7 +122,7 @@ function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
 // 저장한 세션을 복원한다. 채널 알림은 내지 않는다(진입점이 결과를 알린다). 틀 곡이 남지 않았으면(empty) null: 부르는 쪽이 보통의 참가로 잇는다
 async function restore(player: Player, saved: RestoredSession): Promise<JoinResult | null> {
   try {
-    const outcome = await player.persistence.restoreFromState(saved, { announce: false });
+    const outcome = await player.persistence.restoreSession(saved, { announce: false });
     if (outcome === "empty") return null;
     return { kind: "restored", player, track: outcome === "restored" || outcome === "parked" ? player.currentTrack : null, left: player.queue.length, parked: outcome === "parked" };
   } catch (error) {

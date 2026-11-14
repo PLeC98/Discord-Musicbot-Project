@@ -420,7 +420,7 @@ class NowPlayingPanel {
 
     // 구분선 뒤에 조작 버튼
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    const buttons = await this.createControlButtons(player, buttonsDisabled);
+    const buttons = await this.controlRows(player, buttonsDisabled);
     for (const row of buttons) {
       container.addActionRowComponents(row);
     }
@@ -549,7 +549,7 @@ class NowPlayingPanel {
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar()))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
+    for (const row of await this.controlRows(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     const link = dashboardLink();
     if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
@@ -760,7 +760,7 @@ class NowPlayingPanel {
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
-  async createControlButtons(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
+  async controlRows(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
     const id = (action: string) => panelId(action, player.sessionId);
 
     // 첫째 줄: 이전 곡, 일시정지, 건너뛰기, 정지, 볼륨

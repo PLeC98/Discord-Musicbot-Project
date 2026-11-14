@@ -22,18 +22,18 @@ test("스포티파이 링크의 종류가 collection으로 실린다", async () 
     ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "playlist"],
     ["https://open.spotify.com/artist/0du5cEVh5yTK9QJze8zA0C", "artist"],
   ]) {
-    const r = await lookup.getTrackData(url, undefined, undefined, sources);
+    const r = await lookup.findTracks(url, undefined, undefined, sources);
     assert.equal(r.isPlaylist, true, url);
     assert.equal(r.collection, expected, url);
   }
-  const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
+  const single = await lookup.findTracks("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
   assert.equal(single.isPlaylist, false);
   assert.equal(single.collection, null);
 });
 
 test("유튜브 재생목록은 playlist", async () => {
   const sources = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: songs(2) }) } };
-  const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL123", undefined, undefined, sources);
+  const r = await lookup.findTracks("https://www.youtube.com/playlist?list=PL123", undefined, undefined, sources);
   assert.equal(r.collection, "playlist");
 });
 

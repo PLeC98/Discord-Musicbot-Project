@@ -8,7 +8,7 @@ import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
 import * as directSource from "../../src/sources/direct.ts";
-import { getTrackData } from "../../src/sources/lookup.ts";
+import { findTracks } from "../../src/sources/lookup.ts";
 import { messageOf, codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import { addFailureMessage, errorMessage } from "../../src/ui/error-messages.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -71,7 +71,7 @@ const aac = [{ format_id: "hls_aac_96k" }, { format_id: "hls_aac_160k" }];
 
 test("곡 찾기: 사운드클라우드 세트 링크는 재생목록으로 들어간다(한 구간, 곡마다 곡 페이지 주소)", async () => {
   respond = () => ({ _type: "playlist", id: "123", title: "세트 이름", uploader: "올린 사람", webpage_url: "https://soundcloud.com/artist/sets/list", playlist_count: 2, entries: [scItem("a", { formats: aac }), scItem("b", { formats: aac })] });
-  const r = await getTrackData("https://soundcloud.com/artist/sets/list");
+  const r = await findTracks("https://soundcloud.com/artist/sets/list");
   assert.equal(r.success, true);
   assert.deepEqual([r.isPlaylist, r.collection, r.total, r.collectionId], [true, "playlist", 2, "123"]);
   assert.deepEqual(
@@ -85,7 +85,7 @@ test("곡 찾기: 사운드클라우드 세트 링크는 재생목록으로 들�
 
 test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린다", async () => {
   respond = () => scItem("preview", { duration: 30, formats: [{ format_id: "http_mp3_1_0_preview" }] });
-  const r = await getTrackData("https://soundcloud.com/artist/preview");
+  const r = await findTracks("https://soundcloud.com/artist/preview");
   assert.equal(r.success, false);
   assert.equal(errorKind(r.error), "sc-preview-only");
   assert.equal(r.success ? "" : plainText(addFailureMessage({ code: r.code, kind: errorKind(r.error) })), "미리듣기만 가능한 곡이라 틀 수 없어요.\n다른 곡을 재생하거나, 다른 플랫폼으로 시도해 주세요.");
@@ -93,7 +93,7 @@ test("곡 찾기: 미리듣기만 열린 곡은 틀지 않고 까닭을 알린�
 
 test("곡 찾기: 지역 제한은 그 까닭으로 알린다(결과 없음이 아니다)", async () => {
   respond = () => ({ fail: "ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction" });
-  const r = await getTrackData("https://soundcloud.com/artist/blocked");
+  const r = await findTracks("https://soundcloud.com/artist/blocked");
   assert.equal(r.success, false);
   assert.equal(errorKind(r.error), "geo-blocked");
 });

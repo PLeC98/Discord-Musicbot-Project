@@ -72,7 +72,7 @@ test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down
   const player = fake<Player>({
     voice: { isAlive: () => false },
     bindChannels: () => {},
-    persistence: { restoreFromState: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
+    persistence: { restoreSession: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
     dispose: async (o: { end: string }) => void disposed.push(o.end),
   });
   const result = await join({ players: new Map([["g-rs", player]]) }, { guild, member, textChannel: fake<GuildTextBasedChannel>({ id: "t1" }) });

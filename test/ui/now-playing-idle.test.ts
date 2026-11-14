@@ -438,7 +438,7 @@ test("곡이 없을 때 /dashboard는 끝난 패널을 그 채널에 다시 올�
 test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있으면 켠다", async () => {
   const { panels, guild, text } = setup({});
   const skipDisabled = async (over: object) => {
-    const rows = await panels.createControlButtons(makePlayer(guild, text(BOT), over));
+    const rows = await panels.controlRows(makePlayer(guild, text(BOT), over));
     const buttons = rows.flatMap((row) => row.toJSON().components);
     return buttons.find((b) => "custom_id" in b && b.custom_id.startsWith("panel:skip:"))?.disabled;
   };
@@ -449,7 +449,7 @@ test("다음 곡 버튼: 대기열이 비면 끄되, 자동재생이 켜져 있�
 test("대기열 버튼: 다음 곡이 없으면 끈다(대기열 화면은 다음 곡만 보인다)", async () => {
   const { panels, guild, text } = setup({});
   const queueDisabled = async (over: object) => {
-    const rows = await panels.createControlButtons(makePlayer(guild, text(BOT), over));
+    const rows = await panels.controlRows(makePlayer(guild, text(BOT), over));
     return rows.flatMap((row) => row.toJSON().components).find((b) => "custom_id" in b && b.custom_id.startsWith("panel:queue:"))?.disabled;
   };
   assert.equal(await queueDisabled({}), true);
@@ -461,7 +461,7 @@ test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, �
   const keys = ["prev", "pause", "next", "stop", "volume", "highlight", "shuffle", "repeat_on", "queue_button", "autoplay_on"];
   useUploaded(new Map(keys.map((key, i) => [key, { id: String(100 + i), animated: false }])));
   try {
-    const rows = await withConfig({ sponsorblock: { enabled: true } }, () => panels.createControlButtons(makePlayer(guild, text(BOT), { loop: "queue", autoplay: "pop" })));
+    const rows = await withConfig({ sponsorblock: { enabled: true } }, () => panels.controlRows(makePlayer(guild, text(BOT), { loop: "queue", autoplay: "pop" })));
     const shown = rows.flatMap((row) => row.toJSON().components).map((b) => ("emoji" in b ? b.emoji : null));
     assert.deepEqual(
       shown.map((emoji) => emoji?.name),
@@ -475,7 +475,7 @@ test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, �
 
 test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다", async () => {
   const { panels, guild, text } = setup({});
-  const ids = async () => (await panels.createControlButtons(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
+  const ids = async () => (await panels.controlRows(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: true } }, ids), ["previous", "pause", "skip", "stop", "volume", "highlight", "shuffle", "loop", "queue", "autoplay"]);
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: false } }, ids), ["previous", "pause", "skip", "stop", "volume", "shuffle", "loop", "queue", "autoplay"]);
 });

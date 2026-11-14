@@ -137,7 +137,7 @@ function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
       made.push(this);
     }
     persistence = {
-      restoreFromState: async (record: { guildId: string }) => {
+      restoreSession: async (record: { guildId: string }) => {
         this.calls.push(`restore:${record.guildId}`);
         if (restoreFails) throw restoreFails === true ? new Error("복원 실패") : restoreFails;
       },
@@ -146,7 +146,7 @@ function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
       this.calls.push(`dispose:${o.reason}:${o.session}`);
     }
   }
-  // 플레이어를 만드는 곳에 넘긴다. 복원이 부르는 것(persistence.restoreFromState, dispose)만 갖췄다
+  // 플레이어를 만드는 곳에 넘긴다. 복원이 부르는 것(persistence.restoreSession, dispose)만 갖췄다
   return { FakePlayer: fake<PlayerClass>(FakePlayer), made };
 }
 

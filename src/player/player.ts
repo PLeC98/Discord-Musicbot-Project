@@ -498,7 +498,7 @@ class Player {
   }
 
   /** 음성 연결을 스스로 복구하는 중인가(바깥의 복구 감시가 방해하지 않게 본다) */
-  get isRecovering() {
+  get isVoiceRecovering() {
     return this.voice?.isRecovering ?? false;
   }
 
@@ -666,7 +666,7 @@ class Player {
     // 음성에 붙지 못했다. 넘기거나 세지 않는다(다음 곡도 붙지 못한다). 곡 추가는 스스로 정리하고(finishByCaller), 음성 복구 중이면 복구가 다시 연다. 그 밖은 세션을 남기고 버린다
     if (codeOf(error) === "voice-failed") {
       log.warn(`음성 채널에 연결하지 못해 재생 실패: ${this._trackLabel()} | ${messageOf(error)}`);
-      if (!this.finishByCaller && !this.isRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
+      if (!this.finishByCaller && !this.isVoiceRecovering) await this.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
       return { ok: false, code: "voice-failed", error } satisfies PlayResult;
     }
     // 열어 보고서야 방송이 끝난 것을 안 라이브(직접 링크 HLS). 다시 연 것이 아니면(처음, 세션 복원) 실패로 세지 않고 알리고 넘긴다

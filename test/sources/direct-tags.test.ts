@@ -150,7 +150,7 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
       return url === FILE ? [] : [{ title: "음원", pageUrl: url, requestKey: url, audioUrl: url, platform: "direct", duration: 0 }];
     },
   };
-  await lookup.getTrackData("https://files.test/b.mp3", undefined, undefined, { direct });
+  await lookup.findTracks("https://files.test/b.mp3", undefined, undefined, { direct });
   assert.deepEqual(asked, [{ url: "https://files.test/b.mp3", tags: true }]);
 
   // 원래 링크(직접 링크)를 읽지 못해 지정한 음원을 읽는다
@@ -171,5 +171,5 @@ test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo 는 unsuppo
       throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");
     },
   };
-  assert.deepEqual(await lookup.getTrackData("https://files.test/page.mp3", undefined, undefined, { direct }), { success: false, code: "unsupported-link" });
+  assert.deepEqual(await lookup.findTracks("https://files.test/page.mp3", undefined, undefined, { direct }), { success: false, code: "unsupported-link" });
 });

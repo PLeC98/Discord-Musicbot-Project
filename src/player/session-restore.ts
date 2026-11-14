@@ -138,7 +138,7 @@ async function restoreOne(client: Client, players: Registry, PlayerCtor: PlayerC
   const player = new PlayerCtor(guild, channels.text, channels.voice);
   players.set(guildId, player);
   try {
-    const outcome = await player.persistence.restoreFromState(record);
+    const outcome = await player.persistence.restoreSession(record);
     log.info(`서버 ${guild.name}의 세션 복원: ${RESTORE_OUTCOME[outcome]}`);
   } catch (error) {
     // 음성 연결 실패 등. 세션은 남긴다(다음 기동, /join 이 다시 해 본다). 종료 중이라 붙지 않은 것은 실패가 아니다

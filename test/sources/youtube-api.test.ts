@@ -137,7 +137,7 @@ test("정보: 못 트는 까닭이 분명하면(비공개, 연령 제한) 던진
   respond = () => ({ fail: "ERROR: [youtube] ppppppppppp: Private video. Sign in if you've been granted access to this video" });
   await assert.rejects(youtubeSource.getInfo("https://www.youtube.com/watch?v=ppppppppppp"), (e) => codeOf(e) === "unavailable-contents");
 
-  const result = await lookup.getTrackData("https://www.youtube.com/watch?v=ppppppppppp", "test");
+  const result = await lookup.findTracks("https://www.youtube.com/watch?v=ppppppppppp", "test");
   assert.equal(result.code, "lookup-failed");
   const { errorMessage } = await import("../../src/ui/error-messages.ts");
   assert.equal(result.success ? "" : plainText(errorMessage(result.error)), "접근할 수 없거나 존재하지 않는 영상이에요!\n비공개이거나 삭제된 콘텐츠는 틀 수 없어요.");

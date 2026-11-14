@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as directSource from "../../src/sources/direct.ts";
 import { openLink, type AudioStream } from "../../src/sources/direct-open.ts";
-import { getTrackData } from "../../src/sources/lookup.ts";
+import { findTracks } from "../../src/sources/lookup.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
 
 type Reply = { body?: string; headers?: Record<string, unknown>; error?: Error };
@@ -76,6 +76,6 @@ test("옛 SHOUTcast(ICY 첫 줄)는 shoutcast-v1 로 거절하고 곡 찾기가 
   await assert.rejects(directSource.getInfo("https://site.test/old.pls", { net: listed.net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
 
   const direct = { getInfo: (url: string) => directSource.getInfo(url, { net }) };
-  const result = await getTrackData("https://old.test/;", "test", {}, { direct });
+  const result = await findTracks("https://old.test/;", "test", {}, { direct });
   assert.deepEqual(result, { success: false, code: "shoutcast-v1" });
 });
