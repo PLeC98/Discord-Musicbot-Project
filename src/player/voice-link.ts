@@ -2,7 +2,7 @@
 // 복구, 강제 퇴장, 채널 사라짐, 이동, 서버 음소거를 여기서만 구분한다.
 
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason, joinVoiceChannel, entersState, type VoiceConnection, type VoiceConnectionState } from "@discordjs/voice";
-import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, type VoiceBasedChannel, type VoiceState } from "discord.js";
+import { ChannelType, PermissionFlagsBits, RESTJSONErrorCodes, Status, type VoiceBasedChannel, type VoiceState } from "discord.js";
 import type { Player } from "./player.ts";
 import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
@@ -38,7 +38,7 @@ const BOUNCE_FIX_GAP_MS = 10_000; // 되돌려 붙기 사이 최소 간격. 되�
 const guildName = (p: VoiceHost) => p.guild?.name ?? p.guild?.id;
 const channelName = (p: VoiceHost) => p.voiceChannel?.name ?? p.voiceChannel?.id ?? "?";
 const LIVE: ReadonlySet<LinkState> = new Set(["joining", "ready", "waiting", "recovering"]);
-const RECOVERY_ATTEMPTS_MAX = 5; // 한 번의 끊김에 연결 복구를 시도하는 횟수. 넘으면 세션을 저장하고 정리한다
+const RECOVERY_ATTEMPTS_MAX = 5; // 한 번 끊겼을 때 연결 복구가 실패해도 되는 횟수(게이트웨이가 끊긴 동안의 실패는 세지 않는다). 넘으면 세션을 저장하고 정리한다
 // 빠짐, 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "kicked" } as const;
 // 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
@@ -66,7 +66,10 @@ class VoiceLink {
   /** 지금 음성 서버 연결이 닫힌 코드(새 연결이면 비운다). 스테이지에서 빠진 까닭을 가른다 */
   lastCloseCode: number | null = null;
   closeWaiters: Array<(code: number | null) => void> = [];
-  recoveryAttempts = 0;
+  recoveryAttempts = 0; // 이번 복구의 회차
+  recoveryFailures = 0; // 이번 복구에서 센 실패 횟수
+  /** 이번 복구에서 게이트웨이가 끊겨 실패를 세지 않은 적이 있다(그 로그는 한 번만 남긴다) */
+  gatewayWaitNoted = false;
   // 이번 복구의 마지막 시도가 실패한 원인. 포기 줄이 싣는다(회차별 실패는 debug)
   lastRecoveryError: string | null = null;
   /** 사람이 서버 헤드셋 끄기를 풀었다. 다투지 않게 이 연결(복구, 옮겨짐 포함) 동안은 다시 걸지 않는다. 채널에 새로 들어오면 다시 건다 */
@@ -232,17 +235,12 @@ class VoiceLink {
     if (this.state === "closed") return;
     this._watchNetworking(oldState, newState);
     if (oldState.status !== newState.status) log.debug(`연결 상태: ${oldState.status} → ${newState.status} | ${this._label()}`);
-    if (newState.status === VoiceConnectionStatus.Ready) this.readyAt = Date.now();
-    if (newState.status === VoiceConnectionStatus.Ready && this.state === "waiting") {
-      this._clearWait();
-      this.state = "ready";
-      log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${this._label()}`);
-      this._settled();
+    if (newState.status === VoiceConnectionStatus.Ready) {
+      this._onReady(oldState);
       return;
     }
-    // 옮겨질 때처럼 우리 상태는 그대로인 채 라이브러리가 새 음성 서버에 다시 붙었다
-    if (newState.status === VoiceConnectionStatus.Ready && oldState.status !== VoiceConnectionStatus.Ready && this.state === "ready") {
-      this._settled();
+    if (this.state === "ready" && oldState.status === VoiceConnectionStatus.Ready && (newState.status === VoiceConnectionStatus.Signalling || newState.status === VoiceConnectionStatus.Connecting)) {
+      this._limitLibReconnect();
       return;
     }
     if (newState.status === VoiceConnectionStatus.Disconnected && this.state === "ready") {
@@ -251,6 +249,23 @@ class VoiceLink {
       return;
     }
     if (newState.status === VoiceConnectionStatus.Destroyed) this.recover("연결이 부서짐");
+  }
+
+  // 연결이 Ready 가 됐다. 끊긴 뒤 기다리던 중이면 자동 재연결된 것이다
+  _onReady(oldState: VoiceConnectionState) {
+    this.readyAt = Date.now();
+    if (this.state === "waiting") {
+      this._clearWait();
+      this.state = "ready";
+      log.info({ tags: ["recovered"] }, `자동 재연결 성공: ${this._label()}`);
+      this._settled();
+      return;
+    }
+    // 옮겨질 때처럼 우리 상태는 그대로인 채 라이브러리가 새 음성 서버에 다시 붙었다
+    if (this.state === "ready" && oldState.status !== VoiceConnectionStatus.Ready) {
+      this._clearWait();
+      this._settled();
+    }
   }
 
   // 음성 서버 연결의 닫힘 코드. 4014 가 아니면 라이브러리가 끊김 없이 스스로 다시 참가해(Ready → Signalling) 전이에는 까닭이 없다.
@@ -327,6 +342,18 @@ class VoiceLink {
     }, this.waitStartMs);
   }
 
+  // 붙은 상태에서 라이브러리가 스스로 다시 참가하거나 음성 서버에 다시 붙기 시작했다(Ready → Signalling, Connecting. Disconnected 는 오지 않는다).
+  // 참가 요청에 답이 없으면 그대로 멈춰 버리므로, 시간 안에 Ready 가 안 되면 기다림이 끝났을 때처럼 처리한다. 옮겨질 때도 이 경로를 탄다(곧 Ready 가 된다)
+  _limitLibReconnect() {
+    if (this.waitTimer) return;
+    const gen = ++this.gen;
+    this.waitTimer = setTimeout(() => {
+      this.waitTimer = null;
+      if (gen !== this.gen || this.state !== "ready" || this.player.connection?.state.status === VoiceConnectionStatus.Ready) return;
+      this._afterWait();
+    }, this.waitReadyMs);
+  }
+
   _clearWait() {
     if (this.waitTimer) clearTimeout(this.waitTimer);
     this.waitTimer = null;
@@ -353,6 +380,8 @@ class VoiceLink {
     this._clearWait();
     this.state = "recovering";
     this.recoveryAttempts = 0;
+    this.recoveryFailures = 0;
+    this.gatewayWaitNoted = false;
     this.lastRecoveryError = null;
     this.reattachRefused = false;
     const gen = ++this.gen;
@@ -365,10 +394,11 @@ class VoiceLink {
     // 종료가 시작되면 복구를 멈춘다(새 연결을 만들지 않는다. 남은 연결은 종료가 정리한다)
     const active = () => gen === this.gen && this.state === "recovering" && !isShuttingDown();
     while (active()) {
+      if (this.recoveryFailures >= RECOVERY_ATTEMPTS_MAX) return this._giveUp();
       this.recoveryAttempts++;
-      if (this.recoveryAttempts > RECOVERY_ATTEMPTS_MAX) return this._giveUp();
       if (!this._liveChannel()) return this.channelGone();
       const started = Date.now();
+      const gatewayBefore = this._gatewayCounts();
       const joined = await this._rejoin(active);
       if (!active()) return;
       if (joined) {
@@ -378,10 +408,30 @@ class VoiceLink {
         await this.player.onVoiceRecovered();
         return;
       }
+      this._countFailure(gatewayBefore && this._gatewayCounts());
       // 곧바로 실패한 시도(네트워크가 끊겨 있다)도 한 시도만큼의 시간은 쓴다. 끊긴 동안 시도를 다 써 버리지 않게
       const rest = Math.max(this.recoveryRetryDelayMs, this.attemptSpanMs - (Date.now() - started));
       await new Promise((resolve) => setTimeout(resolve, rest));
     }
+  }
+
+  // 실패를 셀지 정한다. 게이트웨이가 붙어 있거나 다시 붙지 않는 상태(Disconnected)면 센다. 다시 붙는 중이면 세지 않는다(장애가 끝나면 붙을 수 있다)
+  _gatewayCounts() {
+    const status = this.player.guild.shard?.status;
+    return status === undefined || status === Status.Ready || status === Status.Disconnected;
+  }
+
+  // 시도가 한 번 실패했다. 시도 앞뒤로 게이트웨이가 붙어 있었으면 센다. 끊겨 있었으면 앞서 센 실패도 지운다.
+  // 게이트웨이는 끊김을 음성보다 늦게 알 수 있으므로(하트비트 응답이 빠져야 안다) 그사이의 실패도 장애 탓이다
+  _countFailure(counted: boolean) {
+    if (counted) {
+      this.recoveryFailures++;
+      return;
+    }
+    this.recoveryFailures = 0;
+    if (this.gatewayWaitNoted) return;
+    this.gatewayWaitNoted = true;
+    log.warn(`게이트웨이 연결이 끊겨 있어 실패를 세지 않고 연결 복구를 계속함: ${this._label()}`);
   }
 
   // 한 번 재연결해 본다. 됐으면 true. 채널에서는 나가지 않는다.

@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { VoiceConnectionStatus, VoiceConnectionDisconnectReason } from "@discordjs/voice";
 import type { DiscordGatewayAdapterLibraryMethods } from "@discordjs/voice";
-import { ChannelType, PermissionFlagsBits, type VoiceBasedChannel } from "discord.js";
+import { ChannelType, PermissionFlagsBits, Status, type VoiceBasedChannel } from "discord.js";
 import { VoiceLink, type VoiceHost, type VoiceLib } from "../../src/player/voice-link.ts";
 import { fake } from "../helpers/fake.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
@@ -219,6 +219,54 @@ test("기다려도 재연결되지 않았는데 봇이 채널에 없으면(퇴�
   assert.equal(joins.length, 1, "재연결하지 않았다");
 });
 
+test("붙은 채 라이브러리가 다시 붙기 시작해도(Ready → Signalling, Connecting) 곧 Ready 면 할 일이 없다(옮겨질 때)", async () => {
+  for (const status of [VoiceConnectionStatus.Signalling, VoiceConnectionStatus.Connecting]) {
+    joins.length = 0;
+    const { link, conn, steps } = await ready();
+    conn().to(status);
+    assert.equal(link.state, "ready", "끊김으로 보지 않는다");
+    conn().to(VoiceConnectionStatus.Ready);
+    assert.equal(link.waitTimer, null, `${status}: 시간 한도를 푼다`);
+    await sleep(40);
+    assert.deepEqual(steps, []);
+    assert.equal(conn().reattaches, 0, "재연결하지 않았다");
+  }
+});
+
+test("붙은 채 라이브러리가 다시 붙기 시작해 시간 안에 Ready 가 안 되면: 봇이 채널에 있으면 우리가 재연결, 없으면 강제 퇴장", async () => {
+  const stuck = await ready();
+  stuck.conn().to(VoiceConnectionStatus.Signalling);
+  await until(() => stuck.steps.length > 0, "재연결해 이어 틀기");
+  assert.deepEqual(stuck.steps, ["resume"]);
+  assert.equal(stuck.conn().reattaches, 1, "받아 둔 음성 서버 정보로 다시 붙는다(서버 정보가 먼저 와 멈춘 것도 풀린다)");
+  assert.equal(stuck.link.state, "ready");
+
+  const gone = await ready();
+  gone.me.voice.channelId = null;
+  gone.conn().to(VoiceConnectionStatus.Connecting);
+  await until(() => gone.steps.length > 0, "버리기");
+  assert.deepEqual(gone.steps, ["dispose:remove:disconnected:kicked"]);
+});
+
+test("붙은 채 다시 붙기의 시간 한도는 하나이고, 끊김, 정리가 뒤따르면 그쪽이 맡는다", async () => {
+  const { link, conn } = await ready();
+  conn().to(VoiceConnectionStatus.Signalling);
+  const timer = link.waitTimer;
+  assert.ok(timer);
+  conn().to(VoiceConnectionStatus.Connecting);
+  conn().to(VoiceConnectionStatus.Signalling);
+  assert.equal(link.waitTimer, timer, "Ready 없이 되풀이돼도 늘어나지 않는다");
+  conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.AdapterUnavailable });
+  assert.equal(link.state, "waiting", "끊김은 지금처럼 기다림으로");
+  assert.notEqual(link.waitTimer, timer);
+
+  const stopped = await ready();
+  stopped.conn().to(VoiceConnectionStatus.Signalling);
+  stopped.link.stop();
+  await sleep(40);
+  assert.deepEqual(stopped.steps, [], "멈춘 뒤에는 아무것도 안 한다");
+});
+
 // ── 우리가 재연결하기 ──
 
 test("부서짐, 오류: 붙어 있다가 부서지거나 오류가 나면 재연결하고 끊긴 위치에서 이어 튼다", async () => {
@@ -342,6 +390,49 @@ test("다섯 번 모두 실패하면 세션을 저장하고 버린다", async ()
   assert.equal(link.state, "closed");
   assert.equal(link.isAlive(), false);
   assert.ok(link.lastRecoveryError, "포기 줄에 실을 마지막 시도의 까닭이 있다");
+});
+
+// 시도가 끝날 때마다 게이트웨이 상태를 바꾼다. after[n]: n 회차가 끝난 뒤의 상태
+function gatewayDuring(link: VoiceLink, player: { guild: object }, first: Status, after: Record<number, Status>) {
+  const shard = { status: first };
+  Object.assign(player.guild, { shard });
+  const rejoin = link._rejoin.bind(link);
+  link._rejoin = async (active) => {
+    const joined = await rejoin(active);
+    shard.status = after[link.recoveryAttempts] ?? shard.status;
+    return joined;
+  };
+}
+
+test("복구: 게이트웨이가 끊긴 동안의 실패는 세지 않고 계속한다. 끊김을 보면 앞서 센 실패도 지운다. 돌아온 뒤 다섯 번 실패하면 포기", async () => {
+  const { link, player, steps } = await ready();
+  // 1회차는 게이트웨이가 끊김을 알기 전(센다), 2 ~ 7회차는 끊긴 동안, 8회차부터 돌아옴
+  gatewayDuring(link, player, Status.Ready, { 1: Status.Reconnecting, 4: Status.Resuming, 7: Status.Ready });
+  joinWorks = Array(12).fill(false);
+  const from = sink.buffer.length;
+  link.recover("시험");
+  await until(() => steps.length > 0, "포기하고 버리기");
+  assert.equal(link.recoveryAttempts, 12, "끊긴 동안 여섯 번, 앞서 센 한 번은 세지 않았다");
+  assert.deepEqual(steps, ["dispose:save:disconnected:voice-lost"]);
+  assert.equal(sink.buffer.slice(from).filter((e) => e.text.includes("게이트웨이 연결이 끊겨 있어")).length, 1, "세지 않는다는 줄은 한 번");
+
+  const back = await ready();
+  gatewayDuring(back.link, back.player, Status.Connecting, { 6: Status.Ready });
+  joinWorks = [...Array(7).fill(false), true];
+  back.link.recover("시험");
+  await until(() => back.steps.length > 0, "이어 틀기");
+  assert.deepEqual(back.steps, ["resume"], "몇 분짜리 장애 뒤에도 게이트웨이가 돌아오면 붙는다");
+  assert.equal(back.link.recoveryAttempts, 8);
+});
+
+test("복구: 게이트웨이가 다시 붙지 않는 닫힘(Disconnected)이면 지금처럼 센다", async () => {
+  const { link, player, steps } = await ready();
+  gatewayDuring(link, player, Status.Disconnected, {});
+  joinWorks = Array(5).fill(false);
+  link.recover("시험");
+  await until(() => steps.length > 0, "포기하고 버리기");
+  assert.equal(link.recoveryAttempts, 5);
+  assert.deepEqual(steps, ["dispose:save:disconnected:voice-lost"]);
 });
 
 test("복구 중에 채널이 사라졌으면 채널 사라짐으로 버린다", async () => {
