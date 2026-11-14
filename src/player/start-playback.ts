@@ -97,8 +97,10 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
-  // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
-  let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previous, startMs) : null;
+  // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생 때 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다.
+  // 직전 재생 때 그 주소가 막혔으면 다시 쓰지 않고, 받아 둔 영상 정보에도 같은 주소가 들어 있어 함께 버리고 새로 받는다
+  const refused = !cacheFile ? refusedBefore(track, previous) : false;
+  let streamInfo: StreamInfo | null = !cacheFile && !refused ? resumeStream(track, previous, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 키가 정해지므로
@@ -109,7 +111,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
       cacheFile = pickCacheFile();
     }
     // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 분기한다
-    if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
+    if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok, fresh: refused });
   }
 
   // 캐시 파일로 튼다: 원본을 본 지 오래됐으면 뒤에서 다시 묻는다(이번 재생은 기다리지 않는다)
@@ -169,6 +171,15 @@ function verifyTitle(track: QueuedTrack, streamInfo: StreamInfo | null) {
 function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   if (streamInfo && "liveStatus" in streamInfo) return streamInfo.liveStatus === "is_live";
   return cacheFile ? false : null;
+}
+
+// 직전 재생 때 같은 음원의 주소가 막혀(4xx) 끊겼나. 만료 전이어도(CDN 거절, 네트워크가 바뀜) 같은 주소는 다시 열어도 똑같이 막힌다
+function refusedBefore(track: QueuedTrack, previous: CurrentPlayback | null) {
+  const status = previous?.input?.refused;
+  const key = audioKeyOf(track.audioUrl);
+  if (!status || !key || previous?.stream?.audioKey !== key) return false;
+  log.debug(`직전 스트림 주소가 막혀 새로 받음(HTTP ${status}): ${logTitle(track.title)}`);
+  return true;
 }
 
 /**
