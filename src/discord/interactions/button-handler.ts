@@ -82,7 +82,7 @@ async function handleVolumeButton(interaction: Press) {
   await interaction.showModal(volumeModal());
 }
 
-/** 볼륨을 입력하는 모달. 받는 쪽은 modal-handler 의 handleVolumeSubmit */
+/** 볼륨을 입력하는 모달. 받는 쪽은 panel-inputs 의 handleVolumeSubmit */
 function volumeModal() {
   const t = controlText.volumeModal();
   const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);

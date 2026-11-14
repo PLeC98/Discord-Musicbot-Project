@@ -4,8 +4,8 @@
 type Loop = false | "track" | "queue";
 
 /** 반복 버튼의 다음 모드: 끔 → 한곡 → 대기열 → 끔 */
-function nextLoopMode(current: Loop | "off"): Loop {
-  if (current === false || current === "off") return "track";
+function nextLoopMode(current: Loop): Loop {
+  if (current === false) return "track";
   return current === "track" ? "queue" : false;
 }
 

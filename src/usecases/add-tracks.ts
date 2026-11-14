@@ -577,8 +577,8 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
 async function openPanel(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
   try {
     return await panel.postPlaying(player, track, responder);
-  } catch (embedError) {
-    log.error("재생 중 임베드 생성 실패:", embedError);
+  } catch (error) {
+    log.error("재생 패널 올리기 실패:", error);
     return { success: true };
   }
 }

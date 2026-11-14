@@ -1,4 +1,4 @@
-// src/sources/ytdlp-exec.ts: 플래그를 인자로 바꾸고 yt-dlp 를 띄운다. 인자는 youtube-dl-exec 3.1.19(dargs 7, tinyspawn 1.5)가 내던 것을 그대로 굳혔다(경우마다 그 라이브러리로 뽑은 값).
+// src/sources/ytdlp-exec.ts: 플래그를 인자로 바꾸고 yt-dlp 를 띄운다. 인자는 dargs 7 의 규칙을 따른다(기대값은 경우마다 dargs 로 뽑은 값).
 // 띄우기는 yt-dlp 대신 Node 를 띄워 본다: 출력 다듬기, 오류 모양, 띄운 때의 필드, 버전 폴더 사용권
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ const CASES: [string, Record<string, unknown>, string, unknown[]][] = [
   ["값에 공백, 따옴표, = 가 있어도 하나의 인자", { matchFilter: "title ~= 'a b' & duration>60", extractorArgs: "youtube:x=1;y=2" }, "u", ["--match-filter", "title ~= 'a b' & duration>60", "--extractor-args", "youtube:x=1;y=2", "--", "u"]],
 ];
 
-test("플래그를 인자로: youtube-dl-exec 가 내던 것과 같다", () => {
+test("플래그를 인자로: dargs 의 규칙과 같다", () => {
   for (const [label, flags, url, want] of CASES) assert.deepEqual([...argsOf(flags as YtDlpFlags), "--", url].filter(Boolean), want, label);
 });
 

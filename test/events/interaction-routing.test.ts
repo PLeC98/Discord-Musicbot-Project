@@ -17,7 +17,7 @@ import { ROUTES } from "../../src/discord/interactions/index.ts";
 import { route, routeOf, type Kind as RouteKind } from "../../src/discord/interactions/route.ts";
 import { routes as buttonHandler, volumeModal } from "../../src/discord/interactions/button-handler.ts";
 import { routes as autoplay } from "../../src/discord/interactions/autoplay.ts";
-import { routes as modalHandler } from "../../src/discord/interactions/modal-handler.ts";
+import { routes as panelInputs } from "../../src/discord/interactions/panel-inputs.ts";
 import { routes as playlistMoreHandler } from "../../src/discord/interactions/playlist-more-handler.ts";
 import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
 import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
@@ -34,7 +34,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler, searchPick, help };
+const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -106,14 +106,14 @@ const CASES: [Kind, string, string][] = [
   ["button", "setting:age-all", "settingsPanelHandler"],
   ["button", "setting:close", "settingsPanelHandler"],
   ["select", "autoplay:genre", "autoplay"],
-  ["select", "panel:jump:s1", "modalHandler"],
+  ["select", "panel:jump:s1", "panelInputs"],
   ["select", "setting:sb-cats", "settingsPanelHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["select", "search:pick:u1", "searchPick"],
   ["select", "help:section", "help"],
   ["button", "help:home", "help"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
-  ["modal", "panel:volume", "modalHandler"],
+  ["modal", "panel:volume", "panelInputs"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["command", "probe", "commands"],
 ];

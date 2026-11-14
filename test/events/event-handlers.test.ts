@@ -1,5 +1,5 @@
 // src/discord/events, src/discord/interactions 의 이벤트 핸들러: 지금 동작을 고정한다.
-// 전용 채널 메시지(message-handler), 채널, 서버 삭제(channel-delete, guild-delete), 끝난 패널 올리기(panel-pin), 재생목록 더 넣기(playlist-more-handler), 모달과 선택 메뉴(modal-handler, 자동재생 장르는 src/discord/interactions/autoplay).
+// 전용 채널 메시지(message-handler), 채널, 서버 삭제(channel-delete, guild-delete), 끝난 패널 올리기(panel-pin), 재생목록 더 넣기(playlist-more-handler), 재생 패널의 곡 건너뛰기 메뉴와 볼륨 모달(panel-inputs, 자동재생 장르는 src/discord/interactions/autoplay).
 //
 // 모듈을 통째로 교체하지 않는다. 권한 판정, 서버 설정, 곡 추가 코어는
 // 진짜로 돌리고(서버 설정은 임시 DB), 화면 관리자(봇 문맥의 panels)와 트랙 조회(곡 추가 코어의 useLookup 으로 넘긴 가짜)만 가짜로 둔다.

@@ -211,7 +211,7 @@ class NowPlayingPanel {
   async postPlaying(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this.panelChannel(player);
-    // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
+    // 보낼 채널이 없으면 재생은 계속하되 패널만 건너뛴다
     if (!canSend(channel)) {
       return { success: true };
     }
@@ -351,15 +351,15 @@ class NowPlayingPanel {
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
       await this.location.commit(player.guild, channel, message, webhook);
-      log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
+      log.info({ tags: ["recovered"] }, `재생 패널 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
       if (codeOf(error) === UNKNOWN_CHANNEL) this._dropPanel(player);
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network-error") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
-        else log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
+        if (errorKind(error) === "network-error") log.warn(`재생 패널 다시 올리기 실패: ${messageOf(error)}`);
+        else log.error("재생 패널 다시 올리기 실패:", messageOf(error));
       }
     } finally {
       this.reposting.delete(guildId);
@@ -438,7 +438,7 @@ class NowPlayingPanel {
    */
   updatePlaying(player: Player): Promise<void> {
     const guildId = player?.guild?.id;
-    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (재생 패널 유무와 무관하게 발신)
     if (!guildId) return this._drawPlaying(player);
     const running = this.drawing.get(guildId);
     if (running) {
@@ -506,7 +506,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
+      log.warn(`재생 패널 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -514,14 +514,14 @@ class NowPlayingPanel {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
-    log.error("재생 중 임베드 갱신 실패:", error);
+    log.error("재생 패널 갱신 실패:", error);
   }
 
   _editFailure(player: Player) {
     const guildId = player.guild.id;
     let failure = this.editFailures.get(guildId);
     if (!failure) {
-      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 중 임베드 갱신(${player.guild.name ?? guildId})`);
+      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 패널 갱신(${player.guild.name ?? guildId})`);
       this.editFailures.set(guildId, failure);
     }
     return failure;

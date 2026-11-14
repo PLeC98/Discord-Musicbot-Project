@@ -52,16 +52,12 @@ test("경로가 글자가 아닌 부름은 정해진 파일에만 있다", () =>
   sameList("글자가 아닌 부름", [...new Set(now.unseen.map((u) => u.split(":")[0]))], baseline.unseen);
 });
 
-test("함수 안에서 부르지 않는다(지연 require)", () => {
-  sameCounts("지연 부름", now.lazyRequire, baseline.lazyRequire);
+test("함수 안에서 부르지 않는다(지연 import)", () => {
+  sameCounts("지연 부름", now.lazyImport, baseline.lazyImport);
 });
 
 test("모듈 맨 위에서 config 값을 꺼내 두지 않는다", () => {
   sameCounts("config 꺼내 두기", now.configCapture, baseline.configCapture);
-});
-
-test("테스트가 require.cache 로 모듈을 교체하지 않는다", () => {
-  sameCounts("require.cache", now.requireCache, baseline.requireCache);
 });
 
 test("테스트 파일이 첫 테스트 뒤 맨 위에서 기다리지 않는다", () => {

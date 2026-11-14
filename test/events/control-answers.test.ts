@@ -114,7 +114,7 @@ test("볼륨: 바꾼 결과를 모두에게. 명령과 패널의 입력 창이 �
   assert.deepEqual(log, [["reply", ["### 🔊 볼륨을 조절했어요!\n**80%** → **35%**", "-# 👤 요청한 사람 <@u1>"], CV2]]);
 
   const root = path.join(import.meta.dirname, "..", "..");
-  for (const file of ["src/discord/commands/volume.ts", "src/discord/interactions/modal-handler.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);
+  for (const file of ["src/discord/commands/volume.ts", "src/discord/interactions/panel-inputs.ts"]) assert.match(fs.readFileSync(path.join(root, file), "utf8"), /answerVolume\(/, file);
 });
 
 test("받아들인 뒤에 던지면 하는 중 메시지를 안내로 바꾼다", async () => {

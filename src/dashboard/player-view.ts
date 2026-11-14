@@ -9,7 +9,7 @@ import type { Song } from "../usecases/song-search.ts";
 import type { Player } from "../player/player.ts";
 import type { QueuedTrack } from "../player/track.ts";
 import * as trackState from "../player/track-state.ts";
-// 라벨은 임베드와 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
+// 라벨은 재생 패널과 같은 표에서 나온다. 화면이 따로 들지 않게 서버가 실어 보낸다
 import { labelOf } from "../rules/platforms.ts";
 import * as genreConfig from "../config/genres.ts";
 import { playbackStatus, soundAttached } from "../ui/player-status.ts";
