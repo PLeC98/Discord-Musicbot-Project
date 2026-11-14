@@ -24,6 +24,9 @@ const TABLE: Row[] = [
   // 연령 제한, 봇 감지, 쿠키
   ["ERROR: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-no-cookies", F, T, F, F, F], // 순서: 연령 제한이 봇 감지("sign in to confirm")보다 앞
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
+  ["ERROR: [youtube] abc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.", "yt-bot-check", F, F, F, F, F], // 유튜브는 굽은 따옴표를 쓴다
+  ["ERROR: [youtube] abc: Something went wrong. YouTube is requiring a captcha challenge before playback", "yt-bot-check", F, F, F, F, F],
+  ["ERROR: [youtube] abc: The following content has been identified by the YouTube community as inappropriate or offensive to some audiences.", "yt-age-no-cookies", F, T, F, F, F], // yt-dlp 도 연령 제한으로 본다
   ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
   ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
   // 클라이언트, 포맷. 받을 포맷을 끝내 얻지 못한 것이라 사용자에게는 stream-failed
@@ -84,6 +87,9 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     "ERROR: This video is no longer available because the YouTube account associated with this video has been terminated": "unavailable-contents",
     "ERROR: Sign in to confirm your age. This video may be inappropriate for some users.": "yt-age-no-cookies",
     "ERROR: Sign in to confirm you're not a bot": "yt-bot-check",
+    "ERROR: [youtube] abc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.": "yt-bot-check",
+    "ERROR: [youtube] abc: Something went wrong. YouTube is requiring a captcha challenge before playback": "yt-bot-check",
+    "ERROR: [youtube] abc: The following content has been identified by the YouTube community as inappropriate or offensive to some audiences.": "yt-age-no-cookies",
     "WARNING: The provided YouTube account cookies are no longer valid": null,
     "WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.": "yt-age-cookies-invalid",
     "ERROR: Requested format is not available": "client-fault",
