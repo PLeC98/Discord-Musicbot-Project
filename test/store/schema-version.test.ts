@@ -101,7 +101,7 @@ test("설정 DB 버전이 다르면 열지 않고 멈춘다. 파일은 손대지
   prepare("settings.db", 99, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY, data_json TEXT NOT NULL); INSERT INTO guild_settings VALUES ('g', '{}');");
   assert.throws(
     () => stores.open(dir),
-    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("열지 않음"),
+    (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("구조가 이 봇과 맞지 않음") && messageOf(error).includes("새로 만들지 않음"),
   );
   assert.equal(settingsDb.isOpen() || stateDb.isOpen() || cacheDb.isOpen(), false);
   assert.throws(() => settingsDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
