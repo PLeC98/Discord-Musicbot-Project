@@ -13,6 +13,7 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as panelRecords from "../../src/store/panel-records.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
+import { PLAYLIST_ADD_DEFAULT, VOLUME_BASE } from "../../src/rules/limits.ts";
 import sink from "../../src/infra/log/sink.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guild-settings-"));
@@ -76,7 +77,7 @@ test("패널 위치(실행 상태 DB): 저장하면 { channelId, messageId }, me
 test("재생목록 한 번에 넣는 곡 수: 범위와 기본값, 저장, null 로 되돌리기", async () => {
   const limits = settings.playlistAddLimits();
   assert.equal(limits.min, 1);
-  assert.equal(limits.default, config.bot.playlistAddDefault);
+  assert.equal(limits.default, PLAYLIST_ADD_DEFAULT);
   assert.equal(limits.max, config.bot.maxQueueSize > 0 ? Math.min(1000, config.bot.maxQueueSize) : 1000);
 
   assert.equal(await settings.getPlaylistAddMax("g1"), null);
@@ -116,13 +117,13 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
 });
 
 test("볼륨: 저장하면 새 플레이어가 그 값으로 시작하고, 기본 볼륨이면 문서에서 지운다. 미설정은 기본 볼륨", async () => {
-  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(settings.resolveVolume("g1"), VOLUME_BASE);
   assert.deepEqual(await settings.saveVolume("g1", 30), ["volume"]);
   fresh();
   assert.equal(settings.resolveVolume("g1"), 30);
-  await settings.saveVolume("g1", config.bot.defaultVolume);
+  await settings.saveVolume("g1", VOLUME_BASE);
   fresh();
-  assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
+  assert.equal(settings.resolveVolume("g1"), VOLUME_BASE);
   assert.equal(guildTable.getVolume("g1"), null, "기본값은 남기지 않는다");
 });
 

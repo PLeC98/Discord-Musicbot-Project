@@ -8,6 +8,7 @@ import { openTempStore, whenSettingsBroken } from "../helpers/temp-store.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
 import { screenOf, textOf } from "../helpers/cv2.ts";
 import { MessageFlags } from "discord.js";
+import { PLAYLIST_ADD_DEFAULT } from "../../src/rules/limits.ts";
 
 const store = openTempStore("playlist-add-");
 after(() => store.close());
@@ -38,7 +39,7 @@ async function withQueueMax(max: number, fn: () => Promise<void>) {
 
 test("범위: 위쪽 끝은 대기열 상한과 1000 중 작은 쪽, 상한이 꺼져 있으면 1000", () =>
   withQueueMax(250, async () => {
-    assert.deepEqual(GuildSettingsManager.playlistAddLimits(), { min: 1, max: 250, default: config.bot.playlistAddDefault });
+    assert.deepEqual(GuildSettingsManager.playlistAddLimits(), { min: 1, max: 250, default: PLAYLIST_ADD_DEFAULT });
     config.bot.maxQueueSize = 0;
     assert.equal(GuildSettingsManager.playlistAddLimits().max, 1000);
     config.bot.maxQueueSize = 5000;
@@ -46,11 +47,11 @@ test("범위: 위쪽 끝은 대기열 상한과 1000 중 작은 쪽, 상한이 �
   }));
 
 test("실제 값: 미설정이면 기본값, 설정하면 그 값", async () => {
-  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), config.bot.playlistAddDefault);
+  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), PLAYLIST_ADD_DEFAULT);
   await GuildSettingsManager.setPlaylistAddMax(G, 120);
   assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), 120);
   await GuildSettingsManager.setPlaylistAddMax(G, null);
-  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), config.bot.playlistAddDefault);
+  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), PLAYLIST_ADD_DEFAULT);
 });
 
 test("실제 값: 저장 뒤 대기열 상한이 줄면 읽을 때 상한으로 자른다", async () => {
@@ -88,7 +89,7 @@ test("/setplaylistlimit: 값 없이 부르면 지금 값만 보여 준다 (기�
   const i = interaction();
   await run(command, i);
   assert.equal(stored.has(G), false);
-  assert.match(text(i.replies[0]), new RegExp(`${config.bot.playlistAddDefault}곡.*기본값`));
+  assert.match(text(i.replies[0]), new RegExp(`${PLAYLIST_ADD_DEFAULT}곡.*기본값`));
   assert.deepEqual([screenOf(i.replies[0]).done, i.replies[0].flags], [false, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]], "지금 값은 본인에게만");
   assert.deepEqual(lifetimesOf(i), [LIFETIME.glance], "잠깐 보는 값");
 });
@@ -106,7 +107,7 @@ test("/setplaylistlimit: reset은 기본값으로 되돌린다", async () => {
   const i = interaction({ action: "reset" });
   await run(command, i);
   assert.equal(stored.get(G), null);
-  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), config.bot.playlistAddDefault);
+  assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), PLAYLIST_ADD_DEFAULT);
 });
 
 test("/setplaylistlimit: 저장에 실패하면 바꾸지 않고 실패를 알린다(설정, 기본값 모두)", async () => {
