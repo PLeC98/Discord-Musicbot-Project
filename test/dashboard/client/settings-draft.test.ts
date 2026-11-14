@@ -85,7 +85,10 @@ function harness(initial: SettingsValues) {
   };
 }
 
-const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
+// 저장 예약(debounceMs 0, Node 에서는 1ms)과 같은 1ms 타이머를 몇 번 차례로 기다린다. 지연 시간이 같은 타이머는 건 순서대로 돌므로, 대기 도중 걸린 저장 예약이 다음 타이머보다 먼저 돈다(경과 시간에 의존하지 않는다)
+async function tick() {
+  for (let round = 0; round < 5; round++) await new Promise((resolve) => setTimeout(resolve, 1));
+}
 
 test("보낼 본문: 고친 키만, 키마다 기준값(from)과 고치는 값(to). SponsorBlock 은 하위 키로", () => {
   const base: SettingsValues = { botChannelId: null, djRoleIds: ["r1"], sponsorblock: { enabled: true, categories: null } };
