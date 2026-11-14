@@ -20,6 +20,11 @@ const intents = {
   fix: "개발자 포털의 Bot → Privileged Gateway Intents에서 켜고 봇을 다시 시작해 주세요.",
   approval: "서버가 100개 이상이라 디스코드 승인을 받아야 켤 수 있어요.",
   pending: "가 켜졌어요. 봇을 다시 시작하면 적용돼요.",
+  /** 운영자 패널에서 포털 스위치를 켠다(100 서버 미만) */
+  enable: "켜기",
+  enabled: (name: string) => `${name}를 켰어요`,
+  enabledBody: "봇을 다시 시작하면 적용돼요.",
+  enableFailed: "인텐트를 켜지 못했어요",
 };
 const needsAttention = (count: number) => `확인이 필요한 항목이 ${count}개 있어요.`;
 const connecting = "연결 중 · ";

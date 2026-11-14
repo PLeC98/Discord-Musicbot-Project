@@ -141,6 +141,10 @@ const WEB = {
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
   // 대시보드의 서버 화면: 봇이 멤버 갱신, 탈퇴를 받지 않아(Server Members Intent 꺼짐) 권한을 판정할 수 없다
+  // 운영자 패널의 특권 인텐트 켜기: 서버가 100개 이상이라 스위치가 아니라 디스코드의 승인이 필요하다, 앱 설정에 스위치(flags)가 없다, 디스코드가 받지 않았다
+  "intent-needs-approval": { status: 409, title: "This intent needs Discord approval at 100 or more servers" },
+  "intent-flags-unknown": { status: 502, title: "Could not read the app's intent switches" },
+  "intent-enable-failed": { status: 502, title: "Could not turn on the intent" },
   "members-intent-off": { status: 409, title: "Server pages are off because the Server Members Intent is disabled" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },

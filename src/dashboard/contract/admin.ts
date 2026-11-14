@@ -182,6 +182,8 @@ type LeaveReply = { success: true; name: string };
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
 /** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
 type RestartReply = { restarting: true };
+/** 특권 인텐트 켜기. enabled: 켰다(다시 시작하면 적용), already: 이미 켜져 있었다 */
+type IntentEnableReply = { result: "enabled" | "already" };
 
 /** 운영자 패널의 보기 설정(GET, PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
 type PanelPrefs = { advanced: boolean };
@@ -255,6 +257,7 @@ export type {
   LeaveReply,
   RedeployReply,
   RestartReply,
+  IntentEnableReply,
   PanelPrefs,
   GeoipStatus,
   GeoipCheck,

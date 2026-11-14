@@ -182,6 +182,10 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
   "bot-shutting-down": () => error("waiting", "봇이 종료 중이에요!", "봇이 다시 시작되면 그때 시도해 주세요."),
+  // 운영자 패널의 특권 인텐트 켜기
+  "intent-needs-approval": () => warning("permission", "바로 켤 수 없어요.", "서버가 100개 이상이라 디스코드 승인을 받아야 켤 수 있어요. 개발자 포털에서 신청해 주세요."),
+  "intent-flags-unknown": () => error("failed", "인텐트 상태를 알 수 없어요.", "디스코드에서 받은 앱 설정에 인텐트 플래그가 없어요. 개발자 포털에서 직접 켜 주세요."),
+  "intent-enable-failed": () => error("failed", "인텐트를 켜지 못했어요.", "디스코드가 설정 변경 요청을 거절했어요. 개발자 포털의 Bot → Privileged Gateway Intents에서 직접 켜 주세요."),
   // 대시보드의 서버 화면을 열었는데 봇이 멤버 갱신, 탈퇴를 받지 않는다(개발자 포털의 Server Members Intent 꺼짐)
   "members-intent-off": () => error("permission", "서버 화면을 쓸 수 없어요.", "봇 설정상 서버 화면이 비활성화돼 있어요. 대신 디스코드 명령어를 이용해 주세요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),

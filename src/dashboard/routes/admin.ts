@@ -40,6 +40,7 @@ import {
   type GeoipStatus,
   type RedeployReply,
   type RestartReply,
+  type IntentEnableReply,
   type SourceTypes,
   type Suggestions,
   type TokensReply,
@@ -68,6 +69,9 @@ import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
+import { enableIntent } from "../intent-enable.ts";
+import { forgetAppIntents } from "../status/intents.ts";
+import { INTENT_NAMES } from "../../infra/gateway-intents.ts";
 import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
@@ -186,6 +190,30 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
     if (sessionRequests.sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+  }
+});
+
+// 특권 인텐트 켜기(운영자가 대시보드에서). 운영자의 디스코드 앱 설정(포털 스위치)을 바꾸므로 로그인한 지 오래되면 다시 로그인하게 한다.
+// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable 이 셈한다. 다시 시작해야 적용된다
+adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) => {
+  const { client } = req.app.locals.bot;
+  if (!client.isReady()) return sendProblem(res, "bot-not-ready");
+  const { name } = req.params;
+  if (name !== "messageContent" && name !== "guildMembers") return sendProblem(res, "bad-request");
+  // 실행자 정보는 먼저 읽어 둔다(앱 설정을 읽는 사이 세션이 끝날 수 있다)
+  const by = ranBy(req);
+  try {
+    // 읽은 뒤 바꾸기 직전에 세션을 다시 본다(그사이 로그아웃했으면 바꾸지 않는다)
+    const result = await enableIntent(client.rest, name, () => sessionRequests.assertSignedIn(req));
+    if (result === "approval") return sendProblem(res, "intent-needs-approval");
+    if (result === "unknown") return sendProblem(res, "intent-flags-unknown");
+    forgetAppIntents();
+    if (result === "enabled") log.info({ sub: "admin" }, `대시보드 운영자 패널에서 특권 인텐트 켬: ${INTENT_NAMES[name]} | 실행 ${by} | 봇을 다시 시작하면 적용됨`);
+    res.json({ result } satisfies IntentEnableReply);
+  } catch (error) {
+    if (sessionRequests.sessionEnded(res, error)) return;
+    log.warn({ sub: "admin" }, `특권 인텐트 켜기 실패: ${INTENT_NAMES[name]} | 실행 ${by} | ${messageOf(error)}`);
+    sendProblem(res, "intent-enable-failed", {}, { detail: messageOf(error) });
   }
 });
 
