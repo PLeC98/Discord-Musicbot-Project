@@ -31,7 +31,8 @@ const normalize = {
 };
 
 /** 봇 전용 채널 */
-const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", none: "지정 안 함" };
+// descUnread: 봇이 메시지 내용을 읽지 못할 때(Message Content Intent 꺼짐)
+const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", descUnread: "봇이 채팅 내용을 읽을 수 없게 설정돼 있어 `/play`로 곡을 넣어야 해요. 컨트롤 패널과 공지는 이 채널을 우선 사용해요.", none: "지정 안 함" };
 
 /** DJ 역할. 선택할 수 있는 수는 max */
 const dj = {

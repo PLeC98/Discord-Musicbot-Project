@@ -1,6 +1,7 @@
 // src/app/welcome.ts: 봇이 새 서버에 들어왔을 때의 안내 메시지. 올릴 채널 고르기, 끄기, 들어온 지 오래된 서버는 올리지 않기, 화면(수정본 저장소, 대시보드, 서버 이름).
 // 서버 설정(전용 채널)은 진짜를 임시 DB 로 쓴다
 
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { ChannelType, Collection, type Guild } from "discord.js";
@@ -89,6 +90,17 @@ test("화면: 대시보드가 밖에서 열리면 대시보드 줄과 버튼, �
     ["원본 GitHub", config.bot.projectRepo],
     ["운영 버전 GitHub", "https://github.com/someone/fork"],
   ]);
+});
+
+test("화면: 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에 채팅으로 넣는 줄이 없고, Server Members Intent 가 꺼지면 대시보드 줄과 버튼이 없다(서버 화면을 쓸 수 없다)", (t) => {
+  t.after(() => _resetIntents());
+  const view = () => withConfig({ dashboard: { url: "https://music.example.com" } }, () => welcomeView(guild({ channels: [] })));
+  assert.ok(textOf(view()).includes("곡 이름이나 링크만 넣어도 돼요"));
+  useLoggedIn({ messageContent: false, guildMembers: false });
+  const text = textOf(view());
+  assert.ok(!text.includes("곡 이름이나 링크만 넣어도 돼요"), text);
+  assert.ok(!text.includes("대시보드에서도 가능해요"), text);
+  assert.ok(!buttonsOf(view()).some(([label]) => label === "웹 대시보드"));
 });
 
 test("화면: 서버 이름의 마크다운(링크 포함)은 글자 그대로, 멘션은 울리지 않는다", () => {

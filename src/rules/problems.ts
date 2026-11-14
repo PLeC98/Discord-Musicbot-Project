@@ -29,6 +29,8 @@ const SHARED = {
   "permission-text": { status: 409, title: "Bot lacks text channel permissions" },
   "permission-other": { status: 409, title: "Bot lacks a required permission" },
   // 지금 상태로는 못 함
+  // 전용 채널에 채팅으로 곡을 넣었는데 봇이 메시지 내용을 읽지 못한다(Message Content Intent 꺼짐)
+  "text-entry-off": { status: 409, title: "Cannot read messages in this channel" },
   "voice-full": { status: 409, title: "Voice channel is full" },
   "no-song": { status: 409, title: "Nothing is playing" },
   "queue-empty": { status: 409, title: "Queue is empty" },
@@ -138,6 +140,8 @@ const WEB = {
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
+  // 대시보드의 서버 화면: 봇이 멤버 갱신, 탈퇴를 받지 않아(Server Members Intent 꺼짐) 권한을 판정할 수 없다
+  "members-intent-off": { status: 409, title: "Server pages are off because the Server Members Intent is disabled" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant 를 요구하는 봇이거나, 앱 정보를 아직 못 받았다

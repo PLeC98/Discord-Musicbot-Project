@@ -100,7 +100,7 @@ test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름, 그림은 봇이 �
 test("/api/me: 세션 사용자에 무엇이 더 붙어도 Me 의 필드만 보낸다", async () => {
   user = { id: "u1", username: "사용자", globalName: "사용자", avatar: null, guilds: [{ id: "g1" }], token: "새면 안 되는 값" };
   const me = await get("/api/me");
-  assert.deepEqual(Object.keys(me.json).sort(), ["avatar", "avatarUrl", "canInvite", "globalName", "id", "isOwner", "isRealOwner", "username", "viewAs"]);
+  assert.deepEqual(Object.keys(me.json).sort(), ["avatar", "avatarUrl", "canInvite", "globalName", "id", "intents", "isOwner", "isRealOwner", "username", "viewAs"]);
 });
 
 test("/api/me: canInvite 는 공개 봇이면 누구나, 아니면 앱 소유자, 팀원만. code grant 를 요구하거나 앱 정보를 모르면 아무도", async () => {

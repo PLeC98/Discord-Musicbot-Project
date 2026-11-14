@@ -3,6 +3,7 @@
 
 process.env.OWNER_ID = "owner";
 
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
@@ -86,6 +87,13 @@ test("멤버인 서버만, 서버 ID 순서로", async () => {
     (await list()).map((g) => g.id),
     ["100", "300"],
   );
+});
+
+test("Server Members Intent 가 꺼진 채 로그인했으면 서버 목록을 주지 않는다(409)", async (t) => {
+  t.after(() => _resetIntents());
+  useLoggedIn({ messageContent: true, guildMembers: false });
+  const res = await requestJson<{ code: string }>(baseUrl(server), "GET", "/api/guilds");
+  assert.deepEqual([res.status, res.json.code], [409, "members-intent-off"]);
 });
 
 test("운영자도 멤버인 서버만(참가하지 않은 서버는 보이지 않는다)", async () => {

@@ -1,4 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes } from "discord.js";
+import { readsMessageContent, tracksMembers } from "../infra/gateway-intents.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
@@ -123,8 +124,8 @@ function statusOf(player: Player) {
   return parts;
 }
 
-// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다)
-const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? panelText.dashboardLink(config.dashboard.url) : null);
+// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다). Server Members Intent 가 꺼져 서버 화면을 쓸 수 없으면 달지 않는다
+const dashboardLink = () => (isPublicUrl(config.dashboard.url) && tracksMembers() ? panelText.dashboardLink(config.dashboard.url) : null);
 
 // 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
 const PROGRESS_MS = 5000;
@@ -542,7 +543,9 @@ class NowPlayingPanel {
    * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | restore-skipped(세션 저장됨, 기동이 이어 틀지 않음) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
-    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+    // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에서도 곡 이름만 적어서는 곡을 요청할 수 없다
+    const typed = dedicated && readsMessageContent();
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated: typed }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
     const container = new ContainerBuilder()
       .setAccentColor(resolveColor(colorOf("brand")))

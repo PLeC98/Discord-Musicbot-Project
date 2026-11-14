@@ -5,6 +5,7 @@ import { RESTJSONErrorCodes, type Guild, type GuildMember } from "discord.js";
 import type { Request, Response } from "express";
 import logger from "../infra/log/logger.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
+import { tracksMembers } from "../infra/gateway-intents.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import type { Actor } from "../usecases/controls.ts";
 import { signedIn } from "./middleware/require-auth.ts";
@@ -68,6 +69,11 @@ async function openGuild<P>(req: Request<P>, res: Response, guildId: string) {
   const { client } = bot;
   if (!client.isReady()) {
     sendProblem(res, "bot-not-ready");
+    return null;
+  }
+  // 멤버 갱신, 탈퇴를 받지 않으면(Server Members Intent 꺼짐) 멤버 캐시가 갱신되지 않아 권한을 판정할 수 없다. 서버 화면을 열지 않는다
+  if (!tracksMembers()) {
+    sendProblem(res, "members-intent-off");
     return null;
   }
 

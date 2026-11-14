@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
-import { MessageFlags, PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { MessageFlags, MessageType, PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import * as stores from "../../src/store/stores.ts";
@@ -26,6 +26,7 @@ import { textsOf } from "../helpers/cv2.ts";
 import { frame, noticeReply, post } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -179,11 +180,13 @@ type Incoming = ClientEvents["messageCreate"][0];
 type Reply = { text: string; deleted: boolean; delete(): Promise<boolean> };
 
 // 채널에 보낸 것은 sent 로 본다
-function message(w: World, { content = "노래 제목", channelId = "bot-channel", bot = false } = {}) {
+function message(w: World, { content = "노래 제목", channelId = "bot-channel", bot = false, type = MessageType.Default as MessageType, stickers = 0, author = "user" } = {}) {
   const ch = channel(channelId);
   const msg = fakeWith<Incoming>()({
     id: "user-msg",
-    author: { bot },
+    author: { bot, id: author },
+    type,
+    stickers: { size: stickers },
     guild: w.guild,
     inGuild: () => Boolean(w.guild),
     member: w.member,
@@ -202,6 +205,57 @@ function message(w: World, { content = "노래 제목", channelId = "bot-channel
   });
   return msg;
 }
+
+test("전용 채널: 봇 멘션은 검색어에서 뺀다. 멘션만 있으면(메시지 내용을 읽을 때) 넣을 것이 없다", async () => {
+  const w = world();
+  await settings.setBotChannel("g1", "bot-channel");
+  await messageHandler.execute(w.bot, message(w, { content: "<@bot> 노래   제목 <@!bot>" }));
+  assert.equal(resolved[0].query, "노래 제목");
+  await messageHandler.execute(w.bot, message(w, { content: "<@bot>" }));
+  assert.equal(resolved.length, 1);
+});
+
+test("전용 채널: 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) /play 를 쓰라고 답하고 메시지를 지운다. 같은 사람에게는 1분 동안 다시 답하지 않고, 시스템 메시지와 스티커는 넘긴다. 봇을 멘션한 메시지는 곡을 넣는다", async (t) => {
+  t.after(() => _resetIntents());
+  useLoggedIn({ messageContent: false, guildMembers: true });
+  mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  try {
+    const w = world();
+    await settings.setBotChannel("g1", "bot-channel");
+    const first = message(w, { content: "" });
+    await messageHandler.execute(w.bot, first);
+    assert.match(first.replies[0]?.text ?? "", /\/play/);
+    mock.timers.tick(1500);
+    await new Promise(setImmediate);
+    assert.equal(first.deleted, true, "글은 지운다");
+
+    const again = message(w, { content: "" });
+    await messageHandler.execute(w.bot, again);
+    assert.equal(again.replies.length, 0, "1분 안에는 다시 답하지 않는다");
+    mock.timers.tick(1500);
+    await new Promise(setImmediate);
+    assert.equal(again.deleted, true, "쉬는 동안에도 글은 지운다");
+
+    const other = message(w, { content: "", author: "someone-else" });
+    await messageHandler.execute(w.bot, other);
+    assert.equal(other.replies.length, 1, "다른 사람에게는 답한다");
+
+    mock.timers.tick(60_000);
+    const later = message(w, { content: "" });
+    await messageHandler.execute(w.bot, later);
+    assert.equal(later.replies.length, 1, "1분이 지나면 다시 답한다");
+
+    for (const quiet of [message(w, { content: "", type: MessageType.ChannelPinnedMessage, author: "p" }), message(w, { content: "", stickers: 1, author: "s" })]) {
+      await messageHandler.execute(w.bot, quiet);
+      assert.equal(quiet.replies.length, 0);
+    }
+
+    await messageHandler.execute(w.bot, message(w, { content: "<@bot> 노래" }));
+    assert.equal(resolved.at(-1)?.query, "노래", "멘션한 글은 내용이 와서 곡을 넣는다");
+  } finally {
+    mock.timers.reset();
+  }
+});
 
 test("전용 채널: 봇 메시지, 빈 메시지, 전용 채널이 아닌 곳은 무시한다", async () => {
   const w = world();

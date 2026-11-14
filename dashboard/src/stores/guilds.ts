@@ -3,7 +3,7 @@ import axios from "axios";
 import { watch } from "vue";
 import { session, live, blocked } from "../composables/session.ts";
 import { eventLink } from "../utils/event-link.ts";
-import { checkSession, withUid } from "./user.ts";
+import { checkSession, useUserStore, withUid } from "./user.ts";
 import type { GuildEvent, GuildList, GuildRow } from "../../../src/dashboard/contract/guilds.ts";
 
 // 탭 하나에 SSE 연결 하나. 이 연결이 사용자가 볼 수 있는 모든 서버의 "바뀜" 신호를 싣고,
@@ -62,6 +62,11 @@ export const useGuildsStore = defineStore("guilds", {
 
     subscribe() {
       if (++subscribers > 1) return;
+      // 서버 화면을 쓸 수 없으면(Server Members Intent 꺼짐) 목록도 신호도 받지 않는다. 요청해도 거절만 되풀이된다
+      if (!useUserStore().tracksMembers) {
+        this.loading = false;
+        return;
+      }
       void this.refresh();
 
       // 열리지 않은 동안만 30초마다 전부 다시 읽는다

@@ -57,7 +57,7 @@
 
         <!-- 봇 전용 채널 -->
         <BaseCard v-if="s.channel" icon="keep" :title="T.channel.title" class="mb-(--gap-in)">
-          <p class="text-on-surface-variant text-sm mb-3">{{ T.channel.desc }}</p>
+          <p class="text-on-surface-variant text-sm mb-3">{{ user.readsMessages ? T.channel.desc : T.channel.descUnread }}</p>
           <SingleSelect :model-value="selectedChannel ?? ''" :options="channelOptions" :empty-label="T.channel.none" @update:model-value="selectedChannel = $event === '' ? null : String($event)" />
         </BaseCard>
 
@@ -165,6 +165,7 @@ import SearchInput from "../components/SearchInput.vue";
 import BaseSwitch from "../components/BaseSwitch.vue";
 import SponsorCategories from "../components/SponsorCategories.vue";
 import { onGuildNudge, useGuildsStore } from "../stores/guilds.ts";
+import { useUserStore } from "../stores/user.ts";
 import { HOLD, NO_ART, releasePageArt, setPageArt } from "../theme/theme.ts";
 import Icon from "../components/BaseIcon.vue";
 import { segment } from "../utils/segment.ts";
@@ -180,6 +181,7 @@ import { valueAt, type SettingsKey, type SettingsValues } from "../../../src/rul
 import { createSettingsSaver } from "../utils/settings-draft.ts";
 import { text } from "../text/index.ts";
 const T = text.serverSettings;
+const user = useUserStore();
 
 /** 불러오기 전에는 이름이 없고 카드도 없다. 카드의 값은 보이는 카드만 온다 */
 type SettingsSeen = Omit<GuildSettings, "guildName"> & { guildName: string | null };

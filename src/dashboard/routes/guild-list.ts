@@ -7,6 +7,7 @@ import { memberOf, seesGuild, voiceFlags } from "../guild-access.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import type { DiscordHttp } from "../discord-api.ts";
 import { sendProblem } from "../problem.ts";
+import { tracksMembers } from "../../infra/gateway-intents.ts";
 import { playState, soundAttached } from "../../ui/player-status.ts";
 import type { Player } from "../../player/player.ts";
 import type { GuildList, GuildRow, ListState } from "../contract/guilds.ts";
@@ -27,6 +28,8 @@ function createGuildListRouter({ http }: { http?: DiscordHttp } = {}) {
   router.get("/", requireAuth, async (req, res) => {
     const { client, players } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
+    // 멤버 캐시가 갱신되지 않아 멤버인지 판정할 수 없다(Server Members Intent 꺼짐, guild-access 의 openGuild)
+    if (!tracksMembers()) return sendProblem(res, "members-intent-off");
 
     const user = signedIn(req);
     // 사용자가 든 서버만 멤버 판정을 한다(봇이 든 서버마다 조회하지 않는다). 목록을 받지 못하면 이미 확인한 서버(멤버 캐시)만

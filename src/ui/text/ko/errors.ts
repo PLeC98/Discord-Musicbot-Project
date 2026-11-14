@@ -54,6 +54,8 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "permission-text": () => error("permission", "제게 권한이 없어요.", "봇이 그 텍스트 채널에 메시지를 올릴 권한이 없어요. 서버 관리자에게 봇의 권한을 확인해 달라고 해 주세요."),
   "permission-other": () => error("permission", "제게 권한이 없어요.", "봇이 그 행동을 하는 데에 필요한 권한이 없어요. 서버 관리자에게 봇의 권한 설정을 확인해 달라고 해 주세요."),
   // 지금 상태로는 못 함
+  // 전용 채널에 채팅으로 곡을 넣었는데 봇이 메시지 내용을 읽지 못한다(개발자 포털의 Message Content Intent 꺼짐)
+  "text-entry-off": () => warning("input", "채팅으로는 곡을 넣을 수 없어요!", "이 봇은 채팅 내용을 읽을 수 없게 설정돼 있어요. `/play`로 곡을 넣어 주세요."),
   // 봇을 부른 음성 채널의 제한 인원이 다 찼고 봇에게 멤버 이동 권한이 없다
   "voice-full": () => warning("voice", "음성 채널이 꽉 찼어요!", "인원 제한 때문에 들어갈 수 없어요. 제게 멤버 이동 권한이 있으면 인원 제한과 상관없이 들어갈 수 있어요."),
   // 지금 곡이 없다(플레이어가 없거나 곡이 비었다)
@@ -180,6 +182,8 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
   "bot-shutting-down": () => error("waiting", "봇이 종료 중이에요!", "봇이 다시 시작되면 그때 시도해 주세요."),
+  // 대시보드의 서버 화면을 열었는데 봇이 멤버 갱신, 탈퇴를 받지 않는다(개발자 포털의 Server Members Intent 꺼짐)
+  "members-intent-off": () => error("permission", "서버 화면을 쓸 수 없어요.", "봇 설정상 서버 화면이 비활성화돼 있어요. 대신 디스코드 명령어를 이용해 주세요."),
   "bot-not-ready": () => error("waiting", "봇이 아직 준비되지 않았어요!", "봇이 막 켜졌거나 디스코드에 다시 연결하는 중이에요. 잠시 뒤에 다시 시도해 주세요."),
   "guild-not-found": () => warning("notFound", "서버를 찾을 수 없어요!", "봇이 그 서버에서 나갔거나 서버가 사라졌어요. 서버 목록에서 다시 선택해 주세요."),
   "bot-not-in-voice": () => warning("state", "봇이 음성 채널에 없어요!", "먼저 참가 버튼으로 봇을 음성 채널에 불러 주세요."),

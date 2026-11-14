@@ -71,6 +71,11 @@
           <BotRestart :available="status.env.launcher" />
         </div>
       </div>
+      <!-- 특권 인텐트가 꺼져 그것에 기대는 기능을 껐다(또는 켜졌는데 다시 시작 전이다) -->
+      <NoticeBox v-for="n in intentNotes" :key="n.name" variant="note" :tone="n.pending ? 'info' : 'notice'" :icon="n.pending ? 'info' : 'warning'">
+        <b>{{ T.intents.names[n.name] }}</b
+        >{{ n.pending ? T.intents.pending : T.intents.off[n.name] }}<template v-if="!n.pending"> {{ status.intents.approval ? T.intents.approval : T.intents.fix }}</template>
+      </NoticeBox>
       <!-- 주의 칩: 누르면 그 항목으로 가서 잠깐 테두리가 빛난다 -->
       <div v-if="attention.length" class="flex flex-wrap gap-2">
         <button v-for="a in attention" :key="a.name" type="button" class="tap state-layer h-8 px-2 rounded-sm flex items-center gap-2 text-xs font-medium cursor-pointer" :class="LEVEL_CHIP[a.level]" @click="jumpTo(a.at)"><Icon :name="LEVEL_ICON[a.level]" :size="18" fill />{{ a.name }} · {{ a.word }}</button>
@@ -320,6 +325,7 @@ import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import BotRestart from "./BotRestart.vue";
 import Icon from "./BaseIcon.vue";
+import NoticeBox from "./NoticeBox.vue";
 import GuildAvatar from "./GuildAvatar.vue";
 import MarqueeText from "./MarqueeText.vue";
 import SparkChart from "./SparkChart.vue";
@@ -340,6 +346,8 @@ const T = text.status;
 
 // query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 바꾸면 운영자 패널이 바로 받는다
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
+// 특권 인텐트 안내. 로그인한 것이 꺼졌으면 꺼짐, 그사이 앱 설정에서 켜졌으면 다시 시작하면 적용
+const intentNotes = computed(() => (["messageContent", "guildMembers"] as const).filter((name) => !props.status.intents[name].loggedIn).map((name) => ({ name, pending: props.status.intents[name].now === true })));
 const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 

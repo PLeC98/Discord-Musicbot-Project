@@ -1,6 +1,7 @@
 // src/dashboard/guild-access.ts: 대시보드 요청이 서버 하나를 여는 법.
 // 세션에 캐시된 서버 목록이 아니라 지금의 멤버십으로 판단하는지, 운영자는 멤버가 아니어도 지나가는지, 실패마다 알맞은 상태로 끝내는지.
 
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request, Response } from "express";
@@ -44,6 +45,15 @@ test("봇이 준비되지 않았으면 503", async () => {
   const { req, res, sent, fetched } = setup({ ready: false });
   assert.equal(await openGuild(req, res, "g1"), null);
   assert.deepEqual(codeOf(sent), [503, "bot-not-ready"]);
+  assert.deepEqual(fetched, []);
+});
+
+test("Server Members Intent 가 꺼진 채 로그인했으면 멤버 캐시가 갱신되지 않아 서버를 열지 않는다(409, 멤버를 묻지도 않는다)", async (t) => {
+  t.after(() => _resetIntents());
+  useLoggedIn({ messageContent: true, guildMembers: false });
+  const { req, res, sent, fetched } = setup();
+  assert.equal(await openGuild(req, res, "g1"), null);
+  assert.deepEqual(codeOf(sent), [409, "members-intent-off"]);
   assert.deepEqual(fetched, []);
 });
 

@@ -13,6 +13,14 @@ const chartEmpty = "아직 모은 값이 없어요";
 
 // 요약
 const allOk = "모두 정상";
+/** 특권 인텐트(개발자 포털의 Bot → Privileged Gateway Intents). off: 꺼져서 끈 기능과 켜는 법(approval: 서버가 100개 이상이라 승인이 필요), pending: 켜졌지만 다시 시작해야 적용 */
+const intents = {
+  names: { messageContent: "Message Content Intent", guildMembers: "Server Members Intent" },
+  off: { messageContent: "가 꺼져 있어 전용 채널에 채팅으로 곡을 넣을 수 없어요.", guildMembers: "가 꺼져 있어 대시보드의 서버 화면을 쓸 수 없어요." },
+  fix: "개발자 포털의 Bot → Privileged Gateway Intents에서 켜고 봇을 다시 시작해 주세요.",
+  approval: "서버가 100개 이상이라 디스코드 승인을 받아야 켤 수 있어요.",
+  pending: "가 켜졌어요. 봇을 다시 시작하면 적용돼요.",
+};
 const needsAttention = (count: number) => `확인이 필요한 항목이 ${count}개 있어요.`;
 const connecting = "연결 중 · ";
 const runningFor = (span: string, guilds: number) => `${span}째 작동 중 · 서버 ${guilds}개`;
@@ -148,6 +156,7 @@ export {
   chartSummary,
   chartEmpty,
   allOk,
+  intents,
   needsAttention,
   connecting,
   runningFor,

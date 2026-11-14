@@ -1,5 +1,6 @@
 // src/ui/now-playing-panel.ts: 재생 패널 그리기, 끝난 패널, 진행 막대. 곡 추가의 순서는 test/usecases/queue-tracks-order.
 
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
@@ -166,7 +167,7 @@ test("종료 모양: 재생 화면과 구성이 같고, 자동재생만 눌리�
 });
 
 // 기본값 localhost, 사설 주소는 다른 사람이 열 수 없다
-test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
+test("대시보드 링크는 DASHBOARD_URL 이 공개 주소이고 서버 화면을 쓸 수 있을 때만. 없으면 재생 화면은 플랫폼만, 끝난 화면은 아래 줄이 없다", async () => {
   const panels = newPanels();
   const track: QueuedTrack = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
   const draw = (url: string) =>
@@ -186,6 +187,15 @@ test("대시보드 링크는 DASHBOARD_URL 이 공개 주소일 때만. 없으�
     assert.equal(count(hidden.idle), count(shown.idle) - 2, `${url}: 끝난 화면에는 구분선과 아래 줄이 없다`);
     assert.match(hidden.playing, /"-# 🖥️ /, `${url}: 재생 화면에는 플랫폼만`);
   }
+
+  // 서버 화면을 쓸 수 없으면(Server Members Intent 꺼짐) 공개 주소여도 링크가 없다
+  useLoggedIn({ messageContent: true, guildMembers: false });
+  try {
+    const off = await draw("https://music.example.com");
+    assert.ok(!off.playing.includes("대시보드") && !off.idle.includes("대시보드"));
+  } finally {
+    _resetIntents();
+  }
 });
 
 test("종료 모양의 문구는 사유를 따른다", async () => {
@@ -199,6 +209,13 @@ test("종료 모양의 문구는 사유를 따른다", async () => {
   assert.match(await text({ reason: "leave" }), /듣고 있던 곡이 있어요.*\/join/);
   assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*곡을 입력하면/);
   assert.match(await text({ reason: "disconnected" }), /쉬는 중이에요.*\/play/);
+  // 글을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에서도 /play
+  useLoggedIn({ messageContent: false, guildMembers: true });
+  try {
+    assert.match(await text({ reason: "stop", dedicated: true }), /쉬는 중이에요.*\/play/);
+  } finally {
+    _resetIntents();
+  }
 });
 
 test("재생이 끝나면 현재 곡을 이미 비웠어도 패널을 종료 모양으로 바꾼다. 종료 메시지는 전용 채널 밖에서만", async () => {

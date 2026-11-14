@@ -1,7 +1,7 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 실행 기록 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB, 설정 → 슬래시 명령 배포 → POToken 서버 → 전체 백업의 오디오 캐시 → 클라이언트, 화면, 대시보드 → 핸들러 → 기동 확인 → 로그인.
 
-import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
+import { Client, Events, GatewayCloseCodes, RESTEvents, type ClientEvents, type GatewayIntentBits, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
 import config from "../config/index.ts";
@@ -68,7 +68,8 @@ import { createStayKeeper } from "./stay-keeper.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { choosePrivilegedIntents, onRefusedWhileRunning, readApp, refusedAtLogin } from "./privileged-intents.ts";
 import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
@@ -116,7 +117,9 @@ function main() {
   potServer
     .waitReady()
     .then(() => restoreAudioCache())
-    .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore }))
+    // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
+    .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
+    .then((intents) => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore, intents }))
     .catch((error: unknown) => {
       // 클라이언트를 만들기 전에 던졌다. 실행한 것을 내리고 나간다
       log.error("봇 기동 실패:", error);
@@ -205,11 +208,11 @@ function deploySlashCommands() {
     .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
 }
 
-function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean }) {
+function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean; intents: GatewayIntentBits[] }) {
   const client = new Client({
-    // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정, 서버 목록이 멤버를 캐시에서 먼저 보는데,
-    // 역할, 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
+    // 특권 둘은 개발자 포털에서 켜진 것만(app/privileged-intents). GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다.
+    // 권한 판정, 서버 목록이 멤버를 캐시에서 먼저 보는데, 역할, 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
+    intents,
     // 외부에서 온 곡 제목, 파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
     // 거절된 요청이 이만큼 쌓일 때마다 알린다(listenToLibrary)
@@ -231,6 +234,10 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
+  // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014 로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
+  client.on(Events.ShardDisconnect, (event) => {
+    if (event.code === GatewayCloseCodes.DisallowedIntents) onRefusedWhileRunning(restart);
+  });
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
@@ -374,6 +381,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
   } catch (error) {
     const stopped = error instanceof StartupStopped;
     if (!stopped) log.error("봇 기동 실패:", error);
+    if (codeOf(error) === "DisallowedIntents") log.error(refusedAtLogin());
     stopFailedStart(client, { potServer, logFile }, failedStartCode(error, stopped));
   }
 }
