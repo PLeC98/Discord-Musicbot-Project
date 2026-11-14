@@ -106,7 +106,7 @@ const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아
 type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
 
 /**
- * 재생, 다운로드용으로 연다(SSRF 가드를 지난 GET 하나, direct-open 으로 판정). 직접 링크 파일은 주소로 위치를 옮길 수 없어 위치 이동은 ffmpeg 가 한다.
+ * 재생, 다운로드용으로 파일의 처음부터 연다(SSRF 가드를 지난 GET 하나, direct-open 으로 판정). 위치 이동은 media/direct-input 이 ffmpeg 의 -ss 로 한다.
  * 음원이 아니면(웹 페이지, DRM 등) unsupported-link, 열지 못하면 direct-unavailable. net 은 테스트가 가짜를 넘기는 곳
  */
 async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<DirectOpen> {
@@ -136,7 +136,7 @@ function decoded(text: string): string {
 
 /**
  * 파일 이름에서 제목. 확장자를 떼고 인코딩을 푼다. 띄어쓰기가 없는 이름(my-song_name)만 구분자를 공백으로 바꾼다.
- * 대소문자는 건드리지 않는다(바꾸면 iPhone 같은 이름이 망가진다). 다운로드한 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cache-download)
+ * 다운로드한 뒤 파일의 태그가 있으면 그쪽으로 고친다(media/cache-download)
  */
 function extractTitle(filename: string): string | null {
   const name = decoded(path.parse(filename).name);
@@ -165,7 +165,6 @@ function dispositionName(header: unknown): string | null {
   return plain ? (plain[1] ?? plain[2]).trim() : null;
 }
 
-// 주소 전체의 해시. 같은 호스트의 다른 파일이 같은 ID 가 되지 않게
 function generateId(url: string): string {
   return createHash("sha256").update(url).digest("base64url").slice(0, 16);
 }

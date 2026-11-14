@@ -89,7 +89,7 @@ test("실행 중 경로를 파일 위치에서 세지 않는다(import.meta.dirn
   assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
 });
 
-// 조립이 만든 것(플레이어 레지스트리, 패널, 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 다시 열린다
+// 조립이 만든 것(플레이어 레지스트리, 패널, 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 열린다
 test("디스코드 클라이언트 타입을 늘려 필드를 매달지 않는다", () => {
   const src = path.join(PROJECT.root, "src");
   const augmenting = fs
