@@ -13,7 +13,7 @@ import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
-import { RETIRED_EMOJI_NAMES, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
+import { FORMER_EMOJIS, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
 import { appEmojis, useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 import { APP_EMOJI_LIMIT as EMOJI_LIMIT } from "../dashboard/contract/app-emojis.ts";
@@ -21,7 +21,7 @@ const log = logger.child({ category: "core", sub: "emoji" });
 
 // 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui 를 부르지 못해 여기서 넣는다
 const iconUnicode = new Map(iconEntries().map((entry) => [entry.name, entry.spec.unicode]));
-useIconFallbacks({ retired: RETIRED_EMOJI_NAMES, iconUnicode: (name) => iconUnicode.get(name) });
+useIconFallbacks({ former: FORMER_EMOJIS, iconUnicode: (name) => iconUnicode.get(name) });
 
 /** 앱에 있는 이모지 하나. mine: 봇이 올렸다 */
 type Remote = { id: string; name: string; animated: boolean; mine: boolean };

@@ -5,10 +5,10 @@
 
 /** 앱 이모지 하나 */
 type AppEmoji = { id: string; name: string; animated: boolean };
-/** 찾을 때 쓰는 것. retired: 아이콘의 옛 이름(ui/icons 의 RETIRED_EMOJI_NAMES), iconUnicode: 지금 아이콘 이름의 유니코드. 대시보드는 없이 쓴다 */
+/** 찾을 때 쓰는 것. former: 아이콘의 옛 이름(ui/icons 의 FORMER_EMOJIS), iconUnicode: 지금 아이콘 이름의 유니코드. 대시보드는 없이 쓴다 */
 type EmojiBook = {
   emojis: readonly AppEmoji[];
-  retired?: Readonly<Record<string, { renamed: string } | { unicode: string }>>;
+  former?: Readonly<Record<string, { renamed: string } | { unicode: string }>>;
   iconUnicode?: (name: string) => string | undefined;
 };
 /** 찾은 것: 앱 이모지, 대신 쓸 유니코드, 또는 없음 */
@@ -25,9 +25,9 @@ function find(book: EmojiBook, name: string, id: string): Found {
   if (byId) return { emoji: byId };
   const byName = book.emojis.find((one) => one.name === name);
   if (byName) return { emoji: byName };
-  const retired = book.retired?.[name];
-  if (retired && "renamed" in retired) return find(book, retired.renamed, "");
-  if (retired) return { unicode: retired.unicode };
+  const former = book.former?.[name];
+  if (former && "renamed" in former) return find(book, former.renamed, "");
+  if (former) return { unicode: former.unicode };
   const unicode = book.iconUnicode?.(name);
   return unicode ? { unicode } : null;
 }

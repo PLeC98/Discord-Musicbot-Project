@@ -138,7 +138,7 @@ function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: Ic
  * 그 이름의 이모지를 지운다. 아이콘을 빼거나 이름을 바꾸면 여기에 더한다. test/ui/icon-names.json(지금까지 낸 이름)과 비교하는 테스트가 빠뜨림을 잡는다.
  * renamed: 새 이름, unicode: 빠진 아이콘의 유니코드(빠지기 전 표의 값)
  */
-const RETIRED_EMOJI_NAMES: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
+const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
   channel: { unicode: "🔧" },
   input_error: { unicode: "✏️" },
   link_off_error: { unicode: "🔗" },
@@ -168,7 +168,7 @@ const RETIRED_EMOJI_NAMES: Readonly<Record<string, { renamed: string } | { unico
  * 동기화는 이 이름만 지우거나 바꾸고, 운영자 패널은 이 이름으로 올리지 못한다
  */
 function isManagedEmojiName(name: string): boolean {
-  const bases = [...iconEntries().map((entry) => entry.name), ...Object.keys(RETIRED_EMOJI_NAMES)];
+  const bases = [...iconEntries().map((entry) => entry.name), ...Object.keys(FORMER_EMOJIS)];
   if (bases.includes(name)) return true;
   const temp = /^(.+)(_\d+)$/.exec(name);
   return temp !== null && bases.some((base) => base.slice(0, 32 - temp[2].length) === temp[1]);
@@ -200,5 +200,5 @@ function buttonEmoji(key: IconKey, tint: Tint = "brand"): { id: string; name: st
   return found ? { id: found.id, name, animated: found.animated } : { name: ICONS[key].unicode };
 }
 
-export { ICONS, RETIRED_EMOJI_NAMES, emojiName, iconEntries, isManagedEmojiName, useUploaded, icon, buttonEmoji };
+export { ICONS, FORMER_EMOJIS, emojiName, iconEntries, isManagedEmojiName, useUploaded, icon, buttonEmoji };
 export type { IconKey, IconSpec, Shape, Tint };
