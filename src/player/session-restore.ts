@@ -17,7 +17,8 @@ const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownGuild, RESTJSONEr
 const sleep = (ms: number) => (ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve());
 
 /**
- * 저장 세션을 복원할 길드를 확보한다. 기동 직후에는 캐시가 덜 차 있을 수 있어 REST로 재시도한다.
+ * 저장 세션을 복원할 길드를 확보한다. 봇이 속한 길드는 READY 때 모두 캐시에 들어오므로(정보를 아직 못 받은 길드도 빈 항목으로),
+ * 캐시에 없으면 REST 로 확인하고 일시적인 오류일 때만 몇 번 더 시도한다.
  *
  * `gone`은 길드가 실제로 사라졌을 때만 참이다. 네트워크 오류, 5xx, 레이트리밋 같은 일시적
  *   실패는 거짓. 세션을 삭제하지 않고 다음 기동에서 다시 시도한다.

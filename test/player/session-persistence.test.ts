@@ -4,7 +4,7 @@
 import { sessions, type RestoredSession } from "../../src/store/player-sessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
-import * as transientMessages from "../../src/ui/transient-messages.ts";
+import { LIFETIME } from "../../src/ui/delivery.ts";
 import config from "../../src/config/index.ts";
 import type { GuildTextBasedChannel } from "discord.js";
 import { Player } from "../../src/player/player.ts";
@@ -627,14 +627,13 @@ test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하�
 });
 
 test("복원 안내는 잠시 뒤 삭제한다", async () => {
-  const { AUTO_DELETE_MS } = transientMessages;
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const channel = fakeChannel();
     await restore(makeRecord(), (p) => (p.textChannel = fake<GuildTextBasedChannel>(channel)));
     assert.equal(channel.sent[0].deleted, false);
 
-    mock.timers.tick(AUTO_DELETE_MS);
+    mock.timers.tick(LIFETIME.glance);
     await new Promise(setImmediate);
     assert.equal(channel.sent[0].deleted, true);
   } finally {

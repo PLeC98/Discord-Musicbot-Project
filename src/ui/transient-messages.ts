@@ -28,7 +28,6 @@ function isTransient(messageId: string, now = Date.now()) {
   return false;
 }
 
-const AUTO_DELETE_MS = 10000;
 const GONE_CODES = new Set<unknown>([RESTJSONErrorCodes.UnknownMessage, RESTJSONErrorCodes.UnknownWebhook]);
 
 // 삭제할 수 있는 메시지나 응답. 여기서 읽고 부르는 필드만
@@ -37,8 +36,8 @@ type Deletable = { id: string; delete?: () => Promise<unknown> };
 // 네트워크가 끊겨 삭제하지 못했으면 이 간격으로 다시 삭제한다(끊김이 길어도 몇 분 안에는 치운다)
 const RETRY_AFTER_MS = [10_000, 30_000, 60_000, 120_000, 300_000];
 
-// 안내 메시지는 채널에 쌓이지 않게 잠시 뒤 삭제한다. 이미 삭제됐거나 권한이 없으면 그대로 둔다
-function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_MS, tries = 0) {
+// 안내 메시지는 채널에 쌓이지 않게 ms 뒤 삭제한다(얼마나 둘지는 ui/delivery 의 LIFETIME). 이미 삭제됐거나 권한이 없으면 그대로 둔다
+function scheduleDelete(message: Deletable | null | undefined, ms: number, tries = 0) {
   const remove = message?.delete;
   if (!message || typeof remove !== "function") return;
   markTransient(message.id, ms);
@@ -57,4 +56,4 @@ function scheduleDelete(message: Deletable | null | undefined, ms = AUTO_DELETE_
   timer.unref?.();
 }
 
-export { markTransient, isTransient, scheduleDelete, AUTO_DELETE_MS, RETRY_AFTER_MS };
+export { markTransient, isTransient, scheduleDelete, RETRY_AFTER_MS };

@@ -72,7 +72,7 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
       await dismiss();
       if (!channel || typeof channel.send !== "function") return;
       try {
-        scheduleDelete(await channel.send(post(view)));
+        scheduleDelete(await channel.send(post(view)), LIFETIME.glance);
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }

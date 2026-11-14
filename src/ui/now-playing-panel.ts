@@ -64,8 +64,8 @@ type IdleView = { reason: string; leavesAt?: number | null; staying?: boolean };
 /** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "autoplay"> & { pause: Pick<Player["pause"], "userPaused"> } & Partial<Pick<Player, "sponsor">>;
 
-// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
-// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
+// 전용 채널에서 재생 패널이 "묻혔다"고 보기까지 기다리는 시간. 스스로 지워질 봇 메시지는 따로 거르고(isTransient),
+// 사람이 금방 지운 메시지 때문에 패널을 다시 올리지 않게, 다른 메시지가 이만큼 남아 있어야 묻힌 것으로 본다.
 const PIN_SETTLE_MS = 12000;
 /** 패널에 붙여 둔 썸네일이 음표(앨범아트 없는 곡)라는 표시. 그 밖은 파일 태그 이미지의 fingerprint */
 const NO_ART = "no-art";
