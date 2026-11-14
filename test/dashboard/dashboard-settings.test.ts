@@ -35,7 +35,7 @@ type Reply = ProblemReply & {
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore, setGuild } = await import("../helpers/temp-store.ts");
+const { openTempStore, setGuild, whenSettingsBroken } = await import("../helpers/temp-store.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 const temp = openTempStore("dashboard-settings-");
@@ -292,6 +292,19 @@ test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
   assert.equal(r.status, 200);
   assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1", "r2"]);
   assert.equal(store.botChannel.get(GUILD_ID), "c1");
+});
+
+test("PUT settings: 쓰기가 실패하면 settings-save-failed(원래 오류 문장은 싣지 않는다)이고 아무것도 바뀌지 않는다", async () => {
+  currentMember = modMember();
+  store.botChannel.set(GUILD_ID, "c1");
+  const rolesBefore = store.djRoles.get(GUILD_ID);
+  const r = await whenSettingsBroken(() => req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r2"], botChannelId: null }));
+  assert.equal(r.status, 500);
+  const problem = r.json as unknown as ProblemReply;
+  assert.equal(problem.code, "settings-save-failed");
+  assert.equal("detail" in problem, false);
+  assert.equal(store.botChannel.get(GUILD_ID), "c1");
+  assert.deepEqual(store.djRoles.get(GUILD_ID), rolesBefore);
 });
 
 test("PUT settings: 빈 배열 = DJ 해제, null = 채널 해제", async () => {

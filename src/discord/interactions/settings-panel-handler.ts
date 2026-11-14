@@ -1,4 +1,7 @@
 import { type ButtonInteraction, type Guild, type RoleSelectMenuInteraction, type StringSelectMenuInteraction } from "discord.js";
+import logger from "../../infra/log/logger.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+const log = logger.child({ category: "events" });
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES, categoryLabel } from "../../rules/sponsor-categories.ts";
 import { ageContentOn } from "../../config/age-content.ts";
@@ -15,6 +18,17 @@ import { isDjRoleCandidate, isServerManager } from "../../usecases/permissions.t
 // 저장 전의 선택을 들고 있지 않는다(저장 버튼이 없다). 본인에게만 보인 화면이라 호출자만 조작한다.
 // 봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 부분이 없다. 화면을 띄운 뒤에 껐으면 누른 것은 저장하지 않고 다시 그린다
 
+// 저장에 실패하면 로그를 남기고 false 를 돌려준다. 부르는 쪽은 화면을 다시 그리지 않고 실패만 알린다(저장되지 않은 값을 그리지 않게)
+async function saved(guild: Guild, field: GuildSettingsManager.GuildField, work: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await work();
+    return true;
+  } catch (error) {
+    log.error(`서버 설정 저장 실패(/setting): ${guild.name} (${guild.id}) | ${GuildSettingsManager.FIELD_LABEL[field]} | ${messageOf(error)}`);
+    return false;
+  }
+}
+
 /** 지금 값으로 그릴 것. 서버에 없는 역할, 봇 역할은 뺀다 */
 async function panelView(guild: Guild): Promise<screens.PanelView> {
   const djRoleIds = (await GuildSettingsManager.getDjRoles(guild.id)).filter((id) => isDjRoleCandidate(guild, id));
@@ -30,8 +44,7 @@ const panel = async (guild: Guild) => screens.settingsPanel(await panelView(guil
 async function saveDjRoles(interaction: RoleSelectMenuInteraction<"cached">) {
   const guild = interaction.guild;
   const roleIds = interaction.values.filter((id) => isDjRoleCandidate(guild, id));
-  if (!roleIds.length) await GuildSettingsManager.clearDjRoles(guild.id);
-  else if (!(await GuildSettingsManager.setDjRoles(guild.id, roleIds))) return noticeInstead(interaction, errors.notice("dj-role-save-failed"));
+  if (!(await saved(guild, "djRoleIds", () => GuildSettingsManager.setDjRoles(guild.id, roleIds)))) return noticeInstead(interaction, errors.notice("dj-role-save-failed"));
   return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
 
@@ -40,7 +53,8 @@ async function saveSponsorCategories(interaction: StringSelectMenuInteraction<"c
   const guild = interaction.guild;
   if (config.sponsorblock.enabled) {
     const valid = new Set(SKIP_CATEGORIES);
-    await GuildSettingsManager.setSponsorBlock(guild.id, { categories: [...new Set(interaction.values.filter((c) => valid.has(c)))] });
+    const categories = [...new Set(interaction.values.filter((c) => valid.has(c)))];
+    if (!(await saved(guild, "sponsorBlock", () => GuildSettingsManager.setSponsorBlock(guild.id, { categories })))) return noticeInstead(interaction, errors.notice("settings-save-failed"));
   }
   return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
@@ -56,10 +70,11 @@ async function pressButton(interaction: ButtonInteraction<"cached">) {
     return interaction.deleteReply();
   }
   if (interaction.customId === "setting:sb-toggle" && config.sponsorblock.enabled) {
-    await GuildSettingsManager.setSponsorBlock(guild.id, { enabled: !GuildSettingsManager.resolveSponsorBlock(guild.id).enabled });
+    const enabled = !GuildSettingsManager.resolveSponsorBlock(guild.id).enabled;
+    if (!(await saved(guild, "sponsorBlock", () => GuildSettingsManager.setSponsorBlock(guild.id, { enabled })))) return noticeInstead(interaction, errors.notice("settings-save-failed"));
   }
   const place = AGE_BUTTONS[interaction.customId];
-  if (place && ageContentOn()) await GuildSettingsManager.setAgePlace(guild.id, place);
+  if (place && ageContentOn() && !(await saved(guild, "agePlace", () => GuildSettingsManager.setAgePlace(guild.id, place)))) return noticeInstead(interaction, errors.notice("settings-save-failed"));
   return updateSelf(interaction, post(await panel(guild)), LIFETIME.screen);
 }
 

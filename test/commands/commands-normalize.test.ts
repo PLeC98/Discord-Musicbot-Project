@@ -5,7 +5,7 @@ import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 import { command, run } from "../helpers/commands.ts";
-import { openTempStore } from "../helpers/temp-store.ts";
+import { openTempStore, whenSettingsBroken } from "../helpers/temp-store.ts";
 import { fakeBot } from "../helpers/fake.ts";
 import * as guildSettings from "../../src/store/guild-settings.ts";
 
@@ -88,4 +88,23 @@ test("/normalize: DJ 가 아니거나 봇과 다른 음성 채널이면 바꾸�
   const same = call("on", { botChannel: "vc1", voiceChannel: "vc1", roles: ["r1"] });
   await run(await command("normalize"), same.it, fakeBot());
   assert.equal(guildSettings.resolveNormalize("g1"), true);
+});
+
+test("/normalize: 저장에 실패하면 바꾸지 않고 본인에게만 실패를 알린다", async () => {
+  const { it, sent } = call("on");
+  await whenSettingsBroken(async () => run(await command("normalize"), it, fakeBot()));
+  assert.ok(ephemeral(sent.at(-1)));
+  assert.match(textOf(sent.at(-1)), /설정을 저장하지 못했어요/);
+  assert.equal(guildSettings.table.getNormalize("g1"), false);
+});
+
+test("/normalize: 읽기 실패로 끔이 캐시에 남아도 끄기는 저장된 켬을 끈다(이미 그 상태인지는 저장소가 행을 보고 정한다)", async () => {
+  await guildSettings.setNormalize("g1", true);
+  guildSettings.forgetCache();
+  await whenSettingsBroken(() => guildSettings.resolveNormalize("g1"));
+  assert.equal(guildSettings.resolveNormalize("g1"), false, "읽기 실패로 기억한 끔");
+  const { it, sent } = call("off");
+  await run(await command("normalize"), it, fakeBot());
+  assert.match(textOf(sent[0]), /볼륨 정규화를 껐어요/);
+  assert.equal(guildSettings.table.getNormalize("g1"), false);
 });

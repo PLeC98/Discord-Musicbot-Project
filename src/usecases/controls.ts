@@ -236,7 +236,7 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
     }
     bestEffort(log, refresh(player), "볼륨 뒤 패널 갱신");
     // 정지했다가 다시 틀어도 이 볼륨으로 시작한다
-    if (changed) bestEffort(log, saveServerVolume(player), "서버 볼륨 저장");
+    if (changed) bestEffort(log, saveServerVolume(player), `서버 볼륨 저장(서버 ${player.guild?.id})`, "error");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);

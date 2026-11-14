@@ -12,6 +12,17 @@ import * as screens from "../../ui/settings-screens.ts";
 import { noticeSelf } from "../../ui/delivery.ts";
 const log = logger.child({ category: "commands" });
 
+// 저장에 실패하면 로그를 남기고 false 를 돌려준다(부르는 쪽은 실패를 알리고 패널은 옮기지 않는다)
+async function saved(interaction: ChatInputCommandInteraction<"cached">, work: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await work();
+    return true;
+  } catch (error) {
+    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${GuildSettingsManager.FIELD_LABEL.botChannelId} | ${messageOf(error)}`);
+    return false;
+  }
+}
+
 const movePanel = (interaction: ChatInputCommandInteraction<"cached">, { panels }: BotContext) => panels.onBotChannelChanged(interaction.guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
 
 const exported: GuildCommand = {
@@ -29,7 +40,7 @@ const exported: GuildCommand = {
 
     // 안내를 먼저 보내고(패널 옮기기를 기다리지 않고 답한다) 패널은 그 뒤에 옮긴다. 안내가 실패해도 설정과 패널이 어긋나지 않게 끝까지 옮긴다
     if (action === "remove") {
-      await GuildSettingsManager.clearBotChannel(guildId);
+      if (!(await saved(interaction, () => GuildSettingsManager.clearBotChannel(guildId)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
       try {
         await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
       } finally {
@@ -40,11 +51,7 @@ const exported: GuildCommand = {
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
     if (!channel) return noticeSelf(interaction, errors.notice("channel-set-failed")); // 캐시에 없는 채널
-    const success = await GuildSettingsManager.setBotChannel(guildId, channel.id);
-
-    if (!success) {
-      return await noticeSelf(interaction, errors.notice("channel-set-failed"));
-    }
+    if (!(await saved(interaction, () => GuildSettingsManager.setBotChannel(guildId, channel.id)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
 
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
     try {

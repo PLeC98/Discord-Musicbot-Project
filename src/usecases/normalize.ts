@@ -6,7 +6,7 @@ import type { Guild, GuildMember } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control", sub: "normalize" });
 import * as guildSettings from "../store/guild-settings.ts";
-import * as playerEvents from "../player/events.ts";
+import { messageOf } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
 import { checkControl, type PermissionDenied } from "./permissions.ts";
 
@@ -23,10 +23,16 @@ const normalizeRefusal = (member: GuildMember): Promise<PermissionDenied | null>
 async function setNormalize({ guild, member }: { guild: Guild; member: GuildMember }, on: boolean): Promise<NormalizeResult> {
   const denied = await normalizeRefusal(member);
   if (denied) return { ok: false, code: denied };
-  if (normalizeOn(guild.id) === on) return { ok: true, on, already: true };
-  if (!(await guildSettings.setNormalize(guild.id, on))) return { ok: false, code: "settings-save-failed" };
+  // 이미 그 상태인지는 캐시가 아니라 저장소가 행을 보고 정한다(읽기 실패로 캐시에 남은 꺼짐이 끄기 요청을 막지 않게)
+  let changed: string[];
+  try {
+    changed = await guildSettings.setNormalize(guild.id, on);
+  } catch (error) {
+    log.error(`볼륨 정규화 설정 저장 실패: ${guild.name} (${guild.id}) | ${messageOf(error)}`);
+    return { ok: false, code: "settings-save-failed" };
+  }
+  if (!changed.includes("normalize")) return { ok: true, on, already: true };
   log.info(`볼륨 정규화 ${on ? "켬" : "끔"}: ${guild.name} | 실행 ${member.user.tag}`);
-  playerEvents.touched(guild.id);
   return { ok: true, on, already: false };
 }
 

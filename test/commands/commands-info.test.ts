@@ -528,6 +528,11 @@ test("/setchannel remove: 해제하고 안내한 뒤 패널을 옮긴다. 저장
     const failed = interaction();
     await run(await command("setchannel"), failed.it, failed.bot);
     assert.deepEqual(failed.log[0][1], noticeReply(errors.notice("channel-set-failed")));
+    // 해제도 실패를 알리고 패널은 옮기지 않는다
+    const failedRemove = interaction({ options: { action: "remove" } });
+    await run(await command("setchannel"), failedRemove.it, failedRemove.bot);
+    assert.deepEqual(failedRemove.log[0][1], noticeReply(errors.notice("channel-set-failed")));
+    assert.deepEqual(failedRemove.seen, []);
   });
 });
 

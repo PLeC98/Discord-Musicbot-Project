@@ -78,8 +78,7 @@ async function resetGuildSettings(by: string, go?: () => void) {
   go?.();
   snapshots.tidy();
   const guilds = guildSettings.guildCount();
-  guildSettings.replaceAll({});
-  guildSettings.forgetCache();
+  guildSettings.removeAll();
   log.warn({ sub: "admin" }, `대시보드에서 서버별 설정 초기화: 서버 ${guilds}곳(되돌릴 스냅샷 ${snapshot}). 실행 ${by}`);
   return { snapshot, guilds };
 }

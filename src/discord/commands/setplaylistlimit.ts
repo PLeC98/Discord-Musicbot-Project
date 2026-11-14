@@ -8,6 +8,9 @@ import * as errors from "../../ui/text/ko/errors.ts";
 import { post, reply } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
+import logger from "../../infra/log/logger.ts";
+import { messageOf } from "../../rules/error-kind.ts";
+const log = logger.child({ category: "commands" });
 
 // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 남은 곡은 "더 넣기"로 이어 넣고, 그쪽은 대기열 상한만 본다.
 // 위쪽 끝은 대기열 상한을 따라 바뀌므로 명령 옵션에 못박지 않고 실행할 때 검사한다.
@@ -27,7 +30,7 @@ const exported: GuildCommand = {
     const count = interaction.options.getInteger("count");
 
     if (action === "reset") {
-      if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, null))) return failed(interaction);
+      if (!(await saved(interaction, () => GuildSettingsManager.setPlaylistAddMax(guildId, null)))) return failed(interaction);
       return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(GuildSettingsManager.resolvePlaylistAddMax(guildId)))));
     }
 
@@ -42,11 +45,22 @@ const exported: GuildCommand = {
       return noticeSelf(interaction, errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
     }
 
-    if (!(await GuildSettingsManager.setPlaylistAddMax(guildId, count))) return failed(interaction);
+    if (!(await saved(interaction, () => GuildSettingsManager.setPlaylistAddMax(guildId, count)))) return failed(interaction);
     return interaction.reply(post(screens.saved(settingsText.playlistLimitSet(count))));
   },
 };
 export default exported;
+
+// 저장에 실패하면 로그를 남기고 false 를 돌려준다
+async function saved(interaction: ChatInputCommandInteraction<"cached">, work: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await work();
+    return true;
+  } catch (error) {
+    log.error(`서버 설정 저장 실패(/setplaylistlimit): ${interaction.guild.name} (${interaction.guild.id}) | ${GuildSettingsManager.FIELD_LABEL.playlistAddMax} | ${messageOf(error)}`);
+    return false;
+  }
+}
 
 function failed(interaction: ChatInputCommandInteraction) {
   return noticeSelf(interaction, errors.notice("settings-save-failed"));

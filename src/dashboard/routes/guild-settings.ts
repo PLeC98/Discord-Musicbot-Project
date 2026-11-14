@@ -58,22 +58,17 @@ function planSettings(guild: Guild, { djRoleIds, botChannelId, sponsorblock, pla
   return plan;
 }
 
-// 반영한다. 전용 채널이 실제로 바뀌었나(화면은 저장할 때마다 전용 채널을 함께 보낸다. 바뀌었을 때만 패널을 옮긴다)
-async function applySettings(guild: Guild, { roles, channel, sponsor, playlistAdd, agePlace }: SettingsPlan) {
-  if (roles !== undefined) {
-    if (roles.length) await GuildSettingsManager.setDjRoles(guild.id, roles);
-    else await GuildSettingsManager.clearDjRoles(guild.id);
-  }
-  let channelChanged = false;
-  if (channel !== undefined) {
-    channelChanged = channel !== (await GuildSettingsManager.getBotChannel(guild.id));
-    if (channel) await GuildSettingsManager.setBotChannel(guild.id, channel);
-    else await GuildSettingsManager.clearBotChannel(guild.id);
-  }
-  if (sponsor !== undefined) await GuildSettingsManager.setSponsorBlock(guild.id, sponsor);
-  if (playlistAdd !== undefined) await GuildSettingsManager.setPlaylistAddMax(guild.id, playlistAdd);
-  if (agePlace !== undefined) await GuildSettingsManager.setAgePlace(guild.id, agePlace);
-  return channelChanged;
+const fieldNames = (fields: GuildSettingsManager.GuildField[]) => fields.map((field) => GuildSettingsManager.FIELD_LABEL[field]).join(", ");
+
+// 저장소에 넘길 패치. 계획에 든 것만 싣는다(빠진 것은 그대로)
+function patchOf({ roles, channel, sponsor, playlistAdd, agePlace }: SettingsPlan): GuildSettingsManager.GuildPatch {
+  return {
+    ...(roles !== undefined && { djRoleIds: roles }),
+    ...(channel !== undefined && { botChannelId: channel }),
+    ...(sponsor !== undefined && { sponsorBlock: sponsor }),
+    ...(playlistAdd !== undefined && { playlistAddMax: playlistAdd }),
+    ...(agePlace !== undefined && { agePlace }),
+  };
 }
 
 // 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/stay)
@@ -161,13 +156,24 @@ function createGuildSettingsRouter() {
 
     const plan = planSettings(guild, body.value);
     if ("refused" in plan) return refuseWith(res, plan.refused);
-    const channelChanged = await applySettings(guild, plan);
-    if (channelChanged) {
+    const patch = patchOf(plan);
+    let changed: GuildSettingsManager.GuildField[];
+    try {
+      const result = GuildSettingsManager.update(guild.id, patch);
+      changed = result.ok ? result.changed : [];
+    } catch (error) {
+      log.error(`서버 설정 저장 실패: ${guild.name} (${guild.id}) | ${fieldNames(Object.keys(patch) as GuildSettingsManager.GuildField[])} | ${messageOf(error)}`);
+      // 원래 오류 메시지는 응답에 싣지 않는다(어느 서버의 관리자든 부르는 경로다)
+      return sendProblem(res, "settings-save-failed");
+    }
+    if (changed.includes("botChannelId")) {
       bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));
     }
 
-    const user = signedIn(req);
-    log.info(`서버 설정 변경: ${guild.name} (${guild.id}). 실행 ${user.username || user.id}`);
+    if (changed.length) {
+      const user = signedIn(req);
+      log.info(`서버 설정 변경: ${guild.name} (${guild.id}) | ${fieldNames(changed)} | 실행 ${user.username || user.id}`);
+    }
     res.json({ success: true } satisfies Saved);
   });
 

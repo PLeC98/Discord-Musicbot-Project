@@ -74,6 +74,8 @@ import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { welcomeGuild } from "./welcome.ts";
+import { nudgeOnSettingsChange } from "./settings-nudge.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { josa } from "../rules/josa.ts";
 
@@ -237,6 +239,8 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
     for (const player of players.values()) player.gain.valueArrived(audioKey);
   });
   playerEvents.on("started", (player) => stay.wake(player.guild.id));
+  // 디스코드 명령, 대시보드, 초기화 어느 쪽에서 서버 설정이 바뀌든 그 서버를 보는 대시보드 화면이 설정을 다시 읽는다
+  nudgeOnSettingsChange(guildSettings.onChanged, playerEvents.touched);
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기", "warn");
