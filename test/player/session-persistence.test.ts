@@ -277,6 +277,35 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   assert.deepEqual(titles(s.queue), ["next"]);
 });
 
+test("/join 으로만 이어 듣게 저장하면(/leave, 혼자 남아 나감) 자동 이어 틀기를 끈다. 다른 저장은 켠다. 저장한 트랙은 남는다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("changed");
+  assert.equal(loaded(p.guild.id).session.autoResume, true);
+
+  await sp.save("leave-for-join");
+  trackState.reset(p);
+  const s = loaded(p.guild.id);
+  assert.equal(s.session.autoResume, false);
+  assert.equal(s.current?.title, "now", "마지막 저장 뒤 비워도 트랙이 남는다");
+});
+
+test("복원이 음성에 붙으면 /join 으로만 이어 듣던 세션도 자동 이어 틀기를 다시 켠다. 저장 위치는 그대로", async () => {
+  const { p, sp } = makeRestorePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("leave-for-join");
+  sessions().savePositions([{ guildId: p.guild.id, positionMs: 30_000 }]);
+  const record = sessions().load(p.guild.id);
+  assert.equal(record?.session.autoResume, false);
+
+  // 같은 서버의 새 플레이어가 그 세션을 이어 튼다
+  const next = makeRestorePlayer({ guild: p.guild });
+  await next.sp.restoreSession(record);
+  const after = loaded(p.guild.id);
+  assert.equal(after.session.autoResume, true);
+  assert.equal(after.session.positionMs, 30_000, "표시만 바꾼다");
+});
+
 // ── 세션 행 ──
 
 test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남긴다(억제로 소리가 멈춰 있어도)", async () => {

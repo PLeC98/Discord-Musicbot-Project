@@ -23,7 +23,6 @@ class IdleLeave {
   player: Player;
   aloneTimer: NodeJS.Timeout | null;
   emptyTimer: NodeJS.Timeout | null;
-  aloneMs: number;
   // 타이머마다 나갈 시각. 걸려 있지 않으면 null
   aloneAt: number | null = null;
   emptyAt: number | null = null;
@@ -33,7 +32,11 @@ class IdleLeave {
     this.player = player;
     this.aloneTimer = null;
     this.emptyTimer = null;
-    this.aloneMs = config.bot.leaveDelayAloneMs;
+  }
+
+  // 혼자 남아 기다리는 시간. 타이머를 걸 때마다 읽는다(설정값을 바꾸면 다음 타이머부터 적용된다. 틀 게 없음과 같다)
+  get aloneMs() {
+    return config.bot.leaveDelayAloneMs;
   }
 
   // ── 혼자 남음 ──
@@ -113,8 +116,10 @@ class IdleLeave {
     const listeners = channel?.isVoiceBased() ? listenersIn(channel.members.values()) : 0;
     if (listeners > 0) return; // 사유, 패널은 syncHolds 가 풀었다
 
-    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 실패로 일시정지해 둔 곡이면 세션을 남긴다(사람이 고른 끝이 아니다. /join 이 이어 튼다)
-    await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: player.lifecycle.parked ? "save" : "remove", panel: "disconnected", end: "alone-timeout" });
+    // 이미 버려진(교체된) 플레이어면 dispose 가 아무것도 하지 않는다. 대기열은 /join 으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다).
+    // 패널 모양은 dispose 가 곡을 비우기 전에 정한다
+    const resumable = Boolean(player.currentTrack) || player.queue.length > 0;
+    await player.dispose({ reason: "듣는 사람 없이 기다린 시간이 지남", session: "save-for-join", panel: resumable ? "leave" : "disconnected", end: "alone-timeout" });
   }
 
   // ── 틀 게 없음 ──

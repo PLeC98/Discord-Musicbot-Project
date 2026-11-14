@@ -438,7 +438,7 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
 }
 
 /**
- * 나가기. 세션을 남겨 /join 이 복구한다. 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
+ * 음성 채널에서 나간다. 세션은 /join 으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다). 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">, { onAccepted, onLeaving }: Accepting<{ left: "player"; track: QueuedTrack | null; saved: { queue: number; positionSec: number }; stayOff: boolean }> & { onLeaving?: () => unknown } = {}) {
@@ -461,7 +461,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   const track = player.currentTrack;
   const saved = { queue: player.queue.length, positionSec: Math.floor((player.getCurrentTime?.() || 0) / 1000) };
   const facts = { left: "player" as const, track, saved, stayOff: seated };
-  await answerDuring(player.dispose({ reason: "나가며 저장", session: "save", panel: track ? "leave" : "disconnected", end: "leave" }), "나가기", facts, onAccepted);
+  await answerDuring(player.dispose({ reason: "나가며 저장", session: "save-for-join", panel: track ? "leave" : "disconnected", end: "leave" }), "나가기", facts, onAccepted);
   return done(facts);
 }
 

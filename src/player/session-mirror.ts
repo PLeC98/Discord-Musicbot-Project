@@ -19,7 +19,9 @@ const POSITION_SAVE_MS = 5000;
 const SETTINGS_SETTLE_MS = 200;
 
 // 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 곡이 DB에서 삭제된다.
-const FINAL_REASONS = new Set(["leave", "shutdown"]);
+// leave-for-join 은 /join 으로만 이어 듣게 남긴다(기동 복원, 24/7 자리 지킴이가 이어 틀지 않는다)
+const FOR_JOIN = "leave-for-join";
+const FINAL_REASONS = new Set(["leave", FOR_JOIN, "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
 const liveStore = () => (stateDb.isOpen() ? sessions() : null);
@@ -246,7 +248,7 @@ class SessionPersistence {
       } else {
         this.claimSaved();
         if (this.dirty) this.resync(store);
-        store.saveSession(p.guild.id, this.sessionFields());
+        store.saveSession(p.guild.id, { ...this.sessionFields(), autoResume: reason !== FOR_JOIN });
         this.lastRow = this._rowKey();
       }
     } catch (error) {
@@ -338,6 +340,8 @@ class SessionPersistence {
     }
 
     await this._reconnect();
+    // 다시 쓰는 세션이 됐다. /join 으로만 이어 듣던 세션도 이제 기동 복원이 이어 튼다(행 전체를 새로 쓰면 저장 위치를 덮어쓴다)
+    this._markAutoResume();
     // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
     player.syncHolds();
 
@@ -398,6 +402,16 @@ class SessionPersistence {
       // 잘랐거나 필터링했으면 메모리와 DB가 어긋난다. 다시 써서 맞춘다
       { persisted: !cut && droppedAutoplay === 0 },
     );
+  }
+
+  _markAutoResume() {
+    const guildId = this.player.guild?.id;
+    if (!guildId) return;
+    try {
+      liveStore()?.markAutoResume(guildId);
+    } catch (error) {
+      log.warn(`세션 자동 이어 틀기 표시 실패 (서버 ID ${guildId}): ${messageOf(error)}`);
+    }
   }
 
   async _reconnect() {

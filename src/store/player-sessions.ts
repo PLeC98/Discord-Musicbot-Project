@@ -49,6 +49,7 @@ type SessionRow = {
   autoplay: string | null;
   user_paused: number;
   position_ms: number;
+  auto_resume: number;
 };
 
 /** 세션 한 벌(트랙 말고). 저장할 때는 빠진 필드를 기본값으로 */
@@ -60,6 +61,8 @@ type SessionState = {
   autoplay?: string | null;
   userPaused?: boolean;
   positionMs?: number;
+  /** 명령 없이 붙는 길(기동 복원, 24/7 자리 지킴이)도 이어 틀어도 되는가. false 면 /join 으로만 이어 듣는다. 저장할 때 빠지면 true */
+  autoResume?: boolean;
 };
 
 // 되읽은 트랙 행. 모양을 보기 전이라 열은 모른다(슬롯은 표의 CHECK 가 지킨다)
@@ -117,6 +120,7 @@ function sessionFromRow(row: SessionRow) {
     autoplay: row.autoplay,
     userPaused: Boolean(row.user_paused),
     positionMs: row.position_ms,
+    autoResume: row.auto_resume !== 0,
   };
 }
 
@@ -127,13 +131,14 @@ function queries(conn: Db) {
     ensure: conn.prepare<[string]>("INSERT OR IGNORE INTO player_sessions (guild_id) VALUES (?)"),
     upsert: conn.prepare<SessionRow>(`
         INSERT INTO player_sessions (guild_id, voice_channel_id, text_channel_id, volume, loop_mode, autoplay,
-                                     user_paused, position_ms)
+                                     user_paused, position_ms, auto_resume)
         VALUES (@guild_id, @voice_channel_id, @text_channel_id, @volume, @loop_mode, @autoplay,
-                @user_paused, @position_ms)
+                @user_paused, @position_ms, @auto_resume)
         ON CONFLICT(guild_id) DO UPDATE SET
           voice_channel_id = excluded.voice_channel_id, text_channel_id = excluded.text_channel_id,
           volume = excluded.volume, loop_mode = excluded.loop_mode, autoplay = excluded.autoplay,
-          user_paused = excluded.user_paused, position_ms = excluded.position_ms`),
+          user_paused = excluded.user_paused, position_ms = excluded.position_ms, auto_resume = excluded.auto_resume`),
+    autoResume: conn.prepare<[string]>("UPDATE player_sessions SET auto_resume = 1 WHERE guild_id = ?"),
     position: conn.prepare<[number, string]>("UPDATE player_sessions SET position_ms = ? WHERE guild_id = ?"),
     deleteSession: conn.prepare<[string]>("DELETE FROM player_sessions WHERE guild_id = ?"),
     deleteGuildTracks: conn.prepare<[string]>("DELETE FROM session_tracks WHERE guild_id = ?"),
@@ -223,7 +228,13 @@ class PlayerSessionStore {
       autoplay: s.autoplay || null,
       user_paused: s.userPaused ? 1 : 0,
       position_ms: Math.max(0, Math.round(s.positionMs ?? 0)),
+      auto_resume: s.autoResume === false ? 0 : 1,
     });
+  }
+
+  /** /join 으로 이어 틀었으니 명령 없이 붙는 길도 이어 틀 수 있는 세션으로 바꾼다. 행의 다른 열은 그대로 둔다 */
+  markAutoResume(guildId: string) {
+    this.q.autoResume.run(guildId);
   }
 
   // 재생 위치만 저장한다. 도는 플레이어 전부를 한 트랜잭션으로

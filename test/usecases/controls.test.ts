@@ -444,7 +444,7 @@ test("나가기: 권한부터 본다. 플레이어가 있으면 저장하고 빼
   players.set("g1", p);
   const r = await controls.leave(guild, DJ, players);
   assert.deepEqual(r, { ok: true, left: "player", track: p.currentTrack, saved: { queue: 2, positionSec: 65 }, stayOff: false });
-  assert.deepEqual(p.calls, ["dispose:save:leave"], "세션을 저장하고 끝난 패널(leave)로 버린다");
+  assert.deepEqual(p.calls, ["dispose:save-for-join:leave"], "세션을 /join 으로만 이어 듣게 저장하고 끝난 패널(leave)로 버린다");
 
   let disconnected = 0;
   // 샤드가 끊겨 있으면 게이트웨이 없이 REST 로 나간다(게이트웨이 경로는 아래 테스트)
@@ -679,7 +679,7 @@ test("정지, 나가기: 정리를 시작한 뒤 onAccepted 로 답하고 정리
   const players = new Map<string, Player>([["g1", lp]]);
   const left = controls.leave(guild, DJ, players, { onAccepted: (facts) => void order.push(`accepted:${facts.left}`) });
   await settle();
-  assert.deepEqual(order, ["dispose:save", "accepted:player"]);
+  assert.deepEqual(order, ["dispose:save-for-join", "accepted:player"]);
   leaving.release();
   assert.equal(accepted(await left).left, "player");
 });

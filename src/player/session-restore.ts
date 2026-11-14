@@ -49,12 +49,15 @@ type PlayerClass = typeof Player;
 type Registry = Pick<PlayerSeats, "has" | "set">;
 
 /**
- * 기동 시 저장된 재생 세션을 모두 복원한다.
+ * 기동 시 저장된 재생 세션을 복원한다. /join 으로만 이어 듣게 남긴 세션(/leave, 혼자 남아 나감)은 두고 붙지 않는다.
  * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 이어졌다, app/run-record). 세션은 남긴다.
  * 돌려주는 것: 복원을 시도한 서버 ID(복원했든 못 했든, 건너뛰면 없음). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
 async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
-  const saved = sessions().loadAll();
+  const all = sessions().loadAll();
+  const saved = all.filter((s) => s.session.autoResume !== false);
+  const forJoin = all.length - saved.length;
+  if (forJoin > 0) log.info(`/join으로만 이어 듣는 세션 ${forJoin}개는 기동 때 복원하지 않음`);
   const touched = saved.map((s) => s.guildId);
   if (saved.length === 0) return touched;
   if (skip) {

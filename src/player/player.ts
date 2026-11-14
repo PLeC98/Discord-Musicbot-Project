@@ -1005,17 +1005,19 @@ class Player {
    * 이 플레이어를 버린다. 모든 정리(정지, 나가기, 강제 퇴장, 채널 사라짐, 복구 포기, 비활성, 복원 실패, 교체, 운영자)가 여기를 지난다.
    * 두 번째 부름은 아무것도 하지 않는다. 버린 뒤 레지스트리가 스스로 뺀다(disposed 알림).
    * @param o.reason  로그에 남길 원인
-   * @param o.session  remove: 세션을 삭제한다, save: 저장해 남긴다(/join 이 복원한다), keep: 건드리지 않는다(따로 저장된 세션이 있다)
+   * @param o.session  remove: 세션을 삭제한다, save: 저장해 둔다(기동 복원, /join 으로 이어 튼다), save-for-join: 저장해 두되 /join 으로만 이어 듣게 한다,
+   *   keep: 건드리지 않는다(따로 저장된 세션이 있다)
    * @param o.panel  끝난 패널 모양(ended 의 reason). 없으면 패널을 고치지 않는다
    * @param o.end  곡이 있었으면 끝 줄에 남길 원인(kicked, alone-timeout, leave 등). 기본 stop
    * @param o.stay  음성 채널에는 남는다(곧 재연결한다. 서버 하나 다시 시작). 기본은 나간다
    */
-  async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
+  async dispose({ reason, session, panel, end, stay = false }: { reason: string; session: "remove" | "save" | "save-for-join" | "keep"; panel?: "stop" | "leave" | "disconnected"; end: PlayerEnd; stay?: boolean }) {
     if (this.lifecycle.disposed) return;
     this.lifecycle.to("disposed", reason);
     try {
       clearVoiceStatus(this);
       if (session === "save") await this.persistence.save("leave");
+      else if (session === "save-for-join") await this.persistence.save("leave-for-join");
       else if (session === "remove") this.persistence?.removeSession();
       // 남긴다: 아래에서 메모리를 비우는 것(_endPlayback)이 미러를 타고 저장된 곡 행까지 지우지 않게 미러를 뗀다
       else if (this.persistence) this.persistence.frozen = true;

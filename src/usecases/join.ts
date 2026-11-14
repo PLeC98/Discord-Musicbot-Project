@@ -51,14 +51,18 @@ function targetOf(guild: Guild, member: GuildMember): { channel: VoiceBasedChann
   return refused || !channel ? { refused: { kind: "refused", code: refused ?? "must-be-in-voice" } } : { channel };
 }
 
-/** 지정한 채널에 붙인다(24/7 상주). 요청한 사용자가 없어 봇의 권한과 다른 채널 접속 여부만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널. go 는 join 과 같다 */
+/**
+ * 지정한 채널에 붙인다(24/7 상주). 요청한 사용자가 없어 봇의 권한과 다른 채널 접속 여부만 본다. 텍스트 채널을 주지 않으면 서버의 전용 채널. go 는 join 과 같다.
+ * 명령으로 부른 것이 아니므로 /join 으로만 이어 듣게 남긴 세션은 이어 틀지 않는다(곡 없이 붙고 세션은 남는다)
+ */
 async function joinChannel(bot: { players: Pick<PlayerSeats, "get" | "set"> }, { guild, channel, textChannel = null }: { guild: Guild; channel: VoiceBasedChannel; textChannel?: GuildTextBasedChannel | null }, { go }: { go?: () => void } = {}): Promise<JoinResult> {
   const refused = refusal(guild, channel);
   if (refused) return { kind: "refused", code: refused };
-  return attach(bot, guild, channel, textChannel, { go });
+  return attach(bot, guild, channel, textChannel, { go, auto: true });
 }
 
-async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild: Guild, channel: VoiceBasedChannel, textChannel: GuildTextBasedChannel | null, { restoring, go }: { restoring?: () => Promise<unknown>; go?: () => void } = {}): Promise<JoinResult> {
+// auto: 명령 없이 붙는다(24/7 자리 지킴이). /join 으로만 이어 듣게 남긴 세션은 복원하지 않는다
+async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild: Guild, channel: VoiceBasedChannel, textChannel: GuildTextBasedChannel | null, { restoring, go, auto = false }: { restoring?: () => Promise<unknown>; go?: () => void; auto?: boolean } = {}): Promise<JoinResult> {
   // 기동 복원이 아직 이 서버에 오지 않았으면 먼저 복원한다. 같은 세션을 기동 복원과 둘이 되살리지 않게
   await waitForRestore(guild.id);
 
@@ -71,8 +75,8 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   go?.();
   if (isShuttingDown()) return SHUTTING_DOWN;
 
-  // /leave 나 종료가 저장해 둔 세션
-  const saved = sessions().load(guild.id);
+  // /leave 나 종료 때 저장해 둔 세션 가운데 이어 틀 세션
+  const saved = toResume(sessions().load(guild.id), auto);
 
   // 붙지 않은 채 남은 플레이어(붙기 실패 등)는 정리하고 새로 만든다. 그냥 버리면 타이머, 상태 동기화, 캐시 퇴거 보호가
   // 걸린 채 새 플레이어와 같은 서버 키를 두고 경쟁한다. 저장한 세션은 그대로 두어 아래에서 복원한다
@@ -84,7 +88,7 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
 
   const player = ensurePlayer(bot, { guild, textChannel: text, voiceChannel: channel });
   // 지금 곡이 없고 대기열만 있는 세션도 복원한다(첫 곡에서 멈춘 채)
-  if (hasTracks(saved)) {
+  if (saved) {
     await restoring?.();
     const restored = await restore(player, saved);
     // 저장 위치가 마지막 곡의 끝이라 틀 곡이 남지 않았다(복원은 붙지 않았다). 보통의 참가로
@@ -92,6 +96,12 @@ async function attach(bot: { players: Pick<PlayerSeats, "get" | "set"> }, guild:
   }
 
   return connectFresh(player);
+}
+
+// 붙으며 이어 틀 저장된 세션. 틀 곡이 없거나, 명령 없이 붙는데(auto) /join 으로만 이어 듣게 남긴 세션이면 null
+function toResume(saved: RestoredSession | null, auto: boolean) {
+  if (!hasTracks(saved) || (auto && saved.session.autoResume === false)) return null;
+  return saved;
 }
 
 // 복원할 것 없이 붙는다. 못 붙으면 플레이어를 정리한다(세션은 남긴다). 실패 원인은 음성 연결 쪽이 로그에 남긴다

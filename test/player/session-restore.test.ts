@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { codedError } from "../../src/rules/error-kind.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { RESTJSONErrorCodes } from "discord.js";
-import { resolveGuildForRestore, restoreSessions, waitForRestore } from "../../src/player/session-restore.ts";
+import { resolveGuildForRestore, restoreSessions, restoreGuild, waitForRestore } from "../../src/player/session-restore.ts";
 import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
@@ -112,8 +112,8 @@ after(() => store.close());
 
 const channel = (id: string, kind: "voice" | "text") => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
 
-function saved(guildId: string, { voice = "vc1", text = "tc1" }: { voice?: string | null; text?: string } = {}) {
-  sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text });
+function saved(guildId: string, { voice = "vc1", text = "tc1", autoResume = true }: { voice?: string | null; text?: string; autoResume?: boolean } = {}) {
+  sessions().saveSession(guildId, { voiceChannelId: voice, textChannelId: text, autoResume });
 }
 
 function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", "text")]) {
@@ -176,6 +176,32 @@ test("복원: 채널이 멀쩡하면 플레이어를 만들어 등록하고 저�
   assert.deepEqual(made[0].calls, ["restore:r1"]);
   assert.equal(players.get("r1"), made[0]);
   sessions().removeSession("r1");
+});
+
+test("기동 복원은 /join 으로만 이어 듣게 남긴 세션(/leave, 혼자 남아 나감)에 붙지 않고 세션을 남긴다. 서버 하나 다시 시작은 복원한다", async () => {
+  saved("j1", { autoResume: false });
+  saved("j2");
+  const { client, players } = clientWith([guildWith("j1"), guildWith("j2")]);
+  const { FakePlayer, made } = fakePlayerClass();
+  const from = sink.buffer.length;
+
+  const touched = await restoreSessions(client, players, FakePlayer);
+
+  assert.deepEqual(
+    made.map((p) => p.guild.id),
+    ["j2"],
+  );
+  assert.deepEqual(touched, ["j2"], '손대지 않은 서버는 이어받기가 "세션은 남기고 나가기" 로 받는다');
+  assert.ok(remaining().includes("j1"), "세션은 남는다(/join 이 이어 튼다)");
+  assert.ok(sink.buffer.slice(from).some((e) => e.text.includes("/join으로만 이어 듣는 세션 1개")));
+
+  await restoreGuild(client, players, FakePlayer, "j1");
+  assert.deepEqual(
+    made.map((p) => p.guild.id),
+    ["j2", "j1"],
+  );
+  sessions().removeSession("j1");
+  sessions().removeSession("j2");
 });
 
 test("복원하지 않기(짧게 끊긴 실행이 이어짐): 플레이어를 만들지 않고 세션은 남긴다", async () => {
