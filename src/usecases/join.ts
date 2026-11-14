@@ -1,6 +1,7 @@
 // 봇 부르기. 디스코드 /join 과 대시보드 "봇 부르기"가 같이 쓴다. 판정과 처리는 여기서, 결과를 어떻게 알릴지는 진입점이 정한다
 
-import { PermissionFlagsBits, type Guild, type GuildMember, type GuildTextBasedChannel, type VoiceBasedChannel } from "discord.js";
+import type { Guild, GuildMember, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
+import { voiceEntryRefusal, type VoiceEntryDenied } from "./permissions.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player", sub: "join" });
 import * as playerEvents from "../player/events.ts";
@@ -19,7 +20,7 @@ type JoinRequest = { guild: Guild; member: GuildMember; textChannel?: GuildTextB
  * refused: 부르지 않았다, already: 이미 그 채널에 있다, joined: 붙어서 곡을 기다린다,
  * restored: 저장한 세션을 복원했다(track 은 이어 튼 곡, 틀지 못했으면 null. left 는 남은 곡. parked: 열지 못해 그 곡에서 일시정지해 뒀다), restore-error: 복원하다가 오류가 나 플레이어를 버렸다
  */
-type JoinResult = { kind: "refused"; code: "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "bot-shutting-down" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number; parked: boolean } | { kind: "restore-error" };
+type JoinResult = { kind: "refused"; code: "must-be-in-voice" | VoiceEntryDenied | "bot-in-other-voice" | "voice-failed" | "bot-shutting-down" } | { kind: "already"; player: Player } | { kind: "joined"; player: Player } | { kind: "restored"; player: Player; track: QueuedTrack | null; left: number; parked: boolean } | { kind: "restore-error" };
 
 /**
  * 부른 사람의 음성 채널에 봇을 붙인다. 저장한 세션이 있으면 복원하고, 없으면 곡을 기다리다 나갈 예약을 건다.
@@ -111,12 +112,12 @@ const SHUTTING_DOWN = { kind: "refused", code: "bot-shutting-down" } as const sa
 function refusal(guild: Guild, channel: VoiceBasedChannel | null) {
   if (!channel) return "must-be-in-voice" as const;
   const me = guild.members.me;
-  const permissions = me ? channel.permissionsFor(me) : null;
-  if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) return "permission-voice" as const;
+  const denied = voiceEntryRefusal(me, channel);
+  if (denied === "permission-voice") return denied;
   // 다른 채널에서 쓰는 봇은 옮기지 않는다(옮기려면 디스코드에서 드래그해서 옮긴다)
   const botChannel = me?.voice?.channel;
   if (botChannel && botChannel.id !== channel.id) return "bot-in-other-voice" as const;
-  return null;
+  return denied;
 }
 
 // 저장한 세션을 복원한다. 채널 알림은 내지 않는다(진입점이 결과를 알린다). 틀 곡이 남지 않았으면(empty) null: 부르는 쪽이 보통의 참가로 잇는다

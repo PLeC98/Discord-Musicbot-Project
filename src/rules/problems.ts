@@ -25,9 +25,11 @@ const SHARED = {
   "guild-only": { status: 403, title: "Server-only command" },
   // 봇에게 디스코드 권한이 없음
   "permission-voice": { status: 409, title: "Bot lacks voice channel permissions" },
+  "bot-timed-out": { status: 409, title: "Bot is timed out" },
   "permission-text": { status: 409, title: "Bot lacks text channel permissions" },
   "permission-other": { status: 409, title: "Bot lacks a required permission" },
   // 지금 상태로는 못 함
+  "voice-full": { status: 409, title: "Voice channel is full" },
   "no-song": { status: 409, title: "Nothing is playing" },
   "queue-empty": { status: 409, title: "Queue is empty" },
   "queue-full": { status: 409, title: "Queue is full", params: ["max"] },
