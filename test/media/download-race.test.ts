@@ -17,7 +17,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-download-race-"));
 after(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }));
 
 const KEY = "a".repeat(32);
-const finalPath = path.join(dir, `track_${KEY}.opus`);
+const finalPath = path.join(dir, `${KEY}.opus`);
 const track = { requestKey: "https://www.youtube.com/watch?v=aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", title: "곡", platform: "youtube" };
 
 type OnDownload = (track: DownloadTrack, file: string) => Promise<void>;
@@ -88,7 +88,7 @@ test("임시 경로: 같은 폴더, .opus, 부를 때마다 다르다", () => {
   assert.notEqual(a, b);
   for (const p of [a, b]) {
     assert.equal(path.dirname(p), dir);
-    assert.ok(path.basename(p).startsWith(`track_${KEY}.tmp-`), p);
+    assert.ok(path.basename(p).startsWith(`${KEY}.tmp-`), p);
     assert.ok(p.endsWith(".opus"), p);
   }
 });

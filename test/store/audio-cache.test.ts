@@ -302,12 +302,12 @@ import crypto from "node:crypto";
 function makeCacheDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-partials-"));
   const md5 = crypto.createHash("md5").update("k").digest("hex");
-  return { dir, opus: path.join(dir, `track_${md5}.opus`), stem: `track_${md5}` };
+  return { dir, opus: path.join(dir, `${md5}.opus`), stem: md5 };
 }
 
-test("_cleanOrphanFiles: 기동 스윕이 중단된 다운로드 잔해를 치운다", async () => {
+test("_cleanOrphanFiles: 기동 스윕이 중단된 다운로드 잔해를 치우고, 봇이 만들지 않은 이름은 둔다", async () => {
   const { dir, stem } = makeCacheDir();
-  for (const f of [`${stem}.opus.part`, `${stem}.opus.ytdl`, `${stem}.opus`]) {
+  for (const f of [`${stem}.opus.part`, `${stem}.opus.ytdl`, `${stem}.opus`, "내 노래.opus", "메모.txt"]) {
     fs.writeFileSync(path.join(dir, f), "x");
   }
 
@@ -319,8 +319,8 @@ test("_cleanOrphanFiles: 기동 스윕이 중단된 다운로드 잔해를 치�
     audioCache._setCacheDir(prevDir);
   }
 
-  const left = fs.readdirSync(dir);
-  assert.deepEqual(left, [], "DB에 없는 .opus 고아 + 잔해가 모두 정리되어야 함");
+  const left = fs.readdirSync(dir).sort();
+  assert.deepEqual(left, ["내 노래.opus", "메모.txt"], "DB에 없는 봇 파일과 잔해만 정리한다");
 
   fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
@@ -356,7 +356,7 @@ test("외부 호출자가 쓰는 함수를 내보낸다", () => {
     for (const name of names) assert.equal(typeof Reflect.get(mod, name), "function", name);
   }
 
-  assert.match(audioCache.getFilePath("dl:abc"), /track_[0-9a-f]{32}\.opus$/);
+  assert.match(path.basename(audioCache.getFilePath("dl:abc")), /^[0-9a-f]{32}\.opus$/);
 });
 
 // ── 캐시 초기화 ──────────────────────────────────────────────
@@ -376,11 +376,12 @@ async function withTempCacheDir(fn: (dir: string) => unknown) {
   }
 }
 
-test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다", async () => {
+test("초기화는 파생 데이터를 비우고 서버 설정은 남긴다. 캐시 폴더에서는 봇이 만든 이름만 지운다", async () => {
   await withTempCacheDir(async (dir: string) => {
-    fs.writeFileSync(path.join(dir, "track_deadbeef.opus"), "x");
+    fs.writeFileSync(path.join(dir, `${"d".repeat(32)}.opus`), "x");
+    fs.writeFileSync(path.join(dir, "내 노래.opus"), "사람이 넣은 파일");
     await runResetChecks();
-    assert.equal(fs.readdirSync(dir).length, 0, "캐시 폴더가 비워진다");
+    assert.deepEqual(fs.readdirSync(dir), ["내 노래.opus"], "봇이 만든 파일만 지운다");
   });
 });
 
@@ -441,7 +442,7 @@ test("초기화는 재생 중이거나 대기열 앞에 있는 곡의 파일과 
 
 test("초기화는 다운로드 중인 행과 임시 파일을 남겨, 다운로드가 끝나면 그대로 기록된다", async () => {
   await withTempCacheDir(async (dir: string) => {
-    const temp = path.join(dir, "track_0123456789abcdef0123456789abcdef.tmp-1-ab.opus");
+    const temp = path.join(dir, "0123456789abcdef0123456789abcdef.tmp-1-ab.opus");
     fs.writeFileSync(temp, "다운로드 중");
     fs.writeFileSync(`${temp}.part`, "yt-dlp 가 쓰는 중"); // 다운로드하는 동안 임시 파일 옆에 생기는 부스러기
     audioCache.protectFile(temp);

@@ -139,8 +139,11 @@ function initialize() {
 
 /** 오디오 키의 파일 경로. 같은 키는 늘 같은 경로다 */
 function getFilePath(audioKey: string) {
-  return path.join(dir, `track_${md5(audioKey)}.opus`);
+  return path.join(dir, `${md5(audioKey)}.opus`);
 }
+
+// 봇이 만든 파일(캐시 파일, 임시 파일, 그 부스러기)의 이름 패턴. 캐시 폴더를 치울 때 이 패턴에 맞는 파일만 지운다
+const MADE_BY_BOT = /^[0-9a-f]{32}\./;
 
 // 퇴거 보호: 틀고 있거나 미리 다운로드한 곡
 
@@ -457,11 +460,11 @@ async function removeAllFiles() {
     }
   }
 
-  // DB가 모르는 파일까지 치운다(고아). 다운로드 중인 임시 파일과 그 부스러기는 건너뛴다
+  // DB에 기록이 없는 봇 파일(고아)까지 치운다. 다운로드 중인 임시 파일과 그 부스러기는 건너뛴다
   if (fs.existsSync(dir)) {
     for (const file of fs.readdirSync(dir)) {
       const target = path.resolve(path.join(dir, file));
-      if (keptPaths.has(target) || inDownload(target)) continue;
+      if (!MADE_BY_BOT.test(file) || keptPaths.has(target) || inDownload(target)) continue;
       if (!(await remove(target))) kept++;
     }
   }
@@ -488,15 +491,15 @@ async function cleanOrphanFiles() {
   for (const file of fs.readdirSync(dir)) {
     const full = path.resolve(path.join(dir, file));
 
-    // 중단된 다운로드의 부스러기(track_<md5>.opus.part, .part-FragN, .ytdl, 트랜스코딩 전 중간 파일).
+    if (!MADE_BY_BOT.test(file)) continue;
+    // 중단된 다운로드의 부스러기(<md5>.opus.part, .part-FragN, .ytdl, 트랜스코딩 전 중간 파일).
     // 기동 시점에는 진행 중인 다운로드가 없으므로 무조건 삭제해도 안전하다.
     // (봇을 강제 종료하면 ffmpeg가 파일 핸들을 물고 남는데, 프로세스를 정리한 뒤 남는 잔해가 이것들이다.)
-    if (/^track_[0-9a-f]{32}\./.test(file) && !file.endsWith(".opus")) {
+    if (!file.endsWith(".opus")) {
       if (await removeFile(full)) partials++;
       continue;
     }
 
-    if (!file.endsWith(".opus")) continue;
     if (!dbPaths.has(full) && !allProtected.has(full) && (await removeFile(full))) cleaned++;
   }
   if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
