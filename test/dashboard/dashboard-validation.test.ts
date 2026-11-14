@@ -19,7 +19,7 @@ import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
 /** 이 테스트가 읽는 답의 필드 */
-type Reply = { error?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; shortfall?: unknown; added?: { count: number; position: number | null; title: string | null } | null };
+type Reply = { error?: string; code?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; shortfall?: unknown; added?: { count: number; position: number | null; title: string | null } | null };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
 const { openTempStore } = await import("../helpers/temp-store.ts");
@@ -31,6 +31,7 @@ const { VOLUME_SETTLE_MS } = await import("../../src/usecases/controls.ts");
 const RealPlayer = (await import("../../src/player/player.ts")).Player;
 const { fakeAdder } = await import("../helpers/adder.ts");
 const store = openTempStore("dashboard-validation-");
+const settings = await import("../../src/store/guild-settings.ts");
 after(() => store.close());
 
 // ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup 을 코어에 넘긴다 ──
@@ -87,9 +88,12 @@ function makePlayer() {
         calls.push(["setVolume", v]);
         this.volume = v;
       },
-      removeFromQueue(i: number) {
-        calls.push(["removeFromQueue", i]);
-        return this.queue.splice(i, 1)[0];
+      removeFromQueue(tracks: unknown[]) {
+        const gone = new Set(tracks);
+        calls.push(["removeFromQueue", this.queue.flatMap((t: unknown, i: number) => (gone.has(t) ? [i] : []))]);
+        const removed = this.queue.filter((t: unknown) => gone.has(t));
+        this.queue = this.queue.filter((t: unknown) => !gone.has(t));
+        return removed;
       },
       moveInQueue(from: number, to: number) {
         calls.push(["moveInQueue", from, to]);
@@ -107,11 +111,11 @@ const guild = {
   channels: { cache: new Map() },
   members: {
     // 그 서버의 서버 관리자(동일 음성 채널, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
-    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
+    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
 };
-const embedCalls: [string, { tracks: object[]; insertAfterId?: string | null }][] = [];
+const embedCalls: [string, { tracks: object[]; insertFirst?: boolean; insertAfterId?: string | null }][] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
@@ -176,6 +180,35 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
   assert.equal(r.json.shortfall, null, "다 넣었으면 경고가 없다");
   assert.deepEqual([r.json.added?.count, r.json.added?.position, r.json.added?.title], [1, 4, "추가곡"], "넣은 것을 싣는다");
   assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
+});
+
+test("queue add: first 면 맨 앞에(/playfirst 와 같은 코어). 참이 아닌 값은 맨 뒤", async () => {
+  freshPlayer();
+  const first = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡", first: true });
+  assert.equal(first.status, 200);
+  assert.equal(embedCalls.at(-1)?.[1].insertFirst, true);
+  await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡", first: "true" });
+  assert.notEqual(embedCalls.at(-1)?.[1].insertFirst, true);
+});
+
+test("맨 앞에 넣기(first, 맨 앞에 넣은 목록의 이어 넣기)는 DJ 만. DJ 가 아니면 넣지 않고 must-dj, 맨 뒤 넣기는 그대로", async () => {
+  freshPlayer();
+  const fetchMember = guild.members.fetch;
+  guild.roles.cache.set("dj", { id: "dj" });
+  await settings.setDjRoles(GUILD_ID, ["dj"]);
+  guild.members.fetch = async (id: string) => ({ id, guild, permissions: { has: () => false }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } });
+  try {
+    const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };
+    const add = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡", first: true });
+    const more = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, { ...state, count: 10, insertFirst: true });
+    assert.deepEqual([add.status, add.json.code, more.status, more.json.code], [403, "must-dj", 403, "must-dj"]);
+    assert.equal(embedCalls.length, 0, "아무것도 넣지 않았다");
+    assert.equal((await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡" })).status, 200, "맨 뒤에 넣기는 누구나");
+  } finally {
+    guild.members.fetch = fetchMember;
+    guild.roles.cache.delete("dj");
+    await settings.clearDjRoles(GUILD_ID);
+  }
 });
 
 test("seek: Infinity/비숫자/음수는 400 (라이브 duration 0 클램프 우회 차단), 정상값은 ms로 재생", async () => {
@@ -254,7 +287,7 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
 });
 
 // 화면이 받은 상태를 만든 순서로 구분해 늦게 온 옛 응답이 새 상태를 덮지 않게 한다
-type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; canManage?: boolean };
+type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; hasSettings?: boolean };
 const stateReq = (method: string, urlPath: string, body?: unknown) => requestJson<State>(base, method, urlPath, body, { timeoutMs: 3000 });
 
 test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른다. 정지 뒤에는 빈 상태", async () => {
@@ -283,7 +316,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
     ["POST", "loop", { mode: "track" }],
     ["POST", "shuffle"],
     ["POST", "queue/move-entry", { entry: 1, before: null }],
-    ["DELETE", "queue/entry/1"],
+    ["POST", "queue/remove", { entries: [1] }],
     ["POST", "stop"],
   ];
   const seen: State[] = [];
@@ -304,7 +337,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 없으면 410, 잘못된 값은 400", async () => {
+test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨다(보던 순번이 밀려도). 다 빠졌으면 410, 잘못된 값은 400", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), queue: [entered("새 곡", 14), entered("q0", 11), entered("q1", 12), entered("q2", 13)] });
   Object.assign(p, {
@@ -316,13 +349,16 @@ test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨�
   const state = await rowsReq("GET", `/api/guilds/${GUILD_ID}/player`);
   assert.deepEqual([state.json.currentTrack?.entry, state.json.queue.map((t) => t.entry)], [10, [14, 11, 12, 13]]);
 
-  const removed = await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`);
+  const remove = (entries: unknown) => rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/remove`, { entries });
+  const removed = await remove([12]);
   assert.equal(removed.status, 200);
   assert.deepEqual(
     removed.json.queue.map((t) => t.title),
     ["새 곡", "q0", "q2"],
   );
-  assert.deepEqual([(await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/12`)).json.code, (await rowsReq("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/x`)).status], ["entry-gone", 400]);
+  assert.equal((await remove([12])).json.code, "entry-gone");
+  for (const bad of [[], ["x"], [1.5], [0], 12, null]) assert.equal((await remove(bad)).status, 400, JSON.stringify(bad));
+  assert.equal((await remove(Array.from({ length: 1001 }, (_, i) => i + 1))).status, 400, "한 요청에 1000곡까지");
 
   const moved = await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, { entry: 13, before: 14 });
   assert.deepEqual(
@@ -377,7 +413,7 @@ test("상태: 사람의 멈춤과 억제 사유를 따로 싣는다. 억제 사�
   assert.deepEqual(await pausedOf(), { paused: false, userPaused: false, heldBy: null }, "곡이 보이지 않으면 멈춤 · 억제 사유도 보이지 않는다");
 });
 
-test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400, 본문의 맨 앞 넣기는 무시한다", async () => {
+test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400. 맨 앞에 넣은 목록이면 이어서도 맨 앞(넣은 곡 뒤)에", async () => {
   freshPlayer();
   const state = { kind: "spp", listId: "37i9dQZF1E3aglU7q0y10F", offset: 50, anchorId: `c${String(49).padStart(21, "0")}` };
   for (const body of [
@@ -395,7 +431,7 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400,
   const ok = await req("POST", `/api/guilds/${GUILD_ID}/player/queue/more`, { ...state, count: 10, insertFirst: true });
   assert.equal(ok.status, 200);
   assert.equal(embedCalls.at(-1)?.[1].tracks.length, 10);
-  assert.equal(embedCalls.at(-1)?.[1].insertAfterId, undefined, "대시보드는 맨 앞에 넣는 경로가 없다");
+  assert.equal(embedCalls.at(-1)?.[1].insertAfterId, state.anchorId, "앞서 넣은 곡 바로 뒤에");
   assert.equal(ok.json.more?.offset, 60);
   assert.equal(ok.json.more?.requesterId, undefined);
   assert.equal(ok.json.more?.collection, "playlist", "출처의 종류를 싣는다(화면이 이름을 단다)");
@@ -417,7 +453,7 @@ test("볼륨, 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은
   try {
     freshPlayer();
     await req("POST", `/api/guilds/${GUILD_ID}/player/volume`, { volume: 30 });
-    await req("DELETE", `/api/guilds/${GUILD_ID}/player/queue/entry/1`);
+    await req("POST", `/api/guilds/${GUILD_ID}/player/queue/remove`, { entries: [1] });
     await new Promise((done) => setTimeout(done, VOLUME_SETTLE_MS + 50));
   } finally {
     off();

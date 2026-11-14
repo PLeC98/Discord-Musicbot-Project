@@ -4,7 +4,8 @@ import express, { type Request, type Response, type Router } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
-import { checkControl, checkAdd, isServerManager } from "../../usecases/permissions.ts";
+import { checkControl, checkAdd } from "../../usecases/permissions.ts";
+import { shownCards, viewerOf } from "../settings-cards.ts";
 import { addFailure } from "../../ui/error-messages.ts";
 import * as controls from "../../usecases/controls.ts";
 import type { More } from "../../rules/more-choices.ts";
@@ -25,7 +26,7 @@ import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playl
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack, trackArtUrl } from "../player-view.ts";
-import { parse, Entry, OnTrackBody, SeekBody, MoveEntryBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery } from "../request-schemas.ts";
+import { parse, OnTrackBody, SeekBody, MoveEntryBody, RemoveEntriesBody, AutoplayBody, QueueWindowQuery, AddBody, MoreCount, QUERY_MAX_LEN, SearchQuery } from "../request-schemas.ts";
 import { sendProblem, refuseWith } from "../problem.ts";
 import { limiter } from "../rate-limits.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
@@ -92,12 +93,12 @@ function readRoutes(router: Router) {
     // 제어/추가 가능 여부. UI 표시용 (실제 강제는 각 엔드포인트가 담당). member 는 openGuild 가 지금 멤버십으로 가져온다.
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    // 서버 설정(⚙) 진입 가능 여부. 서버 관리자만 (설정 화면 GET 게이트와 동일 기준)
-    const manageable = isServerManager(member);
+    // 서버 설정 버튼: 보이는 카드가 있는가(설정 화면 GET 과 같은 표)
+    const hasSettings = shownCards(await viewerOf(req, member)).length > 0;
 
     // hasPlayer: 봇의 음성 채널 접속(디스코드 상태)과 플레이어 존재(봇 내부 상태)는 어긋날 수 있다.
     // 조작 엔드포인트는 전부 플레이어를 요구하므로, 화면이 botInVoice만 보고 폼을 열면 409가 난다.
-    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, canManage: manageable, userId } satisfies PlayerRead);
+    res.json({ ...playerState(ctx.player, queueWindow(req)), ...voice, hasPlayer: !!ctx.player, canControl: controllable, canAdd: addable, hasSettings, userId } satisfies PlayerRead);
   });
 
   // 대기열 더 보기. 화면이 바닥에 닿았을 때 다음 구간만 받아 간다.
@@ -146,8 +147,8 @@ function joinRoute(router: Router) {
     // 방금 자기 채널로 봇을 불렀으므로 동일 음성 채널 규칙은 통과. 계층(DJ 여부)만 판정에 반영됨
     const controllable = !(await checkControl(member));
     const addable = !checkAdd(member);
-    const manageable = isServerManager(member);
-    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, canManage: manageable, userId: member.id } satisfies PlayerRead);
+    const hasSettings = shownCards(await viewerOf(req, member)).length > 0;
+    res.json({ ...playerState(player, queueWindow(req)), ...voiceFlags(guild, member.id), hasPlayer: true, canControl: controllable, canAdd: addable, hasSettings, userId: member.id } satisfies PlayerRead);
   });
 }
 
@@ -229,7 +230,7 @@ function controlRoutes(router: Router) {
     res.json(stateAfter(req));
   });
 
-  // 볼륨 { volume: 0 ~ 100 }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
+  // 볼륨 { volume: 0 ~ VOLUME_MAX }. 화면은 드래그하는 동안 잇달아 보낸다. 일반 API 한도와 따로, 같은 크기로 센다
   const volumeLimiter = limiter(() => config.dashboard.rateLimit.apiMax);
   router.post("/:guildId/player/volume", requireAuth, volumeLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const ctx = await openGuild(req, res, req.params.guildId);
@@ -279,16 +280,16 @@ function controlRoutes(router: Router) {
 
 // 대기열 빼기, 옮기기. 순번이 아니라 대기열 ID로 가리킨다(화면이 보던 목록이 오래돼도 그 곡). 디스코드 /remove, /move 는 지금 본 번호로 보낸다
 function queueEditRoutes(router: Router) {
-  // 대기열 ID로 빼기. DJ 계층이거나 그 곡의 요청자 본인
-  router.delete("/:guildId/player/queue/entry/:entry", requireAuth, async (req, res) => {
+  // 대기열 ID로 빼기 { entries }(빼기 버튼은 한 곡, 고른 곡 빼기는 여러 곡). 곡마다 DJ 계층이거나 그 곡의 요청자 본인이고, 하나라도 아니면 모두 거절
+  router.post("/:guildId/player/queue/remove", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
-    const entry = parse(Entry, toInt(req.params.entry));
-    if (!entry.ok) return sendProblem(res, entry.code);
+    const body = parse(RemoveEntriesBody, req.body ?? {});
+    if (!body.ok) return sendProblem(res, body.code);
     const announce = announcer(ctx.bot, ctx.player);
-    const r = await controls.removeEntry(ctx.player, ctx.actor, entry.value);
+    const r = await controls.removeEntries(ctx.player, ctx.actor, body.value.entries);
     if (!r.ok) return refuse(res, r);
-    announce(replies.removed(r.left, dashboardActor(req)));
+    announce(replies.removed(r.removed.length, r.left, dashboardActor(req)));
     res.json(stateAfter(req));
   });
 
@@ -395,7 +396,7 @@ function addRoutes(router: Router) {
   // 곡 추가는 yt-dlp 호출을 유발하므로 별도 엄격 제한 (플레이리스트도 1요청이라 정상 사용엔 여유)
   const queueLimiter = limiter(() => config.dashboard.rateLimit.queueMax);
 
-  // 곡 추가 { query: string }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용
+  // 곡 추가 { query, single?, first? }. 곡 추가는 전 계층 가능, 동일 음성 채널 규칙만 적용. 맨 앞에 넣기(first)는 /playfirst 와 같이 DJ 조작
   router.post("/:guildId/player/queue", requireAuth, queueLimiter, async (req: Request<{ guildId: string }>, res: Response) => {
     const { guildId } = req.params;
     const ctx = await openGuild(req, res, guildId);
@@ -404,13 +405,13 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(동일 음성 채널 규칙)
-    const err = checkAdd(actor.member);
-    if (err) return sendProblem(res, err);
-
     const body = parse(AddBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code, { max: QUERY_MAX_LEN });
-    const { query, single } = body.value;
+    const { query, single, first } = body.value;
+
+    // 맨 앞에 넣기는 DJ 조작(checkControl). 플레이어가 있어 봇을 부를 수 있는지는 보지 않는다(화면의 canControl 과 같은 기준)
+    const err = first ? await checkControl(actor.member) : checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     try {
       // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
@@ -420,6 +421,7 @@ function addRoutes(router: Router) {
         requester: requesterOf(req),
         query,
         single,
+        insertFirst: first,
         source: "대시보드",
         responder: dashboardResponder(bot, guildId),
         lookup: req.app.locals.lookup, // 테스트가 조회를 가짜로 넘기는 슬롯. 없으면 진짜
@@ -448,14 +450,13 @@ function addRoutes(router: Router) {
 
     if (!player) return sendProblem(res, "bot-not-in-voice");
 
-    // 곡 추가 권한(동일 음성 채널 규칙)
-    const err = checkAdd(actor.member);
-    if (err) return sendProblem(res, err);
-
-    // 대시보드는 맨 앞에 넣는 경로가 없다. 요청 본문의 insertFirst는 믿지 않는다
-    const state = validState({ ...(req.body || {}), insertFirst: false, requesterId: null });
+    const state = validState({ ...(req.body || {}), requesterId: null });
     const count = parse(MoreCount, req.body?.count);
     if (!state || !count.ok) return sendProblem(res, "bad-more-state");
+
+    // 맨 앞에 넣은 재생목록의 이어 넣기는 맨 앞에 넣기와 같은 권한
+    const err = state.insertFirst ? await checkControl(actor.member) : checkAdd(actor.member);
+    if (err) return sendProblem(res, err);
 
     try {
       const result = await continueCollection(bot, {

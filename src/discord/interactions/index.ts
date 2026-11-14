@@ -6,8 +6,9 @@ import { routes as autoplay } from "./autoplay.ts";
 import { routes as playlistMore } from "./playlist-more-handler.ts";
 import { routes as settingsPanel } from "./settings-panel-handler.ts";
 import { routes as search } from "./search-pick.ts";
+import { routes as help } from "./help.ts";
 import type { Route } from "./route.ts";
 
-const ROUTES: readonly Route[] = [...buttons, ...menus, ...autoplay, ...playlistMore, ...settingsPanel, ...search];
+const ROUTES: readonly Route[] = [...buttons, ...menus, ...autoplay, ...playlistMore, ...settingsPanel, ...search, ...help];
 
 export { ROUTES };

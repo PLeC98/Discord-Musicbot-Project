@@ -8,14 +8,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
-import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
+import { LIFETIME, expireSelf, expiring, lifetimesOf, stopExpiry } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
-import { MessageFlags, PermissionFlagsBits, type Client } from "discord.js";
+import { MessageFlags, PermissionFlagsBits, type ButtonInteraction, type Client, type StringSelectMenuInteraction } from "discord.js";
 
 import { cacheDb } from "../../src/store/cache-db.ts";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
+import { withConfig } from "../helpers/config.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
@@ -86,6 +87,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     member: { id: userId },
     client,
     channel: { id: channelId, toString: () => `<#${channelId}>` },
+    channelId,
     memberPermissions: { has: (p: bigint) => manage && p === PermissionFlagsBits.ManageGuild },
     replied: false,
     deferred: false,
@@ -285,38 +287,137 @@ test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어
 
 // ── /help, /system ───────────────────────────────────────────────────
 
-test("/help: 명령 그룹과 통계를 담고 새로고침 버튼을 단다", async () => {
-  const { it, log, bot } = interaction({ player: { any: 1 } });
-  await run(await command("help"), it, bot);
-  const f = fieldsOf(log[0][1]);
-  assert.ok(f["🎵 재생"].includes("`/play`: 곡을 재생해요"));
-  assert.match(f["📊 통계"], /서버:\*\* 1개/);
-  assert.match(f["📊 통계"], /재생 중인 서버:\*\* 1개/);
-  // 웹사이트 버튼은 WEBSITE 가 있을 때만 앞에 붙는다. 순서가 아니라 ID 로 찾는다
-  const buttons: Array<{ data: { custom_id?: string } }> = log[0][1].components[0].components;
-  assert.ok(buttons.some((b) => b.data.custom_id === "help:refresh"));
-  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
+test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시보드 주소가 이 기기 주소면 버튼이 없고, 밖에서 열리는 주소면 웹 대시보드 링크", async () => {
+  const local = interaction({ player: { any: 1 } });
+  await withConfig({ dashboard: { url: "http://localhost:33333" } }, async () => run(await command("help"), local.it, local.bot));
+  const text = textOf(local.log[0][1]);
+  assert.ok(text.includes("`/play`로 곡을 틀어요"), text);
+  assert.ok(text.includes("**📋 대기열**: 대기열을 보고"), "분류마다 설명 한 줄");
+  assert.ok(!text.includes("`/pause`"), "명령 줄은 분류 화면에만");
+  const json = JSON.stringify(local.log[0][1]);
+  assert.equal(json.includes('"style":5'), false, "링크 버튼 없음");
+  assert.deepEqual(
+    [...json.matchAll(/"value":"(\w+)"/g)].map((m) => m[1]),
+    ["play", "queue", "mode", "explore", "channel", "info"],
+    "분류 메뉴",
+  );
+  assert.deepEqual(lifetimesOf(local.it), [LIFETIME.screen]);
+
+  const open = interaction();
+  await withConfig({ dashboard: { url: "https://music.example.com" } }, async () => run(await command("help"), open.it, open.bot));
+  assert.ok(JSON.stringify(open.log[0][1]).includes('"url":"https://music.example.com"'), "웹 대시보드 링크 버튼");
 });
 
-test("/help: 모든 명령을 적는다", async () => {
-  const { it, log, bot } = interaction();
-  await run(await command("help"), it, bot);
-  const text = Object.values(fieldsOf(log[0][1])).join("\n");
-  const { COMMANDS } = await import("../../src/discord/commands/index.ts");
-  const names = COMMANDS.map((c) => c.data.name).filter((name) => name !== "help");
+/** 권한을 보는 데 쓰는 멤버. manage 면 서버 관리자 */
+const helpMember = (manage: boolean) => ({ id: "u1", permissions: { has: () => manage }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() }, channels: { cache: new Map() } } });
+
+test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 명령에 자물쇠와 그 뜻", async () => {
+  const saved = config.dashboard.ownerId;
+  config.dashboard.ownerId = "owner";
+  try {
+    const user = interaction({ options: { category: "channel" } });
+    Object.assign(user.it, { member: helpMember(false) });
+    await run(await command("help"), user.it, user.bot);
+    const text = textOf(user.log[0][1]);
+    assert.ok(text.includes("`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️ 🔒"), text);
+    assert.ok(text.includes("`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿\n"), "DJ 역할이 없는 서버는 모두가 DJ 라 열림");
+    assert.ok(text.includes("🔒 지금 내 권한으로는 쓸 수 없어요."), text);
+    assert.deepEqual(lifetimesOf(user.it), [LIFETIME.screen]);
+
+    const manager = interaction({ options: { category: "channel" } });
+    Object.assign(manager.it, { member: helpMember(true) });
+    await run(await command("help"), manager.it, manager.bot);
+    assert.ok(!textOf(manager.log[0][1]).includes("🔒"), "서버 관리자는 이 분류를 다 쓴다");
+
+    const info = interaction({ options: { category: "info" } });
+    Object.assign(info.it, { member: helpMember(true) });
+    await run(await command("help"), info.it, info.bot);
+    assert.ok(textOf(info.log[0][1]).includes("`/system`: 봇의 시스템 정보를 보여줘요 🔑 🔒"), "봇 운영자가 아니면 서버 관리자도 잠김");
+  } finally {
+    config.dashboard.ownerId = saved;
+  }
+});
+
+/** 분류 메뉴, 뒤로 버튼을 누른 것. update 로 고친 화면을 모은다. 첫 응답(상호작용 i0)의 메시지 m1 에 달려 있다 */
+function pressed(bot: ReturnType<typeof interaction>["bot"], { values = [] as string[] } = {}) {
+  const shown: unknown[] = [];
+  const it = fakeWith<StringSelectMenuInteraction<"cached"> & ButtonInteraction<"cached">>()({
+    guildId: "g1",
+    values,
+    member: helpMember(false),
+    message: { id: "m1", interactionMetadata: { id: "i0" } },
+    update: async (payload: unknown) => void shown.push(payload),
+    deleteReply: async () => {},
+  });
+  return { it, shown, bot };
+}
+
+test("/help 분류 메뉴: 고른 분류의 명령 줄과 그 분류에 나온 표시의 뜻, 뒤로 버튼은 첫 화면", async () => {
+  const { handleHelpSection, handleHelpHome } = await import("../../src/discord/interactions/help.ts");
+  const { bot } = interaction();
+  const play = pressed(bot, { values: ["play"] });
+  await handleHelpSection(play.it, bot);
+  const text = textOf(play.shown[0]);
+  assert.ok(text.includes("재생\n`/play`: 곡을 재생해요\n`/playfirst`"), text);
+  assert.ok(text.includes("💿 DJ만 쓸 수 있어요."), "DJ 표시의 뜻");
+  assert.ok(!text.includes("🛡️") && !text.includes("🔒"), "그 분류에 없는 표시는 적지 않는다");
+  assert.ok(JSON.stringify(play.shown[0]).includes('"custom_id":"help:home"'), "뒤로 버튼");
+
+  const gone = pressed(bot, { values: ["없는분류"] });
+  await handleHelpSection(gone.it, bot);
+  assert.ok(textOf(gone.shown[0]).includes("`/play`로 곡을 틀어요"), "모르는 분류(메뉴를 그린 뒤 꺼진 분류)면 첫 화면");
+
+  const back = pressed(bot);
+  await handleHelpHome(back.it, bot);
+  assert.ok(textOf(back.shown[0]).includes("`/play`로 곡을 틀어요"));
+  stopExpiry("m1");
+});
+
+test("/help 분류 메뉴, 뒤로 버튼: 누를 때마다 첫 응답에 걸린 삭제를 멈추고 그 메시지의 삭제를 다시 센다", async () => {
+  const { handleHelpHome } = await import("../../src/discord/interactions/help.ts");
+  const { bot } = interaction();
+  expireSelf(fakeWith<ButtonInteraction<"cached">>()({ id: "i0", deleteReply: async () => {} }), LIFETIME.screen);
+  assert.equal(expiring("i0"), true);
+  const back = pressed(bot);
+  await handleHelpHome(back.it, bot);
+  assert.equal(expiring("i0"), false, "첫 응답의 삭제는 멈춘다");
+  assert.equal(expiring("m1"), true, "이 메시지의 삭제를 새로 센다");
+  assert.deepEqual(lifetimesOf(back.it), [LIFETIME.screen]);
+  stopExpiry("m1");
+});
+
+test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신은 빼고)", async () => {
+  const { sectionView } = await import("../../src/discord/commands/help.ts");
+  const { SECTIONS } = await import("../../src/ui/help-lines.ts");
+  const { bot } = interaction();
+  const text = SECTIONS.map((key) => textOf({ components: [sectionView(bot.commands, key)] })).join("\n");
+  const names = [...bot.commands.keys()].filter((name) => name !== "help");
   assert.deepEqual(
-    names.filter((name) => !text.includes(`\`/${name}`)),
+    names.filter((name) => !text.includes(`\`/${name}\``)),
     [],
   );
 });
 
 test("/help: 만들다 던지면 진입점이 알린다", async () => {
-  const { it, log, client, bot } = interaction();
-  client.user.displayAvatarURL = () => {
-    throw new Error("x");
-  };
+  const { it, log, bot } = interaction();
+  Object.defineProperty(it, "guildId", {
+    get() {
+      throw new Error("x");
+    },
+  });
   await runViaEntrance(await command("help"), it, bot);
   assert.deepEqual(log, [["reply", noticeReply(errors.notice("command-failed"))]]);
+});
+
+test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄면 등록하지 않는다", async () => {
+  const { inviteView } = await import("../../src/discord/commands/invite.ts");
+  const { enabledCommands } = await import("../../src/app/command-loader.ts");
+  const urls = (view: { toJSON(): unknown }) => [...JSON.stringify(view.toJSON()).matchAll(/"url":"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(urls(inviteView({ invite: "https://discord.com/oauth2/authorize?client_id=1", website: null })), ["https://discord.com/oauth2/authorize?client_id=1"]);
+  assert.deepEqual(urls(inviteView({ invite: "https://i", website: "https://site.example" })), ["https://i", "https://site.example"]);
+  const names = (on: boolean) => withConfig({ bot: { inviteCommand: on } }, () => enabledCommands().map((c) => c.data.name));
+  assert.ok(names(true).includes("invite"));
+  assert.ok(!names(false).includes("invite"));
 });
 
 test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 바꾼다", async () => {
@@ -332,6 +433,7 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
     assert.deepEqual(owner.log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
     const f = fieldsOf(owner.log[1][1]);
     assert.match(f["🎵 봇 현황"], /서버:\*\* 1개/);
+    assert.match(f["🎵 봇 현황"], /사용자:\*\* 5명/, "서버 멤버 수의 합");
     assert.equal(owner.log[1][1].components[0].components[0].data.custom_id, "system:refresh");
   } finally {
     config.dashboard.ownerId = saved;
@@ -426,6 +528,11 @@ test("/setchannel remove: 해제하고 안내한 뒤 패널을 옮긴다. 저장
     const failed = interaction();
     await run(await command("setchannel"), failed.it, failed.bot);
     assert.deepEqual(failed.log[0][1], noticeReply(errors.notice("channel-set-failed")));
+    // 해제도 실패를 알리고 패널은 옮기지 않는다
+    const failedRemove = interaction({ options: { action: "remove" } });
+    await run(await command("setchannel"), failedRemove.it, failedRemove.bot);
+    assert.deepEqual(failedRemove.log[0][1], noticeReply(errors.notice("channel-set-failed")));
+    assert.deepEqual(failedRemove.seen, []);
   });
 });
 

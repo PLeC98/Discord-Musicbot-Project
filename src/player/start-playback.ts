@@ -224,6 +224,8 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
   log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
 
+  // 볼륨 정규화: 소리를 바꾸기 직전에 이 재생의 탭을 확정한다(이전 탭은 마지막 게인으로 고정된다. 여는 동안 생긴 측정값과 바로잡힌 키를 다시 본다)
+  player.gain.commit(pb.tap, pb.audioKey);
   player.audioPlayer.play(resource);
   player._handedGen = gen;
   // 라이브는 다운로드해 두지 않으므로 적을 것이 없다.

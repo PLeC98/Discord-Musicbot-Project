@@ -3,7 +3,7 @@
 //   모두: 공개 응답, 채널 메시지. transientMessages.scheduleDelete 로 삭제해 패널이 묻혔는지 셀 때 빠진다
 // "하는 중"(플레이스홀더, 메뉴, 설정 화면)은 본인에게, 결과는 모두에게. 본인 플레이스홀더 뒤의 결과는 플레이스홀더를 삭제하고 채널에 새로 보낸다
 
-import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type RepliableInteraction } from "discord.js";
+import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type InteractionUpdateOptions, type MessageComponentInteraction, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { codeOf, describeError } from "../rules/error-kind.ts";
@@ -52,30 +52,45 @@ const scheduled = new WeakMap<object, Array<number | null>>();
 const lifetimesOf = (interaction: object) => scheduled.get(interaction) ?? [];
 const record = (interaction: object, ms: number | null) => scheduled.set(interaction, [...lifetimesOf(interaction), ms]);
 
-/** 본인 응답을 ms 뒤 삭제한다. messageId 가 있으면 그 후속 메시지, 없으면 첫 응답 */
+/**
+ * 본인 응답을 ms 뒤 삭제한다. messageId 가 있으면 그 후속 메시지, 없으면 첫 응답.
+ * 예약은 후속 메시지면 메시지 ID, 첫 응답이면 상호작용 ID 로 둔다(그 화면의 버튼, 메뉴가 keepSelf 로 멈추고 다시 센다)
+ */
 function expireSelf(interaction: RepliableInteraction, ms: number | null, messageId?: string) {
   record(interaction, ms);
   if (ms === null || ms >= TOKEN_MS) return;
-  const timer = setTimeout(() => {
-    Promise.resolve()
-      .then(() => (messageId ? interaction.deleteReply(messageId) : interaction.deleteReply()))
-      .catch(unlessGone(log, "본인 응답 삭제"));
-  }, ms);
-  timer.unref?.();
+  expireMessage(messageId ?? interaction.id, () => (messageId ? interaction.deleteReply(messageId) : interaction.deleteReply()), ms, "본인 응답 삭제");
 }
 
-// 선택한 뒤에도 그 메시지를 계속 쓰는 메뉴(더 넣기, 검색 결과)의 삭제 예약. 키는 메시지 ID
+// 삭제 예약. 키는 메시지 ID, 첫 응답은 그 상호작용 ID
 const expiries = new Map<string, NodeJS.Timeout>();
 
 /** 메시지를 ms 뒤 remove 로 삭제한다. 같은 메시지에 다시 부르면 새로 센다. stopExpiry 로 멈춘다 */
-function expireMessage(messageId: string, remove: () => unknown, ms: number) {
+function expireMessage(messageId: string, remove: () => unknown, ms: number, what = "메뉴 삭제") {
   stopExpiry(messageId);
   const timer = setTimeout(() => {
     expiries.delete(messageId);
-    Promise.resolve().then(remove).catch(unlessGone(log, "메뉴 삭제"));
+    Promise.resolve().then(remove).catch(unlessGone(log, what));
   }, ms);
   timer.unref?.();
   expiries.set(messageId, timer);
+}
+
+/**
+ * 본인에게만 보인 화면을 그 화면의 버튼, 메뉴로 고친 뒤 부른다. 첫 응답에 걸어 둔 삭제를 멈추고 ms 뒤로 다시 센다(읽는 동안 지워지지 않게).
+ * 삭제는 이 버튼, 메뉴의 토큰으로 한다(첫 응답의 토큰은 15분 뒤 죽는다)
+ */
+function keepSelf(interaction: MessageComponentInteraction, ms: number) {
+  record(interaction, ms);
+  const firstReply = interaction.message.interactionMetadata?.id;
+  if (firstReply) stopExpiry(firstReply);
+  expireMessage(interaction.message.id, () => interaction.deleteReply(), ms, "본인 응답 삭제");
+}
+
+/** 본인에게만 보인 화면을 고치고 삭제를 ms 뒤로 다시 센다(keepSelf) */
+async function updateSelf(interaction: MessageComponentInteraction, payload: InteractionUpdateOptions, ms: number) {
+  await interaction.update(payload);
+  keepSelf(interaction, ms);
 }
 
 /** 예약한 삭제를 멈춘다(메뉴를 다른 화면으로 고쳐 계속 쓸 때) */
@@ -159,4 +174,4 @@ async function postNew(interaction: RepliableInteraction, view: ContainerBuilder
 /** 본인 표시를 단 응답(임베드, 텍스트 화면) */
 const selfOnly = <P extends object>(payload: P) => ({ ...payload, flags: MessageFlags.Ephemeral }) as P & { flags: MessageFlags.Ephemeral };
 
-export { LIFETIME, TOKEN_MS, noticeMs, unlessGone, expireSelf, expireMessage, stopExpiry, expiring, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };
+export { LIFETIME, TOKEN_MS, noticeMs, unlessGone, expireSelf, expireMessage, stopExpiry, expiring, keepSelf, updateSelf, toSelf, replaceSelf, noticeInstead, noticeSelf, toAll, postNew, selfOnly, lifetimesOf };

@@ -92,7 +92,7 @@ test("URL 입력: 주소는 -i 바로 뒤에 온다", () => {
   const url = "https://manifest.googlevideo.com/api/manifest/hls_playlist/x/index.m3u8";
   const args = buildFfmpegArgs({ url });
   assert.equal(args[idx(args, "-i") + 1], url);
-  assert.deepEqual(args.slice(-7), ["-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"]);
+  assert.deepEqual(args.slice(-7), ["-f", "f32le", "-ar", "48000", "-ac", "2", "pipe:1"]);
 });
 
 test("URL 입력: 잔끊김은 ffmpeg가 먹되 EOF로는 재접속하지 않는다", () => {
@@ -145,6 +145,8 @@ const fakePlayer = (overrides = {}) => {
     loop: false,
     heldPositionMs: 0,
     _trackLabel: () => '"x" (youtube)',
+    // 볼륨 정규화의 게인 조절기. 곡이 끝날 때 부른다
+    gain: { finish() {}, end() {} },
     ...overrides,
   });
   player.watch = new PlaybackWatch(player);

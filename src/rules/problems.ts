@@ -166,6 +166,8 @@ const WEB = {
   "announce-no-guilds": { status: 409, title: "Bot is in no servers" },
   "announce-failed": { status: 502, title: "Announcement reached no server" },
   "leave-guild-failed": { status: 502, title: "Could not leave the server" },
+  // 대시보드 서버 설정의 봇 내보내기: 디스코드에서 봇을 추방할 수 있는 사람이 아니다
+  "cannot-kick-bot": { status: 403, title: "Not allowed to remove the bot" },
   "deploy-failed": { status: 502, title: "Command deployment failed" },
   "suggest-failed": { status: 502, title: "Could not fetch suggestions" },
   "model-refresh-failed": { status: 502, title: "Could not fetch model information" },
@@ -180,6 +182,8 @@ const WEB = {
   "config-invalid": { status: 400, title: "Config has problems" },
   // 읽은 뒤 다른 탭, 다른 사람이 먼저 저장했다(저장 번호가 다르다)
   "config-changed": { status: 409, title: "Config changed since it was read" },
+  // 대시보드 서버 설정: 화면에서 읽은 뒤 같은 설정이 다른 곳(디스코드 명령, 다른 탭, 다른 관리자)에서 먼저 바뀌어 그 설정은 저장하지 않았다
+  "settings-changed": { status: 409, title: "Server settings changed since they were read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   // 설정 불러오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },

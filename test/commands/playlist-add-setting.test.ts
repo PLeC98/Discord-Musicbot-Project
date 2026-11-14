@@ -4,7 +4,7 @@
 import { test, beforeEach, after } from "node:test";
 import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import assert from "node:assert/strict";
-import { openTempStore } from "../helpers/temp-store.ts";
+import { openTempStore, whenSettingsBroken } from "../helpers/temp-store.ts";
 import { command as commandNamed, run } from "../helpers/commands.ts";
 import { screenOf, textOf } from "../helpers/cv2.ts";
 import { MessageFlags } from "discord.js";
@@ -107,4 +107,14 @@ test("/setplaylistlimit: reset은 기본값으로 되돌린다", async () => {
   await run(command, i);
   assert.equal(stored.get(G), null);
   assert.equal(GuildSettingsManager.resolvePlaylistAddMax(G), config.bot.playlistAddDefault);
+});
+
+test("/setplaylistlimit: 저장에 실패하면 바꾸지 않고 실패를 알린다(설정, 기본값 모두)", async () => {
+  stored.set(G, 80);
+  for (const options of [{ count: 30 }, { action: "reset" }]) {
+    const i = interaction(options);
+    await whenSettingsBroken(() => run(command, i));
+    assert.match(text(i.replies[0]), /설정을 저장하지 못했어요/);
+  }
+  assert.equal(stored.get(G), 80);
 });

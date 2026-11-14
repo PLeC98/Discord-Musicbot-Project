@@ -11,6 +11,8 @@ type SystemValues = {
   osUptime: string;
   guilds: number;
   playing: number;
+  /** 서버 멤버 수의 합(여러 서버에 있는 사람은 서버마다 센다) */
+  users: number;
   memoryBar: string;
   memoryUsed: string;
   memoryTotal: string;
@@ -29,7 +31,7 @@ type SystemValues = {
 const system = (v: SystemValues) => ({
   title: `${icon("system")} 시스템 상태`,
   uptime: { name: `${icon("uptime")} 업타임`, value: [`**봇:** ${v.botUptime}`, `**OS:** ${v.osUptime}`].join("\n") },
-  bot: { name: `${icon("music")} 봇 현황`, value: [`**서버:** ${v.guilds}개`, `**재생 중:** ${v.playing}개`].join("\n") },
+  bot: { name: `${icon("music")} 봇 현황`, value: [`**서버:** ${v.guilds}개`, `**재생 중:** ${v.playing}개`, `**사용자:** ${v.users.toLocaleString()}명`].join("\n") },
   memory: { name: `${icon("memory")} 메모리`, value: [`**시스템:** ${v.memoryBar} (${v.memoryUsed} / ${v.memoryTotal})`, `**Heap 사용:** ${v.heapUsed} / ${v.heapTotal}`, `**RSS:** ${v.rss}`].join("\n") },
   cpu: { name: `${icon("cpu")} CPU`, value: [`**모델:** ${v.cpuModel ?? "알 수 없음"} (${v.cores}코어)`, `**부하 (1m/5m/15m):** \`${v.load[0]}\` / \`${v.load[1]}\` / \`${v.load[2]}\``].join("\n") },
   runtime: { name: `${icon("runtime")} 런타임`, value: [`**Node.js:** ${v.node}`, `**discord.js:** v${v.discordJs}`, `**플랫폼:** ${v.platform}`, `**PID:** ${v.pid}`].join("\n") },

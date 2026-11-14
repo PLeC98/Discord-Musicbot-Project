@@ -14,6 +14,14 @@ function inGuild<T>(guildId: string, fn: () => T, job: Job | null = null): T {
   return store.run({ guildId, job }, fn);
 }
 
+/**
+ * 서버 문맥 밖에서 fn 을 부른다. 서버와 상관없는 봇 작업(여러 서버가 함께 쓰는 큐)을 서버 작업 안에서 시작할 때 쓴다.
+ * 그 안에서 건 타이머, 실행한 프로세스, 잡히지 않은 오류는 부른 서버의 것이 되지 않는다
+ */
+function outsideGuild<T>(fn: () => T): T {
+  return store.exit(fn);
+}
+
 /** 지금 문맥의 서버. 문맥 밖이면 null */
 function currentGuild(): string | null {
   return store.getStore()?.guildId ?? null;
@@ -53,4 +61,4 @@ function bindToGuild<A extends unknown[]>(guildId: string, fn: (...args: A) => v
   return store.run({ guildId, job: null }, () => AsyncLocalStorage.bind(guarded));
 }
 
-export { inGuild, currentGuild, currentJob, bindToGuild, inVoiceTarget, currentVoiceTarget };
+export { inGuild, outsideGuild, currentGuild, currentJob, bindToGuild, inVoiceTarget, currentVoiceTarget };

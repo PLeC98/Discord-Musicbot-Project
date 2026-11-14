@@ -11,12 +11,14 @@ import type { Segments } from "../sources/sponsor-block.ts";
 import type { StreamInfo } from "../sources/stream-url.ts";
 import type { InputHealth } from "../media/input-health.ts";
 import type { OpusOutput } from "../media/opus-output.ts";
+import type { GainTap } from "../media/gain-tap.ts";
 
 class CurrentPlayback {
   track: QueuedTrack;
   startOffsetMs: number;
   resource: AudioResource | null;
   output: OpusOutput | null;
+  tap: GainTap | null;
   cacheFile: string | null;
   transport: Transport | null;
   isLive: boolean | null;
@@ -34,6 +36,7 @@ class CurrentPlayback {
     this.startOffsetMs = startOffsetMs; // 이 재생의 시작 위치(곡 안의 ms)
     this.resource = null; // 음성 라이브러리의 오디오 리소스
     this.output = null; // 리소스 아래의 출력 스트림(볼륨, 인코딩). 곡 중간 볼륨 변경이 여기로 간다
+    this.tap = null; // 출력 스트림이 볼륨 정규화의 게인을 묻는 탭(player/gain-control)
     this.cacheFile = null; // 캐시 파일로 틀면 그 경로
     this.transport = null; // transportOf 의 답 { via, live, cacheable }
     this.isLive = null; // 지금 라이브인가(yt-dlp 의 답). 모르면 null

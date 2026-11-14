@@ -2,7 +2,7 @@ import { PermissionFlagsBits } from "discord.js";
 import config from "../config/index.ts";
 import * as GuildSettingsManager from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
-import type { GuildMember } from "discord.js";
+import type { Guild, GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
@@ -25,11 +25,20 @@ function isBotOwner(userId: string) {
 }
 
 /**
+ * DJ 역할로 쓸 수 있는 역할인가: 서버에 있고, @everyone(서버 ID)이 아니고, 봇 역할이 아니다.
+ * 봇 역할(디스코드가 봇에 붙인 역할, tags.botId)은 사람에게 줄 수 없고 봇이 나가면 지워진다. 서버 부스터 같은 다른 관리 역할은 사람이 가지므로 쓸 수 있다
+ */
+function isDjRoleCandidate(guild: Guild, roleId: string) {
+  const role = guild.roles.cache.get(roleId);
+  return Boolean(role && role.id !== guild.id && !role.tags?.botId);
+}
+
+/**
  * DJ 계층 이상인가. 재생 조작 권한의 기준.
  *  - 서버 관리자: 항상 DJ 취급
  *  - DJ 역할이 설정된 서버(/setting, 대시보드 서버 설정, 복수 가능): 그 중 하나라도 보유한 유저만
  *  - 미설정 서버: 전원 DJ (DJ 역할 설정은 opt-in 제한)
- *  - 설정된 역할이 서버에서 전부 삭제된 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
+ *  - 설정된 역할이 서버에서 전부 삭제됐거나 봇 역할뿐인 경우: 전원 잠금 사고를 막기 위해 미설정과 동일 취급
  */
 async function isDj(member: GuildMember) {
   if (isServerManager(member)) return true;
@@ -37,7 +46,7 @@ async function isDj(member: GuildMember) {
   const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
   if (!djRoleIds.length) return true;
 
-  const validIds = djRoleIds.filter((id) => member.guild.roles.cache.has(id));
+  const validIds = djRoleIds.filter((id) => isDjRoleCandidate(member.guild, id));
   if (!validIds.length) return true;
 
   return validIds.some((id) => member.roles.cache.has(id));
@@ -108,8 +117,27 @@ async function checkOwnTrack(member: GuildMember, track: Pick<QueuedTrack, "requ
 /** 스킵: 지금 곡을 넣은 사람도 된다 */
 const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) => checkOwnTrack(member, player?.currentTrack);
 
-/** 대기열 곡 제거: 그 곡을 넣은 사람도 된다 */
-const checkRemoveTrack = checkOwnTrack;
+/** 대기열 곡 제거: DJ 계층이거나, 빼는 곡이 모두 그 사람이 넣은 곡(요청자도 동일 음성 채널 규칙은 적용). 한 곡이라도 남의 곡이면 DJ 판정의 까닭 */
+async function checkRemoveTracks(member: GuildMember, tracks: ReadonlyArray<Pick<QueuedTrack, "requestedBy">>) {
+  const ownsAll = tracks.length > 0 && tracks.every((t) => Boolean(t.requestedBy?.id) && t.requestedBy?.id === member.id);
+  return ownTrackDenied({ control: await checkControl(member), requester: ownsAll, voice: () => checkVoice(member) });
+}
 
-export { isServerManager, isBotOwner, isDj, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTrack };
+/**
+ * 디스코드에서 봇을 추방할 수 있는 사람인가: 멤버 추방 권한(관리자 포함)이 있고, 서버 소유자이거나 가장 높은 역할이 봇의 가장 높은 역할보다 위(디스코드의 역할 순서 규칙).
+ * 타임아웃 중이면 디스코드가 권한을 거두므로 아니다(소유자, 관리자는 그대로). 봇의 역할 가운데 캐시에 없는 것이 있으면 봇의 높이를 알 수 없어 아니다.
+ * 대시보드 서버 설정의 봇 내보내기가 본다
+ */
+function canKickBot(member: GuildMember) {
+  const owner = member.guild.ownerId === member.id;
+  if (!member.permissions.has(PermissionFlagsBits.KickMembers)) return false;
+  if (!owner && member.isCommunicationDisabled() && !member.permissions.has(PermissionFlagsBits.Administrator)) return false;
+  if (owner) return true;
+  const me = member.guild.members.me;
+  // 역할 id 목록은 discord.js 가 캐시에 없는 역할을 빼고 roles 로 보여 주기 전의 원본이다
+  if (!me || me["_roles"].some((id) => !member.guild.roles.cache.has(id))) return false;
+  return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
+}
+
+export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTracks };
 export type { PermissionDenied };

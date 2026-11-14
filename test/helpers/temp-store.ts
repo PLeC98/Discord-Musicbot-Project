@@ -40,10 +40,11 @@ type GuildPatch = {
   djRoles?: Parameters<typeof settings.table.setDjRoles>[1];
   botChannel?: string | null;
   playlistAddMax?: Parameters<typeof settings.table.setPlaylistAddMax>[1];
+  normalize?: boolean;
   sponsorBlock?: Parameters<typeof settings.table.setGuildSponsorBlock>[1];
 };
 
-function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponsorBlock }: GuildPatch = {}) {
+function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponsorBlock, normalize }: GuildPatch = {}) {
   if (djRoles !== undefined) settings.table.setDjRoles(guildId, djRoles);
   if (botChannel !== undefined) {
     if (botChannel === null) settings.table.clearBotChannel(guildId);
@@ -51,6 +52,7 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
   }
   if (playlistAddMax !== undefined) settings.table.setPlaylistAddMax(guildId, playlistAddMax);
   if (sponsorBlock !== undefined) settings.table.setGuildSponsorBlock(guildId, sponsorBlock);
+  if (normalize !== undefined) settings.table.setNormalize(guildId, normalize);
   settings.forgetCache();
 }
 

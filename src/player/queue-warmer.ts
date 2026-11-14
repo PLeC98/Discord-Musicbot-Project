@@ -24,6 +24,8 @@ type WarmerDeps = {
   setProtection(guildId: string, keys: string[]): void;
   /** 직접 링크 곡의 파일 태그, 앨범아트를 찾게 넘긴다(앞의 것이 먼저). 이미 아는 곡은 받는 쪽이 바로 건너뛴다 */
   wantArt?(tracks: Array<QueuedTrack | null>): void;
+  /** 미리 받는 범위의 곡(앞의 것이 먼저). 볼륨 정규화용으로 캐시 파일의 볼륨을 측정하게 한다. 이미 측정했거나 측정 큐에 있으면 받는 쪽이 건너뛴다 */
+  wantLoudness?(tracks: QueuedTrack[]): void;
 };
 /** 파일 태그, 앨범아트를 찾게 넘기는 대기열 곡 수(대기열 상한이 없을 때. 대시보드가 받는 창의 최대) */
 const ART_WINDOW = 1000;
@@ -52,6 +54,7 @@ class QueueWarmer {
   keyOf: WarmerDeps["keyOf"];
   setProtection: WarmerDeps["setProtection"];
   wantArt: WarmerDeps["wantArt"];
+  wantLoudness: WarmerDeps["wantLoudness"];
   _timer: NodeJS.Timeout | null;
   _sleepTimer: NodeJS.Timeout | null;
   _wake: (() => void) | null;
@@ -78,6 +81,7 @@ class QueueWarmer {
     // 길드의 보호 키 집합을 통째로 교체한다
     this.setProtection = deps.setProtection;
     this.wantArt = deps.wantArt;
+    this.wantLoudness = deps.wantLoudness;
 
     this._timer = null;
     this._sleepTimer = null;
@@ -120,6 +124,8 @@ class QueueWarmer {
     if (this._stopped) return;
     // 대기열 뒤쪽에 추가된 곡도 순서가 오기 전에 앨범아트가 생기게. 서명과 상관없이 틱마다 넘긴다(아는 곡은 메모리에서 건너뛴다)
     this.wantArt?.([this.player.currentTrack, ...this.player.queue.slice(0, ART_WINDOW)]);
+    // 서명이 바뀔 때만 보면 볼륨 정규화를 켠 직후의 대기열을 측정하지 못한다. 한 곡 반복 중에는 미리 받는 곡이 없다
+    this.wantLoudness?.(this.player.loop === "track" ? [] : this.player.queue.slice(0, this.ahead));
 
     const signature = this.signature();
     const stable = signature === this._lastSeen;

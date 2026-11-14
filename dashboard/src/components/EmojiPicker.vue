@@ -211,7 +211,8 @@ watch(open, async (isOpen) => {
   listen(true);
   await load();
   await nextTick();
-  searchBox.value?.focus();
+  // 터치가 주 입력인 기기는 검색창에 포커스를 주지 않는다. 화면 키보드가 열리며 iOS 가 페이지를 밀어 올리고 목록 대신 페이지가 스크롤된다
+  if (!matchMedia("(pointer: coarse)").matches) searchBox.value?.focus();
 });
 
 onBeforeUnmount(() => listen(false));

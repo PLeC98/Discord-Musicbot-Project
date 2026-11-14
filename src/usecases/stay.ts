@@ -10,7 +10,7 @@ import * as playerEvents from "../player/events.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import type { Code } from "../rules/problems.ts";
 import { checkControl } from "./permissions.ts";
-import { join } from "./join.ts";
+import { join, summonRefusal } from "./join.ts";
 
 type StayRefusal = Extract<Code, "stay-stage" | "must-dj" | "must-be-in-same-voice" | "must-be-in-voice" | "permission-voice" | "bot-in-other-voice" | "voice-failed" | "restore-failed" | "bot-shutting-down">;
 /** on: 켰다(이미 켜져 있던 같은 채널이면 already), off: 껐다(이미 꺼져 있었으면 already) */
@@ -23,15 +23,29 @@ const isStage = (channel: VoiceBasedChannel | null | undefined) => channel?.type
 /** 그 서버의 자리 채널. 없으면 null */
 const seatChannelOf = (guildId: string) => staySeats.seatOf(guildId)?.channelId ?? null;
 
-/** 켠다. 봇이 음성에 없으면 부른 사람의 채널에 붙는다(저장된 세션이 있으면 /join 과 같이 복원한다) */
-async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null }): Promise<StayResult> {
+/** 켜기 전 확인: DJ 조작이고, 봇이 음성에 없으면 그 사람이 봇을 부를 수 있어야 한다(스테이지는 막는다). 되면 null */
+async function onRefusal(bot: Pick<Bot, "players">, member: GuildMember): Promise<StayRefusal | null> {
   const denied = await checkControl(member);
+  if (denied) return denied;
+  if (bot.players.get(member.guild.id)?.voice.isAlive()) return null;
+  if (isStage(member.voice.channel)) return "stay-stage";
+  return summonRefusal(member);
+}
+
+/** 끄기 전 확인: DJ 조작. 되면 null */
+const offRefusal = (member: GuildMember): Promise<StayRefusal | null> => checkControl(member);
+
+/** 그 사람이 지금 상주 모드를 바꿀 수 없는 까닭(켜져 있으면 끄기, 꺼져 있으면 켜기의 확인). 대시보드가 바꾸기 전에 보인다 */
+const stayRefusal = (bot: Pick<Bot, "players">, member: GuildMember) => (seatChannelOf(member.guild.id) ? offRefusal(member) : onRefusal(bot, member));
+
+/** 켠다. 봇이 음성에 없으면 부른 사람의 채널에 붙는다(저장된 세션이 있으면 /join 과 같이 복원한다). go: 붙기 직전에 부르는 확인(대시보드의 로그인 세션, join 의 go) */
+async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null }, { go }: { go?: () => void } = {}): Promise<StayResult> {
+  const denied = await onRefusal(bot, member);
   if (denied) return { ok: false, code: denied };
 
   let player = bot.players.get(guild.id);
   if (!player?.voice.isAlive()) {
-    if (isStage(member.voice.channel)) return { ok: false, code: "stay-stage" };
-    const joined = await join(bot, { guild, member, textChannel });
+    const joined = await join(bot, { guild, member, textChannel }, { go });
     if (joined.kind === "refused") return { ok: false, code: joined.code };
     if (joined.kind === "restore-error") return { ok: false, code: "restore-failed" };
     player = joined.player;
@@ -39,6 +53,10 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
   const channel = player.voiceChannel;
   if (!channel) return { ok: false, code: "voice-failed" };
   if (isStage(channel)) return { ok: false, code: "stay-stage" };
+  // 붙는 사이에 바뀐 것을 저장 직전에 다시 본다: 확인(로그인 세션), 봇이 다른 채널로 복원됐으면 같은 채널 규칙
+  go?.();
+  const late = await checkControl(member);
+  if (late) return { ok: false, code: late };
 
   const already = seatChannelOf(guild.id) === channel.id;
   if (!already) {
@@ -52,7 +70,7 @@ async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: 
 
 /** 끈다. 봇이 음성에 있으면 지금부터 평소처럼 나갈 시각을 건다 */
 async function turnOff(bot: Pick<Bot, "players">, { guild, member }: { guild: Guild; member: GuildMember }): Promise<StayResult> {
-  const denied = await checkControl(member);
+  const denied = await offRefusal(member);
   if (denied) return { ok: false, code: denied };
   if (!clearSeat(guild, member)) return { ok: true, kind: "off", already: true };
   bot.players.get(guild.id)?.idle.reconsider();
@@ -70,5 +88,5 @@ function clearSeat(guild: Guild, by: GuildMember) {
   return true;
 }
 
-export { turnOn, turnOff, clearSeat, seatChannelOf };
+export { turnOn, turnOff, clearSeat, seatChannelOf, stayRefusal };
 export type { StayResult, StayRefusal };

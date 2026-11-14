@@ -152,7 +152,7 @@ test("openGuild: 멤버를 조회하는 사이 세션이 끝나면 재생 조작
 
 test("openGuild: 멤버를 조회하는 사이 세션이 끝나면 서버 설정 저장은 401이고 설정을 바꾸지 않는다", async () => {
   const who = await endingAt(at.fetch);
-  const r = await who.call("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 20 });
+  const r = await who.call("PATCH", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: { from: null, to: 20 } });
   assert.ok(at.fetch.fired, "멤버 조회에서 세션을 끝냈다");
   assert.deepEqual({ ...outcome(r), saved: settings.table.getPlaylistAddMax(GUILD_ID) }, { ...ENDED, saved: null });
 });

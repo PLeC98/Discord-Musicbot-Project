@@ -35,8 +35,11 @@ function makePlayer() {
     previousTracks: [],
     pause: { userPaused: false, heldBy: null },
     getCurrentTime: () => 0,
-    removeFromQueue(i: number) {
-      return this.queue.splice(i, 1)[0];
+    removeFromQueue(tracks: unknown[]) {
+      const gone = new Set(tracks);
+      const removed = this.queue.filter((t: unknown) => gone.has(t));
+      this.queue = this.queue.filter((t: unknown) => !gone.has(t));
+      return removed;
     },
   });
 }
@@ -49,7 +52,7 @@ const guild = {
   channels: { cache: new Map() },
   members: {
     // 그 서버의 서버 관리자(동일 음성 채널, DJ 판정을 건너뛴다). 운영자도 멤버여야 서버를 연다
-    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, voice: { channel: null }, roles: { cache: new Map() } }),
+    fetch: async (id: string) => ({ id, guild, permissions: { has: () => true }, isCommunicationDisabled: () => false, voice: { channel: null }, roles: { cache: new Map() } }),
     me: null,
   },
 };
@@ -93,7 +96,7 @@ test("?queue=n이면 펼쳐 둔 만큼 돌려준다. 조작 응답도 같다", a
   const { json } = await get(`/api/guilds/${GUILD_ID}/player?queue=150`);
   assert.equal(json.queue.length, 150);
 
-  const removed = await get(`/api/guilds/${GUILD_ID}/player/queue/entry/1?queue=150`, "DELETE");
+  const removed = await requestJson<PlayerReply>(base, "POST", `/api/guilds/${GUILD_ID}/player/queue/remove?queue=150`, { entries: [1] }, { timeoutMs: 3000 });
   assert.equal(removed.status, 200);
   assert.equal(removed.json.queue.length, 150, "조작 응답이 첫 묶음으로 접히면 화면이 되감긴다");
   assert.equal(removed.json.queueTotal, QUEUE_LEN - 1);

@@ -22,6 +22,7 @@ import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
 import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
+import { measureQueue } from "../media/loudness-measure.ts";
 import { encodePool } from "../media/encode-pool.ts";
 import { Player } from "../player/player.ts";
 import { restoreSessions, restoreGuild } from "../player/session-restore.ts";
@@ -72,6 +73,9 @@ import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
 import { bestEffort } from "../infra/best-effort.ts";
+import { welcomeGuild } from "./welcome.ts";
+import { nudgeOnSettingsChange } from "./settings-nudge.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { josa } from "../rules/josa.ts";
 
@@ -230,10 +234,17 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
+  // 캐시 파일의 볼륨을 측정했으면 그 곡을 트는 모든 서버가 새 고정 게인으로 램프한다(같은 곡을 여러 서버가 틀 수 있다)
+  measureQueue.onMeasured((audioKey) => {
+    for (const player of players.values()) player.gain.valueArrived(audioKey);
+  });
   playerEvents.on("started", (player) => stay.wake(player.guild.id));
+  // 디스코드 명령, 대시보드, 초기화 어느 쪽에서 서버 설정이 바뀌든 그 서버를 보는 대시보드 화면이 설정을 다시 읽는다
+  nudgeOnSettingsChange(guildSettings.onChanged, playerEvents.touched);
   // 봇이 새 서버에 들면 대시보드 서버 목록 연결을 연 사람들이 그 서버의 신호도 받게 한다
   client.on(Events.GuildCreate, (guild) => {
     bestEffort(log, botJoinedGuild(stream, guild), "새 서버의 대시보드 구독자 가져오기", "warn");
+    bestEffort(log, welcomeGuild(guild), `새 서버 ${guild.id}의 안내 메시지`, "warn");
   });
   // 게이트웨이에 재연결해 서버를 다시 쓸 수 있게 되면(멤버 캐시를 다시 받는다) 그 서버를 보던 연결의 사람을 다시 가져온다
   client.on(Events.GuildAvailable, (guild) => {

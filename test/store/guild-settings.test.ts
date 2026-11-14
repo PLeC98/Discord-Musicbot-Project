@@ -44,7 +44,7 @@ const whenDbDown = whenSettingsBroken;
 test("전용 채널: 저장, 읽기, 지우기. 미설정은 null", async () => {
   assert.equal(await settings.getBotChannel("g1"), null);
   fresh();
-  assert.equal(await settings.setBotChannel("g1", "c1"), true);
+  assert.deepEqual(await settings.setBotChannel("g1", "c1"), ["botChannelId"]);
   fresh();
   assert.equal(await settings.getBotChannel("g1"), "c1");
   await settings.clearBotChannel("g1");
@@ -117,7 +117,7 @@ test("재생목록 곡 수: DB 를 열기 전에는 읽지 않고 기본값", ()
 
 test("볼륨: 저장하면 새 플레이어가 그 값으로 시작하고, 기본 볼륨이면 문서에서 지운다. 미설정은 기본 볼륨", async () => {
   assert.equal(settings.resolveVolume("g1"), config.bot.defaultVolume);
-  assert.equal(await settings.saveVolume("g1", 30), true);
+  assert.deepEqual(await settings.saveVolume("g1", 30), ["volume"]);
   fresh();
   assert.equal(settings.resolveVolume("g1"), 30);
   await settings.saveVolume("g1", config.bot.defaultVolume);
@@ -153,6 +153,34 @@ test("SponsorBlock 유효값: 전역이 꺼져 있으면 서버 설정과 무관
   }
 });
 
+test("볼륨 정규화: 기본 끔, 켜고 끄기. 끄면 필드를 뺀다", async () => {
+  assert.equal(settings.resolveNormalize("g1"), false);
+  assert.deepEqual(await settings.setNormalize("g1", true), ["normalize"]);
+  fresh();
+  assert.equal(settings.resolveNormalize("g1"), true);
+  await settings.setNormalize("g1", false);
+  fresh();
+  assert.equal(settings.resolveNormalize("g1"), false);
+  assert.equal(guildTable.getNormalize("g1"), false);
+});
+
+test("볼륨 정규화: 프레임마다 읽으므로 읽기 실패는 끔으로 기억하고 오류 로그를 한 번만 남긴다. 저장하면 다시 그 값을 쓴다", async () => {
+  const from = sink.buffer.length;
+  try {
+    await settings.setNormalize("g3", true);
+    fresh();
+    await whenDbDown(() => {
+      for (let i = 0; i < 50; i++) assert.equal(settings.resolveNormalize("g3"), false);
+    });
+    assert.equal(sink.buffer.slice(from).filter((e) => e.text.startsWith("볼륨 정규화 설정 읽기 실패")).length, 1);
+    assert.equal(settings.resolveNormalize("g3"), false, "DB 가 돌아와도 바꾸거나 초기화하기 전에는 기억한 끔");
+    fresh();
+    assert.equal(settings.resolveNormalize("g3"), true);
+  } finally {
+    await settings.setNormalize("g3", false);
+  }
+});
+
 test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () => {
   await settings.setBotChannel("g1", "c1");
   await whenDbDown(async () => {
@@ -160,18 +188,18 @@ test("읽은 값은 메모리에 남아 DB 를 다시 안 읽는다", async () =
   });
 });
 
-test("DB 가 실패하면 쓰기는 false, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
-  assert.equal(await whenDbDown(() => settings.setBotChannel("g1", "c1")), false);
-  assert.equal(await whenDbDown(() => settings.setDjRoles("g1", ["r"])), false);
-  assert.equal(await whenDbDown(() => settings.setPlaylistAddMax("g1", 3)), false);
-  assert.equal(await whenDbDown(() => settings.setSponsorBlock("g1", { enabled: true })), false);
+test("DB 가 실패하면 쓰기는 던지고 캐시는 그대로, 읽기는 비어 있는 값(null, 빈 배열, 상속)", async () => {
+  await settings.setBotChannel("g1", "c0");
+  for (const write of [() => settings.setBotChannel("g1", "c1"), () => settings.clearBotChannel("g1"), () => settings.setDjRoles("g1", ["r"]), () => settings.clearDjRoles("g1"), () => settings.setPlaylistAddMax("g1", 3), () => settings.setSponsorBlock("g1", { enabled: true }), () => settings.setAgePlace("g1", "all"), () => settings.saveVolume("g1", 30), () => settings.setNormalize("g1", true)]) {
+    await assert.rejects(() => whenDbDown(write));
+  }
+  assert.equal(await settings.getBotChannel("g1"), "c0", "실패한 쓰기는 캐시를 바꾸지 않는다");
 
   fresh();
   assert.equal(await whenDbDown(() => settings.getBotChannel("g2")), null);
   assert.deepEqual(await whenDbDown(() => settings.getDjRoles("g2")), []);
   assert.equal(await whenDbDown(() => settings.getPlaylistAddMax("g2")), null);
   assert.deepEqual(await whenDbDown(() => settings.getSponsorBlock("g2")), { enabled: null, categories: null });
-  await assert.doesNotReject(() => whenDbDown(() => settings.clearBotChannel("g2")), "지우기는 실패를 삼킨다");
 });
 
 test("실패한 읽기는 기억하지 않는다. DB 가 돌아오면 다시 읽는다", async () => {
@@ -259,4 +287,114 @@ test("봇 채널: 저장/조회/해제. DJ 설정과 같은 문서에서 서로 
   guildTable.clearBotChannel("g4");
   assert.equal(guildTable.getBotChannel("g4"), null);
   assert.deepEqual(guildTable.getDjRoles("g4"), ["r1"], "채널 해제가 DJ 설정을 지우지 않음");
+});
+
+// ── 쓰기 한 곳(update) ──────────────────────────────────────
+
+// 읽기는 되고 쓰기만 실패하게 한다. 한 번에 한 종류만 걸고 늘 지운다(남은 DELETE 막기는 뒤 시험을 막는다)
+async function whenWriteFails<T>(kind: "INSERT" | "UPDATE" | "DELETE", fn: () => T | Promise<T>): Promise<T> {
+  const db = settingsDb.get();
+  db.exec(`CREATE TRIGGER block_write BEFORE ${kind} ON guild_settings BEGIN SELECT RAISE(ABORT, 'blocked'); END`);
+  try {
+    return await fn();
+  } finally {
+    db.exec("DROP TRIGGER block_write");
+  }
+}
+
+test("update: 여러 필드를 한 번에 쓰고 바뀐 필드만 돌려준다. 같은 값이면 바뀐 것이 없다(역할은 순서와 중복을 보지 않는다)", () => {
+  const first = settings.update("u1", { botChannelId: "c1", djRoleIds: ["r1", "r2"], playlistAddMax: 30 });
+  assert.equal(first.ok, true);
+  assert.deepEqual(first.ok && first.changed, ["botChannelId", "djRoleIds", "playlistAddMax"]);
+  const again = settings.update("u1", { botChannelId: "c1", djRoleIds: ["r2", "r1", "r1"] });
+  assert.deepEqual(again.ok && again.changed, []);
+  assert.deepEqual(guildTable.getDjRoles("u1"), ["r1", "r2"], "바뀐 것이 없으면 쓰지 않는다");
+});
+
+test("update: 기본값은 문서에서 빼고, 마지막 필드를 지우면 행을 지운다", () => {
+  settings.update("u2", { agePlace: "all", normalize: true });
+  settings.update("u2", { agePlace: "channel", normalize: false });
+  assert.equal(settingsDb.get().prepare("SELECT COUNT(*) FROM guild_settings WHERE guild_id = 'u2'").pluck().get(), 0);
+});
+
+test("update: SponsorBlock 은 준 하위 키만 바꾸고 나머지는 행의 값이다(캐시가 낡아도). 구간의 [] 는 남고 null 과 다르다", async () => {
+  settings.update("u3", { sponsorBlock: { enabled: true, categories: ["intro"] } });
+  assert.deepEqual(await settings.getSponsorBlock("u3"), { enabled: true, categories: ["intro"] });
+  guildTable.setGuildSponsorBlock("u3", { enabled: true, categories: ["outro"] }); // 캐시를 거치지 않는 쓰기라 캐시는 intro 로 낡았다
+  settings.update("u3", { sponsorBlock: { enabled: false } });
+  assert.deepEqual(guildTable.getGuildSponsorBlock("u3"), { enabled: false, categories: ["outro"] });
+  const empty = settings.update("u3", { sponsorBlock: { categories: [] } });
+  assert.deepEqual(empty.ok && empty.changed, ["sponsorBlock"]);
+  assert.deepEqual(guildTable.getGuildSponsorBlock("u3"), { enabled: false, categories: [] });
+  settings.update("u3", { sponsorBlock: { categories: null } });
+  assert.deepEqual(guildTable.getGuildSponsorBlock("u3"), { enabled: false, categories: null });
+});
+
+test("update: check 가 키를 돌려주면 아무것도 쓰지 않고 그때의 문서를 돌려준다", () => {
+  settings.update("u4", { botChannelId: "c1" });
+  const result = settings.update("u4", { botChannelId: "c2", playlistAddMax: 9 }, (doc) => (doc.botChannelId === "c1" ? ["botChannelId"] : []));
+  assert.equal(result.ok, false);
+  assert.deepEqual(!result.ok && result.conflicts, ["botChannelId"]);
+  assert.equal(result.doc.botChannelId, "c1");
+  assert.equal(guildTable.getPlaylistAddMax("u4"), null);
+});
+
+test("update: 읽기는 되고 쓰기가 실패하면(넣기, 고치기, 지우기) 아무것도 바뀌지 않고 캐시도 그대로다", async () => {
+  await assert.rejects(() => whenWriteFails("INSERT", () => settings.update("u5", { botChannelId: "c1", playlistAddMax: 5 })));
+  assert.equal(guildTable.getBotChannel("u5"), null);
+  settings.update("u5", { botChannelId: "c1" });
+  assert.equal(await settings.getBotChannel("u5"), "c1");
+  await assert.rejects(() => whenWriteFails("UPDATE", () => settings.update("u5", { botChannelId: "c2", playlistAddMax: 5 })));
+  assert.equal(guildTable.getBotChannel("u5"), "c1");
+  assert.equal(guildTable.getPlaylistAddMax("u5"), null, "한 트랜잭션이라 앞 필드도 남지 않는다");
+  assert.equal(await settings.getBotChannel("u5"), "c1");
+  await assert.rejects(() => whenWriteFails("DELETE", () => settings.clearBotChannel("u5")));
+  assert.equal(guildTable.getBotChannel("u5"), "c1");
+});
+
+test("update: 바뀐 것이 없는 쓰기도 패치에 든 필드의 캐시를 행의 값으로 고친다(읽기 실패로 남은 끔)", async () => {
+  settings.update("u6", { normalize: true });
+  fresh();
+  await whenDbDown(() => assert.equal(settings.resolveNormalize("u6"), false));
+  assert.equal(settings.resolveNormalize("u6"), false, "읽기 실패로 기억한 끔");
+  const result = settings.update("u6", { normalize: true });
+  assert.deepEqual(result.ok && result.changed, []);
+  assert.equal(settings.resolveNormalize("u6"), true);
+});
+
+test("onChanged: 커밋 뒤 바뀐 필드로 한 번(볼륨 포함). 바뀐 것이 없거나 실패하면 알리지 않고, 듣는 쪽이 던져도 저장은 된다", async () => {
+  const heard: Array<[string, string[]]> = [];
+  const off = settings.onChanged((guildId, fields) => heard.push([guildId, fields]));
+  const offThrow = settings.onChanged(() => {
+    throw new Error("듣는 쪽 오류");
+  });
+  try {
+    settings.update("u7", { volume: 30, djRoleIds: ["r1"] });
+    settings.update("u7", { volume: 30 });
+    await assert.rejects(() => whenWriteFails("UPDATE", () => settings.update("u7", { volume: 40 })));
+    assert.deepEqual(heard, [["u7", ["djRoleIds", "volume"]]]);
+    assert.equal(guildTable.getVolume("u7"), 30);
+  } finally {
+    off();
+    offThrow();
+  }
+});
+
+test("removeAll: 모든 서버의 설정을 지우고 캐시를 비우며, 설정이 있던 서버마다 그 필드를 알린다", async () => {
+  settings.update("u8", { botChannelId: "c8" });
+  settings.update("u9", { normalize: true, volume: 20 });
+  assert.equal(await settings.getBotChannel("u8"), "c8");
+  const heard: Array<[string, string[]]> = [];
+  const off = settings.onChanged((guildId, fields) => heard.push([guildId, [...fields].sort()]));
+  try {
+    settings.removeAll();
+  } finally {
+    off();
+  }
+  assert.equal(settings.guildCount(), 0);
+  assert.equal(await settings.getBotChannel("u8"), null);
+  assert.deepEqual(heard.sort(), [
+    ["u8", ["botChannelId"]],
+    ["u9", ["normalize", "volume"]],
+  ]);
 });

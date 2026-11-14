@@ -5,6 +5,9 @@
 import { MessageFlags, type RepliableInteraction } from "discord.js";
 import { fake } from "./fake.ts";
 
+// 상호작용마다 다른 id. 첫 응답의 삭제 예약이 이 id 로 걸린다
+let seq = 0;
+
 type Over = { replied?: boolean; deferred?: boolean; command?: boolean; component?: boolean; channel?: boolean; denied?: boolean };
 
 function asked({ replied = false, deferred = false, command = true, component = false, channel = true, denied = false }: Over = {}) {
@@ -16,6 +19,7 @@ function asked({ replied = false, deferred = false, command = true, component = 
     return [p.flags].flat().includes(MessageFlags.Ephemeral) ? "self" : "all";
   };
   const it = {
+    id: `i${++seq}`,
     replied,
     deferred,
     isChatInputCommand: () => command,

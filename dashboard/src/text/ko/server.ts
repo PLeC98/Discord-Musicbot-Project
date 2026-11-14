@@ -16,6 +16,10 @@ const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
 /** 재생목록 링크에서 그 곡(곡 + 목록 주소면 그 곡, 목록만이면 첫 곡)만 넣는 버튼 */
 const addOne = "한 곡만";
+/** 넣을 자리(DJ 만): 보내기 옆 메뉴의 이름과 항목, 검색 결과 줄의 버튼 */
+const addPlace = "넣을 자리";
+const addFirst = "맨 앞에 넣기";
+const addOneFirst = "한 곡만 맨 앞에 넣기";
 /** 검색 결과가 이미 대기열에 있는 곡의 배지 */
 const inQueue = "대기열";
 /** 검색 실패(결과 자리의 제목 줄, 보조 줄). 끝 줄에는 오류 코드 */
@@ -50,8 +54,12 @@ const autoplayOn = "자동재생 켜기";
 const autoplayOff = "자동재생 끄기";
 const whichGenre = "어떤 장르의 곡들을 틀까요?";
 const dragToReorder = "드래그해서 순서 바꾸기";
-const pickedByAutoplay = "자동재생이 선택한 곡";
+const pickedByAutoplay = "자동재생";
 const removeSong = "빼기";
+/** 대기열에서 고른 곡 */
+const picked = (n: number) => `${n}곡 선택됨`;
+const removePicked = "선택한 곡 빼기";
+const clearPicks = "선택 해제";
 const queueEmpty = "대기열이 비어 있어요";
 /** 아직 받지 않은 곡이 뒤에 있어 맨 끝으로 옮길 수 없을 때 */
 const moveNeedsAll = { title: "아직 불러오지 않은 곡이 뒤에 있어요.", body: "대기열을 끝까지 스크롤해 모두 불러온 뒤 맨 끝으로 옮길 수 있어요." };
@@ -62,6 +70,7 @@ const failed = {
   state: "재생 상태를 읽지 못했어요.",
   stop: "정지하지 못했어요.",
   remove: "곡을 빼지 못했어요.",
+  removePicked: "선택한 곡을 빼지 못했어요.",
   move: "곡을 옮기지 못했어요.",
   highlight: "하이라이트로 가지 못했어요.",
   genres: "장르 목록을 불러오지 못했어요.",
@@ -69,4 +78,4 @@ const failed = {
   autoplayOff: "자동재생을 끄지 못했어요.",
 };
 
-export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, addOne, inQueue, searchLimited, searchFailed, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, queueEmpty, moveNeedsAll, failed };
+export { noPlayerState, stopConfirm, joinBot, joinBotToVoice, joining, addPlaceholder, addSubmit, addOne, addPlace, addFirst, addOneFirst, inQueue, searchLimited, searchFailed, addFailed, joinFailed, serverSettings, enlarge, enlargeArt, addToPlay, volumeLabel, voice, songs, queueLength, moreSongs, autoplay, autoplayOn, autoplayOff, whichGenre, dragToReorder, pickedByAutoplay, removeSong, picked, removePicked, clearPicks, queueEmpty, moveNeedsAll, failed };

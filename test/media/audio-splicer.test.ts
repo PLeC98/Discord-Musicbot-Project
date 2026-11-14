@@ -12,7 +12,7 @@ import { AudioSplicer, BYTES_PER_MS, FRAME_BYTES } from "../../src/media/audio-s
 // 위치마다 값이 다른 PCM. 어긋나면 바로 드러난다. mark로 소스를 구분한다.
 function pcm(ms: number, mark: number) {
   const buf = Buffer.alloc(ms * BYTES_PER_MS);
-  for (let i = 0; i < buf.length; i += 2) buf.writeInt16LE(((i / 2 + mark * 1000) % 20000) - 10000, i);
+  for (let i = 0; i < buf.length; i += 4) buf.writeFloatLE((((i / 4 + mark * 1000) % 20000) - 10000) / 32768, i);
   return buf;
 }
 
@@ -78,7 +78,7 @@ test("지정한 지점에서 갈아탄다. 전후로 바이트가 새지 않는�
   const out = await collect(sp);
   // 전환 지점까지는 A, 페이드 뒤부터는 B. 총 길이는 A(200ms) + B가 내놓은 만큼.
   assert.ok(out.length > switchAt * BYTES_PER_MS, "전환 지점을 넘겨 계속 나왔다");
-  assert.equal(out.length % 2, 0, "샘플 경계가 깨지지 않았다");
+  assert.equal(out.length % 4, 0, "샘플 경계가 깨지지 않았다");
 });
 
 test("전환 지점 이전 구간은 첫 소스와 바이트 단위로 같다", async () => {
@@ -162,7 +162,7 @@ test("크로스페이드는 볼륨 딥을 만들지 않는다 (등출력)", asyn
   const fadeMs = 40;
   const sp = new AudioSplicer(src, { fadeMs });
   const wave = Buffer.alloc(400 * BYTES_PER_MS);
-  for (let i = 0; i < wave.length; i += 2) wave.writeInt16LE(Math.round(10000 * Math.sin(i / 40)), i);
+  for (let i = 0; i < wave.length; i += 4) wave.writeFloatLE(0.3 * Math.sin(i / 80), i);
   src.writeAll(wave);
   sp.planSwitch(nxt, 200);
   nxt.writeAll(wave.subarray(200 * BYTES_PER_MS));
@@ -170,8 +170,17 @@ test("크로스페이드는 볼륨 딥을 만들지 않는다 (등출력)", asyn
   const out = await collect(sp);
   const mid = out.subarray((200 + fadeMs / 2) * BYTES_PER_MS, (200 + fadeMs / 2 + 5) * BYTES_PER_MS);
   let peak = 0;
-  for (let i = 0; i < mid.length; i += 2) peak = Math.max(peak, Math.abs(mid.readInt16LE(i)));
-  assert.ok(peak > 8000, `페이드 한가운데 진폭이 유지돼야 한다 (실제 ${peak})`);
+  for (let i = 0; i < mid.length; i += 4) peak = Math.max(peak, Math.abs(mid.readFloatLE(i)));
+  assert.ok(peak > 0.24, `페이드 한가운데 진폭이 유지돼야 한다 (실제 ${peak})`);
+});
+
+test("섞을 때 끝난 소스의 끝부분이 샘플 경계에 맞지 않으면 모자란 샘플을 무음으로 본다", () => {
+  const sp = new AudioSplicer(new PassThrough(), { fadeMs: 40 });
+  const tail = pcm(20, 1).subarray(0, 6);
+  const mixed = sp._mix(tail, pcm(20, 2));
+  assert.equal(mixed.length, FRAME_BYTES);
+  assert.equal(mixed.readFloatLE(0), tail.readFloatLE(0));
+  sp.destroy();
 });
 
 test("switched 이벤트가 전환 위치와 함께 한 번 발생한다", async () => {

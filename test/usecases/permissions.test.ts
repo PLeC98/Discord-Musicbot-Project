@@ -10,7 +10,7 @@ import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 const store = openTempStore("perm-");
 after(() => store.close());
 
-const { isServerManager, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTrack } = await import("../../src/usecases/permissions.ts");
+const { isServerManager, isDj, checkVoice, checkControl, checkAdd, checkSummon, checkSkip, checkRemoveTracks } = await import("../../src/usecases/permissions.ts");
 
 // perms: 보유 권한 비트 배열 / roles: 유저 보유 역할 / guildRoles: 서버에 존재하는 역할
 // voice: 유저가 있는 음성 채널 id / botVoice: 봇이 있는 음성 채널 id
@@ -23,7 +23,8 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
     permissions: { has: (p: bigint) => perms.includes(p) },
     guild: {
       id: "g",
-      roles: { cache: { has: (id: string) => guildRoles.includes(id) } },
+      // rbot 은 봇 역할(디스코드가 봇에 붙인 역할)
+      roles: { cache: new Map(guildRoles.map((id) => [id, { id, tags: id === "rbot" ? { botId: "bot" } : null }])) },
       members: { me: { voice: { channel: botVoice ? { id: botVoice } : null } } },
     },
     roles: { cache: { has: (id: string) => roles.includes(id) } },
@@ -34,6 +35,21 @@ function fakeMember({ id = "u0", perms = [], roles = [], guildRoles = ["r1", "r2
 }
 
 // ── isServerManager ──────────────────────────────────────────
+
+test("DJ 역할 후보: 서버에 있는 역할 가운데 @everyone, 봇 역할은 아니다. 봇 역할뿐이면 미설정과 같아 전원 DJ", async () => {
+  const { isDjRoleCandidate } = await import("../../src/usecases/permissions.ts");
+  const guild = fakeMember({ guildRoles: ["r1", "rbot", "g"] }).guild;
+  assert.deepEqual(
+    ["r1", "rbot", "g", "gone"].filter((id) => isDjRoleCandidate(guild, id)),
+    ["r1"],
+  );
+  setGuild("g", { djRoles: ["rbot"] });
+  try {
+    assert.equal(await isDj(fakeMember({ guildRoles: ["r1", "rbot"] })), true, "봇 역할은 사람에게 줄 수 없어 전원 잠금이 된다");
+  } finally {
+    setGuild("g", { djRoles: [] });
+  }
+});
 
 test("서버 관리자: 서버 관리 권한만 인정되고 차단, 추방, 타임아웃 권한은 해당하지 않는다", () => {
   assert.equal(isServerManager(fakeMember({ perms: [PermissionFlagsBits.ManageGuild] })), true);
@@ -113,7 +129,7 @@ test("재생 조작: 같은 채널이어도 비-DJ는 거부", async () => {
   assert.equal(await checkControl(fakeMember({ roles: [], voice: "vc1", botVoice: "vc1" })), "must-dj");
 });
 
-// ── checkSkip / checkRemoveTrack (요청자 본인 예외) ──────────
+// ── checkSkip / checkRemoveTracks (요청자 본인 예외) ──────────
 
 test("스킵: 비-DJ여도 현재 곡 요청자 본인은 가능 (동일 음성 채널 규칙은 적용)", async () => {
   setGuild("g", { djRoles: ["r1"] });
@@ -134,10 +150,15 @@ test("대기열 제거: 비-DJ여도 그 곡 요청자 본인은 가능", async 
   const track = { requestedBy: { id: "u1" } };
 
   const requester = fakeMember({ id: "u1", voice: "vc1", botVoice: "vc1" });
-  assert.equal(await checkRemoveTrack(requester, track), null);
+  assert.equal(await checkRemoveTracks(requester, [track]), null);
 
   const other = fakeMember({ id: "u2", voice: "vc1", botVoice: "vc1" });
-  assert.equal(await checkRemoveTrack(other, track), "must-dj");
+  assert.equal(await checkRemoveTracks(other, [track]), "must-dj");
+
+  assert.equal(await checkRemoveTracks(requester, [track, track]), null, "여러 곡이 모두 자기 곡");
+  assert.equal(await checkRemoveTracks(requester, [track, { requestedBy: { id: "u2" } }]), "must-dj", "한 곡이라도 남의 곡이면 DJ 판정");
+  assert.equal(await checkRemoveTracks(requester, [{ requestedBy: null }]), "must-dj", "넣은 사람이 없는 곡(자동재생)은 DJ 만");
+  assert.equal(await checkRemoveTracks(requester, []), "must-dj", "빈 목록은 자기 곡으로 치지 않는다");
 });
 
 // ── checkSummon (봇 유휴 시 소환 가능 여부) ─────────────────
@@ -180,4 +201,29 @@ test("진입점 조합: checkAdd + checkSummon이 봇의 두 상태를 모두 �
   // 정상 경로
   const ok = { voice: "vc1", botVoice: "vc1" };
   assert.equal(checkAdd(fakeMember(ok)) || checkSummon(fakeMember(ok)), null);
+});
+
+test("canKickBot: 멤버 추방 권한이 있고, 서버 소유자이거나 가장 높은 역할이 봇보다 위여야 한다(디스코드의 역할 순서 규칙). 타임아웃 중이면 아니다(소유자, 관리자는 그대로)", async () => {
+  const { canKickBot } = await import("../../src/usecases/permissions.ts");
+  const role = (position: number) => ({ position, comparePositionTo: (other: { position: number }) => position - other.position });
+  type Options = { kick?: boolean; admin?: boolean; owner?: boolean; mine?: number; bots?: number | null; timedOut?: boolean; botRoles?: string[] };
+  const member = ({ kick = true, admin = false, owner = false, mine = 5, bots = 3, timedOut = false, botRoles = ["rb"] }: Options) =>
+    fake<GuildMember>({
+      id: "u1",
+      permissions: { has: (p: bigint) => (kick && p === PermissionFlagsBits.KickMembers) || (admin && p === PermissionFlagsBits.Administrator) },
+      isCommunicationDisabled: () => timedOut,
+      roles: { highest: role(mine) },
+      guild: { ownerId: owner ? "u1" : "owner", roles: { cache: new Map([["rb", {}]]) }, members: { me: bots === null ? null : { _roles: botRoles, roles: { highest: role(bots) } } } },
+    });
+  assert.equal(canKickBot(member({})), true);
+  assert.equal(canKickBot(member({ kick: false })), false, "추방 권한이 없으면 역할이 높아도 안 된다");
+  assert.equal(canKickBot(member({ mine: 3 })), false, "봇과 같은 높이면 안 된다");
+  assert.equal(canKickBot(member({ mine: 1 })), false);
+  assert.equal(canKickBot(member({ mine: 1, owner: true })), true, "서버 소유자는 역할 순서와 상관없다");
+  assert.equal(canKickBot(member({ owner: true, kick: false })), false, "권한 판정을 따른다(디스코드는 소유자에게 모든 권한을 준다)");
+  assert.equal(canKickBot(member({ bots: null })), false, "봇 멤버를 모르면 아니다");
+  assert.equal(canKickBot(member({ timedOut: true })), false, "타임아웃 중이면 디스코드가 권한을 거둔다");
+  assert.equal(canKickBot(member({ timedOut: true, admin: true })), true, "관리자는 타임아웃 중에도 권한이 남는다");
+  assert.equal(canKickBot(member({ timedOut: true, owner: true })), true);
+  assert.equal(canKickBot(member({ botRoles: ["rb", "missing"] })), false, "봇의 역할 가운데 캐시에 없는 것이 있으면 봇의 높이를 알 수 없다");
 });

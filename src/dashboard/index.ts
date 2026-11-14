@@ -56,7 +56,8 @@ import { warnGate } from "./warn-gate.ts";
 import { browserSide, strictTransport } from "./browser-side.ts";
 import { hostCheck } from "./host-check.ts";
 import { checkPublicUrl, plaintextGate, siblingCookieNote } from "./plaintext.ts";
-import { bindLine, bindNotes, inContainer, isLoopbackName, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
+import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf, widenedNote, type BindPlan } from "./bind-plan.ts";
+import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 
 /** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */

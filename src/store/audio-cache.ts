@@ -9,6 +9,7 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { md5, audioKeyOf } from "../rules/audio-key-of.ts";
 import { sessions } from "./player-sessions.ts";
 import { cacheDb, TABLES_OF_PART } from "./cache-db.ts";
+import { pruneIfDue as pruneLoudness } from "./loudness.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -50,6 +51,8 @@ const protectedFiles = new Set<string>(); // 지금 다운로드 중인 파일 �
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
 // 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC, 담기) 그동안 퇴거, 삭제, 초기화가 삭제하지 않게 한다
 const exportingKeys = new Set<Set<string>>();
+// 볼륨을 재는 중인 키와 그 키를 막은 횟수(같은 키를 겹쳐 막을 수 있다)
+const measuringKeys = new Map<string, number>();
 let evictInterval: NodeJS.Timeout | null = null;
 let evictEveryMs = 0;
 // 캐시 파일이 놓이는 곳. 테스트가 _setCacheDir 로 교체하면 실제 폴더를 건드리지 않는다.
@@ -215,6 +218,7 @@ function setQueuedKeys(guildId: string | null | undefined, keys: Array<string | 
 function liveKeys() {
   const keys = new Set(protectedKeys.values());
   for (const set of [...queuedKeys.values(), ...exportingKeys]) for (const k of set) keys.add(k);
+  for (const k of measuringKeys.keys()) keys.add(k);
   return keys;
 }
 
@@ -223,6 +227,19 @@ function holdForExport(audioKeys: Iterable<string>): () => void {
   const held = new Set(audioKeys);
   exportingKeys.add(held);
   return () => void exportingKeys.delete(held);
+}
+
+/** 볼륨을 재는 동안 이 파일이 삭제되지 않게 막는다. 푸는 함수를 돌려준다(여러 번 불러도 한 번만 푼다) */
+function holdForMeasure(audioKey: string): () => void {
+  measuringKeys.set(audioKey, (measuringKeys.get(audioKey) ?? 0) + 1);
+  let held = true;
+  return () => {
+    if (!held) return;
+    held = false;
+    const left = (measuringKeys.get(audioKey) ?? 1) - 1;
+    if (left > 0) measuringKeys.set(audioKey, left);
+    else measuringKeys.delete(audioKey);
+  };
 }
 
 /** 오디오 키로 캐시 파일 기록 한 행을 그대로 읽는다 */
@@ -710,7 +727,7 @@ async function evictLocked({ totalSize = cacheSize(), fileCount = cacheCount(), 
 }
 
 /** 쓰는 중이라 삭제하지 않은 까닭: 재생 중, 대기열 앞, 저장된 대기열 앞, 내보내는 중 */
-type CacheUse = "playing" | "queued" | "saved-session" | "exporting";
+type CacheUse = "playing" | "queued" | "saved-session" | "exporting" | "measuring";
 /**
  * 캐시 파일 하나 삭제의 결과. changed: 화면이 본 다운로드 시각과 지금이 다르다(current 는 지금 값), gone: 행이 없다,
  * in-use: 쓰는 중, downloading: 다운로드 중, failed: 파일을 삭제하지 못했다(다른 프로그램이 쥐고 있다)
@@ -723,6 +740,7 @@ function useOf(audioKey: string): CacheUse | null {
   for (const set of queuedKeys.values()) if (set.has(audioKey)) return "queued";
   if (sessionKeys(sessions().frontAudioUrls(config.preload.ahead)).has(audioKey)) return "saved-session";
   for (const set of exportingKeys) if (set.has(audioKey)) return "exporting";
+  if (measuringKeys.has(audioKey)) return "measuring";
   return null;
 }
 
@@ -761,6 +779,13 @@ function startPeriodicEviction() {
   evictEveryMs = config.cache.evictIntervalMs;
   evictInterval = setInterval(() => {
     evictIfNeeded().catch((err: unknown) => log.error("오디오 캐시 정기 정리 중 오류:", messageOf(err)));
+    // 볼륨 값은 캐시 파일과 따로, 오래 쓰지 않은 것만 지운다(하루에 한 번)
+    bestEffort(
+      log,
+      Promise.resolve().then(() => pruneLoudness()),
+      "오래된 볼륨 값 지우기",
+      "warn",
+    );
   }, evictEveryMs);
   evictInterval.unref(); // 프로세스가 끝나는 것을 붙잡지 않는다
 }
@@ -855,6 +880,7 @@ export {
   unprotectFile,
   setQueuedKeys,
   holdForExport,
+  holdForMeasure,
   cacheUsage,
   adoptFile,
   mergePlays,

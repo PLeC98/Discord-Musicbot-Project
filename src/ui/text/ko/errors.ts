@@ -4,6 +4,7 @@
 import { formatBytes, formatMs } from "../../format.ts";
 import { noticeOf, type Notice, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
+import { VOLUME_MAX } from "../../../rules/limits.ts";
 import { PROBLEMS, type Code, type NeedsParams, type Params, type ParamsOf } from "../../../rules/problems.ts";
 
 // 봇 쪽 문제, 외부 실패로 못 했다
@@ -81,7 +82,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   // 입력이 틀림
   // 시간 입력(/seek)을 읽지 못했다
   "bad-time": () => warning("input", "알 수 없는 시간 형식이에요!", "제가 읽을 수 없는 형식이에요. `1:30`, `3m20s`, `90` 처럼 적어 주세요!"),
-  "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", "볼륨은 0에서 100 까지의 숫자로 적어야 해요."),
+  "bad-volume": () => warning("input", "정해진 범위의 숫자로 입력해 주세요!", `볼륨은 0에서 ${VOLUME_MAX}까지의 숫자로 적어야 해요.`),
   "bad-position": ({ size }) => warning("input", "그 번호의 곡은 존재하지 않아요!", `대기열에는 ${size}곡만 있어요. 1~${size} 사이로 적어 주세요.`),
   "same-position": () => warning("input", "제자리로 옮길 수는 없어요!", "옮길 곡의 번호와 옮겨질 위치가 같아요. 번호를 다시 확인해주세요."),
   "beyond-end": ({ durationMs }) => warning("input", "곡이 그만큼 길지 않아요!", `곡 길이(${formatMs(durationMs, "--:--")})보다 뒤로 이동할 수는 없어요.`),
@@ -202,6 +203,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "announce-no-guilds": () => warning("state", "공지를 보낼 서버가 없어요!", "봇이 들어가 있는 서버가 하나도 없어요."),
   "announce-failed": () => error("failed", "어느 서버에도 보내지 못했어요!", "보낼 수 있는 채널이 없거나 봇에게 메시지를 올릴 권한이 없어요. 서버마다 봇의 권한을 확인해 주세요."),
   "leave-guild-failed": () => error("failed", "서버에서 나가지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 잠시 뒤에 다시 시도해 주세요."),
+  "cannot-kick-bot": () => warning("permission", "봇을 내보낼 권한이 없어요!", "디스코드에서 봇을 추방할 수 있는 사람만 내보낼 수 있어요."),
   "deploy-failed": () => error("failed", "명령어를 배포하지 못했어요!", "디스코드가 요청을 거절했거나 연결에 문제가 있어요. 아래 오류 내용을 확인해 주세요."),
   "suggest-failed": () => error("failed", "자동완성 후보를 받지 못했어요!", "그 출처에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
   "model-refresh-failed": () => error("failed", "모델 정보를 받지 못했어요!", "모델 정보 저장소에 연결하지 못했어요. 잠시 뒤에 다시 시도해 주세요."),
@@ -215,6 +217,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "config-not-found": (_, look) => warning("notFound", "없는 설정이에요!", stalePage(look)),
   "config-invalid": () => warning("input", "설정에 문제가 있어요!", "값을 고친 뒤 다시 시도해 주세요."),
   "config-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 탭이나 다른 사람이 먼저 저장했어요. 새로 불러온 뒤 다시 고쳐 주세요."),
+  "settings-changed": () => warning("stale", "설정이 그사이 바뀌었어요!", "다른 곳에서 먼저 바뀐 설정은 덮어쓰지 않고 지금 값을 불러왔어요. 바뀐 값을 확인하고 그래도 바꾸려면 다시 고쳐 주세요."),
   "config-save-failed": () => error("failed", "설정을 저장하지 못했어요!", "설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요."),
   "bad-archive": () => warning("input", "불러올 수 없는 파일이에요!", "이 봇의 설정 내보내기 ZIP이 아니거나 파일이 깨졌어요. 아래 오류 내용을 확인해 주세요."),
   "disk-full": ({ size }) => warning("state", "저장 공간이 모자라요!", `남은 공간이 ${formatBytes(size ?? 0)} 뿐이에요. 디스크를 비운 뒤 다시 시도해 주세요.`),

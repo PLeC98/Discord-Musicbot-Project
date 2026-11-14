@@ -9,6 +9,8 @@ import * as h from "../helpers/player-harness.ts";
 import sink from "../../src/infra/log/sink.ts";
 import logger from "../../src/infra/log/logger.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
+import * as loudness from "../../src/store/loudness.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { AudioSplicer } from "../../src/media/audio-splicer.ts";
@@ -1411,6 +1413,25 @@ test("끊긴 라이브를 다시 여는 사이에 플레이어가 버려지면 �
   p.play = async () => ({ ok: false, code: "bot-shutting-down" });
   assert.equal(await p._reopenLive("곡"), true);
   h.dispose(p);
+});
+
+test("볼륨 정규화를 켠 서버에서 측정값이 있는 캐시 파일은 게인 탭이 처음부터 고정 게인을 돌려주고 리미터를 켠다", async () => {
+  const track = yt("nnnnnnnnnnn");
+  h.seedCache("yt:nnnnnnnnnnn", track);
+  const row = audioCache.lookupByAudioKey("yt:nnnnnnnnnnn");
+  loudness.recordFile("yt:nnnnnnnnnnn", { integrated: -8, truePeak: -0.5, peakP99: -1 }, { sizeBytes: row?.file_size_bytes ?? null, durationSec: row?.duration_sec ?? null, audioVersion: null });
+  const p = h.makePlayer();
+  await guildSettings.setNormalize(p.guild.id, true);
+  try {
+    p.currentTrack = track;
+    await playOnce(p);
+    assert.deepEqual(p.playback?.tap?.frame(0), { gain: -6, press: true });
+    await guildSettings.setNormalize(p.guild.id, false);
+    assert.equal(p.playback?.tap?.frame(960).press, true, "끄면 0 dB 로 돌아오는 동안에도 리미터를 켠다");
+  } finally {
+    await guildSettings.setNormalize(p.guild.id, false);
+    h.dispose(p);
+  }
 });
 
 test("볼륨은 출력이 만들 때 받고, voice 에는 인코딩한 Opus 를 넘긴다(inlineVolume 없이)", async () => {

@@ -54,12 +54,15 @@ test("봇 설정: 설정 문서와 비밀값을 지우고 다시 읽는다. 기�
   assert.equal((await reset.resetBotSettings("tester")).restart, false, "기동 시와 같으면 다시 시작하지 않아도 된다");
 });
 
-test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버린다", async () => {
+test("서버별 설정: 모든 서버를 지우고 읽어 둔 것도 버리며, 설정이 있던 서버마다 알린다", async () => {
   setGuild("g1", { botChannel: "c1" });
   setGuild("g2", { djRoles: ["r1"] });
   assert.equal(await guildSettings.getBotChannel("g1"), "c1", "읽어 둔다");
 
-  const done = await reset.resetGuildSettings("tester");
+  const heard: string[] = [];
+  const off = guildSettings.onChanged((guildId) => heard.push(guildId));
+  const done = await reset.resetGuildSettings("tester").finally(off);
+  assert.deepEqual(heard.sort(), ["g1", "g2"]);
 
   assert.equal(done.guilds, 2);
   assert.match(done.snapshot, /^settings-before-reset-/);

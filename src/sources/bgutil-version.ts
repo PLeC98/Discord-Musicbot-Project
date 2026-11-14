@@ -67,7 +67,7 @@ class BgutilVersion {
       this.checkedAt = this.io.now();
       const target = config.bgutil.version;
       const newer = newerRelease(this.latest, target);
-      if (newer) log.info(`bgutil 새 버전 있음: ${target} → ${newer}. .env의 BGUTIL_VERSION을 수정한 뒤 봇을 종료하고 pnpm run update:bgutil을 실행하세요`);
+      if (newer) log.info(`bgutil 새 버전 있음: ${target} → ${newer}. 봇을 업데이트하면 기본값이 따라 오르고, 먼저 쓰려면 .env의 BGUTIL_VERSION과 그 태그의 커밋(BGUTIL_COMMIT)을 적은 뒤 봇을 종료하고 pnpm run update:bgutil을 실행하세요`);
     } catch (error) {
       failed = true;
       log.warn(`bgutil 새 버전 조회 실패: ${messageOf(error)}`);

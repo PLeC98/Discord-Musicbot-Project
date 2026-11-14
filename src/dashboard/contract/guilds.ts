@@ -1,6 +1,8 @@
 // 백엔드와 화면이 주고받는 모양: 서버 목록, 실시간 알림, 서버 설정(/api/guilds 아래)
 
 import type { AgePlace } from "../../rules/age-place.ts";
+import type { Code } from "../../rules/problems.ts";
+import type { SettingsKey, SettingsValues } from "../../rules/guild-settings-values.ts";
 
 /** 서버 목록의 상태: 봇이 음성 채널 밖 = idle, 곡을 트는 중 = playing, 일시정지 = paused, 음성 채널에 있지만 곡이 없다 = waiting */
 type ListState = "idle" | "playing" | "paused" | "waiting";
@@ -8,7 +10,7 @@ type ListState = "idle" | "playing" | "paused" | "waiting";
 /** 서버 목록의 지금 곡. 곡이 없으면 null */
 type GuildTrack = { title: string | null; artist: string | null; thumbnail: string | null };
 
-/** 서버 목록의 한 항목. listening 은 사용자가 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버에서 재생 중인 곡. 설정 화면의 권한은 GET /player 의 canManage */
+/** 서버 목록의 한 항목. listening 은 사용자가 봇과 같은 음성 채널에 있는지(전역 재생 바가 선택하는 기준), nowPlaying 은 그 서버에서 재생 중인 곡. 설정 화면을 열 수 있는지는 GET /player 의 hasSettings */
 type GuildRow = { id: string; name: string; icon: string | null; hasPlayer: boolean; state: ListState; memberCount: number; listening: boolean; nowPlaying: GuildTrack | null };
 /** relogin: 디스코드에서 사용자의 서버 목록을 받지 못해(토큰이 없거나 거절됨) 이미 확인한 서버만 보인다. 다시 로그인하면 모두 보인다 */
 type GuildList = { guilds: GuildRow[]; relogin?: true };
@@ -16,21 +18,43 @@ type GuildList = { guilds: GuildRow[]; relogin?: true };
 /** 실시간 알림(/api/guilds/events)의 한 건. 받은 화면이 그 서버의 상태를 다시 읽는다 */
 type GuildEvent = { t: "changed"; g: string };
 
-/** 서버 설정 화면. value 는 저장값(null 이면 기본), effective 는 실제로 쓰는 값 */
+/** 서버 설정 화면의 카드. 누가 보고 고치는지는 dashboard/settings-cards 의 표 */
+type SettingsCard = "stay" | "normalize" | "channel" | "dj" | "sponsorblock" | "playlistAdd" | "agePlace" | "leave";
+
+/**
+ * 상주 모드 카드. on: 켜져 있는가, channel: 머무는 음성 채널(꺼져 있거나 보는 사람이 볼 수 없는 채널이면 null),
+ * refusal: 보는 사람이 지금 바꿀 수 없는 까닭(바꿀 수 있으면 null). 켜고 끄기(POST .../settings/stay)의 답도 이 모양
+ */
+type StayCard = { on: boolean; channel: { id: string; name: string } | null; refusal: Code | null };
+
+/** 볼륨 정규화 카드. refusal 은 상주 모드 카드와 같다. 켜고 끄기(POST .../settings/normalize)의 응답도 같은 형식 */
+type NormalizeCard = { on: boolean; refusal: Code | null };
+
+/**
+ * 서버 설정 화면. cards 는 보는 사람에게 보이는 카드이고, 카드의 값은 보이는 카드만 싣는다(안 보이는 카드의 목록, 값은 보내지 않는다).
+ * playlistAdd 의 value 는 저장값(null 이면 기본), effective 는 실제로 쓰는 값
+ */
 type GuildSettings = {
   guildName: string;
-  canEdit: boolean;
-  djRoleIds: string[];
-  botChannelId: string | null;
-  roles: Array<{ id: string; name: string; color: string | null }>;
-  channels: Array<{ id: string; name: string }>;
-  sponsorblock: { masterEnabled: boolean; enabled: boolean; categories: string[] };
-  playlistAdd: { value: number | null; effective: number; min: number; max: number; default: number };
-  /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 null(화면에 입력란이 없다) */
-  agePlace: AgePlace | null;
+  cards: SettingsCard[];
+  stay?: StayCard;
+  normalize?: NormalizeCard;
+  channel?: { botChannelId: string | null; channels: Array<{ id: string; name: string }> };
+  dj?: { djRoleIds: string[]; roles: Array<{ id: string; name: string; color: string | null }> };
+  /** categories 가 null 이면 운영자의 기본 구간(defaultCategories)을 따른다 */
+  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] | null; defaultCategories: string[] };
+  playlistAdd?: { value: number | null; effective: number; min: number; max: number; default: number };
+  /** 연령 제한 콘텐츠를 틀 곳. 운영자가 연령 제한 콘텐츠를 꺼 두었으면 카드가 없다 */
+  agePlace?: AgePlace;
 };
 
-/** 서버 설정 저장의 답 */
+/** 바로 처리하는 요청의 응답(봇 내보내기 등) */
 type Saved = { success: true };
 
-export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, GuildSettings, Saved };
+/** 서버 설정 저장(PATCH)의 응답. 보낸 키가 저장된 뒤의 값(서버가 거른 역할 포함) */
+type SettingsSaved = { values: SettingsValues };
+
+/** 서버 설정 저장이 그사이 다른 곳의 변경과 충돌했을 때(settings-changed) 문제 응답에 덧붙는 값. current 에는 conflicts 의 키만 담는다 */
+type SettingsConflict = { conflicts: SettingsKey[]; current: SettingsValues };
+
+export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, NormalizeCard, GuildSettings, Saved, SettingsSaved, SettingsConflict };

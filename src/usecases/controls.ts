@@ -236,7 +236,7 @@ function settleVolume(player: Player, before: number, settled: Settled | undefin
     }
     bestEffort(log, refresh(player), "볼륨 뒤 패널 갱신");
     // 정지했다가 다시 틀어도 이 볼륨으로 시작한다
-    if (changed) bestEffort(log, saveServerVolume(player), "서버 볼륨 저장");
+    if (changed) bestEffort(log, saveServerVolume(player), `서버 볼륨 저장(서버 ${player.guild?.id})`, "error");
   }, VOLUME_SETTLE_MS);
   s.timer.unref?.();
   settling.set(player, s);
@@ -268,20 +268,24 @@ async function shuffle(player: MaybePlayer, actor: Actor) {
   return done({ count: player.queue.length });
 }
 
-/** 대기열에서 한 곡 빼기. index 는 0부터. 자기가 넣은 곡은 DJ 가 아니어도 뺄 수 있어 권한은 곡을 보고 판정한다 */
-async function remove(player: MaybePlayer, actor: Actor, index: unknown) {
-  if (!player) return fail("no-song");
-  if (player.queue.length === 0) return fail("queue-empty");
-  if (!isIndex(index, player.queue.length)) return fail("bad-position", { size: player.queue.length });
-  const target = player.queue[index];
-  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, target));
+// 고른 곡들을 뺀다. 자기가 넣은 곡은 DJ 가 아니어도 뺄 수 있어 권한은 곡을 보고 판정하고, 한 곡이라도 뺄 수 없으면 모두 거절한다.
+// 권한을 기다린 사이 대기열이 바뀌었을 수 있어 권한을 본 그 곡들을 다시 찾는다(같은 자리의 다른 곡을 빼지 않는다). 그사이 다 빠졌으면 entry-gone
+async function removeTracks(player: Player, actor: Actor, targets: QueuedTrack[]) {
+  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTracks(member, targets));
   if (blocked) return blocked;
-  // 권한을 기다린 사이 대기열이 바뀌었을 수 있어 권한을 본 그 곡을 다시 찾는다. 같은 자리의 다른 곡을 빼지 않는다
-  const at = player.queue.indexOf(target);
-  if (at < 0) return fail("entry-gone");
-  const track = player.removeFromQueue(at);
+  const removed = player.removeFromQueue(targets);
+  if (removed.length === 0) return fail("entry-gone");
   void refresh(player);
-  return done({ track, left: player.queue.length });
+  return done({ removed, left: player.queue.length });
+}
+
+/** 대기열에서 빼기(디스코드 /remove). index 는 0부터, end 를 주면 index 부터 end 까지(둘 다 넣고, 거꾸로 줘도 된다) */
+async function remove(player: MaybePlayer, actor: Actor, index: unknown, end: unknown = index) {
+  if (!player) return fail("no-song");
+  const size = player.queue.length;
+  if (size === 0) return fail("queue-empty");
+  if (!isIndex(index, size) || !isIndex(end, size)) return fail("bad-position", { size });
+  return removeTracks(player, actor, player.queue.slice(Math.min(index, end), Math.max(index, end) + 1));
 }
 
 /** 대기열 안에서 옮기기. from, to 는 0부터 */
@@ -299,20 +303,13 @@ async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknow
   return done({ track, from, to });
 }
 
-/** 대기열 ID로 한 곡 빼기(대시보드). 보던 화면이 오래돼도 그 곡을 뺀다. 그 사이 빠졌으면 거절 */
-async function removeEntry(player: MaybePlayer, actor: Actor, entry: number) {
+/** 대기열 ID로 빼기(대시보드). 보던 화면이 오래돼도 그 곡들을 뺀다. 이미 빠진 곡은 건너뛰고, 다 빠졌으면 거절 */
+async function removeEntries(player: MaybePlayer, actor: Actor, entries: readonly number[]) {
   if (!player) return fail("no-song");
-  const at = () => player.queue.findIndex((t) => t.entry === entry);
-  const found = player.queue[at()];
-  if (!found) return fail("entry-gone");
-  const blocked = await permitted(player, actor, (member) => perm.checkRemoveTrack(member, found));
-  if (blocked) return blocked;
-  // 권한을 기다린 사이 위치가 바뀌었을 수 있어 다시 찾는다
-  const index = at();
-  if (index < 0) return fail("entry-gone");
-  const track = player.removeFromQueue(index);
-  void refresh(player);
-  return done({ track, left: player.queue.length });
+  const wanted = new Set(entries);
+  const targets = player.queue.filter((t) => t.entry !== undefined && wanted.has(t.entry));
+  if (targets.length === 0) return fail("entry-gone");
+  return removeTracks(player, actor, targets);
 }
 
 /** 대기열 ID로 옮기기(대시보드). entry 를 before 앞에, before 가 null 이면 맨 끝으로. 그 사이 빠졌으면 거절 */
@@ -469,4 +466,4 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
 }
 
 export type { Actor, Refusal };
-export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, shuffle, remove, removeEntry, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };
+export { VOLUME_SETTLE_MS, pause, skip, stop, previous, seek, replay, highlight, volume, loop, shuffle, remove, removeEntries, move, moveEntry, clear, jump, autoplayBlocked, autoplay, leave };

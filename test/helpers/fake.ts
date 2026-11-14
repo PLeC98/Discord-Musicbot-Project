@@ -32,6 +32,8 @@ type PlayerKeys<X> = { [K in keyof X]: K extends keyof Player ? unknown : never 
 const fakePlayer = <X extends PlayerKeys<X>, E extends object = Record<never, never>>(fields: X, extras?: E) => {
   if (extras) Object.assign(fields, extras);
   if (!("lifecycle" in fields)) Object.assign(fields, { lifecycle: idleLifecycle() });
+  // 볼륨 정규화의 게인 조절기(player/gain-control). 곡이 끝날 때와 정지할 때 부른다. 테스트가 보지 않으면 아무것도 하지 않는다
+  if (!("gain" in fields)) Object.assign(fields, { gain: { finish() {}, end() {}, commit() {}, valueArrived() {}, checkpoint() {}, openTap: () => null } });
   return fields as unknown as Player & E;
 };
 

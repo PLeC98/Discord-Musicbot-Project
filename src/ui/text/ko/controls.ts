@@ -2,6 +2,7 @@
 // 헤더 줄과 본문이 있는 응답은 { icon, title, body } 로 돌려준다(ui/control-replies 가 그리고, 누가 했나 줄을 붙인다). icon 은 아이콘 표(ui/icons)의 키
 
 import { josa } from "../../../rules/josa.ts";
+import { VOLUME_MAX } from "../../../rules/limits.ts";
 import { icon, type IconKey } from "../../icons.ts";
 import { songTitle } from "./labels.ts";
 import { linkLabel } from "../../mentions.ts";
@@ -54,6 +55,9 @@ const stayOn = (channel: string, already: boolean): Head => (already ? { icon: "
 /** 상주 모드 끔. already 면 이미 꺼져 있었다 */
 const stayOff = (already: boolean): Head => (already ? { icon: "done", title: "이미 상주 모드가 꺼져 있어요.", body: "대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 가요." } : { icon: "done", title: "상주 모드를 껐어요!", body: "이제 대기열이 끝나거나 혼자 남으면 평소처럼 쉬러 갈게요." });
 
+/** 볼륨 정규화 켬, 끔. already 면 이미 그 상태였다 */
+const normalizeSet = (on: boolean, already: boolean): Head => (on ? { icon: "volume", title: already ? "이미 볼륨 정규화가 켜져 있어요." : "볼륨 정규화를 켰어요!", body: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞춰요." } : { icon: "done", title: already ? "이미 볼륨 정규화가 꺼져 있어요." : "볼륨 정규화를 껐어요!", body: "곡과 영상을 원래 볼륨대로 틀어요." });
+
 /** 섞기 */
 const shuffled = (count: number): Head => ({ icon: "shuffle", title: "대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });
 
@@ -77,8 +81,8 @@ const seeked = (at: string): Head => ({ icon: "seek", title: "위치를 옮겼�
 /** 대기열 비우기. count 는 버린 곡 수 */
 const cleared = (count: number): Head => ({ icon: "cleared", title: "대기열을 비웠어요!", body: `대기열에 있던 ${count}곡을 삭제했어요.` });
 
-/** 대기열에서 한 곡 빼기. left 는 남은 곡 수 */
-const removed = (left: number): Head => ({ icon: "cleared", title: "선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
+/** 대기열에서 빼기. count 는 뺀 곡 수, left 는 남은 곡 수 */
+const removed = (count: number, left: number): Head => ({ icon: "cleared", title: count > 1 ? `선택한 ${count}곡을 삭제했어요!` : "선택한 곡을 삭제했어요!", body: `대기열에 ${left}곡이 남았어요.` });
 
 /** 대기열 순서 바꾸기. from, to 는 사람이 센 위치(1부터) */
 const moved = (track: Linked, from: number, to: number): Head & { by: string } => ({
@@ -103,7 +107,7 @@ const loopSet = (mode: string | false): Head => {
 /** 볼륨. before, level 은 0 ~ VOLUME_MAX(rules/limits) */
 const volumeSet = (before: number, level: number): Head => ({ icon: "volume", title: "볼륨을 조절했어요!", body: before === level ? `볼륨이 이미 ${level}%라서 그대로 둘게요.` : `**${before}%** → **${level}%**` });
 /** 볼륨 입력 창 */
-const volumeModal = () => ({ title: "볼륨 설정", label: "0에서 100까지의 숫자로 입력해 주세요!" });
+const volumeModal = () => ({ title: "볼륨 설정", label: `0에서 ${VOLUME_MAX}까지의 숫자로 입력해 주세요!` });
 
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡, 위치(at, 적은 것), 대기열 곡 수와 복원하는 법. stayOff 면 상주 모드도 껐다 */
 const left = (saved: { track: Linked; at: string; queue: number } | null, stayOff = false) => {
@@ -123,4 +127,4 @@ const leaving = () => `${icon("progress")} 음성 채널에서 나가는 중...`
 /** /join 이 저장한 세션을 복원했다 */
 const restored = (track: Linked, isPaused: boolean): Head => (isPaused ? { icon: "pause", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 일시정지해 둔 상태였어요. 이어 들으려면 일시정지를 해제해 주세요!` } : { icon: "play", title: "듣던 곡이 있어요!", body: `이전에 ${linkObject(track)} 듣고 있었어요. 이어서 재생할게요!` });
 
-export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, leaving, restored };
+export { requestedBy, viaDashboard, paused, restartedOnRepeat, skipped, previous, jumped, stopped, stoppedStaying, stayOn, stayOff, normalizeSet, shuffled, highlighting, highlighted, reopening, replaying, replayed, seeking, seeked, cleared, removed, moved, loopSet, volumeSet, volumeModal, left, joined, alreadyJoined, restoring, joining, leaving, restored };

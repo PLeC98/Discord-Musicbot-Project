@@ -2,6 +2,7 @@
 // 손으로 적은 목록을 두지 않는다. 명령을 더하거나 권한을 바꾸면 도움말이 같이 바뀐다
 
 import * as helpText from "./text/ko/help.ts";
+import { commandMention } from "./command-mentions.ts";
 
 /** 도움말의 섹션. 순서는 SECTIONS */
 type HelpSection = "play" | "queue" | "mode" | "explore" | "channel" | "info";
@@ -15,20 +16,37 @@ type Defined = { name: string; description?: string };
 
 const SECTIONS: readonly HelpSection[] = ["play", "queue", "mode", "explore", "channel", "info"];
 
-/** 명령 한 줄 */
-function lineOf(defined: Defined, tier: HelpTier) {
-  const mark = helpText.tierMark(tier);
-  return `\`/${defined.name}\`: ${defined.description ?? ""}${mark ? ` ${mark}` : ""}`;
+/** 보는 사람이 그 권한 등급의 명령을 쓸 수 있나(usecases/help-access). 못 쓰면 줄 끝에 자물쇠 */
+type Open = (tier: HelpTier) => boolean;
+const ALL_OPEN: Open = () => true;
+
+/** 명령 한 줄: 누르면 입력창에 채워지는 멘션(id 를 모르면 글자), 설명, 권한 표시, 못 쓰면 자물쇠 */
+function lineOf(defined: Defined, tier: HelpTier, guildId: string | null, open: Open) {
+  const marks = [helpText.tierMark(tier), open(tier) ? "" : helpText.lockMark()].filter(Boolean).join(" ");
+  return `${commandMention(defined.name, guildId)}: ${defined.description ?? ""}${marks ? ` ${marks}` : ""}`;
 }
 
-/** 섹션마다의 명령 줄과 지원 플랫폼. commands 는 실행 목록의 순서(켜진 명령만) */
-function helpSections(commands: Array<{ defined: Defined; help: HelpEntry | null }>) {
-  const listed = SECTIONS.map((section) => ({
-    name: helpText.sectionName(section),
-    lines: commands.flatMap(({ defined, help }) => (help?.section === section ? [lineOf(defined, help.tier)] : [])),
-  })).filter((one) => one.lines.length > 0);
-  return [...listed, helpText.platforms()];
+/** 도움말에 싣는 명령을 섹션 순서로(섹션 안은 실행 목록의 순서). help 가 null 인 명령은 뺀다 */
+function inHelpOrder<T extends { help: HelpEntry | null }>(commands: T[]) {
+  return SECTIONS.flatMap((section) => commands.filter((one): one is T & { help: HelpEntry } => one.help?.section === section));
+}
+
+/**
+ * 섹션마다의 명령 줄, 그 섹션에 나온 권한 등급, 자물쇠가 붙었는지. 명령이 없는 섹션은 뺀다.
+ * commands 는 실행 목록의 순서(켜진 명령만), guildId 는 화면을 보이는 서버(멘션이 그 서버의 명령인지 본다)
+ */
+function helpSections(commands: Array<{ defined: Defined; help: HelpEntry | null }>, guildId: string | null = null, open: Open = ALL_OPEN) {
+  const ordered = inHelpOrder(commands);
+  return SECTIONS.map((section) => {
+    const inSection = ordered.filter(({ help }) => help.section === section);
+    return {
+      key: section,
+      lines: inSection.map(({ defined, help }) => lineOf(defined, help.tier, guildId, open)),
+      tiers: [...new Set(inSection.map(({ help }) => help.tier))],
+      locked: inSection.some(({ help }) => !open(help.tier)),
+    };
+  }).filter((one) => one.lines.length > 0);
 }
 
 export { helpSections, SECTIONS };
-export type { HelpSection, HelpTier, HelpEntry };
+export type { HelpSection, HelpTier, HelpEntry, Open };

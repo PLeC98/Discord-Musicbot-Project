@@ -86,7 +86,7 @@ type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string
 type VoiceFlags = { botInVoice: boolean; userInVoice: boolean; sameVoice: boolean };
 
 /** 상태 읽기, 부르기의 답. 재생 상태에 음성 채널과 이 사용자가 할 수 있는 것을 더한다(화면 표시용, 막는 것은 경로마다 서버가 다시 본다) */
-type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: boolean; canAdd: boolean; canManage: boolean; userId: string };
+type PlayerRead = PlayerState & VoiceFlags & { hasPlayer: boolean; canControl: boolean; canAdd: boolean; hasSettings: boolean; userId: string };
 
 /** 대기열 더 보기 */
 type QueuePage = { items: QueueTrackView[]; total: number };

@@ -18,12 +18,12 @@ import logger from "../../src/infra/log/logger.ts";
 const FAULTY = new URL("../helpers/faulty-encode-worker.ts", import.meta.url);
 const STUB = new URL("../helpers/stub-encode-worker.ts", import.meta.url);
 
-function frame(amplitude = 12000) {
+function frame(amplitude = 0.37) {
   const buf = Buffer.alloc(FRAME_BYTES);
-  for (let i = 0, t = 0; i < buf.length; i += 4, t++) {
-    const v = Math.round(amplitude * Math.sin((2 * Math.PI * 440 * t) / 48000));
-    buf.writeInt16LE(v, i);
-    buf.writeInt16LE(v, i + 2);
+  for (let i = 0, t = 0; i < buf.length; i += 8, t++) {
+    const v = amplitude * Math.sin((2 * Math.PI * 440 * t) / 48000);
+    buf.writeFloatLE(v, i);
+    buf.writeFloatLE(v, i + 4);
   }
   return buf;
 }

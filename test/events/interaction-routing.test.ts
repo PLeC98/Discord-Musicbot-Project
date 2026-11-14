@@ -21,6 +21,9 @@ import { routes as modalHandler } from "../../src/discord/interactions/modal-han
 import { routes as playlistMoreHandler } from "../../src/discord/interactions/playlist-more-handler.ts";
 import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
 import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
+import { routes as help } from "../../src/discord/interactions/help.ts";
+import { homeView } from "../../src/discord/commands/help.ts";
+import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { searchResultsView } from "../../src/ui/search-results.ts";
 import { selectOf } from "../helpers/cv2.ts";
 
@@ -31,7 +34,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler, searchPick };
+const OWNERS = { autoplay, buttonHandler, modalHandler, playlistMoreHandler, settingsPanelHandler, searchPick, help };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -98,7 +101,6 @@ const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
   ["button", "panel:autoplay:s1", "autoplay"],
   ["button", "queue:page:2", "buttonHandler"],
-  ["button", "help:refresh", "buttonHandler"],
   ["button", "system:refresh", "buttonHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],
@@ -108,6 +110,8 @@ const CASES: [Kind, string, string][] = [
   ["select", "setting:sb-cats", "settingsPanelHandler"],
   ["select", "plm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
   ["select", "search:pick:u1", "searchPick"],
+  ["select", "help:section", "help"],
+  ["button", "help:home", "help"],
   ["roleSelect", "setting:dj", "settingsPanelHandler"],
   ["modal", "panel:volume", "modalHandler"],
   ["modal", "plmm:ytp:PL1:10:a1:b:u1", "playlistMoreHandler"],
@@ -131,6 +135,7 @@ test("봇이 만드는 모달, 메뉴의 custom_id 는 목록의 그 경로로 �
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
   const results = searchResultsView({ query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
   sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");
+  sameRoute("select", selectOf({ components: [homeView(new Map(COMMANDS.map((command) => [command.data.name, command])))] })?.custom_id ?? "", "help:section");
 });
 
 test("핸들러가 없는 custom_id 는 모른다고 한 번 답한다", async () => {

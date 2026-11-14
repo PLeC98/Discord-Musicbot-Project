@@ -11,6 +11,7 @@ import { test, before, beforeEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags, PermissionFlagsBits, type ClientEvents, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import { settingsDb } from "../../src/store/settings-db.ts";
+import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -254,6 +255,16 @@ test("전용 채널이 삭제되면 설정을 비우고 패널을 옮긴다. 다
   await channelDelete.execute(bot, deleted("bot-channel"));
   assert.equal(await settings.getBotChannel("g1"), null);
   assert.deepEqual(moved, ["g1"]);
+});
+
+test("전용 채널 설정을 비우지 못해도 이벤트는 던지지 않고(던지면 그 서버를 다시 시작한다) 패널은 처리한다", async () => {
+  await settings.setBotChannel("g1", "bot-channel");
+  const moved: string[] = [];
+  const bot = fakeBot({ panels: { onBotChannelChanged: async (g: { id: string }) => moved.push(g.id) } });
+  const deleted = fake<ClientEvents["channelDelete"][0]>({ id: "bot-channel", name: "음악", guild: { id: "g1", name: "서버" }, isDMBased: () => false });
+  await whenSettingsBroken(() => channelDelete.execute(bot, deleted));
+  assert.deepEqual(moved, ["g1"]);
+  assert.equal(await settings.getBotChannel("g1"), "bot-channel", "비우지 못했다");
 });
 
 test("서버에서 나가면 그 서버의 플레이어를 내리고 저장된 대기열, 패널 위치, 24/7 자리를 삭제한다. 서버 설정은 남긴다", async () => {
@@ -614,7 +625,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 �
   assert.deepEqual(denied.log, [["deferUpdate"], ["editReply", "같은 메뉴"], ["followUp", said(errors.notice("must-dj"))]]);
 });
 
-test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () => {
+test("볼륨 모달: 0~125 숫자만. 적용한 값으로 답한다", async () => {
   const w = world();
   const ok = menu(w, { customId: "panel:volume", volume: "35", select: false });
   await interactionCreate.execute(ok.bot, ok.it);
@@ -622,10 +633,10 @@ test("볼륨 모달: 0~100 숫자만. 적용한 값으로 답한다", async () =
   assert.match(String(ok.log[0][1]), /^### 🔊 볼륨을 조절했어요!\n\*\*\d+%\*\* → \*\*35%\*\*\n-# 👤 요청한 사람 /);
 
   // "50abc" 를 parseInt 처럼 50 으로 읽지 않는다
-  for (const bad of ["abc", "101", "-1", "50abc", "3.5"]) {
+  for (const bad of ["abc", "126", "-1", "50abc", "3.5"]) {
     const r = menu(world(), { customId: "panel:volume", volume: bad, select: false });
     await interactionCreate.execute(r.bot, r.it);
-    assert.deepEqual(r.log, [["reply", "### ✏️ 정해진 범위의 숫자로 입력해 주세요!\n볼륨은 0에서 100 까지의 숫자로 적어야 해요."]], bad);
+    assert.deepEqual(r.log, [["reply", "### ✏️ 정해진 범위의 숫자로 입력해 주세요!\n볼륨은 0에서 125까지의 숫자로 적어야 해요."]], bad);
   }
 });
 

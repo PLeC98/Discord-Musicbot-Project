@@ -29,7 +29,7 @@ const texts = (page: { lines: Array<{ text: string }> } | null) => page?.lines.m
 
 test("끝에서부터 페이지: 마지막 줄들이 순서대로, 앞에 더 있으면 more", async () => {
   const { file } = writeLog(1000);
-  const target = resolveLogFile(file, "bot.log");
+  const target = await resolveLogFile(file, "bot.log");
   assert.ok(target);
   const page = await readLogPage(target, { ...all, limit: 10 });
   assert.deepEqual(texts(page), [990, 991, 992, 993, 994, 995, 996, 997, 998, 999]);
@@ -46,7 +46,7 @@ test("끝에서부터 페이지: 마지막 줄들이 순서대로, 앞에 더 �
 
 test("뒤로 이어 읽기(after): 그 줄 다음부터, 끝까지 못 읽었으면 later", async () => {
   const { file } = writeLog(100);
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   const head = (await readLogPage(target, { ...all, limit: 100 }))!;
   const page = await readLogPage(target, { ...all, limit: 5, after: head.lines[10].offset });
   assert.deepEqual(texts(page), [11, 12, 13, 14, 15]);
@@ -58,7 +58,7 @@ test("뒤로 이어 읽기(after): 그 줄 다음부터, 끝까지 못 읽었으
 
 test("시각으로 가기(at): 그 시각 이상인 첫 줄이 포함되고, 그 뒤 50줄까지 받는다", async () => {
   const { file } = writeLog(1000);
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   const page = (await readLogPage(target, { ...all, limit: 100, at: T0 + 400_500 }))!;
   const nums = texts(page);
   assert.ok(nums.includes(401), "400.5초 뒤의 첫 줄은 401");
@@ -71,7 +71,7 @@ test("시각으로 가기(at): 그 시각 이상인 첫 줄이 포함되고, 그
 
 test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 규칙), 검색어가 있으면 파일 전체에서 일치하는 줄 수", async () => {
   const { file } = writeLog(100);
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   const warn = (await readLogPage(target, { limit: 300, filter: { levels: new Set(["warn"] as const) } }))!;
   assert.ok(warn.lines.every((l) => l.level === "warn"));
   assert.equal(warn.lines.length, 34);
@@ -87,7 +87,7 @@ test("필터: 레벨, 카테고리, 태그, 검색(실시간 로그와 같은 �
 
 test("덜 써진 마지막 줄, 읽을 수 없는 줄은 건너뛴다", async () => {
   const { file } = writeLog(5, 'not json\n{"time":1,"lev');
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   assert.deepEqual(texts(await readLogPage(target, all)), [0, 1, 2, 3, 4]);
   const [info] = await listLogFiles(file);
   assert.equal(info.lines, 5);
@@ -115,36 +115,36 @@ test("목록: 지금 파일이 먼저, 분리된 파일은 최근 것부터. 줄
   assert.ok(fs.existsSync(dir));
 });
 
-test("이름: 목록의 이름만 받는다(경로, 다른 파일은 없음)", () => {
+test("이름: 목록의 이름만 받는다(경로, 다른 파일은 없음)", async () => {
   const { dir, file } = writeLog(3);
   fs.writeFileSync(path.join(dir, "secret.txt"), "x");
-  assert.equal(resolveLogFile(file, "../secret.txt"), null);
-  assert.equal(resolveLogFile(file, "secret.txt"), null);
-  assert.equal(resolveLogFile(file, path.join(dir, "bot.log")), null);
-  assert.equal(resolveLogFile(file, ""), null);
-  assert.ok(resolveLogFile(file, "bot.log"));
+  assert.equal(await resolveLogFile(file, "../secret.txt"), null);
+  assert.equal(await resolveLogFile(file, "secret.txt"), null);
+  assert.equal(await resolveLogFile(file, path.join(dir, "bot.log")), null);
+  assert.equal(await resolveLogFile(file, ""), null);
+  assert.ok(await resolveLogFile(file, "bot.log"));
 });
 
 test("보던 지금 파일이 분리됐으면 첫 줄의 시각(since)으로 분리된 파일을 찾아 이어 읽는다", async () => {
   const { file } = writeLog(50);
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   const page = (await readLogPage(target, { ...all, limit: 10 }))!;
   const moved = backupPath(file, new Date(2026, 5, 1));
   fs.renameSync(file, moved);
   fs.writeFileSync(file, JSON.stringify(record(100)) + "\n");
-  const again = resolveLogFile(file, "bot.log", page.since);
+  const again = await resolveLogFile(file, "bot.log", page.since);
   assert.equal(again?.name, path.basename(moved));
   assert.deepEqual(texts(await readLogPage(again!, { ...all, limit: 5, before: page.lines[0].offset })), [35, 36, 37, 38, 39]);
   // since 없이 부르면 지금 파일
-  assert.equal(resolveLogFile(file, "bot.log")?.name, "bot.log");
+  assert.equal((await resolveLogFile(file, "bot.log"))?.name, "bot.log");
   // 떼어 낸 파일도 삭제됐으면 없음
   fs.unlinkSync(moved);
-  assert.equal(resolveLogFile(file, "bot.log", page.since), null);
+  assert.equal(await resolveLogFile(file, "bot.log", page.since), null);
 });
 
 test("다운로드: 필터링한 줄을 화면과 같은 열로, 시각은 보는 사람의 시간대", async () => {
   const { file } = writeLog(10);
-  const target = resolveLogFile(file, "bot.log")!;
+  const target = (await resolveLogFile(file, "bot.log"))!;
   const lines = [];
   for await (const batch of filteredLines(target, { category: "youtube" })) lines.push(...batch);
   assert.equal(lines.length, 2);
@@ -164,14 +164,14 @@ test("실제 파일 로거가 크기를 넘겨 파일을 분리해도, 보던 �
   };
   try {
     write(0, 200);
-    const target = resolveLogFile(file, "bot.log")!;
+    const target = (await resolveLogFile(file, "bot.log"))!;
     const seen = (await readLogPage(target, { ...all, limit: 20 }))!;
     assert.deepEqual(texts(seen).slice(-2), [198, 199]);
     // 보는 동안 계속 쌓여 크기를 넘긴다: 지금 파일이 떼어지고 새 파일이 시작된다
     write(200, 2000);
     assert.ok((await listLogFiles(file)).length > 1, "분리된 파일이 생겼다");
     // 앞 쪽: 보던 파일(첫 줄 0)을 따라가 그 앞의 줄
-    const moved = resolveLogFile(file, "bot.log", seen.since)!;
+    const moved = (await resolveLogFile(file, "bot.log", seen.since))!;
     assert.notEqual(moved.name, "bot.log");
     assert.deepEqual(texts(await readLogPage(moved, { ...all, limit: 3, before: seen.lines[0].offset })), [177, 178, 179]);
     // 뒤 쪽: 보던 마지막 줄 뒤로 이어지는 줄

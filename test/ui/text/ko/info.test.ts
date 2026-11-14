@@ -8,8 +8,8 @@ test("모든 문장", () => {
   assert.deepEqual(
     [
       info.refresh(),
-      info.system({ botUptime: "1분 2초", osUptime: "3일 4시간 5분", guilds: 2, playing: 1, memoryBar: "▓░", memoryUsed: "1.0 GB", memoryTotal: "8.0 GB", heapUsed: "30 MB", heapTotal: "40 MB", rss: "90 MB", cpuModel: "CPU", cores: 8, load: ["0.10", "0.20", "0.30"], node: "v24", discordJs: "14", platform: "win32 x64", pid: 7 }),
-      info.system({ botUptime: "1분", osUptime: "1분", guilds: 0, playing: 0, memoryBar: "", memoryUsed: "", memoryTotal: "", heapUsed: "", heapTotal: "", rss: "", cpuModel: undefined, cores: 0, load: ["0", "0", "0"], node: "", discordJs: "", platform: "", pid: 0 }).cpu,
+      info.system({ botUptime: "1분 2초", osUptime: "3일 4시간 5분", guilds: 2, playing: 1, users: 12345, memoryBar: "▓░", memoryUsed: "1.0 GB", memoryTotal: "8.0 GB", heapUsed: "30 MB", heapTotal: "40 MB", rss: "90 MB", cpuModel: "CPU", cores: 8, load: ["0.10", "0.20", "0.30"], node: "v24", discordJs: "14", platform: "win32 x64", pid: 7 }),
+      info.system({ botUptime: "1분", osUptime: "1분", guilds: 0, playing: 0, users: 0, memoryBar: "", memoryUsed: "", memoryTotal: "", heapUsed: "", heapTotal: "", rss: "", cpuModel: undefined, cores: 0, load: ["0", "0", "0"], node: "", discordJs: "", platform: "", pid: 0 }).cpu,
       info.cache({ sizeBar: "S", size: "1 GB", maxSize: "2 GB", countBar: "C", files: 3, maxFiles: 9, diskFree: "5 GB", minFreeDisk: "1 GB", plays: 1234, played: "2시간 3분", averageLength: "4분 5초", neverPlayed: 1, platforms: { youtube: 1, soundcloud: 2, direct: 3 }, lookups: 4, downloading: 0, protectedCount: 1 }),
       info.cache({ sizeBar: "S", size: "1 GB", maxSize: "2 GB", countBar: "C", files: 3, maxFiles: 9, diskFree: null, minFreeDisk: "1 GB", plays: 0, played: "0분", averageLength: "0분 0초", neverPlayed: 0, platforms: { youtube: 0, soundcloud: 0, direct: 0 }, lookups: 0, downloading: 0, protectedCount: 0 }).overview,
       info.cacheBlank(),
@@ -34,7 +34,7 @@ test("모든 문장", () => {
       {
         title: "🖥️ 시스템 상태",
         uptime: { name: "⏱️ 업타임", value: "**봇:** 1분 2초\n**OS:** 3일 4시간 5분" },
-        bot: { name: "🎵 봇 현황", value: "**서버:** 2개\n**재생 중:** 1개" },
+        bot: { name: "🎵 봇 현황", value: "**서버:** 2개\n**재생 중:** 1개\n**사용자:** 12,345명" },
         memory: { name: "💾 메모리", value: "**시스템:** ▓░ (1.0 GB / 8.0 GB)\n**Heap 사용:** 30 MB / 40 MB\n**RSS:** 90 MB" },
         cpu: { name: "⚙️ CPU", value: "**모델:** CPU (8코어)\n**부하 (1m/5m/15m):** `0.10` / `0.20` / `0.30`" },
         runtime: { name: "🔧 런타임", value: "**Node.js:** v24\n**discord.js:** v14\n**플랫폼:** win32 x64\n**PID:** 7" },

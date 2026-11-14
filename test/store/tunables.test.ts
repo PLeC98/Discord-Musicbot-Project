@@ -63,14 +63,14 @@ test("글 필드(음성 상태 접두어)는 앞뒤 공백을 남기고, 나머�
 });
 
 test("다시 시작해야 먹는 값은 저장해도 기동 시 값으로 돌고 pending 으로 알린다", async () => {
-  const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999" }, revision: 0 });
+  const saved = await req<View>("PUT", { values: { SPONSORBLOCK_ENABLED: "false", BGUTIL_ENABLED: "true", CACHE_MAX_FILES: "42", RATE_LIMIT_API_MAX: "999", INVITE_COMMAND_ENABLED: "false", WELCOME_MESSAGE_ENABLED: "false" }, revision: 0 });
   assert.deepEqual(saved.json.pending, ["BGUTIL_ENABLED"]);
   // 로그는 몇 개가 아니라 무엇이 어떻게 바뀌었는지
   const line = sink.buffer.findLast((e) => e.text.includes("운영 조절값 저장"))?.text ?? "";
   assert.match(line, /BGUTIL_ENABLED 기본값 → "true"\(다시 시작해야 적용\)/);
   assert.match(line, /CACHE_MAX_FILES 기본값 → "42"(?!\()/);
   assert.equal(config.bgutil.enabled, false, "실행하지 않은 POToken 서버를 찾지 않게");
-  assert.deepEqual([config.sponsorblock.enabled, config.cache.maxFiles, config.dashboard.rateLimit.apiMax], [false, 42, 999], "바로 먹는 값은 먹는다(SponsorBlock 은 저장할 때 명령 등록도 맞춘다, app/command-loader)");
+  assert.deepEqual([config.sponsorblock.enabled, config.cache.maxFiles, config.dashboard.rateLimit.apiMax, config.bot.inviteCommand, config.bot.welcomeMessage], [false, 42, 999, false, false], "바로 먹는 값은 먹는다(SponsorBlock, /invite 는 저장할 때 명령 등록도 맞춘다, app/command-loader)");
 
   tunables.load(); // 다시 켰다
   assert.deepEqual([config.sponsorblock.enabled, config.bgutil.enabled], [false, true]);

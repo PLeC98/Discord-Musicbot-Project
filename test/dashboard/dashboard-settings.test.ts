@@ -1,4 +1,4 @@
-// src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PUT + /player 플래그 + 서버 목록 통합 테스트.
+// src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts 로 묶는다): 서버 설정 GET/PATCH + /player 플래그 + 서버 목록 통합 테스트.
 // 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB 로 쓴다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
@@ -15,16 +15,19 @@ import { signedInAs, requestJson, type ProblemReply } from "../helpers/dashboard
 
 /** 이 테스트가 읽는 답의 필드(서버 설정, 플레이어, 서버 목록) */
 type Reply = ProblemReply & {
-  canEdit?: boolean;
   guildName?: string;
-  djRoleIds?: string[];
-  botChannelId?: string | null;
-  roles?: { id: string; name: string; color: string | null }[];
-  channels?: { id: string; name: string }[];
-  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] };
+  cards?: string[];
+  channel?: { botChannelId: string | null; channels: { id: string; name: string }[] };
+  dj?: { djRoleIds: string[]; roles: { id: string; name: string; color: string | null }[] };
+  sponsorblock?: { masterEnabled: boolean; enabled: boolean; categories: string[] | null; defaultCategories: string[] };
+  values?: Record<string, unknown>;
+  conflicts?: string[];
+  current?: Record<string, unknown>;
   playlistAdd?: unknown;
-  agePlace?: string | null;
-  canManage?: boolean;
+  agePlace?: string;
+  stay?: { on: boolean; channel: { id: string; name: string } | null; refusal: string | null };
+  normalize?: { on: boolean; refusal: string | null };
+  hasSettings?: boolean;
   canControl?: boolean;
   canAdd?: boolean;
   hasPlayer?: boolean;
@@ -35,13 +38,15 @@ type Reply = ProblemReply & {
 };
 
 // ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
-const { openTempStore, setGuild } = await import("../helpers/temp-store.ts");
+const { openTempStore, setGuild, whenSettingsBroken } = await import("../helpers/temp-store.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
 const temp = openTempStore("dashboard-settings-");
 const settings = await import("../../src/store/guild-settings.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
+const { shownValues } = await import("../../src/dashboard/settings-values.ts");
+const { errorHandler } = await import("../../src/dashboard/middleware/error-handler.ts");
 
 // 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250, 기본 50 으로 본다
 const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
@@ -78,7 +83,7 @@ const store = {
 const settingsRow = () => temp.settings().prepare("SELECT * FROM guild_settings WHERE guild_id = ?").get(GUILD_ID) ?? null;
 
 import express from "express";
-import { ChannelType, PermissionFlagsBits } from "discord.js";
+import { ChannelType, PermissionFlagsBits, type Guild } from "discord.js";
 
 // ── Fake Discord client ──────────────────────────────────────
 const GUILD_ID = "100";
@@ -87,16 +92,20 @@ function makeRole(id: string, name: string, position: number, color = 0) {
   return { id, name, position, color, hexColor: color ? "#" + color.toString(16).padStart(6, "0") : "#000000" };
 }
 
-const roles = new Map([
+const roles = new Map<string, ReturnType<typeof makeRole> & { tags?: { botId: string } }>([
   [GUILD_ID, makeRole(GUILD_ID, "@everyone", 0)],
   ["r1", makeRole("r1", "DJ", 5, 0x7c6ff6)],
   ["r2", makeRole("r2", "VIP", 3)],
   ["r3", makeRole("r3", "Mod", 8, 0xff0000)],
+  // 봇 역할(디스코드가 봇에 붙인 역할). DJ 역할 목록에 없고 저장도 하지 않는다
+  ["rbot", { ...makeRole("rbot", "뮤직봇", 9), tags: { botId: "bot" } }],
 ]);
+// 음성 채널 v1 을 보는 사람이 볼 수 있는가(비공개 채널 흉내)
+let voiceVisible = true;
 const channels = new Map([
   ["c1", { id: "c1", name: "general", type: ChannelType.GuildText, rawPosition: 0 }],
   ["c2", { id: "c2", name: "music", type: ChannelType.GuildText, rawPosition: 1 }],
-  ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2 }],
+  ["v1", { id: "v1", name: "voice", type: ChannelType.GuildVoice, rawPosition: 2, permissionsFor: () => ({ has: () => voiceVisible }) }],
 ]);
 
 let currentMember: object | null; // 테스트마다 교체 (null = 비멤버)
@@ -116,7 +125,11 @@ const guild = {
     },
     me: null as object | null,
   },
+  ownerId: "owner-of-guild",
+  // 봇이 서버에서 나간 횟수(봇 내보내기)
+  leave: async () => void leaves.push("leave"),
 };
+const leaves: string[] = [];
 const client = {
   isReady: () => true,
   guilds: { cache: new Map([[GUILD_ID, guild]]) },
@@ -124,10 +137,27 @@ const client = {
 const players = new Map<string, Player>();
 
 function modMember() {
-  return { permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.ManageGuild }, guild, roles: { cache: new Map() }, voice: {} };
 }
 function plainMember() {
-  return { permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: () => false }, guild, roles: { cache: new Map() }, voice: {} };
+}
+
+// 역할 순서: 봇의 가장 높은 역할이 3. kicker 는 멤버 추방 권한이 있고 가장 높은 역할이 position
+const roleAt = (position: number) => ({ position, comparePositionTo: (other: { position: number }) => position - other.position });
+function kicker(position = 5) {
+  return { id: "u1", user: { tag: "tester#0" }, permissions: { has: (p: bigint) => p === PermissionFlagsBits.KickMembers }, isCommunicationDisabled: () => false, guild, roles: { cache: new Map(), highest: roleAt(position) }, voice: {} };
+}
+const withBotRole = () => (guild.members.me = { voice: { channel: null }, _roles: ["r3"], roles: { highest: roleAt(3) } });
+
+/** DJ 역할(r1)을 정한 서버에서. 그래야 역할 없는 멤버가 일반 사용자다(DJ 역할이 없는 서버는 모두가 DJ) */
+async function withDjRole<T>(fn: () => Promise<T>) {
+  store.djRoles.set(GUILD_ID, ["r1"]);
+  try {
+    return await fn();
+  } finally {
+    store.djRoles.delete(GUILD_ID);
+  }
 }
 
 // ── 앱 구성 ──────────────────────────────────────────────────
@@ -146,8 +176,9 @@ before(async () => {
     if (currentViewAs) Object.assign(req.session, { viewAs: currentViewAs });
     next();
   });
-  app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {} } });
+  app.locals.bot = fakeBot({ client, players, panels: { onBotChannelChanged: async () => {}, panelChannel: async () => null } });
   app.use("/api/guilds", createGuildsRouter({ stream: createPlayerStream() }));
+  app.use(errorHandler);
   server = await listenForFetch(app);
   base = baseUrl(server);
 });
@@ -155,6 +186,20 @@ before(async () => {
 after(() => server.close());
 
 const req = (method: string, urlPath: string, body?: unknown) => requestJson<Reply>(base, method, urlPath, body);
+
+// 화면처럼 바꿀 필드만, 지금 보여 주는 값(from)과 함께 보낸다. sponsorblock 은 준 하위 키만
+function bodyOf(changes: Record<string, unknown>) {
+  const now = shownValues(guild as unknown as Guild, settings.read(GUILD_ID)) as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [key, to] of Object.entries(changes)) {
+    if (key === "sponsorblock" && to && typeof to === "object") {
+      const was = now.sponsorblock as Record<string, unknown>;
+      out.sponsorblock = Object.fromEntries(Object.entries(to).map(([sub, value]) => [sub, { from: was[sub], to: value }]));
+    } else out[key] = { from: now[key], to };
+  }
+  return out;
+}
+const save = (changes: Record<string, unknown>) => req("PATCH", `/api/guilds/${GUILD_ID}/settings`, bodyOf(changes));
 
 // ── GET /settings ────────────────────────────────────────────
 
@@ -165,27 +210,43 @@ test("GET settings: 서버 관리자. 현황 + 드롭다운 목록", async () =>
 
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
   assert.equal(r.status, 200);
-  assert.equal(r.json.canEdit, true);
   assert.equal(r.json.guildName, "TestGuild");
-  assert.deepEqual(r.json.djRoleIds, ["r1"], "삭제된 역할은 응답에서 필터링");
-  assert.equal(r.json.botChannelId, "c2");
+  assert.deepEqual(r.json.dj?.djRoleIds, ["r1"], "삭제된 역할은 응답에서 필터링");
+  assert.equal(r.json.channel?.botChannelId, "c2");
   assert.deepEqual(
-    r.json.roles?.map((x) => x.id),
+    r.json.dj?.roles.map((x) => x.id),
     ["r3", "r1", "r2"],
-    "@everyone 제외 + position 내림차순",
+    "@everyone, 봇 역할 제외 + position 내림차순",
   );
-  assert.equal(r.json.roles?.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
+  assert.equal(r.json.dj?.roles.find((x) => x.id === "r2")?.color, null, "무색 역할은 color null");
   assert.deepEqual(
-    r.json.channels?.map((x) => x.id),
+    r.json.channel?.channels.map((x) => x.id),
     ["c1", "c2"],
     "일반 텍스트 채널만",
   );
 });
 
-test("GET settings: 일반 멤버는 조회도 403 (서버 관리자 전용)", async () => {
+test("GET settings: 일반 사용자는 보이는 카드가 없어 403(가장 낮은 카드는 DJ), 카드의 값을 싣지 않는다", async () => {
+  currentMember = plainMember();
+  const r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+  assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
+  assert.deepEqual(
+    ["cards", "stay", "channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
+    [],
+  );
+});
+
+test("GET settings: DJ 는 상주 모드와 볼륨 정규화 카드만 보고, 서버 관리자 카드의 값(역할, 채널 목록)은 오지 않는다", async () => {
   currentMember = plainMember();
   const r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.equal(r.status, 403);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.cards, ["stay", "normalize"]);
+  assert.deepEqual(
+    ["channel", "dj", "sponsorblock", "playlistAdd", "agePlace"].filter((key) => key in r.json),
+    [],
+  );
+  assert.deepEqual(r.json.stay, { on: false, channel: null, refusal: "must-be-in-voice" }, "봇이 쉬고 음성 채널 밖이면 켤 수 없다(봇을 부를 채널이 없다)");
+  assert.deepEqual(r.json.normalize, { on: false, refusal: null }, "볼륨 정규화는 봇이 음성 채널 밖이어도 바꿀 수 있다");
 });
 
 test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여도 서버 관리자가 아니면 403(서버 안 우대 없음)", async () => {
@@ -198,8 +259,8 @@ test("GET settings: 비멤버 403. 봇 운영자도 비멤버면 403, 멤버여�
   assert.deepEqual([r.status, r.json.code], [403, "no-guild-access"]);
 
   currentMember = plainMember();
-  r = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
-  assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"]);
+  r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+  assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
   currentMember = null;
   currentUser = { id: "u1", username: "tester" };
 });
@@ -213,49 +274,74 @@ test("GET settings: 구버전 세션의 isAdmin=true로는 운영자 우회가 �
   currentUser = { id: "u1", username: "tester" };
 });
 
-// ── GET /player의 canManage (⚙ 버튼 표시 기준) ───────────────
+// ── GET /player의 hasSettings (⚙ 버튼 표시 기준) ───────────────
 
-test("GET player: canManage. 일반 멤버 false / 서버 관리자 true", async () => {
+test("GET player: hasSettings 는 보이는 카드가 있는지. 일반 사용자 false / DJ, 서버 관리자 true", async () => {
   currentMember = plainMember();
-  let r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  let r = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`));
   assert.equal(r.status, 200);
-  assert.equal(r.json.canManage, false);
+  assert.equal(r.json.hasSettings, false);
+
+  r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+  assert.equal(r.json.hasSettings, true, "DJ 역할이 없는 서버는 모두가 DJ 라 상주 모드 카드가 보인다");
 
   currentMember = modMember();
   r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-  assert.equal(r.json.canManage, true);
+  assert.equal(r.json.hasSettings, true);
 });
 
-// ── PUT /settings ────────────────────────────────────────────
+// ── PATCH /settings ────────────────────────────────────────────
 
-test("PUT settings: 일반 멤버 403", async () => {
+test("PATCH settings: 일반 사용자, DJ 모두 403(저장 본문으로 고칠 카드는 서버 관리자 것뿐), 아무것도 반영하지 않는다(빈 본문도)", async () => {
   currentMember = plainMember();
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1"] });
-  assert.equal(r.status, 403);
+  for (const asUser of [true, false]) {
+    if (asUser) store.djRoles.set(GUILD_ID, ["r1"]);
+    const before = settingsRow();
+    for (const body of [{ djRoleIds: ["r1"] }, {}, { agePlace: "all" }, { playlistAddMax: null, botChannelId: "c1" }]) {
+      const r = await save(body);
+      assert.deepEqual([r.status, r.json.code], [403, "must-server-manager"], `${asUser ? "일반" : "DJ"} ${JSON.stringify(body)}`);
+    }
+    assert.deepEqual(settingsRow(), before);
+    if (asUser) store.djRoles.delete(GUILD_ID);
+  }
 });
 
-test("PUT settings: 정상 저장. 중복, 유령 역할 정리", async () => {
+test("PATCH settings: 정상 저장. 중복, 유령 역할 정리", async () => {
   currentMember = modMember();
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r1", "r2", "r1", "ghost"], botChannelId: "c1" });
+  const r = await save({ djRoleIds: ["r1", "r2", "r1", "ghost", "rbot"], botChannelId: "c1" });
   assert.equal(r.status, 200);
   assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1", "r2"]);
   assert.equal(store.botChannel.get(GUILD_ID), "c1");
 });
 
-test("PUT settings: 빈 배열 = DJ 해제, null = 채널 해제", async () => {
+test("PATCH settings: 쓰기가 실패하면 settings-save-failed(원래 오류 문장은 싣지 않는다)이고 아무것도 바뀌지 않는다", async () => {
   currentMember = modMember();
-  let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: [] });
+  store.botChannel.set(GUILD_ID, "c1");
+  const rolesBefore = store.djRoles.get(GUILD_ID);
+  const body = bodyOf({ djRoleIds: ["r2"], botChannelId: null });
+  const r = await whenSettingsBroken(() => req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body));
+  assert.equal(r.status, 500);
+  const problem = r.json as unknown as ProblemReply;
+  assert.equal(problem.code, "settings-save-failed");
+  assert.equal("detail" in problem, false);
+  assert.equal(store.botChannel.get(GUILD_ID), "c1");
+  assert.deepEqual(store.djRoles.get(GUILD_ID), rolesBefore);
+});
+
+test("PATCH settings: 빈 배열 = DJ 해제, null = 채널 해제", async () => {
+  currentMember = modMember();
+  let r = await save({ djRoleIds: [] });
   assert.equal(r.status, 200);
   assert.equal(store.djRoles.has(GUILD_ID), false);
 
-  r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { botChannelId: null });
+  r = await save({ botChannelId: null });
   assert.equal(r.status, 200);
   assert.equal(store.botChannel.has(GUILD_ID), false);
 });
 
-test("PUT settings: SponsorBlock 저장. 유효 카테고리만 통과", async () => {
+test("PATCH settings: SponsorBlock 저장. 유효 카테고리만 통과", async () => {
   currentMember = modMember();
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { sponsorblock: { enabled: false, categories: ["intro", "outro", "bogus"] } });
+  const r = await save({ sponsorblock: { enabled: false, categories: ["intro", "outro", "bogus"] } });
   assert.equal(r.status, 200);
   assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: ["intro", "outro"] });
 });
@@ -268,23 +354,36 @@ test("GET settings: SponsorBlock 켬 여부, 선택한 구간", async () => {
   assert.ok(r.json.sponsorblock);
   assert.equal(typeof r.json.sponsorblock?.masterEnabled, "boolean");
   assert.equal(typeof r.json.sponsorblock?.enabled, "boolean");
-  assert.ok(Array.isArray(r.json.sponsorblock?.categories));
+  assert.deepEqual(r.json.sponsorblock?.defaultCategories, config.sponsorblock.categories);
 });
 
-test("PUT settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {
+test("GET settings: SponsorBlock 구간을 정하지 않은 서버는 null(운영자 기본 구간을 따름), 전역 스위치가 꺼져도 서버의 설정을 보인다", async () => {
+  currentMember = modMember();
+  settings.table.setGuildSponsorBlock(GUILD_ID, { enabled: false, categories: null });
+  const saved = config.sponsorblock.enabled;
+  config.sponsorblock.enabled = false;
+  try {
+    const sb = (await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.sponsorblock;
+    assert.deepEqual([sb?.masterEnabled, sb?.enabled, sb?.categories], [false, false, null]);
+  } finally {
+    config.sponsorblock.enabled = saved;
+  }
+});
+
+test("PATCH settings: 검증 실패 시 아무것도 적용하지 않음 (부분 저장 방지)", async () => {
   currentMember = modMember();
   store.djRoles.set(GUILD_ID, ["r1"]);
   const rowBefore = settingsRow();
 
-  const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: ["r2"], botChannelId: "v1" });
+  const r = await save({ djRoleIds: ["r2"], botChannelId: "v1" });
   assert.equal(r.status, 400, "음성 채널은 거부");
   assert.deepEqual(store.djRoles.get(GUILD_ID), ["r1"], "역할 변경도 미반영");
   assert.deepEqual(settingsRow(), rowBefore);
 });
 
-test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () => {
+test("PATCH settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () => {
   currentMember = modMember();
-  let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: "r1" });
+  let r = await save({ djRoleIds: "r1" });
   assert.equal(r.status, 400);
 
   const many = Array.from({ length: 26 }, (_, i) => {
@@ -292,7 +391,7 @@ test("PUT settings: 형식 오류 400 (배열 아님 / 25개 초과)", async () 
     roles.set(id, makeRole(id, `x${i}`, 1));
     return id;
   });
-  r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: many });
+  r = await save({ djRoleIds: many });
   assert.equal(r.status, 400, "디스코드 셀렉트 메뉴 25개 한계와 정합");
 });
 
@@ -304,36 +403,37 @@ test("GET settings: 재생목록 한 번에 넣는 곡 수. 저장값, 실제값
   assert.deepEqual(r.json.playlistAdd, { value: null, effective: 50, min: 1, max: 250, default: 50 });
 });
 
-test("PUT settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기본값 / 범위 밖, 소수는 400", async () => {
+test("PATCH settings: 재생목록 한 번에 넣는 곡 수. 저장 / null은 기본값 / 범위 밖, 소수는 400", async () => {
   currentMember = modMember();
-  let r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 120 });
+  let r = await save({ playlistAddMax: 120 });
   assert.equal(r.status, 200);
   assert.equal(store.playlistAdd.get(GUILD_ID), 120);
 
-  r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: null });
+  r = await save({ playlistAddMax: null });
   assert.equal(r.status, 200);
   assert.equal(store.playlistAdd.get(GUILD_ID), null);
 
   const rowBefore = settingsRow();
   for (const bad of [0, 251, 12.5, "50"]) {
-    r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: bad, botChannelId: "c2" });
+    r = await save({ playlistAddMax: bad, botChannelId: "c2" });
     assert.equal(r.status, 400, `거부: ${JSON.stringify(bad)}`);
   }
   assert.deepEqual(settingsRow(), rowBefore, "다른 설정도 함께 미반영");
 });
 
-test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드가 없다(null), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장, 되돌리기, 모르는 값은 400", async () => {
+test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 카드가 없다(저장은 받는다), 켜면 기본은 연령 제한 채널에서만, 모든 채널로 저장, 되돌리기, 모르는 값은 400", async () => {
   currentMember = modMember();
   documents._use("age-content", { enabled: false, changedAt: 1 });
-  assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, null);
+  const off = (await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json;
+  assert.deepEqual([off.agePlace, off.cards?.includes("agePlace")], [undefined, false]);
 
   documents._use("age-content", { enabled: true, changedAt: 2 });
   assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, "channel");
-  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "all" })).status, 200);
+  assert.equal((await save({ agePlace: "all" })).status, 200);
   assert.equal(settings.table.getAgePlace(GUILD_ID), "all");
   assert.equal((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.agePlace, "all");
-  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "nsfw" })).status, 400);
-  assert.equal((await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { agePlace: "channel" })).status, 200);
+  assert.equal((await save({ agePlace: "nsfw" })).status, 400);
+  assert.equal((await save({ agePlace: "channel" })).status, 200);
   assert.equal(settings.table.getAgePlace(GUILD_ID), "channel");
   documents._use("age-content");
 });
@@ -342,7 +442,7 @@ test("연령 제한 콘텐츠를 틀 곳: 운영자가 꺼 두었으면 필드�
 // botInVoice/userInVoice만 보면 "같은 서버 다른 채널"을 구분하지 못한다.
 // 조작 가능 여부(checkVoice)의 실제 기준은 채널 일치라, 대시보드가 그걸 그대로 표현해야 한다.
 
-// 앞선 PUT 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다. 이 절은 매번 초기화하고 시작한다.
+// 앞선 저장 테스트가 DJ 역할을 남겨두면 "전원 DJ" 전제가 깨진다. 이 절은 매번 초기화하고 시작한다.
 const noDjRoles = () => store.djRoles.delete(GUILD_ID);
 const noVoice = () => voiceStates.clear();
 
@@ -419,24 +519,192 @@ test("GET player: 음성 밖이면 sameVoice 거짓 / 서버 관리자는 그래
 
 // ── GET /api/guilds 의 후보 ──
 
-test("GET player: canManage(서버 관리 권한)는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
+test("GET player, settings: 설정 버튼과 카드는 권한 수준 오버라이드로 낮출 수는 있어도 올릴 수는 없다", async () => {
   noVoice();
   currentUser = { id: "owner", username: "운영자" };
   try {
-    for (const [member, viewAs, want] of [
-      [modMember, "user", false],
-      [modMember, "dj", false],
-      [modMember, "server-manager", true],
-      [plainMember, "server-manager", false],
-    ] as const) {
-      currentMember = member();
-      currentViewAs = viewAs;
-      const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
-      assert.equal(r.json.canManage, want, `${member.name}: ${viewAs} 보기`);
-    }
+    // want: [설정 버튼, 읽기, 서버 관리자 카드 쓰기, 읽은 카드]. DJ 역할을 정한 서버라 역할 없는 멤버는 일반 사용자다
+    await withDjRole(async () => {
+      for (const [member, viewAs, want] of [
+        [modMember, "user", [false, 403, 403, undefined]],
+        [modMember, "dj", [true, 200, 403, ["stay", "normalize"]]],
+        [modMember, "server-manager", [true, 200, 200, ["stay", "normalize", "channel", "dj", "sponsorblock", "playlistAdd"]]],
+        [plainMember, "server-manager", [false, 403, 403, undefined]],
+      ] as const) {
+        currentMember = member();
+        currentViewAs = viewAs;
+        const r = await req("GET", `/api/guilds/${GUILD_ID}/player`);
+        const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+        const write = await save({ playlistAddMax: null });
+        assert.deepEqual([r.json.hasSettings, read.status, write.status, read.json.cards?.filter((card) => card !== "agePlace")], want, `${member.name}: ${viewAs} 보기`);
+      }
+    });
   } finally {
     currentViewAs = undefined;
     currentUser = { id: "u1", username: "tester" };
+  }
+});
+
+// ── POST /settings/stay(상주 모드) ───────────────────────────
+
+type StayReply = ProblemReply & { on?: boolean; channel?: { id: string; name: string } | null; refusal?: string | null };
+const stayReq = (body: unknown) => requestJson<StayReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/stay`, body);
+
+test("POST settings/stay: 일반 사용자 403, on 이 참, 거짓이 아니면 400, DJ 가 봇을 부를 수 없으면 디스코드 /247 과 같은 거절", async () => {
+  currentMember = plainMember();
+  const user = await withDjRole(() => stayReq({ on: true }));
+  assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
+
+  currentMember = modMember();
+  for (const body of [{ on: "true" }, {}, { on: 1 }, null]) assert.equal((await stayReq(body)).status, 400, JSON.stringify(body));
+
+  currentMember = plainMember();
+  const out = await stayReq({ on: true });
+  assert.deepEqual([out.status, out.json.code], [409, "must-be-in-voice"], "봇이 쉬고 DJ 가 음성 채널 밖");
+});
+
+test("POST settings/stay: 봇이 음성에 있으면 그 채널에 켜고, 끄고, 답은 바뀐 뒤의 카드. 설정 읽기도 같은 카드", async () => {
+  players.set(GUILD_ID, fakePlayer({ voice: { isAlive: () => true }, voiceChannel: channels.get("v1"), idle: { reconsider() {} } }));
+  currentMember = modMember();
+  try {
+    const on = await stayReq({ on: true });
+    assert.deepEqual([on.status, on.json.on, on.json.channel, on.json.refusal], [200, true, { id: "v1", name: "voice" }, null]);
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, { on: true, channel: { id: "v1", name: "voice" }, refusal: null });
+    voiceVisible = false;
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.stay, { on: true, channel: null, refusal: null }, "볼 수 없는 채널이면 켜졌다는 것만(비공개 채널의 이름을 알리지 않는다)");
+    voiceVisible = true;
+    assert.equal((await stayReq({ on: true })).status, 200, "이미 켜져 있으면 그대로");
+
+    currentMember = plainMember();
+    currentViewAs = undefined;
+    const read = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+    assert.equal(read.status, 403, "일반 사용자는 켜져 있어도 카드를 보지 않는다");
+
+    currentMember = modMember();
+    const off = await stayReq({ on: false });
+    assert.deepEqual([off.status, off.json.on, off.json.channel], [200, false, null]);
+  } finally {
+    voiceVisible = true;
+    await stayReq({ on: false });
+    players.delete(GUILD_ID);
+  }
+});
+
+// ── POST /settings/normalize(볼륨 정규화) ───────────────────────────
+
+type NormalizeReply = ProblemReply & { on?: boolean; refusal?: string | null };
+const normalizeReq = (body: unknown) => requestJson<NormalizeReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/normalize`, body);
+
+test("POST settings/normalize: 일반 사용자 403, on 이 boolean 이 아니면 400, 봇이 다른 음성 채널에 있으면 디스코드 /normalize 와 같은 거절", async () => {
+  currentMember = plainMember();
+  const user = await withDjRole(() => normalizeReq({ on: true }));
+  assert.deepEqual([user.status, user.json.code], [403, "must-dj"]);
+
+  currentMember = modMember();
+  for (const body of [{ on: "true" }, {}, { on: 1 }, null]) assert.equal((await normalizeReq(body)).status, 400, JSON.stringify(body));
+
+  guild.members.me = { voice: { channel: channels.get("v1") } };
+  try {
+    currentMember = plainMember();
+    const elsewhere = await normalizeReq({ on: true });
+    assert.deepEqual([elsewhere.status, elsewhere.json.code], [409, "must-be-in-same-voice"]);
+    const read = await req("GET", `/api/guilds/${GUILD_ID}/settings`);
+    assert.deepEqual(read.json.normalize, { on: false, refusal: "must-be-in-same-voice" }, "카드에도 같은 까닭");
+    const notDj = await withDjRole(() => normalizeReq({ on: true }));
+    assert.deepEqual([notDj.status, notDj.json.code], [409, "must-be-in-same-voice"], "DJ 가 아니어도 다른 채널이면 명령과 같이 채널부터 본다");
+    assert.equal(settings.resolveNormalize(GUILD_ID), false);
+  } finally {
+    guild.members.me = null;
+  }
+});
+
+test("POST settings/normalize: 권한 수준 오버라이드를 일반 사용자로 두면 설정을 바꿀 수 없다", async () => {
+  currentUser = { id: "owner", username: "운영자" };
+  currentMember = modMember();
+  currentViewAs = "user";
+  try {
+    const r = await withDjRole(() => normalizeReq({ on: true }));
+    assert.deepEqual([r.status, r.json.code], [403, "must-dj"]);
+    assert.equal(settings.resolveNormalize(GUILD_ID), false);
+  } finally {
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+    await settings.setNormalize(GUILD_ID, false);
+  }
+});
+
+test("POST settings/normalize: 봇이 음성 채널 밖이어도 DJ 가 켜고 끈다. 응답은 바뀐 뒤의 카드이고 설정 읽기도 같다", async () => {
+  currentMember = plainMember();
+  try {
+    const on = await normalizeReq({ on: true });
+    assert.deepEqual([on.status, on.json.on, on.json.refusal], [200, true, null]);
+    assert.equal(settings.resolveNormalize(GUILD_ID), true);
+    assert.deepEqual((await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.normalize, { on: true, refusal: null });
+    assert.equal((await normalizeReq({ on: true })).status, 200, "이미 켜져 있으면 그대로");
+    const off = await normalizeReq({ on: false });
+    assert.deepEqual([off.status, off.json.on], [200, false]);
+  } finally {
+    await settings.setNormalize(GUILD_ID, false);
+  }
+});
+
+// ── POST /settings/leave(봇 내보내기) ───────────────────────────
+
+const leaveReq = () => requestJson<ProblemReply>(base, "POST", `/api/guilds/${GUILD_ID}/settings/leave`);
+
+test("봇 내보내기: 디스코드에서 봇을 추방할 수 있는 사람(추방 권한, 역할이 봇보다 위)만 카드와 설정 버튼을 보고 내보낸다. 일반 사용자여도", async () => {
+  withBotRole();
+  leaves.length = 0;
+  try {
+    currentMember = kicker();
+    const read = await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+    assert.deepEqual([read.status, read.json.cards], [200, ["leave"]], "DJ 가 아닌 사람에게는 이 카드 하나");
+    assert.equal((await withDjRole(() => req("GET", `/api/guilds/${GUILD_ID}/player`))).json.hasSettings, true);
+
+    for (const [member, why] of [
+      [kicker(3), "봇과 같은 높이"],
+      [modMember(), "서버 관리 권한만 있고 추방 권한이 없다"],
+    ] as const) {
+      currentMember = member;
+      const r = await leaveReq();
+      assert.deepEqual([r.status, r.json.code], [403, "cannot-kick-bot"], why);
+      assert.ok(!(await req("GET", `/api/guilds/${GUILD_ID}/settings`)).json.cards?.includes("leave"), why);
+    }
+    assert.deepEqual(leaves, [], "막힌 요청은 나가지 않았다");
+
+    currentMember = kicker();
+    assert.equal((await leaveReq()).status, 200);
+    assert.deepEqual(leaves, ["leave"]);
+  } finally {
+    leaves.length = 0;
+    guild.members.me = null;
+  }
+});
+
+test("봇 내보내기: 재생 중이면 플레이어를 먼저 정리하고 나간다(세션도 지운다). 권한 수준 오버라이드 중이면 추방 권한이 있어도 막는다", async () => {
+  withBotRole();
+  leaves.length = 0;
+  const order: string[] = [];
+  players.set(GUILD_ID, fakePlayer({ dispose: async (opts: { end: string; session: string }) => void order.push(`dispose:${opts.end}:${opts.session}`) }));
+  const leave = guild.leave;
+  guild.leave = async () => void order.push("leave");
+  try {
+    currentMember = kicker();
+    currentUser = { id: "owner", username: "운영자" };
+    currentViewAs = "server-manager";
+    const viewing = await leaveReq();
+    assert.deepEqual([viewing.status, viewing.json.code], [403, "cannot-kick-bot"]);
+    assert.deepEqual(order, []);
+
+    currentViewAs = undefined;
+    assert.equal((await leaveReq()).status, 200);
+    assert.deepEqual(order, ["dispose:dashboard-leave:remove", "leave"]);
+  } finally {
+    guild.leave = leave;
+    currentViewAs = undefined;
+    currentUser = { id: "u1", username: "tester" };
+    players.delete(GUILD_ID);
+    guild.members.me = null;
   }
 });
 
@@ -568,23 +836,111 @@ test("GET player: hasPlayer는 botInVoice와 별개로 판정된다", async () =
   currentMember = plainMember();
 });
 
-test("PUT settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer, 코드), 아무것도 반영하지 않는다", async () => {
+test("PATCH settings: 받은 필드만 바꾸고 보내지 않은 필드는 그대로다(다른 곳에서 바꾼 값을 지킨다). 답은 보낸 키의 저장된 값(거른 역할)", async () => {
+  currentMember = modMember();
+  store.botChannel.set(GUILD_ID, "c1");
+  const body = bodyOf({ djRoleIds: ["r1", "ghost"] });
+  store.botChannel.set(GUILD_ID, "c2"); // 화면을 연 뒤 디스코드 쪽에서 바꿨다
+  const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.values, { djRoleIds: ["r1"] });
+  assert.equal(store.botChannel.get(GUILD_ID), "c2");
+});
+
+test("PATCH settings: 읽은 값(from)이 지금 값과 다르면 409 와 부딪힌 키, 그 키의 지금 값만 싣고 아무것도 바꾸지 않는다. 이미 바꾸려는 값이면 성공", async () => {
+  currentMember = modMember();
+  store.djRoles.set(GUILD_ID, ["r1"]);
+  store.playlistAdd.delete(GUILD_ID);
+  const body = bodyOf({ djRoleIds: ["r2"], playlistAddMax: 80 });
+  store.djRoles.set(GUILD_ID, ["r1", "r2"]); // 그사이 다른 곳이 바꿨다
+  const rowBefore = settingsRow();
+  const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
+  assert.deepEqual([r.status, r.json.code, r.json.conflicts, r.json.current], [409, "settings-changed", ["djRoleIds"], { djRoleIds: ["r1", "r2"] }]);
+  assert.deepEqual(settingsRow(), rowBefore);
+
+  const same = bodyOf({ playlistAddMax: 90 });
+  store.playlistAdd.delete(GUILD_ID);
+  settings.table.setPlaylistAddMax(GUILD_ID, 90); // 다른 곳이 이미 같은 값으로
+  assert.equal((await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, same)).status, 200);
+});
+
+test("PATCH settings: 지워진 역할만 다르면 충돌이 아니다. 운영자가 기본 구간을 바꿔도 기본을 따르는 서버의 구간은 충돌이 아니다", async () => {
+  currentMember = modMember();
+  roles.set("gone", makeRole("gone", "지워질 역할", 2));
+  store.djRoles.set(GUILD_ID, ["r1", "gone"]);
+  const body = bodyOf({ djRoleIds: ["r2"] });
+  roles.delete("gone");
+  assert.equal((await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body)).status, 200);
+
+  settings.table.setGuildSponsorBlock(GUILD_ID, { enabled: true, categories: null });
+  const sbBody = bodyOf({ sponsorblock: { categories: ["intro"] } });
+  const saved = [...config.sponsorblock.categories];
+  config.sponsorblock.categories = ["filler"];
+  try {
+    assert.equal((await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, sbBody)).status, 200);
+  } finally {
+    config.sponsorblock.categories = saved;
+  }
+});
+
+test("PATCH settings: SponsorBlock 은 보낸 하위 키만 바꾼다. 켜기만 바꾸면 구간은 기본을 따르는 그대로(null), 전역 스위치가 꺼져도 답은 저장한 값", async () => {
+  currentMember = modMember();
+  settings.table.setGuildSponsorBlock(GUILD_ID, { enabled: null, categories: null });
+  const saved = config.sponsorblock.enabled;
+  config.sponsorblock.enabled = false;
+  try {
+    const r = await save({ sponsorblock: { enabled: false } });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.json.values, { sponsorblock: { enabled: false } });
+    assert.deepEqual(store.sponsorblock.get(GUILD_ID), { enabled: false, categories: null });
+  } finally {
+    config.sponsorblock.enabled = saved;
+  }
+});
+
+test("PATCH settings: 빈 패치(빈 본문, 하위 키가 없는 sponsorblock)는 nothing-to-save. 저장값이 지금 범위 밖이어도 from 으로 막지 않는다", async () => {
+  currentMember = modMember();
+  for (const body of [{}, { sponsorblock: {} }]) {
+    const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
+    assert.deepEqual([r.status, r.json.code], [400, "nothing-to-save"], JSON.stringify(body));
+  }
+  settings.table.setPlaylistAddMax(GUILD_ID, 999); // 운영자가 대기열 상한을 줄여 범위 밖이 된 저장값
+  const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: { from: 999, to: 100 } });
+  assert.equal(r.status, 200);
+  assert.equal(store.playlistAdd.get(GUILD_ID), 100);
+});
+
+test("PATCH settings: 권한을 먼저 본다. DJ 는 읽은 값이 틀려도 409 가 아니라 403 이고 서버 관리자 카드의 값을 받지 못한다", async () => {
+  currentMember = plainMember();
+  const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, { djRoleIds: { from: ["nope"], to: ["r1"] } });
+  assert.deepEqual([r.status, r.json.code, r.json.current], [403, "must-server-manager", undefined]);
+});
+
+test("GET settings: 서버 설정을 읽지 못하면 오류로 답한다(기본값을 보이면 그것을 기준으로 저장하게 된다)", async () => {
+  currentMember = modMember();
+  const r = await whenSettingsBroken(() => req("GET", `/api/guilds/${GUILD_ID}/settings`));
+  assert.deepEqual([r.status, r.json.code], [503, "storage-unavailable"]);
+});
+
+test("PATCH settings: 모양이 틀리면 bad-settings 400 에 필드별 문제(JSON Pointer, 코드), 아무것도 반영하지 않는다", async () => {
   currentMember = modMember();
   const rowBefore = settingsRow();
   const cases: Array<[unknown, string, string]> = [
-    [{ djRoleIds: "r1" }, "/djRoleIds", "bad-dj-roles"],
-    [{ sponsorblock: { categories: [1] } }, "/sponsorblock/categories/0", "bad-sponsor-categories"],
+    [{ djRoleIds: { from: [], to: "r1" } }, "/djRoleIds/to", "bad-dj-roles"],
+    [{ sponsorblock: { categories: { from: null, to: [1] } } }, "/sponsorblock/categories/to/0", "bad-sponsor-categories"],
     [{ sponsorblock: "on" }, "/sponsorblock", "bad-sponsorblock"],
-    [{ botChannelId: 5 }, "/botChannelId", "bad-bot-channel"],
+    [{ sponsorblock: { enabled: { from: true, to: "yes" } } }, "/sponsorblock/enabled/to", "bad-sponsorblock"],
+    [{ botChannelId: { from: null, to: 5 } }, "/botChannelId/to", "bad-bot-channel"],
+    [{ botChannelId: "c1" }, "/botChannelId", "bad-bot-channel"],
     [[1, 2], "", "bad-settings"],
   ];
   for (const [body, pointer, code] of cases) {
-    const r = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, body);
+    const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
     assert.equal(r.status, 400, JSON.stringify(body));
     assert.deepEqual(r.json, { type: "/problems/bad-settings", code: "bad-settings", status: 400, title: "Invalid server settings", errors: [{ pointer, code }] });
   }
-  const range = await req("PUT", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: 0 });
-  assert.deepEqual(range.json.errors, [{ pointer: "/playlistAddMax", code: "playlist-limit-out-of-range", min: settings.playlistAddLimits().min, max: settings.playlistAddLimits().max }], "곡 수는 범위를 같이 싣는다");
+  const range = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, { playlistAddMax: { from: null, to: 0 } });
+  assert.deepEqual(range.json.errors, [{ pointer: "/playlistAddMax/to", code: "playlist-limit-out-of-range", min: settings.playlistAddLimits().min, max: settings.playlistAddLimits().max }], "곡 수는 범위를 같이 싣는다");
   assert.deepEqual(settingsRow(), rowBefore);
 });
 

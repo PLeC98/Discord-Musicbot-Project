@@ -44,7 +44,6 @@ import {
   type Suggestions,
   type TokensReply,
 } from "../contract/admin.ts";
-import * as playerEvents from "../../player/events.ts";
 import * as genreConfig from "../../config/genres.ts";
 import * as statusConfig from "../../config/status.ts";
 import * as aiConfig from "../../config/ai.ts";
@@ -69,9 +68,9 @@ import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
+import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
-import * as staySeats from "../../store/stay-seats.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 
 const adminRouter = express.Router();
@@ -170,10 +169,8 @@ adminRouter.get("/guilds", (req, res) => {
   res.json(guildList(guilds, guildQueryOf(req.query)) satisfies AdminGuilds);
 });
 
-// 서버에서 나가기(운영자가 대시보드에서)
-// 재생 중이면 플레이어를 먼저 정리해 음성 연결/타이머가 남지 않게 한다.
-// guild.leave() 이후에는 서버 이벤트가 오지 않을 수 있어 사후 정리에 기댈 수 없음.
-adminRouter.post("/guilds/:guildId/leave", async (req, res) => {
+// 서버에서 나가기(운영자가 대시보드에서). 되돌릴 수 없어 로그인한 지 오래되면 다시 로그인하게 한다. 정리하고 나가는 순서는 usecases/leave-guild
+adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) => {
   const { client, players } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
@@ -182,17 +179,11 @@ adminRouter.post("/guilds/:guildId/leave", async (req, res) => {
 
   const name = guild.name;
   try {
-    staySeats.clear(guild.id); // 버리기보다 먼저(끝 알림을 받은 자리 지킴이가 다시 붙지 않게)
-    const player = players.get(guild.id);
-    if (player) await player.dispose({ reason: "운영자 패널에서 서버 나가기", session: "remove", panel: "disconnected", end: "operator-leave" });
-    await guild.leave();
-
-    // 그 서버를 보던 화면에 알린다. 다시 읽으면 봇이 없어 404 다
-    playerEvents.touched(guild.id);
-
+    await leaveGuild(players, guild, { reason: "운영자 패널에서 서버 나가기", end: "operator-leave", go: () => sessionRequests.assertSignedIn(req) });
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 서버 나가기: ${name} (${guild.id})`);
     res.json({ success: true, name } satisfies LeaveReply);
   } catch (error) {
+    if (sessionRequests.sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
   }

@@ -19,7 +19,7 @@ type ReadFields = Omit<PlayerRead, keyof PlayerState>;
 /** 화면이 들고 있는 재생 상태. 읽기 전용 필드는 상태를 읽기 전이면 없다 */
 type PlayerSeen = PlayerState & Partial<ReadFields>;
 // 빠뜨리거나 더 적으면 타입 검사가 잡는다
-const READ_FIELDS: Record<keyof ReadFields, true> = { botInVoice: true, userInVoice: true, sameVoice: true, hasPlayer: true, canControl: true, canAdd: true, canManage: true, userId: true };
+const READ_FIELDS: Record<keyof ReadFields, true> = { botInVoice: true, userInVoice: true, sameVoice: true, hasPlayer: true, canControl: true, canAdd: true, hasSettings: true, userId: true };
 
 /** 받은 상태로 바꾼다. 재생 상태 필드는 통째로 바꾸고(없어진 필드는 없어진다), 읽기 전용 필드는 받은 것에 없으면 지금 값을 남긴다 */
 export function withReadFields(current: PlayerSeen | null | undefined, next: PlayerState | PlayerRead): PlayerSeen {

@@ -308,6 +308,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
       playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
       embedColor: envColor("EMBED_COLOR", tunable("EMBED_COLOR").def as HexColor),
       website: envUrl("WEBSITE"),
+      // /invite 를 등록할지(끄면 등록에서 빠진다), 봇이 새 서버에 들어왔을 때 안내 메시지를 올릴지
+      inviteCommand: tuneBool("INVITE_COMMAND_ENABLED"),
+      welcomeMessage: tuneBool("WELCOME_MESSAGE_ENABLED"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
       invite: inviteUrl(env("CLIENT_ID", "")),
@@ -360,8 +363,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
     // POToken 공급자(bgutil). 설치돼 있어도 켰을 때만 실행한다(인증 없는 로컬 HTTP 서버라 띄워 두면 공격 표면이 는다).
     bgutil: {
       enabled: tuneBool("BGUTIL_ENABLED"),
-      // scripts/install-bgutil.ts 가 체크아웃할 태그
+      // scripts/install-bgutil.ts 가 체크아웃할 태그와 그 태그의 커밋(기본 태그가 아니면 필요, 비면 없음)
       version: env("BGUTIL_VERSION", BGUTIL_VERSION).trim(),
+      commit: env("BGUTIL_COMMIT", "").trim().toLowerCase(),
     },
 
     ...serviceConfig(readers, dashboardPort),

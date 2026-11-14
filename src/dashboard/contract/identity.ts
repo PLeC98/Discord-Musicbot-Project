@@ -5,6 +5,8 @@
 const TIERS = ["server-manager", "dj", "user"] as const;
 type Tier = (typeof TIERS)[number];
 const isTier = (v: unknown): v is Tier => TIERS.some((t) => t === v);
+/** 계층의 높이(높을수록 큰 수) */
+const TIER_RANK: Record<Tier, number> = { "server-manager": 2, dj: 1, user: 0 };
 
 /**
  * /api/me. avatarUrl 은 프로필 이미지(없으면 null), isOwner 는 오버라이드가 반영된 값, isRealOwner 는 해제 수단을 계속 보이려는 원래 값,
@@ -36,7 +38,7 @@ const RECENT_LOGIN_MS = 10 * 60_000;
  */
 const SIGN_OUT_LOGIN_MS = 2 * 60_000;
 
-export { TIERS, isTier, loginFailed, RECENT_LOGIN_MS, SIGN_OUT_LOGIN_MS };
+export { TIERS, isTier, TIER_RANK, loginFailed, RECENT_LOGIN_MS, SIGN_OUT_LOGIN_MS };
 /** 로그인한 기기가 있는 곳. private: 내부망(집, 같은 망), geo: IP 위치(모르는 필드는 null), null: 모름(위치 DB 를 껐거나 없다) */
 type DevicePlace = { kind: "private" } | { kind: "geo"; city: string | null; region: string | null; country: string | null } | null;
 /**

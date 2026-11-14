@@ -147,7 +147,7 @@ test("서버 단위: 기본은 연령 제한 채널에서만. 봇이 든 채널�
   assert.deepEqual(["g-nsfw", "g-plain", "g-away"].map(verdict), ["ok", "age-channel-only", "ok"]);
   assert.equal(_ageCheck(url), undefined, "서버 문맥 밖(재생 테스트 등)은 운영자 판단만");
 
-  assert.equal(await GuildSettingsManager.setAgePlace("g-plain", "all"), true);
+  assert.deepEqual(await GuildSettingsManager.setAgePlace("g-plain", "all"), ["agePlace"]);
   assert.equal(verdict("g-plain"), "ok", "서버가 모든 채널로 풀었다");
   assert.equal(GuildSettingsManager.table.getAgePlace("g-plain"), "all");
   await GuildSettingsManager.setAgePlace("g-plain", "channel");
