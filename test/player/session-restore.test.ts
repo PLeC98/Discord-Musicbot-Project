@@ -10,6 +10,7 @@ import sink from "../../src/infra/log/sink.ts";
 import { RESTJSONErrorCodes } from "discord.js";
 import { resolveGuildForRestore, restoreSessions, restoreGuild, waitForRestore } from "../../src/player/session-restore.ts";
 import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
+import { useLaneSizes } from "../../src/sources/ytdlp-spawn.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import type { Client, Guild } from "discord.js";
@@ -110,6 +111,10 @@ test("캐시에 있으면 REST를 부르지 않는다", async () => {
 const store = openTempStore("session-restore-");
 after(() => store.close());
 
+// 기동 복원은 yt-dlp 곡 찾기 줄의 슬롯 수보다 하나 적게 동시에 돈다. 돌리는 컴퓨터의 메모리와 상관없이 2곳씩 돌게 슬롯을 3개로 고정한다
+useLaneSizes({ lookup: 3, background: 2 });
+after(() => useLaneSizes(null));
+
 const channel = (id: string, kind: "voice" | "text") => ({ id, isVoiceBased: () => kind === "voice", isTextBased: () => kind === "text" });
 
 function saved(guildId: string, { voice = "vc1", text = "tc1", autoResume = true }: { voice?: string | null; text?: string; autoResume?: boolean } = {}) {
@@ -122,7 +127,8 @@ function guildWith(id: string, chans = [channel("vc1", "voice"), channel("tc1", 
 }
 
 // 플레이어 대신. 무엇으로 만들었고 무엇을 불렀는지 남긴다
-function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
+// gate: 서버마다 복원을 붙잡아 둔다(동시에 몇 곳이 도는지 보려고)
+function fakePlayerClass({ restoreFails = false as boolean | Error, gate = null as ((guildId: string) => Promise<void>) | null } = {}) {
   const made: FakePlayer[] = [];
   class FakePlayer {
     guild: Guild;
@@ -139,6 +145,7 @@ function fakePlayerClass({ restoreFails = false as boolean | Error } = {}) {
     persistence = {
       restoreSession: async (record: { guildId: string }) => {
         this.calls.push(`restore:${record.guildId}`);
+        await gate?.(record.guildId);
         if (restoreFails) throw restoreFails === true ? new Error("복원 실패") : restoreFails;
       },
     };
@@ -306,39 +313,79 @@ test("복원: 기다리는 사이 그 서버에서 재생이 시작됐으면 건
   sessions().removeSession("r5");
 });
 
-test("기동 복원을 기다리는 서버에 곡 추가 등이 오면 그 서버를 먼저 복원한다. 기동 복원은 같은 서버를 다시 복원하지 않는다", async () => {
-  saved("w1");
-  saved("w2");
-  const { client, players } = clientWith([guildWith("w1"), guildWith("w2")]);
-  const { FakePlayer, made } = fakePlayerClass();
+test("기동 복원을 기다리는 서버에 곡 추가 등이 오면 그 서버를 먼저 복원한다. 기동 복원은 같은 서버를 다시 복원하지 않는다", async (t) => {
+  const ids = ["w1", "w2", "w3"];
+  for (const id of ids) saved(id);
+  const { client, players } = clientWith(ids.map((id) => guildWith(id)));
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  // 실패해도 붙잡아 둔 복원을 풀고 세션을 지운다(남으면 다음 테스트의 기동 복원이 끝나지 않는 이 복원을 기다린다)
+  t.after(() => {
+    release();
+    for (const id of ids) sessions().removeSession(id);
+  });
+  const { FakePlayer, made } = fakePlayerClass({ gate: async (id) => (id === "w3" ? undefined : held) });
 
   const boot = restoreSessions(client, players, FakePlayer);
-  await waitForRestore("w2"); // 기동 복원이 w1 을 하는 동안 w2 에 곡을 넣었다
-  assert.ok(players.has("w2"), "기다리고 나면 w2 가 복원돼 있다(넣을 플레이어가 있다)");
+  await waitForRestore("w3"); // w1, w2 의 복원이 붙잡혀 있는 동안 w3 에 곡을 넣었다
+  assert.ok(players.has("w3"), "waitForRestore 가 끝나면 w3 가 복원돼 있다(곡을 넣을 플레이어가 있다)");
+  release();
   await boot;
 
-  assert.deepEqual(made.flatMap((p) => p.calls).sort(), ["restore:w1", "restore:w2"], "서버마다 한 번씩");
-  await waitForRestore("w2"); // 끝난 서버는 아무것도 안 한다
-  assert.equal(made.length, 2);
-  sessions().removeSession("w1");
-  sessions().removeSession("w2");
+  assert.deepEqual(made.flatMap((p) => p.calls).sort(), ["restore:w1", "restore:w2", "restore:w3"], "서버마다 한 번씩");
+  await waitForRestore("w3"); // 끝난 서버는 아무것도 안 한다
+  assert.equal(made.length, 3);
 });
 
-test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다. 그사이 지워진 세션은 되살리지 않는다", async () => {
-  saved("x1");
-  saved("x2");
-  const { client, players } = clientWith([guildWith("x1"), guildWith("x2")]);
+test("기동 복원은 서버마다 복원 직전에 세션을 다시 읽는다. 그사이 지워진 세션은 되살리지 않는다", async (t) => {
+  const ids = ["x1", "x2", "x3"];
+  for (const id of ids) saved(id);
+  t.after(() => {
+    for (const id of ids) sessions().removeSession(id);
+  });
+  const { client, players } = clientWith(ids.map((id) => guildWith(id)));
   const { FakePlayer, made } = fakePlayerClass();
 
   const boot = restoreSessions(client, players, FakePlayer);
-  sessions().removeSession("x2"); // x1 을 복원하는 동안 x2 의 세션이 지워졌다(새로 틀기 등)
+  sessions().removeSession("x3"); // x1, x2 를 복원하는 동안 x3 의 세션이 지워졌다(새로 틀기 등)
   await boot;
 
   assert.deepEqual(
     made.map((p) => p.calls),
-    [["restore:x1"]],
+    [["restore:x1"], ["restore:x2"]],
   );
-  sessions().removeSession("x1");
+});
+
+test("기동 복원은 yt-dlp 곡 찾기 줄의 슬롯 수보다 하나 적게 동시에 돌고, 슬롯이 둘이면 한 곳씩 돈다", async (t) => {
+  const ids = ["p1", "p2", "p3", "p4", "p5"];
+  const { client, players } = clientWith(ids.map((id) => guildWith(id)));
+  t.after(() => {
+    useLaneSizes({ lookup: 3, background: 2 });
+    for (const id of ids) sessions().removeSession(id);
+  });
+  let running = 0;
+  let most = 0;
+  const { FakePlayer, made } = fakePlayerClass({
+    gate: async () => {
+      running++;
+      most = Math.max(most, running);
+      await new Promise((resolve) => setImmediate(resolve));
+      running--;
+    },
+  });
+  const boot = async () => {
+    for (const id of ids) saved(id);
+    most = 0;
+    players.clear();
+    await restoreSessions(client, players, FakePlayer);
+    return most;
+  };
+
+  assert.equal(await boot(), 2, "슬롯 3개: 2곳씩");
+  assert.equal(made.length, 5);
+  useLaneSizes({ lookup: 2, background: 2 });
+  assert.equal(await boot(), 1, "슬롯 2개: 한 곳씩(남은 슬롯 하나는 그사이 다른 서버의 곡 찾기가 쓴다)");
+  assert.equal(made.length, 10);
 });
 
 test("종료 중이면 기동 복원이 플레이어를 만들지 않는다(세션은 남겨 다음 기동 때 복원한다)", async (t) => {

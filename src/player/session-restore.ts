@@ -5,6 +5,8 @@ import { sessions, type SessionState } from "../store/player-sessions.ts";
 import { codeOf, describeError, messageOf } from "../rules/error-kind.ts";
 import { inGuild } from "../infra/guild-context.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
+import { mapLimit } from "../infra/map-limit.ts";
+import { ytdlpLoad } from "../sources/ytdlp-spawn.ts";
 import type { Player } from "./player.ts";
 import type { PlayerSeats } from "./registry.ts";
 
@@ -80,9 +82,14 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
       }
     });
   }
-  for (const guildId of touched) await restoreNow(guildId);
+  // 몇 곳씩 동시에 복원한다. 먼저 복원 중인 서버 차례가 오면 슬롯을 쥔 채 그 복원이 끝나기를 기다린다(동시에 도는 복원 수가 늘지 않게)
+  await mapLimit(touched, restoreAtOnce(), async (guildId) => restoreNow(guildId));
   return touched;
 }
+
+// 기동 복원을 동시에 돌릴 서버 수. 복원도 곡을 열 때 사람의 곡 찾기와 같은 yt-dlp 줄에 같은 순위로 선다.
+// 줄의 슬롯 수보다 하나 적게 돌려, 그사이 다른 서버에서 곡을 찾는 사람이 빈 슬롯을 바로 얻게 한다
+const restoreAtOnce = () => Math.max(1, ytdlpLoad().lookup.size - 1);
 
 // 기동 복원의 차례를 기다리는 서버, 지금 복원 중인 서버. 같은 서버를 두 번 복원하지 않는다
 const waiting = new Map<string, () => Promise<void>>();
