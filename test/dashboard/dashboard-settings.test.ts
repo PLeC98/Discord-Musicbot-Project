@@ -855,7 +855,7 @@ test("PATCH settings: 읽은 값(from)이 지금 값과 다르면 409 와 부딪
   store.djRoles.set(GUILD_ID, ["r1", "r2"]); // 그사이 다른 곳이 바꿨다
   const rowBefore = settingsRow();
   const r = await req("PATCH", `/api/guilds/${GUILD_ID}/settings`, body);
-  assert.deepEqual([r.status, r.json.code, r.json.conflicts, r.json.current], [409, "config-changed", ["djRoleIds"], { djRoleIds: ["r1", "r2"] }]);
+  assert.deepEqual([r.status, r.json.code, r.json.conflicts, r.json.current], [409, "settings-changed", ["djRoleIds"], { djRoleIds: ["r1", "r2"] }]);
   assert.deepEqual(settingsRow(), rowBefore);
 
   const same = bodyOf({ playlistAddMax: 90 });

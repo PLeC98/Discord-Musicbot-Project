@@ -54,7 +54,7 @@ type Saved = { success: true };
 /** 서버 설정 저장(PATCH)의 응답. 보낸 키가 저장된 뒤의 값(서버가 거른 역할 포함) */
 type SettingsSaved = { values: SettingsValues };
 
-/** 서버 설정 저장이 그사이 다른 곳의 변경과 충돌했을 때(config-changed) 문제 응답에 덧붙는 값. current 에는 conflicts 의 키만 담는다 */
+/** 서버 설정 저장이 그사이 다른 곳의 변경과 충돌했을 때(settings-changed) 문제 응답에 덧붙는 값. current 에는 conflicts 의 키만 담는다 */
 type SettingsConflict = { conflicts: SettingsKey[]; current: SettingsValues };
 
 export type { ListState, GuildTrack, GuildRow, GuildList, GuildEvent, SettingsCard, StayCard, NormalizeCard, GuildSettings, Saved, SettingsSaved, SettingsConflict };

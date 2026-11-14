@@ -182,6 +182,8 @@ const WEB = {
   "config-invalid": { status: 400, title: "Config has problems" },
   // 읽은 뒤 다른 탭, 다른 사람이 먼저 저장했다(저장 번호가 다르다)
   "config-changed": { status: 409, title: "Config changed since it was read" },
+  // 대시보드 서버 설정: 화면에서 읽은 뒤 같은 설정이 다른 곳(디스코드 명령, 다른 탭, 다른 관리자)에서 먼저 바뀌어 그 설정은 저장하지 않았다
+  "settings-changed": { status: 409, title: "Server settings changed since they were read" },
   "config-save-failed": { status: 409, title: "Config could not be saved" },
   // 설정 불러오기: ZIP 이 깨졌거나 이 봇의 내보내기가 아니다
   "bad-archive": { status: 400, title: "Not a settings archive" },

@@ -126,8 +126,9 @@ test("필드 오류의 키: 맨 위 코드(전용 채널, 역할 수)와 bad-set
   assert.deepEqual(fieldKeysOf({ code: "bad-settings", errors: [{ pointer: "" }] }), []);
 });
 
-test("실패의 갈래는 문제 코드로: 충돌은 conflicts 가 있는 config-changed 만, account-changed 같은 다른 409 는 그 밖", () => {
-  assert.equal(failureOf(problem(409, "config-changed", { conflicts: ["djRoleIds"], current: {} })).kind, "conflict");
+test("실패 종류는 문제 코드로 구분한다: 충돌은 conflicts 가 있는 settings-changed 만, account-changed 같은 다른 409 는 그 밖의 실패", () => {
+  assert.equal(failureOf(problem(409, "settings-changed", { conflicts: ["djRoleIds"], current: {} })).kind, "conflict");
+  assert.equal(failureOf(problem(409, "config-changed")).kind, "other");
   assert.equal(failureOf(problem(409, "account-changed")).kind, "other");
   assert.equal(failureOf(problem(403, "must-server-manager")).kind, "permission");
   assert.equal(failureOf(problem(404, "guild-not-found")).kind, "gone");
@@ -178,7 +179,7 @@ test("충돌: 부딪힌 키만 지금 값으로 바꾸고, 같은 저장의 다�
   h.edit("djRoleIds", ["r2"]);
   h.edit("playlistAddMax", 80);
   await tick();
-  h.fail(problem(409, "config-changed", { conflicts: ["djRoleIds"], current: { djRoleIds: ["r1", "r3"] } }));
+  h.fail(problem(409, "settings-changed", { conflicts: ["djRoleIds"], current: { djRoleIds: ["r1", "r3"] } }));
   await tick();
   assert.deepEqual(valueAt(h.form, "djRoleIds"), ["r1", "r3"]);
   assert.deepEqual(h.sent[1], { playlistAddMax: { from: null, to: 80 } });

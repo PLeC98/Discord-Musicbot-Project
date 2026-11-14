@@ -187,7 +187,7 @@ function createGuildSettingsRouter() {
       return sendProblem(res, "settings-save-failed");
     }
     if (!result.ok) {
-      return sendProblem(res, "config-changed", {}, { conflicts: result.conflicts, current: pickValues(shownValues(guild, result.doc), result.conflicts) } satisfies SettingsConflict);
+      return sendProblem(res, "settings-changed", {}, { conflicts: result.conflicts, current: pickValues(shownValues(guild, result.doc), result.conflicts) } satisfies SettingsConflict);
     }
     if (result.changed.includes("botChannelId")) {
       bot.panels.onBotChannelChanged(guild).catch((error) => log.warn(`전용 채널 변경 후 패널 이동 실패: ${messageOf(error)}`));

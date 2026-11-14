@@ -137,7 +137,7 @@ const PERMISSION_CODES = ["must-server-manager", "must-dj"];
 function failureOf(error: unknown): Failure {
   const reply = replyOf(error);
   const code = problemCodeOf(reply);
-  if ((code === "config-changed" || code === "settings-changed") && reply && typeof reply === "object" && Array.isArray((reply as SettingsConflict).conflicts)) {
+  if (code === "settings-changed" && reply && typeof reply === "object" && Array.isArray((reply as SettingsConflict).conflicts)) {
     return { kind: "conflict", conflict: reply as SettingsConflict };
   }
   if (code && GONE_CODES.includes(code)) return { kind: "gone" };
