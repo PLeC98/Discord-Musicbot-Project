@@ -28,7 +28,7 @@ test("주제마다 아이콘 하나. 앱 이모지를 맞추기 전에는 유니
     live: "🔴",
     waiting: "⏳",
     muted: "🔇",
-    autoplay: "🎲",
+    autoplay: "📻",
     state: "⚠️",
   });
 });

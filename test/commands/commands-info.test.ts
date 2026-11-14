@@ -144,7 +144,7 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.equal(lines[7], "-# 🔗 **음원** [YouTube](https://www.youtube.com/watch?v=abc) · 자동 검색 결과");
   assert.equal(lines[8], "-# ⏭️ **다음** [다음 곡](https://youtu.be/n) · 다음 가수");
   assert.equal(lines[9], "-# 📋 **대기열** 2곡 · 1:40 이상", "길이를 모르는 곡이 있으면 이상");
-  assert.match(lines[10], /^-# 🎲 \*\*자동재생\*\* 켜짐 · /);
+  assert.match(lines[10], /^-# 📻 \*\*자동재생\*\* 켜짐 · /);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
