@@ -213,11 +213,16 @@ function createSettingsSaver(io: SaverIO, { debounceMs = 400 } = {}) {
   }
 
   function adopt(data: GuildSettings) {
+    // 입력은 바뀌기 전의 기본 구간을 기준으로 읽는다. 새 기본 구간을 기준으로 읽으면 화면에 남은 옛 기본 구간이 고친 값으로 잡혀 서버 값으로 굳는다
+    const current = draft();
     defaults = data.sponsorblock?.defaultCategories ?? [];
-    const merged = mergeRefresh(base, draft(), valuesOf(data));
+    const merged = mergeRefresh(base, current, valuesOf(data));
     base = merged.base;
     io.settings(data);
-    if (merged.touched.length) io.write(merged.draft, merged.touched);
+    const touched = [...merged.touched];
+    // 기본 구간을 따르는 중이면 바뀐 기본 구간으로 다시 보여 준다
+    if (valueAt(merged.draft, "sponsorblock.categories") === null && !touched.includes("sponsorblock.categories")) touched.push("sponsorblock.categories");
+    if (touched.length) io.write(merged.draft, touched);
   }
 
   async function refresh() {

@@ -10,13 +10,13 @@ import type { SettingsPatch } from "../../../src/dashboard/request-schemas.ts";
 
 const DEFAULTS = ["music_offtopic", "intro", "outro"];
 
-function settingsOf(values: SettingsValues, more: Partial<GuildSettings> = {}): GuildSettings {
+function settingsOf(values: SettingsValues, more: Partial<GuildSettings> = {}, defaults: string[] = DEFAULTS): GuildSettings {
   return {
     guildName: "서버",
     cards: ["channel", "dj", "sponsorblock", "playlistAdd"],
     channel: { botChannelId: values.botChannelId ?? null, channels: [] },
     dj: { djRoleIds: values.djRoleIds ?? [], roles: [] },
-    sponsorblock: { masterEnabled: true, enabled: values.sponsorblock?.enabled ?? true, categories: values.sponsorblock?.categories ?? null, defaultCategories: DEFAULTS },
+    sponsorblock: { masterEnabled: true, enabled: values.sponsorblock?.enabled ?? true, categories: values.sponsorblock?.categories ?? null, defaultCategories: defaults },
     playlistAdd: { value: values.playlistAddMax ?? null, effective: 50, min: 1, max: 500, default: 50 },
     ...more,
   };
@@ -34,6 +34,7 @@ function harness(initial: SettingsValues) {
   const failures: Failure["kind"][] = [];
   let hold: SettingsKey[] = [];
   let lost = false;
+  let defaults = DEFAULTS;
   const saver = createSettingsSaver(
     {
       send: (patch) => {
@@ -46,11 +47,11 @@ function harness(initial: SettingsValues) {
         // 화면처럼: 구간이 null(운영자 기본을 따름)이면 기본 구간을 보인다
         for (const key of keys) {
           const value = valueAt(values, key);
-          form = withValue(form, key, key === "sponsorblock.categories" && value === null ? [...DEFAULTS] : value);
+          form = withValue(form, key, key === "sponsorblock.categories" && value === null ? [...defaults] : value);
         }
       },
       hold: () => hold,
-      settings: () => {},
+      settings: (data) => (defaults = data.sponsorblock?.defaultCategories ?? []),
       saving: () => {},
       saved: () => {},
       failed: (_error, failure) => failures.push(failure.kind),
@@ -73,7 +74,7 @@ function harness(initial: SettingsValues) {
     setHold: (keys: SettingsKey[]) => (hold = keys),
     answer: (values: SettingsValues) => pendingSends.shift()!.resolve({ values }),
     fail: (error: unknown) => pendingSends.shift()!.reject(error),
-    giveSettings: (values: SettingsValues, more: Partial<GuildSettings> = {}) => pendingFetches.shift()!.resolve(settingsOf(values, more)),
+    giveSettings: (values: SettingsValues, more: Partial<GuildSettings> = {}, newDefaults?: string[]) => pendingFetches.shift()!.resolve(settingsOf(values, more, newDefaults)),
     failFetch: (error: unknown) => pendingFetches.shift()!.reject(error),
     get fetches() {
       return pendingFetches.length;
@@ -252,4 +253,21 @@ test("다시 읽기로 새로 보인 카드는 고친 것으로 잡히지 않는
   assert.equal(valueAt(h.form, "agePlace"), "all");
   assert.deepEqual(h.saver.unsaved(), []);
   assert.equal(h.sent.length, 0);
+});
+
+test("운영자가 기본 구간을 바꾼 뒤 다시 읽어도, 기본을 따르는 서버의 구간은 고친 것으로 잡히지 않고 새 기본 구간을 보이며 보내지 않는다", async () => {
+  const h = harness({ sponsorblock: { enabled: true, categories: null }, botChannelId: "a" });
+  assert.deepEqual(valueAt(h.form, "sponsorblock.categories"), DEFAULTS);
+  h.saver.nudged();
+  await tick();
+  h.giveSettings({ sponsorblock: { enabled: true, categories: null }, botChannelId: "a" }, {}, ["filler"]);
+  await tick();
+  assert.deepEqual(valueAt(h.form, "sponsorblock.categories"), ["filler"]);
+  assert.deepEqual(h.saver.unsaved(), []);
+  h.edit("botChannelId", "b");
+  await tick();
+  assert.deepEqual(h.sent, [{ botChannelId: { from: "a", to: "b" } }], "구간을 싣지 않는다");
+  h.answer({ botChannelId: "b" });
+  assert.deepEqual(await h.saver.flush(), []);
+  assert.equal(h.sent.length, 1);
 });
