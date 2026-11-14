@@ -29,7 +29,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   queue: (it, player) => handleQueue(it, player),
   shuffle: (it, player) => answerShuffle(it, player),
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
-  volume: (it) => handleVolumeButton(it),
+  volume: (it, player) => handleVolumeButton(it, player),
   // 순환: 끔 → 한 곡 반복 → 대기열 반복 → 끔. 라이브가 있으면 "끄기"에만 응한다
   loop: (it, player) => answerLoop(it, player, nextLoopMode(player.loop)),
   previous: (it, player) => answerPrevious(it, player),
@@ -73,19 +73,19 @@ async function handleQueuePage(interaction: Press, { players }: BotContext) {
   return updateSelf(interaction, queueView(info, pageOf(interaction.customId) ?? 1), LIFETIME.screen);
 }
 
-async function handleVolumeButton(interaction: Press) {
+async function handleVolumeButton(interaction: Press, player: Player) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
     return await noticeSelf(interaction, errors.notice(permErr));
   }
 
-  await interaction.showModal(volumeModal());
+  await interaction.showModal(volumeModal(player.volume));
 }
 
-/** 볼륨을 입력하는 모달. 받는 쪽은 panel-inputs 의 handleVolumeSubmit */
-function volumeModal() {
-  const t = controlText.volumeModal();
-  const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder("50").setRequired(true);
+/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs 의 handleVolumeSubmit */
+function volumeModal(current: number) {
+  const t = controlText.volumeModal(current);
+  const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder(t.placeholder).setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
