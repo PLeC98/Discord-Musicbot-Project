@@ -3,7 +3,7 @@
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, MessageFlags, PermissionFlagsBits, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, escapeMarkdown, type Guild, type GuildTextBasedChannel } from "discord.js";
 import config from "../config/index.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
 import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
@@ -22,7 +22,7 @@ function writable(guild: Guild, channel: GuildTextBasedChannel | null | undefine
 
 /** 올릴 채널: 봇 전용 채널(다시 초대한 서버), 시스템 채널, 위치 순서로 첫 텍스트 채널 가운데 봇이 쓸 수 있는 첫 곳. 스레드는 보지 않는다(쓰는 권한이 따로다). 없으면 null */
 async function welcomeChannel(guild: Guild): Promise<GuildTextBasedChannel | null> {
-  const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+  const botChannelId = await guildSettings.getBotChannel(guild.id);
   const botChannel = botChannelId ? guild.channels.cache.get(botChannelId) : undefined;
   const candidates: Array<GuildTextBasedChannel | null> = [
     botChannel?.type === ChannelType.GuildText ? botChannel : null,

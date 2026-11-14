@@ -1,4 +1,4 @@
-// NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
+// NDJSON 파일 destination. LogSink.destinations에 얹히는 소비자 하나.
 //
 // 파일 쓰기는 facade(logger.ts)가 아니라 destination 에 둔다. pino transport 와 같은 자리라 로거를 바꿔도 부르는 쪽은 그대로다.
 //

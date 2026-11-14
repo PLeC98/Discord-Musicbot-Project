@@ -1,4 +1,4 @@
-// 로그 싱크(LogManager). 모든 로그 레코드가 지나는 한 곳.
+// 로그 싱크(LogSink). 모든 로그 레코드가 지나는 한 곳.
 // 입력 레코드(pino JSON 부분집합): { level:number, time:number, msg:string, ...bindings }
 //   - bindings 예: category, err(stack 문자열) 등
 // 순서: 가리기(redact)와 길이 자르기 → 터미널 출력 → 줄 버퍼 → SSE → destinations(파일)
@@ -112,7 +112,7 @@ type Problem = { ts: number; level: "warn" | "error"; text: string };
 const PROBLEM_WINDOW_MS = 60 * 60_000;
 const MAX_PROBLEMS = 2000;
 
-class LogManager {
+class LogSink {
   maxLines: number;
   consoleLevel: number;
   buffer: WireEntry[];
@@ -391,8 +391,8 @@ class LogManager {
   }
 }
 
-const singleton = Object.assign(new LogManager(), {
-  LogManager, // 테스트용 클래스(격리 인스턴스 생성)
+const singleton = Object.assign(new LogSink(), {
+  LogSink, // 테스트용 클래스(격리 인스턴스 생성)
   _internals: { CONSOLE_LEVEL, REDACT_KEYS, MSG_PATTERNS },
 });
 export default singleton;

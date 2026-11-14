@@ -55,7 +55,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 import path from "path";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
-import { StatusManager } from "../ui/bot-presence.ts";
+import { BotPresence } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
@@ -318,7 +318,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   const { players, panels, stay } = bot;
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
-  new StatusManager(client).start(); // 활동 문구
+  new BotPresence(client).start(); // 활동 문구
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇, 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
   // 스포티파이 익명 상태와 토큰(첫 자동완성이 스포티파이를 쓰게). 저장해 둔 것이 쓸 만하면 요청하지 않는다

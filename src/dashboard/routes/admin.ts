@@ -11,7 +11,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { sendProblem } from "../problem.ts";
-import logManager from "../../infra/log/sink.ts";
+import logSink from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
@@ -55,7 +55,7 @@ import { ageContent, setAgeContent } from "../../config/age-content.ts";
 import * as geoip from "../geoip.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import * as youtubeSource from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
@@ -102,7 +102,7 @@ async function announceChannel(guild: Guild) {
   const me = guild.members.me;
   const writable = (c: GuildBasedChannel | null | undefined) => (c && c.isTextBased() && !c.isThread() && me && c.permissionsFor(me)?.has("SendMessages") ? c : null);
 
-  const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+  const botChannelId = await guildSettings.getBotChannel(guild.id);
   const preferred = writable(botChannelId ? guild.channels.cache.get(botChannelId) : null) ?? writable(guild.systemChannel);
   if (preferred) return preferred;
   return [...guild.channels.cache.values()]
@@ -597,8 +597,8 @@ adminRouter.get("/logs/stream", (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
   // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
-  if (!logManager.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionRequests.track(req, res, "실시간 로그", () => logManager.drop(res));
+  if (!logSink.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
+  sessionRequests.track(req, res, "실시간 로그", () => logSink.drop(res));
 });
 
 // 권한 수준 오버라이드. { tier: "server-manager"|"dj"|"user"|null }. null이면 해제.

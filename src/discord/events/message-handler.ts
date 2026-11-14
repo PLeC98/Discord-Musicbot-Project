@@ -1,7 +1,7 @@
 import { Events } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { channelResponder } from "../../usecases/responders.ts";
@@ -30,7 +30,7 @@ const exported: ClientEvent<Events.MessageCreate> = {
     if (!content) return;
 
     // 전용 채널의 글만 받는다
-    const botChannelId = await GuildSettingsManager.getBotChannel(guildId);
+    const botChannelId = await guildSettings.getBotChannel(guildId);
     if (!botChannelId || message.channel.id !== botChannelId) return;
 
     const member = message.member;

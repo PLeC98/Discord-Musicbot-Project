@@ -1,6 +1,6 @@
 import { PermissionFlagsBits } from "discord.js";
 import config from "../config/index.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
 import type { Guild, GuildMember } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
@@ -43,7 +43,7 @@ function isDjRoleCandidate(guild: Guild, roleId: string) {
 async function isDj(member: GuildMember) {
   if (isServerManager(member)) return true;
 
-  const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
+  const djRoleIds = await guildSettings.getDjRoles(member.guild.id);
   if (!djRoleIds.length) return true;
 
   const validIds = djRoleIds.filter((id) => isDjRoleCandidate(member.guild, id));

@@ -15,7 +15,7 @@ import config from "../../src/config/index.ts";
 import { runYtDlp } from "../../src/sources/youtube/ytdlp-run.ts";
 import { _ageCheck } from "../../src/player/start-playback.ts";
 import * as ageGate from "../../src/sources/age-gate.ts";
-import * as GuildSettingsManager from "../../src/store/guild-settings.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import { inGuild, inVoiceTarget, currentVoiceTarget as currentTarget } from "../../src/infra/guild-context.ts";
 import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -143,14 +143,14 @@ test("서버 단위: 기본은 연령 제한 채널에서만. 봇이 든 채널�
       }
     });
 
-  assert.equal(GuildSettingsManager.resolveAgePlace("g-plain"), "channel", "기본은 연령 제한 채널에서만");
+  assert.equal(guildSettings.resolveAgePlace("g-plain"), "channel", "기본은 연령 제한 채널에서만");
   assert.deepEqual(["g-nsfw", "g-plain", "g-away"].map(verdict), ["ok", "age-channel-only", "ok"]);
   assert.equal(_ageCheck(url), undefined, "서버 문맥 밖(재생 테스트 등)은 운영자 판단만");
 
-  assert.deepEqual(await GuildSettingsManager.setAgePlace("g-plain", "all"), ["agePlace"]);
+  assert.deepEqual(await guildSettings.setAgePlace("g-plain", "all"), ["agePlace"]);
   assert.equal(verdict("g-plain"), "ok", "서버가 모든 채널로 풀었다");
-  assert.equal(GuildSettingsManager.table.getAgePlace("g-plain"), "all");
-  await GuildSettingsManager.setAgePlace("g-plain", "channel");
+  assert.equal(guildSettings.table.getAgePlace("g-plain"), "all");
+  await guildSettings.setAgePlace("g-plain", "channel");
   assert.equal(verdict("g-plain"), "age-channel-only");
 
   documents._use("age-content", { enabled: false, changedAt: 2 });

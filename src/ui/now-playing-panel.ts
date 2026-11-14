@@ -24,7 +24,7 @@ import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd, linkLabel } from "./mentions.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
@@ -294,7 +294,7 @@ class NowPlayingPanel {
   /** 이 서버의 전용 채널. 설정돼 있고 찾을 수 있을 때만 */
   async _dedicatedChannel(guild: Guild | null | undefined, fallback: GuildTextBasedChannel | null = null): Promise<GuildBasedChannel | null> {
     if (!guild?.id) return null;
-    const id = await GuildSettingsManager.getBotChannel(guild.id);
+    const id = await guildSettings.getBotChannel(guild.id);
     if (!id) return null;
     return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
   }
@@ -601,7 +601,7 @@ class NowPlayingPanel {
     const guildId = player.guild?.id;
     if (!guildId) return false;
     const panelChannelId = live ? (channelIdOf(live) ?? (await this.panelChannel(player))?.id) : (await this.location.store.getPanel(guildId))?.channelId;
-    return Boolean(panelChannelId) && panelChannelId === (await GuildSettingsManager.getBotChannel(guildId));
+    return Boolean(panelChannelId) && panelChannelId === (await guildSettings.getBotChannel(guildId));
   }
 
   // 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 패널을 고친다
@@ -634,7 +634,7 @@ class NowPlayingPanel {
 
   /** 전용 채널에 메시지가 올라오면 끝난 패널, 멈춘 재생 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
   async scheduleIdleRepin(guild: Guild | null | undefined, channelId: string) {
-    if (!guild?.id || (await GuildSettingsManager.getBotChannel(guild.id)) !== channelId) return;
+    if (!guild?.id || (await guildSettings.getBotChannel(guild.id)) !== channelId) return;
     clearTimeout(this.repinTimers.get(guild.id));
     const timer = setTimeout(() => {
       this.repinTimers.delete(guild.id);
@@ -700,7 +700,7 @@ class NowPlayingPanel {
         const record = await this.location.store.getPanel(guild.id);
         if (!record) continue;
         const view = this._idleView(guild);
-        const dedicated = record.channelId === (await GuildSettingsManager.getBotChannel(guild.id));
+        const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
         const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
         await this.location.edit(guild, payload);
       } catch (error) {
