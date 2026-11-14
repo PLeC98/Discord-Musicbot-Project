@@ -1,13 +1,13 @@
 // src/sources/youtube, src/rules/error-kind.ts: yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
 //
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(YouTube.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
-// 재시도, 폴백(YouTube.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
+// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(youtubeSource.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
+// 재시도, 폴백(youtubeSource.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
 // "순서" 라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { errorKind, codedError } from "../../src/rules/error-kind.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 const T = true;
@@ -52,14 +52,14 @@ const shaped = ytDlpError;
 test("오류 분류 표: yt-dlp 가 단 이름으로 구분한 종류와 판별 열", () => {
   const actual = TABLE.map(([msg]) => {
     const e = new Error(msg);
-    return [msg, errorKind(shaped(msg)), YouTube.isVideoUnavailableError(e), YouTube.isAgeRestrictedError(e), YouTube.isClientFault(e), YouTube.isStaleMediaError(e), YouTube.isSkippedClientError(e)];
+    return [msg, errorKind(shaped(msg)), youtubeSource.isVideoUnavailableError(e), youtubeSource.isAgeRestrictedError(e), youtubeSource.isClientFault(e), youtubeSource.isStaleMediaError(e), youtubeSource.isSkippedClientError(e)];
   });
   assert.deepEqual(actual, TABLE); // 한 번에 비교해 어긋난 셀을 전부 보인다
 });
 
 test("분류는 stderr가 있으면 그것을 본다(YouTube 쪽). errorKind는 이름만 본다", () => {
   const e = Object.assign(new Error("exit 1"), { stderr: "ERROR: Video unavailable" });
-  assert.equal(YouTube.isVideoUnavailableError(e), true);
+  assert.equal(youtubeSource.isVideoUnavailableError(e), true);
   assert.equal(errorKind(e), "unknown-error");
 });
 
@@ -107,27 +107,27 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     "위 표의 문장 차례 그대로",
   );
   assert.deepEqual(
-    TABLE.map(([msg]) => [msg, YouTube.codeOf(new Error(msg))]),
+    TABLE.map(([msg]) => [msg, youtubeSource.codeOf(new Error(msg))]),
     Object.entries(CODES),
   );
   // 영상 ID 에 429 가 들어도 요청 제한이 아니다. 줄마다 [youtube] 가 붙어도 403 이 봇 감지가 아니다
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Video unavailable")), "unavailable-contents");
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Requested format is not available")), "client-fault");
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] abc: unable to download video data: HTTP Error 403: Forbidden")), "stale-media");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Video unavailable")), "unavailable-contents");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Requested format is not available")), "client-fault");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] abc: unable to download video data: HTTP Error 403: Forbidden")), "stale-media");
 });
 
 // 닿을 수 없는 프록시로 yt-dlp 를 돌렸을 때의 줄
 test("yt-dlp 가 쓰는 연결 실패 문장은 네트워크다", () => {
   for (const stderr of ["WARNING: [youtube:search] ('Unable to connect to proxy', NewConnectionError(\"HTTPSConnection(host='127.0.0.1', port=9): Failed to establish a new connection: [WinError 10061] …\")). Retrying (1/3)...", "ERROR: [youtube] abc: Unable to download API page: HTTPSConnection(host='www.youtube.com', port=443): Failed to establish a new connection: [Errno 111] Connection refused", "ERROR: Unable to download webpage: <urlopen error [Errno 11001] getaddrinfo failed>"]) {
-    assert.equal(YouTube.codeOf(new Error(stderr)), "network-error", stderr);
+    assert.equal(youtubeSource.codeOf(new Error(stderr)), "network-error", stderr);
   }
 });
 
 test("yt-dlp 가 쓰는 재생목록, 지역 차단 문장", () => {
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: The playlist does not exist.")), "unavailable-playlist");
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube:tab] PLzzz: This playlist is private")), "unavailable-playlist");
-  assert.equal(YouTube.codeOf(new Error("ERROR: [youtube] abc: The uploader has not made this video available in your country")), "geo-blocked");
-  assert.equal(YouTube.codeOf(new Error("ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction")), "geo-blocked");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube:tab] PLzzz: The playlist does not exist.")), "unavailable-playlist");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube:tab] PLzzz: This playlist is private")), "unavailable-playlist");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] abc: The uploader has not made this video available in your country")), "geo-blocked");
+  assert.equal(youtubeSource.codeOf(new Error("ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction")), "geo-blocked");
 });
 
 test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {

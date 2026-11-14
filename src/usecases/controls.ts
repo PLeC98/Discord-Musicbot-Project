@@ -428,7 +428,7 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
   }
   if (starts) {
     try {
-      await target.handleAutoplay();
+      await target.playAutoplayNow();
     } catch (error) {
       if (!answerError) throw error;
       log.warn(`자동재생 첫 곡 선택 실패: ${messageOf(error)}`);

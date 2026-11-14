@@ -7,7 +7,7 @@ import { inputKind } from "../../src/rules/input-kind.ts";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 
-import * as DirectLink from "../../src/sources/direct.ts";
+import * as directSource from "../../src/sources/direct.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
 import { messageOf, codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import { addFailureMessage, errorMessage } from "../../src/ui/error-messages.ts";
@@ -112,36 +112,36 @@ test("직접 링크 판정: 알려진 사이트 밖의 http(s) 면 확장자와 
 test("직접 링크 정보: 제목은 주소의 파일 이름에서 온다. 길이는 다운로드 전에는 모른다(크기로 어림하지 않는다)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
 
-  const [t] = await DirectLink.getInfo("https://files.test/my_song-name.mp3?x=1", info);
+  const [t] = await directSource.getInfo("https://files.test/my_song-name.mp3?x=1", info);
 
   assert.deepEqual(calls.info, ["https://files.test/my_song-name.mp3?x=1"]);
   assert.deepEqual({ title: t.title, duration: t.duration, durationSource: t.durationSource, platform: t.platform, thumbnail: t.thumbnail }, { title: "my song name", duration: 0, durationSource: "unknown", platform: "direct", thumbnail: null });
-  assert.equal(t.id, DirectLink.generateId("https://files.test/my_song-name.mp3?x=1"));
+  assert.equal(t.id, directSource.generateId("https://files.test/my_song-name.mp3?x=1"));
 });
 
 test("직접 링크 정보: 서버가 알려 준 파일 이름(Content-Disposition)이 주소보다 먼저다", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": "attachment; filename=\"x.mp3\"; filename*=UTF-8''%EB%85%B8%EB%9E%98%20%EC%A0%9C%EB%AA%A9.mp3" } });
-  const [t] = await DirectLink.getInfo("https://files.test/get/7.mp3", info);
+  const [t] = await directSource.getInfo("https://files.test/get/7.mp3", info);
   assert.equal(t.title, "노래 제목");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-disposition": 'attachment; filename="Artist - Song.mp3"' } });
-  const [u] = await DirectLink.getInfo("https://files.test/get/8.mp3", info);
+  const [u] = await directSource.getInfo("https://files.test/get/8.mp3", info);
   assert.equal(u.title, "Artist - Song");
 });
 
 test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아니면 unsupported-link, 열지 못하면 사유를 숨긴 일반 문장으로 던진다", async () => {
-  assert.deepEqual(await DirectLink.getInfo("https://open.spotify.com/episode/abc", info), []);
+  assert.deepEqual(await directSource.getInfo("https://open.spotify.com/episode/abc", info), []);
   assert.equal(calls.info.length, 0);
   headReply = () => {
     throw new Error("SSRF 차단: 10.0.0.5");
   };
-  const thrown = await DirectLink.getInfo("https://files.test/a.mp3", info).then(
+  const thrown = await directSource.getInfo("https://files.test/a.mp3", info).then(
     () => assert.fail("던져야 한다"),
     (e: unknown) => e,
   );
   assert.equal(codeOf(thrown), "direct-unavailable");
   assert.match(messageOf((thrown as Error).cause), /10\.0\.0\.5/, "사유는 원인에(서버 로그용)");
   headReply = () => ({ headers: { "content-type": "text/html" } });
-  await assert.rejects(DirectLink.getInfo("https://files.test/a.mp3", info), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(directSource.getInfo("https://files.test/a.mp3", info), (e: unknown) => codeOf(e) === "unsupported-link");
   // 사용자에게 가는 문장에는 막힌 주소가 없다(내부망 탐지 도구가 되지 않게)
   const told = errorMessage(thrown);
   assert.equal(plainText(told), "재생할 수 없는 링크예요!\n해당 링크가 오디오나 영상이 맞는지, 용량이 너무 크지는 않은지, 접속이 정상적으로 가능한지 확인해주세요.");
@@ -150,30 +150,30 @@ test("직접 링크 정보: 직접 링크가 아니면 빈 배열, 음원이 아
 test("직접 링크: icy-* 헤더가 있으면 인터넷 라디오라 라이브로 담는다(길이를 추정하지 않는다)", async () => {
   // 끝없는 방송인데도 큰 가짜 크기를 붙이는 서버가 있다
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "54000000", "icy-name": "라디오", "icy-br": "128" } });
-  const [t] = await DirectLink.getInfo("https://radio.test/live.mp3", info);
+  const [t] = await directSource.getInfo("https://radio.test/live.mp3", info);
   assert.deepEqual({ isLive: t.isLive, liveStatus: t.liveStatus, duration: t.duration, durationSource: t.durationSource }, { isLive: true, liveStatus: "is_live", duration: 0, durationSource: "unknown" });
 
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "content-length": "1600000" } });
-  const [f] = await DirectLink.getInfo("https://files.test/b.mp3", info);
+  const [f] = await directSource.getInfo("https://files.test/b.mp3", info);
   assert.equal(f.isLive, undefined, "보통 파일은 라이브가 아니다");
 });
 
 test("직접 링크 제목: 경로의 파일 이름(확장자를 뗀다), 이름이 없으면 호스트. 인터넷 라디오는 방송 이름(UTF-8)", async () => {
   headReply = () => ({ headers: { "content-type": "audio/mpeg" } });
   const titles: Array<string | null> = [];
-  for (const url of ["https://files.test/radio/live.php", "https://files.test/stream.mp3", "https://cdn.test/"]) titles.push((await DirectLink.getInfo(url, info))[0].title);
+  for (const url of ["https://files.test/radio/live.php", "https://files.test/stream.mp3", "https://cdn.test/"]) titles.push((await directSource.getInfo(url, info))[0].title);
   assert.deepEqual(titles, ["live", "stream", "cdn.test"]);
 
   // Node 는 헤더를 latin1 로 읽는다. UTF-8 로 보낸 이름을 되살린다
   const name = Buffer.from("한국 라디오", "utf8").toString("latin1");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": name } });
-  assert.equal((await DirectLink.getInfo("https://radio.test/stream", info))[0].title, "한국 라디오");
+  assert.equal((await directSource.getInfo("https://radio.test/stream", info))[0].title, "한국 라디오");
   headReply = () => ({ headers: { "content-type": "audio/mpeg", "icy-name": "Caf\u00e9 FM" } });
-  assert.equal((await DirectLink.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8 이 아니면 그대로");
+  assert.equal((await directSource.getInfo("https://radio.test/stream", info))[0].title, "Caf\u00e9 FM", "UTF-8 이 아니면 그대로");
 });
 
 test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일반 문장으로 던진다", async () => {
-  const s = await DirectLink.open("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
+  const s = await directSource.open("https://files.test/a.mp3", net, { bodyIdleMs: 6000 });
   assert.ok(s.kind === "file" && s.body instanceof Readable && !s.radio);
   assert.deepEqual(calls.stream, ["https://files.test/a.mp3"]);
   assert.deepEqual(
@@ -182,30 +182,30 @@ test("직접 링크 열기: SafeUrl 로 열고, 실패 사유는 숨기고 일�
     "본문 무응답 한도를 그대로 넘긴다",
   );
 
-  await assert.rejects(DirectLink.open("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
+  await assert.rejects(directSource.open("https://open.spotify.com/episode/abc", net), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /직접 링크가 아님/.test(messageOf((e as Error).cause)));
   // 음원이 아닌 응답은 받은 응답으로 안 것이라 숨기지 않는다
-  await assert.rejects(DirectLink.open("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(directSource.open("https://files.test/page", net), (e: unknown) => codeOf(e) === "unsupported-link");
   const blocked = {
     getStream: async () => {
       throw new Error("SSRF 차단: 127.0.0.1");
     },
   };
-  await assert.rejects(DirectLink.open("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
+  await assert.rejects(directSource.open("https://files.test/b.mp3", blocked), (e: unknown) => messageOf(e) === "재생할 수 없는 링크" && /127\.0\.0\.1/.test(messageOf((e as Error).cause)));
 });
 
 test("파일 이름에서 제목: 인코딩을 풀고, 띄어쓰기 없는 이름만 구분자를 공백으로, 대소문자는 그대로", () => {
-  assert.equal(DirectLink.extractTitle("hello_world-2.mp3"), "hello world 2");
-  assert.equal(DirectLink.extractTitle(".mp3"), "mp3", "점으로 시작하는 이름은 확장자가 아니라 이름으로 읽힌다");
-  assert.equal(DirectLink.extractTitle("%EB%85%B8%EB%9E%98%20live.mp3"), "노래 live");
-  assert.equal(DirectLink.extractTitle("iPhone_demo.mp3"), "iPhone demo");
-  assert.equal(DirectLink.extractTitle("Artist - Song_Title.mp3"), "Artist - Song Title", "띄어 쓴 이름의 - 는 그대로");
-  assert.equal(DirectLink.extractTitle("broken%E0%A4.mp3"), "broken%E0%A4", "깨진 인코딩은 그대로");
-  assert.equal(DirectLink.extractTitle("___.mp3"), null, "이름이 남지 않으면 표시 문구로 채우지 않고 비워 둔다");
+  assert.equal(directSource.extractTitle("hello_world-2.mp3"), "hello world 2");
+  assert.equal(directSource.extractTitle(".mp3"), "mp3", "점으로 시작하는 이름은 확장자가 아니라 이름으로 읽힌다");
+  assert.equal(directSource.extractTitle("%EB%85%B8%EB%9E%98%20live.mp3"), "노래 live");
+  assert.equal(directSource.extractTitle("iPhone_demo.mp3"), "iPhone demo");
+  assert.equal(directSource.extractTitle("Artist - Song_Title.mp3"), "Artist - Song Title", "띄어 쓴 이름의 - 는 그대로");
+  assert.equal(directSource.extractTitle("broken%E0%A4.mp3"), "broken%E0%A4", "깨진 인코딩은 그대로");
+  assert.equal(directSource.extractTitle("___.mp3"), null, "이름이 남지 않으면 표시 문구로 채우지 않고 비워 둔다");
 });
 
 // 주소 앞부분으로 만들면 같은 호스트의 곡이 모두 같은 ID 가 된다
 test("직접 링크 곡 ID 는 주소 전체에서 나온다", () => {
-  assert.notEqual(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/b.mp3"));
-  assert.equal(DirectLink.generateId("https://example.com/a.mp3"), DirectLink.generateId("https://example.com/a.mp3"));
-  assert.equal(DirectLink.generateId("https://example.com/a.mp3").length, 16);
+  assert.notEqual(directSource.generateId("https://example.com/a.mp3"), directSource.generateId("https://example.com/b.mp3"));
+  assert.equal(directSource.generateId("https://example.com/a.mp3"), directSource.generateId("https://example.com/a.mp3"));
+  assert.equal(directSource.generateId("https://example.com/a.mp3").length, 16);
 });

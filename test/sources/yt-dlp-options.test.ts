@@ -5,20 +5,20 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-const YouTube = await import("../../src/sources/youtube/index.ts");
+const youtubeSource = await import("../../src/sources/youtube/index.ts");
 const { createPotServer } = await import("../../src/sources/youtube/pot-server.ts");
 const ytdlpOptions = await import("../../src/sources/ytdlp-options.ts");
 const config = (await import("../../src/config/index.ts")).default;
 
 test("쿠키 미설정이어도 player_client를 강제하지 않음", () => {
-  const opts = YouTube.getYtDlpOptions();
+  const opts = youtubeSource.getYtDlpOptions();
   assert.equal(opts.extractorArgs, undefined, "ios 강제 폴백 금지 — 기본 클라이언트 + bgutil POT에 맡김");
   assert.equal(opts.cookiesFromBrowser, undefined);
   assert.equal(opts.cookies, undefined);
 });
 
 test("기본 옵션 유지 + 추가 옵션 병합", () => {
-  const opts = YouTube.getYtDlpOptions({ dumpSingleJson: true });
+  const opts = youtubeSource.getYtDlpOptions({ dumpSingleJson: true });
   assert.equal(opts.dumpSingleJson, true);
   // noWarnings는 켜지 않는다. yt-dlp 경고에 "이 클라이언트는 POToken이 필요하다"가 섞여 온다
   assert.equal((opts as Record<string, unknown>).noWarnings, undefined);
@@ -29,10 +29,10 @@ test("기본 옵션 유지 + 추가 옵션 병합", () => {
 });
 
 test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너리). 넘기기 전에는 필드가 없다", () => {
-  assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, undefined);
+  assert.equal(youtubeSource.getYtDlpOptions().ffmpegLocation, undefined);
   ytdlpOptions.useFfmpeg(() => "/opt/ffmpeg/bin/ffmpeg");
   try {
-    assert.equal(YouTube.getYtDlpOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg");
+    assert.equal(youtubeSource.getYtDlpOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg");
     assert.equal(ytdlpOptions.baseOptions().ffmpegLocation, "/opt/ffmpeg/bin/ffmpeg", "공통 층에 있다");
   } finally {
     ytdlpOptions.useFfmpeg(() => null);
@@ -43,14 +43,14 @@ test("yt-dlp 는 조립이 넘긴 ffmpeg 를 쓴다(재생과 같은 바이너�
 test("공통 옵션은 재시도뿐이고 유튜브 전용 필드가 없다. 경고를 끄지 않는다", () => {
   const base = ytdlpOptions.baseOptions({ dumpSingleJson: true });
   assert.deepEqual(base, { retries: 3, fragmentRetries: 3, dumpSingleJson: true });
-  const youtube = YouTube.getYtDlpOptions();
+  const youtube = youtubeSource.getYtDlpOptions();
   assert.equal(youtube.retries, 3);
   assert.ok(youtube.jsRuntimes, "유튜브는 JS 런타임을 얹는다");
   assert.equal((youtube as Record<string, unknown>).noWarnings, undefined);
 });
 
 test("호출자가 extractorArgs를 명시하면 그대로 존중 (병합 계약)", () => {
-  const opts = YouTube.getYtDlpOptions({ extractorArgs: "youtube:player_client=web" });
+  const opts = youtubeSource.getYtDlpOptions({ extractorArgs: "youtube:player_client=web" });
   assert.equal(opts.extractorArgs, "youtube:player_client=web");
 });
 
@@ -75,24 +75,24 @@ function fixture(layout: string) {
 }
 
 test("플러그인 루트는 하위 디렉터리 안의 yt_dlp_plugins를 찾는다", () => {
-  const { findPluginRoot } = YouTube._internals;
+  const { findPluginRoot } = youtubeSource._internals;
   const root = fixture(path.join("plugin", "yt_dlp_plugins", "extractor"));
   assert.equal(findPluginRoot(root), path.join(root, "plugin", "yt_dlp_plugins"));
 });
 
 test("yt_dlp_plugins를 직접 담은 디렉터리는 루트가 아니다(그러면 POToken 플러그인을 못 읽는다)", () => {
-  const { findPluginRoot } = YouTube._internals;
+  const { findPluginRoot } = youtubeSource._internals;
   const root = fixture(path.join("plugin", "yt_dlp_plugins", "extractor"));
   assert.equal(findPluginRoot(path.join(root, "plugin")), null, "한 단계 안쪽을 넘기면 yt-dlp가 못 찾는다");
 });
 
 test("설치되지 않은 경로는 조용히 null", () => {
-  const { findPluginRoot } = YouTube._internals;
+  const { findPluginRoot } = youtubeSource._internals;
   assert.equal(findPluginRoot(path.join(os.tmpdir(), "존재하지-않는-경로-plugroot")), null);
 });
 
 test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (t) => {
-  const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = YouTube._internals;
+  const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = youtubeSource._internals;
   if (!BGUTIL_AVAILABLE) return t.skip("bgutil 미설치 (gitignore 대상)");
   assert.ok(BGUTIL_PLUGIN_ROOT, "설치돼 있으면 경로가 있다");
   assert.ok(fs.existsSync(BGUTIL_PLUGIN_ROOT), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
@@ -102,7 +102,7 @@ test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (
 // 스위치 값을 주변 환경에서 읽어 오면 안 된다. 두 방향을 직접 세워서 본다.
 // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣는다. 없을 때 실으면 플러그인이 기본 주소(4416)의 남의 서버로 간다
 test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때만 싣고, 그 주소를 넘긴다", async (t) => {
-  const { BGUTIL_AVAILABLE } = YouTube._internals;
+  const { BGUTIL_AVAILABLE } = youtubeSource._internals;
   const restore = config.bgutil.enabled;
   t.after(() => {
     config.bgutil.enabled = restore;
@@ -110,19 +110,19 @@ test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때�
 
   // 끄기로 했으면 설치 여부와 무관하게 안 쓴다
   config.bgutil.enabled = false;
-  assert.equal(YouTube.potEnabled(), false);
-  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined);
+  assert.equal(youtubeSource.potEnabled(), false);
+  assert.equal(youtubeSource.getYtDlpOptions().pluginDirs, undefined);
 
   // 켜 두어도 띄운 서버가 없으면 싣지 않는다
   config.bgutil.enabled = true;
-  assert.equal(YouTube.potEnabled(), BGUTIL_AVAILABLE);
-  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined);
+  assert.equal(youtubeSource.potEnabled(), BGUTIL_AVAILABLE);
+  assert.equal(youtubeSource.getYtDlpOptions().pluginDirs, undefined);
 
   // 서버를 띄우면 그 주소를 넘긴다(설치돼 있을 때만)
   const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, freePort: async () => 45999 });
   await server.start();
   try {
-    const opts = YouTube.getYtDlpOptions();
+    const opts = youtubeSource.getYtDlpOptions();
     if (BGUTIL_AVAILABLE) {
       assert.ok(opts.pluginDirs);
       assert.deepEqual(opts.extractorArgs, ["youtubepot-bgutilhttp:base_url=http://127.0.0.1:45999"]);
@@ -130,7 +130,7 @@ test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때�
   } finally {
     await server.stop();
   }
-  assert.equal(YouTube.getYtDlpOptions().pluginDirs, undefined, "내리면 싣지 않는다");
+  assert.equal(youtubeSource.getYtDlpOptions().pluginDirs, undefined, "내리면 싣지 않는다");
 });
 
 // ── 실패 분류 ────────────────────────────────────────────────────────────────
@@ -143,25 +143,25 @@ const notClientFaults = ["ERROR: [youtube] abc: Video unavailable", "ERROR: [you
 
 test("클라이언트를 바꿔볼 만한 실패를 알아본다", () => {
   for (const msg of clientFaults) {
-    assert.equal(YouTube.isClientFault(new Error(msg)), true, msg.slice(0, 50));
+    assert.equal(youtubeSource.isClientFault(new Error(msg)), true, msg.slice(0, 50));
   }
 });
 
 test("영상 문제, 네트워크는 클라이언트 탓이 아니다", () => {
   for (const msg of notClientFaults) {
-    assert.equal(YouTube.isClientFault(new Error(msg)), false, msg.slice(0, 50));
+    assert.equal(youtubeSource.isClientFault(new Error(msg)), false, msg.slice(0, 50));
   }
 });
 
 test("연령 제한은 포맷 오류 문구가 섞여 있어도 클라이언트 탓이 아니다", () => {
   const e = new Error("Sign in to confirm your age. Requested format is not available");
-  assert.equal(YouTube.isClientFault(e), false, "영상 문제 판정이 먼저다");
+  assert.equal(youtubeSource.isClientFault(e), false, "영상 문제 판정이 먼저다");
 });
 
 // ── 대시보드 계약 ────────────────────────────────────────────────────────────
 
 test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
-  const s = YouTube.statusSnapshot();
+  const s = youtubeSource.statusSnapshot();
   assert.deepEqual(Object.keys(s).sort(), ["clients", "configured", "cookies", "pot"]);
   assert.ok(["on", "off", "missing"].includes(s.pot));
   assert.ok(["browser", "file", "none"].includes(s.cookies));
@@ -172,7 +172,7 @@ test("statusSnapshot은 대시보드가 기대하는 모양을 낸다", () => {
 
 test("statusSnapshot은 쿠키를 어떻게 쓰는지 종류만 알린다", () => {
   // 대시보드는 운영자 전용이지만, 쿠키의 경로, 값은 알려야 할 이유가 없다
-  const snap = YouTube.statusSnapshot();
+  const snap = youtubeSource.statusSnapshot();
   assert.ok(["file", "browser", "none"].includes(snap.cookies));
   assert.ok(!JSON.stringify(snap).includes("cookie-jar"), "실행 때 푸는 표식이 응답에 실리면 안 된다");
 });
@@ -185,20 +185,20 @@ test("다운로드하다 막힌 것과 영상이 없어진 것을 구분한다",
   const err = (msg: string) => ({ stderr: msg });
 
   for (const msg of ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "ERROR: unable to download video data: HTTP Error 429: Too Many Requests", "ERROR: fragment 1 not found, unable to continue", "ERROR: unable to download fragment 3"]) {
-    assert.equal(YouTube.isStaleMediaError(err(msg)), true, msg);
-    assert.equal(YouTube.isClientFault(err(msg)), true, `${msg} — 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
+    assert.equal(youtubeSource.isStaleMediaError(err(msg)), true, msg);
+    assert.equal(youtubeSource.isClientFault(err(msg)), true, `${msg} — 클라이언트 목록이 있으면 다음으로 넘어가야 한다`);
   }
 
   // 영상이 없어진 것은 다시 받아도 소용없다. 다른 길로 가야 한다
   for (const msg of ["ERROR: [youtube] abc: Video unavailable", "ERROR: This video has been removed by the uploader"]) {
-    assert.equal(YouTube.isStaleMediaError(err(msg)), false, msg);
-    assert.equal(YouTube.isVideoUnavailableError(err(msg)), true, msg);
+    assert.equal(youtubeSource.isStaleMediaError(err(msg)), false, msg);
+    assert.equal(youtubeSource.isVideoUnavailableError(err(msg)), true, msg);
   }
 
   // 연령 제한도 아니다. 쿠키 폴백이 따로 있다
-  assert.equal(YouTube.isStaleMediaError(err("ERROR: Sign in to confirm your age")), false);
+  assert.equal(youtubeSource.isStaleMediaError(err("ERROR: Sign in to confirm your age")), false);
 
   // 네트워크 타임아웃은 같은 "unable to download video data" 문구로 오지만 다른 일이다.
   // 유튜브가 거절한 게 아니라 우리가 못 닿은 것이라, 주소를 다시 받아도 소용이 없다.
-  assert.equal(YouTube.isStaleMediaError(err("ERROR: unable to download video data: <urlopen error timed out>")), false);
+  assert.equal(youtubeSource.isStaleMediaError(err("ERROR: unable to download video data: <urlopen error timed out>")), false);
 });

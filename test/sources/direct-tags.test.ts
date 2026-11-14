@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import * as DirectLink from "../../src/sources/direct.ts";
+import * as directSource from "../../src/sources/direct.ts";
 import { applyTags } from "../../src/sources/direct-tags.ts";
 import * as trackLookup from "../../src/store/track-lookup.ts";
 import * as pinnedSources from "../../src/store/pinned-sources.ts";
@@ -105,7 +105,7 @@ test("getInfo: 1.5초 안에 태그를 읽으면 그 곡으로 담는다. 홉 �
   if (!body) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net, seen } = netOf(body);
   const got: Tags[] = [];
-  const [track] = await DirectLink.getInfo(FILE, { net, tags: (t, tags) => (got.push(tags), applyTags(t, tags)) });
+  const [track] = await directSource.getInfo(FILE, { net, tags: (t, tags) => (got.push(tags), applyTags(t, tags)) });
   assert.deepEqual([track.title, track.artist, track.album], ["태그 제목", "태그 가수", "태그 앨범"]);
   assert.equal(got.length, 1);
   assert.deepEqual(seen.accept, [HEAD_TIMEOUT_MS]);
@@ -120,7 +120,7 @@ test("getInfo: 1.5초를 넘기면 파일 이름으로 담고, 마저 읽어 같
   let late: () => void = () => {};
   const applied = new Promise<void>((resolve) => (late = resolve));
   const started = Date.now();
-  const [track] = await DirectLink.getInfo(FILE, { net, tags: (t, tags) => (applyTags(t, tags), late()) });
+  const [track] = await directSource.getInfo(FILE, { net, tags: (t, tags) => (applyTags(t, tags), late()) });
   assert.ok(Date.now() - started < 2500, `담기는 기다리지 않는다(${Date.now() - started}ms)`);
   assert.equal(track.title, "my song", "파일 이름");
   await applied;
@@ -132,12 +132,12 @@ test("getInfo: 라디오, 태그를 읽지 않는 부름(라디오 확인, 직�
   const body = Buffer.from("ID3 아무 바이트");
   const radio = netOf(body, { headers: { "content-type": "audio/mpeg", "icy-name": "라디오" } });
   let called = false;
-  const [live] = await DirectLink.getInfo("https://radio.test/live.mp3", { net: radio.net, tags: () => (called = true) });
+  const [live] = await directSource.getInfo("https://radio.test/live.mp3", { net: radio.net, tags: () => (called = true) });
   assert.equal(live.isLive, true);
   assert.ok(radio.seen.destroyed && !called, "라디오는 본문을 읽지 않는다");
 
   const plain = netOf(body);
-  const [track] = await DirectLink.getInfo(FILE, { net: plain.net });
+  const [track] = await directSource.getInfo(FILE, { net: plain.net });
   assert.equal(track.title, "my song");
   assert.ok(plain.seen.destroyed);
 });
@@ -165,7 +165,7 @@ test("곡 찾기: 직접 링크는 태그를 읽고, 직접 지정한 음원을 
 
 test("음원이 아닌 직접 링크(웹 페이지, 그림): getInfo 는 unsupported-link 로 던지고, 곡 찾기는 실패가 아니라 '알 수 없는 링크'로 답한다", async () => {
   const page = netOf(Buffer.from("<!doctype html><p>로그인</p>"), { headers: { "content-type": "text/html" } });
-  await assert.rejects(DirectLink.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(directSource.getInfo("https://files.test/page.mp3", { net: page.net }), (e: unknown) => codeOf(e) === "unsupported-link");
   const direct = {
     getInfo: async () => {
       throw codedError("unsupported-link", "음원이 아닌 링크입니다(page)");

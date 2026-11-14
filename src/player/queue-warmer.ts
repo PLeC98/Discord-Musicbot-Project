@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
 import config from "../config/index.ts";
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as autoplayRoute from "../autoplay/route.ts";
 import * as trackState from "./track-state.ts";
 import type { Tracks } from "./track-state.ts";
@@ -159,7 +159,7 @@ class QueueWarmer {
    * @returns {boolean} 버렸으면 true. 부르는 쪽은 평소의 실패 처리를 건너뛴다.
    */
   _dropDeadAutoplay(track: QueuedTrack, err: unknown) {
-    if (!YouTube.isVideoUnavailableError(err)) return false;
+    if (!youtubeSource.isVideoUnavailableError(err)) return false;
 
     const index = this.player.queue.indexOf(track);
     if (index < 0) return false;

@@ -1,8 +1,8 @@
 // 재생목록 소스(스포티파이, 유튜브).
 
 import { rand } from "./http.ts";
-import * as Spotify from "../../sources/spotify.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as spotifySource from "../../sources/spotify.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -11,24 +11,24 @@ const PLAYLIST_PAGE = 50;
 
 async function spotify(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
-  const head = await Spotify.getCollection(source.url, { offset: 0, limit: 1 });
+  const head = await spotifySource.getCollection(source.url, { offset: 0, limit: 1 });
   const total = Number(head?.total) || 0;
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
-  const part = await Spotify.getCollection(source.url, { offset, limit: PLAYLIST_PAGE });
+  const part = await spotifySource.getCollection(source.url, { offset, limit: PLAYLIST_PAGE });
   return (part?.tracks || []).flatMap((t) => (t.title && t.artist ? [{ ...t, title: t.title, artist: t.artist }] : [])).map((t) => ({ artist: t.artist, title: t.title, durationSec: Number(t.duration) || undefined, thumbnail: t.thumbnail, sourceUrl: t.pageUrl || undefined, platform: "spotify", sourceKey: t.requestKey || `${t.artist}|${t.title}` }));
 }
 
 async function youtube(source: GenreSource): Promise<Candidate[]> {
   if (!source.url) return [];
   // 목록을 불러오지 못하면 그 까닭(없는, 비공개 목록, 네트워크)을 단 채로 던진다
-  const head = await YouTube.getPlaylist(source.url, { offset: 0, limit: 1 });
+  const head = await youtubeSource.getPlaylist(source.url, { offset: 0, limit: 1 });
   if (!head) throw new Error("재생목록에 곡이 없음");
   // 믹스(RD…)는 total이 null이다. 끝이 없어 무작위 오프셋을 쓸 수 없다
   const total = Number(head.total) || 0;
   if (!total) throw new Error("재생목록의 곡 수를 알 수 없음(유튜브 믹스는 소스로 쓸 수 없음)");
 
   const offset = total > PLAYLIST_PAGE ? rand(total - PLAYLIST_PAGE) : 0;
-  const part = await YouTube.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });
+  const part = await youtubeSource.getPlaylist(source.url, { offset, limit: PLAYLIST_PAGE });
   // 영상이 곧 곡이라 youtubeMatch를 거치지 않고 주소를 그대로 쓴다. 가수 자리는 올린 채널명(getPlaylist). 영상 주소가 곧 요청 키다
   return (part?.tracks || []).flatMap((t) => (t.audioUrl && t.title && !t.isLive ? [{ title: t.title, artist: t.artist || undefined, durationSec: Number(t.duration) || undefined, youtubeUrl: t.audioUrl, thumbnail: t.thumbnail, sourceKey: t.requestKey ?? t.audioUrl }] : []));
 }

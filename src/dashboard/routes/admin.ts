@@ -56,7 +56,7 @@ import * as geoip from "../geoip.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
 import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
@@ -466,7 +466,7 @@ adminRouter.put("/ai/settings", (req, res) => {
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력, 삭제는 최근 로그인만
 function cookieState(): CookieState {
-  return { source: YouTube.cookieSource(), hasFile: cookieJar.ready() };
+  return { source: youtubeSource.cookieSource(), hasFile: cookieJar.ready() };
 }
 
 adminRouter.get("/cookies", (req, res) => res.json(cookieState()));
@@ -531,7 +531,7 @@ adminRouter.put("/age-content", (req, res) => {
   const next = setAgeContent(enabled);
   if (next.enabled !== before) {
     log.warn({ sub: "admin" }, `대시보드에서 연령 제한 콘텐츠 ${enabled ? "켬" : "끔"}. 실행 ${ranBy(req)}`);
-    YouTube.logAuthMode();
+    youtubeSource.logAuthMode();
   }
   res.json(next satisfies AgeContent);
 });

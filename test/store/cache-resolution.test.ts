@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as stores from "../../src/store/stores.ts";
 import * as trackLookup from "../../src/store/track-lookup.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 
 const DB_DIR = path.join(os.tmpdir(), `musicbot-cacheres-test-${process.pid}`);
 
@@ -44,31 +44,31 @@ test("getAudioUrl: 없는 요청은 null", () => {
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/none"), null);
 });
 
-test("YouTube.isVideoUnavailableError: 삭제/비공개 영상 감지", () => {
-  assert.equal(YouTube.isVideoUnavailableError({ stderr: "ERROR: [youtube] X: Video unavailable" }), true);
-  assert.equal(YouTube.isVideoUnavailableError({ stderr: "This video is no longer available" }), true);
-  assert.equal(YouTube.isVideoUnavailableError(new Error("This video has been removed by the uploader")), true);
-  assert.equal(YouTube.isVideoUnavailableError({ message: "Private video. Sign in if you've been granted access" }), true);
+test("youtubeSource.isVideoUnavailableError: 삭제/비공개 영상 감지", () => {
+  assert.equal(youtubeSource.isVideoUnavailableError({ stderr: "ERROR: [youtube] X: Video unavailable" }), true);
+  assert.equal(youtubeSource.isVideoUnavailableError({ stderr: "This video is no longer available" }), true);
+  assert.equal(youtubeSource.isVideoUnavailableError(new Error("This video has been removed by the uploader")), true);
+  assert.equal(youtubeSource.isVideoUnavailableError({ message: "Private video. Sign in if you've been granted access" }), true);
 });
 
-test("YouTube.isVideoUnavailableError: 일시적/연령/봇 오류는 false (재검색 금지)", () => {
-  assert.equal(YouTube.isVideoUnavailableError(new Error("Sign in to confirm your age")), false);
-  assert.equal(YouTube.isVideoUnavailableError({ stderr: "HTTP Error 429: Too Many Requests" }), false);
-  assert.equal(YouTube.isVideoUnavailableError({ stderr: "Sign in to confirm you’re not a bot" }), false);
-  assert.equal(YouTube.isVideoUnavailableError(new Error("getaddrinfo ENOTFOUND")), false);
-  assert.equal(YouTube.isVideoUnavailableError(null), false);
+test("youtubeSource.isVideoUnavailableError: 일시적/연령/봇 오류는 false (재검색 금지)", () => {
+  assert.equal(youtubeSource.isVideoUnavailableError(new Error("Sign in to confirm your age")), false);
+  assert.equal(youtubeSource.isVideoUnavailableError({ stderr: "HTTP Error 429: Too Many Requests" }), false);
+  assert.equal(youtubeSource.isVideoUnavailableError({ stderr: "Sign in to confirm you’re not a bot" }), false);
+  assert.equal(youtubeSource.isVideoUnavailableError(new Error("getaddrinfo ENOTFOUND")), false);
+  assert.equal(youtubeSource.isVideoUnavailableError(null), false);
 });
 
 // 쿠키가 죽었을 때 실제로 오는 stderr. 원인(WARNING)과 결과(ERROR)가 나뉘어 적히는데,
 // 원인 쪽 "no longer valid" 가 삭제 판정의 "no longer available" 과 한 단어 차이다.
 // 여기서 true 가 되면 멀쩡히 살아 있는 영상이 내려간 것으로 분류되고, 자동재생은 그 판정으로
 // 곡을 영구히 버린다(markDead). 쿠키를 교체해도 되살아나지 않는다.
-test("YouTube.isVideoUnavailableError: 쿠키 무효 + 연령 제한은 삭제가 아니다", () => {
+test("youtubeSource.isVideoUnavailableError: 쿠키 무효 + 연령 제한은 삭제가 아니다", () => {
   const stderr = ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.", "ERROR: [youtube] EahYs-8tTjQ: Sign in to confirm your age. Use --cookies-from-browser or --cookies for the authentication."].join("\n");
   const error = Object.assign(new Error("Command failed"), { stderr });
 
-  assert.equal(YouTube.isAgeRestrictedError(error), true, "연령 제한으로는 잡혀야 한다");
-  assert.equal(YouTube.isVideoUnavailableError(error), false, "내려간 영상으로 분류하면 자동재생이 곡을 버린다");
-  assert.equal(YouTube.isClientFault(error), false, "클라이언트 탓으로 세면 멀쩡한 경로가 제외된다");
-  assert.equal(YouTube.isStaleMediaError(error), false);
+  assert.equal(youtubeSource.isAgeRestrictedError(error), true, "연령 제한으로는 잡혀야 한다");
+  assert.equal(youtubeSource.isVideoUnavailableError(error), false, "내려간 영상으로 분류하면 자동재생이 곡을 버린다");
+  assert.equal(youtubeSource.isClientFault(error), false, "클라이언트 탓으로 세면 멀쩡한 경로가 제외된다");
+  assert.equal(youtubeSource.isStaleMediaError(error), false);
 });

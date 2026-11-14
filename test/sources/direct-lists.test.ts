@@ -3,7 +3,7 @@
 import { Readable } from "node:stream";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import * as DirectLink from "../../src/sources/direct.ts";
+import * as directSource from "../../src/sources/direct.ts";
 import { openLink, type AudioStream } from "../../src/sources/direct-open.ts";
 import { getTrackData } from "../../src/sources/lookup.ts";
 import { codeOf } from "../../src/rules/error-kind.ts";
@@ -35,9 +35,9 @@ test("PLS, M3U: 첫 주소를 열어 본다. 곡의 음원 주소는 목록 주�
     "https://radio.test/a": radio,
   });
   for (const url of ["https://site.test/listen.pls", "https://site.test/listen.m3u"]) {
-    const [track] = await DirectLink.getInfo(url, { net });
+    const [track] = await directSource.getInfo(url, { net });
     assert.deepEqual([track.audioUrl, track.isLive, track.title], [url, true, "Radio X"], url);
-    const opened = await DirectLink.open(url, net);
+    const opened = await directSource.open(url, net);
     assert.ok(opened.kind === "file" && opened.radio, url);
     if (opened.kind === "file") opened.body.destroy();
   }
@@ -57,11 +57,11 @@ test("목록 안의 목록은 한 번까지, 빈 목록, 더 깊은 목록은 un
     "https://l.test/empty.pls": { body: "[playlist]\nNumberOfEntries=0\n", headers: { "content-type": "audio/x-scpls" } },
     "https://radio.test/a": radio,
   });
-  const [ok] = await DirectLink.getInfo("https://l.test/one.pls", { net });
+  const [ok] = await directSource.getInfo("https://l.test/one.pls", { net });
   assert.equal(ok.isLive, true, "목록 → 목록 → 방송");
   for (const url of ["https://l.test/deep.pls", "https://l.test/empty.pls"]) {
-    await assert.rejects(DirectLink.getInfo(url, { net }), (e: unknown) => codeOf(e) === "unsupported-link", url);
-    await assert.rejects(DirectLink.open(url, net), (e: unknown) => codeOf(e) === "unsupported-link", url);
+    await assert.rejects(directSource.getInfo(url, { net }), (e: unknown) => codeOf(e) === "unsupported-link", url);
+    await assert.rejects(directSource.open(url, net), (e: unknown) => codeOf(e) === "unsupported-link", url);
   }
 });
 
@@ -69,13 +69,13 @@ test("옛 SHOUTcast(ICY 첫 줄)는 shoutcast-v1 로 거절하고 곡 찾기가 
   const { net } = netOf({ "https://old.test/;": { error: icyError() }, "https://bad.test/": { error: Object.assign(new Error("Parse Error"), { code: "HPE_INVALID_CONSTANT", rawPacket: Buffer.from("FOO 1\r\n") }) } });
   await assert.rejects(openLink("https://old.test/;", { net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
   await assert.rejects(openLink("https://bad.test/", { net }), (e: unknown) => codeOf(e) === "HPE_INVALID_CONSTANT");
-  await assert.rejects(DirectLink.open("https://old.test/;", net), (e: unknown) => codeOf(e) === "shoutcast-v1", "숨기지 않는다");
-  await assert.rejects(DirectLink.open("https://bad.test/", net), (e: unknown) => codeOf(e) === "direct-unavailable");
+  await assert.rejects(directSource.open("https://old.test/;", net), (e: unknown) => codeOf(e) === "shoutcast-v1", "숨기지 않는다");
+  await assert.rejects(directSource.open("https://bad.test/", net), (e: unknown) => codeOf(e) === "direct-unavailable");
   // PLS 가 옛 방송을 가리켜도 같다
   const listed = netOf({ "https://site.test/old.pls": { body: "[playlist]\nFile1=https://old.test/;\n", headers: { "content-type": "audio/x-scpls" } }, "https://old.test/;": { error: icyError() } });
-  await assert.rejects(DirectLink.getInfo("https://site.test/old.pls", { net: listed.net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
+  await assert.rejects(directSource.getInfo("https://site.test/old.pls", { net: listed.net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
 
-  const direct = { getInfo: (url: string) => DirectLink.getInfo(url, { net }) };
+  const direct = { getInfo: (url: string) => directSource.getInfo(url, { net }) };
   const result = await getTrackData("https://old.test/;", "test", {}, { direct });
   assert.deepEqual(result, { success: false, code: "shoutcast-v1" });
 });

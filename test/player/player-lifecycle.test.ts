@@ -94,8 +94,8 @@ class Scripted extends h.Player {
     if (!this.errorAs) return super.handleError(error, opts);
     await this.errorAs(error as Error);
   }
-  override async handleAutoplay() {
-    return this.autoplayAs ? this.autoplayAs() : super.handleAutoplay();
+  override async playAutoplayNow() {
+    return this.autoplayAs ? this.autoplayAs() : super.playAutoplayNow();
   }
 }
 const scripted = () => h.makePlayer({ as: Scripted });

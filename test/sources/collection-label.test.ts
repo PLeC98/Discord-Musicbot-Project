@@ -3,8 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as lookup from "../../src/sources/lookup.ts";
-import * as Spotify from "../../src/sources/spotify.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as spotifySource from "../../src/sources/spotify.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import * as tracks from "../helpers/tracks.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
 import config from "../../src/config/index.ts";
@@ -16,7 +16,7 @@ const addedText = (tracks: Array<{ title?: string | null }>, collection: string 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 
 test("스포티파이 링크의 종류가 collection으로 실린다", async () => {
-  const sources = { spotify: { ...Spotify, getCollection: async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }) } };
+  const sources = { spotify: { ...spotifySource, getCollection: async () => ({ tracks: songs(3), total: 3, nextOffset: 3 }) } };
   for (const [url, expected] of [
     ["https://open.spotify.com/album/1IugbCvkbYTkcCcD0WbQHe", "album"],
     ["https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "playlist"],
@@ -32,7 +32,7 @@ test("스포티파이 링크의 종류가 collection으로 실린다", async () 
 });
 
 test("유튜브 재생목록은 playlist", async () => {
-  const sources = { youtube: { ...YouTube, getPlaylist: async () => ({ tracks: songs(2) }) } };
+  const sources = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: songs(2) }) } };
   const r = await lookup.getTrackData("https://www.youtube.com/playlist?list=PL123", undefined, undefined, sources);
   assert.equal(r.collection, "playlist");
 });

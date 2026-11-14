@@ -11,7 +11,7 @@ import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "./google-auth.ts";
 import * as tokens from "./tokens.ts";
 import * as models from "../../config/ai-models.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "autoplay" });
 import { PROVIDER_SPECS, PROVIDERS } from "../../config/schema/ai-providers.ts";
@@ -1082,7 +1082,7 @@ async function candidatesFromUrls(urls: unknown[] | null | undefined, { describe
     }
     const timedOut = new Error(`시간 초과(${timeoutMs / 1000}초)`);
     try {
-      const info = await Promise.race([YouTube.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
+      const info = await Promise.race([youtubeSource.getInfo(url), new Promise<never>((_, no) => setTimeout(() => no(timedOut), timeoutMs))]);
       out.push({ url, title: info.title, durationSec: info.duration, thumbnail: info.thumbnail, channel: info.artist });
     } catch (error) {
       // 화면에는 부르는 쪽이 고른 안내(describe), yt-dlp 원문은 운영자 로그로

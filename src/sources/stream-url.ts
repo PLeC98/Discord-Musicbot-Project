@@ -1,12 +1,12 @@
 // 곡 → 지금 쓸 스트림 서술자. 음원 주소가 어느 사이트인지만 보고 누가 여는지 구분한다.
 
 import { codedError } from "../rules/error-kind.ts";
-import * as YouTube from "./youtube/index.ts";
+import * as youtubeSource from "./youtube/index.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "track" });
-import * as SoundCloud from "./soundcloud/index.ts";
-import * as DirectLink from "./direct.ts";
+import * as soundcloudSource from "./soundcloud/index.ts";
+import * as directSource from "./direct.ts";
 import * as equivalentModule from "./youtube/equivalent.ts";
 import type { Seeking } from "./youtube/equivalent.ts";
 import { logTitle } from "../infra/log/title.ts";
@@ -40,7 +40,7 @@ type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> }
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
 /** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 버리고 새로 받는다(다시 쓴 주소가 열리지 않았다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
-const DEFAULTS: StreamOptions = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink, equivalent: equivalentModule, canPlayHls: true, fresh: false };
+const DEFAULTS: StreamOptions = { youtube: youtubeSource, soundcloud: soundcloudSource, direct: directSource, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
@@ -96,7 +96,7 @@ async function streamOf(track: Seeking & { platform?: string | null }, { youtube
       return keyed(await soundcloud.getStream(audioUrl, { canPlayHls }), audioUrl);
 
     case "direct":
-      // URL 서술자만 반환. 실제 fetch는 소비 시점에 DirectLink.open(SafeUrl 가드)이
+      // URL 서술자만 반환. 실제 fetch는 소비 시점에 directSource.open(SafeUrl 가드)이
       // 수행한다. 여기서 스트림을 미리 열면 프리로드가 연결을 열고 버리는 누수, 이중소비가 생긴다.
       // 인터넷 라디오는 곡 추가 때 라이브로 적었다(sources/direct). 재생도 라이브로 연다
       return { url: audioUrl, platform: "direct", httpHeaders: {}, liveStatus: track.isLive === true ? "is_live" : null, audioKey: audioKeyOf(audioUrl) };

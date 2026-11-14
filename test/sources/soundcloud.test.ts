@@ -3,7 +3,7 @@
 
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import * as SoundCloud from "../../src/sources/soundcloud/index.ts";
+import * as soundcloudSource from "../../src/sources/soundcloud/index.ts";
 import { trackOf } from "../../src/sources/soundcloud/api.ts";
 import { codeOf, errorKind, messageOf } from "../../src/rules/error-kind.ts";
 import { useExec, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -35,7 +35,7 @@ const GEO = "ERROR: [soundcloud] This video is not available from your location 
 
 test("곡 링크: 곡 찾기용 포맷(aac, mp3)만 묻고, 공통 옵션만 쓴다", async () => {
   respond = () => ({ json: item("one") });
-  const found = await SoundCloud.find("https://m.soundcloud.com/artist/one?in=a/sets/b");
+  const found = await soundcloudSource.find("https://m.soundcloud.com/artist/one?in=a/sets/b");
   assert.equal(found.kind, "track");
   assert.deepEqual(found.kind === "track" && found.track, {
     title: "SC one",
@@ -57,13 +57,13 @@ test("곡 링크: 곡 찾기용 포맷(aac, mp3)만 묻고, 공통 옵션만 쓴
 
 test("짧은 링크, API 주소로 들어와도 곡 페이지 주소가 키다", async () => {
   respond = () => ({ json: item("two") });
-  const found = await SoundCloud.find("https://on.soundcloud.com/AbCd");
+  const found = await soundcloudSource.find("https://on.soundcloud.com/AbCd");
   assert.equal(found.kind === "track" && found.track.requestKey, "https://soundcloud.com/artist/two");
 });
 
 test("미리듣기만 열린 곡은 틀지 않는다(이름을 단 오류)", async () => {
   respond = () => ({ json: item("preview", { duration: 30, formats: preview }) });
-  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only" && errorKind(e) === "sc-preview-only");
+  await assert.rejects(soundcloudSource.find("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only" && errorKind(e) === "sc-preview-only");
 });
 
 test("곡 링크의 실패는 까닭의 이름을 단다: 없음, 지역 제한, 요청 제한, 네트워크", async () => {
@@ -76,7 +76,7 @@ test("곡 링크의 실패는 까닭의 이름을 단다: 없음, 지역 제한,
   ];
   for (const [stderr, kind, what] of cases) {
     respond = () => ({ fail: stderr });
-    await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/x", { what }), (e: unknown) => errorKind(e) === kind, kind);
+    await assert.rejects(soundcloudSource.find("https://soundcloud.com/artist/x", { what }), (e: unknown) => errorKind(e) === kind, kind);
   }
 });
 
@@ -86,7 +86,7 @@ test("세트: 한 구간을 온전히 읽고, 받을 수 없는 곡과 미리듣
     json: { _type: "playlist", id: "1860035430", title: "Chill Guitar", playlist_count: 50, entries: [null, item("a"), item("p", { duration: 30, formats: preview }), null, item("b")] },
     fail: GEO,
   });
-  const found = await SoundCloud.find("https://soundcloud.com/lofi_girl/sets/chill-guitar", { offset: 10, limit: 50, what: "set" });
+  const found = await soundcloudSource.find("https://soundcloud.com/lofi_girl/sets/chill-guitar", { offset: 10, limit: 50, what: "set" });
   assert.equal(found.kind, "set");
   if (found.kind !== "set") return;
   assert.deepEqual(
@@ -100,31 +100,31 @@ test("세트: 한 구간을 온전히 읽고, 받을 수 없는 곡과 미리듣
 
 test("짧은 링크가 세트를 가리키면 세트로 읽는다", async () => {
   respond = () => ({ json: { _type: "playlist", id: "9", title: "세트", playlist_count: 1, entries: [item("a")] } });
-  const found = await SoundCloud.find("https://on.soundcloud.com/Set1");
+  const found = await soundcloudSource.find("https://on.soundcloud.com/Set1");
   assert.equal(found.kind, "set");
 });
 
 test("스트림: AAC(HLS)만 묻고, HLS 를 못 여는 ffmpeg 면 mp3 만 묻는다", async () => {
   respond = () => ({ json: { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", format_id: "hls_aac_160k", duration: 180.6, abr: 160, http_headers: { A: "b" } } });
-  const s = await SoundCloud.getStream("https://soundcloud.com/artist/track");
+  const s = await soundcloudSource.getStream("https://soundcloud.com/artist/track");
   assert.deepEqual(s, { url: "https://cf-hls-media.sndcdn.com/x.m3u8", protocol: "m3u8_native", duration: 181, platform: "soundcloud", httpHeaders: { A: "b" } });
   assert.equal(calls[0].flags.extractorArgs, "soundcloud:formats=hls_aac");
-  await SoundCloud.getStream("https://soundcloud.com/artist/track", { canPlayHls: false });
+  await soundcloudSource.getStream("https://soundcloud.com/artist/track", { canPlayHls: false });
   assert.equal(calls[1].flags.extractorArgs, "soundcloud:formats=http_mp3");
 });
 
 test("스트림: AAC 가 없는 곡은 mp3 까지 물어 한 번 더, 미리듣기 조각이 골라지면 틀지 않는다", async () => {
   const NO_FORMATS = "ERROR: [soundcloud] 123: No video formats found!; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues";
   respond = (_url, flags) => (flags.extractorArgs === "soundcloud:formats=hls_aac" ? { fail: NO_FORMATS } : { json: { url: "https://cf-media.sndcdn.com/x.mp3", protocol: "http", format_id: "http_mp3_0_1", duration: 100 } });
-  const s = await SoundCloud.getStream("https://soundcloud.com/artist/old");
+  const s = await soundcloudSource.getStream("https://soundcloud.com/artist/old");
   assert.equal(s.url, "https://cf-media.sndcdn.com/x.mp3");
   assert.equal(calls.length, 2);
 
   respond = (_url, flags) => (flags.extractorArgs === "soundcloud:formats=hls_aac" ? { fail: NO_FORMATS } : { json: { url: "https://cf-preview-media.sndcdn.com/p.mp3", protocol: "http", format_id: "http_mp3_1_0_preview", duration: 30 } });
-  await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only");
+  await assert.rejects(soundcloudSource.getStream("https://soundcloud.com/artist/preview"), (e: unknown) => codeOf(e) === "sc-preview-only");
 
   respond = () => ({ fail: NO_FORMATS });
-  await assert.rejects(SoundCloud.getStream("https://soundcloud.com/artist/aac-only", { canPlayHls: false }), (e: unknown) => codeOf(e) === "stream-failed");
+  await assert.rejects(soundcloudSource.getStream("https://soundcloud.com/artist/aac-only", { canPlayHls: false }), (e: unknown) => codeOf(e) === "stream-failed");
 });
 
 test("답이 없으면 무엇이 왔는지 싣고 던진다. 스트림 주소가 없으면 stream-failed", async () => {
@@ -134,17 +134,17 @@ test("답이 없으면 무엇이 왔는지 싣고 던진다. 스트림 주소가
       (e: unknown) => [codeOf(e), messageOf(e)],
     );
   respond = () => ({});
-  assert.deepEqual(await thrown(SoundCloud.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
+  assert.deepEqual(await thrown(soundcloudSource.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
   respond = () => ({ json: { id: 77, title: "주소 없음" } });
-  assert.deepEqual(await thrown(SoundCloud.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=77"]);
+  assert.deepEqual(await thrown(soundcloudSource.find("https://soundcloud.com/artist/track")), [undefined, "사운드클라우드 곡 찾기: yt-dlp 곡 정보에 페이지 URL이 없음 | id=77"]);
   respond = () => ({ json: { format_id: "hls_aac_160k" } });
-  assert.deepEqual(await thrown(SoundCloud.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=hls_aac_160k"]);
+  assert.deepEqual(await thrown(soundcloudSource.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 응답에 스트림 URL이 없음 | format_id=hls_aac_160k"]);
   respond = () => ({});
-  assert.deepEqual(await thrown(SoundCloud.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
+  assert.deepEqual(await thrown(soundcloudSource.getStream("https://soundcloud.com/artist/track")), ["stream-failed", "사운드클라우드 재생용 스트림: yt-dlp 출력이 JSON 객체가 아님 | 타입=string, 길이=0"]);
 });
 
 test("캐시 다운로드용 옵션: 공통 옵션 위에 재생 포맷", () => {
-  const flags = SoundCloud.flagsFor("play", { output: "x.opus" });
+  const flags = soundcloudSource.flagsFor("play", { output: "x.opus" });
   assert.equal(flags.extractorArgs, "soundcloud:formats=hls_aac");
   assert.equal(flags.output, "x.opus");
   assert.equal(flags.retries, 3);
@@ -153,7 +153,7 @@ test("캐시 다운로드용 옵션: 공통 옵션 위에 재생 포맷", () => 
 test("캐시 다운로드: AAC 를 다운로드하고, AAC 가 없는 곡은 미리듣기 조각이 아닌 mp3 를 다운로드한다", async () => {
   const NO_FORMATS = "ERROR: [soundcloud] 123: No video formats found!";
   respond = (_url, flags) => (flags.extractorArgs === "soundcloud:formats=hls_aac" ? { fail: NO_FORMATS } : { json: {} });
-  await SoundCloud.download("https://soundcloud.com/artist/old", { output: "x.opus", format: "bestaudio/best" });
+  await soundcloudSource.download("https://soundcloud.com/artist/old", { output: "x.opus", format: "bestaudio/best" });
   assert.deepEqual(
     calls.map((c) => [c.flags.extractorArgs, c.flags.format, c.flags.output]),
     [
@@ -166,7 +166,7 @@ test("캐시 다운로드: AAC 를 다운로드하고, AAC 가 없는 곡은 미
 
 test("캐시 다운로드: 미리듣기 곡은 고를 포맷이 없어 '포맷 없음'으로 끝난다(유튜브의 클라이언트 탓이 아니다)", async () => {
   respond = (_url, flags) => ({ fail: flags.extractorArgs === "soundcloud:formats=hls_aac" ? "ERROR: [soundcloud] 1: No video formats found!" : "ERROR: [soundcloud] 1: Requested format is not available. Use --list-formats for a list of available formats" });
-  await assert.rejects(SoundCloud.download("https://soundcloud.com/artist/preview", { output: "x.opus" }), (e: unknown) => codeOf(e) === "no-formats");
+  await assert.rejects(soundcloudSource.download("https://soundcloud.com/artist/preview", { output: "x.opus" }), (e: unknown) => codeOf(e) === "no-formats");
 });
 
 // 세트 하나가 곡마다 요청을 30개 남짓 쓴다. 서버 여럿이 동시에 넣어 겹치면 IP 가 막힌다
@@ -186,9 +186,9 @@ test("세트 읽기는 한 번에 하나씩, 곡 하나는 기다리지 않는�
     });
   }) as unknown as Exec);
   try {
-    const a = SoundCloud.find("https://soundcloud.com/x/sets/set-a", { what: "set" });
-    const b = SoundCloud.find("https://soundcloud.com/x/sets/set-b", { what: "set" });
-    const one = SoundCloud.find("https://soundcloud.com/x/trk-1");
+    const a = soundcloudSource.find("https://soundcloud.com/x/sets/set-a", { what: "set" });
+    const b = soundcloudSource.find("https://soundcloud.com/x/sets/set-b", { what: "set" });
+    const one = soundcloudSource.find("https://soundcloud.com/x/trk-1");
     await one;
     await new Promise((done) => setImmediate(done));
     // 시작 순서(세트 a 와 곡)는 보지 않는다. 곡이 끝났고, 세트 b 는 세트 a 가 끝나기 전에 시작하지 않았는지만
@@ -211,7 +211,7 @@ test("세트 읽기 중 요청 제한(403, 429)이 섞이면 뺀 곡으로 세�
     json: { _type: "playlist", id: "1", playlist_count: 3, entries: [item("a"), null, null] },
     fail: "ERROR: [soundcloud] 2: Unable to download JSON metadata: HTTP Error 429: Too Many Requests\nERROR: [soundcloud] 3: Unable to download JSON metadata: HTTP Error 429: Too Many Requests",
   });
-  await assert.rejects(SoundCloud.find("https://soundcloud.com/x/sets/busy", { what: "set" }), (e: unknown) => errorKind(e) === "rate-limited");
+  await assert.rejects(soundcloudSource.find("https://soundcloud.com/x/sets/busy", { what: "set" }), (e: unknown) => errorKind(e) === "rate-limited");
 });
 
 test("곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", () => {
@@ -221,11 +221,11 @@ test("곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다
 test("연결 기록: 답을 받았으면 성공(없는 곡, 포맷 없음 포함), 막힘, 그 밖의 실패는 실패", async () => {
   resetLinks();
   respond = () => ({ json: item("ok") });
-  await SoundCloud.find("https://soundcloud.com/artist/ok");
+  await soundcloudSource.find("https://soundcloud.com/artist/ok");
   respond = () => ({ fail: "ERROR: [soundcloud] 404: HTTP Error 404: Not Found" });
-  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/gone"));
+  await assert.rejects(soundcloudSource.find("https://soundcloud.com/artist/gone"));
   respond = () => ({ fail: "ERROR: [soundcloud] HTTP Error 403: Forbidden" });
-  await assert.rejects(SoundCloud.find("https://soundcloud.com/artist/blocked"));
+  await assert.rejects(soundcloudSource.find("https://soundcloud.com/artist/blocked"));
   assert.deepEqual(
     linkStatus("soundcloud")?.recent.map((one) => [one.ok, one.error]),
     [

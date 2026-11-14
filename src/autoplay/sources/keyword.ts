@@ -1,7 +1,7 @@
 // 키워드 소스.
 
 import { pick } from "./http.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import type { GenreSource } from "../../config/genres.ts";
 import type { Candidate } from "./candidate.ts";
 
@@ -10,7 +10,7 @@ type Search = (query: string, limit: number) => Promise<Array<{ id?: string | nu
 
 // 가장 단순한 출처. 유튜브 검색 결과를 그대로 후보로 삼는다. 품질이 제일 낮으니 weight를 낮게 주는 편이 낫다.
 // search: 유튜브 검색. 생략하면 진짜
-async function keyword(source: GenreSource, { search = (query, limit) => YouTube.searchVideos(query, limit) }: { search?: Search } = {}): Promise<Candidate[]> {
+async function keyword(source: GenreSource, { search = (query, limit) => youtubeSource.searchVideos(query, limit) }: { search?: Search } = {}): Promise<Candidate[]> {
   const word = pick(source.keywords || []);
   if (!word) return [];
   const results = (await search(word, 15)) || [];

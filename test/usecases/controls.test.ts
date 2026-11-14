@@ -492,7 +492,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
 
   // 음성에 먼저 붙고 나서 켠다(첫 곡을 넣는 것은 DB 에 쓴다. 붙지 못했을 때 앞 플레이어가 남긴 세션을 건드리지 않게)
   const order: string[] = [];
-  const made = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => order.push("connect") }, setAutoplay: (g: unknown) => order.push(`set:${g}`), handleAutoplay: async () => order.push("first") });
+  const made = fakePlayer({ currentTrack: null, connection: null, voice: { connect: async () => order.push("connect") }, setAutoplay: (g: unknown) => order.push(`set:${g}`), playAutoplayNow: async () => order.push("first") });
   const r = await controls.autoplay(null, DJ, genre, { create: () => (order.push("create"), made), onAccepted: () => order.push("answer") });
   assert.deepEqual(r, { ok: true, genre, started: true });
   assert.deepEqual(order, ["create", "connect", `set:${genre}`, "answer", "first"]);
@@ -508,7 +508,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
       },
     },
     setAutoplay: () => assert.fail("켜지 않는다"),
-    handleAutoplay: async () => assert.fail("뽑지 않는다"),
+    playAutoplayNow: async () => assert.fail("뽑지 않는다"),
     dispose: async (o: unknown) => disposed.push(o),
   });
   assert.deepEqual(await controls.autoplay(null, DJ, genre, { create: () => stranded }), { ok: false, code: "voice-failed" });
@@ -519,7 +519,7 @@ test("자동재생 켜기: 모르는 장르는 거절. 플레이어가 없으면
   assert.equal(disposed.length, 2);
 
   // 틀고 있으면 지금 곡이 끝난 뒤에 이어진다. 선택하지 않고 패널만 갱신한다
-  const playing = fakePlayer({ setAutoplay: () => {}, handleAutoplay: async () => assert.fail("뽑지 않는다") });
+  const playing = fakePlayer({ setAutoplay: () => {}, playAutoplayNow: async () => assert.fail("뽑지 않는다") });
   assert.deepEqual(await controls.autoplay(playing, DJ, genre, { create: () => assert.fail("있으면 만들지 않는다") }), { ok: true, genre, started: false });
   assert.deepEqual(seen, ["refresh"]);
 });
@@ -745,7 +745,7 @@ test("멈춤(▶): 실패로 일시정지해 둔 곡이면 onAccepted 로 먼저
 test("자동재생 켜기: 답(onAccepted)이 던져도 켠 자동재생은 첫 곡을 선택하고 답의 오류를 올린다. 둘 다 던지면 첫 곡의 오류는 warn 으로 남긴다", async () => {
   const [genre] = Object.keys(genreConfig.genres().genres);
   const order: string[] = [];
-  const idle = (first: () => Promise<void>) => fakePlayer({ currentTrack: null, connection: {}, setAutoplay: () => {}, handleAutoplay: first });
+  const idle = (first: () => Promise<void>) => fakePlayer({ currentTrack: null, connection: {}, setAutoplay: () => {}, playAutoplayNow: first });
   const answerFails = () => {
     throw new Error("답 실패");
   };

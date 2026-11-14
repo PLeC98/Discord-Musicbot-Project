@@ -21,22 +21,22 @@ after(() => {
   fs.rmSync(DB_DIR, { recursive: true, force: true, maxRetries: 5 });
 });
 
-const YouTube = await import("../../src/sources/youtube/index.ts");
+const youtubeSource = await import("../../src/sources/youtube/index.ts");
 const equivalent = await import("../../src/sources/youtube/equivalent.ts");
 const { argsOf } = await import("../../src/sources/ytdlp-exec.ts");
 
 test("_detectLive: is_live / live_status의 라이브, 예정만 참", () => {
-  assert.equal(YouTube._detectLive({ is_live: true }), true);
-  assert.equal(YouTube._detectLive({ live_status: "is_live" }), true);
-  assert.equal(YouTube._detectLive({ live_status: "is_upcoming" }), true);
+  assert.equal(youtubeSource._detectLive({ is_live: true }), true);
+  assert.equal(youtubeSource._detectLive({ live_status: "is_live" }), true);
+  assert.equal(youtubeSource._detectLive({ live_status: "is_upcoming" }), true);
 
   // 종료된 라이브(was_live)와 후처리 중(post_live)은 길이가 확정된 일반 영상이라 다운로드해도 된다.
-  assert.equal(YouTube._detectLive({ live_status: "was_live" }), false);
-  assert.equal(YouTube._detectLive({ live_status: "post_live" }), false);
-  assert.equal(YouTube._detectLive({ live_status: "not_live" }), false);
-  assert.equal(YouTube._detectLive({ is_live: false }), false);
-  assert.equal(YouTube._detectLive({}), false);
-  assert.equal(YouTube._detectLive(null), false);
+  assert.equal(youtubeSource._detectLive({ live_status: "was_live" }), false);
+  assert.equal(youtubeSource._detectLive({ live_status: "post_live" }), false);
+  assert.equal(youtubeSource._detectLive({ live_status: "not_live" }), false);
+  assert.equal(youtubeSource._detectLive({ is_live: false }), false);
+  assert.equal(youtubeSource._detectLive({}), false);
+  assert.equal(youtubeSource._detectLive(null), false);
 });
 
 test("findYouTubeEquivalent: 라이브 후보는 제외된다 (라이브만 있으면 null)", async () => {
@@ -63,7 +63,7 @@ test("findYouTubeEquivalent: 라이브가 섞여 있으면 비라이브 후보�
 });
 
 test("다운로드 옵션에 --match-filter !is_live 가 실린다 (yt-dlp 자체 2차 방어선)", () => {
-  const args = argsOf(YouTube.getYtDlpOptions({ matchFilter: "!is_live" }));
+  const args = argsOf(youtubeSource.getYtDlpOptions({ matchFilter: "!is_live" }));
   const i = args.indexOf("--match-filter");
   assert.ok(i >= 0, "--match-filter 플래그가 생성되어야 함");
   assert.equal(args[i + 1], "!is_live");

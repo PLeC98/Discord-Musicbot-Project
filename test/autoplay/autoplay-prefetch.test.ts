@@ -164,7 +164,7 @@ test("겹쳐 불려도 한 곡만 들어간다", async () => {
 
 // ── 지금 바로 틀기 ────────────────────────────────────────────────────────
 
-const handleAutoplay = Player.prototype.handleAutoplay;
+const playAutoplayNow = Player.prototype.playAutoplayNow;
 
 function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id: string } | null } = {}) {
   const calls = { sent: [] as string[] };
@@ -204,7 +204,7 @@ function makeNowPlayer({ nowPlayingMessage = null }: { nowPlayingMessage?: { id:
 test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
   const p = makeNowPlayer();
 
-  assert.equal(await handleAutoplay.call(p), true);
+  assert.equal(await playAutoplayNow.call(p), true);
   assert.equal(p.currentTrack?.title, "첫곡");
   assert.deepEqual(p.panel, ["create:첫곡"], "빠뜨리면 소리만 나고 화면이 없다");
 });
@@ -212,7 +212,7 @@ test("첫 곡을 틀 때 패널이 없으면 새로 올린다", async () => {
 test("패널이 이미 있으면 고쳐 쓴다. 새로 올리지 않는다", async () => {
   const p = makeNowPlayer({ nowPlayingMessage: { id: "m1" } });
 
-  assert.equal(await handleAutoplay.call(p), true);
+  assert.equal(await playAutoplayNow.call(p), true);
   assert.deepEqual(p.panel, ["update"]);
 });
 
@@ -221,7 +221,7 @@ test("고를 곡이 없으면 끄고 알린다. 아무거나 틀지 않는다", 
   const p = makeNowPlayer();
   p.pickAutoplayTrack = async () => null;
 
-  assert.equal(await handleAutoplay.call(p), false);
+  assert.equal(await playAutoplayNow.call(p), false);
   assert.deepEqual(p.panel, []);
 
   assert.equal(p.autoplay, false, "자동재생이 꺼져야 한다");

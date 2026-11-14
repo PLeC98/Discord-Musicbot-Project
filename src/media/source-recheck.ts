@@ -6,8 +6,8 @@
 //   직접 링크     첫 1바이트만 받는 요청(가드를 거친다). ETag > Last-Modified > 전체 크기로 비교한다
 // 사라짐은 다시 해도 같은 답만(재생 테스트, 직접 지정한 음원과 같은 판정, sources/dead-source). 일시 오류, 요청 제한, 만료된 주소는 모름이다
 
-import * as YouTube from "../sources/youtube/index.ts";
-import * as SoundCloud from "../sources/soundcloud/api.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
+import * as soundcloudSource from "../sources/soundcloud/api.ts";
 import * as SafeUrl from "../infra/safe-url.ts";
 import { OPEN_ACCEPT } from "../sources/direct-open.ts";
 import { deadSourceCode } from "../sources/dead-source.ts";
@@ -45,8 +45,8 @@ async function directHead(url: string) {
 }
 
 const DEPS: Deps = {
-  youtubeFormats: (url) => YouTube.getFormats(url),
-  soundcloudStream: (url) => SoundCloud.getStream(url),
+  youtubeFormats: (url) => youtubeSource.getFormats(url),
+  soundcloudStream: (url) => soundcloudSource.getStream(url),
   directHead,
 };
 

@@ -2,8 +2,8 @@
 // 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick 이 받는다
 
 import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import * as YouTube from "../../sources/youtube/index.ts";
-import * as Spotify from "../../sources/spotify.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
+import * as spotifySource from "../../sources/spotify.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requesterName } from "../../usecases/add-tracks.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
@@ -70,15 +70,15 @@ async function settled(user: string, wait: (ms: number) => Promise<unknown>) {
 
 // 이미 찾은 검색어의 결과. 스포티파이를 찾을 수 있고 섞는 몫이 있으면(또는 유튜브가 막았으면) 스포티파이도 기억에 있어야 한다
 function remembered(query: string, spotifyReady: boolean): Found | null {
-  const youtube = YouTube.rememberedSearch(query);
+  const youtube = youtubeSource.rememberedSearch(query);
   if (!youtube) return null;
-  if (!spotifyReady || (SPOTIFY_SHARE === 0 && !youtube.gated)) return { youtube, spotify: Spotify.rememberedTracks(query) ?? [] };
-  const spotify = Spotify.rememberedTracks(query);
+  if (!spotifyReady || (SPOTIFY_SHARE === 0 && !youtube.gated)) return { youtube, spotify: spotifySource.rememberedTracks(query) ?? [] };
+  const spotify = spotifySource.rememberedTracks(query);
   return spotify ? { youtube, spotify } : null;
 }
 
 // 앞부분이 같은 이전 검색의 결과(찾지 않을 때, 마감 안에 못 찾았을 때)
-const rememberedPrefix = (query: string): Found => ({ youtube: YouTube.rememberedPrefix(query), spotify: Spotify.rememberedTracksPrefix(query) ?? [] });
+const rememberedPrefix = (query: string): Found => ({ youtube: youtubeSource.rememberedPrefix(query), spotify: spotifySource.rememberedTracksPrefix(query) ?? [] });
 
 /**
  * 유튜브와 스포티파이를 함께 찾는다. 스포티파이는 준비돼 있을 때만(아니면 준비를 시작하고 유튜브만).
@@ -90,12 +90,12 @@ async function findBoth(query: string, deps: Required<SearchDeps>, budget: numbe
   const spotifyOf = (ms: number) => (deps.spotifyReady() ? within(deps.searchSpotify(query), ms) : null);
   let spotifyWork = SPOTIFY_SHARE > 0 ? spotifyOf(budget) : null;
   const youtubeOutcome = await within(deps.search(query), budget);
-  const youtube = "value" in youtubeOutcome ? youtubeOutcome.value : YouTube.rememberedPrefix(query);
+  const youtube = "value" in youtubeOutcome ? youtubeOutcome.value : youtubeSource.rememberedPrefix(query);
   if ("missed" in youtubeOutcome) missed.push(`유튜브 ${youtubeOutcome.missed === "late" ? "마감 넘김" : "실패"}`);
   if (!spotifyWork && youtube?.gated) spotifyWork = spotifyOf(budget - (deps.now() - started));
   const spotifyOutcome = spotifyWork ? await spotifyWork : null;
   if (spotifyOutcome && "missed" in spotifyOutcome) missed.push(`스포티파이 ${spotifyOutcome.missed === "late" ? "마감 넘김" : "실패"}`);
-  const spotify = spotifyOutcome && "value" in spotifyOutcome ? spotifyOutcome.value : (Spotify.rememberedTracksPrefix(query) ?? []);
+  const spotify = spotifyOutcome && "value" in spotifyOutcome ? spotifyOutcome.value : (spotifySource.rememberedTracksPrefix(query) ?? []);
   return { found: { youtube, spotify }, missed };
 }
 
@@ -118,8 +118,8 @@ function choicesOf(query: string, found: Found): ApplicationCommandOptionChoiceD
 
 /** 결과 화면이 쓸 것: 자동완성이 방금 찾은 것(검색할 때마다 순서가 조금씩 바뀐다)이 있으면 그것. 유튜브 실패는 던진다 */
 async function findForResults(query: string, deps: Required<SearchDeps>): Promise<Found> {
-  const spotifyWork = SPOTIFY_SHARE > 0 ? (Spotify.rememberedTracks(query) ?? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS)) : null;
-  const youtube = YouTube.rememberedSearch(query) ?? (await deps.search(query));
+  const spotifyWork = SPOTIFY_SHARE > 0 ? (spotifySource.rememberedTracks(query) ?? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS)) : null;
+  const youtube = youtubeSource.rememberedSearch(query) ?? (await deps.search(query));
   const outcome = await (spotifyWork ?? (youtube.gated ? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS) : null));
   const spotify = Array.isArray(outcome) ? outcome : outcome && "value" in outcome ? outcome.value : [];
   return { youtube, spotify };
@@ -209,7 +209,7 @@ const exported: GuildCommand & {
 
     // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다
     const pick = readPick(query);
-    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? Spotify.rememberedTrack(pick.id) : YouTube.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
+    if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
     if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });
 
     await showResults(interaction, query, all);

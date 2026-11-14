@@ -7,7 +7,7 @@ import { encodePool } from "../media/encode-pool.ts";
 const log = logger.child({ category: "player" });
 // 워치독, 상태 전이는 재생 로그와 섞이면 묻힌다. 대시보드에서도 별도 필터가 생긴다
 const wlog = logger.child({ category: "watchdog" });
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as genreConfig from "../config/genres.ts";
 import { GENRE_DEFAULTS } from "../config/schema/genres.ts";
 // 사용자, 대시보드가 일으킨 조작. 워치독 분석에서 "사람이 넘긴 것"과 "봇이 자른 것"을 구분해야 한다
@@ -684,8 +684,8 @@ class Player {
       return { ok: false, code: "live-upcoming" } satisfies PlayResult;
     }
     // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
-    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, YouTube.cookiesConfigured())}`);
-    elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${YouTube.briefError(error)}`);
+    elog.error({ sub: "Player.play", kind: errorKind(error) }, `재생 실패: ${this._trackLabel()} | ${failureReason(error, youtubeSource.cookiesConfigured())}`);
+    elog.debug({ sub: "Player.play" }, `재생 실패 원문: ${youtubeSource.briefError(error)}`);
     await this.handleError(error, { tell: true, at, continued });
     if (this.lifecycle.parked) return { ok: false, code: "parked", error } satisfies PlayResult;
     return { ok: false, code: "play-failed", error } satisfies PlayResult;
@@ -1367,7 +1367,7 @@ class Player {
       return true;
     }
     if (reopened.code === "live-ended") log.info(`라이브 방송이 종료되어 다음 곡으로 넘김: ${label} | 재확인 결과 라이브 아님`);
-    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${failureReason(reopened.error, YouTube.cookiesConfigured())}`);
+    else if (reopened.error) log.warn({ kind: errorKind(reopened.error) }, `라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${failureReason(reopened.error, youtubeSource.cookiesConfigured())}`);
     else log.warn(`라이브 다시 열기 실패(다음 곡으로 넘김): ${label} | ${reopened.code}`);
     return false;
   }
@@ -1443,7 +1443,7 @@ class Player {
     // 선택하지 못했으면 false 로 대기열 소진 흐름으로 떨어진다.
     // 그냥 끝내면 현재곡이 끝난 곡을 가리킨 채 남아 곡 추가, 스킵이 전부 먹통이 된다.
     // 이때 자동재생은 켜 둔 채로 둔다. 후보를 한 번 못 찾은 것이 장르를 끌 이유는 아니다.
-    return this.handleAutoplay();
+    return this.playAutoplayNow();
   }
 
   /**
@@ -1482,7 +1482,7 @@ class Player {
   /**
    * 자동재생 후보 한 곡을 선택한다. 선택하지 못하면 null.
    *
-   * 선택만 한다. 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(handleAutoplay)
+   * 선택만 한다. 대기열도 재생도 건드리지 않는다. 부르는 쪽이 지금 틀지(playAutoplayNow)
    * 미리 대기열에 둘지(ensureAutoplayNext) 정한다. job: 실행한 yt-dlp 의 작업(미리 선택은 prefetch 라 yt-dlp 의 백그라운드 큐에 선다)
    */
   async pickAutoplayTrack(job: Job | null = null) {
@@ -1534,7 +1534,7 @@ class Player {
   }
 
   /** 지금 선택해서 바로 튼다. 곡이 끝났을 때와, 아무것도 안 틀고 있을 때 켠 경우. 틀었으면 true. */
-  async handleAutoplay() {
+  async playAutoplayNow() {
     const picked = await this.pickAutoplayTrack();
     if (!picked) {
       // 미리 선택(ensureAutoplayNext)에서는 끄지 않는다. 거기서는 선택하지 못해도 여기서 다시 해 본다.
@@ -1624,7 +1624,7 @@ class Player {
   // 내려간 영상을 선택한 자동재생 곡이면 기억해 두고(다음에 또 선택하지 않게) true. 우리가 선택한 것이니 사용자에게 알릴 일이 아니다
   _droppedDeadAutoplay(error: unknown) {
     const failed = this.currentTrack;
-    if (!failed?.autoplay || !YouTube.isVideoUnavailableError(error)) return false;
+    if (!failed?.autoplay || !youtubeSource.isVideoUnavailableError(error)) return false;
     autoplayRoute.markDead(failed);
     log.info(`자동재생 곡 건너뜀(영상 없음): "${logTitle(failed.title)}"`);
     return true;
@@ -1672,7 +1672,7 @@ class Player {
     // 대기열이 비었어도 자동재생 중이면 멈추지 않는다. 그대로 두면 봇이 얼어붙는다.
     if (this.queue.length === 0 && this.autoplay) {
       trackState.setCurrent(this, null);
-      if (await this.handleAutoplay()) return;
+      if (await this.playAutoplayNow()) return;
     }
 
     // 남은 곡이 있으면 못 튼 까닭을 알리고 다음 곡으로 넘긴다
@@ -1746,7 +1746,7 @@ class Player {
     this.persistence.startPeriodicSave();
     bestEffort(log, this.persistence.save("parked"), "세션 저장"); // 쓰기는 동기라 여기서 끝난다
     this._showTrackInVoiceStatus();
-    log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, YouTube.cookiesConfigured())}` : ""}`);
+    log.warn(`그 곡에서 일시정지(재생 버튼으로 재시도 가능): ${this._trackLabel()} | ${why.kind}${why.error ? ` | ${failureReason(why.error, youtubeSource.cookiesConfigured())}` : ""}`);
     // 기다리지 않는다. 기다리는 사이 재생 버튼으로 시작한 새 재생을 이 실패한 재생의 끝 정리가 덮는다
     if (!this.quietFailures) playerEvents.notice(this, "parked", why).catch(noticeFailed(this, `parked(${why.kind})`));
   }

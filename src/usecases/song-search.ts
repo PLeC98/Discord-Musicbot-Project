@@ -1,8 +1,8 @@
 // 곡 글자 검색: 유튜브와 스포티파이를 함께 찾아 섞는다. /search(자동완성, 결과 화면)와 대시보드 곡 추가 칸이 같이 쓴다.
 // 몫, 마감, 섞는 규칙을 한곳에 둔다. 디스코드(discord.js)에 기대지 않는다
 
-import * as YouTube from "../sources/youtube/index.ts";
-import * as Spotify from "../sources/spotify.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
+import * as spotifySource from "../sources/spotify.ts";
 import type { SpotifyTrack } from "../sources/spotify.ts";
 import type { TextSearchResult } from "../sources/youtube/text-search.ts";
 import type { TrackInfo } from "../player/track.ts";
@@ -28,7 +28,7 @@ type Found = { youtube: TextSearchResult | null; spotify: SpotifyTrack[] };
 const NOTHING: Found = { youtube: null, spotify: [] };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const depsOf = (deps: SearchDeps): Required<SearchDeps> => ({ search: YouTube.searchText, searchSpotify: Spotify.searchTracks, spotifyReady: Spotify.searchReady, now: Date.now, wait: sleep, ...deps });
+const depsOf = (deps: SearchDeps): Required<SearchDeps> => ({ search: youtubeSource.searchText, searchSpotify: spotifySource.searchTracks, spotifyReady: spotifySource.searchReady, now: Date.now, wait: sleep, ...deps });
 
 // ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
 function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {

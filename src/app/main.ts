@@ -33,9 +33,9 @@ import * as voiceStatusStore from "../store/voice-status.ts";
 import { onVoiceStateUpdate } from "../player/voice-presence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
 import { createPotServer } from "../sources/youtube/pot-server.ts";
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
-import * as Spotify from "../sources/spotify.ts";
+import * as spotifySource from "../sources/spotify.ts";
 import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { bgutilVersion } from "../sources/bgutil-version.ts";
@@ -322,7 +322,7 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇, 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
   // 스포티파이 익명 상태와 토큰(첫 자동완성이 스포티파이를 쓰게). 저장해 둔 것이 쓸 만하면 요청하지 않는다
-  void Spotify.prepareAnonymous();
+  void spotifySource.prepareAnonymous();
 
   // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
   // 늦으면 패널이 유니코드로 올라갔다가 다음 갱신에 앱 이모지로 바뀐다. 실패하면 경고만 남기고 유니코드로 간다
@@ -392,7 +392,7 @@ function checkBeforeLogin() {
   voiceChannelStatus.keepIn(voiceStatusStore);
 
   // 지금 무엇으로 유튜브에 붙는지 한 줄. 없으면 POToken 서버가 죽어 있어도 모르고 지나간다.
-  YouTube.logAuthMode();
+  youtubeSource.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기", "warn");
   // bgutil 은 설치된 것, 설정한 것, 최신을 비교해 알리기만 한다(설치는 봇을 끄고)

@@ -7,7 +7,7 @@ import config from "../../config/index.ts";
 import { vitals } from "../../infra/vitals.ts";
 import { availableMemory } from "../../infra/available-memory.ts";
 import { BOT_VERSION } from "../../infra/version.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { AdminStatus, StatusQuery } from "../contract/admin.ts";
 import { gateway } from "./gateway.ts";
@@ -62,7 +62,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 작업이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
-    youtube: YouTube.statusSnapshot(),
+    youtube: youtubeSource.statusSnapshot(),
     links: linkRows(client),
     storage: storageView(),
     recent: recentProblems(),

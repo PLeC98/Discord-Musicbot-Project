@@ -3,8 +3,8 @@
 import { test } from "node:test";
 import * as links from "../../src/rules/links.ts";
 import assert from "node:assert/strict";
-import * as Spotify from "../../src/sources/spotify.ts";
-const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = Spotify._internals;
+import * as spotifySource from "../../src/sources/spotify.ts";
+const { deriveKey, totp, normApiTrack, normGqlTrack, pickImageUrl, parseSecrets } = spotifySource._internals;
 
 test("parseSpotify: 타입/ID 추출 (open URL + spotify: URI)", () => {
   assert.deepEqual(links.parseSpotify("https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1"), { type: "track", id: "2tpWsVSb9UEmDRxAl1zhX1" });

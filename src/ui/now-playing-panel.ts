@@ -819,10 +819,10 @@ class NowPlayingPanel {
       .setEmoji(buttonEmoji("highlight"))
       .setDisabled(disabled || !hasHighlight);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(...(config.sponsorblock.enabled ? [highlightButton] : []), shuffleButton, loopButton, queueButton, autoplayButton);
+    const playbackRow = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
+    const optionsRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...(config.sponsorblock.enabled ? [highlightButton] : []), shuffleButton, loopButton, queueButton, autoplayButton);
 
-    return [row, row2];
+    return [playbackRow, optionsRow];
   }
 
   /**

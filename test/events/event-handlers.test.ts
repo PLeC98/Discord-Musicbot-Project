@@ -126,8 +126,8 @@ function world({ botVoice = "v1", userVoice = "v1", manager = false, roles = [] 
     setAutoplay(g: string) {
       seen.push(`autoplay:${g}`);
     },
-    async handleAutoplay() {
-      seen.push("handleAutoplay");
+    async playAutoplayNow() {
+      seen.push("playAutoplayNow");
     },
     moveInQueue(from: number, to: number) {
       this.queue.splice(to, 0, this.queue.splice(from, 1)[0]);
@@ -599,7 +599,7 @@ test("자동재생 장르: 틀고 있지 않으면 바로 선택하고, 틀고 �
   const w = world();
   const pick = menu(w, { customId: "autoplay:genre", values: ["가요"] });
   await interactionCreate.execute(pick.bot, pick.it);
-  assert.deepEqual(w.seen, ["autoplay:가요", "handleAutoplay"]);
+  assert.deepEqual(w.seen, ["autoplay:가요", "playAutoplayNow"]);
   assert.deepEqual(pick.log, [["deferUpdate"], ["deleteReply"]], "장르 메뉴(본인)는 지운다");
   assert.match(textOf(pick.room.sent[0]?.payload ?? {}), /^### 📻 자동재생을 시작할게요!/, "켠 결과는 모두에게");
   assert.deepEqual(lifetimesOf(pick.it), [LIFETIME.result], "결과 수명 뒤 지운다");

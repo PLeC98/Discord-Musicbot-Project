@@ -1,11 +1,11 @@
 // 곡 찾기. 링크나 검색어 → 곡 정보(메타데이터). 여러 곡 출처는 구간만 불러온다.
 
-import * as YouTube from "./youtube/index.ts";
+import * as youtubeSource from "./youtube/index.ts";
 import type { TrackInfo } from "../player/track.ts";
 import * as links from "../rules/links.ts";
-import * as Spotify from "./spotify.ts";
-import * as SoundCloud from "./soundcloud/index.ts";
-import * as DirectLink from "./direct.ts";
+import * as spotifySource from "./spotify.ts";
+import * as soundcloudSource from "./soundcloud/index.ts";
+import * as directSource from "./direct.ts";
 import { applyTags } from "./direct-tags.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
@@ -35,12 +35,12 @@ type LookupRefusal = "no-song-result" | "lookup-failed" | "yt-unplayable" | "uns
 type LookupResult = { success: true; isPlaylist: boolean; collection?: string | null; collectionId?: string | null; tracks: FoundTrack[]; total?: number | null; nextOffset?: number | null; skipped?: number; code?: undefined; error?: undefined } | { success: false; code: LookupRefusal; error?: unknown; skipped?: number; isPlaylist?: undefined; collection?: undefined; collectionId?: undefined; tracks?: undefined; total?: undefined; nextOffset?: undefined };
 /** 곡을 찾는 소스들. 여기서 부르는 것만. 테스트가 가짜를 넘긴다. 넘기지 않은 소스는 실제 모듈 */
 type Sources = {
-  youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; getInfo(url: string): Promise<FoundTrack>; searchText(query: string): Promise<YouTube.TextSearchResult> };
+  youtube: { getPlaylist(url: string, range?: Range): Promise<Collection | null>; getInfo(url: string): Promise<FoundTrack>; searchText(query: string): Promise<youtubeSource.TextSearchResult> };
   spotify: { getCollection(url: string, range?: Range): Promise<Collection>; searchTracks(query: string): Promise<FoundTrack[]> };
-  soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<SoundCloud.Found> };
-  direct: { getInfo(url: string, opts?: Pick<DirectLink.InfoOptions, "tags">): Promise<FoundTrack[]> };
+  soundcloud: { find(url: string, range?: Range & { what?: "track" | "set" }): Promise<soundcloudSource.Found> };
+  direct: { getInfo(url: string, opts?: Pick<directSource.InfoOptions, "tags">): Promise<FoundTrack[]> };
 };
-const REAL: Sources = { youtube: YouTube, spotify: Spotify, soundcloud: SoundCloud, direct: DirectLink };
+const REAL: Sources = { youtube: youtubeSource, spotify: spotifySource, soundcloud: soundcloudSource, direct: directSource };
 
 // 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 입력은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
 function detectPlatform(query: string) {
@@ -150,8 +150,8 @@ function lookupFailed(error: unknown, context: string | null): LookupResult {
     return { success: false, code };
   }
   // 한 줄에는 무엇이 막았는지만. 원문(yt-dlp 의 WARNING 줄 포함)은 조사할 때 본다
-  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, YouTube.cookiesConfigured())}`);
-  log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${YouTube.briefError(error)}`);
+  log.error({ sub: context || undefined, kind: errorKind(error) }, `곡 찾기 실패: ${failureReason(error, youtubeSource.cookiesConfigured())}`);
+  log.debug({ sub: context || undefined }, `곡 찾기 실패 원문: ${youtubeSource.briefError(error)}`);
   return { success: false, code: "lookup-failed", error };
 }
 

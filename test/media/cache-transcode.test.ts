@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 
 import { openTempStore } from "../helpers/temp-store.ts";
 import { TrackDownloader } from "../../src/media/cache-download.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { argsOf as toArgv, type YtDlpFlags } from "../../src/sources/ytdlp-exec.ts";
 import type { Sources } from "../../src/media/cache-download.ts";
 
@@ -19,7 +19,7 @@ async function captureOptions(): Promise<YtDlpFlags | undefined> {
   const store = openTempStore("cache-transcode-");
   const seen: { options?: YtDlpFlags } = {};
   const youtube: Sources["youtube"] = {
-    ...YouTube,
+    ...youtubeSource,
     downloadAudio: async (_url, build) => {
       seen.options = build(false);
       throw new Error("여기까지만");
