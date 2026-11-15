@@ -7,6 +7,7 @@ import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { currentJob } from "../infra/guild-context.ts";
 import { SlotQueue, type SlotStats } from "../infra/slot-queue.ts";
+import { cpuQuota } from "../infra/cpu-quota.ts";
 import type { Job } from "../infra/process-job.ts";
 import { isYouTubeURL } from "../rules/links.ts";
 import * as errors from "./youtube/errors.ts";
@@ -69,6 +70,22 @@ const lanes: Record<Lane, SlotQueue> = {
   lookup: new SlotQueue(() => fixedSizes?.lookup ?? (config.ytdlp.lookupSlots || autoSize("lookup"))),
   background: new SlotQueue(() => fixedSizes?.background ?? (config.ytdlp.backgroundSlots || autoSize("background"))),
 };
+// CPU 상한이 걸려 있으면(컨테이너 등) 두 줄을 합쳐 동시에 도는 yt-dlp 수를 상한에 맞춰 제한한다. yt-dlp 여럿이 한 주기의 CPU 할당량을 다 쓰면
+// 봇도 다음 주기까지 멈춰 소리가 끊긴다(프로세스 우선순위를 낮춰도 같다). CPU 하나는 봇과 ffmpeg 몫으로 남긴다. 상한이 없으면 제한하지 않는다
+const cpuSlots = (quota: number | null) => (quota === null ? Infinity : Math.max(1, Math.floor(quota) - 1));
+let quotaRead: { quota: number | null } | null = null;
+const quotaNow = () => (quotaRead ??= { quota: cpuQuota() }).quota;
+let fixedCpuSlots: number | null = null;
+/** 테스트가 CPU 상한에 따른 동시 실행 수를 고정한다. null 이면 원래대로 */
+function useCpuSlots(slots: number | null) {
+  fixedCpuSlots = slots;
+}
+const cpuGate = new SlotQueue(() => fixedCpuSlots ?? cpuSlots(quotaNow()));
+/** CPU 상한(CPU 수)과 그에 따른 yt-dlp 최대 동시 실행 수. 상한이 없으면 null */
+function cpuLimit(): { quota: number; slots: number } | null {
+  const quota = quotaNow();
+  return quota === null ? null : { quota, slots: cpuSlots(quota) };
+}
 // 줄 안의 순서: 재시도가 맨 앞, 그다음 지금 곡의 작업, 미리 받기는 뒤
 const RANK = { retry: 0, now: 1, prefetch: 2 };
 // 이보다 오래 기다렸으면 debug 로그를 남긴다(ms)
@@ -89,7 +106,7 @@ async function enter(lane: Lane, rank: number, signal: AbortSignal | undefined):
 /** 줄을 닫는다(봇을 끌 때). 기다리던 호출은 거절되고 새로 띄우지 않는다 */
 function closeLanes() {
   const closed = new Error("봇을 끄는 중이라 yt-dlp 를 실행하지 않음");
-  for (const lane of Object.values(lanes)) lane.close(closed);
+  for (const lane of [...Object.values(lanes), cpuGate]) lane.close(closed);
 }
 
 // 유튜브 영상 정보 추출(JS 과제를 푸는 호출: 곡 찾기, 재생 주소, 다운로드. 검색, 재생목록 펼치기는 빼고)을 지난 1시간 센다.
@@ -247,10 +264,17 @@ async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ..
   // 작업은 받은 것, 문맥에서(다음 곡 미리 다운로드), 없으면 파일로 다운로드하는 것은 재생, 나머지는 곡 찾기
   const doing = job ?? currentJob() ?? (flags.output ? "play" : "lookup");
   const lane: Lane = flags.output || doing === "prefetch" ? "background" : "lookup";
-  const leave = await enter(lane, retry ? RANK.retry : doing === "prefetch" ? RANK.prefetch : RANK.now, opts.signal ?? undefined);
+  const rank = retry ? RANK.retry : doing === "prefetch" ? RANK.prefetch : RANK.now;
+  const signal = opts.signal ?? undefined;
+  const leave = await enter(lane, rank, signal);
   try {
-    countExtraction(url, flags);
-    return await spawnOnce(url, flags, opts, doing);
+    const leaveCpu = await cpuGate.take({ rank, signal });
+    try {
+      countExtraction(url, flags);
+      return await spawnOnce(url, flags, opts, doing);
+    } finally {
+      leaveCpu();
+    }
   } finally {
     leave();
   }
@@ -305,7 +329,7 @@ async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job
 }
 
 export default run;
-export { useExec, useInfoTimeout, useLaneSizes, useStallWatch, closeLanes, ytdlpLoad, autoSlots, familyOf, clearOutput, watchDownload };
+export { useExec, useInfoTimeout, useLaneSizes, useCpuSlots, useStallWatch, closeLanes, ytdlpLoad, cpuLimit, cpuSlots, autoSlots, familyOf, clearOutput, watchDownload };
 /** yt-dlp 실행 함수. 테스트가 가짜를 넘기는 곳의 모양 */
 type RunYtDlp = typeof run;
 export type { YtDlpFlags, YtDlpError, RunYtDlp, RunOptions, Exec };
