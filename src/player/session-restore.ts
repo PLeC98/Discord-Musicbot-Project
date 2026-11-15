@@ -93,7 +93,7 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
 // 줄의 슬롯 수보다 하나 적게 돌려, 그사이 다른 서버에서 곡을 찾는 사람이 빈 슬롯을 바로 얻게 한다.
 // CPU 수보다 많이는 돌리지 않는다. yt-dlp 가 한꺼번에 CPU 수보다 많이 뜨면 다른 서버의 곡 찾기가 느려진다
 const restoreAtOnce = (lookupSlots: number, cpus: number) => Math.max(1, Math.min(RESTORE_AT_ONCE_MAX, lookupSlots - 1, cpus));
-// 슬롯과 CPU 가 넉넉해도 이보다 많이는 돌리지 않는다. 이보다 많이 돌리면 이미 재생 중인 서버의 소리가 잠깐 끊길 수 있고 다른 서버의 곡 찾기도 느려진다
+// 슬롯과 CPU 가 넉넉해도 이보다 많이는 돌리지 않는다. 이보다 많이 돌리면 이미 재생 중인 서버의 소리가 잠깐 끊길 수 있다
 const RESTORE_AT_ONCE_MAX = 3;
 
 // 기동 복원의 차례를 기다리는 서버, 지금 복원 중인 서버. 같은 서버를 두 번 복원하지 않는다
