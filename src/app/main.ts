@@ -4,6 +4,7 @@
 import { Client, Events, GatewayCloseCodes, RESTEvents, type ClientEvents, type GatewayIntentBits, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
+import * as processPriority from "../infra/process-priority.ts";
 import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
@@ -99,6 +100,8 @@ class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
+  // 자식 프로세스, 워커를 띄우기 전에 봇 우선순위를 올린다
+  for (const { level, text } of processPriority.describe(processPriority.raiseSelf())) log[level]({ tags: ["startup"] }, text);
   // 이전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 이어졌으면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
