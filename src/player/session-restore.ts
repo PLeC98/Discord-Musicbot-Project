@@ -1,3 +1,4 @@
+import os from "node:os";
 import { RESTJSONErrorCodes, type Client, type Guild } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "session" });
@@ -53,9 +54,10 @@ type Registry = Pick<PlayerSeats, "has" | "set">;
 /**
  * 기동 시 저장된 재생 세션을 복원한다. /join 으로만 이어 듣게 남긴 세션(/leave, 혼자 남아 나감)은 두고 붙지 않는다.
  * skip: 이번 기동은 복원하지 않는다(짧게 끊긴 실행이 이어졌다, app/run-record). 세션은 남긴다.
+ * cpus: 이 프로세스가 쓸 수 있는 CPU 수. 동시에 복원할 서버 수를 정하는 데 쓴다
  * 돌려주는 것: 복원을 시도한 서버 ID(복원했든 못 했든, 건너뛰면 없음). 이어받기(voiceAdopt)가 이 서버들은 건드리지 않는다
  */
-async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false }: { skip?: boolean } = {}) {
+async function restoreSessions(client: Client, players: Registry, PlayerCtor: PlayerClass, { skip = false, cpus = os.availableParallelism() }: { skip?: boolean; cpus?: number } = {}) {
   const all = sessions().loadAll();
   const saved = all.filter((s) => s.session.autoResume !== false);
   const forJoin = all.length - saved.length;
@@ -83,14 +85,15 @@ async function restoreSessions(client: Client, players: Registry, PlayerCtor: Pl
     });
   }
   // 몇 곳씩 동시에 복원한다. 먼저 복원 중인 서버 차례가 오면 슬롯을 쥔 채 그 복원이 끝나기를 기다린다(동시에 도는 복원 수가 늘지 않게)
-  await mapLimit(touched, restoreAtOnce(), async (guildId) => restoreNow(guildId));
+  await mapLimit(touched, restoreAtOnce(ytdlpLoad().lookup.size, cpus), async (guildId) => restoreNow(guildId));
   return touched;
 }
 
 // 기동 복원을 동시에 돌릴 서버 수. 복원도 곡을 열 때 사람의 곡 찾기와 같은 yt-dlp 줄에 같은 순위로 선다.
-// 줄의 슬롯 수보다 하나 적게 돌려, 그사이 다른 서버에서 곡을 찾는 사람이 빈 슬롯을 바로 얻게 한다
-const restoreAtOnce = () => Math.max(1, Math.min(RESTORE_AT_ONCE_MAX, ytdlpLoad().lookup.size - 1));
-// 슬롯이 넉넉해도 이보다 많이는 돌리지 않는다. yt-dlp 가 더 많이 한꺼번에 뜨면 다른 서버의 곡 찾기가 느려진다
+// 줄의 슬롯 수보다 하나 적게 돌려, 그사이 다른 서버에서 곡을 찾는 사람이 빈 슬롯을 바로 얻게 한다.
+// CPU 수보다 많이는 돌리지 않는다. yt-dlp 가 한꺼번에 CPU 수보다 많이 뜨면 다른 서버의 곡 찾기가 느려진다
+const restoreAtOnce = (lookupSlots: number, cpus: number) => Math.max(1, Math.min(RESTORE_AT_ONCE_MAX, lookupSlots - 1, cpus));
+// 슬롯과 CPU 가 넉넉해도 이보다 많이는 돌리지 않는다. 이보다 많이 돌리면 이미 재생 중인 서버의 소리가 잠깐 끊길 수 있고 다른 서버의 곡 찾기도 느려진다
 const RESTORE_AT_ONCE_MAX = 3;
 
 // 기동 복원의 차례를 기다리는 서버, 지금 복원 중인 서버. 같은 서버를 두 번 복원하지 않는다
