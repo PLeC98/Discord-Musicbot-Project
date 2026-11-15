@@ -98,7 +98,7 @@ test("정보: 필드를 옮겨 담는다(포맷 목록은 담지 않는다). 라
   assert.equal(t.liveStatus, "is_live");
 });
 
-test("포맷 목록: 정보와 같은 추출로 받고, 원본 다시 확인의 실제 의존이 이것으로 버전을 견준다", async () => {
+test("포맷 목록: 정보와 같은 추출로 받고, 원본 다시 확인의 실제 의존이 이것으로 버전을 비교한다", async () => {
   const lmt = "1788794896364049";
   respond = () => video("fffffffffff", { formats: [{ format_id: "251", url: `https://rr1.googlevideo.com/videoplayback?itag=251&lmt=${lmt}&dur=200.0`, acodec: "opus", vcodec: "none" }] });
   const url = "https://www.youtube.com/watch?v=fffffffffff";

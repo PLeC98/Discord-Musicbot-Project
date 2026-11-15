@@ -89,7 +89,7 @@ function compared(now: string | null, stored: Stored, same: (a: string, b: strin
   if (!now) return { kind: "uncompared", reason: "원본이 버전을 주지 않는다" };
   if (!stored.version) return { kind: "uncompared", reason: "적어 둔 버전이 없다" };
   const verdict = same(stored.version, now);
-  if (verdict === null) return { kind: "uncompared", reason: "견줄 값이 없다" };
+  if (verdict === null) return { kind: "uncompared", reason: "비교할 값이 없다" };
   return verdict ? { kind: "same", version: stored.version } : { kind: "changed", version: now, durationChanged: null };
 }
 

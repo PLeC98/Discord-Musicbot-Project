@@ -191,7 +191,7 @@ test("아티스트 채널의 영상 중 이 곡일 수 있는 것: 그 채널이
   );
 });
 
-test("알아본 채널은 이름 그대로 견준다: 보이지 않는 이름끼리는 맞고, 빈 이름, 없는 이름은 맞지 않는다", () => {
+test("알아본 채널은 이름 그대로 비교한다: 보이지 않는 이름끼리는 맞고, 빈 이름, 없는 이름은 맞지 않는다", () => {
   const known = { ...target, artist: "x0o0x_", artistChannels: [ZWNJ] };
   assert.equal(I.artistChannelOf(ZWNJ, known).match, true);
   assert.equal(I.artistChannelOf("", { ...known, artistChannels: [""] }).match, false);
