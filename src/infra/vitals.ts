@@ -13,7 +13,7 @@ const WINDOW_MS = TICK_MS * WINDOW_TICKS;
 type Cpu = { bot: number; system: number };
 type Window = { cpu: Cpu; loop: { p99: number; max: number } };
 
-/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스, 모든 코어의 바쁜 시간과 전체 시간 */
+/** 지금까지 쓴 CPU 시간(마이크로초): 봇 프로세스, 모든 코어의 사용 시간(idle 을 뺀 시간)과 전체 시간 */
 function cpuTimes() {
   const usage = process.cpuUsage();
   let busy = 0;

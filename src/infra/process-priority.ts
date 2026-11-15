@@ -1,5 +1,5 @@
-// 봇 프로세스의 CPU 우선순위. 기동 때 한 단계(Windows 의 "보통보다 높음", 유닉스의 nice -7) 올린다. 보통이면 PC 가 바쁠 때
-// 같은 우선순위의 스레드와 CPU 시간을 나눠 쓰느라 재생이 끊긴다. 올릴 권한이 없으면(유닉스의 기본) 그대로 돈다.
+// 봇 프로세스의 CPU 우선순위. 기동 때 한 단계(Windows 의 "높은 우선순위", 유닉스의 nice -7) 올린다. 보통이면 다른 프로그램이
+// CPU 를 많이 쓸 때 같은 우선순위의 스레드와 CPU 시간을 나눠 쓰느라 재생이 끊긴다. 올릴 권한이 없으면(유닉스의 기본) 그대로 돈다.
 // 자식은 봇 우선순위를 올리기 전의 값으로 돌린다. Windows 는 보통보다 낮은 클래스만 자식에게 물려주므로 올린 뒤에 띄운 자식이 보통으로 뜨고,
 // 유닉스는 올린 값을 자식이 물려받아서 띄운 뒤에 되돌린다
 
@@ -53,28 +53,29 @@ function settleChild(pid: number, low: boolean, sys: Os = os) {
   if (priority !== null) sys.setPriority(pid, priority);
 }
 
-// os.getPriority 가 Windows 에서 주는 값(우선순위 클래스마다 하나)
+// os.getPriority 가 Windows 에서 주는 값(우선순위 클래스마다 하나). 이름은 작업 관리자에 나오는 그대로다
 const WINDOWS_NAMES = new Map([
   [-20, "실시간"],
   [-14, "높음"],
-  [-7, "보통보다 높음"],
+  [-7, "높은 우선순위"],
   [0, "보통"],
-  [10, "보통보다 낮음"],
+  [10, "낮은 우선순위"],
   [19, "낮음"],
 ]);
 const nameOf = (value: number, platform: NodeJS.Platform) => (platform === "win32" ? (WINDOWS_NAMES.get(value) ?? String(value)) : `nice ${value}`);
 
-/** 기동 로그에 남길 줄 */
+/** 기동 로그에 남길 줄. 봇이 지금 어떤 우선순위로 도는지를 적는다 */
 function describe({ platform, before, after, raised, error }: Raise): Line[] {
   const now = nameOf(after, platform);
+  const why = error ? `, ${error}` : "";
   if (!raised) {
     // 유닉스는 권한 없이 올릴 수 없는 것이 기본이라 알리기만 한다
-    if (platform !== "win32") return [{ level: "info", text: `프로세스 우선순위: ${now}${error ? `(올리지 못함, ${error})` : ""}` }];
-    return [{ level: "warn", text: `프로세스 우선순위를 올리지 못함(현재 ${now}${error ? `, ${error}` : ""}). PC가 바쁠 때 재생이 끊길 수 있음. 대신 yt-dlp 우선순위를 낮춰 실행` }];
+    if (platform !== "win32") return [{ level: "info", text: `프로세스 우선순위: ${now}(${nameOf(PRIORITY_ABOVE_NORMAL, platform)} 설정 불가${why})` }];
+    return [{ level: "warn", text: `프로세스 우선순위 설정 실패(현재 "${now}"${why}). 다른 프로그램이 CPU를 많이 쓰면 재생이 끊길 수 있음` }];
   }
-  const lines: Line[] = [{ level: "info", text: before === after ? `프로세스 우선순위: ${now}` : `프로세스 우선순위: ${now}(${nameOf(before, platform)}에서 올림)` }];
-  // 작업 스케줄러는 작업의 CPU("보통보다 낮음"), I/O, 메모리 우선순위를 모두 낮춰 띄운다. 봇이 올릴 수 있는 것은 CPU 우선순위뿐이다
-  if (platform === "win32" && before > PRIORITY_NORMAL) lines.push({ level: "warn", text: "보통보다 낮은 우선순위로 시작됨. CPU 우선순위만 올렸고 I/O, 메모리 우선순위는 여전히 낮을 수 있음. 작업 스케줄러로 실행 중이면 작업 XML의 Priority를 4로 바꿔야 함" });
+  const lines: Line[] = [{ level: "info", text: `프로세스 우선순위: ${now}` }];
+  // 작업 스케줄러는 작업의 CPU, I/O, 메모리 우선순위를 모두 낮춰 띄운다. 봇이 올릴 수 있는 것은 CPU 우선순위뿐이다
+  if (platform === "win32" && before > PRIORITY_NORMAL) lines.push({ level: "warn", text: "낮은 우선순위로 실행됨(I/O, 메모리 우선순위는 낮게 남음). 작업 스케줄러라면 작업 XML의 Priority를 4로 변경 필요" });
   return lines;
 }
 
