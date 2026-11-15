@@ -5,7 +5,6 @@ import type { SpawnOptions } from "child_process";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
-import { selfRaised } from "../infra/process-priority.ts";
 import { currentJob } from "../infra/guild-context.ts";
 import { SlotQueue, type SlotStats } from "../infra/slot-queue.ts";
 import type { Job } from "../infra/process-job.ts";
@@ -257,28 +256,11 @@ async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ..
   }
 }
 
-// 봇 우선순위가 올라 있지 않으면 yt-dlp 를 "보통보다 낮음"으로 돌린다. Windows 에서 봇과 같은 우선순위로 띄우면 yt-dlp 가 뜬 직후(수십 ms)
-// 재생 인코딩 워커가 20ms 넘게 CPU 를 못 받아 소리가 밀릴 수 있다. 낮추면 Windows 는 yt-dlp 가 띄우는 자식도 낮게 돌고, 유닉스는 nice 를 올리는 것이라 권한이 없어도 된다.
-// 봇 우선순위가 올라 있으면 낮추지 않는다. 효율 코어가 있는 Windows 는 낮춘 프로세스를 효율 코어에 몰아 yt-dlp 가 느려진다
-let priorityWarned = false;
-function lowerPriority(pid: number | undefined) {
-  if (pid === undefined) return; // 띄우지 못했다. 원인은 실행 오류로 따로 온다
-  try {
-    os.setPriority(pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
-  } catch (error) {
-    if ((error as { info?: { code?: string } }).info?.code === "ESRCH") return; // 벌써 끝났다(Node 는 시스템 오류 정보를 info 에 싣는다)
-    const line = `yt-dlp 우선순위 낮추기 실패(재생 중 곡 다운로드 시 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
-    if (priorityWarned) return void log.debug(line);
-    priorityWarned = true;
-    log.warn(line);
-  }
-}
-
 // 한 번 띄워 끝을 기다린다. 정보 호출은 한도를 넘으면, 다운로드는 파일이 멎으면 내린다
 async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job: Job): Promise<unknown> {
   const sub = execNow()(url, flags, { ...SPAWN_OPTS, ...opts });
-  if (!selfRaised()) lowerPriority(sub.pid);
-  const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN, job });
+  // yt-dlp 는 봇보다 낮은 우선순위로 돌린다. 같은 우선순위로 뜨면 뜬 직후(수십 ms) 재생 인코딩 워커가 20ms 넘게 CPU 를 못 받아 소리가 밀릴 수 있다
+  const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN, job, lowPriority: true });
   let timedOut = false;
   let stalled = false;
   const limit = flags.output

@@ -1,4 +1,4 @@
-// src/sources/ytdlp-spawn.ts: 봇 우선순위가 올라 있지 않으면 yt-dlp 를 "보통보다 낮음"으로 돌린다(yt-dlp 가 뜬 직후 재생 인코딩 워커가 CPU 를 못 받아 소리가 밀리지 않게). 올라 있으면 낮추지 않는다.
+// src/sources/ytdlp-spawn.ts: yt-dlp 를 봇보다 낮은 우선순위로 돌린다(yt-dlp 가 뜬 직후 재생 인코딩 워커가 CPU 를 못 받아 소리가 밀리지 않게). Windows 에서 봇 우선순위가 올라 있으면 낮추지 않는다.
 // yt-dlp 대신 말이 없는 진짜 자식 프로세스를 실행해 그 우선순위를 본다.
 
 import { test, afterEach } from "node:test";
@@ -26,7 +26,7 @@ const pretendBot = (platform: NodeJS.Platform, priority: number) => raiseSelf(pl
 afterEach(() => {
   child?.kill("SIGKILL");
   useExec(null);
-  pretendBot("linux", os.constants.priority.PRIORITY_NORMAL);
+  pretendBot(process.platform, os.constants.priority.PRIORITY_NORMAL);
 });
 
 test("띄운 yt-dlp 는 보통보다 낮은 우선순위로 돈다", { timeout: 10_000 }, async () => {
@@ -38,7 +38,7 @@ test("띄운 yt-dlp 는 보통보다 낮은 우선순위로 돈다", { timeout: 
   assert.equal(await pending, "끝남");
 });
 
-test("봇 우선순위가 올라 있으면 yt-dlp 우선순위를 낮추지 않는다", { timeout: 10_000 }, async () => {
+test("Windows 에서 봇 우선순위가 올라 있으면 yt-dlp 우선순위를 낮추지 않는다", { timeout: 10_000 }, async () => {
   pretendBot("win32", os.constants.priority.PRIORITY_ABOVE_NORMAL);
   useExec(silent);
   const pending = run("https://youtu.be/x", { output: "x.opus" }).catch(() => "끝남");

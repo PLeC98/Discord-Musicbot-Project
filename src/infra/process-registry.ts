@@ -6,6 +6,7 @@ import { codeOf, messageOf } from "./error-text.ts";
 import { consoleText } from "./console-text.ts";
 import { currentGuild, currentJob } from "./guild-context.ts";
 import { startKeyOf } from "./process-snapshot.ts";
+import { settleChild } from "./process-priority.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
@@ -106,18 +107,33 @@ function install() {
   });
 }
 
+let priorityWarned = false;
+function settlePriority(pid: number, label: string, low: boolean) {
+  try {
+    settleChild(pid, low);
+  } catch (error) {
+    if (codeOf((error as { info?: unknown }).info) === "ESRCH") return; // 자식이 이미 끝났다(Node 는 시스템 오류의 코드를 info 에 싣는다)
+    const line = `자식 프로세스 우선순위 설정 실패(${label}, 재생 중 소리가 잠깐 밀릴 수 있음): ${messageOf(error)}`;
+    if (priorityWarned) return void log.debug(line);
+    priorityWarned = true;
+    log.warn(line);
+  }
+}
+
 /**
  * 자식 프로세스를 등록하고 등록 해제 함수를 돌려준다.
  * label 은 로그용 이름, group=true 면 detached 로 실행해 자체 프로세스 그룹을 가진 경우.
  * 서버, 작업은 지금 문맥에서 읽는다. job 을 주면 문맥보다 앞선다.
+ * 띄운 바로 뒤에 부른다: 자식의 우선순위를 여기서 맞춘다(infra/process-priority). lowPriority 는 봇에게 양보해야 하는 자식.
  * 돌려주는 것은 등록 해제 함수다. 프로세스가 정상 종료하면 반드시 호출할 것
  */
-function register(child: Tracked | null | undefined, label = "child", { group = false, job }: { group?: boolean; job?: Job } = {}): () => void {
+function register(child: Tracked | null | undefined, label = "child", { group = false, job, lowPriority = false }: { group?: boolean; job?: Job; lowPriority?: boolean } = {}): () => void {
   const pid = child?.pid;
   if (typeof pid !== "number" || !Number.isInteger(pid) || pid <= 1 || !child)
     return () => {
       /* 등록하지 않았으니 풀 것도 없다 */
     };
+  settlePriority(pid, label, lowPriority);
   install();
   active.set(pid, { pid, label, group, child, startedAt: Date.now(), startKey: startKeyOf(pid), guildId: currentGuild(), job: job ?? currentJob() });
   save();

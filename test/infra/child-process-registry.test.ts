@@ -10,9 +10,11 @@
 import { spawn } from "node:child_process";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
 
 const IS_WIN = process.platform === "win32";
 const registry = await import("../../src/infra/process-registry.ts");
+const { raiseSelf } = await import("../../src/infra/process-priority.ts");
 
 /** pid가 아직 살아있는가. 시그널 0은 존재 확인만 한다(Windows에서도 동작). */
 function alive(pid: number) {
@@ -131,4 +133,20 @@ test("killAll: 멱등. 비어 있으면 빈 목록을 반환하고 아무것도 
   assert.equal(registry.size(), 0);
   assert.deepEqual(registry.killAll(), []);
   assert.deepEqual(registry.killAll(), []);
+});
+
+test("register: 유닉스에서 봇 우선순위가 올라 있으면 띄운 자식을 올리기 전의 값으로 되돌린다", async () => {
+  // 봇이 nice 10 으로 떠서 우선순위를 -7 로 올린 것으로 가정한다(테스트 프로세스의 우선순위는 건드리지 않는다)
+  let now = 10;
+  raiseSelf("linux", { getPriority: () => now, setPriority: (_pid: number, value?: number) => void (now = value ?? now) });
+  const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { stdio: "ignore" });
+  const release = registry.register(child, "test:priority");
+  try {
+    assert.equal(os.getPriority(child.pid), 10);
+  } finally {
+    raiseSelf(process.platform, { getPriority: () => 0, setPriority: () => {} });
+    child.kill("SIGKILL");
+    await new Promise((resolve) => child.once("exit", resolve));
+    release();
+  }
 });
