@@ -244,6 +244,32 @@ function watchDownload(output: string, onStall: () => void, read = snapshotOf): 
   return stop;
 }
 
+// 파일을 받기 시작했는지(받는 파일이 생겼는지) 보다가 시작하면 onStarted 를 한 번 부른다. 돌려주는 것은 그만 보는 함수.
+// .info.json 은 받기 전에 이미 있을 수 있어 무시한다
+const STARTED_EVERY_MS = 500;
+function whenDownloading(output: string, onStarted: () => void): () => void {
+  const { dir, has } = familyOf(output);
+  let busy = false;
+  const timer = setInterval(() => {
+    if (busy) return;
+    busy = true;
+    void fs.promises
+      .readdir(dir)
+      .then(
+        (names) => names.some((name) => has(name) && !name.endsWith(".info.json")),
+        () => false,
+      )
+      .then((started) => {
+        busy = false;
+        if (!started) return;
+        clearInterval(timer);
+        onStarted();
+      });
+  }, STARTED_EVERY_MS);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
 // 실행할 때마다 현재 버전의 경로를 가져온다. 버전이 바뀌면(ytdlpBinary) 다음 호출부터 새 버전이 실행되고, 돌고 있던 것은 옛 버전으로 끝난다
 let bound: { file: string; exec: Exec } | null = null;
 function execNow(): Exec {
@@ -269,10 +295,13 @@ async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ..
   const leave = await enter(lane, rank, signal);
   try {
     const leaveCpu = await cpuGate.take({ rank, signal });
+    // 다운로드는 파일을 받기 시작하면 CPU 를 거의 쓰지 않는다. 그때 CPU 자리를 내놓아 긴 다운로드가 곡 찾기를 막지 않게 한다(제한이 없으면 받기 시작했는지 보지 않는다)
+    const stopWaiting = flags.output && Number.isFinite(cpuGate.stats().size) ? whenDownloading(flags.output, leaveCpu) : null;
     try {
       countExtraction(url, flags);
       return await spawnOnce(url, flags, opts, doing);
     } finally {
+      stopWaiting?.();
       leaveCpu();
     }
   } finally {
