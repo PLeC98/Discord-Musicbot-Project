@@ -22,7 +22,7 @@ const FILTER = "aresample=48000,aformat=channel_layouts=stereo,ebur128=peak=true
 const STALL_MS = 30_000;
 /** 환경 탓으로 실패한 파일은 이 시간(ms) 동안 다시 재지 않는다. 미리 받기 점검이 틱마다 요청하므로 이 제한이 없으면 같은 실패를 계속 되풀이한다 */
 const ENV_RETRY_MS = 10 * 60 * 1000;
-/** 이보다 긴 파일은 무거운 작업용 코어에 묶는다(짧은 것은 묶는 비용이 더 크다) */
+/** 이보다 긴 파일은 CPU 선호도를 무거운 작업용 코어로 설정한다(짧은 것은 설정하는 비용이 더 크다) */
 const BIND_CORES_SEC = 600;
 /** 통합 볼륨이 이보다 낮게 나온 값은 쓰지 않는다(무음이거나 잘못 잰 것) */
 const QUIET_LUFS = -50;

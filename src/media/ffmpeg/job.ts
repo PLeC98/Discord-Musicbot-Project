@@ -1,6 +1,6 @@
 // 끝까지 돌리는 ffmpeg 작업(테스트, 검사, 인코딩). 재생의 spawnFfmpeg 와 달리 출력을 모아 끝난 코드와 함께 돌려준다.
 // signal 로 멈추고, timeoutMs 를 넘거나 진행(-progress)이 stallMs 동안 멈추면 끊는다. 표준 오류는 끝의 64KB 만 둔다(긴 인코딩의 경고가 쌓이지 않게). 줄마다 받으려면 onStderrLine.
-// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 인코딩용 코어로 묶는다(infra/cpu-affinity)
+// 실행한 것은 자식 프로세스 레지스트리에 올린다(봇이 갑자기 꺼져도 다음 기동에 치운다). bindCores 면 CPU 선호도를 인코딩용 코어로 설정한다(infra/cpu-affinity)
 
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "./path.ts";
@@ -29,7 +29,7 @@ type FfmpegJob = {
   /** 레지스트리에 적을 이름(ffmpeg:<label>)과 하는 일 */
   label?: string;
   job?: Job;
-  /** 인코딩용 코어로 묶는다 */
+  /** CPU 선호도를 인코딩용 코어로 설정한다 */
   bindCores?: boolean;
 };
 /** 진행 감시: feed 에 표준 오류 줄을 주면 out_time_us 가 늘 때마다 다시 잰다. stallMs 동안 늘지 않으면 onStall */

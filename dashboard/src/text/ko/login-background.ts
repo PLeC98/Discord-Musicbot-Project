@@ -92,7 +92,7 @@ const advanced = {
   noEncoder: "사용할 수 있는 인코더가 없어요",
   checking: "확인하는 중…",
   recheck: "다시 확인",
-  /** 지금 인코딩하는 것: 단계, AV1 병렬 단계, 묶은 코어, 속도(실시간의 몇 배) */
+  /** 지금 인코딩하는 것: 단계, AV1 병렬 단계, CPU 선호도로 지정한 코어, 속도(실시간의 몇 배) */
   bakeTitle: "지금 인코딩",
   bake: (rungs: string, lp: number | null, cores: string, speed: number | null) => [rungs, ...(lp === null ? [] : [`AV1 병렬 단계 ${lp}`]), cores, ...(speed === null ? [] : [`실시간의 ${speed < 1 ? speed.toFixed(2) : speed.toFixed(1)}배`])].join(" · "),
   bakeTip: "봇 상태 탭에서 인코딩하는 동안의 메모리와 이벤트 루프 지연을 볼 수 있어요.",
