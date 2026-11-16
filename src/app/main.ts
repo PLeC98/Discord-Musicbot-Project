@@ -210,7 +210,7 @@ function deploySlashCommands() {
   commandLoader
     .deployCommands()
     .then((r) => {
-      if (r.ok && r.skipped) log.info(`슬래시 명령어 ${r.count}개 변경 없음, 배포 생략(강제 재배포: pnpm run cmddeploy)`);
+      if (r.ok && r.skipped) log.info(`슬래시 명령어 ${r.count}개 변경 없음, 배포 생략(강제 재배포: pnpm commands)`);
       else if (r.ok) log.info(`슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 배포 완료`);
       else commandLoader.deployErrorLines(r).forEach((line) => log.error(line));
     })
