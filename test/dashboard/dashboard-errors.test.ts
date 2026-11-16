@@ -1,7 +1,7 @@
 // src/dashboard/index.ts, middleware/error-handler.ts: 오류 응답에서 내부 정보가 새지 않는지, 그리고 그것이 가능하도록
 // 미들웨어가 올바른 순서로 등록되는지.
 //
-// 세션 스토어가 죽어도 (1) 브라우저에 스택 트레이스를 보이지 않고, (2) 정적 자산은 세션 앞이라 앱 껍데기는 뜬다.
+// 세션 스토어가 죽어도 (1) 브라우저에 스택 트레이스를 보이지 않고, (2) 정적 에셋은 세션 앞이라 앱 껍데기는 뜬다.
 //
 // 순서 자체가 검증 대상이라 축소판이 아니라 실 앱(createApp)을 임의 포트에 실행한다.
 // 세션 미들웨어만 "저장장치가 죽은 상태"로 넘긴다.
@@ -137,7 +137,7 @@ test("스토어가 죽어도 앱 껍데기는 뜬다", async () => {
   if (HAS_DIST) {
     assert.ok(res.body.includes("/assets/"), "빌드된 SPA의 index.html");
     const asset = res.body.match(/\/assets\/[\w.-]+\.css/)?.[0];
-    if (asset) assert.equal((await req(asset)).status, 200, "정적 자산도 세션과 무관해야 한다");
+    if (asset) assert.equal((await req(asset)).status, 200, "정적 에셋도 세션과 무관해야 한다");
   }
 });
 

@@ -153,7 +153,7 @@ function cacheAssets(res: Response, file: string) {
   res.setHeader("Cache-Control", ASSETS.test(file) ? "public, max-age=31536000, immutable" : "no-cache");
 }
 
-// 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체를 지켜야 해서(정적 자산이
+// 미들웨어 등록만 하고 listen은 하지 않는다. 등록 순서 자체를 지켜야 해서(정적 에셋이
 // 세션보다 앞, 오류 핸들러가 맨 뒤) 테스트가 실제 앱을 임의 포트에 열어 검증한다.
 // sessionMiddleware: 로그인 세션. 기본은 SQLite 세션이고, 테스트가 저장소가 죽은 상태를 넘긴다
 // deployCommands: 슬래시 명령 등록(운영자의 재등록 버튼), restart: 봇 다시 시작(실행기로 켰을 때만). 조립이 넘긴다
@@ -188,7 +188,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 로그인 배경의 배경 정보, 파일(로그인 없이). 화면 폴백보다 앞에
   app.use(publicLoginBackgroundRouter);
 
-  // 정적 자산과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
+  // 정적 에셋과 SPA 폴백은 세션보다 앞에 둔다. 세션 스토어(SQLite)가 죽어도 앱 껍데기는 떠서
   // 오류를 화면에 표시할 수 있어야 한다. 세션 뒤에 두면 CSS/JS까지 500이라 백지가 된다.
   // 빌드가 있는지는 요청 때 본다. 봇을 켠 뒤 빌드해도 다시 시작하지 않고 보인다
   const indexHtml = path.join(clientDist, "index.html");

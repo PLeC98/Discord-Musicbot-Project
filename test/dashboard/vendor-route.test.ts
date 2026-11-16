@@ -174,13 +174,19 @@ test("버전 고정: 그 버전으로 맞추고, 고정한 동안 업데이트�
   assert.equal(await versionNow(), latest);
 });
 
-test("버전 고정은 로그인한 지 오래됐으면 reauth-required 로 거절한다. 나머지 조작은 받아들인다", async () => {
+test("최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 고정 해제, 되돌리기, 채널, 모드, 확인은 요구하지 않는다", async () => {
+  seed("2026.09.27.232849", { previous: "2026.08.19", channel: "nightly", previousChannel: "nightly" });
   loginAt = () => Date.now() - RECENT_LOGIN_MS - 1000;
   const refused = await req<ProblemReply>("POST", "/ytdlp/pin", { version: "2026.09.01" });
   assert.deepEqual([refused.status, refused.json.code], [403, "reauth-required"]);
   assert.equal(config.ytdlp.version, null);
   assert.equal((await req("POST", "/ytdlp/settings", { mode: "manual" })).status, 200);
   assert.equal((await req("POST", "/ytdlp/check")).status, 200);
+  assert.equal((await req("POST", "/ytdlp/rollback")).status, 202, "바로 전에 설치했던 버전 하나로만 간다");
+  await settled();
+  assert.equal(config.ytdlp.version, "2026.08.19");
+  assert.equal((await req("POST", "/ytdlp/pin", { version: null })).status, 202, "해제는 최신 쪽으로 간다");
+  assert.equal(config.ytdlp.version, null);
 });
 
 test("이전 버전으로 되돌리기: 기록의 이전 버전을 고정한다. 다른 채널에서 다운로드한 것이면 채널도 함께 바꾼다", async () => {

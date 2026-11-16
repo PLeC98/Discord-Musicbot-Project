@@ -47,7 +47,7 @@ const BUSY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
 
 /**
  * vendor/bin/yt-dlp/state.json. 현재 버전(설치 전이면 null), 이전 버전, 최신을 마지막으로 확인한 시각과 그때의 채널(채널을 바꾸면 확인한 적 없는 것이다),
- * 다운로드했지만 이 환경에서 실행되지 않은 태그(하루 확인이 다시 다운로드하지 않는다), 현재 버전과 이전 버전을 다운로드한 채널(그 필드가 없던 기록이면 null: 모른다)
+ * 다운로드했지만 이 환경에서 실행되지 않은 태그(일일 확인이 다시 다운로드하지 않는다), 현재 버전과 이전 버전을 다운로드한 채널(그 필드가 없던 기록이면 null: 모른다)
  */
 type State = { version: string | null; previous: string | null; lastChecked: number; unusable: string | null; channel: Channel | null; previousChannel: Channel | null; checkedChannel: Channel | null };
 /** 바이너리를 한 번 부른 결과. 띄우기 실패, 시간 초과, 신호 종료는 이 환경의 상한이 아니라 일시적 실패로 본다 */
@@ -60,9 +60,9 @@ type RenameFailed = { failed: string };
 type Io = {
   /** 버전마다 폴더를 둘 곳 */
   dir: string;
-  /** 이 환경의 자산(채널마다. 없으면 까닭) */
+  /** 이 환경의 에셋(채널마다. 없으면 까닭) */
   asset(channel: Channel): Asset | { missing: string };
-  /** 한 태그의 자산을 받아 확인하고 staging/dir 에 푼다. 실패는 ReleaseError(kind) */
+  /** 한 태그의 에셋을 받아 확인하고 staging/dir 에 푼다. 실패는 ReleaseError(kind) */
   fetch(job: { repo: string; tag: string; asset: Asset; staging: string; skipSignature: boolean }): Promise<void>;
   run(file: string, args: string[], timeoutMs: number): Promise<Ran>;
   /** 채널의 최신 릴리스 태그 */
@@ -76,7 +76,7 @@ type Io = {
   /** 프로세스 사이 잠금. 기다려도 못 잡으면 null */
   lock(): Promise<Unlock | null>;
 };
-/** 다시 해 볼 때: transient 는 한 시간 뒤, lasting(자산 없음, 서명, 실행되지 않음)은 하루 뒤(태그가 바뀌어야 달라진다) */
+/** 다시 해 볼 때: transient 는 한 시간 뒤, lasting(에셋 없음, 서명, 실행되지 않음)은 하루 뒤(태그가 바뀌어야 달라진다) */
 type Retry = "transient" | "lasting";
 /** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe). current, from 이 null 이면 설치 전이다 */
 type Outcome = { kind: "current"; version: string } | { kind: "installed"; from: string | null; to: string; channel: Channel } | { kind: "reused"; from: string | null; to: string } | { kind: "superseded"; target: string } | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel } | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry };
@@ -210,7 +210,7 @@ function reasonOf(ran: Ran) {
 class YtdlpBinary {
   io: Io;
   state: State | null = null;
-  // 버전 맞추기는 한 번에 하나(기동 확인과 하루 확인이 겹치지 않게)
+  // 버전 맞추기는 한 번에 하나(기동 확인과 일일 확인이 겹치지 않게)
   busy: Promise<Outcome> | null = null;
   timer: NodeJS.Timeout | null = null;
   /** 다음 확인 시각(예약하지 않았으면 null) */
@@ -226,7 +226,7 @@ class YtdlpBinary {
   // 채널, 모드, 고정이 바뀔 때마다 오른다
   generation = 0;
   settings = settingsKey();
-  /** 채널마다 마지막으로 본 최신 태그(확인 버튼, 하루 확인). 메모리에만 둔다 */
+  /** 채널마다 마지막으로 본 최신 태그(확인 버튼, 일일 확인). 메모리에만 둔다 */
   seen: Partial<Record<Channel, { tag: string; at: number }>> = {};
   failure: Failure | null = null;
   // 마지막으로 읽었을 때의 기록 파일 수정 시각. 달라졌으면 다른 프로세스(update:ytdlp)가 바꾼 것이라 다시 읽는다
@@ -754,7 +754,7 @@ class YtdlpBinary {
       await this.cleanup();
     }
     if (!this.installed(this.state)) return this._schedule((this.pending ?? "transient") === "lasting" ? DAY_MS : RETRY_MS);
-    // 다운로드하지 못했으면 설치된 버전으로 돌면서 다시 해 본다: 일시적이면 한 시간, 같은 태그로는 다시 시도해도 실패하는 것(서명 불일치, 자산 없음)은 하루 뒤
+    // 다운로드하지 못했으면 설치된 버전으로 돌면서 다시 해 본다: 일시적이면 한 시간, 같은 태그로는 다시 시도해도 실패하는 것(서명 불일치, 에셋 없음)은 하루 뒤
     if (outcome?.kind === "failed") return this._schedule(outcome.retry === "lasting" ? DAY_MS : RETRY_MS);
     if (threw) return this._schedule(RETRY_MS);
     // 고정한 버전, manual 은 맞춘 뒤 더 확인할 것이 없다(설치 전에 예약해 둔 재시도도 취소한다)

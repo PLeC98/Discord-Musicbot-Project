@@ -1,4 +1,4 @@
-// yt-dlp 릴리스의 onedir 판(실행 파일과 _internal 폴더를 담은 zip) 다운로드. 이 환경의 자산을 정하고, 한 태그의 주소에서 체크섬 목록, 그 서명, zip 을 받아
+// yt-dlp 릴리스의 onedir 판(실행 파일과 _internal 폴더를 담은 zip) 다운로드. 이 환경의 에셋을 정하고, 한 태그의 주소에서 체크섬 목록, 그 서명, zip 을 받아
 // 서명(yt-dlp 의 키를 지문으로 고정)과 SHA-256 을 맞춘다. 자체 업데이트(--update-to)는 onedir 을 받지 않고, Windows 판은 onefile 로 덮어 쓰므로 쓰지 않는다.
 
 import crypto from "node:crypto";
@@ -13,16 +13,16 @@ import { PROJECT } from "../infra/project-paths.ts";
 
 type Channel = (typeof config.ytdlp)["channel"];
 type Libc = "glibc" | "musl";
-/** zip: 릴리스 자산 이름, exe: zip 맨 위의 실행 파일 이름 */
+/** zip: 릴리스 에셋 이름, exe: zip 맨 위의 실행 파일 이름 */
 type Asset = { zip: string; exe: string };
 /**
  * 실패의 종류. 부르는 쪽이 다시 할 때를 정한다.
- * network: 연결, 시간 초과, HTTP 오류. integrity: 체크섬이 맞지 않음, 크기 상한. missing: 릴리스에 이 자산이 없음. signature: 서명이 맞지 않음(키 교체일 수 있다)
+ * network: 연결, 시간 초과, HTTP 오류. integrity: 체크섬이 맞지 않음, 크기 상한. missing: 릴리스에 이 에셋이 없음. signature: 서명이 맞지 않음(키 교체일 수 있다)
  */
 type FailureKind = "network" | "integrity" | "missing" | "signature";
 type ReleaseError = Error & { kind: FailureKind };
 
-// 자산 이름과 실행 파일 이름은 yt-dlp 의 bundle/pyinstaller.py 가 정한다. Windows arm64 의 실행 파일에는 _win_ 이 없다
+// 에셋 이름과 실행 파일 이름은 yt-dlp 의 bundle/pyinstaller.py 가 정한다. Windows arm64 의 실행 파일에는 _win_ 이 없다
 const ASSETS: Record<string, Asset> = {
   "win32-x64": { zip: "yt-dlp_win.zip", exe: "yt-dlp.exe" },
   "win32-arm64": { zip: "yt-dlp_win_arm64.zip", exe: "yt-dlp_arm64.exe" },
@@ -56,7 +56,7 @@ function libcNow(): Libc {
   return libc;
 }
 
-/** 이 환경의 onedir 자산. 없으면 까닭 */
+/** 이 환경의 onedir 에셋. 없으면 까닭 */
 function assetFor({ platform, arch, libc: lib, channel }: { platform: NodeJS.Platform; arch: string; libc: Libc | null; channel: Channel }): Asset | { missing: string } {
   const where = platform === "linux" ? `${platform}-${arch}-${lib ?? "glibc"}` : `${platform}-${arch}`;
   const asset = ASSETS[where];
@@ -65,13 +65,13 @@ function assetFor({ platform, arch, libc: lib, channel }: { platform: NodeJS.Pla
   return asset;
 }
 
-/** 지금 돌고 있는 환경의 자산 */
+/** 지금 돌고 있는 환경의 에셋 */
 const assetHere = (channel: Channel) => assetFor({ platform: process.platform, arch: process.arch, libc: process.platform === "linux" ? libcNow() : null, channel });
 
 let key: PinnedKey | null = null;
 const signingKey = () => (key ??= pinnedKey(fs.readFileSync(SIGNING_KEY, "utf8"), SIGNING_FINGERPRINT));
 
-/** 체크섬 목록에서 자산 줄 하나의 SHA-256(GNU 형식 `<hex>  <이름>`, 바이너리 표시 `*` 도 받는다). 없거나 둘 이상이면 null */
+/** 체크섬 목록에서 에셋 줄 하나의 SHA-256(GNU 형식 `<hex>  <이름>`, 바이너리 표시 `*` 도 받는다). 없거나 둘 이상이면 null */
 function sumOf(list: string, name: string): string | null {
   const found = list
     .split(/\r?\n/)
@@ -126,8 +126,8 @@ async function small(url: string, max: number, signal: AbortSignal | undefined):
 }
 
 /**
- * 한 태그의 자산(zip)을 zipFile 에 다운로드하고 확인한다. zipFile 은 없어야 한다(새로 만든다).
- * 순서: 체크섬 목록과 서명 → 서명 확인(skipSignature 면 건너뛴다) → 목록의 자산 줄 → zip 을 받으며 SHA-256. 실패하면 ReleaseError(kind)로 던지고 받다 만 zipFile 은 지우지 않는다(부르는 쪽의 staging 과 함께 지운다)
+ * 한 태그의 에셋(zip)을 zipFile 에 다운로드하고 확인한다. zipFile 은 없어야 한다(새로 만든다).
+ * 순서: 체크섬 목록과 서명 → 서명 확인(skipSignature 면 건너뛴다) → 목록의 에셋 줄 → zip 을 받으며 SHA-256. 실패하면 ReleaseError(kind)로 던지고 받다 만 zipFile 은 지우지 않는다(부르는 쪽의 staging 과 함께 지운다)
  */
 async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature = false }: { repo: string; tag: string; asset: string; zipFile: string; signal?: AbortSignal; skipSignature?: boolean }): Promise<void> {
   const base = `https://github.com/${repo}/releases/download/${encodeURIComponent(tag)}`;

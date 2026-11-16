@@ -273,7 +273,7 @@ test("다운로드해 둔 버전으로 되돌리면 다운로드하지 않고 �
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
 });
 
-test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일시적, 자산 없음과 서명은 오래 간다(하루 뒤)", async () => {
+test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일시적, 에셋 없음과 서명은 오래 간다(하루 뒤)", async () => {
   const { w, bin, rel } = world();
   w.release = () => ({ error: { kind: "network", message: "SHA2-256SUMS 다운로드 실패: HTTP 503" } });
   assert.deepEqual(await bin.check({ force: true }), { kind: "failed", current: "2026.08.19", target: "2026.09.27.232849", reason: "SHA2-256SUMS 다운로드 실패: HTTP 503", channel: "nightly", retry: "transient" });
@@ -285,7 +285,7 @@ test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일�
   assert.deepEqual(staged(), []);
 });
 
-test("받은 것이 실행됐지만 오류로 끝나면(이 환경에서 안 돈다) 버리고 그 태그를 적는다. 하루 확인은 다시 받지 않고, 사람이 부르면 다시 해 본다", async () => {
+test("받은 것이 실행됐지만 오류로 끝나면(이 환경에서 안 돈다) 버리고 그 태그를 적는다. 일일 확인은 다시 받지 않고, 사람이 부르면 다시 해 본다", async () => {
   const { w, bin, rel } = world();
   w.ran = (file) => (file.includes(".staging") ? { kind: "exited", status: 255, stdout: "", stderr: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found" } : { kind: "exited", status: 0, stdout: fs.readFileSync(file, "utf8"), stderr: "" });
   assert.deepEqual(await bin.check(), { kind: "unusable", current: "2026.08.19", target: "2026.09.27.232849", reason: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found", channel: "nightly" });
@@ -437,7 +437,7 @@ test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고�
   assert.equal(pinned.timer, null);
 });
 
-test("기동: 처음 설치가 실패하면 설정과 상관없이 다시 해 본다(일시적이면 한 시간, 자산 없음은 하루 뒤). 설치되면 원래 규칙으로", async (t) => {
+test("기동: 처음 설치가 실패하면 설정과 상관없이 다시 해 본다(일시적이면 한 시간, 에셋 없음은 하루 뒤). 설치되면 원래 규칙으로", async (t) => {
   config.ytdlp.update = "manual";
   const { w, io, bin } = world({ installed: null });
   t.after(() => bin.stop());
@@ -543,7 +543,7 @@ test("설정이 바뀌면 하던 것이 끝난 뒤 새 설정으로 맞춘다. �
   assert.equal(rel(), "bin/yt-dlp/2026.09.30/yt-dlp.exe");
   assert.equal(bin.nextAt, w.clock + DAY);
 
-  // 수동으로: 하루 확인을 푼다
+  // 수동으로: 일일 확인을 해제한다
   config.ytdlp.update = "manual";
   await bin.onSettingsChanged();
   assert.equal(bin.nextAt, null);
@@ -554,7 +554,7 @@ test("설정이 바뀌면 하던 것이 끝난 뒤 새 설정으로 맞춘다. �
   assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");
   assert.equal(bin.nextAt, null);
 
-  // 고정을 지우고 자동으로: 바로 최신으로, 하루 확인을 건다
+  // 고정을 지우고 자동으로: 바로 최신으로, 일일 확인을 예약한다
   Object.assign(config.ytdlp, { version: null, update: "auto" });
   await bin.onSettingsChanged();
   assert.equal(rel(), "bin/yt-dlp/2026.09.30/yt-dlp.exe");

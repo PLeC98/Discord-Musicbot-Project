@@ -2,7 +2,7 @@
 // 채널, 모드, 버전 고정은 저장 막대가 아니라 여기서 바로 저장한다(store/tunables 의 saveCard). 저장하면 새 설정대로 yt-dlp 버전을 맞춘다(sources/ytdlp-binary).
 // 다운로드는 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
 
-import express, { type Request, type Response } from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import config from "../../config/index.ts";
@@ -99,8 +99,12 @@ vendorRouter.post("/ytdlp/settings", (req, res) => {
   res.json(reply(saved));
 });
 
+// 최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 아무 옛 버전이나 고를 수 있는 조작은 그것뿐이다.
+// 고정 해제(채널의 최신으로), 채널, 모드(그 채널의 최신으로), 업데이트(확인한 최신으로), 이전 버전으로 되돌리기(바로 전에 설치했던 버전 하나)는 요구하지 않는다
+const recentLoginToPin = (req: Request, res: Response, next: NextFunction) => (text(req.body?.version) ? requireRecentLogin(req, res, next) : next());
+
 // 버전 고정(version: 태그, null 이면 해제). 값이 그대로여도 다시 맞춰 본다(고정한 버전 다운로드에 실패한 뒤의 재시도)
-vendorRouter.post("/ytdlp/pin", requireRecentLogin, (req, res) => {
+vendorRouter.post("/ytdlp/pin", recentLoginToPin, (req, res) => {
   const version = text(req.body?.version);
   const was = config.ytdlp.version;
   if (req.body?.expect !== undefined && (text(req.body.expect) ?? null) !== was) return sendProblem(res, "config-changed");

@@ -1,57 +1,63 @@
 <template>
-  <!-- yt-dlp 카드(유튜브 탭). 채널, 자동 업데이트, 버전 고정은 저장 막대를 거치지 않고 누르면 바로 저장한다(값을 바꾸는 것이 곧 다운로드를 시작하는 조작이다).
-       다운로드는 서버가 뒤에서 하고 카드는 상태를 다시 읽어 진행을 본다. 결과는 토스트, 다시 시도할 실패는 카드에 남긴다 -->
+  <!-- yt-dlp 카드(유튜브 탭). 운영 조절값 카드와 같은 모양(라벨 + 높이 40 칸, 카드가 넓으면 2열).
+       채널, 자동 업데이트, 버전 고정은 저장 막대를 거치지 않고 누르면 바로 저장한다(값을 바꾸는 것이 곧 다운로드를 시작하는 조작이다).
+       다운로드는 서버가 뒤에서 하고 카드는 상태를 다시 읽어 진행을 본다. 결과는 토스트, 다시 시도할 실패는 칸 아래에 남긴다 -->
   <BaseCard icon="download" :title="T.title">
     <template #actions
       ><BaseButton variant="secondary" size="sm" :href="RELEASES[state?.channel ?? 'nightly']" target="_blank" rel="noopener"><Icon name="open_in_new" :size="16" />{{ T.releases }}</BaseButton></template
     >
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <div v-if="state" class="flex flex-col gap-3">
-      <div class="flex flex-col gap-1">
-        <p class="text-sm text-on-surface-variant">{{ state.busy ? T.downloading(state.busy) : state.version ? T.version(state.version) : T.noVersion }}</p>
-        <p v-if="state.failure && !state.busy" class="text-xs text-(--warn-ink) break-words">
-          {{ T.failed(state.failure.target, state.failure.reason) }}<template v-if="state.nextAt"> {{ T.retryAt(formatDateTime(state.nextAt)) }}</template>
-        </p>
-        <p v-else-if="state.nextAt && !state.busy" class="text-xs text-on-surface-variant">{{ T.nextCheck(formatDateTime(state.nextAt)) }}</p>
-      </div>
-
+    <template v-if="state">
       <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
-        <div class="block min-w-0">
+        <div class="min-w-0">
           <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.channel }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="state.pin ? T.channelPinned : T.channelHelp" /></span>
           <SingleSelect :model-value="state.channel" :options="CHANNELS" :disabled="saving || Boolean(state.pin)" @update:model-value="setChannel(String($event))" />
         </div>
-        <div class="block min-w-0">
+        <div class="min-w-0">
           <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.auto }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="state.pin ? T.autoPinned : T.autoHelp" /></span>
-          <span class="flex items-center gap-2 h-10">
+          <span class="flex items-center gap-2 h-10 min-w-0">
             <BaseSwitch :model-value="state.mode === 'auto'" :label="T.auto" :disabled="saving" @update:model-value="setMode($event ? 'auto' : 'manual')" />
             <span class="text-sm text-on-surface">{{ state.mode === "auto" ? text.tunables.on : text.tunables.off }}</span>
+            <span v-if="state.nextAt && !state.failure" class="truncate text-xs text-on-surface-variant">{{ T.nextCheck(formatDateTime(state.nextAt)) }}</span>
           </span>
         </div>
-      </div>
 
-      <!-- 버전을 고정한 상태에서는 업데이트 확인과 업데이트를 숨긴다(고정을 해제해야 업데이트할 수 있다) -->
-      <div v-if="!state.pin" class="flex flex-wrap items-center gap-2">
-        <BaseButton variant="secondary" :disabled="checking || working" @click="check">{{ checking ? T.checking : T.check }}</BaseButton>
-        <BaseButton v-if="state.seen && state.seen.latest !== state.version" :disabled="working" @click="update">{{ T.update(state.seen.latest) }}</BaseButton>
-        <span v-else-if="state.seen" class="text-sm text-on-surface-variant">{{ T.latest }}</span>
-        <BaseButton v-if="state.canRollback" variant="secondary" :disabled="working" @click="askingRollback = true"><Icon name="undo" :size="18" />{{ T.rollback }}</BaseButton>
-      </div>
-
-      <div class="block min-w-0">
-        <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.pin }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.pinHelp" /></span>
-        <div v-if="state.pin" class="flex flex-wrap items-center gap-2">
-          <span class="text-sm text-on-surface"
-            >{{ T.pinned(state.pin) }}<template v-if="pinDays !== null && pinDays >= OLD_DAYS"> {{ T.pinnedAge(pinDays) }}</template></span
-          >
-          <BaseButton v-if="state.failure" variant="secondary" size="sm" :disabled="working" @click="setPin(state.pin)">{{ T.pinRetry }}</BaseButton>
-          <BaseButton variant="secondary" size="sm" :disabled="saving" @click="setPin(null)">{{ T.unpin }}</BaseButton>
+        <!-- 설치된 버전과 업데이트. 버전을 고정한 상태에서는 업데이트 확인과 되돌리기를 숨긴다(고정을 해제해야 업데이트할 수 있다) -->
+        <div class="min-w-0">
+          <span :class="FIELD_LABEL">{{ T.installed }}</span>
+          <span class="flex items-center gap-2 h-10 min-w-0">
+            <span class="min-w-0 truncate text-sm" :class="state.busy ? 'text-on-surface-variant' : 'font-mono text-on-surface'">{{ state.busy ? T.downloading(state.busy) : (state.version ?? T.noVersion) }}</span>
+            <template v-if="!state.pin">
+              <span v-if="upToDate" class="shrink-0 text-xs text-on-surface-variant">{{ T.latest }}</span>
+              <span class="flex-1"></span>
+              <BaseButton v-if="newer" class="shrink-0" :disabled="working" @click="update">{{ T.update(newer) }}</BaseButton>
+              <BaseButton v-else variant="secondary" class="shrink-0" :disabled="checking || working" @click="check">{{ checking ? T.checking : T.check }}</BaseButton>
+              <button v-if="state.canRollback" type="button" :class="iconButton(40, 'tonal')" class="shrink-0" :disabled="working" :aria-label="T.rollbackTip(state.previous ?? '')" v-tooltip="T.rollbackTip(state.previous ?? '')" @click="askingRollback = true">
+                <Icon name="undo" :size="20" />
+              </button>
+            </template>
+          </span>
         </div>
-        <form v-else class="flex items-center gap-2" @submit.prevent="setPin(pinDraft.trim())">
-          <input v-model="pinDraft" spellcheck="false" :placeholder="T.pinPlaceholder" :aria-label="T.pin" :class="[FIELD, 'w-full min-w-0 max-w-64 font-mono placeholder:font-sans']" />
-          <BaseButton type="submit" variant="secondary" :disabled="working || !pinDraft.trim()">{{ T.pinApply }}</BaseButton>
-        </form>
+
+        <!-- 버전 고정. 고정한 상태에서도 같은 칸 모양(입력란 자리에 고정한 버전, 버튼은 해제) -->
+        <div class="min-w-0">
+          <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.pin }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.pinHelp" /></span>
+          <form class="flex items-center gap-2" @submit.prevent="state.pin ? setPin(null) : setPin(pinDraft.trim())">
+            <input :value="state.pin ?? pinDraft" :readonly="Boolean(state.pin)" spellcheck="false" :placeholder="T.pinPlaceholder" :aria-label="T.pin" :class="[FIELD, 'w-full min-w-0 flex-1 font-mono placeholder:font-sans', state.pin && 'text-on-surface-variant']" @input="pinDraft = valueOf($event)" />
+            <BaseButton type="submit" variant="secondary" class="shrink-0" :disabled="saving || working || (!state.pin && !pinDraft.trim())">{{ state.pin ? T.unpin : T.pinApply }}</BaseButton>
+          </form>
+        </div>
       </div>
-    </div>
+
+      <NoticeBox v-if="state.failure && !state.busy" variant="note" tone="error" icon="error">
+        <span class="flex items-center gap-3 flex-wrap"
+          ><span class="flex-1 min-w-0 break-words"
+            >{{ T.failed(state.failure.target, state.failure.reason) }}<template v-if="state.nextAt"> {{ T.retryAt(formatDateTime(state.nextAt)) }}</template></span
+          ><BaseButton v-if="state.pin" variant="secondary" size="sm" :disabled="working" @click="setPin(state.pin)">{{ T.pinRetry }}</BaseButton></span
+        >
+      </NoticeBox>
+      <NoticeBox v-else-if="state.pin && pinDays !== null && pinDays >= OLD_DAYS" variant="note" tone="notice" icon="schedule">{{ T.pinnedAge(state.pin, pinDays) }}</NoticeBox>
+    </template>
     <ConfirmDialog v-model="askingRollback" icon="undo" tone="primary" :title="T.rollbackTitle" :body="T.rollbackBody(state?.previous ?? '')" :confirm-label="T.rollbackConfirm" @confirm="rollback" />
   </BaseCard>
 </template>
@@ -67,6 +73,8 @@ import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import SingleSelect from "./SingleSelect.vue";
 import { FIELD, FIELD_LABEL } from "../utils/field.ts";
+import { iconButton } from "../utils/icon-button.ts";
+import { valueOf } from "../utils/dom.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { problemText } from "../utils/problem.ts";
 import { applyCard, inOrder } from "../composables/tunables.ts";
@@ -96,6 +104,9 @@ let timer = 0;
 
 // 다운로드 중이거나 저장하는 중에는 다운로드를 시작하는 버튼을 막는다
 const working = computed(() => saving.value || Boolean(state.value?.busy));
+// 확인으로 본 최신이 설치된 버전과 다르면 그 버전, 같으면 최신이라고 보인다
+const newer = computed(() => (state.value?.seen && state.value.seen.latest !== state.value.version ? state.value.seen.latest : null));
+const upToDate = computed(() => Boolean(state.value?.seen && state.value.seen.latest === state.value.version));
 // 고정한 태그는 날짜로 시작한다(2026.08.19, 2026.08.19.232849). 그 날짜부터 지난 일수
 const pinDays = computed(() => {
   const found = /^(\d{4})\.(\d{2})\.(\d{2})/.exec(state.value?.pin ?? "");

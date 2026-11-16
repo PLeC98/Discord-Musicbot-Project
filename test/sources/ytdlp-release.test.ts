@@ -1,4 +1,4 @@
-// src/sources/ytdlp-release.ts: 환경마다 onedir 자산을 정하고, 한 태그의 체크섬 목록, 서명, zip 을 받아 서명과 SHA-256 을 맞춘다. 전송은 가짜다
+// src/sources/ytdlp-release.ts: 환경마다 onedir 에셋을 정하고, 한 태그의 체크섬 목록, 서명, zip 을 받아 서명과 SHA-256 을 맞춘다. 전송은 가짜다
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -30,7 +30,7 @@ const zipName = () => path.join(DIR, `${crypto.randomUUID()}.zip`);
 const kindOf = (kind: string) => (error: unknown) => (error as ReleaseError).kind === kind;
 const sha = (data: Buffer) => crypto.createHash("sha256").update(data).digest("hex");
 
-test("환경마다 자산과 실행 파일 이름(Windows arm64 의 실행 파일에는 _win_ 이 없다)", () => {
+test("환경마다 에셋과 실행 파일 이름(Windows arm64 의 실행 파일에는 _win_ 이 없다)", () => {
   const of = (platform: NodeJS.Platform, arch: string, libc: "glibc" | "musl" | null = null) => assetFor({ platform, arch, libc, channel: "nightly" });
   assert.deepEqual(of("win32", "x64"), { zip: "yt-dlp_win.zip", exe: "yt-dlp.exe" });
   assert.deepEqual(of("win32", "arm64"), { zip: "yt-dlp_win_arm64.zip", exe: "yt-dlp_arm64.exe" });
@@ -50,7 +50,7 @@ test("armv7l 판은 stable 에만 있다. 표에 없는 환경은 까닭을 준�
   assert.deepEqual(assetFor({ platform: "win32", arch: "ia32", libc: null, channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(win32-ia32)" });
 });
 
-test("체크섬 목록: 이름이 정확히 같은 줄 하나(앞부분이 같은 다른 자산, 바이너리 표시, 둘 이상)", () => {
+test("체크섬 목록: 이름이 정확히 같은 줄 하나(앞부분이 같은 다른 에셋, 바이너리 표시, 둘 이상)", () => {
   const list = SUMS.toString("utf8");
   assert.equal(sumOf(list, "yt-dlp_win.zip"), "fd51b212cf8380c7a52ee08c0d6be7f3c59b2f2c832eaf7b45acfae6eab57419");
   assert.notEqual(sumOf(list, "yt-dlp_win_arm64.zip"), sumOf(list, "yt-dlp_win.zip"));
@@ -90,7 +90,7 @@ test("skipSignature: 서명은 받지 않고 체크섬은 본다. 맞으면 zipF
   await assert.rejects(fetchRelease({ repo: "yt-dlp/yt-dlp", tag: "2026.10.26", asset: "yt-dlp_win.zip", zipFile: file, skipSignature: true }), "이미 있는 zipFile 에 쓰지 않는다");
 });
 
-test("없는 태그, 목록에 없는 자산은 missing. 서버 오류, 받다 끊김, 끊으라는 신호는 network. 큰 목록은 integrity", async () => {
+test("없는 태그, 목록에 없는 에셋은 missing. 서버 오류, 받다 끊김, 끊으라는 신호는 network. 큰 목록은 integrity", async () => {
   const zip = Buffer.from("zip");
   const list = `${sha(zip)}  yt-dlp_win.zip\n`;
   const fetchOne = (extra: Partial<Parameters<typeof fetchRelease>[0]> = {}) => fetchRelease({ repo: "yt-dlp/yt-dlp", tag: "2026.10.26", asset: "yt-dlp_win.zip", zipFile: zipName(), skipSignature: true, ...extra });

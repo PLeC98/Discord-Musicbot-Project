@@ -49,7 +49,7 @@ test("BtbN이 제공하는 4개 플랫폼만 대상으로 한다", () => {
   assert.equal(TARGETS["linux-x64"]?.bin, "ffmpeg");
 });
 
-test("자산은 릴리스의 체크섬 목록에서 선택한다. 최신 릴리스 브랜치, 공유 라이브러리 아님", () => {
+test("에셋은 릴리스의 체크섬 목록에서 선택한다. 최신 릴리스 브랜치, 공유 라이브러리 아님", () => {
   const linux = resolveAsset(CHECKSUMS, "linux-x64");
   assert.ok(linux);
   assert.equal(linux.assetName, "ffmpeg-n9.0.1-11-ge47273f4d9-linux64-lgpl-9.0.tar.xz", "8.1이 아니라 9.0");
