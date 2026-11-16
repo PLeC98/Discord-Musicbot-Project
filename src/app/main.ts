@@ -54,6 +54,7 @@ import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { sweepLeftoverChildren } from "../infra/leftover-children.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { enableFatalReport } from "../infra/fatal-report.ts";
 import path from "path";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
@@ -197,6 +198,10 @@ function setUpLogging() {
     logSink.addDestination(logFile.write);
     log.info({ tags: ["startup"] }, `로그 파일 저장 경로: ${logFile.path}`);
   }
+  // 치명적 오류로 죽을 때의 진단 보고서는 로그 파일과 같은 폴더에 남긴다
+  const reportDir = path.dirname(config.logging.file);
+  const reportFailure = enableFatalReport(reportDir);
+  if (reportFailure) log.warn({ tags: ["startup"] }, `치명적 오류 진단 보고서 폴더(${reportDir})를 만들지 못해 보고서를 남기지 않음: ${reportFailure}`);
   return logFile;
 }
 
