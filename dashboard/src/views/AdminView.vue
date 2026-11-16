@@ -113,8 +113,9 @@
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 
-        <!-- 유튜브: 운영 조절값의 유튜브, SponsorBlock 그룹 -->
+        <!-- 유튜브: yt-dlp 카드, 운영 조절값의 유튜브, SponsorBlock 그룹 -->
         <div class="admin-page" v-show="tab === 'youtube'">
+          <ConfigYtdlp v-if="opened.has('youtube')" class="mb-(--gap-in)" />
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
         </div>
 
@@ -194,6 +195,7 @@ import ConfigCommands from "../components/ConfigCommands.vue";
 import ConfigVisibility from "../components/ConfigVisibility.vue";
 import ConfigAgeContent from "../components/ConfigAgeContent.vue";
 import ConfigGeoip from "../components/ConfigGeoip.vue";
+import ConfigYtdlp from "../components/ConfigYtdlp.vue";
 import { ageContent, loadAgeContent } from "../composables/age-content.ts";
 import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";

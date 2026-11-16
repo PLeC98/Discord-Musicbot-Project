@@ -3,6 +3,7 @@
 
 process.env.OWNER_ID = "owner";
 
+import fs from "node:fs";
 import path from "node:path";
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -12,7 +13,7 @@ const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { signedInAs, requestJson, detailsOf } = await import("../helpers/dashboard.ts");
 type ProblemReply = import("../helpers/dashboard.ts").ProblemReply;
 const { openTempStore } = await import("../helpers/temp-store.ts");
-const config = (await import("../../src/config/index.ts")).default;
+const { default: config, loadConfig } = await import("../../src/config/index.ts");
 const tunables = await import("../../src/store/tunables.ts");
 const docs = await import("../../src/store/settings-docs.ts");
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
@@ -128,4 +129,89 @@ test("명령 배포 스크립트는 settings.db 를 읽기 전용으로 본다. 
   assert.equal(config.sponsorblock.enabled, false);
   tunables.loadReadOnly(path.join(store.dir, "없는.db"));
   assert.equal(config.sponsorblock.enabled, true);
+});
+
+// 도구 카드의 값(yt-dlp 의 채널, 모드, 고정)은 저장 막대의 저장이 건드리지 못한다. 고치는 것은 saveCard 뿐이다
+test("저장 막대의 저장은 도구 카드의 값을 읽지 않고 저장된 값을 이어 쓴다(빠뜨려도, 다른 값을 보내도)", async () => {
+  tunables.saveCard({ YTDLP_VERSION: "2026.08.19", YTDLP_UPDATE: "manual" });
+  const { revision } = tunables.view();
+
+  const omitted = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300" }, revision });
+  assert.equal(omitted.status, 200);
+  assert.deepEqual(omitted.json.values, { QUEUE_MAX_TRACKS: "300", YTDLP_UPDATE: "manual", YTDLP_VERSION: "2026.08.19" }, "값을 빼고 보내도 고정이 삭제되지 않는다");
+
+  const changed = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300", YTDLP_VERSION: "2021.01.01", YTDLP_CHANNEL: "master", YTDLP_UPDATE: "" }, revision: omitted.json.revision });
+  assert.equal(changed.status, 200);
+  assert.deepEqual([changed.json.values.YTDLP_VERSION, changed.json.values.YTDLP_CHANNEL, changed.json.values.YTDLP_UPDATE], ["2026.08.19", undefined, "manual"]);
+  assert.deepEqual([config.ytdlp.version, config.ytdlp.channel, config.ytdlp.update], ["2026.08.19", "nightly", "manual"]);
+});
+
+test("카드의 저장은 그 값만 바꾸고 바로 적용된다. 보던 값이 그사이 달라졌으면 CARD_CONFLICT", () => {
+  docs.write("tunables", { QUEUE_MAX_TRACKS: "300" }, 0);
+  tunables.load();
+  const heard: string[] = [];
+  const off = onTunablesChanged(() => heard.push(config.ytdlp.channel));
+  try {
+    const view = tunables.saveCard({ YTDLP_CHANNEL: "stable" }, { YTDLP_CHANNEL: "" });
+    assert.deepEqual(view, { values: { QUEUE_MAX_TRACKS: "300", YTDLP_CHANNEL: "stable" }, revision: 2, pending: [] });
+    assert.deepEqual(heard, ["stable"], "설정 객체를 고친 뒤에 알린다");
+
+    assert.throws(
+      () => tunables.saveCard({ YTDLP_CHANNEL: "master" }, { YTDLP_CHANNEL: "nightly" }),
+      (error: { code?: string }) => error.code === "CARD_CONFLICT",
+    );
+    assert.equal(config.ytdlp.channel, "stable");
+
+    // 빈 값, null 은 기본값으로 되돌린다
+    assert.equal(tunables.saveCard({ YTDLP_CHANNEL: null }, { YTDLP_CHANNEL: "stable" }).values.YTDLP_CHANNEL, undefined);
+    assert.equal(config.ytdlp.channel, "nightly");
+  } finally {
+    off();
+  }
+});
+
+test("카드의 저장은 틀린 값을 거절하고, 카드 값이 아닌 이름은 받아들이지 않는다", () => {
+  assert.throws(
+    () => tunables.saveCard({ YTDLP_VERSION: "최신" }),
+    (error: { code?: string; problems?: string[] }) => error.code === "CONFIG_INVALID" && /YTDLP_VERSION/.test(error.problems?.[0] ?? ""),
+  );
+  assert.throws(
+    () => tunables.saveCard({ YTDLP_UPDATE: "notify" }),
+    (error: { code?: string }) => error.code === "CONFIG_INVALID",
+  );
+  assert.throws(() => tunables.saveCard({ QUEUE_MAX_TRACKS: "1" }), /도구 카드의 값이 아님/);
+  assert.equal(tunables.view().revision, 0);
+});
+
+// DB 를 바깥에서 고쳐 카드 값이 잘못돼 있어도 대시보드에서 다른 것은 고칠 수 있어야 한다
+test("저장돼 있던 값이 잘못돼 있어도 상관없는 저장은 된다(그 조작이 고치는 값만 검사한다)", async () => {
+  docs.write("tunables", { YTDLP_VERSION: "최신", CACHE_MAX_FILES: "많이" }, 0);
+  tunables.load();
+  const general = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300", CACHE_MAX_FILES: "100" }, revision: 1 });
+  assert.equal(general.status, 200, "잘못된 카드 값이 저장 막대를 막지 않는다");
+  assert.equal(general.json.values.YTDLP_VERSION, "최신", "잘못된 값은 그대로 둔다(고치는 것은 카드다)");
+
+  docs.write("tunables", { YTDLP_VERSION: "최신", CACHE_MAX_FILES: "많이" }, general.json.revision);
+  tunables.load();
+  assert.equal(tunables.saveCard({ YTDLP_UPDATE: "manual" }).values.YTDLP_UPDATE, "manual", "잘못된 다른 값이 카드를 막지 않는다");
+  assert.equal(tunables.saveCard({ YTDLP_VERSION: "2026.08.19" }).values.YTDLP_VERSION, "2026.08.19", "카드가 잘못된 값을 고친다");
+});
+
+test(".env 의 yt-dlp 버전 설정은 무시하고, 유튜브 탭에서 설정하라고 알린다", () => {
+  const { config: loaded, warnings } = loadConfig({ YTDLP_CHANNEL: "stable", YTDLP_UPDATE: "off", YTDLP_VERSION: "2026.08.19" });
+  assert.deepEqual([loaded.ytdlp.channel, loaded.ytdlp.update, loaded.ytdlp.version], ["nightly", "auto", null]);
+  assert.ok(
+    warnings.some((line) => /YTDLP_CHANNEL, YTDLP_UPDATE, YTDLP_VERSION는 이제 쓰지 않음\. 운영자 패널의 유튜브 탭/.test(line)),
+    warnings.join("\n"),
+  );
+});
+
+test("스크립트가 설정 DB 를 읽기 전용으로 읽을 때: strict 면 깨진 파일에서 던지고, 없는 파일은 어느 쪽이든 기본값", () => {
+  const broken = path.join(store.dir, "깨진.db");
+  fs.writeFileSync(broken, "SQLite 가 아닌 글자");
+  tunables.loadReadOnly(broken);
+  assert.equal(config.ytdlp.update, "auto", "strict 가 아니면 경고하고 기본값");
+  assert.throws(() => tunables.loadReadOnly(broken, { strict: true }), /설정 DB 읽기 실패/);
+  tunables.loadReadOnly(path.join(store.dir, "없는.db"), { strict: true });
+  assert.equal(config.ytdlp.update, "auto");
 });

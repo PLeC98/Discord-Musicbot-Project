@@ -61,7 +61,7 @@ function assetFor({ platform, arch, libc: lib, channel }: { platform: NodeJS.Pla
   const where = platform === "linux" ? `${platform}-${arch}-${lib ?? "glibc"}` : `${platform}-${arch}`;
   const asset = ASSETS[where];
   if (!asset) return { missing: `이 OS, CPU 용 yt-dlp 판이 없음(${where})` };
-  if (STABLE_ONLY.has(asset.zip) && channel !== "stable") return { missing: `${channel} 채널에는 ${arch} 판이 없음(YTDLP_CHANNEL=stable 로 바꾸세요)` };
+  if (STABLE_ONLY.has(asset.zip) && channel !== "stable") return { missing: `${channel} 채널에는 ${arch} 판이 없음(운영자 패널 유튜브 탭의 yt-dlp 채널을 stable로 바꾸세요)` };
   return asset;
 }
 

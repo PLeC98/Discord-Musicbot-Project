@@ -412,6 +412,8 @@ function checkBeforeLogin() {
   youtubeSource.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기", "warn");
+  // 채널, 모드, 고정이 바뀌면(yt-dlp 카드, 설정 불러오기, 초기화) 새 설정으로 다시 맞춘다
+  onTunablesChanged(() => void bestEffort(log, ytdlpBinary.onSettingsChanged(), "yt-dlp 설정 반영", "warn"));
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
   if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);

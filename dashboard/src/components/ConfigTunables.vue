@@ -97,7 +97,8 @@ const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
 const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
-const mine = computed(() => TUNABLES.filter((one) => props.groups.includes(one.group)));
+// 도구 카드가 고치는 값은 그 카드가 그린다
+const mine = computed(() => TUNABLES.filter((one) => !one.card && props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
 // 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대, 다시 시작 안내가 가리키는 칸이 숨지 않게)
 const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);

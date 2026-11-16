@@ -7,6 +7,7 @@ import type { ModelField, ModelGroup, ModelSummary } from "../../config/ai-model
 import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
+import type { YtdlpCardStatus } from "../../sources/ytdlp-status-types.ts";
 import type { Job } from "../../infra/process-job.ts";
 import type { SlotStats } from "../../infra/slot-queue.ts";
 import { FIXED_COLORS } from "../../ui/palette.ts";
@@ -193,6 +194,11 @@ type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | nu
 /** 확인 결과. latest: 받을 수 있는 가장 새 버전(없으면 null), size: 그 버전의 다운로드 크기 */
 type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
 
+/** 외부 도구 카드의 상태(GET /api/admin/vendor) */
+type VendorStatus = { ytdlp: YtdlpCardStatus };
+/** 외부 도구 조작의 답. tunables: 설정을 저장한 조작이면 새 조절값 상태(화면이 저장 번호와 저장된 값을 맞춘다) */
+type VendorReply = { status: VendorStatus; tunables?: TunablesView };
+
 /** 설정 파일(genres, status, ai)의 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
 type ConfigFile = { name: string; data: Record<string, unknown>; revision: number };
 type ConfigSaved = { success: true; data: Record<string, unknown>; revision: number };
@@ -261,6 +267,8 @@ export type {
   PanelPrefs,
   GeoipStatus,
   GeoipCheck,
+  VendorStatus,
+  VendorReply,
   AgeContent,
   ConfigFile,
   ConfigDefault,

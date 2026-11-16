@@ -1,4 +1,4 @@
-// src/sources/ytdlp-binary.ts: yt-dlp 버전을 버전마다 폴더에 두고, 목표 버전(고정, 채널 최신)으로 맞추고, 가리키는 경로만 교체한다. 처음에는 설정과 상관없이 설치한다.
+// src/sources/ytdlp-binary.ts: yt-dlp 버전을 버전마다 폴더에 두고, 목표 버전(고정, auto 면 채널 최신)으로 맞추고, 가리키는 경로만 교체한다. 처음에는 설정과 상관없이 설치한다.
 // 릴리스, GitHub 은 가짜다. 가짜 릴리스는 staging/dir 에 실행 파일을 쓰고(내용이 곧 버전), 가짜 실행은 그 내용을 --version 으로 돌려준다. 잠금은 진짜(OS 가 쥐는 것)를 쓴다.
 
 import { test, beforeEach, afterEach } from "node:test";
@@ -89,7 +89,7 @@ function world({ installed = "2026.08.19" as string | null, latest = "2026.09.27
 }
 
 test("처음: 기록이 없으면 설정과 상관없이 채널의 최신을 설치한다. 설치 전에는 경로가 없다", async () => {
-  config.ytdlp.update = "off";
+  config.ytdlp.update = "manual";
   const { w, bin, rel } = world({ installed: null });
   assert.equal(rel(), null);
   const { version, outcome } = await bin.prepare();
@@ -144,20 +144,114 @@ test("GitHub 가 준 태그가 릴리스 태그 모양이 아니면 그 경로�
   assert.ok(!fs.existsSync(path.join(root, "evil")), "폴더 밖에 아무것도 만들지 않는다");
 });
 
-test("notify: 새 버전을 알리기만 하고 다운로드하지 않는다", async () => {
-  config.ytdlp.update = "notify";
+test("manual: 고정이 없으면 스스로 맞추지 않고 네트워크도 쓰지 않는다. 사람이 부르면(force) 목표 버전을 다운로드한다", async () => {
+  config.ytdlp.update = "manual";
   const { w, bin, rel } = world();
-  assert.deepEqual(await bin.check(), { kind: "available", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" });
-  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
-  assert.deepEqual(w.fetches, []);
+  assert.equal(await bin.check(), null);
+  assert.equal(await bin.check({ fresh: true }), null, "설정을 방금 바꿨어도 manual 은 다운로드하지 않는다");
+  assert.deepEqual([w.asks, w.fetches.length], [0, 0]);
+  assert.equal((await bin.check({ force: true }))?.kind, "installed");
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
 });
 
-test("off: 설치돼 있으면 네트워크를 쓰지 않는다. 사람이 부르면(force) 목표 버전으로 다운로드한다", async () => {
-  config.ytdlp.update = "off";
+test("manual 이어도 고정이 있으면 그 버전으로 맞춘다", async () => {
+  Object.assign(config.ytdlp, { update: "manual", version: "2026.09.01" });
+  const { w, bin, rel } = world();
+  assert.deepEqual(await bin.check(), { kind: "installed", from: "2026.08.19", to: "2026.09.01", channel: "nightly" });
+  assert.equal(w.asks, 0, "고정이면 최신을 조회하지 않는다");
+  assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");
+});
+
+test("확인(peek)은 최신을 조회하기만 한다. 업데이트는 그 채널에서 마지막으로 조회한 최신으로만 한다", async () => {
+  config.ytdlp.update = "manual";
+  const { w, bin, rel } = world();
+  const before = fs.readFileSync(path.join(dirOf(), "state.json"), "utf8");
+  assert.equal(await bin.update("nightly", "2026.09.27.232849"), "stale", "확인하기 전에는 업데이트하지 않는다");
+  assert.deepEqual(await bin.peek(), { channel: "nightly", latest: "2026.09.27.232849", at: w.clock });
+  assert.equal(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"), before, "기록을 고치지 않는다");
+  assert.equal(w.fetches.length, 0);
+
+  assert.equal(await bin.update("nightly", "2026.01.01"), "stale", "조회한 적 없는 태그(아무 태그로나 업데이트하면 최근 로그인 없는 버전 고정이 된다)");
+  assert.equal(await bin.update("stable", "2026.09.27.232849"), "stale", "다른 채널에서 조회한 것");
+  config.ytdlp.version = "2026.08.19";
+  assert.equal(await bin.update("nightly", "2026.09.27.232849"), "pinned");
+  config.ytdlp.version = null;
+
+  assert.deepEqual(await bin.update("nightly", "2026.09.27.232849"), { kind: "installed", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" });
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+  assert.deepEqual(await bin.update("nightly", "2026.09.27.232849"), { kind: "current", version: "2026.09.27.232849" });
+});
+
+test("마지막 확인은 채널마다 따로다: 채널을 바꾸면 하루가 안 지났어도 새 채널의 최신을 조회한다", async () => {
   const { w, bin } = world();
-  assert.equal(await bin.check(), null);
-  assert.equal(w.asks, 0);
-  assert.equal((await bin.check({ force: true }))?.kind, "installed");
+  await bin.check();
+  assert.equal(await bin.check(), null, "같은 채널은 하루 한 번");
+  assert.equal(w.asks, 1);
+  config.ytdlp.channel = "stable";
+  w.latest = "2026.09.30";
+  assert.equal((await bin.check())?.kind, "installed");
+  assert.equal(w.asks, 2);
+  const state = JSON.parse(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"));
+  assert.deepEqual([state.version, state.channel, state.previous, state.previousChannel, state.checkedChannel], ["2026.09.30", "stable", "2026.09.27.232849", "nightly", "stable"], "버전마다 다운로드한 채널을 적는다");
+});
+
+test("남겨 둔 이전 버전으로 돌아가면 그 버전을 다운로드했던 채널이 기록에 남는다", async () => {
+  const { bin } = world();
+  await bin.check();
+  config.ytdlp.channel = "stable";
+  config.ytdlp.version = "2026.08.19";
+  fs.writeFileSync(path.join(dirOf(), "state.json"), JSON.stringify({ ...JSON.parse(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8")), previousChannel: "master" }));
+  assert.equal((await bin.check())?.kind, "reused");
+  const state = JSON.parse(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"));
+  assert.deepEqual([state.version, state.channel, state.previous, state.previousChannel], ["2026.08.19", "master", "2026.09.27.232849", "nightly"]);
+});
+
+test("목표가 다른 요청은 진행 중인 설치가 끝난 뒤에 자기 목표로 설치한다. 같은 목표는 결과를 공유한다", async () => {
+  const { w, bin, rel } = world();
+  const first = bin._run("2026.09.27.232849", "nightly", false, "human");
+  const same = bin._run("2026.09.27.232849", "nightly", false, "human");
+  const other = bin._run("2026.09.01", "nightly", false, "human");
+  assert.equal(same, first);
+  assert.deepEqual([(await first).kind, (await other).kind], ["installed", "installed"]);
+  assert.deepEqual(w.fetches, ["2026.09.27.232849", "2026.09.01"]);
+  assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");
+  assert.equal(bin.busy, null);
+});
+
+test("스스로 시작한 다운로드는 그사이 설정이 바뀌면 교체하지 않는다. 사람이 선택한 것과 처음 설치는 교체한다", async () => {
+  const { w, bin, rel } = world();
+  w.during = () => void bin.generation++;
+  assert.deepEqual(await bin.check(), { kind: "superseded", target: "2026.09.27.232849" });
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  assert.deepEqual(staged(), [], "다운로드한 것은 삭제한다");
+  assert.equal(bin.failure, null, "실패로 남기지 않는다");
+
+  assert.equal((await bin.check({ force: true }))?.kind, "installed", "사람이 부른 것");
+  fs.rmSync(root, { recursive: true, force: true });
+  const fresh = world({ installed: null });
+  fresh.w.during = () => void fresh.bin.generation++;
+  assert.equal((await fresh.bin.prepare()).outcome?.kind, "installed", "설치된 것이 없으면 모드, 설정과 상관없이 설치해야 한다");
+});
+
+test("남겨 둔 폴더를 다시 쓸 때도 그사이 설정이 바뀌었으면 교체하지 않는다", async () => {
+  const { w, bin, rel } = world();
+  await bin.check();
+  config.ytdlp.version = "2026.08.19";
+  w.ran = (file) => {
+    bin.generation++;
+    return { kind: "exited", status: 0, stdout: `${fs.readFileSync(file, "utf8")}\n`, stderr: "" };
+  };
+  assert.deepEqual(await bin.check(), { kind: "superseded", target: "2026.08.19" });
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+});
+
+test("다른 프로세스(update:ytdlp)가 버전을 바꾸면 다음 실행부터 그 버전을 쓴다(확인을 기다리지 않는다)", async () => {
+  config.ytdlp.update = "manual";
+  const { rel } = world();
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  const other = world({ installed: null, pid: 5151 });
+  assert.equal((await other.bin.check({ force: true }))?.kind, "installed");
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
 });
 
 test("고정: 하루 한 번과 상관없이 그 버전으로 맞추고 최신은 묻지 않는다. 낮은 버전으로도 내려간다", async () => {
@@ -224,13 +318,13 @@ test("시간 초과, 띄우기 실패, 신호 종료, 다른 버전은 일시적
   }
 });
 
-test("돌고 있는 봇은 확인할 때 다른 프로세스(update:ytdlp)가 다운로드한 버전을 이어받는다", async () => {
-  const { bin, rel } = world();
+test("돌고 있는 봇은 다른 프로세스(update:ytdlp)가 다운로드한 버전과 확인 시각을 이어받는다(다시 조회하거나 다운로드하지 않는다)", async () => {
+  const { w, bin, rel } = world();
   await bin.prepare();
   const other = world({ installed: null, pid: 5555 });
   await other.bin.check({ force: true });
-  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe", "확인 전에는 쓰던 버전");
   assert.equal(await bin.check(), null, "다운로드한 버전과 확인 시각을 그대로 이어받아 더 할 일이 없다");
+  assert.deepEqual([w.asks, w.fetches.length], [0, 0]);
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
 });
 
@@ -344,7 +438,7 @@ test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고�
 });
 
 test("기동: 처음 설치가 실패하면 설정과 상관없이 다시 해 본다(일시적이면 한 시간, 자산 없음은 하루 뒤). 설치되면 원래 규칙으로", async (t) => {
-  config.ytdlp.update = "off";
+  config.ytdlp.update = "manual";
   const { w, io, bin } = world({ installed: null });
   t.after(() => bin.stop());
   w.release = () => ({ error: { kind: "network", message: "연결 끊김" } });
@@ -392,7 +486,7 @@ test("결과 한 줄", () => {
     describe({ kind: "installed", from: "a", to: "b", channel: "nightly" }),
     describe({ kind: "installed", from: null, to: "b", channel: "nightly" }),
     describe({ kind: "reused", from: "b", to: "a" }),
-    describe({ kind: "available", from: "a", to: "b", channel: "stable" }),
+    describe({ kind: "superseded", target: "b" }),
     describe({ kind: "failed", current: "a", target: "b", reason: "연결 끊김", channel: "nightly", retry: "transient" }),
     describe({ kind: "failed", current: null, target: "b", reason: "연결 끊김", channel: "nightly", retry: "transient" }),
     describe({ kind: "unusable", current: "a", target: "c", reason: "GLIBC_2.17 not found", channel: "nightly" }),
@@ -402,7 +496,7 @@ test("결과 한 줄", () => {
     { level: "info", line: "yt-dlp 업데이트 완료: a → b" },
     { level: "info", line: "yt-dlp 설치 완료: b (nightly)" },
     { level: "info", line: "yt-dlp를 저장된 버전으로 교체: b → a" },
-    { level: "info", line: "yt-dlp 업데이트 있음: a → b (stable). (업데이트: pnpm run update:ytdlp)" },
+    { level: "info", line: "yt-dlp b 다운로드 취소: 다운로드 중 설정이 바뀜" },
     { level: "warn", line: "yt-dlp 업데이트 실패(기존 버전 유지): a → b (nightly) - 연결 끊김" },
     { level: "warn", line: "yt-dlp 설치 실패(yt-dlp 를 쓰는 기능이 동작하지 않음): b (nightly) - 연결 끊김" },
     { level: "warn", line: "yt-dlp 업데이트 불가(기존 버전 유지): a → c (nightly) - 이 환경에서 실행되지 않음: GLIBC_2.17 not found" },
@@ -410,5 +504,74 @@ test("결과 한 줄", () => {
 });
 
 test("기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다", () => {
-  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("notify", false), updateText("off", false)], ["자동 (1일 1회 확인)", "자동", "알림만", "하지 않음"]);
+  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("manual", false), updateText("manual", true)], ["자동 (1일 1회 확인)", "자동", "수동", "수동"]);
+});
+
+test("설치된 버전이 있어도 새 버전을 다운로드하지 못했으면 다시 해 본다: 일시적이면 한 시간, 서명처럼 오래가는 것은 하루 뒤. 고정이어도 같다", async (t) => {
+  const { w, bin } = world();
+  t.after(() => bin.stop());
+  w.release = () => ({ error: { kind: "network", message: "연결 끊김" } });
+  await bin.start();
+  assert.equal(bin.nextAt, w.clock + HOUR);
+  assert.deepEqual(bin.failure, { target: "2026.09.27.232849", reason: "연결 끊김", lasting: false, at: w.clock });
+
+  Object.assign(config.ytdlp, { update: "manual", version: "2026.09.01" });
+  w.release = () => ({ error: { kind: "signature", message: "서명이 맞지 않음" } });
+  await bin._tick();
+  assert.equal(bin.nextAt, w.clock + DAY, "고정한 버전도 다시 해 본다");
+  assert.equal(bin.failure?.lasting, true);
+
+  w.release = (tag) => ({ version: tag });
+  await bin._tick();
+  assert.equal(bin.nextAt, null, "고정한 버전으로 맞췄으면 더 볼 것이 없다");
+  assert.equal(bin.failure, null);
+});
+
+test("설정이 바뀌면 하던 것이 끝난 뒤 새 설정으로 맞춘다. 달라진 것이 없으면 아무것도 하지 않는다", async (t) => {
+  const { w, bin, rel } = world();
+  t.after(() => bin.stop());
+  await bin.start();
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+  const asks = w.asks;
+  await bin.onSettingsChanged();
+  assert.equal(w.asks, asks, "채널, 모드, 고정이 그대로면(다른 조절값의 저장) 아무것도 하지 않는다");
+
+  // 채널을 바꿈: 하루가 안 지났어도 새 채널의 최신으로
+  config.ytdlp.channel = "stable";
+  w.latest = "2026.09.30";
+  await bin.onSettingsChanged();
+  assert.equal(rel(), "bin/yt-dlp/2026.09.30/yt-dlp.exe");
+  assert.equal(bin.nextAt, w.clock + DAY);
+
+  // 수동으로: 하루 확인을 푼다
+  config.ytdlp.update = "manual";
+  await bin.onSettingsChanged();
+  assert.equal(bin.nextAt, null);
+
+  // 고정을 적음: manual 이어도 그 버전으로
+  config.ytdlp.version = "2026.09.01";
+  await bin.onSettingsChanged();
+  assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");
+  assert.equal(bin.nextAt, null);
+
+  // 고정을 지우고 자동으로: 바로 최신으로, 하루 확인을 건다
+  Object.assign(config.ytdlp, { version: null, update: "auto" });
+  await bin.onSettingsChanged();
+  assert.equal(rel(), "bin/yt-dlp/2026.09.30/yt-dlp.exe");
+  assert.equal(bin.nextAt, w.clock + DAY);
+});
+
+test("운영자가 고정을 다시 적용하면 값이 그대로여도, 실행되지 않았던 태그도 다시 해 본다", async (t) => {
+  const { w, bin, rel } = world();
+  t.after(() => bin.stop());
+  config.ytdlp.version = "2026.09.01";
+  w.ran = (file) => (file.includes(".staging") ? { kind: "exited", status: 1, stdout: "", stderr: "GLIBC_2.17 not found" } : { kind: "exited", status: 0, stdout: `${fs.readFileSync(file, "utf8")}\n`, stderr: "" });
+  await bin.start();
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  assert.equal(w.fetches.length, 1);
+  await bin.converge({ fresh: true });
+  assert.equal(w.fetches.length, 1, "실행되지 않았던 태그는 자동으로 다시 다운로드하지 않는다");
+  w.ran = null;
+  await bin.converge({ human: true });
+  assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");
 });

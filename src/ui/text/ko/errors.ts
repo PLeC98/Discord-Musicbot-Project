@@ -182,6 +182,10 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "restart-unavailable": () => warning("state", "대시보드에서 다시 시작할 수 없어요!", "봇을 다시 시작해 줄 실행기 없이 실행했어요. 봇 폴더에서 `pnpm start` 로 실행하면 대시보드에서 다시 시작할 수 있어요."),
   "invite-unavailable": () => warning("permission", "대시보드에서 봇을 초대할 수 없어요!", "이 봇은 디스코드 설정상 봇 주인만 초대할 수 있거나, 대시보드의 초대 링크로는 넣을 수 없어요. 봇 운영자에게 알려주세요."),
   "bot-shutting-down": () => error("waiting", "봇이 종료 중이에요!", "봇이 다시 시작되면 그때 시도해 주세요."),
+  "tool-check-failed": () => error("failed", "최신 버전을 확인하지 못했어요!", "GitHub에서 릴리스 정보를 가져오지 못했어요. 아래 오류 내용을 확인해 주세요."),
+  "tool-check-stale": () => warning("stale", "업데이트를 다시 확인해 주세요!", "확인한 뒤에 채널이 바뀌었거나 새 버전이 나왔어요."),
+  "tool-version-pinned": () => warning("state", "버전을 고정한 상태에서는 할 수 없어요!", "버전 고정을 해제한 뒤 다시 시도해 주세요."),
+  "tool-no-previous": () => warning("state", "되돌릴 이전 버전이 없어요!", "이전 버전의 기록이나 파일이 남아 있지 않아요. 되돌릴 버전을 직접 입력해 고정해 주세요."),
   // 운영자 패널의 특권 인텐트 켜기
   "intent-needs-approval": () => warning("permission", "바로 켤 수 없어요.", "서버가 100개 이상이라 디스코드 승인을 받아야 켤 수 있어요. 개발자 포털에서 신청해 주세요."),
   "intent-flags-unknown": () => error("failed", "인텐트 상태를 알 수 없어요.", "디스코드에서 받은 앱 설정에 인텐트 플래그가 없어요. 개발자 포털에서 직접 켜 주세요."),

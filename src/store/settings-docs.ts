@@ -63,10 +63,10 @@ function names(): string[] {
 }
 
 /**
- * 봇이 켜지지 않은 채(명령 배포 스크립트) 문서 하나를 읽는다. 읽기 전용으로 열고 바로 닫는다(파일을 만들지 않고 구조도 건드리지 않는다).
- * 파일이 없거나 문서가 없으면 null
+ * 봇이 켜지지 않은 채(스크립트) 문서 하나를 읽는다. 읽기 전용으로 열고 바로 닫는다(파일을 만들지 않고 구조도 건드리지 않는다).
+ * 파일이 없거나 문서가 없으면 null. 파일은 있는데 읽지 못하면 경고하고 null, strict 면 던진다(없음과 읽지 못함을 구분한다)
  */
-function peek(file: string, name: string): unknown {
+function peek(file: string, name: string, { strict = false } = {}): unknown {
   if (!fs.existsSync(file)) return null;
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
@@ -74,6 +74,7 @@ function peek(file: string, name: string): unknown {
     return parse(name, row?.data_json);
   } catch (error) {
     if (codeOf(error) === "SQLITE_ERROR" && /^no such table/.test(messageOf(error))) return null; // 표가 없다(옛 파일)
+    if (strict) throw new Error(`설정 DB 읽기 실패: ${file}, 문서=${name} | ${codeOf(error) ?? messageOf(error)}`, { cause: error });
     log.warn(`설정 DB 읽기 전용 조회 실패(기본값 사용): ${file}, 문서=${name} | ${codeOf(error) ?? messageOf(error)}`);
     return null;
   } finally {

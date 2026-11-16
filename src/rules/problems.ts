@@ -148,6 +148,13 @@ const WEB = {
   "members-intent-off": { status: 409, title: "Server pages are off because the Server Members Intent is disabled" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
+  // 외부 도구 카드(yt-dlp): 최신 릴리스를 조회하지 못했다
+  "tool-check-failed": { status: 502, title: "Could not look up the latest release" },
+  // 확인한 뒤 채널이 바뀌었거나, 보낸 태그가 봇이 마지막으로 확인한 최신이 아니다
+  "tool-check-stale": { status: 409, title: "The checked release is out of date" },
+  // 버전을 고정한 동안에는 할 수 없는 조작(최신으로 업데이트, 채널 변경)
+  "tool-version-pinned": { status: 409, title: "Not available while a version is pinned" },
+  "tool-no-previous": { status: 409, title: "No previous version to go back to" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant 를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
   "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },

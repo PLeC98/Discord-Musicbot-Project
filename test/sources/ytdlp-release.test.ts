@@ -44,7 +44,7 @@ test("환경마다 자산과 실행 파일 이름(Windows arm64 의 실행 파�
 
 test("armv7l 판은 stable 에만 있다. 표에 없는 환경은 까닭을 준다", () => {
   assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "stable" }), { zip: "yt-dlp_linux_armv7l.zip", exe: "yt-dlp_linux_armv7l" });
-  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "nightly" }), { missing: "nightly 채널에는 arm 판이 없음(YTDLP_CHANNEL=stable 로 바꾸세요)" });
+  assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "glibc", channel: "nightly" }), { missing: "nightly 채널에는 arm 판이 없음(운영자 패널 유튜브 탭의 yt-dlp 채널을 stable로 바꾸세요)" });
   assert.deepEqual(assetFor({ platform: "linux", arch: "arm", libc: "musl", channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(linux-arm-musl)" });
   assert.deepEqual(assetFor({ platform: "freebsd", arch: "x64", libc: null, channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(freebsd-x64)" });
   assert.deepEqual(assetFor({ platform: "win32", arch: "ia32", libc: null, channel: "stable" }), { missing: "이 OS, CPU 용 yt-dlp 판이 없음(win32-ia32)" });

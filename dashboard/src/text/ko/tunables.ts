@@ -4,6 +4,7 @@
 const groups = {
   queue: { title: "대기열 및 나가기", icon: "queue_music", desc: "" },
   look: { title: "디스코드", icon: "forum", desc: "" },
+  ytdlp: { title: "yt-dlp", icon: "download", desc: "" },
   youtube: { title: "유튜브", icon: "smart_display", desc: "" },
   ageyoutube: { title: "유튜브", icon: "smart_display", desc: "" },
   sponsorblock: { title: "SponsorBlock", icon: "sponsorblock", desc: "비음악 구간을 건너뛰어요. 구간 데이터: sponsor.ajay.app (CC BY-NC-SA 4.0)" },
@@ -27,6 +28,9 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
   VOICE_PLAYING_PREFIX: { label: "음성 상태: 재생 중 접두어", help: "음성 채널 상태에 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: 📻 " },
   VOICE_PAUSED_PREFIX: { label: "음성 상태: 일시정지 접두어", help: "일시정지 중일 때 곡 이름 앞에 붙여요. 띄어 쓰려면 끝에 공백까지 입력해요. 예: ⏸ " },
   VOICE_IDLE_STATUS: { label: "음성 상태: 대기 중 문구", help: "재생할 곡이 없을 때 음성 채널 상태에 표시해요." },
+  YTDLP_CHANNEL: { label: "yt-dlp 채널", help: "" },
+  YTDLP_UPDATE: { label: "yt-dlp 자동 업데이트", help: "" },
+  YTDLP_VERSION: { label: "yt-dlp 버전 고정", help: "" },
   YTDLP_PLAYER_CLIENTS: { label: "유튜브 클라이언트 순서", help: "쉼표로 구분해 입력해요. 앞에서부터 시도하고 실패하면 뒤로 넘어가요. 비우면 yt-dlp 기본값.\n예: visionos,tv_simply,web_embedded,mweb" },
   YTDLP_CLIENT_WINDOW: { label: "최근 몇 번을 보고 판단할지", help: "클라이언트가 막혔는지 볼 때 최근 몇 번의 결과를 볼지." },
   YTDLP_CLIENT_FAILS: { label: "그중 몇 번 실패하면 건너뛸지", help: "위 횟수 가운데 이만큼 실패하면 그 클라이언트를 한동안 건너뛰어요." },
