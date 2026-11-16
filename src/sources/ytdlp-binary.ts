@@ -452,6 +452,21 @@ class YtdlpBinary {
     return kept || state.previousChannel ? { version: state.previous, channel: state.previousChannel } : null;
   }
 
+  /**
+   * 이전 버전을 삭제한다. 기록에서 지우고(되돌리기가 그 버전을 다시 다운로드하지도 못하게) 폴더를 정리한다.
+   * 그 폴더에서 아직 도는 yt-dlp 가 있으면 폴더는 다음 정리 때 지운다. 지운 태그, 이전 버전이 없었으면 null. 잠금을 못 잡으면 던진다
+   */
+  async forgetPrevious(): Promise<string | null> {
+    let gone: string | null = null;
+    const next = await this._update((state) => {
+      gone = state.previous;
+      return { ...state, previous: null, previousChannel: null };
+    });
+    if (!next) throw new Error("버전 기록 잠금을 잡지 못함");
+    await this.cleanup();
+    return gone;
+  }
+
   /** 유튜브 탭의 yt-dlp 카드에 보낼 상태. 기록은 디스크에서 다시 읽는다(다른 프로세스가 바꿨을 수 있다) */
   status(): YtdlpCardStatus {
     const { channel, version: pin, update: mode } = config.ytdlp;

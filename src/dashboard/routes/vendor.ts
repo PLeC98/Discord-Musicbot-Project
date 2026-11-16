@@ -126,4 +126,17 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   res.status(202).json(reply(saved));
 });
 
+// 이전 버전 삭제(되돌리기로 그 버전에 가지 못하게). 되돌릴 곳을 없애는 조작이라 최근 로그인은 요구하지 않는다
+vendorRouter.post("/ytdlp/forget-previous", async (req, res) => {
+  try {
+    const gone = await ytdlpBinary.forgetPrevious();
+    if (!gone) return sendProblem(res, "tool-no-previous");
+    log.warn({ sub: "admin" }, `대시보드에서 yt-dlp 이전 버전 삭제: ${gone}. 실행 ${ranBy(req)}`);
+    res.json(reply());
+  } catch (error) {
+    log.error({ sub: "admin" }, `yt-dlp 이전 버전 삭제 실패: ${messageOf(error)}`);
+    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+  }
+});
+
 export { vendorRouter };

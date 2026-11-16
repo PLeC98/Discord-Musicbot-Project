@@ -480,6 +480,22 @@ test("--skip-signature 는 처음 설치와 기존 설치 모두의 다운로드
   assert.deepEqual(w.fetches, ["2026.09.27.232849 서명 건너뜀"], "두 번째는 이미 목표 버전이다");
 });
 
+test("이전 버전 삭제: 기록에서 지우고 폴더를 정리한다. 그 폴더에서 아직 도는 것이 있으면 폴더는 다음 정리 때", async () => {
+  const { w, bin } = world();
+  await bin.check();
+  const old = path.join(dirOf(), "2026.08.19");
+  w.leased.add(old);
+  assert.equal(await bin.forgetPrevious(), "2026.08.19");
+  const state = JSON.parse(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"));
+  assert.deepEqual([state.version, state.previous, state.previousChannel], ["2026.09.27.232849", null, null]);
+  assert.equal(bin.rollbackTarget(), null);
+  assert.ok(fs.existsSync(old), "도는 yt-dlp 가 쓰는 폴더는 남긴다");
+  w.leased.clear();
+  await bin.cleanup();
+  assert.equal(fs.existsSync(old), false);
+  assert.equal(await bin.forgetPrevious(), null, "이전 버전이 없다");
+});
+
 test("결과 한 줄", () => {
   const lines = [
     describe({ kind: "current", version: "a" }),
