@@ -80,7 +80,7 @@ import { problemText } from "../utils/problem.ts";
 import { trackUnsaved } from "../composables/unsaved.ts";
 import { attach, draft, labelOf, namesOf, pending, saved } from "../composables/tunables.ts";
 import { showAdvanced } from "../composables/advanced-settings.ts";
-import { TUNABLES, tunable, tunableValue, type Tunable, type TunableBox, type TunableGroup } from "../../../src/rules/tunables.ts";
+import { OWN_CARD_GROUPS, TUNABLES, tunable, tunableValue, type Tunable, type TunableBox, type TunableGroup } from "../../../src/rules/tunables.ts";
 import { NO_CATEGORIES, SKIP_CATEGORIES } from "../../../src/rules/sponsor-categories.ts";
 import { COOKIE_BROWSERS, COOKIE_BROWSER_NAMES } from "../../../src/rules/cookie-browsers.ts";
 import type { Option } from "../utils/options.ts";
@@ -97,8 +97,8 @@ const loadError = ref("");
 // 카드 헤더의 설명서 버튼(저장소의 설명서)
 const GROUP_DOCS: Partial<Record<TunableGroup, { file: string; label: string }>> = { youtube: { file: "docs/youtube.md", label: T.youtubeDoc } };
 
-// 도구 카드가 고치는 값은 그 카드가 그린다
-const mine = computed(() => TUNABLES.filter((one) => !one.card && props.groups.includes(one.group)));
+// 도구 카드가 버튼으로 고치는 값, 자기 카드가 그리는 그룹은 여기서 그리지 않는다
+const mine = computed(() => TUNABLES.filter((one) => !one.card && !OWN_CARD_GROUPS.has(one.group) && props.groups.includes(one.group)));
 const keys = computed(() => mine.value.map((one) => one.key));
 // 고급 항목은 "고급 설정 보기"를 켰을 때만. 꺼 두었어도 수정 중이거나 다시 시작을 기다리는 항목은 보인다(저장 막대, 다시 시작 안내가 가리키는 칸이 숨지 않게)
 const shown = (one: Tunable) => !one.advanced || showAdvanced.value || changed(one) || pending.value.includes(one.key);

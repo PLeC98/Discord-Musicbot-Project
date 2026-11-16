@@ -10,7 +10,7 @@ const log = logger.child({ category: "config" });
 import * as root from "../config/index.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
 import { tunablesChanged } from "../config/tunables-changed.ts";
-import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, tunableValue, parseTuneProblem, type TunablesView } from "../rules/tunables.ts";
+import { TUNABLES, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, tunable, tunableValue, parseTuneProblem, tuneProblemLine, type TunablesView } from "../rules/tunables.ts";
 import * as docs from "./settings-docs.ts";
 
 const DOC = "tunables";
@@ -89,8 +89,9 @@ const about = (lines: string[], keys: (key: string) => boolean) => lines.filter(
  */
 function save(values: Record<string, unknown>, revision: number): TunablesView {
   const general = Object.fromEntries(Object.entries(values).filter(([key]) => !CARD_KEYS.has(key)));
-  const saved = { ...shape(general), ...cardPart(shape(docs.read(DOC).data)) };
-  const problems = [...shapeProblems(general), ...about(root.loadConfig(process.env, { tunables: saved }).tuneProblems, (key) => !CARD_KEYS.has(key))];
+  const before = shape(docs.read(DOC).data);
+  const saved = { ...shape(general), ...cardPart(before) };
+  const problems = [...shapeProblems(general), ...about(root.loadConfig(process.env, { tunables: saved }).tuneProblems, (key) => !CARD_KEYS.has(key)), ...lockedProblems(before, saved)];
   if (problems.length) throw Object.assign(codedError("CONFIG_INVALID", problems.join("\n")), { problems });
   const next = docs.write(DOC, saved, revision);
   use(saved);
@@ -98,11 +99,12 @@ function save(values: Record<string, unknown>, revision: number): TunablesView {
 }
 
 /**
- * 도구 카드의 저장. changes 의 이름(카드 값만)을 그 값으로 바꾸고(빈 값, null 은 기본값) 나머지는 그대로 둔다.
+ * 도구 카드의 저장. changes 의 이름(카드 값과, 함께 바꾸는 카드 값이 잠그는 이름)을 그 값으로 바꾸고(빈 값, null 은 기본값) 나머지는 그대로 둔다.
  * expect: 화면이 보던 값(이름마다, 기본값이면 빈 문자열). 그사이 달라졌으면 CARD_CONFLICT, 바꾸는 값이 틀리면 CONFIG_INVALID(problems)로 던진다
  */
 function saveCard(changes: Record<string, string | null>, expect: Record<string, string> = {}): TunablesView {
-  const stray = [...Object.keys(changes), ...Object.keys(expect)].filter((key) => !CARD_KEYS.has(key));
+  // 카드 값과 함께라면 그 값이 잠그는 이름도 바꾼다(이전 버전으로 되돌릴 때 고정과 채널을 함께)
+  const stray = [...Object.keys(changes), ...Object.keys(expect)].filter((key) => !CARD_KEYS.has(key) && !(TUNABLE_KEYS.has(key) && tunable(key).lockedBy && tunable(key).lockedBy! in changes));
   if (stray.length) throw new Error(`도구 카드의 값이 아님: ${stray.join(", ")}`);
   const doc = docs.read(DOC);
   const now = shape(doc.data);
@@ -114,6 +116,11 @@ function saveCard(changes: Record<string, string | null>, expect: Record<string,
   const next = docs.write(DOC, saved, doc.revision);
   use(saved);
   return { values: saved, revision: next, pending: pendingOf(saved) };
+}
+
+// 잠긴 값(lockedBy 의 값이 있는 동안)을 바꾸려 했다
+function lockedProblems(before: Record<string, string>, after: Record<string, string>): string[] {
+  return TUNABLES.flatMap(({ key, lockedBy }) => (lockedBy && before[lockedBy] && (before[key] ?? "") !== (after[key] ?? "") ? [tuneProblemLine(key, after[key] ?? "", `${lockedBy} 가 있는 동안 바꿀 수 없음`)] : []));
 }
 
 // 모르는 이름, 문자열이 아닌 값

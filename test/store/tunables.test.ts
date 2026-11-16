@@ -131,40 +131,55 @@ test("명령 배포 스크립트는 settings.db 를 읽기 전용으로 본다. 
   assert.equal(config.sponsorblock.enabled, true);
 });
 
-// 도구 카드의 값(yt-dlp 의 채널, 모드, 고정)은 저장 막대의 저장이 건드리지 못한다. 고치는 것은 saveCard 뿐이다
-test("저장 막대의 저장은 도구 카드의 값을 읽지 않고 저장된 값을 이어 쓴다(빠뜨려도, 다른 값을 보내도)", async () => {
-  tunables.saveCard({ YTDLP_VERSION: "2026.08.19", YTDLP_UPDATE: "manual" });
-  const { revision } = tunables.view();
-
-  const omitted = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300" }, revision });
+// 도구 카드가 버튼으로 고치는 값(yt-dlp 의 버전 고정)은 저장 막대의 저장이 건드리지 못한다. 고치는 것은 saveCard 뿐이다
+test("저장 막대의 저장은 버전 고정을 읽지 않고 저장된 값을 이어 쓴다(빠뜨려도, 다른 값을 보내도)", async () => {
+  docs.write("tunables", { YTDLP_VERSION: "2026.08.19", YTDLP_UPDATE: "manual" }, 0);
+  tunables.load();
+  const omitted = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300" }, revision: 1 });
   assert.equal(omitted.status, 200);
-  assert.deepEqual(omitted.json.values, { QUEUE_MAX_TRACKS: "300", YTDLP_UPDATE: "manual", YTDLP_VERSION: "2026.08.19" }, "값을 빼고 보내도 고정이 삭제되지 않는다");
+  assert.deepEqual(omitted.json.values, { QUEUE_MAX_TRACKS: "300", YTDLP_VERSION: "2026.08.19" }, "값을 빼고 보내도 고정이 삭제되지 않는다(자동 업데이트는 저장 막대의 값이라 기본값으로)");
 
-  const changed = await req<View>("PUT", { values: { QUEUE_MAX_TRACKS: "300", YTDLP_VERSION: "2021.01.01", YTDLP_CHANNEL: "master", YTDLP_UPDATE: "" }, revision: omitted.json.revision });
+  const changed = await req<View>("PUT", { values: { YTDLP_VERSION: "2021.01.01", YTDLP_UPDATE: "manual" }, revision: omitted.json.revision });
   assert.equal(changed.status, 200);
-  assert.deepEqual([changed.json.values.YTDLP_VERSION, changed.json.values.YTDLP_CHANNEL, changed.json.values.YTDLP_UPDATE], ["2026.08.19", undefined, "manual"]);
-  assert.deepEqual([config.ytdlp.version, config.ytdlp.channel, config.ytdlp.update], ["2026.08.19", "nightly", "manual"]);
+  assert.deepEqual([changed.json.values.YTDLP_VERSION, changed.json.values.YTDLP_UPDATE], ["2026.08.19", "manual"]);
+  assert.deepEqual([config.ytdlp.version, config.ytdlp.update], ["2026.08.19", "manual"]);
+});
+
+test("버전을 고정한 상태에서는 저장 막대로 채널을 바꾸지 못한다(lockedBy). 자동 업데이트는 바꾼다", async () => {
+  tunables.saveCard({ YTDLP_VERSION: "2026.08.19" });
+  const { revision } = tunables.view();
+  const refused = await req<ProblemReply>("PUT", { values: { YTDLP_CHANNEL: "stable" }, revision });
+  assert.deepEqual([refused.status, refused.json.code], [400, "config-invalid"]);
+  assert.match(detailsOf(refused.json), /YTDLP_CHANNEL 값이 잘못됨\(stable\): YTDLP_VERSION 가 있는 동안 바꿀 수 없음/);
+  assert.equal((await req<View>("PUT", { values: { YTDLP_UPDATE: "manual" }, revision })).status, 200);
+
+  tunables.saveCard({ YTDLP_VERSION: null });
+  assert.equal((await req<View>("PUT", { values: { YTDLP_CHANNEL: "stable" }, revision: tunables.view().revision })).status, 200, "고정을 풀면 바꾼다");
+  assert.equal(config.ytdlp.channel, "stable");
 });
 
 test("카드의 저장은 그 값만 바꾸고 바로 적용된다. 보던 값이 그사이 달라졌으면 CARD_CONFLICT", () => {
   docs.write("tunables", { QUEUE_MAX_TRACKS: "300" }, 0);
   tunables.load();
-  const heard: string[] = [];
-  const off = onTunablesChanged(() => heard.push(config.ytdlp.channel));
+  const heard: Array<string | null> = [];
+  const off = onTunablesChanged(() => heard.push(config.ytdlp.version));
   try {
-    const view = tunables.saveCard({ YTDLP_CHANNEL: "stable" }, { YTDLP_CHANNEL: "" });
-    assert.deepEqual(view, { values: { QUEUE_MAX_TRACKS: "300", YTDLP_CHANNEL: "stable" }, revision: 2, pending: [] });
-    assert.deepEqual(heard, ["stable"], "설정 객체를 고친 뒤에 알린다");
+    const view = tunables.saveCard({ YTDLP_VERSION: "2026.08.19" }, { YTDLP_VERSION: "" });
+    assert.deepEqual(view, { values: { QUEUE_MAX_TRACKS: "300", YTDLP_VERSION: "2026.08.19" }, revision: 2, pending: [] });
+    assert.deepEqual(heard, ["2026.08.19"], "설정 객체를 고친 뒤에 알린다");
 
     assert.throws(
-      () => tunables.saveCard({ YTDLP_CHANNEL: "master" }, { YTDLP_CHANNEL: "nightly" }),
+      () => tunables.saveCard({ YTDLP_VERSION: "2026.09.01" }, { YTDLP_VERSION: "" }),
       (error: { code?: string }) => error.code === "CARD_CONFLICT",
     );
-    assert.equal(config.ytdlp.channel, "stable");
+    assert.equal(config.ytdlp.version, "2026.08.19");
 
     // 빈 값, null 은 기본값으로 되돌린다
-    assert.equal(tunables.saveCard({ YTDLP_CHANNEL: null }, { YTDLP_CHANNEL: "stable" }).values.YTDLP_CHANNEL, undefined);
-    assert.equal(config.ytdlp.channel, "nightly");
+    assert.equal(tunables.saveCard({ YTDLP_VERSION: null }, { YTDLP_VERSION: "2026.08.19" }).values.YTDLP_VERSION, undefined);
+    assert.equal(config.ytdlp.version, null);
+
+    // 카드 값과 함께라면 그 값이 잠그는 채널도 바꾼다(다른 채널에서 다운로드한 이전 버전으로 되돌리기)
+    assert.equal(tunables.saveCard({ YTDLP_VERSION: "2026.08.19", YTDLP_CHANNEL: "stable" }).values.YTDLP_CHANNEL, "stable");
   } finally {
     off();
   }
@@ -175,10 +190,8 @@ test("카드의 저장은 틀린 값을 거절하고, 카드 값이 아닌 이�
     () => tunables.saveCard({ YTDLP_VERSION: "최신" }),
     (error: { code?: string; problems?: string[] }) => error.code === "CONFIG_INVALID" && /YTDLP_VERSION/.test(error.problems?.[0] ?? ""),
   );
-  assert.throws(
-    () => tunables.saveCard({ YTDLP_UPDATE: "notify" }),
-    (error: { code?: string }) => error.code === "CONFIG_INVALID",
-  );
+  assert.throws(() => tunables.saveCard({ YTDLP_UPDATE: "manual" }), /도구 카드의 값이 아님/);
+  assert.throws(() => tunables.saveCard({ YTDLP_CHANNEL: "stable" }), /도구 카드의 값이 아님/, "고정과 함께가 아니면 채널은 저장 막대로");
   assert.throws(() => tunables.saveCard({ QUEUE_MAX_TRACKS: "1" }), /도구 카드의 값이 아님/);
   assert.equal(tunables.view().revision, 0);
 });
@@ -193,8 +206,7 @@ test("저장돼 있던 값이 잘못돼 있어도 상관없는 저장은 된다(
 
   docs.write("tunables", { YTDLP_VERSION: "최신", CACHE_MAX_FILES: "많이" }, general.json.revision);
   tunables.load();
-  assert.equal(tunables.saveCard({ YTDLP_UPDATE: "manual" }).values.YTDLP_UPDATE, "manual", "잘못된 다른 값이 카드를 막지 않는다");
-  assert.equal(tunables.saveCard({ YTDLP_VERSION: "2026.08.19" }).values.YTDLP_VERSION, "2026.08.19", "카드가 잘못된 값을 고친다");
+  assert.equal(tunables.saveCard({ YTDLP_VERSION: "2026.08.19" }).values.YTDLP_VERSION, "2026.08.19", "잘못된 다른 값이 카드를 막지 않고, 카드가 잘못된 값을 고친다");
 });
 
 test(".env 의 yt-dlp 버전 설정은 무시하고, 유튜브 탭에서 설정하라고 알린다", () => {

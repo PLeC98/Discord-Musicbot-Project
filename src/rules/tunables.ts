@@ -6,8 +6,9 @@
 // 나머지는 저장하면 바로 적용된다. 기동 시 만들어 둔 것(요청 제한기, 하트비트, 캐시 정리 타이머, 클라이언트 표)은 바뀐 것을 듣고 다시 만든다
 // advanced: 동작을 알아야 고치는 값. 운영자 패널은 "고급 설정 보기"를 켰을 때만 보인다
 // box: 카드 안에서 한 박스로 묶어 그리는 항목들(같은 용도의 출처별 값)
-// card: 그 도구의 카드가 고치는 값(yt-dlp 의 채널, 모드, 버전 고정). 저장 막대에는 표시하지 않고 저장 막대의 저장으로는 바뀌지 않는다. 도구 카드의 조작으로만 바꾼다(store/tunables 의 saveCard).
-//   값을 바꾸는 것이 곧 다운로드를 시작하는 조작이고, 버전 고정에만 최근 로그인을 요구하기 때문이다
+// card: 그 도구의 카드가 버튼으로 고치는 값(yt-dlp 의 버전 고정). 저장 막대의 저장으로는 바뀌지 않는다(store/tunables 의 saveCard).
+//   값을 바꾸는 것이 곧 다운로드를 시작하는 조작이고 최근 로그인을 요구하기 때문이다
+// lockedBy: 그 이름의 값이 있는 동안 바꿀 수 없다(저장 막대의 저장이 거절한다)
 
 /** 그룹(화면의 카드 순서) */
 const TUNABLE_GROUPS = ["queue", "look", "ytdlp", "youtube", "sponsorblock", "ageyoutube", "cache", "stream", "geoip", "dashboard", "ailog"] as const;
@@ -23,7 +24,7 @@ type TunableKind = "int" | "bool" | "text" | "color" | "url" | "list" | "cookies
 /** 카드 안의 박스. recheck: 원본 다시 확인 간격(출처별) */
 type TunableBox = "recheck";
 
-type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean; box?: TunableBox; card?: boolean };
+type Tunable = { key: string; group: TunableGroup; kind: TunableKind; def: string; min?: number; max?: number; restart?: boolean; advanced?: boolean; box?: TunableBox; card?: boolean; lockedBy?: string };
 
 const TUNABLES: readonly Tunable[] = [
   // 대기열, 나가기
@@ -39,8 +40,9 @@ const TUNABLES: readonly Tunable[] = [
   { key: "VOICE_PAUSED_PREFIX", group: "look", kind: "text", def: "" },
   { key: "VOICE_IDLE_STATUS", group: "look", kind: "text", def: "" },
   // yt-dlp 바이너리(sources/ytdlp-binary). 채널: stable, nightly, master. 모드: auto(하루 한 번 다운로드해 교체), manual(버튼으로만). 고정: 릴리스 태그(비우면 고정하지 않는다)
-  { key: "YTDLP_CHANNEL", group: "ytdlp", kind: "token", def: "nightly", card: true },
-  { key: "YTDLP_UPDATE", group: "ytdlp", kind: "token", def: "auto", card: true },
+  // 고정한 태그는 그 채널의 저장소에서 다운로드하므로 고정한 동안 채널은 바꾸지 못한다
+  { key: "YTDLP_CHANNEL", group: "ytdlp", kind: "token", def: "nightly", lockedBy: "YTDLP_VERSION" },
+  { key: "YTDLP_UPDATE", group: "ytdlp", kind: "token", def: "auto" },
   { key: "YTDLP_VERSION", group: "ytdlp", kind: "token", def: "", card: true },
   // 유튜브
   { key: "BGUTIL_ENABLED", group: "youtube", kind: "bool", def: "false", restart: true },
@@ -100,7 +102,9 @@ const groupsIn = (tab: TunableTab) => TUNABLE_GROUPS.filter((group) => GROUP_TAB
 
 const TUNABLE_KEYS: ReadonlySet<string> = new Set(TUNABLES.map((one) => one.key));
 const RESTART_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.restart).map((one) => one.key));
-/** 도구 카드가 고치는 이름 */
+/** 그룹 중 자기 카드가 그리는 것(운영 조절값 카드에는 그리지 않는다. 값은 같은 저장 막대로 저장한다) */
+const OWN_CARD_GROUPS: ReadonlySet<TunableGroup> = new Set(["ytdlp"]);
+/** 도구 카드가 버튼으로 고치는 이름 */
 const CARD_KEYS: ReadonlySet<string> = new Set(TUNABLES.filter((one) => one.card).map((one) => one.key));
 
 /**
@@ -131,5 +135,5 @@ function tunable(key: string): Tunable {
 /** 대시보드의 답. values: 저장한 값(비운 필드는 없다 = 기본값), revision: 저장 번호, pending: 저장했지만 다시 시작해야 적용되는 이름 */
 type TunablesView = { values: Record<string, string>; revision: number; pending: string[] };
 
-export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, groupsIn, tunable, tunableValue, tuneProblemLine, parseTuneProblem };
+export { TUNABLES, TUNABLE_GROUPS, GROUP_TAB, TUNABLE_KEYS, RESTART_KEYS, CARD_KEYS, OWN_CARD_GROUPS, groupsIn, tunable, tunableValue, tuneProblemLine, parseTuneProblem };
 export type { TunableBox, Tunable, TunableGroup, TunableKind, TunableTab, TunablesView };

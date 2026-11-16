@@ -1,6 +1,7 @@
 <template>
   <!-- yt-dlp 카드(유튜브 탭). 운영 조절값 카드와 같은 모양(라벨 + 높이 40 칸, 카드가 넓으면 2열).
-       채널, 자동 업데이트, 버전 고정은 저장 막대를 거치지 않고 누르면 바로 저장한다(값을 바꾸는 것이 곧 다운로드를 시작하는 조작이다).
+       채널, 자동 업데이트는 다른 운영 조절값처럼 저장 막대로 저장한다(저장하면 서버가 새 설정으로 맞춘다).
+       버전 고정, 되돌리기, 업데이트는 누르면 바로 한다(그 조작이 곧 다운로드를 시작한다).
        다운로드는 서버가 뒤에서 하고 카드는 상태를 다시 읽어 진행을 본다. 결과는 토스트, 다시 시도할 실패는 칸 아래에 남긴다 -->
   <BaseCard icon="download" :title="T.title">
     <template #actions
@@ -11,13 +12,13 @@
       <div class="grid grid-cols-1 @md/card:grid-cols-2 gap-3">
         <div class="min-w-0">
           <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.channel }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="state.pin ? T.channelPinned : T.channelHelp" /></span>
-          <SingleSelect :model-value="state.channel" :options="CHANNELS" :disabled="saving || Boolean(state.pin)" @update:model-value="setChannel(String($event))" />
+          <SingleSelect :model-value="channelDraft" :options="CHANNELS" :disabled="Boolean(state.pin)" @update:model-value="draft.YTDLP_CHANNEL = String($event)" />
         </div>
         <div class="min-w-0">
           <span :class="FIELD_LABEL" class="flex items-center gap-1">{{ T.auto }}<Icon name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="state.pin ? T.autoPinned : T.autoHelp" /></span>
           <span class="flex items-center gap-2 h-10 min-w-0">
-            <BaseSwitch :model-value="state.mode === 'auto'" :label="T.auto" :disabled="saving" @update:model-value="setMode($event ? 'auto' : 'manual')" />
-            <span class="text-sm text-on-surface">{{ state.mode === "auto" ? text.tunables.on : text.tunables.off }}</span>
+            <BaseSwitch :model-value="modeDraft === 'auto'" :label="T.auto" @update:model-value="draft.YTDLP_UPDATE = $event ? 'auto' : 'manual'" />
+            <span class="text-sm text-on-surface">{{ modeDraft === "auto" ? text.tunables.on : text.tunables.off }}</span>
             <span v-if="state.nextAt && !state.failure" class="truncate text-xs text-on-surface-variant">{{ T.nextCheck(formatDateTime(state.nextAt)) }}</span>
           </span>
         </div>
@@ -62,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
@@ -77,7 +78,9 @@ import { iconButton } from "../utils/icon-button.ts";
 import { valueOf } from "../utils/dom.ts";
 import { formatDateTime } from "../utils/locale.ts";
 import { problemText } from "../utils/problem.ts";
-import { applyCard, inOrder } from "../composables/tunables.ts";
+import { applyCard, attach, draft, inOrder, saved } from "../composables/tunables.ts";
+import { trackUnsaved } from "../composables/unsaved.ts";
+import { tunable, tunableValue } from "../../../src/rules/tunables.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import type { Option } from "../utils/options.ts";
 import type { IconName } from "../icons.ts";
@@ -103,6 +106,15 @@ const pinDraft = ref("");
 const askingRollback = ref(false);
 const askingForget = ref(false);
 let timer = 0;
+
+// 채널, 자동 업데이트는 운영 조절값의 고치는 중인 값(저장 막대가 저장한다). 비우면 기본값
+const draftOf = (key: "YTDLP_CHANNEL" | "YTDLP_UPDATE") => draft.value[key] || tunable(key).def;
+const channelDraft = computed(() => draftOf("YTDLP_CHANNEL"));
+const modeDraft = computed(() => draftOf("YTDLP_UPDATE"));
+trackUnsaved(
+  "youtube:ytdlp",
+  computed(() => (["YTDLP_CHANNEL", "YTDLP_UPDATE"] as const).some((key) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? ""))),
+);
 
 // 다운로드 중이거나 저장하는 중에는 다운로드를 시작하는 버튼을 막는다
 const working = computed(() => saving.value || Boolean(state.value?.busy));
@@ -178,8 +190,6 @@ async function check() {
 }
 
 const update = () => state.value?.seen && act("/ytdlp/update", { channel: state.value.channel, tag: state.value.seen.latest }, T.updateFailed);
-const setChannel = (channel: string) => state.value && channel !== state.value.channel && act("/ytdlp/settings", { channel, expect: { channel: state.value.channel } }, T.saveFailed);
-const setMode = (mode: "auto" | "manual") => state.value && act("/ytdlp/settings", { mode, expect: { mode: state.value.mode } }, T.saveFailed);
 async function setPin(version: string | null) {
   if (!state.value || (await act("/ytdlp/pin", { version, expect: state.value.pin }, T.saveFailed)) !== true) return;
   pinDraft.value = "";
@@ -194,6 +204,21 @@ async function forget() {
   if (await act("/ytdlp/forget-previous", {}, T.forgetFailed)) notifyDone(T.forgotten(previous));
 }
 
-onMounted(refresh);
-onUnmounted(() => clearTimeout(timer));
+const { ready, detach } = attach();
+onMounted(() => {
+  void refresh();
+  ready.catch(() => undefined);
+});
+onUnmounted(() => {
+  clearTimeout(timer);
+  detach();
+});
+// 저장 막대가 채널, 자동 업데이트를 저장하면 서버가 맞추기 시작한다. 조금 뒤 상태를 다시 읽는다
+watch(
+  () => [saved.value.YTDLP_CHANNEL, saved.value.YTDLP_UPDATE],
+  () => {
+    clearTimeout(timer);
+    timer = window.setTimeout(() => void refresh(), POLL_MS);
+  },
+);
 </script>

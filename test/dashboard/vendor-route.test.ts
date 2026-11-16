@@ -131,30 +131,21 @@ test("최신 조회가 실패하면 tool-check-failed 와 원인", async () => {
   assert.deepEqual([res.status, res.json.code, res.json.detail], [502, "tool-check-failed", "GitHub 최신 릴리스 조회 503"]);
 });
 
-test("모드를 수동으로 바꾸면 바로 저장되고, 저장 번호와 저장된 값을 함께 답한다", async () => {
-  const saved = await req("POST", "/ytdlp/settings", { mode: "manual", expect: { mode: "auto" } });
-  assert.equal(saved.status, 200);
-  assert.deepEqual([saved.json.status.ytdlp.mode, saved.json.tunables?.values, saved.json.tunables?.revision], ["manual", { YTDLP_UPDATE: "manual" }, 1]);
-  assert.equal(config.ytdlp.update, "manual");
+test("채널, 자동 업데이트는 저장 막대로 저장한다. 저장하면 새 설정으로 맞춘다(수동이면 다운로드하지 않는다)", async () => {
+  tunables.save({ YTDLP_UPDATE: "manual" }, tunables.view().revision);
   await settled();
-  assert.equal(fetches.length, 0, "수동은 스스로 다운로드하지 않는다");
+  assert.equal((await req("GET")).json.status.ytdlp.mode, "manual");
+  assert.equal(fetches.length, 0, "수동 모드에서는 자동으로 다운로드하지 않는다");
 
-  const late = await req<ProblemReply>("POST", "/ytdlp/settings", { mode: "auto", expect: { mode: "auto" } });
-  assert.deepEqual([late.status, late.json.code], [409, "config-changed"], "화면이 보던 값이 그사이 바뀌었다");
-  assert.equal((await req<ProblemReply>("POST", "/ytdlp/settings", { mode: "notify" })).json.code, "config-invalid");
-  assert.equal((await req<ProblemReply>("POST", "/ytdlp/settings", {})).json.code, "nothing-to-save");
-});
-
-test("채널을 바꾸면 자동 모드는 바로 새 채널의 최신으로 맞춘다. 버전을 고정한 동안에는 바꾸지 못한다", async () => {
   latest = "2026.09.30";
-  assert.equal((await req("POST", "/ytdlp/settings", { channel: "stable" })).status, 200);
+  // 저장 막대는 필드 전부를 보낸다(빠진 필드는 기본값)
+  tunables.save({ YTDLP_CHANNEL: "stable", YTDLP_UPDATE: "manual" }, tunables.view().revision);
   await settled();
-  assert.equal(await versionNow(), "2026.09.30");
+  assert.deepEqual([await versionNow(), fetches.length], ["2026.08.19", 0], "수동이면 채널을 바꿔도 다운로드하지 않는다");
 
-  tunables.saveCard({ YTDLP_VERSION: "2026.09.30" });
-  const refused = await req<ProblemReply>("POST", "/ytdlp/settings", { channel: "nightly" });
-  assert.deepEqual([refused.status, refused.json.code], [409, "tool-version-pinned"]);
-  assert.equal((await req("POST", "/ytdlp/settings", { mode: "manual" })).status, 200, "모드는 고정과 상관없이 바꾼다");
+  tunables.save({ YTDLP_CHANNEL: "stable", YTDLP_UPDATE: "auto" }, tunables.view().revision);
+  await settled();
+  assert.equal(await versionNow(), "2026.09.30", "자동으로 저장하면 그 채널의 최신으로 맞춘다");
 });
 
 test("버전 고정: 그 버전으로 맞추고, 고정한 동안 업데이트는 거절한다. 해제하면 자동 모드는 다시 최신으로", async () => {
@@ -186,13 +177,12 @@ test("이전 버전 삭제: 기록에서 지우고 폴더를 정리한다. 그 �
   assert.ok(sink.buffer.some((e) => e.level === "warn" && e.text.includes("yt-dlp 이전 버전 삭제: 2026.08.19")));
 });
 
-test("최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 고정 해제, 되돌리기, 채널, 모드, 확인은 요구하지 않는다", async () => {
+test("최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 고정 해제, 되돌리기, 확인은 요구하지 않는다", async () => {
   seed("2026.09.27.232849", { previous: "2026.08.19", channel: "nightly", previousChannel: "nightly" });
   loginAt = () => Date.now() - RECENT_LOGIN_MS - 1000;
   const refused = await req<ProblemReply>("POST", "/ytdlp/pin", { version: "2026.09.01" });
   assert.deepEqual([refused.status, refused.json.code], [403, "reauth-required"]);
   assert.equal(config.ytdlp.version, null);
-  assert.equal((await req("POST", "/ytdlp/settings", { mode: "manual" })).status, 200);
   assert.equal((await req("POST", "/ytdlp/check")).status, 200);
   assert.equal((await req("POST", "/ytdlp/rollback")).status, 202, "바로 전에 설치했던 버전 하나로만 간다");
   await settled();
