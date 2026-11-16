@@ -9,6 +9,7 @@ import type { QueuedTrack } from "./track.ts";
 import { tooLongToCache } from "../media/cache-download.ts";
 import { logTitle } from "../infra/log/title.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { failureScope, servedDirectly } from "./failure-scope.ts";
 
 /** 예열이 읽는 플레이어 필드. 뺀 슬롯을 메울 때 자동재생을 부른다 */
 type WarmerHost = Pick<Tracks, "queue" | "currentTrack" | "loop" | "trackSink"> & { guild?: { id: string; name?: string } | null; autoplay?: string | false; ensureAutoplayNext?(): Promise<unknown> };
@@ -63,6 +64,7 @@ class QueueWarmer {
   _running: boolean;
   _stopped: boolean;
   _failed: Set<QueuedTrack>;
+  _gaveUp: WeakSet<QueuedTrack>;
 
   constructor(player: WarmerHost, deps: WarmerDeps) {
     this.player = player;
@@ -91,6 +93,9 @@ class QueueWarmer {
     this._running = false;
     this._stopped = false;
     this._failed = new Set(); // 이번 서명에서 실패한 곡. 같은 곡을 무한히 재시도하지 않는다
+    // 다시 시도해도 결과가 같은 실패(곡 자체의 문제: 같은 곡을 못 찾음, 영상 없음, 연령 제한 등)가 난 곡. 서명이 바뀌어도 다시 시도하지 않는다.
+    // 이 기록은 대기열의 해당 항목에 붙는다. 같은 곡을 다시 넣으면 새 항목이라 다시 시도한다
+    this._gaveUp = new WeakSet();
   }
 
   start() {
@@ -209,7 +214,7 @@ class QueueWarmer {
   /** 아직 다운로드하지 않았고 다운로드 중도 아닌 첫 목표. 없으면 null. */
   nextTarget() {
     for (const track of this.targets()) {
-      if (this.isCached(track) || this.isBusy(track) || this._failed.has(track)) continue;
+      if (this.isCached(track) || this.isBusy(track) || this._failed.has(track) || this._gaveUp.has(track)) continue;
       return track;
     }
     return null;
@@ -238,11 +243,12 @@ class QueueWarmer {
           // 조용히 빼고 다른 곡을 선택하는 것이 맞다.
           if (track.autoplay && this._dropDeadAutoplay(track, err)) continue;
 
-          // 이 서명 동안은 다시 시도하지 않는다. 대기열이 움직이면 자연히 재시도되고,
-          // 끝까지 실패해도 재생 시점의 다운로드 경로가 한 번 더 다운로드한다.
+          // 이 서명 동안은 다시 시도하지 않는다. 일시적인 실패는 대기열이 움직이면 다시 시도하고,
+          // 곡 자체의 문제면 그 뒤로도 하지 않는다. 어느 쪽이든 재생 시점의 다운로드 경로가 다시 시도한다.
           // 까닭은 다운로드가 남겼다(캐시 다운로드 실패 줄)
           log.debug(`사전 캐싱 실패(재생할 때 다시 다운로드): "${logTitle(track.title)}"`);
           this._failed.add(track);
+          if (failureScope(err, { direct: servedDirectly(track) }) === "track") this._gaveUp.add(track);
         }
 
         if (this.gapMs > 0) await this._sleep(this.gapMs);
