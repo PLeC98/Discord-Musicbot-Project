@@ -11,8 +11,8 @@
   "dependencies": {
     "@material/material-color-utilities": "catalog:",
     "@vueuse/core": "^15.0.0",
-    "axios": "^1.20.0",
-    "hls.js": "^1.7.3",
+    "axios": "^1.21.0",
+    "hls.js": "^1.7.4",
     "pinia": "^4.1.0",
     "pretendard": "^1.3.9",
     "vue": "^3.5.44",
@@ -29,6 +29,6 @@
     "tailwindcss": "^4.3.3",
     "typescript": "catalog:",
     "vite": "^8.3.5",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.14"
   }
 }
