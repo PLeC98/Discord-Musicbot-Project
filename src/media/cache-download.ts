@@ -14,7 +14,7 @@ import { probeDurationSec } from "./ffmpeg/process.ts";
 import { shownDuration } from "../rules/duration-shown.ts";
 import * as versionOf from "./audio-version.ts";
 import { readInfo } from "../sources/ytdlp-info.ts";
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as equivalent from "../sources/youtube/equivalent.ts";
 import { openDirectInput, type DirectInput } from "./direct-input.ts";
 import { applyTags } from "../sources/direct-tags.ts";
@@ -23,7 +23,7 @@ import { bakeCover, type Cover } from "../sources/cover.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
 import type { CacheTags } from "./convert.ts";
 import type { TagInfo } from "../rules/track-tags.ts";
-import * as SoundCloud from "../sources/soundcloud/index.ts";
+import * as soundcloudSource from "../sources/soundcloud/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as SponsorBlock from "../sources/sponsor-block.ts";
@@ -43,8 +43,8 @@ import { sec } from "../infra/log/seconds.ts";
 
 // 다운로드에 부르는 소스와 변환에서 여기서 부르는 필드만
 type Sources = {
-  youtube: Pick<typeof YouTube, "downloadAudio" | "getYtDlpOptions">;
-  soundcloud: Pick<typeof SoundCloud, "download">;
+  youtube: Pick<typeof youtubeSource, "downloadAudio" | "getYtDlpOptions">;
+  soundcloud: Pick<typeof soundcloudSource, "download">;
   direct: { getStream(url: string): Promise<DirectInput> };
   convert: { toCacheOpus(srcFile: string, outFile: string, cache?: CacheTags): Promise<{ durationSec: number | null }> };
   tags: { fromFile(file: string): Promise<(TagInfo & { picture?: { data: Uint8Array } | null }) | null> };
@@ -183,7 +183,7 @@ async function publish(tempPath: string, filepath: string, title?: string | null
 }
 
 // 다운로드에 부르는 소스와 변환. 테스트가 가짜를 넘긴다. 넘기지 않은 것은 진짜
-const SOURCES: Sources = { youtube: YouTube, soundcloud: SoundCloud, direct: { getStream: (url) => openDirectInput(url) }, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
+const SOURCES: Sources = { youtube: youtubeSource, soundcloud: soundcloudSource, direct: { getStream: (url) => openDirectInput(url) }, convert: audioConvert, tags: Tags, measure: { durationSec: probeDurationSec }, sponsor: SponsorBlock, equivalent };
 
 // 출처가 유튜브가 아닌 곡을 유튜브에서 받았으면 그 영상(로그 꼬리)
 const youtubeNote = (track: DownloadTrack) => (track.audioUrl && inputKind(track.audioUrl) === "youtube" && track.platform !== "youtube" ? ` (yt: ${track.audioUrl})` : "");
@@ -250,7 +250,7 @@ class TrackDownloader {
         if (await leaveDeadPin(track, err, this.deps.equivalent)) return await this._redownload(track);
         // 링크 데이터의 유튜브 영상이 내려갔으면(삭제, 비공개) 그 링크 데이터를 버리고 다시 찾아 한 번 더 받는다.
         // 다시 찾은 영상은 ledger 표시가 없어 여기로 다시 오지 않는다(무한 반복 방지)
-        if (YouTube.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
+        if (youtubeSource.isVideoUnavailableError(err) && track.audioFoundBy === "ledger") {
           log.warn({ tags: ["retry"] }, `캐시된 유튜브 영상 접근 불가 (${logTitle(track.title)}). 재검색 후 재시도`);
           const fresh = await this.deps.equivalent.reresolveYouTube(track);
           if (!fresh) throw err;
@@ -276,7 +276,7 @@ class TrackDownloader {
 
   // 다운로드 실패는 여기서 한 번만 남긴다(까닭까지). 부르는 쪽(백그라운드 다운로드, 사전 캐싱)은 그 결과만 debug 로 남긴다
   _failed(track: DownloadTrack, error: unknown) {
-    log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, YouTube.briefError(error));
+    log.error(`캐시 다운로드 실패 ("${logTitle(track.title)}"):`, youtubeSource.briefError(error));
     return error;
   }
 
@@ -358,7 +358,7 @@ class TrackDownloader {
       // 일본어, 한국어 제목이 깨지고(Windows 의 cp949), PYTHONIOENCODING으로도 안 바뀐다.
       // 파일은 UTF-8로 쓰이므로 어느 환경에서나 안전하다.
       writeInfoJson: true,
-      format: YouTube.AUDIO_FORMAT,
+      format: youtubeSource.AUDIO_FORMAT,
       preferFreeFormats: true,
       // 2차 방어선: track.isLive를 못 잡은 경우(링크 데이터 재사용 등)에도 yt-dlp가 스스로 라이브를 건너뛴다.
       // 걸리면 다운로드를 시작조차 하지 않으므로 ffmpeg가 아예 실행되지 않는다.

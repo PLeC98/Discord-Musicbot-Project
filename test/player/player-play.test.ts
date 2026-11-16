@@ -334,6 +334,37 @@ test("위치 이동: 처음 위치(0)는 색인을 묻지 않고, 색인이 없�
   );
 });
 
+test("위치 이동: 색인 요청의 주소가 거절되면(4xx) 처음부터 받지 않는다. 앞 광고 시간이면 기다렸다 색인으로 다시 연다. 5xx 는 지금처럼 처음부터", async () => {
+  const p = h.makePlayer();
+  p.currentTrack = yt("seekidx0005", { duration: 6000 });
+  behavior.stream = () => ({ url: LONG, duration: 6000, availableAt: Date.now() / 1000 + 0.2 });
+  let asks = 0;
+  behavior.seekStart = () => (++asks === 1 ? { ok: false, why: "헤더 요청이 HTTP 403", refused: 403 } : found());
+  behavior.download = () => Promise.reject(new Error("받기 실패")); // 캐시로 넘어가 가려지지 않게
+  const from = sink.buffer.length;
+  try {
+    const r = await playOnce(p, 4_500_000);
+    assert.equal(r.ok, true);
+    assert.equal(asks, 2, "기다린 뒤 색인을 다시 묻는다");
+    assert.deepEqual(
+      calls.chunked.map((c) => c.startByte),
+      [90_000_000],
+      "처음부터 받는 요청을 보내지 않았다",
+    );
+    assert.ok(!sink.buffer.slice(from).some((e) => e.text.startsWith("탐색 인덱스 조회 실패")), "처음부터 받는다는 줄을 남기지 않는다");
+  } finally {
+    h.dispose(p);
+  }
+
+  h.reset();
+  const q = h.makePlayer();
+  q.currentTrack = yt("seekidx0006", { duration: 6000 });
+  behavior.stream = () => ({ url: LONG, duration: 6000 });
+  behavior.seekStart = () => ({ ok: false, why: "헤더를 받지 못함: 헤더 요청이 HTTP 503", failed: true });
+  await playOnce(q, 4_500_000);
+  assert.equal(calls.chunked[0].startByte, undefined, "5xx 는 처음부터");
+});
+
 // 방송이 끝나고 다시보기를 다 만들기 전(post_live)의 유튜브 소리는 세그먼트 목록뿐이다. 주소 하나로 열면 첫 세그먼트(2초)만 틀고 끝난다
 test("세그먼트 목록으로만 주는 소리는 위치가 든 세그먼트부터 받아 파이프로 넘기고, 세그먼트 안의 나머지만 -ss 로 건너뛴다", async () => {
   const fragments = { base: "https://rr1.googlevideo.com/videoplayback?live=1&x=1", count: 10 };
@@ -881,6 +912,30 @@ test("캐시 파일로 이어 틀면 직전 주소를 따지지 않는다. 만�
   await playOnce(p, 60000);
   assert.equal(calls.spawns.at(-1)?.label, "playback");
   assert.ok(!lines().some((l) => l.startsWith("직전 스트림 주소")), "파일로 트는데 주소 이야기를 남기지 않는다");
+});
+
+test("곡 중간에 주소가 거절돼(4xx) 끊겼으면 다시 열 때 직전 주소도, 같은 주소가 든 받아 둔 영상 정보도 쓰지 않고 새로 받는다", async () => {
+  const expire = Math.floor(Date.now() / 1000) + 3600;
+  const url = `https://rr1.googlevideo.com/videoplayback?clen=4096&expire=${expire}`;
+  for (const [what, error, fresh] of [
+    ["403", Object.assign(new Error("Range 요청 실패: HTTP 403"), { status: 403, permanent: true }), [false, true]],
+    ["5xx", Object.assign(new Error("Range 요청 실패: HTTP 503"), { status: 503 }), [false]],
+  ] as const) {
+    h.reset();
+    const p = h.makePlayer();
+    p.currentTrack = yt("rjrjrjrjrjr", { duration: 300 });
+    const asked: boolean[] = [];
+    behavior.stream = (_track, options) => (asked.push(options?.fresh === true), { url, duration: 300 });
+    try {
+      await p.play(0);
+      calls.chunkedStreams[0].emit("error", error);
+      assert.equal(p.playback?.input?.refused ?? null, what === "403" ? 403 : null, what);
+      await p.play(30_000, { continued: true });
+    } finally {
+      h.dispose(p);
+    }
+    assert.deepEqual(asked, fresh, `${what}: 403 이면 받아 둔 정보를 버리고(fresh) 새로 받는다, 아니면 직전 주소를 다시 쓴다`);
+  }
 });
 
 test("직전 주소는 같은 음원에서만 다시 쓴다. 다른 곡을 위치부터 틀면(세션 복원 등) 그 곡의 주소를 불러온다", async () => {

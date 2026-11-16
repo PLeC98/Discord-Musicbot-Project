@@ -27,7 +27,8 @@ const BROKEN_STOPS: Record<string, string> = {
   error: "재생 재개 실패",
 };
 
-const REWIND_GUARD_MS = 1500; // 다시 열 위치가 길이 끝 이만큼 안이면 끝
+// 다시 열 위치가 끝에서 이만큼 안이면 다시 열지 않고 끝난 것으로 본다. 출처가 준 길이는 정수 초라 실제 끝보다 1초 넘게 길 수 있어 그보다 조금 크게 잡는다
+const REWIND_GUARD_MS = 1500;
 
 const ended = (why: string): Verdict => ({ dropped: false, why });
 

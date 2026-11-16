@@ -1,9 +1,10 @@
 // 봇이 새 서버에 들어왔을 때 올리는 안내 메시지 하나(시작하는 법, 전용 채널, /help, 웹 대시보드, 소스 저장소). 운영 조절값 WELCOME_MESSAGE_ENABLED 로 끈다.
 // 공개로 올려 지울 수 없으니, 들어온 지 얼마 안 된 서버에만 올린다(이벤트가 이미 있던 서버로 와도 올리지 않게)
 
+import { readsMessageContent } from "../infra/gateway-intents.ts";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, MessageFlags, PermissionFlagsBits, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, escapeMarkdown, type Guild, type GuildTextBasedChannel } from "discord.js";
 import config from "../config/index.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
 import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
@@ -22,7 +23,7 @@ function writable(guild: Guild, channel: GuildTextBasedChannel | null | undefine
 
 /** 올릴 채널: 봇 전용 채널(다시 초대한 서버), 시스템 채널, 위치 순서로 첫 텍스트 채널 가운데 봇이 쓸 수 있는 첫 곳. 스레드는 보지 않는다(쓰는 권한이 따로다). 없으면 null */
 async function welcomeChannel(guild: Guild): Promise<GuildTextBasedChannel | null> {
-  const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+  const botChannelId = await guildSettings.getBotChannel(guild.id);
   const botChannel = botChannelId ? guild.channels.cache.get(botChannelId) : undefined;
   const candidates: Array<GuildTextBasedChannel | null> = [
     botChannel?.type === ChannelType.GuildText ? botChannel : null,
@@ -45,7 +46,7 @@ function welcomeView(guild: Guild) {
   const fork = sourceRepo !== projectRepo;
   const labels = welcomeText.buttons(fork);
   const dashboard = dashboardButton(labels.dashboard);
-  const t = welcomeText.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork });
+  const t = welcomeText.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
   const container = frame({ icon: "music", title: t.title, body: t.intro.join("\n"), thumbnail: guild.client.user.displayAvatarURL() })
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))

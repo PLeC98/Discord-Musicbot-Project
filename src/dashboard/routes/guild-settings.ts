@@ -11,7 +11,7 @@ import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
 import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { isDjRoleCandidate } from "../../usecases/permissions.ts";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
 import { openGuild } from "../guild-access.ts";
@@ -32,12 +32,12 @@ import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardR
 /** 검사를 통과한 본문. 필드마다 { from, to } 가 들어 있고, 없는 필드는 그대로 둔다 */
 type SettingsBody = z.output<ReturnType<typeof settingsPatch>>;
 /** 반영할 것. patch: 저장소에 넘길 것, keys: 보낸 키, from: 화면이 읽은 값, to: 거른 뒤의 바꿀 값 */
-type SettingsPlan = { patch: GuildSettingsManager.GuildPatch; keys: SettingsKey[]; from: SettingsValues; to: SettingsValues };
+type SettingsPlan = { patch: guildSettings.GuildPatch; keys: SettingsKey[]; from: SettingsValues; to: SettingsValues };
 
 // 본문을 이 서버에 맞춰 반영할 값으로 바꾼다. 서버에 없는 역할, 모르는 구간은 거르고, 받을 수 없는 값이면 그 문제를 돌려준다.
 // SponsorBlock 은 보낸 하위 키만 넣는다(빠진 하위 키를 채우면 켜기만 바꿀 때 구간 설정이 지워진다)
 function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refused: Problem } {
-  const patch: GuildSettingsManager.GuildPatch = {};
+  const patch: guildSettings.GuildPatch = {};
   let from: SettingsValues = {};
   let to: SettingsValues = {};
   const put = (key: SettingsKey, read: unknown, value: unknown) => {
@@ -83,7 +83,7 @@ function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refuse
   return { patch, keys: keysOf(to), from, to };
 }
 
-const fieldNames = (fields: GuildSettingsManager.GuildField[]) => fields.map((field) => GuildSettingsManager.FIELD_LABEL[field]).join(", ");
+const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => guildSettings.FIELD_LABEL[field]).join(", ");
 
 // 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/stay)
 async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): Promise<StayCard> {
@@ -125,7 +125,7 @@ function cardValuesOf(guild: Guild, cards: readonly SettingsCard[], values: Sett
 
   // 재생목록 한 번에 넣는 곡 수. 저장값(null=기본), 실제 값, 설정할 수 있는 범위
   if (cards.includes("playlistAdd")) {
-    reply.playlistAdd = { value: values.playlistAddMax ?? null, effective: GuildSettingsManager.resolvePlaylistAddMax(guild.id), ...GuildSettingsManager.playlistAddLimits() };
+    reply.playlistAdd = { value: values.playlistAddMax ?? null, effective: guildSettings.resolvePlaylistAddMax(guild.id), ...guildSettings.playlistAddLimits() };
   }
 
   if (cards.includes("agePlace")) reply.agePlace = values.agePlace;
@@ -150,7 +150,7 @@ function createGuildSettingsRouter() {
     if (cards.includes("stay")) reply.stay = await stayCardOf(bot, guild, member);
     if (cards.includes("normalize")) reply.normalize = await normalizeCardOf(guild, member);
 
-    Object.assign(reply, cardValuesOf(guild, cards, shownValues(guild, GuildSettingsManager.read(guild.id))));
+    Object.assign(reply, cardValuesOf(guild, cards, shownValues(guild, guildSettings.read(guild.id))));
 
     res.json(reply);
   });
@@ -165,7 +165,7 @@ function createGuildSettingsRouter() {
     const viewer = await viewerOf(req, member);
     if (!editsAny(viewer)) return sendProblem(res, noBodyCardRefusal());
 
-    const limits = GuildSettingsManager.playlistAddLimits();
+    const limits = guildSettings.playlistAddLimits();
     const body = parse(settingsPatch(limits), req.body ?? {});
     // 필드별 문제. 재생목록 곡 수는 범위를 같이 싣는다
     if (!body.ok) return sendProblem(res, "bad-settings", {}, { errors: body.errors.map((one) => (one.code === "playlist-limit-out-of-range" ? { ...one, min: limits.min, max: limits.max } : one)) });
@@ -178,11 +178,11 @@ function createGuildSettingsRouter() {
     if ("refused" in plan) return refuseWith(res, plan.refused);
     if (!plan.keys.length) return sendProblem(res, "nothing-to-save");
 
-    let result: GuildSettingsManager.Updated;
+    let result: guildSettings.Updated;
     try {
-      result = GuildSettingsManager.update(guild.id, plan.patch, (doc) => conflictsOf(guild, doc, plan.keys, plan.from, plan.to));
+      result = guildSettings.update(guild.id, plan.patch, (doc) => conflictsOf(guild, doc, plan.keys, plan.from, plan.to));
     } catch (error) {
-      log.error(`서버 설정 저장 실패: ${guild.name} (${guild.id}) | ${fieldNames(Object.keys(plan.patch) as GuildSettingsManager.GuildField[])} | ${messageOf(error)}`);
+      log.error(`서버 설정 저장 실패: ${guild.name} (${guild.id}) | ${fieldNames(Object.keys(plan.patch) as guildSettings.GuildField[])} | ${messageOf(error)}`);
       // 원래 오류 메시지는 응답에 싣지 않는다(어느 서버의 관리자든 부르는 경로다)
       return sendProblem(res, "settings-save-failed");
     }
@@ -251,7 +251,7 @@ function createGuildSettingsRouter() {
       log.info(`대시보드 서버 설정에서 봇 내보내기: ${guild.name} (${guild.id}). 실행 ${who}`);
       res.json({ success: true } satisfies Saved);
     } catch (error) {
-      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 멈춤(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
+      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 중단(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
       log.error(`대시보드에서 봇 내보내기 실패: ${guild.name} (${guild.id}). 실행 ${who}:`, error);
       sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
     }

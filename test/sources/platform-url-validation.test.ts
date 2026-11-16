@@ -63,7 +63,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 넘기지 않고 거�
     assert.equal(links.isYouTubeURL(url), false, url);
     assert.equal(lookup.isUnsupportedLink(url), true, url);
 
-    const result = await lookup.getTrackData(url);
+    const result = await lookup.findTracks(url);
     assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
     assert.equal(result.code, "yt-unplayable", url);
     assert.match(result.success ? "" : plainText(addFailureMessage(result)), /지원하지 않는 유튜브 링크/);
@@ -91,7 +91,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
   };
   for (const url of ["https://anilist.co/anime/21827", "https://chzzk.naver.com/live/abc", "http://example.com/page"]) {
     assert.equal(lookup.isUnsupportedLink(url), false, url);
-    const result = await lookup.getTrackData(url, "test", {}, { direct });
+    const result = await lookup.findTracks(url, "test", {}, { direct });
     assert.equal(result.success, false, url);
     assert.equal(result.code, "unsupported-link", url);
     assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);

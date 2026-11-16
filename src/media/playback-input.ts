@@ -12,7 +12,7 @@ import config from "../config/index.ts";
 import { AudioSplicer } from "./audio-splicer.ts";
 import { contentLengthFromUrl, describeStreamError, isSeekMismatch } from "./chunked-stream.ts";
 import { buildFfmpegArgs } from "./ffmpeg/args.ts";
-import { InputHealth } from "./input-health.ts";
+import { InputHealth, refusedStatus } from "./input-health.ts";
 import { attachOpusOutput, type OpenEncoder, type OpusOutput } from "./opus-output.ts";
 import type { GainTap, OpenTap, PathFacts } from "./gain-tap.ts";
 import type { Capabilities } from "./ffmpeg/path.ts";
@@ -124,7 +124,7 @@ const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean
 function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // yt-dlp 가 준 주소만 온다. 맨 앞이 http(s)가 아니면(file:, concat: 등) ffmpeg 에 넘기지 않는다. 그 안쪽에서 여는 것은 ffmpeg 의 http 기본 목록이 좁힌다
   if (!/^https?:\/\//i.test(String(streamInfo.url))) {
-    throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "방식 모름"})`), { scope: "track" });
+    throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "프로토콜 모름"})`), { scope: "track" });
   }
   // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";
@@ -326,6 +326,8 @@ async function openChunked<R>(o: InputOptions<R>, { url, headers, totalBytes, du
   if (!(o.startMs > 0)) return o.io.openChunkedStream(base);
   const seek = await o.io.seekStart({ url, headers, totalBytes, startMs: o.startMs, durationMs, chunkBytes: chunkSize });
   if (!seek.ok) {
+    // 주소가 막혔다. 처음부터 받아도 똑같이 막히므로 오류를 던진다(앞 광고 시간이면 openStream 이 기다렸다 다시 연다)
+    if (seek.refused) throw Object.assign(new Error(seek.why), { status: seek.refused, permanent: true });
     if (seek.slow) log.warn(`인덱스 불러오기 실패(처음부터 스트리밍): ${o.label} | ${seek.why}`);
     else if (seek.failed) log.warn(`탐색 인덱스 조회 실패(처음부터 스트리밍해 ${sec(o.startMs)}초 지점까지 디코딩): ${o.label} | ${seek.why}`);
     else if (!seek.near) log.debug(`인덱스를 사용하지 않고 처음부터 스트리밍: ${o.label} | ${seek.why}`);
@@ -410,6 +412,7 @@ function pipeResource<R>(o: InputOptions<R>, streamInfo: StreamInfo, audioStream
   audioStream.on("error", (err: Error) => {
     log.debug(`스트림 중단(복구 불가): ${describeStreamError(err)} | ${streamDetail()}`);
     health.mark(`입력 스트림 오류: ${describeStreamError(err)}`);
+    health.refused ??= refusedStatus(err);
     o.onStreamLost(playSource);
     if (!ffmpeg.stdin.destroyed && !ffmpeg.stdin.writableEnded) ffmpeg.stdin.end();
   });

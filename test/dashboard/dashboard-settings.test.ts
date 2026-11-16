@@ -48,10 +48,9 @@ const documents = await import("../../src/config/documents.ts");
 const { shownValues } = await import("../../src/dashboard/settings-values.ts");
 const { errorHandler } = await import("../../src/dashboard/middleware/error-handler.ts");
 
-// 재생목록 곡 수의 범위는 대기열 상한과 기본값 설정에서 온다. 이 파일은 상한 250, 기본 50 으로 본다
-const savedBot = { maxQueueSize: config.bot.maxQueueSize, playlistAddDefault: config.bot.playlistAddDefault };
+// 재생목록 곡 수의 상한은 대기열 상한에서 온다. 이 파일은 상한 250 으로 본다
+const savedBot = { maxQueueSize: config.bot.maxQueueSize };
 config.bot.maxQueueSize = 250;
-config.bot.playlistAddDefault = 50;
 after(() => {
   Object.assign(config.bot, savedBot);
   temp.close();

@@ -247,7 +247,7 @@ class SqliteSessionStore extends Store {
       this._markerPending = false;
       this._markerFailure.ok();
     } catch (error) {
-      this._markerFailure.fail(`${codeOf(error) ?? messageOf(error)}(되돌리기 전에 다시 시작하면 로그인 세션을 모두 삭제할 수 있음)`);
+      this._markerFailure.fail(`${codeOf(error) ?? messageOf(error)}(복구되기 전에 다시 시작하면 로그인 세션이 모두 삭제될 수 있음)`);
       this._armRetry();
     }
   }
@@ -269,7 +269,7 @@ class SqliteSessionStore extends Store {
       else log.error(`기동 시 로그인 세션 삭제 실패(현재 실행에서는 기동 전 세션 ${booted}개를 허용하지 않으며 다시 삭제 시도): ${messageOf(error)}`);
       return;
     }
-    if (gone) log.warn(`끊은 세션이 남지 않았다는 표시(${path.basename(this._marker ?? "")})를 확인하지 못해 기동 시 로그인 세션 ${gone}개 삭제(모두 다시 로그인해야 함)`);
+    if (gone) log.warn(`끊은 세션 정리 표시 파일(${path.basename(this._marker ?? "")})을 확인하지 못해 기동 시 로그인 세션 ${gone}개 삭제(모두 다시 로그인해야 함)`);
     this._restoreMarker();
   }
 

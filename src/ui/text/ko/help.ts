@@ -7,11 +7,11 @@ import { icon, type IconKey } from "../../icons.ts";
 // 아이콘은 그릴 때 붙인다(앱 이모지를 동기화한 뒤의 id 가 실리게)
 
 const SECTION: Record<HelpSection, { icon: IconKey; name: string; about: string }> = {
-  play: { icon: "music", name: "재생", about: "곡을 틀고, 멈추고, 넘기고, 원하는 시간으로 옮겨요." },
-  queue: { icon: "queue", name: "대기열", about: "대기열을 보고, 곡을 빼거나 옮기고, 섞어요." },
-  mode: { icon: "modes", name: "모드 & 오디오", about: "반복, 자동재생, 볼륨을 정해요." },
-  explore: { icon: "search", name: "탐색 & 정보", about: "곡을 검색하고, 지금 곡의 정보를 봐요." },
-  channel: { icon: "session", name: "채널 & 세션", about: "봇을 부르거나 내보내고, 상주 모드와 서버 설정을 다뤄요." },
+  play: { icon: "music", name: "재생", about: "곡을 틀고, 멈추고, 넘기고, 재생 위치를 옮겨요." },
+  queue: { icon: "queue", name: "대기열", about: "대기열을 보고, 곡을 빼거나 순서를 바꾸고, 섞어요." },
+  mode: { icon: "modes", name: "모드 & 오디오", about: "반복, 자동재생, 볼륨을 설정해요." },
+  explore: { icon: "search", name: "탐색 & 정보", about: "곡을 검색하고, 재생 중인 곡의 정보를 봐요." },
+  channel: { icon: "session", name: "채널 & 세션", about: "봇을 부르거나 내보내고, 상주 모드와 서버 설정을 바꿔요." },
   info: { icon: "stats", name: "봇 정보", about: "응답 시간, 라이선스, 초대 링크 같은 봇 정보를 봐요." },
 };
 /** 섹션의 아이콘 키, 이름, 설명 */
@@ -21,7 +21,7 @@ const TIER_MARK: Record<HelpTier, () => string> = {
   everyone: () => "",
   dj: () => icon("dj"),
   "dj-or-requester": () => `${icon("dj")} (자기가 추가한 곡은 누구나)`,
-  "dj-outside-bot-channel": () => `(봇 전용 채널에서는 누구나, 그 외 ${icon("dj")})`,
+  "dj-outside-bot-channel": () => `(봇 전용 채널에서는 누구나, 그 외에는 ${icon("dj")})`,
   "server-manager": () => icon("shield"),
   owner: () => icon("owner"),
 };
@@ -46,7 +46,7 @@ const legend = (tiers: HelpTier[], locked: boolean) => [...[...new Set(tiers.map
 const home = ({ play, help, sections }: { play: string; help: string; sections: HelpSection[] }) => ({
   title: "도움말",
   lines: [`음성 채널에 들어가서 ${play}로 곡을 틀어요. 재생 패널의 버튼으로도 조작할 수 있어요.`, "", ...sections.map((key) => `**${icon(SECTION[key].icon)} ${SECTION[key].name}**: ${SECTION[key].about}`)],
-  footer: `아래 메뉴나 ${help}의 분류 칸으로 분류마다 명령어를 볼 수 있어요.`,
+  footer: `아래 메뉴나 ${help}의 분류 옵션으로 분류별 명령어를 볼 수 있어요.`,
 });
 
 /** /help 의 분류 칸, 메뉴와 버튼 */

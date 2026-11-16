@@ -243,7 +243,19 @@ test("세션 행: 저장, 조회, 위치 갱신은 위치만 바꾼다", () => {
 
   const { session } = loaded(store);
   assert.equal(session.positionMs, 99_000);
-  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined });
+  assert.deepEqual({ ...session, positionMs: undefined }, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, loopMode: "queue", autoplay: "kpop", userPaused: true, positionMs: undefined, autoResume: true });
+});
+
+test("세션 행: /join 으로만 이어 듣게 저장하면 자동 이어 틀기가 꺼지고, 표시만 다시 켜면 다른 열은 그대로다", () => {
+  const { store } = open();
+  store.saveSession(G, { voiceChannelId: "v1", textChannelId: "c1", volume: 40, positionMs: 7000, autoResume: false });
+  assert.equal(loaded(store).session.autoResume, false);
+  store.markAutoResume(G);
+  const { session } = loaded(store);
+  assert.equal(session.autoResume, true);
+  assert.deepEqual([session.volume, session.positionMs], [40, 7000], "위치를 덮지 않는다");
+  store.saveSession(G, { voiceChannelId: "v1" });
+  assert.equal(loaded(store).session.autoResume, true, "빠지면 참");
 });
 
 test("지금 곡이 바뀌면(지정, 대기열에서 꺼내기, 비우기) 위치가 0이 된다. 앞 곡의 위치가 새 곡에 남지 않는다", () => {

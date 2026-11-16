@@ -25,7 +25,7 @@ afterEach(() => {
 
 // 서버 하나. channels.fetch 의 답과 봇의 채널 권한을 준다
 function guildOf(id: string, { fetched = "voice" as "voice" | "gone" | "denied" | "fails" | "stage", allowed = true } = {}) {
-  const channel = { id: "vc1", name: "음성", type: fetched === "stage" ? ChannelType.GuildStageVoice : ChannelType.GuildVoice, isVoiceBased: () => true, isThread: () => false, permissionsFor: () => ({ has: (flag: bigint) => allowed && (flag === PermissionFlagsBits.Connect || flag === PermissionFlagsBits.Speak) }) };
+  const channel = { id: "vc1", name: "음성", type: fetched === "stage" ? ChannelType.GuildStageVoice : ChannelType.GuildVoice, isVoiceBased: () => true, isThread: () => false, permissionsFor: () => ({ has: (flag: bigint) => allowed && (flag === PermissionFlagsBits.ViewChannel || flag === PermissionFlagsBits.Connect || flag === PermissionFlagsBits.Speak) }) };
   const fetch = async () => {
     if (fetched === "gone") throw Object.assign(new Error("Unknown Channel"), { code: RESTJSONErrorCodes.UnknownChannel });
     if (fetched === "denied") throw Object.assign(new Error("Missing Access"), { code: RESTJSONErrorCodes.MissingAccess });
@@ -36,7 +36,7 @@ function guildOf(id: string, { fetched = "voice" as "voice" | "gone" | "denied" 
 }
 
 // 지킴이와 그가 부른 것. joined: 붙기의 결과
-function world(guilds: Guild[], { joined = "joined" as JoinResult["kind"] | "refused-permission" } = {}) {
+function world(guilds: Guild[], { joined = "joined" as JoinResult["kind"] | "refused-permission" | "refused-full" | "refused-timed-out" } = {}) {
   const calls: string[] = [];
   const alive = new Set<string>();
   const reconsidered: string[] = [];
@@ -45,6 +45,8 @@ function world(guilds: Guild[], { joined = "joined" as JoinResult["kind"] | "ref
   const join = async (_bot: unknown, { guild }: { guild: Guild }): Promise<JoinResult> => {
     calls.push(`join:${guild.id}`);
     if (joined === "refused-permission") return { kind: "refused", code: "permission-voice" };
+    if (joined === "refused-full") return { kind: "refused", code: "voice-full" };
+    if (joined === "refused-timed-out") return { kind: "refused", code: "bot-timed-out" };
     if (joined === "refused") return { kind: "refused", code: "voice-failed" };
     return { kind: "joined", player: fake({ idle: { reconsider: () => void reconsidered.push(guild.id) } }) } as JoinResult;
   };
@@ -87,6 +89,19 @@ test("끝난 실패(디스코드의 확답)는 자리를 끄고 알린다: 채�
   const refused = world([guildOf("g1")], { joined: "refused-permission" });
   await refused.keeper.attempt("g1");
   assert.equal(staySeats.seatOf("g1"), null);
+});
+
+test("채널이 꽉 찼거나 봇이 타임아웃이라 거절되면 자리를 남기고 나중에 다시 붙어 본다(지나가는 것이다)", async (t) => {
+  for (const joined of ["refused-full", "refused-timed-out"] as const) {
+    staySeats.set("g1", "vc1");
+    const w = world([guildOf("g1")], { joined });
+    t.after(() => w.keeper.stop());
+    assert.equal(await w.keeper.attempt("g1"), false, joined);
+    assert.ok(staySeats.seatOf("g1"), `${joined}: 자리를 끄지 않는다`);
+    assert.deepEqual(w.calls, ["join:g1"], `${joined}: 알리지 않는다`);
+    assert.ok(w.keeper.timers.has("g1"), `${joined}: 다시 붙을 때를 건다`);
+    w.keeper.stop();
+  }
 });
 
 test("일시적 실패는 자리를 남기고 1, 2, 5, 10, 30분(이후 30분마다) 뒤 다시", async (t) => {

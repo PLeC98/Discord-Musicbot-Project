@@ -105,20 +105,20 @@ test("링크 라벨: 웹훅, 임베드(emojiLinks)는 이모지를 그대로 두
 });
 
 test("now-playing 제목은 라벨에 들어가고, 라벨을 닫는 ](만 끊긴다", async () => {
-  const mem = new NowPlayingPanel(fake<Client>({}), new Map());
+  const panels = new NowPlayingPanel(fake<Client>({}), new Map());
   const track: QueuedTrack = { title: "게임 실황 [Official] my_song_name", pageUrl: "https://ok.example", requestKey: "https://ok.example", duration: 100, platform: "youtube", thumbnail: null, artist: "아티스트" };
   const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
 
-  const container = await mem.createNowPlayingContainer(player, track);
+  const container = await panels.createNowPlayingContainer(player, track);
   const json = JSON.stringify(container.toJSON());
 
   assert.ok(json.includes("게임 실황 [Official] my_song_name"), "제목이 변형 없이 들어가야 한다");
   assert.ok(!json.includes("my\\\\_song"), "라벨에 백슬래시가 들어가면 화면에 그대로 노출된다");
-  const evil = JSON.stringify((await mem.createNowPlayingContainer(player, { ...track, title: EVIL_LABEL })).toJSON());
+  const evil = JSON.stringify((await panels.createNowPlayingContainer(player, { ...track, title: EVIL_LABEL })).toJSON());
   assert.ok(!escapesLabel(evil), evil);
   const emoji = { ...track, title: "Song \u{1F3B5}" };
-  assert.ok(JSON.stringify((await mem.createNowPlayingContainer(player, emoji, false, null, true)).toJSON()).includes("[Song \u{1F3B5}]("), "웹훅 패널은 이모지 그대로");
-  assert.ok(JSON.stringify((await mem.createNowPlayingContainer(player, emoji, false, null)).toJSON()).includes("[Song \u{1F3B5}\uFE0E]("), "채널 메시지 패널은 글자 모양");
+  assert.ok(JSON.stringify((await panels.createNowPlayingContainer(player, emoji, false, null, true)).toJSON()).includes("[Song \u{1F3B5}]("), "웹훅 패널은 이모지 그대로");
+  assert.ok(JSON.stringify((await panels.createNowPlayingContainer(player, emoji, false, null)).toJSON()).includes("[Song \u{1F3B5}\uFE0E]("), "채널 메시지 패널은 글자 모양");
 });
 
 test("/nowplaying 곡 정보: 지금 곡과 다음 곡의 제목이 라벨을 닫지 못한다", () => {

@@ -72,7 +72,7 @@ test("세션을 복원하다 종료 중이라 붙지 못하면 bot-shutting-down
   const player = fake<Player>({
     voice: { isAlive: () => false },
     bindChannels: () => {},
-    persistence: { restoreFromState: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
+    persistence: { restoreSession: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) },
     dispose: async (o: { end: string }) => void disposed.push(o.end),
   });
   const result = await join({ players: new Map([["g-rs", player]]) }, { guild, member, textChannel: fake<GuildTextBasedChannel>({ id: "t1" }) });
@@ -95,6 +95,45 @@ test("붙는 사이 종료가 시작돼 연결이 거절되면 voice-failed 가 
   const result = await join({ players: new Map([["g-cf", player]]) }, { guild, member, textChannel: fake<GuildTextBasedChannel>({ id: "t1" }) });
   assert.deepEqual(result, { kind: "refused", code: "bot-shutting-down" });
   assert.deepEqual(disposed, ["replaced:keep", "connect-failed:keep"]);
+});
+
+test("24/7 자리 지킴이(joinChannel)는 /join 으로만 이어 듣게 남긴 세션을 이어 틀지 않고 곡 없이 붙는다. 세션은 남는다. /join 은 이어 튼다", async () => {
+  const channel = fake<VoiceBasedChannel>({ id: "v1", permissionsFor: () => ({ has: () => true }) });
+  const guild = fake<Guild>({ id: "g-auto", members: { me: { voice: { channel: null } } }, channels: { cache: new Map() } });
+  const text = fake<GuildTextBasedChannel>({ id: "t1" });
+  const steps: string[] = [];
+  const player = fake<Player>({
+    voice: { isAlive: () => false, connect: async () => void steps.push("connect") },
+    bindChannels: () => {},
+    persistence: { restoreSession: async () => (steps.push("restore"), "restored") },
+    dispose: async () => {},
+    showIdleVoiceStatus: () => {},
+    idle: { scheduleEmpty: () => {} },
+    currentTrack: null,
+    queue: [],
+  });
+  const players = new Map([["g-auto", player]]);
+  const save = (autoResume: boolean) => {
+    sessions().saveSession("g-auto", { voiceChannelId: "v1", textChannelId: "t1", autoResume });
+    sessions().setCurrent("g-auto", { ...youtube("aaaaaaaaaaa"), requestedBy: { id: "u1" } });
+  };
+
+  save(false);
+  assert.equal((await joinChannel({ players }, { guild, channel, textChannel: text })).kind, "joined");
+  assert.deepEqual(steps, ["connect"], "복원하지 않는다");
+  assert.ok(sessions().load("g-auto")?.current, "세션은 남는다");
+
+  steps.length = 0;
+  save(true);
+  assert.equal((await joinChannel({ players }, { guild, channel, textChannel: text })).kind, "restored");
+  assert.deepEqual(steps, ["restore"], "자동으로 이어 틀어도 되는 세션(종료, 복구 포기)은 지금처럼 복원한다");
+
+  steps.length = 0;
+  save(false);
+  const member = fake<GuildMember>({ id: "u1", voice: { channel } });
+  assert.equal((await join({ players }, { guild, member, textChannel: text })).kind, "restored");
+  assert.deepEqual(steps, ["restore"], "/join 은 이어 튼다");
+  sessions().removeSession("g-auto");
 });
 
 test("명령의 받아들임(accepted): 동기 거절이면 부르지 않는다. 답한 사이 사람이 나갔거나 다른 채널로 옮겼으면 지금 채널로 다시 본다", async () => {

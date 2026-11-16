@@ -1,4 +1,4 @@
-// NDJSON 파일 destination. LogManager.destinations에 얹히는 소비자 하나.
+// NDJSON 파일 destination. LogSink.destinations에 얹히는 소비자 하나.
 //
 // 파일 쓰기는 facade(logger.ts)가 아니라 destination 에 둔다. pino transport 와 같은 자리라 로거를 바꿔도 부르는 쪽은 그대로다.
 //
@@ -99,7 +99,7 @@ function lineOf(rec: LogRecord): string {
   const dropped = Object.keys(rec).filter((key) => !(key in kept));
   const names = dropped.slice(0, DROPPED_NAMES).map((key) => key.slice(0, DROPPED_NAME_CHARS));
   const more = dropped.length > DROPPED_NAMES ? ` 외 ${dropped.length - DROPPED_NAMES}개` : "";
-  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 기록 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${names.join(", ")}${more}`;
+  kept.msg = `${(kept.msg as string | undefined) ?? ""} | 로그 줄이 상한을 넘어(${bytes}바이트) 뺀 필드: ${names.join(", ")}${more}`;
   return `${JSON.stringify(kept)}\n`;
 }
 

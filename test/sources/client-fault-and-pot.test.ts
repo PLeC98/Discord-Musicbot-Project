@@ -9,7 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { LogRecord } from "../../src/infra/log/sink.ts";
 
-const YouTube = await import("../../src/sources/youtube/index.ts");
+const youtubeSource = await import("../../src/sources/youtube/index.ts");
 const { NEEDS_POT } = await import("../../src/sources/youtube/clients.ts");
 const sink = (await import("../../src/infra/log/sink.ts")).default;
 
@@ -30,7 +30,7 @@ function capture(line: string, client: string | null) {
   const listen = (r: LogRecord) => records.push(r);
   sink.destinations.push(listen);
   try {
-    YouTube._inspectWarnings(line, client);
+    youtubeSource._inspectWarnings(line, client);
   } finally {
     sink.destinations.splice(sink.destinations.indexOf(listen), 1);
   }
@@ -41,25 +41,25 @@ function capture(line: string, client: string | null) {
 
 test("건너뛴 클라이언트는 실패로 세지 않는다", () => {
   const error = err(SKIPPED);
-  assert.equal(YouTube.isSkippedClientError(error), true);
-  assert.equal(YouTube.isClientFault(error), false, "돌아 본 적 없는 클라이언트를 제외 대상으로 세면 안 된다");
+  assert.equal(youtubeSource.isSkippedClientError(error), true);
+  assert.equal(youtubeSource.isClientFault(error), false, "돌아 본 적 없는 클라이언트를 제외 대상으로 세면 안 된다");
 });
 
 test("진짜 포맷 실패는 그대로 클라이언트 탓으로 본다", () => {
   // 건너뛴 흔적이 없으면 같은 메시지라도 판정이 달라야 한다
-  assert.equal(YouTube.isClientFault(err("ERROR: [youtube] X: Requested format is not available")), true);
-  assert.equal(YouTube.isClientFault(err("ERROR: [youtube] X: Only images are available for download")), true);
+  assert.equal(youtubeSource.isClientFault(err("ERROR: [youtube] X: Requested format is not available")), true);
+  assert.equal(youtubeSource.isClientFault(err("ERROR: [youtube] X: Only images are available for download")), true);
 });
 
 test("건너뛴 판정이 다른 분류를 건드리지 않는다", () => {
   const error = err(SKIPPED);
-  assert.equal(YouTube.isVideoUnavailableError(error), false, "영상이 내려간 것으로 보면 자동재생이 곡을 영구히 버린다");
-  assert.equal(YouTube.isStaleMediaError(error), false);
+  assert.equal(youtubeSource.isVideoUnavailableError(error), false, "영상이 내려간 것으로 보면 자동재생이 곡을 영구히 버린다");
+  assert.equal(youtubeSource.isStaleMediaError(error), false);
 });
 
 test("건너뛴 흔적이 없는 오류는 false", () => {
-  assert.equal(YouTube.isSkippedClientError(err("ERROR: [youtube] X: Video unavailable")), false);
-  assert.equal(YouTube.isSkippedClientError(null), false);
+  assert.equal(youtubeSource.isSkippedClientError(err("ERROR: [youtube] X: Video unavailable")), false);
+  assert.equal(youtubeSource.isSkippedClientError(null), false);
 });
 
 // ── POToken 경고 ─────────────────────────────────────────────────────────

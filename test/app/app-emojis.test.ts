@@ -141,7 +141,7 @@ test("관리하는 이름 중 쓰지 않는 것(옛 아이콘, 남은 임시 이
     { id: "3", name: "party", animated: false, mine: true },
   ]);
   await sync(app.api, { onChanged: async () => {} });
-  assert.ok(app.calls.includes("remove voice"), "옛 이름(RETIRED_EMOJI_NAMES)");
+  assert.ok(app.calls.includes("remove voice"), "옛 이름(FORMER_EMOJIS)");
   assert.ok(app.calls.includes("remove pause_1"), "임시 이름");
   assert.ok(!app.calls.includes("remove party"), "대시보드에서 올린 것처럼 관리하지 않는 이름");
   assert.ok(app.calls.indexOf("remove voice") < app.calls.findIndex((one) => one.startsWith("create")), "자리를 비우려고 먼저");

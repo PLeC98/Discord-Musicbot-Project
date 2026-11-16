@@ -11,7 +11,7 @@ const wlog = logger.child({ category: "watchdog" });
 import type { Player } from "./player.ts";
 
 /** 감시가 읽고 멈추는 플레이어 필드 */
-type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback" | "lifecycle" | "isRecovering" | "onTrackEnd">;
+type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "getCurrentTime" | "isLive" | "_stopWith" | "playback" | "lifecycle" | "isVoiceRecovering" | "onTrackEnd">;
 
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 const OVERFLOW_MS = 30_000; // 위치가 길이를 이만큼 넘기면 멈춘다
@@ -102,7 +102,7 @@ class PlaybackWatch {
     // 실패로 일시정지해 둔 곡(parked)은 소리 없이 기다리는 것이 맞다
     if (!player.currentTrack || player.audioPlayer.state.status !== AudioPlayerStatus.Idle || player.lifecycle.released) return;
     // 곡을 여는 중, 끝 처리 중, 음성 복구 중이면 그 작업이 끝난 뒤 다시 본다
-    if (player.lifecycle.starting || player.lifecycle.ending || player.isRecovering) return this.armIdle();
+    if (player.lifecycle.starting || player.lifecycle.ending || player.isVoiceRecovering) return this.armIdle();
     wlog.warn(`곡이 있는데 오디오가 ${IDLE_STUCK_MS / 1000}초 넘게 멈춰 있어 곡을 끝냄: ${player._trackLabel()}`);
     this.armIdle(); // 넘긴 곡도 틀지 못하면 다시 본다
     player.onTrackEnd("stuck").catch((error) => wlog.error("멈춘 곡 스킵 처리 실패:", error));

@@ -1,4 +1,4 @@
-// src/ui/now-playing-panel.ts: 현재 재생 임베드의 자가 복구. 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
+// src/ui/now-playing-panel.ts: 재생 패널의 자가 복구. 지워졌으면 다시 올리고, 전용 채널에서는 맨 아래에 둔다.
 // 사용자가 임베드를 지워도 5초 갱신마다 10008(Unknown Message)을 error로 찍지 않는다.
 
 import sink from "../../src/infra/log/sink.ts";
@@ -79,7 +79,7 @@ function makeSetup(state: State = {}) {
   const client = fake<Client>({
     user: { username: "bot", displayName: "bot", displayAvatarURL: () => "https://example.org/a.png" },
   });
-  const mem = new TestPanels(client, webhook, panelStore);
+  const panels = new TestPanels(client, webhook, panelStore);
 
   const cache = new Collection<string, Cached>();
   const text = {
@@ -103,13 +103,13 @@ function makeSetup(state: State = {}) {
     textChannel: text,
   });
 
-  return { mem, player, calls, state, cache, text };
+  return { panels, player, calls, state, cache, text };
 }
 
 test("지워진 임베드는 다시 올린다. 같은 오류를 반복하지 않는다", async () => {
-  const { mem, player, calls, state } = makeSetup({ editError: gone() });
+  const { panels, player, calls, state } = makeSetup({ editError: gone() });
 
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
 
   assert.equal(calls.sent.length, 1, "새 메시지를 한 번 보낸다");
   assert.equal(player.nowPlayingMessage?.id, calls.sent[0], "참조가 새 메시지로 바뀐다");
@@ -117,7 +117,7 @@ test("지워진 임베드는 다시 올린다. 같은 오류를 반복하지 않
 
   // 다음 갱신은 새 메시지를 편집한다. 사라진 id로 계속 두드리지 않는다
   state.editError = null;
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
   assert.deepEqual(calls.edited, ["100", calls.sent[0]]);
 });
 
@@ -126,21 +126,21 @@ test("다시 올린 까닭: 패널이 있던 채널이 서버에 없으면 채�
     [true, "메시지가 삭제됨"],
     [false, "패널이 있던 채널이 삭제됨"],
   ] as const) {
-    const { mem, player } = makeSetup({ editError: gone() });
+    const { panels, player } = makeSetup({ editError: gone() });
     player.nowPlayingMessage = { id: "100", channel_id: "panel-chan" };
     player.guild = fake<typeof player.guild>({ id: "g1", channels: { cache: new Map(cached ? [["panel-chan", {}]] : []) } });
     const from = sink.buffer.length;
-    await mem.updatePlaying(player);
+    await panels.updatePlaying(player);
     assert.ok(
-      sink.buffer.slice(from).some((e) => e.text === `재생 중 임베드 다시 올림: ${reason}`),
+      sink.buffer.slice(from).some((e) => e.text === `재생 패널 다시 올림: ${reason}`),
       reason,
     );
   }
 });
 
 test("패널의 텍스트 채널이 지워졌으면(10003) 다시 올리지 않고 패널을 놓는다. 재생은 그대로", async () => {
-  const { mem, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
-  await mem.updatePlaying(player);
+  const { panels, player, calls } = makeSetup({ editError: Object.assign(new Error("Unknown Channel"), { code: 10003 }) });
+  await panels.updatePlaying(player);
   assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
   assert.equal(player.nowPlayingMessage, null);
   assert.equal(player.nowPlayingWebhook, null);
@@ -150,9 +150,9 @@ test("패널의 텍스트 채널이 지워졌으면(10003) 다시 올리지 않�
 
 test("REST 가 제한 시간에 끊은 갱신은 패널을 건드리지 않는다(다음 갱신이 다시 한다)", async () => {
   const timedOut = Object.assign(new Error("This operation was aborted"), { name: "AbortError" });
-  const { mem, player, calls } = makeSetup({ editError: timedOut });
+  const { panels, player, calls } = makeSetup({ editError: timedOut });
   const from = sink.buffer.length;
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
   assert.deepEqual(calls.sent, []);
   assert.equal(player.nowPlayingMessage?.id, "100", "참조를 그대로 둔다");
   const levels = sink.buffer.slice(from).map((e) => e.level);
@@ -164,56 +164,56 @@ const unknownChannel = () => Object.assign(new Error("Unknown Channel"), { code:
 const levelsSince = (from: number) => sink.buffer.slice(from).map((e) => e.level);
 
 test("네트워크가 끊겨 갱신이 잇달아 실패하면 처음 한 번만 warn, 풀리면 info 한 줄. 패널은 그대로", async () => {
-  const { mem, player, calls, state } = makeSetup({ editError: offline() });
+  const { panels, player, calls, state } = makeSetup({ editError: offline() });
   const from = sink.buffer.length;
-  for (let i = 0; i < 3; i++) await mem.updatePlaying(player);
+  for (let i = 0; i < 3; i++) await panels.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn"]);
   assert.deepEqual(calls.sent, [], "다시 올리지 않는다");
   assert.equal(player.nowPlayingMessage?.id, "100");
 
   state.editError = null;
-  await mem.updatePlaying(player);
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
+  await panels.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn", "info"]);
 
   state.editError = offline();
-  await mem.updatePlaying(player);
-  mem.stopProgressUpdate("g1");
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
+  panels.stopProgressUpdate("g1");
+  await panels.updatePlaying(player);
   assert.deepEqual(levelsSince(from), ["warn", "info", "warn", "warn"], "갱신을 멈췄다 다시 시작한 뒤의 실패는 새 사건");
 });
 
 test("다시 올리려는데 텍스트 채널이 지워졌으면(10003) 패널을 놓는다. 오류가 아니다", async () => {
-  const { mem, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
+  const { panels, player } = makeSetup({ editError: gone(), sendError: unknownChannel() });
   const from = sink.buffer.length;
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
   assert.equal(player.nowPlayingMessage, null);
   assert.equal(player.textChannel, null);
   assert.deepEqual(levelsSince(from), ["info"]);
 });
 
 test("다시 올리기가 네트워크로 실패하면 warn", async () => {
-  const { mem, player } = makeSetup({ editError: gone(), sendError: offline() });
+  const { panels, player } = makeSetup({ editError: gone(), sendError: offline() });
   const from = sink.buffer.length;
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
   assert.equal(player.nowPlayingMessage, null);
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
 
 test("웹훅 조회: 채널이 지워졌으면(10003) 남기지 않고 없다고 한다(보내는 쪽이 받는다). 다른 실패는 error", async () => {
-  const { mem } = makeSetup();
+  const { panels } = makeSetup();
   const channelThrowing = (error: Error) => fake<GuildTextBasedChannel>({ id: "c9", fetchWebhooks: async () => Promise.reject(error) });
   const from = sink.buffer.length;
-  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(unknownChannel())), null);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(panels, channelThrowing(unknownChannel())), null);
   assert.deepEqual(levelsSince(from), []);
-  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(mem, channelThrowing(new Error("Missing Permissions"))), null);
+  assert.equal(await NowPlayingPanel.prototype.getOrCreateWebhook.call(panels, channelThrowing(new Error("Missing Permissions"))), null);
   assert.deepEqual(levelsSince(from), ["error"]);
 });
 
 test("끝난 패널로 바꾸기가 네트워크로 실패하면 warn", async () => {
-  const { mem, player } = makeSetup({ editError: offline() });
+  const { panels, player } = makeSetup({ editError: offline() });
   const from = sink.buffer.length;
-  await mem._showIdle(player, player.nowPlayingMessage, { reason: "queue-end", dedicated: false });
+  await panels._showIdle(player, player.nowPlayingMessage, { reason: "queue-end", dedicated: false });
   assert.deepEqual(levelsSince(from), ["warn"]);
 });
 
@@ -226,10 +226,10 @@ test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않
     await blocked;
     state.editError = undefined;
   };
-  const { mem, player, calls } = makeSetup(state);
+  const { panels, player, calls } = makeSetup(state);
 
-  const first = mem.updatePlaying(player);
-  const second = mem.updatePlaying(player);
+  const first = panels.updatePlaying(player);
+  const second = panels.updatePlaying(player);
   release();
   await Promise.all([first, second]);
 
@@ -238,57 +238,57 @@ test("다시 올리는 중 들어온 갱신은 메시지를 겹쳐 올리지 않
 });
 
 test("보내는 사이 재생이 끝나면 방금 올린 메시지를 도로 지운다", async () => {
-  const { mem, player, calls } = makeSetup();
+  const { panels, player, calls } = makeSetup();
 
   // 전송이 끝나기 직전 drawEndedPanel이 참조를 비우는 상황
-  mem.sendAs = async () => {
+  panels.sendAs = async () => {
     player.nowPlayingMessage = null;
     player.currentTrack = null;
-    return { message: { id: "999", channel_id: BOT_CHANNEL }, webhook: mem.webhook };
+    return { message: { id: "999", channel_id: BOT_CHANNEL }, webhook: panels.webhook };
   };
 
-  await mem._repostNowPlaying(player, "테스트");
+  await panels._repostNowPlaying(player, "테스트");
 
   assert.equal(player.nowPlayingMessage, null, "끝난 재생의 임베드를 되살리지 않는다");
   assert.ok(calls.deleted.includes("999"), "뒤늦게 올라간 메시지는 지운다");
 });
 
 test("다시 올리지 못하면 참조를 버리고 갱신을 멈춘다", async () => {
-  const { mem, player } = makeSetup({ editError: gone(), sendError: new Error("Missing Permissions") });
-  mem.progressTimers.set(
+  const { panels, player } = makeSetup({ editError: gone(), sendError: new Error("Missing Permissions") });
+  panels.progressTimers.set(
     "g1",
     setTimeout(() => {}, 60000),
   );
 
-  await mem.updatePlaying(player);
+  await panels.updatePlaying(player);
 
   assert.equal(player.nowPlayingMessage, null);
-  assert.equal(mem.progressTimers.has("g1"), false, "5초 타이머도 멈춘다");
+  assert.equal(panels.progressTimers.has("g1"), false, "5초 타이머도 멈춘다");
 });
 
 test("전용 채널에서 임베드가 묻혔는지 판정한다", async () => {
-  const { mem, player, cache, text } = makeSetup();
+  const { panels, player, cache, text } = makeSetup();
   tempStore.setGuild("g1", { botChannel: BOT_CHANNEL });
   const now = Date.now();
 
   try {
-    assert.equal(await mem._isBuried(player, now), false, "혼자면 맨 아래다");
+    assert.equal(await panels._isBuried(player, now), false, "혼자면 맨 아래다");
 
     cache.set("50", { id: "50", createdTimestamp: now - 60000 });
-    assert.equal(await mem._isBuried(player, now), false, "위쪽의 옛 메시지는 상관없다");
+    assert.equal(await panels._isBuried(player, now), false, "위쪽의 옛 메시지는 상관없다");
 
     cache.set("150", { id: "150", createdTimestamp: now - 3000 });
-    assert.equal(await mem._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
+    assert.equal(await panels._isBuried(player, now), false, "곧 스스로 지워질 안내는 쫓지 않는다");
 
     cache.set("155", { id: "155", createdTimestamp: now - 20000 });
     markTransient("155", 30000, now - 20000);
-    assert.equal(await mem._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
+    assert.equal(await panels._isBuried(player, now), false, "오래 떠 있어도 스스로 지워질 메시지(더 넣기 메뉴)는 세지 않는다");
 
     cache.set("160", { id: "160", createdTimestamp: now - 30000 });
-    assert.equal(await mem._isBuried(player, now), true, "남아 있는 새 메시지 밑이면 묻힌 것");
+    assert.equal(await panels._isBuried(player, now), true, "남아 있는 새 메시지 밑이면 묻힌 것");
 
     text.id = "other";
-    assert.equal(await mem._isBuried(player, now), false, "전용 채널이 아니면 건드리지 않는다");
+    assert.equal(await panels._isBuried(player, now), false, "전용 채널이 아니면 건드리지 않는다");
   } finally {
     tempStore.setGuild("g1", { botChannel: null });
   }

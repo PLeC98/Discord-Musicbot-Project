@@ -9,9 +9,13 @@ const stateDb = new DbFile({
   fileName: "state.db",
   // 2: 곡마다 음원 주소를 어떻게 알았는지(session_tracks.audio_found_by)
   // 3: 사람이 일시정지한 것(player_sessions.user_paused)
-  version: 3,
+  // 4: 명령 없이 붙는 길도 이어 틀어도 되는가(player_sessions.auto_resume)
+  version: 4,
   synchronous: "NORMAL",
-  onMismatch: { lost: "저장된 대기열, 음성 채널 상태, 재생 패널 위치가 사라짐" },
+  // 기다리지 않는다. 재시작 때 이어 가려고 남기는 사본이라 실패해도 다음 쓰기가 메운다(위치, 세션 행은 다음 틱, 대기열은 통째로 다시 쓰기).
+  // 기다리면 그동안 재생이 멎는다(DB 편집기가 수정한 뒤 저장하기 전까지 잠금을 쥔다)
+  busyTimeoutMs: 0,
+  onMismatch: { lost: "저장된 대기열, 음성 채널 상태, 재생 패널 위치, 24/7 상주 채널이 사라짐" },
   createTables,
 });
 
@@ -26,7 +30,9 @@ function createTables(db: Db) {
       loop_mode              TEXT    NOT NULL DEFAULT 'off' CHECK (loop_mode IN ('off', 'track', 'queue')),
       autoplay               TEXT,
       user_paused            INTEGER NOT NULL DEFAULT 0,
-      position_ms            INTEGER NOT NULL DEFAULT 0
+      position_ms            INTEGER NOT NULL DEFAULT 0,
+      -- 기동 복원, 24/7 자리 지킴이처럼 명령 없이 붙는 길도 이어 틀어도 되는가. /leave, 혼자 남아 나감은 0이다(/join 으로만 이어 듣는다)
+      auto_resume            INTEGER NOT NULL DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS session_tracks (

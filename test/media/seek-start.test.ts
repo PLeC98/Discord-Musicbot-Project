@@ -103,6 +103,15 @@ test("헤더 요청이 206 이 아니면, 받지 못하면, 한도를 넘으면 
   assert.ok(!slow.ok && slow.slow === true, JSON.stringify(slow));
 });
 
+test("헤더 요청의 주소가 거절되면(4xx) 그 상태를 refused 로 준다(처음부터 받아도 같은 답이다). 416 은 아니다", async (t) => {
+  const file = files.webm;
+  if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
+  const refused = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 403 }).fetchImpl });
+  assert.ok(!refused.ok && refused.refused === 403 && !refused.failed, JSON.stringify(refused));
+  const range = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 416 }).fetchImpl });
+  assert.ok(!range.ok && !range.refused && range.failed === true, JSON.stringify(range));
+});
+
 test("곡 길이가 색인과 크게 다르면(시간 축을 잘못 읽은 것) 없음", async (t) => {
   const file = files.m4a;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");

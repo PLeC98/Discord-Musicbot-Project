@@ -163,7 +163,7 @@ test("검사: 장르의 실제 길이 범위(기본값 위에 얹은 것)가 뒤
 });
 
 // 비운 최소 길이는 기본값(GENRE_DEFAULTS)으로 돈다. 그 값보다 짧은 상한이면 아무 곡도 지나가지 못한다
-test("검사: 최소 길이를 비우면 기본값과 상한을 견준다", () => {
+test("검사: 최소 길이를 비우면 기본값과 상한을 비교한다", () => {
   const of = (defaults: object, genre: object = {}) => genreConfig.validateGenres({ defaults, genres: { 팝: { ...genre, sources: [{ type: "keyword", keywords: ["a"] }] } } }).join(" ");
   const min = GENRE_DEFAULTS.minDurationSec;
   assert.ok(of({ maxDurationSec: 30 }).includes(`maxDurationSec(30)이 minDurationSec의 기본값(${min})보다 작아요`));

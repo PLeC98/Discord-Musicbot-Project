@@ -303,9 +303,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
     },
 
     bot: {
-      defaultVolume: 100,
       maxQueueSize: envQueueMax("QUEUE_MAX_TRACKS", Number(tunable("QUEUE_MAX_TRACKS").def)), // 대기열 곡 수 상한(재생 중인 곡 제외), 0이면 끔
-      playlistAddDefault: 50, // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(/setplaylistlimit)이 없을 때
       embedColor: envColor("EMBED_COLOR", tunable("EMBED_COLOR").def as HexColor),
       website: envUrl("WEBSITE"),
       // /invite 를 등록할지(끄면 등록에서 빠진다), 봇이 새 서버에 들어왔을 때 안내 메시지를 올릴지

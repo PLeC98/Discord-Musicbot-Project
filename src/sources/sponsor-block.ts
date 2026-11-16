@@ -11,7 +11,7 @@
 import crypto from "crypto";
 import * as links from "../rules/links.ts";
 import config from "../config/index.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 import { httpFor, reasonOf, type Judged } from "../infra/http.ts";
@@ -230,7 +230,7 @@ async function forTrack(track: { audioUrl?: string | null; [field: string]: unkn
   const videoId = _trackVideoId(track);
   if (!videoId) return null;
 
-  const eff = GuildSettingsManager.resolveSponsorBlock(guildId);
+  const eff = guildSettings.resolveSponsorBlock(guildId);
   if (!eff.enabled) return null;
 
   let entry = remembered.get(videoId);

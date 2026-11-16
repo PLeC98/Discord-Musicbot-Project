@@ -25,9 +25,13 @@ const SHARED = {
   "guild-only": { status: 403, title: "Server-only command" },
   // 봇에게 디스코드 권한이 없음
   "permission-voice": { status: 409, title: "Bot lacks voice channel permissions" },
+  "bot-timed-out": { status: 409, title: "Bot is timed out" },
   "permission-text": { status: 409, title: "Bot lacks text channel permissions" },
   "permission-other": { status: 409, title: "Bot lacks a required permission" },
   // 지금 상태로는 못 함
+  // 전용 채널에 채팅으로 곡을 넣었는데 봇이 메시지 내용을 읽지 못한다(Message Content Intent 꺼짐)
+  "text-entry-off": { status: 409, title: "Cannot read messages in this channel" },
+  "voice-full": { status: 409, title: "Voice channel is full" },
   "no-song": { status: 409, title: "Nothing is playing" },
   "queue-empty": { status: 409, title: "Queue is empty" },
   "queue-full": { status: 409, title: "Queue is full", params: ["max"] },
@@ -136,6 +140,12 @@ const WEB = {
   "bad-tier": { status: 400, title: "Unknown permission tier" },
   // 대시보드: 상태
   "bot-not-ready": { status: 503, title: "Bot is not ready" },
+  // 대시보드의 서버 화면: 봇이 멤버 갱신, 탈퇴를 받지 않아(Server Members Intent 꺼짐) 권한을 판정할 수 없다
+  // 운영자 패널의 특권 인텐트 켜기: 서버가 100개 이상이라 스위치가 아니라 디스코드의 승인이 필요하다, 앱 설정에 스위치(flags)가 없다, 디스코드가 받지 않았다
+  "intent-needs-approval": { status: 409, title: "This intent needs Discord approval at 100 or more servers" },
+  "intent-flags-unknown": { status: 502, title: "Could not read the app's intent switches" },
+  "intent-enable-failed": { status: 502, title: "Could not turn on the intent" },
+  "members-intent-off": { status: 409, title: "Server pages are off because the Server Members Intent is disabled" },
   // 실행기 없이 시작해서 다시 실행해 줄 쪽이 없다
   "restart-unavailable": { status: 409, title: "Restart is not available" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant 를 요구하는 봇이거나, 앱 정보를 아직 못 받았다

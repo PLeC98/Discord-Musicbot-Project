@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from "discord.js";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import logger from "../../infra/log/logger.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -18,7 +18,7 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${GuildSettingsManager.FIELD_LABEL.botChannelId} | ${messageOf(error)}`);
+    log.error(`서버 설정 저장 실패(/setchannel): ${interaction.guild.name} (${interaction.guild.id}) | ${guildSettings.FIELD_LABEL.botChannelId} | ${messageOf(error)}`);
     return false;
   }
 }
@@ -40,7 +40,7 @@ const exported: GuildCommand = {
 
     // 안내를 먼저 보내고(패널 옮기기를 기다리지 않고 답한다) 패널은 그 뒤에 옮긴다. 안내가 실패해도 설정과 패널이 어긋나지 않게 끝까지 옮긴다
     if (action === "remove") {
-      if (!(await saved(interaction, () => GuildSettingsManager.clearBotChannel(guildId)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
+      if (!(await saved(interaction, () => guildSettings.clearBotChannel(guildId)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
       try {
         await interaction.reply(post(screens.saved(settingsText.channelRemoved())));
       } finally {
@@ -51,7 +51,7 @@ const exported: GuildCommand = {
 
     const channel = interaction.options.getChannel("channel") || interaction.channel;
     if (!channel) return noticeSelf(interaction, errors.notice("channel-set-failed")); // 캐시에 없는 채널
-    if (!(await saved(interaction, () => GuildSettingsManager.setBotChannel(guildId, channel.id)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
+    if (!(await saved(interaction, () => guildSettings.setBotChannel(guildId, channel.id)))) return noticeSelf(interaction, errors.notice("channel-set-failed"));
 
     // 안내 뒤에 올려야 패널이 맨 아래에 온다
     try {

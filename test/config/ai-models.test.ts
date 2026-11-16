@@ -149,7 +149,7 @@ test("갱신 모양 검사: 모델 이름이 아니라 필드가 통째로 비�
   assert.deepEqual(models.lostShape(["a"], snap({}), snap({ "a:new": { modelId: "new", schema: [field] } })), []);
 });
 
-test("갱신 모양 검사: 레지스트리 사본은 스스로와 견줘 통과한다", () => {
+test("갱신 모양 검사: 레지스트리 사본은 스스로와 비교해 통과한다", () => {
   const held = fixture();
   const registries = [...new Set(Object.keys(held.profiles).map((id) => id.split(":")[0]))];
   assert.deepEqual(models.lostShape(registries, held, held), []);

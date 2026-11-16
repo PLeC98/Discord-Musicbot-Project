@@ -4,7 +4,7 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { ICONS, RETIRED_EMOJI_NAMES, buttonEmoji, emojiName, icon, iconEntries, isManagedEmojiName, useUploaded, type IconSpec } from "../../src/ui/icons.ts";
+import { ICONS, FORMER_EMOJIS, buttonEmoji, emojiName, icon, iconEntries, isManagedEmojiName, useUploaded, type IconSpec } from "../../src/ui/icons.ts";
 
 afterEach(() => useUploaded(new Map()));
 
@@ -42,7 +42,7 @@ test("앱 이모지 이름은 2 ~ 32자 [A-Za-z0-9_] 이고 서로 겹치지 않
 
 test("낸 이름은 사라지지 않는다: 아이콘 표에서 빠진 이름은 옛 이름 표에 있다", () => {
   // 설정에 적힌 토큰(<:이름:id>)을 찾고 동기화가 옛 이모지를 지우려면 빠진 이름을 알아야 한다.
-  // 새 아이콘을 더했으면 icon-names.json 에 이름을 더하고, 빼거나 이름을 바꿨으면 RETIRED_EMOJI_NAMES 에 더한다
+  // 새 아이콘을 더했으면 icon-names.json 에 이름을 더하고, 빼거나 이름을 바꿨으면 FORMER_EMOJIS 에 더한다
   const shipped = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "icon-names.json"), "utf8")) as string[];
   const current = new Set(iconEntries().map((one) => one.name));
   assert.deepEqual(
@@ -51,16 +51,16 @@ test("낸 이름은 사라지지 않는다: 아이콘 표에서 빠진 이름은
     "새 아이콘 이름을 test/ui/icon-names.json 에 더한다",
   );
   assert.deepEqual(
-    shipped.filter((name) => !current.has(name) && !RETIRED_EMOJI_NAMES[name]),
+    shipped.filter((name) => !current.has(name) && !FORMER_EMOJIS[name]),
     [],
-    "빠진 이름을 RETIRED_EMOJI_NAMES 에 더한다",
+    "빠진 이름을 FORMER_EMOJIS 에 더한다",
   );
   assert.deepEqual(
-    Object.keys(RETIRED_EMOJI_NAMES).filter((name) => current.has(name)),
+    Object.keys(FORMER_EMOJIS).filter((name) => current.has(name)),
     [],
     "옛 이름이 지금 이름과 겹친다",
   );
-  for (const [name, to] of Object.entries(RETIRED_EMOJI_NAMES)) if ("renamed" in to) assert.ok(current.has(to.renamed), `${name} → ${to.renamed} 가 지금 표에 없다`);
+  for (const [name, to] of Object.entries(FORMER_EMOJIS)) if ("renamed" in to) assert.ok(current.has(to.renamed), `${name} → ${to.renamed} 가 지금 표에 없다`);
 });
 
 test("관리하는 이름: 지금 이름, 옛 이름, 그 임시 이름(32자로 잘림)", () => {

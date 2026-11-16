@@ -1,4 +1,4 @@
-// src/infra/log/logger.ts, sink.ts: logger facade + LogManager sink 단위 테스트 (네트워크/DB 없음).
+// src/infra/log/logger.ts, sink.ts: logger facade + LogSink sink 단위 테스트 (네트워크/DB 없음).
 // facade는 sink 없이 buildRecord/게이팅/child를, sink는 격리 인스턴스(intercept:false)로 검증.
 
 import { test, mock } from "node:test";
@@ -10,7 +10,7 @@ import sink from "../../src/infra/log/sink.ts";
 import config from "../../src/config/index.ts";
 import { KEPT_LINES } from "../../src/infra/log/levels.ts";
 const { buildRecord, createLogger, LEVELS } = logger._internals;
-const { LogManager } = sink;
+const { LogSink } = sink;
 // 터미널 소음 억제
 const quiet = () => {};
 
@@ -81,7 +81,7 @@ test("logger.log()는 노출되지 않음 (pino 표면)", () => {
 
 // ── sink: 레드액션 ──────────────────────────────────────────
 test("레드액션: 민감 키 값 마스킹", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   lm.useColor = false;
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
@@ -91,7 +91,7 @@ test("레드액션: 민감 키 값 마스킹", () => {
 });
 
 test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   lm.record({ level: 30, time: Date.now(), msg: "auth Bearer abcDEF123456ghized" });
@@ -100,7 +100,7 @@ test("레드액션: msg 내 Bearer 토큰 마스킹", () => {
 });
 
 test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결의 진행 줄 모양 그대로)", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   // op 0 참가: 토큰 글. op 4 세션 설명: 암호 키 배열. 상태 바뀜: 연결 정보의 토큰과 Uint8Array 로 든 키(객체로 직렬화된다)
@@ -117,7 +117,7 @@ test("레드액션: msg 에 JSON 으로 실린 토큰, 암호 키(음성 연결�
 });
 
 test("레드액션: 메시지 패턴은 msg 밖의 글 값에도 건다(Error 의 stack 은 err 에도 실린다)", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   const log = createLogger({ category: "test" }, null, (rec) => lm.record(rec));
@@ -139,7 +139,7 @@ const TAIL = 4 * 1024;
 
 test("긴 글 값: 앞 12K자와 뒤 4K자를 남기고 가운데를 줄여 터미널, 줄 버퍼, 경고, SSE, destination 이 같은 값을 받는다", () => {
   const terminal: LogRecord[] = [];
-  const lm = new LogManager({ intercept: false, terminal: (r) => terminal.push(r) });
+  const lm = new LogSink({ intercept: false, terminal: (r) => terminal.push(r) });
   const res = fakeRes();
   lm.clients.add(res);
   const got: LogRecord[] = [];
@@ -160,7 +160,7 @@ test("긴 글 값: 앞 12K자와 뒤 4K자를 남기고 가운데를 줄여 터�
 });
 
 test("긴 글 값: 상한까지는 그대로, 기동 초기 레코드도 잘린 채로 재생한다", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const exact = "가".repeat(HEAD + TAIL);
   lm.record({ level: 30, time: 1, msg: exact });
   lm.record({ level: 30, time: 2, msg: exact + "나" });
@@ -171,7 +171,7 @@ test("긴 글 값: 상한까지는 그대로, 기동 초기 레코드도 잘린 
 });
 
 test("긴 글 값: 가린 뒤에 자른다(잘린 자리에 걸린 토큰이 남지 않는다), 서로게이트 짝을 쪼개지 않는다", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const got: LogRecord[] = [];
   lm.destinations.push((r) => got.push(r));
   // 토큰이 앞 12K자의 끝에 걸친다: 자른 뒤에 가리면 "Bearer SEC" 는 패턴(6자 이상)에 맞지 않아 남는다
@@ -188,7 +188,7 @@ test("긴 글 값: 가린 뒤에 자른다(잘린 자리에 걸린 토큰이 남
 
 // ── sink: 와이어 투영 / 버퍼 ────────────────────────────────
 test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   lm.record({ level: 40, time: 123, msg: "\x1B[33m노랑\x1B[39m" });
   const entry = lm.buffer[0];
   assert.deepEqual(entry, { id: 1, ts: 123, level: "warn", text: "노랑" });
@@ -197,7 +197,7 @@ test("와이어 투영: {id,ts,level,text} + ANSI 스트립", () => {
 // 브리지에 걸리는 console.log은 전부 서드파티라 info로 올리면 우리 로그가 묻힌다.
 test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 나간다", () => {
   assert.equal(sink._internals.CONSOLE_LEVEL.log, 20);
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   lm.record({ level: sink._internals.CONSOLE_LEVEL.log, time: 1, msg: "x", category: "external" });
   assert.equal(lm.buffer[0].level, "debug");
 });
@@ -205,7 +205,7 @@ test("브리지: console.log은 debug로 기록되고 와이어에도 debug로 �
 // 대시보드가 아는 네 가지(log/info/warn/error)로 접어 보내면 debug와 trace가,
 // fatal과 error가 합쳐져 대시보드가 구분하지 못한다. 레벨 이름을 그대로 보낸다.
 test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다)", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   for (const [i, lv] of [10, 20, 30, 40, 50, 60].entries()) lm.record({ level: lv, time: i, msg: "m" });
   assert.deepEqual(
     lm.buffer.map((e) => e.level),
@@ -215,7 +215,7 @@ test("와이어 레벨은 실제 이름을 그대로 보낸다 (접지 않는다
 
 test("터미널 하한은 파일, 대시보드에 영향을 주지 않는다", () => {
   const printed: number[] = [];
-  const lm = new LogManager({ intercept: false, terminal: (rec) => printed.push(rec.level) });
+  const lm = new LogSink({ intercept: false, terminal: (rec) => printed.push(rec.level) });
   lm.setConsoleLevel("info");
 
   lm.record({ level: 20, time: 1, msg: "debug" });
@@ -226,7 +226,7 @@ test("터미널 하한은 파일, 대시보드에 영향을 주지 않는다", (
 });
 
 test("링버퍼: maxLines 초과 시 오래된 것부터 폐기", () => {
-  const lm = new LogManager({ intercept: false, maxLines: 3, terminal: quiet });
+  const lm = new LogSink({ intercept: false, maxLines: 3, terminal: quiet });
   for (let i = 0; i < 5; i++) lm.record({ level: 30, time: i, msg: `m${i}` });
   assert.equal(lm.buffer.length, 3);
   assert.deepEqual(
@@ -277,14 +277,14 @@ function fakeRes({ writeResult = true, writableLength = 0 } = {}) {
 }
 
 test("관리자 SSE: Connection: close로 연다(끊을 때 그 소켓을 강제로 닫으므로 다시 쓰지 않게)", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const res = fakeRes();
   assert.equal(lm.addClient(res, "owner"), true);
   assert.equal(res.head?.Connection, "close");
 });
 
 test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로). 넘으면 429. 무한정 받지 않는다", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const { maxPerUser } = config.dashboard.sse;
 
   for (let i = 0; i < maxPerUser; i++) lm.addClient(fakeRes(), "owner");
@@ -301,7 +301,7 @@ test("관리자 SSE: 연결 상한은 사용자마다 센다(설정 이름대로
 });
 
 test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 양이 상한을 넘는(읽지 않는) 소비자만 끊는다", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
 
   // 붙을 때 쌓인 줄을 한꺼번에 보내면 write 가 false 를 돌려준다. 그것만으로 끊으면 붙는 순간 로그가 나면 끊긴다
   const busy = fakeRes({ writeResult: false, writableLength: 100_000 });
@@ -319,7 +319,7 @@ test("관리자 SSE: 쓰기가 잠깐 밀린 것으로는 끊지 않고, 밀린 
 
 test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 둔 줄 전부를 보내는 중 한 줄, 진짜 HTTP)", async () => {
   const http = await import("node:http");
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   for (let i = 0; i < KEPT_LINES; i++) lm.record({ level: 30, time: i, msg: `줄 ${i} ` + "x".repeat(120) });
   const server = http.createServer((_req, res) => lm.addClient(res, "owner"));
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
@@ -341,7 +341,7 @@ test("관리자 SSE: 붙는 중에 로그가 나도 끊기지 않는다(쌓아 �
 });
 
 test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마지막 번호 뒤만 보낸다. 다른 실행의 번호면(봇을 다시 시작) reset 뒤 전부", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   for (let i = 1; i <= 3; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
 
@@ -360,7 +360,7 @@ test("관리자 SSE: 줄마다 기동표.번호를 싣고, 재연결하면 마�
 });
 
 test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으면 받지 못한 줄 수(gap)를 줄보다 먼저 보낸다. 처음 연결은 알리지 않는다", () => {
-  const lm = new LogManager({ maxLines: 3, intercept: false, terminal: quiet });
+  const lm = new LogSink({ maxLines: 3, intercept: false, terminal: quiet });
   for (let i = 1; i <= 10; i++) lm.record({ level: 30, time: i, msg: `줄 ${i}` });
   const gapOf = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^event: gap\ndata: (.+)$/gm)].map((m) => JSON.parse(m[1]) as { missed: number }));
   const ids = (res: ReturnType<typeof fakeRes>) => res.writes.flatMap((w) => [...w.matchAll(/^id: \d+\.(\d+)$/gm)].map((m) => Number(m[1])));
@@ -385,7 +385,7 @@ test("관리자 SSE: 이어 받을 줄이 쌓아 둔 줄 밖으로 밀려났으�
 });
 
 test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
 
   const res = fakeRes();
   lm.addClient(res, "owner");
@@ -398,7 +398,7 @@ test("관리자 SSE: 연결이 닫히면 하트비트도 함께 제거한다", (
 });
 
 test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송", () => {
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   const res = fakeRes();
   lm.clients.add(res);
   lm.record({ level: 50, time: 7, msg: "err" });
@@ -409,7 +409,7 @@ test("SSE 브로드캐스트: 등록된 클라이언트에 data 프레임 전송
 });
 
 test("지난 1시간 경고, 오류는 줄 버퍼와 따로 둔다(fatal 은 오류)", () => {
-  const m = new LogManager({ intercept: false, maxLines: 2, terminal: () => {} });
+  const m = new LogSink({ intercept: false, maxLines: 2, terminal: () => {} });
   const at = Date.now();
   m.record({ level: 40, time: at - 2 * 60 * 60_000, msg: "두 시간 전" });
   m.record({ level: 40, time: at - 1000, msg: "경고" });
@@ -430,7 +430,7 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
   mock.timers.enable({ apis: ["setInterval"] });
   const sse = config.dashboard.sse;
   const before = sse.heartbeatMs;
-  const lm = new LogManager({ intercept: false, terminal: quiet });
+  const lm = new LogSink({ intercept: false, terminal: quiet });
   try {
     sse.heartbeatMs = 20_000;
     const res = fakeRes();
@@ -453,7 +453,7 @@ test("관리자 SSE: 하트비트는 바뀐 간격으로 다시 건다", () => {
 // ── sink: destination 이 던지면 로거가 아니라 notice 로 알린다(로거로 알리면 record 로 되돌아온다) ─────
 test("destination 이 던지면 처음 한 번과 풀릴 때 notice 로 한 줄씩, 다른 destination 은 계속 받는다", () => {
   const notes: string[] = [];
-  const m = new LogManager({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
+  const m = new LogSink({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
   const got: LogRecord[] = [];
   let broken = true;
   m.addDestination(() => {
@@ -471,7 +471,7 @@ test("destination 이 던지면 처음 한 번과 풀릴 때 notice 로 한 줄�
 
 test("기동 초기 레코드를 재생하다 던지면 끝난 뒤 실패 수와 첫 오류를 notice 로 한 줄", () => {
   const notes: string[] = [];
-  const m = new LogManager({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
+  const m = new LogSink({ intercept: false, terminal: quiet, notice: (line: string) => notes.push(line) });
   for (const msg of ["a", "b", "c"]) m.record({ level: LEVELS.info, time: Date.now(), msg });
   m.addDestination((rec) => {
     if (rec.msg !== "b") throw new Error("열 수 없음");

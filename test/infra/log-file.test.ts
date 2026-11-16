@@ -156,9 +156,9 @@ test("한 줄이 상한(LINE_MAX)을 넘으면 시각, 레벨, 카테고리, 글
   const [exact, over, list] = raw.map((line) => JSON.parse(line));
   assert.equal(Buffer.byteLength(raw[0]) + 1, LINE_MAX);
   assert.equal(exact.body.length, LINE_MAX - base, "상한까지는 그대로");
-  assert.deepEqual(over, { time: 1757400000000, level: 30, category: "youtube", msg: ` | 기록 줄이 상한을 넘어(${LINE_MAX + 1}바이트) 뺀 필드: body` });
+  assert.deepEqual(over, { time: 1757400000000, level: 30, category: "youtube", msg: ` | 로그 줄이 상한을 넘어(${LINE_MAX + 1}바이트) 뺀 필드: body` });
   const listBytes = Buffer.byteLength(JSON.stringify(rec("긴 응답", { category: "youtube", sub: "search", tags: ["retry"], list: ["가".repeat(200_000), "나".repeat(200_000)] }))) + 1;
-  assert.deepEqual(list, { time: 1757400000000, level: 30, category: "youtube", sub: "search", msg: `긴 응답 | 기록 줄이 상한을 넘어(${listBytes}바이트) 뺀 필드: tags, list` });
+  assert.deepEqual(list, { time: 1757400000000, level: 30, category: "youtube", sub: "search", msg: `긴 응답 | 로그 줄이 상한을 넘어(${listBytes}바이트) 뺀 필드: tags, list` });
 });
 
 test("필드가 아주 많아 상한을 넘어도 줄인 레코드는 뺀 필드 이름을 몇 개만 적어 상한 안이다", () => {
@@ -170,7 +170,7 @@ test("필드가 아주 많아 상한을 넘어도 줄인 레코드는 뺀 필드
   const [raw] = fs.readFileSync(file, "utf8").split("\n");
   assert.ok(Buffer.byteLength(raw!) + 1 <= LINE_MAX, `${Buffer.byteLength(raw!)}바이트`);
   const names = Array.from({ length: 10 }, () => "k".repeat(40)).join(", ");
-  assert.match(JSON.parse(raw!).msg, new RegExp(`^필드 많음 \\| 기록 줄이 상한을 넘어\\(\\d+바이트\\) 뺀 필드: ${names} 외 19990개$`));
+  assert.match(JSON.parse(raw!).msg, new RegExp(`^필드 많음 \\| 로그 줄이 상한을 넘어\\(\\d+바이트\\) 뺀 필드: ${names} 외 19990개$`));
 });
 
 test("파일을 못 열면 던지지 않고 조용히 중단한다 (로깅이 봇을 멈추지 않는다)", () => {

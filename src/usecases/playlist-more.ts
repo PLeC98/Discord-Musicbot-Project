@@ -16,6 +16,7 @@ import { LIFETIME, expireMessage, stopExpiry } from "../ui/delivery.ts";
 import { post } from "../ui/frame.ts";
 import { moreView, countModal as moreCountModal } from "../ui/playlist-more-menu.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { PLAYLIST_ADD_DEFAULT } from "../rules/limits.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/player.ts";
 import type { Code } from "../rules/problems.ts";
@@ -123,7 +124,7 @@ function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }:
 }
 
 /** 헤더 줄과 곡 수 메뉴. menu 는 메뉴를 달았는지(자리가 없거나 상태가 custom_id 에 안 들어가면 헤더 줄만) */
-function menuView(head: string, state: MoreState, { remaining, room, batch = config.bot.playlistAddDefault }: { remaining: number; room: number; batch?: number }) {
+function menuView(head: string, state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }) {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
   if (cap === 0) return { view: moreView(moreText.noRoom(head), null), menu: false };
@@ -154,7 +155,7 @@ function resultView(state: MoreState, result: MoreResult, room: number) {
 }
 
 /** 곡 수를 입력하는 모달. cap 은 남은 자리 */
-function countModal(state: MoreState, cap: number, batch = config.bot.playlistAddDefault) {
+function countModal(state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT) {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
   return moreCountModal({ customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
 }

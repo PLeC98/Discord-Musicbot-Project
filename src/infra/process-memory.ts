@@ -11,7 +11,7 @@ const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
 const IS_LINUX = process.platform === "linux";
-// 바쁜 시스템에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
+// 부하가 큰 시스템에서는 tasklist 가 몇 초씩 걸린다. 구간마다 하나만 돌므로 넉넉히
 const TIMEOUT_MS = 30_000;
 
 const failures = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "자식 프로세스 메모리 읽기");

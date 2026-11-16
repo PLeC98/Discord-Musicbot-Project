@@ -30,6 +30,7 @@ import { SessionPersistence } from "../../src/player/session-mirror.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import * as voiceChannelStatus from "../../src/player/voice-channel-status.ts";
 import config from "../../src/config/index.ts";
+import { withConfig } from "../helpers/config.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
@@ -94,8 +95,8 @@ class Scripted extends h.Player {
     if (!this.errorAs) return super.handleError(error, opts);
     await this.errorAs(error as Error);
   }
-  override async handleAutoplay() {
-    return this.autoplayAs ? this.autoplayAs() : super.handleAutoplay();
+  override async playAutoplayNow() {
+    return this.autoplayAs ? this.autoplayAs() : super.playAutoplayNow();
   }
 }
 const scripted = () => h.makePlayer({ as: Scripted });
@@ -995,22 +996,22 @@ function voiceChannelWith(player: Player, humans: string[]) {
   Object.assign(player.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
 }
 
-test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다", async () => {
+test("혼자 남으면 alone 으로 멈추고, 시간이 다 되도록 아무도 없으면 정리하고 레지스트리에서 뺀다. 대기열은 /join 으로 이어 듣게 남긴다", async () => {
   const p = h.makePlayer();
   const seen = embeds(p);
   voiceChannelWith(p, []);
-  p.idle.aloneMs = 0;
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
   p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.syncHolds();
+  withConfig({ bot: { leaveDelayAloneMs: 0 } }, () => p.syncHolds());
   assert.ok(p.pause.holds.has("alone"));
   assert.equal(p.audioPlayer.state.status, AudioPlayerStatus.Paused);
   await tick(10);
   h.dispose(p);
 
-  assert.deepEqual(seen, ["update", "end:disconnected", "webhook:text1"], "멈추는 순간 패널을 고친다");
-  assert.ok(calls.persists.includes("remove"), "세션을 지운다");
+  assert.deepEqual(seen, ["update", "end:leave", "webhook:text1"], "멈추는 순간 패널을 고치고, 끝난 패널은 /join 으로 이어 들을 수 있다고");
+  assert.ok(calls.persists.includes("leave-for-join"), calls.persists.join(","));
+  assert.equal(calls.persists.includes("remove"), false, "세션을 지우지 않는다");
   assert.equal(p.connection, null);
   assert.equal(h.registryOf(p)?.has("g1"), false);
 });
@@ -1019,11 +1020,10 @@ test("시간이 됐을 때 사람이 있으면(돌아온 이벤트를 놓쳤어�
   const p = h.makePlayer();
   const seen = embeds(p);
   voiceChannelWith(p, []);
-  p.idle.aloneMs = 0;
   h.fakeAudioOf(p).state = { status: AudioPlayerStatus.Playing };
   p.currentTrack = yt("xxxxxxxxxxx");
 
-  p.syncHolds();
+  withConfig({ bot: { leaveDelayAloneMs: 0 } }, () => p.syncHolds());
   voiceChannelWith(p, ["u1"]); // 사람이 들어왔지만 이벤트는 오지 않았다
   await tick(10);
   h.dispose(p);
@@ -1040,9 +1040,8 @@ test("버려진(교체된) 플레이어의 늦은 비활성 타이머는 아무�
   voiceChannelWith(p, []);
   const current = fake<Player>({});
   h.registryOf(p)?.set("g1", current);
-  p.idle.aloneMs = 0;
 
-  p.syncHolds();
+  withConfig({ bot: { leaveDelayAloneMs: 0 } }, () => p.syncHolds());
   p.lifecycle.to("disposed", "교체"); // 타이머는 일부러 두었다(이미 깨어나는 중인 경우)
   await tick(10);
   h.dispose(p);

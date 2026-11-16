@@ -52,16 +52,12 @@ test("경로가 글자가 아닌 부름은 정해진 파일에만 있다", () =>
   sameList("글자가 아닌 부름", [...new Set(now.unseen.map((u) => u.split(":")[0]))], baseline.unseen);
 });
 
-test("함수 안에서 부르지 않는다(지연 require)", () => {
-  sameCounts("지연 부름", now.lazyRequire, baseline.lazyRequire);
+test("함수 안에서 부르지 않는다(지연 import)", () => {
+  sameCounts("지연 부름", now.lazyImport, baseline.lazyImport);
 });
 
 test("모듈 맨 위에서 config 값을 꺼내 두지 않는다", () => {
   sameCounts("config 꺼내 두기", now.configCapture, baseline.configCapture);
-});
-
-test("테스트가 require.cache 로 모듈을 교체하지 않는다", () => {
-  sameCounts("require.cache", now.requireCache, baseline.requireCache);
 });
 
 test("테스트 파일이 첫 테스트 뒤 맨 위에서 기다리지 않는다", () => {
@@ -89,7 +85,7 @@ test("실행 중 경로를 파일 위치에서 세지 않는다(import.meta.dirn
   assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
 });
 
-// 조립이 만든 것(플레이어 레지스트리, 패널, 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 다시 열린다
+// 조립이 만든 것(플레이어 레지스트리, 패널, 명령 목록)은 봇 문맥(src/app/bot-context)으로 넘긴다. 클라이언트에 매달면 어디서든 꺼내 쓰는 길이 열린다
 test("디스코드 클라이언트 타입을 늘려 필드를 매달지 않는다", () => {
   const src = path.join(PROJECT.root, "src");
   const augmenting = fs

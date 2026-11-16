@@ -2,7 +2,7 @@ import { SlashCommandBuilder, MessageFlags, RESTJSONErrorCodes } from "discord.j
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { interactionResponder } from "../../usecases/responders.ts";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import { checkControl } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
@@ -24,7 +24,7 @@ const exported: GuildCommand = {
 
     // 패널을 이 채널로 옮기는 명령이다. 전용 채널이 있는 서버는 그 채널에서만 누구나 쓴다(패널이 전용 채널을 떠나지 않는다).
     // 전용 채널이 없는 서버(삭제된 채널 포함)는 어디서나 쓰되 DJ 계층이 필요하다
-    const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+    const botChannelId = await guildSettings.getBotChannel(guild.id);
     if (botChannelId && guild.channels.cache.has(botChannelId)) {
       if (channel.id !== botChannelId) {
         return noticeSelf(interaction, errors.notice("only-in-bot-channel", { channelId: botChannelId }, DISCORD_LOOK));

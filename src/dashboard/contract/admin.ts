@@ -40,6 +40,12 @@ type AdminStatus = {
   upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;
   /**
+   * 특권 인텐트(개발자 포털의 Bot → Privileged Gateway Intents). loggedIn: 이 프로세스가 로그인한 것(꺼졌으면 그것에 기대는 기능을 껐다),
+   * now: 지금 앱 설정(뒤에서 읽어 잠깐 기억한다, 모르면 null. loggedIn 이 꺼졌는데 켜졌으면 다시 시작하면 적용된다),
+   * approval: 서버가 100개 이상이라 스위치가 아니라 디스코드의 승인이 필요하다
+   */
+  intents: { messageContent: { loggedIn: boolean; now: boolean | null }; guildMembers: { loggedIn: boolean; now: boolean | null }; approval: boolean };
+  /**
    * 플레이어가 있는 서버(재생, 일시정지, 곡 없이 대기). 행은 쿼리(players, states, q)의 구간만 온다.
    * listeners, queued, counts 는 전부의 합(필터링과 상관없다). matched: 필터링된 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(삽입 순서)
    */
@@ -176,6 +182,8 @@ type LeaveReply = { success: true; name: string };
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
 /** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
 type RestartReply = { restarting: true };
+/** 특권 인텐트 켜기. enabled: 켰다(다시 시작하면 적용), already: 이미 켜져 있었다 */
+type IntentEnableReply = { result: "enabled" | "already" };
 
 /** 운영자 패널의 보기 설정(GET, PUT /api/admin/panel). advanced: 고급 설정 보기. 어느 기기로 열어도 같게 서버에 둔다 */
 type PanelPrefs = { advanced: boolean };
@@ -249,6 +257,7 @@ export type {
   LeaveReply,
   RedeployReply,
   RestartReply,
+  IntentEnableReply,
   PanelPrefs,
   GeoipStatus,
   GeoipCheck,

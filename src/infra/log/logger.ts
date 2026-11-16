@@ -1,4 +1,4 @@
-// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장, 렌더, 배포는 sink(LogManager)가 한다.
+// pino와 표면이 같은 얇은 facade. 앱 코드는 이걸로 로그를 찍고, 저장, 렌더, 배포는 sink(LogSink)가 한다.
 //
 //   logger.warn({ guildId }, "무언가 %s", x);
 //   const yt = logger.child({ category: "youtube" });

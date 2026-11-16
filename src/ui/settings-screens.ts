@@ -1,6 +1,7 @@
 // 서버 설정 화면(/setting, /setchannel, /setplaylistlimit)과 그 결과. 응답 템플릿(ui/frame)으로 그린다.
 // 서버 설정을 바꿔 저장한 결과는 완료 색, 설정 화면, 취소, 지금 값은 기본 색
 
+import { readsMessageContent } from "../infra/gateway-intents.ts";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextDisplayBuilder } from "discord.js";
 import { frame } from "./frame.ts";
 import type { IconKey } from "./icons.ts";
@@ -18,8 +19,10 @@ const shown = ({ icon, title, description }: Card) => frame({ icon, title, body:
 
 /** 전용 채널을 정했다. channel 은 채널 멘션 */
 function channelSet(channel: string) {
-  const t = settingsText.channelSet(channel);
-  return saved({ icon: t.icon, title: t.title, description: `${t.description}\n\n**${t.inputs}**\n${t.inputsValue}` });
+  // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 입력할 수 있는 것을 보이지 않는다
+  const typed = readsMessageContent();
+  const t = settingsText.channelSet(channel, typed);
+  return saved({ icon: t.icon, title: t.title, description: typed ? `${t.description}\n\n**${t.inputs}**\n${t.inputsValue}` : t.description });
 }
 
 /** 선택지 하나. default 면 선택한 채로 */

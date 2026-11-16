@@ -4,12 +4,16 @@
 
 import { readIndex, headerOf, startPoint, worthIndexing, FIRST_BYTES } from "../rules/container-index.ts";
 import { messageOf } from "../rules/error-kind.ts";
+import { refusedStatus } from "./input-health.ts";
 import type { RangeFetch } from "./chunked-stream.ts";
 
 type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: number; startMs: number; durationMs: number; chunkBytes: number };
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
-/** near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다) */
-type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean };
+/**
+ * near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다).
+ * refused: 주소가 4xx 로 막혔다(그 상태 코드). 처음부터 받는 요청도 같은 주소, 같은 헤더라 똑같이 막힌다
+ */
+type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean; refused?: number };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
 
 /** 헤더, 색인을 처음 받는 양. 아주 긴 곡도 대개 이 안에 든다(넘으면 아래 횟수만큼 더 받는다) */
@@ -22,7 +26,7 @@ const HEAD_TIMEOUT_MS = 3000;
 /** 앞부분 [0, bytes) 를 받는다. 206 이 아니면 그 상태를 던진다 */
 async function headOf(url: string, headers: Record<string, string>, bytes: number, fetchImpl: RangeFetch, signal: AbortSignal): Promise<Buffer> {
   const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=0-${bytes - 1}` }, signal });
-  if (res.status !== 206 || !res.body) throw new Error(`헤더 요청이 HTTP ${res.status}`);
+  if (res.status !== 206 || !res.body) throw Object.assign(new Error(`헤더 요청이 HTTP ${res.status}`), { status: res.status });
   const reader = res.body.getReader();
   const chunks: Buffer[] = [];
   let length = 0;
@@ -55,6 +59,8 @@ async function seekStart(request: SeekRequest, { fetchImpl = fetch as unknown as
     return { ok: true, start: { header: headerOf(head, read.index), startByte: point.byte, startedAtMs: point.startedAtMs, expectStart: { bytes: FIRST_BYTES[read.index.kind], check: point.expectStart } } };
   } catch (error) {
     if (controller.signal.aborted) return { ok: false, why: `헤더 요청이 ${timeoutMs / 1000}초를 넘김`, slow: true };
+    const refused = refusedStatus(error);
+    if (refused) return { ok: false, why: messageOf(error), refused };
     return { ok: false, why: `헤더를 받지 못함: ${messageOf(error)}`, failed: true };
   } finally {
     clearTimeout(timer);

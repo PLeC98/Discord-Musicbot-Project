@@ -71,6 +71,13 @@
           <BotRestart :available="status.env.launcher" />
         </div>
       </div>
+      <!-- 특권 인텐트가 꺼져 그것에 기대는 기능을 껐다(또는 켜졌는데 다시 시작 전이다) -->
+      <NoticeBox v-for="n in intentNotes" :key="n.name" variant="note" :tone="n.pending ? 'info' : 'notice'" :icon="n.pending ? 'info' : 'warning'">
+        <b>{{ T.intents.names[n.name] }}</b
+        >{{ n.pending ? T.intents.pending : T.intents.off[n.name] }}<template v-if="!n.pending"> {{ status.intents.approval ? T.intents.approval : T.intents.fix }}</template>
+        <!-- 100 서버 미만이면 포털 스위치를 여기서 켤 수 있다(운영자의 앱 설정을 바꾼다. 다시 시작해야 적용된다) -->
+        <button v-if="n.knownOff && !status.intents.approval" type="button" class="tap state-layer ml-2 h-8 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold cursor-pointer disabled:opacity-38" :disabled="enabling !== null" @click="enableIntent(n.name)">{{ T.intents.enable }}</button>
+      </NoticeBox>
       <!-- 주의 칩: 누르면 그 항목으로 가서 잠깐 테두리가 빛난다 -->
       <div v-if="attention.length" class="flex flex-wrap gap-2">
         <button v-for="a in attention" :key="a.name" type="button" class="tap state-layer h-8 px-2 rounded-sm flex items-center gap-2 text-xs font-medium cursor-pointer" :class="LEVEL_CHIP[a.level]" @click="jumpTo(a.at)"><Icon :name="LEVEL_ICON[a.level]" :size="18" fill />{{ a.name }} · {{ a.word }}</button>
@@ -320,6 +327,10 @@ import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import BotRestart from "./BotRestart.vue";
 import Icon from "./BaseIcon.vue";
+import NoticeBox from "./NoticeBox.vue";
+import axios from "axios";
+import { notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { LIMIT } from "../utils/request.ts";
 import GuildAvatar from "./GuildAvatar.vue";
 import MarqueeText from "./MarqueeText.vue";
 import SparkChart from "./SparkChart.vue";
@@ -331,7 +342,7 @@ import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
-import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery } from "../../../src/dashboard/contract/admin.ts";
+import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery, type IntentEnableReply } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { formatClock, formatNumber } from "../utils/locale.ts";
 import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../utils/units.ts";
@@ -340,6 +351,22 @@ const T = text.status;
 
 // query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 바꾸면 운영자 패널이 바로 받는다
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
+// 특권 인텐트 안내. 로그인한 것이 꺼졌으면 꺼짐, 그사이 앱 설정에서 켜졌으면 다시 시작하면 적용. knownOff: 앱 설정을 읽어 꺼진 것을 확인했다(켜기 버튼은 그때만)
+const intentNotes = computed(() => (["messageContent", "guildMembers"] as const).filter((name) => !props.status.intents[name].loggedIn).map((name) => ({ name, pending: props.status.intents[name].now === true, knownOff: props.status.intents[name].now === false })));
+// 포털 스위치를 켠다. 켜지면 다음 상태가 "다시 시작하면 적용"으로 바뀐다
+const enabling = ref<"messageContent" | "guildMembers" | null>(null);
+async function enableIntent(name: "messageContent" | "guildMembers") {
+  if (enabling.value) return;
+  enabling.value = name;
+  try {
+    await axios.post<IntentEnableReply>(`/api/admin/intents/${name}/enable`, undefined, { timeout: LIMIT.long });
+    notifyDone(T.intents.enabled(T.intents.names[name]), T.intents.enabledBody);
+  } catch (e) {
+    notifyProblem(e, T.intents.enableFailed);
+  } finally {
+    enabling.value = null;
+  }
+}
 const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 

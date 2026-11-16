@@ -1,9 +1,10 @@
 // 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 실행 기록 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB, 설정 → 슬래시 명령 배포 → POToken 서버 → 전체 백업의 오디오 캐시 → 클라이언트, 화면, 대시보드 → 핸들러 → 기동 확인 → 로그인.
 
-import { Client, GatewayIntentBits, Events, RESTEvents, type ClientEvents, type VoiceState } from "discord.js";
+import { Client, Events, GatewayCloseCodes, RESTEvents, type ClientEvents, type GatewayIntentBits, type VoiceState } from "discord.js";
 import logSink from "../infra/log/sink.ts";
 import logger from "../infra/log/logger.ts";
+import * as processPriority from "../infra/process-priority.ts";
 import config from "../config/index.ts";
 import * as audioCache from "../store/audio-cache.ts";
 import * as stores from "../store/stores.ts";
@@ -33,11 +34,12 @@ import * as voiceStatusStore from "../store/voice-status.ts";
 import { onVoiceStateUpdate } from "../player/voice-presence.ts";
 import { PlayerRegistry } from "../player/registry.ts";
 import { createPotServer } from "../sources/youtube/pot-server.ts";
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as embeddedArt from "../sources/embedded-art.ts";
-import * as Spotify from "../sources/spotify.ts";
+import * as spotifySource from "../sources/spotify.ts";
 import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
+import { cpuLimit as ytdlpCpuLimit } from "../sources/ytdlp-spawn.ts";
 import { bgutilVersion } from "../sources/bgutil-version.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
@@ -52,10 +54,11 @@ import { installShutdown, stopFailedStart } from "./shutdown.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { sweepLeftoverChildren } from "../infra/leftover-children.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { enableFatalReport } from "../infra/fatal-report.ts";
 import path from "path";
 import { ALLOWED_MENTIONS } from "../ui/mentions.ts";
 import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
-import { StatusManager } from "../ui/bot-presence.ts";
+import { BotPresence } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
@@ -68,7 +71,8 @@ import { createStayKeeper } from "./stay-keeper.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
-import { messageOf } from "../rules/error-kind.ts";
+import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { choosePrivilegedIntents, onRefusedWhileRunning, readApp, refusedAtLogin } from "./privileged-intents.ts";
 import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
@@ -98,6 +102,8 @@ class StartupStopped extends Error {}
 
 function main() {
   const logFile = setUpLogging();
+  // 자식 프로세스, 워커를 띄우기 전에 봇 우선순위를 올린다
+  for (const { level, text } of processPriority.describe(processPriority.raiseSelf())) log[level]({ tags: ["startup"] }, text);
   // 이전 실행이 어떻게 끝났나. 짧게 끊긴 실행이 이어졌으면 이번에는 세션을 복원하지 않는다
   const previous = runRecord.begin();
   log.info({ tags: ["startup"] }, previous.line);
@@ -116,7 +122,9 @@ function main() {
   potServer
     .waitReady()
     .then(() => restoreAudioCache())
-    .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore }))
+    // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
+    .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
+    .then((intents) => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore, intents }))
     .catch((error: unknown) => {
       // 클라이언트를 만들기 전에 던졌다. 실행한 것을 내리고 나간다
       log.error("봇 기동 실패:", error);
@@ -138,8 +146,8 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
     if (restored) log.warn(`${restored}로 설정 DB 복원 완료(기존 DB는 database/backups에 백업)`);
     stores.open();
   } catch (error) {
-    log.error(messageOf(error));
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB를 복원하려면 database/backups의 settings-*.db 파일을 database/settings.restore.db로 복사한 뒤 다시 시작하세요. 기동이 지금 파일을 backups에 남기고 바꿔 끼움(settings.db에 바로 덮으면 남은 -wal이 얹혀 깨질 수 있음, 같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
+    log.error(`기동 중단: ${messageOf(error)}`);
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 복원: database/backups의 settings-*.db 파일을 database/settings.restore.db로 복사한 뒤 다시 시작. 기동 때 기존 settings.db를 backups에 남기고 교체함(settings.db에 바로 덮으면 남은 -wal 파일과 섞여 깨질 수 있음, 같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }
@@ -190,6 +198,10 @@ function setUpLogging() {
     logSink.addDestination(logFile.write);
     log.info({ tags: ["startup"] }, `로그 파일 저장 경로: ${logFile.path}`);
   }
+  // 치명적 오류로 죽을 때의 진단 보고서는 로그 파일과 같은 폴더에 남긴다
+  const reportDir = path.dirname(config.logging.file);
+  const reportFailure = enableFatalReport(reportDir);
+  if (reportFailure) log.warn({ tags: ["startup"] }, `치명적 오류 진단 보고서 폴더(${reportDir})를 만들지 못해 보고서를 남기지 않음: ${reportFailure}`);
   return logFile;
 }
 
@@ -205,11 +217,11 @@ function deploySlashCommands() {
     .catch((error: unknown) => log.error("슬래시 명령어 배포 실패:", messageOf(error)));
 }
 
-function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean }) {
+function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean; intents: GatewayIntentBits[] }) {
   const client = new Client({
-    // GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다. 권한 판정, 서버 목록이 멤버를 캐시에서 먼저 보는데,
-    // 역할, 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
+    // 특권 둘은 개발자 포털에서 켜진 것만(app/privileged-intents). GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다.
+    // 권한 판정, 서버 목록이 멤버를 캐시에서 먼저 보는데, 역할, 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
+    intents,
     // 외부에서 온 곡 제목, 파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
     allowedMentions: ALLOWED_MENTIONS,
     // 거절된 요청이 이만큼 쌓일 때마다 알린다(listenToLibrary)
@@ -231,6 +243,10 @@ function startBot({ potServer, logFile, shutdown, skipRestore }: { potServer: Po
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
+  // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014 로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
+  client.on(Events.ShardDisconnect, (event) => {
+    if (event.code === GatewayCloseCodes.DisallowedIntents) onRefusedWhileRunning(restart);
+  });
   startDashboard(bot, { stream, deployCommands: commandLoader.deployCommands, restart });
   listenToPlayers(panels, stream, players);
   playerEvents.on("disposed", (player, _reason, end) => stay.onDisposed(player, end));
@@ -318,11 +334,11 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   const { players, panels, stay } = bot;
   log.info({ tags: ["startup"] }, `${client.user.tag} 준비 완료`);
   log.info(`서버 ${client.guilds.cache.size}개에서 대기 중`);
-  new StatusManager(client).start(); // 활동 문구
+  new BotPresence(client).start(); // 활동 문구
   // 대시보드 초대 화면: 누가 초대할 수 있나(공개 봇, 앱 소유자). 실패하면 초대 화면을 열 때 다시 받는다
   void loadAppInfo(client);
   // 스포티파이 익명 상태와 토큰(첫 자동완성이 스포티파이를 쓰게). 저장해 둔 것이 쓸 만하면 요청하지 않는다
-  void Spotify.prepareAnonymous();
+  void spotifySource.prepareAnonymous();
 
   // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
   // 늦으면 패널이 유니코드로 올라갔다가 다음 갱신에 앱 이모지로 바뀐다. 실패하면 경고만 남기고 유니코드로 간다
@@ -374,6 +390,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
   } catch (error) {
     const stopped = error instanceof StartupStopped;
     if (!stopped) log.error("봇 기동 실패:", error);
+    if (codeOf(error) === "DisallowedIntents") log.error(refusedAtLogin());
     stopFailedStart(client, { potServer, logFile }, failedStartCode(error, stopped));
   }
 }
@@ -392,9 +409,12 @@ function checkBeforeLogin() {
   voiceChannelStatus.keepIn(voiceStatusStore);
 
   // 지금 무엇으로 유튜브에 붙는지 한 줄. 없으면 POToken 서버가 죽어 있어도 모르고 지나간다.
-  YouTube.logAuthMode();
+  youtubeSource.logAuthMode();
   // yt-dlp 버전을 한 줄 남기고 설정대로 새 버전을 본다. 기동을 막지 않는다(그동안은 설치 때 다운로드한 것으로 돈다)
   bestEffort(log, ytdlpBinary.start(), "yt-dlp 버전 맞추기", "warn");
+  // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
+  const cpu = ytdlpCpuLimit();
+  if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);
   // bgutil 은 설치된 것, 설정한 것, 최신을 비교해 알리기만 한다(설치는 봇을 끄고)
   bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인", "warn");
 

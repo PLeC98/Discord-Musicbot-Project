@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const cookieJar = await import("../../src/store/cookie-jar.ts");
 const secrets = await import("../../src/store/secrets.ts");
-const YouTube = await import("../../src/sources/youtube/index.ts");
+const youtubeSource = await import("../../src/sources/youtube/index.ts");
 const { _runOnce } = await import("../../src/sources/youtube/ytdlp-run.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
@@ -45,23 +45,23 @@ test("COOKIES_SOURCE=file 이면 브라우저가 아니라 입력한 쿠키를 �
 
 test("없거나 빈 글이면 쿠키가 없는 것이다", () => {
   assert.equal(cookieJar.ready(), false);
-  assert.equal(YouTube.cookiesConfigured(), false, "없는 쿠키로 연령 제한 재시도를 돌리면 안 된다");
-  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
+  assert.equal(youtubeSource.cookiesConfigured(), false, "없는 쿠키로 연령 제한 재시도를 돌리면 안 된다");
+  assert.equal(youtubeSource.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
   assert.equal(cookieJar.save("   \n"), false);
   assert.equal(cookieJar.ready(), false);
 });
 
 test("입력하면 봇을 다시 시작하지 않아도 그 다음 판정부터 반영된다. 평상시에는 붙이지 않는다", () => {
   cookieJar.save(SAMPLE);
-  assert.equal(YouTube.cookiesConfigured(), true);
-  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, cookieJar.JAR);
-  assert.equal(YouTube.getYtDlpOptions().cookies, undefined);
+  assert.equal(youtubeSource.cookiesConfigured(), true);
+  assert.equal(youtubeSource.getYtDlpOptions({}, { forceCookies: true }).cookies, cookieJar.JAR);
+  assert.equal(youtubeSource.getYtDlpOptions().cookies, undefined);
 });
 
 test("연령 제한 콘텐츠를 끄면 입력한 쿠키는 남아도 붙이지 않는다", () => {
   cookieJar.save(SAMPLE);
   documents._use("age-content", { enabled: false, changedAt: 2 });
-  assert.equal(YouTube.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
+  assert.equal(youtubeSource.getYtDlpOptions({}, { forceCookies: true }).cookies, undefined);
   assert.equal(cookieJar.ready(), true, "지우지 않는다");
   documents._use("age-content", { enabled: true, changedAt: 3 });
 });
@@ -126,7 +126,7 @@ test("꺼지다 남은 쿠키 파일은 기동 시 치운다. 다른 파일은 �
 
 test("상태 응답은 방식만 알리고 값, 경로는 싣지 않는다", () => {
   cookieJar.save(SAMPLE);
-  const snap = YouTube.statusSnapshot();
+  const snap = youtubeSource.statusSnapshot();
   assert.equal(snap.cookies, "file");
   assert.ok(!JSON.stringify(snap).includes("abc123"));
 });

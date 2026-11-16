@@ -1,13 +1,15 @@
-import { PermissionFlagsBits } from "discord.js";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
 import config from "../config/index.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import type { Code } from "../rules/problems.ts";
-import type { Guild, GuildMember } from "discord.js";
+import type { Guild, GuildMember, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
 /** 권한 판정이 막은 까닭 */
-type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | "permission-voice">;
+type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | VoiceEntryDenied>;
+/** 봇이 음성 채널에 들어갈 수 없는 까닭 */
+type VoiceEntryDenied = Extract<Code, "permission-voice" | "bot-timed-out" | "voice-full">;
 
 /**
  * 서버 관리자(상위 계층)인가: 서버 관리 권한. 설정 화면 버튼, 대시보드 서버 설정, 재생 조작의 면제(늘 DJ, 동일 음성 채널 규칙 면제)가 이것을 본다.
@@ -43,7 +45,7 @@ function isDjRoleCandidate(guild: Guild, roleId: string) {
 async function isDj(member: GuildMember) {
   if (isServerManager(member)) return true;
 
-  const djRoleIds = await GuildSettingsManager.getDjRoles(member.guild.id);
+  const djRoleIds = await guildSettings.getDjRoles(member.guild.id);
   if (!djRoleIds.length) return true;
 
   const validIds = djRoleIds.filter((id) => isDjRoleCandidate(member.guild, id));
@@ -87,9 +89,29 @@ async function checkAddFirst(member: GuildMember): Promise<PermissionDenied | nu
   return (await checkControl(member)) || checkSummon(member);
 }
 
+/** 봇에게 그 음성 채널의 채널 보기, 연결, 말하기 권한 가운데 하나라도 없다 */
+function lacksVoicePermission(me: GuildMember | null | undefined, channel: VoiceBasedChannel) {
+  const permissions = me ? channel.permissionsFor(me) : null;
+  return !permissions?.has(PermissionFlagsBits.ViewChannel) || !permissions.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak);
+}
+
+/**
+ * 봇이 그 음성 채널에 들어갈 수 없는 까닭. 들어갈 수 있으면 null. discord.js 의 joinable 과 같은 조건을 까닭별로 가른다.
+ * 디스코드는 들어갈 수 없는 채널의 참가 요청에 답하지 않아 연결 제한 시간을 다 기다리게 되므로 먼저 거른다
+ */
+function voiceEntryRefusal(me: GuildMember | null | undefined, channel: VoiceBasedChannel): VoiceEntryDenied | null {
+  if (!me || lacksVoicePermission(me, channel)) return "permission-voice";
+  const permissions = channel.permissionsFor(me);
+  // 관리자는 타임아웃이어도 들어간다
+  if (!permissions.has(PermissionFlagsBits.Administrator) && me.isCommunicationDisabled()) return "bot-timed-out";
+  // 제한 인원이 다 찬 채널은 멤버 이동 권한으로만 들어간다. 인원수에 봇도 들어가므로 이미 그 채널에 있으면 보지 않는다. 스테이지는 discord.js 와 마찬가지로 보지 않는다
+  if (channel.type === ChannelType.GuildVoice && channel.full && me.voice?.channelId !== channel.id && !permissions.has(PermissionFlagsBits.MoveMembers)) return "voice-full";
+  return null;
+}
+
 /**
  * 봇이 유휴 상태일 때 소환할 수 있는지 확인한다. 요청자의 채널로 들어가야 하므로 서버 관리자여도 본인이 접속해 있어야 하며,
- * 봇에게 그 채널의 Connect/Speak 권한이 있어야 한다. 봇이 이미 음성 채널에 있으면 검사 불필요(null).
+ * 봇이 그 채널에 들어갈 수 있어야 한다(voiceEntryRefusal). 봇이 이미 음성 채널에 있으면 검사 불필요(null).
  *
  * 동일 음성 채널 규칙(checkVoice)은 봇 유휴 시 항상 통과시키므로, 곡 추가 진입점은 checkAdd/checkControl에
  * 이 검사를 이어 붙여야 두 상태가 모두 덮인다.
@@ -101,11 +123,7 @@ function checkSummon(member: GuildMember): PermissionDenied | null {
   const target = member.voice.channel;
   if (!target) return "must-be-in-voice";
 
-  const permissions = me ? target.permissionsFor(me) : null;
-  if (!permissions?.has(PermissionFlagsBits.Connect) || !permissions.has(PermissionFlagsBits.Speak)) {
-    return "permission-voice";
-  }
-  return null;
+  return voiceEntryRefusal(me, target);
 }
 
 /** 그 곡을 넣은 사람도 하는 조작: DJ 계층이거나, 그 곡의 요청자 본인 (요청자도 동일 음성 채널 규칙은 적용. rules/controls) */
@@ -139,5 +157,5 @@ function canKickBot(member: GuildMember) {
   return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
 }
 
-export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, checkSkip, checkRemoveTracks };
-export type { PermissionDenied };
+export { isServerManager, isBotOwner, isDj, isDjRoleCandidate, canKickBot, checkVoice, checkControl, checkAdd, checkAddFirst, checkSummon, voiceEntryRefusal, lacksVoicePermission, checkSkip, checkRemoveTracks };
+export type { PermissionDenied, VoiceEntryDenied };

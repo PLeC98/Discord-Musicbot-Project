@@ -61,7 +61,7 @@ test("설정보다 새 릴리스가 있으면 info 한 줄과 상태의 newer", 
     assert.equal(one.state()?.newer, "2.0.3");
   }));
 
-test("운영자가 .env 로 고정한 버전이 목표다(그보다 낡은 기본값과 견주지 않는다)", () =>
+test("운영자가 .env 로 고정한 버전이 목표다(그보다 낡은 기본값과 비교하지 않는다)", () =>
   withConfig({ bgutil: { version: "1.3.2" } }, async () => {
     const { one } = make("1.3.2", "2.0.2");
     const lines = await started(one);

@@ -10,6 +10,7 @@ class InputHealth {
   broken: string | null = null; // 처음 깨진 까닭. 온전하면 null
   exitCode: number | null = null; // ffmpeg 종료 코드. 신호로 죽었으면 -1, 아직 살아 있으면 null
   detail: () => string | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)
+  refused: number | null = null; // 입력이 끊길 때 받은 4xx(주소가 막힘). 같은 주소는 다시 열어도 똑같이 막힌다
 
   constructor(kind: string) {
     this.kind = kind;
@@ -30,4 +31,10 @@ class InputHealth {
   }
 }
 
-export { InputHealth };
+/** 주소가 막힌 오류면 그 HTTP 상태 코드(4xx, Range 탓인 416 은 빼고), 아니면 null */
+function refusedStatus(error: unknown): number | null {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === "number" && status >= 400 && status < 500 && status !== 416 ? status : null;
+}
+
+export { InputHealth, refusedStatus };

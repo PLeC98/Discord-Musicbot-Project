@@ -19,7 +19,9 @@ const POSITION_SAVE_MS = 5000;
 const SETTINGS_SETTLE_MS = 200;
 
 // 저장한 직후 메모리를 비우는 경로다. 미러를 붙인 채 비우면 방금 저장한 곡이 DB에서 삭제된다.
-const FINAL_REASONS = new Set(["leave", "shutdown"]);
+// leave-for-join 은 /join 으로만 이어 듣게 남긴다(기동 복원, 24/7 자리 지킴이가 이어 틀지 않는다)
+const FOR_JOIN = "leave-for-join";
+const FINAL_REASONS = new Set(["leave", FOR_JOIN, "shutdown"]);
 
 // 기동이 DB를 연 뒤에만 쓴다. DB를 열지 않은 채 플레이어를 만드는 테스트가 실제 DB 파일을 건드리지 않게.
 const liveStore = () => (stateDb.isOpen() ? sessions() : null);
@@ -246,7 +248,7 @@ class SessionPersistence {
       } else {
         this.claimSaved();
         if (this.dirty) this.resync(store);
-        store.saveSession(p.guild.id, this.sessionFields());
+        store.saveSession(p.guild.id, { ...this.sessionFields(), autoResume: reason !== FOR_JOIN });
         this.lastRow = this._rowKey();
       }
     } catch (error) {
@@ -304,7 +306,7 @@ class SessionPersistence {
    * 저장한 세션을 복원해 이어 튼다. 무엇이 됐나: restored 이어 틂, failed 틀 곡을 열지 못함(남은 곡은 대기열에), empty 틀 곡이 없음.
    * announce 를 끄면 텍스트 채널에 복원했다고 알리지 않고, 연달아 실패해 멈춘 것도 알리지 않는다(/join 이 명령 응답으로 말한다)
    */
-  async restoreFromState(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "parked" | "failed" | "empty"> {
+  async restoreSession(record: RestoredSession | null | undefined, { announce = true }: { announce?: boolean } = {}): Promise<"restored" | "parked" | "failed" | "empty"> {
     const player = this.player;
     if (!record || !player.guild?.id) return "empty";
     const { session } = record;
@@ -338,6 +340,8 @@ class SessionPersistence {
     }
 
     await this._reconnect();
+    // 다시 쓰는 세션이 됐다. /join 으로만 이어 듣던 세션도 이제 기동 복원이 이어 튼다(행 전체를 새로 쓰면 저장 위치를 덮어쓴다)
+    this._markAutoResume();
     // 이미 붙어 있었으면 붙기가 맞추지 않으므로 여기서 맞춘다(겹쳐 불러도 같다)
     player.syncHolds();
 
@@ -400,6 +404,16 @@ class SessionPersistence {
     );
   }
 
+  _markAutoResume() {
+    const guildId = this.player.guild?.id;
+    if (!guildId) return;
+    try {
+      liveStore()?.markAutoResume(guildId);
+    } catch (error) {
+      log.warn(`세션 자동 이어 틀기 표시 실패 (서버 ID ${guildId}): ${messageOf(error)}`);
+    }
+  }
+
   async _reconnect() {
     if (this.player.connection) return;
     try {
@@ -420,7 +434,7 @@ class SessionPersistence {
         // 재생 패널을 새로 올린다(진행 갱신도 시작). 옛 패널은 기록을 보고 치운다. 복원에는 진입점 자리표시자가 없다.
         await playerEvents.started(player);
       } catch (error) {
-        log.error("세션 복원 중 재생 임베드 복구 실패:", messageOf(error));
+        log.error("세션 복원 중 재생 패널 복구 실패:", messageOf(error));
       }
     }
 

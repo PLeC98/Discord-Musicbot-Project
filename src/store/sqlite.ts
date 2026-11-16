@@ -30,6 +30,8 @@ type DbSpec = {
   version: number;
   /** 쓰기마다 디스크까지 기다리나. 잃으면 안 되는 파일은 FULL */
   synchronous: "NORMAL" | "FULL";
+  /** 다른 프로세스(DB 편집기 등)가 쓰기 잠금을 쥐었을 때 기다리는 시간. 쓰기는 동기라 기다리는 동안 이벤트 루프와 재생이 멈춘다. 생략하면 5000 */
+  busyTimeoutMs?: number;
   onMismatch: OnMismatch;
   /** 삭제한 공간을 파일에서 돌려주는지(auto_vacuum). 테이블을 만들기 전, WAL을 켜기 전에만 적용되므로 테이블 만들기에 두지 않는다 */
   autoVacuum?: "INCREMENTAL";
@@ -58,7 +60,7 @@ class DbFile {
       next.pragma("journal_mode = WAL");
       next.pragma(`synchronous = ${this.spec.synchronous}`);
       next.pragma("foreign_keys = ON");
-      next.pragma("busy_timeout = 5000");
+      next.pragma(`busy_timeout = ${this.spec.busyTimeoutMs ?? 5000}`);
       this.settle(next, file);
       // 만드는 도중 멈춰 테이블만 있고 버전이 없는 파일이 남지 않게
       next.transaction(() => {
@@ -98,7 +100,7 @@ class DbFile {
     const found = db.pragma("user_version", { simple: true }) as number;
     if (!tables.length || found === this.spec.version) return;
     const rule = this.spec.onMismatch;
-    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않아 열지 않음(DB v${found}, 봇 v${this.spec.version}): ${file}. 봇을 종료하고 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듦. 삭제하면 ${rule.lost}`;
+    const message = "hint" in rule ? rule.hint(found, file) : `${this.spec.label} 구조가 이 봇과 맞지 않음(DB v${found}, 봇 v${this.spec.version}): ${file}. 이 파일(같은 이름의 -wal, -shm 포함)을 삭제한 뒤 다시 시작하면 새로 만듦. 삭제하면 ${rule.lost}`;
     throw Object.assign(new Error(message), { code: "SCHEMA_MISMATCH" });
   }
 

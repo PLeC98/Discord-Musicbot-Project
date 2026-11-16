@@ -73,7 +73,7 @@ test("쉼표 목록을 파싱하고 공백, 대소문자를 정리한다", () =>
 
 test("모르는 이름도 그대로 넘긴다. 유효성은 yt-dlp가 판단한다", () => {
   // 아는 이름 목록을 우리가 들고 필터링하면 yt-dlp가 새로 추가한 클라이언트를 우리가 막게 된다.
-  // 대신 기동 로그(YouTube.logAuthMode)와 yt-dlp 자신의 경고로 알린다.
+  // 대신 기동 로그(youtubeSource.logAuthMode)와 yt-dlp 자신의 경고로 알린다.
   assert.deepEqual(parseClients("visionos,vision_os"), ["visionos", "vision_os"]);
 });
 

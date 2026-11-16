@@ -14,6 +14,7 @@ import logger from "../../src/infra/log/logger.ts";
 import * as route from "../../src/autoplay/route.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import type { Loop } from "../../src/rules/loop-cycle.ts";
+import { codedError } from "../../src/rules/error-kind.ts";
 
 // 캐시 키는 음원 주소 필드에 둔다. 주입한 keyOf 가 그대로 돌려준다. 키가 아직 없는 곡(스포티파이)은 음원 주소가 없다
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: id, requestKey: `https://y/${id}`, pageUrl: "", platform: "youtube", duration: 0, audioUrl: `yt:${id}`, ...extra });
@@ -264,6 +265,33 @@ test("대기열이 움직이면 실패 기록을 버리고 다시 시도한다",
   await settle();
 
   assert.equal(warmed.filter((k) => k === "yt:bad").length, 2, "서명이 바뀌었으므로 재시도한다");
+});
+
+test("곡 자체의 문제로 실패한 곡은 대기열이 움직여도 다시 시도하지 않는다. 같은 곡을 다시 넣으면 다시 시도한다", async () => {
+  const bad = track("bad");
+  const queue = [bad];
+  const tried: Array<string | undefined> = [];
+  const { warmer } = makeWarmer({
+    queue,
+    warm: async (t) => {
+      tried.push(t.audioUrl);
+      throw codedError("sp-no-youtube-match", "유튜브에서 같은 곡을 찾지 못함");
+    },
+  });
+  warmer.tick();
+  warmer.tick();
+  await settle();
+  queue.unshift(track("new"));
+  warmer.tick();
+  warmer.tick();
+  await settle();
+  assert.equal(tried.filter((k) => k === "yt:bad").length, 1, "대기열이 움직여도 한 번만 시도한다");
+
+  queue.push(track("bad"));
+  warmer.tick();
+  warmer.tick();
+  await settle();
+  assert.equal(tried.filter((k) => k === "yt:bad").length, 2, "다시 넣은 항목은 다시 시도한다");
 });
 
 // ── 퇴거 보호 ────────────────────────────────────────────────

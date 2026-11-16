@@ -1,5 +1,6 @@
 // 재생 상태가 바뀌었다는 알림(SSE). 받은 화면이 GET 으로 다시 읽는다
 
+import { tracksMembers } from "../../infra/gateway-intents.ts";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { requireAuth, signedIn } from "../middleware/require-auth.ts";
 import type { PlayerStream } from "../player-stream.ts";
@@ -37,6 +38,8 @@ function createPlayerEventsRouter({ stream, http }: { stream: PlayerStream; http
   router.get("/events", requireAuth, async (req, res) => {
     const { client } = req.app.locals.bot;
     if (!client.isReady()) return sendProblem(res, "bot-not-ready");
+    // 알림을 보낼 때마다 멤버 캐시에서 받을 사람을 고른다. 멤버 갱신, 탈퇴를 받지 않으면(Server Members Intent 꺼짐) 연결을 열지 않는다
+    if (!tracksMembers()) return sendProblem(res, "members-intent-off");
 
     const user = signedIn(req);
     // 슬롯은 멤버 확인(REST) 전에 확보하고 조회가 끝날 때까지 유지한다. 이 경로는 요청 한도 밖이라 열고 끊기를 되풀이해도 끝나지 않은 조회가 상한을 넘지 않게 한다

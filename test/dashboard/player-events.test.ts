@@ -9,6 +9,7 @@ process.env.OWNER_ID = "owner";
 
 const { listenForFetch, baseUrl } = await import("../helpers/listen.ts");
 const { createPlayerEventsRouter, botJoinedGuild, guildBack } = await import("../../src/dashboard/routes/player-events.ts");
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import express, { type Response } from "express";
@@ -152,6 +153,15 @@ test("사용 불가 서버(재연결 직후)는 캐시에 있어도 보이지 �
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), []);
   g1.available = true;
   assert.deepEqual(visible(subscribed[0].canSee, ["g1"]), ["g1"]);
+});
+
+test("Server Members Intent 가 꺼진 채 로그인했으면 연결을 열지 않는다(409, 멤버도 묻지 않는다)", async (t) => {
+  t.after(() => _resetIntents());
+  useLoggedIn({ messageContent: true, guildMembers: false });
+  const res = await open();
+  assert.equal(res.status, 409);
+  assert.equal(subscribed.length, 0);
+  assert.deepEqual([tokens.state.asked, guilds.get("g1")?.fetched], [[], []]);
 });
 
 test("상한에 찼으면 멤버 확인(REST) 없이 막는다", async () => {

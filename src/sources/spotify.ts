@@ -18,6 +18,7 @@ import { httpFor } from "../infra/http.ts";
 import { queryMemo } from "../infra/query-memo.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import type { KeyCheck } from "../rules/service-keys.ts";
+import { PLAYLIST_ADD_DEFAULT } from "../rules/limits.ts";
 
 // 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 실제 fetch)
 const http = httpFor("spotify");
@@ -255,7 +256,7 @@ const official = {
     return n ? [n] : [];
   },
 
-  async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+  async album(id: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
     const { get } = net(over);
     const a = (await get(`/albums/${id}`)) as ApiAlbum; // 앨범 이름, 앨범아트는 여기에만 있다
     const albumMeta = { name: a.name, images: a.images };
@@ -498,7 +499,7 @@ const graphql = {
   },
 
   // offset부터 재생 가능한 곡을 limit개까지. 원본 위치는 임의 접근이라 어느 구간이든 요청 비용이 같다.
-  async playlist(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+  async playlist(id: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
     const { query } = net(over);
     const PAGE = 100;
     const MAX_PAGES = 200; // 무한루프 가드
@@ -528,7 +529,7 @@ const graphql = {
   },
 
   // 앨범의 offset 부터 limit 곡. 스포티파이에서 지역 때문에 못 트는 곡(playability)도 넣는다. 소리는 유튜브에서 찾는다(공식 API 도 market 없이 다 준다)
-  async album(id: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+  async album(id: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
     const { query } = net(over);
     const PAGE = 50;
     const out: SpotifyTrack[] = [];
@@ -556,7 +557,7 @@ const graphql = {
 // 각 타입 → 시도할 백엔드 순서. 앞이 실패/빈결과면 다음으로 폴백.
 // 모든 경로는 { tracks, total(모르면 null), nextOffset(원본 목록 기준 다음 위치) }를 돌려준다.
 // 인기곡처럼 통째로만 오는 목록은 불러온 뒤 구간을 자른다.
-function sliceWhole(tracks: SpotifyTrack[], { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}): Part {
+function sliceWhole(tracks: SpotifyTrack[], { offset = 0, limit = PLAYLIST_ADD_DEFAULT }: Range = {}): Part {
   const part = tracks.slice(offset, offset + limit);
   return { tracks: part, total: tracks.length, nextOffset: offset + part.length };
 }
@@ -605,7 +606,7 @@ async function resolveType(type: string, id: string, options: Range, over: Parti
 // ── 내보내는 것(sources/lookup 이 쓴다) ──
 
 // 여러 곡 출처는 필요한 구간만 불러온다. over: 요청 함수 가짜(테스트), 생략하면 실제 요청
-async function getCollection(url: string, { offset = 0, limit = config.bot.playlistAddDefault }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
+async function getCollection(url: string, { offset = 0, limit = PLAYLIST_ADD_DEFAULT }: Range = {}, over: Partial<Net> = {}): Promise<Part> {
   const link = parseSpotify(url);
   if (!link) return { tracks: [], total: null, nextOffset: null };
   const { type, id } = link;

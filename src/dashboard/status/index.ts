@@ -1,13 +1,14 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
 // 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
 
+import { intentStatus } from "./intents.ts";
 import os from "node:os";
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";
 import { vitals } from "../../infra/vitals.ts";
 import { availableMemory } from "../../infra/available-memory.ts";
 import { BOT_VERSION } from "../../infra/version.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { AdminStatus, StatusQuery } from "../contract/admin.ts";
 import { gateway } from "./gateway.ts";
@@ -58,11 +59,12 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
     download: { ...downloadMeter(), active: TrackDownloader.activeCount() },
     upload: uploadView(),
     activePlayers: players.size,
+    intents: intentStatus(client),
     players: playerRows(client, players, query, viewer.id, viewer.memberIds),
     // 자식 프로세스. 오래 살아 있는 항목, 플레이어 없는 서버의 재생 작업이 새는 신호다
     processes: processSummary(client, players, query),
     // 유튜브 접속 경로. 어느 것이 실행 중 제외됐는지는 여기서만 보인다(기동 로그는 설정만 보여준다).
-    youtube: YouTube.statusSnapshot(),
+    youtube: youtubeSource.statusSnapshot(),
     links: linkRows(client),
     storage: storageView(),
     recent: recentProblems(),

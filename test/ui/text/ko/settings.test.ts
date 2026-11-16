@@ -6,7 +6,7 @@ import * as settings from "../../../../src/ui/text/ko/settings.ts";
 
 test("모든 문장", () => {
   assert.deepEqual(
-    [settings.channelRemoved(), settings.channelSet("<#1>"), settings.playlistLimitReset(50), settings.playlistLimitNow({ count: 50, isDefault: true, min: 1, max: 100 }), settings.playlistLimitNow({ count: 30, isDefault: false, min: 1, max: 100 }), settings.playlistLimitSet(30)],
+    [settings.channelRemoved(), settings.channelSet("<#1>", true), settings.playlistLimitReset(50), settings.playlistLimitNow({ count: 50, isDefault: true, min: 1, max: 100 }), settings.playlistLimitNow({ count: 30, isDefault: false, min: 1, max: 100 }), settings.playlistLimitSet(30)],
     [
       { icon: "channel", title: "전용 채널 해제됨", description: "이제 명령어로만 곡을 재생할 수 있어요." },
       { icon: "done", title: "전용 채널 설정됨", description: "<#1> 채널을 봇 전용 채널로 설정했어요.\n\n이 채널에 링크나 검색어를 적으면 바로 재생해요.\n대시보드의 공지도 이 채널로 발송돼요.", inputs: "📋 입력할 수 있는 것", inputsValue: "• 지원하는 플랫폼 링크 (유튜브, 스포티파이, 사운드클라우드)\n• 재생 가능한 미디어 링크\n• 곡 이름이나 아티스트 이름 등의 검색어" },
@@ -16,4 +16,8 @@ test("모든 문장", () => {
       { icon: "done", title: "재생목록에 한 번에 넣을 곡 수를 바꿨어요", description: '이제 재생목록을 넣으면 한 번에 **30곡**씩 들어가요.\n남은 곡은 "더 넣기"로 이어 넣을 수 있어요.' },
     ],
   );
+});
+
+test("전용 채널을 정했는데 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 적으면 재생한다는 대신 /play 를 쓰라고 한다", () => {
+  assert.equal(settings.channelSet("<#1>", false).description, "<#1> 채널을 봇 전용 채널로 설정했어요.\n\n다만 이 봇은 채팅 내용을 읽을 수 없게 설정돼 있어서 `/play`로 곡을 넣어야 해요.\n대시보드의 공지도 이 채널로 발송돼요.");
 });

@@ -46,14 +46,14 @@ try {
   try {
     checkoutPinned({ dir: DIR, repo: REPO, tag, commit, log: (line) => console.log(`\n$ ${line}   (${path.relative(ROOT, DIR)})`) });
   } catch (error) {
-    fail([`\n❌ bgutil ${tag} 받기 실패: ${messageOf(error)}`, "   윈도우에서는 봇이 켜져 있으면 POToken 서버가 node_modules 의 파일(canvas.node)을 물고 있어 지우지 못합니다. 봇을 끄고 다시 실행하세요.", `   그 밖이면 네트워크와 태그(${TAGS_URL})를 확인하세요.`]);
+    fail([`\n❌ bgutil ${tag} 받기 실패: ${messageOf(error)}`, "   윈도우에서는 봇이 켜져 있으면 POToken 서버가 node_modules의 파일(canvas.node)을 물고 있어 지우지 못합니다. 봇을 끄고 다시 실행하세요.", `   그 밖의 경우라면 네트워크와 태그(${TAGS_URL})를 확인하세요.`]);
   }
-  console.log(`ℹ️  bgutil ${tag} (${commit.slice(0, 12)}) 체크아웃 확인`);
+  console.log(`ℹ️  bgutil ${tag} (${commit.slice(0, 12)}) 체크아웃 확인됨`);
 
   if (!fs.existsSync(SERVER)) throw new Error(`server 디렉터리를 찾을 수 없습니다: ${SERVER}`);
   const pkg = JSON.parse(fs.readFileSync(path.join(SERVER, "package.json"), "utf8")) as { scripts?: Record<string, unknown> };
   const rootScripts = rootInstallScripts(pkg);
-  if (rootScripts.length) fail([`\n❌ bgutil ${tag} 의 server/package.json 에 설치 스크립트(${rootScripts.join(", ")})가 생겼습니다. 무엇을 하는지 확인한 뒤 이 설치 스크립트를 고치세요.`]);
+  if (rootScripts.length) fail([`\n❌ bgutil ${tag}의 server/package.json에 설치 스크립트(${rootScripts.join(", ")})가 생겼습니다. 무엇을 하는지 확인한 뒤 scripts/install-bgutil.ts를 고치세요.`]);
   const rebuild = rebuildTargets(JSON.parse(fs.readFileSync(path.join(SERVER, "package-lock.json"), "utf8")));
 
   // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install 로 넘어가면 그날의 트리가 깔린다)
@@ -76,5 +76,5 @@ try {
   console.log("   봇이 실행한 POToken 서버는 아직 이전 버전으로 돌고 있고,");
   console.log("   플러그인과 메이저 버전이 다르면 토큰 발급이 거부됩니다.");
 } catch (e) {
-  fail([`\n❌ bgutil 설치/업데이트 실패: ${messageOf(e)}`, "   git / node / (canvas 네이티브 모듈용 빌드 툴체인)이 설치돼 있는지 확인하세요."]);
+  fail([`\n❌ bgutil 설치/업데이트 실패: ${messageOf(e)}`, "   git과 node, 그리고 canvas 네이티브 모듈용 빌드 툴체인이 설치돼 있는지 확인하세요."]);
 }

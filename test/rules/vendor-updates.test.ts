@@ -25,7 +25,7 @@ test("ffmpeg: 지금 것보다 새 월말 태그 중 가장 새 것, 없으면 n
   assert.equal(newerFfmpegRelease([], "autobuild-2026-08-31-13-27"), null);
 });
 
-test("bgutil: 숫자로 견준다(2.0.10 > 2.0.9), 같거나 모양이 다르면 null", () => {
+test("bgutil: 숫자로 비교한다(2.0.10 > 2.0.9), 같거나 모양이 다르면 null", () => {
   assert.equal(compareVersions("2.0.10", "2.0.9")! > 0, true);
   assert.equal(compareVersions("v2.1.0", "2.0.9")! > 0, true);
   assert.equal(compareVersions("2.0.2", "2.0.2"), 0);

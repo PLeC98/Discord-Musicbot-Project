@@ -9,7 +9,7 @@ import { ageContentOn } from "../config/age-content.ts";
 import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { currentGuild, currentVoiceTarget } from "../infra/guild-context.ts";
 import logger from "../infra/log/logger.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import * as externalCaches from "../store/external-caches.ts";
 
 const log = logger.child({ category: "youtube" });
@@ -29,7 +29,7 @@ function assertAgeAllowed(what: string, cause?: unknown) {
   const options = cause === undefined ? undefined : { cause };
   if (!ageContentOn()) throw codedError("age-content-off", `연령 제한 콘텐츠가 꺼져 있음 (${what})`, options);
   const guildId = currentGuild();
-  if (!guildId || GuildSettingsManager.resolveAgePlace(guildId) === "all") return;
+  if (!guildId || guildSettings.resolveAgePlace(guildId) === "all") return;
   if (placeOf(guildId, currentVoiceTarget()) === false) throw codedError("age-channel-only", `음성 채널이 연령 제한 채널이 아님(${what})`, options);
 }
 

@@ -84,7 +84,7 @@ test("실물: 목록(concat, HLS)은 캐시 변환, probeAudio, 표준 입력 �
   assert.ok((await run(buildFfmpegArgs({ file: at("cache.opus"), seekMs: 500 }))).bytes > 0, "캐시 opus 를 튼다");
 });
 
-test("실물: HLS 의 TS 세그먼트(영상이 섞인 화질 목록)를 이어 붙이면 표준 입력 재생, 캐시 변환 모두 세그먼트를 합친 길이가 나온다(mp3 2초와 견준다)", async (t) => {
+test("실물: HLS 의 TS 세그먼트(영상이 섞인 화질 목록)를 이어 붙이면 표준 입력 재생, 캐시 변환 모두 세그먼트를 합친 길이가 나온다(mp3 2초와 비교한다)", async (t) => {
   if (!(await samples())) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   for (const [name, freq] of [
     ["seg0.ts", 440],
