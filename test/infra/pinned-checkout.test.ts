@@ -114,7 +114,7 @@ test("정리한 뒤에도 파일이 남으면 멈춘다(clean 이 무엇을 남�
   run(dir, "v1", c1);
   fs.writeFileSync(path.join(dir, "server", "extra.ts"), "export {};\n");
   const noClean = (args: string[], cwd: string) => (args[0] === "clean" ? "" : git(args, cwd));
-  assert.throws(() => checkoutPinned({ dir, repo: origin, tag: "v1", commit: c1, git: noClean }), /남은 파일 1개/);
+  assert.throws(() => checkoutPinned({ dir, repo: origin, tag: "v1", commit: c1, git: noClean }), /바뀐 파일 1개/);
 });
 
 test("새로 클론하면 확인 전에 파일을 풀지 않는다(태그가 맞지 않으면 작업 트리가 비어 있다)", () => {

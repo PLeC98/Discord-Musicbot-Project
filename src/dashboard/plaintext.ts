@@ -101,7 +101,7 @@ function siblingCookieNote(url: string): string | null {
   if (parsed.protocol !== "http:") return null;
   const host = parsed.hostname.replace(/\.$/, "").toLowerCase();
   if (!host.includes(".") || isLoopbackName(host) || kindOf(host.replace(/^\[(.*)\]$/, "$1"))) return null;
-  return `DASHBOARD_URL이 http이고 도메인 이름(${host})이라 같은 상위 도메인의 다른 사이트가 쿠키를 심어 다른 계정으로 로그인시키거나 자기 세션을 쓰게 할 수 있음. HTTPS로 공개하세요`;
+  return `DASHBOARD_URL이 http이고 호스트가 도메인 이름(${host})이라 같은 상위 도메인의 다른 사이트가 쿠키를 심어 다른 계정으로 로그인시키거나 공격자의 세션을 쓰게 할 수 있음. 대시보드를 HTTPS로 열어야 함`;
 }
 
 export { plaintextGate, plaintextReason, checkPublicUrl, siblingCookieNote, LOOKUP_TIMEOUT_MS };

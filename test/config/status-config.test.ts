@@ -1,4 +1,4 @@
-// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 StatusManager.
+// src/config/status.ts, src/ui/bot-presence.ts: 상태 문구 설정(settings.db 의 "status" 문서)과 그것을 읽는 BotPresence.
 //
 // 이 문서도 주인이 둘이라(손으로 고치는 운영자, 대시보드) 조용히 틀리는 것을 막는 게 핵심이다.
 // 특히 날짜, 시간 비교가 문자열 비교라, 한 자리로 적으면 "형식 오류"가 아니라 "엉뚱한 날에 걸린다".
@@ -11,7 +11,7 @@ import * as documents from "../../src/config/documents.ts";
 import * as statusConfig from "../../src/config/status.ts";
 import type { StatusConfig } from "../../src/config/status.ts";
 import sink from "../../src/infra/log/sink.ts";
-import { StatusManager } from "../../src/ui/bot-presence.ts";
+import { BotPresence } from "../../src/ui/bot-presence.ts";
 import { INTERVAL_DEFAULT } from "../../src/config/schema/status.ts";
 import { ActivityType } from "discord.js";
 
@@ -26,9 +26,9 @@ test("기본 문서는 아무 문제가 없다", () => {
   assert.deepEqual(statusConfig.validateStatus(documents.defaultOf("status")), []);
 });
 
-test("활동 종류 목록은 StatusManager와 같다", () => {
-  // 설정(config/)은 ui/ 의 StatusManager 를 부를 수 없어(층 방향) 목록을 따로 들고 있다
-  assert.deepEqual(Object.keys(StatusManager.TYPE_MAP), statusConfig.ACTIVITY_TYPES);
+test("활동 종류 목록은 BotPresence와 같다", () => {
+  // 설정(config/)은 ui/ 의 BotPresence 를 부를 수 없어(층 방향) 목록을 따로 들고 있다
+  assert.deepEqual(Object.keys(BotPresence.TYPE_MAP), statusConfig.ACTIVITY_TYPES);
 });
 
 test("문구는 그냥 적어도 되고, 종류가 필요할 때만 풀어 적는다", () => {
@@ -108,11 +108,11 @@ test("돌던 중에 틀리면 던지지 않고 직전에 맞던 설정으로 돈
 
 // 오늘이 언제인지를 정해 조건을 테스트한다
 function managerAt({ date = "06-15", lunar = "05-10", time = "12:00" }) {
-  return new StatusManager(NOT_READY, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
+  return new BotPresence(NOT_READY, { calendar: { today: () => date, todayLunar: () => lunar, now: () => time } });
 }
 
 // 선택한 문구의 글자. 선택하지 못하면 실패
-function textOf(manager: StatusManager, config: StatusConfig) {
+function textOf(manager: BotPresence, config: StatusConfig) {
   const entry = manager.getCurrentEntry(config);
   assert.ok(entry, "고른 문구가 있다");
   return entry.text;
@@ -188,7 +188,7 @@ function presenceClient() {
 test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => {
   const { set, client } = presenceClient();
   let config: StatusConfig = { messages: ["평소", { text: "놀아요", type: "Playing" }] };
-  const manager = new StatusManager(client, { load: () => config });
+  const manager = new BotPresence(client, { load: () => config });
 
   manager.apply();
   manager.rotationIndex = 1;
@@ -199,7 +199,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
   ]);
 
   // 로그인 전이거나 고를 문구가 없으면 건드리지 않는다
-  const loggedOut = new StatusManager(NOT_READY, { load: () => ({ messages: ["x"] }) });
+  const loggedOut = new BotPresence(NOT_READY, { load: () => ({ messages: ["x"] }) });
   loggedOut.apply();
   config = { messages: [] };
   manager.apply();
@@ -209,7 +209,7 @@ test("문구를 활동으로 건다. 종류를 안 적으면 듣는 중", () => 
 test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지지 않는다. stop 이 멈춘다", (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { set, client } = presenceClient();
-  const manager = new StatusManager(client, { load: () => ({ interval: 3, messages: ["하나", "둘"] }) });
+  const manager = new BotPresence(client, { load: () => ({ interval: 3, messages: ["하나", "둘"] }) });
 
   manager.start();
   assert.deepEqual(
@@ -234,7 +234,7 @@ test("간격마다 다음 문구로 돌리고, 간격은 10초보다 짧아지�
 test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) 보내지 않는다. 끄는 중에 보내면 discord.js가 잡지 않는 rejection을 낸다", (t) => {
   t.mock.timers.enable({ apis: ["setInterval"] });
   const { set, state, client } = presenceClient();
-  const manager = new StatusManager(client, { load: () => ({ interval: 10, messages: ["하나", "둘"] }) });
+  const manager = new BotPresence(client, { load: () => ({ interval: 10, messages: ["하나", "둘"] }) });
   state.ready = false;
   manager.start();
   assert.equal(set.length, 0, "로그인 중에 늦게 온 시작");
@@ -248,15 +248,15 @@ test("게이트웨이가 준비되지 않았으면(로그인 중, 끄는 중) �
 });
 
 test("오늘, 음력 오늘, 지금은 MM-DD, HH:MM 모양", () => {
-  const calendar = new StatusManager(NOT_READY).calendar;
-  assert.equal(calendar, StatusManager.CALENDAR, "정하지 않으면 진짜 달력");
+  const calendar = new BotPresence(NOT_READY).calendar;
+  assert.equal(calendar, BotPresence.CALENDAR, "정하지 않으면 진짜 달력");
   assert.match(calendar.today(), /^\d{2}-\d{2}$/);
   assert.match(calendar.todayLunar(), /^\d{2}-\d{2}$/);
   assert.match(calendar.now(), /^\d{2}:\d{2}$/);
 });
 
 test("load 는 설정 로더의 status() 를 부른다", () => {
-  assert.equal(new StatusManager(NOT_READY).load(), statusConfig.status());
+  assert.equal(new BotPresence(NOT_READY).load(), statusConfig.status());
 });
 
 // 비운 간격은 봇, 대시보드가 같은 기본값을 쓰고, 그 값은 기본 문서에 적힌 것과 같다(손대지 않은 설정과 비운 필드가 같게 돈다)

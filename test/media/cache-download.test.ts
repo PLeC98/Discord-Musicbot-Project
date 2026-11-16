@@ -14,7 +14,7 @@ import * as stores from "../../src/store/stores.ts";
 import { md5 } from "../../src/rules/audio-key-of.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import * as audioCache from "../../src/store/audio-cache.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import * as audioConvert from "../../src/media/convert.ts";
 import { TrackDownloader, type DownloadTrack, type Sources } from "../../src/media/cache-download.ts";
 import type { YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -56,7 +56,7 @@ const measured: string[] = [];
 // 다운로더에 넘기는 가짜 소스와 변환. 무엇을 불렀는지 calls 에 모은다
 const deps: Sources = {
   youtube: {
-    ...YouTube,
+    ...youtubeSource,
     getYtDlpOptions: (options = {}) => options, // 넘기는 옵션을 그대로 본다
     downloadAudio: async (url, build) => {
       const flags = build(false);
@@ -462,14 +462,14 @@ test("다운로드하는 사이 다른 쪽이 먼저 올렸으면 내 것을 버
 test("다운로드하는 동안 임시 파일을 퇴거, 기동 청소에서 보호하고, 끝나면 푼다", async () => {
   let during;
   ytdlpBehavior = (url, options) => {
-    during = audioCache._protectedFiles.has(path.resolve(options.output));
+    during = audioCache._downloadingFiles.has(path.resolve(options.output));
     writesFile()(url, options);
   };
 
   await downloader().downloadTrack(yt("mmmmmmmmmmm"));
 
   assert.equal(during, true);
-  assert.equal(audioCache._protectedFiles.size, 0);
+  assert.equal(audioCache._downloadingFiles.size, 0);
 });
 
 // ── 링크 데이터에서 온 영상이 죽었을 때 ────────────────────────────────────────

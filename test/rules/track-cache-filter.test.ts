@@ -32,7 +32,7 @@ test("한국어는 조합 중인 마지막 글자, 초성으로도 찾는다(서
   assert.equal(matchWords(words.words, ["밤을 달리다", "Lemon"]), false);
 });
 
-test("=, <> 는 글자 열에서 그대로 견주고, ='', <>'' 는 빔, 빔 아님", () => {
+test("=, <> 는 글자 열에서 그대로 비교하고, ='', <>'' 는 빔, 빔 아님", () => {
   assert.deepEqual(pick("text", "=youtube", ["youtube", "YouTube", "youtube2"]), ["youtube"]);
   assert.deepEqual(pick("text", "<>youtube", ["youtube", "spotify", null]), ["spotify", null]);
   assert.deepEqual(pick("text", "=''", ["", null, "a"]), ["", null]);
@@ -68,7 +68,7 @@ test("날짜 하나는 그날 하루: = 은 그날 안, > 는 그날 뒤, >= 는
   assert.deepEqual(pick("time", ">=2026-10-17 12:00", all), [night, after]);
 });
 
-test("수 열에 읽을 수 없는 값, 글자 열에 크기 견주기는 bad-filter", () => {
+test("수 열에 읽을 수 없는 값, 글자 열에 크기 비교는 bad-filter", () => {
   assert.deepEqual(parseFilter("count", ">many"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("text", ">3"), { ok: false, code: "bad-filter" });
   assert.deepEqual(parseFilter("time", "2026-13-40~x"), { ok: false, code: "bad-filter" });

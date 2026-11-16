@@ -4,7 +4,7 @@
 import { sessions, type RestoredSession } from "../../src/store/player-sessions.ts";
 import * as playerEvents from "../../src/player/events.ts";
 import * as playerNotices from "../../src/ui/player-notices.ts";
-import * as transientMessages from "../../src/ui/transient-messages.ts";
+import { LIFETIME } from "../../src/ui/delivery.ts";
 import config from "../../src/config/index.ts";
 import type { GuildTextBasedChannel } from "discord.js";
 import { Player } from "../../src/player/player.ts";
@@ -15,6 +15,7 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import Database from "better-sqlite3";
 import { test, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { codedError } from "../../src/rules/error-kind.ts";
@@ -183,6 +184,50 @@ test("쓰기가 실패하면 표시해 두고 다음 변경에서 통째로 다�
   assert.deepEqual(stored(p.guild.id).queue, ["A", "B"]);
 });
 
+// 다른 프로세스(DB 편집기)가 실행 상태 DB 의 쓰기 잠금을 쥔다. 잠금을 풀 때까지 쓰기는 실패한다
+function holdWriteLock() {
+  const other = new Database(path.join(DB_DIR, "state.db"));
+  other.exec("BEGIN IMMEDIATE");
+  return () => {
+    other.exec("ROLLBACK");
+    other.close();
+  };
+}
+
+test("다른 프로세스가 쓰기 잠금을 쥔 동안 곡이 바뀌어도 재생이 멎지 않게 기다리지 않고, 잠금이 풀린 뒤 다음 변경 때 DB 를 메모리와 맞춘다", () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  trackState.enqueue(p, [t("A"), t("B")]);
+  const release = holdWriteLock();
+  const started = performance.now();
+  try {
+    trackState.shiftNext(p);
+    trackState.enqueue(p, [t("C")]);
+  } finally {
+    release();
+  }
+  assert.ok(performance.now() - started < 1000, `잠금을 기다리지 않는다: ${Math.round(performance.now() - started)}ms`);
+  assert.equal(sp.dirty, true, "실패를 적어 둔다");
+
+  trackState.enqueue(p, [t("D")]);
+  assert.equal(sp.dirty, false);
+  assert.deepEqual(stored(p.guild.id), memory(p));
+});
+
+test("다시 쓸 기회가 없는 쓰기(나가며 저장)는 잠긴 동안 실패한 채 남는다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("changed");
+  const release = holdWriteLock();
+  try {
+    await sp.save("leave-for-join");
+  } finally {
+    release();
+  }
+  assert.equal(loaded(p.guild.id).session.autoResume, true, "/join 전용으로 바꾸지 못했다");
+  assert.equal(sp.frozen, true, "마지막 저장이라 더 옮기지 않는다");
+});
+
 // 알림을 빠뜨린 길은 주기 저장(saveTick)이 잡는다. 세션 행의 열이 지난 저장과 다르면 쓴다
 test("세션 행이 바뀌면 주기 저장이 쓴다. 안 바뀌었거나 위치만 바뀌었으면 다시 쓰지 않는다. 곡이 없으면 쓰지 않는다", async () => {
   const { p, sp } = makePlayer();
@@ -277,6 +322,35 @@ test("나가며 저장한 뒤에는 메모리를 비워도 저장한 트랙이 �
   assert.deepEqual(titles(s.queue), ["next"]);
 });
 
+test("/join 으로만 이어 듣게 저장하면(/leave, 혼자 남아 나감) 자동 이어 틀기를 끈다. 다른 저장은 켠다. 저장한 트랙은 남는다", async () => {
+  const { p, sp } = makePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("changed");
+  assert.equal(loaded(p.guild.id).session.autoResume, true);
+
+  await sp.save("leave-for-join");
+  trackState.reset(p);
+  const s = loaded(p.guild.id);
+  assert.equal(s.session.autoResume, false);
+  assert.equal(s.current?.title, "now", "마지막 저장 뒤 비워도 트랙이 남는다");
+});
+
+test("복원이 음성에 붙으면 /join 으로만 이어 듣던 세션도 자동 이어 틀기를 다시 켠다. 저장 위치는 그대로", async () => {
+  const { p, sp } = makeRestorePlayer();
+  trackState.setCurrent(p, t("now"));
+  await sp.save("leave-for-join");
+  sessions().savePositions([{ guildId: p.guild.id, positionMs: 30_000 }]);
+  const record = sessions().load(p.guild.id);
+  assert.equal(record?.session.autoResume, false);
+
+  // 같은 서버의 새 플레이어가 그 세션을 이어 튼다
+  const next = makeRestorePlayer({ guild: p.guild });
+  await next.sp.restoreSession(record);
+  const after = loaded(p.guild.id);
+  assert.equal(after.session.autoResume, true);
+  assert.equal(after.session.positionMs, 30_000, "표시만 바꾼다");
+});
+
 // ── 세션 행 ──
 
 test("세션 행: 반복 false는 off로, 일시정지는 사람의 뜻만 남긴다(억제로 소리가 멈춰 있어도)", async () => {
@@ -359,7 +433,7 @@ type TestPlayer = ReturnType<typeof makePlayer>["p"];
 async function restore(record: RestoredSession, setup: (p: TestPlayer) => void = () => {}) {
   const { p, sp } = makeRestorePlayer();
   setup(p);
-  await sp.restoreFromState(record);
+  await sp.restoreSession(record);
   return p;
 }
 
@@ -424,7 +498,7 @@ test("복원: DB에서 읽은 트랙을 다시 쓰지 않고, 이어지는 변�
   };
   try {
     const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
-    await sp.restoreFromState(record);
+    await sp.restoreSession(record);
     assert.deepEqual(stored(p.guild.id), memory(p));
 
     p.loop = "queue";
@@ -448,7 +522,7 @@ test("복원: 자동재생이 미리 선택해 둔 곡은 복원하지 않고 DB
   const record = loaded(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id, client: { user: { id: BOT } } } });
-  await sp.restoreFromState(record);
+  await sp.restoreSession(record);
 
   assert.deepEqual(titles(p.queue), ["내곡1", "내곡2"]);
   assert.deepEqual(stored(p.guild.id), memory(p), "필터링한 뒤 DB를 맞추지 않으면 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
@@ -462,7 +536,7 @@ test("복원: 봇 id를 알 수 없으면 대기열을 그대로 복원한다", 
   const record = loaded(saved.guild.id);
 
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } }); // client 없음
-  await sp.restoreFromState(record);
+  await sp.restoreSession(record);
 
   assert.deepEqual(titles(p.queue), ["내곡", "자동곡"]);
 });
@@ -480,7 +554,7 @@ test("복원: 상한을 넘는 대기열은 잘라내고 DB도 같이 줄인다"
   config.bot.maxQueueSize = 25;
   try {
     const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id } });
-    await sp.restoreFromState(record);
+    await sp.restoreSession(record);
     assert.equal(p.queue.length, 25);
     assert.deepEqual(stored(p.guild.id), memory(p), "메모리만 자르면 넘친 행이 DB에 남아 이후 증분 쓰기가 엉뚱한 곡을 건드린다");
 
@@ -532,7 +606,7 @@ test("복원: 끝난 곡 뒤에 틀 곡이 없으면 음성에 붙지 않고 세
   p.voice = fake<Player["voice"]>({ connect: async () => (joins += 1) });
   sessions().saveSession(p.guild.id, { voiceChannelId: "v1", textChannelId: "c1", volume: 80, loopMode: "off", autoplay: null, userPaused: false, positionMs: 99_000 });
 
-  assert.equal(await sp.restoreFromState(endRecord(99_000)), "empty");
+  assert.equal(await sp.restoreSession(endRecord(99_000)), "empty");
   assert.equal(joins, 0);
   assert.equal(p.calls.length, 0);
   assert.equal(sessions().load(p.guild.id), null);
@@ -589,17 +663,17 @@ test("복원 안내: 멈춘 채 복원했으면 재개됐다고 하지 않는다
 
 test("복원: 무엇이 됐나를 돌려준다(이어 재생, 재생할 곡을 열지 못함, 재생할 곡 없음)", async () => {
   const { sp } = makeRestorePlayer();
-  assert.equal(await sp.restoreFromState(makeRecord()), "restored");
+  assert.equal(await sp.restoreSession(makeRecord()), "restored");
 
   const failing = makeRestorePlayer();
   failing.p.play = fake<Player["play"]>(async () => {
     trackState.setCurrent(failing.p, null);
     return { ok: false, code: "play-failed", error: new Error("x") };
   });
-  assert.equal(await failing.sp.restoreFromState(makeRecord()), "failed");
+  assert.equal(await failing.sp.restoreSession(makeRecord()), "failed");
 
-  assert.equal(await makeRestorePlayer().sp.restoreFromState(makeRecord({}, null)), "empty");
-  assert.equal(await makeRestorePlayer().sp.restoreFromState(null), "empty");
+  assert.equal(await makeRestorePlayer().sp.restoreSession(makeRecord({}, null)), "empty");
+  assert.equal(await makeRestorePlayer().sp.restoreSession(null), "empty");
 });
 
 test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하는 동안만 연달아 실패 알림을 끈다(/join 이 응답으로 말한다)", async () => {
@@ -611,7 +685,7 @@ test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하�
     seenQuiet.push(p.quietFailures);
     return { ok: true, track: p.currentTrack };
   });
-  assert.equal(await sp.restoreFromState(makeRecord(), { announce: false }), "restored");
+  assert.equal(await sp.restoreSession(makeRecord(), { announce: false }), "restored");
   assert.deepEqual(quiet.sent, []);
   assert.deepEqual(seenQuiet, [true], "복원하는 동안은 끈다");
   assert.equal(p.quietFailures, false, "복원한 뒤에는 다시 알린다");
@@ -622,19 +696,18 @@ test("복원: announce 를 끄면 글자 채널에 알리지 않고, 복원하�
     seenLoud.push(loud.p.quietFailures);
     return { ok: true, track: loud.p.currentTrack };
   });
-  await loud.sp.restoreFromState(makeRecord());
+  await loud.sp.restoreSession(makeRecord());
   assert.deepEqual(seenLoud, [false]);
 });
 
 test("복원 안내는 잠시 뒤 삭제한다", async () => {
-  const { AUTO_DELETE_MS } = transientMessages;
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     const channel = fakeChannel();
     await restore(makeRecord(), (p) => (p.textChannel = fake<GuildTextBasedChannel>(channel)));
     assert.equal(channel.sent[0].deleted, false);
 
-    mock.timers.tick(AUTO_DELETE_MS);
+    mock.timers.tick(LIFETIME.glance);
     await new Promise(setImmediate);
     assert.equal(channel.sent[0].deleted, true);
   } finally {
@@ -697,7 +770,7 @@ test("복원한 플레이어는 그 세션을 넘겨받은 것이다. 이어지�
   const { p, sp } = makeRestorePlayer();
   leftBehind(p.guild.id);
 
-  await sp.restoreFromState(sessions().load(p.guild.id));
+  await sp.restoreSession(sessions().load(p.guild.id));
   trackState.enqueue(p, [t("NEW")]);
 
   assert.deepEqual(inDb(p.guild.id), { current: "OLDcur", queue: ["OLDq1", "OLDq2", "NEW"] });
@@ -743,7 +816,7 @@ test("복원: 종료 중이라 음성에 붙지 않았으면 error 줄 없이 �
   const { p, sp } = makeRestorePlayer({ guild: { id: saved.guild.id }, connection: null });
   p.voice = fake<Player["voice"]>({ connect: async () => Promise.reject(codedError("bot-shutting-down", "종료 중")) });
   const start = sink.buffer.at(-1)?.id ?? -1;
-  await assert.rejects(sp.restoreFromState(record), { code: "bot-shutting-down" });
+  await assert.rejects(sp.restoreSession(record), { code: "bot-shutting-down" });
   assert.deepEqual(
     sink.buffer.filter((r) => r.id > start && r.level === "error").map((r) => r.text),
     [],

@@ -27,7 +27,7 @@ function satisfiesNode(version: string, range: string): boolean | null {
 /** 지원 범위 밖이면 기동 경고 문장. 안이거나 판단하지 못하면 null */
 function nodeSupportWarning(version: string, range: string): string | null {
   if (satisfiesNode(version, range) !== false) return null;
-  return `지원 범위 밖의 Node(지금 ${version}, 지원 ${range}). 알려진 보안 취약점이 고쳐진 판으로 올리세요`;
+  return `지원 범위 밖의 Node(지금 ${version}, 지원 ${range}). 알려진 보안 취약점이 고쳐진 버전으로 업데이트 필요`;
 }
 
 export { satisfiesNode, nodeSupportWarning };

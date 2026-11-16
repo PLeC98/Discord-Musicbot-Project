@@ -1,6 +1,6 @@
 // 스포티파이 곡의 유튜브 동등물 찾기. 찾은 영상을 곡의 음원 주소로 적는다.
 
-import * as YouTube from "./index.ts";
+import * as youtubeSource from "./index.ts";
 import * as trackLookup from "../../store/track-lookup.ts";
 import * as pinnedSources from "../../store/pinned-sources.ts";
 import * as links from "../../rules/links.ts";
@@ -49,7 +49,7 @@ function sharedBest(key: string | null, find: () => Promise<string | null>): { u
  * search: 유튜브 검색 함수(생략하면 글자 검색 searchVideos).
  * skipPin: 직접 지정한 음원을 붙이지 않는다(죽은 지정 음원을 건너뛰고 다시 찾을 때. 아니면 죽은 것을 다시 붙인다)
  */
-async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => YouTube.searchVideos(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
+async function findYouTubeEquivalent(track: Seeking, { search = (query, limit) => youtubeSource.searchVideos(query, limit), skipPin = false }: { search?: Search; skipPin?: boolean } = {}): Promise<string | null> {
   if (track.audioUrl) return track.audioUrl;
 
   // 운영자가 직접 지정한 음원이 먼저다(유튜브가 아니어도 된다: 사운드클라우드, 직접 링크)

@@ -14,7 +14,7 @@ async function pixel(data: Buffer, x: number, y: number) {
   return [...raw.subarray(at, at + 4)];
 }
 
-test("같은 입력이면 같은 바이트(맞추기가 디스코드에 올라간 것과 바이트로 견준다)", async () => {
+test("같은 입력이면 같은 바이트(맞추기가 디스코드에 올라간 것과 바이트로 비교한다)", async () => {
   const a = await imageOf(ICONS.pause, "brand");
   const b = await imageOf(ICONS.pause, "brand");
   assert.ok(a.data.equals(b.data));

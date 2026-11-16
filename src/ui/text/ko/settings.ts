@@ -6,11 +6,11 @@ const roleMentions = (roleIds: string[]) => roleIds.map((id) => `<@&${id}>`).joi
 
 /** 전용 채널을 풀었다 */
 const channelRemoved = () => ({ icon: "channel" as const, title: "전용 채널 해제됨", description: "이제 명령어로만 곡을 재생할 수 있어요." });
-/** 전용 채널을 정했다. channel 은 채널 멘션 */
-const channelSet = (channel: string) => ({
+/** 전용 채널을 정했다. channel 은 채널 멘션, typed 는 그 채널에 채팅으로 곡을 넣을 수 있는지(아니면 입력 목록을 보이지 않는다) */
+const channelSet = (channel: string, typed: boolean) => ({
   icon: "done" as const,
   title: "전용 채널 설정됨",
-  description: `${channel} 채널을 봇 전용 채널로 설정했어요.\n\n` + `이 채널에 링크나 검색어를 적으면 바로 재생해요.\n` + `대시보드의 공지도 이 채널로 발송돼요.`,
+  description: `${channel} 채널을 봇 전용 채널로 설정했어요.\n\n` + (typed ? `이 채널에 링크나 검색어를 적으면 바로 재생해요.\n` : "다만 이 봇은 채팅 내용을 읽을 수 없게 설정돼 있어서 `/play`로 곡을 넣어야 해요.\n") + `대시보드의 공지도 이 채널로 발송돼요.`,
   inputs: `${icon("inputs")} 입력할 수 있는 것`,
   inputsValue: "• 지원하는 플랫폼 링크 (유튜브, 스포티파이, 사운드클라우드)\n• 재생 가능한 미디어 링크\n• 곡 이름이나 아티스트 이름 등의 검색어",
 });

@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import config from "../../config/index.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
@@ -25,18 +25,18 @@ const exported: GuildCommand = {
 
   async execute(interaction) {
     const guildId = interaction.guild.id;
-    const { min, max } = GuildSettingsManager.playlistAddLimits();
+    const { min, max } = guildSettings.playlistAddLimits();
     const action = interaction.options.getString("action") || "set";
     const count = interaction.options.getInteger("count");
 
     if (action === "reset") {
-      if (!(await saved(interaction, () => GuildSettingsManager.setPlaylistAddMax(guildId, null)))) return failed(interaction);
-      return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(GuildSettingsManager.resolvePlaylistAddMax(guildId)))));
+      if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, null)))) return failed(interaction);
+      return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(guildSettings.resolvePlaylistAddMax(guildId)))));
     }
 
     if (count === null) {
-      const stored = await GuildSettingsManager.getPlaylistAddMax(guildId);
-      const current = GuildSettingsManager.resolvePlaylistAddMax(guildId);
+      const stored = await guildSettings.getPlaylistAddMax(guildId);
+      const current = guildSettings.resolvePlaylistAddMax(guildId);
       return toSelf(interaction, reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
     }
 
@@ -45,7 +45,7 @@ const exported: GuildCommand = {
       return noticeSelf(interaction, errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
     }
 
-    if (!(await saved(interaction, () => GuildSettingsManager.setPlaylistAddMax(guildId, count)))) return failed(interaction);
+    if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, count)))) return failed(interaction);
     return interaction.reply(post(screens.saved(settingsText.playlistLimitSet(count))));
   },
 };
@@ -57,7 +57,7 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
     await work();
     return true;
   } catch (error) {
-    log.error(`서버 설정 저장 실패(/setplaylistlimit): ${interaction.guild.name} (${interaction.guild.id}) | ${GuildSettingsManager.FIELD_LABEL.playlistAddMax} | ${messageOf(error)}`);
+    log.error(`서버 설정 저장 실패(/setplaylistlimit): ${interaction.guild.name} (${interaction.guild.id}) | ${guildSettings.FIELD_LABEL.playlistAddMax} | ${messageOf(error)}`);
     return false;
   }
 }

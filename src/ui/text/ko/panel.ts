@@ -62,12 +62,12 @@ const ended = (): EndNotice => ({ icon: "music", title: "재생이 끝났어요"
 
 // 끊겨서 음성 채널에서 나왔다. 까닭(Player.dispose 의 end)마다의 본문
 const CUT_OFF: Record<string, string> = {
-  "alone-timeout": "한동안 듣는 사람이 없어서 쉬러 갔어요. `/play`로 부르면 다시 올게요.",
+  "alone-timeout": "한동안 듣는 사람이 없어서 쉬러 갔어요. `/join`으로 이어 들을 수 있어요.",
   kicked: "누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
   "stage-ended": "스테이지가 끝나서 나왔어요. `/play`로 부르면 다시 올게요.",
   "stage-disconnect": "스테이지가 끝났거나 누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
   "operator-leave": "봇 운영자가 이 서버에서 저를 내보냈어요.",
-  "dashboard-leave": "대시보드를 통해 이 서버에서 저를 내보냈어요.",
+  "dashboard-leave": "대시보드에서 누군가 저를 내보냈어요.",
   "voice-lost": "음성 연결이 끊겨 다시 연결하지 못했어요. `/join`으로 이어 들을 수 있어요.",
   "channel-gone": "제가 있던 음성 채널이 사라졌어요. `/play`로 부르면 다시 올게요.",
   fault: "같은 오류가 반복되어 재생을 멈췄어요. 계속되면 봇 운영자에게 알려주세요.",

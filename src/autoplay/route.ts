@@ -19,7 +19,7 @@ import * as pool from "./pool.ts";
 import * as sources from "./sources/index.ts";
 import * as match from "../sources/youtube/match.ts";
 import * as aiAssist from "./assist/index.ts";
-import * as YouTube from "../sources/youtube/index.ts";
+import * as youtubeSource from "../sources/youtube/index.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
 import type { Pin } from "../store/pinned-sources.ts";
@@ -183,7 +183,7 @@ function artOfVideo(video: Video): string | null {
 /**
  * 소스가 준 음원 파일 하나(AnimeThemes, AnisongDB)를 재생 가능한 트랙으로.
  *
- * `DirectLink.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름, 파일 태그, 아티스트, 이미지는 비어 있다.
+ * `directSource.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름, 파일 태그, 아티스트, 이미지는 비어 있다.
  * 소스 API 에서 불러온 이름과 표지를 그대로 싣는다.
  */
 const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
@@ -204,7 +204,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
 
 // 바깥 경계. 테스트는 이것을 넘겨 진짜 소스, 검색, 링크 데이터, AI 보조를 부르지 않는다
 const REAL: Deps = {
-  search: (query, limit) => YouTube.searchVideos(query, limit),
+  search: (query, limit) => youtubeSource.searchVideos(query, limit),
   pinned: (requestKey) => pinnedSources.getPin(requestKey),
   // 링크 데이터가 아는 음원 주소. 캐시 파일이 있으면 그 길이도(후보가 길이를 안 주는 소스가 있다)
   known(requestKey) {

@@ -30,10 +30,10 @@ function briefError(error: unknown, maxLines = 4) {
   return `${lines.slice(0, maxLines).join("\n")}\n(외 ${lines.length - maxLines}줄)`;
 }
 
-/** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별 */
+/** yt-dlp 오류가 연령 제한(로그인 필요)인지 판별. yt-dlp 의 연령 제한 판정(_is_agegated)처럼 "inappropriate" 가 들어 있으면 연령 제한으로 본다 */
 function isAgeRestrictedError(error: unknown) {
   const msg = textOf(error);
-  return /confirm your age|inappropriate for some users|age.?restricted|only available to registered users/i.test(msg);
+  return /confirm your age|inappropriate|age.?restricted|only available to registered users/i.test(msg);
 }
 
 /**
@@ -115,7 +115,8 @@ function isStaleMediaError(error: unknown) {
 
 // yt-dlp 가 적는 문장으로만 구분하는 것. 바꿀 수 없는 문장이라 여기서 읽는다.
 // 거의 모든 줄이 "[youtube] 영상ID:" 로 시작하므로 "youtube", 숫자 하나로는 구분하지 않는다(영상 ID 에 429 가 들 수 있다)
-const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|not a robot|bot detection|please sign in|inappropriate/i;
+// 봇 확인: 유튜브의 "Sign in to confirm you’re not a bot" 과 yt-dlp 가 붙이는 "requiring a captcha challenge" 문구
+const BOT_CHECK = /sign in to confirm|confirm you.?re not a bot|captcha/i;
 const GEO_BLOCKED = /in your (?:country|region)|from your location|geo.?restrict/i;
 const RATE_LIMITED = /HTTP Error 429|too many requests|rate.?limit|quota exceeded|try again later/i;
 // 연결이 안 된 것. yt-dlp 는 파이썬 오류 문장을 그대로 옮긴다(Failed to establish a new connection, [WinError 10061] 등)

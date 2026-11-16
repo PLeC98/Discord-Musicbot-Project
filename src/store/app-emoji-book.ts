@@ -4,7 +4,7 @@
 import type { AppEmoji, EmojiBook } from "../rules/app-emoji-token.ts";
 
 let emojis: readonly AppEmoji[] = [];
-let fallbacks: Pick<EmojiBook, "retired" | "iconUnicode"> = {};
+let fallbacks: Pick<EmojiBook, "former" | "iconUnicode"> = {};
 
 /** 앱의 이모지 목록을 통째로 교체한다 */
 function useAppEmojis(next: readonly AppEmoji[]) {
@@ -12,7 +12,7 @@ function useAppEmojis(next: readonly AppEmoji[]) {
 }
 
 /** 아이콘의 옛 이름과 유니코드(찾지 못한 아이콘 토큰을 대신할 것). app 이 한 번 넣는다 */
-function useIconFallbacks(next: Pick<EmojiBook, "retired" | "iconUnicode">) {
+function useIconFallbacks(next: Pick<EmojiBook, "former" | "iconUnicode">) {
   fallbacks = next;
 }
 

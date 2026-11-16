@@ -27,6 +27,10 @@ export const useUserStore = defineStore("user", {
     avatarUrl: (s) => s.data?.avatarUrl ?? null,
     // 대시보드에서 봇을 초대할 수 있나(사이드바 ⊕, 초대 화면)
     canInvite: (s) => s.data?.canInvite ?? false,
+    // 봇이 멤버 갱신, 탈퇴를 받나(Server Members Intent). 꺼지면 서버 화면을 쓸 수 없다
+    tracksMembers: (s) => s.data?.intents.guildMembers ?? true,
+    // 봇이 전용 채널의 메시지 내용을 읽나(Message Content Intent). 꺼지면 채팅으로 곡을 넣을 수 없다
+    readsMessages: (s) => s.data?.intents.messageContent ?? true,
   },
   actions: {
     // 401 이면 로그인하지 않았다(처음 들어온 사람이라 세션 끝 대화상자는 열지 않는다).

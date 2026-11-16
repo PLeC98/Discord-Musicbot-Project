@@ -8,6 +8,7 @@ import type { BotInfo, Me } from "../contract/identity.ts";
 import { avatarUrl } from "../images.ts";
 import { faviconVersion } from "../appearance.ts";
 import { canInvite } from "../invite.ts";
+import { loggedInIntents } from "../../infra/gateway-intents.ts";
 import { sendProblem } from "../problem.ts";
 import { requireAuth } from "../middleware/require-auth.ts";
 import { recentLogin, RECENT_LOGIN_MS } from "../middleware/recent-login.ts";
@@ -21,7 +22,7 @@ identityRouter.get("/me", (req, res) => {
   if (!req.session.user) return sendProblem(res, "login-required");
   // 세션 사용자를 펼치지 않고 필드를 골라 보낸다(세션에 무엇이 더 붙어도 화면으로 새지 않게)
   const { id, username, globalName, avatar } = req.session.user;
-  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id) };
+  const me: Me = { id, username, globalName, avatar, avatarUrl: avatarUrl(id, avatar), isOwner: isOwner(req), isRealOwner: isRealOwner(req), viewAs: getViewAs(req), canInvite: canInvite(req.app.locals.bot.client, id), intents: { ...loggedInIntents() } };
   res.json(me);
 });
 

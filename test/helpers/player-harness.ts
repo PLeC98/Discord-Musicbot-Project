@@ -289,13 +289,13 @@ class FakePersistence extends SessionPersistence {
     calls.persists.push("remove");
   }
   // 테스트가 복원을 정했으면 그것으로(결과는 복원한 뒤의 상태로 구분한다). 아니면 진짜
-  override async restoreFromState(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
+  override async restoreSession(record: RestoredSession | null | undefined, options?: { announce?: boolean }) {
     if (behavior.restore) {
       await behavior.restore.call(this.player, record, options);
       if (this.player.lifecycle.parked) return "parked";
       return this.player.currentTrack ? "restored" : this.player.queue.length ? "failed" : "empty";
     }
-    return super.restoreFromState(record, options);
+    return super.restoreSession(record, options);
   }
   override onSetCurrent() {
     calls.sink.push("onSetCurrent");

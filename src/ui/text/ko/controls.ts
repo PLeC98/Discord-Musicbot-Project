@@ -107,7 +107,7 @@ const loopSet = (mode: string | false): Head => {
 /** 볼륨. before, level 은 0 ~ VOLUME_MAX(rules/limits) */
 const volumeSet = (before: number, level: number): Head => ({ icon: "volume", title: "볼륨을 조절했어요!", body: before === level ? `볼륨이 이미 ${level}%라서 그대로 둘게요.` : `**${before}%** → **${level}%**` });
 /** 볼륨 입력 창 */
-const volumeModal = () => ({ title: "볼륨 설정", label: `0에서 ${VOLUME_MAX}까지의 숫자로 입력해 주세요!` });
+const volumeModal = (current: number) => ({ title: "볼륨 설정", label: `0에서 ${VOLUME_MAX}까지의 숫자로 입력해 주세요!`, placeholder: `지금 ${current}` });
 
 /** 음성 채널에서 나갔다. 곡이 있었으면 저장한 곡, 위치(at, 적은 것), 대기열 곡 수와 복원하는 법. stayOff 면 상주 모드도 껐다 */
 const left = (saved: { track: Linked; at: string; queue: number } | null, stayOff = false) => {

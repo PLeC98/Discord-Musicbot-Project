@@ -41,7 +41,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
   }
   // 붙지 못하면 voice-failed 로 던진다. play() 는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
   if (!player.connection) {
-    if (player.isRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중");
+    if (player.isVoiceRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중");
     await player.voice.connect();
   }
 
@@ -97,8 +97,10 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
   };
   // 키는 음원 주소에서 바로 나온다(스포티파이는 영상을 찾은 뒤)
   let cacheFile = pickCacheFile();
-  // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생이 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다
-  let streamInfo: StreamInfo | null = !cacheFile ? resumeStream(track, previous, startMs) : null;
+  // 같은 곡을 다시 열면(위치 이동, 처음으로, 한 곡 반복, 끊긴 뒤) 직전 재생 때 받은 주소를 다시 쓴다. 캐시 파일로 틀면 주소가 필요 없다.
+  // 직전 재생 때 그 주소가 막혔으면 다시 쓰지 않고, 받아 둔 영상 정보에도 같은 주소가 들어 있어 함께 버리고 새로 받는다
+  const refused = !cacheFile ? refusedBefore(track, previous) : false;
+  let streamInfo: StreamInfo | null = !cacheFile && !refused ? resumeStream(track, previous, startMs) : null;
 
   if (!streamInfo && !cacheFile) {
     // 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다. 그래야 캐시 키가 정해지므로
@@ -109,7 +111,7 @@ async function resolveSource(player: Player, track: QueuedTrack, startMs: number
       cacheFile = pickCacheFile();
     }
     // 어느 사이트에서 받을지는 sources/stream-url 한 곳에서 분기한다
-    if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok });
+    if (!cacheFile) streamInfo = await player.io.getStream(track, { canPlayHls: player.io.ffmpegCapabilities().ok, fresh: refused });
   }
 
   // 캐시 파일로 튼다: 원본을 본 지 오래됐으면 뒤에서 다시 묻는다(이번 재생은 기다리지 않는다)
@@ -171,10 +173,19 @@ function liveAnswer(streamInfo: StreamInfo | null, cacheFile: string | null) {
   return cacheFile ? false : null;
 }
 
+// 직전 재생 때 같은 음원의 주소가 막혀(4xx) 끊겼나. 만료 전이어도(CDN 거절, 네트워크가 바뀜) 같은 주소는 다시 열어도 똑같이 막힌다
+function refusedBefore(track: QueuedTrack, previous: CurrentPlayback | null) {
+  const status = previous?.input?.refused;
+  const key = audioKeyOf(track.audioUrl);
+  if (!status || !key || previous?.stream?.audioKey !== key) return false;
+  log.debug(`직전 스트림 주소가 막혀 새로 받음(HTTP ${status}): ${logTitle(track.title)}`);
+  return true;
+}
+
 /**
  * 같은 곡을 다시 열 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다). 위치가 0 이어도 같다:
  * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input 의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
- * 그 주소를 받은 음원이 지금 곡이 열 음원일 때만. 곡의 음원은 재생 중에 바뀔 수 있어(다시 찾기) 곡이 아니라 서술자에 실린 키와 견준다.
+ * 그 주소를 받은 음원이 지금 곡이 열 음원일 때만. 곡의 음원은 재생 중에 바뀔 수 있어(다시 찾기) 곡이 아니라 서술자에 실린 키와 비교한다.
  * 키를 모르면 다시 쓰지 않는다(잘못 다시 쓰면 다른 소리가 난다).
  * 유튜브만. 직접 링크는 서술자를 만드는 데 받는 것이 없고, 사운드클라우드 목록 주소는 받은 지 몇 분에 막힌다(주소의 expires 는 그보다 한참 뒤다).
  * 파이프로 연 서술자만. 주소 분기(HLS, DASH)에는 막혔을 때 새로 받는 길이 없다.

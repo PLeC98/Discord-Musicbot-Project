@@ -10,49 +10,61 @@
       <span class="hidden @2xl/desk:block text-sm text-on-surface-variant truncate">{{ greeting }}</span>
     </header>
 
-    <div v-if="!loading && relogin" class="mb-(--gap-in) rounded-(--r-window) bg-surface-container flex flex-wrap items-center gap-3 px-4 py-3">
-      <Icon name="login" :size="20" class="text-on-surface-variant shrink-0" />
-      <p class="text-sm text-on-surface-variant flex-1 min-w-48">{{ T.relogin.body }}</p>
-      <button type="button" class="tap state-layer h-9 px-4 rounded-full bg-primary text-on-primary text-sm font-semibold cursor-pointer" @click="openLoginWindow">{{ T.relogin.action }}</button>
+    <!-- 서버 멤버 인텐트가 꺼져 서버 화면을 쓸 수 없다. 사용자에게는 할 수 있는 것, 운영자에게는 고칠 방법과 운영자 패널 -->
+    <div v-if="!user.tracksMembers" class="rounded-(--r-window) bg-surface-container flex flex-col items-center text-center gap-3 px-6 py-16">
+      <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="person_off" :size="40" /></span>
+      <p class="text-xl font-round font-semibold">{{ T.membersOff.title }}</p>
+      <p v-if="!user.isRealOwner" class="text-sm text-on-surface-variant max-w-md">{{ T.membersOff.body }}</p>
+      <template v-else>
+        <p class="text-sm text-on-surface-variant max-w-md">{{ T.membersOff.owner }}</p>
+        <router-link to="/admin" class="tap state-layer h-10 px-5 rounded-full bg-primary text-on-primary text-sm font-semibold no-underline inline-flex items-center gap-1.5"><Icon name="admin_panel_settings" :size="18" />{{ T.membersOff.action }}</router-link>
+      </template>
     </div>
+    <template v-else>
+      <div v-if="!loading && relogin" class="mb-(--gap-in) rounded-(--r-window) bg-surface-container flex flex-wrap items-center gap-3 px-4 py-3">
+        <Icon name="login" :size="20" class="text-on-surface-variant shrink-0" />
+        <p class="text-sm text-on-surface-variant flex-1 min-w-48">{{ T.relogin.body }}</p>
+        <button type="button" class="tap state-layer h-9 px-4 rounded-full bg-primary text-on-primary text-sm font-semibold cursor-pointer" @click="openLoginWindow">{{ T.relogin.action }}</button>
+      </div>
 
-    <div v-if="loading" class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
-      <div v-for="n in 3" :key="n" class="h-38 rounded-(--r-window) bg-surface-container animate-pulse"></div>
-    </div>
+      <div v-if="loading" class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
+        <div v-for="n in 3" :key="n" class="h-38 rounded-(--r-window) bg-surface-container animate-pulse"></div>
+      </div>
 
-    <div v-else-if="guilds.length === 0" class="rounded-(--r-window) bg-surface-container flex flex-col items-center text-center gap-3 px-6 py-16">
-      <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="music_off" :size="40" /></span>
-      <p class="text-xl font-round font-semibold">{{ T.empty.title }}</p>
-      <p class="text-sm text-on-surface-variant max-w-sm">{{ T.empty.body }}</p>
-      <router-link v-if="user.canInvite" to="/invite" class="tap state-layer h-10 px-5 rounded-full bg-primary text-on-primary text-sm font-semibold no-underline inline-flex items-center gap-1.5"><Icon name="add" :size="18" :weight="600" />{{ text.invite.goInvite }}</router-link>
-    </div>
+      <div v-else-if="guilds.length === 0" class="rounded-(--r-window) bg-surface-container flex flex-col items-center text-center gap-3 px-6 py-16">
+        <span class="size-20 rounded-[30%] bg-secondary-container text-on-secondary-container flex items-center justify-center"><Icon name="music_off" :size="40" /></span>
+        <p class="text-xl font-round font-semibold">{{ T.empty.title }}</p>
+        <p class="text-sm text-on-surface-variant max-w-sm">{{ T.empty.body }}</p>
+        <router-link v-if="user.canInvite" to="/invite" class="tap state-layer h-10 px-5 rounded-full bg-primary text-on-primary text-sm font-semibold no-underline inline-flex items-center gap-1.5"><Icon name="add" :size="18" :weight="600" />{{ text.invite.goInvite }}</router-link>
+      </div>
 
-    <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
-      <router-link v-for="g in ordered" :key="g.id" :to="`/servers/${g.id}`" class="group state-layer flex flex-col gap-3 rounded-(--r-window) bg-surface-container p-4 no-underline text-on-surface transition-[border-radius,box-shadow] effects hover:rounded-xl" :class="g.listening ? 'ring-2 ring-primary/70' : ''">
-        <div class="flex items-center gap-3">
-          <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
-          <div class="min-w-0 flex-1">
-            <div class="text-base font-semibold truncate">{{ g.name }}</div>
-            <div class="text-xs text-on-surface-variant nums">{{ T.members(g.memberCount) }}</div>
-          </div>
-          <!-- 칩은 나와의 관계("듣는 중")만. 서버 상태는 아이콘의 상태 점과 아래 줄이 말한다 -->
-          <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />{{ T.listening }}</span>
-        </div>
-        <!-- 지금 곡. 없으면 같은 높이로 비워 둔다(카드 높이를 맞춘다) -->
-        <div class="flex items-center gap-3 h-14 rounded-(--r-inner) bg-surface-container-high px-2">
-          <template v-if="g.nowPlaying">
-            <TrackArt :track="g.nowPlaying" size-class="size-10 rounded-sm" :icon-size="20" />
+      <div v-else class="grid gap-(--gap-in) grid-cols-[repeat(auto-fill,minmax(min(19rem,100%),1fr))]">
+        <router-link v-for="g in ordered" :key="g.id" :to="`/servers/${g.id}`" class="group state-layer flex flex-col gap-3 rounded-(--r-window) bg-surface-container p-4 no-underline text-on-surface transition-[border-radius,box-shadow] effects hover:rounded-xl" :class="g.listening ? 'ring-2 ring-primary/70' : ''">
+          <div class="flex items-center gap-3">
+            <GuildAvatar :guild="g" size-class="size-13" text-class="text-lg" />
             <div class="min-w-0 flex-1">
-              <div class="text-sm font-medium truncate">{{ songTitle(g.nowPlaying.title) }}</div>
-              <div class="text-xs text-on-surface-variant truncate">{{ g.nowPlaying.artist }}</div>
+              <div class="text-base font-semibold truncate">{{ g.name }}</div>
+              <div class="text-xs text-on-surface-variant nums">{{ T.members(g.memberCount) }}</div>
             </div>
-            <!-- 재생 중이면 재생(▶), 일시정지면 일시정지. 누구나 아는 기호라 툴팁은 두지 않는다(▶ 는 눌러 그 서버로 간다는 느낌도 준다) -->
-            <Icon :name="g.state === 'paused' ? 'pause' : 'play_arrow'" :size="20" fill class="shrink-0 mr-1" :class="g.state === 'paused' ? 'text-on-surface-variant' : 'text-primary'" />
-          </template>
-          <span v-else class="flex items-center gap-1 pl-2 text-xs text-on-surface-variant"><Icon :name="g.hasPlayer ? 'headphones' : 'bedtime'" :size="14" />{{ g.hasPlayer ? T.waitingInVoiceLong : T.resting }}</span>
-        </div>
-      </router-link>
-    </div>
+            <!-- 칩은 나와의 관계("듣는 중")만. 서버 상태는 아이콘의 상태 점과 아래 줄이 말한다 -->
+            <span v-if="g.listening" class="h-6 px-3 rounded-full bg-primary text-on-primary text-xs font-semibold inline-flex items-center gap-1 shrink-0"><Icon name="headphones" :size="14" fill />{{ T.listening }}</span>
+          </div>
+          <!-- 지금 곡. 없으면 같은 높이로 비워 둔다(카드 높이를 맞춘다) -->
+          <div class="flex items-center gap-3 h-14 rounded-(--r-inner) bg-surface-container-high px-2">
+            <template v-if="g.nowPlaying">
+              <TrackArt :track="g.nowPlaying" size-class="size-10 rounded-sm" :icon-size="20" />
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium truncate">{{ songTitle(g.nowPlaying.title) }}</div>
+                <div class="text-xs text-on-surface-variant truncate">{{ g.nowPlaying.artist }}</div>
+              </div>
+              <!-- 재생 중이면 재생(▶), 일시정지면 일시정지. 누구나 아는 기호라 툴팁은 두지 않는다(▶ 는 눌러 그 서버로 간다는 느낌도 준다) -->
+              <Icon :name="g.state === 'paused' ? 'pause' : 'play_arrow'" :size="20" fill class="shrink-0 mr-1" :class="g.state === 'paused' ? 'text-on-surface-variant' : 'text-primary'" />
+            </template>
+            <span v-else class="flex items-center gap-1 pl-2 text-xs text-on-surface-variant"><Icon :name="g.hasPlayer ? 'headphones' : 'bedtime'" :size="14" />{{ g.hasPlayer ? T.waitingInVoiceLong : T.resting }}</span>
+          </div>
+        </router-link>
+      </div>
+    </template>
   </div>
 </template>
 

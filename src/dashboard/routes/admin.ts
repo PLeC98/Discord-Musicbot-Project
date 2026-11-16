@@ -11,7 +11,7 @@ import { requireOwner } from "../middleware/require-owner.ts";
 import { signedIn } from "../middleware/require-auth.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import { sendProblem } from "../problem.ts";
-import logManager from "../../infra/log/sink.ts";
+import logSink from "../../infra/log/sink.ts";
 import { getViewAs } from "../view-as.ts";
 import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
@@ -40,6 +40,7 @@ import {
   type GeoipStatus,
   type RedeployReply,
   type RestartReply,
+  type IntentEnableReply,
   type SourceTypes,
   type Suggestions,
   type TokensReply,
@@ -55,8 +56,8 @@ import { ageContent, setAgeContent } from "../../config/age-content.ts";
 import * as geoip from "../geoip.ts";
 import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
 import { icon } from "../../ui/icons.ts";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
 import * as assist from "../../autoplay/assist/index.ts";
 import * as tokens from "../../autoplay/assist/tokens.ts";
@@ -68,6 +69,9 @@ import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import * as aiKeys from "../../store/ai-keys.ts";
 import * as googleAuth from "../../autoplay/assist/google-auth.ts";
 import { requireRecentLogin } from "../middleware/recent-login.ts";
+import { enableIntent } from "../intent-enable.ts";
+import { forgetAppIntents } from "../status/intents.ts";
+import { INTENT_NAMES } from "../../infra/gateway-intents.ts";
 import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
@@ -102,7 +106,7 @@ async function announceChannel(guild: Guild) {
   const me = guild.members.me;
   const writable = (c: GuildBasedChannel | null | undefined) => (c && c.isTextBased() && !c.isThread() && me && c.permissionsFor(me)?.has("SendMessages") ? c : null);
 
-  const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+  const botChannelId = await guildSettings.getBotChannel(guild.id);
   const preferred = writable(botChannelId ? guild.channels.cache.get(botChannelId) : null) ?? writable(guild.systemChannel);
   if (preferred) return preferred;
   return [...guild.channels.cache.values()]
@@ -186,6 +190,30 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
     if (sessionRequests.sessionEnded(res, error)) return;
     log.error({ sub: "admin" }, "서버 나가기 실패:", error);
     sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
+  }
+});
+
+// 특권 인텐트 켜기(운영자가 대시보드에서). 운영자의 디스코드 앱 설정(포털 스위치)을 바꾸므로 로그인한 지 오래되면 다시 로그인하게 한다.
+// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable 이 셈한다. 다시 시작해야 적용된다
+adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) => {
+  const { client } = req.app.locals.bot;
+  if (!client.isReady()) return sendProblem(res, "bot-not-ready");
+  const { name } = req.params;
+  if (name !== "messageContent" && name !== "guildMembers") return sendProblem(res, "bad-request");
+  // 실행자 정보는 먼저 읽어 둔다(앱 설정을 읽는 사이 세션이 끝날 수 있다)
+  const by = ranBy(req);
+  try {
+    // 읽은 뒤 바꾸기 직전에 세션을 다시 본다(그사이 로그아웃했으면 바꾸지 않는다)
+    const result = await enableIntent(client.rest, name, () => sessionRequests.assertSignedIn(req));
+    if (result === "approval") return sendProblem(res, "intent-needs-approval");
+    if (result === "unknown") return sendProblem(res, "intent-flags-unknown");
+    forgetAppIntents();
+    if (result === "enabled") log.info({ sub: "admin" }, `대시보드 운영자 패널에서 특권 인텐트 켬: ${INTENT_NAMES[name]} | 실행 ${by} | 봇을 다시 시작하면 적용됨`);
+    res.json({ result } satisfies IntentEnableReply);
+  } catch (error) {
+    if (sessionRequests.sessionEnded(res, error)) return;
+    log.warn({ sub: "admin" }, `특권 인텐트 켜기 실패: ${INTENT_NAMES[name]} | 실행 ${by} | ${messageOf(error)}`);
+    sendProblem(res, "intent-enable-failed", {}, { detail: messageOf(error) });
   }
 });
 
@@ -466,7 +494,7 @@ adminRouter.put("/ai/settings", (req, res) => {
 //
 // 키와 같은 취급이다. 값은 어느 통로로도 돌아나가지 않고, 있는지 없는지만 알린다. 입력, 삭제는 최근 로그인만
 function cookieState(): CookieState {
-  return { source: YouTube.cookieSource(), hasFile: cookieJar.ready() };
+  return { source: youtubeSource.cookieSource(), hasFile: cookieJar.ready() };
 }
 
 adminRouter.get("/cookies", (req, res) => res.json(cookieState()));
@@ -531,7 +559,7 @@ adminRouter.put("/age-content", (req, res) => {
   const next = setAgeContent(enabled);
   if (next.enabled !== before) {
     log.warn({ sub: "admin" }, `대시보드에서 연령 제한 콘텐츠 ${enabled ? "켬" : "끔"}. 실행 ${ranBy(req)}`);
-    YouTube.logAuthMode();
+    youtubeSource.logAuthMode();
   }
   res.json(next satisfies AgeContent);
 });
@@ -597,8 +625,8 @@ adminRouter.get("/logs/stream", (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");
   // 열자마자 쌓아 둔 줄을 보내므로 열기 바로 앞에서 세션을 본다. 연 뒤 세션에 묶는다(끝나면 끊긴다)
   if (!sessionRequests.admit(req)) return sendProblem(res, "login-required");
-  if (!logManager.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
-  sessionRequests.track(req, res, "실시간 로그", () => logManager.drop(res));
+  if (!logSink.addClient(res, signedIn(req).id, after)) return sendProblem(res, "too-many-streams");
+  sessionRequests.track(req, res, "실시간 로그", () => logSink.drop(res));
 });
 
 // 권한 수준 오버라이드. { tier: "server-manager"|"dj"|"user"|null }. null이면 해제.

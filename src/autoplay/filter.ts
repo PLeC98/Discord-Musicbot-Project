@@ -65,8 +65,7 @@ function prepare(cfg: FilterConfig | null | undefined): Limits {
     // 제목을 소문자로 낮춰 비교하므로 제외 키워드도 낮춰 둔다
     const word = String(raw).trim().toLowerCase();
     if (!word) continue;
-    // 단어 경계를 붙여야 "mix"가 "remix"까지 막지 않는다. 설정에 공백을 넣어 두는 것으로는 안 된다
-    // (대시보드가 앞뒤 공백을 뗀다).
+    // 단어 경계를 붙여야 "mix"가 "remix"까지 막지 않는다
     blocked.push({ word, test: ASCII_WORD.test(word) ? new RegExp(`\\b${escape(word)}\\b`) : null });
   }
 

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { Player } from "../../src/player/player.ts";
 import { PlaybackState } from "../../src/player/playback-state.ts";
 import { PlaybackWatch } from "../../src/player/playback-watch.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { capabilities, _internals } from "../../src/media/ffmpeg/path.ts";
 import * as progressBars from "../../src/ui/progress-bar.ts";
 
@@ -33,31 +33,31 @@ test("능력 확인 결과는 캐시된다. 재생할 때마다 프로세스를 
 
 test("liveStatusOf: 방송 중과 시작 전을 구분한다", () => {
   // _detectLive는 둘 다 참이라 "라이브 계열인가"만 답한다. 재생은 이 둘을 다르게 다뤄야 한다.
-  assert.equal(YouTube.liveStatusOf({ live_status: "is_live" }), "is_live");
-  assert.equal(YouTube.liveStatusOf({ live_status: "is_upcoming" }), "is_upcoming");
-  assert.equal(YouTube.liveStatusOf({ live_status: "was_live" }), null, "끝난 방송은 VOD다");
-  assert.equal(YouTube.liveStatusOf({ live_status: "not_live" }), null);
-  assert.equal(YouTube.liveStatusOf({}), null);
-  assert.equal(YouTube.liveStatusOf(null), null);
+  assert.equal(youtubeSource.liveStatusOf({ live_status: "is_live" }), "is_live");
+  assert.equal(youtubeSource.liveStatusOf({ live_status: "is_upcoming" }), "is_upcoming");
+  assert.equal(youtubeSource.liveStatusOf({ live_status: "was_live" }), null, "끝난 방송은 VOD다");
+  assert.equal(youtubeSource.liveStatusOf({ live_status: "not_live" }), null);
+  assert.equal(youtubeSource.liveStatusOf({}), null);
+  assert.equal(youtubeSource.liveStatusOf(null), null);
   // live_status를 안 주는 응답(flat 검색 항목 등)에서는 is_live만 보고 판단한다.
-  assert.equal(YouTube.liveStatusOf({ is_live: true }), "is_live");
+  assert.equal(youtubeSource.liveStatusOf({ is_live: true }), "is_live");
   // 다만 live_status가 명시됐다면 그쪽이 정본이다. was_live인데 is_live가 남아 오는 경우.
-  assert.equal(YouTube.liveStatusOf({ live_status: "was_live", is_live: true }), null);
+  assert.equal(youtubeSource.liveStatusOf({ live_status: "was_live", is_live: true }), null);
 });
 
 test("titleOf: 라이브 제목에 붙는 조회 시각을 떼어 낸다", () => {
   // yt-dlp는 라이브의 `title` 뒤에 조회 시각을 붙인다. 그대로 쓰면 대기열, 패널, 로그에
   // "... 2026-09-21 02:58" 이 따라다니고, 새로 조회할 때마다 제목이 달라진다.
   const live = { live_status: "is_live", title: "lofi radio 2026-09-21 02:26", fulltitle: "lofi radio" };
-  assert.equal(YouTube.titleOf(live), "lofi radio");
+  assert.equal(youtubeSource.titleOf(live), "lofi radio");
 
   // 라이브가 아니면 둘이 같다. 건드릴 것이 없다
-  assert.equal(YouTube.titleOf({ title: "보통곡", fulltitle: "보통곡" }), "보통곡");
-  assert.equal(YouTube.titleOf({ title: "fulltitle 없음" }), "fulltitle 없음");
+  assert.equal(youtubeSource.titleOf({ title: "보통곡", fulltitle: "보통곡" }), "보통곡");
+  assert.equal(youtubeSource.titleOf({ title: "fulltitle 없음" }), "fulltitle 없음");
   // fulltitle이 비어 오면 title로 돌아간다
-  assert.equal(YouTube.titleOf({ live_status: "is_live", title: "A", fulltitle: "   " }), "A");
-  assert.equal(YouTube.titleOf({}), null);
-  assert.equal(YouTube.titleOf(null), null);
+  assert.equal(youtubeSource.titleOf({ live_status: "is_live", title: "A", fulltitle: "   " }), "A");
+  assert.equal(youtubeSource.titleOf({}), null);
+  assert.equal(youtubeSource.titleOf(null), null);
 });
 
 test("진행바: 라이브는 경과 시간 위치에 표식을 넣고 길이를 비운다", () => {

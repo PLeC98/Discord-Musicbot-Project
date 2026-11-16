@@ -12,6 +12,7 @@ import { youtube as yt } from "../helpers/tracks.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { onVoiceStateUpdate } from "../../src/player/voice-presence.ts";
+import { withConfig } from "../helpers/config.ts";
 import * as controls from "../../src/usecases/controls.ts";
 import * as playerEvents from "../../src/player/events.ts";
 
@@ -107,11 +108,11 @@ test("/stop: 원인=stop, 곡 이름이 남는다. 세션을 삭제한다", asyn
   assert.equal(registered(p), false, "버리면 레지스트리가 스스로 뺀다");
 });
 
-test("/leave: 원인=leave. 세션을 저장하고 삭제하지 않는다", async () => {
+test("/leave: 원인=leave. 세션을 /join 으로만 이어 듣게 저장하고 삭제하지 않는다", async () => {
   const p = playingPlayer(yt("ccccccccccc", { title: "셋째 곡" }));
   const lines = await endLines(() => controls.leave(p.guild, managerOf(p), h.registryOf(p)!));
   assert.deepEqual(lines, ['트랙 종료: "셋째 곡" (youtube) | 원인=leave']);
-  assert.ok(calls.persists.includes("leave"));
+  assert.ok(calls.persists.includes("leave-for-join"), calls.persists.join(","));
   assert.equal(calls.persists.includes("remove"), false);
 });
 
@@ -125,15 +126,15 @@ test("강제 퇴장: 원인=kicked, 곡 이름이 남는다. 레지스트리에�
   assert.equal(registered(p), false);
 });
 
-test("혼자 남아 시간이 다 되면: 원인=alone-timeout, 곡 이름이 남는다. 세션을 삭제하고 레지스트리에서 빠진다", async () => {
+test("혼자 남아 시간이 다 되면: 원인=alone-timeout, 곡 이름이 남는다. 세션을 /join 으로만 이어 듣게 남기고 레지스트리에서 빠진다", async () => {
   const p = playingPlayer(yt("eeeeeeeeeee", { title: "다섯째 곡" }));
   const members = Object.assign(new Map(), { filter: () => ({ size: 0 }) });
   p.guild.channels.cache.set("voice1", fake<VoiceBasedChannel>({ id: "voice1", members, isVoiceBased: () => true, permissionsFor: () => ({ has: () => false }) }));
   Object.assign(p.guild.members.me!, { voice: { channelId: "voice1", serverMute: false, suppress: false } });
-  p.idle.aloneMs = 0;
-  const lines = await endLines(() => p.syncHolds());
+  const lines = await endLines(() => withConfig({ bot: { leaveDelayAloneMs: 0 } }, () => p.syncHolds()));
   assert.deepEqual(lines, ['트랙 종료: "다섯째 곡" (youtube) | 원인=alone-timeout']);
-  assert.ok(calls.persists.includes("remove"), calls.persists.join(","));
+  assert.ok(calls.persists.includes("leave-for-join"), calls.persists.join(","));
+  assert.equal(calls.persists.includes("remove"), false);
   assert.equal(registered(p), false);
 });
 

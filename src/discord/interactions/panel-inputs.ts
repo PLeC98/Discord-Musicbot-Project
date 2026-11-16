@@ -1,3 +1,5 @@
+// 재생 패널의 입력: 곡으로 건너뛰기 메뉴와 볼륨 입력 모달(모달을 여는 볼륨 버튼은 button-handler)
+
 import { type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
@@ -33,7 +35,6 @@ async function handleVolumeSubmit(interaction: ModalSubmitInteraction<"cached">,
   await answerVolume(interaction, players.get(interaction.guild.id), volume);
 }
 
-// 곡으로 건너뛰기 메뉴와 볼륨 입력 모달
 const routes: Route[] = [route("select", customId(PANEL, "jump", ""), handleJumpTo), route("modal", customId(PANEL, "volume"), handleVolumeSubmit)];
 
 export { routes, handleJumpTo, handleVolumeSubmit };

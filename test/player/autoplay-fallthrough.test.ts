@@ -73,7 +73,7 @@ function makePlayer({ autoplay = false, current = makeTrack("A"), picked = false
           calls.idleLeave++;
         },
       },
-      async handleAutoplay() {
+      async playAutoplayNow() {
         calls.autoplay++;
         if (!picked) return false;
         this.currentTrack = makeTrack("자동재생곡");

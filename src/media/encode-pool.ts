@@ -8,7 +8,7 @@
 // import 만으로는 워커를 띄우지 않는다. 기동 시 start() 가 첫 워커를 띄운다.
 
 import os from "os";
-import fs from "fs";
+import { cpuQuota } from "../infra/cpu-quota.ts";
 import { Worker, MessageChannel, receiveMessageOnPort, type MessagePort } from "worker_threads";
 import logger from "../infra/log/logger.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
@@ -175,22 +175,9 @@ const control = (entry: Entry, message: ToWorker) => entry.thread.postMessage(me
 
 /** 워커 수 상한: 남는 코어 수(하나는 메인 몫), CPU quota 가 있으면 그 안, 최소 1 */
 function workerLimit() {
-  const quota = cgroupCpus();
+  const quota = cpuQuota();
   const cores = Math.min(os.availableParallelism(), quota ?? Infinity);
   return { max: Math.min(Math.max(1, Math.floor(cores) - 1), MAX_WORKERS), quota };
-}
-
-// Linux cgroup v2 의 CPU quota(코어 수). 없거나 못 읽으면 null
-function cgroupCpus(): number | null {
-  if (process.platform !== "linux") return null;
-  try {
-    const [quota, period] = fs.readFileSync("/sys/fs/cgroup/cpu.max", "utf8").trim().split(/\s+/);
-    if (!quota || quota === "max" || !period) return null;
-    const cpus = Number(quota) / Number(period);
-    return Number.isFinite(cpus) && cpus > 0 ? cpus : null;
-  } catch {
-    return null;
-  }
 }
 
 type DepthAction = "grow" | "deepen" | "slow" | "shallow" | null;

@@ -16,8 +16,8 @@ const stay = {
   /** 켜져 있지만 머무는 채널을 볼 수 없을 때 */
   enabled: "상주 모드 켜짐",
   enabledIn: { before: "상주 모드 켜짐 (", after: ")" },
-  locked: (on: boolean) => (on ? "켜져 있지만 조작할 수 없어요!" : "꺼져 있지만 조작할 수 없어요!"),
-  failed: "상주 모드를 바꾸지 못했어요.",
+  locked: (on: boolean) => (on ? "상주 모드가 켜진 채로 잠겨 있어요!" : "잠겨 있어서 상주 모드를 켤 수 없어요!"),
+  failed: "상주 모드를 켜거나 끄지 못했어요.",
 };
 
 /** 볼륨 정규화(디스코드 /normalize). locked, failed 는 상주 모드와 같은 자리 */
@@ -31,7 +31,8 @@ const normalize = {
 };
 
 /** 봇 전용 채널 */
-const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", none: "지정 안 함" };
+// descUnread: 봇이 메시지 내용을 읽지 못할 때(Message Content Intent 꺼짐)
+const channel = { title: "봇 전용 채널", desc: "명령어 없이 링크나 검색어만 입력해도 재생돼요. 컨트롤 패널과 공지도 이 채널을 우선 사용해요.", descUnread: "봇이 채팅 내용을 읽을 수 없게 설정돼 있어 `/play`로 곡을 넣어야 해요. 컨트롤 패널과 공지는 이 채널을 우선 사용해요.", none: "지정 안 함" };
 
 /** DJ 역할. 선택할 수 있는 수는 max */
 const dj = {
@@ -83,10 +84,10 @@ const agePlace = {
 /** 봇 내보내기(디스코드에서 봇을 추방할 수 있는 사람). 확인 대화상자는 운영자 패널의 나가기와 같은 결 */
 const leave = {
   title: "봇 내보내기",
-  desc: "이 서버에서 봇을 내보내요. 다시 쓰려면 봇을 다시 초대해야 해요.",
+  desc: "이 서버에서 봇을 내보내요.",
   button: "봇 내보내기",
   confirmTitle: (name: string) => `'${name}'에서 봇을 내보낼까요?`,
-  confirmBody: "되돌릴 수 없어요. 재생 중인 곡과 대기열, 상주 모드는 사라지고, 서버 설정은 남아서 다시 초대하면 그대로 써요.",
+  confirmBody: "재생 중인 곡과 대기열은 사라지고 상주 모드도 꺼져요. 서버 설정은 남아서 다시 초대하면 그대로 쓸 수 있어요.",
   done: (name: string) => `'${name}'에서 봇을 내보냈어요.`,
   failed: "봇을 내보내지 못했어요.",
 };

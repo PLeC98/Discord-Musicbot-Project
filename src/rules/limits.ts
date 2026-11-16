@@ -4,6 +4,9 @@
 const VOLUME_BASE = 100;
 const VOLUME_MAX = 125;
 
+/** 재생목록을 넣을 때 한 번에 들어가는 곡 수의 기본값. 서버 설정(/setplaylistlimit)이 없을 때 */
+const PLAYLIST_ADD_DEFAULT = 50;
+
 /** 디스코드 선택 메뉴 하나에 들어가는 선택지 수(한 번에 선택하는 수도 같다). 넘기면 디스코드가 메뉴를 거부한다 */
 const SELECT_MAX = 25;
 
@@ -14,4 +17,4 @@ const DJ_ROLE_MAX = SELECT_MAX;
 const SEARCH_MIN_LEN = 2;
 const SEARCH_MAX_LEN = 100;
 
-export { VOLUME_BASE, VOLUME_MAX, SELECT_MAX, DJ_ROLE_MAX, SEARCH_MIN_LEN, SEARCH_MAX_LEN };
+export { VOLUME_BASE, VOLUME_MAX, PLAYLIST_ADD_DEFAULT, SELECT_MAX, DJ_ROLE_MAX, SEARCH_MIN_LEN, SEARCH_MAX_LEN };

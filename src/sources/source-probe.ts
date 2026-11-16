@@ -6,9 +6,9 @@
 // 라이브(인터넷 라디오, 라이브 HLS 포함)는 지정할 수 없어 실패(live)로 둔다(지정하면 틀 때 건너뛴다).
 
 import type { Readable } from "stream";
-import * as YouTube from "./youtube/index.ts";
-import * as SoundCloud from "./soundcloud/index.ts";
-import * as DirectLink from "./direct.ts";
+import * as youtubeSource from "./youtube/index.ts";
+import * as soundcloudSource from "./soundcloud/index.ts";
+import * as directSource from "./direct.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { errorKind } from "../rules/error-kind.ts";
 import type { Code } from "../rules/problems.ts";
@@ -24,7 +24,7 @@ type Openers = {
   soundcloud: { getStream(url: string): Promise<unknown> };
   direct: { open(url: string): Promise<{ kind: "file"; body: Readable; radio: boolean } | { kind: "hls"; hls: { live: boolean } }> };
 };
-const REAL: Openers = { youtube: YouTube, soundcloud: SoundCloud, direct: DirectLink };
+const REAL: Openers = { youtube: youtubeSource, soundcloud: soundcloudSource, direct: directSource };
 
 const LIVE: Probed = { ok: false, code: "live" };
 
@@ -49,7 +49,7 @@ async function probeSource(audioUrl: string, open: Openers = REAL): Promise<Prob
     }
   } catch (error) {
     // 직접 링크는 여는 쪽(direct)이 원인을 로그로 남긴다
-    if (kind !== "direct") log.debug(`재생 테스트 실패: ${audioUrl} | ${YouTube.briefError(error, 1)}`);
+    if (kind !== "direct") log.debug(`재생 테스트 실패: ${audioUrl} | ${youtubeSource.briefError(error, 1)}`);
     return { ok: false, code: errorKind(error) };
   }
 }

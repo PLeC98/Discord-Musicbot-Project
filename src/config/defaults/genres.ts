@@ -8,7 +8,7 @@ const genresDefault: Record<string, unknown> = {
     prefetchCount: 1,
     minDurationSec: 60,
     maxDurationSec: 900,
-    blockedKeywords: ["reaction", "tutorial", "lesson", "how to", "review", "unboxing", "interview", "podcast", "asmr", "teaser", "trailer", "karaoke", "nightcore", "sped up", "slowed", "8d audio", "non-credit", "creditless", "tv size", "medley", "megamix", "nonstop", "dj mix", "mixset", "playlist", "full album", "compilation", "ノンクレジット", "ノンテロップ", "TVサイズ", "メドレー", "カラオケ", "作業用", "메들리", "노래방", "플레이리스트", "노래모음", "모음집"],
+    blockedKeywords: ["reaction", "tutorial", "review", "interview", "asmr", "teaser", "trailer", "karaoke", "nightcore", "sped up", "slowed", "8d audio", "non-credit", "creditless", "tv size", "medley", "megamix", "nonstop", "dj mix", "mixset", "playlist", "full album", "compilation", "ノンクレジット", "ノンテロップ", "TVサイズ", "メドレー", "カラオケ", "作業用", "메들리", "노래방", "플레이리스트", "노래모음", "모음집"],
   },
   genres: {
     pop: {

@@ -91,9 +91,9 @@ jobs:
             for part in "${parts[@]}"; do echo "- $part"; done
             if [ -n "$bgutil" ]; then
               echo
-              echo "bgutil $bgutil 의 커밋: \`$(jq -r '.bgutil.newerCommit' result.json)\`(GitHub API 로 태그를 벗긴 값). 설치는 태그가 이 커밋을 가리키는지 맞춰 보고 이 커밋으로 체크아웃합니다."
+              echo "bgutil $bgutil의 커밋: \`$(jq -r '.bgutil.newerCommit' result.json)\`(태그가 가리키는 커밋, GitHub API로 조회). 설치할 때 태그가 이 커밋을 가리키는지 확인한 뒤 해당 커밋으로 체크아웃합니다."
               echo
-              echo "bgutil lockfile의 알려진 취약점(npm audit, PR을 만든 시점 기준): 현재 버전 $(jq -r '.bgutil.audit.current.total // "확인 실패"' result.json)건 → $bgutil $(jq -r '.bgutil.audit.newer.total // "확인 실패"' result.json)건"
+              echo "bgutil lockfile의 알려진 취약점(npm audit, PR을 만든 시점 기준): 현재 버전 $(jq -r 'if .bgutil.audit.current.total == null then "확인 실패" else "\(.bgutil.audit.current.total)건" end' result.json) → $bgutil $(jq -r 'if .bgutil.audit.newer.total == null then "확인 실패" else "\(.bgutil.audit.newer.total)건" end' result.json)"
             fi
             echo
             echo "이미 설치된 환경에서는 봇을 끈 뒤 업데이트하세요(bgutil은 \`pnpm run update:bgutil\`, ffmpeg는 \`pnpm run install:ffmpeg\`, Cloudflare 대역은 봇을 다시 시작하면 적용)."
@@ -109,7 +109,7 @@ jobs:
           label="bgutil-audit"
           current=$(jq -r '.bgutil.current' result.json)
           total=$(jq -r '.bgutil.audit.current.total // empty' result.json)
-          if [ -z "$total" ]; then echo "잠금 파일 감사 실패(이슈는 그대로)"; exit 0; fi
+          if [ -z "$total" ]; then echo "lockfile 취약점 점검 실패(이슈는 그대로 둠)"; exit 0; fi
           newer=$(jq -r '.bgutil.newer // empty' result.json)
           newerTotal=$(jq -r '.bgutil.audit.newer.total // empty' result.json)
           gh label create "$label" --color B60205 --description "bgutil 잠금 파일의 알려진 취약점(vendor-updates)" --force > /dev/null
@@ -140,11 +140,11 @@ jobs:
               echo "새 버전 $newer 에도 알려진 취약점이 ${newerTotal}건 있습니다."
             fi
             echo
-            echo "이 워크플로가 매주 이 본문을 고칩니다."
+            echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
           if [ -n "$issue" ]; then
             gh issue edit "$issue" --title "$title" --body-file issue.md > /dev/null
-            echo "고침: #$issue"
+            echo "갱신: #$issue"
           else
             gh issue create --title "$title" --body-file issue.md --label "$label"
           fi
@@ -159,34 +159,34 @@ jobs:
           current=$(jq -r '.bgutil.current' result.json)
           pinned=$(jq -r '.bgutil.commit' result.json)
           state=$(jq -r '.bgutil.tag.state' result.json)
-          gh label create "$label" --color B60205 --description "고정한 bgutil 태그가 고정한 커밋을 가리키지 않음(vendor-updates)" --force > /dev/null
+          gh label create "$label" --color B60205 --description "bgutil 태그가 고정된 커밋을 가리키지 않음(vendor-updates)" --force > /dev/null
           issue=$(gh issue list --state open --limit 500 --json number,title,author,labels | node scripts/vendor-issue.ts "$label" "${{ steps.app.outputs.app-slug }}" "")
 
           if [ "$state" = "same" ]; then
             if [ -n "$issue" ]; then
-              gh issue close "$issue" --comment "bgutil 태그 $current 가 고정한 커밋 \`$pinned\` 을 가리킵니다($(date -u +%F) 기준)."
+              gh issue close "$issue" --comment "bgutil 태그(\`$current\`)가 고정된 커밋(\`$pinned\`)을 가리킵니다($(date -u +%F) 기준)."
               echo "닫음: #$issue"
             else
-              echo "bgutil 태그 그대로"
+              echo "bgutil 태그가 고정된 커밋을 그대로 가리킴"
             fi
             exit 0
           fi
 
-          title="고정한 bgutil 태그 $current 가 고정한 커밋과 다름"
+          title="bgutil 태그($current)가 고정된 커밋을 가리키지 않음"
           {
             if [ "$state" = "moved" ]; then
-              echo "bgutil 태그 \`$current\` 가 고정한 커밋 \`$pinned\` 이 아니라 \`$(jq -r '.bgutil.tag.commit' result.json)\` 을 가리킵니다($(date -u +%F) 갱신)."
+              echo "bgutil 태그(\`$current\`)가 고정된 커밋(\`$pinned\`)이 아닌 다른 커밋(\`$(jq -r '.bgutil.tag.commit' result.json)\`)을 가리킵니다($(date -u +%F) 갱신)."
             else
-              echo "bgutil 태그 \`$current\` 를 커밋으로 풀지 못했습니다($(date -u +%F) 갱신): $(jq -r '.bgutil.tag.reason' result.json)"
+              echo "bgutil 태그(\`$current\`)가 가리키는 커밋을 찾지 못했습니다($(date -u +%F) 갱신): $(jq -r '.bgutil.tag.reason' result.json)"
             fi
             echo
-            echo "그동안 \`pnpm run install:bgutil\` 은 이 태그를 받지 않습니다(이미 설치된 것은 그대로 돕니다). 태그가 왜 바뀌었는지 상류(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\` 의 \`BGUTIL_COMMIT\` 을 고치세요."
+            echo "그동안 \`pnpm run install:bgutil\`은 이 태그를 받지 않습니다(이미 설치된 것은 그대로 작동합니다). 태그가 왜 바뀌었는지 원본 저장소(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\`의 \`BGUTIL_COMMIT\`을 고치세요."
             echo
-            echo "이 워크플로가 매주 이 본문을 고칩니다."
+            echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
           if [ -n "$issue" ]; then
             gh issue edit "$issue" --title "$title" --body-file issue.md > /dev/null
-            echo "고침: #$issue"
+            echo "갱신: #$issue"
           else
             gh issue create --title "$title" --body-file issue.md --label "$label"
           fi
@@ -220,11 +220,11 @@ jobs:
             echo
             echo "yt-dlp 의 공지(README 의 서명 절, 릴리스 노트)와 대조한 뒤 새 키로 \`data/yt-dlp-signing-key.asc\` 와 \`src/sources/ytdlp-release.ts\` 의 지문을 바꾸세요. 확인 전에 급하면 운영자는 \`pnpm run update:ytdlp --skip-signature\` 로 설치할 수 있습니다(체크섬은 확인)."
             echo
-            echo "이 워크플로가 매주 이 본문을 고칩니다."
+            echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
           if [ -n "$issue" ]; then
             gh issue edit "$issue" --title "$title" --body-file issue.md > /dev/null
-            echo "고침: #$issue"
+            echo "갱신: #$issue"
           else
             gh issue create --title "$title" --body-file issue.md --label "$label"
           fi

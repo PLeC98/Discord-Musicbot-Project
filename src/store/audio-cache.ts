@@ -47,7 +47,7 @@ type TrackMeta = { title?: string | null; artist?: string | null; duration?: num
 
 // 서버 → 재생 중인 곡의 audio_key. 서버마다 나눠 두어 한 서버가 곡을 끝내도 같은 곡을 트는 다른 서버의 보호는 남는다
 const protectedKeys = new Map<string, string>();
-const protectedFiles = new Set<string>(); // 지금 다운로드 중인 파일 경로(임시 파일, 옮긴 뒤 기록 전의 최종 파일). 정리가 건드리면 안 된다
+const downloadingFiles = new Set<string>(); // 지금 다운로드 중인 파일 경로(임시 파일, 옮긴 뒤 기록 전의 최종 파일). 정리가 건드리면 안 된다
 const queuedKeys = new Map<string, Set<string>>(); // guildId -> Set<audio_key>. 대기열 앞부분
 // 내보내는 중인 파일의 audio_key(내보내기마다 한 벌). ZIP 이 파일마다 두 번 읽으므로(CRC, 담기) 그동안 퇴거, 삭제, 초기화가 삭제하지 않게 한다
 const exportingKeys = new Set<Set<string>>();
@@ -139,8 +139,11 @@ function initialize() {
 
 /** 오디오 키의 파일 경로. 같은 키는 늘 같은 경로다 */
 function getFilePath(audioKey: string) {
-  return path.join(dir, `track_${md5(audioKey)}.opus`);
+  return path.join(dir, `${md5(audioKey)}.opus`);
 }
+
+// 봇이 만든 파일(캐시 파일, 임시 파일, 그 부스러기)의 이름 패턴. 캐시 폴더를 치울 때 이 패턴에 맞는 파일만 지운다
+const MADE_BY_BOT = /^[0-9a-f]{32}\./;
 
 // 퇴거 보호: 틀고 있거나 미리 다운로드한 곡
 
@@ -178,11 +181,11 @@ async function tallyRemovals<T>(run: () => Promise<T>): Promise<T> {
  * 키가 아니라 경로로 보호하는 이유: 임시 파일은 DB에도 없고 캐시 키로도 유도되지 않는다.
  */
 function protectFile(filepath: string | null | undefined) {
-  if (filepath) protectedFiles.add(path.resolve(filepath));
+  if (filepath) downloadingFiles.add(path.resolve(filepath));
 }
 
 function unprotectFile(filepath: string | null | undefined) {
-  if (filepath) protectedFiles.delete(path.resolve(filepath));
+  if (filepath) downloadingFiles.delete(path.resolve(filepath));
 }
 
 /**
@@ -195,9 +198,9 @@ function isTempPiece(name: string, tempName: string) {
 
 // 다운로드 중인 파일(보호 파일)이거나 그 부스러기인가
 function inDownload(target: string) {
-  if (protectedFiles.has(target)) return true;
+  if (downloadingFiles.has(target)) return true;
   const name = path.basename(target);
-  for (const file of protectedFiles) if (path.dirname(file) === path.dirname(target) && isTempPiece(name, path.basename(file))) return true;
+  for (const file of downloadingFiles) if (path.dirname(file) === path.dirname(target) && isTempPiece(name, path.basename(file))) return true;
   return false;
 }
 
@@ -430,7 +433,7 @@ async function removeAllFiles() {
   const pathOf = (row: Pick<AudioRow, "audio_key" | "file_path">) => path.resolve(row.file_path || getFilePath(row.audio_key));
   const guarded = guardedKeys();
   const keptKeys = new Set<string>();
-  const keptPaths = new Set<string>([...protectedFiles]);
+  const keptPaths = new Set<string>([...downloadingFiles]);
   let removed = 0;
   let kept = 0;
   let freedBytes = 0;
@@ -445,7 +448,7 @@ async function removeAllFiles() {
   for (const row of rows) {
     const target = pathOf(row);
     // 다운로드 중인 행은 파일과 함께 남긴다(행은 wipeTables 가 남긴다)
-    if (row.status === "downloading" || protectedFiles.has(target)) {
+    if (row.status === "downloading" || downloadingFiles.has(target)) {
       keptPaths.add(target);
       continue;
     }
@@ -457,11 +460,11 @@ async function removeAllFiles() {
     }
   }
 
-  // DB가 모르는 파일까지 치운다(고아). 다운로드 중인 임시 파일과 그 부스러기는 건너뛴다
+  // DB에 기록이 없는 봇 파일(고아)까지 치운다. 다운로드 중인 임시 파일과 그 부스러기는 건너뛴다
   if (fs.existsSync(dir)) {
     for (const file of fs.readdirSync(dir)) {
       const target = path.resolve(path.join(dir, file));
-      if (keptPaths.has(target) || inDownload(target)) continue;
+      if (!MADE_BY_BOT.test(file) || keptPaths.has(target) || inDownload(target)) continue;
       if (!(await remove(target))) kept++;
     }
   }
@@ -481,22 +484,22 @@ async function cleanOrphanFiles() {
   // 지키는 파일: 저장된 세션의 곡, 틀고 있거나 미리 다운로드한 곡
   const sessionFiles = savedSessionFiles();
   const liveFiles = new Set([...liveKeys()].map((k) => path.resolve(getFilePath(k))));
-  const allProtected = new Set([...sessionFiles, ...liveFiles, ...protectedFiles]); // 마지막은 다운로드 중인 임시 파일
+  const allProtected = new Set([...sessionFiles, ...liveFiles, ...downloadingFiles]);
 
   let cleaned = 0;
   let partials = 0;
   for (const file of fs.readdirSync(dir)) {
     const full = path.resolve(path.join(dir, file));
 
-    // 중단된 다운로드의 부스러기(track_<md5>.opus.part, .part-FragN, .ytdl, 트랜스코딩 전 중간 파일).
+    if (!MADE_BY_BOT.test(file)) continue;
+    // 중단된 다운로드의 부스러기(<md5>.opus.part, .part-FragN, .ytdl, 트랜스코딩 전 중간 파일).
     // 기동 시점에는 진행 중인 다운로드가 없으므로 무조건 삭제해도 안전하다.
     // (봇을 강제 종료하면 ffmpeg가 파일 핸들을 물고 남는데, 프로세스를 정리한 뒤 남는 잔해가 이것들이다.)
-    if (/^track_[0-9a-f]{32}\./.test(file) && !file.endsWith(".opus")) {
+    if (!file.endsWith(".opus")) {
       if (await removeFile(full)) partials++;
       continue;
     }
 
-    if (!file.endsWith(".opus")) continue;
     if (!dbPaths.has(full) && !allProtected.has(full) && (await removeFile(full))) cleaned++;
   }
   if (cleaned > 0) log.info(`고아 오디오 캐시 파일 ${cleaned}개 삭제 완료`);
@@ -663,7 +666,7 @@ function rankForEviction<T extends Pick<AudioRow, "audio_key" | "play_count" | "
 // 다운로드 중인가. 행의 상태를 파일보다 먼저 본다(다운로드는 시작하자마자 행을 downloading 으로 고친다)
 function downloadingNow(audioKey: string, filePath: string) {
   const status = conn().prepare("SELECT status FROM audio_cache WHERE audio_key = ?").pluck().get(audioKey);
-  return status === "downloading" || protectedFiles.has(path.resolve(filePath));
+  return status === "downloading" || downloadingFiles.has(path.resolve(filePath));
 }
 
 // 파일을 삭제한 뒤 행을 삭제한다. 그사이 같은 곡 다운로드가 시작됐으면 새 행은 남긴다
@@ -908,6 +911,6 @@ export {
   cleanOrphanFiles as _cleanOrphanFiles,
   cacheCount as _cacheCount,
   protectedKeys as _protectedKeys,
-  protectedFiles as _protectedFiles,
+  downloadingFiles as _downloadingFiles,
 };
 export type { AudioRow, TrackMeta, CacheUse, RemoveResult, ResetResult, AdoptRow };

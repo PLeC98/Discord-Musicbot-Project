@@ -129,7 +129,7 @@
                   <span v-if="one.why" class="ml-16 flex items-start gap-1 text-xs text-(--warn-ink)"><Icon name="warning" :size="14" class="mt-px shrink-0" />{{ one.why }}</span>
                 </li>
               </ul>
-              <!-- 지금 인코딩: 함께 인코딩하는 단계, AV1 병렬 단계(남은 메모리에 맞춰 정한 것), 묶은 코어, 속도. 메모리, 이벤트 루프 지연은 봇 상태 탭 -->
+              <!-- 지금 인코딩: 함께 인코딩하는 단계, AV1 병렬 단계(남은 메모리에 맞춰 정한 것), CPU 선호도로 지정한 코어, 속도. 메모리, 이벤트 루프 지연은 봇 상태 탭 -->
               <span v-if="bakeLine" class="flex items-baseline gap-2 text-xs nums"
                 ><span class="shrink-0 font-semibold" v-tooltip="A.bakeTip">{{ A.bakeTitle }}</span
                 ><span class="text-on-surface-variant">{{ bakeLine }}</span></span

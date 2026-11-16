@@ -1,6 +1,6 @@
 import { Player } from "../player/player.ts";
 import * as songLookup from "../sources/lookup.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import * as trackLookup from "../store/track-lookup.ts";
 import * as pinnedSources from "../store/pinned-sources.ts";
 import { silentResponder } from "./responders.ts";
@@ -100,7 +100,7 @@ function ensurePlayer(bot: Pick<Bot, "players">, { guild, textChannel = null, vo
  */
 async function resolveFallbackTextChannel(guild: Guild) {
   try {
-    const botChannelId = await GuildSettingsManager.getBotChannel(guild.id);
+    const botChannelId = await guildSettings.getBotChannel(guild.id);
     if (!botChannelId) return null;
     const channel = guild.channels.cache.get(botChannelId) ?? null;
     return canSend(channel) ? channel : null;
@@ -167,7 +167,7 @@ async function requestPlayback(bot: Bot, asked: PlaybackRequest): Promise<Playba
   const request = typeof asked.query === "string" ? { ...asked, query: withSiteScheme(asked.query.trim()) } : asked;
   const { guild, insertFirst = false, responder = silentResponder } = request;
   // 재생목록을 넣을 때 한 번에 들어가는 곡 수. 서버 설정(출처가 더 작게 자르면 그쪽), 더 넣기 선택지 단위이기도 하다
-  const batch = batchFor(request.query, GuildSettingsManager.resolvePlaylistAddMax(guild.id));
+  const batch = batchFor(request.query, guildSettings.resolvePlaylistAddMax(guild.id));
 
   // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 레지스트리에 남는다
   const checked = await findTracks(bot, request, batch);
@@ -355,7 +355,7 @@ async function continueCollection(bot: Bot, request: CollectionRequest): Promise
   });
   const remaining = total != null ? Math.max(0, total - nextOffset) : 0;
   const next = result.success && remaining > 0 ? validState({ ...state, offset: nextOffset, anchorId: tracks.at(-1)?.id }) : null;
-  const batch = Math.min(GuildSettingsManager.resolvePlaylistAddMax(guild.id), KINDS[state.kind].perClick);
+  const batch = Math.min(guildSettings.resolvePlaylistAddMax(guild.id), KINDS[state.kind].perClick);
   return { ...result, added: tracks.length - (result.dropped || 0), skipped, total, remaining, next: next && total != null ? { ...next, total, remaining, batch } : null };
 }
 
@@ -577,8 +577,8 @@ async function startNext(panel: Panel, player: Player, responder: Responder): Pr
 async function openPanel(panel: Panel, player: Player, track: QueuedTrack, responder: Responder): Promise<Opened> {
   try {
     return await panel.postPlaying(player, track, responder);
-  } catch (embedError) {
-    log.error("재생 중 임베드 생성 실패:", embedError);
+  } catch (error) {
+    log.error("재생 패널 올리기 실패:", error);
     return { success: true };
   }
 }

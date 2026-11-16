@@ -144,7 +144,7 @@ type LoginBackgroundLimits = { history: number; maxBytes: number };
 type LoginBackgroundEncoder = { codec: LoginBackgroundCodec; encoder: string | null; hardware: boolean; why: string | null };
 /**
  * 지금 도는 인코딩 하나(H.264, 인코딩 단계의 ffmpeg, 봇 전체에서 한 번에 하나). id 는 배경, rungs 는 함께 인코딩하는 단계(나눠 인코딩하면 여럿),
- * lp 는 AV1 의 병렬 단계(남은 메모리에 맞춰 선택한 것, AV1 이 없으면 null), cores 는 묶은 코어 수(묶지 못하는 기기면 null), 논리 코어 수,
+ * lp 는 AV1 의 병렬 단계(남은 메모리에 맞춰 선택한 것, AV1 이 없으면 null), cores 는 CPU 선호도로 지정한 코어 수(설정하지 못하는 환경이면 null), 논리 코어 수,
  * speed 는 실시간의 몇 배(인코딩한 영상 초 ÷ 걸린 초, 시작하고 3초 동안은 null). 메모리, 루프 지연은 봇 상태 탭이 보인다
  */
 type LoginBackgroundBake = { id: string; rungs: Array<{ codec: LoginBackgroundCodec; short: number }>; lp: number | null; cores: { bound: number | null; total: number }; speed: number | null };

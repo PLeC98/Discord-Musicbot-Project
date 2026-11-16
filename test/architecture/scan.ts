@@ -1,14 +1,13 @@
-// 구조 게이트가 보는 것을 한 번 훑어 모은다. typescript 파서를 쓰는 것은 CommonJS, ESM, .ts 를 같은 코드로 읽기 위해서다.
+// 구조 게이트가 보는 것을 typescript 파서로 한 번 훑어 모은다.
 //
 //   node test/architecture/scan.ts    지금 숫자와 목록을 찍는다
 //
-// 부름: require("…"), require.resolve("…"), import … from "…", export … from "…", import("…"). 글자로 된 상대 경로만 따라간다.
+// 부름: import … from "…", export … from "…", import("…"), createRequire 로 만든 require("…"), require.resolve("…"). 글자로 된 상대 경로만 따라간다.
 // import type, export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
 // 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require, import(). 맨 위의 if, try 안은 지연으로 치지 않는다.
 // 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환, 방향 위반은 프로젝트 모듈에서만 생긴다.
 // 글자가 아닌 경로(명령, 이벤트 불러오기)는 따로 목록으로 둔다.
 // config 꺼내 두기: 루트 src/config/index.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
-// 모듈 교체: 테스트의 require.cache.
 // 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = …, x[k] = …, x.prototype.m = 무엇이든) mock.method 로 덮거나,
 // 받은 객체의 속성을 교체하는 헬퍼(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
 // 테스트 헬퍼(test/…)가 내준 이름의 필드에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 헬퍼를 거친 제품 값(h.X.m = …)은 센다.
@@ -138,10 +137,9 @@ function scanSource(rel: string) {
   return { rel, layer: layerOf(rel), deps, unseen, lazy, captures };
 }
 
-// 테스트 한 파일: require.cache, 메서드 교체
+// 테스트 한 파일: 메서드 교체, 첫 테스트 뒤 맨 위 await
 function scanTest(rel: string) {
   const { sf, line } = parse(rel);
-  let requireCache = 0;
   const swaps: number[] = [];
   const project = new Set<string>(); // 프로젝트 모듈에서 온 이름
   const configs = new Set<string>(); // 그중 루트 config. 값을 바꾸는 창구(withConfig)는 교체가 아니다
@@ -212,7 +210,6 @@ function scanTest(rel: string) {
   findSwappers(sf);
 
   const visit = (n: ts.Node) => {
-    if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "require" && n.name.text === "cache") requireCache++;
     const isFn = (e: ts.Node | undefined) => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
     const fixtureSlot = (left: ts.PropertyAccessExpression | ts.ElementAccessExpression) => ts.isIdentifier(left.expression) && fixtures.has(left.expression.text); // 헬퍼가 내준 이름의 필드에 바로 넣기
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isPropertyAccessExpression(n.left) || ts.isElementAccessExpression(n.left)) && isFn(n.right) && project.has(rootName(n.left) ?? "") && !fixtureSlot(n.left)) swaps.push(line(n));
@@ -235,7 +232,7 @@ function scanTest(rel: string) {
     if (registered && awaits(st)) lateAwaits.push(line(st));
     if (registersTest(st)) registered = true;
   }
-  return { rel, requireCache, swaps, lateAwaits };
+  return { rel, swaps, lateAwaits };
 }
 
 // 순환: 강한 연결 요소(Tarjan) 안의 선
@@ -323,9 +320,8 @@ function scan() {
     unseen: sources.flatMap((f) => f.unseen),
     direction: [...new Set(direction)].sort(),
     cycles: cycleEdges(graph),
-    lazyRequire: perFile(sources, (f) => f.lazy),
+    lazyImport: perFile(sources, (f) => f.lazy),
     configCapture: perFile(sources, (f) => f.captures.length),
-    requireCache: perFile(tests, (f) => f.requireCache),
     methodSwap: tests.filter((f) => f.swaps.length).map((f) => f.rel),
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
     configEntries: entries.map((f) => f.rel),
@@ -346,7 +342,7 @@ if (import.meta.main) {
   const total = (o: Record<string, number>) => Object.values(o).reduce((s, n) => s + n, 0);
   console.log(`파일 ${r.files} · 층 모름 ${r.unknownLayer.length} · 글자가 아닌 부름 ${r.unseen.length}`);
   console.log(`방향 위반 ${r.direction.length} · 순환 선 ${r.cycles.length}`);
-  console.log(`지연 부름 ${total(r.lazyRequire)}(${Object.keys(r.lazyRequire).length}개 파일) · config 꺼내 두기 ${total(r.configCapture)}(${Object.keys(r.configCapture).length}개 파일)`);
-  console.log(`require.cache ${total(r.requireCache)}(${Object.keys(r.requireCache).length}개 파일) · 메서드 교체 ${r.methodSwap.length}개 파일`);
+  console.log(`지연 부름 ${total(r.lazyImport)}(${Object.keys(r.lazyImport).length}개 파일) · config 꺼내 두기 ${total(r.configCapture)}(${Object.keys(r.configCapture).length}개 파일)`);
+  console.log(`메서드 교체 ${r.methodSwap.length}개 파일`);
   if (process.argv[2] === "--json") console.log(JSON.stringify(r, null, 2));
 }

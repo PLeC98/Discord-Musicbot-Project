@@ -62,7 +62,7 @@ const CALENDAR: Calendar = {
 type PresenceClient = { isReady(): boolean; user?: { setActivity(activity: { name: string; type: ActivityType }): unknown } | null };
 type Deps = { load?: () => StatusConfig; calendar?: Calendar };
 
-class StatusManager {
+class BotPresence {
   static TYPE_MAP = TYPE_MAP;
   static parseRange = parseRange;
   static toMessage = toMessage;
@@ -137,4 +137,4 @@ class StatusManager {
   }
 }
 
-export { StatusManager };
+export { BotPresence };

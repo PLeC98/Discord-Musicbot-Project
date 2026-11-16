@@ -1,4 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes } from "discord.js";
+import { readsMessageContent, tracksMembers } from "../infra/gateway-intents.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
@@ -24,7 +25,7 @@ import { buttonEmoji, icon, type IconKey } from "./icons.ts";
 import { addedView, type AdditionNotice } from "./added-notice.ts";
 import { frame, post } from "./frame.ts";
 import { ALLOWED_MENTIONS, escapeMd, linkLabel } from "./mentions.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { hasTracks, sessions } from "../store/player-sessions.ts";
 import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
@@ -64,8 +65,8 @@ type IdleView = { reason: string; leavesAt?: number | null; staying?: boolean };
 /** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "autoplay"> & { pause: Pick<Player["pause"], "userPaused"> } & Partial<Pick<Player, "sponsor">>;
 
-// 전용 채널에서 "묻혔다"고 보기까지 기다리는 시간. 안내 메시지는 10초 뒤 스스로 삭제되므로
-// 그보다 길게 잡아 잠깐 나타났다 사라지는 것을 쫓아다니지 않는다(transientMessages.AUTO_DELETE_MS).
+// 전용 채널에서 재생 패널이 "묻혔다"고 보기까지 기다리는 시간. 스스로 지워질 봇 메시지는 따로 거르고(isTransient),
+// 사람이 금방 지운 메시지 때문에 패널을 다시 올리지 않게, 다른 메시지가 이만큼 남아 있어야 묻힌 것으로 본다.
 const PIN_SETTLE_MS = 12000;
 /** 패널에 붙여 둔 썸네일이 음표(앨범아트 없는 곡)라는 표시. 그 밖은 파일 태그 이미지의 fingerprint */
 const NO_ART = "no-art";
@@ -123,8 +124,8 @@ function statusOf(player: Player) {
   return parts;
 }
 
-// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다)
-const dashboardLink = () => (isPublicUrl(config.dashboard.url) ? panelText.dashboardLink(config.dashboard.url) : null);
+// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다). Server Members Intent 가 꺼져 서버 화면을 쓸 수 없으면 달지 않는다
+const dashboardLink = () => (isPublicUrl(config.dashboard.url) && tracksMembers() ? panelText.dashboardLink(config.dashboard.url) : null);
 
 // 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
 const PROGRESS_MS = 5000;
@@ -211,7 +212,7 @@ class NowPlayingPanel {
   async postPlaying(player: Player, track: QueuedTrack, responder: Responder = NO_RESPONDER, { reuse = true } = {}): Promise<{ success: true }> {
     if (player?.guild?.id) playerEvents.touched(player.guild.id); // 대시보드 SSE 넛지 (새로 틀기 시작함)
     const channel = await this.panelChannel(player);
-    // 보낼 채널이 없으면 재생은 계속하되 임베드만 건너뛴다
+    // 보낼 채널이 없으면 재생은 계속하되 패널만 건너뛴다
     if (!canSend(channel)) {
       return { success: true };
     }
@@ -294,7 +295,7 @@ class NowPlayingPanel {
   /** 이 서버의 전용 채널. 설정돼 있고 찾을 수 있을 때만 */
   async _dedicatedChannel(guild: Guild | null | undefined, fallback: GuildTextBasedChannel | null = null): Promise<GuildBasedChannel | null> {
     if (!guild?.id) return null;
-    const id = await GuildSettingsManager.getBotChannel(guild.id);
+    const id = await guildSettings.getBotChannel(guild.id);
     if (!id) return null;
     return guild.channels?.cache?.get(id) ?? (fallback?.id === id ? fallback : null);
   }
@@ -351,15 +352,15 @@ class NowPlayingPanel {
       player.nowPlayingMessage = message;
       player.nowPlayingWebhook = webhook;
       await this.location.commit(player.guild, channel, message, webhook);
-      log.info({ tags: ["recovered"] }, `재생 중 임베드 다시 올림: ${reason}`);
+      log.info({ tags: ["recovered"] }, `재생 패널 다시 올림: ${reason}`);
     } catch (error) {
       // 다시 올리지 못하면 참조를 버린다. 5초마다 같은 실패를 반복하면 그게 도배다
       if (codeOf(error) === UNKNOWN_CHANNEL) this._dropPanel(player);
       else {
         player.nowPlayingMessage = null;
         this.stopProgressUpdate(guildId);
-        if (errorKind(error) === "network-error") log.warn(`재생 중 임베드 다시 올리기 실패: ${messageOf(error)}`);
-        else log.error("재생 중 임베드 다시 올리기 실패:", messageOf(error));
+        if (errorKind(error) === "network-error") log.warn(`재생 패널 다시 올리기 실패: ${messageOf(error)}`);
+        else log.error("재생 패널 다시 올리기 실패:", messageOf(error));
       }
     } finally {
       this.reposting.delete(guildId);
@@ -420,7 +421,7 @@ class NowPlayingPanel {
 
     // 구분선 뒤에 조작 버튼
     container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    const buttons = await this.createControlButtons(player, buttonsDisabled);
+    const buttons = await this.controlRows(player, buttonsDisabled);
     for (const row of buttons) {
       container.addActionRowComponents(row);
     }
@@ -438,7 +439,7 @@ class NowPlayingPanel {
    */
   updatePlaying(player: Player): Promise<void> {
     const guildId = player?.guild?.id;
-    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (Discord 임베드 유무와 무관하게 발신)
+    if (guildId) playerEvents.touched(guildId); // 대시보드 SSE 넛지 (재생 패널 유무와 무관하게 발신)
     if (!guildId) return this._drawPlaying(player);
     const running = this.drawing.get(guildId);
     if (running) {
@@ -506,7 +507,7 @@ class NowPlayingPanel {
       return;
     }
     if (isRestTimeout(error)) {
-      log.warn(`재생 중 임베드 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
+      log.warn(`재생 패널 갱신이 시간 안에 끝나지 않음(다음 갱신에서 다시 시도) (${where})`);
       return;
     }
     // 네트워크가 끊겼다. 5초마다 같은 실패를 찍지 않고 처음 한 번과 풀린 때만
@@ -514,14 +515,14 @@ class NowPlayingPanel {
       this._editFailure(player).fail(messageOf(error));
       return;
     }
-    log.error("재생 중 임베드 갱신 실패:", error);
+    log.error("재생 패널 갱신 실패:", error);
   }
 
   _editFailure(player: Player) {
     const guildId = player.guild.id;
     let failure = this.editFailures.get(guildId);
     if (!failure) {
-      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 중 임베드 갱신(${player.guild.name ?? guildId})`);
+      failure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `재생 패널 갱신(${player.guild.name ?? guildId})`);
       this.editFailures.set(guildId, failure);
     }
     return failure;
@@ -542,14 +543,16 @@ class NowPlayingPanel {
    * reason: queue-end(음성에 잠시 남음) | stop, disconnected(나감) | leave(세션 저장됨) | restore-skipped(세션 저장됨, 기동이 이어 틀지 않음) | joined(/join만 함)
    */
   async createIdleContainer({ reason = "stop", dedicated = false, leavesAt = null, staying = false }: IdleView & { dedicated?: boolean } = { reason: "stop" }) {
-    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
+    // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에서도 곡 이름만 적어서는 곡을 요청할 수 없다
+    const typed = dedicated && readsMessageContent();
+    const heading = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(panelText.idle({ reason, leavesAt, staying, dedicated: typed }))).setThumbnailAccessory(new ThumbnailBuilder().setURL(blankThumbnail.url));
 
     const container = new ContainerBuilder()
       .setAccentColor(resolveColor(colorOf("brand")))
       .addSectionComponents(heading)
       .addTextDisplayComponents(new TextDisplayBuilder().setContent(emptyProgressBar()))
       .addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-    for (const row of await this.createControlButtons(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
+    for (const row of await this.controlRows(IDLE_CONTROLS, true, { keepAutoplay: true })) container.addActionRowComponents(row);
     const link = dashboardLink();
     if (link) container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small)).addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${link}`));
 
@@ -601,7 +604,7 @@ class NowPlayingPanel {
     const guildId = player.guild?.id;
     if (!guildId) return false;
     const panelChannelId = live ? (channelIdOf(live) ?? (await this.panelChannel(player))?.id) : (await this.location.store.getPanel(guildId))?.channelId;
-    return Boolean(panelChannelId) && panelChannelId === (await GuildSettingsManager.getBotChannel(guildId));
+    return Boolean(panelChannelId) && panelChannelId === (await guildSettings.getBotChannel(guildId));
   }
 
   // 패널을 종료 모양으로 바꾼다. 살아 있는 패널이 없으면 기록된 패널을 고친다
@@ -634,7 +637,7 @@ class NowPlayingPanel {
 
   /** 전용 채널에 메시지가 올라오면 끝난 패널, 멈춘 재생 패널이 묻혔는지 잠시 뒤에 본다. 재생 중인 패널은 5초 갱신이 맡는다. */
   async scheduleIdleRepin(guild: Guild | null | undefined, channelId: string) {
-    if (!guild?.id || (await GuildSettingsManager.getBotChannel(guild.id)) !== channelId) return;
+    if (!guild?.id || (await guildSettings.getBotChannel(guild.id)) !== channelId) return;
     clearTimeout(this.repinTimers.get(guild.id));
     const timer = setTimeout(() => {
       this.repinTimers.delete(guild.id);
@@ -700,7 +703,7 @@ class NowPlayingPanel {
         const record = await this.location.store.getPanel(guild.id);
         if (!record) continue;
         const view = this._idleView(guild);
-        const dedicated = record.channelId === (await GuildSettingsManager.getBotChannel(guild.id));
+        const dedicated = record.channelId === (await guildSettings.getBotChannel(guild.id));
         const payload: Payload = { ...(await this.createIdleContainer({ ...view, dedicated })), flags: MessageFlags.IsComponentsV2 };
         await this.location.edit(guild, payload);
       } catch (error) {
@@ -760,7 +763,7 @@ class NowPlayingPanel {
   }
 
   // 패널의 조작 버튼 두 줄. keepAutoplay: 나머지를 죽여도 자동재생만 살린다. 끝난 패널에서 다시 틀 수 있는 유일한 길이다.
-  async createControlButtons(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
+  async controlRows(player: Controls, disabled = false, { keepAutoplay = false } = {}) {
     const id = (action: string) => panelId(action, player.sessionId);
 
     // 첫째 줄: 이전 곡, 일시정지, 건너뛰기, 정지, 볼륨
@@ -819,10 +822,10 @@ class NowPlayingPanel {
       .setEmoji(buttonEmoji("highlight"))
       .setDisabled(disabled || !hasHighlight);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
-    const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(...(config.sponsorblock.enabled ? [highlightButton] : []), shuffleButton, loopButton, queueButton, autoplayButton);
+    const playbackRow = new ActionRowBuilder<ButtonBuilder>().addComponents(previousButton, pauseButton, skipButton, stopButton, volumeButton);
+    const optionsRow = new ActionRowBuilder<ButtonBuilder>().addComponents(...(config.sponsorblock.enabled ? [highlightButton] : []), shuffleButton, loopButton, queueButton, autoplayButton);
 
-    return [row, row2];
+    return [playbackRow, optionsRow];
   }
 
   /**

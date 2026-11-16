@@ -1,5 +1,5 @@
 // Spotify/외부 곡의 YouTube 동등물을 점수로 선택하는 순수 로직과 검색어 구성.
-// 검색 함수(YouTube.searchVideos)는 부르는 쪽(youtube/equivalent, autoplay/route)이 넘기고, 결과 병합은 mergeCandidateLists로.
+// 검색 함수(youtubeSource.searchVideos)는 부르는 쪽(youtube/equivalent, autoplay/route)이 넘기고, 결과 병합은 mergeCandidateLists로.
 
 import { youtubeWatchUrl } from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";

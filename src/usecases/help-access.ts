@@ -2,13 +2,13 @@
 
 import type { GuildMember } from "discord.js";
 import type { HelpTier, Open } from "../ui/help-lines.ts";
-import * as GuildSettingsManager from "../store/guild-settings.ts";
+import * as guildSettings from "../store/guild-settings.ts";
 import { isBotOwner, isDj, isServerManager } from "./permissions.ts";
 
 /** 그 사람의 판정. dj-or-requester 는 DJ 가 아니어도 자기가 넣은 곡에 쓸 수 있어 열어 둔다 */
 async function helpAccess(member: GuildMember): Promise<Open> {
   const dj = await isDj(member);
-  const botChannelId = await GuildSettingsManager.getBotChannel(member.guild.id);
+  const botChannelId = await guildSettings.getBotChannel(member.guild.id);
   const botChannel = Boolean(botChannelId && member.guild.channels.cache.has(botChannelId));
   const open: Record<HelpTier, boolean> = {
     everyone: true,

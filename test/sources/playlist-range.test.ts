@@ -16,14 +16,14 @@ const exec = async (url: string, options: YtDlpFlags = {}) => {
   return ytInfo;
 };
 
-const Spotify = await import("../../src/sources/spotify.ts");
-const YouTube = await import("../../src/sources/youtube/index.ts");
+const spotifySource = await import("../../src/sources/spotify.ts");
+const youtubeSource = await import("../../src/sources/youtube/index.ts");
 // 링크 데이터는 빈 임시 DB 에서 읽는다(확인된 제목 없음)
 const store = (await import("../helpers/temp-store.ts")).openTempStore("playlist-range-");
 after(() => store.close());
 const lookup = await import("../../src/sources/lookup.ts");
 
-const { graphql, official } = Spotify._internals;
+const { graphql, official } = spotifySource._internals;
 
 // ── 스포티파이 재생목록 (익명 GraphQL) ──
 
@@ -122,7 +122,7 @@ test("스포티파이 앨범: 중간부터는 그 위치의 곡 페이지를 바
 
 test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", async () => {
   // 공식 API 경로(키가 있을 때)로. 익명 경로도 같은 자르기를 지난다
-  const r = await withConfig({ spotify: { clientId: "cid", clientSecret: "cs" } }, () => Spotify.getCollection("https://open.spotify.com/artist/X", { limit: 3 }, { get: async () => ({ tracks: apiItems(0, 10) }) }));
+  const r = await withConfig({ spotify: { clientId: "cid", clientSecret: "cs" } }, () => spotifySource.getCollection("https://open.spotify.com/artist/X", { limit: 3 }, { get: async () => ({ tracks: apiItems(0, 10) }) }));
   assert.equal(r.tracks.length, 3);
   assert.equal(r.total, 10);
 });
@@ -131,7 +131,7 @@ test("스포티파이 인기곡: 통째로 받은 뒤 구간을 자른다", asyn
 
 test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기준 다음 위치를 돌려준다", async () => {
   ytInfo = { title: "목록", playlist_count: 98, entries: [{ id: "a", title: "A" }, { id: "b", title: "B" }, null] };
-  const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
+  const r = await youtubeSource.getPlaylist("https://www.youtube.com/playlist?list=PLx", { offset: 50, limit: 3, exec });
   assert.ok(r);
   assert.equal(ytCalls.at(-1)?.options.playlistItems, "51:53");
   assert.equal(r.tracks.length, 2);
@@ -139,7 +139,7 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
   assert.equal(r.nextOffset, 53, "빈 항목도 원본 자리를 차지한다");
 
   ytInfo = { title: "Mix", entries: [{ id: "a", title: "A" }] };
-  const mix = await YouTube.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
+  const mix = await youtubeSource.getPlaylist("https://www.youtube.com/watch?v=a&list=RDa", { exec });
   assert.ok(mix);
   assert.equal(ytCalls.at(-1)?.options.playlistItems, "1:50", "구간을 안 주면 한 번에 넣는 배치만큼");
   assert.equal(mix.total, null, "믹스는 끝이 없어 총 곡 수가 없다");
@@ -147,7 +147,7 @@ test("유튜브 재생목록: 구간만 요청하고, 총 곡 수와 원본 기�
 
 test("유튜브 재생목록: 목록, 곡에 제목이 없으면 표시 문구로 채우지 않고 비워 둔다(null)", async () => {
   ytInfo = { entries: [{ id: "a" }, { id: "b", title: "B" }] };
-  const r = await YouTube.getPlaylist("https://www.youtube.com/playlist?list=PLy", { exec });
+  const r = await youtubeSource.getPlaylist("https://www.youtube.com/playlist?list=PLy", { exec });
   assert.ok(r);
   assert.equal(r.title, null);
   assert.deepEqual(
@@ -162,18 +162,18 @@ test("해석기는 구간을 어댑터에 넘기고 총 곡 수, 다음 위치�
   const seen: Array<Range | undefined> = [];
   const sources = {
     spotify: {
-      ...Spotify,
+      ...spotifySource,
       getCollection: async (_url: string, range?: Range) => {
         seen.push(range);
         return { tracks: [tracks.spotify("a")], total: 9946, nextOffset: 1 };
       },
     },
   };
-  const r = await lookup.getTrackData("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 }, sources);
+  const r = await lookup.findTracks("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "ctx", { limit: 7 }, sources);
   assert.deepEqual(seen[0], { offset: 0, limit: 7 });
   assert.equal(r.total, 9946);
   assert.equal(r.nextOffset, 1);
 
-  const single = await lookup.getTrackData("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
+  const single = await lookup.findTracks("https://open.spotify.com/track/3385Kx5khQ1JpCVFJjKAPa", undefined, undefined, sources);
   assert.equal(single.total, null, "한 곡이면 총 곡 수가 없다");
 });

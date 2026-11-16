@@ -415,7 +415,7 @@ function addRoutes(router: Router) {
 
     try {
       // 담은 안내는 디스코드의 패널 채널에도 보내고(dashboardResponder), 결과는 이 응답으로 전달한다.
-      // 재생 시작, 임베드, 로깅은 슬래시 명령과 같은 코어를 지난다.
+      // 재생 시작, 재생 패널, 로깅은 슬래시 명령과 같은 코어를 지난다.
       const result = await requestPlayback(bot, {
         guild,
         requester: requesterOf(req),

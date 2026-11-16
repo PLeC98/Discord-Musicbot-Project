@@ -1,4 +1,4 @@
-// src/store/external-caches.ts, src/sources/youtube: 연령 제한 폴백. externalCaches 레지스트리 라운드트립 + YouTube.isAgeRestrictedError 판별, 운영자, 서버 단위의 연령 제한 콘텐츠 설정.
+// src/store/external-caches.ts, src/sources/youtube: 연령 제한 폴백. externalCaches 레지스트리 라운드트립 + youtubeSource.isAgeRestrictedError 판별, 운영자, 서버 단위의 연령 제한 콘텐츠 설정.
 
 import os from "node:os";
 import path from "node:path";
@@ -9,13 +9,13 @@ import assert from "node:assert/strict";
 import * as audioCache from "../../src/store/audio-cache.ts";
 import * as stores from "../../src/store/stores.ts";
 import * as externalCaches from "../../src/store/external-caches.ts";
-import * as YouTube from "../../src/sources/youtube/index.ts";
+import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import * as documents from "../../src/config/documents.ts";
 import config from "../../src/config/index.ts";
 import { runYtDlp } from "../../src/sources/youtube/ytdlp-run.ts";
 import { _ageCheck } from "../../src/player/start-playback.ts";
 import * as ageGate from "../../src/sources/age-gate.ts";
-import * as GuildSettingsManager from "../../src/store/guild-settings.ts";
+import * as guildSettings from "../../src/store/guild-settings.ts";
 import { inGuild, inVoiceTarget, currentVoiceTarget as currentTarget } from "../../src/infra/guild-context.ts";
 import { codeOf, errorKind } from "../../src/rules/error-kind.ts";
 import type { RunYtDlp, YtDlpFlags } from "../../src/sources/ytdlp-spawn.ts";
@@ -53,22 +53,22 @@ test("externalCaches: 빈/누락 videoId는 무시", () => {
   assert.equal(externalCaches.isAgeRestricted(null), false);
 });
 
-test("YouTube.isAgeRestrictedError: 연령 게이트 메시지 감지", () => {
-  assert.equal(YouTube.isAgeRestrictedError({ stderr: "ERROR: [youtube] X: Sign in to confirm your age." }), true);
-  assert.equal(YouTube.isAgeRestrictedError({ message: "This video may be inappropriate for some users." }), true);
-  assert.equal(YouTube.isAgeRestrictedError(new Error("Sign in to confirm your age")), true);
+test("youtubeSource.isAgeRestrictedError: 연령 게이트 메시지 감지", () => {
+  assert.equal(youtubeSource.isAgeRestrictedError({ stderr: "ERROR: [youtube] X: Sign in to confirm your age." }), true);
+  assert.equal(youtubeSource.isAgeRestrictedError({ message: "This video may be inappropriate for some users." }), true);
+  assert.equal(youtubeSource.isAgeRestrictedError(new Error("Sign in to confirm your age")), true);
 });
 
-test("YouTube.isAgeRestrictedError: 무관한 오류는 false", () => {
-  assert.equal(YouTube.isAgeRestrictedError(new Error("Requested format is not available")), false);
-  assert.equal(YouTube.isAgeRestrictedError({ stderr: "HTTP Error 403" }), false);
-  assert.equal(YouTube.isAgeRestrictedError(null), false);
+test("youtubeSource.isAgeRestrictedError: 무관한 오류는 false", () => {
+  assert.equal(youtubeSource.isAgeRestrictedError(new Error("Requested format is not available")), false);
+  assert.equal(youtubeSource.isAgeRestrictedError({ stderr: "HTTP Error 403" }), false);
+  assert.equal(youtubeSource.isAgeRestrictedError(null), false);
 });
 
 // ── 연령 제한 콘텐츠(운영자 단위) ──────────────────────────────────────────
 
 const AGE_ERROR = () => Object.assign(new Error("ERROR: [youtube] X: Sign in to confirm your age."), { stderr: "ERROR: [youtube] X: Sign in to confirm your age." });
-const options = (forceCookies: boolean) => YouTube.getYtDlpOptions({ dumpSingleJson: true }, { forceCookies });
+const options = (forceCookies: boolean) => youtubeSource.getYtDlpOptions({ dumpSingleJson: true }, { forceCookies });
 // 부른 옵션을 적고, 쿠키 없이 부르면 연령 제한으로 실패한다
 function fakeExec(calls: YtDlpFlags[]): RunYtDlp {
   return (async (_url: string, flags: YtDlpFlags) => {
@@ -143,14 +143,14 @@ test("서버 단위: 기본은 연령 제한 채널에서만. 봇이 든 채널�
       }
     });
 
-  assert.equal(GuildSettingsManager.resolveAgePlace("g-plain"), "channel", "기본은 연령 제한 채널에서만");
+  assert.equal(guildSettings.resolveAgePlace("g-plain"), "channel", "기본은 연령 제한 채널에서만");
   assert.deepEqual(["g-nsfw", "g-plain", "g-away"].map(verdict), ["ok", "age-channel-only", "ok"]);
   assert.equal(_ageCheck(url), undefined, "서버 문맥 밖(재생 테스트 등)은 운영자 판단만");
 
-  assert.deepEqual(await GuildSettingsManager.setAgePlace("g-plain", "all"), ["agePlace"]);
+  assert.deepEqual(await guildSettings.setAgePlace("g-plain", "all"), ["agePlace"]);
   assert.equal(verdict("g-plain"), "ok", "서버가 모든 채널로 풀었다");
-  assert.equal(GuildSettingsManager.table.getAgePlace("g-plain"), "all");
-  await GuildSettingsManager.setAgePlace("g-plain", "channel");
+  assert.equal(guildSettings.table.getAgePlace("g-plain"), "all");
+  await guildSettings.setAgePlace("g-plain", "channel");
   assert.equal(verdict("g-plain"), "age-channel-only");
 
   documents._use("age-content", { enabled: false, changedAt: 2 });

@@ -9,7 +9,7 @@ import crypto from "crypto";
 import { Transform, pipeline, type Readable } from "stream";
 import config from "../config/index.ts";
 import * as SafeUrl from "../infra/safe-url.ts";
-import * as DirectLink from "../sources/direct.ts";
+import * as directSource from "../sources/direct.ts";
 import { OPEN_ACCEPT } from "../sources/direct-open.ts";
 import type { HlsFragments, HlsPart, HlsPour } from "../sources/hls.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
@@ -37,7 +37,7 @@ type DirectInput = Readable & {
  * onResumed: HLS 세그먼트가 끊겼다 이어 받기 시작했을 때(파일은 여는 쪽의 청크 스트림이 알린다)
  */
 type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number; onResumed?: (info: Resumed) => void };
-type Open = (url: string, net?: undefined, opts?: { bodyIdleMs?: number }) => Promise<DirectLink.DirectOpen>;
+type Open = (url: string, net?: undefined, opts?: { bodyIdleMs?: number }) => Promise<directSource.DirectOpen>;
 type GuardedGet = (url: string, deps: undefined, opts: { accept: SafeUrl.Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal }) => Promise<Readable & { headers?: Record<string, unknown>; status?: number }>;
 
 /** 처음 응답의 검증값. 강한 ETag(W/ 가 아닌 것), 없으면 Last-Modified */
@@ -77,7 +77,7 @@ function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   };
 }
 
-async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs, onResumed }: InputOptions = {}, open: Open = DirectLink.open): Promise<DirectInput> {
+async function openDirectInput(url: string, { startMs = 0, liveOnly = false, bodyIdleMs, onResumed }: InputOptions = {}, open: Open = directSource.open): Promise<DirectInput> {
   const opened = await open(url, undefined, { bodyIdleMs });
   if (opened.kind === "file") {
     const { body, radio, length } = opened;

@@ -11,9 +11,10 @@ import sharp from "sharp";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
 import { httpFor } from "../infra/http.ts";
+import { mapLimit } from "../infra/map-limit.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { codedError, messageOf } from "../rules/error-kind.ts";
-import { RETIRED_EMOJI_NAMES, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
+import { FORMER_EMOJIS, iconEntries, isManagedEmojiName, useUploaded } from "../ui/icons.ts";
 import { appEmojis, useAppEmojis, useIconFallbacks } from "../store/app-emoji-book.ts";
 import { imageOf } from "../ui/icon-images.ts";
 import { APP_EMOJI_LIMIT as EMOJI_LIMIT } from "../dashboard/contract/app-emojis.ts";
@@ -21,7 +22,7 @@ const log = logger.child({ category: "core", sub: "emoji" });
 
 // 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui 를 부르지 못해 여기서 넣는다
 const iconUnicode = new Map(iconEntries().map((entry) => [entry.name, entry.spec.unicode]));
-useIconFallbacks({ retired: RETIRED_EMOJI_NAMES, iconUnicode: (name) => iconUnicode.get(name) });
+useIconFallbacks({ former: FORMER_EMOJIS, iconUnicode: (name) => iconUnicode.get(name) });
 
 /** 앱에 있는 이모지 하나. mine: 봇이 올렸다 */
 type Remote = { id: string; name: string; animated: boolean; mine: boolean };
@@ -84,20 +85,6 @@ async function sameImage(local: Image, remote: Buffer) {
   if (a.pages !== b.pages || a.delay !== b.delay || a.raw.length !== b.raw.length) return false;
   for (let i = 0; i < a.raw.length; i++) if (Math.abs(a.raw[i] - b.raw[i]) > GIF_TOLERANCE) return false;
   return true;
-}
-
-/** 결과 순서를 지키며 limit 개까지 동시에 */
-async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
-  const out = new Array<R>(items.length);
-  let at = 0;
-  const lane = async () => {
-    while (at < items.length) {
-      const i = at++;
-      out[i] = await fn(items[i]);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
-  return out;
 }
 
 /** 올라가 있는 것이 그 이미지인가. CDN 에서 못 받으면 아니라고 본다 */

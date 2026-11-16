@@ -6,7 +6,7 @@
 // 일시적 실패는 1, 2, 5, 10, 30분 뒤(이후 30분마다) 다시. 서버마다 하나씩, 기동 때는 서버 사이 1초
 // 붙는 동안 상주 설정이 바뀌면(/leave, /247) 연결 결과를 무시한다(실패로 세지 않는다). 종료가 stop()을 호출하면 시도, 예약, onDisposed 처리를 모두 멈춘다
 
-import { PermissionFlagsBits, RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
+import { RESTJSONErrorCodes, type Client, type Guild, type VoiceBasedChannel } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "voice", sub: "stay" });
 import * as staySeats from "../store/stay-seats.ts";
@@ -15,6 +15,7 @@ import type { Player, PlayerEnd } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import { waitForRestore } from "../player/session-restore.ts";
 import { joinChannel } from "../usecases/join.ts";
+import { lacksVoicePermission } from "../usecases/permissions.ts";
 import { resolveFallbackTextChannel } from "../usecases/add-tracks.ts";
 import { noticeFrame, post } from "../ui/frame.ts";
 import { noticeMs } from "../ui/delivery.ts";
@@ -126,9 +127,8 @@ class StayKeeper {
     try {
       const channel = await guild.channels.fetch(channelId);
       if (!channel?.isVoiceBased() || channel.isThread()) return { why: "gone" };
-      const me = guild.members.me;
-      const perms = me ? channel.permissionsFor(me) : null;
-      if (!perms?.has(PermissionFlagsBits.Connect) || !perms.has(PermissionFlagsBits.Speak)) return { why: "permission" };
+      // 인원 제한, 타임아웃은 일시적이라 여기서 보지 않는다(참가가 거절되면 나중에 다시 붙어 본다)
+      if (lacksVoicePermission(guild.members.me, channel)) return { why: "permission" };
       return { channel };
     } catch (error) {
       if (codeOf(error) === RESTJSONErrorCodes.UnknownChannel) return { why: "gone" };

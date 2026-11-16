@@ -10,9 +10,10 @@ const TIER_RANK: Record<Tier, number> = { "server-manager": 2, dj: 1, user: 0 };
 
 /**
  * /api/me. avatarUrl 은 프로필 이미지(없으면 null), isOwner 는 오버라이드가 반영된 값, isRealOwner 는 해제 수단을 계속 보이려는 원래 값,
- * canInvite 는 대시보드에서 봇을 초대할 수 있는가(공개 봇이거나 앱 소유자, 팀원이고, code grant 를 요구하지 않는다)
+ * canInvite 는 대시보드에서 봇을 초대할 수 있는가(공개 봇이거나 앱 소유자, 팀원이고, code grant 를 요구하지 않는다),
+ * intents 는 봇이 로그인한 특권 인텐트(guildMembers 가 꺼지면 서버 화면을, messageContent 가 꺼지면 전용 채널에 채팅으로 곡 넣기를 쓸 수 없다)
  */
-type Me = { id: string; username: string; globalName: string; avatar: string | null; avatarUrl: string | null; isOwner: boolean; isRealOwner: boolean; viewAs: Tier | null; canInvite: boolean };
+type Me = { id: string; username: string; globalName: string; avatar: string | null; avatarUrl: string | null; isOwner: boolean; isRealOwner: boolean; viewAs: Tier | null; canInvite: boolean; intents: { messageContent: boolean; guildMembers: boolean } };
 
 /** /api/bot. 로그인 전 화면이 쓰는 봇의 공개 정보. 이름, 프로필 이미지는 봇이 준비되기 전이면 null.
  *  brandColor 는 운영자가 정한 임베드 색(EMBED_COLOR, #RRGGBB). 앨범아트가 없을 때 화면 색 체계의 바탕색이다.

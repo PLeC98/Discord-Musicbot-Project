@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { openHls, type HlsFragments } from "../../src/sources/hls.ts";
 import { codeOf, messageOf } from "../../src/rules/error-kind.ts";
-import * as DirectLink from "../../src/sources/direct.ts";
+import * as directSource from "../../src/sources/direct.ts";
 import type { AudioStream, OpenOptions } from "../../src/sources/direct-open.ts";
 import * as SafeUrl from "../../src/infra/safe-url.ts";
 
@@ -220,17 +220,17 @@ test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 �
     "https://h.test/drm.m3u8": { body: drm },
     "https://h.test/master.m3u8": { body: master },
   });
-  const [v] = await DirectLink.getInfo("https://h.test/vod.m3u8", { net });
+  const [v] = await directSource.getInfo("https://h.test/vod.m3u8", { net });
   assert.deepEqual([v.title, v.duration, v.durationSource, v.isLive], ["h.test", 12, "provided", undefined]);
-  const [l] = await DirectLink.getInfo("https://h.test/live.m3u8", { net });
+  const [l] = await directSource.getInfo("https://h.test/live.m3u8", { net });
   assert.deepEqual([l.isLive, l.liveStatus, l.duration], [true, "is_live", 0]);
-  const opened = await DirectLink.open("https://h.test/live.m3u8", net);
+  const opened = await directSource.open("https://h.test/live.m3u8", net);
   assert.ok(opened.kind === "hls" && opened.hls.live);
 
-  await assert.rejects(DirectLink.getInfo("https://h.test/drm.m3u8", { net }), (e: unknown) => codeOf(e) === "unsupported-link");
-  await assert.rejects(DirectLink.open("https://h.test/drm.m3u8", net), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(directSource.getInfo("https://h.test/drm.m3u8", { net }), (e: unknown) => codeOf(e) === "unsupported-link");
+  await assert.rejects(directSource.open("https://h.test/drm.m3u8", net), (e: unknown) => codeOf(e) === "unsupported-link");
   // 가짜 네트워크가 SafeUrl 처럼 막힌 주소를 거절한다(여기서는 없는 주소의 404)
-  await assert.rejects(DirectLink.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
+  await assert.rejects(directSource.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
 });
 
 test("세그먼트 상한: 구간을 무시한 200의 구간 끝이 상한을 넘으면 받지 않고, 받는 중 상한을 초과하면 재시도하지 않는 실패로 끝난다", async () => {

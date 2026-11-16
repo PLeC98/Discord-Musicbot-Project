@@ -9,7 +9,7 @@ const SPIN = { id: "222222222222222222", name: "spin", animated: true };
 const PLAY = { id: "333333333333333333", name: "play", animated: false };
 const book: EmojiBook = {
   emojis: [PARTY, SPIN, PLAY],
-  retired: { voice: { unicode: "🎧" }, old_play: { renamed: "play" } },
+  former: { voice: { unicode: "🎧" }, old_play: { renamed: "play" } },
   iconUnicode: (name) => (name === "pause" ? "⏸️" : undefined),
 };
 

@@ -32,7 +32,7 @@ test("읽지 못하는 범위나 판이면 판단하지 않는다(경고하지 �
 
 test("범위 밖이면 지금 판과 지원 범위를 담은 경고, 안이면 없음", () => {
   assert.equal(nodeSupportWarning("24.22.3", RANGE), null);
-  assert.equal(nodeSupportWarning("24.22.2", RANGE), "지원 범위 밖의 Node(지금 24.22.2, 지원 ^24.22.3 || >=26.13.1). 알려진 보안 취약점이 고쳐진 판으로 올리세요");
+  assert.equal(nodeSupportWarning("24.22.2", RANGE), "지원 범위 밖의 Node(지금 24.22.2, 지원 ^24.22.3 || >=26.13.1). 알려진 보안 취약점이 고쳐진 버전으로 업데이트 필요");
 });
 
 test("package.json 의 engines.node 는 이 모듈이 읽는 꼴이다(못 읽으면 기동 경고가 조용히 꺼진다)", () => {

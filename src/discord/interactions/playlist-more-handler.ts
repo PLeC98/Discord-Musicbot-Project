@@ -10,7 +10,7 @@ import type { Notice } from "../../ui/text/notice.ts";
 import { fetchingView } from "../../ui/playlist-more-menu.ts";
 import { addFailureMessage, errorMessage } from "../../ui/error-messages.ts";
 import { checkAdd, checkAddFirst } from "../../usecases/permissions.ts";
-import * as GuildSettingsManager from "../../store/guild-settings.ts";
+import * as guildSettings from "../../store/guild-settings.ts";
 import { continueCollection } from "../../usecases/add-tracks.ts";
 import * as More from "../../usecases/playlist-more.ts";
 import { route, type Route } from "./route.ts";
@@ -47,7 +47,7 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     if (value === "custom") {
       const room = More.roomFor(player);
       if (room <= 0) await refuse(errors.notice("queue-full", { max: config.bot.maxQueueSize }));
-      else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : MAX_COUNT, GuildSettingsManager.resolvePlaylistAddMax(interaction.guild.id)));
+      else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : MAX_COUNT, guildSettings.resolvePlaylistAddMax(interaction.guild.id)));
       return null;
     }
     count = parseCount(value);

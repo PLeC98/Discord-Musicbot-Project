@@ -64,7 +64,7 @@ test("세우고 곧바로 돌아온다: 새로, 이미 있음, 주소마다의 �
   assert.equal(read.checks.checkRevision, after.checkRevision);
 });
 
-test("캐시 파일이 있으면 원본 다시 확인으로(확인 번호만 오른다), 견주지 못했으면 열어 본다", async () => {
+test("캐시 파일이 있으면 원본 다시 확인으로(확인 번호만 오른다), 비교하지 못했으면 열어 본다", async () => {
   const opened: string[] = [];
   probes._setProbe(async (url) => (opened.push(url), { ok: true }));
   let answer: Recheck = { kind: "same", version: "lmt:1" };

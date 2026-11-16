@@ -17,7 +17,7 @@ test("구간의 undefined(카드가 안 보임), null(운영자 기본을 따름
   assert.equal(sameValue("sponsorblock.categories", null, null), true);
 });
 
-test("그 밖의 키는 값 그대로 견준다", () => {
+test("그 밖의 키는 값 그대로 비교한다", () => {
   assert.equal(sameValue("botChannelId", "c1", "c1"), true);
   assert.equal(sameValue("botChannelId", "c1", null), false);
   assert.equal(sameValue("playlistAddMax", null, null), true);

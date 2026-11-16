@@ -60,6 +60,16 @@ test("곡이 없을 때 혼자 남으면 먼저 끝나는 쪽 시각을, 사람�
     assert.ok(near(told[1], start + EMPTY_MS), "돌아오면 대기열 소진 시각으로");
   }));
 
+test("혼자 남음 시간은 걸 때마다 읽는다: 운영 조절값을 바꾸면 지금 플레이어의 다음 타이머부터", () => {
+  const idle = withConfig({ bot: { leaveDelayAloneMs: ALONE_MS } }, () => new IdleLeave(player()));
+  watch(idle);
+  withConfig({ bot: { leaveDelayAloneMs: ALONE_MS * 3 } }, () => {
+    const start = Date.now();
+    idle.onAlone(true);
+    assert.ok(near(idle.aloneAt, start + ALONE_MS * 3), "만든 뒤 바꾼 값");
+  });
+});
+
 test("혼자 남음이 대기열 소진보다 늦으면 대기열 소진 시각 그대로", () =>
   withConfig({ bot: { leaveDelayAloneMs: EMPTY_MS * 2, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());

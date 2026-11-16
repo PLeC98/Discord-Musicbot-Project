@@ -17,6 +17,7 @@ import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { command, run, runViaEntrance } from "../helpers/commands.ts";
 import { withConfig } from "../helpers/config.ts";
+import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { whenSettingsBroken } from "../helpers/temp-store.ts";
 import { remember } from "../helpers/tagged-audio.ts";
 import { _internals as discordArt } from "../../src/ui/discord-art.ts";
@@ -144,7 +145,7 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.equal(lines[7], "-# 🔗 **음원** [YouTube](https://www.youtube.com/watch?v=abc) · 자동 검색 결과");
   assert.equal(lines[8], "-# ⏭️ **다음** [다음 곡](https://youtu.be/n) · 다음 가수");
   assert.equal(lines[9], "-# 📋 **대기열** 2곡 · 1:40 이상", "길이를 모르는 곡이 있으면 이상");
-  assert.match(lines[10], /^-# 🎲 \*\*자동재생\*\* 켜짐 · /);
+  assert.match(lines[10], /^-# 📻 \*\*자동재생\*\* 켜짐 · /);
   assert.equal(thumbnailOf(log[0][1] as never), "https://thumb");
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
@@ -287,7 +288,7 @@ test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어
 
 // ── /help, /system ───────────────────────────────────────────────────
 
-test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시보드 주소가 이 기기 주소면 버튼이 없고, 밖에서 열리는 주소면 웹 대시보드 링크", async () => {
+test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시보드 주소가 이 기기 주소거나 서버 화면을 쓸 수 없으면 버튼이 없고, 밖에서 열리는 주소면 웹 대시보드 링크", async () => {
   const local = interaction({ player: { any: 1 } });
   await withConfig({ dashboard: { url: "http://localhost:33333" } }, async () => run(await command("help"), local.it, local.bot));
   const text = textOf(local.log[0][1]);
@@ -306,6 +307,16 @@ test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시�
   const open = interaction();
   await withConfig({ dashboard: { url: "https://music.example.com" } }, async () => run(await command("help"), open.it, open.bot));
   assert.ok(JSON.stringify(open.log[0][1]).includes('"url":"https://music.example.com"'), "웹 대시보드 링크 버튼");
+
+  // 서버 화면을 쓸 수 없으면(Server Members Intent 꺼짐) 밖에서 열리는 주소여도 버튼이 없다
+  const off = interaction();
+  useLoggedIn({ messageContent: true, guildMembers: false });
+  try {
+    await withConfig({ dashboard: { url: "https://music.example.com" } }, async () => run(await command("help"), off.it, off.bot));
+  } finally {
+    _resetIntents();
+  }
+  assert.equal(JSON.stringify(off.log[0][1]).includes('"style":5'), false, "링크 버튼 없음");
 });
 
 /** 권한을 보는 데 쓰는 멤버. manage 면 서버 관리자 */

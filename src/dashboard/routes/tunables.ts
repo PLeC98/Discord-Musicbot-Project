@@ -10,7 +10,7 @@ import { sendProblem } from "../problem.ts";
 import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as tunables from "../../store/tunables.ts";
-import * as YouTube from "../../sources/youtube/index.ts";
+import * as youtubeSource from "../../sources/youtube/index.ts";
 import { TUNABLES, RESTART_KEYS } from "../../rules/tunables.ts";
 
 const tunablesRouter = express.Router();
@@ -36,7 +36,7 @@ tunablesRouter.put("/", (req, res) => {
     const changes = changesOf(before, saved.values);
     log.warn({ sub: "admin" }, `대시보드에서 운영 조절값 저장: ${changes.length ? changes.join(", ") : "바뀐 값 없음"}. 실행 ${ranBy(req)}`);
     // 쿠키 출처는 바로 적용된다. 지금 무엇으로 유튜브에 붙는지 한 줄 다시 남긴다
-    if (config.ytdlp.cookiesSource !== cookiesBefore) YouTube.logAuthMode();
+    if (config.ytdlp.cookiesSource !== cookiesBefore) youtubeSource.logAuthMode();
     res.json(saved);
   } catch (error) {
     if (codeOf(error) === "CONFIG_INVALID") return sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });

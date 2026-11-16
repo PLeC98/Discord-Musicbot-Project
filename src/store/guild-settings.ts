@@ -7,7 +7,7 @@ import { settingsDb } from "./settings-db.ts";
 import config from "../config/index.ts";
 import { codeOf } from "../rules/error-kind.ts";
 import { AGE_PLACES, type AgePlace } from "../rules/age-place.ts";
-import { VOLUME_MAX } from "../rules/limits.ts";
+import { PLAYLIST_ADD_DEFAULT, VOLUME_BASE, VOLUME_MAX } from "../rules/limits.ts";
 import { sameValue, type SettingsKey } from "../rules/guild-settings-values.ts";
 
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
@@ -112,7 +112,7 @@ const STORED: { [F in GuildField]: (value: Exclude<GuildPatch[F], undefined>, do
   },
   playlistAddMax: (value) => value ?? undefined,
   agePlace: (value) => (value === "channel" ? undefined : value),
-  volume: (value) => (value === config.bot.defaultVolume ? undefined : value),
+  volume: (value) => (value === VOLUME_BASE ? undefined : value),
   normalize: (value) => (value ? true : undefined),
 };
 
@@ -397,7 +397,7 @@ async function clearDjRoles(guildId: string) {
 /** 설정할 수 있는 범위와 기본값 */
 function playlistAddLimits() {
   const queueMax = config.bot.maxQueueSize;
-  return { min: 1, max: queueMax > 0 ? Math.min(PLAYLIST_ADD_CEILING, queueMax) : PLAYLIST_ADD_CEILING, default: config.bot.playlistAddDefault };
+  return { min: 1, max: queueMax > 0 ? Math.min(PLAYLIST_ADD_CEILING, queueMax) : PLAYLIST_ADD_CEILING, default: PLAYLIST_ADD_DEFAULT };
 }
 
 /** 서버가 정한 값. 미설정이면 null */
@@ -474,7 +474,7 @@ function resolveVolume(guildId: string): number {
       stored = null;
     }
   }
-  return stored ?? config.bot.defaultVolume;
+  return stored ?? VOLUME_BASE;
 }
 
 /** 볼륨을 바꾸고 멈춘 뒤 부른다(usecases/controls). 다음에 새로 틀 때 이 값으로 시작한다 */

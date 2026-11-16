@@ -32,10 +32,10 @@ const withPlaced = (r: AddResult) => (r.success && r.placed ? { ...r, placed: { 
 const ONE_STARTED = { count: 1, position: null, collection: null, total: null, skipped: 0, first: "a" };
 const who = { id: "u1", username: "사용자" };
 
-// 패널 만들기, 갱신은 부른 것만 적는다. embedFails 면 만들기가 던진다
+// 패널 만들기, 갱신은 부른 것만 적는다. postFails 면 만들기가 던진다
 class RecordingPanels extends NowPlayingPanel {
   calls: unknown[];
-  embedFails = false;
+  postFails = false;
 
   constructor(client: Client, players: Map<string, Player>, calls: unknown[]) {
     super(client, players);
@@ -43,7 +43,7 @@ class RecordingPanels extends NowPlayingPanel {
   }
   override async postPlaying(_player: Player, t: QueuedTrack) {
     this.calls.push(["embed", t.id]);
-    if (this.embedFails) throw new Error("CV2 수정 제한");
+    if (this.postFails) throw new Error("CV2 수정 제한");
     return { success: true as const };
   }
   override async updatePlaying() {
@@ -102,13 +102,13 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
     },
   });
   const players = new Map<string, Player>([["g1", player]]);
-  const mem = new RecordingPanels(fake<Client>({ user: { id: "bot" } }), players, calls);
-  const bot = { players, panels: mem };
+  const panels = new RecordingPanels(fake<Client>({ user: { id: "bot" } }), players, calls);
+  const bot = { players, panels };
   const notices: string[] = [];
   const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
   // 이 서버에 곡을 추가한다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
-  return { mem, add, player, calls, sent, notices, responder, takenOver };
+  return { panels, add, player, calls, sent, notices, responder, takenOver };
 }
 
 test("쉬고 있으면 첫 곡을 현재 곡으로 두고, 붙고, 틀고, 패널을 만든다. 요청자와 넣은 시각을 붙인다", async () => {
@@ -294,8 +294,8 @@ test("첫 곡이 실패하고 다음 곡에서 일시정지해 두면(parked) �
 });
 
 test("패널을 못 만들어도 재생은 성공으로 친다", async () => {
-  const { mem, add } = setup();
-  mem.embedFails = true;
+  const { panels, add } = setup();
+  panels.postFails = true;
   assert.deepEqual(withPlaced(await add({ tracks: [track("a")] }, who)), { success: true, placed: ONE_STARTED });
 });
 
@@ -376,19 +376,19 @@ test("플레이어가 없거나 처리 중 던지면 실패 문장", async () =>
 });
 
 test("재생목록 안내는 텍스트 채널이 없으면(대시보드) 보내지 않는다", async () => {
-  const { mem, player, sent } = setup();
+  const { panels, player, sent } = setup();
   const channel = player.textChannel;
   mock.timers.enable({ apis: ["setTimeout"] });
   try {
     player.textChannel = null;
     const from = sink.buffer.length;
-    await mem.postAddedNotice(player, [track("a")], "playlist");
+    await panels.postAddedNotice(player, [track("a")], "playlist");
     assert.deepEqual(sent, []);
     assert.deepEqual(sink.buffer.slice(from), [], "보내려다 실패한 것이 아니라 아예 보내지 않는다");
 
     // 대조: 채널이 있으면 보낸다
     player.textChannel = channel;
-    await mem.postAddedNotice(player, [track("a")], "playlist");
+    await panels.postAddedNotice(player, [track("a")], "playlist");
     assert.equal(sent.length, 1);
   } finally {
     mock.timers.reset();

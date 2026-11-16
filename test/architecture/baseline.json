@@ -2,9 +2,8 @@
   "direction": [],
   "cycles": [],
   "unseen": [],
-  "lazyRequire": {},
+  "lazyImport": {},
   "configCapture": {},
-  "requireCache": {},
   "methodSwap": [],
   "lateAwait": []
 }

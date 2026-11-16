@@ -20,8 +20,8 @@ stores.open(TMP);
 audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
-const Spotify = await import("../../src/sources/spotify.ts");
-const { graphql, deriveKey, totp } = Spotify._internals;
+const spotifySource = await import("../../src/sources/spotify.ts");
+const { graphql, deriveKey, totp } = spotifySource._internals;
 
 const savedCreds = { ...config.spotify };
 // 보낸 요청. 여기서 보는 필드만
@@ -41,7 +41,7 @@ type Route = (url: string, init: Init) => ReturnType<typeof reply> | undefined;
 let routes: Route[] = [];
 
 // 가짜 응답은 스포티파이 모듈이 읽는 필드만 가진다
-Spotify.useFetch(
+spotifySource.useFetch(
   fake<typeof fetch>(async (url: string | URL, init: Init = {}) => {
     requests.push({ url: String(url), init });
     for (const route of routes) {
@@ -53,7 +53,7 @@ Spotify.useFetch(
 );
 
 after(() => {
-  Spotify.useFetch(null);
+  spotifySource.useFetch(null);
   Object.assign(config.spotify, savedCreds);
   audioCache.close();
   stores.close();
@@ -63,7 +63,7 @@ after(() => {
 beforeEach(() => {
   requests.length = 0;
   routes = [];
-  Spotify._reset();
+  spotifySource._reset();
   cacheDb.get().exec("DELETE FROM spotify_anon;");
   Object.assign(config.spotify, { clientId: "cid", clientSecret: "csecret" });
 });
@@ -90,8 +90,8 @@ const tokenRoute: Route = (url) => (url === "https://accounts.spotify.com/api/to
 test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양으로 바꾼다", async () => {
   routes = [tokenRoute, (url) => (url.startsWith("https://api.spotify.com/v1/tracks/") ? reply(apiTrack(url.split("/").pop() ?? "", "곡")) : undefined)];
 
-  const [a] = (await Spotify.getCollection("https://open.spotify.com/track/aaa111")).tracks;
-  await Spotify.getCollection("https://open.spotify.com/track/bbb222");
+  const [a] = (await spotifySource.getCollection("https://open.spotify.com/track/aaa111")).tracks;
+  await spotifySource.getCollection("https://open.spotify.com/track/bbb222");
 
   const tokenCalls = requests.filter((r) => new URL(r.url).hostname === "accounts.spotify.com");
   assert.equal(tokenCalls.length, 1, "토큰은 만료 전까지 재사용");
@@ -119,10 +119,10 @@ const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op:
 test("키가 없으면 곡, 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
   const seen: Array<[string, Record<string, unknown>]> = [];
-  const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e1", undefined, { query: anonQuery(seen) })).tracks;
+  const [t] = (await spotifySource.getCollection("https://open.spotify.com/track/e1", undefined, { query: anonQuery(seen) })).tracks;
   assert.deepEqual(t, { title: "익명 곡", artist: "가수, 피처링", album: "앨범", pageUrl: "https://open.spotify.com/track/e1", requestKey: "https://open.spotify.com/track/e1", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "e1" });
 
-  const part = await Spotify.getCollection("https://open.spotify.com/album/al1", { offset: 2, limit: 3 }, { query: anonQuery(seen) });
+  const part = await spotifySource.getCollection("https://open.spotify.com/album/al1", { offset: 2, limit: 3 }, { query: anonQuery(seen) });
   assert.deepEqual(
     part.tracks.map((x) => [x.title, x.album, x.thumbnail]),
     [
@@ -146,10 +146,10 @@ test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 �
   routes = [(url) => (url === "https://accounts.spotify.com/api/token" ? reply({ error: "invalid_client" }, { status: 401 }) : undefined)];
   const from = sink.buffer.length;
   const seen: Array<[string, Record<string, unknown>]> = [];
-  const [t] = (await Spotify.getCollection("https://open.spotify.com/track/e2", undefined, { query: anonQuery(seen) })).tracks;
+  const [t] = (await spotifySource.getCollection("https://open.spotify.com/track/e2", undefined, { query: anonQuery(seen) })).tracks;
   assert.equal(t.title, "익명 곡");
   assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && /키가 틀림/.test(e.text)));
-  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/track/gone", undefined, { query: anonQuery(seen) }), { tracks: [], total: null, nextOffset: null });
+  assert.deepEqual(await spotifySource.getCollection("https://open.spotify.com/track/gone", undefined, { query: anonQuery(seen) }), { tracks: [], total: null, nextOffset: null });
 });
 
 test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
@@ -160,7 +160,7 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
     return { artistUnion: { discography: { topTracks: { items: [{ track: { uri: "spotify:track:g1", name: "인기곡", artists: { items: [{ profile: { name: "가수" } }] }, duration: { totalMilliseconds: 90000 } } }] } } } };
   };
   routes = [tokenRoute, () => reply({}, { status: 503 })];
-  const list = await Spotify.getCollection("https://open.spotify.com/artist/ar1", undefined, { query });
+  const list = await spotifySource.getCollection("https://open.spotify.com/artist/ar1", undefined, { query });
   assert.deepEqual(
     list.tracks.map((t) => [t.title, t.pageUrl, t.duration]),
     [["인기곡", "https://open.spotify.com/track/g1", 90]],
@@ -174,7 +174,7 @@ test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범
     throw new Error("GraphQL 503");
   };
   const from = sink.buffer.length;
-  await assert.rejects(Spotify.getCollection("https://open.spotify.com/album/al1", undefined, { query: failing }), /GraphQL 503/);
+  await assert.rejects(spotifySource.getCollection("https://open.spotify.com/album/al1", undefined, { query: failing }), /GraphQL 503/);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
   assert.ok(
     lines.some((l) => l.startsWith("warn") && l.includes("주 경로 실패")),
@@ -182,11 +182,11 @@ test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범
   );
 
   routes = [tokenRoute, () => reply({}, { status: 404 })];
-  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/album/al2", undefined, { query: failing }), { tracks: [], total: null, nextOffset: null });
+  assert.deepEqual(await spotifySource.getCollection("https://open.spotify.com/album/al2", undefined, { query: failing }), { tracks: [], total: null, nextOffset: null });
 });
 
 test("모르는 주소는 요청 없이 빈 결과", async () => {
-  assert.deepEqual(await Spotify.getCollection("https://open.spotify.com/show/x"), { tracks: [], total: null, nextOffset: null });
+  assert.deepEqual(await spotifySource.getCollection("https://open.spotify.com/show/x"), { tracks: [], total: null, nextOffset: null });
   assert.equal(requests.length, 0);
 });
 
@@ -225,7 +225,7 @@ test("익명 상태: 홈, 번들에서 버전, secret, 해시를 추출해 DB �
   await graphql._ensureState(false);
   assert.equal(requests.length, before, "12시간 안에는 다시 안 받는다");
 
-  Spotify._reset(); // 프로세스를 다시 시작한 것처럼
+  spotifySource._reset(); // 프로세스를 다시 시작한 것처럼
   await graphql._ensureState(false);
   assert.equal(requests.length, before, "프로세스를 다시 실행해도 DB 에 남은 것이 새것이면 그것을 쓴다");
 });
@@ -243,7 +243,7 @@ test("익명 상태: 추출이 실패하면 저장값, 그것도 없으면 던�
 
   routes = anonRoutes();
   await graphql._ensureState(false);
-  Spotify._reset(); // 프로세스를 다시 시작한 것처럼. 저장값은 DB 에만
+  spotifySource._reset(); // 프로세스를 다시 시작한 것처럼. 저장값은 DB 에만
   routes = down();
   const state = await graphql._ensureState(true);
   assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
@@ -294,7 +294,7 @@ test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아
   assert.equal(next.hashes.fetchPlaylist, "c".repeat(64), "찾은 것은 새 값");
   assert.equal(next.hashes.queryArtistOverview, "b".repeat(64), "못 찾은 것은 직전 값");
 
-  Spotify._reset();
+  spotifySource._reset();
   cacheDb.get().exec("DELETE FROM spotify_anon;");
   routes = [...withBundle(onlyPlaylist), ...anonRoutes().slice(2)];
   await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없음/);
@@ -365,7 +365,7 @@ test("GraphQL 쿼리: 다른 오류와 JSON 이 아닌 응답은 던진다", asy
 
 // 표시 문구("알 수 없는 아티스트")를 필드에 넣으면 자동재생 필터를 지나 매칭 검색어가 된다
 test("가수가 없는 곡은 가수 필드를 비워 둔다(표시 문구는 그릴 때)", () => {
-  const { normApiTrack } = Spotify._internals;
+  const { normApiTrack } = spotifySource._internals;
   const t = normApiTrack({ id: "x", name: "곡", artists: [], duration_ms: 1000, album: { name: "앨범", images: [] }, external_urls: { spotify: "https://open.spotify.com/track/x" } });
   assert.equal(t?.artist, undefined);
 });
@@ -405,7 +405,7 @@ test("익명 상태와 토큰: 동시에 온 요청은 한 번만 추출하고 �
 
 test("곡 검색: searchTracks 로 묻고 곡 모양으로 바꾼다. 같은 검색어는 기억에서", async () => {
   routes = [...searchRoutes(), (url) => (url.includes("api-partner") ? searchAnswer(["閃光", "閃光 (Live)"]) : undefined)];
-  const tracks = await Spotify.searchTracks(" 閃光 ");
+  const tracks = await spotifySource.searchTracks(" 閃光 ");
   assert.deepEqual(
     tracks.map((t) => [t.title, t.artist, t.duration, t.pageUrl, t.platform]),
     [
@@ -419,35 +419,35 @@ test("곡 검색: searchTracks 로 묻고 곡 모양으로 바꾼다. 같은 검
   assert.equal(body.extensions.persistedQuery.sha256Hash, "d".repeat(64));
 
   const asked = requests.length;
-  assert.equal((await Spotify.searchTracks("閃光"))[0].title, "閃光");
+  assert.equal((await spotifySource.searchTracks("閃光"))[0].title, "閃光");
   assert.equal(requests.length, asked);
-  assert.equal(Spotify.rememberedTracks("閃光")?.length, 2);
-  assert.equal(Spotify.rememberedTracksPrefix("閃光 l")?.length, 2);
-  assert.equal(Spotify.rememberedTrack("1".repeat(22))?.title, "閃光 (Live)");
+  assert.equal(spotifySource.rememberedTracks("閃光")?.length, 2);
+  assert.equal(spotifySource.rememberedTracksPrefix("閃光 l")?.length, 2);
+  assert.equal(spotifySource.rememberedTrack("1".repeat(22))?.title, "閃光 (Live)");
 });
 
 test("곡 검색 준비: 상태가 메모리에 없으면 거짓이고 뒤에서 준비를 시작한다. 준비되면 참", async () => {
   routes = searchRoutes();
-  assert.equal(Spotify.searchReady(), false);
+  assert.equal(spotifySource.searchReady(), false);
   await graphql._ensureState(false);
-  assert.equal(Spotify.searchReady(), true);
+  assert.equal(spotifySource.searchReady(), true);
   assert.equal(requests.filter((r) => r.url.includes("web-player.abc123.js")).length, 1, "준비는 한 번");
 });
 
 test("곡 검색 준비: 검색 해시가 없는 상태는 추출한 지 10분이 지났으면 다시 추출한다(방금 추출한 것은 다시 추출하지 않는다)", async () => {
   routes = anonRoutes(); // 검색 청크가 없는 번들
   await graphql._ensureState(false);
-  assert.equal(Spotify.searchReady(), false);
+  assert.equal(spotifySource.searchReady(), false);
   const bundles = () => requests.filter((r) => r.url.includes("web-player.abc123.js")).length;
   await graphql._ensureState(false);
   assert.equal(bundles(), 1, "방금 추출했으면 검색 해시가 없어도 다시 추출하지 않는다");
 
   graphql._state = { ...graphql._state!, fetchedAt: Date.now() - 10 * 60_000 - 1 };
   routes = searchRoutes();
-  assert.equal(Spotify.searchReady(), false, "뒤에서 다시 추출 시작");
+  assert.equal(spotifySource.searchReady(), false, "뒤에서 다시 추출 시작");
   await graphql._ensureState(false);
   assert.equal(bundles(), 2);
-  assert.equal(Spotify.searchReady(), true);
+  assert.equal(spotifySource.searchReady(), true);
 });
 
 // ── 익명 토큰 관리 ──
@@ -457,7 +457,7 @@ const mints = () => requests.filter((r) => r.url.startsWith("https://open.spotif
 test("익명 토큰: 받은 토큰은 저장해 두고, 다시 시작해도 만료 전이면 그대로 쓴다. 상태를 다시 추출해도 토큰은 남는다", async () => {
   routes = anonRoutes();
   assert.equal(await graphql._token(), "A1");
-  Spotify._reset(); // 다시 시작
+  spotifySource._reset(); // 다시 시작
   assert.equal(await graphql._token(), "A1");
   assert.equal(mints(), 1);
   await graphql._ensureState(true);
@@ -469,13 +469,13 @@ test("익명 토큰: 만료 시각까지는 곧 만료여도 다시 받지 않�
   routes = anonRoutes();
   await graphql._ensureState(false); // 토큰은 상태 행에 저장된다
   externalCaches.setSpotifyAnonToken({ value: "SOON", expiresAt: Date.now() + 30_000 });
-  Spotify._reset();
+  spotifySource._reset();
   assert.equal(await graphql._token(), "SOON");
   assert.equal(await graphql._token(), "SOON");
   assert.equal(mints(), 0, "만료 전에 받으면 같은 토큰이 온다");
 
   externalCaches.setSpotifyAnonToken({ value: "GONE", expiresAt: Date.now() - 1 });
-  Spotify._reset();
+  spotifySource._reset();
   assert.equal(await graphql._token(), "A1");
   assert.equal(mints(), 1);
   assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A1");
@@ -486,7 +486,7 @@ test("익명 토큰: 만료 뒤 받았는데 같은 토큰이 오면 다시 받�
   routes = [sameToken, ...anonRoutes()];
   await graphql._ensureState(false);
   externalCaches.setSpotifyAnonToken({ value: "OLD", expiresAt: Date.now() - 1 });
-  Spotify._reset();
+  spotifySource._reset();
   assert.equal(await graphql._token(), "OLD");
   assert.equal(await graphql._token(), "OLD");
   assert.equal(mints(), 1, "같은 토큰이 왔으면 요청마다 받지 않는다");
@@ -515,13 +515,13 @@ test("GraphQL 쿼리: 토큰이 거절(401)되면 버리고 새로 받아 한 �
 
 test("기동 준비: 저장해 둔 상태와 토큰이 쓸 만하면 아무것도 요청하지 않는다. 없으면 받아 둔다", async () => {
   routes = searchRoutes();
-  await Spotify.prepareAnonymous();
+  await spotifySource.prepareAnonymous();
   assert.equal(mints(), 1);
-  assert.equal(Spotify.searchReady(), true);
+  assert.equal(spotifySource.searchReady(), true);
 
-  Spotify._reset(); // 다시 시작
+  spotifySource._reset(); // 다시 시작
   requests.length = 0;
-  await Spotify.prepareAnonymous();
+  await spotifySource.prepareAnonymous();
   assert.deepEqual(requests, [], "저장해 둔 것으로");
-  assert.equal(Spotify.searchReady(), true);
+  assert.equal(spotifySource.searchReady(), true);
 });
