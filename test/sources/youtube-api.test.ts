@@ -159,6 +159,13 @@ test("정보: 시작 전 라이브는 포맷 없이 정보만 다시 받는다. 
   );
 });
 
+test("정보: 최초 공개 예정 영상의 실패 문장도 시작 전 라이브로 보고 정보만 다시 받는다", async () => {
+  const id = "ppppppppppq";
+  respond = (_url, flags) => (flags.ignoreNoFormatsError ? video(id, { live_status: "is_upcoming", is_live: false, duration: null }) : { fail: `ERROR: [youtube] ${id}: Premieres in 6 hours` });
+  const track = await youtubeSource.getInfo(`https://www.youtube.com/watch?v=${id}`);
+  assert.deepEqual([track.liveStatus, calls.map((c) => Boolean(c.flags.ignoreNoFormatsError))], ["is_upcoming", [false, true]]);
+});
+
 // ── 스트림 ────────────────────────────────────────────────────────────
 
 test("스트림: 서술자의 모양. 주소는 yt-dlp 가 준 그대로다(위치는 ffmpeg 의 -ss 가 정한다)", async () => {
