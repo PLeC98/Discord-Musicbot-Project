@@ -146,7 +146,7 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
     stores.open();
   } catch (error) {
     log.error(`기동 중단: ${messageOf(error)}`);
-    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB를 복원하려면 database/backups의 settings-*.db 파일을 database/settings.restore.db로 복사한 뒤 다시 시작하세요. 기동이 지금 파일을 backups에 남기고 바꿔 끼움(settings.db에 바로 덮으면 남은 -wal이 얹혀 깨질 수 있음, 같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
+    if ((error as { dbFile?: string }).dbFile === "settings.db") log.error("설정 DB 복원: database/backups의 settings-*.db 파일을 database/settings.restore.db로 복사한 뒤 다시 시작. 기동 때 기존 settings.db를 backups에 남기고 교체함(settings.db에 바로 덮으면 남은 -wal 파일과 섞여 깨질 수 있음, 같은 SECRETS_KEY여야 비밀값을 복호화할 수 있음)");
     stopFailedStart(null, { potServer, logFile }, EXIT.badSetup);
     return false;
   }

@@ -251,7 +251,7 @@ function createGuildSettingsRouter() {
       log.info(`대시보드 서버 설정에서 봇 내보내기: ${guild.name} (${guild.id}). 실행 ${who}`);
       res.json({ success: true } satisfies Saved);
     } catch (error) {
-      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 멈춤(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
+      if (sessionEnded(res, error)) return void log.warn(`대시보드에서 봇 내보내기 중단(로그인 세션 끝남): ${guild.name} (${guild.id}). 실행 ${who}`);
       log.error(`대시보드에서 봇 내보내기 실패: ${guild.name} (${guild.id}). 실행 ${who}:`, error);
       sendProblem(res, "leave-guild-failed", {}, { detail: messageOf(error) });
     }

@@ -73,7 +73,7 @@ test("화면: 봇 프로필 썸네일, 서버 이름, 쓰는 법, 원본 저장�
   assert.ok(text.startsWith("### 🎵 반가워요!\n**음악방** 서버에 초대해 주셔서 고마워요!"), text);
   assert.ok(text.includes("`/play`로 곡을 재생해요") && text.includes("`/setchannel`로") && text.includes("`/help`를"), text);
   assert.ok(!text.includes("대시보드"), "닿지 않는 대시보드는 말하지 않는다");
-  assert.ok(text.includes(`[GitHub 페이지](${config.bot.projectRepo})`) && !text.includes("포크"), text);
+  assert.ok(text.includes(`[GitHub 저장소](${config.bot.projectRepo})`) && !text.includes("포크"), text);
   assert.ok(text.endsWith("-# Copyright (C) 2026 PLeC - GNU AGPL-3.0-or-later"), text);
   assert.deepEqual(buttonsOf(view), [["GitHub", config.bot.projectRepo]]);
   assert.deepEqual(view.allowedMentions, { parse: [] });
@@ -83,12 +83,12 @@ test("화면: 대시보드가 밖에서 열리면 대시보드 줄과 버튼, �
   const view = withConfig({ dashboard: { url: "https://music.example.com" }, bot: { sourceRepo: "https://github.com/someone/fork" } }, () => welcomeView(guild({ channels: [] })));
   const text = textOf(view);
   assert.ok(text.includes("대시보드에서도 가능해요"), text);
-  assert.ok(text.includes("[이쪽](https://github.com/someone/fork)"), text);
+  assert.ok(text.includes("[이곳](https://github.com/someone/fork)"), text);
   assert.ok(text.endsWith("-# GNU AGPL-3.0-or-later"), text);
   assert.deepEqual(buttonsOf(view), [
     ["웹 대시보드", "https://music.example.com"],
     ["원본 GitHub", config.bot.projectRepo],
-    ["운영 버전 GitHub", "https://github.com/someone/fork"],
+    ["이 봇의 GitHub", "https://github.com/someone/fork"],
   ]);
 });
 

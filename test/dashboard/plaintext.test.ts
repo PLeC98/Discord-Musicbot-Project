@@ -141,7 +141,7 @@ test("기동: 평문 허용(DASHBOARD_ALLOW_PLAINTEXT)이어도 http 도메인 �
     servers.push(...(await openDashboard(app, { scopeFile, container: false })));
     const warns = sink.buffer.filter((r) => r.id > start && r.level === "warn").map((r) => r.text);
     assert.ok(
-      warns.some((line) => line.startsWith("DASHBOARD_URL이 http이고 도메인 이름(dash.example.com)")),
+      warns.some((line) => line.startsWith("DASHBOARD_URL이 http이고 호스트가 도메인 이름(dash.example.com)")),
       warns.join("\n"),
     );
   } finally {
@@ -184,6 +184,6 @@ test("접속 경로별 판정: 신뢰하지 않는 공인 IP의 평문은 헤더
 });
 
 test("기동 안내: 공개 주소가 http이고 점이 있는 도메인 이름이면 같은 상위 도메인의 쿠키 심기를 알린다. IP, localhost, 점 없는 이름, https는 알리지 않는다", () => {
-  for (const url of ["http://dash.example.com:3000", "http://pc.tailnet.ts.net:3000", "http://Dash.Example.com./"]) assert.match(siblingCookieNote(url) ?? "", /^DASHBOARD_URL이 http이고 도메인 이름\(dash\.example\.com|pc\.tailnet\.ts\.net\)/, url);
+  for (const url of ["http://dash.example.com:3000", "http://pc.tailnet.ts.net:3000", "http://Dash.Example.com./"]) assert.match(siblingCookieNote(url) ?? "", /^DASHBOARD_URL이 http이고 호스트가 도메인 이름\(dash\.example\.com|pc\.tailnet\.ts\.net\)/, url);
   for (const url of ["https://dash.example.com", "http://192.168.0.10:3000", "http://[::1]:3000", "http://[::ffff:10.0.0.1]:3000", "http://localhost:3000", "http://app.localhost:3000", "http://mypc:3000"]) assert.equal(siblingCookieNote(url), null, url);
 });

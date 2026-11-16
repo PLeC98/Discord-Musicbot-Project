@@ -128,8 +128,8 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
   return (req, res, next) => {
     if (dropDuplicateCookie(req, sessionCookieName(req.secure))) {
       const verdict = duplicates(clientIp(req));
-      if (verdict === "warn") log.warn(`같은 이름의 로그인 세션 쿠키가 여러 개라 받지 않음(${clientIp(req)}). 같은 상위 도메인의 다른 사이트가 심은 쿠키일 수 있으니 HTTPS로 공개하세요`);
-      else if (verdict === "cap") log.warn("같은 이름의 로그인 세션 쿠키가 여러 개인 요청이 많아 1시간 동안 더는 로그에 남기지 않음(받지 않는 것은 그대로)");
+      if (verdict === "warn") log.warn(`같은 이름의 로그인 세션 쿠키가 여러 개라 받지 않음(${clientIp(req)}). 같은 상위 도메인의 다른 사이트가 심은 쿠키일 수 있음. 대시보드를 HTTPS로 열어야 함`);
+      else if (verdict === "cap") log.warn("같은 이름의 로그인 세션 쿠키가 여러 개인 요청이 많아 1시간 동안 더는 로그에 남기지 않음(쿠키는 계속 받지 않음)");
     }
     return (req.secure ? secure : plain)(req, res, (err?: unknown) => {
       if (err || !req.session || (req.session.createdOverHttps === true) === req.secure) return next(err);

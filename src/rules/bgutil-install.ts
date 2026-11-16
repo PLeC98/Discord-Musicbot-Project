@@ -15,10 +15,10 @@ function isPlainTag(text: string) {
  * 기본 태그면 고정한 커밋, 다른 태그면 commit 을 함께 받아야 한다(태그만으로는 받은 코드를 확인할 수 없다). 받지 못하면 error
  */
 function bgutilPin(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | { error: string } {
-  if (!isPlainTag(version)) return { error: `BGUTIL_VERSION 이 태그 이름이 아닙니다: ${version}` };
-  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { error: `BGUTIL_COMMIT 은 커밋 해시 40자(소문자 16진)여야 합니다: ${commit}` };
+  if (!isPlainTag(version)) return { error: `BGUTIL_VERSION이 태그 이름이 아닙니다: ${version}` };
+  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { error: `BGUTIL_COMMIT은 커밋 해시 40자(16진수 소문자)여야 합니다: ${commit}` };
   if (version === defaults.version) return { tag: version, commit: defaults.commit };
-  return { error: `BGUTIL_VERSION 을 기본값(${defaults.version})과 다르게 두면 그 태그의 커밋 40자를 BGUTIL_COMMIT 에 함께 적으세요. 커밋은 git ls-remote <저장소> refs/tags/${version}^{} 로 확인합니다` };
+  return { error: `BGUTIL_VERSION을 기본값(${defaults.version})과 다르게 두면 그 태그의 커밋 40자를 BGUTIL_COMMIT에 함께 적으세요. 커밋은 git ls-remote <저장소> refs/tags/${version}^{} 명령으로 확인합니다` };
 }
 
 /** package-lock.json(v2, v3)의 한 항목에서 쓰는 필드 */
@@ -35,7 +35,7 @@ function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): string[
   for (const [key, entry] of Object.entries(lock.packages ?? {})) {
     if (!key || entry.link || !entry.hasInstallScript) continue;
     const name = key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length);
-    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) throw new Error(`잠금 파일의 패키지 이름이 아닙니다: ${key}`);
+    if (!/^(@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/.test(name)) throw new Error(`lockfile에 잘못된 형식의 패키지 이름이 있습니다: ${key}`);
     (entry.dev || entry.devOptional ? devNames : names).add(name);
   }
   const both = [...names].filter((name) => devNames.has(name));

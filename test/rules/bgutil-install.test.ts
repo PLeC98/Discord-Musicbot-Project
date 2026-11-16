@@ -1,4 +1,4 @@
-// src/rules/bgutil-install.ts: bgutil 설치가 받을 태그와 커밋, 잠금 파일에서 설치 스크립트를 돌릴 실행 의존성, 루트의 설치 스크립트
+// src/rules/bgutil-install.ts: bgutil 설치가 받을 태그와 커밋, lockfile에서 설치 스크립트를 돌릴 실행 의존성, 루트의 설치 스크립트
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -59,7 +59,7 @@ test("설치 스크립트를 돌릴 의존성: 실행 의존성 가운데 설치
 
 test("설치 스크립트를 돌릴 의존성: 이름이 npm 패키지 형식이 아니면 던진다(셸 명령줄에 들어간다)", () => {
   for (const key of ["node_modules/a;rm -rf", "node_modules/$(x)", "node_modules/A"]) {
-    assert.throws(() => rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), /패키지 이름이 아닙니다/, key);
+    assert.throws(() => rebuildTargets({ packages: { [key]: { hasInstallScript: true } } }), /잘못된 형식의 패키지 이름이 있습니다/, key);
   }
 });
 

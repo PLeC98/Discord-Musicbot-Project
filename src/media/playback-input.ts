@@ -124,7 +124,7 @@ const CAN_OPEN: Record<"hls" | "dash" | "other", (caps: Capabilities) => boolean
 function openUrl<R>(o: InputOptions<R>, streamInfo: StreamInfo): Opened<R> {
   // yt-dlp 가 준 주소만 온다. 맨 앞이 http(s)가 아니면(file:, concat: 등) ffmpeg 에 넘기지 않는다. 그 안쪽에서 여는 것은 ffmpeg 의 http 기본 목록이 좁힌다
   if (!/^https?:\/\//i.test(String(streamInfo.url))) {
-    throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "방식 모름"})`), { scope: "track" });
+    throw Object.assign(codedError("stream-failed", `스트림 주소가 http(s)가 아님(${streamInfo.protocol ?? "프로토콜 모름"})`), { scope: "track" });
   }
   // 스트림 주소를 고를 때(canPlayHls) 먼저 필터링하지만, 여기까지 온 것은 막는다.
   const list = o.transport.list ?? "hls";

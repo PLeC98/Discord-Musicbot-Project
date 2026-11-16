@@ -506,7 +506,7 @@ test("표시 파일을 만들지 못하면 warn을 남기고, 그 상태로 다�
   const logs = logsFrom();
   assert.equal(store.end("끊음", "u1"), true);
   assert.equal(intact("no-marker.db"), false);
-  assert.ok(logs().some((line) => line.startsWith("warn ") && line.includes("다시 시작하면 로그인 세션을 모두 삭제")));
+  assert.ok(logs().some((line) => line.startsWith("warn ") && line.includes("다시 시작하면 로그인 세션이 모두 삭제")));
   assert.ok(store._retryTimer, "다시 하기 타이머가 켜져 있다");
   assert.equal(store.retryUnsaved(), 0);
   assert.ok(store._retryTimer, "표시 파일을 만들 때까지 타이머를 끄지 않는다");

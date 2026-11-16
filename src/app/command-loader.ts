@@ -112,7 +112,7 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
     try {
       rememberCommandIds(await get(route), guildId);
     } catch (error) {
-      log.warn(`등록된 슬래시 명령 읽기 실패(도움말의 명령이 누를 수 없는 글자로 보임): ${messageOf(error)}`);
+      log.warn(`등록된 슬래시 명령어 읽기 실패(도움말의 명령어가 클릭할 수 없는 일반 텍스트로 보임): ${messageOf(error)}`);
     }
     return { ok: true, skipped: true, count: commands.length, scope, guildId, names: commands.map((c) => c.name) };
   }

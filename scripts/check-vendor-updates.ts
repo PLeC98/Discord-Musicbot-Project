@@ -39,7 +39,7 @@ async function github(pathname: string) {
 // 태그가 가리키는 커밋. refs/tags/ 로 적어야 주석 태그도 커밋으로 벗기고 같은 이름의 브랜치와 헷갈리지 않는다
 async function bgutilCommitOf(tag: string) {
   const sha = String(((await github(`/repos/${BGUTIL_REPO}/commits/refs/tags/${encodeURIComponent(tag)}`)) as { sha?: unknown }).sha ?? "");
-  if (!isCommitSha(sha)) throw new Error(`bgutil ${tag} 의 커밋을 읽지 못했습니다: ${sha}`);
+  if (!isCommitSha(sha)) throw new Error(`bgutil ${tag}의 커밋을 읽지 못했습니다: ${sha}`);
   return sha;
 }
 
@@ -49,7 +49,7 @@ async function auditBgutil(commit: string): Promise<AuditCounts> {
   try {
     for (const name of ["package.json", "package-lock.json"]) {
       const res = await fetch(`https://raw.githubusercontent.com/${BGUTIL_REPO}/${commit}/server/${name}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
-      if (!res.ok) throw new Error(`bgutil ${commit} 의 server/${name}: ${res.status}`);
+      if (!res.ok) throw new Error(`bgutil ${commit}의 server/${name} 조회 실패: ${res.status}`);
       fs.writeFileSync(path.join(dir, name), await res.text());
     }
     // 취약점이 있으면 1 로 끝나므로 종료 코드가 아니라 출력을 읽는다
@@ -128,7 +128,7 @@ async function attempt<T>(what: string, run: () => Promise<T>): Promise<T | null
 }
 
 const bgutilNewer = newerRelease(latestBgutil, BGUTIL_VERSION);
-const bgutilNewerCommit = bgutilNewer ? await attempt(`bgutil ${bgutilNewer} 의 커밋`, () => bgutilCommitOf(bgutilNewer)) : null;
+const bgutilNewerCommit = bgutilNewer ? await attempt(`bgutil ${bgutilNewer}의 커밋`, () => bgutilCommitOf(bgutilNewer)) : null;
 const ffmpegNewer = newerFfmpegRelease(ffmpegTags, FFMPEG_RELEASE);
 const [cfV4, cfV6] = await Promise.all([cloudflareList("v4"), cloudflareList("v6")]);
 
@@ -153,7 +153,7 @@ const result = {
     latest: latestBgutil || null,
     newer: bgutilNewer,
     newerCommit: bgutilNewerCommit,
-    audit: { current: await attempt("bgutil 잠금 파일 감사", () => auditBgutil(BGUTIL_COMMIT)), newer: bgutilNewerCommit ? await attempt(`bgutil ${String(bgutilNewer)} 잠금 파일 감사`, () => auditBgutil(bgutilNewerCommit)) : null },
+    audit: { current: await attempt("bgutil lockfile 취약점 점검", () => auditBgutil(BGUTIL_COMMIT)), newer: bgutilNewerCommit ? await attempt(`bgutil ${String(bgutilNewer)} lockfile 취약점 점검`, () => auditBgutil(bgutilNewerCommit)) : null },
   },
   ffmpeg: { current: FFMPEG_RELEASE, newer: ffmpegNewer },
   cloudflare: { changed: false, v4: cfV4.length, v6: cfV6.length },
