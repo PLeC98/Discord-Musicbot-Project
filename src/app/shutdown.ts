@@ -44,14 +44,19 @@ type ShutdownDeps = { potServer: { stop(): Promise<PotStop> }; logFile: { close(
 type Saver = { persistence: { save(reason: string): Promise<unknown> }; gain?: { checkpoint(): void }; voice: { release(reason: string): unknown }; updateVoiceStatus(status: string): Promise<unknown> };
 // 음성 채널 상태 문구를 지우는 데 기다리는 상한. 넘으면 그대로 끝낸다
 const STATUS_CLEAR_MS = 2000;
+// 다시 시작 공지를 보내는 데 기다리는 상한(모든 서버 합쳐). 넘으면 보낸 것만 세고 종료를 잇는다
+const NOTICE_MS = 3000;
 // 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
 const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
 // Windows에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
-/** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
-type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]>; stay?: { stop(): unknown } };
+/**
+ * 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어.
+ * restartNotices: 다시 시작 공지를 서버마다 보내기 시작하고 그 끝을 돌려준다(보냈으면 true. 거절하지 않는다). 조립(app/main)이 붙인다
+ */
+type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]>; stay?: { stop(): unknown }; restartNotices?: () => Promise<boolean>[] };
 
 /** 종료 신호에 핸들러를 건다. 돌려주는 attach로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
@@ -59,8 +64,8 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  // why: 로그, 연결 정리에 적는 원인. restart면 다시 시작 코드로 나간다
-  const gracefulShutdown = async (why: string, restart = false) => {
+  // why: 로그, 연결 정리에 적는 원인. restart면 다시 시작 코드로 나간다. announce: 다시 시작 전에 재생 중인 서버에 알린다
+  const gracefulShutdown = async (why: string, restart = false, announce = false) => {
     // Windows 콘솔의 Ctrl+C는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
@@ -71,6 +76,8 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     log.info(`종료 시작: ${reason}`);
     // 상주 모드가 재접속을 예약하거나 플레이어 정리 때 상주 설정을 지우지 않게 세션 저장 전에 멈춘다
     bot?.stay?.stop();
+    // 공지는 세션을 저장하기 전에(저장하면서 음성 연결을 정리한다). announce는 다시 시작(restart)으로만 들어온다
+    if (announce) await announceRestart(bot?.restartNotices);
     if (bot) await savePlayers(bot.players, reason);
 
     destroyLeftovers(voiceConnections(), client, reason);
@@ -80,8 +87,8 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   };
 
   // 종료가 중간에 예외를 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
-  const stop = (why: string, restart = false) => {
-    gracefulShutdown(why, restart).catch((error: unknown) => {
+  const stop = (why: string, restart = false, announce = false) => {
+    gracefulShutdown(why, restart, announce).catch((error: unknown) => {
       log.error("종료 중 오류:", error);
       exit(restart ? EXIT.restart : EXIT.stopped);
     });
@@ -101,11 +108,37 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     attach(next: ShutdownBot) {
       bot = next;
     },
-    /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 실행한다. by: 누가(로그) */
-    restart(by: string) {
-      stop(by, true);
+    /** 정리하고 다시 시작 코드로 나간다. 실행기가 다시 실행한다. by: 누가(로그). announce: 재생 중인 서버에 다시 시작한다고 알린다 */
+    restart(by: string, { announce = false }: { announce?: boolean } = {}) {
+      stop(by, true, announce);
     },
   };
+}
+
+// 다시 시작 공지를 상한(NOTICE_MS)까지 기다린다. 실패는 여기서 삼킨다(공지 때문에 세션 저장을 건너뛰지 않게)
+async function announceRestart(notices: (() => Promise<boolean>[]) | undefined) {
+  if (!notices) return;
+  let sending: Promise<boolean>[];
+  try {
+    sending = notices();
+  } catch (error) {
+    return void log.warn(`다시 시작 공지 실패: ${messageOf(error)}`);
+  }
+  if (!sending.length) return;
+  let sent = 0;
+  let pending = sending.length;
+  const counted = sending.map((one) =>
+    one
+      .then(
+        (ok) => void (ok && sent++),
+        () => undefined,
+      )
+      .finally(() => pending--),
+  );
+  let cap: NodeJS.Timeout | undefined;
+  await Promise.race([Promise.all(counted), new Promise((done) => (cap = setTimeout(done, NOTICE_MS)))]);
+  clearTimeout(cap);
+  log.info(`다시 시작 공지: 재생 중인 서버 ${sending.length}곳 중 ${sent}곳에 보냄${pending ? `(${NOTICE_MS / 1000}초 안에 끝나지 않은 ${pending}곳은 그대로 진행)` : ""}`);
 }
 
 // 레지스트리에 없던 연결도 나가기 요청 없이 정리한다

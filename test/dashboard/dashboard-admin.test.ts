@@ -760,13 +760,20 @@ test("다시 시작: 실행기 없이 켰으면 409, 있으면 202를 보낸 뒤
   assert.deepEqual([none.status, none.json.code], [409, "restart-unavailable"]);
 
   const asked: string[] = [];
-  adminApp.locals.restart = (by) => void asked.push(by);
+  const announced: unknown[] = [];
+  adminApp.locals.restart = (by, options) => void (asked.push(by), announced.push(options?.announce));
   try {
     assert.equal((await req<{ env: { launcher: boolean } }>("GET", "/api/admin/status")).json.env.launcher, true);
     const ok = await req<{ restarting: boolean }>("POST", "/api/admin/restart");
     assert.deepEqual([ok.status, ok.json.restarting], [202, true]);
     assert.equal(asked.length, 1);
     assert.match(asked[0], /owner/, "누가 했는지 로그에 남긴다");
+    // 공지는 announce가 true일 때만(그 밖의 값은 알리지 않는다)
+    await req("POST", "/api/admin/restart", { announce: true });
+    await req("POST", "/api/admin/restart", { announce: "true" });
+    await new Promise((r) => setImmediate(r));
+    assert.deepEqual(announced, [false, true, false]);
+    asked.length = 1;
 
     currentUser = { id: "u1" };
     assert.equal((await req("POST", "/api/admin/restart")).status, 403);

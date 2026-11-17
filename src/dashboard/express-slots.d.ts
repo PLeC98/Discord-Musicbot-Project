@@ -32,8 +32,8 @@ declare global {
       deployCommands: typeof deployCommands;
       /** 플레이어 실시간 알림(대시보드 연결). 조립이 넘긴다 */
       stream: PlayerStream;
-      /** 봇 다시 시작(세션을 저장하고 나가면 실행기가 다시 실행한다). 실행기 없이 켰으면 null. by: 누가(로그) */
-      restart: ((by: string) => void) | null;
+      /** 봇 다시 시작(세션을 저장하고 나가면 실행기가 다시 실행한다). 실행기 없이 켰으면 null. by: 누가(로그), announce: 재생 중인 서버에 알린다 */
+      restart: ((by: string, options?: { announce?: boolean }) => void) | null;
       /** 곡 찾기. 테스트가 가짜를 넘기는 슬롯. 없으면 진짜 */
       lookup?: Lookup;
     }

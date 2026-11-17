@@ -189,7 +189,7 @@ import ConfigServiceKeys from "../components/ConfigServiceKeys.vue";
 import ConfigTunables from "../components/ConfigTunables.vue";
 import SaveDock from "../components/SaveDock.vue";
 import { revertAll, saveAll, saveTargets, tabAfterFailure } from "../composables/save-targets.ts";
-import { restartNow } from "../composables/bot-restart.ts";
+import { askRestart } from "../composables/bot-restart.ts";
 import { groupsIn } from "../../../src/rules/tunables.ts";
 import { draft as tunableDraft } from "../composables/tunables.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
@@ -271,7 +271,7 @@ async function saveEverything(restarting = false) {
 }
 
 async function saveEverythingAndRestart() {
-  if (await saveEverything(true)) await restartNow();
+  if (await saveEverything(true)) askRestart("save");
 }
 
 // 연령 제한 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가

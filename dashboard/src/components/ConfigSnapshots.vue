@@ -38,7 +38,7 @@ import { formatDateTime } from "../utils/locale.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
 import { problemText } from "../utils/problem.ts";
 import { notifyDone, notifyProblem } from "../composables/toasts.ts";
-import { restartNow } from "../composables/bot-restart.ts";
+import { askRestart } from "../composables/bot-restart.ts";
 import { ensureRecentLogin } from "../composables/session.ts";
 import type { Snapshot, SnapshotsView } from "../../../src/rules/snapshots.ts";
 import { text } from "../text/index.ts";
@@ -72,8 +72,8 @@ async function restore() {
   try {
     view.value = (await axios.post<SnapshotsView>(`${BASE}/restore`, { name: asking.value.name })).data;
     asking.value = null;
-    // 실행기가 있으면 곧바로 다시 시작해 교체한다(다시 뜨면 화면을 새로고침한다)
-    if (props.canRestart) await restartNow();
+    // 실행기가 있으면 다시 시작할지 묻는다(나중에를 고르면 걸어 둔 채로 남는다)
+    if (props.canRestart) askRestart("snapshot");
     else notifyDone(T.stagedDone, T.stagedDoneBody);
   } catch (err) {
     notifyProblem(err, T.failed);

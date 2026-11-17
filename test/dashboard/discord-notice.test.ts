@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
-import { announcer, dashboardActor, dashboardResponder } from "../../src/dashboard/discord-notice.ts";
+import { announcer, dashboardActor, dashboardResponder, restartNotices } from "../../src/dashboard/discord-notice.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
 import type { Player } from "../../src/player/player.ts";
@@ -83,4 +83,29 @@ test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 
   const empty = world();
   await dashboardResponder(empty.bot, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
   assert.deepEqual(empty.sent, []);
+});
+
+test("다시 시작 공지: 소리를 내는 서버만 패널 채널에 보내고 지우지 않는다. 채널이 없거나 보내지 못하면 false(거절하지 않는다)", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const sent: string[] = [];
+  const channel = (fails = false) => ({
+    send: async (p: Sent) => {
+      if (fails) throw new Error("권한 없음");
+      sent.push(textsOf(p).join(" / "));
+      return { id: "m1", delete: async () => assert.fail("다시 시작 공지는 지우지 않는다") };
+    },
+  });
+  const sound = (paused = false) => ({ audioPlayer: { state: { status: "playing" } }, paused });
+  const players = new Map([
+    ["g1", fake<Player>({ guild: { id: "g1", name: "하나" }, ...sound(), textChannel: channel() })],
+    ["g2", fake<Player>({ guild: { id: "g2", name: "둘" }, ...sound(true), textChannel: channel() })],
+    ["g3", fake<Player>({ guild: { id: "g3", name: "셋" }, audioPlayer: { state: { status: "idle" } }, textChannel: channel() })],
+    ["g4", fake<Player>({ guild: { id: "g4", name: "넷" }, ...sound(), textChannel: null })],
+    ["g5", fake<Player>({ guild: { id: "g5", name: "다섯" }, ...sound(), textChannel: channel(true) })],
+  ]);
+  const bot = fakeBot({ players, panels: { panelChannel: async (player: Player) => player.textChannel } });
+  assert.deepEqual(await Promise.all(restartNotices(bot)), [true, false, false], "재생 중인 셋(g1, g4, g5)만. 일시정지, 곡 없음은 보내지 않는다");
+  assert.equal(sent.length, 1);
+  assert.match(sent[0], /봇을 잠깐 다시 시작해요[^]*재생이 잠깐 끊겼다가 이어져요\./);
+  t.mock.timers.tick(24 * 60 * 60 * 1000);
 });

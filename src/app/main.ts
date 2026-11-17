@@ -63,6 +63,7 @@ import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
+import { restartNotices } from "../dashboard/discord-notice.ts";
 import { botJoinedGuild, botLeftGuild, guildBack } from "../dashboard/routes/player-events.ts";
 import { watchGoneGuilds } from "../discord/gone-guilds.ts";
 import { watchGatewaySessions } from "../infra/gateway-sessions.ts";
@@ -242,7 +243,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   });
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
-  const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
+  const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string, options?: { announce?: boolean }) => shutdown.restart(by, options) : null;
   // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
   client.on(Events.ShardDisconnect, (event) => {
     if (event.code === GatewayCloseCodes.DisallowedIntents) onRefusedWhileRunning(restart);
@@ -385,7 +386,7 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
     commandLoader.followEnabledCommands(() => loadCommands(commands), deploySlashCommands);
     loadEvents(bot, onFault);
     // 이제부터 끄면 세션을 저장하고 연결, 봇까지 정리한다
-    shutdown.attach({ client, players, stay: bot.stay });
+    shutdown.attach({ client, players, stay: bot.stay, restartNotices: () => restartNotices(bot) });
     await loginWithRetry(client, config.discord.token);
   } catch (error) {
     const stopped = error instanceof StartupStopped;

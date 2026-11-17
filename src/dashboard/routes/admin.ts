@@ -90,14 +90,16 @@ adminRouter.get("/status", async (req, res) => {
 });
 
 // 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 실행한다(app/launcher). 실행기 없이 켰으면 다시 실행해 줄 쪽이 없어 거절한다.
-// 응답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
+// 응답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다).
+// 본문의 announce가 true면 재생 중인 서버에 다시 시작한다고 알린다(그 밖의 값, 없으면 알리지 않는다)
 adminRouter.post("/restart", (req, res) => {
   const restart = req.app.locals.restart;
   if (!restart) return sendProblem(res, "restart-unavailable");
+  const announce = req.body?.announce === true;
   // 실행자 정보는 먼저 읽어 둔다(응답을 보낸 뒤에는 요청에서 세션을 뗐을 수 있다)
   const by = ranBy(req);
-  log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작. 실행 ${by}`);
-  res.on("finish", () => restart(by));
+  log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작${announce ? "(재생 중인 서버에 공지)" : ""}. 실행 ${by}`);
+  res.on("finish", () => restart(by, { announce }));
   res.status(202).json({ restarting: true } satisfies RestartReply);
 });
 

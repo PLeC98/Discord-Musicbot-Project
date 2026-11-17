@@ -11,7 +11,8 @@ import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.t
 
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
 // destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
-function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
+// notices: 다시 시작 공지(서버마다의 끝). 주면 봇에 붙인다
+function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {}, notices }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown>; notices?: () => Promise<boolean>[] } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy가 목록에서 뺀다).
   // destroy(false)는 나가기 요청을 보내지 않는다(채널에 남는다)
@@ -53,6 +54,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       ["g1", player("g1")],
       ["g2", null],
     ]),
+    ...(notices && { restartNotices: () => (steps.push("notice"), notices()) }),
   };
   const proc = fakeWith<ShutdownBoundary["proc"]>()(Object.assign(new EventEmitter(), { platform: "linux", stdin: { isTTY: false } }));
   let exits = 0;
@@ -164,6 +166,46 @@ test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 
   await new Promise((r) => setImmediate(r));
   assert.equal(exits(), 1);
   assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
+});
+
+test("다시 시작에서 공지를 고르면 세션을 저장하기 전에 보내고 보낸 수를 남긴다. 신호, 공지를 고르지 않은 다시 시작은 보내지 않는다", async () => {
+  const from = sink.buffer.length;
+  const announced = setup({ notices: () => [Promise.resolve(true), Promise.resolve(false)] });
+  announced.shutdown.restart("운영자", { announce: true });
+  assert.equal(await announced.exited, EXIT.restart);
+  assert.deepEqual(announced.steps.slice(0, 3), ["stay:stop", "notice", "save:g1:shutdown"]);
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === "다시 시작 공지: 재생 중인 서버 2곳 중 1곳에 보냄"));
+
+  const quiet = setup({ notices: () => [Promise.resolve(true)] });
+  quiet.shutdown.restart("운영자");
+  await quiet.exited;
+  const signal = setup({ notices: () => [Promise.resolve(true)] });
+  signal.proc.emit("SIGTERM");
+  await signal.exited;
+  assert.ok(!quiet.steps.includes("notice") && !signal.steps.includes("notice"));
+});
+
+test("공지가 예외를 던지거나 거절하거나 멈춰도 상한만 기다리고 세션을 저장한 뒤 나간다", async () => {
+  for (const notices of [
+    () => {
+      throw new Error("채널 찾기 실패");
+    },
+    () => [Promise.reject(new Error("보내기 실패"))],
+  ]) {
+    const { steps, shutdown, exited } = setup({ notices });
+    shutdown.restart("운영자", { announce: true });
+    assert.equal(await exited, EXIT.restart);
+    assert.ok(steps.includes("save:g1:shutdown"), steps.join());
+  }
+  const from = sink.buffer.length;
+  const stuck = setup({ notices: () => [Promise.resolve(true), new Promise<boolean>(() => {})] });
+  stuck.shutdown.restart("운영자", { announce: true });
+  let late: NodeJS.Timeout | undefined;
+  const outcome = await Promise.race([stuck.exited, new Promise((done) => (late = setTimeout(done, 5000, "상한 없이 기다림")))]);
+  clearTimeout(late);
+  assert.equal(outcome, EXIT.restart, "상한(3초) 근처에서 끝난다");
+  assert.ok(stuck.steps.includes("save:g1:shutdown"));
+  assert.ok(sink.buffer.slice(from).some((e) => e.text === "다시 시작 공지: 재생 중인 서버 2곳 중 1곳에 보냄(3초 안에 끝나지 않은 1곳은 그대로 진행)"));
 });
 
 test("신호가 두 번 들어와도(Windows의 Ctrl+C) 한 번만 정리한다", async () => {

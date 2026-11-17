@@ -1,6 +1,7 @@
-// 봇 다시 시작. 봇 상태 탭의 버튼, 운영 설정값 저장 바의 "저장 후 다시 시작"이 함께 쓴다. 창(BotRestartDialog)은 운영자 패널에 하나.
+// 봇 다시 시작. 대시보드에서 누르는 다시 시작은 모두 창(BotRestartDialog, 운영자 패널에 하나)에서 묻는다:
+// 봇 상태 탭의 버튼, 운영 설정값 저장 바의 "저장 후 다시 시작"(저장한 뒤에), 스냅샷 복원, 설정 불러오기, 초기화.
 // 봇이 자동으로 다시 시작하는 일(봇 전체 초기화)은 보내지 않고 기다리기만 한다(waitRestart).
-// asking: 버튼을 눌러 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
+// asking: 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
 // waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 응답하면 화면을 새로고침한다
 
 import { ref } from "vue";
@@ -16,10 +17,16 @@ const POLL_MS = 1500;
 
 type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
+/** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠). 없으면 null */
+type RestartReason = "save" | "snapshot" | null;
+const reason = ref<RestartReason>(null);
+/** 묻는 때 재생 중인 서버 수(봇 상태 탭의 "재생 중"). 읽는 중이거나 읽지 못했으면 null */
+const playing = ref<number | null>(null);
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
-// pid만 읽는다(목록 행은 받지 않는다)
-const pidNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(COUNTS_ONLY), timeout: 3000 })).data.env.pid;
+// 개수만 읽는다(목록 행은 받지 않는다)
+const countsNow = async () => (await axios.get<AdminStatus>("/api/admin/status", { params: statusParams(COUNTS_ONLY), timeout: 3000 })).data;
+const pidNow = async () => (await countsNow()).env.pid;
 
 // 새 프로세스가 응답하면 true. 내려가 있는 동안의 실패는 기다린다
 async function cameBack(before: number) {
@@ -35,9 +42,16 @@ async function cameBack(before: number) {
   return false;
 }
 
-/** 확인 창을 연다 */
-function askRestart() {
-  if (phase.value === "idle") phase.value = "asking";
+/** 확인 창을 연다. why: 창에 보일 까닭 */
+function askRestart(why: RestartReason = null) {
+  if (phase.value !== "idle") return;
+  reason.value = why;
+  playing.value = null;
+  phase.value = "asking";
+  countsNow().then(
+    (status) => void (playing.value = status.players.counts.playing),
+    () => undefined,
+  );
 }
 
 // 다른 프로세스가 응답할 때까지 기다려 새로고침한다(새 봇이 새 화면을 줄 수 있다: 빌드를 바꾼 뒤 다시 시작했을 때). 못 오면 알리고 끝낸다
@@ -51,12 +65,12 @@ async function waitFor(before: number) {
   phase.value = "idle";
 }
 
-/** 묻지 않고 다시 시작한다(이미 선택한 일: 확인 창의 다시 시작, 저장 후 다시 시작) */
-async function restartNow() {
+/** 다시 시작한다(확인 창에서 고른 뒤). announce: 재생 중인 서버에 다시 시작한다고 알린다 */
+async function restartNow(announce = false) {
   phase.value = "starting";
   try {
     const before = await pidNow();
-    await axios.post<RestartReply>("/api/admin/restart");
+    await axios.post<RestartReply>("/api/admin/restart", { announce });
     await waitFor(before);
   } catch (err) {
     notifyProblem(err, T.failed);
@@ -75,4 +89,5 @@ function cancelRestart() {
   if (phase.value === "asking") phase.value = "idle";
 }
 
-export { phase as restartPhase, askRestart, restartNow, currentPid, waitRestart, cancelRestart };
+export { phase as restartPhase, reason as restartReason, playing as restartPlaying, askRestart, restartNow, currentPid, waitRestart, cancelRestart };
+export type { RestartReason };
