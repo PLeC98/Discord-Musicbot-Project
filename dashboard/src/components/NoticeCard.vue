@@ -1,26 +1,21 @@
 <template>
   <!-- 알림 카드 하나. 떠 있는 알림(ToastStack)과 알림함(NoticeInbox)이 같이 쓴다(폭, 모양이 같다). Hyprland Caelestia 셸의 알림 카드를 본떴다.
-       접힘(기본): 종류 색의 동그란 아이콘, 제목(한 줄), 때, 본문 한 줄, 펼침 버튼.
-       펼침: 제목, 본문 전체, 세부, 코드 줄, 넓은 알약 버튼 줄(닫기, 복사, 알림마다의 동작. 봇 개발자에게 보고 포함). 늘고 줄어드는 것은 스프링.
+       접힘(기본): 종류 색의 동그란 아이콘, 제목 한 줄, 때, 본문 한 줄, 펼침 버튼.
+       펼침: 제목 전체, 본문 전체, 세부, 코드 줄, 넓은 알약 버튼 줄(닫기, 복사, 알림마다의 동작. 봇 개발자에게 보고 포함). 늘고 줄어드는 것은 스프링.
        닫기, 복사는 동작 버튼이 있으면 아이콘 폭으로 줄고, 없으면 둘이 줄을 나눠 쓴다. 카드를 누르면(버튼 말고 아무 데나) 펼치고 접는다. 가운데 버튼으로 누르면 바로 닫는다 -->
   <article class="relative overflow-hidden rounded-2xl p-3 text-body bg-surface-container/80 cursor-pointer" @pointerenter="emit('hold', true)" @pointerleave="emit('hold', false)" @auxclick.middle="emit('close')" @click="onCardClick">
     <div class="flex gap-3 items-start">
       <span class="size-10 shrink-0 rounded-full flex items-center justify-center" :class="look.badge"><Icon :name="look.icon" :size="20" /></span>
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 min-h-6">
-          <!-- 제목은 펼쳐도 한 줄(펼 때 줄이 바뀌면 높이가 한 번에 뛴다) -->
-          <span class="flex-1 min-w-0 truncate font-semibold text-on-surface">{{ item.title }}</span>
-          <time class="shrink-0 text-label text-on-surface-variant nums" :datetime="new Date(item.at).toISOString()" v-tooltip="toastFull(item.at)">{{ when }}</time>
+        <!-- 제목, 본문: 접히면 첫 줄만, 펴면 전체(ClampText). 때와 펼침 버튼은 제목 첫 줄에 맞춘다 -->
+        <div class="flex items-start gap-2 min-h-6">
+          <ClampText :text="item.title" :open="open" class="flex-1 min-w-0 font-semibold text-on-surface" />
+          <time class="shrink-0 text-label leading-5 text-on-surface-variant nums" :datetime="new Date(item.at).toISOString()" v-tooltip="toastFull(item.at)">{{ when }}</time>
           <button v-if="expandable" type="button" :class="[iconButton(32), '-my-1.5 -mr-1.5']" :aria-expanded="open" :aria-label="open ? text.common.collapse : text.common.expand" @click="open = !open">
             <Icon name="expand_more" :size="20" class="transition-[rotate] spring-fast" :class="open && 'rotate-180'" />
           </button>
         </div>
-        <!-- 본문은 하나: 접히면 첫 줄만 보이게 높이를 한 줄까지 줄이고, 펴면 전체로 늘린다(잰 높이 사이를 스프링으로).
-             grid 0fr ↔ 1fr은 한 줄을 남길 수 없고, minmax(1lh, …)는 한 줄보다 커질 때까지 멈춰 있어 펼 때 늦게 시작한다.
-             다 접힌 뒤에만 말줄임(…)을 붙이고 펴기 시작할 때 뗀다(접히는 동안 붙이면 줄이 한 번에 바뀐다) -->
-        <div v-if="item.body" class="overflow-hidden transition-[height] spring" :style="bodyHeight" @transitionend.self="clamped = !open">
-          <div ref="bodyEl" class="whitespace-pre-line text-on-surface-variant" :class="clamped && 'line-clamp-1'">{{ item.body }}</div>
-        </div>
+        <ClampText v-if="item.body" :text="item.body" :open="open" class="text-on-surface-variant" />
         <!-- 펼침: 세부, 코드 줄, 버튼 줄. grid 행을 0fr ↔ 1fr로(높이가 auto여도 스프링으로 늘고 준다) -->
         <div class="grid transition-[grid-template-rows] spring" :class="open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'">
           <div class="min-h-0 overflow-hidden">
@@ -46,10 +41,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
-import { useIntervalFn, useResizeObserver } from "@vueuse/core";
+import { useIntervalFn } from "@vueuse/core";
 import Icon from "./BaseIcon.vue";
+import ClampText from "./ClampText.vue";
 import type { InboxItem, ToastAction } from "../composables/toasts.ts";
 import { closeInbox } from "../composables/toasts.ts";
 import { iconButton } from "../utils/icon-button.ts";
@@ -70,20 +66,6 @@ const open = ref(props.expanded ?? false);
 const actions = computed<ToastAction[]>(() => [...props.item.actions, ...(props.item.reportUrl ? [{ label: text.common.reportToDeveloper, icon: "open_in_new" as const, href: props.item.reportUrl }] : [])]);
 // 펼칠 것이 늘 있다(닫기, 복사 버튼 줄)
 const expandable = true;
-// 본문 첫 줄 끝의 말줄임. 다 접힌 뒤에 붙인다
-const clamped = ref(!open.value);
-watch(open, (on) => on && (clamped.value = false));
-// 본문 높이: 한 줄(줄 높이)과 전체(말줄임을 뗀 본문의 높이). 재기 전에는 정하지 않는다(auto)
-const bodyEl = ref<HTMLElement | null>(null);
-const line = ref(0);
-const full = ref(0);
-useResizeObserver(bodyEl, () => {
-  const el = bodyEl.value;
-  if (!el) return;
-  line.value = parseFloat(getComputedStyle(el).lineHeight);
-  if (!clamped.value) full.value = el.offsetHeight;
-});
-const bodyHeight = computed(() => (line.value ? { height: `${open.value ? Math.max(full.value, line.value) : line.value}px` } : undefined));
 
 // 때는 30초마다 다시 센다(1분 단위로만 보인다)
 const now = ref(Date.now());
