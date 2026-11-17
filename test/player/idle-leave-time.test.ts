@@ -60,7 +60,7 @@ test("곡이 없을 때 혼자 남으면 먼저 끝나는 쪽 시각을, 사람�
     assert.ok(near(told[1], start + EMPTY_MS), "돌아오면 대기열 소진 시각으로");
   }));
 
-test("혼자 남음 시간은 걸 때마다 읽는다: 운영 조절값을 바꾸면 지금 플레이어의 다음 타이머부터", () => {
+test("혼자 남음 시간은 걸 때마다 읽는다: 운영 설정값을 바꾸면 지금 플레이어의 다음 타이머부터", () => {
   const idle = withConfig({ bot: { leaveDelayAloneMs: ALONE_MS } }, () => new IdleLeave(player()));
   watch(idle);
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS * 3 } }, () => {
@@ -142,7 +142,7 @@ test("음성에 남아 기다리는 끝난 패널만 새 시각으로 다시 그
   assert.equal(panels.drawn.length, 1, "재생 중이면 끝난 패널이 아니다");
 });
 
-test("끝난 패널의 처음 나갈 시각도 idle 이 정한다: 혼자 남음이 먼저면 그쪽, 틀 게 없음이 0 이면 시각 없음", () =>
+test("끝난 패널의 처음 나갈 시각도 idle이 정한다: 혼자 남음이 먼저면 그쪽, 틀 게 없음이 0이면 시각 없음", () =>
   withConfig({ bot: { leaveDelayAloneMs: ALONE_MS, leaveDelayQueueEmptyMs: EMPTY_MS } }, () => {
     const idle = new IdleLeave(player());
     watch(idle);
@@ -154,7 +154,7 @@ test("끝난 패널의 처음 나갈 시각도 idle 이 정한다: 혼자 남음
     withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, () => assert.equal(idle.upcomingLeave(), null));
   }));
 
-test("틀 게 없음이 0 이면 곡 없이 기다리는 어느 길이든 바로 나간다", async () =>
+test("틀 게 없음이 0이면 곡 없이 기다리는 어느 길이든 바로 나간다", async () =>
   withConfig({ bot: { leaveDelayQueueEmptyMs: 0 } }, async () => {
     const disposed: string[] = [];
     const p = player();

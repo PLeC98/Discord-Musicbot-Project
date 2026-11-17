@@ -31,10 +31,10 @@ const genreUse = (id: string) => `자동재생 장르(${id})`;
 const renamed = (n: number) => `이모지 이름 ${n}개를 바꿨어요`;
 const renameFailed = "이모지 이름을 바꾸지 못했어요.";
 
-/** 추가 창을 열기 전에 거절한 까닭(화면이 미리 본다). name 은 파일 이름 */
+/** 추가 창을 열기 전에 거절한 이유(화면이 미리 본다). name은 파일 이름 */
 const refuse = {
   format: (name: string) => `${name}: 지원하지 않는 형식이에요. PNG, JPEG, GIF, WebP, AVIF 파일을 선택해 주세요.`,
-  tooBig: (name: string, max: string) => `${name}: ${max} 보다 큰 파일은 쓸 수 없어요.`,
+  tooBig: (name: string, max: string) => `${name}: ${max}보다 큰 파일은 쓸 수 없어요.`,
   unreadable: (name: string) => `${name}: 이미지를 읽지 못했어요.`,
 };
 const refusedTitle = "추가하지 않았어요";

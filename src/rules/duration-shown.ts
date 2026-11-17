@@ -20,7 +20,7 @@ function shownDuration(track: Shown, sec: number | null | undefined, source: "pr
   return null;
 }
 
-/** 곡들의 아는 길이 합(초)과 모르는 곡(길이 0, 라이브)이 있는가. 대기열 합계가 "이상" 을 붙이는 근거 */
+/** 곡들의 아는 길이 합(초)과 모르는 곡(길이 0, 라이브)이 있는가. 대기열 합계가 "이상"을 붙이는 근거 */
 function knownTotal(tracks: ReadonlyArray<{ duration?: number | null }>): { seconds: number; partial: boolean } {
   let seconds = 0;
   let partial = false;

@@ -20,7 +20,7 @@ type Options = {
   payload: () => unknown;
   /** 받은 것을 편집기에 반영한다 */
   apply: (data: Data) => void;
-  /** 읽기. 보통 configFileIo 의 GET /api/admin/config/<name> */
+  /** 읽기. 보통 configFileIo의 GET /api/admin/config/<name> */
   read: () => Promise<Data>;
   /** 저장하고 저장된 것을 돌려받는다 */
   write: (payload: unknown) => Promise<Data>;
@@ -32,7 +32,7 @@ type Options = {
 
 /**
  * /api/admin/config/<name> 으로 읽고 쓰는 것. 읽은 저장 번호를 들고 있다가 저장할 때 돌려보낸다
- * (그사이 다른 탭, 다른 사람이 저장했으면 서버가 config-changed 로 거절한다)
+ * (그사이 다른 탭, 다른 사람이 저장했으면 서버가 config-changed로 거절한다)
  */
 export const configFileIo = (name: string) => {
   let revision = 0;
@@ -54,7 +54,7 @@ export const configFileIo = (name: string) => {
 export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, readDefault, savedNote }: Options) {
   const snapshot = ref("");
   // 처음 불러오기 전에는 고친 것도 문제도 없다. 불러오기 전의 빈 설정을 고친 값으로 보면 탭을 처음 열 때
-  // 저장 막대, 검사 오류, 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사, 빈 목록 안내를 가린다
+  // 저장 바, 검사 오류, 빈 목록 안내가 한 순간 그려졌다가 사라진다. 편집기는 이것으로 검사, 빈 목록 안내를 가린다
   const loaded = ref(false);
   const saving = ref(false);
   const loadError = ref("");
@@ -66,12 +66,12 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, r
     computed(() => dirty.value || Boolean(alsoUnsaved?.())),
   );
 
-  // 고치면 서버가 가리킨 문제를 제거한다. 저장한 값을 다시 넣는 것도 payload 를 바꾸므로 저장한 값과 다를 때만
+  // 고치면 서버가 가리킨 문제를 제거한다. 저장한 값을 다시 넣는 것도 payload를 바꾸므로 저장한 값과 다를 때만
   watch(payload, () => {
     if (dirty.value) serverProblems.value = [];
   });
 
-  /** 받은 것을 반영하고 그 상태를 저장된 상태(dirty 의 비교 기준)로 삼는다 */
+  /** 받은 것을 반영하고 그 상태를 저장된 상태(dirty의 비교 기준)로 삼는다 */
   function load(data: Data) {
     apply(data);
     snapshot.value = JSON.stringify(payload());
@@ -109,7 +109,7 @@ export function useConfigFile({ tab, alsoUnsaved, payload, apply, read, write, r
   /** 마지막으로 받은 것으로 되돌린다 */
   const revert = () => load(JSON.parse(snapshot.value) as Data);
 
-  /** 기본값을 편집기에 불러온다. 저장하지 않은 편집이 되어 저장 막대로 저장하거나 되돌린다 */
+  /** 기본값을 편집기에 불러온다. 저장하지 않은 편집이 되어 저장 바에서 저장하거나 되돌린다 */
   async function loadDefault() {
     if (!readDefault) return;
     try {

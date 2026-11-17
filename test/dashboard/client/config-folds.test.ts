@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-// localStorage 흉내. 모듈이 불러오는 순간 읽어서 import 보다 먼저 둔다
+// localStorage 흉내. 모듈이 불러오는 순간 읽어서 import보다 먼저 둔다
 const stored = new Map<string, string>();
 Object.assign(globalThis, { localStorage: { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => stored.set(k, v) } });
 const folds = await import("../../../dashboard/src/composables/config-folds.ts");

@@ -39,7 +39,7 @@ function linkLabel(text: string, { emojiLinks = false } = {}) {
     .replace(/:(?=[\w+-]+:)/g, `:${VS15}`);
 }
 
-// 오류, 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env 의 SOURCE_REPO_URL, 없으면 원본)
+// 오류, 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env의 SOURCE_REPO_URL, 없으면 원본)
 const DISCORD_LOOK: Look = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };
 
 export { ALLOWED_MENTIONS, escapeMd, linkLabel, DISCORD_LOOK };

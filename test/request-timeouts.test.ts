@@ -27,8 +27,8 @@ function callSites(src: string, name: string) {
 
 test("Spotify의 모든 요청에 중단 신호가 붙어 있다", () => {
   const src = read("src/sources/spotify.ts");
-  // 요청은 모두 바깥 경계(send)로 나간다. fetch 를 바로 부르면 테스트가 넘긴 가짜도 마감 검사도 비껴간다
-  assert.deepEqual(callSites(src, "fetch"), [], "fetch 를 바로 부르는 곳");
+  // 요청은 모두 바깥 경계(send)로 나간다. fetch를 바로 부르면 테스트가 넘긴 가짜도 마감 검사도 비껴간다
+  assert.deepEqual(callSites(src, "fetch"), [], "fetch를 바로 부르는 곳");
   const calls = callSites(src, "send");
   assert.ok(calls.length >= 8, `호출부를 찾지 못했다 (${calls.length}개)`);
   for (const call of calls) {
@@ -50,10 +50,10 @@ test("앱 이모지 맞추기의 CDN 요청에 중단 신호가 붙어 있다", 
   for (const call of calls) assert.match(call, /signal: AbortSignal\.timeout\(/, `마감 없는 요청: ${call.slice(0, 70)}`);
 });
 
-test("유튜브 글자 검색의 요청(youtubei.js 에 넘기는 전송)에 중단 신호가 붙어 있다", () => {
+test("유튜브 글자 검색의 요청(youtubei.js에 넘기는 전송)에 중단 신호가 붙어 있다", () => {
   const src = read("src/sources/youtube/text-search.ts");
   const calls = callSites(src, "http.fetch");
   assert.equal(calls.length, 1, "요청은 전송 하나로만 나간다");
   assert.match(calls[0], /signal: AbortSignal\.timeout\(/);
-  assert.match(src, /Innertube\.create\(\{[^}]*fetch: send/, "youtubei.js 가 그 전송을 쓴다");
+  assert.match(src, /Innertube\.create\(\{[^}]*fetch: send/, "youtubei.js가 그 전송을 쓴다");
 });

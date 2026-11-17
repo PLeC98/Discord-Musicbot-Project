@@ -37,7 +37,7 @@ function sameCounts(name: string, current: Record<string, number>, base: Record<
 
 test("봇 코드 파일을 전부 읽었고, 모든 파일이 층에 속한다", () => {
   assert.ok(now.files > 100, `읽은 파일이 너무 적다(${now.files}개)`);
-  assert.deepEqual(now.unknownLayer, [], `층 차례(${LAYERS.join(" → ")})에 없는 폴더. scan.ts 의 LAYERS 에 자리를 정한다`);
+  assert.deepEqual(now.unknownLayer, [], `층 차례(${LAYERS.join(" → ")})에 없는 폴더. scan.ts의 LAYERS에 자리를 정한다`);
 });
 
 test("층 순서를 거슬러 부르지 않는다", () => {
@@ -69,19 +69,19 @@ test("테스트가 프로젝트 모듈의 메서드를 덮어쓰지 않는다", 
 });
 
 // 실행 중 경로는 PROJECT 하나에서 나온다(src/infra/project-paths). 루트를 잘못 세면 DB, 캐시가 엉뚱한 빈 경로에 새로 생긴다
-// 테스트는 진입 파일을 부르지 않으므로 .env 를 읽지 않는다. 설정 모듈이 읽으면 운영자가 바꾼 값, 비밀이 테스트에 샌다
-test(".env 는 진입 파일의 첫 줄만 읽는다", () => {
+// 테스트는 진입 파일을 부르지 않으므로 .env를 읽지 않는다. 설정 모듈이 읽으면 운영자가 바꾼 값, 비밀이 테스트에 샌다
+test(".env는 진입 파일의 첫 줄만 읽는다", () => {
   assert.deepEqual(now.envFileLoad, ["src/config/env-file.ts"]);
   assert.ok(now.configEntries.includes("src/index.ts") && now.configEntries.length > 1, now.configEntries.join(", "));
-  assert.deepEqual(now.withoutBootstrap, [], "설정에 닿는 진입 파일은 프로젝트 모듈 중 app/env-bootstrap 을 맨 먼저 부른다");
+  assert.deepEqual(now.withoutBootstrap, [], "설정에 닿는 진입 파일은 프로젝트 모듈 중 app/env-bootstrap을 맨 먼저 부른다");
 });
 
 test("저장소 루트를 맞게 가리킨다", () => {
   assert.ok(fs.existsSync(path.join(PROJECT.root, "package.json")), PROJECT.root);
-  assert.ok(fs.existsSync(path.join(PROJECT.root, "pnpm-workspace.yaml")), "다른 package.json 이 아니라 이 저장소의 루트");
+  assert.ok(fs.existsSync(path.join(PROJECT.root, "pnpm-workspace.yaml")), "다른 package.json이 아니라 이 저장소의 루트");
 });
 
-test("실행 중 경로를 파일 위치에서 세지 않는다(import.meta.dirname 은 경로 모듈에만)", () => {
+test("실행 중 경로를 파일 위치에서 세지 않는다(import.meta.dirname은 경로 모듈에만)", () => {
   assert.deepEqual(now.dirnameUse, ["src/infra/project-paths.ts"]);
 });
 

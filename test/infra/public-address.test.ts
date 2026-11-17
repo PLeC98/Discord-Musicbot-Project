@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isPublicIp, isPublicUrl } from "../../src/infra/public-address.ts";
 
-test("공인 unicast 만 공개 IP 다. RFC 특수 대역은 막을 대역을 적지 않아도 모두 빠진다", () => {
+test("공인 unicast만 공개 IP 다. RFC 특수 대역은 막을 대역을 적지 않아도 모두 빠진다", () => {
   const notPublic = [
     ["0.0.0.0", "지정 안 됨"],
     ["10.1.2.3", "사설"],
@@ -26,14 +26,14 @@ test("공인 unicast 만 공개 IP 다. RFC 특수 대역은 막을 대역을 �
     ["64:ff9b::a00:1", "NAT64"],
     ["2002:c0a8:1::1", "6to4"],
     ["2001::1", "Teredo"],
-    ["::ffff:192.168.0.1", "IPv4 를 담은 IPv6 는 안의 IPv4 로"],
+    ["::ffff:192.168.0.1", "IPv4를 담은 IPv6는 안의 IPv4로"],
     ["not-an-ip", "읽지 못함"],
   ];
   for (const [ip, why] of notPublic) assert.equal(isPublicIp(ip), false, `${ip} ${why}`);
   for (const ip of ["8.8.8.8", "93.184.216.34", "2606:4700::1111", "::ffff:8.8.8.8"]) assert.equal(isPublicIp(ip), true, ip);
 });
 
-test("주소: IP 로 적었으면 공인 unicast 일 때만, 이름이면 localhost 와 안쪽 망 이름만 아니다. DNS 는 보지 않는다", () => {
+test("주소: IP로 적었으면 공인 unicast일 때만, 이름이면 localhost와 안쪽 망 이름만 아니다. DNS는 보지 않는다", () => {
   const cases: Array<[string, boolean]> = [
     ["http://localhost:33333", false],
     ["http://LOCALHOST.:33333", false],

@@ -1,9 +1,9 @@
 // src/media/cache-download.ts: 캐시 변환 옵션.
 //
-// `postprocessorArgs` 에 코덱을 못 박지 않는다. yt-dlp 의 ExtractAudio 는 소스 코덱을 보고 `-acodec copy`(이미 Opus)
-// 또는 `-acodec libopus`(그 밖)를 스스로 고르는데, 우리 값이 그 뒤에 붙으면 이겨서 유튜브 251(Opus)까지 다시 인코딩된다.
+// `postprocessorArgs`에 코덱을 못 박지 않는다. yt-dlp의 ExtractAudio는 소스 코덱을 보고 `-acodec copy`(이미 Opus)
+// 또는 `-acodec libopus`(그 밖)를 자동으로 고르는데, 우리 값이 그 뒤에 붙으면 이겨서 유튜브 251(Opus)까지 다시 인코딩된다.
 //
-// 옵션 객체가 아니라 yt-dlp 가 받는 인자로 본다. 플래그를 인자로 바꿀 때 객체 값은 조용히 버려진다.
+// 옵션 객체가 아니라 yt-dlp가 받는 인자로 본다. 플래그를 인자로 바꿀 때 객체 값은 조용히 버려진다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import * as youtubeSource from "../../src/sources/youtube/index.ts";
 import { argsOf as toArgv, type YtDlpFlags } from "../../src/sources/ytdlp-exec.ts";
 import type { Sources } from "../../src/media/cache-download.ts";
 
-/** `_performDownload` 가 yt-dlp 에 넘기는 옵션만 가로챈다. 실제로 다운로드하지는 않는다. 다운로드 전에 캐시 행을 적으므로 임시 DB 를 연다 */
+/** `_performDownload`가 yt-dlp에 넘기는 옵션만 가로챈다. 실제로 다운로드하지는 않는다. 다운로드 전에 캐시 행을 적으므로 임시 DB를 연다 */
 async function captureOptions(): Promise<YtDlpFlags | undefined> {
   const store = openTempStore("cache-transcode-");
   const seen: { options?: YtDlpFlags } = {};
@@ -34,19 +34,19 @@ async function captureOptions(): Promise<YtDlpFlags | undefined> {
   return seen.options;
 }
 
-test("캐시 변환은 코덱을 못 박지 않는다. yt-dlp 가 소스를 보고 선택한다", async () => {
+test("캐시 변환은 코덱을 못 박지 않는다. yt-dlp가 소스를 보고 선택한다", async () => {
   const options = await captureOptions();
   assert.ok(options, "옵션을 가로채지 못했습니다");
 
   const argv = toArgv(options);
   const at = argv.indexOf("--postprocessor-args");
-  assert.ok(at >= 0, `후처리 인자가 yt-dlp 에 가지 않는다: ${argv.join(" ")}`);
+  assert.ok(at >= 0, `후처리 인자가 yt-dlp에 가지 않는다: ${argv.join(" ")}`);
   const ppa = argv[at + 1];
-  assert.ok(!/-c:a|-acodec/.test(ppa), `코덱을 못 박으면 251 이 다시 인코딩된다: ${ppa}`);
-  assert.ok(!ppa.includes("libopus"), `libopus 를 적으면 리먹싱 판단을 덮는다: ${ppa}`);
+  assert.ok(!/-c:a|-acodec/.test(ppa), `코덱을 못 박으면 251이 다시 인코딩된다: ${ppa}`);
+  assert.ok(!ppa.includes("libopus"), `libopus를 적으면 리먹싱 판단을 덮는다: ${ppa}`);
 
   // 비트레이트는 남긴다. 스트림 카피에는 무시되고, 진짜 변환이 필요한 AAC 소스에만 걸린다.
-  // 빼면 그때 libopus 기본값(128k 보다 낮다)으로 떨어진다.
+  // 빼면 그때 libopus 기본값(128k보다 낮다)으로 떨어진다.
   assert.equal(ppa, "ffmpeg:-b:a 128k");
 
   assert.ok(argv.includes("--extract-audio"));

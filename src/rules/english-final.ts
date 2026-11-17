@@ -29,10 +29,10 @@ function spellingFinal(word: string): Final {
   return "none";
 }
 
-/** 대문자 약어를 글자 이름으로 읽은 끝(BTS 의 S 는 에스) */
+/** 대문자 약어를 글자 이름으로 읽은 끝(BTS의 S는 에스) */
 const letterFinal = (word: string): Final => LETTER[word.at(-1)?.toUpperCase() ?? ""] ?? "none";
 
-/** 표: 끝소리마다 단어를 띄어 쓴 줄. source 는 원본 표기(data/NOTICE 의 출처 줄과 맞춘다) */
+/** 표: 끝소리마다 단어를 띄어 쓴 줄. source는 원본 표기(data/NOTICE의 출처 줄과 맞춘다) */
 type EnglishFinals = { source: string; final: string; rieul: string; none: string };
 
 /**

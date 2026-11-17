@@ -86,7 +86,7 @@ async function preview(file: Buffer) {
   const res = await upload(file);
   return { status: res.status, json: (await res.json()) as { token: string; kind: string; rows: Row[]; botVersion: string | null; code?: string; detail?: string } };
 }
-/** 불러오기: 미리 보기로 올려 받은 티켓으로(route 는 "import?items=…") */
+/** 불러오기: 미리 보기로 올려 받은 티켓으로(route는 "import?items=…") */
 async function send(route: string, file: Buffer) {
   const { json } = await preview(file);
   return fetch(`${base}/${route}${route.includes("?") ? "&" : "?"}token=${json.token}`, { method: "POST" });
@@ -98,7 +98,7 @@ const settingsOf = (file: Buffer) =>
       .find((one) => one.name === "settings.json")
       ?.data.toString("utf8") ?? "null",
   ) as Record<string, unknown>;
-// settings.json 만 바꿔 다시 묶는다(이미지는 그대로)
+// settings.json만 바꿔 다시 묶는다(이미지는 그대로)
 const rewrite = (file: Buffer, change: (json: Record<string, unknown>) => void) => {
   const entries = unzip(file);
   const json = settingsOf(file);
@@ -110,7 +110,7 @@ const square = (side: number) =>
     .png()
     .toBuffer();
 
-test("봇 설정만: 사람이 읽는 settings.json(형식, 종류, 봇 버전, 운영 조절값, 문서 넷) 하나. 서버별 설정, 키, 파비콘은 들지 않는다", async () => {
+test("봇 설정만: 사람이 읽는 settings.json(형식, 종류, 봇 버전, 운영 설정값, 문서 넷) 하나. 서버별 설정, 키, 파비콘은 들지 않는다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300" }, 0);
   guildSettings.table.setBotChannel("123456789012345678", "222222222222222222");
   assert.equal((await appearance.addFavicon(32, await square(32))).ok, true);
@@ -183,7 +183,7 @@ test("선택한 항목만 덮어쓰고 메모리(설정 객체, 문서)까지 �
     "쓰기 전에 스냅샷을 남긴다",
   );
 
-  assert.equal(config.bot.maxQueueSize, 250, "운영 조절값은 기본값(파일에 없던 필드)으로");
+  assert.equal(config.bot.maxQueueSize, 250, "운영 설정값은 기본값(파일에 없던 필드)으로");
   assert.equal(await guildSettings.getBotChannel("123456789012345678"), "999999999999999999", "서버별 설정은 백업에 없다");
   assert.deepEqual((documents.get("status") as { messages: string[] }).messages, ["바뀐 문구"], "고르지 않은 문서는 그대로");
   assert.equal(documents.revisionOf("status"), statusRevision);
@@ -197,13 +197,13 @@ test("문서를 불러오면 저장 번호가 올라 열어 둔 편집기는 낡
   assert.equal(settingsDocs.read("genres").revision, before + 1);
 });
 
-test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모두 알리고 아무것도 바꾸지 않는다", async () => {
+test("선택한 항목 하나라도 검사에 걸리면 400으로 원인을 모두 알리고 아무것도 바꾸지 않는다", async () => {
   const file = await rewrite(await exported(), (json) => {
     (json.documents as Record<string, unknown>).status = { interval: 1, messages: [] };
     json.tunables = { QUEUE_MAX_TRACKS: "abc" };
   });
   const rows = rowsOf((await preview(file)).json);
-  assert.ok(rows.status.problems.length && rows.tunables.problems.length, "미리 보기도 까닭을 보인다");
+  assert.ok(rows.status.problems.length && rows.tunables.problems.length, "미리 보기도 원인을 보인다");
 
   tunables.save({ QUEUE_MAX_TRACKS: "77" }, 0);
   const genresRevision = documents.revisionOf("genres");
@@ -211,7 +211,7 @@ test("선택한 항목 하나라도 검사에 걸리면 400 으로 까닭을 모
   const json = (await res.json()) as { code: string; errors: { detail: string }[] };
   assert.deepEqual([res.status, json.code], [400, "config-invalid"]);
   assert.ok(json.errors.some((one) => one.detail.startsWith("활동 문구:")));
-  assert.ok(json.errors.some((one) => one.detail.startsWith("운영 조절값:")));
+  assert.ok(json.errors.some((one) => one.detail.startsWith("운영 설정값:")));
   assert.equal(config.bot.maxQueueSize, 77);
   assert.equal(documents.revisionOf("genres"), genresRevision, "검사를 지난 항목도 쓰지 않는다");
 });
@@ -235,7 +235,7 @@ test("파일에 없는 항목, 모르는 항목, 빈 목록은 거절한다", as
   assert.equal((await send("import", file)).status, 400);
 });
 
-test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 알린다", async () => {
+test("명령 전체 백업을 올리면 bad-archive로 봇 폴더에 풀라고 알린다", async () => {
   const full = await zipped([
     { name: ".env", data: Buffer.from("DISCORD_TOKEN=x") },
     { name: "database/settings.restore.db", data: Buffer.from("db") },
@@ -245,7 +245,7 @@ test("명령 전체 백업을 올리면 bad-archive 로 봇 폴더에 풀라고 
   assert.match(json.detail ?? "", /전체 백업은 불러올 수 없음/);
 });
 
-test("ZIP 이 아니거나 settings.json 이 없거나 모르는 형식이면 bad-archive", async () => {
+test("ZIP이 아니거나 settings.json이 없거나 모르는 형식이면 bad-archive", async () => {
   const cases = [Buffer.from("그냥 글"), await zipped([{ name: "other.json", data: Buffer.from("{}") }]), await rewrite(await exported(), (json) => (json.format = 2))];
   for (const file of cases) {
     const { status, json } = await preview(file);
@@ -274,7 +274,7 @@ test("파비콘: 내보낸 슬롯, 기록으로 통째 되돌린다. 비어 있�
   assert.deepEqual(currents(), [32]);
   assert.equal(appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.history.length, 2);
   assert.equal(rowsOf((await preview(file)).json).favicon.same, true, "불러온 뒤에는 같다");
-  assert.equal(fs.readdirSync(faviconDir).length, 5, "목록 하나 · 이미지마다 둘, 48 의 파일은 치웠다");
+  assert.equal(fs.readdirSync(faviconDir).length, 5, "목록 하나와 이미지마다 둘, 48의 파일은 치웠다");
 
   appearance.removeFavicon(32, appearance.faviconSlots(false).slots.find((one) => one.size === 32)!.current!);
   const cleared = await zipped(unzip(first).map((one) => (one.name === "favicon/index.json" ? { name: one.name, data: Buffer.from('{"slots":{}}') } : one)));
@@ -356,7 +356,7 @@ test("내보내기, 불러오기는 최근 로그인만, 미리 보기는 아니
   assert.equal((await preview(file)).status, 200);
 });
 
-test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지, 바뀐 쿠키 출처를 답한다", async () => {
+test("봇 설정만: PC에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지, 바뀐 쿠키 출처를 응답한다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" }, 0);
   const file = await exported();
   assert.deepEqual(settingsOf(file).tunables, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
@@ -366,7 +366,7 @@ test("봇 설정만: PC 에 매인 값도 담고 불러온다. 미리 보기가 
   assert.deepEqual(rows.tunables.warnings, ["쿠키 출처가 바뀌어요: 쓰지 않음 → firefox", "POToken 사용이 바뀌어요(다시 시작해야 적용돼요)"]);
 
   const res = await send("import?items=tunables", file);
-  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: true, cookiesSource: "firefox" }, "기동 시 POToken 은 꺼져 있었다");
+  assert.deepEqual(await res.json(), { imported: ["tunables"], restart: true, cookiesSource: "firefox" }, "기동 시 POToken은 꺼져 있었다");
   assert.deepEqual(tunables.view().values, { QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" });
 });
 
@@ -385,7 +385,7 @@ test("바깥으로 나가는 값이 바뀌면 미리 보기가 표시해 준다"
   assert.deepEqual(rows.genres.warnings, []);
 });
 
-test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 던짐, 대시보드 세션 종료) 아무것도 쓰지 않는다", async () => {
+test("불러오기: 스냅샷을 뜬 뒤 중단되면(go가 예외를 던짐, 대시보드 세션 종료) 아무것도 쓰지 않는다", async () => {
   const archive = await import("../../src/dashboard/settings-archive.ts");
   const file = path.join(uploadDir, "go.zip");
   fs.writeFileSync(file, await exported());

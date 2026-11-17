@@ -1,5 +1,5 @@
-// 대시보드 요청의 모양. 경로가 스스로 400 을 내는 값만 여기서 본다. 오류 메시지에는 문장 대신 문제 코드(rules/problems)를 적는다.
-// 재생 조작의 값(볼륨, 반복 모드, 대기열 위치)은 규칙과 문장을 usecases/controls 가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
+// 대시보드 요청의 모양. 경로가 직접 400을 내는 값만 여기서 본다. 오류 메시지에는 문장 대신 문제 코드(rules/problems)를 적는다.
+// 재생 조작의 값(볼륨, 반복 모드, 대기열 위치)은 규칙과 문장을 usecases/controls가 쥐고 있어 정수로만 바꿔 넘긴다(toInt).
 // 서버에 그 역할, 채널이 있나처럼 서버를 봐야 아는 것은 경로가 본다.
 
 import { AGE_PLACES } from "../rules/age-place.ts";
@@ -26,23 +26,23 @@ function parse<T extends z.ZodType>(schema: T, input: unknown): { ok: true; valu
 
 // ── 재생 ──
 
-// 대기열 ID(track-state 가 찍는다). 화면은 받은 그대로 돌려보낸다
+// 대기열 ID(track-state가 찍는다). 화면은 받은 그대로 돌려보낸다
 const BAD_ENTRY = { error: "bad-request" satisfies Code };
 const Entry = z.number(BAD_ENTRY).int(BAD_ENTRY).positive(BAD_ENTRY);
 // 지금 곡이 이 줄일 때만(넘기기, 이전, 하이라이트). 없으면 확인하지 않는다
 const OnTrackBody = z.object({ onTrack: Entry.optional() }, BAD_ENTRY);
 
-// 구간 이동 { position: 초, onTrack? }. "Infinity"(라이브 duration 0 에서 클램프를 뚫는다)와 비숫자 문자열은 거부
+// 구간 이동 { position: 초, onTrack? }. "Infinity"(라이브 duration 0에서 클램프를 뚫는다)와 비숫자 문자열은 거부
 const BAD_POSITION = { error: "bad-time" satisfies Code };
 const SeekBody = z.object({ position: z.coerce.number(BAD_POSITION).min(0, BAD_POSITION), onTrack: Entry.optional() }, BAD_POSITION);
 
-// 대기열 ID로 옮기기 { entry, before }. before 곡 앞으로, null 이면 맨 끝
+// 대기열 ID로 옮기기 { entry, before }. before 곡 앞으로, null이면 맨 끝
 const MoveEntryBody = z.object({ entry: Entry, before: Entry.nullable() }, BAD_ENTRY);
 
 // 대기열 ID로 여러 곡 빼기 { entries }. 한 요청에 QUEUE_WINDOW_MAX 곡까지(화면은 그보다 많으면 나눠 보낸다)
 const RemoveEntriesBody = z.object({ entries: z.array(Entry, BAD_ENTRY).min(1, BAD_ENTRY).max(QUEUE_WINDOW_MAX, BAD_ENTRY) }, BAD_ENTRY);
 
-// 자동재생 { genre }. 장르 이름이면 켜고(바꾸고) null 이면 끈다. 모르는 장르는 코어가 거절한다(unknown-genre)
+// 자동재생 { genre }. 장르 이름이면 켜고(바꾸고) null이면 끈다. 모르는 장르는 코어가 거절한다(unknown-genre)
 const BAD_GENRE = { error: "bad-request" satisfies Code };
 const AutoplayBody = z.object({ genre: z.string(BAD_GENRE).trim().min(1, BAD_GENRE).max(100, BAD_GENRE).nullable() }, BAD_GENRE);
 
@@ -77,7 +77,7 @@ const AddBody = z.object(
   BAD_QUERY,
 );
 
-// 곡 추가 칸의 검색 ?q=. 곡 추가와 같이 다듬고, 길이 상한은 /search 와 같다(SEARCH_MAX_LEN, 화면도 같은 값을 본다)
+// 곡 추가 칸의 검색 ?q=. 곡 추가와 같이 다듬고, 길이 상한은 /search와 같다(SEARCH_MAX_LEN, 화면도 같은 값을 본다)
 const SearchQuery = z.object(
   {
     q: z
@@ -89,15 +89,15 @@ const SearchQuery = z.object(
   BAD_QUERY,
 );
 
-// 재생목록 더 넣기의 곡 수. 목록 상태(validState)는 디스코드 쪽과 같이 쓰는 usecases/playlist-more 가 본다
+// 재생목록 더 넣기의 곡 수. 목록 상태(validState)는 디스코드 쪽과 같이 쓰는 usecases/playlist-more가 본다
 const MoreCount = z.number().int().min(1).max(MAX_COUNT);
 
 // ── 서버 설정 ──
 
 /**
  * 서버 설정 저장(PATCH)의 본문. 바꾸는 필드만 담고, 필드마다 화면이 읽은 값(from)과 바꿀 값(to)을 넣는다.
- * from 은 타입만 본다(범위 밖이 된 저장값도 받는다. 값은 경로가 지금 값과 비교한다). 순서는 문제를 알리는 순서다.
- * 전용 채널, 재생목록 곡 수의 to 가 null 이면 기본값으로 되돌린다. SponsorBlock 구간의 from 이 null 이면 운영자의 기본 구간을 따르던 것이다
+ * from은 타입만 본다(범위 밖이 된 저장값도 받는다. 값은 경로가 지금 값과 비교한다). 순서는 문제를 알리는 순서다.
+ * 전용 채널, 재생목록 곡 수의 to가 null이면 기본값으로 되돌린다. SponsorBlock 구간의 from이 null이면 운영자의 기본 구간을 따르던 것이다
  */
 function settingsPatch({ min, max }: { min: number; max: number }) {
   const BAD_PLAYLIST_ADD = { error: "playlist-limit-out-of-range" satisfies Code };
@@ -122,7 +122,7 @@ function settingsPatch({ min, max }: { min: number; max: number }) {
         .optional(),
       djRoleIds: change(z.array(z.string(BAD_ROLES), BAD_ROLES), z.array(z.string(BAD_ROLES), BAD_ROLES), BAD_ROLES).optional(),
       botChannelId: change(z.union([z.null(), z.string()], BAD_CHANNEL), z.union([z.null(), z.string()], BAD_CHANNEL), BAD_CHANNEL).optional(),
-      // 연령 제한 콘텐츠를 재생할 곳(store/guild-settings 의 agePlace)
+      // 연령 제한 콘텐츠를 재생할 곳(store/guild-settings의 agePlace)
       agePlace: change(z.string(BAD_AGE), z.enum(AGE_PLACES, BAD_AGE), BAD_AGE).optional(),
     },
     { error: "bad-settings" satisfies Code },
@@ -141,7 +141,7 @@ type SettingsPatch = z.input<ReturnType<typeof settingsPatch>>;
 const BAD_FAVICON = { error: "bad-request" satisfies Code };
 // 기록의 이미지로 교체 { id }
 const FaviconUseBody = z.object({ id: z.string(BAD_FAVICON).min(1, BAD_FAVICON).max(64, BAD_FAVICON) }, BAD_FAVICON);
-// 링크로 추가 { url }. http, https 인지, 내부 주소인지는 infra/safe-url 이 본다
+// 링크로 추가 { url }. http, https인지, 내부 주소인지는 infra/safe-url이 본다
 const FaviconLinkBody = z.object({ url: z.string(BAD_FAVICON).trim().min(1, BAD_FAVICON).max(2048, BAD_FAVICON) }, BAD_FAVICON);
 
 // ── 로그인 배경 ──
@@ -177,7 +177,7 @@ const BackgroundLinkBody = z.object({ url: z.string(BAD_BACKGROUND).trim().min(1
 
 // ── 큰 파일 업로드(dashboard/uploads) ──
 
-// 업로드 id(32자 16진수). 모르는 id는 uploads가 upload-gone으로 답한다
+// 업로드 id(32자 16진수). 모르는 id는 uploads가 upload-gone으로 응답한다
 const UploadId = z.string().regex(/^[0-9a-f]{32}$/);
 // 시작 { purpose, size }
 const UploadStartBody = z.object({ purpose: z.enum(UPLOAD_PURPOSES), size: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER) });
@@ -188,7 +188,7 @@ const BackgroundUploadBody = z.object({ upload: UploadId, name: z.string().max(1
 
 // ── 캐시 DB ──
 
-// 조작의 모양만 본다. 주소가 쓸 수 있는지, 개수 상한, 지울 것이 있는지는 dashboard/track-cache 가 조작 번호와 함께 본다
+// 조작의 모양만 본다. 주소가 쓸 수 있는지, 개수 상한, 지울 것이 있는지는 dashboard/track-cache가 조작 번호와 함께 본다
 const BAD_TRACK_CACHE = { error: "bad-request" satisfies Code };
 const tcText = (max: number) => z.string(BAD_TRACK_CACHE).min(1, BAD_TRACK_CACHE).max(max, BAD_TRACK_CACHE);
 const tcUrl = tcText(2048);

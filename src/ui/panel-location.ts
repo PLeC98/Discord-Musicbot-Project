@@ -13,7 +13,7 @@ import type { PanelHook as Hook } from "../player/player.ts";
 
 const { UnknownChannel: UNKNOWN_CHANNEL, UnknownMessage: UNKNOWN_MESSAGE, UnknownWebhook: UNKNOWN_WEBHOOK } = RESTJSONErrorCodes;
 
-/** 채널의 웹훅을 찾는 쪽(NowPlayingPanel). deleteWebhookCache 는 디스코드에서 삭제된 웹훅을 캐시에서 지운다 */
+/** 채널의 웹훅을 찾는 쪽(NowPlayingPanel). deleteWebhookCache는 디스코드에서 삭제된 웹훅을 캐시에서 지운다 */
 type Embeds = { getOrCreateWebhook(channel: GuildBasedChannel): Promise<Hook | null>; deleteWebhookCache(channelId: string): void };
 /** 기록 저장소. 테스트는 가짜를 준다 */
 type Store = Pick<typeof panelRecords, "getPanel" | "setPanel">;
@@ -83,7 +83,7 @@ class PanelLocation {
     const cached = guild.channels?.cache?.get(channelId);
     if (cached) return cached;
     const fetched = await guild.channels?.fetch?.(channelId).catch((error: unknown) => {
-      // 채널이 삭제됐다(10003)는 답은 없다는 뜻이다
+      // 채널이 삭제됐다(10003)는 응답은 없다는 뜻이다
       if (codeOf(error) !== UNKNOWN_CHANNEL) log.warn(`패널 채널 조회 실패 (${guild.id}, ${channelId}): ${describeError(error)}`);
       return null;
     });

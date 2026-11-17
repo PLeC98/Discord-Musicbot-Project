@@ -21,6 +21,6 @@ const props = withDefaults(defineProps<{ track?: Pick<PlayingView, "thumbnail"> 
 const broken = ref<string | null>(null);
 const shown = computed(() => (props.track?.thumbnail && props.track.thumbnail !== broken.value ? props.track.thumbnail : null));
 
-// 위아래 검은 띠는 키워서 감춘다(theme/art 가 픽셀로 잰다)
+// 위아래 검은 띠는 키워서 감춘다(theme/art가 픽셀로 잰다)
 const zoom = useArtZoom(() => props.track?.thumbnail);
 </script>

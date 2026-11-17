@@ -21,7 +21,7 @@ function tmpFile() {
   return path.join(dir, "bot.log");
 }
 
-/** i 번째 줄(줄바꿈 뺀 길이 bytes, 글은 ASCII). bytes 를 주지 않으면 짧은 줄 */
+/** i 번째 줄(줄바꿈 뺀 길이 bytes, 글은 ASCII). bytes를 주지 않으면 짧은 줄 */
 function line(i: number, text: string, bytes?: number) {
   const base = JSON.stringify({ time: T0 + i * 1000, level: 30, msg: text });
   return bytes === undefined ? base : JSON.stringify({ time: T0 + i * 1000, level: 30, msg: text + "x".repeat(bytes - base.length) });
@@ -29,7 +29,7 @@ function line(i: number, text: string, bytes?: number) {
 
 type Built = { file: string; visible: Array<{ offset: number; text: string; ts: number }>; times: number[] };
 
-/** 짧은 줄 사이에 긴 줄(가운데, 이어서, 경계 양쪽, 파일 끝의 덜 된 줄)을 둔 파일. shift 는 첫 줄의 길이를 늘려 청크 경계에 걸치는 자리를 바꾼다 */
+/** 짧은 줄 사이에 긴 줄(가운데, 이어서, 경계 양쪽, 파일 끝의 덜 된 줄)을 둔 파일. shift는 첫 줄의 길이를 늘려 청크 경계에 걸치는 자리를 바꾼다 */
 function build(shift: number): Built {
   const parts: Array<{ long: boolean }> = [];
   const lines: string[] = [];
@@ -65,7 +65,7 @@ function build(shift: number): Built {
 }
 
 const target = (file: string) => ({ name: "bot.log", path: file });
-// 긴 글은 앞부분과 길이로 비교한다(실패 출력이 MB 가 되지 않게)
+// 긴 글은 앞부분과 길이로 비교한다(실패 출력이 MB가 되지 않게)
 const brief = (text: string) => `${text.slice(0, 20)}#${text.length}`;
 const shape = (lines: FileLine[]) => lines.map((one) => ({ offset: one.offset, text: brief(one.text), ts: one.ts }));
 
@@ -151,13 +151,13 @@ test("긴 줄을 건너뛰는 동안 이벤트 루프를 양보한다(줄을 다
     tail!.lines.map((one) => one.text),
     ["first", "last"],
   );
-  // 청크(256KB)마다 한 번: 40MB 면 160번 남짓. 목록과 검색은 앞에서부터, 끝에서부터 페이지는 뒤에서부터 읽는다
+  // 청크(256KB)마다 한 번: 40MB면 160번 남짓. 목록과 검색은 앞에서부터, 끝에서부터 페이지는 뒤에서부터 읽는다
   assert.ok(scanned >= 100, `목록을 훑는 동안 돈 턴 수 ${scanned}`);
   assert.ok(searched - scanned >= 100, `검색하는 동안 돈 턴 수 ${searched - scanned}`);
   assert.ok(turns - searched >= 100, `끝에서부터 읽는 동안 돈 턴 수 ${turns - searched}`);
 });
 
-/** run 이 끝날 때까지 이벤트 루프가 돈 턴 수 */
+/** run이 끝날 때까지 이벤트 루프가 돈 턴 수 */
 async function turnsDuring<T>(run: () => Promise<T>): Promise<{ value: T; turns: number }> {
   let turns = 0;
   let ticking = true;
@@ -180,7 +180,7 @@ test("줄바꿈 없는 큰 구간을 지나는 첫 줄 찾기, 줄 시작 찾기
   const head = `${line(0, "line 0")}\n`;
   fs.writeFileSync(middle, `${head}${region}\n${rest}`);
 
-  // 64KB 조각마다 한 번: 16MB 면 256번 남짓. 아래 셋은 뒤따르는 읽기가 짧아 그 턴이 거의 다 구간을 지나는 동안이다
+  // 64KB 조각마다 한 번: 16MB면 256번 남짓. 아래 셋은 뒤따르는 읽기가 짧아 그 턴이 거의 다 구간을 지나는 동안이다
   const resolved = await turnsDuring(() => resolveLogFile(front, "bot.log", T0 + 1000));
   assert.equal(resolved.value?.path, front);
   assert.ok(resolved.turns >= 100, `첫 줄을 찾는 동안 돈 턴 수 ${resolved.turns}`);

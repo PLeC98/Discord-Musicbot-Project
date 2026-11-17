@@ -2,12 +2,12 @@
  * 사용자가 준 URL을 봇 서버가 대신 요청할 때의 SSRF 방어. DirectLink의 HEAD, GET과 파비콘의 링크로 추가가 여기를 지난다.
  *
  *  - 스키마 화이트리스트(http/https만)
- *  - 내부, 예약 IP 대역 차단 (infra/public-address: 공인 unicast만 통과, IPv4 매핑 주소는 안의 IPv4 로 본다)
+ *  - 내부, 예약 IP 대역 차단 (infra/public-address: 공인 unicast만 통과, IPv4 매핑 주소는 안의 IPv4로 본다)
  *  - IP 우회표기 정규화 (10진/16진/8진/매핑 모두 판정이 쓰는 ipaddr.parse가 해석)
  *  - DNS 리바인딩 차단 (해석 1회 → 그 IP로 핀 접속, 소켓 재해석 불가)
- *  - 리다이렉트 홉별 재검증 (http.request 는 따라가지 않는다. 수동 루프, IP-리터럴 리다이렉트까지 검사)
- *  - 프록시 환경 변수를 따르지 않는다 (고정 에이전트는 NODE_USE_ENV_PROXY 에도 프록시를 타지 않는다)
- *  - Content-Type 화이트리스트 + 파일 크기 상한 + 타임아웃 (부르는 쪽이 Accept 로 정한다, 기본은 직접 링크의 음원)
+ *  - 리다이렉트 홉별 재검증 (http.request는 따라가지 않는다. 수동 루프, IP-리터럴 리다이렉트까지 검사)
+ *  - 프록시 환경 변수를 따르지 않는다 (고정 에이전트는 NODE_USE_ENV_PROXY에도 프록시를 타지 않는다)
+ *  - Content-Type 화이트리스트 + 파일 크기 상한 + 타임아웃 (호출부가 Accept로 정한다, 기본은 직접 링크의 음원)
  *
  * 차단 사유는 서버 로그에만 남기고 사용자에게는 일반화된 오류만 준다.
  * 어느 IP가 막혔는지 알려 주면 봇이 내부망 탐지 도구가 된다.
@@ -39,9 +39,9 @@ type Outgoing = { method: "HEAD" | "GET"; url: URL; agent: http.Agent; timeoutMs
 type Incoming = { status: number; headers: Record<string, unknown>; body: Readable };
 /** 요청 함수. 테스트가 가짜를 넘긴다 */
 type HttpRequest = (request: Outgoing) => Promise<Incoming>;
-/** 외부 경계. 생략하면 send 와 dns.lookup */
+/** 외부 경계. 생략하면 send와 dns.lookup */
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
-/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer 는 다운로드 전체에도) */
+/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer는 다운로드 전체에도) */
 type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number };
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
@@ -53,13 +53,13 @@ class SsrfError extends Error {
   }
 }
 
-// DNS 가 붙인 이름(ENOTFOUND, EAI_AGAIN 등), 없으면 메시지. 원인으로 달지 않는다(오류 종류가 네트워크로 바뀐다)
+// DNS가 붙인 이름(ENOTFOUND, EAI_AGAIN 등), 없으면 메시지. 원인으로 달지 않는다(오류 종류가 네트워크로 바뀐다)
 const dnsReason = (error: unknown) => codeOf(error) ?? messageOf(error);
 
-/** 공인(global unicast) IP 가 아니면 막는다. 판정은 infra/public-address(패널의 대시보드 링크와 같은 판정) */
+/** 공인(global unicast) IP가 아니면 막는다. 판정은 infra/public-address(패널의 대시보드 링크와 같은 판정) */
 const isBlockedIp = (ip: string) => !isPublicIp(ip);
 
-/** Content-Type 화이트리스트. 헤더가 없으면 통과(일부 CDN 이 빠뜨린다). 주 방어는 IP 차단이고 이것은 심층 방어다 */
+/** Content-Type 화이트리스트. 헤더가 없으면 통과(일부 CDN이 빠뜨린다). 주 방어는 IP 차단이고 이것은 심층 방어다 */
 function isAllowedContentType(contentType: unknown, allowed = ALLOWED_CONTENT_TYPE): boolean {
   if (!contentType) return true;
   return allowed.test(String(contentType));
@@ -149,7 +149,7 @@ function send({ method, url, agent, timeoutMs, headers, signal }: Outgoing): Pro
   });
 }
 
-/** 홉 하나를 보낸다. 실패하거나 응답 헤더가 오기 전에 signal이 끊었으면 소켓을 정리하고 던진다(끊었으면 그 사유로) */
+/** 홉 하나를 보낸다. 실패하거나 응답 헤더가 오기 전에 signal이 끊었으면 소켓을 정리하고 예외를 던진다(끊었으면 그 사유로) */
 async function sendHop(request: HttpRequest, outgoing: Outgoing): Promise<Incoming> {
   const { agent, signal } = outgoing;
   let response;
@@ -169,8 +169,8 @@ async function sendHop(request: HttpRequest, outgoing: Outgoing): Promise<Incomi
 
 /**
  * 가드된 요청 + 수동 리다이렉트 루프. 각 홉을 재검증, 핀 접속한다.
- * 부르는 쪽이 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
- * headers: 덧붙일 헤더(Range). signal: 응답 헤더가 오기 전에 취소되면 그 사유로 던진다
+ * 호출부가 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
+ * headers: 덧붙일 헤더(Range). signal: 응답 헤더가 오기 전에 취소되면 그 사유로 예외를 던진다
  */
 async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, { timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, headers = {}, signal }: { timeoutMs?: number; headers?: Record<string, string>; signal?: AbortSignal } = {}) {
   let currentUrl = rawUrl;
@@ -195,7 +195,7 @@ async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request 
     if (response.status < 200 || response.status >= 300) {
       response.body.destroy();
       agent.destroy();
-      // 받는 쪽이 상태로 구분한다(416 은 받을 구간이 없음, 4xx 는 재시도해도 같다)
+      // 받는 쪽이 상태로 구분한다(416은 받을 구간이 없음, 4xx는 재시도해도 같다)
       throw Object.assign(new Error(`요청 실패: HTTP ${response.status}`), { status: response.status });
     }
 
@@ -235,7 +235,7 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
 
 /**
  * 가드된 HEAD. 마지막 응답의 상태, 헤더를 돌려준다(Content-Type, 크기도 검사한다). @throws
- * deps: { request, lookup } 외부 경계. 생략하면 send 와 dns.lookup
+ * deps: { request, lookup } 외부 경계. 생략하면 send와 dns.lookup
  */
 async function head(rawUrl: string, deps: RequestDeps = {}) {
   const { response, agent } = await guardedRequest("HEAD", rawUrl, deps);
@@ -272,12 +272,12 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
 }
 
 /**
- * 가드된 GET 스트림. Content-Type 을 검사하고 크기 상한을 건 Readable 을 돌려준다. deps 는 head 와 같다. @throws
+ * 가드된 GET 스트림. Content-Type을 검사하고 크기 상한을 건 Readable을 돌려준다. deps는 head와 같다. @throws
  * bodyIdleMs: 받는 쪽이 받으려는데 본문이 이만큼 안 오면 끊는다(재생은 짧게 잡아 플레이어보다 먼저 결론 낸다).
  * accept: 받을 것의 조건(Content-Type, 크기 상한, 홉마다의 응답 대기). 기본은 음원(직접 링크)
- * from, to: 이 바이트 구간을 받는다(Range, to 는 끝 바이트를 포함하고 없으면 끝까지). 서버가 따르지 않을 수 있어 받는 쪽이 상태, 헤더로 확인한다(servedFrom).
- * ifRange: 처음 응답의 강한 ETag 나 Last-Modified. 파일이 바뀌었으면 서버가 구간 대신 전체를 준다(200)
- * signal: 응답 헤더를 기다리는 동안 취소되면 그 사유로 던진다. 본문은 받는 쪽이 닫는다
+ * from, to: 이 바이트 구간을 받는다(Range, to는 끝 바이트를 포함하고 없으면 끝까지). 서버가 따르지 않을 수 있어 받는 쪽이 상태, 헤더로 확인한다(servedFrom).
+ * ifRange: 처음 응답의 강한 ETag나 Last-Modified. 파일이 바뀌었으면 서버가 구간 대신 전체를 준다(200)
+ * signal: 응답 헤더를 기다리는 동안 취소되면 그 사유로 예외를 던진다. 본문은 받는 쪽이 닫는다
  */
 async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from, to, ifRange, signal }: { bodyIdleMs?: number; accept?: Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal } = {}) {
   const { response, agent, finalUrl } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, headers: rangeHeaders(from, to, ifRange), signal });
@@ -300,7 +300,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
 }
 
 /**
- * 가드된 GET 을 끝까지 받아 버퍼로(작은 파일). accept 의 Content-Type, 크기 상한을 지키고, 다운로드 전체가 timeoutMs 를 넘으면 끊는다. deps 는 head 와 같다. @throws
+ * 가드된 GET을 끝까지 받아 버퍼로(작은 파일). accept의 Content-Type, 크기 상한을 지키고, 다운로드 전체가 timeoutMs를 넘으면 끊는다. deps는 head와 같다. @throws
  */
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
   const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs });
@@ -323,13 +323,13 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
   }
 }
 
-/** 구간 요청의 헤더(from 이 없으면 없음). If-Range 는 구간과 함께일 때만 뜻이 있다 */
+/** 구간 요청의 헤더(from이 없으면 없음). If-Range는 구간과 함께일 때만 뜻이 있다 */
 function rangeHeaders(from: number | undefined, to: number | undefined, ifRange: string | undefined): Record<string, string> {
   if (from === undefined) return {};
   return { Range: `bytes=${from}-${to ?? ""}`, ...(ifRange ? { "If-Range": ifRange } : {}) };
 }
 
-/** 받은 응답이 몇 바이트째부터인가: 206 이면 Content-Range 의 시작(없거나 깨졌으면 null), 그 밖은 처음부터(0) */
+/** 받은 응답이 몇 바이트째부터인가: 206이면 Content-Range의 시작(없거나 깨졌으면 null), 그 밖은 처음부터(0) */
 function servedFrom({ status, headers }: { status: number; headers: Record<string, unknown> }): number | null {
   if (status !== 206) return 0;
   const range = /^\s*bytes\s+(\d+)-\d+\/(?:\d+|\*)\s*$/i.exec(String(headers["content-range"] ?? ""));

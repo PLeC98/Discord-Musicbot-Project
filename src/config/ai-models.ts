@@ -3,7 +3,7 @@
  *
  * PocketRisu 공개 레지스트리(CC0-1.0 / https://github.com/PocketRisu/pocketrisu-model-registry)의 카탈로그에서 우리 프로바이더 몫을 원본 그대로 받아
  * 실행 위치(`database/ai-models.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 빈 프로필로 돈다(필드를 모르는 모델과 같다).
- * 받는 때는 config/ai-model-info 가 정한다.
+ * 받는 때는 config/ai-model-info가 정한다.
  */
 import fs from "fs";
 import path from "path";
@@ -43,14 +43,14 @@ type Profile = {
   uiSchema?: UiSchema;
   defaults?: Record<string, unknown>;
 };
-/** 파일에 둔 한 버전. hash 는 받은 카탈로그의 해시, registries 는 담은 레지스트리(담을 목록이 바뀌면 해시가 같아도 다시 받는다) */
+/** 파일에 둔 한 버전. hash는 받은 카탈로그의 해시, registries는 담은 레지스트리(담을 목록이 바뀌면 해시가 같아도 다시 받는다) */
 type Snapshot = { fetchedAt?: string; hash?: string; registries?: string[]; baseProviders: Record<string, BaseProvider>; profiles: Record<string, Profile> };
 /** 인덱스(index.json)에서 읽는 것: 카탈로그 전체의 해시 */
 type RegistryIndex = { hash?: unknown };
 /** 카탈로그(catalog.json): 레지스트리 전체가 든 파일 하나 */
 type Catalog = { schemaVersion?: unknown; hash?: unknown; baseProviders?: Record<string, BaseProvider>; profiles?: Record<string, Profile> };
 
-// 목록의 값 하나. 값만 적거나 { value, label } 로 적는다
+// 목록의 값 하나. 값만 적거나 { value, label }로 적는다
 function optionOf(e: unknown) {
   const o = e && typeof e === "object" ? (e as { value?: unknown; label?: unknown }) : null;
   const value = o?.value ?? e;
@@ -58,7 +58,7 @@ function optionOf(e: unknown) {
 }
 
 /**
- * 프로필은 base-provider 를 상속한다. 버텍스 프로필은 `schema: []` 이고 알맹이가 전부
+ * 프로필은 base-provider를 상속한다. 버텍스 프로필은 `schema: []`이고 알맹이가 전부
  * 베이스에 있다. 합치지 않으면 추론 필드가 통째로 빈다. 키가 겹치면 프로필이 이긴다.
  */
 function mergeSchemas(base: SchemaField[] | undefined, extension: SchemaField[] | undefined): SchemaField[] {
@@ -94,11 +94,11 @@ function _setDir(dir: string) {
   held = null;
 }
 
-/** 프로바이더 하나가 아는 모델들. 프로필 id 는 `<registry>:<이름>` 이다. */
+/** 프로바이더 하나가 아는 모델들. 프로필 id는 `<registry>:<이름>`이다. */
 function modelsOf(registry: string, snapshot: Snapshot = load()): ModelSummary[] {
   const out: ModelSummary[] = [];
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) {
-    // 모델 ID 를 직접 넣어 쓰는 틀(modelId 가 빈 글, "Enter any model ID")은 모델이 아니다
+    // 모델 ID를 직접 넣어 쓰는 틀(modelId가 빈 글, "Enter any model ID")은 모델이 아니다
     if (String(id).split(":")[0] !== registry || !profile.modelId) continue;
     out.push({
       id,
@@ -113,7 +113,7 @@ function modelsOf(registry: string, snapshot: Snapshot = load()): ModelSummary[]
   return out.sort((a, b) => String(a.modelId).localeCompare(String(b.modelId)));
 }
 
-/** 한 프로바이더 안에서 modelId 는 하나다. */
+/** 한 프로바이더 안에서 modelId는 하나다. */
 function profileOf(registry: string, modelId: string, snapshot: Snapshot = load()): { id: string; profile: Profile } | null {
   for (const [id, profile] of Object.entries(snapshot.profiles || {})) {
     if (String(id).split(":")[0] === registry && profile.modelId === modelId) return { id, profile };
@@ -124,7 +124,7 @@ function profileOf(registry: string, modelId: string, snapshot: Snapshot = load(
 // 프로필이 상속하는 베이스
 const baseOf = (snapshot: Snapshot, profile: Profile) => (profile.providerBaseId ? snapshot.baseProviders?.[profile.providerBaseId] : undefined);
 
-/** 그 모델이 받는 필드들. 본문으로 가는 것만. uiSchema 의 위젯, 그룹도 같이 얹는다. */
+/** 그 모델이 받는 필드들. 본문으로 가는 것만. uiSchema의 위젯, 그룹도 같이 얹는다. */
 function fieldsOf(registry: string, modelId: string, snapshot: Snapshot = load()): ModelField[] {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return [];
@@ -167,7 +167,7 @@ function groupsOf(registry: string, modelId: string, snapshot: Snapshot = load()
   return [...by.values()].sort((a, b) => a.order - b.order);
 }
 
-/** 늘 붙는 값(base 의 defaultBody + 프로필 defaults). 앤트로픽의 max_tokens 가 여기 있다. */
+/** 늘 붙는 값(base의 defaultBody + 프로필 defaults). 앤트로픽의 max_tokens가 여기 있다. */
 function defaultsOf(registry: string, modelId: string, snapshot: Snapshot = load()): Record<string, unknown> {
   const found = profileOf(registry, modelId, snapshot);
   if (!found) return {};
@@ -204,7 +204,7 @@ const goodBase = (base: unknown) => isObject(base) && objectList(base.requestSch
 
 /**
  * 카탈로그에서 우리 프로바이더의 프로필과 그 프로필이 상속하는 베이스만 선택한다.
- * 모양이 틀린 프로필(읽는 쪽이 던질 것, 상속하는 베이스가 없거나 틀린 것)은 빼고 그 id 를 skipped 로 돌려준다
+ * 모양이 틀린 프로필(읽는 쪽이 예외를 던질 것, 상속하는 베이스가 없거나 틀린 것)은 빼고 그 id를 skipped로 돌려준다
  */
 function pick(catalog: Catalog, registries: string[], fetchedAt = new Date().toISOString()): { snapshot: Snapshot; skipped: string[] } {
   const sources = catalog.baseProviders ?? {};
@@ -230,7 +230,7 @@ function lostShape(registries: string[], held: Snapshot, got: Snapshot): string[
 }
 
 /**
- * 인덱스의 해시가 받은 사본과 다를 때만 카탈로그를 받아 사본에 쓴다(force 면 해시와 상관없이).
+ * 인덱스의 해시가 받은 사본과 다를 때만 카탈로그를 받아 사본에 쓴다(force면 해시와 상관없이).
  * 받은 것이 모양 검사(lostShape)에 걸리거나 인덱스와 해시가 다르면 오류를 던지고 기존 사본을 그대로 둔다.
  */
 async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl = github.fetch }: { registries: string[]; force?: boolean; timeoutMs?: number; fetchImpl?: typeof fetch }): Promise<RefreshResult> {
@@ -246,7 +246,7 @@ async function refresh({ registries, force = false, timeoutMs = 30000, fetchImpl
   const sameRegistries = JSON.stringify(held.registries ?? []) === JSON.stringify([...registries].sort());
   if (!force && count(held) && sameRegistries && index.hash === held.hash) return { changed: false, count: count(held), fetchedAt: held.fetchedAt };
 
-  // raw.githubusercontent.com 은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 인덱스와 해시가 같은 짝만 쓴다
+  // raw.githubusercontent.com은 5분 동안 캐시한다. 해시를 붙여 바뀐 카탈로그를 받고, 인덱스와 해시가 같은 짝만 쓴다
   const catalog = await get<Catalog>(`catalog.json?h=${encodeURIComponent(index.hash)}`);
   if (catalog.schemaVersion !== CATALOG_SCHEMA) throw new Error(`지원하지 않는 레지스트리 카탈로그 형식: ${String(catalog.schemaVersion)}(${CATALOG_SCHEMA}만 지원)`);
   if (catalog.hash !== index.hash) throw new Error("레지스트리 인덱스와 카탈로그의 해시가 다름(원격에서 갱신 중, 다음에 다시 불러옴)");

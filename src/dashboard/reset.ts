@@ -1,6 +1,6 @@
-// 초기화(운영자 패널 백업, 초기화 탭의 초기화 카드). 모양은 contract/reset. 줄마다 이미 있는 삭제 함수를 부르고 메모리를 DB 에 맞춘다.
+// 초기화(운영자 패널 백업, 초기화 탭의 초기화 카드). 모양은 contract/reset. 줄마다 이미 있는 삭제 함수를 부르고 메모리를 DB에 맞춘다.
 // 설정이 바뀌는 줄(봇 설정, 서버별 설정)은 바꾸기 전에 설정 스냅샷(before-reset)을 남긴다.
-// 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
+// 공유 타입이 대시보드 층에 있어 usecases가 아니라 여기 둔다(백업의 settings-archive와 같다).
 
 import fs from "node:fs";
 import path from "node:path";
@@ -55,7 +55,7 @@ async function resetAudioCache(parts: readonly AudioCachePart[], by: string, go?
 }
 
 /**
- * 봇 설정을 기본값으로: 설정 문서(운영 조절값, 장르, 상태 문구, AI 설정, 프롬프트)와 비밀값(서비스 키, AI 키, 쿠키)을 한 트랜잭션에서 삭제한다.
+ * 봇 설정을 기본값으로: 설정 문서(운영 설정값, 장르, 상태 문구, AI 설정, 프롬프트)와 비밀값(서비스 키, AI 키, 쿠키)을 한 트랜잭션에서 삭제한다.
  * 기본값을 써 넣지 않는다(그 버전의 기본값이 굳어 다음 버전의 기본값을 따라가지 않는다). 순서는 불러오기와 같다: 스냅샷 → 한 트랜잭션 → 다시 읽기.
  * restart: 다시 시작해야 적용되는 값이 기동 시 값과 달라졌다
  */
@@ -93,7 +93,7 @@ function resetDisplay(by: string) {
   return { favicons, backgrounds };
 }
 
-// 명령 전체 백업이 풀어 둔 오디오 캐시 번들(열린 설정 DB 의 폴더 안)
+// 명령 전체 백업이 풀어 둔 오디오 캐시 번들(열린 설정 DB의 폴더 안)
 const stagedAudioFile = () => path.join(path.dirname(settingsDb.get().name), STAGED_AUDIO);
 // 예약한 복원: 설정 스냅샷, 명령 전체 백업의 오디오 캐시
 const stagedRestore = (): StagedRestore => ({ snapshot: snapshots.staged(), audioCache: fs.existsSync(stagedAudioFile()) });
@@ -120,7 +120,7 @@ function overview(botName: string, launcher: boolean): ResetOverview {
 
 /**
  * 봇 전체 초기화를 예약한다: 예약한 복원을 취소하고(남기면 초기화한 봇에 옛 설정이 들어온다) 스냅샷을 남긴 뒤 마커를 건다.
- * 삭제는 다음 기동(store/full-reset). 곧바로 다시 시작할지는 부르는 쪽(경로)이 정한다
+ * 삭제는 다음 기동(store/full-reset). 곧바로 다시 시작할지는 호출부(경로)가 정한다
  */
 async function stageFullReset(by: string, restarting: boolean, go?: () => void) {
   // 스냅샷을 먼저 생성하고(이전 스냅샷 정리는 보류), 그사이 세션이 끝나 중단되지 않았으면 예약한 복원을 취소한다. 스냅샷 생성 중에 중단된 요청이 상태를 바꾸지 않게 한다

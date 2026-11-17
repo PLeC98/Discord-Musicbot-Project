@@ -79,7 +79,7 @@ const GROUPS = [
   { title: T.groupData, items: DATA_FILES },
 ];
 
-// 봇 이름, 소스 저장소(AGPL 의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
+// 봇 이름, 소스 저장소(AGPL의 소스 제공. 서버의 SOURCE_REPO_URL, 없으면 원본 프로젝트)는 열 때 읽는다
 const botName = ref("");
 const sourceRepo = ref("");
 const projectRepo = ref("");

@@ -1,5 +1,5 @@
 // 빌드해 둔 화면이 지금 소스보다 옛것인가. 화면 빌드(dashboard/vite.config.ts)가 화면이 부른 소스 목록과 빌드 시각을
-// dist/.build-inputs.json 에 남긴다. 그 뒤에 고쳐지거나 사라진 파일이 있으면 옛 빌드다(git 은 바꾼 파일의 수정 시각을 그때로 둔다).
+// dist/.build-inputs.json에 남긴다. 그 뒤에 고쳐지거나 사라진 파일이 있으면 옛 빌드다(git은 바꾼 파일의 수정 시각을 그때로 둔다).
 // 화면과 무관한 봇 코드만 바뀌면 조용하다. 점으로 시작하는 이름이라 정적 서빙(express.static)이 내주지 않는다
 
 import fs from "node:fs";
@@ -8,7 +8,7 @@ import logger from "../infra/log/logger.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 빌드가 남기는 것. files 는 저장소 루트에서의 상대 경로(/ 구분) */
+/** 빌드가 남기는 것. files는 저장소 루트에서의 상대 경로(/ 구분) */
 type BuildInputs = { builtAt: number; files: string[] };
 type Freshness = { state: "fresh" } | { state: "missing" } | { state: "unknown" } | { state: "stale"; changed: string[] };
 

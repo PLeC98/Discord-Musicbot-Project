@@ -6,9 +6,9 @@ import type { Guild, GuildMember, VoiceBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../player/track.ts";
 import { ownTrackDenied } from "../rules/controls.ts";
 
-/** 권한 판정이 막은 까닭 */
+/** 권한 판정이 막은 이유 */
 type PermissionDenied = Extract<Code, "must-be-in-voice" | "must-be-in-same-voice" | "must-dj" | VoiceEntryDenied>;
-/** 봇이 음성 채널에 들어갈 수 없는 까닭 */
+/** 봇이 음성 채널에 들어갈 수 없는 이유 */
 type VoiceEntryDenied = Extract<Code, "permission-voice" | "bot-timed-out" | "voice-full">;
 
 /**
@@ -56,9 +56,9 @@ async function isDj(member: GuildMember) {
 
 /**
  * 동일 음성 채널 규칙. 서버 관리자는 어디서든 면제, 그 외는:
- *  - 봇이 음성 채널에서 동작 중이면 같은 채널 접속 필수(음성 채널 밖이든 다른 채널이든 같은 까닭)
- *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 접속은 checkSummon 이 본다
- * 통과 시 null, 거부 시 그 까닭.
+ *  - 봇이 음성 채널에서 동작 중이면 같은 채널 접속 필수(음성 채널 밖이든 다른 채널이든 같은 이유 must-be-in-same-voice)
+ *  - 봇이 유휴(음성 미접속)면 채널 제약 없음. 봇을 부를 때의 음성 채널 접속은 checkSummon이 본다
+ * 통과 시 null, 거부 시 이유 코드.
  */
 function checkVoice(member: GuildMember): PermissionDenied | null {
   if (isServerManager(member)) return null;
@@ -96,15 +96,15 @@ function lacksVoicePermission(me: GuildMember | null | undefined, channel: Voice
 }
 
 /**
- * 봇이 그 음성 채널에 들어갈 수 없는 까닭. 들어갈 수 있으면 null. discord.js 의 joinable 과 같은 조건을 까닭별로 가른다.
- * 디스코드는 들어갈 수 없는 채널의 참가 요청에 답하지 않아 연결 제한 시간을 다 기다리게 되므로 먼저 거른다
+ * 봇이 그 음성 채널에 들어갈 수 없는 이유. 들어갈 수 있으면 null. discord.js의 joinable과 같은 조건을 원인별로 구분한다.
+ * 디스코드는 들어갈 수 없는 채널의 참가 요청에 응답하지 않아 연결 제한 시간을 다 기다리게 되므로 먼저 거른다
  */
 function voiceEntryRefusal(me: GuildMember | null | undefined, channel: VoiceBasedChannel): VoiceEntryDenied | null {
   if (!me || lacksVoicePermission(me, channel)) return "permission-voice";
   const permissions = channel.permissionsFor(me);
   // 관리자는 타임아웃이어도 들어간다
   if (!permissions.has(PermissionFlagsBits.Administrator) && me.isCommunicationDisabled()) return "bot-timed-out";
-  // 제한 인원이 다 찬 채널은 멤버 이동 권한으로만 들어간다. 인원수에 봇도 들어가므로 이미 그 채널에 있으면 보지 않는다. 스테이지는 discord.js 와 마찬가지로 보지 않는다
+  // 제한 인원이 다 찬 채널은 멤버 이동 권한으로만 들어간다. 인원수에 봇도 들어가므로 이미 그 채널에 있으면 보지 않는다. 스테이지는 discord.js와 마찬가지로 보지 않는다
   if (channel.type === ChannelType.GuildVoice && channel.full && me.voice?.channelId !== channel.id && !permissions.has(PermissionFlagsBits.MoveMembers)) return "voice-full";
   return null;
 }
@@ -135,7 +135,7 @@ async function checkOwnTrack(member: GuildMember, track: Pick<QueuedTrack, "requ
 /** 스킵: 지금 곡을 넣은 사람도 된다 */
 const checkSkip = (member: GuildMember, player: { currentTrack?: Pick<QueuedTrack, "requestedBy"> | null } | null | undefined) => checkOwnTrack(member, player?.currentTrack);
 
-/** 대기열 곡 제거: DJ 계층이거나, 빼는 곡이 모두 그 사람이 넣은 곡(요청자도 동일 음성 채널 규칙은 적용). 한 곡이라도 남의 곡이면 DJ 판정의 까닭 */
+/** 대기열 곡 제거: DJ 계층이거나, 빼는 곡이 모두 본인이 넣은 곡이면 허용(요청자도 동일 음성 채널 규칙은 적용). 한 곡이라도 남의 곡이면 조작 권한(checkControl)이 막은 이유 */
 async function checkRemoveTracks(member: GuildMember, tracks: ReadonlyArray<Pick<QueuedTrack, "requestedBy">>) {
   const ownsAll = tracks.length > 0 && tracks.every((t) => Boolean(t.requestedBy?.id) && t.requestedBy?.id === member.id);
   return ownTrackDenied({ control: await checkControl(member), requester: ownsAll, voice: () => checkVoice(member) });
@@ -152,7 +152,7 @@ function canKickBot(member: GuildMember) {
   if (!owner && member.isCommunicationDisabled() && !member.permissions.has(PermissionFlagsBits.Administrator)) return false;
   if (owner) return true;
   const me = member.guild.members.me;
-  // 역할 id 목록은 discord.js 가 캐시에 없는 역할을 빼고 roles 로 보여 주기 전의 원본이다
+  // 역할 id 목록은 discord.js가 캐시에 없는 역할을 빼고 roles로 보여 주기 전의 원본이다
   if (!me || me["_roles"].some((id) => !member.guild.roles.cache.has(id))) return false;
   return member.roles.highest.comparePositionTo(me.roles.highest) > 0;
 }

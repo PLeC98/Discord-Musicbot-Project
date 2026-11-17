@@ -1,5 +1,5 @@
 // 테스트: 로그인 때 받은 디스코드 토큰과 그 사용자의 서버 목록(/users/@me/guilds).
-// 토큰은 진짜 세션 저장소(임시 DB)의 세션 행에 두고, 디스코드는 가짜 HTTP 로 답한다. 사용자마다 세션 하나(sid-<사용자 ID>)
+// 토큰은 진짜 세션 저장소(임시 DB)의 세션 행에 두고, 디스코드는 가짜 HTTP로 응답한다. 사용자마다 세션 하나(sid-<사용자 ID>)
 
 import fs from "node:fs";
 import os from "node:os";
@@ -14,7 +14,7 @@ import type { DiscordHttp } from "../../src/dashboard/discord-api.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 
-/** guilds: 사용자 ID → 그 사용자가 든 서버 ID(디스코드의 답). failWith: 디스코드가 이 상태 코드로 거절한다(0 이면 답한다) */
+/** guilds: 사용자 ID → 그 사용자가 든 서버 ID(디스코드의 응답). failWith: 디스코드가 이 상태 코드로 거절한다(0이면 응답한다) */
 function userGuildsFixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-user-guilds-"));
   secrets._useKey(newSecretsKey());
@@ -29,7 +29,7 @@ function userGuildsFixture() {
       return { data: ids.map((id) => ({ id, name: `서버 ${id}`, icon: null, owner: false, permissions: "0" })) };
     },
   });
-  /** 그 사용자의 세션 행을 만들고 토큰(tok-<사용자 ID>)을 둔다. token false 면 토큰 없는 세션 */
+  /** 그 사용자의 세션 행을 만들고 토큰(tok-<사용자 ID>)을 둔다. token false면 토큰 없는 세션 */
   const signIn = (userId: string, { token = true }: { token?: boolean } = {}) => {
     const sid = `sid-${userId}`;
     // 진짜 로그인 세션처럼 사용자와 로그인 시각을 둔다(스트림을 열 때 저장소에서 세션이 살아 있는지 본다)

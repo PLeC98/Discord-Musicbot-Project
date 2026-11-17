@@ -34,7 +34,7 @@ test("켜기, 끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () 
     assert.deepEqual(
       menu.options.map((o) => o.label),
       ids.map((id) => genres[id].label?.trim() || id),
-      "보이는 것은 라벨 — 선택한 값(식별자)과 따로다",
+      "보이는 것은 라벨이고 선택한 값(식별자)과 따로다",
     );
   }
 
@@ -43,7 +43,7 @@ test("켜기, 끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () 
 });
 
 test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
-  assert.ok(ids.length <= 25, `장르 ${ids.length}개 — 25개를 넘으면 메뉴가 거부된다`);
+  assert.ok(ids.length <= 25, `장르 ${ids.length}개(25개를 넘으면 메뉴가 거부된다)`);
 });
 
 test("끄기 화면: 이미 꺼졌음을 알리고 다시 선택할 기회를 준다", () => {
@@ -63,7 +63,7 @@ test("두 화면 다 본인에게만 보인다", () => {
   }
 });
 
-test("앱 이모지 토큰은 지금 이모지로(id 가 바뀌었으면 이름으로), 앱에 없으면 이모지 없이", async () => {
+test("앱 이모지 토큰은 지금 이모지로(id가 바뀌었으면 이름으로), 앱에 없으면 이모지 없이", async () => {
   const { useDocument } = await import("../helpers/config-docs.ts");
   const { useAppEmojis } = await import("../../src/store/app-emoji-book.ts");
   const keywords = (k: string) => [{ type: "keyword", keywords: [k] }];

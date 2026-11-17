@@ -1,4 +1,4 @@
-// /help 의 분류 메뉴와 뒤로 버튼. 본인에게만 보인 화면이라 누른 사람을 따로 보지 않고 그 화면을 고친다. 고칠 때마다 삭제를 다시 센다
+// /help의 분류 메뉴와 뒤로 버튼. 본인에게만 보인 화면이라 누른 사람을 따로 보지 않고 그 화면을 고친다. 고칠 때마다 삭제를 다시 센다
 
 import type { ButtonInteraction, StringSelectMenuInteraction } from "discord.js";
 import { post } from "../../ui/frame.ts";

@@ -7,7 +7,7 @@ type Switches = Record<Privileged, boolean>;
 /** 앱 객체에서 읽는 것(GET /applications/@me) */
 type AppFlags = { flags?: unknown; approximate_guild_count?: unknown };
 
-/** 앱 flags 의 비트. 100 서버 미만은 포털 스위치(_LIMITED), 이상은 디스코드의 승인(FULL) */
+/** 앱 flags의 비트. 100 서버 미만은 포털 스위치(_LIMITED), 이상은 디스코드의 승인(FULL) */
 const FLAGS = {
   guildMembers: { full: 1 << 14, limited: 1 << 15 },
   messageContent: { full: 1 << 18, limited: 1 << 19 },
@@ -26,7 +26,7 @@ function serversOf(app: AppFlags | null) {
 /** 승인이 필요한 규모인가(서버 수를 모르면 아니라고 본다) */
 const needsApproval = (app: AppFlags | null) => (serversOf(app) ?? 0) >= APPROVAL_SERVERS;
 
-/** 앱 설정에서 켜진 특권 인텐트. 승인이 필요한 규모면 FULL 만, 아니면 _LIMITED 나 FULL 을 켜진 것으로 본다. flags 가 없으면 알 수 없어 null */
+/** 앱 설정에서 켜진 특권 인텐트. 승인이 필요한 규모면 FULL만, 아니면 _LIMITED나 FULL을 켜진 것으로 본다. flags가 없으면 알 수 없어 null */
 function switchesOf(app: AppFlags | null): Switches | null {
   const flags = app?.flags;
   if (typeof flags !== "number" || !Number.isInteger(flags)) return null;

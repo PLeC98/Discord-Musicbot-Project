@@ -1,5 +1,5 @@
-// src/sources/ytdlp-spawn.ts: 정보만 읽는 호출의 시간 한도. 멈춘 yt-dlp 가 곡 추가를 끝없이 붙잡지 않게 한도에서 트리째 내린다.
-// 다운로드(output 이 있는 호출)는 곡 길이만큼 걸리므로 한도를 걸지 않는다.
+// src/sources/ytdlp-spawn.ts: 정보만 읽는 호출의 시간 한도. 멈춘 yt-dlp가 곡 추가를 끝없이 붙잡지 않게 한도에서 트리째 내린다.
+// 다운로드(output이 있는 호출)는 곡 길이만큼 걸리므로 한도를 걸지 않는다.
 // yt-dlp 대신 말이 없는 진짜 자식 프로세스를 실행한다(내리는 길이 진짜여야 한다).
 
 import { test, afterEach } from "node:test";
@@ -10,7 +10,7 @@ import * as registry from "../../src/infra/process-registry.ts";
 
 let child: ChildProcess | null = null;
 
-// 실행 래퍼(ytdlp-exec)의 Exec 와 같은 모양: 자식 프로세스이면서 끝나면 { stdout, stderr } 로 풀리는 약속
+// 실행 래퍼(ytdlp-exec)의 Exec와 같은 모양: 자식 프로세스이면서 끝나면 { stdout, stderr }로 풀리는 약속
 const silent = ((..._args: unknown[]) => {
   const proc = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { windowsHide: true });
   child = proc;

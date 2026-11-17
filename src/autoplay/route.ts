@@ -33,7 +33,7 @@ import type { AiPick } from "./assist/index.ts";
 import type { Judged } from "./assist/types.ts";
 import { logTitle } from "../infra/log/title.ts";
 
-/** 틀 수 있는 트랙. 대기열에 담는 곡이다 */
+/** 틀 수 있는 트랙. 대기열에 추가하는 곡이다 */
 type PickedTrack = QueuedTrack & { audioUrl: string };
 /** 유튜브 영상 하나. 검색 결과이거나 주소만 아는 것 */
 type Video = { url: string; id?: string | number | null; title?: string | null; channel?: string | null; artist?: string | null; durationSec?: number | null; duration?: number | null; thumbnail?: string | null };
@@ -94,7 +94,7 @@ const isDead = (url: string | null | undefined) => {
 // 글자와 숫자만 남긴다. 소스마다 띄어쓰기, 하이픈, 장식 기호가 달라서, 공백만 정리해서는
 // 같은 곡을 놓친다: `Nan mo nee`/`Nanmonee`, `Laid-Back Journey`/`Laid Back Journey`,
 // `Happy☆Material`/`Happy Material`.
-// `[^a-z0-9]` 로 쓰면 일본어 제목이 통째로 빈 문자열이 되어 서로 다른 곡이 하나로 뭉개진다. \p{L}\p{N} 여야 한다.
+// `[^a-z0-9]`로 쓰면 일본어 제목이 통째로 빈 문자열이 되어 서로 다른 곡이 하나로 뭉개진다. \p{L}\p{N}여야 한다.
 // 판본 표기(`… Diavolo Ver.`)나 참여 표기(`… feat. Mummy-D`)는 글자가 남으므로 그대로 구분된다.
 // 로마자 표기 차이(`Iki o Suu`/`Iki wo Suu`)는 여기서 못 잡는다.
 const norm = (s: unknown) =>
@@ -132,7 +132,7 @@ function* byWeight(list: GenreSource[]): Generator<GenreSource> {
 /**
  * 이 후보를 무엇이라 부르나(요청 키). 링크 데이터가 이것으로 찾는다.
  * 소스가 곡 페이지를 주면 다듬은 그 주소(스포티파이 소스와 스포티파이 링크를 넣은 사용자가 같은 행을 쓴다),
- * 영상 자체가 후보면 그 영상, 소스 안의 곡 id 면 그대로(amq:48944, vocadb:123 …),
+ * 영상 자체가 후보면 그 영상, 소스 안의 곡 id면 그대로(amq:48944, vocadb:123 …),
  * 이름뿐이면 소스 이름을 붙인다(lastfm:가수|제목). 작품 페이지처럼 곡 여럿을 가리키는 주소는 쓰지 않는다.
  */
 function requestKeyOf(cand: Partial<Candidate>): string {
@@ -143,7 +143,7 @@ function requestKeyOf(cand: Partial<Candidate>): string {
   return `${cand.platform || "autoplay"}:${key || `${cand.artist ?? ""}|${cand.title ?? ""}`}`;
 }
 
-/** 트랙의 id 는 영상 id 다. 검색이 준 것이 없으면 주소에서 */
+/** 트랙의 id는 영상 id 다. 검색이 준 것이 없으면 주소에서 */
 const videoIdOf = (video: Video) => (typeof video.id === "string" && video.id) || links.extractVideoId(video.url) || undefined;
 
 /**
@@ -174,7 +174,7 @@ function fromYouTube(video: Video, cand: Candidate): PickedTrack {
   };
 }
 
-/** 영상의 썸네일. 영상 id 로 만들고, id 를 모르면 받은 썸네일 */
+/** 영상의 썸네일. 영상 id로 만들고, id를 모르면 받은 썸네일 */
 function artOfVideo(video: Video): string | null {
   const id = videoIdOf(video);
   return typeof id === "string" && /^[\w-]{11}$/.test(id) ? youtubeArt(id) : artOf(video.thumbnail);
@@ -184,7 +184,7 @@ function artOfVideo(video: Video): string | null {
  * 소스가 준 음원 파일 하나(AnimeThemes, AnisongDB)를 재생 가능한 트랙으로.
  *
  * `directSource.getInfo`를 거치지 않는다(요청 하나를 아낀다). 거쳐도 쓸 것이 없다: 제목은 파일 이름, 파일 태그, 아티스트, 이미지는 비어 있다.
- * 소스 API 에서 불러온 이름과 표지를 그대로 싣는다.
+ * 소스 API에서 불러온 이름과 표지를 그대로 싣는다.
  */
 const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   title: cand.title,
@@ -220,7 +220,7 @@ const REAL: Deps = {
 // artist+title로 유튜브에서 그 곡을 찾는다. 길이를 아는 후보는 그 값을 넘겨 길이 신호를 켠다.
 async function findOnYouTube(cand: Candidate, genre: string | undefined, { search, assist }: Deps, pick: AiPick) {
   const target = { title: cand.title, artist: cand.artist, durationSec: Number(cand.durationSec) || 0 };
-  // searchCandidates 는 thumbnail 을 실어 와야 한다. Last.fm, LB Radio 는 표지를 안 주므로 영상 썸네일이 유일한 이미지다.
+  // searchCandidates는 thumbnail을 실어 와야 한다. Last.fm, LB Radio는 표지를 안 주므로 영상 썸네일이 유일한 이미지다.
   // 빠지면 앨범아트 위치에 디스코드의 빈 이미지가, 대시보드에는 파일 아이콘이 표시된다.
   const { candidates } = await match.searchCandidates(target, search, "cheap");
   if (!candidates.length) return null;
@@ -244,8 +244,8 @@ async function findOnYouTube(cand: Candidate, genre: string | undefined, { searc
 /**
  * 음원을 이미 가진 후보를 유튜브 것으로 바꿔도 되는가.
  *
- * medium 은 "나쁜 신호가 없다"일 뿐 "같은 곡이다"가 아니다. 애니송 DB 는 길이를 주지 않고(AMQ 클립 길이라 곡 길이가 아니다)
- * 가수 이름이 채널명과 같은 일도 드물어, high 로 가는 세 길이 전부 막히고 "정크 단어가 없는 검색 1위"만 남아 medium 이 된다.
+ * medium은 "나쁜 신호가 없다"일 뿐 "같은 곡이다"가 아니다. 애니송 DB는 길이를 주지 않고(AMQ 클립 길이라 곡 길이가 아니다)
+ * 가수 이름이 채널명과 같은 일도 드물어, high로 가는 세 길이 전부 막히고 "정크 단어가 없는 검색 1위"만 남아 medium이 된다.
  * 올바른 녹음을 이미 쥐고 있을 때는 그만큼으로는 부족하다. 영상 제목에 곡 제목이 들어 있어야 바꾸고, 아니면 음원을 그대로 튼다.
  */
 function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: { title?: number } } | undefined) {
@@ -255,7 +255,7 @@ function upgradeWorthIt(cand: Candidate, confidence: string, top: { breakdown?: 
   return ok;
 }
 
-/** 유튜브 주소를 직접 받은 후보. candidateKind 가 youtube 면 주소가 있다 */
+/** 유튜브 주소를 직접 받은 후보. candidateKind가 youtube면 주소가 있다 */
 async function fromGivenVideo(cand: Candidate, limits: Limits, genre: string | undefined, assist: Assist, pick: AiPick): Promise<PickedTrack | null> {
   if (!cand.youtubeUrl) return null;
   const track = fromYouTube({ url: cand.youtubeUrl, title: cand.title, durationSec: cand.durationSec }, cand);
@@ -313,7 +313,7 @@ async function resolve(cand: Candidate, limits: Limits, genre?: string, deps: De
   return null;
 }
 
-/** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원, 길이는 applyPin 이 정한다. 지정이 없으면 null */
+/** 직접 지정한 음원으로 트랙을 만든다. 곡 정보는 후보의 것, 음원, 길이는 applyPin이 정한다. 지정이 없으면 null */
 function fromPin(cand: Candidate, pin: Pin | null): PickedTrack | null {
   if (!pin) return null;
   const track = links.isYouTubeURL(pin.audioUrl) ? fromYouTube({ url: pin.audioUrl }, cand) : fromAudio({ ...cand, audioUrl: pin.audioUrl });
@@ -338,11 +338,11 @@ function fromLedger(cand: Candidate, known: ReturnType<Deps["known"]>): PickedTr
 }
 
 /**
- * 이 장르에서 한 곡을 선택한다. 선택하지 못하면 null(부르는 쪽이 자동재생을 끈다).
+ * 이 장르에서 한 곡을 선택한다. 선택하지 못하면 null(호출부가 자동재생을 끈다).
  *
  * @param cfg      { ...defaults, ...genres[이름] }. sources를 들고 있다
  * @param recent 최근에 튼 곡들(중복 회피용)
- * @param deps   바깥 경계(resolve 와 같다)
+ * @param deps   바깥 경계(resolve와 같다)
  */
 async function pickTrack(cfg: PickConfig | null | undefined, recent: Array<Played | null | undefined> = [], deps: Deps = REAL): Promise<PickedTrack | null> {
   const list = (cfg?.sources || []).filter((s) => s && sources.usable(s.type));

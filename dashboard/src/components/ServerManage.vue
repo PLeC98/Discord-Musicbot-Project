@@ -10,7 +10,7 @@
           <button v-for="(k, i) in KINDS" :key="k.value" type="button" role="radio" :aria-checked="kind === k.value" :class="[segment(kind === k.value, i, KINDS.length), '@max-sm/card:px-2 @max-sm/card:gap-1']" @click="kind = k.value"><Icon :name="kind === k.value ? 'check' : k.icon" :size="18" :class="kind !== k.value && '@max-xs/card:hidden!'" />{{ k.label }}</button>
         </div>
         <!-- 서식 도구줄(디스코드 임베드가 그리는 마크다운). 누르면 선택한 글을 감싸거나 선택한 줄 앞에 기호를 붙인다(이미 있으면 뗀다).
-             누르는 동안 입력란의 선택이 풀리지 않게 mousedown 을 막는다 -->
+             누르는 동안 입력란의 선택이 풀리지 않게 mousedown을 막는다 -->
         <div class="flex flex-wrap items-center gap-1 -ml-1" role="toolbar" :aria-label="T.announce.toolbar">
           <template v-for="(group, gi) in FORMAT_GROUPS" :key="gi">
             <span v-if="gi" class="w-px h-5 mx-1 bg-outline-variant" aria-hidden="true"></span>
@@ -151,7 +151,7 @@ const emit = defineEmits<{ changed: [] }>();
 const FIELD = "block w-full bg-surface-container-highest border border-transparent rounded-(--r-inner) text-on-surface text-sm font-[inherit] pl-4 pr-12 py-3 resize-y outline-none transition-[border-color] effects-fast focus:border-primary placeholder:text-on-surface-variant";
 
 // ── 전체 공지 ──
-// 종류는 서버의 것(contract/admin 의 ANNOUNCE_KINDS)
+// 종류는 서버의 것(contract/admin의 ANNOUNCE_KINDS)
 const KIND_LABEL: Record<AnnounceKind, string> = T.announce.kinds;
 // 종류 버튼, 미리보기의 아이콘: 보낼 임베드의 아이콘과 같은 기호(ui/icons)
 const KIND_ICON: Record<AnnounceKind, IconName> = { maintenance: ICONS[ANNOUNCE_STYLE.maintenance.icon].glyph, update: ICONS[ANNOUNCE_STYLE.update.icon].glyph, alert: ICONS[ANNOUNCE_STYLE.alert.icon].glyph, info: ICONS[ANNOUNCE_STYLE.info.icon].glyph };
@@ -223,7 +223,7 @@ function insertEmoji(char: string) {
   });
 }
 
-// 붙여넣은 토큰은 문자로(insertText 라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
+// 붙여넣은 토큰은 문자로(insertText라 되돌리기에 남는다), 복사, 잘라내기는 앱 이모지 문자를 토큰으로
 function onPaste(e: ClipboardEvent) {
   const pasted = e.clipboardData?.getData("text/plain") ?? "";
   const converted = toChars(pasted);
@@ -251,7 +251,7 @@ async function send() {
     if (data.failed) notify({ title: T.announce.partial.title, body: T.announce.partial.body(data.sent, data.failed), severity: "warning" });
     else notifyDone(T.announce.done, T.announce.doneBody(data.sent));
   } catch (e) {
-    // 서버가 알려 준 까닭을 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
+    // 서버가 알려 준 원인를 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
     notifyProblem(e, T.announce.failed);
   } finally {
     sending.value = false;

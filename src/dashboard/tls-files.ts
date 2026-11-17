@@ -59,7 +59,7 @@ function validRange(leaf: Pick<X509Certificate, "validFrom" | "validTo">) {
 }
 const daysLeft = (leaf: X509Certificate, now: number) => Math.ceil((Date.parse(leaf.validTo) - now) / DAY_MS);
 
-/** 키 PEM을 읽는다. 암호가 걸렸거나 읽지 못하면 그 까닭 */
+/** 키 PEM을 읽는다. 암호가 걸렸거나 읽지 못하면 그 원인 */
 function keyProblem(keyPem: string): string | null {
   if (/ENCRYPTED/.test(keyPem)) return "키에 암호가 걸려 있어 쓸 수 없음. 암호를 푼 키를 쓰세요(예: openssl pkey -in 암호키.pem -out key.pem)";
   try {
@@ -106,7 +106,7 @@ function fatalProblems(leaf: X509Certificate, keyPem: string, now: number) {
 function softProblems({ leaf, rest, urlHost, now, keyWorldReadable }: { leaf: X509Certificate; rest: X509Certificate[]; urlHost: string; now: number; keyWorldReadable: boolean }) {
   const notes: Note[] = [];
   const issued = rest.some((c) => leaf.checkIssued(c));
-  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: "인증서 파일에 중간 인증서가 없음. 브라우저는 대개 스스로 찾지만 일부 기기는 접속하지 못할 수 있음(fullchain.pem처럼 서버 인증서 다음에 중간 인증서를 이은 파일을 쓰세요)" });
+  if (!issued && !isCloudflareOrigin(leaf) && !isSelfSigned(leaf)) notes.push({ level: "warn", text: "인증서 파일에 중간 인증서가 없음. 브라우저는 대개 자동으로 찾지만 일부 기기는 접속하지 못할 수 있음(fullchain.pem처럼 서버 인증서 다음에 중간 인증서를 이은 파일을 쓰세요)" });
   // 호스트 이름 검증은 현행 표준(RFC 9525)대로: 부분 와일드카드(a*.example.com), SAN이 없을 때 CN으로 대체하는 것은 허용하지 않는다
   const named = isIP(urlHost) ? leaf.checkIP(urlHost) : leaf.checkHost(urlHost, { partialWildcards: false, subject: "never" });
   if (!named) notes.push({ level: "warn", text: `인증서의 이름에 공개 주소의 호스트(${urlHost})가 없음. 브라우저가 경고함(인증서 이름: ${leaf.subjectAltName ?? leaf.subject})` });

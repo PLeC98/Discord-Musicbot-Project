@@ -1,17 +1,17 @@
-// 판정: 다운로드한 오디오를 캐시 규격(`.opus`)으로 어떻게 만드나. probe 결과 하나로 copy 냐 transcode 냐만 답한다.
-// 상한(REMUX_MAX_KBPS)은 Opus 를 Opus 로 다시 인코딩할지에만 걸린다. 코덱이 다르면 비트레이트를 비교할 수 없다(mp3 128k 와 Opus 128k 는 다르다).
-// 변환 목표는 소스 비트레이트와 무관하다. 송출이 128k 라 그 위는 버려진다.
+// 판정: 다운로드한 오디오를 캐시 규격(`.opus`)으로 어떻게 만드나. probe 결과 하나로 copy인지 transcode인지만 반환한다.
+// 상한(REMUX_MAX_KBPS)은 Opus를 Opus로 다시 인코딩할지에만 걸린다. 코덱이 다르면 비트레이트를 비교할 수 없다(mp3 128k와 Opus 128k는 다르다).
+// 변환 목표는 소스 비트레이트와 무관하다. 송출이 128k라 그 위는 버려진다.
 
 /** Opus 소스에만 걸리는 상한(kbps). 상시 작동하는 값이 아니라 폭주를 막는 안전망이다. */
 const REMUX_MAX_KBPS = 320;
 
 /**
- * 상한을 이 배수만큼 넘어야 다시 인코딩한다. libopus 는 VBR 이라 목표를 그대로 지키지 않아서,
+ * 상한을 이 배수만큼 넘어야 다시 인코딩한다. libopus는 VBR이라 목표를 그대로 지키지 않아서,
  * 아슬아슬하게 넘긴 것을 다시 인코딩하면 비트레이트가 되레 오르고 파일도 커진다.
  */
 const REMUX_SLACK = 1.25;
 
-/** Opus 가 아닌 것을 인코딩할 때의 목표(kbps). 소스가 무엇이든 같다. */
+/** Opus가 아닌 것을 인코딩할 때의 목표(kbps). 소스가 무엇이든 같다. */
 const TRANSCODE_TARGET_KBPS = 128;
 
 type CacheAudioInfo = { codec?: string | null; bitrateKbps?: number | string | null };
@@ -32,7 +32,7 @@ function planFor(info: CacheAudioInfo | null | undefined): ConvertPlan {
     return { action: "transcode", bitrateKbps: TRANSCODE_TARGET_KBPS, why: codec ? `${codec} → opus` : "코덱을 읽지 못함" };
   }
   if (kbps !== null && kbps > REMUX_MAX_KBPS * REMUX_SLACK) {
-    return { action: "transcode", bitrateKbps: REMUX_MAX_KBPS, why: `opus ${kbps}k, 상한 ${REMUX_MAX_KBPS}k 를 크게 넘음` };
+    return { action: "transcode", bitrateKbps: REMUX_MAX_KBPS, why: `opus ${kbps}k, 상한 ${REMUX_MAX_KBPS}k를 크게 넘음` };
   }
   return { action: "copy", bitrateKbps: kbps, why: kbps ? `이미 opus ${kbps}k` : "이미 opus" };
 }

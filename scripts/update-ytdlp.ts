@@ -1,14 +1,14 @@
 /**
- * yt-dlp 를 목표 버전으로 맞춘다. 목표는 유튜브 탭의 yt-dlp 카드가 정한 채널과 고정(설정 DB)이고, 설정 DB 가 없으면(첫 설치) 기본값이다.
- * 실제 처리는 src/sources/ytdlp-binary.ts 가 한다.
+ * yt-dlp를 목표 버전으로 맞춘다. 목표는 업데이트 탭의 yt-dlp 카드가 정한 채널과 고정(설정 DB)이고, 설정 DB가 없으면(첫 설치) 기본값이다.
+ * 실제 처리는 src/sources/ytdlp-binary.ts가 한다.
  *
- * 설치 뒤(postinstall): 깔려 있으면 그대로 두고, 없으면 목표 버전을 설치한다. 실패해도 설치를 깨지 않는다(봇 기동이 다시 해 본다).
- * 사람이 부르면(update:ytdlp): 모드와 상관없이 목표 버전으로 다운로드하고, 실패하면 1 로 끝난다.
- *   설정 DB 가 있는데 읽지 못하면 다운로드하지 않고 1 로 끝난다(저장해 둔 고정을 무시하고 채널의 최신을 다운로드하지 않게).
- * --skip-signature: 이 실행에서만 yt-dlp 릴리스의 서명 확인을 건너뛴다(체크섬은 본다). yt-dlp 가 서명 키를 바꿨고 그것을 확인했을 때만 쓴다.
+ * 설치 뒤(postinstall): 깔려 있으면 그대로 두고, 없으면 목표 버전을 설치한다. 실패해도 설치를 깨지 않는다(봇 기동이 재시도한다).
+ * 직접 실행하면(update:ytdlp): 모드와 상관없이 목표 버전으로 다운로드하고, 실패하면 1로 끝난다.
+ *   설정 DB가 있는데 읽지 못하면 다운로드하지 않고 1로 끝난다(저장해 둔 고정을 무시하고 채널의 최신을 다운로드하지 않게).
+ * --skip-signature: 이 실행에서만 yt-dlp 릴리스의 서명 확인을 건너뛴다(체크섬은 본다). yt-dlp가 서명 키를 바꿨고 그것을 확인했을 때만 쓴다.
  * 봇 모듈을 부르면 로거가 콘솔을 가로채므로 콘솔이 아니라 로거로 남긴다(봇과 같은 모양).
  */
-import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import path from "node:path";
 import logger from "../src/infra/log/logger.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
@@ -16,13 +16,13 @@ import { ytdlpBinary, describe } from "../src/sources/ytdlp-binary.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 
 const postinstall = process.env.npm_lifecycle_event === "postinstall";
-// pnpm 이 -- 를 넘겨도 맞게 인자 어디에 있든 본다
+// pnpm이 -- 를 넘겨도 맞게 인자 어디에 있든 본다
 const skipSignature = process.argv.includes("--skip-signature");
 
 const log = logger.child({ category: "ytdlp" });
 const say = (level: "info" | "warn", line: string) => log[level](line);
 
-// 설정 DB 의 채널, 고정을 설정 객체에 올린다. 읽지 못했으면 false.
+// 설정 DB의 채널, 고정을 설정 객체에 올린다. 읽지 못했으면 false.
 // 설정 DB 모듈은 여기서 불러온다. 설치 뒤 스크립트(postinstall)에서 그 모듈(네이티브)을 불러오지 못해도 기본값으로 yt-dlp 설치를 계속한다
 async function loadTarget(): Promise<boolean> {
   try {

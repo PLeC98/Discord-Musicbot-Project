@@ -1,7 +1,7 @@
-// settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY 가 있어야 복호화된다.
+// settings.db 스냅샷. DB 폴더의 backups/ 에 SQLite 백업으로 뜬다(쓰는 중에도 한 시점의 사본). 비밀은 암호문 그대로라 같은 SECRETS_KEY가 있어야 복호화된다.
 //   daily           하루 한 번(기동 시 오늘 것이 없으면 + 한 시간마다 살핀다). 7개
 //   before-import   설정을 불러오기 전, before-restore 복원으로 교체하기 전, before-reset 초기화하기 전. 셋 합쳐 5개
-// 복원: 선택한 스냅샷을 settings.restore.db 로 예약하면, 다음 기동이 settings.db 를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB 를 교체하지 않는다).
+// 복원: 선택한 스냅샷을 settings.restore.db로 예약하면, 다음 기동이 settings.db를 열기 전에 지금 것을 스냅샷으로 남기고 교체한다(열린 DB를 교체하지 않는다).
 
 import fs from "fs";
 import path from "path";
@@ -29,11 +29,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const day = (at: Date) => `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
 const stamp = (at: Date) => `${day(at)}-${pad(at.getHours())}${pad(at.getMinutes())}${pad(at.getSeconds())}`;
 
-/** DB 폴더(settings.db 가 있는 곳). 열기 전이면 던진다 */
+/** DB 폴더(settings.db가 있는 곳). 열기 전이면 예외를 던진다 */
 const dbDir = () => path.dirname(settingsDb.get().name);
 const backupsOf = (dir: string) => path.join(dir, "backups");
 
-/** 목록(새것부터). dir 을 주면 그 DB 폴더의 것(열기 전에 부를 때) */
+/** 목록(새것부터). dir을 주면 그 DB 폴더의 것(열기 전에 부를 때) */
 function list(dir = dbDir()): Snapshot[] {
   const folder = backupsOf(dir);
   let names: string[];
@@ -55,7 +55,7 @@ function list(dir = dbDir()): Snapshot[] {
 
 /**
  * backups/에 새 이름을 잡는다(같은 초에 또 뜨면 -2, -3 꼬리). 뜨는 동안의 <이름>.part를 빈 파일로 잡아 겹쳐 뜨는 것끼리도 구분된다.
- * 다 뜨면 부르는 쪽이 .part를 그 이름으로 바꾼다(멈춰도 목록에는 반쯤 뜬 것이 없다)
+ * 다 뜨면 호출부가 .part를 그 이름으로 바꾼다(멈춰도 목록에는 반쯤 뜬 것이 없다)
  */
 function claim(folder: string, base: string): string {
   for (let n = 1; ; n++) {
@@ -82,7 +82,7 @@ function removeQuietly(file: string) {
 }
 
 // 오래된 것을 삭제한다(매일 것, 그 밖의 것 따로). 보조 파일(-wal, -shm), 뜨다 멈춰 남은 .part도.
-// 이미 끝낸 일(뜨기, 교체) 뒤에 부르므로 던지지 않는다. backups/가 없으면(새 PC에 푼 전체 백업) 할 일이 없다
+// 이미 끝낸 일(뜨기, 교체) 뒤에 부르므로 예외를 던지지 않는다. backups/가 없으면(새 PC에 푼 전체 백업) 할 일이 없다
 function prune(dir: string, now = Date.now()) {
   const folder = backupsOf(dir);
   try {
@@ -123,7 +123,7 @@ function dropWal(file: string) {
 
 /**
  * 지금 settings.db를 뜬다. 뜬 파일 이름. 매일 것은 하루 한 이름, 그 밖은 뜰 때마다 새 이름(앞 복원점을 덮지 않는다).
- * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). false면 부르는 쪽이 교체를 확정한 뒤 tidy()를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 삭제하지 않게)
+ * tidy: 뜬 뒤 오래된 것을 삭제한다(기본). false면 호출부가 교체를 확정한 뒤 tidy()를 부른다(뜨는 사이 그만둔 조작이 앞 복원점을 삭제하지 않게)
  */
 async function take(kind: SnapshotKind, at = new Date(), { tidy: tidyAfter = true }: { tidy?: boolean } = {}): Promise<string> {
   const dir = dbDir();
@@ -176,7 +176,7 @@ function stopDaily() {
   timer = null;
 }
 
-// 스냅샷 파일이 이 봇의 settings.db 형식인지(구조 버전, 표). 아니면 던진다
+// 스냅샷 파일이 이 봇의 settings.db 형식인지(구조 버전, 표). 아니면 예외를 던진다
 function checkSnapshot(file: string) {
   const db = new Database(file, { readonly: true, fileMustExist: true });
   try {
@@ -244,14 +244,14 @@ function keepCurrent(dir: string, current: string) {
 }
 
 /**
- * 기동 시 settings.db 를 열기 전에. 예약한 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 교체한다.
+ * 기동 시 settings.db를 열기 전에. 예약한 복원이 있으면 지금 것을 before-restore 스냅샷으로 남기고 교체한다.
  * 교체한 스냅샷 이름(없었으면 null)
  */
 function applyStaged(dir: string): string | null {
   const from = staged(dir);
   if (!from) return null;
   const current = path.join(dir, "settings.db");
-  // 다른 버전의 봇이 만든 설정 DB 면 교체하지 않는다(교체하면 구조가 맞지 않아 어차피 열지 못한다). 예약은 남는다
+  // 다른 버전의 봇이 만든 설정 DB면 교체하지 않는다(교체하면 구조가 맞지 않아 어차피 열지 못한다). 예약은 남는다
   try {
     checkSnapshot(path.join(dir, STAGED));
   } catch (error) {
@@ -264,8 +264,8 @@ function applyStaged(dir: string): string | null {
     // 구조를 보느라 열었을 때 남았을 수 있는 곁 파일
     for (const leftover of [`${STAGED}-wal`, `${STAGED}-shm`]) fs.rmSync(path.join(dir, leftover), { force: true });
   } catch (error) {
-    // Windows 에서 다른 프로그램(SQLite 뷰어 등)이 settings.db 를 열어 두면 삭제하지 못한다. 예약은 남아 다음 기동에 다시 한다
-    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 실패: ${messageOf(error)}. settings.db 를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
+    // Windows에서 다른 프로그램(SQLite 뷰어 등)이 settings.db를 열어 두면 삭제하지 못한다. 예약은 남아 다음 기동에 다시 한다
+    throw Object.assign(codedError("RESTORE_FAILED", `예약한 ${from} 교체 실패: ${messageOf(error)}. settings.db를 연 프로그램을 닫고 다시 시작하세요`), { dbFile: "settings.db" });
   }
   fs.rmSync(path.join(dir, `${STAGED}.json`), { force: true });
   prune(dir);

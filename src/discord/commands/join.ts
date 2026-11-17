@@ -34,7 +34,7 @@ const exported: GuildCommand = {
 
   async execute(interaction, bot) {
     const { guild, member, channel } = interaction;
-    // 기동 복원, 음성 연결을 기다리기 전에 "참가하는 중"을 본인에게 먼저 답하고(3초 안에), 저장한 세션을 복원하면 그것을 "불러오는 중"으로 고친다
+    // 기동 복원, 음성 연결을 기다리기 전에 "참가하는 중"으로 본인에게 먼저 응답하고(3초 안에), 저장한 세션을 복원하면 그것을 "불러오는 중"으로 고친다
     const result = await join(
       bot,
       { guild, member, textChannel: channel },

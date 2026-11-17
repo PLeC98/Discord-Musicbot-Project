@@ -53,7 +53,7 @@ export function toggleDeepOpen(id: string): void {
 /** 기억 하나에서 고칠 번호와, 새 번호로 다시 만드는 법. 고칠 것이 아니면 null */
 type Pick = (id: string) => { index: number; rebuild: (at: number) => string } | null;
 
-// 기억의 위치를 옮긴다. ids 의 각 값에서 고칠 번호를 찾아 옛 번호 → 새 번호(없으면 기억을 버린다)
+// 기억의 위치를 옮긴다. ids의 각 값에서 고칠 번호를 찾아 옛 번호 → 새 번호(없으면 기억을 버린다)
 function remap(ids: Set<string>, pick: Pick, order: number[]) {
   const next = new Set<string>();
   for (const id of ids) {
@@ -88,7 +88,7 @@ export function reorderSources(genreIndex: number, order: number[]): void {
   }, order);
 }
 
-/** 접기만 기억하는 카드(번호 하나)의 새 순서. prefix 는 카드 종류의 머리 글자 */
+/** 접기만 기억하는 카드(번호 하나)의 새 순서. prefix는 카드 종류의 머리 글자 */
 function moveFolded(prefix: string, rebuild: (at: number) => string, order: number[]) {
   const shape = new RegExp(`^${prefix}(\\d+)$`);
   folded.value = remap(

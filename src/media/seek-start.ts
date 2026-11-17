@@ -1,6 +1,6 @@
 // 위치를 옮길 때 받기 시작할 자리를 묻는다: 파일 앞부분(헤더, 색인)을 받아 목표 앞의 키프레임 바이트를 찾는다(rules/container-index).
-// 청크 스트림으로 받는 유튜브의 webm, m4a 가 쓴다. 답이 없으면(가까운 위치, 색인 없음, 받지 못함) 부르는 쪽은 파일 처음부터 받는다.
-// 여기서는 로그를 남기지 않고 까닭을 돌려준다(여는 쪽이 한 번 남긴다).
+// 청크 스트림으로 받는 유튜브의 webm, m4a가 쓴다. 답이 없으면(가까운 위치, 색인 없음, 받지 못함) 호출부는 파일 처음부터 받는다.
+// 여기서는 로그를 남기지 않고 이유를 돌려준다(여는 쪽이 한 번 남긴다).
 
 import { readIndex, headerOf, startPoint, worthIndexing, FIRST_BYTES } from "../rules/container-index.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -11,7 +11,7 @@ type SeekRequest = { url: string; headers: Record<string, string>; totalBytes: n
 type SeekStart = { header: Buffer; startByte: number; startedAtMs: number; expectStart: { bytes: number; check(head: Buffer): boolean } };
 /**
  * near: 가까운 위치라 묻지 않았다(남길 일이 아니다). slow: 헤더 요청이 한도를 넘었다(그만큼 늦어졌다). failed: 헤더를 받지 못했다(시간 초과와 다르다. 재생 입력이 warn으로 알린다).
- * refused: 주소가 4xx 로 막혔다(그 상태 코드). 처음부터 받는 요청도 같은 주소, 같은 헤더라 똑같이 막힌다
+ * refused: 주소가 4xx로 막혔다(그 상태 코드). 처음부터 받는 요청도 같은 주소, 같은 헤더라 똑같이 막힌다
  */
 type SeekAnswer = { ok: true; start: SeekStart } | { ok: false; why: string; near?: boolean; slow?: boolean; failed?: boolean; refused?: number };
 type SeekOptions = { fetchImpl?: RangeFetch; timeoutMs?: number; headBytes?: number };
@@ -23,7 +23,7 @@ const MORE_HEAD_TRIES = 3;
 /** 헤더 요청 전체(더 받는 것까지)의 한도. 보통 걸리는 시간보다 훨씬 길게 잡는다 */
 const HEAD_TIMEOUT_MS = 3000;
 
-/** 앞부분 [0, bytes) 를 받는다. 206 이 아니면 그 상태를 던진다 */
+/** 앞부분 [0, bytes)를 받는다. 206이 아니면 그 상태를 던진다 */
 async function headOf(url: string, headers: Record<string, string>, bytes: number, fetchImpl: RangeFetch, signal: AbortSignal): Promise<Buffer> {
   const res = await fetchImpl(url, { headers: { ...headers, Range: `bytes=0-${bytes - 1}` }, signal });
   if (res.status !== 206 || !res.body) throw Object.assign(new Error(`헤더 요청이 HTTP ${res.status}`), { status: res.status });

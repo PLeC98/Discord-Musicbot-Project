@@ -18,6 +18,6 @@ test("모든 문장", () => {
   );
 });
 
-test("전용 채널을 정했는데 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 적으면 재생한다는 대신 /play 를 쓰라고 한다", () => {
+test("전용 채널을 정했는데 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 적으면 재생한다는 대신 /play를 쓰라고 한다", () => {
   assert.equal(settings.channelSet("<#1>", false).description, "<#1> 채널을 봇 전용 채널로 설정했어요.\n\n다만 이 봇은 채팅 내용을 읽을 수 없게 설정돼 있어서 `/play`로 곡을 넣어야 해요.\n대시보드의 공지도 이 채널로 발송돼요.");
 });

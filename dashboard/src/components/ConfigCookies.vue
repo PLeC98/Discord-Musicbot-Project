@@ -1,5 +1,5 @@
 <template>
-  <!-- 유튜브 쿠키 입력. 카드가 아니라 연령 제한 탭 유튜브 카드의 칸들 아래에 들어간다(ConfigTunables 의 in- 슬롯) -->
+  <!-- 유튜브 쿠키 입력. 카드가 아니라 연령 제한 탭 유튜브 카드의 칸들 아래에 들어간다(ConfigTunables의 in- 슬롯) -->
   <div class="flex flex-col gap-2">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
     <!-- 라벨, 언제 교체하는지(툴팁), 오른쪽에 있는지 없는지. 무엇에 쓰는지는 탭이 말한다(연령 제한). 값은 쓰기 전용이라 어느 통로로도 내려오지 않는다 -->

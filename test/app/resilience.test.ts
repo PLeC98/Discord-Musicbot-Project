@@ -15,7 +15,7 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("아는 디스코드 오류: 못 답한, 두 번 답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
+test("아는 디스코드 오류: 응답하지 못한, 두 번 응답한 상호작용은 warn(봇 쪽 사정이다), 권한 없음은 error. 그 밖은 null", () => {
   assert.equal(knownDiscordError({ code: 10062 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 40060 })?.level, "warn");
   assert.equal(knownDiscordError({ code: 50013 })?.level, "error");
@@ -93,7 +93,7 @@ test("아는 디스코드 오류는 로그만: 다시 시작하지도 내리지�
   assert.deepEqual(exits, []);
 });
 
-test("서버 문맥 안에서 새어 나온 오류는 그 서버만 다시 시작한다. 몇 번이 와도 봇 전체를 내리지 않는다(그 서버의 되풀이는 guildFault 가 막는다)", () => {
+test("서버 문맥 안에서 새어 나온 오류는 그 서버만 다시 시작한다. 몇 번이 와도 봇 전체를 내리지 않는다(그 서버의 되풀이는 guildFault가 막는다)", () => {
   const { proc, faults, exits } = installed();
   for (let i = 0; i <= FLOOD_MAX; i++) inGuild("g1", () => proc.emit("uncaughtException", new Error("버그")));
   inGuild("g2", () => proc.emit("unhandledRejection", new Error("버그")));

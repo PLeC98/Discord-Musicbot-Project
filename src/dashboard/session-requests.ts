@@ -2,7 +2,7 @@
 // 요청을 받을 때 한 번 확인하는 것만으로는 세션이 끝난 뒤에도 요청이 끝까지 간다(훔친 쿠키로 시작해 둔 불러오기, 다운로드, 열어 둔 실시간 로그).
 //   묶기(bind)            세션 미들웨어 뒤에서 로그인한 요청을 응답마다 묶는다. 끝 표시는 요청에 둔다(목록에서 빠져도 핸들러가 아직 돌면 끝난 것으로 본다)
 //   응답 감싸기           끝난 요청이거나 사용자가 없는 세션이면 응답을 쓰기 직전에 요청에서 세션을 뗀다: express-session이 저장하지도 쿠키를 싣지도 않는다
-//                        (끝낸 세션을 되살리지 않고, 다시 로그인한 브라우저의 새 쿠키를 옛 쿠키로 덮지 않는다). 끝난 GET은 답 대신 401
+//                        (끝낸 세션을 되살리지 않고, 다시 로그인한 브라우저의 새 쿠키를 옛 쿠키로 덮지 않는다). 끝난 GET은 응답 대신 401
 //   끊기                 저장소가 세션 종료를 알리면 곧바로 끊고, 알림이 없는 종료(SQL로 직접 삭제 등)는 RECHECK_MS마다 다시 확인한다.
 //                        스트림(SSE)은 끝 이벤트를 쓰고 끝낸 뒤 소켓을 강제로 닫는다(읽지 않는 클라이언트는 끝내도 닫히지 않는다. 그래서 SSE는 Connection: close로 연다).
 //                        스트리밍 응답과 수신 중인 본문은 소켓을 강제로 닫는다. 상태를 바꾸는 요청은 변경 직전의 확인(assertSignedIn)이 401로 멈춘다
@@ -30,7 +30,7 @@ const FAILURES_TO_CLOSE = 3;
 /** 끝을 알리는 SSE 이벤트. 화면이 받으면 닫고, 조금 뒤 로그인이 살아 있는지 확인한다(다시 로그인한 브라우저는 새 쿠키로 다시 연다) */
 const ENDED_FRAME = "event: session-ended\ndata: {}\n\n";
 
-// 끝난 GET의 답을 401로 바꿀 때 빼는 헤더(원래 답의 표현 헤더를 싣지 않는다)
+// 끝난 GET의 응답을 401로 바꿀 때 빼는 헤더(원래 응답의 표현 헤더를 싣지 않는다)
 const REPRESENTATION = ["Content-Length", "Content-Type", "ETag", "Last-Modified", "Location", "Content-Disposition", "Content-Encoding", "Content-Range", "Accept-Ranges"];
 const SAFE = new Set(["GET", "HEAD"]);
 
@@ -50,17 +50,17 @@ const entries = new Map<Response, Entry>();
 const entryOf = new WeakMap<Request, Entry>();
 /** 끝난 요청(세션이 끝났다) */
 const ended = new WeakSet<Request>();
-/** 스스로 세션을 끝내는 요청(로그아웃, 다시 로그인). 끝 알림에 멈추지 않는다 */
+/** 직접 세션을 끝내는 요청(로그아웃, 다시 로그인). 끝 알림에 멈추지 않는다 */
 const released = new WeakSet<Request>();
 /** 소켓의 마지막 요청(모든 요청에서 적는다. keep-alive의 다음 요청을 건드리지 않게) */
 const lastOf = new WeakMap<Socket, Request>();
-/** sid → 그 세션의 요청이 쓴 소켓들(소켓이 닫히면 뺀다). 한 번에 쓰고 끝낸 큰 답은 응답이 끝나 목록에서 빠진 뒤에도 바이트가 소켓에 남는다 */
+/** sid → 그 세션의 요청이 쓴 소켓들(소켓이 닫히면 뺀다). 한 번에 쓰고 끝낸 큰 응답은 목록에서 빠진 뒤에도 바이트가 소켓에 남는다 */
 const socketsOf = new Map<string, Set<Socket>>();
 const sidsOf = new WeakMap<Socket, Set<string>>();
 const heard = new WeakSet<SqliteSessionStore>();
 let timer: NodeJS.Timeout | null = null;
 let failures = 0;
-// 다시 보기의 저장소 읽기 실패. 같은 까닭이 이어지면 한 번만, 풀리면 한 줄
+// 다시 보기의 저장소 읽기 실패. 같은 원인이 이어지면 한 번만, 풀리면 한 줄
 const readFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "진행 중인 요청의 로그인 세션 확인");
 
 /** 모든 요청의 맨 앞(정적 파일보다 앞): 소켓의 마지막 요청을 적는다 */
@@ -124,7 +124,7 @@ function wrap(req: Request, res: Response) {
   let replacing = false;
   const detach = () => {
     const session = req.session as Request["session"] | null | undefined;
-    // 스스로 세션을 끝낸 요청(다시 로그인)은 새로 만든 세션을 지킨다
+    // 직접 세션을 끝낸 요청(다시 로그인)은 새로 만든 세션을 지킨다
     if (session && ((ended.has(req) && !released.has(req)) || !session.user)) (req as { session: unknown }).session = null;
   };
   // 끝난 GET이 스트리밍으로 헤더를 쓰려 한다(sendFile, 파이프): 401로 바꿀 수 없으니 소켓을 강제로 닫는다
@@ -153,7 +153,7 @@ function wrap(req: Request, res: Response) {
   } as Response["end"];
 }
 
-/** 스스로 이 요청의 세션을 끝낸다(로그아웃, 다시 로그인): 끝 알림에 멈추지 않는다 */
+/** 직접 이 요청의 세션을 끝낸다(로그아웃, 다시 로그인): 끝 알림에 멈추지 않는다 */
 function release(req: Request) {
   released.add(req);
 }
@@ -170,7 +170,7 @@ function assertSignedIn(req: Request) {
   if (ended.has(req) || entry.deadline <= Date.now()) throw new SessionEndedError();
 }
 
-/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로 답하고(헤더 전이면) true */
+/** 경로의 catch 맨 앞: 세션이 끝나 멈춘 것이면 401로 응답하고(헤더 전이면) true */
 function sessionEnded(res: Response, error: unknown): boolean {
   if (!(error instanceof SessionEndedError)) return false;
   if (!res.headersSent && !res.destroyed) res.status(401).type("application/problem+json").json(problemBody("login-required"));
@@ -220,8 +220,8 @@ function onEnded(sid: string) {
   sweepSockets(sid, live);
 }
 
-// 응답이 닫혀 목록에서 빠진 뒤에도 바이트가 남은 소켓(한 번에 쓰고 끝낸 큰 답): 그 소켓의 마지막 요청이 이 세션의 것이면 강제로 닫는다.
-// live: 목록에 남아 stop이 다룬 요청(스트림의 1초 유예, 401로 답할 요청을 건드리지 않게)
+// 응답이 닫혀 목록에서 빠진 뒤에도 바이트가 남은 소켓(한 번에 쓰고 끝낸 큰 응답): 그 소켓의 마지막 요청이 이 세션의 것이면 강제로 닫는다.
+// live: 목록에 남아 stop이 다룬 요청(스트림의 1초 유예, 401로 응답할 요청을 건드리지 않게)
 function sweepSockets(sid: string, live: Set<Request>) {
   for (const socket of [...(socketsOf.get(sid) ?? [])]) {
     const last = lastOf.get(socket);
@@ -230,13 +230,13 @@ function sweepSockets(sid: string, live: Set<Request>) {
   }
 }
 
-// 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 헤더를 보냈는데 다 나가지 않은 답(end를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 강제로 닫는다.
+// 끝난 요청을 멈춘다. 스트림은 끝 이벤트와 함께 끊고, 헤더를 보냈는데 다 나가지 않은 응답(end를 불렀어도 버퍼에 남은 것 포함)과 받는 중인 본문은 소켓을 강제로 닫는다.
 // 나머지는 표시만 한다(감싸기와 확인이 멈춘다)
 function stop(entry: Entry, why: string) {
   const { req, res } = entry;
   ended.add(req);
   if (entry.stream) return closeStream(entry, why);
-  // 다 나가지 않은 답: 읽기는 end를 불렀어도(버퍼에 남은 다운로드), 상태를 바꾸는 요청은 아직 끝내지 않은 것만(이미 바꾸고 답했으면 그 답을 보낸다)
+  // 다 나가지 않은 응답: 읽기는 end를 불렀어도(버퍼에 남은 다운로드), 상태를 바꾸는 요청은 아직 끝내지 않은 것만(이미 바꾸고 응답했으면 그 응답을 보낸다)
   const unsent = res.headersSent && (SAFE.has(req.method) ? !res.writableFinished : !res.writableEnded);
   if (!receiving(req) && !unsent) return;
   if (entries.get(res) === entry) entries.delete(res);
@@ -315,7 +315,7 @@ function recheck(now = Date.now()) {
   failures = 0;
 }
 
-// 그 sid의 목록에 남은 요청(stop이 다뤘거나 401로 답할 것. 소켓 정리가 건드리지 않게)
+// 그 sid의 목록에 남은 요청(stop이 다뤘거나 401로 응답할 것. 소켓 정리가 건드리지 않게)
 function liveOf(sid: string) {
   return new Set([...entries.values()].filter((entry) => entry.sid === sid).map((entry) => entry.req));
 }

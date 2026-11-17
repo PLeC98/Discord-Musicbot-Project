@@ -28,14 +28,14 @@ let storeBroken = true;
 const TOKEN = "t".repeat(43);
 const brokenSession = (req: Request, _res: Response, next: NextFunction) => {
   if (storeBroken) {
-    // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 모양
+    // better-sqlite3가 언마운트된 볼륨에서 실제로 던지는 예외의 모양
     return next(Object.assign(new Error("database disk image is malformed"), { name: "SqliteError", code: "SQLITE_CORRUPT" }));
   }
   req.session = fake<Request["session"]>({ csrfToken: TOKEN });
   next();
 };
 
-// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+// ── 서버 설정: 진짜를 임시 DB로 ──────────────────────────
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("dashboard-errors-");
 after(() => store.close());
@@ -148,7 +148,7 @@ test("보안 헤더: 넣기로 한 것만 있고, 넣으면 안 되는 것은 �
 
   assert.match(headers.get("content-security-policy") || "", /default-src 'self'/);
   assert.match(headers.get("content-security-policy") || "", /img-src 'self' data: blob: https:/); // 외부 CDN 썸네일, 화면이 블러로 만든 배경화면
-  assert.match(headers.get("content-security-policy") || "", /media-src 'self' blob:/); // 로그인 배경 영상(hls.js 가 MediaSource 를 blob: 으로 붙인다)
+  assert.match(headers.get("content-security-policy") || "", /media-src 'self' blob:/); // 로그인 배경 영상(hls.js가 MediaSource를 blob: 으로 붙인다)
   assert.match(headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
   assert.equal(headers.get("x-content-type-options"), "nosniff");
   assert.equal(headers.get("x-frame-options"), "DENY");
@@ -170,7 +170,7 @@ test("등록되지 않은 /api 경로는 HTML이 아니라 문제 응답 404", a
     const res = await req("/api/definitely-not-a-route");
     assert.equal(res.status, 404);
     assert.match(res.headers.get("content-type") || "", /application\/problem\+json/);
-    // 클라이언트가 code 로 문장을 선택한다
+    // 클라이언트가 code로 문장을 선택한다
     assert.equal(JSON.parse(res.body).code, "route-not-found");
   } finally {
     storeBroken = true;
@@ -210,7 +210,7 @@ test("CSRF 토큰이 없는 요청은 본문을 파싱하기 전에 403을 반�
   }
 });
 
-test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽어도). /api, /auth 는 따로 세고 빌드한 화면 파일(assets/)은 세지 않아 여기 한도에 걸리지 않는다", async () => {
+test("로그인 없이 받는 경로는 IP마다 센다(세션 저장소가 죽어도). /api, /auth는 따로 세고 빌드한 화면 파일(assets/)은 세지 않아 여기 한도에 걸리지 않는다", async () => {
   const { default: config } = await import("../../src/config/index.ts");
   const saved = config.dashboard.rateLimit.publicMax;
   config.dashboard.rateLimit.publicMax = 2;
@@ -218,7 +218,7 @@ test("로그인 없이 받는 경로는 IP 마다 센다(세션 저장소가 죽
   const own = await listenForFetch(createApp(fakeBot({ client: { user: null } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: brokenSession }), "127.0.0.1");
   const at = (urlPath: string) => fetch(baseUrl(own) + urlPath, { signal: AbortSignal.timeout(3000) }).then(async (res) => ({ status: res.status, body: await res.text() }));
   try {
-    for (let i = 0; i < 3; i++) assert.notEqual((await at("/api/whatever")).status, 429, "/api 는 공개 경로 한도로 세지 않는다");
+    for (let i = 0; i < 3; i++) assert.notEqual((await at("/api/whatever")).status, 429, "/api는 공개 경로 한도로 세지 않는다");
     for (let i = 0; i < 3; i++) assert.notEqual((await at("/assets/twemoji/0/1f600.svg")).status, 429, "assets/ 는 공개 경로 한도로 세지 않는다");
     assert.notEqual((await at("/servers")).status, 429);
     assert.notEqual((await at("/servers")).status, 429);

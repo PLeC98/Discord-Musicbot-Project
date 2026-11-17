@@ -6,7 +6,7 @@ import { markTransient, isTransient, scheduleDelete, RETRY_AFTER_MS } from "../.
 import logger from "../../src/infra/log/logger.ts";
 import sink from "../../src/infra/log/sink.ts";
 
-test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 까닭을 warn 으로 남긴다(삼키지 않는다)", async (t) => {
+test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 원인을 warn으로 남긴다(삼키지 않는다)", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const level = logger.level;
   logger.level = "debug";
@@ -23,7 +23,7 @@ test("잠깐 보이는 메시지: 때가 되면 지우고, 지우지 못하면 �
     assert.deepEqual(deleted, ["ok"]);
     assert.ok(sink.buffer.slice(from).some((e) => e.level === "warn" && e.text.includes("Missing Access")));
 
-    // 지우는 함수가 바로 던져도 타이머 밖으로 새지 않고 같은 길로 남긴다
+    // 지우는 함수가 바로 예외를 던져도 타이머 밖으로 새지 않고 같은 길로 남긴다
     scheduleDelete(
       {
         id: "sync",
@@ -105,7 +105,7 @@ test("잠깐 보이는 메시지: 네트워크가 끊겨 못 지웠으면 간격
   assert.equal(never, RETRY_AFTER_MS.length + 1, "몇 번 해 보고 그만둔다");
 });
 
-test("스스로 지워질 메시지: 지울 시각(+여유)까지만 기억하고, 다시 표시하면 기한이 늘어난다", () => {
+test("자동으로 지워질 메시지: 지울 시각(+여유)까지만 기억하고, 다시 표시하면 기한이 늘어난다", () => {
   const t0 = 1_000_000;
   markTransient("m1", 30000, t0);
   assert.equal(isTransient("m1", t0 + 30000), true);

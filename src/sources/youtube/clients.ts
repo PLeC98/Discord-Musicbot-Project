@@ -36,7 +36,7 @@ class PlayerClients {
    *                           (호출부가 yt-dlp 기본값으로 1회 호출하고 끝낸다)
    * @param {number} window    최근 몇 회를 보고 판정할지
    * @param {number} fails     그중 몇 회가 실패면 제외할지
-   * @param {number} retryMs   제외한 뒤 다시 테스트하기까지. 0 이면 실행 내내 제외
+   * @param {number} retryMs   제외한 뒤 다시 테스트하기까지. 0이면 실행 내내 제외
    */
   constructor(order: string[] = [], { window = 5, fails = 3, retryMs = 0, now = Date.now }: { window?: number; fails?: number; retryMs?: number; now?: () => number } = {}) {
     this.order = order;
@@ -54,7 +54,7 @@ class PlayerClients {
     return this.order.length === 0;
   }
 
-  /** 지금 시도할 순서. 전부 제외됐으면 빈 배열. 제외한 지 retryMs 가 지난 것은 기록을 비우고 다시 넣는다 */
+  /** 지금 시도할 순서. 전부 제외됐으면 빈 배열. 제외한 지 retryMs가 지난 것은 기록을 비우고 다시 넣는다 */
   list() {
     if (this.retryMs > 0) {
       for (const [client, at] of this.excluded) {
@@ -106,7 +106,7 @@ class PlayerClients {
   }
 }
 
-// 봇 전체에 PlayerClients 하나. 설정은 쓸 때 읽고, 운영 조절값이 바뀌었으면 새로 만든다(그동안의 실패 기록은 처음부터)
+// 봇 전체에 PlayerClients 하나. 설정은 쓸 때 읽고, 운영 설정값이 바뀌었으면 새로 만든다(그동안의 실패 기록은 처음부터)
 let table: PlayerClients | null = null;
 let tableOf = "";
 function playerClients() {

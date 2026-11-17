@@ -1,4 +1,4 @@
-// 던져진 값에서 이름(code)과 메시지를 꺼낸다. 오류가 아닌 값도 받는다. 화면도 rules 를 거쳐 부르므로 Node 타입을 쓰지 않는다
+// 던져진 값에서 이름(code)과 메시지를 꺼낸다. 오류가 아닌 값도 받는다. 화면도 rules를 거쳐 부르므로 Node 타입을 쓰지 않는다
 
 /** 오류 코드(code)를 꺼낸다. 문자열도 숫자도 온다(디스코드 API는 숫자). DOMException의 옛 숫자 code(TimeoutError 23 등)는 뜻이 이름(name)에 있어 보지 않는다 */
 function codeOf(error: unknown): string | number | undefined {
@@ -20,7 +20,7 @@ const PLAIN_NAMES = new Set(["Error", "Object"]);
 const SUMMARY_MAX = 300;
 
 /**
- * 오류 글. 메시지가 없으면 무슨 오류인지 알 수 있는 다음 것으로: 이름, 코드 → 던진 자리(스택 첫 줄) → 객체의 내용(줄여서) → 값 그대로
+ * 오류 글. 메시지가 없으면 무슨 오류인지 알 수 있는 다음 것으로: 이름, 코드 → 예외를 던진 자리(스택 첫 줄) → 객체의 내용(줄여서) → 값 그대로
  */
 function messageOf(error: unknown): string {
   if (!error || typeof error !== "object") return typeof error === "string" && error ? error : `던진 값: ${String(error)}`;

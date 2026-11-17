@@ -3,7 +3,7 @@
 //
 // 원본은 유니코드 Unihan 데이터베이스의 일본어 읽기(kJapaneseOn 음독, kJapaneseKun 훈독, 로마자)다.
 // 한자마다 읽기가 모두 ん(로마자 끝 N)으로 끝나면 "ㄴ 받침", 모두 아니면 "받침 없음"으로 나누고, 갈리면 표에 넣지 않는다
-// (그 한자로 끝나는 말은 조사를 괄호 형식으로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE 에 적는다.
+// (그 한자로 끝나는 말은 조사를 괄호 형식으로 둔다). 실행에는 인터넷이 필요하다. 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE에 적는다.
 
 import fs from "fs";
 import path from "path";
@@ -14,7 +14,7 @@ const SOURCE = "https://www.unicode.org/Public/UCD/latest/ucd/Unihan.zip";
 const ENTRY = "Unihan_Readings.txt";
 const OUT = path.join(PROJECT.data, "kanji-finals.json");
 
-// zip 안의 파일 하나를 꺼낸다. 중앙 디렉터리에서 크기와 위치를 읽고 deflate 를 푼다
+// zip 안의 파일 하나를 꺼낸다. 중앙 디렉터리에서 크기와 위치를 읽고 deflate를 푼다
 function unzipEntry(zip: Buffer, name: string) {
   const end = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
   if (end < 0) throw new Error("zip 끝 마커가 없다");
@@ -34,7 +34,7 @@ function unzipEntry(zip: Buffer, name: string) {
     }
     at += 46 + nameLength + extraLength + commentLength;
   }
-  throw new Error(`${name} 이 zip 에 없다`);
+  throw new Error(`zip에 없다: ${name}`);
 }
 
 const response = await fetch(SOURCE);
@@ -63,7 +63,7 @@ for (const [code, list] of [...readings].sort(([a], [b]) => a - b)) {
   else if (n === 0) endsVowel += String.fromCodePoint(code);
 }
 
-// 버전 표기는 data/NOTICE 의 출처 줄과 맞춘다
+// 버전 표기는 data/NOTICE의 출처 줄과 맞춘다
 const source = `Unicode Character Database, ${ENTRY} (Unicode ${version}, ${date})`;
 fs.writeFileSync(OUT, `${JSON.stringify({ source, endsN, endsVowel })}\n`);
 console.log(`Unicode ${version} (${date}): ん ${[...endsN].length}자 · 모음 ${[...endsVowel].length}자 → ${path.relative(process.cwd(), OUT)}`);

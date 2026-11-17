@@ -21,7 +21,7 @@ const devices = {
   confirmTitle: "다른 기기에서 모두 로그아웃할까요?",
   confirmBody: "현재 기기를 제외한 모든 기기에서 로그아웃해요.\n타 기기들과 유출, 복사된 로그인이 전부 해제돼요.",
   done: (n: number) => (n ? `다른 기기 ${n}대에서 로그아웃했어요` : "다른 기기에는 로그인돼 있지 않았어요"),
-  loadFailed: "로그인한 기기를 읽지 못했어요.",
+  loadFailed: "로그인한 기기를 불러오지 못했어요.",
   failed: "로그아웃하지 못했어요.",
   attribution: "IP Geolocation by DB-IP",
 };

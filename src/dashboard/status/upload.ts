@@ -1,5 +1,5 @@
 // 봇 상태 탭의 업로드: 봇(음성, 대시보드)과 호스트 전체. 15초 구간마다 누계의 차이로 잰다(다운로드처럼 지난 15초 평균).
-// 시스템 누계는 Windows 에서 PowerShell 을 실행해 받으므로 구간을 닫을 때 기다린다
+// 시스템 누계는 Windows에서 PowerShell을 실행해 받으므로 구간을 닫을 때 기다린다
 
 import { uploadTotals } from "../../infra/upload-meter.ts";
 import { sentBetween, systemSent, type Sent } from "../../infra/system-upload.ts";
@@ -13,7 +13,7 @@ let mark: Mark | null = null;
 let today = { day: "", bytes: 0 };
 let view: AdminStatus["upload"] = { bot: 0, voice: 0, dashboard: 0, system: null, todayBytes: 0 };
 
-// 봇 누계는 바로, 시스템 누계는 답을 받아서
+// 봇 누계는 바로, 시스템 누계는 결과를 받아서
 async function markAt(at: number): Promise<Mark> {
   return { at, ...uploadTotals(), system: await readSystem() };
 }
@@ -48,7 +48,7 @@ async function closeUploadWindow(at = Date.now()) {
   return view;
 }
 
-/** 지난 구간 값. todayBytes 는 호스트의 자정부터 */
+/** 지난 구간 값. todayBytes는 호스트의 자정부터 */
 const uploadView = () => view;
 
 /** 테스트: 처음으로 */

@@ -1,5 +1,5 @@
 // 재생 조작의 진입점: 슬래시 명령과 재생 패널 버튼이 같은 절차(조작 → 응답)를 쓴다.
-// 권한, 동일 음성 채널, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies 가 한다
+// 권한, 동일 음성 채널, 계층 검사와 조작은 usecases/controls, 응답 화면은 ui/control-replies가 한다
 
 import type { ContainerBuilder, RepliableInteraction } from "discord.js";
 import * as controls from "../../usecases/controls.ts";
@@ -17,13 +17,13 @@ type Asked = RepliableInteraction<"cached">;
 /** 이 서버의 플레이어. 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
 
-// 거절. "하는 중" 자리표시자로 이미 답했으면(받아들인 뒤의 거절) 그 자리표시자를 안내로 바꾼다
+// 거절. "하는 중" 자리표시자로 이미 응답했으면(받아들인 뒤의 거절) 그 자리표시자를 안내로 바꾼다
 function refuse(interaction: Asked, r: Problem) {
   const notice = controlMessage(r);
   return interaction.replied ? replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)) : noticeSelf(interaction, notice);
 }
 
-// 실패로 일시정지해 둔 곡의 ▶는 곡을 다시 열어 몇 초 걸린다. 받아들이면 "다시 트는 중"을 먼저 본인에게 답한다
+// 실패로 일시정지해 둔 곡의 ▶는 곡을 다시 열어 몇 초 걸린다. 받아들이면 "다시 트는 중"으로 먼저 본인에게 응답한다
 async function answerPause(interaction: Asked, player: MaybePlayer) {
   const r = await controls.pause(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.reopening()) });
   if (!r.ok) return refuse(interaction, r);
@@ -42,7 +42,7 @@ async function answerPrevious(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.previous(r.restarted, r.track), LIFETIME.result);
 }
 
-// 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 답한다(유스케이스의 onAccepted)
+// 결과는 정리를 시작한 뒤, 끝난 패널을 그리기 전에 응답한다(유스케이스의 onAccepted)
 async function answerStop(interaction: Asked, player: MaybePlayer) {
   const r = await controls.stop(player, { member: interaction.member }, { onAccepted: (facts) => toAll(interaction, replies.stopped(facts.cleared, interaction.member, facts.stayed), LIFETIME.farewell) });
   if (!r.ok) return refuse(interaction, r);
@@ -54,14 +54,14 @@ async function answerShuffle(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.shuffled(r.count, interaction.member), LIFETIME.result);
 }
 
-/** 볼륨. level 은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls 가 본다) */
+/** 볼륨. level은 명령이 받은 수이거나 입력 창에 입력한 값(맞는 값인지는 controls가 본다) */
 async function answerVolume(interaction: Asked, player: MaybePlayer, level: unknown) {
   const r = await controls.volume(player, { member: interaction.member }, level);
   if (!r.ok) return refuse(interaction, r);
   return toAll(interaction, replies.volumeSet(r.before, r.level, interaction.member), LIFETIME.result);
 }
 
-/** 반복 모드. mode 는 명령이 선택한 값이거나 버튼의 다음 모드(맞는 값인지는 controls 가 본다) */
+/** 반복 모드. mode는 명령이 선택한 값이거나 버튼의 다음 모드(맞는 값인지는 controls가 본다) */
 async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown) {
   const r = await controls.loop(player, { member: interaction.member }, mode);
   if (!r.ok) return refuse(interaction, r);
@@ -69,8 +69,8 @@ async function answerLoop(interaction: Asked, player: MaybePlayer, mode: unknown
 }
 
 /**
- * 시간이 걸리는 조작(곡을 다시 연다)을 받아들였다. 곧바로 "하는 중" 을 본인에게 보내고, 결과는 모두에게 새로 보낸다(ui/delivery).
- * 그 뒤에 던지면 "하는 중" 자리표시자를 오류로 바꾼다
+ * 시간이 걸리는 조작(곡을 다시 연다)을 받아들였다. 곧바로 "하는 중"을 본인에게 보내고, 결과는 모두에게 새로 보낸다(ui/delivery).
+ * 그 뒤에 예외를 던지면 "하는 중" 자리표시자를 오류로 바꾼다
  */
 const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () => {
   await interaction.reply(reply(working));
@@ -86,7 +86,7 @@ async function answerReplay(interaction: Asked, player: MaybePlayer) {
   return toAll(interaction, replies.replayed(r.track, interaction.member, art), LIFETIME.result, art?.file && [art.file]);
 }
 
-/** 곡 안의 위치로. ms 는 옮길 위치 */
+/** 곡 안의 위치로. ms는 옮길 위치 */
 async function answerSeek(interaction: Asked, player: MaybePlayer, ms: number) {
   const r = await controls.seek(player, { member: interaction.member }, ms, { reason: "seek", onAccepted: acceptWith(interaction, replies.seeking()) });
   if (!r.ok) return refuse(interaction, r);

@@ -1,6 +1,6 @@
 <template>
   <!-- 설정 DB 스냅샷. 선택하면 예약하고 다시 시작해 교체한다(실행기 없이 실행했으면 다음에 시작할 때). 복원은 최근 로그인만 -->
-  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 루트 하나(받은 class가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="history" :title="T.title">
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.desc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.descTip" /></p>

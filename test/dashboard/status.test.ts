@@ -89,7 +89,7 @@ test("게이트웨이: 처음 연결은 세지 않고, 끊긴 동안은 몇 번�
   assert.deepEqual(gateway(), { reconnects: 2, retryAttempt: null }, "끊으면 더 듣지 않는다");
 });
 
-// 게이트웨이 로그: 끊김 하나에 줄 하나. 수준은 까닭으로(정상 절차 info, 그 밖 warn, 재연결하지 않음 error)
+// 게이트웨이 로그: 끊김 하나에 줄 하나. 수준은 이유로(정상 절차 info, 그 밖 warn, 재연결하지 않음 error)
 const gatewayLines: { level: number; msg: string }[] = [];
 logSink.addDestination((rec) => {
   if (rec.category === "discord" && typeof rec.msg === "string" && rec.level >= 30) gatewayLines.push({ level: rec.level, msg: rec.msg });
@@ -123,7 +123,7 @@ test("게이트웨이 로그: 봇이 직접 닫은 종료(client.destroy)는 끊
     assert.equal(gateway().retryAttempt, null);
   });
   assert.deepEqual(lines, []);
-  // 재연결 이벤트가 닫힌 까닭보다 먼저 와도 같다
+  // 재연결 이벤트가 닫힌 이유보다 먼저 와도 같다
   const late = gatewayRun((client) => {
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.Debug, destroying("Manager was destroyed", 1000));
@@ -133,9 +133,9 @@ test("게이트웨이 로그: 봇이 직접 닫은 종료(client.destroy)는 끊
   assert.deepEqual(late, []);
 });
 
-test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 때 info. 까닭이 시도 알림보다 늦게 와도 같다", () => {
+test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 때 info. 이유가 시도 알림보다 늦게 와도 같다", () => {
   const lines = gatewayRun((client) => {
-    // 디스코드 쪽에서 닫혔다: 시도 알림이 먼저, 닫은 까닭은 그 뒤
+    // 디스코드 쪽에서 닫혔다: 시도 알림이 먼저, 닫은 이유는 그 뒤
     client.emit(Events.ShardReconnecting, 0);
     client.emit(Events.Debug, destroying("none", 1006));
     client.emit(Events.ShardError, new Error("connect ECONNREFUSED"), 0);
@@ -145,7 +145,7 @@ test("게이트웨이 로그: 비정상 닫힘은 끊길 때 warn, 재연결될 
   assert.deepEqual(lines, ["40 게이트웨이 연결 끊김(샤드 0): 닫힘 코드 1006. 재연결 중", "30 게이트웨이 재연결: 새 세션 | 시도 2회 | 원인=닫힘 코드 1006; 연결 오류 1번(첫: connect ECONNREFUSED)"]);
 });
 
-test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 warn 으로 남기고, 그 까닭이 다음 끊김에 남지 않는다", () => {
+test("게이트웨이 로그: 열리기 전에 닫힌 것은 재연결될 때 warn으로 남기고, 그 이유가 다음 끊김에 남지 않는다", () => {
   const lines = gatewayRun((client) => {
     client.emit(Events.Debug, destroying("none", 1006));
     client.emit(Events.ShardReady, 0);
@@ -175,7 +175,7 @@ test("자식 프로세스: 프로그램, 서버 이름, 작업. 재생, 다음 �
     const client = { guilds: { cache: new Map([["g1", { name: "하나" }]]) } } as unknown as Client;
     const { total, byLabel, rows, stray, strayMore, memMb } = processSummary(client, new Map([["g1", {}]]), STATUS_QUERY);
     assert.equal(total, 4);
-    assert.deepEqual([stray.map((p) => p.job), strayMore, memMb], [["prefetch"], 0, 0], "잔류 의심 프로세스 · 못 잰 메모리는 합에 0");
+    assert.deepEqual([stray.map((p) => p.job), strayMore, memMb], [["prefetch"], 0, 0], "잔류 의심 프로세스와 못 잰 메모리는 합에 0");
     assert.deepEqual(byLabel, [
       { label: "yt-dlp", count: 2 },
       { label: "ffmpeg", count: 1 },
@@ -235,7 +235,7 @@ test("플레이어: 상태별 개수, 합계는 전부, 행은 필터링된 것(
   const view = playerRows(client, players, { players: { from: 0, count: 30 }, states: ["playing", "paused"], q: "음악" }, "viewer", null);
   assert.deepEqual(view.counts, { playing: 2, paused: 1, idle: 1 });
   assert.equal(view.queued, 8);
-  assert.deepEqual([view.matched, view.from, view.rows.map((r) => r.guildId)], [2, 0, ["b", "d"]], "서버 이름 · 곡 제목으로 찾는다");
+  assert.deepEqual([view.matched, view.from, view.rows.map((r) => r.guildId)], [2, 0, ["b", "d"]], "서버 이름이나 곡 제목으로 찾는다");
   assert.deepEqual(asked, ["b", "d"], "멤버 표시는 보낸 행만 본다");
   const second = playerRows(client, players, { players: { from: 1, count: 1 }, states: ["playing", "paused", "idle"], q: "" }, "viewer", null);
   assert.deepEqual([second.matched, second.from, second.rows.map((r) => r.guildId)], [4, 1, ["b"]], "삽입 순서로 자른다");

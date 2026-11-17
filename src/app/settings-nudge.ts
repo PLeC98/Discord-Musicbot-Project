@@ -5,7 +5,7 @@ import type { GuildField } from "../store/guild-settings.ts";
 
 type Listen = (fn: (guildId: string, fields: GuildField[]) => void) => () => void;
 
-/** onChanged 에 리스너를 붙이고, 떼는 함수를 돌려준다 */
+/** onChanged에 리스너를 붙이고, 떼는 함수를 돌려준다 */
 function nudgeOnSettingsChange(onChanged: Listen, touched: (guildId: string) => void): () => void {
   return onChanged((guildId, fields) => {
     if (fields.some((field) => field !== "volume")) touched(guildId);

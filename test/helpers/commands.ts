@@ -25,7 +25,7 @@ function run(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) 
 }
 
 /**
- * 명령을 상호작용 진입점(src/discord/events/interaction-create)으로 부른다. 명령이 던진 것을 진입점이 남기고 알리는 모습을 볼 때.
+ * 명령을 상호작용 진입점(src/discord/events/interaction-create)으로 부른다. 명령이 던진 예외를 진입점이 남기고 알리는 모습을 볼 때.
  * 가짜 상호작용에 진입점이 읽는 필드(종류, 명령 이름)을, 봇 문맥의 명령 목록에 이 명령을 채운다
  */
 async function runViaEntrance(c: SlashCommand, interaction: object, bot: BotContext = fakeBot()) {

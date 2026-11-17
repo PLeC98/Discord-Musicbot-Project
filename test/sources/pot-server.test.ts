@@ -56,7 +56,7 @@ test("켜져 있어도 설치돼 있지 않으면 실행하지 않는다", async
   assert.equal(spawned.length, 0);
 });
 
-test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.1 하나로 실행하고, /ping이 답하면 준비된 것이다", async () => {
+test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.1 하나로 실행하고, /ping이 응답하면 준비된 것이다", async () => {
   const { spawn, spawned } = fakeSpawn();
   const pings: string[] = [];
   let up = 0;
@@ -78,7 +78,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.
     assert.equal(potServerUrl(), "http://127.0.0.1:45001");
     assert.equal(await server.waitReady(5000), true);
   });
-  assert.equal(pings.length, 2, "답할 때까지 다시 묻는다");
+  assert.equal(pings.length, 2, "응답할 때까지 다시 묻는다");
   assert.equal(pings[0], "http://127.0.0.1:45001/ping");
 
   void server.stop();
@@ -86,7 +86,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.
   assert.equal(potServerUrl(), null, "내리면 주소도 없다");
 });
 
-test("답한 서버의 버전이 받아 둔 서버와 다르면 이 봇의 서버가 아니라 준비로 보지 않는다", async () => {
+test("응답한 서버의 버전이 받아 둔 서버와 다르면 이 봇의 서버가 아니라 준비로 보지 않는다", async () => {
   const { spawn } = fakeSpawn();
   const server = createPotServer({ spawn, exists: () => true, fetch: async () => ({ ok: true, json: async () => ({ version: "1.0.0" }) }), freePort: ports(), version: "2.0.2" });
   await withConfig({ bgutil: { enabled: true } }, async () => {
@@ -191,7 +191,7 @@ test("서버 출력은 토큰을 가려 로그로 남긴다(오류 줄도 멈추
   const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   const { proc } = spawned[0];
-  // 표준 출력은 debug 로 남기므로 그동안만 debug 를 남긴다
+  // 표준 출력은 debug로 남기므로 그동안만 debug를 남긴다
   const level = logger.level;
   logger.level = "debug";
   const from = sink.buffer.length;
@@ -221,7 +221,7 @@ test("서버 출력은 토큰을 가려 로그로 남긴다(오류 줄도 멈추
   assert.match(lines[0].text, /Generated IntegrityToken: \[REDACTED\]/);
 });
 
-// 치명적 종료는 stop() 을 부르지 않는다. 레지스트리가 프로세스가 끝날 때 함께 내리게 등록해 둔다
+// 치명적 종료는 stop()을 부르지 않는다. 레지스트리가 프로세스가 끝날 때 함께 내리게 등록해 둔다
 test("실행한 서버를 프로세스 레지스트리에 올리고, 끝나면 내린다", async () => {
   const procRegistry = await import("../../src/infra/process-registry.ts");
   const { spawn: base, spawned } = fakeSpawn();

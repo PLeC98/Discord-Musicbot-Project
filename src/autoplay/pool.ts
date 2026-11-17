@@ -71,7 +71,7 @@ function sweep(now: number) {
  *
  * @param source  설정에 적힌 소스 하나 ({ type, ... })
  * @param fill  풀을 채우는 함수. 곡 배열을 돌려준다
- * @param reject  부르는 쪽이 싫다고 할 곡(최근에 튼 곡 등)
+ * @param reject  호출부가 싫다고 할 곡(최근에 튼 곡 등)
  */
 async function take(source: GenreSource, fill: (source: GenreSource) => Promise<Candidate[] | null | undefined>, reject?: (track: Candidate) => boolean): Promise<Candidate | null> {
   const now = Date.now();
@@ -86,7 +86,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
     try {
       tracks = (await fill(source)) || [];
     } catch (error) {
-      // 소스 하나가 죽어도 자동재생 전체가 죽지 않는다. 부르는 쪽이 다음 소스로 넘어간다
+      // 소스 하나가 죽어도 자동재생 전체가 죽지 않는다. 호출부가 다음 소스로 넘어간다
       log.warn(`자동재생 소스 실패 (${source?.type}): ${messageOf(error)}`);
       return null;
     }
@@ -104,7 +104,7 @@ async function take(source: GenreSource, fill: (source: GenreSource) => Promise<
     }
   }
 
-  // 아직 안 쓴 것 중에서 무작위로. 부르는 쪽이 싫다는 것은 건너뛰되 썼다고 치지 않는다
+  // 아직 안 쓴 것 중에서 무작위로. 호출부가 싫다는 것은 건너뛰되 썼다고 치지 않는다
   // 다른 서버는 그 곡을 받아도 되기 때문이다.
   const current = pool;
   const left = current.tracks.filter((t) => !current.used.has(idOf(t)));

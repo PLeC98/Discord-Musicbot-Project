@@ -1,6 +1,6 @@
 // src/dashboard/routes/admin.ts, app-emojis.ts, track-cache.ts, reset.ts: 운영자 경로가 상태를 바꾸기 직전에 로그인 세션을 확인하는 연결.
 // 실제 세션 저장소를 거친다(test/helpers/real-session). 확인 바로 앞에서 도는 가짜(공지 채널 찾기, 앱 이모지 조작)나 정리 잠금을 기다리는 사이에
-// 그 세션을 다른 기기에서 끝내면 경로는 401 login-required로 답하고 아무것도 바꾸지 않는다. 앱 이모지 조작 안의 실제 확인 자리는 app-emojis 테스트가 본다
+// 그 세션을 다른 기기에서 끝내면 경로는 401 login-required로 응답하고 아무것도 바꾸지 않는다. 앱 이모지 조작 안의 실제 확인 자리는 app-emojis 테스트가 본다
 
 process.env.OWNER_ID = "owner";
 
@@ -199,7 +199,7 @@ async function whileLockHeld(send: (who: Device) => Promise<Reply<{ code?: strin
   return { unlinked, reply };
 }
 
-// 답과 그 파일, 행이 남았는지를 한데 본다(확인을 빼면 200과 지운 것이 함께 보인다)
+// 응답과 그 파일, 행이 남았는지를 한데 본다(확인을 빼면 200과 지운 것이 함께 보인다)
 const left = (reply: Reply<{ code?: string } | null>, unlinked: string[], file: string, key: string) => ({
   status: reply.status,
   code: reply.json?.code,

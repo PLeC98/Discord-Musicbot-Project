@@ -97,7 +97,7 @@ test("멈춘 채 새 곡이 시작돼도(이동, 다음 곡) 멈춘 상태를 �
   assert.equal(p.audio.state.status, "paused");
 });
 
-test("멈출 까닭이 없는 재생은 건드리지 않는다", () => {
+test("멈출 이유가 없는 재생은 건드리지 않는다", () => {
   const p = makePlayer("buffering");
   p.audio.to("playing");
   assert.equal(p.audio.state.status, "playing");

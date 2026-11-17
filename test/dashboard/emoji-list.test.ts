@@ -31,7 +31,7 @@ test("선택 목록에 같은 이모지가 두 번 나오지 않는다", async (
   const seen = new Map<string, string>();
   const dupes: string[] = [];
   for (const [group, char] of await all()) {
-    if (seen.has(char)) dupes.push(`${char} — ${seen.get(char)}, ${group}`);
+    if (seen.has(char)) dupes.push(`${char}: ${seen.get(char)}, ${group}`);
     else seen.set(char, group);
   }
   assert.deepEqual(dupes, []);

@@ -1,7 +1,7 @@
 // src/infra/process-registry.ts: 외부 프로세스 트리 종료
 //
 // yt-dlp가 ffmpeg를 외부 다운로더로 실행하면(손자 프로세스) 봇을 꺼도 ffmpeg가 살아남아
-// 끝나지 않는 방송을 계속 받을 수 있다. killAll 은 트리 전체를 내린다.
+// 끝나지 않는 방송을 계속 받을 수 있다. killAll은 트리 전체를 내린다.
 //
 // 이 테스트는 실제로 손자 프로세스를 만들어 killAll이 "트리 전체"를 죽이는지 확인한다.
 // Windows(taskkill /T)와 POSIX(detached + 프로세스 그룹 시그널)는 구현이 완전히 다르므로,
@@ -84,7 +84,7 @@ test("killAll: 자식과 손자 프로세스를 모두 종료한다", async () =
   assert.equal(registry.size(), 0, "killAll 후 레지스트리는 비어야 함");
 
   assert.ok(await waitFor(() => !alive(pid)), "자식이 종료되어야 함");
-  assert.ok(await waitFor(() => !alive(gpid)), "손자(ffmpeg 대역)도 함께 종료되어야 함 — 이게 핵심");
+  assert.ok(await waitFor(() => !alive(gpid)), "손자(ffmpeg 대역)도 함께 종료되어야 함. 이게 핵심");
 
   release();
 });
@@ -136,7 +136,7 @@ test("killAll: 멱등. 비어 있으면 빈 목록을 반환하고 아무것도 
 });
 
 test("register: 유닉스에서 봇 우선순위가 올라 있으면 띄운 자식을 올리기 전의 값으로 되돌린다", async () => {
-  // 봇이 nice 10 으로 떠서 우선순위를 -7 로 올린 것으로 가정한다(테스트 프로세스의 우선순위는 건드리지 않는다)
+  // 봇이 nice 10으로 떠서 우선순위를 -7로 올린 것으로 가정한다(테스트 프로세스의 우선순위는 건드리지 않는다)
   let now = 10;
   raiseSelf("linux", { getPriority: () => now, setPriority: (_pid: number, value?: number) => void (now = value ?? now) });
   const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 600000)"], { stdio: "ignore" });

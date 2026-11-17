@@ -1,4 +1,4 @@
-// src/discord/interactions/button-handler.ts: 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts 의 표가 본다.
+// src/discord/interactions/button-handler.ts: 버튼 핸들러의 나머지 분기를 고정한다. 조작 전제 조건은 control-entrances.test.ts의 표가 본다.
 // 여기서는 도움말, 시스템 새로고침, 자동재생 버튼, 대기열 버튼, 옛 세션, 모르는 버튼, 조작이 실패했을 때를 본다.
 //
 // 권한 판정, 서버 설정, 곡 추가 코어는 진짜(서버 설정은 임시 DB),
@@ -154,7 +154,7 @@ function press(w: World, customId: string, extra: object = {}) {
 
 // ── 접두사로 분기 ───────────────────────────────────────────────────
 
-test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린다, 처리 중 던지면 일반 오류", async () => {
+test("음악 버튼: 옛 세션의 버튼은 거절, 모르는 버튼은 알린다, 처리 중 예외를 던지면 일반 오류", async () => {
   const w = world();
   const stale = press(w, "panel:skip:OLD");
   await interactionCreate.execute(stale.bot, stale.it);
@@ -192,7 +192,7 @@ test("조작 버튼: 플레이어가 거절하면 실패 문장(건너뛰기, �
   }
 });
 
-test("조작 버튼: 성공하면 곡 썸네일을 담아 답하고 패널을 갱신한다(일시정지, 건너뛰기, 반복)", async () => {
+test("조작 버튼: 성공하면 곡 썸네일을 담아 응답하고 패널을 갱신한다(일시정지, 건너뛰기, 반복)", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", url: "https://u.test", thumbnail: "https://t.test/a.jpg" };
   w.player.queue = [{ title: "다음" }];
@@ -269,7 +269,7 @@ test("하이라이트 버튼: 옮기는 중을 본인에게 먼저 보내고, �
   assert.deepEqual(none.log, [["deferUpdate"]]);
 });
 
-test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은 패널의 버튼은 없는 것과 같다", async () => {
+test("하이라이트 버튼: 봇 전체에서 SponsorBlock을 껐으면 남은 패널의 버튼은 없는 것과 같다", async () => {
   const w = world();
   w.player.currentTrack = { title: "곡", pageUrl: "https://u.test", duration: 300 };
   const p = w.player as typeof w.player & { sponsor?: { highlightAt: number | null }; seek?: () => Promise<void> };
@@ -284,13 +284,13 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 남은
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue 와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)
+// 대기열 화면은 /queue와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)
 type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
 type QueueRow = { components: Array<{ data: { custom_id?: string; emoji?: { name?: string }; disabled?: boolean } }> };
 type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
 const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.emoji?.name, c.data.custom_id, !!c.data.disabled]));
 
-test("대기열 버튼: 비었으면 알리고, 있으면 /queue 와 같은 첫 페이지와 넘기기 버튼", async () => {
+test("대기열 버튼: 비었으면 알리고, 있으면 /queue와 같은 첫 페이지와 넘기기 버튼", async () => {
   const w = world();
   const empty = press(w, "panel:queue:S1");
   await interactionCreate.execute(empty.bot, empty.it);

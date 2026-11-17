@@ -11,7 +11,7 @@ const log = logger.child({ category: "ffmpeg" });
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
  * 같은 바이너리를 쓰도록 여기서만 결정한다.
  *
- * 해석 순서: FFMPEG_PATH(.env) → vendor/bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 던진다.
+ * 해석 순서: FFMPEG_PATH(.env) → vendor/bin/의 번들 → PATH의 ffmpeg. 전부 실패하면 예외를 던진다.
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
  */
 
@@ -46,7 +46,7 @@ function fromBundle(): string | null {
 
 /**
  * ffmpeg 경로를 해석한다(결과는 프로세스 단위로 캐시).
- * @throws 어느 후보도 실행 가능한 ffmpeg가 아니면 던진다.
+ * @throws 어느 후보도 실행 가능한 ffmpeg가 아니면 예외를 던진다.
  */
 function resolve(): Resolved {
   if (resolved) return resolved;
@@ -56,7 +56,7 @@ function resolve(): Resolved {
     const version = probe(configured, "FFMPEG_PATH");
     if (!version) {
       // 명시 지정이 틀렸으면 다른 후보로 넘어가지 않는다. 사용자가 의도한 바이너리가 아닌 것을
-      // 조용히 쓰면 "왜 내 설정이 안 먹지"로 이어진다.
+      // 조용히 쓰면 "왜 내 설정이 반영되지 않지"로 이어진다.
       // 범위: 모든 곡이 같이 안 된다(player/failure-scope)
       throw Object.assign(codedError("stream-failed", `FFMPEG_PATH로 지정한 경로를 실행할 수 없음: ${configured}`), { scope: "environment" });
     }
@@ -80,12 +80,12 @@ function resolve(): Resolved {
   throw Object.assign(codedError("stream-failed", "ffmpeg를 찾을 수 없음. `pnpm run install:ffmpeg`로 다운로드하거나, ffmpeg를 설치해 PATH에 두거나, .env의 FFMPEG_PATH로 경로를 지정하세요 (macOS: brew install ffmpeg)."), { scope: "environment" });
 }
 
-/** 쓰는 ffmpeg 의 버전(봇 상태 탭). 찾지 못했으면 null */
+/** 쓰는 ffmpeg의 버전(봇 상태 탭). 찾지 못했으면 null */
 function ffmpegVersion(): string | null {
   try {
     return resolve().version;
   } catch {
-    // 기동 시 ffmpeg 를 찾지 못하면 멈추므로 여기까지 오지 않는다. 상태 탭에는 모름으로 보인다
+    // 기동 시 ffmpeg를 찾지 못하면 멈추므로 여기까지 오지 않는다. 상태 탭에는 모름으로 보인다
     return null;
   }
 }
@@ -141,7 +141,7 @@ function capabilities(): Capabilities {
   return caps;
 }
 
-/** 기동 시 1회 호출. 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 던진다. */
+/** 기동 시 1회 호출. 실제로 쓰는 바이너리를 로그에 남긴다. 못 찾으면 예외를 던진다. */
 function logResolved(): Resolved {
   const info = resolve();
   const shown = info.source === "PATH" ? "PATH의 ffmpeg" : info.path;

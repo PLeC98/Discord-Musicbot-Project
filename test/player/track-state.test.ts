@@ -19,7 +19,7 @@ function make({ current = null, queue = [], history = [] }: { current?: QueuedTr
 }
 
 test("init: 비어 있다", () => {
-  const p = fake<Pick<Tracks, "currentTrack" | "queue" | "previousTracks">>({}); // init 이 필드를 채운다
+  const p = fake<Pick<Tracks, "currentTrack" | "queue" | "previousTracks">>({}); // init이 필드를 채운다
   trackState.init(p);
   assert.deepEqual(p, { currentTrack: null, queue: [], previousTracks: [] });
 });
@@ -83,7 +83,7 @@ test("previousOf: 이전 곡을 누르면 틀 곡을 바꾸지 않고 본다(한
   assert.equal(trackState.previousOf(plain)?.title, "B");
   assert.deepEqual([titles(plain.queue), titles(plain.previousTracks)], [["D"], ["A", "B"]], "바꾸지 않는다");
 
-  // 대기열 반복을 끈 뒤 기록 끝에 남은 지금 곡(같은 객체)은 rewind 처럼 건너뛴다
+  // 대기열 반복을 끈 뒤 기록 끝에 남은 지금 곡(같은 객체)은 rewind처럼 건너뛴다
   const current = t("C");
   const stale = make({ current, history: [t("A"), current] });
   assert.equal(trackState.previousOf(stale)?.title, "A");
@@ -166,12 +166,12 @@ test("바꾼 뒤 한 번씩 알린다. 세션 저장이 메모리를 따라가�
   trackState.enqueue(p, [t("E")], { front: true });
   trackState.shiftNext(p);
   assert.ok(p.currentTrack);
-  trackState.retire(p, t("F"), { requeue: true }); // 반복 중에 끝난 곡 F: 기록과 대기열 끝 양쪽에(지금 곡 E 와는 다른 곡이라 rewind 가 건너뛰지 않는다)
+  trackState.retire(p, t("F"), { requeue: true }); // 반복 중에 끝난 곡 F: 기록과 대기열 끝 양쪽에(지금 곡 E와는 다른 곡이라 rewind가 건너뛰지 않는다)
   trackState.removeAt(p, 99);
   trackState.removeAt(p, 0);
   trackState.move(p, 0, 1);
-  trackState.rewind(p); // 대기열 반복으로 끝에 들어간 F(3번째)를 빼고 앞으로. 현재곡 E 는 그 뒤에
-  trackState.rewindRing(p); // 대기열 [F, E, C, B, D] 의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
+  trackState.rewind(p); // 대기열 반복으로 끝에 들어간 F(3번째)를 빼고 앞으로. 현재곡 E는 그 뒤에
+  trackState.rewindRing(p); // 대기열 [F, E, C, B, D]의 맨 끝(D, 4번째)을 앞으로. 기록은 그대로
   trackState.shuffle(p);
   trackState.clearQueue(p);
   trackState.setCurrent(p, null);
@@ -214,7 +214,7 @@ test("rewind: 대기열 반복에서 이전 곡(고리)을 누른 뒤 반복을 
   trackState.rewindRing(p);
   next("previous"); // 지금 B(고리로 되돌림), 기록은 그대로 A, B
   p.loop = false;
-  assert.equal(trackState.rewind(p), A, "기록 끝의 B 는 지금 곡이라 건너뛰고 A");
+  assert.equal(trackState.rewind(p), A, "기록 끝의 B는 지금 곡이라 건너뛰고 A");
   next("previous");
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
@@ -264,7 +264,7 @@ test("대기열 ID: 옮기기, 섞기, 되감기, 반복으로 끝에 돌리기�
   assert.equal(copy.entry, undefined, "복사본에는 번호가 따라가지 않는다(열거되지 않는 필드)");
   trackState.enqueue(p, [copy]);
   assert.ok(copy.entry !== undefined && copy.entry !== ea);
-  assert.deepEqual(Object.keys(copy).includes("entry"), false, "객체 비교 · JSON 에는 나오지 않는다");
+  assert.deepEqual(Object.keys(copy).includes("entry"), false, "객체 비교나 JSON에는 나오지 않는다");
 });
 
 test("대기열 ID: 쉬던 플레이어의 첫 곡(대기열을 거치지 않는다)도 대기열 반복으로 끝에 돌아가면 번호가 있다", () => {

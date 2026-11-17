@@ -39,7 +39,7 @@ const range = (kind: RangeKind) =>
     })
     .optional();
 
-// 문구 하나. 글자로 적거나 { text, type } 으로 풀어 적는다
+// 문구 하나. 글자로 적거나 { text, type }으로 풀어 적는다
 const message = z.preprocess(
   // 배열은 빈 표로 본다
   (item) => (typeof item === "string" ? { text: item } : Array.isArray(item) ? {} : item),
@@ -92,7 +92,7 @@ const statusFile = z.preprocess(
 
 /** 상태 설정의 문제 목록. 없으면 빈 배열 */
 function statusProblems(data: unknown): string[] {
-  // messages 는 평소 문구거나 special 아래 이름의 문구다
+  // messages는 평소 문구거나 special 아래 이름의 문구다
   return problemsOf(statusFile, data, (path) => {
     const name = path[0] === "special" ? path[1] : undefined;
     return { name, where: name ?? "평소 문구" };

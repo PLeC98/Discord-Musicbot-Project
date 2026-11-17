@@ -1,5 +1,5 @@
 <template>
-  <!-- 배경 편집 창의 시간 막대(프리미어, 베가스 스타일). 영상은 편집 창이 쥐고, 이 컴포넌트는 시각, 구간, 정지 화면을 보이고 바꿀 값을 emit 으로 알린다.
+  <!-- 배경 편집 창의 시간 막대(프리미어, 베가스 스타일). 영상은 편집 창이 쥐고, 이 컴포넌트는 시각, 구간, 정지 화면을 보이고 바꿀 값을 emit으로 알린다.
        장면은 봇이 가져올 때 만든 장면 띠(GET …/:id/strip, 격자 WebP 한 장)를 셀마다 잘라 깐다. 띠가 아직 없으면 빈 띠 -->
   <!-- 키로 다루려고 포커스를 받는다. 공통 포커스 테두리(3px) 대신 시간 막대 영역에 가는 1px 테두리로 포커스를 보인다 -->
   <div class="group/tl flex flex-col gap-2 select-none outline-none focus-visible:outline-none" tabindex="0" @keydown="onKey">
@@ -80,12 +80,12 @@ import type { LoginBackgroundStrip } from "../../../src/dashboard/contract/login
 import { text } from "../text/index.ts";
 const T = text.loginBackground.timeline;
 
-/** strip: 장면 띠(주소와 모양, 없으면 빈 띠). aspect: 가로 ÷ 세로. now, range, thumbAt 은 초 */
+/** strip: 장면 띠(주소와 모양, 없으면 빈 띠). aspect: 가로 ÷ 세로. now, range, thumbAt은 초 */
 const props = defineProps<{ strip: { url: string; shape: LoginBackgroundStrip } | null; duration: number; fps: number; aspect: number; now: number; playing: boolean; range: [number, number]; thumbAt: number | null; loop: boolean }>();
 /** peek: 구간 핸들을 드래그하는 동안 그 장면만 보여 달라(재생 위치는 그대로), peekEnd: 놓았으니 재생 위치로 돌아가 달라 */
 const emit = defineEmits<{ seek: [t: number]; peek: [t: number]; peekEnd: []; toggle: []; range: [range: [number, number]]; thumb: []; loop: [] }>();
 
-/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(드래그해서 옮기기 쉽게). thumb 는 가장자리 3px 을 비운 나머지(style.css) */
+/** 시간 막대의 가로 스크롤바는 다른 곳보다 굵게(드래그해서 옮기기 쉽게). thumb는 가장자리 3px을 비운 나머지(style.css) */
 const SCROLLBAR = { "--sb-size": "1rem", scrollbarWidth: "auto" as const };
 /** 구간 핸들의 폭(px) */
 const HANDLE_W = 12;
@@ -93,7 +93,7 @@ const HANDLE_W = 12;
 const PAD = HANDLE_W;
 /** 띠의 높이(px) */
 const BAR_H = 64;
-/** 눈금 간격 후보(초). 프레임 단위는 fps 로 */
+/** 눈금 간격 후보(초). 프레임 단위는 fps로 */
 const STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600];
 
 const scrollEl = ref<HTMLElement | null>(null);
@@ -103,11 +103,11 @@ const scrollLeft = ref(0);
 const zoomStep = ref(0);
 let observer: ResizeObserver | null = null;
 
-/** 확대: 0 ~ 100 을 1 배 ~ (가장 크면 화면에 5초 남짓)배로, 지수로 */
+/** 확대: 0 ~ 100을 1 배 ~ (가장 크면 화면에 5초 남짓)배로, 지수로 */
 const maxZoom = computed(() => Math.min(64, Math.max(1, props.duration / 5)));
 const zoom = computed(() => Math.pow(maxZoom.value, zoomStep.value / 100));
 const contentWidth = computed(() => Math.max(1, Math.round(viewWidth.value * zoom.value)));
-/** 시간이 있는 폭(양옆 PAD 를 뺀 것) */
+/** 시간이 있는 폭(양옆 PAD를 뺀 것) */
 const pxPerSec = computed(() => (props.duration ? Math.max(1, contentWidth.value - PAD * 2) / props.duration : 0));
 const x = (t: number) => PAD + t * pxPerSec.value;
 const tileW = computed(() => Math.round(BAR_H * (props.strip ? props.strip.shape.width / props.strip.shape.height : props.aspect || 16 / 9)));

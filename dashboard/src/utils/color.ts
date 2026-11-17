@@ -22,7 +22,7 @@ export function rgbToHex({ r, g, b }: Rgb): string {
   return `#${[r, g, b].map((n) => Math.round(n).toString(16).padStart(2, "0")).join("")}`.toUpperCase();
 }
 
-/** 무채색(s = 0)이나 검정(v = 0)은 색상이 없어 0 이다 */
+/** 무채색(s = 0)이나 검정(v = 0)은 색상이 없어 0이다 */
 export function rgbToHsv({ r, g, b }: Rgb): Hsv {
   const [R, G, B] = [r, g, b].map((n) => n / 255);
   const max = Math.max(R, G, B);

@@ -2,14 +2,14 @@
 
 import { isPlatform, type Platform } from "../../../src/rules/platforms.ts";
 
-// 키는 rules/platforms 의 Platform 이라 하나라도 빠지면 타입 검사가 잡는다(빠지면 회색 점이 되어 어디서 온 곡인지 안 보인다)
+// 키는 rules/platforms의 Platform이라 하나라도 빠지면 타입 검사가 잡는다(빠지면 회색 점이 되어 어디서 온 곡인지 안 보인다)
 const PLATFORM_COLORS: Record<Platform, string> = {
   youtube: "#ff0000",
   spotify: "#1db954",
   soundcloud: "#ff5500",
   direct: "var(--md-primary)",
   lastfm: "#d92323",
-  lbradio: "#eb743b", // ListenBrainz 의 --bs-primary
+  lbradio: "#eb743b", // ListenBrainz의 --bs-primary
   animethemes: "#ffffff", // 로고 배경
   anisongdb: "#f2a93b", // 사이트 강조색
   vocadb: "#39c5bb", // 미쿠

@@ -1,8 +1,8 @@
 // 봇이 새 서버에 들어왔을 때 올리는 안내의 문구
 
 /**
- * 명령은 멘션(누르면 입력창에 채워진다)으로, server 는 마크다운을 이스케이프한 서버 이름으로 받는다.
- * dashboard 는 웹 대시보드 버튼이 있는지, fork 는 운영 중인 봇이 수정본인지(SOURCE_REPO_URL 을 따로 정했다), typed 는 전용 채널에 채팅으로 곡을 넣을 수 있는지
+ * 명령은 멘션(누르면 입력창에 채워진다)으로, server는 마크다운을 이스케이프한 서버 이름으로 받는다.
+ * dashboard는 웹 대시보드 버튼이 있는지, fork는 운영 중인 봇이 수정본인지(SOURCE_REPO_URL을 따로 정했다), typed는 전용 채널에 채팅으로 곡을 넣을 수 있는지
  */
 const welcome = ({ server, play, setchannel, help, dashboard, projectRepo, sourceRepo, fork, typed }: { server: string; play: string; setchannel: string; help: string; dashboard: boolean; projectRepo: string; sourceRepo: string; fork: boolean; typed: boolean }) => ({
   title: "반가워요!",
@@ -12,7 +12,7 @@ const welcome = ({ server, play, setchannel, help, dashboard, projectRepo, sourc
   license: fork ? "GNU AGPL-3.0-or-later" : "Copyright (C) 2026 PLeC - GNU AGPL-3.0-or-later",
 });
 
-/** 버튼. project 는 원본 저장소, source 는 수정본 저장소(fork 일 때만) */
+/** 버튼. project는 원본 저장소, source는 수정본 저장소(fork일 때만) */
 const buttons = (fork: boolean) => ({ dashboard: "웹 대시보드", project: fork ? "원본 GitHub" : "GitHub", source: "이 봇의 GitHub" });
 
 export { welcome, buttons };

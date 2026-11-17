@@ -10,7 +10,7 @@ import { clipText } from "../rules/clip-text.ts";
 /** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
 
-// 알릴 곳이 없는 매체. 결과를 알리는 매체는 부르는 쪽(usecases/responders)이 넘긴다
+// 알릴 곳이 없는 매체. 결과를 알리는 매체는 호출부(usecases/responders)가 넘긴다
 const NO_RESPONDER: Responder = {
   async notifyQueued() {
     // 알릴 곳이 없다
@@ -44,7 +44,7 @@ const UNKNOWN_CHANNEL = RESTJSONErrorCodes.UnknownChannel;
 
 // 패널을 올리는 웹훅의 이름. 메시지는 봇 이름, 아바타로 보내므로 이 이름은 채널 설정의 웹훅 목록에만 보인다
 const WEBHOOK_NAME = "Now Playing";
-// 디스코드 REST 가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
+// 디스코드 REST가 제한 시간 안에 끝나지 않아 요청을 끊었다(우리는 REST 요청을 끊지 않는다). 다음 갱신이 다시 한다
 const isRestTimeout = (error: unknown) => error instanceof Error && error.name === "AbortError";
 
 // 패널 메시지가 있는 채널. 웹훅으로 올린 것은 API 모양이다
@@ -52,7 +52,7 @@ const channelIdOf = (message: PanelMessage) => ("channelId" in message ? message
 
 /**
  * 패널 내용. 채널, 웹훅으로 보내고 고칠 때 같이 쓴다. 끝난 패널은 투명 썸네일을, 앨범아트가 없는 곡은 음표 썸네일을 첨부한다.
- * attachments: [] 는 붙어 있던 첨부를 떼고 files 만 남긴다(고칠 때 첨부를 보내지 않으면 붙어 있던 것이 그대로 남는다)
+ * attachments: []는 붙어 있던 첨부를 떼고 files만 남긴다(고칠 때 첨부를 보내지 않으면 붙어 있던 것이 그대로 남는다)
  */
 type Payload = {
   components: Array<ContainerBuilder | ActionRowBuilder<StringSelectMenuBuilder>>;
@@ -65,7 +65,7 @@ type IdleView = { reason: string; leavesAt?: number | null; staying?: boolean };
 /** 조작 버튼을 그릴 때 읽는 필드. 끝난 패널은 플레이어 없이 그린다 */
 type Controls = Pick<Player, "sessionId" | "previousTracks" | "queue" | "loop" | "autoplay"> & { pause: Pick<Player["pause"], "userPaused"> } & Partial<Pick<Player, "sponsor">>;
 
-// 전용 채널에서 재생 패널이 "묻혔다"고 보기까지 기다리는 시간. 스스로 지워질 봇 메시지는 따로 거르고(isTransient),
+// 전용 채널에서 재생 패널이 "묻혔다"고 보기까지 기다리는 시간. 자동으로 지워질 봇 메시지는 따로 거르고(isTransient),
 // 사람이 금방 지운 메시지 때문에 패널을 다시 올리지 않게, 다른 메시지가 이만큼 남아 있어야 묻힌 것으로 본다.
 const PIN_SETTLE_MS = 12000;
 /** 패널에 붙여 둔 썸네일이 음표(앨범아트 없는 곡)라는 표시. 그 밖은 파일 태그 이미지의 fingerprint */
@@ -124,7 +124,7 @@ function statusOf(player: Player) {
   return parts;
 }
 
-// 패널 아래의 대시보드 링크. DASHBOARD_URL 이 공개 주소일 때만(기본값 localhost 나 사설 주소는 다른 사람이 열 수 없다). Server Members Intent 가 꺼져 서버 화면을 쓸 수 없으면 달지 않는다
+// 패널 아래의 대시보드 링크. DASHBOARD_URL이 공개 주소일 때만(기본값 localhost나 사설 주소는 다른 사람이 열 수 없다). Server Members Intent가 꺼져 서버 화면을 쓸 수 없으면 달지 않는다
 const dashboardLink = () => (isPublicUrl(config.dashboard.url) && tracksMembers() ? panelText.dashboardLink(config.dashboard.url) : null);
 
 // 진행 막대를 고치는 간격. 앞 갱신이 끝난 뒤부터 잰다
@@ -133,7 +133,7 @@ const PROGRESS_MS = 5000;
 // 끝난 패널 가운데 음성에 남아 기다리는 모양. 나갈 시각을 붙인다
 const WAITING = new Set(["queue-end", "joined", "stay-stop"]);
 
-// 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다(언제 나가는지는 플레이어의 idle 이 정한다)
+// 끝난 패널의 문구. 음성에 잠시 남을 때만 나갈 시각을 붙인다(언제 나가는지는 플레이어의 idle이 정한다)
 function idleViewOf(reason: string, player: { idle?: Pick<Player["idle"], "upcomingLeave" | "seated"> }): IdleView {
   if (!WAITING.has(reason)) return { reason, leavesAt: null };
   return { reason, leavesAt: player.idle?.upcomingLeave() ?? null, staying: Boolean(player.idle?.seated()) };
@@ -143,7 +143,7 @@ class NowPlayingPanel {
   client: Client;
   players: Pick<PlayerSeats, "get">; // 서버마다의 플레이어. 패널이 지금 재생 중인지 본다
   progressTimers = new Map<string, NodeJS.Timeout>(); // guildId -> 다음 진행 막대 갱신
-  heldProgress = new Set<string>(); // 멈춰 있어 진행 막대 갱신을 쉬는 서버. 소리가 다시 나면 updatePlaying 이 다시 건다
+  heldProgress = new Set<string>(); // 멈춰 있어 진행 막대 갱신을 쉬는 서버. 소리가 다시 나면 updatePlaying이 다시 건다
   webhookCache = new Map<string, WebhookClient>(); // channelId -> 그 채널에 패널을 올리는 웹훅
   reposting = new Set<string>(); // 현재 재생 메시지를 다시 올리는 중인 guildId
   location: PanelLocation;
@@ -194,7 +194,7 @@ class NowPlayingPanel {
     }
   }
 
-  /** 여러 곡을 넣어 첫 곡이 시작된 뒤 남은 곡을 대기열에 담았다고 알린다. 잠깐 보이고 삭제한다 */
+  /** 여러 곡을 넣어 첫 곡이 시작된 뒤 남은 곡을 대기열에 추가했다고 알린다. 잠깐 보이고 삭제한다 */
   async postAddedNotice(player: Player, queued: QueuedTrack[], collection: string | null, insertFirst = false, notice: AdditionNotice = {}) {
     const view = addedView({ tracks: queued, collection, insertFirst, notice });
 
@@ -236,7 +236,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 현재 재생 메시지를 채널에 보낸다. 참조 갱신은 부르는 쪽 몫.
+   * 현재 재생 메시지를 채널에 보낸다. 참조 갱신은 호출부 몫.
    *
    * 상호작용이 있어도 늘 채널 웹훅(없으면 일반 채널 메시지)으로 보낸다. 상호작용 응답(@original)으로 보내면 이후 편집이
    * 상호작용 토큰을 쓰는데, 토큰은 15분 뒤 만료되어 긴 세션의 진행 막대, 곡 갱신이 50027(Invalid Webhook Token)로 실패한다.
@@ -247,7 +247,7 @@ class NowPlayingPanel {
   }
 
   // 캐시해 둔 웹훅이 디스코드에서 삭제됐으면(10015: 봇이 서버를 나갔다 들어왔거나 누가 삭제했다) 캐시에서 지우고 새로 만들어 한 번 더 보낸다.
-  // content 가 함수면 웹훅으로 보내는지(byWebhook)를 넘겨 내용을 받는다
+  // content가 함수면 웹훅으로 보내는지(byWebhook)를 넘겨 내용을 받는다
   async _sendPanel(channel: GuildTextBasedChannel, content: Payload | ((byWebhook: boolean) => Promise<Payload>), retried = false): Promise<{ message: PanelMessage; webhook: WebhookClient | null }> {
     const webhook = await this.getOrCreateWebhook(channel);
     const payload = typeof content === "function" ? await content(Boolean(webhook)) : content;
@@ -383,7 +383,7 @@ class NowPlayingPanel {
     if (!messageId || !("messages" in channel) || !channel.messages?.cache) return false;
 
     const cutoff = now - PIN_SETTLE_MS;
-    // 스스로 삭제될 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
+    // 자동으로 삭제될 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
   }
 
@@ -404,7 +404,7 @@ class NowPlayingPanel {
     // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
     const linkText = `### ${nowPlayingTitle}\n**[${linkLabel(songTitle(track.title), { emojiLinks: byWebhook })}](${track.pageUrl})**${artistLine}`;
 
-    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload 가 첨부한다).
+    // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload가 첨부한다).
     // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)
     const shown = art === undefined ? await discordArt.artFor(track) : art;
     const titleComponent = new SectionBuilder().addTextDisplayComponents(new TextDisplayBuilder().setContent(linkText)).setThumbnailAccessory(new ThumbnailBuilder().setURL(shown?.url ?? noArtThumbnail.url));
@@ -434,7 +434,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST 를 기다리는 동안 온 갱신(조작, 5초 갱신)은
+   * 재생 중 패널을 제자리에서 다시 그린다. 서버마다 한 번에 하나만 그린다: 썸네일 확인과 REST를 기다리는 동안 온 갱신(조작, 5초 갱신)은
    * 표시만 하고 끝난 뒤 지금 상태로 한 번 더 그린다. 그래서 같은 메시지에 대한 갱신이 순서대로 나가고, 낡은 모양이 마지막에 덮지 않는다
    */
   updatePlaying(player: Player): Promise<void> {
@@ -488,7 +488,7 @@ class NowPlayingPanel {
     }
   }
 
-  // 패널 고치기가 실패했다. 까닭마다 할 일이 다르다
+  // 패널 고치기가 실패했다. 원인마다 할 일이 다르다
   async _onEditFailed(player: Player, error: unknown) {
     // 편집 대상이 없어졌다. 참조를 붙든 채 5초마다 같은 오류를 찍는 대신 다시 올린다
     if (isGone(error)) {
@@ -587,7 +587,7 @@ class NowPlayingPanel {
   }
 
   /**
-   * 끝난 패널을 그린 뒤: 플레이어는 이제 재생 중인 곡, 패널이 없다. before, live 는 그리기 시작할 때의 곡, 패널.
+   * 끝난 패널을 그린 뒤: 플레이어는 이제 재생 중인 곡, 패널이 없다. before, live는 그리기 시작할 때의 곡, 패널.
    * 그리는 사이 새 곡, 새 패널이 생겼으면(정지 직후의 /play, 상주 모드는 같은 플레이어) 그것은 두고,
    * 이미 비운 지금 곡을 다시 비우지 않는다(정리한 플레이어의 세션 미러가 새 플레이어가 쓴 세션 행을 삭제하지 않게)
    */
@@ -661,7 +661,7 @@ class NowPlayingPanel {
     await this._postIdle(guild, channel);
   }
 
-  // 끝난 패널의 모양. 이번 실행에서 그린 적이 없으면(재시작 뒤) 음성 밖이다. 되살릴 곡이 저장돼 있으면 /join 으로 이어 들을 수 있다고 적는다
+  // 끝난 패널의 모양. 이번 실행에서 그린 적이 없으면(재시작 뒤) 음성 밖이다. 되살릴 곡이 저장돼 있으면 /join으로 이어 들을 수 있다고 적는다
   _idleView(guild: Guild): IdleView {
     return this.idleViews.get(guild.id) ?? { reason: hasTracks(sessions().load(guild.id)) ? "leave" : "stop" };
   }
@@ -747,7 +747,7 @@ class NowPlayingPanel {
 
   /**
    * 복원을 건너뛰어 이어 틀지 않은 서버(곡이 든 세션이 있다). 사람들은 봇이 왜 멈췄는지 모른다.
-   * 패널에 까닭을 적고, 전용 채널 밖이면 패널이 묻혀 있을 수 있어 세션을 시작한 글 채널에 따로 알린다.
+   * 패널에 이유를 적고, 전용 채널 밖이면 패널이 묻혀 있을 수 있어 세션을 시작한 글 채널에 따로 알린다.
    * 끝 안내(drawEndedPanel)와 달리 살아 있는 패널이 없어도 알린다. 이 기동 말고는 알릴 곳이 없다. 글 채널이 없으면(대시보드로 시작, 채널 삭제) 보내지 않는다
    */
   async _explainRestoreSkipped(guild: Guild, dedicated: boolean) {
@@ -813,7 +813,7 @@ class NowPlayingPanel {
       .setEmoji(buttonEmoji(autoplayLook.icon))
       .setDisabled(disabled && !keepAutoplay);
 
-    // SponsorBlock 하이라이트로 건너뛰기. 지점이 없으면 끈다(건너뛰기 버튼과 같다). 섞기 왼쪽에 두고, 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다
+    // SponsorBlock 하이라이트로 건너뛰기. 지점이 없으면 끈다(건너뛰기 버튼과 같다). 섞기 왼쪽에 두고, 봇 전체에서 SponsorBlock을 껐으면 두지 않는다
     const highlightAt = player.sponsor?.highlightAt;
     const hasHighlight = highlightAt !== null && highlightAt !== undefined;
     const highlightButton = new ButtonBuilder()
@@ -831,7 +831,7 @@ class NowPlayingPanel {
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
    * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 선택한 곡을 가리킨다. 번호는 이름에만 쓴다.
-   * ID 가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id 가 없으면 null
+   * ID가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
@@ -854,7 +854,7 @@ class NowPlayingPanel {
     return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
   }
 
-  /** 진행 막대를 PROGRESS_MS 마다 다시 그리기 시작한다 */
+  /** 진행 막대를 PROGRESS_MS마다 다시 그리기 시작한다 */
   startProgressUpdate(player: Player) {
     const guildId = player.guild.id;
     this.stopProgressUpdate(guildId);
@@ -866,14 +866,14 @@ class NowPlayingPanel {
     schedule();
   }
 
-  // 진행 막대 갱신 한 번과 다음 예약. 던지지 않는다
+  // 진행 막대 갱신 한 번과 다음 예약. 예외를 던지지 않는다
   async _progressTick(player: Player, timer: NodeJS.Timeout, schedule: () => void) {
     const guildId = player.guild.id;
     if (!player.currentTrack || !player.nowPlayingMessage) {
       this.stopProgressUpdate(guildId);
       return;
     }
-    // 멈춘 동안은 같은 내용이라 고치지 않는다. 묻힘은 scheduleIdleRepin 이 본다
+    // 멈춘 동안은 같은 내용이라 고치지 않는다. 묻힘은 scheduleIdleRepin이 본다
     if (player.paused) {
       this.progressTimers.delete(guildId);
       this.heldProgress.add(guildId);
@@ -882,12 +882,12 @@ class NowPlayingPanel {
     try {
       await this._tickProgress(player);
     } catch (error) {
-      // 고치기 실패는 _onEditFailed 가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
+      // 고치기 실패는 _onEditFailed가 구분한다. 여기까지 온 것은 모르는 오류라 남기고 이 곡의 갱신을 멈춘다(5초마다 같은 줄을 찍지 않게)
       log.error(`진행 막대 갱신 중 예외가 발생해 현재 곡의 진행 막대 갱신 중단(${player.guild.name ?? guildId}):`, error);
       this.stopProgressUpdate(guildId);
       return;
     }
-    // 갱신하는 동안 멈췄거나 새로 걸었으면 잇지 않는다(걸려 있던 것은 stopProgressUpdate 가 지운다)
+    // 갱신하는 동안 멈췄거나 새로 걸었으면 잇지 않는다(걸려 있던 것은 stopProgressUpdate가 지운다)
     if (this.progressTimers.get(guildId) === timer) schedule();
   }
 

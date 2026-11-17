@@ -1,9 +1,9 @@
 <template>
-  <!-- 검색, 필터 입력란: 값이 있으면 입력란 안 오른쪽 끝에 지우기(x). 누르면 비우고 입력란에 포커스를 남기고, Esc 도 비운다(비울 때는 Esc 를 막아 바깥 패널이 닫히지 않는다. 비어 있으면 패널이 닫힌다).
-       v-model 을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다.
-       꾸밈은 부르는 쪽: class 는 감싼 틀(자리, 너비)에, input-class 는 입력란에, 그 밖의 속성, 이벤트는 입력란에. 왼쪽 아이콘은 leading 슬롯.
+  <!-- 검색, 필터 입력란: 값이 있으면 입력란 안 오른쪽 끝에 지우기(x). 누르면 비우고 입력란에 포커스를 남기고, Esc도 비운다(비울 때는 Esc를 막아 바깥 패널이 닫히지 않는다. 비어 있으면 패널이 닫힌다).
+       v-model을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다.
+       꾸밈은 부모 컴포넌트에서: class는 감싼 틀(자리, 너비)에, input-class는 입력란에, 그 밖의 속성, 이벤트는 입력란에. 왼쪽 아이콘은 leading 슬롯.
        note: 값이 있을 때 입력란 안 지우기 앞에 작게 보일 글(검색된 줄 수 등). 헤더, 줄의 다른 칸과 폭을 다투지 않게 입력란 안에 둔다.
-       type 은 search 로 고정한다: 안드로이드 크롬은 text 칸에서 키보드 위에 자동 채우기 바(비밀번호, 결제, 주소)를 띄우고 autocomplete="off" 로는 꺼지지 않는다(삼성 키보드, 실제 기기로 확인).
+       type은 search로 고정한다: 안드로이드 크롬은 text 칸에서 키보드 위에 자동 채우기 바(비밀번호, 결제, 주소)를 띄우고 autocomplete="off"로는 꺼지지 않는다(삼성 키보드, 실제 기기로 확인).
        브라우저가 그리는 검색 모양(사파리)과 지우기 단추(크롬)는 지운다. 지우기는 위의 버튼이다 -->
   <div class="relative" :class="attrs.class">
     <slot name="leading" />
@@ -39,7 +39,7 @@ const rest = computed(() => Object.fromEntries(Object.entries(attrs).filter(([ke
 /** 입력란을 끈 동안은 지우기도 없다 */
 const disabled = computed(() => attrs.disabled !== undefined && attrs.disabled !== false);
 const box = ref<HTMLInputElement | null>(null);
-// note 는 값이 있고 지우기가 보일 때만. 입력란 오른쪽 여백을 그 폭만큼 늘려 글이 겹치지 않게
+// note는 값이 있고 지우기가 보일 때만. 입력란 오른쪽 여백을 그 폭만큼 늘려 글이 겹치지 않게
 const shownNote = computed(() => (props.modelValue && !disabled.value ? props.note : ""));
 const noteEl = ref<HTMLElement | null>(null);
 const { width: noteWidth } = useElementSize(noteEl);
@@ -49,7 +49,7 @@ function clear() {
   box.value?.focus();
 }
 function onEscape(event: KeyboardEvent) {
-  // 한글을 조합하는 중의 Esc 는 입력기 몫이다
+  // 한글을 조합하는 중의 Esc는 입력기 몫이다
   if (composing(event) || !props.modelValue) return;
   event.preventDefault();
   emit("update:modelValue", "");

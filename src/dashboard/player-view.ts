@@ -45,7 +45,7 @@ function queueTrack(guildId: string | undefined, t: QueuedTrack, i: number): Que
 
 /**
  * 지금 곡과 대기열 전체에 있는 곡의 주소 집합(정본으로 다듬은 것). 검색 결과에 "대기열" 배지를 달 때 본다.
- * 세 주소를 다 넣는다: 고정한 곡은 pageUrl 이 입력 그대로, 출처가 있는 자동재생 곡은 유튜브 영상이 audioUrl 에만 있다(스포티파이 곡을 유튜브로 튼 것도 같은 음원)
+ * 세 주소를 다 넣는다: 고정한 곡은 pageUrl이 입력 그대로, 출처가 있는 자동재생 곡은 유튜브 영상이 audioUrl에만 있다(스포티파이 곡을 유튜브로 튼 것도 같은 음원)
  */
 function queuedUrls(player: Pick<Player, "currentTrack" | "queue">): Set<string> {
   const urls = new Set<string>();
@@ -56,7 +56,7 @@ function queuedUrls(player: Pick<Player, "currentTrack" | "queue">): Set<string>
   return urls;
 }
 
-/** 곡 추가 칸의 검색 결과 한 곡. queued 는 queuedUrls */
+/** 곡 추가 칸의 검색 결과 한 곡. queued는 queuedUrls */
 function searchTrack(guildId: string, song: Song, queued: Set<string>): SearchTrack {
   const url = canonicalUrl(song.pageUrl);
   return {
@@ -78,7 +78,7 @@ function toInt(value: unknown) {
   return Number.isInteger(n) ? n : NaN;
 }
 
-// 화면이 이미 펼쳐 둔 만큼을 그대로 돌려줘야 조작 직후 목록이 접히지 않는다. 0 이면 대기열 없이(재생 바처럼 대기열을 안 보는 화면)
+// 화면이 이미 펼쳐 둔 만큼을 그대로 돌려줘야 조작 직후 목록이 접히지 않는다. 0이면 대기열 없이(재생 바처럼 대기열을 안 보는 화면)
 function queueWindow(req: Request) {
   if (req.query?.queue === "0") return 0;
   const n = toInt(req.query?.queue);
@@ -108,7 +108,7 @@ function playingView(player: Player, track: QueuedTrack): PlayingView {
 }
 
 // 만든 순서. 화면이 늦게 온 옛 응답으로 새 상태를 덮지 않게 상태를 만들 때마다 오른다. 서버는 단일 스레드로 돌아
-// 나중에 만든 상태가 그 전의 변경을 모두 담는다. boot 는 봇을 다시 시작하면 바뀌어 순서가 처음부터임을 알린다
+// 나중에 만든 상태가 그 전의 변경을 모두 담는다. boot는 봇을 다시 시작하면 바뀌어 순서가 처음부터임을 알린다
 const BOOT = Date.now();
 let made = 0;
 

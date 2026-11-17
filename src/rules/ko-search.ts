@@ -1,7 +1,7 @@
 // 한국어를 아는 검색. 검색어의 마지막 글자는 아직 조합 중일 수 있다(입력기가 "음ㅇ", "가" 같은 덜 된 글자를 넘긴다).
 // 그래서 마지막 글자는 자모로 풀어 앞부분만 맞으면 찾는다: "음ㅇ" → 음악, "음악 가" → 음악 감상실, "간" → 가나(받침이 다음 글자 첫소리로 넘어가는 중), "고" → 과일.
 // 자음만 입력한 검색어는 초성으로도 찾는다(ㅇㅇㄱㅅㅅ → 음악 감상실). 영문은 대소문자를 가리지 않는다
-// 봇(캐시 DB 필터)과 화면(서버 목록, 선택지 검색 등)이 같이 쓴다. Node 를 부르지 않는다
+// 봇(캐시 DB 필터)과 화면(서버 목록, 선택지 검색 등)이 같이 쓴다. Node를 부르지 않는다
 //
 // 검색어마다 이 규칙을 정규식 하나로 만들어 두고(최근 것 몇 개를 기억한다) 엔진으로 찾는다. 줄마다 자모로 풀지 않는다.
 // 정규식에는 백트래킹이 거의 없다: 마지막 글자의 분기는 첫 글자로 서로 겹치지 않고(글자마다 자모가 하나),
@@ -150,15 +150,15 @@ function merge(ranges: Range[]): Range[] {
 }
 const rangesOf = (re: RegExp, t: string): Range[] => [...t.matchAll(re)].map((m) => [m.index, m.index + m[0].length]);
 
-/** text 에서 query 를 찾는다 */
+/** text에서 query를 찾는다 */
 export function koMatch(text: string, query: string): boolean {
   const m = matcherOf(query);
   return !m || m.any.test(tidy(text));
 }
 
 /**
- * text 에서 query 가 맞은 자리 [시작, 끝) 들(koMatch 와 같은 규칙, 겹치지 않게 앞에서부터). 맞은 글자를 칠할 때.
- * 다듬으면 글자 수가 바뀌는 글(NFC 로 합쳐지는 자모 등)은 자리를 되짚을 수 없어 빈 목록이다
+ * text에서 query가 맞은 자리 [시작, 끝) 들(koMatch와 같은 규칙, 겹치지 않게 앞에서부터). 맞은 글자를 칠할 때.
+ * 다듬으면 글자 수가 바뀌는 글(NFC로 합쳐지는 자모 등)은 자리를 되짚을 수 없어 빈 목록이다
  */
 export function koRanges(text: string, query: string): Range[] {
   const m = matcherOf(query);
@@ -168,7 +168,7 @@ export function koRanges(text: string, query: string): Range[] {
   return m.initial ? merge([...tail, ...rangesOf(m.initial, t)]) : tail;
 }
 
-/** text 가 query 로 시작하는지(koMatch 와 같은 규칙, 맨 앞에서만). 앞에서 걸리는 것을 먼저 보일 때 */
+/** text가 query로 시작하는지(koMatch와 같은 규칙, 맨 앞에서만). 앞에서 걸리는 것을 먼저 보일 때 */
 export function koStarts(text: string, query: string): boolean {
   const m = matcherOf(query);
   return !m || m.start.test(tidy(text));

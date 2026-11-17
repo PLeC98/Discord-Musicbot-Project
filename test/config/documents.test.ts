@@ -1,5 +1,5 @@
 // src/config/documents.ts, store/settings-docs.ts: 설정 문서(장르, 상태 문구, AI 설정, 프롬프트).
-// 메모리에 들고 있다가 저장하면 settings.db 에 쓴다. 저장 번호가 다르면 거절하고, 함께 쓰는 문서는 한 트랜잭션이다.
+// 메모리에 들고 있다가 저장하면 settings.db에 쓴다. 저장 번호가 다르면 거절하고, 함께 쓰는 문서는 한 트랜잭션이다.
 
 import { test, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -36,7 +36,7 @@ test("저장한 적 없으면 기본 문서, 번호 0", () => {
   assert.deepEqual(documents.get("ai-prompt"), [], "비면 보조가 코드에 든 기본 구성을 쓴다");
 });
 
-test("저장하면 DB 에 남고, 다시 붙여도(기동) 그 값이 올라온다", () => {
+test("저장하면 DB에 남고, 다시 붙여도(기동) 그 값이 올라온다", () => {
   const next = documents.put("status", { interval: 30, messages: ["저장한 문구"] }, 0);
   assert.equal(next, 1);
   assert.deepEqual(settingsDocs.read("status"), { data: { interval: 30, messages: ["저장한 문구"] }, revision: 1 });
@@ -59,7 +59,7 @@ test("낡은 번호로 저장하면 거절하고 아무것도 바꾸지 않는�
 test("함께 저장: 하나라도 실패하면 둘 다 쓰지 않는다(메모리, DB 모두)", () => {
   documents.put("ai", { provider: "off", model: "처음" }, 0);
 
-  // 다른 쪽이 그사이 DB 의 프롬프트를 고쳤다: 메모리는 번호 0 으로 알고 써서 DB 에서 걸린다
+  // 다른 쪽이 그사이 DB의 프롬프트를 고쳤다: 메모리는 번호 0으로 알고 써서 DB에서 걸린다
   settingsDocs.write("ai-prompt", [{ role: "user", text: "{{list}} 바깥" }], 0);
   assert.ok(
     conflict(() =>
@@ -85,11 +85,11 @@ test("함께 저장: 번호를 안 준 문서는 번호를 보지 않는다. 새
   assert.deepEqual(settingsDocs.read("ai-prompt").data, [{ role: "user", text: "{{list}} 새로" }]);
 });
 
-test("DB 에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서로 돈다", () => {
+test("DB에 망가진 문서가 있으면 없는 것으로 읽고 기본 문서로 돈다", () => {
   store.settings().prepare("INSERT INTO documents (name, data_json, revision) VALUES ('status', '{깨짐', 3)").run();
   documents.attach(settingsDocs);
   assert.deepEqual(documents.get("status"), documents.defaultOf("status"));
-  assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3 에 이어서");
+  assert.equal(documents.revisionOf("status"), 3, "다음 저장은 번호 3에 이어서");
 });
 
 test("예전 기본값 그대로인 AI 줄 형식, 프롬프트는 기동 시 지금 기본값으로 바꿔 저장한다", () => {
@@ -110,7 +110,7 @@ test("예전 기본값 그대로인 AI 줄 형식, 프롬프트는 기동 시 �
   assert.equal(ai.provider, "vertex");
   assert.deepEqual(ai.list, { lineFormat: (documents.defaultOf("ai") as { list: { lineFormat: string } }).list.lineFormat });
   assert.deepEqual(documents.get("ai-prompt"), []);
-  // DB 에도 썼다(다음 기동은 바꿀 것이 없다)
+  // DB에도 썼다(다음 기동은 바꿀 것이 없다)
   assert.deepEqual(settingsDocs.read("ai-prompt").data, []);
   assert.deepEqual(documents.attach(settingsDocs), []);
 });

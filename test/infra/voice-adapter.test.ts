@@ -47,9 +47,9 @@ test("참가 요청은 잠깐 붙잡았다 그대로 보낸다. 내보낼 때 �
 
 test("붙잡은 사이 봇이 다른 채널로 옮겨졌다고 오면 그 채널로 고쳐 보낸다(옛 채널로 끌려가지 않게)", (t) => {
   const { adapter, sent, seen, state, rewrites, sends } = setup(t);
-  state("a"); // 봇은 a 에 있다
+  state("a"); // 봇은 a에 있다
   adapter.sendPayload(join("a")); // 라이브러리가 옛 설정으로 다시 참가하려 한다
-  state("b"); // 사람이 봇을 b 로 불러왔다
+  state("b"); // 사람이 봇을 b로 불러왔다
   t.mock.timers.tick(HOLD_MS);
   assert.equal(sent[0].d.channel_id, "b");
   assert.deepEqual(rewrites, ["a->b"]);
@@ -60,7 +60,7 @@ test("붙잡은 사이 봇이 다른 채널로 옮겨졌다고 오면 그 채널
 test("채널이 그대로인 알림(음소거 등)은 우리가 요청한 이동을 되돌리지 않는다", (t) => {
   const { adapter, sent, state } = setup(t);
   state("a");
-  adapter.sendPayload(join("b")); // 우리가 b 로 옮긴다
+  adapter.sendPayload(join("b")); // 우리가 b로 옮긴다
   state("a", { self_mute: true });
   t.mock.timers.tick(HOLD_MS);
   assert.equal(sent[0].d.channel_id, "b");

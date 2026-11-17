@@ -4,8 +4,8 @@ import * as statusConfig from "../config/status.ts";
 import type { ActivityMessage, StatusConfig } from "../config/status.ts";
 import { INTERVAL_DEFAULT, INTERVAL_MIN } from "../config/schema/status.ts";
 
-// 라이브러리가 ESM 빌드(.mjs)에도 CJS 로 읽히는 타입 파일(.d.ts)을 붙여 TS 는 기본값을 모듈 전체로 본다.
-// Node 는 .mjs 를 열고 그 기본값이 클래스다
+// 라이브러리가 ESM 빌드(.mjs)에도 CJS로 읽히는 타입 파일(.d.ts)을 붙여 TS는 기본값을 모듈 전체로 본다.
+// Node는 .mjs를 열고 그 기본값이 클래스다
 const KoreanLunarCalendar = lunarCalendar as unknown as typeof lunarCalendar.default;
 
 // Custom은 말머리("듣는 중" 같은 것) 없이 문구만 보여준다.

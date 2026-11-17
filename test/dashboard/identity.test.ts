@@ -81,7 +81,7 @@ test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름, 그림은 봇이 �
   botUser = null;
   const early = await get("/api/bot");
   assert.equal(early.status, 200);
-  assert.deepEqual(early.json, { name: null, avatarUrl: null, sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor, faviconVersion: faviconVersion() }, "준비 전에도 소스 링크 · 임베드 색 · 파비콘 버전이 있다");
+  assert.deepEqual(early.json, { name: null, avatarUrl: null, sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo, brandColor: config.bot.embedColor, faviconVersion: faviconVersion() }, "준비 전에도 소스 링크, 임베드 색, 파비콘 버전이 있다");
 
   let asked: object | null = null;
   botUser = {
@@ -97,13 +97,13 @@ test("/api/bot: 소스 저장소는 늘(AGPL 고지), 이름, 그림은 봇이 �
   assert.deepEqual(asked, { size: 1024, extension: "webp" }, "로그인 화면 배경으로도 쓰는 큰 그림");
 });
 
-test("/api/me: 세션 사용자에 무엇이 더 붙어도 Me 의 필드만 보낸다", async () => {
+test("/api/me: 세션 사용자에 무엇이 더 붙어도 Me의 필드만 보낸다", async () => {
   user = { id: "u1", username: "사용자", globalName: "사용자", avatar: null, guilds: [{ id: "g1" }], token: "새면 안 되는 값" };
   const me = await get("/api/me");
   assert.deepEqual(Object.keys(me.json).sort(), ["avatar", "avatarUrl", "canInvite", "globalName", "id", "intents", "isOwner", "isRealOwner", "username", "viewAs"]);
 });
 
-test("/api/me: canInvite 는 공개 봇이면 누구나, 아니면 앱 소유자, 팀원만. code grant 를 요구하거나 앱 정보를 모르면 아무도", async () => {
+test("/api/me: canInvite는 공개 봇이면 누구나, 아니면 앱 소유자, 팀원만. code grant를 요구하거나 앱 정보를 모르면 아무도", async () => {
   const { _setAppInfo } = await import("../../src/dashboard/invite.ts");
   const canInvite = async (id: string) => {
     user = { id, username: id };
@@ -115,7 +115,7 @@ test("/api/me: canInvite 는 공개 봇이면 누구나, 아니면 앱 소유자
     _setAppInfo({ botPublic: true, requireCodeGrant: false, ownerIds: [] });
     assert.equal(await canInvite("u1"), true);
     _setAppInfo({ botPublic: false, requireCodeGrant: false, ownerIds: ["u9", "u8"] });
-    assert.deepEqual([await canInvite("u1"), await canInvite("u9"), await canInvite("u8")], [false, true, true], "앱 소유자 · 팀원");
+    assert.deepEqual([await canInvite("u1"), await canInvite("u9"), await canInvite("u8")], [false, true, true], "앱 소유자와 팀원");
     _setAppInfo({ botPublic: true, requireCodeGrant: true, ownerIds: ["u9"] });
     assert.deepEqual([await canInvite("u1"), await canInvite("u9")], [false, false], "초대 링크만으로는 봇이 들어오지 않는다");
   } finally {

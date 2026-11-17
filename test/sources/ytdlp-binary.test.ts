@@ -1,5 +1,5 @@
 // src/sources/ytdlp-binary.ts: yt-dlp를 버전별 폴더에 두고, 목표 버전(고정 버전, auto면 채널 최신 버전)으로 맞추며(notify는 확인만), 가리키는 경로만 교체한다. 처음에는 설정과 상관없이 설치한다.
-// 릴리스, GitHub 은 가짜다. 가짜 릴리스는 staging/dir 에 실행 파일을 쓰고(내용이 곧 버전), 가짜 실행은 그 내용을 --version 으로 돌려준다. 잠금은 진짜(OS 가 쥐는 것)를 쓴다.
+// 릴리스, GitHub은 가짜다. 가짜 릴리스는 staging/dir에 실행 파일을 쓰고(내용이 곧 버전), 가짜 실행은 그 내용을 --version으로 돌려준다. 잠금은 진짜(OS가 쥐는 것)를 쓴다.
 
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -35,8 +35,8 @@ function seed(version: string, { previous = null as string | null } = {}) {
 }
 
 /**
- * 가짜 세상. latest 는 GitHub 의 최신 태그. release 는 태그마다 릴리스가 할 일(쓸 버전, 또는 던질 실패), ran 은 --version 대신 줄 결과.
- * 같은 root 에 world 를 둘 만들면 프로세스 둘이다(pid 가 다르고 잠금은 진짜).
+ * 가짜 세상. latest는 GitHub의 최신 태그. release는 태그마다 릴리스가 할 일(쓸 버전, 또는 던질 실패), ran은 --version 대신 줄 결과.
+ * 같은 root에 world를 둘 만들면 프로세스 둘이다(pid가 다르고 잠금은 진짜).
  */
 function world({ installed = "2026.08.19" as string | null, latest = "2026.09.27.232849", pid = 4242 } = {}) {
   if (installed) seed(installed);
@@ -50,7 +50,7 @@ function world({ installed = "2026.08.19" as string | null, latest = "2026.09.27
     leased: new Set<string>(),
     release: (tag: string): { version?: string; error?: { kind: string; message: string } } => ({ version: tag }),
     ran: null as ((file: string) => YtdlpRan) | null,
-    // 받는 도중에 할 일(다른 프로세스가 같은 버전을 공개하는 것을 흉내 낸다)
+    // 받는 도중에 할 일(다른 프로세스가 같은 버전을 버전 폴더로 옮기는 것을 흉내 낸다)
     during: null as (() => void) | null,
   };
   const io: YtdlpBinaryIo = {
@@ -96,7 +96,7 @@ test("처음: 기록이 없으면 설정과 상관없이 채널의 최신을 설
   assert.deepEqual(outcome, { kind: "installed", from: null, to: "2026.09.27.232849", channel: "nightly" });
   assert.equal(version, "2026.09.27.232849");
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
-  assert.deepEqual(fs.readdirSync(path.join(dirOf(), "2026.09.27.232849")).sort(), ["_internal", "yt-dlp.exe"], "푼 폴더째 옮긴다(zip 은 남기지 않는다)");
+  assert.deepEqual(fs.readdirSync(path.join(dirOf(), "2026.09.27.232849")).sort(), ["_internal", "yt-dlp.exe"], "푼 폴더째 옮긴다(zip은 남기지 않는다)");
   assert.deepEqual(staged(), []);
   assert.equal(w.asks, 1);
   assert.deepEqual(await bin.prepare(), { version: "2026.09.27.232849", outcome: null }, "설치돼 있으면 네트워크를 쓰지 않는다");
@@ -121,7 +121,7 @@ test("auto: 채널의 최신을 받아 버전 폴더에 두고 가리키는 경�
     w.runs.join("\n"),
   );
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
-  assert.equal(fs.readFileSync(path.join(dirOf(), "2026.08.19", "yt-dlp.exe"), "utf8"), "2026.08.19", "돌고 있던 yt-dlp 의 폴더는 건드리지 않는다");
+  assert.equal(fs.readFileSync(path.join(dirOf(), "2026.08.19", "yt-dlp.exe"), "utf8"), "2026.08.19", "돌고 있던 yt-dlp의 폴더는 건드리지 않는다");
   assert.equal(bin.state?.previous, "2026.08.19");
   assert.deepEqual(staged(), []);
 });
@@ -137,18 +137,18 @@ test("최신은 하루 한 번만 묻는다. 기록은 디스크에 남아 다�
   assert.equal(w.asks, 2);
 });
 
-test("GitHub 가 준 태그가 릴리스 태그 모양이 아니면 그 경로로 받거나 옮기지 않고 실패한다", async () => {
+test("GitHub가 준 태그가 릴리스 태그 모양이 아니면 그 경로로 받거나 옮기지 않고 실패한다", async () => {
   const { w, bin } = world({ latest: "../../evil" });
   await assert.rejects(bin.check(), /릴리스 태그 형식이 아님/);
   assert.deepEqual(w.fetches, [], "받은 태그로는 아무것도 받지 않는다");
   assert.ok(!fs.existsSync(path.join(root, "evil")), "폴더 밖에 아무것도 만들지 않는다");
 });
 
-test("manual: 고정이 없으면 스스로 맞추지 않고 네트워크도 쓰지 않는다. 사람이 부르면(force) 목표 버전을 다운로드한다", async () => {
+test("manual: 고정이 없으면 자동으로 맞추지 않고 네트워크도 쓰지 않는다. 강제 실행(force)하면 목표 버전을 다운로드한다", async () => {
   config.ytdlp.update = "manual";
   const { w, bin, rel } = world();
   assert.equal(await bin.check(), null);
-  assert.equal(await bin.check({ fresh: true }), null, "설정을 방금 바꿨어도 manual 은 다운로드하지 않는다");
+  assert.equal(await bin.check({ fresh: true }), null, "설정을 방금 바꿨어도 manual은 다운로드하지 않는다");
   assert.deepEqual([w.asks, w.fetches.length], [0, 0]);
   assert.equal((await bin.check({ force: true }))?.kind, "installed");
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
@@ -182,7 +182,7 @@ test("notify여도 고정한 버전이 있으면 그 버전으로 맞춘다. 최
   assert.deepEqual(await current.bin.check(), { kind: "current", version: "2026.08.19" });
 });
 
-test("다른 프로세스가 yt-dlp 폴더를 쥐고 놓지 않으면 그 PID 를 실패 문구에 남긴다", async () => {
+test("다른 프로세스가 yt-dlp 폴더를 쥐고 놓지 않으면 그 PID를 실패 문구에 남긴다", async () => {
   const { io } = world();
   const bin = new YtdlpBinary({ ...io, lock: async () => ({ holder: 777 }) });
   await assert.rejects(bin.forgetPrevious(), /^Error: 다른 프로세스\(PID 777\)가 yt-dlp 폴더를 사용 중\(60초 대기 초과\)$/);
@@ -190,7 +190,7 @@ test("다른 프로세스가 yt-dlp 폴더를 쥐고 놓지 않으면 그 PID �
   await assert.rejects(unknown.forgetPrevious(), /^Error: 다른 프로세스가 yt-dlp 폴더를 사용 중/);
 });
 
-test("manual 이어도 고정이 있으면 그 버전으로 맞춘다", async () => {
+test("manual이어도 고정이 있으면 그 버전으로 맞춘다", async () => {
   Object.assign(config.ytdlp, { update: "manual", version: "2026.09.01" });
   const { w, bin, rel } = world();
   assert.deepEqual(await bin.check(), { kind: "installed", from: "2026.08.19", to: "2026.09.01", channel: "nightly" });
@@ -254,7 +254,7 @@ test("목표가 다른 요청은 진행 중인 설치가 끝난 뒤에 자기 �
   assert.equal(bin.busy, null);
 });
 
-test("스스로 시작한 다운로드는 그사이 설정이 바뀌면 교체하지 않는다. 사람이 선택한 것과 처음 설치는 교체한다", async () => {
+test("자동으로 시작한 다운로드는 그사이 설정이 바뀌면 교체하지 않는다. 사람이 선택한 것과 처음 설치는 교체한다", async () => {
   const { w, bin, rel } = world();
   w.during = () => void bin.generation++;
   assert.deepEqual(await bin.check(), { kind: "superseded", target: "2026.09.27.232849" });
@@ -262,7 +262,7 @@ test("스스로 시작한 다운로드는 그사이 설정이 바뀌면 교체�
   assert.deepEqual(staged(), [], "다운로드한 것은 삭제한다");
   assert.equal(bin.failure, null, "실패로 남기지 않는다");
 
-  assert.equal((await bin.check({ force: true }))?.kind, "installed", "사람이 부른 것");
+  assert.equal((await bin.check({ force: true }))?.kind, "installed", "강제 실행(force)한 것");
   fs.rmSync(root, { recursive: true, force: true });
   const fresh = world({ installed: null });
   fresh.w.during = () => void fresh.bin.generation++;
@@ -321,7 +321,7 @@ test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일�
   assert.deepEqual(staged(), []);
 });
 
-test("받은 것이 실행됐지만 오류로 끝나면(이 환경에서 안 돈다) 버리고 그 태그를 적는다. 일일 확인은 다시 받지 않고, 사람이 부르면 다시 해 본다", async () => {
+test("받은 것이 실행됐지만 오류로 끝나면(이 환경에서 안 돈다) 버리고 그 태그를 적는다. 일일 확인은 다시 받지 않고, 강제 실행(force)하면 재시도한다", async () => {
   const { w, bin, rel } = world();
   w.ran = (file) => (file.includes(".staging") ? { kind: "exited", status: 255, stdout: "", stderr: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found" } : { kind: "exited", status: 0, stdout: fs.readFileSync(file, "utf8"), stderr: "" });
   assert.deepEqual(await bin.check(), { kind: "unusable", current: "2026.08.19", target: "2026.09.27.232849", reason: "[PYI-1] Error loading Python lib: GLIBC_2.17 not found", channel: "nightly" });
@@ -380,7 +380,7 @@ test("프로세스 둘이 같은 버전을 동시에 설치하고 정리해도 �
   assert.deepEqual(staged(), []);
 });
 
-test("받는 사이 다른 프로세스가 같은 버전을 먼저 공개하면 그것을 확인해 쓴다", async () => {
+test("받는 사이 다른 프로세스가 같은 버전을 먼저 버전 폴더로 옮기면 그것을 확인해 쓴다", async () => {
   const { w, bin, rel } = world();
   w.during = () => {
     fs.mkdirSync(path.join(dirOf(), "2026.09.27.232849"), { recursive: true });
@@ -426,7 +426,7 @@ test("다른 프로세스가 폴더를 쥐고 있으면 설치는 일시적 실�
   assert.equal(w.fetches.length, 1);
 });
 
-test("정리: 지금, 직전, 쓰는 중인 버전과 살아 있는 프로세스의 staging 을 남기고, 기록과 모르는 이름은 건드리지 않는다", async () => {
+test("정리: 지금, 직전, 쓰는 중인 버전과 살아 있는 프로세스의 staging을 남기고, 기록과 모르는 이름은 건드리지 않는다", async () => {
   const { w, bin } = world();
   await bin.check();
   for (const name of ["2026.01.01", "2026.02.02", ".staging-1234", ".staging-7777-5", ".trash-2025.12.31-1-2", "my-notes"]) fs.mkdirSync(path.join(dirOf(), name));
@@ -437,7 +437,7 @@ test("정리: 지금, 직전, 쓰는 중인 버전과 살아 있는 프로세스
   assert.deepEqual(names(), [".staging-7777-5", "2026.02.02", "2026.08.19", "2026.09.27.232849", "my-notes", "state.json", "state.json.999.tmp"]);
 });
 
-test("정리: 이 프로세스의 staging 도 그 안에서 아직 도는 것이 없으면 지운다", async () => {
+test("정리: 이 프로세스의 staging도 그 안에서 아직 도는 것이 없으면 지운다", async () => {
   const { w, bin } = world();
   fs.mkdirSync(path.join(dirOf(), ".staging-4242-1"));
   fs.mkdirSync(path.join(dirOf(), ".staging-4242-2"));
@@ -493,7 +493,7 @@ test("기동: 처음 설치가 실패하면 설정과 상관없이 다시 해 �
   w.release = (tag) => ({ version: tag });
   await bin._tick();
   assert.equal(bin.path() !== null, true);
-  assert.equal(bin.timer, null, "설치되면 off 라 더 보지 않는다");
+  assert.equal(bin.timer, null, "설치되면 off라 더 보지 않는다");
 
   const none = new YtdlpBinary({ ...io, dir: path.join(root, "other"), asset: () => ({ missing: "이 OS, CPU 용 yt-dlp 판이 없음(freebsd-x64)" }) });
   t.after(() => none.stop());
@@ -515,7 +515,7 @@ test("설치 전이나 실행 파일이 사라졌으면 경로가 없고, 봇이
   assert.equal(bin.nextAt, first, "곡 추가가 여러 번 와도 예약은 하나");
 });
 
-test("--skip-signature 는 처음 설치와 기존 설치 모두의 다운로드에 닿는다", async () => {
+test("--skip-signature는 처음 설치와 기존 설치 모두의 다운로드에 닿는다", async () => {
   const fresh = world({ installed: null });
   await fresh.bin.prepare({ force: true, skipSignature: true });
   assert.deepEqual(fresh.w.fetches, ["2026.09.27.232849 서명 건너뜀"]);
@@ -535,7 +535,7 @@ test("이전 버전 삭제: 기록에서 지우고 폴더를 정리한다. 그 �
   const state = JSON.parse(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"));
   assert.deepEqual([state.version, state.previous, state.previousChannel], ["2026.09.27.232849", null, null]);
   assert.equal(bin.rollbackTarget(), null);
-  assert.ok(fs.existsSync(old), "도는 yt-dlp 가 쓰는 폴더는 남긴다");
+  assert.ok(fs.existsSync(old), "도는 yt-dlp가 쓰는 폴더는 남긴다");
   w.leased.clear();
   await bin.cleanup();
   assert.equal(fs.existsSync(old), false);
@@ -560,7 +560,7 @@ test("결과 한 줄", () => {
     { level: "info", line: "yt-dlp를 저장된 버전으로 교체: b → a" },
     { level: "info", line: "yt-dlp b 다운로드 취소: 다운로드 중 설정이 바뀜" },
     { level: "warn", line: "yt-dlp 업데이트 실패(기존 버전 유지): a → b (nightly) - 연결 끊김" },
-    { level: "warn", line: "yt-dlp 설치 실패(yt-dlp 를 쓰는 기능이 동작하지 않음): b (nightly) - 연결 끊김" },
+    { level: "warn", line: "yt-dlp 설치 실패(yt-dlp를 쓰는 기능이 동작하지 않음): b (nightly) - 연결 끊김" },
     { level: "warn", line: "yt-dlp 업데이트 불가(기존 버전 유지): a → c (nightly) - 이 환경에서 실행되지 않음: GLIBC_2.17 not found" },
   ]);
 });
@@ -596,7 +596,7 @@ test("설정이 바뀌면 하던 것이 끝난 뒤 새 설정으로 맞춘다. �
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
   const asks = w.asks;
   await bin.onSettingsChanged();
-  assert.equal(w.asks, asks, "채널, 모드, 고정이 그대로면(다른 조절값의 저장) 아무것도 하지 않는다");
+  assert.equal(w.asks, asks, "채널, 모드, 고정이 그대로면(다른 설정값의 저장) 아무것도 하지 않는다");
 
   // 채널을 바꿈: 하루가 안 지났어도 새 채널의 최신으로
   config.ytdlp.channel = "stable";
@@ -610,7 +610,7 @@ test("설정이 바뀌면 하던 것이 끝난 뒤 새 설정으로 맞춘다. �
   await bin.onSettingsChanged();
   assert.equal(bin.nextAt, null);
 
-  // 고정을 적음: manual 이어도 그 버전으로
+  // 고정을 적음: manual이어도 그 버전으로
   config.ytdlp.version = "2026.09.01";
   await bin.onSettingsChanged();
   assert.equal(rel(), "bin/yt-dlp/2026.09.01/yt-dlp.exe");

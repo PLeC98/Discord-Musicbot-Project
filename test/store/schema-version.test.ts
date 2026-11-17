@@ -1,5 +1,5 @@
 // src/store/stores.ts, sqlite.ts: DB 파일마다 구조 버전이 맞지 않을 때의 방침. 저절로 새로 만들거나 그 자리에서 올리지 않는다.
-// 어느 파일이든 열지 않고 멈춘다. 캐시, 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB 를 만든 봇으로 실행하라고 안내한다.
+// 어느 파일이든 열지 않고 멈춘다. 캐시, 실행 상태는 삭제하고 다시 시작하라고 안내하고, 설정은 그 DB를 만든 봇으로 실행하라고 안내한다.
 
 import { sessions } from "../../src/store/player-sessions.ts";
 import os from "node:os";
@@ -97,14 +97,14 @@ test("실행 상태 DB 버전이 다르면 멈추고, 삭제한 뒤 다시 시�
   assert.equal(guildSettings.table.getBotChannel("g"), "c");
 });
 
-test("설정 DB 버전이 다르면 열지 않고 멈춘다. 파일은 손대지 않고 아무 DB 도 열린 채로 남지 않는다", () => {
+test("설정 DB 버전이 다르면 열지 않고 멈춘다. 파일은 손대지 않고 아무 DB도 열린 채로 남지 않는다", () => {
   prepare("settings.db", 99, "CREATE TABLE guild_settings (guild_id TEXT PRIMARY KEY, data_json TEXT NOT NULL); INSERT INTO guild_settings VALUES ('g', '{}');");
   assert.throws(
     () => stores.open(dir),
     (error) => codeOf(error) === "SCHEMA_MISMATCH" && messageOf(error).includes("구조가 이 봇과 맞지 않음") && messageOf(error).includes("새로 만들지 않음"),
   );
   assert.equal(settingsDb.isOpen() || stateDb.isOpen() || cacheDb.isOpen(), false);
-  assert.throws(() => settingsDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 던진다");
+  assert.throws(() => settingsDb.get(), { code: "DB_NOT_OPEN" }, "열지 못했으면 쓰려는 순간 예외를 던진다");
   assert.equal(fs.existsSync(path.join(dir, "cache.db")), false, "설정이 막히면 다른 파일을 만들지 않는다");
 
   const check = new Database(path.join(dir, "settings.db"));
@@ -286,7 +286,7 @@ test("다른 연결이 읽는 중이라 -wal을 줄이지 못하면(예외를 �
   }
 });
 
-test("실행 상태 DB 는 재생이 멎지 않게 잠금을 기다리지 않고, 설정과 캐시 DB 는 5초 동안 기다린다", () => {
+test("실행 상태 DB는 재생이 멎지 않게 잠금을 기다리지 않고, 설정과 캐시 DB는 5초 동안 기다린다", () => {
   stores.open(dir);
   try {
     assert.equal(stateDb.get().pragma("busy_timeout", { simple: true }), 0);

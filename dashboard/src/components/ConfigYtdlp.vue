@@ -1,9 +1,9 @@
 <template>
-  <!-- yt-dlp 카드(유튜브 탭). 운영 설정값 카드와 같은 모양(라벨 + 높이 40px 칸, 카드가 넓으면 2열). 칸은 설치된 버전, 그 오른쪽에 업데이트 버튼, 채널, 버전 고정, 자동 업데이트 순서다.
-       채널, 자동 업데이트는 다른 운영 조절값처럼 저장 막대로 저장한다(저장하면 서버가 새 설정으로 맞춘다).
+  <!-- yt-dlp 카드(업데이트 탭). 운영 설정값 카드와 같은 모양(라벨 + 높이 40px 칸, 카드가 넓으면 2열). 칸은 설치된 버전, 그 오른쪽에 업데이트 버튼, 채널, 버전 고정, 자동 업데이트 순서다.
+       채널, 자동 업데이트는 다른 운영 설정값처럼 저장 바에서 저장한다(저장하면 서버가 새 설정으로 맞춘다).
        버전 고정, 되돌리기, 업데이트는 누르면 바로 한다(그 조작이 곧 다운로드를 시작한다).
        다운로드는 서버가 뒤에서 하고 카드는 상태를 다시 읽어 진행을 본다. 결과는 토스트, 다시 시도할 실패는 칸 아래에 남긴다 -->
-  <BaseCard icon="download" :title="T.title">
+  <BaseCard icon="smart_display" :title="T.title">
     <template #actions
       ><BaseButton variant="secondary" size="sm" :href="releasesUrl" target="_blank" rel="noopener"><Icon name="open_in_new" :size="16" />{{ T.releases }}</BaseButton></template
     >
@@ -105,14 +105,14 @@ const askingRollback = ref(false);
 const askingForget = ref(false);
 let timer = 0;
 
-// 채널, 자동 업데이트는 운영 조절값의 고치는 중인 값(저장 막대가 저장한다). 비우면 기본값
+// 채널, 자동 업데이트는 운영 설정값의 고치는 중인 값(저장 바가 저장한다). 비우면 기본값
 const draftOf = (key: "YTDLP_CHANNEL" | "YTDLP_UPDATE") => draft.value[key] || tunable(key).def;
 const channelDraft = computed(() => draftOf("YTDLP_CHANNEL"));
 const modeDraft = computed(() => draftOf("YTDLP_UPDATE"));
 // 버전 목록은 저장 전이라도 선택한 채널의 목록을 연다
 const releasesUrl = computed(() => RELEASES[channelDraft.value as YtdlpChannel] ?? RELEASES.nightly);
 trackUnsaved(
-  "youtube:ytdlp",
+  "update:ytdlp",
   computed(() => (["YTDLP_CHANNEL", "YTDLP_UPDATE"] as const).some((key) => tunableValue(key, draft.value[key] ?? "") !== (saved.value[key] ?? ""))),
 );
 
@@ -160,7 +160,7 @@ async function refresh() {
   }
 }
 
-// 조작 하나를 보낸다. 조절값 상태를 바꾸는 요청이라 저장 막대의 저장과 겹치지 않게 차례로 보낸다
+// 조작 하나를 보낸다. 설정값 상태를 바꾸는 요청이라 저장 바의 저장과 겹치지 않게 차례로 보낸다
 async function act(path: string, body: object, failed: string) {
   saving.value = true;
   try {
@@ -213,7 +213,7 @@ onUnmounted(() => {
   clearTimeout(timer);
   detach();
 });
-// 저장 막대가 채널, 자동 업데이트를 저장하면 서버가 맞추기 시작한다. 조금 뒤 상태를 다시 읽는다
+// 저장 바가 채널, 자동 업데이트를 저장하면 서버가 맞추기 시작한다. 조금 뒤 상태를 다시 읽는다
 watch(
   () => [saved.value.YTDLP_CHANNEL, saved.value.YTDLP_UPDATE],
   () => {

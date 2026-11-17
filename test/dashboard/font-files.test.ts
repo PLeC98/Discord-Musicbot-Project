@@ -1,5 +1,5 @@
-// scripts/font-names.ts, dashboard/src/assets 의 글꼴: 화면 글꼴의 라이선스 조건.
-// 셋 다 SIL OFL 1.1 이다. 서브셋마다 라이선스(name 13, 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding 의 수정본은 그 이름을 쓸 수 없다
+// scripts/font-names.ts, dashboard/src/assets의 글꼴: 화면 글꼴의 라이선스 조건.
+// 셋 다 SIL OFL 1.1이다. 서브셋마다 라이선스(name 13, 14번)가 따라가야 하고, 예약된 글꼴 이름(RFN)이 걸린 D2Coding의 수정본은 그 이름을 쓸 수 없다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -10,11 +10,11 @@ import { setNames, toSfnt, OFL_NAMES } from "../../scripts/font-names.ts";
 
 const ASSETS = path.join(import.meta.dirname, "..", "..", "dashboard", "src", "assets");
 const open = (data: Buffer) => fontkit.create(data) as fontkit.Font;
-// @types/fontkit 은 name 테이블을 적지 않는다(fontkit 은 읽는다)
+// @types/fontkit은 name 테이블을 적지 않는다(fontkit은 읽는다)
 const names = (font: fontkit.Font) => (font as unknown as { name: { records: Record<string, Record<string, string> | undefined> } }).name.records;
 const en = (font: fontkit.Font, key: string) => Object.values(names(font)[key] ?? {})[0];
 
-/** sfnt 전체를 4바이트씩 더한 값. head 의 checkSumAdjustment 가 맞으면 0xB1B0AFBA */
+/** sfnt 전체를 4바이트씩 더한 값. head의 checkSumAdjustment가 맞으면 0xB1B0AFBA */
 function fontSum(font: Buffer) {
   let sum = 0;
   for (let i = 0; i < font.length; i += 4) sum = (sum + font.readUInt32BE(i)) >>> 0;
@@ -34,7 +34,7 @@ test("setNames: 고른 번호만 바꾸고 지우며, 나머지 이름, 글자, 
   assert.equal(after.numGlyphs, before.numGlyphs);
   assert.deepEqual(after.characterSet, before.characterSet);
   assert.equal(out.length % 4, 0);
-  assert.equal(fontSum(out), 0xb1b0afba, "head 의 checkSumAdjustment");
+  assert.equal(fontSum(out), 0xb1b0afba, "head의 checkSumAdjustment");
 });
 
 test("setNames: 글꼴 하나(sfnt)가 아니면 거절한다", () => {
@@ -58,10 +58,10 @@ test("내주는 글꼴은 서브셋마다 저작권, 라이선스 설명, 주소
     return !en(font, "copyright") || en(font, "license") !== OFL_NAMES[13] || en(font, "licenseURL") !== OFL_NAMES[14];
   });
   assert.deepEqual(missing, []);
-  for (const license of ["mono/OFL.txt", "google-sans-flex/OFL.txt", "material-symbols-OFL.txt"]) assert.ok(fs.existsSync(path.join(ASSETS, license)), `${license} 가 글꼴 옆에 있다`);
+  for (const license of ["mono/OFL.txt", "google-sans-flex/OFL.txt", "material-symbols-OFL.txt"]) assert.ok(fs.existsSync(path.join(ASSETS, license)), `${license}: 글꼴 옆에 있다`);
 });
 
-test("D2Coding 의 수정본(고정폭 서브셋)은 예약된 글꼴 이름을 저작권 줄 밖에서 쓰지 않는다(OFL 조건 3)", () => {
+test("D2Coding의 수정본(고정폭 서브셋)은 예약된 글꼴 이름을 저작권 줄 밖에서 쓰지 않는다(OFL 조건 3)", () => {
   const files = shipped().filter((file) => file.includes(`${path.sep}mono${path.sep}`));
   assert.ok(files.length > 0);
   const named = files.filter((file) =>

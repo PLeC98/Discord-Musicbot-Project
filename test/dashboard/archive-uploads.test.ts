@@ -10,7 +10,7 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "archive-uploads-"));
 archiveUploads._useDir(DIR);
 after(() => fs.rmSync(DIR, { recursive: true, force: true, maxRetries: 5 }));
 
-/** 다 받은 업로드 흉내(.part)를 두고 세션 sid 로 등록한다 */
+/** 다 받은 업로드 흉내(.part)를 두고 세션 sid로 등록한다 */
 function uploaded(id: string, sid: string) {
   fs.writeFileSync(path.join(DIR, `archive-${id}.zip.part`), "zip");
   return archiveUploads.adopt(id, sid);

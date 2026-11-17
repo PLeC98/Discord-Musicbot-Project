@@ -126,7 +126,7 @@ function fieldKeysOf(reply: unknown): SettingsKey[] {
   return [...keys];
 }
 
-/** 저장 실패의 종류. 상태 하나에 코드가 여럿이라(409 에 account-changed 도 있다) 문제 코드로 구분한다 */
+/** 저장 실패의 종류. 상태 하나에 코드가 여럿이라(409에 account-changed도 있다) 문제 코드로 구분한다 */
 type Failure = { kind: "conflict"; conflict: SettingsConflict } | { kind: "field"; keys: SettingsKey[] } | { kind: "permission" } | { kind: "gone" } | { kind: "other" };
 
 /** 서버나 멤버가 사라졌다(다시 해도 같다) */
@@ -154,7 +154,7 @@ const lostView = (error: unknown) => statusOf(error) === 403 || GONE_CODES.inclu
 
 /** 저장 컨트롤러가 화면에서 넘겨받는 함수 */
 type SaverIO = {
-  /** PATCH 를 보내고 응답(values)을 돌려준다 */
+  /** PATCH를 보내고 응답(values)을 돌려준다 */
   send(patch: SettingsPatch): Promise<SettingsSaved>;
   /** GET */
   fetch(): Promise<GuildSettings>;

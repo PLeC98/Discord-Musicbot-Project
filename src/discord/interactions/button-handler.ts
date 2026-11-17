@@ -21,7 +21,7 @@ import { VOLUME_MAX } from "../../rules/limits.ts";
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
 
-// 재생 패널의 버튼. custom_id 는 panel:동작:세션
+// 재생 패널의 버튼. custom_id는 panel:동작:세션
 const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   pause: (it, player) => answerPause(it, player),
   skip: (it, player) => answerSkip(it, player),
@@ -38,7 +38,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
 const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () => config.sponsorblock.enabled };
 
 // 재생 패널의 버튼. 플레이어가 있고 패널의 세션이 지금 세션이어야 한다.
-// 동일 음성 채널, 계층 검사는 핸들러가 부르는 controls 가 한다. 대기열 보기는 검사 없이 연다
+// 동일 음성 채널, 계층 검사는 핸들러가 부르는 controls가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   if (!player) return noticeSelf(interaction, errors.notice("no-song"));
@@ -82,7 +82,7 @@ async function handleVolumeButton(interaction: Press, player: Player) {
   await interaction.showModal(volumeModal(player.volume));
 }
 
-/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs 의 handleVolumeSubmit */
+/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs의 handleVolumeSubmit */
 function volumeModal(current: number) {
   const t = controlText.volumeModal(current);
   const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder(t.placeholder).setRequired(true);
@@ -121,7 +121,7 @@ async function handleSystemRefresh(interaction: Press, { players }: BotContext) 
 const routes: Route[] = [
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", PAGE_PREFIX, handleQueuePage),
-  // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay 가 받는다
+  // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 

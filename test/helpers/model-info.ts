@@ -1,5 +1,5 @@
 // AI 모델 정보(config/ai-models, ai-prices)의 받은 사본을 임시 폴더로 돌린다. 운영 폴더(database/)의 사본을 읽거나 쓰지 않는다.
-// profiles 면 테스트용 모델 프로필(test/fixtures/ai-models.json: 테스트가 쓰는 모델만 고른 레지스트리 사본)을 둔다. 가격표는 비어 있다
+// profiles면 테스트용 모델 프로필(test/fixtures/ai-models.json: 테스트가 쓰는 모델만 고른 레지스트리 사본)을 둔다. 가격표는 비어 있다
 //
 //   const dir = useModelInfo({ profiles: true });
 

@@ -18,7 +18,7 @@ async function measure() {
   if (measuring) return;
   measuring = true;
   try {
-    // 못 읽었으면 stale 값을 그대로 쓴다(그사이 끝난 pid 의 값은 목록에 나오지 않는다)
+    // 못 읽었으면 stale 값을 그대로 쓴다(그사이 끝난 pid의 값은 목록에 나오지 않는다)
     memory = (await processMemory(procRegistry.list().map((p) => p.pid))) ?? memory;
   } finally {
     measuring = false;
@@ -33,7 +33,7 @@ function watchProcesses() {
 // 재생, 다음 곡 작업인데 그 서버에 플레이어가 없으면 잔류 의심
 const STRAY_JOBS = new Set(["play", "prefetch"]);
 
-/** 정렬한 구간의 행. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합, stray 는 잔류 의심 프로세스의 앞(오래된 것부터), ytdlp 는 yt-dlp 줄과 추출 수 */
+/** 정렬한 구간의 행. byLabel은 프로그램마다의 수, memMb는 잰 메모리의 합, stray는 잔류 의심 프로세스의 앞(오래된 것부터), ytdlp는 yt-dlp 줄과 추출 수 */
 function processSummary(client: Client, players: { has(guildId: string): boolean }, query: Pick<StatusQuery, "procs" | "sort" | "desc">): AdminStatus["processes"] {
   const all: ProcessRow[] = procRegistry.list().map((p) => ({
     pid: p.pid,

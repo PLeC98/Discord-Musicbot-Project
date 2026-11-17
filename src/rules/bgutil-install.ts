@@ -5,14 +5,14 @@ function isCommitSha(text: string) {
   return /^[0-9a-f]{40}$/.test(text);
 }
 
-/** refspec, 명령 인자로 넘겨도 되는 태그 이름(`:`, `*`, `..`, 앞의 `-` 가 없다) */
+/** refspec, 명령 인자로 넘겨도 되는 태그 이름(`:`, `*`, `..`, 앞의 `-`가 없다) */
 function isPlainTag(text: string) {
   return /^[0-9A-Za-z][0-9A-Za-z._-]*$/.test(text) && !text.includes("..");
 }
 
 /**
- * 받을 태그와 그 태그가 가리켜야 할 커밋. commit 은 .env 의 BGUTIL_COMMIT(비면 없음).
- * 기본 태그면 고정한 커밋, 다른 태그면 commit 을 함께 받아야 한다(태그만으로는 받은 코드를 확인할 수 없다). 받지 못하면 error
+ * 받을 태그와 그 태그가 가리켜야 할 커밋. commit은 .env의 BGUTIL_COMMIT(비면 없음).
+ * 기본 태그면 고정한 커밋, 다른 태그면 commit을 함께 받아야 한다(태그만으로는 받은 코드를 확인할 수 없다). 받지 못하면 error
  */
 function bgutilPin(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | { error: string } {
   if (!isPlainTag(version)) return { error: `BGUTIL_VERSION이 태그 이름이 아닙니다: ${version}` };
@@ -25,9 +25,9 @@ function bgutilPin(version: string, commit: string, defaults: { version: string;
 type LockEntry = { hasInstallScript?: boolean; dev?: boolean; devOptional?: boolean; link?: boolean };
 
 /**
- * 설치 스크립트를 돌릴 실행 의존성의 이름(개발 의존성은 빼고, 이름순). npm ci --ignore-scripts 뒤 npm rebuild 로 넘긴다.
- * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 던진다.
- * npm rebuild 는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 던진다(개발 의존성의 스크립트가 돌게 된다)
+ * 설치 스크립트를 돌릴 실행 의존성의 이름(개발 의존성은 빼고, 이름순). npm ci --ignore-scripts 뒤 npm rebuild로 넘긴다.
+ * 이름은 셸 명령줄에 들어가므로 npm 패키지 이름 형식이 아니면 예외를 던진다.
+ * npm rebuild는 이름이 같은 패키지를 모두 다시 빌드하므로, 같은 이름의 개발 의존성에 설치 스크립트가 있으면 예외를 던진다(개발 의존성의 스크립트가 돌게 된다)
  */
 function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): string[] {
   const names = new Set<string>();
@@ -43,10 +43,10 @@ function rebuildTargets(lock: { packages?: Record<string, LockEntry> }): string[
   return [...names].sort();
 }
 
-// npm ci 가 루트 패키지에서 돌리는 수명 주기 스크립트
+// npm ci가 루트 패키지에서 돌리는 수명 주기 스크립트
 const ROOT_LIFECYCLE = ["preinstall", "install", "postinstall", "prepublish", "preprepare", "prepare", "postprepare"];
 
-/** 루트 패키지의 설치 수명 주기 스크립트 이름. --ignore-scripts 로 건너뛰므로 있으면 사람이 본다 */
+/** 루트 패키지의 설치 수명 주기 스크립트 이름. --ignore-scripts로 건너뛰므로 있으면 사람이 본다 */
 function rootInstallScripts(pkg: { scripts?: Record<string, unknown> }): string[] {
   return ROOT_LIFECYCLE.filter((name) => typeof pkg.scripts?.[name] === "string");
 }

@@ -1,4 +1,4 @@
-// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 카드마다 볼 수 있는 계층은 dashboard/settings-cards 의 표(봇 운영자도 해당 서버의 권한을 따른다)
+// 서버 설정(DJ 역할, 전용 채널, SponsorBlock, 재생목록 곡 수, 연령 제한 콘텐츠 재생 위치). 카드마다 볼 수 있는 계층은 dashboard/settings-cards의 표(봇 운영자도 해당 서버의 권한을 따른다)
 
 import express from "express";
 import logger from "../../infra/log/logger.ts";
@@ -29,13 +29,13 @@ import * as replies from "../../ui/control-replies.ts";
 import { announcer, dashboardActor } from "../discord-notice.ts";
 import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
 
-/** 검사를 통과한 본문. 필드마다 { from, to } 가 들어 있고, 없는 필드는 그대로 둔다 */
+/** 검사를 통과한 본문. 필드마다 { from, to }가 들어 있고, 없는 필드는 그대로 둔다 */
 type SettingsBody = z.output<ReturnType<typeof settingsPatch>>;
 /** 반영할 것. patch: 저장소에 넘길 것, keys: 보낸 키, from: 화면이 읽은 값, to: 거른 뒤의 바꿀 값 */
 type SettingsPlan = { patch: guildSettings.GuildPatch; keys: SettingsKey[]; from: SettingsValues; to: SettingsValues };
 
 // 본문을 이 서버에 맞춰 반영할 값으로 바꾼다. 서버에 없는 역할, 모르는 구간은 거르고, 받을 수 없는 값이면 그 문제를 돌려준다.
-// SponsorBlock 은 보낸 하위 키만 넣는다(빠진 하위 키를 채우면 켜기만 바꿀 때 구간 설정이 지워진다)
+// SponsorBlock은 보낸 하위 키만 넣는다(빠진 하위 키를 채우면 켜기만 바꿀 때 구간 설정이 지워진다)
 function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refused: Problem } {
   const patch: guildSettings.GuildPatch = {};
   let from: SettingsValues = {};
@@ -47,7 +47,7 @@ function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refuse
 
   if (body.djRoleIds) {
     const roles = [...new Set(body.djRoleIds.to)].filter((id) => isDjRoleCandidate(guild, id));
-    // 디스코드 /setting 의 역할 선택 메뉴와 같은 상한
+    // 디스코드 /setting의 역할 선택 메뉴와 같은 상한
     if (roles.length > DJ_ROLE_MAX) return { refused: { code: "too-many-dj-roles", max: DJ_ROLE_MAX } };
     patch.djRoleIds = roles;
     put("djRoleIds", body.djRoleIds.from, roles);
@@ -85,7 +85,7 @@ function planSettings(guild: Guild, body: SettingsBody): SettingsPlan | { refuse
 
 const fieldNames = (fields: guildSettings.GuildField[]) => fields.map((field) => guildSettings.FIELD_LABEL[field]).join(", ");
 
-// 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/stay)
+// 상주 모드 카드: 켜졌는지, 머무는 채널(보는 사람이 볼 수 있는 채널만. 비공개 채널의 이름을 알리지 않는다), 지금 바꿀 수 없는 이유(켜고 끄기와 같은 확인, usecases/stay)
 async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): Promise<StayCard> {
   const seat = stay.seatChannelOf(guild.id);
   const found = seat ? guild.channels.cache.get(seat) : undefined;
@@ -93,7 +93,7 @@ async function stayCardOf(bot: BotContext, guild: Guild, member: GuildMember): P
   return { on: seat !== null, channel: found && visible ? { id: found.id, name: found.name } : null, refusal: await stay.stayRefusal(bot, member) };
 }
 
-// 볼륨 정규화 카드: 켜졌는지, 지금 바꿀 수 없는 까닭(켜고 끄기와 같은 확인, usecases/normalize)
+// 볼륨 정규화 카드: 켜졌는지, 지금 바꿀 수 없는 이유(켜고 끄기와 같은 확인, usecases/normalize)
 async function normalizeCardOf(guild: Guild, member: GuildMember): Promise<NormalizeCard> {
   return { on: normalize.normalizeOn(guild.id), refusal: await normalize.normalizeRefusal(member) };
 }
@@ -111,7 +111,7 @@ function cardValuesOf(guild: Guild, cards: readonly SettingsCard[], values: Sett
   }
 
   if (cards.includes("dj")) {
-    // @everyone 은 제외("전원 DJ"는 미설정이 이미 그 의미), 봇 역할도 제외(사람에게 줄 수 없다)
+    // @everyone은 제외("전원 DJ"는 미설정이 이미 그 의미), 봇 역할도 제외(사람에게 줄 수 없다)
     const roles = [...guild.roles.cache.values()]
       .filter((r) => isDjRoleCandidate(guild, r.id))
       .sort((a, b) => b.position - a.position)
@@ -200,7 +200,7 @@ function createGuildSettingsRouter() {
     res.json({ values: pickValues(shownValues(guild, result.doc), plan.keys) } satisfies SettingsSaved);
   });
 
-  // 상주 모드 켜기, 끄기 { on }. 디스코드 /247 과 같은 처리(usecases/stay). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 답은 바뀐 뒤의 카드
+  // 상주 모드 켜기, 끄기 { on }. 디스코드 /247과 같은 처리(usecases/stay). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 응답은 바뀐 뒤의 카드
   router.post("/:guildId/settings/stay", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
@@ -219,13 +219,13 @@ function createGuildSettingsRouter() {
     res.json(await stayCardOf(bot, guild, member));
   });
 
-  // 볼륨 정규화 켜기, 끄기 { on }. 디스코드 /normalize 와 같은 처리(usecases/normalize). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 응답은 바뀐 뒤의 카드
+  // 볼륨 정규화 켜기, 끄기 { on }. 디스코드 /normalize와 같은 처리(usecases/normalize). 바뀐 결과는 디스코드의 패널 채널에도 알린다. 응답은 바뀐 뒤의 카드
   router.post("/:guildId/settings/normalize", requireAuth, async (req, res) => {
     const ctx = await openGuild(req, res, req.params.guildId);
     if (!ctx) return;
     const { guild, member, bot } = ctx;
 
-    // 카드 계층을 먼저 보지 않는다. 판정은 /normalize 와 같은 순서(usecases/normalize 의 checkControl: 같은 음성 채널, 그다음 DJ)로 하나다
+    // 카드 계층을 먼저 보지 않는다. 판정은 /normalize와 같은 순서(usecases/normalize의 checkControl: 같은 음성 채널, 그다음 DJ)로 하나다
     const body = parse(ToggleBody, req.body ?? {});
     if (!body.ok) return sendProblem(res, body.code);
 
@@ -243,7 +243,7 @@ function createGuildSettingsRouter() {
     const { guild, member, bot } = ctx;
 
     if (!shownCards(await viewerOf(req, member)).includes("leave")) return sendProblem(res, cardRefusal("leave"));
-    // 이름은 바꿀 수 있어 사용자 id 를 함께 남긴다(나간 서버에는 기록이 남지 않는다)
+    // 이름은 바꿀 수 있어 사용자 id를 함께 남긴다(나간 서버에는 기록이 남지 않는다)
     const user = signedIn(req);
     const who = `${user.username || "?"} (${user.id})`;
     try {

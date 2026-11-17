@@ -5,7 +5,7 @@
     <!-- 막대, 지나온 쪽, 구간. 핸들이 보이는 동안은 핸들 양옆을 비운다(볼륨 막대와 같은 틈) -->
     <span class="absolute inset-0 flex items-center" :class="handle && [dragging ? 'mask-(--hole)' : 'group-hover/seek:mask-(--hole) pointer-coarse:mask-(--hole)']" :style="{ '--hole': hole }">
       <span class="absolute inset-x-0 rounded-full bg-on-surface/15" :style="{ height: `${thick}px` }"></span>
-      <!-- 지나온 쪽과 핸들은 transform 으로만 옮긴다(폭, 위치를 바꾸면 배치, 그리기를 다시 한다).
+      <!-- 지나온 쪽과 핸들은 transform으로만 옮긴다(폭, 위치를 바꾸면 배치, 그리기를 다시 한다).
            핸들은 막대 폭(cqw)만큼만 옮긴다. 막대만 한 상자를 옮기면 그 상자가 오른쪽으로 삐져나가 화면이 옆으로 스크롤된다 -->
       <span class="absolute inset-x-0 rounded-full overflow-hidden" :style="{ height: `${thick}px` }"><span class="block size-full rounded-full bg-primary" :style="{ transform: `translateX(${shown - 100}%)` }"></span></span>
       <span v-for="(m, i) in markers" :key="i" v-tooltip="m.label" class="absolute rounded-full opacity-85 hover:opacity-100" :style="{ left: `${m.left}%`, width: `${m.width}%`, height: `${thick}px`, backgroundColor: m.color }"></span>
@@ -25,7 +25,7 @@ const T = text.player;
 
 type Marker = { left: number; width: number; color: string; label: string };
 
-// value 는 0~100(%). rate 는 재생 중일 때 1초에 나아가는 %(멈췄으면 0). highlight 도 %(없으면 null). thick 은 막대 두께, height 는 누르는 영역의 높이
+// value는 0~100(%). rate는 재생 중일 때 1초에 나아가는 %(멈췄으면 0). highlight도 %(없으면 null). thick은 막대 두께, height는 누르는 영역의 높이
 const props = withDefaults(defineProps<{ value: number; rate?: number; markers?: Marker[]; highlight?: number | null; handle?: boolean; dragging?: boolean; thick?: number; height?: number }>(), {
   rate: 0,
   markers: () => [],
@@ -43,7 +43,7 @@ const root = ref<HTMLElement | null>(null);
 const { width } = useElementSize(root);
 const shown = ref(props.value);
 let anchor = { value: props.value, at: performance.now() };
-// 핸들 양옆을 비우는 마스크. 핸들은 볼륨 막대처럼 세로 막대(폭 4px, 높이 두께의 3배, 드래그하는 동안 폭 2px), 가운데에서 4px 까지 비운다(볼륨 막대와 같은 틈)
+// 핸들 양옆을 비우는 마스크. 핸들은 볼륨 막대처럼 세로 막대(폭 4px, 높이 두께의 3배, 드래그하는 동안 폭 2px), 가운데에서 4px까지 비운다(볼륨 막대와 같은 틈)
 const hole = computed(() => {
   const x = `${shown.value}%`;
   return `linear-gradient(to right, #000 calc(${x} - 4px), transparent calc(${x} - 4px), transparent calc(${x} + 4px), #000 calc(${x} + 4px))`;

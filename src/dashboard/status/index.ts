@@ -1,5 +1,5 @@
 // 봇 상태 탭(/api/admin/status)의 응답. 3초마다 불리므로 비싼 값은 모아 둔 것을 준다.
-// 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus 로 시작한다
+// 모으는 것(측정, 최근 15분, 게이트웨이, 프로세스 메모리, 저장공간)은 대시보드가 켜질 때 startStatus로 시작한다
 
 import { intentStatus } from "./intents.ts";
 import os from "node:os";

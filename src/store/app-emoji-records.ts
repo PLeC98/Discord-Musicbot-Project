@@ -1,4 +1,4 @@
-// 앱 이모지 기록(settings.db). app_emojis: 대시보드에서 올린 id(동기화 app/app-emojis 가 운영자가 올린 것처럼 건드리지 않는다).
+// 앱 이모지 기록(settings.db). app_emojis: 대시보드에서 올린 id(동기화 app/app-emojis가 운영자가 올린 것처럼 건드리지 않는다).
 // app_emoji_chars: 대시보드 입력란이 앱 이모지를 그리는 문자(dashboard/app-emoji-glyphs)
 import { settingsDb } from "./settings-db.ts";
 
@@ -14,7 +14,7 @@ function addUploaded(id: string) {
   conn().prepare("INSERT OR IGNORE INTO app_emojis (id, added_at) VALUES (?, ?)").run(id, Date.now());
 }
 
-/** 디스코드 앱에 없는 id 를 정리한다(지웠다, 개발자 포털에서 지웠다). 남은 id 수 */
+/** 디스코드 앱에 없는 id를 정리한다(지웠다, 개발자 포털에서 지웠다). 남은 id 수 */
 function keepUploaded(existing: ReadonlySet<string>): number {
   const db = conn();
   return db.transaction(() => {

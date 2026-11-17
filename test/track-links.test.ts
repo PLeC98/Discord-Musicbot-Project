@@ -70,7 +70,7 @@ test("음원 곡은 페이지와 음원 주소를 따로 든다. 소리는 음�
   assert.deepEqual(await streamUrl.getStream(track), { url: track.audioUrl, platform: "direct", httpHeaders: {}, liveStatus: null, audioKey: audioKeyOf(track.audioUrl) });
 });
 
-// 링크 데이터 키가 작품 페이지면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다(「Fatal」 링크를 넣으면 「Burning」)
+// 링크 데이터 키가 작품 페이지면 같은 작품의 OP와 ED가 한 행을 두고 서로 덮는다(「Fatal」 링크를 넣으면 「Burning」)
 test("링크 데이터: 같은 작품의 두 곡은 요청 키가 달라 따로 산다. 작품 페이지는 키가 아니다", () => {
   const page = "https://anilist.co/anime/150672";
   const fatal = { title: "Fatal", artist: "GEMN", platform: "anisongdb", pageUrl: page, requestKey: "amq:9001", audioUrl: watch("fatalfatal1") };
@@ -115,7 +115,7 @@ test("퇴거가 audio_cache 행을 삭제해도 링크 데이터는 남는다", 
   const file = seed("yt:evictcasca", { title: "곡" });
   trackLookup.recordTrackLookup({ requestKey: spotify, pageUrl: spotify, audioUrl: watch("evictcasca"), platform: "spotify", title: "곡", artist: "가수" });
 
-  // evict() 가 한 행마다 하는 일 그대로
+  // evict()가 한 행마다 하는 일 그대로
   fs.unlinkSync(file);
   cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictcasca");
 

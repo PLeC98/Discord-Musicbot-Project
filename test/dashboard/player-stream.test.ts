@@ -1,4 +1,4 @@
-// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡, idempotent cleanup), 넛지, 넛지 합치기, 운영 조절값 반영
+// src/dashboard/player-stream.ts: SSE 연결 회계(연결 캡, idempotent cleanup), 넛지, 넛지 합치기, 운영 설정값 반영
 // 쓰기에 실패하면 구독과 함께 perKey(연결 캡)도 정리한다. close 이벤트에만 기대면 close가 안 오는 비정상 종료에서 캡이 영구 점유된다.
 
 import { test, after, mock } from "node:test";
@@ -14,7 +14,7 @@ const { maxPerUser } = config.dashboard.sse;
 const DashboardEvents = createPlayerStream();
 after(() => DashboardEvents.close());
 
-// 연결 하나. 쓴 것을 모으고, failWrite 면 쓰기가 던진다. closed 는 이미 끊긴 연결
+// 연결 하나. 쓴 것을 모으고, failWrite면 쓰기가 예외를 던진다. closed는 이미 끊긴 연결
 function makeRes({ closed = false } = {}) {
   const res = fakeWith<Response>()(
     Object.assign(new EventEmitter(), {
@@ -43,7 +43,7 @@ const sees =
   (guildId: string) =>
     ids.includes(guildId);
 
-test("쓰기 실패 시 구독, 연결 캡이 전부 정리됨(close 를 기다리지 않는다)", () => {
+test("쓰기 실패 시 구독, 연결 캡이 전부 정리됨(close를 기다리지 않는다)", () => {
   const res = makeRes();
   DashboardEvents.addClient(res, sees("evG2", "evG3"), "evU2");
   assert.equal(DashboardEvents.perKey.get("evU2"), 1);
@@ -71,7 +71,7 @@ test("idempotent: 쓰기 실패 정리 후 늦은 close가 와도 이중 감산 
   assert.equal(DashboardEvents.perKey.has("evU3"), false);
 });
 
-// 부르는 쪽이 기다리는 사이 끊긴 연결(Node 는 res.closed 로 알린다)
+// 호출부가 기다리는 사이 끊긴 연결(Node는 res.closed로 알린다)
 const makeClosed = () => makeRes({ closed: true });
 
 test("등록 전에 끊긴 연결은 받지 않는다(멤버 확인을 기다리는 사이 끊김. 그 뒤 건 close 감시는 불리지 않는다)", () => {
@@ -184,7 +184,7 @@ test("넛지 합치기: 창 안의 알림은 한 번으로, 창이 지나면 다
   }
 });
 
-// 운영 조절값을 저장하면 바로 먹는다. 상한, 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
+// 운영 설정값을 저장하면 바로 적용된다. 상한, 합치기 창은 쓸 때 읽고, 하트비트는 바뀐 간격으로 다시 건다
 test("설정 객체를 넘기면 상한, 하트비트를 다시 시작하지 않고 바꾼다. 닫은 허브는 알림을 안 듣는다", () => {
   mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
   const options = { heartbeatMs: 60_000, maxPerUser: 1, coalesceMs: 250 };

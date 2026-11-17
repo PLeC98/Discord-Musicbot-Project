@@ -55,7 +55,7 @@ test("예약 취소", () => {
   assert.ok(fs.existsSync(path.join(dirs.database, "settings.db")));
 });
 
-test("지우다 막히면 RESET_FAILED 로 멈추고 마커는 남는다(다음 기동이 이어서 지운다)", () => {
+test("지우다 막히면 RESET_FAILED로 멈추고 마커는 남는다(다음 기동이 이어서 지운다)", () => {
   const dirs = layout();
   fullReset.request(dirs.database);
   const locked = path.join(dirs.database, "state.db");

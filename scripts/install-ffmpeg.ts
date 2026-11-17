@@ -4,13 +4,13 @@
  * 움직이지 않는 autobuild 태그로 고정한다. `latest`는 이름이 같은 채로 내용물이 바뀐다.
  * 그중 월말 빌드를 쓴다. 일반 autobuild는 2주 뒤 삭제돼서 고정해 두면 404가 난다.
  *
- * 기본 태그는 src/config/vendor-versions.ts 에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 에셋 이름은 그 릴리스의
+ * 기본 태그는 src/config/vendor-versions.ts에 있고, .env의 FFMPEG_RELEASE로 바꾼다. 에셋 이름은 그 릴리스의
  * checksums.sha256에서 찾으므로 버전 문자열을 따로 맞출 필요가 없다.
  * 태그 목록: https://github.com/BtbN/FFmpeg-Builds/releases
  *
  * macOS와 미지원 아키텍처는 BtbN이 빌드를 주지 않아 건너뛴다. PATH의 ffmpeg나 FFMPEG_PATH를 쓴다.
  */
-import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import fs from "fs";
 import os from "os";
 import path from "path";

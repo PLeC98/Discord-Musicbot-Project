@@ -2,7 +2,7 @@
   <!-- 초기화(운영자 패널 백업, 초기화 탭). 공유 타입 contract/reset. 행 다섯: 오디오 캐시, 봇 설정, 서버별 설정, 디스플레이 설정, 봇 전체.
        확인 창은 삭제할 양을 숫자로 보인다. 오디오 캐시는 항목을 선택하고(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 실행된다.
        모두 최근 로그인을 본다. 봇 설정은 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 봇 전체는 실행기로 켠 봇이면 다시 시작을 기다려 화면을 새로고침한다 -->
-  <!-- 루트 하나(받은 class 가 카드 쪽에 붙게) -->
+  <!-- 루트 하나(받은 class가 카드 쪽에 붙게) -->
   <div>
     <BaseCard icon="delete_sweep" :title="T.title">
       <NoticeBox v-if="view?.staged" variant="note" tone="notice" icon="info" class="mt-0! mb-3">
@@ -21,7 +21,7 @@
       </div>
     </BaseCard>
 
-    <!-- ConfirmDialog 와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
+    <!-- ConfirmDialog와 같은 모양에 선택 항목, 이름 입력란을 더한 창 -->
     <BaseDialog :open="asking != null" width="md" role="alertdialog" :aria-labelledby="titleId" @close="close"
       ><template v-if="asking">
         <span class="size-12 rounded-full flex items-center justify-center mx-auto mb-4 bg-error-container text-on-error-container"><Icon name="delete" :size="24" /></span>
@@ -131,7 +131,7 @@ async function run() {
   if (!asking.value || !canRun.value) return;
   busy.value = true;
   try {
-    // 봇 전체: 봇이 답을 보낸 뒤 스스로 다시 시작한다. 새 봇을 알아보려고 보내기 전의 프로세스를 받아 둔다
+    // 봇 전체: 봇이 응답을 보낸 뒤 자동으로 다시 시작한다. 새 봇을 알아보려고 보내기 전의 프로세스를 받아 둔다
     const before = asking.value === "all" ? await currentPid().catch(() => null) : null;
     const { data } = await axios.post<ResetDone>(API, requestOf(asking.value), { timeout: LIMIT.long });
     announce(data);

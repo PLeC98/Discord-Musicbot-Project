@@ -1,5 +1,5 @@
 // 파비콘. 운영자가 패널에서 크기 슬롯마다 올린 이미지를 봇의 실행 상태 폴더(database/dashboard/favicon)에 두고 낸다.
-// 올린 파일은 그대로 두지 않고 sharp 로 다시 만든다: 슬롯 크기의 png 와 보관본 png(변 FAVICON_RESERVE_SIDE 까지). svg 도 그린 png 로만 둔다(꾸민 svg, 메타데이터가 그대로 나가지 않게).
+// 올린 파일은 그대로 두지 않고 sharp로 다시 만든다: 슬롯 크기의 png와 보관본 png(변 FAVICON_RESERVE_SIDE까지). svg도 그린 png로만 둔다(꾸민 svg, 메타데이터가 그대로 나가지 않게).
 // 슬롯마다 기록을 FAVICON_HISTORY 개까지 남겨 다시 올리지 않고 교체한다. 무엇이 있는지(슬롯마다 지금 이미지, 기록)는 같은 폴더의 index.json:
 // 이미지와 한 폴더라 백업, 이사, 불러오기에서 함께 움직인다(설정 DB 스냅샷을 복원해도 이미지와 어긋나지 않는다).
 // 그 크기를 낼 때: 그 슬롯의 지금 이미지 > 배율로 가장 가까운 슬롯의 보관본을 줄이거나 늘림 > 봇 프로필 이미지를 줄임
@@ -25,13 +25,13 @@ const ID = /^[a-z0-9]{8,24}$/;
 /** 이 폴더에서 봇이 쓰는 파일: 목록, 슬롯 크기 png, 보관본 png */
 const FILE = /^(index\.json|[a-z0-9]{8,24}(\.reserve)?\.png)$/;
 
-/** 저장한 이미지 하나. reserveSide 는 보관본의 변 */
+/** 저장한 이미지 하나. reserveSide는 보관본의 변 */
 type Stored = FaviconImage & { reserveSide: number };
 /** 슬롯 하나: 새것부터의 기록과 지금 쓰는 이미지 */
 type Slot = { current: string | null; history: Stored[] };
-/** index.json 의 형식(슬롯 크기 → 슬롯) */
+/** index.json의 형식(슬롯 크기 → 슬롯) */
 type Index = { slots: Record<string, Slot> };
-/** 올리기의 답: 됐거나, 거절(문제 코드, 그 값) */
+/** 파비콘 업로드 결과: 성공, 또는 거절(문제 코드, 그 값) */
 type Added = { ok: true } | { ok: false; code: Code; params?: Params };
 type Refused = Extract<Added, { ok: false }>;
 
@@ -54,13 +54,13 @@ function writeAtomic(file: string, data: Buffer | string) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
-/** 기록 한 줄이 쓸 만한 형식인지(index.json 은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
+/** 기록 한 줄이 쓸 만한 형식인지(index.json은 사람이 건드리지 않지만 불러오기는 남이 준 파일이다) */
 function isStored(value: unknown): value is Stored {
   const one = value as Partial<Stored> | null;
   return !!one && typeof one.id === "string" && ID.test(one.id) && isNum(one.bytes) && isNum(one.width) && isNum(one.height) && typeof one.vector === "boolean" && isNum(one.at) && isNum(one.reserveSide) && one.reserveSide > 0 && one.reserveSide <= FAVICON_RESERVE_SIDE;
 }
 
-/** index.json 을 슬롯으로 읽는다. 모르는 크기, 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 이미지가 기록에 없으면 빈 슬롯. has: 그 id 의 파일이 다 있는지 */
+/** index.json을 슬롯으로 읽는다. 모르는 크기, 형식이 틀린 줄은 버리고, 기록은 FAVICON_HISTORY 개까지, 지금 이미지가 기록에 없으면 빈 슬롯. has: 그 id의 파일이 다 있는지 */
 function slotsFrom(raw: unknown, has: (id: string) => boolean): Map<number, Slot> {
   const table = (raw as Partial<Index> | null)?.slots;
   return new Map(
@@ -118,11 +118,11 @@ const currentOf = (size: number) => {
   return slot.history.find((one) => one.id === slot.current) ?? null;
 };
 
-/** 받은 이미지를 본다(형식, 래스터는 정사각형, 변). 지나가면 그 크기의 png 와 보관본을 그린다 */
+/** 받은 이미지를 본다(형식, 래스터는 정사각형, 변). 지나가면 그 크기의 png와 보관본을 그린다 */
 async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: Stored; png: Buffer; reserve: Buffer } | Refused> {
   const meta = await sharp(raw)
     .metadata()
-    // 읽을 수 없는 이미지는 사용자가 업로드한 입력이다. 요청이 bad-image 로 거절된다
+    // 읽을 수 없는 이미지는 사용자가 업로드한 입력이다. 요청이 bad-image로 거절된다
     .catch(() => null);
   if (!meta) return refused("bad-image");
   const vector = meta.format === "svg";
@@ -131,7 +131,7 @@ async function inspect(raw: Buffer, size: number): Promise<{ ok: true; image: St
   if (!vector && !RASTERS.includes(meta.format ?? "")) return refused("bad-image");
   if (!vector && width !== height) return refused("image-not-square");
   if (!vector && width < FAVICON_MIN_SIDE) return refused("image-too-small", { min: FAVICON_MIN_SIDE });
-  // svg 는 낼 크기에 맞는 해상도로 그린다(기본 72dpi 로 그린 뒤 늘이면 흐리다). 정사각형이 아니면 잘라내지 않고 투명 여백으로 채운다
+  // svg는 낼 크기에 맞는 해상도로 그린다(기본 72dpi로 그린 뒤 늘이면 흐리다). 정사각형이 아니면 잘라내지 않고 투명 여백으로 채운다
   const draw = (side: number) =>
     sharp(raw, vector ? { density: Math.max(72, Math.ceil((72 * side) / Math.max(1, Math.min(width, height)))) } : {})
       .resize(side, side, { fit: vector ? "contain" : "cover", background: { r: 0, g: 0, b: 0, alpha: 0 } })
@@ -207,7 +207,7 @@ function removeFavicon(size: number, id: string): boolean {
   return true;
 }
 
-// 빈 슬롯이 빌려 쓸 슬롯: 지금 이미지가 있는 슬롯 중 배율로 가장 가까운 슬롯(차이가 아니라 배율: 180 을 낼 때 32 는 5.6 배, 512 는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
+// 빈 슬롯이 빌려 쓸 슬롯: 지금 이미지가 있는 슬롯 중 배율로 가장 가까운 슬롯(차이가 아니라 배율: 180을 낼 때 32는 5.6 배, 512는 2.8 배라 512). 같으면 큰 쪽(줄이는 편이 덜 흐리다)
 function nearestSlot(size: number): number | null {
   const off = (side: number) => Math.abs(Math.log(side / size));
   let best: number | null = null;
@@ -286,7 +286,7 @@ const faviconVersion = () => version;
 /** 이 폴더에서 봇이 쓰는 파일인지(전체 백업이 담을 것) */
 const isFaviconFile = (name: string) => FILE.test(name);
 
-/** 저장한 파일들: index.json 과 이미지마다 슬롯 크기 png, 보관본 png(이름은 저장된 그대로) */
+/** 저장한 파일들: index.json과 이미지마다 슬롯 크기 png, 보관본 png(이름은 저장된 그대로) */
 function faviconFiles(): Array<{ name: string; data: Buffer }> {
   const map = loaded();
   const images = [...map.values()].flatMap((slot) => slot.history);
@@ -295,10 +295,10 @@ function faviconFiles(): Array<{ name: string; data: Buffer }> {
 
 /** 검사를 지나 저장할 모양: 슬롯들과 파일(다시 만든 png) */
 type Prepared = { slots: Map<number, Slot>; files: Map<string, Buffer> };
-/** 불러온 파일들을 쓸 수 없는 까닭: 목록이 없거나 읽을 수 없음, 목록에 있는 이미지 파일이 없음, 이미지가 망가졌거나 크기가 맞지 않음 */
+/** 불러온 파일들을 쓸 수 없는 이유: 목록이 없거나 읽을 수 없음, 목록에 있는 이미지 파일이 없음, 이미지가 망가졌거나 크기가 맞지 않음 */
 type FaviconFault = "index" | "missing" | "broken";
 
-/** 이미지 하나를 본다: png 로 읽히고 정사각형 side 인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
+/** 이미지 하나를 본다: png로 읽히고 정사각형 side인지. 지나가면 다시 만든 png(메타데이터를 남기지 않게) */
 async function remade(data: Buffer | undefined, side: number): Promise<Buffer | "missing" | "broken"> {
   if (!data) return "missing";
   try {
@@ -332,7 +332,7 @@ async function checkFavicons(files: Array<{ name: string; data: Buffer }>): Prom
   return faults.size ? { ok: false, faults: [...faults] } : { ok: true, prepared: { slots: map, files: out } };
 }
 
-/** 슬롯들을 불러온 것으로 통째 바꾼다(불러오기, 검사는 checkFavicons 로 먼저) */
+/** 슬롯들을 불러온 것으로 통째 바꾼다(불러오기, 검사는 checkFavicons로 먼저) */
 function replaceFavicons({ slots: next, files }: Prepared) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [name, data] of files) writeAtomic(path.join(dir, name), data);

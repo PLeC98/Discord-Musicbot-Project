@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PauseState, type PauseChange } from "../../src/player/pause-state.ts";
 
-// @discordjs/voice 와 같은 규칙: pause() 는 playing 에서만, unpause() 는 paused 에서만
+// @discordjs/voice와 같은 규칙: pause()는 playing 에서만, unpause()는 paused 에서만
 function audio(status: string) {
   const a = {
     state: { status },
@@ -73,7 +73,7 @@ test("값이 그대로여도 오디오가 어긋났으면 바로잡는다", () =
   assert.equal(seen.length, 1);
 });
 
-test("버퍼링, 곡 없음, AutoPaused 에는 손대지 않는다(재생으로 넘어오는 순간 다시 맞춘다)", () => {
+test("버퍼링, 곡 없음, AutoPaused에는 손대지 않는다(재생으로 넘어오는 순간 다시 맞춘다)", () => {
   for (const status of ["buffering", "idle", "autopaused"]) {
     const { a, state } = make(status);
     state.setUser(true);

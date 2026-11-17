@@ -68,7 +68,7 @@ test("조작 안내: 플레이어나 패널 채널이 없으면 알리지 않는
   assert.deepEqual([none.sent, none.lookups(), lost.sent], [[], 0, []]);
 });
 
-test("곡 넣기: 담은 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {
+test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 자리표시자는 없다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const w = world();
   const responder = dashboardResponder(w.bot, "g1");

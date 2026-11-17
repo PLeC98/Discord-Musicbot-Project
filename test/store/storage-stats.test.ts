@@ -54,7 +54,7 @@ test("캐시: 수, 크기와 상한, 지키는 파일, 한 번도 틀지 않은 
   assert.deepEqual({ ...lastCleanup, at: undefined }, { at: undefined, files: 2, bytes: 4_000_000 });
 });
 
-test("DB: 파일들(-wal 포함) 크기의 합과 행 수. 저장된 대기열은 실행 상태 DB 에서 센다", () => {
+test("DB: 파일들(-wal 포함) 크기의 합과 행 수. 저장된 대기열은 실행 상태 DB에서 센다", () => {
   const stats = stores.dbStats();
   assert.equal(path.resolve(stats.dir), path.resolve(DB_DIR));
   const each = ["settings.db", "state.db", "cache.db", "ai-requests.db", "sessions.db"].map((name) => path.join(DB_DIR, name));
@@ -68,7 +68,7 @@ test("DB: 파일들(-wal 포함) 크기의 합과 행 수. 저장된 대기열�
   pinnedSources.unpin("https://y/stats", "https://soundcloud.com/a/b");
 });
 
-test("드라이브: Windows 는 F: 형식, 그 밖은 마운트 지점. 같은 드라이브면 이름이 같다. 쓴 양은 크기 안", () => {
+test("드라이브: Windows는 F: 형식, 그 밖은 마운트 지점. 같은 드라이브면 이름이 같다. 쓴 양은 크기 안", () => {
   const drive = driveOf(os.tmpdir())!;
   if (process.platform === "win32") assert.match(drive.drive, /^[A-Z]:$/i);
   else assert.ok(path.isAbsolute(drive.drive) && path.resolve(os.tmpdir()).startsWith(drive.drive), drive.drive);

@@ -1,8 +1,8 @@
-// 재생 조작 코어. 진입점(명령, 버튼, 대시보드)은 이것을 부르고, 결과의 code 를 자기 매체의 말로 옮긴다(ui/control-messages).
+// 재생 조작 코어. 진입점(명령, 버튼, 대시보드)은 이것을 부르고, 결과의 code를 자기 매체의 말로 옮긴다(ui/control-messages).
 // 전제 조건(플레이어가 있나, 권한, 곡, 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
-// 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code 는 문제 목록(rules/problems)의 코드
-//   공통 code: no-song(플레이어나 틀고 있는 곡이 없다), 권한 판정이 막은 까닭의 코드(must-dj 등)
+// 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code는 문제 목록(rules/problems)의 코드
+//   공통 code: no-song(플레이어나 틀고 있는 곡이 없다), 권한 판정이 막은 이유의 코드(must-dj 등)
 //
 // actor: 누가 시켰나. 디스코드 멤버(대시보드도 그 서버의 멤버로 조작한다)
 
@@ -33,10 +33,10 @@ type Actor = { member: GuildMember };
 type Refusal = { ok: false } & Problem;
 /** 이 서버에 플레이어가 없을 수 있다 */
 type MaybePlayer = Player | null | undefined;
-/** 권한 판정. 막으면 그 까닭 */
+/** 권한 판정. 막으면 이유 코드, 통과하면 null */
 type Check = (member: GuildMember, player: Player) => Promise<PermissionDenied | null>;
 
-/** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems 의 params) */
+/** 거절. 그 코드의 문장에 드는 값을 함께(rules/problems의 params) */
 const fail = <C extends Code>(code: C, ...[params]: NeedsParams<C> extends true ? [params: ParamsOf<C>] : [params?: ParamsOf<C>]): Refusal => ({ ok: false, code, ...params }) as Refusal;
 // 해낸 결과. 사실을 싣는다
 const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
@@ -45,7 +45,7 @@ const done = <T extends object>(facts: T) => ({ ok: true as const, ...facts });
 // 패널을 갱신하지 못해도 조작은 된 것이다
 const refresh = (player: Player) => playerEvents.refresh(player).catch((error) => log.warn(`조작 뒤 패널 갱신 실패: ${messageOf(error)}`));
 
-// 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 부르는 쪽이 먼저 본다
+// 권한이 있나. 막히면 실패 결과, 지나가면 null. 플레이어가 있는지는 호출부가 먼저 본다
 async function permitted(player: Player, actor: Actor, check: Check = perm.checkControl) {
   const permission = await check(actor.member, player);
   return permission ? fail(permission) : null;
@@ -78,7 +78,7 @@ async function pause(player: MaybePlayer, actor: Actor, { onAccepted }: { onAcce
   const { blocked, track } = await permittedTrack(player, actor);
   if (!track) return blocked;
   // 실패로 일시정지해 둔 곡이면 ▶는 그 위치부터 다시 연다(일시정지만 풀면 열린 소리가 없어 아무 일도 없다).
-  // 곡을 여는 데 몇 초 걸려 onAccepted(응답)를 먼저 부르고, 답한 사이 곡이 바뀌었거나 정리됐으면 다시 열지 않는다
+  // 곡을 여는 데 몇 초 걸려 onAccepted(응답)를 먼저 부르고, 응답한 사이 곡이 바뀌었거나 정리됐으면 다시 열지 않는다
   if (player.parked) {
     await onAccepted?.();
     if (!player.currentTrack) return fail("no-song");
@@ -87,7 +87,7 @@ async function pause(player: MaybePlayer, actor: Actor, { onAccepted }: { onAcce
     return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
   }
   player.pause.setUser(!player.pause.userPaused);
-  // 휴면 중인 곡이면 스트림을 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 답한다(여는 동안에도 화면은 곡을 보인다)
+  // 휴면 중인 곡이면 스트림을 다시 연다. 몇 초 걸릴 수 있어 기다리지 않고 응답한다(여는 동안에도 화면은 곡을 보인다)
   if (player.resting) void player.wake().catch((error: unknown) => log.warn(`휴면 스트림 다시 열기 실패: ${messageOf(error)}`));
   void refresh(player);
   return done({ userPaused: player.pause.userPaused, heldBy: player.pause.heldBy, track });
@@ -108,8 +108,8 @@ async function skip(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}
 }
 
 /**
- * 정리를 시작해 둔 채 답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work 를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
- * 정리의 실패는 곧바로 잡아 warn 으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 실패해도 정리는 끝까지 기다린 뒤 그 오류를 올린다
+ * 정리를 시작해 둔 채 응답한다. 정리의 동기 부분(레지스트리에서 빠짐, 대기열 비움)은 work를 만들 때 이미 끝나, 답을 기다리는 사이 다른 명령이 정리 전의 플레이어를 보지 않는다.
+ * 정리의 실패는 곧바로 잡아 warn으로 남긴다(답을 기다리는 사이 처리되지 않은 거부가 되지 않게). 답이 실패해도 정리는 끝까지 기다린 뒤 그 오류를 올린다
  */
 async function answerDuring<T>(work: Promise<unknown>, what: string, facts: T, onAccepted: ((facts: T) => unknown) | undefined) {
   const ending = work.catch((error: unknown) => log.warn(`${what} 실패: ${messageOf(error)}`));
@@ -144,7 +144,7 @@ async function stop(player: MaybePlayer, actor: Actor, { onAccepted }: Accepting
   return done(facts);
 }
 
-/** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track 은 되돌아간 곡(처음부터면 지금 곡) */
+/** 이전 곡으로. 한곡 반복 중이면 지금 곡을 처음부터(restarted). track은 되돌아간 곡(처음부터면 지금 곡) */
 async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack = {}) {
   if (!player) return fail("no-song");
   const { blocked, track } = await permittedTrack(player, actor, undefined, onTrack);
@@ -157,9 +157,9 @@ async function previous(player: MaybePlayer, actor: Actor, { onTrack }: OnTrack 
 }
 
 /**
- * 곡 안의 위치로. reason 은 로그에 남는 원인(seek, replay, highlight, dashboard).
+ * 곡 안의 위치로. reason은 로그에 남는 원인(seek, replay, highlight, dashboard).
  * 곡을 여는 중이면 거절한다. onAccepted: 전제 조건을 지난 뒤, 오래 걸리는 작업 전에 부른다(응답 미루기 등).
- * 곡 길이를 넘으면 거절한다(beyond-end, durationMs 를 싣는다)
+ * 곡 길이를 넘으면 거절한다(beyond-end, durationMs를 싣는다)
  */
 async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "seek", onAccepted, onTrack }: SeekOptions = {}) {
   if (!player) return fail("no-song");
@@ -175,7 +175,7 @@ async function seek(player: MaybePlayer, actor: Actor, ms: number, { reason = "s
   return done({ ms, track });
 }
 
-/** 위치 이동. reason 은 로그에 남는 원인, onAccepted 는 전제 조건을 지난 뒤 부른다 */
+/** 위치 이동. reason은 로그에 남는 원인, onAccepted는 전제 조건을 지난 뒤 부른다 */
 type SeekOptions = { reason?: string; onAccepted?: () => unknown } & OnTrack;
 
 function seekBlocked(player: Player) {
@@ -219,7 +219,7 @@ async function volume(player: MaybePlayer, actor: Actor, level: unknown, { settl
 const VOLUME_SETTLE_MS = 1000;
 /** 볼륨이 멈춘 뒤 부른다(대시보드가 디스코드 패널 채널에 알린다) */
 type Settled = (from: number, to: number) => void;
-const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // settled 는 마지막에 받은 것
+const settling = new WeakMap<Player, { from: number; timer?: NodeJS.Timeout; settled?: Settled }>(); // settled는 마지막에 받은 것
 
 const saveServerVolume = async (player: Player) => guildSettings.saveVolume(player.guild.id, player.volume);
 
@@ -268,7 +268,7 @@ async function shuffle(player: MaybePlayer, actor: Actor) {
   return done({ count: player.queue.length });
 }
 
-// 고른 곡들을 뺀다. 자기가 넣은 곡은 DJ 가 아니어도 뺄 수 있어 권한은 곡을 보고 판정하고, 한 곡이라도 뺄 수 없으면 모두 거절한다.
+// 고른 곡들을 뺀다. 자기가 넣은 곡은 DJ가 아니어도 뺄 수 있어 권한은 곡을 보고 판정하고, 한 곡이라도 뺄 수 없으면 모두 거절한다.
 // 권한을 기다린 사이 대기열이 바뀌었을 수 있어 권한을 본 그 곡들을 다시 찾는다(같은 자리의 다른 곡을 빼지 않는다). 그사이 다 빠졌으면 entry-gone
 async function removeTracks(player: Player, actor: Actor, targets: QueuedTrack[]) {
   const blocked = await permitted(player, actor, (member) => perm.checkRemoveTracks(member, targets));
@@ -279,7 +279,7 @@ async function removeTracks(player: Player, actor: Actor, targets: QueuedTrack[]
   return done({ removed, left: player.queue.length });
 }
 
-/** 대기열에서 빼기(디스코드 /remove). index 는 0부터, end 를 주면 index 부터 end 까지(둘 다 넣고, 거꾸로 줘도 된다) */
+/** 대기열에서 빼기(디스코드 /remove). index는 0부터, end를 주면 index부터 end 까지(둘 다 넣고, 거꾸로 줘도 된다) */
 async function remove(player: MaybePlayer, actor: Actor, index: unknown, end: unknown = index) {
   if (!player) return fail("no-song");
   const size = player.queue.length;
@@ -288,7 +288,7 @@ async function remove(player: MaybePlayer, actor: Actor, index: unknown, end: un
   return removeTracks(player, actor, player.queue.slice(Math.min(index, end), Math.max(index, end) + 1));
 }
 
-/** 대기열 안에서 옮기기. from, to 는 0부터 */
+/** 대기열 안에서 옮기기. from, to는 0부터 */
 async function move(player: MaybePlayer, actor: Actor, from: unknown, to: unknown) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -312,7 +312,7 @@ async function removeEntries(player: MaybePlayer, actor: Actor, entries: readonl
   return removeTracks(player, actor, targets);
 }
 
-/** 대기열 ID로 옮기기(대시보드). entry 를 before 앞에, before 가 null 이면 맨 끝으로. 그 사이 빠졌으면 거절 */
+/** 대기열 ID로 옮기기(대시보드). entry를 before 앞에, before가 null이면 맨 끝으로. 그 사이 빠졌으면 거절 */
 async function moveEntry(player: MaybePlayer, actor: Actor, entry: number, before: number | null) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -344,7 +344,7 @@ async function clear(player: MaybePlayer, actor: Actor) {
   return done({ count, track: player.currentTrack });
 }
 
-/** 대기열 ID 의 곡으로 바로 넘어간다. 한 곡 반복 중에도 그 곡으로 간다. 그 곡이 대기열에 없으면 entry-gone */
+/** 대기열 ID의 곡으로 바로 넘어간다. 한 곡 반복 중에도 그 곡으로 간다. 그 곡이 대기열에 없으면 entry-gone */
 async function jump(player: MaybePlayer, actor: Actor, entry: number) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -378,26 +378,26 @@ function genreRefusal(genre: string | false) {
   return missing ? fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") }) : null;
 }
 
-/** 자동재생 켜기, 끄기. create 는 켤 때 플레이어가 없으면 만든다. onAccepted 는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
+/** 자동재생 켜기, 끄기. create는 켤 때 플레이어가 없으면 만든다. onAccepted는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
 /** go: 판정 뒤, 첫 상태 변경(플레이어 생성, 설정 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
 type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown; go?: () => void };
 
-// 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB 에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join 으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
-// 붙었으면 null, 못 붙었으면 그 까닭(종료 중이면 bot-shutting-down)
+// 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다
+// 붙었으면 null, 못 붙었으면 원인 코드(종료 중이면 bot-shutting-down, 아니면 voice-failed)
 async function joinIdle(target: Player) {
   if (target.connection) return null;
   try {
     await target.voice.connect();
     return null;
   } catch (error) {
-    // VoiceLink.connect 가 실패 원인을 error 로 남기고 던졌다. 나간 것은 정리(dispose)가 남긴다
+    // VoiceLink.connect가 실패 원인을 error로 남기고 예외를 던졌다. 나간 것은 정리(dispose)가 남긴다
     await target.dispose({ reason: "음성 채널 접속 실패", session: "keep", end: "connect-failed" });
     return codeOf(error) === "bot-shutting-down" ? "bot-shutting-down" : "voice-failed";
   }
 }
 
 /**
- * 자동재생. genre 로 켜고 false 로 끈다. 플레이어는 켤 때만 만든다(장르를 선택한 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
+ * 자동재생. genre로 켜고 false로 끈다. 플레이어는 켤 때만 만든다(장르를 선택한 뒤에: 메뉴만 닫으면 아무것도 남지 않게).
  * 켰는데 틀고 있지 않으면 그 자리에서 첫 곡을 선택해 튼다(started). 틀고 있으면 지금 곡이 끝난 뒤에 이어진다
  */
 async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false, { create, onAccepted, go }: AutoplayOptions = {}) {
@@ -416,8 +416,8 @@ async function autoplay(player: MaybePlayer, actor: Actor, genre: string | false
 }
 
 /**
- * 켠 뒤: 답하고(onAccepted), 틀고 있지 않았으면 첫 곡을 선택한다. 틀고 있었으면 패널만 갱신한다.
- * 답이 실패해도 첫 곡은 선택한다(봇이 음성에 붙은 채 아무것도 틀지 않게). 둘 다 실패하면 첫 곡의 오류는 warn 으로 남기고 답의 오류를 올린다
+ * 켠 뒤: 응답하고(onAccepted), 틀고 있지 않았으면 첫 곡을 선택한다. 틀고 있었으면 패널만 갱신한다.
+ * 답이 실패해도 첫 곡은 선택한다(봇이 음성에 붙은 채 아무것도 틀지 않게). 둘 다 실패하면 첫 곡의 오류는 warn으로 남기고 답의 오류를 올린다
  */
 async function answerThenStart(target: Player, starts: boolean, onAccepted: (() => unknown) | undefined) {
   let answerError: { error: unknown } | null = null;
@@ -438,7 +438,7 @@ async function answerThenStart(target: Player, starts: boolean, onAccepted: (() 
 }
 
 /**
- * 음성 채널에서 나간다. 세션은 /join 으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다). 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
+ * 음성 채널에서 나간다. 세션은 /join으로 이어 들을 수 있게 남긴다(기동 복원, 24/7 자리 지킴이는 이어 틀지 않는다). 플레이어가 없어도 봇이 음성에 남아 있으면 나간다(left: "voice-only").
  * 권한은 플레이어가 없어도 본다
  */
 async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "get">, { onAccepted, onLeaving }: Accepting<{ left: "player"; track: QueuedTrack | null; saved: { queue: number; positionSec: number }; stayOff: boolean }> & { onLeaving?: () => unknown } = {}) {
@@ -450,7 +450,7 @@ async function leave(guild: Guild, actor: Actor, players: Pick<PlayerRegistry, "
   if (!player) {
     // StayKeeper가 재접속을 기다리는 중이면 봇이 음성 채널에 없다. 상주 모드만 끈 것이다
     if (!guild.members.me?.voice?.channel) return seated ? done({ left: "seat-only" as const, stayOff: true }) : fail("no-song");
-    // 나가기는 게이트웨이를 기다리고 REST 로 넘어가 몇 초 걸릴 수 있어 먼저 답한다(onLeaving)
+    // 나가기는 게이트웨이를 기다리고 REST로 넘어가 몇 초 걸릴 수 있어 먼저 응답한다(onLeaving)
     await onLeaving?.();
     const how = await leaveLingeringVoice(guild, players);
     if (how === "superseded") return fail("leave-superseded");

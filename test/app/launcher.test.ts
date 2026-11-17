@@ -59,8 +59,8 @@ test("받은 신호는 봇에 넘기고, 그 뒤에는 다시 시작 코드여�
   assert.deepEqual([children.length, exits], [1, [EXIT.restart]]);
 });
 
-// Windows 의 Ctrl+C 는 같은 콘솔의 봇에도 바로 가고, kill 은 신호가 아니라 강제 종료다
-test("Windows 에서는 신호를 넘기지 않고 봇이 끝나기를 기다린다", () => {
+// Windows의 Ctrl+C는 같은 콘솔의 봇에도 바로 가고, kill은 신호가 아니라 강제 종료다
+test("Windows에서는 신호를 넘기지 않고 봇이 끝나기를 기다린다", () => {
   const { children, exits, proc } = setup("win32");
   proc.emit("SIGINT");
   assert.deepEqual(children[0].killed, []);
@@ -68,7 +68,7 @@ test("Windows 에서는 신호를 넘기지 않고 봇이 끝나기를 기다린
   assert.deepEqual(exits, [EXIT.stopped]);
 });
 
-test("봇을 실행하지 못하면 알리고 1 로 끝난다", () => {
+test("봇을 실행하지 못하면 알리고 1로 끝난다", () => {
   const { children, exits, said } = setup();
   children[0].emit("error", new Error("ENOENT"));
   assert.deepEqual(exits, [1]);

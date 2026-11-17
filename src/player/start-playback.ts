@@ -1,4 +1,4 @@
-// play() 의 단계. play() 는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playback-input).
+// play()의 단계. play()는 이 셋을 차례로 부르고, 둘째와 셋째 사이에서 소리를 연다(media/playback-input).
 //   prepareStart   틀 곡과 시작 위치. 대기열에서 꺼내고 음성 채널에 붙고, 새로 트는 곡이면 인트로 끝을 시작 위치로
 //   resolveSource  소리를 어디서 받나. 캐시 파일, 위치 이동이면 직전 재생의 주소, 없으면 새 스트림
 //   commitPlaying  연 소리를 튼다. SponsorBlock, 볼륨, 캐시 보호, 재생 기록, 멈춤 사유, 위치 재개 정보, 감시와 저장
@@ -27,7 +27,7 @@ import type { Segments } from "../sources/sponsor-block.ts";
 import { logTitle } from "../infra/log/title.ts";
 
 /** 소리를 어디서 받을지 정한 것 */
-/** cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다. sponsorKey: SponsorBlock 을 물은 음원 */
+/** cacheKey: 여기서 찾은 캐시 파일의 음원 키. 스트림이면 서술자가 키를 싣는다. sponsorKey: SponsorBlock을 물은 음원 */
 type Source = { cacheFile: string | null; cacheKey: string | null; streamInfo: StreamInfo | null; titleVerified: boolean; isLive: boolean | null; sponsor: Promise<Segments | null>; sponsorKey: string | null };
 const INTRO_START_TOL_SEC = 1; // 0~1초 사이에서 시작하는 구간을 인트로로 본다
 
@@ -39,7 +39,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
     if (player.queue.length === 0) return { ok: false, code: "queue-empty" };
     trackState.shiftNext(player);
   }
-  // 붙지 못하면 voice-failed 로 던진다. play() 는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
+  // 붙지 못하면 voice-failed 예외를 던진다. play()는 넘기거나 세지 않고 그 결과를 돌려준다. 음성 복구 중이면 붙지 않는다(새로 붙으면 복구가 멈추고, 실패하면 채널에서 나간다. 복구가 다시 연다)
   if (!player.connection) {
     if (player.isVoiceRecovering) throw codedError("voice-failed", "음성 연결을 복구하는 중");
     await player.voice.connect();
@@ -47,7 +47,7 @@ async function prepareStart(player: Player, seekMs: number): Promise<{ ok: true;
 
   const wanted = Number(seekMs) || 0;
   let startMs = Math.max(0, Math.floor(wanted));
-  // 새로 트는 곡(위치 이동 아님)이면 스트림을 열기 전에 영상 id 와 SponsorBlock 을 먼저 확보해
+  // 새로 트는 곡(위치 이동 아님)이면 스트림을 열기 전에 영상 id와 SponsorBlock을 먼저 확보해
   // 인트로 끝을 시작 위치로 삼는다(0부터 틀고 옮기는 이중 재생을 피한다).
   if (wanted === 0) {
     const track = player.currentTrack;
@@ -81,12 +81,12 @@ function introOffsetMs(sponsor: Partial<Pick<Segments, "skipSegments">> | null |
 }
 
 /**
- * 소리를 어디서 받나. 캐시 파일이 있으면 yt-dlp 를 부르지 않는다.
+ * 소리를 어디서 받나. 캐시 파일이 있으면 yt-dlp를 부르지 않는다.
  * 음원 주소가 정해졌으니 SponsorBlock 조회도 여기서 시작해 둔다(여는 동안 나란히 묻는다).
  * @param previous  직전 재생. 같은 곡을 다시 열면 그 재생이 받은 서술자를 다시 쓴다
  */
 async function resolveSource(player: Player, track: QueuedTrack, startMs: number, previous: CurrentPlayback | null): Promise<Source> {
-  // 캐시 파일을 찾기 전에 보호를 건다. 찾은 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play 가 푼다)
+  // 캐시 파일을 찾기 전에 보호를 건다. 찾은 뒤에 걸면 그사이 퇴거가 삭제할 수 있다(틀지 못하고 나오면 play가 푼다)
   // 연령 제한으로 적힌 곡은 그 전에 판정한다. 캐시는 쿠키 없이 틀므로 여기서 막지 않으면 연령 제한 콘텐츠를 꺼도 틀린다
   let cacheKey: string | null = null;
   const pickCacheFile = () => {
@@ -183,11 +183,11 @@ function refusedBefore(track: QueuedTrack, previous: CurrentPlayback | null) {
 }
 
 /**
- * 같은 곡을 다시 열 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp 를 다시 부르지 않는다). 위치가 0 이어도 같다:
- * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input 의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
+ * 같은 곡을 다시 열 때 직전 재생이 받은 주소를 다시 쓴다(yt-dlp를 다시 부르지 않는다). 위치가 0이어도 같다:
+ * 새로 받은 유튜브 주소는 앞 광고가 끝날 때까지 본편을 막지만(media/playback-input의 광고 대기) 직전 주소는 그 시간이 이미 지났다.
  * 그 주소를 받은 음원이 지금 곡이 열 음원일 때만. 곡의 음원은 재생 중에 바뀔 수 있어(다시 찾기) 곡이 아니라 서술자에 실린 키와 비교한다.
  * 키를 모르면 다시 쓰지 않는다(잘못 다시 쓰면 다른 소리가 난다).
- * 유튜브만. 직접 링크는 서술자를 만드는 데 받는 것이 없고, 사운드클라우드 목록 주소는 받은 지 몇 분에 막힌다(주소의 expires 는 그보다 한참 뒤다).
+ * 유튜브만. 직접 링크는 서술자를 만드는 데 받는 것이 없고, 사운드클라우드 목록 주소는 받은 지 몇 분에 막힌다(주소의 expires는 그보다 한참 뒤다).
  * 파이프로 연 서술자만. 주소 분기(HLS, DASH)에는 막혔을 때 새로 받는 길이 없다.
  * 주소의 만료 시각(expire=)이 남은 곡을 다 받을 만큼 넉넉할 때만. 만료 시각을 모르는 주소는 다시 받는다.
  * 라이브는 늘 새로 받는다(끊긴 라이브를 다시 열 때 새 답을 봐야 방송이 끝났는지 안다)
@@ -207,7 +207,7 @@ function resumeStream(track: QueuedTrack, previous: CurrentPlayback | null, star
 }
 
 /**
- * 연 소리를 튼다. 소리는 이미 pb.resource 에 있다.
+ * 연 소리를 튼다. 소리는 이미 pb.resource에 있다.
  */
 async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source, { continued, gen }: { continued: boolean; gen: number }) {
   const track = pb.track;
@@ -217,7 +217,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
 
   // SponsorBlock 구간을 받은 뒤 자동 스킵을 켠다. 기준점은 시작 위치다(위치 이동으로 구간 안에 들어가면 건너뛰지 않는다)
   pb.sponsor = await sponsorOfPlaying(player, track, source, pb.audioKey);
-  // 기다리는 사이에 플레이어가 버려졌거나(정리가 이 리소스를 destroy 했다) 다른 재생이 시작했다(play() 가 버린다). 틀지 않는다
+  // 기다리는 사이에 플레이어가 버려졌거나(정리가 이 리소스를 destroy 했다) 다른 재생이 시작했다(play()가 버린다). 틀지 않는다
   if (player.lifecycle.disposed || gen !== player._playGen) return;
   player.sponsorSkipper.onPlayStart(pb.startOffsetMs);
 
@@ -231,7 +231,7 @@ async function commitPlaying(player: Player, pb: CurrentPlayback, source: Source
   if (shown) Object.assign(track, shown);
   // 길이는 끝 판정이 쓰는 음원 길이(표시 길이가 아니다). 트랙 종료 판정 줄과 맞대 볼 수 있다
   const length = player.isLive ? "라이브" : pb.lengthMs ? `길이 ${Math.round(pb.lengthMs / 1000)}초` : "길이 모름";
-  // 일시정지한 채 여는 곡은 그 이유를 이 줄에 붙인다(곡 하나의 info는 시작, 끝 두 줄). 일시정지하는 건 Playing 리스너다. 지금은 아직 버퍼링 상태라 pause()가 먹지 않는다
+  // 일시정지한 채 여는 곡은 그 원인을 이 줄에 붙인다(곡 하나의 info는 시작, 끝 두 줄). 일시정지하는 건 Playing 리스너다. 지금은 아직 버퍼링 상태라 pause()가 적용되지 않는다
   const paused = player.paused ? ` | 일시정지(${[...(player.pause.userPaused ? ["user"] : []), ...player.pause.holds].join(", ")})` : "";
   log.info(`재생: ${player._trackLabel(track)} | 시작 ${Math.round(pb.startOffsetMs / 1000)}초 / ${length} | 출처=${pb.cacheFile ? "캐시" : "스트림"}${paused}`);
 
@@ -263,7 +263,7 @@ const verifiedFor = (track: QueuedTrack, source: Pick<Source, "titleVerified" | 
 
 // 재생 통계와 "이 요청은 이 음원이다"를 DB에 기록. 같은 곡을 이어 틀 때는 재생 횟수를 세지 않는다(퇴거 점수가 본다).
 // 재생 횟수는 실제로 튼 음원(playedKey)에, 링크 데이터는 다음에 이 요청을 열 음원(곡의 음원 주소)에 적는다. 둘은 재생 중에 갈릴 수 있다.
-// 기록일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 던지면 방금 시작한 소리가 catch에서 멈춘다.
+// 기록일 뿐이므로 실패해도 재생을 끌어내리지 않는다. 여기서 예외를 던지면 방금 시작한 소리가 catch에서 멈춘다.
 function recordPlayed(track: QueuedTrack, playedKey: string | null, titleVerified: boolean, { countPlay }: { countPlay: boolean }) {
   try {
     if (countPlay && playedKey) audioCache.recordPlayback(playedKey);
@@ -274,7 +274,7 @@ function recordPlayed(track: QueuedTrack, playedKey: string | null, titleVerifie
 }
 
 // 곡 끝 판정, SponsorBlock 곡 끝 구간에 쓰는 실제 오디오 길이. 곡 메타데이터(스포티파이 등)는 오디오와 수 초씩 다르다.
-// audioKey 는 이 재생이 트는 음원. 스트림이 알려 준 길이는 그 스트림이 같은 음원일 때만 쓴다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다)
+// audioKey는 이 재생이 트는 음원. 스트림이 알려 준 길이는 그 스트림이 같은 음원일 때만 쓴다(캐시 폴백이 다른 음원의 파일로 끝났을 수 있다)
 function audioDurationSec(audioKey: string | null, streamInfo: Pick<StreamInfo, "duration" | "audioKey"> | null, cacheFile: string | null): number | null {
   if (cacheFile && audioKey) {
     const cached = audioCache.lookupByAudioKey(audioKey)?.duration_sec;

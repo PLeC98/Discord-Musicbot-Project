@@ -1,4 +1,4 @@
-// OpenPGP 분리 서명 확인(yt-dlp 의 SHA2-256SUMS.sig). 키 하나를 지문으로 고정하고 그 키의 서명만 받는다. Node 의 crypto 만 쓴다.
+// OpenPGP 분리 서명 확인(yt-dlp의 SHA2-256SUMS.sig). 키 하나를 지문으로 고정하고 그 키의 서명만 받는다. Node의 crypto만 쓴다.
 // 받는 것: v4 공개 키(RSA), v4 서명(바이너리 문서, RSA, SHA-256/384/512), 서명의 해시 부분에 서명한 키의 지문(issuer fingerprint)이 있을 것.
 // 그 밖(다른 알고리즘, 부분 길이 패킷, 모르는 중요 하위 패킷)은 거절한다. 형식은 RFC 4880
 
@@ -10,17 +10,17 @@ const bad = (why: string) => Object.assign(new Error(`서명 확인 실패: ${wh
 const TAG = { signature: 2, publicKey: 6 } as const;
 const RSA = 1;
 const BINARY_DOCUMENT = 0;
-/** 서명의 해시 알고리즘 번호 → Node 의 이름 */
+/** 서명의 해시 알고리즘 번호 → Node의 이름 */
 const HASHES: Record<number, string> = { 8: "sha256", 9: "sha384", 10: "sha512" };
 const SUB = { created: 2, issuerKeyId: 16, issuerFingerprint: 33 } as const;
 // 중요(critical) 표시가 있어도 받는 하위 패킷. 그 밖의 중요 하위 패킷은 뜻을 모르므로 거절한다(RFC 4880 5.2.3.1)
 const KNOWN_CRITICAL = new Set<number>([SUB.created, SUB.issuerKeyId, SUB.issuerFingerprint]);
 
 type Packet = { tag: number; body: Buffer };
-/** 고정한 키. fingerprint 는 대문자 16진수 40자 */
+/** 고정한 키. fingerprint는 대문자 16진수 40자 */
 type PinnedKey = { fingerprint: string; key: crypto.KeyObject; modulusBytes: number };
 
-/** at 부터 n 바이트가 있어야 한다 */
+/** at부터 n 바이트가 있어야 한다 */
 function need(buf: Buffer, at: number, n: number) {
   if (at < 0 || at + n > buf.length) throw bad("잘린 패킷");
 }
@@ -71,7 +71,7 @@ function mpiAt(buf: Buffer, at: number): { value: Buffer; next: number } {
   return { value: buf.subarray(at + 2, at + 2 + bytes), next: at + 2 + bytes };
 }
 
-/** ASCII armor 를 벗긴다. 헤더 줄 뒤의 빈 줄까지 건너뛰고, 끝의 체크섬 줄(=로 시작)은 뺀다 */
+/** ASCII armor를 벗긴다. 헤더 줄 뒤의 빈 줄까지 건너뛰고, 끝의 체크섬 줄(=로 시작)은 뺀다 */
 function dearmor(text: string): Buffer {
   const lines = text.replace(/\r/g, "").split("\n");
   const begin = lines.findIndex((line) => line.trim() === "-----BEGIN PGP PUBLIC KEY BLOCK-----");
@@ -140,8 +140,8 @@ function issuerOf(hashed: Buffer): string | null {
 }
 
 /**
- * data 에 대한 분리 서명(바이너리, 패킷 하나)을 고정한 키로 확인한다. 맞으면 돌아오고, 아니면 BAD_SIGNATURE 로 던진다.
- * 까닭은 메시지에 싣는다: 다른 키가 서명함(키 교체일 수 있다), 서명이 맞지 않음(내용이나 서명이 바뀌었다), 받지 않는 형식
+ * data에 대한 분리 서명(바이너리, 패킷 하나)을 고정한 키로 확인한다. 맞으면 돌아오고, 아니면 BAD_SIGNATURE 예외를 던진다.
+ * 이유는 메시지에 싣는다: 다른 키가 서명함(키 교체일 수 있다), 서명이 맞지 않음(내용이나 서명이 바뀌었다), 받지 않는 형식
  */
 function verifyDetached(data: Buffer, signature: Buffer, pinned: PinnedKey): void {
   const packets = packetsOf(signature);
@@ -169,7 +169,7 @@ function verifyDetached(data: Buffer, signature: Buffer, pinned: PinnedKey): voi
   trailer.writeUInt32BE(6 + hashedLength, 2);
   const signed = Buffer.concat([data, body.subarray(0, 6 + hashedLength), trailer]);
   if (!crypto.createHash(hash).update(signed).digest().subarray(0, 2).equals(left16)) throw bad("서명이 맞지 않음");
-  // MPI 는 앞의 0 을 떼고 싣는다. RSA 확인은 키 길이만큼 채운 값을 받는다
+  // MPI는 앞의 0을 떼고 싣는다. RSA 확인은 키 길이만큼 채운 값을 받는다
   const padded = Buffer.concat([Buffer.alloc(pinned.modulusBytes - value.length), value]);
   if (!crypto.verify(hash, signed, { key: pinned.key, padding: crypto.constants.RSA_PKCS1_PADDING }, padded)) throw bad("서명이 맞지 않음");
 }

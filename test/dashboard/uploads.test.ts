@@ -33,7 +33,7 @@ async function put(one: uploads.Upload, bytes: Buffer, sid = "s1") {
   }
 }
 
-test("시작: 남은 공간에서 다른 업로드가 앞으로 쓸 몫을 빼고 판단한다. 그 몫 때문이면 busy, 원래 모자라면 no-space 와 남은 크기. 거절하면 위치를 지운다", () => {
+test("시작: 남은 공간에서 다른 업로드가 앞으로 쓸 몫을 빼고 판단한다. 그 몫 때문이면 busy, 원래 모자라면 no-space와 남은 크기. 거절하면 위치를 지운다", () => {
   room = 1000;
   const first = open(600);
   assert.deepEqual(uploads.start({ sid: "s2", purpose: "archive", size: 500, targetOf }), { ok: false, why: "busy" });

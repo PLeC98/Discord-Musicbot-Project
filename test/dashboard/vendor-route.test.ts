@@ -1,5 +1,5 @@
-// src/dashboard/routes/vendor.ts: 유튜브 탭 yt-dlp 카드의 API(상태, 확인, 업데이트, 채널과 모드, 버전 고정, 이전 버전으로 되돌리기).
-// 실 라우터와 실 yt-dlp 관리 객체에 가짜 입출력을 넘긴다(릴리스, GitHub 은 가짜, 폴더는 임시). 조절값은 임시 설정 DB
+// src/dashboard/routes/vendor.ts: 업데이트 탭 yt-dlp 카드의 API(상태, 확인, 업데이트, 채널과 모드, 버전 고정, 이전 버전으로 되돌리기).
+// 실 라우터와 실 yt-dlp 관리 객체에 가짜 입출력을 넘긴다(릴리스, GitHub은 가짜, 폴더는 임시). 설정값은 임시 설정 DB
 
 process.env.OWNER_ID = "owner";
 
@@ -43,7 +43,7 @@ const realIo = ytdlpBinary.io;
 let root = "";
 let latest = "2026.09.27.232849";
 const fetches: string[] = [];
-// 조립(app/main)이 하는 연결: 조절값이 바뀌면 yt-dlp 가 새 설정으로 맞춘다
+// 조립(app/main)이 하는 연결: 설정값이 바뀌면 yt-dlp가 새 설정으로 맞춘다
 const off = onTunablesChanged(() => void ytdlpBinary.onSettingsChanged());
 const dirOf = () => path.join(root, "yt-dlp");
 
@@ -81,7 +81,7 @@ beforeEach(() => {
   ytdlpBinary.settings = `${config.ytdlp.channel}|${config.ytdlp.update}|${config.ytdlp.version ?? ""}`;
 });
 
-// 다음 테스트가 폴더와 설정을 바꾸기 전에 뒤에서 도는 것을 끝낸다
+// 다음 테스트가 폴더와 설정을 바꾸기 전에 백그라운드에서 도는 것을 끝낸다
 afterEach(settled);
 
 after(async () => {
@@ -96,7 +96,7 @@ after(async () => {
 });
 
 const req = <T = VendorReply>(method: string, urlPath = "", body?: unknown) => requestJson<T>(base, method, `/api/admin/vendor${urlPath}`, body);
-// 뒤에서 도는 맞추기가 끝날 때까지(라우트는 시작만 하고 답한다)
+// 백그라운드에서 도는 맞추기가 끝날 때까지(라우트는 시작만 하고 응답한다)
 async function settled() {
   for (let i = 0; i < 20; i++) {
     await new Promise((done) => setTimeout(done, 5));
@@ -125,20 +125,20 @@ test("확인은 최신을 보이기만 하고, 업데이트는 확인한 그 태
   assert.ok(sink.buffer.some((e) => e.level === "warn" && e.text.includes(`대시보드에서 yt-dlp 업데이트: ${latest}(nightly). 실행 owner`)));
 });
 
-test("최신 조회가 실패하면 tool-check-failed 와 원인", async () => {
+test("최신 조회가 실패하면 tool-check-failed와 원인", async () => {
   ytdlpBinary.io = { ...ytdlpBinary.io, latestTag: async () => Promise.reject(new Error("GitHub 최신 릴리스 조회 503")) };
   const res = await req<ProblemReply>("POST", "/ytdlp/check");
   assert.deepEqual([res.status, res.json.code, res.json.detail], [502, "tool-check-failed", "GitHub 최신 릴리스 조회 503"]);
 });
 
-test("채널, 자동 업데이트는 저장 막대로 저장한다. 저장하면 새 설정으로 맞춘다(수동이면 다운로드하지 않는다)", async () => {
+test("채널, 자동 업데이트는 저장 바에서 저장한다. 저장하면 새 설정으로 맞춘다(수동이면 다운로드하지 않는다)", async () => {
   tunables.save({ YTDLP_UPDATE: "manual" }, tunables.view().revision);
   await settled();
   assert.equal((await req("GET")).json.status.ytdlp.mode, "manual");
   assert.equal(fetches.length, 0, "수동 모드에서는 자동으로 다운로드하지 않는다");
 
   latest = "2026.09.30";
-  // 저장 막대는 필드 전부를 보낸다(빠진 필드는 기본값)
+  // 저장 바는 필드 전부를 보낸다(빠진 필드는 기본값)
   tunables.save({ YTDLP_CHANNEL: "stable", YTDLP_UPDATE: "manual" }, tunables.view().revision);
   await settled();
   assert.deepEqual([await versionNow(), fetches.length], ["2026.08.19", 0], "수동이면 채널을 바꿔도 다운로드하지 않는다");

@@ -1,4 +1,4 @@
-// /invite: 봇 초대 링크와 웹사이트(운영자가 적었으면). 운영 조절값 INVITE_COMMAND_ENABLED 로 끄면 등록에서 빠진다
+// /invite: 봇 초대 링크와 웹사이트(운영자가 적었으면). 운영 설정값 INVITE_COMMAND_ENABLED로 끄면 등록에서 빠진다
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } from "discord.js";
 import config from "../../config/index.ts";
@@ -8,7 +8,7 @@ import { buttonEmoji } from "../../ui/icons.ts";
 import { LIFETIME, toSelf } from "../../ui/delivery.ts";
 import * as inviteText from "../../ui/text/ko/invite.ts";
 
-/** 초대 화면. website 가 없으면 초대 버튼 하나 */
+/** 초대 화면. website가 없으면 초대 버튼 하나 */
 function inviteView({ invite, website }: { invite: string; website: string | null }) {
   const t = inviteText.invite();
   const container = frame({ icon: "invite", title: t.title, body: t.body });

@@ -3,13 +3,13 @@
   <router-view v-if="!user.isLoggedIn || route.meta.bare" />
 
   <!-- 막대가 있는 쪽에만 틀(frame)이 있다(PC, 태블릿은 왼쪽 세로 막대 + 위 막대, 휴대폰은 위 막대만. 세로 막대는 위 막대의 메뉴 버튼으로 여는 사이드 드로어).
-       바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿, PC 는 왼쪽 위, 오른쪽 위, 왼쪽 아래). 바탕화면만 스크롤되고 틀, 막대, 재생 바는 제자리.
+       바탕화면(desk)은 나머지 가장자리에 붙고 막대 쪽 모서리만 둥글다(휴대폰은 위 둘, 태블릿, PC는 왼쪽 위, 오른쪽 위, 왼쪽 아래). 바탕화면만 스크롤되고 틀, 막대, 재생 바는 제자리.
        배경화면은 화면 전체(틀 밑까지)에 깔고, 틀은 바탕화면 바깥을 덮는 반투명한 막이다(바탕화면의 그림자를 넓게 펴서 둥근 모서리를 따른다).
        --player = 떠 있는 재생 바가 차지하는 높이(화면 아래 여백) -->
   <!-- 휴대폰은 세로 스크롤, 확대만 브라우저에 맡긴다(가로로 쓸면 사이드 드로어가 받는다, composables/drawer-swipe) -->
   <div v-else class="relative h-dvh flex flex-col overflow-hidden [touch-action:pan-y_pinch-zoom] md:touch-auto">
     <AppWallpaper />
-    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary 로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
+    <!-- 권한 수준 오버라이드 중임을 계속 알린다. 틀 맨 위(위 막대, 세로 막대 위, 폭 전체)에 tertiary로 칠한 줄을 얹는다. 놓치지 않게 틀과 다른 색으로 눈에 띄게 -->
     <div v-if="user.viewAs" role="status" class="relative z-10 shrink-0 h-7 px-4 flex items-center justify-center gap-1.5 text-xs bg-tertiary text-on-tertiary">
       <Icon name="visibility" :size="16" class="shrink-0" />
       <span class="min-w-0 truncate"
@@ -42,7 +42,7 @@
         <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
             <GuildAvatar :guild="viewedGuild" active :status="false" size-class="size-6" text-class="text-2xs" />
-            <!-- 넘치는 이름은 재생 바 제목처럼 좌우로 흐른다. 서버 설정의 " 설정" 은 흐르지 않고 뒤에 붙어 있다 -->
+            <!-- 넘치는 이름은 재생 바 제목처럼 좌우로 흐른다. 서버 설정의 " 설정"은 흐르지 않고 뒤에 붙어 있다 -->
             <MarqueeText class="min-w-0 text-sm font-semibold" :text="viewedGuild.name" />
             <span v-if="route.path.endsWith('/settings')" class="shrink-0 text-sm text-on-surface-variant font-medium">{{ T.serverSettingsSuffix }}</span>
           </div>
@@ -158,7 +158,7 @@ async function clearViewAs() {
   }
 }
 
-// 오류 문장의 "봇 개발자에게 보고" 가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
+// 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
 onMounted(() => {
   axios
     .get<BotInfo>("/api/bot", { quietSession: true })

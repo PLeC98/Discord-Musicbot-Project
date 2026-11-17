@@ -1,16 +1,16 @@
 // 로그인 배경의 능동 조절. 값은 기기 측정으로 정했다.
-// 재기: 4초 창마다 영상이 화면에 낸 장면(requestVideoFrameCallback 의 presentedFrames), 버린 장면을 잰다. 화면 주사율은 보지 않는다(크롬은 영상만 바뀌는 화면이면 주사율을 영상에 맞춰 내린다).
+// 재기: 4초 창마다 영상이 화면에 낸 장면(requestVideoFrameCallback의 presentedFrames), 버린 장면을 잰다. 화면 주사율은 보지 않는다(크롬은 영상만 바뀌는 화면이면 주사율을 영상에 맞춰 내린다).
 //      성능은 최근 세 창(약 12초)을 합쳐 본다: 낸 장면이 초당 장면 수의 85% 아래거나 버린 장면이 2% 넘으면 나쁨. 한 창에서 버린 장면이 10% 넘으면 바로 내린다.
 //      화면 숨김, 멈춤, 기다림이 낀 창은 성능으로 치지 않고, 돌아오거나 다시 재생된 뒤 5초는 재지 않으며 그동안의 기다림은 통신으로 치지 않는다.
 // 조절: 나쁨이면 한 단계 내리고, 좋음이 60초 이어지면 한 단계 올려 테스트한다. 올린 뒤 두 창 안에 나쁨이면 되돌리고 다음 테스트까지 두 배로 기다린다(최대 8분).
 //      30초 버틴 단계를 기기에 기억해 다음 방문의 시작점으로만 쓴다.
-// 통신: VP9, AV1 목록에는 1080p 아래가 없어 hls.js 가 더 내릴 곳이 없으니, 받아 둔 영상이 바닥난 기다림(되감는 순간 빼고)이 30초에 세 번이고
-//      hls.js 의 대역폭 추산이 지금 단계 2초 최대의 1.3배에 못 미치면 H.264 720p 로 옮긴다
+// 통신: VP9, AV1 목록에는 1080p 아래가 없어 hls.js가 더 내릴 곳이 없으니, 받아 둔 영상이 바닥난 기다림(되감는 순간 빼고)이 30초에 세 번이고
+//      hls.js의 대역폭 추산이 지금 단계 2초 최대의 1.3배에 못 미치면 H.264 720p로 옮긴다
 
-/** 한 창의 잰 값. rate 는 화면에 낸 장면(초당) */
+/** 한 창의 잰 값. rate는 화면에 낸 장면(초당) */
 type Window = { rate: number; dropped: number; decoded: number };
 type Adapter = {
-  /** 받아 둔 영상이 바닥나 기다렸다(waiting, stalled, hls.js 의 버퍼 경고) */
+  /** 받아 둔 영상이 바닥나 기다렸다(waiting, stalled, hls.js의 버퍼 경고) */
   waited(): void;
   /** 화면 숨김, 보임, 멈춤, 다시 재생 */
   hidden(on: boolean): void;
@@ -26,7 +26,7 @@ type AdapterDeps = {
   h264At: number;
   /** 그 단계로 */
   go: (index: number) => void;
-  /** 지금 단계의 2초 최대와 hls.js 의 대역폭 추산(bps, 모르면 0) */
+  /** 지금 단계의 2초 최대와 hls.js의 대역폭 추산(bps, 모르면 0) */
   network: () => { peak: number; bandwidth: number };
   /** 30초 버틴 단계 */
   remember: (index: number) => void;
@@ -67,7 +67,7 @@ async function sample(video: HTMLVideoElement): Promise<Window> {
   const q1 = video.getVideoPlaybackQuality();
   const dropped = q1.droppedVideoFrames - q0.droppedVideoFrames;
   const decoded = q1.totalVideoFrames - q0.totalVideoFrames;
-  // requestVideoFrameCallback 이 없으면 디코딩한 장면에서 버린 장면을 뺀 것으로 추산한다
+  // requestVideoFrameCallback이 없으면 디코딩한 장면에서 버린 장면을 뺀 것으로 추산한다
   const rate = rvfc ? (first && last && last.now > first.now ? ((last.presented - first.presented) * 1000) / (last.now - first.now) : 0) : ((decoded - dropped) * 1000) / (performance.now() - t0);
   return { rate, dropped, decoded };
 }
@@ -105,14 +105,14 @@ function startAdapter(deps: AdapterDeps): Adapter {
     enteredAt = performance.now();
     goodSince = enteredAt;
   };
-  // 통신이 못 따라가면 H.264 720p 로. 올려 테스트하던 중이면 되돌림으로 치고 다음 테스트를 미룬다
+  // 통신이 못 따라가면 H.264 720p로. 올려 테스트하던 중이면 되돌림으로 치고 다음 테스트를 미룬다
   const network = () => {
     const now = performance.now();
     waitTimes = waitTimes.filter((t) => now - t < NET.window);
     if (waitTimes.length < NET.count || deps.h264At < 0 || deps.index() >= deps.h264At) return false;
     const { peak, bandwidth } = deps.network();
     waitTimes = [];
-    // 대역폭 추산이 넉넉하면 통신 탓이 아니다(추산이 아직 없으면 0 이라 옮긴다)
+    // 대역폭 추산이 넉넉하면 통신 탓이 아니다(추산이 아직 없으면 0이라 옮긴다)
     if (peak && bandwidth >= peak * NET.headroom) return false;
     if (probation > 0) {
       upWait = Math.min(upWait * 2, UP.max);

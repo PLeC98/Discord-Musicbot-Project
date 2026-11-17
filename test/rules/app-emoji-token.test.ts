@@ -13,9 +13,9 @@ const book: EmojiBook = {
   iconUnicode: (name) => (name === "pause" ? "⏸️" : undefined),
 };
 
-test("id 가 먼저: 이름이 바뀐 이모지도 찾고, 같은 이름의 다른 이모지로 바뀌지 않는다", () => {
+test("id가 먼저: 이름이 바뀐 이모지도 찾고, 같은 이름의 다른 이모지로 바뀌지 않는다", () => {
   assert.deepEqual(find(book, "celebrate", PARTY.id), { emoji: PARTY }, "개발자 포털에서 이름만 바꿨다");
-  assert.deepEqual(find(book, "party", "999999999999999999"), { emoji: PARTY }, "다시 올려 id 가 바뀌었다(아이콘), 다른 봇의 장르 파일");
+  assert.deepEqual(find(book, "party", "999999999999999999"), { emoji: PARTY }, "다시 올려 id가 바뀌었다(아이콘), 다른 봇의 장르 파일");
   assert.deepEqual(
     find(
       {

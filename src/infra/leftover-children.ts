@@ -18,7 +18,7 @@ import type { ChildRecord, ProcessIdentity } from "./process-registry.ts";
 const log = logger.child({ category: "proc" });
 
 const IS_WIN = process.platform === "win32";
-// 기록의 시작 시각과 OS 가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
+// 기록의 시작 시각과 OS가 아는 시작 시각의 허용 차(등록은 실행 직후라 보통 1초 안이다)
 const START_SLACK_MS = 10_000;
 // 프로세스 목록을 읽지 못하는 일이 이어져도 이보다 오래된 실행의 기록은 삭제한다(파일이 쌓이지 않게)
 const GIVE_UP_MS = 7 * 24 * 60 * 60_000;
@@ -96,7 +96,7 @@ function same(proc: Proc | undefined, who: ProcessIdentity): proc is Proc {
   return Math.abs(proc.startedAt - who.startedAt) <= START_SLACK_MS;
 }
 
-// 기록 파일의 내용. 모양이 틀리면 그 까닭
+// 기록 파일의 내용. 모양이 틀리면 그 원인
 function parse(text: string): { record: ChildRecord } | { reason: string } {
   let record: ChildRecord | null;
   try {

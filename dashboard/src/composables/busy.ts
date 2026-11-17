@@ -13,7 +13,7 @@ export function useBusy() {
     busy.value = next;
   }
 
-  /** key 가 기다리는 중이 아니면 work 를 하고 끝나면 푼다. 기다리는 중이면 하지 않는다(undefined) */
+  /** key가 기다리는 중이 아니면 work를 하고 끝나면 푼다. 기다리는 중이면 하지 않는다(undefined) */
   async function whileBusy<T>(key: string, work: () => Promise<T>): Promise<T | undefined> {
     if (isBusy(key)) return undefined;
     setBusy(key, true);

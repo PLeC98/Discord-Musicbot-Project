@@ -4,7 +4,7 @@
 //  - 해시 프리픽스 엔드포인트로 조회한다(어떤 영상을 트는지 서버에 드러내지 않는다).
 //  - 원시 세그먼트(카테고리 전부)를 write-through 캐시에 저장하고, 정규화, 필터는 읽을 때 카테고리별로 한다.
 //  - fail-open: 받아 둔 답이 있으면 바로 쓰고, 오래됐거나(받은 때) 다른 주소에서 받았으면 뒤에서 다시 받는다. 없으면 라이브를 기다리고, 실패, 타임아웃이면 스킵 없이 진행한다.
-//  - config.sponsorblock.enabled=false 면 API, 캐시 모두 동작하지 않는다(상업적 이용을 위한 전체 차단 스위치).
+//  - config.sponsorblock.enabled=false면 API, 캐시 모두 동작하지 않는다(상업적 이용을 위한 전체 차단 스위치).
 //
 // 세그먼트 데이터: https://sponsor.ajay.app (CC BY-NC-SA 4.0).
 
@@ -20,7 +20,7 @@ import { codeOf, messageOf } from "../rules/error-kind.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "sponsor" });
 
-// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch 로 가짜를 넘긴다(null 이면 실제 fetch)
+// 바깥으로 나가는 요청은 공유 HTTP 클라이언트로(부른 결과가 남는다). 테스트는 useFetch로 가짜를 넘긴다(null이면 실제 fetch)
 const http = httpFor("sponsorblock");
 const useFetch = http.useFetch;
 
@@ -60,7 +60,7 @@ const remembered = new Map<string, Entry>();
 const REMEMBER_MAX = 500;
 const RETRY_NONE_MS = 10 * 60_000; // 답이 없는 영상은 이만큼 지나 다시 조회한다
 const RETRY_STALE_MS = 30 * 60_000; // 오래된 답을 다시 받다 실패하면 이만큼 쉰다(답은 그대로 쓴다)
-// forget() 마다 오른다. 그 전에 나간 조회의 답은 기억, 저장하지 않고 버린다
+// forget()마다 오른다. 그 전에 나간 조회의 답은 기억, 저장하지 않고 버린다
 let generation = 0;
 
 // 겹치거나 맞닿은 skip 구간을 합친다. 합친 구간의 카테고리는 모두 남긴다
@@ -94,7 +94,7 @@ function normalize(raw: RawSegment[] | null | undefined, enabledCategories: Iter
   return { skipSegments, highlightAt };
 }
 
-/** 구간 API 응답을 구분한 것. videos: 그 접두어에 걸린 영상들(없으면 빈 배열). failed: 답이 아닌 까닭, notApi면 구간 API의 응답이 아니다 */
+/** 구간 API 응답을 구분한 것. videos: 그 접두어에 걸린 영상들(없으면 빈 배열). failed: 올바르지 않은 응답을 받은 원인, notApi면 구간 API의 응답이 아니다 */
 type Answer = { videos: ApiVideo[] } | { failed: string; notApi: boolean };
 
 const isVideo = (v: unknown): v is ApiVideo => typeof v === "object" && v !== null && typeof (v as ApiVideo).videoID === "string";
@@ -195,7 +195,7 @@ async function _load(videoId: string, entry: Entry) {
 }
 
 // 답이 오래됐으면 뒤에서 한 번 다시 받는다(지금 곡은 가진 답을 쓴다). 나가 있으면 합치고, 실패하면 답을 그대로 두고 RETRY_STALE_MS 쉰다.
-// 뒤에서 도는 작업이라 DB_NOT_OPEN 말고는 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
+// 백그라운드 작업이라 DB_NOT_OPEN 말고는 예외를 던지지 않는다(새어 나가면 서버 문맥의 모르는 오류로 그 서버를 다시 시작하게 된다)
 function _refreshIfStale(videoId: string, entry: Entry) {
   const now = Date.now();
   if (!entry.got || entry.refreshing || !isStale(entry.got, now) || now - entry.missedAt < RETRY_STALE_MS) return;
@@ -224,7 +224,7 @@ function _trackVideoId(track: { audioUrl?: string | null; [field: string]: unkno
 /**
  * 곡의 구간, 하이라이트를 서버별 설정으로 필터링한 것. 재생 근접(미리 다운로드), 재생 직전에 부른다.
  * 답은 영상 id로 기억해 두고, 오래되면 가진 답을 쓰면서 뒤에서 다시 받는다. 겹쳐 불러도 한 번만 조회한다.
- * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. DB 를 열기 전(DB_NOT_OPEN) 말고는 던지지 않는다.
+ * 영상을 아직 모르거나(스포티파이는 찾은 뒤) 서버가 껐으면 null. DB를 열기 전(DB_NOT_OPEN) 말고는 예외를 던지지 않는다.
  */
 async function forTrack(track: { audioUrl?: string | null; [field: string]: unknown } | null | undefined, guildId: string): Promise<Segments | null> {
   const videoId = _trackVideoId(track);

@@ -17,7 +17,7 @@ import type { DevicePlace, LoginDevice } from "./contract/identity.ts";
 import { clientIp } from "./client-ip.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 기기 기록. ip 는 그때 요청의 주소(믿는 프록시 뒤면 실제 주소) */
+/** 기기 기록. ip는 그때 요청의 주소(믿는 프록시 뒤면 실제 주소) */
 type DeviceRecord = { ua: string; ip: string; signedInAt: number; seenAt: number };
 
 const PURPOSE = "login-device";
@@ -26,7 +26,7 @@ const SEEN_EVERY_MS = 5 * 60_000;
 const sealFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 기기 기록 암호화");
 const storeFailure = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "로그인 기기 기록 읽기 또는 쓰기");
 
-// 암호화하지 못하면(SECRETS_KEY 가 없는 테스트, 스크립트) 적지 않는다. 기록이 없어도 로그인, 요청은 그대로다
+// 암호화하지 못하면(SECRETS_KEY가 없는 테스트, 스크립트) 적지 않는다. 기록이 없어도 로그인, 요청은 그대로다
 function seal(sid: string, record: DeviceRecord): Buffer | undefined {
   try {
     const sealed = secrets.sealBlob(PURPOSE, JSON.stringify(record), sid);
@@ -38,7 +38,7 @@ function seal(sid: string, record: DeviceRecord): Buffer | undefined {
   }
 }
 
-/** 암호화한 기록을 복호화한다. 없거나 복호화되지 않으면(SECRETS_KEY 가 바뀌었거나 없음, 다른 행에서 옮김) null */
+/** 암호화한 기록을 복호화한다. 없거나 복호화되지 않으면(SECRETS_KEY가 바뀌었거나 없음, 다른 행에서 옮김) null */
 function openRecord(sid: string, sealed: Buffer | null | undefined): DeviceRecord | null {
   if (!sealed) return null;
   try {
@@ -84,13 +84,13 @@ function noteDevice(req: Request, _res: Response, next: NextFunction) {
   next();
 }
 
-/** 세션을 가리키는 핸들. 쿠키 값이 곧 세션 id 라 그대로 내보내지 않는다. 찾을 때는 그 사용자의 세션 안에서만 비교한다 */
+/** 세션을 가리키는 핸들. 쿠키 값이 곧 세션 id라 그대로 내보내지 않는다. 찾을 때는 그 사용자의 세션 안에서만 비교한다 */
 const handleOf = (sid: string) => crypto.createHash("sha256").update(sid).digest("base64url").slice(0, 22);
 
-/** IP 위치를 찾는 쪽(dashboard 의 IP 위치 DB). 찾지 못하면 null */
+/** IP 위치를 찾는 쪽(dashboard의 IP 위치 DB). 찾지 못하면 null */
 type Locate = (ip: string) => DevicePlace;
 
-/** 사설 주소면 내부망, 아니면 위치 DB 에서 조회한다 */
+/** 사설 주소면 내부망, 아니면 위치 DB에서 조회한다 */
 function placeOf(ip: string, locate: Locate): DevicePlace {
   if (!ip) return null;
   return isPublicIp(ip) ? locate(ip) : { kind: "private" };

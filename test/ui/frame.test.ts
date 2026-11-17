@@ -90,7 +90,7 @@ test("템플릿: 헤더 줄, 본문, 작은 글씨 줄, 썸네일은 헤더 옆.
   assert.equal(accentOf(frame({ body: "x", color: "done" })), resolveColor("#57F287"));
 });
 
-test("새 응답은 본인에게만, 채널 메시지, 고치기는 Components V2 만", () => {
+test("새 응답은 본인에게만, 채널 메시지, 고치기는 Components V2만", () => {
   const c = frame({ body: "x" });
   assert.deepEqual(reply(c).flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
   assert.deepEqual(post(c).flags, [MessageFlags.IsComponentsV2]);

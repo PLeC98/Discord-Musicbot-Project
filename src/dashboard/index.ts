@@ -60,7 +60,7 @@ import { bindLine, bindNotes, inContainer, planBind, reachableAddresses, scopeOf
 import { isLoopbackName } from "../rules/net-address.ts";
 import { checkTls, findTlsFiles, rotateTicketKeys, tlsOptions, watchExpiry, worldReadable, type TlsFiles } from "./tls-files.ts";
 
-/** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면) 는 테스트가 바꿔 넘긴다 */
+/** 조립이 넘기는 것. sessionMiddleware, clientDist(빌드한 화면)는 테스트가 바꿔 넘긴다 */
 type AppDeps = { stream: PlayerStream; deployCommands: Express.Locals["deployCommands"]; restart?: Express.Locals["restart"]; sessionMiddleware?: RequestHandler; clientDist?: string };
 
 // 세션 비밀: .env의 SESSION_SECRET이 표준 경로. 미설정이면 랜덤 폴백.
@@ -144,7 +144,7 @@ function createSessionMiddleware({ store = new SqliteSessionStore(), secret = re
 const READ_ONLY = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // 빌드한 화면 파일(assets/ 아래)은 이름이나 경로에 내용 해시, 판이 붙어 바뀌면 이름도 바뀐다. 한 해 동안 묻지 않고 쓰게 한다(글꼴, 스크립트, 스타일, 이모지 그림).
-// index.html 처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
+// index.html처럼 이름이 고정된 파일은 매번 바뀌었는지 묻는다(그래야 새 빌드의 새 이름을 받는다)
 const ASSETS = /[\\/]assets[\\/]/;
 // 공개 요청 제한에서 건너뛰는 경로(아래에서 따로 센다)와, 그중 세션 미들웨어 앞에서 응답하는 공개 경로. Express처럼 대소문자와 끝의 /를 가리지 않는다
 const COUNTED_LATER = /^\/(?:api|auth)(?:\/|$)/i;
@@ -181,7 +181,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // (세션 앞에서 응답하는 /api의 공개 경로와, 아래 CORS가 집계 전에 응답하는 OPTIONS는 여기서 센다). 빌드한 화면 파일(assets/)은 세지 않는다. 브라우저가 한 번 캐시하면 재요청하지 않고, 이모지 선택기는 이미지 1900여 장을 한 장씩 받는다
   app.use(limiter(() => config.dashboard.rateLimit.publicMax, { byIp: true, skip: (req) => (COUNTED_LATER.test(req.path) && !PUBLIC_API.test(req.path) && req.method !== "OPTIONS") || ASSETS.test(req.path) }));
 
-  // 오류 코드의 설명(type 의 주소). 화면(SPA) 폴백보다 앞에
+  // 오류 코드의 설명(type의 주소). 화면(SPA) 폴백보다 앞에
   app.use(problemsRouter);
   // 파비콘, 매니페스트(로그인 없이). 화면 폴백보다 앞에
   app.use(publicAppearanceRouter);
@@ -341,7 +341,7 @@ function logTls(tls: LoadedTls) {
 }
 
 /**
- * 인증서 파일을 찾아 확인한다(dashboard/tls-files). 없으면 null, 문제가 있으면 까닭을 error로 남기고 "error"(대시보드를 열지 않는다)
+ * 인증서 파일을 찾아 확인한다(dashboard/tls-files). 없으면 null, 문제가 있으면 원인을 error로 남기고 "error"(대시보드를 열지 않는다)
  */
 function loadTls(certsDir: string): LoadedTls | null | "error" {
   const { url, tlsCert, tlsKey } = config.dashboard;

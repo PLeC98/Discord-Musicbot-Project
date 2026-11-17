@@ -1,8 +1,8 @@
 // 입력란 아래에 붙여 표시하는 패널의 위치를 잡는다. 드롭다운 목록이 쓴다.
 //
-// 그냥 absolute 로 두면 카드, 스크롤되는 영역 안에 갇히고, 아래 고정 재생바에도 깔린다.
-// 그래서 body 로 내보내고(Teleport) 좌표를 직접 준다. fixed 만으로는 안 된다.
-// 조상에 transform, filter, backdrop-filter 가 걸리면 그 조상이 fixed 의 기준이 되기 때문이다.
+// 그냥 absolute로 두면 카드, 스크롤되는 영역 안에 갇히고, 아래 고정 재생바에도 깔린다.
+// 그래서 body로 내보내고(Teleport) 좌표를 직접 준다. fixed 만으로는 안 된다.
+// 조상에 transform, filter, backdrop-filter가 걸리면 그 조상이 fixed의 기준이 되기 때문이다.
 //
 // 위치를 잡고 나면 세 가지를 더 본다.
 //   아래가 패널 내용을 다 담지 못하고 위가 더 넓으면 위로 뒤집는다. 아래 재생바가 가리는 만큼은 빼고 본다.
@@ -15,7 +15,7 @@ import { useCloseLayer } from "./close-layer.ts";
 
 type ElementRef = Readonly<Ref<HTMLElement | null | undefined>>;
 
-// 재생바가 가리는 높이. --player 는 App.vue 가 트리에 얹으므로 입력란에서 물려받아 읽는다.
+// 재생바가 가리는 높이. --player는 App.vue가 트리에 얹으므로 입력란에서 물려받아 읽는다.
 export function coveredBottom(el: HTMLElement) {
   const raw = getComputedStyle(el).getPropertyValue("--player").trim();
   const n = parseFloat(raw);
@@ -38,7 +38,7 @@ function sideBy(rect: DOMRect, width: number) {
   return rect.left + rect.width / 2 < room / 2 ? EDGE : room - width - EDGE;
 }
 
-/** 패널의 쌓임 순서: 기준 요소가 든 레이어(z-index 를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 레이어가 없으면 PANEL_Z */
+/** 패널의 쌓임 순서: 기준 요소가 든 레이어(z-index를 가진 조상 중 가장 높은 것, 대화상자 등)보다 한 단계 위. 레이어가 없으면 PANEL_Z */
 const PANEL_Z = 160;
 function layerAbove(el: HTMLElement) {
   let top = PANEL_Z - 1;
@@ -52,11 +52,11 @@ function layerAbove(el: HTMLElement) {
 /**
  * root: 입력란을 감싼 겉(바깥 누름 판정의 기준), anchor: 기준이 될 요소(입력란 또는 버튼), panel: 표시할 패널(바깥 누름 판정에 같이 쓴다)
  * open: 열림 상태(바깥을 누르면 여기를 내린다), maxHeight: 패널이 바랄 최대 높이(px), gap: 기준 요소와 패널 사이 간격(px, 음수면 테두리를 겹친다)
- * width: 패널 폭(px). 없으면 기준 요소의 폭(드롭다운). 주면 그 폭으로 두고 가로 자리는 sideBy 가 정한다(달력처럼 내용이 정한 폭)
+ * width: 패널 폭(px). 없으면 기준 요소의 폭(드롭다운). 주면 그 폭으로 두고 가로 자리는 sideBy가 정한다(달력처럼 내용이 정한 폭)
  */
 export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, gap = -1, width }: { root: ElementRef; anchor: ElementRef; panel: ElementRef; open: Ref<boolean>; maxHeight?: number; gap?: number; width?: number }) {
   const style = ref<CSSProperties>({});
-  // 닫기 레이어는 패널이 실제로 그려졌을 때만(칩 입력, 태그 선택은 입력란에 포커스만 가도 open 이 참이다)
+  // 닫기 레이어는 패널이 실제로 그려졌을 때만(칩 입력, 태그 선택은 입력란에 포커스만 가도 open이 참이다)
   useCloseLayer(
     computed(() => open.value && panel.value != null),
     () => (open.value = false),
@@ -98,7 +98,7 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
   }
 
   function onDocClick(event: MouseEvent) {
-    // 패널은 body 로 나가 있어 root 안에 없다. 둘 다 보지 않으면 선택하는 순간 닫힌다.
+    // 패널은 body로 나가 있어 root 안에 없다. 둘 다 보지 않으면 선택하는 순간 닫힌다.
     const target = event.target instanceof Node ? event.target : null;
     const inside = root.value?.contains(target) || panel.value?.contains(target);
     if (!inside) open.value = false;
@@ -119,7 +119,7 @@ export function useAnchoredPanel({ root, anchor, panel, open, maxHeight = 256, g
   watch(open, (now) => {
     listen(now);
     if (now) {
-      // 먼저 한 번 잡고 그린다. 위치를 nextTick 으로 미루면 패널이 한 프레임 동안
+      // 먼저 한 번 잡고 그린다. 위치를 nextTick으로 미루면 패널이 한 프레임 동안
       // 문서 맨 끝에 그려지고, 그쪽에 포커스가 가면 브라우저가 페이지를 바닥까지 내린다.
       need = maxHeight;
       place();

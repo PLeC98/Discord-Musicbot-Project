@@ -7,7 +7,7 @@ type Exiting = { once(event: "exit", listener: (code: number | null, signal: Nod
 
 class InputHealth {
   kind: string; // 입력 구분(로그용). 파일, HLS, 청크, 직접 링크 등
-  broken: string | null = null; // 처음 깨진 까닭. 온전하면 null
+  broken: string | null = null; // 처음 깨진 원인. 온전하면 null
   exitCode: number | null = null; // ffmpeg 종료 코드. 신호로 죽었으면 -1, 아직 살아 있으면 null
   detail: () => string | null = () => null; // 끊겼을 때 남길 입력 상태(청크 스트림이 이어받는 중이었나 등)
   refused: number | null = null; // 입력이 끊길 때 받은 4xx(주소가 막힘). 같은 주소는 다시 열어도 똑같이 막힌다
@@ -16,12 +16,12 @@ class InputHealth {
     this.kind = kind;
   }
 
-  /** 깨졌다. 먼저 온 까닭을 지킨다 */
+  /** 깨졌다. 먼저 들어온 원인을 덮어쓰지 않는다 */
   mark(why: string) {
     this.broken ??= why;
   }
 
-  /** ffmpeg 가 끝나면 종료 코드를 적는다. 0 이 아니면 깨진 것이다 */
+  /** ffmpeg가 끝나면 종료 코드를 적는다. 0이 아니면 깨진 것이다 */
   watch(child: Exiting) {
     child.once("exit", (code, signal) => {
       this.exitCode = code === null && signal ? -1 : code;
@@ -31,7 +31,7 @@ class InputHealth {
   }
 }
 
-/** 주소가 막힌 오류면 그 HTTP 상태 코드(4xx, Range 탓인 416 은 빼고), 아니면 null */
+/** 주소가 막힌 오류면 그 HTTP 상태 코드(4xx, Range 탓인 416은 빼고), 아니면 null */
 function refusedStatus(error: unknown): number | null {
   const status = (error as { status?: unknown } | null)?.status;
   return typeof status === "number" && status >= 400 && status < 500 && status !== 416 ? status : null;

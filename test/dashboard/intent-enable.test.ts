@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { FLAGS } from "../../src/infra/gateway-intents.ts";
 import { enableIntent, flagsToEnable, type AppRest } from "../../src/dashboard/intent-enable.ts";
 
-const BADGE = 1 << 23; // API 로 바꿀 수 없는 다른 비트(앱 명령 배지)
+const BADGE = 1 << 23; // API로 바꿀 수 없는 다른 비트(앱 명령 배지)
 
 function rest(app: object, patch: (flags: number) => void = () => {}) {
   const sent: number[] = [];
@@ -33,7 +33,7 @@ test("꺼져 있으면 켠다. 첫 값이 받아지면 한 번만 보낸다", as
   assert.deepEqual(sent, [BADGE | FLAGS.messageContent.limited]);
 });
 
-test("첫 값이 4xx 로 거절되면 _LIMITED 비트만 보낸다. 5xx 면 다시 보내지 않고 던진다", async () => {
+test("첫 값이 4xx로 거절되면 _LIMITED 비트만 보낸다. 5xx면 다시 보내지 않고 예외를 던진다", async () => {
   const refusedOnce = rest({ flags: BADGE, approximate_guild_count: 2 }, (flags) => {
     if (flags & BADGE) throw httpError(400);
   });
@@ -47,7 +47,7 @@ test("첫 값이 4xx 로 거절되면 _LIMITED 비트만 보낸다. 5xx 면 다�
   assert.equal(down.sent.length, 1);
 });
 
-test("401, 403 처럼 값과 상관없는 거절은 다른 값으로 다시 보내지 않는다", async () => {
+test("401, 403처럼 값과 상관없는 거절은 다른 값으로 다시 보내지 않는다", async () => {
   const forbidden = rest({ flags: 0, approximate_guild_count: 2 }, () => {
     throw httpError(403);
   });
@@ -55,7 +55,7 @@ test("401, 403 처럼 값과 상관없는 거절은 다른 값으로 다시 보�
   assert.equal(forbidden.sent.length, 1);
 });
 
-test("바꾸기 직전에 확인(go)을 부르고, 던지면 보내지 않는다(그사이 세션이 끝났다)", async () => {
+test("바꾸기 직전에 확인(go)을 부르고, 예외를 던지면 보내지 않는다(그사이 세션이 끝났다)", async () => {
   const { r, sent } = rest({ flags: 0, approximate_guild_count: 2 });
   await assert.rejects(
     enableIntent(r, "messageContent", () => {
@@ -83,12 +83,12 @@ test("겹친 켜기는 차례로 한다(읽고 고쳐 쓰기가 겹쳐 앞에서
   assert.equal(flags, FLAGS.messageContent.limited + FLAGS.guildMembers.limited, "둘 다 켜져 있다");
 });
 
-test("flags 가 2^31 이상이어도 비트를 잃지 않는다(비트 연산은 32비트로 잘린다)", () => {
+test("flags가 2^31 이상이어도 비트를 잃지 않는다(비트 연산은 32비트로 잘린다)", () => {
   const big = 2 ** 33 + BADGE;
   assert.deepEqual(flagsToEnable(big, "messageContent"), [big + FLAGS.messageContent.limited, FLAGS.messageContent.limited]);
 });
 
-test("이미 켜져 있거나, 100 서버 이상(승인 필요)이거나, flags 를 모르면 아무것도 보내지 않는다", async () => {
+test("이미 켜져 있거나, 100 서버 이상(승인 필요)이거나, flags를 모르면 아무것도 보내지 않는다", async () => {
   for (const [app, expected] of [
     [{ flags: FLAGS.messageContent.limited, approximate_guild_count: 2 }, "already"],
     [{ flags: 0, approximate_guild_count: 120 }, "approval"],

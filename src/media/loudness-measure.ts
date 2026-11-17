@@ -1,8 +1,8 @@
-// 캐시 파일의 볼륨 측정(볼륨 정규화가 쓰는 file 값). ffmpeg 의 ebur128 필터가 100ms 마다 내는 줄과 끝의 요약을 읽는다.
+// 캐시 파일의 볼륨 측정(볼륨 정규화가 쓰는 file 값). ffmpeg의 ebur128 필터가 100ms마다 내는 줄과 끝의 요약을 읽는다.
 // 한 번에 하나씩 재는 큐다. 지금 재생 중인 곡이 먼저고, 미리 받는 곡을 재는 중이면 그것을 취소해 뒤로 돌린다.
 // 큐는 서버와 상관없는 봇 작업이라 서버 문맥 밖에서 돈다(요청하는 쪽은 서버 문맥 안이다). 재는 동안 캐시 파일이 삭제되지 않게 막는다.
-// 실패는 둘로 나눈다. 파일 탓(ffmpeg 는 끝까지 돌았는데 값이 맞지 않음)은 file-failed 로 기록해 다시 재지 않고,
-// 환경 탓(실행 실패, 진행 멈춤, 줄을 하나도 못 읽음)은 기록하지 않는다(ffmpeg 를 고치면 다시 잰다).
+// 실패는 둘로 나눈다. 파일 탓(ffmpeg는 끝까지 돌았는데 값이 맞지 않음)은 file-failed로 기록해 다시 재지 않고,
+// 환경 탓(실행 실패, 진행 멈춤, 줄을 하나도 못 읽음)은 기록하지 않는다(ffmpeg를 고치면 다시 잰다).
 
 import fs from "node:fs";
 import logger from "../infra/log/logger.ts";
@@ -26,7 +26,7 @@ const ENV_RETRY_MS = 10 * 60 * 1000;
 const BIND_CORES_SEC = 600;
 /** 통합 볼륨이 이보다 낮게 나온 값은 쓰지 않는다(무음이거나 잘못 잰 것) */
 const QUIET_LUFS = -50;
-/** 순간 볼륨이 이 아래인 프레임은 피크 상위 1% 에 넣지 않는다(절대 게이트) */
+/** 순간 볼륨이 이 아래인 프레임은 피크 상위 1%에 넣지 않는다(절대 게이트) */
 const GATE_LUFS = -70;
 // 자체 테스트: 1kHz 사인파(진폭 0.1, 2초)는 줄 20개, 통합 볼륨과 피크가 -20.0
 const PROBE_SEC = 2;
@@ -46,7 +46,7 @@ const numberOf = (text: string) => {
   return Number.isFinite(value) ? value : -120;
 };
 
-/** ebur128 의 stderr 줄을 하나씩 받아 결과를 낸다. 진행 줄(-progress 의 키=값)이 섞여 와도 된다 */
+/** ebur128의 stderr 줄을 하나씩 받아 결과를 낸다. 진행 줄(-progress의 키=값)이 섞여 와도 된다 */
 function readingOf() {
   let lines = 0;
   const peaks: number[] = [];
@@ -76,7 +76,7 @@ function readingOf() {
   };
 }
 
-/** 볼륨 측정용 ffmpeg 인자. input 은 -i 까지의 입력 인자 */
+/** 볼륨 측정용 ffmpeg 인자. input은 -i 까지의 입력 인자 */
 const measureArgs = (input: string[]) => [...PROGRESS_ARGS, ...input, "-af", FILTER, "-f", "null", "-"];
 
 /**
@@ -86,7 +86,7 @@ const measureArgs = (input: string[]) => [...PROGRESS_ARGS, ...input, "-af", FIL
 function verdictOf(result: Pick<FfmpegResult, "code" | "timedOut">, reading: Reading, durationSec: number | null): Verdict {
   if (result.timedOut) return { kind: "env", why: `진행이 ${STALL_MS / 1000}초 멈춤` };
   if (result.code !== 0) return { kind: "env", why: `ffmpeg 종료 코드 ${result.code ?? "없음"}` };
-  // 줄 형식이 다른 빌드에서는 모든 파일이 이렇게 나온다. 파일 탓으로 기록하면 모든 캐시 파일이 file-failed 로 남아 다시 재지 못한다
+  // 줄 형식이 다른 빌드에서는 모든 파일이 이렇게 나온다. 파일 탓으로 기록하면 모든 캐시 파일이 file-failed로 남아 다시 재지 못한다
   if (reading.lines === 0 || reading.integrated === null || reading.truePeak === null) return { kind: "env", why: "ebur128 줄이나 요약을 읽지 못함" };
   if (durationSec && Math.abs(reading.lines - Math.floor(durationSec * 10)) > 1) return { kind: "file", why: `100ms 줄 ${reading.lines}개, 길이 ${durationSec}초와 맞지 않음` };
   if (reading.peakP99 === null) return { kind: "file", why: "게이트를 넘은 프레임이 없음" };
@@ -98,7 +98,7 @@ type Job = { key: string; current: boolean };
 type Running = Job & { controller: AbortController };
 
 /**
- * 볼륨 측정 큐. run 은 바깥 경계(ffmpeg 작업, media/ffmpeg/job)
+ * 볼륨 측정 큐. run은 바깥 경계(ffmpeg 작업, media/ffmpeg/job)
  * onMeasured: file 값을 저장한 뒤 부른다(그 음원을 트는 재생에 바로 반영되게)
  */
 class MeasureQueue {
@@ -235,11 +235,11 @@ class MeasureQueue {
     }
   }
 
-  // 처음 쓸 때 한 번, 이 ffmpeg 가 예상한 줄 형식으로 출력하는지 기준 사인파로 확인한다. 아니면 캐시 파일 측정만 끈다(그 곡들은 file 값 없이 튼다)
+  // 처음 쓸 때 한 번, 이 ffmpeg가 예상한 줄 형식으로 출력하는지 기준 사인파로 확인한다. 아니면 캐시 파일 측정만 끈다(그 곡들은 file 값 없이 튼다)
   #probeOnce(): Promise<boolean> {
     this.#probe ??= this.#selfTest().then(
       (why) => {
-        if (why) log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(이 ffmpeg 의 ebur128 출력을 읽지 못함): ${why}`);
+        if (why) log.warn(`볼륨 정규화의 캐시 파일 볼륨 측정을 끔(이 ffmpeg의 ebur128 출력을 읽지 못함): ${why}`);
         return !why;
       },
       (error: unknown) => {

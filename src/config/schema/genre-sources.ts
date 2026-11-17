@@ -4,9 +4,9 @@ import type { Window } from "../../rules/window-depth.ts";
 
 // 곡 DB 셋. 같은 소프트웨어라 부르는 법이 같다
 type Site = "vocadb" | "utaitedb" | "touhoudb";
-/** 선택할 값 하나. value 는 API 값, label 은 화면에 보일 말 */
+/** 선택할 값 하나. value는 API 값, label은 화면에 보일 말 */
 type Option = { value: string; label: string };
-/** 편집기가 그릴 입력란의 종류(아래 f 의 설명) */
+/** 편집기가 그릴 입력란의 종류(아래 f의 설명) */
 type FieldKind = "list" | "text" | "url" | "number" | "range" | "enum" | "enumList" | "enumDrop" | "enumSearch";
 type Field = {
   key: string;
@@ -27,12 +27,12 @@ type Field = {
   // list: 입력하는 동안 사이트에서 후보를 불러온다(/api/admin/source-suggest). 아무 말이나 적을 수도 있다
   suggest?: "tags" | "artists";
 };
-/** 소스 한 종류의 규격(아래 SPEC 의 설명) */
+/** 소스 한 종류의 규격(아래 SPEC의 설명) */
 type SourceSpec = { label: string; hint?: string; need: string[][]; enums?: Record<string, string[]>; env?: string; fields: Field[]; window?: Window };
 
 /**
  * 편집기가 그릴 소스 한 종류(/api/admin/source-types). 규격에 지금 쓸 수 있는지와 저쪽에 물어 채운 값을 더한다.
- * either 는 "둘 중 하나는 적어야 하는" 필드 그룹, 필드의 histogram 은 슬라이더 옆에 그릴 분포
+ * either는 "둘 중 하나는 적어야 하는" 필드 그룹, 필드의 histogram은 슬라이더 옆에 그릴 분포
  */
 type SourceTypeView = {
   type: string;
@@ -61,8 +61,8 @@ const ANISONG_BROADCASTS = ["normal", "dub", "rebroadcast"];
 // 태그는 수가 많아 못 적는다. 오타는 저쪽 422로 드러난다.
 const ANISONG_GENRES = ["Action", "Adventure", "Comedy", "Drama", "Ecchi", "Fantasy", "Horror", "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"];
 
-// 기본 곡 종류가 사이트마다 다르다. utaitedb 는 Original 로 받으면 우타이테가 아니라 보컬로이드 원곡이 오고,
-// touhoudb 는 Original 이 게임 BGM 뿐이라 사람들이 듣는 Arrangement 를 받는다.
+// 기본 곡 종류가 사이트마다 다르다. utaitedb는 Original로 받으면 우타이테가 아니라 보컬로이드 원곡이 오고,
+// touhoudb는 Original이 게임 BGM 뿐이라 사람들이 듣는 Arrangement를 받는다.
 const VOCA_DEFAULT_TYPES: Partial<Record<Site, string[]>> = { utaitedb: ["Cover"], touhoudb: ["Arrangement"] };
 
 // 값이 정해져 있는 필드들. 오타를 설정 시점에 잡는다. 안 그러면 저쪽이 422/400을 돌려주고
@@ -86,7 +86,7 @@ const SONG_SORT_OPTIONS = [
 
 const SONG_SORTS = SONG_SORT_OPTIONS.map((one) => one.value);
 
-// 검사도 사이트별이어야 한다. vocadb 에 Arrangement 를 적으면 0곡이 온다
+// 검사도 사이트별이어야 한다. vocadb에 Arrangement를 적으면 0곡이 온다
 const vocaEnums = (site: Site): Record<string, string[]> => ({
   songTypes: VOCA_SONG_TYPES[site],
   sort: SONG_SORTS,
@@ -94,14 +94,14 @@ const vocaEnums = (site: Site): Record<string, string[]> => ({
   ...(VOCA_ARTIST_TYPES[site] ? { artistTypes: VOCA_ARTIST_TYPES[site] } : {}),
 });
 
-// 대시보드가 그릴 입력란. kind 는 화면이 무엇을 표시할지 정한다.
+// 대시보드가 그릴 입력란. kind는 화면이 무엇을 표시할지 정한다.
 // list(칩), text, url, number, range(구간 슬라이더),
 // enum(하나 선택), enumList(알약으로 여럿), enumDrop(드롭다운에서 여럿),
 // enumSearch(입력해 찾아 칩으로 여럿. 항목이 수백 개인 입력란).
-// deep: true 는 "자주 안 쓰는 것"이라 접어 둔다.
-// width 는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란), half(늘 반 줄),
+// deep: true는 "자주 안 쓰는 것"이라 접어 둔다.
+// width는 입력란 너비다. 없으면 한 줄을 다 쓴다. narrow(좁은 숫자 입력란), half(늘 반 줄),
 // halfWide(모바일만 한 줄, 그 위로는 반 줄).
-// when: "다른 필드" 는 그 입력란이 채워졌을 때만 나온다.
+// when: "다른 필드"는 그 입력란이 채워졌을 때만 나온다.
 const f = (key: string, kind: FieldKind, label: string, extra: Omit<Field, "key" | "kind" | "label"> = {}): Field => ({ key, kind, label, ...extra });
 
 // 선택할 값이 정해진 필드. 화면에 보일 말이 API 값과 다르면 짝지어 준다.
@@ -115,14 +115,14 @@ const SEASON_OPTIONS = opts([
 ]);
 
 // 사이트마다 있는 것이 다르다. 돌려쓰면 없는 값을 선택하게 되고, 그걸 넣으면 0곡이 온다.
-// (유튜브 PV 가 있는 곡이 한 곡이라도 있는 것만)
+// (유튜브 PV가 있는 곡이 한 곡이라도 있는 것만)
 const VOCA_SONG_TYPES: Record<Site, string[]> = {
   vocadb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "DramaPV", "Other"],
   utaitedb: ["Unspecified", "Original", "Remaster", "Remix", "Cover", "Instrumental", "Mashup", "MusicPV", "Live", "Other"],
   touhoudb: ["Unspecified", "Original", "Remaster", "Cover", "Arrangement", "Rearrangement", "ShortVersion", "Instrumental", "MusicPV", "DramaPV", "Other"],
 };
 
-// 부르는 쪽 분류. TouhouDB에는 아예 없다(0명). 동방은 사람이 부르는 어레인지라 그렇다.
+// 보컬 종류(artistType). TouhouDB에는 아예 없다(0명). 동방은 사람이 부르는 어레인지라 그렇다.
 // UtaiteDB는 우타이테와 그 밖뿐이고, 보컬 합성 라이브러리 목록은 VocaDB에만 있다.
 const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
   vocadb: ["Vocaloid", "UTAU", "CeVIO", "SynthesizerV", "VOICEVOX", "Voiceroid", "NEUTRINO", "VoiSona", "ACEVirtualSinger", "AIVOICE", "OtherVoiceSynthesizer", "NewType", "OtherVocalist"],
@@ -130,8 +130,8 @@ const VOCA_ARTIST_TYPES: Record<Site, string[] | null> = {
   touhoudb: null,
 };
 
-// 가사 언어. 저쪽이 목록을 주지 않아 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다(유튜브 PV 가 있는 곡 기준, 사이트마다 많은 순서).
-// 로마자 가사에 엉뚱한 코드가 붙은 ha, ln, yo, jv 는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
+// 가사 언어. 저쪽이 목록을 주지 않아 ISO 639-1 전체를 훑어 곡이 실제로 있는 것만 남겼다(유튜브 PV가 있는 곡 기준, 사이트마다 많은 순서).
+// 로마자 가사에 엉뚱한 코드가 붙은 ha, ln, yo, jv는 뺐다. 번역 가사만 있는 곡도 걸린다(그 언어로 부른 곡만 고를 방법이 저쪽에 없다).
 const LANG_NAMES: Record<string, string> = {
   ja: "일본어",
   en: "영어",
@@ -294,7 +294,7 @@ const SPEC: Record<string, SourceSpec> = {
     },
     // 필드 순서와 너비가 편집기의 배치다. 상세(deep) 필드는 짝이 되는 기본 필드 옆이나 아래에 둔다
     fields: [
-      // 두 점으로 잡는 구간. 분포는 catalog 가 저쪽에 물어 채운다
+      // 두 점으로 잡는 구간. 분포는 catalog가 저쪽에 물어 채운다
       f("difficultyFrom", "range", "인지도", { to: "difficultyTo", min: 1, max: 100, hint: "AMQ에서 그 곡을 맞힌 사람의 비율이에요. 높을수록 유명해요" }),
       f("yearFrom", "range", "방영 연도", { to: "yearTo", hint: "양 끝까지 벌리면 전체" }),
       f("seasonFrom", "enum", "시작 분기", { width: "half", when: "yearFrom", options: SEASON_OPTIONS, emptyLabel: "그 해 처음부터" }),
@@ -350,7 +350,7 @@ const SPEC: Record<string, SourceSpec> = {
   vocadb: { label: "VocaDB", hint: "보컬로이드 DB.", need: [], enums: vocaEnums("vocadb"), fields: vocaFields("vocadb"), window: VOCA_WINDOW },
   utaitedb: { label: "UtaiteDB", hint: "우타이테 DB", need: [], enums: vocaEnums("utaitedb"), fields: vocaFields("utaitedb"), window: VOCA_WINDOW },
   touhoudb: { label: "TouhouDB", hint: "동방 DB. 동방 어레인지, OST 등이 있어요.", need: [], enums: vocaEnums("touhoudb"), fields: vocaFields("touhoudb"), window: VOCA_WINDOW },
-  // 재생목록, 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 까닭이 경고로 남는다
+  // 재생목록, 아티스트는 키 없이 돈다(익명 경로). 키가 없는데 앨범을 적으면 그 소스만 빈손이 되고 이유가 경고로 남는다
   spotify: { label: "스포티파이 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "재생목록, 앨범, 아티스트" })] },
   youtube: { label: "유튜브 재생목록", need: [["url"]], fields: [f("url", "url", "주소", { hint: "일반 재생목록이나 유튜브 뮤직 공식 재생목록(list=RDCLAK…)을 넣어 주세요. 전체 곡 수 안에서 무작위로 곡을 뽑기 때문에, 믹스처럼 유튜브가 끝없이 이어 주는 자동 목록은 쓰지 못해요." })] },
 };

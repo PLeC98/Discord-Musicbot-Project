@@ -117,8 +117,8 @@ test("둘째 곡부터는 쉬었다 뽑는다. 유튜브를 몰아치지 않는�
   assert.deepEqual(p.calls.slept, [gap, gap], "첫 곡은 바로, 나머지 둘은 예열과 같은 간격을 쉬었다가");
 });
 
-// 부르는 쪽은 곡이 시작할 때 한 번 부를 뿐이라, 한 번에 한 곡씩 넣으면 늘 한 곡 앞만 보인다.
-// 기본값 1 로만 보면 값을 키워도 한 곡만 들어가는 것을 놓친다.
+// 호출부는 곡이 시작할 때 한 번 부를 뿐이라, 한 번에 한 곡씩 넣으면 늘 한 곡 앞만 보인다.
+// 기본값 1로만 보면 값을 키워도 한 곡만 들어가는 것을 놓친다.
 test("prefetchCount만큼 채운다. 한 번 불려도 끝까지", async () => {
   const p = makePlayer({ prefetch: 3 });
 
@@ -259,7 +259,7 @@ test("장르를 바꾸면 이전 장르로 뽑아 둔 곡을 버리고 다시 �
 // ── 뽑을 때의 필터링 ─────────────────────────────────────────────────────
 
 // 제목만 소문자로 낮추고 제외 키워드를 그대로 두면 "Playlist" 같은 대문자 섞인 제외 키워드가 아무것도 필터링하지 못한다.
-// 규칙 자체는 autoplay-filter.test.ts 가 본다. 여기서는 설정에서 뽑기까지, 소스에서 온 후보가 필터를 지나는 길이 실제로 이어지는가를 본다.
+// 규칙 자체는 autoplay-filter.test.ts가 본다. 여기서는 설정에서 뽑기까지, 소스에서 온 후보가 필터를 지나는 길이 실제로 이어지는가를 본다.
 test("설정의 제외 키워드가 뽑기까지 이어진다. 대소문자를 구분하지 않는다", async () => {
   // 키워드 소스가 부르는 유튜브 검색만 가짜로. 후보가 필터를 지나는 길은 진짜다
   const search = async () => [
@@ -282,8 +282,8 @@ test("설정의 제외 키워드가 뽑기까지 이어진다. 대소문자를 �
       }),
       pickAutoplayTrack: Player.prototype.pickAutoplayTrack,
       io: { pickAutoplay: route.pickTrack }, // 길 찾기는 진짜(안쪽 경계는 아래 autoplayDeps)
-      // assist 를 넘기지 않으면 AI 설정을 읽어 진짜로 부른다. 여기서는 규칙만 본다
-      // 직접 지정한 음원은 없다(이 테스트는 캐시 DB 를 열지 않는다)
+      // assist를 넘기지 않으면 AI 설정을 읽어 진짜로 부른다. 여기서는 규칙만 본다
+      // 직접 지정한 음원은 없다(이 테스트는 캐시 DB를 열지 않는다)
       autoplayDeps: { ...route.REAL, pinned: () => null, fetch: (source: GenreSource) => sources.fetchFrom(source, { search }), assist: { filter: async <T>(c: T[]) => c, accepts: async () => true } },
     });
 

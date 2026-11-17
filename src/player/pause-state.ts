@@ -4,7 +4,7 @@
 import { AudioPlayerStatus, type AudioPlayer } from "@discordjs/voice";
 import { heldBy, type Hold } from "../rules/holds.ts";
 
-/** 무엇이 바뀌었나. user 는 사람의 뜻이 바뀌었을 때만 있다 */
+/** 무엇이 바뀌었나. user는 사람의 뜻이 바뀌었을 때만 있다 */
 type PauseChange = { user?: boolean; added: Hold[]; removed: Hold[] };
 
 class PauseState {
@@ -59,7 +59,7 @@ class PauseState {
 
   /**
    * 오디오를 지금 값에 맞춘다. 값이 그대로여도 부른다(어긋난 오디오를 바로잡는다).
-   * pause() 는 재생 중일 때만, unpause() 는 멈춘 상태일 때만 먹는다. 버퍼링, 곡 없음, AutoPaused 는 재생으로 넘어오는 순간 플레이어의 Playing 리스너가 다시 부른다
+   * pause()는 재생 중일 때만, unpause()는 멈춘 상태일 때만 적용된다. 버퍼링, 곡 없음, AutoPaused는 재생으로 넘어오는 순간 플레이어의 Playing 리스너가 다시 부른다
    */
   apply() {
     const audio = this.#audio();

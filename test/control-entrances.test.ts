@@ -17,7 +17,7 @@ import { fake, fakeWith, fakeBot } from "./helpers/fake.ts";
 import { command, run } from "./helpers/commands.ts";
 import { signedInAs } from "./helpers/dashboard.ts";
 
-// 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.ts 가 본다.
+// 권한은 진짜 판정을 쓴다. 판정 자체는 permissions.test.ts가 본다.
 // 봇이 음성에 없어 동일 음성 채널 규칙은 늘 통과한다. "denied" 셀만 서버에 DJ 역할을 걸어, 그 역할이 없는 이 멤버를 막는다
 const { openTempStore, setGuild } = await import("./helpers/temp-store.ts");
 const store = openTempStore("control-entrances-");
@@ -37,7 +37,7 @@ type FakeTrack = { title: string; url: string; duration: number; platform: strin
 const track = (title: string, extra: Partial<FakeTrack> = {}): FakeTrack => ({ title, url: `https://youtu.be/${title}`, duration: 180, platform: "youtube", ...extra });
 
 function makePlayer(state: string, acts: string[]) {
-  // 부른 메서드 이름을 적고 ret 의 값을 돌려준다
+  // 부른 메서드 이름을 적고 ret의 값을 돌려준다
   const rec =
     (name: string, ret: (...args: unknown[]) => unknown = () => true) =>
     (...args: unknown[]) => {
@@ -48,7 +48,7 @@ function makePlayer(state: string, acts: string[]) {
     guild: { id: "g1" },
     sessionId: "S1",
     currentTrack: track("now") as FakeTrack | null,
-    // 대기열 ID는 track-state 가 추가할 때 찍는다. 대시보드는 그것으로 가리킨다
+    // 대기열 ID는 track-state가 추가할 때 찍는다. 대시보드는 그것으로 가리킨다
     queue: [
       { ...track("q1"), entry: 1 },
       { ...track("q2"), entry: 2 },
@@ -189,7 +189,7 @@ const COMMAND: Record<string, { name: string; options?: Record<string, string | 
   clear: { name: "clear" },
   leave: { name: "leave" },
 };
-// 재생 패널 버튼의 동작 이름(custom_id 는 panel:동작:세션)
+// 재생 패널 버튼의 동작 이름(custom_id는 panel:동작:세션)
 const BUTTON: Record<string, string> = {
   pause: "pause",
   skip: "skip",
@@ -219,7 +219,7 @@ type Entrance = "C" | "B" | "D";
 const ENTRANCES: Entrance[] = ["C", "B", "D"];
 
 //            none   denied idle  alone  playing loopTrack live  starting
-// alone: 곡은 있고 대기열, 기록이 빔(건너뛰면 대기열 소진으로 끝난다). live: 지금 곡이 라이브, 대기열 2곡. starting: play() 가 도는 중.
+// alone: 곡은 있고 대기열, 기록이 빔(건너뛰면 대기열 소진으로 끝난다). live: 지금 곡이 라이브, 대기열 2곡. starting: play()가 도는 중.
 
 const TABLE: Record<string, Partial<Record<Entrance, string>>> = {
   pause: {
@@ -303,7 +303,7 @@ for (const [op, row] of Object.entries(TABLE)) {
   for (const key of ENTRANCES) {
     const line = row[key];
     if (!line) continue;
-    test(`${op} · ${NAME[key]}`, async () => {
+    test(`${op}, ${NAME[key]}`, async () => {
       const expected = line.split(" ");
       assert.equal(expected.length, STATES.length, "표의 열 수");
       const actual: string[] = [];

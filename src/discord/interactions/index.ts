@@ -1,4 +1,4 @@
-// 버튼, 메뉴, 모달 핸들러 전부. 새 핸들러는 여기에 더한다(src/discord/events/interaction-create 가 이 표로 선택한다)
+// 버튼, 메뉴, 모달 핸들러 전부. 새 핸들러는 여기에 더한다(src/discord/events/interaction-create가 이 표로 선택한다)
 
 import { routes as buttons } from "./button-handler.ts";
 import { routes as panelInputs } from "./panel-inputs.ts";

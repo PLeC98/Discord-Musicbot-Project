@@ -1,4 +1,4 @@
-// src/dashboard/routes/track-cache.ts: 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 답은 공유 타입의 모양.
+// src/dashboard/routes/track-cache.ts: 캐시 DB 경로. 운영자만, 문제는 RFC 9457 모양(필드는 pointer), 응답은 공유 타입의 모양.
 
 process.env.OWNER_ID = "owner";
 
@@ -76,7 +76,7 @@ test("쓰기: 모양이 틀리면 조작 번호와 필드를 가리켜 400, 맞�
   assert.equal(typeof written.json.revision, "number");
 });
 
-test("쓰기 본문은 조작 200개를 싣는다(32kb 를 넘는다)", async () => {
+test("쓰기 본문은 조작 200개를 싣는다(32kb를 넘는다)", async () => {
   const ops = Array.from({ length: 200 }, (_, i) => ({ op: "unpin", requestKey: `https://open.spotify.com/track/${String(i).padStart(22, "0")}`, expect: `https://soundcloud.com/some-artist-name/a-fairly-long-track-name-${"x".repeat(100)}-${i}` }));
   assert.ok(JSON.stringify({ ops }).length > 32 * 1024);
   const res = await call("POST", "/", { ops });

@@ -1,5 +1,5 @@
 // 봇 상태 탭의 연결: 바깥 서비스마다 봇이 실제로 부른 결과(infra/link-status)와 설정으로 매긴다(상태를 보려고 따로 부르지 않는다).
-// 디스코드는 게이트웨이 연결, POToken 은 서버 프로세스로 본다(봇 안에서 도는 것이라 부른 결과가 없다)
+// 디스코드는 게이트웨이 연결, POToken은 서버 프로세스로 본다(봇 안에서 도는 것이라 부른 결과가 없다)
 
 import type { Client } from "discord.js";
 import config from "../../config/index.ts";
@@ -47,7 +47,7 @@ function usedSourceTypes() {
   return new Set(Object.values(genres().genres).flatMap((genre) => genre.sources.map((source) => source.type)));
 }
 
-/** 쓰지 않는 까닭(설정). 쓰면 null */
+/** 쓰지 않는 이유(설정). 쓰면 null */
 function offReason(id: Service, used: Set<string> | null): string | null {
   if (id === "sponsorblock" && !config.sponsorblock.enabled) return "꺼 둠";
   if (id === "ai") return aiSwitchedOff(ai()) ? "꺼 둠" : null;
@@ -59,7 +59,7 @@ function offReason(id: Service, used: Set<string> | null): string | null {
   return used.has(type) ? null : "이 출처를 쓰는 장르가 없음";
 }
 
-/** 행에 늘 붙는 설명: AI 는 모델, Spotify 는 익명 토큰이 남은 시간 */
+/** 행에 늘 붙는 설명: AI는 모델, Spotify는 익명 토큰이 남은 시간 */
 function noteOf(id: Service): string | null {
   if (id === "ai") return String(ai().model ?? "").trim() || null;
   const expiresAt = id === "spotify" ? anonTokenExpiresAt() : null;

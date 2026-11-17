@@ -1,5 +1,5 @@
 // Material Symbols Rounded 기호: 이름 → 코드포인트. 화면이 쓰는 기호만 두고, 아이콘 글꼴(assets/material-symbols.woff2)도 이것만 담는다.
-// 손으로 고치지 않는다: node scripts/build-icon-font.ts 가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
+// 손으로 고치지 않는다: node scripts/build-icon-font.ts가 만든다(기호를 더하려면 이름을 붙여 실행, 빼려면 그 줄을 삭제하고 실행)
 
 const ICONS = {
   add: 0xe145,
@@ -159,7 +159,7 @@ const ICONS = {
   wifi_off: 0xe648,
 } as const;
 
-/** 글꼴 기호가 아니라 BaseIcon 이 SVG 로 그리는 것. sponsorblock: SponsorBlock 방패(SponsorBlockIcon, 디스코드 아이콘 표의 같은 이름) */
+/** 글꼴 기호가 아니라 BaseIcon이 SVG로 그리는 것. sponsorblock: SponsorBlock 방패(SponsorBlockIcon, 디스코드 아이콘 표의 같은 이름) */
 type DrawnIcon = "sponsorblock";
 type IconName = keyof typeof ICONS | DrawnIcon;
 

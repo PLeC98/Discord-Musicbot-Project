@@ -1,10 +1,10 @@
 // 직접 링크 곡의 파일 태그(제목, 가수, 앨범, 앨범아트)를 찾아 기억한다. 디스코드 패널, 대시보드가 앨범아트를, 플레이어가 곡 정보를 여기서 받는다.
 //
 //   얻는 곳   캐시 파일의 태그(통신 없음) → 원본 링크의 헤더(SafeUrl, 곡 추가 때 읽은 것 포함). 캐시를 만들 때 넣은 것은 다운로드가 바로 알린다
-//   기억      결과는 음원 키마다(버전: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 앨범아트는 다시 인코딩한 JPEG 을 바이트 상한 안에서 LRU.
+//   기억      결과는 음원 키마다(버전: 캐시 파일이면 "file:" + 다운로드 시각, 아니면 "source"). 앨범아트는 다시 인코딩한 JPEG을 바이트 상한 안에서 LRU.
 //             밀려나도 사라지지 않는다: 결과는 다시 찾고, 앨범아트는 캐시 파일에서 다시 꺼낸다(원본에서만 얻은 앨범아트는 다시 찾을 때까지 없다)
 //   찾기      한 번에 둘(지금 곡이 먼저), 같은 키는 한 번만. 통신 실패는 몇 분 뒤 다시, "없음"은 캐시 파일이 생길 때 다시
-//   알림      찾으면(태그나 앨범아트가 있으면) onFound 로. 플레이어가 그 키의 곡에 반영하고 패널, 대시보드를 새로 그린다(app/main 이 잇는다)
+//   알림      찾으면(태그나 앨범아트가 있으면) onFound로. 플레이어가 그 키의 곡에 반영하고 패널, 대시보드를 새로 그린다(app/main이 잇는다)
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -137,7 +137,7 @@ function linkOrCancelled(error: unknown): boolean {
   return LINK_FAILURE_NAMES.has(String(name)) || typeof status === "number" || permanent === true;
 }
 
-/** 이어 받기(MP4 의 끝 moov). 서버가 그 위치부터 주지 않으면 null */
+/** 이어 받기(MP4의 끝 moov). 서버가 그 위치부터 주지 않으면 null */
 async function rangeFrom(url: string, start: number): Promise<Readable | null> {
   const part = await open(url, { accept: ACCEPT, from: start });
   if (SafeUrl.servedFrom({ status: part.status ?? 200, headers: part.headers ?? {} }) === start) return part;
@@ -159,7 +159,7 @@ async function find(audioKey: string, url: string) {
     // 단순 목록은 곡 추가, 재생처럼 첫 주소를 따라간다
     opened = await openFollowing(url, { net: { getStream: (target, _deps, opts) => open(target, { accept: OPEN, ...opts }) }, accept: OPEN });
   } catch (error) {
-    // 음원이 아님, 옛 SHOUTcast 는 다시 찾아도 같다
+    // 음원이 아님, 옛 SHOUTcast는 다시 찾아도 같다
     if (refusedByResponse(error)) return settle(audioKey, "source", EMPTY, null);
     throw error;
   }
@@ -202,8 +202,8 @@ function directKeyOf(track: Wanted): string | null {
 }
 
 /**
- * 찾을 곡을 넘긴다(앞의 것이 먼저). first 면 기다리는 것보다 앞에(지금 곡).
- * 이미 아는 곡, 찾는 중인 곡은 메모리에서 바로 건너뛴다(DB 를 보지 않는다)
+ * 찾을 곡을 넘긴다(앞의 것이 먼저). first면 기다리는 것보다 앞에(지금 곡).
+ * 이미 아는 곡, 찾는 중인 곡은 메모리에서 바로 건너뛴다(DB를 보지 않는다)
  */
 function want(tracks: Iterable<Wanted | null | undefined>, { first = false } = {}) {
   const fresh: Array<{ audioKey: string; url: string }> = [];
@@ -232,7 +232,7 @@ function tagsFor(track: Wanted): TagInfo | null {
   return known?.state === "found" ? known.tags : null;
 }
 
-/** fingerprint 의 JPEG. 밀려났으면 캐시 파일에서 다시 꺼낸다. 통신하지 않는다 */
+/** fingerprint의 JPEG. 밀려났으면 캐시 파일에서 다시 꺼낸다. 통신하지 않는다 */
 async function imageOf(fingerprint: string): Promise<Buffer | null> {
   const kept = images.get(fingerprint);
   if (kept) return kept.jpeg;

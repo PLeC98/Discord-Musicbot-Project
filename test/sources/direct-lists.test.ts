@@ -1,4 +1,4 @@
-// src/sources/direct.ts, direct-open.ts: 단순 목록(PLS, M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 그 까닭으로 거절한다
+// src/sources/direct.ts, direct-open.ts: 단순 목록(PLS, M3U)은 첫 주소를 다시 열고(목록 안의 목록은 한 번까지), 옛 SHOUTcast(ICY 첫 줄)는 지원하지 않는 형식이라 거절한다(shoutcast-v1)
 
 import { Readable } from "node:stream";
 import { test } from "node:test";
@@ -65,13 +65,13 @@ test("목록 안의 목록은 한 번까지, 빈 목록, 더 깊은 목록은 un
   }
 });
 
-test("옛 SHOUTcast(ICY 첫 줄)는 shoutcast-v1 로 거절하고 곡 찾기가 그 까닭으로 알린다. 다른 해석 오류는 그대로", async () => {
+test("옛 SHOUTcast(ICY 첫 줄)는 shoutcast-v1로 거절하고 곡 찾기가 그 원인을 알린다. 다른 해석 오류는 그대로", async () => {
   const { net } = netOf({ "https://old.test/;": { error: icyError() }, "https://bad.test/": { error: Object.assign(new Error("Parse Error"), { code: "HPE_INVALID_CONSTANT", rawPacket: Buffer.from("FOO 1\r\n") }) } });
   await assert.rejects(openLink("https://old.test/;", { net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
   await assert.rejects(openLink("https://bad.test/", { net }), (e: unknown) => codeOf(e) === "HPE_INVALID_CONSTANT");
   await assert.rejects(directSource.open("https://old.test/;", net), (e: unknown) => codeOf(e) === "shoutcast-v1", "숨기지 않는다");
   await assert.rejects(directSource.open("https://bad.test/", net), (e: unknown) => codeOf(e) === "direct-unavailable");
-  // PLS 가 옛 방송을 가리켜도 같다
+  // PLS가 옛 방송을 가리켜도 같다
   const listed = netOf({ "https://site.test/old.pls": { body: "[playlist]\nFile1=https://old.test/;\n", headers: { "content-type": "audio/x-scpls" } }, "https://old.test/;": { error: icyError() } });
   await assert.rejects(directSource.getInfo("https://site.test/old.pls", { net: listed.net }), (e: unknown) => codeOf(e) === "shoutcast-v1");
 

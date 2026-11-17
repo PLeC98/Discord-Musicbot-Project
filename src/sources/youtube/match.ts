@@ -1,12 +1,12 @@
 // Spotify/외부 곡의 YouTube 동등물을 점수로 선택하는 순수 로직과 검색어 구성.
-// 검색 함수(youtubeSource.searchVideos)는 부르는 쪽(youtube/equivalent, autoplay/route)이 넘기고, 결과 병합은 mergeCandidateLists로.
+// 검색 함수(youtubeSource.searchVideos)는 호출부(youtube/equivalent, autoplay/route)가 넘기고, 결과 병합은 mergeCandidateLists로.
 
 import { youtubeWatchUrl } from "../../rules/links.ts";
 import logger from "../../infra/log/logger.ts";
 import { briefError } from "./errors.ts";
 const log = logger.child({ category: "youtube" });
 
-/** 채점할 후보(유튜브 검색 결과). rank 는 병합한 순위, listOrder 는 주 쿼리 0, 보조 1 */
+/** 채점할 후보(유튜브 검색 결과). rank는 병합한 순위, listOrder는 주 쿼리 0, 보조 1 */
 type Candidate = { id?: string | number | null; url?: string | null; title?: string | null; channel?: string | null; durationSec?: number | null; isLive?: boolean; rank?: number; listOrder?: number };
 /** 찾는 곡. artistChannels: 아티스트만 검색해 알아본 그 아티스트의 채널 이름(searchCandidates) */
 type Target = { title?: string | null; artist?: string | null; durationSec?: number | null; artistChannels?: readonly string[] | null };
@@ -153,7 +153,7 @@ function normChannel(s: unknown): string {
 }
 
 // 다중 아티스트 분해: "A, B & C feat. D" → [a, b, c, d]
-// feat, ft, with 는 단어일 때만 나눈다. 안 그러면 "Daft Punk" 가 da, punk, "Drift" 가 dri 로 잘린다
+// feat, ft, with는 단어일 때만 나눈다. 안 그러면 "Daft Punk"가 da, punk, "Drift"가 dri로 잘린다
 function splitArtists(artist: unknown): string[] {
   return String(artist || "")
     .split(/\s*(?:,|&|×|＋|\+|;|\/|\bfeat\b\.?|\bft\b\.?|\bwith\b)\s*/i)
@@ -253,7 +253,7 @@ const OFFICIAL_TAG = /official\s*(?:video|audio|music\s*video|mv|m\/v|hd)|\bm\/v
 function detectVersionKind(title: unknown): "tv" | "short" | null {
   const t = String(title || "");
   // 괄호나 대시로 연 표시("(TV)", "- TV Size -")는 단어만 있어도 버전이다. 공백 뒤의 단어는 size, ver 따위가 붙었을 때만 본다
-  // ("Love on TV - Live", "Life is Short - Live" 는 제목의 단어다). 끝에 닫는 표시 없이 끝나는 형태("Idol - TV Size")도 같다
+  // ("Love on TV - Live", "Life is Short - Live"는 제목의 단어다). 끝에 닫는 표시 없이 끝나는 형태("Idol - TV Size")도 같다
   const marked = (word: string, suffix: string) => new RegExp(`[-–—([（【]\\s*${word}\\s*(?:${suffix})?\\s*[-–—)\\]）】]`, "i").test(t) || new RegExp(`\\s${word}\\s*(?:${suffix})\\s*[-–—)\\]）】]`, "i").test(t) || new RegExp(`[-–—([（【]\\s*${word}\\s*(?:${suffix})\\s*$`, "i").test(t);
   if (marked("tv", "size|ver\\.?|version|anime|edit") || /tvサイズ|テレビサイズ|tvバージョン/i.test(t)) return "tv";
   if (marked("short", "size|ver\\.?|version|edit") || /ショート(?:サイズ|バージョン|ver)?/.test(t)) return "short";
@@ -266,7 +266,7 @@ function stripVersionTag(title: unknown): string {
     String(title || "")
       .replace(/[([（【]\s*(?:tv|short|テレビ|ショート)[^)\]）】]*[)\]）】]/gi, " ") // (TV size), 【TVサイズ】
       .replace(/[-–—]\s*(?:tv|short|テレビ|ショート)[^-–—]*[-–—]?/gi, " ") // -TV ver.-, - Short version -
-      // 가나 뒤에는 \b 가 서지 않는다(가나는 \w 문자가 아니다). 붙여 쓴 "TVサイズ"도 뗀다
+      // 가나 뒤에는 \b가 서지 않는다(가나는 \w 문자가 아니다). 붙여 쓴 "TVサイズ"도 뗀다
       .replace(/tvサイズ|テレビサイズ|ショート(?:サイズ|バージョン)?/gi, " ")
       .replace(/\s+/g, " ")
       .trim()
@@ -275,7 +275,7 @@ function stripVersionTag(title: unknown): string {
 
 const dedupe = (arr: string[]) => [...new Set(arr.map(plainQuery).filter(Boolean))];
 
-// 유튜브 검색은 단어 앞의 "-" 를 빼기로 읽는다("-TV ver.-" 가 TV 버전을 뺀다). 단어 안, 뒤의 대시와 띄어 쓴 대시는 그대로 둔다
+// 유튜브 검색은 단어 앞의 "-"를 빼기로 읽는다("-TV ver.-"가 TV 버전을 뺀다). 단어 안, 뒤의 대시와 띄어 쓴 대시는 그대로 둔다
 function plainQuery(query: string): string {
   return query
     .replace(/(^|\s)-+(?=\S)/g, "$1")
@@ -319,7 +319,7 @@ type CandidateLists<C> = Array<C[] | null | undefined> | null | undefined;
 /**
  * 검색 결과 리스트들을 병합(id로 중복 제거). rank = 어느 쿼리에서든 가장 높았던 순위.
  * primaryLists(주 쿼리들): 그대로. secondaryLists(제목만 쿼리): 오프셋만큼 뒤로 밀어 오염 억제.
- * C: 부르는 쪽 후보의 형식. 붙여 온 필드가 그대로 돌아간다
+ * C: 호출부 후보의 형식. 붙여 온 필드가 그대로 돌아간다
  */
 function mergeCandidateLists<C extends Candidate>(primaryLists: CandidateLists<C>, secondaryLists: CandidateLists<C> = []) {
   const byId = new Map<string | number, C & { rank: number; listOrder: number }>();
@@ -410,7 +410,7 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
   b.channel = channelScore(ch.match, official);
 
   const d = durationScore(candidate.durationSec, target.durationSec);
-  // 아티스트 채널의 MV 는 인트로, 아웃트로로 길다. 길이가 딱 맞는 남의 재업로드, 무대가 순위 한 칸 차이로 이기지 않게(버전, 정크 감점은 그대로)
+  // 아티스트 채널의 MV는 인트로, 아웃트로로 길다. 길이가 딱 맞는 남의 재업로드, 무대가 순위 한 칸 차이로 이기지 않게(버전, 정크 감점은 그대로)
   const longer = Number(candidate.durationSec) - Number(target.durationSec);
   const mvLength = ch.match && longer > 4 && longer <= MV_LONGER_SEC && d.score < W.durClose && !d.label.startsWith("gross");
   b.duration = mvLength ? W.durClose : d.score;
@@ -495,7 +495,7 @@ const SEARCH_PROFILES = {
 // 아티스트 검색의 앞쪽 이만큼에서 채널을 센다
 const ARTIST_SAMPLE = 6;
 type SearchProfile = keyof typeof SEARCH_PROFILES;
-/** 유튜브 검색 결과 하나. 여기서 읽는 필드만(검색은 채널명을 artist 에 담는다) */
+/** 유튜브 검색 결과 하나. 여기서 읽는 필드만(검색은 채널명을 artist에 담는다) */
 type Found = { id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean; thumbnail?: string | null };
 type Search = (query: string, limit: number) => Promise<Found[] | null | undefined>;
 
@@ -515,11 +515,11 @@ function ownUploads<C extends { channel?: string | null; title?: string | null }
 }
 
 /**
- * target 을 검색해 후보를 모은다. 합친 순서(순위) 그대로, 주소가 없거나 라이브인 것은 뺀다
+ * target을 검색해 후보를 모은다. 합친 순서(순위) 그대로, 주소가 없거나 라이브인 것은 뺀다
  * (라이브는 같은 곡으로서 언제나 오답이고, 선택해 두면 캐시 다운로드가 끝나지 않는다). 한 검색어가 실패해도 나머지로 간다.
- * 검색어는 한꺼번에 요청한다(동시에 나가는 검색 수는 글자 검색 youtube/text-search 가 제한한다). exact 는 1차, 2차, 아티스트 검색을 함께, cheap 의 2차는 1차가 빈 것을 본 뒤에.
- * artistChannels: 아티스트 검색으로 알아본 채널. 채점할 때 target 에 실어 넘긴다(rankCandidates)
- * failed: 검색어가 하나도 되지 않았으면 마지막 오류. 후보가 없는 까닭이 "없다"가 아니라 "못 찾았다"다(망 끊김 등)
+ * 검색어는 한꺼번에 요청한다(동시에 나가는 검색 수는 글자 검색 youtube/text-search가 제한한다). exact는 1차, 2차, 아티스트 검색을 함께, cheap의 2차는 1차가 빈 것을 본 뒤에.
+ * artistChannels: 아티스트 검색으로 알아본 채널. 채점할 때 target에 실어 넘긴다(rankCandidates)
+ * failed: 검색어가 하나도 되지 않았으면 마지막 오류. 후보가 없는 이유가 "없다"가 아니라 "못 찾았다"다(망 끊김 등)
  */
 async function searchCandidates(target: Target, search: Search, profile: SearchProfile) {
   const p = SEARCH_PROFILES[profile];

@@ -1,16 +1,16 @@
 // 디스코드 쪽 아이콘 표. 키마다 머티리얼 기호(Material Symbols Rounded, data/discord-icons), 모양, 바탕색, 유니코드(앱 이모지를 동기화하기 전, 동기화하지 못했을 때).
-// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis 가 동기화하고 여기에 싣는다. 쓰는 곳은 키로 찾고(icon, buttonEmoji), 직접 덧칠하지 않는다.
+// 앱 이모지(봇이 자기 디스코드 앱에 올린 이모지)는 app/app-emojis가 동기화하고 여기에 싣는다. 쓰는 곳은 키로 찾고(icon, buttonEmoji), 직접 덧칠하지 않는다.
 // 대시보드 화면 빌드가 이 파일을 거쳐 갈 수 있어 아무것도 부르지 않는다
 
 /**
  * 모양. tile: 둥근 사각형 타일 + 기호(회색 버튼, 문장 안), white: 타일 없이 흰 기호(색 버튼), spin: 도는 타일(진행 중),
- * logo: 회사의 공식 흰 아이콘(glyph 에 data/discord-icons 의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
- * 기호 "sponsorblock" 은 SponsorBlock 의 하이라이트 방패(data/discord-icons/skipIcon.svg)
+ * logo: 회사의 공식 흰 아이콘(glyph에 data/discord-icons의 파일 이름)을 그 회사(brand)의 브랜드 색 타일 위에. 바탕색은 운영자 색을 따르지 않는다
+ * 기호 "sponsorblock"은 SponsorBlock의 하이라이트 방패(data/discord-icons/skipIcon.svg)
  */
 type Shape = "tile" | "white" | "spin" | "logo";
-/** 타일의 바탕색. brand: 운영자 색(EMBED_COLOR), 나머지는 응답 색(ui/palette 의 FIXED_COLORS) */
+/** 타일의 바탕색. brand: 운영자 색(EMBED_COLOR), 나머지는 응답 색(ui/palette의 FIXED_COLORS) */
 type Tint = "brand" | "error" | "warning" | "done" | "notice";
-/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나). brand: logo 의 회사(타일 색은 ui/palette 의 BRAND_COLORS) */
+/** scale: 글꼴 칸(960)이 이모지 칸에서 차지하는 비율(기본 0.88). tints: 그려 둘 바탕색(기본 brand 하나). brand: logo의 회사(타일 색은 ui/palette의 BRAND_COLORS) */
 type IconSpec = { glyph: string; unicode: string; shape?: Shape; tints?: readonly Tint[]; scale?: number; brand?: "youtube" | "spotify" };
 
 const SEVERITY = ["error", "warning"] as const;
@@ -73,7 +73,7 @@ const ICONS = {
   restored: { glyph: "restart_alt", unicode: "🔄" },
   music: { glyph: "music_note", unicode: "🎵" },
 
-  // 곡의 출처(검색 결과). 각 회사 가이드가 보여 주는 흰 아이콘과 브랜드 색 바탕의 짝이다. 유니코드는 /help 의 플랫폼 점과 같다
+  // 곡의 출처(검색 결과). 각 회사 가이드가 보여 주는 흰 아이콘과 브랜드 색 바탕의 짝이다. 유니코드는 /help의 플랫폼 점과 같다
   youtube: { glyph: "youtube-icon-white.png", unicode: "🔴", shape: "logo", brand: "youtube" },
   spotify: { glyph: "spotify-icon-white.svg", unicode: "🟢", shape: "logo", brand: "spotify" },
 
@@ -111,7 +111,7 @@ const ICONS = {
   alone: { glyph: "person_off", unicode: "⏳" },
   dashboard: { glyph: "dashboard", unicode: "🔗" },
   invite: { glyph: "person_add", unicode: "📨" },
-  // /help 의 권한 표시: DJ, 봇 운영자, 지금 그 사람이 쓸 수 없는 명령
+  // /help의 권한 표시: DJ, 봇 운영자, 지금 그 사람이 쓸 수 없는 명령
   dj: { glyph: "album", unicode: "💿" },
   owner: { glyph: "key", unicode: "🔑" },
   locked: { glyph: "lock", unicode: "🔒" },
@@ -174,7 +174,7 @@ function isManagedEmojiName(name: string): boolean {
   return temp !== null && bases.some((base) => base.slice(0, 32 - temp[2].length) === temp[1]);
 }
 
-/** 동기화한 앱 이모지(이름 → id, 움직이는가). app/app-emojis 가 싣는다 */
+/** 동기화한 앱 이모지(이름 → id, 움직이는가). app/app-emojis가 싣는다 */
 const uploaded = new Map<string, { id: string; animated: boolean }>();
 
 /** 동기화한 목록을 통째로 교체한다 */

@@ -11,7 +11,7 @@ import { rankCandidates, searchCandidates, type Target } from "./match.ts";
 import { logTitle } from "../../infra/log/title.ts";
 import type { AudioFoundBy } from "../../rules/audio-found-by.ts";
 
-/** 동등물을 찾을 곡. 찾으면 audioUrl, audioFoundBy 를 적는다 */
+/** 동등물을 찾을 곡. 찾으면 audioUrl, audioFoundBy를 적는다 */
 type Seeking = { title?: string | null; artist?: string | null; duration?: unknown; requestKey?: string | null; audioUrl?: string | null; audioFoundBy?: AudioFoundBy; [field: string]: unknown };
 /** 유튜브 검색. 여기서 읽는 필드만 */
 type Search = (query: string, limit: number) => Promise<Array<{ id?: string | number | null; audioUrl?: string | null; title?: string | null; artist?: string | null; duration?: number | null; isLive?: boolean }> | null | undefined>;
@@ -31,7 +31,7 @@ async function bestOf(target: Target, search: Search): Promise<string | null> {
 /** 공유 키: 줄(미리 받기인가)과 요청 키. 요청 키가 없으면 공유하지 않는다 */
 const seekKey = (track: Seeking) => (track.requestKey ? `${currentJob() === "prefetch" ? "prefetch" : "now"}|${track.requestKey}` : null);
 
-/** key 로 찾는 중인 것이 있으면 그 답, 없으면 새로 찾는다. joined: 다른 요청이 찾던 결과다 */
+/** key로 찾는 중인 것이 있으면 그 답, 없으면 새로 찾는다. joined: 다른 요청이 찾던 결과다 */
 function sharedBest(key: string | null, find: () => Promise<string | null>): { url: Promise<string | null>; joined: boolean } {
   const going = key ? seeking.get(key) : undefined;
   if (going) return { url: going, joined: true };
@@ -44,7 +44,7 @@ function sharedBest(key: string | null, find: () => Promise<string | null>): { u
 /**
  * 음원 주소가 없는 곡(스포티파이)의 YouTube 동등물 검색. 점수제 선택(src/sources/youtube/match.ts).
  * 유튜브 순위 + 스포티파이 길이 일치를 지배 신호로, 채널일치, 정크를 타이브레이커로 삼아
- * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl 과 audioFoundBy 를
+ * 원곡/커버/리믹스/TV size 등을 올바로 구분한다. 성공 시 track.audioUrl과 audioFoundBy를
  * 설정하고 그 주소를 반환, 실패 시 null. 이미 음원 주소가 있으면 그대로 돌려준다.
  * search: 유튜브 검색 함수(생략하면 글자 검색 searchVideos).
  * skipPin: 직접 지정한 음원을 붙이지 않는다(죽은 지정 음원을 건너뛰고 다시 찾을 때. 아니면 죽은 것을 다시 붙인다)

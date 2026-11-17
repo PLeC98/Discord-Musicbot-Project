@@ -1,5 +1,5 @@
 <template>
-  <!-- 설정 창의 로그인한 기기 목록. 접속 지역을 IP 지역 DB 로 보였으면 맨 아래 줄 왼쪽에 출처 링크(DB-IP 라이선스가 요구한다) -->
+  <!-- 설정 창의 로그인한 기기 목록. 접속 지역을 IP 지역 DB로 보였으면 맨 아래 줄 왼쪽에 출처 링크(DB-IP 라이선스가 요구한다) -->
   <div class="flex flex-col">
     <p v-if="loadError" class="text-label text-error py-2">{{ loadError }}</p>
     <div v-for="d in devices" :key="d.id" class="-mx-3 px-3 py-2 min-h-14 rounded-2xl flex items-center gap-4">

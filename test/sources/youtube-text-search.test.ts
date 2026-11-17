@@ -1,5 +1,5 @@
 // src/sources/youtube/text-search.ts: 유튜브 글자 검색. 응답을 곡으로 읽기, 연령 인증 안내, 기억과 함께 기다리기, 실패, 세션 다시 만들기.
-// 유튜브 응답은 test/helpers/youtube-search 의 가짜다
+// 유튜브 응답은 test/helpers/youtube-search의 가짜다
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
@@ -50,7 +50,7 @@ test("영상 항목을 곡으로 읽는다: 제목, 채널, 길이, 다듬은 �
       ["bbbbbbbbbbb", "라디오", "채널", 0, true, "is_live", "https://www.youtube.com/watch?v=bbbbbbbbbbb", "youtube"],
     ],
   );
-  assert.equal(found.tracks[0].thumbnail, youtubeArt("aaaaaaaaaaa"), "영상 id 로 만든 썸네일");
+  assert.equal(found.tracks[0].thumbnail, youtubeArt("aaaaaaaaaaa"), "영상 id로 만든 썸네일");
 });
 
 test("연령 인증 안내만 오면 결과 없음과 구분한다", async () => {
@@ -91,7 +91,7 @@ test("앞부분이 같은 이전 검색 중 가장 긴 것의 기억을 꺼낸�
   assert.equal(rememberedPrefix("다른"), null);
 });
 
-test("429 는 rate-limited, 그 밖의 실패 상태는 network-error 로 던지고 기억하지 않는다. 실패는 한 번 warn, 풀리면 info", async () => {
+test("429는 rate-limited, 그 밖의 실패 상태는 network-error 예외를 던지고 기억하지 않는다. 실패는 한 번 warn, 풀리면 info", async () => {
   const from = sink.buffer.length;
   answer = () => new Response("", { status: 429 });
   await assert.rejects(searchText("노래"), (error) => codeOf(error) === "rate-limited");
@@ -104,7 +104,7 @@ test("429 는 rate-limited, 그 밖의 실패 상태는 network-error 로 던지
   assert.deepEqual(
     lines.map((e) => e.level),
     ["warn", "warn", "info"],
-    "같은 까닭은 한 번, 까닭이 바뀌면 다시, 풀리면 한 줄",
+    "같은 원인은 한 번, 원인이 바뀌면 다시, 풀리면 한 줄",
   );
 });
 
@@ -127,7 +127,7 @@ test("세션을 만들지 못하면 30초 동안 다시 만들지 않는다", as
   assert.equal(sessions, 2);
 });
 
-test("검색이 4xx(429 빼고)로 실패하면 새 세션으로 한 번 더 묻는다. 429 는 세션 탓이 아니라 그대로 던진다", async () => {
+test("검색이 4xx(429 빼고)로 실패하면 새 세션으로 한 번 더 묻는다. 429는 세션 탓이 아니라 그대로 던진다", async () => {
   let failures = 1;
   answer = () => (failures-- > 0 ? new Response("", { status: 403 }) : new Response(searchPage([video({ id: "aaaaaaaaaaa", title: "곡", length: "1:00" })])));
   assert.equal((await searchText("하나")).tracks.length, 1);
@@ -135,7 +135,7 @@ test("검색이 4xx(429 빼고)로 실패하면 새 세션으로 한 번 더 묻
   assert.deepEqual(asked, ["하나", "하나"]);
   answer = () => new Response("", { status: 429 });
   await assert.rejects(searchText("둘"), (error) => codeOf(error) === "rate-limited");
-  assert.equal(sessions, 2, "429 는 세션을 버리지 않는다");
+  assert.equal(sessions, 2, "429는 세션을 버리지 않는다");
   answer = () => new Response("", { status: 400 });
   await assert.rejects(searchText("셋"));
   assert.equal(sessions, 3, "다시 물어도 실패하면 그 실패를 던진다");

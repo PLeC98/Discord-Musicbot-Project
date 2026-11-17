@@ -1,6 +1,6 @@
 <template>
-  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite 의 데이터 보기를 본뜬 격자. 공유 타입 contract/track-cache.
-       변경은 모아 두었다가 운영자 패널의 저장 막대로 쓴다(재생 테스트만 바로) -->
+  <!-- 캐시 DB(운영자 패널 "캐시 DB" 탭). DB Browser for SQLite의 데이터 보기를 본뜬 격자. 공유 타입 contract/track-cache.
+       변경은 모아 두었다가 운영자 패널의 저장 바에서 쓴다(재생 테스트만 바로) -->
   <section class="pane rounded-(--r-window) p-(--pad-window) flex flex-col gap-2 min-w-0" @click="closePopups()" @keydown.capture="onCardKey">
     <!-- 위 줄 -->
     <div class="relative flex flex-wrap items-center gap-1">
@@ -101,7 +101,7 @@
         <p v-if="!loading && matched === 0 && !changes.newRows.length" class="py-10 text-center text-sm text-on-surface-variant">{{ T.values.noRows }}</p>
       </div>
 
-      <!-- 셀 편집 창(DB4S 의 Edit Database Cell) -->
+      <!-- 셀 편집 창(DB4S의 Edit Database Cell) -->
       <aside class="lg:w-80 shrink-0 flex flex-col gap-2 rounded-(--r-inner) border border-outline-variant/40 p-3">
         <template v-if="focusInfo">
           <p class="text-xs font-medium text-on-surface">{{ T.editPane.title(T.columns[focusInfo.column], focusInfo.label) }}</p>
@@ -314,7 +314,7 @@ async function fetchBlock(block: number): Promise<BlockResult> {
     throw e;
   }
 }
-/** 보이는 구간의 블록을 불러온다(실패는 fetchBlock 이 알린다) */
+/** 보이는 구간의 블록을 불러온다(실패는 fetchBlock이 알린다) */
 async function loadBlock(block: number, gen = gens.id) {
   if (!gens.isCurrent(gen)) return;
   await fetchBlock(block).catch(() => undefined);
@@ -366,7 +366,7 @@ function setSort(next: TrackCacheSort) {
 }
 const sortOf = (c: string) => sort.value.find((one) => one.column === c)?.dir;
 const sortRank = (c: string) => (sort.value.length > 1 ? sort.value.findIndex((one) => one.column === c) + 1 || 0 : 0);
-// 헤더 클릭: 오름 ↔ 내림. Ctrl 을 누르면 여러 열
+// 헤더 클릭: 오름 ↔ 내림. Ctrl을 누르면 여러 열
 function toggleSort(c: string, event: MouseEvent) {
   const now = sortOf(c);
   const dir = now === "asc" ? "desc" : "asc";
@@ -446,7 +446,7 @@ const rowSel = reactive(new Set<number>());
 const rowAnchor = ref<number | null>(null);
 let dragging = false;
 let rowDragging = false;
-// Ctrl 을 누르고 행을 드래그할 때 그 전에 선택해 둔 행
+// Ctrl을 누르고 행을 드래그할 때 그 전에 선택해 둔 행
 let rowBase: number[] = [];
 
 const inRange = (r: number, i: number) => {
@@ -532,7 +532,7 @@ function selectedCells(): Pos[] {
   return out;
 }
 
-// ── 변경(저장 전). change() 로 감싸면 Ctrl+Z 로 되돌릴 수 있다 ───────────────────
+// ── 변경(저장 전). change()로 감싸면 Ctrl+Z로 되돌릴 수 있다 ───────────────────
 
 const changes = reactive<Changes>(emptyChanges());
 const failures = reactive(new Map<string, string>());
@@ -692,7 +692,7 @@ function rowHeadClass(r: number) {
   if (rowSel.has(r)) return "bg-primary text-on-primary";
   return "bg-surface-container text-on-surface-variant";
 }
-// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패, 재생 불가 까닭, 원본 상태의 뜻
+// 툴팁은 값만으로 알 수 없는 것에만: 저장 실패, 재생 불가 원인, 원본 상태의 뜻
 function tipOf(r: number, c: string): string {
   const row = rowAt(r)!;
   const failure = failureOf(row, c);
@@ -775,7 +775,7 @@ function syncPane() {
     inspectTimer = window.setTimeout(() => void inspect(value), 300);
   }
 }
-/** 선택한 셀을 옮긴다. 셀 편집 창에 적용하지 않은 편집이 있으면 먼저 적용한다(Ctrl+Z 로 되돌린다) */
+/** 선택한 셀을 옮긴다. 셀 편집 창에 적용하지 않은 편집이 있으면 먼저 적용한다(Ctrl+Z로 되돌린다) */
 function moveFocus(next: Pos, extend: boolean) {
   if (pane.dirty && focus.value && (focus.value.r !== next.r || focus.value.i !== next.i)) applyPane(false);
   focus.value = next;
@@ -874,13 +874,13 @@ function onCopy(event: ClipboardEvent) {
   event.clipboardData?.setData("text/plain", got.text);
   say(T.hints.copied(got.rows));
 }
-/** 메뉴의 복사: 격자에 포커스를 두고 브라우저 복사를 부른다(onCopy 가 받는다) */
+/** 메뉴의 복사: 격자에 포커스를 두고 브라우저 복사를 부른다(onCopy가 받는다) */
 function copy(withHeaders: boolean) {
   scroller.value?.focus({ preventScroll: true });
   copyHeaders = withHeaders;
   document.execCommand("copy");
 }
-/** 메뉴의 글 복사(열 이름): 셀 복사와 같은 길(클립보드 API 는 보안 연결에서만 있다) */
+/** 메뉴의 글 복사(열 이름): 셀 복사와 같은 길(클립보드 API는 보안 연결에서만 있다) */
 function copyPlainText(value: string) {
   scroller.value?.focus({ preventScroll: true });
   copyPlain = value;
@@ -900,7 +900,7 @@ function onPaste(event: ClipboardEvent) {
   event.preventDefault();
   pasteText(event.clipboardData?.getData("text/plain") ?? "");
 }
-// 메뉴의 붙여넣기는 클립보드 API 가 있을 때만(보안 연결) 된다. 없으면 Ctrl+V 로 안내
+// 메뉴의 붙여넣기는 클립보드 API가 있을 때만(보안 연결) 된다. 없으면 Ctrl+V로 안내
 function menuPaste() {
   if (!navigator.clipboard?.readText) return say(T.hints.noClipboard);
   navigator.clipboard
@@ -989,7 +989,7 @@ function keepInView(r: number, i: number, toStart = false) {
   const head = 60 + changes.newRows.length * ROW_H;
   if (top < el.scrollTop) el.scrollTop = top;
   else if (top + ROW_H > el.scrollTop + el.clientHeight - head) el.scrollTop = top + ROW_H - el.clientHeight + head;
-  // 고정한 열은 늘 보인다. Home 이면 가로도 처음으로
+  // 고정한 열은 늘 보인다. Home이면 가로도 처음으로
   if (i < layout.value.frozen) return void (toStart && (el.scrollLeft = 0));
   const left = frozenLeft(i);
   const right = left + widthOf(shown.value[i]);
@@ -1153,7 +1153,7 @@ async function checkChanged() {
 }
 defineExpose({ checkChanged });
 
-// ── 저장(저장 막대, Ctrl+S) ─────────────────────────────────────────────────
+// ── 저장(저장 바, Ctrl+S) ─────────────────────────────────────────────────
 
 const saving = ref(false);
 const dirty = computed(() => changeCount(changes) > 0);

@@ -1,5 +1,5 @@
 // 종료. 신호를 받으면 세션을 저장하고 음성 연결, 봇, 자식 프로세스를 정리한 뒤 나간다. 게이트웨이를 정상으로 닫으면 디스코드가 봇을 곧바로 음성 채널에서 뺀다.
-// 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart 로 나간다(실행기가 다시 실행한다).
+// 대시보드의 다시 시작도 같은 길로 정리하고 EXIT.restart로 나간다(실행기가 다시 실행한다).
 // 핸들러는 기동 맨 앞(POToken 서버를 실행하기 전)에 걸고, 봇은 만든 뒤에 붙인다. 붙이기 전에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다.
 // 기동이 실패했을 때도 실행한 것을 내리고 나간다.
 
@@ -30,7 +30,7 @@ type Boundary = {
 const REAL: Boundary = {
   proc: process,
   voiceConnections: () => getVoiceConnections(),
-  // 기다리던 yt-dlp 가 자식 정리 뒤에 뜨지 않게 줄을 먼저 닫는다
+  // 기다리던 yt-dlp가 자식 정리 뒤에 뜨지 않게 줄을 먼저 닫는다
   killAll: () => {
     closeLanes();
     return procRegistry.killAll();
@@ -47,21 +47,21 @@ const STATUS_CLEAR_MS = 2000;
 // 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
 const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
-// Windows 에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit 만으로 재현된다
+// Windows에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit만으로 재현된다
 const FAILED_START_GRACE_MS = 1000;
 
 /** 종료할 때 쓰는 것. 디스코드 클라이언트(서버 이름, 내리기)와 서버마다의 플레이어 */
 type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: string } | undefined } }; destroy(): unknown }; players: Iterable<readonly [string, Saver | null]>; stay?: { stop(): unknown } };
 
-/** 종료 신호에 핸들러를 건다. 돌려주는 attach 로 봇을 붙인다 */
+/** 종료 신호에 핸들러를 건다. 돌려주는 attach로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
-  // why: 로그, 연결 정리에 적는 원인. restart 면 다시 시작 코드로 나간다
+  // why: 로그, 연결 정리에 적는 원인. restart면 다시 시작 코드로 나간다
   const gracefulShutdown = async (why: string, restart = false) => {
-    // Windows 콘솔의 Ctrl+C 는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
+    // Windows 콘솔의 Ctrl+C는 프로세스 신호와 입력 쪽 신호로 두 번 들어온다. 한 번만 한다
     if (shuttingDown) return;
     shuttingDown = true;
     // 새 음성 연결과 새 작업을 시작하지 않게 한다(막는 곳은 infra/shutdown-state)
@@ -79,7 +79,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
     exit(restart ? EXIT.restart : EXIT.stopped);
   };
 
-  // 종료가 중간에 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
+  // 종료가 중간에 예외를 던져도 나간다. 못 한 정리는 프로세스와 함께 닫힌다(다시 시작이었으면 그래도 다시 실행하게 같은 코드로)
   const stop = (why: string, restart = false) => {
     gracefulShutdown(why, restart).catch((error: unknown) => {
       log.error("종료 중 오류:", error);
@@ -91,7 +91,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
   proc.on("SIGTERM", () => onSignal("SIGTERM"));
   proc.on("SIGHUP", () => onSignal("SIGHUP")); // 터미널 닫힘, SSH 끊김
 
-  // Windows 콘솔의 Ctrl+C 는 프로세스 신호로 안 오는 때가 있어 입력 쪽에서도 받는다
+  // Windows 콘솔의 Ctrl+C는 프로세스 신호로 안 오는 때가 있어 입력 쪽에서도 받는다
   if (proc.platform === "win32" && proc.stdin.isTTY) {
     readline.createInterface({ input: proc.stdin, output: proc.stdout }).on("SIGINT", () => onSignal("SIGINT"));
   }
@@ -126,7 +126,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   const saves = [];
   for (const [guildId, player] of players) {
     if (!player) continue;
-    // 볼륨 정규화의 재생 중 측정값도 지금 저장해 둔다. 이 뒤에는 DB 가 닫힌다
+    // 볼륨 정규화의 재생 중 측정값도 지금 저장해 둔다. 이 뒤에는 DB가 닫힌다
     player.gain?.checkpoint();
     saves.push(
       player.persistence.save("shutdown").then(
@@ -161,7 +161,7 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
   if (cleared) log.info(`음성 채널 상태 문구 지움: ${cleared}곳`);
   if (pending) log.warn(`음성 채널 상태 문구 지우기가 ${STATUS_CLEAR_MS / 1000}초 안에 끝나지 않아 그대로 진행: ${pending}곳`);
 
-  // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구" 로 받지 않는다
+  // 이 쪽 연결만 정리한다. 리스너를 먼저 떼므로 "연결이 끊겼으니 복구"로 받지 않는다
   for (const [, player] of players) player?.voice.release(reason);
 }
 

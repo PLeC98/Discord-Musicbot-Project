@@ -16,7 +16,7 @@ const addPlaceholder = "곡 이름 또는 링크";
 const addSubmit = "넣기";
 /** 재생목록 링크에서 그 곡(곡 + 목록 주소면 그 곡, 목록만이면 첫 곡)만 넣는 버튼 */
 const addOne = "한 곡만";
-/** 넣을 자리(DJ 만): 보내기 옆 메뉴의 이름과 항목, 검색 결과 줄의 버튼 */
+/** 넣을 자리(DJ만): 보내기 옆 메뉴의 이름과 항목, 검색 결과 줄의 버튼 */
 const addPlace = "넣을 자리";
 const addFirst = "맨 앞에 넣기";
 const addOneFirst = "한 곡만 맨 앞에 넣기";
@@ -67,7 +67,7 @@ const moveNeedsAll = { title: "아직 불러오지 않은 곡이 뒤에 있어�
 // 실패(봇이 문장을 주지 않은 경우). 재생 조작은 text.player.failed
 const failed = {
   queueMore: "대기열을 더 불러오지 못했어요.",
-  state: "재생 상태를 읽지 못했어요.",
+  state: "재생 상태를 불러오지 못했어요.",
   stop: "정지하지 못했어요.",
   remove: "곡을 빼지 못했어요.",
   removePicked: "선택한 곡을 빼지 못했어요.",

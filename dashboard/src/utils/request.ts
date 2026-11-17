@@ -1,13 +1,13 @@
 // 공통 요청 모듈이다. 화면의 모든 axios 요청이 이 인터셉터를 거친다: CSRF 토큰, 토큰 거절 시 1회 재전송, 세션 만료, 타임아웃,
 // 현재 탭의 사용자 ID(X-Dashboard-User. 다른 탭에서 다른 계정으로 로그인했으면 서버가 409 account-changed로 거절하고, 그 뒤로는 요청을 보내지 않는다)를 처리한다.
 // 시간 한도는 종류별이다. 기본은 조작, 읽기, 저장(10초), 부르기, 곡 추가, 더 넣기와 운영자의 오래 걸리는 작업은 120초,
-// 바깥 AI 를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
+// 바깥 AI를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
 import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 declare module "axios" {
   interface AxiosRequestConfig {
-    /** 401 이어도 세션 끝으로 돌리지 않는다(로그인 여부를 확인하는 요청, 로그아웃) */
+    /** 401이어도 세션 끝으로 돌리지 않는다(로그인 여부를 확인하는 요청, 로그아웃) */
     quietSession?: boolean;
     /** CSRF 토큰 거절 뒤 다시 보낸 요청(한 번만 다시 보낸다) */
     csrfRetried?: boolean;
@@ -39,7 +39,7 @@ export function problemCodeOf(data: unknown): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
-// 파일로 받는 요청(다운로드)은 거절도 Blob 으로 온다. 문제 응답(JSON)이면 풀어 다른 요청과 같게 다룬다. 아니면 그대로
+// 파일로 받는 요청(다운로드)은 거절도 Blob으로 온다. 문제 응답(JSON)이면 풀어 다른 요청과 같게 다룬다. 아니면 그대로
 async function unblobbed(data: unknown): Promise<unknown> {
   if (!(data instanceof Blob) || !/json/.test(data.type)) return data;
   try {
@@ -49,10 +49,10 @@ async function unblobbed(data: unknown): Promise<unknown> {
   }
 }
 
-/** 봇에게서 답을 못 받은 요청의 종류 */
+/** 봇에게서 응답을 못 받은 요청의 종류 */
 export type FailureKind = "timeout" | "offline" | "aborted";
 
-/** 봇에게서 답을 못 받은 요청의 종류. 시간 한도, 연결 안 됨(프록시의 502, 503, 504 포함), 화면이 끊음(페이지를 떠남 등), 그 밖(봇이 답했다)은 null */
+/** 봇에게서 응답을 못 받은 요청의 종류. 시간 한도, 연결 안 됨(프록시의 502, 503, 504 포함), 화면이 끊음(페이지를 떠남 등), 그 밖(봇이 응답했다)은 null */
 export function failureKind(error: unknown): FailureKind | null {
   const { response, code } = failedOf(error);
   if (response) return response.status !== undefined && GATEWAY.has(response.status) && problemCodeOf(response.data) === undefined ? "offline" : null;
@@ -63,11 +63,11 @@ export function failureKind(error: unknown): FailureKind | null {
 }
 
 /**
- * http(axios) 에 가로채기를 건다.
- * onSessionEnd: 401 을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
- * 요청에 quietSession 을 주면 401 이어도 부르지 않는다(로그아웃).
+ * http(axios)에 가로채기를 건다.
+ * onSessionEnd: 401을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
+ * 요청에 quietSession을 주면 401이어도 부르지 않는다(로그아웃).
  * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
- *   다시 로그인을 마치면 true 로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false 면 거절대로 실패한다
+ *   다시 로그인을 마치면 true로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false면 거절대로 실패한다
  * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
  */
 /**
@@ -90,7 +90,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
 
   http.defaults.withCredentials = true;
   http.defaults.timeout = LIMIT.short;
-  // 시간 한도를 연결 끊김(ECONNABORTED)과 구분하려고 ETIMEDOUT 으로 받는다
+  // 시간 한도를 연결 끊김(ECONNABORTED)과 구분하려고 ETIMEDOUT으로 받는다
   http.defaults.transitional = { ...http.defaults.transitional, clarifyTimeoutError: true };
 
   function csrfToken(): Promise<string> {
@@ -107,7 +107,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     try {
       request.headers["X-CSRF-Token"] = await csrfToken();
     } catch (error) {
-      // 토큰을 못 받은 실패는 이 요청의 실패다(세션 끝이면 이 요청의 quietSession 을 따른다). 같은 토큰 요청을 기다린 다른 요청과 오류를 나눠 쓰지 않게 복사한다
+      // 토큰을 못 받은 실패는 이 요청의 실패다(세션 끝이면 이 요청의 quietSession을 따른다). 같은 토큰 요청을 기다린 다른 요청과 오류를 나눠 쓰지 않게 복사한다
       throw Object.assign(Object.create(Object.getPrototypeOf(error)), error, { config: request });
     }
     // 토큰을 기다리는 사이 막혔다
@@ -160,7 +160,7 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     return true;
   }
 
-  // reauth-required 면 다시 로그인을 마친 뒤 그 요청을 한 번 다시 보낸다(다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다). 해당 없으면 null
+  // reauth-required면 다시 로그인을 마친 뒤 그 요청을 한 번 다시 보낸다(다시 로그인하면 세션이 새로 만들어져 토큰도 바뀐다). 해당 없으면 null
   function afterReauth(code: string | undefined, request: InternalAxiosRequestConfig | undefined, error: unknown) {
     if (code !== "reauth-required" || !onReauth || !request || request.reauthRetried) return null;
     const ask = onReauth;

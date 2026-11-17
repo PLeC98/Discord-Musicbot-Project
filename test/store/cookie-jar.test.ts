@@ -1,9 +1,9 @@
-// src/store/cookie-jar.ts, sources/youtube: 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp 를 돌릴 때만 그 실행의 파일로 복호화한다.
+// src/store/cookie-jar.ts, sources/youtube: 유튜브 쿠키. 비밀 표에 암호화해 두고 yt-dlp를 돌릴 때만 그 실행의 파일로 복호화한다.
 //
 // 계약:
 // - 있는지는 물어볼 때마다 본다(대시보드로 교체하면 바로 반영). 빈 글은 없는 것이다
 // - 붙여넣은 내용을 그대로 둔다(탭 문자, LF). 평상시에는 붙이지 않는다(연령 제한 폴백 전용)
-// - 실행마다 따로 파일. yt-dlp 가 고친 쿠키는 되담되, 그사이 새로 입력한 쿠키는 덮지 않는다. 파일은 끝나면 삭제한다
+// - 실행마다 따로 파일. yt-dlp가 고친 쿠키는 되담되, 그사이 새로 입력한 쿠키는 덮지 않는다. 파일은 끝나면 삭제한다
 
 import os from "node:os";
 import path from "node:path";
@@ -18,7 +18,7 @@ const youtubeSource = await import("../../src/sources/youtube/index.ts");
 const { _runOnce } = await import("../../src/sources/youtube/ytdlp-run.ts");
 const config = (await import("../../src/config/index.ts")).default;
 const documents = await import("../../src/config/documents.ts");
-// 쿠키 출처는 운영 조절값이다(연령 제한 탭). 이 테스트는 file 로 두고, 쿠키를 쓰도록 연령 제한 콘텐츠를 켠다
+// 쿠키 출처는 운영 설정값이다(연령 제한 탭). 이 테스트는 file로 두고, 쿠키를 쓰도록 연령 제한 콘텐츠를 켠다
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 documents._use("age-content", { enabled: true, changedAt: 1 });
 
@@ -38,7 +38,7 @@ beforeEach(() => cookieJar.save(""));
 const SAMPLE = ["# Netscape HTTP Cookie File", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tSID\tabc123", ".youtube.com\tTRUE\t/\tTRUE\t1789974950\tHSID\tdef456"].join("\n");
 const filesLeft = () => fs.readdirSync(TMP);
 
-test("COOKIES_SOURCE=file 이면 브라우저가 아니라 입력한 쿠키를 쓴다", () => {
+test("COOKIES_SOURCE=file이면 브라우저가 아니라 입력한 쿠키를 쓴다", () => {
   assert.equal(config.ytdlp.useCookieFile, true);
   assert.equal(config.ytdlp.cookiesFromBrowser, null);
 });
@@ -88,7 +88,7 @@ test("쿠키가 없으면 cookies 필드를 빼고 돌린다", async () => {
   assert.equal("cookies" in given, false);
 });
 
-test("yt-dlp 가 고친 쿠키는 되담는다. 실패한 실행도 파일은 삭제한다", async () => {
+test("yt-dlp가 고친 쿠키는 되담는다. 실패한 실행도 파일은 삭제한다", async () => {
   cookieJar.save(SAMPLE);
   const refreshed = `${SAMPLE}\n.youtube.com\tTRUE\t/\tTRUE\t1789974950\tSIDTS\tnew`;
   await assert.rejects(
@@ -108,7 +108,7 @@ test("돌던 중에 대시보드에서 새 쿠키를 입력했으면 되담지 �
   await _runOnce("https://youtu.be/x", { cookies: cookieJar.JAR }, null, async (_url, opts) => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     cookieJar.save(`${SAMPLE}\n# 새로 넣은 것`);
-    fs.writeFileSync(String(opts?.cookies), `${SAMPLE}\n# yt-dlp 가 되쓴 옛것`);
+    fs.writeFileSync(String(opts?.cookies), `${SAMPLE}\n# yt-dlp가 되쓴 옛것`);
     return {};
   });
   const held = cookieJar.checkout();
@@ -131,7 +131,7 @@ test("상태 응답은 방식만 알리고 값, 경로는 싣지 않는다", () 
   assert.ok(!JSON.stringify(snap).includes("abc123"));
 });
 
-// 로그인 쿠키다. 같은 서버의 다른 사용자가 읽으면 안 된다(Windows 는 이 권한 비트를 쓰지 않는다)
+// 로그인 쿠키다. 같은 서버의 다른 사용자가 읽으면 안 된다(Windows는 이 권한 비트를 쓰지 않는다)
 test("푼 파일은 소유자만 읽고 쓴다", { skip: process.platform === "win32" }, () => {
   cookieJar.save(SAMPLE);
   const held = cookieJar.checkout();

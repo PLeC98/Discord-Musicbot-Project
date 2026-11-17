@@ -41,7 +41,7 @@ test("세우고 곧바로 돌아온다: 새로, 이미 있음, 주소마다의 �
 
   const again = probes.enqueue([yt("aaaaaaaaaa1"), "https://soundcloud.com/a/b"], "tester");
   assert.ok(again.ok);
-  assert.deepEqual([again.queued.queued, again.queued.already], [0, 2], "하는 중 · 기다리는 것은 다시 세우지 않는다");
+  assert.deepEqual([again.queued.queued, again.queued.already], [0, 2], "하는 중이거나 기다리는 것은 다시 세우지 않는다");
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.deepEqual(opened, [yt("aaaaaaaaaa1")], "다시 눌러도 앞의 것이 끝나야 다음을 연다");
 

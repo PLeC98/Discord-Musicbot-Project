@@ -4,7 +4,7 @@ import type { HelpSection, HelpTier } from "../../help-lines.ts";
 import { icon, type IconKey } from "../../icons.ts";
 
 // 명령 줄은 명령 정의에서 만든다(ui/help-lines). 여기는 첫 화면, 섹션 이름과 설명, 권한 표시와 그 뜻, 메뉴와 버튼 이름만.
-// 아이콘은 그릴 때 붙인다(앱 이모지를 동기화한 뒤의 id 가 실리게)
+// 아이콘은 그릴 때 붙인다(앱 이모지를 동기화한 뒤의 id가 실리게)
 
 const SECTION: Record<HelpSection, { icon: IconKey; name: string; about: string }> = {
   play: { icon: "music", name: "재생", about: "곡을 틀고, 멈추고, 넘기고, 재생 위치를 옮겨요." },
@@ -39,17 +39,17 @@ const LEGEND: Record<HelpTier, (() => string) | null> = {
   "server-manager": () => `${icon("shield")} 서버 관리자만 쓸 수 있어요.`,
   owner: () => `${icon("owner")} 봇 운영자만 쓸 수 있어요.`,
 };
-/** 섹션 화면의 작은 글씨: 그 섹션에 나온 표시의 뜻. locked 는 자물쇠가 붙은 줄이 있는지 */
+/** 섹션 화면의 작은 글씨: 그 섹션에 나온 표시의 뜻. locked는 자물쇠가 붙은 줄이 있는지 */
 const legend = (tiers: HelpTier[], locked: boolean) => [...[...new Set(tiers.map((tier) => LEGEND[tier]).filter((line) => line !== null))].map((line) => line()), ...(locked ? [`${icon("locked")} 지금 내 권한으로는 쓸 수 없어요.`] : [])];
 
-/** 첫 화면. play 는 /play 의 멘션, help 는 /help 의 멘션, sections 는 명령이 있는 섹션 */
+/** 첫 화면. play는 /play의 멘션, help는 /help의 멘션, sections는 명령이 있는 섹션 */
 const home = ({ play, help, sections }: { play: string; help: string; sections: HelpSection[] }) => ({
   title: "도움말",
   lines: [`음성 채널에 들어가서 ${play}로 곡을 틀어요. 재생 패널의 버튼으로도 조작할 수 있어요.`, "", ...sections.map((key) => `**${icon(SECTION[key].icon)} ${SECTION[key].name}**: ${SECTION[key].about}`)],
   footer: `아래 메뉴나 ${help}의 분류 옵션으로 분류별 명령어를 볼 수 있어요.`,
 });
 
-/** /help 의 분류 칸, 메뉴와 버튼 */
+/** /help의 분류 칸, 메뉴와 버튼 */
 const controls = () => ({ option: "분류", optionDescription: "바로 볼 명령어 분류", placeholder: "명령어 분류를 골라 주세요", back: "뒤로", dashboard: "웹 대시보드" });
 
 export { section, tierMark, lockMark, legend, home, controls };

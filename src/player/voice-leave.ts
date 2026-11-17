@@ -49,7 +49,7 @@ async function leaveByGateway(guild: Guild, channelId: string, players: Pick<Pla
   return (await left) ? "gateway" : null;
 }
 
-/** REST 로 뺀다(멤버 옮기기 권한이 필요하다). 캐시에 채널이 없어도 보낸다(디스코드가 있다고 했다). 40032 는 이미 나간 것 */
+/** REST로 뺀다(멤버 옮기기 권한이 필요하다). 캐시에 채널이 없어도 보낸다(디스코드가 있다고 했다). 40032는 이미 나간 것 */
 async function leaveByRest(guild: Guild): Promise<"rest" | "already" | "failed"> {
   try {
     const voice = guild.members.me?.voice;
@@ -75,8 +75,8 @@ async function botChannelAtDiscord(guild: Guild, caller: string, fallback: strin
 }
 
 /**
- * 봇의 이 서버 음성 상태 알림이 matches 에 맞으면 true, ms 안에 오지 않으면 false.
- * 리스너는 요청을 보내기 전에 붙이고(부르는 쪽이 이 함수를 먼저 부른다) 끝나면 뗀다
+ * 봇의 이 서버 음성 상태 알림이 matches에 맞으면 true, ms 안에 오지 않으면 false.
+ * 리스너는 요청을 보내기 전에 붙이고(호출부가 이 함수를 먼저 부른다) 끝나면 뗀다
  */
 function botVoiceChanged(guild: Guild, matches: (state: VoiceState) => boolean, ms: number): Promise<boolean> {
   const client = guild.client;

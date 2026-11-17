@@ -1,7 +1,7 @@
 // 캐시 DB(운영자 패널 "캐시 DB" 탭)의 읽기, 쓰기, 값 검사. 모양은 contract/track-cache.
-// 화면의 표 셋은 cache.db 의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf 로 계산해야 해서 SQL 로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
+// 화면의 표 셋은 cache.db의 표를 메모리에서 이은 것이다(음원 키는 audioKeyOf로 계산해야 해서 SQL로 잇지 못한다). 읽기는 쓰는 함수를 부르지 않는다.
 // 쓰기는 모두 검사한 뒤 DB 몫(동기라 그사이 봇이 끼어들지 않는다)을 먼저, 캐시 파일 삭제를 그 뒤에 하나씩. 조작마다 결과를 낸다.
-// 공유 타입이 대시보드 층에 있어 usecases 가 아니라 여기 둔다(백업의 settings-archive 와 같다).
+// 공유 타입이 대시보드 층에 있어 usecases가 아니라 여기 둔다(백업의 settings-archive와 같다).
 
 import {
   TRACK_CACHE_COLUMNS,
@@ -45,7 +45,7 @@ import logger from "../infra/log/logger.ts";
 import { matchRegexes } from "./regex-filter.ts";
 const log = logger.child({ category: "dashboard" });
 
-/** 거절. 경로가 문제로 답한다(errors 의 pointer 는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
+/** 거절. 경로가 문제로 응답한다(errors의 pointer는 읽기면 /filters/<열>, /q, /sort, 쓰기면 /ops/<번호>/<필드>) */
 type Refusal = { ok: false; code: Code; params?: Params; errors?: FieldProblem[] };
 
 const refusal = (code: Code, errors?: FieldProblem[], params?: Params): Refusal => ({ ok: false, code, ...(params ? { params } : {}), ...(errors ? { errors } : {}) });
@@ -105,7 +105,7 @@ function requestRows(src: Sources): TrackRequestRow[] {
   return rows;
 }
 
-// 음원 키에서 주소. 유튜브, 사운드클라우드는 다시 만들고(audioKeyOf 의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원, 링크 데이터에서
+// 음원 키에서 주소. 유튜브, 사운드클라우드는 다시 만들고(audioKeyOf의 역), 직접 링크(md5)는 그 키를 가리키는 직접 지정한 음원, 링크 데이터에서
 function urlsOfKeys(src: Sources): (audioKey: string) => string | null {
   const direct = new Map<string, string>();
   for (const url of [...src.ledger.map((row) => row.audio_url), ...src.pins.map((pin) => pin.audioUrl)]) {
@@ -179,8 +179,8 @@ function compare(a: string | number | null, b: string | number | null, dir: "asc
 }
 
 /**
- * URL 쿼리를 읽기로(contract 의 trackCacheSearch 의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
- * 필터 식은 여기서 읽지 않는다(read 가 읽는다)
+ * URL 쿼리를 읽기로(contract의 trackCacheSearch의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
+ * 필터 식은 여기서 읽지 않는다(read가 읽는다)
  */
 // 값 하나만 받는 키(없으면 fallback). 여럿이면 null
 function single(search: URLSearchParams, name: string, fallback: string) {
@@ -217,7 +217,7 @@ function sortOf(table: TrackCacheTable, raw: string | null, errors: FieldProblem
 function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } | Refusal {
   const table = single(search, "table", "");
   if (!isTrackCacheTable(table)) return refusal("bad-request");
-  // 여럿이면 NaN 이라 범위 밖
+  // 여럿이면 NaN이라 범위 밖
   const [offset, limit] = [single(search, "offset", "0"), single(search, "limit", "50")].map((raw) => (raw === null ? NaN : Number(raw)));
   if (!inRange(offset, 0, Number.MAX_SAFE_INTEGER) || !inRange(limit, 1, TRACK_CACHE_PAGE_MAX)) return refusal("bad-page-range");
   const errors: FieldProblem[] = [];
@@ -343,7 +343,7 @@ function validate(ops: TrackCacheOp[]): { ok: true; ops: TrackCacheOp[] } | Refu
   return errors.length ? firstOf(errors) : { ok: true, ops: checked };
 }
 
-// DB 몫 하나(동기). expect 는 각 저장소 함수가 WHERE 에 넣는다
+// DB 몫 하나(동기). expect는 각 저장소 함수가 WHERE에 넣는다
 function applyDbOp(op: Exclude<TrackCacheOp, { op: "deleteFile" }>): TrackCacheOpResult {
   if (op.op === "pin") return pinnedSources.repin(op.requestKey, op.audioUrl, op.expect);
   if (op.op === "unpin") return pinnedSources.unpin(op.requestKey, op.expect);

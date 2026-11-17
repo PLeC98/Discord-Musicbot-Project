@@ -9,7 +9,7 @@ const STRING_SELECT = 3;
 const ACTION_ROW = 1;
 const BUTTON = 2;
 const ROLE_SELECT = 6;
-const DONE = 0x57f287; // ui/colors 의 완료 색
+const DONE = 0x57f287; // ui/colors의 완료 색
 
 function walk(node: Node, out: Node[]) {
   out.push(node);
@@ -39,7 +39,7 @@ const selectOf = (payload: Payload) => nodesOf(payload).find((n) => n.type === S
 
 /**
  * 화면 하나: 헤더 줄(### 를 뗀 것), 그 아래 본문, 줄(메뉴, 버튼 줄) 수, 버튼 custom_id, 역할 메뉴의 기본값, 완료 색인지.
- * 헤더 줄이 없으면 title 은 빈 글자이고 첫 텍스트 디스플레이 전체가 본문이다
+ * 헤더 줄이 없으면 title은 빈 글자이고 첫 텍스트 디스플레이 전체가 본문이다
  */
 function screenOf(payload: unknown) {
   const nodes = nodesOf(payload as Payload);

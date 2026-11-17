@@ -34,7 +34,7 @@ const fakeSession = (req: Request, _res: Response, next: NextFunction) => {
 const server = await listenForFetch(createApp(fakeBot({ client: { user: null, isReady: () => false } }), { stream: createPlayerStream(), deployCommands: () => assert.fail("등록하지 않는다"), sessionMiddleware: fakeSession }), "127.0.0.1");
 const appPort = (server.address() as AddressInfo).port;
 
-// 앱 앞의 중계. cutAt 을 정한 뒤로 보낸 바이트가 그만큼을 넘으면 그 연결을 그 자리에서 끊는다(한 번만. 앞 테스트의 keep-alive 연결이 보낸 양은 세지 않는다)
+// 앱 앞의 중계. cutAt을 정한 뒤로 보낸 바이트가 그만큼을 넘으면 그 연결을 그 자리에서 끊는다(한 번만. 앞 테스트의 keep-alive 연결이 보낸 양은 세지 않는다)
 let cutAt: number | null = null;
 let sinceArmed = 0;
 const proxy = net.createServer((client) => {
@@ -56,7 +56,7 @@ const proxy = net.createServer((client) => {
 });
 await new Promise<void>((done) => proxy.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
-// 브라우저의 XHR 처럼 Blob 크기를 Content-Length 로 싣는 Node http 방식. fetch 방식은 진행률을 받으면 길이 없이 조각으로 보내 봇이 거절한다(청크는 길이를 명시해야 한다)
+// 브라우저의 XHR처럼 Blob 크기를 Content-Length로 싣는 Node http 방식. fetch 방식은 진행률을 받으면 길이 없이 조각으로 보내 봇이 거절한다(청크는 길이를 명시해야 한다)
 const http = axios.create({ adapter: "http", baseURL: origin, headers: { "x-csrf-token": TOKEN } });
 
 after(() => {
@@ -70,7 +70,7 @@ after(() => {
 /** 다 올린 업로드의 받은 파일(가져가기 전이라 .part) */
 const received = (id: string) => fs.readFileSync(path.join(DIR, `archive-${id}.zip.part`));
 
-test("여러 청크로 끝까지 올리고 받은 파일이 보낸 것과 같다. 진행률은 1 로 끝난다", async () => {
+test("여러 청크로 끝까지 올리고 받은 파일이 보낸 것과 같다. 진행률은 1로 끝난다", async () => {
   const body = crypto.randomBytes(uploads.CHUNK_SIZE * 2 + 12345);
   const shares: number[] = [];
   const id = await uploadFile(new Blob([body]), "archive", { http, onProgress: (share) => shares.push(share) });

@@ -1,5 +1,5 @@
 // src/dashboard/routes/login-background.ts, login-background/store.ts, runner.ts: 로그인 배경의 상태 기계.
-// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step 으로 끝낸다). 썸네일 먼저, 인코딩 순서, 이전 배경, 한도, 막는 전이, 실패, 이어 하기를 본다
+// 단계 실행기는 테스트가 끝을 정하는 가짜다(단계마다 step으로 끝낸다). 썸네일 먼저, 인코딩 순서, 이전 배경, 한도, 막는 전이, 실패, 이어 하기를 본다
 
 process.env.OWNER_ID = "owner";
 
@@ -58,7 +58,7 @@ const codeOf = async (res: Response) => [res.status, ((await res.json()) as { co
 async function step(id: string, result: StageResult = {}) {
   await settle();
   const gate = gates.get(id);
-  assert.ok(gate, `${id} 에 도는 단계가 없다`);
+  assert.ok(gate, `${id}에 도는 단계가 없다`);
   gates.delete(id);
   gate.resolve(result);
   await settle();
@@ -69,7 +69,7 @@ async function stepUntil(id: string, done: (one: LoginBackgroundItem) => boolean
     if (done(await item(id))) return;
     await step(id);
   }
-  assert.fail(`${id} 가 끝나지 않는다`);
+  assert.fail(`${id}: 끝나지 않는다`);
 }
 const upload = async (name = "영상.mp4") => {
   const res = await send("POST", "/upload", { upload: await uploadVia(origin, "login-background", Buffer.alloc(1000, 1)), name, type: "video/mp4" });
@@ -139,7 +139,7 @@ test("편집 적용: 어림이 남은 저장 공간보다 크면 막는다(같�
 test("앞 배경을 굽는 동안 적용한 배경은 썸네일까지 하고 굽기 순서를 기다린다. 취소하면 걸려 있던 앞 배경으로", async () => {
   const a = await ready("A");
   const b = await applied("B");
-  // B 는 썸네일 전: A 가 그대로
+  // B는 썸네일 전: A가 그대로
   assert.deepEqual(await brief(), { current: a, previous: null, phases: { [b]: "encoding", [a]: "ready" } });
   await stepUntil(b, (one) => one.stage === "encode");
   assert.deepEqual([(await state()).current, (await state()).previous], [b, a]);
@@ -183,19 +183,19 @@ test("한도는 다 구운 뒤에 지키고, 지금 배경을 뺀 오래된 기�
   await stepUntil(c, (one) => one.phase === "editing");
   assert.equal((await send("PUT", `/${c}/edit`, EDIT)).status, 200);
   await stepUntil(c, (one) => one.phase === "ready");
-  // C 가 걸리고 B 가 이전 배경, 가장 오래된 A 를 삭제한다
+  // C가 걸리고 B가 이전 배경, 가장 오래된 A를 삭제한다
   assert.deepEqual(await brief(), { current: c, previous: b, phases: { [c]: "ready", [b]: "ready" } });
   assert.equal(fs.existsSync(path.join(DIR, a)), false);
 });
 
-test("보관 0 이면 지금 배경만 남는다. 최대 용량이 모자라면 이전 배경도 삭제한다", async () => {
+test("보관 0이면 지금 배경만 남는다. 최대 용량이 모자라면 이전 배경도 삭제한다", async () => {
   assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
   const a = await ready("A");
   const b = await ready("B");
   assert.deepEqual(await brief(), { current: b, previous: null, phases: { [b]: "ready" } });
   assert.equal(fs.existsSync(path.join(DIR, a)), false);
 
-  // 배경 하나가 1000 바이트(올린 원본): 1500 이면 둘은 들어가지 않는다
+  // 배경 하나가 1000 바이트(올린 원본): 1500이면 둘은 들어가지 않는다
   assert.equal((await send("PUT", "/limits", { history: 5, maxBytes: 1500 })).status, 200);
   const c = await ready("C");
   assert.deepEqual(await brief(), { current: c, previous: null, phases: { [c]: "ready" } });
@@ -206,7 +206,7 @@ test("이전 배경이 삭제된 뒤 인코딩을 취소하면 봇 프로필 그
   const b = await applied("B");
   await stepUntil(b, (one) => one.stage === "h264");
   assert.deepEqual([(await state()).current, (await state()).previous], [b, a]);
-  // 인코딩하는 동안 한도를 줄이면 바로 지킨다: 인코딩을 마친 기록인 A 를 삭제한다
+  // 인코딩하는 동안 한도를 줄이면 바로 지킨다: 인코딩을 마친 기록인 A를 삭제한다
   assert.equal((await send("PUT", "/limits", { history: 0, maxBytes: 0 })).status, 200);
   assert.deepEqual([(await state()).current, (await state()).previous], [b, null]);
   assert.equal((await send("POST", `/${b}/cancel`)).status, 200);
@@ -296,7 +296,7 @@ test("올린 파일 이름은 제어 문자를 빼고 자른다. 빈 파일, 모
   assert.equal((await state()).list.length, 1);
 });
 
-test("링크로 추가: 유튜브는 고해상도 다운로드를 더하고, http 가 아니면 받지 않는다", async () => {
+test("링크로 추가: 유튜브는 고해상도 다운로드를 더하고, http가 아니면 받지 않는다", async () => {
   const res = await send("POST", "/link", { url: "https://youtu.be/dQw4w9WgXcQ" });
   const one = ((await res.json()) as LoginBackgroundState).list[0];
   assert.deepEqual([one.from, one.kind, one.stages.includes("highRes")], ["youtube", "video", true]);
@@ -311,7 +311,7 @@ test("봇이 켜진 뒤 첫 요청이 링크 추가여도 새 배경의 폴더�
   assert.equal(fs.existsSync(path.join(DIR, id)), true);
 });
 
-test("이어 할 때 원본이 없으면 원본이 없다는 까닭으로 실패한다", async () => {
+test("이어 할 때 원본이 없으면 원본이 없어 실패한다", async () => {
   const id = await upload();
   await stepUntil(id, (one) => one.phase === "editing");
   fs.rmSync(store.sourceOf(id));

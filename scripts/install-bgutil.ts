@@ -2,14 +2,14 @@
 //   pnpm run install:bgutil, update:bgutil. 둘은 같은 일을 한다:
 //   설정한 태그를 받아 고정한 커밋인지 맞춰 보고, 그 커밋으로 깨끗하게 체크아웃, 그 태그의 잠금 파일 그대로 의존성 설치 + 빌드
 //
-// 설치하는 버전은 src/config/vendor-versions.ts 의 기본 태그와 커밋이고, .env 의 BGUTIL_VERSION, BGUTIL_COMMIT 으로 바꾼다.
+// 설치하는 버전은 src/config/vendor-versions.ts의 기본 태그와 커밋이고, .env의 BGUTIL_VERSION, BGUTIL_COMMIT으로 바꾼다.
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 // 설치 스크립트는 잠금 파일에서 설치 스크립트가 있는 실행 의존성(canvas)만 돌린다. 개발 의존성의 설치 스크립트는 잠금 파일 밖에서 받을 수 있다.
 //
 // 봇은 실행 시 설치된 bgutil을 감지해 POToken 서버를 함께 시작한다(실행마다 빈 포트).
 
-import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env 를 읽는다(없으면 만든다)
+import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import { execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
@@ -26,7 +26,7 @@ const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
 
-// 윈도우의 npm 은 .cmd 라 셸로 부른다. 인자는 잠금 파일의 패키지 이름뿐이다
+// 윈도우의 npm은 .cmd라 셸로 부른다. 인자는 잠금 파일의 패키지 이름뿐이다
 function npm(args: string[]) {
   const cmd = `npm ${args.join(" ")}`;
   console.log(`\n$ ${cmd}   (${path.relative(ROOT, SERVER)})`);
@@ -56,7 +56,7 @@ try {
   if (rootScripts.length) fail([`\n❌ bgutil ${tag}의 server/package.json에 설치 스크립트(${rootScripts.join(", ")})가 생겼습니다. 무엇을 하는지 확인한 뒤 scripts/install-bgutil.ts를 고치세요.`]);
   const rebuild = rebuildTargets(JSON.parse(fs.readFileSync(path.join(SERVER, "package-lock.json"), "utf8")));
 
-  // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install 로 넘어가면 그날의 트리가 깔린다)
+  // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install로 넘어가면 그날의 트리가 깔린다)
   try {
     npm(["ci", "--ignore-scripts"]);
     if (rebuild.length) npm(["rebuild", ...rebuild]);
@@ -64,7 +64,7 @@ try {
     fail(["\n❌ 의존성 설치 실패. 위의 npm 오류를 보세요(네트워크, canvas 네이티브 모듈용 빌드 툴체인)."]);
   }
 
-  // build/main.js 생성(tsconfig outDir=./build). npx 를 거치지 않고 잠금 파일의 typescript 를 쓴다
+  // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다
   const tsc = path.join(SERVER, "node_modules", "typescript", "bin", "tsc");
   console.log(`\n$ node ${path.relative(SERVER, tsc)}   (${path.relative(ROOT, SERVER)})`);
   execFileSync(process.execPath, [tsc], { cwd: SERVER, stdio: "inherit" });

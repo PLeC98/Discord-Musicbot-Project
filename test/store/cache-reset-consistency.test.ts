@@ -47,7 +47,7 @@ test("초기화: 삭제하지 못한 파일(재생 중)의 행은 남고, 나머
   const playing = seedTrack("yt:playing", "재생중인곡");
   const idle = seedTrack("yt:idle", "그냥캐시된곡");
 
-  // 재생 중이라 잠긴 파일을 흉내 낸다. Windows에서 실제로 unlink가 던지는 위치다.
+  // 재생 중이라 잠긴 파일을 흉내 낸다. Windows에서 실제로 unlink가 예외를 던지는 위치다.
   audioCache._setRemoval({
     unlink: async (target) => {
       if (path.resolve(target) === path.resolve(playing.file)) throw Object.assign(new Error("EBUSY"), { code: "EBUSY" });

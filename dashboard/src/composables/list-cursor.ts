@@ -5,7 +5,7 @@ import { ref, watch, nextTick, type Ref } from "vue";
 
 /**
  * panel: 항목이 자식으로 늘어선 목록 요소. count(): 지금 항목 수.
- * unset: 선택한 항목이 없는 위치(-1 이면 선택한 것 없이 시작해 Enter 가 입력한 말을 그대로 추가한다, 0 이면 첫 항목부터)
+ * unset: 선택한 항목이 없는 위치(-1이면 선택한 것 없이 시작해 Enter가 입력한 말을 그대로 추가한다, 0이면 첫 항목부터)
  */
 export function useListCursor(panel: Readonly<Ref<HTMLElement | null>>, count: () => number, unset: -1 | 0) {
   const at = ref<number>(unset);

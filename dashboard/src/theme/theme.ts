@@ -19,7 +19,7 @@ const systemDark = ref(window.matchMedia("(prefers-color-scheme: dark)").matches
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => (systemDark.value = e.matches));
 const dark = computed(() => (mode.value === "system" ? systemDark.value : mode.value === "dark"));
 
-/** 화면 설정(계정 메뉴의 설정). 앨범아트 색, 배경화면을 끄면 기본색, 그라데이션, clock 은 PC 시계 */
+/** 화면 설정(계정 메뉴의 설정). 앨범아트 색, 배경화면을 끄면 기본색, 그라데이션, clock은 PC 시계 */
 type Prefs = { artColor: boolean; artWallpaper: boolean; clock: boolean };
 const PREFS_KEY = "theme:prefs";
 const prefs = reactive<Prefs>({ artColor: true, artWallpaper: true, clock: true });
@@ -34,13 +34,13 @@ function setPref<K extends keyof Prefs>(key: K, value: Prefs[K]) {
 }
 
 /**
- * 앨범아트의 슬롯. page 가 앞선다. page 가 HOLD 면 서버 화면을 여는 중이라 지금 색을 붙잡아 둔다(옮겨 가는 길에 다른 색을 들르지 않게).
- * page 가 NO_ART 면 그 화면의 서버에 곡이 없다: 듣는 곡으로 내려가지 않고 운영자 색(brandSeed)을 쓴다. null 은 "화면이 정하지 않음"이라 듣는 곡을 쓴다
+ * 앨범아트의 슬롯. page가 앞선다. page가 HOLD면 서버 화면을 여는 중이라 지금 색을 붙잡아 둔다(옮겨 가는 길에 다른 색을 들르지 않게).
+ * page가 NO_ART면 그 화면의 서버에 곡이 없다: 듣는 곡으로 내려가지 않고 운영자 색(brandSeed)을 쓴다. null은 "화면이 정하지 않음"이라 듣는 곡을 쓴다
  */
 const HOLD = Symbol("hold");
 const NO_ART = Symbol("no-art");
 const art = reactive({ page: null as string | null | typeof HOLD | typeof NO_ART, pageKind: "song" as BackdropKind, listening: null as string | null });
-/** 색을 추출할 그림. null 이면 운영자 색 */
+/** 색을 추출할 그림. null이면 운영자 색 */
 const wanted = computed((previous?: string | null) => {
   if (art.page === HOLD) return previous ?? null;
   if (art.page === NO_ART) return null;
@@ -48,13 +48,13 @@ const wanted = computed((previous?: string | null) => {
 });
 /** 그 그림의 쓰임(배경화면 값이 다르다). 화면이 깐 그림이면 화면이 정한 쓰임, 듣는 곡이면 song */
 const wantedKind = computed((): BackdropKind => (typeof art.page === "string" ? art.pageKind : "song"));
-/** 배경화면에 깔린 그림. 색과 같은 때에 바뀐다(그림을 읽고 색을 추출한 뒤). baked 면 미리 흐린 그림(art.ts backdropOf), 아니면 CSS 로 흐린다. kind 는 그림의 쓰임 */
+/** 배경화면에 깔린 그림. 색과 같은 때에 바뀐다(그림을 읽고 색을 추출한 뒤). baked면 미리 흐린 그림(art.ts backdropOf), 아니면 CSS로 흐린다. kind는 그림의 쓰임 */
 type Wallpaper = { src: string; baked: boolean; kind: BackdropKind };
 const shown = ref<Wallpaper | null>(null);
 const wallpaper = computed(() => (prefs.artWallpaper ? shown.value : null));
 
 /**
- * 앨범아트가 없을 때(곡이 없음, 앨범아트 색 사용을 끔)의 바탕색. 운영자가 지정한 임베드 색(EMBED_COLOR, /api/bot 의 brandColor).
+ * 앨범아트가 없을 때(곡이 없음, 앨범아트 색 사용을 끔)의 바탕색. 운영자가 지정한 임베드 색(EMBED_COLOR, /api/bot의 brandColor).
  * 불러오기 전에는 지난번에 불러온 색(이 브라우저에 기억), 그것도 없으면 기본색
  */
 const BRAND_KEY = "theme:brand";
@@ -89,7 +89,7 @@ function paint(ms = SHIFT_MS) {
   root.style.colorScheme = dark.value ? "dark" : "light";
 }
 
-/** 화면이 정한 색 씨앗(#RRGGBB, null 이면 운영자 색)과 옮겨 가는 시간. 있으면 그림 대신 이것을 쓴다 */
+/** 화면이 정한 색 씨앗(#RRGGBB, null이면 운영자 색)과 옮겨 가는 시간. 있으면 그림 대신 이것을 쓴다 */
 const pageSeed = ref<{ hex: string | null; ms: number } | null>(null);
 
 let asked = 0;
@@ -136,7 +136,7 @@ watch([pageSeed, () => prefs.artColor, brandSeed, dark], ([seeded, follow]) => {
 });
 
 /**
- * 화면이 그림 없이 색 씨앗을 정한다(로그인 배경). ms 는 옮겨 가는 시간(장면 색은 1초). setPageArt 와 같이 깐 화면이 주인이 되고 주인만 치운다
+ * 화면이 그림 없이 색 씨앗을 정한다(로그인 배경). ms는 옮겨 가는 시간(장면 색은 1초). setPageArt와 같이 깐 화면이 주인이 되고 주인만 치운다
  */
 let seedOwner: symbol | null = null;
 function setPageSeed(owner: symbol, hex: string | null, ms = SHIFT_MS) {

@@ -1,5 +1,5 @@
 // 이어 붙은 버튼 그룹(M3E connected button group). 바깥 모서리는 높이의 절반, 안쪽 8px, 누르는 동안 4px, 선택한 버튼은 완전히 둥글게.
-// 모서리는 높이의 절반을 직접 적는다(rounded-full 을 섞으면 반대쪽 작은 모서리가 0 이 되고, 절반보다 큰 단계는 바뀌는 앞부분이 보이지 않는다)
+// 모서리는 높이의 절반을 직접 적는다(rounded-full을 섞으면 반대쪽 작은 모서리가 0이 되고, 절반보다 큰 단계는 바뀌는 앞부분이 보이지 않는다)
 
 const SHAPES = {
   40: { on: "rounded-xl", first: "rounded-l-xl rounded-r-sm active:rounded-r-xs", last: "rounded-r-xl rounded-l-sm active:rounded-l-xs" },

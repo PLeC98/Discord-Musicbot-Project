@@ -13,8 +13,8 @@ import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.t
 // destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
 function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {} }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown> } = {}) {
   const steps: string[] = [];
-  // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy 가 목록에서 뺀다).
-  // destroy(false) 는 나가기 요청을 보내지 않는다(채널에 남는다)
+  // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy가 목록에서 뺀다).
+  // destroy(false)는 나가기 요청을 보내지 않는다(채널에 남는다)
   const live = new Map();
   const connection = (id: string, fails = false) => ({
     destroy: (adapterAvailable = true) => {
@@ -84,7 +84,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
   return { steps, proc, exited, exits: () => exits, shutdown: handle };
 }
 
-test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0 으로 나간다", async () => {
+test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를 지우고, 나가기 요청 없이 연결, 봇, POToken 서버, 자식 프로세스, 로그 파일을 정리하고 0으로 나간다", async () => {
   _resetShutdown();
   const { steps, proc, exited } = setup();
   proc.emit("SIGTERM");
@@ -100,7 +100,7 @@ test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실�
   assert.deepEqual(
     steps.filter((s) => !s.startsWith("voice:")),
     ["record:shutdown", "pot:stop", "kill", "log:close"],
-    "세션 저장 · 봇 내리기는 없다",
+    "세션 저장과 봇 내리기는 없다",
   );
 });
 
@@ -112,7 +112,7 @@ test("레지스트리에 없는 음성 연결도 나가기 요청 없이 정리�
   assert.equal(steps.at(-2), "kill");
 });
 
-test("종료가 중간에 던져도(연결 정리 실패) 나간다", async () => {
+test("종료가 중간에 예외를 던져도(연결 정리 실패) 나간다", async () => {
   const { proc, exited } = setup({ releaseFails: true });
   proc.emit("SIGTERM");
   let late: NodeJS.Timeout | undefined;
@@ -166,7 +166,7 @@ test("다시 시작은 끄기와 같이 정리하고 다시 시작으로 적은 
   assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:다시 시작(운영자)", "voice:g1:stay", "voice:g9:stay", "record:restart", "client:destroy", "pot:stop", "kill", "log:close"]);
 });
 
-test("신호가 두 번 들어와도(Windows 의 Ctrl+C) 한 번만 정리한다", async () => {
+test("신호가 두 번 들어와도(Windows의 Ctrl+C) 한 번만 정리한다", async () => {
   const { steps, proc, exited, exits } = setup();
   proc.emit("SIGINT");
   proc.emit("SIGINT");
@@ -219,7 +219,7 @@ test("깨끗한 종료는 단계마다 info 한 줄을 차례로 남기고, 남�
   assert.deepEqual(
     lines.filter((e) => e.level !== "info").map((e) => e.text.split(" Error")[0]),
     ["음성 연결 정리 실패: g8"],
-    "실패만 info 가 아니다(가짜 연결 g8 이 일부러 실패한다)",
+    "실패만 info가 아니다(가짜 연결 g8이 일부러 실패한다)",
   );
   const steps = lines.filter((e) => e.level === "info" && !e.text.startsWith("음성 연결 정리: ")).map((e) => e.text);
   const last = steps.pop();

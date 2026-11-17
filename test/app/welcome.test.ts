@@ -1,5 +1,5 @@
 // src/app/welcome.ts: 봇이 새 서버에 들어왔을 때의 안내 메시지. 올릴 채널 고르기, 끄기, 들어온 지 오래된 서버는 올리지 않기, 화면(수정본 저장소, 대시보드, 서버 이름).
-// 서버 설정(전용 채널)은 진짜를 임시 DB 로 쓴다
+// 서버 설정(전용 채널)은 진짜를 임시 DB로 쓴다
 
 import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
@@ -92,7 +92,7 @@ test("화면: 대시보드가 밖에서 열리면 대시보드 줄과 버튼, �
   ]);
 });
 
-test("화면: 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에 채팅으로 넣는 줄이 없고, Server Members Intent 가 꺼지면 대시보드 줄과 버튼이 없다(서버 화면을 쓸 수 없다)", (t) => {
+test("화면: 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 전용 채널에 채팅으로 넣는 줄이 없고, Server Members Intent가 꺼지면 대시보드 줄과 버튼이 없다(서버 화면을 쓸 수 없다)", (t) => {
   t.after(() => _resetIntents());
   const view = () => withConfig({ dashboard: { url: "https://music.example.com" } }, () => welcomeView(guild({ channels: [] })));
   assert.ok(textOf(view()).includes("곡 이름이나 링크만 넣어도 돼요"));

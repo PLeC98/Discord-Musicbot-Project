@@ -1,7 +1,7 @@
 <template>
-  <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background 의 상태 하나를 읽고, 바꾸는 요청들도 그 상태로 답한다.
-       미리보기 화면은 로그인 화면과 같은 LoginBackdrop 에 옵션 영역의 값을 저장 전에도 바로 그린다. 정지 화면 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
-       옵션, 고급 설정은 운영자 패널의 저장 막대(SaveDock, composables/save-targets)로 저장, 되돌린다.
+  <!-- 로그인 배경 카드(디스플레이 탭, 파비콘 카드 아래). /api/admin/appearance/login-background의 상태 하나를 읽고, 바꾸는 요청들도 그 상태로 응답한다.
+       미리보기 화면은 로그인 화면과 같은 LoginBackdrop에 옵션 영역의 값을 저장 전에도 바로 그린다. 정지 화면 전 새 배경은 아직 미리보기 화면에 없다(로그인 화면도 그렇다).
+       옵션, 고급 설정은 운영자 패널의 저장 바(SaveDock, composables/save-targets)에서 저장, 되돌린다.
        만드는 동안은 운영자 패널의 상태 읽기와 같이 3초마다 다시 읽는다(화면이 숨으면 멈춘다). 로그인 배경 백업은 백업 탭(파비콘과 따로) -->
   <BaseCard icon="wallpaper" :title="C.title">
     <template #actions
@@ -58,7 +58,7 @@
             </label>
             <SeamPicker v-model="draft.look.seam" />
           </template>
-          <!-- 아래: 위치 초기화(보일 위치만 가운데로), 초기화(옵션 전부를 처음 값으로). 저장, 되돌리기는 저장 막대 -->
+          <!-- 아래: 위치 초기화(보일 위치만 가운데로), 초기화(옵션 전부를 처음 값으로). 저장, 되돌리기는 저장 바 -->
           <div class="mt-auto flex justify-end gap-2">
             <BaseButton size="sm" variant="ghost" :disabled="busy || !cur || centered" @click="resetPosition">{{ C.resetPosition }}</BaseButton>
             <BaseButton size="sm" variant="ghost" :disabled="busy || isDefault" @click="resetOptions">{{ C.resetOptions }}</BaseButton>
@@ -92,7 +92,7 @@
         <button v-if="cur" type="button" :class="[ICON_BTN, 'size-8']" class="hover:text-error" :disabled="busy" :aria-label="C.clear" v-tooltip="C.clear" @click="clear"><Icon name="delete" :size="18" /></button>
       </div>
 
-      <!-- 고급 설정(접힘): 기록 보관 개수, 최대 용량(쓰는 양 막대), 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 까닭, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁, 공용 숫자 입력란, 비워 두면 기본값 -->
+      <!-- 고급 설정(접힘): 기록 보관 개수, 최대 용량(쓰는 양 막대), 인코딩 환경(코덱마다 쓰는 인코더, 꺼진 것은 원인, 지금 인코딩). 다른 고급 설정(AI)과 같은 형태: 라벨에 툴팁, 공용 숫자 입력란, 비워 두면 기본값 -->
       <div v-if="state" class="rounded-(--r-inner) bg-surface-container text-sm">
         <button type="button" class="tap state-layer w-full flex items-center gap-1 px-4 py-3 rounded-(--r-inner) font-semibold text-left cursor-pointer" :aria-expanded="advancedOpen" :aria-controls="advancedId" @click="advancedOpen = !advancedOpen"><Icon name="expand_more" :size="20" class="transition-transform spring-fast" :class="advancedOpen && 'rotate-180'" />{{ A.title }}</button>
         <CollapseTransition>
@@ -202,7 +202,7 @@ const AXES = [
   { key: "x" as const, label: C.positionX },
   { key: "y" as const, label: C.positionY },
 ];
-/** 화면 비율(그 비율의 기기 이름은 문구표). vw, vh 는 그 기기의 대표 CSS 크기(로그인 화면 실루엣에 쓴다), mouse 는 마우스 기기 */
+/** 화면 비율(그 비율의 기기 이름은 문구표). vw, vh는 그 기기의 대표 CSS 크기(로그인 화면 실루엣에 쓴다), mouse는 마우스 기기 */
 const RATIOS = [
   { label: "16:9", w: 16, h: 9, vw: 1920, vh: 1080, mouse: true },
   { label: "16:10", w: 16, h: 10, vw: 1440, vh: 900, mouse: true },
@@ -238,7 +238,7 @@ const byId = (id: string | null) => state.value?.list.find((bg) => bg.id === id)
 const cur = computed(() => byId(state.value?.current ?? null));
 /** 처리 중, 차례를 기다리는, 편집을 기다리는 가장 새 배경 */
 const work = computed(() => state.value?.list.find((bg) => bg.phase === "preparing" || bg.phase === "editing" || bg.phase === "queued" || bg.phase === "encoding") ?? null);
-/** 마지막으로 올린 배경이 실패했으면 그것(까닭을 보인다) */
+/** 마지막으로 올린 배경이 실패했으면 그것(원인을 보인다) */
 const failed = computed(() => (state.value?.list[0]?.phase === "failed" ? state.value.list[0] : null));
 const failedWhy = computed(() => (failed.value?.problem ? noticeText(failed.value.problem).body : ""));
 /** 편집을 적용한 뒤(인코딩 중, 차례 기다림)인지. 아니면 편집을 마치기 전(가져오기, 프리뷰, 스프라이트, 편집 대기) */
@@ -273,7 +273,7 @@ const info = computed(() => {
 const editing = computed(() => byId(editingId.value));
 /** 편집 버튼이 여는 것: 편집을 기다리는 배경만(적용한 뒤에는 원본이 없어 다시 편집하지 않는다, 바꾸려면 다시 올린다) */
 const editable = computed(() => (work.value?.phase === "editing" ? work.value : null));
-/** 지금 인코딩 한 줄: 코덱마다 단계(짧은 변 2160 은 4K), 병렬 단계, 코어, 속도 */
+/** 지금 인코딩 한 줄: 코덱마다 단계(짧은 변 2160은 4K), 병렬 단계, 코어, 속도 */
 const bakeLine = computed(() => {
   const bake = state.value?.bake;
   if (!bake) return "";
@@ -346,7 +346,7 @@ function apply(next: LoginBackgroundState) {
     openEdit(waiting);
     pendingEdit.value = null;
   }
-  // 가져오다 실패했으면 기다리지 않는다(팝업, 카드가 까닭을 보인다)
+  // 가져오다 실패했으면 기다리지 않는다(팝업, 카드가 원인을 보여줌)
   if (waiting?.phase === "failed") pendingEdit.value = null;
 }
 const load = async () => apply((await axios.get<LoginBackgroundState>(API)).data);
@@ -440,7 +440,7 @@ const cancelWork = () =>
   });
 const recheck = () => run(async () => apply((await axios.post<LoginBackgroundState>(`${API}/encoders/check`)).data));
 
-// ── 저장 막대(운영자 패널의 SaveDock)에 올린다: 옵션, 고급 설정 ──
+// ── 저장 바(운영자 패널의 SaveDock)에 올린다: 옵션, 고급 설정 ──
 
 const savingOptions = ref(false);
 const savingLimits = ref(false);

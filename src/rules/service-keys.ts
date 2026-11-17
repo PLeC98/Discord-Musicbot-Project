@@ -13,7 +13,7 @@ type ServiceField<S extends ServiceId = ServiceId> = (typeof SERVICE_KEYS)[S][nu
 const SERVICE_IDS = Object.keys(SERVICE_KEYS) as ServiceId[];
 const isServiceId = (value: unknown): value is ServiceId => typeof value === "string" && Object.hasOwn(SERVICE_KEYS, value);
 
-/** 비밀값 하나의 상태(값은 없다). none: 없음, ok: 저장됨, again: 다시 입력해야 함(SECRETS_KEY 가 바뀜, 예전 형식, 망가짐). last4 는 짧은 값이면 없다 */
+/** 비밀값 하나의 상태(값은 없다). none: 없음, ok: 저장됨, again: 다시 입력해야 함(SECRETS_KEY가 바뀜, 예전 형식, 망가짐). last4는 짧은 값이면 없다 */
 type SecretView = { state: "none" | "ok" | "again"; last4: string | null; updatedAt: number | null };
 /** 외부 서비스 키. 서비스 → 필드 → 상태 */
 type ServiceKeysView = { [S in ServiceId]: { [F in ServiceField<S>]: SecretView } };

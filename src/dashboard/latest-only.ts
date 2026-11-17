@@ -2,7 +2,7 @@
 // 곡 추가 칸의 검색이 쓴다: 치는 대로 오는 검색이 봇 전체가 함께 쓰는 유튜브 검색 자리(동시 넷)를 한 사람이 여럿 차지하지 않게.
 // 화면이 지난 요청을 취소해도 서버에서 시작한 검색은 멈추지 않는다
 
-/** key 마다 한 줄. run(key, work) 은 그 줄의 마지막 작업이면 work 의 결과, 아니면 null. 도는 작업이 없으면 곧바로 시작한다 */
+/** key마다 한 줄. run(key, work)은 그 줄의 마지막 작업이면 work의 결과, 아니면 null. 도는 작업이 없으면 곧바로 시작한다 */
 function latestOnly() {
   const lines = new Map<string, { last: number; tail: Promise<unknown> }>();
   return async function run<T>(key: string, work: () => Promise<T>): Promise<T | null> {

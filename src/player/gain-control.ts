@@ -20,7 +20,7 @@ const TARGET = -14;
 /** 증폭 상한(dB). 캐시 파일 측정값, 끝까지 재생하며 측정한 값에 쓴다 */
 const FILE_BOOST = 12;
 const HEARD_BOOST = 6;
-/** 증폭할 때 프레임 피크 상위 1% 가 이 값을 넘지 않게 제한한다(dBTP, 리미터의 상한) */
+/** 증폭할 때 프레임 피크 상위 1%가 이 값을 넘지 않게 제한한다(dBTP, 리미터의 상한) */
 const CEILING = -1.5;
 /** 재생 중 측정한 값은 샘플 피크라 이만큼 더해 쓴다(dB) */
 const HEARD_PEAK_MARGIN = 0.5;
@@ -38,7 +38,7 @@ const SETTLED = 1e-6;
 const LOOK_SAMPLES = FS;
 /** 측정값이 곧 올 곡을 음악으로 가정한 볼륨(LUFS). file 값이 MEDIAN_MIN 개 이상 쌓이면 그 중앙값을 쓴다(store/loudness) */
 const MUSIC_PRIOR = -8;
-/** 이 길이(초)를 넘거나 길이를 모르는 곡은 음악으로 가정하지 않고 0 dB 에서 시작한다(긴 것은 측정값이 늦게 오고 발매 음원일 가능성이 낮다) */
+/** 이 길이(초)를 넘거나 길이를 모르는 곡은 음악으로 가정하지 않고 0 dB에서 시작한다(긴 것은 측정값이 늦게 오고 발매 음원일 가능성이 낮다) */
 const PRIOR_MAX_SEC = 600;
 /** 들은 양이 이만큼(초)을 넘을 때만 저장한다(조용한 도입부에 속은 값이 다음 재생을 망치지 않게) */
 const SAVE_MIN_SEC = 30;
@@ -111,7 +111,7 @@ class Heard {
 }
 
 /**
- * 탭을 열 때 플레이어가 아는 것. key 는 잠정이다. startMs: 곡 안의 시작 위치, lengthSec: 음악 가정의 10분 기준에 쓰는 길이(캐시 행의 길이, 출처의 길이),
+ * 탭을 열 때 플레이어가 아는 것. key는 잠정이다. startMs: 곡 안의 시작 위치, lengthSec: 음악 가정의 10분 기준에 쓰는 길이(캐시 행의 길이, 출처의 길이),
  * downloadMatches: 재생과 함께 받는 캐시 다운로드의 음원이 이 재생의 음원과 같다
  */
 type TapInfo = { key: string | null; continued: boolean; startMs: number; lengthSec: number | null; downloadMatches: boolean };
@@ -191,7 +191,7 @@ class PlaybackState {
     return this.frameNow();
   }
 
-  /** 램프하지 않고 지금 보낸 게인. 정규화를 끈 뒤에도 게인이 0 으로 다 돌아올 때까지 리미터를 켠다(먼저 끄면 증폭된 소리가 클립된다) */
+  /** 램프하지 않고 지금 보낸 게인. 정규화를 끈 뒤에도 게인이 0으로 다 돌아올 때까지 리미터를 켠다(먼저 끄면 증폭된 소리가 클립된다) */
   frameNow(): TapFrame {
     return { gain: this.sent, press: this.mode !== "off" || Math.abs(this.sent) > SETTLED };
   }
@@ -222,7 +222,7 @@ class PlaybackState {
     try {
       loudness.recordHeard(this.key, full ? "heard-full" : "heard-part", { value: measured, identity, heardSec });
     } catch (error) {
-      // 종료 중에 DB 가 닫힌 뒤의 저장은 버린다
+      // 종료 중에 DB가 닫힌 뒤의 저장은 버린다
       if (codeOf(error) !== "DB_NOT_OPEN") log.warn(`재생 중 측정값 저장 실패: ${this.key} | ${messageOf(error)}`);
     }
   }
@@ -245,7 +245,7 @@ class PlaybackState {
       if (fullGain !== null) loudness.touch(this.key, "heard-full");
       return fullGain;
     } catch (error) {
-      log.warn(`볼륨 값 읽기 실패(정규화 게인 0 dB 에서 추종): ${this.key} | ${messageOf(error)}`);
+      log.warn(`볼륨 값 읽기 실패(정규화 게인 0 dB에서 추종): ${this.key} | ${messageOf(error)}`);
       return null;
     }
   }
@@ -269,7 +269,7 @@ class PlaybackState {
       const valueSoon = this.facts.kind === "file" || (this.facts.downloading && this.info.downloadMatches);
       if (valueSoon && length !== null && length <= PRIOR_MAX_SEC) return { prior: loudness.fileMedian() ?? MUSIC_PRIOR };
     } catch (error) {
-      log.warn(`볼륨 값 읽기 실패(0 dB 에서 추종): ${String(key)} | ${messageOf(error)}`);
+      log.warn(`볼륨 값 읽기 실패(0 dB에서 추종): ${String(key)} | ${messageOf(error)}`);
     }
     return {};
   }
@@ -278,7 +278,7 @@ class PlaybackState {
   #storedOf(rows: loudness.Rows): loudness.Row | null {
     const length = this.info.lengthSec;
     const file = rows.file && length !== null && rows.file.durationSec !== null && Math.abs(rows.file.durationSec - length) <= LENGTH_TOL_SEC ? rows.file : null;
-    // 우선순위는 file > heard-full > heard-part(store/loudness). file 값을 저장해도 예전 heard-part 는 남는다
+    // 우선순위는 file > heard-full > heard-part(store/loudness). file 값을 저장해도 예전 heard-part는 남는다
     const stored = file ?? rows["heard-full"] ?? rows["heard-part"];
     return stored && Number.isFinite(stored.integrated) && stored.integrated >= QUIET ? stored : null;
   }
@@ -300,7 +300,7 @@ class Tap implements GainTap {
   readonly shared: boolean;
   readonly state: PlaybackState;
   readonly #queue: Array<[number, number, number]> = [];
-  // 블록이 끝난 위치와 그 뒤의 추종 게인. 프레임의 시작 위치 + LOOK_SAMPLES 에서 선형 보간해 읽는다
+  // 블록이 끝난 위치와 그 뒤의 추종 게인. 프레임의 시작 위치 + LOOK_SAMPLES에서 선형 보간해 읽는다
   readonly #trace: Array<[number, number]> = [];
   // 다음 탭이 확정된 뒤의 이전 탭. 마지막으로 보낸 게인으로 고정된다
   #frozen: TapFrame | null = null;
@@ -373,7 +373,7 @@ class GainControl {
     this.#measure = measure;
   }
 
-  /** 파이프라인의 탭을 연다(resourceOf 가 입력 방식을 정한 뒤 부른다). 이어 트는 재생이고 곡과 키가 같으면 재생 상태를 이어 간다 */
+  /** 파이프라인의 탭을 연다(resourceOf가 입력 방식을 정한 뒤 부른다). 이어 트는 재생이고 곡과 키가 같으면 재생 상태를 이어 간다 */
   openTap(info: TapInfo, facts: PathFacts): Tap {
     const current = this.#current;
     if (info.continued && current && !current.ended && current.key === info.key) {
@@ -434,7 +434,7 @@ class GainControl {
     if (state.key && state.facts.cacheFile && this.isOn()) this.#measure(state.key);
   }
 
-  // 저장하고 끝낸다. facts 가 없으면 끝 판정을 받지 못한 끝이다(정지, 넘김)
+  // 저장하고 끝낸다. facts가 없으면 끝 판정을 받지 못한 끝이다(정지, 넘김)
   #finish(state: PlaybackState, facts: EndView | null) {
     if (state.ended) return;
     state.ended = true;

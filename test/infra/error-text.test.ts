@@ -1,4 +1,4 @@
-// src/infra/error-text.ts: 던져진 값의 이름(code), 메시지, 시간 초과 오류
+// src/infra/error-text.ts: 예외로 던져진 값의 이름(code), 메시지, 시간 초과 오류
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

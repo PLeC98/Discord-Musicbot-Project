@@ -1,5 +1,5 @@
 // 상주 모드(24/7) 자리 지킴이: 자리가 있는데 봇이 그 자리에 붙어 있지 않으면 다시 붙인다. 언제 나가는지는 player/idle-leave, 버리는 결정은 player/voice-link 몫이고
-// 여기는 끝난 까닭(disposed 의 end)을 받아 할 일만 정한다.
+// 여기는 끝난 이유(disposed의 end)를 받아 할 일만 정한다.
 //   다시 붙음   기동(세션 복원, 이어받기 뒤), 쓸 수 없던 서버가 돌아옴, 일시적인 끝(복구 포기, 접속 실패 등)
 //   자리를 끔   강제 퇴장, 채널 삭제, 권한 잃음(디스코드의 확답). 서버 채널에 알린다
 //   차단        같은 오류가 되풀이되어 멈춘 서버(fault). 봇을 다시 시작하거나 곡을 다시 틀 때까지 재접속하지 않는다
@@ -42,7 +42,7 @@ const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 �
 async function announce(guild: Guild, notice: Notice) {
   const channel = await resolveFallbackTextChannel(guild).catch((error: unknown) => {
     const code = codeOf(error);
-    // 설정 DB 가 이미 닫혔으면(종료 중) 알릴 채널을 찾을 수 없다. 그 밖의 실패는 남긴다
+    // 설정 DB가 이미 닫혔으면(종료 중) 알릴 채널을 찾을 수 없다. 그 밖의 실패는 남긴다
     if (code !== "DB_NOT_OPEN") log.warn(`봇 채널 찾기 실패(상주 모드 해제 알림 전송 건너뜀): 서버=${guild.name} | ${messageOf(error)}${code === undefined ? "" : ` (${code})`}`);
     return null;
   });
@@ -51,13 +51,13 @@ async function announce(guild: Guild, notice: Notice) {
   await bestEffort(log, sending, "상주 모드 해제 알림 전송", "warn");
 }
 
-/** join, announce, sleep 은 시험이 바꾼다 */
+/** join, announce, sleep은 시험이 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
 // 상주 채널을 디스코드에서 조회한 결과: 붙을 채널, 상주 설정을 끌 원인, 조회 실패(그 원인)
 type Found = { channel: VoiceBasedChannel } | { why: Why } | { failed: string };
 
-/** 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다(go 가 예외를 던진다). 실패가 아니다 */
+/** 붙는 동안 상주 설정이 바뀌었거나 상주 모드가 멈췄다(go가 예외를 던진다). 실패가 아니다 */
 class SeatChanged extends Error {}
 
 class StayKeeper {
@@ -71,7 +71,7 @@ class StayKeeper {
   failures = new Map<string, ReturnType<typeof repeatingFailure>>();
   blocked = new Set<string>(); // 되풀이 오류로 차단한 서버
   busy = new Set<string>(); // 붙는 중
-  ready = false; // 기동 차례가 끝났다(그 전의 GuildAvailable 은 기동이 맡는다)
+  ready = false; // 기동 차례가 끝났다(그 전의 GuildAvailable은 기동이 맡는다)
   stopped = false; // 종료로 멈춘 상태. 다시 붙지 않고, 예약하지 않고, 상주 설정을 지우지 않는다
 
   constructor({ client, players, join = joinChannel, announce: tell = announce, sleep = (ms) => new Promise((done) => setTimeout(done, ms)) }: Deps) {
@@ -96,7 +96,7 @@ class StayKeeper {
     this.timers.delete(guildId);
   }
 
-  // 다음 시도를 건다. 붙으면 처음으로(tries 를 지운다)
+  // 다음 시도를 건다. 붙으면 처음으로(tries를 지운다)
   _later(guildId: string) {
     this._cancel(guildId);
     const n = this.tries.get(guildId) ?? 0;
@@ -155,7 +155,7 @@ class StayKeeper {
       const seat = staySeats.seatOf(guildId);
       if (!seat || this.players.get(guildId)?.voice.isAlive()) return true;
       const found = await this._seatChannel(guild, seat.channelId);
-      // 조회하는 사이 상주 모드가 꺼지거나 새로 켜졌으면(/leave, /247, 같은 채널이어도 켤 때마다 새 항목) 이 결과로 접속하거나 해제하지 않는다
+      // 조회하는 사이 상주 모드가 꺼지거나 새로 켜졌으면(/leave, /247, 같은 채널이어도 켤 때마다 새 항목)이 결과로 접속하거나 해제하지 않는다
       if (this.stopped || staySeats.seatOf(guildId) !== seat) return true;
       if ("failed" in found) {
         this._failure(guildId).fail(found.failed);

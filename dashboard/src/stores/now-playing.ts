@@ -12,10 +12,10 @@ import { text } from "../text/index.ts";
 // 전역 재생 바. "내가 들어가 있는 음성 채널에 봇이 있고, 뭔가 재생 중일 때"만 의미를 갖는다.
 //
 // 서버 화면과 상태를 공유하지 않는다. 재생 중인 서버의 화면에서는 바가 숨으므로
-// 같은 서버를 둘이 동시에 읽는 상황이 생기지 않는다. 규칙은 utils/playback 을 같이 쓴다.
+// 같은 서버를 둘이 동시에 읽는 상황이 생기지 않는다. 규칙은 utils/playback을 같이 쓴다.
 //
-// SSE 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds 의 onGuildNudge).
-// 대기열은 보지 않으므로 모든 요청에 ?queue=0 을 싣는다
+// SSE 연결은 새로 열지 않는다. 탭의 목록 연결 하나의 신호를 나눠 쓴다(stores/guilds의 onGuildNudge).
+// 대기열은 보지 않으므로 모든 요청에 ?queue=0을 싣는다
 export const useNowPlayingStore = defineStore("nowPlaying", () => {
   const guilds = useGuildsStore();
 
@@ -46,7 +46,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
 
   const url = (id: string, path = "") => `/api/guilds/${id}/player${path}?queue=0`;
 
-  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET 의 권한, 음성 필드가 없어 그것만 남긴다
+  // 받은 상태를 반영한다. 늦게 온 옛 상태는 버린다. 조작 응답에는 GET의 권한, 음성 필드가 없어 그것만 남긴다
   function apply(next: PlayerState) {
     if (!accepts(data.value, next)) return;
     data.value = withReadFields(data.value, next);
@@ -68,7 +68,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
         clock.value = clockOf(res.data, Date.now());
       }
     } catch (e) {
-      // 권한을 잃었거나 봇이 나갔다(답이 왔다). 바를 접는다. 응답이 없거나 늦으면 지금 바를 둔다
+      // 권한을 잃었거나 봇이 나갔다(응답이 왔다). 바를 접는다. 응답이 없거나 늦으면 지금 바를 둔다
       if (axios.isAxiosError(e) && e.response) data.value = null;
     }
   }
@@ -121,7 +121,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     }
   }
 
-  // 놓은 위치를 먼저 보이고 보낸다. entry 는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
+  // 놓은 위치를 먼저 보이고 보낸다. entry는 잡을 때의 곡(그 사이 바뀌었으면 서버가 거절한다)
   function seek(seconds: number, entry: number | null | undefined) {
     clock.value = retime(clock.value, Date.now(), { at: seconds });
     return send("seek", { position: seconds, ...(Number.isInteger(entry) ? { onTrack: entry } : {}) }, text.player.failed.seek);
@@ -141,7 +141,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
     // 목록 연결의 신호. 내 대상 서버의 변화만 필터링해 받는다.
-    // guildId 가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
+    // guildId가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
       if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 둘이 각각 읽으면 요청이 배로 든다

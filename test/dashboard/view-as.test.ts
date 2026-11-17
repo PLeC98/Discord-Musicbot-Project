@@ -172,5 +172,5 @@ test("운영자가 아니면 오버라이드로 권한을 얻을 수 없다", ()
 test("getViewAs는 알려진 계층만 통과시킨다", () => {
   for (const tier of TIERS) assert.equal(getViewAs(req(tier)), tier);
   for (const bad of [undefined, null, "", "admin", "owner", "OWNER", 1, {}]) assert.equal(getViewAs(req(bad)), null, "운영자는 계층이 아니다");
-  assert.equal(getViewAs(fake<Request>({})), null, "세션이 없어도 던지지 않는다");
+  assert.equal(getViewAs(fake<Request>({})), null, "세션이 없어도 예외를 던지지 않는다");
 });

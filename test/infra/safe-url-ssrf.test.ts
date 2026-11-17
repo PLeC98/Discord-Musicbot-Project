@@ -20,7 +20,7 @@ type Reply = Incoming;
 const reply = (status: number, headers: Record<string, string> = {}): Reply => ({ status, headers, body: Readable.from([]) });
 const AUDIO = { "content-type": "audio/mpeg" };
 
-// ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head, getStream 에 넘긴다 ─────────────
+// ── 바깥 경계 가짜: 요청 함수와 DNS 해석. head, getStream에 넘긴다 ─────────────
 const calls: Outgoing[] = [];
 let responder: (request: Outgoing, n: number) => Reply = () => reply(200, AUDIO);
 // 기본은 실제 해석에 위임
@@ -158,7 +158,7 @@ test("상대 경로 리다이렉트도 재검증을 거친다", async () => {
 test("리다이렉트 무한 루프는 상한에서 끊긴다", async () => {
   responder = () => reply(302, { location: "https://1.1.1.1/loop" });
   await rejects(head("https://1.1.1.1/x.mp3"), /리다이렉트 횟수 초과/);
-  assert.ok(calls.length <= 5, `요청 ${calls.length}회 — 상한이 없으면 무한히 돈다`);
+  assert.ok(calls.length <= 5, `요청 ${calls.length}회(상한이 없으면 무한히 돈다)`);
 });
 
 test("Location 없는 3xx는 오류로 끊는다", async () => {
@@ -183,7 +183,7 @@ test("getStream도 같은 검증 경로를 지난다", async () => {
   assert.equal(calls.length, 0);
 });
 
-test("getStream 이어 받기: from 을 주면 Range 를 리다이렉트 홉마다 다시 보내고, 받는 쪽에 응답 상태를 넘긴다", async () => {
+test("getStream 이어 받기: from을 주면 Range를 리다이렉트 홉마다 다시 보내고, 받는 쪽에 응답 상태를 넘긴다", async () => {
   lookupImpl = async () => [{ address: "1.1.1.1", family: 4 }];
   responder = (_request, n) => (n === 1 ? reply(302, { location: "http://example.com/b.m4a" }) : reply(206, { ...AUDIO, "content-range": "bytes 100-199/200" }));
   const stream = await safeUrl.getStream("http://example.com/a.m4a", deps, { from: 100 });
@@ -199,18 +199,18 @@ test("getStream 이어 받기: from 을 주면 Range 를 리다이렉트 홉마�
   responder = () => reply(200, AUDIO);
   const plain = await getStream("http://example.com/a.mp3");
   plain.destroy();
-  assert.equal(calls[0].headers.Range, undefined, "from 이 없으면 보내지 않는다");
+  assert.equal(calls[0].headers.Range, undefined, "from이 없으면 보내지 않는다");
 });
 
-test("servedFrom: 206 은 Content-Range 의 시작, 그 밖은 처음부터, 깨진 Content-Range 는 null", () => {
+test("servedFrom: 206은 Content-Range의 시작, 그 밖은 처음부터, 깨진 Content-Range는 null", () => {
   assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "bytes 3871982-3957268/3957269" } }), 3871982);
   assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "bytes 5-9/*" } }), 5);
-  assert.equal(safeUrl.servedFrom({ status: 200, headers: {} }), 0, "Range 를 무시하고 전체를 줬다");
+  assert.equal(safeUrl.servedFrom({ status: 200, headers: {} }), 0, "Range를 무시하고 전체를 줬다");
   assert.equal(safeUrl.servedFrom({ status: 206, headers: {} }), null);
   assert.equal(safeUrl.servedFrom({ status: 206, headers: { "content-range": "items 1-2/3" } }), null);
 });
 
-// getBuffer: 작은 파일을 끝까지 다운로드한다(파비콘 링크로 추가). 다운로드할 것의 조건은 부르는 쪽이 정한다
+// getBuffer: 작은 파일을 끝까지 다운로드한다(파비콘 링크로 추가). 다운로드할 것의 조건은 호출부가 정한다
 const IMAGE: Accept = { contentType: /^image\/png/i, maxBytes: 8, timeoutMs: 1000 };
 const getBuffer = (url: string) => safeUrl.getBuffer(url, IMAGE, deps);
 const body = (status: number, headers: Record<string, string>, chunks: Buffer[]): Reply => ({ status, headers, body: Readable.from(chunks) });
@@ -236,7 +236,7 @@ test("getBuffer: 같은 방어를 지나고(내부 주소, 리다이렉트로 �
 
 // ── 6. 오라클 방지 ───────────────────────────────────────────────────────────
 
-test("차단 사유에 내부 주소가 담기지만 SsrfError로만 던진다 (호출측이 일반화)", async () => {
+test("차단 사유에 내부 주소가 담기지만 SsrfError 예외만 던진다 (호출측이 일반화)", async () => {
   // DirectLink가 사용자에게는 일반 문구만 노출한다. 여기서는 진단을 위해 상세를 담되,
   // 타입으로 구분 가능해야 호출측이 안전하게 필터링할 수 있다.
   await assert.rejects(head("http://169.254.169.254/x.mp3"), (e) => {
@@ -246,14 +246,14 @@ test("차단 사유에 내부 주소가 담기지만 SsrfError로만 던진다 (
   });
 });
 
-test("2xx 가 아닌 응답은 실패로 끊는다. 받는 쪽이 가르게 상태를 단다", async () => {
+test("2xx가 아닌 응답은 실패로 끊는다. 받는 쪽이 가르게 상태를 단다", async () => {
   responder = () => reply(404, AUDIO);
   await assert.rejects(head("https://1.1.1.1/x.mp3"), /HTTP 404/);
   responder = () => reply(416, AUDIO);
   await assert.rejects(getStream("https://1.1.1.1/x.mp3"), (e: { status?: number }) => e.status === 416);
 });
 
-test("getStream 구간: 끝이 있는 구간, 끝없는 구간, If-Range 는 구간과 함께만", async () => {
+test("getStream 구간: 끝이 있는 구간, 끝없는 구간, If-Range는 구간과 함께만", async () => {
   lookupImpl = async () => [{ address: "1.1.1.1", family: 4 }];
   responder = () => reply(206, { ...AUDIO, "content-range": "bytes 616-121705/999999" });
   const asked = async (opts: Parameters<typeof safeUrl.getStream>[2]) => {
@@ -263,11 +263,11 @@ test("getStream 구간: 끝이 있는 구간, 끝없는 구간, If-Range 는 구
   };
   assert.deepEqual(await asked({ from: 616, to: 121705 }), ["bytes=616-121705", undefined]);
   assert.deepEqual(await asked({ from: 4096, ifRange: '"abc"' }), ["bytes=4096-", '"abc"']);
-  assert.deepEqual(await asked({ ifRange: '"abc"' }), [undefined, undefined], "구간 없이 If-Range 만 보내지 않는다");
+  assert.deepEqual(await asked({ ifRange: '"abc"' }), [undefined, undefined], "구간 없이 If-Range만 보내지 않는다");
 });
 
 // ── 7. 요청 함수: 진짜 소켓 ──────────────────────────────────────────────────
-// 풀리지 않는 호스트(pinned.invalid)로 보낸다. 응답이 오면 고정 IP 로 접속한 것이다.
+// 풀리지 않는 호스트(pinned.invalid)로 보낸다. 응답이 오면 고정 IP로 접속한 것이다.
 
 const { send, createPinnedAgent } = safeUrl._internals;
 
@@ -299,7 +299,7 @@ test("진짜 소켓: 응답 헤더가 제한 시간 안에 오지 않으면 시�
   }
 });
 
-test("진짜 소켓: 고정 IP 로 접속하고, 리다이렉트는 따라가지 않고 그대로 돌려준다", async () => {
+test("진짜 소켓: 고정 IP로 접속하고, 리다이렉트는 따라가지 않고 그대로 돌려준다", async () => {
   const { server, url } = await localServer((req, res) => {
     if (req.url === "/redirect") return res.writeHead(302, { Location: "/final" }).end();
     res.writeHead(200, AUDIO).end(Buffer.alloc(4096, 1));
@@ -367,7 +367,7 @@ test("본문 무응답: 받는 쪽이 받으려는데 한도만큼 안 오면 �
   assert.equal(errors[0]?.name, "TimeoutError", "실패 범위를 네트워크 탓으로 본다");
 });
 
-// Node 24 는 NODE_USE_ENV_PROXY=1 이면 전역 에이전트가 HTTP_PROXY 를 탄다. 프로세스를 실행할 때 읽으므로 자식으로 본다.
+// Node 24는 NODE_USE_ENV_PROXY=1이면 전역 에이전트가 HTTP_PROXY를 탄다. 프로세스를 실행할 때 읽으므로 자식으로 본다.
 // 프록시를 타면 목적지를 프록시가 다시 풀어 고정 접속이 무의미해진다
 test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 프록시를 타지 않는다", async () => {
   const { server, url } = await localServer((_req, res) => res.writeHead(200, AUDIO).end("직접"));
@@ -379,7 +379,7 @@ test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 �
       console.log("PROBE " + r.status + " " + body);`;
     const env = { ...process.env, NODE_USE_ENV_PROXY: "1", HTTP_PROXY: "http://127.0.0.1:9", http_proxy: "http://127.0.0.1:9", NO_PROXY: "", no_proxy: "" };
     const child = await new Promise<{ stdout: string }>((done) => {
-      // spawnSync 은 이 프로세스의 서버를 막으므로 비동기로 실행한다
+      // spawnSync은 이 프로세스의 서버를 막으므로 비동기로 실행한다
       const c = spawn(process.execPath, ["--input-type=module", "-e", probe], { env });
       let stdout = "";
       c.stdout.on("data", (d) => (stdout += d));

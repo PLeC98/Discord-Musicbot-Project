@@ -11,9 +11,9 @@ const PICTOGRAPHIC = /\p{Extended_Pictographic}/u;
 const PICTURE_BY_DEFAULT = /\p{Emoji_Presentation}/u;
 
 /**
- * 이모지처럼 보이는 글자 묶음인가: 국기, VS16 이 붙은 키캡, 그림 글자를 품고 기본이 그림이거나 VS16 이나 ZWJ 가 붙은 것.
+ * 이모지처럼 보이는 글자 묶음인가: 국기, VS16이 붙은 키캡, 그림 글자를 품고 기본이 그림이거나 VS16이나 ZWJ가 붙은 것.
  * VS15(글자 모양 지정)만 붙은 것과 그림 표시가 없는 ©, ™ 은 세지 않는다.
- * 등록된 조합 목록(RGI)을 보지 않아 Node 의 Unicode 판이 낡아도 조합 이모지를 조각마다 더 세지 않는다
+ * 등록된 조합 목록(RGI)을 보지 않아 Node의 Unicode 판이 낡아도 조합 이모지를 조각마다 더 세지 않는다
  */
 function looksEmoji(grapheme: string): boolean {
   if (FLAG.test(grapheme) || KEYCAP.test(grapheme)) return true;
@@ -44,8 +44,8 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
 ];
 
 // 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 거의 늘 한 곡이다(공식 뮤직비디오, 가사 영상 제목에는 이모지, 언어 목록이 흔하다).
-// official 은 앞뒤가 글자가 아닐 때만(Official髭男dism 은 밴드 이름이다). feat, ft 만 센다. fe?a?t 로 적으면 "fat", "fet" 도 걸린다.
-// 가사 영상 표식(lyrics, 가사)은 괄호 안이나 "lyric video" 로만 본다. 글 속의 lyrics 는 모음 제목에도 나온다("… uplifting lyrics … (1 hour)")
+// official은 앞뒤가 글자가 아닐 때만(Official髭男dism은 밴드 이름이다). feat, ft만 센다. fe?a?t로 적으면 "fat", "fet"도 걸린다.
+// 가사 영상 표식(lyrics, 가사)은 괄호 안이나 "lyric video"로만 본다. 글 속의 lyrics는 모음 제목에도 나온다("… uplifting lyrics … (1 hour)")
 const SONG_MARKS = /(?<!\p{L})official(?!\p{L})|公式|\bm\/?v\b|fullmv|[[(（【][^\])）】]*(?:\blyrics?\b|가사)|\blyrics? video\b|\b(?:feat|ft)\b\.?/iu;
 
 // 단어 경계를 쓸 수 있는 제외 키워드인지. 로마자, 숫자, 공백뿐이면 쓴다.
@@ -53,7 +53,7 @@ const SONG_MARKS = /(?<!\p{L})official(?!\p{L})|公式|\bm\/?v\b|fullmv|[[(（�
 const ASCII_WORD = /^[a-z0-9 '&.-]+$/;
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords 는 이 출처에 거는 제외 키워드(키워드 출처만, autoplay/route 가 선택한다) */
+/** 판정에 쓰는 설정. 수 필드는 글자일 수 있다. blockedKeywords는 이 출처에 거는 제외 키워드(키워드 출처만, autoplay/route가 선택한다) */
 type FilterConfig = { blockedKeywords?: unknown[]; minDurationSec?: unknown; maxDurationSec?: unknown };
 type Limits = { minSec: number; maxSec: number; blocked: Array<{ word: string; test: RegExp | null }> };
 type Verdict = { ok: boolean; reason?: string; detail?: string };

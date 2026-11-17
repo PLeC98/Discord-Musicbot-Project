@@ -25,7 +25,7 @@ async function lbradio(source: GenreSource): Promise<Candidate[]> {
   const modes = ([] as string[]).concat(source.mode || "hard");
 
   // mode 파라미터는 하나만 받지만(둘을 주면 400), 프롬프트 안에서는 원소마다 지정할 수 있다.
-  // 그래서 `mode: [easy, hard]` 를 한 번의 요청으로 섞을 수 있다. 50곡을 나눠 채워 준다.
+  // 그래서 `mode: [easy, hard]`를 한 번의 요청으로 섞을 수 있다. 50곡을 나눠 채워 준다.
   const tagPart = source.tags?.length ? `tag:(${source.tags.join(",")})` : "";
   const prompt = source.prompt || (tagPart ? modes.map((m) => `${tagPart}::${m}`).join(" ") : "");
   if (!prompt) return [];
@@ -64,7 +64,7 @@ const PLACEHOLDER = {
     ),
 };
 
-/** 저장된 토큰을 ListenBrainz 에 확인한다(운영자 패널의 연결 테스트). 답의 valid 가 참이어야 한다 */
+/** 저장된 토큰을 ListenBrainz에 확인한다(운영자 패널의 연결 테스트). 답의 valid가 참이어야 한다 */
 async function checkListenbrainzToken(): Promise<KeyCheck> {
   const token = config.sources?.listenbrainzToken;
   if (!token) return { ok: false, reason: "missing" };

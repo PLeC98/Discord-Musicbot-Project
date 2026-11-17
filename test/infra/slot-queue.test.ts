@@ -21,7 +21,7 @@ test("상한까지만 자리를 주고 나머지는 자리가 나면 온 차례�
   assert.deepEqual(queue.stats(), { running: 2, size: 2, waiting: 1 });
 });
 
-test("기다리는 차례는 rank 가 작은 것부터, 같으면 온 차례로", async () => {
+test("기다리는 차례는 rank가 작은 것부터, 같으면 온 차례로", async () => {
   const queue = new SlotQueue(() => 1);
   const hold = await queue.take();
   const entered: string[] = [];
@@ -53,7 +53,7 @@ test("크기는 들일 때마다 다시 읽는다", async () => {
   first();
 });
 
-test("기다리다 끊기면 줄에서 빠지고 그 까닭으로 거절된다. 이미 끊긴 신호는 곧바로", async () => {
+test("기다리다 끊기면 줄에서 빠지고 그 이유로 거절된다. 이미 끊긴 신호는 곧바로", async () => {
   const queue = new SlotQueue(() => 1);
   const hold = await queue.take();
   const controller = new AbortController();

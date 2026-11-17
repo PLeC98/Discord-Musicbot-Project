@@ -53,7 +53,7 @@ test("전부 제외되면 빈 배열. 호출부가 yt-dlp 기본값으로 떨어
     pc.record(c, false);
   }
   assert.deepEqual(pc.list(), []);
-  assert.equal(pc.idle, false, "지정은 했으므로 idle이 아니다 — 전멸과 미설정은 다르다");
+  assert.equal(pc.idle, false, "지정은 했으므로 idle이 아니다(전멸과 미설정은 다르다)");
 });
 
 test("제외된 클라이언트는 더 기록하지 않는다", () => {
@@ -95,7 +95,7 @@ test("안내용 목록끼리 어긋나지 않는다", () => {
 });
 
 // 한 번 제외한 클라이언트도 때가 지나면 되살린다. 안 그러면 오래 켜 둘 때 운 나쁜 실패로 주력이 영구히 빠진다
-test("제외한 지 retryMs 가 지나면 기록을 비우고 다시 순서에 넣는다. 0 이면 실행 내내 제외", () => {
+test("제외한 지 retryMs가 지나면 기록을 비우고 다시 순서에 넣는다. 0이면 실행 내내 제외", () => {
   let now = 0;
   const pc = new PlayerClients(["visionos", "web_embedded"], { window: 2, fails: 2, retryMs: 60_000, now: () => now });
   pc.record("visionos", false);

@@ -8,10 +8,10 @@ import { codeOf } from "../rules/error-kind.ts";
 /** 현재 재생 패널의 위치 */
 type PanelRecord = { channelId: string | null; messageId: string };
 
-// 열기 전에 부르면 던진다
+// 열기 전에 부르면 예외를 던진다
 const conn = () => stateDb.get();
 
-// 서버마다 읽어 둔 위치. 없으면 null 을 담는다
+// 서버마다 읽어 둔 위치. 없으면 null을 담는다
 const cache = new Map<string, PanelRecord | null>();
 
 // 테스트: 읽어 둔 것을 버린다
@@ -56,7 +56,7 @@ async function setPanel(guildId: string, channelId: string | null, messageId: st
   }
 }
 
-/** 봇이 서버에서 나갔다. 읽어 둔 위치를 버린다(행은 stateDb.forgetGuild 가 삭제한다) */
+/** 봇이 서버에서 나갔다. 읽어 둔 위치를 버린다(행은 stateDb.forgetGuild가 삭제한다) */
 function forget(guildId: string) {
   cache.delete(guildId);
 }

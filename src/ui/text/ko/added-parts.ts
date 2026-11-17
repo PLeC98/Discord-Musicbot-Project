@@ -1,12 +1,12 @@
 // 곡을 추가한 안내의 본문 문장. 디스코드 추가 안내(queue.added)와 대시보드 곡 추가 칸이 같이 쓴다.
-// 브라우저(대시보드)도 쓴다. Node, discord.js 에 기대는 것이 없다(꾸밈은 부르는 쪽이 씌운다)
+// 브라우저(대시보드)도 쓴다. Node, discord.js에 기대는 것이 없다(꾸밈은 호출부가 씌운다)
 
 import { songTitle } from "./labels.ts";
 import { josa } from "../../../rules/josa.ts";
 
 /**
- * 추가한 곡. collection 은 여러 곡을 추가한 출처의 이름(labels.collection, 없으면 한 곡), total 은 출처 전체 곡 수(일부만 추가했을 때),
- * first 는 대기열 맨 앞에 넣었는지, position 은 넣은 첫 곡의 대기열 순번(1부터, 모르면 null)
+ * 추가한 곡. collection은 여러 곡을 추가한 출처의 이름(labels.collection, 없으면 한 곡), total은 출처 전체 곡 수(일부만 추가했을 때),
+ * first는 대기열 맨 앞에 넣었는지, position은 넣은 첫 곡의 대기열 순번(1부터, 모르면 null)
  */
 type AddedTracks = { tracks: Array<{ title?: string | null }>; collection: string | null; total: number | null; first: boolean; position?: number | null };
 
@@ -21,7 +21,7 @@ function addedParts({ tracks, collection, total, first, position = null }: Added
   return { name, rest: `${josa(name, "을")} ${where} 넣었어요.` };
 }
 
-/** 다 넣지 못한 까닭. dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 불러옴, skipped 출처가 받을 수 없어 뺀 곡 수 */
+/** 다 넣지 못한 이유. dropped 대기열이 차서 못 넣은 곡 수, queueLimited 자리가 모자라 목록을 덜 불러옴, skipped 출처가 받을 수 없어 뺀 곡 수 */
 type Shortfall = { dropped: number; queueLimited: boolean; skipped: number; max: number };
 
 /** 대기열이 찼을 때 대시보드 알림의 제목. 디스코드는 그 줄 앞에 붙인다 */

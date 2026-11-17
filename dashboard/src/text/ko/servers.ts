@@ -15,7 +15,7 @@ const members = (n: number) => `멤버 ${formatNumber(n)}명`;
 const listening = "듣는 중";
 /** 디스코드에서 서버 목록을 받지 못해 이미 확인한 서버만 보일 때 */
 const relogin = { body: "디스코드에서 서버 목록을 받지 못해 일부 서버가 안 보일 수 있어요. 다시 로그인하면 모두 보여요.", action: "다시 로그인" };
-/** 봇의 Server Members Intent 가 꺼져 서버 화면을 쓸 수 없을 때. body 는 사용자에게, owner 는 운영자에게 body 대신 보이는 고칠 방법 */
+/** 봇의 Server Members Intent가 꺼져 서버 화면을 쓸 수 없을 때. body는 사용자에게, owner는 운영자에게 body 대신 보이는 고칠 방법 */
 const membersOff = {
   title: "서버 화면을 쓸 수 없어요",
   body: "봇 설정상 서버 화면이 비활성화돼 있어요. 재생이나 서버 설정은 디스코드 명령어로 할 수 있어요. 서버 화면이 필요하면 봇 운영자에게 요청해 주세요.",

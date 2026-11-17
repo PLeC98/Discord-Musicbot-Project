@@ -18,7 +18,7 @@ test("코드는 소문자 케밥, 63자 이하", () => {
   for (const code of codes) assert.ok(code.length <= 63, code);
 });
 
-test("HTTP 상태는 4xx, 5xx 이고, 제목은 영어 한 줄", () => {
+test("HTTP 상태는 4xx, 5xx이고, 제목은 영어 한 줄", () => {
   for (const [code, spec] of Object.entries(PROBLEMS)) {
     assert.ok(Number.isInteger(spec.status) && spec.status >= 400 && spec.status <= 599, code);
     assert.match(spec.title, /^[A-Z][\x20-\x7E]*[a-z]$/, code);

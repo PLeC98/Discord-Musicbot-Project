@@ -1,4 +1,4 @@
-// 화면 오른쪽 위의 작은 알림. 저장, 보내기 같은 조작의 결과(됨, 실패)와 거절된 까닭을 몇 초 보여 준다.
+// 화면 오른쪽 위의 작은 알림. 저장, 보내기 같은 조작의 결과(됨, 실패)와 거절된 이유를 몇 초 보여 준다.
 // 뜬 알림은 알림함(위 막대 오른쪽 끝의 종)에도 남는다. 페이지를 새로 열면 비는 이 탭만의 기록이다
 // 어느 입력란이 틀렸는지 표시하는 검사(장르 이름 겹침, 곡 주소 형식 등)는 그 입력란 옆에 두고 여기로 보내지 않는다
 
@@ -73,7 +73,7 @@ export function notifyDone(title: string, body = ""): void {
   notify({ title, body, severity: "success" });
 }
 
-/** 요청 오류의 알림. 세션 끝(401), 다시 로그인, 연결 안 됨은 SessionNotice 가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
+/** 요청 오류의 알림. 세션 끝(401), 다시 로그인, 연결 안 됨은 SessionNotice가 이미 알리고, 화면이 끊은 요청(페이지를 떠남)은 알릴 것이 없다 */
 export function notifyProblem(error: unknown, fallback: string, detailLine?: (line: string) => string): void {
   const kind = failureKind(error);
   // 세션 만료, 재로그인, 계정 변경은 대화상자와 상단 배너로 알린다

@@ -1,7 +1,7 @@
-// src/sources/ytdlp-spawn.ts: 실제 yt-dlp 바이너리(ytdlpBinary.path(), 지금 버전)로 부르는 계약. 네트워크 없이 --version 과 모르는 플래그만 쓴다.
-// 연령 제한, 삭제 영상 판별(youtube/errors)이 error.stderr 와 message 를 읽으므로 실패 모양을 지킨다. 실행한 yt-dlp 는 레지스트리가 추적하고 끝나면 놓는다.
-// 검사용 인자는 url 이 아니라 flags 로 넘긴다(url 은 -- 뒤에 붙어 yt-dlp 가 글자 그대로의 URL 로 읽는다).
-// 바이너리가 없으면 로컬은 건너뛰고, CI 에서는 실패한다(설치가 깨졌다는 뜻이다).
+// src/sources/ytdlp-spawn.ts: 실제 yt-dlp 바이너리(ytdlpBinary.path(), 지금 버전)로 부르는 계약. 네트워크 없이 --version과 모르는 플래그만 쓴다.
+// 연령 제한, 삭제 영상 판별(youtube/errors)이 error.stderr와 message를 읽으므로 실패 모양을 지킨다. 실행한 yt-dlp는 레지스트리가 추적하고 끝나면 놓는다.
+// 검사용 인자는 url이 아니라 flags로 넘긴다(url은 -- 뒤에 붙어 yt-dlp가 글자 그대로의 URL로 읽는다).
+// 바이너리가 없으면 로컬은 건너뛰고, CI에서는 실패한다(설치가 깨졌다는 뜻이다).
 
 import fs from "node:fs";
 import { test } from "node:test";
@@ -14,7 +14,7 @@ import { ytdlpBinary } from "../../src/sources/ytdlp-binary.ts";
 
 const BINARY = ytdlpBinary.path();
 const hasBinary = BINARY !== null && fs.existsSync(BINARY);
-if (!hasBinary && process.env.CI) throw new Error(`yt-dlp 가 설치되지 않음(CI 의 postinstall 이 설치해야 한다): ${BINARY ?? "기록 없음"}`);
+if (!hasBinary && process.env.CI) throw new Error(`yt-dlp가 설치되지 않음(CI의 postinstall이 설치해야 한다): ${BINARY ?? "기록 없음"}`);
 const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY ?? "기록 없음"})` };
 
 test("성공 계약: 버전 문자열을 돌려주고 프로세스 등록을 해제한다", opts, async () => {
@@ -31,7 +31,7 @@ test("실패 계약: stderr를 담은 Error. 연령제한/삭제영상 판별이
     () => null,
     (e: YtDlpError) => e,
   );
-  assert.ok(failed instanceof Error, "실패는 Error로 던져야 한다");
+  assert.ok(failed instanceof Error, "실패는 Error를 던져야 한다");
   assert.match(failed.stderr ?? "", /no such option: --definitely-bogus-flag/i, "stderr가 실려 있어야 한다");
   assert.equal(failed.message, failed.stderr, "message = stderr");
   assert.equal(failed.exitCode, 2);

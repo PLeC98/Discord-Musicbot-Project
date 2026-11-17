@@ -1,4 +1,4 @@
-// 저장소를 임시 폴더의 DB 들로 연다. 운영 DB 와 audio_cache, 받은 AI 모델 정보를 건드리지 않는다.
+// 저장소를 임시 폴더의 DB 들로 연다. 운영 DB와 audio_cache, 받은 AI 모델 정보를 건드리지 않는다.
 //
 //   const store = openTempStore("guild-");
 //   after(() => store.close());
@@ -56,7 +56,7 @@ function setGuild(guildId: string, { djRoles, botChannel, playlistAddMax, sponso
   settings.forgetCache();
 }
 
-/** 서버 설정 표가 망가진 동안 fn 을 부른다(표를 치워 두었다가 되돌린다). 표를 부르면 진짜 SQLite 오류가 난다 */
+/** 서버 설정 표가 망가진 동안 fn을 부른다(표를 치워 두었다가 되돌린다). 표를 부르면 진짜 SQLite 오류가 난다 */
 async function whenSettingsBroken<T>(fn: () => T | Promise<T>): Promise<T> {
   const db = settingsDb.get();
   db.exec("ALTER TABLE guild_settings RENAME TO guild_settings_off");

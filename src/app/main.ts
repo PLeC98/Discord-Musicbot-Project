@@ -1,4 +1,4 @@
-// 봇 조립. src/index.ts 가 설정 문제를 본 뒤 main() 을 부른다(설정 검사가 구조적으로 먼저 돈다).
+// 봇 조립. src/index.ts가 설정 문제를 본 뒤 main()을 부른다(설정 검사가 구조적으로 먼저 돈다).
 // 로그 → 실행 기록 → 남은 자식 프로세스 정리 → 종료 핸들러 → DB, 설정 → 슬래시 명령 배포 → POToken 서버 → 전체 백업의 오디오 캐시 → 클라이언트, 화면, 대시보드 → 핸들러 → 기동 확인 → 로그인.
 
 import { Client, Events, GatewayCloseCodes, RESTEvents, type ClientEvents, type GatewayIntentBits, type VoiceState } from "discord.js";
@@ -97,7 +97,7 @@ type AnyClientEvent = { [K in keyof ClientEvents]: ClientEvent<K> }[keyof Client
 /** 등록할 때 보는 형식. 인자는 이름이 정한다 */
 type EventModule = { name: keyof ClientEvents; once?: boolean; execute(bot: BotContext, ...args: unknown[]): unknown };
 
-// 기동을 멈춘다. 원인은 던지기 전에 로그에 남겼다
+// 기동을 멈춘다. 원인은 예외를 던지기 전에 로그에 남겼다
 class StartupStopped extends Error {}
 
 function main() {
@@ -115,7 +115,7 @@ function main() {
   const potServer = createPotServer();
   // 종료 핸들러는 POToken 서버를 기다리는 동안에도 받는다. 기다리다 끈 것이 기록 없이 끊김으로 세어지지 않게
   const shutdown = installShutdown({ potServer, logFile });
-  // 설정(조절값, 키)은 DB 에 있다. POToken 서버, 명령 배포, 대시보드가 설정을 읽기 전에 연다
+  // 설정(운영 설정값, 키)은 DB에 있다. POToken 서버, 명령 배포, 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
   deploySlashCommands();
   void potServer.start();
@@ -126,22 +126,22 @@ function main() {
     .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
     .then((intents) => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore, intents }))
     .catch((error: unknown) => {
-      // 클라이언트를 만들기 전에 던졌다. 실행한 것을 내리고 나간다
+      // 클라이언트를 만들기 전에 예외를 던졌다. 실행한 것을 내리고 나간다
       log.error("봇 기동 실패:", error);
       stopFailedStart(null, { potServer, logFile }, failedStartCode(error, false));
     });
 }
 
 /**
- * DB 를 열고 설정을 설정 객체에 올린다. 어느 DB 든 구조가 맞지 않거나 못 열면 멈춘다(무엇을 하면 되는지 안내한다).
- * 내용이 틀린 것(조절값, 복호화하지 못하는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
+ * DB를 열고 설정을 설정 객체에 올린다. 어느 DB든 구조가 맞지 않거나 못 열면 멈춘다(무엇을 하면 되는지 안내한다).
+ * 내용이 틀린 것(설정값, 복호화하지 못하는 키)은 멈추지 않고 그 필드만 기본값이다. 고칠 대시보드가 떠야 한다
  */
 function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: LogFile | null }) {
   let restored: string | null;
   try {
     // 대시보드에서 봇 전체 초기화를 예약했으면 열기 전에 지운다(스냅샷, .env, 로그, 이번 실행의 기록은 남는다)
     if (fullReset.applyRequested()) log.warn("봇 전체 초기화 완료: DB, 캐시 파일, 디스플레이 파일 삭제(설정 스냅샷은 database/backups에 보관)");
-    // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups 에 남는다)
+    // 대시보드에서 선택한 스냅샷, 풀어 둔 전체 백업이 예약되어 있으면 열기 전에 교체한다(지금 것은 backups에 남는다)
     restored = snapshots.applyStaged(PROJECT.database);
     if (restored) log.warn(`${restored}로 설정 DB 복원 완료(기존 DB는 database/backups에 백업)`);
     stores.open();
@@ -155,11 +155,11 @@ function openSettings({ potServer, logFile }: { potServer: PotServer; logFile: L
   tunables.load();
   // 로그 스트림의 하트비트는 로그 계층이라 알림을 직접 듣지 않는다(설정 알림이 로그를 부른다)
   onTunablesChanged(() => logSink.syncHeartbeat());
-  // 장르, 상태 문구, AI 설정, 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db 에 쓴다
+  // 장르, 상태 문구, AI 설정, 프롬프트. 설정 계층이 메모리에 들고, 저장할 때 settings.db에 쓴다
   // 예전 기본값 그대로인 AI 줄 형식, 프롬프트는 지금 기본값(영어)으로 바꿔 둔다(config/ai-upgrade)
   const upgraded = documents.attach(settingsDocs);
   if (upgraded.length) log.info(`이전 기본값으로 남아 있던 AI 설정을 새 기본값으로 갱신: ${upgraded.map((name) => (name === "ai" ? "줄 형식" : "판정 프롬프트")).join(", ")}`);
-  // 복원한 설정이 AI 를 켜 두었는데 이 폴더에 받은 모델 정보가 없을 수 있다(전체 백업은 모델 정보를 담지 않는다)
+  // 복원한 설정이 AI를 켜 두었는데 이 폴더에 받은 모델 정보가 없을 수 있다(전체 백업은 모델 정보를 담지 않는다)
   if (restored) fetchIfMissing();
   warnLegacyConfigFiles();
   serviceKeys.load();
@@ -219,7 +219,7 @@ function deploySlashCommands() {
 
 function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; skipRestore: boolean; intents: GatewayIntentBits[] }) {
   const client = new Client({
-    // 특권 둘은 개발자 포털에서 켜진 것만(app/privileged-intents). GuildMembers 는 부르는 곳이 없어 보여도 대시보드가 기댄다.
+    // 특권 둘은 개발자 포털에서 켜진 것만(app/privileged-intents). GuildMembers는 부르는 곳이 없어 보여도 대시보드가 기댄다.
     // 권한 판정, 서버 목록이 멤버를 캐시에서 먼저 보는데, 역할, 별명 변경(GUILD_MEMBER_UPDATE)과 나간 멤버(GUILD_MEMBER_REMOVE)는 이 인텐트가 있어야 캐시에 온다
     intents,
     // 외부에서 온 곡 제목, 파일명이 content에 실려도 멘션이 발동하지 않게 (src/ui/mentions.ts)
@@ -228,9 +228,9 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
     rest: { invalidRequestWarningInterval: 500 },
   });
   const players = new PlayerRegistry(); // 등록, 해제를 로그로 남기는 Collection
-  players.followDisposals(); // 버려진 플레이어는 레지스트리가 스스로 뺀다
+  players.followDisposals(); // 버려진 플레이어는 레지스트리가 자동으로 뺀다
   const panels = new NowPlayingPanel(client, players);
-  // 명령은 기동 확인 뒤 init 이 채운다
+  // 명령은 기동 확인 뒤 init이 채운다
   const commands = new Map<string, SlashCommand>();
   const stay = createStayKeeper({ client, players });
   const bot: BotContext = { client, players, panels, commands, stay };
@@ -243,7 +243,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   const stream = createPlayerStream();
   // 다시 시작은 다시 실행해 줄 실행기(pnpm start)가 있을 때만 연다
   const restart = process.env[LAUNCHER_ENV] === "1" ? (by: string) => shutdown.restart(by) : null;
-  // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014 로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
+  // 실행 중에 포털에서 특권 인텐트를 끄면 게이트웨이가 4014로 연결을 끊고 재연결하지 않는다. 실행기가 있으면 다시 시작해 켜진 것만 요청한다
   client.on(Events.ShardDisconnect, (event) => {
     if (event.code === GatewayCloseCodes.DisallowedIntents) onRefusedWhileRunning(restart);
   });
@@ -292,11 +292,11 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   installErrorHandlers(client, { players, fault });
   listenToLibrary(client);
 
-  // 실패는 init 이 받아 기동 실패로 내린다
+  // 실패는 init이 받아 기동 실패로 내린다
   bestEffort(log, init(bot, { commands, potServer, logFile, shutdown, onFault }), "기동", "error");
 }
 
-// 라이브러리(discord.js, REST)가 알리는 경고, 진행. 게이트웨이의 끊김, 연결 오류는 dashboard/status/gateway 가 끊김 하나에 한 줄로 남긴다
+// 라이브러리(discord.js, REST)가 알리는 경고, 진행. 게이트웨이의 끊김, 연결 오류는 dashboard/status/gateway가 끊김 하나에 한 줄로 남긴다
 function listenToLibrary(client: Client) {
   const dlog = logger.child({ category: "discord" });
   watchGateway(client);
@@ -311,7 +311,7 @@ function listenToLibrary(client: Client) {
     if (info.global) dlog.warn(line);
     else dlog.debug(line);
   });
-  // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP 를 한동안 막는다
+  // 거절된 요청(401, 403, 429)이 10분에 1만 번을 넘으면 디스코드가 IP를 한동안 막는다
   client.rest.on(RESTEvents.InvalidRequestWarning, ({ count, remainingTime }) => dlog.warn(`거절된 디스코드 요청 누적 ${count}회(10분 윈도우 남은 시간 ${Math.round(remainingTime / 1000)}초). 1만 회를 넘으면 디스코드에서 이 IP를 일시 차단함`));
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
@@ -340,9 +340,9 @@ async function onReady(client: Client<true>, bot: BotContext, skipRestore: boole
   // 스포티파이 익명 상태와 토큰(첫 자동완성이 스포티파이를 쓰게). 저장해 둔 것이 쓸 만하면 요청하지 않는다
   void spotifySource.prepareAnonymous();
 
-  // 앱 이모지(아이콘): 목록 하나로 이름 → id 를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
+  // 앱 이모지(아이콘): 목록 하나로 이름 → id를 패널을 그리는 무엇보다 먼저 싣는다(세션 복원도 재생 패널을 올린다).
   // 늦으면 패널이 유니코드로 올라갔다가 다음 갱신에 앱 이모지로 바뀐다. 실패하면 경고만 남기고 유니코드로 간다
-  // 아이콘 id 가 바뀌면(운영자 색) 대기 패널과 음성 채널 상태를 다시 그린다. 옛 것을 지우기 전이라 옛 id 를 가리키는 것이 남지 않는다
+  // 아이콘 id가 바뀌면(운영자 색) 대기 패널과 음성 채널 상태를 다시 그린다. 옛 것을 지우기 전이라 옛 id를 가리키는 것이 남지 않는다
   const redrawEmojis = async () => {
     for (const player of players.values()) player.refreshVoiceStatus();
     await panels.redrawIdlePanels();
@@ -401,9 +401,9 @@ function checkBeforeLogin() {
   stopIfThrows(() => logResolvedFfmpeg());
   // 능력 확인(spawnSync 셋)도 여기서 해 둔다. 처음 곡을 틀 때 부르면 그동안 이벤트 루프가 멈춰 다른 서버의 음성이 밀린다
   ffmpegCapabilities();
-  // yt-dlp 도 재생과 같은 ffmpeg 를 쓴다
+  // yt-dlp도 재생과 같은 ffmpeg를 쓴다
   ytdlpOptions.useFfmpeg(ffmpegPath);
-  // 캐시 폴더와 정기 퇴거. DB 는 기동 첫머리에 열었다(openSettings)
+  // 캐시 폴더와 정기 퇴거. DB는 기동 첫머리에 열었다(openSettings)
   audioCache.initialize();
   // 음성 채널 상태 중 봇이 쓴 것. 다시 시작 전에 쓴 것도 계속 갱신하려면 게이트웨이에 붙기 전에 읽어 둔다
   voiceChannelStatus.keepIn(voiceStatusStore);
@@ -417,7 +417,7 @@ function checkBeforeLogin() {
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
   if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);
-  // bgutil 은 설치된 것, 설정한 것, 최신을 비교해 알리기만 한다(설치는 봇을 끄고)
+  // bgutil은 설치된 것, 설정한 것, 최신을 비교해 알리기만 한다(설치는 봇을 끄고)
   bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인", "warn");
 
   // 자동재생, 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정, 키가 빠진 소스 경고가
@@ -427,7 +427,7 @@ function checkBeforeLogin() {
 }
 
 // 재생 인코더(WASM)를 불러 둔다. 못 불러오면 재생할 수 없으니 멈춘다. 불러 두지 않으면 첫 곡을 틀 때 모듈을 컴파일한다
-// 첫 인코딩 워커를 띄워 libopus 까지 불러 둔다. 워커는 재생이 늘면 상한까지 늘어난다
+// 첫 인코딩 워커를 띄워 libopus까지 불러 둔다. 워커는 재생이 늘면 상한까지 늘어난다
 async function startEncoding() {
   try {
     const { libopusVersion, max, quota } = await encodePool.start();

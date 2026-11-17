@@ -17,8 +17,8 @@ beforeEach(() => genreConfig._reset());
 after(() => useDefaultDocuments());
 
 /**
- * 기동 시와 같이 읽어 알린 문제. 틀린 문서는 던지지 않고(기동을 멈추지 않는다) 알린 뒤 빈 설정으로 돈다.
- * fn 을 주면 그것으로 읽는다
+ * 기동 시와 같이 읽어 알린 문제. 틀린 문서는 예외를 던지지 않고(기동을 멈추지 않는다) 알린 뒤 빈 설정으로 돈다.
+ * fn을 주면 그것으로 읽는다
  */
 function complaint(fn: () => unknown = () => genreConfig.genres()) {
   genreConfig._reset();
@@ -49,7 +49,7 @@ test("숫자만으로 된 장르 이름은 쓸 수 없다", () => {
 });
 
 test("emoji 필드에 이모지가 아닌 값이 있으면 읽을 때 걸린다", () => {
-  // 대시보드는 선택기로만 입력하지만 DB 는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
+  // 대시보드는 선택기로만 입력하지만 DB는 바깥에서도 고칠 수 있다. 읽을 때 잡지 않으면
   // 디스코드가 선택 메뉴 전체를 거부해 /autoplay가 원인에서 한참 떨어진 위치에서 죽는다.
   const load = (emoji: string) => {
     write("genres", { defaults: {}, genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["pop"] }] } } });
@@ -129,7 +129,7 @@ test("검사: weight와 연도 범위도 본다", () => {
 });
 
 test("검사: 이모지 필드에 이모지가 아닌 값이 있으면 걸린다", () => {
-  // 대시보드는 선택기로만 입력하지만 DB 는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
+  // 대시보드는 선택기로만 입력하지만 DB는 바깥에서도 고칠 수 있다. 여기서 막지 않으면
   // 디스코드 선택 메뉴가 원인에서 한참 떨어진 위치에서 거부한다.
   const of = (emoji: string | undefined) => genreConfig.validateGenres({ genres: { 팝: { emoji, sources: [{ type: "keyword", keywords: ["a"] }] } } });
 
@@ -172,7 +172,7 @@ test("검사: 최소 길이를 비우면 기본값과 상한을 비교한다", (
 });
 
 // 비운 필드는 손대지 않은 기본 문서와 같게 돈다
-test("기본값은 기본 문서의 defaults 와 같다(상한은 비우면 없다)", () => {
+test("기본값은 기본 문서의 defaults와 같다(상한은 비우면 없다)", () => {
   const example = documents.defaultOf("genres") as { defaults: Record<string, unknown> };
   assert.deepEqual([example.defaults.prefetchCount, example.defaults.minDurationSec], [GENRE_DEFAULTS.prefetchCount, GENRE_DEFAULTS.minDurationSec]);
 });
@@ -194,7 +194,7 @@ test("틀린 문서는 문제를 한 번에 모두 알린다(대시보드 저장
   assert.match(err.message, /팝: 소스\(sources\)가 하나는 있어야/);
 });
 
-test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(던지지 않는다)", () => {
+test("돌던 중 문서가 틀리면 직전에 맞던 설정으로 돈다(예외를 던지지 않는다)", () => {
   write("genres", { defaults: {}, genres: { 팝: { sources: [{ type: "keyword", keywords: ["pop"] }] } } });
   assert.deepEqual(Object.keys(genreConfig.genres().genres), ["팝"]);
 

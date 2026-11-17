@@ -15,7 +15,7 @@ const ENTRY = "src/ui/text/ko/errors.ts";
 
 const posix = (p: string) => p.split(path.sep).join("/");
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
-// 실행 때 남는 부름(import type 은 지워진다)
+// 실행 때 남는 부름(import type은 지워진다)
 const specifiersOf = (source: string) => [...source.matchAll(/^\s*(?:import|export)(?!\s+type\b)[^"';]*?from\s+"([^"]+)"|^\s*import\s+"([^"]+)"|import\(\s*"([^"]+)"\s*\)/gm)].map((m) => m[1] ?? m[2] ?? m[3]);
 
 function graph() {

@@ -11,7 +11,7 @@ type Anime = { name?: string; slug?: string; year?: number; season?: string; ima
 type Theme = { type?: string; sequence?: number | null; song?: Song; animethemeentries?: Array<{ videos?: Video[] }>; anime?: Anime };
 
 // 음원(.ogg)을 직접 준다. 다만 대개 TV 사이즈라 artist+title도 같이 채워 보낸다
-// 부르는 쪽이 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
+// 호출부가 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
 const SEASON_ORDER: Record<string, number> = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
 
 const THEME_PARTS = "song.artists,animethemeentries.videos.audio";
@@ -25,7 +25,7 @@ async function animethemes(source: GenreSource): Promise<Candidate[]> {
   for (const theme of themes) {
     const song = theme.song;
     // 같은 곡이 여러 시즌의 OP일 수 있다. 겹침은 animetheme.id가 아니라 song.id로 막는다
-    // id 가 없는 곡은 겹침도 출처 키도 구분할 수 없어 뺀다
+    // id가 없는 곡은 겹침도 출처 키도 구분할 수 없어 뺀다
     if (!song?.title || song.id === undefined || seen.has(song.id)) continue;
     const link = audioOf(theme);
     if (!link) continue;

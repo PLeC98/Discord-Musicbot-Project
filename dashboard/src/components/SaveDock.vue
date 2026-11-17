@@ -4,12 +4,12 @@
   태블릿, PC: 위 막대 오른쪽(알림 옆)에 "저장하지 않은 변경, 취소, 저장"을 둔다. 위 막대는 틀이라 내용을 가리지 않는다.
     자리가 모자라면 줄을 바꾸지 않고 상태 문구를 점으로 바꾸고, 취소, 저장 후 다시 시작, 저장 순서로 아이콘만 남긴다.
     저장을 누르면 서버 설정의 자동 저장과 같은 표시(SaveIndicator: 플로피가 돌다 동그라미 체크)로 바뀌었다 사라진다.
-  휴대폰: 위 막대 오른쪽에 공간이 없어 디스코드처럼 아래(미니 재생 바 위)에 막대로 표시하고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 막대 위로 올려 볼 수 있게).
+  휴대폰: 위 막대 오른쪽에 공간이 없어 디스코드처럼 아래(미니 재생 바 위)에 저장 바를 표시하고, 떠 있는 동안 그 높이만큼 페이지 아래를 비운다(끝 내용까지 저장 바 위로 올려 볼 수 있게).
   blocked(검사에 걸린 값): 저장을 막고 "고칠 것이 남아 있어요"(blockedTip: 어느 탭인지).
-  restart: 다시 시작해야 먹는 값을 고쳤다. 저장 옆에 "저장 후 다시 시작"을 더 둔다(공유기 설정 화면의 저장 및 재시작처럼)
+  restart: 다시 시작해야 적용되는 값을 고쳤다. 저장 옆에 "저장 후 다시 시작"을 더 둔다(공유기 설정 화면의 저장 및 재시작처럼)
 -->
 <template>
-  <!-- 휴대폰: 막대 높이만큼 아래를 비운다 -->
+  <!-- 휴대폰: 저장 바 높이만큼 아래를 비운다 -->
   <div v-if="phone && dirty" class="h-20" aria-hidden="true"></div>
 
   <Teleport to="#topbar-end" :disabled="phone" defer>
@@ -35,7 +35,7 @@
     </template>
   </Teleport>
 
-  <!-- 휴대폰: 미니 재생 바 위에 뜨는 막대 -->
+  <!-- 휴대폰: 미니 재생 바 위에 뜨는 저장 바 -->
   <Transition enter-from-class="opacity-0 translate-y-4" leave-to-class="opacity-0 translate-y-4" enter-active-class="[transition:opacity_250ms_var(--ease-effects),translate_460ms_var(--ease-spring)]" leave-active-class="transition-[opacity,translate] duration-200 ease-accelerate">
     <div v-if="phone && (dirty || indicator !== 'idle')" class="fixed inset-x-3 z-120 h-14 pl-4 pr-2 rounded-full pane-float flex items-center gap-2" :style="{ bottom: 'calc(var(--player, 0px) + 0.75rem)' }">
       <span class="min-w-0 flex-1 truncate text-sm font-medium" :class="blocked ? 'text-error' : 'text-on-surface'">{{ indicator === "done" ? T.saved : blocked ? blockedTip || T.fixFirst : T.unsavedLong }}</span>
@@ -64,7 +64,7 @@ const props = withDefaults(
     saving?: boolean;
     /** 저장을 막아야 할 때(검사에 걸린 값이 있음). 버튼은 두되 누르지 못하게 한다 */
     blocked?: boolean;
-    /** 저장을 막은 까닭(고칠 것이 남은 탭) */
+    /** 저장을 막은 이유(고칠 것이 남은 탭) */
     blockedTip?: string;
     /** "저장 후 다시 시작"을 더 둔다(다시 시작해야 적용되는 값을 고쳤다) */
     restart?: boolean;

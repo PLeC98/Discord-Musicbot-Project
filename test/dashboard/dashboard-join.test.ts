@@ -1,5 +1,5 @@
-// src/dashboard/routes/player.ts: 봇 부르기. 디스코드 /join 과 같은 판정과 처리(usecases/join)을 HTTP 로 옮기는지.
-// 진짜 Player 를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 처리는 /join 테스트(commands-add)가 본다.
+// src/dashboard/routes/player.ts: 봇 부르기. 디스코드 /join과 같은 판정과 처리(usecases/join)을 HTTP로 옮기는지.
+// 진짜 Player를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다. 결과마다의 처리는 /join 테스트(commands-add)가 본다.
 
 import * as h from "../helpers/player-harness.ts";
 const { behavior } = h; // 하네스의 가짜 설정
@@ -72,24 +72,24 @@ beforeEach(() => {
 
 const join = () => requestJson<Reply>(base, "POST", "/api/guilds/g1/player/join", undefined, { timeoutMs: 5000 });
 
-test("부르면 /join 과 같이 붙고, 사람이 채널에 있어도 곡 없이 대기하다 나갈 예약을 건다", async () => {
+test("부르면 /join과 같이 붙고, 사람이 채널에 있어도 곡 없이 대기하다 나갈 예약을 건다", async () => {
   const r = await join();
   assert.equal(r.status, 200);
   assert.equal(r.json.hasPlayer, true);
-  assert.equal(r.json.hasSettings, true, "설정 화면 진입 여부도 GET /player 와 같은 필드로(DJ 역할이 없는 서버는 모두가 DJ 라 상주 모드 카드가 보인다)");
+  assert.equal(r.json.hasSettings, true, "설정 화면 진입 여부도 GET /player와 같은 필드로(DJ 역할이 없는 서버는 모두가 DJ라 상주 모드 카드가 보인다)");
   const player = players.get("g1");
   assert.ok(player?.connection, "붙었다");
   assert.ok(player.idle.emptyTimer, "곡 없이 대기");
 });
 
-test("봇이 다른 음성 채널에 있으면 409 로 거절하고 플레이어를 만들지 않는다", async () => {
+test("봇이 다른 음성 채널에 있으면 409로 거절하고 플레이어를 만들지 않는다", async () => {
   botVoice = "v2";
   const r = await join();
   assert.deepEqual([r.status, r.json.code], [409, "bot-in-other-voice"]);
   assert.equal(players.has("g1"), false);
 });
 
-test("음성 채널에 붙지 못하면 502 이고 플레이어가 남지 않는다", async () => {
+test("음성 채널에 붙지 못하면 502이고 플레이어가 남지 않는다", async () => {
   behavior.connect = () => {
     throw new Error("붙지 못함");
   };
@@ -102,7 +102,7 @@ test("음성 채널에 붙지 못하면 502 이고 플레이어가 남지 않는
   assert.equal(players.has("g1"), false);
 });
 
-test("저장한 세션이 있으면 복원한다. 복원하다가 오류가 나면 500 이고 플레이어가 남지 않는다", async () => {
+test("저장한 세션이 있으면 복원한다. 복원하다가 오류가 나면 500이고 플레이어가 남지 않는다", async () => {
   const saveSession = () => {
     sessions().saveSession("g1", { voiceChannelId: "v1", textChannelId: "c1", volume: 100, loopMode: "off", autoplay: null, userPaused: false, positionMs: 0 });
     sessions().setCurrent("g1", tracks.youtube("ccccccccccc", { title: "저장된 곡" }));
@@ -130,7 +130,7 @@ test("저장한 세션이 있으면 복원한다. 복원하다가 오류가 나�
   }
 });
 
-// 이전 곡 응답은 곡이 바뀐 뒤 답한다(옛 곡을 실으면 화면이 신호를 기다린다)
+// 이전 곡 요청에는 곡이 바뀐 뒤 응답한다(옛 곡을 실으면 화면이 신호를 기다린다)
 test("이전 곡: 응답에 되돌아간 곡이 실린다", async () => {
   await join();
   const player = players.get("g1")!;
@@ -140,7 +140,7 @@ test("이전 곡: 응답에 되돌아간 곡이 실린다", async () => {
   h.seedCache("yt:jjjjjjjjjjj", now);
   player.queue = [now];
   player.previousTracks = [before];
-  // 진짜 오디오 플레이어처럼 멈추면 Idle 을 낸다
+  // 진짜 오디오 플레이어처럼 멈추면 Idle을 낸다
   const audio = h.fakeAudioOf(player);
   const stop = audio.stop.bind(audio);
   audio.stop = () => {

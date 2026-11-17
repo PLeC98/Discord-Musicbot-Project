@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createPoller } from "../../../dashboard/src/composables/poller.ts";
 
-// 수동으로 돌리는 타이머. 예약된 간격을 기록하고 fire 로 하나씩 실행한다
+// 수동으로 돌리는 타이머. 예약된 간격을 기록하고 fire로 하나씩 실행한다
 function manualTimers() {
   const scheduled: Array<{ run: () => void; ms: number; cleared: boolean }> = [];
   return {
@@ -30,7 +30,7 @@ function manualTimers() {
   };
 }
 
-test("tick 이 true 면 같은 간격으로 다시 조회하고 false 면 멈춘다", async () => {
+test("tick이 true면 같은 간격으로 다시 조회하고 false면 멈춘다", async () => {
   const clock = manualTimers();
   const answers = [true, false];
   const poller = createPoller(async () => answers.shift()!, { intervalMs: 100, timers: clock.timers });

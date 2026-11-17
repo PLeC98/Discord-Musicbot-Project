@@ -1,11 +1,11 @@
-// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 내보내는 것은 media/fragment-stream 이 한다.
-// 모든 요청(상위, 하위 목록, 세그먼트, 초기화 세그먼트, 키)이 SafeUrl(가드)을 지난다. ffmpeg 는 주소를 보지 않는다.
+// 직접 링크의 HLS: 재생목록을 읽고(rules/hls-playlist) 받을 세그먼트를 차례로 내놓는다. 받아 내보내는 것은 media/fragment-stream이 한다.
+// 모든 요청(상위, 하위 목록, 세그먼트, 초기화 세그먼트, 키)이 SafeUrl(가드)을 지난다. ffmpeg는 주소를 보지 않는다.
 //   상위 목록   오디오 전용 하위 목록이 있으면 그것, 없으면 대역폭이 가장 낮은 화질(chooseMedia). 하위 목록을 한 번 더 받는다
 //   VOD        끝 표시(EXT-X-ENDLIST)가 있다. 시작 위치를 포함한 세그먼트부터, 끝까지 받으면 끝. 받은 크기의 합을 음원 크기 상한과 비교한다. 읽을 수 없는 바이트 구간이 있으면 열지 않는다
 //   라이브      끝에서 LIVE_EDGE 세그먼트 앞부터. 목록을 목표 길이마다 다시 받아(바뀌지 않았으면 그 절반 뒤) 순번으로 잇는다.
 //              끝 표시가 생기면 깨끗이 끝나고, 목록을 연달아 받지 못하면 오류로 끝난다(끝 판정이 방송 종료로 오인하지 않게).
 //              읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다)
-//   암호화     AES-128 은 키를 받아 복호화하고(IV 가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
+//   암호화     AES-128은 키를 받아 복호화하고(IV가 없으면 세그먼트 순번), 그 밖(SAMPLE-AES 등 DRM)은 거절한다. 초기화 세그먼트는 복호화하지 않는다
 // 바이트 구간(EXT-X-BYTERANGE)은 끝이 있는 Range로 받아 모은다. 구간을 무시하고 200으로 주는 서버면 그 구간만 잘라 쓴다(구간 끝이 세그먼트 상한 안일 때).
 // 구간 없는 세그먼트는 작고 빨리 오면 모으고(실패하면 처음부터 다시), 크거나 늦으면 모으지 않고 받는 쪽(media/direct-input)에 넘긴다(HlsPour).
 // 모으는 동안은 ffmpeg에 입력이 없어 재생 쪽 감시(끊김 10초, 버퍼링 15초)에 걸린다. 넘긴 세그먼트는 받는 쪽이 내보내고, 알린 크기가 있으면 끊긴 위치부터 잇는다
@@ -24,7 +24,7 @@ type HlsPart = { url: string; range: ByteRange | null; key: Key | null; sequence
 /**
  * 모으지 않고 넘긴 세그먼트. 받는 쪽(media/direct-input)이 주인이 되어 내보내고 닫는다.
  * totalBytes: 알린 크기로 곧바로 넘겼다(body는 처음부터 남아 있다. 끊기면 url로 Range 이어 받기). null이면 모으다 넘겼다(head 뒤에 body의 나머지, 잇지 않는다).
- * key, iv: AES-128일 때. get: 이어 받기, 끝 블록 확인에 쓰는 요청(이 HLS의 net). count: VOD 합계에 받은 바이트(암호문)를 더한다(넘으면 던진다)
+ * key, iv: AES-128일 때. get: 이어 받기, 끝 블록 확인에 쓰는 요청(이 HLS의 net). count: VOD 합계에 받은 바이트(암호문)를 더한다(넘으면 예외를 던진다)
  */
 type HlsPour = {
   kind: "pour";
@@ -49,9 +49,9 @@ type HlsFragments = {
 };
 type Hls = {
   live: boolean;
-  /** VOD 의 길이(EXTINF 의 합). 라이브는 null */
+  /** VOD의 길이(EXTINF의 합). 라이브는 null */
   durationMs: number | null;
-  /** startMs 가 든 세그먼트부터 받는 출처(라이브는 위치를 보지 않는다) */
+  /** startMs가 든 세그먼트부터 받는 출처(라이브는 위치를 보지 않는다) */
   fragments(startMs?: number): HlsFragments;
   /** 세그먼트 받기의 무응답 한도(받는 쪽의 세그먼트 스트림, 이어 받기도 같은 값) */
   idleMs: number;
@@ -87,7 +87,7 @@ const ignore = () => {
 
 /** 재시도해도 같은 실패(4xx, 상한, DRM) */
 const permanent = (error: Error) => Object.assign(error, { permanent: true });
-/** 가드가 막은 요청(내부 주소, 크기 상한, 받는 형식)과 4xx 로 거절한 요청은 재시도하지 않는다 */
+/** 가드가 막은 요청(내부 주소, 크기 상한, 받는 형식)과 4xx로 거절한 요청은 재시도하지 않는다 */
 async function settled<T>(request: Promise<T>): Promise<T> {
   try {
     return await request;
@@ -97,7 +97,7 @@ async function settled<T>(request: Promise<T>): Promise<T> {
   }
 }
 
-/** 본문을 끝까지(slice가 있으면 그 구간까지만) 모은다. 청크마다 progress. signal이 끊으면(이미 끊겼어도) 본문을 강제로 닫고 그 사유로 던진다 */
+/** 본문을 끝까지(slice가 있으면 그 구간까지만) 모은다. 청크마다 progress. signal이 끊으면(이미 끊겼어도) 본문을 강제로 닫고 그 사유로 예외를 던진다 */
 async function collect(body: Readable, { signal, slice, progress }: { signal?: AbortSignal; slice?: ByteRange | null; progress?: () => void } = {}): Promise<Buffer> {
   const stop = () => body.destroy(signal?.reason instanceof Error ? signal.reason : new Error("그만 받음"));
   signal?.addEventListener("abort", stop, { once: true });
@@ -122,7 +122,7 @@ async function collect(body: Readable, { signal, slice, progress }: { signal?: A
 
 /**
  * 구간 없는 세그먼트를 모은다. 끝나면 { done }, GATHER_MAX_BYTES를 넘거나 GATHER_MAX_MS가 지나면 본문을 멈추고(부수지 않는다) 모은 앞부분 { head }.
- * 청크마다 progress. signal이 끊으면 본문을 강제로 닫고 그 사유로 던진다
+ * 청크마다 progress. signal이 끊으면 본문을 강제로 닫고 그 사유로 reject 한다
  */
 function gather(body: Readable, signal: AbortSignal, progress: () => void): Promise<{ done: Buffer } | { head: Buffer }> {
   return new Promise((resolve, reject) => {
@@ -141,7 +141,7 @@ function gather(body: Readable, signal: AbortSignal, progress: () => void): Prom
       cleanup();
       resolve({ head: Buffer.concat(chunks) });
     };
-    // 문자열 청크는 바이트로. 그 밖(객체)은 그 세그먼트의 실패로(이벤트 안에서 던지면 아무도 받지 못한다)
+    // 문자열 청크는 바이트로. 그 밖(객체)은 그 세그먼트의 실패로(이벤트 안에서 예외를 던지면 아무도 받지 못한다)
     const onData = (chunk: unknown) => {
       const piece = Buffer.isBuffer(chunk) ? chunk : typeof chunk === "string" ? Buffer.from(chunk) : null;
       if (!piece) {
@@ -222,7 +222,7 @@ function sequenceIv(sequence: number): Buffer {
   return iv;
 }
 
-/** AES-128-CBC 복호화. 실패하면(키, IV 가 틀림) 재시도해도 같다 */
+/** AES-128-CBC 복호화. 실패하면(키, IV가 틀림) 재시도해도 같다 */
 function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
   try {
     const decipher = crypto.createDecipheriv("aes-128-cbc", key, iv);
@@ -233,8 +233,8 @@ function decrypt(bytes: Buffer, key: Buffer, iv: Buffer): Buffer {
 }
 
 /**
- * HLS 를 연다. text, url 은 여는 함수(direct-open)가 받은 목록과 그 마지막 주소.
- * 목록이 아니거나 받을 하위 목록이 없거나 DRM 이면 unsupported-link, 하위 목록을 받지 못하면 SafeUrl 의 오류를 던진다
+ * HLS를 연다. text, url은 여는 함수(direct-open)가 받은 목록과 그 마지막 주소.
+ * 목록이 아니거나 받을 하위 목록이 없거나 DRM이면 unsupported-link, 하위 목록을 받지 못하면 SafeUrl의 오류를 던진다
  */
 async function openHls(text: string, url: string, { net = { getStream: SafeUrl.getStream }, sleep = realSleep, bodyIdleMs = HLS_IDLE_MS }: HlsOptions = {}): Promise<Hls> {
   const first = await mediaOf(text, url, net);
@@ -249,11 +249,11 @@ async function openHls(text: string, url: string, { net = { getStream: SafeUrl.g
   };
 }
 
-/** 받을 세그먼트를 차례로 내놓는 출처. startMs 가 null 이면 라이브(끝 가까이부터, 목록을 다시 받으며) */
+/** 받을 세그먼트를 차례로 내놓는 출처. startMs가 null이면 라이브(끝 가까이부터, 목록을 다시 받으며) */
 function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sleep, idleMs }: { net: StreamNet; sleep: (ms: number) => Promise<void>; idleMs: number }, startMs: number | null): HlsFragments {
   let playlist = first.playlist;
   const keys = new Map<string, Promise<Buffer>>();
-  let received = 0; // VOD 의 받은 바이트(음원 상한)
+  let received = 0; // VOD의 받은 바이트(음원 상한)
   let closed = false;
   let reloads = 0;
 
@@ -316,7 +316,7 @@ function fragmentsOf(first: { playlist: MediaPlaylist; url: string }, { net, sle
     return parts;
   }
 
-  // 순서를 지킨다(미리 받기가 앞 세그먼트를 받는 중에 next 를 부른다)
+  // 순서를 지킨다(미리 받기가 앞 세그먼트를 받는 중에 next를 부른다)
   let chain: Promise<unknown> = Promise.resolve();
   async function takeNext(): Promise<HlsPart | null> {
     for (;;) {

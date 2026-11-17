@@ -1,5 +1,5 @@
-// /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 선택하면 /play 와 같은 길로 넣는다. 선택하지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 선택한다.
-// 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick 이 받는다
+// /search: 입력하는 동안 자동완성으로 곡 후보를 보이고, 선택하면 /play와 같은 길로 넣는다. 선택하지 않고 보내면 결과 화면(카드와 선택 메뉴)에서 선택한다.
+// 결과는 유튜브와 스포티파이를 섞는다(rules/search-mix). 결과 화면의 선택은 discord/interactions/search-pick이 받는다
 
 import { SlashCommandBuilder, type AutocompleteInteraction, type ApplicationCommandOptionChoiceData, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
 import * as youtubeSource from "../../sources/youtube/index.ts";
@@ -27,7 +27,7 @@ import { playOnReply } from "./play.ts";
 const log = logger.child({ category: "player" });
 
 /**
- * 같은 사람의 다음 입력을 기다리는 시간(ms). 이 안에 다음 요청이 오면 앞 요청은 찾지 않고 기억으로만 답한다.
+ * 같은 사람의 다음 입력을 기다리는 시간(ms). 이 안에 다음 요청이 오면 앞 요청은 찾지 않고 기억으로만 응답한다.
  * 디스코드는 입력을 1초 남짓으로 묶어 보낸다. 3초 마감에서 이만큼 쓰고도 검색(0.5초 안팎)이 들어간다
  */
 const SETTLE_MS = 1000;
@@ -35,7 +35,7 @@ const SETTLE_MS = 1000;
 const latestRequest = new Map<string, number>();
 let requestCount = 0;
 
-// 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play 처럼 곡 넣기로 넘긴다(스킴을 뺀 주소는 곡 넣기가 붙인다)
+// 링크는 검색하지 않는다. 글자 그대로 찾으면 엉뚱한 결과가 나온다(공유 링크의 ?si=, 스포티파이 주소). /play처럼 곡 넣기로 넘긴다(스킴을 뺀 주소는 곡 넣기가 붙인다)
 const isLink = (query: string) => {
   const url = withSiteScheme(query);
   return isHttpLink(url) || isKnownSiteHost(url);
@@ -116,7 +116,7 @@ function choicesOf(query: string, found: Found): ApplicationCommandOptionChoiceD
 
 // ── 결과 화면 ──
 
-/** 결과 화면이 쓸 것: 자동완성이 방금 찾은 것(검색할 때마다 순서가 조금씩 바뀐다)이 있으면 그것. 유튜브 실패는 던진다 */
+/** 결과 화면이 쓸 것: 자동완성이 방금 찾은 것(검색할 때마다 순서가 조금씩 바뀐다)이 있으면 그것. 유튜브 실패는 예외를 던진다 */
 async function findForResults(query: string, deps: Required<SearchDeps>): Promise<Found> {
   const spotifyWork = SPOTIFY_SHARE > 0 ? (spotifySource.rememberedTracks(query) ?? within(deps.searchSpotify(query), SPOTIFY_RESULTS_MS)) : null;
   const youtube = youtubeSource.rememberedSearch(query) ?? (await deps.search(query));
@@ -142,7 +142,7 @@ function resultRows(found: Found): ResultRow[] {
 
 /** 찾아서 결과 화면을 보인다. 결과가 없거나 유튜브가 연령 인증으로 막고 스포티파이도 없으면 그 안내 */
 async function showResults(interaction: ChatInputCommandInteraction<"cached">, query: string, deps: Required<SearchDeps>) {
-  // "검색 중" 은 본인에게만. 처음부터 Components V2 로 답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 던지면 이 메시지를 오류로 바꾼다
+  // "검색 중"은 본인에게만. 처음부터 Components V2로 응답해야 결과 화면, 안내로 고칠 수 있다. 여기서부터 예외를 던지면 이 메시지를 오류로 바꾼다
   await interaction.reply(reply(frame({ body: searchText.searching(query) })));
   showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 
@@ -207,7 +207,7 @@ const exported: GuildCommand & {
     const permErr = canAdd(member);
     if (permErr) return noticeSelf(interaction, errors.notice(permErr));
 
-    // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play 처럼 바로 넣는다
+    // 자동완성에서 선택한 곡(값이 곡을 가리킨다)과 링크는 /play처럼 바로 넣는다
     const pick = readPick(query);
     if (pick) return await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: searchText.addingTrack((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null), source: "/search 자동완성" });
     if (isLink(query)) return await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: "/search" });

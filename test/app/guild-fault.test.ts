@@ -8,7 +8,7 @@ import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts
 
 type Players = Parameters<typeof createGuildFaults>[0]["players"];
 
-// 레지스트리와 플레이어 가짜. 테스트는 steps 로 무엇을 불렀는지 본다
+// 레지스트리와 플레이어 가짜. 테스트는 steps로 무엇을 불렀는지 본다
 function world({ track = true } = {}) {
   const steps: string[] = [];
   const player = {

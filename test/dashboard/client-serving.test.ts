@@ -53,7 +53,7 @@ test("빌드가 없으면 빌드하라고 알리고, 켜 둔 채 빌드하면 �
   assert.match((await get("/")).body, /<title>화면<\/title>/);
   assert.match((await get("/servers/123")).body, /<title>화면<\/title>/, "화면 안의 주소도 같은 화면");
   assert.equal((await get("/assets/app.js")).body, "console.log(1)");
-  assert.equal((await get("/api/없는-경로")).status, 404, "API 는 화면으로 넘기지 않는다");
+  assert.equal((await get("/api/없는-경로")).status, 404, "API는 화면으로 넘기지 않는다");
 });
 
 // 이름에 내용 해시가 붙은 빌드 파일은 1년 동안 다시 확인하지 않고 쓰고, 이름이 고정된 화면(index.html)은 매번 확인한다(새 빌드의 새 이름을 받게)
@@ -68,14 +68,14 @@ test("빌드 파일(assets/)은 오래 캐시하고 화면 껍데기는 매번 �
 });
 
 // 빌드할 때 만든 압축본(.br, .gz)이 있으면 받는 쪽이 받을 수 있는 것을 보낸다. 캐시 규칙은 원본과 같다
-test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 받으면 원본. 폴더 밖으로는 나가지 않는다", async () => {
+test("압축본: br을 받으면 .br, gzip만 받으면 .gz, 아무것도 안 받으면 원본. 폴더 밖으로는 나가지 않는다", async () => {
   const body = "const 화면 = 1;\n".repeat(200);
   fs.mkdirSync(path.join(dist, "assets"), { recursive: true });
   fs.writeFileSync(path.join(dist, "assets", "app-zip123.js"), body);
   fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.br"), zlib.brotliCompressSync(body));
   fs.writeFileSync(path.join(dist, "assets", "app-zip123.js.gz"), zlib.gzipSync(body));
   const ask = async (encoding: string | null) => {
-    // fetch 는 압축을 스스로 푼다. 오간 그대로 보려고 node:http 로 요청한다
+    // fetch는 압축을 자동으로 푼다. 오간 그대로 보려고 node:http로 요청한다
     return new Promise<{ status: number; headers: Record<string, unknown>; raw: Buffer }>((resolve, reject) => {
       const req = http.get(`${base}/assets/app-zip123.js`, { headers: encoding ? { "accept-encoding": encoding } : {} }, (res) => {
         const chunks: Buffer[] = [];
@@ -97,7 +97,7 @@ test("압축본: br 을 받으면 .br, gzip 만 받으면 .gz, 아무것도 안 
   assert.equal(gz.headers["content-encoding"], "gzip");
   assert.equal(zlib.gunzipSync(gz.raw).toString(), body);
 
-  assert.equal((await ask("br;q=0, gzip")).headers["content-encoding"], "gzip", "q=0 은 받지 않는 것");
+  assert.equal((await ask("br;q=0, gzip")).headers["content-encoding"], "gzip", "q=0은 받지 않는 것");
   const plain = await ask(null);
   assert.equal(plain.headers["content-encoding"], undefined);
   assert.equal(plain.raw.toString(), body);

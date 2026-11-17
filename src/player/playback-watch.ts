@@ -1,7 +1,7 @@
 // 재생 감시 셋. 타이머는 이 모듈이 가지고 stop() 하나로 치운다.
 //   넘침 안전망   음원 길이를 아는 곡의 위치가 길이를 한참 넘기면 멈춰 다음 곡으로 넘긴다. 끝을 알리지 못하는 입력의 마지막 그물
 //   버퍼링 감시   재생이 시작되지 않은 채 입력도 없이 멈춘 경우. 멈춰 같은 곡을 다시 시도하게 한다
-//   멎음 감시     오디오가 Idle 이 됐는데 곡 끝 처리가 곡을 넘기지 못한 경우. 다음 곡으로 넘긴다
+//   멎음 감시     오디오가 Idle이 됐는데 곡 끝 처리가 곡을 넘기지 못한 경우. 다음 곡으로 넘긴다
 // 곡이 끝났는지는 여기서 판정하지 않는다. Idle 때 입력 쪽 사실로 판정한다(rules/end-verdict).
 
 import { AudioPlayerStatus } from "@discordjs/voice";
@@ -16,7 +16,7 @@ type WatchHost = Pick<Player, "_trackLabel" | "audioPlayer" | "currentTrack" | "
 const BUFFERING_STALL_MS = 15_000; // 버퍼링 중 입력이 이만큼 없으면 다시 시도
 const OVERFLOW_MS = 30_000; // 위치가 길이를 이만큼 넘기면 멈춘다
 const OVERFLOW_CHECK_MS = 5_000;
-const IDLE_STUCK_MS = 10_000; // Idle 이 된 뒤 곡이 이만큼 넘어가지 않으면 다음 곡으로
+const IDLE_STUCK_MS = 10_000; // Idle이 된 뒤 곡이 이만큼 넘어가지 않으면 다음 곡으로
 
 class PlaybackWatch {
   static BUFFERING_STALL_MS = BUFFERING_STALL_MS;
@@ -89,7 +89,7 @@ class PlaybackWatch {
 
   // ── 멎음 감시 ──
 
-  /** 오디오가 Idle 이 됐다. 정상이면 곡 끝 처리가 곧 다음 곡을 틀거나 곡을 비운다 */
+  /** 오디오가 Idle이 됐다. 정상이면 곡 끝 처리가 곧 다음 곡을 틀거나 곡을 비운다 */
   armIdle() {
     this.stopIdle();
     this.idleTimer = setTimeout(() => this.checkIdle(), IDLE_STUCK_MS);

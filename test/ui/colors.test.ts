@@ -9,7 +9,7 @@ import { colorOf } from "../../src/ui/colors.ts";
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
 
-test("경고 수준마다 디스코드 기본 팔레트의 색, 운영자 공지는 파랑. brand 는 운영자가 정한 색을 부를 때 읽는다", () => {
+test("경고 수준마다 디스코드 기본 팔레트의 색, 운영자 공지는 파랑. brand는 운영자가 정한 색을 부를 때 읽는다", () => {
   assert.deepEqual((["error", "warning", "done", "notice"] as const).map(colorOf), ["#ED4245", "#FEE75C", "#57F287", "#3498DB"]);
   const saved = config.bot.embedColor;
   try {
@@ -29,8 +29,8 @@ function walk(dir: string, out: string[] = []) {
   return out;
 }
 
-test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors 의 뜻, ui/palette 로 선택한다)", () => {
-  // 운영 조절값 표는 임베드 색의 기본값을 적는 위치다
+test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors의 뜻, ui/palette로 선택한다)", () => {
+  // 운영 설정값 표는 임베드 색의 기본값을 적는 위치다
   const skip = [path.join(ROOT, "src", "rules", "tunables.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));
   const found = files.filter((f) => !f.endsWith(path.join("ui", "palette.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));

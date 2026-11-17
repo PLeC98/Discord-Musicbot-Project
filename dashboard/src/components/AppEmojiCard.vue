@@ -96,7 +96,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const file = ref<File | null>(null);
 const adding = ref(false);
 
-/** 추가 창을 열기 전에 거절할 까닭. 없으면 빈 글 */
+/** 추가 창을 열기 전에 화면에서 거절하는 이유(알림 본문 문구). 통과하면 빈 문자열 */
 async function refusal(one: File): Promise<string> {
   if (!TYPES.includes(one.type)) return T.refuse.format(one.name);
   if (one.size > APPEARANCE_MAX_BYTES) return T.refuse.tooBig(one.name, formatBytes(APPEARANCE_MAX_BYTES));
@@ -122,9 +122,9 @@ async function onAdded(emoji: AppEmojiItem) {
   await reload();
 }
 
-// 이름: 칸마다 입력란. 고친 이름만 drafts 에 두고 저장 띠로 모아 저장한다. 다른 칸에서 고치는 이름과도 겹치지 않아야 한다
+// 이름: 칸마다 입력란. 고친 이름만 drafts에 두고 저장 띠로 모아 저장한다. 다른 칸에서 고치는 이름과도 겹치지 않아야 한다
 const drafts = reactive<Record<string, string>>({});
-/** 봇이 거절한 이름의 까닭. 그 칸을 고치면 지운다 */
+/** 봇이 거절한 이름의 이유(칸 id별 문구). 해당 칸의 이름을 고치면 지움 */
 const refused = reactive<Record<string, string>>({});
 const saving = ref(false);
 const changed = computed(() => uploaded.value.filter((one) => one.id in drafts));
@@ -180,7 +180,7 @@ function revert() {
 }
 useSaveTarget({ tab: "emojis", dirty: computed(() => changed.value.length > 0), saving, blocked: computed(() => Object.keys(issues.value).length > 0), save: () => save(), revert });
 
-// 삭제: 두 번 누른다. 처음 누르면 그 칸의 버튼이 "삭제"로 바뀌고 쓰는 곳을 읽어 칸 아래에 알린다. 그 버튼 밖을 누르거나 Esc 면 돌아간다
+// 삭제: 두 번 누른다. 처음 누르면 그 칸의 버튼이 "삭제"로 바뀌고 쓰는 곳을 읽어 칸 아래에 알린다. 그 버튼 밖을 누르거나 Esc면 돌아간다
 const armed = ref<string | null>(null);
 const uses = ref<string[]>([]);
 

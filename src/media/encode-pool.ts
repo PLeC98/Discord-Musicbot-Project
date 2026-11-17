@@ -3,9 +3,9 @@
 // 세션이 인코더 자리를 든다. 워커가 죽거나 멈추면 세션을 다른 워커의 새 인코더에 옮겨 붙인다. 출력 스트림은 모른다.
 // 프레임 버퍼는 사본 없이 워커로 넘긴다. 그래서 죽거나 멈춘 워커에 보낸 프레임은 되돌릴 수 없어 그 프레임을 무음 패킷으로 채운다.
 // 워커를 늘려 옮길 때는 옛 워커의 답을 다 받은 뒤 옮겨 잃는 것이 없다.
-// 받기는 출력 스트림의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice 가 읽지 않을 때(처음, 일시정지)의 예비 길이다.
+// 받기는 출력 스트림의 read() 안에서 부르는 drain()(동기)이 먼저다. message 이벤트는 voice가 읽지 않을 때(처음, 일시정지)의 예비 길이다.
 // 워커가 늦어지면 먼저 워커를 늘리고(늘리면 그 워커의 스트림이 옮겨 갈 때만), 아니면 그 워커의 큐 깊이(depth)를 올린다. 워커는 줄이지 않는다.
-// import 만으로는 워커를 띄우지 않는다. 기동 시 start() 가 첫 워커를 띄운다.
+// import 만으로는 워커를 띄우지 않는다. 기동 시 start()가 첫 워커를 띄운다.
 
 import os from "os";
 import { cpuQuota } from "../infra/cpu-quota.ts";
@@ -20,10 +20,10 @@ const log = logger.child({ category: "player" });
 const FRAME_MS = 20;
 const START_DEPTH = 2;
 const MAX_DEPTH = 8;
-// 워커 하나가 rss 25 ~ 30MB 라 코어 수만큼 늘리지 않는다. availableParallelism 이 CPU quota 를 못 보는 컨테이너도 막는다
+// 워커 하나가 rss 25 ~ 30MB라 코어 수만큼 늘리지 않는다. availableParallelism이 CPU quota를 못 보는 컨테이너도 막는다
 const MAX_WORKERS = 8;
 const START_TIMEOUT_MS = 10_000;
-// 가장 오래된 답을 이만큼 못 받으면 멈춘 워커로 보고 내린다. voice 의 한도(10초)보다 훨씬 짧게
+// 가장 오래된 답을 이만큼 못 받으면 멈춘 워커로 보고 내린다. voice의 한도(10초)보다 훨씬 짧게
 const STALL_MS = 1000;
 const STALL_CHECK_MS = 250;
 const TICK_MS = 1000;
@@ -36,7 +36,7 @@ const ACTIVE_MS = 1000;
 const CALM_TICKS = 180;
 const DEPTH_CHANGES_PER_MIN = 4;
 // 지연 경고: 최근 SLOW_WINDOW 틱의 지연 프레임이 활성 스트림마다 SLOW_FRAMES 개(100ms) 넘으면 warn, SLOW_CALM_TICKS 틱 내리 없으면 해소.
-// 큐 깊이, 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU 를 빼앗기면 응답 시간이 들쭉날쭉해 끊기는 동안에도 해소로 보인다
+// 큐 깊이, 응답 시간이 아니라 지연 프레임(소리가 빈 프레임)으로 본다: CPU를 빼앗기면 응답 시간이 들쭉날쭉해 끊기는 동안에도 해소로 보인다
 // 지연은 띄엄띄엄 한 틱에 몰려 온다. 몇 틱에 났는지가 아니라 양으로 보고, 해소는 몰려 오는 간격보다 길게 기다린다
 const SLOW_FRAMES = 5;
 const SLOW_WINDOW = 5;
@@ -60,7 +60,7 @@ type EncodeSession = {
   drain(): void;
   /** 읽을 때 보낸 것은 있는데 받은 패킷이 없었다(워커가 늦다) */
   late(): void;
-  /** 읽을 때 보낸 것도 보낼 프레임도 없었다(입력 PCM 이 끊겼다). 원인을 가르는 로그에만 쓴다 */
+  /** 읽을 때 보낸 것도 보낼 프레임도 없었다(입력 PCM이 끊겼다). 원인을 가르는 로그에만 쓴다 */
   underrun(): void;
   free(): void;
   /** 로그용: 붙어 있는 워커 번호와 가장 오래 답을 기다리는 프레임의 나이(ms) */
@@ -87,7 +87,7 @@ type Entry = {
   // 지난 틱의 응답 시간 p99(ms). 배정할 때 쓴다
   lastP99: number;
   late: number;
-  // 지난 틱의 지연 프레임 수. 지연 경고에 지연 프레임이 가장 많은 워커의 CPU 를 적는다
+  // 지난 틱의 지연 프레임 수. 지연 경고에 지연 프레임이 가장 많은 워커의 CPU를 적는다
   lastLate: number;
   load: Load | null;
   // 그 앞의 보고. 보고는 워커의 1초라 틱의 1초와 어긋나, 상세의 GC는 두 보고(최근 2초)로 본다
@@ -168,12 +168,12 @@ function post(entry: Entry, id: number, item: Sent) {
   entry.thread.postMessage(message, [pcm]);
 }
 
-// voice 가 쉼으로 보내는 Opus 무음 프레임
+// voice가 쉼으로 보내는 Opus 무음 프레임
 const silence = () => Buffer.from([0xf8, 0xff, 0xfe]);
 
 const control = (entry: Entry, message: ToWorker) => entry.thread.postMessage(message);
 
-/** 워커 수 상한: 남는 코어 수(하나는 메인 몫), CPU quota 가 있으면 그 안, 최소 1 */
+/** 워커 수 상한: 남는 코어 수(하나는 메인 몫), CPU quota가 있으면 그 안, 최소 1 */
 function workerLimit() {
   const quota = cpuQuota();
   const cores = Math.min(os.availableParallelism(), quota ?? Infinity);
@@ -184,7 +184,7 @@ type DepthAction = "grow" | "deepen" | "slow" | "shallow" | null;
 
 /**
  * 워커 하나의 지난 틱으로 정한다. 보낸 프레임은 depth 번째 뒤 읽기에서 쓰이므로 답이 (depth − 1) × 20ms 안에 와야 한다.
- * 그 80%를 넘으면 늘릴 수 있을 때 워커를 늘리고(CPU 를 뺏기는 중이면 늘려도 경쟁만 커진다), 아니면 큐 깊이를 올리고, 상한이면 늦다고 알린다
+ * 그 80%를 넘으면 늘릴 수 있을 때 워커를 늘리고(CPU를 뺏기는 중이면 늘려도 경쟁만 커진다), 아니면 큐 깊이를 올리고, 상한이면 늦다고 알린다
  */
 function decideDepth(s: { rttP99: number; depth: number; canGrow: boolean; contended: boolean; calm: number }): DepthAction {
   if (s.rttP99 > (s.depth - 1) * FRAME_MS * 0.8) {
@@ -204,7 +204,7 @@ function p99(values: number[]) {
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.99))] ?? 0;
 }
 
-// 워커가 CPU 를 기다리느라 늦는가: 인코딩에 걸린 실제 경과 시간(wall-clock)보다 실제로 쓴 CPU 시간이 훨씬 적다
+// 워커가 CPU를 기다리느라 늦는가: 인코딩에 걸린 실제 경과 시간(wall-clock)보다 실제로 쓴 CPU 시간이 훨씬 적다
 const contendedOf = (load: Load | null) => !!load && load.busyUs > 200_000 && load.cpuUs < load.busyUs * 0.6;
 
 // PC의 모든 코어를 합친 시간(ms)과 코어 수. 컨테이너 안에서는 호스트의 값이다
@@ -243,8 +243,8 @@ class EncodePool {
   #frameUs = 0;
   #libopusVersion: string | null = null;
   readonly #sessions = new Map<number, WeakRef<Session>>();
-  // 답을 기다리는 프레임이 있는 세션. 그동안은 강하게 든다(진행 중인 I/O 가 콜백을 살려 두듯).
-  // 아무도 출력 스트림을 들지 않은 채 답을 기다리면 GC 가 출력 스트림과 기다리는 쪽을 함께 치운다
+  // 답을 기다리는 프레임이 있는 세션. 그동안은 강하게 든다(진행 중인 I/O가 콜백을 살려 두듯).
+  // 아무도 출력 스트림을 들지 않은 채 답을 기다리면 GC가 출력 스트림과 기다리는 쪽을 함께 치운다
   readonly #busy = new Set<Session>();
   // 옮겨 갈 워커를 기다리는 세션(워커가 뜨는 중)
   readonly #homeless = new Set<number>();
@@ -284,13 +284,13 @@ class EncodePool {
     this.#calibrateFrames = calibrateFrames ?? CALIBRATE_FRAMES;
   }
 
-  /** 첫 워커를 띄우고 WASM 을 불러 둔다. 기동 시 한 번 */
+  /** 첫 워커를 띄우고 WASM을 불러 둔다. 기동 시 한 번 */
   async start() {
     if (!this.#workers.length) this.#adopt(await this.#spawn());
     return { libopusVersion: this.#libopusVersion ?? "", workers: this.#workers.length, max: this.#limit(), quota: this.#quota };
   }
 
-  /** 새 재생을 받을 수 있는가. 못 받으면 ffmpeg 를 띄우기 전에 거절한다 */
+  /** 새 재생을 받을 수 있는가. 못 받으면 ffmpeg를 띄우기 전에 거절한다 */
   available() {
     return !this.#closing && (this.#workers.length > 0 || this.#mayGrow());
   }
@@ -327,7 +327,7 @@ class EncodePool {
     this.#unbind(session);
   }
 
-  /** 상태 탭. late, deaths 는 봇이 켜진 뒤의 합, 워커의 rttP99 는 지난 1초, cpuPct 는 코어 하나 기준 */
+  /** 상태 탭. late, deaths는 봇이 켜진 뒤의 합, 워커의 rttP99는 지난 1초, cpuPct는 코어 하나 기준 */
   stats() {
     return {
       max: this.#limit(),
@@ -399,7 +399,7 @@ class EncodePool {
       });
       thread.on("error", (error) => fail(messageOf(error)));
       thread.on("exit", (code) => fail(`스레드가 종료됨(코드 ${code})`));
-      // 봇이 끝날 때 붙잡지 않는다. message 를 들으면 다시 붙잡으므로 들은 뒤에 푼다
+      // 봇이 끝날 때 붙잡지 않는다. message를 들으면 다시 붙잡으므로 들은 뒤에 푼다
       port1.unref();
       thread.unref();
       const init: ToWorker = { type: "init", port: port2, calibrateFrames: this.#workers.length ? 0 : this.#calibrateFrames };
@@ -518,7 +518,7 @@ class EncodePool {
     queueMicrotask(() => this.#fail(session, unavailable()));
   }
 
-  // 붙일 때마다 새 id 를 쓴다. 떠난 워커의 늦은 답이 같은 id 로 다시 들어오지 않게
+  // 붙일 때마다 새 id를 쓴다. 떠난 워커의 늦은 답이 같은 id로 다시 들어오지 않게
   #rename(session: Session) {
     this.#sessions.delete(session.slot.id);
     const id = ++this.#lastId;
@@ -755,7 +755,7 @@ class EncodePool {
     }
   }
 
-  // 워커 하나의 지난 1초를 닫는다: 응답 시간 p99 와 지연 프레임 수를 돌려주고 다음 1초를 비운다.
+  // 워커 하나의 지난 1초를 닫는다: 응답 시간 p99와 지연 프레임 수를 돌려주고 다음 1초를 비운다.
   // 지연, 언더런이 있었거나 응답 시간이 임계값을 넘은 초면 상세 한 줄(끊김의 원인을 가르는 debug)
   #closeSecond(entry: Entry) {
     const rttP99 = p99(entry.rtt);
@@ -773,7 +773,7 @@ class EncodePool {
     return { rttP99, entryLate, detail };
   }
 
-  // 워커를 하나 늘리면 이 워커의 활성 세션이 새 워커로 옮겨 가는가(#rebalance 와 같은 몫). 옮길 것이 없으면 늘려도 이 워커는 그대로 늦다
+  // 워커를 하나 늘리면 이 워커의 활성 세션이 새 워커로 옮겨 가는가(#rebalance와 같은 몫). 옮길 것이 없으면 늘려도 이 워커는 그대로 늦다
   // (이 확인이 없으면 스트림 하나가 늦을 때 늘리기만 거듭해 상한까지 간다)
   #wouldShed(entry: Entry) {
     const share = Math.floor(this.#activeStreams() / (this.#workers.length + 1));

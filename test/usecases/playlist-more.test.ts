@@ -94,12 +94,12 @@ test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요
   assert.equal(await More.offerOnInteraction(gone, more, player), false);
 });
 
-// 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id 로 이어 불러오고, 한 번에 10곡까지(곡마다 요청이 들어 IP 가 막히지 않게)
-test("사운드클라우드 세트: 숫자 id 로 이어 불러오고, 서버 설정과 상관없이 한 번에 10곡", () => {
+// 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id로 이어 불러오고, 한 번에 10곡까지(곡마다 요청이 들어 IP가 막히지 않게)
+test("사운드클라우드 세트: 숫자 id로 이어 불러오고, 서버 설정과 상관없이 한 번에 10곡", () => {
   const set = { isPlaylist: true, collectionId: "2284916349", total: 41, nextOffset: 10, tracks: [{ id: "2227247837" }] };
   const more = More.continuation("https://soundcloud.com/chillhopdotcom/sets/best-of-essentials-fall", set);
   assert.deepEqual(more && { kind: more.kind, listId: more.listId, anchorId: more.anchorId, remaining: more.remaining }, { kind: "scs", listId: "2284916349", anchorId: "2227247837", remaining: 31 });
-  assert.equal(More.continuation("https://soundcloud.com/a/sets/b", { ...set, collectionId: null }), null, "id 가 없으면(비밀 공유 세트) 권하지 않는다");
+  assert.equal(More.continuation("https://soundcloud.com/a/sets/b", { ...set, collectionId: null }), null, "id가 없으면(비밀 공유 세트) 권하지 않는다");
   assert.equal(More.KINDS.scs.url("2284916349"), "https://api.soundcloud.com/playlists/2284916349");
 
   assert.equal(More.batchFor("https://soundcloud.com/a/sets/b", 50), 10);
@@ -129,8 +129,8 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
   assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 재생할 수 없는 3곡\(미리듣기, 지역 제한 등\)은 제외했어요\./);
 });
 
-// 사운드클라우드가 만든 믹스는 숫자 id 가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 불러온다
-test("사운드클라우드 믹스: 주소의 이름으로 이어 불러오고, 이름의 ':'는 custom_id 를 깨지 않게 싣는다", () => {
+// 사운드클라우드가 만든 믹스는 숫자 id가 없다(yt-dlp: soundcloud:system-playlists:…). 주소의 이름으로 이어 불러온다
+test("사운드클라우드 믹스: 주소의 이름으로 이어 불러오고, 이름의 ':'는 custom_id를 깨지 않게 싣는다", () => {
   const mix = { isPlaylist: true, collectionId: "soundcloud:system-playlists:trending-by-genre:indie", total: 50, nextOffset: 10, tracks: [{ id: "2227247837" }] };
   const more = More.continuation("https://soundcloud.com/discover/sets/trending-by-genre:indie?si=abc", mix);
   assert.deepEqual(more && { kind: more.kind, listId: more.listId }, { kind: "scd", listId: "trending-by-genre~indie" });

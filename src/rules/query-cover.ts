@@ -9,7 +9,7 @@ const normalized = (text: string) =>
     .replace(/[\s\p{P}\p{S}]/gu, "");
 const lengthOf = (text: string) => [...text].length;
 
-/** 검색어가 그 곡을 찾는 것으로 보이나. artist 는 스포티파이가 붙인 "가수1, 가수2" 그대로 */
+/** 검색어가 그 곡을 찾는 것으로 보이나. artist는 스포티파이가 붙인 "가수1, 가수2" 그대로 */
 function queryNamesTrack(query: string, { title, artist }: { title: string | null; artist?: string | null }): boolean {
   const q = normalized(query);
   const t = normalized(title ?? "");

@@ -109,7 +109,7 @@ test("투명도가 있는 GIF, HDR 영상도 미리보기를 만든다(HDR은 SD
   }
 });
 
-test("HDR 원본인데 톤 매핑 필터(zscale)가 없으면 HDR 을 쓸 수 없다고 거절한다(SDR 영상은 된다)", svt() ? video : skipFor(NO_SVT_HDR), async () => {
+test("HDR 원본인데 톤 매핑 필터(zscale)가 없으면 HDR을 쓸 수 없다고 거절한다(SDR 영상은 된다)", svt() ? video : skipFor(NO_SVT_HDR), async () => {
   const could = encoders.canToneMapHdr();
   try {
     encoders._useHdrToSdr(false);
@@ -144,7 +144,7 @@ test("다시 세기: 선택한 구간의 초만 새 크롭으로 바꾸고 count
   assert.notEqual(next.perSecond[1], one.estimate.perSecond[1]);
 });
 
-test("framecrc 를 초마다 더한다(빈 초는 0)", () => {
+test("framecrc를 초마다 더한다(빈 초는 0)", () => {
   const framecrc = "#tb 0: 1/30\n#media_type 0: video\n0, 0, 0, 1, 100, 0x1\n0, 1, 1, 1, 50, 0x2\n0, 60, 60, 1, 7, 0x3\n";
   assert.deepEqual(perSecondOf(framecrc), [150, 0, 7]);
 });

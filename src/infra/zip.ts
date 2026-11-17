@@ -1,8 +1,8 @@
-// ZIP 읽기, 쓰기(설정 내보내기, 불러오기, 전체 백업, 로그인 배경 백업, yt-dlp 풀기). Node 의 zlib 만 쓴다(deflate, crc32). 이 봇이 만든 파일과 흔한 압축 프로그램이 만든 파일을 읽는다.
+// ZIP 읽기, 쓰기(설정 내보내기, 불러오기, 전체 백업, 로그인 배경 백업, yt-dlp 풀기). Node의 zlib만 쓴다(deflate, crc32). 이 봇이 만든 파일과 흔한 압축 프로그램이 만든 파일을 읽는다.
 // 쓰기는 스트림으로(writeZip, 파일, 응답) 쓴다: 바이트로 준 항목은 줄어들면 deflate, 파일로 준 항목은 그대로 담는다(영상 세그먼트, 이미지는 이미 압축됐다).
-// 4GB 를 넘는 항목, 위치, 중앙 디렉터리, 65535 개를 넘는 항목은 ZIP64 로 적는다.
+// 4GB를 넘는 항목, 위치, 중앙 디렉터리, 65535 개를 넘는 항목은 ZIP64로 적는다.
 // 읽기는 읽을 곳(메모리, 파일)만 다르고 중앙 디렉터리 읽기, 항목 풀기는 같다. 읽을 때는 항목 수, 풀린 크기에 상한을 두고,
-// 경로가 폴더 밖을 가리키거나(.., 절대 경로) 암호, 모르는 압축이면 거절한다. 풀린 내용은 크기, CRC 를 맞춰 본다
+// 경로가 폴더 밖을 가리키거나(.., 절대 경로) 암호, 모르는 압축이면 거절한다. 풀린 내용은 크기, CRC를 맞춰 본다
 
 import fs from "node:fs";
 import path from "node:path";
@@ -11,11 +11,11 @@ import { pipeline as pipelineAsync } from "node:stream/promises";
 import { Readable, Transform, pipeline, type Writable } from "node:stream";
 import zlib from "node:zlib";
 
-/** 항목 하나. name 은 / 로 나눈 경로 */
+/** 항목 하나. name은 / 로 나눈 경로 */
 type ZipEntry = { name: string; data: Buffer };
 /**
- * 쓸 항목: 바이트 그대로, 파일(스트림으로 담는다. optional 이면 그사이 사라진 파일은 건너뛴다),
- * 쓸 때 만드는 바이트(build 는 앞에서 담은 이름들을 받는다. 마지막에 두면 실제로 담은 것만 적는 목록을 만든다)
+ * 쓸 항목: 바이트 그대로, 파일(스트림으로 담는다. optional이면 그사이 사라진 파일은 건너뛴다),
+ * 쓸 때 만드는 바이트(build는 앞에서 담은 이름들을 받는다. 마지막에 두면 실제로 담은 것만 적는 목록을 만든다)
  */
 type ZipInput = ZipEntry | { name: string; file: string; optional?: boolean } | { name: string; build: (written: ReadonlySet<string>) => Buffer };
 
@@ -29,7 +29,7 @@ const MAX32 = 0xffffffff;
 const MAX16 = 0xffff;
 const ZIP64_EXTRA = 0x0001;
 
-// ZIP 의 시각(MS-DOS). 2초 단위, 로컬 시각
+// ZIP의 시각(MS-DOS). 2초 단위, 로컬 시각
 function dosTime(at: Date) {
   const time = (at.getHours() << 11) | (at.getMinutes() << 5) | Math.floor(at.getSeconds() / 2);
   const date = ((at.getFullYear() - 1980) << 9) | ((at.getMonth() + 1) << 5) | at.getDate();
@@ -66,7 +66,7 @@ function dataBody(data: Buffer): Body & { body: Buffer } {
   return { method, crc: zlib.crc32(data), packed: body.length, size: data.length, body };
 }
 
-/** 파일로 준 항목: 그대로 담는다. 한 번 읽어 CRC 를 재고(헤더에 먼저 적는다), 담을 때 다시 스트림으로 읽는다 */
+/** 파일로 준 항목: 그대로 담는다. 한 번 읽어 CRC를 재고(헤더에 먼저 적는다), 담을 때 다시 스트림으로 읽는다 */
 async function fileBody(file: string): Promise<Body> {
   let crc = 0;
   for await (const chunk of fs.createReadStream(file)) crc = zlib.crc32(chunk as Buffer, crc);
@@ -86,11 +86,11 @@ function zip64Extra(fields: number[]): Buffer {
 
 type When = { time: number; date: number };
 
-/** 항목의 헤더(본문 앞). big 이면 크기를 ZIP64 확장 필드에 */
+/** 항목의 헤더(본문 앞). big이면 크기를 ZIP64 확장 필드에 */
 function localHeader(nameBytes: Buffer, body: Body, { time, date }: When, big: boolean): Buffer {
   const local = Buffer.alloc(30);
   local.writeUInt32LE(SIG.local, 0);
-  local.writeUInt16LE(big ? 45 : 20, 4); // 풀 때 필요한 버전(ZIP64 는 4.5)
+  local.writeUInt16LE(big ? 45 : 20, 4); // 풀 때 필요한 버전(ZIP64는 4.5)
   local.writeUInt16LE(UTF8, 6);
   local.writeUInt16LE(body.method, 8);
   local.writeUInt16LE(time, 10);
@@ -104,7 +104,7 @@ function localHeader(nameBytes: Buffer, body: Body, { time, date }: When, big: b
   return Buffer.concat([local, nameBytes, extra]);
 }
 
-/** 중앙 디렉터리 레코드 하나. big 이면 크기를, far 면 헤더의 위치를 ZIP64 확장 필드에 */
+/** 중앙 디렉터리 레코드 하나. big이면 크기를, far면 헤더의 위치를 ZIP64 확장 필드에 */
 function centralHeader(nameBytes: Buffer, body: Body, localAt: number, { time, date }: When, { big, far }: { big: boolean; far: boolean }): Buffer {
   const extra = zip64Extra([...(big ? [body.size, body.packed] : []), ...(far ? [localAt] : [])]);
   const version = extra.length ? 45 : 20;
@@ -125,7 +125,7 @@ function centralHeader(nameBytes: Buffer, body: Body, localAt: number, { time, d
   return Buffer.concat([central, nameBytes, extra]);
 }
 
-/** 항목 하나의 헤더와 중앙 디렉터리 레코드(32비트를 넘는 것은 ZIP64, force64 면 늘) */
+/** 항목 하나의 헤더와 중앙 디렉터리 레코드(32비트를 넘는 것은 ZIP64, force64면 늘) */
 function headersOf(name: string, body: Body, localAt: number, when: When, force64 = false): { local: Buffer; central: Buffer } {
   const nameBytes = Buffer.from(name, "utf8");
   const big = force64 || body.size >= MAX32 || body.packed >= MAX32;
@@ -210,7 +210,7 @@ function fileSource(file: string, fd: number): Source {
       if (out.length) fs.readSync(fd, out, 0, out.length, at);
       return out;
     },
-    // end 는 마지막 바이트를 포함한다. 길이 0 이면 end 가 start 보다 작아 createReadStream 이 던진다
+    // end는 마지막 바이트를 포함한다. 길이 0이면 end가 start보다 작아 createReadStream이 예외를 던진다
     stream: (at, length) => (length ? fs.createReadStream(file, { start: at, end: at + length - 1 }) : Readable.from([])),
   };
 }
@@ -220,15 +220,15 @@ function safeName(name: string) {
   return !name.startsWith("/") && !/[\0:]/.test(name) && !name.split("/").includes("..");
 }
 
-/** 중앙 디렉터리 레코드 하나. mode 는 유닉스에서 만든 항목의 파일 모드(형식과 권한 비트), 그 밖에서 만들었으면 null */
+/** 중앙 디렉터리 레코드 하나. mode는 유닉스에서 만든 항목의 파일 모드(형식과 권한 비트), 그 밖에서 만들었으면 null */
 type Central = { name: string; flags: number; method: number; crc: number; packed: number; size: number; localAt: number; mode: number | null };
 
-/** 만든 OS(version made by 의 위 바이트)가 유닉스. 외부 속성의 위 16비트가 파일 모드다 */
+/** 만든 OS(version made by의 위 바이트)가 유닉스. 외부 속성의 위 16비트가 파일 모드다 */
 const UNIX_HOST = 3;
 const S_IFMT = 0o170000;
 const S_IFREG = 0o100000;
 
-/** 중앙 디렉터리의 위치, 크기, 항목 수. 끝 레코드(EOCD)는 맨 뒤 22바이트에 주석(최대 65535)이 붙을 수 있고, ZIP64 면 그 앞의 로케이터가 ZIP64 끝 레코드를 가리킨다 */
+/** 중앙 디렉터리의 위치, 크기, 항목 수. 끝 레코드(EOCD)는 맨 뒤 22바이트에 주석(최대 65535)이 붙을 수 있고, ZIP64면 그 앞의 로케이터가 ZIP64 끝 레코드를 가리킨다 */
 function directoryOf(src: Source): { at: number; count: number } {
   if (src.size < 22) throw bad("ZIP이 아님");
   const tail = src.read(Math.max(0, src.size - 22 - MAX16), Math.min(src.size, 22 + MAX16));
@@ -266,7 +266,7 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
   let packed = head.readUInt32LE(20);
   let size = head.readUInt32LE(24);
   let localAt = head.readUInt32LE(42);
-  // Windows PowerShell 5.1 의 Compress-Archive 는 경로를 \ 로 나눈다
+  // Windows PowerShell 5.1의 Compress-Archive는 경로를 \ 로 나눈다
   const name = rest.toString("utf8", 0, nameLength).replaceAll("\\", "/");
   // ZIP64 확장 필드: 32비트 필드가 가득 찬 것만, 풀린 크기, 담은 크기, 위치 순서로
   for (let x = nameLength; x + 4 <= nameLength + extraLength;) {
@@ -291,7 +291,7 @@ function centralAt(src: Source, at: number): { entry: Central; next: number } {
   return { entry: { name, flags, method, crc, packed, size, localAt, mode }, next: at + 46 + nameLength + extraLength + head.readUInt16LE(32) };
 }
 
-/** 중앙 디렉터리(폴더 항목은 뺀다). maxEntries 를 넘으면 BAD_ZIP */
+/** 중앙 디렉터리(폴더 항목은 뺀다). maxEntries를 넘으면 BAD_ZIP */
 function entriesOf(src: Source, maxEntries: number): Central[] {
   const { at, count } = directoryOf(src);
   if (count > maxEntries) throw bad(`항목이 너무 많음(${count}개)`);
@@ -312,7 +312,7 @@ function bodyAt(src: Source, { name, localAt }: Central): number {
   return localAt + 30 + local.readUInt16LE(26) + local.readUInt16LE(28);
 }
 
-// 항목의 본문을 풀고 크기, CRC 를 맞춰 본다(메모리로)
+// 항목의 본문을 풀고 크기, CRC를 맞춰 본다(메모리로)
 function bodyOf(src: Source, entry: Central): Buffer {
   const { name, method, crc, packed, size } = entry;
   const body = src.read(bodyAt(src, entry), packed);
@@ -330,7 +330,7 @@ function bodyOf(src: Source, entry: Central): Buffer {
   return data;
 }
 
-/** 항목을 스트림으로 읽는다(큰 항목). 끝에서 크기, CRC 가 맞지 않으면 BAD_ZIP 으로 끊는다 */
+/** 항목을 스트림으로 읽는다(큰 항목). 끝에서 크기, CRC가 맞지 않으면 BAD_ZIP으로 끊는다 */
 function bodyStream(src: Source, entry: Central): Readable {
   const { name, method, crc, packed, size } = entry;
   if (method !== STORE && method !== DEFLATE) throw bad(`모르는 압축 방식(${name})`);
@@ -354,7 +354,7 @@ function bodyStream(src: Source, entry: Central): Readable {
   return method === DEFLATE ? pipeline(raw, zlib.createInflateRaw(), check, settled) : pipeline(raw, check, settled);
 }
 
-/** 푼다(메모리의 작은 아카이브). maxEntries, maxBytes 를 넘으면 BAD_ZIP */
+/** 푼다(메모리의 작은 아카이브). maxEntries, maxBytes를 넘으면 BAD_ZIP */
 function unzip(buf: Buffer, { maxEntries = 64, maxBytes = 64 * 1024 * 1024 }: { maxEntries?: number; maxBytes?: number } = {}): ZipEntry[] {
   const src = bufferSource(buf);
   let left = maxBytes;
@@ -365,7 +365,7 @@ function unzip(buf: Buffer, { maxEntries = 64, maxBytes = 64 * 1024 * 1024 }: { 
   });
 }
 
-/** 파일의 ZIP 을 연다(큰 아카이브). 중앙 디렉터리와, 항목을 메모리로(작은 것), 스트림으로 읽기. 다 쓰면 close */
+/** 파일의 ZIP을 연다(큰 아카이브). 중앙 디렉터리와, 항목을 메모리로(작은 것), 스트림으로 읽기. 다 쓰면 close */
 function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number } = {}) {
   const fd = fs.openSync(file, "r");
   try {
@@ -386,13 +386,13 @@ function openZip(file: string, { maxEntries = 100_000 }: { maxEntries?: number }
   }
 }
 
-// Windows 는 이 이름(확장자가 붙어도)을 어느 폴더에서나 장치로 연다
+// Windows는 이 이름(확장자가 붙어도)을 어느 폴더에서나 장치로 연다
 const DEVICE_NAME = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
 
 /**
- * 파일의 ZIP 을 폴더로 푼다. dir 은 없어야 하고 여기서 만든다(이미 있는 폴더 안의 링크를 타고 밖에 쓰지 않게).
- * 폴더 항목은 쓰지 않고 파일의 상위 폴더만 만든다(빈 폴더는 생기지 않는다). 유닉스에서 만든 항목은 일반 파일만 받고, 실행 비트가 있으면 0o755, 없으면 0o644 로 쓴다.
- * 항목 수, 풀린 크기가 상한을 넘거나 받을 수 없는 항목이면 BAD_ZIP(같은 이름이 두 번이면 파일 오류). 실패하면 푼 것을 남긴 채 던진다(dir 은 부르는 쪽이 지운다)
+ * 파일의 ZIP을 폴더로 푼다. dir은 없어야 하고 여기서 만든다(이미 있는 폴더 안의 링크를 타고 밖에 쓰지 않게).
+ * 폴더 항목은 쓰지 않고 파일의 상위 폴더만 만든다(빈 폴더는 생기지 않는다). 유닉스에서 만든 항목은 일반 파일만 받고, 실행 비트가 있으면 0o755, 없으면 0o644로 쓴다.
+ * 항목 수, 풀린 크기가 상한을 넘거나 받을 수 없는 항목이면 BAD_ZIP(같은 이름이 두 번이면 파일 오류). 실패하면 푼 것을 남긴 채 예외를 던진다(dir은 호출부가 지운다)
  */
 async function extractZip(file: string, dir: string, { maxEntries, maxBytes }: { maxEntries: number; maxBytes: number }): Promise<void> {
   const zip = openZip(file, { maxEntries });

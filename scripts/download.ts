@@ -2,7 +2,7 @@
 
 const IDLE_MS = 60_000;
 
-/** url의 본문 전체. 2xx가 아니거나 idleMs 동안 받은 것이 없으면 던진다 */
+/** url의 본문 전체. 2xx가 아니거나 idleMs 동안 받은 것이 없으면 예외를 던진다 */
 async function download(url: string, { idleMs = IDLE_MS }: { idleMs?: number } = {}): Promise<Buffer> {
   const abort = new AbortController();
   let timer: NodeJS.Timeout | undefined;

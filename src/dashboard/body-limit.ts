@@ -1,7 +1,7 @@
 /**
  * 요청 본문: 받기 시작(100-continue), JSON 크기 상한, 다 받지 않은 채 하는 응답.
  * 크기: 대부분은 설정 몇 줄과 공지문(4096자)뿐이라 32kb면 넉넉하다.
- * 판정 프롬프트(로어북을 붙이면 32kb 를 넘는다)와 캐시 DB 쓰기(조작을 200개까지 싣는다)만 1mb 다.
+ * 판정 프롬프트(로어북을 붙이면 32kb를 넘는다)와 캐시 DB 쓰기(조작을 200개까지 싣는다)만 1mb 다.
  */
 import express, { type NextFunction, type Request, type Response } from "express";
 import { sendProblem } from "./problem.ts";
@@ -21,7 +21,7 @@ const LARGE_PATHS = ["/api/admin/ai/settings", "/api/admin/ai/tokens", "/api/adm
 /** 이 요청의 JSON 본문 상한(바이트). JSON 본문을 파싱하는 요청이 아니면 null(이미지, 백업 같은 업로드는 각 경로가 자체 상한으로 읽는다) */
 function jsonLimitOf(req: Request): number | null {
   if (SAFE_METHODS.has(req.method) || !API.test(req.path) || !req.is("application/json")) return null;
-  // 끝의 / 는 express 가 같은 경로로 받는다
+  // 끝의 / 는 express가 같은 경로로 받는다
   return LARGE_PATHS.includes(req.path.replace(/(?<=.)\/$/, "")) ? LARGE : SMALL;
 }
 
@@ -37,7 +37,7 @@ function bodyLimit() {
     // 명시된 길이가 상한을 넘으면 본문을 받지 않고 곧바로 거절한다(body-parser는 413을 보내기 전에 남은 본문을 끝까지 읽는다. 이 응답은 연결을 닫는다)
     if (declaredOver(req, limit)) return sendProblem(res, "payload-too-large");
     (limit === LARGE ? large : small)(req, res, next);
-    // 길이를 명시하지 않은(청크 전송) 본문이 상한을 넘으면 연결을 끊는다(같은 까닭이며, 이때는 응답을 보내지 못한다)
+    // 길이를 명시하지 않은(청크 전송) 본문이 상한을 넘으면 연결을 끊는다(같은 이유이며, 이때는 응답을 보내지 못한다)
     if (req.headers["content-length"] === undefined && req.headers["transfer-encoding"] !== undefined) {
       let received = 0;
       req.on("data", (chunk: Buffer) => {

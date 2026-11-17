@@ -76,7 +76,7 @@ function toggle() {
   open.value = true;
 }
 
-// 열어 둔 동안 온 알림은 보고 있으니 바로 읽음으로(배지를 다시 달지 않는다. 칠은 seen 으로 남는다)
+// 열어 둔 동안 온 알림은 보고 있으니 바로 읽음으로(배지를 다시 달지 않는다. 칠은 seen으로 남는다)
 watch(unread, (n) => {
   if (open.value && n) markAllRead();
 });
@@ -87,9 +87,9 @@ function close() {
   markAllRead();
 }
 
-// 지우는 항목: 위치를 지킨 채 오른쪽으로 빠지고(250ms, 앞 40% 는 흐려지지 않는다), 다 빠지면 그 공간을 접는다(200ms).
+// 지우는 항목: 위치를 지킨 채 오른쪽으로 빠지고(250ms, 앞 40%는 흐려지지 않는다), 다 빠지면 그 공간을 접는다(200ms).
 // 흐름에서 빼면(absolute) 목록 높이가 먼저 줄어 빠지는 항목이 잘려 안 보이고, 줄어든 목록 밖으로 삐져나와 스크롤바가 생긴다
-const EASE = "cubic-bezier(0.2, 0, 0, 1)"; // --ease-smooth 와 같은 값(Web Animations 는 var() 를 읽지 못한다)
+const EASE = "cubic-bezier(0.2, 0, 0, 1)"; // --ease-smooth와 같은 값(Web Animations는 var()를 읽지 못한다)
 const GAP = 4; // 항목 사이(px, gap-1). 접힌 항목 양쪽 틈이 겹치지 않게 한쪽을 당긴다
 // 빠지는 항목 수. 마지막 항목을 지워도 다 빠질 때까지 목록을 남겨 둔다("알림 없음"은 그 뒤에)
 const leaving = ref(0);

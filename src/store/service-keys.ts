@@ -46,7 +46,7 @@ function load() {
   }
 }
 
-/** 저장. values 는 그 서비스의 필드 중 바꿀 것만(빈 필드는 그대로 둔다). 모르는 필드가 있거나 바꿀 것이 없으면 던진다 */
+/** 저장. values는 그 서비스의 필드 중 바꿀 것만(빈 필드는 그대로 둔다). 모르는 필드가 있거나 바꿀 것이 없으면 예외를 던진다 */
 function save(service: ServiceId, values: Record<string, unknown>) {
   const entries = Object.entries(values).filter(([, value]) => typeof value === "string" && value.trim());
   if (!entries.length || Object.keys(values).some((field) => !fieldsOf(service).includes(field))) {

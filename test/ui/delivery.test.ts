@@ -19,7 +19,7 @@ test("수명: 경고 10초, 오류 15초, 연결 오류는 10초, 곡 전환 실
   assert.equal(noticeMs(noticeOf("warning", "autoplay", "코드 없는 경고")), 10_000);
 });
 
-test("본인: 아직 답하지 않았으면 응답, 답했으면 후속 메시지. 수명이 지나면 그것을 지운다", async (t) => {
+test("본인: 아직 응답하지 않았으면 응답, 응답했으면 후속 메시지. 수명이 지나면 그것을 지운다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const first = asked();
   await toSelf(first.real, selfOnly({ content: "x" }), 10_000);
@@ -67,7 +67,7 @@ test("안내: 미뤄 둔 명령은 자리표시자를 지우고 후속 메시지
   assert.deepEqual(lifetimesOf(b.it), [10_000]);
 });
 
-test("안내로 교체: 아직 답하지 않은 버튼은 먼저 받아 버튼이 달린 메시지를 지운다", async () => {
+test("안내로 교체: 아직 응답하지 않은 버튼은 먼저 받아 버튼이 달린 메시지를 지운다", async () => {
   const a = asked({ command: false, component: true });
   await noticeInstead(a.real, notice("queue-empty"));
   assert.deepEqual(a.calls, ["deferUpdate", "delete", "followUp:self"]);
@@ -84,7 +84,7 @@ test("자리표시자 고치기: 고친 뒤 수명이 지나면 지운다", asyn
   assert.deepEqual(a.calls, ["editReply", "delete"]);
 });
 
-test("모두: 아직 답하지 않았으면 공개 응답으로 보내고 수명이 지나면 지운다", async (t) => {
+test("모두: 아직 응답하지 않았으면 공개 응답으로 보내고 수명이 지나면 지운다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const a = asked();
   await toAll(a.real, view(), 15_000);
@@ -142,5 +142,5 @@ test("모두: 화면이 attachment:// 로 건 첨부를 응답, 채널 메시지
   assert.deepEqual([a.files, b.files, c.files], [[["art.jpg"]], [["art.jpg"]], [["art.jpg"]]]);
   const none = asked();
   await toAll(none.real, view(), 15_000);
-  assert.deepEqual(none.files, [], "첨부가 없으면 files 를 싣지 않는다");
+  assert.deepEqual(none.files, [], "첨부가 없으면 files를 싣지 않는다");
 });

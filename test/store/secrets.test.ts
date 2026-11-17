@@ -27,7 +27,7 @@ beforeEach(() => {
 test("넣고 꺼낸다. 같은 곳(제공자, 주소의 origin)이면 풀린다", () => {
   secrets.put("ai", VALUE, AI);
   assert.deepEqual(secrets.read("ai", AI), { state: "ok", value: VALUE });
-  assert.deepEqual(secrets.read("ai", { ...AI, endpoint: "https://API.example.com/other/path" }), { state: "ok", value: VALUE }, "같은 origin 의 다른 경로");
+  assert.deepEqual(secrets.read("ai", { ...AI, endpoint: "https://API.example.com/other/path" }), { state: "ok", value: VALUE }, "같은 origin의 다른 경로");
   assert.deepEqual(secrets.read("none"), { state: "none" });
 });
 
@@ -38,7 +38,7 @@ test("주소, 제공자가 바뀌면 키를 내주지 않는다", () => {
   assert.equal(secrets.read("ai").state, "moved", "묶인 키를 묶지 않은 것으로 꺼내지 못한다");
 });
 
-test("DB 의 묶인 주소 열만 바꾸면 풀리지 않는다(인증 데이터)", () => {
+test("DB의 묶인 주소 열만 바꾸면 풀리지 않는다(인증 데이터)", () => {
   secrets.put("ai", VALUE, AI);
   store.settings().prepare("UPDATE secrets SET endpoint = 'https://evil.example' WHERE name = 'ai'").run();
   assert.equal(secrets.read("ai", { ...AI, endpoint: "https://evil.example" }).state, "broken");
@@ -51,7 +51,7 @@ test("암호문을 다른 이름의 행으로 옮기면 풀리지 않는다", ()
   assert.equal(secrets.read("lastfm").state, "broken");
 });
 
-test("다른 SECRETS_KEY 로 잠근 행은 풀려고 하지 않는다", () => {
+test("다른 SECRETS_KEY로 잠근 행은 풀려고 하지 않는다", () => {
   secrets.put("spotify", VALUE);
   secrets._useKey(OTHER_KEY);
   assert.equal(secrets.read("spotify").state, "other-key");
@@ -83,7 +83,7 @@ test("DB 파일에 평문이 남지 않는다", () => {
   }
 });
 
-test("삭제, 빈 값과 너무 큰 값은 받지 않는다, 키가 없으면 던진다", () => {
+test("삭제, 빈 값과 너무 큰 값은 받지 않는다, 키가 없으면 예외를 던진다", () => {
   secrets.put("ai", VALUE, AI);
   assert.equal(secrets.remove("ai"), true);
   assert.equal(secrets.remove("ai"), false);

@@ -1,6 +1,6 @@
 // src/player/voice-channel-status.ts: 음성 채널 상태를 우리가 써도 되는가. 사람이 적어 둔 것은 건드리지 않는다.
 //
-// REST 채널 객체에는 status 가 실려 오지 않는다. 그것을 믿으면 언제나 빈 문자열이라 "아무도 안 쓴 것" 으로 보고 사람이 적어 둔 상태를 덮어쓴다.
+// REST 채널 객체에는 status가 실려 오지 않는다. 그것을 믿으면 언제나 빈 문자열이라 "아무도 안 쓴 것"으로 보고 사람이 적어 둔 상태를 덮어쓴다.
 // 실제 값은 게이트웨이(GUILD_CREATE, VOICE_CHANNEL_STATUS_UPDATE)로만 온다.
 
 import { test } from "node:test";
@@ -98,7 +98,7 @@ test("꺼져 있는 사이 사람이 바꿨으면 남의 것", () => {
   assert.equal(vcs.canWrite(CH), false);
 });
 
-test("우리가 쓴 값을 저장소에 남긴다. 남기지 못해도 던지지 않는다", () => {
+test("우리가 쓴 값을 저장소에 남긴다. 남기지 못해도 예외를 던지지 않는다", () => {
   reset();
   const keeper = keeperWith([]);
   vcs.keepIn(keeper);

@@ -1,6 +1,6 @@
 // NDJSON 파일 destination. LogSink.destinations에 얹히는 소비자 하나.
 //
-// 파일 쓰기는 facade(logger.ts)가 아니라 destination 에 둔다. pino transport 와 같은 자리라 로거를 바꿔도 부르는 쪽은 그대로다.
+// 파일 쓰기는 facade(logger.ts)가 아니라 destination에 둔다. pino transport와 같은 자리라 로거를 바꿔도 호출부는 그대로다.
 //
 // 한 줄에 레코드 하나. 가공은 ANSI 제거뿐이다(색은 터미널 사정이고, 파일에 남으면 grep이 깨진다).
 // 로그는 한 파일에 모은다. 분석하려고 파일 여러 개를 여는 것은 손해다.
@@ -25,7 +25,7 @@ function stamp(d: Date = new Date()): string {
 
 // logs/bot.log → logs/bot-2026-09-10T14-23-05.123.log (확장자가 없으면 뒤에 붙인다)
 //
-// 번호(bot.1.log)가 아니라 분리한 시각을 붙인다: 회전할 때 rename 이 한 번이고, 이름순이 곧 시간순이다.
+// 번호(bot.1.log)가 아니라 분리한 시각을 붙인다: 회전할 때 rename이 한 번이고, 이름순이 곧 시간순이다.
 // 기록을 시작한 시각은 다시 시작해 이어 쓰면 알 수 없지만 분리한 시각은 그 순간 확실하다.
 function backupPath(file: string, at: Date | string = new Date()): string {
   const ext = path.extname(file);
@@ -50,7 +50,7 @@ function nextBackupPath(file: string, exists: (target: string) => boolean = fs.e
   return target;
 }
 
-/** file 에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
+/** file에서 떼어 낸 파일들의 이름(같은 폴더). 이름순이 곧 시간순이다(파일명이 로컬 시각이라). 폴더를 못 읽으면 빈 목록 */
 function rotatedFilesOf(file: string, report?: { caller: string; line: (text: string) => unknown }): string[] {
   const base = path.basename(file);
   const ext = path.extname(base);
@@ -90,7 +90,7 @@ function lineOf(rec: LogRecord): string {
     // 순환 참조 등으로 직렬화가 안 되면 최소한 메시지는 남긴다.
     return `${JSON.stringify({ time: rec.time, level: rec.level, msg: String(stripAnsi(rec.msg)) })}\n`;
   }
-  // UTF-8 은 UTF-16 한 단위에 3바이트를 넘지 않는다. 그 안이면 바이트를 세지 않는다
+  // UTF-8은 UTF-16 한 단위에 3바이트를 넘지 않는다. 그 안이면 바이트를 세지 않는다
   if (line.length * 3 <= LINE_MAX) return line;
   const bytes = Buffer.byteLength(line);
   if (bytes <= LINE_MAX) return line;
@@ -107,27 +107,27 @@ function lineOf(rec: LogRecord): string {
 const RETRY_MS = 30_000;
 
 /**
- * 파일 destination. file: 기록할 파일 경로(절대). maxBytes, keep 은 서로 다른 축이고 각각의 0은 "그 축에 제한 없음"이다.
+ * 파일 destination. file: 기록할 파일 경로(절대). maxBytes, keep은 서로 다른 축이고 각각의 0은 "그 축에 제한 없음"이다.
  *
- *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(keep 은 뜻이 없다)
+ *   maxBytes = 0  → 회전하지 않는다. 한 파일에 계속 쓴다(keep은 뜻이 없다)
  *   keep     = 0  → 회전은 하되 오래된 것을 삭제하지 않는다. 파일이 계속 쌓인다
  *   둘 다 >0      → maxBytes에서 회전하고, 분리된 파일이 keep개를 넘으면 오래된 것부터 삭제한다
  *
- * notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination 으로 되돌아온다.
+ * notice: 파일 로그가 멈추고 풀릴 때 한 줄 알리는 곳(기본은 표준 오류). 로거로 알리면 이 destination으로 되돌아온다.
  * retryMs, now: 다시 열어 보는 간격과 시계(테스트가 넘긴다)
  */
 function createFileDestination({ file, maxBytes, keep, notice = (line: string) => process.stderr.write(line), retryMs = RETRY_MS, now = Date.now }: { file: string; maxBytes: number; keep: number; notice?: (line: string) => unknown; retryMs?: number; now?: () => number }): { write: (rec: LogRecord) => void; close: () => void; path: string } {
   let fd: number | null = null;
   let size = 0;
   let closed = false;
-  // 멈춘 때, 마지막으로 열어 본 때, 그동안 남기지 못한 줄 수. 멈추지 않았으면 down 이 null
+  // 멈춘 때, 마지막으로 열어 본 때, 그동안 남기지 못한 줄 수. 멈추지 않았으면 down이 null
   let down: number | null = null;
   let lastTry = 0;
   let lost = 0;
-  // 처음 한 번 알리고, 같은 까닭은 세기만 하고, 풀리면 한 줄(표준 오류로)
+  // 처음 한 번 알리고, 같은 원인은 세기만 하고, 풀리면 한 줄(표준 오류로)
   const failures = repeatingFailure({ error: (line) => notice(`[logFile] ${line}\n`), info: (line) => notice(`[logFile] ${line}\n`) }, `파일 로그(${file})`);
 
-  // 멈춘다. 그동안의 줄은 버리고 retryMs 마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
+  // 멈춘다. 그동안의 줄은 버리고 retryMs마다 다시 열어 본다. 여기서 logger를 부르면 이 destination으로 되돌아온다.
   function fail(what: string, err: unknown) {
     if (fd !== null) {
       try {

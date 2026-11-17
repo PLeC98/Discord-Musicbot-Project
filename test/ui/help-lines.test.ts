@@ -1,4 +1,4 @@
-// src/ui/help-lines.ts: /help 의 명령 줄을 명령 정의와 명령 모듈의 help(섹션, 권한)에서 만든다.
+// src/ui/help-lines.ts: /help의 명령 줄을 명령 정의와 명령 모듈의 help(섹션, 권한)에서 만든다.
 // 실제 명령 목록으로 만든 줄을 적어 둔다(명령, 설명, 옵션 이름, 권한을 바꾸면 여기도 바뀐다)
 
 import { test } from "node:test";
@@ -9,7 +9,7 @@ import { enabledCommands } from "../../src/app/command-loader.ts";
 import { withConfig } from "../helpers/config.ts";
 import { iconEntries, useUploaded } from "../../src/ui/icons.ts";
 
-// 실행 목록(켜진 명령)으로 만든다. /help 가 client.commands 로 하는 것과 같다
+// 실행 목록(켜진 명령)으로 만든다. /help가 client.commands로 하는 것과 같다
 const sectionsNow = () => helpSections(enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })));
 
 const EXPECTED = [
@@ -39,7 +39,7 @@ const EXPECTED = [
   },
 ];
 
-test("명령 정의에서 만든 /help 의 줄(섹션, 순서, 권한 표시)", () => {
+test("명령 정의에서 만든 /help의 줄(섹션, 순서, 권한 표시)", () => {
   const sections = withConfig({ sponsorblock: { enabled: true } }, sectionsNow);
   assert.deepEqual(
     sections.map(({ key, lines }) => ({ key, lines })),
@@ -57,7 +57,7 @@ test("꺼진 명령은 도움말에도 없다", () => {
   assert.ok(lines.some((line) => line.startsWith("`/play`")));
 });
 
-test("help 를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 않는다", () => {
+test("help를 적은 명령은 도움말에 한 번씩, /help 자신은 싣지 않는다", () => {
   const lines = withConfig({ sponsorblock: { enabled: true } }, sectionsNow).flatMap((section) => section.lines);
   for (const command of COMMANDS) {
     const count = lines.filter((line) => line.startsWith(`\`/${command.data.name}\``)).length;
@@ -93,7 +93,7 @@ test("보는 사람이 못 쓰는 등급의 줄에는 자물쇠, 섹션에 자�
   assert.equal(helpSections([...commands])[0].locked, false, "판정을 주지 않으면 모두 열림");
 });
 
-test("앱 이모지와 19자리 명령 id 를 실어도(줄마다 45자 안팎 길어진다) 화면마다 글자 합이 Components V2 상한(4000자) 안, 여유 500자", async () => {
+test("앱 이모지와 19자리 명령 id를 실어도(줄마다 45자 안팎 길어진다) 화면마다 글자 합이 Components V2 상한(4000자) 안, 여유 500자", async () => {
   const { homeView, sectionView } = await import("../../src/discord/commands/help.ts");
   const { rememberCommandIds } = await import("../../src/ui/command-mentions.ts");
   useUploaded(new Map(iconEntries().map((entry, i) => [entry.name, { id: String(1514244801397260398n + BigInt(i)), animated: entry.spec.shape === "spin" }])));

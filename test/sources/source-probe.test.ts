@@ -1,4 +1,4 @@
-// src/sources/source-probe.ts: 재생 테스트 한 건. 출처마다 실제로 열어 보고, 라이브(인터넷 라디오 포함)는 실패(live), 오류는 문제 코드로. 던지지 않는다.
+// src/sources/source-probe.ts: 재생 테스트 한 건. 출처마다 실제로 열어 보고, 라이브(인터넷 라디오 포함)는 실패(live), 오류는 문제 코드로. 예외를 던지지 않는다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +44,7 @@ test("사운드클라우드: 열리면 됨, 미리듣기만이면 그 코드", a
   assert.deepEqual(await probeSource(sc, openers({ soundcloud: fail("sc-preview-only") })), { ok: false, code: "sc-preview-only" });
 });
 
-test("직접 링크: 열자마자 끊고, 인터넷 라디오, 라이브 HLS 면 live", async () => {
+test("직접 링크: 열자마자 끊고, 인터넷 라디오, 라이브 HLS면 live", async () => {
   const url = "https://cdn.example.net/a.mp3";
   const opened: PassThrough[] = [];
   const open = (radio: boolean) =>

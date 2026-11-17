@@ -1,7 +1,7 @@
-// src/discord/commands 의 곡 추가 명령(/play, /playfirst, /search, /join, /autoplay, /dashboard): 지금 동작을 고정한다.
+// src/discord/commands의 곡 추가 명령(/play, /playfirst, /search, /join, /autoplay, /dashboard): 지금 동작을 고정한다.
 //
 // 입력, 권한, 결과마다 무엇을 불렀는지 적어 둔다(곡 추가 코어는 usecases/add-tracks).
-// /join 과 플레이어가 없을 때의 /autoplay 는 진짜 Player 를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다.
+// /join과 플레이어가 없을 때의 /autoplay는 진짜 Player를 만들므로 재생 하네스(음성, ffmpeg 가짜, 임시 DB)를 먼저 부른다.
 // 권한 판정, 서버 설정, 곡 추가 코어는 진짜, 화면 관리자와 트랙 조회만 가짜다.
 
 import { inGuild, currentVoiceTarget } from "../../src/infra/guild-context.ts";
@@ -98,7 +98,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     roles: { cache: { has: (r: string) => roles.includes(r) } },
     toString: () => `<@${USER}>`,
   };
-  // 패널 관리자가 받은 것. 곡 추가는 handled 에 따로
+  // 패널 관리자가 받은 것. 곡 추가는 handled에 따로
   const seen: unknown[] = [];
   const handled: Array<{ handle: TrackData; who: Requester | null }> = [];
   const embeds = {
@@ -110,7 +110,7 @@ function world({ botVoice = "v1", userVoice = "v1", roles = [], canJoin = true, 
     deleteWebhookCache: () => {},
   };
   const client = fakeWith<Client<true>>()({ user: { id: "bot" }, guilds: { fetch: async () => null } });
-  // 운영처럼 진짜 레지스트리. 버려진 플레이어는 알림을 듣고 스스로 뺀다
+  // 운영처럼 진짜 레지스트리. 버려진 플레이어는 알림을 듣고 자동으로 뺀다
   const players = new PlayerRegistry();
   players.followDisposals();
   const bot = fakeBot({ client, players, panels: embeds });
@@ -216,11 +216,11 @@ test("/play: 권한(동일 음성 채널 규칙)이 없으면 본인에게만 �
   assert.deepEqual(resolved, []);
 });
 
-test("/play: 검색 중 자리표시자를 본인에게 CV2 로 먼저 답하고 코어에 /play 로 넘긴다", async () => {
+test("/play: 검색 중 자리표시자를 본인에게 CV2로 먼저 응답하고 코어에 /play로 넘긴다", async () => {
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   await runCommand(await command("play"), it, w.bot);
-  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **노래** 검색 중..." }))], "처음부터 Components V2 로 답해야 안내 · 메뉴로 고칠 수 있다");
+  assert.deepEqual(log[0], ["reply", reply(frame({ body: "🔄 **노래** 검색 중..." }))], "처음부터 Components V2로 응답해야 안내와 메뉴로 고칠 수 있다");
   assert.equal(resolved[0].context, "play.resolveQuery");
   assert.equal(w.handled[0].handle.insertFirst, undefined);
   assert.equal(w.handled[0].who?.username, "사용자");
@@ -239,7 +239,7 @@ test("/play: 곡을 찾는 동안 문맥에 봇이 붙을 음성 채널(요청�
   assert.equal(currentVoiceTarget(), null, "찾기가 끝나면 문맥에서 빠진다");
 });
 
-test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던지면 진입점이 그 오류의 문장으로 바꾼다", async () => {
+test("/play: 코어가 실패하면 오류 컨테이너로 응답을 바꾸고, 예외를 던지면 진입점이 그 오류의 문장으로 바꾼다", async () => {
   const w = world();
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -255,7 +255,7 @@ test("/play: 코어가 실패하면 오류 컨테이너로 답을 바꾸고, 던
   assert.deepEqual(lastSent(thrown.log), post(noticeFrame(errors.notice("network-error"))));
 });
 
-test("/play: 답하기 전에 던지면 진입점이 본인에게만 알린다", async () => {
+test("/play: 응답하기 전에 예외를 던지면 진입점이 본인에게만 알린다", async () => {
   const w = world();
   const { it, log } = interaction(w, { options: { query: "노래" } });
   it.options.getString = () => {
@@ -295,7 +295,7 @@ test("/playfirst: DJ 계층이 필요하고, 맨 앞에 넣으라고 코어에 �
   assert.equal(w.handled[0].handle.insertFirst, true);
 });
 
-test("/play 와 /playfirst 는 같은 길이다. 넣을 위치와 진입점 이름만 다르다", async () => {
+test("/play와 /playfirst는 같은 길이다. 넣을 위치와 진입점 이름만 다르다", async () => {
   const through = async (name: string) => {
     const w = world({ roles: ["dj"] });
     resolved.length = 0;
@@ -308,10 +308,10 @@ test("/play 와 /playfirst 는 같은 길이다. 넣을 위치와 진입점 이�
   assert.deepEqual([play.handle.insertFirst, first.handle.insertFirst], [undefined, true]);
   assert.deepEqual({ ...first.handle, insertFirst: undefined }, { ...play.handle, insertFirst: undefined });
   assert.deepEqual([play.context, first.context], ["play.resolveQuery", "playfirst.resolveQuery"]);
-  assert.deepEqual(first.log, play.log, "답하는 모양도 같다");
+  assert.deepEqual(first.log, play.log, "응답하는 모양도 같다");
 });
 
-test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
+test("/playfirst: 실패, 오류 분기는 /play와 같다", async () => {
   const w = world({ roles: ["dj"] });
   resolveReply = () => ({ success: false, code: "no-song-result" });
   const failed = interaction(w, { options: { query: "없는 노래" } });
@@ -345,7 +345,7 @@ test("/playfirst: 실패, 오류 분기는 /play 와 같다", async () => {
 const noSpotify = { searchSpotify: async () => [] };
 const spotifyTracks = (n: number) => Array.from({ length: n }, (_, i) => ({ title: `스포티파이 ${i}`, artist: "가수", album: null, pageUrl: `https://open.spotify.com/track/${String(i).repeat(22)}`, requestKey: "", duration: 200, thumbnail: null, platform: "spotify" as const, id: String(i).repeat(22) }));
 
-test("/search: 처음부터 Components V2 로 검색 중을 답하고, 그 메시지를 결과 카드와 선택 메뉴(유튜브 7, 스포티파이 3)로 고친다. 2분 뒤 지운다", async () => {
+test("/search: 처음부터 Components V2로 검색 중으로 응답하고, 그 메시지를 결과 카드와 선택 메뉴(유튜브 7, 스포티파이 3)로 고친다. 2분 뒤 지운다", async () => {
   const asked: string[] = [];
   const search = async (q: string) => {
     asked.push(q);
@@ -371,7 +371,7 @@ test("/search: 처음부터 Components V2 로 검색 중을 답하고, 그 메�
     menu?.options?.map((o) => o.value.split(":")[1]),
     [...Array(7).fill("yt"), ...Array(3).fill("sp")],
   );
-  assert.ok(expiring("edited-msg"), "선택하면 멈출 수 있게 메시지 ID 로 예약");
+  assert.ok(expiring("edited-msg"), "선택하면 멈출 수 있게 메시지 ID로 예약");
   stopExpiry("edited-msg");
 });
 
@@ -383,7 +383,7 @@ test("/search: 붙여 넣은 검색어 앞뒤의 공백(NBSP, 전각 공백 포�
   assert.deepEqual(asked, ["노래"]);
 });
 
-test("/search: 링크는 검색하지 않고 /play 처럼 바로 넣는다(글자 그대로 찾으면 엉뚱한 결과가 나온다)", async () => {
+test("/search: 링크는 검색하지 않고 /play처럼 바로 넣는다(글자 그대로 찾으면 엉뚱한 결과가 나온다)", async () => {
   for (const link of ["https://youtu.be/abcdefghijk?si=x", "https://open.spotify.com/track/1SwZVVH9BnXtLRLi2cbFhw", "spotify:track:1SwZVVH9BnXtLRLi2cbFhw"]) {
     resolved.length = 0;
     const w = world();
@@ -446,14 +446,14 @@ test("/search: 권한, 결과 없음, 오류", async () => {
   assert.deepEqual(gated.log.at(-1), ["editReply", post(noticeFrame(errors.notice("search-age-gated")))]);
   assert.ok(sink.buffer.slice(from).some((e) => e.text === '곡 검색: /search | 사용자 | "y" → 결과 없음(유튜브 연령 인증 안내)'));
 
-  // 스포티파이 곡이 있으면 그것만으로 결과 화면, 카드 푸터에 까닭
+  // 스포티파이 곡이 있으면 그것만으로 결과 화면, 카드 푸터에 이유
   const filled = interaction(world(), { options: { query: "z" } });
   await searchCommand.execute(fake<ChatInputCommandInteraction<"cached">>(filled.it), filled.bot, { search: async () => ({ tracks: [], gated: true }), searchSpotify: async () => spotifyTracks(10) });
   assert.equal(selectOf(lastSent(filled.log) as never)?.options?.length, 10);
   assert.ok(textOf(lastSent(filled.log)).endsWith("-# 유튜브가 연령 인증을 요구하는 검색어예요"));
   stopExpiry("edited-msg");
 
-  // 유튜브 검색이 던지면 진입점이 남기고 검색 중 자리를 그 종류의 안내로 고친다
+  // 유튜브 검색이 예외를 던지면 진입점이 남기고 검색 중 자리를 그 종류의 안내로 고친다
   const offline = async () => {
     throw networkError();
   };
@@ -471,7 +471,7 @@ test("/search: 권한, 결과 없음, 오류", async () => {
 
 const SP_ID = "1SwZVVH9BnXtLRLi2cbFhw";
 
-/** 결과 화면의 메뉴에서 value 를 선택한 상호작용. userId: 메뉴를 만든 검색한 사람 */
+/** 결과 화면의 메뉴에서 value를 선택한 상호작용. userId: 메뉴를 만든 검색한 사람 */
 function pickIn(w: World, value: string, { userId = USER } = {}) {
   const made = interaction(w);
   const it = Object.assign(made.it, interactionKind("select"), {
@@ -487,7 +487,7 @@ function pickIn(w: World, value: string, { userId = USER } = {}) {
   return { ...made, it: fake<StringSelectMenuInteraction<"cached">>(it) };
 }
 
-test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가하는 중으로 고친 뒤 /play 와 같은 길로 넣는다. 담으면 그 메시지를 지운다", async () => {
+test("/search 결과 선택: 예약한 삭제를 멈추고 메시지를 추가하는 중으로 고친 뒤 /play와 같은 길로 넣는다. 담으면 그 메시지를 지운다", async () => {
   const w = world();
   const { it, log } = pickIn(w, `2:sp:${SP_ID}`);
   expireMessage("result-msg", () => assert.fail("선택한 뒤에는 삭제하지 않는다"), 60_000);
@@ -582,7 +582,7 @@ test('/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 
   assert.equal(w.bot.players.has("g1"), false, "붙지 못한 플레이어가 남지 않는다");
 });
 
-test('/join: "참가하는 중"은 음성 연결을 기다리기 전에 답한다(연결이 3초를 넘어도 상호작용이 만료되지 않게)', async () => {
+test('/join: "참가하는 중"은 음성 연결을 기다리기 전에 응답한다(연결이 3초를 넘어도 상호작용이 만료되지 않게)', async () => {
   const w = world({ player: null });
   const { it, log } = interaction(w);
   let answeredAtConnect = -1;
@@ -594,10 +594,10 @@ test('/join: "참가하는 중"은 음성 연결을 기다리기 전에 답한�
     const p = w.bot.players.get("g1");
     if (p) h.dispose(p);
   }
-  assert.equal(answeredAtConnect, 1, "연결할 때 이미 답했다");
+  assert.equal(answeredAtConnect, 1, "연결할 때 이미 응답했다");
 });
 
-test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined 로 알리고, 곡 없이 대기하다 나가기를 예약한다", async () => {
+test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 joined로 알리고, 곡 없이 대기하다 나가기를 예약한다", async () => {
   const w = world({ player: null });
   const { it, log, sentOnChannel } = interaction(w);
   // 끝난 패널로 알리는 것은 플레이어 알림을 거친다
@@ -613,7 +613,7 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", reply(replies.joining())], ["deleteReply"]], '음성 연결 전에 "참가하는 중"을 답하고 결과 때 지운다');
+    assert.deepEqual(log, [["reply", reply(replies.joining())], ["deleteReply"]], '음성 연결 전에 "참가하는 중"으로 응답하고 결과 때 지운다');
     assert.deepEqual(
       sentOnChannel.map((m) => m.payload),
       [post(replies.joined())],
@@ -825,7 +825,7 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
 
   const inPanel = interaction(w, { channelId: "panel-channel" });
   await runCommand(await command("dashboard"), inPanel.it, w.bot);
-  assert.ok(w.seen.includes("repost:panel-channel"), "DJ 가 아니어도 전용 채널에서는 된다");
+  assert.ok(w.seen.includes("repost:panel-channel"), "DJ가 아니어도 전용 채널에서는 된다");
 
   await settings.clearBotChannel("g1");
   const noChannel = world();
@@ -834,7 +834,7 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   assert.deepEqual(n.log, [["reply", noticeReply(errors.notice("must-dj"))]]);
 });
 
-// 봇이 패널을 올릴 수 있는 채널(보기, 보내기, 첨부). allowed 가 거짓이면 그 권한이 없다
+// 봇이 패널을 올릴 수 있는 채널(보기, 보내기, 첨부). allowed가 거짓이면 그 권한이 없다
 const postable = (it: { channel: object }, allowed = true) => Object.assign(it.channel, { viewable: true, isThread: () => false, permissionsFor: () => ({ has: () => allowed }), guild: { members: { me: { isCommunicationDisabled: () => false } } } });
 
 test("/dashboard(곡 있음): 패널을 올리기 전에 본인 표시로 미뤄 두고 올린 뒤 지운다. 패널을 올릴 수 없는 채널이면 옮기지 않고, 올리다 권한 오류가 나도 같은 안내", async () => {

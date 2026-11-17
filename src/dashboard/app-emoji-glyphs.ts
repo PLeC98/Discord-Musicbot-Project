@@ -1,6 +1,6 @@
 // 대시보드가 쓰는 앱 이모지: 목록(문자를 붙여서), 이미지, 입력란용 그림 글꼴(app-emoji-font).
-// 이미지는 database/dashboard/app-emojis/<id>.<png|gif> 에 캐시한다. 지금 앱 목록(store/app-emoji-book)에 있는 id 만 CDN 에서 한 번 다운로드한다
-// (아무 이모지 id 로 봇이 받아 저장하게 하지 않으려고). 이모지의 이미지는 디스코드에서 바뀌지 않아 id 하나에 한 번이면 된다. 캐시라 백업하지 않는다.
+// 이미지는 database/dashboard/app-emojis/<id>.<png|gif> 에 캐시한다. 지금 앱 목록(store/app-emoji-book)에 있는 id만 CDN에서 한 번 다운로드한다
+// (아무 이모지 id로 봇이 받아 저장하게 하지 않으려고). 이모지의 이미지는 디스코드에서 바뀌지 않아 id 하나에 한 번이면 된다. 캐시라 백업하지 않는다.
 // 글꼴은 목록이 바뀌면 다시 만들어 메모리에 둔다(이모지마다 64px PNG, 움직이는 것은 첫 프레임)
 
 import fs from "node:fs";
@@ -30,11 +30,11 @@ const downloading = new Map<string, Promise<Image | null>>();
 
 const fileOf = (id: string, animated: boolean) => path.join(dir, `${id}.${animated ? "gif" : "png"}`);
 
-/** 앱 이모지의 이미지. 지금 앱 목록에 없는 id 면 null */
+/** 앱 이모지의 이미지. 지금 앱 목록에 없는 id면 null */
 async function imageOf(id: string): Promise<Image | null> {
   const emoji = appEmojis().find((one) => one.id === id);
   if (!emoji) return null;
-  // 경로와 CDN 주소에는 요청의 id 가 아니라 목록의 id 를 쓴다
+  // 경로와 CDN 주소에는 요청의 id가 아니라 목록의 id를 쓴다
   const file = fileOf(emoji.id, emoji.animated);
   if (fs.existsSync(file)) return { data: fs.readFileSync(file), animated: emoji.animated };
   const pending = downloading.get(emoji.id) ?? download(emoji.id, emoji.animated, file).finally(() => downloading.delete(emoji.id));
@@ -56,7 +56,7 @@ async function download(id: string, animated: boolean, file: string): Promise<Im
   }
 }
 
-/** 앱 목록에 없는 id 의 캐시 파일을 지운다 */
+/** 앱 목록에 없는 id의 캐시 파일을 지운다 */
 function pruneImages() {
   if (!fs.existsSync(dir)) return;
   const ids = new Set(appEmojis().map((one) => one.id));
@@ -66,7 +66,7 @@ function pruneImages() {
   }
 }
 
-/** 목록: 앱 이모지마다 입력란 문자를 붙인다. 아이콘은 이름으로(운영자 색이 바뀌어 id 가 바뀌어도 같은 문자), 그 밖은 id 로 */
+/** 목록: 앱 이모지마다 입력란 문자를 붙인다. 아이콘은 이름으로(운영자 색이 바뀌어 id가 바뀌어도 같은 문자), 그 밖은 id로 */
 function emojiItems(): AppEmojiItem[] {
   const icons = new Set(iconEntries().map((entry) => entry.name));
   const keyOf = (emoji: { id: string; name: string }) => (icons.has(emoji.name) ? `icon:${emoji.name}` : `id:${emoji.id}`);

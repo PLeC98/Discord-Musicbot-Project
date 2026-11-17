@@ -1,6 +1,6 @@
-// src/media/cache-download.ts: TrackDownloader 가 캐시에 곡을 다운로드하는 흐름의 지금 동작을 고정한다.
+// src/media/cache-download.ts: TrackDownloader가 캐시에 곡을 다운로드하는 흐름의 지금 동작을 고정한다.
 //
-// 분기마다 "무엇으로 다운로드했나 · 캐시 DB 에 무엇을 적었나 · 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 저장소를 임시 DB 로 쓰고
+// 분기마다 "무엇으로 다운로드했나, 캐시 DB에 무엇을 적었나, 트랙에 무엇을 고쳤나"를 적어 둔다. 진짜 저장소를 임시 DB로 쓰고
 // yt-dlp, 직접 링크, 변환, SponsorBlock, 유튜브 매칭만 가짜로 넘긴다.
 
 import fs from "node:fs";
@@ -47,13 +47,13 @@ const calls = {
   equivalent: [] as Array<string | null>,
   reresolve: [] as Array<string | null>,
 };
-// 테스트마다 바꾸는 yt-dlp 의 행동. 기본은 "출력 경로에 파일과 info.json 을 쓴다"
+// 테스트마다 바꾸는 yt-dlp의 행동. 기본은 "출력 경로에 파일과 info.json을 쓴다"
 let ytdlpBehavior: (url: string, options: Options) => unknown;
-// 만든 .opus 를 잰 길이. 기본은 잴 수 없음(null)
+// 만든 .opus를 잰 길이. 기본은 잴 수 없음(null)
 let measuredSec: number | null = null;
 const measured: string[] = [];
 
-// 다운로더에 넘기는 가짜 소스와 변환. 무엇을 불렀는지 calls 에 모은다
+// 다운로더에 넘기는 가짜 소스와 변환. 무엇을 불렀는지 calls에 모은다
 const deps: Sources = {
   youtube: {
     ...youtubeSource,
@@ -66,7 +66,7 @@ const deps: Sources = {
       return ytdlpBehavior(url, options);
     },
   },
-  // 사운드클라우드는 유튜브 실행기(클라이언트 바꾸기, 쿠키)를 거치지 않는다. 어느 길로 갔는지 via 에 적는다
+  // 사운드클라우드는 유튜브 실행기(클라이언트 바꾸기, 쿠키)를 거치지 않는다. 어느 길로 갔는지 via에 적는다
   soundcloud: {
     download: async (url, flags) => {
       assert.ok(flags.output, "출력 경로가 없다");
@@ -123,7 +123,7 @@ after(() => {
   fs.rmSync(TMP, { recursive: true, force: true, maxRetries: 5 });
 });
 
-// yt-dlp 가 정상으로 다운로드했을 때 남기는 것: 출력 파일과 곁들인 info.json
+// yt-dlp가 정상으로 다운로드했을 때 남기는 것: 출력 파일과 곁들인 info.json
 const writesFile =
   ({ title = "영상 자체 제목", duration = 201 } = {}) =>
   (_url: string, options: Options) => {
@@ -150,7 +150,7 @@ const yt = tracks.youtube;
 
 // ── yt-dlp 분기 ────────────────────────────────────────────────────────
 
-test("유튜브: yt-dlp 로 임시 파일에 다운로드해 최종 경로로 올리고 캐시 DB 에 적는다", async () => {
+test("유튜브: yt-dlp로 임시 파일에 다운로드해 최종 경로로 올리고 캐시 DB에 적는다", async () => {
   const track = yt("aaaaaaaaaaa");
 
   const file = await downloader().downloadTrack(track);
@@ -164,12 +164,12 @@ test("유튜브: yt-dlp 로 임시 파일에 다운로드해 최종 경로로 �
   assert.deepEqual({ format: options.format, matchFilter: options.matchFilter, extractAudio: options.extractAudio, audioFormat: options.audioFormat, writeInfoJson: options.writeInfoJson, preferFreeFormats: (options as Record<string, unknown>).preferFreeFormats }, { format: "bestaudio/best", matchFilter: "!is_live", extractAudio: true, audioFormat: "opus", writeInfoJson: true, preferFreeFormats: true });
   assert.deepEqual(options.postprocessorArgs, audioConvert.ytdlpPostprocessorArgs());
   assert.equal(options.concurrentFragments, 2, "유튜브 세그먼트는 둘씩(넷부터 401)");
-  assert.deepEqual(calls.sponsor, [{ title: "곡 aaaaaaaaaaa", guildId: "g1" }], "다운로드 전에 SponsorBlock 을 확보한다(제목을 고치기 전)");
+  assert.deepEqual(calls.sponsor, [{ title: "곡 aaaaaaaaaaa", guildId: "g1" }], "다운로드 전에 SponsorBlock을 확보한다(제목을 고치기 전)");
 
   const row = audioRow("yt:aaaaaaaaaaa");
   assert.ok(row, "캐시 파일 기록에 적었다");
   assert.equal(row.status, "cached");
-  assert.equal(row.duration_sec, 201, "만든 파일을 잴 수 없으면 info.json 의 값");
+  assert.equal(row.duration_sec, 201, "만든 파일을 잴 수 없으면 info.json의 값");
   assert.equal(row.audio_version, "lmt:1700000000000000", "다운로드한 포맷의 버전을 적는다");
   assert.ok(Number(row.version_checked_at) > 0);
   const lookup = lookupRow(track.requestKey);
@@ -177,7 +177,7 @@ test("유튜브: yt-dlp 로 임시 파일에 다운로드해 최종 경로로 �
   assert.equal(lookup.audio_url, "https://www.youtube.com/watch?v=aaaaaaaaaaa");
   assert.equal(lookup.title_verified, 1, "유튜브는 영상 자체 제목으로 확인됨");
   assert.equal(track.title, "영상 자체 제목", "유튜브 곡은 제목을 영상 자체 제목으로 고친다");
-  assert.deepEqual(leftovers(), [], "info.json 과 임시 파일을 남기지 않는다");
+  assert.deepEqual(leftovers(), [], "info.json과 임시 파일을 남기지 않는다");
 });
 
 test("직접 지정한 음원으로 받는 유튜브 곡은 제목을 고치지 않는다", async () => {
@@ -205,7 +205,7 @@ test("스포티파이: 동등물을 못 찾으면 다운로드 전에 실패한�
 
   const from = sink.buffer.length;
   await assert.rejects(downloader().downloadTrack(track), { code: "sp-no-youtube-match" });
-  // 다운로드 전 실패도 다운로드가 한 번 남긴다(부르는 쪽은 debug 로 결과만)
+  // 다운로드 전 실패도 다운로드가 한 번 남긴다(호출부는 debug로 결과만)
   const failed = sink.buffer.slice(from).filter((e) => e.text.includes("캐시 다운로드 실패"));
   assert.deepEqual(
     failed.map((e) => e.level),
@@ -218,7 +218,7 @@ test("스포티파이: 동등물을 못 찾으면 다운로드 전에 실패한�
 });
 
 // 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거. 완료 줄(debug)에 걸린 시간, 다운로드한 포맷, 옮겼나 인코딩했나를 싣는다
-test("다운로드가 끝나면 걸린 시간과 다운로드한 포맷을 한 줄에 남긴다. yt-dlp 가 파일을 다 쓰고 한참 뒤에 끝났으면 그것도", async () => {
+test("다운로드가 끝나면 걸린 시간과 다운로드한 포맷을 한 줄에 남긴다. yt-dlp가 파일을 다 쓰고 한참 뒤에 끝났으면 그것도", async () => {
   ytdlpBehavior = (url, options) => {
     writesFile()(url, options);
     const info = `${options.output}.info.json`;
@@ -290,7 +290,7 @@ test("자동재생 출처 곡: 찾아 둔 영상(음원 주소)으로 다운로�
   assert.equal(lookupRow(track.requestKey)?.platform, "lastfm");
 });
 
-// 애니 소스 곡을 작품 페이지를 키로 적으면 같은 작품의 OP 와 ED 가 한 행을 두고 서로 덮는다
+// 애니 소스 곡을 작품 페이지를 키로 적으면 같은 작품의 OP와 ED가 한 행을 두고 서로 덮는다
 test("자동재생 곡은 링크 데이터에 요청 키(소스 안의 곡)로 적힌다. 같은 작품의 두 곡이 따로 산다", async () => {
   const page = "https://anilist.co/anime/150672";
   const song = (id: number, vid: string) => ({ title: `곡 ${id}`, pageUrl: page, requestKey: `amq:${id}`, platform: "anisongdb", audioUrl: `https://www.youtube.com/watch?v=${vid}` });
@@ -313,7 +313,7 @@ test("라이브는 다운로드하지 않는다(끝이 없다). 캐시 파일 �
   assert.equal(audioRow("yt:fffffffffff")?.status, "error");
 });
 
-test("yt-dlp 가 건너뛰면(파일 없음) 이유를 알 수 있는 오류로 바꾼다", async () => {
+test("yt-dlp가 건너뛰면(파일 없음) 이유를 알 수 있는 오류로 바꾼다", async () => {
   ytdlpBehavior = () => {};
 
   await assert.rejects(downloader().downloadTrack(yt("ggggggggggg")), /yt-dlp가 대상을 건너뜀/);
@@ -328,7 +328,7 @@ test("빈 파일은 버린다", async () => {
   assert.deepEqual(leftovers(), []);
 });
 
-test("info.json 이 없으면 제목, 길이를 모르는 채로 다운로드한다", async () => {
+test("info.json이 없으면 제목, 길이를 모르는 채로 다운로드한다", async () => {
   ytdlpBehavior = (_url, options) => fs.writeFileSync(options.output, "opus-bytes");
   const track = yt("iiiiiiiiiii");
 
@@ -381,7 +381,7 @@ test("직접 지정한 음원으로 받은 곡은 받은 파일의 태그로 고
   assert.deepEqual([track.title, track.artist, track.album], ["요청 곡", undefined, undefined]);
 });
 
-test("직접 링크: SafeUrl 을 거쳐 원본을 다운로드하고, 변환하고, 잰 길이로 모르던 길이를 채운다", async () => {
+test("직접 링크: SafeUrl을 거쳐 원본을 다운로드하고, 변환하고, 잰 길이로 모르던 길이를 채운다", async () => {
   const track: DownloadTrack = { title: "파일", pageUrl: "https://files.test/a.flac", requestKey: "https://files.test/a.flac", audioUrl: "https://files.test/a.flac", platform: "direct", duration: 0, durationSource: "unknown" };
   measuredSec = 221.47;
 
@@ -397,15 +397,15 @@ test("직접 링크: SafeUrl 을 거쳐 원본을 다운로드하고, 변환하�
   assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.audio_version, 'etag="v1";length=9', "응답 헤더에서 버전을 읽는다");
   assert.equal(audioRow(`dl:${md5("https://files.test/a.flac")}`)?.duration_sec, 221.47);
   assert.equal(fs.readFileSync(file, "utf8"), "opus");
-  assert.deepEqual(leftovers(), [], ".raw 를 남기지 않는다");
+  assert.deepEqual(leftovers(), [], ".raw를 남기지 않는다");
 });
 
-test("음원 길이는 만든 .opus 를 재서 소수까지 적는다. 표시는 보이던 값과 2초 넘게 다를 때만 바꾼다", async () => {
+test("음원 길이는 만든 .opus를 재서 소수까지 적는다. 표시는 보이던 값과 2초 넘게 다를 때만 바꾼다", async () => {
   measuredSec = 201.37;
   const close = yt("m1mmmmmmmmm", { duration: 201 });
   await downloader().downloadTrack(close);
   assert.ok(measured[0]?.includes(".tmp-"), "올리기 전의 임시 파일을 잰다");
-  assert.equal(audioRow("yt:m1mmmmmmmmm")?.duration_sec, 201.37, "info.json 의 정수보다 잰 값");
+  assert.equal(audioRow("yt:m1mmmmmmmmm")?.duration_sec, 201.37, "info.json의 정수보다 잰 값");
   assert.deepEqual({ duration: close.duration, durationSource: close.durationSource }, { duration: 201, durationSource: undefined }, "0.37초 차이로는 표시를 흔들지 않는다");
 
   measuredSec = 195.5;

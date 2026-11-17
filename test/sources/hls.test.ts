@@ -1,4 +1,4 @@
-// src/sources/hls.ts: 직접 링크 HLS 의 목록 받기, 선택, 라이브 따라가기, 세그먼트 받기(바이트 구간, 초기화 세그먼트, AES-128).
+// src/sources/hls.ts: 직접 링크 HLS의 목록 받기, 선택, 라이브 따라가기, 세그먼트 받기(바이트 구간, 초기화 세그먼트, AES-128).
 // 네트워크는 가짜다(주소 → 응답)
 
 import crypto from "node:crypto";
@@ -14,7 +14,7 @@ import * as SafeUrl from "../../src/infra/safe-url.ts";
 // raw: 그대로 돌려줄 상태 코드와 헤더(구간을 어긋나게 주는 서버). 없으면 구간을 따르는 서버는 206과 Content-Range를 붙인다
 type Reply = { body?: Buffer | string; status?: number; url?: string; honorsRange?: boolean; raw?: { status: number; headers: Record<string, string> } };
 
-/** 가짜 SafeUrl. routes 의 값이 함수면 부를 때마다 답을 정한다. 4xx, 5xx 는 SafeUrl 처럼 status 를 단 오류 */
+/** 가짜 SafeUrl. routes의 값이 함수면 부를 때마다 응답을 정한다. 4xx, 5xx는 SafeUrl처럼 status를 단 오류 */
 function netOf(routes: Record<string, Reply | (() => Reply)>) {
   const asked: Array<{ url: string; from?: number; to?: number }> = [];
   const net = {
@@ -72,7 +72,7 @@ test("VOD: 위치가 든 세그먼트부터 받고 그 세그먼트의 시작을
   assert.equal(hls.fragments().startedAtMs, 0);
 });
 
-test("바이트 구간은 끝이 있는 Range 로, 구간을 무시하는 서버면 잘라 쓴다. 초기화 세그먼트는 바뀔 때만 먼저 받는다", async () => {
+test("바이트 구간은 끝이 있는 Range로, 구간을 무시하는 서버면 잘라 쓴다. 초기화 세그먼트는 바뀔 때만 먼저 받는다", async () => {
   const file = "INIT" + "AAAA" + "BBBB";
   const text = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI="main.mp4",BYTERANGE="4@0"\n#EXTINF:4,\n#EXT-X-BYTERANGE:4@4\nmain.mp4\n#EXTINF:4,\n#EXT-X-BYTERANGE:4\nmain.mp4\n#EXT-X-MAP:URI="other.mp4"\n#EXTINF:4,\nseg.m4s\n#EXT-X-ENDLIST\n`;
   for (const honorsRange of [true, false]) {
@@ -113,7 +113,7 @@ test("구간 응답(206)은 시작 위치를 확인한다: 구간 뒤에서 시�
   assert.equal((await served("8@8", { body: "BBBB", raw: { status: 206, headers: { "content-range": "bytes 8-11/12" } } })).toString(), "BBBB", "목록의 끝 구간이 파일 끝을 넘었다");
 });
 
-test("AES-128: 키를 한 번 받아 풀고, IV 가 없으면 세그먼트 순번", async () => {
+test("AES-128: 키를 한 번 받아 풀고, IV가 없으면 세그먼트 순번", async () => {
   const key = Buffer.alloc(16, 1);
   const iv = Buffer.alloc(16, 7);
   const seal = (text: string, withIv: Buffer) => {
@@ -141,7 +141,7 @@ test("DRM(AES-128 밖의 암호), 목록이 아님은 열 때 unsupported-link",
   }
 });
 
-test("세그먼트, 키: 4xx 와 가드가 막은 주소는 재시도해도 같은 실패, 5xx 는 아니다", async () => {
+test("세그먼트, 키: 4xx와 가드가 막은 주소는 재시도해도 같은 실패, 5xx는 아니다", async () => {
   const { net } = netOf({ "https://e.test/gone.ts": { status: 404 }, "https://e.test/busy.ts": { status: 503 } });
   const blocked = {
     getStream: async (url: string, deps?: undefined, opts?: OpenOptions) => {
@@ -210,7 +210,7 @@ test("라이브: 갱신한 목록을 처리할 수 없으면(큰 순번) 재시�
   assert.deepEqual(await drain(again.fragments()), ["s1", "s2"]);
 });
 
-test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 라이브. DRM 은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
+test("직접 링크로 담기, 열기: VOD는 목록의 길이, 라이브는 라이브. DRM은 알리고, 하위 목록이 막히면 사유를 숨긴다", async () => {
   const live = `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\ns1.ts\n`;
   const drm = `#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="skd://x"\n#EXTINF:4,\na.ts\n#EXT-X-ENDLIST\n`;
   const master = `#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttp://10.0.0.1/inner.m3u8\n`;
@@ -229,7 +229,7 @@ test("직접 링크로 담기, 열기: VOD 는 목록의 길이, 라이브는 �
 
   await assert.rejects(directSource.getInfo("https://h.test/drm.m3u8", { net }), (e: unknown) => codeOf(e) === "unsupported-link");
   await assert.rejects(directSource.open("https://h.test/drm.m3u8", net), (e: unknown) => codeOf(e) === "unsupported-link");
-  // 가짜 네트워크가 SafeUrl 처럼 막힌 주소를 거절한다(여기서는 없는 주소의 404)
+  // 가짜 네트워크가 SafeUrl처럼 막힌 주소를 거절한다(여기서는 없는 주소의 404)
   await assert.rejects(directSource.open("https://h.test/master.m3u8", net), (e: unknown) => codeOf(e) === "direct-unavailable" && !messageOf(e).includes("10.0.0.1"));
 });
 
@@ -448,13 +448,13 @@ test("합계: 모은 세그먼트는 받은 바이트로 세고, 넘긴 세그�
   );
 });
 
-test("라이브: 읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다). VOD 는 열지 않는다", async () => {
+test("라이브: 읽을 수 없는 바이트 구간은 그 세그먼트를 받을 차례에만 실패한다(이미 지나간 세그먼트는 상관없다). VOD는 열지 않는다", async () => {
   const bad = (name: string) => `#EXTINF:2,\n#EXT-X-BYTERANGE:0@0\n${name}\n`;
   const good = (name: string) => `#EXTINF:2,\n${name}\n`;
   const lists = [
-    // 지나간 s1 의 구간을 읽을 수 없다. 새 세그먼트 s3 은 읽는다
+    // 지나간 s1의 구간을 읽을 수 없다. 새 세그먼트 s3은 읽는다
     `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:1\n${bad("s1.ts")}${good("s2.ts")}${good("s3.ts")}`,
-    // 새 세그먼트 s4 는 받고, s5 에 이르면 실패한다
+    // 새 세그먼트 s4는 받고, s5에 이르면 실패한다
     `#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:3\n${good("s3.ts")}${good("s4.ts")}${bad("s5.ts")}${good("s6.ts")}`,
   ];
   const routes: Record<string, Reply | (() => Reply)> = { "https://l.test/index.m3u8": () => ({ body: lists.shift() ?? "" }) };

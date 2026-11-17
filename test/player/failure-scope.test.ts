@@ -1,4 +1,4 @@
-// src/player/failure-scope.ts: 곡을 못 틀었을 때 그 까닭이 이 곡만인가(track), 다음 곡도인가(environment), 모르는가(unknown).
+// src/player/failure-scope.ts: 곡을 못 틀었을 때 그 원인이 이 곡만인가(track), 다음 곡도인가(environment), 모르는가(unknown).
 // 넘길지, 셀지, 그 곡에서 멈출지가 이것으로 갈리므로, 망이 끊긴 것을 곡 탓으로 보면 대기열을 태우고, 죽은 곡을 환경 탓으로 보면 곡마다 멈춘다.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -28,7 +28,7 @@ test("연결 이름(Node, undici), 시간 초과는 환경 탓. 원인 사슬에
   assert.equal(failureScope(new DOMException("응답이 10초 동안 없습니다", "TimeoutError")), "environment");
 });
 
-test("만든 곳이 붙인 범위가 이름보다 먼저다(같은 stream-failed 라도)", () => {
+test("만든 곳이 붙인 범위가 이름보다 먼저다(같은 stream-failed라도)", () => {
   assert.equal(failureScope(coded("stream-failed", { scope: "environment" })), "environment", "ffmpeg 없음");
   assert.equal(failureScope(coded("stream-failed", { scope: "track" })), "track", "이 곡에 mp3 없음");
   assert.equal(failureScope(new Error("감쌈", { cause: coded("stream-failed", { scope: "environment" }) })), "environment");
@@ -43,7 +43,7 @@ test("스트림의 HTTP 상태: 없어졌으면(404, 410) 곡 탓, 막혔으면(
   assert.deepEqual(
     [401, 403, 429, 500, 503].map((s) => failureScope(http(s))),
     Array(5).fill("environment"),
-    "googlevideo 차단 · 요청 제한에 대기열을 태우지 않는다",
+    "googlevideo 차단이나 요청 제한에 대기열을 태우지 않는다",
   );
   assert.equal(failureScope(http(416)), "unknown");
 });
@@ -51,7 +51,7 @@ test("스트림의 HTTP 상태: 없어졌으면(404, 410) 곡 탓, 막혔으면(
 test("직접 링크: 없어졌으면 곡 탓, 그 밖의 상태, 연결 실패는 모름(링크마다 서버가 다르다). ffmpeg 같은 봇 쪽은 그대로 환경 탓", () => {
   const direct = { direct: true };
   assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 404") }), direct), "track");
-  assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 403") }), direct), "unknown", "핫링크 차단 · 만료된 서명 주소");
+  assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 403") }), direct), "unknown", "핫링크 차단, 만료된 서명 주소");
   assert.equal(failureScope(Object.assign(new Error("HTTP 403"), { status: 403 }), direct), "unknown");
   assert.equal(failureScope(coded("direct-unavailable", { cause: coded("ECONNREFUSED") }), direct), "unknown");
   assert.equal(failureScope(coded("network-error"), direct), "unknown");
@@ -83,7 +83,7 @@ test("재생 쪽에서 만드는 이름은 모두 갈래가 정해져 있다", (
   for (const file of ["sources/youtube/errors.ts", "sources/soundcloud/run.ts"]) {
     for (const m of fs.readFileSync(path.join(root, file), "utf8").matchAll(/return "([a-z][a-z0-9-]+)";/g)) names.add(m[1]);
   }
-  // 곡을 넣을 때만 나오는 이름, 따로 다루는 이름(음성 연결 실패는 부르는 쪽이 정한다)
+  // 곡을 넣을 때만 나오는 이름, 따로 다루는 이름(음성 연결 실패는 호출부가 정한다)
   const elsewhere = new Set(["not-found", "spotify-failed", "unavailable-playlist", "voice-failed", "search-age-gated"]);
   const missing = [...names].filter((n) => !elsewhere.has(n) && !TRACK.has(n) && !ENVIRONMENT.has(n) && !UNKNOWN.has(n));
   assert.deepEqual(missing, []);

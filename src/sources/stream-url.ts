@@ -24,11 +24,11 @@ type StreamInfo = {
   duration?: number;
   liveStatus?: string | null;
   isLive?: boolean;
-  /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp 의 available_at) */
+  /** 이 시각(유닉스 초) 전에는 본편 요청이 막힐 수 있다. 앞 광고가 끝나는 때(yt-dlp의 available_at) */
   availableAt?: number | null;
   /** 세그먼트 목록으로만 주는 포맷이면 세그먼트 주소의 모양(포맷 주소 뒤 `&sq=번호`, 세그먼트 수). 아니면 없다 */
   fragments?: { base: string; count: number } | null;
-  /** 캐시된 주소를 다시 썼다(추출한 IP 에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 추출한다) */
+  /** 캐시된 주소를 다시 썼다(추출한 IP에 묶여 열리지 않을 수 있다. 그러면 재생 쪽이 새로 추출한다) */
   reused?: boolean;
   /** 이 서술자를 받은 음원 주소의 캐시 키(rules/audio-key-of). 곡의 음원 주소는 나중에 바뀔 수 있어 받은 때의 것을 싣는다 */
   audioKey?: string | null;
@@ -38,14 +38,14 @@ type YouTubeStreams = { getStream(url: string, options?: { fresh?: boolean }): P
 type SoundCloudStreams = { getStream(url: string, options?: { canPlayHls?: boolean }): Promise<StreamInfo> };
 type DirectInfo = { getInfo(url: string): Promise<Array<{ isLive?: boolean }>> };
 type Equivalent = { findYouTubeEquivalent(track: Seeking, opts?: { skipPin?: boolean }): Promise<string | null>; reresolveYouTube(track: Seeking): Promise<string | null> };
-/** canPlayHls: ffmpeg 가 HLS 를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 버리고 새로 받는다(다시 쓴 주소가 열리지 않았다) */
+/** canPlayHls: ffmpeg가 HLS를 여는가(재생 쪽이 안다), fresh: 캐시된 유튜브 영상 정보를 버리고 새로 받는다(다시 쓴 주소가 열리지 않았다) */
 type StreamOptions = { youtube: YouTubeStreams; soundcloud: SoundCloudStreams; direct: DirectInfo; equivalent: Equivalent; canPlayHls: boolean; fresh: boolean };
 const DEFAULTS: StreamOptions = { youtube: youtubeSource, soundcloud: soundcloudSource, direct: directSource, equivalent: equivalentModule, canPlayHls: true, fresh: false };
 
 /**
  * 재생용 스트림 획득. 음원 주소가 없는 곡(스포티파이)은 유튜브 동등물을 먼저 찾는다.
  * 곡이 어디서 왔는지(platform)는 보지 않는다. 자동재생 곡은 출처 이름을 들고 소리는 영상이나 음원에서 온다.
- * options 에서 넘기지 않은 것은 DEFAULTS(실제 모듈, canPlayHls = true, fresh = false)
+ * options에서 넘기지 않은 것은 DEFAULTS(실제 모듈, canPlayHls = true, fresh = false)
  */
 async function getStream(track: Seeking & { platform?: string | null }, options: Partial<StreamOptions> = {}) {
   const opts = { ...DEFAULTS, ...options };
@@ -69,7 +69,7 @@ async function pinnedLive(audioUrl: string | null | undefined, stream: StreamInf
   return info?.isLive === true;
 }
 
-// 받은 음원 주소의 키를 싣는다. 서술자의 url 은 CDN 주소라 키가 되지 않는다
+// 받은 음원 주소의 키를 싣는다. 서술자의 url은 CDN 주소라 키가 되지 않는다
 const keyed = (stream: StreamInfo, audioUrl: string): StreamInfo => ({ ...stream, audioKey: audioKeyOf(audioUrl) });
 
 async function streamOf(track: Seeking & { platform?: string | null }, { youtube, soundcloud, equivalent, canPlayHls, fresh }: StreamOptions): Promise<StreamInfo> {

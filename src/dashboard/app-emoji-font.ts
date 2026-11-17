@@ -1,7 +1,7 @@
 // 앱 이모지 그림 글꼴. 대시보드 입력란이 앱 이모지를 진짜 글자로 다루게(안드로이드는 글자가 아닌 인라인 요소를 선택하지 못한다),
 // 이모지마다 보조 사용자 정의 영역 문자 하나를 그 그림(PNG)으로 그리는 글꼴을 만든다. 의존성 없이 표를 직접 쓴다.
-// 형식은 엔진마다 그리는 것이 달라 두 벌이다: sbix(크롬, 엣지, 안드로이드, 사파리), SVG(파이어폭스. PNG 를 data 주소로 담는다).
-// 한 글꼴에 둘 다 넣으면 사파리가 SVG 를 먼저 써서 그리지 못한다(notes 조사 기록 8.3). 화면은 font-tech 로 고른다(style.css).
+// 형식은 엔진마다 그리는 것이 달라 두 벌이다: sbix(크롬, 엣지, 안드로이드, 사파리), SVG(파이어폭스. PNG를 data 주소로 담는다).
+// 한 글꼴에 둘 다 넣으면 사파리가 SVG를 먼저 써서 그리지 못한다(notes 조사 기록 8.3). 화면은 font-tech로 고른다(style.css).
 // 글꼴 단위: 1em = 1024, 이모지는 1em 정사각형, 바닥이 기준선 0.1em 아래(Twemoji 글꼴과 같은 자리)
 
 const UPEM = 1024;
@@ -9,7 +9,7 @@ const ASCENT = 922;
 const DESCENT = -102;
 
 type EmojiFontFormat = "sbix" | "svg";
-/** 문자 하나와 그 그림. png 는 size × size */
+/** 문자 하나와 그 그림. png는 size × size */
 type EmojiGlyph = { codepoint: number; png: Buffer };
 
 const u16 = (v: number) => {
@@ -36,7 +36,7 @@ function checksum(data: Buffer): number {
   return sum;
 }
 
-/** 표들을 글꼴 파일(sfnt) 하나로. 표는 이름 순, 4바이트 경계, head 의 checkSumAdjustment 를 채운다 */
+/** 표들을 글꼴 파일(sfnt) 하나로. 표는 이름 순, 4바이트 경계, head의 checkSumAdjustment를 채운다 */
 function sfnt(tables: Record<string, Buffer>): Buffer {
   const tags = Object.keys(tables).sort();
   const selector = Math.floor(Math.log2(tags.length));
@@ -76,7 +76,7 @@ function nameTable(family: string): Buffer {
   return Buffer.concat([u16(0), u16(ids.length), u16(6 + ids.length * 12), ...records, ...strings]);
 }
 
-/** 문자 → 글리프. 형식 4(BMP, 빈 것)와 형식 12, 유니코드(0)와 윈도우(3) 플랫폼 모두(애플 글꼴 엔진은 플랫폼 0 을 먼저 읽는다) */
+/** 문자 → 글리프. 형식 4(BMP, 빈 것)와 형식 12, 유니코드(0)와 윈도우(3) 플랫폼 모두(애플 글꼴 엔진은 플랫폼 0을 먼저 읽는다) */
 function cmapTable(codepoints: number[]): Buffer {
   const format4 = Buffer.concat([u16(4), u16(24), u16(0), u16(2), u16(2), u16(0), u16(0), u16(0xffff), u16(0), u16(0xffff), i16(1), u16(0)]);
   const groups = codepoints.map((cp, i) => Buffer.concat([u32(cp), u32(cp), u32(i + 1)]));
@@ -91,7 +91,7 @@ function cmapTable(codepoints: number[]): Buffer {
   return Buffer.concat([u16(0), u16(subtables.length), ...subtables.map(([platform, encoding, wide]) => Buffer.concat([u16(platform), u16(encoding), u32(wide ? base + format4.length : base)])), format4, format12]);
 }
 
-/** sbix: 한 단계(ppem = PNG 한 변). 원점은 아래로 descender 만큼 */
+/** sbix: 한 단계(ppem = PNG 한 변). 원점은 아래로 descender만큼 */
 function sbixTable(glyphs: EmojiGlyph[], size: number): Buffer {
   const originY = Math.round((DESCENT * size) / UPEM);
   const data = [Buffer.alloc(0), ...glyphs.map((g) => Buffer.concat([i16(0), i16(originY), Buffer.from("png ", "latin1"), g.png]))];
@@ -106,7 +106,7 @@ function sbixTable(glyphs: EmojiGlyph[], size: number): Buffer {
   return Buffer.concat([u16(1), u16(1), u32(1), u32(12), strike]);
 }
 
-/** SVG: 글리프마다 문서 하나. PNG 를 글꼴 단위로 키우고 위로 ascender 만큼(SVG 는 y 가 아래로 자란다) */
+/** SVG: 글리프마다 문서 하나. PNG를 글꼴 단위로 키우고 위로 ascender 만큼(SVG는 y가 아래로 자란다) */
 function svgTable(glyphs: EmojiGlyph[], size: number): Buffer {
   const scale = UPEM / size;
   const docs = glyphs.map((g, i) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g id="glyph${i + 1}" transform="matrix(${scale} 0 0 ${scale} 0 ${-ASCENT})"><image width="${size}" height="${size}" xlink:href="data:image/png;base64,${g.png.toString("base64")}"/></g></svg>`));
@@ -119,7 +119,7 @@ function svgTable(glyphs: EmojiGlyph[], size: number): Buffer {
   return Buffer.concat([u16(0), u32(10), u32(0), u16(docs.length), ...entries, ...docs]);
 }
 
-/** 그림 글꼴 하나. glyphs 의 PNG 는 모두 size × size 여야 한다 */
+/** 그림 글꼴 하나. glyphs의 PNG는 모두 size × size여야 한다 */
 function buildEmojiFont(family: string, glyphs: readonly EmojiGlyph[], size: number, format: EmojiFontFormat): Buffer {
   const list = [...glyphs].sort((a, b) => a.codepoint - b.codepoint);
   const count = list.length + 1; // 0 = .notdef
@@ -128,7 +128,7 @@ function buildEmojiFont(family: string, glyphs: readonly EmojiGlyph[], size: num
   const maxp = Buffer.concat([u32(0x00010000), u16(count), u16(4), u16(1), u16(0), u16(0), u16(2), ...Array.from({ length: 8 }, () => u16(0))]);
   const os2 = Buffer.concat([...[u16(4), i16(UPEM), u16(400), u16(5), u16(0)], ...[i16(0), i16(0), i16(0), i16(0), i16(0), i16(0), i16(0), i16(0), i16(50), i16(300), i16(0)], ...[Buffer.alloc(10), u32(0), u32(0), u32(0), u32(0), Buffer.from("NONE", "latin1"), u16(0x40), u16(0xffff), u16(0xffff)], ...[i16(ASCENT), i16(DESCENT), i16(0), u16(ASCENT), u16(-DESCENT), u32(1), u32(0), i16(0), i16(0), u16(0), u16(0x20), u16(0)]]);
   const hmtx = Buffer.concat(Array.from({ length: count }, () => Buffer.concat([u16(UPEM), i16(0)])));
-  // .notdef 는 상자 하나(빈 glyf 표를 거절하는 검사기가 있다), 나머지 글리프는 윤곽이 없다
+  // .notdef는 상자 하나(빈 glyf 표를 거절하는 검사기가 있다), 나머지 글리프는 윤곽이 없다
   const glyf = Buffer.concat([i16(1), i16(100), i16(0), i16(600), i16(700), u16(3), u16(0), Buffer.from([1, 1, 1, 1]), i16(100), i16(0), i16(500), i16(0), i16(0), i16(700), i16(0), i16(-700)]);
   const loca = Buffer.concat([u16(0), ...Array.from({ length: count }, () => u16(glyf.length / 2))]);
   const post = Buffer.concat([u32(0x00030000), u32(0), i16(-100), i16(50), u32(0), u32(0), u32(0), u32(0), u32(0)]);

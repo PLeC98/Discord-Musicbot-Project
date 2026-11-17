@@ -1,4 +1,4 @@
-// src/usecases/song-search.ts 의 findSongs(대시보드 곡 추가 칸의 검색): 섞기, 예정 영상, 연령 인증, 스포티파이 준비와 마감, 유튜브 실패
+// src/usecases/song-search.ts의 findSongs(대시보드 곡 추가 칸의 검색): 섞기, 예정 영상, 연령 인증, 스포티파이 준비와 마감, 유튜브 실패
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ function deps({ youtube = 12, spotify = 5, gated = false, ready = true, spotifyM
   return out;
 }
 
-test("유튜브 7곡에 스포티파이 3곡을 섞는다(/search 와 같은 몫)", async () => {
+test("유튜브 7곡에 스포티파이 3곡을 섞는다(/search와 같은 몫)", async () => {
   const r = await findSongs("아이유", deps());
   assert.equal(r.songs.length, 10);
   assert.deepEqual(ids(r).slice(6), ["유튜브 6", "스포티파이 0", "스포티파이 1", "스포티파이 2"]);
@@ -54,7 +54,7 @@ test("연령 인증: 유튜브가 안내만 주면 스포티파이로 채우고,
   assert.deepEqual([without.songs.length, without.gated], [0, true]);
 });
 
-test("유튜브가 실패하면 던진다(부르는 쪽이 까닭을 알린다). 스포티파이가 실패하면 유튜브만", async () => {
+test("유튜브가 실패하면 예외를 던진다(호출부가 원인을 알림). 스포티파이가 실패하면 유튜브만", async () => {
   const d = deps();
   d.search = async () => {
     throw Object.assign(new Error("429"), { code: "rate-limited" });

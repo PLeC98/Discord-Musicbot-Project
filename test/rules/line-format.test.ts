@@ -22,7 +22,7 @@ test("길이를 알면 길이, 모르면 그 구간째 빠진다", () => {
   assert.equal(render(format, line(null)), "3. genre=k-pop title=NewJeans - Ditto");
 });
 
-test("{{:else}}: 모르면 글자, 0 을 적을 수 있다. 닫기는 {{/if-exist}} 도", () => {
+test("{{:else}}: 모르면 글자, 0을 적을 수 있다. 닫기는 {{/if-exist}}도", () => {
   assert.equal(render("{{#if-exist {{duration}}}}{{duration}}{{:else}}모름{{/if-exist}}", line(null)), "모름");
   assert.equal(render("{{#if-exist {{duration}}}}{{duration::m}}{{:else}}0{{/}}분", line(0)), "0분");
   assert.equal(render("{{#if-exist {{duration}}}}{{duration::m}}{{:else}}0{{/}}분", line(125)), "2분");
@@ -71,7 +71,7 @@ test("블록 문제는 위치와 함께: 닫히지 않음, 짝 없는 닫기, el
 
 test("겹친 값 안의 문제 위치도 원래 글 기준", () => {
   const { problems } = parseFormat("ab {{#if-exist {{길이초}}}}x{{/}}", LINE_NAMES);
-  assert.deepEqual(problems, [{ at: 15, end: 22, message: "이름이 바뀌었어요: {{길이초}} → {{duration::s}}" }], "end 는 그 태그 끝");
+  assert.deepEqual(problems, [{ at: 15, end: 22, message: "이름이 바뀌었어요: {{길이초}} → {{duration::s}}" }], "end는 그 태그 끝");
 });
 
 test("이름이 어딘가에 있는가(필수 이름, 목록 위치 검사)", () => {

@@ -1,5 +1,5 @@
 // src/media/seek-start.ts: 위치를 옮길 때 받기 시작할 위치(헤더, 키프레임 바이트)를 조회한다.
-// 요청은 가짜(파일 바이트를 Range 로 준다). 끝에서는 진짜 청크 스트림, ffmpeg 로 인덱스 경로와 처음부터 받은 경로의 소리를 비교한다
+// 요청은 가짜(파일 바이트를 Range로 준다). 끝에서는 진짜 청크 스트림, ffmpeg로 인덱스 경로와 처음부터 받은 경로의 소리를 비교한다
 
 import path from "node:path";
 import os from "node:os";
@@ -37,7 +37,7 @@ before(async () => {
   if (await ffmpeg([...tone, "-c:a", "aac", "-b:a", "96k", "-movflags", "+dash+global_sidx", "-frag_duration", "2000000", "-y", path.join(DIR, "a.m4a")])) files.m4a = fs.readFileSync(path.join(DIR, "a.m4a"));
 });
 
-/** 파일 바이트를 Range 로 주는 가짜. status 를 주면 그 상태, hang 이면 끊을 때까지 답하지 않는다 */
+/** 파일 바이트를 Range로 주는 가짜. status를 주면 그 상태, hang이면 끊을 때까지 응답하지 않는다 */
 function fileFetch(file: Buffer, { status = 206, hang = false } = {}) {
   const asked: string[] = [];
   const fetchImpl: RangeFetch = async (_url, { headers, signal }) => {
@@ -60,7 +60,7 @@ function fileFetch(file: Buffer, { status = 206, hang = false } = {}) {
 const request = (file: Buffer, over: Partial<SeekRequest> = {}): SeekRequest => ({ url: "https://rr.test/a", headers: {}, totalBytes: file.length, startMs: 90_000, durationMs: 120_000, chunkBytes: 64 * 1024, ...over });
 
 for (const kind of ["webm", "m4a"] as const) {
-  test(`${kind}: 헤더 · 키프레임 바이트 · 그 자리의 첫 바이트 확인을 준다`, async (t) => {
+  test(`${kind}: 헤더, 키프레임 바이트, 그 자리의 첫 바이트 확인을 준다`, async (t) => {
     const file = files[kind];
     if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
     const { fetchImpl, asked } = fileFetch(file);
@@ -89,7 +89,7 @@ test("가까운 위치는 묻지 않는다, 색인이 처음 받은 양보다 �
   assert.equal(more.asked[0], "bytes=0-299");
 });
 
-test("헤더 요청이 206 이 아니면, 받지 못하면, 한도를 넘으면 없음(한도는 slow)", async (t) => {
+test("헤더 요청이 206이 아니면, 받지 못하면, 한도를 넘으면 없음(한도는 slow)", async (t) => {
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const ignored = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 200 }).fetchImpl });
@@ -103,7 +103,7 @@ test("헤더 요청이 206 이 아니면, 받지 못하면, 한도를 넘으면 
   assert.ok(!slow.ok && slow.slow === true, JSON.stringify(slow));
 });
 
-test("헤더 요청의 주소가 거절되면(4xx) 그 상태를 refused 로 준다(처음부터 받아도 같은 답이다). 416 은 아니다", async (t) => {
+test("헤더 요청의 주소가 거절되면(4xx) 그 상태를 refused로 준다(처음부터 받아도 같은 답이다). 416은 아니다", async (t) => {
   const file = files.webm;
   if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const refused = await seekStart(request(file), { fetchImpl: fileFetch(file, { status: 403 }).fetchImpl });
@@ -121,7 +121,7 @@ test("곡 길이가 색인과 크게 다르면(시간 축을 잘못 읽은 것) 
 
 // ── 진짜 청크 스트림, ffmpeg ──
 
-/** 청크 스트림을 ffmpeg 에 넣고 PCM 2초 */
+/** 청크 스트림을 ffmpeg에 넣고 PCM 2초 */
 function pcmOf(stream: Readable, seekMs: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawnFfmpeg(buildFfmpegArgs({ seekMs }), "probe", { killOnStdoutClose: false });
@@ -143,7 +143,7 @@ function pcmOf(stream: Readable, seekMs: number): Promise<Buffer> {
   });
 }
 
-/** 왼쪽 채널로 b 를 a 에 대어 ±5ms 안의 가장 잘 맞는 어긋남(ms)과 상관 */
+/** 왼쪽 채널로 b를 a에 대어 ±5ms 안의 가장 잘 맞는 어긋남(ms)과 상관 */
 function bestLag(a: Buffer, b: Buffer) {
   const at = (buf: Buffer, i: number) => buf.readFloatLE(i * 8);
   let best = { lagMs: 0, corr: -1 };
@@ -165,7 +165,7 @@ function bestLag(a: Buffer, b: Buffer) {
 }
 
 for (const kind of ["webm", "m4a"] as const) {
-  test(`실물 ${kind}: 색인 길(헤더 + 키프레임부터 · 남은 -ss)의 소리가 처음부터 받은 길과 같다(어긋남 2ms 안)`, async (t) => {
+  test(`실물 ${kind}: 색인 길(헤더 + 키프레임부터, 남은 -ss)의 소리가 처음부터 받은 길과 같다(어긋남 2ms 안)`, async (t) => {
     const file = files[kind];
     if (!file) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
     const startMs = 90_500;

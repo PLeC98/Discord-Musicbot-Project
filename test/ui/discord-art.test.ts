@@ -25,7 +25,7 @@ test("유튜브: 큰 그림이 있으면 maxresdefault, 없으면(404), 묻지 �
   assert.deepEqual(asked, [yt("newvideo000", "maxresdefault"), yt("oldvideo000", "maxresdefault"), yt("brokennet00", "maxresdefault")], "영상마다 한 번만 묻는다");
 });
 
-test("유튜브가 아니면 묻지 않고 rules/track-art 의 큰 것(사운드클라우드 500×500, 그 밖은 그대로), 없으면 null", async () => {
+test("유튜브가 아니면 묻지 않고 rules/track-art의 큰 것(사운드클라우드 500×500, 그 밖은 그대로), 없으면 null", async () => {
   _internals.useHead(async () => assert.fail("묻지 않는다"));
   await prepare("https://i1.sndcdn.com/artworks-ab-mini.jpg");
   await prepare(null);

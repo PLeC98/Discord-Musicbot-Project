@@ -1,8 +1,8 @@
 <template>
-  <!-- 틀에 붙은 막대. 태블릿, PC 는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 사이드 드로어(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
+  <!-- 틀에 붙은 막대. 태블릿, PC는 왼쪽 세로, 휴대폰은 위 막대의 메뉴로 여는 사이드 드로어(drawer, 늘 펼친 모양). 가로(vertical 아님)는 지금 쓰지 않는다.
        서버 아이콘은 동그라미이고, 선택한 서버는 둥근 네모로 바뀌며 막대 가장자리에 표시가 선다(올리면 작게 튀어나온다).
        세로 막대는 맨 위(위 막대 높이)에 펼치기 버튼이 있고, 펼치면 아이콘 옆에 서버 이름이 나온다. 아이콘은 막대 폭(--bar)의 영역에 그대로 있어 펼쳐도 움직이지 않는다.
-       접은 막대는 아이콘 영역 양옆에 --bar-x 를 더한 폭이다. 서버 목록은 그 여백과 늘 잡아 둔 스크롤바 칸(rail-list) 덕에 상태 표시가 잘리지 않는다 -->
+       접은 막대는 아이콘 영역 양옆에 --bar-x를 더한 폭이다. 서버 목록은 그 여백과 늘 잡아 둔 스크롤바 칸(rail-list) 덕에 상태 표시가 잘리지 않는다 -->
   <nav class="shrink-0 flex text-on-surface" :class="vertical ? ['relative flex-col pb-3 gap-3 overflow-hidden [--bar-x:6px]', resizing ? '' : 'transition-[width] spring', open ? '' : 'w-[calc(var(--bar)+2*var(--bar-x))]'] : 'flex-row items-center h-(--bar) px-2 gap-2'" :style="vertical && !drawer && open ? { width: `${shell.sidebarWidth}px` } : undefined" :aria-label="T.serverRail">
     <!-- 펼친 막대의 오른쪽 가장자리를 드래그해서 폭을 바꾼다(두 번 누르면 기본 폭). 잡는 곳은 가장자리 전체,
          보이는 것은 가운데의 짧은 막대(M3 드래그 핸들). 올리면 나타나고 드래그하는 동안 길어진다 -->
@@ -31,7 +31,7 @@
       <span v-if="vertical" :class="label">{{ T.allServers }}</span>
     </router-link>
 
-    <!-- 구분선: 양옆을 "접었을 때 선이 아이콘 영역 가운데 24px 이 되는 만큼" 비우고 선은 그 안을 채운다. 펼치면 막대 폭을 따라 길어진다 -->
+    <!-- 구분선: 양옆을 "접었을 때 선이 아이콘 영역 가운데 24px이 되는 만큼" 비우고 선은 그 안을 채운다. 펼치면 막대 폭을 따라 길어진다 -->
     <span :class="vertical ? 'w-full flex shrink-0 px-[calc(var(--bar-x)+(var(--bar)-1.5rem)/2)]' : 'contents'"><span class="shrink-0 rounded-full bg-outline-variant/70" :class="vertical ? 'h-0.5 w-full' : 'w-0.5 h-6'"></span></span>
 
     <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade).
@@ -55,7 +55,7 @@
       </router-link>
     </div>
 
-    <!-- 시계: 마우스로 쓰는 기기(PC)만. 휴대폰, 태블릿은 OS 의 위 막대에 늘 있다 -->
+    <!-- 시계: 마우스로 쓰는 기기(PC)만. 휴대폰, 태블릿은 OS의 위 막대에 늘 있다 -->
     <SidebarClock v-if="vertical && prefs.clock" class="hidden pointer-fine:block" />
     <span :class="vertical ? (open ? 'w-full shrink-0 flex px-[calc(var(--bar-x)+(var(--bar)-2.25rem)/2-0.375rem)]' : 'ml-(--bar-x) w-(--bar) flex justify-center shrink-0') : 'contents'"><AccountMenu compact :labeled="vertical && open" /></span>
   </nav>
@@ -106,7 +106,7 @@ const store = useGuildsStore();
 const route = useRoute();
 
 const isHome = computed(() => route.path === "/servers");
-// 봇 그림을 못 불러왔으면 기호로(그림 주소가 바뀌면 다시 해 본다)
+// 봇 그림을 못 불러왔으면 기호로(그림 주소가 바뀌면 재시도한다)
 const avatarBroken = ref(false);
 watch(
   () => shell.botAvatar,

@@ -1,5 +1,5 @@
 // src/discord/events/interaction-create.ts: 상호작용 진입점. 슬래시 명령을 찾아 부르고, 버튼, 메뉴, 모달은 핸들러 표로 선택한다.
-// 처리가 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
+// 처리가 예외를 던지면 한 번 남기고 알린다. 종류를 구분할 수 있는 오류는 그 문장, 자리표시자를 선언한 핸들러는 그 자리표시자에.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -57,7 +57,7 @@ test("슬래시 명령도 버튼, 메뉴, 모달도 아니면 지나간다", asy
   assert.deepEqual(sent, []);
 });
 
-test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 쓸 수 없다고 본인에게 답한다. 답하지 못해도 던지지 않는다", async () => {
+test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 쓸 수 없다고 본인에게 응답한다. 응답하지 못해도 예외를 던지지 않는다", async () => {
   const { it, sent, bot } = interaction({ name: "nope" });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent, [["reply", noticeReply(errors.notice("unknown-command"))]]);
@@ -107,7 +107,7 @@ test("서버 관리 계층으로 표시한 명령은 설정 명령 셋이다(도
   assert.deepEqual(names.sort(), ["setchannel", "setplaylistlimit", "setting"]);
 });
 
-test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {
+test("DM에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", async () => {
   const seen: string[] = [];
   const { it, sent, bot } = interaction({ name: "ping", guild: false, commands: { ping: { anywhere: true, execute: async () => seen.push("ran") } } });
   await interactionCreate.execute(bot, it);
@@ -115,7 +115,7 @@ test("DM 에서도 쓰는 명령(anywhere)은 서버 밖에서도 부른다", as
   assert.deepEqual(sent, []);
 });
 
-test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으면 이어서 보낸다", async () => {
+test("명령이 예외를 던지면 본인에게만 보이게 알린다. 이미 응답했으면 이어서 보낸다", async () => {
   const fresh = interaction({ commands: { play: failing(new Error("x")) } });
   await interactionCreate.execute(fresh.bot, fresh.it);
   assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.notice("command-failed"))]]);
@@ -125,7 +125,7 @@ test("명령이 던지면 본인에게만 보이게 알린다. 이미 답했으�
   assert.equal(answered.sent[0][0], "followUp");
 });
 
-test("미뤄 두고 아직 답하지 않은 명령이 던지면 그 답을 삭제하고 본인에게만 알린다", async () => {
+test("미뤄 두고 아직 응답하지 않은 명령이 예외를 던지면 그 응답을 삭제하고 본인에게만 알린다", async () => {
   const { it, sent, bot } = interaction({ commands: { play: failing(new Error("x")) }, deferred: true });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(sent, [["deleteReply"], ["followUp", noticeReply(errors.notice("command-failed"))]]);
@@ -168,7 +168,7 @@ test("상호작용이 이미 죽었으면 알리려 하지 않는다", async () 
   assert.deepEqual(sent, []);
 });
 
-test("알리기가 실패해도 던지지 않는다", async () => {
+test("알리기가 실패해도 예외를 던지지 않는다", async () => {
   const { it, bot } = interaction({ commands: { play: failing(new Error("x")) }, replyFails: true });
   await interactionCreate.execute(bot, it);
 });
@@ -199,7 +199,7 @@ const throwing = (error: Error) => [
   }),
 ];
 
-test("버튼 처리가 던지면 본인에게만 보이게 알린다. 이미 답했으면 이어서 보낸다", async () => {
+test("버튼 처리가 예외를 던지면 본인에게만 보이게 알린다. 이미 응답했으면 이어서 보낸다", async () => {
   const fresh = press();
   await routeInteraction(fakeBot(), fresh.it, throwing(new Error("x")));
   assert.deepEqual(fresh.sent, [["reply", noticeReply(errors.notice("processing-failed"))]]);
@@ -209,7 +209,7 @@ test("버튼 처리가 던지면 본인에게만 보이게 알린다. 이미 답
   assert.equal(answered.sent[0][0], "followUp");
 });
 
-test("버튼 처리가 던졌는데 상호작용이 이미 죽었으면 알리지 않는다", async () => {
+test("버튼 처리가 예외를 던졌는데 상호작용이 이미 죽었으면 알리지 않는다", async () => {
   const { it, sent } = press();
   await routeInteraction(fakeBot(), it, throwing(Object.assign(new Error("Unknown interaction"), { code: 10062 })));
   assert.deepEqual(sent, []);
@@ -234,7 +234,7 @@ test("서버 밖의 버튼은 받지 않는다", async () => {
 
 // ── 자동완성 ──
 
-/** 자동완성 상호작용. responded 는 respond 를 부르면 참이 된다 */
+/** 자동완성 상호작용. responded는 respond를 부르면 참이 된다 */
 function suggest({ name = "search", guild = true, commands = {} as Record<string, object> } = {}) {
   const answered: unknown[] = [];
   const it = {
@@ -252,13 +252,13 @@ function suggest({ name = "search", guild = true, commands = {} as Record<string
   return { it: fake<ChatInputCommandInteraction>(it), answered, bot };
 }
 
-test("자동완성은 그 명령의 autocomplete 가 답한다", async () => {
+test("자동완성은 그 명령의 autocomplete가 응답한다", async () => {
   const { it, answered, bot } = suggest({ commands: { search: { autocomplete: async (i: { respond(c: unknown): Promise<void> }) => i.respond([{ name: "a", value: "a" }]) } } });
   await interactionCreate.execute(bot, it);
   assert.deepEqual(answered, [[{ name: "a", value: "a" }]]);
 });
 
-test("자동완성 처리가 던지거나 답하지 않았으면 빈 목록으로 답하고, 던짐은 밖으로 새지 않는다", async () => {
+test("자동완성 처리가 예외를 던지거나 응답하지 않았으면 빈 목록으로 응답하고, 예외는 밖으로 새지 않는다", async () => {
   const thrown = suggest({
     commands: {
       search: {
@@ -276,7 +276,7 @@ test("자동완성 처리가 던지거나 답하지 않았으면 빈 목록으�
   assert.deepEqual(silent.answered, [[]]);
 });
 
-test("자동완성에 늦게 답해 거절되면(10062) warn 으로 남긴다. 1분에 한 줄", async () => {
+test("자동완성에 늦게 응답해 거절되면(10062) warn으로 남긴다. 1분에 한 줄", async () => {
   const from = sink.buffer.length;
   const late = () => {
     const one = suggest({
@@ -288,7 +288,7 @@ test("자동완성에 늦게 답해 거절되면(10062) warn 으로 남긴다. 1
         },
       },
     });
-    // 받은 것은 늦지 않았고(늦게 받음 줄을 남기지 않게) 답이 거절됐다
+    // 받은 것은 늦지 않았고(늦게 받음 줄을 남기지 않게) 응답이 거절됐다
     Object.assign(one.it, { createdTimestamp: Date.now() - 1000, responded: true });
     return interactionCreate.execute(one.bot, one.it);
   };
@@ -311,7 +311,7 @@ test("자동완성이 없는 명령, 없는 명령, 서버 밖은 빈 목록", a
 
 // ── 늦게 받은 상호작용 ──
 
-test("만든 뒤 2초가 넘어 받은 상호작용은 warn 으로 남긴다. 1분에 한 줄, 그 사이의 것은 세어 다음 줄에", async () => {
+test("만든 뒤 2초가 넘어 받은 상호작용은 warn으로 남긴다. 1분에 한 줄, 그 사이의 것은 세어 다음 줄에", async () => {
   const from = sink.buffer.length;
   const base = 10_000_000;
   const at = (createdAt: number, now: number) => {
@@ -328,6 +328,6 @@ test("만든 뒤 2초가 넘어 받은 상호작용은 warn 으로 남긴다. 1�
       .slice(from)
       .filter((e) => e.text.startsWith("상호작용 늦게 받음"))
       .map((e) => `${e.level} ${e.text}`),
-    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 늘 이러면 봇 PC 의 시계를 확인하세요", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 늘 이러면 봇 PC 의 시계를 확인하세요"],
+    ["warn 상호작용 늦게 받음: /play | 생성 뒤 3100ms | 늘 이러면 봇 PC의 시계를 확인하세요", "warn 상호작용 늦게 받음: /play | 생성 뒤 2500ms | 앞서 1번 더 | 늘 이러면 봇 PC의 시계를 확인하세요"],
   );
 });

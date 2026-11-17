@@ -1,5 +1,5 @@
-// src/dashboard/routes/player.ts 의 곡 추가 칸 검색(GET /player/search): 문(플레이어, 동일 음성 채널 규칙), 검색어 검사, 결과 모양, "대기열" 배지, 실패 코드.
-// 실 라우터 + 가짜 서버, 플레이어. 검색은 app.locals.findSongs 로 가짜를 넘긴다
+// src/dashboard/routes/player.ts의 곡 추가 칸 검색(GET /player/search): 문(플레이어, 동일 음성 채널 규칙), 검색어 검사, 결과 모양, "대기열" 배지, 실패 코드.
+// 실 라우터 + 가짜 서버, 플레이어. 검색은 app.locals.findSongs로 가짜를 넘긴다
 
 process.env.OWNER_ID = "owner";
 
@@ -98,7 +98,7 @@ test("검색: 검색어 검사. 빈 것, 100자 넘음, 여럿이면 400 bad-que
 });
 
 test("검색: 결과 모양. 정본 주소, 그림, 방송 중, 시작 전 방송, 스포티파이 곡. 지금 곡이나 대기열에 있는 곡은 inQueue(세 주소 중 무엇이든)", async () => {
-  // 대기열: 고정한 곡(pageUrl 이 입력 그대로, requestKey 는 정본), 출처가 있는 자동재생 곡(유튜브 영상은 audioUrl 에만)
+  // 대기열: 고정한 곡(pageUrl이 입력 그대로, requestKey는 정본), 출처가 있는 자동재생 곡(유튜브 영상은 audioUrl에만)
   fresh([
     { title: "고정", pageUrl: "https://youtu.be/pinned?si=x", requestKey: "https://www.youtube.com/watch?v=pinned", audioUrl: null },
     { title: "자동재생", pageUrl: "https://www.last.fm/music/x", requestKey: "lastfm:x", audioUrl: "https://youtu.be/auto" },
@@ -126,7 +126,7 @@ test("검색: 연령 인증 안내만 왔으면 gated", async () => {
   assert.deepEqual((await get("q=연령")).json, { tracks: [], gated: true });
 });
 
-test("검색: 실패는 그 까닭의 코드로(요청 제한 503, 연결 오류 502, 코드 없는 오류 500 unknown-error)", async () => {
+test("검색: 실패는 그 원인의 코드로(요청 제한 503, 연결 오류 502, 코드 없는 오류 500 unknown-error)", async () => {
   fresh();
   for (const [error, code, status] of [
     [codedError("rate-limited", "429"), "rate-limited", 503],

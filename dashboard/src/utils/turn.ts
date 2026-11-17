@@ -1,6 +1,6 @@
 // 이미지 편집 창의 90도 회전, 좌우 반전(앱 이모지 편집 면, 로그인 배경 편집 창).
 // 원본을 시계 방향으로 돌리고(rotate) 그다음 좌우로 뒤집은(flip) "돌린 이미지" 위에서 영역을 다룬다. 봇도 같은 차례로 적용한다.
-// 이미지 요소는 원본 그대로 두고 CSS 로 돌려 보인다(움직이는 GIF, WebP, 영상이 그대로 움직인다)
+// 이미지 요소는 원본 그대로 두고 CSS로 돌려 보인다(움직이는 GIF, WebP, 영상이 그대로 움직인다)
 
 type Rotation = 0 | 90 | 180 | 270;
 type Turn = { rotate: Rotation; flip: boolean };
@@ -13,8 +13,8 @@ const NO_TURN: Turn = { rotate: 0, flip: false };
 const turnedSize = (natural: Size, turn: Turn): Size => (turn.rotate % 180 ? { width: natural.height, height: natural.width } : natural);
 
 /**
- * 돌린 이미지 크기 × k 인 상자 안에 원본 이미지 요소를 돌려 놓는 스타일(요소에 absolute, max-w-none 과 함께).
- * CSS transform 은 오른쪽부터 적용돼 "회전 뒤 반전"이 scaleX(-1) rotate() 차례다
+ * 돌린 이미지 크기 × k인 상자 안에 원본 이미지 요소를 돌려 놓는 스타일(요소에 absolute, max-w-none과 함께).
+ * CSS transform은 오른쪽부터 적용돼 "회전 뒤 반전"이 scaleX(-1) rotate() 차례다
  */
 function imageStyle(natural: Size, k: number, turn: Turn) {
   const turned = turnedSize(natural, turn);
@@ -28,7 +28,7 @@ function imageStyle(natural: Size, k: number, turn: Turn) {
 }
 
 /**
- * 보이는 이미지를 시계 방향으로 90도: 새 회전과, 돌린 이미지 위 영역을 같이 돌린 것. natural 은 원본 크기.
+ * 보이는 이미지를 시계 방향으로 90도: 새 회전과, 돌린 이미지 위 영역을 같이 돌린 것. natural은 원본 크기.
  * 뒤집혀 보이는 중이면 원본은 반대로 돌려야 같은 결과다(반전 뒤 회전 = 반대 회전 뒤 반전)
  */
 function turnRight(natural: Size, turn: Turn, rect: Rect): { turn: Turn; rect: Rect } {
@@ -53,7 +53,7 @@ function toSource(rect: Rect, natural: Size, turn: Turn): Rect {
   return { x, y, w, h };
 }
 
-/** 원본 위 영역 → 돌린 이미지 위 영역(toSource 의 반대) */
+/** 원본 위 영역 → 돌린 이미지 위 영역(toSource의 반대) */
 function fromSource(rect: Rect, natural: Size, turn: Turn): Rect {
   const { width: W, height: H } = natural;
   const { x, y, w, h } = rect;

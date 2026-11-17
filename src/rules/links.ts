@@ -1,18 +1,18 @@
-// 사이트 지식. 어느 호스트가 어느 사이트인가, id 는 어디 있나. 판정이 아니다(판정은 inputKind, canonicalUrl, audioKeyOf).
+// 사이트 지식. 어느 호스트가 어느 사이트인가, id는 어디 있나. 판정이 아니다(판정은 inputKind, canonicalUrl, audioKeyOf).
 // 순수 함수만 둔다. 사이트를 더하면 이 파일과 그 판정들만 고친다.
 
 // ── 주소 읽기 ──
 
-/** 읽은 사이트 주소. host 는 받은 호스트(소문자, 끝 점 뗌), site 는 그 사이트의 정본 호스트, parts 는 경로 칸 */
+/** 읽은 사이트 주소. host는 받은 호스트(소문자, 끝 점 뗌), site는 그 사이트의 정본 호스트, parts는 경로 칸 */
 type SiteUrl = { host: string; site: string; parts: string[]; params: URLSearchParams; url: URL };
 
-// 어디에 있든 거절한다. new URL 은 소리 없이 지우고 읽는다(open.spo<줄바꿈>tify.com 이 받아진다)
+// 어디에 있든 거절한다. new URL은 소리 없이 지우고 읽는다(open.spo<줄바꿈>tify.com이 받아진다)
 const STRIPPED = /[\t\n\r]/;
 // 첫 ?, # 앞(스킴, 호스트, 경로)에 있으면 거절한다. 보이지 않는 글자가 판정과 키를 어긋나게 한다. 쿼리, 조각 안의 공백은 둔다
 const HIDDEN = /[\s\p{Cf}]/u;
 
 /**
- * 사이트 주소를 읽는다. hosts 는 받는 호스트 → 정본 호스트. http, https 만, 사용자 이름, 비밀번호, 기본이 아닌 포트는 받지 않는다.
+ * 사이트 주소를 읽는다. hosts는 받는 호스트 → 정본 호스트. http, https만, 사용자 이름, 비밀번호, 기본이 아닌 포트는 받지 않는다.
  * 경로 칸은 맨 앞의 빈 칸과 맨 뒤의 빈 칸 하나를 버린다(뒤 / 는 같은 주소다). 안쪽의 빈 칸은 남겨 사이트가 거절한다
  */
 function readSiteUrl(value: unknown, hosts: Readonly<Record<string, string>>): SiteUrl | null {
@@ -42,7 +42,7 @@ const youtubeIdOf = (value: string | null | undefined) => (value && YOUTUBE_ID.t
 
 /**
  * 유튜브 주소가 가리키는 영상과 재생목록. 둘 다 없으면 null(유튜브 주소가 아니거나 다루지 않는 모양).
- * /live/ID 는 라이브였던 영상의 링크일 뿐 다른 모양과 같은 영상 id 다. 지금 라이브인지는 주소가 아니라 정보(is_live)가 정한다
+ * /live/ID는 라이브였던 영상의 링크일 뿐 다른 모양과 같은 영상 id 다. 지금 라이브인지는 주소가 아니라 정보(is_live)가 정한다
  */
 function parseYouTube(value: unknown): { videoId: string | null; listId: string | null } | null {
   const link = readSiteUrl(value, YOUTUBE_HOSTS);
@@ -60,14 +60,14 @@ function parseYouTube(value: unknown): { videoId: string | null; listId: string 
   } else if (parts.length === 1 && parts[0] === "playlist") {
     listId = list;
   } else if (["embed", "v", "shorts", "live"].includes(parts[0]) && parts.length >= 2) {
-    // embed/videoseries 는 재생목록을 싣는 틀, embed/live_stream 은 채널의 지금 방송이다(yt-dlp 도 영상 id 로 보지 않는다)
+    // embed/videoseries는 재생목록을 싣는 틀, embed/live_stream은 채널의 지금 방송이다(yt-dlp도 영상 id로 보지 않는다)
     if (parts[0] === "embed" && parts[1] === "videoseries") listId = list;
     else if (parts[1] !== "live_stream") videoId = youtubeIdOf(parts[1]);
   }
   return videoId || listId ? { videoId, listId } : null;
 }
 
-/** 유튜브 호스트이기만 하면 참. 재생할 수 있는 모양인지는 보지 않는다(isYouTubeURL 이 본다) */
+/** 유튜브 호스트이기만 하면 참. 재생할 수 있는 모양인지는 보지 않는다(isYouTubeURL이 본다) */
 function isYouTubeHost(value: unknown): boolean {
   if (typeof value !== "string") return false;
   try {
@@ -90,7 +90,7 @@ function youtubeListOf(value: unknown): string | null {
   return link ? youtubeIdOf(link.params.get("list")) : null;
 }
 
-/** 영상 id 의 보는 주소(한 모양으로 적는다) */
+/** 영상 id의 보는 주소(한 모양으로 적는다) */
 const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
 
 // ── 스포티파이 ──
@@ -125,9 +125,9 @@ const SOUNDCLOUD_HOSTS = {
   "soundcloud.com": "soundcloud.com",
   "www.soundcloud.com": "soundcloud.com",
   "m.soundcloud.com": "soundcloud.com",
-  // 모바일 앱이 공유하는 짧은 링크. yt-dlp 가 리다이렉트를 따라간다
+  // 모바일 앱이 공유하는 짧은 링크. yt-dlp가 리다이렉트를 따라간다
   "on.soundcloud.com": "on.soundcloud.com",
-  // 곡, 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp 가 그대로 받는다
+  // 곡, 세트의 숫자 id 주소. 세트를 이어 받을 때 이것으로 부른다. yt-dlp가 그대로 받는다
   "api.soundcloud.com": "api.soundcloud.com",
   "api-v2.soundcloud.com": "api-v2.soundcloud.com",
 };
@@ -140,7 +140,7 @@ type SoundCloudLink = { kind: "track" | "set" | "short" | "other"; url: string; 
 const secretOrNone = (part: string | undefined) => part === undefined || /^s-[\w-]+$/.test(part);
 const mixOf = (parts: string[]) => (parts[0] === "discover" && parts.length === 3 && /^[\w:-]+$/.test(parts[2]) ? parts[2] : null);
 
-// soundcloud.com 의 경로. 첫 칸(사용자 이름)은 통째로, 둘째 칸은 첫 글자만 본다(soundcloud.com/사용자/곡.mp3 도 사운드클라우드다). 안쪽의 빈 칸은 받지 않는다
+// soundcloud.com의 경로. 첫 칸(사용자 이름)은 통째로, 둘째 칸은 첫 글자만 본다(soundcloud.com/사용자/곡.mp3도 사운드클라우드다). 안쪽의 빈 칸은 받지 않는다
 function soundCloudPage(parts: string[]): Omit<SoundCloudLink, "url"> | null {
   if (parts.includes("") || !/^[\w-]+$/.test(parts[0] ?? "") || (parts.length >= 2 && !/^[\w-]/.test(parts[1]))) return null;
   if (parts[1] === "sets" && parts.length >= 3 && parts.length <= 4 && secretOrNone(parts[3])) return { kind: "set", secret: parts[3] !== undefined, mix: mixOf(parts) };
@@ -158,9 +158,9 @@ function soundCloudShortcut(site: string, parts: string[]): SoundCloudLink["kind
 
 /**
  * 사운드클라우드 주소가 무엇을 가리키나. 사운드클라우드 주소가 아니면 null.
- *   kind    track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api 의 tracks/<id>)
- *           set    세트, 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api 의 playlists/<id>)
- *           short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp 가 풀어야 안다)
+ *   kind    track  곡(/사용자/곡, 비밀 공유 /사용자/곡/s-…, api의 tracks/<id>)
+ *           set    세트, 앨범(/사용자/sets/이름, 비밀 공유 …/s-…, api의 playlists/<id>)
+ *           short  앱 공유용 짧은 링크(곡인지 세트인지는 yt-dlp가 풀어야 안다)
  *           other  사용자 프로필, 좋아요, 재게시 같은 모음. 받지 않는다
  *   url     정본 호스트와 경로만 남긴 주소(쿼리를 버린다)
  *   secret  비밀 공유 주소인가(s-…)
@@ -186,7 +186,7 @@ const isSoundCloudURL = (value: unknown): boolean => parseSoundCloud(value) !== 
 // 위 사이트들의 호스트(하위 도메인 포함). 모양이 맞지 않는 주소(유튜브 클립, 채널, 스포티파이 에피소드, 짧은 링크)도 그 사이트의 페이지다
 const KNOWN_SITE_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "spotify.com", "spotify.link", "soundcloud.com"];
 
-/** 알려진 사이트의 주소인가. 직접 링크(파일, 방송 주소), 검색어와 구분한다. 공백 없는 spotify: 는 URI 모양이다(사람이 쓴 "spotify: 노래" 는 검색어) */
+/** 알려진 사이트의 주소인가. 직접 링크(파일, 방송 주소), 검색어와 구분한다. 공백 없는 spotify: 는 URI 모양이다(사람이 쓴 "spotify: 노래"는 검색어) */
 function isKnownSiteHost(value: unknown): boolean {
   if (typeof value !== "string") return false;
   if (/^spotify:\S+$/i.test(value.trim())) return true;

@@ -1,4 +1,4 @@
-// 봇 상태 탭의 자식 프로세스 정렬(열 하나와 방향). Node 를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다
+// 봇 상태 탭의 자식 프로세스 정렬(열 하나와 방향). Node를 부르지 않아 더미 대시보드의 가짜 서버도 쓴다
 
 import type { ProcessRow, ProcessSort } from "../contract/admin.ts";
 import type { Job } from "../../infra/process-job.ts";

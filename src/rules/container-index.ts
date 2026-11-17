@@ -2,19 +2,19 @@
 // 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(webm 클러스터, mp4 세그먼트)부터 받으려고 쓴다(media/seek-start).
 //   webm  EBML → Segment → Info(TimecodeScale), Tracks(오디오 트랙 번호), 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
 //   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0, 1, 세그먼트마다 크기, 길이). 세그먼트 시작은 sidx 다음 바이트 + first_offset
-// 인덱스가 이상하면(값이 빠짐, 시각이나 바이트가 줄어듦, 파일 밖, 계층형 sidx 등) 없음으로 답한다. 부르는 쪽은 그때 파일 처음부터 받는다.
+// 인덱스가 이상하면(값이 빠짐, 시각이나 바이트가 줄어듦, 파일 밖, 계층형 sidx 등) 없음을 반환한다. 호출부는 그때 파일 처음부터 받는다.
 
 type Kind = "webm" | "mp4";
-/** 키프레임 하나: 곡 안의 시각(ms)과 파일 안의 바이트. raw 는 webm 클러스터의 Timestamp 와 비교할 원래 값 */
+/** 키프레임 하나: 곡 안의 시각(ms)과 파일 안의 바이트. raw는 webm 클러스터의 Timestamp와 비교할 원래 값 */
 type Point = { ms: number; byte: number; raw: number };
 type ContainerIndex = { kind: Kind; headerEnd: number; points: Point[]; segment: { at: number; width: number } | null };
-/** 읽은 답: 인덱스, 더 받아야 함(앞에서부터 need 바이트), 없음(까닭) */
+/** 인덱스를 읽은 결과: 인덱스, 더 받아야 함(앞에서부터 need 바이트), 인덱스 없음(why에 원인) */
 type Read = { ok: true; index: ContainerIndex } | { ok: false; need: number } | { ok: false; why: string };
 type StartPoint = { byte: number; startedAtMs: number; expectStart(bytes: Buffer): boolean };
 
 /** 받은 첫 바이트를 확인하는 데 드는 양(webm: 클러스터 ID, 크기, Timestamp, mp4: 상자 헤더) */
 const FIRST_BYTES: Record<Kind, number> = { webm: 32, mp4: 8 };
-/** 디코더가 앞 소리 없이 시작하면 처음 수십 ms 가 다르다(Opus). 목표보다 이만큼 넘게 앞선 키프레임에서 시작한다 */
+/** 디코더가 앞 소리 없이 시작하면 처음 수십 ms가 다르다(Opus). 목표보다 이만큼 넘게 앞선 키프레임에서 시작한다 */
 const PREROLL_MS = 1000;
 /** 인덱스를 받으러 갈 때 앞부분 크기의 상한(4MB) */
 const MAX_HEAD_BYTES = 4 * 1024 * 1024;
@@ -31,7 +31,7 @@ const more = (buf: Buffer, end: number) => Math.max(end + 4096, buf.length * 2);
 
 const ID = { EBML: 0x1a45dfa3, Segment: 0x18538067, Info: 0x1549a966, TimecodeScale: 0x2ad7b1, Tracks: 0x1654ae6b, TrackEntry: 0xae, TrackNumber: 0xd7, TrackType: 0x83, Cues: 0x1c53bb6b, CuePoint: 0xbb, CueTime: 0xb3, CueTrackPositions: 0xb7, CueTrack: 0xf7, CueClusterPosition: 0xf1, Cluster: 0x1f43b675, Timestamp: 0xe7 };
 
-/** 가변 길이 정수. keepMarker 면 길이 표시 비트를 남긴다(ID). 모든 비트가 1 이면 크기 모름(Infinity). 버퍼가 모자라면 null */
+/** 가변 길이 정수. keepMarker면 길이 표시 비트를 남긴다(ID). 모든 비트가 1이면 크기 모름(Infinity). 버퍼가 모자라면 null */
 function vint(buf: Buffer, at: number, keepMarker: boolean): { value: number; width: number } | null {
   if (at >= buf.length) return null;
   const first = buf[at];
@@ -79,7 +79,7 @@ function childUint(buf: Buffer, parent: Element, id: number): number | null {
   return null;
 }
 
-/** 오디오 트랙 번호(Tracks 의 TrackType 2). 모르면 null */
+/** 오디오 트랙 번호(Tracks의 TrackType 2). 모르면 null */
 function audioTrackOf(buf: Buffer, tracks: Element): number | null {
   for (const entry of childrenOf(buf, tracks)) {
     if (entry.id === ID.TrackEntry && childUint(buf, entry, ID.TrackType) === 2) return childUint(buf, entry, ID.TrackNumber);
@@ -103,12 +103,12 @@ function cueOf(buf: Buffer, point: Element, audioTrack: number | null): { time: 
 
 type WebmParts = { segment: Element; scale: number; audioTrack: number | null; cues: Element | null; firstCluster: number };
 
-/** Segment 의 자식을 첫 클러스터까지 훑는다. 앞부분이 모자라면 더 받아야 할 양 */
+/** Segment의 자식을 첫 클러스터까지 훑는다. 앞부분이 모자라면 더 받아야 할 양 */
 function webmParts(buf: Buffer): WebmParts | Read {
   const ebml = elementAt(buf, 0);
   if (!ebml || ebml.id !== ID.EBML || !Number.isFinite(ebml.size)) return none("EBML 헤더가 아님");
   const segment = elementAt(buf, ebml.end);
-  if (!segment || segment.id !== ID.Segment) return none("Segment 가 없음");
+  if (!segment || segment.id !== ID.Segment) return none("Segment가 없음");
   let scale = 1_000_000;
   let audioTrack: number | null = null;
   let cues: Element | null = null;
@@ -129,8 +129,8 @@ function readWebm(buf: Buffer, totalBytes: number): Read {
   const parts = webmParts(buf);
   if ("ok" in parts) return parts;
   const { segment, scale, audioTrack, cues, firstCluster } = parts;
-  if (!cues) return none("Cues 가 첫 클러스터 앞에 없음");
-  if (!(scale > 0)) return none("TimecodeScale 이 0");
+  if (!cues) return none("Cues가 첫 클러스터 앞에 없음");
+  if (!(scale > 0)) return none("TimecodeScale이 0");
   const points: Point[] = [];
   for (const el of childrenOf(buf, cues)) {
     const cue = el.id === ID.CuePoint ? cueOf(buf, el, audioTrack) : null;
@@ -157,12 +157,12 @@ function boxAt(buf: Buffer, at: number): Box | null {
   return { type: buf.toString("latin1", at + 4, at + 8), start: at, data: at + header, end: at + size };
 }
 
-/** sidx → 세그먼트의 시작 바이트, 시각. 계층형(reference_type 1), 값이 이상하면 까닭 */
+/** sidx → 세그먼트의 시작 바이트, 시각. 계층형(reference_type 1), 값이 이상하면 원인 */
 function sidxPoints(buf: Buffer, sidx: Box): Point[] | string {
   const version = buf[sidx.data];
   if (version > 1) return `sidx version ${version}`;
   const timescale = buf.readUInt32BE(sidx.data + 8);
-  if (timescale === 0) return "sidx timescale 이 0";
+  if (timescale === 0) return "sidx timescale이 0";
   let at = sidx.data + 12;
   const wide = version === 1;
   let time = wide ? Number(buf.readBigUInt64BE(at)) : buf.readUInt32BE(at);
@@ -190,16 +190,16 @@ function readMp4(buf: Buffer, totalBytes: number): Read {
   for (let at = 0; ;) {
     const box = boxAt(buf, at);
     if (!box) return at + 16 > buf.length ? need(more(buf, at)) : none("상자가 깨짐");
-    if (at === 0 && box.type !== "ftyp") return none("ftyp 로 시작하지 않음");
-    if (box.type === "moof" || box.type === "mdat") return none("sidx 가 세그먼트 앞에 없음");
+    if (at === 0 && box.type !== "ftyp") return none("ftyp로 시작하지 않음");
+    if (box.type === "moof" || box.type === "mdat") return none("sidx가 세그먼트 앞에 없음");
     if (box.end > buf.length) return need(more(buf, box.end));
     if (box.type === "moov") moovEnd = box.end;
     if (box.type === "sidx") {
-      if (moovEnd === null) return none("sidx 가 moov 앞에 있음");
+      if (moovEnd === null) return none("sidx가 moov 앞에 있음");
       const points = sidxPoints(buf, box);
       if (typeof points === "string") return none(points);
       const end = points.pop()!;
-      if (end.byte > totalBytes) return none("sidx 의 끝이 파일 밖");
+      if (end.byte > totalBytes) return none("sidx의 끝이 파일 밖");
       return checked({ kind: "mp4", headerEnd: moovEnd, points, segment: null }, totalBytes);
     }
     at = box.end;
@@ -219,27 +219,27 @@ function checked(index: ContainerIndex, totalBytes: number): Read {
   return { ok: true, index };
 }
 
-/** 파일 앞부분(head)의 인덱스. totalBytes 는 파일 전체 크기 */
+/** 파일 앞부분(head)의 인덱스. totalBytes는 파일 전체 크기 */
 function readIndex(head: Buffer, totalBytes: number): Read {
   if (head.length >= 4 && head.readUInt32BE(0) === ID.EBML) return readWebm(head, totalBytes);
   if (head.length >= 8 && head.toString("latin1", 4, 8) === "ftyp") return readMp4(head, totalBytes);
   return none("webm이나 mp4가 아님");
 }
 
-/** 헤더로 넣을 바이트. webm 은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
+/** 헤더로 넣을 바이트. webm은 Segment 크기를 같은 너비의 크기 모름으로 바꾼다(중간을 건너뛰고 넣어도 디먹서가 크기를 따지지 않게) */
 function headerOf(head: Buffer, index: ContainerIndex): Buffer {
   const header = Buffer.from(head.subarray(0, index.headerEnd));
   if (index.segment) {
-    const at = index.segment.at + 4; // Segment ID 는 4바이트
+    const at = index.segment.at + 4; // Segment ID는 4바이트
     const { width } = index.segment;
-    // 길이 표시 비트 하나와 나머지가 모두 1(EBML 의 크기 모름)
+    // 길이 표시 비트 하나와 나머지가 모두 1(EBML의 크기 모름)
     header[at] = (0x100 >> width) | (0xff >> width);
     for (let i = 1; i < width; i++) header[at + i] = 0xff;
   }
   return header;
 }
 
-/** 받은 첫 바이트가 그 키프레임의 자리인가. webm 은 클러스터와 그 Timestamp, mp4 는 moof 상자 */
+/** 받은 첫 바이트가 그 키프레임의 자리인가. webm은 클러스터와 그 Timestamp, mp4는 moof 상자 */
 function startCheck(kind: Kind, point: Point): (bytes: Buffer) => boolean {
   if (kind === "mp4") return (bytes) => bytes.length >= 8 && bytes.toString("latin1", 4, 8) === "moof";
   return (bytes) => {
@@ -251,7 +251,7 @@ function startCheck(kind: Kind, point: Point): (bytes: Buffer) => boolean {
 }
 
 /**
- * 목표 위치에서 받기 시작할 키프레임. 목표보다 예열(1초) 넘게 앞선 마지막 것. 없으면 까닭(부르는 쪽은 파일 처음부터).
+ * 목표 위치에서 받기 시작할 키프레임. 목표보다 예열(1초) 넘게 앞선 마지막 것. 없으면 이유(호출부는 파일 처음부터).
  * 그 바이트가 첫 청크 안이면 처음부터 받는 것과 다르지 않다. 마지막 키프레임이 곡 길이와 크게 다르면 시간 축을 잘못 읽은 것이다
  */
 function startPoint(index: ContainerIndex, { targetMs, durationMs, chunkBytes }: { targetMs: number; durationMs: number; chunkBytes: number }): StartPoint | { why: string } {

@@ -28,7 +28,7 @@ function targetFor(id: string): Target {
   return { file, room: () => roomIn(dir), discard: () => fs.rmSync(file, { force: true }), ref: id };
 }
 
-/** 다 받은 업로드를 세션 sid 의 토큰으로 등록한다(.part를 원래 이름으로 바꾸고 1시간 뒤 삭제를 예약한다). 그 세션의 앞의 것은 삭제한다. 받은 파일 */
+/** 다 받은 업로드를 세션 sid의 토큰으로 등록한다(.part를 원래 이름으로 바꾸고 1시간 뒤 삭제를 예약한다). 그 세션의 앞의 것은 삭제한다. 받은 파일 */
 function adopt(id: string, sid: string): string {
   const file = fileFor(id);
   fs.renameSync(`${file}.part`, file);

@@ -20,7 +20,7 @@ function mask(text: unknown): string {
     out = out.split(key).join(REDACTED);
 
     // 서비스 계정은 값 자체가 JSON 블록이다. 통째로 나오는 일은 없어도 키만 떨어져 나올 수는
-    // 있으므로 안쪽 private_key 도 따로 가린다.
+    // 있으므로 안쪽 private_key도 따로 가린다.
     if (key.trimStart().startsWith("{")) {
       try {
         const inner = JSON.parse(key)?.private_key;

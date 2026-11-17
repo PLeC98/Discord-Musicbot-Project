@@ -26,7 +26,7 @@ settingsArchiveRouter.use(requireOwner);
 const KIND_LABEL: Record<ArchiveKind, string> = { settings: "봇 설정만", favicon: "파비콘", "login-background": "로그인 배경", "audio-cache": "오디오 캐시" };
 const CLIENT_CLOSED = new Set<unknown>(["ERR_STREAM_PREMATURE_CLOSE", "EPIPE", "ECONNRESET"]);
 
-// 읽지 못한 파일(ZIP 이 깨졌거나 이 봇의 내보내기가 아님)은 그 까닭과 함께 400
+// 읽지 못한 파일(ZIP이 깨졌거나 이 봇의 내보내기가 아님)은 그 원인과 함께 400
 function unreadable(res: Response, error: unknown) {
   if (codeOf(error) === "BAD_ZIP" || codeOf(error) === "BAD_ARCHIVE") {
     sendProblem(res, "bad-archive", {}, { detail: messageOf(error) });
@@ -40,7 +40,7 @@ const tickets = new Map<string, { kind: ArchiveKind; withFiles: boolean; by: str
 const TICKET_MS = 60_000;
 const TICKET = /^[0-9a-f]{32}$/;
 
-// kind: settings(봇 설정만), favicon(파비콘), login-background(로그인 배경), audio-cache(오디오 캐시, files=0 이면 캐시 파일 없이).
+// kind: settings(봇 설정만), favicon(파비콘), login-background(로그인 배경), audio-cache(오디오 캐시, files=0이면 캐시 파일 없이).
 // 최근 로그인을 보고 한 번 쓰는 다운로드 주소를 준다. 담을 수 없으면(캐시 파일이 너무 많다) 여기서 거절한다(다운로드 주소는 브라우저가 바로 열어 화면이 알릴 수 없다)
 settingsArchiveRouter.post("/export", requireRecentLogin, (req, res) => {
   const kind = String(req.query.kind ?? "");

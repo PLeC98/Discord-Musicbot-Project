@@ -88,7 +88,7 @@ test("기동 시 공개 주소 검사: http이고 공인 주소면 열지 않는
   assert.equal((await checkPublicUrl("http://v6.example.com", { lookup: names })).open, false);
 });
 
-test("기동 시 공개 주소 검사: 호스트를 찾지 못하거나 시간이 넘으면 막지 않고 까닭을 구별해 알린다", async () => {
+test("기동 시 공개 주소 검사: 호스트를 찾지 못하거나 시간이 넘으면 막지 않고 원인을 구별해 알린다", async () => {
   const notFound = await checkPublicUrl("http://nowhere.example.com", { lookup: () => Promise.reject(Object.assign(new Error("x"), { code: "ENOTFOUND" })) });
   assert.equal(notFound.open, true);
   assert.match(notFound.open ? (notFound.note ?? "") : "", /찾지 못해/);

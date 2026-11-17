@@ -1,5 +1,5 @@
 // src/rules/candidate-kind.ts, live-block-reason.ts, transport-of.ts: 흐름 앞의 판정 셋. 입력과 답만 적는다.
-// 변환 계획(planFor)과 errorKind 는 media/audio-convert.test.ts, ui/error-classification.test.ts 가 표로 고정한다. 여기서는 오류에서 code, 글을 읽는 것만 본다.
+// 변환 계획(planFor)과 errorKind는 media/audio-convert.test.ts, ui/error-classification.test.ts가 표로 고정한다. 여기서는 오류에서 code, 글을 읽는 것만 본다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ test("liveBlockReason: 라이브가 아니면 null, 예정이면 upcoming, ffmpe
   });
   assert.equal(liveBlockReason({ isLive: false }, ready(false)), null);
   assert.equal(liveBlockReason(null, ready(false)), null);
-  assert.equal(asked, 0, "라이브로 트는 곡이 아니면 ffmpeg 를 실행해 보지 않는다");
+  assert.equal(asked, 0, "라이브로 트는 곡이 아니면 ffmpeg를 실행해 보지 않는다");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(false)), "live-no-ffmpeg");
   assert.equal(liveBlockReason({ isLive: true, liveStatus: "is_live" }, ready(true)), null);
   assert.equal(asked, 2);
@@ -47,8 +47,8 @@ test("transportOf: 받아서 파이프로 넘길 수 없는 것만 url, 캐시 �
   assert.deepEqual(transportOf({ file: "/c/a.opus", streamUrl: "https://x/a.m3u8", streamInfo: hls }), { via: "file", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.webm", streamInfo: { protocol: "https" } }), { via: "pipe", live: false, cacheable: true });
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://radio.test/s", streamInfo: { platform: "direct", liveStatus: "is_live" } }), { via: "pipe", live: true, cacheable: false }, "인터넷 라디오는 받아서 파이프로 넘기되 라이브다");
-  assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url 이 아니다");
-  // DASH 도 파이프에 안 담긴다. 세그먼트 목록이다
+  assert.deepEqual(transportOf({ file: null, streamUrl: null, streamInfo: { stream: {}, ...hls } }), { via: "pipe", live: false, cacheable: true }, "주소가 없으면 url이 아니다");
+  // DASH도 파이프에 안 담긴다. 세그먼트 목록이다
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/a.mpd", streamInfo: { protocol: "http_dash_segments" } }), { via: "url", live: false, cacheable: true, list: "dash" });
   // 세그먼트 주소의 모양을 알면 우리가 세그먼트를 받아 파이프로 넘긴다(유튜브 post_live)
   assert.deepEqual(transportOf({ file: null, streamUrl: "https://x/v?live=1", streamInfo: { protocol: "http_dash_segments", fragments: { base: "https://x/v?live=1", count: 9 } } }), { via: "pipe", live: false, cacheable: true });
@@ -67,9 +67,9 @@ test("죽은 상호작용: 토큰 만료, 중복 응답만 참", () => {
   assert.equal(isDeadInteraction(null), false);
 });
 
-test("codeOf, messageOf: 무엇이 던져져도 읽는다", () => {
+test("codeOf, messageOf: 무엇이 예외로 던져져도 읽는다", () => {
   assert.equal(codeOf(Object.assign(new Error("x"), { code: "CONFIG_INVALID" })), "CONFIG_INVALID");
-  assert.equal(codeOf({ code: 10008 }), 10008, "디스코드 API 의 code 는 수다");
+  assert.equal(codeOf({ code: 10008 }), 10008, "디스코드 API의 code는 수다");
   assert.equal(codeOf({ code: { nested: true } }), undefined);
   assert.equal(codeOf(null), undefined);
   assert.equal(codeOf("boom"), undefined);
@@ -81,7 +81,7 @@ test("codeOf, messageOf: 무엇이 던져져도 읽는다", () => {
   assert.equal(messageOf(Object.assign(new Error(""), { name: "AbortError" })), "AbortError");
   assert.equal(messageOf(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE");
   assert.equal(describeError(Object.assign(new Error(""), { code: "EPIPE" })), "오류 코드 EPIPE", "코드를 두 번 싣지 않는다");
-  assert.match(messageOf(new Error("")), /^메시지 없는 Error \(at .+\)$/, "던진 자리");
+  assert.match(messageOf(new Error("")), /^메시지 없는 Error \(at .+\)$/, "예외를 던진 자리");
   assert.equal(messageOf({ status: 500, reason: "busy" }), '{"status":500,"reason":"busy"}');
   const circular: Record<string, unknown> = {};
   circular.self = circular;

@@ -51,14 +51,14 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
     anchor = null;
   }
 
-  // 행 안의 버튼(빼기, 옮기기 손잡이)을 누른 것은 그 버튼이 받는다. 행 바깥의 조상은 보지 않는다(휴대폰 시트는 펼치기 전에 목록째 touch-none 이다)
+  // 행 안의 버튼(빼기, 옮기기 손잡이)을 누른 것은 그 버튼이 받는다. 행 바깥의 조상은 보지 않는다(휴대폰 시트는 펼치기 전에 목록째 touch-none이다)
   function ownControl(e: Event) {
     const row = e.currentTarget;
     const own = e.target instanceof Element ? e.target.closest("button, a, .touch-none") : null;
     return Boolean(own && row instanceof Element && own !== row && row.contains(own));
   }
 
-  // 길게 누르기. 누른 손가락이 놓이면 브라우저가 click 을 보내므로 그 click 은 한 번 버린다(고른 곡을 바로 빼지 않게)
+  // 길게 누르기. 누른 손가락이 놓이면 브라우저가 click을 보내므로 그 click은 한 번 버린다(고른 곡을 바로 빼지 않게)
   let press: { id: number; x: number; y: number; timer: ReturnType<typeof setTimeout> } | null = null;
   let swallowClick = false;
   // 마지막으로 누른 것이 손가락인가(길게 누르면 휴대폰이 띄우는 메뉴를 막을지)

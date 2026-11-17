@@ -36,7 +36,7 @@ test("메뉴: 검색한 사람을 싣고, 항목은 번호. 제목, 채널 | 길
   assert.equal(pickOfOption(`3:sp:${SP}`), `sp:${SP}`);
 });
 
-test("연령 인증으로 스포티파이 곡만이면 구분선 아래 카드 푸터에 까닭", () => {
+test("연령 인증으로 스포티파이 곡만이면 구분선 아래 카드 푸터에 이유", () => {
   const view = searchResultsView({ query: "閃光", rows: [spotify(SP)], gated: true, userId: "u1" });
   assert.equal(textsOf({ components: [view.components[0]] }).at(-1), "-# 유튜브가 연령 인증을 요구하는 검색어예요");
   assert.equal(separatorsOf({ components: [view.components[0]] }), 1);

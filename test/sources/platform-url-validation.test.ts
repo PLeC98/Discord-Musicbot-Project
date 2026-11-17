@@ -64,7 +64,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 넘기지 않고 거�
     assert.equal(lookup.isUnsupportedLink(url), true, url);
 
     const result = await lookup.findTracks(url);
-    assert.equal(result.success, false, `${url} — 조용히 다른 영상을 틀면 안 된다`);
+    assert.equal(result.success, false, `${url}: 조용히 다른 영상을 틀면 안 된다`);
     assert.equal(result.code, "yt-unplayable", url);
     assert.match(result.success ? "" : plainText(addFailureMessage(result)), /지원하지 않는 유튜브 링크/);
   }
@@ -98,7 +98,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
   }
   assert.equal(opened.length, 3);
   assert.equal(lookup.isUnsupportedLink("https://open.spotify.com/episode/abc"), true, "알려진 사이트의 다른 주소는 열지 않고 거절");
-  assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI 는 링크 모양이 달라도 다룬다");
+  assert.equal(lookup.isUnsupportedLink("spotify:track:abc"), false, "스포티파이 URI는 링크 모양이 달라도 다룬다");
   assert.equal(lookup.isUnsupportedLink("https://cdn.example.com/a.mp3"), false, "직접 링크");
 });
 

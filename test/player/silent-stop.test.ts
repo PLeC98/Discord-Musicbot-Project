@@ -1,5 +1,5 @@
-// src/player/player.ts 의 _stopWith: 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈추고(stop()), 그 밖이면 바로 멈춘다(stop(true)).
-// 무음을 내보내는 동안은 멈추는 중이고, 상한이 지나도 Idle 이 아니면 바로 멈춘다. 대시보드는 그동안도 곡이 바뀌기를 기다린다.
+// src/player/player.ts의 _stopWith: 재생 중이면 무음 프레임 다섯을 보낸 뒤 멈추고(stop()), 그 밖이면 바로 멈춘다(stop(true)).
+// 무음을 내보내는 동안은 멈추는 중이고, 상한이 지나도 Idle이 아니면 바로 멈춘다. 대시보드는 그동안도 곡이 바뀌기를 기다린다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +32,7 @@ function fakePlayer(status: AudioPlayerStatus) {
   return { player, stops };
 }
 
-test("재생 중이면 무음을 내보내며 멈추고, Idle 이 오면 멈추는 중이 끝난다", () => {
+test("재생 중이면 무음을 내보내며 멈추고, Idle이 오면 멈추는 중이 끝난다", () => {
   const { player, stops } = fakePlayer(AudioPlayerStatus.Playing);
   player._stopWith("skip");
   assert.deepEqual(stops, [undefined], "강제 없이");
@@ -41,13 +41,13 @@ test("재생 중이면 무음을 내보내며 멈추고, Idle 이 오면 멈추�
 
   player._stopWith("jump");
   assert.deepEqual(stops, [undefined], "멈추는 중에 다시 멈추지 않는다");
-  assert.equal(player._endReason, "skip", "먼저 온 까닭을 지킨다");
+  assert.equal(player._endReason, "skip", "먼저 들어온 종료 원인을 덮어쓰지 않는다");
 
   Player.prototype.onAudioIdle.call(player);
   assert.equal(player.isStopping, false);
 });
 
-test("버퍼링, 일시정지 중이거나 force 면 바로 멈춘다(무음은 재생 중에만 흘러간다)", () => {
+test("버퍼링, 일시정지 중이거나 force면 바로 멈춘다(무음은 재생 중에만 흘러간다)", () => {
   for (const status of [AudioPlayerStatus.Buffering, AudioPlayerStatus.Paused, AudioPlayerStatus.AutoPaused]) {
     const { player, stops } = fakePlayer(status);
     player._stopWith("skip");
@@ -59,7 +59,7 @@ test("버퍼링, 일시정지 중이거나 force 면 바로 멈춘다(무음은 
   assert.deepEqual(stops, [true]);
 });
 
-test("무음 멈춤이 상한 안에 Idle 에 닿지 못하면(그새 일시정지 등) 바로 멈춘다", (t) => {
+test("무음 멈춤이 상한 안에 Idle에 닿지 못하면(그새 일시정지 등) 바로 멈춘다", (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { player, stops } = fakePlayer(AudioPlayerStatus.Playing);
   player._stopWith("skip");

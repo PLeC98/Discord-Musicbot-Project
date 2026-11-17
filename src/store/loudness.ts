@@ -5,11 +5,11 @@
 
 import { cacheDb } from "./cache-db.ts";
 
-/** 측정 방식의 버전. 바꾸면 file-failed 로 표시된 파일도 다시 잰다 */
+/** 측정 방식의 버전. 바꾸면 file-failed로 표시된 파일도 다시 잰다 */
 const ALGO = 1;
-/** 기존 heard-part 를 교체하는 들은 양의 기준(초). 새 들은 양이 min(기존 들은 양, 이 기준) 이상이면 교체한다 */
+/** 기존 heard-part를 교체하는 들은 양의 기준(초). 새 들은 양이 min(기존 들은 양, 이 기준) 이상이면 교체한다 */
 const PART_REPLACE_SEC = 600;
-/** heard-part 는 잰 지 이 기간이 지나면 들은 양을 따지지 않고 교체한다 */
+/** heard-part는 잰 지 이 기간이 지나면 들은 양을 따지지 않고 교체한다 */
 const PART_STALE_MS = 30 * 24 * 3600 * 1000;
 /** 마지막으로 쓴 지 이 기간이 지난 행은 지운다 */
 const UNUSED_MS = 180 * 24 * 3600 * 1000;
@@ -75,8 +75,8 @@ function recordFileFailed(audioKey: string, identity: Identity, now = Date.now()
 }
 
 /**
- * 들으며 잰 값을 저장한다. file 값이 있으면 저장하지 않는다. heard-full 은 늘 교체하고, heard-part 는 새 들은 양이
- * min(기존 들은 양, PART_REPLACE_SEC) 이상이거나 기존 값이 PART_STALE_MS 보다 오래됐을 때만 교체한다(교체하지 않아도 마지막 사용 시각은 갱신한다).
+ * 들으며 잰 값을 저장한다. file 값이 있으면 저장하지 않는다. heard-full은 늘 교체하고, heard-part는 새 들은 양이
+ * min(기존 들은 양, PART_REPLACE_SEC) 이상이거나 기존 값이 PART_STALE_MS보다 오래됐을 때만 교체한다(교체하지 않아도 마지막 사용 시각은 갱신한다).
  * 저장했으면 true
  */
 function recordHeard(audioKey: string, kind: "heard-full" | "heard-part", heard: { value: Measured; identity: Identity; heardSec: number }, now = Date.now()): boolean {

@@ -7,10 +7,10 @@ import { useModelInfo } from "../helpers/model-info.ts";
 
 const book: prices.PriceBook = { providers: { openai: { "gpt-x": [2, 8, 0.5] }, openrouter: { "free/model:free": [0, 0, 0] } } };
 
-test("키가 없는 로컬은 0, 값표에 있으면 그 값, 없는 모델, custom 은 가격 모름", () => {
+test("키가 없는 로컬은 0, 값표에 있으면 그 값, 없는 모델, custom은 가격 모름", () => {
   assert.equal(prices.priceOf("ollama", "qwen3:8b", book), 0);
   assert.deepEqual(prices.priceOf("openai", "gpt-x", book), [2, 8, 0.5]);
-  // 값표가 0 인 무료 모델은 0 달러다(가격 모름이 아니다)
+  // 값표가 0인 무료 모델은 0 달러다(가격 모름이 아니다)
   assert.deepEqual(prices.priceOf("openrouter", "free/model:free", book), [0, 0, 0]);
   assert.equal(prices.priceOf("openai", "gpt-unknown", book), null);
   assert.equal(prices.priceOf("custom", "anything", book), null);
@@ -22,7 +22,7 @@ test("비용: 캐시에서 읽은 입력은 캐시 값, 나머지 입력은 입�
   assert.equal(prices.costOf([2, 8, 0.5], { input: 1000, output: 100, cached: 400, reasoning: 20 }), 0.0022);
   assert.equal(prices.costOf(0, { input: 1000, output: 100, cached: 0, reasoning: 0 }), 0);
   assert.equal(prices.costOf(null, { input: 1000, output: 100, cached: 0, reasoning: 0 }), null);
-  // 토큰을 못 읽었으면(실패) 든 값이 없다고 본다
+  // 토큰을 못 읽었으면(실패)든 값이 없다고 본다
   assert.equal(prices.costOf([2, 8, 0.5], null), 0);
 });
 
@@ -45,7 +45,7 @@ test("파일 형식은 다시 읽으면 같은 값표다", () => {
 });
 
 const SOURCE_BOOK = (input: number) => ({ openai: { models: { "gpt-x": { cost: { input, output: 8 } } } } });
-/** models.dev 흉내. ETag 가 같으면 304. 받은 If-None-Match 를 남긴다 */
+/** models.dev 흉내. ETag가 같으면 304. 받은 If-None-Match를 남긴다 */
 function modelsDev(state: { etag: string; book: unknown }) {
   const asked: Array<string | null> = [];
   const fetchImpl = (async (_url: string | URL | Request, init?: RequestInit) => {
@@ -57,7 +57,7 @@ function modelsDev(state: { etag: string; book: unknown }) {
   return { asked, fetchImpl };
 }
 
-test("갱신: 받은 값표의 ETag 로 다음에는 바뀌었는지만 묻는다(304 면 받지 않는다)", async () => {
+test("갱신: 받은 값표의 ETag로 다음에는 바뀌었는지만 묻는다(304면 받지 않는다)", async () => {
   useModelInfo();
   const state = { etag: '"e1"', book: SOURCE_BOOK(2) as unknown };
   const { asked, fetchImpl } = modelsDev(state);
@@ -66,7 +66,7 @@ test("갱신: 받은 값표의 ETag 로 다음에는 바뀌었는지만 묻는�
   assert.equal((await prices.refresh({ fetchImpl })).changed, false);
   assert.deepEqual(asked, [null, '"e1"']);
 
-  // 다른 프로바이더만 바뀌어 ETag 만 달라졌다: 가격은 그대로, ETag 만 고쳐 둔다
+  // 다른 프로바이더만 바뀌어 ETag만 달라졌다: 가격은 그대로, ETag만 고쳐 둔다
   state.etag = '"e2"';
   state.book = { ...SOURCE_BOOK(2), other: { models: {} } };
   assert.equal((await prices.refresh({ fetchImpl })).changed, false);
@@ -78,7 +78,7 @@ test("갱신: 받은 값표의 ETag 로 다음에는 바뀌었는지만 묻는�
   assert.deepEqual(prices.load().providers.openai["gpt-x"], [3, 8, 3]);
 });
 
-test("갱신: 저쪽에서 선택한 것이 하나도 없으면 쓰지 않고 던진다", async () => {
+test("갱신: 저쪽에서 선택한 것이 하나도 없으면 쓰지 않고 예외를 던진다", async () => {
   useModelInfo();
   const now = prices.load();
   const empty = async () => new Response(JSON.stringify({}));

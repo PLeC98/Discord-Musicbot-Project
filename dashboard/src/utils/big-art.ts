@@ -25,8 +25,8 @@ function bigArt(url: string | null | undefined, size: BigSize): string | null {
 }
 
 /**
- * <img> 의 load, error 에서 부른다. url 은 곡의 그림 주소(bigArt 에 넘긴 것).
- * ok: 그렸다. retry: 큰 그림이 대체 그림이거나 못 불러와 기억했다(bigArt 가 다음 주소를 준다). broken: 원래 주소도 못 불러왔다
+ * <img> 의 load, error에서 부른다. url은 곡의 그림 주소(bigArt에 넘긴 것).
+ * ok: 그렸다. retry: 큰 그림이 대체 그림이거나 못 불러와 기억했다(bigArt가 다음 주소를 준다). broken: 원래 주소도 못 불러왔다
  */
 function noteArt(event: Event, url: string | null | undefined): "ok" | "retry" | "broken" {
   const img = event.target as HTMLImageElement;

@@ -28,7 +28,7 @@ export function createLoadGenerations() {
     },
     isCurrent,
     /**
-     * 지금 세대에서 블록 하나를 불러온다. fetch 는 세대의 취소 신호(signal)를 받아 응답을 주고, apply 는 리비전이 이 세대와 같은 응답만 받는다.
+     * 지금 세대에서 블록 하나를 불러온다. fetch는 세대의 취소 신호(signal)를 받아 응답을 주고, apply는 리비전이 이 세대와 같은 응답만 받는다.
      * 같은 블록을 불러오는 중이면 그 요청을 함께 기다린다
      */
     load<T extends { revision: number }>(block: number, fetch: (signal: AbortSignal) => Promise<T>, apply: (data: T) => void): Promise<BlockResult> {
@@ -55,9 +55,9 @@ export function createLoadGenerations() {
       return run;
     },
     /**
-     * 지금 세대의 블록 0 ~ count-1 을 모두 불러온다(이미 반영한 블록은 건너뛰고, 불러오는 중인 블록은 함께 기다린다).
-     * 시작한 세대의 모든 블록이 같은 리비전으로 다 왔으면 true. 그사이 새 세대가 열렸거나(gone), 리비전이 달랐거나, 요청이 실패하면 false(실패 알림은 loadOne 이 한다).
-     * loadOne 은 이 세대의 load 결과를 준다
+     * 지금 세대의 블록 0 ~ count-1을 모두 불러온다(이미 반영한 블록은 건너뛰고, 불러오는 중인 블록은 함께 기다린다).
+     * 시작한 세대의 모든 블록이 같은 리비전으로 다 왔으면 true. 그사이 새 세대가 열렸거나(gone), 리비전이 달랐거나, 요청이 실패하면 false(실패 알림은 loadOne이 한다).
+     * loadOne은 이 세대의 load 결과를 준다
      */
     async loadAll(count: number, loaded: (block: number) => boolean, loadOne: (block: number) => Promise<BlockResult>): Promise<boolean> {
       for (let block = 0; block < count; block++) {

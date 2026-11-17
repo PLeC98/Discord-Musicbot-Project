@@ -1,7 +1,7 @@
 // src/media/limiter.ts: 인코딩 워커의 게인 램프와 룩어헤드 리미터
 //
-// 지키는 것: 리미터를 켜면(press) 까다로운 신호(임펄스, 계단, 고역 사인, 잡음, 저역, 버스트, 사각파, 보간 계수의 부호에 맞춘 샘플)의 true peak 가 상한(-1.5 dBTP)을 넘지 않는다.
-// 프레임 크기를 바꿔도 결과가 같다. 깨진 샘플은 무음이 된다. 리미터를 끄면 지연만큼 늦춘 입력을 ±1 로 클립한 것과 같다.
+// 지키는 것: 리미터를 켜면(press) 까다로운 신호(임펄스, 계단, 고역 사인, 잡음, 저역, 버스트, 사각파, 보간 계수의 부호에 맞춘 샘플)의 true peak가 상한(-1.5 dBTP)을 넘지 않는다.
+// 프레임 크기를 바꿔도 결과가 같다. 깨진 샘플은 무음이 된다. 리미터를 끄면 지연만큼 늦춘 입력을 ±1로 클립한 것과 같다.
 // 게인은 프레임 안에서 선형 램프해 이웃 샘플이 튀지 않고, 리미터를 켜고 꺼도 출력이 이어진다.
 
 import { test } from "node:test";
@@ -41,7 +41,7 @@ const SIGNALS: Record<string, (i: number) => number> = {
   "저역 30 Hz +9 dBFS": (i) => 2.8 * Math.sin((2 * Math.PI * 30 * i) / FS),
   "잡음 버스트(50ms 켬, 50ms 끔) +9 dBFS": (i) => (Math.floor(i / 2400) % 2 ? 0 : 2.8 * rnd()),
   "사각파 1 kHz +6 dBFS": (i) => (Math.floor(i / 24) % 2 ? 2 : -2),
-  "보간 계수의 부호에 맞춘 12 샘플을 +12 dBFS 로 되풀이": (i) => 4 * Math.sign(SIGN[11 - (i % 12)] as number),
+  "보간 계수의 부호에 맞춘 12 샘플을 +12 dBFS로 되풀이": (i) => 4 * Math.sign(SIGN[11 - (i % 12)] as number),
 };
 
 // 프레임 크기를 바꿔 가며(20ms, 홀수 크기) 처리한 출력
@@ -77,8 +77,8 @@ for (const [name, fn] of Object.entries(SIGNALS)) {
   });
 }
 
-test("보간 계수의 부호에 맞춘 신호(샘플 크기는 상한의 절반 아래)도 true peak 가 상한을 넘지 않는다", () => {
-  // 계수의 절댓값 합이 2.02 인 가운데 두 위상(바깥 둘은 1.43 이라 넘지 않는다)
+test("보간 계수의 부호에 맞춘 신호(샘플 크기는 상한의 절반 아래)도 true peak가 상한을 넘지 않는다", () => {
+  // 계수의 절댓값 합이 2.02인 가운데 두 위상(바깥 둘은 1.43이라 넘지 않는다)
   for (const phase of TRUE_PEAK_PHASES.slice(1, 3)) {
     const pcm = new Float32Array(4000);
     for (let rep = 0; rep < 20; rep++)
@@ -117,7 +117,7 @@ test("깨진 샘플(NaN, 무한대, 터무니없이 큰 값)은 무음이 되고
   assert.ok(Math.abs((after[after.length - 1] as number) - 0.3) < 1e-6, `${after[after.length - 1]}`);
 });
 
-test("리미터를 끄면 지연만큼 늦춘 입력을 ±1 로 클립한 것과 같다", () => {
+test("리미터를 끄면 지연만큼 늦춘 입력을 ±1로 클립한 것과 같다", () => {
   const limiter = new Limiter();
   const delay = limiter.delaySamples;
   const src = new Float32Array(FS * 2);

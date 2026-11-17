@@ -1,12 +1,12 @@
-// 후보 줄 형식, 프롬프트의 플레이스홀더. RisuAI 의 CBS 템플릿을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기, 검사)가 같이 부른다.
+// 후보 줄 형식, 프롬프트의 플레이스홀더. RisuAI의 CBS 템플릿을 따르되 필요한 것만 둔다. 봇(autoplay/assist)과 대시보드(미리보기, 검사)가 같이 부른다.
 //
 //   {{이름}}, {{이름::인자}}                       값으로 바뀐다. 모르는 이름은 그대로 둔다(오타를 조용히 지우면 왜 사라졌는지 모른다)
-//   {{#if-exist 값}} … {{:else}} … {{/}}          값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤(없으면 아무것도). 닫기는 {{/if-exist}} 도. 겹쳐 쓸 수 있다
+//   {{#if-exist 값}} … {{:else}} … {{/}}          값이 비어 있지 않으면 앞, 비면 {{:else}} 뒤(없으면 아무것도). 닫기는 {{/if-exist}}도. 겹쳐 쓸 수 있다
 //
-// 참, 거짓을 구분하는 if 는 두지 않는다. 값이 모두 문자열(번호, 장르, 제목, 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
-// 검사는 문제마다 글자 위치(at 부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 표시한다).
+// 참, 거짓을 구분하는 if는 두지 않는다. 값이 모두 문자열(번호, 장르, 제목, 길이)이라 "있나 없나"만 구분한다. 블록 안 공백은 그대로 둔다(한 줄 형식이라).
+// 검사는 문제마다 글자 위치(at부터 end 앞까지, 0부터)를 함께 돌려준다(화면이 그 구간을 표시한다).
 
-/** 문제 하나. at 부터 end 앞까지가 그 위치(태그 하나, 닫히지 않은 블록의 여는 태그) */
+/** 문제 하나. at부터 end 앞까지가 그 위치(태그 하나, 닫히지 않은 블록의 여는 태그) */
 type Problem = { at: number; end: number; message: string };
 
 type Node = { kind: "text"; text: string } | { kind: "mark"; name: string; arg: string | null; raw: string; at: number } | { kind: "exist"; test: Node[]; then: Node[]; otherwise: Node[]; at: number; end: number };
@@ -36,7 +36,7 @@ const OPEN = "{{";
 const CLOSE = "}}";
 const EXIST = "#if-exist";
 
-/** at 에서 시작한 {{ 의 짝 }} 위치(겹친 {{ }} 를 센다). 없으면 -1 */
+/** at에서 시작한 {{ 의 짝 }} 위치(겹친 {{ }}를 센다). 없으면 -1 */
 function closingOf(text: string, at: number): number {
   let depth = 0;
   for (let i = at; i < text.length - 1; i++) {

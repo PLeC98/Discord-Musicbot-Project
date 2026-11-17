@@ -64,7 +64,7 @@ const TRACK = tracks.youtube("pcspcspcs01", { title: "곡", duration: 200 });
 const opened = (startOffsetMs = 0, input: InputHealth | null = null) => ({ track: TRACK, startOffsetMs, input, audioKey: "yt:pcspcspcs01" });
 const cacheFile = audioCache.getFilePath("yt:pcspcspcs01");
 
-// 이 곡의 캐시 파일을 둔다. null 이면 없앤다
+// 이 곡의 캐시 파일을 둔다. null이면 없앤다
 function cacheAs(content: string | Buffer | null) {
   fs.rmSync(cacheFile, { force: true });
   if (content != null) fs.writeFileSync(cacheFile, content);
@@ -106,19 +106,19 @@ test("이미 파괴됐거나 예약된 스플라이서는 건드리지 않는다
   planCacheSwitch.call(player, pending, opened());
   assert.equal(pending.calls.length, 0, "이미 예약됨");
 
-  planCacheSwitch.call(player, null, opened()); // 던지지 않는다
+  planCacheSwitch.call(player, null, opened()); // 예외를 던지지 않는다
 });
 
 test("트는 음원의 파일이 아니면 예약하지 않는다: 곡이 그사이 다른 음원으로 다시 찾아져 그 음원의 파일만 있다", () => {
   cacheAs(null);
   const track = tracks.youtube("pcsxxxxxxxx", { title: "곡", duration: 200 });
   const pb = { track, startOffsetMs: 0, input: null, audioKey: "yt:pcsxxxxxxxx" };
-  track.audioUrl = tracks.watch("pcsyyyyyyyy"); // 나란히 하던 다운로드가 X 가 내려간 것을 알고 Y 로 다시 찾았다
+  track.audioUrl = tracks.watch("pcsyyyyyyyy"); // 나란히 하던 다운로드가 X가 내려간 것을 알고 Y로 다시 찾았다
   const yFile = audioCache.getFilePath("yt:pcsyyyyyyyy");
   fs.writeFileSync(yFile, Buffer.alloc(4096));
   try {
     const sp = fakeSplicer();
-    assert.equal(planCacheSwitch.call(fakePlayer({ track }), sp, pb), false, "X 를 트는 중에 Y 를 잇지 않는다");
+    assert.equal(planCacheSwitch.call(fakePlayer({ track }), sp, pb), false, "X를 트는 중에 Y를 잇지 않는다");
     assert.equal(sp.calls.length, 0);
   } finally {
     fs.rmSync(yFile, { force: true });
@@ -199,7 +199,7 @@ test("새 재생(위치 이동)을 여는 동안 옛 스트림이 끊기면 옛 
   const args: string[][] = [];
   const decoder = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough(), kill: () => true });
   const old = opened(0);
-  const fresh = opened(60_000); // play(60000) 이 이미 지금 재생으로 세웠다
+  const fresh = opened(60_000); // play(60000)이 이미 지금 재생으로 세웠다
   const player = asPlayer({
     currentTrack: TRACK,
     playback: fresh,

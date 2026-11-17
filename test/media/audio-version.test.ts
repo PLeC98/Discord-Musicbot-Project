@@ -23,11 +23,11 @@ test("응답 헤더: ETag, Last-Modified, Content-Length 중 있는 것을 모�
   assert.equal(fromHeaders(undefined), null);
 });
 
-test("구간 응답이면 크기는 Content-Range 의 전체(첫 1바이트만 받는 다시 확인)", () => {
+test("구간 응답이면 크기는 Content-Range의 전체(첫 1바이트만 받는 다시 확인)", () => {
   assert.equal(fromHeaders({ etag: '"m"', "content-length": "1", "content-range": "bytes 0-0/2321206" }), 'etag="m";length=2321206');
 });
 
-// 잰 값(비공개 테스트 영상을 30초 자른 뒤): 포맷마다 lmt 가 다르고 주소의 dur 이 길이
+// 잰 값(비공개 테스트 영상을 30초 자른 뒤): 포맷마다 lmt가 다르고 주소의 dur이 길이
 const yt = (itag: number, lmt: string, dur: string, audio = true) => ({ format_id: String(itag), url: `https://rr1.googlevideo.com/videoplayback?itag=${itag}&lmt=${lmt}&dur=${dur}`, acodec: audio ? "opus" : "none", vcodec: audio ? "none" : "vp9" });
 
 test("유튜브 포맷 목록: lmt 들, 오디오 포맷의 길이, 버전 한 줄의 lmt", () => {
@@ -40,7 +40,7 @@ test("유튜브 포맷 목록: lmt 들, 오디오 포맷의 길이, 버전 한 �
 });
 
 test("직접 링크 두 버전: ETag > Last-Modified > 크기 중 둘 다 가진 것으로, 없으면 모름", () => {
-  assert.equal(sameDirect('etag="a";modified=x;length=1', 'etag="a";modified=y;length=2'), true, "ETag 가 같으면 날짜 · 크기는 보지 않는다");
+  assert.equal(sameDirect('etag="a";modified=x;length=1', 'etag="a";modified=y;length=2'), true, "ETag가 같으면 날짜와 크기는 보지 않는다");
   assert.equal(sameDirect('etag="a";length=1', 'etag="b";length=1'), false);
   assert.equal(sameDirect("modified=Sun, 25 Jun 2023 04:33:06 GMT;length=1", 'etag="b";modified=Sun, 25 Jun 2023 04:33:06 GMT'), true);
   assert.equal(sameDirect("length=10", "length=11"), false);

@@ -1,4 +1,4 @@
-// src/discord/commands 의 표시, 설정 명령: 지금 동작을 고정한다(/setting 의 버튼, 메뉴는 test/events/settings-panel).
+// src/discord/commands의 표시, 설정 명령: 지금 동작을 고정한다(/setting의 버튼, 메뉴는 test/events/settings-panel).
 // /nowplaying, /queue, /help, /system, /cachestatus, /setchannel, /setting.
 //
 // 문구 전부가 아니라 "무엇을 선택해 담았나 ·
@@ -61,7 +61,7 @@ type Sent = {
 type Logged = [name: string, payload: Sent];
 
 const fieldsOf = (payload: Sent) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
-// /nowplaying 의 글 줄들(위에서부터)
+// /nowplaying의 글 줄들(위에서부터)
 const nowLines = (payload: unknown) => textOf(payload).split("\n");
 
 type InteractionOptions = { player?: object | null; options?: Record<string, unknown>; userId?: string; guildRoles?: string[]; manage?: boolean; channelId?: string };
@@ -79,7 +79,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
     client,
     players: new Map<string, Player>(player ? [["g1", fakePlayer(player)]] : []),
     panels: { onBotChannelChanged: async () => seen.push("movePanel") },
-    // 실행 목록. /help 가 이것으로 명령 줄을 만든다
+    // 실행 목록. /help가 이것으로 명령 줄을 만든다
     commands: new Map(COMMAND_LIST.map((command) => [command.data.name, command])),
   });
   const it = {
@@ -150,13 +150,13 @@ test("/nowplaying: 패널과 같은 머리, 진행, 이 곡(상태, 요청, 출�
   assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral], "본인에게만(패널이 모두에게 이미 보인다)");
 });
 
-test("/nowplaying: 유튜브 큰 썸네일 확인을 기다리지 않고 답한다(아는 답, 모르면 hqdefault)", async () => {
+test("/nowplaying: 유튜브 큰 썸네일 확인을 기다리지 않고 응답한다(아는 답, 모르면 hqdefault)", async () => {
   let release!: (value: { ok: boolean; status: number }) => void;
   discordArt.useHead(() => new Promise((resolve) => (release = resolve)));
   try {
     const { it, log, bot } = interaction({ player: nowPlayer({ title: "곡", pageUrl: "https://youtu.be/nowplaying1", thumbnail: "https://i.ytimg.com/vi/nowplaying1/mqdefault.jpg", duration: 200 }) });
     await run(await command("nowplaying"), it, bot);
-    assert.equal(log.length, 1, "확인이 끝나기 전에 답했다");
+    assert.equal(log.length, 1, "확인이 끝나기 전에 응답했다");
     assert.equal(thumbnailOf(log[0][1] as never), "https://i.ytimg.com/vi/nowplaying1/hqdefault.jpg");
   } finally {
     release({ ok: true, status: 200 });
@@ -205,7 +205,7 @@ test("/nowplaying: 직접 링크 곡은 찾아 둔 파일 태그 그림을 첨�
   );
 });
 
-test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진행을 뺀다, 던지면 진입점이 알린다", async () => {
+test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진행을 뺀다, 예외를 던지면 진입점이 알린다", async () => {
   const paused = interaction({ player: nowPlayer({ title: "곡", url: "u", platform: "direct", duration: 0 }, { playing: false, paused: true, volume: 10, loop: "queue" }) });
   await run(await command("nowplaying"), paused.it, paused.bot);
   const lines = nowLines(paused.log[0][1]);
@@ -319,7 +319,7 @@ test("/help: 분류마다의 설명과 분류 메뉴를 본인에게만. 대시�
   assert.equal(JSON.stringify(off.log[0][1]).includes('"style":5'), false, "링크 버튼 없음");
 });
 
-/** 권한을 보는 데 쓰는 멤버. manage 면 서버 관리자 */
+/** 권한을 보는 데 쓰는 멤버. manage면 서버 관리자 */
 const helpMember = (manage: boolean) => ({ id: "u1", permissions: { has: () => manage }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() }, channels: { cache: new Map() } } });
 
 test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 명령에 자물쇠와 그 뜻", async () => {
@@ -331,7 +331,7 @@ test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 
     await run(await command("help"), user.it, user.bot);
     const text = textOf(user.log[0][1]);
     assert.ok(text.includes("`/setchannel`: 제 전용 채널을 설정해요 (곡 요청 및 공지에 사용돼요) 🛡️ 🔒"), text);
-    assert.ok(text.includes("`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿\n"), "DJ 역할이 없는 서버는 모두가 DJ 라 열림");
+    assert.ok(text.includes("`/leave`: 대기열을 저장하고 음성 채널에서 나가요 💿\n"), "DJ 역할이 없는 서버는 모두가 DJ라 열림");
     assert.ok(text.includes("🔒 지금 내 권한으로는 쓸 수 없어요."), text);
     assert.deepEqual(lifetimesOf(user.it), [LIFETIME.screen]);
 
@@ -349,7 +349,7 @@ test("/help 분류: 그 분류를 바로 보이고, 보는 사람이 못 쓰는 
   }
 });
 
-/** 분류 메뉴, 뒤로 버튼을 누른 것. update 로 고친 화면을 모은다. 첫 응답(상호작용 i0)의 메시지 m1 에 달려 있다 */
+/** 분류 메뉴, 뒤로 버튼을 누른 것. update로 고친 화면을 모은다. 첫 응답(상호작용 i0)의 메시지 m1에 달려 있다 */
 function pressed(bot: ReturnType<typeof interaction>["bot"], { values = [] as string[] } = {}) {
   const shown: unknown[] = [];
   const it = fakeWith<StringSelectMenuInteraction<"cached"> & ButtonInteraction<"cached">>()({
@@ -409,7 +409,7 @@ test("/help: 모든 분류를 합치면 켜진 명령이 다 있다(/help 자신
   );
 });
 
-test("/help: 만들다 던지면 진입점이 알린다", async () => {
+test("/help: 만들다 예외를 던지면 진입점이 알린다", async () => {
   const { it, log, bot } = interaction();
   Object.defineProperty(it, "guildId", {
     get() {
@@ -547,7 +547,7 @@ test("/setchannel remove: 해제하고 안내한 뒤 패널을 옮긴다. 저장
   });
 });
 
-test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 옮기고(옮기기를 기다리지 않고 답한다), 안내가 실패해도 패널은 옮긴다", async () => {
+test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 옮기고(옮기기를 기다리지 않고 응답한다), 안내가 실패해도 패널은 옮긴다", async () => {
   for (const action of ["set", "remove"]) {
     const ok = interaction({ channelId: "c5", options: { action } });
     let repliedFirst = false;
@@ -568,7 +568,7 @@ test("/setchannel: 지정, 해제 모두 안내를 먼저 보낸 뒤 패널을 �
   await settings.clearBotChannel("g1");
 });
 
-test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ 로 보이고 메뉴의 기본값으로 둔다", async () => {
+test("/setting: 본인에게만 서버 설정 한 화면을 띄운다. 서버에 남아 있는 역할만 지금 DJ로 보이고 메뉴의 기본값으로 둔다", async () => {
   await settings.setDjRoles("g1", ["r1", "gone"]);
   const { it, log, bot } = interaction({ guildRoles: ["r1", "r2"] });
   await run(await command("setting"), it, bot);

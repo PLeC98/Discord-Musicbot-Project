@@ -70,7 +70,7 @@ const filterMenu = [
   { label: "비어 있음", hint: "=''", insert: "=''" },
   { label: "비어 있지 않음", hint: "<>''", insert: "<>''" },
 ] as const;
-const filterHelp = "필터 문법은 DB Browser for SQLite 와 같아요. 크기는 10MB, 날짜는 2026-10-17, 길이는 3:30 처럼 적어요. 여러 열에 필터를 걸면 모두 맞는 행만 남아요.";
+const filterHelp = "필터 문법은 DB Browser for SQLite와 같아요. 크기는 10MB, 날짜는 2026-10-17, 길이는 3:30처럼 적어요. 여러 열에 필터를 걸면 모두 맞는 행만 남아요.";
 
 const headerMenu = { hide: "열 숨기기", showAll: "모든 열 표시", freeze: "여기까지 열 고정", unfreeze: "열 고정 해제", copyName: "열 이름 복사" };
 
@@ -106,7 +106,7 @@ const values = {
   noRows: "행이 없어요",
 };
 
-/** 셀 툴팁: 값만으로는 알 수 없는 것에만(재생 불가 까닭, 저장 실패 까닭) */
+/** 셀 툴팁: 값만으로는 알 수 없는 것에만(재생 불가 원인, 저장 실패 원인) */
 const tips = {
   checkFailed: (reason: string, when: string) => `${reason} (${when} 테스트)`,
   /** 지정한 음원이 라이브: 라이브는 지정할 수 없어 틀 때 원래 요청으로 다시 찾는다 */
@@ -120,8 +120,8 @@ const tips = {
 const hints = {
   readonly: (column: string) => `${column} 열은 편집할 수 없어요`,
   cantClear: (column: string) => `${column} 셀은 지울 수 없어요`,
-  cantClearRow: "행을 삭제하려면 행 번호를 선택한 뒤 Delete 를 눌러 주세요",
-  noClipboard: "이 주소에서는 메뉴로 붙여넣을 수 없어요. Ctrl+V 를 눌러 주세요",
+  cantClearRow: "행을 삭제하려면 행 번호를 선택한 뒤 Delete를 눌러 주세요",
+  noClipboard: "이 주소에서는 메뉴로 붙여넣을 수 없어요. Ctrl+V를 눌러 주세요",
   copied: (rows: number) => `${rows}행 복사했어요`,
   copiedText: "복사했어요",
   loadingAll: "모든 행을 불러오는 중…",
@@ -160,14 +160,14 @@ const changes = {
 };
 const legend = { changed: "변경됨", newRow: "새 행", deleted: "삭제 예정", failed: "저장 실패", pinned: "직접 지정한 음원(재생 음원 열을 편집해 지정)" };
 
-/** 저장 결과(실패한 셀의 까닭) */
+/** 저장 결과(실패한 셀의 원인) */
 const results = {
   changed: "그사이 봇이 이 값을 바꿨어요. 새로고침한 뒤 다시 편집해 주세요",
   gone: "그사이 삭제된 행이에요",
   downloading: "캐시 파일을 다운로드하는 중이라 삭제하지 않았어요",
   failed: "캐시 파일을 삭제하지 못했어요(다른 프로그램이 열고 있을 수 있어요)",
   inUse: { playing: "재생 중인 곡이라 삭제하지 않았어요", queued: "대기열 앞쪽 곡이라 삭제하지 않았어요", "saved-session": "저장된 대기열 앞쪽 곡이라 삭제하지 않았어요", exporting: "내보내는 중이라 삭제하지 않았어요", measuring: "볼륨을 재는 중이라 삭제하지 않았어요" } as Record<TrackFileUse, string>,
-  doneTitle: "캐시 DB 에 저장했어요",
+  doneTitle: "캐시 DB에 저장했어요",
   partialTitle: "일부 변경을 저장하지 못했어요",
   done: (ok: number, failed: number) => `${ok}건 저장${failed ? ` · ${failed}건 실패(셀에 표시)` : ""}`,
 };
@@ -177,7 +177,7 @@ const shortcuts: Array<[string, string]> = [
   ["클릭, 드래그, Shift+클릭", "셀 선택, 범위 선택"],
   ["Ctrl+클릭", "셀 추가 선택"],
   ["행 번호 클릭, 드래그, Shift+클릭", "행 선택"],
-  ["방향키, Tab, Home, End, PgUp, PgDn", "이동 (Shift 와 함께 범위 선택)"],
+  ["방향키, Tab, Home, End, PgUp, PgDn", "이동 (Shift와 함께 범위 선택)"],
   ["Ctrl+Home, Ctrl+End", "첫 행, 마지막 행"],
   ["Ctrl+A", "모든 행 선택"],
   ["더블클릭, F2, Enter", "셀 편집 (재생 음원 열)"],
@@ -192,7 +192,7 @@ const shortcuts: Array<[string, string]> = [
 
 const botChanged = "새 변경 사항이 있어요 · 새로고침";
 const pasteMany = "붙여넣기는 편집할 수 있는 셀 하나에만 할 수 있어요";
-const loadFailed = "캐시 DB 를 불러오지 못했어요.";
+const loadFailed = "캐시 DB를 불러오지 못했어요.";
 const probeFailed = "재생 테스트를 시작하지 못했어요.";
 
 export { tables, tableLabel, columns, columnTips, tools, filterPlaceholder, filterMenu, filterHelp, headerMenu, cellMenu, values, tips, hints, pager, editPane, changes, legend, results, shortcuts, botChanged, pasteMany, loadFailed, probeFailed };

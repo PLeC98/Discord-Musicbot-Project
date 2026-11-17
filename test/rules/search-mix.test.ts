@@ -11,7 +11,7 @@ test("둘 다 넉넉하면 스포티파이 몫만, 한쪽이 모자라면 다른
   assert.deepEqual(of(20, 1), { youtube: 9, spotify: 1 });
   assert.deepEqual(of(0, 20), { youtube: 0, spotify: 10 });
   assert.deepEqual(of(3, 2), { youtube: 3, spotify: 2 });
-  assert.deepEqual(of(20, 20, 0), { youtube: 10, spotify: 0 }, "몫이 0 이면 유튜브가 모자랄 때만");
+  assert.deepEqual(of(20, 20, 0), { youtube: 10, spotify: 0 }, "몫이 0이면 유튜브가 모자랄 때만");
   assert.deepEqual(of(4, 20, 0), { youtube: 4, spotify: 6 });
 });
 

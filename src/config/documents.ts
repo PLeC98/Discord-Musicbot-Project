@@ -1,7 +1,7 @@
-// 설정 문서(장르, 상태 문구, AI 설정, 프롬프트, 운영자 패널의 보기 설정, 연령 제한 콘텐츠). 사람이 고치는 파일이 아니라 settings.db 의 documents 에 둔다.
+// 설정 문서(장르, 상태 문구, AI 설정, 프롬프트, 운영자 패널의 보기 설정, 연령 제한 콘텐츠). 사람이 고치는 파일이 아니라 settings.db의 documents에 둔다.
 //
 // 설정 계층은 DB(store)를 부를 수 없다. 그래서 여기는 메모리에 문서를 들고 있고, 기동 시 앱 조립이 저장소를 붙인다(attach).
-// 붙이면 그때 한 번 읽어 올리고, 저장(put)하면 저장소에 쓰고 메모리를 바꾼다. 쓰는 곳은 읽을 때마다 DB 를 보지 않는다.
+// 붙이면 그때 한 번 읽어 올리고, 저장(put)하면 저장소에 쓰고 메모리를 바꾼다. 쓰는 곳은 읽을 때마다 DB를 보지 않는다.
 // 붙이지 않으면(테스트, 스크립트) 기본값(config/defaults)으로 돌고 저장은 메모리에만 남는다.
 //
 // 문서마다 저장 번호가 있다. 읽은 번호와 지금 번호가 다르면 저장을 거절한다(두 탭, 두 사람이 서로 덮지 않게).
@@ -15,14 +15,14 @@ import { upgradeDoc } from "./ai-upgrade.ts";
 const DOC_NAMES = ["genres", "status", "ai", "ai-prompt", "panel", "age-content"] as const;
 type DocName = (typeof DOC_NAMES)[number];
 
-/** 문서 하나. revision 0 은 아직 저장한 적 없음(기본값) */
+/** 문서 하나. revision 0은 아직 저장한 적 없음(기본값) */
 type Doc = { data: unknown; revision: number };
-/** 붙일 저장소(store/settings-docs). 없는 문서는 data 가 null. writeAll 은 한 트랜잭션(하나라도 실패하면 아무것도 쓰지 않는다) */
+/** 붙일 저장소(store/settings-docs). 없는 문서는 data가 null. writeAll은 한 트랜잭션(하나라도 실패하면 아무것도 쓰지 않는다) */
 type DocStore = { read(name: string): Doc; writeAll(writes: { name: string; data: unknown; revision: number }[]): number[] };
-/** 저장할 문서 하나. revision 은 읽었을 때의 번호, 없으면 보지 않는다 */
+/** 저장할 문서 하나. revision은 읽었을 때의 번호, 없으면 보지 않는다 */
 type DocPut = { name: DocName; data: unknown; revision?: number };
 
-// 프롬프트가 비어 있으면 보조가 코드에 든 기본 구성을 쓴다(autoplay/assist 의 DEFAULT_SECTIONS)
+// 프롬프트가 비어 있으면 보조가 코드에 든 기본 구성을 쓴다(autoplay/assist의 DEFAULT_SECTIONS)
 const DEFAULTS: Record<DocName, () => unknown> = {
   genres: () => structuredClone(genresDefault),
   status: () => structuredClone(statusDefault),
@@ -40,7 +40,7 @@ let store: DocStore | null = null;
 const isDocName = (name: string): name is DocName => (DOC_NAMES as readonly string[]).includes(name);
 
 /**
- * 저장소를 붙이고 문서를 모두 읽어 올린다. 기동 시 한 번(settings.db 를 연 뒤).
+ * 저장소를 붙이고 문서를 모두 읽어 올린다. 기동 시 한 번(settings.db를 연 뒤).
  * 저장된 AI 문서가 예전 기본값 그대로면 지금 기본값으로 바꿔 저장한다(config/ai-upgrade). 바꾼 문서 이름을 돌려준다
  */
 function attach(next: DocStore): DocName[] {
@@ -57,7 +57,7 @@ function attach(next: DocStore): DocName[] {
   return upgraded.map(({ name }) => name);
 }
 
-/** 붙인 저장소에서 다시 읽는다(불러오기가 DB 를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
+/** 붙인 저장소에서 다시 읽는다(불러오기가 DB를 직접 바꾼 뒤). 붙이지 않았으면 아무것도 안 한다 */
 function reload(): DocName[] {
   return store ? attach(store) : [];
 }
@@ -75,7 +75,7 @@ function docOf(name: DocName): Doc {
 const get = (name: DocName): unknown => docOf(name).data;
 const revisionOf = (name: DocName) => docOf(name).revision;
 
-/** 저장. revision 은 읽었을 때의 번호. 다르면 REVISION_CONFLICT. 새 번호를 돌려준다 */
+/** 저장. revision은 읽었을 때의 번호. 다르면 REVISION_CONFLICT. 새 번호를 돌려준다 */
 const put = (name: DocName, data: unknown, revision: number): number => putAll([{ name, data, revision }])[0];
 
 /** 여러 문서를 함께 저장한다. 하나라도 번호가 다르거나 쓰기가 실패하면 아무것도 바꾸지 않는다. 새 번호들을 같은 순서로 */

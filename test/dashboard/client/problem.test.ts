@@ -18,7 +18,7 @@ test("웹 쪽 오류(대시보드에서만 나는 코드)는 끝 줄에 코드�
   assert.equal(problemText(login, "실패"), "로그인이 필요해요!\n로그인하지 않았거나 로그인이 만료됐어요. 다시 로그인한 뒤에 시도해 주세요.\n오류 코드: login-required (HTTP 401)");
   // 응답의 상태가 없으면 본문의 상태
   assert.match(problemText(failed(problemBody("bad-loop-mode")), "실패"), /\n오류 코드: bad-loop-mode \(HTTP 400\)$/);
-  // 디스코드 /join 도 내는 거절은 봇 쪽이다
+  // 디스코드 /join도 내는 거절은 봇 쪽이다
   assert.equal(problemNotice(failed(problemBody("bot-in-other-voice")), "실패").codeLine, "");
 });
 
@@ -37,8 +37,8 @@ test("봇 개발자에게 보고하라는 문장이면 보고할 곳(소스 저�
 });
 
 test("꾸밈(굵게, 코드)은 떼고, 운영자용 원문(detail)은 본문 다음 줄에", () => {
-  assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽을 수 없는 형식이에요. 1:30, 3m20s, 90 처럼 적어 주세요!");
-  assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n설정 DB 에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
+  assert.equal(problemText(failed(problemBody("bad-time")), "실패"), "알 수 없는 시간 형식이에요!\n제가 읽을 수 없는 형식이에요. 1:30, 3m20s, 90처럼 적어 주세요!");
+  assert.equal(problemText(failed(problemBody("config-save-failed", {}, { detail: "키 이름이 틀렸습니다" })), "실패"), "설정을 저장하지 못했어요!\n설정 DB에 저장하다 실패했어요. 아래 오류 내용을 확인해 주세요.\n키 이름이 틀렸습니다\n오류 코드: config-save-failed (HTTP 409)");
 });
 
 test("심각한 정도는 안내의 것", () => {
@@ -77,7 +77,7 @@ test("필드별 원문 목록", () => {
   assert.deepEqual(problemDetails(failed(problemBody("bad-request"))), []);
 });
 
-test("detail 이 없으면 필드별 원문을 줄마다 detailLine 으로 바꿔 아래 줄에 잇는다. detail 이 있으면 그것만", () => {
+test("detail이 없으면 필드별 원문을 줄마다 detailLine으로 바꿔 아래 줄에 잇는다. detail이 있으면 그것만", () => {
   const rejected = failed(problemBody("config-invalid", {}, { errors: [{ code: "config-invalid", detail: "가" }, { code: "config-invalid" }, { code: "config-invalid", detail: "나" }] }));
   assert.equal(problemNotice(rejected, "실패").detail, "가\n나");
   assert.equal(problemNotice(rejected, "실패", (line) => `[${line}]`).detail, "[가]\n[나]");

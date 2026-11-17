@@ -44,7 +44,7 @@ function remove(i: number) {
 
 // "기본"은 파일에 type을 적지 않는다는 뜻이고, 결과는 "듣는 중"과 같다.
 // 그래도 둘을 따로 두는 것은 손으로 `type: Listening`이라 적어 둔 파일을 그대로 돌려놓기 위해서다.
-// 종류는 서버의 것(schema/status 의 ACTIVITY_TYPES). 빠뜨리면 타입 검사가 잡는다
+// 종류는 서버의 것(schema/status의 ACTIVITY_TYPES). 빠뜨리면 타입 검사가 잡는다
 const TYPE_LABEL: Record<ActivityType | "", string> = T.activityTypes;
 // "기본"(빈 값)은 드롭다운의 빈 항목(empty-label)이 맡는다
 const TYPES = Object.entries(TYPE_LABEL)

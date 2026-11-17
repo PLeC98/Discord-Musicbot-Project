@@ -26,7 +26,7 @@ const failureOf = (error: unknown): Failure => (typeof error === "object" && err
 /** 디스코드가 봇의 앱 자격(클라이언트 ID, 시크릿)을 거절한 응답인가 */
 const isBadClient = (response: Failure["response"]) => (response?.data as { error?: unknown } | undefined)?.error === "invalid_client";
 
-/** 콜백에서 디스코드를 부르다 실패했다. 까닭을 남기고 로그인 화면에 보일 까닭을 선택한다 */
+/** 콜백에서 디스코드 호출이 실패했을 때. 원인을 로그에 남기고 로그인 화면에 보일 원인 코드(LoginError)를 반환 */
 function callbackFailure(error: unknown, redirectUri: string): LoginError {
   const { response, name, message, cause } = failureOf(error);
   // 디스코드가 봇의 앱 자격을 거절했다(RFC 6749 5.2 invalid_client): 사용자가 다시 해도 안 되고 운영자가 고칠 일이다
@@ -45,7 +45,7 @@ function revokeToken(http: DiscordHttp, token: string) {
   return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
 
-/** 디스코드 개발자 포털 OAuth2 Redirects 에 등록할 콜백 주소 */
+/** 디스코드 개발자 포털 OAuth2 Redirects에 등록할 콜백 주소 */
 const callbackUrl = () => `${config.dashboard.url.replace(/\/$/, "")}/auth/callback`;
 
 /** 브라우저가 연 주소의 origin이 공개 주소와 다르면 공개 주소의 로그인 주소(popup은 그대로, moved=1). 같거나 이미 리다이렉트했으면 null */
@@ -239,7 +239,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   });
 
   // 로그아웃은 상태를 바꾸므로 전역 CSRF 미들웨어가 지킨다. 디스코드 토큰은 세션 행과 함께 삭제되고, 디스코드에도 폐기를 요청한다.
-  // 결과와 상관없이 이 브라우저의 쿠키를 삭제한다(세션 행을 삭제하지 못한 채 다시 시작해도 이 브라우저의 세션은 되살아나지 않는다). 삭제하지 못했으면 성공으로 답하지 않는다
+  // 결과와 상관없이 이 브라우저의 쿠키를 삭제한다(세션 행을 삭제하지 못한 채 다시 시작해도 이 브라우저의 세션은 되살아나지 않는다). 삭제하지 못했으면 성공으로 응답하지 않는다
   router.post("/logout", (req, res) => {
     clearSessionCookie(req, res);
     if (!req.session?.user) return res.status(204).end();

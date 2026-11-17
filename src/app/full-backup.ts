@@ -1,14 +1,14 @@
 // 전체 백업(봇 폴더의 명령 `pnpm run backup`). .env, 설정 DB, 파비콘, 로그인 배경을 ZIP 하나로 묶는다. 봇을 다른 폴더, 다른 기기로 옮길 때,
-// 받은 ZIP 을 (봇을 끈 채) 봇 폴더에 풀어 덮어쓰면 끝난다. 평문 .env 가 들어가니 대시보드에는 이 길이 없다(봇 폴더를 쓸 수 있는 사람만).
+// 받은 ZIP을 (봇을 끈 채) 봇 폴더에 풀어 덮어쓰면 끝난다. 평문 .env가 들어가니 대시보드에는 이 길이 없다(봇 폴더를 쓸 수 있는 사람만).
 //
-// 설정 DB 는 database/settings.db 가 아니라 database/settings.restore.db 로 담는다. 다음 기동이 지금 것을 스냅샷으로 남기고 교체한다
-// (store/snapshots). 풀어서 settings.db 를 덮으면 그 폴더에 남은 -wal 이 새 파일에 얹혀 깨질 수 있다.
+// 설정 DB는 database/settings.db가 아니라 database/settings.restore.db로 담는다. 다음 기동이 지금 것을 스냅샷으로 남기고 교체한다
+// (store/snapshots). 풀어서 settings.db를 덮으면 그 폴더에 남은 -wal이 새 파일에 얹혀 깨질 수 있다.
 // 로그인 배경은 대시보드의 로그인 배경 내보내기와 같은 것(다 만든 배경, index.json)을 저장 위치 그대로 담는다. 풀어 덮어쓰면 그 봇에 있던 배경 폴더는
-// 새 index.json 에 없어 다음 기동이 치운다(배경을 한 번도 쓰지 않은 봇이면 담지 않는다). 봇이 켜져 있어도 되게 기록은 읽기만 한다(봇의 기록 읽기는 목록에 없는 폴더를 삭제하는데, 그건 켜진 봇이 업로드 받는 중인 폴더일 수 있다).
-// 오디오 캐시는 대시보드의 오디오 캐시 내보내기와 같은 ZIP 을 database/audio-cache.restore.zip 으로 담는다(기본은 캐시 파일 없이, withAudio 면 캐시 파일까지).
-// 다음 기동이 대시보드 불러오기와 같은 합치기로 불러오고 삭제한다(settings-archive 의 applyStagedAudio). cache.db 는 한 시점 사본을 열어 읽는다.
+// 새 index.json에 없어 다음 기동이 치운다(배경을 한 번도 쓰지 않은 봇이면 담지 않는다). 봇이 켜져 있어도 되게 기록은 읽기만 한다(봇의 기록 읽기는 목록에 없는 폴더를 삭제하는데, 그건 켜진 봇이 업로드 받는 중인 폴더일 수 있다).
+// 오디오 캐시는 대시보드의 오디오 캐시 내보내기와 같은 ZIP을 database/audio-cache.restore.zip으로 담는다(기본은 캐시 파일 없이, withAudio면 캐시 파일까지).
+// 다음 기동이 대시보드 불러오기와 같은 합치기로 불러오고 삭제한다(settings-archive의 applyStagedAudio). cache.db는 한 시점 사본을 열어 읽는다.
 // 이 프로세스의 캐시 파일 보호는 켜진 봇의 퇴거를 막지 못하므로, 그 사이 퇴거로 지워진 캐시 파일은 건너뛴다(행 목록에서도 빠진다).
-// 수 GB 가 될 수 있어 스트리밍으로 쓴다. 만든 파일은 database/full-backups/ 에 하나만 둔다(평문 토큰이 든 파일이 쌓이지 않게). 다 쓴 뒤에 이전 것을 삭제한다.
+// 수 GB가 될 수 있어 스트리밍으로 쓴다. 만든 파일은 database/full-backups/ 에 하나만 둔다(평문 토큰이 든 파일이 쌓이지 않게). 다 쓴 뒤에 이전 것을 삭제한다.
 // 쓰는 동안의 파일은 <최종 이름>.<pid>.<무작위>.part 다. 백업을 시작할 때 만든 프로세스가 죽었다고 확인된 것만 삭제한다(겹쳐 도는 다른 백업의 것은 건드리지 않는다).
 // 다 쓴 .part는 하드링크로 최종 이름에 올린다(이름이 이미 있으면 실패해 번호를 붙인다). 하드링크를 쓸 수 없는 파일 시스템(FAT32, exFAT)이면 이름을 바꾼다
 
@@ -121,7 +121,7 @@ function removeLeftPart(part: string): PartLeft | null {
     fs.rmSync(part, { force: true });
     return null;
   } catch (error) {
-    /* 다음 백업의 sweepParts 가 삭제한다 */
+    /* 다음 백업의 sweepParts가 삭제한다 */
     return { path: part, code: String(codeOf(error) ?? messageOf(error)) };
   }
 }
@@ -130,7 +130,7 @@ function removeLeftPart(part: string): PartLeft | null {
 async function writeTo(out: string, inputs: ZipInput[]) {
   const part = partOf(out);
   const stream = fs.createWriteStream(part, { mode: 0o600, flags: "wx" });
-  // 열기, 쓰기 실패는 error 로 온다. 듣지 않으면 잡히지 않은 예외로 끝나고, 쓰는 쪽은 "닫혔다"만 받는다
+  // 열기, 쓰기 실패는 error로 온다. 듣지 않으면 잡히지 않은 예외로 끝나고, 쓰는 쪽은 "닫혔다"만 받는다
   let failed: Error | null = null;
   stream.on("error", (error) => (failed ??= error));
   try {
@@ -145,13 +145,13 @@ async function writeTo(out: string, inputs: ZipInput[]) {
   return part;
 }
 
-// 오디오 캐시 번들. cache.db 사본을 열어 오디오 캐시 내보내기와 같은 ZIP 을 임시 폴더에 쓴다. cache.db 가 없으면 null.
-// 이 프로세스가 그 cache.db 를 이미 열었으면(봇 안, 테스트) 그것을 그대로 읽는다(내보내는 동안의 캐시 파일 보호도 걸린다). 다른 파일을 열어 두었으면 던진다(캐시 DB 는 프로세스에 하나다)
+// 오디오 캐시 번들. cache.db 사본을 열어 오디오 캐시 내보내기와 같은 ZIP을 임시 폴더에 쓴다. cache.db가 없으면 null.
+// 이 프로세스가 그 cache.db를 이미 열었으면(봇 안, 테스트) 그것을 그대로 읽는다(내보내는 동안의 캐시 파일 보호도 걸린다). 다른 파일을 열어 두었으면 예외를 던진다(캐시 DB는 프로세스에 하나다)
 async function audioBundle(databaseDir: string, withFiles: boolean): Promise<{ file: string; files: number; done: () => void } | null> {
   const cache = path.join(databaseDir, "cache.db");
   if (!fs.existsSync(cache)) return null;
   const opened = cacheDb.isOpen();
-  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(new Error(`다른 캐시 DB 가 열려 있음: ${cacheDb.get().name}`), { code: "CACHE_DB_OPEN" });
+  if (opened && path.resolve(cacheDb.get().name) !== path.resolve(cache)) throw Object.assign(new Error(`다른 캐시 DB가 열려 있음: ${cacheDb.get().name}`), { code: "CACHE_DB_OPEN" });
   const copy = opened ? { file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-backup-")), "cache.db"), done: () => undefined } : await dbCopy(cache);
   const folder = path.dirname(copy.file);
   const done = () => {
@@ -213,7 +213,7 @@ async function makeFullBackup(paths: Partial<Paths> = {}, at = new Date(), { wit
   return { file: out, replaced, left, partLeft, hasEnv, favicons: favicons.length, backgrounds: state.items.filter(isReady).length, audioFiles: audio ? audio.files : null, legacyParts, tempLeft };
 }
 
-// 임시 사본을 삭제한다. 삭제하지 못해도 백업은 계속하고, 남은 폴더를 돌려준다(부르는 쪽이 알린다)
+// 임시 사본을 삭제한다. 삭제하지 못해도 백업은 계속하고, 남은 폴더를 돌려준다(호출부가 알린다)
 function removeTemps(temps: Array<{ file: string; done: () => void } | null>): string[] {
   const left: string[] = [];
   for (const temp of temps) {
@@ -228,7 +228,7 @@ function removeTemps(temps: Array<{ file: string; done: () => void } | null>): s
 
 /**
  * 새 백업을 제자리에 둔 뒤 이전 백업을 삭제한다(그사이 멈춰도 백업이 하나는 남는다). 삭제하지 못한 것은 남기고 알린다(left).
- * 올리기 전에 실패하면 평문 .env 가 든 .part 를 삭제한다
+ * 올리기 전에 실패하면 평문 .env가 든 .part를 삭제한다
  */
 function replaceEarlier(part: string, outDir: string, name: string) {
   let earlier: string[];

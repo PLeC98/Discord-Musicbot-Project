@@ -11,13 +11,13 @@ const userAgent = () => config.userAgents.bot;
 
 const TIMEOUT_MS = 15000;
 
-/** 자동재생 출처가 부르는 서비스. anilist 는 AnisongDB 곡의 표지 이미지 */
+/** 자동재생 출처가 부르는 서비스. anilist는 AnisongDB 곡의 표지 이미지 */
 const SOURCE_SERVICES = ["lastfm", "listenbrainz", "animethemes", "anisongdb", "anilist", "vocadb", "utaitedb", "touhoudb"] as const;
 type SourceService = (typeof SOURCE_SERVICES)[number];
 const clients = new Map<SourceService, HttpClient>(SOURCE_SERVICES.map((service) => [service, httpFor(service)]));
 const send = (service: SourceService, url: string, init: RequestInit) => clients.get(service)!.fetch(url, init);
 
-// 테스트는 useFetch 로 가짜를 넘긴다(null 이면 진짜 fetch)
+// 테스트는 useFetch로 가짜를 넘긴다(null이면 진짜 fetch)
 function useFetch(fake: typeof fetch | null) {
   for (const client of clients.values()) client.useFetch(fake);
 }
@@ -45,7 +45,7 @@ async function probe(service: SourceService, url: string, headers: Record<string
 }
 
 // 필터를 본문으로 받는 API용 getJson.
-// 422 는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
+// 422는 응답 본문을 같이 남긴다. 어느 값이 틀렸는지 저쪽이 적어 주는데, 상태 코드만 남기면
 // 설정이 조용히 빈손이 되는 이유를 알 수 없다.
 async function postJson<T = unknown>(service: SourceService, url: string, body: unknown, timeoutMs = TIMEOUT_MS): Promise<T> {
   const res = await send(service, url, {
@@ -78,8 +78,8 @@ function query(params: Record<string, unknown>): string {
 /**
  * 저쪽에서 불러와 기억해 두는 값(화면의 입력란을 채우는 목록, 범위).
  *
- * load() 는 값을 돌려주거나, 못 불러왔으면 스스로 까닭을 남기고 null 을 돌려준다.
- * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 불러오되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)으로 먼저 답한다.
+ * load()는 값을 반환하거나, 못 불러왔으면 직접 원인을 남기고 null을 반환한다.
+ * ttlMs 동안은 기억한 값을 쓴다. 지나면 새로 불러오되 waitMs 까지만 기다리고, 늦으면 기억한 값(없으면 null)을 먼저 반환한다.
  * 불러오기는 뒤에서 마저 한다. 못 불러왔으면 retryMs 동안 다시 부르지 않는다. 저쪽이 죽어 있을 때 부를 때마다 시간 초과를 기다리지 않게.
  */
 function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }: { ttlMs: number; retryMs: number; waitMs: number }) {
@@ -97,7 +97,7 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
           at = Date.now();
         }
       } catch {
-        failedAt = Date.now(); // load 가 까닭을 남긴다
+        failedAt = Date.now(); // load가 원인을 남긴다
       } finally {
         running = null;
       }
@@ -109,7 +109,7 @@ function remembered<T>(load: () => Promise<T | null>, { ttlMs, retryMs, waitMs }
       if (!fresh && !resting) await Promise.race([refresh(), sleep(waitMs, undefined, { ref: false })]);
       return value;
     },
-    /** 테스트가 바깥으로 나가지 않게 값을 채운다. null 이면 처음 상태로 */
+    /** 테스트가 바깥으로 나가지 않게 값을 채운다. null이면 처음 상태로 */
     seed(next: T | null | undefined) {
       value = next ?? null;
       at = next ? Date.now() : 0;

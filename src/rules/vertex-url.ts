@@ -13,7 +13,7 @@ const vertexLocation = (one: Where) => String(one?.location || "").trim() || "gl
 // 검사를 지나지 않은 값(손으로 고친 파일, 입력 중인 화면)도 호스트를 못 바꾸게, 글자는 늘 인코딩해 넣는다(잘못된 값은 주소가 깨져 요청이 나가지 않는다)
 const hostPart = (location: string) => encodeURIComponent(location);
 
-/** 리전이 global 이면 호스트도 다르다(지역 호스트로 부르면 404 다) */
+/** 리전이 global이면 호스트도 다르다(지역 호스트로 부르면 404 다) */
 const vertexHost = (one: Where) => (vertexLocation(one) === "global" ? "aiplatform.googleapis.com" : `${hostPart(vertexLocation(one))}-aiplatform.googleapis.com`);
 
 /** 프로젝트, 리전까지의 주소. 경로 세그먼트도 인코딩한다 */

@@ -1,7 +1,7 @@
 // 로그인 배경의 정지 그림: 썸네일 단계(가장 작은 폭 하나와 대표색, 로그인 화면이 이것부터 건다)와 정지 그림 단계(나머지 폭). WebP 품질 95.
 // 그림은 원본을 EXIF 방향대로 돌려 자르고, 영상은 운영자가 선택한 썸네일 장면(없으면 구간 시작)을 떠서 자른다.
-// 색은 sRGB 로 적는다: ICC 프로필은 sharp 가 바꾸고, PNG 의 gAMA(sRGB, ICC 표시 없이 감마만 적힌 것)는 브라우저처럼 그 감마를 풀어 sRGB 로 다시 적는다(sharp 는 gAMA 를 보지 않는다).
-// 영상에서 뜬 장면은 ffmpeg 에서 RGB 그대로 받는다(PNG 로 받으면 ffmpeg 가 gAMA 를 적어 어둡게 보인다). 대표색은 rules/art-seed(화면과 같은 계산)
+// 색은 sRGB로 적는다: ICC 프로필은 sharp가 바꾸고, PNG의 gAMA(sRGB, ICC 표시 없이 감마만 적힌 것)는 브라우저처럼 그 감마를 풀어 sRGB로 다시 적는다(sharp는 gAMA를 보지 않는다).
+// 영상에서 뜬 장면은 ffmpeg에서 RGB 그대로 받는다(PNG로 받으면 ffmpeg가 gAMA를 적어 어둡게 보인다). 대표색은 rules/art-seed(화면과 같은 계산)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -24,7 +24,7 @@ const COLOR_FRAMES = 20;
 /** 정지 그림 파일(공개 주소 /login-background/:id/still-<폭>.webp) */
 const stillFile = (id: string, width: number) => path.join(store.folderOf(id), `still-${width}.webp`);
 
-/** PNG 의 gAMA(1/감마, 없거나 sRGB, ICC 표시가 있으면 null). 이미지 데이터(IDAT) 앞의 청크만 본다 */
+/** PNG의 gAMA(1/감마, 없거나 sRGB, ICC 표시가 있으면 null). 이미지 데이터(IDAT) 앞의 청크만 본다 */
 function pngGamma(file: string): number | null {
   const head = Buffer.alloc(64 * 1024);
   const fd = fs.openSync(file, "r");
@@ -48,13 +48,13 @@ function pngGamma(file: string): number | null {
   return gamma && gamma > 0 ? gamma : null;
 }
 
-/** 감마 g(파일에 적힌 1/감마)로 적힌 값 → sRGB 로 적은 값(0 ~ 255 표) */
+/** 감마 g(파일에 적힌 1/감마)로 적힌 값 → sRGB로 적은 값(0 ~ 255 표) */
 function gammaToSrgb(gamma: number): Uint8Array {
   const encode = (linear: number) => (linear <= 0.0031308 ? 12.92 * linear : 1.055 * linear ** (1 / 2.4) - 0.055);
   return Uint8Array.from({ length: 256 }, (_, v) => Math.round(Math.min(1, Math.max(0, encode((v / 255) ** (1 / gamma)))) * 255));
 }
 
-/** sharp 파이프라인 끝에 표를 건다(RGB 로 풀어 바꾸고 다시 싼다) */
+/** sharp 파이프라인 끝에 표를 건다(RGB로 풀어 바꾸고 다시 싼다) */
 async function withLut(image: Sharp, lut: Uint8Array | null): Promise<Sharp> {
   if (!lut) return image;
   const { data, info } = await image.removeAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -73,7 +73,7 @@ async function croppedImage(item: Readonly<store.Stored>, edit: LoginBackgroundE
   return { image, ...turned(area, edit), lut: gamma ? gammaToSrgb(gamma) : null };
 }
 
-// sharp 는 반전을 회전, 자르기보다 먼저 적용한다(부른 차례가 아니다): 자른 조각을 받아 단계마다 따로 돌린다
+// sharp는 반전을 회전, 자르기보다 먼저 적용한다(부른 차례가 아니다): 자른 조각을 받아 단계마다 따로 돌린다
 async function turnedImage(piece: Sharp, edit: LoginBackgroundEdit): Promise<Sharp> {
   let { data, info } = await piece.raw().toBuffer({ resolveWithObject: true });
   const raw = () => ({ raw: { width: info.width, height: info.height, channels: info.channels } });

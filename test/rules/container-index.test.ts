@@ -1,5 +1,5 @@
 // src/rules/container-index.ts: 음원 앞부분의 인덱스(webm Cues, mp4 sidx)로 시간 → 바이트, 받기 시작할 키프레임 선택, 받은 첫 바이트 확인.
-// 실제 파일(ffmpeg 로 만든 webm, m4a, 유튜브와 같은 배치)과 손으로 만든 바이트(가장자리)를 함께 본다
+// 실제 파일(ffmpeg로 만든 webm, m4a, 유튜브와 같은 배치)과 손으로 만든 바이트(가장자리)를 함께 본다
 
 import path from "node:path";
 import os from "node:os";
@@ -55,13 +55,13 @@ for (const [name, file] of [
     assert.ok(start.startedAtMs <= 39_000 && start.startedAtMs > 30_000, `시작 ${start.startedAtMs}`);
     assert.equal(start.expectStart(buf.subarray(start.byte, start.byte + FIRST_BYTES[index.kind])), true, "그 자리가 키프레임");
     assert.equal(start.expectStart(buf.subarray(start.byte + 1, start.byte + 1 + FIRST_BYTES[index.kind])), false, "한 바이트 어긋나면 아니다");
-    // 다른 키프레임의 자리를 주면 아니다(webm 은 클러스터 시각까지 본다)
+    // 다른 키프레임의 자리를 주면 아니다(webm은 클러스터 시각까지 본다)
     const other = index.points.find((p) => p.byte !== start.byte)!;
     if (index.kind === "webm") assert.equal(start.expectStart(buf.subarray(other.byte, other.byte + 32)), false, "다른 클러스터");
   });
 }
 
-test("실제 파일: 헤더는 첫 클러스터, moov 까지, webm 은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
+test("실제 파일: 헤더는 첫 클러스터, moov까지, webm은 Segment 크기를 같은 너비의 크기 모름으로", (t) => {
   if (!webm || !m4a) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const w = indexOf(webm);
   const header = headerOf(webm, w);
@@ -74,7 +74,7 @@ test("실제 파일: 헤더는 첫 클러스터, moov 까지, webm 은 Segment �
 
   const m = indexOf(m4a);
   assert.equal(Buffer.compare(headerOf(m4a, m), m4a.subarray(0, m.headerEnd)), 0);
-  assert.equal(m4a.toString("latin1", m.headerEnd + 4, m.headerEnd + 8), "sidx", "헤더는 moov 끝까지(sidx 는 넣지 않는다)");
+  assert.equal(m4a.toString("latin1", m.headerEnd + 4, m.headerEnd + 8), "sidx", "헤더는 moov 끝까지(sidx는 넣지 않는다)");
 });
 
 test("실제 파일: 앞부분이 모자라면 더 받을 양을 알린다", (t) => {
@@ -103,12 +103,12 @@ const uint = (id: number, value: number) => {
   return el(id, b);
 };
 
-/** webm: cues 의 [시각, 클러스터 차례(몇 번째 클러스터), 트랙들] 로 Cues 를 만든다. 클러스터는 2초 간격 */
+/** webm: cues의 [시각, 클러스터 차례(몇 번째 클러스터), 트랙들]로 Cues를 만든다. 클러스터는 2초 간격 */
 function makeWebm(cues: Array<{ time?: number; cluster?: number; tracks?: number[] }>, { clusters = 10, scale = 1_000_000 } = {}) {
   const info = el(0x1549a966, uint(0x2ad7b1, scale));
   const tracks = el(0x1654ae6b, el(0xae, uint(0xd7, 1), uint(0x83, 1)), el(0xae, uint(0xd7, 2), uint(0x83, 2)));
   const clusterBufs = Array.from({ length: clusters }, (_, i) => el(0x1f43b675, uint(0xe7, i * 2000), Buffer.alloc(100, i)));
-  // Cues 의 크기는 위치 값과 상관없이 같다(8바이트 표기). 한 번 만들어 크기를 알고 위치를 다시 넣는다
+  // Cues의 크기는 위치 값과 상관없이 같다(8바이트 표기). 한 번 만들어 크기를 알고 위치를 다시 넣는다
   const build = (positions: number[]) =>
     el(
       0x1c53bb6b,
@@ -126,7 +126,7 @@ function makeWebm(cues: Array<{ time?: number; cluster?: number; tracks?: number
   return Buffer.concat([el(0x1a45dfa3, uint(0x4286, 1)), el(0x18538067, body)]);
 }
 
-test("webm: 값이 빠진 CuePoint 는 버리고, 트랙이 둘이면 오디오 트랙의 자리, 겹치는 자리는 앞의 것", () => {
+test("webm: 값이 빠진 CuePoint는 버리고, 트랙이 둘이면 오디오 트랙의 자리, 겹치는 자리는 앞의 것", () => {
   const file = makeWebm([{ time: 0, cluster: 0 }, { time: 2000 }, { time: 4000, cluster: 2, tracks: [1, 2] }, { cluster: 3 }, { time: 6000, cluster: 3 }, { time: 6500, cluster: 3 }]);
   const read = readIndex(file, file.length);
   assert.ok(read.ok, JSON.stringify(read));
@@ -138,7 +138,7 @@ test("webm: 값이 빠진 CuePoint 는 버리고, 트랙이 둘이면 오디오 
   assert.equal(file.subarray(second.byte, second.byte + 4).toString("hex"), "1f43b675", "오디오 트랙(2)의 자리");
 });
 
-test("webm: TimecodeScale 을 따른다", () => {
+test("webm: TimecodeScale을 따른다", () => {
   const file = makeWebm(
     [
       { time: 0, cluster: 0 },
@@ -154,7 +154,7 @@ test("webm: TimecodeScale 을 따른다", () => {
   );
 });
 
-test("webm: Cues 가 첫 클러스터 앞에 없거나, 시각이 줄거나, 자리가 파일 밖이거나, 크기 모를 요소가 앞에 있으면 없음", () => {
+test("webm: Cues가 첫 클러스터 앞에 없거나, 시각이 줄거나, 자리가 파일 밖이거나, 크기 모를 요소가 앞에 있으면 없음", () => {
   const noCues = Buffer.concat([el(0x1a45dfa3), el(0x18538067, el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1f43b675, uint(0xe7, 0)))]);
   const shrinking = makeWebm([
     { time: 4000, cluster: 2 },
@@ -166,7 +166,7 @@ test("webm: Cues 가 첫 클러스터 앞에 없거나, 시각이 줄거나, 자
   ]);
   const unknown = Buffer.concat([el(0x1a45dfa3), hexId(0x18538067), Buffer.from("01ffffffffffffff", "hex"), hexId(0x1549a966), Buffer.from("01ffffffffffffff", "hex")]);
   for (const [buf, total, why] of [
-    [noCues, noCues.length, /Cues 가 첫 클러스터 앞에 없음/],
+    [noCues, noCues.length, /Cues가 첫 클러스터 앞에 없음/],
     [shrinking, shrinking.length, /늘어나지 않음/],
     [file, 300, /파일 밖/],
     [unknown, 10_000, /크기 모를 요소/],
@@ -241,12 +241,12 @@ test("mp4: 세그먼트 시작은 sidx 다음 바이트 + first_offset, version 
   }
 });
 
-test("mp4: 계층형 sidx, timescale 0, 항목 없음, 끝이 파일 밖, moov 앞의 sidx, 세그먼트 뒤의 sidx 는 없음", () => {
+test("mp4: 계층형 sidx, timescale 0, 항목 없음, 끝이 파일 밖, moov 앞의 sidx, 세그먼트 뒤의 sidx는 없음", () => {
   const ftyp = box("ftyp", Buffer.from("isom"));
   const moov = box("moov", Buffer.alloc(20));
   const cases: Array<[Buffer, RegExp]> = [
     [Buffer.concat([ftyp, moov, sidx({ refs: [[100, 1000, true]] })]), /계층형/],
-    [Buffer.concat([ftyp, moov, sidx({ timescale: 0, refs: [[100, 1000]] })]), /timescale 이 0/],
+    [Buffer.concat([ftyp, moov, sidx({ timescale: 0, refs: [[100, 1000]] })]), /timescale이 0/],
     [Buffer.concat([ftyp, moov, sidx({ refs: [] })]), /항목이 없음/],
     [Buffer.concat([ftyp, moov, sidx({ refs: [[100000, 1000]] })]), /파일 밖/],
     [Buffer.concat([ftyp, sidx({ refs: [[100, 1000]] }), moov]), /moov 앞/],
@@ -260,7 +260,7 @@ test("mp4: 계층형 sidx, timescale 0, 항목 없음, 끝이 파일 밖, moov �
 
 test("헤더: Segment 크기를 같은 너비의 크기 모름으로(4바이트 표기면 1F FF FF FF), 나머지 바이트는 그대로", () => {
   const body = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, 0)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
-  // Cues 의 자리(0)가 첫 클러스터를 가리키도록 Info, Cues 를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
+  // Cues의 자리(0)가 첫 클러스터를 가리키도록 Info, Cues를 클러스터 뒤가 아니라 앞에 두되, 위치 값은 클러스터 자리로 다시 쓴다
   const clusterAt = body.indexOf(Buffer.from("1f43b675", "hex"));
   const fixed = Buffer.concat([el(0x1549a966, uint(0x2ad7b1, 1_000_000)), el(0x1c53bb6b, el(0xbb, uint(0xb3, 0), el(0xb7, uint(0xf7, 1), uint(0xf1, clusterAt)))), el(0x1f43b675, uint(0xe7, 0), Buffer.alloc(50))]);
   const size4 = Buffer.alloc(4);

@@ -15,7 +15,7 @@ const never = () => Promise.reject(new Error("부르면 안 된다"));
 const deps = (over: Partial<RecheckDeps>): RecheckDeps => ({ youtubeFormats: never, soundcloudStream: never, directHead: never, ...over });
 const YT = "https://www.youtube.com/watch?v=ppIDyKeeRxs";
 
-test("유튜브: 적어 둔 lmt 가 지금 포맷 중 하나와 같으면 같음(받은 itag 와 지금 고른 itag 가 달라도)", async () => {
+test("유튜브: 적어 둔 lmt가 지금 포맷 중 하나와 같으면 같음(받은 itag와 지금 고른 itag가 달라도)", async () => {
   const got = await recheck(YT, { version: "lmt:1788794897550774", durationSec: 300.4 }, deps({ youtubeFormats: async () => BEFORE }));
   assert.deepEqual(got, { kind: "same", version: "lmt:1788794897550774" });
 });
@@ -39,7 +39,7 @@ test("유튜브: 내려간 영상은 사라짐, 일시 오류는 모름, 적어 
   assert.equal(blank.kind, "uncompared");
 });
 
-test("사운드클라우드: 음원 파일 id 로 비교하고, 미리듣기만 남았으면 사라짐", async () => {
+test("사운드클라우드: 음원 파일 id로 비교하고, 미리듣기만 남았으면 사라짐", async () => {
   const SC = "https://soundcloud.com/forss/flickermood";
   const stream = (file: string) => async () => ({ url: `https://playback.media-streaming.soundcloud.cloud/${file}/aac_160k/u/playlist.m3u8?x=1` });
   assert.deepEqual(await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: stream("cWHNerOLlkUq") })), { kind: "same", version: "file:cWHNerOLlkUq" });
@@ -47,19 +47,19 @@ test("사운드클라우드: 음원 파일 id 로 비교하고, 미리듣기만 
   const preview = await recheck(SC, { version: "file:cWHNerOLlkUq", durationSec: 1 }, deps({ soundcloudStream: async () => Promise.reject(codedError("sc-preview-only", "미리듣기")) }));
   assert.deepEqual(preview, { kind: "gone", code: "sc-preview-only" });
   const older = await recheck(SC, { version: "modified:1657536958", durationSec: 1 }, deps({ soundcloudStream: stream("cWHNerOLlkUq") }));
-  assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id 와 비교하지 않는다");
+  assert.equal(older.kind, "uncompared", "적어 둔 것이 수정 시각이면 파일 id와 비교하지 않는다");
 });
 
-test("직접 링크: 헤더로 비교하고(ETag 우선), 404, 410, 웹 페이지는 사라짐, 403, 5xx 는 모름", async () => {
+test("직접 링크: 헤더로 비교하고(ETag 우선), 404, 410, 웹 페이지는 사라짐, 403, 5xx는 모름", async () => {
   const URL = "https://a.animethemes.moe/AttackNo1-ED1.ogg";
   const stored = { version: 'etag="472613ec";modified=Sun, 25 Jun 2023 04:33:06 GMT;length=2321206', durationSec: 1 };
   const head = (headers: Record<string, unknown>) => async () => ({ headers });
   assert.equal((await recheck(URL, stored, deps({ directHead: head({ etag: '"472613ec"', "content-range": "bytes 0-0/2321206" }) }))).kind, "same");
   const changed = await recheck(URL, stored, deps({ directHead: head({ etag: '"ffff"', "last-modified": "Sun, 25 Jun 2023 04:33:06 GMT", "content-range": "bytes 0-0/2321206" }) }));
-  assert.equal(changed.kind, "changed", "날짜 · 크기가 같아도 ETag 가 다르면 바뀜");
+  assert.equal(changed.kind, "changed", "날짜와 크기가 같아도 ETag가 다르면 바뀜");
   assert.deepEqual(await recheck(URL, stored, deps({ directHead: head({ "content-type": "text/html; charset=utf-8" }) })), { kind: "gone", code: "unsupported-link" });
   const status = (n: number) => async () => Promise.reject(Object.assign(new Error(`요청 실패: HTTP ${n}`), { status: n }));
   assert.deepEqual(await recheck(URL, stored, deps({ directHead: status(410) })), { kind: "gone", code: "direct-unavailable" });
-  assert.equal((await recheck(URL, stored, deps({ directHead: status(403) }))).kind, "unknown", "만료된 서명 주소 · 막힘");
+  assert.equal((await recheck(URL, stored, deps({ directHead: status(403) }))).kind, "unknown", "만료된 서명 주소, 막힘");
   assert.equal((await recheck(URL, stored, deps({ directHead: status(503) }))).kind, "unknown");
 });

@@ -18,7 +18,7 @@ import { youtube } from "../helpers/tracks.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 
 const BOT = "bot-chan";
-// 전용 채널은 임시 DB 에 둔다. null 이면 없앤다
+// 전용 채널은 임시 DB에 둔다. null이면 없앤다
 const store = tempStore.openTempStore("idle-panel-");
 after(() => store.close());
 const setBotChannel = (id: string | null) => tempStore.setGuild("g1", { botChannel: id });
@@ -288,7 +288,7 @@ function savedSession(textChannelId: string | null) {
 // 패널(웹훅)이 아니라 채널에 바로 보낸 메시지
 const plainSent = (calls: Calls) => calls.sent.filter((s) => s.id.startsWith("plain-"));
 
-test("복원을 건너뛴 기동: 패널에 까닭을 적는다. 전용 채널이면 패널만, 다시 그려도 같은 모양", async () => {
+test("복원을 건너뛴 기동: 패널에 이유를 적는다. 전용 채널이면 패널만, 다시 그려도 같은 모양", async () => {
   savedSession(BOT);
   try {
     const { panels, calls } = setup({ record: { channelId: BOT, messageId: "900" } });
@@ -297,7 +297,7 @@ test("복원을 건너뛴 기동: 패널에 까닭을 적는다. 전용 채널�
     assert.equal(plainSent(calls).length, 0, "전용 채널은 패널이 맨 아래다. 따로 알리지 않는다");
 
     await panels.redrawIdlePanels();
-    assert.match(textOf(calls.edited[1].payload), /오류가 반복되어 재생을 멈췄어요/, "아이콘이 바뀌어 다시 그려도 까닭을 남긴다");
+    assert.match(textOf(calls.edited[1].payload), /오류가 반복되어 재생을 멈췄어요/, "아이콘이 바뀌어 다시 그려도 이유를 남긴다");
 
     const normal = setup({ record: { channelId: BOT, messageId: "900" } });
     await normal.panels.restorePanels();
@@ -307,7 +307,7 @@ test("복원을 건너뛴 기동: 패널에 까닭을 적는다. 전용 채널�
   }
 });
 
-test("복원을 건너뛴 기동: 전용 채널 밖이면 세션의 글 채널에 까닭을 알린다. 패널 기록이 없어도", async () => {
+test("복원을 건너뛴 기동: 전용 채널 밖이면 세션의 글 채널에 이유를 알린다. 패널 기록이 없어도", async () => {
   setBotChannel(null);
   savedSession("general");
   try {
@@ -473,7 +473,7 @@ test("버튼 아이콘: 앱 이모지를 맞추면 그 id, 색 버튼(정지, �
   }
 });
 
-test("하이라이트 버튼: 봇 전체에서 SponsorBlock 을 껐으면 두지 않는다", async () => {
+test("하이라이트 버튼: 봇 전체에서 SponsorBlock을 껐으면 두지 않는다", async () => {
   const { panels, guild, text } = setup({});
   const ids = async () => (await panels.controlRows(makePlayer(guild, text(BOT), {}))).flatMap((row) => row.toJSON().components.flatMap((b) => ("custom_id" in b ? [b.custom_id.split(":")[1]] : [])));
   assert.deepEqual(await withConfig({ sponsorblock: { enabled: true } }, ids), ["previous", "pause", "skip", "stop", "volume", "highlight", "shuffle", "loop", "queue", "autoplay"]);

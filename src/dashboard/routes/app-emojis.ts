@@ -1,5 +1,5 @@
 // 앱 이모지(/api/app-emojis): 목록, 이미지, 입력란용 그림 글꼴. 서버 화면의 장르 이모지도 그리므로 로그인한 사용자 누구나 읽는다.
-// 이미지와 글꼴은 선택기를 열면 한꺼번에 불려 일반 API 한도와 따로 센다(rate-limits 의 UNLIMITED).
+// 이미지와 글꼴은 선택기를 열면 한꺼번에 불려 일반 API 한도와 따로 센다(rate-limits의 UNLIMITED).
 // 올리기, 이름 바꾸기, 지우기는 운영자만(운영자 패널). 조작은 동기화와 한 줄로 돈다(app/app-emojis)
 
 import express, { type Request, type Response } from "express";
@@ -98,7 +98,7 @@ appEmojisRouter.delete("/:id", requireOwner, async (req: Request<{ id: string }>
   });
 });
 
-// 쓰는 곳(지우기 전에 알린다): 음성 상태 설정의 키, 장르 식별자. 설정에 적힌 토큰의 id 로 찾는다
+// 쓰는 곳(지우기 전에 알린다): 음성 상태 설정의 키, 장르 식별자. 설정에 적힌 토큰의 id로 찾는다
 appEmojisRouter.get("/:id/uses", requireOwner, (req: Request<{ id: string }>, res: Response) => {
   const mark = `:${req.params.id}>`;
   const voice = Object.entries(VOICE_KEYS)
@@ -110,7 +110,7 @@ appEmojisRouter.get("/:id/uses", requireOwner, (req: Request<{ id: string }>, re
   res.json({ voice, genres } satisfies AppEmojiUses);
 });
 
-// 입력란용 그림 글꼴. 주소는 고정(style.css 의 @font-face)이고 목록이 바뀌면 ETag 가 바뀐다
+// 입력란용 그림 글꼴. 주소는 고정(style.css의 @font-face)이고 목록이 바뀌면 ETag가 바뀐다
 appEmojisRouter.get("/font.:format", requireAuth, assetLimiter, async (req: Request<{ format: string }>, res: Response) => {
   const format = req.params.format === "sbix" || req.params.format === "svg" ? req.params.format : null;
   if (!format) return res.status(404).end();

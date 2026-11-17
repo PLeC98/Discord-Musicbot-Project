@@ -39,7 +39,7 @@ const base = <T extends z.ZodType>(file: string, schema: T) => json(`https://cdn
 
 // Twemoji 파일 이름 규칙. ZWJ가 없는 이모지에서만 VS16(FE0F)을 뗀다.
 // 예외로 👁️‍🗨️처럼 ZWJ가 있는데도 전부 뗀 이름인 것이 있어 두 후보를 다 본다.
-// 대시보드는 이 SVG 로 만든 글꼴(scripts/build-twemoji-font.ts)로 그리므로, 파일이 있으면 글꼴에도 있다.
+// 대시보드는 이 SVG로 만든 글꼴(scripts/build-twemoji-font.ts)로 그리므로, 파일이 있으면 글꼴에도 있다.
 const toId = (s: string) => [...s].map((c) => (c.codePointAt(0) ?? 0).toString(16)).join("-");
 const iconIds = (char: string) => {
   const strict = toId(char.includes("‍") ? char : char.replace(/️/g, ""));
@@ -84,7 +84,7 @@ function readAssets() {
 
 type Compacted = z.output<typeof Compact>[number];
 
-// 단축명 → 이모지. emojibase 를 먼저, 지스트는 emojibase 에 없는 디스코드 고유 이름만 메운다
+// 단축명 → 이모지. emojibase를 먼저, 지스트는 emojibase에 없는 디스코드 고유 이름만 메운다
 function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: z.output<typeof Gist>) {
   const charOfHex = new Map(ko.map((e) => [e.hexcode, e.unicode]));
   const charOfCode = new Map<string, string>();
@@ -102,7 +102,7 @@ function shortcodes(ko: Compacted[], sets: z.output<typeof Shortcodes>[], gist: 
   return charOfCode;
 }
 
-// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset 에 까닭을 적는다
+// 목록의 한 줄. 못 담으면 dropped, 이미지 파일이 없으면 noAsset에 이유를 적는다
 function rowOf(group: string, code: string, charOfCode: Map<string, string>, korean: Map<string, Compacted>, assets: Set<string>): { line?: string; dropped?: string; noAsset?: string } {
   const found = charOfCode.get(code);
   if (!found) return { dropped: `${group}:${code} (대응 없음)` };
@@ -162,7 +162,7 @@ async function main() {
     "// 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어",
     `export const TWEMOJI_VERSION = ${JSON.stringify(TWEMOJI)};`,
     "",
-    "/** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */",
+    "/** 선택 목록의 이모지 하나. search는 이름과 검색어를 소문자로 이은 것 */",
     "type Emoji = { char: string; label: string; search: string };",
     "type EmojiGroup = { name: string; emoji: Emoji[] };",
     "",

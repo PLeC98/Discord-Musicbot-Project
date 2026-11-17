@@ -18,7 +18,7 @@ import { isDjRoleCandidate, isServerManager } from "../../usecases/permissions.t
 // 저장 전의 선택을 들고 있지 않는다(저장 버튼이 없다). 본인에게만 보인 화면이라 호출자만 조작한다.
 // 봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐으면 그 부분이 없다. 화면을 띄운 뒤에 껐으면 누른 것은 저장하지 않고 다시 그린다
 
-// 저장에 실패하면 로그를 남기고 false 를 돌려준다. 부르는 쪽은 화면을 다시 그리지 않고 실패만 알린다(저장되지 않은 값을 그리지 않게)
+// 저장에 실패하면 로그를 남기고 false를 돌려준다. 호출부는 화면을 다시 그리지 않고 실패만 알린다(저장되지 않은 값을 그리지 않게)
 async function saved(guild: Guild, field: guildSettings.GuildField, work: () => Promise<unknown>): Promise<boolean> {
   try {
     await work();

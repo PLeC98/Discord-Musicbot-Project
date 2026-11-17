@@ -43,7 +43,7 @@ const child = (pid: number, label: string, image: string | null, { startedAt = T
 const proc = (pid: number, image: string, { ppid = 1, pgid = null as number | null, startedAt = T + 5000, startKey = null as string | null } = {}): Proc => ({ pid, ppid, pgid, image, startedAt, startKey });
 const record = (children: ChildRecord["children"], who = owner): ChildRecord => ({ owner: who, children });
 
-test("기록이 없으면 아무것도 하지 않는다(OS 에 묻지도 않는다)", () => {
+test("기록이 없으면 아무것도 하지 않는다(OS에 묻지도 않는다)", () => {
   const w = world({}, []);
   assert.deepEqual(w.run(), []);
   assert.equal(w.snapshots(), 0);
@@ -62,7 +62,7 @@ test("살아 있고 이름, 시작 시각이 기록과 맞는 자식만 트리�
   assert.deepEqual(w.removed, ["300-1.json"]);
 });
 
-test("pid 가 다른 프로그램에 다시 쓰였으면(이름이 다르거나 시작 시각이 멀면) 내리지 않는다", () => {
+test("pid가 다른 프로그램에 다시 쓰였으면(이름이 다르거나 시작 시각이 멀면) 내리지 않는다", () => {
   const w = world({ "300-1.json": record([child(10, "bgutil", "node"), child(11, "ffmpeg", "ffmpeg")]) }, [proc(10, "chrome"), proc(11, "ffmpeg", { startedAt: T + DAY })]);
   assert.deepEqual(w.run(), []);
   assert.deepEqual(w.killed, []);
@@ -94,7 +94,7 @@ test("기록을 남긴 봇이 아직 돌면 그 기록은 건드리지 않는다
   assert.deepEqual(w.removed, ["600-1.json"]);
 });
 
-test("기록의 봇 pid 를 다른 프로그램이 쓰고 있으면 그 봇은 끝난 것이다", () => {
+test("기록의 봇 pid를 다른 프로그램이 쓰고 있으면 그 봇은 끝난 것이다", () => {
   const w = world({ "300-1.json": record([child(10, "bgutil", "node")]) }, [proc(300, "chrome", { startedAt: T + DAY }), proc(10, "node")]);
   assert.deepEqual(w.run(), ["bgutil#10"]);
 });

@@ -1,4 +1,4 @@
-// src/store/track-lookup.ts: 오디오 링크 데이터의 제목 출처와 음원 주소 갱신. 임시 DB 로 진짜 SQL 을 돈다.
+// src/store/track-lookup.ts: 오디오 링크 데이터의 제목 출처와 음원 주소 갱신. 임시 DB로 진짜 SQL을 돈다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -63,7 +63,7 @@ function cacheFile(key: string) {
   return file;
 }
 
-test("캐시 찾기: 링크 데이터의 음원 주소에서 키를 계산해 audio_cache 를 본다. 링크 필드 셋이 그대로 돌아온다", () => {
+test("캐시 찾기: 링크 데이터의 음원 주소에서 키를 계산해 audio_cache를 본다. 링크 필드 셋이 그대로 돌아온다", () => {
   const file = cacheFile("yt:twostepvid");
   trackLookup.recordTrackLookup({ requestKey: "amq:77", pageUrl: "https://anilist.co/anime/77", audioUrl: "https://www.youtube.com/watch?v=twostepvid", platform: "anisongdb", title: "곡", artist: "가수" });
 
@@ -93,7 +93,7 @@ test("퇴거로 audio_cache 행이 삭제돼도 링크 데이터는 남는다. �
   trackLookup.recordTrackLookup({ requestKey: "https://open.spotify.com/track/ev1", pageUrl: "https://open.spotify.com/track/ev1", audioUrl: "https://www.youtube.com/watch?v=evictedvid", platform: "spotify", title: "곡" });
 
   fs.unlinkSync(file);
-  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict() 가 한 행마다 하는 일
+  cacheDb.get().prepare("DELETE FROM audio_cache WHERE audio_key = ?").run("yt:evictedvid"); // evict()가 한 행마다 하는 일
 
   assert.equal(trackLookup.resolveFromCache("https://open.spotify.com/track/ev1").hit, false, "파일이 없으니 캐시로는 못 튼다");
   assert.equal(trackLookup.getAudioUrl("https://open.spotify.com/track/ev1?si=x"), "https://www.youtube.com/watch?v=evictedvid", "검색은 건너뛴다");
@@ -149,7 +149,7 @@ test("직접 지정한 음원으로 튼 곡은 링크 데이터를 쓰지 않는
   assert.equal(trackLookup.getAudioUrl(sp), "https://www.youtube.com/watch?v=autoresult1");
 });
 
-test("자동으로 찾은 결과는 넣은 뒤 그 곡을 ledger 로 표시한다. 요청 그대로인 곡은 표시하지 않는다", () => {
+test("자동으로 찾은 결과는 넣은 뒤 그 곡을 ledger로 표시한다. 요청 그대로인 곡은 표시하지 않는다", () => {
   const found = { ...ROW("https://open.spotify.com/track/markledger"), audioUrl: "https://www.youtube.com/watch?v=markledger1", audioFoundBy: "search" as const };
   trackLookup.recordTrackLookup(found);
   assert.equal(found.audioFoundBy, "ledger");
@@ -178,7 +178,7 @@ test("링크 데이터에서 온 곡은 행을 새로 만들지 않고, 음원�
 
 test("자동 결과를 지운 뒤 같은 곡 객체를 다시 틀어도 그 결과가 되살아나지 않는다", () => {
   const track = { ...ROW("https://open.spotify.com/track/noresurrect"), audioUrl: "https://www.youtube.com/watch?v=noresurrect", audioFoundBy: "search" as const };
-  trackLookup.recordTrackLookup(track); // 처음 틀 때 넣고 ledger 가 된다
+  trackLookup.recordTrackLookup(track); // 처음 틀 때 넣고 ledger가 된다
   trackLookup.removeResolution(track.requestKey); // 운영자가 자동 검색 결과를 지웠다
   trackLookup.recordTrackLookup(track); // 반복 대기열로 다시 틀었다
   assert.equal(trackLookup.getAudioUrl(track.requestKey), null);

@@ -1,4 +1,4 @@
-// CSS @font-face 의 unicode-range 글과 코드포인트 목록을 오간다. 글꼴을 만드는 스크립트(build-*-font)가 함께 쓴다
+// CSS @font-face의 unicode-range 글과 코드포인트 목록을 오간다. 글꼴을 만드는 스크립트(build-*-font)가 함께 쓴다
 
 /** "U+AC00-AC0F, U+00A0" → 코드포인트들 */
 function codepointsOf(range: string): number[] {

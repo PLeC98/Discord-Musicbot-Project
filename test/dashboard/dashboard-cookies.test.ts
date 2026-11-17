@@ -13,7 +13,7 @@ import type { Server } from "node:http";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { fake } from "../helpers/fake.ts";
 
-/** 쿠키 경로의 답. 값은 없고 유무만 있다 */
+/** 쿠키 경로의 응답. 값은 없고 유무만 있다 */
 type CookieReply = { source?: string; hasFile?: boolean; error?: string; code?: string };
 
 const cookieJar = await import("../../src/store/cookie-jar.ts");
@@ -23,7 +23,7 @@ const store = openTempStore("cookie-route-");
 secrets._useKey(Buffer.alloc(32, 9).toString("base64"));
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { adminRouter } = await import("../../src/dashboard/routes/admin.ts");
-// 쿠키 출처는 운영 조절값이다(연령 제한 탭). 이 테스트는 file 로 둔다
+// 쿠키 출처는 운영 설정값이다(연령 제한 탭). 이 테스트는 file로 둔다
 const config = (await import("../../src/config/index.ts")).default;
 Object.assign(config.ytdlp, { cookiesSource: "file", useCookieFile: true, cookiesFromBrowser: null });
 

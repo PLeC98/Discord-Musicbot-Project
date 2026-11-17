@@ -1,5 +1,5 @@
 // 오디오 링크 데이터(track_lookup). 요청 키 → 보여 줄 링크, 음원 주소, 표시 정보.
-// 캐시 파일은 두 걸음으로 찾는다. 링크 데이터 행의 음원 주소에서 키를 계산하고, 그 키로 audio_cache 를 본다.
+// 캐시 파일은 두 걸음으로 찾는다. 링크 데이터 행의 음원 주소에서 키를 계산하고, 그 키로 audio_cache를 본다.
 
 import fs from "fs";
 import { cacheDb } from "./cache-db.ts";
@@ -14,7 +14,7 @@ import type { TrackInfo } from "../player/track.ts";
 type CachedTrack = TrackInfo & { audioUrl: string };
 type CacheHit = { hit: false } | { hit: true; track: CachedTrack; audioKey: string; filePath: string };
 
-// 열기 전에 부르면 던진다
+// 열기 전에 부르면 예외를 던진다
 const conn = () => cacheDb.get();
 
 // 읽기
@@ -72,7 +72,7 @@ const DISPLAY_SET = `
  *   pinned  쓰지 않는다. 지정을 해제하면 자동 결과로 돌아가야 한다
  *   ledger  행을 새로 만들지 않는다. 행의 음원이 곡의 음원과 같을 때만 표시 열을 고친다. 그새 새로 찾았거나(다른 음원) 운영자가 삭제했으면(행 없음)
  *           옛 곡이 그 결과를 되살리지 않는다
- *   그 밖   넣거나 바꾼다. 음원이 요청과 다르면(자동으로 찾은 결과) 넣은 뒤 그 곡을 ledger 로 표시한다. 다음에 다시 틀거나 저장 세션에서 돌아와도 위 규칙을 따른다
+ *   그 밖   넣거나 바꾼다. 음원이 요청과 다르면(자동으로 찾은 결과) 넣은 뒤 그 곡을 ledger로 표시한다. 다음에 다시 틀거나 저장 세션에서 돌아와도 위 규칙을 따른다
  *
  * `verified`는 "제목을 음원 자체에서 확인했는가"다(유튜브는 영상 자체, 직접 링크는 파일 태그). 재생목록 페이지가 주는 제목은 같은 영상이어도
  * 다르고(앞에 전각 공백이 붙은 축약 제목), 직접 링크는 태그를 읽기 전에 파일 이름이 제목이다. 그것으로 확인된 제목을 덮으면
@@ -164,7 +164,7 @@ type MergeRow = { requestKey: string; pageUrl: string; audioUrl: string; platfor
 
 /**
  * 오디오 캐시 불러오기: 링크 데이터를 합친다. 이 봇에 없는 요청만 넣고, 있으면 이 봇의 행을 둔다(더 새 결과).
- * 음원이 같으면 표시 열만 recordTrackLookup 의 규칙으로(확인된 제목을 앞세운다). 새로 넣은 수
+ * 음원이 같으면 표시 열만 recordTrackLookup의 규칙으로(확인된 제목을 앞세운다). 새로 넣은 수
  */
 function mergeRows(rows: MergeRow[]): number {
   const has = conn().prepare("SELECT 1 FROM track_lookup WHERE request_key = ?").pluck();

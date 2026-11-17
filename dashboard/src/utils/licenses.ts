@@ -1,6 +1,6 @@
 import { text } from "../text/index.ts";
 const T = text.licenses.items;
-// 라이선스 대화상자(LicenseDialog)의 목록: 화면이 내보내는 글꼴, 그림, 라이브러리, 봇이 함께 배포하는 데이터(data/, 고지는 data/NOTICE). 라이선스는 각 패키지의 package.json 에 적힌 것.
+// 라이선스 대화상자(LicenseDialog)의 목록: 화면이 내보내는 글꼴, 그림, 라이브러리, 봇이 함께 배포하는 데이터(data/, 고지는 data/NOTICE). 라이선스는 각 패키지의 package.json에 적힌 것.
 // 빌드할 때만 쓰는 도구(Vite, TypeScript 등)는 화면에 실리지 않아 넣지 않는다. 의존성을 추가하거나 빼면 여기도 고친다
 
 export type LicenseItem = { name: string; license: string; url: string; note?: string };
@@ -33,10 +33,10 @@ const repoKey = (url: string) =>
     .replace(/\.git$/, "")
     .replace(/\/+$/, "");
 
-/** 운영자가 고친 소스를 원본과 다른 곳에 공개했나(SOURCE_REPO_URL 을 원본과 다르게 지정함). 둘 중 하나라도 모르면 아니다 */
+/** 운영자가 고친 소스를 원본과 다른 곳에 공개했나(SOURCE_REPO_URL을 원본과 다르게 지정함). 둘 중 하나라도 모르면 아니다 */
 export const isModifiedSource = (sourceRepo?: string, projectRepo?: string) => Boolean(sourceRepo && projectRepo && repoKey(sourceRepo) !== repoKey(projectRepo));
 
-/** 봇이 함께 배포하거나(data/) 받아 쓰는(DB-IP, database/geoip) 서드파티 데이터. data/NOTICE 와 같은 것을 적는다 */
+/** 봇이 함께 배포하거나(data/) 받아 쓰는(DB-IP, database/geoip) 서드파티 데이터. data/NOTICE와 같은 것을 적는다 */
 export const DATA_FILES: LicenseItem[] = [
   { name: T.modelRegistry, license: "CC0-1.0", url: "https://github.com/PocketRisu/pocketrisu-model-registry", note: T.modelRegistryNote },
   { name: "CMU Pronouncing Dictionary", license: "BSD-2-Clause · ISC", url: "https://github.com/cmusphinx/cmudict", note: T.cmudictNote },

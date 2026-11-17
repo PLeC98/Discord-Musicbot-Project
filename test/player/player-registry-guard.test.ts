@@ -37,7 +37,7 @@ after(() => {
 
 // playback-loop.test.ts와 같은 방식으로 코드가 건드리는 것만 나열한 목
 function makePlayer(current: { title: string; duration: number } | null = { title: "곡", duration: 10 }) {
-  // 부른 dispose 의 까닭. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  // 호출된 dispose의 원인(reason) 목록. 가짜 메서드가 this로 읽지 않게 바깥에 둔다
   const disposeCalls: string[] = [];
   const p = fakePlayer(
     {
@@ -80,7 +80,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
       async play() {},
       async updateVoiceStatus() {},
       audioPlayer: { stop() {} },
-      // 진짜 dispose 처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
+      // 진짜 dispose처럼 버린 단계로 옮기고 알린다(레지스트리는 알림을 듣고 뺀다)
       async dispose({ reason }: { reason: string }) {
         if (this.lifecycle.disposed) return;
         disposeCalls.push(reason);
@@ -94,7 +94,7 @@ function makePlayer(current: { title: string; duration: number } | null = { titl
   return p;
 }
 
-// 버려진 플레이어를 스스로 빼는 레지스트리(운영과 같다). 테스트가 끝나면 알림 듣기를 뗀다
+// 버려진 플레이어를 자동으로 빼는 레지스트리(운영과 같다). 테스트가 끝나면 알림 듣기를 뗀다
 function registry(t: TestContext) {
   const players = new PlayerRegistry();
   t.after(players.followDisposals());
@@ -132,7 +132,7 @@ test("늦게 버려진 옛 플레이어는 레지스트리의 새 플레이어�
   assert.equal(players.has(GUILD), false);
 });
 
-test("레지스트리의 해제 줄은 버린 까닭을 남긴다. 빼지 않은 옛 플레이어는 줄이 없다", async (t) => {
+test("레지스트리의 해제 줄은 플레이어를 버린 원인을 남긴다. 이미 새 플레이어로 바뀐 옛 플레이어는 줄이 없다", async (t) => {
   const players = registry(t);
   const stale = makePlayer();
   players.set(GUILD, stale);

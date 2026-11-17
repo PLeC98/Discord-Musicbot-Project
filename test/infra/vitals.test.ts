@@ -16,7 +16,7 @@ const busy = (ms: number) => {
   while (performance.now() < until);
 };
 
-test("다섯 번 잴 때마다 15초 구간을 닫고 알린다: 그 구간의 CPU 평균, 루프 지연 p99 와 최대", async () => {
+test("다섯 번 잴 때마다 15초 구간을 닫고 알린다: 그 구간의 CPU 평균, 루프 지연 p99와 최대", async () => {
   startVitals();
   const windows: Window[] = [];
   onWindow((window) => windows.push(window));
@@ -44,14 +44,14 @@ test("heap 한도는 MB, 측정을 켜기 전에는 0", () => {
   assert.deepEqual(now.cpu, { bot: 0, system: 0 });
 });
 
-test("버전: package.json 의 version, git 체크아웃이면 지금 커밋의 앞 7자리", () => {
+test("버전: package.json의 version, git 체크아웃이면 지금 커밋의 앞 7자리", () => {
   const root = path.join(import.meta.dirname, "..", "..");
   const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as { version: string };
   let commit: string | null = null;
   try {
     commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim().slice(0, 7);
   } catch {
-    // git 이 없으면 버전만 본다
+    // git이 없으면 버전만 본다
   }
   assert.equal(BOT_VERSION, commit ? `${version} (${commit})` : version);
 });

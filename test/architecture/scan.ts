@@ -2,14 +2,14 @@
 //
 //   node test/architecture/scan.ts    지금 숫자와 목록을 찍는다
 //
-// 부름: import … from "…", export … from "…", import("…"), createRequire 로 만든 require("…"), require.resolve("…"). 글자로 된 상대 경로만 따라간다.
-// import type, export type 은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
+// 부름: import … from "…", export … from "…", import("…"), createRequire로 만든 require("…"), require.resolve("…"). 글자로 된 상대 경로만 따라간다.
+// import type, export type은 실행 때 지워지므로 부름이 아니다. 타입은 주인 모듈에서 어느 층이든 가져온다.
 // 지연 부름: 함수 안(ts.isFunctionLike)에 있는 프로젝트 모듈(상대 경로)의 require, import(). 맨 위의 if, try 안은 지연으로 치지 않는다.
 // 불러오는 비용 때문에 쓸 때 부르는 바깥 패키지(gpt-tokenizer 등)는 세지 않는다. 숨은 순환, 방향 위반은 프로젝트 모듈에서만 생긴다.
 // 글자가 아닌 경로(명령, 이벤트 불러오기)는 따로 목록으로 둔다.
-// config 꺼내 두기: 루트 src/config/index.ts 를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
-// 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = …, x[k] = …, x.prototype.m = 무엇이든) mock.method 로 덮거나,
-// 받은 객체의 속성을 교체하는 헬퍼(swap(obj, key, fn) 처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
+// config 꺼내 두기: 루트 src/config/index.ts를 받은 이름에서 함수 밖에서 값을 읽는 곳. 클래스 필드의 초깃값은 만들 때 읽으므로 뺀다.
+// 메서드 교체: 테스트가 프로젝트 모듈에서 온 이름의 속성에 함수를 넣거나(x.m = …, x[k] = …, x.prototype.m = 무엇이든) mock.method로 덮거나,
+// 받은 객체의 속성을 교체하는 헬퍼(swap(obj, key, fn)처럼 obj[key] = … 를 하는 함수)에 넘기는 파일.
 // 테스트 헬퍼(test/…)가 내준 이름의 필드에 바로 넣는 것(하네스의 가짜 설정)은 세지 않는다. 헬퍼를 거친 제품 값(h.X.m = …)은 센다.
 
 import fs from "fs";
@@ -38,7 +38,7 @@ function walk(dir: string, out: string[] = []) {
 // 기동 파일과 설정 모듈
 const isRootIndex = (rel: string) => rel === "src/index.ts";
 const isRootConfig = (rel: string) => rel === "src/config/index.ts";
-// 진입 파일의 첫 줄(.env 를 만들고 읽는다)
+// 진입 파일의 첫 줄(.env를 만들고 읽는다)
 const ENV_BOOTSTRAP = "src/app/env-bootstrap.ts";
 
 function layerOf(rel: string) {
@@ -51,7 +51,7 @@ function layerOf(rel: string) {
 
 function resolveSpec(fromRel: string, spec: string) {
   if (!spec.startsWith("./") && !spec.startsWith("../")) return null;
-  const file = posix(path.join(path.dirname(fromRel), spec)); // ESM 이라 가져오는 경로에 확장자까지 적는다
+  const file = posix(path.join(path.dirname(fromRel), spec)); // ESM이라 가져오는 경로에 확장자까지 적는다
   return fs.existsSync(path.join(ROOT, file)) && fs.statSync(path.join(ROOT, file)).isFile() ? file : null;
 }
 
@@ -90,7 +90,7 @@ function scanSource(rel: string) {
     if (to) deps.push({ to, line: line(n), lazy: inFn });
   };
 
-  // src/config/index.ts 를 받은 이름(맨 위의 import x from "…/config.ts", import * as x, const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
+  // src/config/index.ts를 받은 이름(맨 위의 import x from "…/config.ts", import * as x, const x = require("…/config.ts")). 이름으로 꺼낸 것은 그 자체가 꺼내 두기다
   for (const s of sf.statements) {
     if (ts.isImportDeclaration(s) && !typeOnly(s) && ts.isStringLiteral(s.moduleSpecifier) && isRootConfig(resolveSpec(rel, s.moduleSpecifier.text) ?? "")) {
       const clause = s.importClause;
@@ -128,7 +128,7 @@ function scanSource(rel: string) {
 
     if (!inFn && configNames.size) {
       if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && configNames.has(n.expression.text)) captures.push(line(n));
-      // const { a } = config 만. const { a } = config.x 는 위의 속성 접근으로 이미 센다
+      // const { a } = config만. const { a } = config.x는 위의 속성 접근으로 이미 센다
       if (ts.isVariableDeclaration(n) && ts.isObjectBindingPattern(n.name) && n.initializer && ts.isIdentifier(n.initializer) && configNames.has(n.initializer.text)) captures.push(line(n));
     }
     ts.forEachChild(n, (c) => visit(c, inFn));
@@ -168,7 +168,7 @@ function scanTest(rel: string) {
     else if (ts.isObjectBindingPattern(name)) for (const el of name.elements) if (ts.isIdentifier(el.name)) add(el.name.text);
   };
 
-  // 이름부터 모은다(before() 안에서 받는 것까지). import 로 받은 이름도
+  // 이름부터 모은다(before() 안에서 받는 것까지). import로 받은 이름도
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !ts.isStringLiteral(st.moduleSpecifier) || !st.moduleSpecifier.text.startsWith(".")) continue;
     const clause = st.importClause;
@@ -213,7 +213,7 @@ function scanTest(rel: string) {
     const isFn = (e: ts.Node | undefined) => !!e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e));
     const fixtureSlot = (left: ts.PropertyAccessExpression | ts.ElementAccessExpression) => ts.isIdentifier(left.expression) && fixtures.has(left.expression.text); // 헬퍼가 내준 이름의 필드에 바로 넣기
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isPropertyAccessExpression(n.left) || ts.isElementAccessExpression(n.left)) && isFn(n.right) && project.has(rootName(n.left) ?? "") && !fixtureSlot(n.left)) swaps.push(line(n));
-    // prototype 에 넣는 것은 무엇이든(변수에 담아 둔 함수로 교체하는 것까지)
+    // prototype에 넣는 것은 무엇이든(변수에 담아 둔 함수로 교체하는 것까지)
     if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && ts.isPropertyAccessExpression(n.left) && ts.isPropertyAccessExpression(n.left.expression) && n.left.expression.name.text === "prototype" && project.has(rootName(n.left) ?? "")) swaps.push(line(n));
     if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && swappers.has(n.expression.text) && n.arguments[0] && project.has(rootName(n.arguments[0]) ?? "") && !configs.has(rootName(n.arguments[0]) ?? "")) swaps.push(line(n));
     if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "method" && /(^|\.)mock$/.test(n.expression.expression.getText(sf)) && project.has(rootName(n.arguments[0] ?? n) ?? "")) swaps.push(line(n));
@@ -221,11 +221,11 @@ function scanTest(rel: string) {
   };
   visit(sf);
 
-  // 첫 테스트를 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 테스트가 끝나면 맨 위 after() 가 먼저 돌아
+  // 첫 테스트를 등록한 뒤 맨 위에서 기다리는 줄. 기다리는 동안 앞 테스트가 끝나면 맨 위 after()가 먼저 돌아
   // 뒤에 등록되는 테스트가 닫힌 서버, 저장소를 만난다(앞 테스트만 필터링해 돌리면 늘 그렇다)
   const lateAwaits: number[] = [];
   const awaits = (n: ts.Node): boolean => ts.isAwaitExpression(n) || (ts.isForOfStatement(n) && !!n.awaitModifier) || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => awaits(c) || undefined));
-  // 줄 안 어디서든(for 로 여럿 등록하는 것까지) test(…) 를 부르면 등록한 것이다. 함수 안은 그 함수가 불릴 때라 보지 않는다
+  // 줄 안 어디서든(for로 여럿 등록하는 것까지) test(…)를 부르면 등록한 것이다. 함수 안은 그 함수가 불릴 때라 보지 않는다
   const registersTest = (n: ts.Node): boolean => (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "test") || (!ts.isFunctionLike(n) && !!ts.forEachChild(n, (c) => registersTest(c) || undefined));
   let registered = false;
   for (const st of sf.statements) {
@@ -283,7 +283,7 @@ function scan() {
     const targets = new Set<string>();
     for (const d of f.deps) {
       targets.add(d.to);
-      // 루트 src/config/index.ts 는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
+      // 루트 src/config/index.ts는 어느 층이든 읽는 환경이라 방향에서 뺀다. 순환에는 넣는다
       if (isRootConfig(d.to)) continue;
       const from = LAYERS.indexOf(f.layer ?? "");
       const to = LAYERS.indexOf(layerOf(d.to) ?? "");
@@ -292,7 +292,7 @@ function scan() {
     graph.set(f.rel, targets);
   }
 
-  // 진입 파일(기동, scripts) 중 루트 설정까지 닿는 것. 프로젝트 모듈 중 첫 부름이 .env 를 읽는 부트스트랩이어야 설정보다 먼저 돈다
+  // 진입 파일(기동, scripts) 중 루트 설정까지 닿는 것. 프로젝트 모듈 중 첫 부름이 .env를 읽는 부트스트랩이어야 설정보다 먼저 돈다
   const scripts = walk("scripts")
     .filter((rel) => /^scripts\/[^/]+\.ts$/.test(rel))
     .map(scanSource);
@@ -326,7 +326,7 @@ function scan() {
     lateAwait: tests.filter((f) => f.lateAwaits.length).map((f) => `${f.rel}:${f.lateAwaits.join(",")}`),
     configEntries: entries.map((f) => f.rel),
     withoutBootstrap: entries.filter((f) => f.deps[0]?.to !== ENV_BOOTSTRAP).map((f) => f.rel),
-    // .env 를 process.env 에 올리는 파일(주석은 뺀다)
+    // .env를 process.env에 올리는 파일(주석은 뺀다)
     envFileLoad: [...sources, ...scripts].map((f) => f.rel).filter((rel) => /process\.loadEnvFile\b/.test(stripComments(rel))),
     // 실행 중 경로를 파일 위치에서 세는 파일(import.meta.dirname, 주석은 뺀다)
     dirnameUse: sources.map((f) => f.rel).filter((rel) => /import\.meta\.dirname/.test(fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\/\/.*$/gm, ""))),

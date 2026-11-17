@@ -1,6 +1,6 @@
 // 캐시 DB(운영자 패널 "캐시 DB" 탭). /api/admin/track-cache. 모양은 contract/track-cache, 처리는 dashboard/track-cache, track-cache-probe.
 // 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 삭제한 캐시는 다시 다운로드하면 된다).
-// 재생 테스트는 yt-dlp 를 실행하므로 곡 추가와 같은 한도로 따로 센다.
+// 재생 테스트는 yt-dlp를 실행하므로 곡 추가와 같은 한도로 따로 센다.
 
 import express, { type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
@@ -21,7 +21,7 @@ const trackCacheRouter = express.Router();
 trackCacheRouter.use(requireOwner);
 
 const refuse = (res: Response, { code, params, errors }: trackCache.Refusal) => sendProblem(res, code, params, errors ? { errors } : undefined);
-// URL 쿼리 그대로(같은 키가 여럿인지를 보려고 express 가 읽은 req.query 를 쓰지 않는다)
+// URL 쿼리 그대로(같은 키가 여럿인지를 보려고 express가 읽은 req.query를 쓰지 않는다)
 const searchOf = (req: Request) => new URL(req.originalUrl, "http://localhost").searchParams;
 
 trackCacheRouter.get("/", async (req, res) => {
@@ -33,7 +33,7 @@ trackCacheRouter.get("/", async (req, res) => {
     if (!res.writableFinished) cancel.abort();
   });
   const read = await trackCache.read(query.query, { signal: cancel.signal });
-  if (!read || cancel.signal.aborted) return; // 요청이 취소됐다(닫힌 연결에 답하지 않는다)
+  if (!read || cancel.signal.aborted) return; // 요청이 취소됐다(닫힌 연결에 응답하지 않는다)
   if (!read.ok) return refuse(res, read);
   res.json(read.page satisfies TrackCachePage);
 });

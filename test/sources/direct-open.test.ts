@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { openLink, type AudioStream, type OpenOptions } from "../../src/sources/direct-open.ts";
 import { taggedMp3 } from "../helpers/tagged-audio.ts";
 
-/** 가짜 SafeUrl: 그 응답(헤더, 본문, 마지막 주소). endless 면 다 보낸 뒤에도 닫지 않고 같은 청크를 계속 보낸다 */
+/** 가짜 SafeUrl: 그 응답(헤더, 본문, 마지막 주소). endless면 다 보낸 뒤에도 닫지 않고 같은 청크를 계속 보낸다 */
 function netOf(body: Buffer, headers: Record<string, unknown>, { url = "https://final.test/x", endless = false } = {}) {
   const asked: OpenOptions[] = [];
   const net = {
@@ -60,7 +60,7 @@ test("HLS, 단순 목록: 다 읽고, 상대 주소의 기준은 리다이렉트
   assert.deepEqual(huge, { kind: "other" }, "1MB 넘는 목록은 읽지 않는다");
 });
 
-test("인터넷 라디오(끝이 없는 응답): 앞부분만 읽고 바로 답하고, 본문은 이어 흐른다", { timeout: 10_000 }, async (t) => {
+test("인터넷 라디오(끝이 없는 응답): 앞부분만 읽고 바로 반환하고, 본문은 이어 흐른다", { timeout: 10_000 }, async (t) => {
   const mp3 = await taggedMp3();
   if (!mp3) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const { net } = netOf(mp3.subarray(0, 8000), { "content-type": "audio/mpeg", "icy-name": "라디오" }, { endless: true });
@@ -84,7 +84,7 @@ test("구간으로 열면(이어받기) 판정 없이 그 응답을 그대로. �
   if (opened.kind === "file") opened.body.destroy();
 });
 
-test("열리지 않으면 SafeUrl 의 오류를 그대로 던진다(부르는 쪽이 숨긴다)", async () => {
+test("열리지 않으면 SafeUrl의 오류를 그대로 던진다(호출부가 숨긴다)", async () => {
   const net = {
     getStream: async () => {
       throw new Error("SSRF 차단: 10.0.0.1");

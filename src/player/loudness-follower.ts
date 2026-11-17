@@ -1,4 +1,4 @@
-// 재생 중 측정의 느린 추종. 100ms 마다 순간 볼륨(400ms 블록)과 그 100ms 의 샘플 피크를 넣으면 걸 정규화 게인(dB)을 돌려준다.
+// 재생 중 측정의 느린 추종. 100ms마다 순간 볼륨(400ms 블록)과 그 100ms의 샘플 피크를 넣으면 걸 정규화 게인(dB)을 돌려준다.
 // 측정값(캐시 파일, 끝까지 재생하며 측정한 값)이 없는 소리에 쓴다. 곡 안의 조용한 부분과 큰 부분의 차이는 건드리지 않고 지금까지 들은 것의 통합 볼륨을 천천히 따라간다.
 
 const TARGET = -14;
@@ -24,7 +24,7 @@ class Hist {
     this.count++;
   }
 
-  /** 위에서부터 frac 만큼 내려온 자리의 값(상위 1% 면 0.01) */
+  /** 위에서부터 frac만큼 내려온 자리의 값(상위 1%면 0.01) */
   top(frac: number) {
     let need = this.count * frac;
     let i = this.n - 1;
@@ -38,7 +38,7 @@ class Hist {
 
 /** 절대 게이트를 넘은 블록들: 볼륨 히스토그램과 에너지 합 */
 class Evidence {
-  // 최대 크기의 고역 사인파나 사각파는 순간 볼륨이 0 LUFS 를 넘는다(+3 ~ +6)
+  // 최대 크기의 고역 사인파나 사각파는 순간 볼륨이 0 LUFS를 넘는다(+3 ~ +6)
   readonly h = new Hist(-70, 20);
   sum = 0;
   count = 0;
@@ -81,7 +81,7 @@ const RULES = {
   // 가정 볼륨보다 작은 소리를 믿는 데 드는 들은 양(초), 큰 소리는 n0Down
   n0: 30,
   n0Down: 5,
-  // 3초 단기 볼륨의 천장: 목표 + H. H 는 h0 부터 관찰한 폭(단기 최대 - 통합 + 1)까지, hMax 를 넘지 않게, 들은 양 / (들은 양 + hGrowS) 만큼 넓어진다
+  // 3초 단기 볼륨의 천장: 목표 + H. H는 h0부터 관찰한 폭(단기 최대 - 통합 + 1)까지, hMax를 넘지 않게, 들은 양 / (들은 양 + hGrowS)만큼 넓어진다
   h0: 3,
   hMax: 14,
   hGrowS: 180,
@@ -91,7 +91,7 @@ const RULES = {
   mExtra: 4,
   upRate: 0.15,
   downRate: 4,
-  // 천장보다 fastOverDb 넘게 크면 fastDownRate 로 내린다
+  // 천장보다 fastOverDb 넘게 크면 fastDownRate로 내린다
   fastOverDb: 6,
   fastDownRate: 20,
   // 증폭 한도가 줄어 게인을 내릴 때의 속도. 피크는 리미터가 막으므로 천천히 내린다
@@ -111,7 +111,7 @@ const RULES = {
 };
 
 /**
- * prior: 시작할 때 가정하는 볼륨(LUFS). startGain: 시작 게인(dB, 없으면 가정에서). 증폭이면 maxBoost 와 startCap 으로 제한한다.
+ * prior: 시작할 때 가정하는 볼륨(LUFS). startGain: 시작 게인(dB, 없으면 가정에서). 증폭이면 maxBoost와 startCap으로 제한한다.
  * startCap: 지난 값의 증폭 한도(dB). 이번 재생에서 모은 블록으로 한도를 계산하기 전까지 쓰고, 없으면 그동안 증폭하지 않는다
  */
 type FollowerStart = { prior?: number; startGain?: number | null; startCap?: number | null };
@@ -140,12 +140,12 @@ class LoudnessFollower {
   constructor({ prior = TARGET, startGain = null, startCap = null }: FollowerStart = {}) {
     this.#prior = prior;
     this.#cap = Math.max(0, startCap ?? 0);
-    // 가정이 조용한 쪽이어도(-30 LUFS 면 +16 dB) 그대로 걸지 않는다
+    // 가정이 조용한 쪽이어도(-30 LUFS면 +16 dB) 그대로 걸지 않는다
     const start = startGain ?? TARGET - prior;
     this.gain = Math.max(RULES.minGain, start > 0 ? Math.min(start, RULES.maxBoost, this.#cap) : start);
   }
 
-  /** momentary: 순간 볼륨(LUFS), peak: 그 100ms 의 샘플 피크(dBFS, 모르면 null). 깨진 값은 무음으로 본다. 돌려주는 값은 지금 걸 게인(dB) */
+  /** momentary: 순간 볼륨(LUFS), peak: 그 100ms의 샘플 피크(dBFS, 모르면 null). 깨진 값은 무음으로 본다. 돌려주는 값은 지금 걸 게인(dB) */
   push(momentary: number, peak: number | null = null): number {
     const m = Math.min(Number.isFinite(momentary) ? momentary : -120, 20);
     const pk = peak !== null && Number.isFinite(peak) ? peak : null;

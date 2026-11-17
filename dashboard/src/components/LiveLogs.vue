@@ -47,7 +47,7 @@
 
     <!-- 카드 안쪽 588px 이상: 영역 이름이 붙은 격자(같은 버튼을 두 번 그리지 않게 영역 위치만 바꾼다). 안쪽 폭 = 운영자 화면에서 사이드바를 접으면 화면 - 208px.
          588 ~ 742px(화면 796 ~ 950px): 레벨, 자동 스크롤, 지우기 / 카테고리, 태그, 검색(남은 폭).
-         743px 이상(화면 951px 이상): 레벨 / 카테고리, 태그, 검색(288px 까지), 오른쪽 끝 자동 스크롤, 지우기 -->
+         743px 이상(화면 951px 이상): 레벨 / 카테고리, 태그, 검색(288px까지), 오른쪽 끝 자동 스크롤, 지우기 -->
     <div class="hidden @min-[36.75rem]/card:grid grid-cols-[1fr_auto] items-center gap-2 [grid-template-areas:'chips_actions'_'filters_filters'] @min-[46.4375rem]/card:[grid-template-areas:'chips_chips'_'filters_actions']">
       <div class="[grid-area:chips] flex flex-wrap items-center gap-2">
         <button v-for="l in LEVEL_CHIPS" :key="l.value" type="button" :aria-pressed="levelsOn.has(l.value)" :class="[FILTER_CHIP, levelsOn.has(l.value) ? FILTER_CHIP_ON : FILTER_CHIP_OFF]" @click="toggleLevel(l.value)">{{ l.label }}</button>
@@ -55,7 +55,7 @@
       <div class="[grid-area:filters] flex items-center gap-2 min-w-0">
         <SingleSelect v-model="category" class="w-44 shrink-0" :options="categoryOptions" :search-from="0" :empty-label="T.allCategories" />
         <SingleSelect v-model="tag" class="w-44 shrink-0" :options="tagOptions" :empty-label="T.allTags" />
-        <!-- 글자 검색: 받아 둔 줄의 글, 카테고리, 태그에서(한국어 검색). 넓으면 288px 까지, 그 밖은 남은 폭을 다 -->
+        <!-- 글자 검색: 받아 둔 줄의 글, 카테고리, 태그에서(한국어 검색). 넓으면 288px까지, 그 밖은 남은 폭을 다 -->
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 @min-[46.4375rem]/card:max-w-72" />
       </div>
       <span class="[grid-area:actions] justify-self-end flex items-center gap-2">
@@ -68,7 +68,7 @@
          바탕은 드롭다운 목록과 겹치지 않는 면(--log-pane, 밝기마다 따로). 넘치면 오른쪽 안쪽 여백을 3px 줄여 스크롤바와 글 사이가 왼쪽 여백과 같게(useOverflowing), 둥근 모서리 끝은 스크롤바 트랙을 비운다 -->
     <div ref="pane" class="@container/log flex-1 min-h-0 overflow-y-auto [overflow-anchor:none] rounded-(--r-inner) bg-(--log-pane) py-2 pl-3 [&::-webkit-scrollbar-track]:my-[calc(var(--r-inner)-5px)]" :class="overflowing ? 'pr-2.25' : 'pr-3'" @scroll="onScroll">
       <p v-if="shown.length === 0" class="h-full flex items-center justify-center text-sm text-on-surface-variant">{{ logs.length ? text.common.noMatch : T.empty }}</p>
-      <!-- 줄은 한 번 그리면 검색어를 바꿀 때까지 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다. 검색어가 바뀌면 일치한 부분을 다시 칠한다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px 로 짐작하고 그린 뒤로는 그 높이) -->
+      <!-- 줄은 한 번 그리면 검색어를 바꿀 때까지 바뀌지 않는다(v-memo: 탭을 옮기거나 새 줄이 와도 다시 비교하지 않는다. 검색어가 바뀌면 일치한 부분을 다시 칠한다). 화면 밖 줄은 그리기를 건너뛴다(content-visibility, 높이는 한 줄 25px로 짐작하고 그린 뒤로는 그 높이) -->
       <div v-for="entry in shown" :key="entry.key" v-memo="[entry.key, term]" class="[content-visibility:auto] [contain-intrinsic-size:auto_25px] border-b border-outline-variant/20 last:border-b-0">
         <!-- 표시 줄: 받지 못한 줄, 봇 재시작. 필터와 상관없이 늘 보인다 -->
         <div v-if="entry.mark" class="flex items-center gap-2 py-1 text-xs text-on-surface-variant">
@@ -114,7 +114,7 @@ const emit = defineEmits<{ clear: [] }>();
 
 // ── 레벨 ──
 
-// 처음 켜 둘 레벨은 봇의 LOG_LEVEL 이상. 봇이 debug 를 안 보내면 그 칩은 꺼진 채로 시작한다(켜면 그때부터 오는 것이 보인다). 선택한 것은 기억하지 않는다
+// 처음 켜 둘 레벨은 봇의 LOG_LEVEL 이상. 봇이 debug를 안 보내면 그 칩은 꺼진 채로 시작한다(켜면 그때부터 오는 것이 보인다). 선택한 것은 기억하지 않는다
 const levelsOn = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
 // 처음 켠 레벨(필터 시트의 초기화, 바꾼 필터 수의 기준)
 const baseLevels = ref(new Set<LevelName>(["info", "warn", "error", "fatal"]));
@@ -141,7 +141,7 @@ function toggleLevel(v: LevelName) {
 const lines = computed(() => props.logs.filter((e): e is LogRow & WireEntry => !e.mark));
 const categories = computed(() => [...new Set(lines.value.flatMap((e) => (e.category ? [e.category] : [])))].sort());
 const tags = computed(() => [...new Set(lines.value.flatMap((e) => e.tags ?? []))].sort());
-// 드롭다운의 값. "" 이면 필터링하지 않는다
+// 드롭다운의 값. ""이면 필터링하지 않는다
 const category = ref<OptionValue>("");
 const tag = ref<OptionValue>("");
 // 카테고리는 늘 검색창이 있고, 선택지 앞에 줄의 점과 같은 색
@@ -186,7 +186,7 @@ function setFollow(on: boolean) {
 }
 
 // ── 필터 창(좁은 화면) ──
-// 안의 필터는 PC 와 같은 값을 바로 바꾼다. 초기화는 처음 켠 레벨, 모든 카테고리, 모든 태그로
+// 안의 필터는 PC와 같은 값을 바로 바꾼다. 초기화는 처음 켠 레벨, 모든 카테고리, 모든 태그로
 const sheetOpen = ref(false);
 const sameSet = (a: Set<LevelName>, b: Set<LevelName>) => a.size === b.size && [...a].every((x) => b.has(x));
 // 바꾼 필터 수(레벨, 카테고리, 태그). 필터 버튼의 배지
@@ -216,7 +216,7 @@ watch(
   () => shown.value.at(-1)?.key,
   () => follow.value && toEnd(),
 );
-// 숨어 있는 동안(display:none)은 scrollTop 이 적용되지 않는다. 돌아오면 맞춘다
+// 숨어 있는 동안(display:none)은 scrollTop이 적용되지 않는다. 돌아오면 맞춘다
 watch(
   () => props.active,
   (on) => on && follow.value && toEnd(),

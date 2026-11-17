@@ -24,7 +24,7 @@ function makeTrack(title: string, duration = 100): QueuedTrack {
 type Options = { loop?: Loop; current?: QueuedTrack | null; queue?: QueuedTrack[]; history?: QueuedTrack[] };
 
 function makePlayer({ loop = false, current = null, queue = [], history = [] }: Options = {}) {
-  // 튼 곡. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  // 튼 곡. 가짜 메서드가 this로 읽지 않게 바깥에 둔다
   const played: Array<{ title: string | null | undefined; ms: number }> = [];
   return fakePlayer(
     {
@@ -132,12 +132,12 @@ test("한곡 반복 + 이전곡: 현재 곡 재시작, 곡 수 불변", async ()
 // 대기열 반복에서는 끝난 곡이 대기열 끝으로 돌아가 대기열이 고리가 된다. 이전 곡은 고리 순서를 따른다(기록이 아니다)
 test("큐 반복 + 이전곡: 지금 곡 바로 앞(대기열 맨 끝)을 튼다. 기록은 그대로", async () => {
   const [A, B, C, D] = ["A", "B", "C", "D"].map((t) => makeTrack(t));
-  // A 가 끝나 대기열 끝으로 돌아갔고(기록에도 남음) B 를 트는 중에 D 를 더했다
+  // A가 끝나 대기열 끝으로 돌아갔고(기록에도 남음) B를 트는 중에 D를 더했다
   const p = makePlayer({ loop: "queue", current: B, queue: [C, A, D], history: [A] });
 
   assert.equal(previous.call(p), true);
   await onTrackEnd.call(p, "previous");
-  assert.equal(p.currentTrack, D, "기록의 A 가 아니라 고리에서 B 바로 앞인 D");
+  assert.equal(p.currentTrack, D, "기록의 A가 아니라 고리에서 B 바로 앞인 D");
   assert.deepEqual(titles(p.queue), ["B", "C", "A"]);
   assert.deepEqual(titles(p.previousTracks), ["A"], "기록은 그대로");
 
@@ -191,12 +191,12 @@ test("큐 반복 + 이전곡: 복제 없이 총 곡 수 보존", async () => {
   const p = makePlayer({ loop: "queue", current: C, queue: [D, E], history: [A, B] });
 
   previous.call(p);
-  assert.deepEqual(titles(p.queue), ["E", "C", "D"], "고리에서 C 바로 앞인 E 가 앞에, 중단곡 C가 그 뒤에");
+  assert.deepEqual(titles(p.queue), ["E", "C", "D"], "고리에서 C 바로 앞인 E가 앞에, 중단곡 C가 그 뒤에");
 
   await onTrackEnd.call(p, "previous");
 
   assert.equal(p.currentTrack, E);
-  assert.deepEqual(titles(p.queue), ["C", "D"], "중단곡 C는 한 번만 존재 — 큐 반복 재삽입 없음");
+  assert.deepEqual(titles(p.queue), ["C", "D"], "중단곡 C는 한 번만 존재(큐 반복 재삽입 없음)");
   assert.deepEqual(titles(p.previousTracks), ["A", "B"], "기록은 건드리지 않고, 끝나지 않은 C는 기록에 안 들어감");
 });
 
@@ -290,5 +290,5 @@ test("반복 없음: 이전곡 연타 체인. 중복 없이 기록을 거슬러 
   await onTrackEnd.call(p, "previous");
   assert.equal(p.currentTrack, A);
   assert.deepEqual(titles(p.queue), ["B", "C", "D"]);
-  assert.equal(p.previousTracks.length, 0, "기록 소진 — 각 곡은 어디에도 중복되지 않음");
+  assert.equal(p.previousTracks.length, 0, "기록 소진, 각 곡은 어디에도 중복되지 않음");
 });

@@ -12,10 +12,10 @@ const HINT = " Use --cookies-from-browser or --cookies for the authentication. S
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
 const COOKIE_WARN = "WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.";
 
-// yt-dlp 를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
+// yt-dlp를 실행하는 곳이 붙이는 모양(message = stderr, code = 이름)
 const ytdlpError = ytDlpError;
 
-test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id 를 붙인다", () => {
+test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키로도 안 되는지 구분한다. 영상 id를 붙인다", () => {
   assert.equal(failureReason(ytdlpError(AGE), false), "연령 제한, 쿠키 없음 (hc0ZDaAZQT0)");
   assert.equal(failureReason(ytdlpError(AGE), true), "연령 제한, 쿠키로도 재생 불가 (hc0ZDaAZQT0)");
   assert.equal(failureReason(ytdlpError(`${COOKIE_WARN}\n${AGE}`), true), "연령 제한, 쿠키가 유효하지 않음. 쿠키를 다시 입력해 주세요 (hc0ZDaAZQT0)");
@@ -31,7 +31,7 @@ test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
 });
 
 test("그 밖은 원문의 ERROR 줄, 없으면 첫 줄을 남긴다", () => {
-  assert.equal(failureReason(new Error("WARNING: 무언가\nERROR: 진짜 까닭\n덧붙인 줄"), false), "ERROR: 진짜 까닭");
+  assert.equal(failureReason(new Error("WARNING: 무언가\nERROR: 진짜 원인\n덧붙인 줄"), false), "ERROR: 진짜 원인");
   assert.equal(failureReason(new Error("ffmpeg exited with code 1\n자세한 것"), false), "ffmpeg exited with code 1", "문장이 넓게 걸리는 종류는 이름으로 덮지 않는다");
   assert.equal(failureReason("그냥 글자", false), "그냥 글자");
 });

@@ -51,10 +51,10 @@ const metrics = {
   /** lines: 좁은 카드에서 두 줄로 */
   pingSub: (minutes: number, average: string, lines = false) => `${minutes}분 평균${lines ? "\n" : " "}${average}`,
   loop: "이벤트 루프 지연",
-  /** 좁은 카드의 제목(툴팁으로 loop 를 보인다) */
+  /** 좁은 카드의 제목(툴팁으로 loop를 보인다) */
   loopShort: "EL lag",
   loopSub: "최대",
-  /** 큰 숫자가 p99 인 카드의 제목 뒤 */
+  /** 큰 숫자가 p99인 카드의 제목 뒤 */
   p99: "p99",
   heap: "heap 메모리",
   cpu: "CPU",
@@ -63,7 +63,7 @@ const metrics = {
   downloadActive: (count: number) => `활성 ${formatNumber(count)}개`,
   downloadToday: "오늘",
   encoding: "인코딩 응답 시간",
-  /** 최근 15분 동안의 합(핑의 "15분 평균" 과 같은 앞말). 수는 아래 줄에 */
+  /** 최근 15분 동안의 합(핑의 "15분 평균"과 같은 앞말). 수는 아래 줄에 */
   encodingLate: "15분 누락 프레임",
   upload: "업로드",
   uploadSystem: "시스템",
@@ -89,7 +89,7 @@ const clients = "클라이언트 (설정 순서)";
 const clientsRate = "성공/시도";
 const clientSkipped = "건너뜀";
 const clientDetail = (order: number, tried: number, ok: number, excluded: boolean) => `${order}번째로 시도\n${tried}번 중 ${ok}번 성공${excluded ? "\n연속 실패로 한동안 건너뛰어요" : ""}`;
-/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 형식으로(0 인 단위는 뺀다). cut 이면 앞에 "약" */
+/** 지난 때를 큰 단위 둘까지 "2시간 8분 전" 형식으로(0인 단위는 뺀다). cut이면 앞에 "약" */
 const justNow = "방금 전";
 const unitNames = { day: "일", hour: "시간", minute: "분", second: "초" };
 const ago = (span: string) => `${span} 전`;
@@ -125,14 +125,14 @@ const extractions = "유튜브 영상 정보 읽기";
 // 인코딩 워커
 const workers = {
   title: (count: number) => `인코딩 워커 (${count})`,
-  /** 이 호스트에서 띄울 수 있는 최대(CPU 코어 − 1, 8 까지) */
+  /** 이 호스트에서 띄울 수 있는 최대(CPU 코어 − 1, 8까지) */
   limit: "워커 상한",
   quota: (cores: number) => `CPU 할당 ${cores}코어`,
   lateTotal: "켜진 뒤 누락 프레임",
   deaths: "켜진 뒤 다시 띄운 워커",
   worker: (n: number) => `워커 ${n}`,
   streams: (count: number) => `재생 ${formatNumber(count)}`,
-  /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100 이 끝) */
+  /** 워커 스레드가 지난 1초 동안 쓴 CPU(코어 하나 기준, 100이 끝) */
   cpu: (pct: number) => `코어 ${pct}%`,
   /** 응답 시간 p99 / 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms) */
   rtt: (rtt: string, limit: string) => `응답 시간 ${rtt} / ${limit}`,

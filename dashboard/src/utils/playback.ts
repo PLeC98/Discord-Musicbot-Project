@@ -1,5 +1,5 @@
 // 재생 바와 서버 화면이 같이 쓰는 재생 규칙(순수 함수). 상태는 두 곳이 따로 든다(재생 바는 듣고 있는 서버, 서버 화면은 주소의 서버)
-// 규칙은 읽는 필드만 받는다. 화면은 받은 재생 상태(contract/player 의 PlayerRead)를 그대로 넘긴다
+// 규칙은 읽는 필드만 받는다. 화면은 받은 재생 상태(contract/player의 PlayerRead)를 그대로 넘긴다
 
 import type { PlayerRead, PlayerState, PlayingView, QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import { canGoBack, canGoNext, ownTrackDenied } from "../../../src/rules/controls.ts";
@@ -73,10 +73,10 @@ export const canSkip = (s: StateSeen | null | undefined): boolean => mayTouch(s,
 /** 대기열 빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람 */
 export const canRemove = (s: StateSeen | null | undefined, track: TrackSeen | null | undefined): boolean => mayTouch(s, track);
 
-/** 다음 곡 버튼(rules/controls 의 canGoNext) */
+/** 다음 곡 버튼(rules/controls의 canGoNext) */
 export const skipEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && canSkip(s) && canGoNext({ queue: queueSize(s), loop: s?.loop, autoplay: s?.autoplay });
 
-/** 이전 곡 버튼(rules/controls 의 canGoBack). 상태는 기록이 있는지만 싣는다 */
+/** 이전 곡 버튼(rules/controls의 canGoBack). 상태는 기록이 있는지만 싣는다 */
 export const previousEnabled = (s: StateSeen | null | undefined): boolean => Boolean(s?.currentTrack) && Boolean(s?.canControl) && canGoBack({ history: s?.hasPrevious ? 1 : 0, loop: s?.loop });
 
 /** 반복을 바꿀 수 있는지: 조작할 수 있고 대기열에 라이브가 없을 때(끝이 없는 곡은 반복할 수 없다) */
@@ -97,12 +97,12 @@ export function seekPosition(clientX: number, rect: { left: number; width: numbe
   return Math.round(ratio * duration);
 }
 
-/** 드래그해서 놓은 위치의 옮기기 요청. before 항목 앞으로, null 이면 대기열 맨 끝 */
+/** 드래그해서 놓은 위치의 옮기기 요청. before 항목 앞으로, null이면 대기열 맨 끝 */
 type MoveRequest = { entry: number; before: number | null };
 const isEntry = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value);
 
 /**
- * 드래그해서 놓은 위치 → 옮기기 요청. insertAt 은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
+ * 드래그해서 놓은 위치 → 옮기기 요청. insertAt은 받은 목록의 틈(0 ~ 길이, from 앞뒤는 제자리).
  * "same": 제자리. "partial": 받은 창의 끝인데 그 뒤에 곡이 더 있다(맨 끝이 아니다).
  * "unknown": 항목 번호가 없다(봇이 다시 시작하기 전의 목록 등)
  */

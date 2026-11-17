@@ -19,7 +19,7 @@ export function useScrollFade(el: Ref<HTMLElement | null>, vertical: () => boole
     end.value = pos + view < full - 1;
   }
 
-  // 영역 크기, 안의 내용(서버가 늘거나 줄면)이 바뀔 때도 다시 잰다. v-if 로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
+  // 영역 크기, 안의 내용(서버가 늘거나 줄면)이 바뀔 때도 다시 잰다. v-if로 늦게 생기는 영역도 있어 영역이 바뀔 때마다 다시 붙인다
   let resize: ResizeObserver | null = null;
   let mutate: MutationObserver | null = null;
   let attached: HTMLElement | null = null;

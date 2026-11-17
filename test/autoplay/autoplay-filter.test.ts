@@ -84,17 +84,17 @@ test("공식, 가사 영상 표식: 公式, FullMV, 괄호 안의 lyrics, 가사
   assert.equal(judge("🎢👏 신나는 노래 : Artist - Song [가사/번역/해석/Lyrics]").ok, true);
   assert.equal(judge("Song - Artist [Romaji, Español, English, Lyrics]").ok, true);
   assert.equal(judge("Artist - Song 🌊🔥 (Lyric Video)").ok, true);
-  // 글 속의 lyrics 는 모음 제목에도 나온다
+  // 글 속의 lyrics는 모음 제목에도 나온다
   assert.equal(judge("Smooth Jazz | Uplifting Lyrics to Heal (1 Hour)", 3600, { maxDurationSec: null }).reason, "믹스 생김새");
 });
 
-test("official 은 따로 쓰인 낱말일 때만 곡 표식이다(Official髭男dism 은 밴드 이름)", () => {
+test("official은 따로 쓰인 낱말일 때만 곡 표식이다(Official髭男dism은 밴드 이름)", () => {
   assert.equal(judge("Official髭男dism 노래 모음 🌸🌸").reason, "믹스 생김새");
   assert.equal(judge("Official髭男dism - Pretender［Official Video］ 🌸🌸").ok, true);
 });
 
 test("fat, fet 같은 단어는 곡 표식이 아니다", () => {
-  // 생김새 규칙(이모지)에만 걸리는 제목. fat 을 표식으로 보면 면제돼 지나간다
+  // 생김새 규칙(이모지)에만 걸리는 제목. fat을 표식으로 보면 면제돼 지나간다
   assert.equal(judge("Fat Cat 🌊🔥").reason, "믹스 생김새");
 });
 
@@ -121,9 +121,9 @@ test("이모지는 이모지처럼 보이는 글자 묶음을 하나로 세어 �
   const twoOrMore = [
     "노래 ✨⭐", // 기본이 그림인 글자
     "노래 ❓❗️",
-    "노래 ©️ ™️", // VS16 이 붙은 기호
+    "노래 ©️ ™️", // VS16이 붙은 기호
     "노래 ♥️ ♥️",
-    "1️⃣2️⃣", // VS16 이 붙은 키캡
+    "1️⃣2️⃣", // VS16이 붙은 키캡
     "🇰🇷🇯🇵", // 국기(지역 표시 둘)
     "노래 🔥🔥",
     "노래 🍄‍🐸 🐙‍🔥", // 런타임이 모르는 조합도 하나씩
@@ -136,7 +136,7 @@ test("이모지는 이모지처럼 보이는 글자 묶음을 하나로 세어 �
     "노래 🇰 x", // 짝 없는 지역 표시
     "노래 1⃣ 2⃣", // VS16 없는 키캡
     "노래 👍🏽", // 피부색 조합은 하나
-    "노래 🏳️‍🌈", // ZWJ 로 이은 것은 하나
+    "노래 🏳️‍🌈", // ZWJ로 이은 것은 하나
     "노래 👨‍👩‍👧",
     "노래 🍄‍🟫",
     "노래 🏽", // 피부색 글자만

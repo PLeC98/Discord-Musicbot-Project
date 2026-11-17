@@ -4,7 +4,7 @@
 
 import { decompress } from "wawoff2";
 
-/** OFL 이 권하는 라이선스 설명(13번), 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
+/** OFL이 권하는 라이선스 설명(13번), 주소(14번). 서브셋마다 라이선스가 따라가게 넣는다(OFL FAQ 2.4) */
 const OFL_NAMES: Record<number, string> = {
   13: "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://openfontlicense.org",
   14: "https://openfontlicense.org",
@@ -16,12 +16,12 @@ const WINDOWS = { platform: 3, encoding: 1, language: 0x409 };
 
 type NameRecord = { platform: number; encoding: number; language: number; id: number; bytes: Buffer };
 
-/** woff2 면 풀어서 sfnt 로, 아니면 그대로 */
+/** woff2면 풀어서 sfnt로, 아니면 그대로 */
 async function toSfnt(font: Buffer): Promise<Buffer> {
   return font.subarray(0, 4).toString("latin1") === "wOF2" ? Buffer.from(await decompress(font)) : font;
 }
 
-/** 4바이트씩 더한 체크섬(끝은 0 으로 채운 것으로 본다) */
+/** 4바이트씩 더한 체크섬(끝은 0으로 채운 것으로 본다) */
 function checksum(data: Buffer): number {
   let sum = 0;
   for (let i = 0; i < data.length; i += 4) {
@@ -38,7 +38,7 @@ function readNames(table: Buffer): NameRecord[] {
   for (let i = 0; i < count; i++) {
     const at = 6 + i * 12;
     const language = table.readUInt16BE(at + 4);
-    // format 1 의 언어 태그 기록(0x8000 부터)은 옮기지 않는다(format 0 으로 다시 쓴다)
+    // format 1의 언어 태그 기록(0x8000부터)은 옮기지 않는다(format 0으로 다시 쓴다)
     if (language >= 0x8000) continue;
     const length = table.readUInt16BE(at + 8);
     const offset = storage + table.readUInt16BE(at + 10);
@@ -88,7 +88,7 @@ function setNames(font: Buffer, names: Record<number, string>): Buffer {
   return assemble(font.readUInt32BE(0), tables);
 }
 
-/** 테이블들로 글꼴을 다시 짓는다(테이블 이름 순서, 4바이트 정렬, head 의 checkSumAdjustment 다시 계산) */
+/** 테이블들로 글꼴을 다시 짓는다(테이블 이름 순서, 4바이트 정렬, head의 checkSumAdjustment 다시 계산) */
 function assemble(version: number, tables: Map<string, Buffer>): Buffer {
   const tags = [...tables.keys()].sort();
   const n = tags.length;
@@ -104,7 +104,7 @@ function assemble(version: number, tables: Map<string, Buffer>): Buffer {
   let headAt = -1;
   for (const [i, t] of tags.entries()) {
     const data = Buffer.from(tables.get(t)!);
-    // head 의 체크섬은 checkSumAdjustment 를 0 으로 두고 계산한다
+    // head의 체크섬은 checkSumAdjustment를 0으로 두고 계산한다
     if (t === "head") {
       data.writeUInt32BE(0, 8);
       headAt = offset;

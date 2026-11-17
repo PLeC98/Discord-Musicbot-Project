@@ -51,7 +51,7 @@ const exported: GuildCommand = {
 };
 export default exported;
 
-// 저장에 실패하면 로그를 남기고 false 를 돌려준다
+// 저장에 실패하면 로그를 남기고 false를 돌려준다
 async function saved(interaction: ChatInputCommandInteraction<"cached">, work: () => Promise<unknown>): Promise<boolean> {
   try {
     await work();

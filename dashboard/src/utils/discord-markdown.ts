@@ -1,10 +1,10 @@
 import { formatDate, formatTime, relativeTime } from "./locale.ts";
 import { text } from "../text/index.ts";
 import { appEmojiImage, appEmojiOf } from "../composables/app-emojis.ts";
-// 디스코드 임베드 본문(description)이 그리는 마크다운을 HTML 로 옮긴다(공지 미리보기용).
-// 블록: 코드 블록 ``` · 인용 > · >>>(그 뒤 전부) · 제목 # ## ### · 작은 글씨 -# · 목록 - * · 번호 목록 1.
-// 글 안: 인라인 코드 ` · 굵게 ** · 밑줄 __ · 기울임 * _ · 취소선 ~~ · 스포일러 || · 링크 [글](주소) · 맨 주소 · 시각 <t:초:형식> · 멘션 · 사용자 이모지 · 역슬래시 이스케이프.
-// 글은 먼저 HTML 이스케이프하고 만든 태그만 넣는다(v-html 로 그린다)
+// 디스코드 임베드 본문(description)이 그리는 마크다운을 HTML로 옮긴다(공지 미리보기용).
+// 블록: 코드 블록 ```, 인용 >, >>>(그 뒤 전부), 제목 # ## ###, 작은 글씨 -#, 목록 - *, 번호 목록 1.
+// 글 안: 인라인 코드 `, 굵게 **, 밑줄 __, 기울임 * _, 취소선 ~~, 스포일러 ||, 링크 [글](주소), 맨 주소, 시각 <t:초:형식>, 멘션, 사용자 이모지, 역슬래시 이스케이프.
+// 글은 먼저 HTML 이스케이프하고 만든 태그만 넣는다(v-html로 그린다)
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -54,7 +54,7 @@ function inline(raw: string): string {
   let s = raw.replace(/\\([*_~|`\\<>#[\]()-])/g, (_, c: string) => hold(esc(c)));
   s = s.replace(/(`+)([\s\S]+?)\1/g, (_, __, code: string) => hold(`<code class="dmd-code">${esc(code.trim() || code)}</code>`));
   s = esc(s);
-  // 링크([글](주소))와 맨 주소. 주소는 http, https 만
+  // 링크([글](주소))와 맨 주소. 주소는 http, https만
   s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text: string, url: string) => hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${text}</a>`));
   s = s.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,:;"')\]])/g, (_, pre: string, url: string) => pre + hold(`<a class="dmd-link" href="${url}" target="_blank" rel="noopener">${url}</a>`));
   // 시각, 멘션, 사용자 이모지(이스케이프된 꺾쇠)

@@ -1,4 +1,4 @@
-// SponsorBlock 에서 건너뛸 수 있는 구간 종류. 설정 검사(src/config/index.ts), 조회(sources/sponsor-block), 설정 화면이 같이 본다.
+// SponsorBlock에서 건너뛸 수 있는 구간 종류. 설정 검사(src/config/index.ts), 조회(sources/sponsor-block), 설정 화면이 같이 본다.
 
 const CATEGORIES = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "hook", "filler", "music_offtopic"] as const;
 type SkipCategory = (typeof CATEGORIES)[number];
@@ -31,7 +31,7 @@ const CATEGORY_DESCRIPTIONS: Readonly<Record<SkipCategory, string>> = {
   filler: "전반적인 동영상의 주제를 이해하는 데 필요 없는 잡담이나 농담이 포함되는 구간",
 };
 
-// 구간을 하나도 선택하지 않았다는 값(운영 조절값). 빈 값은 기본값이라 따로 둔다. 구간 id 가 아니라 읽을 때 필터링돼 빈 목록이 된다
+// 구간을 하나도 선택하지 않았다는 값(운영 설정값). 빈 값은 기본값이라 따로 둔다. 구간 id가 아니라 읽을 때 필터링돼 빈 목록이 된다
 const NO_CATEGORIES = "none";
 
 const isSkipCategory = (id: unknown): id is SkipCategory => CATEGORIES.some((one) => one === id);

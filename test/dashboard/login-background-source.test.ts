@@ -39,7 +39,7 @@ before(async () => {
   await sharp({ create: { width: 8, height: 8, channels: 3, background: "#000" } })
     .png()
     .toFile(at("tiny.png"));
-  // 장면 하나짜리 영상(sharp 가 못 읽은 정지 그림이 영상으로 열린 것과 같다)
+  // 장면 하나짜리 영상(sharp가 못 읽은 정지 그림이 영상으로 열린 것과 같다)
   await make(["-frames:v", "1", "-c:v", "mpeg4", at("one-frame.mp4")]);
   fs.writeFileSync(at("evil.m3u8"), "#EXTM3U\n#EXT-X-TARGETDURATION:2\n#EXTINF:2,\nfile:///etc/hosts\n#EXT-X-ENDLIST\n");
   fs.writeFileSync(at("text.mp4"), "그냥 글");
@@ -54,7 +54,7 @@ const reject = async (name: string) => {
   return codeOf(error);
 };
 
-test("정지 그림은 sharp 로, EXIF 방향을 따른 크기", opts, async () => {
+test("정지 그림은 sharp로, EXIF 방향을 따른 크기", opts, async () => {
   assert.deepEqual(await inspect("still.png"), { kind: "image", width: 640, height: 360, duration: 0, fps: 0 });
   assert.deepEqual(await inspect("rotated.jpg"), { kind: "image", width: 200, height: 400, duration: 0, fps: 0 });
 });

@@ -3,7 +3,7 @@
 // ffmpeg와 createAudioResource 사이에 두면 AudioPlayer는 소스가 바뀐 줄 모르고 playbackDuration도 이어진다.
 // 이음매는 등출력(cos/sin) 크로스페이드로 덮는다. 선형으로 섞으면 교차점에서 -6dB 딥이 생긴다.
 //
-// 입출력 모두 f32le 48kHz 스테레오 PCM (media/ffmpeg/args.ts 의 출력 형식).
+// 입출력 모두 f32le 48kHz 스테레오 PCM (media/ffmpeg/args.ts의 출력 형식).
 
 import { Readable } from "stream";
 
@@ -33,7 +33,7 @@ class AudioSplicer extends Readable {
    * @param {number}   fadeMs  크로스페이드 길이(ms). 한 프레임(20ms)보다 짧으면 20ms
    */
   constructor(source: Readable, { fadeMs = 40 }: { fadeMs?: number } = {}) {
-    // 읽는 쪽 버퍼는 바이트 단위다(f32le 로 약 340ms)
+    // 읽는 쪽 버퍼는 바이트 단위다(f32le로 약 340ms)
     super({ highWaterMark: 128 * 1024 });
     this.a = source; // 현재 소스
     this.b = null; // 갈아탈 소스

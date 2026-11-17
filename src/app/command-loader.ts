@@ -13,12 +13,12 @@ import { PROJECT } from "../infra/project-paths.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 
-/** 명령 정의. 배포는 JSON 으로, 등록은 이름으로 */
+/** 명령 정의. 배포는 JSON으로, 등록은 이름으로 */
 type CommandData = { name: string; toJSON(): RESTPostAPIApplicationCommandsJSONBody };
 /**
- * 서버 안에서만 쓰는 명령. 부르는 쪽(이벤트)이 서버 상호작용인지 먼저 본다.
+ * 서버 안에서만 쓰는 명령. 호출부(이벤트)가 서버 상호작용인지 먼저 본다.
  * enabled: 운영자 설정으로 기능을 껐으면 false. 등록에서 빠져 디스코드 명령 목록에 뜨지 않는다(기동 때, 그 설정을 저장할 때의 배포에서)
- * autocomplete: 자동완성을 켠 옵션의 선택지. 3초 안에 respond 로 답한다. 던지면 부르는 쪽(이벤트)이 빈 목록으로 답한다
+ * autocomplete: 자동완성을 켠 옵션의 선택지. 3초 안에 respond로 응답한다. 예외를 던지면 호출부(이벤트)가 빈 목록으로 응답한다
  */
 type GuildCommand = {
   data: CommandData;
@@ -41,7 +41,7 @@ function enabledCommands() {
   return COMMANDS.filter((command) => command.enabled?.() ?? true);
 }
 
-/** 켜진 명령이 바뀌면(운영 조절값을 저장해 기능을 켜거나 껐다) 실행 목록을 다시 만들고(load) 등록을 맞춘다(deploy). 떼는 함수를 돌려준다 */
+/** 켜진 명령이 바뀌면(운영 설정값을 저장해 기능을 켜거나 껐다) 실행 목록을 다시 만들고(load) 등록을 맞춘다(deploy). 떼는 함수를 돌려준다 */
 function followEnabledCommands(load: () => void, deploy: () => void) {
   const namesOf = () =>
     enabledCommands()
@@ -90,17 +90,17 @@ function writeDeployedFingerprint(hashPath: string, fingerprint: string) {
 
 /** 명령 등록 요청. 경로와 정의를 받아 디스코드가 등록한 명령 목록을 돌려준다 */
 type PutCommands = (route: `/${string}`, body: RESTPostAPIApplicationCommandsJSONBody[]) => Promise<RESTPutAPIApplicationCommandsResult>;
-/** 등록된 명령 목록 읽기(등록을 건너뛴 기동에서 명령 id 를 받는다) */
+/** 등록된 명령 목록 읽기(등록을 건너뛴 기동에서 명령 id를 받는다) */
 type GetCommands = (route: `/${string}`) => Promise<Array<{ name: string; id: string }>>;
-// 디스코드 API 의 답을 등록한 명령 목록으로 본다
+// 디스코드 API의 응답을 등록한 명령 목록으로 본다
 const putCommands: PutCommands = async (route, body) => (await new REST().setToken(config.discord.token).put(route, { body })) as RESTPutAPIApplicationCommandsResult;
 const getCommands: GetCommands = async (route) => (await new REST().setToken(config.discord.token).get(route)) as Array<{ name: string; id: string }>;
 
 type DeployResult = { ok: true; skipped: boolean; count: number; scope: string; guildId: string | null; names: string[] } | { ok: false; error: unknown; scope: string; guildId: string | null };
 
-// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록, 수동 스크립트는 force 로 늘 등록한다.
-// 등록한 명령의 id 는 명령 멘션 표(ui/command-mentions)에 둔다. 건너뛰었으면 등록된 목록을 한 번 읽어 온다(못 읽으면 멘션이 글자로 남을 뿐이다).
-// hashPath, put, get 은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하거나 읽지 않는다)
+// 슬래시 명령을 디스코드에 등록한다. 기동은 정의가 그대로면(해시가 같으면) 건너뛰고, 대시보드의 다시 등록, 수동 스크립트는 force로 늘 등록한다.
+// 등록한 명령의 id는 명령 멘션 표(ui/command-mentions)에 둔다. 건너뛰었으면 등록된 목록을 한 번 읽어 온다(못 읽으면 멘션이 글자로 남을 뿐이다).
+// hashPath, put, get은 테스트가 넘기는 슬롯(임시 파일이라 운영 해시를 건드리지 않고, 실제로 등록하거나 읽지 않는다)
 async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCommands, get = getCommands }: { force?: boolean; hashPath?: string; put?: PutCommands; get?: GetCommands } = {}): Promise<DeployResult> {
   const scope = config.discord.guildId ? "guild" : "global";
   const guildId = config.discord.guildId || null;

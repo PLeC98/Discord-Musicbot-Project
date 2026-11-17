@@ -1,7 +1,7 @@
 // src/sources/lookup.ts, youtube/equivalent.ts, stream-url.ts: 곡 찾기, 유튜브 매칭, 스트림의 분기를 고정한다
 // (링크 종류별 조회, 캐시 지름길, 키 만들기, 유튜브 매칭, 재검색, 스트림).
 //
-// 부르는 소스(YouTube, Spotify, SoundCloud, DirectLink)는 가짜를 넘기고, 링크 데이터는 진짜 저장소를 임시 DB 로 쓴다.
+// 부르는 소스(YouTube, Spotify, SoundCloud, DirectLink)는 가짜를 넘기고, 링크 데이터는 진짜 저장소를 임시 DB로 쓴다.
 // 유튜브 검색 결과도 트랙 모양이다(음원 주소가 audioUrl).
 
 import fs from "node:fs";
@@ -86,7 +86,7 @@ test("조회: 유튜브 재생목록은 구간을 넘겨 받는다. 영상도 �
   assert.deepEqual(seen, [{ offset: 0, limit: 10 }]);
   assert.deepEqual({ success: r.success, isPlaylist: r.isPlaylist, collection: r.collection, total: r.total, nextOffset: r.nextOffset }, { success: true, isPlaylist: true, collection: "playlist", total: 40, nextOffset: 10 });
 
-  // 목록만 가리키는 주소: 비면 없음, 못 받으면 그 까닭(검색으로 넘기지 않는다)
+  // 목록만 가리키는 주소: 비면 없음, 못 받으면 그 원인(검색으로 넘기지 않는다)
   const noSearch = (getPlaylist: () => Promise<null>) => ({ youtube: { ...youtubeSource, getPlaylist, getInfo: async () => assert.fail("영상을 읽으면 안 된다"), searchText: async () => assert.fail("검색하면 안 된다") } });
   assert.deepEqual(
     await lookup.findTracks(
@@ -152,14 +152,14 @@ test("조회: 사운드클라우드 곡 링크, 직접 링크는 한 곡", async
 });
 
 // 받는 범위: 곡, 세트, 짧은 링크. 프로필, 좋아요 같은 모음은 조회하지 않고 알린다
-test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 곡 수), 모음 링크는 거절", async () => {
+test("조회: 사운드클라우드 세트는 모음(이어 받을 id와 뺀 곡 수), 모음 링크는 거절", async () => {
   scAsked.length = 0;
   const set = await lookup.findTracks("https://soundcloud.com/a/sets/b", undefined, { limit: 50 }, { soundcloud: soundcloud("set", 3) });
   assert.deepEqual([set.isPlaylist, set.collection, set.collectionId, set.total, set.nextOffset, set.skipped, set.tracks?.length], [true, "playlist", "123", 30, 10, 3, 2]);
   assert.deepEqual(scAsked[0].range, { offset: 0, limit: 50, what: "set" }, "10곡으로 자르는 것은 출처다");
 
   const secret = await lookup.findTracks("https://soundcloud.com/a/sets/b/s-Tok3n", undefined, undefined, { soundcloud: soundcloud("set") });
-  assert.equal(secret.collectionId, null, "비밀 공유 세트는 숫자 id 로 다시 부를 수 없다");
+  assert.equal(secret.collectionId, null, "비밀 공유 세트는 숫자 id로 다시 부를 수 없다");
 
   const nothing = await lookup.findTracks("https://soundcloud.com/a/sets/b", undefined, undefined, { soundcloud: soundcloud("set", 10, 0) });
   assert.equal(nothing.success, false);
@@ -173,7 +173,7 @@ test("조회: 사운드클라우드 세트는 모음(이어 받을 id 와 뺀 �
   assert.equal(scAsked.length, 0, "모음은 부르지 않는다");
 });
 
-test("조회: 결과가 없으면 no-song-result, 유튜브가 연령 인증 안내만 주면 search-age-gated, 던지면 lookup-failed 와 그 오류. 문장은 부르는 쪽이 만든다", async () => {
+test("조회: 결과가 없으면 no-song-result, 유튜브가 연령 인증 안내만 주면 search-age-gated, 예외를 던지면 lookup-failed와 그 오류. 문장은 호출부가 만든다", async () => {
   const empty = { youtube: { ...youtubeSource, searchText: async () => ({ tracks: [], gated: false }) } };
   assert.deepEqual(await lookup.findTracks("없는 곡", undefined, undefined, empty), { success: false, code: "no-song-result" });
   const gated = { youtube: { ...youtubeSource, searchText: async () => ({ tracks: [], gated: true }) }, spotify: { ...spotifySource, searchTracks: async () => [tracks.spotify("x", { title: "Rush" })] } };
@@ -230,7 +230,7 @@ test("조회: 유튜브가 검색어에 연령 인증 안내만 주면 스포티
   assert.deepEqual(failed, { success: false, code: "search-age-gated" }, "스포티파이 실패");
 });
 
-test("조회 실패의 안내문: 까닭의 문장, 조회가 던진 오류는 그 종류로", async () => {
+test("조회 실패 안내: 실패 코드의 안내문을 보이고, 조회 중 예외가 났으면 오류 종류의 안내문을 보인다", async () => {
   const { addFailureMessage } = await import("../../src/ui/error-messages.ts");
   assert.equal(plainText(addFailureMessage({ code: "no-song-result" })), "곡을 찾지 못했어요.\n다른 검색어나 링크로 시도해 주세요.");
   assert.equal(plainText(addFailureMessage({ code: "unsupported-link" })), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
@@ -246,7 +246,7 @@ test("모음 이어 받기: 유튜브 재생목록, 스포티파이, 사운드�
   const one = found("1", { id: "1" });
   const part = { youtube: { ...youtubeSource, getPlaylist: async () => ({ tracks: [one], total: 60 }) } };
   assert.deepEqual(await lookup.getCollection("https://www.youtube.com/playlist?list=PL", undefined, part), { tracks: [one], total: 60, nextOffset: null });
-  // 스포티파이의 답은 그대로 넘긴다. 요청한 주소와 구간을 적는다
+  // 스포티파이의 응답은 그대로 넘긴다. 요청한 주소와 구간을 적는다
   const asked: Array<{ url: string; range?: Range }> = [];
   const spotify = {
     spotify: {
@@ -333,7 +333,7 @@ test("캐시 지름길: 직접 링크는 음원이 요청 그대로인 행만 �
 });
 
 // ── 직접 지정한 음원 ──────────────────────────────────────────────────
-// 운영자가 캐시 DB 에서 지정한 음원이 링크 데이터, 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
+// 운영자가 캐시 DB에서 지정한 음원이 링크 데이터, 원래 링크보다 앞선다. 곡 정보는 요청의 것이다
 
 test("지정한 음원: 링크 데이터가 표시 정보를 기억하면 조회 없이 그 정보와 지정한 음원으로 곡을 만든다", async () => {
   const url = "https://www.youtube.com/watch?v=pinlookup01";
@@ -486,7 +486,7 @@ test("사라졌다는 판정: 확실히 사라진 것만(일시 오류, 연령 �
   assert.equal(deadSourceCode(codedError("unavailable-contents", "HTTP Error 404")), "unavailable-contents");
   assert.equal(deadSourceCode(codedError("sc-preview-only", "미리듣기")), "sc-preview-only");
   assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 404") })), "direct-unavailable");
-  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 503") })), null, "5xx 는 일시 오류");
+  assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: new Error("요청 실패: HTTP 503") })), null, "5xx는 일시 오류");
   assert.equal(deadSourceCode(codedError("direct-unavailable", "x", { cause: networkError("ECONNRESET") })), null);
   assert.equal(deadSourceCode(codedError("rate-limited", "HTTP Error 403")), null);
   assert.equal(deadSourceCode(new Error("ERROR: Sign in to confirm your age")), null, "연령 제한은 사라진 것이 아니다");
@@ -494,7 +494,7 @@ test("사라졌다는 판정: 확실히 사라진 것만(일시 오류, 연령 �
   assert.equal(deadSourceCode(codedError("unsupported-link", "음원이 아닌 링크입니다(page)")), "unsupported-link", "지운 파일 자리에 웹 페이지를 주는 서버");
 });
 
-// 사운드클라우드 지정이 404 로 죽는다
+// 사운드클라우드 지정이 404로 죽는다
 const deadSoundCloud = { getStream: async () => Promise.reject(codedError("unavailable-contents", "HTTP Error 404")) };
 
 test("스트림: 지정한 음원이 사라졌으면 원래 링크로 한 번 더 열고, 실패를 재생 테스트 결과로 남긴다. 지정은 그대로", async () => {
@@ -529,7 +529,7 @@ test("스트림: 스포티파이 곡의 지정이 사라졌으면 지정을 건�
   await assert.rejects(streamUrl.getStream(orphan, { youtube, soundcloud: deadSoundCloud, equivalent }), /404/, "링크 데이터도 없으면 원래 오류(자동재생이 다음 후보를 선택한다)");
 });
 
-test("스트림: 직접 링크 요청의 지정이 사라졌으면 그 링크로 담은 곡만 요청 주소로. 자동재생 곡의 요청 키(출처 페이지)는 음원으로 쓰지 않는다", async () => {
+test("스트림: 직접 링크 요청의 지정이 사라졌으면 그 링크로 추가한 곡만 요청 주소로. 자동재생 곡의 요청 키(출처 페이지)는 음원으로 쓰지 않는다", async () => {
   const youtube = { ...youtubeSource, getStream: async (u: string) => ({ url: `${u}#stream` }) };
   const file = "https://files.test/pindead/stream";
   const own: Seeking = { title: "곡", platform: "direct", requestKey: file, audioUrl: "https://soundcloud.com/gone/five", audioFoundBy: "pinned" };

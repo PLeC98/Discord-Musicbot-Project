@@ -23,7 +23,7 @@ test("진행 계산: 받은 위치 + 지난 시간, 멈췄거나 곡이 없으�
   assert.equal(positionAt(clockOf({ ...playing, paused: true }, 1000), 6000), 30);
   assert.equal(positionAt(clockOf({ ...playing, playing: false }, 1000), 6000), 30, "재생 준비 중(유령 재생 없음)");
   assert.equal(positionAt(clockOf(null, 1000), 6000), 0);
-  // 라이브는 길이가 0 이라 상한 없이 흐른다
+  // 라이브는 길이가 0이라 상한 없이 흐른다
   assert.equal(positionAt(clockOf({ playing: true, paused: false, currentTrack: { currentTime: 30, duration: 0 } }, 1000), 6000), 35);
   // 지금 시각이 받은 시각보다 이르면(시계가 뒤로 감) 받은 위치에 머문다
   assert.equal(positionAt(clockOf(playing, 5000), 1000), 30);
@@ -67,7 +67,7 @@ test("빼기 권한: 조작 권한이 있거나 그 곡을 넣은 사람", () =>
   assert.equal(canRemove({ ...s, canControl: true }, { requestedBy: null }), true);
 });
 
-test("넣은 사람도 동일 음성 채널 규칙은 지킨다: 봇이 음성 채널에 있으면 같은 채널이어야 한다(서버 checkSkip, checkRemoveTracks 와 같다)", () => {
+test("넣은 사람도 동일 음성 채널 규칙은 지킨다: 봇이 음성 채널에 있으면 같은 채널이어야 한다(서버 checkSkip, checkRemoveTracks와 같다)", () => {
   const mine = { requestedBy: { id: "u1" } };
   const s = { canControl: false, userId: "u1", currentTrack: mine };
   assert.equal(canRemove({ ...s, botInVoice: true, sameVoice: false }, mine), false);

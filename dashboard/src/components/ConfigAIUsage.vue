@@ -93,7 +93,7 @@ const asking = ref(false);
 const metric = ref<"tokens" | "requests" | "cost">("tokens");
 const { period, sources, report, loading, loadError, clearing, load, toggleSource, clearAll } = useAiUsage(() => props.active);
 
-/** 비용 셀: 값을 아는 것의 합. 가격 모름이 섞였으면 "+" 를 붙이고, 전부 가격 모름이면 그렇게 적는다 */
+/** 비용 셀: 값을 아는 것의 합. 가격 모름이 섞였으면 "+"를 붙이고, 전부 가격 모름이면 그렇게 적는다 */
 const costText = (one: AiUsageBucket) => (one.unpriced && one.unpriced === one.requests ? TT.unknown : `${formatUsd(one.costUsd)}${one.unpriced ? "+" : ""}`);
 
 const tiles = computed(() => {

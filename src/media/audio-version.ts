@@ -1,10 +1,10 @@
 // 다운로드한 음원의 버전(audio_version). 같은 주소에서 음원이 바뀐 것을 나중에 알아볼 값이다.
 // 다운로드할 때 같은 응답에서 공짜로 나오고, 캐시의 다시 확인(media/source-recheck)이 원본의 지금 값과 비교한다.
 //
-//   유튜브        다운로드한 포맷 주소의 lmt(그 포맷 인코딩의 시각). 편집(자르기, 오디오 바꾸기)하면 모든 포맷이 바뀌고, 유튜브가 스스로 다시 인코딩해도 바뀐다.
+//   유튜브        다운로드한 포맷 주소의 lmt(그 포맷 인코딩의 시각). 편집(자르기, 오디오 바꾸기)하면 모든 포맷이 바뀌고, 유튜브가 자체적으로 다시 인코딩해도 바뀐다.
 //                 포맷마다 값이 달라 원본의 지금 포맷 중 하나라도 같으면 같은 원본이다
 //   사운드클라우드 음원 주소 경로의 첫 세그먼트(올린 음원 파일의 id, 파형 주소의 값과 같다). 없으면 modified_timestamp
-//   직접 링크     응답 헤더 ETag, Last-Modified, 전체 크기 중 있는 것을 이어 붙인 한 줄(구간 응답이면 크기는 Content-Range 의 전체)
+//   직접 링크     응답 헤더 ETag, Last-Modified, 전체 크기 중 있는 것을 이어 붙인 한 줄(구간 응답이면 크기는 Content-Range의 전체)
 // 모르면 null.
 
 function parseUrl(value: unknown): URL | null {
@@ -15,7 +15,7 @@ function parseUrl(value: unknown): URL | null {
   }
 }
 
-/** yt-dlp 가 다운로드할 때 쓴 info.json 에서. 한 포맷을 다운로드하면 그 주소가 url 이다 */
+/** yt-dlp가 다운로드할 때 쓴 info.json에서. 한 포맷을 다운로드하면 그 주소가 url이다 */
 type YtDlpDownloadInfo = { url?: unknown; extractor_key?: unknown; extractor?: unknown; modified_timestamp?: unknown };
 
 function fromYtDlpInfo(info: YtDlpDownloadInfo | null | undefined): string | null {
@@ -37,7 +37,7 @@ function fromSoundCloudUrl(value: unknown): string | null {
   return file ? `file:${file}` : null;
 }
 
-/** yt-dlp 가 준 포맷 목록에서 주소의 lmt 들(유튜브 원본의 지금 인코딩들) */
+/** yt-dlp가 준 포맷 목록에서 주소의 lmt 들(유튜브 원본의 지금 인코딩들) */
 function lmtsOf(formats: readonly unknown[] | null | undefined): Set<string> {
   const out = new Set<string>();
   for (const format of formats ?? []) {
@@ -47,7 +47,7 @@ function lmtsOf(formats: readonly unknown[] | null | undefined): Set<string> {
   return out;
 }
 
-/** yt-dlp 가 준 포맷 목록에서 오디오만 있는 포맷의 길이(주소의 dur, 초). 없으면 null */
+/** yt-dlp가 준 포맷 목록에서 오디오만 있는 포맷의 길이(주소의 dur, 초). 없으면 null */
 function audioDurationOf(formats: readonly unknown[] | null | undefined): number | null {
   for (const format of formats ?? []) {
     const f = format as { url?: unknown; vcodec?: unknown; acodec?: unknown } | null;
@@ -75,7 +75,7 @@ function fromHeaders(headers: ResponseHeaders | null | undefined): string | null
   return parts.length ? parts.map(([k, v]) => `${String(k)}=${String(v)}`).join(";") : null;
 }
 
-// 직접 링크 버전 한 줄을 필드로. 값에 ; 가 없다(ETag 는 따옴표 안의 글자, 날짜는 , 와 : 뿐)
+// 직접 링크 버전 한 줄을 필드로. 값에 ; 가 없다(ETag는 따옴표 안의 글자, 날짜는 , 와 : 뿐)
 function partsOf(version: string): Record<string, string> {
   return Object.fromEntries(version.split(";").flatMap((part) => (part.includes("=") ? [[part.slice(0, part.indexOf("=")), part.slice(part.indexOf("=") + 1)]] : [])));
 }

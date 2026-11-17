@@ -4,9 +4,9 @@
 //   pageUrl     사람에게 보여 줄 링크. 누르면 가는 곳. 비우지 않는다
 //   requestKey  무엇을 틀라고 했나. 링크 데이터의 키. 입력이면 다듬은 링크, 자동재생이면 <소스>:<곡 id>
 //   audioUrl    소리를 받아 올 고정된 주소. 스포티파이는 영상을 찾기 전까지 없다
-// 캐시 키는 필드가 아니다. 쓸 때마다 audioKeyOf(audioUrl) 로 계산한다.
+// 캐시 키는 필드가 아니다. 쓸 때마다 audioKeyOf(audioUrl)로 계산한다.
 //
-// platform 은 곡이 어디서 왔는지의 라벨이다(화면과 대시보드 점 색). 어디서 받을지는 audioUrl 이 정한다.
+// platform은 곡이 어디서 왔는지의 라벨이다(화면과 대시보드 점 색). 어디서 받을지는 audioUrl이 정한다.
 
 import type { AudioFoundBy } from "../rules/audio-found-by.ts";
 
@@ -23,7 +23,7 @@ type TrackInfo = {
   duration: number;
   durationSource?: DurationSource;
   thumbnail?: string | null;
-  /** 어디서 온 곡인가(rules/platforms 의 이름) */
+  /** 어디서 온 곡인가(rules/platforms의 이름) */
   platform: string;
   /** 소스 안의 id */
   id?: string;
@@ -31,18 +31,18 @@ type TrackInfo = {
   requestKey: string;
   audioUrl?: string;
   audioFoundBy?: AudioFoundBy;
-  /** 추가할 때의 답. 틀 때의 답은 CurrentPlayback 에 있다(플레이어의 isLive 가 둘을 선택한다) */
+  /** 추가할 때의 답. 틀 때의 답은 CurrentPlayback에 있다(플레이어의 isLive가 둘을 선택한다) */
   isLive?: boolean;
   /** 추가할 때의 답 */
   liveStatus?: string | null;
 };
 
-/** 요청한 사람. 진입점이 접은 표준형(usecases/add-tracks 의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
+/** 요청한 사람. 진입점이 접은 표준형(usecases/add-tracks의 toRequester)이거나 디스코드 사용자. 복원한 곡은 id 뿐이다 */
 type Requester = { id: string | null; username?: string | null; displayName?: string; tag?: string | null };
 
 /** 대기열에 추가된 곡. */
 type QueuedTrack = TrackInfo & {
-  /** 대기열 ID. track-state 가 들어올 때 찍는 열거되지 않는 필드(복사본에는 따라가지 않는다) */
+  /** 대기열 ID. track-state가 들어올 때 찍는 열거되지 않는 필드(복사본에는 따라가지 않는다) */
   readonly entry?: number;
   requestedBy?: Requester | null;
   autoplay?: boolean;

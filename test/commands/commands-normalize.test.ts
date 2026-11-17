@@ -14,7 +14,7 @@ after(() => store.close());
 
 type Sent = { content?: string; flags?: readonly number[]; components?: unknown[] };
 
-// 봇이 botChannel 에 있다(null 이면 음성 채널 밖). 실행한 사람은 voiceChannel 에 있고 roles 역할이 있다
+// 봇이 botChannel에 있다(null이면 음성 채널 밖). 실행한 사람은 voiceChannel에 있고 roles 역할이 있다
 function call(action: string | null, { botChannel = null, voiceChannel = null, roles = [] }: { botChannel?: string | null; voiceChannel?: string | null; roles?: string[] } = {}) {
   const guild = { id: "g1", name: "서버", roles: { cache: new Map([["r1", {}]]) }, members: { me: { voice: { channel: botChannel ? { id: botChannel } : null } } } };
   const member = { id: "u2", user: { tag: "실행한 사람" }, guild, permissions: { has: () => false }, roles: { cache: new Map(roles.map((id) => [id, {}])) }, voice: { channel: voiceChannel ? { id: voiceChannel } : null } };
@@ -46,7 +46,7 @@ beforeEach(async () => {
   await guildSettings.setDjRoles("g1", []);
 });
 
-test("/normalize: 동작을 비우면 지금 상태를 본인에게만 보여 준다(DJ 가 아니어도)", async () => {
+test("/normalize: 동작을 비우면 지금 상태를 본인에게만 보여 준다(DJ가 아니어도)", async () => {
   await guildSettings.setDjRoles("g1", ["r1"]);
   await guildSettings.setNormalize("g1", true);
   const { it, sent } = call(null);
@@ -56,7 +56,7 @@ test("/normalize: 동작을 비우면 지금 상태를 본인에게만 보여 �
   assert.match(textOf(sent[0]), /볼륨 정규화가 켜져 있어요/);
 });
 
-test("/normalize: 봇이 음성 채널에 없어도 DJ 가 켜고 끌 수 있고, 결과는 모두에게 보인다", async () => {
+test("/normalize: 봇이 음성 채널에 없어도 DJ가 켜고 끌 수 있고, 결과는 모두에게 보인다", async () => {
   const on = call("on");
   await run(await command("normalize"), on.it, fakeBot());
   assert.equal(guildSettings.resolveNormalize("g1"), true);
@@ -73,7 +73,7 @@ test("/normalize: 봇이 음성 채널에 없어도 DJ 가 켜고 끌 수 있고
   assert.match(textOf(off.sent[0]), /볼륨 정규화를 껐어요/);
 });
 
-test("/normalize: DJ 가 아니거나 봇과 다른 음성 채널이면 바꾸지 않고 본인에게만 알린다", async () => {
+test("/normalize: DJ가 아니거나 봇과 다른 음성 채널이면 바꾸지 않고 본인에게만 알린다", async () => {
   await guildSettings.setDjRoles("g1", ["r1"]);
   const user = call("on");
   await run(await command("normalize"), user.it, fakeBot());

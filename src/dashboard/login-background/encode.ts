@@ -1,8 +1,8 @@
-// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로), 인코딩 단계(AV1, VP9 의 1080p, 4K), 마무리 단계(원본 삭제).
+// 로그인 배경의 인코딩: H.264 단계(720p 하나, 먼저 따로), 인코딩 단계(AV1, VP9의 1080p, 4K), 마무리 단계(원본 삭제).
 // 모두 30fps 이하, 키프레임 2초, lanczos, HLS(fMP4, 2초 세그먼트)로 코덱, 단계마다 폴더(<코덱>/<짧은 변>/index.m3u8)에 인코딩하고, 코덱마다 목록(<코덱>/index.m3u8)을 둔다.
-// 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss, -to, 움직이는 그림은 필터에서. ladder 의 seekArgs, sourceFilter, 다시 인코딩이라 정확하다). CPU 선호도를 설정해 코어의 80% 만 쓴다(infra/cpu-affinity).
+// 구간은 원본에서 정확히 자른다(영상은 입력 앞 -ss, -to, 움직이는 그림은 필터에서. ladder의 seekArgs, sourceFilter, 다시 인코딩이라 정확하다). CPU 선호도를 설정해 코어의 80%만 쓴다(infra/cpu-affinity).
 // 인코딩 단계는 남은 메모리가 넉넉하면 원본을 한 번 풀어 나눠(split) 함께 인코딩하고, 아니면 단계마다 따로 인코딩한다(나누면 빠르지만 메모리가 더 든다).
-// AV1 의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts).
+// AV1의 병렬 단계(SVT-AV1 lp)는 남은 메모리에 맞춰 선택한다(memory.ts).
 // 나눠 인코딩하다 인코더 하나가 실패하면 ffmpeg 전체가 멈추므로, 인코더를 다시 테스트하고 남은 단계를 따로 인코딩한다.
 // 단계는 임시 폴더(.tmp)에 인코딩하고 끝나면 이름을 바꾼다: 봇이 다시 시작해 이어 할 때는 끝난 단계를 두고 남은 단계만 인코딩한다
 
@@ -32,19 +32,19 @@ const H264_SHORT = 720;
 type Shape = { codec: LoginBackgroundCodec; short: number; width: number; height: number };
 type Plan = Shape & { encoder: string; options: string[] };
 
-/** 인코더 옵션(키프레임 간격 g 는 출력 초당 프레임 수의 2배) */
+/** 인코더 옵션(키프레임 간격 g는 출력 초당 프레임 수의 2배) */
 function optionsFor(codec: LoginBackgroundCodec, encoder: string, short: number, g: number): string[] {
   const gop = ["-g", String(g)];
   if (codec === "av1") return ["-c:v", "libsvtav1", "-preset", "6", "-crf", short >= UHD ? "32" : "30", "-maxrate", short >= UHD ? "25000k" : "10000k", "-pix_fmt", "yuv420p10le", ...gop];
   if (codec === "vp9") return ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-deadline", "good", "-cpu-used", "4", "-row-mt", "1", "-tile-columns", short >= UHD ? "3" : "2", "-auto-alt-ref", "1", "-lag-in-frames", "25", "-pix_fmt", "yuv420p", ...gop];
-  // H.264: NVENC 는 VBR 2.2M(OpenH264 2.5M 과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(있으면 hls.js 가 반복 재생으로 되감을 때 bufferSeekOverHole 을 낸다)
+  // H.264: NVENC는 VBR 2.2M(OpenH264 2.5M과 크기가 같고 화질이 높다), 없으면 OpenH264 2.5M. B 프레임은 두지 않는다(있으면 hls.js가 반복 재생으로 되감을 때 bufferSeekOverHole을 낸다)
   if (encoder === "h264_nvenc") return ["-c:v", "h264_nvenc", "-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
-  // x264: OpenH264 와 같은 2.5M 규격(2초 최대가 3M 안에 들게 VBV 를 그만큼으로)
+  // x264: OpenH264와 같은 2.5M 규격(2초 최대가 3M 안에 들게 VBV를 그만큼으로)
   if (encoder === "libx264") return ["-c:v", "libx264", "-preset", "medium", "-profile:v", "high", "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "2500k", "-bf", "0", "-pix_fmt", "yuv420p", ...gop];
   return ["-c:v", "libopenh264", "-profile:v", "high", "-coder", "cabac", "-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51", "-pix_fmt", "yuv420p", ...gop];
 }
 
-/** 원본(자른 크기)에서 이 코덱의 단계 크기들. AV1, VP9 는 1080p 와 4K(원본 짧은 변이 2160 이상일 때만, 1080p 보다 작으면 원본 크기 하나), H.264 는 720p */
+/** 원본(자른 크기)에서 이 코덱의 단계 크기들. AV1, VP9는 1080p와 4K(원본 짧은 변이 2160 이상일 때만, 1080p보다 작으면 원본 크기 하나), H.264는 720p */
 function shapesFor(codecs: readonly LoginBackgroundCodec[], size: { width: number; height: number }): Shape[] {
   return codecs.flatMap((codec) => {
     const shorts = codec === "h264" ? [H264_SHORT] : Math.min(size.width, size.height) >= UHD ? [FHD, UHD] : [FHD];
@@ -66,7 +66,7 @@ function plansFor(codecs: readonly LoginBackgroundCodec[], size: { width: number
 
 /** 지금 도는 인코딩(봇 전체에서 하나): 시작한 때, 인코딩한 영상 초 */
 let baking: (Omit<LoginBackgroundBake, "cores" | "speed"> & { startedAt: number; done: number }) | null = null;
-/** 속도를 내기 전에 기다리는 시간(ffmpeg 를 실행하고 원본을 여는 몫) */
+/** 속도를 내기 전에 기다리는 시간(ffmpeg를 실행하고 원본을 여는 몫) */
 const SPEED_AFTER_MS = 3_000;
 
 /** 지금 도는 인코딩(운영자 패널의 상태) */
@@ -86,14 +86,14 @@ const rungDir = (id: string, plan: Shape) => path.join(codecDir(id, plan.codec),
 const made = (id: string, plan: Shape) => fs.existsSync(path.join(rungDir(id, plan), "index.m3u8"));
 
 /**
- * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg 의 HLS 는 목록 경로에서 / 로만 폴더를 구분해, Windows 의 \ 경로면 초기화 세그먼트를 작업 폴더에 쓴다
+ * HLS 출력 하나(임시 폴더에). 경로는 / 로 넘긴다: ffmpeg의 HLS는 목록 경로에서 / 로만 폴더를 구분해, Windows의 \ 경로면 초기화 세그먼트를 작업 폴더에 쓴다
  */
 const hlsOutput = (dir: string) => {
   const at = (name: string) => path.join(dir, name).replaceAll("\\", "/");
   return ["-f", "hls", "-hls_time", "2", "-hls_playlist_type", "vod", "-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4", "-hls_segment_filename", at("seg-%03d.m4s"), at("index.m3u8")];
 };
 
-/** 단계들을 한 번 풀어 함께 인코딩한다(하나면 따로 인코딩하는 것과 같다). lp 는 AV1 의 병렬 단계. 실패면 ffmpeg 의 까닭 */
+/** 단계들을 한 번 풀어 함께 인코딩한다(하나면 따로 인코딩하는 것과 같다). lp는 AV1의 병렬 단계. 실패면 ffmpeg가 낸 원인 */
 async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batch: { plans: Plan[]; lp: number }, signal: AbortSignal, progress: (value: number) => void): Promise<string | null> {
   const plans = batch.plans.map((plan) => withLp(plan, batch.lp));
   const [from, to] = item.edit!.range ?? [0, item.duration];
@@ -109,7 +109,7 @@ async function encodeTogether(item: Readonly<store.Stored>, probed: Probed, batc
   }
 }
 
-/** ffmpeg 한 번으로 인코딩한다. onSeconds 는 인코딩한 영상 초 */
+/** ffmpeg 한 번으로 인코딩한다. onSeconds는 인코딩한 영상 초 */
 async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[], signal: AbortSignal, onSeconds: (seconds: number) => void): Promise<string | null> {
   const edit = item.edit!;
   const [from, to] = edit.range ?? [0, item.duration];
@@ -119,7 +119,7 @@ async function bake(item: Readonly<store.Stored>, probed: Probed, plans: Plan[],
     fs.mkdirSync(dir, { recursive: true });
   }
   const labels = plans.map((_, i) => `o${i}`);
-  // AV1 은 10비트로 인코딩한다(8비트는 어두운 면에 얼룩이 진다)
+  // AV1은 10비트로 인코딩한다(8비트는 어두운 면에 얼룩이 진다)
   const format = (plan: Plan) => (plan.codec === "av1" ? "yuv420p10le" : "yuv420p");
   const split = plans.length > 1 ? `,split=${plans.length}${labels.map((label) => `[s${label}]`).join("")};${plans.map((plan, i) => `[s${labels[i]}]${scaleTo(plan, format(plan))}[${labels[i]}]`).join(";")}` : `,${scaleTo(plans[0], format(plans[0]))}[${labels[0]}]`;
   const graph = `${sourceFilter(probed, edit.crop, { from, to })}${turnFilter(edit)}${split}`;
@@ -165,7 +165,7 @@ function codecString(init: Buffer): string {
   throw codedError("background-failed", "초기화 세그먼트에서 코덱 읽기 실패");
 }
 
-/** 인코딩한 단계의 목록 값: 2초 최대(세그먼트마다 크기 ÷ 길이의 최대, HLS 의 BANDWIDTH), 평균, 코덱 문자열 */
+/** 인코딩한 단계의 목록 값: 2초 최대(세그먼트마다 크기 ÷ 길이의 최대, HLS의 BANDWIDTH), 평균, 코덱 문자열 */
 function rungOf(dir: string, plan: Shape, fps: number): LoginBackgroundRung & { average: number } {
   const playlist = fs.readFileSync(path.join(dir, "index.m3u8"), "utf8");
   const segments = [...playlist.matchAll(/#EXTINF:([\d.]+),\s*\n([^\n#]+)/g)].map((m) => ({ seconds: Number(m[1]), bytes: fs.statSync(path.join(dir, m[2].trim())).size }));
@@ -176,7 +176,7 @@ function rungOf(dir: string, plan: Shape, fps: number): LoginBackgroundRung & { 
   return { width: plan.width, height: plan.height, codecs: codecString(fs.readFileSync(path.join(dir, "init.mp4"))), bandwidth: Math.round(Math.max(...rates)), frameRate: Math.min(fps, FPS_CAP), average: Math.round((bytes * 8) / Math.max(seconds, 0.001)) };
 }
 
-/** 코덱마다의 목록을 다시 쓴다(인코딩해 둔 단계만, 낮은 것부터. 그 뒤 인코더가 빠졌어도 만든 것은 쓴다). 단계 값은 media.rungs 에 */
+/** 코덱마다의 목록을 다시 쓴다(인코딩해 둔 단계만, 낮은 것부터. 그 뒤 인코더가 빠졌어도 만든 것은 쓴다). 단계 값은 media.rungs에 */
 function writeMasters(item: Readonly<store.Stored>, shapes: Shape[], fps: number): store.Media["rungs"] {
   const rungs: store.Media["rungs"] = {};
   for (const codec of LOGIN_BG_CODECS) {

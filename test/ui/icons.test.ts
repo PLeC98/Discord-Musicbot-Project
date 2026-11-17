@@ -33,7 +33,7 @@ test("그려 두지 않은 바탕색을 물으면 그 키의 첫 바탕색으로
   assert.equal(icon("pause", "error"), "⏸️");
 });
 
-test("앱 이모지 이름은 2 ~ 32자 [A-Za-z0-9_] 이고 서로 겹치지 않는다", () => {
+test("앱 이모지 이름은 2 ~ 32자 [A-Za-z0-9_]이고 서로 겹치지 않는다", () => {
   const names = iconEntries().map((one) => one.name);
   for (const name of names) assert.match(name, /^[A-Za-z0-9_]{2,32}$/, name);
   assert.equal(new Set(names).size, names.length);
@@ -42,25 +42,25 @@ test("앱 이모지 이름은 2 ~ 32자 [A-Za-z0-9_] 이고 서로 겹치지 않
 
 test("낸 이름은 사라지지 않는다: 아이콘 표에서 빠진 이름은 옛 이름 표에 있다", () => {
   // 설정에 적힌 토큰(<:이름:id>)을 찾고 동기화가 옛 이모지를 지우려면 빠진 이름을 알아야 한다.
-  // 새 아이콘을 더했으면 icon-names.json 에 이름을 더하고, 빼거나 이름을 바꿨으면 FORMER_EMOJIS 에 더한다
+  // 새 아이콘을 더했으면 icon-names.json에 이름을 더하고, 빼거나 이름을 바꿨으면 FORMER_EMOJIS에 더한다
   const shipped = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "icon-names.json"), "utf8")) as string[];
   const current = new Set(iconEntries().map((one) => one.name));
   assert.deepEqual(
     [...current].filter((name) => !shipped.includes(name)),
     [],
-    "새 아이콘 이름을 test/ui/icon-names.json 에 더한다",
+    "새 아이콘 이름을 test/ui/icon-names.json에 더한다",
   );
   assert.deepEqual(
     shipped.filter((name) => !current.has(name) && !FORMER_EMOJIS[name]),
     [],
-    "빠진 이름을 FORMER_EMOJIS 에 더한다",
+    "빠진 이름을 FORMER_EMOJIS에 더한다",
   );
   assert.deepEqual(
     Object.keys(FORMER_EMOJIS).filter((name) => current.has(name)),
     [],
     "옛 이름이 지금 이름과 겹친다",
   );
-  for (const [name, to] of Object.entries(FORMER_EMOJIS)) if ("renamed" in to) assert.ok(current.has(to.renamed), `${name} → ${to.renamed} 가 지금 표에 없다`);
+  for (const [name, to] of Object.entries(FORMER_EMOJIS)) if ("renamed" in to) assert.ok(current.has(to.renamed), `${name} → ${to.renamed}: 지금 표에 없다`);
 });
 
 test("관리하는 이름: 지금 이름, 옛 이름, 그 임시 이름(32자로 잘림)", () => {
@@ -73,7 +73,7 @@ test("관리하는 이름: 지금 이름, 옛 이름, 그 임시 이름(32자로
   assert.ok(!isManagedEmojiName("autoplays"));
 });
 
-test("표의 기호가 모두 data/discord-icons 에 있다(빠지면 scripts/build-discord-icons.ts 를 다시 돌린다). 로고는 그 파일과 회사", () => {
+test("표의 기호가 모두 data/discord-icons에 있다(빠지면 scripts/build-discord-icons.ts를 다시 돌린다). 로고는 그 파일과 회사", () => {
   const dir = path.join(import.meta.dirname, "..", "..", "data", "discord-icons");
   const { glyphs } = JSON.parse(fs.readFileSync(path.join(dir, "glyphs.json"), "utf8")) as { glyphs: Record<string, string> };
   for (const spec of Object.values(ICONS) as IconSpec[]) {

@@ -10,7 +10,7 @@ import { appEmojis } from "../../src/store/app-emoji-book.ts";
 
 afterEach(() => useUploaded(new Map()));
 
-/** 메모리의 앱. 이미지는 받은 그대로 돌려준다(PNG 처럼). calls: 부른 순서 */
+/** 메모리의 앱. 이미지는 받은 그대로 돌려준다(PNG처럼). calls: 부른 순서 */
 function fakeApp(initial: Array<Remote & { data?: Buffer }> = []) {
   let next = 1000;
   const emojis = new Map<string, Remote & { data?: Buffer }>(initial.map((one) => [one.id, one]));
@@ -147,7 +147,7 @@ test("관리하는 이름 중 쓰지 않는 것(옛 아이콘, 남은 임시 이
   assert.ok(app.calls.indexOf("remove voice") < app.calls.findIndex((one) => one.startsWith("create")), "자리를 비우려고 먼저");
 });
 
-test("대시보드에서 올린 id 는 아이콘 이름과 같아도 바꾸지 않고 그 아이콘은 유니코드로, 기동 첫머리에도 싣지 않는다", async () => {
+test("대시보드에서 올린 id는 아이콘 이름과 같아도 바꾸지 않고 그 아이콘은 유니코드로, 기동 첫머리에도 싣지 않는다", async () => {
   const app = fakeApp([{ id: "9", name: "pause", animated: false, mine: true }]);
   const protectedIds = () => new Set(["9"]);
   assert.equal(await loadKnown(app.api, protectedIds), 0);
@@ -157,7 +157,7 @@ test("대시보드에서 올린 id 는 아이콘 이름과 같아도 바꾸지 �
   assert.equal(icon("pause"), "⏸️");
 });
 
-test("앱의 이모지 전부를 싣고, 앱에 없는 id 를 기록에서 지우게 넘긴다", async () => {
+test("앱의 이모지 전부를 싣고, 앱에 없는 id를 기록에서 지우게 넘긴다", async () => {
   const app = fakeApp([{ id: "3", name: "party", animated: true, mine: false }]);
   let existing: ReadonlySet<string> = new Set();
   await sync(app.api, { onChanged: async () => {}, forget: (ids) => (existing = ids) });
@@ -169,7 +169,7 @@ test("앱의 이모지 전부를 싣고, 앱에 없는 id 를 기록에서 지�
   assert.equal(existing.size, total + 1);
 });
 
-test("기동 첫머리: 목록만으로 봇이 올린 것의 id 를 싣는다(그림은 보지 않는다), 운영자 것은 싣지 않는다", async () => {
+test("기동 첫머리: 목록만으로 봇이 올린 것의 id를 싣는다(그림은 보지 않는다), 운영자 것은 싣지 않는다", async () => {
   const app = fakeApp([
     { id: "7", name: "pause", animated: false, mine: true },
     { id: "8", name: "stop", animated: false, mine: false },
@@ -202,7 +202,7 @@ test("임시 이름은 32자 안에서 겹치지 않게", () => {
   assert.equal(tempName("x".repeat(32), new Set()).length, 32);
 });
 
-test("운영자 패널: 올리기는 이름이 겹치면 거절, 올린 id 를 적고 목록을 다시 싣는다", async () => {
+test("운영자 패널: 올리기는 이름이 겹치면 거절, 올린 id를 적고 목록을 다시 싣는다", async () => {
   const app = fakeApp([{ id: "3", name: "party", animated: false, mine: false }]);
   const remembered: string[] = [];
   const emojis = new AppEmojis(app.api, { onChanged: async () => {}, remember: (id) => remembered.push(id) });

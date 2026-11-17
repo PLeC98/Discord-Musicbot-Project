@@ -15,7 +15,7 @@ export function useAiUsage(active: () => boolean) {
   const loading = ref(false);
   const loadError = ref("");
   const clearing = ref(false);
-  // 늦게 온 앞 요청의 답이 새 기간의 답을 덮지 않게 순서를 센다
+  // 늦게 온 앞 요청의 응답이 새 기간의 응답을 덮지 않게 순서를 센다
   let seq = 0;
 
   async function load() {

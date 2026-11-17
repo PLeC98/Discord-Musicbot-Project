@@ -61,7 +61,7 @@ import { codeLineOf, noticeText, unansweredTitle } from "../utils/problem.ts";
 import { text } from "../text/index.ts";
 const T = text.shell;
 
-// 세션 끝은 서버가 401 로 거절할 때와 같은 문장(login-required), 재로그인 안내는 reauth-required
+// 세션 끝은 서버가 401로 거절할 때와 같은 문장(login-required), 재로그인 안내는 reauth-required
 const loginNotice = noticeText("login-required");
 const switchedNotice = noticeText("account-changed");
 const notice = computed(() => (session.ended ? loginNotice : noticeText("reauth-required")));
@@ -134,7 +134,7 @@ async function retry() {
     if (!user.fetched) {
       await user.fetchMe();
       if (user.fetched) await router.replace(window.location.pathname + window.location.search + window.location.hash);
-      // 서버 오류(5xx)면 답은 왔지만 여전히 모른다. 띠를 남겨 다시 시도할 수 있게
+      // 서버 오류(5xx)면 응답은 왔지만 여전히 모른다. 띠를 남겨 다시 시도할 수 있게
       else session.offline = true;
     } else
       await axios.get("/api/me").catch(() => {

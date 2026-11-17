@@ -1,6 +1,6 @@
 <template>
-  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿, PC 는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
-       대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280px 로 가운데에 두고 양옆은 배경화면이 비친다 -->
+  <!-- 서버 화면. 위에 "지금 재생" 띠, 아래에 대기열이 남는 높이를 다 쓴다(태블릿, PC는 화면 높이에 맞고 대기열만 스크롤된다). 휴대폰은 쌓아서 화면이 스크롤된다.
+       대기열이 1열 목록이라 넓어도 행만 길어진다: 최대 1280px로 가운데에 두고 양옆은 배경화면이 비친다 -->
   <!-- 휴대폰(sheetMode): 플레이어가 화면 높이를 채우고 대기열은 바텀 시트(스포티파이식). 시트 헤더(76px)만큼 아래를 비운다.
        가로는 자른다(clip): 앨범아트를 밀어 넘길 때 화면 밖에 놓인 앨범아트가 바탕화면에 가로 스크롤바를 잠깐 만들어 그만큼 높이가 줄며 아래가 움찔한다 -->
   <div class="w-full max-w-7xl mx-auto flex flex-col" :class="sheetMode ? (short ? 'relative h-full overflow-x-clip px-6 pt-4 pb-18' : 'relative h-full overflow-x-clip px-6 pt-6 pb-22') : 'px-(--gap-out) pt-(--gap-out) min-h-full md:h-full pb-[calc(var(--gap-out)+var(--player))] md:pb-(--gap-out)'">
@@ -34,7 +34,7 @@
 
     <div v-if="loading" class="flex-1 flex items-center justify-center text-on-surface-variant"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
-    <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖(봇이 답하지 않음 등)은 다시 시도 -->
+    <!-- 서버가 없거나 멤버가 아니면 다시 해도 같다: 서버 목록으로. 그 밖(봇이 응답하지 않음 등)은 다시 시도 -->
     <PageError v-else-if="loadError" :icon="loadGone ? 'block' : 'cloud_off'" :text="loadError">
       <BaseButton v-if="loadGone" variant="secondary" @click="router.push('/servers')"><Icon name="dns" :size="20" />{{ text.common.toServerList }}</BaseButton>
       <BaseButton v-else variant="secondary" @click="retryLoad"><Icon name="refresh" :size="20" />{{ text.shell.retry }}</BaseButton>
@@ -162,7 +162,7 @@
                   <div v-else key="none" class="font-round font-semibold leading-tight text-on-surface-variant truncate" :class="short ? 'text-xl' : 'text-2xl'">{{ P.nothingPlaying }}</div>
                 </Transition>
                 <Transition name="fade" mode="out-in">
-                  <!-- 컴포넌트를 Transition 에 바로 두면 페이드 중에 곡이 또 바뀔 때(빠르게 두 번 넘김) 새 줄이 들어오지 않는다: 요소로 감싼다 -->
+                  <!-- 컴포넌트를 Transition에 바로 두면 페이드 중에 곡이 또 바뀔 때(빠르게 두 번 넘김) 새 줄이 들어오지 않는다: 요소로 감싼다 -->
                   <div :key="track?.url ?? 'none'"><MarqueeText class="text-on-surface-variant" :class="short ? 'text-sm' : 'text-base'" :text="track ? track.artist || ' ' : T.addToPlay" loop /></div>
                 </Transition>
               </div>
@@ -171,7 +171,7 @@
             <!-- 진행: 막대 아래 양 끝에 시간 -->
             <SeekRow stacked class="shrink-0" :class="short ? 'mt-0.5' : 'mt-1'" :time="timeText" :length="lengthText" :bar="seekView" :grabbable="seekable && Boolean(player.canControl)" @grab="grabSeek" />
 
-            <!-- 이전, 다음 버튼도 앨범아트가 밀려 넘어가게(useArtSwipe 의 go) -->
+            <!-- 이전, 다음 버튼도 앨범아트가 밀려 넘어가게(useArtSwipe의 go) -->
             <PlayerControls spread class="shrink-0" :class="short ? 'mt-1' : 'mt-3'" :play-size="short ? 'size-14' : 'size-16'" :player="player" :busy="isBusy" @shuffle="shuffle" @previous="artSwipe.go(false)" @pause="togglePause" @skip="artSwipe.go(true)" @loop="cycleLoop" />
 
             <!-- 아래 줄: 음성 상태(스포티파이의 연결 기기 위치), 볼륨 | 하이라이트, 정지(태블릿, PC 진행 줄 끝과 같은 그룹).
@@ -230,7 +230,7 @@
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
             </BaseButton>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
-            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px 을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
+            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
             <!-- 아래에 공간이 없으면(휴대폰 대기열 시트가 접혀 화면 아래에 있을 때) 위로 연다 -->
             <Transition name="menu">
               <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">
@@ -364,14 +364,14 @@ import { text } from "../text/index.ts";
 const P = text.player;
 const T = text.server;
 
-// 볼륨 버튼(좁은 창, 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트, 정지 PlayerActions 와 같은 모양)
+// 볼륨 버튼(좁은 창, 휴대폰). 누르는 동안 모서리가 줄어든다(하이라이트, 정지 PlayerActions와 같은 모양)
 const ROUND_BTN = "tap state-layer size-10 shrink-0 rounded-[50%] flex items-center justify-center cursor-pointer motion-toggle active:not-disabled:rounded-[30%] disabled:opacity-38 disabled:cursor-not-allowed";
 
 const route = useRoute();
 const router = useRouter();
 const guildId = String(route.params.guildId);
 const loading = ref(true);
-const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 까닭과 다시 시도를 표시한다
+const loadError = ref(""); // 처음 읽기가 실패했다. 기본 상태("곡 없음")를 진짜처럼 보이지 않게 원인과 다시 시도를 표시한다
 // 처음 읽기의 실패가 서버가 없거나 멤버가 아니어서다(다시 해도 같다)
 const loadGone = ref(false);
 const GONE = ["guild-not-found", "no-guild-access"];
@@ -394,12 +394,12 @@ const isDragging = ref(false);
 // 드래그하는 동안 받은 서버 대기열. 드래그 중인 필드(대기열)만 미루고(다른 필드는 바로 반영한다) 드래그가 끝나면 반영한다
 let heldQueue: Pick<PlayerState, "queue" | "queueTotal"> | null = null;
 
-// 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now 만 바꾼다
+// 진행 시계: 받은 위치 + 지난 시간(utils/playback). 1초마다 now만 바꾼다
 const clock = ref(clockOf(null, 0));
 const now = ref(Date.now());
 let ticker: ReturnType<typeof setInterval> | undefined;
 let nudgeTimer: ReturnType<typeof setTimeout> | undefined;
-// 진행 막대 요소. 화면마다 SeekRow 가 하나라 누를 때 그 요소를 잡는다(grabSeek)
+// 진행 막대 요소. 화면마다 SeekRow가 하나라 누를 때 그 요소를 잡는다(grabSeek)
 const progressBarRef = ref<HTMLElement | null>(null);
 
 // 응답을 기다리는 조작(넘기기, 이전, 정지, 섞기, 빼는 항목, 옮기기). 그동안 그 버튼을 끈다
@@ -488,7 +488,7 @@ async function refresh() {
     applyState(res.data);
     loadError.value = "";
   } catch (e) {
-    // 처음 읽기면 화면에 까닭을, 그 뒤면 알림으로(지금 화면은 둔다)
+    // 처음 읽기면 화면에 원인을, 그 뒤면 알림으로(지금 화면은 둔다)
     if (loading.value) {
       loadError.value = problemText(e, T.failed.state);
       loadGone.value = GONE.includes(problemCodeOf(replyOf(e)) ?? "");
@@ -614,7 +614,7 @@ async function removePicked() {
   });
 }
 
-// 고르는 동안 Delete 는 빼기, Esc 는 고르기 그만(입력란에서 친 것은 그 칸이 받는다)
+// 고르는 동안 Delete는 빼기, Esc는 고르기 그만(입력란에서 친 것은 그 칸이 받는다)
 function pickKeys(e: KeyboardEvent) {
   if (!picking.value || e.defaultPrevented) return;
   if (e.target instanceof HTMLElement && e.target.closest("input, textarea, [contenteditable=true]")) return;
@@ -634,7 +634,7 @@ onUnmounted(() => window.removeEventListener("keydown", pickKeys));
 // 대기열 행 높이(h-16). 보이는 행만 그리므로 드래그도 이 높이로 순번을 계산한다
 const QUEUE_ROW = 4 * rem(1);
 const { startDrag, draggedIndex } = usePointerReorder({
-  // 놓으면 moveQueue 가 위치를 정하고 미뤄 둔 것을 반영한다. end 는 그 뒤(놓지 않고 끝난 때도)
+  // 놓으면 moveQueue가 위치를 정하고 미뤄 둔 것을 반영한다. end는 그 뒤(놓지 않고 끝난 때도)
   enabled: () => Boolean(player.value.canControl) && !isBusy("move") && !picking.value,
   start: () => (isDragging.value = true),
   end: releaseHeld,
@@ -705,7 +705,7 @@ function grabSeek(e: PointerEvent) {
 }
 const displayTime = computed(() => (isScrubbing.value ? seekBar.value.value : positionAt(clock.value, now.value)));
 
-// 재생 중일 때 진행 막대가 1초에 나아가는 %(막대가 그 사이를 스스로 채운다)
+// 재생 중일 때 진행 막대가 1초에 나아가는 %(막대가 그 사이를 자동으로 채운다)
 const progressRate = computed(() => (clock.value.running && seekable.value && !isScrubbing.value ? 100 / (player.value.currentTrack?.duration || 1) : 0));
 const progressPct = computed(() => {
   const t = player.value.currentTrack;
@@ -775,10 +775,10 @@ watch(
   (held) => (heldArt.value = held ? { ...liveArt.value } : null),
 );
 const art = computed(() => heldArt.value ?? liveArt.value);
-// 큰 칸은 늘려 그리지 않게 출처의 큰 이미지로(utils/big-art): 휴대폰 카드는 large, 태블릿, PC 의 지금 곡(최대 128px)은 standard
+// 큰 칸은 늘려 그리지 않게 출처의 큰 이미지로(utils/big-art): 휴대폰 카드는 large, 태블릿, PC의 지금 곡(최대 128px)은 standard
 const phoneArt = computed(() => ({ now: bigArt(art.value.now, "large"), next: bigArt(art.value.next, "large"), previous: bigArt(art.value.previous, "large") }));
 const deskArt = computed(() => bigArt(artShown.value, "standard"));
-// 위아래 검은 띠는 키워서 감춘다(theme/art 가 그리는 이미지의 픽셀로 잰다)
+// 위아래 검은 띠는 키워서 감춘다(theme/art가 그리는 이미지의 픽셀로 잰다)
 const nowZoom = useArtZoom(() => phoneArt.value.now, true);
 const nextZoom = useArtZoom(() => phoneArt.value.next, true);
 const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
@@ -788,7 +788,7 @@ const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5re
 // 낮은 화면(가로)의 넘기기: 앨범아트 왼쪽은 비어 있고 오른쪽에는 글, 조작이 있다. 그래서 왼쪽으로만 띠처럼 움직인다.
 // 다음 곡: 지금 앨범아트가 손가락을 따라 왼쪽으로 나가고, 다음 곡 앨범아트가 같은 자리 뒤에서 커지며 나타난다.
 // 이전 곡: 이전 곡 앨범아트가 왼쪽(칸 폭 + 2.5rem)에서 손가락을 따라 들어오고, 지금 앨범아트는 제자리에서 흐려지고 작아지며 뒤로 물러난다.
-// 진행은 미는 거리 ÷ 옆 칸까지의 거리(넘기면 composables/art-swipe 가 그 거리만큼 끝까지 민다). 손을 떼고 끝까지, 제자리로 가는 동안은 띠와 같은 넘김
+// 진행은 미는 거리 ÷ 옆 칸까지의 거리(넘기면 composables/art-swipe가 그 거리만큼 끝까지 민다). 손을 떼고 끝까지, 제자리로 가는 동안은 띠와 같은 넘김
 const STACK_GAP_REM = 2.5;
 const STACK_SCALE = 0.08;
 const stack = computed(() => {
@@ -888,7 +888,7 @@ const pickGenre = (name: string) => setAutoplay(name);
 const numWidth = computed(() => `${Math.max(2, String(player.value.queue.length).length) + 0.5}ch`);
 
 // 대기열 전체 길이. 다 불러온 때만(일부만 더하면 틀린 값이 된다)
-// 대기열 합계. 다 받았을 때만(일부만 받았으면 합계가 틀린다), 모르는 곡이 있으면 이상, 아는 길이가 없으면 칸을 뺀다(디스코드 /nowplaying 과 같다)
+// 대기열 합계. 다 받았을 때만(일부만 받았으면 합계가 틀린다), 모르는 곡이 있으면 이상, 아는 길이가 없으면 칸을 뺀다(디스코드 /nowplaying과 같다)
 const queueLength = computed(() => {
   const p = player.value;
   if (p.queue.length < (p.queueTotal ?? 0)) return null;

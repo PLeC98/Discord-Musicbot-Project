@@ -1,5 +1,5 @@
 // 봇의 앱 이모지(/api/app-emojis): 목록과, 입력란이 앱 이모지를 진짜 글자로 다루게 하는 바꾸기.
-// 저장 값은 토큰(<:이름:id>), 입력란에는 이모지마다 정해진 문자(보조 사용자 정의 영역)로 보인다. 그 문자는 style.css 의 Musicbot App Emoji 글꼴이
+// 저장 값은 토큰(<:이름:id>), 입력란에는 이모지마다 정해진 문자(보조 사용자 정의 영역)로 보인다. 그 문자는 style.css의 Musicbot App Emoji 글꼴이
 // 그 이모지 그림으로 그린다. 안드로이드가 글자가 아닌 인라인 요소를 선택하지 못해 편집기 대신 이렇게 한다(notes 조사 기록 8.2, 8.3).
 // 바꾸는 곳은 입력란 경계뿐이다: 보일 때 토큰 → 문자, 입력할 때 문자 → 토큰. 찾지 못한 토큰(지운 이모지)은 토큰 글자 그대로 보인다
 
@@ -23,7 +23,7 @@ const book = computed<EmojiBook>(() => ({ emojis: appEmojis.value }));
 const byChar = computed(() => new Map(appEmojis.value.map((one) => [one.char, one])));
 const byId = computed(() => new Map(appEmojis.value.map((one) => [one.id, one])));
 
-/** 목록을 읽는다(한 번). again 이면 다시(올리기, 이름 바꾸기, 지우기 뒤). 읽었으면 true */
+/** 목록을 읽는다(한 번). again이면 다시(올리기, 이름 바꾸기, 지우기 뒤). 읽었으면 true */
 export function loadAppEmojis(again = false): Promise<boolean> {
   if (loading && !again) return loading;
   loading = axios
@@ -42,8 +42,8 @@ export function loadAppEmojis(again = false): Promise<boolean> {
   return loading;
 }
 
-// 글꼴은 style.css 의 @font-face 가 고정 주소로 건다(브라우저가 ETag 로 다시 확인한다). 같은 탭에서 목록이 바뀌면(올린 직후) 새 버전을 하나 더 건다.
-// 나중에 더한 것이 앞선다. 형식은 @font-face 의 tech() 차례와 같게: sbix 를 그리면 sbix, font-tech() 를 모르는 브라우저도 sbix, 아니면 SVG
+// 글꼴은 style.css의 @font-face가 고정 주소로 건다(브라우저가 ETag로 다시 확인한다). 같은 탭에서 목록이 바뀌면(올린 직후) 새 버전을 하나 더 건다.
+// 나중에 더한 것이 앞선다. 형식은 @font-face의 tech() 차례와 같게: sbix를 그리면 sbix, font-tech()를 모르는 브라우저도 sbix, 아니면 SVG
 function swapFont(version: string) {
   const first = !fontVersion;
   fontVersion = version;

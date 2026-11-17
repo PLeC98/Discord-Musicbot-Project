@@ -142,7 +142,7 @@ test("새 소스가 늦으면 전환 지점을 뒤로 밀되 되풀이를 만들
   for (const p of [switchedAt + 60, switchedAt + 120]) {
     const got = merged.subarray(p * BYTES_PER_MS, (p + 40) * BYTES_PER_MS);
     const exp = b.subarray((p - cueAt) * BYTES_PER_MS, (p - cueAt + 40) * BYTES_PER_MS);
-    assert.deepEqual(got, exp, `${p}ms 지점이 어긋났다 — 민 만큼 되풀이됐다는 뜻`);
+    assert.deepEqual(got, exp, `${p}ms 지점이 어긋났다(민 만큼 되풀이됐다는 뜻)`);
   }
 });
 
@@ -288,7 +288,7 @@ test("전환을 마친 뒤 옛 소스가 오류를 내도 재생이 죽지 않�
 
   // 핸들러를 떼기만 하면 듣는 사람이 없어져 uncaughtException이 된다. 흡수기로 교체해야 한다
   assert.ok(src.listenerCount("error") > 0, "흡수기가 남아 있다");
-  src.emit("error", new Error("늦게 터진 옛 소스")); // 던지지 않아야 한다
+  src.emit("error", new Error("늦게 터진 옛 소스")); // 예외를 던지지 않아야 한다
   await new Promise((r) => setTimeout(r, 10));
   assert.equal(sp.destroyed, false, "전환된 재생은 살아 있어야 한다");
   sp.destroy();
@@ -304,7 +304,7 @@ test("이미 끝난 뒤의 전환 예약은 거절한다 (EOF 뒤 push 방지)",
   nxt.writeAll(pcm(40, 2));
   assert.equal(sp.planSwitch(nxt, 0), false);
   assert.equal(sp.switchPending, false);
-  await new Promise((r) => setTimeout(r, 20)); // 던지지 않는다
+  await new Promise((r) => setTimeout(r, 20)); // 예외를 던지지 않는다
 });
 
 test("소스 오류는 이 스트림의 오류가 된다 (기존 캐시 폴백이 받도록)", async () => {

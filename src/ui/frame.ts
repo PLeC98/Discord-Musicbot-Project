@@ -7,7 +7,7 @@ import { colorOf, type Meaning } from "./colors.ts";
 import { icon as iconText, type IconKey } from "./icons.ts";
 import type { Notice, Topic } from "./text/notice.ts";
 
-// 사용자가 할 일이 같으면 한 아이콘(ui/icons 의 키). 라이브는 빨간 원 그대로(그 자체가 라이브의 표시)
+// 사용자가 할 일이 같으면 한 아이콘(ui/icons의 키). 라이브는 빨간 원 그대로(그 자체가 라이브의 표시)
 const TOPIC_ICON = {
   failed: "failed", // 처리하다 실패했다(봇 안쪽, 연결, 플랫폼이 막음)
   permission: "permission", // 권한이 없다
@@ -25,10 +25,10 @@ const TOPIC_ICON = {
 } as const satisfies Record<Topic, IconKey | null>;
 const LIVE = "🔴";
 
-/** 화면의 필드. icon 은 헤더 줄 앞의 아이콘, footer 는 작은 글씨 줄들(비면 건너뛴다), divider 면 그 위에 구분선 */
+/** 화면의 필드. icon은 헤더 줄 앞의 아이콘, footer는 작은 글씨 줄들(비면 건너뛴다), divider면 그 위에 구분선 */
 type Look = { icon?: IconKey; title?: string; body?: string | null; footer?: Array<string | null>; divider?: boolean; thumbnail?: string | null; color?: Meaning };
 
-// 헤더 줄, 본문을 한 블록으로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section 은 보낼 때 거절되어 텍스트만 둔다
+// 헤더 줄, 본문을 한 블록으로, 썸네일이 있으면 그 옆에. 썸네일 없는 Section은 보낼 때 거절되어 텍스트만 둔다
 function frame({ icon, title, body, footer = [], divider = false, thumbnail, color = "brand" }: Look) {
   const head = [title ? `### ${icon ? `${iconText(icon, color)} ` : ""}${title}` : null, body].filter(Boolean).join("\n");
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf(color)));
@@ -56,7 +56,7 @@ type Attachment = { attachment: Buffer; name: string };
 const withFiles = (files: Attachment[] | undefined) => (files?.length ? { files } : {});
 /** 새 응답(본인에게만) */
 const reply = (container: ContainerBuilder, files?: Attachment[]) => ({ components: [container], flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const, ...withFiles(files) });
-/** 채널에 보내는 메시지, 또는 처음부터 Components V2 로 보낸 메시지, 응답을 고칠 때 */
+/** 채널에 보내는 메시지, 또는 처음부터 Components V2로 보낸 메시지, 응답을 고칠 때 */
 const post = (container: ContainerBuilder, files?: Attachment[]) => ({ components: [container], flags: [MessageFlags.IsComponentsV2] as const, ...withFiles(files) });
 /** 오류, 경고 안내를 새 응답으로(본인에게만) */
 const noticeReply = (notice: Notice) => reply(noticeFrame(notice));

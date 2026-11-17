@@ -1,6 +1,6 @@
 <template>
   <!-- M3 대화상자의 막과 판. 막은 검정 50%, 판은 surface-container-high, 모서리 28px, 그림자 없음, 넘김은 DialogTransition.
-       바깥을 누르거나 Esc, 기기의 뒤로면 close 를 낸다. 닫을지는 부르는 쪽이 정한다(요청 중이면 무시하는 등).
+       바깥을 누르거나 Esc, 기기의 뒤로면 close를 낸다. 닫을지는 부모 컴포넌트가 정한다(요청 중이면 무시하는 등).
        class, aria-label 같은 속성은 판에 붙는다 -->
   <Teleport to="body">
     <DialogTransition>
@@ -24,10 +24,10 @@ defineOptions({ inheritAttrs: false });
 type Width = "sm" | "md" | "lg" | "xl" | "3xl" | "4xl" | "fit";
 
 /**
- * open: 보이는가. width: 판의 최대 폭(sm 384px, md 448px, lg 512px, xl 576px, 3xl 768px, 4xl 896px, fit 은 내용 폭을 26rem ~ 48rem 안에서).
+ * open: 보이는가. width: 판의 최대 폭(sm 384px, md 448px, lg 512px, xl 576px, 3xl 768px, 4xl 896px, fit은 내용 폭을 26rem ~ 48rem 안에서).
  * scroll: 판이 화면보다 길면 판 안에서 스크롤한다.
- * padding: 판 여백. dialog 24px, editor 20px(보는 창을 넓게 쓰는 편집 창. 그 창의 폭 추산이 이 여백에 기댄다), none 은 안이 스스로 둔다.
- * outside: 바깥을 누르면 닫는가. layer: session 이면 세션 띠 층(z 400)에 뜬다
+ * padding: 판 여백. dialog 24px, editor 20px(보는 창을 넓게 쓰는 편집 창. 그 창의 폭 추산이 이 여백에 기댄다), none은 안이 알아서 둔다.
+ * outside: 바깥을 누르면 닫는가. layer: session이면 세션 띠 층(z 400)에 뜬다
  */
 const props = withDefaults(defineProps<{ open: boolean; width?: Width; role?: "dialog" | "alertdialog"; scroll?: boolean; padding?: "dialog" | "editor" | "none"; outside?: boolean; layer?: "dialog" | "session" }>(), { width: "sm", role: "dialog", scroll: false, padding: "dialog", outside: true, layer: "dialog" });
 const emit = defineEmits<{ close: [] }>();

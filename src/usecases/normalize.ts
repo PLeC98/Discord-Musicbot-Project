@@ -1,6 +1,6 @@
 // 볼륨 정규화 켜기, 끄기(디스코드 /normalize, 대시보드 서버 설정). 판정과 처리는 여기서, 결과를 어떻게 알릴지는 입구가 정한다.
 // 볼륨처럼 듣는 소리를 바꾸는 DJ 조작이다(checkControl: DJ, 봇이 음성 채널에 있으면 같은 채널). 봇이 음성 채널에 없어도 바꿀 수 있다.
-// 재생은 프레임마다 설정을 읽으므로(store/guild-settings 의 resolveNormalize) 바꾸면 지금 곡부터 따라간다.
+// 재생은 프레임마다 설정을 읽으므로(store/guild-settings의 resolveNormalize) 바꾸면 지금 곡부터 따라간다.
 
 import type { Guild, GuildMember } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -17,7 +17,7 @@ type NormalizeResult = { ok: true; on: boolean; already: boolean } | { ok: false
 /** 이 서버의 볼륨 정규화 켜짐 여부 */
 const normalizeOn = (guildId: string) => guildSettings.resolveNormalize(guildId);
 
-/** 그 사람이 지금 바꿀 수 없는 까닭. 되면 null(대시보드가 바꾸기 전에 보여 준다) */
+/** 멤버가 지금 볼륨 정규화를 바꿀 수 없는 이유. 바꿀 수 있으면 null(대시보드가 바꾸기 전에 보여 줌) */
 const normalizeRefusal = (member: GuildMember): Promise<PermissionDenied | null> => checkControl(member);
 
 async function setNormalize({ guild, member }: { guild: Guild; member: GuildMember }, on: boolean): Promise<NormalizeResult> {

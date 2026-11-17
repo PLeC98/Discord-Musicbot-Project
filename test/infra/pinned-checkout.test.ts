@@ -1,4 +1,4 @@
-// src/infra/pinned-checkout.ts: 실제 git 으로 임시 폴더의 원본 저장소와 클론을 만들어, 태그에 고정한 커밋으로 깨끗하게 체크아웃하는지,
+// src/infra/pinned-checkout.ts: 실제 git으로 임시 폴더의 원본 저장소와 클론을 만들어, 태그에 고정한 커밋으로 깨끗하게 체크아웃하는지,
 // 원본의 태그가 옮겨졌거나 받지 못하면 멈추는지 본다
 
 import { test, after } from "node:test";
@@ -109,7 +109,7 @@ test("원본에 닿지 못하면 로컬 태그가 맞아도 멈춘다. 원본에
   assert.throws(() => run(fresh(), "v9", c1));
 });
 
-test("정리한 뒤에도 파일이 남으면 멈춘다(clean 이 무엇을 남긴 경우)", () => {
+test("정리한 뒤에도 파일이 남으면 멈춘다(clean이 무엇을 남긴 경우)", () => {
   const dir = fresh();
   run(dir, "v1", c1);
   fs.writeFileSync(path.join(dir, "server", "extra.ts"), "export {};\n");

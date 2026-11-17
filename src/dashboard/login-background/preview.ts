@@ -1,5 +1,5 @@
 // 로그인 배경의 미리보기 단계: 편집 창이 표시할 미리보기와 세트 크기 추산.
-// 영상은 원본을 한 번 풀어 둘로 나눠 480p H.264 미리보기를 쓰고, 같은 장면을 1080p AV1 preset 12 crf 40 으로 인코딩해 버리며 패킷 크기만 받는다(framecrc, 디스크를 쓰지 않는다).
+// 영상은 원본을 한 번 풀어 둘로 나눠 480p H.264 미리보기를 쓰고, 같은 장면을 1080p AV1 preset 12 crf 40으로 인코딩해 버리며 패킷 크기만 받는다(framecrc, 디스크를 쓰지 않는다).
 // 초마다의 크기에 미리 잰 세트 비율을 곱해 둔다. 크롭을 정하면 그 크롭, 구간만 다시 센다(recount).
 // 그림은 긴 변 1280 WebP 미리보기와, 가장 작은 폭을 실제로 인코딩해 넓이 비율로 늘린 정지 그림 세트의 추산
 
@@ -22,15 +22,15 @@ const PREVIEW_SHORT = 480;
 const PROBE_SHORT = 1080;
 /** 그림 미리보기의 긴 변 */
 const PREVIEW_LONG = 1280;
-/** 세트(AV1, VP9 단계)의 크기 / 추산의 크기. full 은 4K 까지, fhd 는 1080p 만(영상 5개로 잰 중앙값) */
+/** 세트(AV1, VP9 단계)의 크기 / 추산의 크기. full은 4K까지, fhd는 1080p 만(영상 5개로 잰 중앙값) */
 const SET_RATIO = { full: 9.5, fhd: 3.1 };
 /** 세트를 인코딩하는 시간 / 추산 시간(영상 2개로 잰 거친 값에서 한 번 풀어 나눠 인코딩하는 이득을 뺐다) */
 const SET_TIME = { full: 20, fhd: 7 };
 /** H.264 720p 단계(2.5Mbps 고정)의 초당 크기 */
 const H264_BYTES_PER_SECOND = 2_500_000 / 8;
-/** 영상 썸네일 세트의 추산(품질 95 WebP 의 화소당 크기) */
+/** 영상 썸네일 세트의 추산(품질 95 WebP의 화소당 크기) */
 const STILL_BYTES_PER_PIXEL = 0.12;
-/** 미리보기의 인코더별 옵션(H.264 는 인코딩의 720p 와 같은 방식). H.264 가 없으면 VP9(WebM, 빠르게) */
+/** 미리보기의 인코더별 옵션(H.264는 인코딩의 720p와 같은 방식). H.264가 없으면 VP9(WebM, 빠르게) */
 const PREVIEW_OPTIONS: Record<string, string[]> = {
   h264_nvenc: ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-b:v", "2200k", "-maxrate", "2200k", "-bufsize", "2200k", "-bf", "2"],
   libopenh264: ["-rc_mode", "bitrate", "-b:v", "2500k", "-qmin", "1", "-qmax", "51"],
@@ -44,7 +44,7 @@ const previewImage = (id: string) => path.join(store.folderOf(id), "preview.webp
 /** 편집 창의 미리보기 파일(없으면 null) */
 const previewOf = (id: string) => [previewVideo(id, "mp4"), previewVideo(id, "webm"), previewImage(id)].find((file) => fs.existsSync(file)) ?? null;
 
-/** framecrc 의 패킷 크기를 초마다 더한다(장면이 없는 초는 0) */
+/** framecrc의 패킷 크기를 초마다 더한다(장면이 없는 초는 0) */
 function perSecondOf(framecrc: string): number[] {
   const tb = /#tb 0: (\d+)\/(\d+)/.exec(framecrc);
   const unit = tb ? Number(tb[1]) / Number(tb[2]) : 1 / 1000;
@@ -66,7 +66,7 @@ const stillPixels = (width: number, height: number) => stillWidths(width).reduce
 const stillBytesOf = (width: number, height: number, perPixel = STILL_BYTES_PER_PIXEL) => Math.round(stillPixels(width, height) * perPixel);
 
 /**
- * 추산을 잰 크기가 인코딩할 원본보다 작을 때(유튜브: 480p 로 재고 고해상도로 인코딩한다) 추산 크기, 시간에 곱할 몫. 1080p 로 줄인 넓이의 비로 추산한다(화소 수에 비례한다고 친다)
+ * 추산을 잰 크기가 인코딩할 원본보다 작을 때(유튜브: 480p로 재고 고해상도로 인코딩한다) 추산 크기, 시간에 곱할 몫. 1080p로 줄인 넓이의 비로 추산한다(화소 수에 비례한다고 친다)
  */
 function upscale(item: Readonly<Stored>, probed: { width: number; height: number }, crop: LoginBackgroundCrop): number {
   const area = (size: { width: number; height: number }) => size.width * size.height;
@@ -75,7 +75,7 @@ function upscale(item: Readonly<Stored>, probed: { width: number; height: number
   return Math.max(1, area(fitShort(real.width, real.height, PROBE_SHORT)) / area(fitShort(measured.width, measured.height, PROBE_SHORT)));
 }
 
-/** 추산을 인코딩하는 분기(AV1 이 SVT-AV1 일 때만, 아니면 추산을 건너뛴다) */
+/** 추산을 인코딩하는 분기(AV1이 SVT-AV1일 때만, 아니면 추산을 건너뛴다) */
 const probeOutput = (label: string) => ["-map", label, "-c:v", "libsvtav1", "-preset", "12", "-crf", "40", "-g", "60", "-f", "framecrc", "-"];
 const canProbe = () => encoderFor("av1") === "libsvtav1";
 
@@ -93,7 +93,7 @@ async function previewOfImage(item: Readonly<Stored>): Promise<StageResult> {
 
 /**
  * 편집 창이 트는 미리보기의 인코더와 담을 형식: H.264(MP4), 없으면 VP9(WebM). 둘 다 없으면 영상 배경을 만들 수 없다(이미지는 된다).
- * HDR 원본인데 SDR 로 톤 매핑할 수 없으면(zscale 이 없는 ffmpeg) 거절한다
+ * HDR 원본인데 SDR로 톤 매핑할 수 없으면(zscale이 없는 ffmpeg) 거절한다
  */
 function previewTarget(hdr: boolean): { encoder: string; ext: "mp4" | "webm"; container: string[] } {
   const h264 = encoderFor("h264");
@@ -113,7 +113,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const measure = fitShort(probed.width, probed.height, PROBE_SHORT);
   const graph = `${sourceFilter(probed)},split=${probe ? 2 : 1}[a]${probe ? "[b]" : ""};[a]${scaleTo(view)}[p]${probe ? `;[b]${scaleTo(measure)}[e]` : ""}`;
   const part = `${previewVideo(item.id, ext)}.part`;
-  // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg 가 덮어쓰지 않는다
+  // 이어 하기: 끊긴 몫이 남아 있으면 ffmpeg가 덮어쓰지 않는다
   fs.rmSync(part, { force: true });
   // 추산(AV1 preset 12)은 1.5GB 남짓: 다른 배경을 인코딩하는 중이면 남은 메모리를 기다린다
   if (probe) await enoughMemory(needOf({ codec: "probe" }), "크기 어림", signal);
@@ -136,7 +136,7 @@ async function previewOfVideo(item: Readonly<Stored>, signal: AbortSignal, progr
   const seconds = (Date.now() - started) / 1000;
   const scale = upscale(item, probed, FULL);
   const estimate: Estimate = {
-    // 비율, 정지 그림은 인코딩할 원본의 크기로(유튜브는 480p 로 재고 고해상도로 인코딩한다)
+    // 비율, 정지 그림은 인코딩할 원본의 크기로(유튜브는 480p로 재고 고해상도로 인코딩한다)
     perSecond: toSet(
       perSecondOf(run.stdout).map((bytes) => bytes * scale),
       item.width,

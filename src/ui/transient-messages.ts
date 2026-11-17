@@ -1,4 +1,4 @@
-// 잠시 표시됐다가 스스로 삭제될 봇 메시지. 현재 재생 메시지가 "묻혔는지" 셀 때 빼기 위해 기억한다.
+// 잠시 표시됐다가 자동으로 삭제될 봇 메시지. 현재 재생 메시지가 "묻혔는지" 셀 때 빼기 위해 기억한다.
 // 삭제하기로 한 시각이 지나면 잊는다(삭제가 실패해 남았다면 그때부터는 보통 메시지로 센다).
 
 import { RESTJSONErrorCodes } from "discord.js";
@@ -36,13 +36,13 @@ type Deletable = { id: string; delete?: () => Promise<unknown> };
 // 네트워크가 끊겨 삭제하지 못했으면 이 간격으로 다시 삭제한다(끊김이 길어도 몇 분 안에는 치운다)
 const RETRY_AFTER_MS = [10_000, 30_000, 60_000, 120_000, 300_000];
 
-// 안내 메시지는 채널에 쌓이지 않게 ms 뒤 삭제한다(얼마나 둘지는 ui/delivery 의 LIFETIME). 이미 삭제됐거나 권한이 없으면 그대로 둔다
+// 안내 메시지는 채널에 쌓이지 않게 ms 뒤 삭제한다(얼마나 둘지는 ui/delivery의 LIFETIME). 이미 삭제됐거나 권한이 없으면 그대로 둔다
 function scheduleDelete(message: Deletable | null | undefined, ms: number, tries = 0) {
   const remove = message?.delete;
   if (!message || typeof remove !== "function") return;
   markTransient(message.id, ms);
   const timer = setTimeout(() => {
-    // 삭제하는 함수가 바로 던져도 여기서 받는다(타이머 밖으로 새면 프로세스 수준 예외가 된다)
+    // 삭제하는 함수가 바로 예외를 던져도 여기서 받는다(타이머 밖으로 새면 프로세스 수준 예외가 된다)
     Promise.resolve()
       .then(() => remove.call(message))
       .catch((error: unknown) => {

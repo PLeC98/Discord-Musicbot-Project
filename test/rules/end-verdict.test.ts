@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { endVerdict, type EndFacts } from "../../src/rules/end-verdict.ts";
 
-// 온전히 끝난 VOD 가 기준. 테스트마다 한 필드씩 바꾼다
+// 온전히 끝난 VOD가 기준. 테스트마다 한 필드씩 바꾼다
 const facts = (over: Partial<EndFacts> = {}): EndFacts => ({
   reason: "idle",
   live: false,
@@ -23,9 +23,9 @@ test("온전히 끝났으면 길이보다 한참 일찍이어도 끝이다(길�
   assert.equal(dropped({ exitCode: null }), false, "종료 코드가 아직 안 왔어도 스트림이 끝까지 읽혔으면 끝");
 });
 
-test("우리가 멈춘 것은 그 까닭대로: 깨진 재생을 멈춘 까닭이면 끊김, 그 밖은 끝", () => {
+test("우리가 멈춘 것은 그 원인대로: 깨진 재생을 멈춘 원인이면 끊김, 그 밖은 끝", () => {
   for (const reason of ["stream-error", "buffering-stall", "error"]) assert.equal(dropped({ reason, streamEnded: false }), true, reason);
-  for (const reason of ["skip", "stop", "previous", "jump", "sponsorblock", "overflow", "stuck", "모르는-까닭"]) {
+  for (const reason of ["skip", "stop", "previous", "jump", "sponsorblock", "overflow", "stuck", "모르는-이유"]) {
     assert.equal(dropped({ reason, streamEnded: false, broken: "입력 스트림 오류", exitCode: -1 }), false, reason);
   }
 });
@@ -34,11 +34,11 @@ test("재생 스트림이 끝까지 읽히지 않고 멈췄으면(공급 부족)
   assert.deepEqual(endVerdict(facts({ streamEnded: false })), { dropped: true, why: "패킷 공급이 끊겨 플레이어가 멈춤" });
 });
 
-test("입력 깨짐 표시가 있으면 스트림이 끝까지 읽혔어도 끊김. 까닭은 표시 그대로", () => {
+test("입력 깨짐 표시가 있으면 스트림이 끝까지 읽혔어도 끊김. 원인은 표시 그대로", () => {
   assert.deepEqual(endVerdict(facts({ broken: "입력 스트림 오류: 끊김" })), { dropped: true, why: "입력 스트림 오류: 끊김" });
 });
 
-test("라이브: 0 으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남, 0 아님, 깨짐)은 끊김", () => {
+test("라이브: 0으로 끝나고 입력이 온전하면 방송이 끝난 것, 그 밖(아직 안 끝남, 0 아님, 깨짐)은 끊김", () => {
   const live = { live: true, lengthMs: null };
   assert.deepEqual(endVerdict(facts({ ...live, exitCode: 0 })), { dropped: false, why: "방송이 끝남" });
   assert.equal(dropped({ ...live, exitCode: null }), true);

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { sourceUrl } from "../../src/rules/source-url.ts";
 import { tidyGenres } from "../../src/config/schema/genres.ts";
 
-test("스포티파이: si=, 지역 경로, spotify: URI 를 버리고 종류와 id 만", () => {
+test("스포티파이: si=, 지역 경로, spotify: URI를 버리고 종류와 id만", () => {
   assert.equal(sourceUrl("spotify", "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc123&pi=x"), "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M");
   assert.equal(sourceUrl("spotify", "https://open.spotify.com/intl-ko/album/1A2B3C?si=z"), "https://open.spotify.com/album/1A2B3C");
   assert.equal(sourceUrl("spotify", " spotify:artist:9Z8Y7X "), "https://open.spotify.com/artist/9Z8Y7X");
@@ -16,7 +16,7 @@ test("유튜브: pp=, start_radio=, 영상 v= 를 버리고 재생목록 주소�
   assert.equal(sourceUrl("youtube", "https://music.youtube.com/watch?v=dQw4w9WgXcQ&list=RDCLAK5uy_mgu07-HoqLSU-WqjK2ldEQWLuPPm3CAy8&start_radio=1"), "https://www.youtube.com/playlist?list=RDCLAK5uy_mgu07-HoqLSU-WqjK2ldEQWLuPPm3CAy8");
 });
 
-test("유튜브: 어느 모양의 주소든 실린 list 를 읽는다. 값은 통째로 id 글자여야 하고 퍼센트 인코딩은 푼다", () => {
+test("유튜브: 어느 모양의 주소든 실린 list를 읽는다. 값은 통째로 id 글자여야 하고 퍼센트 인코딩은 푼다", () => {
   assert.equal(sourceUrl("youtube", "https://www.youtube.com/embed/abcdefghijk?list=PLabcdefghij"), "https://www.youtube.com/playlist?list=PLabcdefghij");
   assert.equal(sourceUrl("youtube", "https://www.youtube.com/channel/UCabc?list=PLabcdefghij"), "https://www.youtube.com/playlist?list=PLabcdefghij");
   assert.equal(sourceUrl("youtube", "https://www.youtube.com/watch?v=abcdefghijk&list=PL%2Dabc"), "https://www.youtube.com/playlist?list=PL-abc");

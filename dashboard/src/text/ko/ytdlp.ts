@@ -1,4 +1,4 @@
-// 운영자 패널 유튜브 탭: yt-dlp 카드(설치된 버전, 채널, 자동 업데이트, 확인과 업데이트, 버전 고정)
+// 운영자 패널 업데이트 탭: yt-dlp 카드(설치된 버전, 채널, 자동 업데이트, 확인과 업데이트, 버전 고정)
 
 const title = "yt-dlp";
 const releases = "버전 목록";
@@ -43,7 +43,7 @@ const unpin = "해제";
 /** days: 고정한 버전이 나온 지 며칠 */
 const pinnedAge = (v: string, days: number) => `고정한 버전(${v})은 나온 지 ${days}일 됐어요.`;
 
-const loadFailed = "yt-dlp 상태를 읽지 못했어요.";
+const loadFailed = "yt-dlp 상태를 불러오지 못했어요.";
 const checkFailed = "업데이트를 확인하지 못했어요.";
 const updateFailed = "업데이트를 시작하지 못했어요.";
 const saveFailed = "yt-dlp 설정을 저장하지 못했어요.";
@@ -51,7 +51,7 @@ const forgetFailed = "이전 버전을 삭제하지 못했어요.";
 const updated = "yt-dlp 버전을 바꿨어요";
 /** 자동 업데이트가 알림일 때 띄우는 새 버전 알림 */
 const available = "yt-dlp 새 버전이 있어요";
-const availableBody = (from: string, to: string, channel: string) => `${from} → ${to} (${channel})\n운영자 패널 유튜브 탭에서 업데이트할 수 있어요.`;
+const availableBody = (from: string, to: string, channel: string) => `${from} → ${to} (${channel})\n운영자 패널 업데이트 탭에서 업데이트할 수 있어요.`;
 const downloadFailed = "yt-dlp를 다운로드하지 못했어요.";
 
 export {

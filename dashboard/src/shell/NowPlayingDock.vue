@@ -2,8 +2,8 @@
   <!-- 늘 뜨는 재생 바. 내가 있는 음성 채널에 봇이 있고 재생 중일 때만, 그 서버 화면이 아닐 때 뜬다(그 화면이 전체화면 역할).
        바탕화면 아래 가장자리에서 틀 색으로 자라 올라온 노치이고(양옆이 오목하게 가장자리와 이어진다, 휴대폰은 아래 막대와 하나),
        배치는 곡, [이전, 재생, 다음 / 진행], 볼륨. 내용은 노치 밑으로 지나간다.
-       태블릿, PC 는 양옆을 바깥 틈 + 레일 + 창 사이 틈만큼 비운다. 오목 모서리(28px = 창 16px + 틈 12px)가 레일 아래 모서리(16px)와 같은 중심이 되어, 레일이 오목한 곳에 틈 12px 로 끼워진다.
-       노치가 32rem 보다 좁으면 안쪽을 줄인다(버튼 영역은 버튼 폭만, 시간 글자를 숨기고 아트를 줄인다). 그래도 24rem 밑으로는 줄이지 않는다.
+       태블릿, PC는 양옆을 바깥 틈 + 레일 + 창 사이 틈만큼 비운다. 오목 모서리(28px = 창 16px + 틈 12px)가 레일 아래 모서리(16px)와 같은 중심이 되어, 레일이 오목한 곳에 틈 12px로 끼워진다.
+       노치가 32rem보다 좁으면 안쪽을 줄인다(버튼 영역은 버튼 폭만, 시간 글자를 숨기고 아트를 줄인다). 그래도 24rem 밑으로는 줄이지 않는다.
        그보다 좁은 화면(사이드바를 펼친 좁은 창 등)에서는 노치가 레일 아래쪽에 겹친다 -->
   <Transition enter-from-class="translate-y-full" leave-to-class="translate-y-full" enter-active-class="transition-[translate] spring" leave-active-class="transition-[translate] duration-200 ease-accelerate">
     <div v-if="np.visible" class="absolute inset-x-0 bottom-0 z-30 flex justify-center pointer-events-none">
@@ -101,7 +101,7 @@ const {
 );
 
 // 지금 보고 있는 서버 화면. 그 서버를 듣고 있으면 바가 숨는다(저장소는 라우터를 읽지 않는다)
-// 주소의 서버 ID 만 보면 같은 서버의 설정 화면도 재생 화면으로 여겨, 바가 숨고 상태 갱신도 멈춘다
+// 주소의 서버 ID만 보면 같은 서버의 설정 화면도 재생 화면으로 여겨, 바가 숨고 상태 갱신도 멈춘다
 watch(
   () => (route.meta.playerPage ? route.params.guildId : null),
   (id) => (np.page = typeof id === "string" ? id : null),
@@ -120,7 +120,7 @@ function openServer() {
   if (np.guildId) void router.push(`/servers/${np.guildId}`);
 }
 
-// 탐색은 태블릿, PC 만. 휴대폰 진행은 표시 전용이다
+// 탐색은 태블릿, PC만. 휴대폰 진행은 표시 전용이다
 const seekable = computed(() => np.canControl && np.duration > 0 && !np.track?.isLive);
 const seekBar = useSeekBar({
   el: trackEl,
@@ -137,8 +137,8 @@ onMounted(() => np.start());
 onUnmounted(() => np.stop());
 
 const metaBtn = "state-layer flex items-center gap-3 min-w-0 rounded-full p-1 pr-3 cursor-pointer";
-// 이전, 재생, 다음은 셋 다 같은 40px(구글 Media3 미니 플레이어처럼 같은 크기, 크기는 그 아트 대비 비율 48/56 에서), 아이콘 24px.
-// 셔플, 반복(태블릿, PC)도 40px, 아이콘은 한 단계 작은 20px 에 흐린 색. 모양은 서버 화면과 같이 스포티파이를 따른다
+// 이전, 재생, 다음은 셋 다 같은 40px(구글 Media3 미니 플레이어처럼 같은 크기, 크기는 그 아트 대비 비율 48/56에서), 아이콘 24px.
+// 셔플, 반복(태블릿, PC)도 40px, 아이콘은 한 단계 작은 20px에 흐린 색. 모양은 서버 화면과 같이 스포티파이를 따른다
 const iconBtn = `${CTL_BTN} size-10 text-on-surface hover:not-disabled:scale-105`;
 const toggleBtn = `${CTL_BTN} ${TOGGLE_BTN}`;
 const playBtn = "tap size-10 rounded-full flex items-center justify-center shrink-0 cursor-pointer bg-primary text-on-primary motion-press hover:not-disabled:scale-105 active:not-disabled:scale-95 disabled:bg-on-surface/12 disabled:text-on-surface/38 disabled:cursor-not-allowed";

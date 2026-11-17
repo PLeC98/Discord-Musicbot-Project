@@ -1,13 +1,13 @@
 <!--
   두 점으로 잡는 구간 슬라이더.
 
-  양 끝까지 벌리면 "구간 없음"이다. 그때는 null 을 올려 설정에서 아예 뺀다.
+  양 끝까지 벌리면 "구간 없음"이다. 그때는 null을 올려 설정에서 아예 뺀다.
   슬라이더로는 빈 값을 나타낼 수 없으니, 끝까지 벌린 상태를 그 뜻으로 삼는다.
 
   range 입력 둘을 겹쳐 쓴다. 겹친 채로 두면 아래 슬라이더를 못 잡으므로 핸들만 눌리게 하고(pointer-events),
   둘이 한자리에 모였을 때는 앞쪽 핸들을 위로 올린다.
 
-  histogram 을 주면 막대로 그린다. 값이 고르게 퍼져 있지 않은 항목에서는 이것이 있어야
+  histogram을 주면 막대로 그린다. 값이 고르게 퍼져 있지 않은 항목에서는 이것이 있어야
   사용자가 선택한 구간에 후보가 몇 곡이나 남는지 짐작할 수 있다.
 -->
 <template>
@@ -43,7 +43,7 @@ const props = withDefaults(
     from?: number | null;
     to?: number | null;
     label?: string;
-    /** min 부터 한 칸씩의 개수. 길이가 범위와 달라도 비율로 맞춰 그린다 */
+    /** min부터 한 칸씩의 개수. 길이가 범위와 달라도 비율로 맞춰 그린다 */
     histogram?: number[];
   }>(),
   { min: 0, max: 100, step: 1, from: null, to: null, label: "", histogram: () => [] },
@@ -90,7 +90,7 @@ const bars = computed(() => {
 
   // 한 칸이 압도적으로 크면 나머지가 다 납작해진다. 제곱근으로 눌러 모양이 보이게 한다
   const top = Math.max(...groups.map((g) => Math.sqrt(g.sum)));
-  // 선택한 구간을 칸 번호로 옮긴 것. 끝은 포함이라 1 을 더한다
+  // 선택한 구간을 칸 번호로 옮긴 것. 끝은 포함이라 1을 더한다
   const pickFrom = lo.value - props.min;
   const pickTo = hi.value - props.min + 1;
 

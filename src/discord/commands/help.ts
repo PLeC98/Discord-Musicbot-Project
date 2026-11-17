@@ -29,7 +29,7 @@ const sectionsOf = (commands: Commands, guildId: string | null, open?: Open) =>
     open,
   );
 
-/** 분류 메뉴. 명령이 있는 섹션만, current 는 지금 보는 섹션 */
+/** 분류 메뉴. 명령이 있는 섹션만, current는 지금 보는 섹션 */
 function sectionMenu(sections: Shown, current: HelpSection | null) {
   const options = sections.map(({ key }) => {
     const { icon, name } = helpText.section(key);
@@ -53,7 +53,7 @@ function homeView(commands: Commands, guildId: string | null = null) {
   return container;
 }
 
-/** 한 분류의 명령 줄. open 은 보는 사람의 판정. 그 분류에 켜진 명령이 없으면(메뉴를 그린 뒤 꺼졌다) 첫 화면 */
+/** 한 분류의 명령 줄. open은 보는 사람의 판정. 그 분류에 켜진 명령이 없으면(메뉴를 그린 뒤 꺼졌다) 첫 화면 */
 function sectionView(commands: Commands, key: string, guildId: string | null = null, open?: Open) {
   const sections = sectionsOf(commands, guildId, open);
   const shown = sections.find((one) => one.key === key);

@@ -108,14 +108,14 @@ test("원본, 미리보기, 모르는 id, 형식이 틀린 이름, 경로 거슬
   for (const url of missing) assert.equal((await fetch(`${base}${url}`)).status, 404, url);
 });
 
-test("배경 정보는 캐시하지 않고 ETag 로 304", async () => {
+test("배경 정보는 캐시하지 않고 ETag로 304", async () => {
   const one = made("image");
   store.show(one.id);
   const first = await fetch(`${base}/api/login-background`);
   assert.equal(first.headers.get("cache-control"), "no-cache");
   const etag = first.headers.get("etag")!;
   assert.ok(etag);
-  // fetch 는 If-None-Match 를 붙이면 Cache-Control: no-cache 도 실어 서버가 새로 준다(규격). 브라우저가 스스로 다시 확인하는 것처럼 헤더만 보낸다
+  // fetch는 If-None-Match를 붙이면 Cache-Control: no-cache도 실어 서버가 새로 준다(규격). 브라우저가 자동으로 다시 확인하는 것처럼 헤더만 보낸다
   const status = await new Promise<number>((resolve) => http.get(`${base}/api/login-background`, { headers: { "if-none-match": etag } }, (res) => (res.resume(), resolve(res.statusCode ?? 0))));
   assert.equal(status, 304);
 });

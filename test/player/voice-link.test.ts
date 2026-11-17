@@ -1,5 +1,5 @@
 // src/player/voice-link.ts: 음성 연결 상태 기계. 전이 표의 행마다 테스트 하나.
-// 음성 라이브러리의 joinVoiceChannel, entersState 는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange 를 쏘아 흉내 낸다.
+// 음성 라이브러리의 joinVoiceChannel, entersState는 가짜로 넘기고, 연결의 전이는 가짜 연결에 stateChange를 쏘아 흉내 낸다.
 
 import { test, beforeEach, afterEach } from "node:test";
 import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
@@ -20,8 +20,8 @@ class FakeConnection extends EventEmitter {
   sent: unknown[] = [];
   state: { status: string; reason?: number; closeCode?: number; adapter?: { sendPayload(p: unknown): boolean } } = { status: VoiceConnectionStatus.Signalling, adapter: { sendPayload: (p) => (this.sent.push(p), true) } };
   joinConfig = { selfDeaf: true, selfMute: false }; // 라이브러리 기본값
-  rejoinAttempts = 0; // 라이브러리가 Ready 없이 스스로 다시 참가한 횟수
-  // 받아 둔 음성 서버 정보로 재연결한 횟수. serverInfo 가 없으면 라이브러리처럼 아무것도 하지 않는다
+  rejoinAttempts = 0; // 라이브러리가 Ready 없이 자동으로 다시 참가한 횟수
+  // 받아 둔 음성 서버 정보로 재연결한 횟수. serverInfo가 없으면 라이브러리처럼 아무것도 하지 않는다
   reattaches = 0;
   serverInfo = true;
   configureNetworking() {
@@ -51,7 +51,7 @@ class FakeConnection extends EventEmitter {
 }
 
 const joins: FakeConnection[] = [];
-// 붙기(entersState Ready)의 결과. 테스트가 바꾼다: true 면 붙고, false 면 곧바로 던지고(네트워크 오류), "timeout" 이면 제한 시간이 지난 것(AbortError)
+// 붙기(entersState Ready)의 결과. 테스트가 바꾼다: true면 붙고, false면 곧바로 예외를 던지고(네트워크 오류), "timeout"이면 제한 시간이 지난 것(AbortError)
 let joinWorks: Array<boolean | "timeout"> = [];
 const lib = fake<VoiceLib>({
   joinVoiceChannel: () => {
@@ -89,9 +89,9 @@ afterEach(() => {
   for (const link of links.splice(0)) link.stop();
 });
 
-// 플레이어 가짜와 음성 연결. 테스트는 steps 로 무엇을 불렀는지 본다
-// fetchAs: 디스코드에 채널을 조회했을 때의 답(기본: 캐시에 있으면 있다). 오류면 던진다
-// atDiscord: 디스코드에 봇의 음성 채널을 조회했을 때의 답(기본: 캐시와 같다). 오류면 던진다
+// 플레이어 가짜와 음성 연결. 테스트는 steps로 무엇을 불렀는지 본다
+// fetchAs: 디스코드에 채널을 조회했을 때의 응답(기본: 캐시에 있으면 있다). 오류면 예외를 던진다
+// atDiscord: 디스코드에 봇의 음성 채널을 조회했을 때의 응답(기본: 캐시와 같다). 오류면 예외를 던진다
 function setup({ channel = true, inChannel = "vc1" as string | null, track = true, fetchAs = null as ((id: string) => unknown) | null, atDiscord = undefined as string | null | Error | undefined } = {}) {
   const steps: string[] = [];
   // 억제 사유를 맞춘 때(붙음, 자동 재연결, 복구 끝). 다른 단계의 순서와 섞지 않는다
@@ -144,7 +144,7 @@ async function ready(o: Parameters<typeof setup>[0] = {}) {
 
 // ── 붙기 ──
 
-test("붙기: 새 연결을 만들어 오디오 플레이어를 구독시키고 Ready 가 되면 ready", async () => {
+test("붙기: 새 연결을 만들어 오디오 플레이어를 구독시키고 Ready가 되면 ready", async () => {
   const { link, conn, player } = setup();
   assert.equal(await link.connect(), true);
   assert.equal(link.state, "ready");
@@ -152,10 +152,10 @@ test("붙기: 새 연결을 만들어 오디오 플레이어를 구독시키고 
   assert.equal(link.isAlive(), true);
 });
 
-test("붙기: Ready 가 안 오면 연결을 부수고 idle 로 돌아가 던진다", async () => {
+test("붙기: Ready가 안 오면 연결을 부수고 idle로 돌아가 예외를 던진다", async () => {
   const { link, player } = setup();
   joinWorks = [false];
-  await assert.rejects(link.connect(), { code: "voice-failed" }, "부르는 쪽이 음성 접속 실패로 알리게");
+  await assert.rejects(link.connect(), { code: "voice-failed" }, "호출부가 음성 접속 실패로 알리게");
   assert.equal(link.state, "idle");
   assert.equal(player.connection, null);
   assert.deepEqual(joins[0].destroyed, ["leave"]);
@@ -164,7 +164,7 @@ test("붙기: Ready 가 안 오면 연결을 부수고 idle 로 돌아가 던진
 
 // ── 끊김과 기다림 ──
 
-test("끊김: 라이브러리가 스스로 재연결하면(Ready) 우리가 할 일은 없다", async () => {
+test("끊김: 라이브러리가 자동으로 재연결하면(Ready) 우리가 할 일은 없다", async () => {
   const { link, conn } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.EndpointRemoved });
   assert.equal(link.state, "waiting");
@@ -175,7 +175,7 @@ test("끊김: 라이브러리가 스스로 재연결하면(Ready) 우리가 할 
   assert.equal(joins.length, 1, "재연결하지 않았다");
 });
 
-test("끊김: 재연결을 시작했으면(Signalling, Connecting) Ready 까지 조금 더 기다린다", async () => {
+test("끊김: 재연결을 시작했으면(Signalling, Connecting) Ready까지 조금 더 기다린다", async () => {
   const { link, conn } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
   conn().to(VoiceConnectionStatus.Connecting);
@@ -219,7 +219,7 @@ test("기다려도 재연결되지 않았는데 봇이 채널에 없으면(퇴�
   assert.equal(joins.length, 1, "재연결하지 않았다");
 });
 
-test("붙은 채 라이브러리가 다시 붙기 시작해도(Ready → Signalling, Connecting) 곧 Ready 면 할 일이 없다(옮겨질 때)", async () => {
+test("붙은 채 라이브러리가 다시 붙기 시작해도(Ready → Signalling, Connecting) 곧 Ready면 할 일이 없다(옮겨질 때)", async () => {
   for (const status of [VoiceConnectionStatus.Signalling, VoiceConnectionStatus.Connecting]) {
     joins.length = 0;
     const { link, conn, steps } = await ready();
@@ -233,7 +233,7 @@ test("붙은 채 라이브러리가 다시 붙기 시작해도(Ready → Signall
   }
 });
 
-test("붙은 채 라이브러리가 다시 붙기 시작해 시간 안에 Ready 가 안 되면: 봇이 채널에 있으면 우리가 재연결, 없으면 강제 퇴장", async () => {
+test("붙은 채 라이브러리가 다시 붙기 시작해 시간 안에 Ready가 안 되면: 봇이 채널에 있으면 우리가 재연결, 없으면 강제 퇴장", async () => {
   const stuck = await ready();
   stuck.conn().to(VoiceConnectionStatus.Signalling);
   await until(() => stuck.steps.length > 0, "재연결해 이어 틀기");
@@ -282,7 +282,7 @@ test("부서짐, 오류: 붙어 있다가 부서지거나 오류가 나면 재�
   assert.deepEqual(failing.steps, ["resume"]);
 });
 
-test("네트워크 오류는 오류 줄 없이 복구 시작 줄이 까닭과 함께 남긴다. 중간 시도의 실패는 debug", async () => {
+test("네트워크 오류는 오류 줄 없이 복구 시작 줄이 원인과 함께 남긴다. 중간 시도의 실패는 debug", async () => {
   const { link, conn } = await ready();
   joinWorks = [false, true];
   const from = sink.buffer.length;
@@ -292,12 +292,12 @@ test("네트워크 오류는 오류 줄 없이 복구 시작 줄이 까닭과 �
   assert.deepEqual(
     lines.map((e) => e.level),
     ["warn", "info"],
-    "복구 시작 · 복구 완료만",
+    "복구 시작과 복구 완료만",
   );
   assert.ok(lines[0].text.includes("네트워크 오류(getaddrinfo ENOTFOUND"));
 });
 
-test("재연결: 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못하면, 새 참가 없이 받아 둔 음성 서버 정보로 재연결한다(같은 채널 참가에는 답이 없다)", async () => {
+test("재연결: 디스코드가 봇을 이 채널에 있다고 보거나 묻지 못하면, 새 참가 없이 받아 둔 음성 서버 정보로 재연결한다(같은 채널 참가에는 응답이 없다)", async () => {
   for (const atDiscord of ["vc1", Object.assign(new Error("getaddrinfo ENOTFOUND discord.com"), { code: "ENOTFOUND" })]) {
     joins.length = 0;
     const { link, conn } = await ready({ atDiscord });
@@ -356,7 +356,7 @@ test("재연결: 디스코드에 닿는데도 받아 둔 정보로 제한 시간
   joinWorks = ["timeout", true];
   offline.link.recover("시험");
   await until(() => offline.link.state === "ready", "재연결");
-  assert.equal(offline.conn().reattaches, 2, "닿지 못해 실패한 것은 정보를 버릴 까닭이 아니다");
+  assert.equal(offline.conn().reattaches, 2, "닿지 못해 실패한 것은 정보를 버릴 이유가 아니다");
   assert.equal(joins.length, 1);
 });
 
@@ -389,7 +389,7 @@ test("다섯 번 모두 실패하면 세션을 저장하고 버린다", async ()
   assert.deepEqual(steps, ["dispose:save:disconnected:voice-lost"]);
   assert.equal(link.state, "closed");
   assert.equal(link.isAlive(), false);
-  assert.ok(link.lastRecoveryError, "포기 줄에 실을 마지막 시도의 까닭이 있다");
+  assert.ok(link.lastRecoveryError, "포기 줄에 실을 마지막 시도의 원인이 있다");
 });
 
 // 시도가 끝날 때마다 게이트웨이 상태를 바꾼다. after[n]: n 회차가 끝난 뒤의 상태
@@ -504,7 +504,7 @@ test("스테이지에서 빠졌다: 음성 서버가 모두를 끊었으면(4022
   assert.deepEqual(await leave({}), ["dispose:remove:disconnected:stage-disconnect"]);
 });
 
-test("채널에서 빠진 뒤 음성 서버가 닫히면(4014 가 아님) 라이브러리가 같은 채널로 다시 참가하기 전에 나가기 요청 없이 부순다", async () => {
+test("채널에서 빠진 뒤 음성 서버가 닫히면(4014가 아님) 라이브러리가 같은 채널로 다시 참가하기 전에 나가기 요청 없이 부순다", async () => {
   const s = await ready();
   s.player.voiceChannel = { id: "vc1", name: "무대", type: ChannelType.GuildStageVoice } as typeof s.player.voiceChannel;
   const net = new EventEmitter();
@@ -546,7 +546,7 @@ test("라이브러리가 Ready 없이 다섯 번 다시 참가한 뒤의 닫힘(
   closing.conn().to(VoiceConnectionStatus.Ready, { networking: net3 });
   closing.conn().rejoinAttempts = 9;
   net3.emit("close", 4014);
-  assert.deepEqual(closing.conn().destroyed, [], "4014 는 라이브러리가 다시 참가하지 않는다");
+  assert.deepEqual(closing.conn().destroyed, [], "4014는 라이브러리가 다시 참가하지 않는다");
 });
 
 test("일반 음성 채널에서 빠지면 닫힘 코드와 상관없이 강제 퇴장이다(기다리지 않는다)", async () => {
@@ -581,7 +581,7 @@ test("재연결 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것�
   assert.equal(link.state, "ready");
 });
 
-test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것이다(음성 서버의 닫힘이 게이트웨이 알림보다 먼저 왔다)", async () => {
+test("4014로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알림은 쫓겨난 것이다(음성 서버의 닫힘이 게이트웨이 알림보다 먼저 왔다)", async () => {
   const { link, conn, steps } = await ready();
   conn().to(VoiceConnectionStatus.Disconnected, { reason: VoiceConnectionDisconnectReason.WebSocketClose, closeCode: 4014 });
   assert.equal(link.state, "waiting");
@@ -591,13 +591,13 @@ test("4014 로 끊겨 기다리는 중에 봇이 채널에서 빠졌다는 알�
   assert.equal(joins.length, 1, "재연결하지 않는다");
 });
 
-// 게이트웨이 새 세션: 디스코드가 봇의 음성 상태를 지우고 음성 서버는 4014 로 닫는다. 빠짐 알림은 오지 않을 때가 많다
+// 게이트웨이 새 세션: 디스코드가 봇의 음성 상태를 지우고 음성 서버는 4014로 닫는다. 빠짐 알림은 오지 않을 때가 많다
 function renewedAt(link: VoiceLink, player: { guild: object }, at: number) {
   Object.assign(player.guild, { shardId: 0 });
   link.lib = { ...lib, newSessionAt: (shardId: number) => (shardId === 0 ? at : null) };
 }
 
-test("4014 로 끊겨 봇이 채널에서 빠졌어도 그 앞뒤에 같은 샤드가 게이트웨이 새 세션을 받았으면 강제 퇴장이 아니라 다시 참가한다(빠짐 알림이 없을 때, 있을 때)", async () => {
+test("4014로 끊겨 봇이 채널에서 빠졌어도 그 앞뒤에 같은 샤드가 게이트웨이 새 세션을 받았으면 강제 퇴장이 아니라 다시 참가한다(빠짐 알림이 없을 때, 있을 때)", async () => {
   const silent = await ready();
   renewedAt(silent.link, silent.player, Date.now());
   silent.me.voice.channelId = null;
@@ -615,7 +615,7 @@ test("4014 로 끊겨 봇이 채널에서 빠졌어도 그 앞뒤에 같은 샤�
   assert.deepEqual(told.steps, ["resume"]);
 });
 
-test("새 세션이 경계 앞이면(연결이 마지막으로 Ready 된 때 앞, 4014 의 30초 앞) 지금처럼 강제 퇴장이다", async () => {
+test("새 세션이 경계 앞이면(연결이 마지막으로 Ready 된 때 앞, 4014의 30초 앞) 지금처럼 강제 퇴장이다", async () => {
   for (const [label, ago, readyAgo] of [
     ["Ready 앞", 1_000, 500],
     ["30초 앞", 31_000, 60_000],
@@ -630,7 +630,7 @@ test("새 세션이 경계 앞이면(연결이 마지막으로 Ready 된 때 앞
   }
 });
 
-// 답 없는 참가 하나. atDiscord 는 디스코드가 보는 봇의 음성 채널(REST). 오류면 던진다
+// 응답 없는 참가 하나. atDiscord는 디스코드가 보는 봇의 음성 채널(REST). 오류면 예외를 던진다
 function stuckJoin(atDiscord: string | null | Error) {
   const s = setup();
   s.player.guild = { ...s.player.guild, voiceStates: { fetch: async () => (atDiscord instanceof Error ? Promise.reject(atDiscord) : { channelId: atDiscord }) } } as never;
@@ -641,7 +641,7 @@ function stuckJoin(atDiscord: string | null | Error) {
 }
 const LEAVE = { op: 4, d: { guild_id: "g1", channel_id: null, self_deaf: true, self_mute: false } };
 
-test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 보내도 답이 없고 디스코드가 봇이 그 채널에 있다고 하면 게이트웨이로 나갔다가 다시 참가한다", async () => {
+test("참가 요청에 응답이 없으면 처음에는 다시 보낸다. 다시 보내도 응답이 없고 디스코드가 봇이 그 채널에 있다고 하면 게이트웨이로 나갔다가 다시 참가한다", async () => {
   const s = stuckJoin("vc1");
   await s.link._unstick(s.c as never, "vc1", 0);
   assert.deepEqual(s.c.sent, [], "처음에는 나가지 않는다(끊긴 동안 보낸 요청이 사라졌을 수 있다)");
@@ -662,7 +662,7 @@ test("참가 요청에 답이 없으면 처음에는 다시 보낸다. 다시 �
   assert.deepEqual(s.steps, ["dispose:remove:disconnected:kicked"]);
 });
 
-test("답 없는 참가: 봇이 그 채널에 없으면(10065, 다른 채널) 나가지 않고 참가만 다시 보낸다. 디스코드에 묻지 못하면(네트워크) 아무것도 보내지 않고 기다린다", async () => {
+test("응답 없는 참가: 봇이 그 채널에 없으면(10065, 다른 채널) 나가지 않고 참가만 다시 보낸다. 디스코드에 묻지 못하면(네트워크) 아무것도 보내지 않고 기다린다", async () => {
   for (const at of [Object.assign(new Error("Unknown Voice State"), { code: 10065 }), "vc2"]) {
     const s = stuckJoin(at);
     await s.link._unstick(s.c as never, "vc1", 1);
@@ -695,14 +695,14 @@ test("답 없는 참가: 봇이 그 채널에 없으면(10065, 다른 채널) �
   assert.ok(unsent.link.stuckTimer);
 });
 
-test("멈추면(플레이어를 버림) 답 없는 참가를 지켜보던 것도 멈춘다", () => {
+test("멈추면(플레이어를 버림) 응답 없는 참가를 지켜보던 것도 멈춘다", () => {
   const s = stuckJoin("vc1");
   s.link._armUnstick(s.c as never, "vc1", 0);
   s.link.stop();
   assert.equal(s.link.stuckTimer, null);
 });
 
-test("붙기가 끝나면 스스로 나간 표시를 지운다(늦게 온 진짜 빠짐을 넘기지 않게)", async () => {
+test("붙기가 끝나면 직접 나간 표시를 지운다(늦게 온 진짜 빠짐을 넘기지 않게)", async () => {
   const { link } = setup();
   link.selfLeave = "vc1";
   await link.connect();
@@ -720,7 +720,7 @@ test("봇이 옮겨졌다: 재연결하지 않고 기록만 맞춘다. 곧바로
   const back = fake<VoiceBasedChannel>({ id: "vc1" });
   link.lastPlainJoin = { channelId: "vc1", at: Date.now() }; // 라이브러리가 옛 채널로 고치지 않은 참가 요청을 보냈다(어댑터가 늦었다)
   link.onBotState(state("vc2"), state("vc1", { channel: back }));
-  assert.deepEqual(conn().rejoins, [{ channelId: "vc2", selfDeaf: true, selfMute: false }], "붙을 때의 귀막음 · 음소거를 그대로");
+  assert.deepEqual(conn().rejoins, [{ channelId: "vc2", selfDeaf: true, selfMute: false }], "붙을 때의 귀막음과 음소거를 그대로");
   assert.equal(joins.length, 1, "새 연결을 만들지 않는다");
   assert.deepEqual(steps, ["status-moved:vc1"], "되돌림은 이동이 아니다. 목적지로 다시 옮겨진 알림이 맞춘다");
 });
@@ -759,7 +759,7 @@ test("붙으면 억제 사유를 지금 상태로 맞춘다(이미 음소거된 
   assert.deepEqual(s.syncs, ["sync"]);
 });
 
-test("음소거, 청중 바뀜은 음성 연결이 다루지 않는다(부른 쪽이 syncHolds 로 맞춘다)", async () => {
+test("음소거, 청중 바뀜은 음성 연결이 다루지 않는다(부른 쪽이 syncHolds로 맞춘다)", async () => {
   const { link, steps } = await ready();
   steps.length = 0;
   assert.deepEqual(link.onBotState(state("vc1"), state("vc1", { serverMute: true })), { left: false, moved: false });
@@ -769,7 +769,7 @@ test("음소거, 청중 바뀜은 음성 연결이 다루지 않는다(부른 �
 // 스테이지 채널. perms: 봇이 그 채널에서 가진 권한
 const stage = (id: string, perms: bigint[] = []) => fake<VoiceBasedChannel>({ id, type: ChannelType.GuildStageVoice, permissionsFor: () => ({ has: (bit: bigint) => perms.includes(bit) }) });
 
-test("스테이지에 청중으로 들어오면: 멤버 음소거 권한이면 스스로 발언자, 아니면 발언 요청과 안내, 둘 다 없으면 안내만. 모더레이터가 내린 것은 따른다", async () => {
+test("스테이지에 청중으로 접속 시: 멤버 음소거 권한이 있으면 직접 발언자로 승격, 아니면 발언 요청과 안내, 둘 다 없으면 안내만. 모더레이터가 내린 것은 따른다", async () => {
   const calls: string[] = [];
   const enter = async (perms: bigint[], { from = null as string | null, to = "st1" } = {}) => {
     const s = await ready();
@@ -827,7 +827,7 @@ test("이미 청중인 채로 붙으면(이어받기, 복원) 붙은 뒤 사유�
   s.link.onBotState(state(null), state("st1", { channel: st, suppress: true }));
   await new Promise((r) => setImmediate(r));
   assert.deepEqual(calls, ["request:true"]);
-  assert.deepEqual(s.syncs, ["sync"], "청중이라 멈추는 것은 syncHolds 가 계산한다");
+  assert.deepEqual(s.syncs, ["sync"], "청중이라 멈추는 것은 syncHolds가 계산한다");
   assert.deepEqual(
     s.steps.filter((x) => x.startsWith("notice")),
     ["notice:stage-requested"],
@@ -883,7 +883,7 @@ test("연결의 전이, 오류는 누가 쏘든 이 서버의 문맥에서 돈�
 
 // ── 서버 헤드셋 끄기 ──
 
-// 봇의 음성 상태를 서버 헤드셋 끄기를 볼 수 있게 채운다. 건 것은 deafs 에 적는다
+// 봇의 음성 상태를 서버 헤드셋 끄기를 볼 수 있게 채운다. 건 것은 deafs에 적는다
 function deafenable(me: { voice: object }, { serverDeaf = false, allowed = true, channelId = "vc1", fails = null as unknown } = {}) {
   const deafs: Array<[boolean, string | undefined]> = [];
   me.voice = {
@@ -937,7 +937,7 @@ test("서버 헤드셋 끄기: 같은 채널에서 사람이 풀면 그 연결 �
   const deafs = deafenable(me);
   link._settled();
   await sleep(0);
-  assert.deepEqual(deafs, [], "모더레이터의 뜻을 따른다(복구 · 옮겨짐도 _settled 를 거친다)");
+  assert.deepEqual(deafs, [], "모더레이터의 뜻을 따른다(복구와 옮겨짐도 _settled를 거친다)");
 
   const again = setup();
   again.player.guild.id = "g-undeafened";

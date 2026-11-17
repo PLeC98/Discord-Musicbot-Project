@@ -90,7 +90,7 @@ adminRouter.get("/status", async (req, res) => {
 });
 
 // 봇 다시 시작. 세션을 저장하고 나가면 실행기가 다시 실행한다(app/launcher). 실행기 없이 켰으면 다시 실행해 줄 쪽이 없어 거절한다.
-// 답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
+// 응답을 보낸 뒤에 내린다. 최근 로그인은 보지 않는다(비밀이 새는 일이 아니고, 운영자 세션으로 이미 더 큰 일을 할 수 있다. 실수는 확인 창이 막는다)
 adminRouter.post("/restart", (req, res) => {
   const restart = req.app.locals.restart;
   if (!restart) return sendProblem(res, "restart-unavailable");
@@ -118,7 +118,7 @@ async function announceChannel(guild: Guild) {
 adminRouter.post("/broadcast", async (req, res) => {
   const { message, type = "maintenance" } = req.body ?? {};
 
-  // 문자열인지 먼저 본다(객체면 trim 이 던진다). 앱 이모지 토큰을 보낼 글로 먼저 바꾸고(없는 이모지는 빠진다) 그 글로 검사한다
+  // 문자열인지 먼저 본다(객체면 trim이 예외를 던진다). 앱 이모지 토큰을 보낼 글로 먼저 바꾸고(없는 이모지는 빠진다) 그 글로 검사한다
   if (typeof message !== "string") return sendProblem(res, "announce-empty");
   const body = announceBody(toDiscordText(message, emojiBook()));
   if (!body) return sendProblem(res, "announce-empty");
@@ -194,7 +194,7 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
 });
 
 // 특권 인텐트 켜기(운영자가 대시보드에서). 운영자의 디스코드 앱 설정(포털 스위치)을 바꾸므로 로그인한 지 오래되면 다시 로그인하게 한다.
-// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable 이 셈한다. 다시 시작해야 적용된다
+// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable이 셈한다. 다시 시작해야 적용된다
 adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) => {
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
@@ -219,7 +219,7 @@ adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) =
 
 // 슬래시 명령을 디스코드에 다시 등록(운영자가 대시보드에서)
 // deployCommands는 게이트웨이/음성과 무관한 REST PUT이라 봇 실행 중에도 안전하며 샤드에 종속되지 않는다.
-// 조립(app/main)이 app.locals 로 넘긴다. 대시보드가 app 층을 부르지 않는다
+// 조립(app/main)이 app.locals로 넘긴다. 대시보드가 app 층을 부르지 않는다
 adminRouter.post("/redeploy-commands", async (req, res) => {
   const r = await req.app.locals.deployCommands({ force: true }); // 대시보드 버튼은 명시적 재배포라 해시가 같아도 등록한다
   if (r.ok) {
@@ -250,7 +250,7 @@ adminRouter.get("/source-types", async (req, res) => {
 });
 
 // 소스 편집기의 자동완성(VocaDB 계열의 태그, 가수). 브라우저가 그쪽에 바로 요청하지 않고 여기를 거친다.
-// 저쪽 CORS 를 모르고, 바깥으로 나가는 요청은 봇 User-Agent 로 나가야 한다
+// 저쪽 CORS를 모르고, 바깥으로 나가는 요청은 봇 User-Agent로 나가야 한다
 const SUGGEST_TERM_MAX = 100;
 const suggestFailures = new Map<string, ReturnType<typeof repeatingFailure>>();
 function suggestFailure(type: string, what: string) {
@@ -317,7 +317,7 @@ adminRouter.get("/ai/fields", (req, res) => {
 const claudeCountFailure = repeatingFailure({ error: (line) => log.warn({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "Anthropic 토큰 수 조회");
 const tokenCountFailure = repeatingFailure({ error: (line) => log.error({ sub: "admin" }, line), info: (line) => log.info({ sub: "admin" }, line) }, "토큰 계산");
 
-// 앤트로픽에서 받은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik 로 추산한다)
+// 앤트로픽에서 받은 입력란마다의 본문 토큰. 하나라도 못 받으면 null(tik로 추산한다)
 async function countByClaude(texts: string[], provider: string, model: string) {
   const apiKey = assist.storedKey({ provider });
   const wrap = tokens.FRAMING.anthropic.perRequest;
@@ -337,7 +337,7 @@ async function countByClaude(texts: string[], provider: string, model: string) {
   return each.every((one): one is number => one !== null) ? each : null;
 }
 
-// 입력란마다의 본문 토큰. 클로드는 앤트로픽에 조회하고, 못 받으면 tik 로 추산한다
+// 입력란마다의 본문 토큰. 클로드는 앤트로픽에 조회하고, 못 받으면 tik로 추산한다
 async function countBodies(texts: string[], provider: string, model: string) {
   const by = tokens.tokenizerFor(assist.PROVIDER_SPECS[provider]?.registry, model);
   const exact = by === "claude" ? await countByClaude(texts, provider, model) : null;
@@ -348,8 +348,8 @@ async function countBodies(texts: string[], provider: string, model: string) {
 
 /**
  * 프롬프트 입력란에 적는 동안 세어 보는 곳. 본문만 센다(감싸는 몫은 미리보기에서 본다).
- * 클로드는 공개 토크나이저가 없어 앤트로픽 API 로 센다. 무료이고 정확하다.
- * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503 으로 답한다
+ * 클로드는 공개 토크나이저가 없어 앤트로픽 API로 센다. 무료이고 정확하다.
+ * 세기가 상한에 걸리면(공백 없는 아주 긴 글) 503으로 응답한다
  */
 adminRouter.post("/ai/tokens", async (req, res) => {
   const texts: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
@@ -371,7 +371,7 @@ adminRouter.post("/ai/models/refresh", async (req, res) => {
   try {
     res.json(await refreshModelInfo({ force: !!req.body?.force }));
   } catch (error) {
-    // 모델 정보 갱신 실패는 config/ai-model-info 가 warn 으로 남기고 다시 던진다
+    // 모델 정보 갱신 실패는 config/ai-model-info가 warn으로 남기고 다시 던진다
     sendProblem(res, "model-refresh-failed", {}, { detail: messageOf(error) });
   }
 });
@@ -424,7 +424,7 @@ adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
   res.json(keysReply({ ...draft }) satisfies KeysReply);
 });
 
-// 입력할 수 없는 키면 까닭. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
+// 입력할 수 없는 키면 원인. 키를 쓰는 프로바이더여야 하고, 묶을 주소가 있어야 하고, 서비스 계정은 JSON 내용이어야 한다
 function aiKeyProblem(provider: string, value: unknown, draft: Record<string, unknown>) {
   const spec = assist.PROVIDER_SPECS[provider];
   if (!spec?.key) return `${provider}: 키를 쓰지 않는 프로바이더`;
@@ -446,7 +446,7 @@ function accountProblem(label: string, value: string) {
   }
 }
 
-// 프로바이더마다 키 상태. settings 는 주소를 계산할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다
+// 프로바이더마다 키 상태. settings는 주소를 계산할 설정(저장된 것 또는 화면의 초안). 다른 프로바이더는 그 프로바이더의 기본 주소로 본다
 function keysReply(settings: Record<string, unknown>): KeysReply {
   const keyState = Object.fromEntries(
     Object.entries(assist.PROVIDER_SPECS)
@@ -456,7 +456,7 @@ function keysReply(settings: Record<string, unknown>): KeysReply {
   return { hasKey: Object.fromEntries(Object.entries(keyState).map(([provider, state]) => [provider, state === "ok"])), keyState };
 }
 
-// 프롬프트는 설정과 딴 문서다("ai-prompt", 섹션 목록). 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings 로.
+// 프롬프트는 설정과 딴 문서다("ai-prompt", 섹션 목록). 읽기는 여기서, 저장은 AI 설정과 함께 /ai/settings로.
 adminRouter.get("/ai/prompt", (req, res) => {
   res.json({ sections: aiConfig.aiPrompt() } satisfies PromptReply);
 });
@@ -522,7 +522,7 @@ adminRouter.post("/ai/preview", async (req, res) => {
 });
 
 // 무료 확인. 모델 목록만 불러온다. 추론을 안 돌리니 토큰이 안 든다.
-// 화면의 모델 선택 입력란도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 까닭).
+// 화면의 모델 선택 입력란도 이것으로 채운다(모델 이름을 코드에 적어 두지 않는 이유).
 adminRouter.post("/ai/models", async (req, res) => {
   res.json(await assist.listModels(req.body?.data || {}));
 });
@@ -532,7 +532,7 @@ adminRouter.post("/ai/ping", async (req, res) => {
   res.json(await assist.ping(req.body?.data || {}));
 });
 
-// 운영자 패널의 보기 설정. 저장 막대와 상관없이 곧바로 쓰고, 마지막에 쓴 것이 남는다(한 사람의 보기 설정이라 번호를 맞추지 않는다)
+// 운영자 패널의 보기 설정. 저장 바와 상관없이 곧바로 쓰고, 마지막에 쓴 것이 남는다(한 사람의 보기 설정이라 번호를 맞추지 않는다)
 const panelOf = (data: unknown): PanelPrefs => ({ advanced: (data as Partial<PanelPrefs> | null)?.advanced === true });
 
 adminRouter.get("/panel", (_req, res) => {
@@ -547,7 +547,7 @@ adminRouter.put("/panel", (req, res) => {
   res.json(next satisfies PanelPrefs);
 });
 
-// 연령 제한 콘텐츠(운영자 단위, config/age-content). 화면이 켜기 전에 확인을 받는다. 저장 막대와 상관없이 곧바로 쓴다
+// 연령 제한 콘텐츠(운영자 단위, config/age-content). 화면이 켜기 전에 확인을 받는다. 저장 바와 상관없이 곧바로 쓴다
 adminRouter.get("/age-content", (_req, res) => {
   res.json(ageContent() satisfies AgeContent);
 });
@@ -564,7 +564,7 @@ adminRouter.put("/age-content", (req, res) => {
   res.json(next satisfies AgeContent);
 });
 
-// IP 위치 DB(dashboard/geoip). 다운로드는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
+// IP 위치 DB(dashboard/geoip). 다운로드는 오래 걸려(약 60MB) 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
 adminRouter.get("/geoip", (_req, res) => {
   res.json(geoip.status() satisfies GeoipStatus);
 });
@@ -576,7 +576,7 @@ adminRouter.post("/geoip/check", async (_req, res) => {
 adminRouter.post("/geoip/update", (req, res) => {
   log.info({ sub: "admin" }, `대시보드에서 IP 위치 DB 업데이트. 실행 ${ranBy(req)}`);
   geoip.update().catch((error: unknown) => {
-    // 까닭은 geoip 가 로그에 남긴다(다운로드 실패는 상태의 error 에도)
+    // 원인은 geoip가 로그에 남긴다(다운로드 실패는 상태의 error에도)
     if (!geoip.alreadyLogged(error)) log.error({ sub: "admin" }, `GeoIP 수동 업데이트 실패: ${messageOf(error)}`);
   });
   res.status(202).json(geoip.status() satisfies GeoipStatus);
@@ -588,7 +588,7 @@ adminRouter.get("/config/:name", (req, res) => {
   res.json({ name, data: documents.get(name) as Record<string, unknown>, revision: documents.revisionOf(name) } satisfies ConfigFile);
 });
 
-// 기본값. 저장하지 않는다(편집기가 불러와 보이고, 저장은 평소처럼 PUT 으로)
+// 기본값. 저장하지 않는다(편집기가 불러와 보이고, 저장은 평소처럼 PUT으로)
 adminRouter.get("/config/:name/default", (req, res) => {
   const { name } = req.params;
   if (!CONFIG_NAMES.includes(name) || !documents.isDocName(name)) return sendProblem(res, "config-not-found");
@@ -619,7 +619,7 @@ adminRouter.put("/config/:name", (req, res) => {
   }
 });
 
-// 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 스스로 재연결할 때는 Last-Event-ID 를,
+// 실시간 로그(SSE). 화면이 마지막으로 받은 줄 뒤부터 보낸다. 브라우저가 자동으로 재연결할 때는 Last-Event-ID를,
 // 화면이 닫았다 다시 열 때는 ?after= 를 싣는다
 adminRouter.get("/logs/stream", (req, res) => {
   const after = String(req.get("Last-Event-ID") ?? req.query?.after ?? "");

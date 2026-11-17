@@ -25,7 +25,7 @@ const INVALID_FORM = Object.assign(new Error("Invalid Form Body"), { code: 50035
 const guild = fake<Guild>({ id: "g1", members: { me: { voice: { channel: { id: "vc1" } } } } });
 const member = fake<GuildMember>({ id: "u1", guild, permissions: { has: () => true }, voice: { channel: { id: "vc1" } }, roles: { cache: new Map() } });
 
-/** 처음 reply 는 failures 차례로 던지고, 보낸 메뉴들의 팝 장르 이모지를 적는다 */
+/** 처음 reply는 failures를 차례로 예외로 던지고, 보낸 메뉴들의 팝 장르 이모지를 적는다 */
 function interaction(failures: Error[]) {
   const sent: unknown[] = [];
   const it = fake<RepliableInteraction<"cached">>({
@@ -44,7 +44,7 @@ function interaction(failures: Error[]) {
   return { it, sent };
 }
 
-/** reload 가 next 로 목록을 바꾼다 */
+/** reload가 next로 목록을 바꾼다 */
 function emojis(next: (typeof PARTY)[]) {
   let reloads = 0;
   const api = fake<AppEmojis>({
@@ -80,7 +80,7 @@ test("다시 읽어도 메뉴가 같으면 다시 보내지 않고 처음 오류
   assert.deepEqual(sent, []);
 });
 
-test("본문 거절이 아닌 오류는 목록을 읽지 않고 던진다", async () => {
+test("본문 거절이 아닌 오류는 목록을 읽지 않고 예외를 던진다", async () => {
   partyGenre();
   const other = Object.assign(new Error("Missing Access"), { code: 50001 });
   const { it } = interaction([other]);

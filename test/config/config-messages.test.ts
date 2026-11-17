@@ -21,7 +21,7 @@ type Case = [name: string, input: unknown, want: string[]];
 const GENRES: Case[] = [
   ["장르가 없다", {}, ["장르가 하나도 없어요"]],
   [
-    "공백뿐인 이름 · 숫자 이름 · 이모지가 아닌 값",
+    "공백뿐인 이름, 숫자 이름, 이모지가 아닌 값",
     {
       genres: {
         80: {
@@ -54,7 +54,7 @@ const GENRES: Case[] = [
     ["가요: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 해요", '"80": 숫자만으로 된 식별자는 순서가 어긋나요. "80s"처럼 글자를 붙여 주세요', "장르 식별자가 비어 있어요"],
   ],
   [
-    "맨 위 keywords · 소스 없음",
+    "맨 위 keywords, 소스 없음",
     {
       genres: {
         옛모양: {
@@ -157,7 +157,7 @@ const GENRES: Case[] = [
 
 const STATUSES: Case[] = [
   [
-    "문구가 없다 · interval 이 작다",
+    "문구가 없다, interval이 작다",
     {
       interval: 5,
     },
@@ -183,7 +183,7 @@ const STATUSES: Case[] = [
     ["평소 문구: 문구는 글자로 적거나 text/type으로 나눠 적어야 해요", "평소 문구: 빈 문구가 있어요", '평소 문구: 문구가 128자를 넘어요("xxxxxxxxxxxxxxxxxxxx…")', '평소 문구: "Streaming"은 쓸 수 없는 활동 종류예요(Playing, Listening, Watching, Competing, Custom)'],
   ],
   [
-    "special 이 표가 아니다",
+    "special이 표가 아니다",
     {
       messages: ["ok"],
       special: ["a"],
@@ -191,7 +191,7 @@ const STATUSES: Case[] = [
     ["special은 이름을 붙인 목록이어야 해요"],
   ],
   [
-    "special 이름 · 조건 · 범위",
+    "special 이름, 조건, 범위",
     {
       messages: ["ok"],
       special: {
@@ -232,18 +232,18 @@ const AIS: Case[] = [
     },
     [`provider는 ${PROVIDERS.join(", ")} 중 하나여야 해요`, "model을 적어야 해요"],
   ],
-  ["켰는데 provider 를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 해요"]],
-  ["enabled 는 참 · 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 해요"]],
+  ["켰는데 provider를 선택하지 않았다", { enabled: true, provider: "off" }, ["켜려면 provider를 선택해야 해요"]],
+  ["enabled는 참이나 거짓", { enabled: "yes", provider: "off" }, ["enabled는 true 또는 false여야 해요"]],
   ["꺼 두면 나머지 필드는 따지지 않는다", { enabled: false, provider: "nope", timeoutMs: "x" }, []],
   [
-    "custom 에 baseUrl 없음 · model 없음",
+    "custom에 baseUrl 없음, model 없음",
     {
       provider: "custom",
     },
     ["provider가 custom이면 baseUrl을 적어야 해요", "model을 적어야 해요"],
   ],
   [
-    "custom baseUrl 이 http 가 아님",
+    "custom baseUrl이 http가 아님",
     {
       provider: "custom",
       baseUrl: "ftp://x",
@@ -297,7 +297,7 @@ const AIS: Case[] = [
     ["retries는 0~10 사이여야 해요", "totalTimeoutMs는 0(상한 없음) 또는 1000~3600000 사이여야 해요", "retryTimeouts는 true 또는 false여야 해요", "retryDelayMs는 0~60000 사이여야 해요", "retryDelayMaxMs는 0~600000 사이여야 해요", "retryStatus는 400~599 사이 상태 코드 목록이어야 해요(예: [429, 503])"],
   ],
   [
-    "params 안쪽 · list 필드",
+    "params 안쪽, list 필드",
     {
       provider: "off",
       params: {
@@ -312,11 +312,11 @@ const AIS: Case[] = [
         unknownText: 1,
       },
     },
-    // 옛 필드(unknownDuration, unknownText)는 읽지 않는다(줄 형식 안의 {{#if-exist}} 로 정한다)
+    // 옛 필드(unknownDuration, unknownText)는 읽지 않는다(줄 형식 안의 {{#if-exist}}로 정한다)
     ["params.m1은 필드 이름과 값을 적는 표여야 해요(모델 이름으로 한 단계 나눠요)", "list.lineFormat 1번째 글자: 모르는 이름이에요({{가수}}). 쓸 수 있는 것: {{index}}, {{genre}}, {{title}}, {{duration}}", "list.lineFormat 1번째 글자: {{title}}이 있어야 해요. 판정할 대상이 제목이에요"],
   ],
   [
-    "list.lineFormat 이 글이 아님",
+    "list.lineFormat이 글이 아님",
     {
       provider: "off",
       list: {
@@ -347,7 +347,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
     ["1번째 섹션: 역할과 내용을 적어야 해요", "2번째 섹션: 역할은 system, user, assistant 중 하나여야 해요", "2번째 섹션: 내용은 글자로 적어야 해요", "3번째 섹션: 내용에 <|im_start|>, <|im_end|>를 적을 수 없어요"],
   ],
   [
-    "켜 둔 채 {{list}} 이 없음",
+    "켜 둔 채 {{list}}이 없음",
     [
       {
         role: "system",
@@ -358,7 +358,7 @@ const PROMPTS: Array<[name: string, input: unknown, on: boolean, want: string[]]
     ["어딘가에 {{list}}가 있어야 해요. 그 위치에 판정할 후보가 들어가요"],
   ],
   [
-    "꺼 두면 {{list}} 을 안 따진다",
+    "꺼 두면 {{list}}을 안 따진다",
     [
       {
         role: "system",

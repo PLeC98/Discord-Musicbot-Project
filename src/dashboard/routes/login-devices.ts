@@ -1,7 +1,7 @@
 // 로그인한 기기(설정 창 "계정"). 지금 사용자의 세션만 보이고 끊는다(세션 표에는 모든 사용자의 세션이 함께 있다).
 // 끊기는 최근 로그인만, 로그아웃과 같게: 그 세션의 디스코드 토큰 폐기 요청, 서버 목록 캐시 삭제, 세션 행 삭제.
 // 디스코드 토큰은 로그인마다 따로라 다른 기기의 것을 폐기해도 지금 기기의 토큰은 그대로다.
-// 행을 삭제하지 못하면(디스크가 가득 참 등) 성공으로 답하지 않는다(sign-out-unsaved). 이 실행에서는 끊겼고 저장소가 다시 삭제한다.
+// 행을 삭제하지 못하면(디스크가 가득 참 등) 성공으로 응답하지 않는다(sign-out-unsaved). 이 실행에서는 끊겼고 저장소가 다시 삭제한다.
 // "다른 기기 모두"는 이 기기도 새 세션 id로 옮긴다: 이 기기의 쿠키를 복사해 간 쪽은 이 기기와 같은 세션 id라 목록에 따로 보이지 않는다
 
 import express from "express";
@@ -41,7 +41,7 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     return store.endAll(sids, userId);
   }
 
-  // 끊은 결과로 답한다(count는 이번에 끊은 기기). 하나라도 삭제하지 못했으면(지난번 것을 다시 삭제하기 포함) 성공으로 답하지 않는다
+  // 끊은 결과로 응답한다(count는 이번에 끊은 기기). 하나라도 삭제하지 못했으면(지난번 것을 다시 삭제하기 포함) 성공으로 응답하지 않는다
   function answer(res: express.Response, results: boolean[], retried: boolean[] = []) {
     const unsaved = [...results, ...retried].filter((ok) => !ok).length;
     if (unsaved) return sendProblem(res, "sign-out-unsaved", {}, { signedOutCount: results.filter(Boolean).length, unsavedCount: unsaved });
@@ -103,9 +103,9 @@ function createLoginDevicesRouter({ places, http = discordHttp }: { places: Plac
     // 최근 로그인 확인을 지났으니 있다. 없으면 0(새 세션은 절대 기한이 지나 곧바로 끝난다). 기기 기록의 로그인 시각도 이것이다
     const loginAt = req.session.loginAt ?? 0;
     const moved = await startSession(req, { user, loginAt, viewAs: req.session.viewAs, token: tokenOf(store, oldSid), signedInAt: loginAt, failure: "다른 기기 로그아웃 뒤 요청한 기기의 새 세션 저장 실패(요청한 기기도 로그아웃)" });
-    // 이전 세션 행을 지우지 못했으면 다른 기기와 같게 성공으로 답하지 않는다. 새 세션을 저장하지 못했으면 이 기기도 로그아웃이다
+    // 이전 세션 행을 지우지 못했으면 다른 기기와 같게 성공으로 응답하지 않는다. 새 세션을 저장하지 못했으면 이 기기도 로그아웃이다
     if (!moved) return store.isUnsaved(oldSid) ? answer(res, results, [...retriedResults, false]) : sendProblem(res, "login-required");
-    // 여전히 삭제하지 못했으면 성공으로 답하지 않는다
+    // 여전히 삭제하지 못했으면 성공으로 응답하지 않는다
     answer(res, results, retriedResults);
   });
 

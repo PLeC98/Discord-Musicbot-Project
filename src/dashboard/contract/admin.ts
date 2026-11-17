@@ -1,4 +1,4 @@
-// 서버와 화면이 주고받는 모양: 봇 운영자 패널(/api/admin 아래). 서버는 routes/admin 이 만든다
+// 서버와 화면이 주고받는 모양: 봇 운영자 패널(/api/admin 아래). 서버는 routes/admin이 만든다
 
 import type { ProviderSpec } from "../../config/schema/ai-providers.ts";
 import type { PromptSection } from "../../config/schema/ai-prompt.ts";
@@ -19,40 +19,40 @@ import type { AgeContent } from "../../config/age-content.ts";
 /**
  * 봇 상태 탭(운영자). 3초마다 받는다. 메모리는 MB, 시각은 epoch ms, 시간 길이는 초(uptime), ms(ageMs).
  * 바깥 서비스(links)는 봇이 실제로 부른 결과로만 매긴다(상태를 보려고 따로 부르지 않는다).
- * history 는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
+ * history는 서버가 15초마다 모은 최근 15분이라 화면을 늦게 열어도 그래프가 차 있다
  */
 type AdminStatus = {
   /** reconnects: 봇이 켜진 뒤 디스코드 API 연결이 끊겼다 재연결한 횟수. retryAttempt: 지금 끊겨 재연결하려는 중이면 몇 번째 시도인지, 연결돼 있으면 null */
   bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string; reconnects: number; retryAttempt: number | null };
-  /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal 은 필요에 따라 늘어나는 값이라 한도가 아니다) */
+  /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal은 필요에 따라 늘어나는 값이라 한도가 아니다) */
   node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; heapLimit: number; rss: number } };
-  /** uptime: 운영체제가 켜진 뒤의 초. loadAvg 는 Windows 에서 늘 0 이라 화면은 쓰지 않는다 */
+  /** uptime: 운영체제가 켜진 뒤의 초. loadAvg는 Windows에서 늘 0이라 화면은 쓰지 않는다 */
   system: { cpus: number; cpuModel: string; totalMem: number; freeMem: number; loadAvg: number[]; uptime: number };
   /** CPU 사용률(%), 모든 코어를 합쳐 100. 지난 갱신 뒤 쓴 CPU 시간으로 잰다(운영체제와 상관없다) */
   cpu: { bot: number; system: number };
-  /** 이벤트 루프 지연(ms). 지난 15초의 p99 와 최대 */
+  /** 이벤트 루프 지연(ms). 지난 15초의 p99와 최대 */
   loop: { p99: number; max: number };
-  /** 곡 다운로드(캐시). bytesPerSec 은 지난 15초에 마친 양의 평균, todayBytes 는 오늘(봇 호스트의 자정부터), active 는 지금 다운로드하는 곡 수 */
+  /** 곡 다운로드(캐시). bytesPerSec은 지난 15초에 마친 양의 평균, todayBytes는 오늘(봇 호스트의 자정부터), active는 지금 다운로드하는 곡 수 */
   download: { bytesPerSec: number; todayBytes: number; active: number };
   /**
    * 업로드(바이트/초, 지난 15초 평균). bot = voice + dashboard: 음성은 보낸 Opus 패킷에 RTP, 암호화, UDP/IP 헤더를 더한 추정, 대시보드는 로컬이 아닌 곳으로 보낸 HTTP 응답.
-   * system: 호스트 전체의 송신(Linux 는 장치가 있는 인터페이스, 없으면 루프백만 뺀다. Windows 는 이더넷, 무선 종류로, 같은 종류인 가상 스위치 어댑터도 들어간다), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 호스트의 자정부터) 보낸 양
+   * system: 호스트 전체의 송신(Linux는 장치가 있는 인터페이스, 없으면 루프백만 뺀다. Windows는 이더넷, 무선 종류로, 같은 종류인 가상 스위치 어댑터도 들어간다), 재지 않는 운영체제거나 못 읽었으면 null. todayBytes: 봇이 오늘(봇 호스트의 자정부터) 보낸 양
    */
   upload: { bot: number; voice: number; dashboard: number; system: number | null; todayBytes: number };
   activePlayers: number;
   /**
    * 특권 인텐트(개발자 포털의 Bot → Privileged Gateway Intents). loggedIn: 이 프로세스가 로그인한 것(꺼졌으면 그것에 기대는 기능을 껐다),
-   * now: 지금 앱 설정(뒤에서 읽어 잠깐 기억한다, 모르면 null. loggedIn 이 꺼졌는데 켜졌으면 다시 시작하면 적용된다),
+   * now: 지금 앱 설정(뒤에서 읽어 잠깐 기억한다, 모르면 null. loggedIn이 꺼졌는데 켜졌으면 다시 시작하면 적용된다),
    * approval: 서버가 100개 이상이라 스위치가 아니라 디스코드의 승인이 필요하다
    */
   intents: { messageContent: { loggedIn: boolean; now: boolean | null }; guildMembers: { loggedIn: boolean; now: boolean | null }; approval: boolean };
   /**
    * 플레이어가 있는 서버(재생, 일시정지, 곡 없이 대기). 행은 쿼리(players, states, q)의 구간만 온다.
-   * listeners, queued, counts 는 전부의 합(필터링과 상관없다). matched: 필터링된 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(삽입 순서)
+   * listeners, queued, counts는 전부의 합(필터링과 상관없다). matched: 필터링된 수, from: 받은 구간의 시작(당겼으면 보낸 시작보다 작다), rows: 그 구간의 행(삽입 순서)
    */
   players: { voiceConnections: number; queued: number; listeners: number; counts: Record<PlayerState, number>; matched: number; from: number; rows: PlayerRow[] };
   /**
-   * 자식 프로세스(ffmpeg, yt-dlp, 헬퍼). 행은 쿼리(procs, sort, desc)로 정렬한 구간만 온다. byLabel 은 프로그램마다의 수, memMb 는 잰 메모리의 합.
+   * 자식 프로세스(ffmpeg, yt-dlp, 헬퍼). 행은 쿼리(procs, sort, desc)로 정렬한 구간만 온다. byLabel은 프로그램마다의 수, memMb는 잰 메모리의 합.
    * stray: 잔류 의심 프로세스의 앞(오래된 것부터 STRAY_SHOWN 개), strayMore: 그 밖의 수.
    * ytdlp: yt-dlp 줄(lookup: 사용자가 기다리는 작업, background: 다운로드, 미리 받기)과 지난 1시간 유튜브 영상 정보 추출 수. nearLimit: 막히기 시작하는 수(시간당 약 300)에 가깝다.
    * reused, missed: 지난 1시간 캐시한 영상 정보를 다시 쓴 수, 캐시가 가득 차 밀려난 뒤 필요해져 다시 추출한 수
@@ -70,10 +70,10 @@ type AdminStatus = {
   youtube: YoutubeStatus;
   links: LinkRow[];
   storage: StorageView;
-  /** 지난 1시간 로그의 경고, 오류 수와 가장 최근 몇 가지. 같은 글은 한 줄로 묶어 count 와 마지막 때(ts)를 단다 */
+  /** 지난 1시간 로그의 경고, 오류 수와 가장 최근 몇 가지. 같은 글은 한 줄로 묶어 count와 마지막 때(ts)를 단다 */
   recent: { warn: number; error: number; lines: Array<{ ts: number; level: "warn" | "error"; text: string; count: number }> };
   /**
-   * ffmpeg, ytdlp.version 은 찾지 못했으면 null. ytdlp.autoUpdate: 스스로 새 버전을 다운로드하는가, nextCheckAt: 다음 확인(예약하지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
+   * ffmpeg, ytdlp.version은 찾지 못했으면 null. ytdlp.autoUpdate: 자동으로 새 버전을 다운로드하는가, nextCheckAt: 다음 확인(예약하지 않았으면 null). dashboardClients: 지금 열린 대시보드 연결 수.
    * launcher: 실행기(pnpm start)로 켰는가. 아니면 다시 실행해 줄 쪽이 없어 대시보드에서 다시 시작하지 못한다.
    * bgutil: 설치된 버전, 설정한 버전(BGUTIL_VERSION), 그보다 새 릴리스(없으면 null). 설치돼 있지 않으면 null
    */
@@ -92,13 +92,13 @@ type PlayerState = (typeof PLAYER_STATES)[number];
 /** member: 보는 사람(운영자)이 그 서버 멤버인가. 아니면 화면은 그 서버 화면으로 잇지 않는다. queued: 대기열 곡 수(지금 곡은 빼고) */
 type PlayerRow = { guildId: string; name: string; icon: string | null; member: boolean; state: PlayerState; title: string | null; artist: string | null; position: number; duration: number; isLive: boolean; listeners: number; queued: number };
 
-/** 긴 목록의 구간(시작, 개수). 한 번에 받는 행은 LIST_WINDOW_MAX 까지 */
+/** 긴 목록의 구간(시작, 개수). 한 번에 받는 행은 LIST_WINDOW_MAX까지 */
 type Span = { from: number; count: number };
 const LIST_WINDOW_MAX = 200;
 const PROCESS_SORTS = ["pid", "label", "job", "age", "mem"] as const;
 type ProcessSort = (typeof PROCESS_SORTS)[number];
 /**
- * 상태 탭 목록의 쿼리. players, procs: 구간(개수 0 이면 행 없이 개수만), states: 보일 상태, q: 서버 이름, 곡, 가수 검색(Q_MAX 자까지).
+ * 상태 탭 목록의 쿼리. players, procs: 구간(개수 0이면 행 없이 개수만), states: 보일 상태, q: 서버 이름, 곡, 가수 검색(Q_MAX 자까지).
  * sort, desc: 프로세스 정렬. 작업은 서버 이름 있는 작업 → 나간 서버 → 서버 밖 작업 → 봇 헬퍼 순서, 같은 값끼리는 방향과 상관없이 오래된 것부터
  */
 type StatusQuery = { players: Span; states: PlayerState[]; q: string; procs: Span; sort: ProcessSort; desc: boolean };
@@ -108,7 +108,7 @@ const STATUS_QUERY: StatusQuery = { players: { from: 0, count: 30 }, states: ["p
 const COUNTS_ONLY: StatusQuery = { ...STATUS_QUERY, players: { from: 0, count: 0 }, procs: { from: 0, count: 0 } };
 const Q_MAX = 100;
 const STRAY_SHOWN = 20;
-/** 쿼리를 요청의 쿼리 문자열 값으로(서버는 list-window 가 읽는다) */
+/** 쿼리를 요청의 쿼리 문자열 값으로(서버는 list-window가 읽는다) */
 const statusParams = (query: StatusQuery) => ({
   players: `${query.players.from},${query.players.count}`,
   states: query.states.join(","),
@@ -126,15 +126,15 @@ type ProcessRow = { pid: number; label: string; ageMs: number; memMb: number | n
 /** idle: 지난 1시간 부르지 않음, off: 쓰는 설정이 없음(키가 없거나 그 출처를 쓰는 장르가 없다) */
 type LinkState = "ok" | "slow" | "fail" | "idle" | "off";
 /**
- * group: play(소리를 내는 데 쓴다), youtube, autoplay(다음 곡 선택). play, youtube 가 실패하면 문제, autoplay 는 주의.
- * error: 마지막 실패의 짧은 까닭("timeout", "HTTP 503" 등). note: 행에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
+ * group: play(소리를 내는 데 쓴다), youtube, autoplay(다음 곡 선택). play, youtube가 실패하면 문제, autoplay는 주의.
+ * error: 마지막 실패의 짧은 원인("timeout", "HTTP 503" 등). note: 행에 보이는 설명, hint: 이름에 올리면 보이는 설명(그 서비스를 다루는 방식처럼 늘 같은 것)
  */
 type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: string; state: LinkState; latencyMs: number | null; lastOkAt: number | null; error: string | null; note: string | null; hint?: string | null };
 
 /**
- * 저장공간. cache: protectedFiles 는 지금 곡, 대기열 앞이라 삭제하지 않는 파일, neverPlayed 는 다운로드하고 한 번도 재생하지 않은 파일,
- * failed 는 다운로드 실패로 남은 행(다운로드 실패, 다운로드 멈춤, 파일이 사라짐, 다시 다운로드하면 풀린다), lastCleanup 은 봇이 켜진 뒤 마지막으로 실제로 삭제한 정리(없으면 null).
- * disk: 캐시 폴더의 드라이브. db: drive 가 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다
+ * 저장공간. cache: protectedFiles는 지금 곡, 대기열 앞이라 삭제하지 않는 파일, neverPlayed는 다운로드하고 한 번도 재생하지 않은 파일,
+ * failed는 다운로드 실패로 남은 행(다운로드 실패, 다운로드 멈춤, 파일이 사라짐, 다시 다운로드하면 풀린다), lastCleanup은 봇이 켜진 뒤 마지막으로 실제로 삭제한 정리(없으면 null).
+ * disk: 캐시 폴더의 드라이브. db: drive가 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다
  */
 type StorageView = {
   cache: { bytes: number; maxBytes: number; files: number; maxFiles: number; protectedFiles: number; neverPlayed: number; failed: number; lastCleanup: { at: number; files: number; bytes: number } | null };
@@ -143,7 +143,7 @@ type StorageView = {
 };
 
 /**
- * 최근 15분, stepMs 마다 한 점(오래된 것부터). 끝 점이 가장 최근.
+ * 최근 15분, stepMs마다 한 점(오래된 것부터). 끝 점이 가장 최근.
  * encodeRtt: 구간마다 가장 느린 인코딩 워커의 응답 시간 p99(ms). encodeLate: 구간 동안 워커가 늦어 생긴 누락 프레임 수. uploadBot, uploadSystem: 업로드(바이트/초, 시스템을 못 읽은 구간은 0)
  */
 type StatusHistory = { stepMs: number; endAt: number; playing: number[]; ping: number[]; loopP99: number[]; heapPct: number[]; cpuBot: number[]; cpuSystem: number[]; downloadBps: number[]; encodeRtt: number[]; encodeLate: number[]; uploadBot: number[]; uploadSystem: number[] };
@@ -153,7 +153,7 @@ const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
 /**
- * 공지 종류의 모양: 디스코드 임베드의 제목, 아이콘(ui/icons 의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다.
+ * 공지 종류의 모양: 디스코드 임베드의 제목, 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다.
  * 색은 경고 수준의 뜻(점검 = 경고, 업데이트 = 완료, 긴급 = 오류, 공지사항 = 공지). 아이콘 타일도 그 색으로 그려 둔다
  */
 const ANNOUNCE_STYLE = {
@@ -166,11 +166,11 @@ const ANNOUNCE_STYLE = {
 const ANNOUNCE_MAX = 4096;
 /** 보낼 공지 본문: 앞뒤 공백을 뺀다 */
 const announceBody = (message: string) => message.trim();
-/** 공지의 답. 일부 서버에만 보냈으면 partial */
+/** 공지의 응답. 일부 서버에만 보냈으면 partial */
 type BroadcastReply = { success: true; sent: number; failed: number; total: number; partial: boolean };
 
 type AdminGuild = { id: string; name: string; icon: string | null; memberCount: number; hasPlayer: boolean };
-/** 봇이 든 서버. guilds 는 쿼리(GuildQuery)로 필터링하고 정렬한 구간만. total: 전부의 수, playing: 재생 중인 서버 수(필터링과 상관없다), matched: 필터링된 수, from: 받은 구간의 시작 */
+/** 봇이 든 서버. guilds는 쿼리(GuildQuery)로 필터링하고 정렬한 구간만. total: 전부의 수, playing: 재생 중인 서버 수(필터링과 상관없다), matched: 필터링된 수, from: 받은 구간의 시작 */
 type AdminGuilds = { total: number; playing: number; matched: number; from: number; guilds: AdminGuild[] };
 const GUILD_SORTS = ["name", "name-desc", "members-desc", "members-asc"] as const;
 type GuildSort = (typeof GUILD_SORTS)[number];
@@ -179,9 +179,9 @@ type GuildQuery = { guilds: Span; q: string; playing: boolean; sort: GuildSort }
 const GUILD_QUERY: GuildQuery = { guilds: { from: 0, count: 30 }, q: "", playing: false, sort: "name" };
 const guildParams = (query: GuildQuery) => ({ guilds: `${query.guilds.from},${query.guilds.count}`, q: query.q, playing: query.playing ? "1" : "0", sort: query.sort });
 type LeaveReply = { success: true; name: string };
-/** 슬래시 명령 다시 등록. scope 는 guild(그 서버에만), global */
+/** 슬래시 명령 다시 등록. scope는 guild(그 서버에만), global */
 type RedeployReply = { success: true; count: number; scope: string; guildId: string | null; names: string[] };
-/** 다시 시작을 받았다. 답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
+/** 다시 시작을 받았다. 응답을 보낸 뒤 봇이 내려가고, 화면은 봇이 다시 뜰 때까지 기다린다 */
 type RestartReply = { restarting: true };
 /** 특권 인텐트 켜기. enabled: 켰다(다시 시작하면 적용), already: 이미 켜져 있었다 */
 type IntentEnableReply = { result: "enabled" | "already" };
@@ -196,7 +196,7 @@ type GeoipCheck = { current: string | null; latest: string | null; size: number 
 
 /** 외부 도구 카드의 상태(GET /api/admin/vendor) */
 type VendorStatus = { ytdlp: YtdlpCardStatus };
-/** 외부 도구 조작의 답. tunables: 설정을 저장한 조작이면 새 조절값 상태(화면이 저장 번호와 저장된 값을 맞춘다) */
+/** 외부 도구 조작의 응답. tunables: 설정을 저장한 조작이면 새 설정값 상태(화면이 저장 번호와 저장된 값을 맞춘다) */
 type VendorReply = { status: VendorStatus; tunables?: TunablesView };
 
 /** 설정 파일(genres, status, ai)의 문서. revision: 저장 번호(저장할 때 그대로 돌려보낸다. 그사이 다른 저장이 있었으면 config-changed) */
@@ -223,10 +223,10 @@ type AiState = {
 };
 /**
  * 그 모델이 받는 필드. known: 모델 정보에 그 모델이 있다.
- * profiled: 그 프로바이더는 모델 정보를 받는 곳이다(로컬, custom 은 아니다). 아니면 known 이 false 이고 필드 그룹이 없다
+ * profiled: 그 프로바이더는 모델 정보를 받는 곳이다(로컬, custom은 아니다). 아니면 known이 false이고 필드 그룹이 없다
  */
 type AiFields = { known: boolean; profiled: boolean; fields: ModelField[]; groups?: ModelGroup[]; models: ModelSummary[] };
-/** 입력란마다의 본문 토큰. exact 가 아니면 추산 */
+/** 입력란마다의 본문 토큰. exact가 아니면 추산 */
 type TokensReply = { each: number[]; total: number; by: string; exact: boolean };
 type CandidatesReply = { candidates: TestCandidate[] };
 
@@ -235,7 +235,7 @@ const AI_SAMPLE_CANDIDATES = SAMPLE_CANDIDATES;
 type LinesReply = { lines: string[] };
 type KeysReply = { hasKey: Record<string, boolean>; keyState: Record<string, AiKeyState> };
 type PromptReply = { sections: PromptSection[] };
-/** AI 설정과 프롬프트를 한 번에 저장한 답 */
+/** AI 설정과 프롬프트를 한 번에 저장한 응답 */
 type AiSaved = { data: Record<string, unknown>; sections: PromptSection[]; revision: number };
 
 /** 유튜브 쿠키. 값은 오지 않는다. hasFile: 저장된 쿠키가 있고 복호화된다 */

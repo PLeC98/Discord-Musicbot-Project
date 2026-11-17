@@ -3,7 +3,7 @@
 //
 // 서버는 실행마다 OS가 준 빈 포트, 127.0.0.1 하나에만 열고, yt-dlp에는 그 주소를 넘긴다(youtube/auth). 고정 포트(4416)를 쓰면
 // 그 포트를 남(남은 서버, 따로 띄운 서버, 다른 봇)이 쥐었을 때 서버가 뜨지 못하고 yt-dlp가 남의 서버에 기댄다.
-// 주소를 하나로 정하는 까닭: 정하지 않으면 bgutil은 ::1과 127.0.0.1에 따로 열고 하나만 열려도 돈다(남이 IPv4만 쥐면 반쪽으로 뜬다).
+// 주소를 하나로 정하는 이유: 정하지 않으면 bgutil은 ::1과 127.0.0.1에 따로 열고 하나만 열려도 돈다(남이 IPv4만 쥐면 반쪽으로 뜬다).
 
 import childProcess from "child_process";
 import fs from "fs";
@@ -44,13 +44,13 @@ function potServerUrl() {
   return current;
 }
 
-// 받아 둔 서버의 버전. 준비 확인에서 답한 서버가 이 봇이 띄운 것인지 본다
+// 받아 둔 서버의 버전. 준비 확인에서 응답한 서버가 이 봇이 띄운 것인지 본다
 function installedVersion(): string | null {
   try {
     const version = (JSON.parse(fs.readFileSync(path.join(SERVER_DIR, "package.json"), "utf8")) as { version?: unknown }).version;
     return typeof version === "string" ? version : null;
   } catch {
-    // 파일이 없으면 설치되지 않은 것이다(launch 가 알린다). 다른 실패는 bgutil-version 이 기동 시 남긴다
+    // 파일이 없으면 설치되지 않은 것이다(launch가 알린다). 다른 실패는 bgutil-version이 기동 시 남긴다
     return null;
   }
 }
@@ -112,7 +112,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   let bindFailures = 0;
   let starting: Promise<void> = Promise.resolve();
 
-  /** 실행한다. 꺼 두었거나 설치돼 있지 않으면 실행하지 않는다. 돌려주는 것은 실행까지(준비는 waitReady). 던지지 않는다 */
+  /** 실행한다. 꺼 두었거나 설치돼 있지 않으면 실행하지 않는다. 돌려주는 것은 실행까지(준비는 waitReady). 예외를 던지지 않는다 */
   function start(): Promise<void> {
     return run(true);
   }
@@ -135,7 +135,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있음(POToken 서버를 실행하지 않고 진행)");
       return;
     }
-    // 켜 두었는데 설치돼 있지 않으면 error 로 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
+    // 켜 두었는데 설치돼 있지 않으면 error로 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
     if (!installed) {
       log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행). pnpm run install:bgutil로 설치하세요");
       return;
@@ -147,7 +147,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     const child = spawn(process.execPath, ["--import", EXIT_WITH_PARENT, "build/main.js", "-p", String(port), "-H", HOST], { cwd: SERVER_DIR, stdio: ["pipe", "pipe", "pipe"] });
     proc = child;
     let bindFailed = false;
-    // 레지스트리가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop() 을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
+    // 레지스트리가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop()을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게
     const release = processRegistry.register(child, "bgutil", { job: "pot-server" });
     child.stdout?.on("data", (d: Buffer) => relay(d, "out"));
     child.stderr?.on("data", (d: Buffer) => {
@@ -201,7 +201,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
   }
 
   // /ping에 응답할 때까지 기다린다(최대 timeoutMs). 실행한 것이 없으면 바로 통과, 시간을 넘기면 경고만.
-  // 답한 서버의 버전이 받아 둔 서버와 다르면 이 봇이 띄운 서버가 아니다
+  // 응답한 서버의 버전이 받아 둔 서버와 다르면 이 봇이 띄운 서버가 아니다
   async function waitReady(timeoutMs = 30000) {
     await starting;
     if (!proc) return true;
@@ -217,7 +217,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
             log.info({ sub: "bgutil" }, `POToken 서버 준비 완료 (${String(url)})`);
             return true;
           }
-          lastError = `다른 버전(${answered})의 서버가 답함`;
+          lastError = `다른 버전(${answered})의 서버가 응답함`;
         }
       } catch (error) {
         // 아직 준비 안 됨. 재시도

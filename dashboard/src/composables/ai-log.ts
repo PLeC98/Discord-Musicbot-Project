@@ -38,7 +38,7 @@ function listState() {
   const loadError = ref("");
   const query = reactive<AiLogQuery>({ sources: [], result: "", q: "" });
   const more = computed(() => entries.value.length < matched.value);
-  // 늦게 온 앞 요청의 답이 새 필터의 답을 덮지 않게 순서를 센다
+  // 늦게 온 앞 요청의 응답이 새 필터의 응답을 덮지 않게 순서를 센다
   let seq = 0;
 
   function take(page: AiLogPage, append: boolean) {

@@ -1,4 +1,4 @@
-// 로그인 배경(운영자 패널). /api/admin/appearance/login-background. 상태 하나(LoginBackgroundState)를 읽고, 바꾸는 요청들도 그것으로 답한다.
+// 로그인 배경(운영자 패널). /api/admin/appearance/login-background. 상태 하나(LoginBackgroundState)를 읽고, 바꾸는 요청들도 그것으로 응답한다.
 // 올리기는 청크로 다 올린 업로드(routes/uploads)를 가져온다(고정 상한 없이 남은 저장 공간으로만 막는다). 단계는 login-background/runner가 돌린다
 
 import fs from "node:fs";
@@ -78,13 +78,13 @@ function stateOf(): LoginBackgroundState {
 }
 
 const reply = (res: Response) => res.json(stateOf() satisfies LoginBackgroundState);
-/** 경로의 배경. 없으면 route-not-found 를 보내고 null */
+/** 경로의 배경. 없으면 route-not-found를 보내고 null */
 function itemFor(req: Request<{ id: string }>, res: Response) {
   const one = store.find(req.params.id);
   if (!one) sendProblem(res, "route-not-found");
   return one;
 }
-/** 바꾼 것을 적고 로그를 남기고 상태로 답한다 */
+/** 바꾼 것을 적고 로그를 남기고 상태로 응답한다 */
 function changed<P>(req: Request<P>, res: Response, what: string) {
   store.save();
   log.info({ sub: "admin" }, `로그인 배경: ${what}. 실행 ${ranBy(req)}`);
@@ -226,7 +226,7 @@ loginBackgroundRouter.delete("/:id", (req, res) => {
   changed(req, res, `"${one.name}"${josa(one.name, "을")} 기록에서 삭제`);
 });
 
-// 인코더를 다시 테스트한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking 으로 답한다
+// 인코더를 다시 테스트한다(드라이버를 바꾼 뒤 등). 끝나기를 기다리지 않고 checking으로 응답한다
 loginBackgroundRouter.post("/encoders/check", (req, res) => {
   void encoders.recheck();
   changed(req, res, "인코더 다시 테스트");

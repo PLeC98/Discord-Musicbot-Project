@@ -1,6 +1,6 @@
-// src/sources/spotify.ts: Spotify 의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다.
+// src/sources/spotify.ts: Spotify의 공식 API 경로와 익명 GraphQL 경로가 네트워크와 무엇을 주고받는지 고정한다.
 //
-// fetch 만 가짜로 두고 토큰 발급, 재사용, 상태 추출, 저장, 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
+// fetch만 가짜로 두고 토큰 발급, 재사용, 상태 추출, 저장, 재시도를 적어 둔다. 익명 상태는 진짜 저장소(externalCaches, 임시 DB)에 남는다.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -28,7 +28,7 @@ const savedCreds = { ...config.spotify };
 type Init = { method?: string; headers?: Record<string, string>; body?: string };
 const requests: Array<{ url: string; init: Init }> = [];
 
-// Response 는 Set-Cookie 를 필터링하므로 필요한 것만 가진 가짜를 쓴다
+// Response는 Set-Cookie를 필터링하므로 필요한 것만 가진 가짜를 쓴다
 const reply = (body: unknown, { status = 200, cookies = [] as string[] } = {}) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -36,7 +36,7 @@ const reply = (body: unknown, { status = 200, cookies = [] as string[] } = {}) =
   json: async () => (typeof body === "string" ? JSON.parse(body) : body),
   text: async () => (typeof body === "string" ? body : JSON.stringify(body)),
 });
-// 요청 하나에 답하는 길. 모르는 요청이면 undefined
+// 요청 하나에 응답하는 길. 모르는 요청이면 undefined
 type Route = (url: string, init: Init) => ReturnType<typeof reply> | undefined;
 let routes: Route[] = [];
 
@@ -103,7 +103,7 @@ test("공식 API: 토큰을 한 번 받아 재사용하고, 곡을 표준 모양
   assert.deepEqual(a, { title: "곡", artist: "가수", album: "앨범", pageUrl: "https://open.spotify.com/track/aaa111", requestKey: "https://open.spotify.com/track/aaa111", duration: 201, thumbnail: "https://i.scdn.co/big", platform: "spotify", id: "aaa111" });
 });
 
-// 익명 GraphQL 의 곡, 앨범(getTrack, getAlbum). 가짜 쿼리로 넘긴다(익명 토큰, 상태는 아래 테스트들이 본다)
+// 익명 GraphQL의 곡, 앨범(getTrack, getAlbum). 가짜 쿼리로 넘긴다(익명 토큰, 상태는 아래 테스트들이 본다)
 const gqlTrack = (id: string, name: string) => ({ uri: `spotify:track:${id}`, name, duration: { totalMilliseconds: 201500 }, artists: { items: [{ profile: { name: "가수" } }] } });
 const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op: string, _hash: string, vars: Record<string, unknown>) => {
   seen.push([op, vars]);
@@ -116,7 +116,7 @@ const anonQuery = (seen: Array<[string, Record<string, unknown>]>) => async (op:
   throw new Error(`모르는 쿼리 ${op}`);
 };
 
-test("키가 없으면 곡, 앨범도 익명 GraphQL 로 연다(공식 API 는 부르지 않는다)", async () => {
+test("키가 없으면 곡, 앨범도 익명 GraphQL로 연다(공식 API는 부르지 않는다)", async () => {
   Object.assign(config.spotify, { clientId: null, clientSecret: null });
   const seen: Array<[string, Record<string, unknown>]> = [];
   const [t] = (await spotifySource.getCollection("https://open.spotify.com/track/e1", undefined, { query: anonQuery(seen) })).tracks;
@@ -142,7 +142,7 @@ test("키가 없으면 곡, 앨범도 익명 GraphQL 로 연다(공식 API 는 �
   assert.equal(requests.length, 0, "공식 API 토큰도 받지 않는다");
 });
 
-test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 익명 GraphQL 로 넘어간다. 없는 곡은 없음이다", async () => {
+test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 익명 GraphQL로 넘어간다. 없는 곡은 없음이다", async () => {
   routes = [(url) => (url === "https://accounts.spotify.com/api/token" ? reply({ error: "invalid_client" }, { status: 401 }) : undefined)];
   const from = sink.buffer.length;
   const seen: Array<[string, Record<string, unknown>]> = [];
@@ -152,7 +152,7 @@ test("키가 틀려 토큰을 못 받으면(401) 운영자 로그에 남기고 �
   assert.deepEqual(await spotifySource.getCollection("https://open.spotify.com/track/gone", undefined, { query: anonQuery(seen) }), { tracks: [], total: null, nextOffset: null });
 });
 
-test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간다", async () => {
+test("가수 인기곡: 공식 API가 실패하면 익명 GraphQL로 넘어간다", async () => {
   // GraphQL 쿼리는 가짜로 넘긴다(익명 토큰, 상태는 아래 테스트들이 본다)
   const query = async (op: string, _hash: string, vars: Record<string, unknown>) => {
     assert.equal(op, "queryArtistOverview");
@@ -167,8 +167,8 @@ test("가수 인기곡: 공식 API 가 실패하면 익명 GraphQL 로 넘어간
   );
 });
 
-// 모든 경로가 실패하면 빈 결과가 아니라 까닭을 던진다(빈 결과면 "결과 없음"으로만 보인다)
-test("모든 경로가 실패하면 마지막 까닭을 던진다. 없는 앨범(404)은 없음이다(익명 GraphQL 로 다시 묻지 않는다)", async () => {
+// 모든 경로가 실패하면 빈 결과 대신 오류를 던짐(빈 결과면 원인 없이 "결과 없음"으로만 보임)
+test("모든 경로가 실패하면 마지막 오류를 던진다. 없는 앨범(404)은 없음이다(익명 GraphQL로 다시 묻지 않는다)", async () => {
   routes = [tokenRoute, () => reply({}, { status: 503 })];
   const failing = async () => {
     throw new Error("GraphQL 503");
@@ -209,7 +209,7 @@ const anonRoutes = ({ tokenStatus = [200] } = {}): Route[] => {
   ];
 };
 
-test("익명 상태: 홈, 번들에서 버전, secret, 해시를 추출해 DB 에 남기고, 다음에는 메모리에서", async () => {
+test("익명 상태: 홈, 번들에서 버전, secret, 해시를 추출해 DB에 남기고, 다음에는 메모리에서", async () => {
   routes = anonRoutes();
 
   const state = await graphql._ensureState(false);
@@ -227,7 +227,7 @@ test("익명 상태: 홈, 번들에서 버전, secret, 해시를 추출해 DB �
 
   spotifySource._reset(); // 프로세스를 다시 시작한 것처럼
   await graphql._ensureState(false);
-  assert.equal(requests.length, before, "프로세스를 다시 실행해도 DB 에 남은 것이 새것이면 그것을 쓴다");
+  assert.equal(requests.length, before, "프로세스를 다시 실행해도 DB에 남은 것이 새것이면 그것을 쓴다");
 });
 
 const down = (): Route[] => [
@@ -236,20 +236,20 @@ const down = (): Route[] => [
   },
 ];
 
-test("익명 상태: 추출이 실패하면 저장값, 그것도 없으면 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
+test("익명 상태: 추출이 실패하면 저장값, 그것도 없으면 예외를 던진다(코드에 박힌 값으로 돌지 않는다)", async () => {
   routes = down();
   await assert.rejects(graphql._ensureState(true), /익명 상태 받기 실패: 네트워크 끊김/);
   assert.equal(externalCaches.getSpotifyAnonState(), null);
 
   routes = anonRoutes();
   await graphql._ensureState(false);
-  spotifySource._reset(); // 프로세스를 다시 시작한 것처럼. 저장값은 DB 에만
+  spotifySource._reset(); // 프로세스를 다시 시작한 것처럼. 저장값은 DB에만
   routes = down();
   const state = await graphql._ensureState(true);
-  assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB 에 남은 값");
+  assert.deepEqual(state.secrets, [{ secret: "s3cr'et", version: 12 }], "DB에 남은 값");
 });
 
-test("익명 상태: 홈, 번들이 오류이거나 secret 이 없으면 추출 실패다. 저장값을 새것으로 덮지 않는다", async () => {
+test("익명 상태: 홈, 번들이 오류이거나 secret이 없으면 추출 실패다. 저장값을 새것으로 덮지 않는다", async () => {
   routes = [() => reply("", { status: 500 })];
   await assert.rejects(graphql._ensureState(true), /홈 500/);
   assert.equal(externalCaches.getSpotifyAnonState(), null, "실패를 새 값으로 적지 않는다");
@@ -300,7 +300,7 @@ test("익명 상태: 번들에서 못 찾은 해시는 직전 값을 두고, 아
   await assert.rejects(graphql._query("queryArtistOverview", "queryArtistOverview", {}), /queryArtistOverview 해시가 없음/);
 });
 
-test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받고, 만료 전까지 재사용", async () => {
+test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP를 만들어 받고, 만료 전까지 재사용", async () => {
   routes = anonRoutes();
 
   const tok = await graphql._token();
@@ -318,7 +318,7 @@ test("익명 토큰: 홈의 쿠키와 서버 시각으로 TOTP 를 만들어 받
   assert.equal(mints[0]?.init.headers?.["App-Platform"], "WebPlayer");
 });
 
-test("익명 토큰: 400, 403 이면 secret 을 다시 추출해 한 번 더", async () => {
+test("익명 토큰: 400, 403이면 secret을 다시 추출해 한 번 더", async () => {
   routes = anonRoutes({ tokenStatus: [403, 200] });
 
   assert.equal(await graphql._token(), "A2");
@@ -354,7 +354,7 @@ test("GraphQL 쿼리: 파트너 헤더와 저장된 해시로 보낸다. 해시�
   assert.equal(q[0]?.init.headers?.["Spotify-App-Version"], "9.9.9");
 });
 
-test("GraphQL 쿼리: 다른 오류와 JSON 이 아닌 응답은 던진다", async () => {
+test("GraphQL 쿼리: 다른 오류와 JSON이 아닌 응답은 예외를 던진다", async () => {
   routes = [...anonRoutes(), (url) => (url.includes("api-partner") ? reply({ errors: [{ message: "Forbidden" }] }) : undefined)];
   await assert.rejects(graphql._query("fetchPlaylist", "fetchPlaylist", {}), /Forbidden/);
 
@@ -403,7 +403,7 @@ test("익명 상태와 토큰: 동시에 온 요청은 한 번만 추출하고 �
   assert.equal(requests.filter((r) => r.url.startsWith("https://open.spotify.com/api/token?")).length, 1);
 });
 
-test("곡 검색: searchTracks 로 묻고 곡 모양으로 바꾼다. 같은 검색어는 기억에서", async () => {
+test("곡 검색: searchTracks로 묻고 곡 모양으로 바꾼다. 같은 검색어는 기억에서", async () => {
   routes = [...searchRoutes(), (url) => (url.includes("api-partner") ? searchAnswer(["閃光", "閃光 (Live)"]) : undefined)];
   const tracks = await spotifySource.searchTracks(" 閃光 ");
   assert.deepEqual(
@@ -481,7 +481,7 @@ test("익명 토큰: 만료 시각까지는 곧 만료여도 다시 받지 않�
   assert.equal(externalCaches.getSpotifyAnonToken()?.value, "A1");
 });
 
-test("익명 토큰: 만료 뒤 받았는데 같은 토큰이 오면 다시 받지 않고 그것을 쓴다. 401 로 버린 뒤에는 새로 받는다", async () => {
+test("익명 토큰: 만료 뒤 받았는데 같은 토큰이 오면 다시 받지 않고 그것을 쓴다. 401로 버린 뒤에는 새로 받는다", async () => {
   const sameToken: Route = (url) => (url.startsWith("https://open.spotify.com/api/token?") ? reply({ accessToken: "OLD", accessTokenExpirationTimestampMs: Date.now() - 1 }) : undefined);
   routes = [sameToken, ...anonRoutes()];
   await graphql._ensureState(false);
@@ -491,7 +491,7 @@ test("익명 토큰: 만료 뒤 받았는데 같은 토큰이 오면 다시 받�
   assert.equal(await graphql._token(), "OLD");
   assert.equal(mints(), 1, "같은 토큰이 왔으면 요청마다 받지 않는다");
 
-  graphql._dropToken(); // 쿼리가 401 을 받으면 버린다
+  graphql._dropToken(); // 쿼리가 401을 받으면 버린다
   routes = anonRoutes();
   assert.equal(await graphql._token(), "A1");
   assert.equal(mints(), 2);

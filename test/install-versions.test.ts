@@ -1,9 +1,9 @@
-// scripts/install-ffmpeg.ts(src/media/ffmpeg/release), install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env 로 바꾼다.
+// scripts/install-ffmpeg.ts(src/media/ffmpeg/release), install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env로 바꾼다.
 //
 // 지키는 것 둘:
 // 1. 움직이는 태그(latest)는 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
 //    BtbN은 일반 autobuild를 2주만 보관하므로 월말 빌드(2년 보관)로 고정한다.
-// 2. `FFMPEG_PATH=   # 설명` 처럼 값이 비고 주석만 있는 줄은 빈 값이다(값으로 읽으면 다운로드를 영영 건너뛴다).
+// 2. `FFMPEG_PATH=   # 설명`처럼 값이 비고 주석만 있는 줄은 빈 값이다(값으로 읽으면 다운로드를 영영 건너뛴다).
 //    사용자가 복사해 쓰는 .env.example 그대로 읽어 본다.
 
 import { test } from "node:test";
@@ -33,7 +33,7 @@ const CHECKSUMS = [
 
 test("릴리스는 월말 autobuild 태그로 고정한다. 그 외에는 2주 뒤 404", () => {
   const release = DEFAULTS.ffmpeg.release;
-  assert.ok(isMonthEndBuild(release), `latest 같은 움직이는 태그 · 월말이 아닌 빌드 금지(월말 빌드만 2년 보관): ${release}`);
+  assert.ok(isMonthEndBuild(release), `latest 같은 움직이는 태그와 월말이 아닌 빌드 금지(월말 빌드만 2년 보관): ${release}`);
   assert.ok(RELEASES_URL.startsWith("https://github.com/BtbN/FFmpeg-Builds/"), RELEASES_URL);
 });
 
@@ -68,16 +68,16 @@ test("미지원 플랫폼은 null. macOS는 PATH/FFMPEG_PATH로 처리한다", (
   }
 });
 
-test("쓸 수 있는 빌드가 없으면 조용히 엉뚱한 것을 받지 않고 던진다", () => {
+test("쓸 수 있는 빌드가 없으면 조용히 엉뚱한 것을 받지 않고 예외를 던진다", () => {
   const onlyShared = "aaa4  ffmpeg-n9.0.1-11-ge47273f4d9-linux64-lgpl-shared-9.0.tar.xz";
   assert.throws(() => resolveAsset(onlyShared, "linux-x64"), /빌드가 없음/);
 });
 
-test("bgutil 은 기본 브랜치가 아니라 릴리스 태그로 고정한다", () => {
+test("bgutil은 기본 브랜치가 아니라 릴리스 태그로 고정한다", () => {
   assert.match(DEFAULTS.bgutil.version, /^\d+\.\d+\.\d+$/);
 });
 
-test(".env.example 을 그대로 복사하면 기본값으로 설치한다. 주석만 있는 필드는 값이 아니다", () => {
+test(".env.example을 그대로 복사하면 기본값으로 설치한다. 주석만 있는 필드는 값이 아니다", () => {
   const example = util.parseEnv(fs.readFileSync(path.join(import.meta.dirname, "..", ".env.example"), "utf8"));
   const { ffmpeg, bgutil } = loadConfig(example).config;
 
@@ -86,7 +86,7 @@ test(".env.example 을 그대로 복사하면 기본값으로 설치한다. 주�
   assert.equal(bgutil.version, DEFAULTS.bgutil.version);
 });
 
-test(".env 에 적은 버전이 기본값을 이긴다", () => {
+test(".env에 적은 버전이 기본값을 이긴다", () => {
   const { ffmpeg, bgutil } = loadConfig({ FFMPEG_RELEASE: "autobuild-2026-07-31-13-10", BGUTIL_VERSION: "1.3.2" }).config;
   assert.equal(ffmpeg.release, "autobuild-2026-07-31-13-10");
   assert.equal(bgutil.version, "1.3.2");

@@ -1,8 +1,8 @@
 // src/sources/youtube, src/rules/error-kind.ts: yt-dlp 문장을 구분하는 두 쓰임을 한 표로 본다.
 //
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(youtubeSource.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
+// yt-dlp를 실행하는 곳(ytdlpSpawn)이 실패에 이름을 붙이고(youtubeSource.codeOf), 사용자에게 보일 종류(errorKind)는 그 이름으로 정해진다.
 // 재시도, 폴백(youtubeSource.is*Error)은 같은 문장을 따로 구분한다. 두 쓰임이 같은 문장을 같은 뜻으로 구분하는지 이 표가 본다.
-// "순서" 라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
+// "순서"라고 적은 행은 봇 감지 규칙과 겹치는 문장이라 그보다 먼저 봐야 한다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +17,7 @@ type Row = [msg: string, kind: string, gone: boolean, age: boolean, fault: boole
 const TABLE: Row[] = [
   // 영상이 없는 경우
   ["ERROR: [youtube] abc: Video unavailable", "unavailable-contents", T, F, F, F, F],
-  ["ERROR: [youtube] abc: This video is unavailable", "unavailable-contents", T, F, F, F, F], // 순서: 봇 감지보다 먼저 영상 없음으로. 영상 없음 정규식도 "is" 를 받는다
+  ["ERROR: [youtube] abc: This video is unavailable", "unavailable-contents", T, F, F, F, F], // 순서: 봇 감지보다 먼저 영상 없음으로. 영상 없음 정규식도 "is"를 받는다
   ["ERROR: [youtube] abc: Private video. Sign in if you've been granted access", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video has been removed by the uploader", "unavailable-contents", T, F, F, F, F],
   ["ERROR: This video is no longer available because the YouTube account associated with this video has been terminated", "unavailable-contents", T, F, F, F, F],
@@ -26,9 +26,9 @@ const TABLE: Row[] = [
   ["ERROR: Sign in to confirm you're not a bot", "yt-bot-check", F, F, F, F, F],
   ["ERROR: [youtube] abc: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.", "yt-bot-check", F, F, F, F, F], // 유튜브는 굽은 따옴표를 쓴다
   ["ERROR: [youtube] abc: Something went wrong. YouTube is requiring a captcha challenge before playback", "yt-bot-check", F, F, F, F, F],
-  ["ERROR: [youtube] abc: The following content has been identified by the YouTube community as inappropriate or offensive to some audiences.", "yt-age-no-cookies", F, T, F, F, F], // yt-dlp 도 연령 제한으로 본다
-  ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available" 과 한 단어 차이. 영상 없음으로 구분하지 않는다
-  ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING 에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
+  ["ERROR: [youtube] abc: The following content has been identified by the YouTube community as inappropriate or offensive to some audiences.", "yt-age-no-cookies", F, T, F, F, F], // yt-dlp도 연령 제한으로 본다
+  ["WARNING: The provided YouTube account cookies are no longer valid", "unknown-error", F, F, F, F, F], // "no longer available"과 한 단어 차이. 영상 없음으로 구분하지 않는다
+  ["WARNING: [youtube] The provided YouTube account cookies are no longer valid. They have likely been rotated in the browser as a security measure.\nERROR: [youtube] abc: Sign in to confirm your age. This video may be inappropriate for some users.", "yt-age-cookies-invalid", F, T, F, F, F], // 쿠키로 다시 시도했는데 쿠키가 무효. 원인은 WARNING에만 있다. 연령 제한 판별은 그대로 참(재시도 흐름)
   // 클라이언트, 포맷. 받을 포맷을 끝내 얻지 못한 것이라 사용자에게는 stream-failed
   ["ERROR: Requested format is not available", "stream-failed", F, F, T, F, F],
   ["ERROR: Only images are available for download", "stream-failed", F, F, T, F, F],
@@ -36,7 +36,7 @@ const TABLE: Row[] = [
   ['WARNING: Skipping client "android" since it does not support cookies\nERROR: Requested format is not available', "stream-failed", F, F, F, F, T],
   ["ERROR: nsig extraction failed: Some formats may be missing", "stream-failed", F, F, T, F, F],
   // 미디어 주소 어긋남
-  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "stream-failed", F, F, T, T, F], // 403 은 봇 감지가 아니다
+  ["ERROR: unable to download video data: HTTP Error 403: Forbidden", "stream-failed", F, F, T, T, F], // 403은 봇 감지가 아니다
   ["ERROR: unable to download fragment 12", "stream-failed", F, F, T, T, F],
   ["HTTP Error 429: Too Many Requests", "rate-limited", F, F, T, T, F],
   // 요청 한도(yt-dlp 위키 "This content isn't available, try again later"). 영상 없음과 문장이 겹친다. 영상 없음으로 보면 자동재생이 곡을 영구히 버린다
@@ -49,10 +49,10 @@ const TABLE: Row[] = [
   ["무언가 알 수 없는 일", "unknown-error", F, F, F, F, F],
 ];
 
-// ytdlpSpawn 이 내는 모양: 글은 그대로, 이름은 codeOf
+// ytdlpSpawn이 내는 모양: 글은 그대로, 이름은 codeOf
 const shaped = ytDlpError;
 
-test("오류 분류 표: yt-dlp 가 단 이름으로 구분한 종류와 판별 열", () => {
+test("오류 분류 표: yt-dlp가 단 이름으로 구분한 종류와 판별 열", () => {
   const actual = TABLE.map(([msg]) => {
     const e = new Error(msg);
     return [msg, errorKind(shaped(msg)), youtubeSource.isVideoUnavailableError(e), youtubeSource.isAgeRestrictedError(e), youtubeSource.isClientFault(e), youtubeSource.isStaleMediaError(e), youtubeSource.isSkippedClientError(e)];
@@ -76,8 +76,8 @@ test("errorKind는 이름이 없으면 unknown-error. 문자열과 빈 값도 �
   assert.equal(errorKind(undefined), "unknown-error");
 });
 
-// yt-dlp 를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 열과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지, 지역 차단,
-// 요청 제한, 네트워크, ffmpeg)도 여기서 붙는다. yt-dlp 가 쓰지 않는 문장(우리 코드, 프로그램 버그)에는 이름이 없다
+// yt-dlp를 실행하는 곳(ytdlpSpawn)이 실패에 이름(code)을 붙인다. 판별 열과 같은 뜻이고, 사용자에게 알릴 종류(봇 감지, 지역 차단,
+// 요청 제한, 네트워크, ffmpeg)도 여기서 붙는다. yt-dlp가 쓰지 않는 문장(우리 코드, 프로그램 버그)에는 이름이 없다
 test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
   const CODES: Record<string, string | null> = {
     "ERROR: [youtube] abc: Video unavailable": "unavailable-contents",
@@ -99,7 +99,7 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     "ERROR: nsig extraction failed: Some formats may be missing": "client-fault",
     "ERROR: unable to download video data: HTTP Error 403: Forbidden": "stale-media",
     "ERROR: unable to download fragment 12": "stale-media",
-    "HTTP Error 429: Too Many Requests": "rate-limited", // 요청 제한이 주소 어긋남보다 앞이다. 다시 받을지는 isStaleMediaError 가 따로 본다
+    "HTTP Error 429: Too Many Requests": "rate-limited", // 요청 제한이 주소 어긋남보다 앞이다. 다시 받을지는 isStaleMediaError가 따로 본다
     "ERROR: [youtube] abcdefghijk: This content isn't available, try again later. The current session has been rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to add a delay between video requests to avoid exceeding the rate limit.": "rate-limited",
     "ERROR: [youtube] abc: This content isn't available, try again later.": "rate-limited",
     "getaddrinfo ENOTFOUND youtube.com": "network-error",
@@ -116,38 +116,38 @@ test("yt-dlp 오류 이름(codeOf): 문장마다", () => {
     TABLE.map(([msg]) => [msg, youtubeSource.codeOf(new Error(msg))]),
     Object.entries(CODES),
   );
-  // 영상 ID 에 429 가 들어도 요청 제한이 아니다. 줄마다 [youtube] 가 붙어도 403 이 봇 감지가 아니다
+  // 영상 ID에 429가 들어도 요청 제한이 아니다. 줄마다 [youtube]가 붙어도 403이 봇 감지가 아니다
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Video unavailable")), "unavailable-contents");
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] ab429cdefgh: Requested format is not available")), "client-fault");
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] abc: unable to download video data: HTTP Error 403: Forbidden")), "stale-media");
 });
 
-// 닿을 수 없는 프록시로 yt-dlp 를 돌렸을 때의 줄
-test("yt-dlp 가 쓰는 연결 실패 문장은 네트워크다", () => {
+// 닿을 수 없는 프록시로 yt-dlp를 돌렸을 때의 줄
+test("yt-dlp가 쓰는 연결 실패 문장은 네트워크다", () => {
   for (const stderr of ["WARNING: [youtube:search] ('Unable to connect to proxy', NewConnectionError(\"HTTPSConnection(host='127.0.0.1', port=9): Failed to establish a new connection: [WinError 10061] …\")). Retrying (1/3)...", "ERROR: [youtube] abc: Unable to download API page: HTTPSConnection(host='www.youtube.com', port=443): Failed to establish a new connection: [Errno 111] Connection refused", "ERROR: Unable to download webpage: <urlopen error [Errno 11001] getaddrinfo failed>"]) {
     assert.equal(youtubeSource.codeOf(new Error(stderr)), "network-error", stderr);
   }
 });
 
-test("yt-dlp 가 쓰는 재생목록, 지역 차단 문장", () => {
+test("yt-dlp가 쓰는 재생목록, 지역 차단 문장", () => {
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube:tab] PLzzz: The playlist does not exist.")), "unavailable-playlist");
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube:tab] PLzzz: This playlist is private")), "unavailable-playlist");
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [youtube] abc: The uploader has not made this video available in your country")), "geo-blocked");
   assert.equal(youtubeSource.codeOf(new Error("ERROR: [soundcloud] 123: This video is not available from your location due to geo restriction")), "geo-blocked");
 });
 
-test("errorKind 는 이름(code)이 있으면 글보다 먼저 본다", () => {
+test("errorKind는 이름(code)이 있으면 글보다 먼저 본다", () => {
   const e = Object.assign(new Error("exit 1"), { code: "unavailable-contents" });
   assert.equal(errorKind(e), "unavailable-contents");
   assert.equal(errorKind(Object.assign(new Error("Sign in to confirm you're not a bot"), { code: "yt-age-no-cookies" })), "yt-age-no-cookies");
   assert.equal(errorKind(Object.assign(new Error("fetch failed"), { code: "ECONNRESET" })), "network-error", "모르는 이름이면 글로 가른다");
 });
 
-test("errorKind 는 오류 자신 → 원인(cause) → 시스템, 디스코드 번호 순서로 이름을 본다", () => {
-  // 글에 기대지 않는다: 글만 보면 unknown 인 것들
+test("errorKind는 오류 자신 → 원인(cause) → 시스템, 디스코드 번호 순서로 이름을 본다", () => {
+  // 글에 기대지 않는다: 글만 보면 unknown인 것들
   const quiet = (code: string | number) => Object.assign(new Error("무언가"), { code });
   assert.equal(errorKind(codedError("stream-failed", "무언가")), "stream-failed");
-  assert.equal(errorKind(new Error("무언가", { cause: quiet("ENOTFOUND") })), "network-error", "fetch 는 원인에 시스템 이름을 단다");
+  assert.equal(errorKind(new Error("무언가", { cause: quiet("ENOTFOUND") })), "network-error", "fetch는 원인에 시스템 이름을 단다");
   assert.equal(errorKind(quiet("UND_ERR_CONNECT_TIMEOUT")), "network-error");
   // 감싼 오류의 원인의 원인(fetch 오류는 원인에 시스템 이름이 붙는다)
   assert.equal(errorKind(new Error("익명 상태를 얻지 못했습니다", { cause: new TypeError("fetch failed", { cause: quiet("ECONNREFUSED") }) })), "network-error");

@@ -1,4 +1,4 @@
-// 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/error-messages 가 만든다.
+// 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/error-messages가 만든다.
 // 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 본다: 오류 자신부터 원인(cause) 사슬을 따라가며, 종류, 시스템, 디스코드 이름 순으로.
 // 글은 보지 않는다. 이름이 없으면 unknown-error 다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
@@ -7,7 +7,7 @@ import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";
 
 // 이름이 곧 종류인 것. 오류를 만든 곳이 붙인다
 const KINDS = new Set<Code>(["yt-age-cookies-invalid", "yt-age-no-cookies", "age-content-off", "age-channel-only", "yt-bot-check", "unavailable-contents", "sc-preview-only", "unavailable-playlist", "geo-blocked", "rate-limited", "sp-no-youtube-match", "direct-unavailable", "network-error", "stream-failed", "voice-failed", "encoder-unavailable"]);
-// 연결이 끊기거나 닿지 않은 것(Node, undici 가 붙이는 이름)
+// 연결이 끊기거나 닿지 않은 것(Node, undici가 붙이는 이름)
 const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ECONNABORTED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH"]);
 // 받을 포맷을 끝내 얻지 못한 소스 쪽 이름(유튜브 클라이언트를 다 써 봄, 사운드클라우드 포맷 없음). 사용자에게는 오디오를 받지 못한 것과 같다.
 // 문제 목록에는 없어 사슬의 다른 이름이 우선하고, 아무것도 없을 때만 stream-failed다
@@ -67,7 +67,7 @@ function errorKind(error: unknown): Code {
     const coded = kindOf(one as object);
     if (coded) return coded;
   }
-  // AbortSignal.timeout 이 끊은 요청(음성 연결 대기가 끝난 것은 AbortError 라 여기 들지 않는다)
+  // AbortSignal.timeout이 끊은 요청(음성 연결 대기가 끝난 것은 AbortError라 여기 들지 않는다)
   if (chain.some((one) => "name" in (one as object) && (one as { name?: unknown }).name === "TimeoutError")) return "network-error";
   if (chain.some((one) => STREAM_FAILED.has(codeOf(one) as string))) return "stream-failed";
   return "unknown-error";

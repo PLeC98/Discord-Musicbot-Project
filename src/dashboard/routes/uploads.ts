@@ -68,7 +68,7 @@ const OFFSET = /^\d+$/;
 const CLIENT_ABORTED = new Set<unknown>(["ECONNABORTED", "ECONNRESET"]);
 const readChunk = express.raw({ type: "application/octet-stream", limit: uploads.CHUNK_SIZE, inflate: false });
 
-/** 본문(청크)을 메모리로 받는다. 끊기거나 형식이 다르면 던진다 */
+/** 본문(청크)을 메모리로 받는다. 끊기거나 형식이 다르면 reject 한다 */
 const bodyOf = (req: Request, res: Response) =>
   new Promise<Buffer>((resolve, reject) => {
     readChunk(req, res, (error?: unknown) => (error ? reject(error) : Buffer.isBuffer(req.body) ? resolve(req.body) : reject(new Error("청크가 application/octet-stream이 아님"))));

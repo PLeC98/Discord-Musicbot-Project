@@ -2,8 +2,8 @@
 //   node scripts/build-english-finals.ts
 //
 // 원본은 CMU 발음 사전(개발 의존성 cmu-pronouncing-dictionary)이다. 조사 헬퍼는 사전에 없는 말을 철자로 추산하고 대문자 약어는 글자 이름으로 읽으므로,
-// 표에는 그 추산과 사전의 답이 다른 단어만 넣는다. 사전 전체를 들고 있을 때와 판정이 같다(test/rules/english-finals.test.ts 가 단어마다 본다).
-// 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE 에 적는다.
+// 표에는 그 추산과 사전의 답이 다른 단어만 넣는다. 사전 전체를 들고 있을 때와 판정이 같다(test/rules/english-finals.test.ts가 단어마다 본다).
+// 결과물은 저장소에 넣고, 출처와 라이선스는 data/NOTICE에 적는다.
 
 import fs from "fs";
 import path from "path";

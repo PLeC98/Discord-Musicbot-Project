@@ -16,7 +16,7 @@ const NUMERIC_NAME = /^(0|[1-9][0-9]*)$/;
 
 const filled = (v: unknown) => (Array.isArray(v) ? v.some((x) => String(x || "").trim()) : String(v || "").trim());
 
-// 소스 한 줄. 종류마다 SPEC 이 필요한 필드와 쓸 수 있는 값을 정한다
+// 소스 한 줄. 종류마다 SPEC이 필요한 필드와 쓸 수 있는 값을 정한다
 function sourceOf(type: string) {
   const spec = SPEC[type];
   const at = `{where}(${spec.label})`;
@@ -54,13 +54,13 @@ const genre = z.preprocess(
     // 보여 줄 이름(디스코드 메뉴, 화면). 없으면 식별자를 그대로 보인다. 디스코드 선택지 이름은 100자까지
     label: present((v) => typeof v === "string" && v.trim() !== "" && v.length <= 100, "{id}: label은 비울 수 없고 100자까지 쓸 수 있어요"),
     emoji: present((v) => v === "" || ONE_EMOJI.test(String(v)) || ONE_TOKEN.test(String(v)), "{id}: emoji는 이모지 한 글자나 봇의 앱 이모지(<:이름:id>) 하나여야 해요"),
-    // 맨 위 keywords: 는 읽지 않고 sources 로 옮기라고 알린다(두 형식을 함께 받지 않는다)
+    // 맨 위 keywords: 는 읽지 않고 sources로 옮기라고 알린다(두 형식을 함께 받지 않는다)
     keywords: z
       .unknown()
       .refine((v) => v === undefined, { error: "{id}: 맨 위 keywords:는 더 이상 쓰지 않아요. sources:로 옮겨 주세요. sources: [{ type: keyword, keywords: [...] }]" })
       .optional(),
     sources: z.array(source, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }).min(1, { error: "{id}: 소스(sources)가 하나는 있어야 해요" }),
-    // 기본값의 길이는 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile 이 본다(제외 키워드는 키워드 출처 필드가 덮어쓴다)
+    // 기본값의 길이는 장르마다 덮어쓸 수 있다. 실제 범위는 기본값 위에 얹어 아래 genresFile이 본다(제외 키워드는 키워드 출처 필드가 덮어쓴다)
     minDurationSec: present((v) => Number(v) >= 0, "{id}: minDurationSec은 0 이상이어야 해요"),
     maxDurationSec: present((v) => Number(v) > 0, "{id}: maxDurationSec은 비우거나 0보다 커야 해요"),
     // 미리 준비해 둘 곡 수는 기본값에만 둔다. 재생도 장르와 상관없이 기본값만 본다
@@ -88,7 +88,7 @@ const genres = z.preprocess(
   }, ALWAYS),
 );
 
-/** 문서의 defaults 에 필드가 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 입력란에 이 값을 보인다 */
+/** 문서의 defaults에 필드가 없을 때 봇이 쓰는 값. 길이 상한(maxDurationSec)은 비우면 없다. 대시보드도 비운 입력란에 이 값을 보인다 */
 const GENRE_DEFAULTS = { prefetchCount: 1, minDurationSec: 60, maxDurationSec: null } as const;
 
 const defaults = z.preprocess(

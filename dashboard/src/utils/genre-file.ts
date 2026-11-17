@@ -14,7 +14,7 @@ function genreFile(row: GenreRow): { name: string; body: string } {
   return { name: `genre-${safe || "unnamed"}.json`, body: `${JSON.stringify({ musicbotGenre: FORMAT, id, genre }, null, 2)}\n` };
 }
 
-/** 장르 파일이면 식별자와 장르, 아니면 null(JSON 이 아님, 다른 파일, 모르는 형식 번호) */
+/** 장르 파일이면 식별자와 장르, 아니면 null(JSON이 아님, 다른 파일, 모르는 형식 번호) */
 function parseGenreFile(text: string): { id: string; genre: GenreData } | null {
   let data: unknown;
   try {

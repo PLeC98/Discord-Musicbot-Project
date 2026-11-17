@@ -1,10 +1,10 @@
-// src/media/opus-output.ts: PCM 을 20ms 프레임으로 모아 인코딩 세션에 보내고 Opus 패킷을 내주는 출력 스트림
+// src/media/opus-output.ts: PCM을 20ms 프레임으로 모아 인코딩 세션에 보내고 Opus 패킷을 내주는 출력 스트림
 //
-// 지키는 것: 청크 크기와 상관없이 20ms 프레임(f32le 7680바이트) 하나가 패킷 하나가 되고, 패킷은 Buffer 로 한 번에 하나씩 나온다.
-// 미리 만드는 것은 세션의 큐 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 청크의 callback 이 미뤄진다.
-// 볼륨은 바꾼 뒤 큐 깊이 + 2 패킷 안에 들린다(바꾼 프레임 안에서 게인을 램프한다). read() 는 와 있는 패킷을 그 자리에서 받는다(_read 가 한 번 빈손이었어도).
-// 세션은 정확히 한 번 해제한다. 끝나면 end 를 내고, 입력 오류, 세션 오류는 출력 스트림의 error 가 되며 위쪽 스트림까지 destroy 된다.
-// voice 의 실제 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩 오른다.
+// 지키는 것: 청크 크기와 상관없이 20ms 프레임(f32le 7680바이트) 하나가 패킷 하나가 되고, 패킷은 Buffer로 한 번에 하나씩 나온다.
+// 미리 만드는 것은 세션의 큐 깊이까지다(보낸 것 + 받아 둔 것 + 읽는 쪽 버퍼). 읽지 않으면 받은 청크의 callback이 미뤄진다.
+// 볼륨은 바꾼 뒤 큐 깊이 + 2 패킷 안에 들린다(바꾼 프레임 안에서 게인을 램프한다). read()는 와 있는 패킷을 그 자리에서 받는다(_read가 한 번 빈손이었어도).
+// 세션은 정확히 한 번 해제한다. 끝나면 end를 내고, 입력 오류, 세션 오류는 출력 스트림의 error가 되며 위쪽 스트림까지 destroy 된다.
+// voice의 실제 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration이 20씩 오른다.
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -46,7 +46,7 @@ function counted() {
   return { open, stats };
 }
 
-// 패킷을 손으로 주는 가짜 세션: read() 의 drain 때만 준다. hold 면 워커가 늦은 것처럼 주지 않는다
+// 패킷을 손으로 주는 가짜 세션: read()의 drain 때만 준다. hold면 워커가 늦은 것처럼 주지 않는다
 function manual(depth = 2) {
   const stats = { sent: 0, late: 0, underrun: 0, freed: 0 };
   const control = { hold: false };
@@ -145,18 +145,18 @@ test("청크 크기와 상관없이 20ms 프레임 하나가 Buffer 패킷 하�
   }
 });
 
-test("끝에 남은 20ms 미만은 버리고 end 를 낸다", async () => {
+test("끝에 남은 20ms 미만은 버리고 end를 낸다", async () => {
   const pcm = Buffer.concat([sine(3), Buffer.alloc(FRAME_BYTES - 4)]);
   const packets = await readAll(attachOpusOutput(chunked(pcm, [5000]), { gain: 1, openEncoder: real }));
   assert.equal(packets.length, 3);
 });
 
-test("쓰기 없이 끝나도 end 를 낸다", async () => {
+test("쓰기 없이 끝나도 end를 낸다", async () => {
   const packets = await readAll(attachOpusOutput(Readable.from([], { objectMode: false }), { gain: 1, openEncoder: real }));
   assert.equal(packets.length, 0);
 });
 
-test("볼륨 게인을 곱해 인코딩하고, 곡 중간 setVolume 은 큐 깊이 + 2 패킷 안에 먹는다", async () => {
+test("볼륨 게인을 곱해 인코딩하고, 곡 중간 setVolume은 큐 깊이 + 2 패킷 안에 적용된다", async () => {
   const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 1, openEncoder: real });
   const packets: Buffer[] = [];
   let depth = 0;
@@ -170,7 +170,7 @@ test("볼륨 게인을 곱해 인코딩하고, 곡 중간 setVolume 은 큐 깊�
   const rms = await rmsOf(packets);
   const loud = rms.slice(10, 28).reduce((a, b) => a + b) / 18;
   const quiet = rms.slice(40).reduce((a, b) => a + b) / (rms.length - 40);
-  // 0.25 배면 RMS 도 약 0.25 배(Opus 손실 때문에 정확하지 않다)
+  // 0.25 배면 RMS도 약 0.25 배(Opus 손실 때문에 정확하지 않다)
   assert.ok(Math.abs(quiet / loud - 0.25) < 0.05, `비율 ${(quiet / loud).toFixed(3)}`);
   // 30번째를 받은 뒤 바꿨다. 이미 보낸 큐 깊이만큼은 이전 크기다. 그다음 프레임 안에서 게인을 램프하고, 디코더가 앞 프레임과 겹쳐 디코딩하므로 하나가 더 섞여 나온다
   assert.ok(rms[29] > loud * 0.8, `30번째 패킷 RMS ${rms[29]}`);
@@ -178,7 +178,7 @@ test("볼륨 게인을 곱해 인코딩하고, 곡 중간 setVolume 은 큐 깊�
   assert.ok(rms[heard] < loud * 0.35, `${heard + 1}번째 패킷 RMS ${rms[heard]}(큐 깊이 ${depth})`);
 });
 
-test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다 읽어도 앞서 인코딩된 큰 소리가 없다)", async () => {
+test("처음 볼륨은 첫 패킷부터 적용된다(만든 뒤 한참 기다렸다 읽어도 앞서 인코딩된 큰 소리가 없다)", async () => {
   const output = attachOpusOutput(chunked(sine(60), [65536]), { gain: 0.1, openEncoder: real });
   await sleep(200);
   const packets = await readAll(output);
@@ -188,7 +188,7 @@ test("처음 볼륨은 첫 패킷부터 먹는다(만든 뒤 한참 기다렸다
   for (const [i, r] of rms.slice(1).entries()) assert.ok(r < full * 0.15, `${i + 2}번째 패킷 RMS ${r}`);
 });
 
-test("볼륨 게인 1 이면 리미터의 지연만큼 늦춘 입력과 같은 패킷이다(리미터를 끈 서버는 소리를 바꾸지 않는다)", async () => {
+test("볼륨 게인 1이면 리미터의 지연만큼 늦춘 입력과 같은 패킷이다(리미터를 끈 서버는 소리를 바꾸지 않는다)", async () => {
   const pcm = sine(5);
   const a = await readAll(attachOpusOutput(chunked(pcm, [4000]), { gain: 1, openEncoder: real }));
   const delayed = Buffer.concat([Buffer.alloc(new Limiter().delaySamples * 8), pcm]);
@@ -198,14 +198,14 @@ test("볼륨 게인 1 이면 리미터의 지연만큼 늦춘 입력과 같은 �
   assert.deepEqual(a, b);
 });
 
-test("볼륨 게인은 1 위로도 걸리고 넘치는 샘플은 ±1 로 클립된다", async () => {
+test("볼륨 게인은 1 위로도 걸리고 넘치는 샘플은 ±1로 클립된다", async () => {
   const quiet = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 3000), [65536]), { gain: 1, openEncoder: real })));
   const raised = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 3000), [65536]), { gain: 2, openEncoder: real })));
   const clipped = await rmsOf(await readAll(attachOpusOutput(chunked(sine(20, 12000), [65536]), { gain: 10, openEncoder: real })));
   const mean = (r: number[]) => r.slice(5).reduce((x, y) => x + y) / (r.length - 5);
   assert.ok(Math.abs(mean(raised) / mean(quiet) - 2) < 0.1, `게인 2: ${mean(raised) / mean(quiet)}`);
   assert.ok(mean(clipped) < 32768 * 1.01, `게인 10: ${mean(clipped)}`);
-  assert.ok(mean(clipped) > 12000 * 2, `게인 10 이 곱해지지 않았다: ${mean(clipped)}`);
+  assert.ok(mean(clipped) > 12000 * 2, `게인 10이 곱해지지 않았다: ${mean(clipped)}`);
 });
 
 test("볼륨 정규화의 게인 탭: 프레임마다 시작 위치로 묻고, 정규화 게인(dB)을 선형으로 바꿔 볼륨 게인에 곱한 뒤 리미터 켜짐 여부와 함께 싣는다. 끝나면 탭을 닫는다", async () => {
@@ -241,7 +241,7 @@ test("볼륨 정규화의 게인 탭: 프레임마다 시작 위치로 묻고, �
   assert.equal(closed, 1);
 });
 
-test("읽지 않으면 큐 깊이를 넘겨 보내지 않고 받은 청크의 callback 이 미뤄진다. 읽으면 이어 간다", async () => {
+test("읽지 않으면 큐 깊이를 넘겨 보내지 않고 받은 청크의 callback이 미뤄진다. 읽으면 이어 간다", async () => {
   const output = new OpusOutput({ gain: 1, openEncoder: real });
   let written = false;
   output.write(sine(20), () => {
@@ -261,7 +261,7 @@ test("읽지 않으면 큐 깊이를 넘겨 보내지 않고 받은 청크의 ca
   output.destroy();
 });
 
-test("_read 가 한 번 빈손으로 끝나도 다음 read() 가 와 있는 패킷을 그 자리에서 받는다", () => {
+test("_read가 한 번 빈손으로 끝나도 다음 read()가 와 있는 패킷을 그 자리에서 받는다", () => {
   const enc = manual();
   const output = new OpusOutput({ gain: 1, openEncoder: enc.open });
   output.write(sine(4));
@@ -270,7 +270,7 @@ test("_read 가 한 번 빈손으로 끝나도 다음 read() 가 와 있는 패�
   enc.control.hold = true;
   assert.equal(output.read(), null);
   enc.control.hold = false;
-  // 이벤트 루프를 돌리지 않고 읽는다. drain 이 주는 패킷이 바로 나온다
+  // 이벤트 루프를 돌리지 않고 읽는다. drain이 주는 패킷이 바로 나온다
   const packet: unknown = output.read();
   assert.ok(Buffer.isBuffer(packet));
   output.destroy();
@@ -295,7 +295,7 @@ test("보낸 것은 있는데 받은 패킷이 없어 빈손으로 읽히면 세
   assert.equal(enc.stats.late, 0);
   assert.equal(output.read(), null);
   assert.equal(enc.stats.late, 1);
-  // read(0) 은 Node 안쪽의 채우기라 세지 않는다
+  // read(0)은 Node 안쪽의 채우기라 세지 않는다
   output.read(0);
   assert.equal(enc.stats.late, 1);
   output.destroy();
@@ -335,7 +335,7 @@ test("destroy 하면 세션을 정확히 한 번 해제한다(끝까지 읽고 �
   assert.deepEqual(early.stats, { opened: 1, freed: 1 });
 });
 
-test("입력 오류는 출력 스트림의 error 가 된다", async () => {
+test("입력 오류는 출력 스트림의 error가 된다", async () => {
   const src = new PassThrough();
   const output = attachOpusOutput(src, { gain: 1, openEncoder: real });
   const failed = once(output, "error");
@@ -345,7 +345,7 @@ test("입력 오류는 출력 스트림의 error 가 된다", async () => {
   assert.equal((err as Error).message, "입력 끊김");
 });
 
-test("세션 오류가 read() 안의 drain 에서 와도 error 로 나오고 위쪽 스트림이 destroy 된다", async () => {
+test("세션 오류가 read() 안의 drain에서 와도 error로 나오고 위쪽 스트림이 destroy 된다", async () => {
   const src = new PassThrough();
   const enc = manual();
   const open: OpenEncoder = (hooks) => {
@@ -363,7 +363,7 @@ test("세션 오류가 read() 안의 drain 에서 와도 error 로 나오고 위
   assert.equal(src.destroyed, true);
 });
 
-test("세션이 쓸 수 없다고 알리면 출력 스트림의 error 가 되고 위쪽 스트림이 destroy 된다", async () => {
+test("세션이 쓸 수 없다고 알리면 출력 스트림의 error가 되고 위쪽 스트림이 destroy 된다", async () => {
   const src = new PassThrough();
   const enc = manual();
   const output = attachOpusOutput(src, { gain: 1, openEncoder: enc.open });
@@ -375,13 +375,13 @@ test("세션이 쓸 수 없다고 알리면 출력 스트림의 error 가 되고
   assert.equal(src.destroyed, true);
 });
 
-test("voice 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration 이 20씩, 끝나면 무음 다섯", async () => {
+test("voice 리소스(StreamType.Opus)에서 read() 한 번이 패킷 하나이고 playbackDuration이 20씩, 끝나면 무음 다섯", async () => {
   const output = attachOpusOutput(chunked(sine(4), [65536]), { gain: 1, openEncoder: real });
   const resource = createAudioResource(output, { inputType: StreamType.Opus });
   assert.equal(resource.playStream, output);
   await once(output, "readable");
   const reads: Buffer[] = [];
-  // AudioPlayer 처럼 readable 을 보며 읽는다(스트림이 끝나면 readable 이 무음 다섯을 내는 동안 참이다)
+  // AudioPlayer처럼 readable을 보며 읽는다(스트림이 끝나면 readable이 무음 다섯을 내는 동안 참이다)
   for (let i = 0; i < 60 && resource.readable; i++) {
     const p = resource.read();
     if (p) reads.push(p);

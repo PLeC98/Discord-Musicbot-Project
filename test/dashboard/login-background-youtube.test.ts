@@ -1,5 +1,5 @@
 // src/dashboard/login-background/youtube.ts: 유튜브는 다운로드 대행: 다운로드 단계는 편집 창용 480p, 고해상도 다운로드 단계는 짧은 변 2160 이하의 가장 좋은 영상.
-// yt-dlp 는 실행하는 exec 만 가짜로 둔다(출력 템플릿대로 영상, 정보 파일을 쓴다). 영상은 실제 ffmpeg 로 만든 표본(없으면 건너뛴다)
+// yt-dlp는 실행하는 exec만 가짜로 둔다(출력 템플릿대로 영상, 정보 파일을 쓴다). 영상은 실제 ffmpeg로 만든 표본(없으면 건너뛴다)
 
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +14,7 @@ import * as store from "../../src/dashboard/login-background/store.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { bestSize, highRes, receiveYoutube, shortfall } from "../../src/dashboard/login-background/youtube.ts";
 
-// yt-dlp 실행은 연령 제한으로 적어 둔 영상인지 캐시 DB 를 본다
+// yt-dlp 실행은 연령 제한으로 적어 둔 영상인지 캐시 DB를 본다
 const db = openTempStore("login-bg-youtube-db-");
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-youtube-"));
 const SAMPLE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "login-bg-yt-sample-")), "clip.mp4");
@@ -27,7 +27,7 @@ after(() => {
 const signal = new AbortController().signal;
 const URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
 
-/** yt-dlp 가 다운로드한 것처럼: 출력 템플릿의 %(ext)s 를 mp4 로 영상, 정보 파일을 쓴다. fail 이면 실패, skip 이면 아무것도 쓰지 않는다(라이브 건너뜀) */
+/** yt-dlp가 다운로드한 것처럼: 출력 템플릿의 %(ext)s를 mp4로 영상, 정보 파일을 쓴다. fail이면 실패, skip이면 아무것도 쓰지 않는다(라이브 건너뜀) */
 let reply: { fail?: string; skip?: boolean; info?: object } = {};
 const calls: YtDlpFlags[] = [];
 
@@ -55,7 +55,7 @@ beforeEach(() => {
 const job = (one: store.Stored) => ({ item: one, folder: store.folderOf(one.id), signal, progress: () => {} });
 const youtubeItem = () => store.create({ kind: "video", from: "youtube", name: URL, link: URL });
 
-test("다운로드: 480p 를 원본 경로에 다운로드하고, 크기는 고해상도로 다운로드할 크기(짧은 변 4K 이하에서 가장 큰 것)", opts, async () => {
+test("다운로드: 480p를 원본 경로에 다운로드하고, 크기는 고해상도로 다운로드할 크기(짧은 변 4K 이하에서 가장 큰 것)", opts, async () => {
   reply = {
     info: {
       formats: [

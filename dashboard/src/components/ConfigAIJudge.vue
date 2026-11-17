@@ -1,7 +1,7 @@
 <!--
   AI 보조, 판정 테스트(프롬프트 화면의 맨 아래: 프롬프트를 깎으면서 쓴다): 진짜 곡으로 테스트한다.
   링크 조회는 아무것도 보내지 않고, 판정 요청만 실제로 보낸다.
-  상태는 composables/ai-editor(ConfigAI 가 내려 준다).
+  상태는 composables/ai-editor(ConfigAI가 내려 준다).
 -->
 <template>
   <BaseCard icon="fact_check" :title="TJ.title">

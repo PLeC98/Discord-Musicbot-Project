@@ -1,5 +1,5 @@
 // src/discord/events/interaction-create.ts: 봇이 만드는 모든 custom_id, 모달, 선택 메뉴가 정해진 핸들러 하나로 가고,
-// 정확히 한 번 답하는지 본다. 두 번 답하면 늦은 쪽이 40060 으로 터지고, 아무도 안 답하면 사용자는 "상호작용 실패"를 본다.
+// 정확히 한 번 응답하는지 본다. 두 번 응답하면 늦은 쪽이 40060으로 터지고, 아무도 응답하지 않으면 사용자는 "상호작용 실패"를 본다.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +39,7 @@ const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, sett
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
 
-// 상호작용 하나. 답한 방법을 적는다. 권한이 없는 평범한 사용자이고, 봇은 쉬고 있다(플레이어 없음)
+// 상호작용 하나. 응답한 방법을 적는다. 권한이 없는 평범한 사용자이고, 봇은 쉬고 있다(플레이어 없음)
 function interaction(kind: Kind, customId: string, answered: string[]) {
   const guild = { id: "g1", name: "서버", memberCount: 1, members: { me: { id: "bot", voice: { channel: null } }, cache: new Map() }, channels: { cache: new Map() }, roles: { cache: new Map() } };
   const it: Record<string, unknown> = {
@@ -81,14 +81,14 @@ function interaction(kind: Kind, customId: string, answered: string[]) {
   return fake<Interaction>(it);
 }
 
-// 이 custom_id 를 받는 핸들러 모듈의 이름
+// 이 custom_id를 받는 핸들러 모듈의 이름
 function ownerOf(kind: Kind, customId: string) {
   if (kind === "command") return "commands";
   const route = routeOf(ROUTES, kind as RouteKind, customId);
   return Object.entries(OWNERS).find(([, routes]) => route && routes.includes(route))?.[0] ?? null;
 }
 
-// 진입점에 태워 처음 답한 방법들을 모은다. 미룬 뒤 고치기, 이어 보내기는 한 답의 뒷부분이라 세지 않는다
+// 진입점에 태워 처음 응답한 방법들을 모은다. 미룬 뒤 고치기, 이어 보내기는 한 응답의 뒷부분이라 세지 않는다
 const FIRST = new Set(["reply", "deferReply", "deferUpdate", "update", "showModal"]);
 async function answers(kind: Kind, customId: string) {
   const answered: string[] = [];
@@ -119,15 +119,15 @@ const CASES: [Kind, string, string][] = [
 ];
 
 for (const [kind, customId, owner] of CASES) {
-  test(`${kind} ${customId}: ${owner} 가 받아 한 번 답한다`, async () => {
+  test(`${kind} ${customId}: ${owner}에서 받아 한 번 응답한다`, async () => {
     assert.equal(ownerOf(kind, customId), owner);
     const answered = await answers(kind, customId);
     assert.equal(answered.length, 1, answered.join(", "));
   });
 }
 
-// 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id 가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
-test("봇이 만드는 모달, 메뉴의 custom_id 는 목록의 그 경로로 간다", async () => {
+// 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
+test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal(80).toJSON().custom_id, "panel:volume");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
@@ -143,12 +143,12 @@ test("볼륨 모달의 자리표시는 지금 볼륨", () => {
   assert.equal(input.placeholder, "지금 80");
 });
 
-test("핸들러가 없는 custom_id 는 모른다고 한 번 답한다", async () => {
+test("핸들러가 없는 custom_id는 모른다고 한 번 응답한다", async () => {
   assert.deepEqual(await answers("button", "nobody_knows"), ["reply"]);
   assert.deepEqual(await answers("modal", "nobody_knows"), ["reply"]);
 });
 
-test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 모른다고 한 번 답한다", async () => {
+test("실행 목록에 없는 명령(꺼진 기능이 디스코드에 남은 것)은 모른다고 한 번 응답한다", async () => {
   assert.deepEqual(await answers("command", "nobody_knows"), ["reply"]);
 });
 
@@ -167,7 +167,7 @@ test("접두사가 여럿 맞으면 더 좁은 핸들러가 받는다(자동재�
   assert.equal(autoplay.prefix, "panel:autoplay:");
 });
 
-// 새 핸들러를 만들고 위 목록에 안 넣으면 여기서 걸린다. 경로표의 핸들러마다 그것을 선택하는 custom_id 가 목록에 있어야 한다
+// 새 핸들러를 만들고 위 목록에 안 넣으면 여기서 걸린다. 경로표의 핸들러마다 그것을 선택하는 custom_id가 목록에 있어야 한다
 test("경로표의 핸들러는 모두 위 목록에서 불린다", () => {
   const unused = ROUTES.filter((r) => !CASES.some(([kind, id]) => kind === r.kind && routeOf(ROUTES, r.kind, id) === r));
   assert.deepEqual(
@@ -176,9 +176,9 @@ test("경로표의 핸들러는 모두 위 목록에서 불린다", () => {
   );
 });
 
-// custom_id 를 글자 그대로 적은 곳(ui/custom-ids 를 거치지 않은 것)도 목록이 덮는다. 모달 안의 입력란은 상호작용이 아니다
+// custom_id를 글자 그대로 적은 곳(ui/custom-ids를 거치지 않은 것)도 목록이 덮는다. 모달 안의 입력란은 상호작용이 아니다
 const INPUTS = new Set(["level", "count"]);
-test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => {
+test("글자 그대로 적은 custom_id도 모두 위 목록에 있다", () => {
   const heads = new Set<string>();
   for (const dir of ["src"]) {
     for (const file of fs.readdirSync(path.join(ROOT, dir), { recursive: true, encoding: "utf8" })) {
@@ -186,7 +186,7 @@ test("글자 그대로 적은 custom_id 도 모두 위 목록에 있다", () => 
       for (const m of fs.readFileSync(path.join(ROOT, dir, file), "utf8").matchAll(/setCustomId\(\s*[`"]([^`"$]*)/g)) if (m[1] && !INPUTS.has(m[1])) heads.add(m[1]);
     }
   }
-  assert.ok(heads.size >= 5, `읽은 custom_id 가 너무 적다(${heads.size})`);
+  assert.ok(heads.size >= 5, `읽은 custom_id가 너무 적다(${heads.size})`);
   const missing = [...heads].filter((head) => !CASES.some(([, id]) => id.startsWith(head)));
   assert.deepEqual(missing, []);
 });

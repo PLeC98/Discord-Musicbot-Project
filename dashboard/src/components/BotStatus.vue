@@ -1,6 +1,6 @@
 <template>
   <!-- 봇 상태 탭. 괜찮은가(요약) → 무엇에 기대는가(연결, 높이가 거의 고정이라 위에) → 지금 어떤가(흐름) → 무엇을 하는가(플레이어, 프로세스, 흐름과 자주 같이 보고 서버 수만큼 길어져 아래에) → 어디에 쌓이는가(저장공간). 잘 안 바뀌는 환경, 버전은 봇 정보 탭(BotInfo).
-       상태는 색 + 모양(✓ 동그라미, ! 세모, ✕ 동그라미) + 단어로 알린다. 화면 글은 짧게, 까닭은 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
+       상태는 색 + 모양(✓ 동그라미, ! 세모, ✕ 동그라미) + 단어로 알린다. 화면 글은 짧게, 이유는 점선 밑줄 글에 올리면 뜨는 툴팁으로 -->
   <!-- 저장공간 카드는 폭에 따라 두 위치 중 하나에 놓인다. 한 번 정의해 두고 부른다(VueUse createReusableTemplate) -->
   <DefineStorage>
     <BaseCard icon="hard_drive" :title="T.storage" data-at="storage">
@@ -16,7 +16,7 @@
             <span>{{ bar.label }}</span>
             <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[bar.level]">{{ bar.text }}</span>
           </div>
-          <!-- 나눈 막대: 오디오 캐시, 기타, 여유 공간, 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px 을 띄우고, 아래에 같은 색 점으로 이름, 크기 -->
+          <!-- 나눈 막대: 오디오 캐시, 기타, 여유 공간, 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px을 띄우고, 아래에 같은 색 점으로 이름, 크기 -->
           <template v-if="bar.key === 'drive'">
             <div class="flex gap-0.5 h-2 mt-1">
               <div v-for="part in driveParts" :key="part.label" class="h-full rounded-full" :class="part.tone" :style="{ flexGrow: toGB(part.bytes), flexBasis: '0%', minWidth: '0.25rem' }" v-tooltip="part.tip"></div>
@@ -175,8 +175,8 @@
           ><span v-if="m.unit" class="text-xs" :class="m.level === 'ok' && 'text-on-surface-variant'"
             ><span v-for="s in stepsOf(m.unit)" :key="s.cls" :class="s.cls">{{ s.text }}</span></span
           >
-          <!-- 보조 텍스트. subTop 이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 베이스라인(last baseline)으로 맞춰, 큰 숫자, 단위, 보조 텍스트 아래 줄이 같은 선에 선다.
-               둘째 선 표시(짧은 가로선)는 둘째 선의 값이 있는 줄에(markTop 이면 위 줄). 글 안의 줄바꿈은 그대로 줄을 나눈다. 툴팁은 숫자에만.
+          <!-- 보조 텍스트. subTop이 있으면 그 위에 한 줄 더. 줄은 마지막 글줄의 베이스라인(last baseline)으로 맞춰, 큰 숫자, 단위, 보조 텍스트 아래 줄이 같은 선에 선다.
+               둘째 선 표시(짧은 가로선)는 둘째 선의 값이 있는 줄에(markTop이면 위 줄). 글 안의 줄바꿈은 그대로 줄을 나눈다. 툴팁은 숫자에만.
                늘 두 줄 높이(min-h-8)라 보조 텍스트가 한 줄인 카드도 두 줄인 옆 카드와 큰 숫자의 높이가 같다(큰 숫자가 작아지면 두 줄이 줄 높이를 정한다) -->
           <span class="ml-auto min-w-0 min-h-8 flex flex-col justify-end items-end text-right text-2xs @min-[10.14rem]/metric:text-xs text-on-surface-variant nums"
             ><span v-if="m.subTop" class="flex items-center gap-1 truncate"
@@ -261,7 +261,7 @@
                 <div v-else :class="PROCESS_GRID" class="h-12 content-center @md/card:h-8 text-sm">
                   <span class="hidden @md/card:block font-mono text-xs nums">{{ p.pid }}</span>
                   <span class="font-mono text-xs" :class="p.label === 'yt-dlp' && 'text-tertiary'">{{ p.label }}</span>
-                  <!-- 길면 옆으로 흐르고(마퀴) 툴팁으로 전체를(잔류 프로세스는 까닭 툴팁) -->
+                  <!-- 길면 옆으로 흐르고(마퀴) 툴팁으로 전체를(잔류 프로세스는 이유 툴팁) -->
                   <span class="min-w-0 flex items-center gap-1" :class="p.stray && LEVEL_TEXT.warn" v-tooltip="p.stray ? ORPHAN_TIP : null"><Icon v-if="p.stray" :name="LEVEL_ICON.warn" :size="14" fill class="shrink-0" /><MarqueeText class="min-w-0 flex-1" :text="processJob(p)" :tip="!p.stray" /></span>
                   <span class="hidden @md/card:block text-xs nums text-right" :class="p.stray && LEVEL_TEXT.warn">{{ formatDuration(p.ageMs / 1000, "0:00") }}</span>
                   <!-- 메모리는 서버가 15초마다 잰다. 막 뜬 프로세스는 아직 없다 -->
@@ -286,7 +286,7 @@
           /></span>
         </div>
       </BaseCard>
-      <!-- 인코딩 워커: 인코딩 응답 시간 카드가 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생, CPU(코어 하나 기준), 응답 시간 p99 와 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms).
+      <!-- 인코딩 워커: 인코딩 응답 시간 카드가 "괜찮은가"면 여기는 "왜". 워커마다 맡은 재생, CPU(코어 하나 기준), 응답 시간 p99와 응답 한도(응답이 그 안에 와야 소리가 끊기지 않는 시간, (큐 깊이 − 1) × 20ms).
            막대는 응답 시간이 응답 한도를 얼마나 쓰는지. 큐 깊이를 끝까지 올린 워커만 주의, 문제로 칠한다(덜 올렸으면 풀이 더 올린다) -->
       <BaseCard icon="memory" :title="T.workers.title(status.encoding.workers.length)" data-at="workers">
         <div class="flex flex-col gap-3">
@@ -377,13 +377,13 @@ const LEVEL_ICON: Record<Level, IconName> = { ok: "check_circle", warn: "warning
 const LEVEL_TEXT: Record<Level, string> = { ok: "", warn: "text-(--warn-ink)", bad: "text-error" };
 const LEVEL_GRAPH: Record<Level, string> = { ok: "text-primary", warn: "text-(--warn-ink)", bad: "text-error" };
 const LEVEL_BAR: Record<Level, string> = { ok: "bg-primary", warn: "bg-(--warn-ink)", bad: "bg-error" };
-// 주의는 어디서나 노랑 계열(--warn-ink: 밝기마다 바탕 대비 4.5:1 이상인 노랑). M3 에 경고 색 역할이 없어 칩 바탕은 그 색을 옅게 섞는다
+// 주의는 어디서나 노랑 계열(--warn-ink: 밝기마다 바탕 대비 4.5:1 이상인 노랑). M3에 경고 색 역할이 없어 칩 바탕은 그 색을 옅게 섞는다
 const WARN_FILL = "bg-(--warn-ink)/15 text-(--warn-ink)";
 const LEVEL_BADGE: Record<Level, string> = { ok: "bg-primary-container text-on-primary-container", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 
 /** 기준(주의, 문제). 핑 ms, 루프 지연 ms, heap, CPU, 디스크 % */
-// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms 가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
+// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
 const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 // ── 글 ──
@@ -399,7 +399,7 @@ const timeText = (ms: number) => {
 };
 const MB = 1024 ** 2;
 const toGB = (bytes: number) => bytes / 1024 ** 3;
-// 크기: 단위는 크기에 맞게(MB, GB, TB, src/ui/format 의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0 이면 뗀다: 10.0 → 10)
+// 크기: 단위는 크기에 맞게(MB, GB, TB, src/ui/format의 byteUnit), 100 이상은 정수, 아래는 소수 한 자리(소수가 0이면 뗀다: 10.0 → 10)
 const sizeText = (bytes: number) => {
   const { value, unit } = scaledText(bytes, byteUnit, (n) => (n >= 100 ? 0 : 1));
   return `${value.replace(/\.0$/, "")} ${unit}`;
@@ -416,7 +416,7 @@ const sizePair = (part: number, whole: number, partDigits: number, wholeDigits =
 };
 const toMBps = (bps: number) => bps / 1024 ** 2;
 const downloadParts = (bps: number) => scaledText(toMBps(bps), byteRate, () => 1);
-// 업로드는 회선 속도처럼 비트로(kbps, Mbps, Gbps). kbps 는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
+// 업로드는 회선 속도처럼 비트로(kbps, Mbps, Gbps). kbps는 정수, 100 이상은 정수, 그 아래는 소수 한 자리
 const toMbps = (bps: number) => (bps * 8) / 1e6;
 const rateParts = (bps: number) => scaledText(toMbps(bps), bitRate, (n, unit) => (unit === "kbps" || n >= 100 ? 0 : 1));
 const rateText = (bps: number) => {
@@ -453,7 +453,7 @@ const sizePairShort = (part: number, whole: number) => {
   const { value, unit, per } = shortParts(whole, byteUnit, 1024, 4);
   return `${(part / per).toFixed(value.includes(".") ? 1 : 0)} / ${value} ${unit}`;
 };
-// 개수를 줄여서: 1000 부터 k, M 에 소수 한 자리(2,499 → 2.5k, 112,455,000 → 112.5M)
+// 개수를 줄여서: 1000부터 k, M에 소수 한 자리(2,499 → 2.5k, 112,455,000 → 112.5M)
 const countParts = (n: number) => scaledText(n, count, (_, unit) => (unit ? 1 : 0));
 const countText = (n: number) => {
   const { value, unit } = countParts(n);
@@ -463,10 +463,10 @@ const countText = (n: number) => {
 const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
 // 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3px, 바깥 간격 2px, secondary,
-// 나타날 때 600ms(long4) 중 1/4 은 0 → 8px 로 두꺼워지고 3/4 은 3px 로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
+// 나타날 때 600ms(long4) 중 1/4은 0 → 8px로 두꺼워지고 3/4은 3px로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
 const root = ref<HTMLElement | null>(null);
-// 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline 이 px 단위로 끊겨 버벅여 보인다
-const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" }; // --ease-smooth, --ease-accelerate 와 같은 값(Web Animations 는 var() 를 읽지 못한다)
+// 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline이 px 단위로 끊겨 버벅여 보인다
+const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" }; // --ease-smooth, --ease-accelerate와 같은 값(Web Animations는 var()를 읽지 못한다)
 let ringAnimation: Animation | null = null;
 let cancelPendingRing: (() => void) | null = null;
 function jumpTo(at: string) {
@@ -497,7 +497,7 @@ function playRing(el: HTMLElement) {
   const ringFrame = (width: number, c = color) => ({ outline: `${width}px solid ${c}`, outlineOffset: `${RING.offset}px` });
   const total = RING.durationMs + RING.holdMs + RING.exitMs;
   const thickenMs = RING.durationMs * 0.25;
-  // 움직임 줄이기를 켰으면 두꺼워졌다 줄어드는 움직임 없이 링만(Material Web 도 같다)
+  // 움직임 줄이기를 켰으면 두꺼워졌다 줄어드는 움직임 없이 링만(Material Web도 같다)
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
     ringAnimation = el.animate([ringFrame(RING.width), { ...ringFrame(RING.width), offset: 1 - RING.exitMs / total }, ringFrame(RING.width, "transparent")], { duration: total });
     return;
@@ -515,7 +515,7 @@ function playRing(el: HTMLElement) {
 }
 
 // 저장공간 카드 위치: 내용 영역이 STORAGE_BESIDE_REM 이상이면 연결 카드 옆(연결 카드 2열이 설명을 덜 자르고 남는 폭).
-// rem 이라 브라우저 기본 글자 크기를 키우면 기준도 같이 커진다(다른 배치 기준인 컨테이너 쿼리와 같다)
+// rem이라 브라우저 기본 글자 크기를 키우면 기준도 같이 커진다(다른 배치 기준인 컨테이너 쿼리와 같다)
 const STORAGE_BESIDE_REM = 84;
 const [DefineStorage, ReuseStorage] = createReusableTemplate();
 const { width: rootWidth } = useElementSize(root);
@@ -653,7 +653,7 @@ const metrics = computed<Metric[]>(() => {
 });
 
 // 인코딩 응답 시간: 가장 늦은 워커의 응답 시간 p99. 응답은 응답 한도((큐 깊이 − 1) × 20ms) 안에 와야 하고, 큐 깊이를 상한까지 올린 워커가 그 80%를 넘으면 주의, 한도를 넘기면 문제(누락 프레임).
-// 보조 텍스트는 최근 15분 누락 프레임 수(0 이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한, 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
+// 보조 텍스트는 최근 15분 누락 프레임 수(0이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한, 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
 const FRAME_MS = 20;
 /** 그래프 세로축의 상한을 정할 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
@@ -681,7 +681,7 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
 
 // 인코딩 워커 카드: 워커 수는 제목에, 워커마다 한 줄, 아래에 워커 상한, 켜진 뒤 누계.
 // 세션 수는 싣지 않는다(워커마다의 재생 수를 더한 것, 새는 세션은 GC 안전망이 warn 로그로 알린다)
-// 응답 시간: 카드 안쪽이 320px(휴대폰 386px) 보다 좁으면 재생, 코어와 함께 오른쪽에 두 줄로 쌓고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms 를 정수로
+// 응답 시간: 카드 안쪽이 320px(휴대폰 386px)보다 좁으면 재생, 코어와 함께 오른쪽에 두 줄로 쌓고, 320~336px(휴대폰 402px)에서만 한 줄에 넣으려고 ms를 정수로
 const AT_WORKER = ["hidden @min-[20rem]/card:inline @min-[21rem]/card:hidden", "@min-[20rem]/card:hidden @min-[21rem]/card:inline"] as const;
 const wholeText = (ms: number) => {
   const { value, unit } = timeWhole(ms);
@@ -715,17 +715,17 @@ const LINK_WORD: Record<LinkState, string> = T.linkWords;
 const LINK_ICON: Record<LinkState, IconName> = { ok: "check_circle", slow: "warning", fail: "cancel", idle: "schedule", off: "block" };
 const LINK_ICON_FILLED: Record<LinkState, boolean> = { ok: true, slow: true, fail: true, idle: false, off: false };
 const LINK_TEXT: Record<LinkState, string> = { ok: "text-(--ok-ink)", slow: "text-(--warn-ink)", fail: "text-error", idle: "text-on-surface-variant", off: "text-on-surface-variant" };
-// 셀 너비를 그룹, 열과 상관없이 고정해 이름, 마지막 성공, 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock" 이 들어가게)
+// 셀 너비를 그룹, 열과 상관없이 고정해 이름, 마지막 성공, 응답이 위아래로 줄을 맞춘다(이름은 가장 긴 "SponsorBlock"이 들어가게)
 /** 클라이언트 상자의 윗선 조각: 행 가운데 높이에서 시작해 아래로 이어진다 */
 const CLIENT_BOX_EDGE = "self-end h-2.5 border-t border-outline-variant/60";
 const LINK_GRID = "grid grid-cols-1 @md/card:grid-cols-[8.5rem_minmax(0,1fr)_6.5rem_3.5rem] gap-x-3";
-// 좁은 카드: 헤더, 행마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents 로 바깥 네 열 격자에 그대로 든다
+// 좁은 카드: 헤더, 행마다 제 격자(이름 | 마지막 성공 | 응답, 설명은 아래 줄). 넓으면 contents로 바깥 네 열 격자에 그대로 든다
 const LINK_NARROW = "grid grid-cols-[minmax(0,1fr)_6.5rem_3.5rem] items-center gap-x-3 @md/card:contents";
 const COOKIE_WORD = T.cookieSources;
 /** whenFull: "마지막 성공"을 줄여 보였을 때(약 …)만 전체 길이 */
 type LinkLine = { name: string; state: LinkState; detail: string; when: string; whenFull?: string | null; value: string; hint?: string | null };
 /**
- * 지난 때를 큰 단위 둘까지만 "2시간 8분 전" 형식으로(0인 단위는 뺀다). 그 아래 단위가 남으면 앞에 "약"을 붙이고 전체("2시간 8분 13초 전")는 full 로.
+ * 지난 때를 큰 단위 둘까지만 "2시간 8분 전" 형식으로(0인 단위는 뺀다). 그 아래 단위가 남으면 앞에 "약"을 붙이고 전체("2시간 8분 13초 전")는 full로.
  * 셀 너비가 "약 23시간 59분 전"까지만 받으면 되게 하려는 것
  */
 function sinceText(at: number): { short: string; full: string | null } {
@@ -747,13 +747,13 @@ function sinceText(at: number): { short: string; full: string | null } {
   const short = T.ago(say(units.slice(top, top + 2)));
   return cut ? { short: T.about(short), full: T.ago(say(units)) } : { short, full: null };
 }
-// 마지막 성공, 응답 셀이 비면 화면이 "-" 를 넣는다(설명 셀은 비워 둔다)
+// 마지막 성공, 응답 셀이 비면 화면이 "-"를 넣는다(설명 셀은 비워 둔다)
 function toLinkLine(c: LinkRow): LinkLine {
   if (c.state === "off") return { name: c.name, state: c.state, detail: T.unused, when: "", value: "" };
   if (c.id === "discord") return { ...measuredLinkLine(c), detail: discordDetail() };
   return measuredLinkLine(c);
 }
-/** 디스코드 API 행의 설명: 끊겨 있으면 몇 번째 시도인지, 연결돼 있으면 켜진 뒤 재연결 횟수(0 이면 비운다) */
+/** 디스코드 API 행의 설명: 끊겨 있으면 몇 번째 시도인지, 연결돼 있으면 켜진 뒤 재연결 횟수(0이면 비운다) */
 function discordDetail() {
   const { reconnects, retryAttempt } = props.status.bot;
   if (retryAttempt !== null) return T.retrying(retryAttempt);
@@ -856,7 +856,7 @@ function sortProcessesBy(key: ProcessSort) {
 }
 const playerCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
 const { height: playerCardHeight } = useElementSize(playerCardEl, undefined, { box: "border-box" });
-// 행 높이는 카드 안쪽 너비로 정한다(@md/card 와 같은 448px)
+// 행 높이는 카드 안쪽 너비로 정한다(@md/card와 같은 448px)
 const processCardEl = ref<InstanceType<typeof BaseCard> | null>(null);
 const { width: processCardWidth } = useElementSize(processCardEl);
 const processListEl = ref<HTMLElement | null>(null);
@@ -893,7 +893,7 @@ const storageBars = computed(() => {
     { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
   ];
 });
-// 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0 인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패, 다운로드 멈춤, 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
+// 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패, 다운로드 멈춤, 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
 const cacheCounts = computed<Array<[string, string]>>(() => {
   const { cache } = props.status.storage;
   return [

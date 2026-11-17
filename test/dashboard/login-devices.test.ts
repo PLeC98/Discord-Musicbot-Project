@@ -112,7 +112,7 @@ function device(ua: string) {
   return { go, login, list, cookie: () => jar.header() };
 }
 
-test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저, OS, 기기 종류, 시각, 내부망 주소는 위치 DB 에 묻지 않는다", async () => {
+test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라우저, OS, 기기 종류, 시각, 내부망 주소는 위치 DB에 묻지 않는다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   const other = device(CHROME);
@@ -130,11 +130,11 @@ test("목록은 같은 사용자의 세션만, 지금 기기가 맨 앞. 브라�
       [false, true, "Mobile Safari", "iOS", "mobile"],
     ],
   );
-  assert.deepEqual(devices[0].place, { kind: "private" }, "테스트는 127.0.0.1 에서 온다");
+  assert.deepEqual(devices[0].place, { kind: "private" }, "테스트는 127.0.0.1에서 온다");
   assert.ok(devices.every((d) => typeof d.signedInAt === "number" && typeof d.seenAt === "number"));
   assert.ok(
     devices.every((d) => d.id.length === 22 && !/sess/.test(d.id)),
-    "세션 id 가 아니라 손잡이",
+    "세션 id가 아니라 손잡이",
   );
 });
 
@@ -276,7 +276,7 @@ function breakDelete() {
 
 type Unsaved = { code: string; signedOutCount: number; unsavedCount: number };
 
-test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 답하지 않는다(503, 실패 건수). 이 기기의 이전 세션도 지우지 못해 이 기기도 로그아웃되고, 끊은 쿠키는 이 실행에서 곧바로 401, DB가 돌아오면 다시 삭제한다", async () => {
+test("다른 기기 로그아웃의 삭제가 실패하면 성공으로 응답하지 않는다(503, 실패 건수). 이 기기의 이전 세션도 지우지 못해 이 기기도 로그아웃되고, 끊은 쿠키는 이 실행에서 곧바로 401, DB가 돌아오면 다시 삭제한다", async () => {
   const pc = device(CHROME);
   const phone = device(IPHONE);
   await pc.login("unsaved1");

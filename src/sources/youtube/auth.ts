@@ -63,7 +63,7 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
     if (config.ytdlp.cookiesFromBrowser) {
       options.cookiesFromBrowser = config.ytdlp.cookiesFromBrowser;
     } else if (config.ytdlp.useCookieFile && cookieJar.ready()) {
-      // 실행할 때 그 실행만의 파일로 복호화한다(ytdlp-run 의 _runOnce)
+      // 실행할 때 그 실행만의 파일로 복호화한다(ytdlp-run의 _runOnce)
       options.cookies = cookieJar.JAR;
     }
   }
@@ -130,7 +130,7 @@ function cookieSource(): CookieSource {
 }
 
 /**
- * 쿠키(브라우저, 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate 가 먼저 본다).
+ * 쿠키(브라우저, 대시보드에 입력한 것)를 설정해 두었는가. 연령 제한 폴백 가능 여부(연령 제한 콘텐츠를 켰는지는 sources/age-gate가 먼저 본다).
  *
  * 입력한 쿠키는 기동 시점이 아니라 부를 때마다 본다. 대시보드로 교체하면 봇을 다시 시작하지
  * 않아도 다음 판정부터 반영돼야 한다. 빈도가 낮다(연령 제한에서만 불린다).

@@ -58,14 +58,14 @@ test("굽기: 큰 그림은 긴 변 1000px JPEG, 작은 그림은 키우지 않�
   assert.equal(await bakeCover(Buffer.concat([ihdr, Buffer.alloc(64)])), null);
 });
 
-test("굽기: CMYK JPEG 도 sRGB JPEG 으로", async () => {
+test("굽기: CMYK JPEG도 sRGB JPEG으로", async () => {
   const cmyk = await noise(200, 200).toColourspace("cmyk").jpeg().toBuffer();
   assert.equal((await sharp(cmyk).metadata()).space, "cmyk");
   const baked = await bakeCover(cmyk);
   assert.equal((await sharp(baked!.jpeg).metadata()).space, "srgb");
 });
 
-// Ogg Vorbis 픽스처는 ffmpeg 에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis 는 빌드마다 없을 수 있다(macOS 의 brew 기본 빌드)
+// Ogg Vorbis 픽스처는 ffmpeg에 들어 있는 vorbis 인코더로 만든다(실험 기능이라 -strict, 2채널만). libvorbis는 빌드마다 없을 수 있다(macOS의 brew 기본 빌드)
 const VORBIS = ["-c:a", "vorbis", "-strict", "experimental", "-ac", "2"];
 let ready = false;
 before(async () => {
@@ -78,7 +78,7 @@ before(async () => {
   ].every(Boolean);
 });
 
-test("굽기: 움직이는 GIF 는 첫 장", async (t) => {
+test("굽기: 움직이는 GIF는 첫 장", async (t) => {
   if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const gif = fs.readFileSync(at("moving.gif"));
   assert.ok(((await sharp(gif, { animated: true }).metadata()).pages ?? 1) > 1, "픽스처가 여러 장");
@@ -86,7 +86,7 @@ test("굽기: 움직이는 GIF 는 첫 장", async (t) => {
   assert.deepEqual([frame?.width, frame?.height], [40, 80]);
 });
 
-test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3, Ogg Vorbis, 이미 Opus 라 옮기기). 다시 읽으면 같고, 임시 그림 파일은 남지 않는다", { timeout: 60_000 }, async (t) => {
+test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3, Ogg Vorbis, 이미 Opus라 옮기기). 다시 읽으면 같고, 임시 그림 파일은 남지 않는다", { timeout: 60_000 }, async (t) => {
   if (!ready) return t.skip("ffmpeg로 픽스처를 만들 수 없음");
   const cover = await bakeCover(fs.readFileSync(at("src.jpg")));
   assert.ok(cover);
@@ -108,5 +108,5 @@ test("실물: 캐시 변환이 우리 태그와 그림만 적는다(MP3, Ogg Vor
   const bare = at("bare.cache.opus");
   await audioConvert.toCacheOpus(at("a.mp3"), bare, { tags: { title: null, artist: null, album: null }, cover: null });
   const read = await fromFile(bare);
-  assert.deepEqual([read?.title, read?.picture], [null, null], "받은 파일의 태그 · 그림은 버린다");
+  assert.deepEqual([read?.title, read?.picture], [null, null], "받은 파일의 태그와 그림은 버린다");
 });

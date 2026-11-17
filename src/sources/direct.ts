@@ -13,20 +13,20 @@ import type { Tags as FileTags } from "./file-tags.ts";
 
 /**
  * tags: 본문의 태그를 읽어 넘길 곳(곡 찾기만). 1.5초 안에 읽으면 돌려주기 전에, 아니면 나중에 부른다. 없으면 헤더만 보고 끊는다.
- * net 은 테스트가 가짜를 넘기는 곳
+ * net은 테스트가 가짜를 넘기는 곳
  */
 type InfoOptions = { tags?: (track: DirectTrack, tags: FileTags) => void; net?: StreamNet };
 
-/** 홉마다의 응답 대기. 재생을 시작하는 길(지정한 음원이 라디오인지)도 부르므로 HEAD 와 같다 */
+/** 홉마다의 응답 대기. 재생을 시작하는 길(지정한 음원이 라디오인지)도 부르므로 HEAD와 같다 */
 const INFO_ACCEPT: SafeUrl.Accept = { ...OPEN_ACCEPT, timeoutMs: SafeUrl.HEAD_TIMEOUT_MS };
-/** 곡 추가 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 추가하고 태그는 마저 읽는다(결과는 embedded-art 가 기억하고 알린다) */
+/** 곡 추가 응답이 태그를 기다리는 시간(요청을 보낸 때부터). 넘으면 파일 이름으로 추가하고 태그는 마저 읽는다(결과는 embedded-art가 기억하고 알린다) */
 const TAG_WAIT_MS = 1500;
 
 /**
- * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류, 크기, 파일 이름, 라디오를 보고, tags 를 주면 본문 앞부분의 태그를 읽는다.
- * HLS 는 목록으로 VOD(길이), 라이브를 본다. 단순 목록(PLS, M3U)은 첫 주소를 열어 본다(곡의 음원 주소는 목록 주소 그대로, 열 때마다 다시 푼다).
- * 다른 출처의 search()처럼 배열을 돌려준다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지, 이미지 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 로 던진다.
- * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD 를 거절하는 서버(AnimeThemes CDN 의 403)에서도 된다
+ * 직접 링크의 곡 정보. GET 하나(direct-open)로 무엇인지 판정하고, 응답 헤더로 종류, 크기, 파일 이름, 라디오를 보고, tags를 주면 본문 앞부분의 태그를 읽는다.
+ * HLS는 목록으로 VOD(길이), 라이브를 본다. 단순 목록(PLS, M3U)은 첫 주소를 열어 본다(곡의 음원 주소는 목록 주소 그대로, 열 때마다 다시 푼다).
+ * 다른 출처의 search()처럼 배열을 돌려준다. 직접 링크가 아니면 [], 음원이 아니면(웹 페이지, 이미지 등) unsupported-link, 링크를 열지 못하면 direct-unavailable 예외를 던진다.
+ * 네트워크 요청은 SafeUrl(SSRF 가드)을 통과한다. HEAD를 거절하는 서버(AnimeThemes CDN의 403)에서도 된다
  */
 async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream } }: InfoOptions = {}): Promise<DirectTrack[]> {
   const started = Date.now();
@@ -60,7 +60,7 @@ async function getInfo(url: string, { tags, net = { getStream: SafeUrl.getStream
     clearTimeout(timer);
     return [track];
   } catch (error) {
-    // 음원이 아닌 링크, 옛 SHOUTcast 는 그대로(곡 찾기가 그 문장으로). 받은 응답을 보고 안 것이라 숨길 것이 없다
+    // 음원이 아닌 링크, 옛 SHOUTcast는 그대로(곡 찾기가 그 문장으로). 받은 응답을 보고 안 것이라 숨길 것이 없다
     if (refusedByResponse(error)) throw error;
     // SSRF 오라클 방지: 차단 사유(막힌 주소)는 원인에만 둔다. 곡 찾기가 로그 한 줄에 원인을 붙인다
     throw codedError("direct-unavailable", "재생할 수 없는 링크", { cause: error });
@@ -76,11 +76,11 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
   const filename = dispositionName(headers["content-disposition"]) || path.basename(urlPath);
   return {
     title: titleOf(filename, headers, radio) ?? new URL(url).hostname,
-    // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl 도 그대로 돌려준다)
+    // 서명된 주소는 쿼리에 토큰이 있어 다듬지 않는다(canonicalUrl도 그대로 돌려준다)
     pageUrl: url,
     requestKey: url,
     audioUrl: url,
-    // 크기로 길이를 추산하면 VBR 에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(media/cache-download)
+    // 크기로 길이를 추산하면 VBR에서 크게 어긋난다. 모르는 채로 두고 다운로드한 뒤 잰 값으로 채운다(media/cache-download)
     duration: 0,
     durationSource: "unknown",
     // 인터넷 라디오(Icecast, SHOUTcast)는 icy-* 헤더를 붙인다(radio). 끝이 없는 방송이라 라이브로 다룬다(위치 이동, 반복, 캐시 없음)
@@ -92,7 +92,7 @@ function trackOf(url: string, headers: Record<string, unknown>, radio: boolean):
   };
 }
 
-/** HLS 곡. 라이브면 라이브로(캐시, 위치 이동 없음), VOD 면 목록의 길이. 제목은 호스트(목록 파일 이름은 index, playlist 같은 이름이다) */
+/** HLS 곡. 라이브면 라이브로(캐시, 위치 이동 없음), VOD면 목록의 길이. 제목은 호스트(목록 파일 이름은 index, playlist 같은 이름이다) */
 function hlsTrack(url: string, hls: Hls): DirectTrack {
   const track = { ...trackOf(url, {}, false), title: new URL(url).hostname };
   if (hls.live) return { ...track, isLive: true, liveStatus: "is_live" };
@@ -102,12 +102,12 @@ function hlsTrack(url: string, hls: Hls): DirectTrack {
 /** 음원이 아닌 응답의 거절(받은 응답을 보고 안 것이라 숨기지 않는다) */
 const notAudio = (kind: string) => codedError("unsupported-link", `음원이 아닌 링크(${kind})`);
 
-/** 재생, 다운로드, 재생 테스트가 여는 것: 파일(본문, 인터넷 라디오인가) 또는 HLS(세그먼트는 media 가 받는다) */
+/** 재생, 다운로드, 재생 테스트가 여는 것: 파일(본문, 인터넷 라디오인가) 또는 HLS(세그먼트는 media가 받는다) */
 type DirectOpen = { kind: "file"; body: AudioStream; radio: boolean; length: number | null } | { kind: "hls"; hls: Hls };
 
 /**
- * 재생, 다운로드용으로 파일의 처음부터 연다(SSRF 가드를 지난 GET 하나, direct-open 으로 판정). 위치 이동은 media/direct-input 이 ffmpeg 의 -ss 로 한다.
- * 음원이 아니면(웹 페이지, DRM 등) unsupported-link, 열지 못하면 direct-unavailable. net 은 테스트가 가짜를 넘기는 곳
+ * 재생, 다운로드용으로 파일의 처음부터 연다(SSRF 가드를 지난 GET 하나, direct-open으로 판정). 위치 이동은 media/direct-input이 ffmpeg의 -ss로 한다.
+ * 음원이 아니면(웹 페이지, DRM 등) unsupported-link, 열지 못하면 direct-unavailable. net은 테스트가 가짜를 넘기는 곳
  */
 async function open(url: string, net: StreamNet = { getStream: SafeUrl.getStream }, opts: { bodyIdleMs?: number } = {}): Promise<DirectOpen> {
   let opened: Opened;
@@ -144,19 +144,19 @@ function extractTitle(filename: string): string | null {
   return title.replace(/\s+/g, " ").trim() || null;
 }
 
-/** 방송 이름(icy-name). 헤더는 latin1 로 읽히므로 UTF-8 로 맞으면 그것으로 */
+/** 방송 이름(icy-name). 헤더는 latin1로 읽히므로 UTF-8로 맞으면 그것으로 */
 function stationName(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const utf8 = Buffer.from(value, "latin1").toString("utf8");
   return (utf8.includes("\uFFFD") ? value : utf8).trim() || null;
 }
 
-/** 곡 추가 때의 제목: 인터넷 라디오는 방송 이름, 아니면 파일 이름. 둘 다 없으면 null(부르는 쪽이 호스트로) */
+/** 곡 추가 때의 제목: 인터넷 라디오는 방송 이름, 아니면 파일 이름. 둘 다 없으면 null(호출부가 호스트로) */
 function titleOf(filename: string, headers: Record<string, unknown>, radio: boolean): string | null {
   return (radio ? stationName(headers["icy-name"]) : null) ?? extractTitle(filename);
 }
 
-/** Content-Disposition 의 파일 이름(filename* 가 먼저). 없으면 null */
+/** Content-Disposition의 파일 이름(filename* 가 먼저). 없으면 null */
 function dispositionName(header: unknown): string | null {
   const text = String(header || "");
   const star = text.match(/filename\*\s*=\s*[^']*'[^']*'([^;]+)/i);

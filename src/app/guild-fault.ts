@@ -22,7 +22,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
   const recent = new Map<string, number[]>();
   const resetting = new Set<string>();
 
-  /** 서버 guildId 에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
+  /** 서버 guildId에서 모르는 오류가 났다. where: 어디서 새어 나왔나(로그) */
   return async function fault(guildId: string, error: unknown, where: string) {
     log.error(`서버 ${guildId}에서 알 수 없는 오류 (${where}):`, error);
     const player = players.get(guildId);
@@ -35,7 +35,7 @@ function createGuildFaults({ players, restore, now = () => Date.now() }: Deps) {
     times.push(at);
     recent.set(guildId, times);
     if (times.length > MAX_RESETS) {
-      log.error(`서버 ${guildId}에서 알 수 없는 오류가 반복되어(${WINDOW_MS / 60_000}분 내 ${MAX_RESETS}회 초과) 이 서버의 재생을 멈추고 세션 삭제`);
+      log.error(`서버 ${guildId}에서 알 수 없는 오류가 반복되어(${WINDOW_MS / 60_000}분 내 ${MAX_RESETS}회 초과)이 서버의 재생을 멈추고 세션 삭제`);
       await player.dispose({ reason: "되풀이 오류로 멈춤", session: "remove", panel: "stop", end: "fault" });
       return;
     }

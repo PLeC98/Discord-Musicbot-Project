@@ -1,4 +1,4 @@
-// dashboard/src/composables/row-window.ts, utils/reply-order.ts, pointer-reorder 의 높이 계산: 긴 목록을 보이는 만큼만 받고 그리는 가상 스크롤, 응답 순서 처리, 드래그 거리
+// dashboard/src/composables/row-window.ts, utils/reply-order.ts, pointer-reorder의 높이 계산: 긴 목록을 보이는 만큼만 받고 그리는 가상 스크롤, 응답 순서 처리, 드래그 거리
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,7 @@ import { boundedDy, heightTarget } from "../../../dashboard/src/composables/poin
 import { replyOrder } from "../../../dashboard/src/utils/reply-order.ts";
 import { LIST_WINDOW_MAX } from "../../../src/dashboard/contract/admin.ts";
 
-test("보이는 행: 스크롤 위치, 영역 높이로, 끝은 필터링된 수까지. 높이가 0 이면 계산하지 않는다", () => {
+test("보이는 행: 스크롤 위치, 영역 높이로, 끝은 필터링된 수까지. 높이가 0이면 계산하지 않는다", () => {
   assert.deepEqual(visibleRows(0, 312, 48, 100), { first: 0, last: 7 }, "6.5줄이 보이면 일곱째 행까지");
   assert.deepEqual(visibleRows(480, 312, 48, 100), { first: 10, last: 17 });
   assert.deepEqual(visibleRows(4600, 312, 48, 100), { first: 95, last: 100 });

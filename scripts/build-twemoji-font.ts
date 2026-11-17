@@ -1,14 +1,14 @@
-// 대시보드 이모지 글꼴(Twemoji 그림을 컬러 글꼴로 바꾼 수정본)을 만든다. 손으로 실행한다. postinstall 이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
-//   node scripts/build-twemoji-font.ts                    emoji-test.txt 를 unicode.org 에서 다운로드한다
+// 대시보드 이모지 글꼴(Twemoji 그림을 컬러 글꼴로 바꾼 수정본)을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다. 결과물은 저장소에 넣는다.
+//   node scripts/build-twemoji-font.ts                    emoji-test.txt를 unicode.org에서 다운로드한다
 //   node scripts/build-twemoji-font.ts <emoji-test.txt>   다운로드해 둔 파일로 만든다
 //
 // 원본은 대시보드에 설치된 @discordapp/twemoji(디스코드가 올린 Twemoji)의 SVG 다. 입력란 안까지 디스코드와 같은 이모지로 그리는 길은 글꼴뿐이다.
-// 만드는 도구는 nanoemoji(구글이 Noto Color Emoji 에 쓰는 도구, 파이썬)다. npm 의 아이콘 글꼴 도구는 단색 글꼴이라 색이 사라진다.
-// 파이썬 3.10 이상이 있어야 한다(PYTHON 환경 변수로 지정할 수 있다). 정한 버전의 도구를 node_modules/.cache/twemoji-font/venv 에 깔고,
+// 만드는 도구는 nanoemoji(구글이 Noto Color Emoji에 쓰는 도구, 파이썬)다. npm의 아이콘 글꼴 도구는 단색 글꼴이라 색이 사라진다.
+// 파이썬 3.10 이상이 있어야 한다(PYTHON 환경 변수로 지정할 수 있다). 정한 버전의 도구를 node_modules/.cache/twemoji-font/venv에 깔고,
 // 작업 폴더도 거기 둔다. 다시 돌리면 바뀐 그림만 다시 만든다(처음은 10분 넘게 걸린다).
-// 사파리가 COLRv1 을 그리지 못해 COLRv0 로 만든다. 세로 값: 이모지가 1em 정사각형에 들고 바닥이 기준선 0.1em 아래(Twemoji 권장 CSS 와 같은 자리).
-// 뒤처리(twemoji-font.py): 글자 문자와 키캡을 빼고, 합자를 emoji-test.txt 의 모든 형태로 넣는다.
-// iOS, iPadOS 는 기기 이모지를 쓴다(디스코드 iOS 앱과 같다). @font-face 를 그 WebKit 에만 있는 속성으로 가려 거기서는 글꼴이 없게 한다.
+// 사파리가 COLRv1을 그리지 못해 COLRv0로 만든다. 세로 값: 이모지가 1em 정사각형에 들고 바닥이 기준선 0.1em 아래(Twemoji 권장 CSS와 같은 자리).
+// 뒤처리(twemoji-font.py): 글자 문자와 키캡을 빼고, 합자를 emoji-test.txt의 모든 형태로 넣는다.
+// iOS, iPadOS는 기기 이모지를 쓴다(디스코드 iOS 앱과 같다). @font-face를 그 WebKit에만 있는 속성으로 가려 거기서는 글꼴이 없게 한다.
 // 결과: dashboard/src/assets/twemoji/(twemoji.woff2, NOTICE.txt, build.json), dashboard/src/twemoji.css(@font-face)
 
 import fs from "node:fs";
@@ -31,13 +31,13 @@ const VENV = path.join(CACHE, "venv");
 const WORK = path.join(CACHE, "work");
 const POST = path.join(import.meta.dirname, "twemoji-font.py");
 const FAMILY = "Musicbot Twemoji";
-/** 파이썬 도구. 바꾸면 결과가 달라질 수 있어 고정한다(build.json 에 남는다) */
+/** 파이썬 도구. 바꾸면 결과가 달라질 수 있어 고정한다(build.json에 남는다) */
 const TOOLS = { nanoemoji: "0.16.0", picosvg: "0.23.0", fonttools: "4.65.0" };
-/** 1em = 1024. 너비와 위아래 합을 em 과 같게 해야 그림이 글자 크기만 하다(nanoemoji 기본값은 1.17배) */
+/** 1em = 1024. 너비와 위아래 합을 em과 같게 해야 그림이 글자 크기만 하다(nanoemoji 기본값은 1.17배) */
 const METRICS = { upem: 1024, width: 1024, ascender: 922, descender: -102 };
 
 const { version: TWEMOJI } = JSON.parse(fs.readFileSync(path.join(TWEMOJI_DIR, "package.json"), "utf8")) as { version: string };
-/** Twemoji 는 주 버전을 이모지 버전에 맞춘다(16.0.1 → Emoji 16.0) */
+/** Twemoji는 주 버전을 이모지 버전에 맞춘다(16.0.1 → Emoji 16.0) */
 const EMOJI = `${TWEMOJI.split(".")[0]}.0`;
 
 const NAMES: Record<number, string> = {
@@ -82,17 +82,17 @@ function ensureTools() {
   run(bin("python"), ["-m", "pip", "install", "--quiet", "--disable-pip-version-check", ...Object.entries(TOOLS).map(([name, version]) => `${name}==${version}`)]);
 }
 
-/** emoji-test.txt: 인자로 받은 파일, 없으면 unicode.org 에서 */
+/** emoji-test.txt: 인자로 받은 파일, 없으면 unicode.org에서 */
 async function emojiTest(): Promise<string> {
   const given = process.argv[2];
   const text = given ? fs.readFileSync(given, "utf8") : await (await fetch(`https://unicode.org/Public/emoji/${EMOJI}/emoji-test.txt`)).text();
-  if (!new RegExp(`^# Version: ${EMOJI.replace(".", "\\.")}$`, "m").test(text)) throw new Error(`emoji-test.txt 가 Emoji ${EMOJI} 가 아닙니다(Twemoji ${TWEMOJI})`);
+  if (!new RegExp(`^# Version: ${EMOJI.replace(".", "\\.")}$`, "m").test(text)) throw new Error(`emoji-test.txt의 버전이 다릅니다(기대 Emoji ${EMOJI}, Twemoji ${TWEMOJI})`);
   const file = path.join(CACHE, "emoji-test.txt");
   fs.writeFileSync(file, text);
   return file;
 }
 
-/** Twemoji SVG 를 nanoemoji 가 읽는 이름(emoji_u1f600_1f3fb.svg)으로 작업 폴더에 둔다. 같은 파일은 건드리지 않아 다시 돌릴 때 바뀐 것만 다시 만든다 */
+/** Twemoji SVG를 nanoemoji가 읽는 이름(emoji_u1f600_1f3fb.svg)으로 작업 폴더에 둔다. 같은 파일은 건드리지 않아 다시 돌릴 때 바뀐 것만 다시 만든다 */
 function syncSvgs(): number {
   const dir = path.join(WORK, "svg");
   fs.mkdirSync(dir, { recursive: true });
@@ -116,7 +116,7 @@ function writeIfChanged(file: string, text: string) {
 function buildColorFont(): string {
   const config = [`family = "${FAMILY}"`, `output_file = "twemoji.ttf"`, `color_format = "glyf_colr_0"`, ...Object.entries(METRICS).map(([key, value]) => `${key} = ${value}`), "[axis.wght]", `name = "Weight"`, "default = 400", "[master.regular]", `style_name = "Regular"`, `srcs = ["svg/*.svg"]`, "[master.regular.position]", "wght = 400", ""].join("\n");
   writeIfChanged(path.join(WORK, "twemoji.toml"), config);
-  // nanoemoji 가 ninja 를 PATH 에서 찾는다
+  // nanoemoji가 ninja를 PATH에서 찾는다
   const PATH = `${path.dirname(bin("python"))}${path.delimiter}${process.env.PATH ?? ""}`;
   run(bin("nanoemoji"), ["twemoji.toml"], { cwd: WORK, env: { ...process.env, PATH } });
   return path.join(WORK, "build", "twemoji.ttf");
@@ -157,9 +157,9 @@ async function main() {
   );
   fs.writeFileSync(path.join(OUT_DIR, "build.json"), `${JSON.stringify({ twemoji: TWEMOJI, emoji: EMOJI, tools: TOOLS, metrics: METRICS }, null, 2)}\n`);
 
-  const body = `/* ${FAMILY}: Twemoji ${TWEMOJI} 그림(CC BY 4.0, assets/twemoji/NOTICE.txt)을 컬러 글꼴로 바꾼 수정본. style.css 의 --font-sans, --font-discord 맨 앞에 둔다.
-   손으로 고치지 않는다: node scripts/build-twemoji-font.ts 가 만든다. 범위는 글꼴에 든 문자(이모지와 그 순서열 부속 문자)뿐이라 보통 글은 이 글꼴을 기다리지 않는다.
-   iOS, iPadOS(-webkit-touch-callout 은 그 WebKit 에만 있다)에서는 정의하지 않아 기기 이모지로 그리고 글꼴을 다운로드하지 않는다.
+  const body = `/* ${FAMILY}: Twemoji ${TWEMOJI} 그림(CC BY 4.0, assets/twemoji/NOTICE.txt)을 컬러 글꼴로 바꾼 수정본. style.css의 --font-sans, --font-discord 맨 앞에 둔다.
+   손으로 고치지 않는다: node scripts/build-twemoji-font.ts가 만든다. 범위는 글꼴에 든 문자(이모지와 그 순서열 부속 문자)뿐이라 보통 글은 이 글꼴을 기다리지 않는다.
+   iOS, iPadOS(-webkit-touch-callout은 그 WebKit에만 있다)에서는 정의하지 않아 기기 이모지로 그리고 글꼴을 다운로드하지 않는다.
    block: 글꼴이 오기 전 이모지 자리만 비워 둔다(OS 이모지가 보였다가 바뀌지 않게) */
 @supports not (-webkit-touch-callout: none) {
   @font-face {

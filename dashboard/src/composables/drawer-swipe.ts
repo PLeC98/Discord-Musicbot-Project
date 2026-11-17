@@ -9,9 +9,9 @@ import { ref, onMounted, onUnmounted, type Ref } from "vue";
 const OWN_DRAG = "input, textarea, select, [role=slider], [data-reorder], [data-no-swipe], .touch-none, [role=status]";
 const SLOP = 8; // 이만큼(px) 움직여야 방향을 정한다
 const FLING = 0.35; // px/ms 이상으로 놓으면 방향대로
-const OPEN_ZONE = 48; // 닫힌 사이드 드로어는 왼쪽 끝에서 이만큼(px) 안에서 시작한 쓸기만 받는다(터치 영역 48px 과 같은 폭)
+const OPEN_ZONE = 48; // 닫힌 사이드 드로어는 왼쪽 끝에서 이만큼(px) 안에서 시작한 쓸기만 받는다(터치 영역 48px과 같은 폭)
 
-/** el 에서 위로 올라가며 가로로 스크롤되는 영역이 있는지 */
+/** el에서 위로 올라가며 가로로 스크롤되는 영역이 있는지 */
 function inHorizontalScroller(el: Element | null): boolean {
   for (let node = el; node && node !== document.body; node = node.parentElement) {
     const style = getComputedStyle(node);
@@ -22,7 +22,7 @@ function inHorizontalScroller(el: Element | null): boolean {
 
 /**
  * open: 사이드 드로어가 열렸는지. drawer: 사이드 드로어 면(폭을 잰다). enabled: 지금 사이드 드로어를 쓰는 화면인지(휴대폰).
- * 돌려주는 drag 는 드래그하는 동안의 연 정도(아니면 null). 화면은 drag ?? (open ? 1 : 0) 으로 그린다
+ * 돌려주는 drag는 드래그하는 동안의 연 정도(아니면 null). 화면은 drag ?? (open ? 1 : 0)으로 그린다
  */
 export function useDrawerSwipe(open: Ref<boolean>, drawer: Ref<HTMLElement | null>, enabled: () => boolean) {
   const drag = ref<number | null>(null);

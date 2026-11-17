@@ -45,13 +45,13 @@ const at = (one: store.Stored, ...parts: string[]) => path.join(store.folderOf(o
 const seconds = (playlist: string) => [...fs.readFileSync(playlist, "utf8").matchAll(/#EXTINF:([\d.]+)/g)].reduce((sum, m) => sum + Number(m[1]), 0);
 const FULL = { x: 0, y: 0, w: 1, h: 1 };
 
-test("단계 크기: AV1, VP9 는 짧은 변 1080, 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264 는 720", withCodecs("av1", "vp9", "h264"), () => {
+test("단계 크기: AV1, VP9는 짧은 변 1080, 2160(원본이 2160 이상일 때만), 작으면 원본 크기 하나, H.264는 720", withCodecs("av1", "vp9", "h264"), () => {
   const shorts = (width: number, height: number) => plansFor(["av1", "vp9", "h264"], { width, height }, 30).map((plan) => `${plan.codec} ${plan.width}x${plan.height}`);
   assert.deepEqual(shorts(3840, 2160), ["av1 1920x1080", "av1 3840x2160", "vp9 1920x1080", "vp9 3840x2160", "h264 1280x720"]);
   assert.deepEqual(shorts(2160, 3840), ["av1 1080x1920", "av1 2160x3840", "vp9 1080x1920", "vp9 2160x3840", "h264 720x1280"]);
   assert.deepEqual(shorts(2560, 1440), ["av1 1920x1080", "vp9 1920x1080", "h264 1280x720"]);
   assert.deepEqual(shorts(640, 360), ["av1 640x360", "vp9 640x360", "h264 640x360"]);
-  // 키프레임 2초: 30fps 이하는 그 두 배, 넘으면 30fps 로 줄여 60
+  // 키프레임 2초: 30fps 이하는 그 두 배, 넘으면 30fps로 줄여 60
   assert.ok(plansFor(["vp9"], { width: 640, height: 360 }, 24)[0].options.join(" ").includes("-g 48"));
   assert.ok(plansFor(["vp9"], { width: 640, height: 360 }, 60)[0].options.join(" ").includes("-g 60"));
 });
@@ -95,7 +95,7 @@ test("인코딩 단계: AV1(10비트), VP9를 인코딩하고 목록을 쓴다. 
   assert.match(first.media!.rungs.av1![0].codecs, /^av01\.0\.\d{2}M\.10$/);
   assert.match(first.media!.rungs.vp9![0].codecs, /^vp09\.00\.\d{2}\.08$/);
   for (const codec of ["av1", "vp9"]) assert.match(fs.readFileSync(at(one, codec, "index.m3u8"), "utf8"), /360\/index\.m3u8/);
-  // 이어 하기: VP9 를 삭제하고 끊긴 임시 폴더를 둔 채 다시
+  // 이어 하기: VP9를 삭제하고 끊긴 임시 폴더를 둔 채 다시
   const av1Mtime = fs.statSync(at(one, "av1", "360", "index.m3u8")).mtimeMs;
   fs.rmSync(at(one, "vp9", "360"), { recursive: true });
   fs.mkdirSync(at(one, "vp9", "360.tmp"), { recursive: true });
@@ -163,7 +163,7 @@ test("메모리 관문: 넉넉하면 바로 지나고, 멈추면 기다리지 �
   assert.ok(Date.now() - started < 1000);
 });
 
-test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지), 나눠 굽기는 3, 2 만(들지 않으면 따로)", async () => {
+test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5까지), 나눠 굽기는 3, 2 만(들지 않으면 따로)", async () => {
   const { av1Lp, splitLp, needOf } = await import("../../src/dashboard/login-background/memory.ts");
   const GB = 1024 ** 3;
   assert.deepEqual(
@@ -182,12 +182,12 @@ test("AV1 병렬 단계: 남은 메모리에 드는 가장 높은 것(5 까지),
     [64, 2.9, 2.6, 2].map((free) => splitLp(false, free * GB)),
     [3, 3, 2, null],
   );
-  // VP9, H.264 는 가볍다(AV1 4K 의 몇 분의 일)
+  // VP9, H.264는 가볍다(AV1 4K의 몇 분의 일)
   assert.ok(needOf({ codec: "vp9", uhd: true }) < needOf({ codec: "av1", uhd: true, lp: 1 }));
   assert.ok(needOf({ codec: "h264" }) < 2 * GB);
 });
 
-test("진행 감시: out_time_us 가 늘면 다시 재고, 멈추면 알린다", async () => {
+test("진행 감시: out_time_us가 늘면 다시 재고, 멈추면 알린다", async () => {
   const { progressWatch } = await import("../../src/media/ffmpeg/job.ts");
   let stalled = 0;
   const watch = progressWatch(80, () => stalled++);

@@ -1,4 +1,4 @@
-// 대기열 화면 한 벌. /queue 와 재생 패널의 대기열 버튼, 넘기기 버튼이 같은 화면을 쓴다.
+// 대기열 화면 한 벌. /queue와 재생 패널의 대기열 버튼, 넘기기 버튼이 같은 화면을 쓴다.
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
 import { queueDescription } from "./queue-display.ts";

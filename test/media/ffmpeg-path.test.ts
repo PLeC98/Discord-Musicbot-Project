@@ -37,7 +37,7 @@ test("probe: 실제 ffmpeg는 버전 문자열을 돌려준다", () => {
   assert.match(version, /\d/, `버전에 숫자가 있어야 함: ${version}`);
 });
 
-test("logResolved: 던지지 않고 해석 정보를 돌려준다 (기동 경로)", () => {
+test("logResolved: 예외를 던지지 않고 해석 정보를 돌려준다 (기동 경로)", () => {
   const info = logResolved();
   assert.equal(info.path, resolve().path);
 });
@@ -48,7 +48,7 @@ test("_reset 후에도 같은 바이너리로 다시 해석된다 (캐시 초기
   assert.equal(resolve().path, before);
 });
 
-test("번들 ffmpeg 는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
+test("번들 ffmpeg는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
   const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
   const expected = path.join(import.meta.dirname, "..", "..", "vendor", "bin", exe);
   assert.equal(ffmpegPathModule._internals.fromBundle(), fs.existsSync(expected) ? expected : null);

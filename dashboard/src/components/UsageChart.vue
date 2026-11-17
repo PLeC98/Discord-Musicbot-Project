@@ -1,7 +1,7 @@
 <!--
-  AI 사용량의 날짜별 막대(사용량 통계 화면). 빈 날도 0 으로 슬롯을 지켜 간격이 날짜와 맞는다. 기간이 길면(92일 넘게) 이레씩 묶는다.
+  AI 사용량의 날짜별 막대(사용량 통계 화면). 빈 날도 0으로 슬롯을 지켜 간격이 날짜와 맞는다. 기간이 길면(92일 넘게) 이레씩 묶는다.
   지표: 토큰(입력, 캐시, 출력을 쌓는다. 입력은 캐시를 뺀 몫), 요청(성공, 실패를 쌓는다), 비용. 막대 영역 전체가 마우스를 받고 그날 값을 툴팁으로 보인다.
-  계열 색은 테마와 무관한 고정 색(style.css 의 --usage-*)이고 범례, 툴팁이 이름을 함께 적어 색만으로 구분하지 않는다.
+  계열 색은 테마와 무관한 고정 색(style.css의 --usage-*)이고 범례, 툴팁이 이름을 함께 적어 색만으로 구분하지 않는다.
 -->
 <template>
   <div class="flex flex-col gap-2">
@@ -76,7 +76,7 @@ const bars = computed(() =>
     const label = dayLabel(days[0].day);
     const when = days.length > 1 ? T.range(label, dayLabel(days[days.length - 1].day)) : label;
     const tip = [when, ...segments.map((one) => `${seriesLabel(one.key)} ${formatValue(one.value)}`)].join("\n");
-    // 0 인 조각은 그리지 않는다(조각 사이 틈만 남는다)
+    // 0인 조각은 그리지 않는다(조각 사이 틈만 남는다)
     return { key: days[0].day, label, shown: segments.filter((one) => one.value > 0), total: segments.reduce((n, one) => n + one.value, 0), tip };
   }),
 );

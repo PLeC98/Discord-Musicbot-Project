@@ -59,13 +59,13 @@ test("세 어댑터가 같은 계약을 만족한다 (코어는 이 둘만 호�
   }
 });
 
-test("안내 실패가 재생을 망가뜨리지 않는다. 던지지 않는다", async () => {
+test("안내 실패가 재생을 망가뜨리지 않는다. 예외를 던지지 않는다", async () => {
   const broken = channelOf({
     send: async () => {
       throw new Error("채널 권한 없음");
     },
   });
-  await channelResponder(broken).notifyQueued(view); // 던지면 여기서 실패
+  await channelResponder(broken).notifyQueued(view); // 예외를 던지면 여기서 실패
 
   const brokenInteraction = fakeInteraction();
   brokenInteraction.editReply = async () => {
@@ -170,7 +170,7 @@ test("dismissPlaceholder는 멱등. 코어와 진입점이 모두 불러도 한 
   assert.equal(count, 1);
 });
 
-test("onceDismiss: 정리 함수가 던져도 삼킨다 (이미 삭제된 메시지)", async () => {
+test("onceDismiss: 정리 함수가 예외를 던져도 삼킨다 (이미 삭제된 메시지)", async () => {
   const dismiss = _internals.onceDismiss(() => {
     throw new Error("Unknown Message");
   });

@@ -6,7 +6,7 @@ import { codeOf, messageOf } from "./error-text.ts";
 
 type Level = "debug" | "warn" | "error";
 
-/** 작업이 끝나기를 기다릴 수 있는 Promise 를 돌려준다. 작업이 실패해도 이 Promise 는 resolve 된다 */
+/** 작업이 끝나기를 기다릴 수 있는 Promise를 돌려준다. 작업이 실패해도 이 Promise는 resolve 된다 */
 function bestEffort(log: { debug(line: string): unknown }, work: PromiseLike<unknown>, what: string): Promise<void>;
 function bestEffort<L extends Level>(log: Record<L, (line: string) => unknown>, work: PromiseLike<unknown>, what: string, level: L): Promise<void>;
 function bestEffort(log: Partial<Record<Level, (line: string) => unknown>>, work: PromiseLike<unknown>, what: string, level: Level = "debug"): Promise<void> {
@@ -15,7 +15,7 @@ function bestEffort(log: Partial<Record<Level, (line: string) => unknown>>, work
     (error: unknown) => {
       const text = messageOf(error);
       const code = codeOf(error);
-      // 오류 코드가 있으면 붙인다(디스코드 오류 번호 등. rules/error-kind 의 describeError 와 같은 모양)
+      // 오류 코드가 있으면 붙인다(디스코드 오류 번호 등. rules/error-kind의 describeError와 같은 모양)
       log[level]?.(`${what} 실패: ${code === undefined || text === `오류 코드 ${code}` ? text : `${text} (${code})`}`);
     },
   );

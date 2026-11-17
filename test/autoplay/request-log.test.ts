@@ -39,7 +39,7 @@ test("주고받은 것을 남기고 받은 글을 돌려준다. 인증 헤더는
   assert.equal(detail.requestBody, '{"q":1}');
 });
 
-test("거절 응답은 실패로 남기고 까닭(상태, 저쪽 문구)을 적는다. 가격표에 없으면 가격 모름", async () => {
+test("거절 응답은 실패로 남기고 원인(상태, 저쪽 문구)을 적는다. 가격표에 없으면 가격 모름", async () => {
   await sendLogged(reply({ error: { message: "quota exceeded" } }, 429), { ...CALL, provider: "custom", model: "m" }, "https://llm.example.com/v1/chat/completions", { method: "POST" });
   const entry = latest();
   assert.equal(entry.ok, false);
@@ -49,7 +49,7 @@ test("거절 응답은 실패로 남기고 까닭(상태, 저쪽 문구)을 적�
   assert.equal(entry.costUsd, null);
 });
 
-test("2xx 인데 쓸 수 없는 답은 성공으로 두고 까닭을 적는다. 시도 번호, 장르, 후보 수도 적는다", async () => {
+test("2xx인데 쓸 수 없는 답은 성공으로 두고 원인을 적는다. 시도 번호, 장르, 후보 수도 적는다", async () => {
   await sendLogged(reply({ i: 1 }), { ...CALL, source: "autoplay", attempt: 2, genre: "rock", candidates: 8, explain: () => "판정을 읽지 못함" }, "http://127.0.0.1:11434/v1/chat/completions", { method: "POST" });
   const entry = latest();
   assert.equal(entry.ok, true);

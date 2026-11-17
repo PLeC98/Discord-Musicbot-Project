@@ -1,4 +1,4 @@
-// /nowplaying 의 화면. 재생 패널과 같은 머리(현재 재생 중, 곡 링크, 아티스트와 앨범, 곡 그림)에 진행 막대, 그 아래 작은 글씨 두 묶음:
+// /nowplaying의 화면. 재생 패널과 같은 머리(현재 재생 중, 곡 링크, 아티스트와 앨범, 곡 그림)에 진행 막대, 그 아래 작은 글씨 두 묶음:
 // 이 곡(상태, 요청, 출처, 음원)과 이어질 것(다음 곡, 대기열, 자동재생). 재생 패널과는 따로 그린다
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
@@ -28,7 +28,7 @@ function audioHost(url: string) {
   return host;
 }
 
-/** 이 곡: 상태(멈춘 까닭 포함), 요청, 출처, 음원(요청 그대로가 아닐 때) */
+/** 이 곡: 상태(멈춘 원인 포함), 요청, 출처, 음원(요청 그대로가 아닐 때) */
 function aboutTrack(player: Player, track: QueuedTrack) {
   const T = infoText.nowPlaying();
   const held = player.pause?.heldBy;
@@ -56,7 +56,7 @@ function whatsNext(player: Player) {
   return [T.line("next", T.next, nextValue(player)), queue.length ? T.line("queue", T.queue, T.queued(queue.length, formatDuration(seconds, "") || null, partial)) : null, player.autoplay ? T.line("autoplay", T.autoplay, T.autoplayOn(genreConfig.labelOf(player.autoplay))) : null].filter(Boolean);
 }
 
-/** art: 붙일 썸네일(ui/discord-art 의 artFor, 첨부면 부르는 쪽이 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
+/** art: 붙일 썸네일(ui/discord-art의 artFor, 첨부면 호출부가 그 파일을 함께 보낸다). 주지 않으면 곡의 썸네일 주소 */
 function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | null) {
   const T = infoText.nowPlaying();
   // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(ui/mentions)
@@ -66,7 +66,7 @@ function nowPlayingView(player: Player, track: QueuedTrack, art?: DiscordArt | n
   const container = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
   const text = new TextDisplayBuilder().setContent(head);
   const thumbnail = discordArt.urlOf(art === undefined ? track.thumbnail : (art?.url ?? null));
-  // 썸네일 없는 Section 은 보낼 때 거절된다
+  // 썸네일 없는 Section은 보낼 때 거절된다
   if (thumbnail) container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text).setThumbnailAccessory(new ThumbnailBuilder().setURL(thumbnail)));
   else container.addTextDisplayComponents(text);
 

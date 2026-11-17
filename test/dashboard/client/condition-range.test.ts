@@ -16,7 +16,7 @@ test("저장 형식을 읽고 같은 글로 다시 쓴다. 못 읽으면 null", 
     assert.ok(range, value);
     assert.equal(formatRange(kind, range), value);
   }
-  assert.deepEqual(parseRange("date", "12-24 ~ 12-26"), { start: [11, 23], end: [11, 25] }, "월, 일은 0 부터");
+  assert.deepEqual(parseRange("date", "12-24 ~ 12-26"), { start: [11, 23], end: [11, 25] }, "월, 일은 0부터");
   for (const bad of ["", "12-24", "12-24 ~", "1-2 ~ 1-3", "22:00 ~ 06:00"]) assert.equal(parseRange("date", bad), null, bad);
   assert.equal(parseRange("time", "12-24 ~ 12-26"), null);
 });

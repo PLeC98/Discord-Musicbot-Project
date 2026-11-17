@@ -1,4 +1,4 @@
-// src/infra/fatal-report.ts: 치명적 오류 진단 보고서를 켜되 환경 변수(.env 의 비밀값)와 네트워크 인터페이스는 빼고, 폴더가 없으면 만든다
+// src/infra/fatal-report.ts: 치명적 오류 진단 보고서를 켜되 환경 변수(.env의 비밀값)와 네트워크 인터페이스는 빼고, 폴더가 없으면 만든다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

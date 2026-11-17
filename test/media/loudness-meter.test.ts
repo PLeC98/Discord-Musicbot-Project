@@ -1,6 +1,6 @@
 // src/media/loudness-meter.ts: 재생 중 측정 단계(BS.1770 순간 볼륨과 100ms 샘플 피크)
 //
-// 지키는 것: EBU Tech 3341 기준 신호(1kHz 사인파 -23 dBFS 스테레오)가 -23.0 LUFS. 블록은 100ms 마다, 끝난 위치(채널당 샘플 수)와 함께 처음 400ms 뒤부터 나온다.
+// 지키는 것: EBU Tech 3341 기준 신호(1kHz 사인파 -23 dBFS 스테레오)가 -23.0 LUFS. 블록은 100ms마다, 끝난 위치(채널당 샘플 수)와 함께 처음 400ms 뒤부터 나온다.
 // 청크가 1바이트씩, 홀수 길이로 와도 같은 블록이 나오고 청크는 손대지 않고 넘긴다. 깨진 샘플은 무음으로 보고 뒤의 블록을 망치지 않는다.
 // 무음이 이어져도 느려지지 않는다. 탭이 측정하라고 할 때만 재고, 다시 켜면 새로 시작한다.
 
@@ -12,7 +12,7 @@ import type { GainTap } from "../../src/media/gain-tap.ts";
 
 const FS = 48_000;
 
-// 진폭 amplitude 의 1kHz 사인파(두 채널 같음) seconds 초, f32le
+// 진폭 amplitude의 1kHz 사인파(두 채널 같음) seconds 초, f32le
 function sine(seconds: number, amplitude: number) {
   const buf = Buffer.alloc(FS * seconds * 8);
   for (let i = 0; i < FS * seconds; i++) {
@@ -42,7 +42,7 @@ async function run(meter: LoudnessMeter, buf: Buffer, sizes: number[]) {
   return Buffer.concat(out);
 }
 
-test("EBU Tech 3341: 1kHz 사인파 -23 dBFS 스테레오는 -23.0 LUFS 이고, 블록은 400ms 뒤부터 100ms 마다 끝난 위치와 함께 나온다", async () => {
+test("EBU Tech 3341: 1kHz 사인파 -23 dBFS 스테레오는 -23.0 LUFS이고, 블록은 400ms 뒤부터 100ms마다 끝난 위치와 함께 나온다", async () => {
   const amplitude = 10 ** (-23 / 20);
   const { tap, got } = tapOf();
   await run(new LoudnessMeter(tap), sine(2, amplitude), [65536]);
@@ -80,7 +80,7 @@ test("깨진 샘플은 무음으로 보고 뒤의 블록을 망치지 않는다"
   assert.ok((got.at(-1) as number) > -40, `마지막 블록 ${got.at(-1)}`);
 });
 
-test("무음이 이어져도 느려지지 않는다(필터 상태를 0 으로 민다)", () => {
+test("무음이 이어져도 느려지지 않는다(필터 상태를 0으로 민다)", () => {
   const meter = new BlockMeter(() => {});
   const loud = new Float32Array(FS * 2).map((_v, i) => 0.3 * Math.sin(i * 0.05));
   const quiet = new Float32Array(FS * 2);
@@ -96,7 +96,7 @@ test("무음이 이어져도 느려지지 않는다(필터 상태를 0 으로 �
   assert.ok(silent < sound * 3, `무음 ${silent.toFixed(1)}ms, 소리 ${sound.toFixed(1)}ms`);
 });
 
-test("탭이 측정하라고 할 때만 재고, 위치는 늘 센다. 다시 켜면 처음 400ms 를 새로 채운다", async () => {
+test("탭이 측정하라고 할 때만 재고, 위치는 늘 센다. 다시 켜면 처음 400ms를 새로 채운다", async () => {
   let on = false;
   const { tap, got } = tapOf(() => on);
   const meter = new LoudnessMeter(tap);
@@ -108,6 +108,6 @@ test("탭이 측정하라고 할 때만 재고, 위치는 늘 센다. 다시 켜
   meter.write(buf.subarray(FS * 8));
   meter.end();
   await new Promise((r) => meter.on("end", r));
-  assert.equal(got.length, 7, "켠 뒤 1초에서 400ms 가 차기 전에는 블록이 없다");
-  assert.equal(got[0]?.[0], 48_000 + 19_200, "켠 뒤 400ms 를 채운 위치(지나간 위치는 끈 동안에도 셌다)");
+  assert.equal(got.length, 7, "켠 뒤 1초에서 400ms가 차기 전에는 블록이 없다");
+  assert.equal(got[0]?.[0], 48_000 + 19_200, "켠 뒤 400ms를 채운 위치(지나간 위치는 끈 동안에도 셌다)");
 });

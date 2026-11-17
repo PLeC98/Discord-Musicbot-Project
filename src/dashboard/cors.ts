@@ -8,10 +8,10 @@ let warnedDevOrigin = false;
 function normalizeDashboardOrigin(value: string) {
   const parsed = new URL(value);
   if (!["http:", "https:"].includes(parsed.protocol)) {
-    throw new Error("DASHBOARD_URL 은 http 나 https 주소여야 함");
+    throw new Error("DASHBOARD_URL은 http나 https 주소여야 함");
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error("DASHBOARD_URL 은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 함");
+    throw new Error("DASHBOARD_URL은 계정, 쿼리, 프래그먼트가 없는 주소(출처)여야 함");
   }
   return parsed.origin;
 }
@@ -33,7 +33,7 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
       try {
         normalized = new URL(origin).origin;
       } catch {
-        // Origin 이 주소가 아니면 허용된 출처가 아니다. 차단은 브라우저가 한다
+        // Origin이 주소가 아니면 허용된 출처가 아니다. 차단은 브라우저가 한다
         return callback(null, false);
       }
 

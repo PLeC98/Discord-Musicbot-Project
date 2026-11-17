@@ -1,9 +1,9 @@
 // src/media/convert.ts: 다운로드한 오디오를 캐시 규격(.opus)으로 만들 때의 판단.
 //
-// 직접 링크도 같은 판단을 따른다. 이미 높은 비트레이트의 Opus(AnimeThemes 등)를 128k 로 다시 인코딩하지 않게.
+// 직접 링크도 같은 판단을 따른다. 이미 높은 비트레이트의 Opus(AnimeThemes 등)를 128k로 다시 인코딩하지 않게.
 //
-// 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus 로 다시 쓸지 재는 곳에만 걸리고,
-// 변환 목표는 소스 비트레이트와 무관하다. mp3 128k 와 Opus 128k 는 같은 값이 아니므로
+// 숫자가 둘인 것이 핵심이다. 상한은 Opus 소스를 Opus로 다시 쓸지 재는 곳에만 걸리고,
+// 변환 목표는 소스 비트레이트와 무관하다. mp3 128k와 Opus 128k는 같은 값이 아니므로
 // 코덱을 넘나들며 숫자를 비교하면 안 된다.
 
 import path from "node:path";
@@ -22,7 +22,7 @@ const { parseProbeOutput } = ffmpegInternals;
 
 const idx = (args: string[], flag: string) => args.indexOf(flag);
 
-test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", () => {
+test("이미 Opus면 그대로 옮긴다. 손실 세대를 쓰지 않는다", () => {
   for (const kbps of [96, 128, 186, 205, 318, 329, REMUX_MAX_KBPS]) {
     const plan = planFor({ codec: "opus", bitrateKbps: kbps });
     assert.equal(plan.action, "copy", `${kbps}k`);
@@ -30,14 +30,14 @@ test("이미 Opus 면 그대로 옮긴다. 손실 세대를 쓰지 않는다", (
 });
 
 test("상한을 아슬아슬하게 넘긴 것은 굽지 않는다. 구우면 오히려 커진다", () => {
-  // 323k 를 `-b:a 320k` 로 다시 인코딩하면 324k 가 나오고 파일이 커진다(libopus VBR).
-  // 손실 세대와 CPU 를 쓰고 용량도 손해라면 할 이유가 없다.
+  // 323k를 `-b:a 320k`로 다시 인코딩하면 324k가 나오고 파일이 커진다(libopus VBR).
+  // 손실 세대와 CPU를 쓰고 용량도 손해라면 할 이유가 없다.
   for (const kbps of [REMUX_MAX_KBPS + 1, 329, Math.floor(REMUX_MAX_KBPS * REMUX_SLACK)]) {
     assert.equal(planFor({ codec: "opus", bitrateKbps: kbps }).action, "copy", `${kbps}k`);
   }
 });
 
-test("크게 넘는 Opus 만 상한까지 낮춰 다시 굽는다", () => {
+test("크게 넘는 Opus만 상한까지 낮춰 다시 굽는다", () => {
   const plan = planFor({ codec: "opus", bitrateKbps: 510 }); // libopus 스테레오 상한
   assert.equal(plan.action, "transcode");
   assert.equal(plan.bitrateKbps, REMUX_MAX_KBPS, "상한까지만 낮춘다");
@@ -48,8 +48,8 @@ test("크게 넘는 Opus 만 상한까지 낮춰 다시 굽는다", () => {
   }
 });
 
-test("Opus 가 아니면 소스 비트레이트와 무관하게 같은 목표로 굽는다", () => {
-  // mp3 320k 를 320k opus 로 인코딩하는 판단이 나오면 안 된다. 같은 자로 잰 값이 아니다.
+test("Opus가 아니면 소스 비트레이트와 무관하게 같은 목표로 굽는다", () => {
+  // mp3 320k를 320k opus로 인코딩하는 판단이 나오면 안 된다. 같은 자로 잰 값이 아니다.
   for (const [codec, kbps] of [
     ["mp3", 320],
     ["mp3", 128],
@@ -72,7 +72,7 @@ test("코덱을 못 읽으면 굽는다. 모를 때 리먹싱하면 컨테이너
   }
 });
 
-test("비트레이트를 못 읽은 Opus 는 그대로 옮긴다. 상한은 아는 값에만 건다", () => {
+test("비트레이트를 못 읽은 Opus는 그대로 옮긴다. 상한은 아는 값에만 건다", () => {
   const plan = planFor({ codec: "opus", bitrateKbps: null });
   assert.equal(plan.action, "copy");
 });
@@ -91,7 +91,7 @@ test("인자: 리먹싱은 -c:a copy, 변환은 libopus + 목표 비트레이트
   assert.equal(enc[idx(enc, "-b:a") + 1], "128k");
 });
 
-test("인자: 출력은 언제나 opus 컨테이너이고 -vn 이 붙는다", () => {
+test("인자: 출력은 언제나 opus 컨테이너이고 -vn이 붙는다", () => {
   // 캐시 파일명이 `.opus` 전제다. 앨범아트가 붙은 파일을 그대로 옮기면 앨범아트까지 따라온다.
   for (const plan of [
     { action: "copy", bitrateKbps: 200 },
@@ -122,7 +122,7 @@ test("probe 파싱: 스트림 줄에 비트레이트가 있으면 그쪽이 이�
   assert.equal(info.durationSec, 241);
 });
 
-test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 가 그렇다)", () => {
+test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus가 그렇다)", () => {
   const info = parseProbeOutput(`
   Duration: 00:01:30.06, start: 0.007500, bitrate: 323 kb/s
     Stream #0:0: Audio: opus, 48000 Hz, stereo, fltp, start 0.007500
@@ -132,7 +132,7 @@ test("probe 파싱: 스트림 줄에 없으면 컨테이너 값을 쓴다 (Opus 
   assert.equal(info.durationSec, 90.06, "헤더의 100분의 1초까지");
 });
 
-// 컨테이너 값을 오디오로 읽으면 멀쩡한 opus 를 상한까지 다시 인코딩한다.
+// 컨테이너 값을 오디오로 읽으면 멀쩡한 opus를 상한까지 다시 인코딩한다.
 test("probe 파싱: 영상이 섞여 있으면 컨테이너 값을 쓰지 않는다", () => {
   const info = parseProbeOutput(`
   Duration: 00:01:29.14, start: 0.000000, bitrate: 4662 kb/s
@@ -140,7 +140,7 @@ test("probe 파싱: 영상이 섞여 있으면 컨테이너 값을 쓰지 않는
     Stream #0:1: Audio: opus, 48000 Hz, stereo, fltp (default)
 `);
   assert.equal(info.codec, "opus");
-  assert.equal(info.bitrateKbps, null, "4662k 는 영상까지 합친 값이다");
+  assert.equal(info.bitrateKbps, null, "4662k는 영상까지 합친 값이다");
   assert.equal(info.durationSec, 89.14);
   assert.equal(planFor(info).action, "copy", "모르면 굽지 않는다");
 });
@@ -160,7 +160,7 @@ test("probe 파싱: 읽을 것이 없으면 전부 null", () => {
   }
 });
 
-// ffmpeg 가 태그를 단 mp3 를 열 때의 헤더. 태그는 읽지 않는다(파일 태그는 sources/file-tags)
+// ffmpeg가 태그를 단 mp3를 열 때의 헤더. 태그는 읽지 않는다(파일 태그는 sources/file-tags)
 test("probe 파싱: 태그 블록이 있어도 길이, 코덱을 읽는다", () => {
   const info = parseProbeOutput(`Input #0, mp3, from 'tagged.mp3':
   Metadata:
@@ -190,7 +190,7 @@ after(() => {
   }
 });
 
-test("실물: 만들어 둔 opus 를 읽고, 다시 옮겨도 같은 길이가 나온다", async (t) => {
+test("실물: 만들어 둔 opus를 읽고, 다시 옮겨도 같은 길이가 나온다", async (t) => {
   const made = await new Promise((resolve) => {
     let child;
     try {

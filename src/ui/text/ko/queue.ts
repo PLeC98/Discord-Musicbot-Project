@@ -4,7 +4,7 @@ import { addedParts, FULL_TITLE, shortfallParts, type AddedTracks, type Shortfal
 import { escapeMd } from "../../mentions.ts";
 import { icon, type IconKey } from "../../icons.ts";
 
-/** 곡을 추가한 안내 { icon, title, body }(icon 은 헤더 줄 아이콘의 키) */
+/** 곡을 추가한 안내 { icon, title, body }(icon은 헤더 줄 아이콘의 키) */
 function added(addition: AddedTracks): { icon: IconKey; title: string; body: string } {
   const head = { icon: addition.first ? "first_added" : "done", title: "곡을 추가했어요!" } as const;
   const { name, rest } = addedParts(addition);
@@ -20,7 +20,7 @@ const addedWarnings = (shortfall: Shortfall) => {
   return [left, full && `**${FULL_TITLE}** ${full}`].filter((line): line is string => Boolean(line));
 };
 
-/** 대기열 화면. count 는 다음 곡 수, 페이지가 둘 이상이면 몇 페이지인지 */
+/** 대기열 화면. count는 다음 곡 수, 페이지가 둘 이상이면 몇 페이지인지 */
 const view = ({ count, page, pages }: { count: number; page: number; pages: number }) => ({
   title: `${icon("queue")} 재생 대기열`,
   footer: `모두 ${count}곡${pages > 1 ? ` • ${page}/${pages} 페이지` : ""}`,

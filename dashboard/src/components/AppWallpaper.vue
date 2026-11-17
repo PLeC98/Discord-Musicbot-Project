@@ -6,8 +6,8 @@
     <!-- 이미지가 없을 때의 그라데이션. 밝은 모드는 한 단계 짙은 면(surface-container) 위에(흰 면 위의 옅은 색만으로는 너무 밝다. 앨범아트 배경의 밝기 띠와 맞춘다) -->
     <div class="absolute inset-0 transition-opacity duration-700 ease-smooth" :class="[layers.length ? 'opacity-0' : 'opacity-100', !dark && 'bg-surface-container']" :style="mesh"></div>
     <TransitionGroup enter-from-class="opacity-0" leave-to-class="opacity-0" enter-active-class="transition-opacity duration-700 ease-smooth" leave-active-class="transition-opacity duration-700 ease-smooth">
-      <!-- 미리 만든 이미지(baked)는 이미 모드의 밝기 띠에 맞춰져 있어 그대로 깐다. 아닌 것만 CSS 로 블러 처리하고 면과 섞는다(모드마다 진하기, 필터는 안쪽 요소에: 레이어의 opacity 트랜지션과 부딪히지 않게).
-           블러 처리한 이미지는 가장자리가 비치지 않게 넘치게 깐다(미리 만든 봇 프로필 이미지 avatar 는 옅게 블러 처리돼 있어 딱 맞춘다) -->
+      <!-- 미리 만든 이미지(baked)는 이미 모드의 밝기 띠에 맞춰져 있어 그대로 깐다. 아닌 것만 CSS로 블러 처리하고 면과 섞는다(모드마다 진하기, 필터는 안쪽 요소에: 레이어의 opacity 트랜지션과 부딪히지 않게).
+           블러 처리한 이미지는 가장자리가 비치지 않게 넘치게 깐다(미리 만든 봇 프로필 이미지 avatar는 옅게 블러 처리돼 있어 딱 맞춘다) -->
       <div v-for="layer in layers" :key="layer.src" class="absolute" :class="layer.baked && layer.kind === 'avatar' ? 'inset-0' : 'inset-[-12%] scale-110'">
         <div class="absolute inset-0 bg-cover bg-center" :class="!layer.baked && ['blur-[72px] saturate-[1.6]', dark ? 'opacity-75' : 'opacity-60']" :style="{ backgroundImage: `url(&quot;${layer.src}&quot;)` }"></div>
       </div>

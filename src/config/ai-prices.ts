@@ -1,9 +1,9 @@
 /**
  * AI 값표. 모델마다 100만 토큰당 달러(입력, 출력, 캐시 읽기). AI 사용량 통계의 비용을 기록할 때 센다.
  *
- * models.dev 의 공개 값표(MIT / https://github.com/sst/models.dev, https://models.dev/api.json)에서 우리 프로바이더 몫(PROVIDER_SPECS 의 prices)의
+ * models.dev의 공개 값표(MIT / https://github.com/sst/models.dev, https://models.dev/api.json)에서 우리 프로바이더 몫(PROVIDER_SPECS의 prices)의
  * 가격 필드만 추려 실행 위치(`database/ai-prices.json`)에 둔다. 저장소에는 싣지 않는다. 받은 것이 없으면 비용은 모두 "가격 모름"이다.
- * 받는 때는 config/ai-model-info 가 정한다(모델 프로필과 함께).
+ * 받는 때는 config/ai-model-info가 정한다(모델 프로필과 함께).
  * 구간 가격(긴 문맥 할증), 할인은 보지 않는다. 판정 요청은 짧아 기본 구간이다.
  */
 import fs from "fs";
@@ -111,8 +111,8 @@ function costOf(price: Price | 0 | null, tokens: AiTokens | null): number | null
 const modelsdev = httpFor("modelsdev");
 
 /**
- * 받아서 사본에 쓴다. 값표가 크다(수 MB). 지난번 ETag 로 바뀌었는지만 묻고 그대로면(304) 받지 않는다.
- * 선택한 가격이 같으면 ETag 만 고쳐 둔다
+ * 받아서 사본에 쓴다. 값표가 크다(수 MB). 지난번 ETag로 바뀌었는지만 묻고 그대로면(304) 받지 않는다.
+ * 선택한 가격이 같으면 ETag만 고쳐 둔다
  */
 async function refresh({ timeoutMs = 30000, fetchImpl = modelsdev.fetch }: { timeoutMs?: number; fetchImpl?: typeof fetch } = {}): Promise<RefreshResult> {
   const now = load();

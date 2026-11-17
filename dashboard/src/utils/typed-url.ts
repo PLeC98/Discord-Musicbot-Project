@@ -1,5 +1,5 @@
 // 곡 추가 입력란에 친 글이 주소인가(주소면 검색하지 않는다). 봇의 판정(inputKind)이 링크로 보는 것에 더해, 아직 치는 중이거나 스킴을 뺀 주소도 주소로 본다.
-// youtube, www, https 처럼 주소 조각이 든 검색어는 검색으로 둔다. 애매하면 검색이다
+// youtube, www, https처럼 주소 조각이 든 검색어는 검색으로 둔다. 애매하면 검색이다
 import { inputKind } from "../../../src/rules/input-kind.ts";
 import { withSiteScheme } from "../../../src/rules/links.ts";
 

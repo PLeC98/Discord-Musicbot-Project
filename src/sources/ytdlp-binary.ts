@@ -1,13 +1,13 @@
-// yt-dlp 바이너리(onedir 판: 실행 파일과 _internal 폴더). 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp 를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
+// yt-dlp 바이너리(onedir 판: 실행 파일과 _internal 폴더). 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
 //
-// 새 버전은 GitHub 릴리스의 zip 을 받아 서명, 체크섬을 맞추고(ytdlp-release) 풀어서, --version 이 목표와 같을 때만 버전 폴더로 옮겨 교체한다.
-// 교체는 가리키는 경로(state.json)만 바꾸므로 이미 돌고 있는 yt-dlp 는 옛 버전으로 끝까지 돈다. 처음에는(기록이 없으면) 설정과 상관없이 목표 버전을 설치한다.
-// 봇과 update:ytdlp(다른 프로세스)가 겹칠 수 있어 기록 다시 읽기, 버전 폴더 공개, 기록 쓰기, 정리의 이름 바꾸기는 OS 가 쥐는 잠금 안에서 한다(자식 프로세스, 네트워크는 잠금 밖).
+// 새 버전은 GitHub 릴리스의 zip을 받아 서명, 체크섬을 맞추고(ytdlp-release) 풀어서, --version이 목표와 같을 때만 버전 폴더로 옮겨 교체한다.
+// 교체는 가리키는 경로(state.json)만 바꾸므로 이미 돌고 있는 yt-dlp는 옛 버전으로 끝까지 돈다. 처음에는(기록이 없으면) 설정과 상관없이 목표 버전을 설치한다.
+// 봇과 update:ytdlp(다른 프로세스)가 겹칠 수 있어 기록 다시 읽기, 버전 폴더로 옮기기, 기록 쓰기, 정리의 이름 바꾸기는 OS가 쥐는 잠금 안에서 한다(자식 프로세스, 네트워크는 잠금 밖).
 //
-// 목표 버전(설정은 유튜브 탭의 yt-dlp 카드가 고친다): 고정(YTDLP_VERSION)이 있으면 모드와 상관없이 그 버전, 없으면 모드가 auto 일 때 채널(YTDLP_CHANNEL)의 최신(GitHub 릴리스, 하루 한 번 본다).
+// 목표 버전(설정은 업데이트 탭의 yt-dlp 카드가 고친다): 고정(YTDLP_VERSION)이 있으면 모드와 상관없이 그 버전, 없으면 모드가 auto일 때 채널(YTDLP_CHANNEL)의 최신(GitHub 릴리스, 하루 한 번 본다).
 // notify면 하루 한 번 확인만 하고 새 버전이 있으면 로그에 남긴다(카드에 업데이트 버튼이 뜬다).
 // manual이고 고정이 없으면 확인도 하지 않는다(운영자가 확인, 업데이트를 누른다). 설치된 것이 없으면 모드와 상관없이 다운로드한다.
-// 스스로 시작한 다운로드(auto)는 그사이 설정이 바뀌었으면 교체하지 않고 버린다. 운영자가 선택한 것(고정, 업데이트, update:ytdlp)은 그대로 교체한다.
+// 자동으로 시작한 다운로드(auto)는 그사이 설정이 바뀌었으면 교체하지 않고 버린다. 운영자가 선택한 것(고정, 업데이트, update:ytdlp)은 그대로 교체한다.
 
 import fs from "fs";
 import path from "path";
@@ -31,7 +31,7 @@ const log = logger.child({ category: "ytdlp" });
 type Channel = (typeof config.ytdlp)["channel"];
 type Mode = (typeof config.ytdlp)["update"];
 
-// 채널마다 릴리스를 내는 저장소(yt-dlp 의 UPDATE_SOURCES 와 같다)
+// 채널마다 릴리스를 내는 저장소(yt-dlp의 UPDATE_SOURCES와 같다)
 const REPOS: Record<Channel, string> = { stable: "yt-dlp/yt-dlp", nightly: "yt-dlp/yt-dlp-nightly-builds", master: "yt-dlp/yt-dlp-master-builds" };
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 확인, 설치가 일시적으로 실패하면 이만큼 뒤에 다시 본다(하루를 통째로 기다리지 않는다)
@@ -41,7 +41,7 @@ const VERSION_TIMEOUT_MS = 30_000; // 처음 실행하는 onedir 판은 백신�
 const UNZIP_LIMITS = { maxEntries: 1000, maxBytes: 512 * 1024 * 1024 };
 const LOCK_WAIT_MS = 60_000;
 const LOCK_POLL_MS = 200;
-// 백신이 막 쓴 파일을 잡고 있으면 Windows 의 폴더 이름 바꾸기가 잠깐 실패한다
+// 백신이 막 쓴 파일을 잡고 있으면 Windows의 폴더 이름 바꾸기가 잠깐 실패한다
 const RENAME_TRIES = 10;
 const RENAME_GAP_MS = 500;
 const BUSY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
@@ -61,9 +61,9 @@ type RenameFailed = { failed: string };
 type Io = {
   /** 버전마다 폴더를 둘 곳 */
   dir: string;
-  /** 이 환경의 에셋(채널마다. 없으면 까닭) */
+  /** 이 환경의 에셋(채널마다. 없으면 이유) */
   asset(channel: Channel): Asset | { missing: string };
-  /** 한 태그의 에셋을 받아 확인하고 staging/dir 에 푼다. 실패는 ReleaseError(kind) */
+  /** 한 태그의 에셋을 받아 확인하고 staging/dir에 푼다. 실패는 ReleaseError(kind) */
   fetch(job: { repo: string; tag: string; asset: Asset; staging: string; skipSignature: boolean }): Promise<void>;
   run(file: string, args: string[], timeoutMs: number): Promise<Ran>;
   /** 채널의 최신 릴리스 태그 */
@@ -72,29 +72,29 @@ type Io = {
   /** 이 프로세스. staging, 휴지통 폴더 이름에 쓴다 */
   pid: number;
   isAlive(pid: number): boolean;
-  /** 그 폴더나 그 아래에서 이 프로세스가 띄운 yt-dlp 가 도는 중인가 */
+  /** 그 폴더나 그 아래에서 이 프로세스가 띄운 yt-dlp가 도는 중인가 */
   inUse(dir: string): boolean;
   /** 프로세스 사이 잠금. 기다려도 다른 프로세스가 놓지 않으면 그 프로세스(holder: PID, 모르면 null) */
   lock(): Promise<Unlock | { holder: number | null }>;
 };
-/** 다시 해 볼 때: transient 는 한 시간 뒤, lasting(에셋 없음, 서명, 실행되지 않음)은 하루 뒤(태그가 바뀌어야 달라진다) */
+/** 재시도 시점: transient는 한 시간 뒤, lasting(에셋 없음, 서명, 실행되지 않음)은 하루 뒤(태그가 바뀌어야 달라진다) */
 type Retry = "transient" | "lasting";
-/** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe). current, from 이 null 이면 설치 전이다 */
+/** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe). current, from이 null이면 설치 전이다 */
 type Outcome =
   { kind: "current"; version: string } | { kind: "installed"; from: string | null; to: string; channel: Channel } | { kind: "reused"; from: string | null; to: string } | { kind: "superseded"; target: string } | { kind: "available"; from: string | null; to: string; channel: Channel } | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel } | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry };
-/** force: 사람이 부른 것(하루 한 번 제한, 모드, 실행되지 않았던 태그 표시를 무시한다). fresh: 설정이 방금 바뀌었다(하루 한 번 제한만 무시한다) */
+/** force: 직접 실행한 것(하루 한 번 제한, 모드, 실행되지 않았던 태그 표시를 무시한다). fresh: 설정이 방금 바뀌었다(하루 한 번 제한만 무시한다) */
 type Options = { force?: boolean; skipSignature?: boolean; fresh?: boolean };
 type Failed = (reason: string, retry: Retry) => Outcome;
-/** 다운로드를 시작한 쪽. auto 는 다운로드하는 사이 설정이 바뀌면 버린다 */
+/** 다운로드를 시작한 쪽. auto는 다운로드하는 사이 설정이 바뀌면 버린다 */
 type Origin = "auto" | "human";
-/** 교체하기 직전에 부른다. 참이면 다운로드한 것을 버린다(그사이 설정이 바뀌었다). null 이면 부르지 않는다 */
+/** 교체하기 직전에 부른다. 참이면 다운로드한 것을 버린다(그사이 설정이 바뀌었다). null이면 부르지 않는다 */
 type Stale = (() => boolean) | null;
 /** 마지막 다운로드 실패(카드에 보인다). lasting: 같은 태그로는 다시 시도해도 실패한다 */
 type Failure = { target: string | null; reason: string; lasting: boolean; at: number };
 
 const EMPTY: State = { version: null, previous: null, lastChecked: 0, unusable: null, channel: null, previousChannel: null, checkedChannel: null };
 const isChannel = (value: unknown): value is Channel => typeof value === "string" && Object.hasOwn(REPOS, value);
-// 기록이 target 을 가리키게 한 것. 지금 버전이 바뀌면 바뀌기 전 버전이 이전 버전이 된다(다운로드한 채널도 함께).
+// 기록이 target을 가리키게 한 것. 지금 버전이 바뀌면 바뀌기 전 버전이 이전 버전이 된다(다운로드한 채널도 함께).
 // kept: 남겨 둔 폴더를 다시 쓴다. 그것이 이전 버전이면 그 버전을 다운로드했던 채널을 적는다
 function pointedAt(state: State, target: string, channel: Channel, kept: boolean): State {
   const moving = Boolean(state.version) && state.version !== target;
@@ -105,7 +105,7 @@ function pointedAt(state: State, target: string, channel: Channel, kept: boolean
 // 채널, 모드, 고정을 이은 문자열(바뀌었는지 비교한다)
 const settingsKey = () => `${config.ytdlp.channel}|${config.ytdlp.update}|${config.ytdlp.version ?? ""}`;
 
-// 휴지통으로 옮긴 폴더를 지운다(잠금 밖). 못 지운 것은 다음 정리가 다시 해 본다
+// 휴지통으로 옮긴 폴더를 지운다(잠금 밖). 못 지운 것은 다음 정리가 재시도한다
 function emptyTrash(folders: string[]) {
   for (const full of folders) {
     try {
@@ -142,7 +142,7 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
       unregister();
       resolve(ran);
     };
-    // close 를 기다리지 않는다: 신호를 무시하거나 물려받은 파이프를 쥔 손자가 있으면 close 가 오지 않는다
+    // close를 기다리지 않는다: 신호를 무시하거나 물려받은 파이프를 쥔 손자가 있으면 close가 오지 않는다
     const timer = setTimeout(() => {
       procRegistry.kill(child);
       done({ kind: "timeout" });
@@ -166,7 +166,7 @@ async function realFetch({ repo, tag, asset, staging, skipSignature }: Parameter
   fs.rmSync(zipFile, { force: true });
 }
 
-/** 살아 있는 프로세스인가. ESRCH 만 없는 것으로 본다(권한이 없어 못 보는 것은 살아 있다) */
+/** 살아 있는 프로세스인가. ESRCH만 없는 것으로 본다(권한이 없어 못 보는 것은 살아 있다) */
 function realIsAlive(pid: number) {
   try {
     process.kill(pid, 0);
@@ -176,7 +176,7 @@ function realIsAlive(pid: number) {
   }
 }
 
-/** 이 폴더의 잠금을 쥔다. 다른 프로세스가 쥐고 있으면 LOCK_WAIT_MS 까지 기다리고, 그래도 놓지 않으면 그 프로세스를 돌려준다 */
+/** 이 폴더의 잠금을 쥔다. 다른 프로세스가 쥐고 있으면 LOCK_WAIT_MS까지 기다리고, 그래도 놓지 않으면 그 프로세스를 돌려준다 */
 async function realLock(dir: string): Promise<Unlock | { holder: number | null }> {
   const until = Date.now() + LOCK_WAIT_MS;
   for (;;) {
@@ -201,7 +201,7 @@ const REAL: Io = {
   lock: () => realLock(REAL_DIR),
 };
 
-// 실패한 호출을 한 줄로. yt-dlp 는 마지막 줄에 원인(ERROR: …)을 적는다
+// 실패한 호출을 한 줄로. yt-dlp는 마지막 줄에 원인(ERROR: …)을 적는다
 function reasonOf(ran: Ran) {
   if (ran.kind === "timeout") return `${VERSION_TIMEOUT_MS / 1000}초 안에 끝나지 않아 중단`;
   if (ran.kind === "spawn-failed") return `실행하지 못함(${ran.code})`;
@@ -217,11 +217,11 @@ class YtdlpBinary {
   timer: NodeJS.Timeout | null = null;
   /** 다음 확인 시각(예약하지 않았으면 null) */
   nextAt: number | null = null;
-  /** 설치 전 실패의 다시 해 볼 때. 설치되면 null */
+  /** 설치 전 실패의 재시도 시점. 설치되면 null */
   pending: Retry | null = null;
   // 봇이 돌리는 중(start 뒤). 실행 파일이 사라졌을 때 설치를 예약하는 것은 봇뿐이다
   started = false;
-  // 같은 까닭의 lasting 실패는 warn 을 한 번만
+  // 마지막으로 warn한 lasting 실패 줄. 같은 줄이 또 오면 warn 대신 debug
   warned: string | null = null;
   // 진행 중인 설치의 목표. 목표가 같은 요청만 그 결과를 공유한다
   busyTarget: string | null = null;
@@ -247,7 +247,7 @@ class YtdlpBinary {
     return path.join(this.io.dir, "state.json");
   }
 
-  /** 이 환경의 실행 파일 이름. stable 에 모든 판이 있어 채널과 상관없이 같다. 이 환경용 판이 없으면 null */
+  /** 이 환경의 실행 파일 이름. stable에 모든 판이 있어 채널과 상관없이 같다. 이 환경용 판이 없으면 null */
   exe(): string | null {
     const asset = this.io.asset("stable");
     return "missing" in asset ? null : asset.exe;
@@ -310,7 +310,7 @@ class YtdlpBinary {
     return this.state;
   }
 
-  // 잠금을 쥔다. 다른 프로세스가 놓지 않으면 그 PID 를 남기고 null(실패 문구가 쓴다)
+  // 잠금을 쥔다. 다른 프로세스가 놓지 않으면 그 PID를 남기고 null(실패 문구가 쓴다)
   async _lock(): Promise<Unlock | null> {
     const got = await this.io.lock();
     if (typeof got === "function") return got;
@@ -318,7 +318,7 @@ class YtdlpBinary {
     return null;
   }
 
-  // 잠금을 쥐지 못한 다른 프로세스. PID 를 알면 함께
+  // 잠금을 쥐지 못한 다른 프로세스. PID를 알면 함께
   _holderText(): string {
     return `다른 프로세스${this.holder ? `(PID ${this.holder})` : ""}`;
   }
@@ -369,7 +369,7 @@ class YtdlpBinary {
 
   /**
    * 설치돼 있으면 그대로(네트워크를 쓰지 않는다), 기록이 없으면 설정과 상관없이 목표 버전을 설치한다.
-   * force 는 사람이 부른 것(설치, update:ytdlp)이다: 실행되지 않았던 태그도 다시 해 본다. 설치했으면 그 결과(outcome)
+   * force는 직접 실행한 것(설치, update:ytdlp)이다: 실행되지 않았던 태그도 재시도한다. 설치했으면 그 결과(outcome)
    */
   async prepare({ force = false, skipSignature = false }: Options = {}): Promise<{ version: string | null; outcome: Outcome | null }> {
     this._load();
@@ -381,7 +381,7 @@ class YtdlpBinary {
     return { version: this.installed(this.state) ? this.state.version : null, outcome };
   }
 
-  // 처음 설치: 목표를 정해 설치한다. 실행되지 않았던 태그면(force 가 아니면) 다시 받지 않는다
+  // 처음 설치: 목표를 정해 설치한다. 실행되지 않았던 태그면(force가 아니면) 다시 받지 않는다
   async _first({ force = false, skipSignature = false }: Options): Promise<Outcome | null> {
     const { channel, version: pin } = config.ytdlp;
     let target: string | null = pin;
@@ -403,9 +403,9 @@ class YtdlpBinary {
   }
 
   /**
-   * 목표 버전으로 맞춘다. force 는 사람이 부른 것(고정, update:ytdlp)이다: 하루 한 번, 모드, 실행되지 않았던 태그를 보지 않고 다운로드한다.
-   * 고정이 있으면 모드와 상관없이 그 버전으로, 고정이 없고 manual 이면 스스로 맞추지 않는다. fresh 는 하루 한 번 제한만 건너뛴다(설정을 방금 바꿨다).
-   * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp 가 다운로드한 버전을 이어받는다). 설치 전이면 처음 설치를 한다. 알릴 것이 없으면 null
+   * 목표 버전으로 맞춘다. force는 운영자가 요청한 것(고정, update:ytdlp)이다: 하루 한 번, 모드, 실행되지 않았던 태그를 보지 않고 다운로드한다.
+   * 고정이 있으면 모드와 상관없이 그 버전으로, 고정이 없고 manual이면 자동으로 맞추지 않는다. fresh는 하루 한 번 제한만 건너뛴다(설정을 방금 바꿨다).
+   * 버전은 디스크의 기록에서 다시 읽는다(돌고 있는 봇이 update:ytdlp가 다운로드한 버전을 이어받는다). 설치 전이면 처음 설치를 한다. 알릴 것이 없으면 null
    */
   async check({ force = false, skipSignature = false, fresh = false }: Options = {}): Promise<Outcome | null> {
     const { channel, version: pin, update: mode } = config.ytdlp;
@@ -448,7 +448,7 @@ class YtdlpBinary {
     return tag;
   }
 
-  /** 채널의 최신 태그를 조회하기만 한다(다운로드하지 않고 기록도 바꾸지 않는다). 조회한 태그는 update 가 대조한다 */
+  /** 채널의 최신 태그를 조회하기만 한다(다운로드하지 않고 기록도 바꾸지 않는다). 조회한 태그는 update가 대조한다 */
   async peek(): Promise<YtdlpPeek> {
     const { channel } = config.ytdlp;
     const latest = await this._latestTag(channel);
@@ -459,7 +459,7 @@ class YtdlpBinary {
 
   /**
    * 운영자가 확인(peek)한 태그로 업데이트한다. 고정이 있으면 pinned, 채널이 그사이 바뀌었거나 태그가 그 채널에서 마지막으로 조회한 최신이 아니면 stale(다시 확인해야 한다).
-   * 화면이 보낸 태그를 그대로 쓰지 않는 까닭: 아무 태그로나 업데이트할 수 있으면 최근 로그인 없이 버전을 고정하는 길이 된다
+   * 화면이 보낸 태그를 그대로 쓰지 않는 이유: 아무 태그로나 업데이트할 수 있으면 최근 로그인 없이 버전을 고정하는 길이 된다
    */
   update(channel: string, tag: string): Promise<Outcome> | "pinned" | "stale" {
     if (config.ytdlp.version) return "pinned";
@@ -483,7 +483,7 @@ class YtdlpBinary {
 
   /**
    * 이전 버전을 삭제한다. 기록에서 지우고(되돌리기가 그 버전을 다시 다운로드하지도 못하게) 폴더를 정리한다.
-   * 그 폴더에서 아직 도는 yt-dlp 가 있으면 폴더는 다음 정리 때 지운다. 지운 태그, 이전 버전이 없었으면 null. 잠금을 못 잡으면 던진다
+   * 그 폴더에서 아직 도는 yt-dlp가 있으면 폴더는 다음 정리 때 지운다. 지운 태그, 이전 버전이 없었으면 null. 잠금을 못 잡으면 예외를 던진다
    */
   async forgetPrevious(): Promise<string | null> {
     let gone: string | null = null;
@@ -496,7 +496,7 @@ class YtdlpBinary {
     return gone;
   }
 
-  /** 유튜브 탭의 yt-dlp 카드에 보낼 상태. 기록은 디스크에서 다시 읽는다(다른 프로세스가 바꿨을 수 있다) */
+  /** 업데이트 탭의 yt-dlp 카드에 보낼 상태. 기록은 디스크에서 다시 읽는다(다른 프로세스가 바꿨을 수 있다) */
   status(): YtdlpCardStatus {
     const { channel, version: pin, update: mode } = config.ytdlp;
     const state = this._load();
@@ -553,10 +553,10 @@ class YtdlpBinary {
     const failed: Failed = (reason, retry) => ({ kind: "failed", current, target, reason, channel, retry });
     const asset = this.io.asset(channel);
     if ("missing" in asset) return failed(asset.missing, "lasting");
-    // 시도마다 따로(시간 초과로 내린 --version 이 아직 앞의 staging 에서 끝나는 중일 수 있다)
+    // 시도마다 따로(시간 초과로 내린 --version이 아직 앞의 staging에서 끝나는 중일 수 있다)
     const staging = path.join(this.io.dir, `.staging-${this.io.pid}-${this.io.now()}`);
     try {
-      // 두 번째는 받는 사이 다른 프로세스가 같은 버전을 공개했거나 남의 정리가 확인한 폴더를 옮긴 때다
+      // 두 번째는 받는 사이 다른 프로세스가 같은 버전을 버전 폴더로 옮겼거나 남의 정리가 확인한 폴더를 옮긴 때다
       for (let attempt = 0; attempt < 2; attempt++) {
         const kept = await this._fromKept({ target, channel, asset, current, failed, guard });
         if ("done" in kept) return kept.done;
@@ -587,7 +587,7 @@ class YtdlpBinary {
     return { again: true };
   }
 
-  // 릴리스를 staging 에 받아 확인하고 공개한다. 그사이 다른 프로세스가 같은 버전을 공개했으면 null(처음부터 그것을 확인한다)
+  // 릴리스를 staging에 받아 확인하고 버전 폴더로 옮긴다. 그사이 다른 프로세스가 같은 버전을 버전 폴더로 옮겼으면 null(처음부터 그것을 확인한다)
   async _fromRelease({ target, channel, asset, staging, skipSignature, replace, current, failed, guard }: { target: string; channel: Channel; asset: Asset; staging: string; skipSignature: boolean; replace: boolean; current: string | null; failed: Failed; guard: Stale }): Promise<Outcome | null> {
     this._clearStaging(staging);
     fs.mkdirSync(staging, { recursive: true });
@@ -604,7 +604,7 @@ class YtdlpBinary {
       return { kind: "unusable", current, target, reason: reasonOf(got.ran), channel };
     }
     if (!got.ok) return failed(`다운로드한 yt-dlp 실행 실패: ${reasonOf(got.ran)}`, "transient");
-    if (got.version !== target) return failed(`다운로드한 yt-dlp 의 버전이 다름(${got.version})`, "transient");
+    if (got.version !== target) return failed(`다운로드한 yt-dlp의 버전이 다름(${got.version})`, "transient");
     const done = await this._publish(target, path.join(staging, "dir"), { channel, guard, replace });
     if (done === "published") return { kind: "installed", from: current, to: target, channel };
     if (done === "superseded") return { kind: "superseded", target };
@@ -614,10 +614,10 @@ class YtdlpBinary {
   }
 
   /**
-   * 잠금 안에서 버전 폴더를 공개하고 기록을 바꾼다. from 이 null 이면 이미 있는 목적지를 쓴다.
-   * 목적지에 이 판의 실행 파일이 없으면(옛 판의 폴더) 휴지통으로 옮기고 그 자리에 둔다. replace 면 실행 파일이 있어도(다른 버전이 들었다) 옮긴다.
-   * published: 끝남, locked: 잠금을 못 잡음, moved: 확인한 목적지가 사라졌거나(남의 정리) 공개하려던 자리에 남이 먼저 공개함, { failed }: 옮기지 못함(그 까닭),
-   * superseded: guard 가 버리라고 했다(잠금을 기다린 뒤, 옮기기 전에 부른다). channel: 다운로드한 채널(기록에 적는다)
+   * 잠금 안에서 버전 폴더로 옮기고 기록을 바꾼다. from이 null이면 이미 있는 목적지를 쓴다.
+   * 목적지에 이 판의 실행 파일이 없으면(옛 판의 폴더) 휴지통으로 옮기고 그 자리에 둔다. replace면 실행 파일이 있어도(다른 버전이 들었다) 옮긴다.
+   * published: 끝남, locked: 잠금을 못 잡음, moved: 확인한 목적지가 사라졌거나(남의 정리) 옮기려던 자리에 남이 먼저 옮김, { failed }: 옮기지 못함(그 원인),
+   * superseded: guard가 버리라고 했다(잠금을 기다린 뒤, 옮기기 전에 부른다). channel: 다운로드한 채널(기록에 적는다)
    */
   async _publish(target: string, from: string | null, { channel, guard, replace = false }: { channel: Channel; guard: Stale; replace?: boolean }): Promise<"published" | "locked" | "moved" | "superseded" | RenameFailed> {
     const unlock = await this._lock();
@@ -638,7 +638,7 @@ class YtdlpBinary {
     }
   }
 
-  // 잠금 안에서 from 을 버전 폴더로 옮긴다. 목적지에 이 판의 실행 파일이 없거나 replace 면 먼저 휴지통으로
+  // 잠금 안에서 from을 버전 폴더로 옮긴다. 목적지에 이 판의 실행 파일이 없거나 replace면 먼저 휴지통으로
   async _place(target: string, from: string, replace: boolean): Promise<"placed" | "moved" | RenameFailed> {
     const dest = path.join(this.io.dir, target);
     const ours = this.fileOf(target);
@@ -651,7 +651,7 @@ class YtdlpBinary {
       }
     }
     for (let attempt = 1; ; attempt++) {
-      // 그사이 남이 같은 자리에 공개했다(POSIX 는 EEXIST, ENOTEMPTY, Windows 는 비어 있지 않은 폴더로도 EPERM)
+      // 그사이 남이 같은 자리에 옮겼다(POSIX는 EEXIST, ENOTEMPTY, Windows는 비어 있지 않은 폴더로도 EPERM)
       if (fs.existsSync(dest)) return "moved";
       try {
         fs.renameSync(from, dest);
@@ -669,7 +669,7 @@ class YtdlpBinary {
     }
   }
 
-  // 이 프로세스의 staging 을 지운다. 그 안에서 아직 도는 yt-dlp(시간 초과로 내린 --version)가 있으면 두고 정리에 맡긴다
+  // 이 프로세스의 staging을 지운다. 그 안에서 아직 도는 yt-dlp(시간 초과로 내린 --version)가 있으면 두고 정리에 맡긴다
   _clearStaging(staging: string) {
     if (this.io.inUse(staging)) return;
     try {
@@ -725,7 +725,7 @@ class YtdlpBinary {
     return owner === this.io.pid ? !this.busy && !this.io.inUse(full) : !this.io.isAlive(owner);
   }
 
-  /** 봇 기동. 버전을 갖추고(없으면 설치) 한 줄 남긴 뒤, 설정대로 맞춘다(고정이면 그 버전으로, auto 면 기동 시와 하루 한 번 새 버전을 본다). 설치가 안 됐으면 될 때까지 다시 해 본다 */
+  /** 봇 기동. 버전을 갖추고(없으면 설치) 한 줄 남긴 뒤, 설정대로 맞춘다(고정이면 그 버전으로, auto면 기동 시와 하루 한 번 새 버전을 본다). 설치가 안 됐으면 될 때까지 재시도한다 */
   async start() {
     const { channel, version: pin, update: mode } = config.ytdlp;
     this.started = true;
@@ -745,8 +745,8 @@ class YtdlpBinary {
   }
 
   /**
-   * 채널, 모드, 고정이 바뀌었을 수 있다(조절값 저장, 불러오기, 초기화 뒤에 부른다). 달라졌으면 하던 것이 끝난 뒤 새 설정으로 맞춘다.
-   * 스스로 시작한 다운로드는 교체하지 않고 버린다(generation). 기동 전이면 아무것도 하지 않는다(기동할 때 맞춘다)
+   * 채널, 모드, 고정이 바뀌었을 수 있다(설정값 저장, 불러오기, 초기화 뒤에 부른다). 달라졌으면 하던 것이 끝난 뒤 새 설정으로 맞춘다.
+   * 자동으로 시작한 다운로드는 교체하지 않고 버린다(generation). 기동 전이면 아무것도 하지 않는다(기동할 때 맞춘다)
    */
   async onSettingsChanged() {
     const now = settingsKey();
@@ -757,7 +757,7 @@ class YtdlpBinary {
   }
 
   /**
-   * 지금 설정으로 맞춘다(진행 중인 설치가 끝난 뒤). human: 운영자가 카드에서 버전을 고정했다(값이 그대로여도, 실행되지 않았던 태그도 다시 해 본다).
+   * 지금 설정으로 맞춘다(진행 중인 설치가 끝난 뒤). human: 운영자가 카드에서 버전을 고정했다(값이 그대로여도, 실행되지 않았던 태그도 재시도한다).
    * fresh: 설정을 방금 바꿨다(하루 한 번 제한을 무시한다)
    */
   converge({ human = false, fresh = false } = {}): Promise<void> {
@@ -783,7 +783,7 @@ class YtdlpBinary {
     }
   }
 
-  // 기동 시, 하루 한 번, 설정이 바뀐 뒤. 목표로 맞추고 버전을 정리한 뒤 다음에 볼 때를 정한다. 설치 전이면 설치를 다시 해 본다
+  // 기동 시, 하루 한 번, 설정이 바뀐 뒤. 목표로 맞추고 버전을 정리한 뒤 다음에 볼 때를 정한다. 설치 전이면 설치를 재시도한다
   async _tick(options: Options = {}) {
     if (isShuttingDown()) return;
     let threw = false;
@@ -798,10 +798,10 @@ class YtdlpBinary {
       await this.cleanup();
     }
     if (!this.installed(this.state)) return this._schedule((this.pending ?? "transient") === "lasting" ? DAY_MS : RETRY_MS);
-    // 다운로드하지 못했으면 설치된 버전으로 돌면서 다시 해 본다: 일시적이면 한 시간, 같은 태그로는 다시 시도해도 실패하는 것(서명 불일치, 에셋 없음)은 하루 뒤
+    // 다운로드하지 못했으면 설치된 버전으로 돌면서 재시도한다: 일시적이면 한 시간, 같은 태그로는 다시 시도해도 실패하는 것(서명 불일치, 에셋 없음)은 하루 뒤
     if (outcome?.kind === "failed") return this._schedule(outcome.retry === "lasting" ? DAY_MS : RETRY_MS);
     if (threw) return this._schedule(RETRY_MS);
-    // 고정한 버전, manual 은 맞춘 뒤 더 확인할 것이 없다(설치 전에 예약해 둔 재시도도 취소한다)
+    // 고정한 버전, manual은 맞춘 뒤 더 확인할 것이 없다(설치 전에 예약해 둔 재시도도 취소한다)
     if (config.ytdlp.version || config.ytdlp.update === "manual") return this.stop();
     this._schedule(this.state.lastChecked + DAY_MS - this.io.now());
   }
@@ -841,7 +841,7 @@ function updateText(mode: Mode, pinned: boolean) {
   return pinned ? name : `${name} (1일 1회 확인)`;
 }
 
-/** 결과를 한 줄로. 봇은 로그로, update:ytdlp 는 콘솔로 남긴다 */
+/** 결과를 한 줄로. 봇은 로그로, update:ytdlp는 콘솔로 남긴다 */
 function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
   switch (outcome.kind) {
     case "current":
@@ -853,9 +853,9 @@ function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
     case "superseded":
       return { level: "info", line: `yt-dlp ${outcome.target} 다운로드 취소: 다운로드 중 설정이 바뀜` };
     case "available":
-      return { level: "info", line: `yt-dlp 업데이트 있음: ${outcome.from ?? "없음"} → ${outcome.to} (${outcome.channel}, 업데이트: 운영자 패널 유튜브 탭의 yt-dlp 카드)` };
+      return { level: "info", line: `yt-dlp 업데이트 있음: ${outcome.from ?? "없음"} → ${outcome.to} (${outcome.channel}, 업데이트: 운영자 패널 업데이트 탭의 yt-dlp 카드)` };
     case "unusable":
-      return outcome.current ? { level: "warn", line: `yt-dlp 업데이트 불가(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` } : { level: "warn", line: `yt-dlp 설치 불가(yt-dlp 를 쓰는 기능이 동작하지 않음): ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` };
+      return outcome.current ? { level: "warn", line: `yt-dlp 업데이트 불가(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` } : { level: "warn", line: `yt-dlp 설치 불가(yt-dlp를 쓰는 기능이 동작하지 않음): ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` };
     case "failed":
       return { level: "warn", line: failedLine(outcome) };
   }
@@ -863,10 +863,10 @@ function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
 
 function failedLine(outcome: Extract<Outcome, { kind: "failed" }>): string {
   const hint = /서명/.test(outcome.reason) ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
-  return outcome.current ? `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` : `yt-dlp 설치 실패(yt-dlp 를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}`;
+  return outcome.current ? `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` : `yt-dlp 설치 실패(yt-dlp를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}`;
 }
 
-/** 봇과 update:ytdlp 가 쓰는 하나 */
+/** 봇과 update:ytdlp가 쓰는 하나 */
 const ytdlpBinary = new YtdlpBinary();
 
 export { ytdlpBinary, YtdlpBinary, describe, updateText, realLock as lockFolder };

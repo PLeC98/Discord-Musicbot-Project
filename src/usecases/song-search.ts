@@ -10,7 +10,7 @@ import { mixCounts, uniqueBy } from "../rules/search-mix.ts";
 
 /** 곡 후보 수(자동완성은 맨 위 줄을 따로 더한다), 결과 화면의 줄 수 */
 const CHOICES = 10;
-/** 그중 스포티파이 곡 몫(유튜브가 모자라면 더 채운다). 0 이면 섞지 않고, 유튜브가 연령 인증으로 막았을 때만 스포티파이로 채운다 */
+/** 그중 스포티파이 곡 몫(유튜브가 모자라면 더 채운다). 0이면 섞지 않고, 유튜브가 연령 인증으로 막았을 때만 스포티파이로 채운다 */
 const SPOTIFY_SHARE: number = 3;
 /** 결과를 내는 쪽이 스포티파이를 기다리는 시간(ms). 넘기면 유튜브만 보인다(익명 상태를 처음 추출하면 수 초 걸린다) */
 const SPOTIFY_RESULTS_MS = 4000;
@@ -23,14 +23,14 @@ type SearchDeps = {
   now?: () => number;
   wait?: (ms: number) => Promise<unknown>;
 };
-/** 찾은 것. youtube 는 못 찾았으면 null */
+/** 찾은 것. youtube는 못 찾았으면 null */
 type Found = { youtube: TextSearchResult | null; spotify: SpotifyTrack[] };
 const NOTHING: Found = { youtube: null, spotify: [] };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const depsOf = (deps: SearchDeps): Required<SearchDeps> => ({ search: youtubeSource.searchText, searchSpotify: spotifySource.searchTracks, spotifyReady: spotifySource.searchReady, now: Date.now, wait: sleep, ...deps });
 
-// ms 안에 끝나면 그 결과. 넘기면 late, 던지면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
+// ms 안에 끝나면 그 결과. 넘기면 late, reject 하면 failed(실패는 검색 모듈이 남겼다). 끝나지 않은 검색은 계속 돌아 기억을 채운다
 function within<T>(work: Promise<T>, ms: number): Promise<{ value: T } | { missed: "late" | "failed" }> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<{ missed: "late" }>((resolve) => (timer = setTimeout(() => resolve({ missed: "late" }), ms)));
@@ -50,7 +50,7 @@ type Song = TrackInfo | SpotifyTrack;
 type SongResults = { songs: Song[]; gated: boolean };
 
 /**
- * 대시보드 곡 추가 칸의 검색. 유튜브가 실패하면 던진다(부르는 쪽이 그 까닭을 알린다). 스포티파이는 준비돼 있을 때만, 마감 안에 온 것만 섞는다(늦거나 실패하면 유튜브만).
+ * 대시보드 곡 추가 칸의 검색. 유튜브가 실패하면 예외를 던진다(호출부가 그 원인을 알린다). 스포티파이는 준비돼 있을 때만, 마감 안에 온 것만 섞는다(늦거나 실패하면 유튜브만).
  * 예정 영상(최초 공개, 예정된 방송)도 둔다(넣을 수 있다). 같은 곡(출처, 제목, 가수, 길이가 같다)은 하나만
  */
 async function findSongs(query: string, deps: SearchDeps = {}): Promise<SongResults> {

@@ -1,5 +1,5 @@
 // 반복 전환 효과: 끝에 닿기 전에 걸고(멈춘 장면 겹치기, 오버레이 색, 검게, 블러), 처음으로 돌아간 때에 해제한다.
-// 로그인 화면(LoginBackdrop, 인코딩한 영상의 끝)과 편집 창(구간 끝)이 같이 쓴다. 레이어는 부르는 쪽이 그린다(블러 크기, 색은 그 틀에 맞춰)
+// 로그인 화면(LoginBackdrop, 인코딩한 영상의 끝)과 편집 창(구간 끝)이 같이 쓴다. 레이어는 호출부가 그린다(블러 크기, 색은 그 틀에 맞춰)
 
 import type { Ref } from "vue";
 import type { LoginBackgroundOptions } from "../../../src/dashboard/contract/login-background.ts";
@@ -11,7 +11,7 @@ type SeamLayers = { video: Ref<HTMLVideoElement | null>; freeze: Ref<HTMLCanvasE
 /** 멈춘 장면 겹치기를 뜨는 때(끝에서 몇 장면 앞) */
 const FREEZE_FRAMES = 1.5;
 
-/** 불투명도를 ms 동안 to 로(0 이면 바로) */
+/** 불투명도를 ms 동안 to 로(0이면 바로) */
 function fade(el: HTMLElement | null, to: number, ms: number) {
   if (!el) return;
   el.style.transition = ms ? `opacity ${ms}ms linear` : "none";
@@ -21,7 +21,7 @@ function fade(el: HTMLElement | null, to: number, ms: number) {
 
 function useSeam(layers: SeamLayers, seam: () => Seam) {
   let armed = false;
-  /** 건 효과를 ms 동안 해제한다(0 이면 바로) */
+  /** 건 효과를 ms 동안 해제한다(0이면 바로) */
   function release(ms: number) {
     fade(layers.freeze.value, 0, ms);
     fade(layers.pulse.value, 0, ms / 2);
@@ -32,7 +32,7 @@ function useSeam(layers: SeamLayers, seam: () => Seam) {
   function restarted() {
     if (armed) release(seam().seconds * 1000);
   }
-  /** 재생 위치 t 가 끝(end)에 닿기 전이면 효과를 건다 */
+  /** 재생 위치 t가 끝(end)에 닿기 전이면 효과를 건다 */
   function near(t: number, end: number, fps: number) {
     if (armed) return;
     const { kind, seconds } = seam();

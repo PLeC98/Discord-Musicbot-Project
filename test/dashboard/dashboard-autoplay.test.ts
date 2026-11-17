@@ -94,7 +94,7 @@ test("켜기, 바꾸기, 끄기: 지금 장르가 상태에 실리고, 켠 결�
   players.clear();
 });
 
-test("거절: 모르는 장르는 unknown-genre, 장르가 글자, null 이 아니면 bad-request", async () => {
+test("거절: 모르는 장르는 unknown-genre, 장르가 글자, null이 아니면 bad-request", async () => {
   players.set(GUILD_ID, playingPlayer());
   const unknown = await req<{ code: string }>("POST", `/api/guilds/${GUILD_ID}/player/autoplay`, { genre: "없는 장르" });
   assert.deepEqual([unknown.status, unknown.json.code], [400, "unknown-genre"]);

@@ -14,8 +14,8 @@ test("날 더하기는 달, 해를 넘는다", () => {
   assert.equal(firstDay(0, "2026-10-11", null), "2026-10-11");
 });
 
-test("버킷: 실패, 가격 모름을 세고, 응답 시간은 성공한 것만(p95 는 올림 자리)", () => {
-  // 성공 10건(100 ~ 1000ms): p95 는 ceil(9.5) = 10번째 = 1000, 평균 550. 실패한 99999ms 는 세지 않는다
+test("버킷: 실패, 가격 모름을 세고, 응답 시간은 성공한 것만(p95는 올림 자리)", () => {
+  // 성공 10건(100 ~ 1000ms): p95는 ceil(9.5) = 10번째 = 1000, 평균 550. 실패한 99999ms는 세지 않는다
   const rows = [...Array.from({ length: 9 }, (_, i) => row({ tookMs: (i + 1) * 100 })), row({ tookMs: 1000, costUsd: null }), row({ ok: false, tookMs: 99999 })];
   const got = bucketOf(rows);
   assert.equal(got.requests, 11);
@@ -26,7 +26,7 @@ test("버킷: 실패, 가격 모름을 세고, 응답 시간은 성공한 것만
   assert.equal(bucketOf([]).avgMs, null);
 });
 
-test("날마다는 빈 날도 0 으로 채우고, 모델별은 모델이 없는 요청을 뺀다", () => {
+test("날마다는 빈 날도 0으로 채우고, 모델별은 모델이 없는 요청을 뺀다", () => {
   const report = usageReport([row({ day: "2026-10-08" }), row({ day: "2026-10-10" }), row({ day: "2026-10-10", source: "models", model: "", name: "", guildId: null })], { period: 7, from: "2026-10-08", today: "2026-10-11", guildName: (id) => `서버 ${id}` });
   assert.deepEqual(
     report.daily.map((one) => [one.day, one.requests]),

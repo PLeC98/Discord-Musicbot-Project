@@ -53,7 +53,7 @@
         <SearchInput v-model="term" :placeholder="T.search" :aria-label="T.search" :input-class="[SEARCH_FIELD, 'w-full']" :note="matchNote" class="flex-1 min-w-40 max-w-72" />
       </div>
       <DateTimePicker v-model="at" class="[grid-area:when] w-64 @min-[74.1875rem]/card:w-56" :ranges="ranges" @go="jump" />
-      <!-- 파일 칸 256px: 나올 수 있는 가장 넓은 시각 글("2000/04/04 AM 04:00:00 까지", 숫자 폭이 제각각인 글꼴에서 0, 4 가 넓다)과 여백, 꺾쇠가 들어간다 -->
+      <!-- 파일 칸 256px: 나올 수 있는 가장 넓은 시각 글("2000/04/04 AM 04:00:00까지", 숫자 폭이 제각각인 글꼴에서 0, 4가 넓다)과 여백, 꺾쇠가 들어간다 -->
       <SingleSelect v-model="file" class="[grid-area:file] w-64" :options="fileOptions" />
     </div>
 
@@ -106,7 +106,7 @@ const BASE = "/api/admin/logs";
 const props = defineProps<{ initialAt?: number }>();
 
 // ── 필터 ──
-// 처음 켜 둘 레벨: trace 를 뺀 모두(지난 기록은 무엇이 있었는지 보러 온다)
+// 처음 켜 둘 레벨: trace를 뺀 모두(지난 기록은 무엇이 있었는지 보러 온다)
 const BASE_LEVELS: LevelName[] = ["fatal", "error", "warn", "info", "debug"];
 const levelsOn = ref(new Set<LevelName>(BASE_LEVELS));
 function toggleLevel(v: LevelName) {
@@ -115,7 +115,7 @@ function toggleLevel(v: LevelName) {
   levelsOn.value = next;
 }
 const term = ref("");
-// 카테고리, 태그: 그 파일에 나온 것(파일 목록이 준다). "" 이면 필터링하지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
+// 카테고리, 태그: 그 파일에 나온 것(파일 목록이 준다). ""이면 필터링하지 않는다. 실시간 로그와 같은 모양(카테고리 앞에 줄의 점과 같은 색)
 const category = ref<OptionValue>("");
 const tag = ref<OptionValue>("");
 const categoryOptions = computed<Option[]>(() => (current.value?.categories ?? []).map((c) => ({ value: c, label: c, color: catColor(c) })));

@@ -31,7 +31,7 @@ function createTables(db: Db) {
       autoplay               TEXT,
       user_paused            INTEGER NOT NULL DEFAULT 0,
       position_ms            INTEGER NOT NULL DEFAULT 0,
-      -- 기동 복원, 24/7 자리 지킴이처럼 명령 없이 붙는 길도 이어 틀어도 되는가. /leave, 혼자 남아 나감은 0이다(/join 으로만 이어 듣는다)
+      -- 기동 복원, 24/7 자리 지킴이처럼 명령 없이 붙는 길도 이어 틀어도 되는가. /leave, 혼자 남아 나감은 0이다(/join으로만 이어 듣는다)
       auto_resume            INTEGER NOT NULL DEFAULT 1
     );
 
@@ -52,7 +52,7 @@ function createTables(db: Db) {
       platform         TEXT,
       is_live          INTEGER NOT NULL DEFAULT 0,
       requester_id     TEXT,
-      -- 대기열 항목 번호(player/track-state 의 entry). 곡을 가리키는 라벨이라 옮겨도 그대로다(seq 는 슬롯 안의 순서라 옮기면 바뀐다).
+      -- 대기열 항목 번호(player/track-state의 entry). 곡을 가리키는 라벨이라 옮겨도 그대로다(seq는 슬롯 안의 순서라 옮기면 바뀐다).
       -- 봇을 다시 시작해도 같은 곡이 같은 번호를 지니게 저장한다. 비었으면 복원할 때 새로 받는다
       entry            INTEGER,
       -- 음원 주소를 어떻게 알았나(rules/audio-found-by). 링크 데이터를 쓰는 법과 음원이 죽었을 때 다시 찾을지를 가른다

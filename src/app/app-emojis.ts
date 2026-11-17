@@ -1,10 +1,10 @@
-// 디스코드 앱 이모지 동기화. 아이콘 표(ui/icons)를 렌더링한 이미지(ui/icon-images)가 봇의 디스코드 앱에 올라가 있게 하고, 이름 → id 를 표에 싣는다.
-// 앱의 이모지 전부는 store/app-emoji-book 에 싣는다(설정에 적힌 앱 이모지 토큰을 찾을 때). 아이콘의 옛 이름과 유니코드도 함께 넣는다.
+// 디스코드 앱 이모지 동기화. 아이콘 표(ui/icons)를 렌더링한 이미지(ui/icon-images)가 봇의 디스코드 앱에 올라가 있게 하고, 이름 → id를 표에 싣는다.
+// 앱의 이모지 전부는 store/app-emoji-book에 싣는다(설정에 적힌 앱 이모지 토큰을 찾을 때). 아이콘의 옛 이름과 유니코드도 함께 넣는다.
 // 건드리는 것은 봇이 올린 것 중 관리하는 이름(지금 아이콘 이름, 옛 이름, 그 임시 이름)뿐이다. 운영자가 개발자 포털이나 대시보드에서 올린 이모지는
-// 아이콘과 이름이 같아도 지우지 않고 그 아이콘은 유니코드로 둔다(대시보드에서 올린 것도 작성자가 봇이라 store/app-emoji-records 의 id 로 가린다).
-// 같은지는 CDN 의 이미지와 비교한다(PNG 는 올린 바이트 그대로 돌아온다. 움직이는 GIF 는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 비교한다).
+// 아이콘과 이름이 같아도 지우지 않고 그 아이콘은 유니코드로 둔다(대시보드에서 올린 것도 작성자가 봇이라 store/app-emoji-records의 id로 가린다).
+// 같은지는 CDN의 이미지와 비교한다(PNG는 올린 바이트 그대로 돌아온다. 움직이는 GIF는 디스코드가 다시 인코딩해 프레임 픽셀을 허용치 안에서 비교한다).
 // 이름은 앱 안에서 하나뿐이라 이미지가 바뀐 것은 임시 이름으로 올려 쓰는 쪽을 바꾸고 옛 것을 지운 뒤 이름을 되돌린다.
-// 기동 시에는 목록 하나로 이름 → id 를 먼저 싣고(패널 복원 전) 비교, 업로드는 백그라운드에서 한다. 운영자 색이 바뀌면 다시 동기화한다.
+// 기동 시에는 목록 하나로 이름 → id를 먼저 싣고(패널 복원 전) 비교, 업로드는 백그라운드에서 한다. 운영자 색이 바뀌면 다시 동기화한다.
 
 import type { Client } from "discord.js";
 import sharp from "sharp";
@@ -20,7 +20,7 @@ import { imageOf } from "../ui/icon-images.ts";
 import { APP_EMOJI_LIMIT as EMOJI_LIMIT } from "../dashboard/contract/app-emojis.ts";
 const log = logger.child({ category: "core", sub: "emoji" });
 
-// 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui 를 부르지 못해 여기서 넣는다
+// 찾지 못한 아이콘 토큰(동기화 전, 옛 이름)을 대신할 유니코드. store 층은 ui를 부르지 못해 여기서 넣는다
 const iconUnicode = new Map(iconEntries().map((entry) => [entry.name, entry.spec.unicode]));
 useIconFallbacks({ former: FORMER_EMOJIS, iconUnicode: (name) => iconUnicode.get(name) });
 
@@ -29,7 +29,7 @@ type Remote = { id: string; name: string; animated: boolean; mine: boolean };
 /** 디스코드 쪽. 테스트가 가짜를 넘긴다 */
 type Api = {
   list(): Promise<Remote[]>;
-  /** CDN 의 이미지(PNG 는 .png, 움직이는 것은 .gif). 못 받으면 null */
+  /** CDN의 이미지(PNG는 .png, 움직이는 것은 .gif). 못 받으면 null */
   download(remote: Remote): Promise<Buffer | null>;
   create(name: string, data: Buffer): Promise<Remote>;
   rename(id: string, name: string): Promise<void>;
@@ -40,7 +40,7 @@ type Image = { data: Buffer; animated: boolean };
 const CDN_TIMEOUT_MS = 15_000;
 /** 렌더링, CDN 비교를 동시에 하는 수 */
 const COMPARE_AT_ONCE = 8;
-/** 움직이는 GIF 를 비교할 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
+/** 움직이는 GIF를 비교할 때 픽셀 하나의 허용 차(0 ~ 255). 디스코드가 다시 인코딩하면 5 안팎, 색이 바뀌면 훨씬 크다 */
 const GIF_TOLERANCE = 12;
 /** 운영자 색이 바뀌면 다시 올라가는 아이콘 수: 동기화가 새것을 먼저 올리고 옛것을 끝에 지워, 그만큼 자리가 있어야 한다 */
 const recolored = () => iconEntries().filter((entry) => entry.tint === "brand" && entry.spec.shape !== "logo").length;
@@ -51,7 +51,7 @@ const SETTLE_MS = 3000;
 
 const cdn = httpFor("discord");
 
-/** discord.js 로 만든 실제 Api */
+/** discord.js로 만든 실제 Api */
 function apiOf(client: Client<true>): Api {
   const emojis = () => client.application.emojis;
   const remoteOf = (emoji: { id: string; name: string | null; animated: boolean | null; author: { id: string } | null }): Remote => ({
@@ -73,7 +73,7 @@ function apiOf(client: Client<true>): Api {
   };
 }
 
-/** 렌더링한 이미지와 CDN 의 이미지가 같은가 */
+/** 렌더링한 이미지와 CDN의 이미지가 같은가 */
 async function sameImage(local: Image, remote: Buffer) {
   if (!local.animated) return local.data.equals(remote);
   const decode = async (data: Buffer) => {
@@ -87,7 +87,7 @@ async function sameImage(local: Image, remote: Buffer) {
   return true;
 }
 
-/** 올라가 있는 것이 그 이미지인가. CDN 에서 못 받으면 아니라고 본다 */
+/** 올라가 있는 것이 그 이미지인가. CDN에서 못 받으면 아니라고 본다 */
 async function uploadedAs(api: Api, remote: Remote, image: Image) {
   const there = await api.download(remote).catch((error: unknown) => (log.warn(`앱 이모지 ${remote.name} 이미지 다운로드 실패: ${messageOf(error)}`), null));
   return there !== null && (await sameImage(image, there));
@@ -106,13 +106,13 @@ function tempName(name: string, taken: ReadonlySet<string>) {
 type Protected = () => ReadonlySet<string>;
 const NONE: Protected = () => new Set();
 
-/** onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전). stale: 참이면 멈춘다. protectedIds: 대시보드에서 올린 id. forget: 앱에 없는 id 를 그 기록에서 지운다 */
+/** onChanged: 쓰는 쪽의 id가 바뀐 뒤(옛 것을 지우기 전). stale: 참이면 멈춘다. protectedIds: 대시보드에서 올린 id. forget: 앱에 없는 id를 그 기록에서 지운다 */
 type SyncOptions = { onChanged: () => Promise<unknown>; stale?: () => boolean; protectedIds?: Protected; forget?: (existing: ReadonlySet<string>) => void };
 
 /** 동기화가 건드려도 되는 것: 봇이 올렸고, 대시보드에서 올린 것이 아니다 */
 const ownedBy = (remote: Remote, protectedIds: ReadonlySet<string>) => remote.mine && !protectedIds.has(remote.id);
 
-/** 목록만으로: 앱의 이모지 전부와, 표의 이름 중 봇이 올린 것의 id 를 싣는다(이미지가 맞는지는 sync 가 본다) */
+/** 목록만으로: 앱의 이모지 전부와, 표의 이름 중 봇이 올린 것의 id를 싣는다(이미지가 맞는지는 sync가 본다) */
 async function loadKnown(api: Api, protectedIds: Protected = NONE) {
   const expected = new Map(iconEntries().map((entry) => [entry.name, entry]));
   const known = new Map<string, { id: string; animated: boolean }>();
@@ -144,7 +144,7 @@ async function partition(api: Api, remote: Remote[], kept: ReadonlySet<string>) 
   return { mine, takenByOthers, taken, cleared: owned.length - mine.size };
 }
 
-/** 동기화를 마친 뒤: 바뀐 것이 있으면 목록을 다시 불러 앱의 이모지 전부를 싣고, 앱에 없는 id 를 기록에서 지우게 넘기고, 남긴다 */
+/** 동기화를 마친 뒤: 바뀐 것이 있으면 목록을 다시 불러 앱의 이모지 전부를 싣고, 앱에 없는 id를 기록에서 지우게 넘기고, 남긴다 */
 async function publish(api: Api, remote: Remote[], { added, removed, total, skipped, forget }: { added: number; removed: number; total: number; skipped: string[]; forget: SyncOptions["forget"] }) {
   const now = added || removed ? await api.list() : remote;
   useAppEmojis(now);
@@ -155,7 +155,7 @@ async function publish(api: Api, remote: Remote[], { added, removed, total, skip
 }
 
 /**
- * 동기화. onChanged: 쓰는 쪽의 id 가 바뀐 뒤(옛 것을 지우기 전) 계속 갱신하는 메시지를 다시 그린다.
+ * 동기화. onChanged: 쓰는 쪽의 id가 바뀐 뒤(옛 것을 지우기 전) 계속 갱신하는 메시지를 다시 그린다.
  * stale: 참이면 업로드를 멈추고 아무것도 바꾸지 않은 채 끝낸다(그새 운영자 색이 또 바뀜). 그때까지 올린 것은 다음 동기화가 지운다
  */
 async function sync(api: Api, { onChanged, stale = () => false, protectedIds = NONE, forget }: SyncOptions) {
@@ -229,7 +229,7 @@ class AppEmojis {
     this.color = config.bot.embedColor;
   }
 
-  /** 앞 작업이 끝난 뒤 task 를 돌린다(실패해도 줄은 이어진다) */
+  /** 앞 작업이 끝난 뒤 task를 돌린다(실패해도 줄은 이어진다) */
   serial<T>(task: () => Promise<T>): Promise<T> {
     const run = this.tail.then(task, task);
     this.tail = run.catch(() => undefined);

@@ -83,7 +83,7 @@ import { text } from "../text/index.ts";
 const T = text.archive;
 
 const BASE = "/api/admin/settings-archive";
-// 불러오기 거절의 줄은 "항목 이름: 까닭". 운영 조절값의 까닭은 미리 보기처럼 라벨로
+// 불러오기 거절 줄은 "항목 이름: 원인" 형식. 원인이 운영 설정값 줄(tuneProblemLine)이면 미리 보기처럼 라벨을 붙여 보임(problemLine)
 const importProblemLine = (line: string) => {
   const at = line.indexOf(": ");
   return at < 0 ? line : `${line.slice(0, at)}: ${problemLine(line.slice(at + 2))}`;

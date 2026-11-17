@@ -3,7 +3,7 @@
   브라우저의 색 선택(input type=color)은 브라우저, 운영체제마다 모양이 달라 쓰지 않는다.
 
   입력하다 만 값처럼 색이 아니면 fallback 색으로 보인다.
-  창 안에서는 HSV 를 그대로 들고 있다. #RRGGBB, RGB 로는 채도나 밝기가 0 일 때 색상이 사라져,
+  창 안에서는 HSV를 그대로 들고 있다. #RRGGBB, RGB로는 채도나 밝기가 0일 때 색상이 사라져,
   검정까지 드래그했다 돌아오면 색상이 빨강으로 튄다. 바깥 값이 판의 색과 달라졌을 때만(글로 입력했을 때) 다시 읽는다.
 -->
 <template>
@@ -17,7 +17,7 @@
       <Transition name="menu">
         <div v-if="open" ref="panel" role="dialog" :aria-label="label" :class="PANEL" :style="popoverStyle">
           <div class="flex flex-col gap-3 p-3">
-            <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift 를 같이 누르면 10% -->
+            <!-- 채도(가로), 밝기(세로) 색 선택 영역. 화살표로 1%, Shift를 같이 누르면 10% -->
             <div ref="area" role="slider" tabindex="0" :aria-label="T.colorArea" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="Math.round(hsv.s * 100)" :aria-valuetext="T.colorAreaValue(Math.round(hsv.s * 100), Math.round(hsv.v * 100))" class="relative h-40 rounded-md cursor-crosshair touch-none" :style="{ background: areaPaint }" @pointerdown="grab" @pointermove="drag" @keydown="nudge">
               <span class="pointer-events-none absolute size-5 -translate-1/2 rounded-full border-2 border-white ring-1 ring-black/30 shadow-md" :style="{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, background: hex }"></span>
             </div>
@@ -29,7 +29,7 @@
               <button v-for="(one, i) in FORMATS" :key="one" type="button" role="radio" :aria-checked="format === one" :class="segment(format === one, i, FORMATS.length)" @click="pickFormat(one)">{{ one.toUpperCase() }}</button>
             </div>
 
-            <!-- 선택한 색 견본(40px, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift 를 같이 누르면 10 -->
+            <!-- 선택한 색 견본(40px, 입력란과 같은 높이) + 값 입력란. 입력란 밑에 짧은 이름. 수는 화살표로 1, Shift를 같이 누르면 10 -->
             <div class="flex items-start gap-2">
               <span class="size-10 shrink-0 rounded-full border border-outline-variant" :style="{ background: hex }"></span>
               <label v-if="format === 'hex'" class="flex-1 min-w-0 flex flex-col items-center">
@@ -64,7 +64,7 @@ import { text } from "../text/index.ts";
 const T = text.fields;
 
 const props = defineProps<{
-  /** 입력란의 값. 비었거나 아직 색이 아니면 fallback 으로 보인다 */
+  /** 입력란의 값. 비었거나 아직 색이 아니면 fallback으로 보인다 */
   modelValue: string;
   /** 값이 없을 때의 색(기본값) */
   fallback: string;
@@ -110,7 +110,7 @@ function adopt(next: Hsv) {
 
 const unit = (n: number) => Math.min(1, Math.max(0, n));
 
-// 값 입력란의 형식. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)이면 HEX 로 시작한다
+// 값 입력란의 형식. 못 읽거나 못 쓰는 환경(사생활 보호 창 등)이면 HEX로 시작한다
 const FORMATS = ["hex", "rgb", "hsv"] as const;
 type Format = (typeof FORMATS)[number];
 const FORMAT_KEY = "colorPicker.format";
@@ -161,7 +161,7 @@ function setChannel(one: Channel, n: number) {
   return value;
 }
 
-// 숫자만 받고 넘치면 끝값으로. 지운 글자, 줄인 값은 입력란에 바로 되돌린다(값이 같으면 Vue 가 다시 그리지 않는다)
+// 숫자만 받고 넘치면 끝값으로. 지운 글자, 줄인 값은 입력란에 바로 되돌린다(값이 같으면 Vue가 다시 그리지 않는다)
 function typeChannel(event: Event, one: Channel) {
   const input = event.target as HTMLInputElement;
   const digits = input.value.replace(/\D/g, "");
@@ -236,7 +236,7 @@ function place() {
   popoverStyle.value = { top: `${Math.round(top)}px`, left: `${Math.round(left)}px`, width: `${width}px`, transformOrigin: top === below ? "top left" : "bottom left" };
 }
 
-// 팝오버는 화면 기준으로 놓이므로 페이지가 움직이면 다시 놓는다. 안쪽 스크롤 상자도 잡게 capture 로 듣는다
+// 팝오버는 화면 기준으로 놓이므로 페이지가 움직이면 다시 놓는다. 안쪽 스크롤 상자도 잡게 capture로 듣는다
 const listen = (add: boolean) => {
   if (add) {
     window.addEventListener("scroll", place, { capture: true, passive: true });

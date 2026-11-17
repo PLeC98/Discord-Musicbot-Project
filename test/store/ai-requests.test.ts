@@ -60,9 +60,9 @@ test("필터: 출처, 결과, 찾는 말(대소문자 무시, 이름까지), 최
   assert.equal(requests.list({ ...all, result: "failed" }, { limit: 50 }).entries[0].error, "Too Many Requests");
   assert.equal(requests.list({ ...all, q: "too many" }, { limit: 50 }).matched, 1);
   assert.equal(requests.list({ ...all, q: "FANCY" }, { limit: 50 }).matched, 1);
-  // % 는 글자 그대로다(LIKE 처럼 아무 글자나가 아니다)
+  // %는 글자 그대로다(LIKE처럼 아무 글자나가 아니다)
   assert.equal(requests.list({ ...all, q: "%" }, { limit: 50 }).matched, 0);
-  // 한국어 검색: 조합 중인 마지막 글자, 초성(화면의 실시간 필터 aiLogMatches 와 같은 규칙)
+  // 한국어 검색: 조합 중인 마지막 글자, 초성(화면의 실시간 필터 aiLogMatches와 같은 규칙)
   add({ source: "ping", name: "제미니 무료" });
   assert.equal(requests.list({ ...all, q: "제민" }, { limit: 50 }).matched, 1);
   assert.equal(requests.list({ ...all, q: "ㅈㅁㄴ" }, { limit: 50 }).matched, 1);
@@ -115,7 +115,7 @@ test("너무 큰 필드는 앞뒤를 남기고 잘라 잘림을 적는다", () =
   assert.ok(entry.bytes < requests.MAX_FIELD_BYTES + 1000);
 });
 
-test("통계 행: 출처로 필터링하고 토큰을 못 읽은 요청은 0 으로 센다", () => {
+test("통계 행: 출처로 필터링하고 토큰을 못 읽은 요청은 0으로 센다", () => {
   requests.clearUsage();
   add();
   add({ source: "models", tokens: null, costUsd: 0 });

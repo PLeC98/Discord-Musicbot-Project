@@ -1,4 +1,4 @@
-// 서버별 설정(settings.db 의 guild_settings). 서버마다 JSON 문서 하나. 쓰기는 update 한 곳에서 한 트랜잭션으로 한다. 읽은 값은 메모리에 담아 두고, 설정이 바뀌면 리스너에 알린다.
+// 서버별 설정(settings.db의 guild_settings). 서버마다 JSON 문서 하나. 쓰기는 update 한 곳에서 한 트랜잭션으로 한다. 읽은 값은 메모리에 담아 두고, 설정이 바뀌면 리스너에 알린다.
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "guild" });
@@ -13,10 +13,10 @@ import { sameValue, type SettingsKey } from "../rules/guild-settings-values.ts";
 // 재생목록 한 번에 넣는 곡 수의 상한. 대기열 상한이 더 작으면 그쪽을 따른다
 const PLAYLIST_ADD_CEILING = 1000;
 
-/** 서버별 SponsorBlock 설정. null 은 전역을 따른다 */
+/** 서버별 SponsorBlock 설정. null은 전역을 따른다 */
 type SponsorBlockSetting = { enabled: boolean | null; categories: string[] | null };
 
-// 열기 전에 부르면 던진다
+// 열기 전에 부르면 예외를 던진다
 const conn = () => settingsDb.get();
 
 // 열기 전에 부른 것은 조립 순서가 틀린 것이다. 그 서버의 설정이 없다는 뜻이 아니니 기본값으로 삼키지 않는다
@@ -87,9 +87,9 @@ const FIELD_LABEL: Readonly<Record<GuildField, string>> = {
 };
 
 /**
- * update 에 넘기는 패치. 빠진 필드는 그대로 두고, null 이면 그 필드를 지운다(기본값으로 돌아간다).
- * djRoleIds 가 [] 이면 지운다. sponsorBlock 은 넘긴 하위 키만 바꾸고, 하위 키가 null 이면 전역 설정을 따른다.
- * agePlace 가 "channel", volume 이 기본 볼륨, normalize 가 false 면 기본값이라 문서에서 뺀다
+ * update에 넘기는 패치. 빠진 필드는 그대로 두고, null이면 그 필드를 지운다(기본값으로 돌아간다).
+ * djRoleIds가 []이면 지운다. sponsorBlock은 넘긴 하위 키만 바꾸고, 하위 키가 null이면 전역 설정을 따른다.
+ * agePlace가 "channel", volume이 기본 볼륨, normalize가 false면 기본값이라 문서에서 뺀다
  */
 type GuildPatch = {
   botChannelId?: string | null;
@@ -101,7 +101,7 @@ type GuildPatch = {
   normalize?: boolean;
 };
 
-// 필드마다 패치 값을 문서에 남길 값으로 바꾼다. undefined 면 문서에서 뺀다(기본값과 같은 값은 빼서 서버가 정한 값만 남긴다)
+// 필드마다 패치 값을 문서에 남길 값으로 바꾼다. undefined면 문서에서 뺀다(기본값과 같은 값은 빼서 서버가 정한 값만 남긴다)
 const STORED: { [F in GuildField]: (value: Exclude<GuildPatch[F], undefined>, doc: GuildDoc) => GuildDoc[F] | undefined } = {
   botChannelId: (value) => value ?? undefined,
   djRoleIds: (value) => (value.length ? value : undefined),
@@ -186,13 +186,13 @@ const table = {
     writePatch(guildId, { djRoleIds: [] });
   },
 
-  /** 서버별 SponsorBlock 설정. 필드가 null 이면 전역 설정을 따른다 */
+  /** 서버별 SponsorBlock 설정. 필드가 null이면 전역 설정을 따른다 */
   getGuildSponsorBlock(guildId: string): SponsorBlockSetting {
     const sb = readDoc(guildId).sponsorBlock;
     return { enabled: sb?.enabled ?? null, categories: sb?.categories ?? null };
   },
 
-  /** 서버별 SponsorBlock 설정 저장. enabled, categories 가 null 이면 전역을 따른다(둘 다 null 이면 필드를 뺀다) */
+  /** 서버별 SponsorBlock 설정 저장. enabled, categories가 null이면 전역을 따른다(둘 다 null이면 필드를 뺀다) */
   setGuildSponsorBlock(guildId: string, { enabled, categories }: Partial<SponsorBlockSetting>) {
     writePatch(guildId, { sponsorBlock: { enabled: typeof enabled === "boolean" ? enabled : null, categories: Array.isArray(categories) ? categories : null } });
   },
@@ -243,7 +243,7 @@ function guildCount(): number {
   return conn().prepare("SELECT COUNT(*) FROM guild_settings").pluck().get() as number;
 }
 
-/** 모든 서버의 설정을 지운다(서버별 설정 초기화). 캐시도 비우고, 커밋 뒤 설정이 있던 서버마다 지운 필드를 알린다. 실패하면 던진다 */
+/** 모든 서버의 설정을 지운다(서버별 설정 초기화). 캐시도 비우고, 커밋 뒤 설정이 있던 서버마다 지운 필드를 알린다. 실패하면 예외를 던진다 */
 function removeAll() {
   const removed = conn().transaction(() => {
     const rows = conn().prepare("SELECT guild_id, data_json FROM guild_settings").all() as Array<{ guild_id: string; data_json: string }>;
@@ -259,7 +259,7 @@ type Cached = { botChannel: string | null; djRoles: string[]; playlistAdd: numbe
 
 const cache = new Map<string, Cached[keyof Cached]>();
 
-/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기, 초기화, 테스트가 임시 DB 에 바로 쓴 뒤) */
+/** 읽어 둔 것을 버린다. 표를 통째로 바꾼 뒤(불러오기, 초기화, 테스트가 임시 DB에 바로 쓴 뒤) */
 function forgetCache() {
   cache.clear();
 }
@@ -308,12 +308,12 @@ function announce(guildId: string, fields: GuildField[]) {
   }
 }
 
-/** update 의 결과. 충돌(check 가 키를 돌려준 경우)이면 아무것도 쓰지 않은 것이다. doc 은 쓴 뒤의 문서, 충돌이면 그때 읽은 문서 */
+/** update의 결과. 충돌(check가 키를 돌려준 경우)이면 아무것도 쓰지 않은 것이다. doc은 쓴 뒤의 문서, 충돌이면 그때 읽은 문서 */
 type Updated = { ok: true; changed: GuildField[]; doc: GuildDoc } | { ok: false; conflicts: SettingsKey[]; doc: GuildDoc };
 
 /**
  * 받은 필드를 한 트랜잭션으로 쓴다. 바뀐 것이 없으면 쓰지 않는다.
- * check 는 트랜잭션 안에서 지금 문서를 보고 그사이 바뀐 키를 돌려준다. 돌려준 키가 없으면 쓴다.
+ * check는 트랜잭션 안에서 지금 문서를 보고 그사이 바뀐 키를 돌려준다. 돌려준 키가 없으면 쓴다.
  * 커밋 뒤에는 바뀐 것이 없어도 패치에 든 필드의 캐시를 문서 값으로 채운다(읽기 실패로 남은 낡은 값을 고친다). 그다음 바뀐 필드를 알린다.
  * 쓰기에 실패하면 원래 오류를 그대로 던지고 캐시는 건드리지 않는다
  */
@@ -333,7 +333,7 @@ function update(guildId: string, patch: GuildPatch, check?: (doc: GuildDoc) => S
   return result;
 }
 
-/** 캐시를 거치지 않고 서버 설정 문서를 행에서 바로 읽는다. 못 읽으면 던진다 */
+/** 캐시를 거치지 않고 서버 설정 문서를 행에서 바로 읽는다. 못 읽으면 예외를 던진다 */
 function read(guildId: string): GuildDoc {
   return readDoc(guildId);
 }
@@ -344,7 +344,7 @@ const write = (guildId: string, patch: GuildPatch): GuildField[] => {
   return result.ok ? result.changed : [];
 };
 
-// 아래 set*, clear*, saveVolume 은 update 를 부르고 바뀐 필드를 돌려준다. 실패하면 던진다
+// 아래 set*, clear*, saveVolume은 update를 부르고 바뀐 필드를 돌려준다. 실패하면 예외를 던진다
 
 async function setBotChannel(guildId: string, channelId: string) {
   return write(guildId, { botChannelId: channelId });
@@ -415,14 +415,14 @@ async function getPlaylistAddMax(guildId: string): Promise<number | null> {
   }
 }
 
-/** null이면 기본값으로 되돌린다. 범위 검사는 부르는 쪽이 한다(명령, 대시보드가 사용자에게 알린다) */
+/** null이면 기본값으로 되돌린다. 범위 검사는 호출부가 한다(명령, 대시보드가 사용자에게 알린다) */
 async function setPlaylistAddMax(guildId: string, count: number | null | undefined) {
   return write(guildId, { playlistAddMax: count ?? null });
 }
 
 /**
  * 실제로 쓸 값. 읽을 때마다 범위로 자른다. 서버가 200을 정한 뒤 운영자가 대기열 상한을 줄일 수 있어서다.
- * DB 가 열리지 않았으면 읽지 않고 기본값을 쓴다(DB 를 열지 않고 부르는 테스트).
+ * DB가 열리지 않았으면 읽지 않고 기본값을 쓴다(DB를 열지 않고 부르는 테스트).
  */
 function resolvePlaylistAddMax(guildId: string): number {
   const { min, max, default: fallback } = playlistAddLimits();
@@ -441,7 +441,7 @@ function resolvePlaylistAddMax(guildId: string): number {
 
 // ── 연령 제한 콘텐츠를 틀 곳 ──
 
-/** 이 서버에서 연령 제한 콘텐츠를 틀 곳. 곡을 찾거나 틀 때마다 부르므로 메모리에 담는다. DB 가 열리지 않았거나 못 읽으면 기본(연령 제한 채널에서만) */
+/** 이 서버에서 연령 제한 콘텐츠를 틀 곳. 곡을 찾거나 틀 때마다 부르므로 메모리에 담는다. DB가 열리지 않았거나 못 읽으면 기본(연령 제한 채널에서만) */
 function resolveAgePlace(guildId: string): AgePlace {
   const hit = cached(guildId, "agePlace");
   if (hit !== undefined) return hit;
@@ -462,7 +462,7 @@ async function setAgePlace(guildId: string, place: AgePlace) {
 
 // ── 볼륨 ──
 
-/** 이 서버에서 새 플레이어가 시작할 볼륨(마지막으로 정한 값). DB 가 열리지 않았거나 못 읽으면 기본 볼륨 */
+/** 이 서버에서 새 플레이어가 시작할 볼륨(마지막으로 정한 값). DB가 열리지 않았거나 못 읽으면 기본 볼륨 */
 function resolveVolume(guildId: string): number {
   let stored = cached(guildId, "volume");
   if (stored === undefined && settingsDb.isOpen()) {
@@ -486,7 +486,7 @@ async function saveVolume(guildId: string, level: number) {
 
 /**
  * 이 서버의 볼륨 정규화 켜짐 여부. 재생이 프레임마다(초당 50번) 부르므로 메모리에 담는다.
- * 못 읽으면 끔으로 기억하고 오류 로그를 한 번만 남긴다(다음에 바꾸거나 초기화하면 다시 읽는다). DB 가 열리지 않았으면 끔
+ * 못 읽으면 끔으로 기억하고 오류 로그를 한 번만 남긴다(다음에 바꾸거나 초기화하면 다시 읽는다). DB가 열리지 않았으면 끔
  */
 function resolveNormalize(guildId: string): boolean {
   const hit = cached(guildId, "normalize");
@@ -508,7 +508,7 @@ async function setNormalize(guildId: string, on: boolean) {
 
 // ── SponsorBlock 서버별 설정 ──
 
-/** 서버가 정한 그대로의 설정. null 은 전역을 따른다 */
+/** 서버가 정한 그대로의 설정. null은 전역을 따른다 */
 async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   const hit = cached(guildId, "sb");
   if (hit !== undefined) return hit;
@@ -523,7 +523,7 @@ async function getSponsorBlock(guildId: string): Promise<SponsorBlockSetting> {
   }
 }
 
-/** 넘긴 하위 키(enabled, categories)만 바꾸고 나머지는 저장된 값을 둔다. 하위 키가 null 이면 전역을 따르게 되돌린다 */
+/** 넘긴 하위 키(enabled, categories)만 바꾸고 나머지는 저장된 값을 둔다. 하위 키가 null이면 전역을 따르게 되돌린다 */
 async function setSponsorBlock(guildId: string, patch: Partial<SponsorBlockSetting>) {
   return write(guildId, { sponsorBlock: patch });
 }

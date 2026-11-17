@@ -41,7 +41,7 @@
       </div>
     </nav>
 
-    <!-- 아래 탭으로 옮겨 새 페이지가 아래에서 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip 은 스크롤 영역을 만들지 않는다).
+    <!-- 아래 탭으로 옮겨 새 페이지가 아래에서 미끄러져 들어오는 동안만 세로로 잘라 둔다. 아래로 삐져나간 몫이 바탕화면 스크롤 높이를 늘려 스크롤바가 잠깐 생겼다 사라지며 화면이 덜컥이지 않게(clip은 스크롤 영역을 만들지 않는다).
          위 탭으로 옮길 때는 위로 삐져나가 스크롤 높이를 늘리지 않으므로 자르지 않는다(자르면 들어오는 페이지의 윗부분이 잘려 보인다).
          늘 자르면 포커스 링 테두리까지 잘려서 움직이는 동안만. 재생 바 밑으로 내려간 창 끝(실시간 로그, 봇 정보)은 잘리지 않게 자르는 상자를 재생 바 높이만큼 아래로 넓힌다 -->
     <!-- 휴대폰의 탭 선택 화면 동안에도 제거하지 않고 숨긴다(저장하지 않은 편집, 로그, 스크롤을 지킨다) -->
@@ -77,16 +77,16 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'autoplay'">
-          <!-- settings.db 의 "genres" 문서. 저장 번호가 낡았으면 저장을 거절한다 -->
+          <!-- settings.db의 "genres" 문서. 저장 번호가 낡았으면 저장을 거절한다 -->
           <ConfigGenres v-if="opened.has('autoplay')" />
         </div>
 
         <div class="admin-page" v-show="tab === 'presence'">
-          <!-- settings.db 의 "status" 문서 -->
+          <!-- settings.db의 "status" 문서 -->
           <ConfigPresence v-if="opened.has('presence')" />
         </div>
 
-        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 조절값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
+        <!-- 디스플레이: 디스코드에서 봇이 보이는 모습(운영 설정값의 표시 그룹), 파비콘. 올린 이미지는 봇이 사람이 건드리지 않는 저장 위치에 둔다(파일로 넣는 경로는 없다) -->
         <div class="admin-page" v-show="tab === 'appearance'">
           <ConfigTunables v-if="opened.has('appearance')" :groups="groupsIn('appearance')" tab="appearance" :can-restart="status?.env.launcher ?? false" class="mb-(--gap-in)" />
           <ConfigAppearance v-if="opened.has('appearance')" />
@@ -98,11 +98,11 @@
         </div>
 
         <div class="admin-page" v-show="tab === 'ai'">
-          <!-- settings.db 의 "ai", "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
+          <!-- settings.db의 "ai", "ai-prompt" 문서. API 키는 비밀 테이블에 있고 여기로 내려오지 않는다 -->
           <ConfigAI v-if="opened.has('ai')" :active="tab === 'ai'" />
         </div>
 
-        <!-- 설정: 운영 조절값(봇 전역의 기본값, 한도. 유튜브, SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전, 업데이트), 설정 표시(고급 설정 보기), 연령 제한 콘텐츠, 디스코드 명령(곧바로 하는 재배포) -->
+        <!-- 설정: 운영 설정값(봇 전역의 기본값, 한도. 유튜브, SponsorBlock 그룹은 유튜브 탭, 쿠키는 연령 제한 탭, 표시 그룹은 디스플레이 탭, 로그인 기기 접속 지역 카드 안에 버전, 업데이트), 설정 표시(고급 설정 보기), 연령 제한 콘텐츠, 디스코드 명령(곧바로 하는 재배포) -->
         <div class="admin-page" v-show="tab === 'settings'">
           <ConfigTunables v-if="opened.has('settings')" :groups="groupsIn('settings')" tab="settings" :can-restart="status?.env.launcher ?? false">
             <!-- 로그인 기기 접속 지역: 현재 버전, 업데이트 확인, 업데이트(누르면 바로) -->
@@ -113,10 +113,14 @@
           <ConfigCommands v-if="opened.has('settings')" class="mt-(--gap-in)" />
         </div>
 
-        <!-- 유튜브: yt-dlp 카드, 운영 조절값의 유튜브, SponsorBlock 그룹 -->
+        <!-- 유튜브: 운영 설정값의 유튜브, SponsorBlock 그룹 -->
         <div class="admin-page" v-show="tab === 'youtube'">
-          <ConfigYtdlp v-if="opened.has('youtube')" class="mb-(--gap-in)" />
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
+        </div>
+
+        <!-- 업데이트: 외부 도구(yt-dlp)의 버전, 업데이트 -->
+        <div class="admin-page" v-show="tab === 'update'">
+          <ConfigYtdlp v-if="opened.has('update')" />
         </div>
 
         <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키, 계정 정보 -->
@@ -143,11 +147,11 @@
           <DevOptions v-if="opened.has('dev')" />
         </div>
       </template>
-      <!-- 저장 막대 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장, 되돌린다(휴대폰은 막대 높이만큼 여기서 아래를 비운다) -->
+      <!-- 저장 바 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장, 되돌린다(휴대폰은 저장 바 높이만큼 여기서 아래를 비운다) -->
       <SaveDock :dirty="dockDirty" :saving="dockSaving" :blocked="blockedTabs.length > 0" :blocked-tip="blockedTabs.length ? text.editor.fixFirstIn(blockedTabs.join(', ')) : ''" :restart="dockRestart" @save="saveEverything()" @save-restart="saveEverythingAndRestart" @revert="revertAll" />
     </div>
 
-    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼, 운영 조절값 저장 막대가 함께 쓴다 -->
+    <!-- 봇 다시 시작 창. 봇 상태 탭 버튼, 운영 설정값 저장 바가 함께 쓴다 -->
     <BotRestartDialog />
     <ConfirmDialog :model-value="leaveOpen" icon="edit_off" :title="T.leaveConfirm.title" :body="T.leaveConfirm.body" :confirm-label="T.leaveConfirm.confirm" @update:model-value="(v) => !v && answerLeave(false)" @confirm="answerLeave(true)" />
   </div>
@@ -224,6 +228,7 @@ const ALL_TABS: Tab[] = [
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
   { id: "age", label: T.tabs.age, icon: "no_adult_content", group: "config" },
+  { id: "update", label: T.tabs.update, icon: "download", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "emojis", label: T.tabs.emojis, icon: "add_reaction", group: "outside" },
@@ -239,14 +244,14 @@ const ALL_TABS: Tab[] = [
 ];
 // 보이는 탭. 연령 제한 탭은 연령 제한 콘텐츠를 켰을 때만 있다
 const TABS = computed(() => ALL_TABS.filter((t) => t.id !== "age" || ageContent.value.enabled));
-// ── 저장 막대 ─────────────────────────────────────────────────────────────────
+// ── 저장 바 ─────────────────────────────────────────────────────────────────
 // 고친 편집기를 탭 순서대로 저장한다. 하나가 실패하면 멈추고 그 탭으로 옮긴다(검사 문제는 그 편집기 안에 그려진다).
-// 지금 탭에 문제가 있으면 그대로 둔다(setTab 은 지금 탭을 받으면 상세를 닫는다)
+// 지금 탭에 문제가 있으면 그대로 둔다(setTab은 지금 탭을 받으면 상세를 닫는다)
 const targets = computed(() => [...saveTargets]);
 const savingAll = ref(false);
 const dockDirty = computed(() => targets.value.some((one) => one.dirty.value));
 const dockSaving = computed(() => savingAll.value || targets.value.some((one) => one.saving.value));
-// 검사에 걸린 값이 있는 탭(고친 편집기만). 하나라도 있으면 막대가 저장을 막는다(일부만 저장하지 않는다)
+// 검사에 걸린 값이 있는 탭(고친 편집기만). 하나라도 있으면 저장 바가 저장을 막는다(일부만 저장하지 않는다)
 const blockedTabs = computed(() => [...new Set(targets.value.filter((one) => one.dirty.value && one.blocked?.value).map((one) => ALL_TABS.find((t) => t.id === one.tab)?.label ?? one.tab))]);
 const dockRestart = computed(() => (status.value?.env.launcher ?? false) && targets.value.some((one) => one.dirty.value && one.restart?.value));
 
@@ -279,7 +284,7 @@ const route = useRoute();
 const router = useRouter();
 // 휴대폰(md 아래)은 탭을 선택하지 않았으면 탭 선택 화면
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면, 태블릿, PC 는 지난번 탭
+// 주소의 탭(?tab=). 없으면 편집기 표식(?genre= 등)으로, 그것도 없으면 휴대폰은 선택 화면, 태블릿, PC는 지난번 탭
 const tab = computed<string | null>(() => {
   const q = route.query.tab;
   if (typeof q === "string" && TABS.value.some((t) => t.id === q)) return q;
@@ -339,7 +344,7 @@ function goBack() {
 }
 // 지금 탭의 상세 표식(?genre= 등)
 const detailParam = computed(() => (tab.value ? TAB_PARAM[tab.value] : undefined));
-// 1열로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail 의 singlePane)
+// 1열로 상세를 보고 있는지(태블릿에서도 위 막대 ← 를 표시한다, composables/list-detail의 singlePane)
 const detailOpen = computed(() => Boolean(detailParam.value && route.query[detailParam.value] && singlePane[detailParam.value]));
 // 상세를 닫고 목록(첫 화면)으로: 늘 상위로(목록에서 연 상세면 기록을 무르고, 아니면 표식만 제거한다)
 function closeDetail() {
@@ -378,7 +383,7 @@ function onBeforeUnload(e: BeforeUnloadEvent) {
 // ── 봇 상태 ───────────────────────────────────────────────
 
 const loading = ref(true);
-// 봇 상태. 불러오기 전에는 없다. statusAt: 마지막으로 불러온 때, statusStale: 마지막 요청이 실패했다(아래 값은 statusAt 의 것)
+// 봇 상태. 불러오기 전에는 없다. statusAt: 마지막으로 불러온 때, statusStale: 마지막 요청이 실패했다(아래 값은 statusAt의 것)
 const status = ref<AdminStatus | null>(null);
 const statusAt = ref<number | null>(null);
 const statusStale = ref(false);
@@ -389,7 +394,7 @@ const statusOrder = replyOrder();
 
 const TAB_GROUPS = computed(() => (["status", "config", "outside", "autoplay", "watch", "backup", "dev"] as const).map((g) => TABS.value.filter((t) => t.group === g)).filter((g) => g.length > 0));
 
-// 레일의 선택 표시. 선택한 탭 아이콘 위치(data-ind)의 높이로 옮긴다. 처음 위치를 잡기 전에는 미끄러지지 않게 railReady 로 막는다
+// 레일의 선택 표시. 선택한 탭 아이콘 위치(data-ind)의 높이로 옮긴다. 처음 위치를 잡기 전에는 미끄러지지 않게 railReady로 막는다
 const railEl = ref<HTMLElement | null>(null);
 const railItems = new Map<string, HTMLElement>();
 const pillY = ref(0);
@@ -417,7 +422,7 @@ function placePill() {
 const railFade = useScrollFade(railEl, () => true, 64);
 watch([tab, railEl], () => void nextTick(placePill), { flush: "post" });
 
-// 최신 요청의 답만 반영한다. 보낸 뒤 쿼리가 바뀌었으면(정보 탭의 개수만 받기가 상태 탭으로 바꾼 뒤 도착) 그 답도 반영하지 않는다.
+// 최신 요청의 응답만 반영한다. 보낸 뒤 쿼리가 바뀌었으면(정보 탭의 개수만 받기가 상태 탭으로 바꾼 뒤 도착) 그 응답도 반영하지 않는다.
 // poll: 3초 폴링이면 받는 중일 때 건너뛴다(그 밖의 받기는 기다리지 않는다)
 async function fetchStatus(poll = false) {
   if (poll && statusOrder.busy()) return;
@@ -433,7 +438,7 @@ async function fetchStatus(poll = false) {
   } catch (e) {
     if (!statusOrder.settle(n, asked === statusAsk())) return;
     statusStale.value = true;
-    // 3초마다 요청한다. 같은 까닭이면 알림 하나가 남아 있다
+    // 3초마다 요청한다. 같은 원인으로 실패하면 알림은 하나만 남는다
     notifyProblem(e, T.failed.status);
     loading.value = false;
   }
@@ -497,7 +502,7 @@ watch(tab, () => {
 
 // 로그 연결은 로그 탭이 보일 때만 연다. 닫았다 다시 열면 마지막으로 받은 줄 뒤부터 받는다(서버가 KEPT_LINES 줄까지 들고 있고, 그 밖으로 밀려난 줄은 수만 받는다, infra/log/levels)
 const wantLogs = () => tab.value === "logs" && live();
-// 끊기면 브라우저가 마지막 id 를 실어 재연결하고, 닫히면(200 이 아닌 답) 늘려 가는 간격으로 다시 연다(utils/event-link)
+// 끊기면 브라우저가 마지막 id를 실어 재연결하고, 닫히면(200이 아닌 응답) 늘려 가는 간격으로 다시 연다(utils/event-link)
 const logLink = eventLink({
   url: () => withUid(`/api/admin/logs/stream?after=${encodeURIComponent(lastLogEventId)}`),
   open: (url) => new EventSource(url, { withCredentials: true }),

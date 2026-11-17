@@ -1,6 +1,6 @@
 // src/dashboard/routes/player.ts: 플레이어 조작 API의 입력 검증
 // 비문자열 query(TypeError면 async 핸들러라 응답 없는 unhandled rejection이 된다), "Infinity", "50junk" 같은 느슨한 숫자,
-// 로그, yt-dlp 로 흘러갈 제어문자를 막는다.
+// 로그, yt-dlp로 흘러갈 제어문자를 막는다.
 // 실 라우터 + fake client/player, 서버 관리자 멤버로 권한 게이트를 지나 검증 로직만 확인한다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
@@ -18,10 +18,10 @@ import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { signedInAs, requestJson } from "../helpers/dashboard.ts";
 import { textsOf } from "../helpers/cv2.ts";
 
-/** 이 테스트가 읽는 답의 필드 */
+/** 이 테스트가 읽는 응답의 필드 */
 type Reply = { error?: string; code?: string; more?: { offset: number; requesterId?: unknown; collection?: string; batch?: number }; note?: string; shortfall?: unknown; added?: { count: number; position: number | null; title: string | null } | null };
 
-// ── 서버 설정: 진짜를 임시 DB 로 ──────────────────────────
+// ── 서버 설정: 진짜를 임시 DB로 ──────────────────────────
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { createGuildsRouter } = await import("../../src/dashboard/routes/guilds.ts");
 const { createPlayerStream } = await import("../../src/dashboard/player-stream.ts");
@@ -34,7 +34,7 @@ const store = openTempStore("dashboard-validation-");
 const settings = await import("../../src/store/guild-settings.ts");
 after(() => store.close());
 
-// ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup 을 코어에 넘긴다 ──
+// ── 조회 가짜(코어가 실 해석/네트워크를 타지 않게). 라우터가 app.locals.lookup을 코어에 넘긴다 ──
 const resolverCalls: string[] = [];
 const lookup = fake<Lookup>({
   async resolveQuery(query: string) {
@@ -56,11 +56,11 @@ function makeTrack(title: string) {
   return { title, artist: "a", duration: 300, thumbnail: null, url: "u", platform: "youtube", requestedBy: null };
 }
 
-// 대기열 ID가 찍힌 곡(track-state 가 가져올 때처럼 열거되지 않는 필드)
+// 대기열 ID가 찍힌 곡(track-state가 가져올 때처럼 열거되지 않는 필드)
 const entered = (title: string, entry: number) => Object.defineProperty(makeTrack(title), "entry", { value: entry, enumerable: false });
 
 function makePlayer() {
-  // 부른 것. 가짜 메서드가 this 로 읽지 않게 바깥에 둔다
+  // 부른 것. 가짜 메서드가 this로 읽지 않게 바깥에 둔다
   const calls: unknown[][] = [];
   return fakePlayer(
     {
@@ -125,7 +125,7 @@ const panels = {
   updatePlaying: async () => {},
 };
 const bot = fakeBot({ client, players: new Map<string, Player>(), panels });
-// 곡 추가는 받은 것만 적고, 대기열 4번째에 한 곡을 넣었다고 답한다
+// 곡 추가는 받은 것만 적고, 대기열 4번째에 한 곡을 넣었다고 응답한다
 fakeAdder(bot, async (_bot, guildId, trackData) => {
   embedCalls.push([guildId, trackData]);
   return { success: true, placed: { count: 1, position: 4, collection: null, total: null, skipped: 0, first: makeTrack("추가곡") } };
@@ -182,7 +182,7 @@ test("queue add: 길이 상한 초과는 400, 제어문자는 공백 정규화 �
   assert.equal(embedCalls.length, 1, "대시보드도 슬래시 명령과 같은 코어를 지난다");
 });
 
-test("queue add: first 면 맨 앞에(/playfirst 와 같은 코어). 참이 아닌 값은 맨 뒤", async () => {
+test("queue add: first면 맨 앞에(/playfirst와 같은 코어). 참이 아닌 값은 맨 뒤", async () => {
   freshPlayer();
   const first = await req("POST", `/api/guilds/${GUILD_ID}/player/queue`, { query: "곡", first: true });
   assert.equal(first.status, 200);
@@ -191,7 +191,7 @@ test("queue add: first 면 맨 앞에(/playfirst 와 같은 코어). 참이 아�
   assert.notEqual(embedCalls.at(-1)?.[1].insertFirst, true);
 });
 
-test("맨 앞에 넣기(first, 맨 앞에 넣은 목록의 이어 넣기)는 DJ 만. DJ 가 아니면 넣지 않고 must-dj, 맨 뒤 넣기는 그대로", async () => {
+test("맨 앞에 넣기(first, 맨 앞에 넣은 목록의 이어 넣기)는 DJ만. DJ가 아니면 넣지 않고 must-dj, 맨 뒤 넣기는 그대로", async () => {
   freshPlayer();
   const fetchMember = guild.members.fetch;
   guild.roles.cache.set("dj", { id: "dj" });
@@ -264,7 +264,7 @@ test("받아들인 조작은 디스코드의 패널 채널에도 같은 화면�
   }
 });
 
-test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 채널에도 하이라이트로 건너뛰었다고 알린다(위치를 옮겼다가 아니라)", async () => {
+test("하이라이트: 디스코드 /highlight와 같은 조작이고, 패널 채널에도 하이라이트로 건너뛰었다고 알린다(위치를 옮겼다가 아니라)", async () => {
   const p = freshPlayer();
   Object.assign(p, { sponsor: { highlightAt: 42 } });
   const sent: string[] = [];
@@ -290,7 +290,7 @@ test("하이라이트: 디스코드 /highlight 와 같은 조작이고, 패널 �
 type State = { boot: number; seq: number; playing: boolean; queue: unknown[]; queueTotal: number; currentTrack: unknown; hasSettings?: boolean };
 const stateReq = (method: string, urlPath: string, body?: unknown) => requestJson<State>(base, method, urlPath, body, { timeoutMs: 3000 });
 
-test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른다. 정지 뒤에는 빈 상태", async () => {
+test("조작은 모두 같은 재생 상태로 응답하고 만든 순서가 오른다. 정지 뒤에는 빈 상태", async () => {
   const p = freshPlayer();
   Object.assign(p, {
     paused: false,
@@ -333,7 +333,7 @@ test("조작은 모두 같은 재생 상태로 답하고 만든 순서가 오른
   assert.equal(seen.at(-1)?.currentTrack, null, "정지 뒤에는 플레이어가 없다");
 });
 
-// 대기열 ID를 단 곡(track-state 가 들어올 때 찍는 열거되지 않는 필드와 같게)
+// 대기열 ID를 단 곡(track-state가 들어올 때 찍는 열거되지 않는 필드와 같게)
 type Rows = { currentTrack: { entry: number | null } | null; queue: { title: string; entry: number | null }[] };
 const rowsReq = (method: string, urlPath: string, body?: unknown) => requestJson<Rows & { code?: string }>(base, method, urlPath, body, { timeoutMs: 3000 });
 
@@ -374,7 +374,7 @@ test("대기열 ID: 상태에 싣고, 빼기, 옮기기는 그 곡을 가리킨�
   for (const body of [{ entry: 13 }, { entry: "13", before: null }, { entry: 1.5, before: null }, {}]) assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/queue/move-entry`, body)).status, 400, JSON.stringify(body));
 });
 
-test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기기, 이전, 이동, 하이라이트를 409 로 거절한다", async () => {
+test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기기, 이전, 이동, 하이라이트를 409로 거절한다", async () => {
   const p = freshPlayer();
   Object.assign(p, { currentTrack: entered("현재곡", 10), sponsor: { highlightAt: 5 }, previousTracks: [makeTrack("전곡")], skip: () => (p.calls.push(["skip"]), true), previous: () => true, _restartsOnPrevious: () => false });
   for (const [action, body] of [
@@ -391,7 +391,7 @@ test("지금 곡 확인: 보던 곡(onTrack)이 지금 곡이 아니면 넘기�
   assert.equal((await rowsReq("POST", `/api/guilds/${GUILD_ID}/player/skip`, { onTrack: "10" })).status, 400);
 });
 
-test("?queue=0 이면 대기열 없이 답한다(곡 수는 그대로). 비우거나 모르는 값이면 기본 창", async () => {
+test("?queue=0이면 대기열 없이 응답한다(곡 수는 그대로). 비우거나 모르는 값이면 기본 창", async () => {
   freshPlayer();
   const none = await stateReq("GET", `/api/guilds/${GUILD_ID}/player?queue=0`);
   assert.deepEqual([none.json.queue.length, none.json.queueTotal], [0, 3]);
@@ -410,7 +410,7 @@ test("상태: 사람의 멈춤과 억제 사유를 따로 싣는다. 억제 사�
   Object.assign(p, { pause: { userPaused: true, heldBy: "mute" } });
   assert.deepEqual(await pausedOf(), { paused: true, userPaused: true, heldBy: "mute" });
   Object.assign(p, { audioPlayer: { state: { status: "idle" } }, pause: { userPaused: false, heldBy: "alone" } });
-  assert.deepEqual(await pausedOf(), { paused: false, userPaused: false, heldBy: null }, "곡이 보이지 않으면 멈춤 · 억제 사유도 보이지 않는다");
+  assert.deepEqual(await pausedOf(), { paused: false, userPaused: false, heldBy: null }, "곡이 보이지 않으면 멈춤과 억제 사유도 보이지 않는다");
 });
 
 test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400. 맨 앞에 넣은 목록이면 이어서도 맨 앞(넣은 곡 뒤)에", async () => {
@@ -436,7 +436,7 @@ test("queue/more: 목록 정보가 깨졌거나 곡 수가 범위 밖이면 400.
   assert.equal(ok.json.more?.requesterId, undefined);
   assert.equal(ok.json.more?.collection, "playlist", "출처의 종류를 싣는다(화면이 이름을 단다)");
   assert.equal(typeof ok.json.more?.batch, "number");
-  // 디스코드 더 넣기 결과와 같은 글(usecases/playlist-more 의 resultText)
+  // 디스코드 더 넣기 결과와 같은 글(usecases/playlist-more의 resultText)
   assert.match(ok.json.note ?? "", /10곡을 더 넣었어요/);
 });
 
@@ -461,8 +461,8 @@ test("볼륨, 곡 빼기를 바꾸면 디스코드 패널도 고친다(볼륨은
   assert.deepEqual(seen, [true, true]);
 });
 
-test("본문 없는 요청은 400 으로 답한다(본문을 읽다 던지지 않는다)", async () => {
-  // Content-Type 없이 본문도 없으면 Express 5 는 req.body 를 비워 둔다
+test("본문 없는 요청은 400으로 응답한다(본문을 읽다 예외를 던지지 않는다)", async () => {
+  // Content-Type 없이 본문도 없으면 Express 5는 req.body를 비워 둔다
   for (const [action, code] of [
     ["seek", "bad-time"],
     ["volume", "bad-volume"],

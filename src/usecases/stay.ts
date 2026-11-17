@@ -35,10 +35,10 @@ async function onRefusal(bot: Pick<Bot, "players">, member: GuildMember): Promis
 /** 끄기 전 확인: DJ 조작. 되면 null */
 const offRefusal = (member: GuildMember): Promise<StayRefusal | null> => checkControl(member);
 
-/** 그 사람이 지금 상주 모드를 바꿀 수 없는 까닭(켜져 있으면 끄기, 꺼져 있으면 켜기의 확인). 대시보드가 바꾸기 전에 보인다 */
+/** 그 사람이 지금 상주 모드를 바꿀 수 없는 이유(켜져 있으면 끄기, 꺼져 있으면 켜기의 확인). 대시보드가 바꾸기 전에 보인다 */
 const stayRefusal = (bot: Pick<Bot, "players">, member: GuildMember) => (seatChannelOf(member.guild.id) ? offRefusal(member) : onRefusal(bot, member));
 
-/** 켠다. 봇이 음성에 없으면 부른 사람의 채널에 붙는다(저장된 세션이 있으면 /join 과 같이 복원한다). go: 붙기 직전에 부르는 확인(대시보드의 로그인 세션, join 의 go) */
+/** 켠다. 봇이 음성에 없으면 부른 사람의 채널에 붙는다(저장된 세션이 있으면 /join과 같이 복원한다). go: 붙기 직전에 부르는 확인(대시보드의 로그인 세션, join의 go) */
 async function turnOn(bot: Bot, { guild, member, textChannel = null }: { guild: Guild; member: GuildMember; textChannel?: GuildTextBasedChannel | null }, { go }: { go?: () => void } = {}): Promise<StayResult> {
   const denied = await onRefusal(bot, member);
   if (denied) return { ok: false, code: denied };

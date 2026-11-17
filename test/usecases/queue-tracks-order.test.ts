@@ -58,7 +58,7 @@ function world(guildIds = ["g1"]) {
   const playerOf = (guildName: string) => players.get(idOf(guildName));
   const gate = (id: string) => {
     const g = gates.get(id);
-    assert.ok(g, `${id} 가 시작했다`);
+    assert.ok(g, `${id}: 시작했다`);
     return g;
   };
   return { bot, players, playerOf, events, add, gate, maxActive: () => maxActive };
@@ -80,7 +80,7 @@ test("같은 서버 동시 3건(A/B/C)은 항상 순차 실행", async () => {
   assert.deepEqual(
     w.playerOf("g1")?.queue.map((t) => t.title),
     ["A"],
-    "B/C 는 대기열에도 아직 들어가지 않았다",
+    "B/C는 대기열에도 아직 들어가지 않았다",
   );
 
   w.gate("A").resolve();
@@ -122,7 +122,7 @@ test("앞 작업이 실패해도 뒤 작업은 돈다. 실패는 자기 호출�
   ok(await pB);
 });
 
-test("앞 작업이 던져도(플레이어를 찾다가) 뒤 작업은 돈다", async () => {
+test("앞 작업이 예외를 던져도(플레이어를 찾다가) 뒤 작업은 돈다", async () => {
   const w = world();
   const real = w.players.get.bind(w.players);
   let first = true;

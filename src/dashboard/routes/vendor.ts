@@ -1,7 +1,7 @@
-// 외부 도구(yt-dlp)의 상태와 조작. 운영자 패널 유튜브 탭의 yt-dlp 카드가 부른다. /api/admin/vendor
-// 버전 고정은 저장 막대가 아니라 여기서 바로 저장한다(store/tunables 의 saveCard). 채널, 모드는 저장 막대로 저장한다(routes/tunables).
+// 외부 도구(yt-dlp)의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp 카드가 호출한다. /api/admin/vendor
+// 버전 고정은 저장 바가 아니라 여기서 바로 저장한다(store/tunables의 saveCard). 채널, 모드는 저장 바에서 저장한다(routes/tunables).
 // 저장하면 새 설정대로 yt-dlp 버전을 맞춘다(sources/ytdlp-binary).
-// 다운로드는 시작만 하고 지금 상태로 답한다. 화면은 상태를 다시 읽어 진행을 본다
+// 다운로드는 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
 
 import express, { type NextFunction, type Request, type Response } from "express";
 import logger from "../../infra/log/logger.ts";
@@ -23,7 +23,7 @@ vendorRouter.use(requireOwner);
 
 const reply = (saved?: TunablesView): VendorReply => ({ status: { ytdlp: ytdlpBinary.status() }, ...(saved ? { tunables: saved } : {}) });
 
-// 카드 값을 저장한다. 저장했으면 조절값 상태. 거절했으면 문제 응답을 보내고 null
+// 카드 값을 저장한다. 저장했으면 설정값 상태. 거절했으면 문제 응답을 보내고 null
 function saveCard(req: Request, res: Response, changes: Record<string, string | null>, what: string): TunablesView | null {
   try {
     const saved = tunables.saveCard(changes);
@@ -39,7 +39,7 @@ function saveCard(req: Request, res: Response, changes: Record<string, string | 
   }
 }
 
-// 저장한 설정으로 버전을 맞춘다. 결과는 yt-dlp 가 로그와 상태에 남긴다
+// 저장한 설정으로 버전을 맞춘다. 결과는 yt-dlp가 로그와 상태에 남긴다
 const converge = (human: boolean) => void bestEffort(log, ytdlpBinary.converge({ human, fresh: true }), "yt-dlp 버전 맞추기", "warn");
 const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value.trim() : null);
 
@@ -70,10 +70,10 @@ vendorRouter.post("/ytdlp/update", (req, res) => {
 });
 
 // 최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 아무 옛 버전이나 고를 수 있는 조작은 그것뿐이다.
-// 고정 해제(채널의 최신으로), 업데이트(확인한 최신으로), 이전 버전으로 되돌리기(바로 전에 설치했던 버전 하나)는 요구하지 않는다(채널, 모드의 저장 막대 저장도)
+// 고정 해제(채널의 최신으로), 업데이트(확인한 최신으로), 이전 버전으로 되돌리기(바로 전에 설치했던 버전 하나)는 요구하지 않는다(채널, 모드의 저장 바 저장도)
 const recentLoginToPin = (req: Request, res: Response, next: NextFunction) => (text(req.body?.version) ? requireRecentLogin(req, res, next) : next());
 
-// 버전 고정(version: 태그, null 이면 해제). 값이 그대로여도 다시 맞춰 본다(고정한 버전 다운로드에 실패한 뒤의 재시도)
+// 버전 고정(version: 태그, null이면 해제). 값이 그대로여도 다시 맞춰 본다(고정한 버전 다운로드에 실패한 뒤의 재시도)
 vendorRouter.post("/ytdlp/pin", recentLoginToPin, (req, res) => {
   const version = text(req.body?.version);
   const was = config.ytdlp.version;

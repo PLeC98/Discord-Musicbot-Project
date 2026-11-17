@@ -1,6 +1,6 @@
 <!--
   AI 보조, 판정 프롬프트: 섹션(역할, 이름, 글)을 순서대로 보낸다. 토큰 어림수, 리퀘스트 미리보기.
-  상태는 composables/ai-editor(ConfigAI 가 내려 준다).
+  상태는 composables/ai-editor(ConfigAI가 내려 준다).
 -->
 <template>
   <BaseCard icon="terminal" :title="TR.title">
@@ -8,7 +8,7 @@
       <span v-if="tokenTotal != null" class="text-xs text-on-surface-variant nums" v-tooltip="tokenExact ? '' : TR.estimated">{{ TR.tokens(tokenTotal) }}</span>
       <span v-else-if="tokenError" class="text-xs text-(--warn-ink)" v-tooltip="tokenError">{{ TR.tokensFailed }}</span>
       <button type="button" :class="[ICON_BTN, 'size-8']" :aria-label="TR.addSection" v-tooltip="text.common.add" @click="addSection"><Icon name="add" :size="20" /></button>
-      <!-- 프롬프트 한 벌(목록 형식 + 섹션)을 파일로. 불러오면 편집기에만 들어간다(저장 막대로 저장하거나 되돌린다) -->
+      <!-- 프롬프트 한 벌(목록 형식 + 섹션)을 파일로. 불러오면 편집기에만 들어간다(저장 바에서 저장하거나 되돌린다) -->
       <MoreMenu
         :label="text.editor.more"
         :button-class="[ICON_BTN, 'size-8']"
@@ -73,7 +73,7 @@ const fileEl = ref<HTMLInputElement | null>(null);
 function picked(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
-  input.value = ""; // 같은 파일을 다시 선택해도 change 가 오게
+  input.value = ""; // 같은 파일을 다시 선택해도 change가 오게
   if (file) void importPrompt(file);
 }
 </script>

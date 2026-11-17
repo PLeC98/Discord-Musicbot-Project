@@ -1,6 +1,6 @@
 <template>
   <!-- 돌려서 선택하는 휠(알람 앱처럼). 세 줄이 보이고 가운데가 선택한 값. 끝에서 처음으로 이어진다(같은 값을 다섯 벌 늘어놓고 가운데 벌로 되돌린다).
-       마우스 휠은 한 번 굴리면 step 만큼(OS, 브라우저의 스크롤 양과 상관없이). 가운데를 누르면 그 자리가 입력란이 되어 직접 입력한다(Enter, 다른 곳을 누르면 반영, Esc 는 취소) -->
+       마우스 휠은 한 번 굴리면 step 만큼(OS, 브라우저의 스크롤 양과 상관없이). 가운데를 누르면 그 자리가 입력란이 되어 직접 입력한다(Enter, 다른 곳을 누르면 반영, Esc는 취소) -->
   <div class="relative select-none" :style="{ height: `${rowPx * 3}px` }">
     <!-- 가운데 띠 -->
     <div class="pointer-events-none absolute inset-x-0 rounded-(--r-row) bg-secondary-container" :style="{ top: `${rowPx}px`, height: `${rowPx}px` }"></div>
@@ -38,7 +38,7 @@
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { scrollMotion } from "../utils/motion.ts";
 
-/** count: 값의 수(0 ~ count-1, 시 24, 분 60). first: 보이는 첫 숫자(값 0 이 보이는 글자. 월, 일은 1). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
+/** count: 값의 수(0 ~ count-1, 시 24, 분 60). first: 보이는 첫 숫자(값 0이 보이는 글자. 월, 일은 1). step: 마우스 휠 한 번에 움직이는 양(그 배수로 맞춘다). big: 한 줄 40px, 글자 24px(남는 자리가 넓을 때) */
 const props = withDefaults(defineProps<{ modelValue: number; count: number; label: string; first?: number; step?: number; big?: boolean }>(), { first: 0, step: 1, big: false });
 const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 
@@ -49,11 +49,11 @@ const MIDDLE = Math.floor(COPIES / 2);
 const pad = (n: number) => String(n).padStart(2, "0");
 
 const list = ref<HTMLElement | null>(null);
-// 줄 i(0 부터, 늘어놓은 전체에서)가 가운데에 오는 스크롤 위치. 앞의 빈 줄 하나가 있어 i * 줄 높이다
+// 줄 i(0부터, 늘어놓은 전체에서)가 가운데에 오는 스크롤 위치. 앞의 빈 줄 하나가 있어 i * 줄 높이다
 const topOf = (i: number) => i * rowPx.value;
 const rowNow = () => Math.round((list.value?.scrollTop ?? 0) / rowPx.value);
 
-// 값으로 맞춘다. 바로 맞출 때는 가운데 벌로, 미끄러질 때는 지금 자리에서 가까운 쪽으로(59 → 0 이 한 바퀴를 거꾸로 돌지 않게).
+// 값으로 맞춘다. 바로 맞출 때는 가운데 벌로, 미끄러질 때는 지금 자리에서 가까운 쪽으로(59 → 0이 한 바퀴를 거꾸로 돌지 않게).
 // 가운데 벌을 벗어나 있으면 같은 화면인 가운데 벌로 먼저 옮겨 두어 끝에 닿지 않게 한다
 function show(value: number, smooth = false) {
   const el = list.value;
@@ -70,7 +70,7 @@ function show(value: number, smooth = false) {
 onMounted(() => show(props.modelValue));
 // 줄 높이가 바뀌면(화면을 돌리면) 다시 그린 뒤 같은 값으로 맞춘다
 watch(rowPx, () => void nextTick(() => show(props.modelValue)));
-// 칸 수가 바뀌면(달마다 다른 일 수) 다시 그린 뒤 맞춘다. 값이 칸 밖이면 부르는 쪽이 줄여 준다
+// 칸 수가 바뀌면(달마다 다른 일 수) 다시 그린 뒤 맞춘다. 값이 칸 밖이면 부모 컴포넌트가 줄여 준다
 watch(
   () => props.count,
   () => void nextTick(() => show(Math.min(props.modelValue, props.count - 1))),
@@ -100,7 +100,7 @@ function stepBy(by: number) {
   emit("update:modelValue", (props.modelValue + by + props.count) % props.count);
 }
 
-// 마우스 휠: 한 칸(notch)에 step 만큼. 한 번에 크게 오는 것(마우스 휠)은 크기와 상관없이 한 번으로, 잘게 오는 것(터치패드)은 모아서 한 번으로 센다
+// 마우스 휠: 한 칸(notch)에 step만큼. 한 번에 크게 오는 것(마우스 휠)은 크기와 상관없이 한 번으로, 잘게 오는 것(터치패드)은 모아서 한 번으로 센다
 const NOTCH = 40;
 let wheelSum = 0;
 let wheelAt = 0;
@@ -112,7 +112,7 @@ function onWheel(e: WheelEvent) {
   if (Math.abs(wheelSum) < NOTCH) return;
   const down = wheelSum > 0;
   wheelSum = 0;
-  // step 의 배수로: 22분에서 아래로 → 25, 위로 → 20
+  // step의 배수로: 22분에서 아래로 → 25, 위로 → 20
   const s = props.step;
   const next = down ? Math.floor(props.modelValue / s) * s + s : Math.ceil(props.modelValue / s) * s - s;
   emit("update:modelValue", ((next % props.count) + props.count) % props.count);

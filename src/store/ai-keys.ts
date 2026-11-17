@@ -1,6 +1,6 @@
 // AI 보조의 키(프로바이더마다 하나. 버텍스는 서비스 계정 JSON). 비밀 표(store/secrets)에 암호화해 둔다.
 // 키는 저장할 때의 주소(binding: 그 프로바이더가 요청을 보내는 곳)에 묶인다. 주소가 바뀌면 키를 내주지 않는다(다시 입력해야 한다).
-// 주소를 계산하는 것은 보조(autoplay/assist 의 keyBinding)이고 여기는 그 값을 받아 묶고 맞춰 볼 뿐이다.
+// 주소를 계산하는 것은 보조(autoplay/assist의 keyBinding)이고 여기는 그 값을 받아 묶고 맞춰 볼 뿐이다.
 
 import fs from "fs";
 import path from "path";
@@ -12,7 +12,7 @@ import type { AiKeyState } from "../rules/service-keys.ts";
 
 const nameOf = (provider: string) => `ai.${provider}`;
 
-/** 저장. endpoint 는 그 프로바이더가 요청을 보내는 주소 */
+/** 저장. endpoint는 그 프로바이더가 요청을 보내는 주소 */
 function put(provider: string, value: string, endpoint: string) {
   secrets.put(nameOf(provider), value, { provider, endpoint });
 }

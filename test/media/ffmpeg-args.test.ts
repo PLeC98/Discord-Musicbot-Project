@@ -4,7 +4,7 @@
 // 정적 링크 빌드에서는 SIGSEGV로 죽어 무음이 된다). pipe 입력에서 `-ss`를 `-i` 앞에 두면 출력이 잘리는 것도 함께 고정한다.
 //
 // URL 입력은 HLS 분기에만 있다(live-hls.test.ts). 여기서 고정하는 것은 그 분기를 부르지 않은
-// 모든 경우가 여전히 pipe 로 간다는 것이다.
+// 모든 경우가 여전히 pipe로 간다는 것이다.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -13,7 +13,7 @@ import { buildFfmpegArgs } from "../../src/media/ffmpeg/args.ts";
 
 const build = buildFfmpegArgs;
 
-test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpeg 는 모르는 옵션에 멈춘다", () => {
+test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpeg는 모르는 옵션에 멈춘다", () => {
   const caps = { segMaxRetry: true };
   assert.ok(build({ url: "https://x/a.m3u8", caps }).includes("-seg_max_retry"));
   const dash = build({ url: "https://x/a.mpd", hls: false, caps });
@@ -22,7 +22,7 @@ test("DASH 주소에는 HLS 옵션(-seg_max_retry)을 붙이지 않는다. ffmpe
 });
 const idx = (args: string[], flag: string) => args.indexOf(flag);
 
-test("HLS 주소는 세그먼트를 건너뛴 줄을 보려고 warning 까지 남긴다. 그 밖은 error", () => {
+test("HLS 주소는 세그먼트를 건너뛴 줄을 보려고 warning까지 남긴다. 그 밖은 error", () => {
   const level = (args: string[]) => args[idx(args, "-loglevel") + 1];
   assert.equal(level(build({ url: "https://x/a.m3u8", caps: { segMaxRetry: true } })), "warning");
   assert.equal(level(build({ url: "https://x/a.mpd", hls: false, caps: { segMaxRetry: true } })), "error");
@@ -67,7 +67,7 @@ test("오프셋 0이면 -ss를 넣지 않는다 (양쪽 모드)", () => {
   assert.equal(idx(build(), "-ss"), -1);
 });
 
-test("출력 포맷은 두 모드가 동일하고 pipe:1로 끝난다 (출력 스트림 media/opus-output 이 받는 PCM 형식)", () => {
+test("출력 포맷은 두 모드가 동일하고 pipe:1로 끝난다 (출력 스트림 media/opus-output이 받는 PCM 형식)", () => {
   // 출력 대상까지 여기서 붙인다. spawnFfmpeg는 인자를 그대로 실행하므로,
   // 출력이 파일인 캐시 변환 경로(-y <file>)와 섞이지 않으려면 호출부가 온전한 인자를 가져야 한다.
   const expected = ["-f", "f32le", "-ar", "48000", "-ac", "2", "pipe:1"];

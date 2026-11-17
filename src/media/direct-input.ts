@@ -1,4 +1,4 @@
-// 직접 링크를 재생, 다운로드 입력으로 연다(sources/direct 의 open). 파일은 그 본문, HLS 는 세그먼트 스트림(media/fragment-stream).
+// 직접 링크를 재생, 다운로드 입력으로 연다(sources/direct의 open). 파일은 그 본문, HLS는 세그먼트 스트림(media/fragment-stream).
 //   live       끝이 없다(인터넷 라디오, 라이브 HLS). 캐시하지 않는다
 //   bounded    끝이 있고 크기, 길이를 안다(크기를 알린 파일, VOD HLS). 재생과 나란히 다운로드해도 된다
 //   resumable  끊기면 받은 자리부터 이을 수 있는 파일(크기를 알리고 음원 상한 안). 재생이 청크 스트림으로 연다(media/chunked-stream)
@@ -27,13 +27,13 @@ type DirectInput = Readable & {
   live: boolean;
   bounded: boolean;
   resumable?: Resumable;
-  /** 내보내기 시작하는 곡 안의 위치(ms). HLS VOD 는 그 위치를 포함한 세그먼트부터 */
+  /** 내보내기 시작하는 곡 안의 위치(ms). HLS VOD는 그 위치를 포함한 세그먼트부터 */
   startedAtMs?: number;
   describe?(): string;
 };
 /**
- * startMs: 곡 안의 시작 위치(HLS VOD 만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg 의 -ss)
- * liveOnly: 라이브로 추가된 곡이다. HLS 의 목록이 끝났으면 틀지 않고 live-ended(다시보기를 처음부터 틀지 않는다)
+ * startMs: 곡 안의 시작 위치(HLS VOD만 세그먼트 단위로 맞춘다. 나머지는 ffmpeg의 -ss)
+ * liveOnly: 라이브로 추가된 곡이다. HLS의 목록이 끝났으면 틀지 않고 live-ended(다시보기를 처음부터 틀지 않는다)
  * onResumed: HLS 세그먼트가 끊겼다 이어 받기 시작했을 때(파일은 여는 쪽의 청크 스트림이 알린다)
  */
 type InputOptions = { startMs?: number; liveOnly?: boolean; bodyIdleMs?: number; onResumed?: (info: Resumed) => void };
@@ -50,7 +50,7 @@ function validatorOf(headers: Record<string, unknown> = {}): string | null {
 
 /**
  * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
- * 2xx 가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx 는 그만, 5xx 는 다시). 가드가 막으면 재시도하지 않는다
+ * 2xx가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx는 그만, 5xx는 다시). 가드가 막으면 재시도하지 않는다
  */
 function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {
   return async (url, { headers, signal }) => {
@@ -197,7 +197,7 @@ function decrypting(key: Buffer, iv: Buffer): Transform {
       front = Buffer.concat([front, out]);
       const verdict = segmentStart(front);
       if (verdict === "more") return done();
-      if (verdict === "bad") return done(wrongKey("복호화한 앞부분이 TS, ID3, fMP4 로 시작하지 않음"));
+      if (verdict === "bad") return done(wrongKey("복호화한 앞부분이 TS, ID3, fMP4로 시작하지 않음"));
       const checked = front;
       front = null;
       done(null, checked);
@@ -229,7 +229,7 @@ function shortSegment(front: Buffer, rest: Buffer, held: Buffer | null): Buffer 
   const pad = paddingOf(held);
   if (pad === null) return wrongKey("짧은 세그먼트의 끝 패딩이 깨짐");
   const segment = Buffer.concat([front, held.subarray(0, 16 - pad)]);
-  return segmentStart(segment, true) === "ok" ? segment : wrongKey("짧은 세그먼트가 TS, ID3, fMP4 가 아님");
+  return segmentStart(segment, true) === "ok" ? segment : wrongKey("짧은 세그먼트가 TS, ID3, fMP4가 아님");
 }
 
 /**
@@ -262,7 +262,7 @@ async function checkLastBlock(pour: HlsPour, totalBytes: number, key: Buffer, si
   if (paddingOf(last) === null) throw permanent("HLS 세그먼트의 키가 맞지 않음(마지막 블록의 패딩이 깨짐)");
 }
 
-/** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 던진다 */
+/** 앞에서부터 최대 limit 바이트를 읽는다. signal이 취소되면 그 사유로 예외를 던진다 */
 async function firstBytes(body: Readable, limit: number, signal: AbortSignal): Promise<Buffer> {
   const stop = () => body.destroy(signal.reason instanceof Error ? signal.reason : undefined);
   signal.addEventListener("abort", stop, { once: true });

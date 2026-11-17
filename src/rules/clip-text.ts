@@ -4,7 +4,7 @@
 const GRAPHEMES = new Intl.Segmenter("en", { granularity: "grapheme" });
 const ELLIPSIS = "…";
 
-/** max 를 넘으면 글자 묶음 단위로 잘라 끝에 … 를 붙인다 */
+/** max를 넘으면 글자 묶음 단위로 잘라 끝에 … 를 붙인다 */
 function clipText(text: string, max: number): string {
   if (text.length <= max) return text;
   let out = "";

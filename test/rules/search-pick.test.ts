@@ -20,7 +20,7 @@ test("스포티파이 곡은 sp:<22자 곡 id>, 주소는 곡 링크", () => {
   assert.equal(pickUrl({ platform: "spotify", id }), `https://open.spotify.com/track/${id}`);
 });
 
-test("자동완성 기다릴 시간: 3초에서 지난 시간과 여유를 빼고, 시계가 어긋나도 300 ~ 2400ms 에 가둔다", () => {
+test("자동완성 기다릴 시간: 3초에서 지난 시간과 여유를 빼고, 시계가 어긋나도 300 ~ 2400ms에 가둔다", () => {
   assert.equal(autocompleteBudget(1000, 1150), 2250);
   assert.equal(autocompleteBudget(1000, 1000), 2400, "봇 시계가 늦어 지난 시간이 0 이하면 상한");
   assert.equal(autocompleteBudget(1000, -5000), 2400);

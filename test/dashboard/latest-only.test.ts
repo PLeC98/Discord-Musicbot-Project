@@ -25,7 +25,7 @@ test("앞 작업이 도는 동안 온 것 가운데 마지막 것만 한다. 사
   const third = run("u1", g.work("3"));
   g.open();
   assert.deepEqual(await Promise.all([first, second, third]), ["결과", null, "결과"]);
-  assert.deepEqual(g.started, ["1", "3"], "2 는 시작하지 않는다");
+  assert.deepEqual(g.started, ["1", "3"], "2는 시작하지 않는다");
 });
 
 test("도는 작업이 없으면 곧바로 시작하고, 사람마다 따로 줄 선다", async () => {

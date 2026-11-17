@@ -1,6 +1,6 @@
 <!--
   AI 보조, 모델: 어디로(프로바이더, 주소, 키), 무엇을(모델) 부를지 한 카드, 연결 테스트, 모델 파라미터.
-  상태는 composables/ai-editor(ConfigAI 가 내려 준다).
+  상태는 composables/ai-editor(ConfigAI가 내려 준다).
 -->
 <template>
   <BaseCard icon="model_training" :title="TM.title">
