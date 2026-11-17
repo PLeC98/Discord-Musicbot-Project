@@ -28,8 +28,8 @@ const restored = (title: string | null | undefined, at: string, paused: boolean)
   return paused ? { icon: "restored" as const, title: "봇이 복구됐어요", body: `마지막 일시정지 상태를 유지할게요.\n${line}` } : { icon: "restored" as const, title: "봇이 복구됐어요", body: `기록된 마지막 재생 상태를 이어갈게요.\n${line}` };
 };
 
-/** 봇 운영자가 대시보드에서 봇을 다시 시작한다(재생 중인 서버에만, 다시 뜬 뒤 복원 안내가 뒤따른다) { icon, title, body } */
-const restarting = () => ({ icon: "restored" as const, title: "봇을 잠깐 다시 시작해요", body: "재생이 잠깐 끊겼다가 이어져요." });
+/** 봇 운영자가 대시보드에서 봇을 다시 시작한다(재생 중인 서버에만 점검 공지 모양으로, 다시 뜬 뒤 복원 안내가 뒤따른다) { title, body } */
+const restarting = () => ({ title: "봇 다시 시작 안내", body: "안정적인 서비스를 위해 봇을 다시 시작해요.\n곡이 잠시 끊어지지만, 봇이 다시 켜지면 재생 중이던 곡을 이어서 틀어요." });
 
 /** 스테이지에 청중으로 들어와 발언을 요청했다 */
 const stageRequested = () => noticeOf("warning", "voice", "스테이지 발언을 요청했어요!", "스테이지 모더레이터가 요청을 수락하면 곡을 틀게요.");

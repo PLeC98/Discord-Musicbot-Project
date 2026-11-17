@@ -8,7 +8,10 @@ const log = logger.child({ category: "dashboard" });
 import { bestEffort } from "../infra/best-effort.ts";
 import { canSend } from "../ui/channels.ts";
 import { LIFETIME } from "../ui/delivery.ts";
-import { frame, post } from "../ui/frame.ts";
+import { EmbedBuilder } from "discord.js";
+import { post } from "../ui/frame.ts";
+import { icon } from "../ui/icons.ts";
+import { ANNOUNCE_STYLE, type AnnounceKind } from "./contract/admin.ts";
 import { playState } from "../ui/player-status.ts";
 import * as notices from "../ui/text/ko/notices.ts";
 import { messageOf } from "../rules/error-kind.ts";
@@ -59,19 +62,31 @@ function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId
   };
 }
 
+/** 봇 운영자의 공지 임베드(서버 관리의 공지 보내기와 다시 시작 공지가 같이 쓴다): 종류의 아이콘, 색, 제목(주지 않으면 종류의 제목), 본문, 보낸 때, 바닥글 "봇 운영자" */
+function announceEmbed(kind: AnnounceKind, body: string, title: string = ANNOUNCE_STYLE[kind].title) {
+  const style = ANNOUNCE_STYLE[kind];
+  return new EmbedBuilder()
+    .setTitle(`${icon(style.icon)} ${title}`)
+    .setDescription(body)
+    .setColor(style.color)
+    .setTimestamp()
+    .setFooter({ text: "봇 운영자" });
+}
+
 /**
- * 다시 시작 공지: 재생 중인 서버(봇 상태 탭의 "재생 중"과 같은 판정)마다 패널 채널에 정해진 안내를 보내기 시작하고 그 끝을 돌려준다.
+ * 다시 시작 공지: 재생 중인 서버(봇 상태 탭의 "재생 중"과 같은 판정)마다 패널 채널에 점검 공지 모양의 안내를 보내기 시작하고 그 끝을 돌려준다.
  * 보냈으면 true, 보낼 채널이 없거나 실패하면 false(거절하지 않는다). 지우지 않는다(지우는 타이머는 프로세스와 함께 사라진다)
  */
 function restartNotices(bot: Pick<BotContext, "players" | "panels">): Promise<boolean>[] {
-  const view = frame(notices.restarting());
+  const { title, body } = notices.restarting();
+  const embed = announceEmbed("maintenance", body, title);
   return [...bot.players.values()]
     .filter((player) => playState(player) === "playing")
     .map(async (player) => {
       try {
         const channel = await bot.panels.panelChannel(player);
         if (!canSend(channel)) return false;
-        await channel.send(post(view));
+        await channel.send({ embeds: [embed] });
         return true;
       } catch (error) {
         log.warn(`다시 시작 공지 전송 실패(${player.guild.name}): ${messageOf(error)}`);
@@ -80,4 +95,4 @@ function restartNotices(bot: Pick<BotContext, "players" | "panels">): Promise<bo
     });
 }
 
-export { dashboardActor, announcer, dashboardResponder, restartNotices };
+export { dashboardActor, announcer, dashboardResponder, announceEmbed, restartNotices };

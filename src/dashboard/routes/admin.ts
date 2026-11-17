@@ -17,7 +17,6 @@ import { isTier, type ViewAsReply } from "../contract/identity.ts";
 import { guildIconUrl } from "../images.ts";
 import {
   ANNOUNCE_MAX,
-  ANNOUNCE_STYLE,
   announceBody,
   isAnnounceKind,
   type AdminGuilds,
@@ -54,8 +53,8 @@ import * as cookieJar from "../../store/cookie-jar.ts";
 import * as documents from "../../config/documents.ts";
 import { ageContent, setAgeContent } from "../../config/age-content.ts";
 import * as geoip from "../geoip.ts";
-import { EmbedBuilder, type Guild, type GuildBasedChannel } from "discord.js";
-import { icon } from "../../ui/icons.ts";
+import type { Guild, GuildBasedChannel } from "discord.js";
+import { announceEmbed } from "../discord-notice.ts";
 import * as guildSettings from "../../store/guild-settings.ts";
 import * as youtubeSource from "../../sources/youtube/index.ts";
 import * as autoplaySources from "../../autoplay/sources/index.ts";
@@ -130,14 +129,7 @@ adminRouter.post("/broadcast", async (req, res) => {
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
-  const cfg = ANNOUNCE_STYLE[type];
-
-  const embed = new EmbedBuilder()
-    .setTitle(`${icon(cfg.icon)} ${cfg.title}`)
-    .setDescription(body)
-    .setColor(cfg.color)
-    .setTimestamp()
-    .setFooter({ text: "봇 운영자" });
+  const embed = announceEmbed(type, body);
 
   // 서버마다 따로 보낸다. 한 서버가 늦어도 다른 서버는 기다리지 않는다
   const results = await Promise.allSettled(
