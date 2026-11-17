@@ -59,16 +59,16 @@ const playlistAdd = {
   title: "한 번에 넣을 재생목록 곡 수",
   desc: "많은 곡이 포함된 재생목록을 한 번에 다 넣지 않고 설정한 곡만큼만 넣어요. 남은 곡은 이어서 넣을 수 있어요.",
   choose: "곡 수 선택",
-  /** 기본값 버튼: 넓은 카드는 "기본값 · ", 좁으면 "기본 " */
-  defaultLong: "기본값 · ",
-  defaultShort: "기본 ",
+  /** 기본값 버튼의 곡 수 뒤에 붙는 표시. 좁은 카드에서는 빼고 곡 수만 */
+  defaultMark: "(기본값)",
   songs: (count: number) => `${count}곡`,
   custom: "직접 입력",
   unit: "곡",
   invalid: (min: number, max: number) => `${min}~${max}곡 사이의 정수로 입력해 주세요.`,
   /** 지금 값 안내: 앞, 값, 뒤로 나눠 값만 굵게 그린다 */
-  effectiveBefore: "재생목록을 넣으면 한 번에 ",
-  effectiveAfter: (min: number, max: number) => `씩 들어가요 · ${min}~${max}곡 · 디스코드에서는 `,
+  effectiveBefore: "한 번에 ",
+  effectiveAfter: (min: number, max: number) => `씩 들어가요(${min}~${max}곡, 디스코드에서는 `,
+  effectiveEnd: ")",
 };
 
 /** 연령 제한 콘텐츠를 틀 곳(봇 운영자가 연령 제한 콘텐츠를 켰을 때만 보인다) */

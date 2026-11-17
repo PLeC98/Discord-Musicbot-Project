@@ -74,7 +74,7 @@ const fields: Record<string, { label: string; help: string; short?: string }> = 
 const title = "운영 설정값";
 const defaultWith = (value: string) => (value ? `기본값 ${value}` : "기본값: 비움");
 const restartTip = "시작할 때 한 번 정하는 값이라 봇을 다시 시작해야 적용돼요.";
-const pending = "저장함 · 다시 시작하면 적용";
+const pending = "저장됨(다시 시작하면 적용)";
 const restartBadge = "다시 시작해야 적용";
 const pickColor = "색 선택";
 /** 유튜브 카드 헤더의 설명서 버튼 */

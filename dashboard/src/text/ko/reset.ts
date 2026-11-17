@@ -44,7 +44,7 @@ const staged = "봇 전체 초기화가 예약돼 있어요. 봇을 다시 시�
 const unstage = "예약 취소";
 const done = {
   cache: "오디오 캐시를 초기화했어요",
-  "audio-cache": (files: number, size: string, kept: number) => `캐시 파일 ${files}개 · ${size}${kept ? ` · 재생 중 · 대기열 앞인 ${kept}개는 남겼어요` : ""}`,
+  "audio-cache": (files: number, size: string, kept: number) => `파일 ${files}개(${size})를 지웠어요.${kept ? ` 사용 중인 ${kept}개는 남겼어요.` : ""}`,
   "bot-settings": "봇 설정을 초기화했어요",
   "guild-settings": (n: number) => `서버 ${n}곳의 설정을 지웠어요`,
   display: "디스플레이 설정을 초기화했어요",

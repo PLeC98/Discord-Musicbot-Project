@@ -102,9 +102,7 @@
           <!-- 이어 붙은 버튼 그룹(M3E): 선택한 버튼은 완전히 둥글게, 체크. 카드가 좁으면(384px 미만, 작은 휴대폰) 버튼 안 여백, 체크 간격을 줄여 카드 안에 들게 -->
           <div class="flex gap-0.5 mb-3" role="radiogroup" :aria-label="T.playlistAdd.choose">
             <button type="button" role="radio" :aria-checked="paUseDefault" @click="paUseDefault = true" :class="[segment(paUseDefault, 0, paPresets.length + 1), SEG_TIGHT]">
-              <Icon v-if="paUseDefault" name="check" :size="18" /><span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultLong }}</span
-              ><span class="@[18rem]/card:hidden">{{ T.playlistAdd.defaultShort }}</span
-              >{{ T.playlistAdd.songs(paClamp(s.playlistAdd.default)) }}
+              <Icon v-if="paUseDefault" name="check" :size="18" />{{ T.playlistAdd.songs(paClamp(s.playlistAdd.default)) }}<span class="hidden @[18rem]/card:inline">{{ T.playlistAdd.defaultMark }}</span>
             </button>
             <button v-for="(n, i) in paPresets" :key="n" type="button" role="radio" :aria-checked="!paUseDefault && paCount === n" @click="pickPreset(n)" :class="[segment(!paUseDefault && paCount === n, i + 1, paPresets.length + 1), SEG_TIGHT]"><Icon v-if="!paUseDefault && paCount === n" name="check" :size="18" />{{ T.playlistAdd.songs(n) }}</button>
           </div>
@@ -118,7 +116,7 @@
             <template v-if="paInvalid">{{ T.playlistAdd.invalid(s.playlistAdd.min, s.playlistAdd.max) }}</template>
             <template v-else
               >{{ T.playlistAdd.effectiveBefore }}<strong class="font-semibold text-on-surface">{{ T.playlistAdd.songs(paEffective) }}</strong
-              >{{ T.playlistAdd.effectiveAfter(s.playlistAdd.min, s.playlistAdd.max) }}<code>/setplaylistlimit</code></template
+              >{{ T.playlistAdd.effectiveAfter(s.playlistAdd.min, s.playlistAdd.max) }}<code>/setplaylistlimit</code>{{ T.playlistAdd.effectiveEnd }}</template
             >
           </div>
         </BaseCard>

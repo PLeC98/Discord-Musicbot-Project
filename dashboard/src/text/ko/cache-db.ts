@@ -190,7 +190,7 @@ const shortcuts: Array<[string, string]> = [
   ["열 헤더 클릭, Ctrl+클릭", "정렬, 여러 열 정렬"],
 ];
 
-const botChanged = "새 변경 사항이 있어요 · 새로고침";
+const botChanged = "새 변경 사항 불러오기";
 const pasteMany = "붙여넣기는 편집할 수 있는 셀 하나에만 할 수 있어요";
 const loadFailed = "캐시 DB를 불러오지 못했어요.";
 const probeFailed = "재생 테스트를 시작하지 못했어요.";
