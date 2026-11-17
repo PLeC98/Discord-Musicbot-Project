@@ -20,17 +20,19 @@
     </Teleport>
 
     <!-- 휴대폰: 글, 버튼 뒤의 받침 오버레이. 곡마다 배경화면 색이 달라 앨범아트 아래 글이 묻혀서, 세로는 아래로(35~72%), 가로는 오른쪽으로(0~62%) 단계를 나눠 부드럽게 짙어지고 가장 짙은 데도 60%(글자와 반대 색: 어두운 모드는 검정 쪽, 밝은 모드는 흰 쪽 = 바탕 면 색).
-         좁게 두면 띠처럼 뭉친다 -->
-    <div
-      v-if="sheetMode && !loading && !loadError"
-      class="absolute inset-0 pointer-events-none"
-      :class="
-        short
-          ? 'bg-[linear-gradient(to_right,transparent_0%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_20%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_35%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_50%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_62%)]'
-          : 'bg-[linear-gradient(to_bottom,transparent_35%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_46%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_55%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_64%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_72%)]'
-      "
-      aria-hidden="true"
-    ></div>
+         좁게 두면 띠처럼 뭉친다. 바탕화면 전체에 깐다(App의 desk-back. 이 화면 안에 두면 오른쪽 스크롤바 자리만 받침 없이 남는다) -->
+    <Teleport to="#desk-back" defer>
+      <div
+        v-if="sheetMode && !loading && !loadError"
+        class="absolute inset-0"
+        :class="
+          short
+            ? 'bg-[linear-gradient(to_right,transparent_0%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_20%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_35%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_50%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_62%)]'
+            : 'bg-[linear-gradient(to_bottom,transparent_35%,color-mix(in_oklab,var(--md-surface)_13%,transparent)_46%,color-mix(in_oklab,var(--md-surface)_33%,transparent)_55%,color-mix(in_oklab,var(--md-surface)_50%,transparent)_64%,color-mix(in_oklab,var(--md-surface)_60%,transparent)_72%)]'
+        "
+        aria-hidden="true"
+      ></div>
+    </Teleport>
 
     <div v-if="loading" class="flex-1 flex items-center justify-center text-on-surface-variant"><Icon name="progress_activity" :size="40" class="animate-spin text-primary" /></div>
 
@@ -783,8 +785,8 @@ const nowZoom = useArtZoom(() => phoneArt.value.now, true);
 const nextZoom = useArtZoom(() => phoneArt.value.next, true);
 const previousZoom = useArtZoom(() => phoneArt.value.previous, true);
 const deskZoom = useArtZoom(() => deskArt.value, true);
-// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸의 왼쪽 끝이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에 닿는 데까지
-const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 1.5rem)" };
+// 옆 칸까지의 거리: 칸 폭 + 2.5rem, 화면이 넓으면 옆 칸이 화면 끝(칸 영역 + 양옆 여백 1.5rem)에서 1rem 더 밖에 놓이는 데까지(그림자 0 8px 24px가 화면 끝에 번져 들지 않게)
+const ART_STEP = { "--art-step": "max(100% + 2.5rem, (100cqw + 100%) / 2 + 2.5rem)" };
 // 낮은 화면(가로)의 넘기기: 앨범아트 왼쪽은 비어 있고 오른쪽에는 글, 조작이 있다. 그래서 왼쪽으로만 띠처럼 움직인다.
 // 다음 곡: 지금 앨범아트가 손가락을 따라 왼쪽으로 나가고, 다음 곡 앨범아트가 같은 자리 뒤에서 커지며 나타난다.
 // 이전 곡: 이전 곡 앨범아트가 왼쪽(칸 폭 + 2.5rem)에서 손가락을 따라 들어오고, 지금 앨범아트는 제자리에서 흐려지고 작아지며 뒤로 물러난다.
@@ -841,6 +843,9 @@ const isPhone = useMediaQuery(PHONE_QUERY);
 // 낮은 화면(휴대폰 가로): 플레이어를 앨범아트 | 나머지 2열로
 const short = useMediaQuery(SHORT_QUERY);
 const sheetMode = computed(() => isPhone.value);
+// 휴대폰은 플레이어가 바탕화면 높이에 딱 맞고 스크롤하지 않는다: 바탕화면이 스크롤바 자리를 비워 두지 않게(앨범아트가 가운데에, 옆 곡 앨범아트가 화면 끝까지)
+watch(sheetMode, (on) => (shell.fitsDesk = on), { immediate: true });
+onUnmounted(() => (shell.fitsDesk = false));
 // 시트가 접혔을 때 헤더에 보이는 다음 곡
 const nextTitle = computed(() => (player.value.queue[0] ? songTitle(player.value.queue[0].title) : ""));
 useCloseLayer(volumeOpen, () => (volumeOpen.value = false));

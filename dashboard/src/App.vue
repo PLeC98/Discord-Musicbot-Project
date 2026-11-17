@@ -67,9 +67,11 @@
           </div>
         </header>
         <div ref="deskEl" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
+          <!-- 화면이 내용 뒤에 까는 층의 자리(서버 화면의 받침 오버레이). 스크롤 칸 안에 두면 오른쪽 스크롤바 자리를 덮지 못해 그 띠만 색이 다르다 -->
+          <div id="desk-back" class="absolute inset-0 pointer-events-none"></div>
           <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다.
-               스크롤바 자리는 늘 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다 -->
-          <div class="@container/desk absolute inset-0 overflow-y-auto [scrollbar-gutter:stable] overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
+               스크롤바 자리는 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다. 바탕화면 높이에 딱 맞는 화면은 빼고(shell.fitsDesk) -->
+          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)" :class="!shell.fitsDesk && '[scrollbar-gutter:stable]'">
             <router-view v-slot="{ Component, route: r }">
               <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
               <!-- 그 밖의 화면(서버 설정, 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->
