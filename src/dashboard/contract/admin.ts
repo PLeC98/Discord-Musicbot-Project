@@ -153,15 +153,15 @@ const ANNOUNCE_KINDS = ["maintenance", "update", "alert", "info"] as const;
 type AnnounceKind = (typeof ANNOUNCE_KINDS)[number];
 const isAnnounceKind = (v: unknown): v is AnnounceKind => ANNOUNCE_KINDS.some((kind) => kind === v);
 /**
- * 공지 종류의 모양: 디스코드 임베드의 제목, 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다.
+ * 공지 종류의 모양: 디스코드 임베드의 아이콘(ui/icons의 키), 왼쪽 색 띠. 봇이 보낼 때와 화면의 미리보기가 같이 쓴다. 제목은 봇 문구표(ui/text/ko/announce).
  * 색은 경고 수준의 뜻(점검 = 경고, 업데이트 = 완료, 긴급 = 오류, 공지사항 = 공지). 아이콘 타일도 그 색으로 그려 둔다
  */
 const ANNOUNCE_STYLE = {
-  maintenance: { icon: "announce_maintenance", title: "봇 점검 안내", color: FIXED_COLORS.warning },
-  update: { icon: "announce_update", title: "봇 업데이트 안내", color: FIXED_COLORS.done },
-  alert: { icon: "announce_alert", title: "긴급 공지", color: FIXED_COLORS.error },
-  info: { icon: "announce_info", title: "공지사항", color: FIXED_COLORS.notice },
-} as const satisfies Record<AnnounceKind, { icon: IconKey; title: string; color: `#${string}` }>;
+  maintenance: { icon: "announce_maintenance", color: FIXED_COLORS.warning },
+  update: { icon: "announce_update", color: FIXED_COLORS.done },
+  alert: { icon: "announce_alert", color: FIXED_COLORS.error },
+  info: { icon: "announce_info", color: FIXED_COLORS.notice },
+} as const satisfies Record<AnnounceKind, { icon: IconKey; color: `#${string}` }>;
 /** 공지 길이 상한(디스코드 임베드 설명 필드). 앞뒤 공백을 뺀 길이로 센다(announceBody) */
 const ANNOUNCE_MAX = 4096;
 /** 보낼 공지 본문: 앞뒤 공백을 뺀다 */

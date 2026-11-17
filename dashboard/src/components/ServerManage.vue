@@ -39,7 +39,7 @@
             <span class="w-1 shrink-0" :style="{ backgroundColor: style.color }"></span>
             <div class="min-w-0 flex-1 px-4 py-3">
               <div class="flex items-center gap-2 text-sm font-semibold text-on-surface">
-                <span class="inline-flex size-5 items-center justify-center rounded-[28%]" :style="{ backgroundColor: tile.tile, color: tile.glyph }"><Icon :name="KIND_ICON[kind]" :size="16" fill :weight="700" /></span>{{ style.title }}
+                <span class="inline-flex size-5 items-center justify-center rounded-[28%]" :style="{ backgroundColor: tile.tile, color: tile.glyph }"><Icon :name="KIND_ICON[kind]" :size="16" fill :weight="700" /></span>{{ announceTitle }}
               </div>
               <!-- 본문은 디스코드 마크다운으로 그린다(utils/discord-markdown). 스포일러는 누르면 드러난다 -->
               <!-- eslint-disable-next-line vue/no-v-html -- 글은 이스케이프하고 만든 태그만 넣는다 -->
@@ -50,7 +50,7 @@
           </div>
         </div>
         <div class="flex justify-end">
-          <BaseButton variant="primary" :disabled="sending || !body || tooLong" @click="sendOpen = true"><Icon name="send" :size="20" />{{ sending ? T.announce.sending : T.announce.send(style.title) }}</BaseButton>
+          <BaseButton variant="primary" :disabled="sending || !body || tooLong" @click="sendOpen = true"><Icon name="send" :size="20" />{{ sending ? T.announce.sending : T.announce.send(announceTitle) }}</BaseButton>
         </div>
       </div>
     </BaseCard>
@@ -99,7 +99,7 @@
       </div>
     </BaseCard>
 
-    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(style.title)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
+    <ConfirmDialog v-model="sendOpen" tone="primary" :icon="KIND_ICON[kind]" :title="T.announce.confirmTitle(list.total)" :body="T.announce.confirmBody(announceTitle)" :confirm-label="T.announce.confirm" :busy="sending" @confirm="send" />
     <ConfirmDialog :model-value="leaveTarget !== null" icon="logout" :title="T.guilds.leaveTitle(leaveTarget?.name ?? '')" :body="T.guilds.leaveBody(Boolean(leaveTarget?.hasPlayer))" :confirm-label="T.guilds.leave" :busy="leaving" @update:model-value="(v) => !v && (leaveTarget = null)" @confirm="leave" />
   </div>
 </template>
@@ -135,6 +135,7 @@ import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
+import * as announceText from "../../../src/ui/text/ko/announce.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
 import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
@@ -169,6 +170,8 @@ const now = useNow({ scheduler: (cb) => useIntervalFn(cb, 10_000) });
 const sentAt = computed(() => T.announce.today(formatTime(now.value, { hour: "numeric", minute: "2-digit" })));
 // 봇이 보낼 임베드의 모양(공유 타입의 ANNOUNCE_STYLE). 아이콘 타일은 디스코드 앱 이모지와 같은 색(rules/icon-tones)
 const style = computed(() => ANNOUNCE_STYLE[kind.value]);
+// 임베드 제목은 봇이 보낼 때와 같은 봇 문구표에서
+const announceTitle = computed(() => announceText.titles[kind.value]);
 const tile = computed(() => iconTones(style.value.color));
 const tooLong = computed(() => length.value > ANNOUNCE_MAX);
 const sendOpen = ref(false);

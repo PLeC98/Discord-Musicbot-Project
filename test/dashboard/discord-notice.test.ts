@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Request } from "express";
 import { announceEmbed, announcer, dashboardActor, dashboardResponder, restartNotices } from "../../src/dashboard/discord-notice.ts";
-import { ANNOUNCE_STYLE } from "../../src/dashboard/contract/admin.ts";
+import * as announceText from "../../src/ui/text/ko/announce.ts";
 import { LIFETIME } from "../../src/ui/delivery.ts";
 import { frame } from "../../src/ui/frame.ts";
 import type { Player } from "../../src/player/player.ts";
@@ -111,6 +111,6 @@ test("다시 시작 공지: 소리를 내는 서버만 패널 채널에 점검 �
   const maintenance = announceEmbed("maintenance", "x").toJSON();
   assert.match(sent[0].title ?? "", /봇 다시 시작 안내$/);
   assert.match(sent[0].description ?? "", /^안정적인 서비스를 위해 봇을 다시 시작해요\./);
-  assert.deepEqual([sent[0].color, sent[0].footer?.text, maintenance.title?.endsWith(ANNOUNCE_STYLE.maintenance.title)], [maintenance.color, "봇 운영자", true], "색, 바닥글은 점검 공지와 같다");
+  assert.deepEqual([sent[0].color, sent[0].footer?.text, maintenance.title?.endsWith(announceText.titles.maintenance)], [maintenance.color, "봇 운영자", true], "색, 바닥글은 점검 공지와 같다");
   t.mock.timers.tick(24 * 60 * 60 * 1000);
 });

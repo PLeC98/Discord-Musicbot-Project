@@ -28,9 +28,6 @@ const restored = (title: string | null | undefined, at: string, paused: boolean)
   return paused ? { icon: "restored" as const, title: "봇이 복구됐어요", body: `마지막 일시정지 상태를 유지할게요.\n${line}` } : { icon: "restored" as const, title: "봇이 복구됐어요", body: `기록된 마지막 재생 상태를 이어갈게요.\n${line}` };
 };
 
-/** 봇 운영자가 대시보드에서 봇을 다시 시작한다(재생 중인 서버에만 점검 공지 모양으로, 다시 뜬 뒤 복원 안내가 뒤따른다) { title, body } */
-const restarting = () => ({ title: "봇 다시 시작 안내", body: "안정적인 서비스를 위해 봇을 다시 시작해요.\n곡이 잠시 끊어지지만, 봇이 다시 켜지면 재생 중이던 곡을 이어서 틀어요." });
-
 /** 스테이지에 청중으로 들어와 발언을 요청했다 */
 const stageRequested = () => noticeOf("warning", "voice", "스테이지 발언을 요청했어요!", "스테이지 모더레이터가 요청을 수락하면 곡을 틀게요.");
 /** 스테이지에서 발언자가 될 수도, 요청할 수도 없다 */
@@ -41,4 +38,4 @@ const stayKicked = () => noticeOf("warning", "voice", "누가 저를 내보내�
 const stayChannelGone = () => noticeOf("warning", "voice", "머물던 음성 채널이 삭제돼서 상주 모드를 껐어요.", "다른 음성 채널에서 `/247`로 다시 켤 수 있어요.");
 const stayNoPermission = (channel: string) => noticeOf("error", "permission", `${channel}에 들어갈 권한이 없어서 상주 모드를 껐어요.`, "저에게 연결과 말하기 권한을 준 뒤 `/247`로 다시 켜 주세요.");
 
-export { stayKicked, stayChannelGone, stayNoPermission, autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, parkedLine, parkedFailures, parkedDropped, copiesRemoved, skippedMore, savedSessionReplaced, restored, restarting, stageRequested, stageCannotSpeak };
+export { stayKicked, stayChannelGone, stayNoPermission, autoplayUnknownGenre, autoplayGenreUnusable, autoplayGaveUp, parkedLine, parkedFailures, parkedDropped, copiesRemoved, skippedMore, savedSessionReplaced, restored, stageRequested, stageCannotSpeak };
