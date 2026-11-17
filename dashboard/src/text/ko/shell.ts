@@ -41,6 +41,11 @@ const inboxUnread = (count: number) => `알림 ${count}개 안 읽음`;
 const inboxClear = "지우기";
 const inboxRemoveOne = "이 알림 지우기";
 const inboxEmpty = "알림 없음";
+/** 알림 카드의 때 */
+const ago = { now: "지금", minutes: (n: number) => `${n}분`, hours: (n: number) => `${n}시간` };
+/** 알림 카드의 복사 버튼(제목, 본문, 세부, 코드 줄) */
+const noticeCopy = "알림 내용 복사";
+const noticeCopied = "복사했어요";
 
 // 세션이 끝났거나 연결이 끊겼을 때
 const loginAgain = "다시 로그인";
@@ -95,6 +100,9 @@ export {
   inboxClear,
   inboxRemoveOne,
   inboxEmpty,
+  ago,
+  noticeCopy,
+  noticeCopied,
   loginAgain,
   retry,
   reconnecting,

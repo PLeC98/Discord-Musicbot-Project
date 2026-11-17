@@ -19,5 +19,14 @@ const dayOf = (d: Date) => `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.
 /** 알림함의 때: 오늘이면 시각, 지난 날이면 yyyy/mm/dd */
 export const toastWhen = (ms: number, now = Date.now()) => (dayOf(new Date(ms)) === dayOf(new Date(now)) ? toastClock(ms) : dayOf(new Date(ms)));
 
+/** 카드의 때: 1분 안이면 지금, 한 시간 안이면 몇 분, 오늘 안이면 몇 시간, 지난 날이면 yyyy/mm/dd */
+export const toastAgo = (ms: number, now = Date.now(), words: { now: string; minutes: (n: number) => string; hours: (n: number) => string }) => {
+  const sec = Math.max(0, (now - ms) / 1000);
+  if (sec < 60) return words.now;
+  if (sec < 3600) return words.minutes(Math.floor(sec / 60));
+  if (dayOf(new Date(ms)) === dayOf(new Date(now))) return words.hours(Math.floor(sec / 3600));
+  return dayOf(new Date(ms));
+};
+
 /** 알림함 때의 툴팁: yyyy/mm/dd hh:mm:ss */
 export const toastFull = (ms: number) => `${dayOf(new Date(ms))} ${toastClock(ms)}`;

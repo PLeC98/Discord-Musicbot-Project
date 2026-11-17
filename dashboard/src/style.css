@@ -731,6 +731,36 @@ body {
   transition: transform 390ms var(--ease-spring-fast);
 }
 
+/* 알림 카드(<TransitionGroup name="notice">, shell/NoticeDrawer): 서랍이 아래로 자라는 것과 같은 방향으로, 위 가장자리에서 펴지며 들어온다(공간 스프링, M3 Expressive).
+   서랍이 앞서고 내용이 따라오게 흐려짐은 조금 늦게 시작한다. 나갈 때는 위로 오므라들며 짧게 흐려진다(서랍은 그동안 접힌다).
+   밀어 치운 카드만 오른쪽으로 마저 빠진다(ToastStack이 인라인으로 준다). 남은 카드가 자리를 옮기는 것도 공간 스프링 */
+.notice-enter-active {
+  transform-origin: 50% 0;
+  transition:
+    opacity 250ms var(--ease-effects) 60ms,
+    translate 460ms var(--ease-spring),
+    scale 460ms var(--ease-spring);
+}
+.notice-enter-from {
+  opacity: 0;
+  translate: 0 -0.75rem;
+  scale: 0.9;
+}
+.notice-leave-active {
+  transform-origin: 50% 0;
+  transition:
+    opacity 160ms var(--ease-effects),
+    scale 200ms var(--ease-accelerate),
+    translate 250ms var(--ease-accelerate);
+}
+.notice-leave-to {
+  opacity: 0 !important;
+  scale: 0.9;
+}
+.notice-move {
+  transition: transform 460ms var(--ease-spring);
+}
+
 /* 색이 옮겨 가는 동안(theme/blend)은 넘김 효과를 끈다. 색 역할이 매 프레임 바뀌어 색 넘김이 걸린 요소가 뒤처졌다가 끝에 튄다 */
 :root[data-shifting] *:not([data-shift-keep], [data-shift-keep] *),
 :root[data-shifting] *:not([data-shift-keep] *)::before,
@@ -877,6 +907,69 @@ body {
     0 calc(100% - var(--overhang)),
     100% calc(100% - var(--overhang));
   mask-repeat: no-repeat;
+}
+
+/* 알림 서랍의 막(shell/NoticeDrawer): 위 막대에서 내려오는 틀 색 면. 안에 배경화면 사본과 틀 색 막을 깔고(위 막대와 같은 색, 뒤를 흐리지 않는다) 모양으로 자른다.
+   몸통 + 왼쪽 아래 볼록한 모서리 + 위 막대와 만나는 왼쪽 위, 바탕화면 오른쪽 끝과 만나는 오른쪽 아래의 오목한 모서리.
+   모서리는 타원이다. 세로(--ry)는 서랍 높이의 절반을 넘지 않고(부모가 크기 컨테이너, cqh) 서랍과 같이 자라고 준다.
+   오목한 모서리의 가로(--notice-cx)는 서랍과 따로 움직인다(NoticeDrawer의 data-phase):
+   열 때 0에서 작은 요소의 빠른 공간 스프링으로 자라고, 닫을 때 두 배로 넓어지며 서랍이 위 막대 속으로 녹아 붙는다(세로는 납작해지고 가로는 넓어진다).
+   가로는 세로의 3배를 넘지 않는다. 더 납작하면 윤곽이 계단처럼 깨진다. 같은 이유로 윤곽 번짐은 1.5px(가로 기준이라 납작한 윗변에서는 더 얇다).
+   막은 가장 넓은 오목한 모서리 자리(왼쪽 2M, 아래 M)만큼 늘 넓혀 둔다. 막 상자가 움직이면 안에 깐 배경화면 사본이 한 프레임 늦게 따라온다 */
+@property --notice-cx {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.notice-film {
+  --M: var(--r-desk);
+  --ry: min(var(--M), 50cqh);
+  --cx: min(var(--notice-cx), 3 * var(--ry));
+  --vx: min(var(--M), 3 * var(--ry));
+  position: absolute;
+  inset: 0 0 calc(-1 * var(--M)) calc(-2 * var(--M));
+  z-index: -10;
+  pointer-events: none;
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), radial-gradient(100% 100% at 100% 0, #000 calc(100% - 1.5px), transparent 100%), radial-gradient(100% 100% at 0 100%, transparent calc(100% - 1.5px), #000 100%), radial-gradient(100% 100% at 0 100%, transparent calc(100% - 1.5px), #000 100%);
+  mask-size:
+    calc(100% - 2 * var(--M)) calc(100% - var(--M) - var(--ry)),
+    calc(100% - 2 * var(--M) - var(--vx)) var(--ry),
+    var(--vx) var(--ry),
+    var(--cx) var(--ry),
+    var(--cx) var(--ry);
+  /* 위치는 가장자리에서 잰다(%는 남는 공간 기준이라 calc(100% - …)가 그 자리가 아니다) */
+  mask-position:
+    right 0 top 0,
+    right 0 bottom var(--M),
+    left calc(2 * var(--M)) bottom var(--M),
+    left calc(2 * var(--M) - var(--cx)) top 0,
+    right 0 bottom calc(var(--M) - var(--ry));
+  mask-repeat: no-repeat;
+}
+/* 휴대폰: 서랍이 위 막대 아래 폭 전체라 오목한 모서리가 없다. 아래 두 모서리만 볼록하게(세로는 위와 같이 높이를 따른다) */
+@media not all and (width >= 45rem) and (height > 32rem) {
+  .notice-film {
+    inset: 0;
+    mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0), radial-gradient(100% 100% at 100% 0, #000 calc(100% - 1.5px), transparent 100%), radial-gradient(100% 100% at 0 0, #000 calc(100% - 1.5px), transparent 100%);
+    mask-size:
+      100% calc(100% - var(--ry)),
+      calc(100% - 2 * var(--vx)) var(--ry),
+      var(--vx) var(--ry),
+      var(--vx) var(--ry);
+    mask-position:
+      left 0 top 0,
+      left var(--vx) bottom 0,
+      left 0 bottom 0,
+      right 0 bottom 0;
+  }
+}
+.notice-film[data-phase="open"] {
+  --notice-cx: var(--r-desk);
+  transition: --notice-cx 390ms var(--ease-spring-fast);
+}
+.notice-film[data-phase="closing"] {
+  --notice-cx: calc(2 * var(--r-desk));
+  transition: --notice-cx 460ms var(--ease-spring);
 }
 
 /* 상태 색 중 글, 선, 아이콘, 막대로 바탕 위에 바로 쓰는 것(--warn-ink, --ok-ink). 바탕 대비 4.5:1 이상(WCAG AA 글자)이 되게 밝기마다 따로.

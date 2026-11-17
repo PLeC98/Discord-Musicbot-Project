@@ -37,7 +37,8 @@
         </div>
       </template>
 
-      <div class="flex-1 min-h-0 min-w-0 flex flex-col">
+      <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)과 알림 서랍이 재생 바 위까지의 높이를 계산한다 -->
+      <div class="relative flex-1 min-h-0 min-w-0 flex flex-col" :style="{ '--desk-h': `${deskHeight}px` }">
         <!-- 위 막대. 틀의 위쪽 가장자리(휴대폰 48px, 태블릿, PC 36px). 가운데에 보고 있는 서버(서버 화면, 서버 설정), 모든 서버 화면이면 "서버 목록", 운영자 패널이면 그 이름 -->
         <header class="relative z-10 flex shrink-0 h-(--topbar) items-center justify-center px-4 text-on-surface" :aria-label="T.topBar">
           <div v-if="viewedGuild" class="flex items-center gap-2 min-w-0 max-w-[48%] md:max-w-[60%]">
@@ -65,8 +66,7 @@
             <NotificationInbox />
           </div>
         </header>
-        <!-- --desk-h: 바탕화면 높이(px). 제자리에 붙는 영역(운영자 레일)이 재생 바 위까지의 높이를 계산한다 -->
-        <div ref="deskEl" :style="{ '--desk-h': `${deskHeight}px` }" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
+        <div ref="deskEl" class="relative flex-1 min-h-0 overflow-hidden rounded-tl-(--r-desk) rounded-tr-(--r-desk) md:rounded-bl-(--r-desk) shadow-[0_0_0_100vmax_var(--frame-color)]" :class="np.visible ? '[--player:3.5rem] md:[--player:4.5rem]' : '[--player:0px]'">
           <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다.
                스크롤바 자리는 늘 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다 -->
           <div class="@container/desk absolute inset-0 overflow-y-auto [scrollbar-gutter:stable] overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)">
@@ -79,13 +79,10 @@
             </router-view>
           </div>
           <NowPlayingDock />
-          <!-- 세션 끝, 연결 안 됨 띠와 알림. 라우터 화면 밖이라 페이지를 옮겨도 남는다. 바탕화면 안 오른쪽 위에 둔다(위 막대, 알림함 버튼을 덮지 않게).
-               밀어 치우거나 사라질 때 오른쪽으로 빠지는 것은 바탕화면 끝에서 잘린다 -->
-          <div class="absolute right-(--gap-out) top-(--gap-out) z-300 flex flex-col gap-2 w-[min(26rem,calc(100%-2*var(--gap-out)))] pointer-events-none">
-            <SessionNotice />
-            <ToastStack />
-          </div>
         </div>
+        <!-- 세션 띠, 알림, 알림함: 바탕화면 오른쪽 위에서 위 막대와 이어지는 서랍. 라우터 화면 밖이라 페이지를 옮겨도 남는다.
+             바탕화면 밖에 둔다(안에 두면 바탕화면의 둥근 오른쪽 위 모서리에 잘려, 그 곡선을 따라 틀과 서랍 사이에 틈이 비친다) -->
+        <NoticeDrawer />
       </div>
     </div>
   </div>
@@ -100,8 +97,7 @@ import { PHONE_QUERY } from "./utils/breakpoints.ts";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import Icon from "./components/BaseIcon.vue";
-import SessionNotice from "./components/SessionNotice.vue";
-import ToastStack from "./components/ToastStack.vue";
+import NoticeDrawer from "./shell/NoticeDrawer.vue";
 import AppWallpaper from "./components/AppWallpaper.vue";
 import NowPlayingDock from "./shell/NowPlayingDock.vue";
 import NotificationInbox from "./shell/NotificationInbox.vue";

@@ -50,8 +50,9 @@ const saveFailed = "yt-dlp 설정을 저장하지 못했어요.";
 const forgetFailed = "이전 버전을 삭제하지 못했어요.";
 const updated = "yt-dlp 버전을 바꿨어요";
 /** 자동 업데이트가 알림일 때 띄우는 새 버전 알림 */
-const available = "yt-dlp 새 버전이 있어요";
-const availableBody = (from: string, to: string, channel: string) => `${from} → ${to} (${channel})\n운영자 패널 업데이트 탭에서 업데이트할 수 있어요.`;
+const available = "yt-dlp에 새 버전이 있어요";
+/** 채널은 따로 한 줄(버전 줄 끝에 붙이면 넓은 숫자에서 채널만 다음 줄로 떨어진다). 업데이트하는 곳은 알림의 버튼이 안내한다 */
+const availableBody = (from: string, to: string, channel: string) => `${from} → ${to}\n${channel} 채널`;
 const downloadFailed = "yt-dlp를 다운로드하지 못했어요.";
 
 export {
