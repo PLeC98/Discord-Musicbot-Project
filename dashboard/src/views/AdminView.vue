@@ -228,7 +228,6 @@ const ALL_TABS: Tab[] = [
   { id: "youtube", label: T.tabs.youtube, icon: "smart_display", group: "config" },
   { id: "keys", label: T.tabs.keys, icon: "key", group: "config" },
   { id: "age", label: T.tabs.age, icon: "no_adult_content", group: "config" },
-  { id: "update", label: T.tabs.update, icon: "download", group: "config" },
   // id를 "status"로 못 쓴다. 맨 위 "봇 상태" 탭이 이미 쓰고 있다
   { id: "appearance", label: T.tabs.appearance, icon: "palette", group: "outside" },
   { id: "emojis", label: T.tabs.emojis, icon: "add_reaction", group: "outside" },
@@ -239,6 +238,7 @@ const ALL_TABS: Tab[] = [
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   { id: "backup", label: T.tabs.backup, icon: "settings_backup_restore", group: "backup" },
+  { id: "update", label: T.tabs.update, icon: "download", group: "dev" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];
