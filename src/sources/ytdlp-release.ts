@@ -10,6 +10,7 @@ import type config from "../config/index.ts";
 import { httpFor } from "../infra/http.ts";
 import { pinnedKey, verifyDetached, type PinnedKey } from "../infra/openpgp.ts";
 import { PROJECT } from "../infra/project-paths.ts";
+import { josa } from "../rules/josa.ts";
 
 type Channel = (typeof config.ytdlp)["channel"];
 type Libc = "glibc" | "musl";
@@ -131,9 +132,14 @@ async function small(url: string, max: number, signal: AbortSignal | undefined):
  */
 async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature = false }: { repo: string; tag: string; asset: string; zipFile: string; signal?: AbortSignal; skipSignature?: boolean }): Promise<void> {
   const base = `https://github.com/${repo}/releases/download/${encodeURIComponent(tag)}`;
-  const list = await small(`${base}/${SUMS}`, SUMS_MAX, signal);
+  const list = await small(`${base}/${SUMS}`, SUMS_MAX, signal).catch(async (error: unknown) => {
+    throw (error as ReleaseError).kind === "missing" ? await whyNoSums(repo, tag, error as ReleaseError, signal) : error;
+  });
   if (!skipSignature) {
-    const signature = await small(`${base}/${SUMS}.sig`, SUMS_MAX, signal);
+    const signature = await small(`${base}/${SUMS}.sig`, SUMS_MAX, signal).catch((error: unknown) => {
+      // 2023년 3월 전의 stable 릴리스에는 서명 파일이 없다
+      throw (error as ReleaseError).kind === "missing" ? failure("missing", `${tag}${josa(tag, "은")} 서명 파일이 없는 옛 릴리스라 받지 않음(서명 없이 받으려면 터미널에서 pnpm run update:ytdlp --pin ${tag} --skip-signature)`) : error;
+    });
     try {
       verifyDetached(list, signature, signingKey());
     } catch (error) {
@@ -164,6 +170,22 @@ async function fetchRelease({ repo, tag, asset, zipFile, signal, skipSignature =
   }
   const got = hash.digest("hex");
   if (got !== want) throw failure("integrity", `${asset} 체크섬 불일치(기대 ${want.slice(0, 12)}…, 실제 ${got.slice(0, 12)}…)`);
+}
+
+/**
+ * 체크섬 목록이 404일 때 이유를 가른다: 그 채널(저장소)에 없는 태그인지(다른 채널의 태그를 고정했을 때 흔하다), 목록이 없는 옛 릴리스인지(2021~2022년의 일부).
+ * 릴리스 페이지를 한 번 본다. 그것도 알 수 없으면 원래 실패 그대로
+ */
+async function whyNoSums(repo: string, tag: string, original: ReleaseError, signal: AbortSignal | undefined): Promise<ReleaseError> {
+  let status: number;
+  try {
+    status = (await github.fetch(`https://github.com/${repo}/releases/tag/${encodeURIComponent(tag)}`, { method: "HEAD", redirect: "follow", signal: AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]) })).status;
+  } catch {
+    return original;
+  }
+  if (status === 404) return failure("missing", `이 채널에 ${tag} 버전이 없음(다른 채널의 버전이면 운영자 패널 업데이트 탭에서 채널을 바꾸세요)`);
+  if (status >= 200 && status < 300) return failure("missing", `${tag}${josa(tag, "은")} 체크섬 목록(${SUMS})이 없는 옛 릴리스라 확인할 수 없어 받지 않음`);
+  return original;
 }
 
 /** 테스트가 가짜 전송을 넣는다. null이면 진짜 fetch */

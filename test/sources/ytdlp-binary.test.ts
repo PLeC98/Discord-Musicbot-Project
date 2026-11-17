@@ -320,6 +320,8 @@ test("다운로드 실패는 지금 버전 그대로. 연결, 체크섬은 일�
   const signed = await bin.check({ force: true });
   assert.equal(signed?.kind === "failed" && signed.retry, "lasting");
   assert.match(describe(signed!).line, /서명 키가 바뀌었을 수 있음.*--skip-signature/);
+  w.release = () => ({ error: { kind: "missing", message: "2026.09.27.232849는 서명 파일이 없는 옛 릴리스라 받지 않음(…)" } });
+  assert.doesNotMatch(describe((await bin.check({ force: true }))!).line, /서명 키가 바뀌었을 수 있음/, "서명 파일이 없는 것은 키가 바뀐 것이 아니다");
   assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
   assert.deepEqual(staged(), []);
 });

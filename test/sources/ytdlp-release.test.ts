@@ -90,6 +90,21 @@ test("skipSignature: 서명은 받지 않고 체크섬은 본다. 맞으면 zipF
   await assert.rejects(fetchRelease({ repo: "yt-dlp/yt-dlp", tag: "2026.10.26", asset: "yt-dlp_win.zip", zipFile: file, skipSignature: true }), "이미 있는 zipFile에 쓰지 않는다");
 });
 
+test("체크섬 목록이 없으면 이유를 가른다: 이 채널에 없는 태그, 목록이 없는 옛 릴리스. 서명 파일이 없는 옛 릴리스도 따로 알린다", async () => {
+  const fetchOne = () => fetchRelease({ repo: "yt-dlp/yt-dlp", tag: "2026.10.26", asset: "yt-dlp_win.zip", zipFile: zipName() });
+  const reason = (pattern: RegExp) => (error: unknown) => kindOf("missing")(error) && pattern.test((error as Error).message);
+  const PAGE = "https://github.com/yt-dlp/yt-dlp/releases/tag/2026.10.26";
+
+  serve({});
+  await assert.rejects(fetchOne(), reason(/^이 채널에 2026\.10\.26 버전이 없음/));
+  serve({ [PAGE]: () => new Response("") });
+  await assert.rejects(fetchOne(), reason(/^2026\.10\.26은 체크섬 목록\(SHA2-256SUMS\)이 없는 옛 릴리스/));
+  serve({ [PAGE]: () => new Response("busy", { status: 503 }) });
+  await assert.rejects(fetchOne(), reason(/^SHA2-256SUMS 다운로드 실패: HTTP 404$/), "페이지로도 알 수 없으면 원래 실패 그대로");
+  serve({ [`${BASE}/SHA2-256SUMS`]: () => new Response(SUMS) });
+  await assert.rejects(fetchOne(), reason(/^2026\.10\.26은 서명 파일이 없는 옛 릴리스라 받지 않음.*--skip-signature/));
+});
+
 test("없는 태그, 목록에 없는 에셋은 missing. 서버 오류, 받다 끊김, 끊으라는 신호는 network. 큰 목록은 integrity", async () => {
   const zip = Buffer.from("zip");
   const list = `${sha(zip)}  yt-dlp_win.zip\n`;
