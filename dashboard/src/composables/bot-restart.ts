@@ -20,8 +20,9 @@ const phase = ref<Phase>("idle");
 /** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠). 없으면 null */
 type RestartReason = "save" | "snapshot" | null;
 const reason = ref<RestartReason>(null);
-/** 묻는 때 재생 중인 서버 수(봇 상태 탭의 "재생 중"). 읽는 중이거나 읽지 못했으면 null */
-const playing = ref<number | null>(null);
+/** 묻는 때 재생 중, 일시정지한 서버 수(봇 상태 탭의 플레이어 개수). 읽는 중이거나 읽지 못했으면 null */
+type PlayerCounts = { playing: number; paused: number };
+const counts = ref<PlayerCounts | null>(null);
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 // 개수만 읽는다(목록 행은 받지 않는다)
@@ -46,10 +47,10 @@ async function cameBack(before: number) {
 function askRestart(why: RestartReason = null) {
   if (phase.value !== "idle") return;
   reason.value = why;
-  playing.value = null;
+  counts.value = null;
   phase.value = "asking";
   countsNow().then(
-    (status) => void (playing.value = status.players.counts.playing),
+    (status) => void (counts.value = { playing: status.players.counts.playing, paused: status.players.counts.paused }),
     () => undefined,
   );
 }
@@ -89,5 +90,5 @@ function cancelRestart() {
   if (phase.value === "asking") phase.value = "idle";
 }
 
-export { phase as restartPhase, reason as restartReason, playing as restartPlaying, askRestart, restartNow, currentPid, waitRestart, cancelRestart };
-export type { RestartReason };
+export { phase as restartPhase, reason as restartReason, counts as restartCounts, askRestart, restartNow, currentPid, waitRestart, cancelRestart };
+export type { RestartReason, PlayerCounts };

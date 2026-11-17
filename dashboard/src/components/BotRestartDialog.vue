@@ -6,7 +6,7 @@
     <template v-if="waiting">{{ T.waiting }}</template>
     <template v-else>
       <span v-if="restartReason" class="block mb-2">{{ T.reasons[restartReason] }}</span
-      >{{ T.confirmBody(restartPlaying) }}
+      >{{ T.confirmBody(restartCounts) }}
       <!-- 설정 행처럼 글은 왼쪽, 스위치는 오른쪽 끝 -->
       <label v-if="showAnnounce" class="mt-4 flex items-center justify-between gap-4 text-left text-on-surface cursor-pointer">{{ T.announce }}<BaseSwitch v-model="announce" /></label>
     </template>
@@ -17,7 +17,7 @@
 import { computed, ref, watch } from "vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import BaseSwitch from "./BaseSwitch.vue";
-import { restartPhase, restartReason, restartPlaying, restartNow, cancelRestart } from "../composables/bot-restart.ts";
+import { restartPhase, restartReason, restartCounts, restartNow, cancelRestart } from "../composables/bot-restart.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
 
@@ -32,5 +32,5 @@ const open = computed({
 
 const announce = ref(true);
 watch(restartPhase, (phase) => phase === "asking" && (announce.value = true));
-const showAnnounce = computed(() => restartPlaying.value !== 0);
+const showAnnounce = computed(() => restartCounts.value?.playing !== 0);
 </script>
