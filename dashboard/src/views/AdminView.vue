@@ -238,7 +238,7 @@ const ALL_TABS: Tab[] = [
   { id: "db", label: T.tabs.db, icon: "database", group: "watch" },
   { id: "logs", label: T.tabs.logs, icon: "queue_music", group: "watch" },
   { id: "backup", label: T.tabs.backup, icon: "settings_backup_restore", group: "backup" },
-  { id: "update", label: T.tabs.update, icon: "download", group: "dev" },
+  { id: "update", label: T.tabs.update, icon: "system_update_alt", group: "dev" },
   { id: "info", label: T.tabs.info, icon: "info", group: "dev" },
   { id: "dev", label: T.tabs.dev, icon: "build", group: "dev" },
 ];

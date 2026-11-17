@@ -138,6 +138,7 @@ const ICONS = {
   stop: 0xe047,
   stop_circle: 0xef71,
   sync_problem: 0xe629,
+  system_update_alt: 0xe8d7,
   tab: 0xe8d8,
   tablet: 0xe32f,
   tag: 0xe9ef,
