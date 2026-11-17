@@ -213,7 +213,10 @@ test("확인(peek)은 최신을 조회하기만 한다. 업데이트는 그 채�
   assert.equal(await bin.update("nightly", "2026.09.27.232849"), "pinned");
   config.ytdlp.version = null;
 
+  const reported: unknown[] = [];
+  bin._report = (outcome) => void reported.push(outcome);
   assert.deepEqual(await bin.update("nightly", "2026.09.27.232849"), { kind: "installed", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" });
+  assert.deepEqual(reported, [{ kind: "installed", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" }], "결과를 로그에 남긴다(업데이트 완료 줄)");
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
   assert.deepEqual(await bin.update("nightly", "2026.09.27.232849"), { kind: "current", version: "2026.09.27.232849" });
 });

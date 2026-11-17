@@ -20,6 +20,7 @@ import { latestReleaseTag } from "./github-release.ts";
 import { assetHere, fetchRelease, type Asset, type ReleaseError } from "./ytdlp-release.ts";
 import { leaseFor, inUse } from "./ytdlp-exec.ts";
 import { extractZip } from "../infra/zip.ts";
+import { warmExecutable } from "../infra/warm-exe.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { PROJECT } from "../infra/project-paths.ts";
@@ -164,6 +165,8 @@ async function realFetch({ repo, tag, asset, staging, skipSignature }: Parameter
     throw Object.assign(new Error(`${asset.zip} 압축 풀기 실패: ${messageOf(error)}`), { kind: "integrity" as const }) satisfies ReleaseError;
   }
   fs.rmSync(zipFile, { force: true });
+  // 처음 띄울 때의 백신 검사는 워커 스레드에서 받는다(메인에서 받으면 재생 중인 소리가 끊긴다). 다음 --version 확인은 메인에서 바로 뜬다
+  await warmExecutable(path.join(staging, "dir", asset.exe), ["--version"], VERSION_TIMEOUT_MS);
 }
 
 /** 살아 있는 프로세스인가. ESRCH만 없는 것으로 본다(권한이 없어 못 보는 것은 살아 있다) */
@@ -466,7 +469,8 @@ class YtdlpBinary {
     if (channel !== config.ytdlp.channel || this.seen[config.ytdlp.channel]?.tag !== tag) return "stale";
     this._load();
     if (this.installed(this.state) && this.state.version === tag) return Promise.resolve({ kind: "current", version: tag });
-    return this._run(tag, config.ytdlp.channel, false, "human");
+    // 결과(업데이트 완료, 실패)를 로그에 남긴다(맞추기 converge처럼)
+    return this._run(tag, config.ytdlp.channel, false, "human").then((outcome) => (this._report(outcome), outcome));
   }
 
   /**
