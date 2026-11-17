@@ -1,13 +1,12 @@
 <template>
-  <!-- 봇 다시 시작 창(운영자 패널에 하나). 묻는 동안: 까닭(있으면), 재생이 잠깐 끊긴다는 안내, 재생 중인 서버 수와 공지 스위치(기본 켬).
+  <!-- 봇 다시 시작 창(운영자 패널에 하나). 묻는 동안: 까닭(있으면), 재생 중인 서버 수와 그 재생이 잠시 끊긴다는 안내, 공지 스위치(기본 켬).
        재생 중인 서버가 없으면 스위치를 숨기고 알리지 않는다(수를 읽는 중이거나 읽지 못했으면 스위치를 보인다. 봇은 재생 중인 서버에만 보낸다).
        봇이 받은 뒤에는 버튼 없이 다시 뜨기를 기다린다 -->
   <ConfirmDialog v-model="open" icon="restart_alt" tone="primary" :title="waiting ? T.waitingTitle : T.confirmTitle" :confirm-label="T.confirm" :cancel-label="T.later" :actions="!waiting" @confirm="restartNow(showAnnounce && announce)">
     <template v-if="waiting">{{ T.waiting }}</template>
     <template v-else>
       <span v-if="restartReason" class="block mb-2">{{ T.reasons[restartReason] }}</span
-      >{{ T.confirmBody }}
-      <span v-if="restartPlaying" class="block mt-2">{{ T.playing(restartPlaying) }}</span>
+      >{{ T.confirmBody(restartPlaying) }}
       <!-- 설정 행처럼 글은 왼쪽, 스위치는 오른쪽 끝 -->
       <label v-if="showAnnounce" class="mt-4 flex items-center justify-between gap-4 text-left text-on-surface cursor-pointer">{{ T.announce }}<BaseSwitch v-model="announce" /></label>
     </template>
