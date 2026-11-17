@@ -63,7 +63,7 @@ const PROJECT_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
 
 // yt-dlp 채널(릴리스 저장소는 ytdlpBinary 가 안다)과 업데이트 모드(auto: 하루 한 번 채널의 최신을 다운로드해 교체, manual: 운영자가 누를 때만)
 const YTDLP_CHANNELS = ["stable", "nightly", "master"] as const;
-const YTDLP_UPDATE_MODES = ["auto", "manual"] as const;
+const YTDLP_UPDATE_MODES = ["auto", "notify", "manual"] as const;
 
 // User-Agent
 //   browser  브라우저를 기대하는 곳에서 사용

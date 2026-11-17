@@ -6,7 +6,7 @@ const unsavedLong = "저장하지 않은 변경이 있어요";
 const fixFirst = "고칠 것이 남아 있어요";
 /** tabs: 고칠 것이 남은 탭 이름(쉼표로 이음) */
 const fixFirstIn = (tabs: string) => `고칠 것이 남아 있어요: ${tabs}`;
-const revert = "되돌리기";
+const revert = "취소";
 const save = "저장";
 const saveRestart = "저장 후 다시 시작";
 /** 휴대폰 막대(자리가 좁다) */
@@ -18,7 +18,7 @@ const saveFailedSentence = "저장하지 못했어요.";
 const loadFailed = "설정을 읽지 못했어요.";
 /** 기본값을 편집기에 불러왔다(아직 저장하지 않았다) */
 const defaultLoaded = "기본값을 불러왔어요";
-const defaultLoadedNote = "저장하면 반영돼요. 되돌리면 지금 설정으로 돌아가요.";
+const defaultLoadedNote = "저장하면 반영돼요. 취소하면 지금 설정으로 돌아가요.";
 /** ⋯ 메뉴 버튼 */
 const more = "더 보기";
 

@@ -2,8 +2,8 @@
 
 /** 릴리스 채널 */
 type YtdlpChannel = "stable" | "nightly" | "master";
-/** auto: 하루 한 번 채널의 최신을 다운로드해 교체, manual: 운영자가 누를 때만 */
-type YtdlpMode = "auto" | "manual";
+/** auto: 하루 한 번 채널의 최신 버전을 다운로드해 교체, notify: 하루 한 번 확인만 하고 새 버전이 있으면 알림(교체는 운영자가 직접), manual: 운영자가 누를 때만 확인 */
+type YtdlpMode = "auto" | "notify" | "manual";
 
 /**
  * version: 설치된 버전(없으면 null). pin: 고정한 태그(모드와 상관없이 그 버전으로 맞춘다).

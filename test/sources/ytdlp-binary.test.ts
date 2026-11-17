@@ -1,4 +1,4 @@
-// src/sources/ytdlp-binary.ts: yt-dlp 버전을 버전마다 폴더에 두고, 목표 버전(고정, auto 면 채널 최신)으로 맞추고, 가리키는 경로만 교체한다. 처음에는 설정과 상관없이 설치한다.
+// src/sources/ytdlp-binary.ts: yt-dlp를 버전별 폴더에 두고, 목표 버전(고정 버전, auto면 채널 최신 버전)으로 맞추며(notify는 확인만), 가리키는 경로만 교체한다. 처음에는 설정과 상관없이 설치한다.
 // 릴리스, GitHub 은 가짜다. 가짜 릴리스는 staging/dir 에 실행 파일을 쓰고(내용이 곧 버전), 가짜 실행은 그 내용을 --version 으로 돌려준다. 잠금은 진짜(OS 가 쥐는 것)를 쓴다.
 
 import { test, beforeEach, afterEach } from "node:test";
@@ -152,6 +152,42 @@ test("manual: 고정이 없으면 스스로 맞추지 않고 네트워크도 쓰
   assert.deepEqual([w.asks, w.fetches.length], [0, 0]);
   assert.equal((await bin.check({ force: true }))?.kind, "installed");
   assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+});
+
+test("notify: 하루 한 번 최신 버전을 확인만 하고 다운로드하지 않는다. 확인한 최신 버전으로 업데이트할 수 있다", async () => {
+  config.ytdlp.update = "notify";
+  const { w, bin, rel } = world();
+  assert.deepEqual(await bin.check(), { kind: "available", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" });
+  assert.deepEqual([w.asks, w.fetches.length], [1, 0]);
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  assert.deepEqual(bin.status().seen, { latest: "2026.09.27.232849", at: w.clock }, "카드에 업데이트 버튼을 띄울 최신 버전");
+  assert.equal(await bin.check(), null, "하루가 지나기 전에는 다시 확인하지 않는다");
+  assert.equal(w.asks, 1);
+  assert.match(describe({ kind: "available", from: "2026.08.19", to: "2026.09.27.232849", channel: "nightly" }).line, /업데이트 있음: 2026\.08\.19 → 2026\.09\.27\.232849/);
+
+  const started = bin.update("nightly", "2026.09.27.232849");
+  assert.ok(started instanceof Promise);
+  assert.equal((await started).kind, "installed");
+  assert.equal(rel(), "bin/yt-dlp/2026.09.27.232849/yt-dlp.exe");
+});
+
+test("notify여도 고정한 버전이 있으면 그 버전으로 맞춘다. 최신 버전과 같으면 알리지 않는다", async () => {
+  Object.assign(config.ytdlp, { update: "notify", version: "2026.09.01" });
+  const pinned = world();
+  assert.equal((await pinned.bin.check())?.kind, "installed");
+  assert.equal(pinned.w.asks, 0);
+  fs.rmSync(root, { recursive: true, force: true });
+  Object.assign(config.ytdlp, { version: null });
+  const current = world({ latest: "2026.08.19" });
+  assert.deepEqual(await current.bin.check(), { kind: "current", version: "2026.08.19" });
+});
+
+test("다른 프로세스가 yt-dlp 폴더를 쥐고 놓지 않으면 그 PID 를 실패 문구에 남긴다", async () => {
+  const { io } = world();
+  const bin = new YtdlpBinary({ ...io, lock: async () => ({ holder: 777 }) });
+  await assert.rejects(bin.forgetPrevious(), /^Error: 다른 프로세스\(PID 777\)가 yt-dlp 폴더를 사용 중\(60초 대기 초과\)$/);
+  const unknown = new YtdlpBinary({ ...io, lock: async () => ({ holder: null }) });
+  await assert.rejects(unknown.forgetPrevious(), /^Error: 다른 프로세스가 yt-dlp 폴더를 사용 중/);
 });
 
 test("manual 이어도 고정이 있으면 그 버전으로 맞춘다", async () => {
@@ -378,12 +414,12 @@ test("그 이름의 폴더에 이 판의 실행 파일이 없거나(옛 판) 다
   assert.equal(fs.readFileSync(path.join(dirOf(), "2026.10.01", "yt-dlp.exe"), "utf8"), "2026.10.01");
 });
 
-test("잠금을 잡지 못하면 설치는 일시적 실패, 정리는 건너뛴다", async () => {
+test("다른 프로세스가 폴더를 쥐고 있으면 설치는 일시적 실패, 정리는 건너뛴다", async () => {
   const { w, io, bin } = world();
   fs.mkdirSync(path.join(dirOf(), "2026.01.01"));
-  io.lock = async () => null;
+  io.lock = async () => ({ holder: 777 });
   const outcome = await bin.check();
-  assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && /잠금/.test(outcome.reason), JSON.stringify(outcome));
+  assert.ok(outcome?.kind === "failed" && outcome.retry === "transient" && /PID 777\)가 yt-dlp 폴더를 사용 중/.test(outcome.reason), JSON.stringify(outcome));
   await bin.cleanup();
   assert.ok(names().includes("2026.01.01"));
   assert.deepEqual(staged(), []);
@@ -420,6 +456,16 @@ test("오래 켜 두어도 버전이 쌓이지 않는다. 확인할 때마다 �
     await bin._tick();
   }
   assert.deepEqual(names(), ["2026.09.29.000000", "2026.09.30.000000", "state.json"]);
+});
+
+test("기동, notify: 새 버전이 있어도 받지 않고 다음 확인을 하루 뒤로 예약한다", async (t) => {
+  config.ytdlp.update = "notify";
+  const { bin, w, rel } = world();
+  t.after(() => bin.stop());
+  await bin.start();
+  assert.equal(w.fetches.length, 0);
+  assert.equal(rel(), "bin/yt-dlp/2026.08.19/yt-dlp.exe");
+  assert.equal(bin.nextAt, w.clock + DAY);
 });
 
 test("기동: 최신을 따라가면 다음 확인을 하루 뒤에 걸고, 고정이면 걸지 않는다", async (t) => {
@@ -520,7 +566,7 @@ test("결과 한 줄", () => {
 });
 
 test("기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다", () => {
-  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("manual", false), updateText("manual", true)], ["자동 (1일 1회 확인)", "자동", "수동", "수동"]);
+  assert.deepEqual([updateText("auto", false), updateText("auto", true), updateText("notify", false), updateText("notify", true), updateText("manual", false), updateText("manual", true)], ["자동 (1일 1회 확인)", "자동", "알림 (1일 1회 확인)", "알림", "꺼짐", "꺼짐"]);
 });
 
 test("설치된 버전이 있어도 새 버전을 다운로드하지 못했으면 다시 해 본다: 일시적이면 한 시간, 서명처럼 오래가는 것은 하루 뒤. 고정이어도 같다", async (t) => {

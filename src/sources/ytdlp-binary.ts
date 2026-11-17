@@ -5,7 +5,8 @@
 // 봇과 update:ytdlp(다른 프로세스)가 겹칠 수 있어 기록 다시 읽기, 버전 폴더 공개, 기록 쓰기, 정리의 이름 바꾸기는 OS 가 쥐는 잠금 안에서 한다(자식 프로세스, 네트워크는 잠금 밖).
 //
 // 목표 버전(설정은 유튜브 탭의 yt-dlp 카드가 고친다): 고정(YTDLP_VERSION)이 있으면 모드와 상관없이 그 버전, 없으면 모드가 auto 일 때 채널(YTDLP_CHANNEL)의 최신(GitHub 릴리스, 하루 한 번 본다).
-// manual 이고 고정이 없으면 스스로 맞추지 않는다(운영자가 확인, 업데이트를 누른다). 설치된 것이 없으면 모드와 상관없이 다운로드한다.
+// notify면 하루 한 번 확인만 하고 새 버전이 있으면 로그에 남긴다(카드에 업데이트 버튼이 뜬다).
+// manual이고 고정이 없으면 확인도 하지 않는다(운영자가 확인, 업데이트를 누른다). 설치된 것이 없으면 모드와 상관없이 다운로드한다.
 // 스스로 시작한 다운로드(auto)는 그사이 설정이 바뀌었으면 교체하지 않고 버린다. 운영자가 선택한 것(고정, 업데이트, update:ytdlp)은 그대로 교체한다.
 
 import fs from "fs";
@@ -73,13 +74,14 @@ type Io = {
   isAlive(pid: number): boolean;
   /** 그 폴더나 그 아래에서 이 프로세스가 띄운 yt-dlp 가 도는 중인가 */
   inUse(dir: string): boolean;
-  /** 프로세스 사이 잠금. 기다려도 못 잡으면 null */
-  lock(): Promise<Unlock | null>;
+  /** 프로세스 사이 잠금. 기다려도 다른 프로세스가 놓지 않으면 그 프로세스(holder: PID, 모르면 null) */
+  lock(): Promise<Unlock | { holder: number | null }>;
 };
 /** 다시 해 볼 때: transient 는 한 시간 뒤, lasting(에셋 없음, 서명, 실행되지 않음)은 하루 뒤(태그가 바뀌어야 달라진다) */
 type Retry = "transient" | "lasting";
 /** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe). current, from 이 null 이면 설치 전이다 */
-type Outcome = { kind: "current"; version: string } | { kind: "installed"; from: string | null; to: string; channel: Channel } | { kind: "reused"; from: string | null; to: string } | { kind: "superseded"; target: string } | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel } | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry };
+type Outcome =
+  { kind: "current"; version: string } | { kind: "installed"; from: string | null; to: string; channel: Channel } | { kind: "reused"; from: string | null; to: string } | { kind: "superseded"; target: string } | { kind: "available"; from: string | null; to: string; channel: Channel } | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel } | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry };
 /** force: 사람이 부른 것(하루 한 번 제한, 모드, 실행되지 않았던 태그 표시를 무시한다). fresh: 설정이 방금 바뀌었다(하루 한 번 제한만 무시한다) */
 type Options = { force?: boolean; skipSignature?: boolean; fresh?: boolean };
 type Failed = (reason: string, retry: Retry) => Outcome;
@@ -174,13 +176,13 @@ function realIsAlive(pid: number) {
   }
 }
 
-/** 이 폴더의 잠금을 쥔다. 다른 실행이 쥐고 있으면 LOCK_WAIT_MS 까지 기다린다 */
-async function realLock(dir: string): Promise<Unlock | null> {
+/** 이 폴더의 잠금을 쥔다. 다른 프로세스가 쥐고 있으면 LOCK_WAIT_MS 까지 기다리고, 그래도 놓지 않으면 그 프로세스를 돌려준다 */
+async function realLock(dir: string): Promise<Unlock | { holder: number | null }> {
   const until = Date.now() + LOCK_WAIT_MS;
   for (;;) {
     const held = await acquireInstanceLock(dir);
     if (held.ok) return held.release;
-    if (Date.now() >= until) return null;
+    if (Date.now() >= until) return { holder: held.holder };
     await sleep(LOCK_POLL_MS);
   }
 }
@@ -229,6 +231,8 @@ class YtdlpBinary {
   /** 채널마다 마지막으로 본 최신 태그(확인 버튼, 일일 확인). 메모리에만 둔다 */
   seen: Partial<Record<Channel, { tag: string; at: number }>> = {};
   failure: Failure | null = null;
+  // 마지막으로 잠금을 쥐지 못했을 때 쥐고 있던 다른 프로세스의 PID(모르면 null)
+  holder: number | null = null;
   // 마지막으로 읽었을 때의 기록 파일 수정 시각. 달라졌으면 다른 프로세스(update:ytdlp)가 바꾼 것이라 다시 읽는다
   stamp: number | null = null;
   // 진행 중인 맞추기(converge)와 그사이 들어온 요청
@@ -306,10 +310,27 @@ class YtdlpBinary {
     return this.state;
   }
 
-  /** 잠금 안에서 디스크의 기록을 다시 읽고 고쳐 쓴다. 잠금을 못 잡으면 null */
+  // 잠금을 쥔다. 다른 프로세스가 놓지 않으면 그 PID 를 남기고 null(실패 문구가 쓴다)
+  async _lock(): Promise<Unlock | null> {
+    const got = await this.io.lock();
+    if (typeof got === "function") return got;
+    this.holder = got.holder;
+    return null;
+  }
+
+  // 잠금을 쥐지 못한 다른 프로세스. PID 를 알면 함께
+  _holderText(): string {
+    return `다른 프로세스${this.holder ? `(PID ${this.holder})` : ""}`;
+  }
+
+  _busyText(): string {
+    return `${this._holderText()}가 yt-dlp 폴더를 사용 중(${LOCK_WAIT_MS / 1000}초 대기 초과)`;
+  }
+
+  /** 잠금 안에서 디스크의 기록을 다시 읽고 고쳐 쓴다. 다른 프로세스가 폴더를 쓰는 중이라 잠금을 쥐지 못하면 null */
   async _update(change: (state: State) => State): Promise<State | null> {
     fs.mkdirSync(this.io.dir, { recursive: true });
-    const unlock = await this.io.lock();
+    const unlock = await this._lock();
     if (!unlock) return null;
     try {
       const next = change(this._read() ?? EMPTY);
@@ -399,11 +420,19 @@ class YtdlpBinary {
       this.failure = null;
       return { kind: "current", version: target };
     }
-    if (!force && target === state.unusable) return null;
+    const held = force ? undefined : this._hold(state, { target, channel, pin, mode });
+    if (held !== undefined) return held;
     return this._run(target, channel, skipSignature, force ? "human" : "auto");
   }
 
-  // 고정이 없을 때 채널의 최신을 스스로 확인할 조건. manual 이면 확인하지 않는다. auto 면 그 채널을 마지막으로 확인한 지 하루가 지났거나 fresh 일 때 확인한다
+  // 자동으로 맞출 때 다운로드하지 않는 경우. 실행되지 않았던 태그면 조용히 넘어가고(null), notify면 새 버전이 있다고 알린다(확인한 최신 버전은 카드의 업데이트 버튼이 쓴다). 다운로드하면 undefined
+  _hold(state: State, { target, channel, pin, mode }: { target: string; channel: Channel; pin: string | null; mode: Mode }): Outcome | null | undefined {
+    if (target === state.unusable) return null;
+    if (!pin && mode === "notify") return { kind: "available", from: state.version, to: target, channel };
+    return undefined;
+  }
+
+  // 고정이 없을 때 채널의 최신 버전을 자동으로 확인할 조건. manual이면 확인하지 않는다. auto, notify면 그 채널을 마지막으로 확인한 지 하루가 지났거나 fresh일 때 확인한다
   _due(state: State, channel: Channel, mode: Mode, fresh: boolean): boolean {
     if (mode === "manual") return false;
     const checkedAt = state.checkedChannel === channel ? state.lastChecked : 0;
@@ -462,7 +491,7 @@ class YtdlpBinary {
       gone = state.previous;
       return { ...state, previous: null, previousChannel: null };
     });
-    if (!next) throw new Error("버전 기록 잠금을 잡지 못함");
+    if (!next) throw new Error(this._busyText());
     await this.cleanup();
     return gone;
   }
@@ -554,7 +583,7 @@ class YtdlpBinary {
     const done = await this._publish(target, null, { channel, guard });
     if (done === "published") return { done: { kind: "reused", from: current, to: target } };
     if (done === "superseded") return { done: { kind: "superseded", target } };
-    if (done === "locked") return { done: failed("버전 기록 잠금을 잡지 못함", "transient") };
+    if (done === "locked") return { done: failed(this._busyText(), "transient") };
     return { again: true };
   }
 
@@ -579,7 +608,7 @@ class YtdlpBinary {
     const done = await this._publish(target, path.join(staging, "dir"), { channel, guard, replace });
     if (done === "published") return { kind: "installed", from: current, to: target, channel };
     if (done === "superseded") return { kind: "superseded", target };
-    if (done === "locked") return failed("버전 기록 잠금을 잡지 못함", "transient");
+    if (done === "locked") return failed(this._busyText(), "transient");
     if (typeof done === "object") return failed(done.failed, "transient");
     return null;
   }
@@ -591,7 +620,7 @@ class YtdlpBinary {
    * superseded: guard 가 버리라고 했다(잠금을 기다린 뒤, 옮기기 전에 부른다). channel: 다운로드한 채널(기록에 적는다)
    */
   async _publish(target: string, from: string | null, { channel, guard, replace = false }: { channel: Channel; guard: Stale; replace?: boolean }): Promise<"published" | "locked" | "moved" | "superseded" | RenameFailed> {
-    const unlock = await this.io.lock();
+    const unlock = await this._lock();
     if (!unlock) return "locked";
     try {
       if (guard?.()) return "superseded";
@@ -657,8 +686,8 @@ class YtdlpBinary {
    */
   async cleanup() {
     if (!fs.existsSync(this.io.dir)) return;
-    const unlock = await this.io.lock();
-    if (!unlock) return void log.warn("yt-dlp 정리 건너뜀(버전 기록 잠금을 잡지 못함)");
+    const unlock = await this._lock();
+    if (!unlock) return void log.warn(`yt-dlp 정리 건너뜀(${this._holderText()}가 yt-dlp 폴더를 사용 중)`);
     const trash: string[] = [];
     try {
       const state = this._read();
@@ -807,8 +836,9 @@ class YtdlpBinary {
 
 // 기동 줄의 업데이트 방식. 버전을 고정하면 하루 한 번 확인하지 않는다(기동 시 한 번 맞춘다)
 function updateText(mode: Mode, pinned: boolean) {
-  if (mode === "manual") return "수동";
-  return pinned ? "자동" : "자동 (1일 1회 확인)";
+  if (mode === "manual") return "꺼짐";
+  const name = mode === "notify" ? "알림" : "자동";
+  return pinned ? name : `${name} (1일 1회 확인)`;
 }
 
 /** 결과를 한 줄로. 봇은 로그로, update:ytdlp 는 콘솔로 남긴다 */
@@ -822,13 +852,18 @@ function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
       return { level: "info", line: outcome.from ? `yt-dlp를 저장된 버전으로 교체: ${outcome.from} → ${outcome.to}` : `yt-dlp를 저장된 버전으로 설치: ${outcome.to}` };
     case "superseded":
       return { level: "info", line: `yt-dlp ${outcome.target} 다운로드 취소: 다운로드 중 설정이 바뀜` };
+    case "available":
+      return { level: "info", line: `yt-dlp 업데이트 있음: ${outcome.from ?? "없음"} → ${outcome.to} (${outcome.channel}, 업데이트: 운영자 패널 유튜브 탭의 yt-dlp 카드)` };
     case "unusable":
       return outcome.current ? { level: "warn", line: `yt-dlp 업데이트 불가(기존 버전 유지): ${outcome.current} → ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` } : { level: "warn", line: `yt-dlp 설치 불가(yt-dlp 를 쓰는 기능이 동작하지 않음): ${outcome.target} (${outcome.channel}) - 이 환경에서 실행되지 않음: ${outcome.reason}` };
-    case "failed": {
-      const hint = /서명/.test(outcome.reason) ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
-      return outcome.current ? { level: "warn", line: `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` } : { level: "warn", line: `yt-dlp 설치 실패(yt-dlp 를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` };
-    }
+    case "failed":
+      return { level: "warn", line: failedLine(outcome) };
   }
+}
+
+function failedLine(outcome: Extract<Outcome, { kind: "failed" }>): string {
+  const hint = /서명/.test(outcome.reason) ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
+  return outcome.current ? `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` : `yt-dlp 설치 실패(yt-dlp 를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}`;
 }
 
 /** 봇과 update:ytdlp 가 쓰는 하나 */

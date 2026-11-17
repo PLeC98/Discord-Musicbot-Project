@@ -1,21 +1,22 @@
 // 운영자 패널 유튜브 탭: yt-dlp 카드(설치된 버전, 채널, 자동 업데이트, 확인과 업데이트, 버전 고정)
 
 const title = "yt-dlp";
-const releases = "릴리스 목록";
+const releases = "버전 목록";
 const installed = "설치된 버전";
 const noVersion = "없음";
 const downloading = (v: string) => `${v} 다운로드 중…`;
 /** target: 다운로드하려던 버전(최신 조회부터 실패했으면 null) */
 const failed = (target: string | null, why: string) => `${target ? `${target} 버전을` : "새 버전을"} 다운로드하지 못했어요: ${why}`;
 const retryAt = (when: string) => `${when}에 다시 시도해요.`;
-const nextCheck = (when: string) => `다음 확인 ${when}`;
+const nextCheck = (when: string) => `다음 확인: ${when}`;
 
 const channel = "채널";
 const channelHelp = "nightly는 매일, master는 변경이 있을 때마다, stable은 한 달에 한 번쯤 새 버전이 나와요. yt-dlp는 nightly를 권장해요.";
 const channelPinned = "버전을 고정한 상태에서는 채널을 바꿀 수 없어요.";
-const auto = "자동 업데이트";
-const autoHelp = "하루에 한 번 새 버전이 있는지 확인해 업데이트해요.";
-const autoPinned = "버전을 고정한 상태에서는 자동으로 업데이트하지 않아요.";
+const mode = "자동 업데이트";
+const modes = { auto: "자동", notify: "알림", manual: "끄기" };
+const modeHelp = "하루에 한 번 실행돼요.";
+const modePinned = "버전을 고정한 상태에서는 실행되지 않아요.";
 
 const check = "업데이트 확인";
 const checking = "확인 중…";
@@ -34,7 +35,7 @@ const rollbackBody = (v: string) => `${v} 버전으로 되돌리고 고정해요
 const rollbackConfirm = "되돌리기";
 
 const pin = "버전 고정";
-const pinHelp = "입력한 버전을 다운로드해 그 버전만 써요. 고정을 해제하기 전까지 자동으로 업데이트하지 않아요.";
+const pinHelp = "버전을 고정하면 업데이트 확인과 자동 업데이트가 비활성화돼요.";
 const pinPlaceholder = "예: 2026.08.19";
 const pinApply = "고정";
 const pinRetry = "다시 시도";
@@ -48,6 +49,55 @@ const updateFailed = "업데이트를 시작하지 못했어요.";
 const saveFailed = "yt-dlp 설정을 저장하지 못했어요.";
 const forgetFailed = "이전 버전을 삭제하지 못했어요.";
 const updated = "yt-dlp 버전을 바꿨어요";
+/** 자동 업데이트가 알림일 때 띄우는 새 버전 알림 */
+const available = "yt-dlp 새 버전이 있어요";
+const availableBody = (from: string, to: string, channel: string) => `${from} → ${to} (${channel})\n운영자 패널 유튜브 탭에서 업데이트할 수 있어요.`;
 const downloadFailed = "yt-dlp를 다운로드하지 못했어요.";
 
-export { title, releases, installed, noVersion, downloading, failed, retryAt, nextCheck, channel, channelHelp, channelPinned, auto, autoHelp, autoPinned, check, checking, update, latest, previousMenu, rollbackItem, forgetItem, forgetTitle, forgetBody, forgetConfirm, forgotten, rollbackTitle, rollbackBody, rollbackConfirm, pin, pinHelp, pinPlaceholder, pinApply, pinRetry, unpin, pinnedAge, loadFailed, checkFailed, updateFailed, saveFailed, forgetFailed, updated, downloadFailed };
+export {
+  title,
+  releases,
+  installed,
+  noVersion,
+  downloading,
+  failed,
+  retryAt,
+  nextCheck,
+  channel,
+  channelHelp,
+  channelPinned,
+  mode,
+  modes,
+  modeHelp,
+  modePinned,
+  check,
+  checking,
+  update,
+  latest,
+  previousMenu,
+  rollbackItem,
+  forgetItem,
+  forgetTitle,
+  forgetBody,
+  forgetConfirm,
+  forgotten,
+  rollbackTitle,
+  rollbackBody,
+  rollbackConfirm,
+  pin,
+  pinHelp,
+  pinPlaceholder,
+  pinApply,
+  pinRetry,
+  unpin,
+  pinnedAge,
+  loadFailed,
+  checkFailed,
+  updateFailed,
+  saveFailed,
+  forgetFailed,
+  updated,
+  available,
+  availableBody,
+  downloadFailed,
+};

@@ -6,13 +6,13 @@ import { computed, reactive } from "vue";
 import { problemNotice, type ProblemNotice } from "../utils/problem.ts";
 import { failureKind, statusOf, problemCodeOf, replyOf } from "../utils/request.ts";
 
-// 됨은 읽을 것이 적어 짧게(M3 스낵바 4초), 실패, 경고는 까닭을 읽게 길게
-const SHOW_MS = { success: 4000, warning: 6000, error: 6000 };
+// 됨은 읽을 것이 적어 짧게(M3 스낵바 4초), 안내, 실패, 경고는 읽을 수 있게 길게
+const SHOW_MS = { success: 4000, info: 6000, warning: 6000, error: 6000 };
 const MAX = 3;
 const INBOX_MAX = 50;
 
-/** 알림 종류. 봇 안내의 오류, 경고에 화면만의 됨을 더한다 */
-type Severity = ProblemNotice["severity"] | "success";
+/** 알림 종류. 봇이 보내는 오류, 경고에 화면에서만 쓰는 됨, 안내(새 버전 있음 등)를 더한다 */
+type Severity = ProblemNotice["severity"] | "success" | "info";
 /** 떠 있는 알림 하나 */
 // at: 일어난 때(같은 알림이 다시 오면 그때로), ms: 떠 있는 시간(아래 띠가 이만큼 걸려 찬다), round: 시간을 다시 잴 때마다 하나씩(띠를 처음부터 다시 채운다)
 type Toast = Omit<ProblemNotice, "severity"> & { severity: Severity; id: number; timer: ReturnType<typeof setTimeout>; at: number; ms: number; round: number };

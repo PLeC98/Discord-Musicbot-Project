@@ -59,7 +59,8 @@
             <button type="button" :class="TOPBAR_BTN" class="md:hidden" :aria-label="T.openMenu" :aria-expanded="drawerOpen" @click="drawerOpen = true"><Icon name="menu" :size="24" /></button>
             <div id="topbar-start" class="flex items-center gap-1 min-w-0"></div>
           </div>
-          <div class="absolute right-3 inset-y-0 flex items-center gap-3 max-w-[26%] md:max-w-[35%]">
+          <!-- 운영자 패널은 가운데 제목이 짧아(태블릿, PC는 아이콘과 이름만, 너비 약 6.5rem) 저장 바가 제목 옆까지 쓴다 -->
+          <div class="absolute right-3 inset-y-0 flex items-center gap-3 max-w-[26%]" :class="route.path === '/admin' ? 'md:max-w-[calc(50%-5rem)]' : 'md:max-w-[35%]'">
             <div id="topbar-end" class="flex items-center gap-3 min-w-0"></div>
             <NotificationInbox />
           </div>
