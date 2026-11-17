@@ -8,7 +8,8 @@
       <span v-if="restartReason" class="block mb-2">{{ T.reasons[restartReason] }}</span
       >{{ T.confirmBody }}
       <span v-if="restartPlaying" class="block mt-2">{{ T.playing(restartPlaying) }}</span>
-      <label v-if="showAnnounce" class="mt-4 flex items-center justify-center gap-3 text-on-surface cursor-pointer"><BaseSwitch v-model="announce" />{{ T.announce }}</label>
+      <!-- 설정 행처럼 글은 왼쪽, 스위치는 오른쪽 끝 -->
+      <label v-if="showAnnounce" class="mt-4 flex items-center justify-between gap-4 text-left text-on-surface cursor-pointer">{{ T.announce }}<BaseSwitch v-model="announce" /></label>
     </template>
   </ConfirmDialog>
 </template>
