@@ -112,6 +112,7 @@ import { useUserStore } from "./stores/user.ts";
 import { setReportUrl } from "./utils/problem.ts";
 import { setDocsRepo } from "./composables/docs.ts";
 import { setBrandColor } from "./theme/theme.ts";
+import { useYtdlpNotice } from "./composables/ytdlp-notice.ts";
 import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
 import { text } from "./text/index.ts";
 const T = text.shell;
@@ -138,6 +139,7 @@ watch(
 useCloseLayer(drawerOpen, () => (drawerOpen.value = false));
 
 const guilds = useGuildsStore();
+useYtdlpNotice();
 
 // 위 막대 가운데에 표시할, 지금 보고 있는 서버
 const viewedGuild = computed(() => {
