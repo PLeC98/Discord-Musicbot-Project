@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
 import { isIP } from "net";
+import { parseEnv } from "util";
 import pkg from "../../package.json" with { type: "json" };
 import { nodeSupportWarning } from "../rules/node-support.ts";
 import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
@@ -11,6 +12,7 @@ import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tuna
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
+import { josa } from "../rules/josa.ts";
 import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
@@ -81,10 +83,13 @@ const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
 function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
+  // 읽어 본 이름. .env 파일에 이것 밖의 이름이 있으면 경고한다(loadConfig)
+  const asked = new Set<string>();
   // .env의 값. 키가 없거나 공백뿐이면 def
   function env(key: string): string | null;
   function env(key: string, def: string): string;
   function env(key: string, def: string | null = null) {
+    asked.add(key);
     const v = source[key];
     return v !== undefined && v.trim() !== "" ? v : def;
   }
@@ -211,7 +216,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
   }
 
-  return { env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  return { asked, env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -223,25 +228,37 @@ function resolveFromRoot(p: string | null) {
 
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
-// 대시보드로 옮긴 .env 키. 남아 있으면 경고만 한다
-const MOVED_TO_DASHBOARD = ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET", "LASTFM_API_KEY", "LISTENBRAINZ_TOKEN"];
-
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
 const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조" } as const;
 
-/** 옮긴 값을 입력할 운영자 패널 탭별로: 서비스 키는 API 키, 운영 설정값은 그 그룹의 탭 */
+/** 운영 설정값을 입력할 운영자 패널 탭별로(그 그룹의 탭) */
 function groupByTab(names: string[]): Map<string, string[]> {
-  const tabOf = (name: string) => (MOVED_TO_DASHBOARD.includes(name) ? "API 키" : TAB_NAMES[GROUP_TAB[tunable(name).group]]);
+  const tabOf = (name: string) => TAB_NAMES[GROUP_TAB[tunable(name).group]];
   const byTab = new Map<string, string[]>();
   for (const name of names) byTab.set(tabOf(name), [...(byTab.get(tabOf(name)) ?? []), name]);
   return byTab;
 }
 
 /**
- * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나.
- * tunables: 운영 설정값(settings.db의 문서). .env의 같은 이름은 쓰지 않는다. 그 값의 문제는 tuneProblems로 따로 낸다
+ * .env에 적힌 이름 중 쓰지 않는 것의 경고. 운영 설정값의 이름은 입력할 탭마다(셸이 준 값도),
+ * 그 밖에 .env 파일에 있는데 설정이 읽지 않은 이름(asked 밖. 오타, 예전 설정)은 한 줄로
  */
-function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: { envFileFound?: boolean; tunables?: Record<string, string> } = {}) {
+function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<string>): string[] {
+  const lines: string[] = [];
+  const moved = [...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim() || envFileNames.includes(name));
+  for (const [tab, names] of groupByTab(moved)) lines.push(`.env의 ${names.join(", ")}${josa(names.at(-1)!, "은")} 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
+  const unknown = envFileNames.filter((name) => !TUNABLE_KEYS.has(name) && !asked.has(name));
+  if (unknown.length) lines.push(`.env의 ${unknown.join(", ")}${josa(unknown.at(-1)!, "은")} 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)`);
+  return lines;
+}
+
+/**
+ * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나.
+ * tunables: 운영 설정값(settings.db의 문서). .env의 같은 이름은 쓰지 않는다. 그 값의 문제는 tuneProblems로 따로 낸다.
+ * envFileNames: .env 파일에 적힌 이름. 여기서 읽지 않는 이름이 있으면 경고한다(쓰는 이름의 목록을 따로 두지 않고 읽어 본 이름과 견준다.
+ * 옮기거나 없앤 이름을 하나씩 적어 두면 끝이 없다). 셸이 준 환경 변수는 보지 않는다
+ */
+function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, envFileNames = [] }: { envFileFound?: boolean; tunables?: Record<string, string>; envFileNames?: string[] } = {}) {
   const problems: string[] = [];
   const warnings: string[] = [];
   const tuneProblems: string[] = [];
@@ -267,9 +284,6 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
   if (!env("OWNER_ID")) {
     warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음");
   }
-  // 대시보드(운영자 패널)로 옮긴 값. .env에 남아 있어도 쓰지 않는다. 입력할 탭마다 알린다
-  const moved = [...MOVED_TO_DASHBOARD, ...TUNABLE_KEYS].filter((name) => String(source[name] ?? "").trim());
-  for (const [tab, names] of groupByTab(moved)) warnings.push(`.env의 ${names.join(", ")}는 이제 쓰지 않음. 운영자 패널의 ${tab} 탭에서 입력하고 .env에서 삭제하세요`);
 
   // 쿠키 출처(file이거나 브라우저). 모양은 envCookies가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
@@ -369,6 +383,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {} }: {
 
     ...serviceConfig(readers, dashboardPort),
   };
+
+  warnings.push(...envNameWarnings(source, envFileNames, readers.asked));
 
   return { config, problems, warnings, tuneProblems };
 }
@@ -479,8 +495,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
 
 // .env가 있나는 문제 문장에만 쓴다(없으면 그 문제 하나만 알린다)
 const envFileFound = fs.existsSync(ENV_PATH);
+// .env 파일에 적힌 이름(읽지 않는 이름을 알린다). 값은 process.env에서 읽는다(진입 파일이 올렸다)
+const envFileNames = envFileFound ? Object.keys(parseEnv(fs.readFileSync(ENV_PATH, "utf8"))) : [];
 // 문제, 경고 목록은 설정 값과 따로 내보낸다. 기동이 첫 줄에서 찍고 멈춘다
-const { config, problems, warnings } = loadConfig(process.env, { envFileFound });
+const { config, problems, warnings } = loadConfig(process.env, { envFileFound, envFileNames });
 // 지원 범위 밖의 Node로 돌면 기동 때 알린다. pnpm은 engineStrict를 켜지 않으면 프로젝트의 engines를 보지 않아 설치 때 알리지 않는다
 const nodeWarning = nodeSupportWarning(process.versions.node, pkg.engines.node);
 if (nodeWarning) warnings.push(nodeWarning);

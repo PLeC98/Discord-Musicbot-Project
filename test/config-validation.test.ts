@@ -7,7 +7,9 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "fs";
 import path from "path";
+import { parseEnv } from "util";
 import { spawnSync } from "child_process";
 import { loadConfig } from "../src/config/index.ts";
 import { stopOnConfigProblems } from "../src/app/config-check.ts";
@@ -17,7 +19,7 @@ const ROOT = path.join(import.meta.dirname, "..");
 const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수(env)와 운영 설정값(tunables, settings.db의 문서)으로 설정을 계산한다 */
-function load(env: Record<string, string>, opts?: { envFileFound?: boolean; tunables?: Record<string, string> }) {
+function load(env: Record<string, string>, opts?: Parameters<typeof loadConfig>[1]) {
   const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
   return { problems, warnings, tuneProblems, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
@@ -123,11 +125,20 @@ test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문�
   assert.deepEqual(load({ OWNER_ID: "9" }).warnings, []);
 });
 
-test("대시보드로 옮긴 키가 .env에 남아 있으면 쓰지 않고 경고만 한다", () => {
-  const { warnings } = load({ OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, LASTFM_API_KEY는 이제 쓰지 않음. 운영자 패널의 API 키 탭에서 입력하고 .env에서 삭제하세요"]);
+test(".env.example의 이름은 모두 봇이 읽는 이름이다(예시를 그대로 쓰면 읽지 않는 이름 경고가 없다)", () => {
+  const names = Object.keys(parseEnv(fs.readFileSync(path.join(ROOT, ".env.example"), "utf8")));
+  assert.ok(names.length > 10, `${names.length}개`);
+  const { warnings } = load({ OWNER_ID: "9" }, { envFileNames: names });
+  assert.deepEqual(warnings, []);
+});
+
+test(".env 파일에 봇이 읽지 않는 이름이 있으면(오타, 예전 설정) 경고한다. 쓰는 이름 목록 없이 읽어 본 이름과 견준다", () => {
+  const env = { OWNER_ID: "9", SPOTIFY_CLIENT_SECRET: "x", DASHBORD_PORT: "1" };
+  const { warnings } = load(env, { envFileNames: ["OWNER_ID", "SPOTIFY_CLIENT_SECRET", "DASHBORD_PORT", "LOG_FILE_KEEP"] });
+  assert.deepEqual(warnings, [".env의 SPOTIFY_CLIENT_SECRET, DASHBORD_PORT는 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)"]);
+  assert.deepEqual(load(env).warnings, [], "셸이 준 환경 변수(.env 파일에 없는 이름)는 보지 않는다");
   const { config: c } = loadConfig({ SPOTIFY_CLIENT_SECRET: "x", LASTFM_API_KEY: "y" });
-  assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null]);
+  assert.deepEqual([c.spotify.clientSecret, c.sources.lastfmKey], [null, null], "예전 이름의 값은 쓰지 않는다");
 });
 
 test(".env가 없으면 그 문제 하나만 알린다", () => {
