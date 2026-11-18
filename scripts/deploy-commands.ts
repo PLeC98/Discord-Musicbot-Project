@@ -16,15 +16,16 @@ tunables.loadReadOnly(path.join(PROJECT.database, "settings.db"));
 // 명령 목록은 설정 검사를 지난 뒤에 불러온다(src/index.ts가 본체를 부르는 순서와 같다)
 const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
 const commands = definitions();
-console.log(`\n🚀 ${commands.length}개 슬래시 커맨드 배포를 시작합니다...`);
+const { scriptLine } = await import("../src/infra/script-line.ts");
+const say = scriptLine("commands");
+say("info", `슬래시 명령어 ${commands.length}개 배포 시작`);
 const r = await deployCommands({ force: true }); // 수동 실행은 명시적 재배포라 해시가 같아도 올린다
 
 if (r.ok) {
-  const where = r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로";
-  console.log(`✅ ${r.count}개 커맨드를 ${where} 배포했습니다.`);
-  console.log("   " + r.names.map((n) => `/${n}`).join(", "));
-  if (r.scope === "global") console.log("ℹ️  전역 배포는 반영에 최대 1시간(보통 수분) 걸릴 수 있습니다.");
+  const where = r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}` : "전역";
+  say("info", `명령어 ${r.count}개 배포 완료(${where}): ${r.names.map((n) => `/${n}`).join(", ")}`);
+  if (r.scope === "global") say("info", "전역 배포는 반영에 최대 1시간(보통 몇 분) 걸릴 수 있음");
 } else {
-  deployErrorLines(r).forEach((line) => console.error(line));
+  deployErrorLines(r).forEach((line) => say("error", line));
   process.exitCode = 1;
 }

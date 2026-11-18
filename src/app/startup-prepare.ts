@@ -7,6 +7,7 @@ import path from "node:path";
 import logger from "../infra/log/logger.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { startJob, type ScriptJobInfo, type ScriptJobSpec } from "../infra/script-job.ts";
+import { stripScriptPrefix } from "../infra/script-line.ts";
 import { toolEnv } from "../config/tool-env.ts";
 import config from "../config/index.ts";
 import { clientFreshness } from "../dashboard/client-freshness.ts";
@@ -34,7 +35,8 @@ function runToEnd(spec: Omit<ScriptJobSpec, "onEnd">): Promise<ScriptJobInfo | n
 }
 
 /** 실패한 작업을 한 줄로 요약한다. 사유, 종료 코드, 출력의 마지막 줄들 */
-const failedText = (info: ScriptJobInfo) => `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}): ${info.output.slice(-TAIL_LINES).join(" | ")}`;
+// 스크립트 출력은 봇 로그와 같은 모양(INFO  [ffmpeg] ...)이라 옮겨 적을 때 앞을 뗀다(infra/script-line)
+const failedText = (info: ScriptJobInfo) => `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}): ${info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ")}`;
 
 /** 저장소 루트, 화면 소스 폴더, 빌드 결과 폴더 */
 type DashboardPaths = { root: string; dashboard: string; dist: string };
@@ -73,7 +75,7 @@ async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PRO
   const info = await runToEnd({ name: "ffmpeg-install", script, args: [], cwd: PROJECT.root, env: toolEnv(), timeoutMs: FFMPEG_MS, succeeded: () => true });
   if (info?.state === "succeeded") {
     // 이미 맞으면(대부분의 기동) 조용히 넘어가고, 바꿨으면 스크립트의 결과 줄을 남긴다
-    const last = info.output.at(-1) ?? "";
+    const last = stripScriptPrefix(info.output.at(-1) ?? "");
     if (!last.includes("이미 ")) log.info(`ffmpeg 맞추기: ${last}`);
   } else if (info) log.warn(`ffmpeg 맞추기 실패(${failedText(info)}. 받아 둔 ffmpeg로 뜸`);
   const cleaned = await cleanupFfmpeg(dir);

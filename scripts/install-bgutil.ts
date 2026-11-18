@@ -7,7 +7,7 @@
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 // 설치 스크립트는 잠금 파일에서 설치 스크립트가 있는 실행 의존성(canvas)만 돌린다. 개발 의존성의 설치 스크립트는 잠금 파일 밖에서 받을 수 있다.
-// 봇 모듈 중 로거를 부르는 것은 불러오지 않는다(로거가 console을 가로챈다). 출력은 봇 로그와 같은 모양(수준, [bgutil], 명사형 끝)으로 직접 찍는다.
+// 봇 모듈 중 로거를 부르는 것은 불러오지 않는다(로거가 console을 가로챈다). 출력은 봇 로그와 같은 모양으로 찍는다(infra/script-line).
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import path from "node:path";
@@ -22,6 +22,7 @@ import { PROJECT } from "../src/infra/project-paths.ts";
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { installBgutil, type InstallIo, type InstallOutcome } from "../src/sources/bgutil/install.ts";
 import { trialRun } from "../src/sources/bgutil/trial.ts";
+import { scriptLine } from "../src/infra/script-line.ts";
 
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
@@ -35,12 +36,7 @@ const TSC_MS = 3 * 60_000;
 const env = toolEnv();
 const show = (dir: string) => path.relative(PROJECT.root, dir);
 
-/** 봇 로그와 같은 모양의 한 줄(INFO  [bgutil] ...). info는 표준 출력, warn과 error는 표준 오류 */
-function say(level: "info" | "warn" | "error", line: string) {
-  const text = `${level.toUpperCase().padEnd(5)} [bgutil] ${line}`;
-  if (level === "info") console.log(text);
-  else console.error(text);
-}
+const say = scriptLine("bgutil");
 
 // 윈도우의 npm은 .cmd라 셸로 실행한다. 인자는 잠금 파일의 패키지 이름뿐이다(rebuildTargets가 모양을 본다)
 async function npm(serverDir: string, args: string[], timeoutMs: number) {

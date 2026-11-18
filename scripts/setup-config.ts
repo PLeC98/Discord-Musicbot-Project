@@ -6,9 +6,12 @@
  */
 import { messageOf } from "../src/rules/error-kind.ts";
 import { setupEnv, madeLine } from "../src/config/env-file.ts";
+import { scriptLine } from "../src/infra/script-line.ts";
+
+const say = scriptLine("config");
 
 function setup() {
-  if (setupEnv()) console.log(`✅ [config] ${madeLine()}`);
+  if (setupEnv()) say("info", madeLine());
 }
 
 if (import.meta.main) {
@@ -16,7 +19,7 @@ if (import.meta.main) {
     setup();
   } catch (error) {
     // 설치 전체를 깨지 않는다. 기동이 다시 만들어 본다
-    console.warn(`⚠️  [config] .env 준비 실패: ${messageOf(error)}`);
+    say("warn", `.env 준비 실패: ${messageOf(error)}`);
   }
 }
 

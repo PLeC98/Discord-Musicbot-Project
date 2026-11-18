@@ -4,10 +4,11 @@
 
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
+import { scriptLine } from "../src/infra/script-line.ts";
 
 const held = await acquireInstanceLock(PROJECT.database);
 if (!held.ok) {
-  console.error(`\n❌ 봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) 설치하지 않습니다. 봇을 끄고 다시 실행하세요.`);
+  scriptLine("install")("error", `봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) 설치 안 함. 봇을 끄고 다시 실행하세요`);
   process.exit(1);
 }
 await held.release();

@@ -23,7 +23,11 @@ import { TARGETS } from "../src/media/ffmpeg/release.ts";
 import { alignFfmpeg, type AlignOutcome, type InstallIo, type Probe } from "../src/media/ffmpeg/install.ts";
 import { parseInstallArgs } from "../src/media/ffmpeg/cli-args.ts";
 import { download } from "./download.ts";
+import { scriptLine } from "../src/infra/script-line.ts";
+import { josa } from "../src/rules/josa.ts";
 import path from "node:path";
+
+const say = scriptLine("ffmpeg");
 
 // 명령마다의 시간 상한(ms): tar 한 번, 다운로드한 ffmpeg의 실행 확인(백신이 처음 보는 실행 파일을 검사하느라 늦을 수 있다)
 const TAR_MS = 2 * 60_000;
@@ -106,27 +110,29 @@ async function botNow(): Promise<"none" | "parent" | "other"> {
 }
 
 function report(outcome: AlignOutcome, bot: "none" | "parent" | "other"): number {
-  for (const note of outcome.notes) console.warn(`⚠️  [ffmpeg] ${note}`);
+  for (const note of outcome.notes) say("warn", note);
   // 따로 켜져 있는 봇은 기동 때 정한 ffmpeg를 계속 쓴다
-  const restart = bot === "other" ? ". 켜져 있는 봇은 다시 시작해야 적용됩니다" : "";
+  const restart = () => bot === "other" && say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
   switch (outcome.kind) {
     case "unchanged":
-      console.log(`ℹ️  [ffmpeg] 이미 ${outcome.release}(${outcome.version}) 버전을 쓰고 있습니다`);
+      say("info", `이미 ${outcome.release}(${outcome.version}) 사용 중`);
       return 0;
     case "switched":
-      console.log(`✅ [ffmpeg] 받아 둔 ${outcome.release}(${outcome.version}) 버전으로 바꿨습니다${restart}`);
+      say("info", `받아 둔 ${outcome.release}(${outcome.version})${josa(outcome.version, "으로")} 교체`);
+      restart();
       return 0;
     case "installed":
-      console.log(`✅ [ffmpeg] ${outcome.release}(${outcome.version}) 버전을 설치했습니다${outcome.from ? `(이전 ${outcome.from})` : ""}${restart}`);
+      say("info", `${outcome.release}(${outcome.version}) 설치 완료${outcome.from ? `(이전 ${outcome.from})` : ""}`);
+      restart();
       return 0;
     case "skipped":
-      console.warn(`⚠️  [ffmpeg] ${outcome.release} 릴리스는 이 환경에서 실행되지 않았던 릴리스라 받지 않습니다. 다시 받으려면 pnpm run install:ffmpeg --force`);
+      say("warn", `${outcome.release}: 이 환경에서 실행되지 않았던 릴리스라 받지 않음. 다시 받으려면 pnpm run install:ffmpeg --force로 실행하세요`);
       return 1;
     case "failed":
-      console.error(`❌ [ffmpeg] ${outcome.release} 받기 실패: ${outcome.reason}. 지금 쓰는 ffmpeg는 그대로입니다`);
+      say("error", `${outcome.release} 설치 실패(지금 쓰는 ffmpeg 그대로): ${outcome.reason}`);
       return 1;
     case "busy":
-      console.error(`❌ [ffmpeg] 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/ffmpeg를 쓰는 중이라 건너뜁니다`);
+      say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/ffmpeg 사용 중`);
       return 1;
   }
 }
@@ -134,27 +140,27 @@ function report(outcome: AlignOutcome, bot: "none" | "parent" | "other"): number
 async function main(): Promise<number> {
   const args = parseInstallArgs(process.argv.slice(2));
   if ("error" in args) {
-    console.error(`❌ [ffmpeg] ${args.error}`);
+    say("error", args.error);
     return 1;
   }
   const bot = await botNow();
   // 고정은 다음 기동부터 쓰인다. 켜진 봇은 기동 때 정한 ffmpeg를 그대로 써서 고정을 바꿔도 알 수 없다
   if (args.pin !== undefined && bot !== "none") {
-    console.error("❌ [ffmpeg] 봇이 실행 중이라 버전 고정을 바꾸지 않습니다. 봇을 끄고 다시 실행하세요");
+    say("error", "봇이 실행 중이라 버전 고정 안 함. 봇을 끄고 다시 실행하세요");
     return 1;
   }
   // 봇은 FFMPEG_PATH가 있으면 그것만 쓰므로 받아도 쓰이지 않는다. 비우면 다음 기동이 받는다
   if (config.ffmpeg.path) {
-    console.log(`ℹ️  [ffmpeg] .env의 FFMPEG_PATH(${config.ffmpeg.path})를 쓰는 동안은 받지 않습니다. 받은 ffmpeg를 쓰려면 .env의 FFMPEG_PATH를 비우세요`);
+    say("info", `.env의 FFMPEG_PATH(${config.ffmpeg.path}) 사용 중이라 받지 않음. 받은 ffmpeg를 쓰려면 .env의 FFMPEG_PATH를 비우세요`);
     return 0;
   }
   if (!TARGETS[io.key]) {
-    console.log(`ℹ️  [ffmpeg] ${io.key}용 빌드가 제공되지 않습니다. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? " (brew install ffmpeg)" : ""}.`);
+    say("info", `${io.key}용 빌드 없음. ffmpeg를 직접 설치해 PATH에 두거나 .env의 FFMPEG_PATH로 지정하세요${process.platform === "darwin" ? "(brew install ffmpeg)" : ""}`);
     return 0;
   }
   const outcome = await alignFfmpeg({ dir: PROJECT.ffmpeg, defaultRelease: FFMPEG_RELEASE, pin: args.pin, force: args.force, io });
   const code = report(outcome, bot);
-  if (code === 0 && args.pin !== undefined) console.log(args.pin ? `✅ [ffmpeg] ${args.pin} 릴리스로 고정했습니다(기본값 ${FFMPEG_RELEASE}). 풀려면 --unpin` : `✅ [ffmpeg] 고정을 풀었습니다(기본값 ${FFMPEG_RELEASE})`);
+  if (code === 0 && args.pin !== undefined) say("info", args.pin ? `${args.pin} 릴리스로 고정(기본값 ${FFMPEG_RELEASE}). 풀려면 --unpin` : `고정 해제(기본값 ${FFMPEG_RELEASE})`);
   return code;
 }
 
@@ -163,7 +169,7 @@ main().then(
   (error: unknown) => {
     // fetch는 네트워크 오류를 "fetch failed" 하나로 내고 원인을 cause에 싣는다
     const cause = (error as { cause?: unknown }).cause;
-    console.error(`❌ [ffmpeg] 설치 실패: ${messageOf(error)}${cause ? `(${messageOf(cause)})` : ""}. 지금 쓰는 ffmpeg는 그대로입니다`);
+    say("error", `설치 실패(지금 쓰는 ffmpeg 그대로): ${messageOf(error)}${cause ? `(${messageOf(cause)})` : ""}`);
     process.exit(1);
   },
 );
