@@ -5,6 +5,7 @@
  *   pnpm run install:ffmpeg --pin <릴리스>  그 릴리스로 맞추고 성공하면 고정한다
  *   pnpm run install:ffmpeg --unpin         고정을 풀고 기본값으로 맞춘다
  *   --force                                 이미 있어도, 물린 릴리스여도 새로 받는다
+ * .env의 FFMPEG_PATH를 쓰는 동안은 무엇도 받지 않는다(봇이 그것만 쓴다).
  *
  * 가리키는 빌드가 바뀌지 않는 autobuild 태그만 받는다(`latest`는 이름이 같은 채로 내용물이 바뀐다). 기본값은 src/config/vendor-versions.ts의 월말 빌드다.
  * macOS와 지원하지 않는 아키텍처는 BtbN이 빌드를 제공하지 않아 건너뛴다. PATH의 ffmpeg나 .env의 FFMPEG_PATH를 쓴다.
@@ -142,8 +143,9 @@ async function main(): Promise<number> {
     console.error("❌ [ffmpeg] 봇이 실행 중이라 버전 고정을 바꾸지 않습니다. 봇을 끄고 다시 실행하세요");
     return 1;
   }
-  if (config.ffmpeg.path && !args.force) {
-    console.log(`ℹ️  [ffmpeg] .env의 FFMPEG_PATH를 쓰고 있어 받지 않습니다(${config.ffmpeg.path}). 그래도 받으려면 --force`);
+  // 봇은 FFMPEG_PATH가 있으면 그것만 쓰므로 받아도 쓰이지 않는다. 비우면 다음 기동이 받는다
+  if (config.ffmpeg.path) {
+    console.log(`ℹ️  [ffmpeg] .env의 FFMPEG_PATH(${config.ffmpeg.path})를 쓰는 동안은 받지 않습니다. 받은 ffmpeg를 쓰려면 .env의 FFMPEG_PATH를 비우세요`);
     return 0;
   }
   if (!TARGETS[io.key]) {
