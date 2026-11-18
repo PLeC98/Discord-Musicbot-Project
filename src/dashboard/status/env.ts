@@ -3,7 +3,7 @@
 import { version as discordJs } from "discord.js";
 import config from "../../config/index.ts";
 import logSink from "../../infra/log/sink.ts";
-import { ffmpegVersion } from "../../media/ffmpeg/path.ts";
+import { ffmpegInfo } from "../../media/ffmpeg/path.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
 import { bgutilVersion } from "../../sources/bgutil-version.ts";
 import type { AdminStatus } from "../contract/admin.ts";
@@ -15,7 +15,7 @@ function envStatus(commandCount: number, dashboardClients: number, launcher: boo
   const state = ytdlpBinary.state;
   return {
     discordJs,
-    ffmpeg: ffmpegVersion(),
+    ffmpeg: ffmpegInfo(),
     pid: process.pid,
     launcher,
     // 진행 중인 설치 작업(ffmpeg, POToken 서버). 다시 시작하면 중단되어 다시 시작 창에서 안내한다

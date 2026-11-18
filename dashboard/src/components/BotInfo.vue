@@ -17,9 +17,9 @@
               <div class="grid grid-cols-[auto_1fr]">
                 <template v-for="r in g.rows" :key="r.key">
                   <span class="flex items-center gap-[1ch] pr-[1.5ch] whitespace-nowrap" :class="g.tone"><Icon :name="r.icon" :size="14" />{{ r.key }}</span>
-                  <span class="pl-[calc(1.5ch-1px)] border-l border-current/30 truncate" :class="g.tone"
+                  <span class="pl-[calc(1.5ch-1px)] border-l border-current/30 truncate" :class="g.tone" :title="r.full"
                     ><span class="text-on-surface">{{ r.value }}</span
-                    ><span v-if="r.note" class="ml-[1ch] text-on-surface-variant">{{ r.note }}</span></span
+                    ><span v-if="r.note" class="ml-[1ch]" :class="r.warn ? 'text-(--warn-ink)' : 'text-on-surface-variant'">{{ r.note }}</span></span
                   >
                 </template>
               </div>
@@ -43,6 +43,7 @@
 import { computed, defineComponent, h } from "vue";
 import Icon from "./BaseIcon.vue";
 import type { AdminStatus } from "../../../src/dashboard/contract/admin.ts";
+import type { FfmpegInfo } from "../../../src/media/ffmpeg/info-types.ts";
 import { byteUnit, scaledText } from "../../../src/ui/format.ts";
 import type { IconName } from "../icons.ts";
 import { shell } from "../shell/shell-state.ts";
@@ -123,7 +124,22 @@ const dateTimeText = (ms: number) => {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}`;
 };
 
-type InfoRow = { icon: IconName; key: string; value: string; note?: string };
+/** warn: 대비책을 쓰거나 물린 릴리스가 있으면 덧붙인 정보를 경고 색으로 보인다 */
+type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn?: boolean; full?: string };
+
+// ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정, 실행되지 않아 물린 릴리스 수(목록은 마우스를 올리면 보인다)를 덧붙인다. 대비책(이전 설치본, 옛 자리)을 쓰거나 물린 릴리스가 있으면 경고 색
+const releaseDay = (tag: string) => tag.slice("autobuild-".length, "autobuild-".length + 10);
+// BtbN 빌드의 버전(n9.0.2-39-g7adfbe40dc-20261031)은 길어서 뒤에 덧붙인 정보가 잘린다. 앞의 버전 번호만 보이고 전체는 마우스를 올리면 보인다
+const shortVersion = (version: string) => /^(n?\d+(?:\.\d+)*)-\d+-g[0-9a-f]+/.exec(version)?.[1] ?? version;
+const FFMPEG_SOURCE: Record<FfmpegInfo["source"], string | null> = { installed: null, previous: "fallback: previous", legacy: "fallback: vendor/bin", env: "FFMPEG_PATH", path: "PATH" };
+function ffmpegRow(info: FfmpegInfo | null): InfoRow {
+  if (!info) return { icon: "movie", key: "ffmpeg", value: "—" };
+  const source = FFMPEG_SOURCE[info.source];
+  const notes = [source, info.pin ? `pinned, default ${releaseDay(info.defaultRelease)}` : null, info.rejected.length ? `${info.rejected.length} rejected` : null].filter(Boolean);
+  const fallback = info.source === "previous" || info.source === "legacy";
+  const note = notes.length ? `(${notes.join("; ")})` : undefined;
+  return { icon: "movie", key: "ffmpeg", value: shortVersion(info.version), note, warn: fallback || info.rejected.length > 0, full: [info.version, info.release, note, info.rejected.length ? `rejected: ${info.rejected.join(", ")}` : null].filter(Boolean).join(" ") };
+}
 const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[] }>>(() => {
   const { status } = props;
   const memUsed = status.system.totalMem - status.system.freeMem;
@@ -153,7 +169,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
         { icon: "code", key: "Node.js", value: status.node.version },
         { icon: "forum", key: "discord.js", value: status.env.discordJs },
         { icon: "download", key: "yt-dlp", value: status.env.ytdlp.version ?? "—", note: status.env.ytdlp.autoUpdate ? "(auto-update)" : undefined },
-        { icon: "movie", key: "ffmpeg", value: status.env.ffmpeg ?? "—" },
+        ffmpegRow(status.env.ffmpeg),
         ...bgutilRows,
         { icon: "tag", key: "PID", value: `${status.env.pid}` },
         { icon: "list", key: "Log Level", value: status.logLevel },

@@ -7,6 +7,8 @@ import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { readState, withLock, writeState, type FfmpegBuild } from "./state.ts";
+import { FFMPEG_RELEASE } from "../../config/vendor-versions.ts";
+import type { FfmpegInfo } from "./info-types.ts";
 const log = logger.child({ category: "ffmpeg" });
 
 /**
@@ -143,14 +145,21 @@ async function settleRejected(dir = PROJECT.ffmpeg): Promise<void> {
   if (held.ok && held.value) log.warn(`실행되지 않는 ffmpeg(${seen.active.release})를 물린 릴리스로 기록하고 이전 설치본(${seen.previous.release})을 가리키게 함. 다시 받으려면 pnpm run install:ffmpeg --force`);
 }
 
-/** 쓰는 ffmpeg의 버전(봇 상태 탭). 찾지 못했으면 null */
-function ffmpegVersion(): string | null {
+// 봇 정보 탭 ffmpeg 줄의 출처 코드. 화면이 이 코드로 표시할 글을 정한다
+const SOURCE_CODE: Record<Source, FfmpegInfo["source"]> = { FFMPEG_PATH: "env", 설치본: "installed", "이전 설치본": "previous", "옛 자리": "legacy", PATH: "path" };
+
+/** 지금 쓰는 ffmpeg와 vendor/ffmpeg의 기록(ffmpeg를 찾지 못했으면 null). 터미널에서 실행한 install:ffmpeg가 기록을 바꿀 수 있어 부를 때마다 새로 읽는다 */
+function ffmpegInfo(dir = PROJECT.ffmpeg): FfmpegInfo | null {
+  let info: Resolved;
   try {
-    return resolve().version;
+    info = resolve();
   } catch {
     // 기동 시 ffmpeg를 찾지 못하면 멈추므로 여기까지 오지 않는다. 상태 탭에는 모름으로 보인다
     return null;
   }
+  const read = readState(dir);
+  const state = read.kind === "ok" ? read.state : null;
+  return { version: info.version, source: SOURCE_CODE[info.source], release: info.release, pin: state?.pin ?? null, defaultRelease: FFMPEG_RELEASE, rejected: state?.rejected ?? [] };
 }
 
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
@@ -219,6 +228,6 @@ function _reset() {
   toReject = null;
 }
 
-export { ffmpegPath, ffmpegVersion, resolve, capabilities, logResolved, settleRejected };
+export { ffmpegPath, ffmpegInfo, resolve, capabilities, logResolved, settleRejected };
 export const _internals = { probe, fromBundle, _reset };
 export type { Capabilities, Resolved, Source };

@@ -10,8 +10,9 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import * as ffmpegPathModule from "../../src/media/ffmpeg/path.ts";
 import { readState, writeState } from "../../src/media/ffmpeg/state.ts";
+import { FFMPEG_RELEASE } from "../../src/config/vendor-versions.ts";
 
-const { resolve, ffmpegPath, logResolved, settleRejected } = ffmpegPathModule;
+const { resolve, ffmpegPath, logResolved, settleRejected, ffmpegInfo } = ffmpegPathModule;
 const { probe, _reset } = ffmpegPathModule._internals;
 
 test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => {
@@ -85,4 +86,17 @@ test("설치본이 실행되지 않으면 이전 설치본으로 뜨고, 기동 
   const read = readState(dir);
   assert.equal(read.kind, "ok");
   if (read.kind === "ok") assert.deepEqual([read.state.active?.folder, read.state.previous, read.state.rejected], [good.folder, null, [broken.release]]);
+});
+
+test("ffmpegInfo: 지금 쓰는 ffmpeg와 기록의 고정, 물린 릴리스, 기본 릴리스를 반환하고, 부를 때마다 기록을 새로 읽는다", (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ffmpeg-info-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 }));
+  const pin = "autobuild-2026-09-30-12-59";
+  writeState(dir, { active: null, previous: null, rejected: ["autobuild-2026-08-31-12-59"], pin });
+  const info = ffmpegInfo(dir);
+  assert.ok(info);
+  assert.deepEqual([info.pin, info.rejected, info.defaultRelease], [pin, ["autobuild-2026-08-31-12-59"], FFMPEG_RELEASE]);
+  assert.ok(["env", "installed", "previous", "legacy", "path"].includes(info.source));
+  writeState(dir, { active: null, previous: null, rejected: [], pin: null });
+  assert.equal(ffmpegInfo(dir)?.pin, null, "기록을 다시 읽는다");
 });

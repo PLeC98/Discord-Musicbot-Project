@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ffmpegPath, ffmpegVersion } from "../../src/media/ffmpeg/path.ts";
+import { ffmpegPath, ffmpegInfo } from "../../src/media/ffmpeg/path.ts";
 import { reasonOf, readsAnimatedWebp, tryEncoder } from "../../src/media/ffmpeg/trial.ts";
 import * as encoders from "../../src/dashboard/login-background/encoders.ts";
 import { LOGIN_BG_CODECS } from "../../src/dashboard/contract/login-background.ts";
@@ -32,7 +32,7 @@ test("테스트 인코딩: 되는 인코더, 없는 인코더", opts, async () =
 });
 
 test("움직이는 WebP는 ffmpeg 9.0 이상에서 읽힌다", opts, async () => {
-  const major = Number(/(\d+)\./.exec(ffmpegVersion() ?? "")?.[1]);
+  const major = Number(/(\d+)\./.exec(ffmpegInfo()?.version ?? "")?.[1]);
   const reads = await readsAnimatedWebp();
   if (major >= 9) assert.equal(reads, true);
   else assert.equal(typeof reads, "boolean");
