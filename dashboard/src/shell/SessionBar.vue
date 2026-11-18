@@ -37,7 +37,7 @@
     <!-- 서버가 많으면 스크롤된다. 잘리는 가장자리는 곧은 선 대신 페이드로 사라진다(더 있는 쪽만, composables/scroll-fade).
          세로 막대의 스크롤바는 올렸을 때, 스크롤하는 동안만 보인다(sb-auto-hide).
          세로 막대는 아래 끝을 다음 칸과의 틈(gap-3) 쪽으로 조금 내려(-mb-0.5, 안쪽 여백으로 돌려줌) 아래 페이드가 틈까지 걸쳐 사라진다. 목록 안에서만 사라지면 시계 위 틈이 넓어 보인다 -->
-    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full rail-list overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable] pt-0.5 pb-1 -mb-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="onListLeave">
+    <div ref="listEl" class="flex gap-2 min-w-0 min-h-0" :class="vertical ? ['flex-col flex-1 w-full rail-list overflow-y-auto overflow-x-hidden scrollbar-gutter-stable pt-0.5 pb-1 -mb-0.5 sb-auto-hide', (listScrolling || listHovered) && 'sb-show'] : 'flex-row items-center flex-1 overflow-x-auto px-0.5 scrollbar-none'" :style="listFade" @scroll.passive="onListScroll" @pointerenter="listHovered = $event.pointerType === 'mouse'" @pointerleave="onListLeave">
       <router-link v-for="g in store.guilds" :key="g.id" :to="`/servers/${g.id}`" v-tooltip="vertical && !open ? g.name : null" :aria-label="g.name" :class="item">
         <span :class="pip(isGuild(g.id))"></span>
         <span :class="slot" data-tooltip-anchor><GuildAvatar :guild="g" :active="isGuild(g.id)" size-class="size-11" text-class="text-base" /></span>

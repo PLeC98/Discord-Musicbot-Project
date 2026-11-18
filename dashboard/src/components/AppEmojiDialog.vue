@@ -35,7 +35,7 @@
       <div class="flex flex-wrap items-center gap-2">
         <!-- 처음 열렸을 때(회전, 반전 없이, 가장 큰 정사각형, 가운데)로 되돌린다 -->
         <BaseButton variant="ghost" :disabled="!cropper?.ready || busy" @click="cropper?.reset()">{{ text.appearance.crop.reset }}</BaseButton>
-        <p v-if="failure" class="min-w-0 text-xs text-error order-first basis-full @md/foot:order-none @md/foot:basis-0 @md/foot:flex-1" role="alert">
+        <p v-if="failure" class="min-w-0 text-xs text-error order-first basis-full @md/foot:order-0 @md/foot:basis-0 @md/foot:flex-1" role="alert">
           <span class="font-medium">{{ failure.title }}</span> {{ failure.body }}
         </p>
         <BaseButton variant="ghost" class="ml-auto" :disabled="busy" @click="open = false">{{ text.common.cancel }}</BaseButton>

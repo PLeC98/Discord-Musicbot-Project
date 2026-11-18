@@ -11,7 +11,7 @@
   </div>
   <div ref="drawerEl" class="absolute top-(--topbar) right-0 z-300 w-full md:w-[min(26rem,100%)] pointer-events-none">
     <!-- 크기 컨테이너: 막의 모서리가 지금 높이(cqh)를 따라 줄어든다 -->
-    <div class="relative [container-type:size]" :class="shown && 'pointer-events-auto'" :style="{ height: `${height}px` }">
+    <div class="relative @container-size" :class="shown && 'pointer-events-auto'" :style="{ height: `${height}px` }">
       <!-- 막: 위 막대(틀)와 같은 색이 되게, 바탕화면 대신 배경화면을 화면 좌표에 맞춰 한 장 더 깔고 틀과 같은 막을 얹는다(밑의 카드가 비치지 않는다) -->
       <div ref="filmEl" class="notice-film overflow-hidden" :data-phase="phase" aria-hidden="true">
         <div class="absolute w-screen h-dvh" :style="{ left: `${-filmLeft}px`, top: `${-filmTop}px` }"><AppWallpaper /></div>
