@@ -1,4 +1,4 @@
-// 설치의 띄워 보기: 받아 빌드한 bgutil 서버를 빈 포트에 띄워 /ping이 기대한 버전으로 응답하는지 보고 내린다(설치 스크립트가 가리킴을 바꾸기 전에 부른다).
+// 설치의 실행 테스트: 받아 빌드한 bgutil 서버를 빈 포트에 띄워 /ping이 기대한 버전으로 응답하는지 보고 내린다(설치 스크립트가 가리킴을 바꾸기 전에 부른다).
 // 봇의 POToken 서버와 같은 주소(127.0.0.1)와 같은 환경(비밀값을 뺀 toolEnv)으로 띄운다. 로거를 불러오지 않는다(설치 스크립트가 쓴다).
 // 끝난 것을 확인하고 돌아간다: Windows에서는 돌고 있는 서버가 canvas.node를 쥐고 있어 폴더 이름을 바꾸지 못한다
 
@@ -35,7 +35,7 @@ async function shutDown(child: childProcess.ChildProcess) {
   child.stdin?.end();
   if (await exited(child, EXIT_MS)) return;
   if (child.pid) killTrees([{ pid: child.pid, group: false }]);
-  if (!(await exited(child, EXIT_MS))) throw new Error(`띄워 본 POToken 서버(PID ${String(child.pid)})가 끝나지 않음`);
+  if (!(await exited(child, EXIT_MS))) throw new Error(`실행 테스트로 띄운 POToken 서버(PID ${String(child.pid)})가 끝나지 않음`);
 }
 
 /**

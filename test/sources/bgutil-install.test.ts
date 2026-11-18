@@ -1,6 +1,6 @@
-// src/sources/bgutil/: 버전 폴더에 받기(install), 기록(state), 봇이 읽는 묶음(bundle), 기동 정리(cleanup), 띄워 보기(trial).
-// 받기의 체크아웃, npm, tsc, 띄워 보기는 가짜다(가짜 체크아웃은 server/package.json과 잠금 파일을 쓰고, 가짜 tsc가 build/main.js를 쓴다).
-// 띄워 보기 자체는 /ping에 답하는 작은 가짜 서버 파일을 실제로 띄워 본다
+// src/sources/bgutil/: 버전 폴더에 받기(install), 기록(state), 봇이 읽는 묶음(bundle), 기동 정리(cleanup), 실행 테스트(trial).
+// 받기의 체크아웃, npm, tsc, 실행 테스트는 가짜다(가짜 체크아웃은 server/package.json과 잠금 파일을 쓰고, 가짜 tsc가 build/main.js를 쓴다).
+// 실행 테스트 자체는 /ping에 응답하는 작은 가짜 서버 파일을 실제로 띄운다
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -44,7 +44,7 @@ const stateOf = (dir: string): BgutilState => {
 const names = (dir: string) => fs.readdirSync(dir).sort();
 
 /**
- * 가짜 입출력. version: 가짜 체크아웃의 서버 버전, scripts: 서버 package.json의 scripts, trialOk: 띄워 보기 결과.
+ * 가짜 입출력. version: 가짜 체크아웃의 서버 버전, scripts: 서버 package.json의 scripts, trialOk: 실행 테스트 결과.
  * during: 체크아웃한 뒤 할 일(다른 프로세스가 먼저 옮기는 것을 흉내 낸다). calls: 부른 순서
  */
 function fakeIo(over: { version?: string; scripts?: Record<string, string>; trialOk?: boolean; during?: () => void; clock?: number } = {}) {
@@ -85,7 +85,7 @@ test("기록: 형식이 올바르지 않으면 broken(폴더 이름이 밖을 �
   assert.deepEqual(readState(fresh()), { kind: "none" });
 });
 
-test("받기: 체크아웃, 설치, 다시 빌드, tsc, 띄워 보기 뒤 버전 폴더로 옮기고 가리킨다. 임시 폴더는 남지 않는다", async () => {
+test("받기: 체크아웃, 설치, 다시 빌드, tsc, 실행 테스트 뒤 버전 폴더로 옮기고 가리킨다. 임시 폴더는 남지 않는다", async () => {
   const dir = fresh();
   const { io, calls } = fakeIo();
   const done = await installBgutil({ dir, tag: TAG, commit: COMMIT, io });
@@ -120,7 +120,7 @@ test("받기: 다른 태그를 받으면 쓰던 것이 이전 빌드가 된다",
   assert.equal(stateOf(dir).previous?.tag, "1.1.0");
 });
 
-test("받기: 띄워 보기가 실패하거나 루트 설치 스크립트가 생겼으면 가리킴은 그대로이고 받은 것은 지운다", async () => {
+test("받기: 실행 테스트가 실패하거나 루트 설치 스크립트가 생겼으면 가리킴은 그대로이고 받은 것은 지운다", async () => {
   for (const over of [{ trialOk: false }, { scripts: { postinstall: "node evil.js" } }, { version: "9.9.9" }]) {
     const dir = fresh();
     built(dir, `1.1.0-1700000000000`, "1.1.0");
@@ -196,7 +196,7 @@ test("기동 정리: 기록에 없는 버전 폴더와 끝난 받기의 임시 �
   assert.deepEqual(names(dir), [".staging-222-6", `1.0.5-1650000000000`, `1.1.0-1700000000000`, `${TAG}-1750000000000`, "state.json"].sort());
 });
 
-test("띄워 보기: /ping이 기대한 버전으로 답하면 ok, 다른 버전이면 실패. 어느 쪽이든 서버가 끝난 뒤에 돌아간다", { timeout: 60_000 }, async () => {
+test("실행 테스트: /ping이 기대한 버전으로 답하면 ok, 다른 버전이면 실패. 어느 쪽이든 서버가 끝난 뒤에 돌아간다", { timeout: 60_000 }, async () => {
   const server = path.join(fresh(), "server");
   fs.mkdirSync(path.join(server, "build"), { recursive: true });
   // bgutil 서버처럼 -p 포트, -H 주소로 열고 /ping에 버전을 답한다
@@ -217,7 +217,7 @@ http.createServer((req, res) => { res.setHeader("content-type", "application/jso
   fs.renameSync(path.dirname(server), `${path.dirname(server)}-moved`);
 });
 
-test("띄워 보기: 응답하기 전에 끝나면 그 사유와 서버 출력 끝부분", { timeout: 60_000 }, async () => {
+test("실행 테스트: 응답하기 전에 끝나면 그 사유와 서버 출력 끝부분", { timeout: 60_000 }, async () => {
   const server = path.join(fresh(), "server");
   fs.mkdirSync(path.join(server, "build"), { recursive: true });
   fs.writeFileSync(path.join(server, "build", "main.js"), `console.error("canvas.node를 불러오지 못함"); process.exit(3);`);

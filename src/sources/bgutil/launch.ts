@@ -1,4 +1,4 @@
-// bgutil POToken 서버를 띄우는 방법과 준비 확인. 봇의 POToken 서버(sources/youtube/pot-server)와 설치의 띄워 보기(sources/bgutil/trial)가 같이 쓴다.
+// bgutil POToken 서버를 띄우는 방법과 준비 확인. 봇의 POToken 서버(sources/youtube/pot-server)와 설치의 실행 테스트(sources/bgutil/trial)가 같이 쓴다.
 // 로거를 불러오지 않는다: 설치 스크립트도 이 모듈을 쓰는데, 로거를 불러오면 console.*를 가로챈다
 
 import net from "node:net";

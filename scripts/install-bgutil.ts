@@ -1,5 +1,5 @@
 // bgutil-ytdlp-pot-provider(POToken 공급자) 설치. pnpm run install:bgutil, update:bgutil(같은 일을 한다).
-//   설정한 태그와 커밋을 vendor/bgutil/<태그>-<받은 시각>/에 받아 빌드하고, 띄워 본 뒤 가리킴(vendor/bgutil/state.json)을 바꾼다(src/sources/bgutil/install).
+//   설정한 태그와 커밋을 vendor/bgutil/<태그>-<받은 시각>/에 받아 빌드하고, 실행 테스트를 거친 뒤 가리킴(vendor/bgutil/state.json)을 바꾼다(src/sources/bgutil/install).
 //   새 폴더에 받으므로 봇이 켜져 있어도 되고(돌고 있는 POToken 서버가 쥔 파일과 부딪치지 않는다), 켜져 있는 봇은 다시 시작하면 새 것을 쓴다.
 //   --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 받는다(망가진 설치를 고칠 때).
 //
@@ -7,7 +7,7 @@
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
 // 잠금 파일의 취약점은 새 태그로 고친다(주마다 도는 vendor-updates 워크플로가 알린다).
 // 설치 스크립트는 잠금 파일에서 설치 스크립트가 있는 실행 의존성(canvas)만 돌린다. 개발 의존성의 설치 스크립트는 잠금 파일 밖에서 받을 수 있다.
-// 봇 모듈 중 로거를 부르는 것은 불러오지 않는다(로거가 console을 가로챈다).
+// 봇 모듈 중 로거를 부르는 것은 불러오지 않는다(로거가 console을 가로챈다). 출력은 봇 로그와 같은 모양(수준, [bgutil], 명사형 끝)으로 직접 찍는다.
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
 import path from "node:path";
@@ -35,28 +35,33 @@ const TSC_MS = 3 * 60_000;
 const env = toolEnv();
 const show = (dir: string) => path.relative(PROJECT.root, dir);
 
+/** 봇 로그와 같은 모양의 한 줄(INFO  [bgutil] ...). info는 표준 출력, warn과 error는 표준 오류 */
+function say(level: "info" | "warn" | "error", line: string) {
+  const text = `${level.toUpperCase().padEnd(5)} [bgutil] ${line}`;
+  if (level === "info") console.log(text);
+  else console.error(text);
+}
+
 // 윈도우의 npm은 .cmd라 셸로 실행한다. 인자는 잠금 파일의 패키지 이름뿐이다(rebuildTargets가 모양을 본다)
 async function npm(serverDir: string, args: string[], timeoutMs: number) {
   const cmd = `npm ${args.join(" ")}`;
-  console.log(`$ ${cmd}   (${show(serverDir)})`);
   const run = { cwd: serverDir, env, label: cmd, timeoutMs };
   await (process.platform === "win32" ? runTool(cmd, [], { ...run, shell: true }) : runTool("npm", args, run));
 }
 
 const io: InstallIo = {
-  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => console.log(`$ ${line}   (${show(repoDir)})`) }),
+  checkout: (repoDir, tag, commit) => checkoutPinned({ dir: repoDir, repo: REPO, tag, commit, git: gitWith(env), log: (line) => say("info", `${line} (${show(repoDir)})`) }),
   npmCi: (serverDir) => npm(serverDir, ["ci", "--ignore-scripts"], NPM_CI_MS),
   npmRebuild: (serverDir, names) => npm(serverDir, ["rebuild", ...names], NPM_REBUILD_MS),
   // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다
   tsc: async (serverDir) => {
     const tsc = path.join(serverDir, "node_modules", "typescript", "bin", "tsc");
-    console.log(`$ node ${path.relative(serverDir, tsc)}   (${show(serverDir)})`);
     await runTool(process.execPath, [tsc], { cwd: serverDir, env, label: "tsc", timeoutMs: TSC_MS });
   },
   trial: trialRun,
   now: () => Date.now(),
   pid: process.pid,
-  log: (line) => console.log(`ℹ️  [bgutil] ${line}`),
+  log: (line) => say("info", line),
 };
 
 /** 봇이 켜져 있나. parent: 이 스크립트를 띄운 봇(기동의 받기), other: 따로 켜져 있는 봇 */
@@ -70,22 +75,22 @@ async function botNow(): Promise<"none" | "parent" | "other"> {
 }
 
 function report(outcome: InstallOutcome, bot: "none" | "parent" | "other"): number {
-  for (const note of outcome.notes) console.warn(`⚠️  [bgutil] ${note}`);
-  // 켜져 있는 봇은 기동 때 정한 빌드를 계속 쓴다. yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부하므로 둘을 함께 바꿔야 한다
-  const restart = bot === "none" ? "" : ". 켜져 있는 봇은 다시 시작해야 적용됩니다";
+  for (const note of outcome.notes) say("warn", note);
   switch (outcome.kind) {
     case "unchanged":
-      console.log(`ℹ️  [bgutil] 이미 ${outcome.tag}(서버 ${outcome.version}) 버전을 쓰고 있습니다`);
+      say("info", `이미 ${outcome.tag}(서버 ${outcome.version}) 사용 중`);
       return 0;
     case "installed":
-      console.log(`✅ [bgutil] ${outcome.tag}(서버 ${outcome.version}) 버전을 설치했습니다${outcome.from ? `(이전 ${outcome.from})` : ""}${restart}`);
+      say("info", `${outcome.tag}(서버 ${outcome.version}) 설치 완료${outcome.from ? `(이전 ${outcome.from})` : ""}`);
+      // 켜져 있는 봇은 기동 때 정한 빌드를 계속 쓴다. yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부하므로 둘을 함께 바꿔야 한다
+      if (bot !== "none") say("warn", "켜져 있는 봇을 다시 시작하세요(다시 시작해야 새 버전 적용)");
       return 0;
     case "failed":
-      console.error(`❌ [bgutil] ${outcome.tag} 설치 실패: ${outcome.reason}. 지금 쓰는 bgutil은 그대로입니다`);
-      console.error("   git과 node, 그리고 canvas 네이티브 모듈용 빌드 툴체인이 설치돼 있는지, 네트워크와 태그를 확인하세요");
+      say("error", `${outcome.tag} 설치 실패(지금 쓰는 bgutil 그대로): ${outcome.reason}`);
+      say("error", "git, node, canvas 네이티브 모듈용 빌드 도구가 있는지, 네트워크와 태그를 확인하세요");
       return 1;
     case "busy":
-      console.error(`❌ [bgutil] 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/bgutil을 쓰는 중이라 건너뜁니다`);
+      say("error", `설치 건너뜀: 다른 프로세스(${outcome.holder ? `PID ${outcome.holder}` : "PID 모름"})가 vendor/bgutil 사용 중`);
       return 1;
   }
 }
@@ -93,8 +98,8 @@ function report(outcome: InstallOutcome, bot: "none" | "parent" | "other"): numb
 async function main(): Promise<number> {
   const pin = bgutilPin(config.bgutil.version, config.bgutil.commit, { version: BGUTIL_VERSION, commit: BGUTIL_COMMIT });
   if ("error" in pin) {
-    console.error(`❌ [bgutil] ${pin.error}`);
-    console.error(`   태그 목록: ${TAGS_URL}`);
+    say("error", pin.error);
+    say("info", `태그 목록: ${TAGS_URL}`);
     return 1;
   }
   const bot = await botNow();
@@ -105,6 +110,6 @@ async function main(): Promise<number> {
 try {
   process.exitCode = await main();
 } catch (error) {
-  console.error(`❌ [bgutil] 설치 실패: ${messageOf(error)}. 지금 쓰는 bgutil은 그대로입니다`);
+  say("error", `설치 실패(지금 쓰는 bgutil 그대로): ${messageOf(error)}`);
   process.exitCode = 1;
 }

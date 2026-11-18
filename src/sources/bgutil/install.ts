@@ -1,9 +1,9 @@
 // bgutil(POToken 공급자)을 목표 태그와 커밋으로 받는다(설치 스크립트 scripts/install-bgutil이 부른다).
 // 받은 빌드는 vendor/bgutil/<태그>-<받은 시각>/에 두고 state.json의 가리킴만 바꾼다. 쓰던 것은 이전 빌드로 남긴다.
-// 순서: .staging-<pid>-<시각>/repo에 체크아웃 → 잠금 파일 그대로 설치, 다시 빌드할 것만 빌드 → tsc → 띄워 보기(/ping이 그 버전으로 응답하는지) →
+// 순서: .staging-<pid>-<시각>/repo에 체크아웃 → 잠금 파일 그대로 설치, 다시 빌드할 것만 빌드 → tsc → 실행 테스트(/ping이 그 버전으로 응답하는지) →
 // 잠금 안에서 기록을 새로 읽고 버전 폴더로 옮긴 뒤 가리킴을 쓴다. 가리킴을 쓰기 전에 실패하면 가리킴은 그대로다.
 // 받고 빌드하는 몇 분 동안은 잠금을 쥐지 않는다(임시 폴더는 프로세스마다 따로라 겹치지 않는다). 그사이 다른 프로세스가 같은 것을 먼저 옮겼으면 내 것을 버린다.
-// 체크아웃, npm, tsc, 띄워 보기는 호출부가 넘긴다(테스트가 실제로 받거나 빌드하지 않게)
+// 체크아웃, npm, tsc, 실행 테스트는 호출부가 넘긴다(테스트가 실제로 받거나 빌드하지 않게)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -31,14 +31,14 @@ type InstallIo = {
 
 /**
  * unchanged: 이미 그 태그와 커밋이다(다른 프로세스가 먼저 옮긴 경우 포함). installed: 받아서 가리킴을 바꿨다.
- * failed: 받거나 빌드하거나 띄워 보지 못했다(가리킴은 그대로). busy: 다른 프로세스가 폴더 잠금을 풀지 않았다. notes: 운영자에게 알릴 줄(깨진 기록을 옮긴 경우)
+ * failed: 받거나 빌드하지 못했거나 실행 테스트를 통과하지 못했다(가리킴은 그대로). busy: 다른 프로세스가 폴더 잠금을 풀지 않았다. notes: 운영자에게 알릴 줄(깨진 기록을 옮긴 경우)
  */
 type InstallOutcome = ({ kind: "unchanged"; tag: string; version: string } | { kind: "installed"; tag: string; version: string; from: string | null } | { kind: "failed"; tag: string; reason: string } | { kind: "busy"; holder: number | null }) & { notes: string[] };
 
 /** 기록의 빌드가 이 태그와 커밋이고 실행 파일이 있으면 그 빌드, 아니면 null */
 const sameBuild = (dir: string, build: BgutilBuild | null, tag: string, commit: string): BgutilBuild | null => (build && build.tag === tag && build.commit === commit && fs.existsSync(path.join(dir, build.folder, "server", ENTRY)) ? build : null);
 
-/** 체크아웃한 server 폴더에서 설치, 빌드, 띄워 보기까지. 서버 버전을 반환한다. 실패하면 예외를 던진다 */
+/** 체크아웃한 server 폴더에서 설치, 빌드, 실행 테스트까지. 서버 버전을 반환한다. 실패하면 예외를 던진다 */
 async function build(serverDir: string, io: InstallIo): Promise<string> {
   if (!fs.existsSync(serverDir)) throw new Error("체크아웃에 server 폴더가 없음");
   const pkg = JSON.parse(fs.readFileSync(path.join(serverDir, "package.json"), "utf8")) as { version?: unknown; scripts?: Record<string, unknown> };
@@ -55,9 +55,9 @@ async function build(serverDir: string, io: InstallIo): Promise<string> {
   }
   io.log("서버 빌드(tsc)");
   await io.tsc(serverDir);
-  io.log(`띄워 보기(/ping이 ${pkg.version}${josa(pkg.version, "으로")} 응답하는지)`);
+  io.log(`실행 테스트(/ping이 ${pkg.version}${josa(pkg.version, "으로")} 응답하는지)`);
   const tried = await io.trial(serverDir, pkg.version);
-  if (!tried.ok) throw new Error(`띄워 보기 실패: ${tried.reason}`);
+  if (!tried.ok) throw new Error(`실행 테스트 실패: ${tried.reason}`);
   return pkg.version;
 }
 
