@@ -1,4 +1,4 @@
-// src/app/startup-prepare.ts: 화면 빌드가 없거나 오래됐으면 기동할 때 빌드한다. 최신 상태이거나 개발 모드이거나 빌드 도구가 없으면 건너뛰고, 실패해도 기동을 막지 않는다.
+// src/app/startup-prepare.ts: 화면 빌드가 없거나 오래됐으면 기동할 때 빌드하고, ffmpeg를 목표에 맞춘다. 최신 상태이거나 개발 모드이거나 빌드 도구가 없으면 건너뛰고, 실패해도 기동을 막지 않는다.
 // 진짜 Vite 대신 빌드 정보를 남기는 가짜 vite.js를 임시 저장소에 둔다
 
 import { test, after, afterEach } from "node:test";
@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildDashboardIfStale, type DashboardPaths } from "../../src/app/startup-prepare.ts";
+import { buildDashboardIfStale, alignFfmpegAtStartup, type DashboardPaths } from "../../src/app/startup-prepare.ts";
 import { _resetJobs } from "../../src/infra/script-job.ts";
 import { withConfig } from "../helpers/config.ts";
 
@@ -69,4 +69,31 @@ test("빌드 도구가 없거나 개발 모드면 건너뛴다", async () => {
   const dev = repo();
   await withConfig({ dashboard: { devOrigin: true } }, () => buildDashboardIfStale(dev));
   assert.equal(dev.runs(), 0);
+});
+
+test("ffmpeg 맞추기: 받기 스크립트를 인자 없이 돌리고, 끝난 뒤 가리키지 않는 옛 폴더를 정리한다", async () => {
+  const dir = path.join(base, `ffmpeg-${++n}`);
+  const release = "autobuild-2026-10-31-12-59";
+  fs.mkdirSync(path.join(dir, `${release}-1`), { recursive: true });
+  fs.mkdirSync(path.join(dir, `${release}-2`), { recursive: true });
+  const script = path.join(base, `install-${n}.mjs`);
+  const seen = path.join(base, `args-${n}.json`);
+  // 가짜 받기 스크립트: 받은 인자를 적고, 두 번째 폴더를 가리키게 기록한다
+  fs.writeFileSync(
+    script,
+    `import fs from "node:fs";
+fs.writeFileSync(${JSON.stringify(seen)}, JSON.stringify(process.argv.slice(2)));
+fs.writeFileSync(${JSON.stringify(path.join(dir, "state.json"))}, JSON.stringify({ active: { folder: "${release}-2", release: "${release}", asset: "a", sha256: "x", version: "v" }, previous: null, rejected: [], pin: null }));
+console.log("✅ [ffmpeg] 설치");`,
+  );
+  await alignFfmpegAtStartup(dir, script);
+  assert.deepEqual(JSON.parse(fs.readFileSync(seen, "utf8")), []);
+  assert.deepEqual(fs.readdirSync(dir).sort(), [`${release}-2`, "state.json"]);
+});
+
+test("ffmpeg 맞추기: FFMPEG_PATH를 쓰면 하지 않는다", async () => {
+  const script = path.join(base, `never-${++n}.mjs`);
+  fs.writeFileSync(script, `require("fs").writeFileSync(${JSON.stringify(path.join(base, "never-ran"))}, "x")`);
+  await withConfig({ ffmpeg: { path: "C:/ffmpeg.exe" } }, () => alignFfmpegAtStartup(path.join(base, "none"), script));
+  assert.equal(fs.existsSync(path.join(base, "never-ran")), false);
 });

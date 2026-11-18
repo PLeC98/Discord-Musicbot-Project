@@ -22,7 +22,7 @@ import { onTunablesChanged } from "../config/tunables-changed.ts";
 import fs from "fs";
 import * as aiKeys from "../store/ai-keys.ts";
 import * as cookieJar from "../store/cookie-jar.ts";
-import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities } from "../media/ffmpeg/path.ts";
+import { logResolved as logResolvedFfmpeg, ffmpegPath, capabilities as ffmpegCapabilities, settleRejected as settleRejectedFfmpeg } from "../media/ffmpeg/path.ts";
 import { measureQueue } from "../media/loudness-measure.ts";
 import { encodePool } from "../media/encode-pool.ts";
 import { Player } from "../player/player.ts";
@@ -61,7 +61,7 @@ import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import { BotPresence } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
-import { buildDashboardIfStale } from "./startup-prepare.ts";
+import { prepareStartup } from "./startup-prepare.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
 import { restartNotices } from "../dashboard/discord-notice.ts";
@@ -121,8 +121,8 @@ function main() {
   if (!openSettings({ potServer, logFile })) return;
   deploySlashCommands();
   void potServer.start();
-  // 기동 준비(업데이트 뒤의 화면 빌드)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열기 전에 끝낸다
-  Promise.all([potServer.waitReady(), buildDashboardIfStale()])
+  // 기동 준비(업데이트 뒤의 화면 빌드, ffmpeg 맞추기)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열고 ffmpeg 경로를 정하기 전에 끝낸다
+  Promise.all([potServer.waitReady(), prepareStartup()])
     .then(() => restoreAudioCache())
     // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
     .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
@@ -401,6 +401,8 @@ async function init(bot: BotContext, { commands, potServer, logFile, shutdown, o
 function checkBeforeLogin() {
   // 재생, 캐시 변환이 모두 ffmpeg에 의존하므로 여기서 확정하고 기록한다. 못 찾으면 여기서 기동을 멈춘다
   stopIfThrows(() => logResolvedFfmpeg());
+  // 지금 설치본이 실행되지 않아 이전 설치본으로 떴으면 기록을 되돌린다(다음 기동 때 같은 빌드를 다시 받지 않게)
+  void bestEffort(log, settleRejectedFfmpeg(), "ffmpeg 기록 되돌리기", "warn");
   // 능력 확인(spawnSync 셋)도 여기서 해 둔다. 처음 곡을 틀 때 부르면 그동안 이벤트 루프가 멈춰 다른 서버의 음성이 밀린다
   ffmpegCapabilities();
   // yt-dlp도 재생과 같은 ffmpeg를 쓴다
