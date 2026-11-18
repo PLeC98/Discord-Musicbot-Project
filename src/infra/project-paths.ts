@@ -27,6 +27,8 @@ const PROJECT = {
   ytdlp: path.join(VENDOR, "yt-dlp"),
   /** ffmpeg 빌드 폴더와 기록(media/ffmpeg/state) */
   ffmpeg: path.join(VENDOR, "ffmpeg"),
+  /** 예전 설치 위치(옛 ffmpeg 실행 파일, yt-dlp 폴더). 쓰지 않고, 초기화 카드의 외부 프로그램 이전 버전 삭제가 삭제한다(dashboard/old-tools) */
+  legacyBin: path.join(VENDOR, "bin"),
   /** POToken 공급자 체크아웃 */
   bgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),
   /** 대시보드 화면 빌드 결과 */

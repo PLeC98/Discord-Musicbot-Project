@@ -146,6 +146,11 @@ function ffmpegInfo(dir = PROJECT.ffmpeg): FfmpegInfo | null {
   return { version: info.version, source: SOURCE_CODE[info.source], release: info.release, pin: state?.pin ?? null, defaultRelease: FFMPEG_RELEASE, rejected: state?.rejected ?? [] };
 }
 
+/** 정해 둔 경로(아직 정하지 않았으면 null). 정하지 않았을 때 resolve()처럼 실행 확인을 돌리지 않는다(삭제하기 전에 쓰는 중인지 볼 때 쓴다) */
+function resolvedPath(): string | null {
+  return resolved?.path ?? null;
+}
+
 /** 해석된 실행 파일 경로만 반환. 실행 지점에서 쓰는 기본 접근자. */
 function ffmpegPath(): string {
   return resolve().path;
@@ -212,6 +217,6 @@ function _reset() {
   toReject = null;
 }
 
-export { ffmpegPath, ffmpegInfo, resolve, capabilities, logResolved, settleRejected };
+export { ffmpegPath, ffmpegInfo, resolve, resolvedPath, capabilities, logResolved, settleRejected };
 export const _internals = { probe, _reset };
 export type { Capabilities, Resolved, Source };

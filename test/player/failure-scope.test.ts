@@ -83,8 +83,8 @@ test("재생 쪽에서 만드는 이름은 모두 갈래가 정해져 있다", (
   for (const file of ["sources/youtube/errors.ts", "sources/soundcloud/run.ts"]) {
     for (const m of fs.readFileSync(path.join(root, file), "utf8").matchAll(/return "([a-z][a-z0-9-]+)";/g)) names.add(m[1]);
   }
-  // 곡을 넣을 때만 나오는 이름, 따로 다루는 이름(음성 연결 실패는 호출부가 정한다)
-  const elsewhere = new Set(["not-found", "spotify-failed", "unavailable-playlist", "voice-failed", "search-age-gated"]);
+  // 곡을 넣을 때만 나오는 이름, 따로 다루는 이름(음성 연결 실패는 호출부가 정한다), 재생과 무관한 이름(yt-dlp 이전 버전 삭제의 폴더 잠금, 기록 읽기 실패)
+  const elsewhere = new Set(["not-found", "spotify-failed", "unavailable-playlist", "voice-failed", "search-age-gated", "folder-busy", "state-broken"]);
   const missing = [...names].filter((n) => !elsewhere.has(n) && !TRACK.has(n) && !ENVIRONMENT.has(n) && !UNKNOWN.has(n));
   assert.deepEqual(missing, []);
 });

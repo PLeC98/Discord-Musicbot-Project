@@ -74,8 +74,8 @@ async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PRO
     const last = info.output.at(-1) ?? "";
     if (!last.includes("이미 ")) log.info(`ffmpeg 맞추기: ${last}`);
   } else if (info) log.warn(`ffmpeg 맞추기 실패(${failedText(info)}. 받아 둔 ffmpeg로 뜸`);
-  const removed = await cleanupFfmpeg(dir);
-  if (removed?.length) log.info(`ffmpeg 옛 폴더 정리: ${removed.join(", ")}`);
+  const cleaned = await cleanupFfmpeg(dir);
+  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(`ffmpeg 옛 폴더 정리: ${cleaned.removed.map((r) => r.name).join(", ")}`);
 }
 
 /** 기동 준비 전체. 작업 실행기의 자리가 하나라 차례로 실행한다 */

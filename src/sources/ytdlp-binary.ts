@@ -23,7 +23,7 @@ import { leaseFor, inUse } from "./ytdlp-exec.ts";
 import { extractZip } from "../infra/zip.ts";
 import { warmExecutable } from "../infra/warm-exe.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { codedError, codeOf, messageOf } from "../rules/error-kind.ts";
 import { PROJECT } from "../infra/project-paths.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import type { YtdlpCardStatus, YtdlpPeek } from "./ytdlp-status-types.ts";
@@ -108,10 +108,11 @@ function pointedAt(state: State, target: string, channel: Channel, kept: boolean
 const settingsKey = () => `${config.ytdlp.channel}|${config.ytdlp.update}|${config.ytdlp.version ?? ""}`;
 
 // 휴지통으로 옮긴 폴더를 지운다(잠금 밖). 못 지운 것은 다음 정리가 재시도한다
-function emptyTrash(folders: string[]) {
+// 재생 중에도 실행되므로(일일 확인, 초기화 카드) 비동기로 삭제한다
+async function emptyTrash(folders: string[]) {
   for (const full of folders) {
     try {
-      fs.rmSync(full, { recursive: true, force: true, maxRetries: 2 });
+      await fs.promises.rm(full, { recursive: true, force: true, maxRetries: 2 });
     } catch (error) {
       log.warn(`yt-dlp 옛 폴더 삭제 실패(${path.basename(full)}): ${messageOf(error)}`);
     }
@@ -488,15 +489,22 @@ class YtdlpBinary {
 
   /**
    * 이전 버전을 삭제한다. 기록에서 지우고(되돌리기가 그 버전을 다시 다운로드하지도 못하게) 폴더를 정리한다.
-   * 그 폴더에서 아직 도는 yt-dlp가 있으면 폴더는 다음 정리 때 지운다. 지운 태그, 이전 버전이 없었으면 null. 잠금을 못 잡으면 예외를 던진다
+   * 그 폴더에서 아직 도는 yt-dlp가 있으면 폴더는 다음 정리 때 삭제한다. 삭제한 태그, 이전 버전이 없었으면 null을 반환한다.
+   * 잠금을 못 잡거나 기록을 읽지 못하면 예외를 던진다(빈 기록으로 덮어써 지금 버전을 잃지 않게). go: 잠금을 잡은 뒤 바꾸기 전에 부른다(예외를 던지면 바꾸지 않는다)
    */
-  async forgetPrevious(): Promise<string | null> {
-    let gone: string | null = null;
-    const next = await this._update((state) => {
-      gone = state.previous;
-      return { ...state, previous: null, previousChannel: null };
-    });
-    if (!next) throw new Error(this._busyText());
+  async forgetPrevious(go?: () => void): Promise<string | null> {
+    const unlock = await this._lock();
+    if (!unlock) throw codedError("folder-busy", this._busyText());
+    let gone: string | null;
+    try {
+      const state = this._read();
+      if (!state && fs.existsSync(this.stateFile)) throw codedError("state-broken", "yt-dlp 버전 기록을 읽지 못함");
+      go?.();
+      gone = state?.previous ?? null;
+      if (state && gone) this._write({ ...state, previous: null, previousChannel: null });
+    } finally {
+      await unlock();
+    }
     await this.cleanup();
     return gone;
   }
@@ -697,7 +705,7 @@ class YtdlpBinary {
     try {
       const state = this._read();
       if (state) this.state = state;
-      const keep = new Set([state?.version, state?.previous].filter(Boolean));
+      const keep = this._keepSet(state, [state?.version, state?.previous]);
       for (const entry of fs.readdirSync(this.io.dir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
         const full = path.join(this.io.dir, entry.name);
@@ -718,12 +726,34 @@ class YtdlpBinary {
     } finally {
       await unlock();
     }
-    emptyTrash(trash);
+    await emptyTrash(trash);
   }
 
-  // 정리가 지울 폴더인가: 지금, 직전, 쓰는 중이 아닌 버전 폴더, 주인이 없거나 설치 중도 쓰는 중도 아닌 자기 staging
-  _removable(name: string, full: string, keep: Set<string | null | undefined>): boolean {
-    if (isYtdlpTag(name)) return !keep.has(name) && !this.io.inUse(full);
+  /**
+   * 이전 버전 삭제(forgetPrevious)가 삭제할 폴더의 이름: 이전 버전 폴더(돌고 있는 yt-dlp가 있으면 다음 정리로 미뤄진다), 정리가 삭제할 버전 폴더와 임시 폴더, 휴지통.
+   * 미리 보기라 잠금 없이 읽는다. previous: 기록의 이전 버전. 기록이 있는데 읽지 못했으면 null(이전 버전 삭제도 거절한다)
+   */
+  oldFolders(): { previous: string | null; folders: string[] } | null {
+    const state = this._read();
+    const keep = this._keepSet(state, [state?.version]);
+    if (keep === null) return null;
+    if (!fs.existsSync(this.io.dir)) return { previous: state?.previous ?? null, folders: [] };
+    const folders = fs
+      .readdirSync(this.io.dir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && (entry.name.startsWith(".trash-") || this._removable(entry.name, path.join(this.io.dir, entry.name), keep)))
+      .map((entry) => entry.name);
+    return { previous: state?.previous ?? null, folders };
+  }
+
+  // 남길 버전 폴더. 기록이 있는데 읽지 못했으면 null(어느 버전이 지금 것인지 모르므로 버전 폴더는 하나도 삭제하지 않는다)
+  _keepSet(state: State | null, names: (string | null | undefined)[]): Set<string> | null {
+    if (!state && fs.existsSync(this.stateFile)) return null;
+    return new Set(names.filter((name): name is string => Boolean(name)));
+  }
+
+  // 정리가 삭제할 폴더인가: 지금, 직전, 쓰는 중이 아닌 버전 폴더(keep이 null이면 버전 폴더는 삭제하지 않는다), 주인이 없거나 설치 중도 쓰는 중도 아닌 자기 staging
+  _removable(name: string, full: string, keep: Set<string> | null): boolean {
+    if (isYtdlpTag(name)) return keep !== null && !keep.has(name) && !this.io.inUse(full);
     const staging = /^\.staging-(\d+)(-\d+)?$/.exec(name);
     if (!staging) return false;
     const owner = Number(staging[1]);

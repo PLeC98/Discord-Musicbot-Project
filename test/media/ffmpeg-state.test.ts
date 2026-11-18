@@ -1,4 +1,4 @@
-// src/media/ffmpeg/state.ts, cli-args.ts, cleanup.ts: ffmpeg 기록 읽기(형식이 올바르지 않으면 깨진 것), install:ffmpeg의 인자, 기동 때 정리(가리키지 않는 버전 폴더, 만든 프로세스가 끝난 임시 폴더만)
+// src/media/ffmpeg/state.ts, cli-args.ts: ffmpeg 기록 읽기(형식이 올바르지 않으면 깨진 것), install:ffmpeg의 인자. 정리는 ffmpeg-cleanup.test
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -7,7 +7,6 @@ import os from "node:os";
 import path from "node:path";
 import { readState, writeState, isReleaseTag } from "../../src/media/ffmpeg/state.ts";
 import { parseInstallArgs } from "../../src/media/ffmpeg/cli-args.ts";
-import { cleanupFfmpeg } from "../../src/media/ffmpeg/cleanup.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "ffmpeg-state-"));
 after(() => fs.rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
@@ -50,21 +49,4 @@ test("인자: --pin 태그, --pin=태그, --unpin, --force. 함께 쓸 수 없�
   assert.ok("error" in parseInstallArgs(["--pin", R, "--unpin"]));
   assert.ok("error" in parseInstallArgs(["--pin"]));
   assert.ok("error" in parseInstallArgs(["--pin", "latest"]));
-});
-
-test("정리: 가리키지 않는 버전 폴더와 만든 프로세스가 끝난 임시 폴더만 지운다", async () => {
-  const dir = fresh();
-  for (const name of [`${R}-1`, `${R}-2`, `${R}-3`, ".staging-111-5", ".staging-222-6", "모르는-폴더"]) fs.mkdirSync(path.join(dir, name));
-  writeState(dir, { active: build(`${R}-2`), previous: build(`${R}-3`), rejected: [], pin: null });
-  const removed = await cleanupFfmpeg(dir, (pid) => pid === 222);
-  assert.deepEqual(removed?.sort(), [".staging-111-5", `${R}-1`].sort());
-  assert.deepEqual(fs.readdirSync(dir).sort(), [".staging-222-6", `${R}-2`, `${R}-3`, "state.json", "모르는-폴더"].sort());
-});
-
-test("정리: 기록을 읽지 못하면 아무것도 지우지 않는다", async () => {
-  const dir = fresh();
-  fs.mkdirSync(path.join(dir, `${R}-1`));
-  fs.writeFileSync(path.join(dir, "state.json"), "{ 깨짐");
-  assert.deepEqual(await cleanupFfmpeg(dir), []);
-  assert.equal(fs.existsSync(path.join(dir, `${R}-1`)), true);
 });

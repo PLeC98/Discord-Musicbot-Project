@@ -547,6 +547,47 @@ test("이전 버전 삭제: 기록에서 지우고 폴더를 정리한다. 그 �
   assert.equal(await bin.forgetPrevious(), null, "이전 버전이 없다");
 });
 
+test("이전 버전 삭제의 미리 보기: 이전 버전, 정리가 지울 버전 폴더, 휴지통. 도는 yt-dlp가 쓰는 폴더는 빠진다", async () => {
+  const { w, bin } = world();
+  await bin.check();
+  fs.mkdirSync(path.join(dirOf(), "2026.07.01"));
+  fs.mkdirSync(path.join(dirOf(), ".trash-x-1-2"));
+  // 폴더 목록의 순서는 OS마다 다르다
+  const sorted = () => {
+    const old = bin.oldFolders();
+    return old && { ...old, folders: [...old.folders].sort() };
+  };
+  assert.deepEqual(sorted(), { previous: "2026.08.19", folders: [".trash-x-1-2", "2026.07.01", "2026.08.19"] });
+  w.leased.add(path.join(dirOf(), "2026.08.19"));
+  assert.deepEqual(sorted(), { previous: "2026.08.19", folders: [".trash-x-1-2", "2026.07.01"] });
+});
+
+test("기록이 있는데 읽지 못하면 이전 버전 삭제, 정리, 미리 보기 모두 버전 폴더를 건드리지 않는다(빈 기록으로 덮어쓰지 않는다)", async () => {
+  const { bin } = world();
+  await bin.check();
+  const file = path.join(dirOf(), "state.json");
+  fs.writeFileSync(file, "{ 깨짐");
+  assert.equal(bin.oldFolders(), null);
+  await assert.rejects(bin.forgetPrevious(), /yt-dlp 버전 기록을 읽지 못함/);
+  await bin.cleanup();
+  assert.equal(fs.readFileSync(file, "utf8"), "{ 깨짐");
+  assert.deepEqual(names(), ["2026.08.19", "2026.09.27.232849", "state.json"]);
+});
+
+test("이전 버전 삭제: 세션 확인(go)이 던지면 기록을 바꾸지 않는다", async () => {
+  const { bin } = world();
+  await bin.check();
+  const before = fs.readFileSync(path.join(dirOf(), "state.json"), "utf8");
+  await assert.rejects(
+    bin.forgetPrevious(() => {
+      throw new Error("로그아웃");
+    }),
+    /로그아웃/,
+  );
+  assert.equal(fs.readFileSync(path.join(dirOf(), "state.json"), "utf8"), before);
+  assert.ok(fs.existsSync(path.join(dirOf(), "2026.08.19")));
+});
+
 test("결과 한 줄", () => {
   const lines = [
     describe({ kind: "current", version: "a" }),
