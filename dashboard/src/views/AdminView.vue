@@ -309,7 +309,7 @@ async function restartQuestion(): Promise<[RestartReason, BgutilCardStatus | nul
 
 // 연령 제한 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
-// 연령 제한 영상은 POToken이 없으면 소리를 다운로드하지 못할 수 있다. 저장된 값으로 판단한다
+// 쿠키로 연 연령 제한 영상은 POToken이 없으면 저화질 영상 포맷 하나만 나온다(오디오 전용 포맷이 없다). 저장된 값으로 판단한다
 const potokenHint = computed(() => Boolean(tunableSaved.value.COOKIES_SOURCE) && tunableSaved.value.BGUTIL_ENABLED !== "true");
 function goPotoken() {
   setTab("youtube");
