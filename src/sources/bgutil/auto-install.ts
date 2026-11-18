@@ -1,9 +1,9 @@
 // POToken 서버 사용을 켰는데 bgutil이 설치돼 있지 않으면 봇이 알아서 설치한다(설치 스크립트를 작업 실행기로 돌린다. 기동을 막지 않는다).
 // 판정은 저장된 켜기 값으로 한다(BGUTIL_ENABLED는 다시 시작해야 적용되는 값이라 설정 객체는 기동 때 값에 머문다).
 // 기동, 설정이 바뀜(설정값 저장, 불러오기, 초기화), 작업 자리가 빔, 운영자의 재시도가 같은 판정 하나(ensure)를 부른다.
-// 혼자서 하는 설치는 목표마다 한 번이다: 실패했거나 그만뒀으면 "시도했음"으로 적어 두고 다시 하지 않는다(안 되는 빌드를 끝없이 되풀이하지 않게).
+// 혼자서 하는 설치는 목표마다 한 번이다: 실패했거나 중단했으면 "시도했음"으로 적어 두고 다시 하지 않는다(안 되는 빌드를 끝없이 되풀이하지 않게).
 // 다시 하는 것은 운영자가 재시도할 때, 켜기나 목표가 바뀔 때, 다음 기동 때뿐이다. 설치돼 있지만 목표와 다른 것은 혼자서 받지 않는다(카드가 알린다).
-// 끄면 켜기 때문에 시작한 설치를 그만둔다
+// 끄면 켜기 때문에 시작한 설치를 중단한다
 
 import path from "node:path";
 import fs from "node:fs";
@@ -62,7 +62,7 @@ type Why = "startup" | "settings" | "idle" | "manual";
 
 class BgutilAutoInstall {
   deps: Deps;
-  /** 실패했거나 그만둔 목표(`태그@커밋`). 혼자서는 다시 받지 않는다 */
+  /** 실패했거나 중단한 목표(`태그@커밋`). 혼자서는 다시 받지 않는다 */
   attempted = new Set<string>();
   /** 도는 설치 작업의 id */
   running: number | null = null;
@@ -104,7 +104,7 @@ class BgutilAutoInstall {
     this.wasEnabled = enabled;
     if (!enabled) {
       this.queued = false;
-      // 켜기 때문에 시작한 설치를 그만둔다(그만둔 목표는 시도 기록에 남는다)
+      // 켜기 때문에 시작한 설치를 중단한다(중단한 목표는 시도 기록에 남는다)
       if (this.running !== null) await this.deps.cancel(this.running);
       return;
     }
@@ -156,9 +156,9 @@ class BgutilAutoInstall {
     }
     this.attempted.add(key);
     const tail = info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ");
-    const reason = info.reason === "cancelled" ? "그만둠" : `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}${tail ? `: ${tail}` : ""}`;
+    const reason = info.reason === "cancelled" ? "중단" : `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}${tail ? `: ${tail}` : ""}`;
     this.failure = { reason, at: this.deps.now() };
-    if (info.reason === "cancelled") log.info("bgutil 설치 그만둠(POToken 서버 사용을 끔)");
+    if (info.reason === "cancelled") log.info("bgutil 설치 중단(POToken 서버 사용을 끔)");
     else log.error(`bgutil 설치 실패(POToken 없이 진행): ${reason}. 대시보드 업데이트 탭에서 재시도하세요`);
   }
 

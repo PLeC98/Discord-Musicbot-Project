@@ -109,13 +109,13 @@ test("미룬 것이 없으면 자리가 비어도 하지 않는다(자기 설치
   assert.equal(w.starts, 1);
 });
 
-test("끄면 도는 설치를 그만두고, 다시 켜면 시도 기록을 지우고 다시 설치한다", async () => {
+test("끄면 도는 설치를 중단하고, 다시 켜면 시도 기록을 지우고 다시 설치한다", async () => {
   const { w, auto } = world();
   await auto.ensure("startup");
   w.enabled = false;
   await auto.ensure("settings");
   assert.deepEqual(w.cancels, [1]);
-  assert.equal(auto.failure?.reason, "그만둠");
+  assert.equal(auto.failure?.reason, "중단");
   w.enabled = true;
   await auto.ensure("settings");
   assert.equal(w.starts, 2);
