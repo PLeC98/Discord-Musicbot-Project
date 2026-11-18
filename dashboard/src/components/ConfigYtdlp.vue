@@ -48,8 +48,8 @@
       </div>
 
       <NoticeBox v-if="state.failure && !state.busy" variant="note" tone="error" icon="error">
-        <!-- 실패와 다시 시도하는 때는 줄을 나눈다. 아이콘과 다시 시도 버튼은 글 첫 줄에 맞추고(버튼 높이 32px를 첫 줄 20px에 겹친다), 버튼은 오른쪽 끝 -->
-        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
+        <!-- 실패와 다시 시도하는 때는 줄을 나눈다. 아이콘은 글 첫 줄에, 다시 시도 버튼은 글 전체의 가운데에 맞추고(버튼 높이 32px를 글 20px에 겹친다), 버튼은 오른쪽 끝 -->
+        <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 wrap-break-word"
             >{{ T.failed(state.failure.target, state.failure.reason) }}<span v-if="state.nextAt" class="block">{{ T.retryAt(formatDateTime(state.nextAt)) }}</span></span
           ><BaseButton v-if="state.pin" variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="setPin(state.pin)">{{ T.pinRetry }}</BaseButton></span

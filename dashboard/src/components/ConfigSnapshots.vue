@@ -6,7 +6,7 @@
       <p class="mb-3 flex items-center gap-1 text-sm text-on-surface-variant">{{ T.desc }}<Icon name="info" :size="16" class="cursor-help" v-tooltip="T.descTip" /></p>
       <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
       <NoticeBox v-if="view?.staged" variant="note" tone="info" icon="history" class="mt-0! mb-3">
-        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 break-all">{{ T.staged(view.staged) }}</span
           ><BaseButton variant="ghost" size="sm" class="-my-1.5" :disabled="busy" @click="unstage">{{ T.unstage }}</BaseButton></span
         >
