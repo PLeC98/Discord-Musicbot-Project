@@ -1,6 +1,6 @@
-// 외부 도구의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp 카드와 외부 프로그램 이전 버전 카드가 호출한다. /api/admin/vendor
-// 버전 고정은 저장 바가 아니라 여기서 바로 저장한다(store/tunables의 saveCard). 채널, 모드는 저장 바에서 저장한다(routes/tunables).
-// 저장하면 새 설정대로 yt-dlp 버전을 맞춘다(sources/ytdlp-binary).
+// 외부 도구의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp, bgutil 카드와 외부 프로그램 이전 버전 카드가 호출한다. /api/admin/vendor
+// 버전 고정은 저장 바가 아니라 여기서 바로 저장한다(store/tunables의 saveCard). yt-dlp의 채널, 모드는 저장 바에서 저장한다(routes/tunables).
+// 저장하면 새 설정대로 yt-dlp 버전을 맞추고(sources/ytdlp-binary), bgutil은 받기를 시작한다(sources/bgutil/auto-install).
 // 다운로드는 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
 
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -17,11 +17,14 @@ import * as tunables from "../../store/tunables.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
 import { bgutilCardStatus } from "../../sources/bgutil/card-status.ts";
 import { bgutilAutoInstall } from "../../sources/bgutil/auto-install.ts";
+import { bgutilRemote } from "../../sources/bgutil/remote.ts";
+import { isCommitSha, isPlainTag } from "../../rules/bgutil-install.ts";
+import { BGUTIL_VERSION } from "../../config/vendor-versions.ts";
 import { doneLine, previewOldTools, removeOldTools } from "../old-tools.ts";
 import { OLD_TOOLS, type OldTool } from "../contract/old-tools.ts";
 import { recountVendor } from "../status/storage.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
-import type { BgutilRestartReply, VendorReply } from "../contract/admin.ts";
+import type { BgutilResolveReply, BgutilRestartReply, VendorReply } from "../contract/admin.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
 
 const vendorRouter = express.Router();
@@ -29,16 +32,16 @@ vendorRouter.use(requireOwner);
 
 const reply = (saved?: TunablesView): VendorReply => ({ status: { ytdlp: ytdlpBinary.status(), bgutil: bgutilCardStatus() }, ...(saved ? { tunables: saved } : {}) });
 
-// 카드 값을 저장한다. 저장했으면 설정값 상태. 거절했으면 문제 응답을 보내고 null
-function saveCard(req: Request, res: Response, changes: Record<string, string | null>, what: string): TunablesView | null {
+// 카드 값을 저장한다(tool: 로그에 쓰는 도구 이름). 저장했으면 설정값 상태. 거절했으면 문제 응답을 보내고 null
+function saveCard(req: Request, res: Response, tool: string, changes: Record<string, string | null>, what: string): TunablesView | null {
   try {
     const saved = tunables.saveCard(changes);
-    log.warn({ sub: "admin" }, `대시보드에서 yt-dlp ${what}. 실행 ${ranBy(req)}`);
+    log.warn({ sub: "admin" }, `대시보드에서 ${tool} ${what}. 실행 ${ranBy(req)}`);
     return saved;
   } catch (error) {
     if (codeOf(error) === "CONFIG_INVALID") sendProblem(res, "config-invalid", {}, { errors: ((error as { problems?: string[] }).problems ?? []).map((detail) => ({ code: "config-invalid", detail })) });
     else {
-      log.error({ sub: "admin" }, `yt-dlp 설정 저장 실패: ${messageOf(error)}`);
+      log.error({ sub: "admin" }, `${tool} 설정 저장 실패: ${messageOf(error)}`);
       sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
     }
     return null;
@@ -84,7 +87,7 @@ vendorRouter.post("/ytdlp/pin", recentLoginToPin, (req, res) => {
   const version = text(req.body?.version);
   const was = config.ytdlp.version;
   if (req.body?.expect !== undefined && (text(req.body.expect) ?? null) !== was) return sendProblem(res, "config-changed");
-  const saved = saveCard(req, res, { YTDLP_VERSION: version }, `고정 버전 변경: ${was ?? "없음"} → ${version ?? "없음"}`);
+  const saved = saveCard(req, res, "yt-dlp", { YTDLP_VERSION: version }, `고정 버전 변경: ${was ?? "없음"} → ${version ?? "없음"}`);
   if (!saved) return;
   converge(true);
   res.status(202).json(reply(saved));
@@ -96,7 +99,7 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   if (!target) return sendProblem(res, "tool-no-previous");
   const changes: Record<string, string> = { YTDLP_VERSION: target.version };
   if (target.channel && target.channel !== config.ytdlp.channel) changes.YTDLP_CHANNEL = target.channel;
-  const saved = saveCard(req, res, changes, `이전 버전으로 되돌림: ${target.version}`);
+  const saved = saveCard(req, res, "yt-dlp", changes, `이전 버전으로 되돌림: ${target.version}`);
   if (!saved) return;
   converge(true);
   res.status(202).json(reply(saved));
@@ -111,6 +114,56 @@ vendorRouter.post("/bgutil/install", async (req, res) => {
   if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 받기. 실행 ${ranBy(req)}`);
   res.json(reply());
 });
+
+// bgutil 최신 릴리스 태그를 확인한다(받지 않는다). 결과는 카드 상태의 latest
+vendorRouter.post("/bgutil/check", async (_req, res) => {
+  try {
+    await bgutilRemote.check();
+    res.json(reply());
+  } catch (error) {
+    log.warn({ sub: "admin" }, `bgutil 최신 릴리스 조회 실패: ${messageOf(error)}`);
+    sendProblem(res, "tool-check-failed", {}, { detail: messageOf(error) });
+  }
+});
+
+// 태그가 가리키는 커밋을 저장소에서 확인한다(저장하지 않는다). 고정은 여기서 확인한 커밋만 받는다
+vendorRouter.post("/bgutil/resolve", async (req, res) => {
+  const tag = text(req.body?.tag);
+  if (!tag || !isPlainTag(tag)) return sendProblem(res, "bad-request");
+  try {
+    const commit = await bgutilRemote.resolve(tag);
+    if (!commit) return sendProblem(res, "bgutil-tag-missing");
+    res.json({ tag, commit } satisfies BgutilResolveReply);
+  } catch (error) {
+    log.warn({ sub: "admin" }, `bgutil 태그 ${tag}의 커밋 조회 실패: ${messageOf(error)}`);
+    sendProblem(res, "bgutil-resolve-failed", {}, { detail: messageOf(error) });
+  }
+});
+
+// bgutil 버전 고정(tag, commit: 방금 확인한 짝) 또는 해제(tag가 null이면 코드의 기본 짝). 둘 다 최근 로그인을 요구한다.
+// expect: 화면이 보던 목표 태그와 커밋. 저장하면 받기를 시작한다(꺼져 있고 설치된 것이 없으면 켤 때 받는다). 설치가 도는 동안에는 바꾸지 않는다
+vendorRouter.post("/bgutil/pin", requireRecentLogin, async (req, res) => {
+  const asked = pinAsked(req.body);
+  if ("problem" in asked) return sendProblem(res, asked.problem);
+  const { pin } = asked;
+  const short = (one: { tag: string; commit: string }) => `${one.tag}(${one.commit.slice(0, 7)})`;
+  const was = config.bgutil.pinned ? short({ tag: config.bgutil.version, commit: config.bgutil.commit }) : "없음";
+  const saved = saveCard(req, res, "bgutil", { BGUTIL_VERSION: pin?.tag ?? null, BGUTIL_COMMIT: pin?.commit ?? null }, `고정 버전 변경: ${was} → ${pin ? short(pin) : `없음(기본값 ${BGUTIL_VERSION})`}`);
+  if (!saved) return;
+  await bgutilAutoInstall.ensure("manual");
+  res.status(202).json(reply(saved));
+});
+
+// 고정 요청을 읽는다. pin: 고정할 짝(null이면 해제). 화면이 보던 목표가 바뀌었거나, 설치가 돌거나, 확인한 커밋이 아니면 거절 사유
+function pinAsked(body: { tag?: unknown; commit?: unknown; expect?: { tag?: unknown; commit?: unknown } } | undefined): { pin: { tag: string; commit: string } | null } | { problem: "config-changed" | "bgutil-installing" | "bgutil-resolve-stale" } {
+  if (body?.expect?.tag !== config.bgutil.version || body.expect.commit !== config.bgutil.commit) return { problem: "config-changed" };
+  if (bgutilAutoInstall.job() !== null) return { problem: "bgutil-installing" };
+  const tag = text(body.tag);
+  if (tag === null) return { pin: null };
+  const commit = text(body.commit)?.toLowerCase() ?? "";
+  const fresh = isPlainTag(tag) && isCommitSha(commit) && bgutilRemote.resolvedCommit(tag) === commit;
+  return fresh ? { pin: { tag, commit } } : { problem: "bgutil-resolve-stale" };
+}
 
 // 설치 후 다시 시작. 지금 상태로 정한다: 이미 설치돼 있으면 곧바로 다시 시작하고, 설치가 돌거나 미뤄져 있으면 끝날 때 다시 시작하도록 예약한다.
 // 둘 다 아니면(설치 실패, 필요한 도구가 없음) bgutil-not-installing. 실행기 없이 켠 봇이면 다시 시작할 쪽이 없어 거절한다. announce는 /restart와 같다

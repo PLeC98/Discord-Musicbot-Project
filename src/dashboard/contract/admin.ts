@@ -189,6 +189,8 @@ type RedeployReply = { success: true; count: number; scope: string; guildId: str
 type RestartReply = { restarting: true };
 /** 설치 후 다시 시작의 응답. restarting: 이미 설치돼 있어 곧바로 다시 시작한다, reserved: 설치가 끝나면 다시 시작하도록 예약했다 */
 type BgutilRestartReply = { restarting: boolean; reserved: boolean };
+/** bgutil 카드의 커밋 확인(POST /api/admin/vendor/bgutil/resolve): 태그와 그 태그가 가리키는 커밋 */
+type BgutilResolveReply = { tag: string; commit: string };
 /** 특권 인텐트 켜기. enabled: 켰다(다시 시작하면 적용), already: 이미 켜져 있었다 */
 type IntentEnableReply = { result: "enabled" | "already" };
 
@@ -270,6 +272,7 @@ export type {
   RedeployReply,
   RestartReply,
   BgutilRestartReply,
+  BgutilResolveReply,
   IntentEnableReply,
   PanelPrefs,
   GeoipStatus,

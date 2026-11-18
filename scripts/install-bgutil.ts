@@ -19,7 +19,7 @@ import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는�
 import path from "node:path";
 import config from "../src/config/index.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "../src/config/vendor-versions.ts";
-import { taggedCommit } from "../src/rules/bgutil-install.ts";
+import { BGUTIL_REPO, taggedCommit } from "../src/rules/bgutil-install.ts";
 import { checkoutPinned, gitWith } from "../src/infra/pinned-checkout.ts";
 import { runTool } from "../src/infra/tool-run.ts";
 import { toolEnv } from "../src/config/tool-env.ts";
@@ -31,8 +31,8 @@ import { trialRun } from "../src/sources/bgutil/trial.ts";
 import { scriptLine, type ScriptLevel } from "../src/infra/script-line.ts";
 import { parseInstallArgs, type InstallMode } from "../src/sources/bgutil/cli-args.ts";
 
-const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
-const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
+const REPO = `https://github.com/${BGUTIL_REPO}.git`;
+const TAGS_URL = `https://github.com/${BGUTIL_REPO}/tags`;
 
 // 명령마다의 상한(ms). 체크아웃의 git(합쳐 11분)과 이 셋을 더해도 30분 안이다
 const NPM_CI_MS = 10 * 60_000;

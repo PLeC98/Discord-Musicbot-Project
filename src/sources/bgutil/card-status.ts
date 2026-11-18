@@ -5,6 +5,7 @@ import { PROJECT } from "../../infra/project-paths.ts";
 import { readState } from "./state.ts";
 import { bgutilBundle } from "./bundle.ts";
 import { bgutilAutoInstall } from "./auto-install.ts";
+import { bgutilRemote } from "./remote.ts";
 import { potServerUrl } from "../youtube/pot-server.ts";
 import type { BgutilCardStatus } from "./status-types.ts";
 
@@ -24,6 +25,7 @@ function bgutilCardStatus(): BgutilCardStatus {
     serving: bundle ? { tag: bundle.tag, commit: bundle.commit, version: bundle.version } : null,
     target,
     pinned: config.bgutil.pinned,
+    latest: bgutilRemote.latest,
     job: auto.job(),
     failure: auto.failure,
     missing: auto.missing,

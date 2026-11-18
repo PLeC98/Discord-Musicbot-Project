@@ -159,6 +159,12 @@ const WEB = {
   "tool-cleanup-failed": { status: 500, title: "Could not delete previous versions" },
   // 설치 후 다시 시작: bgutil이 설치돼 있지도 않고 설치하는 중도 아니다(설치 실패, 필요한 도구가 없음)
   "bgutil-not-installing": { status: 409, title: "The POToken provider is not being installed" },
+  // bgutil 버전 고정: 설치가 도는 중이다(끝난 목표가 바뀐 설정 아래에서 끝나지 않게)
+  "bgutil-installing": { status: 409, title: "The POToken provider is being installed" },
+  // bgutil 버전 고정: 저장소에 그 태그가 없다, 태그의 커밋을 조회하지 못했다, 확인한 커밋이 없거나 오래됐거나 화면이 보낸 것과 다르다
+  "bgutil-tag-missing": { status: 404, title: "The tag is not in the repository" },
+  "bgutil-resolve-failed": { status: 502, title: "Could not look up the tag's commit" },
+  "bgutil-resolve-stale": { status: 409, title: "Check the tag's commit again" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
   "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },

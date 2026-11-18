@@ -1,5 +1,8 @@
 // bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 받을지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
 
+/** GitHub 저장소(owner/name) */
+const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
+
 /** git 커밋 해시(40자 소문자 16진) */
 function isCommitSha(text: string) {
   return /^[0-9a-f]{40}$/.test(text);
@@ -69,5 +72,5 @@ function rootInstallScripts(pkg: { scripts?: Record<string, unknown> }): string[
   return ROOT_LIFECYCLE.filter((name) => typeof pkg.scripts?.[name] === "string");
 }
 
-export { isCommitSha, isPlainTag, bgutilTarget, taggedCommit, rebuildTargets, rootInstallScripts };
+export { BGUTIL_REPO, isCommitSha, isPlainTag, bgutilTarget, taggedCommit, rebuildTargets, rootInstallScripts };
 export type { BgutilTargetProblem };
