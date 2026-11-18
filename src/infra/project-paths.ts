@@ -23,8 +23,10 @@ const PROJECT = {
   certs: path.join(ROOT, "certs"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
-  /** 설치 스크립트가 다운로드하는 실행 파일(yt-dlp). 옛 ffmpeg 번들(ffmpeg, ffmpeg.exe)도 여기 남아 있을 수 있다 */
+  /** 옛 자리. 예전 ffmpeg 번들(ffmpeg, ffmpeg.exe)과 yt-dlp 폴더가 남아 있을 수 있다. ffmpeg만 대비책으로 본다(media/ffmpeg/path) */
   bin: path.join(VENDOR, "bin"),
+  /** yt-dlp 버전 폴더와 기록(sources/ytdlp-binary) */
+  ytdlp: path.join(VENDOR, "yt-dlp"),
   /** ffmpeg 빌드 폴더와 기록(media/ffmpeg/state) */
   ffmpeg: path.join(VENDOR, "ffmpeg"),
   /** POToken 공급자 체크아웃 */

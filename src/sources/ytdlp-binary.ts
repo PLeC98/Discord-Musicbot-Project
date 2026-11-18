@@ -1,4 +1,4 @@
-// yt-dlp 바이너리(onedir 판: 실행 파일과 _internal 폴더). 버전마다 vendor/bin/yt-dlp/<버전>/ 에 두고, yt-dlp를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
+// yt-dlp 바이너리(onedir 판: 실행 파일과 _internal 폴더). 버전마다 vendor/yt-dlp/<버전>/에 두고, yt-dlp를 실행하는 곳(ytdlp-spawn)은 실행할 때마다 현재 버전의 경로를 가져온다.
 //
 // 새 버전은 GitHub 릴리스의 zip을 받아 서명, 체크섬을 맞추고(ytdlp-release) 풀어서, --version이 목표와 같을 때만 버전 폴더로 옮겨 교체한다.
 // 교체는 가리키는 경로(state.json)만 바꾸므로 이미 돌고 있는 yt-dlp는 옛 버전으로 끝까지 돈다. 처음에는(기록이 없으면) 설정과 상관없이 목표 버전을 설치한다.
@@ -49,7 +49,7 @@ const RENAME_GAP_MS = 500;
 const BUSY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
 
 /**
- * vendor/bin/yt-dlp/state.json. 현재 버전(설치 전이면 null), 이전 버전, 최신을 마지막으로 확인한 시각과 그때의 채널(채널을 바꾸면 확인한 적 없는 것이다),
+ * vendor/yt-dlp/state.json. 현재 버전(설치 전이면 null), 이전 버전, 최신을 마지막으로 확인한 시각과 그때의 채널(채널을 바꾸면 확인한 적 없는 것이다),
  * 다운로드했지만 이 환경에서 실행되지 않은 태그(일일 확인이 다시 다운로드하지 않는다), 현재 버전과 이전 버전을 다운로드한 채널(그 필드가 없던 기록이면 null: 모른다)
  */
 type State = { version: string | null; previous: string | null; lastChecked: number; unusable: string | null; channel: Channel | null; previousChannel: Channel | null; checkedChannel: Channel | null };
@@ -191,7 +191,7 @@ async function realLock(dir: string): Promise<Unlock | { holder: number | null }
   }
 }
 
-const REAL_DIR = path.join(PROJECT.bin, "yt-dlp");
+const REAL_DIR = PROJECT.ytdlp;
 const REAL: Io = {
   dir: REAL_DIR,
   asset: assetHere,
