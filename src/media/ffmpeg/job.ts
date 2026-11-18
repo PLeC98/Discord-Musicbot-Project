@@ -4,6 +4,7 @@
 
 import { spawn } from "node:child_process";
 import { ffmpegPath } from "./path.ts";
+import { toolEnv } from "../../config/tool-env.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import { bindCommand, bindProcess } from "../../infra/cpu-affinity.ts";
 import type { Job } from "../../infra/process-job.ts";
@@ -52,10 +53,10 @@ function progressWatch(stallMs: number, onStall: () => void) {
 type FfmpegResult = { code: number | null; signal: NodeJS.Signals | null; stdout: string; output: Buffer; stderr: string; aborted: boolean; timedOut: boolean };
 
 /**
- * 작업 ffmpeg에 넘길 환경 변수. 리눅스의 glibc는 스레드마다 메모리 아레나를 따로 만들어서, 스레드가 많은 인코더(SVT-AV1)를 돌리면 인코딩이 길어질수록 메모리 사용량이 는다.
+ * 작업 ffmpeg에 넘길 환경 변수(봇의 비밀값 환경 변수는 뺀다). 리눅스의 glibc는 스레드마다 메모리 아레나를 따로 만들어서, 스레드가 많은 인코더(SVT-AV1)를 돌리면 인코딩이 길어질수록 메모리 사용량이 는다.
  * 아레나를 하나로 제한하면 늘지 않고 속도는 그대로다. 운영자가 MALLOC_ARENA_MAX를 줬으면 그 값을 쓴다. glibc가 아닌 환경은 이 변수를 읽지 않는다
  */
-const jobEnv = (platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv => (platform === "linux" ? { MALLOC_ARENA_MAX: "1", ...env } : env);
+const jobEnv = (platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = toolEnv()): NodeJS.ProcessEnv => (platform === "linux" ? { MALLOC_ARENA_MAX: "1", ...env } : env);
 
 /** setTimeout이 받는 가장 긴 지연(ms, 32비트 부호 정수, 약 24.8일). 넘기면 Node가 1ms로 바꿔 곧바로 끊는다(긴 영상의 작업 시간 상한이 넘는다) */
 const MAX_TIMER_MS = 2 ** 31 - 1;

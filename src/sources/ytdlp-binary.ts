@@ -13,6 +13,7 @@ import fs from "fs";
 import path from "path";
 import { spawn, type ChildProcess } from "child_process";
 import config from "../config/index.ts";
+import { toolEnv } from "../config/tool-env.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { acquireInstanceLock } from "../infra/instance-lock.ts";
@@ -123,7 +124,7 @@ function realRun(file: string, args: string[], timeoutMs: number): Promise<Ran> 
     const release = leaseFor(file);
     let child: ChildProcess;
     try {
-      child = spawn(file, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+      child = spawn(file, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"], env: toolEnv() });
     } catch (error) {
       release();
       return resolve({ kind: "spawn-failed", code: String(codeOf(error) ?? messageOf(error)) });
@@ -166,7 +167,7 @@ async function realFetch({ repo, tag, asset, staging, skipSignature }: Parameter
   }
   fs.rmSync(zipFile, { force: true });
   // 처음 띄울 때의 백신 검사는 워커 스레드에서 받는다(메인에서 받으면 재생 중인 소리가 끊긴다). 다음 --version 확인은 메인에서 바로 뜬다
-  await warmExecutable(path.join(staging, "dir", asset.exe), ["--version"], VERSION_TIMEOUT_MS);
+  await warmExecutable(path.join(staging, "dir", asset.exe), ["--version"], VERSION_TIMEOUT_MS, toolEnv());
 }
 
 /** 살아 있는 프로세스인가. ESRCH만 없는 것으로 본다(권한이 없어 못 보는 것은 살아 있다) */

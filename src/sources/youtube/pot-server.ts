@@ -13,6 +13,7 @@ import logger from "../../infra/log/logger.ts";
 import * as processRegistry from "../../infra/process-registry.ts";
 const log = logger.child({ category: "core" });
 import config from "../../config/index.ts";
+import { toolEnv } from "../../config/tool-env.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 
@@ -32,7 +33,7 @@ type Output = { on(event: "data", listener: (chunk: Buffer) => void): unknown } 
 type PotProcess = { pid?: number; exitCode?: number | null; signalCode?: string | null; stdout: Output; stderr: Output; on(event: "exit", listener: (code: number | null) => void): unknown; on(event: "error", listener: (error: Error) => void): unknown; once(event: "exit", listener: () => void): unknown; kill(signal?: NodeJS.Signals): unknown };
 /** 내린 결과. none 실행한 것이 없다, stopped 꺼졌다, timeout 상한 안에 꺼지지 않았다 */
 type PotStop = "none" | "stopped" | "timeout";
-type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["pipe", "pipe", "pipe"] }) => PotProcess;
+type Spawn = (command: string, args: string[], options: { cwd: string; stdio: ["pipe", "pipe", "pipe"]; env: NodeJS.ProcessEnv }) => PotProcess;
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; json?(): Promise<unknown> }>;
 type FreePort = () => Promise<number>;
 
@@ -144,7 +145,7 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
     if (stopping) return;
     // 다시 실행하는 사이에도 이 주소를 넘긴다. 빼면 플러그인이 기본 주소(4416)의 남의 서버로 간다
     current = `http://${HOST}:${port}`;
-    const child = spawn(process.execPath, ["--import", EXIT_WITH_PARENT, "build/main.js", "-p", String(port), "-H", HOST], { cwd: SERVER_DIR, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(process.execPath, ["--import", EXIT_WITH_PARENT, "build/main.js", "-p", String(port), "-H", HOST], { cwd: SERVER_DIR, stdio: ["pipe", "pipe", "pipe"], env: toolEnv() });
     proc = child;
     let bindFailed = false;
     // 레지스트리가 프로세스가 끝날 때(치명적 종료 포함) 함께 내린다. stop()을 못 부르고 나가도 서버가 포트를 쥔 채 남지 않게

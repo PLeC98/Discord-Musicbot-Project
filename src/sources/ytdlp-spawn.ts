@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import type { SpawnOptions } from "child_process";
 import config from "../config/index.ts";
+import { toolEnv } from "../config/tool-env.ts";
 import logger from "../infra/log/logger.ts";
 import * as procRegistry from "../infra/process-registry.ts";
 import { currentJob } from "../infra/guild-context.ts";
@@ -311,7 +312,7 @@ async function run(url: string, flags: YtDlpFlags = {}, { retry = false, job, ..
 
 // 한 번 띄워 끝을 기다린다. 정보 호출은 한도를 넘으면, 다운로드는 파일이 멎으면 내린다
 async function spawnOnce(url: string, flags: YtDlpFlags, opts: SpawnOptions, job: Job): Promise<unknown> {
-  const sub = execNow()(url, flags, { ...SPAWN_OPTS, ...opts });
+  const sub = execNow()(url, flags, { ...SPAWN_OPTS, env: toolEnv(), ...opts });
   // yt-dlp는 봇보다 낮은 우선순위로 돌린다. 같은 우선순위로 뜨면 뜬 직후(수십 ms) 재생 인코딩 워커가 20ms 넘게 CPU를 못 받아 소리가 밀릴 수 있다
   const release = procRegistry.register(sub, "yt-dlp", { group: !IS_WIN, job, lowPriority: true });
   let timedOut = false;

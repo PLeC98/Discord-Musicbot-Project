@@ -4,10 +4,12 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { checkoutPinned } from "../../src/infra/pinned-checkout.ts";
+import { checkoutPinned, gitWith } from "../../src/infra/pinned-checkout.ts";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "pinned-checkout-"));
 after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5 }));
@@ -37,33 +39,35 @@ git(["branch", "v1", c3], origin);
 
 let n = 0;
 const fresh = () => path.join(root, `clone-${++n}`);
-const run = (dir: string, tag: string, commit: string, repo = origin) => checkoutPinned({ dir, repo, tag, commit, git });
+// 체크아웃은 설치 스크립트와 같은 git 실행(자격 증명을 묻지 않음, 시간 상한)으로 한다
+const toolGit = gitWith(env);
+const run = (dir: string, tag: string, commit: string, repo = origin) => checkoutPinned({ dir, repo, tag, commit, git: toolGit });
 const content = (dir: string) => fs.readFileSync(path.join(dir, "server", "main.ts"), "utf8");
 
-test("경량 태그, 주석 태그를 받아 그 커밋에 선다. 같은 이름의 브랜치가 있어도 태그를 쓴다", () => {
+test("경량 태그, 주석 태그를 받아 그 커밋에 선다. 같은 이름의 브랜치가 있어도 태그를 쓴다", async () => {
   const dir = fresh();
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   assert.equal(git(["rev-parse", "HEAD"], dir).trim(), c1);
   assert.equal(content(dir), "export const n = 1;\n");
-  run(dir, "v2", c2);
+  await run(dir, "v2", c2);
   assert.equal(git(["rev-parse", "HEAD"], dir).trim(), c2);
 });
 
-test("받을 폴더가 있는데 git 체크아웃이 아니면 바깥 저장소를 건드리지 않고 멈춘다", () => {
+test("받을 폴더가 있는데 git 체크아웃이 아니면 바깥 저장소를 건드리지 않고 멈춘다", async () => {
   const dir = path.join(origin, "server");
-  assert.throws(() => run(dir, "v1", c1), /git 체크아웃이 아닙니다/);
+  await assert.rejects(() => run(dir, "v1", c1), /git 체크아웃이 아닙니다/);
   assert.equal(git(["status", "--porcelain"], origin), "", "원본 저장소는 그대로");
 });
 
-test("받을 폴더의 상위 폴더가 없으면 만들어 클론한다", () => {
+test("받을 폴더의 상위 폴더가 없으면 만들어 클론한다", async () => {
   const dir = path.join(root, "no-parent", "deep", "bgutil");
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   assert.equal(git(["rev-parse", "HEAD"], dir).trim(), c1);
 });
 
-test("이전 설치가 남긴 것(스테이징된 변경, 추적하지 않는 파일, 무시 파일, 이전 빌드)을 지우고 그 커밋 그대로 선다", () => {
+test("이전 설치가 남긴 것(스테이징된 변경, 추적하지 않는 파일, 무시 파일, 이전 빌드)을 지우고 그 커밋 그대로 선다", async () => {
   const dir = fresh();
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   fs.writeFileSync(path.join(dir, "server", "main.ts"), "export const evil = 1;\n");
   git(["add", "server/main.ts"], dir);
   fs.writeFileSync(path.join(dir, "server", "extra.ts"), "export {};\n");
@@ -71,57 +75,73 @@ test("이전 설치가 남긴 것(스테이징된 변경, 추적하지 않는 �
   fs.mkdirSync(path.join(dir, "server", "build"), { recursive: true });
   fs.writeFileSync(path.join(dir, "server", "build", "main.js"), "evil();\n");
   fs.mkdirSync(path.join(dir, "server", "node_modules", "x"), { recursive: true });
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   assert.equal(content(dir), "export const n = 1;\n");
   for (const left of ["extra.ts", ".npmrc", "build", "node_modules"]) assert.equal(fs.existsSync(path.join(dir, "server", left)), false, left);
   assert.equal(git(["status", "--porcelain", "--ignored"], dir), "");
 });
 
-test("원본에서 태그가 옮겨지면 두 커밋을 적고 멈춘다. 체크아웃은 그대로", () => {
+test("원본에서 태그가 옮겨지면 두 커밋을 적고 멈춘다. 체크아웃은 그대로", async () => {
   const moved = path.join(root, "moved");
   git(["clone", "-q", "--mirror", origin, moved], root);
   const dir = fresh();
-  run(dir, "v1", c1, moved);
+  await run(dir, "v1", c1, moved);
   git(["tag", "-f", "v1", c2], moved);
-  assert.throws(
+  await assert.rejects(
     () => run(dir, "v1", c1, moved),
     (error: Error) => error.message.includes(c1) && error.message.includes(c2),
   );
   assert.equal(git(["rev-parse", "HEAD"], dir).trim(), c1);
-  assert.throws(() => run(fresh(), "v1", c1, moved), /태그가 옮겨졌을 수 있어/, "새로 클론해도 같다");
+  await assert.rejects(() => run(fresh(), "v1", c1, moved), /태그가 옮겨졌을 수 있어/, "새로 클론해도 같다");
 });
 
-test("로컬 태그만 옮겨진 것은 원본에 맞게 고쳐 받는다", () => {
+test("로컬 태그만 옮겨진 것은 원본에 맞게 고쳐 받는다", async () => {
   const dir = fresh();
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   git(["tag", "-f", "v1", c2], dir);
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   assert.equal(git(["rev-parse", "refs/tags/v1^{commit}"], dir).trim(), c1);
 });
 
-test("원본에 닿지 못하면 로컬 태그가 맞아도 멈춘다. 원본에 태그가 없어도 멈춘다", () => {
+test("원본에 닿지 못하면 로컬 태그가 맞아도 멈춘다. 원본에 태그가 없어도 멈춘다", async () => {
   const dir = fresh();
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   git(["remote", "set-url", "origin", path.join(root, "gone")], dir);
   fs.writeFileSync(path.join(dir, "server", "extra.ts"), "export {};\n");
-  assert.throws(() => run(dir, "v1", c1));
+  await assert.rejects(() => run(dir, "v1", c1));
   assert.equal(fs.existsSync(path.join(dir, "server", "extra.ts")), true, "확인 전에는 아무것도 지우지 않는다");
-  assert.throws(() => run(fresh(), "v9", c1));
+  await assert.rejects(() => run(fresh(), "v9", c1));
 });
 
-test("정리한 뒤에도 파일이 남으면 멈춘다(clean이 무엇을 남긴 경우)", () => {
+test("정리한 뒤에도 파일이 남으면 멈춘다(clean이 무엇을 남긴 경우)", async () => {
   const dir = fresh();
-  run(dir, "v1", c1);
+  await run(dir, "v1", c1);
   fs.writeFileSync(path.join(dir, "server", "extra.ts"), "export {};\n");
   const noClean = (args: string[], cwd: string) => (args[0] === "clean" ? "" : git(args, cwd));
-  assert.throws(() => checkoutPinned({ dir, repo: origin, tag: "v1", commit: c1, git: noClean }), /바뀐 파일 1개/);
+  await assert.rejects(() => checkoutPinned({ dir, repo: origin, tag: "v1", commit: c1, git: noClean }), /바뀐 파일 1개/);
 });
 
-test("새로 클론하면 확인 전에 파일을 풀지 않는다(태그가 맞지 않으면 작업 트리가 비어 있다)", () => {
+test("새로 클론하면 확인 전에 파일을 풀지 않는다(태그가 맞지 않으면 작업 트리가 비어 있다)", async () => {
   const dir = fresh();
-  assert.throws(() => run(dir, "v1", c2));
+  await assert.rejects(() => run(dir, "v1", c2));
   assert.deepEqual(
     fs.readdirSync(dir).filter((name) => name !== ".git"),
     [],
   );
+});
+
+test("원본이 인증을 요구하면 자격 증명을 묻지 않고 곧바로 실패한다", async () => {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(401, { "WWW-Authenticate": 'Basic realm="t"' });
+    res.end();
+  });
+  await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+  const { port } = server.address() as AddressInfo;
+  try {
+    const started = Date.now();
+    await assert.rejects(run(fresh(), "v1", c1, `http://127.0.0.1:${port}/x.git`), /terminal prompts disabled/);
+    assert.ok(Date.now() - started < 20_000, `${Date.now() - started}ms`);
+  } finally {
+    server.close();
+  }
 });

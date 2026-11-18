@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { ffmpegPath } from "./path.ts";
+import { toolEnv } from "../../config/tool-env.ts";
 import { AUDIO_FORMATS, inputFilter } from "./input-filter.ts";
 import * as procRegistry from "../../infra/process-registry.ts";
 import logger from "../../infra/log/logger.ts";
@@ -24,7 +25,7 @@ const PLAYING = new Set(["stream", "playback", "switch"]);
  */
 function spawnFfmpeg(args: string[], label: string, { killOnStdoutClose = true }: { killOnStdoutClose?: boolean } = {}): ChildProcessWithoutNullStreams {
   const bin = ffmpegPath();
-  const child = spawn(bin, args, { windowsHide: true });
+  const child = spawn(bin, args, { windowsHide: true, env: toolEnv() });
 
   // 봇이 강제 종료돼도 고아로 남지 않도록 등록(라이브 스트리밍은 알아서 끝나지 않는다).
   // 소리를 내는 것은 재생, 검사는 실행한 문맥의 작업(지금 곡, 다음 곡)

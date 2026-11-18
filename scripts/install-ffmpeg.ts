@@ -15,8 +15,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
-import { spawnSync } from "child_process";
 import config from "../src/config/index.ts";
+import { toolEnv } from "../src/config/tool-env.ts";
+import { runTool } from "../src/infra/tool-run.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 import { TARGETS, RELEASES_URL, assetFor } from "../src/media/ffmpeg/release.ts";
@@ -26,6 +27,12 @@ const ROOT = PROJECT.root;
 const BIN_DIR = PROJECT.bin;
 
 const force = process.argv.includes("--force");
+
+// 명령마다의 시간 상한(ms): tar 한 번, 다운로드한 ffmpeg의 실행 확인(백신이 처음 보는 실행 파일을 검사하느라 늦을 수 있다)
+const TAR_MS = 2 * 60_000;
+const PROBE_MS = 30_000;
+// 외부 도구(tar, 다운로드한 ffmpeg)에는 봇의 비밀값 환경 변수를 뺀 환경을 넘긴다
+const env = toolEnv();
 
 function skip(reason: string): never {
   console.log(`ℹ️  [ffmpeg] ${reason}`);
@@ -53,22 +60,23 @@ function tarCandidates() {
  * 경로는 전부 상대경로로 넘기고 cwd로 위치를 잡는다. GNU tar는 `-f C:\...`의 콜론을
  * 원격 호스트 지정으로 해석해 실패한다.
  */
-function extractBinary(archiveName: string, binName: string, cwd: string) {
+async function extractBinary(archiveName: string, binName: string, cwd: string) {
   const errors: string[] = [];
   for (const tar of tarCandidates()) {
-    const run = (args: string[]) => spawnSync(tar, args, { cwd, encoding: "utf8", windowsHide: true });
+    const run = (args: string[]) => runTool(tar, args, { cwd, env, label: tar, timeoutMs: TAR_MS, capture: true });
 
-    const list = run(["-tf", archiveName]);
-    if (list.status !== 0) {
-      errors.push(`${tar}: ${(list.stderr || list.error?.message || "").trim().split("\n")[0]}`);
+    let listed: string;
+    try {
+      listed = await run(["-tf", archiveName]);
+    } catch (error) {
+      errors.push(messageOf(error).split("\n")[0] ?? "");
       continue;
     }
 
-    const member = list.stdout.split(/\r?\n/).find((entry) => entry.endsWith(`/bin/${binName}`));
+    const member = listed.split(/\r?\n/).find((entry) => entry.endsWith(`/bin/${binName}`));
     if (!member) throw new Error(`아카이브에서 bin/${binName}을 찾지 못했습니다`);
 
-    const extract = run(["-xf", archiveName, member]);
-    if (extract.status !== 0) throw new Error(`압축 해제 실패: ${(extract.stderr || "").trim()}`);
+    await run(["-xf", archiveName, member]);
     return path.join(cwd, member);
   }
   throw new Error(`아카이브를 열 수 있는 tar가 없습니다 (.tar.xz는 xz-utils 필요)\n  ${errors.join("\n  ")}`);
@@ -117,7 +125,7 @@ async function main() {
   try {
     fs.writeFileSync(path.join(tmpDir, assetName), archiveBuf);
 
-    const extracted = extractBinary(assetName, target.bin, tmpDir);
+    const extracted = await extractBinary(assetName, target.bin, tmpDir);
     fs.mkdirSync(BIN_DIR, { recursive: true });
     fs.copyFileSync(extracted, binPath);
     if (process.platform !== "win32") fs.chmodSync(binPath, 0o755);
@@ -127,8 +135,10 @@ async function main() {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 
-  const probe = spawnSync(binPath, ["-version"], { encoding: "utf8", windowsHide: true });
-  const reported = /ffmpeg version (\S+)/i.exec(probe.stdout || "");
+  const probe = await runTool(binPath, ["-version"], { env, label: "ffmpeg -version", timeoutMs: PROBE_MS, capture: true }).catch((error: unknown) => {
+    throw new Error(`설치한 바이너리를 실행할 수 없습니다: ${messageOf(error)}`);
+  });
+  const reported = /ffmpeg version (\S+)/i.exec(probe);
   if (!reported) throw new Error("설치한 바이너리를 실행할 수 없습니다");
   console.log(`✅ [ffmpeg] ${reported[1]} → ${path.relative(ROOT, binPath)}`);
 }

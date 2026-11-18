@@ -386,7 +386,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 
   warnings.push(...envNameWarnings(source, envFileNames, readers.asked));
 
-  return { config, problems, warnings, tuneProblems };
+  // envNames: 이번에 읽은 환경 변수 이름(외부 도구에 넘기지 않을 비밀값 목록이 빠짐없는지 테스트가 검사한다)
+  return { config, problems, warnings, tuneProblems, envNames: readers.asked };
 }
 
 // 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그. 한 함수가 너무 길어 나눴다

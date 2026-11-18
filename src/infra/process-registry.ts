@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import logger from "./log/logger.ts";
@@ -8,10 +7,9 @@ import { currentGuild, currentJob } from "./guild-context.ts";
 import { startKeyOf } from "./process-snapshot.ts";
 import { settleChild } from "./process-priority.ts";
 import { repeatingFailure } from "./repeating-failure.ts";
+import { killTrees as killTreesOf } from "./kill-tree.ts";
 import type { Job } from "./process-job.ts";
 const log = logger.child({ category: "proc" });
-
-const IS_WIN = process.platform === "win32";
 
 /**
  * 자식 프로세스(yt-dlp, ffmpeg 등) 레지스트리. 봇이 내려갈 때 자손까지 함께 죽인다.
@@ -149,56 +147,26 @@ function _isAlive(child: Tracked | null | undefined): boolean {
   return child.exitCode === null && child.signalCode === null;
 }
 
-// taskkill 한 번에 넘기는 PID 수(명령줄 길이 한도 안). 하나씩 부르면 재생이 많을 때 종료가 수십 초 걸린다
-const TASKKILL_BATCH = 100;
-
 /**
  * 프로세스들과 그 자손을 강제 종료. 이미 종료된 프로세스는 건드리지 않는다.
- * killed: 내렸거나 그 사이 끝난 것, failed: 내리지 못한 것(권한 등. 기록에 남긴다)
+ * yt-dlp가 실행한 ffmpeg(손자 프로세스)는 트리 전체를 종료하는 이 경로에서만 정리된다.
+ * killed: 종료했거나 그사이 끝난 것, failed: 종료하지 못한 것(권한 등. 기록에 남겨 다음 기동이 이름, 시작 시각을 대조해 다시 종료한다)
  */
 function killTrees(entries: Entry[]): { killed: Entry[]; failed: Entry[] } {
-  // pid 0은 -0이 되어 자기 그룹을 죽인다. 끝난 것은 PID가 재사용된 남의 프로세스일 수 있다
-  const live = entries.filter(({ pid, child }) => Number.isInteger(pid) && pid > 1 && _isAlive(child));
-  const failed: Entry[] = [];
-  if (!IS_WIN) {
-    for (const entry of live) if (!killPosix(entry)) failed.push(entry);
-    return { killed: live.filter((entry) => !failed.includes(entry)), failed };
-  }
-  for (let i = 0; i < live.length; i += TASKKILL_BATCH) {
-    const batch = live.slice(i, i + TASKKILL_BATCH);
-    // /T = 자손 포함, /F = 강제. yt-dlp가 실행한 ffmpeg는 이 경로에서만 잡힌다. 128: 그 사이에 끝난 것이 있다(나머지는 내린다)
-    const { error, status, stderr } = spawnSync("taskkill", [...batch.flatMap(({ pid }) => ["/PID", String(pid)]), "/T", "/F"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
-    if (error || (status !== 0 && status !== 128)) {
-      // 배치의 어느 것이 실패했는지 알 수 없어 배치 전체를 기록에 남긴다(다음 기동이 이름, 시작 시각을 맞춰 보고 다시 내린다)
-      failed.push(...batch);
-      log.warn(`${batch.map(({ label, pid }) => `${label}#${pid}`).join(", ")} 종료 실패: ${error ? error.message : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr).trim()}`}`);
-    }
-  }
-  return { killed: live.filter((entry) => !failed.includes(entry)), failed };
+  // 이미 끝난 자식의 PID는 다른 프로세스가 다시 쓰고 있을 수 있다
+  const live = entries.filter(({ child }) => _isAlive(child));
+  const byPid = new Map(live.map((entry) => [entry.pid, entry]));
+  const names = (pids: number[]) => pids.map((pid) => `${byPid.get(pid)?.label ?? "?"}#${pid}`).join(", ");
+  const failedPids = killTreesOf(live, ({ pids, error, status, stderr }) => {
+    const why = error ? messageOf(error) : `taskkill 종료 코드 ${String(status)} · ${consoleText(stderr ?? Buffer.alloc(0)).trim()}`;
+    log.warn(`${names(pids)} 종료 실패: ${why}`);
+  });
+  const failed = live.filter((entry) => failedPids.has(entry.pid));
+  return { killed: live.filter((entry) => !failedPids.has(entry.pid)), failed };
 }
 
 function killTree(entry: Entry): boolean {
   return killTrees([entry]).killed.length > 0;
-}
-
-/** 내렸거나 이미 없으면 true */
-function killPosix(entry: Entry): boolean {
-  const { pid, group } = entry;
-  try {
-    // detached로 실행했으면 그룹 전체(-pid). 손자 ffmpeg까지 같이 죽는다.
-    process.kill(group ? -pid : pid, "SIGKILL");
-    return true;
-  } catch {
-    // ESRCH(이미 종료) 또는 그룹이 없는 경우. 직접 pid로 한 번 더.
-    try {
-      process.kill(pid, "SIGKILL");
-      return true;
-    } catch (error) {
-      if (codeOf(error) === "ESRCH") return true;
-      log.warn(`${entry.label}#${pid} 종료 실패: ${messageOf(error)}`);
-      return false;
-    }
-  }
 }
 
 /** 등록한 자식 하나를 트리째 종료한다(시간 한도를 넘긴 것 등). 등록돼 있지 않거나 이미 끝났으면 false */

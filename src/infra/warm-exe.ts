@@ -12,7 +12,7 @@ const { workerData, parentPort } = require("node:worker_threads");
 const done = () => parentPort.postMessage("done");
 let child = null;
 try {
-  child = spawn(workerData.file, workerData.args, { windowsHide: true, stdio: "ignore" });
+  child = spawn(workerData.file, workerData.args, { windowsHide: true, stdio: "ignore", env: workerData.env });
 } catch {
   done();
 }
@@ -24,11 +24,11 @@ if (child) {
 }
 `;
 
-/** file을 워커 스레드에서 args로 한 번 띄우고 끝날 때까지 기다린다. 띄우지 못해도 그냥 끝난다(호출부의 실행이 그 실패를 본다) */
-export function warmExecutable(file: string, args: string[], timeoutMs: number): Promise<void> {
+/** file을 워커 스레드에서 args, env로 한 번 띄우고 끝날 때까지 기다린다. 띄우지 못해도 그냥 끝난다(호출부의 실행이 그 실패를 본다) */
+export function warmExecutable(file: string, args: string[], timeoutMs: number, env: NodeJS.ProcessEnv): Promise<void> {
   if (process.platform !== "win32") return Promise.resolve();
   return new Promise((resolve) => {
-    const worker = new Worker(SOURCE, { eval: true, workerData: { file, args, timeoutMs } });
+    const worker = new Worker(SOURCE, { eval: true, workerData: { file, args, timeoutMs, env } });
     const finish = () => {
       void worker.terminate();
       resolve();

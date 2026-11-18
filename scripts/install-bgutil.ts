@@ -10,13 +10,14 @@
 // 봇은 실행 시 설치된 bgutil을 감지해 POToken 서버를 함께 시작한다(실행마다 빈 포트).
 
 import "../src/app/env-bootstrap.ts"; // 설정을 읽기 전에 .env를 읽는다(없으면 만든다)
-import { execFileSync } from "child_process";
 import path from "path";
 import fs from "fs";
 import config from "../src/config/index.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "../src/config/vendor-versions.ts";
 import { bgutilPin, rebuildTargets, rootInstallScripts } from "../src/rules/bgutil-install.ts";
-import { checkoutPinned } from "../src/infra/pinned-checkout.ts";
+import { checkoutPinned, gitWith } from "../src/infra/pinned-checkout.ts";
+import { runTool } from "../src/infra/tool-run.ts";
+import { toolEnv } from "../src/config/tool-env.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 import { PROJECT } from "../src/infra/project-paths.ts";
 
@@ -26,11 +27,20 @@ const SERVER = path.join(DIR, "server");
 const REPO = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git";
 const TAGS_URL = "https://github.com/Brainicism/bgutil-ytdlp-pot-provider/tags";
 
-// 윈도우의 npm은 .cmd라 셸로 부른다. 인자는 잠금 파일의 패키지 이름뿐이다
-function npm(args: string[]) {
+// 명령마다의 상한(ms). 체크아웃의 git(합쳐 11분)과 이 셋을 더해도 30분 안이다
+const NPM_CI_MS = 10 * 60_000;
+const NPM_REBUILD_MS = 5 * 60_000;
+const TSC_MS = 3 * 60_000;
+
+// 외부 도구에는 봇의 비밀값 환경 변수를 뺀 환경을 넘긴다(npm rebuild는 다운로드한 의존성의 설치 스크립트를 실행한다)
+const env = toolEnv();
+
+// 윈도우의 npm은 .cmd라 셸로 실행한다. 인자는 잠금 파일의 패키지 이름뿐이다(rebuildTargets가 모양을 본다)
+async function npm(args: string[], timeoutMs: number) {
   const cmd = `npm ${args.join(" ")}`;
   console.log(`\n$ ${cmd}   (${path.relative(ROOT, SERVER)})`);
-  execFileSync(cmd, { cwd: SERVER, stdio: "inherit", shell: true });
+  const run = { cwd: SERVER, env, label: cmd, timeoutMs };
+  await (process.platform === "win32" ? runTool(cmd, [], { ...run, shell: true }) : runTool("npm", args, run));
 }
 
 function fail(lines: string[]): never {
@@ -44,7 +54,7 @@ const { tag, commit } = pin;
 
 try {
   try {
-    checkoutPinned({ dir: DIR, repo: REPO, tag, commit, log: (line) => console.log(`\n$ ${line}   (${path.relative(ROOT, DIR)})`) });
+    await checkoutPinned({ dir: DIR, repo: REPO, tag, commit, git: gitWith(env), log: (line) => console.log(`\n$ ${line}   (${path.relative(ROOT, DIR)})`) });
   } catch (error) {
     fail([`\n❌ bgutil ${tag} 받기 실패: ${messageOf(error)}`, "   윈도우에서는 봇이 켜져 있으면 POToken 서버가 node_modules의 파일(canvas.node)을 물고 있어 지우지 못합니다. 봇을 끄고 다시 실행하세요.", `   그 밖의 경우라면 네트워크와 태그(${TAGS_URL})를 확인하세요.`]);
   }
@@ -58,16 +68,16 @@ try {
 
   // bgutil은 자체 npm 프로젝트(별도 ecosystem). 잠금 파일 그대로만 설치한다(npm install로 넘어가면 그날의 트리가 깔린다)
   try {
-    npm(["ci", "--ignore-scripts"]);
-    if (rebuild.length) npm(["rebuild", ...rebuild]);
-  } catch {
-    fail(["\n❌ 의존성 설치 실패. 위의 npm 오류를 보세요(네트워크, canvas 네이티브 모듈용 빌드 툴체인)."]);
+    await npm(["ci", "--ignore-scripts"], NPM_CI_MS);
+    if (rebuild.length) await npm(["rebuild", ...rebuild], NPM_REBUILD_MS);
+  } catch (error) {
+    fail([`\n❌ 의존성 설치 실패: ${messageOf(error)}`, "   위의 npm 오류를 보세요(네트워크, canvas 네이티브 모듈용 빌드 툴체인)."]);
   }
 
   // build/main.js 생성(tsconfig outDir=./build). npx를 거치지 않고 잠금 파일의 typescript를 쓴다
   const tsc = path.join(SERVER, "node_modules", "typescript", "bin", "tsc");
   console.log(`\n$ node ${path.relative(SERVER, tsc)}   (${path.relative(ROOT, SERVER)})`);
-  execFileSync(process.execPath, [tsc], { cwd: SERVER, stdio: "inherit" });
+  await runTool(process.execPath, [tsc], { cwd: SERVER, env, label: "tsc", timeoutMs: TSC_MS });
 
   console.log("\n✅ bgutil POToken 공급자 준비 완료. 봇 실행 시 자동 감지되어 함께 시작됩니다.");
   // yt-dlp 플러그인은 서버와 메이저 버전이 다르면 거부한다(경고가 아니라 중단).
