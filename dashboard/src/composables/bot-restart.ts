@@ -8,6 +8,7 @@ import { ref } from "vue";
 import axios from "axios";
 import { notify, notifyProblem } from "./toasts.ts";
 import { COUNTS_ONLY, statusParams, type AdminStatus, type RestartReply } from "../../../src/dashboard/contract/admin.ts";
+import type { Job } from "../../../src/infra/process-job.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
 
@@ -20,8 +21,8 @@ const phase = ref<Phase>("idle");
 /** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠). 없으면 null */
 type RestartReason = "save" | "snapshot" | null;
 const reason = ref<RestartReason>(null);
-/** 묻는 때 재생 중, 일시정지한 서버 수(봇 상태 탭의 플레이어 개수). 읽는 중이거나 읽지 못했으면 null */
-type PlayerCounts = { playing: number; paused: number };
+/** 창을 열 때의 재생 중, 일시정지한 서버 수(봇 상태 탭의 플레이어 개수)와 진행 중인 설치 작업(다시 시작하면 중단된다). 읽는 중이거나 읽지 못했으면 null */
+type PlayerCounts = { playing: number; paused: number; installJob: Job | null };
 const counts = ref<PlayerCounts | null>(null);
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -50,7 +51,7 @@ function askRestart(why: RestartReason = null) {
   counts.value = null;
   phase.value = "asking";
   countsNow().then(
-    (status) => void (counts.value = { playing: status.players.counts.playing, paused: status.players.counts.paused }),
+    (status) => void (counts.value = { playing: status.players.counts.playing, paused: status.players.counts.paused, installJob: status.env.installJob ?? null }),
     () => undefined,
   );
 }
