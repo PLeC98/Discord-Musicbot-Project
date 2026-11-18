@@ -1,4 +1,4 @@
-// bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 받을지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
+// bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 설치할지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
 
 /** GitHub 저장소(owner/name) */
 const BGUTIL_REPO = "Brainicism/bgutil-ytdlp-pot-provider";
@@ -17,8 +17,8 @@ function isPlainTag(text: string) {
 type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: string };
 
 /**
- * 받을 태그와 그 태그가 가리켜야 할 커밋. version, commit은 업데이트 탭의 bgutil 카드가 고정한 값(비면 없음).
- * 둘 다 없으면 기본 짝, 기본 태그만 있으면 고정한 커밋. 다른 태그는 커밋이 함께 있어야 한다(태그만으로는 받은 코드를 확인할 수 없다)
+ * 설치할 태그와 그 태그가 가리켜야 할 커밋. version, commit은 업데이트 탭의 bgutil 카드가 고정한 값(비면 없음).
+ * 둘 다 없으면 기본 짝, 기본 태그만 있으면 고정한 커밋. 다른 태그는 커밋이 함께 있어야 한다(태그만으로는 다운로드한 코드를 확인할 수 없다)
  */
 function bgutilTarget(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | BgutilTargetProblem {
   if (!version && !commit) return { tag: defaults.version, commit: defaults.commit };
@@ -26,7 +26,7 @@ function bgutilTarget(version: string, commit: string, defaults: { version: stri
   if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: "태그 이름이 아님" };
   if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: "커밋 해시 40자(16진수 소문자)여야 함" };
   if (version === defaults.version) return { tag: version, commit: defaults.commit };
-  return { key: "BGUTIL_COMMIT", value: "", reason: `태그를 기본값(${defaults.version})과 다르게 두면 그 태그의 커밋이 함께 있어야 함` };
+  return { key: "BGUTIL_COMMIT", value: "", reason: `기본값(${defaults.version})과 다른 태그에는 그 태그의 커밋이 함께 있어야 함` };
 }
 
 /**

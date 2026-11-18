@@ -144,6 +144,15 @@ const textOf = (values: Record<string, unknown>, key: string) => (typeof values[
 // 쿠키 출처의 이름(빈 값은 쓰지 않음, file은 직접 입력, 그 밖은 브라우저 이름)
 const cookiesName = (value: string) => (value === "" ? "쓰지 않음" : value === "file" ? "쿠키 직접 입력" : value);
 
+// 도구의 버전 고정이 바뀌는가. yt-dlp는 저장하자마자 그 버전으로 맞추고, bgutil은 설치된 것을 혼자서 바꾸지 않는다(카드의 설치 버튼)
+function pinWarnings(value: Record<string, unknown>, now: Record<string, string>): string[] {
+  const shown = (pin: string) => pin || "없음";
+  const ytdlp = [textOf(value, "YTDLP_VERSION"), now.YTDLP_VERSION ?? ""];
+  const bgutil = [textOf(value, "BGUTIL_VERSION"), now.BGUTIL_VERSION ?? ""];
+  const bgutilMoved = bgutil[0] !== bgutil[1] || textOf(value, "BGUTIL_COMMIT") !== (now.BGUTIL_COMMIT ?? "");
+  return [...(ytdlp[0] !== ytdlp[1] ? [`yt-dlp 버전 고정이 바뀌어요: ${shown(ytdlp[1])} → ${shown(ytdlp[0])}(불러오면 바로 그 버전으로 맞춰요)`] : []), ...(bgutilMoved ? [`bgutil 버전 고정이 바뀌어요: ${shown(bgutil[1])} → ${shown(bgutil[0])}(업데이트 탭의 bgutil 카드에서 설치해요)`] : [])];
+}
+
 function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (!isTable(json.tunables)) return absent("tunables");
   const value = json.tunables;
@@ -153,6 +162,7 @@ function tunablesRow(json: Partial<ArchiveJson>): ArchiveRow {
   if (website !== (now.WEBSITE ?? "")) warnings.push(website ? `봇 웹사이트 주소가 바뀌어요: ${website}` : "봇 웹사이트 주소가 비워져요.");
   if (cookies !== (now[COOKIES_KEY] ?? "")) warnings.push(`쿠키 출처가 바뀌어요: ${cookiesName(now[COOKIES_KEY] ?? "")} → ${cookiesName(cookies)}`);
   if (textOf(value, POTOKEN_KEY) !== (now[POTOKEN_KEY] ?? "")) warnings.push("POToken 사용이 바뀌어요(다시 시작해야 적용돼요)");
+  warnings.push(...pinWarnings(value, now));
   return { item: "tunables", inFile: true, same: stable(value) === stable(now), problems: tunables.problemsOf(value), warnings, count: null };
 }
 

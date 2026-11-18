@@ -189,7 +189,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "bgutil-installing": () => warning("state", "bgutil을 설치하는 중이에요!", "설치가 끝난 뒤에 다시 시도해 주세요."),
   "bgutil-tag-missing": () => warning("input", "저장소에 없는 태그예요!", "bgutil 저장소의 태그 목록에서 이름을 확인해 주세요."),
   "bgutil-resolve-failed": () => error("failed", "태그의 커밋을 확인하지 못했어요!", "저장소에서 태그 정보를 가져오지 못했어요. 아래 오류 내용을 확인해 주세요."),
-  "bgutil-resolve-stale": () => warning("stale", "태그의 커밋을 다시 확인해 주세요!", "확인한 지 오래됐거나 확인한 커밋과 달라요."),
+  "bgutil-resolve-stale": () => warning("stale", "태그의 커밋을 다시 확인해 주세요!", "확인한 지 오래됐거나 아직 확인하지 않은 태그예요."),
   "tool-cleanup-failed": () => error("failed", "이전 버전을 삭제하지 못했어요!", "아래 오류 내용을 확인해 주세요."),
   "tool-no-previous": () => warning("state", "되돌릴 이전 버전이 없어요!", "이전 버전의 기록이나 파일이 남아 있지 않아요. 되돌릴 버전을 직접 입력해 고정해 주세요."),
   // 운영자 패널의 특권 인텐트 켜기

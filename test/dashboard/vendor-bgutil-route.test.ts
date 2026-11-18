@@ -21,6 +21,7 @@ const { bgutilRemote, RESOLVED_MS } = await import("../../src/sources/bgutil/rem
 const { bgutilAutoInstall } = await import("../../src/sources/bgutil/auto-install.ts");
 const { BGUTIL_COMMIT, BGUTIL_VERSION } = await import("../../src/config/vendor-versions.ts");
 const { RECENT_LOGIN_MS } = await import("../../src/dashboard/contract/identity.ts");
+const { onTunablesChanged } = await import("../../src/config/tunables-changed.ts");
 
 const store = openTempStore("vendor-bgutil-");
 let loginAt = () => Date.now();
@@ -41,6 +42,8 @@ let clock = 1_000;
 let tags: Record<string, string> = {};
 let latest: string | Error = "2.0.3";
 let starts: string[][] = [];
+// 조립(app/main)이 하는 연결: 설정값이 바뀌면 자동 설치가 다시 판정한다(고정의 저장이 받기보다 먼저 판정을 부른다)
+const off = onTunablesChanged(() => void bgutilAutoInstall.ensure("settings"));
 
 beforeEach(() => {
   loginAt = () => Date.now();
@@ -79,6 +82,7 @@ beforeEach(() => {
 });
 
 after(() => {
+  off();
   bgutilRemote.io = realRemote;
   bgutilAutoInstall.deps = realDeps;
   Object.assign(bgutilAutoInstall, { running: null, wanted: false });

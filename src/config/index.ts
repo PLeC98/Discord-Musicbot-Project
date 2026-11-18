@@ -383,7 +383,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     // POToken 공급자(bgutil). 설치돼 있어도 켰을 때만 실행한다(인증 없는 로컬 HTTP 서버라 띄워 두면 공격 표면이 는다).
     bgutil: {
       enabled: tuneBool("BGUTIL_ENABLED"),
-      // 받을 태그와 그 태그가 가리키는 커밋. 업데이트 탭의 bgutil 카드가 고치고, 고정하지 않았으면 코드의 기본 짝(config/vendor-versions)
+      // 설치할 태그와 그 태그가 가리키는 커밋. 업데이트 탭의 bgutil 카드가 고치고, 고정하지 않았으면 코드의 기본 짝(config/vendor-versions)
       ...envBgutilTarget(),
     },
 

@@ -177,6 +177,16 @@ test("판정이 도는 중에 운영자의 받기가 오면 그 뒤에 받기로
   await first;
 });
 
+test("설치가 도는 동안 들어온 운영자의 받기는 그 설치가 맡는다. 실패한 뒤 상관없는 판정이 다시 설치하지 않는다", async () => {
+  const { w, auto, end } = world();
+  await auto.ensure("settings");
+  await auto.ensure("manual");
+  assert.equal(w.starts, 1);
+  end("failed");
+  await auto.ensure("settings");
+  assert.equal(w.starts, 1);
+});
+
 test("성공하면 실패를 지운다", async () => {
   const { auto, end } = world();
   await auto.ensure("startup");

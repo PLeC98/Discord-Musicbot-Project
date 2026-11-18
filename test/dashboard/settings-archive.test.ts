@@ -356,6 +356,14 @@ test("내보내기, 불러오기는 최근 로그인만, 미리 보기는 아니
   assert.equal((await preview(file)).status, 200);
 });
 
+test("미리 보기는 도구의 버전 고정이 바뀌는 것을 알린다(yt-dlp는 바로 맞추고, bgutil은 카드에서 설치)", async () => {
+  tunables.saveCard({ YTDLP_VERSION: "2026.08.19", BGUTIL_VERSION: "2.0.3", BGUTIL_COMMIT: "b".repeat(40) });
+  const file = await exported();
+  tunables.saveCard({ YTDLP_VERSION: null, BGUTIL_VERSION: null, BGUTIL_COMMIT: null });
+  const rows = rowsOf((await preview(file)).json);
+  assert.deepEqual(rows.tunables.warnings, ["yt-dlp 버전 고정이 바뀌어요: 없음 → 2026.08.19(불러오면 바로 그 버전으로 맞춰요)", "bgutil 버전 고정이 바뀌어요: 없음 → 2.0.3(업데이트 탭의 bgutil 카드에서 설치해요)"]);
+});
+
 test("봇 설정만: PC에 매인 값도 담고 불러온다. 미리 보기가 알리고, 불러온 뒤 다시 시작해야 하는지, 바뀐 쿠키 출처를 응답한다", async () => {
   tunables.save({ QUEUE_MAX_TRACKS: "300", COOKIES_SOURCE: "firefox", BGUTIL_ENABLED: "true" }, 0);
   const file = await exported();

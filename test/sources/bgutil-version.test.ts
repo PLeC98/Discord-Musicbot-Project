@@ -24,12 +24,12 @@ test("설치와 설정이 같으면 아무것도 남기지 않고 상태만 싣�
     assert.deepEqual(bgutilVersions(built("2.0.2")), { installed: "2.0.2", target: "2.0.2", same: true });
   }));
 
-test("설치가 설정과 다르면(코드를 받고 다시 설치하지 않음) 무엇을 할지 warn 한 줄", () =>
+test("설치가 설정과 다르면(코드를 업데이트하고 다시 설치하지 않음) 무엇을 할지 warn 한 줄", () =>
   withConfig({ bgutil: target }, () => {
     const lines = warned(built("2.0.0"));
     assert.equal(lines.length, 1);
     assert.equal(lines[0].level, "warn");
-    assert.match(lines[0].text, /설치 2\.0\.0, 설정 2\.0\.2\. 대시보드 업데이트 탭의 bgutil 카드에서 받거나 pnpm run install:bgutil로 맞춘 뒤 봇을 다시 시작하세요/);
+    assert.match(lines[0].text, /설치 2\.0\.0, 설정 2\.0\.2\. 대시보드 업데이트 탭의 bgutil 카드에서 설치하거나 pnpm run install:bgutil로 맞춘 뒤 봇을 다시 시작하세요/);
     assert.deepEqual(bgutilVersions(built("2.0.0")), { installed: "2.0.0", target: "2.0.2", same: false });
   }));
 

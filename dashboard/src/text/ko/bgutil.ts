@@ -30,7 +30,7 @@ const needs: Record<BgutilNeed, { label: string; url?: string }> = {
 const missingAfter = "설치한 뒤 재시도해 주세요.";
 /** 버전 고정과 업데이트 확인. 고정하지 않았으면 입력란에 기본 버전을 보인다 */
 const pin = "버전 고정";
-const pinHelp = "고정할 때 태그가 가리키는 커밋을 함께 저장해요. 태그가 나중에 옮겨져도 그 커밋만 설치해요.";
+const pinHelp = "고정할 때 태그가 가리키는 커밋도 함께 저장해요. 나중에 태그가 옮겨져도 저장한 커밋으로 설치해요.";
 const pinPlaceholder = (def: string) => `기본값 ${def}`;
 const pinApply = "고정";
 const unpin = "해제";
@@ -46,7 +46,7 @@ const pinTitle = "bgutil 버전을 고정할까요?";
 const pinBody = (tag: string, commit: string, later: boolean) => `${tag} 태그가 가리키는 커밋(${commit.slice(0, 12)})으로 고정${later ? "해요. POToken 서버 사용을 켜면 이 버전을 설치해요." : "하고 설치해요."}`;
 const pinConfirm = "고정";
 const unpinTitle = "버전 고정을 해제할까요?";
-const unpinBody = (def: string, later: boolean) => `기본 버전(${def})으로 돌아가${later ? "요." : "고 그 버전을 설치해요."}`;
+const unpinBody = (def: string, later: boolean) => (later ? `기본 버전(${def})으로 되돌려요.` : `기본 버전(${def})으로 되돌리고 설치해요.`);
 const unpinConfirm = "해제";
 const checkFailed = "업데이트를 확인하지 못했어요.";
 const resolveFailed = "태그를 확인하지 못했어요.";

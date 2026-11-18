@@ -1,6 +1,6 @@
 // 외부 도구의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp, bgutil 카드와 외부 프로그램 이전 버전 카드가 호출한다. /api/admin/vendor
 // 버전 고정은 저장 바가 아니라 여기서 바로 저장한다(store/tunables의 saveCard). yt-dlp의 채널, 모드는 저장 바에서 저장한다(routes/tunables).
-// 저장하면 새 설정대로 yt-dlp 버전을 맞추고(sources/ytdlp-binary), bgutil은 받기를 시작한다(sources/bgutil/auto-install).
+// 저장하면 새 설정대로 yt-dlp 버전을 맞추고(sources/ytdlp-binary), bgutil은 설치를 시작한다(sources/bgutil/auto-install).
 // 다운로드는 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
 
 import express, { type NextFunction, type Request, type Response } from "express";
@@ -105,17 +105,17 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   res.status(202).json(reply(saved));
 });
 
-// bgutil 받기: 실패 뒤의 재시도(필요한 도구를 설치한 뒤 등)와 설치된 것이 설정한 버전과 다를 때. 혼자서 하는 설치의 시도 기록을 무시하고 판정한다.
-// 꺼져 있고 설치된 것이 없으면 하지 않는다(켤 때 받는다)
+// bgutil 설치: 실패 뒤의 재시도(필요한 도구를 설치한 뒤 등)와 설치된 것이 설정한 버전과 다를 때. 혼자서 하는 설치의 시도 기록을 무시하고 판정한다.
+// 꺼져 있고 설치된 것이 없으면 하지 않는다(켤 때 설치한다)
 vendorRouter.post("/bgutil/install", async (req, res) => {
   const before = bgutilAutoInstall.running;
   await bgutilAutoInstall.ensure("manual");
   // 실제로 설치를 시작했을 때만 남긴다(저장 후 다시 시작이 설치 여부를 확인하려고 부르기도 한다)
-  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 받기. 실행 ${ranBy(req)}`);
+  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 설치. 실행 ${ranBy(req)}`);
   res.json(reply());
 });
 
-// bgutil 최신 릴리스 태그를 확인한다(받지 않는다). 결과는 카드 상태의 latest
+// bgutil 최신 릴리스 태그를 확인한다(설치하지 않는다). 결과는 카드 상태의 latest
 vendorRouter.post("/bgutil/check", async (_req, res) => {
   try {
     await bgutilRemote.check();
@@ -126,7 +126,7 @@ vendorRouter.post("/bgutil/check", async (_req, res) => {
   }
 });
 
-// 태그가 가리키는 커밋을 저장소에서 확인한다(저장하지 않는다). 고정은 여기서 확인한 커밋만 받는다
+// 태그가 가리키는 커밋을 저장소에서 확인한다(저장하지 않는다). 고정은 여기서 확인한 커밋으로만 한다
 vendorRouter.post("/bgutil/resolve", async (req, res) => {
   const tag = text(req.body?.tag);
   if (!tag || !isPlainTag(tag)) return sendProblem(res, "bad-request");
@@ -141,7 +141,7 @@ vendorRouter.post("/bgutil/resolve", async (req, res) => {
 });
 
 // bgutil 버전 고정(tag, commit: 방금 확인한 짝) 또는 해제(tag가 null이면 코드의 기본 짝). 둘 다 최근 로그인을 요구한다.
-// expect: 화면이 보던 목표 태그와 커밋. 저장하면 받기를 시작한다(꺼져 있고 설치된 것이 없으면 켤 때 받는다). 설치가 도는 동안에는 바꾸지 않는다
+// expect: 화면이 보던 목표 태그와 커밋. 저장하면 설치를 시작한다(꺼져 있고 설치된 것이 없으면 켤 때 설치한다). 설치가 도는 동안에는 바꾸지 않는다
 vendorRouter.post("/bgutil/pin", requireRecentLogin, async (req, res) => {
   const asked = pinAsked(req.body);
   if ("problem" in asked) return sendProblem(res, asked.problem);

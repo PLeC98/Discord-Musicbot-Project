@@ -1,13 +1,13 @@
 // bgutil-ytdlp-pot-provider(POToken 공급자) 설치. pnpm run install:bgutil, update:bgutil(같은 일을 한다).
-//   태그와 커밋을 vendor/bgutil/<태그>-<받은 시각>/에 받아 빌드하고, 실행 테스트를 거친 뒤 가리킴(vendor/bgutil/state.json)을 바꾼다(src/sources/bgutil/install).
-//   새 폴더에 받으므로 봇이 켜져 있어도 되고(돌고 있는 POToken 서버가 쥔 파일과 부딪치지 않는다), 켜져 있는 봇은 다시 시작하면 새 것을 쓴다.
+//   태그와 커밋을 vendor/bgutil/<태그>-<설치 시각>/에 다운로드해 빌드하고, 실행 테스트를 거친 뒤 가리킴(vendor/bgutil/state.json)을 바꾼다(src/sources/bgutil/install).
+//   새 폴더에 설치하므로 봇이 켜져 있어도 되고(돌고 있는 POToken 서버가 쥔 파일과 부딪치지 않는다), 켜져 있는 봇은 다시 시작하면 새 것을 쓴다.
 //
-// 받는 버전은 업데이트 탭의 bgutil 카드가 고정한 태그와 커밋(설정 DB)이고, 고정하지 않았거나 설정 DB가 없으면(첫 설치) src/config/vendor-versions.ts의 기본 짝이다.
-//   설정 DB가 있는데 읽지 못하면 받지 않고 1로 끝난다(저장해 둔 고정을 무시하고 기본값을 받지 않게).
-// --pin <태그> [--commit <커밋>]: 그 태그를 받고 고정한다. 커밋을 주지 않으면 저장소에서 태그가 가리키는 커밋을 확인해 보인다. --unpin: 고정을 풀고 기본값을 받는다.
-//   받은 뒤에 저장한다(받지 못하면 설정은 그대로). 봇이 켜져 있으면 하지 않는다(대시보드에서 바꾼다): 켜진 봇은 설정을 메모리에 들고 있어 여기서 고쳐도 모른다.
+// 설치하는 버전은 업데이트 탭의 bgutil 카드가 고정한 태그와 커밋(설정 DB)이고, 고정하지 않았거나 설정 DB가 없으면(첫 설치) src/config/vendor-versions.ts의 기본 짝이다.
+//   설정 DB가 있는데 읽지 못하면 설치하지 않고 1로 끝난다(저장해 둔 고정을 무시하고 기본값을 설치하지 않게).
+// --pin <태그> [--commit <커밋>]: 그 태그를 설치하고 고정한다. 커밋을 주지 않으면 저장소에서 태그가 가리키는 커밋을 확인해 보인다. --unpin: 고정을 풀고 기본값을 설치한다.
+//   설치한 뒤에 저장한다(설치하지 못하면 설정은 그대로). 봇이 켜져 있으면 하지 않는다(대시보드에서 바꾼다): 켜진 봇은 설정을 메모리에 들고 있어 여기서 고쳐도 모른다.
 //   그동안 봇 실행 잠금을 쥐어 봇이 켜지지 않게 한다.
-// --tag <태그> --commit <커밋>: 그 짝을 받기만 한다(봇의 설치 작업이 넘긴다). --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 받는다(망가진 설치를 고칠 때).
+// --tag <태그> --commit <커밋>: 그 짝을 설치만 한다(봇의 설치 작업이 넘긴다). --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 설치한다(망가진 설치를 고칠 때).
 // 인자는 src/sources/bgutil/cli-args가 읽는다.
 //
 // 기본 브랜치를 따라가지 않고 잠금 파일을 고치지 않는다(npm audit fix 없음). 설치한 날에 따라 다른 코드가 깔리지 않게.
@@ -76,7 +76,7 @@ const io: InstallIo = {
   log: (line) => say("info", line),
 };
 
-/** 봇이 켜져 있나. parent: 이 스크립트를 띄운 봇(기동의 받기), other: 따로 켜져 있는 봇 */
+/** 봇이 켜져 있나. parent: 이 스크립트를 띄운 봇(봇의 설치 작업), other: 따로 켜져 있는 봇 */
 async function botNow(): Promise<"none" | "parent" | "other"> {
   const held = await acquireInstanceLock(PROJECT.database);
   if (held.ok) {
@@ -126,14 +126,14 @@ async function remoteCommit(tag: string): Promise<string> {
   return commit;
 }
 
-/** 받는다. 받았거나 이미 그것이면 true. botOff: 봇 실행 잠금을 이 스크립트가 쥐고 있다(--pin, --unpin) */
+/** 설치한다. 설치했거나 이미 그것이면 true. botOff: 봇 실행 잠금을 이 스크립트가 쥐고 있다(--pin, --unpin) */
 async function install(target: Target, force: boolean, botOff = false): Promise<boolean> {
   const bot = botOff ? "none" : await botNow();
   const outcome = await installBgutil({ dir: PROJECT.bgutil, tag: target.tag, commit: target.commit, force, io });
   return report(outcome, bot) === 0;
 }
 
-// --pin, --unpin: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 받은 뒤 저장한다
+// --pin, --unpin: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 설치한 뒤 저장한다
 async function changePin(mode: Extract<InstallMode, { kind: "pin" | "unpin" }>, force: boolean): Promise<boolean> {
   const held = await acquireInstanceLock(PROJECT.database);
   if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) bgutil 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
@@ -146,7 +146,7 @@ async function changePin(mode: Extract<InstallMode, { kind: "pin" | "unpin" }>, 
     const was = config.bgutil.pinned ? `${config.bgutil.version}(${config.bgutil.commit})` : "없음";
     const target = mode.kind === "unpin" ? { tag: BGUTIL_VERSION, commit: BGUTIL_COMMIT } : { tag: mode.tag, commit: mode.commit ?? (await remoteCommit(mode.tag)) };
     if (!(await installGuarded(target, force))) {
-      say("warn", `받지 못해 설정은 그대로 둠(고정 ${was})`);
+      say("warn", `설치하지 못해 설정은 그대로 둠(고정 ${was})`);
       return false;
     }
     tunables.saveCard(mode.kind === "unpin" ? { BGUTIL_VERSION: null, BGUTIL_COMMIT: null } : { BGUTIL_VERSION: target.tag, BGUTIL_COMMIT: target.commit });
@@ -158,7 +158,7 @@ async function changePin(mode: Extract<InstallMode, { kind: "pin" | "unpin" }>, 
   }
 }
 
-// 받는 동안의 예외는 실패 줄로 남기고 false(--pin, --unpin. 봇 실행 잠금을 쥔 채 부른다)
+// 설치하는 동안의 예외는 실패 줄로 남기고 false(--pin, --unpin. 봇 실행 잠금을 쥔 채 부른다)
 async function installGuarded(target: Target, force: boolean): Promise<boolean> {
   try {
     return await install(target, force, true);
@@ -181,7 +181,7 @@ async function main(): Promise<number> {
   try {
     target = await settingsTarget();
   } catch (error) {
-    say("error", `설정 DB(database/settings.db)에서 bgutil 고정을 읽지 못해 받지 않음: ${messageOf(error)}`);
+    say("error", `설정 DB(database/settings.db)에서 bgutil 고정 값을 읽지 못해 설치하지 않음: ${messageOf(error)}`);
     return 1;
   }
   return (await install(target, force)) ? 0 : 1;

@@ -1,14 +1,14 @@
 // pnpm run install:bgutil의 인자(scripts/install-bgutil).
 //   인자가 없으면 업데이트 탭의 bgutil 카드가 고정한 버전(없으면 코드의 기본값)으로 맞춘다.
-//   --pin <태그>(--pin=<태그>도): 그 태그를 받고 고정한다. --commit <커밋>을 함께 주면 태그가 그 커밋인지 본다(없으면 저장소에서 확인한다).
-//   --unpin: 고정을 풀고 코드의 기본값을 받는다.
-//   --tag <태그> --commit <커밋>: 그 짝을 받기만 하고 설정은 건드리지 않는다(봇의 설치 작업이 넘긴다).
-//   --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 받는다. 어느 것과도 같이 쓴다
+//   --pin <태그>(--pin=<태그>도): 그 태그를 설치하고 고정한다. --commit <커밋>을 함께 주면 태그가 그 커밋인지 본다(없으면 저장소에서 확인한다).
+//   --unpin: 고정을 풀고 코드의 기본값을 설치한다.
+//   --tag <태그> --commit <커밋>: 그 짝을 설치만 하고 설정은 건드리지 않는다(봇의 설치 작업이 넘긴다).
+//   --force: 이미 그 태그와 커밋이어도 새 폴더에 다시 설치한다. 어느 것과도 같이 쓴다
 // pnpm이 -- 를 넘겨도 맞게 인자 어디에 있든 본다
 
 import { isCommitSha, isPlainTag } from "../../rules/bgutil-install.ts";
 
-/** settings: 설정대로, pin: 고정(commit이 null이면 저장소에서 확인), unpin: 고정 해제, exact: 그 짝만 받는다 */
+/** settings: 설정대로, pin: 고정(commit이 null이면 저장소에서 확인), unpin: 고정 해제, exact: 그 짝만 설치한다 */
 type InstallMode = { kind: "settings" } | { kind: "pin"; tag: string; commit: string | null } | { kind: "unpin" } | { kind: "exact"; tag: string; commit: string };
 type InstallArgs = { mode: InstallMode; force: boolean } | { error: string };
 

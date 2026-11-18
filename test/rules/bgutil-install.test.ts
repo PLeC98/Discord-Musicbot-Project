@@ -26,7 +26,7 @@ test("받을 짝: 고정이 없으면 기본 짝, 기본 태그만이면 고정�
 });
 
 test("받을 짝: 다른 태그에 커밋이 없거나, 커밋만 있거나, 형식이 아니면 어느 이름이 왜 틀렸는지", () => {
-  assert.deepEqual(bgutilTarget("2.0.3", "", DEFAULTS), { key: "BGUTIL_COMMIT", value: "", reason: "태그를 기본값(2.0.2)과 다르게 두면 그 태그의 커밋이 함께 있어야 함" });
+  assert.deepEqual(bgutilTarget("2.0.3", "", DEFAULTS), { key: "BGUTIL_COMMIT", value: "", reason: "기본값(2.0.2)과 다른 태그에는 그 태그의 커밋이 함께 있어야 함" });
   assert.deepEqual(bgutilTarget("", OTHER, DEFAULTS), { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" });
   for (const commit of ["26475e9", "g".repeat(40), `${OTHER} `]) assert.equal((bgutilTarget("2.0.3", commit, DEFAULTS) as { key?: string }).key, "BGUTIL_COMMIT", commit);
   for (const tag of ["-x", "a:refs/heads/main", "v*", "a..b", "a b"]) {

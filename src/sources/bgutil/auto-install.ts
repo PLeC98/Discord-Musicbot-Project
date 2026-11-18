@@ -1,9 +1,9 @@
 // POToken 서버 사용을 켰는데 bgutil이 설치돼 있지 않으면 봇이 알아서 설치한다(설치 스크립트를 작업 실행기로 돌린다. 기동을 막지 않는다).
 // 판정은 저장된 켜기 값으로 한다(BGUTIL_ENABLED는 다시 시작해야 적용되는 값이라 설정 객체는 기동 때 값에 머문다).
-// 기동, 설정이 바뀜(설정값 저장, 불러오기, 초기화), 작업 자리가 빔, 운영자의 받기가 같은 판정 하나(ensure)를 부른다. 겹쳐 부르면 차례로 한 번씩 더 판정한다.
+// 기동, 설정이 바뀜(설정값 저장, 불러오기, 초기화), 작업 자리가 빔, 운영자의 설치 요청이 같은 판정 하나(ensure)를 부른다. 겹쳐 부르면 차례로 한 번씩 더 판정한다.
 // 혼자서 하는 설치는 목표마다 한 번이다: 실패했거나 중단했으면 "시도했음"으로 적어 두고 다시 하지 않는다(안 되는 빌드를 끝없이 되풀이하지 않게).
-// 다시 하는 것은 운영자가 받기를 누를 때, 켜기나 목표가 바뀔 때, 다음 기동 때뿐이다.
-// 설치돼 있지만 목표와 다른 것(봇을 업데이트해 기본값이 올랐거나 고정을 바꿨다)은 혼자서 받지 않고 운영자의 받기(고정 포함)로만 받는다. 꺼져 있어도 받는다.
+// 다시 하는 것은 운영자가 설치를 요청할 때, 켜기나 목표가 바뀔 때, 다음 기동 때뿐이다.
+// 설치돼 있지만 목표와 다른 것(봇을 업데이트해 기본값이 올랐거나 고정을 바꿨다)은 혼자서 설치하지 않고 운영자의 설치 요청(고정 포함)으로만 설치한다. 꺼져 있어도 설치한다.
 // 끄면 켜기 때문에 시작한 설치를 중단한다(운영자가 시작한 것은 그대로 둔다).
 // 운영자가 "설치 후 다시 시작"을 고르면 다시 시작을 예약해 두고 설치가 끝나면 다시 시작한다. 실패, 중단, 끄기면 예약이 풀린다(닫은 화면이 남긴 예약이 나중에 몰래 실행되지 않게 취소도 받는다)
 
@@ -36,7 +36,7 @@ type Deps = {
   savedEnabled(): boolean;
   /** 기록의 지금 빌드(실행 파일이 있을 때만, 없으면 null) */
   active(): Build | null;
-  /** 받을 태그와 커밋 */
+  /** 설치할 태그와 커밋 */
   target(): Build;
   needs(): Promise<BgutilNeed[]>;
   start(spec: Omit<ScriptJobSpec, "onEnd">, onEnd: (info: ScriptJobInfo) => void): StartResult;
@@ -64,7 +64,7 @@ const REAL: Deps = {
 /** 같은 빌드인가(태그와 커밋) */
 const sameBuild = (a: Build | null, b: Build) => a !== null && a.tag === b.tag && a.commit === b.commit;
 
-/** 왜 부르나. manual: 운영자의 받기(시도 기록을 무시하고, 목표와 다른 설치도 바꾼다) */
+/** 왜 부르나. manual: 운영자의 설치 요청(시도 기록을 무시하고, 목표와 다른 설치도 바꾼다) */
 type Why = "startup" | "settings" | "idle" | "manual";
 // 겹쳐 불렸을 때 다음 판정에 넘길 이유(센 것이 이긴다)
 const RANK: Record<Why, number> = { idle: 0, settings: 1, startup: 1, manual: 2 };
@@ -72,7 +72,7 @@ const stronger = (a: Why | null, b: Why) => (a !== null && RANK[a] >= RANK[b] ? 
 
 class BgutilAutoInstall {
   deps: Deps;
-  /** 실패했거나 중단한 목표(`태그@커밋`). 혼자서는 다시 받지 않는다 */
+  /** 실패했거나 중단한 목표(`태그@커밋`). 혼자서는 다시 설치하지 않는다 */
   attempted = new Set<string>();
   /** 도는 설치 작업의 id */
   running: number | null = null;
@@ -80,7 +80,7 @@ class BgutilAutoInstall {
   runningAuto = false;
   /** 다른 작업이 도는 중이라 뒤로 미뤘다 */
   queued = false;
-  /** 운영자가 받기를 눌렀는데 아직 시작하지 않았다(미뤘다) */
+  /** 운영자가 설치를 요청했는데 아직 시작하지 않았다(미뤘다) */
   wanted = false;
   failure: { reason: string; at: number } | null = null;
   missing: BgutilNeed[] | null = null;
@@ -143,7 +143,7 @@ class BgutilAutoInstall {
     log.error(`bgutil 설치 못 함(${had ? "지금 쓰는 bgutil 그대로" : "POToken 없이 진행"}): ${missing.map(needText).join(", ")}. 설치한 뒤 대시보드 업데이트 탭에서 재시도하거나 봇을 다시 시작하세요`);
   }
 
-  // 설치할 일이 있나. 이미 목표면 없다. 혼자서는 목표와 다른 설치를 바꾸지 않고, 꺼져 있고 설치된 것이 없으면 켤 때 받는다
+  // 설치할 일이 있나. 이미 목표면 없다. 혼자서는 목표와 다른 설치를 바꾸지 않고, 꺼져 있고 설치된 것이 없으면 켤 때 설치한다
   _wantsInstall(active: Build | null, target: Build, enabled: boolean) {
     if (sameBuild(active, target)) return false;
     return active ? this.wanted : enabled;
@@ -185,12 +185,14 @@ class BgutilAutoInstall {
     this.wanted = false;
     this.running = started.id;
     this.failure = null;
-    log.info(active ? `bgutil ${target.tag} 설치 시작(설치된 ${active.tag} 대신 설정한 버전)` : `bgutil ${target.tag} 설치 시작(POToken 서버 사용이 켜져 있는데 설치돼 있지 않음)`);
+    log.info(active ? `bgutil ${target.tag} 설치 시작(설치된 ${active.tag}에서 설정한 버전으로)` : `bgutil ${target.tag} 설치 시작(POToken 서버 사용이 켜져 있는데 설치돼 있지 않음)`);
   }
 
   _ended(info: ScriptJobInfo, key: string, tag: string, had: boolean) {
     this.running = null;
     this.runningAuto = false;
+    // 도는 동안 들어온 설치 요청은 이 설치가 맡았다(실패한 뒤 상관없는 판정이 그것으로 다시 설치하지 않게)
+    this.wanted = false;
     if (info.state === "succeeded") {
       this.failure = null;
       const restart = this.reserved;
