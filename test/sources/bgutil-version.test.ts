@@ -45,7 +45,7 @@ test("설치가 설정보다 낡았으면(코드를 받고 다시 설치하지 �
     const lines = await started(one);
     assert.equal(lines.length, 1);
     assert.equal(lines[0].level, "warn");
-    assert.match(lines[0].text, /설치 2\.0\.0, 설정 2\.0\.2\. 봇을 종료하고 pnpm run update:bgutil/);
+    assert.match(lines[0].text, /설치 2\.0\.0, 설정 2\.0\.2\. pnpm run install:bgutil로 버전을 맞추고 봇을 다시 시작하세요/);
     assert.equal(one.state()?.installed, "2.0.0");
   }));
 

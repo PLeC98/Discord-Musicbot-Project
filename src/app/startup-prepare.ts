@@ -1,4 +1,4 @@
-// 기동 준비: 봇 업데이트(git pull, pnpm install) 뒤에 따로 실행해야 하던 작업을 기동할 때 처리한다(화면 빌드, ffmpeg 맞추기).
+// 기동 준비: 봇 업데이트(git pull, pnpm install) 뒤에 따로 실행해야 하던 작업을 기동할 때 처리한다(화면 빌드, ffmpeg 맞추기, bgutil 옛 폴더 정리).
 // pnpm은 의존성이 그대로면 postinstall을 건너뛰어, 업데이트로 바뀐 화면 소스와 ffmpeg 기본값이 반영되지 않은 채 남는다.
 // app/main이 POToken 서버가 준비되기를 기다리는 동안 병렬로 실행한다. 작업 실행기는 한 번에 하나만 실행하므로 둘은 차례로 돈다. 실패해도 기동을 멈추지 않는다
 
@@ -13,6 +13,8 @@ import { clientFreshness } from "../dashboard/client-freshness.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { TARGETS } from "../media/ffmpeg/release.ts";
 import { cleanupFfmpeg } from "../media/ffmpeg/cleanup.ts";
+import { cleanupBgutil } from "../sources/bgutil/cleanup.ts";
+import { bgutilBundle } from "../sources/bgutil/bundle.ts";
 const log = logger.child({ category: "core" });
 
 /** 화면 빌드, ffmpeg 맞추기(다운로드, 압축 풀기, 실행 확인)의 시간 상한(ms) */
@@ -78,11 +80,18 @@ async function alignFfmpegAtStartup(dir = PROJECT.ffmpeg, script = path.join(PRO
   if (cleaned.kind === "ok" && cleaned.removed.length) log.info(`ffmpeg 옛 폴더 정리: ${cleaned.removed.map((r) => r.name).join(", ")}`);
 }
 
+/** vendor/bgutil 정리: 기록에 없는 버전 폴더, 끝난 받기의 임시 폴더. 돌고 있는 POToken 서버의 빌드(기동 시 읽은 것)는 남긴다 */
+async function cleanupBgutilAtStartup(dir = PROJECT.bgutil): Promise<void> {
+  const cleaned = await cleanupBgutil(dir, { inUse: bgutilBundle()?.entry ?? null });
+  if (cleaned.kind === "ok" && cleaned.removed.length) log.info(`bgutil 옛 폴더 정리: ${cleaned.removed.map((r) => r.name).join(", ")}`);
+}
+
 /** 기동 준비 전체. 작업 실행기의 자리가 하나라 차례로 실행한다 */
 async function prepareStartup(): Promise<void> {
   await buildDashboardIfStale();
   await alignFfmpegAtStartup();
+  await cleanupBgutilAtStartup();
 }
 
-export { buildDashboardIfStale, alignFfmpegAtStartup, prepareStartup };
+export { buildDashboardIfStale, alignFfmpegAtStartup, cleanupBgutilAtStartup, prepareStartup };
 export type { DashboardPaths };

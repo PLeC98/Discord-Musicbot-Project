@@ -10,14 +10,13 @@ import config from "../../config/index.ts";
 import { argList, baseOptions } from "../ytdlp-options.ts";
 import { potServerUrl } from "./pot-server.ts";
 import { NEEDS_POT, KNOWN, playerClients } from "./clients.ts";
-import { PROJECT } from "../../infra/project-paths.ts";
+import { bgutilBundle } from "../bgutil/bundle.ts";
 import type { CookieSource, YoutubeStatus } from "./status-types.ts";
 
 // yt-dlp의 --plugin-dirs는 하위 디렉터리마다 yt_dlp_plugins가 들어 있는 루트를 기대한다
 // (`<지정한 경로>/<아무 이름>/yt_dlp_plugins/...`). yt_dlp_plugins를 직접 담은 디렉터리를 주면
 // 한 단계 더 들어가 찾다가 아무것도 못 찾고 조용히 넘어간다. 오류도 경고도 없다.
-// 그래서 plugin/ 이 아니라 그 부모인 저장소 루트를 넘긴다.
-const BGUTIL_DIR = PROJECT.bgutil;
+// 그래서 plugin/ 이 아니라 그 부모인 저장소 루트(기동 시 정한 bgutil 빌드의 폴더, sources/bgutil/bundle)를 넘긴다.
 // 있는지 확인하는 것으로 그치지 않고 yt-dlp의 규칙 그대로 훑는다.
 // 경로만 확인하면 상대 위치가 또 어긋났을 때 다시 조용히 죽는다.
 function findPluginRoot(dir: string): string | null {
@@ -34,8 +33,15 @@ function findPluginRoot(dir: string): string | null {
   }
   return null;
 }
-const BGUTIL_PLUGIN_ROOT = findPluginRoot(BGUTIL_DIR);
-const BGUTIL_AVAILABLE = BGUTIL_PLUGIN_ROOT !== null;
+// 플러그인을 실을 폴더(저장소 루트). 설치돼 있지 않으면 null. 기동 시 정한 빌드라 처음 한 번만 훑는다
+let pluginDirs: string | null | undefined;
+function bgutilPluginDirs(): string | null {
+  if (pluginDirs === undefined) {
+    const root = bgutilBundle()?.root ?? null;
+    pluginDirs = root && findPluginRoot(root) ? root : null;
+  }
+  return pluginDirs;
+}
 import * as cookieJar from "../../store/cookie-jar.ts";
 import { ageContentOn } from "../../config/age-content.ts";
 import { josa } from "../../rules/josa.ts";
@@ -50,8 +56,9 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
   });
   // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣고 그 주소를 준다(플러그인의 기본 주소는 남의 서버일 수 있다)
   const pot = potEnabled() ? potServerUrl() : null;
-  if (pot) {
-    options.pluginDirs = BGUTIL_DIR;
+  const dirs = bgutilPluginDirs();
+  if (pot && dirs) {
+    options.pluginDirs = dirs;
     options.extractorArgs = [...argList(options.extractorArgs), `youtubepot-bgutilhttp:base_url=${pot}`];
   }
 
@@ -73,7 +80,7 @@ function getYtDlpOptions(extraOptions: Flags = {}, { forceCookies = false } = {}
 
 /** POToken 공급자를 실제로 쓰는가. 설치돼 있고 + 켜져 있을 때만 */
 function potEnabled() {
-  return BGUTIL_AVAILABLE && config.bgutil.enabled;
+  return bgutilPluginDirs() !== null && config.bgutil.enabled;
 }
 
 /**
@@ -140,4 +147,4 @@ function cookiesConfigured() {
   return config.ytdlp.useCookieFile && cookieJar.ready();
 }
 
-export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookieSource, cookiesConfigured, BGUTIL_DIR, BGUTIL_PLUGIN_ROOT, BGUTIL_AVAILABLE, findPluginRoot };
+export { getYtDlpOptions, potEnabled, logAuthMode, statusSnapshot, cookieSource, cookiesConfigured, bgutilPluginDirs, findPluginRoot };

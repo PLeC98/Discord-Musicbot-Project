@@ -6,7 +6,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { RELEASES_URL, TARGETS, assetFor, type Target } from "./release.ts";
-import { EMPTY_STATE, readState, setAsideBroken, withLock, writeState, type FfmpegBuild, type FfmpegState } from "./state.ts";
+import { EMPTY_STATE, readState, setAsideBroken, writeState, type FfmpegBuild, type FfmpegState } from "./state.ts";
+import { withLock } from "../../infra/folder-lock.ts";
 
 /** 실행 확인의 결과. ok면 ffmpeg -version이 출력한 버전 */
 type Probe = { ok: true; version: string } | { ok: false; reason: string };

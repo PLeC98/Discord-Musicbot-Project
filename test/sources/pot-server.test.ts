@@ -40,7 +40,7 @@ function fakeSpawn() {
 
 test("꺼져 있으면 설치돼 있어도 실행하지 않고, 준비를 기다리지 않는다", async () => {
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: false } }, async () => {
     await server.start();
     assert.equal(await server.waitReady(10), true);
@@ -52,7 +52,7 @@ test("꺼져 있으면 설치돼 있어도 실행하지 않고, 준비를 기다
 
 test("켜져 있어도 설치돼 있지 않으면 실행하지 않는다", async () => {
   const { spawn, spawned } = fakeSpawn();
-  await withConfig({ bgutil: { enabled: true } }, () => createPotServer({ spawn, exists: () => false, freePort: ports() }).start());
+  await withConfig({ bgutil: { enabled: true } }, () => createPotServer({ spawn, exists: () => false, serverDir: "/fake/bgutil/server", freePort: ports() }).start());
   assert.equal(spawned.length, 0);
 });
 
@@ -65,7 +65,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.
     if (++up < 2) throw new Error("ECONNREFUSED");
     return { ok: true, json: async () => ({ version: "2.0.2" }) };
   };
-  const server = createPotServer({ spawn, exists: () => true, fetch, freePort: ports(), version: "2.0.2" });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", fetch, freePort: ports(), version: "2.0.2" });
   await withConfig({ bgutil: { enabled: true } }, async () => {
     await server.start();
     assert.equal(spawned.length, 1);
@@ -74,7 +74,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.
     assert.match(preload, /^data:text\/javascript,.*process\.stdin/, "봇이 끝나면(표준 입력이 닫히면) 서버도 끝나는 코드를 먼저 싣는다");
     assert.deepEqual(rest, ["build/main.js", "-p", "45001", "-H", "127.0.0.1"]);
     assert.equal(spawned[0].opts.stdio[0], "pipe", "표준 입력은 열어 둔다");
-    assert.match(spawned[0].opts.cwd, /[\\/]vendor[\\/]bgutil-ytdlp-pot-provider[\\/]server$/);
+    assert.equal(spawned[0].opts.cwd, "/fake/bgutil/server", "기동 시 정한 빌드의 server 폴더에서 띄운다");
     assert.equal(potServerUrl(), "http://127.0.0.1:45001");
     assert.equal(await server.waitReady(5000), true);
   });
@@ -88,7 +88,7 @@ test("켜져 있고 설치돼 있으면 서버 폴더에서 빈 포트, 127.0.0.
 
 test("응답한 서버의 버전이 받아 둔 서버와 다르면 이 봇의 서버가 아니라 준비로 보지 않는다", async () => {
   const { spawn } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, fetch: async () => ({ ok: true, json: async () => ({ version: "1.0.0" }) }), freePort: ports(), version: "2.0.2" });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", fetch: async () => ({ ok: true, json: async () => ({ version: "1.0.0" }) }), freePort: ports(), version: "2.0.2" });
   await withConfig({ bgutil: { enabled: true } }, async () => {
     await server.start();
     assert.equal(await server.waitReady(300), false);
@@ -98,7 +98,7 @@ test("응답한 서버의 버전이 받아 둔 서버와 다르면 이 봇의 �
 
 test("준비가 시간 안에 안 되면 기다림을 접는다(봇은 POToken 없이 켠다)", async () => {
   const { spawn } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, fetch: async () => ({ ok: false }), freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", fetch: async () => ({ ok: false }), freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, async () => {
     await server.start();
     assert.equal(await server.waitReady(300), false);
@@ -108,7 +108,7 @@ test("준비가 시간 안에 안 되면 기다림을 접는다(봇은 POToken �
 
 test("포트를 열지 못하고 끝나면 새 포트로 곧바로 다시 실행하고, 세 번 연달아 그러면 멈춘다(주소도 없앤다)", async () => {
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   const bindFail = (i: number) => {
     spawned[i].proc.stderr.emit("data", Buffer.from(`Could not listen on port ${45001 + i}\n`));
     spawned[i].proc.emit("exit", 1);
@@ -130,10 +130,10 @@ test("포트를 열지 못하고 끝나면 새 포트로 곧바로 다시 실행
 });
 
 test("내리면 꺼질 때까지 기다린다: 실행한 것이 없으면 none, 꺼지면 stopped, 1초 안에 안 꺼지면 timeout", async (t) => {
-  assert.equal(await createPotServer({ spawn: fakeSpawn().spawn, exists: () => true, freePort: ports() }).stop(), "none");
+  assert.equal(await createPotServer({ spawn: fakeSpawn().spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() }).stop(), "none");
 
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   const stopped = server.stop();
   assert.equal(spawned[0].proc.killed, "SIGTERM");
@@ -142,7 +142,7 @@ test("내리면 꺼질 때까지 기다린다: 실행한 것이 없으면 none, 
 
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const stuck = fakeSpawn();
-  const slow = createPotServer({ spawn: stuck.spawn, exists: () => true, freePort: ports() });
+  const slow = createPotServer({ spawn: stuck.spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => slow.start());
   const waiting = slow.stop();
   t.mock.timers.tick(1000);
@@ -152,7 +152,7 @@ test("내리면 꺼질 때까지 기다린다: 실행한 것이 없으면 none, 
 test("비정상 종료면 5초 뒤 같은 포트로 다시 실행하고, 내린 뒤의 종료는 다시 실행하지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, async () => {
     await server.start();
     spawned[0].proc.emit("exit", 1);
@@ -175,7 +175,7 @@ test("비정상 종료면 5초 뒤 같은 포트로 다시 실행하고, 내린 
 test("콘솔 종료 신호로 끝났으면(0xC000013A, 창 닫기 등) 비정상 종료로 보지 않고 다시 실행하지 않는다", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, async () => {
     await server.start();
     spawned[0].proc.emit("exit", 3221225786);
@@ -188,7 +188,7 @@ test("콘솔 종료 신호로 끝났으면(0xC000013A, 창 닫기 등) 비정상
 
 test("서버 출력은 토큰을 가려 로그로 남긴다(오류 줄도 멈추지 않는다)", async () => {
   const { spawn, spawned } = fakeSpawn();
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   const { proc } = spawned[0];
   // 표준 출력은 debug로 남기므로 그동안만 debug를 남긴다
@@ -227,7 +227,7 @@ test("실행한 서버를 프로세스 레지스트리에 올리고, 끝나면 �
   const { spawn: base, spawned } = fakeSpawn();
   // 레지스트리는 pid가 있는 것만 받는다. 실제로 없는 번호를 쓰고, 테스트 안에서 반드시 끝낸다
   const spawn = (cmd: string, args: string[], opts: SpawnOpts) => Object.assign(base(cmd, args, opts), { pid: 2_000_000_001, exitCode: null, signalCode: null });
-  const server = createPotServer({ spawn, exists: () => true, freePort: ports() });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: ports() });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   try {
     assert.ok(procRegistry.list().some((e) => e.label === "bgutil"));

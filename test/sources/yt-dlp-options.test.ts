@@ -92,17 +92,18 @@ test("설치되지 않은 경로는 조용히 null", () => {
 });
 
 test("bgutil 탐지 경로는 yt-dlp가 실제로 읽는 곳을 가리킨다", (t) => {
-  const { BGUTIL_AVAILABLE, BGUTIL_PLUGIN_ROOT } = youtubeSource._internals;
-  if (!BGUTIL_AVAILABLE) return t.skip("bgutil 미설치 (gitignore 대상)");
-  assert.ok(BGUTIL_PLUGIN_ROOT, "설치돼 있으면 경로가 있다");
-  assert.ok(fs.existsSync(BGUTIL_PLUGIN_ROOT), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
-  assert.equal(path.basename(BGUTIL_PLUGIN_ROOT), "yt_dlp_plugins");
+  const { bgutilPluginDirs, findPluginRoot } = youtubeSource._internals;
+  if (!bgutilPluginDirs) return t.skip("bgutil 미설치 (gitignore 대상)");
+  const root = findPluginRoot(bgutilPluginDirs);
+  assert.ok(root, "설치돼 있으면 경로가 있다");
+  assert.ok(fs.existsSync(root), "탐지된 yt_dlp_plugins가 실제로 존재해야 한다");
+  assert.equal(path.basename(root), "yt_dlp_plugins");
 });
 
 // 스위치 값을 주변 환경에서 읽어 오면 안 된다. 두 방향을 직접 세워서 본다.
 // 플러그인은 이 봇이 띄운 POToken 서버가 있을 때만 싣는다. 없을 때 실으면 플러그인이 기본 주소(4416)의 남의 서버로 간다
 test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때만 싣고, 그 주소를 넘긴다", async (t) => {
-  const { BGUTIL_AVAILABLE } = youtubeSource._internals;
+  const BGUTIL_AVAILABLE = youtubeSource._internals.bgutilPluginDirs !== null;
   const restore = config.bgutil.enabled;
   t.after(() => {
     config.bgutil.enabled = restore;
@@ -119,7 +120,7 @@ test("POToken 플러그인은 켜 두고 이 봇이 띄운 서버가 있을 때�
   assert.equal(youtubeSource.getYtDlpOptions().pluginDirs, undefined);
 
   // 서버를 띄우면 그 주소를 넘긴다(설치돼 있을 때만)
-  const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, freePort: async () => 45999 });
+  const server = createPotServer({ spawn: () => Object.assign(new EventEmitter(), { stdout: null, stderr: null, kill: () => true }), exists: () => true, serverDir: "/fake/bgutil/server", freePort: async () => 45999 });
   await server.start();
   try {
     const opts = youtubeSource.getYtDlpOptions();

@@ -3,7 +3,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { acquireInstanceLock } from "../../infra/instance-lock.ts";
 
 /** 받아 둔 빌드 하나. folder: vendor/ffmpeg 안의 폴더 이름, release: BtbN 릴리스 태그, asset: 에셋 이름, version: ffmpeg -version이 출력한 버전 */
 type FfmpegBuild = { folder: string; release: string; asset: string; sha256: string; version: string };
@@ -14,9 +13,6 @@ type ReadState = { kind: "ok"; state: FfmpegState } | { kind: "none" } | { kind:
 
 const STATE_FILE = "state.json";
 const EMPTY: FfmpegState = { active: null, previous: null, rejected: [], pin: null };
-/** 잠금을 기다리는 상한(ms). 다른 프로세스가 받는 중이면 끝날 때까지 기다린다 */
-const LOCK_WAIT_MS = 15 * 60_000;
-const LOCK_POLL_MS = 500;
 
 /** BtbN autobuild 태그 형식(autobuild-YYYY-MM-DD-HH-MM). 이 형식만 받는다(latest처럼 가리키는 빌드가 바뀌는 태그는 받지 않는다) */
 const isReleaseTag = (text: string) => /^autobuild-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}$/.test(text);
@@ -72,26 +68,5 @@ function setAsideBroken(dir: string, now: number): string {
   return aside;
 }
 
-/**
- * 폴더 잠금을 걸고 fn을 부른다. 다른 프로세스가 잠그고 있으면 상한까지 기다리고, 그래도 풀리지 않으면 { holder }를 반환한다.
- * 잠금은 인스턴스 잠금과 같은 방식(infra/instance-lock)을 vendor/ffmpeg 폴더에 쓴다
- */
-async function withLock<T>(dir: string, fn: () => Promise<T> | T, waitMs = LOCK_WAIT_MS): Promise<{ ok: true; value: T } | { ok: false; holder: number | null }> {
-  fs.mkdirSync(dir, { recursive: true });
-  const until = Date.now() + waitMs;
-  for (;;) {
-    const held = await acquireInstanceLock(dir);
-    if (held.ok) {
-      try {
-        return { ok: true, value: await fn() };
-      } finally {
-        await held.release();
-      }
-    }
-    if (Date.now() >= until) return { ok: false, holder: held.holder };
-    await new Promise((done) => setTimeout(done, LOCK_POLL_MS));
-  }
-}
-
-export { readState, writeState, setAsideBroken, withLock, isReleaseTag, EMPTY as EMPTY_STATE, STATE_FILE };
+export { readState, writeState, setAsideBroken, isReleaseTag, EMPTY as EMPTY_STATE, STATE_FILE };
 export type { FfmpegBuild, FfmpegState, ReadState };

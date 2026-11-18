@@ -48,7 +48,7 @@ test("POToken 서버", async () => {
     return Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), kill: () => true });
   };
   let port = 46001;
-  const server = createPotServer({ spawn, exists: () => true, freePort: async () => port++, fetch: async () => ({ ok: false }) });
+  const server = createPotServer({ spawn, exists: () => true, serverDir: "/fake/bgutil/server", freePort: async () => port++, fetch: async () => ({ ok: false }) });
   await withConfig({ bgutil: { enabled: true } }, () => server.start());
   void server.stop();
   assert.deepEqual(leaked(env), []);

@@ -1,12 +1,10 @@
 // bgutil(POToken 공급자)의 설치된 버전, 목표(BGUTIL_VERSION), 최신 릴리스. 기동 시와 하루 한 번 최신을 보고, 옮길 것이 있으면 한 줄 남긴다.
-// 설치는 하지 않는다(봇을 끄고 pnpm run update:bgutil. 의존성을 교체하므로 돌고 있는 POToken 서버와 같이 못 간다). 봇 상태 탭이 세 버전을 보여 준다
+// 설치는 하지 않는다(pnpm run install:bgutil. 새 폴더에 받으므로 봇이 켜져 있어도 되고, 다시 시작하면 적용된다). 봇 상태 탭이 세 버전을 보여 준다
 
-import fs from "fs";
-import path from "path";
 import config from "../config/index.ts";
 import logger from "../infra/log/logger.ts";
-import { PROJECT } from "../infra/project-paths.ts";
-import { codeOf, messageOf } from "../rules/error-kind.ts";
+import { messageOf } from "../rules/error-kind.ts";
+import { bgutilBundle } from "./bgutil/bundle.ts";
 import { newerRelease } from "../rules/vendor-updates.ts";
 import { latestReleaseTag } from "./github-release.ts";
 const log = logger.child({ category: "core", sub: "bgutil" });
@@ -19,16 +17,8 @@ const RETRY_MS = 60 * 60 * 1000;
 /** 디스크, 네트워크, 시계. 테스트가 가짜를 넘긴다 */
 type Io = { installed(): string | null; latest(): Promise<string>; now(): number };
 
-/** 체크아웃의 서버 버전(태그와 같은 글자). 설치돼 있지 않으면 null */
-function readInstalled() {
-  try {
-    const { version } = JSON.parse(fs.readFileSync(path.join(PROJECT.bgutil, "server", "package.json"), "utf8")) as { version?: unknown };
-    return typeof version === "string" && version ? version : null;
-  } catch (error) {
-    if (codeOf(error) !== "ENOENT") log.warn(`bgutil 설치 버전 읽기 실패: ${messageOf(error)}`);
-    return null;
-  }
-}
+/** 기동 시 정한 빌드의 서버 버전(태그와 같은 글자, sources/bgutil/bundle). 설치돼 있지 않으면 null */
+const readInstalled = () => bgutilBundle()?.version ?? null;
 
 const REAL: Io = { installed: readInstalled, latest: () => latestReleaseTag(REPO), now: () => Date.now() };
 
@@ -56,7 +46,7 @@ class BgutilVersion {
     if (!this.installed) return;
     const target = config.bgutil.version;
     // 코드를 업데이트해 목표가 올랐는데 다시 설치하지 않은 경우. 최신을 조회하지 않아도 안다
-    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다름: 설치 ${this.installed}, 설정 ${target}. 봇을 종료하고 pnpm run update:bgutil로 버전을 맞추세요`);
+    if (this.installed !== target) log.warn(`bgutil 설치 버전이 설정값과 다름: 설치 ${this.installed}, 설정 ${target}. pnpm run install:bgutil로 버전을 맞추고 봇을 다시 시작하세요`);
     await this._tick();
   }
 
