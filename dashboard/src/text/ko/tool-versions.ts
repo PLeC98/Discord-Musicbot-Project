@@ -4,8 +4,8 @@ import type { OldTool, OldToolKept } from "../../../../src/dashboard/contract/ol
 import { josa } from "../../../../src/rules/josa.ts";
 
 const title = "외부 프로그램 이전 버전";
-const name: Record<OldTool, string> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", legacy: "예전 설치 위치 vendor/bin" };
-/** 줄의 값. versions: yt-dlp 태그, ffmpeg 빌드 날짜(예전 설치 위치는 비었다) */
+const name: Record<OldTool, string> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", bgutil: "bgutil", legacy: "예전 설치 위치" };
+/** 줄의 값. versions: yt-dlp 태그, ffmpeg 빌드 날짜, bgutil 태그(예전 설치 위치는 비었다) */
 const line = (versions: string[], size: string) => (versions.length ? `${versions.join(", ")} (${size})` : size);
 const nothing = "삭제할 이전 버전이 없어요.";
 const removeAll = "모두 삭제";

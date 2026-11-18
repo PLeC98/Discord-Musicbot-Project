@@ -7,6 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { writeState } from "../../src/media/ffmpeg/state.ts";
+import { writeState as writeBgutilState } from "../../src/sources/bgutil/state.ts";
 import { previewOldTools, removeOldTools, type OldToolsDeps } from "../../src/dashboard/old-tools.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "old-tools-"));
@@ -28,7 +29,8 @@ const put = (file: string, bytes: number) => {
  */
 function world() {
   const root = path.join(base, `w-${++n}`);
-  const d = { ytdlpDir: path.join(root, "yt-dlp"), ffmpegDir: path.join(root, "ffmpeg"), legacyDir: path.join(root, "bin") };
+  // bgutil과 옛 bgutil 체크아웃은 기본으로 없다(bgutil 경우만 만든다)
+  const d = { ytdlpDir: path.join(root, "yt-dlp"), ffmpegDir: path.join(root, "ffmpeg"), bgutilDir: path.join(root, "bgutil"), legacyDir: path.join(root, "bin"), legacyBgutilDir: path.join(root, "bgutil-ytdlp-pot-provider") };
   put(path.join(d.ytdlpDir, "2026.09.30", "yt-dlp.exe"), 10);
   put(path.join(d.ytdlpDir, "2026.08.19", "yt-dlp.exe"), 20);
   put(path.join(d.ffmpegDir, `${R}-2`, BIN), 100);
@@ -36,7 +38,7 @@ function world() {
   writeState(d.ffmpegDir, { active: build(`${R}-2`, R), previous: build(`${P}-1`, P), rejected: [], pin: null });
   put(path.join(d.legacyDir, BIN), 40);
   put(path.join(d.legacyDir, "yt-dlp", "2026.01.01", "yt-dlp.exe"), 5);
-  const s = { previous: "2026.08.19" as string | null, leased: false, busy: false, used: path.join(d.ffmpegDir, `${R}-2`, BIN) as string | null };
+  const s = { previous: "2026.08.19" as string | null, leased: false, busy: false, used: path.join(d.ffmpegDir, `${R}-2`, BIN) as string | null, bgutil: null as string | null };
   const ytdlp: OldToolsDeps["ytdlp"] = {
     oldFolders: () => ({ previous: s.previous, folders: s.previous && !s.leased && fs.existsSync(path.join(d.ytdlpDir, s.previous)) ? [s.previous] : [] }),
     forgetPrevious: async (go) => {
@@ -48,7 +50,7 @@ function world() {
       return gone;
     },
   };
-  const deps: OldToolsDeps = { ...d, ytdlp, ffmpegPath: () => s.used, pathEnv: "" };
+  const deps: OldToolsDeps = { ...d, ytdlp, ffmpegPath: () => s.used, bgutilInUse: () => s.bgutil, pathEnv: "" };
   return { d, s, deps };
 }
 
@@ -152,4 +154,36 @@ test("예전 설치 위치: 정해 둔 이름만 지우고 모르는 이름이 �
   assert.deepEqual(done.find((t) => t.tool === "legacy")?.kept, ["link"]);
   assert.equal(fs.existsSync(path.join(real, BIN)), true);
   fs.unlinkSync(other.d.legacyDir);
+});
+
+test("bgutil: 이전 빌드와 기록에 없는 빌드를 삭제하고, 봇이 쓰는 빌드(기동 시 읽은 것)는 기록에 없어도 남긴다", async () => {
+  const { d, s, deps } = world();
+  const commit = "c".repeat(40);
+  const b = (folder: string, tag: string) => ({ folder, tag, commit, version: tag });
+  for (const [folder, bytes] of [
+    ["2.0.2-1800000000000", 9],
+    ["2.0.1-1700000000000", 8],
+    ["1.9.0-1600000000000", 7],
+    ["1.8.0-1500000000000", 6],
+  ] as const)
+    put(path.join(d.bgutilDir, folder, "server", "build", "main.js"), bytes);
+  writeBgutilState(d.bgutilDir, { active: b("2.0.2-1800000000000", "2.0.2"), previous: b("2.0.1-1700000000000", "2.0.1") });
+  // 봇이 기동 시 읽은 빌드: 그 뒤 터미널 설치로 기록에서 빠졌다
+  s.bgutil = path.join(d.bgutilDir, "1.9.0-1600000000000", "server", "build", "main.js");
+  const view = (await previewOldTools(deps)).find((t) => t.tool === "bgutil");
+  assert.deepEqual([...(view?.versions ?? [])].sort(), ["1.8.0", "2.0.1"]);
+  assert.equal(view?.bytes, 14);
+  assert.deepEqual(view?.kept, ["in-use"]);
+  await removeOldTools(undefined, deps, "bgutil");
+  assert.deepEqual(fs.readdirSync(d.bgutilDir).sort(), ["1.9.0-1600000000000", "2.0.2-1800000000000", "state.json"]);
+});
+
+test("예전 설치 위치: 옛 bgutil 체크아웃(vendor/bgutil-ytdlp-pot-provider)은 폴더째 삭제한다", async () => {
+  const { d, deps } = world();
+  put(path.join(d.legacyBgutilDir, "server", "node_modules", "canvas", "canvas.node"), 11);
+  const legacy = (await previewOldTools(deps)).find((t) => t.tool === "legacy");
+  assert.equal(legacy?.bytes, 45 + 11);
+  await removeOldTools(undefined, deps, "legacy");
+  assert.equal(fs.existsSync(d.legacyBgutilDir), false);
+  assert.equal(fs.existsSync(d.legacyDir), false);
 });
