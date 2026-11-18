@@ -1,4 +1,4 @@
-// scripts/install-ffmpeg.ts(src/media/ffmpeg/release), install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, .env로 바꾼다.
+// scripts/install-ffmpeg.ts(src/media/ffmpeg/release), install-bgutil.ts: 어느 버전을 다운로드할지. 기본값은 src/config/vendor-versions.ts, bgutil은 .env로 바꾼다(ffmpeg는 install:ffmpeg --pin).
 //
 // 지키는 것 둘:
 // 1. 움직이는 태그(latest)는 이름이 같은 채 내용물이 바뀌어 환경마다 다른 바이너리가 깔린다.
@@ -15,6 +15,7 @@ import path from "node:path";
 import { loadConfig } from "../src/config/index.ts";
 import { VARIANT, TARGETS, RELEASES_URL, resolveAsset } from "../src/media/ffmpeg/release.ts";
 import { isMonthEndBuild } from "../src/rules/vendor-updates.ts";
+import { FFMPEG_RELEASE } from "../src/config/vendor-versions.ts";
 
 const DEFAULTS = loadConfig({}).config;
 
@@ -32,7 +33,7 @@ const CHECKSUMS = [
 ].join("\n");
 
 test("릴리스는 월말 autobuild 태그로 고정한다. 그 외에는 2주 뒤 404", () => {
-  const release = DEFAULTS.ffmpeg.release;
+  const release = FFMPEG_RELEASE;
   assert.ok(isMonthEndBuild(release), `latest 같은 움직이는 태그와 월말이 아닌 빌드 금지(월말 빌드만 2년 보관): ${release}`);
   assert.ok(RELEASES_URL.startsWith("https://github.com/BtbN/FFmpeg-Builds/"), RELEASES_URL);
 });
@@ -82,12 +83,14 @@ test(".env.example을 그대로 복사하면 기본값으로 설치한다. 주�
   const { ffmpeg, bgutil } = loadConfig(example).config;
 
   assert.equal(ffmpeg.path, null, "설명문을 경로로 읽으면 다운로드를 건너뛴다");
-  assert.equal(ffmpeg.release, DEFAULTS.ffmpeg.release);
   assert.equal(bgutil.version, DEFAULTS.bgutil.version);
 });
 
-test(".env에 적은 버전이 기본값을 이긴다", () => {
-  const { ffmpeg, bgutil } = loadConfig({ FFMPEG_RELEASE: "autobuild-2026-07-31-13-10", BGUTIL_VERSION: "1.3.2" }).config;
-  assert.equal(ffmpeg.release, "autobuild-2026-07-31-13-10");
-  assert.equal(bgutil.version, "1.3.2");
+test(".env에 적은 bgutil 버전이 기본값을 이긴다. ffmpeg 릴리스는 .env로 바꾸지 않는다(읽지 않는 이름)", () => {
+  const { config, warnings } = loadConfig({ BGUTIL_VERSION: "1.3.2" }, { envFileNames: ["BGUTIL_VERSION", "FFMPEG_RELEASE"] });
+  assert.equal(config.bgutil.version, "1.3.2");
+  assert.ok(
+    warnings.some((line) => line.includes("FFMPEG_RELEASE")),
+    warnings.join("\n"),
+  );
 });

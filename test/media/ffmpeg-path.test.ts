@@ -7,16 +7,18 @@ import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import os from "node:os";
 import * as ffmpegPathModule from "../../src/media/ffmpeg/path.ts";
+import { readState, writeState } from "../../src/media/ffmpeg/state.ts";
 
-const { resolve, ffmpegPath, logResolved } = ffmpegPathModule;
+const { resolve, ffmpegPath, logResolved, settleRejected } = ffmpegPathModule;
 const { probe, _reset } = ffmpegPathModule._internals;
 
 test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => {
   const info = resolve();
   assert.ok(info.path, "경로가 있어야 함");
   assert.ok(info.version && info.version !== "unknown", `버전 파싱: ${info.version}`);
-  assert.ok(["FFMPEG_PATH", "번들", "PATH"].includes(info.source), `출처: ${info.source}`);
+  assert.ok(["FFMPEG_PATH", "설치본", "이전 설치본", "옛 자리", "PATH"].includes(info.source), `출처: ${info.source}`);
 });
 
 test("resolve: 결과를 캐시한다. 매 호출마다 프로세스를 실행하지 않는다", () => {
@@ -48,8 +50,39 @@ test("_reset 후에도 같은 바이너리로 다시 해석된다 (캐시 초기
   assert.equal(resolve().path, before);
 });
 
-test("번들 ffmpeg는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
+test("옛 자리의 번들 ffmpeg는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
   const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
   const expected = path.join(import.meta.dirname, "..", "..", "vendor", "bin", exe);
   assert.equal(ffmpegPathModule._internals.fromBundle(), fs.existsSync(expected) ? expected : null);
+});
+
+test("설치본이 실행되지 않으면 이전 설치본으로 뜨고, 기동 뒤 기록을 그쪽으로 되돌려 물린다", async (t) => {
+  _reset();
+  const real = resolve().path;
+  if (!path.isAbsolute(real)) return t.skip("파일로 된 ffmpeg가 없다(PATH의 ffmpeg)");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ffmpeg-path-"));
+  t.after(() => {
+    _reset();
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  });
+  const bin = path.basename(real);
+  const make = (release: string, good: boolean) => {
+    const folder = `${release}-1`;
+    fs.mkdirSync(path.join(dir, folder));
+    if (good) fs.copyFileSync(real, path.join(dir, folder, bin));
+    else fs.writeFileSync(path.join(dir, folder, bin), "실행 파일이 아니다");
+    return { folder, release, asset: "a", sha256: "x", version: "v" };
+  };
+  const good = make("autobuild-2026-09-30-12-59", true);
+  const broken = make("autobuild-2026-10-31-12-59", false);
+  writeState(dir, { active: broken, previous: good, rejected: [], pin: null });
+
+  _reset();
+  const info = resolve(dir);
+  assert.equal(info.source, "이전 설치본");
+  assert.equal(info.release, good.release);
+  await settleRejected(dir);
+  const read = readState(dir);
+  assert.equal(read.kind, "ok");
+  if (read.kind === "ok") assert.deepEqual([read.state.active?.folder, read.state.previous, read.state.rejected], [good.folder, null, [broken.release]]);
 });

@@ -2,7 +2,7 @@
 
 const IDLE_MS = 60_000;
 
-/** url의 본문 전체. 2xx가 아니거나 idleMs 동안 받은 것이 없으면 예외를 던진다 */
+/** url의 본문 전체. 2xx가 아니거나(예외의 status에 상태 코드) idleMs 동안 받은 것이 없으면 예외를 던진다 */
 async function download(url: string, { idleMs = IDLE_MS }: { idleMs?: number } = {}): Promise<Buffer> {
   const abort = new AbortController();
   let timer: NodeJS.Timeout | undefined;
@@ -13,7 +13,7 @@ async function download(url: string, { idleMs = IDLE_MS }: { idleMs?: number } =
   arm();
   try {
     const res = await fetch(url, { redirect: "follow", signal: abort.signal });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}. ${url}`);
+    if (!res.ok) throw Object.assign(new Error(`${res.status} ${res.statusText}. ${url}`), { status: res.status });
     const chunks: Uint8Array[] = [];
     if (res.body) {
       for await (const chunk of res.body) {

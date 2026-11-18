@@ -23,8 +23,10 @@ const PROJECT = {
   certs: path.join(ROOT, "certs"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
-  /** 설치 스크립트가 다운로드하는 실행 파일(ffmpeg, yt-dlp) */
+  /** 설치 스크립트가 다운로드하는 실행 파일(yt-dlp). 옛 ffmpeg 번들(ffmpeg, ffmpeg.exe)도 여기 남아 있을 수 있다 */
   bin: path.join(VENDOR, "bin"),
+  /** ffmpeg 빌드 폴더와 기록(media/ffmpeg/state) */
+  ffmpeg: path.join(VENDOR, "ffmpeg"),
   /** POToken 공급자 체크아웃 */
   bgutil: path.join(VENDOR, "bgutil-ytdlp-pot-provider"),
   /** 대시보드 화면 빌드 결과 */

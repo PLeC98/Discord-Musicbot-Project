@@ -13,7 +13,7 @@ import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
 import { josa } from "../rules/josa.ts";
-import { FFMPEG_RELEASE, BGUTIL_VERSION } from "./vendor-versions.ts";
+import { BGUTIL_VERSION } from "./vendor-versions.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 //
@@ -339,12 +339,10 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
       tickMs: 3000, // 대기열 점검 주기. 조작이 멎은 뒤에 움직이므로 실제 반응은 최대 두 주기
     },
 
-    // ffmpeg 실행 파일. 비우면 media/ffmpeg/path가 찾는다(vendor/bin의 번들 → PATH).
+    // ffmpeg 실행 파일. 비우면 media/ffmpeg/path가 찾는다(vendor/ffmpeg의 설치본 → PATH). 받을 릴리스는 .env가 아니라 install:ffmpeg --pin으로 정한다
     // macOS는 설치 스크립트가 다운로드하지 않으므로 여기로 지정하거나 PATH에 두어야 한다(brew install ffmpeg).
     ffmpeg: {
       path: resolveFromRoot(env("FFMPEG_PATH")),
-      // scripts/install-ffmpeg.ts가 다운로드할 릴리스
-      release: env("FFMPEG_RELEASE", FFMPEG_RELEASE).trim(),
     },
 
     ytdlp: {
