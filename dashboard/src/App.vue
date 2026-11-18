@@ -159,7 +159,11 @@ async function clearViewAs() {
 }
 
 // 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
-onMounted(() => {
+// 봇이 디스코드에 로그인하기 전(기동 직후, 다시 시작 뒤의 새로고침)이면 이름과 프로필 이미지가 비어 온다. 이름이 올 때까지 이 간격으로 다시 읽는다(최대 1분).
+// 프로필 이미지가 없는 봇도 있어 준비 여부는 이름으로 본다
+const BOT_RETRY_MS = 2000;
+const BOT_RETRIES = 30;
+function loadBot(left = BOT_RETRIES) {
   axios
     .get<BotInfo>("/api/bot", { quietSession: true })
     .then((res) => {
@@ -169,9 +173,11 @@ onMounted(() => {
       // 곡이 없을 때의 화면 색은 운영자가 지정한 임베드 색에서(theme)
       setBrandColor(res.data.brandColor);
       shell.botAvatar = res.data.avatarUrl;
+      if (res.data.name === null && left > 0) setTimeout(() => loadBot(left - 1), BOT_RETRY_MS);
     })
     .catch(() => {
       /* 못 불러오면 보고할 곳 없이 글만 보인다 */
     });
-});
+}
+onMounted(() => loadBot());
 </script>
