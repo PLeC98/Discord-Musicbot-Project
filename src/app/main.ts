@@ -61,6 +61,7 @@ import { NowPlayingPanel } from "../ui/now-playing-panel.ts";
 import { BotPresence } from "../ui/bot-presence.ts";
 import { createFileDestination } from "../infra/log/file.ts";
 import { startDashboard } from "../dashboard/index.ts";
+import { buildDashboardIfStale } from "./startup-prepare.ts";
 import { watchGateway } from "../dashboard/status/gateway.ts";
 import { createPlayerStream } from "../dashboard/player-stream.ts";
 import { restartNotices } from "../dashboard/discord-notice.ts";
@@ -120,8 +121,8 @@ function main() {
   if (!openSettings({ potServer, logFile })) return;
   deploySlashCommands();
   void potServer.start();
-  potServer
-    .waitReady()
+  // 기동 준비(업데이트 뒤의 화면 빌드)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열기 전에 끝낸다
+  Promise.all([potServer.waitReady(), buildDashboardIfStale()])
     .then(() => restoreAudioCache())
     // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
     .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
