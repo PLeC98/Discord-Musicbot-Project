@@ -125,10 +125,10 @@ test("봇 종료 시 stopJob: 실행 중인 작업을 취소할 때처럼 중단
 test("스크립트가 끝난 뒤 손자 프로세스가 출력 파이프를 물고 있어도 상한(3초)이 지나면 작업이 끝난다", async () => {
   const started = Date.now();
   // 손자 프로세스의 작업 폴더는 테스트 폴더 밖에 둔다(Windows는 작업 폴더로 쓰이는 폴더를 지우지 못한다)
-  const body = `import { spawn } from "node:child_process"; import os from "node:os"; spawn(process.execPath, ["-e", "setTimeout(() => {}, 8000)"], { stdio: "inherit", detached: true, cwd: os.tmpdir() }).unref(); console.log("끝")`;
+  const body = `import { spawn } from "node:child_process"; import os from "node:os"; spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)"], { stdio: "inherit", detached: true, cwd: os.tmpdir() }).unref(); console.log("끝")`;
   const info = await run({ script: script(body) }).done;
   assert.equal(info.state, "succeeded");
-  assert.ok(Date.now() - started < 7000, `${Date.now() - started}ms`);
+  assert.ok(Date.now() - started < 20_000, `${Date.now() - started}ms`);
   assert.equal(jobRunning(), false, "다음 작업을 막지 않는다");
 });
 

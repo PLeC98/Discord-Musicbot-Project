@@ -43,14 +43,14 @@ test("시간 상한을 넘기면 손자 프로세스까지 강제 종료하고 �
   assert.equal(fs.existsSync(marker), false, "손자도 끝났다");
 });
 
-// 도구는 끝났는데 손자 프로세스가 출력 파이프를 물고 남은 경우. 손자 프로세스는 8초 뒤에 끝난다
-const holdPipe = `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => {}, 8000)"], { stdio: "inherit", detached: true }).unref(); process.stdout.write("done")`;
+// 도구는 끝났는데 손자 프로세스가 출력 파이프를 물고 남은 경우. 손자 프로세스는 30초 뒤에 끝난다(그보다 한참 먼저 돌아오면 된다. 전체 테스트의 부하에서는 띄우는 데만 몇 초 걸린다)
+const holdPipe = `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)"], { stdio: "inherit", detached: true }).unref(); process.stdout.write("done")`;
 
 test("도구가 끝난 뒤 손자 프로세스가 출력 파이프를 물고 있어도 상한(3초)이 지나면 결과를 반환한다", async () => {
   const [file, args] = node(holdPipe);
   const started = Date.now();
   assert.equal(await runTool(file, [...args], { ...base, capture: true }), "done");
-  assert.ok(Date.now() - started < 7000, `${Date.now() - started}ms`);
+  assert.ok(Date.now() - started < 20_000, `${Date.now() - started}ms`);
 });
 
 test("capture로 모으는 stdout이 상한(16MB)을 넘으면 도구를 강제 종료하고 거부된다", async () => {
