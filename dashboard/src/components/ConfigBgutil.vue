@@ -40,7 +40,7 @@
 
       <!-- 진행: 설치 중, 미룸. 설치 중이고 다시 시작할 수 있으면 설치 후 다시 시작(예약했으면 그 안내와 취소. POToken 서버 사용이 꺼져 있으면 다시 시작해도 쓰지 않아 보이지 않는다) -->
       <NoticeBox v-if="state.job" variant="note" tone="notice" icon="schedule">
-        <span class="flex items-start gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
           ><span class="flex-1 min-w-0"
             >{{ state.job === "running" ? T.installing : T.queued }}<span v-if="state.restartReserved" class="block">{{ T.reserved }}</span></span
           ><BaseButton v-if="state.restartReserved" variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="unreserve">{{ T.unreserve }}</BaseButton
@@ -49,7 +49,7 @@
       </NoticeBox>
       <!-- 실패, 없는 프로그램: 그 안내와 재시도(설치된 것이 없으면 켜져 있을 때만. 꺼져 있으면 설치하지 않는다) -->
       <NoticeBox v-else-if="(state.enabled || state.installed) && (state.missing?.length || state.failure) && !onTarget" variant="note" tone="error" icon="error">
-        <span class="flex items-start gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
           ><span class="flex-1 min-w-0 wrap-break-word"
             ><BgutilNeeds v-if="state.missing?.length" :needs="state.missing" /><template v-else-if="state.failure">{{ T.failed(state.failure.reason) }}</template></span
           ><BaseButton variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="install">{{ T.retry }}</BaseButton></span
@@ -57,13 +57,13 @@
       </NoticeBox>
       <!-- 설치된 것이 설정한 버전과 다르다(봇을 업데이트해 기본값이 올랐거나 고정을 바꿨다). 혼자서는 설치하지 않는다 -->
       <NoticeBox v-else-if="state.installed && !onTarget" variant="note" tone="notice" icon="download">
-        <span class="flex items-start gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
           ><span class="flex-1 min-w-0">{{ T.differs(state.installed.tag, state.target.tag) }}</span
           ><BaseButton variant="secondary" size="sm" class="-my-1.5" :disabled="working" @click="install">{{ T.install }}</BaseButton></span
         >
       </NoticeBox>
       <NoticeBox v-else-if="state.restartNeeded" variant="note" tone="notice" icon="restart_alt">
-        <span class="flex items-start gap-3 flex-wrap"
+        <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
           ><span class="flex-1 min-w-0">{{ T.restartToApply }}</span
           ><BaseButton v-if="canRestart" variant="secondary" size="sm" class="-my-1.5" @click="askRestart()">{{ T.restart }}</BaseButton></span
         >

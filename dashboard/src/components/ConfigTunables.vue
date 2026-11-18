@@ -1,11 +1,11 @@
 <template>
   <div class="flex flex-col gap-(--gap-in)">
     <NoticeBox v-if="loadError" variant="note" tone="error" icon="cancel" class="mt-0!">{{ loadError }}</NoticeBox>
-    <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다 -->
-    <NoticeBox v-if="pendingHere.length" variant="note" tone="info" icon="restart_alt" class="mt-0!">
-      <span class="flex items-center gap-3 flex-wrap"
+    <!-- 저장했지만 다시 시작해야 적용되는 값이 남아 있으면 무엇인지 적고 그 자리에서 다시 시작한다. 버튼은 오른쪽 끝, 글 첫 줄에 맞춘다(버튼 높이 32px를 첫 줄 20px에 겹친다) -->
+    <NoticeBox v-if="pendingHere.length" variant="note" tone="notice" icon="restart_alt" class="mt-0!">
+      <span class="flex-1 min-w-0 flex items-start gap-3 flex-wrap"
         ><span class="flex-1 min-w-0">{{ text.restart.pending(namesOf(pendingHere)) }}</span
-        ><BotRestart :available="canRestart"
+        ><BotRestart :available="canRestart" class="-my-1.5"
       /></span>
     </NoticeBox>
 
