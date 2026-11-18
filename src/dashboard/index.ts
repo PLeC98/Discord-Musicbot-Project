@@ -17,6 +17,7 @@ import * as sessionRequests from "./session-requests.ts";
 import { requireSameAccount } from "./middleware/same-account.ts";
 import { issueCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { securityHeaders } from "./middleware/security-headers.ts";
+import { bootMark } from "./middleware/boot-mark.ts";
 import { errorHandler, notFoundJson } from "./middleware/error-handler.ts";
 import type { Server } from "node:http";
 import type { X509Certificate } from "node:crypto";
@@ -172,6 +173,7 @@ function createApp(bot: BotContext, { stream, deployCommands, restart = null, se
   // 소켓의 마지막 요청을 기록한다(세션이 끝나 소켓을 닫을 때 keep-alive의 다음 요청을 건드리지 않게 한다). 정적 파일 미들웨어보다 앞에 둔다
   app.use(sessionRequests.noteSocket);
   app.use(securityHeaders);
+  app.use(bootMark);
   app.use(strictTransport(url));
   // 허용하지 않은 호스트로 온 요청(DNS 리바인딩)을 막는다. 정적 파일, 세션보다 앞에 둔다
   app.use(hostCheck(url));

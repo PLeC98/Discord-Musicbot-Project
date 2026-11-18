@@ -4,6 +4,7 @@
 // 바깥 AI를 부르는 운영자 테스트는 서버의 AI 설정이 한도를 정하므로 화면은 걸지 않는다(0)
 
 import type { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import { BOOT_HEADER } from "../../../src/dashboard/contract/boot.ts";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -24,7 +25,7 @@ const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const GATEWAY = new Set([502, 503, 504]);
 
 /** 요청 오류에서 읽는 필드. axios 오류가 아닌 것이 와도 읽을 수 있는 것만 읽는다 */
-type Failed = { response?: { status?: number; data?: unknown }; code?: string; config?: InternalAxiosRequestConfig };
+type Failed = { response?: { status?: number; data?: unknown; headers?: unknown }; code?: string; config?: InternalAxiosRequestConfig };
 const failedOf = (error: unknown): Failed => (error && typeof error === "object" ? (error as Failed) : {});
 
 /** 요청 오류의 HTTP 상태. 응답이 없으면 undefined */
@@ -84,7 +85,7 @@ function blockedError(request: InternalAxiosRequestConfig) {
   return Object.assign(new Error("not sent: signed in as another account"), { code: "ERR_CANCELED", config: request });
 }
 
-export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void } & AccountHooks): void {
+export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, onBoot = () => undefined, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void; onBoot?: (id: string) => void } & AccountHooks): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;
 
@@ -126,13 +127,20 @@ export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, o
     return request;
   });
 
+  // 응답의 기동 표시(봇이 다시 켜졌는지). 실패한 응답에도 붙는다
+  const bootOf = (headers: unknown) => {
+    const id = (headers as Record<string, unknown> | undefined)?.[BOOT_HEADER];
+    if (typeof id === "string" && id) onBoot(id);
+  };
   http.interceptors.response.use(
     (res) => {
       onReach(true);
+      bootOf(res.headers);
       return res;
     },
     async (error: unknown) => {
       const { response, config: request } = failedOf(error);
+      bootOf(response?.headers);
       if (response) response.data = await unblobbed(response.data);
       reached(error, Boolean(response));
       if (accountChanged(response?.data)) return Promise.reject(error);

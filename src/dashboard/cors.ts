@@ -1,5 +1,6 @@
 import type { CorsOptions } from "cors";
 import logger from "../infra/log/logger.ts";
+import { BOOT_HEADER } from "./contract/boot.ts";
 const log = logger.child({ category: "dashboard" });
 
 const DEV_ORIGIN = "http://localhost:5173";
@@ -27,6 +28,8 @@ function createCorsOptions(dashboardUrl: string, { allowDevOrigin = false }: { a
 
   return {
     credentials: true,
+    // 개발 서버(다른 출처)의 화면도 기동 표시를 읽게
+    exposedHeaders: [BOOT_HEADER],
     origin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
       if (!origin) return callback(null, true);
       let normalized;
