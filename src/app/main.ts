@@ -41,6 +41,8 @@ import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { cpuLimit as ytdlpCpuLimit } from "../sources/ytdlp-spawn.ts";
 import { bgutilVersion } from "../sources/bgutil-version.ts";
+import { bgutilAutoInstall } from "../sources/bgutil/auto-install.ts";
+import { onJobIdle } from "../infra/script-job.ts";
 import { genres } from "../config/genres.ts";
 import * as statusConfig from "../config/status.ts";
 import * as commandLoader from "./command-loader.ts";
@@ -421,8 +423,12 @@ function checkBeforeLogin() {
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
   if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);
-  // bgutil은 설치된 것, 설정한 것, 최신을 비교해 알리기만 한다(설치는 봇을 끄고)
+  // bgutil은 설치된 것, 설정한 것, 최신을 비교해 알린다
   bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인", "warn");
+  // POToken 서버 사용을 켰는데 설치돼 있지 않으면 알아서 설치한다(기동 준비가 끝나 작업 자리가 빈 뒤라 여기서). 켜기를 저장하거나 다른 작업이 끝날 때도 다시 판정한다
+  bestEffort(log, bgutilAutoInstall.ensure("startup"), "bgutil 자동 설치 판정", "warn");
+  onTunablesChanged(() => void bgutilAutoInstall.ensure("settings"));
+  onJobIdle(() => void bgutilAutoInstall.ensure("idle"));
 
   // 자동재생, 활동 문구 설정을 여기서 한 번 읽는다. 읽는 쪽이 쓸 때뿐이라 그대로 두면 틀린 설정, 키가 빠진 소스 경고가
   // 그때서야 나와 기동 로그에 안 남는다. 틀렸으면 알리고 그 기능만 끈다(기동은 멈추지 않는다. 고칠 대시보드가 떠야 한다)

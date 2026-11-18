@@ -8,6 +8,7 @@ import type { AiDefaults, TestCandidate } from "../../autoplay/assist/types.ts";
 import { SAMPLE_CANDIDATES } from "../../autoplay/assist/sample.ts";
 import type { CookieSource, YoutubeStatus } from "../../sources/youtube/status-types.ts";
 import type { YtdlpCardStatus } from "../../sources/ytdlp-status-types.ts";
+import type { BgutilCardStatus } from "../../sources/bgutil/status-types.ts";
 import type { Job } from "../../infra/process-job.ts";
 import type { FfmpegInfo } from "../../media/ffmpeg/info-types.ts";
 import type { SlotStats } from "../../infra/slot-queue.ts";
@@ -198,7 +199,7 @@ type GeoipStatus = { enabled: boolean; autoUpdate: boolean; version: string | nu
 type GeoipCheck = { current: string | null; latest: string | null; size: number | null };
 
 /** 외부 도구 카드의 상태(GET /api/admin/vendor) */
-type VendorStatus = { ytdlp: YtdlpCardStatus };
+type VendorStatus = { ytdlp: YtdlpCardStatus; bgutil: BgutilCardStatus };
 /** 외부 도구 조작의 응답. tunables: 설정을 저장한 조작이면 새 설정값 상태(화면이 저장 번호와 저장된 값을 맞춘다) */
 type VendorReply = { status: VendorStatus; tunables?: TunablesView };
 

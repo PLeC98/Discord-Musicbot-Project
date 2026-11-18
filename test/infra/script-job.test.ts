@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { startJob, cancelJob, stopJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS, type ScriptJobInfo, type ScriptJobSpec } from "../../src/infra/script-job.ts";
+import { startJob, cancelJob, stopJob, jobNow, jobRunning, onJobIdle, _resetJobs, KEEP_LINES, LINE_CHARS, type ScriptJobInfo, type ScriptJobSpec } from "../../src/infra/script-job.ts";
 import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "script-job-"));
@@ -39,6 +39,27 @@ test("종료 코드 0이고 성공 판정이 맞으면 성공. 두 출력의 줄
   assert.deepEqual([...info.output].sort(), ["경고 한 줄", "끝", "받는 중"].sort());
   assert.equal(jobRunning(), false);
   assert.equal(jobNow()?.state, "succeeded", "끝난 작업은 다음 작업 전까지 남는다");
+});
+
+test("작업이 끝나면(성공, 실패 모두) 자리가 빈 것을 알리고, 알림 안에서 다음 작업을 시작할 수 있다", async () => {
+  // 앞 테스트의 작업이 끝나며 보낸 알림을 먼저 흘려보낸다
+  await new Promise((done) => setImmediate(done));
+  const heard: boolean[] = [];
+  let next: Promise<ScriptJobInfo> | null = null;
+  const off = onJobIdle(() => {
+    heard.push(jobRunning());
+    if (!next) next = run({ script: script("process.exit(3)") }).done;
+  });
+  try {
+    await run({ script: script("") }).done;
+    await new Promise((done) => setImmediate(done));
+    assert.deepEqual(heard, [false], "알릴 때는 도는 작업이 없다");
+    assert.equal((await next!).exitCode, 3);
+    await new Promise((done) => setImmediate(done));
+    assert.equal(heard.length, 2, "실패로 끝나도 알린다");
+  } finally {
+    off();
+  }
 });
 
 test("종료 코드 0이어도 성공 판정(가리킴이 목표인가)이 아니면 실패", async () => {

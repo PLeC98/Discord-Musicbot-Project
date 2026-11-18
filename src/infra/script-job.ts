@@ -88,6 +88,14 @@ function jobNow(): ScriptJobInfo | null {
   return current ? snapshot(current.info, current.tail) : null;
 }
 
+const idleListeners = new Set<() => void>();
+
+/** 작업이 끝나 자리가 빌 때마다 부른다(성공, 실패와 상관없이). 떼는 함수를 돌려준다 */
+function onJobIdle(listener: () => void): () => void {
+  idleListeners.add(listener);
+  return () => void idleListeners.delete(listener);
+}
+
 /** 실행 중인 작업이 있으면 true */
 function jobRunning(): boolean {
   return current?.info.state === "running";
@@ -109,6 +117,10 @@ function startJob(spec: ScriptJobSpec): StartResult {
     clearTimeout(timer);
     finish();
     spec.onEnd?.(snapshot(info, tail));
+    // 자리가 빈 것을 기다리던 쪽(뒤로 미룬 설치)에 알린다. 끝 처리가 다 끝난 뒤에
+    setImmediate(() => {
+      for (const listener of idleListeners) listener();
+    });
   };
 
   let child: ChildProcess | null = null;
@@ -195,5 +207,5 @@ function _resetJobs() {
   current = null;
 }
 
-export { startJob, cancelJob, stopJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS };
+export { startJob, cancelJob, stopJob, jobNow, jobRunning, onJobIdle, _resetJobs, KEEP_LINES, LINE_CHARS };
 export type { ScriptJobInfo, ScriptJobSpec, StartResult, CancelResult, FailReason };

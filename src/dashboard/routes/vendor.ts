@@ -15,6 +15,8 @@ import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as tunables from "../../store/tunables.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
+import { bgutilCardStatus } from "../../sources/bgutil/card-status.ts";
+import { bgutilAutoInstall } from "../../sources/bgutil/auto-install.ts";
 import { doneLine, previewOldTools, removeOldTools } from "../old-tools.ts";
 import { OLD_TOOLS, type OldTool } from "../contract/old-tools.ts";
 import { recountVendor } from "../status/storage.ts";
@@ -25,7 +27,7 @@ import type { TunablesView } from "../../rules/tunables.ts";
 const vendorRouter = express.Router();
 vendorRouter.use(requireOwner);
 
-const reply = (saved?: TunablesView): VendorReply => ({ status: { ytdlp: ytdlpBinary.status() }, ...(saved ? { tunables: saved } : {}) });
+const reply = (saved?: TunablesView): VendorReply => ({ status: { ytdlp: ytdlpBinary.status(), bgutil: bgutilCardStatus() }, ...(saved ? { tunables: saved } : {}) });
 
 // 카드 값을 저장한다. 저장했으면 설정값 상태. 거절했으면 문제 응답을 보내고 null
 function saveCard(req: Request, res: Response, changes: Record<string, string | null>, what: string): TunablesView | null {
@@ -98,6 +100,13 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   if (!saved) return;
   converge(true);
   res.status(202).json(reply(saved));
+});
+
+// bgutil 설치 재시도(실패했거나 필요한 도구를 설치한 뒤). 혼자서 하는 설치의 시도 기록을 무시하고 판정한다. 켜져 있지 않으면 하지 않는다
+vendorRouter.post("/bgutil/install", async (req, res) => {
+  await bgutilAutoInstall.ensure("manual");
+  log.info({ sub: "admin" }, `대시보드에서 bgutil 설치 재시도. 실행 ${ranBy(req)}`);
+  res.json(reply());
 });
 
 // 외부 프로그램 이전 버전 카드: 도구마다 삭제할 수 있는 이전 버전과 크기(폴더 크기를 세느라 비동기)

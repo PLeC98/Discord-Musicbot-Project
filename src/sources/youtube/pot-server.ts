@@ -97,9 +97,9 @@ function createPotServer({ spawn = (command, args, options) => childProcess.spaw
       if (installed) log.debug({ sub: "bgutil" }, "bgutil이 설치되어 있지만 유튜브 탭의 POToken 서버 사용이 꺼져 있음(POToken 서버를 실행하지 않고 진행)");
       return;
     }
-    // 켜 두었는데 설치돼 있지 않으면 error로 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다.
+    // 켜 두었는데 설치돼 있지 않으면 알린다. 조용히 넘어가면 POToken이 없는 줄 모른 채 돈다(설치는 기동 뒤 sources/bgutil/auto-install이 한다)
     if (!installed) {
-      log.error({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행). pnpm run install:bgutil로 설치하세요");
+      log.warn({ sub: "bgutil" }, "유튜브 탭에서 POToken 서버 사용을 켰지만 bgutil이 설치되어 있지 않음(POToken 없이 진행. 기동 뒤 자동으로 설치하고, 다시 시작하면 켜짐)");
       return;
     }
     if (!serverDir) return;
