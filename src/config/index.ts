@@ -11,7 +11,7 @@ import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
-import { isYtdlpTag } from "../rules/ytdlp-tag.ts";
+import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { josa } from "../rules/josa.ts";
 import { BGUTIL_VERSION } from "./vendor-versions.ts";
 
@@ -64,7 +64,6 @@ const PROJECT_REPO = "https://github.com/PLeC98/Discord-Musicbot-Project";
 // AGPL-3.0: https://www.gnu.org/licenses/agpl-3.0.html
 
 // yt-dlp 채널(릴리스 저장소는 ytdlpBinary가 안다)과 업데이트 모드(auto: 하루 한 번 채널의 최신을 다운로드해 교체, manual: 운영자가 누를 때만)
-const YTDLP_CHANNELS = ["stable", "nightly", "master"] as const;
 const YTDLP_UPDATE_MODES = ["auto", "notify", "manual"] as const;
 
 // User-Agent

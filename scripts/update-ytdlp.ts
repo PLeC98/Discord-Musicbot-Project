@@ -4,10 +4,11 @@
  *
  * 모드와 상관없이 목표 버전으로 다운로드하고, 실패하면 종료 코드 1로 끝난다. 처음 설치는 봇이 기동할 때 한다(없으면 받는다).
  *   설정 DB가 있는데 읽지 못하면 다운로드하지 않고 1로 끝난다(저장해 둔 고정을 무시하고 채널의 최신을 다운로드하지 않게).
- * --pin <태그>: 그 버전을 받고 고정한다. --unpin: 고정을 풀고 채널의 최신을 받는다(src/sources/ytdlp-cli-args).
- *   받은 뒤에 고정을 저장한다(받지 못하면 설정은 그대로). 봇이 켜져 있으면 하지 않는다: 켜진 봇은 설정을 메모리에 들고 있어
- *   여기서 settings.db를 고쳐도 모르고, 자동 모드면 하루 확인 때 고정을 무른다(그때는 대시보드의 업데이트 탭에서 바꾼다).
+ * --pin <태그>: 그 버전을 받고 고정한다. --unpin: 고정을 풀고 채널의 최신을 받는다. --channel <채널>: 채널을 바꾸고 그 채널로 받는다(src/sources/ytdlp-cli-args).
+ *   받은 뒤에 고정과 채널을 저장한다(받지 못하면 설정은 그대로). 봇이 켜져 있으면 하지 않는다: 켜진 봇은 설정을 메모리에 들고 있어
+ *   여기서 settings.db를 고쳐도 모르고, 자동 모드면 일일 확인 때 고정을 무른다(그때는 대시보드의 업데이트 탭에서 바꾼다).
  *   그동안 봇 실행 잠금을 쥐어 봇이 켜지지 않게 한다.
+ *   고정이 있는데 채널만 바꾸면 거절한다(고정한 태그는 지금 채널의 릴리스다. 대시보드도 고정 중에는 채널을 바꾸지 못한다). --channel과 --pin, --unpin은 함께 쓴다.
  * --skip-signature: 이 실행에서만 yt-dlp 릴리스의 서명 확인을 건너뛴다(체크섬은 본다). yt-dlp가 서명 키를 바꿨고 그것을 확인했을 때만 쓴다.
  * 봇 모듈을 부르면 로거가 콘솔을 가로채므로 콘솔이 아니라 로거로 남긴다(봇과 같은 모양).
  */
@@ -19,6 +20,7 @@ import { PROJECT } from "../src/infra/project-paths.ts";
 import { acquireInstanceLock } from "../src/infra/instance-lock.ts";
 import { ytdlpBinary, describe, type YtdlpOutcome } from "../src/sources/ytdlp-binary.ts";
 import { parseUpdateArgs } from "../src/sources/ytdlp-cli-args.ts";
+import type { YtdlpChannelName } from "../src/rules/ytdlp-tag.ts";
 import { messageOf } from "../src/rules/error-kind.ts";
 
 const SETTINGS_DB = path.join(PROJECT.database, "settings.db");
@@ -52,23 +54,31 @@ async function converge(skipSignature: boolean): Promise<boolean> {
   return outcome.kind === "installed" || outcome.kind === "reused" || outcome.kind === "current";
 }
 
-// --pin, --unpin: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 그 고정으로 받은 뒤 저장한다
-async function changePin(pin: string | null, skipSignature: boolean): Promise<boolean> {
+/** 바꿀 것. pin: undefined면 고정 그대로, channel: undefined면 채널 그대로 */
+type Change = { pin: string | null | undefined; channel: YtdlpChannelName | undefined };
+
+// --pin, --unpin, --channel: 봇이 꺼져 있을 때만. 설정 DB를 쓰기로 열고, 바꾼 설정으로 받은 뒤 저장한다
+async function changeSettings(change: Change, skipSignature: boolean): Promise<boolean> {
   const held = await acquireInstanceLock(PROJECT.database);
-  if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) 버전 고정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
+  if (!held.ok) throw new Error(`봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) yt-dlp 설정을 바꾸지 않습니다. 대시보드 운영자 패널의 업데이트 탭에서 바꾸거나, 봇을 끄고 다시 실행하세요`);
   const { settingsDb } = await import("../src/store/settings-db.ts");
   const tunables = await import("../src/store/tunables.ts");
   try {
     settingsDb.open(SETTINGS_DB);
     tunables.load();
-    const was = config.ytdlp.version;
-    config.ytdlp.version = pin;
+    const was = { pin: config.ytdlp.version, channel: config.ytdlp.channel };
+    const pin = change.pin === undefined ? was.pin : change.pin;
+    const channel = change.channel ?? was.channel;
+    if (change.pin === undefined && was.pin && channel !== was.channel) throw new Error(`버전을 고정한 동안(${was.pin})에는 채널만 바꾸지 않습니다. --unpin이나 --pin <태그>를 함께 넣으세요`);
+    Object.assign(config.ytdlp, { version: pin, channel });
     if (!(await converge(skipSignature))) {
-      say("warn", `받지 못해 버전 고정은 그대로 둡니다(${was ?? "없음"})`);
+      say("warn", `받지 못해 설정은 그대로 둡니다(고정 ${was.pin ?? "없음"}, 채널 ${was.channel})`);
       return false;
     }
-    tunables.saveCard({ YTDLP_VERSION: pin });
-    say("warn", `터미널에서 yt-dlp 고정 버전 변경: ${was ?? "없음"} → ${pin ?? "없음"}`);
+    // 채널은 고정과 함께 저장한다(고정이 잠그는 값이라 카드 저장이 둘을 같이 받는다)
+    tunables.saveCard({ YTDLP_VERSION: pin, ...(channel !== was.channel ? { YTDLP_CHANNEL: channel } : {}) });
+    if (pin !== was.pin) say("warn", `터미널에서 yt-dlp 고정 버전 변경: ${was.pin ?? "없음"} → ${pin ?? "없음"}`);
+    if (channel !== was.channel) say("warn", `터미널에서 yt-dlp 채널 변경: ${was.channel} → ${channel}`);
     return true;
   } finally {
     settingsDb.close();
@@ -80,8 +90,8 @@ try {
   const args = parseUpdateArgs(process.argv);
   if ("error" in args) throw new Error(args.error);
   if (args.skipSignature) say("warn", "이번 실행은 yt-dlp 릴리스의 서명을 확인하지 않습니다(--skip-signature, 체크섬은 확인)");
-  if (args.pin !== undefined) {
-    if (!(await changePin(args.pin, args.skipSignature))) process.exitCode = 1;
+  if (args.pin !== undefined || args.channel !== undefined) {
+    if (!(await changeSettings({ pin: args.pin, channel: args.channel }, args.skipSignature))) process.exitCode = 1;
   } else {
     const loaded = await loadTarget();
     if (!loaded) throw new Error("설정 DB(database/settings.db)에서 채널과 버전 고정을 읽지 못해 다운로드하지 않습니다");
