@@ -91,17 +91,32 @@ const io: InstallIo = {
   pid: process.pid,
 };
 
-function report(outcome: AlignOutcome): number {
+/**
+ * 이 폴더의 봇. none: 꺼져 있다, parent: 이 스크립트를 띄운 봇이다(기동 때 맞추기), other: 따로 켜져 있다(PID를 모르면 이것으로 본다).
+ * 봇은 실행 잠금을 쥔 채로 이 스크립트를 셸 없이 직접 띄우므로 잠금을 쥔 프로세스가 부모면 그 봇이다
+ */
+async function botNow(): Promise<"none" | "parent" | "other"> {
+  const held = await acquireInstanceLock(PROJECT.database);
+  if (held.ok) {
+    await held.release();
+    return "none";
+  }
+  return held.holder === process.ppid ? "parent" : "other";
+}
+
+function report(outcome: AlignOutcome, bot: "none" | "parent" | "other"): number {
   for (const note of outcome.notes) console.warn(`⚠️  [ffmpeg] ${note}`);
+  // 따로 켜져 있는 봇은 기동 때 정한 ffmpeg를 계속 쓴다
+  const restart = bot === "other" ? ". 켜져 있는 봇은 다시 시작해야 적용됩니다" : "";
   switch (outcome.kind) {
     case "unchanged":
       console.log(`ℹ️  [ffmpeg] 이미 ${outcome.release}(${outcome.version}) 버전을 쓰고 있습니다`);
       return 0;
     case "switched":
-      console.log(`✅ [ffmpeg] 받아 둔 ${outcome.release}(${outcome.version}) 버전으로 바꿨습니다. 봇이 켜져 있으면 다시 시작해야 적용됩니다`);
+      console.log(`✅ [ffmpeg] 받아 둔 ${outcome.release}(${outcome.version}) 버전으로 바꿨습니다${restart}`);
       return 0;
     case "installed":
-      console.log(`✅ [ffmpeg] ${outcome.release}(${outcome.version}) 버전을 설치했습니다${outcome.from ? `(이전 ${outcome.from})` : ""}. 봇이 켜져 있으면 다시 시작해야 적용됩니다`);
+      console.log(`✅ [ffmpeg] ${outcome.release}(${outcome.version}) 버전을 설치했습니다${outcome.from ? `(이전 ${outcome.from})` : ""}${restart}`);
       return 0;
     case "skipped":
       console.warn(`⚠️  [ffmpeg] ${outcome.release} 릴리스는 이 환경에서 실행되지 않았던 릴리스라 받지 않습니다. 다시 받으려면 pnpm run install:ffmpeg --force`);
@@ -121,14 +136,11 @@ async function main(): Promise<number> {
     console.error(`❌ [ffmpeg] ${args.error}`);
     return 1;
   }
+  const bot = await botNow();
   // 고정은 다음 기동부터 쓰인다. 켜진 봇은 기동 때 정한 ffmpeg를 그대로 써서 고정을 바꿔도 알 수 없다
-  if (args.pin !== undefined) {
-    const held = await acquireInstanceLock(PROJECT.database);
-    if (!held.ok) {
-      console.error(`❌ [ffmpeg] 봇이 실행 중이라(${held.holder ? `PID ${held.holder}` : "PID 모름"}) 버전 고정을 바꾸지 않습니다. 봇을 끄고 다시 실행하세요`);
-      return 1;
-    }
-    await held.release();
+  if (args.pin !== undefined && bot !== "none") {
+    console.error("❌ [ffmpeg] 봇이 실행 중이라 버전 고정을 바꾸지 않습니다. 봇을 끄고 다시 실행하세요");
+    return 1;
   }
   if (config.ffmpeg.path && !args.force) {
     console.log(`ℹ️  [ffmpeg] .env의 FFMPEG_PATH를 쓰고 있어 받지 않습니다(${config.ffmpeg.path}). 그래도 받으려면 --force`);
@@ -139,7 +151,7 @@ async function main(): Promise<number> {
     return 0;
   }
   const outcome = await alignFfmpeg({ dir: PROJECT.ffmpeg, defaultRelease: FFMPEG_RELEASE, pin: args.pin, force: args.force, io });
-  const code = report(outcome);
+  const code = report(outcome, bot);
   if (code === 0 && args.pin !== undefined) console.log(args.pin ? `✅ [ffmpeg] ${args.pin} 릴리스로 고정했습니다(기본값 ${FFMPEG_RELEASE}). 풀려면 --unpin` : `✅ [ffmpeg] 고정을 풀었습니다(기본값 ${FFMPEG_RELEASE})`);
   return code;
 }
