@@ -5,6 +5,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
+    "preinstall": "node scripts/check-bot-stopped.ts",
     "start": "node scripts/launch.ts",
     "backup": "node scripts/backup.ts",
     "dev": "node scripts/dev.ts",
