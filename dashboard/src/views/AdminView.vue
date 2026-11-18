@@ -120,7 +120,7 @@
 
         <!-- 업데이트: 외부 도구(yt-dlp)의 버전, 업데이트 -->
         <div class="admin-page" v-show="tab === 'update'">
-          <ConfigYtdlp v-if="opened.has('update')" />
+          <ConfigYtdlp v-if="opened.has('update')" ref="ytdlpEl" />
         </div>
 
         <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키, 계정 정보 -->
@@ -548,6 +548,7 @@ const POLL_MS = 3000;
 // 캐시 DB 탭은 크고 열 때만 그린다: 코드를 따로 불러온다
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
+const ytdlpEl = ref<InstanceType<typeof ConfigYtdlp> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 // now: 탭 바꿈, 다시 보임(받는 중이어도 바로 보낸다)
@@ -555,6 +556,8 @@ function poll(now = false) {
   if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
   else if (tab.value === "guilds") void fetchGuilds(!now);
   else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
+  // yt-dlp는 자동 업데이트로 봇이 켜진 채 버전이 바뀐다
+  else if (tab.value === "update") void ytdlpEl.value?.refresh();
 }
 function startPoll() {
   if (!timer) timer = setInterval(() => poll(), POLL_MS);

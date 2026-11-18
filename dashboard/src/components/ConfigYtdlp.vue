@@ -105,6 +105,10 @@ const pinDraft = ref("");
 const askingRollback = ref(false);
 const askingForget = ref(false);
 let timer = 0;
+// 이 카드에서 누른 조작(업데이트, 고정, 되돌리기)의 결과를 기다리는 중. 그 결과만 알린다(다시 읽은 상태가 화면이 들고 있던 옛 값과 달라도 알리지 않는다)
+let awaiting = false;
+// 상태를 읽는 중(운영자 패널의 폴링과 받는 중의 다시 읽기가 겹치지 않게)
+let reading = false;
 
 // 채널, 자동 업데이트는 운영 설정값의 고치는 중인 값(저장 바가 저장한다). 비우면 기본값
 const draftOf = (key: "YTDLP_CHANNEL" | "YTDLP_UPDATE") => draft.value[key] || tunable(key).def;
@@ -138,39 +142,47 @@ const pinDays = computed(() => {
   return found ? Math.floor((Date.now() - Date.UTC(Number(found[1]), Number(found[2]) - 1, Number(found[3]))) / 86_400_000) : null;
 });
 
-// 응답을 반영한다. 다운로드가 끝났으면 결과를 알리고, 진행 중이면 조금 뒤에 다시 읽는다
-function show({ status, tunables }: VendorReply) {
+// 응답을 반영한다. 이 카드에서 누른 조작이 끝났으면 결과를 알리고, 진행 중이면 조금 뒤에 다시 읽는다
+/** started: 조작을 보낸 직후의 응답(서버가 받기를 막 시작했을 수 있어 결과를 기다리는 표시를 풀지 않는다) */
+function show({ status, tunables }: VendorReply, started = false) {
   const before = state.value;
   const now = status.ytdlp;
   state.value = now;
   if (tunables) applyCard(tunables);
-  // 화면을 연 뒤에 바뀐 것만 알린다(처음 읽은 상태는 알리지 않는다)
-  if (before && now.failure && now.failure.at !== before.failure?.at) notify({ title: T.downloadFailed, body: now.failure.reason });
-  else if (before && now.version && now.version !== before.version) notifyDone(T.updated, now.version);
+  if (awaiting && before && now.failure && now.failure.at !== before.failure?.at) notify({ title: T.downloadFailed, body: now.failure.reason });
+  else if (awaiting && before && now.version && now.version !== before.version) notifyDone(T.updated, now.version);
+  if (!now.busy && !started) awaiting = false;
   clearTimeout(timer);
   if (now.busy) timer = window.setTimeout(() => void refresh(), POLL_MS);
 }
 
+/** 상태를 다시 읽는다. 운영자 패널이 업데이트 탭을 보이는 동안 폴링으로 부른다(자동 업데이트는 봇이 켜진 채 버전을 바꾼다) */
 async function refresh() {
+  if (reading) return;
+  reading = true;
   try {
     show((await axios.get<VendorReply>(BASE)).data);
     loadError.value = "";
   } catch (err) {
     if (!state.value) loadError.value = problemText(err, T.loadFailed);
     else notifyProblem(err, T.loadFailed);
+  } finally {
+    reading = false;
   }
 }
 
 // 조작 하나를 보낸다. 설정값 상태를 바꾸는 요청이라 저장 바의 저장과 겹치지 않게 차례로 보낸다
 async function act(path: string, body: object, failed: string) {
   saving.value = true;
+  awaiting = true;
   try {
-    show(await inOrder(async () => (await axios.post<VendorReply>(`${BASE}${path}`, body)).data));
+    show(await inOrder(async () => (await axios.post<VendorReply>(`${BASE}${path}`, body)).data), true);
     // 저장한 뒤 서버가 다운로드를 시작했을 수 있다
     clearTimeout(timer);
     timer = window.setTimeout(() => void refresh(), POLL_MS);
     return true;
   } catch (err) {
+    awaiting = false;
     notifyProblem(err, failed);
     void refresh();
     return false;
@@ -214,6 +226,7 @@ onUnmounted(() => {
   clearTimeout(timer);
   detach();
 });
+defineExpose({ refresh });
 // 저장 바가 채널, 자동 업데이트를 저장하면 서버가 맞추기 시작한다. 조금 뒤 상태를 다시 읽는다
 watch(
   () => [saved.value.YTDLP_CHANNEL, saved.value.YTDLP_UPDATE],
