@@ -12,7 +12,7 @@ import { isShuttingDown, _resetShutdown } from "../../src/infra/shutdown-state.t
 // attach: 봇을 붙인 뒤(기본)인가, 기동 중 POToken 서버를 기다리는 때인가
 // destroy: 봇 내리기(게이트웨이 닫기)가 끝나는 시점을 정한다. 기본값은 즉시 완료다
 // notices: 다시 시작 공지(서버마다의 끝). 주면 봇에 붙인다
-function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {}, notices }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown>; notices?: () => Promise<boolean>[] } = {}) {
+function setup({ saveFails = false, releaseFails = false, status = async () => {}, attach = true, destroy = async () => {}, notices, job }: { saveFails?: boolean; releaseFails?: boolean; status?: () => Promise<unknown>; attach?: boolean; destroy?: () => Promise<unknown>; notices?: () => Promise<boolean>[]; job?: string } = {}) {
   const steps: string[] = [];
   // 음성 라이브러리가 들고 있는 연결. 정리하면 빠진다(진짜도 destroy가 목록에서 뺀다).
   // destroy(false)는 나가기 요청을 보내지 않는다(채널에 남는다)
@@ -65,6 +65,7 @@ function setup({ saveFails = false, releaseFails = false, status = async () => {
       logFile: { close: () => steps.push("log:close") },
       proc,
       voiceConnections: () => new Map(live),
+      ...(job && { stopJob: async () => (steps.push("job:stop"), job) }),
       killAll: () => (
         steps.push("kill"),
         [
@@ -93,6 +94,14 @@ test("신호를 받으면 세션을 저장하고, 음성 채널 상태 문구를
   assert.equal(isShuttingDown(), true, "새 작업을 시작하지 않게 종료 플래그를 곧바로 켠다");
   assert.equal(await exited, 0);
   assert.deepEqual(steps, ["stay:stop", "save:g1:shutdown", 'status:g1:""', "release:g1:프로세스 종료(SIGTERM)", "voice:g1:stay", "voice:g9:stay", "record:shutdown", "client:destroy", "pot:stop", "kill", "log:close"]);
+});
+
+test("실행 중인 설치 작업은 남은 자식 프로세스를 정리하기 전에 중단한다(POSIX에서 스크립트가 별도 프로세스 그룹으로 띄운 도구까지 정리되게)", async () => {
+  _resetShutdown();
+  const { steps, proc, exited } = setup({ job: "ffmpeg-install" });
+  proc.emit("SIGTERM");
+  assert.equal(await exited, 0);
+  assert.deepEqual(steps.slice(-4), ["pot:stop", "job:stop", "kill", "log:close"]);
 });
 
 test("봇을 붙이기 전(POToken 서버를 기다리는 동안)에 끄면 실행한 것만 내리고 깨끗이 끝났다고 적는다", async () => {

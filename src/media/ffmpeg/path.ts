@@ -2,6 +2,7 @@ import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
+import { toolEnv } from "../../config/tool-env.ts";
 import config from "../../config/index.ts";
 import logger from "../../infra/log/logger.ts";
 import { PROJECT } from "../../infra/project-paths.ts";
@@ -25,7 +26,7 @@ let caps: Capabilities | null = null;
 function probe(candidate: string | null | undefined, source = "?"): string | null {
   if (!candidate) return null;
   try {
-    const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000 });
+    const result = spawnSync(candidate, ["-version"], { windowsHide: true, encoding: "utf8", timeout: 10000, env: toolEnv() });
     if (result.error || result.status !== 0) {
       log.warn(`ffmpeg 후보 실행 확인(-version) 실패: ${candidate} | 출처=${source} | 원인=${result.error ? (codeOf(result.error) ?? messageOf(result.error)) : `종료 코드 ${result.status ?? result.signal ?? "없음"}`}`);
       return null;
@@ -112,7 +113,7 @@ function capabilities(): Capabilities {
 
   const ask = (args: string[]): string => {
     try {
-      const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000 });
+      const result = spawnSync(ffmpegPath(), args, { windowsHide: true, encoding: "utf8", timeout: 10000, env: toolEnv() });
       if (result.error) {
         log.warn(`ffmpeg 지원 기능 확인 실패(${args.join(" ")}): ${messageOf(result.error)}`);
         return "";

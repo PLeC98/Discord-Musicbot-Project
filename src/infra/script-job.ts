@@ -1,7 +1,8 @@
 // 봇이 설치 스크립트를 자식 프로세스로 실행하는 작업(외부 도구 다운로드). 한 번에 하나만 돈다.
 // 스크립트는 셸 없이 봇과 같은 Node 실행 파일로 실행하고 stdin을 닫는다. POSIX는 detached로 실행해 프로세스 그룹째 종료한다.
 // 무엇을 실행하는지(ffmpeg, bgutil)는 모른다. 스크립트, 인자, 시간 상한, 성공 판정은 호출부가 넘긴다.
-// 봇이 정상 종료하면 자식 프로세스 레지스트리가 이 작업도 트리째 종료한다. 종료가 시작된 뒤에는 새 작업을 받지 않는다
+// 봇이 정상 종료될 때는 자식 프로세스 정리 전에 stopJob을 호출해, 실행 중인 작업을 취소할 때와 같은 절차(SIGTERM부터)로 중단한다.
+// POSIX에서 SIGKILL만 보내면 스크립트가 별도 프로세스 그룹으로 띄운 도구(npm, tsc)가 남는다. 종료가 시작된 뒤에는 새 작업을 받지 않는다
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
@@ -166,10 +167,17 @@ async function cancelJob(id: number): Promise<CancelResult> {
   return "cancelled";
 }
 
+/** 봇 종료 처리: 실행 중인 작업이 있으면 취소할 때처럼 중단하고 그 이름을 반환한다. 없으면 null */
+async function stopJob(): Promise<Job | null> {
+  if (!current || current.info.state !== "running") return null;
+  await current.stop("cancelled");
+  return current.info.name;
+}
+
 /** 테스트: 처음 상태로 되돌린다 */
 function _resetJobs() {
   current = null;
 }
 
-export { startJob, cancelJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS };
+export { startJob, cancelJob, stopJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS };
 export type { ScriptJobInfo, ScriptJobSpec, StartResult, CancelResult, FailReason };

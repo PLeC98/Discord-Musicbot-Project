@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { startJob, cancelJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS, type ScriptJobInfo, type ScriptJobSpec } from "../../src/infra/script-job.ts";
+import { startJob, cancelJob, stopJob, jobNow, jobRunning, _resetJobs, KEEP_LINES, LINE_CHARS, type ScriptJobInfo, type ScriptJobSpec } from "../../src/infra/script-job.ts";
 import { beginShutdown, _resetShutdown } from "../../src/infra/shutdown-state.ts";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "script-job-"));
@@ -111,4 +111,13 @@ test("출력: 조각 경계에 걸린 UTF-8, \\r 줄바꿈, 색 코드, 긴 줄,
   const early = await run({ script: script(body.replace(/for \(.*\n/, "")) }).done;
   assert.deepEqual(early.output.slice(0, 5), ["한글 줄", "10%", "50%", "100%", "초록"]);
   assert.equal(early.output[5]?.length, LINE_CHARS + 1, "한 줄 상한에서 자르고 표시를 붙인다");
+});
+
+test("봇 종료 시 stopJob: 실행 중인 작업을 취소할 때처럼 중단하고 이름을 반환한다. 없으면 null", async () => {
+  assert.equal(await stopJob(), null);
+  const { done } = run({ name: "bgutil-install", script: script("setTimeout(() => {}, 60_000)") });
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(await stopJob(), "bgutil-install");
+  assert.equal(jobRunning(), false);
+  assert.equal((await done).reason, "cancelled");
 });

@@ -15,6 +15,7 @@ import { runRecord } from "./run-record.ts";
 import type { PotStop } from "../sources/youtube/pot-server.ts";
 import { finishSessions } from "../dashboard/session-store.ts";
 import { beginShutdown } from "../infra/shutdown-state.ts";
+import { stopJob } from "../infra/script-job.ts";
 
 // 바깥 경계. 테스트는 가짜를 넘긴다
 type Boundary = {
@@ -23,6 +24,8 @@ type Boundary = {
   voiceConnections(): Iterable<readonly [string, { destroy(adapterAvailable?: boolean): unknown }]>;
   /** 남은 자식 프로세스를 내리고 내린 것을 돌려준다 */
   killAll(): Array<{ label: string; pid: number }>;
+  /** 실행 중인 설치 작업을 중단하고 그 이름을 반환한다(없으면 null). killAll보다 먼저 호출한다 */
+  stopJob(): Promise<string | null>;
   exit(code: number): unknown;
   /** 실행 기록. 끝난 방식을 적는다 */
   record: Pick<typeof runRecord, "end">;
@@ -35,6 +38,7 @@ const REAL: Boundary = {
     closeLanes();
     return procRegistry.killAll();
   },
+  stopJob,
   exit: (code) => process.exit(code),
   record: runRecord,
 };
@@ -60,7 +64,7 @@ type ShutdownBot = { client: { guilds: { cache: { get(id: string): { name?: stri
 
 /** 종료 신호에 핸들러를 건다. 돌려주는 attach로 봇을 붙인다 */
 function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
-  const { proc, voiceConnections, killAll, exit, record } = { ...REAL, ...boundary };
+  const { proc, voiceConnections, killAll, stopJob, exit, record } = { ...REAL, ...boundary };
 
   let bot: ShutdownBot | null = null;
   let shuttingDown = false;
@@ -82,7 +86,7 @@ function installShutdown({ potServer, logFile, ...boundary }: ShutdownDeps) {
 
     destroyLeftovers(voiceConnections(), client, reason);
     record.end(restart ? "restart" : "shutdown");
-    await release(client, { potServer, logFile, killAll });
+    await release(client, { potServer, logFile, killAll, stopJob });
     exit(restart ? EXIT.restart : EXIT.stopped);
   };
 
@@ -200,20 +204,23 @@ async function savePlayers(players: ShutdownBot["players"], reason: string) {
 
 /** 기동이 실패했다. 실행한 것을 내리고 잠시 뒤 code(설정, 토큰이 틀림 또는 일시적 실패)로 나간다 */
 function stopFailedStart(client: { destroy(): unknown } | null, { potServer, logFile, ...boundary }: ShutdownDeps, code: ExitCode, graceMs = FAILED_START_GRACE_MS) {
-  const { killAll, exit, record } = { ...REAL, ...boundary };
+  const { killAll, stopJob, exit, record } = { ...REAL, ...boundary };
   log.info("종료 시작: 기동 실패");
   record.end("startup-failed");
-  void release(client, { potServer, logFile, killAll })
+  void release(client, { potServer, logFile, killAll, stopJob })
     .catch((error: unknown) => log.error("종료 중 오류:", error))
     .finally(() => setTimeout(() => exit(code), graceMs));
 }
 
 // 봇이 실행한 것을 내린다. 클라이언트, POToken 서버, 자식 프로세스, 로그 파일. 내린 것마다 한 줄, 다 마쳤으면 끝 줄(없으면 정리 도중에 죽은 것)
-async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll">) {
+async function release(client: { destroy(): unknown } | null, { potServer, logFile, killAll, stopJob }: Pick<ShutdownDeps, "potServer" | "logFile"> & Pick<Boundary, "killAll" | "stopJob">) {
   if (client) await closeClient(client);
   const pot = await potServer.stop();
   if (pot === "stopped") log.info("POToken 서버 내림");
   else if (pot === "timeout") log.warn("POToken 서버가 꺼지지 않아 남은 자식 프로세스와 함께 내림");
+
+  const job = await stopJob();
+  if (job) log.info(`진행 중이던 설치 작업 중단: ${job}`);
 
   // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
   // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.

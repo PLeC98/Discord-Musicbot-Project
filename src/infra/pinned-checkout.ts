@@ -9,9 +9,10 @@ import { runTool } from "./tool-run.ts";
 /** git 하위 명령(args[0])을 실행해 stdout을 반환한다. 실패하면 거부된다 */
 type Git = (args: string[], cwd: string) => string | Promise<string>;
 
-/** 원격 저장소에 접속하는 명령(clone, fetch)과 로컬 명령의 시간 상한(ms) */
+/** 시간 상한(ms): 원격 저장소에 접속하는 명령(clone, fetch), 이전 설치의 node_modules를 지우는 clean(백신이 파일마다 검사해 느릴 수 있다), 나머지 로컬 명령 */
 const NETWORK_MS = 3 * 60_000;
-const LOCAL_MS = 60_000;
+const CLEAN_MS = 3 * 60_000;
+const LOCAL_MS = 30_000;
 
 /**
  * env로 git을 실행하는 Git. 자격 증명을 묻지 않고 바로 실패한다: 터미널 프롬프트, askpass, credential helper를 끈다.
@@ -25,7 +26,7 @@ function gitWith(env: NodeJS.ProcessEnv): Git {
       env: quiet,
       label: `git ${args[0]}`,
       capture: true,
-      timeoutMs: args[0] === "clone" || args[0] === "fetch" ? NETWORK_MS : LOCAL_MS,
+      timeoutMs: args[0] === "clone" || args[0] === "fetch" ? NETWORK_MS : args[0] === "clean" ? CLEAN_MS : LOCAL_MS,
     });
 }
 
