@@ -40,7 +40,7 @@ import * as spotifySource from "../sources/spotify.ts";
 import * as ytdlpOptions from "../sources/ytdlp-options.ts";
 import { ytdlpBinary } from "../sources/ytdlp-binary.ts";
 import { cpuLimit as ytdlpCpuLimit } from "../sources/ytdlp-spawn.ts";
-import { bgutilVersion } from "../sources/bgutil-version.ts";
+import { warnOffTarget } from "../sources/bgutil/version.ts";
 import { bgutilAutoInstall } from "../sources/bgutil/auto-install.ts";
 import { onJobIdle } from "../infra/script-job.ts";
 import { genres } from "../config/genres.ts";
@@ -423,8 +423,8 @@ function checkBeforeLogin() {
   // CPU 상한이 걸려 있으면 yt-dlp 동시 실행 수가 제한되어 곡 찾기가 차례를 기다릴 수 있다
   const cpu = ytdlpCpuLimit();
   if (cpu) log.info({ tags: ["startup"] }, `yt-dlp 동시 실행: 최대 ${cpu.slots}개(CPU 상한 ${cpu.quota.toFixed(1)}코어)`);
-  // bgutil은 설치된 것, 설정한 것, 최신을 비교해 알린다
-  bestEffort(log, bgutilVersion.start(), "bgutil 버전 확인", "warn");
+  // bgutil이 설정한 버전과 다르게 설치돼 있으면 알린다
+  warnOffTarget();
   // POToken 서버 사용을 켰는데 설치돼 있지 않으면 알아서 설치한다(기동 준비가 끝나 작업 자리가 빈 뒤라 여기서). 켜기를 저장하거나 다른 작업이 끝날 때도 다시 판정한다
   bestEffort(log, bgutilAutoInstall.ensure("startup"), "bgutil 자동 설치 판정", "warn");
   onTunablesChanged(() => void bgutilAutoInstall.ensure("settings"));

@@ -5,7 +5,7 @@ import config from "../../config/index.ts";
 import logSink from "../../infra/log/sink.ts";
 import { ffmpegInfo } from "../../media/ffmpeg/path.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
-import { bgutilVersion } from "../../sources/bgutil-version.ts";
+import { bgutilVersions } from "../../sources/bgutil/version.ts";
 import type { AdminStatus } from "../contract/admin.ts";
 import { tlsStatus } from "../tls-files.ts";
 import { jobNow, jobRunning } from "../../infra/script-job.ts";
@@ -22,7 +22,7 @@ function envStatus(commandCount: number, dashboardClients: number, launcher: boo
     installJob: jobRunning() ? (jobNow()?.name ?? null) : null,
     // 자동으로 새 버전을 다운로드하는가(알리기만 하는 notify, 버전 고정은 아니다). 다음 확인은 알리기만 해도 있다
     ytdlp: { version: state?.version ?? null, autoUpdate: config.ytdlp.update === "auto" && !config.ytdlp.version, checkedAt: state?.lastChecked || null, nextCheckAt: ytdlpBinary.nextAt },
-    bgutil: bgutilVersion.state(),
+    bgutil: bgutilVersions(),
     commands: { count: commandCount, scope: config.discord.guildId ? "guild" : "global" },
     dashboardClients,
     // 인증서 파일로 직접 HTTPS를 열었으면 그 인증서의 기한(수동으로 갱신하는 사람이 잊지 않게)
