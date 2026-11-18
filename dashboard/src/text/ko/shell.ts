@@ -70,7 +70,7 @@ const month = (n: number) => `${n}월`;
 const day = (n: number) => `${n}일`;
 
 /** 열려 있는 동안 봇이 다시 켜졌는데 저장하지 않은 편집이 있어 새로고침하지 않았다 */
-const botRestarted = { title: "봇이 다시 시작됐어요", body: "저장하지 않은 편집이 있어 화면을 새로고침하지 않았어요. 편집을 저장한 뒤 새로고침하면 최신 상태를 볼 수 있어요.", action: "새로고침" };
+const botRestarted = { title: "봇이 다시 시작됐어요", body: "저장하지 않은 변경 사항이 있어 화면을 새로고침하지 않았어요. 먼저 저장한 뒤 새로고침하면 최신 상태를 볼 수 있어요.", action: "새로고침" };
 
 export {
   notFoundTitle,
