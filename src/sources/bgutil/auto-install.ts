@@ -3,7 +3,8 @@
 // 기동, 설정이 바뀜(설정값 저장, 불러오기, 초기화), 작업 자리가 빔, 운영자의 재시도가 같은 판정 하나(ensure)를 부른다.
 // 혼자서 하는 설치는 목표마다 한 번이다: 실패했거나 중단했으면 "시도했음"으로 적어 두고 다시 하지 않는다(안 되는 빌드를 끝없이 되풀이하지 않게).
 // 다시 하는 것은 운영자가 재시도할 때, 켜기나 목표가 바뀔 때, 다음 기동 때뿐이다. 설치돼 있지만 목표와 다른 것은 혼자서 받지 않는다(카드가 알린다).
-// 끄면 켜기 때문에 시작한 설치를 중단한다
+// 끄면 켜기 때문에 시작한 설치를 중단한다.
+// 운영자가 "설치 후 다시 시작"을 고르면 다시 시작을 예약해 두고 설치가 끝나면 다시 시작한다. 실패, 중단, 끄기면 예약이 풀린다(닫은 화면이 남긴 예약이 나중에 몰래 실행되지 않게 취소도 받는다)
 
 import path from "node:path";
 import fs from "node:fs";
@@ -75,6 +76,8 @@ class BgutilAutoInstall {
   /** 판정이 겹치지 않게(도구 확인을 기다리는 사이 다시 불리면 앞의 것이 끝난 뒤 한 번 더) */
   checking: Promise<void> | null = null;
   again = false;
+  /** 설치가 끝나면 부를 다시 시작(운영자가 예약했다) */
+  reserved: (() => void) | null = null;
 
   constructor(deps: Deps = REAL) {
     this.deps = deps;
@@ -103,6 +106,8 @@ class BgutilAutoInstall {
     const turnedOn = enabled && this.wasEnabled === false;
     this.wasEnabled = enabled;
     if (!enabled) {
+      // 미뤄 두기만 한 설치는 작업이 끝나는 일이 없으니 여기서 예약을 푼다(도는 설치는 중단하면 끝에서 풀린다)
+      if (this.queued && this.running === null) this.unreserve("POToken 서버 사용을 끔");
       this.queued = false;
       // 켜기 때문에 시작한 설치를 중단한다(중단한 목표는 시도 기록에 남는다)
       if (this.running !== null) await this.deps.cancel(this.running);
@@ -139,6 +144,7 @@ class BgutilAutoInstall {
       // 다른 작업(ffmpeg 맞추기 등)이 돌고 있다. 자리가 비면 한다. 종료 중이면 하지 않는다
       this.queued = started.reason === "busy";
       if (this.queued) log.info(`bgutil 설치를 다른 작업(${started.running?.name ?? "?"}) 뒤로 미룸`);
+      else this.unreserve("봇 종료 중");
       return;
     }
     this.queued = false;
@@ -151,15 +157,34 @@ class BgutilAutoInstall {
     this.running = null;
     if (info.state === "succeeded") {
       this.failure = null;
-      log.info("bgutil 설치 완료. 다시 시작하면 POToken 서버가 켜짐");
+      const restart = this.reserved;
+      this.reserved = null;
+      log.info(restart ? "bgutil 설치 완료. 예약한 다시 시작 실행" : "bgutil 설치 완료. 다시 시작하면 POToken 서버가 켜짐");
+      restart?.();
       return;
     }
+    this.unreserve(info.reason === "cancelled" ? "설치 중단" : "설치 실패");
     this.attempted.add(key);
     const tail = info.output.slice(-TAIL_LINES).map(stripScriptPrefix).join(" | ");
     const reason = info.reason === "cancelled" ? "중단" : `${info.reason ?? "?"}${info.exitCode !== null ? `, 종료 코드 ${info.exitCode}` : ""}${tail ? `: ${tail}` : ""}`;
     this.failure = { reason, at: this.deps.now() };
     if (info.reason === "cancelled") log.info("bgutil 설치 중단(POToken 서버 사용을 끔)");
     else log.error(`bgutil 설치 실패(POToken 없이 진행): ${reason}. 대시보드 업데이트 탭에서 재시도하세요`);
+  }
+
+  /** 설치가 끝나면 restart를 부르도록 예약한다. 설치 작업이 돌거나 미뤄져 있지 않으면 예약하지 않는다 */
+  reserve(restart: () => void): boolean {
+    if (this.job() === null) return false;
+    this.reserved = restart;
+    return true;
+  }
+
+  /** 예약을 푼다. 예약이 있었으면 true */
+  unreserve(why: string): boolean {
+    if (!this.reserved) return false;
+    this.reserved = null;
+    log.info(`설치 뒤 다시 시작 예약 취소(${why})`);
+    return true;
   }
 
   /** 설치 작업이 도는 중이거나 미뤄졌는가 */

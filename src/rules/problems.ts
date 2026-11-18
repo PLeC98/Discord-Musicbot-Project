@@ -157,6 +157,8 @@ const WEB = {
   "tool-no-previous": { status: 409, title: "No previous version to go back to" },
   // 외부 프로그램 이전 버전 카드: 이전 버전 삭제 중 도구별로 처리하지 못한 예외
   "tool-cleanup-failed": { status: 500, title: "Could not delete previous versions" },
+  // 설치 후 다시 시작: bgutil이 설치돼 있지도 않고 설치하는 중도 아니다(설치 실패, 필요한 도구가 없음)
+  "bgutil-not-installing": { status: 409, title: "The POToken provider is not being installed" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
   "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },

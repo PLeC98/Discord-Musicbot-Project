@@ -28,6 +28,7 @@ function bgutilCardStatus(): BgutilCardStatus {
     failure: auto.failure,
     missing: auto.missing,
     restartNeeded,
+    restartReserved: auto.reserved !== null,
   };
 }
 

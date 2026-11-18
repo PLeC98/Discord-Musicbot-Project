@@ -185,6 +185,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "tool-check-failed": () => error("failed", "최신 버전을 확인하지 못했어요!", "GitHub에서 릴리스 정보를 가져오지 못했어요. 아래 오류 내용을 확인해 주세요."),
   "tool-check-stale": () => warning("stale", "업데이트를 다시 확인해 주세요!", "확인한 뒤에 채널이 바뀌었거나 새 버전이 나왔어요."),
   "tool-version-pinned": () => warning("state", "버전을 고정한 상태에서는 할 수 없어요!", "버전 고정을 해제한 뒤 다시 시도해 주세요."),
+  "bgutil-not-installing": () => warning("state", "bgutil을 설치하고 있지 않아요!", "설치에 실패했거나 설치에 필요한 프로그램이 없어요. 업데이트 탭의 bgutil 카드를 확인해 주세요."),
   "tool-cleanup-failed": () => error("failed", "이전 버전을 삭제하지 못했어요!", "아래 오류 내용을 확인해 주세요."),
   "tool-no-previous": () => warning("state", "되돌릴 이전 버전이 없어요!", "이전 버전의 기록이나 파일이 남아 있지 않아요. 되돌릴 버전을 직접 입력해 고정해 주세요."),
   // 운영자 패널의 특권 인텐트 켜기

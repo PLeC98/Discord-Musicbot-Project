@@ -21,7 +21,7 @@ import { doneLine, previewOldTools, removeOldTools } from "../old-tools.ts";
 import { OLD_TOOLS, type OldTool } from "../contract/old-tools.ts";
 import { recountVendor } from "../status/storage.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
-import type { VendorReply } from "../contract/admin.ts";
+import type { BgutilRestartReply, VendorReply } from "../contract/admin.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
 
 const vendorRouter = express.Router();
@@ -104,8 +104,34 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
 
 // bgutil 설치 재시도(실패했거나 필요한 도구를 설치한 뒤). 혼자서 하는 설치의 시도 기록을 무시하고 판정한다. 켜져 있지 않으면 하지 않는다
 vendorRouter.post("/bgutil/install", async (req, res) => {
+  const before = bgutilAutoInstall.running;
   await bgutilAutoInstall.ensure("manual");
-  log.info({ sub: "admin" }, `대시보드에서 bgutil 설치 재시도. 실행 ${ranBy(req)}`);
+  // 실제로 설치를 시작했을 때만 남긴다(저장 후 다시 시작이 설치 여부를 확인하려고 부르기도 한다)
+  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 설치 재시도. 실행 ${ranBy(req)}`);
+  res.json(reply());
+});
+
+// 설치 후 다시 시작. 지금 상태로 정한다: 이미 설치돼 있으면 곧바로 다시 시작하고, 설치가 돌거나 미뤄져 있으면 끝날 때 다시 시작하도록 예약한다.
+// 둘 다 아니면(설치 실패, 필요한 도구가 없음) bgutil-not-installing. 실행기 없이 켠 봇이면 다시 시작할 쪽이 없어 거절한다. announce는 /restart와 같다
+vendorRouter.post("/bgutil/restart-after-install", (req, res) => {
+  const restart = req.app.locals.restart as ((by: string, options?: { announce?: boolean }) => void) | null;
+  if (!restart) return sendProblem(res, "restart-unavailable");
+  const announce = req.body?.announce === true;
+  const by = ranBy(req);
+  const restartNow = () => restart(by, { announce });
+  if (bgutilAutoInstall.job() === null && bgutilAutoInstall.deps.installed()) {
+    log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작(bgutil 설치 완료 뒤)${announce ? "(재생 중인 서버에 공지)" : ""}. 실행 ${by}`);
+    res.on("finish", restartNow);
+    return res.status(202).json({ restarting: true, reserved: false } satisfies BgutilRestartReply);
+  }
+  if (!bgutilAutoInstall.reserve(restartNow)) return sendProblem(res, "bgutil-not-installing");
+  log.warn({ sub: "admin" }, `대시보드에서 bgutil 설치 뒤 다시 시작 예약${announce ? "(재생 중인 서버에 공지)" : ""}. 실행 ${by}`);
+  res.status(202).json({ restarting: false, reserved: true } satisfies BgutilRestartReply);
+});
+
+// 설치 뒤 다시 시작 예약 취소
+vendorRouter.delete("/bgutil/restart-after-install", (req, res) => {
+  bgutilAutoInstall.unreserve(`대시보드에서 취소. 실행 ${ranBy(req)}`);
   res.json(reply());
 });
 

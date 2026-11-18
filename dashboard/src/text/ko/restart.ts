@@ -26,7 +26,11 @@ const waiting = "봇이 다시 시작되면 이 화면을 새로고침해요. �
 const timeoutTitle = "봇이 다시 시작되지 않았어요";
 const timeoutBody = "봇을 실행한 터미널이나 로그를 확인해 주세요.";
 const failed = "봇을 다시 시작하지 못했어요.";
+/** 설치 후 다시 시작을 예약한 뒤의 알림 */
+const bgutilReservedTitle = "설치가 끝나면 다시 시작해요";
+const bgutilReservedBody = "업데이트 탭의 bgutil 카드에서 진행을 보거나 예약을 취소할 수 있어요.";
+const bgutilFailedTitle = "bgutil을 설치하지 못해 다시 시작하지 않았어요";
 /** 운영 설정값: 저장했지만 다시 시작해야 적용되는 값이 있다. names: 필드 이름(쉼표로 이음) */
 const pending = (names: string) => `저장했지만 봇을 다시 시작해야 적용돼요: ${names}`;
 
-export { button, unavailable, confirmTitle, confirmBody, confirm, later, reasons, announce, installStops, waitingTitle, waiting, timeoutTitle, timeoutBody, failed, pending };
+export { button, unavailable, confirmTitle, confirmBody, confirm, later, reasons, announce, installStops, waitingTitle, waiting, timeoutTitle, timeoutBody, failed, bgutilReservedTitle, bgutilReservedBody, bgutilFailedTitle, pending };

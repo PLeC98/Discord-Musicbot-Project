@@ -136,3 +136,44 @@ test("성공하면 실패를 지운다", async () => {
   assert.equal(auto.job(), null);
   assert.equal(auto.failure, null);
 });
+
+test("설치 후 다시 시작 예약: 설치가 끝나면 다시 시작하고, 실패하거나 중단하면 풀린다. 설치가 없으면 예약하지 않는다", async () => {
+  const idle = world();
+  assert.equal(
+    idle.auto.reserve(() => undefined),
+    false,
+    "돌거나 미룬 설치가 없다",
+  );
+
+  const ok = world();
+  let restarted = 0;
+  await ok.auto.ensure("startup");
+  assert.equal(
+    ok.auto.reserve(() => restarted++),
+    true,
+  );
+  ok.end("succeeded");
+  assert.equal(restarted, 1);
+  assert.equal(ok.auto.reserved, null);
+
+  const bad = world();
+  await bad.auto.ensure("startup");
+  bad.auto.reserve(() => restarted++);
+  bad.end("failed");
+  assert.equal(restarted, 1, "실패하면 다시 시작하지 않는다");
+  assert.equal(bad.auto.reserved, null);
+});
+
+test("설치 후 다시 시작 예약: 미뤄 둔 설치일 때 끄면 예약이 풀린다(작업이 끝나는 일이 없다)", async () => {
+  const { w, auto } = world();
+  w.busy = true;
+  await auto.ensure("startup");
+  assert.equal(
+    auto.reserve(() => assert.fail("다시 시작하면 안 된다")),
+    true,
+  );
+  w.enabled = false;
+  await auto.ensure("settings");
+  assert.equal(auto.reserved, null);
+  assert.equal(auto.job(), null);
+});

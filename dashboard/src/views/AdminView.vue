@@ -121,6 +121,7 @@
         <!-- 업데이트: 외부 도구(yt-dlp)의 버전, 업데이트, 외부 프로그램 이전 버전 삭제 -->
         <div class="admin-page" v-show="tab === 'update'">
           <ConfigYtdlp v-if="opened.has('update')" ref="ytdlpEl" />
+          <ConfigBgutil v-if="opened.has('update')" ref="bgutilEl" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
           <ConfigToolVersions v-if="opened.has('update')" ref="versionsEl" class="mt-(--gap-in)" />
         </div>
 
@@ -202,6 +203,10 @@ import ConfigAgeContent from "../components/ConfigAgeContent.vue";
 import ConfigGeoip from "../components/ConfigGeoip.vue";
 import ConfigYtdlp from "../components/ConfigYtdlp.vue";
 import type ToolVersionsPanel from "../components/ConfigToolVersions.vue";
+import type BgutilPanel from "../components/ConfigBgutil.vue";
+import type { VendorReply } from "../../../src/dashboard/contract/admin.ts";
+import type { BgutilCardStatus } from "../../../src/sources/bgutil/status-types.ts";
+import type { RestartReason } from "../composables/bot-restart.ts";
 import { ageContent, loadAgeContent } from "../composables/age-content.ts";
 import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";
@@ -273,7 +278,22 @@ async function saveEverything(restarting = false) {
 }
 
 async function saveEverythingAndRestart() {
-  if (await saveEverything(true)) askRestart("save");
+  if (!(await saveEverything(true))) return;
+  const [why, bgutil] = await restartQuestion();
+  askRestart(why, bgutil);
+}
+
+// 저장한 뒤의 물음. POToken 서버 사용이 켜져 있는데 bgutil이 없으면 설치를 시작(재시도)해 둔 상태로 bgutil 물음을
+// (설치 중이면 설치 후 다시 시작, 없는 프로그램이나 실패면 그 안내), 아니면 보통의 저장 물음을. 상태를 읽지 못하면 보통의 물음으로
+async function restartQuestion(): Promise<[RestartReason, BgutilCardStatus | null]> {
+  try {
+    const now = (await axios.get<VendorReply>("/api/admin/vendor")).data.status.bgutil;
+    if (!now.enabled || now.installed) return ["save", null];
+    const after = now.job ? now : (await axios.post<VendorReply>("/api/admin/vendor/bgutil/install")).data.status.bgutil;
+    return ["bgutil", after];
+  } catch {
+    return ["save", null];
+  }
 }
 
 // 연령 제한 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가
@@ -554,6 +574,8 @@ const ytdlpEl = ref<InstanceType<typeof ConfigYtdlp> | null>(null);
 // 업데이트 탭을 열 때만 쓰므로 따로 불러온다(관리 화면 청크를 크기 경고 아래로)
 const ConfigToolVersions = defineAsyncComponent(() => import("../components/ConfigToolVersions.vue"));
 const versionsEl = ref<InstanceType<typeof ToolVersionsPanel> | null>(null);
+const ConfigBgutil = defineAsyncComponent(() => import("../components/ConfigBgutil.vue"));
+const bgutilEl = ref<InstanceType<typeof BgutilPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 // now: 탭 바꿈, 다시 보임(받는 중이어도 바로 보낸다)
@@ -564,6 +586,8 @@ function poll(now = false) {
   // yt-dlp는 자동 업데이트로 봇이 켜진 채 버전이 바뀐다. 이전 버전 카드는 폴더 크기를 세느라 탭을 열거나 다시 보일 때만 읽는다
   else if (tab.value === "update") {
     void ytdlpEl.value?.refresh();
+    // bgutil 설치는 백그라운드에서 끝난다
+    void bgutilEl.value?.refresh();
     if (now) void versionsEl.value?.refresh();
   }
 }

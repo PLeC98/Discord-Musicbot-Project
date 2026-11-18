@@ -2,12 +2,14 @@
 // 봇 상태 탭의 버튼, 운영 설정값 저장 바의 "저장 후 다시 시작"(저장한 뒤에), 스냅샷 복원, 설정 불러오기, 초기화.
 // 봇이 자동으로 다시 시작하는 일(봇 전체 초기화)은 보내지 않고 기다리기만 한다(waitRestart).
 // asking: 묻는 중. starting: 다시 시작을 보내는 중(로그인한 지 오래됐으면 다시 로그인을 마칠 때까지 여기서 기다린다. 창은 닫혀 있다).
-// waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 응답하면 화면을 새로고침한다
+// waiting: 봇이 받았고 내려갔다 다시 뜨기를 기다리는 중. 새 프로세스(pid)가 응답하면 화면을 새로고침한다.
+// bgutil 설치 후 다시 시작: 봇이 설치가 끝나면 다시 시작하도록 예약하고, 그동안은 창을 닫아 패널을 쓸 수 있게 둔 채 가볍게 확인한다(설치가 끝나 봇이 내려가면 waiting으로)
 
 import { ref } from "vue";
 import axios from "axios";
 import { notify, notifyProblem } from "./toasts.ts";
-import { COUNTS_ONLY, statusParams, type AdminStatus, type RestartReply } from "../../../src/dashboard/contract/admin.ts";
+import { COUNTS_ONLY, statusParams, type AdminStatus, type BgutilRestartReply, type RestartReply, type VendorReply } from "../../../src/dashboard/contract/admin.ts";
+import type { BgutilCardStatus } from "../../../src/sources/bgutil/status-types.ts";
 import type { Job } from "../../../src/infra/process-job.ts";
 import { text } from "../text/index.ts";
 const T = text.restart;
@@ -15,12 +17,17 @@ const T = text.restart;
 // 다시 뜨기를 기다리는 상한과 확인 간격. 기동은 보통 몇 초, POToken 서버가 늦으면 30초 남짓
 const WAIT_MS = 120_000;
 const POLL_MS = 1500;
+// 설치 후 다시 시작을 예약한 뒤 확인하는 상한과 간격(설치 스크립트의 시간 상한 30분보다 조금 길게)
+const RESERVED_MS = 35 * 60_000;
+const RESERVED_POLL_MS = 3000;
 
 type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
-/** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠). 없으면 null */
-type RestartReason = "save" | "snapshot" | null;
+/** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠), bgutil(POToken 서버 사용을 켰는데 bgutil이 없다). 없으면 null */
+type RestartReason = "save" | "snapshot" | "bgutil" | null;
 const reason = ref<RestartReason>(null);
+/** 까닭이 bgutil일 때 그 상태(설치 중이면 설치 후 다시 시작을, 아니면 없는 프로그램이나 실패를 보인다) */
+const bgutil = ref<BgutilCardStatus | null>(null);
 /** 창을 열 때의 재생 중, 일시정지한 서버 수(봇 상태 탭의 플레이어 개수)와 진행 중인 설치 작업(다시 시작하면 중단된다). 읽는 중이거나 읽지 못했으면 null */
 type PlayerCounts = { playing: number; paused: number; installJob: Job | null };
 const counts = ref<PlayerCounts | null>(null);
@@ -44,10 +51,11 @@ async function cameBack(before: number) {
   return false;
 }
 
-/** 확인 창을 연다. why: 창에 보일 까닭 */
-function askRestart(why: RestartReason = null) {
+/** 확인 창을 연다. why: 창에 보일 까닭, status: 까닭이 bgutil일 때 그 상태 */
+function askRestart(why: RestartReason = null, status: BgutilCardStatus | null = null) {
   if (phase.value !== "idle") return;
   reason.value = why;
+  bgutil.value = status;
   counts.value = null;
   phase.value = "asking";
   countsNow().then(
@@ -80,6 +88,50 @@ async function restartNow(announce = false) {
   }
 }
 
+const vendorNow = async () => (await axios.get<VendorReply>("/api/admin/vendor", { timeout: 3000 })).data.status.bgutil;
+
+// 예약한 뒤: 설치가 끝나 봇이 내려가면 다시 뜨기를 기다리고(waiting), 설치가 실패해 예약이 풀리면 알리고 끝낸다
+async function followReserved(before: number) {
+  const deadline = Date.now() + RESERVED_MS;
+  while (Date.now() < deadline) {
+    await sleep(RESERVED_POLL_MS);
+    let now: BgutilCardStatus;
+    try {
+      now = await vendorNow();
+    } catch {
+      // 봇이 내려갔다(설치가 끝나 다시 시작하는 중)
+      return void (await waitFor(before));
+    }
+    if (now.restartReserved) continue;
+    if (now.job === null && now.failure) return notify({ title: T.bgutilFailedTitle, body: now.failure.reason });
+    // 예약이 풀렸는데 실패가 없다: 다시 시작이 시작됐거나 운영자가 취소했다. 취소면 봇이 그대로라 기다리지 않는다
+    if (now.job === null) {
+      try {
+        if ((await pidNow()) === before) return;
+      } catch {
+        // 내려가는 중
+      }
+      return void (await waitFor(before));
+    }
+  }
+}
+
+/** 설치가 끝나면 다시 시작한다(확인 창에서 고른 뒤). 이미 설치됐으면 곧바로 다시 시작한다. announce: 재생 중인 서버에 다시 시작한다고 알린다 */
+async function restartAfterInstall(announce = false) {
+  phase.value = "starting";
+  try {
+    const before = await pidNow();
+    const { data } = await axios.post<BgutilRestartReply>("/api/admin/vendor/bgutil/restart-after-install", { announce });
+    if (data.restarting) return void (await waitFor(before));
+    phase.value = "idle";
+    notify({ title: T.bgutilReservedTitle, body: T.bgutilReservedBody, severity: "info" });
+    void followReserved(before);
+  } catch (err) {
+    notifyProblem(err, T.failed);
+    phase.value = "idle";
+  }
+}
+
 /** 지금 봇 프로세스(봇이 자체적으로 다시 시작하는 일을 보내기 전에 받아 둔다) */
 const currentPid = pidNow;
 
@@ -91,5 +143,5 @@ function cancelRestart() {
   if (phase.value === "asking") phase.value = "idle";
 }
 
-export { phase as restartPhase, reason as restartReason, counts as restartCounts, askRestart, restartNow, currentPid, waitRestart, cancelRestart };
+export { phase as restartPhase, reason as restartReason, counts as restartCounts, bgutil as restartBgutil, askRestart, restartNow, restartAfterInstall, currentPid, waitRestart, cancelRestart };
 export type { RestartReason, PlayerCounts };
