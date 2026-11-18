@@ -156,7 +156,7 @@ const infoGroups = computed<Array<{ title: string; tone: string; rows: InfoRow[]
   const { bgutil, tls } = status.env;
   // 인증서 파일로 직접 HTTPS를 열었을 때만. 날짜는 Started처럼 이 기기의 시각
   const tlsRows: InfoRow[] = tls ? [{ icon: "lock", key: "TLS", value: `until ${dateTimeText(tls.expiresAt)}`, note: tls.daysLeft > 0 ? `(${tls.daysLeft} days left)` : "(expired)" }] : [];
-  const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.installed !== bgutil.target ? `(→ ${bgutil.target})` : undefined }] : [];
+  const bgutilRows: InfoRow[] = bgutil ? [{ icon: "key", key: "bgutil", value: bgutil.installed, note: bgutil.same ? undefined : `(→ ${bgutil.target})` }] : [];
   return [
     {
       title: "Bot",

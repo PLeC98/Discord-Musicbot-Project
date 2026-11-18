@@ -201,7 +201,7 @@ import ConfigCommands from "../components/ConfigCommands.vue";
 import ConfigVisibility from "../components/ConfigVisibility.vue";
 import ConfigAgeContent from "../components/ConfigAgeContent.vue";
 import ConfigGeoip from "../components/ConfigGeoip.vue";
-import ConfigYtdlp from "../components/ConfigYtdlp.vue";
+import type YtdlpPanel from "../components/ConfigYtdlp.vue";
 import type ToolVersionsPanel from "../components/ConfigToolVersions.vue";
 import type BgutilPanel from "../components/ConfigBgutil.vue";
 import type { VendorReply } from "../../../src/dashboard/contract/admin.ts";
@@ -570,8 +570,9 @@ const POLL_MS = 3000;
 // 캐시 DB 탭은 크고 열 때만 그린다: 코드를 따로 불러온다
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
-const ytdlpEl = ref<InstanceType<typeof ConfigYtdlp> | null>(null);
-// 업데이트 탭을 열 때만 쓰므로 따로 불러온다(관리 화면 청크를 크기 경고 아래로)
+// 업데이트 탭의 카드는 그 탭을 열 때만 쓰므로 따로 불러온다(관리 화면 청크를 크기 경고 아래로)
+const ConfigYtdlp = defineAsyncComponent(() => import("../components/ConfigYtdlp.vue"));
+const ytdlpEl = ref<InstanceType<typeof YtdlpPanel> | null>(null);
 const ConfigToolVersions = defineAsyncComponent(() => import("../components/ConfigToolVersions.vue"));
 const versionsEl = ref<InstanceType<typeof ToolVersionsPanel> | null>(null);
 const ConfigBgutil = defineAsyncComponent(() => import("../components/ConfigBgutil.vue"));

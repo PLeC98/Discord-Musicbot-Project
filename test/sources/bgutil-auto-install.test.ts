@@ -2,32 +2,35 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { BgutilAutoInstall, type BgutilAutoDeps } from "../../src/sources/bgutil/auto-install.ts";
-import type { ScriptJobInfo } from "../../src/infra/script-job.ts";
+import { BgutilAutoInstall, type BgutilAutoDeps, type BgutilBuildRef } from "../../src/sources/bgutil/auto-install.ts";
+import type { ScriptJobInfo, ScriptJobSpec } from "../../src/infra/script-job.ts";
 import type { BgutilNeed } from "../../src/sources/bgutil/status-types.ts";
 
 const TARGET = { tag: "2.0.2", commit: "a".repeat(40) };
 
-/** 가짜 세상. enabled: 저장된 켜기, installed: 설치 여부, needs: 없는 것, busy: 작업 자리가 찼다. starts, cancels: 부른 기록. end(state): 도는 작업을 끝낸다 */
+/** 가짜 세상. enabled: 저장된 켜기, installed: 설치 여부(build: 설치된 빌드, 없으면 목표), needs: 없는 것, busy: 작업 자리가 찼다. starts, cancels: 부른 기록. end(state): 도는 작업을 끝낸다 */
 function world() {
   const w = {
     enabled: true,
     installed: false,
+    build: null as BgutilBuildRef | null,
     needs: [] as BgutilNeed[],
     busy: false,
-    target: TARGET as BgutilAutoDeps extends { target(): infer T } ? T : never,
+    target: TARGET as BgutilBuildRef,
+    spec: null as Omit<ScriptJobSpec, "onEnd"> | null,
     starts: 0,
     cancels: [] as number[],
     onEnd: null as ((info: ScriptJobInfo) => void) | null,
   };
   const deps: BgutilAutoDeps = {
     savedEnabled: () => w.enabled,
-    installed: () => w.installed,
+    active: () => (w.installed ? (w.build ?? w.target) : null),
     target: () => w.target,
     needs: async () => w.needs,
-    start: (_spec, onEnd) => {
+    start: (spec, onEnd) => {
       if (w.busy) return { ok: false, reason: "busy", running: null };
       w.starts++;
+      w.spec = spec;
       w.onEnd = onEnd;
       return { ok: true, id: w.starts };
     },
@@ -121,12 +124,57 @@ test("끄면 도는 설치를 중단하고, 다시 켜면 시도 기록을 지�
   assert.equal(w.starts, 2);
 });
 
-test("받을 태그, 커밋 설정이 틀렸으면 시작하지 않고 그 사유를 남긴다", async () => {
+test("설치 작업에 목표의 태그와 커밋을 넘기고, 기록의 지금 빌드가 그 목표일 때만 성공으로 본다", async () => {
   const { w, auto } = world();
-  w.target = { error: "BGUTIL_COMMIT은 커밋 해시 40자여야 합니다" };
   await auto.ensure("startup");
+  assert.deepEqual(w.spec?.args, ["--tag", TARGET.tag, "--commit", TARGET.commit]);
+  assert.equal(w.spec?.succeeded?.(), false, "아직 설치되지 않았다");
+  w.installed = true;
+  w.build = { tag: "2.0.1", commit: "b".repeat(40) };
+  assert.equal(w.spec?.succeeded?.(), false, "다시 설치가 실패해 옛 빌드가 남았다");
+  w.build = null;
+  assert.equal(w.spec?.succeeded?.(), true);
+});
+
+test("설치된 것이 목표와 다르면 혼자서는 받지 않고 운영자의 받기로만 받는다", async () => {
+  const { w, auto } = world();
+  w.installed = true;
+  w.build = { tag: "2.0.1", commit: "b".repeat(40) };
+  await auto.ensure("startup");
+  await auto.ensure("settings");
   assert.equal(w.starts, 0);
-  assert.match(auto.failure?.reason ?? "", /BGUTIL_COMMIT/);
+  await auto.ensure("manual");
+  assert.equal(w.starts, 1);
+});
+
+test("꺼져 있어도 운영자의 받기는 목표와 다른 설치를 바꾸고, 끄는 판정이 그것을 중단하지 않는다. 설치된 것이 없으면 켤 때 받는다", async () => {
+  const has = world();
+  has.w.enabled = false;
+  has.w.installed = true;
+  has.w.build = { tag: "2.0.1", commit: "b".repeat(40) };
+  await has.auto.ensure("manual");
+  assert.equal(has.w.starts, 1);
+  await has.auto.ensure("settings");
+  assert.deepEqual(has.w.cancels, [], "운영자가 시작한 것은 그대로");
+
+  const none = world();
+  none.w.enabled = false;
+  await none.auto.ensure("manual");
+  assert.equal(none.w.starts, 0);
+  none.w.enabled = true;
+  await none.auto.ensure("settings");
+  assert.equal(none.w.starts, 1);
+});
+
+test("판정이 도는 중에 운영자의 받기가 오면 그 뒤에 받기로 한 번 더 판정하고, 기다린 쪽은 그것까지 끝난 뒤 풀린다", async () => {
+  const { w, auto } = world();
+  w.installed = true;
+  w.build = { tag: "2.0.1", commit: "b".repeat(40) };
+  const first = auto.ensure("settings");
+  const second = auto.ensure("manual");
+  await second;
+  assert.equal(w.starts, 1);
+  await first;
 });
 
 test("성공하면 실패를 지운다", async () => {

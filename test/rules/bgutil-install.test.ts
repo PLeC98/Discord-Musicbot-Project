@@ -1,8 +1,8 @@
-// src/rules/bgutil-install.ts: bgutil 설치가 받을 태그와 커밋, lockfile에서 설치 스크립트를 돌릴 실행 의존성, 루트의 설치 스크립트
+// src/rules/bgutil-install.ts: bgutil 설치가 받을 태그와 커밋, 태그가 가리키는 커밋, lockfile에서 설치 스크립트를 돌릴 실행 의존성, 루트의 설치 스크립트
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bgutilPin, isCommitSha, isPlainTag, rebuildTargets, rootInstallScripts } from "../../src/rules/bgutil-install.ts";
+import { bgutilTarget, isCommitSha, isPlainTag, rebuildTargets, rootInstallScripts, taggedCommit } from "../../src/rules/bgutil-install.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "../../src/config/vendor-versions.ts";
 import { loadConfig } from "../../src/config/index.ts";
 import { rewriteConstant } from "../../src/rules/vendor-updates.ts";
@@ -18,26 +18,44 @@ test("기본 태그와 고정한 커밋: 태그는 숫자 판, 커밋은 40자 �
   assert.equal(isCommitSha("26475e9"), false, "짧은 커밋은 받지 않는다");
 });
 
-test("받을 커밋: 기본 태그면 고정한 커밋, BGUTIL_COMMIT을 주면 그 커밋", () => {
-  assert.deepEqual(bgutilPin("2.0.2", "", DEFAULTS), { tag: "2.0.2", commit: DEFAULTS.commit });
-  assert.deepEqual(bgutilPin("2.0.3", OTHER, DEFAULTS), { tag: "2.0.3", commit: OTHER });
-  assert.deepEqual(bgutilPin("2.0.2", OTHER, DEFAULTS), { tag: "2.0.2", commit: OTHER }, "기본 태그에 다른 커밋을 주면 그 커밋으로 맞춰 본다(맞지 않으면 설치가 멈춘다)");
+test("받을 짝: 고정이 없으면 기본 짝, 기본 태그만이면 고정한 커밋, 커밋을 주면 그 커밋", () => {
+  assert.deepEqual(bgutilTarget("", "", DEFAULTS), { tag: "2.0.2", commit: DEFAULTS.commit });
+  assert.deepEqual(bgutilTarget("2.0.2", "", DEFAULTS), { tag: "2.0.2", commit: DEFAULTS.commit });
+  assert.deepEqual(bgutilTarget("2.0.3", OTHER, DEFAULTS), { tag: "2.0.3", commit: OTHER });
+  assert.deepEqual(bgutilTarget("2.0.2", OTHER, DEFAULTS), { tag: "2.0.2", commit: OTHER }, "기본 태그에 다른 커밋을 주면 그 커밋으로 맞춰 본다(맞지 않으면 설치가 멈춘다)");
 });
 
-test("받을 커밋: 다른 태그에 커밋이 없거나, 커밋이나 태그 형식이 아니면 받지 않는다", () => {
-  const missing = bgutilPin("2.0.3", "", DEFAULTS);
-  assert.ok("error" in missing && missing.error.includes("BGUTIL_COMMIT") && missing.error.includes("2.0.2"), JSON.stringify(missing));
-  for (const commit of ["26475e9", "g".repeat(40), `${OTHER} `]) assert.ok("error" in bgutilPin("2.0.3", commit, DEFAULTS), commit);
-  for (const tag of ["", "-x", "a:refs/heads/main", "v*", "a..b", "a b"]) {
+test("받을 짝: 다른 태그에 커밋이 없거나, 커밋만 있거나, 형식이 아니면 어느 이름이 왜 틀렸는지", () => {
+  assert.deepEqual(bgutilTarget("2.0.3", "", DEFAULTS), { key: "BGUTIL_COMMIT", value: "", reason: "태그를 기본값(2.0.2)과 다르게 두면 그 태그의 커밋이 함께 있어야 함" });
+  assert.deepEqual(bgutilTarget("", OTHER, DEFAULTS), { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" });
+  for (const commit of ["26475e9", "g".repeat(40), `${OTHER} `]) assert.equal((bgutilTarget("2.0.3", commit, DEFAULTS) as { key?: string }).key, "BGUTIL_COMMIT", commit);
+  for (const tag of ["-x", "a:refs/heads/main", "v*", "a..b", "a b"]) {
     assert.equal(isPlainTag(tag), false, tag);
-    assert.ok("error" in bgutilPin(tag, OTHER, DEFAULTS), tag);
+    assert.equal((bgutilTarget(tag, OTHER, DEFAULTS) as { key?: string }).key, "BGUTIL_VERSION", tag);
   }
+  assert.equal(isPlainTag(""), false);
   for (const tag of ["2.0.2", "v1.3.2", "release_1-rc.2"]) assert.equal(isPlainTag(tag), true, tag);
 });
 
-test(".env의 BGUTIL_COMMIT은 소문자로 읽고, 비면 빈 글자", () => {
-  assert.equal(loadConfig({}).config.bgutil.commit, "");
-  assert.equal(loadConfig({ BGUTIL_COMMIT: ` ${"A".repeat(40)} ` }).config.bgutil.commit, "a".repeat(40));
+test("설정값의 짝: 커밋은 소문자로 읽고, 틀린 짝은 둘 다 기본 짝으로 돌며 설정값 문제로 남는다", () => {
+  const none = loadConfig({}).config.bgutil;
+  assert.deepEqual([none.version, none.commit, none.pinned], [BGUTIL_VERSION, BGUTIL_COMMIT, false]);
+  const pinned = loadConfig({}, { tunables: { BGUTIL_VERSION: "2.0.3", BGUTIL_COMMIT: ` ${"A".repeat(40)} ` } });
+  assert.deepEqual([pinned.config.bgutil.version, pinned.config.bgutil.commit, pinned.config.bgutil.pinned], ["2.0.3", "a".repeat(40), true]);
+  const half = loadConfig({}, { tunables: { BGUTIL_VERSION: "2.0.3" } });
+  assert.deepEqual([half.config.bgutil.version, half.config.bgutil.commit, half.config.bgutil.pinned], [BGUTIL_VERSION, BGUTIL_COMMIT, false]);
+  assert.ok(
+    half.tuneProblems.some((line) => line.startsWith("BGUTIL_COMMIT 값이 잘못됨")),
+    half.tuneProblems.join("\n"),
+  );
+});
+
+test("태그가 가리키는 커밋: 주석 태그는 벗긴 줄, 가벼운 태그는 태그 줄, 없으면 null", () => {
+  const annotated = `${"c".repeat(40)}\trefs/tags/2.0.3\n${OTHER}\trefs/tags/2.0.3^{}\n`;
+  assert.equal(taggedCommit(annotated, "2.0.3"), OTHER);
+  assert.equal(taggedCommit(`${OTHER.toUpperCase()}\trefs/tags/2.0.3\r\n`, "2.0.3"), OTHER);
+  assert.equal(taggedCommit(`${OTHER}\trefs/tags/2.0.30\n`, "2.0.3"), null, "이름이 같은 태그만");
+  assert.equal(taggedCommit("", "2.0.3"), null);
 });
 
 test("설치 스크립트를 돌릴 의존성: 실행 의존성 가운데 설치 스크립트가 있는 것만, 중첩도 이름 하나로", () => {

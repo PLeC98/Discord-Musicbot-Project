@@ -86,9 +86,13 @@ test(".env.example을 그대로 복사하면 기본값으로 설치한다. 주�
   assert.equal(bgutil.version, DEFAULTS.bgutil.version);
 });
 
-test(".env에 적은 bgutil 버전이 기본값을 이긴다. ffmpeg 릴리스는 .env로 바꾸지 않는다(읽지 않는 이름)", () => {
+test(".env의 bgutil 버전, ffmpeg 릴리스는 읽지 않는다(bgutil은 업데이트 탭에서 고정한다는 경고, ffmpeg는 읽지 않는 이름)", () => {
   const { config, warnings } = loadConfig({ BGUTIL_VERSION: "1.3.2" }, { envFileNames: ["BGUTIL_VERSION", "FFMPEG_RELEASE"] });
-  assert.equal(config.bgutil.version, "1.3.2");
+  assert.equal(config.bgutil.version, DEFAULTS.bgutil.version);
+  assert.ok(
+    warnings.some((line) => line.includes("BGUTIL_VERSION") && line.includes("업데이트 탭")),
+    warnings.join("\n"),
+  );
   assert.ok(
     warnings.some((line) => line.includes("FFMPEG_RELEASE")),
     warnings.join("\n"),

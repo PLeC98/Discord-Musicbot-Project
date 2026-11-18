@@ -102,12 +102,13 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   res.status(202).json(reply(saved));
 });
 
-// bgutil 설치 재시도(실패했거나 필요한 도구를 설치한 뒤). 혼자서 하는 설치의 시도 기록을 무시하고 판정한다. 켜져 있지 않으면 하지 않는다
+// bgutil 받기: 실패 뒤의 재시도(필요한 도구를 설치한 뒤 등)와 설치된 것이 설정한 버전과 다를 때. 혼자서 하는 설치의 시도 기록을 무시하고 판정한다.
+// 꺼져 있고 설치된 것이 없으면 하지 않는다(켤 때 받는다)
 vendorRouter.post("/bgutil/install", async (req, res) => {
   const before = bgutilAutoInstall.running;
   await bgutilAutoInstall.ensure("manual");
   // 실제로 설치를 시작했을 때만 남긴다(저장 후 다시 시작이 설치 여부를 확인하려고 부르기도 한다)
-  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 설치 재시도. 실행 ${ranBy(req)}`);
+  if (bgutilAutoInstall.running !== null && bgutilAutoInstall.running !== before) log.info({ sub: "admin" }, `대시보드에서 bgutil 받기. 실행 ${ranBy(req)}`);
   res.json(reply());
 });
 
@@ -119,7 +120,7 @@ vendorRouter.post("/bgutil/restart-after-install", (req, res) => {
   const announce = req.body?.announce === true;
   const by = ranBy(req);
   const restartNow = () => restart(by, { announce });
-  if (bgutilAutoInstall.job() === null && bgutilAutoInstall.deps.installed()) {
+  if (bgutilAutoInstall.job() === null && bgutilAutoInstall.deps.active() !== null) {
     log.warn({ sub: "admin" }, `대시보드에서 봇 다시 시작(bgutil 설치 완료 뒤)${announce ? "(재생 중인 서버에 공지)" : ""}. 실행 ${by}`);
     res.on("finish", restartNow);
     return res.status(202).json({ restarting: true, reserved: false } satisfies BgutilRestartReply);

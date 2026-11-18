@@ -1,4 +1,4 @@
-// bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 받을지, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설치 스크립트(scripts/install-bgutil)가 따른다
+// bgutil(POToken 공급자) 설치의 판단: 어느 태그와 커밋을 받을지, 태그가 가리키는 커밋, 잠금 파일에서 설치 스크립트를 돌릴 의존성. 설정 모듈과 설치 스크립트(scripts/install-bgutil)가 따른다
 
 /** git 커밋 해시(40자 소문자 16진) */
 function isCommitSha(text: string) {
@@ -10,15 +10,33 @@ function isPlainTag(text: string) {
   return /^[0-9A-Za-z][0-9A-Za-z._-]*$/.test(text) && !text.includes("..");
 }
 
+/** 틀린 짝: 어느 이름의 어떤 값이 왜 틀렸나(설정값 문제 줄의 재료) */
+type BgutilTargetProblem = { key: "BGUTIL_VERSION" | "BGUTIL_COMMIT"; value: string; reason: string };
+
 /**
- * 받을 태그와 그 태그가 가리켜야 할 커밋. commit은 .env의 BGUTIL_COMMIT(비면 없음).
- * 기본 태그면 고정한 커밋, 다른 태그면 commit을 함께 받아야 한다(태그만으로는 받은 코드를 확인할 수 없다). 받지 못하면 error
+ * 받을 태그와 그 태그가 가리켜야 할 커밋. version, commit은 업데이트 탭의 bgutil 카드가 고정한 값(비면 없음).
+ * 둘 다 없으면 기본 짝, 기본 태그만 있으면 고정한 커밋. 다른 태그는 커밋이 함께 있어야 한다(태그만으로는 받은 코드를 확인할 수 없다)
  */
-function bgutilPin(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | { error: string } {
-  if (!isPlainTag(version)) return { error: `BGUTIL_VERSION이 태그 이름이 아닙니다: ${version}` };
-  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { error: `BGUTIL_COMMIT은 커밋 해시 40자(16진수 소문자)여야 합니다: ${commit}` };
+function bgutilTarget(version: string, commit: string, defaults: { version: string; commit: string }): { tag: string; commit: string } | BgutilTargetProblem {
+  if (!version && !commit) return { tag: defaults.version, commit: defaults.commit };
+  if (!version) return { key: "BGUTIL_VERSION", value: "", reason: "커밋만 있고 태그가 없음" };
+  if (!isPlainTag(version)) return { key: "BGUTIL_VERSION", value: version, reason: "태그 이름이 아님" };
+  if (commit) return isCommitSha(commit) ? { tag: version, commit } : { key: "BGUTIL_COMMIT", value: commit, reason: "커밋 해시 40자(16진수 소문자)여야 함" };
   if (version === defaults.version) return { tag: version, commit: defaults.commit };
-  return { error: `BGUTIL_VERSION을 기본값(${defaults.version})과 다르게 두면 그 태그의 커밋 40자를 BGUTIL_COMMIT에 함께 적으세요. 커밋은 git ls-remote <저장소> refs/tags/${version}^{} 명령으로 확인합니다` };
+  return { key: "BGUTIL_COMMIT", value: "", reason: `태그를 기본값(${defaults.version})과 다르게 두면 그 태그의 커밋이 함께 있어야 함` };
+}
+
+/**
+ * git ls-remote <저장소> refs/tags/<태그> refs/tags/<태그>^{} 의 출력에서 태그가 가리키는 커밋.
+ * 주석 태그는 벗긴 줄(^{})의 커밋, 가벼운 태그는 태그 줄의 커밋이다. 태그가 없으면(출력이 비면) null
+ */
+function taggedCommit(output: string, tag: string): string | null {
+  const lines = output
+    .split("\n")
+    .map((line) => line.trim().split(/\s+/))
+    .filter(([sha, ref]) => sha && isCommitSha(sha.toLowerCase()) && ref);
+  const find = (ref: string) => lines.find(([, name]) => name === ref)?.[0]?.toLowerCase() ?? null;
+  return find(`refs/tags/${tag}^{}`) ?? find(`refs/tags/${tag}`);
 }
 
 /** package-lock.json(v2, v3)의 한 항목에서 쓰는 필드 */
@@ -51,4 +69,5 @@ function rootInstallScripts(pkg: { scripts?: Record<string, unknown> }): string[
   return ROOT_LIFECYCLE.filter((name) => typeof pkg.scripts?.[name] === "string");
 }
 
-export { isCommitSha, isPlainTag, bgutilPin, rebuildTargets, rootInstallScripts };
+export { isCommitSha, isPlainTag, bgutilTarget, taggedCommit, rebuildTargets, rootInstallScripts };
+export type { BgutilTargetProblem };

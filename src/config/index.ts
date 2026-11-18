@@ -13,7 +13,8 @@ import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
 import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { josa } from "../rules/josa.ts";
-import { BGUTIL_VERSION } from "./vendor-versions.ts";
+import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
+import { bgutilTarget } from "../rules/bgutil-install.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 //
@@ -200,6 +201,15 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return isYtdlpTag(v.trim()) ? v.trim() : invalid(key, v, "yt-dlp 릴리스 태그(예: 2026.08.19)여야 함", null);
   }
 
+  // bgutil의 태그와 커밋(rules/bgutil-install). 짝이 틀리면 둘 다 기본 짝으로 돈다. pinned: 카드에서 고정했다
+  function envBgutilTarget() {
+    const version = (env("BGUTIL_VERSION") ?? "").trim();
+    const commit = (env("BGUTIL_COMMIT") ?? "").trim().toLowerCase();
+    const target = bgutilTarget(version, commit, { version: BGUTIL_VERSION, commit: BGUTIL_COMMIT });
+    const defaults = { version: BGUTIL_VERSION, commit: BGUTIL_COMMIT, pinned: false };
+    return "tag" in target ? { version: target.tag, commit: target.commit, pinned: Boolean(version || commit) } : invalid(target.key, target.value, target.reason, defaults);
+  }
+
   // 쿠키 출처. file이거나 yt-dlp의 --cookies-from-browser 값(브라우저[+키링][:프로필][::컨테이너]).
   // 그대로 넘기므로 모양은 깨지 않고(`chrome:Profile 1`), 앞의 브라우저 이름만 yt-dlp가 받는 것인지 본다.
   // 모르는 이름이면 yt-dlp가 사용법 오류로 끝나 모든 곡 찾기가 실패한다
@@ -215,7 +225,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
   }
 
-  return { asked, env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  return { asked, env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -265,7 +275,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
-  const { env, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envClients, tuneInt, tuneBool, tuneEnum } = readers;
+  const { env, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동을 멈춘다.
@@ -373,9 +383,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     // POToken 공급자(bgutil). 설치돼 있어도 켰을 때만 실행한다(인증 없는 로컬 HTTP 서버라 띄워 두면 공격 표면이 는다).
     bgutil: {
       enabled: tuneBool("BGUTIL_ENABLED"),
-      // scripts/install-bgutil.ts가 체크아웃할 태그와 그 태그의 커밋(기본 태그가 아니면 필요, 비면 없음)
-      version: env("BGUTIL_VERSION", BGUTIL_VERSION).trim(),
-      commit: env("BGUTIL_COMMIT", "").trim().toLowerCase(),
+      // 받을 태그와 그 태그가 가리키는 커밋. 업데이트 탭의 bgutil 카드가 고치고, 고정하지 않았으면 코드의 기본 짝(config/vendor-versions)
+      ...envBgutilTarget(),
     },
 
     ...serviceConfig(readers, dashboardPort),
