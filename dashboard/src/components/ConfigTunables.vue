@@ -13,8 +13,8 @@
     <DefineField v-slot="{ one, short }">
       <!-- 구간 선택은 체크박스 목록이라 label로 감싸지 않는다(라벨을 누르면 첫 체크박스가 바뀐다). 서버 설정의 SponsorBlock 카드와 같은 컴포넌트, SponsorBlock을 끄면 흐리게 -->
       <SponsorCategories v-if="one.kind === 'categories'" class="min-w-0 @md/card:col-span-2" :label="labelOf(one.key)" :selected="categoriesOf(one)" :dimmed="!boolOf(tunable('SPONSORBLOCK_ENABLED'))" @toggle="toggleCategory(one, $event)" />
-      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 선택하면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에 -->
-      <label v-else class="block min-w-0" :class="one.kind === 'cookies' && '@md/card:col-span-2'">
+      <!-- 쿠키 출처는 두 칸을 쓴다: 기타를 선택하면 입력란이 넓을 때 오른쪽 칸에, 좁으면 아래에. data-tunable: 다른 탭에서 이 칸으로 데려올 때 찾는 표식(utils/focus-ring) -->
+      <label v-else class="block min-w-0 rounded-(--r-inner)" :class="one.kind === 'cookies' && '@md/card:col-span-2'" :data-tunable="one.key">
         <span :class="FIELD_LABEL" class="flex items-center gap-1 flex-wrap"
           ><span class="truncate">{{ (short && T.fields[one.key]?.short) || (T.fields[one.key]?.label ?? one.key) }}</span
           ><Icon v-if="T.fields[one.key]?.help" name="info" :size="14" class="shrink-0 cursor-help" v-tooltip="T.fields[one.key]?.help" /><span v-if="pending.includes(one.key)" class="text-tertiary" v-tooltip="T.restartTip">{{ T.pending }}</span

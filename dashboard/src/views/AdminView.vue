@@ -129,7 +129,15 @@
         <div class="admin-page" v-show="tab === 'age'">
           <ConfigTunables v-if="opened.has('age')" :groups="groupsIn('age')" tab="age" :can-restart="status?.env.launcher ?? false">
             <!-- 유튜브 쿠키는 쿠키 출처가 파일일 때만 쓸모가 있다. 쿠키 출처 항목에 선택한 값(저장 전 포함)을 따른다. 값은 쓰기 전용이라 여기로 내려오지 않는다 -->
-            <template #in-ageyoutube><ConfigCookies v-if="cookieFile" class="mt-4" /></template>
+            <!-- 쿠키 출처를 저장했는데 POToken 서버 사용이 꺼져 있으면 권하고, 누르면 유튜브 탭의 그 칸으로 데려가 강조한다 -->
+            <template #in-ageyoutube
+              ><NoticeBox v-if="potokenHint" variant="note" tone="info" icon="key">
+                <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
+                  ><span class="flex-1 min-w-0">{{ text.bgutil.ageHint }}</span
+                  ><BaseButton variant="ghost" size="sm" class="-my-1.5" @click="goPotoken">{{ text.bgutil.ageHintAction }}</BaseButton></span
+                > </NoticeBox
+              ><ConfigCookies v-if="cookieFile" class="mt-4"
+            /></template>
           </ConfigTunables>
         </div>
 
@@ -178,6 +186,8 @@ import { goUp, pushDown } from "../utils/up-nav.ts";
 import { onBeforeRouteLeave, useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import ConfirmDialog from "../components/ConfirmDialog.vue";
+import BaseButton from "../components/BaseButton.vue";
+import NoticeBox from "../components/NoticeBox.vue";
 import Icon from "../components/BaseIcon.vue";
 import ConfigGenres from "../components/ConfigGenres.vue";
 import BotStatus from "../components/BotStatus.vue";
@@ -193,7 +203,8 @@ import SaveDock from "../components/SaveDock.vue";
 import { revertAll, saveAll, saveTargets, tabAfterFailure } from "../composables/save-targets.ts";
 import { askRestart } from "../composables/bot-restart.ts";
 import { groupsIn } from "../../../src/rules/tunables.ts";
-import { draft as tunableDraft } from "../composables/tunables.ts";
+import { draft as tunableDraft, saved as tunableSaved } from "../composables/tunables.ts";
+import { ringWhenShown } from "../utils/focus-ring.ts";
 import ConfigArchive from "../components/ConfigArchive.vue";
 import ConfigSnapshots from "../components/ConfigSnapshots.vue";
 import ConfigReset from "../components/ConfigReset.vue";
@@ -298,6 +309,12 @@ async function restartQuestion(): Promise<[RestartReason, BgutilCardStatus | nul
 
 // 연령 제한 탭의 쿠키 카드를 표시할지: 쿠키 출처 항목에 선택한 값이 파일인가
 const cookieFile = computed(() => (tunableDraft.value.COOKIES_SOURCE ?? "").trim().toLowerCase() === "file");
+// 연령 제한 영상은 POToken이 없으면 소리를 다운로드하지 못할 수 있다. 저장된 값으로 판단한다
+const potokenHint = computed(() => Boolean(tunableSaved.value.COOKIES_SOURCE) && tunableSaved.value.BGUTIL_ENABLED !== "true");
+function goPotoken() {
+  setTab("youtube");
+  ringWhenShown('[data-tunable="BGUTIL_ENABLED"]', { offset: 8 });
+}
 const TAB_KEY = "admin:tab";
 const savedTab = readStored(TAB_KEY);
 // 목록, 상세 편집기의 탭은 선택한 항목을 주소에 둔다(composables/list-detail). 주소에 그 표식이 있으면 그 탭으로 연다

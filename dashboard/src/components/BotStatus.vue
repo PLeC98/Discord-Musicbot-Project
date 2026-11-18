@@ -322,7 +322,7 @@
 import { computed, ref } from "vue";
 import { createReusableTemplate, useElementSize, watchDebounced } from "@vueuse/core";
 import { RouterLink } from "vue-router";
-import { scrollMotion } from "../utils/motion.ts";
+import { ringAt } from "../utils/focus-ring.ts";
 import BaseButton from "./BaseButton.vue";
 import BaseCard from "./BaseCard.vue";
 import BotRestart from "./BotRestart.vue";
@@ -462,56 +462,11 @@ const countText = (n: number) => {
 /** 시간을 정수 ms 로(초는 소수 한 자리 그대로) */
 const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
-// 주의 칩을 누르면 그 항목으로 가서 M3 포커스 표시기(Material Web md-focus-ring)를 표시한다: 두께 3px, 바깥 간격 2px, secondary,
-// 나타날 때 600ms(long4) 중 1/4은 0 → 8px로 두꺼워지고 3/4은 3px로 줄어든다(emphasized). 스크롤이 멎은 뒤 시작해 잠깐 두고 지운다
+// 주의 칩을 누르면 그 항목으로 가서 포커스 표시기를 잠깐 보인다(utils/focus-ring)
 const root = ref<HTMLElement | null>(null);
-// 사라질 때(규격에 없어 정했다): 두께는 그대로 흐려지기만 한다(300ms, emphasized accelerate). 두께를 줄이면 outline이 px 단위로 끊겨 버벅여 보인다
-const RING = { width: 3, active: 8, offset: 2, durationMs: 600, holdMs: 1200, exitMs: 300, easing: "cubic-bezier(0.2, 0, 0, 1)", exitEasing: "cubic-bezier(0.3, 0, 0.8, 0.15)" }; // --ease-smooth, --ease-accelerate와 같은 값(Web Animations는 var()를 읽지 못한다)
-let ringAnimation: Animation | null = null;
-let cancelPendingRing: (() => void) | null = null;
 function jumpTo(at: string) {
   const el = root.value?.querySelector<HTMLElement>(`[data-at="${at}"]`);
-  if (!el) return;
-  ringAnimation?.cancel();
-  cancelPendingRing?.();
-  const scroller = el.closest<HTMLElement>(".overflow-y-auto");
-  const before = scroller?.scrollTop ?? 0;
-  el.scrollIntoView({ behavior: scrollMotion(), block: "center" });
-  // 스크롤되면 멎을 때까지 기다린다(이미 보이는 위치라 스크롤되지 않으면 바로)
-  let timer = 0;
-  const start = () => {
-    cancelPendingRing?.();
-    playRing(el);
-  };
-  const onEnd = () => start();
-  scroller?.addEventListener("scrollend", onEnd, { once: true });
-  timer = window.setTimeout(() => (scroller && scroller.scrollTop !== before ? (timer = window.setTimeout(start, 900)) : start()), 60);
-  cancelPendingRing = () => {
-    scroller?.removeEventListener("scrollend", onEnd);
-    clearTimeout(timer);
-    cancelPendingRing = null;
-  };
-}
-function playRing(el: HTMLElement) {
-  const color = getComputedStyle(el).getPropertyValue("--md-secondary").trim();
-  const ringFrame = (width: number, c = color) => ({ outline: `${width}px solid ${c}`, outlineOffset: `${RING.offset}px` });
-  const total = RING.durationMs + RING.holdMs + RING.exitMs;
-  const thickenMs = RING.durationMs * 0.25;
-  // 움직임 줄이기를 켰으면 두꺼워졌다 줄어드는 움직임 없이 링만(Material Web도 같다)
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    ringAnimation = el.animate([ringFrame(RING.width), { ...ringFrame(RING.width), offset: 1 - RING.exitMs / total }, ringFrame(RING.width, "transparent")], { duration: total });
-    return;
-  }
-  ringAnimation = el.animate(
-    [
-      { ...ringFrame(0), offset: 0, easing: RING.easing },
-      { ...ringFrame(RING.active), offset: thickenMs / total, easing: RING.easing },
-      { ...ringFrame(RING.width), offset: RING.durationMs / total },
-      { ...ringFrame(RING.width), offset: (RING.durationMs + RING.holdMs) / total, easing: RING.exitEasing },
-      { ...ringFrame(RING.width, "transparent"), offset: 1 },
-    ],
-    { duration: total },
-  );
+  if (el) ringAt(el);
 }
 
 // 저장공간 카드 위치: 내용 영역이 STORAGE_BESIDE_REM 이상이면 연결 카드 옆(연결 카드 2열이 설명을 덜 자르고 남는 폭).

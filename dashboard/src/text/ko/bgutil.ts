@@ -52,6 +52,9 @@ const checkFailed = "업데이트를 확인하지 못했어요.";
 const resolveFailed = "태그를 확인하지 못했어요.";
 const pinFailed = "버전 고정을 저장하지 못했어요.";
 const loadFailed = "bgutil 상태를 불러오지 못했어요.";
+/** 연령 제한 탭: 쿠키 출처를 정했는데 POToken 서버 사용이 꺼져 있다 */
+const ageHint = "POToken 서버 사용이 꺼져 있어요. 연령 제한 영상은 POToken이 없으면 소리를 다운로드하지 못할 수 있어요.";
+const ageHintAction = "유튜브 탭으로";
 const retryFailed = "bgutil 설치를 시작하지 못했어요.";
 const unreserveFailed = "예약을 취소하지 못했어요.";
 
@@ -65,4 +68,4 @@ const dialog = {
   cannotConfirm: "그래도 다시 시작",
 };
 
-export { title, releases, pin, pinHelp, pinPlaceholder, pinApply, unpin, check, checking, update, latest, differs, install, pinTitle, pinBody, pinConfirm, unpinTitle, unpinBody, unpinConfirm, checkFailed, resolveFailed, pinFailed, installed, notInstalled, serving, use, on, off, installing, queued, reserved, unreserve, restartToApply, restart, installThenRestart, retry, failed, missingTitle, needs, missingAfter, loadFailed, retryFailed, unreserveFailed, dialog };
+export { title, ageHint, ageHintAction, releases, pin, pinHelp, pinPlaceholder, pinApply, unpin, check, checking, update, latest, differs, install, pinTitle, pinBody, pinConfirm, unpinTitle, unpinBody, unpinConfirm, checkFailed, resolveFailed, pinFailed, installed, notInstalled, serving, use, on, off, installing, queued, reserved, unreserve, restartToApply, restart, installThenRestart, retry, failed, missingTitle, needs, missingAfter, loadFailed, retryFailed, unreserveFailed, dialog };
