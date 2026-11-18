@@ -18,6 +18,8 @@ const KEEP_BYTES = 64 * 1024;
 const LINE_CHARS = 4096;
 /** 취소하거나 시간 상한에 걸렸을 때 자식 프로세스가 끝나기를 기다리는 상한(ms). POSIX는 이 시간의 절반 동안 SIGTERM을 받은 스크립트가 스스로 끝나기를 기다린 뒤 SIGKILL을 보낸다 */
 const STOP_WAIT_MS = 5000;
+/** 스크립트가 끝난 뒤 출력 파이프가 닫히기를 기다리는 상한(ms). 손자 프로세스가 파이프를 물고 남아 있어도 이 시간이 지나면 작업을 끝낸다 */
+const DRAIN_MS = 3000;
 
 /** running: 실행 중. 끝난 작업의 사유(reason): cancelled(취소), timeout(시간 상한), exit(종료 코드가 0이 아님), unmet(종료 코드가 0이지만 성공 판정을 통과하지 못함), spawn(실행하지 못함) */
 type ScriptJobState = "running" | "succeeded" | "failed";
@@ -48,11 +50,16 @@ class LineSplitter {
     if (this.#partial) this.#emit(this.#partial);
     this.#partial = "";
   }
-  // \r만 있는 줄바꿈(진행 표시를 덮어 쓰는 출력)도 줄로 본다
+  // \r만 있는 줄바꿈(진행 표시를 덮어쓰는 출력)도 줄로 본다. 줄바꿈 없이 이어지는 출력은 메모리가 끝없이 늘지 않게 한 줄 상한마다 끊어 내보낸다
   #take(text: string) {
     const parts = (this.#partial + text).split(/\r\n|\r|\n/);
-    this.#partial = parts.pop() ?? "";
+    let partial = parts.pop() ?? "";
     for (const line of parts) this.#emit(line);
+    while (partial.length > LINE_CHARS) {
+      this.#emit(partial.slice(0, LINE_CHARS));
+      partial = partial.slice(LINE_CHARS);
+    }
+    this.#partial = partial;
   }
 }
 
@@ -113,8 +120,9 @@ function startJob(spec: ScriptJobSpec): StartResult {
   const stop = async (reason: "cancelled" | "timeout") => {
     stopping ??= reason;
     if (!child || info.state !== "running") return;
-    // POSIX: SIGTERM을 받은 스크립트는 띄운 도구를 정리하고 끝난다. 기다리는 동안 끝나지 않으면 프로세스 그룹째 SIGKILL
-    if (!IS_WIN && child.pid) {
+    // POSIX: SIGTERM을 받은 스크립트는 띄운 도구를 정리하고 끝난다. 기다리는 동안 끝나지 않으면 프로세스 그룹째 SIGKILL.
+    // 이미 끝난 스크립트에는 보내지 않는다(PID가 재사용됐을 수 있다)
+    if (!IS_WIN && child.pid && child.exitCode === null && child.signalCode === null) {
       try {
         process.kill(-child.pid, "SIGTERM");
       } catch {
@@ -141,6 +149,14 @@ function startJob(spec: ScriptJobSpec): StartResult {
     tail.push(messageOf(error));
     release();
     end("failed", "spawn", null);
+  });
+  // close는 출력 파이프가 모두 닫혀야 온다. 손자 프로세스가 파이프를 물고 남으면 오지 않으므로 스크립트가 끝난 뒤 상한이 지나면 이쪽에서 닫는다
+  child.once("exit", () => {
+    const drain = setTimeout(() => {
+      child?.stdout?.destroy();
+      child?.stderr?.destroy();
+    }, DRAIN_MS);
+    void ended.then(() => clearTimeout(drain));
   });
   // close: 두 출력이 다 닫힌 뒤라 마지막 줄까지 모였다
   child.once("close", (code) => {

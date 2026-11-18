@@ -12,8 +12,12 @@ import { settleChild } from "./process-priority.ts";
 const IS_WIN = process.platform === "win32";
 /** 오류 메시지에 붙이는 stderr 끝부분의 길이(글자 수) */
 const STDERR_TAIL = 2000;
+/** capture로 모으는 stdout의 상한(바이트). 넘으면 도구를 강제 종료하고 실패 처리한다 */
+const CAPTURE_BYTES = 16 * 1024 * 1024;
+/** 도구가 끝난 뒤 출력 파이프가 닫히기를 기다리는 상한(ms). 손자 프로세스가 파이프를 물고 남아 있어도 이 시간이 지나면 끝난 것으로 본다 */
+const DRAIN_MS = 3000;
 
-/** 실행 중인 도구. 끝나면 바로 뺀다(이미 끝난 프로세스의 PID는 다른 프로세스가 다시 쓰고 있을 수 있다) */
+/** 실행 중인 도구. 프로세스가 끝나면(exit) 바로 뺀다(이미 끝난 프로세스의 PID는 다른 프로세스가 다시 쓰고 있을 수 있다) */
 const running = new Set<ChildProcess>();
 const killRunning = () => killTrees([...running].flatMap(({ pid }) => (pid ? [{ pid, group: !IS_WIN }] : [])));
 
@@ -57,26 +61,52 @@ function runTool(file: string, args: string[], { cwd, env, label, timeoutMs, cap
       }
     }
     let timedOut = false;
+    let tooBig = false;
+    let exited = false;
     let settled = false;
+    let drain: NodeJS.Timeout | undefined;
+    // 끝난 도구에는 보내지 않는다(PID가 재사용됐을 수 있다)
+    const kill = () => {
+      if (!exited && child.pid) killTrees([{ pid: child.pid, group: !IS_WIN }]);
+    };
     const timer = setTimeout(() => {
       timedOut = true;
-      if (child.pid) killTrees([{ pid: child.pid, group: !IS_WIN }]);
+      kill();
     }, timeoutMs);
     const settle = (fail: Error | null, stdout = "") => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      clearTimeout(drain);
       running.delete(child);
       if (fail) reject(fail);
       else resolve(stdout);
     };
     const out: Buffer[] = [];
+    let outBytes = 0;
     let err = "";
-    child.stdout?.on("data", (chunk: Buffer) => out.push(chunk));
+    child.stdout?.on("data", (chunk: Buffer) => {
+      if (tooBig) return;
+      outBytes += chunk.length;
+      if (outBytes <= CAPTURE_BYTES) return void out.push(chunk);
+      tooBig = true;
+      kill();
+      child.stdout?.destroy();
+    });
     child.stderr?.on("data", (chunk: Buffer) => (err = (err + chunk.toString("utf8")).slice(-STDERR_TAIL)));
     child.once("error", (error) => settle(new Error(`${label} 실행 실패: ${messageOf(error)}`)));
+    // close는 출력 파이프가 모두 닫혀야 온다. 손자 프로세스가 파이프를 물고 남으면 오지 않으므로 도구가 끝난 뒤 상한이 지나면 이쪽에서 닫는다
+    child.once("exit", () => {
+      exited = true;
+      running.delete(child);
+      drain = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      }, DRAIN_MS);
+    });
     child.once("close", (code, signal) => {
       if (timedOut) return settle(new Error(`${label}: 시간 상한(${Math.round(timeoutMs / 1000)}초)을 넘겨 강제 종료함`));
+      if (tooBig) return settle(new Error(`${label}: 출력이 상한(${CAPTURE_BYTES / 1024 / 1024}MB)을 넘어 강제 종료함`));
       if (code === 0) return settle(null, Buffer.concat(out).toString("utf8"));
       settle(new Error(`${label} 실패(종료 코드 ${code ?? signal ?? "?"})${err.trim() ? `: ${err.trim()}` : ""}`));
     });
