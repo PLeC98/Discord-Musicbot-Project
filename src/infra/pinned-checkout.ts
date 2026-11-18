@@ -16,12 +16,13 @@ const LOCAL_MS = 30_000;
 
 /**
  * env로 git을 실행하는 Git. 자격 증명을 묻지 않고 바로 실패한다: 터미널 프롬프트, askpass, credential helper를 끈다.
- * 없는 저장소 URL이면 GitHub가 인증을 요구하는데, credential helper가 켜져 있으면 Windows는 Git Credential Manager 창을 띄우고 기다린다
+ * 없는 저장소 URL이면 GitHub가 인증을 요구하는데, credential helper가 켜져 있으면 Windows는 Git Credential Manager 창을 띄우고 기다린다.
+ * core.longPaths: Windows에서 봇 폴더가 깊으면 node_modules 안 경로가 260자를 넘어 clean이 지우지 못한다
  */
 function gitWith(env: NodeJS.ProcessEnv): Git {
   const quiet = { ...env, GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "", SSH_ASKPASS: "", GCM_INTERACTIVE: "never" };
   return (args, cwd) =>
-    runTool("git", ["-c", "credential.helper=", "-c", "core.askPass=", "-c", "advice.detachedHead=false", ...args], {
+    runTool("git", ["-c", "credential.helper=", "-c", "core.askPass=", "-c", "core.longPaths=true", "-c", "advice.detachedHead=false", ...args], {
       cwd,
       env: quiet,
       label: `git ${args[0]}`,
