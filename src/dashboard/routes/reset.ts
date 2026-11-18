@@ -21,11 +21,9 @@ resetRouter.use(requireOwner);
 // 대시보드가 보이는 봇 이름(identity의 /api/bot과 같다). 준비 전이면 빈 문자열(봇 전체 초기화를 받지 않는다)
 const botNameOf = (req: Request) => (req.app.locals.bot.client.user?.username as string | undefined) ?? "";
 const launcherOf = (req: Request) => Boolean(req.app.locals.restart);
-const overviewOf = (req: Request): Promise<ResetOverview> => reset.overview(botNameOf(req), launcherOf(req));
+const overviewOf = (req: Request): ResetOverview => reset.overview(botNameOf(req), launcherOf(req));
 
-resetRouter.get("/", async (req, res) => {
-  res.json(await overviewOf(req));
-});
+resetRouter.get("/", (req, res) => res.json(overviewOf(req)));
 
 resetRouter.post("/", requireRecentLogin, async (req, res) => {
   const body = parse(ResetBody, req.body ?? {});
@@ -47,7 +45,6 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
     } else if (request.kind === "bot-settings") done = { kind: "bot-settings", ...(await reset.resetBotSettings(by, go)) };
     else if (request.kind === "guild-settings") done = { kind: "guild-settings", ...(await reset.resetGuildSettings(by, go)) };
     else if (request.kind === "display") done = { kind: "display", ...reset.resetDisplay(by) };
-    else if (request.kind === "old-tools") done = { kind: "old-tools", tools: await reset.resetOldTools(by, go) };
     else {
       const restart = req.app.locals.restart;
       done = { kind: "all", ...(await reset.stageFullReset(by, Boolean(restart), go)), restarting: Boolean(restart) };
@@ -62,9 +59,9 @@ resetRouter.post("/", requireRecentLogin, async (req, res) => {
   res.json(done);
 });
 
-resetRouter.delete("/staged", requireRecentLogin, async (req, res) => {
+resetRouter.delete("/staged", requireRecentLogin, (req, res) => {
   if (!reset.cancelFullReset(ranBy(req))) return sendProblem(res, "reset-not-staged");
-  res.json(await overviewOf(req));
+  res.json(overviewOf(req));
 });
 
 export { resetRouter };

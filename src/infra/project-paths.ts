@@ -23,6 +23,8 @@ const PROJECT = {
   certs: path.join(ROOT, "certs"),
   /** 캐시 파일 */
   audioCache: path.join(ROOT, "audio_cache"),
+  /** 받아 두는 외부 프로그램 전체(저장공간 막대가 크기를 센다) */
+  vendor: VENDOR,
   /** yt-dlp 버전 폴더와 기록(sources/ytdlp-binary) */
   ytdlp: path.join(VENDOR, "yt-dlp"),
   /** ffmpeg 빌드 폴더와 기록(media/ffmpeg/state) */

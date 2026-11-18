@@ -1,6 +1,6 @@
 <template>
-  <!-- 초기화(운영자 패널 백업, 초기화 탭). 공유 타입 contract/reset. 행 여섯: 오디오 캐시, 봇 설정, 서버별 설정, 디스플레이 설정, 외부 프로그램 이전 버전, 봇 전체.
-       확인 창은 삭제할 양을 숫자로 보인다. 외부 프로그램 이전 버전은 삭제할 것과 크기, 남기는 것과 그 사유를 보이고, 삭제할 것이 없으면 실행할 수 없다. 오디오 캐시는 항목을 선택하고(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 실행된다.
+  <!-- 초기화(운영자 패널 백업, 초기화 탭). 공유 타입 contract/reset. 행 다섯: 오디오 캐시, 봇 설정, 서버별 설정, 디스플레이 설정, 봇 전체.
+       확인 창은 삭제할 양을 숫자로 보인다. 오디오 캐시는 항목을 선택하고(직접 지정한 음원은 처음에 꺼 둔다), 봇 전체는 봇 이름을 입력해야 실행된다.
        모두 최근 로그인을 본다. 봇 설정은 다시 시작해야 적용되는 값이 바뀌었으면 다시 시작 창을 연다. 봇 전체는 실행기로 켠 봇이면 다시 시작을 기다려 화면을 새로고침한다 -->
   <!-- 루트 하나(받은 class가 카드 쪽에 붙게) -->
   <div>
@@ -16,7 +16,7 @@
             <p class="text-sm font-semibold" :class="kind === 'all' ? 'text-error' : 'text-on-surface'">{{ T.rows[kind].title }}</p>
             <p class="text-xs text-on-surface-variant">{{ T.rows[kind].desc }}</p>
           </div>
-          <BaseButton variant="ghost" class="text-error!" :disabled="busy || (kind === 'all' && view?.staged) || (kind === 'old-tools' && view !== null && !oldDeletable)" @click="void ask(kind)">{{ buttonText(kind) }}</BaseButton>
+          <BaseButton variant="ghost" class="text-error!" :disabled="busy || (kind === 'all' && view?.staged)" @click="void ask(kind)">{{ busy && asking === kind ? T.running : T.run }}</BaseButton>
         </div>
       </div>
     </BaseCard>
@@ -59,13 +59,13 @@ import BaseSwitch from "./BaseSwitch.vue";
 import Icon from "./BaseIcon.vue";
 import { text } from "../text/index.ts";
 import NoticeBox from "./NoticeBox.vue";
-import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
+import { notifyDone, notifyProblem } from "../composables/toasts.ts";
 import { askRestart, currentPid, waitRestart } from "../composables/bot-restart.ts";
 import { ensureRecentLogin } from "../composables/session.ts";
 import { LIMIT } from "../utils/request.ts";
 import { FIELD } from "../utils/field.ts";
 import { formatBytes } from "../../../src/ui/format.ts";
-import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, RESET_KINDS, type AudioCachePart, type OldToolDone, type OldToolView, type ResetDone, type ResetKind, type ResetOverview, type ResetRequest } from "../../../src/dashboard/contract/reset.ts";
+import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, RESET_KINDS, type AudioCachePart, type ResetDone, type ResetKind, type ResetOverview, type ResetRequest } from "../../../src/dashboard/contract/reset.ts";
 const T = text.reset;
 
 const API = "/api/admin/reset";
@@ -80,27 +80,6 @@ const busy = ref(false);
 const typed = ref("");
 const parts = reactive(Object.fromEntries(AUDIO_CACHE_PARTS.map((part) => [part, AUDIO_CACHE_PARTS_DEFAULT.includes(part)])) as Record<AudioCachePart, boolean>);
 const counts = computed(() => ({ ...view.value!.audioCache, bytes: formatBytes(view.value!.audioCache.bytes) }));
-
-// 외부 프로그램 이전 버전: 삭제할 것이 있는 도구, ffmpeg 릴리스(autobuild-2026-09-30-12-59)는 날짜만 보인다
-const O = T.oldTools;
-const deletable = (t: OldToolView) => t.bytes > 0 || t.versions.length > 0;
-const oldDeletable = computed(() => (view.value?.oldTools ?? []).some(deletable));
-const versionLabel = (t: OldToolView, v: string) => (t.tool === "ffmpeg" ? v.slice("autobuild-".length, "autobuild-".length + 10) : v);
-const sizeOf = (tools: OldToolView[]) => formatBytes(tools.reduce((sum, t) => sum + t.bytes, 0));
-const keptLines = (tools: OldToolView[]) => tools.flatMap((t) => t.kept.map((k) => `${O.name[t.tool]}: ${O.kept[k]}`));
-function oldToolsBody(tools: OldToolView[]): string {
-  const doomed = tools.filter(deletable);
-  const lines = doomed.map((t) =>
-    O.line(
-      O.name[t.tool],
-      t.versions.map((v) => versionLabel(t, v)),
-      formatBytes(t.bytes),
-    ),
-  );
-  if (doomed.length > 1) lines.push(O.total(sizeOf(doomed)));
-  return [lines.join("\n") || O.nothing, keptLines(tools).join("\n"), doomed.length ? O.note : ""].filter(Boolean).join("\n\n");
-}
-const buttonText = (kind: ResetKind) => (busy.value && asking.value === kind ? (kind === "old-tools" ? T.removing : T.running) : kind === "old-tools" ? T.remove : T.run);
 
 async function load() {
   try {
@@ -129,12 +108,11 @@ function bodyOf(kind: ResetKind | null): string {
   if (kind === "bot-settings") return c["bot-settings"].body({ changed: view.value.botSettings.tunables + view.value.botSettings.documents, secrets: view.value.botSettings.secrets });
   if (kind === "guild-settings") return c["guild-settings"].body(view.value.guildSettings.guilds);
   if (kind === "display") return c.display.body(view.value.display);
-  if (kind === "old-tools") return oldToolsBody(view.value.oldTools);
   const restore = view.value.restore.snapshot || view.value.restore.audioCache ? `\n${c.all.restore}` : "";
   return `${c.all.body(view.value.launcher)}${restore}`;
 }
 const chosenParts = computed(() => AUDIO_CACHE_PARTS.filter((part) => parts[part]));
-const canRun = computed(() => !busy.value && (asking.value !== "audio-cache" || chosenParts.value.length > 0) && (asking.value !== "all" || typed.value === view.value?.botName) && (asking.value !== "old-tools" || oldDeletable.value));
+const canRun = computed(() => !busy.value && (asking.value !== "audio-cache" || chosenParts.value.length > 0) && (asking.value !== "all" || typed.value === view.value?.botName));
 
 function requestOf(kind: ResetKind): ResetRequest {
   if (kind === "audio-cache") return { kind, parts: chosenParts.value };
@@ -146,16 +124,8 @@ function announce(done: ResetDone) {
   else if (done.kind === "bot-settings") notifyDone(T.done["bot-settings"]);
   else if (done.kind === "guild-settings") notifyDone(T.done["guild-settings"](done.guilds));
   else if (done.kind === "display") notifyDone(T.done.display);
-  else if (done.kind === "old-tools") announceOldTools(done.tools);
   // 다시 시작하는 봇은 다시 시작 창(기다리기, 새로고침)이 알린다
   else if (!done.restarting) notifyDone(T.done.allStaged, T.done.allStagedBody);
-}
-// 삭제한 것이 없으면(다른 프로그램이 쓰는 중 등) 남긴 사유를 경고로 보인다
-function announceOldTools(tools: OldToolDone[]) {
-  const removed = tools.some(deletable);
-  const lines = [removed ? T.done.oldToolsFreed(sizeOf(tools)) : "", tools.some((t) => t.deferred) ? T.done.oldToolsDeferred : "", ...keptLines(tools)].filter(Boolean).join("\n");
-  if (removed) notifyDone(T.done["old-tools"], lines);
-  else notify({ title: T.done.oldToolsNone, body: lines, severity: "warning" });
 }
 async function run() {
   if (!asking.value || !canRun.value) return;

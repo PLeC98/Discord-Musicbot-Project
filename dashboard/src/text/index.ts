@@ -35,11 +35,12 @@ import * as serviceKeys from "./ko/service-keys.ts";
 import * as settings from "./ko/settings.ts";
 import * as shell from "./ko/shell.ts";
 import * as reset from "./ko/reset.ts";
+import * as toolVersions from "./ko/tool-versions.ts";
 import * as snapshots from "./ko/snapshots.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 import * as ytdlp from "./ko/ytdlp.ts";
 
-const text = { admin, ageContent, ai, appearance, appEmojis, archive, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, geoip, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, tunables, ytdlp };
+const text = { admin, ageContent, ai, appearance, appEmojis, archive, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, geoip, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, toolVersions, tunables, ytdlp };
 
 export { text };

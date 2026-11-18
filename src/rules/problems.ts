@@ -155,6 +155,8 @@ const WEB = {
   // 버전을 고정한 동안에는 할 수 없는 조작(최신으로 업데이트, 채널 변경)
   "tool-version-pinned": { status: 409, title: "Not available while a version is pinned" },
   "tool-no-previous": { status: 409, title: "No previous version to go back to" },
+  // 외부 프로그램 이전 버전 카드: 이전 버전 삭제 중 도구별로 처리하지 못한 예외
+  "tool-cleanup-failed": { status: 500, title: "Could not delete previous versions" },
   // 대시보드 초대 화면: 공개 봇이 아니고 앱 소유자도 아니거나, code grant를 요구하는 봇이거나, 앱 정보를 아직 못 받았다
   "invite-unavailable": { status: 403, title: "Inviting is not available" },
   "guild-not-found": { status: 404, title: "Server not found" },

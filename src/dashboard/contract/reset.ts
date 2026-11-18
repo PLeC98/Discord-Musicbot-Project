@@ -8,29 +8,14 @@ import { AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, isAudioCachePart, type Au
 
 /**
  * audio-cache: 오디오 캐시(확인 창에서 선택한 것), bot-settings: 봇 설정(운영 설정값, 장르, 상태 문구, AI 설정, 프롬프트를 기본값으로, 키, 쿠키를 삭제),
- * guild-settings: 모든 서버의 서버별 설정, display: 파비콘, 로그인 배경(기록, 화면 값, 한도까지),
- * old-tools: 외부 프로그램의 이전 버전(yt-dlp, ffmpeg의 이전 버전과 예전 설치 위치 vendor/bin. 지금 쓰는 버전은 남긴다),
- * all: 봇 전체(.env, vendor, 설정 스냅샷, 명령 전체 백업, 로그를 뺀 전부)
+ * guild-settings: 모든 서버의 서버별 설정, display: 파비콘, 로그인 배경(기록, 화면 값, 한도까지), all: 봇 전체(.env, vendor, 설정 스냅샷, 명령 전체 백업, 로그를 뺀 전부)
  */
-const RESET_KINDS = ["audio-cache", "bot-settings", "guild-settings", "display", "old-tools", "all"] as const;
+const RESET_KINDS = ["audio-cache", "bot-settings", "guild-settings", "display", "all"] as const;
 type ResetKind = (typeof RESET_KINDS)[number];
 const isResetKind = (value: unknown): value is ResetKind => RESET_KINDS.includes(value as ResetKind);
 
 /** 초기화 요청(POST /api/admin/reset). parts가 비면 nothing-to-save. all은 봇 이름(ResetOverview.botName)을 그대로 입력해야 받는다 */
-type ResetRequest = { kind: "audio-cache"; parts: AudioCachePart[] } | { kind: "bot-settings" | "guild-settings" | "display" | "old-tools" } | { kind: "all"; confirmName: string };
-
-/** 이전 버전을 삭제하는 외부 프로그램. legacy: 예전 설치 위치(vendor/bin. 옛 ffmpeg 실행 파일과 yt-dlp 폴더) */
-const OLD_TOOLS = ["ytdlp", "ffmpeg", "legacy"] as const;
-type OldTool = (typeof OLD_TOOLS)[number];
-/**
- * 남기는 사유. in-use: 봇이 쓰는 중(다시 시작하면 삭제할 수 있다), starting: 봇이 아직 쓸 ffmpeg를 정하지 않았다, broken: 기록을 읽지 못했다,
- * only-build: 지금 설치본이 없어 이전 설치본이 하나뿐인 빌드다, link: 심볼릭 링크나 정션이라 따라가지 않는다, busy: 다른 프로세스(터미널의 설치 명령 등)가 폴더를 쓰는 중, failed: 삭제하지 못했다
- */
-type OldToolKept = "in-use" | "starting" | "broken" | "only-build" | "link" | "busy" | "failed";
-/** 한 도구. versions: 삭제할(삭제한) 이전 버전(yt-dlp 태그, ffmpeg 릴리스. 예전 설치 위치는 빈 배열), bytes: 크기 합, kept: 남기는 것의 사유(같은 사유는 한 번) */
-type OldToolView = { tool: OldTool; versions: string[]; bytes: number; kept: OldToolKept[] };
-/** 삭제한 결과. deferred: 돌고 있는 yt-dlp가 쓰는 폴더라 다음 정리 때 삭제한다 */
-type OldToolDone = OldToolView & { deferred: boolean };
+type ResetRequest = { kind: "audio-cache"; parts: AudioCachePart[] } | { kind: "bot-settings" | "guild-settings" | "display" } | { kind: "all"; confirmName: string };
 
 /** 예약한 복원: 설정 스냅샷 이름(없으면 null), 명령 전체 백업의 오디오 캐시 */
 type StagedRestore = { snapshot: string | null; audioCache: boolean };
@@ -46,8 +31,6 @@ type ResetOverview = {
   botSettings: { tunables: number; documents: number; secrets: number };
   guildSettings: { guilds: number };
   display: { favicons: number; backgrounds: number };
-  /** 외부 프로그램 이전 버전: 삭제할 것이나 남기는 사유가 있는 도구만 */
-  oldTools: OldToolView[];
   /** 봇 전체 초기화에서 입력해야 할 이름(대시보드가 보이는 봇 이름과 같다) */
   botName: string;
   /** 실행기(pnpm start)로 켰는가. 봇 전체 초기화가 곧바로 다시 시작해 삭제하는지(true), 다음에 켤 때 삭제하는지(false) 확인 창이 구분한다 */
@@ -63,7 +46,7 @@ type ResetOverview = {
  * bot-settings의 restart: 다시 시작해야 적용되는 값이 바뀌었다(화면이 "지금 다시 시작", "나중에" 창을 연다).
  * all의 restarting: 곧바로 다시 시작한다(실행기 없이 켰으면 false: 다음에 켤 때 삭제한다), unstaged: 예약 취소한 복원
  */
-type ResetDone = { kind: "audio-cache"; removedFiles: number; freedBytes: number; keptFiles: number; cleared: Partial<Record<AudioCachePart, number>> } | { kind: "bot-settings"; snapshot: string; restart: boolean } | { kind: "guild-settings"; snapshot: string; guilds: number } | { kind: "display"; favicons: number; backgrounds: number } | { kind: "old-tools"; tools: OldToolDone[] } | { kind: "all"; snapshot: string; restarting: boolean; unstaged: StagedRestore };
+type ResetDone = { kind: "audio-cache"; removedFiles: number; freedBytes: number; keptFiles: number; cleared: Partial<Record<AudioCachePart, number>> } | { kind: "bot-settings"; snapshot: string; restart: boolean } | { kind: "guild-settings"; snapshot: string; guilds: number } | { kind: "display"; favicons: number; backgrounds: number } | { kind: "all"; snapshot: string; restarting: boolean; unstaged: StagedRestore };
 
-export { RESET_KINDS, AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, OLD_TOOLS, isResetKind, isAudioCachePart };
-export type { ResetKind, AudioCachePart, ResetRequest, StagedRestore, ResetOverview, ResetDone, OldTool, OldToolKept, OldToolView, OldToolDone };
+export { RESET_KINDS, AUDIO_CACHE_PARTS, AUDIO_CACHE_PARTS_DEFAULT, isResetKind, isAudioCachePart };
+export type { ResetKind, AudioCachePart, ResetRequest, StagedRestore, ResetOverview, ResetDone };

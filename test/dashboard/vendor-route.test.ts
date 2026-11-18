@@ -165,16 +165,21 @@ test("버전 고정: 그 버전으로 맞추고, 고정한 동안 업데이트�
   assert.equal(await versionNow(), latest);
 });
 
-test("이전 버전 삭제: 기록에서 지우고 폴더를 정리한다. 그 뒤로는 되돌릴 수 없다", async () => {
+test("이전 버전 삭제(외부 프로그램 이전 버전 카드의 yt-dlp 줄): 기록에서 빼고 폴더를 정리한다. 그 뒤로는 되돌릴 수 없다", async () => {
   seed("2026.09.27.232849", { previous: "2026.08.19", channel: "nightly", previousChannel: "nightly" });
   assert.equal((await req("GET")).json.status.ytdlp.canRollback, true);
-  const done = await req("POST", "/ytdlp/forget-previous");
+  const done = await req<Array<{ tool: string; versions: string[]; deferred: boolean }>>("POST", "/old-versions", { tool: "ytdlp" });
   assert.equal(done.status, 200);
-  assert.deepEqual([done.json.status.ytdlp.previous, done.json.status.ytdlp.canRollback], [null, false]);
+  assert.deepEqual(
+    done.json.map((t) => [t.tool, t.versions, t.deferred]),
+    [["ytdlp", ["2026.08.19"], false]],
+  );
+  assert.equal((await req("GET")).json.status.ytdlp.canRollback, false);
   assert.equal(fs.existsSync(path.join(dirOf(), "2026.08.19")), false, "폴더도 정리한다");
   assert.equal((await req<ProblemReply>("POST", "/ytdlp/rollback")).json.code, "tool-no-previous", "다시 다운로드해 되돌리지도 못한다");
-  assert.equal((await req<ProblemReply>("POST", "/ytdlp/forget-previous")).json.code, "tool-no-previous");
-  assert.ok(sink.buffer.some((e) => e.level === "warn" && e.text.includes("yt-dlp 이전 버전 삭제: 2026.08.19")));
+  assert.deepEqual((await req("POST", "/old-versions", { tool: "ytdlp" })).json, [], "더 삭제할 것이 없다");
+  assert.equal((await req<ProblemReply>("POST", "/old-versions", { tool: "모름" })).json.code, "bad-request");
+  assert.ok(sink.buffer.some((e) => e.level === "warn" && e.text.includes("외부 프로그램 이전 버전 삭제: yt-dlp 2026.08.19")));
 });
 
 test("최근 로그인은 버전을 직접 입력해 고정할 때만 요구한다. 고정 해제, 되돌리기, 확인은 요구하지 않는다", async () => {

@@ -16,7 +16,7 @@
             <span>{{ bar.label }}</span>
             <span class="ml-auto text-xs nums" :class="LEVEL_TEXT[bar.level]">{{ bar.text }}</span>
           </div>
-          <!-- 나눈 막대: 오디오 캐시, 기타, 여유 공간, 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px을 띄우고, 아래에 같은 색 점으로 이름, 크기 -->
+          <!-- 나눈 막대: 오디오 캐시, 기타, 외부 프로그램, 여유 공간, 최소 여유(CACHE_MIN_FREE_DISK_MB, 반투명 빨강, 맨 뒤). 조각 사이 2px을 띄우고, 아래에 같은 색 점으로 이름, 크기 -->
           <template v-if="bar.key === 'drive'">
             <div class="flex gap-0.5 h-2 mt-1">
               <div v-for="part in driveParts" :key="part.label" class="h-full rounded-full" :class="part.tone" :style="{ flexGrow: toGB(part.bytes), flexBasis: '0%', minWidth: '0.25rem' }" v-tooltip="part.tip"></div>
@@ -902,14 +902,16 @@ const cacheCounts = computed<Array<[string, string]>>(() => {
     [T.cacheCounts.failed, T.count(cache.failed)],
   ];
 });
-// 캐시 드라이브 막대의 조각: 오디오 캐시, DB(같은 드라이브일 때만), 기타, 여유 공간, 최소 여유
+// 캐시 드라이브 막대의 조각: 오디오 캐시, DB(같은 드라이브일 때만), 기타, 외부 프로그램(같은 드라이브이고 센 뒤에만), 여유 공간, 최소 여유
 const driveParts = computed(() => {
-  const { cache, disk, db } = props.status.storage;
+  const { cache, disk, db, vendor } = props.status.storage;
   const dbHere = db.drive === disk.drive;
-  const other = Math.max(0, disk.usedBytes - cache.bytes - (dbHere ? db.bytes : 0));
+  // 외부 프로그램(vendor)은 같은 드라이브이고 크기를 센 뒤에만 기타에서 떼어 보인다
+  const vendorBytes = vendor.drive === disk.drive ? (vendor.bytes ?? 0) : 0;
+  const other = Math.max(0, disk.usedBytes - cache.bytes - (dbHere ? db.bytes : 0) - vendorBytes);
   const free = disk.totalBytes - disk.usedBytes;
   const reserve = Math.min(free, disk.minFreeBytes);
-  const parts = [{ label: T.audioCache, bytes: cache.bytes, tone: "bg-(--store-cache)" }, ...(dbHere ? [{ label: "DB", bytes: db.bytes, tone: "bg-(--store-db)" }] : []), { label: T.driveParts.other, bytes: other, tone: "bg-(--store-other)" }, { label: T.driveParts.free, bytes: free - reserve, tone: "bg-(--store-free)" }];
+  const parts = [{ label: T.audioCache, bytes: cache.bytes, tone: "bg-(--store-cache)" }, ...(dbHere ? [{ label: "DB", bytes: db.bytes, tone: "bg-(--store-db)" }] : []), { label: T.driveParts.other, bytes: other, tone: "bg-(--store-other)" }, ...(vendorBytes > 0 ? [{ label: T.driveParts.vendor, bytes: vendorBytes, tone: "bg-(--store-vendor)" }] : []), { label: T.driveParts.free, bytes: free - reserve, tone: "bg-(--store-free)" }];
   const rows = parts.map((part) => ({ ...part, text: sizeText(part.bytes), tip: `${part.label} ${sizeText(part.bytes)}` }));
   const minFree = sizeText(disk.minFreeBytes);
   return [...rows, { label: T.driveParts.reserve, bytes: reserve, tone: "bg-(--store-reserve)", text: minFree, tip: T.reserveTip(minFree) }];

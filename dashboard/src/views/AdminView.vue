@@ -118,9 +118,10 @@
           <ConfigTunables v-if="opened.has('youtube')" :groups="groupsIn('youtube')" tab="youtube" :can-restart="status?.env.launcher ?? false" />
         </div>
 
-        <!-- 업데이트: 외부 도구(yt-dlp)의 버전, 업데이트 -->
+        <!-- 업데이트: 외부 도구(yt-dlp)의 버전, 업데이트, 외부 프로그램 이전 버전 삭제 -->
         <div class="admin-page" v-show="tab === 'update'">
           <ConfigYtdlp v-if="opened.has('update')" ref="ytdlpEl" />
+          <ConfigToolVersions v-if="opened.has('update')" ref="versionsEl" class="mt-(--gap-in)" />
         </div>
 
         <!-- 연령 제한: 연령 제한 콘텐츠를 켰을 때만 있는 탭. 연령 제한 영상을 다운로드할 때 쓰는 쿠키, 계정 정보 -->
@@ -200,6 +201,7 @@ import ConfigVisibility from "../components/ConfigVisibility.vue";
 import ConfigAgeContent from "../components/ConfigAgeContent.vue";
 import ConfigGeoip from "../components/ConfigGeoip.vue";
 import ConfigYtdlp from "../components/ConfigYtdlp.vue";
+import type ToolVersionsPanel from "../components/ConfigToolVersions.vue";
 import { ageContent, loadAgeContent } from "../composables/age-content.ts";
 import { loadPanelPrefs } from "../composables/advanced-settings.ts";
 import type CacheDbPanel from "../components/CacheDb.vue";
@@ -549,6 +551,9 @@ const POLL_MS = 3000;
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));
 const cacheDbEl = ref<InstanceType<typeof CacheDbPanel> | null>(null);
 const ytdlpEl = ref<InstanceType<typeof ConfigYtdlp> | null>(null);
+// 업데이트 탭을 열 때만 쓰므로 따로 불러온다(관리 화면 청크를 크기 경고 아래로)
+const ConfigToolVersions = defineAsyncComponent(() => import("../components/ConfigToolVersions.vue"));
+const versionsEl = ref<InstanceType<typeof ToolVersionsPanel> | null>(null);
 let timer: ReturnType<typeof setInterval> | null = null;
 let visHandler: (() => void) | null = null;
 // now: 탭 바꿈, 다시 보임(받는 중이어도 바로 보낸다)
@@ -556,8 +561,11 @@ function poll(now = false) {
   if (tab.value === "status" || tab.value === "info") void fetchStatus(!now);
   else if (tab.value === "guilds") void fetchGuilds(!now);
   else if (tab.value === "db") void cacheDbEl.value?.checkChanged();
-  // yt-dlp는 자동 업데이트로 봇이 켜진 채 버전이 바뀐다
-  else if (tab.value === "update") void ytdlpEl.value?.refresh();
+  // yt-dlp는 자동 업데이트로 봇이 켜진 채 버전이 바뀐다. 이전 버전 카드는 폴더 크기를 세느라 탭을 열거나 다시 보일 때만 읽는다
+  else if (tab.value === "update") {
+    void ytdlpEl.value?.refresh();
+    if (now) void versionsEl.value?.refresh();
+  }
 }
 function startPoll() {
   if (!timer) timer = setInterval(() => poll(), POLL_MS);

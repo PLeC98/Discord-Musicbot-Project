@@ -1,4 +1,4 @@
-// 외부 도구(yt-dlp)의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp 카드가 호출한다. /api/admin/vendor
+// 외부 도구의 상태와 조작. 운영자 패널 업데이트 탭의 yt-dlp 카드와 외부 프로그램 이전 버전 카드가 호출한다. /api/admin/vendor
 // 버전 고정은 저장 바가 아니라 여기서 바로 저장한다(store/tunables의 saveCard). 채널, 모드는 저장 바에서 저장한다(routes/tunables).
 // 저장하면 새 설정대로 yt-dlp 버전을 맞춘다(sources/ytdlp-binary).
 // 다운로드는 시작만 하고 지금 상태로 응답한다. 화면은 상태를 다시 읽어 진행을 본다
@@ -15,6 +15,10 @@ import { ranBy } from "../ran-by.ts";
 import { codeOf, messageOf } from "../../rules/error-kind.ts";
 import * as tunables from "../../store/tunables.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
+import { doneLine, previewOldTools, removeOldTools } from "../old-tools.ts";
+import { OLD_TOOLS, type OldTool } from "../contract/old-tools.ts";
+import { recountVendor } from "../status/storage.ts";
+import { assertSignedIn, sessionEnded } from "../session-requests.ts";
 import type { VendorReply } from "../contract/admin.ts";
 import type { TunablesView } from "../../rules/tunables.ts";
 
@@ -96,16 +100,25 @@ vendorRouter.post("/ytdlp/rollback", (req, res) => {
   res.status(202).json(reply(saved));
 });
 
-// 이전 버전 삭제(되돌리기로 그 버전에 가지 못하게). 되돌릴 곳을 없애는 조작이라 최근 로그인은 요구하지 않는다
-vendorRouter.post("/ytdlp/forget-previous", async (req, res) => {
+// 외부 프로그램 이전 버전 카드: 도구마다 삭제할 수 있는 이전 버전과 크기(폴더 크기를 세느라 비동기)
+vendorRouter.get("/old-versions", async (_req, res) => {
+  res.json(await previewOldTools());
+});
+
+// 이전 버전 삭제. 본문의 tool이 있으면 그 도구만(줄마다 삭제), 없으면 모두. 지금 쓰는 버전은 남긴다(dashboard/old-tools).
+// 공간만 비우는 조작이라 최근 로그인은 요구하지 않는다(되돌릴 곳이 없어질 뿐 설정이 바뀌지 않는다)
+vendorRouter.post("/old-versions", async (req, res) => {
+  const tool: unknown = req.body?.tool;
+  if (tool !== undefined && !OLD_TOOLS.includes(tool as OldTool)) return sendProblem(res, "bad-request");
   try {
-    const gone = await ytdlpBinary.forgetPrevious();
-    if (!gone) return sendProblem(res, "tool-no-previous");
-    log.warn({ sub: "admin" }, `대시보드에서 yt-dlp 이전 버전 삭제: ${gone}. 실행 ${ranBy(req)}`);
-    res.json(reply());
+    const tools = await removeOldTools(() => assertSignedIn(req), undefined, tool as OldTool | undefined);
+    recountVendor();
+    log.warn({ sub: "admin" }, `대시보드에서 외부 프로그램 이전 버전 삭제: ${doneLine(tools)}. 실행 ${ranBy(req)}`);
+    res.json(tools);
   } catch (error) {
-    log.error({ sub: "admin" }, `yt-dlp 이전 버전 삭제 실패: ${messageOf(error)}`);
-    sendProblem(res, "config-save-failed", {}, { detail: messageOf(error) });
+    if (sessionEnded(res, error)) return;
+    log.error({ sub: "admin" }, `외부 프로그램 이전 버전 삭제 실패: ${messageOf(error)}`);
+    sendProblem(res, "tool-cleanup-failed", {}, { detail: messageOf(error) });
   }
 });
 

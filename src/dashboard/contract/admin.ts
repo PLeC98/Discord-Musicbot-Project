@@ -135,12 +135,14 @@ type LinkRow = { id: string; group: "play" | "youtube" | "autoplay"; name: strin
 /**
  * 저장공간. cache: protectedFiles는 지금 곡, 대기열 앞이라 삭제하지 않는 파일, neverPlayed는 다운로드하고 한 번도 재생하지 않은 파일,
  * failed는 다운로드 실패로 남은 행(다운로드 실패, 다운로드 멈춤, 파일이 사라짐, 다시 다운로드하면 풀린다), lastCleanup은 봇이 켜진 뒤 마지막으로 실제로 삭제한 정리(없으면 null).
- * disk: 캐시 폴더의 드라이브. db: drive가 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다
+ * disk: 캐시 폴더의 드라이브. db: drive가 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다.
+ * vendor: 외부 프로그램 폴더(vendor)의 크기와 드라이브(아직 세지 않았으면 bytes가 null). 캐시 드라이브와 같으면 드라이브 막대에 한 구간으로 들어간다
  */
 type StorageView = {
   cache: { bytes: number; maxBytes: number; files: number; maxFiles: number; protectedFiles: number; neverPlayed: number; failed: number; lastCleanup: { at: number; files: number; bytes: number } | null };
   disk: { drive: string; usedBytes: number; totalBytes: number; minFreeBytes: number };
   db: { bytes: number; drive: string; lookups: number; pins: number; sponsorSegments: number; sessions: number };
+  vendor: { bytes: number | null; drive: string };
 };
 
 /**

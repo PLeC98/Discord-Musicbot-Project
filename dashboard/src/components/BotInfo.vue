@@ -48,6 +48,7 @@ import { byteUnit, scaledText } from "../../../src/ui/format.ts";
 import type { IconName } from "../icons.ts";
 import { shell } from "../shell/shell-state.ts";
 import BotInfoLogo from "./BotInfoLogo.vue";
+import { ffmpegLabel, releaseDay } from "../utils/ffmpeg-version.ts";
 
 const props = defineProps<{ status: AdminStatus }>();
 
@@ -130,9 +131,7 @@ type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn
 // ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정 여부, 실행되지 않아 물린 릴리스 수를 이 순서로 두 개까지만 덧붙여 줄이 길어지지 않게 한다.
 // 이전 설치본으로 떴으면 대개 새 빌드가 실행되지 않아 물린 것이라 물린 릴리스 수는 덧붙이지 않는다.
 // 기본 릴리스 날짜와 물린 릴리스 목록은 마우스를 올리면 보인다. 대비책(이전 설치본)을 쓰거나 물린 릴리스가 있으면 경고 색으로 보인다
-const releaseDay = (tag: string) => tag.slice("autobuild-".length, "autobuild-".length + 10);
-// BtbN 빌드의 버전(n9.0.2-39-g7adfbe40dc-20261031)은 길어서 앞의 버전 번호만 쓰고, 설치본이면 릴리스 태그의 날짜를 붙인다(예: n9.0.2-2026-10-31)
-const shortVersion = (version: string) => /^(n?\d+(?:\.\d+)*)-\d+-g[0-9a-f]+/.exec(version)?.[1] ?? version;
+// 값은 버전 번호와 릴리스 날짜(utils/ffmpeg-version)
 const FFMPEG_SOURCE: Record<FfmpegInfo["source"], string | null> = { installed: null, previous: "previous", env: "FFMPEG_PATH", path: "PATH" };
 function ffmpegRow(info: FfmpegInfo | null): InfoRow {
   if (!info) return { icon: "movie", key: "ffmpeg", value: "—" };
@@ -140,7 +139,7 @@ function ffmpegRow(info: FfmpegInfo | null): InfoRow {
   const rejectedCount = info.rejected.length && info.source !== "previous" ? `${info.rejected.length} rejected` : null;
   const shown = [source, info.pin ? "pinned" : null, rejectedCount].filter(Boolean).slice(0, 2);
   const detail = [source, info.pin ? `pinned, default ${releaseDay(info.defaultRelease)}` : null, info.rejected.length ? `rejected: ${info.rejected.join(", ")}` : null].filter(Boolean);
-  const value = info.release ? `${shortVersion(info.version)}-${releaseDay(info.release)}` : shortVersion(info.version);
+  const value = ffmpegLabel(info.version, info.release);
   return {
     icon: "movie",
     key: "ffmpeg",

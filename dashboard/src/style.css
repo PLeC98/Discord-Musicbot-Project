@@ -1006,6 +1006,7 @@ body {
 }
 
 /* 저장공간 막대의 조각 색. 앨범아트 색과 상관없이 항목마다 고정(오디오 캐시, DB, 기타는 dataviz 검증기로 밝기마다 전 쌍 통과, 덜 쨍하게 누른 파랑, 주황, 청록).
+   외부 프로그램은 dataviz 기준 팔레트의 보라. 넷을 모두 비교하면 통과하는 색이 없어 이웃끼리만 검증했다(기타 뒤에 두고, DB가 빠진 순서도 통과. 조각 사이 틈과 이름표가 같이 구분한다).
    여유 공간은 빈 길 색, 최소 여유는 반투명 빨강 */
 /* 밝기를 바꿀 때 색 역할(theme/blend, 0.7초, 끝이 천천히 내려앉는 ease-out cubic)과 같은 박자로 넘어가게 등록하고 :root에서 넘김을 건다. 움직임 줄이기면 바로 */
 @property --store-cache {
@@ -1023,13 +1024,18 @@ body {
   inherits: true;
   initial-value: transparent;
 }
+@property --store-vendor {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 @property --store-free {
   syntax: "<color>";
   inherits: true;
   initial-value: transparent;
 }
 :root {
-  transition-property: --store-cache, --store-db, --store-other, --store-free, --warn-ink, --ok-ink, --log-trace, --log-debug, --log-info, --log-warn, --log-error, --log-fatal, --log-cat-1, --log-cat-2, --log-cat-3, --log-cat-4, --log-cat-5, --log-cat-6, --log-cat-7, --log-cat-8;
+  transition-property: --store-cache, --store-db, --store-other, --store-vendor, --store-free, --warn-ink, --ok-ink, --log-trace, --log-debug, --log-info, --log-warn, --log-error, --log-fatal, --log-cat-1, --log-cat-2, --log-cat-3, --log-cat-4, --log-cat-5, --log-cat-6, --log-cat-7, --log-cat-8;
   transition-duration: 700ms;
   transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
 }
@@ -1042,6 +1048,7 @@ body {
   --store-cache: #4a86d4;
   --store-db: #d66a3a;
   --store-other: #2aa37c;
+  --store-vendor: #9085e9;
   --store-free: #3d3938;
   --store-reserve: rgb(208 59 59 / 0.5);
 }
@@ -1172,6 +1179,7 @@ body {
   --store-cache: #3d7cc9;
   --store-db: #d8693c;
   --store-other: #2a9e78;
+  --store-vendor: #6250d6;
   --store-free: #dcd6d4;
 }
 

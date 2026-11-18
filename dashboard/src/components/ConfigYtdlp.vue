@@ -23,7 +23,8 @@
           <template v-if="!state.pin">
             <BaseButton v-if="newer" :disabled="working" @click="update">{{ T.update(newer) }}</BaseButton>
             <BaseButton v-else variant="secondary" :disabled="checking || working" @click="check">{{ checking ? T.checking : T.check }}</BaseButton>
-            <MoreMenu v-if="previousItems.length" icon="history" :label="T.previousMenu(state.previous ?? '')" :button-class="iconButton(40, 'tonal')" :disabled="working" :items="previousItems" />
+            <!-- 이전 버전으로 되돌리기만 한다. 이전 버전 삭제는 외부 프로그램 이전 버전 카드에서 -->
+            <button v-if="state.canRollback && state.previous" type="button" :class="iconButton(40, 'tonal')" :disabled="working" :aria-label="T.rollbackTo(state.previous)" v-tooltip="T.rollbackTo(state.previous)" @click="askingRollback = true"><Icon name="history" /></button>
           </template>
         </div>
         <div class="min-w-0">
@@ -57,7 +58,6 @@
       <NoticeBox v-else-if="state.pin && pinDays !== null && pinDays >= OLD_DAYS" variant="note" tone="notice" icon="schedule">{{ T.pinnedAge(state.pin, pinDays) }}</NoticeBox>
     </template>
     <ConfirmDialog v-model="askingRollback" icon="undo" tone="primary" :title="T.rollbackTitle" :body="T.rollbackBody(state?.previous ?? '')" :confirm-label="T.rollbackConfirm" @confirm="rollback" />
-    <ConfirmDialog v-model="askingForget" icon="delete" :title="T.forgetTitle" :body="T.forgetBody(state?.previous ?? '')" :confirm-label="T.forgetConfirm" @confirm="forget" />
   </BaseCard>
 </template>
 
@@ -67,7 +67,6 @@ import axios from "axios";
 import BaseCard from "./BaseCard.vue";
 import BaseButton from "./BaseButton.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
-import MoreMenu from "./MoreMenu.vue";
 import Icon from "./BaseIcon.vue";
 import NoticeBox from "./NoticeBox.vue";
 import SingleSelect from "./SingleSelect.vue";
@@ -81,7 +80,6 @@ import { trackUnsaved } from "../composables/unsaved.ts";
 import { tunable, tunableValue } from "../../../src/rules/tunables.ts";
 import { notify, notifyDone, notifyProblem } from "../composables/toasts.ts";
 import type { Option } from "../utils/options.ts";
-import type { IconName } from "../icons.ts";
 import type { VendorReply } from "../../../src/dashboard/contract/admin.ts";
 import type { YtdlpCardStatus, YtdlpChannel } from "../../../src/sources/ytdlp-status-types.ts";
 import { text } from "../text/index.ts";
@@ -103,7 +101,6 @@ const checking = ref(false);
 const saving = ref(false);
 const pinDraft = ref("");
 const askingRollback = ref(false);
-const askingForget = ref(false);
 let timer = 0;
 // 이 카드에서 누른 조작(업데이트, 고정, 되돌리기)의 결과를 기다리는 중. 그 결과만 알린다(다시 읽은 상태가 화면이 들고 있던 옛 값과 달라도 알리지 않는다)
 let awaiting = false;
@@ -126,16 +123,6 @@ const working = computed(() => saving.value || Boolean(state.value?.busy));
 // 확인으로 본 최신이 설치된 버전과 다르면 그 버전, 같으면 최신이라고 보인다
 const newer = computed(() => (state.value?.seen && state.value.seen.latest !== state.value.version ? state.value.seen.latest : null));
 const upToDate = computed(() => Boolean(state.value?.seen && state.value.seen.latest === state.value.version));
-// 이전 버전의 메뉴: 되돌리기(되돌릴 수 있을 때), 삭제
-type MenuItem = { label: string; icon: IconName; danger?: boolean; select: () => void };
-const askRollback = (): void => void (askingRollback.value = true);
-const askForget = (): void => void (askingForget.value = true);
-const previousItems = computed((): MenuItem[] => {
-  const previous = state.value?.previous;
-  if (!previous) return [];
-  const back: MenuItem[] = state.value?.canRollback ? [{ label: T.rollbackItem, icon: "undo", select: askRollback }] : [];
-  return [...back, { label: T.forgetItem, icon: "delete", danger: true, select: askForget }];
-});
 // 고정한 태그는 날짜로 시작한다(2026.08.19, 2026.08.19.232849). 그 날짜부터 지난 일수
 const pinDays = computed(() => {
   const found = /^(\d{4})\.(\d{2})\.(\d{2})/.exec(state.value?.pin ?? "");
@@ -210,11 +197,6 @@ async function setPin(version: string | null) {
 async function rollback() {
   askingRollback.value = false;
   await act("/ytdlp/rollback", {}, T.saveFailed);
-}
-async function forget() {
-  askingForget.value = false;
-  const previous = state.value?.previous ?? "";
-  if (await act("/ytdlp/forget-previous", {}, T.forgetFailed)) notifyDone(T.forgotten(previous));
 }
 
 const { ready, detach } = attach();

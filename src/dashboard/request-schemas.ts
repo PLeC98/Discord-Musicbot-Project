@@ -213,7 +213,6 @@ const ResetBody = z.discriminatedUnion(
     z.object({ kind: z.literal("bot-settings", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("guild-settings", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("display", BAD_RESET) }, BAD_RESET),
-    z.object({ kind: z.literal("old-tools", BAD_RESET) }, BAD_RESET),
     z.object({ kind: z.literal("all", BAD_RESET), confirmName: z.string(BAD_RESET).max(200, BAD_RESET) }, BAD_RESET),
   ],
   BAD_RESET,

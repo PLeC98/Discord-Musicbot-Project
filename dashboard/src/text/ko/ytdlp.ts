@@ -23,13 +23,8 @@ const checking = "확인 중…";
 const update = (v: string) => `업데이트 (${v})`;
 const latest = "최신 버전이에요";
 /** 설치된 버전 칸의 메뉴(이전 버전이 있을 때) */
-const previousMenu = (v: string) => `이전 버전(${v})`;
-const rollbackItem = "되돌리기";
-const forgetItem = "삭제";
-const forgetTitle = "이전 버전을 삭제할까요?";
-const forgetBody = (v: string) => `삭제하면 ${v} 버전으로 되돌릴 수 없어요.`;
-const forgetConfirm = "삭제";
-const forgotten = (v: string) => `이전 버전(${v})을 삭제했어요.`;
+/** 되돌리기 버튼의 툴팁 */
+const rollbackTo = (v: string) => `이전 버전(${v})으로 되돌리기`;
 const rollbackTitle = "이전 버전으로 되돌릴까요?";
 const rollbackBody = (v: string) => `${v} 버전으로 되돌리고 고정해요. 고정을 해제하기 전까지 자동으로 업데이트하지 않아요.`;
 const rollbackConfirm = "되돌리기";
@@ -47,7 +42,6 @@ const loadFailed = "yt-dlp 상태를 불러오지 못했어요.";
 const checkFailed = "업데이트를 확인하지 못했어요.";
 const updateFailed = "업데이트를 시작하지 못했어요.";
 const saveFailed = "yt-dlp 설정을 저장하지 못했어요.";
-const forgetFailed = "이전 버전을 삭제하지 못했어요.";
 const updated = "yt-dlp 버전을 바꿨어요";
 /** 자동 업데이트가 알림일 때 띄우는 새 버전 알림 */
 const available = "yt-dlp에 새 버전이 있어요";
@@ -56,51 +50,4 @@ const availableBody = (from: string, to: string, channel: string) => `${from} �
 const availableAction = "업데이트 탭으로";
 const downloadFailed = "yt-dlp를 다운로드하지 못했어요.";
 
-export {
-  title,
-  releases,
-  installed,
-  noVersion,
-  downloading,
-  failed,
-  retryAt,
-  nextCheck,
-  channel,
-  channelHelp,
-  channelPinned,
-  mode,
-  modes,
-  modeHelp,
-  modePinned,
-  check,
-  checking,
-  update,
-  latest,
-  previousMenu,
-  rollbackItem,
-  forgetItem,
-  forgetTitle,
-  forgetBody,
-  forgetConfirm,
-  forgotten,
-  rollbackTitle,
-  rollbackBody,
-  rollbackConfirm,
-  pin,
-  pinHelp,
-  pinPlaceholder,
-  pinApply,
-  pinRetry,
-  unpin,
-  pinnedAge,
-  loadFailed,
-  checkFailed,
-  updateFailed,
-  saveFailed,
-  forgetFailed,
-  updated,
-  available,
-  availableBody,
-  availableAction,
-  downloadFailed,
-};
+export { title, releases, installed, noVersion, downloading, failed, retryAt, nextCheck, channel, channelHelp, channelPinned, mode, modes, modeHelp, modePinned, check, checking, update, latest, rollbackTo, rollbackTitle, rollbackBody, rollbackConfirm, pin, pinHelp, pinPlaceholder, pinApply, pinRetry, unpin, pinnedAge, loadFailed, checkFailed, updateFailed, saveFailed, updated, available, availableBody, availableAction, downloadFailed };

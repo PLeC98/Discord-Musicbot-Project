@@ -150,7 +150,7 @@ const driveFree = (total: string, free: string) => `${total} 중 ${free} 사용 
 const cacheCounts = { protected: "재생 중 캐시 보호", neverPlayed: "미재생 캐시 파일", failed: "다운로드 실패한 캐시 파일" };
 const count = (n: number) => `${formatNumber(n)}개`;
 const songCount = (n: number) => `${formatNumber(n)}곡`;
-const driveParts = { other: "기타", free: "여유 공간", reserve: "최소 여유 공간" };
+const driveParts = { other: "기타", vendor: "외부 프로그램", free: "여유 공간", reserve: "최소 여유 공간" };
 const reserveTip = (size: string) => `최소 여유 공간 ${size}`;
 const db = { file: "DB 파일", lookups: "오디오 링크 데이터", pins: "직접 지정한 음원", sponsor: "SponsorBlock 구간", sessions: "백업된 플레이어", lastCleanup: "마지막 캐시 정리" };
 const cleanup = (when: string, files: number, size: string) => `${when} · ${formatNumber(files)}개 · ${size}`;

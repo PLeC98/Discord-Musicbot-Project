@@ -1,4 +1,4 @@
-// src/dashboard/old-tools.ts: 외부 프로그램 이전 버전 삭제(초기화 카드). 도구마다 따로 하고 하나가 실패해도 나머지는 한다.
+// src/dashboard/old-tools.ts: 업데이트 탭의 외부 프로그램 이전 버전 카드(삭제할 이전 버전과 크기, 삭제). 도구마다 따로 하고 하나가 실패해도 나머지는 한다.
 // yt-dlp는 가짜(이전 버전 삭제 자체는 ytdlp-binary.test), ffmpeg와 예전 설치 위치(vendor/bin)는 임시 폴더
 
 import { test, after } from "node:test";
@@ -24,7 +24,7 @@ const put = (file: string, bytes: number) => {
 
 /**
  * 세 폴더를 만든다. yt-dlp: 지금 2026.09.30, 이전 2026.08.19(20바이트). ffmpeg: 지금 R, 이전 P(30바이트). vendor/bin: 옛 ffmpeg(40바이트)와 yt-dlp 폴더(5바이트).
- * 가짜 yt-dlp: forgetPrevious는 기록에서 지우고, leased가 아니면 폴더를 지운다. busy면 잠금 실패를 던진다
+ * 가짜 yt-dlp: forgetPrevious는 기록에서 빼고, leased가 아니면 폴더를 삭제한다. busy면 잠금 실패 예외를 던진다. s.used: 봇이 정해 둔 ffmpeg 경로(null이면 아직 정하지 않음)
  */
 function world() {
   const root = path.join(base, `w-${++n}`);
@@ -36,7 +36,7 @@ function world() {
   writeState(d.ffmpegDir, { active: build(`${R}-2`, R), previous: build(`${P}-1`, P), rejected: [], pin: null });
   put(path.join(d.legacyDir, BIN), 40);
   put(path.join(d.legacyDir, "yt-dlp", "2026.01.01", "yt-dlp.exe"), 5);
-  const s = { previous: "2026.08.19" as string | null, leased: false, busy: false, inUse: path.join(d.ffmpegDir, `${R}-2`, BIN) as string | null };
+  const s = { previous: "2026.08.19" as string | null, leased: false, busy: false, used: path.join(d.ffmpegDir, `${R}-2`, BIN) as string | null };
   const ytdlp: OldToolsDeps["ytdlp"] = {
     oldFolders: () => ({ previous: s.previous, folders: s.previous && !s.leased && fs.existsSync(path.join(d.ytdlpDir, s.previous)) ? [s.previous] : [] }),
     forgetPrevious: async (go) => {
@@ -48,11 +48,11 @@ function world() {
       return gone;
     },
   };
-  const deps: OldToolsDeps = { ...d, ytdlp, ffmpegInUse: () => s.inUse, pathEnv: "" };
+  const deps: OldToolsDeps = { ...d, ytdlp, ffmpegPath: () => s.used, pathEnv: "" };
   return { d, s, deps };
 }
 
-test("미리 보기: 도구마다 지울 버전과 크기", async () => {
+test("미리 보기: 도구마다 삭제할 버전과 크기", async () => {
   const { deps } = world();
   assert.deepEqual(await previewOldTools(deps), [
     { tool: "ytdlp", versions: ["2026.08.19"], bytes: 20, kept: [] },
@@ -61,7 +61,7 @@ test("미리 보기: 도구마다 지울 버전과 크기", async () => {
   ]);
 });
 
-test("지우기: 세 도구를 지우고, 예전 설치 위치는 비면 폴더도 지운다", async () => {
+test("삭제: 세 도구를 삭제하고, 예전 설치 위치는 비면 폴더도 삭제한다. 지금 쓰는 버전은 남는다", async () => {
   const { d, deps } = world();
   const done = await removeOldTools(undefined, deps);
   assert.deepEqual(done, [
@@ -77,7 +77,7 @@ test("지우기: 세 도구를 지우고, 예전 설치 위치는 비면 폴더�
 
 test("봇이 아직 ffmpeg를 정하지 않았으면(기동 중) ffmpeg와 예전 설치 위치는 건너뛴다", async () => {
   const { d, s, deps } = world();
-  s.inUse = null;
+  s.used = null;
   const done = await removeOldTools(undefined, deps);
   assert.deepEqual(
     done.map((t) => [t.tool, t.kept]),
@@ -93,13 +93,13 @@ test("봇이 아직 ffmpeg를 정하지 않았으면(기동 중) ffmpeg와 예�
 
 test("봇이 쓰는 ffmpeg가 이전 설치본이거나 예전 설치 위치에 있으면 남긴다", async () => {
   const { d, s, deps } = world();
-  s.inUse = path.join(d.ffmpegDir, `${P}-1`, BIN);
+  s.used = path.join(d.ffmpegDir, `${P}-1`, BIN);
   const first = await removeOldTools(undefined, deps);
   assert.deepEqual(first.find((t) => t.tool === "ffmpeg")?.kept, ["in-use"]);
-  assert.equal(fs.existsSync(s.inUse), true);
+  assert.equal(fs.existsSync(s.used), true);
 
   const other = world();
-  other.s.inUse = path.join(other.d.legacyDir, BIN);
+  other.s.used = path.join(other.d.legacyDir, BIN);
   const second = await removeOldTools(undefined, other.deps);
   assert.deepEqual(
     second.find((t) => t.tool === "legacy"),

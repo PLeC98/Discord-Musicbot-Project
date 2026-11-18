@@ -22,8 +22,7 @@ import * as backgroundStore from "./login-background/store.ts";
 import * as backgroundRunner from "./login-background/runner.ts";
 import { LOGIN_BG_LIMITS_DEFAULT, LOGIN_BG_OPTIONS_DEFAULT } from "./contract/login-background.ts";
 import { STAGED_AUDIO } from "./settings-archive.ts";
-import type { OldTool, OldToolDone, OldToolKept, ResetOverview, StagedRestore } from "./contract/reset.ts";
-import { previewOldTools, removeOldTools } from "./old-tools.ts";
+import type { ResetOverview, StagedRestore } from "./contract/reset.ts";
 import * as sponsorBlock from "../sources/sponsor-block.ts";
 import * as spotify from "../sources/spotify.ts";
 import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
@@ -99,24 +98,12 @@ const stagedAudioFile = () => path.join(path.dirname(settingsDb.get().name), STA
 // 예약한 복원: 설정 스냅샷, 명령 전체 백업의 오디오 캐시
 const stagedRestore = (): StagedRestore => ({ snapshot: snapshots.staged(), audioCache: fs.existsSync(stagedAudioFile()) });
 
-const KEPT_TEXT: Record<OldToolKept, string> = { "in-use": "사용 중", starting: "기동 중", broken: "기록 읽기 실패", "only-build": "유일한 빌드", link: "심볼릭 링크", busy: "다른 프로세스가 사용 중", failed: "삭제 실패" };
-const TOOL_TEXT: Record<OldTool, string> = { ytdlp: "yt-dlp", ffmpeg: "ffmpeg", legacy: "vendor/bin" };
-
-/** 외부 프로그램의 이전 버전을 삭제한다(지금 쓰는 버전은 남긴다). 도구마다 삭제한 것, 남긴 것을 로그 한 줄로 기록한다 */
-async function resetOldTools(by: string, go?: () => void): Promise<OldToolDone[]> {
-  const tools = await removeOldTools(go);
-  const removed = tools.filter((t) => t.bytes > 0 || t.versions.length > 0).map((t) => `${TOOL_TEXT[t.tool]}${t.versions.length ? ` ${t.versions.join(", ")}` : ""}(${MB(t.bytes)}MB${t.deferred ? ", 사용 중인 폴더는 다음 정리 때 삭제" : ""})`);
-  const kept = tools.filter((t) => t.kept.length > 0).map((t) => `${TOOL_TEXT[t.tool]}(${t.kept.map((k) => KEPT_TEXT[k]).join(", ")})`);
-  log.warn({ sub: "admin" }, `대시보드에서 외부 프로그램 이전 버전 삭제: ${removed.join(", ") || "삭제한 것 없음"}${kept.length ? `. 남김: ${kept.join(", ")}` : ""}. 실행 ${by}`);
-  return tools;
-}
-
 /**
- * 카드가 줄마다 보이는 지금 양. 외부 프로그램은 폴더 크기를 세느라 비동기다
+ * 카드가 줄마다 보이는 지금 양
  * @param botName   봇 전체 초기화에서 입력할 이름(대시보드가 보이는 봇 이름)
  * @param launcher  실행기로 켰나(곧바로 다시 시작할 수 있나)
  */
-async function overview(botName: string, launcher: boolean): Promise<ResetOverview> {
+function overview(botName: string, launcher: boolean): ResetOverview {
   const rows = rowCounts();
   const { files, bytes } = audioCache.storageStats().cache;
   return {
@@ -124,7 +111,6 @@ async function overview(botName: string, launcher: boolean): Promise<ResetOvervi
     botSettings: { tunables: Object.keys(tunables.view().values).length, documents: settingsDocs.names().filter((name) => name !== "tunables").length, secrets: secrets.count() },
     guildSettings: { guilds: guildSettings.guildCount() },
     display: { favicons: appearance.faviconCount(), backgrounds: backgroundStore.items().length },
-    oldTools: await previewOldTools(),
     botName,
     launcher,
     staged: fullReset.requested(),
@@ -156,4 +142,4 @@ function cancelFullReset(by: string): boolean {
   return true;
 }
 
-export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay, resetOldTools, overview, stageFullReset, cancelFullReset };
+export { resetAudioCache, resetBotSettings, resetGuildSettings, resetDisplay, overview, stageFullReset, cancelFullReset };
