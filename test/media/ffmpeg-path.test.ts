@@ -19,7 +19,7 @@ test("resolve: 실행 가능한 ffmpeg를 찾고 버전을 추출한다", () => 
   const info = resolve();
   assert.ok(info.path, "경로가 있어야 함");
   assert.ok(info.version && info.version !== "unknown", `버전 파싱: ${info.version}`);
-  assert.ok(["FFMPEG_PATH", "설치본", "이전 설치본", "옛 자리", "PATH"].includes(info.source), `출처: ${info.source}`);
+  assert.ok(["FFMPEG_PATH", "설치본", "이전 설치본", "PATH"].includes(info.source), `출처: ${info.source}`);
 });
 
 test("resolve: 결과를 캐시한다. 매 호출마다 프로세스를 실행하지 않는다", () => {
@@ -49,12 +49,6 @@ test("_reset 후에도 같은 바이너리로 다시 해석된다 (캐시 초기
   const before = resolve().path;
   _reset();
   assert.equal(resolve().path, before);
-});
-
-test("옛 자리의 번들 ffmpeg는 저장소 루트의 vendor/bin/ 에서 찾는다(파일을 옮겨도 가리키는 곳이 같아야 한다)", () => {
-  const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-  const expected = path.join(import.meta.dirname, "..", "..", "vendor", "bin", exe);
-  assert.equal(ffmpegPathModule._internals.fromBundle(), fs.existsSync(expected) ? expected : null);
 });
 
 test("설치본이 실행되지 않으면 이전 설치본으로 뜨고, 기동 뒤 기록을 그쪽으로 되돌려 물린다", async (t) => {
@@ -96,7 +90,7 @@ test("ffmpegInfo: 지금 쓰는 ffmpeg와 기록의 고정, 물린 릴리스, �
   const info = ffmpegInfo(dir);
   assert.ok(info);
   assert.deepEqual([info.pin, info.rejected, info.defaultRelease], [pin, ["autobuild-2026-08-31-12-59"], FFMPEG_RELEASE]);
-  assert.ok(["env", "installed", "previous", "legacy", "path"].includes(info.source));
+  assert.ok(["env", "installed", "previous", "path"].includes(info.source));
   writeState(dir, { active: null, previous: null, rejected: [], pin: null });
   assert.equal(ffmpegInfo(dir)?.pin, null, "기록을 다시 읽는다");
 });

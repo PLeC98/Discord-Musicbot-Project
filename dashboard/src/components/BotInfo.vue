@@ -127,16 +127,16 @@ const dateTimeText = (ms: number) => {
 /** warn: 대비책을 쓰거나 물린 릴리스가 있으면 덧붙인 정보를 경고 색으로 보인다 */
 type InfoRow = { icon: IconName; key: string; value: string; note?: string; warn?: boolean; full?: string };
 
-// ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정, 실행되지 않아 물린 릴리스 수(목록은 마우스를 올리면 보인다)를 덧붙인다. 대비책(이전 설치본, 옛 자리)을 쓰거나 물린 릴리스가 있으면 경고 색
+// ffmpeg: 버전 옆에 출처(설치본이 아닐 때), 고정, 실행되지 않아 물린 릴리스 수(목록은 마우스를 올리면 보인다)를 덧붙인다. 대비책(이전 설치본)을 쓰거나 물린 릴리스가 있으면 경고 색
 const releaseDay = (tag: string) => tag.slice("autobuild-".length, "autobuild-".length + 10);
 // BtbN 빌드의 버전(n9.0.2-39-g7adfbe40dc-20261031)은 길어서 뒤에 덧붙인 정보가 잘린다. 앞의 버전 번호만 보이고 전체는 마우스를 올리면 보인다
 const shortVersion = (version: string) => /^(n?\d+(?:\.\d+)*)-\d+-g[0-9a-f]+/.exec(version)?.[1] ?? version;
-const FFMPEG_SOURCE: Record<FfmpegInfo["source"], string | null> = { installed: null, previous: "fallback: previous", legacy: "fallback: vendor/bin", env: "FFMPEG_PATH", path: "PATH" };
+const FFMPEG_SOURCE: Record<FfmpegInfo["source"], string | null> = { installed: null, previous: "fallback: previous", env: "FFMPEG_PATH", path: "PATH" };
 function ffmpegRow(info: FfmpegInfo | null): InfoRow {
   if (!info) return { icon: "movie", key: "ffmpeg", value: "—" };
   const source = FFMPEG_SOURCE[info.source];
   const notes = [source, info.pin ? `pinned, default ${releaseDay(info.defaultRelease)}` : null, info.rejected.length ? `${info.rejected.length} rejected` : null].filter(Boolean);
-  const fallback = info.source === "previous" || info.source === "legacy";
+  const fallback = info.source === "previous";
   const note = notes.length ? `(${notes.join("; ")})` : undefined;
   return { icon: "movie", key: "ffmpeg", value: shortVersion(info.version), note, warn: fallback || info.rejected.length > 0, full: [info.version, info.release, note, info.rejected.length ? `rejected: ${info.rejected.join(", ")}` : null].filter(Boolean).join(" ") };
 }

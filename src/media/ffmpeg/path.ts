@@ -1,5 +1,4 @@
 import { codedError, codeOf, messageOf } from "../../rules/error-kind.ts";
-import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
 import { toolEnv } from "../../config/tool-env.ts";
@@ -15,13 +14,12 @@ const log = logger.child({ category: "ffmpeg" });
  * ffmpeg 실행 파일 경로의 단일 출처. 재생(spawnFfmpeg)과 캐시 변환(yt-dlp --ffmpeg-location)이
  * 같은 바이너리를 쓰도록 여기서만 결정한다.
  *
- * 해석 순서: FFMPEG_PATH(.env) → vendor/ffmpeg의 설치본(state.json의 active) → 이전 설치본(previous) → 옛 자리(vendor/bin)의 번들 → PATH의 ffmpeg. 전부 실패하면 예외를 던진다.
+ * 해석 순서: FFMPEG_PATH(.env) → vendor/ffmpeg의 설치본(state.json의 active) → 이전 설치본(previous) → PATH의 ffmpeg. 전부 실패하면 예외를 던진다.
  * FFMPEG_PATH가 유효하지 않으면 다음 후보로 넘어가지 않고 즉시 실패한다.
- * 옛 자리는 vendor/ffmpeg로 옮기기 전의 설치 경로다. 봇 업데이트 뒤 첫 기동에서 다운로드가 실패해도 쓰던 ffmpeg로 뜨게 남긴다
  */
 
 /** source: 찾은 곳. release: 설치본이면 그 릴리스 */
-type Source = "FFMPEG_PATH" | "설치본" | "이전 설치본" | "옛 자리" | "PATH";
+type Source = "FFMPEG_PATH" | "설치본" | "이전 설치본" | "PATH";
 type Resolved = { path: string; version: string; source: Source; release: string | null };
 type Capabilities = { https: boolean; hls: boolean; dash: boolean; segMaxRetry: boolean; ok: boolean };
 /** 실행 확인의 결과. timeout: 시간 상한(10초)을 넘겼다(백신이 처음 보는 실행 파일을 검사하느라 늦을 수 있어 물리지 않는다) */
@@ -54,12 +52,6 @@ function probe(candidate: string | null | undefined, source = "?"): string | nul
   if (!candidate) return null;
   const ran = probeResult(candidate, source);
   return "version" in ran ? ran.version : null;
-}
-
-/** 옛 자리(vendor/bin)의 번들. 없으면 null */
-function fromBundle(): string | null {
-  const p = path.join(PROJECT.bin, BIN);
-  return fs.existsSync(p) ? p : null;
 }
 
 /** vendor/ffmpeg의 설치본 둘(지금 설치본, 이전 설치본). 기록을 읽지 못하면 경고하고 건너뛴다 */
@@ -110,14 +102,6 @@ function resolve(dir = PROJECT.ffmpeg): Resolved {
 
   const fromInstalled = pickInstalled(dir);
   if (fromInstalled) return (resolved = fromInstalled);
-  const bundle = fromBundle();
-  if (bundle) {
-    const version = probe(bundle, "옛 자리");
-    if (version) {
-      log.warn(`vendor/ffmpeg에 쓸 수 있는 설치본이 없어 옛 자리(vendor/bin)의 ffmpeg를 씀. 봇을 다시 시작하면 다시 받아 보고, 지금 받으려면 pnpm run install:ffmpeg`);
-      return (resolved = { path: bundle, version, source: "옛 자리", release: null });
-    }
-  }
   const version = probe("ffmpeg", "PATH");
   if (version) return (resolved = { path: "ffmpeg", version, source: "PATH", release: null });
 
@@ -146,7 +130,7 @@ async function settleRejected(dir = PROJECT.ffmpeg): Promise<void> {
 }
 
 // 봇 정보 탭 ffmpeg 줄의 출처 코드. 화면이 이 코드로 표시할 글을 정한다
-const SOURCE_CODE: Record<Source, FfmpegInfo["source"]> = { FFMPEG_PATH: "env", 설치본: "installed", "이전 설치본": "previous", "옛 자리": "legacy", PATH: "path" };
+const SOURCE_CODE: Record<Source, FfmpegInfo["source"]> = { FFMPEG_PATH: "env", 설치본: "installed", "이전 설치본": "previous", PATH: "path" };
 
 /** 지금 쓰는 ffmpeg와 vendor/ffmpeg의 기록(ffmpeg를 찾지 못했으면 null). 터미널에서 실행한 install:ffmpeg가 기록을 바꿀 수 있어 부를 때마다 새로 읽는다 */
 function ffmpegInfo(dir = PROJECT.ffmpeg): FfmpegInfo | null {
@@ -229,5 +213,5 @@ function _reset() {
 }
 
 export { ffmpegPath, ffmpegInfo, resolve, capabilities, logResolved, settleRejected };
-export const _internals = { probe, fromBundle, _reset };
+export const _internals = { probe, _reset };
 export type { Capabilities, Resolved, Source };
