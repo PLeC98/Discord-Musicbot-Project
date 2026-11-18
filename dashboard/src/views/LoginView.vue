@@ -102,7 +102,8 @@ import { mode, releasePageArt, setMode, setPageArt, type Mode } from "../theme/t
 import { useMediaQuery } from "@vueuse/core";
 import { SHORT_QUERY } from "../utils/breakpoints.ts";
 import { isModifiedSource } from "../utils/licenses.ts";
-import type { BotInfo, LoginError } from "../../../src/dashboard/contract/identity.ts";
+import type { LoginError } from "../../../src/dashboard/contract/identity.ts";
+import { followBotInfo } from "../composables/bot-info.ts";
 import type { LoginBackground } from "../../../src/dashboard/contract/login-background.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
@@ -230,16 +231,21 @@ onMounted(async () => {
     return;
   }
   tick();
-  const backgroundRead = props.preview ? null : loadBackground();
+  let backgroundSettled = false;
+  const backgroundRead = props.preview ? null : loadBackground().finally(() => (backgroundSettled = true));
+  // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 프로필 이미지를 배경(쓰임 avatar: 원본 해상도, 옅은 블러, 밝기 띠)과 색으로 깐다
+  const avatarArt = () => !props.preview && !background.value && botAvatar.value && setPageArt(PAGE_ART, botAvatar.value, "avatar");
   try {
-    const res = await axios.get<BotInfo>("/api/bot");
-    botAvatar.value = res.data.avatarUrl ?? undefined;
-    // 로그인 전에는 들을 곡이 없다: 로그인 배경이 없으면 봇 프로필 이미지를 배경(쓰임 avatar: 원본 해상도, 옅은 블러, 밝기 띠)과 색으로 깐다
+    // 봇이 준비 전(다시 시작 중)이면 준비될 때까지 다시 읽는다(composables/bot-info). 늦게 온 프로필 이미지도 배경으로 깐다
+    await followBotInfo((info) => {
+      botAvatar.value = info.avatarUrl ?? undefined;
+      botName.value = info.name ?? "";
+      sourceRepo.value = info.sourceRepo;
+      projectRepo.value = info.projectRepo;
+      if (backgroundSettled) avatarArt();
+    });
     await backgroundRead;
-    if (!props.preview && !background.value && botAvatar.value) setPageArt(PAGE_ART, botAvatar.value, "avatar");
-    botName.value = res.data.name ?? "";
-    sourceRepo.value = res.data.sourceRepo;
-    projectRepo.value = res.data.projectRepo;
+    avatarArt();
   } catch {
     // 봇 프로필 이미지, 이름은 꾸밈이다. 못 불러오면 기본 이미지로 두고 위 막대에 offline을 표시한다
     online.value = false;

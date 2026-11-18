@@ -71,7 +71,7 @@
           <div id="desk-back" class="absolute inset-0 pointer-events-none"></div>
           <!-- 스크롤바 트랙은 위를 바탕화면 둥근 모서리가 막대에 닿는 만큼 비운다(--sb-inset-desk. WebKit 계열만). 재생 바 노치는 양옆을 띄워 스크롤바에 닿지 않는다.
                스크롤바 자리는 비워 둔다. 화면마다 높이가 달라 스크롤바가 생기고 사라지면 내용 폭이 바뀌어 옆으로 밀린다. 바탕화면 높이에 딱 맞는 화면은 빼고(shell.fitsDesk) -->
-          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)" :class="!shell.fitsDesk && '[scrollbar-gutter:stable]'">
+          <div class="@container/desk absolute inset-0 overflow-y-auto overscroll-contain [touch-action:pan-y_pinch-zoom] md:touch-auto [&::-webkit-scrollbar-track]:mt-(--sb-inset-desk)" :class="!shell.fitsDesk && 'scrollbar-gutter-stable'">
             <router-view v-slot="{ Component, route: r }">
               <component :is="Component" v-if="r.meta.workspace" :key="r.fullPath" />
               <!-- 그 밖의 화면(서버 설정, 운영자)은 바탕화면 위에 카드를 놓는다. 쿼리(운영자 패널의 ?genre= 등)만 바뀌면 새로 그리지 않게 경로로 붙잡는다 -->
@@ -97,7 +97,6 @@ import { useCloseLayer } from "./composables/close-layer.ts";
 import { useDrawerSwipe } from "./composables/drawer-swipe.ts";
 import { PHONE_QUERY } from "./utils/breakpoints.ts";
 import { useRoute, useRouter } from "vue-router";
-import axios from "axios";
 import Icon from "./components/BaseIcon.vue";
 import NoticeDrawer from "./shell/NoticeDrawer.vue";
 import AppWallpaper from "./components/AppWallpaper.vue";
@@ -115,7 +114,7 @@ import { setReportUrl } from "./utils/problem.ts";
 import { setDocsRepo } from "./composables/docs.ts";
 import { setBrandColor } from "./theme/theme.ts";
 import { useYtdlpNotice } from "./composables/ytdlp-notice.ts";
-import type { BotInfo } from "../../src/dashboard/contract/identity.ts";
+import { followBotInfo } from "./composables/bot-info.ts";
 import { text } from "./text/index.ts";
 const T = text.shell;
 
@@ -159,25 +158,20 @@ async function clearViewAs() {
 }
 
 // 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
-// 봇이 디스코드에 로그인하기 전(기동 직후, 다시 시작 뒤의 새로고침)이면 이름과 프로필 이미지가 비어 온다. 이름이 올 때까지 이 간격으로 다시 읽는다(최대 1분).
-// 프로필 이미지가 없는 봇도 있어 준비 여부는 이름으로 본다
-const BOT_RETRY_MS = 2000;
-const BOT_RETRIES = 30;
-function loadBot(left = BOT_RETRIES) {
-  axios
-    .get<BotInfo>("/api/bot", { quietSession: true })
-    .then((res) => {
-      setReportUrl(res.data.sourceRepo);
+// 봇이 준비 전이면 준비될 때까지 다시 읽는다(composables/bot-info)
+onMounted(() => {
+  followBotInfo(
+    (info) => {
+      setReportUrl(info.sourceRepo);
       // 화면에서 저장소 설명서(docs/)로 가는 링크도 같은 저장소로
-      setDocsRepo(res.data.sourceRepo);
+      setDocsRepo(info.sourceRepo);
       // 곡이 없을 때의 화면 색은 운영자가 지정한 임베드 색에서(theme)
-      setBrandColor(res.data.brandColor);
-      shell.botAvatar = res.data.avatarUrl;
-      if (res.data.name === null && left > 0) setTimeout(() => loadBot(left - 1), BOT_RETRY_MS);
-    })
-    .catch(() => {
-      /* 못 불러오면 보고할 곳 없이 글만 보인다 */
-    });
-}
-onMounted(() => loadBot());
+      setBrandColor(info.brandColor);
+      shell.botAvatar = info.avatarUrl;
+    },
+    { quietSession: true },
+  ).catch(() => {
+    /* 못 불러오면 보고할 곳 없이 글만 보인다 */
+  });
+});
 </script>
