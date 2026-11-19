@@ -52,7 +52,7 @@ useModelInfo({ dir: store.dir, profiles: true });
 
 import express from "express";
 
-// ── Fake Discord client ──────────────────────────────────────
+// ── 가짜 디스코드 클라이언트 ─────────────────────────────────
 function makeSendableChannel(id: string) {
   const ch = {
     id,

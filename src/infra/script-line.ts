@@ -1,5 +1,5 @@
 // 터미널 스크립트(install:*, pnpm commands, pnpm install의 단계)가 찍는 한 줄. 봇 로그와 같은 모양(INFO  [분류] 내용, 명사형 끝)이고 이모지를 쓰지 않는다.
-// 모양을 봇 로그와 맞추는 것은 통일성 때문이고, 이모지는 Windows 콘솔(cmd)에서 깨지기 쉽다(2026-11-18 사용자).
+// 모양을 봇 로그와 맞추는 것은 통일성 때문이고, 이모지는 Windows 콘솔(cmd)에서 깨지기 쉽다.
 // 로거를 불러올 수 없는 스크립트가 쓴다(로거는 console을 가로채고, pnpm install의 첫 단계에는 node_modules가 없다). 아무 모듈도 불러오지 않는다
 
 type ScriptLevel = "info" | "warn" | "error";

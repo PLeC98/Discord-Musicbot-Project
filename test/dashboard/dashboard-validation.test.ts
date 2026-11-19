@@ -49,7 +49,7 @@ const lookup = fake<Lookup>({
 
 import express from "express";
 
-// ── Fake client/player ───────────────────────────────────────
+// ── 가짜 클라이언트, 플레이어 ────────────────────────────────
 const GUILD_ID = "100";
 
 function makeTrack(title: string) {

@@ -84,7 +84,7 @@ const settingsRow = () => temp.settings().prepare("SELECT * FROM guild_settings 
 import express from "express";
 import { ChannelType, PermissionFlagsBits, type Guild } from "discord.js";
 
-// ── Fake Discord client ──────────────────────────────────────
+// ── 가짜 디스코드 클라이언트 ─────────────────────────────────
 const GUILD_ID = "100";
 
 function makeRole(id: string, name: string, position: number, color = 0) {

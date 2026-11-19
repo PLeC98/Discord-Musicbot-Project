@@ -42,7 +42,7 @@ const RECOVERY_ATTEMPTS_MAX = 5; // 한 번 끊겼을 때 연결 복구가 실�
 // 빠짐, 사라짐으로 버릴 때(세션 삭제)
 const FORCED_OUT = { reason: "봇이 음성에서 강제 퇴장됨", session: "remove", panel: "disconnected", end: "kicked" } as const;
 // 스테이지가 끝나도 쫓겨난 것과 같은 빠짐 알림만 온다. 가르는 것은 음성 서버의 닫힘 코드: 끝나면 모두를 끊어 4022, 한 명만 내보내면 4014.
-// 4014는 빠짐 알림보다 먼저, 4022는 0.1 ~ 0.2초 뒤에 온다(실측). 코드가 끝내 오지 않으면 둘 다 말한다
+// 4014는 빠짐 알림보다 먼저, 4022는 0.1 ~ 0.2초 뒤에 온다. 코드가 끝내 오지 않으면 둘 다 말한다
 const STAGE_ENDED = { reason: "스테이지가 끝남", session: "remove", panel: "disconnected", end: "stage-ended" } as const;
 const STAGE_OUT = { reason: "봇이 스테이지에서 나옴(스테이지 종료 또는 강제 퇴장)", session: "remove", panel: "disconnected", end: "stage-disconnect" } as const;
 const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "remove", panel: "disconnected", end: "channel-gone" } as const;

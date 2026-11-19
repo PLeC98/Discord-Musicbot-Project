@@ -22,9 +22,9 @@ const PREVIEW_SHORT = 480;
 const PROBE_SHORT = 1080;
 /** 그림 미리보기의 긴 변 */
 const PREVIEW_LONG = 1280;
-/** 세트(AV1, VP9 단계)의 크기 / 추산의 크기. full은 4K까지, fhd는 1080p 만(영상 5개로 잰 중앙값) */
+/** 세트(AV1, VP9 단계)의 크기 / 추산의 크기. full은 4K까지, fhd는 1080p 만. 영상마다 달라 어림값이다 */
 const SET_RATIO = { full: 9.5, fhd: 3.1 };
-/** 세트를 인코딩하는 시간 / 추산 시간(영상 2개로 잰 거친 값에서 한 번 풀어 나눠 인코딩하는 이득을 뺐다) */
+/** 세트를 인코딩하는 시간 / 추산 시간. 한 번 풀어 나눠 인코딩하는 이득을 뺀 어림값이다 */
 const SET_TIME = { full: 20, fhd: 7 };
 /** H.264 720p 단계(2.5Mbps 고정)의 초당 크기 */
 const H264_BYTES_PER_SECOND = 2_500_000 / 8;
