@@ -1,6 +1,6 @@
-// 봇이 그리는 이미지의 워커 스레드. @napi-rs/canvas 의 모듈 불러오기, 글꼴 등록, 그리기가 동기라
-// 메인 스레드(음성 프레임 타이머가 도는 곳)에서 돌리지 않는다. 받는 것은 일(kind 와 값), 반환하는 것은 이미지들.
-// close 를 받으면 글꼴을 지우고 끝난다(지우지 않고 종료하면 글꼴 메모리가 프로세스에 남는다)
+// 봇이 그리는 이미지의 워커 스레드. @napi-rs/canvas의 모듈 불러오기, 글꼴 등록, 그리기가 동기라
+// 메인 스레드(음성 프레임 타이머가 도는 곳)에서 돌리지 않는다. 받는 것은 일(kind와 값), 반환하는 것은 이미지들.
+// close를 받으면 글꼴을 지우고 끝난다(지우지 않고 종료하면 글꼴 메모리가 프로세스에 남는다)
 
 import { parentPort } from "node:worker_threads";
 import { messageOf } from "../../rules/error-kind.ts";
@@ -9,7 +9,7 @@ import { drawSystemCards } from "../system-card/draw.ts";
 import { releaseFonts } from "./canvas-fonts.ts";
 import type { Job } from "./render.ts";
 
-/** napi 가 만든 Buffer 는 전송할 수 없어 전송 가능한 사본으로 */
+/** napi가 만든 Buffer는 전송할 수 없어 전송 가능한 사본으로 */
 const transferable = (image: Buffer) => image.buffer.slice(image.byteOffset, image.byteOffset + image.byteLength) as ArrayBuffer;
 
 async function imagesOf(job: Job): Promise<Buffer[]> {

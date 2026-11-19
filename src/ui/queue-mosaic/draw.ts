@@ -1,6 +1,6 @@
-// /queue 의 썸네일 모자이크를 그린다: 16:9 칸 5개씩 최대 두 줄, 칸마다 왼쪽 위에 대기열 번호. 칸 바깥은 투명(WebP)이라 컨테이너 바탕이 비친다.
+// /queue의 썸네일 모자이크를 그린다: 16:9 칸 5개씩 최대 두 줄, 칸마다 왼쪽 위에 대기열 번호. 칸 바깥은 투명(WebP)이라 컨테이너 바탕이 비친다.
 // 칸 이미지는 메인 스레드(queue-mosaic/thumbnails)가 칸 크기로 다시 인코딩한 JPEG 뿐이다. 없는 칸은 음표 아이콘.
-// @napi-rs/canvas 의 그리기는 동기라 이 모듈은 워커(card-render/render-worker)에서만 부른다
+// @napi-rs/canvas의 그리기는 동기라 이 모듈은 워커(card-render/render-worker)에서만 부른다
 
 import { createCanvas, loadImage, type SKRSContext2D } from "@napi-rs/canvas";
 import { argbFromHex } from "@material/material-color-utilities";

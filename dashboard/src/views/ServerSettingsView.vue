@@ -67,7 +67,7 @@
 
           <SearchInput v-model="roleFilter" :placeholder="text.fields.searchAmong(s.dj.roles.length)" :input-class="[FIELD, 'w-full disabled:opacity-38']" class="mb-2" />
 
-          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12px - 1px)에 맞춰 위아래 11 - 5 = 6px을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3px 로(useOverflowing) -->
+          <!-- 스크롤바 트랙은 테두리 안쪽 모서리(12px - 1px)에 맞춰 위아래 11 - 5 = 6px을 비우고, 넘치면 오른쪽 여백을 6 - 3 = 3px로(useOverflowing) -->
           <div ref="roleListEl" class="h-66.5 overflow-y-auto rounded-(--r-inner) border border-outline-variant/50 flex flex-col [&::-webkit-scrollbar-track]:my-1.5" :class="roleListOverflowing ? 'py-1 pl-1 pr-px' : 'p-1'">
             <label v-for="r in filteredRoles" :key="r.id" class="state-layer cursor-pointer shrink-0 flex items-center gap-2 h-10 px-3 rounded-(--r-row) text-sm">
               <input type="checkbox" class="size-4 accent-primary shrink-0" :checked="selectedRoles.includes(r.id)" @change="toggleRole(r.id)" />

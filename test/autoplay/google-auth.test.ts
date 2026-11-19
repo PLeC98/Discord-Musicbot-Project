@@ -44,7 +44,7 @@ test("JWT로 토큰을 받아 온다", async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "https://oauth2.googleapis.com/token");
 
-  // 보낸 것은 서명한 JWT 다. private_key 자체는 절대 안 나간다.
+  // 보낸 것은 서명한 JWT다. private_key 자체는 절대 안 나간다.
   const sent = new URLSearchParams(calls[0].body);
   assert.equal(sent.get("grant_type"), "urn:ietf:params:oauth:grant-type:jwt-bearer");
   assert.ok(!calls[0].body.includes("PRIVATE KEY"), "키가 그대로 실리면 안 된다");

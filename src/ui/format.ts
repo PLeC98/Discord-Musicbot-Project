@@ -10,7 +10,7 @@ const liveMarkOf = (track: { liveStatus?: string | null }) => (track.liveStatus 
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * 초를 M:SS, 한 시간부터 H:MM:SS 로(내림, 시간에 상한 없음). 수가 아니거나 유한하지 않거나 0 이하면 unknown.
+ * 초를 M:SS, 한 시간부터 H:MM:SS로(내림, 시간에 상한 없음). 수가 아니거나 유한하지 않거나 0 이하면 unknown.
  * unknown은 그 자리의 모름 표기다(위치는 "0:00", 길이는 "--:--" 같은 것). 곡 모델에서 길이 0은 모름이다
  */
 function formatDuration(seconds: number | null | undefined, unknown: string) {

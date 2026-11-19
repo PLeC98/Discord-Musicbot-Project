@@ -2,7 +2,7 @@
 // 보기: 제목, 그 페이지 곡들의 썸네일 모자이크(첨부, 그리지 못했으면 없다), 곡마다 두 줄, 구분선, 요약 줄, 넘기기 줄([◀] [페이지/페이지 수] [▶] [편집]).
 // 편집: 같은 목록(이미지 없음), 곡 고르기 메뉴, 고른 곡의 버튼 줄(지금 재생, 다음에 재생, 위로, 아래로, 삭제), 넘기기 줄([◀] [페이지] [▶] [완료]).
 // 버튼, 메뉴는 누른 때의 대기열로 다시 그린다. 곡은 대기열 ID로 가리키고, 고르기와 곡 버튼에는 세션을 실어 지난 재생의 화면을 가린다.
-// 본인에게만 보이는 화면이라 보는 사람의 역할로 버튼을 고른다: DJ 는 모든 곡의 모든 버튼, 아니면 자기가 넣은 곡의 삭제만(편집할 곡이 없으면 편집 버튼도 없다).
+// 본인에게만 보이는 화면이라 보는 사람의 역할로 버튼을 고른다: DJ는 모든 곡의 모든 버튼, 아니면 자기가 넣은 곡의 삭제만(편집할 곡이 없으면 편집 버튼도 없다).
 // 음성 채널은 들어오면 바로 풀리는 조건이라 버튼을 숨기지 않고 누를 때 거절한다(usecases/controls)
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, type MessageActionRowComponentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, ModalBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextDisplayBuilder, TextInputBuilder, TextInputStyle, resolveColor } from "discord.js";
@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 /** 화면 글(텍스트 디스플레이) 전체의 상한은 4000자(메뉴 항목의 글은 세지 않는다). 목록 말고 제목, 요약 줄이 쓸 몫을 남긴다 */
 const LIST_MAX = 3600;
 /**
- * 부품 전체(JSON)의 크기 상한. 디스코드는 10,240바이트를 넘으면 메시지째 거절한다(413). 디스코드가 세는 값은 JSON 바이트보다 작아 JSON 으로 이 값 안이면 받는다.
+ * 부품 전체(JSON)의 크기 상한. 디스코드는 10,240바이트를 넘으면 메시지째 거절한다(413). 디스코드가 세는 값은 JSON 바이트보다 작아 JSON으로 이 값 안이면 받는다.
  * 한글은 3바이트라 긴 한글 제목, 아티스트 열 곡에 메뉴까지 달면 글자 수로는 상한 안이어도 넘친다. 넘으면 메뉴 항목의 글부터, 그다음 목록 상한을(긴 주소의 링크부터 뗀다) 줄여 다시 만든다
  */
 const BYTES_MAX = 10_000;
@@ -48,7 +48,7 @@ const PAGE_INPUT = "page";
 
 type Mode = "browse" | "edit";
 type Entry = Listed & Pick<QueuedTrack, "thumbnail" | "audioUrl" | "entry">;
-/** 보는 사람: 사용자 ID, DJ 인지(usecases/permissions 의 isDj) */
+/** 보는 사람: 사용자 ID, DJ 인지(usecases/permissions의 isDj) */
 type Viewer = { id: string | null; dj: boolean };
 /** 보는 사람을 모를 때. 편집할 수 있는 곡이 없다 */
 const NOBODY: Viewer = { id: null, dj: false };
@@ -59,7 +59,7 @@ type QueueInfo = {
   sessionId: string | null;
   viewer: Viewer;
 };
-/** 그릴 화면. browse 의 mosaic 은 그 페이지의 썸네일(WebP), edit 의 picked 는 고른 곡의 대기열 ID */
+/** 그릴 화면. browse의 mosaic은 그 페이지의 썸네일(WebP), edit의 picked는 고른 곡의 대기열 ID */
 type Screen = { mode: "browse"; page: number; mosaic?: Buffer | null } | { mode: "edit"; page: number; picked?: number | null };
 
 type PlayerLike = {
@@ -92,9 +92,9 @@ const canEdit = (viewer: Viewer, track: Pick<Entry, "requestedBy">) => viewer.dj
 
 /** 이 대기열의 페이지 수(적어도 1) */
 const pagesOf = (info: Pick<QueueInfo, "queue">) => Math.max(1, Math.ceil(info.queue.length / PAGE_SIZE));
-/** 보일 페이지: 1 부터, 범위를 넘으면 끝 페이지로 붙인다 */
+/** 보일 페이지: 1부터, 범위를 넘으면 끝 페이지로 붙인다 */
 const pageIn = (info: Pick<QueueInfo, "queue">, page: number) => Math.min(Math.max(1, Math.floor(page) || 1), pagesOf(info));
-/** 그 페이지의 곡들과 첫 곡의 자리(0 부터) */
+/** 그 페이지의 곡들과 첫 곡의 자리(0부터) */
 function pageTracks(info: Pick<QueueInfo, "queue">, page: number) {
   const offset = (pageIn(info, page) - 1) * PAGE_SIZE;
   return { offset, tracks: info.queue.slice(offset, offset + PAGE_SIZE) };
@@ -112,7 +112,7 @@ const button = (id: string, { label, emoji, style = ButtonStyle.Secondary, disab
   return one;
 };
 
-/** 넘기기 줄. 페이지가 하나면 last 만(last 도 없으면 줄이 없다) */
+/** 넘기기 줄. 페이지가 하나면 last만(last도 없으면 줄이 없다) */
 function navRow(mode: Mode, page: number, pages: number, last: ButtonBuilder | null) {
   const to = (n: number) => customId(QUEUE, mode === "browse" ? "page" : "edit", n);
   const row = new ActionRowBuilder<ButtonBuilder>();
@@ -190,7 +190,7 @@ function editRows(info: QueueInfo, { page, pages, offset, tracks, picked, option
   if (pickable && picked !== null) {
     const blocked = blockedAt(offset + index, info.queue.length);
     const row = new ActionRowBuilder<ButtonBuilder>();
-    // DJ 가 아니면 자기 곡의 삭제만(옮기기, 지금 재생은 DJ 의 조작이다)
+    // DJ가 아니면 자기 곡의 삭제만(옮기기, 지금 재생은 DJ의 조작이다)
     for (const action of (info.viewer.dj ? Object.keys(ACTION_LOOK) : ["remove"]) as EditAction[]) {
       row.addComponents(button(customId(QUEUE, "do", action, picked, page, session), { label: T.actions[action], ...ACTION_LOOK[action], disabled: blocked.has(action) }));
     }
@@ -216,7 +216,7 @@ const positive = (text: string | undefined) => {
   return /^\d+$/.test(text ?? "") && Number.isSafeInteger(n) && n >= 0 ? n : null;
 };
 
-/** 보기, 편집 버튼이 보일 페이지(0 이면 앞쪽 끝이라 1로 붙인다). 알아볼 수 없으면 null */
+/** 보기, 편집 버튼이 보일 페이지(0이면 앞쪽 끝이라 1로 붙인다). 알아볼 수 없으면 null */
 function pageOf(id: string) {
   const { rest } = partsOf(id);
   return positive(rest[0]);

@@ -1,5 +1,5 @@
 // 로그인 배경의 영상을 무엇으로 틀지.
-// 코덱은 우리가, 해상도는 hls.js 가(화면 크기 × 배율, 통신) 선택한다. 우리는 어느 목록(코덱)을 열지와 해상도 상한만 정한다.
+// 코덱은 우리가, 해상도는 hls.js가(화면 크기 × 배율, 통신) 선택한다. 우리는 어느 목록(코덱)을 열지와 해상도 상한만 정한다.
 // 선택: powerEfficient ○ 인 단계 중 꽉 채웠을 때 필요한 세로 이상의 가장 낮은 해상도(없으면 가장 높은 것)를 먼저 정하고, 그 해상도에서 AV1, VP9, H.264 순서로 코덱.
 // H.264 720p(폴백)는 AV1, VP9에 ○ 가 없을 때만. ○ 가 없으면 디코딩할 수 있는 가장 낮은 단계. 선택한 해상도가 그 코덱의 가장 높은 단계보다 낮으면 상한을 건다.
 // 내리기: 선택한 코덱에서 효과를 테마 색 전체 → 오버레이 색만 → 고정 순서로 빼고, 그 코덱의 낮은 해상도 상한 → H.264 720p → 정지 그림.
@@ -51,7 +51,7 @@ function neededShort(frame: { width: number; height: number; dpr: number }, aspe
 /** 블러가 강해 1080p 까지만 선택하는가 */
 const blurCapped = (frame: { width: number; height: number }, blur: number) => (frame.width * blur) / 100 >= frame.height * BLUR_CAP_RATIO;
 
-/** 내려갈 순서. 첫 단계가 판정으로 선택한 코덱. reduced 면(움직임 줄이기, 영상 없음) 정지 그림 하나 */
+/** 내려갈 순서. 첫 단계가 판정으로 선택한 코덱. reduced면(움직임 줄이기, 영상 없음) 정지 그림 하나 */
 function ladderOf(rungs: Rung[], verdicts: Map<Rung, Verdict>, need: number, options: { reduced: boolean; capFhd: boolean }): Step[] {
   const still: Step = { codec: null, cap: null, effect: "fixed" };
   if (options.reduced) return [still];

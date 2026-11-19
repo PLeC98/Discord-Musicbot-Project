@@ -16,7 +16,7 @@ type PingValues = {
   gatewayMs: number | null;
   /** 게이트웨이 기록의 평균. 기록이 없으면 null */
   gatewayAverage: { minutes: number; ms: number } | null;
-  /** 이 서버의 음성 게이트웨이 하트비트 왕복. 음성 채널에 없거나 아직 없으면 null 이고 줄을 뺀다 */
+  /** 이 서버의 음성 게이트웨이 하트비트 왕복. 음성 채널에 없거나 아직 없으면 null이고 줄을 뺀다 */
   voiceMs: number | null;
   /** 다시 재기 버튼을 단다(서버 밖의 버튼은 받지 않으므로 서버 안에서만) */
   again: boolean;

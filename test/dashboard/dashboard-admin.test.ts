@@ -42,7 +42,7 @@ type Reply = ProblemReply & { success?: boolean };
 const HASH_PATH = path.join(os.tmpdir(), `musicbot-cmd-hash-${process.pid}.json`);
 after(() => fs.rmSync(HASH_PATH, { force: true }));
 
-// 서버 설정은 진짜를 임시 DB 로(공지 발송이 봇 채널을 읽는다)
+// 서버 설정은 진짜를 임시 DB로(공지 발송이 봇 채널을 읽는다)
 const { openTempStore, setGuild } = await import("../helpers/temp-store.ts");
 const store = openTempStore("dashboard-admin-");
 after(() => store.close());

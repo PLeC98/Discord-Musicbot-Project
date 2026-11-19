@@ -41,7 +41,7 @@ type Incoming = { status: number; headers: Record<string, unknown>; body: Readab
 type HttpRequest = (request: Outgoing) => Promise<Incoming>;
 /** 외부 경계. 생략하면 send와 dns.lookup */
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
-/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer는 다운로드 전체에도), 받아도 되는 주소(리다이렉트 홉마다 본다. 생략하면 공인 IP 이면 어디든) */
+/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer는 다운로드 전체에도), 받아도 되는 주소(리다이렉트 홉마다 본다. 생략하면 공인 IP이면 어디든) */
 type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number; allowUrl?: (url: URL) => boolean };
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
@@ -65,7 +65,7 @@ function isAllowedContentType(contentType: unknown, allowed = ALLOWED_CONTENT_TY
   return allowed.test(String(contentType));
 }
 
-/** URL 파싱 + 스키마 검증(allowUrl 이 있으면 그 주소만). @throws {SsrfError} */
+/** URL 파싱 + 스키마 검증(allowUrl이 있으면 그 주소만). @throws {SsrfError} */
 function parseAllowed(rawUrl: string, allowUrl?: (url: URL) => boolean): URL {
   let url;
   try {
@@ -80,7 +80,7 @@ function parseAllowed(rawUrl: string, allowUrl?: (url: URL) => boolean): URL {
 
 /**
  * URL 파싱 + 스키마/호스트 검증 + 접속할 IP 결정.
- * 호스트명은 모든 A/AAAA를 해석해 하나라도 내부면 거부하고, 통과 시 접속할 IP를 핀한다. allowUrl 이 있으면 DNS 해석 전에 그 주소만 받는다.
+ * 호스트명은 모든 A/AAAA를 해석해 하나라도 내부면 거부하고, 통과 시 접속할 IP를 핀한다. allowUrl이 있으면 DNS 해석 전에 그 주소만 받는다.
  * @throws {SsrfError}
  */
 async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.bind(dns), allowUrl?: (url: URL) => boolean): Promise<{ url: URL; pinnedIp: string; family: number }> {

@@ -14,7 +14,7 @@
             <SearchInput ref="box" v-model="term" :placeholder="text.fields.searchAmong(count)" :input-class="searchCls" />
           </div>
           <!-- 스크롤바 트랙은 둥근 모서리가 있는 끝만 막대에 닿는 만큼 비운다(--sb-inset-menu). 검색창 아래 위쪽 끝은 곧은 선이라 비우지 않는다 -->
-          <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px 로(useOverflowing) -->
+          <!-- 넘치면 오른쪽 안쪽 여백을 4px - 3px = 1px로(useOverflowing) -->
           <div ref="listEl" class="min-h-0 overflow-auto flex flex-col [&::-webkit-scrollbar-track]:mb-(--sb-inset-menu) [&>button]:rounded-xs [&>button:first-of-type]:rounded-t-md [&>button:last-of-type]:rounded-b-md" :class="[overflowing ? 'py-1 pl-1 pr-px' : 'p-1', !searchable && '[&::-webkit-scrollbar-track]:mt-(--sb-inset-menu)']" :style="{ maxHeight: `${LIST_MAX_REM}rem` }">
             <slot />
             <p v-if="empty" class="px-4 py-3 text-xs text-on-surface-variant">{{ text.common.noMatch }}</p>

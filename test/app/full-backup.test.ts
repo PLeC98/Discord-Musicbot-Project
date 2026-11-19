@@ -263,7 +263,7 @@ test("끝난 프로세스가 남긴 .part만 삭제한다. 살아 있거나 확�
   const dead = `musicbot-full-20261001-090000.zip.${deadPid()}.abcd1234.part`;
   const alive = `musicbot-full-20261001-090000.zip.${process.pid}.abcd1234.part`;
   const legacy = "musicbot-full-20261001-0900.zip.part";
-  // 잘못된 이름(pid가 십진수가 아님. 0x7ffffffe는 숫자로 읽으면 끝난 pid 다)
+  // 잘못된 이름(pid가 십진수가 아님. 0x7ffffffe는 숫자로 읽으면 끝난 pid다)
   const odd = ["musicbot-full-20261001-090000.zip.12x.abcd1234.part", "musicbot-full-20261001-090000.zip.0x7ffffffe.abcd1234.part"];
   const names = [dead, alive, legacy, ...odd];
   // 권한이 없어 확인할 수 없는 프로세스(Windows의 System, POSIX의 init)

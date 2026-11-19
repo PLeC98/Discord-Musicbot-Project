@@ -1,7 +1,7 @@
 // /queue 화면의 버튼, 메뉴, 모달: 넘기기, 편집 화면, 곡 고르기, 곡 버튼(지금 재생, 다음에 재생, 위로, 아래로, 삭제), 페이지 이동(ui/queue-view).
 // 모두 누른 때의 대기열로 다시 그린다. 보기 화면은 썸네일을 기다리느라 미룬 뒤 고치고, 편집 화면은 이미지 없이 바로 고친다(붙어 있던 이미지는 뗀다).
 // 같은 메시지를 잇달아 누르면 나중에 누른 것만 화면에 남긴다(보기 화면이 썸네일을 기다리는 사이 다른 것이 고쳤으면 버린다).
-// 곡 버튼의 결과는 /move, /remove 처럼 모두에게 알리고, 거절은 본인에게. 화면이 가리키는 곡은 대기열 ID로 다시 찾는다(rules/queue-edit)
+// 곡 버튼의 결과는 /move, /remove처럼 모두에게 알리고, 거절은 본인에게. 화면이 가리키는 곡은 대기열 ID로 다시 찾는다(rules/queue-edit)
 
 import { MessageFlags, type ButtonInteraction, type ModalMessageModalSubmitInteraction, type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -59,7 +59,7 @@ async function staleSession(interaction: Surface, player: Player, session: strin
   return true;
 }
 
-/** 편집 화면으로 바로 고친다(붙어 있던 모자이크를 뗀다). picked 는 고른 채로 둘 곡, without 은 뺄 곡 */
+/** 편집 화면으로 바로 고친다(붙어 있던 모자이크를 뗀다). picked는 고른 채로 둘 곡, without은 뺄 곡 */
 async function showEdit(interaction: Surface, player: Player, page: number, { picked = null, without = null }: { picked?: number | null; without?: number | null } = {}) {
   turnOf(interaction.message.id).end();
   const { view } = await queueScreen(player, interaction.member, { mode: "edit", page, picked }, { without });

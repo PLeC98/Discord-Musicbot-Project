@@ -7,7 +7,7 @@
 // 줄은 줄바꿈으로, 필드는 |로 나뉜다: 이모지|이름|검색어
 export const TWEMOJI_VERSION = "16.0.1";
 
-/** 선택 목록의 이모지 하나. search 는 이름과 검색어를 소문자로 이은 것 */
+/** 선택 목록의 이모지 하나. search는 이름과 검색어를 소문자로 이은 것 */
 type Emoji = { char: string; label: string; search: string };
 type EmojiGroup = { name: string; emoji: Emoji[] };
 

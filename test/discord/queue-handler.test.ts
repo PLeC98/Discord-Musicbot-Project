@@ -54,7 +54,7 @@ const order = (p: { queue: QueuedTrack[] }) => p.queue.map((t) => t.entry);
 
 type Pressed = { calls: string[]; payloads: Array<{ attachments?: unknown[] }>; run: Promise<unknown> };
 
-/** 화면의 버튼, 메뉴를 누른다. release 를 주면 deferUpdate 가 그것을 기다린다 */
+/** 화면의 버튼, 메뉴를 누른다. release를 주면 deferUpdate가 그것을 기다린다 */
 function press(kind: Kind, customId: string, p: unknown, { values = [] as string[], who = member(), release = null as Promise<void> | null, typed = "" } = {}): Pressed {
   const calls: string[] = [];
   const payloads: Pressed["payloads"] = [];

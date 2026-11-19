@@ -1,4 +1,4 @@
-// /license: 봇의 라이선스(AGPL-3.0)와 운영 소스 코드를 본인에게만. AGPL 은 이 봇을 쓰는 사람에게 지금 돌고 있는 버전의 소스를 받을 길을 열어 두게 한다
+// /license: 봇의 라이선스(AGPL-3.0)와 운영 소스 코드를 본인에게만. AGPL은 이 봇을 쓰는 사람에게 지금 돌고 있는 버전의 소스를 받을 길을 열어 두게 한다
 
 import { SlashCommandBuilder } from "discord.js";
 import config from "../../config/index.ts";

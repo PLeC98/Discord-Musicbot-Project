@@ -72,7 +72,7 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
   const client = fakeWith<Client<true>>()({
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
-    // /system 이 대시보드와 같은 상태 값을 모을 때 읽는다
+    // /system이 대시보드와 같은 상태 값을 모을 때 읽는다
     ws: { ping: 42, status: 0 },
     isReady: () => true,
   });
@@ -236,7 +236,7 @@ test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진
 // ── /queue ────────────────────────────────────────────────────────────
 
 const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue, isLive: false, paused: false, loop: false, autoplay: false, sessionId: "S", getCurrentTime: () => 0 });
-// 대기열 화면은 보는 사람의 역할로 버튼을 고른다. 서버 관리자는 DJ 다
+// 대기열 화면은 보는 사람의 역할로 버튼을 고른다. 서버 관리자는 DJ다
 const queueViewer = { id: "u1", permissions: { has: () => true }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() } } };
 const viewing = <T extends { it: object }>(one: T) => (Object.assign(one.it, { member: queueViewer }), one);
 

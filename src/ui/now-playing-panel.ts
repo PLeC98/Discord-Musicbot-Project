@@ -482,7 +482,7 @@ class NowPlayingPanel {
         this.attachedArt.delete(player.guild.id);
         return;
       }
-      // 웹훅이 없으면 채널로 보낸 Message 다
+      // 웹훅이 없으면 채널로 보낸 Message다
       if (player.nowPlayingWebhook) await player.nowPlayingWebhook.editMessage(panel.id, payload);
       else if ("edit" in panel) await panel.edit(payload);
       this.editFailures.get(player.guild.id)?.ok();

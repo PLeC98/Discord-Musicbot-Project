@@ -44,7 +44,7 @@ const guild = fake<Guild>({ id: "g1", name: "서버", members: { me: { voice: { 
 const member = ({ mod = true, inVoice = true, id = "u1" } = {}) => fake<GuildMember>({ id, user: { tag: `사람 ${id}` }, guild, permissions: { has: () => mod }, voice: { channel: inVoice ? { id: "vc1" } : null }, roles: { cache: new Map() } });
 const DJ: Actor = { member: member() };
 
-// DJ 역할을 정해 둔 동안(정하지 않으면 모든 멤버가 DJ 다). 역할이 없는 멤버는 DJ가 아니다
+// DJ 역할을 정해 둔 동안(정하지 않으면 모든 멤버가 DJ다). 역할이 없는 멤버는 DJ가 아니다
 async function withDjRole(run: () => Promise<void>) {
   guildSettings.setDjRoles("g1", ["dj"]);
   try {

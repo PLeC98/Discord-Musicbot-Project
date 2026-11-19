@@ -524,7 +524,7 @@ const DIALECTS: Record<string, Dialect> = {
   vertex: {
     chatUrl: (one) => vertexChatUrl(one, vertexProject(one), one.model || ""),
     // 모델 목록은 생성과 주소 체계가 다르다. 프로젝트, 리전이 붙지 않는 쪽이라
-    // 생성 주소를 그대로 쓰면 404 다. API 버전이 나뉘어 있어 순서대로 물어본다.
+    // 생성 주소를 그대로 쓰면 404다. API 버전이 나뉘어 있어 순서대로 물어본다.
     modelsUrl: (one) => `https://${vertexHost(one)}/v1beta1/publishers/google/models`,
     modelsUrlFallbacks: (one) => [`https://${vertexHost(one)}/v1/publishers/google/models`, `${vertexBase(one)}/publishers/google/models`],
     headers: async (one, { live = true } = {}) => {

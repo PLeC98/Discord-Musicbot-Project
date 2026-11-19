@@ -60,7 +60,7 @@ type ArchiveJson = {
   /** settings만 */
   tunables?: Record<string, string>;
   documents?: Partial<Record<DocItem, unknown>>;
-  /** favicon 만(옛 형식 파일은 settings에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json과 이미지 png). index.json이 없으면 파비콘이 없는 파일로 본다 */
+  /** favicon만(옛 형식 파일은 settings에도). 함께 담은 파비콘 파일 이름(favicon/ 아래, index.json과 이미지 png). index.json이 없으면 파비콘이 없는 파일로 본다 */
   favicons?: string[];
 };
 

@@ -245,7 +245,7 @@ test("실패한 곡을 무한히 재시도하지 않는다", async () => {
 
   assert.equal(warmed.filter((k) => k === "yt:bad").length, 1, "이번 서명에서는 한 번만 시도한다");
   assert.ok(warmed.includes("yt:ok"), "실패가 나머지를 막지 않는다");
-  // 원인은 다운로드가 error로 남긴다. 여기서는 결과만 debug 로(두 줄이 되지 않게)
+  // 원인은 다운로드가 error로 남긴다. 여기서는 결과만 debug로(두 줄이 되지 않게)
   const lines = sink.buffer.filter((e) => e.text.includes("사전 캐싱 실패"));
   assert.ok(lines.length > 0 && lines.every((e) => e.level === "debug"), JSON.stringify(lines.map((e) => e.level)));
 });

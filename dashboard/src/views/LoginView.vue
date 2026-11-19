@@ -3,7 +3,7 @@
        위에 waybar 섬 셋(작업 공간 알약 모양의 밝기 선택, locked, 봇 상태와 짧은 날짜), 가운데 큰 시계, 고리 두른 봇 프로필 이미지, hyprlock 입력란 모양의 로그인 버튼(오른쪽 끝 화살표, Enter로도),
        아래 가운데에 같은 섬 하나로 소스 링크(AGPL 13조 고지).
        배경: 운영자가 지정한 로그인 배경(GET /api/login-background)이 있으면 그것(LoginBackdrop, 화면 색도 그 배경의 색), 없으면 봇 프로필 이미지.
-       preview 면(운영자 패널의 "로그인 화면으로 보기") 배경을 그리지 않는다(부모 컴포넌트가 고친 값으로 그린다) -->
+       preview면(운영자 패널의 "로그인 화면으로 보기") 배경을 그리지 않는다(부모 컴포넌트가 고친 값으로 그린다) -->
   <div ref="rootEl" data-lock-screen class="relative min-h-dvh flex flex-col overflow-x-hidden">
     <AppWallpaper v-if="!preview" />
     <LoginBackdrop v-if="background" :bg="background" :look="background.look" adaptive paint-theme @stale="loadBackground" />

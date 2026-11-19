@@ -57,7 +57,7 @@ function fakeIo(remote: Remote) {
 
 let n = 0;
 const fresh = () => path.join(base, `dir-${++n}`);
-/** 받아 둔 빌드 하나를 폴더에 만든다. good 이면 실행된다 */
+/** 받아 둔 빌드 하나를 폴더에 만든다. good이면 실행된다 */
 function placed(dir: string, release: string, good = true): FfmpegBuild {
   const folder = `${release}-1`;
   fs.mkdirSync(path.join(dir, folder), { recursive: true });

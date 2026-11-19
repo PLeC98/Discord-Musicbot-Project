@@ -47,7 +47,7 @@ const signedInLogout = (req: Request) => signedInLive(req) && req.method === "PO
 const CSRF_TOKEN_MAX = 30;
 
 /**
- * 한도 하나. 기본은 로그인한 사용자마다 API 창으로 센다. byIp면 IP 로(로그인 전 경로).
+ * 한도 하나. 기본은 로그인한 사용자마다 API 창으로 센다. byIp면 IP로(로그인 전 경로).
  * limitOf, windowOf는 지금 설정을 읽는다. 한도는 요청마다 읽고, 창 길이는 만들 때 정해져 바뀌면 새로 만든다(그동안 센 수는 처음부터)
  */
 function limiter(limitOf: () => number, { windowOf = () => config.dashboard.rateLimit.windowMs, byIp = false, skip }: { windowOf?: () => number; byIp?: boolean; skip?: (req: Request) => boolean } = {}): RequestHandler {

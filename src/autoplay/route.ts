@@ -143,7 +143,7 @@ function requestKeyOf(cand: Partial<Candidate>): string {
   return `${cand.platform || "autoplay"}:${key || `${cand.artist ?? ""}|${cand.title ?? ""}`}`;
 }
 
-/** 트랙의 id는 영상 id 다. 검색이 준 것이 없으면 주소에서 */
+/** 트랙의 id는 영상 id다. 검색이 준 것이 없으면 주소에서 */
 const videoIdOf = (video: Video) => (typeof video.id === "string" && video.id) || links.extractVideoId(video.url) || undefined;
 
 /**

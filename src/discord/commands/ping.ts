@@ -1,6 +1,6 @@
-// /ping: 잴 수 있는 지연을 본인에게만. 응답 시간(명령과 응답 메시지의 디스코드 시각 차라 봇 PC 의 시계와 상관없다), REST 왕복(응답을 보내고 답을 받기까지),
+// /ping: 잴 수 있는 지연을 본인에게만. 응답 시간(명령과 응답 메시지의 디스코드 시각 차라 봇 PC의 시계와 상관없다), REST 왕복(응답을 보내고 답을 받기까지),
 // 게이트웨이 하트비트 왕복과 그 기록의 평균(대시보드의 핑과 같은 값), 이 서버의 음성 게이트웨이 하트비트 왕복(봇이 음성 채널에 있을 때).
-// 음성의 UDP 왕복은 @discordjs/voice 가 더 이상 재지 않아 없다. 다시 재기 버튼은 같은 메시지를 고쳐 다시 잰다
+// 음성의 UDP 왕복은 @discordjs/voice가 더 이상 재지 않아 없다. 다시 재기 버튼은 같은 메시지를 고쳐 다시 잰다
 
 import { SlashCommandBuilder, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
 import { getVoiceConnection } from "@discordjs/voice";
@@ -15,7 +15,7 @@ import * as infoText from "../../ui/text/ko/info.ts";
 /** 재는 동안의 화면 */
 const measuring = () => frame({ title: infoText.ping().title, body: infoText.pinging() });
 
-/** 현재 값. responseMs, restMs 는 부른 쪽이 잰 것 */
+/** 현재 값. responseMs, restMs는 부른 쪽이 잰 것 */
 function measured(interaction: ChatInputCommandInteraction | ButtonInteraction, responseMs: number, restMs: number): PingValues {
   const gateway = Math.round(interaction.client.ws.ping);
   const { stepMs, ping } = statusHistory();

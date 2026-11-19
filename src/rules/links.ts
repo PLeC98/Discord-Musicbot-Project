@@ -42,7 +42,7 @@ const youtubeIdOf = (value: string | null | undefined) => (value && YOUTUBE_ID.t
 
 /**
  * 유튜브 주소가 가리키는 영상과 재생목록. 둘 다 없으면 null(유튜브 주소가 아니거나 다루지 않는 모양).
- * /live/ID는 라이브였던 영상의 링크일 뿐 다른 모양과 같은 영상 id 다. 지금 라이브인지는 주소가 아니라 정보(is_live)가 정한다
+ * /live/ID는 라이브였던 영상의 링크일 뿐 다른 모양과 같은 영상 id다. 지금 라이브인지는 주소가 아니라 정보(is_live)가 정한다
  */
 function parseYouTube(value: unknown): { videoId: string | null; listId: string | null } | null {
   const link = readSiteUrl(value, YOUTUBE_HOSTS);

@@ -1,7 +1,7 @@
 /**
  * 요청 본문: 받기 시작(100-continue), JSON 크기 상한, 다 받지 않은 채 하는 응답.
  * 크기: 대부분은 설정 몇 줄과 공지문(4096자)뿐이라 32kb면 넉넉하다.
- * 판정 프롬프트(로어북을 붙이면 32kb를 넘는다)와 캐시 DB 쓰기(조작을 200개까지 싣는다)만 1mb 다.
+ * 판정 프롬프트(로어북을 붙이면 32kb를 넘는다)와 캐시 DB 쓰기(조작을 200개까지 싣는다)만 1mb다.
  */
 import express, { type NextFunction, type Request, type Response } from "express";
 import { sendProblem } from "./problem.ts";

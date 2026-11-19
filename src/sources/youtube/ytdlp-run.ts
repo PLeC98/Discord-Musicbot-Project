@@ -28,7 +28,7 @@ const STALE_RETRY_MS = 700;
 
 /** 음원 포맷 선택. 오디오 전용이 없으면 영상이 섞인 것도 받는다. 시도마다 좁히고 넓히는 것은 formatFor가 한다 */
 const AUDIO_FORMAT = "bestaudio/best";
-// 영상이 섞인 것을 받을 때는 작은 것부터(360p 통합이 1080p HLS보다 다섯 배쯤 작고 소리는 같은 AAC 다)
+// 영상이 섞인 것을 받을 때는 작은 것부터(360p 통합이 1080p HLS보다 다섯 배쯤 작고 소리는 같은 AAC다)
 const SMALL_VIDEO = ["res:360"] as unknown as Flags["formatSort"];
 
 /**

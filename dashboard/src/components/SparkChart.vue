@@ -1,5 +1,5 @@
 <template>
-  <!-- 작은 흐름 그래프. 세로축은 0부터 max 까지(부모 컴포넌트가 utils/units의 axisMax로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale로 정한다.
+  <!-- 작은 흐름 그래프. 세로축은 0부터 max까지(부모 컴포넌트가 utils/units의 axisMax로 정한다), 가로축은 minutes 분 전부터 지금까지. 숫자의 단위는 값마다 scale로 정한다.
        기준(warn)이 있으면 점선으로 긋고 오른쪽 끝에 그 값을 적는다. 올리면 그 때의 시각, 값을 보여 준다 -->
   <div class="relative select-none" role="img" :aria-label="summary" @pointermove="onMove" @pointerleave="hover = null">
     <div class="relative h-20">

@@ -1,7 +1,7 @@
 // 대시보드 이모지 선택 목록을 만든다. 손으로 실행한다. postinstall이나 빌드에 걸려 있지 않다.
 //   node scripts/build-emoji-list.ts
 //
-// 목록의 원본은 scripts/data/discord-emoji-picker.md 다. 분류와 순서를 디스코드 선택기에서
+// 목록의 원본은 scripts/data/discord-emoji-picker.md다. 분류와 순서를 디스코드 선택기에서
 // 그대로 옮겨 적은 파일이라, 선택하는 사람이 디스코드에서 보던 위치에서 찾을 수 있다.
 // 여기서는 거기에 두 가지를 붙인다.
 // - 단축명(:shushing_face:) → 이모지. 디스코드에서 복사하면 이 형식으로 붙는다.

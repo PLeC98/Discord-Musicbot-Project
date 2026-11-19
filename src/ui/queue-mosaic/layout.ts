@@ -1,8 +1,8 @@
 // /queue 썸네일 모자이크의 배치와 넘기는 값. 그리는 쪽(draw, 워커)과 칸 이미지를 만드는 쪽(thumbnails, 메인 스레드)이 같이 쓴다. 캔버스를 부르지 않는다
 
-/** 칸 하나: 대기열 번호, 칸 이미지(thumbnails 가 만든 JPEG. 없으면 null) */
+/** 칸 하나: 대기열 번호, 칸 이미지(thumbnails가 만든 JPEG. 없으면 null) */
 type MosaicCell = { number: number; jpeg: Uint8Array | null };
-/** 그릴 값. seed 는 색 체계의 바탕색(#rrggbb, 임베드 색), null 이면 기본색 */
+/** 그릴 값. seed는 색 체계의 바탕색(#rrggbb, 임베드 색), null이면 기본색 */
 type MosaicData = { seed: string | null; cells: MosaicCell[] };
 
 const WIDTH = 1600;

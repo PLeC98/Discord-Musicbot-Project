@@ -1,5 +1,5 @@
-// /system: 봇 운영자에게만 봇 상태를 이미지 두 장으로 보여 준다(ui/system-card). 값과 판정은 대시보드 봇 상태 탭과 같다(dashboard/status 의 statusCore, rules/status-levels).
-// 이미지는 워커 스레드에서 그려 몇백 ms 걸릴 수 있다. 미뤄 둔 응답은 Components V2 로 바꿀 수 없어 V2 자리표시자를 먼저 보내고 이미지를 첨부해 고친다
+// /system: 봇 운영자에게만 봇 상태를 이미지 두 장으로 보여 준다(ui/system-card). 값과 판정은 대시보드 봇 상태 탭과 같다(dashboard/status의 statusCore, rules/status-levels).
+// 이미지는 워커 스레드에서 그려 몇백 ms 걸릴 수 있다. 미뤄 둔 응답은 Components V2로 바꿀 수 없어 V2 자리표시자를 먼저 보내고 이미지를 첨부해 고친다
 
 import { SlashCommandBuilder } from "discord.js";
 import config from "../../config/index.ts";
@@ -66,7 +66,7 @@ function cardDataOf(core: StatusCore, { client, players }: Bot): CardData {
   };
 }
 
-/** 제목 옆 프로필 이미지와 아래 버전 줄. bgutil 은 POToken 서버를 켰을 때만 */
+/** 제목 옆 프로필 이미지와 아래 버전 줄. bgutil은 POToken 서버를 켰을 때만 */
 function headOf({ client }: Bot): Omit<SystemView, "images" | "updatedAt"> {
   return {
     avatar: client.user?.displayAvatarURL({ extension: "png", size: 256 }) ?? null,
@@ -74,7 +74,7 @@ function headOf({ client }: Bot): Omit<SystemView, "images" | "updatedAt"> {
   };
 }
 
-/** 현재 값으로 그린 화면. 그리지 못하면 이미지 자리에 한 줄(원인은 ui/card-render/render 가 warn 으로 남긴다) */
+/** 현재 값으로 그린 화면. 그리지 못하면 이미지 자리에 한 줄(원인은 ui/card-render/render가 warn으로 남긴다) */
 async function systemScreen(bot: Bot) {
   const core = statusCore(bot, COUNTS_ONLY);
   const base = { ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000) };

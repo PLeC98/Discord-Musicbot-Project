@@ -22,7 +22,7 @@ type Found = { kind: "track"; track: ScTrack } | ({ kind: "set" } & ScSet);
 const idOf = (id: unknown) => (id == null ? undefined : String(id));
 
 const formatIds = (item: YtInfo) => (item.formats || []).map((f) => String((f as { format_id?: unknown } | null)?.format_id ?? ""));
-// 미리듣기(30초 조각)만 있는 곡인가. 조각은 포맷 이름 끝이 _preview 다
+// 미리듣기(30초 조각)만 있는 곡인가. 조각은 포맷 이름 끝이 _preview다
 const previewOnly = (item: YtInfo) => {
   const ids = formatIds(item);
   return ids.length > 0 && ids.every((id) => /_preview$/.test(id));
@@ -36,7 +36,7 @@ function trackOf(item: YtInfo): ScTrack | null {
     title: item.title || item.fulltitle || null,
     artist: item.uploader || undefined,
     duration: item.duration || 0,
-    // thumbnail은 올린 원본(3000×3000까지), thumbnails[0]은 16×16. 500×500 으로(rules/track-art)
+    // thumbnail은 올린 원본(3000×3000까지), thumbnails[0]은 16×16. 500×500으로(rules/track-art)
     thumbnail: artOf(item.thumbnail || item.thumbnails?.at(-1)?.url),
     platform: "soundcloud",
     id: idOf(item.id),

@@ -65,7 +65,7 @@ function sessionOf(): Promise<Innertube> {
 
 const statusOf = (error: unknown) => ((error as { cause?: { status?: unknown } } | null)?.cause?.status as number | undefined) ?? null;
 
-/** 결과 하나에서 읽은 것. seconds 는 길이(모르면 0) */
+/** 결과 하나에서 읽은 것. seconds는 길이(모르면 0) */
 type Found = { id: string; title: string | undefined; channel: string | undefined; seconds: number; live: boolean; upcoming: boolean };
 
 // 영상 하나 → 곡. 링크 셋은 같은 주소다(sources/youtube/api의 trackOf와 같은 모양)
@@ -93,7 +93,7 @@ function fromVideo(video: YTNodes.Video): Found {
 }
 
 // 새 모양의 영상(content_type VIDEO). 채널은 첫 메타데이터 줄의 첫 칸(아바타 옆 글), 길이는 썸네일 배지("4:01"), 방송 중은 썸네일 배지의 LIVE 모양.
-// 시작 전 방송은 따로 가리지 않는다. 길이도 LIVE 도 없으면 길이를 모르는 곡(0)이고, 틀 때 yt-dlp 의 실패 문장으로 시작 전 라이브를 알아본다
+// 시작 전 방송은 따로 가리지 않는다. 길이도 LIVE도 없으면 길이를 모르는 곡(0)이고, 틀 때 yt-dlp의 실패 문장으로 시작 전 라이브를 알아본다
 function fromLockup(lockup: YTNodes.LockupView): Found | null {
   if (lockup.content_type !== "VIDEO" || !lockup.content_id) return null;
   const live = thumbnailBadges(lockup).some((badge) => badge.badge_style === "THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE");

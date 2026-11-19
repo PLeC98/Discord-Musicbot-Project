@@ -1,4 +1,4 @@
-// src/discord/commands/system.ts 의 cardDataOf: 대시보드와 같은 상태 값에서 /system 이미지에 그릴 값
+// src/discord/commands/system.ts의 cardDataOf: 대시보드와 같은 상태 값에서 /system 이미지에 그릴 값
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

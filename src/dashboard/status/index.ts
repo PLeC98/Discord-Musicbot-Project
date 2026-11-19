@@ -44,8 +44,8 @@ function botStatus(client: Client, uptime: number) {
 type StatusCore = Pick<AdminStatus, "bot" | "node" | "system" | "cpu" | "loop" | "processes" | "youtube" | "links" | "storage" | "recent" | "encoding" | "history">;
 
 /**
- * 봇 상태 탭과 /system 이 같이 쓰는 값: 상태 판정(rules/status-levels) 입력값과 /system 이미지에 그릴 값.
- * query 는 자식 프로세스 목록의 구간, 정렬(남은 프로세스, 추출 한도는 구간과 상관없이 집계한다)
+ * 봇 상태 탭과 /system이 같이 쓰는 값: 상태 판정(rules/status-levels) 입력값과 /system 이미지에 그릴 값.
+ * query는 자식 프로세스 목록의 구간, 정렬(남은 프로세스, 추출 한도는 구간과 상관없이 집계한다)
  */
 function statusCore({ client, players }: Pick<BotContext, "client" | "players">, query: Pick<StatusQuery, "procs" | "sort" | "desc">): StatusCore {
   const uptime = process.uptime();

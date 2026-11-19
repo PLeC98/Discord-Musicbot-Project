@@ -1,6 +1,6 @@
 // 판정: 이 오류는 어떤 종류인가. 종류 이름을 낸다. 문장은 ui/error-messages가 만든다.
 // 오류를 만든 곳이 이름(code)을 붙인다(codedError). 여기서는 그 이름을 본다: 오류 자신부터 원인(cause) 사슬을 따라가며, 종류, 시스템, 디스코드 이름 순으로.
-// 글은 보지 않는다. 이름이 없으면 unknown-error 다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
+// 글은 보지 않는다. 이름이 없으면 unknown-error다. 우리가 못 고치는 문장(yt-dlp 출력)은 그 출처(sources/youtube/errors)가 읽어 이름을 붙인다.
 
 import { isCode, type Code } from "./problems.ts";
 import { codeOf, messageOf, timeoutError } from "../infra/error-text.ts";

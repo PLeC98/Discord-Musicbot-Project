@@ -277,7 +277,7 @@ async function removeTracks(player: Player, actor: Actor, targets: QueuedTrack[]
   return done({ removed, left: player.queue.length });
 }
 
-/** 대기열에서 빼기(디스코드 /remove). index는 0부터, end를 주면 index부터 end 까지(둘 다 넣고, 거꾸로 줘도 된다) */
+/** 대기열에서 빼기(디스코드 /remove). index는 0부터, end를 주면 index부터 end까지(둘 다 넣고, 거꾸로 줘도 된다) */
 async function remove(player: MaybePlayer, actor: Actor, index: unknown, end: unknown = index) {
   if (!player) return fail("no-song");
   const size = player.queue.length;

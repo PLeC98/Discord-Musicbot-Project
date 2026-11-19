@@ -35,7 +35,7 @@ function ownGroup(read: Read): string {
   }
 }
 
-// cpu.max는 "할당량 주기"(μs) 형식이고 상한이 없으면 할당량이 "max" 다. 루트 cgroup에는 이 파일이 없다
+// cpu.max는 "할당량 주기"(μs) 형식이고 상한이 없으면 할당량이 "max"다. 루트 cgroup에는 이 파일이 없다
 function quotaOf(group: string, read: Read): number | null {
   try {
     const [quota, period] = read(path.posix.join(ROOT, group, "cpu.max"))

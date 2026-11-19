@@ -1,6 +1,6 @@
 // 재생 송출용 Opus 인코더. libopus-wasm은 이 파일에서만 부른다.
 //
-// 설정은 libopus 기본값(AUDIO, complexity 9, VBR)에 비트레이트 128k 다.
+// 설정은 libopus 기본값(AUDIO, complexity 9, VBR)에 비트레이트 128k다.
 // libopus-wasm은 complexity 10, 64k를 직접 걸므로 둘 다 넘긴다. 비트레이트 상한도 여기 하나다.
 // WASM 힙의 인코더는 GC가 치우지 않는다. 다 쓰면 free()를 불러야 한다.
 

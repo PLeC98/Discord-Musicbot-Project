@@ -69,7 +69,7 @@ class Limiter {
   }
 
   /**
-   * 인터리브 스테레오 PCM을 제자리에서 처리한다. 게인은 버퍼 안에서 from에서 to로 선형 램프하며 마지막 샘플의 게인이 to 다.
+   * 인터리브 스테레오 PCM을 제자리에서 처리한다. 게인은 버퍼 안에서 from에서 to로 선형 램프하며 마지막 샘플의 게인이 to다.
    * press면 리미터가 상한 아래로 줄이고, 아니면 지연만 거친 뒤 ±1로 클립한다
    */
   run(pcm: Float32Array, from: number, to: number, press: boolean) {

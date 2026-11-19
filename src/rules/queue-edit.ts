@@ -8,7 +8,7 @@ type MoveAction = Extract<EditAction, "next" | "up" | "down">;
 
 const isEditAction = (value: string): value is EditAction => (EDIT_ACTIONS as readonly string[]).includes(value);
 
-/** 옮길 곳: before 앞에(null 이면 맨 끝), 이미 그 자리면 stay, 대기열에 없으면 gone */
+/** 옮길 곳: before 앞에(null이면 맨 끝), 이미 그 자리면 stay, 대기열에 없으면 gone */
 type MovePlan = { before: number | null } | "stay" | "gone";
 
 function movePlan(entries: readonly number[], entry: number, action: MoveAction): MovePlan {

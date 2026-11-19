@@ -1,4 +1,4 @@
-// 봇이 그리는 이미지(/system 카드, /queue 썸네일)의 아이콘(Material Symbols Rounded). 윤곽은 scripts/build-discord-icons.ts 가 data/discord-icons/card-icons.json 에 뽑는다
+// 봇이 그리는 이미지(/system 카드, /queue 썸네일)의 아이콘(Material Symbols Rounded). 윤곽은 scripts/build-discord-icons.ts가 data/discord-icons/card-icons.json에 뽑는다
 
 /** 카드 제목, 현황 줄, 썸네일이 없는 칸의 아이콘. 채우지 않은 모양 */
 const CARD_ICONS = ["memory", "terminal", "library_music", "hard_drive", "timer", "graphic_eq", "public", "headphones", "person", "music_note"] as const;

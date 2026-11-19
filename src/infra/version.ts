@@ -27,7 +27,7 @@ function gitDir(): string | null {
   return fs.existsSync(path.join(dotGit, "HEAD")) ? dotGit : null;
 }
 
-/** HEAD가 가리키는 커밋. 브랜치 이름이면 개별 ref 파일, 없으면 packed-refs 에서(워크트리는 공용 폴더까지) */
+/** HEAD가 가리키는 커밋. 브랜치 이름이면 개별 ref 파일, 없으면 packed-refs에서(워크트리는 공용 폴더까지) */
 function headCommit(): string | null {
   const dir = gitDir();
   if (!dir) return null;

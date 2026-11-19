@@ -381,7 +381,7 @@ const moreBusy = ref(false);
 const queueMax = ref(0);
 
 // ── 넣을 자리 ──
-// first: 대기열 맨 앞에(/playfirst). DJ 만(canControl. 서버도 같은 기준으로 다시 본다). 보내는 길마다 끝까지 들고 간다
+// first: 대기열 맨 앞에(/playfirst). DJ만(canControl. 서버도 같은 기준으로 다시 본다). 보내는 길마다 끝까지 들고 간다
 
 const canFirst = computed(() => props.player.canControl === true);
 // ↑ 와 이어 붙은 버튼 수(한 곡만, ↑, 넣을 자리)와 index 번째의 모양. 하나뿐이면 둥근 버튼

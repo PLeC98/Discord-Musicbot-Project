@@ -8,7 +8,7 @@ import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
 test("자동재생 소스는 모두 라벨을 갖는다", () => {
-  // keyword는 곡을 유튜브에서 바로 집으므로 platform이 youtube 다. 제 이름이 없다(src/autoplay/route.ts).
+  // keyword는 곡을 유튜브에서 바로 집으므로 platform이 youtube다. 제 이름이 없다(src/autoplay/route.ts).
   const needed = TYPES.filter((t) => t !== "keyword");
   const missing = needed.filter((t) => !isPlatform(t));
   assert.deepEqual(missing, [], `라벨 없는 소스: ${missing.join(", ")}`);

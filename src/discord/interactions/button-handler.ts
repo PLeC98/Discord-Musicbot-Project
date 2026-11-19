@@ -76,7 +76,7 @@ async function handleSystemRefresh(interaction: Press, bot: BotContext) {
   if (!isBotOwner(interaction.user.id)) {
     return await noticeSelf(interaction, errors.notice("must-owner"));
   }
-  // 업데이트 전에 보낸 임베드 메시지는 Components V2 로 고칠 수 없다
+  // 업데이트 전에 보낸 임베드 메시지는 Components V2로 고칠 수 없다
   if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) return noticeSelf(interaction, errors.notice("unknown-interaction"));
   try {
     await interaction.deferUpdate();

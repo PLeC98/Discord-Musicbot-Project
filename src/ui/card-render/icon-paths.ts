@@ -1,4 +1,4 @@
-// 그리기 워커가 쓰는 아이콘(Material Symbols Rounded 윤곽). 윤곽은 scripts/build-discord-icons.ts 가 data/discord-icons/card-icons.json 에 뽑는다.
+// 그리기 워커가 쓰는 아이콘(Material Symbols Rounded 윤곽). 윤곽은 scripts/build-discord-icons.ts가 data/discord-icons/card-icons.json에 뽑는다.
 // 처음 쓸 때 읽어 두고 워커가 살아 있는 동안 유지한다
 
 import fs from "node:fs";
@@ -19,7 +19,7 @@ function pathOf(name: CardIcon | StatusIcon, fill: boolean) {
   return { path: found, em: outlines.unitsPerEm };
 }
 
-/** 아이콘 하나. at 은 왼쪽 위, size 는 한 변. fill 이면 채운 모양(상태 아이콘) */
+/** 아이콘 하나. at은 왼쪽 위, size는 한 변. fill이면 채운 모양(상태 아이콘) */
 function drawIcon(g: SKRSContext2D, name: CardIcon | StatusIcon, at: { x: number; y: number; size: number }, color: string, fill = false) {
   const { path: shape, em } = pathOf(name, fill);
   const s = at.size / em;

@@ -1,4 +1,4 @@
-// src/ui/palette.ts 의 DASHBOARD_COLORS: /system 이미지가 쓰는 고정 색이 화면 CSS 의 어두운 테마 값과 같은지
+// src/ui/palette.ts의 DASHBOARD_COLORS: /system 이미지가 쓰는 고정 색이 화면 CSS의 어두운 테마 값과 같은지
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

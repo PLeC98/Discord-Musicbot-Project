@@ -2,7 +2,7 @@
 //   node scripts/build-twemoji-font.ts                    emoji-test.txt를 unicode.org에서 다운로드한다
 //   node scripts/build-twemoji-font.ts <emoji-test.txt>   다운로드해 둔 파일로 만든다
 //
-// 원본은 대시보드에 설치된 @discordapp/twemoji(디스코드가 올린 Twemoji)의 SVG 다. 입력란 안까지 디스코드와 같은 이모지로 그리는 길은 글꼴뿐이다.
+// 원본은 대시보드에 설치된 @discordapp/twemoji(디스코드가 올린 Twemoji)의 SVG다. 입력란 안까지 디스코드와 같은 이모지로 그리는 길은 글꼴뿐이다.
 // 만드는 도구는 nanoemoji(구글이 Noto Color Emoji에 쓰는 도구, 파이썬)다. npm의 아이콘 글꼴 도구는 단색 글꼴이라 색이 사라진다.
 // 파이썬 3.10 이상이 있어야 한다(PYTHON 환경 변수로 지정할 수 있다). 정한 버전의 도구를 node_modules/.cache/twemoji-font/venv에 깔고,
 // 작업 폴더도 거기 둔다. 다시 돌리면 바뀐 그림만 다시 만든다(처음은 10분 넘게 걸린다).

@@ -9,7 +9,7 @@
 /* 본문: Google Sans Flex의 쓰지 않는 축(폭, 획 두께)을 고정한 버전(scripts/build-sans-font.ts) */
 @import "./google-sans-flex.css";
 @import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
-/* 고정폭: D2Coding을 서브셋으로 나눠 직접 서빙한다(scripts/build-mono-font.ts). 수정본은 예약된 글꼴 이름을 쓸 수 없어 Musicbot Mono 다 */
+/* 고정폭: D2Coding을 서브셋으로 나눠 직접 서빙한다(scripts/build-mono-font.ts). 수정본은 예약된 글꼴 이름을 쓸 수 없어 Musicbot Mono다 */
 @import "./mono.css";
 /* 이모지: Twemoji 그림을 컬러 글꼴로 바꾼 수정본(scripts/build-twemoji-font.ts). 이모지 범위만 덮고, iOS에서는 정의하지 않아 기기 이모지로 그린다 */
 @import "./twemoji.css";
@@ -256,7 +256,7 @@
   --text-label--line-height: 1.3;
   --text-label--letter-spacing: 0.02em;
 
-  /* M3 Expressive 스프링을 CSS linear() 로(정지할 때까지의 곡선). 길이는 utilities의 spring-* 가 같이 건다 */
+  /* M3 Expressive 스프링을 CSS linear()로(정지할 때까지의 곡선). 길이는 utilities의 spring-* 가 같이 건다 */
   --ease-spring-fast: linear(0, 0.093, 0.295, 0.526, 0.735, 0.894, 1.005, 1.067, 1.091, 1.09, 1.075, 1.054, 1.033, 1.016, 1.003, 0.996, 0.992, 0.991, 0.992, 0.994, 0.996, 0.998, 0.999, 1, 1);
   --ease-spring: linear(0, 0.061, 0.191, 0.345, 0.498, 0.634, 0.746, 0.834, 0.899, 0.947, 0.978, 0.997, 1.008, 1.013, 1.014, 1.014, 1.012, 1.01, 1.008, 1.006, 1.004, 1.003, 1.002, 1.001, 1);
   --ease-effects: linear(0, 0.071, 0.212, 0.365, 0.506, 0.625, 0.72, 0.793, 0.849, 0.891, 0.922, 0.944, 0.959, 0.971, 0.98, 0.986, 0.99, 0.993, 0.995, 0.997, 0.998, 0.998, 0.999, 0.999, 1);

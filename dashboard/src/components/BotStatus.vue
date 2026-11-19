@@ -467,7 +467,7 @@ const countText = (n: number) => {
   const { value, unit } = countParts(n);
   return `${value}${unit}`;
 };
-/** 시간을 정수 ms 로(초는 소수 한 자리 그대로) */
+/** 시간을 정수 ms로(초는 소수 한 자리 그대로) */
 const timeWhole = (ms: number) => scaledText(ms, time, (_, unit) => (unit === "ms" ? 0 : 1));
 
 // 주의 칩을 누르면 그 항목으로 가서 포커스 표시기를 잠깐 보인다(utils/focus-ring)

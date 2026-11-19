@@ -20,7 +20,7 @@ type SystemView = {
   versions: { bot: string; ytdlp: string | null; bgutil: string | null };
   /** 갱신 일시(초, 디스코드 타임스탬프로 보는 사람의 시간대에 맞춘다) */
   updatedAt: number;
-  /** 이미지 두 장(PNG). drawing 이면 그리는 중, failed 면 그리지 못함 */
+  /** 이미지 두 장(PNG). drawing이면 그리는 중, failed면 그리지 못함 */
   images: { top: Buffer; bottom: Buffer } | "drawing" | "failed";
 };
 

@@ -13,7 +13,7 @@ import type { FieldProblem } from "./contract/problem.ts";
 import { UPLOAD_PURPOSES } from "./contract/uploads.ts";
 import { LOGIN_BG_BLUR_MAX, LOGIN_BG_COVER_MAX, LOGIN_BG_HISTORY_MAX, LOGIN_BG_ID, SEAM_KINDS, SEAM_SECONDS } from "./contract/login-background.ts";
 
-// 필드의 위치를 JSON Pointer 로(빈 위치는 본문 전체)
+// 필드의 위치를 JSON Pointer로(빈 위치는 본문 전체)
 const pointerOf = (path: PropertyKey[]) => path.map((key) => `/${String(key).replaceAll("~", "~0").replaceAll("/", "~1")}`).join("");
 
 /** 검사 → { ok: true, value } | { ok: false, code: 첫 문제의 코드, errors: 필드별 문제 }. 코드를 적지 않은 검사에 걸리면 bad-request */

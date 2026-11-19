@@ -49,7 +49,7 @@ function validatorOf(headers: Record<string, unknown> = {}): string | null {
 }
 
 /**
- * 청크 스트림의 Range 요청을 SafeUrl 로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
+ * 청크 스트림의 Range 요청을 SafeUrl로(홉마다 가드, DNS 다시 풀기). 판정은 첫 응답이 했으니 형식은 보지 않는다.
  * 2xx가 아니면 그 상태의 응답으로 돌려준다(청크 스트림이 4xx는 그만, 5xx는 다시). 가드가 막으면 재시도하지 않는다
  */
 function guardedRanges(get: GuardedGet = SafeUrl.getStream): RangeFetch {

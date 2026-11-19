@@ -5,7 +5,7 @@
 
 import type { Loop } from "./loop-cycle.ts";
 
-/** 길이를 보는 곡. duration 은 초, 0 이면 모름 */
+/** 길이를 보는 곡. duration은 초, 0이면 모름 */
 type Timed = { duration: number; isLive?: boolean };
 /** 지금 재생: 곡의 길이와 라이브 여부, 지금 위치(초), 멈춤, 반복, 자동재생 */
 type Now = { track: Timed | null; positionSec: number; paused: boolean; loop: Loop; autoplay?: boolean };

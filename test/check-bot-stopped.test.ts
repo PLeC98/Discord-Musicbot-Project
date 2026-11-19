@@ -1,4 +1,4 @@
-// scripts/check-bot-stopped.ts: pnpm install 의 첫 단계로 걸려 있고, 첫 설치(node_modules 가 없음)에도 돌게 Node 기본 모듈만 불러온다
+// scripts/check-bot-stopped.ts: pnpm install의 첫 단계로 걸려 있고, 첫 설치(node_modules가 없음)에도 돌게 Node 기본 모듈만 불러온다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

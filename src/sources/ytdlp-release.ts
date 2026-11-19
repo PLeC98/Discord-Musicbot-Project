@@ -51,7 +51,7 @@ const github = httpFor("github");
 const failure = (kind: FailureKind, message: string): ReleaseError => Object.assign(new Error(message), { kind });
 
 let libc: Libc | null = null;
-/** Linux의 C 라이브러리. Node의 진단 보고서에 glibc 버전이 있으면 glibc, 없으면 musl 이다(한 번만 잰다) */
+/** Linux의 C 라이브러리. Node의 진단 보고서에 glibc 버전이 있으면 glibc, 없으면 musl이다(한 번만 잰다) */
 function libcNow(): Libc {
   libc ??= (process.report.getReport() as { header?: { glibcVersionRuntime?: string } }).header?.glibcVersionRuntime ? "glibc" : "musl";
   return libc;

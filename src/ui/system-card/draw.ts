@@ -1,6 +1,6 @@
-// /system 의 이미지 둘을 그린다: 위는 카드 그리드(상태, CPU, heap 메모리, 캐시, 디스크, 업타임, 현황), 아래는 최근 기록 그래프 셋.
+// /system의 이미지 둘을 그린다: 위는 카드 그리드(상태, CPU, heap 메모리, 캐시, 디스크, 업타임, 현황), 아래는 최근 기록 그래프 셋.
 // 디스코드 컨테이너 안에서 가로를 다 채우는 비율과 크기다(위 1600×928, 아래 1600×400).
-// @napi-rs/canvas 의 그리기는 동기라 이 모듈은 워커(card-render/render-worker)에서만 부른다. 값만 받고 판정은 부르는 쪽(rules/status-levels)이 한다
+// @napi-rs/canvas의 그리기는 동기라 이 모듈은 워커(card-render/render-worker)에서만 부른다. 값만 받고 판정은 부르는 쪽(rules/status-levels)이 한다
 
 import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import { argbFromHex } from "@material/material-color-utilities";
@@ -19,7 +19,7 @@ type Series = { values: number[]; max: number };
 
 /** 그릴 값. 크기는 바이트, 시간은 초, 비율은 % */
 type CardData = {
-  /** 색 체계의 바탕색(#rrggbb, 임베드 색). null 이면 기본색 */
+  /** 색 체계의 바탕색(#rrggbb, 임베드 색). null이면 기본색 */
   seed: string | null;
   overall: { level: Level; count: number };
   recent: { warn: number; error: number };
@@ -29,7 +29,7 @@ type CardData = {
   disk: { drive: string; usedBytes: number; totalBytes: number; level: Level };
   uptime: { bot: number; os: number };
   overview: { guilds: number; playing: number; users: number };
-  /** 그래프. minutes 는 기록 구간(분). 기록이 2개 미만이면 그래프 자리에 "기록을 모으는 중" */
+  /** 그래프. minutes는 기록 구간(분). 기록이 2개 미만이면 그래프 자리에 "기록을 모으는 중" */
   history: {
     minutes: number;
     cpuBot: Series;
@@ -76,14 +76,14 @@ function pen(g: SKRSContext2D, c: Colors) {
     setFace(face, size);
     return g.measureText(s).width;
   };
-  /** maxWidth 를 넘으면 뒤를 잘라 말줄임표를 붙인다 */
+  /** maxWidth를 넘으면 뒤를 잘라 말줄임표를 붙인다 */
   const fit = (s: string, { face, size }: Pick<TextStyle, "face" | "size">, maxWidth: number) => {
     if (width(s, face, size) <= maxWidth) return s;
     const chars = [...s];
     while (chars.length && width(`${chars.join("").trimEnd()}…`, face, size) > maxWidth) chars.pop();
     return chars.length ? `${chars.join("").trimEnd()}…` : "";
   };
-  /** x, y 는 기준선. end 면 x 가 오른쪽 끝. maxWidth 를 주면 넘는 만큼 말줄임 */
+  /** x, y는 기준선. end면 x가 오른쪽 끝. maxWidth를 주면 넘는 만큼 말줄임 */
   const text = (s: string, x: number, y: number, style: TextStyle & { maxWidth?: number }) => {
     const shown = style.maxWidth === undefined ? s : fit(s, style, style.maxWidth);
     setFace(style.face, style.size);
@@ -91,7 +91,7 @@ function pen(g: SKRSContext2D, c: Colors) {
     g.textAlign = style.align === "end" ? "right" : "left";
     g.fillText(shown, x, y);
   };
-  /** at 은 왼쪽 위, size 는 한 변 */
+  /** at은 왼쪽 위, size는 한 변 */
   const icon = (name: CardIcon | StatusIcon, at: { x: number; y: number; size: number }, color: string, fill = false) => drawIcon(g, name, at, color, fill);
   const rect = (b: Box, r: number, color: string, alpha = 1) => {
     g.globalAlpha = alpha;
@@ -101,7 +101,7 @@ function pen(g: SKRSContext2D, c: Colors) {
     g.fill();
     g.globalAlpha = 1;
   };
-  /** 바탕이 막대인 카드. fills 는 왼쪽부터 칠하는 구간(from 은 시작 비율) */
+  /** 바탕이 막대인 카드. fills는 왼쪽부터 칠하는 구간(from은 시작 비율) */
   const barCard = (b: Box, fills: Fill[]) => {
     rect(b, RADIUS, c.surface_container);
     g.save();
@@ -251,7 +251,7 @@ function drawTop(d: CardData, c: Colors) {
   return canvas;
 }
 
-/** 작은 흐름 그래프. fill 이면 아래를 옅게 칠한다 */
+/** 작은 흐름 그래프. fill이면 아래를 옅게 칠한다 */
 function spark(g: SKRSContext2D, b: Box, s: Series, line: { color: string; fill: boolean }) {
   const n = s.values.length;
   const max = s.max > 0 ? s.max : 1;

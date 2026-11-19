@@ -325,7 +325,7 @@ class TrackDownloader {
 
       // 먼저 끝낸 쪽이 그 파일의 기록(버전, 길이)을 이미 남겼다. 버린 쪽의 값으로 덮지 않는다
       if (audioKey && mine) finish(audioKey, filepath, track, measured ? { ...got, audioDurationSec: measured } : got);
-      // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug 다.
+      // 출처가 유튜브가 아닌 곡은 소리를 가져온 영상도 남긴다. 예열이 곡마다 한 줄씩 남기므로 debug다.
       // 걸린 시간을 단계마다 적는다. 긴 곡의 캐시가 어디서 오래 걸렸는지 구분할 근거다
       log.debug(`캐시 다운로드 완료: "${logTitle(track.title)}"${youtubeNote(track)} | ${got.how} · 길이 측정 ${sec(measureMs)}초`);
       return filepath;

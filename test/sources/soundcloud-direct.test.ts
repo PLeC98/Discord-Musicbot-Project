@@ -1,5 +1,5 @@
 // src/sources/lookup.ts, direct.ts: 사운드클라우드와 직접 링크를 곡 찾기(바깥 계약)로 본다. 사운드클라우드 출처 자체는 soundcloud.test.ts.
-// yt-dlp는 실행하는 exec 만(useExec), 직접 링크는 SafeUrl의 getStream만 가짜로 둔다.
+// yt-dlp는 실행하는 exec만(useExec), 직접 링크는 SafeUrl의 getStream만 가짜로 둔다.
 
 import { Readable } from "node:stream";
 import * as links from "../../src/rules/links.ts";

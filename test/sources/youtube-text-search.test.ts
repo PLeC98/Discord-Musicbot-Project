@@ -110,7 +110,7 @@ test("429는 rate-limited, 그 밖의 실패 상태는 network-error 예외를 �
   );
 });
 
-// 실제 응답에서 꺼낸 새 모양 항목 셋: 보통 곡, 방송 중, 24시간이 넘는 영상. 재생 미리 받기 주소(IP 가 서명돼 있다), 메뉴, 추적 값은 없다
+// 실제 응답에서 꺼낸 새 모양 항목 셋: 보통 곡, 방송 중, 24시간이 넘는 영상. 재생 미리 받기 주소(IP가 서명돼 있다), 메뉴, 추적 값은 없다
 const LOCKUPS = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "..", "fixtures", "youtube", "search-lockup.json"), "utf8")) as unknown[];
 
 test("새 모양(LockupView)의 영상도 곡으로 읽는다: 제목, 채널, 썸네일 배지의 길이, LIVE 배지는 방송 중. 옛 모양과 섞여도 같은 영상은 한 번", async () => {

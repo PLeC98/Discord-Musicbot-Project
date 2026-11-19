@@ -65,7 +65,7 @@ test("건너뛴 흔적이 없는 오류는 false", () => {
 // ── POToken 경고 ─────────────────────────────────────────────────────────
 
 test("POToken을 요구한 클라이언트 이름은 경고 본문에서 읽는다", () => {
-  // 우리가 무엇을 지정했든 경고를 낸 것은 web_creator 다
+  // 우리가 무엇을 지정했든 경고를 낸 것은 web_creator다
   for (const asked of [null, "web_embedded", "visionos"]) {
     const records = capture(POT_LINE, asked);
     const warned = records.filter((r) => r.level >= 40);

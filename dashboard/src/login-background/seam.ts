@@ -11,7 +11,7 @@ type SeamLayers = { video: Ref<HTMLVideoElement | null>; freeze: Ref<HTMLCanvasE
 /** 멈춘 장면 겹치기를 뜨는 때(끝에서 몇 장면 앞) */
 const FREEZE_FRAMES = 1.5;
 
-/** 불투명도를 ms 동안 to 로(0이면 바로) */
+/** 불투명도를 ms 동안 to로(0이면 바로) */
 function fade(el: HTMLElement | null, to: number, ms: number) {
   if (!el) return;
   el.style.transition = ms ? `opacity ${ms}ms linear` : "none";

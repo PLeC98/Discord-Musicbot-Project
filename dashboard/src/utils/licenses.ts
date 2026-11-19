@@ -23,7 +23,7 @@ export const LIBRARIES: LicenseItem[] = [
   { name: "Material Color Utilities", license: "Apache 2.0", url: "https://github.com/material-foundation/material-color-utilities" },
 ];
 
-/** 운영 소스 코드가 본 저장소와 다른가(디스코드 /license 와 같은 판정) */
+/** 운영 소스 코드가 본 저장소와 다른가(디스코드 /license와 같은 판정) */
 export { isModifiedSource } from "../../../src/rules/project-source.ts";
 
 /** 봇이 함께 배포하거나(data/) 받아 쓰는(DB-IP, database/geoip) 서드파티 데이터. data/NOTICE와 같은 것을 적는다 */

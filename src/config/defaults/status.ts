@@ -1,4 +1,4 @@
-// 봇 활동 문구 기본값. settings.db 에 "status" 문서가 없을 때 이것으로 시작한다(config/documents). 검사는 config/schema/status
+// 봇 활동 문구 기본값. settings.db에 "status" 문서가 없을 때 이것으로 시작한다(config/documents). 검사는 config/schema/status
 
 const statusDefault: Record<string, unknown> = {
   interval: 60,

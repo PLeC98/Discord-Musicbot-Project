@@ -232,7 +232,7 @@
               <span v-if="autoplayGenre" class="max-w-24 truncate opacity-80">· {{ autoplayGenreLabel ?? autoplayGenre }}</span>
             </BaseButton>
             <div v-if="genreMenu" class="fixed inset-0 z-40" @click="genreMenu = false"></div>
-            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px 로(useOverflowing) -->
+            <!-- 스크롤바 트랙은 위아래 32 - 5 = 27px을 비우고, 넘치면 오른쪽 여백을 8 - 3 = 5px로(useOverflowing) -->
             <!-- 아래에 공간이 없으면(휴대폰 대기열 시트가 접혀 화면 아래에 있을 때) 위로 연다 -->
             <Transition name="menu">
               <div v-if="genreMenu" ref="genreMenuEl" class="absolute right-0 z-50 w-70 max-h-80 overflow-y-auto rounded-3xl pane-menu [&::-webkit-scrollbar-track]:my-6.75" :class="[genreMenuUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right', genreOverflowing ? 'py-2 pl-2 pr-1.25' : 'p-2']">

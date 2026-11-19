@@ -1,6 +1,6 @@
 // /queue: 다음 곡들을 본인에게만 보인다(ui/queue-view). 재생 패널의 대기열 버튼도 같은 화면을 연다(openQueue).
 // 보기 화면의 썸네일 모자이크는 칸 이미지를 받아(ui/queue-mosaic/thumbnails) 그리기 워커가 그린다. 기다리는 것은 WAIT 까지이고,
-// 늦으면 이미지 없이 보내고 나중에 붙이지 않는다(받은 칸 이미지는 기억해 두어 다음 화면에 쓴다). 첫 응답은 미루면 Components V2 로 바꿀 수 없어 기다린 뒤 바로 답한다
+// 늦으면 이미지 없이 보내고 나중에 붙이지 않는다(받은 칸 이미지는 기억해 두어 다음 화면에 쓴다). 첫 응답은 미루면 Components V2로 바꿀 수 없어 기다린 뒤 바로 답한다
 
 import { SlashCommandBuilder, type GuildMember, type RepliableInteraction } from "discord.js";
 import type { GuildCommand } from "../../app/command-loader.ts";
@@ -41,7 +41,7 @@ async function mosaicOf(info: QueueInfo, page: number, waitMs: number): Promise<
   }
 }
 
-/** 지금 대기열로 그린, member 가 볼 화면(역할로 버튼을 고른다). 보기 화면이면 모자이크를 waitMs 까지 기다린다. without 은 뺄 곡(queueInfoOf) */
+/** 지금 대기열로 그린, member가 볼 화면(역할로 버튼을 고른다). 보기 화면이면 모자이크를 waitMs까지 기다린다. without은 뺄 곡(queueInfoOf) */
 async function queueScreen(player: Player, member: GuildMember, screen: Screen, { waitMs = WAIT.turn, without = null }: { waitMs?: number; without?: number | null } = {}) {
   const info = queueInfoOf(player, { without, viewer: { id: member.id, dj: await isDj(member) } });
   const mosaic = screen.mode === "browse" ? await mosaicOf(info, screen.page, waitMs) : null;

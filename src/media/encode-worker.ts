@@ -12,7 +12,7 @@ import { createOpusEncoder, loadOpus, type OpusEncoder } from "./opus-encoder.ts
 import { Limiter } from "./limiter.ts";
 
 type ToWorker = { type: "init"; port: MessagePort; calibrateFrames: number } | { type: "open"; id: number } | { type: "frame"; id: number; seq: number; gain: number; press: boolean; pcm: ArrayBuffer } | { type: "close"; id: number };
-// 프레임 하나의 답. packet이 없으면 error 다.
+// 프레임 하나의 답. packet이 없으면 error다.
 // doneAt: 답을 낸 때(timeOrigin + now, ms). 메인이 받기를 미룬 시간을 빼고 워커가 걸린 시간을 잰다.
 // startedAt, encodeMs: 인코딩을 시작한 때(timeOrigin + now)와 걸린 시간(ms). 메인이 응답 시간을 대기, 인코딩으로 나눠 본다. 인코딩 전에 난 오류에는 없다.
 // fatal: 이 스레드의 WASM 모듈이 망가졌다(abort). 메인이 스레드를 바꾼다

@@ -14,7 +14,7 @@ import type { MosaicData } from "../queue-mosaic/layout.ts";
 const log = logger.child({ category: "commands" });
 const failing = (what: string) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
 
-/** 그리는 일. 워커가 kind 로 고른다 */
+/** 그리는 일. 워커가 kind로 고른다 */
 type Job = { kind: "system"; data: CardData } | { kind: "queue"; data: MosaicData };
 const failures: Record<Job["kind"], ReturnType<typeof failing>> = { system: failing("/system 이미지 그리기"), queue: failing("/queue 썸네일 그리기") };
 const workerFailure = failing("이미지 그리기 워커");

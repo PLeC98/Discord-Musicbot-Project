@@ -1,4 +1,4 @@
-// src/ui/queue-view.ts: /queue 의 보기, 편집 화면(Components V2)과 그 custom_id
+// src/ui/queue-view.ts: /queue의 보기, 편집 화면(Components V2)과 그 custom_id
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

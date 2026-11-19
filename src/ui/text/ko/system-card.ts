@@ -1,5 +1,5 @@
 // /system 이미지의 문구. 용어는 대시보드 봇 상태 탭과 같다. 이미지는 등록한 글꼴(ui/card-render/fonts)로만 글자를 그리므로,
-// 그 글꼴에 없는 글자가 들어오면 test/ui/system-card-text.test.ts 가 잡는다
+// 그 글꼴에 없는 글자가 들어오면 test/ui/system-card-text.test.ts가 잡는다
 
 /** 상태 카드 */
 const allOk = "모두 정상";
@@ -44,7 +44,7 @@ const collecting = "기록을 모으는 중";
 
 /** 이미지 밖(디스코드 메시지) */
 const title = "시스템 상태";
-/** 제목 아래 버전 줄. bgutil 은 POToken 서버를 켰을 때만 */
+/** 제목 아래 버전 줄. bgutil은 POToken 서버를 켰을 때만 */
 const versions = (bot: string, ytdlp: string | null, bgutil: string | null) => [`봇 v${bot}`, ytdlp ? `yt-dlp ${ytdlp}` : null, bgutil ? `bgutil ${bgutil}` : null].filter(Boolean).join(" · ");
 const updated = (at: string) => `갱신: ${at}`;
 /** 운영자 패널의 봇 상태 탭으로 가는 링크 버튼 */

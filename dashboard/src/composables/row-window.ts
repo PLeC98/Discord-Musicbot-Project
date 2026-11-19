@@ -7,7 +7,7 @@ import { LIST_WINDOW_MAX, type Span } from "../../../src/dashboard/contract/admi
 
 type Rows = { first: number; last: number };
 
-/** 보이는 행 [first, last). 영역 높이가 0 이면(숨은 탭) null */
+/** 보이는 행 [first, last). 영역 높이가 0이면(숨은 탭) null */
 export function visibleRows(scrollTop: number, viewHeight: number, rowHeight: number, total: number): Rows | null {
   if (viewHeight <= 0 || rowHeight <= 0) return null;
   const first = Math.min(Math.max(0, Math.floor(scrollTop / rowHeight)), total);
@@ -46,7 +46,7 @@ export function slotsOf<T>(range: { from: number; to: number }, from: number, ro
 /**
  * el: 스크롤 영역. rowHeight: 행 높이(px). total: 필터링된 수. have: 받은 구간(시작, 받은 행 수). request: 그 구간을 받게 한다(다 받아 둔 목록은 없다).
  * keep: 구간 밖이어도 그려 둘 행(드래그 중인 행. 드래그하는 동안 자동 스크롤로 구간이 옮겨 가도 그 행까지 이어 그린다).
- * 영역이 숨어 높이가 0 이면(v-show로 숨은 탭) 행을 그리지도 받게 하지도 않는다(스페이서로 높이만).
+ * 영역이 숨어 높이가 0이면(v-show로 숨은 탭) 행을 그리지도 받게 하지도 않는다(스페이서로 높이만).
  * 돌려주는 것: 그릴 구간 [from, to), 위, 아래 스페이서 높이, 맨 위로(필터링, 정렬을 바꿨을 때)
  */
 export function useRowWindow(opts: { el: Ref<HTMLElement | null>; rowHeight: () => number; total: () => number; have: () => Span; request?: (span: Span) => void; keep?: () => number | null }) {

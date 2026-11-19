@@ -19,7 +19,7 @@ const ON_COLOR_BUTTON = "#FFFFFF";
 
 /**
  * /system 이미지가 대시보드와 같이 쓰는 색 체계 밖의 고정 색(어두운 테마 값). 원본은 화면 CSS(dashboard/src/style.css)의 변수이고
- * 값이 어긋나면 test/ui/palette-dashboard-css.test.ts 가 잡는다
+ * 값이 어긋나면 test/ui/palette-dashboard-css.test.ts가 잡는다
  */
 const DASHBOARD_COLORS = {
   warnInk: "#facc15", // 주의 단계의 노랑(--warn-ink). 머티리얼 3 에 경고 색 역할이 없어 따로 둔다
