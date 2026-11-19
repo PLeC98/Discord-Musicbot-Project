@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { systemView, type SystemView } from "../../src/ui/system-card/view.ts";
 import { textOf, thumbnailOf } from "../helpers/cv2.ts";
+import { withConfig } from "../helpers/config.ts";
 
 const base: Omit<SystemView, "images"> = { avatar: "https://avatar.test/a.png", versions: { bot: "0.9.0", ytdlp: "2026.11.01", bgutil: null }, updatedAt: 1_800_000_000 };
 const json = (v: ReturnType<typeof systemView>) => JSON.stringify(v.view.toJSON());
@@ -33,4 +34,12 @@ test("그리는 동안은 한 줄과 비활성화된 새로고침 버튼, 그리
   assert.deepEqual(failed.files, []);
   assert.ok(textOf({ components: [failed.view] }).includes("상태 이미지를 그리지 못했어요. 같은 내용은 대시보드의 봇 상태 탭에서 볼 수 있어요"));
   assert.equal(thumbnailOf({ components: [failed.view] }), null, "프로필 이미지가 없으면 제목만");
+});
+
+test("새로고침 옆에 운영자 패널의 봇 상태 탭 링크. 대시보드 주소가 이 기기에서만 열리면 링크가 없다", () => {
+  const linkOf = (url: string) => withConfig({ dashboard: { url } }, () => [...json(systemView({ ...base, images: "drawing" })).matchAll(/"url":"(https?:[^"]+)"/g)].map((m) => m[1]).filter((u) => !u.startsWith("https://avatar.test")));
+  assert.deepEqual(linkOf("https://music.example.com"), ["https://music.example.com/admin?tab=status"]);
+  assert.deepEqual(linkOf("https://example.com/bot/"), ["https://example.com/bot/admin?tab=status"], "하위 경로에 둔 대시보드");
+  assert.deepEqual(linkOf("http://localhost:33333"), []);
+  assert.ok(withConfig({ dashboard: { url: "https://music.example.com" } }, () => json(systemView({ ...base, images: "drawing" }))).includes('"label":"운영자 패널"'));
 });

@@ -12,7 +12,7 @@ import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/system-card/icons.ts";
 import * as T from "../../src/ui/text/ko/system-card.ts";
 
 // 이미지 밖(디스코드 메시지)에 쓰는 문구
-const OUTSIDE = new Set(["title", "versions", "updated", "drawing", "drawFailed", "cardAlt", "historyAlt"]);
+const OUTSIDE = new Set(["title", "versions", "updated", "panelLink", "drawing", "drawFailed", "cardAlt", "historyAlt"]);
 
 // 이미지에 들어갈 수 있는 문자열: 문구표(숫자와 값은 1), 업타임(모든 단위), 길이를 미리 알 수 없는 문자열(CPU 모델, 드라이브 이름)이 쓰는 출력 가능한 ASCII 와 말줄임표
 function cardTexts() {

@@ -47,6 +47,8 @@ const title = "시스템 상태";
 /** 제목 아래 버전 줄. bgutil 은 POToken 서버를 켰을 때만 */
 const versions = (bot: string, ytdlp: string | null, bgutil: string | null) => [`봇 v${bot}`, ytdlp ? `yt-dlp ${ytdlp}` : null, bgutil ? `bgutil ${bgutil}` : null].filter(Boolean).join(" · ");
 const updated = (at: string) => `갱신: ${at}`;
+/** 운영자 패널의 봇 상태 탭으로 가는 링크 버튼 */
+const panelLink = "운영자 패널";
 /** 이미지를 그리는 동안 */
 const drawing = "상태 이미지를 그리는 중이에요";
 /** 이미지를 그리지 못했을 때(캔버스를 불러오지 못하는 플랫폼 등) */
@@ -55,4 +57,4 @@ const drawFailed = "상태 이미지를 그리지 못했어요. 같은 내용은
 const cardAlt = "상태, CPU, heap 메모리, 저장공간, 업타임, 현황";
 const historyAlt = "최근 CPU, 이벤트 루프 지연, 인코딩 응답 시간";
 
-export { allOk, needsAttention, recent, cpu, cpuSub, heap, heapSub, cache, usedOf, disk, diskFree, uptime, uptimeBot, uptimeOs, overview, guilds, playing, users, loop, encoding, p99, legendBot, legendSystem, minutesAgo, now, collecting, title, versions, updated, drawing, drawFailed, cardAlt, historyAlt };
+export { allOk, needsAttention, recent, cpu, cpuSub, heap, heapSub, cache, usedOf, disk, diskFree, uptime, uptimeBot, uptimeOs, overview, guilds, playing, users, loop, encoding, p99, legendBot, legendSystem, minutesAgo, now, collecting, title, versions, updated, panelLink, drawing, drawFailed, cardAlt, historyAlt };

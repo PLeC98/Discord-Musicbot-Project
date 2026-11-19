@@ -1,9 +1,11 @@
-// /system 메시지(Components V2): 제목 섹션(봇 프로필 이미지 옆에 제목과 버전 줄), 이미지 두 장(카드 그리드, 최근 기록), 구분선, 갱신 일시, 새로고침 버튼.
+// /system 메시지(Components V2): 제목 섹션(봇 프로필 이미지 옆에 제목과 버전 줄), 이미지 두 장(카드 그리드, 최근 기록), 구분선, 갱신 일시,
+// 새로고침 버튼과 운영자 패널의 봇 상태 탭으로 가는 링크(자세한 값은 그쪽에 있다. 대시보드 주소가 이 기기에서만 열리면 없다).
 // 이미지는 첨부 파일(attachment://)로 단다. 그리는 동안과 그리지 못했을 때는 이미지 자리에 한 줄
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import { colorOf } from "../colors.ts";
 import { SYSTEM, customId } from "../custom-ids.ts";
+import { adminStatusButton } from "../dashboard-link.ts";
 import type { Attachment } from "../frame.ts";
 import { buttonEmoji, icon } from "../icons.ts";
 import * as infoText from "../text/ko/info.ts";
@@ -43,7 +45,8 @@ function systemView(v: SystemView): { view: ContainerBuilder; files: Attachment[
     .setEmoji(buttonEmoji("refresh"))
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(v.images === "drawing");
-  box.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(refresh));
+  const panel = adminStatusButton(T.panelLink);
+  box.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(panel ? [refresh, panel] : [refresh]));
   return { view: box, files };
 }
 
