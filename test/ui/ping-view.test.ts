@@ -15,10 +15,10 @@ test("값마다 속도별 색, 이름, 값(코드 블록)과 무엇과 무엇 �
   assert.ok(json({}).includes('"custom_id":"ping:again"'));
 });
 
-test("연결 지연은 대시보드의 핑 기준, 응답 시간은 1초, 2초 기준으로 색을 바꾼다", () => {
+test("게이트웨이와 음성은 대시보드의 핑 기준, 응답 시간과 REST 왕복은 1초, 2초 기준으로 색을 바꾼다", () => {
   const [warn, bad] = LIMITS.ping;
-  assert.match(text({ restMs: warn, gatewayMs: bad, voiceMs: bad - 1, responseMs: 2000 }), /🔴 \*\*응답 시간\*\*[\s\S]*🟡 \*\*REST 왕복\*\*[\s\S]*🔴 \*\*게이트웨이\*\*[\s\S]*🟡 \*\*음성\*\*/);
-  assert.match(text({ responseMs: 1000 }), /🟡 \*\*응답 시간\*\*/);
+  assert.match(text({ restMs: 1000, gatewayMs: bad, voiceMs: warn, responseMs: 2000 }), /🔴 \*\*응답 시간\*\*[\s\S]*🟡 \*\*REST 왕복\*\*[\s\S]*🔴 \*\*게이트웨이\*\*[\s\S]*🟡 \*\*음성\*\*/);
+  assert.match(text({ responseMs: 340, restMs: 450, gatewayMs: 190, voiceMs: 130 }), /🟢 \*\*응답 시간\*\*[\s\S]*🟢 \*\*REST 왕복\*\*[\s\S]*🟢 \*\*게이트웨이\*\*[\s\S]*🟢 \*\*음성\*\*/, "한국에서 보통인 값은 초록");
 });
 
 test("음성 채널에 없으면 음성 줄이 없고, 게이트웨이를 아직 못 쟀으면 측정 중, 기록이 없으면 평균이 없다. 서버 밖에서는 버튼이 없다", () => {

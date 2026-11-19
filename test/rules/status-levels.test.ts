@@ -21,7 +21,7 @@ const calm = (over: Partial<StatusInput> = {}): StatusInput => ({
 
 test("기준값: 주의 기준 이상이면 주의, 문제 기준 이상이면 문제(기준과 같으면 그 단계)", () => {
   assert.deepEqual([levelOf(69.9, ...LIMITS.cpu), levelOf(70, ...LIMITS.cpu), levelOf(90, ...LIMITS.cpu)], ["ok", "warn", "bad"]);
-  assert.deepEqual([levelOf(209, ...LIMITS.ping), levelOf(210, ...LIMITS.ping), levelOf(300, ...LIMITS.ping)], ["ok", "warn", "bad"]);
+  assert.deepEqual([levelOf(299, ...LIMITS.ping), levelOf(300, ...LIMITS.ping), levelOf(800, ...LIMITS.ping)], ["ok", "warn", "bad"]);
 });
 
 test("heap 사용률은 V8 상한을 기준으로 잰다", () => {
@@ -53,7 +53,7 @@ test("디스크: 사용률 90% 이상 주의, 98% 이상 문제", () => {
 test("주의 항목 순서: 지표, 연결(재생, 유튜브, 자동재생 묶음 순), 유튜브 클라이언트, 디스크, 남은 프로세스, 추출 한도", () => {
   const items = attentionOf(
     calm({
-      ping: 250,
+      ping: 350,
       cpuBot: 95,
       links: [
         { id: "vocadb", group: "autoplay", name: "VocaDB", state: "fail" },

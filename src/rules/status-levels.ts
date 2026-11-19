@@ -7,8 +7,9 @@ import type { ClientStatus } from "../sources/youtube/status-types.ts";
 type Level = "ok" | "warn" | "bad";
 
 /** 기준(주의, 문제). 핑 ms, 루프 지연 ms, heap %, 봇 CPU %, 디스크 % */
-// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
-const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
+// 핑(게이트웨이, 음성 게이트웨이의 하트비트 왕복): 거리로 정해지는 값이라(한국에서 게이트웨이는 190ms 안팎) 통화 지연 기준 ITU-T G.114 의
+// 편도 150ms(대부분 지장 없음), 400ms(받아들이기 어려움)를 왕복으로 바꾼 값. 평소 값과 비교하지 않아 하루 내내 나쁜 날도 드러난다
+const LIMITS = { ping: [300, 800], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 const levelOf = (v: number, warn: number, bad: number): Level => (v >= bad ? "bad" : v >= warn ? "warn" : "ok");
 

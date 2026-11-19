@@ -1,5 +1,5 @@
 // /ping 화면(Components V2 텍스트): 값마다 한 줄(속도별 색, 이름, 값)과 무엇과 무엇 사이를 잰 것인지 작은 글씨 줄, 구분선, 다시 재기 버튼.
-// 판정은 rules/latency(연결 지연은 대시보드의 핑과 같은 기준)
+// 판정은 rules/latency(하트비트 왕복은 대시보드의 핑과 같은 기준, REST 왕복은 응답 시간과 같은 기준)
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, resolveColor } from "discord.js";
 import { linkLevel, responseLevel } from "../rules/latency.ts";
@@ -29,7 +29,7 @@ function pingView(v: PingValues) {
   const t = infoText.ping();
   const line = (mark: string, name: string, value: string, note: string) => `${mark} **${name}** ${value}\n-# ${note}`;
   const average = v.gatewayAverage ? ` · ${t.average(v.gatewayAverage.minutes)} ${ms(v.gatewayAverage.ms)}` : "";
-  const lines = [line(MARK[responseLevel(v.responseMs)], t.response.name, ms(v.responseMs), t.response.note), line(MARK[linkLevel(v.restMs)], t.rest.name, ms(v.restMs), t.rest.note), v.gatewayMs === null ? line("⚪", t.gateway.name, `\`${t.measuring}\``, t.gateway.note) : line(MARK[linkLevel(v.gatewayMs)], t.gateway.name, ms(v.gatewayMs) + average, t.gateway.note), v.voiceMs === null ? null : line(MARK[linkLevel(v.voiceMs)], t.voice.name, ms(v.voiceMs), t.voice.note)].filter(
+  const lines = [line(MARK[responseLevel(v.responseMs)], t.response.name, ms(v.responseMs), t.response.note), line(MARK[responseLevel(v.restMs)], t.rest.name, ms(v.restMs), t.rest.note), v.gatewayMs === null ? line("⚪", t.gateway.name, `\`${t.measuring}\``, t.gateway.note) : line(MARK[linkLevel(v.gatewayMs)], t.gateway.name, ms(v.gatewayMs) + average, t.gateway.note), v.voiceMs === null ? null : line(MARK[linkLevel(v.voiceMs)], t.voice.name, ms(v.voiceMs), t.voice.note)].filter(
     (one): one is string => one !== null,
   );
   const box = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));

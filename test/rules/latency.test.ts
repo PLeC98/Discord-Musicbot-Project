@@ -5,12 +5,13 @@ import assert from "node:assert/strict";
 import { averageOf, historyMinutes, linkLevel, responseLevel } from "../../src/rules/latency.ts";
 import { LIMITS } from "../../src/rules/status-levels.ts";
 
-test("연결 지연은 대시보드의 핑과 같은 기준", () => {
+test("하트비트 왕복(게이트웨이, 음성)은 대시보드의 핑과 같은 기준이고 G.114 를 왕복으로 바꾼 300, 800ms", () => {
   const [warn, bad] = LIMITS.ping;
+  assert.deepEqual([warn, bad], [300, 800]);
   assert.deepEqual([0, warn - 1, warn, bad - 1, bad].map(linkLevel), ["ok", "ok", "warn", "warn", "bad"]);
 });
 
-test("응답 시간은 1초부터 주의, 2초부터 위험(상호작용은 3초 안에 답해야 한다)", () => {
+test("응답 시간과 REST 왕복은 1초부터 주의, 2초부터 위험(상호작용은 3초 안에 답해야 한다)", () => {
   assert.deepEqual([0, 999, 1000, 1999, 2000].map(responseLevel), ["ok", "ok", "warn", "warn", "bad"]);
 });
 
