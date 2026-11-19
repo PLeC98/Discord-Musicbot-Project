@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BOTTOM, TOP, drawSystemCards, type CardData } from "../../src/ui/system-card/draw.ts";
-import { renderSystemCards } from "../../src/ui/system-card/render.ts";
+import { _running, renderSystemCards } from "../../src/ui/system-card/render.ts";
 
 const GB = 1024 ** 3;
 const series = (n: number, v: number, max: number) => ({ values: Array.from({ length: n }, (_, i) => v + (i % 5)), max });
@@ -65,5 +65,14 @@ test("워커에서 그린 결과도 같은 크기의 PNG", async () => {
 test("상한을 넘기면 실패 처리하고, 다음 그리기는 새 워커에서 실행된다", async () => {
   await assert.rejects(renderSystemCards(sample(), { timeoutMs: 1 }), /시간 초과/);
   const { top } = await renderSystemCards(sample());
+  assert.equal(sizeOf(top).width, TOP.width);
+});
+
+test("마지막 그리기 뒤 쉬면 워커가 끝나고, 다음 그리기는 새 워커에서 실행된다", async () => {
+  await renderSystemCards(sample(), { idleMs: 50 });
+  assert.equal(_running(), true, "그린 직후에는 떠 있다");
+  await new Promise((ok) => setTimeout(ok, 300));
+  assert.equal(_running(), false, "쉬는 시간이 지나면 끝낸다");
+  const { top } = await renderSystemCards(sample(), { idleMs: 50 });
   assert.equal(sizeOf(top).width, TOP.width);
 });

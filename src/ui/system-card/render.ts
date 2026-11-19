@@ -1,5 +1,6 @@
 // /system 이미지를 워커 스레드(render-worker)에서 그린다. 메인 스레드가 막히는 것은 워커를 띄우고 값을 넘기는 1ms 이내다.
-// 워커는 처음 그릴 때 띄워 계속 유지한다. 종료해도 네이티브 모듈과 글꼴 캐시가 프로세스에 남아 메모리가 완전히 해제되지 않고, 다시 띄울 때마다 늘어난다.
+// 워커는 그릴 때 띄우고, 마지막 그리기 뒤 IDLE_MS 동안 요청이 없으면 글꼴을 지우고 끝낸다(새로고침을 연달아 누르면 같은 워커가 받는다).
+// 처음 한 번 불러온 캔버스 모듈이 차지하는 메모리(약 30MB)는 프로세스에 남지만, 워커를 다시 띄워도 더 늘지 않는다.
 // 그리기를 요청한 시점부터 상한을 넘기거나 워커가 죽으면(캔버스 바이너리가 없는 플랫폼 등) 워커를 종료하고, 요청한 그리기는 실패 처리한다. 다음 그리기는 새 워커에서
 
 import { Worker } from "node:worker_threads";
@@ -13,12 +14,17 @@ const failure = repeatingFailure({ error: (line) => log.warn(line), info: (line)
 
 /** 그리기 하나의 상한. 처음에는 워커 띄우기, 모듈 로드, 글꼴 등록이 더해져 300ms 쯤 걸린다(이 PC) */
 const RENDER_TIMEOUT_MS = 15_000;
+/** 마지막 그리기 뒤 이 시간 동안 요청이 없으면 워커를 끝낸다 */
+const IDLE_MS = 60_000;
+/** 종료를 요청한 워커가 이 시간 안에 스스로 끝나지 않으면 강제 종료한다 */
+const CLOSE_GRACE_MS = 5_000;
 
 type Pngs = { top: Buffer; bottom: Buffer };
 type Waiting = { resolve: (pngs: Pngs) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
 let thread: Worker | null = null;
 const waiting = new Map<number, Waiting>();
 let lastId = 0;
+let idle: NodeJS.Timeout | null = null;
 
 function spawn() {
   const one = new Worker(new URL("./render-worker.ts", import.meta.url));
@@ -51,6 +57,7 @@ function spawn() {
 function stop(one: Worker, error: Error) {
   if (thread !== one) return;
   thread = null;
+  clearIdle();
   for (const job of waiting.values()) {
     clearTimeout(job.timer);
     job.reject(error);
@@ -59,11 +66,32 @@ function stop(one: Worker, error: Error) {
   void one.terminate();
 }
 
+function clearIdle() {
+  if (idle) clearTimeout(idle);
+  idle = null;
+}
+
+// 남은 그리기가 없으면 idleMs 뒤에 워커가 글꼴을 지우고 스스로 끝나게 한다. 새 그리기는 새 워커에서
+function closeWhenIdle(idleMs: number) {
+  clearIdle();
+  if (waiting.size || !thread) return;
+  const one = thread;
+  idle = setTimeout(() => {
+    idle = null;
+    if (thread !== one || waiting.size) return;
+    thread = null;
+    one.postMessage({ close: true });
+    setTimeout(() => void one.terminate(), CLOSE_GRACE_MS).unref();
+  }, idleMs);
+  idle.unref();
+}
+
 /** 이미지 둘(PNG). 상한을 넘기거나 워커가 죽으면 예외를 던진다 */
-function renderSystemCards(data: CardData, { timeoutMs = RENDER_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<Pngs> {
+function renderSystemCards(data: CardData, { timeoutMs = RENDER_TIMEOUT_MS, idleMs = IDLE_MS }: { timeoutMs?: number; idleMs?: number } = {}): Promise<Pngs> {
+  clearIdle();
   const worker = (thread ??= spawn());
   const id = ++lastId;
-  return new Promise((resolve, reject) => {
+  const drawn = new Promise<Pngs>((resolve, reject) => {
     const timer = setTimeout(() => {
       failure.fail(`${timeoutMs / 1000}초 안에 끝나지 않아 워커 중단`);
       stop(worker, new Error(`/system 이미지 그리기 시간 초과(${timeoutMs / 1000}초)`));
@@ -71,6 +99,10 @@ function renderSystemCards(data: CardData, { timeoutMs = RENDER_TIMEOUT_MS }: { 
     waiting.set(id, { resolve, reject, timer });
     worker.postMessage({ id, data });
   });
+  return drawn.finally(() => closeWhenIdle(idleMs));
 }
 
-export { renderSystemCards, RENDER_TIMEOUT_MS };
+/** 지금 워커가 떠 있는지(테스트용) */
+const _running = () => thread !== null;
+
+export { renderSystemCards, RENDER_TIMEOUT_MS, _running };

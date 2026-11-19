@@ -52,8 +52,14 @@ const WIDE = COL * 2 + GAP;
 const RIGHT = COL * 2 + GAP * 2;
 const rowY = (i: number) => i * (ROW + GAP);
 
-// 글꼴과 아이콘은 이 모듈을 처음 불러올 때 한 번 읽는다(워커가 살아 있는 동안 유지한다)
-for (const one of FONTS) GlobalFonts.registerFromPath(fontPath(one.file), one.family);
+// 글꼴과 아이콘은 이 모듈을 처음 불러올 때 한 번 읽는다(워커가 살아 있는 동안 유지한다).
+// 등록한 글꼴은 프로세스 전체에 남아 워커를 종료해도 해제되지 않으므로, 워커는 끝나기 전에 releaseFonts 로 지운다
+const fontKeys = FONTS.map((one) => GlobalFonts.registerFromPath(fontPath(one.file), one.family));
+
+/** 등록한 글꼴을 지워 메모리를 해제한다. 워커가 끝나기 직전에 부른다(그 뒤로는 그리지 않는다) */
+function releaseFonts() {
+  for (const key of fontKeys) if (key) GlobalFonts.remove(key);
+}
 const ICONS = JSON.parse(fs.readFileSync(path.join(PROJECT.data, "discord-icons", "system-card.json"), "utf8")) as { unitsPerEm: number; line: Record<CardIcon, string>; fill: Record<StatusIcon, string> };
 const iconPaths = new Map<string, Path2D>();
 const iconPath = (name: CardIcon | StatusIcon, fill: boolean) => {
@@ -81,6 +87,8 @@ function pen(g: SKRSContext2D, c: Colors) {
   const setFace = (face: Face, size: number) => {
     g.font = `${FACES[face].weight} ${size}px ${FAMILIES}`;
     g.fontVariationSettings = FACES[face].variations;
+    // 숫자는 고정폭(대시보드와 같다). 값이 바뀌어도 오른쪽 맞춤 숫자의 폭이 흔들리지 않는다
+    g.fontVariantNumeric = "tabular-nums";
   };
   const width = (s: string, face: Face, size: number) => {
     setFace(face, size);
@@ -367,5 +375,5 @@ async function drawSystemCards(d: CardData) {
   return { top, bottom };
 }
 
-export { drawSystemCards, TOP, BOTTOM };
+export { drawSystemCards, releaseFonts, TOP, BOTTOM };
 export type { CardData, Series };

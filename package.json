@@ -29,7 +29,7 @@
     "@discordjs/voice": "^0.19.2",
     "@fontsource-variable/google-sans-flex": "catalog:",
     "@material/material-color-utilities": "catalog:",
-    "@napi-rs/canvas": "^1.1.0",
+    "@napi-rs/canvas": "^1.1.1",
     "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
     "discord.js": "^14.27.0",
