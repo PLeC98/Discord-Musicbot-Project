@@ -4,6 +4,7 @@
 
 import { parentPort } from "node:worker_threads";
 import { messageOf } from "../../rules/error-kind.ts";
+import { drawQueueMosaic } from "../queue-mosaic/draw.ts";
 import { drawSystemCards } from "../system-card/draw.ts";
 import { releaseFonts } from "./canvas-fonts.ts";
 import type { Job } from "./render.ts";
@@ -12,6 +13,7 @@ import type { Job } from "./render.ts";
 const transferable = (image: Buffer) => image.buffer.slice(image.byteOffset, image.byteOffset + image.byteLength) as ArrayBuffer;
 
 async function imagesOf(job: Job): Promise<Buffer[]> {
+  if (job.kind === "queue") return [await drawQueueMosaic(job.data)];
   const { top, bottom } = await drawSystemCards(job.data);
   return [top, bottom];
 }

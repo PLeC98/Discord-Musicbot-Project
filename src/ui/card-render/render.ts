@@ -1,4 +1,4 @@
-// 봇이 그리는 이미지(/system 카드)를 워커 스레드(render-worker)에서 그린다. 메인 스레드가 막히는 것은 워커를 띄우고 값을 넘기는 1ms 이내다.
+// 봇이 그리는 이미지(/system 카드, /queue 썸네일 모자이크)를 워커 스레드(render-worker)에서 그린다. 메인 스레드가 막히는 것은 워커를 띄우고 값을 넘기는 1ms 이내다.
 // 워커는 그릴 때 띄우고, 마지막 그리기 뒤 IDLE_MS 동안 요청이 없으면 글꼴을 지우고 끝낸다(새로고침, 쪽 넘기기를 연달아 누르면 같은 워커가 받는다).
 // 처음 한 번 불러온 캔버스 모듈이 차지하는 메모리(약 30MB)는 프로세스에 남지만, 워커를 다시 띄워도 더 늘지 않는다.
 // 그리기를 요청한 시점부터 상한을 넘기거나 워커가 죽으면(캔버스 바이너리가 없는 플랫폼 등) 워커를 종료하고, 요청한 그리기는 실패 처리한다. 다음 그리기는 새 워커에서.
@@ -9,13 +9,14 @@ import logger from "../../infra/log/logger.ts";
 import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { CardData } from "../system-card/draw.ts";
+import type { MosaicData } from "../queue-mosaic/layout.ts";
 
 const log = logger.child({ category: "commands" });
 const failing = (what: string) => repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, what);
 
 /** 그리는 일. 워커가 kind 로 고른다 */
-type Job = { kind: "system"; data: CardData };
-const failures: Record<Job["kind"], ReturnType<typeof failing>> = { system: failing("/system 이미지 그리기") };
+type Job = { kind: "system"; data: CardData } | { kind: "queue"; data: MosaicData };
+const failures: Record<Job["kind"], ReturnType<typeof failing>> = { system: failing("/system 이미지 그리기"), queue: failing("/queue 썸네일 그리기") };
 const workerFailure = failing("이미지 그리기 워커");
 
 /** 그리기 하나의 상한. 처음에는 워커 띄우기, 모듈 로드, 글꼴 등록이 더해져 300ms 쯤 걸린다(이 PC) */
@@ -112,8 +113,11 @@ function render(job: Job, { timeoutMs = RENDER_TIMEOUT_MS, idleMs = IDLE_MS }: O
 /** /system 이미지 둘(PNG) */
 const renderSystemCards = (data: CardData, options?: Options) => render({ kind: "system", data }, options).then(([top, bottom]) => ({ top, bottom }));
 
+/** /queue 썸네일 모자이크(WebP) */
+const renderQueueMosaic = (data: MosaicData, options?: Options) => render({ kind: "queue", data }, options).then(([image]) => image);
+
 /** 지금 워커가 떠 있는지(테스트용) */
 const _running = () => thread !== null;
 
-export { renderSystemCards, RENDER_TIMEOUT_MS, _running };
+export { renderSystemCards, renderQueueMosaic, RENDER_TIMEOUT_MS, _running };
 export type { Job };

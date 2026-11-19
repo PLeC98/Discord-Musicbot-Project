@@ -41,8 +41,8 @@ type Incoming = { status: number; headers: Record<string, unknown>; body: Readab
 type HttpRequest = (request: Outgoing) => Promise<Incoming>;
 /** 외부 경계. 생략하면 send와 dns.lookup */
 type RequestDeps = { request?: HttpRequest; lookup?: LookupFn };
-/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer는 다운로드 전체에도) */
-type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number };
+/** 받을 것의 조건: Content-Type, 크기 상한, 시간 한도(홉마다의 응답 대기, getBuffer는 다운로드 전체에도), 받아도 되는 주소(리다이렉트 홉마다 본다. 생략하면 공인 IP 이면 어디든) */
+type Accept = { contentType: RegExp; maxBytes: number; timeoutMs: number; allowUrl?: (url: URL) => boolean };
 /** 직접 링크(음원)의 조건 */
 const DIRECT_LINK: Accept = { contentType: ALLOWED_CONTENT_TYPE, maxBytes: MAX_BYTES, timeoutMs: GET_TIMEOUT_MS };
 
@@ -65,22 +65,26 @@ function isAllowedContentType(contentType: unknown, allowed = ALLOWED_CONTENT_TY
   return allowed.test(String(contentType));
 }
 
-/**
- * URL 파싱 + 스키마/호스트 검증 + 접속할 IP 결정.
- * 호스트명은 모든 A/AAAA를 해석해 하나라도 내부면 거부하고, 통과 시 접속할 IP를 핀한다.
- * @throws {SsrfError}
- */
-async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.bind(dns)): Promise<{ url: URL; pinnedIp: string; family: number }> {
+/** URL 파싱 + 스키마 검증(allowUrl 이 있으면 그 주소만). @throws {SsrfError} */
+function parseAllowed(rawUrl: string, allowUrl?: (url: URL) => boolean): URL {
   let url;
   try {
     url = new URL(rawUrl);
   } catch {
     throw new SsrfError(`잘못된 URL: ${rawUrl}`);
   }
+  if (!ALLOWED_SCHEMES.has(url.protocol)) throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
+  if (allowUrl && !allowUrl(url)) throw new SsrfError(`받지 않는 주소: ${url.host}`);
+  return url;
+}
 
-  if (!ALLOWED_SCHEMES.has(url.protocol)) {
-    throw new SsrfError(`허용되지 않는 스키마: ${url.protocol}`);
-  }
+/**
+ * URL 파싱 + 스키마/호스트 검증 + 접속할 IP 결정.
+ * 호스트명은 모든 A/AAAA를 해석해 하나라도 내부면 거부하고, 통과 시 접속할 IP를 핀한다. allowUrl 이 있으면 DNS 해석 전에 그 주소만 받는다.
+ * @throws {SsrfError}
+ */
+async function validateAndResolve(rawUrl: string, lookup: LookupFn = dns.lookup.bind(dns), allowUrl?: (url: URL) => boolean): Promise<{ url: URL; pinnedIp: string; family: number }> {
+  const url = parseAllowed(rawUrl, allowUrl);
 
   // URL.hostname은 IPv6 리터럴을 대괄호 포함으로 준다('[::1]'). net.isIP 판정 전에 벗긴다.
   // (안 벗기면 모든 IPv6 리터럴이 DNS 경로로 빠져 공인 IPv6 주소도 사용 불가)
@@ -172,12 +176,12 @@ async function sendHop(request: HttpRequest, outgoing: Outgoing): Promise<Incomi
  * 호출부가 응답 본문을 다 쓰거나 부순 뒤 agent.destroy() 한다.
  * headers: 덧붙일 헤더(Range). signal: 응답 헤더가 오기 전에 취소되면 그 사유로 예외를 던진다
  */
-async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, { timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, headers = {}, signal }: { timeoutMs?: number; headers?: Record<string, string>; signal?: AbortSignal } = {}) {
+async function guardedRequest(method: "HEAD" | "GET", rawUrl: string, { request = send, lookup }: RequestDeps = {}, { timeoutMs = method === "HEAD" ? HEAD_TIMEOUT_MS : GET_TIMEOUT_MS, headers = {}, signal, allowUrl }: { timeoutMs?: number; headers?: Record<string, string>; signal?: AbortSignal; allowUrl?: (url: URL) => boolean } = {}) {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     signal?.throwIfAborted();
-    const { url, pinnedIp, family } = await validateAndResolve(currentUrl, lookup);
+    const { url, pinnedIp, family } = await validateAndResolve(currentUrl, lookup, allowUrl);
     signal?.throwIfAborted();
     const agent = createPinnedAgent(url.protocol, pinnedIp, family);
     // 덧붙인 헤더는 홉마다 다시 보낸다
@@ -280,7 +284,7 @@ function watchBodyIdle(source: Readable & { setTimeout?(ms: number): unknown }, 
  * signal: 응답 헤더를 기다리는 동안 취소되면 그 사유로 예외를 던진다. 본문은 받는 쪽이 닫는다
  */
 async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = GET_TIMEOUT_MS, accept = DIRECT_LINK, from, to, ifRange, signal }: { bodyIdleMs?: number; accept?: Accept; from?: number; to?: number; ifRange?: string; signal?: AbortSignal } = {}) {
-  const { response, agent, finalUrl } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, headers: rangeHeaders(from, to, ifRange), signal });
+  const { response, agent, finalUrl } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, headers: rangeHeaders(from, to, ifRange), signal, allowUrl: accept.allowUrl });
   const source = response.body;
   try {
     assertResponseAllowed(response.headers, accept);
@@ -303,7 +307,7 @@ async function getStream(rawUrl: string, deps: RequestDeps = {}, { bodyIdleMs = 
  * 가드된 GET을 끝까지 받아 버퍼로(작은 파일). accept의 Content-Type, 크기 상한을 지키고, 다운로드 전체가 timeoutMs를 넘으면 끊는다. deps는 head와 같다. @throws
  */
 async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {}): Promise<Buffer> {
-  const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs });
+  const { response, agent } = await guardedRequest("GET", rawUrl, deps, { timeoutMs: accept.timeoutMs, allowUrl: accept.allowUrl });
   const source = response.body;
   const deadline = setTimeout(() => source.destroy(new Error(`다운로드가 ${accept.timeoutMs}ms 안에 끝나지 않음`)), accept.timeoutMs);
   try {

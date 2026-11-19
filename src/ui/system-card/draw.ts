@@ -12,7 +12,7 @@ import * as T from "../text/ko/system-card.ts";
 import { ensureFonts } from "../card-render/canvas-fonts.ts";
 import { FACES, FAMILIES, type Face } from "../card-render/fonts.ts";
 import { drawIcon } from "../card-render/icon-paths.ts";
-import type { CardIcon, StatusIcon } from "./icons.ts";
+import type { CardIcon, StatusIcon } from "../card-render/icons.ts";
 
 /** 그래프 하나: 값(오래된 것부터), 세로축 최댓값 */
 type Series = { values: number[]; max: number };

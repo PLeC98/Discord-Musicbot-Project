@@ -8,7 +8,7 @@ import * as fontkit from "fontkit";
 import { PROJECT } from "../../src/infra/project-paths.ts";
 import { formatSpan } from "../../src/ui/format.ts";
 import { FONTS, fontPath } from "../../src/ui/card-render/fonts.ts";
-import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/system-card/icons.ts";
+import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/card-render/icons.ts";
 import * as T from "../../src/ui/text/ko/system-card.ts";
 
 // 이미지 밖(디스코드 메시지)에 쓰는 문구
@@ -30,8 +30,8 @@ test("이미지에 들어갈 수 있는 글자는 등록한 글꼴 중 하나에
   assert.deepEqual(missing, []);
 });
 
-test("카드 아이콘의 윤곽이 data/discord-icons/system-card.json 에 있다(빠지면 scripts/build-discord-icons.ts 를 다시 돌린다)", () => {
-  const data = JSON.parse(fs.readFileSync(path.join(PROJECT.data, "discord-icons", "system-card.json"), "utf8")) as { line: Record<string, string>; fill: Record<string, string> };
+test("카드 아이콘의 윤곽이 data/discord-icons/card-icons.json 에 있다(빠지면 scripts/build-discord-icons.ts 를 다시 돌린다)", () => {
+  const data = JSON.parse(fs.readFileSync(path.join(PROJECT.data, "discord-icons", "card-icons.json"), "utf8")) as { line: Record<string, string>; fill: Record<string, string> };
   assert.deepEqual(Object.keys(data.line).sort(), [...CARD_ICONS].sort());
   assert.deepEqual(Object.keys(data.fill).sort(), [...STATUS_ICONS].sort());
 });

@@ -161,6 +161,16 @@ test("리다이렉트 무한 루프는 상한에서 끊긴다", async () => {
   assert.ok(calls.length <= 5, `요청 ${calls.length}회(상한이 없으면 무한히 돈다)`);
 });
 
+test("allowUrl 이 있으면 리다이렉트 홉마다 보고, 허용 밖으로 가는 요청은 나가지 않는다", async () => {
+  const accept: Accept = { contentType: /^image\//, maxBytes: 1024, timeoutMs: 1000, allowUrl: (url) => url.hostname === "1.1.1.1" };
+  responder = (_request, n) => (n === 1 ? reply(302, { location: "https://8.8.8.8/x.jpg" }) : reply(200, { "content-type": "image/jpeg" }));
+  await rejects(safeUrl.getBuffer("https://1.1.1.1/x.jpg", accept, deps), /받지 않는 주소/);
+  assert.equal(calls.length, 1, "허용 밖 주소로 요청이 나가면 안 된다");
+  calls.length = 0;
+  await rejects(safeUrl.getBuffer("https://8.8.8.8/x.jpg", accept, deps), /받지 않는 주소/);
+  assert.equal(calls.length, 0);
+});
+
 test("Location 없는 3xx는 오류로 끊는다", async () => {
   responder = () => reply(302);
   await rejects(head("https://1.1.1.1/x.mp3"), /Location/);
