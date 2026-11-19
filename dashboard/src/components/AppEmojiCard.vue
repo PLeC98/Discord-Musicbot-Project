@@ -1,6 +1,6 @@
 <template>
   <!-- 앱 이모지 탭의 카드: 운영자 패널에서 추가한 이모지(이름 입력란, 삭제)와 봇 내장 아이콘(보기만), 남은 슬롯.
-       고친 이름은 저장 띠로 모아 저장한다. 삭제는 두 번 누른다(처음 누르면 버튼이 "삭제"로 바뀌고 쓰는 곳을 알린다, 다른 곳을 누르면 돌아간다). 추가하기는 파일을 선택한 뒤 추가 창(AppEmojiDialog)을 연다. 바뀌면 목록을 다시 읽어 입력란, 선택기도 같이 바뀐다 -->
+       고친 이름은 저장 바로 모아 저장한다. 삭제는 두 번 누른다(처음 누르면 버튼이 "삭제"로 바뀌고 쓰는 곳을 알린다, 다른 곳을 누르면 돌아간다). 추가하기는 파일을 선택한 뒤 추가 창(AppEmojiDialog)을 연다. 바뀌면 목록을 다시 읽어 입력란, 선택기도 같이 바뀐다 -->
   <BaseCard icon="add_reaction" :title="T.title">
     <template #actions>
       <BaseButton size="sm" variant="ghost" :disabled="busy" @click="fileInput?.click()"><Icon name="upload" :size="16" />{{ T.add }}</BaseButton>

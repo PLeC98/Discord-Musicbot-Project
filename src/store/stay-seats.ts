@@ -1,5 +1,5 @@
 // 24/7 자리: 서버마다 봇이 머무는 음성 채널. 실행 중에는 메모리가 정본이고 state.db는 다시 시작할 때 읽는 사본이다.
-// 퇴장 타이머(player/idle-leave)가 자주 묻고 시험은 DB를 열지 않으므로, 읽기는 메모리만 본다(기동 때 load로 채운다)
+// 퇴장 타이머(player/idle-leave)가 자주 묻고 테스트는 DB를 열지 않으므로, 읽기는 메모리만 본다(기동 때 load로 채운다)
 
 import { stateDb } from "./state-db.ts";
 

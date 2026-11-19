@@ -2,7 +2,7 @@
   <!-- 봇 다시 시작 창(운영자 패널에 하나). 묻는 동안: 이유(있으면), 재생 중인 서버 수와 그 재생이 잠시 끊긴다는 안내, 진행 중인 설치 작업이 중단된다는 안내, 공지 스위치(기본 켬).
        재생 중인 서버가 없으면 스위치를 숨기고 알리지 않는다(수를 읽는 중이거나 읽지 못했으면 스위치를 보인다. 봇은 재생 중인 서버에만 보낸다).
        봇이 받은 뒤에는 버튼 없이 다시 뜨기를 기다린다.
-       까닭이 bgutil(POToken 서버 사용을 켰는데 bgutil이 없다)이면: 설치 중이면 "설치 후 다시 시작"을 묻고(설치가 끝날 때 다시 시작하므로 공지 스위치는 늘 보인다),
+       이유가 bgutil(POToken 서버 사용을 켰는데 bgutil이 없다)이면: 설치 중이면 "설치 후 다시 시작"을 묻고(설치가 끝날 때 다시 시작하므로 공지 스위치는 늘 보인다),
        설치할 수 없으면(없는 프로그램, 실패) 그 안내와 함께 "그래도 다시 시작"을 묻는다 -->
   <ConfirmDialog v-model="open" icon="restart_alt" tone="primary" :title="title" :confirm-label="confirmLabel" :cancel-label="T.later" :actions="!waiting" @confirm="confirm">
     <template v-if="waiting">{{ T.waiting }}</template>

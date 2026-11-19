@@ -264,7 +264,7 @@ function envNameWarnings(source: EnvSource, envFileNames: string[], asked: Set<s
 /**
  * 환경 변수 → 설정. 순수 함수다(읽기만 한다). envFileFound: .env 파일이 있었나.
  * tunables: 운영 설정값(settings.db의 문서). .env의 같은 이름은 쓰지 않는다. 그 값의 문제는 tuneProblems로 따로 낸다.
- * envFileNames: .env 파일에 적힌 이름. 여기서 읽지 않는 이름이 있으면 경고한다(쓰는 이름의 목록을 따로 두지 않고 읽어 본 이름과 견준다.
+ * envFileNames: .env 파일에 적힌 이름. 여기서 읽지 않는 이름이 있으면 경고한다(쓰는 이름의 목록을 따로 두지 않고 읽어 본 이름과 비교한다.
  * 옮기거나 없앤 이름을 하나씩 적어 두면 끝이 없다). 셸이 준 환경 변수는 보지 않는다
  */
 function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, envFileNames = [] }: { envFileFound?: boolean; tunables?: Record<string, string>; envFileNames?: string[] } = {}) {

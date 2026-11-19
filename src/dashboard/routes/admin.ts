@@ -188,7 +188,7 @@ adminRouter.post("/guilds/:guildId/leave", requireRecentLogin, async (req, res) 
 });
 
 // 특권 인텐트 켜기(운영자가 대시보드에서). 운영자의 디스코드 앱 설정(포털 스위치)을 바꾸므로 로그인한 지 오래되면 다시 로그인하게 한다.
-// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable이 셈한다. 다시 시작해야 적용된다
+// 요청은 어느 인텐트인지만 담고 보낼 값은 dashboard/intent-enable이 계산한다. 다시 시작해야 적용된다
 adminRouter.post("/intents/:name/enable", requireRecentLogin, async (req, res) => {
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");

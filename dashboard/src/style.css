@@ -541,7 +541,7 @@ body {
 .sb-auto-hide::-webkit-scrollbar-thumb {
   background-color: color-mix(in oklab, var(--md-on-surface) var(--sb-thumb-mix), transparent);
 }
-/* 사이드바 서버 목록: 칸을 줄여 막대 폭을 덜 늘린다. 손잡이 4px, 여백은 왼쪽 1px, 오른쪽 3px(다른 스크롤바와 같다) */
+/* 사이드바 서버 목록: 칸을 줄여 막대 폭을 덜 늘린다. 핸들 4px, 여백은 왼쪽 1px, 오른쪽 3px(다른 스크롤바와 같다) */
 .rail-list::-webkit-scrollbar {
   width: 8px;
 }

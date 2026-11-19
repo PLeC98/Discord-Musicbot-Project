@@ -51,7 +51,7 @@ async function announce(guild: Guild, notice: Notice) {
   await bestEffort(log, sending, "상주 모드 해제 알림 전송", "warn");
 }
 
-/** join, announce, sleep은 시험이 바꾼다 */
+/** join, announce, sleep은 테스트가 바꾼다 */
 type Deps = { client: Client; players: Pick<PlayerSeats, "get" | "set">; join?: typeof joinChannel; announce?: typeof announce; sleep?: (ms: number) => Promise<void> };
 
 // 상주 채널을 디스코드에서 조회한 결과: 붙을 채널, 상주 설정을 끌 원인, 조회 실패(그 원인)

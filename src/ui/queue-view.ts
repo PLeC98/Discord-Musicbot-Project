@@ -22,7 +22,7 @@ const PAGE_SIZE = 10;
 /** 화면 글(텍스트 디스플레이) 전체의 상한은 4000자(메뉴 항목의 글은 세지 않는다). 목록 말고 제목, 요약 줄이 쓸 몫을 남긴다 */
 const LIST_MAX = 3600;
 /**
- * 부품 전체(JSON)의 크기 상한. 디스코드는 10,240바이트를 넘으면 메시지째 거절한다(413). 디스코드가 세는 값은 JSON 바이트보다 작아 JSON으로 이 값 안이면 받는다.
+ * 컴포넌트 전체(JSON)의 크기 상한. 디스코드는 10,240바이트를 넘으면 메시지째 거절한다(413). 디스코드가 세는 값은 JSON 바이트보다 작아 JSON으로 이 값 안이면 받는다.
  * 한글은 3바이트라 긴 한글 제목, 아티스트 열 곡에 메뉴까지 달면 글자 수로는 상한 안이어도 넘친다. 넘으면 메뉴 항목의 글부터, 그다음 목록 상한을(긴 주소의 링크부터 뗀다) 줄여 다시 만든다
  */
 const BYTES_MAX = 10_000;
@@ -52,7 +52,7 @@ type Entry = Listed & Pick<QueuedTrack, "thumbnail" | "audioUrl" | "entry">;
 type Viewer = { id: string | null; dj: boolean };
 /** 보는 사람을 모를 때. 편집할 수 있는 곡이 없다 */
 const NOBODY: Viewer = { id: null, dj: false };
-/** 대기열 화면이 보는 것: 다음 곡들, 지금 재생(시작까지의 시간을 셈한다), 세션, 보는 사람 */
+/** 대기열 화면이 보는 것: 다음 곡들, 지금 재생(시작까지의 시간을 계산한다), 세션, 보는 사람 */
 type QueueInfo = {
   queue: Entry[];
   now: { track: { duration: number; isLive?: boolean } | null; positionSec: number; paused: boolean; loop: Loop; autoplay: boolean };
@@ -131,7 +131,7 @@ const ACTION_LOOK: Record<EditAction, { emoji: IconKey; style: ButtonStyle }> = 
   remove: { emoji: "remove", style: ButtonStyle.Danger },
 };
 
-/** 화면의 컨테이너와 첨부 파일, 실제로 그린 페이지. 부품 크기가 상한을 넘으면 목록을 줄여 다시 만든다 */
+/** 화면의 컨테이너와 첨부 파일, 실제로 그린 페이지. 컴포넌트 크기가 상한을 넘으면 목록을 줄여 다시 만든다 */
 function queueView(info: QueueInfo, screen: Screen, nowMs = Date.now()): { view: ContainerBuilder; files: Attachment[]; page: number } {
   let built = compose(info, screen, nowMs, SHRINK[0]);
   for (const step of SHRINK.slice(1)) {

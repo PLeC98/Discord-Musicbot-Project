@@ -176,7 +176,7 @@ const url = (path: string) => `/api/guilds/${props.guildId}/player/${path}?queue
 // 봇을 부를 칸인가(이 칸에서 봇이 음성 채널에 없으면 사용자는 음성 채널에 있다). 휴대폰은 서버 화면의 바텀 시트와 같은 기준
 const calling = computed(() => !props.player.botInVoice);
 const isPhone = useMediaQuery(PHONE_QUERY);
-// 휴대폰 대기열 시트 안이면 시트를 끝까지 펼치는 손잡이
+// 휴대폰 대기열 시트 안이면 시트를 끝까지 펼치는 핸들
 const expandSheet = inject(SHEET_EXPAND, null);
 
 // ── 입력란 ──

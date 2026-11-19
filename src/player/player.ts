@@ -299,7 +299,7 @@ class Player {
   /** 곡 끝 처리가 걸려 있다(Idle 뒤 다음 틱에 돈다). untilSwitched가 본다 */
   _endScheduled = false;
   _endWhileStarting: { reason: string; gen: number; track: QueuedTrack | null } | null = null; // 여는 중에 온 끝 요청과 그때의 곡. 연 뒤에 건다(_stopWith)
-  restAfterMs = REST_AFTER_MS; // 시험이 줄인다
+  restAfterMs = REST_AFTER_MS; // 테스트가 줄인다
   _restTimer: NodeJS.Timeout | null = null;
   _waking = false; // 휴면 중인 곡의 스트림을 다시 여는 중(wake). 화면이 곡을 보이게
   _halting = false; // 24/7 자리의 정지(stopStaying). 지금 곡의 끝에서 다음 곡, 반복, 자동재생으로 잇지 않는다

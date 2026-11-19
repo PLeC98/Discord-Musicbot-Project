@@ -71,7 +71,7 @@
           <BotRestart :available="status.env.launcher" />
         </div>
       </div>
-      <!-- 특권 인텐트가 꺼져 그것에 기대는 기능을 껐다(또는 켜졌는데 다시 시작 전이다). 상자가 자식 요소 사이를 띄우므로 글은 한 덩어리로 묶는다.
+      <!-- 특권 인텐트가 꺼져 그것에 기대는 기능을 껐다(또는 켜졌는데 다시 시작 전이다). 상자가 자식 요소 사이를 띄우므로 글은 한 블록으로 묶는다.
            100 서버 미만이면 포털 스위치를 여기서 켤 수 있다(운영자의 앱 설정을 바꾼다. 다시 시작해야 적용된다). 버튼은 오른쪽 끝, 글 전체의 세로 가운데에 둔다 -->
       <NoticeBox v-for="n in intentNotes" :key="n.name" variant="note" :tone="n.pending ? 'info' : 'notice'" :icon="n.pending ? 'info' : 'warning'">
         <span class="flex-1 min-w-0 flex items-center gap-3 flex-wrap"
