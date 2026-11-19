@@ -33,6 +33,8 @@ type YtDlpFlags = {
   cookiesFromBrowser?: string;
   extractorArgs?: string | string[];
   pluginDirs?: string;
+  noPluginDirs?: boolean;
+  ignoreConfig?: boolean;
   jsRuntimes?: string;
 };
 
@@ -156,5 +158,14 @@ const execWith =
   (url, flags = {}, options = {}) =>
     launch(file, [...argsOf(flags), "--", url].filter(Boolean), options);
 
-export { argsOf, execWith, isJSON, leaseFor, inUse };
+/**
+ * 호스트의 yt-dlp 설정을 섞지 않는 실행기. 모든 실행의 맨 앞에 --ignore-config(실행 파일 옆, 사용자, 시스템의 설정 파일을 읽지 않는다)와
+ * --no-plugin-dirs(기본 플러그인 폴더를 비운다)를 둔다. 봇이 넘기는 --plugin-dirs(POToken 플러그인)는 그 뒤라 그대로 찾는다
+ */
+const isolated =
+  (exec: Exec): Exec =>
+  (url, flags = {}, options) =>
+    exec(url, { ignoreConfig: true, noPluginDirs: true, ...flags }, options);
+
+export { argsOf, execWith, isolated, isJSON, leaseFor, inUse };
 export type { YtDlpFlags, Exec, Running };

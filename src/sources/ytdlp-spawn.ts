@@ -14,7 +14,7 @@ import { isYouTubeURL } from "../rules/links.ts";
 import * as errors from "./youtube/errors.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { ytdlpBinary } from "./ytdlp-binary.ts";
-import { execWith, isJSON, type Exec, type YtDlpFlags } from "./ytdlp-exec.ts";
+import { execWith, isJSON, isolated, type Exec, type YtDlpFlags } from "./ytdlp-exec.ts";
 import { sec } from "../infra/log/seconds.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 const log = logger.child({ category: "ytdlp" });
@@ -278,7 +278,7 @@ function execNow(): Exec {
   const file = ytdlpBinary.path();
   // 설치 전이거나 실행 파일이 사라졌다(ytdlpBinary가 설치를 예약한다). 띄우지 못한 것과 같은 코드로 알린다
   if (!file) throw Object.assign(new Error("yt-dlp가 설치되지 않음(pnpm run update:ytdlp)"), { code: "ENOENT" }) satisfies YtDlpError;
-  if (bound?.file !== file) bound = { file, exec: execWith(file) };
+  if (bound?.file !== file) bound = { file, exec: isolated(execWith(file)) };
   return bound.exec;
 }
 

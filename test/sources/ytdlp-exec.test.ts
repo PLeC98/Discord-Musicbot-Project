@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { argsOf, execWith, inUse, isJSON, leaseFor, type YtDlpFlags } from "../../src/sources/ytdlp-exec.ts";
+import { argsOf, execWith, inUse, isJSON, isolated, leaseFor, type Exec, type YtDlpFlags } from "../../src/sources/ytdlp-exec.ts";
 import { _internals } from "../../src/infra/process-registry.ts";
 
 // [무엇, 플래그, url, 최종 인자(플래그 뒤에 --, url. 빈 url은 빠진다)]
@@ -38,6 +38,17 @@ test("플래그를 인자로: dargs의 규칙과 같다", () => {
 
 test("자체 업데이트 플래그(Windows onedir 판이 onefile로 덮인다)와 dargs의 특수 키는 받지 않는다", () => {
   for (const key of ["update", "updateTo", "U", "_", "--"]) assert.throws(() => argsOf({ [key]: true } as YtDlpFlags), new RegExp(key === "--" ? "--" : key));
+});
+
+test("isolated: 모든 실행의 맨 앞에 --ignore-config, --no-plugin-dirs. 봇의 --plugin-dirs는 그 뒤라 지워지지 않는다", () => {
+  const seen: string[][] = [];
+  const recorder = ((url: string, flags: YtDlpFlags = {}) => (seen.push([...argsOf(flags), "--", url]), Promise.resolve({ stdout: "", stderr: "" }))) as unknown as Exec;
+  void isolated(recorder)("u", { dumpSingleJson: true, pluginDirs: "F:\\bot\\vendor\\bgutil" });
+  void isolated(recorder)("u");
+  assert.deepEqual(seen, [
+    ["--ignore-config", "--no-plugin-dirs", "--dump-single-json", "--plugin-dirs", "F:\\bot\\vendor\\bgutil", "--", "u"],
+    ["--ignore-config", "--no-plugin-dirs", "--", "u"],
+  ]);
 });
 
 test("isJSON은 { 로 시작하는 출력만", () => {

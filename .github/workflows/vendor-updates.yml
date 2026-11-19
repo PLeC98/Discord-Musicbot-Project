@@ -213,12 +213,12 @@ jobs:
 
           title="yt-dlp 릴리스 서명 키가 data/ 의 키와 다름"
           {
-            echo "yt-dlp 릴리스의 서명이 저장소에 둔 키(\`data/yt-dlp-signing-key.asc\`)로 맞지 않습니다($(date -u +%F) 갱신). 그동안 봇은 새 yt-dlp 를 설치하지 않고 지금 버전으로 돕니다."
+            echo "yt-dlp 릴리스의 서명이 저장소에 둔 키(\`data/yt-dlp-signing-key.asc\`)와 맞지 않습니다($(date -u +%F) 갱신). 그동안 봇은 새 yt-dlp 를 설치하지 않고 설치된 버전으로 동작합니다."
             echo
             jq -r '.ytdlpKey.problem // empty' result.json
             jq -r '.ytdlpKey.releases[] | "- \(.repo) \(.tag): \(if .ok then "서명 맞음" else .reason end)"' result.json
             echo
-            echo "yt-dlp 의 공지(README 의 서명 절, 릴리스 노트)와 대조한 뒤 새 키로 \`data/yt-dlp-signing-key.asc\` 와 \`src/sources/ytdlp-release.ts\` 의 지문을 바꾸세요. 확인 전에 급하면 운영자는 \`pnpm run update:ytdlp --skip-signature\` 로 설치할 수 있습니다(체크섬은 확인)."
+            echo "yt-dlp 의 공지(README 의 서명 절, 릴리스 노트)와 대조한 뒤 새 키로 \`data/yt-dlp-signing-key.asc\` 와 \`src/sources/ytdlp-release.ts\` 의 지문을 바꾸세요. 패치를 기다릴 여유가 없는 운영자는 \`pnpm run update:ytdlp --skip-signature\` 로 설치할 수 있습니다(체크섬은 확인)."
             echo
             echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
