@@ -24,7 +24,7 @@ const userPausedMark = () => "일시정지";
 /** 상태 줄의 대기열 곡 수 */
 const queuedStatus = (count: number) => `${icon("queue")} 대기열 ${count}곡`;
 /** 상태 줄의 건너뛸 구간 수(SponsorBlock) */
-const segmentsStatus = (count: number) => `건너뛸 구간 ${count}개`;
+const segmentsStatus = (count: number) => `${icon("sponsorblock")} 건너뛸 구간 ${count}개`;
 /** 상주 모드의 자리에서 트는 중 */
 const stayStatus = () => `${icon("stay")} 상주 모드`;
 /** 패널 아래의 대시보드 링크 */
