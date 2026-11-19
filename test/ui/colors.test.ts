@@ -30,8 +30,8 @@ function walk(dir: string, out: string[] = []) {
 }
 
 test("봇 코드는 색 값을 그 자리에 적지 않는다(ui/colors의 뜻, ui/palette로 선택한다)", () => {
-  // 운영 설정값 표는 임베드 색의 기본값을 적는 위치다
-  const skip = [path.join(ROOT, "src", "rules", "tunables.ts")];
+  // 운영 설정값 표는 임베드 색의 기본값을 적는 위치다. 색 체계(rules/palette)는 화면과 같이 쓰는 기본 바탕색과 무채색 기준을 정의한다(rules 는 ui 를 부르지 못한다)
+  const skip = [path.join(ROOT, "src", "rules", "tunables.ts"), path.join(ROOT, "src", "rules", "palette.ts")];
   const files = walk(path.join(ROOT, "src")).filter((f) => !skip.some((s) => f === s || f.startsWith(s)));
   const found = files.filter((f) => !f.endsWith(path.join("ui", "palette.ts"))).flatMap((f) => (fs.readFileSync(f, "utf8").match(/["'`]#[0-9A-Fa-f]{6}["'`]/g) ?? []).map((hex) => `${path.relative(ROOT, f)} ${hex}`));
   assert.deepEqual(found, []);

@@ -17,4 +17,14 @@ const BRAND_COLORS = {
 /** 디스코드 색 버튼(블러플, 초록, 빨강) 위의 글자 색. 그 위에 올리는 앱 이모지의 흰 기호(ui/icon-images)도 같다 */
 const ON_COLOR_BUTTON = "#FFFFFF";
 
-export { FIXED_COLORS, BRAND_COLORS, ON_COLOR_BUTTON };
+/**
+ * /system 이미지가 대시보드와 같이 쓰는 색 체계 밖의 고정 색(어두운 테마 값). 원본은 화면 CSS(dashboard/src/style.css)의 변수이고
+ * 값이 어긋나면 test/ui/palette-dashboard-css.test.ts 가 잡는다
+ */
+const DASHBOARD_COLORS = {
+  warnInk: "#facc15", // 주의 단계의 노랑(--warn-ink). 머티리얼 3 에 경고 색 역할이 없어 따로 둔다
+  storeCache: "#4a86d4", // 저장공간 막대의 캐시(--store-cache)
+  storeOther: "#2aa37c", // 저장공간 막대에서 캐시 외 사용량(--store-other)
+} as const satisfies Record<string, `#${string}`>;
+
+export { FIXED_COLORS, BRAND_COLORS, ON_COLOR_BUTTON, DASHBOARD_COLORS };

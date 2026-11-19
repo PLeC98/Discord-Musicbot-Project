@@ -15,12 +15,13 @@ const FONTS = [
 const FAMILIES = FONTS.map((one) => `"${one.family}"`).join(", ");
 
 /**
- * 글꼴 스타일 두 가지. 대시보드 규칙과 같다: 본문은 400 둥글기 없음, 제목과 큰 숫자는 600 둥글기 100.
- * 둘 다 가변 글꼴이라 굵기와 둥글기를 축으로 준다(Pretendard 에는 둥글기 축이 없어 굵기만 먹는다).
+ * 글꼴 스타일. 대시보드 규칙과 같다: 본문은 400 둥글기 없음, 보조 값은 500 둥글기 없음, 제목과 큰 숫자는 600 둥글기 100.
+ * 모두 가변 글꼴이라 굵기와 둥글기를 축으로 준다(Pretendard 에는 둥글기 축이 없어 굵기만 먹는다).
  * 크기 맞춤 축(opsz)은 이미지 안의 글자가 화면에서 11 ~ 30px 정도라 그 사이의 한 값으로 고정한다
  */
 const FACES = {
   regular: { weight: 400, variations: `"wght" 400, "ROND" 0, "opsz" 18` },
+  medium: { weight: 500, variations: `"wght" 500, "ROND" 0, "opsz" 18` },
   strong: { weight: 600, variations: `"wght" 600, "ROND" 100, "opsz" 18` },
 } as const;
 type Face = keyof typeof FACES;
