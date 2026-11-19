@@ -9,14 +9,14 @@ import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, ans
 import * as controlText from "../../ui/text/ko/controls.ts";
 
 import { PANEL, PING, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
-import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
+import { openQueue } from "../commands/queue.ts";
 import { systemScreen } from "../commands/system.ts";
 import { pingAgain } from "../commands/ping.ts";
 import { post } from "../../ui/frame.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
-import { LIFETIME, keepSelf, noticeInstead, noticeSelf, selfOnly, toSelf, updateSelf } from "../../ui/delivery.ts";
+import { LIFETIME, keepSelf, noticeSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
 
 /** 서버 메시지의 버튼 */
@@ -27,7 +27,7 @@ const PANEL_ACTIONS: Record<string, (it: Press, player: Player) => unknown> = {
   pause: (it, player) => answerPause(it, player),
   skip: (it, player) => answerSkip(it, player),
   stop: (it, player) => answerStop(it, player),
-  queue: (it, player) => handleQueue(it, player),
+  queue: (it, player) => openQueue(it, player),
   shuffle: (it, player) => answerShuffle(it, player),
   highlight: (it, player) => answerHighlight(it, player, { onNone: () => it.deferUpdate() }),
   volume: (it, player) => handleVolumeButton(it, player),
@@ -52,26 +52,6 @@ async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const handle = PANEL_ACTIONS[action];
   if (!handle || PANEL_ENABLED[action]?.() === false) return noticeSelf(interaction, errors.notice("unknown-interaction"));
   await handle(interaction, player);
-}
-
-async function handleQueue(interaction: Press, player: Player) {
-  const queueInfo = queueInfoOf(player);
-
-  if (queueInfo.queue.length === 0) {
-    return await noticeSelf(interaction, errors.notice("queue-empty"));
-  }
-
-  await toSelf(interaction, selfOnly(queueView(queueInfo)), LIFETIME.screen);
-}
-
-// 대기열 넘기기(◀ ▶). 버튼이 달린 대기열 메시지를 그때의 대기열로 다시 그린다. 플레이어나 곡이 없으면 그 메시지를 삭제하고 그렇다고 알린다
-async function handleQueuePage(interaction: Press, { players }: BotContext) {
-  const player = players.get(interaction.guild.id);
-  const info = player ? queueInfoOf(player) : null;
-  if (!info || info.queue.length === 0) {
-    return noticeInstead(interaction, player ? errors.notice("queue-empty") : errors.notice("no-song"));
-  }
-  return updateSelf(interaction, queueView(info, pageOf(interaction.customId) ?? 1), LIFETIME.screen);
 }
 
 async function handleVolumeButton(interaction: Press, player: Player) {
@@ -114,13 +94,12 @@ async function handleSystemRefresh(interaction: Press, bot: BotContext) {
   }
 }
 
-// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
+// custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 다시 재기)과 재생 패널의 버튼. 대기열 화면의 버튼은 interactions/queue-handler
 const routes: Route[] = [
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
   route("button", customId(PING, "again"), (interaction) => pingAgain(interaction)),
-  route("button", PAGE_PREFIX, handleQueuePage),
   // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, handleSystemRefresh };
+export { routes, handlePanelButton, handleVolumeButton, volumeModal, handleSystemRefresh };

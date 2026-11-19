@@ -1,11 +1,11 @@
 // src/ui/queue-display.ts: 대기열을 보여 주는 곳들의 공통 생김새.
 //
-// `/queue`와 대기열 버튼이 같은 줄을 쓴다(각자 만들면 한쪽만 고쳐 표시가 달라진다).
+// `/queue`와 대기열 버튼이 같은 줄을 쓰고, 재생 패널과 /queue 편집이 같은 메뉴 항목을 쓴다(각자 만들면 한쪽만 고쳐 표시가 달라진다).
 // 줄 만드는 규칙은 여기서 잠근다.
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { queueLine, jumpDescription } from "../../src/ui/queue-display.ts";
+import { editDescription, entryLine, entryLines, entryOptions, jumpDescription } from "../../src/ui/queue-display.ts";
 import { useUploaded } from "../../src/ui/icons.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 
@@ -14,32 +14,45 @@ afterEach(() => useUploaded(new Map()));
 const song = (over: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: "곡", pageUrl: "https://y/1", requestKey: "https://y/1", platform: "youtube", artist: "가수", duration: 100, ...over });
 
 test("대기열 줄: 제목이 링크 라벨을 닫지 못하고, 링크를 뗀 줄에서는 제목의 링크 문법이 이스케이프된다", () => {
-  const evil = song({ title: "x](https://evil.example) [y" });
-  assert.equal(queueLine(evil, 1), "`1.` **[x]\u200b(https://evil.example) [y](https://y/1)**\n");
-  const plain = queueLine(song({ title: "[클릭](https://evil.example)" }), 1, { link: false });
+  const evil = song({ title: "x](https://evil.example) [y", artist: undefined, duration: 0 });
+  assert.equal(entryLine(evil, 1), "`1` **[x]​(https://evil.example) [y](https://y/1)**");
+  const plain = entryLine(song({ title: "[클릭](https://evil.example)" }), 1, { link: false });
   assert.ok(!/(^|[^\\])\[[^\]]*\]\(/.test(plain), plain);
-  // 대기열은 임베드라 디스코드가 라벨 안의 이모지를 받는다. 글자 모양으로 바꾸지 않는다
-  assert.equal(queueLine(song({ title: "곡 \u{1F3B5}" }), 1), "`1.` **[곡 \u{1F3B5}](https://y/1)**\n");
 });
 
-test("대기열 줄: 요청자는 멘션으로", () => {
-  const line = queueLine(song({ requestedBy: { id: "u1" } }), 3);
-  assert.equal(line, "`3.` **[곡](https://y/1)** | <@u1>\n");
+test("대기열 줄: 아래 줄은 아티스트 · 요청자(멘션) · 시작까지, 적을 것이 없으면 한 줄", () => {
+  assert.equal(entryLine(song({ requestedBy: { id: "u1" } }), 3, { startsIn: 200 }), "`3` **[곡](https://y/1)** · 1:40\n-# 가수 · <@u1> · 약 3분 뒤");
+  assert.equal(entryLine(song({ artist: undefined }), 2), "`2` **[곡](https://y/1)** · 1:40");
+  assert.equal(entryLine(song({ title: null, artist: "*별*" }), 2), "`2` **[알 수 없는 곡](https://y/1)** · 1:40\n-# \\*별\\*");
 });
 
-test("대기열 줄: 자동재생 곡은 자동재생 아이콘으로. 장르 이모지를 쓰지 않는다. 앱 이모지를 맞추면 그것", () => {
-  const line = () => queueLine(song({ autoplay: true, requestedBy: { id: "bot" } }), 1);
-  assert.equal(line(), "`1.` **[곡](https://y/1)** | 📻\n");
+test("대기열 줄: 라이브는 길이 자리에 🔴LIVE, 길이를 모르면 길이를 적지 않는다", () => {
+  assert.equal(entryLine(song({ isLive: true, duration: 0, artist: undefined }), 1), "`1` **[곡](https://y/1)** · 🔴LIVE");
+  assert.equal(entryLine(song({ duration: 0, artist: undefined }), 1), "`1` **[곡](https://y/1)**");
+});
+
+test("대기열 줄: 자동재생 곡은 자동재생 아이콘과 이름으로. 장르 이모지를 쓰지 않는다. 앱 이모지를 맞추면 그것", () => {
+  const line = () => entryLine(song({ autoplay: true, requestedBy: { id: "bot" } }), 1);
+  assert.equal(line(), "`1` **[곡](https://y/1)** · 1:40\n-# 가수 · 📻 자동재생");
   useUploaded(new Map([["autoplay", { id: "7", animated: false }]]));
-  assert.equal(line(), "`1.` **[곡](https://y/1)** | <:autoplay:7>\n");
+  assert.equal(line(), "`1` **[곡](https://y/1)** · 1:40\n-# 가수 · <:autoplay:7> 자동재생");
 });
 
-test("대기열 줄: 요청자를 모르면 제목만", () => {
-  assert.equal(queueLine(song(), 2), "`2.` **[곡](https://y/1)**\n");
+test("대기열 줄: 제목은 60자, 아티스트는 40자에서 잘라 ...을 붙인다(끝 표시까지)", () => {
+  const line = entryLine(song({ title: "a".repeat(80), artist: "b".repeat(50) }), 1);
+  assert.ok(line.includes(`[${"a".repeat(57)}...]`), line);
+  assert.ok(line.includes(`-# ${"b".repeat(37)}...`), line);
+  assert.ok(entryLine(song({ title: "a".repeat(60) }), 1).includes(`[${"a".repeat(60)}]`), "60자는 그대로");
 });
 
-test("대기열 줄: 제목이 없으면 알 수 없는 곡", () => {
-  assert.equal(queueLine(song({ title: null }), 2), "`2.` **[알 수 없는 곡](https://y/1)**\n");
+test("대기열 줄들: 상한을 넘으면 주소가 긴 곡부터 링크를 뗀다", () => {
+  const tracks = [song({ pageUrl: `https://y/${"x".repeat(500)}` }), song({ pageUrl: "https://y/short" })];
+  const all = entryLines({ tracks, max: 4000 });
+  assert.equal((all.match(/\]\(https/g) ?? []).length, 2);
+  const cut = entryLines({ tracks, max: 300 });
+  assert.ok(cut.length <= 300, `${cut.length}자`);
+  assert.ok(cut.includes("(https://y/short)") && !cut.includes("xxxx"), cut);
+  assert.ok(entryLines({ tracks, first: 11, max: 4000 }).startsWith("`11`"), "번호는 first 부터");
 });
 
 // 셀렉트 메뉴 설명은 멘션, 앱 이모지를 렌더링하지 않는다(글자 그대로 보인다). 이름과 유니코드를 쓴다.
@@ -74,8 +87,25 @@ test("점프 설명: 100자를 넘지 않는다", () => {
   assert.ok(long.includes("…"), "아티스트가 잘렸음을 보인다");
 });
 
-test("대기열 한 줄의 제목은 60자에서 잘라 ...을 붙인다(끝 표시까지 60자)", () => {
-  const line = queueLine(song({ title: "a".repeat(80) }), 1);
-  assert.ok(line.includes(`[${"a".repeat(57)}...]`), line);
-  assert.ok(queueLine(song({ title: "a".repeat(60) }), 1).includes(`[${"a".repeat(60)}]`), "60자는 그대로");
+test("편집 메뉴 설명: 아티스트 · 길이. 100자를 넘으면 아티스트부터 줄인다", () => {
+  assert.equal(editDescription(song({ requestedBy: { id: "u1", username: "요청자" } })), "가수 · 1:40");
+  assert.equal(editDescription(song({ artist: undefined, isLive: true, duration: 0 })), "🔴LIVE");
+  const long = editDescription(song({ artist: "가".repeat(300) }));
+  assert.ok(long && long.length <= 100 && long.endsWith("… · 1:40"), long);
+});
+
+const entry = (track: QueuedTrack, value: number) => Object.defineProperty(track, "entry", { value, enumerable: false });
+
+test("메뉴 항목: 번호. 제목(100자), 값은 대기열 ID, ID가 없거나 겹치면 뺀다. 골라 둔 곡은 기본값", () => {
+  const tracks = [entry(song({ title: "가" }), 7), song({ title: "ID 없음" }), entry(song({ title: "나".repeat(200) }), 9), entry(song({ title: "겹침" }), 7)];
+  const options = entryOptions(tracks, { first: 11, description: editDescription, picked: 9 }).map((one) => one.toJSON());
+  assert.deepEqual(
+    options.map((one) => [one.label.length <= 100, one.value, one.default ?? false]),
+    [
+      [true, "entry:7", false],
+      [true, "entry:9", true],
+    ],
+  );
+  assert.equal(options[0].label, "11. 가");
+  assert.ok(options[1].label.startsWith("13. 나"));
 });

@@ -3,7 +3,7 @@
 //   모두: 공개 응답, 채널 메시지. transientMessages.scheduleDelete로 삭제해 패널이 묻혔는지 셀 때 빠진다
 // "하는 중"(플레이스홀더, 메뉴, 설정 화면)은 본인에게, 결과는 모두에게. 본인 플레이스홀더 뒤의 결과는 플레이스홀더를 삭제하고 채널에 새로 보낸다
 
-import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type InteractionUpdateOptions, type MessageComponentInteraction, type RepliableInteraction } from "discord.js";
+import { MessageFlags, RESTJSONErrorCodes, type ContainerBuilder, type InteractionReplyOptions, type InteractionUpdateOptions, type MessageComponentInteraction, type ModalMessageModalSubmitInteraction, type RepliableInteraction } from "discord.js";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { codeOf, describeError } from "../rules/error-kind.ts";
@@ -76,11 +76,14 @@ function expireMessage(messageId: string, remove: () => unknown, ms: number, wha
   expiries.set(messageId, timer);
 }
 
+/** 메시지에 달린 버튼, 메뉴, 그 메시지에서 연 모달의 제출 */
+type OnMessage = MessageComponentInteraction | ModalMessageModalSubmitInteraction;
+
 /**
  * 본인에게만 보인 화면을 그 화면의 버튼, 메뉴로 고친 뒤 부른다. 첫 응답에 걸어 둔 삭제를 멈추고 ms 뒤로 다시 센다(읽는 동안 지워지지 않게).
  * 삭제는 이 버튼, 메뉴의 토큰으로 한다(첫 응답의 토큰은 15분 뒤 죽는다)
  */
-function keepSelf(interaction: MessageComponentInteraction, ms: number) {
+function keepSelf(interaction: OnMessage, ms: number) {
   record(interaction, ms);
   const firstReply = interaction.message.interactionMetadata?.id;
   if (firstReply) stopExpiry(firstReply);
@@ -88,7 +91,7 @@ function keepSelf(interaction: MessageComponentInteraction, ms: number) {
 }
 
 /** 본인에게만 보인 화면을 고치고 삭제를 ms 뒤로 다시 센다(keepSelf) */
-async function updateSelf(interaction: MessageComponentInteraction, payload: InteractionUpdateOptions, ms: number) {
+async function updateSelf(interaction: OnMessage, payload: InteractionUpdateOptions, ms: number) {
   await interaction.update(payload);
   keepSelf(interaction, ms);
 }

@@ -89,6 +89,8 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
     currentTrack: null as FakeTrack | null,
     autoplay: false as string | false,
     paused: false,
+    isLive: false,
+    getCurrentTime: () => 0,
     loop: false as string | false,
     releaseLoopForLive() {},
     setAutoplay(v: string | false) {
@@ -287,13 +289,21 @@ test("하이라이트 버튼: 봇 전체에서 SponsorBlock을 껐으면 남은 
 
 // ── 대기열 버튼 ───────────────────────────────────────────────────────
 
-// 대기열 화면은 /queue와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)
-type QueueEmbed = { data: { description?: string; fields?: unknown; footer: { text: string } } };
-type QueueRow = { components: Array<{ data: { custom_id?: string; emoji?: { name?: string }; disabled?: boolean } }> };
-type QueuePayload = { content?: string; embeds: QueueEmbed[]; components: QueueRow[] };
-const buttonsOf = (p: QueuePayload) => p.components.flatMap((row) => row.components.map((c) => [c.data.emoji?.name, c.data.custom_id, !!c.data.disabled]));
+// 대기열 화면은 /queue와 한 벌이다(ui/queue-view). 한 페이지 10곡, 넘치면 넘기기 버튼(아이콘만, 앱 이모지를 동기화하기 전에는 ◀ ▶)과 페이지 버튼, 끝에 편집 버튼
+type QueuePayload = Payload & { flags?: unknown };
+type QueueNode = { type?: number; custom_id?: string; disabled?: boolean; components?: QueueNode[] };
+function buttonsOf(p: QueuePayload) {
+  const out: Array<[string | undefined, boolean]> = [];
+  const walk = (node: QueueNode) => {
+    if (node.type === 2) out.push([node.custom_id, node.disabled ?? false]);
+    node.components?.forEach(walk);
+  };
+  p.components?.forEach((c) => walk(c.toJSON() as QueueNode));
+  return out;
+}
+const cv2Message = { id: "queue-msg", flags: { has: (flag: number) => flag === MessageFlags.IsComponentsV2 } };
 
-test("대기열 버튼: 비었으면 알리고, 있으면 /queue와 같은 첫 페이지와 넘기기 버튼", async () => {
+test("대기열 버튼: 비었으면 알리고, 있으면 /queue와 같은 첫 페이지와 넘기기 버튼(본인에게만, Components V2)", async () => {
   const w = world();
   const empty = press(w, "panel:queue:S1");
   await interactionCreate.execute(empty.bot, empty.it);
@@ -314,43 +324,52 @@ test("대기열 버튼: 비었으면 알리고, 있으면 /queue와 같은 첫 �
   await interactionCreate.execute(full.bot, full.it);
   const payload = got.payload;
   assert.ok(payload);
-  const text = String(payload.embeds[0].data.description);
-  assert.match(text, /^`1\.` \*\*\[곡1\]/);
-  assert.match(text, /`10\.` \*\*\[곡10\]/);
-  assert.doesNotMatch(text, /곡11/, "한 쪽 10곡");
-  assert.equal(payload.embeds[0].data.footer.text, "모두 12곡 • 1/2 페이지");
+  assert.deepEqual([payload.flags].flat(), [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  const text = textsOf(payload).join("\n");
+  assert.ok(text.includes("`1` **[곡1]") && text.includes("`10` **[곡10]"), text);
+  assert.ok(!text.includes("곡11"), "한 페이지 10곡");
+  assert.ok(text.includes("-# 총 12곡"), text);
   assert.deepEqual(buttonsOf(payload), [
-    ["◀", "queue:page:0", true],
-    ["▶", "queue:page:2", false],
+    ["queue:page:0", true],
+    ["queue:goto:browse:1", false],
+    ["queue:page:2", false],
+    ["queue:edit:1", false],
   ]);
 });
 
-test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린다. 곡이 없으면 그렇다고 고친다", async () => {
+test("대기열 넘기기: 그 메시지를 그때의 대기열로 다시 그린다(미룬 뒤 고친다). 곡이 없으면 지우고 알리고, 옛 임베드 화면은 모른다고 한다", async () => {
   const w = world();
   w.player.currentTrack = { title: "지금", pageUrl: "now" };
   w.player.queue = Array.from({ length: 12 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  const updates: QueuePayload[] = [];
-  const next = press(w, "queue:page:2", { update: async (p: QueuePayload) => updates.push(p) });
+  const edits: QueuePayload[] = [];
+  const turn = (id: string) => press(w, id, { message: cv2Message, editReply: async (p: QueuePayload) => edits.push(p) });
+  const next = turn("queue:page:2");
   await interactionCreate.execute(next.bot, next.it);
-  const text = String(updates[0].embeds[0].data.description);
-  assert.match(text, /^`11\.` \*\*\[곡11\]/, "번호는 쪽을 이어 센다");
-  assert.equal(updates[0].embeds[0].data.footer.text, "모두 12곡 • 2/2 페이지");
-  assert.deepEqual(buttonsOf(updates[0]), [
-    ["◀", "queue:page:1", false],
-    ["▶", "queue:page:3", true],
+  assert.deepEqual(next.log, [["deferUpdate"]]);
+  assert.ok(textsOf(edits[0]).join("\n").includes("`11` **[곡11]"), "번호는 페이지를 이어 센다");
+  assert.deepEqual(edits[0].attachments, [], "붙어 있던 이미지를 뗀다");
+  assert.deepEqual(buttonsOf(edits[0]), [
+    ["queue:page:1", false],
+    ["queue:goto:browse:2", false],
+    ["queue:page:3", true],
+    ["queue:edit:2", false],
   ]);
 
-  // 그사이 곡이 줄어 페이지가 없어졌으면 끝 페이지로
+  // 그사이 곡이 줄어 페이지가 없어졌으면 끝 페이지로. 한 페이지면 편집 버튼만
   w.player.queue = w.player.queue.slice(0, 3);
-  await interactionCreate.execute(w.bot, press(w, "queue:page:2", { update: async (p: QueuePayload) => updates.push(p) }).it);
-  assert.equal(updates[1].embeds[0].data.footer.text, "모두 3곡");
-  assert.deepEqual(updates[1].components, [], "한 쪽이면 버튼이 없다");
+  await interactionCreate.execute(w.bot, turn("queue:page:2").it);
+  assert.ok(textsOf(edits[1]).join("\n").includes("-# 총 3곡"));
+  assert.deepEqual(buttonsOf(edits[1]), [["queue:edit:1", false]]);
+
+  const old = press(w, "queue:page:1", { message: { id: "old", flags: { has: () => false } } });
+  await interactionCreate.execute(old.bot, old.it);
+  assert.deepEqual(old.log, [["reply", said(errors.notice("unknown-interaction"))]], "업데이트 전의 임베드 화면");
 
   w.player.currentTrack = null;
   w.player.queue = [];
-  const gone = press(w, "queue:page:1", { update: async (p: QueuePayload) => updates.push(p) });
+  const gone = turn("queue:page:1");
   await interactionCreate.execute(gone.bot, gone.it);
-  assert.equal(updates.length, 2, "대기열 화면은 안내로 고칠 수 없다");
+  assert.equal(edits.length, 2, "대기열 화면은 안내로 고칠 수 없다");
   assert.deepEqual(gone.log, [["deferUpdate"], ["deleteReply"], ["followUp", said(errors.notice("queue-empty"))]], "그 화면을 지우고 본인에게만 알린다");
 });
 

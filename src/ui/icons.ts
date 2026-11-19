@@ -39,6 +39,12 @@ const ICONS = {
   cancel: { glyph: "close", unicode: "❌", shape: "white" },
   page_prev: { glyph: "chevron_left", unicode: "◀" },
   page_next: { glyph: "chevron_right", unicode: "▶" },
+  // 대기열 편집(편집 버튼, 편집 화면 제목, 곡 버튼 줄. 지금 재생은 블러플, 삭제는 빨강 버튼)
+  edit: { glyph: "edit", unicode: "✏️" },
+  play_now: { glyph: "play_arrow", unicode: "▶️", shape: "white" },
+  move_up: { glyph: "arrow_upward", unicode: "🔼" },
+  move_down: { glyph: "arrow_downward", unicode: "🔽" },
+  remove: { glyph: "delete", unicode: "🗑️", shape: "white" },
 
   // 응답 헤더 줄의 주제(오류, 경고 안내, ui/frame). 헤더 줄 크기라 기호 안의 기호를 쓰고, 타일은 그 응답 색.
   // 그려 두는 경고 수준은 그 주제로 안내를 만드는 곳이 쓰는 것만(테스트가 확인한다)

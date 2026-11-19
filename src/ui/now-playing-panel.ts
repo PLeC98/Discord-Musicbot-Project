@@ -1,11 +1,10 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes, SnowflakeUtil } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, WebhookClient, RESTJSONErrorCodes, SnowflakeUtil } from "discord.js";
 import { readsMessageContent, tracksMembers } from "../infra/gateway-intents.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
 import { labelOf } from "../rules/platforms.ts";
-import { clipText } from "../rules/clip-text.ts";
 
 /** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
 type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
@@ -72,11 +71,11 @@ const PIN_SETTLE_MS = 12000;
 const NO_ART = "no-art";
 import { isTransient, scheduleDelete } from "./transient-messages.ts";
 import { LIFETIME, unlessGone } from "./delivery.ts";
-import { panelId, IDLE_SESSION, jumpValue } from "./custom-ids.ts";
+import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
 import * as discordArt from "./discord-art.ts";
-import { jumpDescription } from "./queue-display.ts";
+import { entryOptions, jumpDescription } from "./queue-display.ts";
 import { PanelLocation, type PanelStore } from "./panel-location.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { colorOf } from "./colors.ts";
@@ -842,22 +841,12 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 선택한 곡을 가리킨다. 번호는 이름에만 쓴다.
-   * ID가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). 대기열이 비었거나 세션 id가 없으면 null
+   * 항목은 queue-display의 entryOptions(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
     if (!player.sessionId || player.queue.length === 0) return null;
 
-    const seen = new Set<number>();
-    const options = player.queue.slice(0, SELECT_MAX).flatMap((track, i) => {
-      if (track.entry === undefined || seen.has(track.entry)) return [];
-      seen.add(track.entry);
-      const label = clipText(`${i + 1}. ${songTitle(track.title)}`, 100);
-      const opt = new StringSelectMenuOptionBuilder().setLabel(label).setValue(jumpValue(track.entry));
-      const description = jumpDescription(track);
-      if (description) opt.setDescription(description);
-      return [opt];
-    });
+    const options = entryOptions(player.queue.slice(0, SELECT_MAX), { description: jumpDescription });
     if (options.length === 0) return null;
 
     const placeholder = panelText.jumpPlaceholder();

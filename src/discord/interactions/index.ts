@@ -7,8 +7,9 @@ import { routes as playlistMore } from "./playlist-more-handler.ts";
 import { routes as settingsPanel } from "./settings-panel-handler.ts";
 import { routes as search } from "./search-pick.ts";
 import { routes as help } from "./help.ts";
+import { routes as queue } from "./queue-handler.ts";
 import type { Route } from "./route.ts";
 
-const ROUTES: readonly Route[] = [...buttons, ...panelInputs, ...autoplay, ...playlistMore, ...settingsPanel, ...search, ...help];
+const ROUTES: readonly Route[] = [...buttons, ...panelInputs, ...autoplay, ...playlistMore, ...settingsPanel, ...search, ...help, ...queue];
 
 export { ROUTES };

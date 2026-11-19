@@ -7,6 +7,7 @@ import { cellImagesOf, isArtHost, SIZE, _internals } from "../../src/ui/queue-mo
 import { sizeOf, PER_ROW } from "../../src/ui/queue-mosaic/layout.ts";
 import { renderQueueMosaic } from "../../src/ui/card-render/render.ts";
 import { remember } from "../helpers/tagged-audio.ts";
+import sink from "../../src/infra/log/sink.ts";
 
 const yt = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 const small = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
@@ -111,4 +112,20 @@ test("워커에서 그린 모자이크: 칸 수에 맞는 크기의 투명한 We
     const meta = await sharp(webp).metadata();
     assert.deepEqual([meta.format, meta.width, meta.height, meta.hasAlpha], ["webp", sizeOf(count).width, sizeOf(count).height, true], `${count}칸`);
   }
+});
+
+test("로그: 4xx(썸네일 없음)는 warn 을 남기지 않고, 그 밖의 실패는 원인마다 처음 한 번 warn, 다시 만들면 복구 한 줄", async () => {
+  const lines = () => sink.buffer.slice(from).flatMap((e) => (e.text.includes("/queue 썸네일 처리") ? [`${e.level} ${e.text}`] : []));
+  _internals.useFetch(async () => image(320, 180));
+  await cellImagesOf([{ thumbnail: yt("logreset000") }]);
+  const from = sink.buffer.length;
+  _internals.useFetch(async (url) => {
+    if (url.includes("missing")) throw Object.assign(new Error("요청 실패: HTTP 404"), { status: 404 });
+    if (url.includes("netfail")) throw new Error("응답이 5000ms 동안 없음");
+    return image(320, 180);
+  });
+  await cellImagesOf([{ thumbnail: yt("missing0000") }]);
+  await cellImagesOf([{ thumbnail: yt("netfail0001") }, { thumbnail: yt("netfail0002") }]);
+  await cellImagesOf([{ thumbnail: yt("recovered00") }]);
+  assert.deepEqual(lines(), ["warn /queue 썸네일 처리 실패: 응답이 5000ms 동안 없음", "info /queue 썸네일 처리 복구(실패 2회)"]);
 });

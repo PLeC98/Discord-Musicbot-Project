@@ -235,7 +235,10 @@ test("/nowplaying: 멈춤, 준비 중, 대기열 반복, 길이를 모르면 진
 
 // ── /queue ────────────────────────────────────────────────────────────
 
-const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue });
+const queuePlayer = (current: object | null, queue: object[]) => ({ currentTrack: current, queue, isLive: false, paused: false, loop: false, autoplay: false, sessionId: "S", getCurrentTime: () => 0 });
+// 대기열 화면은 보는 사람의 역할로 버튼을 고른다. 서버 관리자는 DJ 다
+const queueViewer = { id: "u1", permissions: { has: () => true }, roles: { cache: new Map() }, guild: { id: "g1", roles: { cache: new Map() } } };
+const viewing = <T extends { it: object }>(one: T) => (Object.assign(one.it, { member: queueViewer }), one);
 
 test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   const none = interaction();
@@ -250,39 +253,34 @@ test("/queue: 플레이어가 없거나 비었으면 알린다", async () => {
   assert.deepEqual(onlyNow.log[0][1], noticeReply(errors.notice("queue-empty")));
 });
 
-// 대기열은 본문(description)에 싣는다. 필드(field)에 나눠 실으면 필드마다 이름 줄이 생겨 빈 여백이 낀다
-const descriptionOf = (payload: Sent) => String(payload.embeds[0].data.description ?? "");
-
 test("/queue: 다음 곡만 페이지마다 나눠 보인다. 없는 페이지는 마지막 페이지로", async () => {
   const queue = Array.from({ length: 25 }, (_, i) => ({ title: `곡${i + 1}`, pageUrl: `u${i}`, duration: 60 }));
-  const first = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue) });
+  const first = viewing(interaction({ player: queuePlayer({ title: "지금", pageUrl: "now", duration: 0 }, queue) }));
   await run(await command("queue"), first.it, first.bot);
-  const p1 = first.log[0][1];
-  assert.match(descriptionOf(p1), /^`1\.` \*\*\[곡1\]\(u0\)\*\*/);
-  assert.doesNotMatch(descriptionOf(p1), /지금/, "지금 곡은 재생 패널이 보인다");
-  assert.equal(p1.embeds[0].data.fields, undefined, "필드를 쓰지 않는다");
-  assert.equal(p1.embeds[0].data.footer?.text, "모두 25곡 • 1/3 페이지");
+  const p1 = textOf(first.log[0][1]);
+  assert.ok(p1.includes("`1` **[곡1](u0)** · 1:00"), p1);
+  assert.ok(!p1.includes("지금"), "지금 곡은 재생 패널이 보인다");
+  assert.ok(p1.includes("-# 총 25곡 · 25분"), p1);
+  assert.ok(JSON.stringify(first.log[0][1]).includes('"label":"1/3"'), "페이지 버튼");
   assert.deepEqual(lifetimesOf(first.it), [LIFETIME.screen], "읽는 화면의 수명");
 
-  const last = interaction({ player: queuePlayer({ title: "지금", pageUrl: "now" }, queue), options: { page: 9 } });
+  const last = viewing(interaction({ player: queuePlayer({ title: "지금", pageUrl: "now", duration: 0 }, queue), options: { page: 9 } }));
   await run(await command("queue"), last.it, last.bot);
-  const p3 = last.log[0][1];
-  assert.match(descriptionOf(p3), /`21\.` \*\*\[곡21\]/, "번호는 쪽을 이어 센다");
-  assert.equal(p3.embeds[0].data.footer?.text, "모두 25곡 • 3/3 페이지");
+  assert.ok(textOf(last.log[0][1]).includes("`21` **[곡21]"), "번호는 페이지를 이어 센다");
+  assert.ok(JSON.stringify(last.log[0][1]).includes('"label":"3/3"'));
 });
 
-// 필드 하나(1024자)에 실으면 링크가 붙은 긴 유튜브 제목 열 줄로 넘쳐 명령이 통째로 실패한다.
-// 본문은 4096자지만 서명된 직접 링크, 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
-test("/queue: 긴 주소가 섞여도 본문 상한 안에 열 줄이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
+// 화면 글은 모두 합쳐 4000자지만 서명된 직접 링크, 한글이 인코딩된 주소는 수백 자라, 넘치면 주소가 긴 곡부터 링크를 뗀다
+test("/queue: 긴 주소가 섞여도 글 상한 안에 열 곡이 다 들어가고, 링크는 주소가 긴 곡부터 뗀다", async () => {
   const who = { id: "123456789012345678" };
   const long = (i: number) => ({ title: "가".repeat(150), pageUrl: `https://cdn.example.com/${"x".repeat(1000)}/${i}.mp3`, duration: 60, requestedBy: who });
   const short = { title: "짧은 곡", pageUrl: "https://www.youtube.com/watch?v=bbbbbbbbbbb", duration: 60, requestedBy: who };
   const queue = [long(1), short, ...Array.from({ length: 8 }, (_, i) => long(i + 2))];
-  const it = interaction({ player: queuePlayer(long(0), queue) });
+  const it = viewing(interaction({ player: queuePlayer(long(0), queue) }));
   await run(await command("queue"), it.it, it.bot);
-  const text = descriptionOf(it.log[0][1]);
-  assert.ok(text.length <= 4096, `${text.length}자`);
-  assert.equal(text.split("\n").filter((line) => /^`\d+\.`/.test(line)).length, 10, "줄은 빠지지 않는다");
+  const text = textOf(it.log[0][1]);
+  assert.ok(text.length <= 4000, `${text.length}자`);
+  assert.equal(text.split("\n").filter((line) => /^`\d+`/.test(line)).length, 10, "곡은 빠지지 않는다");
   assert.match(text, /\[짧은 곡\]\(https:\/\/www\.youtube\.com/, "짧은 주소는 링크가 남는다");
   assert.match(text, /\*\*가{57}\.\.\.\*\*/, "제목은 60자에서 잘라 ...을 붙이고, 링크를 뗀 곡은 제목만");
 });

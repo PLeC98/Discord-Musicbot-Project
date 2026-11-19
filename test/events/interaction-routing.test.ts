@@ -22,6 +22,8 @@ import { routes as playlistMoreHandler } from "../../src/discord/interactions/pl
 import { routes as settingsPanelHandler } from "../../src/discord/interactions/settings-panel-handler.ts";
 import { routes as searchPick } from "../../src/discord/interactions/search-pick.ts";
 import { routes as help } from "../../src/discord/interactions/help.ts";
+import { routes as queueHandler } from "../../src/discord/interactions/queue-handler.ts";
+import { pageModal } from "../../src/ui/queue-view.ts";
 import { homeView } from "../../src/discord/commands/help.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { searchResultsView } from "../../src/ui/search-results.ts";
@@ -34,7 +36,7 @@ after(() => store.close());
 const ROOT = path.join(import.meta.dirname, "..", "..");
 // 봇은 쉬고 있다(플레이어 없음). 명령은 테스트용 하나
 const BOT = fakeBot({ commands: new Map([["probe", { data: { name: "probe" }, execute: (i: { reply(p: object): unknown }) => i.reply({ content: "ok" }) }]]) });
-const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help };
+const OWNERS = { autoplay, buttonHandler, panelInputs, playlistMoreHandler, settingsPanelHandler, searchPick, help, queueHandler };
 
 type Kind = "button" | "select" | "roleSelect" | "modal" | "command";
 const RESPONSES = ["reply", "deferReply", "deferUpdate", "update", "showModal", "followUp", "editReply"] as const;
@@ -100,7 +102,12 @@ const PANEL = ["pause", "skip", "previous", "stop", "shuffle", "queue", "loop", 
 const CASES: [Kind, string, string][] = [
   ...PANEL.map((id): [Kind, string, string] => ["button", id, "buttonHandler"]),
   ["button", "panel:autoplay:s1", "autoplay"],
-  ["button", "queue:page:2", "buttonHandler"],
+  ["button", "queue:page:2", "queueHandler"],
+  ["button", "queue:edit:1", "queueHandler"],
+  ["select", "queue:pick:1:s1", "queueHandler"],
+  ["button", "queue:do:remove:5:1:s1", "queueHandler"],
+  ["button", "queue:goto:browse:1", "queueHandler"],
+  ["modal", "queue:goto:edit:2", "queueHandler"],
   ["button", "system:refresh", "buttonHandler"],
   ["button", "ping:again", "buttonHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
@@ -131,6 +138,7 @@ for (const [kind, customId, owner] of CASES) {
 test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
   sameRoute("modal", volumeModal(80).toJSON().custom_id, "panel:volume");
+  sameRoute("modal", pageModal("edit", 2, 3).toJSON().custom_id, "queue:goto:edit:2");
   for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
   const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");

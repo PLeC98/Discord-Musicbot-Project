@@ -1,8 +1,9 @@
 // /queue 모자이크의 칸 이미지. 곡의 작은 썸네일(rules/track-art 의 small)이나 찾아 둔 파일 태그 이미지를 칸 크기 JPEG 으로 다시 인코딩해 기억해 둔다.
-// 외부 이미지는 아는 썸네일 서버(ART_HOSTS)에서 https 로만, 가드된 GET(infra/safe-url)으로 받는다. 리다이렉트도 이 서버들 안에서만. 그 밖의 주소는 받지 않고 음표 칸.
+// 외부 이미지는 아는 썸네일 서버(ART_HOSTS)에서 https 로만, 가드된 GET(infra/safe-url)으로 받는다. 리다이렉트도 이 서버들 안에서만. 그 밖의 주소는 받지 않고 그 곡은 기본 이미지(음표)로 그린다.
 // 받은 바이트는 첫 바이트가 JPEG, PNG, WebP 일 때만 sharp 가 선언된 픽셀 상한을 걸고 디코딩해 다시 인코딩하고, 워커의 캔버스는 이렇게 만든 JPEG 만 디코딩한다.
 // 비율이 칸(16:9)과 다르면(앨범아트 같은 정사각형) 자르지 않고, 같은 이미지를 흐리게 채운 바탕 위 가운데에 놓는다.
-// 받거나 디코딩하지 못한 이미지는 RETRY_MS 동안 다시 받지 않는다(쪽을 넘길 때마다 같은 실패를 되풀이하지 않는다)
+// 받거나 디코딩하지 못한 이미지는 RETRY_MS 동안 다시 받지 않는다(페이지를 넘길 때마다 같은 실패를 되풀이하지 않는다).
+// 실패마다 debug 한 줄(주소와 원인). 4xx(출처에 썸네일이 없음)가 아닌 실패는 통신, 서버 문제일 수 있어 원인마다 처음 한 번 warn, 다시 만들면 복구 한 줄
 
 import sharp from "sharp";
 import * as safeUrl from "../../infra/safe-url.ts";
@@ -10,8 +11,10 @@ import { messageOf } from "../../rules/error-kind.ts";
 import { artOf } from "../../rules/track-art.ts";
 import * as embeddedArt from "../../sources/embedded-art.ts";
 import logger from "../../infra/log/logger.ts";
+import { repeatingFailure } from "../../infra/repeating-failure.ts";
 import { CELL } from "./layout.ts";
 const log = logger.child({ category: "commands" });
+const failing = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, "/queue 썸네일 처리");
 
 /** 받는 썸네일 서버: 유튜브, 스포티파이, 사운드클라우드 */
 const ART_HOSTS = [/^i\d?\.ytimg\.com$/, /^img\.youtube\.com$/, /^i\.scdn\.co$/, /^mosaic\.scdn\.co$/, /^image-cdn-[a-z0-9-]+\.spotifycdn\.com$/, /^i\d*\.sndcdn\.com$/];
@@ -72,6 +75,12 @@ function sourceOf(track: Track): { key: string; read: () => Promise<Buffer | nul
   return art ? { key: `embedded:${art.fingerprint}`, read: () => embeddedArt.imageOf(art.fingerprint) } : null;
 }
 
+/** 4xx 응답(safe-url 이 status 를 단다): 그 주소에 이미지가 없다 */
+const isClientError = (error: unknown) => {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === "number" && status >= 400 && status < 500;
+};
+
 function remember(key: string, jpeg: Buffer | null) {
   kept.delete(key);
   kept.set(key, { jpeg, at: Date.now() });
@@ -82,10 +91,12 @@ async function make(key: string, read: () => Promise<Buffer | null>): Promise<Bu
   try {
     const data = await read();
     const jpeg = data ? await bake(data) : null;
+    if (jpeg) failing.ok();
     remember(key, jpeg);
     return jpeg;
   } catch (error) {
-    log.debug(`대기열 썸네일을 만들지 못함(음표 칸): ${key} | ${messageOf(error)}`);
+    log.debug(`/queue 썸네일 처리 실패(대체 이미지로 출력): ${key} | ${messageOf(error)}`);
+    if (!isClientError(error)) failing.fail(messageOf(error));
     remember(key, null);
     return null;
   }
