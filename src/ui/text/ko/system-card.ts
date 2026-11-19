@@ -1,4 +1,4 @@
-// /system 이미지의 문구. 용어는 대시보드 봇 상태 탭과 같다. 이미지는 등록한 글꼴(ui/system-card/fonts)로만 글자를 그리므로,
+// /system 이미지의 문구. 용어는 대시보드 봇 상태 탭과 같다. 이미지는 등록한 글꼴(ui/card-render/fonts)로만 글자를 그리므로,
 // 그 글꼴에 없는 글자가 들어오면 test/ui/system-card-text.test.ts 가 잡는다
 
 /** 상태 카드 */

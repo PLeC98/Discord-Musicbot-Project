@@ -7,7 +7,7 @@ import path from "node:path";
 import * as fontkit from "fontkit";
 import { PROJECT } from "../../src/infra/project-paths.ts";
 import { formatSpan } from "../../src/ui/format.ts";
-import { FONTS, fontPath } from "../../src/ui/system-card/fonts.ts";
+import { FONTS, fontPath } from "../../src/ui/card-render/fonts.ts";
 import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/system-card/icons.ts";
 import * as T from "../../src/ui/text/ko/system-card.ts";
 

@@ -1,18 +1,17 @@
 // /system 의 이미지 둘을 그린다: 위는 카드 그리드(상태, CPU, heap 메모리, 캐시, 디스크, 업타임, 현황), 아래는 최근 기록 그래프 셋.
 // 디스코드 컨테이너 안에서 가로를 다 채우는 비율과 크기다(위 1600×928, 아래 1600×400).
-// @napi-rs/canvas 의 그리기는 동기라 이 모듈은 워커(render-worker)에서만 부른다. 값만 받고 판정은 부르는 쪽(rules/status-levels)이 한다
+// @napi-rs/canvas 의 그리기는 동기라 이 모듈은 워커(card-render/render-worker)에서만 부른다. 값만 받고 판정은 부르는 쪽(rules/status-levels)이 한다
 
-import fs from "node:fs";
-import path from "node:path";
-import { createCanvas, GlobalFonts, Path2D, type SKRSContext2D } from "@napi-rs/canvas";
+import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import { argbFromHex } from "@material/material-color-utilities";
-import { PROJECT } from "../../infra/project-paths.ts";
 import { DEFAULT_SEED, schemeColors } from "../../rules/palette.ts";
 import type { Level } from "../../rules/status-levels.ts";
 import { formatBytes, formatSpan } from "../format.ts";
 import { DASHBOARD_COLORS } from "../palette.ts";
 import * as T from "../text/ko/system-card.ts";
-import { FACES, FAMILIES, FONTS, fontPath, type Face } from "./fonts.ts";
+import { ensureFonts } from "../card-render/canvas-fonts.ts";
+import { FACES, FAMILIES, type Face } from "../card-render/fonts.ts";
+import { drawIcon } from "../card-render/icon-paths.ts";
 import type { CardIcon, StatusIcon } from "./icons.ts";
 
 /** 그래프 하나: 값(오래된 것부터), 세로축 최댓값 */
@@ -51,23 +50,6 @@ const COL = (TOP.width - GAP * 2) / 3;
 const WIDE = COL * 2 + GAP;
 const RIGHT = COL * 2 + GAP * 2;
 const rowY = (i: number) => i * (ROW + GAP);
-
-// 글꼴과 아이콘은 이 모듈을 처음 불러올 때 한 번 읽는다(워커가 살아 있는 동안 유지한다).
-// 등록한 글꼴은 프로세스 전체에 남아 워커를 종료해도 해제되지 않으므로, 워커는 끝나기 전에 releaseFonts 로 지운다
-const fontKeys = FONTS.map((one) => GlobalFonts.registerFromPath(fontPath(one.file), one.family));
-
-/** 등록한 글꼴을 지워 메모리를 해제한다. 워커가 끝나기 직전에 부른다(그 뒤로는 그리지 않는다) */
-function releaseFonts() {
-  for (const key of fontKeys) if (key) GlobalFonts.remove(key);
-}
-const ICONS = JSON.parse(fs.readFileSync(path.join(PROJECT.data, "discord-icons", "system-card.json"), "utf8")) as { unitsPerEm: number; line: Record<CardIcon, string>; fill: Record<StatusIcon, string> };
-const iconPaths = new Map<string, Path2D>();
-const iconPath = (name: CardIcon | StatusIcon, fill: boolean) => {
-  const key = `${name}:${fill}`;
-  let found = iconPaths.get(key);
-  if (!found) iconPaths.set(key, (found = new Path2D(fill ? ICONS.fill[name as StatusIcon] : ICONS.line[name as CardIcon])));
-  return found;
-};
 
 const pct = (value: number) => `${Math.round(value)}%`;
 const clamp01 = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0);
@@ -110,15 +92,7 @@ function pen(g: SKRSContext2D, c: Colors) {
     g.fillText(shown, x, y);
   };
   /** at 은 왼쪽 위, size 는 한 변 */
-  const icon = (name: CardIcon | StatusIcon, at: { x: number; y: number; size: number }, color: string, fill = false) => {
-    const s = at.size / ICONS.unitsPerEm;
-    g.save();
-    g.translate(at.x, at.y + at.size);
-    g.scale(s, -s);
-    g.fillStyle = color;
-    g.fill(iconPath(name, fill));
-    g.restore();
-  };
+  const icon = (name: CardIcon | StatusIcon, at: { x: number; y: number; size: number }, color: string, fill = false) => drawIcon(g, name, at, color, fill);
   const rect = (b: Box, r: number, color: string, alpha = 1) => {
     g.globalAlpha = alpha;
     g.fillStyle = color;
@@ -369,11 +343,12 @@ function drawBottom(d: CardData, c: Colors) {
 
 /** 이미지 둘(PNG). 색 체계는 어두운 테마(디스코드 컨테이너 안에서 대시보드 어두운 테마와 같게) */
 async function drawSystemCards(d: CardData) {
+  ensureFonts();
   const seed = d.seed && /^#[0-9a-f]{6}$/i.test(d.seed) ? argbFromHex(d.seed) : DEFAULT_SEED;
   const c = schemeColors(seed, true);
   const [top, bottom] = await Promise.all([drawTop(d, c).encode("png"), drawBottom(d, c).encode("png")]);
   return { top, bottom };
 }
 
-export { drawSystemCards, releaseFonts, TOP, BOTTOM };
+export { drawSystemCards, TOP, BOTTOM };
 export type { CardData, Series };

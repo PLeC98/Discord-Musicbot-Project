@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { BOTTOM, TOP, drawSystemCards, type CardData } from "../../src/ui/system-card/draw.ts";
-import { _running, renderSystemCards } from "../../src/ui/system-card/render.ts";
+import { _running, renderSystemCards } from "../../src/ui/card-render/render.ts";
 
 const GB = 1024 ** 3;
 const series = (n: number, v: number, max: number) => ({ values: Array.from({ length: n }, (_, i) => v + (i % 5)), max });

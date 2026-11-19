@@ -17,7 +17,7 @@ import { showFailureWith } from "../../ui/failure-notice.ts";
 import { noticeFrame, post, reply } from "../../ui/frame.ts";
 import { playState } from "../../ui/player-status.ts";
 import type { CardData } from "../../ui/system-card/draw.ts";
-import { renderSystemCards } from "../../ui/system-card/render.ts";
+import { renderSystemCards } from "../../ui/card-render/render.ts";
 import { systemView, type SystemView } from "../../ui/system-card/view.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
 import { isBotOwner } from "../../usecases/permissions.ts";
@@ -74,7 +74,7 @@ function headOf({ client }: Bot): Omit<SystemView, "images" | "updatedAt"> {
   };
 }
 
-/** 현재 값으로 그린 화면. 그리지 못하면 이미지 자리에 한 줄(원인은 ui/system-card/render 가 warn 으로 남긴다) */
+/** 현재 값으로 그린 화면. 그리지 못하면 이미지 자리에 한 줄(원인은 ui/card-render/render 가 warn 으로 남긴다) */
 async function systemScreen(bot: Bot) {
   const core = statusCore(bot, COUNTS_ONLY);
   const base = { ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000) };
