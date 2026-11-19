@@ -2,11 +2,14 @@ This directory contains third-party data redistributed under the licenses below.
 
 --------------------------------------------------------------------------------
 discord-icons/glyphs.json
+discord-icons/system-card.json
 
-  Glyph outlines (SVG paths) of Material Symbols Rounded, pinned to FILL 1,
-  wght 700, GRAD 0, opsz 20 by scripts/build-discord-icons.ts. The bot draws
-  its Discord application emojis from these outlines.
-  Source:  @fontsource-variable/material-symbols-rounded 5.3.8
+  Glyph outlines (SVG paths) of Material Symbols Rounded, extracted by
+  scripts/build-discord-icons.ts with the variation axes pinned. The bot draws
+  its Discord application emojis from glyphs.json (FILL 1, wght 700, GRAD 0,
+  opsz 20) and the icons of the /system status images from system-card.json
+  (FILL 0 and FILL 1, wght 450, GRAD 0, opsz 20).
+  Source:  @fontsource-variable/material-symbols-rounded 5.3.9
            (https://github.com/google/material-design-icons)
   License: SIL Open Font License 1.1 (discord-icons/LICENSE-OFL-1.1.txt)
 
