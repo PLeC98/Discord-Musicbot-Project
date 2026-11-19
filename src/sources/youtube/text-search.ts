@@ -1,9 +1,10 @@
 // 유튜브 글자 검색. yt-dlp를 띄우지 않고 유튜브 내부 API를 youtubei.js로 부른다(0.5초 안팎이라 자동완성의 3초 마감에 든다).
 // 세션 하나를 다시 쓰고, 같은 검색어는 잠시 기억하고, 같은 검색어로 동시에 오면 한 번만 묻는다. 한꺼번에 나가는 검색 수는 상한이 있다.
 // 언어는 en, 지역은 비워 유튜브가 IP로 정한 값을 쓴다(yt-dlp 검색과 같은 순위, 제목). 창작자가 영어 제목을 달아 둔 영상은 영어 제목이라,
-// 곡을 넣을 때 yt-dlp가 읽는 제목(원래 언어)과 다를 수 있다
+// 곡을 넣을 때 yt-dlp가 읽는 제목(원래 언어)과 다를 수 있다.
+// 결과는 세션에 따라 옛 모양(Video)이나 새 모양(LockupView)으로 온다. 둘 다 같은 곡으로 읽는다
 
-import { Innertube, Log, YTNodes } from "youtubei.js";
+import { Innertube, Log, YTNodes, type Helpers } from "youtubei.js";
 import logger from "../../infra/log/logger.ts";
 import { httpFor } from "../../infra/http.ts";
 import { queryMemo } from "../../infra/query-memo.ts";
@@ -64,28 +65,55 @@ function sessionOf(): Promise<Innertube> {
 
 const statusOf = (error: unknown) => ((error as { cause?: { status?: unknown } } | null)?.cause?.status as number | undefined) ?? null;
 
-// 방송 중: 라이브 배지나 썸네일 길이 표시의 LIVE. youtubei.js의 is_live는 길이 표시가 없기만 해도 참이라 쓰지 않는다
-const isLiveNow = (video: YTNodes.Video) => video.badges.some((badge) => badge.style === "BADGE_STYLE_TYPE_LIVE_NOW") || video.thumbnail_overlays.firstOfType(YTNodes.ThumbnailOverlayTimeStatus)?.style === "LIVE";
+/** 결과 하나에서 읽은 것. seconds 는 길이(모르면 0) */
+type Found = { id: string; title: string | undefined; channel: string | undefined; seconds: number; live: boolean; upcoming: boolean };
 
-// youtubei.js의 영상 하나 → 곡. 링크 셋은 같은 주소다(sources/youtube/api의 trackOf와 같은 모양)
-function trackOf(video: YTNodes.Video): TrackInfo {
-  const link = canonicalUrl(youtubeWatchUrl(video.video_id));
-  const upcoming = Boolean(video.upcoming);
-  const live = isLiveNow(video);
+// 영상 하나 → 곡. 링크 셋은 같은 주소다(sources/youtube/api의 trackOf와 같은 모양)
+function trackOf({ id, title, channel, seconds, live, upcoming }: Found): TrackInfo {
+  const link = canonicalUrl(youtubeWatchUrl(id));
   return {
-    title: video.title.toString().trim() || null,
-    artist: video.author?.name?.trim() || undefined,
+    title: title?.trim() || null,
+    artist: channel?.trim() || undefined,
     pageUrl: link,
     requestKey: link,
     audioUrl: link,
-    duration: live || upcoming ? 0 : video.duration.seconds || 0,
-    thumbnail: youtubeArt(video.video_id),
+    duration: live || upcoming ? 0 : seconds || 0,
+    thumbnail: youtubeArt(id),
     platform: "youtube",
-    id: video.video_id,
+    id,
     isLive: live || upcoming,
     liveStatus: upcoming ? "is_upcoming" : live ? "is_live" : null,
   };
 }
+
+// 옛 모양. 방송 중은 라이브 배지나 썸네일 길이 표시의 LIVE(youtubei.js의 is_live는 길이 표시가 없기만 해도 참이라 쓰지 않는다)
+function fromVideo(video: YTNodes.Video): Found {
+  const live = video.badges.some((badge) => badge.style === "BADGE_STYLE_TYPE_LIVE_NOW") || video.thumbnail_overlays.firstOfType(YTNodes.ThumbnailOverlayTimeStatus)?.style === "LIVE";
+  return { id: video.video_id, title: video.title.toString(), channel: video.author?.name, seconds: video.duration.seconds, live, upcoming: Boolean(video.upcoming) };
+}
+
+// 새 모양의 영상(content_type VIDEO). 채널은 첫 메타데이터 줄의 첫 칸(아바타 옆 글), 길이는 썸네일 배지("4:01"), 방송 중은 썸네일 배지의 LIVE 모양.
+// 시작 전 방송은 따로 가리지 않는다. 길이도 LIVE 도 없으면 길이를 모르는 곡(0)이고, 틀 때 yt-dlp 의 실패 문장으로 시작 전 라이브를 알아본다
+function fromLockup(lockup: YTNodes.LockupView): Found | null {
+  if (lockup.content_type !== "VIDEO" || !lockup.content_id) return null;
+  const live = thumbnailBadges(lockup).some((badge) => badge.badge_style === "THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE");
+  return { id: lockup.content_id, title: lockup.metadata?.title?.toString(), channel: channelOf(lockup), seconds: lockup.duration.seconds, live, upcoming: false };
+}
+
+/** 첫 메타데이터 줄의 첫 칸: 아바타 옆 글(채널 이름), 아바타가 없으면 그 칸의 글 */
+function channelOf(lockup: YTNodes.LockupView) {
+  const first = lockup.metadata?.metadata?.metadata_rows[0]?.metadata_parts?.[0];
+  return (first?.avatar_stack?.text ?? first?.text)?.toString();
+}
+
+/** 썸네일 위 배지들(길이, LIVE) */
+function thumbnailBadges(lockup: YTNodes.LockupView) {
+  const image = lockup.content_image?.is(YTNodes.ThumbnailView) ? lockup.content_image : null;
+  return (image?.overlays ?? []).flatMap((overlay) => (overlay.is(YTNodes.ThumbnailBottomOverlayView, YTNodes.ThumbnailOverlayBadgeView) ? [...overlay.badges] : []));
+}
+
+/** 결과 하나 → 읽은 것. 영상이 아니면 null */
+const foundOf = (node: Helpers.YTNode): Found | null => (node.is(YTNodes.Video) ? (node.video_id ? fromVideo(node) : null) : node.is(YTNodes.LockupView) ? fromLockup(node) : null);
 
 const searchOnce = async (query: string) => (await sessionOf()).search(query, { type: "video" });
 
@@ -103,9 +131,10 @@ async function ask(query: string): Promise<TextSearchResult> {
     const gated = nodes.some((node) => node.type === "BackgroundPromo");
     const seen = new Set<string>();
     const tracks = nodes.flatMap((node) => {
-      if (!node.is(YTNodes.Video) || !node.video_id || seen.has(node.video_id)) return [];
-      seen.add(node.video_id);
-      return [trackOf(node)];
+      const found = foundOf(node);
+      if (!found || seen.has(found.id)) return [];
+      seen.add(found.id);
+      return [trackOf(found)];
     });
     // 항목은 왔는데 읽은 영상이 없으면 유튜브 쪽 응답 모양이 바뀐 것이다
     if (!gated && nodes.length > 0 && tracks.length === 0) failures.fail(`결과 ${nodes.length}개를 읽지 못함(${[...new Set(nodes.map((node) => node.type))].join(", ")})`);

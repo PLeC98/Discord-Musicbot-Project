@@ -1,0 +1,1289 @@
+[
+  {
+    "lockupViewModel": {
+      "contentImage": {
+        "thumbnailViewModel": {
+          "image": {
+            "sources": [
+              {
+                "url": "https://i.ytimg.com/vi/ZZvJY7_gyfw/hq720.jpg?sqp=-oaymwE2COgCEMoBSFXyq4qpAygIARUAAIhCGAFwAcABBvABAfgB_gmAAtAFigIMCAAQARh_IBMoNTAP&rs=AOn4CLDhlRjTpUdQ9-ycQSIWwcUcx_W1OA",
+                "width": 360,
+                "height": 202
+              },
+              {
+                "url": "https://i.ytimg.com/vi/ZZvJY7_gyfw/hq720.jpg?sqp=-oaymwE2CNAFEJQDSFXyq4qpAygIARUAAIhCGAFwAcABBvABAfgB_gmAAtAFigIMCAAQARh_IBMoNTAP&rs=AOn4CLC-I_MxVOvGmYpG2QAyjejEei4mzA",
+                "width": 720,
+                "height": 404
+              }
+            ]
+          },
+          "overlays": [
+            {
+              "thumbnailBottomOverlayViewModel": {
+                "badges": [
+                  {
+                    "thumbnailBadgeViewModel": {
+                      "icon": {
+                        "sources": [
+                          {
+                            "clientResource": {
+                              "imageName": "MUSIC"
+                            }
+                          }
+                        ]
+                      },
+                      "text": "4:01",
+                      "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                      "animationActivationTargetId": "ZZvJY7_gyfw",
+                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
+                      "lottieData": {
+                        "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                        "settings": {
+                          "loop": true,
+                          "autoplay": true
+                        }
+                      },
+                      "animatedText": "Now playing",
+                      "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                      "inlinePlaybackBadgeData": {
+                        "replicateAsTimestamp": true
+                      },
+                      "rendererContext": {
+                        "accessibilityContext": {
+                          "label": "4 minutes, 1 second"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "thumbnailHoverOverlayToggleActionsViewModel": {
+                "buttons": [
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "WATCH_LATER",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "addedVideoId": "ZZvJY7_gyfw",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Watch later",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "ZZvJY7_gyfw"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  },
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "ADD_TO_QUEUE_TAIL",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "signal": "CLIENT_SIGNAL",
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "openMiniplayer": true,
+                                      "videoId": "ZZvJY7_gyfw",
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "sendPost": true,
+                                            "apiUrl": "/youtubei/v1/playlist/create"
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": ["ZZvJY7_gyfw"],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "videoIds": ["ZZvJY7_gyfw"],
+                                      "videoCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/watch?v=ZZvJY7_gyfw",
+                                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                            "rootVe": 3832
+                                          }
+                                        },
+                                        "watchEndpoint": {
+                                          "videoId": "ZZvJY7_gyfw"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Add to queue",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "lockupMetadataViewModel": {
+          "title": {
+            "content": "[Official Video] Yousei Teikoku - Kuusou Mesorogiwi - 空想メソロギヰ 妖精帝國"
+          },
+          "image": {
+            "decoratedAvatarViewModel": {
+              "avatar": {
+                "avatarViewModel": {
+                  "image": {
+                    "sources": [
+                      {
+                        "url": "https://yt3.ggpht.com/0x0ckcejTIUXLU9hfY7tp6LnT-ME1vzmB2H9TDQPluHF-mul0mChSAAJvGR7tpdSTeylY_LCzw=s68-c-k-c0x00ffffff-no-rj",
+                        "width": 68,
+                        "height": 68
+                      }
+                    ]
+                  },
+                  "avatarImageSize": "AVATAR_SIZE_M"
+                }
+              },
+              "a11yLabel": "Go to channel Lantis Global Channel",
+              "rendererContext": {
+                "commandContext": {
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/@LantisGlobalChannel",
+                          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                          "rootVe": 3611,
+                          "apiUrl": "/youtubei/v1/browse"
+                        }
+                      },
+                      "browseEndpoint": {
+                        "browseId": "UCjR6YoI3EYrJXoQlEHt4HfQ",
+                        "canonicalBaseUrl": "/@LantisGlobalChannel"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "metadata": {
+            "contentMetadataViewModel": {
+              "metadataRows": [
+                {
+                  "metadataParts": [
+                    {
+                      "avatarStack": {
+                        "avatarStackViewModel": {
+                          "avatars": [
+                            {
+                              "decoratedAvatarViewModel": {
+                                "avatar": {
+                                  "avatarViewModel": {
+                                    "image": {
+                                      "sources": [
+                                        {
+                                          "url": "https://yt3.ggpht.com/0x0ckcejTIUXLU9hfY7tp6LnT-ME1vzmB2H9TDQPluHF-mul0mChSAAJvGR7tpdSTeylY_LCzw=s68-c-k-c0x00ffffff-no-rj",
+                                          "width": 68,
+                                          "height": 68
+                                        }
+                                      ]
+                                    },
+                                    "avatarImageSize": "AVATAR_SIZE_XS"
+                                  }
+                                },
+                                "a11yLabel": "Go to channel Lantis Global Channel",
+                                "rendererContext": {
+                                  "commandContext": {
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/@LantisGlobalChannel",
+                                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                            "rootVe": 3611,
+                                            "apiUrl": "/youtubei/v1/browse"
+                                          }
+                                        },
+                                        "browseEndpoint": {
+                                          "browseId": "UCjR6YoI3EYrJXoQlEHt4HfQ",
+                                          "canonicalBaseUrl": "/@LantisGlobalChannel"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "text": {
+                            "content": "Lantis Global Channel",
+                            "commandRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 21,
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/@LantisGlobalChannel",
+                                        "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                        "rootVe": 3611,
+                                        "apiUrl": "/youtubei/v1/browse"
+                                      }
+                                    },
+                                    "browseEndpoint": {
+                                      "browseId": "UCjR6YoI3EYrJXoQlEHt4HfQ",
+                                      "canonicalBaseUrl": "/@LantisGlobalChannel"
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "styleRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 21,
+                                "weightLabel": "FONT_WEIGHT_NORMAL"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "38M"
+                      },
+                      "accessibilityLabel": "38 million views",
+                      "leadingIcon": {
+                        "name": "PLAY_ARROW_OUTLINED",
+                        "height": 12,
+                        "width": 12
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "11y ago"
+                      },
+                      "accessibilityLabel": "11 years ago"
+                    }
+                  ],
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_BYLINE"
+                  }
+                },
+                {
+                  "isSpacerRow": true,
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_SPACER"
+                  }
+                },
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "Audio CD Release Date: October 26, 2011(JAPAN) 【Lantis Official Facebook】 https://www.facebook.com/lantis.jp?ref=hl."
+                      },
+                      "maxLines": 2
+                    }
+                  ],
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/watch?v=ZZvJY7_gyfw",
+                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                          "rootVe": 3832
+                        }
+                      },
+                      "watchEndpoint": {
+                        "videoId": "ZZvJY7_gyfw"
+                      }
+                    }
+                  },
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_DESCRIPTION"
+                  }
+                },
+                {
+                  "isSpacerRow": true,
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_SPACER"
+                  }
+                },
+                {
+                  "badges": [
+                    {
+                      "badgeViewModel": {
+                        "badgeText": "CC",
+                        "badgeStyle": "BADGE_MEDIA",
+                        "rendererContext": {
+                          "accessibilityContext": {
+                            "label": "Closed captions"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ],
+              "delimiter": " "
+            }
+          }
+        }
+      },
+      "contentId": "ZZvJY7_gyfw",
+      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+      "rendererContext": {
+        "accessibilityContext": {
+          "label": "[Official Video] Yousei Teikoku - Kuusou Mesorogiwi - 空想メソロギヰ 妖精帝國 4 minutes, 1 second"
+        },
+        "commandContext": {
+          "onTap": {
+            "innertubeCommand": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "url": "/watch?v=ZZvJY7_gyfw&list=RDZZvJY7_gyfw&start_radio=1&pp=ygUV56m65oOz44Oh44K944Ot44Ku44OwoAcB",
+                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                  "rootVe": 3832
+                }
+              },
+              "watchEndpoint": {
+                "videoId": "ZZvJY7_gyfw",
+                "playlistId": "RDZZvJY7_gyfw",
+                "params": "wAEBqgMV56m65oOz44Oh44K944Ot44Ku44OwugMKCKP-gLfwtdfgfboDCgiZhsTan-yz6AO6AwoI4-7o_uyu8a5UugMKCPHTp-3h4MiQU7oDCwiH7P_ip9Dmm6IBugMKCIHriZuJ5K6oU7oDCgifx6-gmM6T7zS6AwoI_63f3POFitZFugMKCJ6brrGisoiyZLoDCwih9uWbgOyR8eUBugMKCNCFhJbtpMfqGLoDCgigvP2nkbvQ3Ha6AwoI8fWZje_zwNIpugMKCOj3-8XM2ueFJroDCgj3_9-V15-dqn-6AwoIhc7m7fnulbgMugMLCJ3aicWikoHB_wG6AwsI_fjioISP7eSqAboDCwim3b_wtsSJ45AB8gMFDSrA8D24BQE%3D",
+                "playerParams": "ygUV56m65oOz44Oh44K944Ot44Ku44OwoAcB"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "lockupViewModel": {
+      "contentImage": {
+        "thumbnailViewModel": {
+          "image": {
+            "sources": [
+              {
+                "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEcCOgCEMoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDN3Yy-Dw3B9x_HYcTaGXq7gEVppA",
+                "width": 360,
+                "height": 202
+              },
+              {
+                "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCdekX1ygqqUJynjbliA5ayfR7tlw",
+                "width": 720,
+                "height": 404
+              }
+            ]
+          },
+          "overlays": [
+            {
+              "thumbnailBottomOverlayViewModel": {
+                "badges": [
+                  {
+                    "thumbnailBadgeViewModel": {
+                      "icon": {
+                        "sources": [
+                          {
+                            "clientResource": {
+                              "imageName": "LIVE"
+                            }
+                          }
+                        ]
+                      },
+                      "text": "LIVE",
+                      "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_LIVE",
+                      "animationActivationTargetId": "rFZHOHl-L8A",
+                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
+                      "lottieData": {
+                        "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                        "settings": {
+                          "loop": true,
+                          "autoplay": true
+                        }
+                      },
+                      "animatedText": "Now playing",
+                      "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "thumbnailHoverOverlayToggleActionsViewModel": {
+                "buttons": [
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "WATCH_LATER",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "addedVideoId": "rFZHOHl-L8A",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Watch later",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "rFZHOHl-L8A"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  },
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "ADD_TO_QUEUE_TAIL",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "signal": "CLIENT_SIGNAL",
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "openMiniplayer": true,
+                                      "videoId": "rFZHOHl-L8A",
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "sendPost": true,
+                                            "apiUrl": "/youtubei/v1/playlist/create"
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": ["rFZHOHl-L8A"],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "videoIds": ["rFZHOHl-L8A"],
+                                      "videoCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/watch?v=rFZHOHl-L8A",
+                                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                            "rootVe": 3832
+                                          }
+                                        },
+                                        "watchEndpoint": {
+                                          "videoId": "rFZHOHl-L8A"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Add to queue",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "lockupMetadataViewModel": {
+          "title": {
+            "content": "lofi hip hop radio 📚 beats to relax/study to"
+          },
+          "image": {
+            "decoratedAvatarViewModel": {
+              "avatar": {
+                "avatarViewModel": {
+                  "image": {
+                    "sources": [
+                      {
+                        "url": "https://yt3.ggpht.com/REcZL_LGu0DaDaC-G7VIbN0uE_5l-i_dw6ZvOETRnY3pRhUmfkOq6C1MLephPZkV4VSzQAhEi_4=s88-c-k-c0x00ffffff-no-rj",
+                        "width": 68,
+                        "height": 68
+                      }
+                    ]
+                  },
+                  "avatarImageSize": "AVATAR_SIZE_M"
+                }
+              },
+              "a11yLabel": "Go to channel Lofi Girl",
+              "rendererContext": {
+                "commandContext": {
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                          "rootVe": 3611,
+                          "apiUrl": "/youtubei/v1/browse"
+                        }
+                      },
+                      "browseEndpoint": {
+                        "browseId": "UCSJ4gkVC6NrvII8umztf0Ow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "metadata": {
+            "contentMetadataViewModel": {
+              "metadataRows": [
+                {
+                  "metadataParts": [
+                    {
+                      "avatarStack": {
+                        "avatarStackViewModel": {
+                          "avatars": [
+                            {
+                              "decoratedAvatarViewModel": {
+                                "avatar": {
+                                  "avatarViewModel": {
+                                    "image": {
+                                      "sources": [
+                                        {
+                                          "url": "https://yt3.ggpht.com/REcZL_LGu0DaDaC-G7VIbN0uE_5l-i_dw6ZvOETRnY3pRhUmfkOq6C1MLephPZkV4VSzQAhEi_4=s88-c-k-c0x00ffffff-no-rj",
+                                          "width": 68,
+                                          "height": 68
+                                        }
+                                      ]
+                                    },
+                                    "avatarImageSize": "AVATAR_SIZE_XS"
+                                  }
+                                },
+                                "a11yLabel": "Go to channel Lofi Girl",
+                                "rendererContext": {
+                                  "commandContext": {
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                            "rootVe": 3611,
+                                            "apiUrl": "/youtubei/v1/browse"
+                                          }
+                                        },
+                                        "browseEndpoint": {
+                                          "browseId": "UCSJ4gkVC6NrvII8umztf0Ow"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "text": {
+                            "content": "Lofi Girl",
+                            "commandRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 9,
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+                                        "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                        "rootVe": 3611,
+                                        "apiUrl": "/youtubei/v1/browse"
+                                      }
+                                    },
+                                    "browseEndpoint": {
+                                      "browseId": "UCSJ4gkVC6NrvII8umztf0Ow",
+                                      "canonicalBaseUrl": "/channel/UCSJ4gkVC6NrvII8umztf0Ow"
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "styleRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 9,
+                                "weightLabel": "FONT_WEIGHT_NORMAL"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "icon": {
+                        "name": "AUDIO_BADGE",
+                        "height": 14,
+                        "width": 14,
+                        "accessibilityLabel": "Official Artist Channel"
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "12K watching"
+                      },
+                      "accessibilityLabel": "12 thousand watching"
+                    }
+                  ],
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_BYLINE"
+                  }
+                },
+                {
+                  "isSpacerRow": true,
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_SPACER"
+                  }
+                },
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "Holiday season is approaching 2026 Christmas playlist available now: https://lnk.to/Christmas_lofi02 | Listen on Spotify, ..."
+                      },
+                      "maxLines": 2
+                    }
+                  ],
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/watch?v=rFZHOHl-L8A",
+                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                          "rootVe": 3832
+                        }
+                      },
+                      "watchEndpoint": {
+                        "videoId": "rFZHOHl-L8A"
+                      }
+                    }
+                  },
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_DESCRIPTION"
+                  }
+                }
+              ],
+              "delimiter": " "
+            }
+          }
+        }
+      },
+      "contentId": "rFZHOHl-L8A",
+      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+      "rendererContext": {
+        "accessibilityContext": {
+          "label": "lofi hip hop radio 📚 beats to relax/study to"
+        },
+        "commandContext": {
+          "onTap": {
+            "innertubeCommand": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "url": "/watch?v=rFZHOHl-L8A&pp=ygUSbG9maSBoaXAgaG9wIHJhZGlv0gcJCeoHAYcqIYzv",
+                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                  "rootVe": 3832
+                }
+              },
+              "watchEndpoint": {
+                "videoId": "rFZHOHl-L8A",
+                "params": "qgMSbG9maSBoaXAgaG9wIHJhZGlvugMLCNW80LfKweTp7AG6AwsI5vHclMn1vIjjAboDCwjTnsrztYiA7-IBugMKCPb8jdKIhumfJLoDCgig9vfttteRkwe6AwoI6daDw-O4gahuugMLCIOXzYjSvtL43AG6AwsIkLjO4uDz7NKLAboDCgjN5qrjgIqG30O6AwoI8rPc5OKW6vpNugMLCKrV06vtwt2c1QG6AwoIztS7jLH81tw5ugMLCPWLmdnutPzA7gG6AwsIgKK_uf2g1J6cAboDCwier9mQhdeYmpUBugMKCIaz0unlgdOEVLoDCwic-_y4ndW0trkBugMLCJKlmbWZ27f_lwG6AwsI7ZHsqcSF1dafAfIDBQ0p1wY9",
+                "playerParams": "ygUSbG9maSBoaXAgaG9wIHJhZGlv0gcJCeoHAYcqIYzv"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "lockupViewModel": {
+      "contentImage": {
+        "thumbnailViewModel": {
+          "image": {
+            "sources": [
+              {
+                "url": "https://i.ytimg.com/vi/l_7e2ZamUpI/hq720.jpg?sqp=-oaymwEcCOgCEMoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDBTstcWoOrC2JLQMp3fD07Hsx5-g",
+                "width": 360,
+                "height": 202
+              },
+              {
+                "url": "https://i.ytimg.com/vi/l_7e2ZamUpI/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDW1FeY2pDoiuBh6e0Kp6-FAF_TLw",
+                "width": 720,
+                "height": 404
+              }
+            ]
+          },
+          "overlays": [
+            {
+              "thumbnailBottomOverlayViewModel": {
+                "badges": [
+                  {
+                    "thumbnailBadgeViewModel": {
+                      "icon": {
+                        "sources": [
+                          {
+                            "clientResource": {
+                              "imageName": "MUSIC"
+                            }
+                          }
+                        ]
+                      },
+                      "text": "24:04:20",
+                      "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                      "animationActivationTargetId": "l_7e2ZamUpI",
+                      "animationActivationEntityKey": "Eh8veW91dHViZS9hcHAvd2F0Y2gvcGxheWVyX3N0YXRlIMMCKAE%3D",
+                      "lottieData": {
+                        "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                        "settings": {
+                          "loop": true,
+                          "autoplay": true
+                        }
+                      },
+                      "animatedText": "Now playing",
+                      "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                      "inlinePlaybackBadgeData": {
+                        "replicateAsTimestamp": true
+                      },
+                      "rendererContext": {
+                        "accessibilityContext": {
+                          "label": "24 hours, 4 minutes, 20 seconds"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "thumbnailHoverOverlayToggleActionsViewModel": {
+                "buttons": [
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "WATCH_LATER",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "addedVideoId": "l_7e2ZamUpI",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Watch later",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true,
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist"
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "playlistId": "WL",
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "l_7e2ZamUpI"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  },
+                  {
+                    "toggleButtonViewModel": {
+                      "defaultButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "ADD_TO_QUEUE_TAIL",
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "signal": "CLIENT_SIGNAL",
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "openMiniplayer": true,
+                                      "videoId": "l_7e2ZamUpI",
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "sendPost": true,
+                                            "apiUrl": "/youtubei/v1/playlist/create"
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": ["l_7e2ZamUpI"],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "videoIds": ["l_7e2ZamUpI"],
+                                      "videoCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/watch?v=l_7e2ZamUpI",
+                                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                            "rootVe": 3832
+                                          }
+                                        },
+                                        "watchEndpoint": {
+                                          "videoId": "l_7e2ZamUpI"
+                                        }
+                                      }
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "accessibilityText": "Add to queue",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "toggledButtonViewModel": {
+                        "buttonViewModel": {
+                          "iconName": "CHECK",
+                          "accessibilityText": "Added",
+                          "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                          "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                          "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                          "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                        }
+                      },
+                      "isToggled": false
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "lockupMetadataViewModel": {
+          "title": {
+            "content": "Chillhop Drive 90's - Lofi hip hop ~ Deep Focus, Relaxing Music | Chill Music"
+          },
+          "image": {
+            "decoratedAvatarViewModel": {
+              "avatar": {
+                "avatarViewModel": {
+                  "image": {
+                    "sources": [
+                      {
+                        "url": "https://yt3.ggpht.com/z-6ZUHsrbdYay8VRLa8C_0XMw23YBy_sg-GRjyEpCKMwCOjjZWX8lopt0wsONoou81X6IwVP=s68-c-k-c0x00ffffff-no-rj",
+                        "width": 68,
+                        "height": 68
+                      }
+                    ]
+                  },
+                  "avatarImageSize": "AVATAR_SIZE_M"
+                }
+              },
+              "a11yLabel": "Go to channel chilli music",
+              "rendererContext": {
+                "commandContext": {
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/@chillimusicrecords",
+                          "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                          "rootVe": 3611,
+                          "apiUrl": "/youtubei/v1/browse"
+                        }
+                      },
+                      "browseEndpoint": {
+                        "browseId": "UCS4iXNXsvlOHm7TuXLltreg",
+                        "canonicalBaseUrl": "/@chillimusicrecords"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "metadata": {
+            "contentMetadataViewModel": {
+              "metadataRows": [
+                {
+                  "metadataParts": [
+                    {
+                      "avatarStack": {
+                        "avatarStackViewModel": {
+                          "avatars": [
+                            {
+                              "decoratedAvatarViewModel": {
+                                "avatar": {
+                                  "avatarViewModel": {
+                                    "image": {
+                                      "sources": [
+                                        {
+                                          "url": "https://yt3.ggpht.com/z-6ZUHsrbdYay8VRLa8C_0XMw23YBy_sg-GRjyEpCKMwCOjjZWX8lopt0wsONoou81X6IwVP=s68-c-k-c0x00ffffff-no-rj",
+                                          "width": 68,
+                                          "height": 68
+                                        }
+                                      ]
+                                    },
+                                    "avatarImageSize": "AVATAR_SIZE_XS"
+                                  }
+                                },
+                                "a11yLabel": "Go to channel chilli music",
+                                "rendererContext": {
+                                  "commandContext": {
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "url": "/@chillimusicrecords",
+                                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                            "rootVe": 3611,
+                                            "apiUrl": "/youtubei/v1/browse"
+                                          }
+                                        },
+                                        "browseEndpoint": {
+                                          "browseId": "UCS4iXNXsvlOHm7TuXLltreg",
+                                          "canonicalBaseUrl": "/@chillimusicrecords"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ],
+                          "text": {
+                            "content": "chilli music",
+                            "commandRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 12,
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/@chillimusicrecords",
+                                        "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                        "rootVe": 3611,
+                                        "apiUrl": "/youtubei/v1/browse"
+                                      }
+                                    },
+                                    "browseEndpoint": {
+                                      "browseId": "UCS4iXNXsvlOHm7TuXLltreg",
+                                      "canonicalBaseUrl": "/@chillimusicrecords"
+                                    }
+                                  }
+                                }
+                              }
+                            ],
+                            "styleRuns": [
+                              {
+                                "startIndex": 0,
+                                "length": 12,
+                                "weightLabel": "FONT_WEIGHT_NORMAL"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "icon": {
+                        "accessibilityLabel": "Verified",
+                        "ytIcon": {
+                          "sources": [
+                            {
+                              "width": 14,
+                              "height": 14,
+                              "customImageSource": {
+                                "youtubeIconSource": {
+                                  "clientResource": {
+                                    "icon": "YTICON_FILL_VERIFIED_BADGE_S12"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "2.7M"
+                      },
+                      "accessibilityLabel": "2.7 million views",
+                      "leadingIcon": {
+                        "name": "PLAY_ARROW_OUTLINED",
+                        "height": 12,
+                        "width": 12
+                      }
+                    },
+                    {
+                      "text": {
+                        "content": "3y ago"
+                      },
+                      "accessibilityLabel": "3 years ago"
+                    }
+                  ],
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_BYLINE"
+                  }
+                },
+                {
+                  "isSpacerRow": true,
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_SPACER"
+                  }
+                },
+                {
+                  "metadataParts": [
+                    {
+                      "text": {
+                        "content": "chilli music: https://open.spotify.com/playlist/5SDPei4m0IuABIYRsDJcBC?si=785a696916c04f3f Chillhop Drive 90's - Lofi hip hop ...",
+                        "styleRuns": [
+                          {
+                            "startIndex": 113,
+                            "length": 12,
+                            "weightLabel": "FONT_WEIGHT_MEDIUM"
+                          }
+                        ]
+                      },
+                      "maxLines": 2
+                    }
+                  ],
+                  "onTap": {
+                    "innertubeCommand": {
+                      "commandMetadata": {
+                        "webCommandMetadata": {
+                          "url": "/watch?v=l_7e2ZamUpI",
+                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                          "rootVe": 3832
+                        }
+                      },
+                      "watchEndpoint": {
+                        "videoId": "l_7e2ZamUpI"
+                      }
+                    }
+                  },
+                  "lockupContentMetadataRowExtension": {
+                    "contentType": "METADATA_ROW_CONTENT_TYPE_DESCRIPTION"
+                  }
+                }
+              ],
+              "delimiter": " "
+            }
+          }
+        }
+      },
+      "contentId": "l_7e2ZamUpI",
+      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+      "rendererContext": {
+        "accessibilityContext": {
+          "label": "Chillhop Drive 90's - Lofi hip hop ~ Deep Focus, Relaxing Music | Chill Music 24 hours"
+        },
+        "commandContext": {
+          "onTap": {
+            "innertubeCommand": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "url": "/watch?v=l_7e2ZamUpI&list=RDl_7e2ZamUpI&start_radio=1&pp=ygUSbG9maSBoaXAgaG9wIHJhZGlvoAcB",
+                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                  "rootVe": 3832
+                }
+              },
+              "watchEndpoint": {
+                "videoId": "l_7e2ZamUpI",
+                "playlistId": "RDl_7e2ZamUpI",
+                "params": "wAEBqgMSbG9maSBoaXAgaG9wIHJhZGlvugMLCMDf-MuH55GrrAG6AwsI1bzQt8rB5OnsAboDCwjm8dyUyfW8iOMBugMLCNOeyvO1iIDv4gG6AwoI9vyN0oiG6Z8kugMKCKD29-2215GTB7oDCgjp1oPD47iBqG66AwsIg5fNiNK-0vjcAboDCwiQuM7i4PPs0osBugMKCM3mquOAiobfQ7oDCgjys9zk4pbq-k26AwsIqtXTq-3C3ZzVAboDCgjO1LuMsfzW3Dm6AwsI9YuZ2e60_MDuAboDCwiAor-5_aDUnpwBugMLCJ6v2ZCF15ialQG6AwoIhrPS6eWB04RUugMLCJz7_Lid1bS2uQG6AwsI7ZHsqcSF1dafAfIDBQ0p1wY9uAUB",
+                "playerParams": "ygUSbG9maSBoaXAgaG9wIHJhZGlvoAcB"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+]
