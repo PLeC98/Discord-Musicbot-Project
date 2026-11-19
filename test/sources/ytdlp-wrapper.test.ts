@@ -14,7 +14,7 @@ import { ytdlpBinary } from "../../src/sources/ytdlp-binary.ts";
 
 const BINARY = ytdlpBinary.path();
 const hasBinary = BINARY !== null && fs.existsSync(BINARY);
-if (!hasBinary && process.env.CI) throw new Error(`yt-dlp가 설치되지 않음(CI의 postinstall이 설치해야 한다): ${BINARY ?? "기록 없음"}`);
+if (!hasBinary && process.env.CI) throw new Error(`yt-dlp가 설치되지 않음(CI에서는 update:ytdlp로 설치함): ${BINARY ?? "기록 없음"}`);
 const opts = { skip: hasBinary ? false : `yt-dlp 바이너리 없음 (${BINARY ?? "기록 없음"})` };
 
 test("성공 계약: 버전 문자열을 돌려주고 프로세스 등록을 해제한다", opts, async () => {
