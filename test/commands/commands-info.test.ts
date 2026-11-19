@@ -567,6 +567,19 @@ test("/ping: 측정 중 화면(V2, 본인에게만)을 먼저 보여 주고 잰 
   assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
 });
 
+test("/license: 라이선스 및 운영 소스 코드 링크 (본인만 볼 수 있는 메시지)", async () => {
+  const { it, log, bot } = interaction();
+  await run(await command("license"), it, bot);
+  assert.deepEqual(
+    log.map(([kind]) => kind),
+    ["reply"],
+  );
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  assert.ok(textOf(log[0][1]).includes("`AGPL-3.0-or-later`"));
+  assert.ok(JSON.stringify(log[0][1].components).includes(`"url":"${config.bot.sourceRepo}"`));
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
+});
+
 test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
   const json = (await command("ping")).data.toJSON();
   assert.equal(json.default_member_permissions ?? null, null);

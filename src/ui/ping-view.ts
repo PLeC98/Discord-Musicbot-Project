@@ -1,4 +1,4 @@
-// /ping 화면(Components V2 텍스트): 값마다 한 줄(속도별 색, 이름, 값)과 무엇과 무엇 사이를 잰 것인지 작은 글씨 줄, 구분선, 다시 재기 버튼.
+// /ping 화면: 값마다 한 줄(속도별 색, 이름, 값)과 무엇과 무엇 사이를 잰 것인지 작은 글씨 줄, 구분선, 다시 재기 버튼.
 // 판정은 rules/latency(하트비트 왕복은 대시보드의 핑과 같은 기준, REST 왕복은 응답 시간과 같은 기준)
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, resolveColor } from "discord.js";

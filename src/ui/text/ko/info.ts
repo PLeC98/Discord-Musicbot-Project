@@ -63,17 +63,15 @@ const ping = () => ({
 /** 첫 응답. 그 응답이 닿은 시각으로 잰다 */
 const pinging = () => "핑 측정 중...";
 
-/** /license. lines는 저작권 줄들(마크다운 링크) */
-const license = (lines: string[]) => ({
-  title: `${icon("license")} 라이선스 정보`,
-  description: "이 봇은 오픈 소스 소프트웨어입니다.\n" + "네트워크를 통해 이 봇과 상호작용하는 모든 사용자는 " + "GNU AGPL-3.0에 따라 소스 코드를 받을 권리가 있습니다.",
-  license: { name: `${icon("license_terms")} 라이선스`, value: lines.join("\n") },
-  summary: {
-    name: `${icon("license_summary")} 라이선스 요약`,
-    value: "• 라이선스가 부여된 저작물 및 수정본(라이선스가 부여된 저작물을 활용한 더 큰 규모의 저작물 포함)의 전체 소스 코드를 동일한 AGPL-3.0 라이선스 하에 공개하는 것을 조건으로 합니다.\n• 저작권 및 라이선스 고지는 반드시 유지되어야 합니다.\n• 기여자는 특허 사용권을 명시적으로 허락합니다.\n• 수정된 버전을 사용하여 네트워크를 통해 서비스를 제공하는 경우, 해당 수정된 버전의 전체 소스 코드를 공개해야만 합니다.",
-  },
-  fullText: { name: `${icon("license_text")} 라이선스 전문`, value: "저장소의 `LICENSE`(AGPL-3.0) / `LICENSE-MIT`(MIT) / `NOTICE.md`(구조 설명) 파일을 참조하세요." },
-  footer: "GNU AGPL-3.0-or-later • MIT",
+/** /license. 링크 버튼의 이름은 대시보드 라이선스 창과 같다 */
+const license = () => ({
+  title: `${icon("license")} 라이선스`,
+  body: "이 봇은 오픈 소스예요. 이 봇을 쓰는 사람은 누구나 현재 사용 중인 봇의 소스 코드를 받을 수 있어요. (GNU AGPL-3.0)",
+  thisBot: "이 봇",
+  thirdParty: "글꼴, 그림, 라이브러리, 데이터의 라이선스는 저장소의 NOTICE.md, data/NOTICE에 있어요",
+  runningSource: "운영 소스 코드",
+  originalProject: "원본 프로젝트",
+  fullText: "AGPL-3.0 전문",
 });
 
 /** /nowplaying의 문구. 작은 글씨 줄은 아이콘 + 굵은 항목 이름 + 값 */
