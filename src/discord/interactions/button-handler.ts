@@ -1,9 +1,8 @@
-import { EmbedBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonBuilder, type ButtonInteraction, type Client } from "discord.js";
+import { ActionRowBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, type ButtonInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
 import * as errors from "../../ui/text/ko/errors.ts";
-import type { Notice } from "../../ui/text/notice.ts";
 import { checkControl, isBotOwner } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
@@ -11,7 +10,8 @@ import * as controlText from "../../ui/text/ko/controls.ts";
 
 import { PANEL, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
-import { buildSystemEmbed } from "../commands/system.ts";
+import { systemScreen } from "../commands/system.ts";
+import { post } from "../../ui/frame.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
@@ -90,31 +90,27 @@ function volumeModal(current: number) {
 }
 
 /** 새로 그린 화면 */
-type Built = { embed: EmbedBuilder; row: ActionRowBuilder<ButtonBuilder> };
-
-// 새로고침 버튼: 버튼이 달린 메시지를 새 내용으로 고친다
-async function refreshMessage(interaction: Press, build: (client: Client<true>) => Built | Promise<Built>, { failed, notice }: { failed: string; notice: Notice }) {
-  try {
-    await interaction.deferUpdate();
-    const { embed, row } = await build(interaction.client);
-    await interaction.editReply({ embeds: [embed], components: [row] });
-    keepSelf(interaction, LIFETIME.screen);
-  } catch (error) {
-    log.error(failed, error);
-    try {
-      await noticeSelf(interaction, notice);
-    } catch (err) {
-      log.error("오류 안내 전송 실패:", err);
-    }
-  }
-}
-
-async function handleSystemRefresh(interaction: Press, { players }: BotContext) {
+// /system 의 새로고침: 같은 메시지를 현재 값의 이미지로 고친다(기존 첨부는 attachments: [] 로 비운다)
+async function handleSystemRefresh(interaction: Press, bot: BotContext) {
   // /system과 동일하게 봇 운영자 전용
   if (!isBotOwner(interaction.user.id)) {
     return await noticeSelf(interaction, errors.notice("must-owner"));
   }
-  return refreshMessage(interaction, (client) => buildSystemEmbed(client, players), { failed: "시스템 정보 새로고침 실패:", notice: errors.notice("refresh-failed") });
+  // 업데이트 전에 보낸 임베드 메시지는 Components V2 로 고칠 수 없다
+  if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) return noticeSelf(interaction, errors.notice("unknown-interaction"));
+  try {
+    await interaction.deferUpdate();
+    const { view, files } = await systemScreen(bot);
+    await interaction.editReply({ ...post(view, files), attachments: [] });
+    keepSelf(interaction, LIFETIME.screen);
+  } catch (error) {
+    log.error("시스템 정보 새로고침 실패:", error);
+    try {
+      await noticeSelf(interaction, errors.notice("refresh-failed"));
+    } catch (err) {
+      log.error("오류 안내 전송 실패:", err);
+    }
+  }
 }
 
 // custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
@@ -125,4 +121,4 @@ const routes: Route[] = [
   route("button", customId(PANEL, ""), handlePanelButton),
 ];
 
-export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, refreshMessage, handleSystemRefresh };
+export { routes, handlePanelButton, handleQueue, handleQueuePage, handleVolumeButton, volumeModal, handleSystemRefresh };

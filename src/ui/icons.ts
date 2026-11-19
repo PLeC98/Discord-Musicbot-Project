@@ -77,12 +77,8 @@ const ICONS = {
   youtube: { glyph: "youtube-icon-white.png", unicode: "🔴", shape: "logo", brand: "youtube" },
   spotify: { glyph: "spotify-icon-white.svg", unicode: "🟢", shape: "logo", brand: "spotify" },
 
-  // 정보, 도움말 임베드의 제목, 필드 이름
+  // 정보, 도움말 화면의 제목, 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },
-  uptime: { glyph: "timer", unicode: "⏱️" },
-  memory: { glyph: "memory_alt", unicode: "💾" },
-  cpu: { glyph: "memory", unicode: "⚙️" },
-  runtime: { glyph: "terminal", unicode: "🔧" },
   cache: { glyph: "library_music", unicode: "📦" },
   album: { glyph: "album", unicode: "💿" },
   stats: { glyph: "bar_chart", unicode: "📊" },
@@ -140,8 +136,10 @@ function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: Ic
  */
 const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
   channel: { unicode: "🔧" },
+  cpu: { unicode: "⚙️" },
   input_error: { unicode: "✏️" },
   link_off_error: { unicode: "🔗" },
+  memory: { unicode: "💾" },
   muted_error: { unicode: "🔇" },
   not_found_error: { unicode: "🔍" },
   platform_animethemes: { unicode: "🎌" },
@@ -156,9 +154,11 @@ const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: st
   platform_vocadb: { unicode: "🎹" },
   platform_youtube_error: { unicode: "🔴" },
   players: { unicode: "🎵" },
+  runtime: { unicode: "🔧" },
   servers: { unicode: "🏠" },
   stale_error: { unicode: "⌛" },
   state_error: { unicode: "⚠️" },
+  uptime: { unicode: "⏱️" },
   users: { unicode: "👥" },
   voice: { unicode: "🎧" },
 };

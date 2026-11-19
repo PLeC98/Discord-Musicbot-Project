@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import type { ButtonInteraction } from "discord.js";
+import { MessageFlags, type ButtonInteraction } from "discord.js";
 import { settingsDb } from "../../src/store/settings-db.ts";
 import * as stores from "../../src/store/stores.ts";
 import { Player } from "../../src/player/player.ts";
@@ -62,6 +62,9 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   const client = {
     guilds: { cache: Object.assign(new Map(), { reduce: (_fn: unknown, init: number) => init }) },
     user: { id: "bot", username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
+    // /system 새로고침이 대시보드와 같은 상태 값을 모을 때 읽는다
+    ws: { ping: 42, status: 0 },
+    isReady: () => true,
   };
   const bot = fakeBot({
     client,
@@ -118,7 +121,7 @@ function world({ botVoice = "v1", userVoice = "v1", player = true, handle = asyn
   return { guild, member, client, bot, seen, player: p };
 }
 
-type Payload = { content?: string; embeds?: { data: { title?: string; description?: string } }[]; components?: Array<{ toJSON(): unknown }> };
+type Payload = { content?: string; embeds?: { data: { title?: string; description?: string } }[]; components?: Array<{ toJSON(): unknown }>; files?: Array<{ name: string }>; attachments?: unknown[] };
 type Entry = [string] | [string, unknown];
 
 function press(w: World, customId: string, extra: object = {}) {
@@ -414,19 +417,31 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
 
 // ── 시스템 새로고침 ──────────────────────────────────────────
 
-test("시스템 새로고침: 봇 운영자만", async () => {
+test("시스템 새로고침: 봇 운영자만. 같은 메시지의 이미지를 교체하고(기존 첨부는 비운다), 업데이트 전에 보낸 임베드 메시지는 오래된 버튼 안내", async () => {
   const saved = config.dashboard.ownerId;
+  const v2 = { message: { id: "system-msg", flags: { has: (flag: number) => flag === MessageFlags.IsComponentsV2 } } };
   try {
     config.dashboard.ownerId = "owner";
     const w = world();
-    const denied = press(w, "system:refresh");
+    const denied = press(w, "system:refresh", v2);
     await interactionCreate.execute(denied.bot, denied.it);
     assert.deepEqual(denied.log, [["reply", said(errors.notice("must-owner"))]]);
 
     config.dashboard.ownerId = USER;
-    const ok = press(w, "system:refresh");
+    const edits: Payload[] = [];
+    const ok = press(w, "system:refresh", { ...v2, editReply: async (p: Payload) => edits.push(p) });
     await interactionCreate.execute(ok.bot, ok.it);
-    assert.deepEqual(ok.log, [["deferUpdate"], ["editReply", "🖥️ 시스템 상태"]]);
+    assert.deepEqual(ok.log, [["deferUpdate"]]);
+    assert.equal(headOf(edits[0]), "### 🖥️ 시스템 상태");
+    assert.deepEqual(edits[0].attachments, []);
+    assert.deepEqual(
+      edits[0].files?.map((f) => f.name),
+      ["system.png", "history.png"],
+    );
+
+    const old = press(w, "system:refresh", { message: { id: "embed-msg", flags: { has: () => false } } });
+    await interactionCreate.execute(old.bot, old.it);
+    assert.deepEqual(old.log, [["reply", said(errors.notice("unknown-interaction"))]]);
   } finally {
     config.dashboard.ownerId = saved;
   }

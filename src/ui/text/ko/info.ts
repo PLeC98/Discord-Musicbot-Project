@@ -1,41 +1,10 @@
-// 정보 화면(/system, /cachestatus, /ping, /license, /nowplaying)의 문구. 값은 호출부가 말로 적어 넘긴다.
+// 정보 화면(/cachestatus, /ping, /license, /nowplaying)의 문구. 값은 호출부가 말로 적어 넘긴다.
 // 플랫폼, 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
 
 import { icon, type IconKey } from "../../icons.ts";
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
-
-type SystemValues = {
-  botUptime: string;
-  osUptime: string;
-  guilds: number;
-  playing: number;
-  /** 서버 멤버 수의 합(여러 서버에 있는 사람은 서버마다 센다) */
-  users: number;
-  memoryBar: string;
-  memoryUsed: string;
-  memoryTotal: string;
-  heapUsed: string;
-  heapTotal: string;
-  rss: string;
-  cpuModel: string | undefined;
-  cores: number;
-  load: string[];
-  node: string;
-  discordJs: string;
-  platform: string;
-  pid: number;
-};
-/** /system. 필드마다 { name, value } */
-const system = (v: SystemValues) => ({
-  title: `${icon("system")} 시스템 상태`,
-  uptime: { name: `${icon("uptime")} 업타임`, value: [`**봇:** ${v.botUptime}`, `**OS:** ${v.osUptime}`].join("\n") },
-  bot: { name: `${icon("music")} 봇 현황`, value: [`**서버:** ${v.guilds}개`, `**재생 중:** ${v.playing}개`, `**사용자:** ${v.users.toLocaleString()}명`].join("\n") },
-  memory: { name: `${icon("memory")} 메모리`, value: [`**시스템:** ${v.memoryBar} (${v.memoryUsed} / ${v.memoryTotal})`, `**Heap 사용:** ${v.heapUsed} / ${v.heapTotal}`, `**RSS:** ${v.rss}`].join("\n") },
-  cpu: { name: `${icon("cpu")} CPU`, value: [`**모델:** ${v.cpuModel ?? "알 수 없음"} (${v.cores}코어)`, `**부하 (1m/5m/15m):** \`${v.load[0]}\` / \`${v.load[1]}\` / \`${v.load[2]}\``].join("\n") },
-  runtime: { name: `${icon("runtime")} 런타임`, value: [`**Node.js:** ${v.node}`, `**discord.js:** v${v.discordJs}`, `**플랫폼:** ${v.platform}`, `**PID:** ${v.pid}`].join("\n") },
-});
 
 type CacheValues = {
   sizeBar: string;
@@ -130,4 +99,4 @@ function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean;
   return parts.join(" • ");
 }
 
-export { refresh, system, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };
+export { refresh, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };

@@ -74,6 +74,9 @@ function interaction({ player = null, options = {}, userId = "u1", guildRoles = 
   const client = fakeWith<Client<true>>()({
     guilds: { cache: Object.assign(guilds, { reduce: (fn: (acc: number, g: { memberCount: number }) => number, init: number) => [...guilds.values()].reduce(fn, init) }) },
     user: { username: "뮤직봇", displayAvatarURL: () => "https://avatar.test/a.png" },
+    // /system 이 대시보드와 같은 상태 값을 모을 때 읽는다
+    ws: { ping: 42, status: 0 },
+    isReady: () => true,
   });
   const bot = fakeBot({
     client,
@@ -431,7 +434,7 @@ test("/invite: 초대 버튼, 웹사이트가 있으면 웹사이트 버튼. 끄
   assert.ok(!names(false).includes("invite"));
 });
 
-test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 바꾼다", async () => {
+test("/system: 봇 운영자만. 운영자면 그리는 중 자리표시자(V2, 본인에게만)를 먼저 보여 주고 이미지 두 장을 첨부해 고친다", async () => {
   const saved = config.dashboard.ownerId;
   config.dashboard.ownerId = "owner";
   try {
@@ -441,11 +444,23 @@ test("/system: 봇 운영자만. 운영자면 미뤄 두고 시스템 상태로 
 
     const owner = interaction({ userId: "owner" });
     await run(await command("system"), owner.it, owner.bot);
-    assert.deepEqual(owner.log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
-    const f = fieldsOf(owner.log[1][1]);
-    assert.match(f["🎵 봇 현황"], /서버:\*\* 1개/);
-    assert.match(f["🎵 봇 현황"], /사용자:\*\* 5명/, "서버 멤버 수의 합");
-    assert.equal(owner.log[1][1].components[0].components[0].data.custom_id, "system:refresh");
+    assert.deepEqual(
+      owner.log.map(([kind]) => kind),
+      ["reply", "editReply"],
+    );
+    const [, placeholder] = owner.log[0];
+    assert.deepEqual(placeholder.flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+    assert.match(textOf(placeholder), /### 🖥️ 시스템 상태\n-# 봇 v\S+/);
+    assert.ok(textOf(placeholder).includes("상태 이미지를 그리는 중이에요"));
+    assert.equal(thumbnailOf(placeholder as never), "https://avatar.test/a.png");
+    const [, done] = owner.log[1];
+    assert.deepEqual(
+      (done as unknown as { files: Array<{ name: string }> }).files.map((f) => f.name),
+      ["system.png", "history.png"],
+    );
+    assert.match(textOf(done), /갱신: <t:\d+:f>/);
+    assert.ok(JSON.stringify(done.components).includes('"custom_id":"system:refresh"'));
+    assert.deepEqual(lifetimesOf(owner.it), [LIFETIME.screen]);
   } finally {
     config.dashboard.ownerId = saved;
   }
