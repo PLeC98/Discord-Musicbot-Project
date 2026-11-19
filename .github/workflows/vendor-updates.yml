@@ -180,7 +180,7 @@ jobs:
               echo "bgutil 태그(\`$current\`)가 가리키는 커밋을 찾지 못했습니다($(date -u +%F) 갱신): $(jq -r '.bgutil.tag.reason' result.json)"
             fi
             echo
-            echo "문제가 해결될 때까지 기본 설정으로는 이 태그를 설치하지 않습니다(이미 설치된 버전은 그대로 작동합니다). 태그가 왜 바뀌었는지 원본 저장소(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\`의 \`BGUTIL_COMMIT\`을 고치세요."
+            echo "문제가 해결될 때까지 이 태그는 기본 버전으로 설치되지 않습니다(이미 설치된 버전은 그대로 작동합니다). 태그가 왜 바뀌었는지 원본 저장소(Brainicism/bgutil-ytdlp-pot-provider)의 릴리스와 커밋을 확인하고, 믿을 수 있으면 \`src/config/vendor-versions.ts\`의 \`BGUTIL_COMMIT\`을 고치세요."
             echo
             echo "이 워크플로가 매주 이 본문을 갱신합니다."
           } > issue.md
