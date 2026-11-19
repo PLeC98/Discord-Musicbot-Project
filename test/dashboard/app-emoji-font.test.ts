@@ -1,5 +1,4 @@
 // src/dashboard/app-emoji-font.ts: 앱 이모지 그림 글꼴(sbix, SVG). 표 구조는 fontkit으로 다시 읽어 본다.
-// 브라우저가 그리는지는 notes의 실험 스크립트(ipad-test.mjs의 /pua, /pick)로 손으로 본다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

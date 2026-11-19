@@ -18,7 +18,6 @@ const stage: Record<Exclude<LoginBackgroundStage, "receive">, string> = {
 const receive: Record<LoginBackgroundItem["from"], string> = { upload: "파일 확인 중", link: "다운로드 중", youtube: "영상 다운로드 중" };
 const stageOf = (now: LoginBackgroundStage, from: LoginBackgroundItem["from"]) => (now === "receive" ? receive[from] : stage[now]);
 
-/** 카드 */
 const card = {
   title: "로그인 배경",
   desc: "로그인 화면을 보는 기기에 따라 화질과 효과가 달라질 수 있어요.",
@@ -169,7 +168,6 @@ const timeline = {
   zoom: "확대",
 };
 
-/** 알림 */
 const notice = {
   applied: "로그인 배경을 적용했어요",
   cleared: "로그인 배경을 삭제했어요",

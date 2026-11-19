@@ -1,4 +1,4 @@
-// src/rules/queue-edit.ts: /queue 편집 화면의 곡 옮기기(대기열 ID로 누른 때의 자리에서 셈한다)
+// src/rules/queue-edit.ts: /queue 편집 화면의 곡 옮기기(대기열 ID로 누른 때의 자리에서 계산한다)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

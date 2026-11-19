@@ -443,7 +443,7 @@ function scoreCandidate<C extends Candidate>(candidate: C, target: Target) {
 
 /**
  * 후보 배열을 점수순으로 정렬(각 항목에 breakdown 포함). 동점은 순위→리스트 우선순위 순.
- * candidate.rank가 있으면 그걸(병합 결과) 순위로, 없으면 배열 인덱스를 순위로 사용.
+ * candidate.rank가 있으면 그 값(병합 결과)을 순위로, 없으면 배열 인덱스를 순위로 사용.
  */
 function rankCandidates<C extends Candidate>(candidates: C[], target: Target) {
   const withRank = sharedChannelRank(
@@ -457,7 +457,7 @@ function rankCandidates<C extends Candidate>(candidates: C[], target: Target) {
   const top = scored[0];
   if (top) {
     // 다른 버전이 걸린 후보는 확신할 수 없다. 곡은 맞지만 찾던 녹음이 아니다.
-    // (이걸 안 보면 "공식 채널 + 정크 없음"만으로 영어판에 high가 붙는다.)
+    // (다른 버전을 보지 않으면 "공식 채널 + 정크 없음"만으로 영어판에 high가 붙는다.)
     const clean = top.breakdown.junk === 0 && top.breakdown.version === 0 && top.breakdown.reupload === 0;
     if (top.flags.channelMatch && clean) confidence = "high";
     else if (top.flags.official && top.flags.duration.startsWith("near") && top.breakdown.version === 0) confidence = "high";

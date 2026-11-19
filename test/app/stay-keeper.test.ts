@@ -35,7 +35,7 @@ function guildOf(id: string, { fetched = "voice" as "voice" | "gone" | "denied" 
   return fake<Guild>({ id, name: `서버 ${id}`, available: true, channels: { fetch }, members: { me: {} } });
 }
 
-// 지킴이와 그가 부른 것. joined: 붙기의 결과
+// 지킴이와 지킴이가 부른 것. joined: 붙기의 결과
 function world(guilds: Guild[], { joined = "joined" as JoinResult["kind"] | "refused-permission" | "refused-full" | "refused-timed-out" } = {}) {
   const calls: string[] = [];
   const alive = new Set<string>();

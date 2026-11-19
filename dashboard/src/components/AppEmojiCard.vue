@@ -122,7 +122,7 @@ async function onAdded(emoji: AppEmojiItem) {
   await reload();
 }
 
-// 이름: 칸마다 입력란. 고친 이름만 drafts에 두고 저장 띠로 모아 저장한다. 다른 칸에서 고치는 이름과도 겹치지 않아야 한다
+// 이름: 칸마다 입력란. 고친 이름만 drafts에 두고 저장 바로 모아 저장한다. 다른 칸에서 고치는 이름과도 겹치지 않아야 한다
 const drafts = reactive<Record<string, string>>({});
 /** 봇이 거절한 이름의 이유(칸 id별 문구). 해당 칸의 이름을 고치면 지움 */
 const refused = reactive<Record<string, string>>({});
@@ -147,7 +147,7 @@ const issues = computed(() => {
   return out;
 });
 
-// 하나씩 바꾸고, 실패하면 거기서 멈춘다(저장 띠가 이 탭으로 옮긴다). 봇이 거절한 이름은 그 칸 아래에
+// 하나씩 바꾸고, 실패하면 거기서 멈춘다(저장 바가 이 탭으로 옮긴다). 봇이 거절한 이름은 그 칸 아래에
 async function save(): Promise<boolean> {
   if (saving.value) return false;
   saving.value = true;

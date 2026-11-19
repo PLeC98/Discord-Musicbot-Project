@@ -5,7 +5,7 @@ import { toMap, toRows, type GenreData, type GenreRow, type SourceData } from ".
 
 const FORMAT = 1;
 
-/** 받을 파일 이름과 내용 */
+/** 다운로드할 파일 이름과 내용 */
 function genreFile(row: GenreRow): { name: string; body: string } {
   const id = row.name.trim();
   const genre = toMap([row])[id];

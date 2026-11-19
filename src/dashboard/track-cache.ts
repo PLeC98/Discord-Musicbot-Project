@@ -178,10 +178,6 @@ function compare(a: string | number | null, b: string | number | null, dir: "asc
   return dir === "desc" ? -order : order;
 }
 
-/**
- * URL 쿼리를 읽기로(contract의 trackCacheSearch의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
- * 필터 식은 여기서 읽지 않는다(read가 읽는다)
- */
 // 값 하나만 받는 키(없으면 fallback). 여럿이면 null
 function single(search: URLSearchParams, name: string, fallback: string) {
   const all = search.getAll(name);
@@ -214,6 +210,10 @@ function sortOf(table: TrackCacheTable, raw: string | null, errors: FieldProblem
   return sort;
 }
 
+/**
+ * URL 쿼리를 읽기로(contract의 trackCacheSearch의 역). 모르는 열, 같은 키가 여럿, 정렬 열이 겹치면 거절한다.
+ * 필터 식은 여기서 읽지 않는다(read가 읽는다)
+ */
 function queryOf(search: URLSearchParams): { ok: true; query: TrackCacheQuery } | Refusal {
   const table = single(search, "table", "");
   if (!isTrackCacheTable(table)) return refusal("bad-request");

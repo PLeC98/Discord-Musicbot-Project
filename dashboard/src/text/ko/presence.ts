@@ -29,7 +29,7 @@ const removeSpecial = "이 항목 삭제";
 const conditions = "조건";
 const conditionsDesc = "둘 이상 넣으면 모두 맞을 때만 사용해요. 끝을 시작보다 앞으로 고르면 연말이나 자정을 넘겨요.";
 
-/** 조건의 범위 고르개(components/ConditionRangeField, utils/condition-range) */
+/** 조건의 범위 선택기(components/ConditionRangeField, utils/condition-range) */
 const range = {
   /** 고른 것이 없을 때 입력란 */
   none: "설정 안 함",

@@ -1,4 +1,4 @@
-// 외부 도구(bgutil, ffmpeg)의 새 버전, 고정한 bgutil 태그가 고정한 커밋을 그대로 가리키는지와 그 lockfile의 취약점,Cloudflare IP 대역(data/cloudflare-ips.json, 대시보드의 사용자 IP 확인용) 변경, yt-dlp 서명 키(data/yt-dlp-signing-key.asc)가 그대로인지를 확인한다. 매주 실행되는 vendor-updates 워크플로가 호출하고, 로컬에서도 실행할 수 있다.
+// 외부 도구(bgutil, ffmpeg)의 새 버전, 고정한 bgutil 태그가 고정한 커밋을 그대로 가리키는지와 그 lockfile의 취약점, Cloudflare IP 대역(data/cloudflare-ips.json, 대시보드의 사용자 IP 확인용) 변경, yt-dlp 서명 키(data/yt-dlp-signing-key.asc)가 그대로인지를 확인한다. 매주 실행되는 vendor-updates 워크플로가 호출하고, 로컬에서도 실행할 수 있다.
 //
 //   node scripts/check-vendor-updates.ts           결과를 JSON으로 찍는다
 //   node scripts/check-vendor-updates.ts --write   새 버전이 있으면 src/config/vendor-versions.ts의 기본값(bgutil은 태그와 커밋)을, Cloudflare 대역이 바뀌었으면 data/cloudflare-ips.json을 갱신하고 결과를 출력한다

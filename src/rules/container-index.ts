@@ -1,4 +1,4 @@
-// 음원 파일 앞부분의 인덱스(webm Cues, mp4 sidx)으로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
+// 음원 파일 앞부분의 인덱스(webm Cues, mp4 sidx)로 시간 → 바이트를 안다. 보는 것은 바이트뿐이다(통신 없음).
 // 위치를 옮길 때 파일 처음이 아니라 목표 앞의 키프레임(webm 클러스터, mp4 세그먼트)부터 받으려고 쓴다(media/seek-start).
 //   webm  EBML → Segment → Info(TimecodeScale), Tracks(오디오 트랙 번호), 첫 클러스터 앞의 Cues. 위치는 Segment 데이터 시작 기준(RFC 9559 §16)
 //   mp4   ftyp → moov(여기까지가 헤더) → sidx(version 0, 1, 세그먼트마다 크기, 길이). 세그먼트 시작은 sidx 다음 바이트 + first_offset

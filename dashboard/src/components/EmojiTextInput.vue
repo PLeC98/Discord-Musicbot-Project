@@ -28,7 +28,7 @@ import { insertAt, caretOf, type Caret } from "../utils/caret.ts";
 import { fromChars, hasAppEmojiChar, hasMissing, loadAppEmojis, toChars } from "../composables/app-emojis.ts";
 import { text } from "../text/index.ts";
 
-/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label이 없을 때의 이름, deviceEmoji, appEmoji: 머리 주석 */
+/** maxlength: 글자 수 상한(넘기게 되는 이모지는 넣지 않는다), label: 감싼 label이 없을 때의 이름, deviceEmoji, appEmoji: 파일 첫머리 주석 */
 const props = withDefaults(defineProps<{ placeholder?: string; maxlength?: number; spellcheck?: boolean; label?: string; deviceEmoji?: boolean; appEmoji?: boolean }>(), { spellcheck: true });
 const model = defineModel<string>({ default: "" });
 

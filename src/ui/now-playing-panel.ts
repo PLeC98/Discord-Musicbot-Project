@@ -720,8 +720,8 @@ class NowPlayingPanel {
   /**
    * 시작할 때 한 번. 기록된 패널을 지금 상태(음성 밖)로 고친다. 재생 중에 꺼졌으면 재생 모양과 살아 있는 버튼이 남아 있다.
    * 전용 채널에 패널이 없으면 올린다. 세션을 복원해 새 패널을 올린 서버는 건너뛴다.
+   * skip: 이번 기동은 세션 복원을 건너뛰었다(짧게 끊긴 실행이 이어졌다, app/run-record)
    */
-  /** skip: 이번 기동은 세션 복원을 건너뛰었다(짧게 끊긴 실행이 이어졌다, app/run-record) */
   async restorePanels({ skip = false }: { skip?: boolean } = {}) {
     for (const guild of this.client.guilds?.cache?.values() ?? []) {
       try {

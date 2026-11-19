@@ -10,7 +10,6 @@ import type { AudioCachePart } from "../rules/audio-cache-parts.ts";
 const cacheDb = new DbFile({
   label: "캐시 DB",
   fileName: "cache.db",
-  // 7: 재생 테스트, 다시 확인의 원본 버전(source_checks.version). 8: SponsorBlock 구간을 받은 주소(sponsorblock_cache.api_base)
   version: 8,
   synchronous: "NORMAL",
   onMismatch: { lost: "캐시 파일 기록, 오디오 링크 데이터, 직접 지정한 음원, 재생 테스트 결과, SponsorBlock 구간, 연령 제한 기록이 사라지고, 캐시 파일은 기동 시 정리가 삭제한 뒤 다음 재생부터 다시 다운로드함" },
@@ -123,7 +122,7 @@ function createTables(db: Db) {
 
 // 바뀜 번호: 캐시 DB 화면의 표를 이루는 표마다 쓰면 오른다. rows는 링크 데이터, 직접 지정한 음원, 캐시 파일, 연령 제한, checks는 재생 테스트 결과
 // (운영자가 누른 재생 테스트가 "새 변경 사항이 있어요" 알약을 표시하지 않게 따로). 쓰는 곳마다 올리지 않고 트리거가 센다(새로 쓰는 곳이 빠지지 않게).
-// 연결마다의 임시 표, 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master의 표만 비워 이것은 남는다
+// 연결마다의 임시 표, 임시 트리거라 파일에 남지 않고(구조 버전과 무관) 프로세스를 다시 시작하면 1부터다. 캐시 초기화는 sqlite_master의 표만 비워 바뀜 번호는 남는다
 const REVISION_OF: Record<string, "rows" | "checks"> = { track_lookup: "rows", pinned_sources: "rows", audio_cache: "rows", age_restricted: "rows", source_checks: "checks" };
 
 function createRevisionTriggers(db: Db) {

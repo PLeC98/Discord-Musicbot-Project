@@ -42,7 +42,7 @@ function patchOf(base: SettingsValues, draft: SettingsValues, keys: readonly Set
 /** 합친 결과. touched: 고치는 값이 바뀐 키(화면은 그 키의 입력만 고쳐 쓴다) */
 type Merged = { base: SettingsValues; draft: SettingsValues; touched: SettingsKey[] };
 
-/** 저장 응답을 반영한다. 보낸 키만 기준값을 응답 값으로 바꾸고, 고치는 값이 보낸 그대로면 그것도 응답 값으로 바꾼다(서버가 거른 역할이 화면에서도 빠지게). 그사이 또 고쳤으면 둔다 */
+/** 저장 응답을 반영한다. 보낸 키만 기준값을 응답 값으로 바꾸고, 고치는 값이 보낸 그대로면 그것도 응답 값으로 바꾼다(서버가 필터링한 역할이 화면에서도 빠지게). 그사이 또 고쳤으면 둔다 */
 function acceptSaved(base: SettingsValues, draft: SettingsValues, sent: SettingsValues, values: SettingsValues): Merged {
   const touched: SettingsKey[] = [];
   for (const key of keysOf(sent)) {

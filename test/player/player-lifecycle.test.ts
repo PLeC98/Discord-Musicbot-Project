@@ -909,7 +909,7 @@ test("버리기(세션 그대로): 저장도 삭제도 하지 않는다. 따로 
 
 test("버리기(세션 그대로): 메모리를 비워도 저장된 곡 행은 남는다(진짜 세션 저장으로)", async () => {
   const p = h.makePlayer({ guildId: "gkeep" });
-  // 이 도우미는 세션 저장을 가짜로 끼운다. DB에 남는 것을 보려고 진짜로 바꾼다
+  // 이 헬퍼는 세션 저장을 가짜로 끼운다. DB에 남는 것을 보려고 진짜로 바꾼다
   const real = new SessionPersistence(p);
   p.persistence = real;
   p.trackSink = real;

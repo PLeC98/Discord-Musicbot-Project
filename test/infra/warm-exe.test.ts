@@ -1,4 +1,4 @@
-// 막 받은 실행 파일을 워커 스레드에서 한 번 띄워 두기(Windows만)
+// src/infra/warm-exe.ts: 막 받은 실행 파일을 워커 스레드에서 한 번 띄워 두기(Windows만)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

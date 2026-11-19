@@ -7,7 +7,6 @@ const collection = (kind: string | null | undefined) => (kind && COLLECTION[kind
 /** 곡 제목. 출처가 제목을 주지 않았으면(null) 알 수 없는 곡 */
 const songTitle = (title: string | null | undefined) => title || "알 수 없는 곡";
 
-/** 곡 수 */
 const trackCount = (n: number) => `${n}곡`;
 
 export { collection, songTitle, trackCount };

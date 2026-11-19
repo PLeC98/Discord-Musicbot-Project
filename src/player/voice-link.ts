@@ -13,8 +13,7 @@ import { codeOf, codedError, describeError, errorKind, messageOf } from "../rule
 
 const log = logger.child({ category: "voice" });
 
-/** 음성 라이브러리에서 부르는 것 */
-/** newSessionAt: 그 샤드가 마지막으로 게이트웨이 새 세션을 받은 때(ms, infra/gateway-sessions). 없으면 새 세션을 모르는 것으로 본다 */
+/** 음성 라이브러리에서 부르는 것. newSessionAt: 그 샤드가 마지막으로 게이트웨이 새 세션을 받은 때(ms, infra/gateway-sessions). 없으면 새 세션을 모르는 것으로 본다 */
 type VoiceLib = { joinVoiceChannel: typeof joinVoiceChannel; entersState: typeof entersState; newSessionAt?: (shardId: number) => number | null };
 /** 연결을 맡으며 읽고 바꾸는 플레이어 필드 */
 type VoiceHost = Pick<Player, "audioPlayer" | "connection" | "dispose" | "currentTrack" | "guild" | "onVoiceRecovered" | "voiceChannel" | "syncHolds" | "movedVoiceStatus" | "noticeStage">;
@@ -138,7 +137,7 @@ class VoiceLink {
     const player = this.player;
     const channelId = player.voiceChannel?.id;
     if (!channelId) throw new Error("음성 채널 없음");
-    // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들어 trace를 남길 때만
+    // debug: 라이브러리의 진행 줄(음성 서버, 네트워킹)을 받는다(_watch). 켜면 라이브러리가 웹소켓 메시지마다 문자열을 만들므로 trace를 남길 때만 켠다
     const connection = this.lib.joinVoiceChannel({ channelId, guildId: player.guild.id, adapterCreator: this._adapterCreator(), debug: log.level === "trace" });
     player.connection = connection;
     this._watch(connection);

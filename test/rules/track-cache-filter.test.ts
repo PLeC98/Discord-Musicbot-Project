@@ -98,7 +98,7 @@ test("모든 열에서: 낱말마다 어느 열에든 들어간 행", () => {
   assert.equal(matchWords(words.words, ["YOASOBI", "夜に駆ける", 12]), false);
 });
 
-// %를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b가 60자 제목에서 3초 넘게 걸렸다. 조각을 순서대로 찾아 소요 시간이 글자 수에 비례한다
+// %를 정규식(.*)으로 바꾸면 a%a%a%a%a%a%b가 60자 제목에서 3초 넘게 걸린다. 조각을 순서대로 찾아 소요 시간이 글자 수에 비례한다
 test("% 식은 조각을 순서대로 찾는다. 조각이 많고 맞지 않아도 곧바로 끝난다", () => {
   const expr = `${Array(40).fill("a").join("%")}%b`;
   const started = performance.now();

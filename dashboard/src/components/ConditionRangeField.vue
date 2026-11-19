@@ -1,5 +1,5 @@
 <template>
-  <!-- 상태 문구 조건(양력, 음력, 시간대)의 범위. 누르면 창이 열려 시작, 끝을 휠로 고른다(로그 날짜 고르개와 같은 창 모양, 휴대폰이나 자리가 모자라면 가운데 팝업).
+  <!-- 상태 문구 조건(양력, 음력, 시간대)의 범위. 누르면 창이 열려 시작, 끝을 휠로 고른다(로그 날짜 선택기와 같은 창 모양, 휴대폰이나 자리가 모자라면 가운데 팝업).
        값은 저장 형식 그대로("MM-DD ~ MM-DD", "HH:MM ~ HH:MM", 없으면 ""). 입력란의 글은 utils/condition-range -->
   <div ref="root" class="relative">
     <button ref="anchor" type="button" :class="BOX" :aria-expanded="open" :aria-label="label" @click="toggle">

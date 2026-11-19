@@ -1,5 +1,5 @@
 // dashboard/src/utils/settings-draft.ts: 서버 설정 화면의 저장 차례와 값 합치기. 저장 중에 고치거나 되돌린 것, 저장 중에 온 넛지,
-// 응답이 보낸 키만 바꾸는 것, 충돌과 실패의 갈래, 숫자 입력 중인 카드, 운영자 기본 구간을 따르는 구간을 지킨다
+// 응답이 보낸 키만 바꾸는 것, 충돌과 실패의 경우, 숫자 입력 중인 카드, 운영자 기본 구간을 따르는 구간을 지킨다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +25,7 @@ function settingsOf(values: SettingsValues, more: Partial<GuildSettings> = {}, d
 // 문제 응답처럼 보이는 요청 오류
 const problem = (status: number, code: string, extra: Record<string, unknown> = {}) => ({ response: { status, data: { code, status, ...extra } } });
 
-// 응답을 시험이 정할 때까지 늦추는 가짜 화면
+// 응답을 테스트가 정할 때까지 늦추는 가짜 화면
 function harness(initial: SettingsValues) {
   let form: SettingsValues = { ...initial };
   const sent: SettingsPatch[] = [];

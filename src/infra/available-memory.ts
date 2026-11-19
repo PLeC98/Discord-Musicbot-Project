@@ -1,5 +1,5 @@
 // 지금 쓸 수 있는 메모리(바이트). Linux, Windows는 os.freemem()이 이미 쓸 수 있는 양이다(MemAvailable, 사용 가능한 물리 메모리).
-// macOS의 os.freemem()은 비어 있는 페이지만 세어 캐시로 쥔 페이지(inactive)가 빠져 실제보다 훨씬 작다(러너에서 7GB 중 1.2GB).
+// macOS의 os.freemem()은 비어 있는 페이지만 세어 캐시로 쥔 페이지(inactive)가 빠져 실제보다 훨씬 작다.
 // macOS는 vm_stat의 free + inactive로 잰다(psutil의 available과 같다. purgeable은 다른 항목과 겹쳐 더하지 않는다)
 
 import os from "node:os";

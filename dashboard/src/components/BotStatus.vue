@@ -354,7 +354,6 @@ import { axisMax, bitRate, byteRate, count, fixed, time, type Scale } from "../u
 import { text } from "../text/index.ts";
 const T = text.status;
 
-// query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 바꾸면 운영자 패널이 바로 받는다
 const props = defineProps<{ status: AdminStatus; updatedAt: number | null; stale: boolean }>();
 // 특권 인텐트 안내. 로그인한 것이 꺼졌으면 꺼짐, 그사이 앱 설정에서 켜졌으면 다시 시작하면 적용. knownOff: 앱 설정을 읽어 꺼진 것을 확인했다(켜기 버튼은 그때만).
 // text: 이름 뒤에 붙는 글. 꺼져 있으면 쓸 수 없는 기능과 켜는 법을 한 칸 띄워 잇는다
@@ -381,6 +380,7 @@ async function enableIntent(name: "messageContent" | "guildMembers") {
     enabling.value = null;
   }
 }
+// query: 목록(플레이어, 자식 프로세스)의 구간, 필터링, 정렬. 바꾸면 운영자 패널이 바로 받는다
 const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 

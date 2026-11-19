@@ -65,7 +65,7 @@ function publicLogin(req: express.Request): string | null {
   return target.toString();
 }
 
-// OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 생성 시각)은 세션이 아니라 쿠키 하나에 암호화해 둔다(Grafana의 oauth_state, Auth.js의 state 쿠키와 같다).
+// OAuth 로그인 요청(state, PKCE verifier, 팝업 여부, 생성 시각)은 세션이 아니라 쿠키 하나에 암호화해 둔다.
 // 세션에 두면 로그인 전에도 세션 행이 생기고, 팝업 재로그인이 기록한 state를 동시에 처리된 다른 요청이 이전 세션 사본으로 덮어써 지우게 된다
 type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
 const LOGIN_PURPOSE = "oauth-login";

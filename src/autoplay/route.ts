@@ -202,7 +202,7 @@ const fromAudio = (cand: Candidate & { audioUrl: string }): PickedTrack => ({
   id: cand.sourceKey,
 });
 
-// 바깥 경계. 테스트는 이것을 넘겨 진짜 소스, 검색, 링크 데이터, AI 보조를 부르지 않는다
+// 바깥 경계. 테스트는 가짜 Deps를 넘겨 진짜 소스, 검색, 링크 데이터, AI 보조를 부르지 않는다
 const REAL: Deps = {
   search: (query, limit) => youtubeSource.searchVideos(query, limit),
   pinned: (requestKey) => pinnedSources.getPin(requestKey),

@@ -1,4 +1,4 @@
-// src/dashboard/intent-enable.ts: 운영자 패널에서 포털 스위치(_LIMITED)를 켠다. 보낼 값은 여기서 셈하고 켜기만 한다
+// src/dashboard/intent-enable.ts: 운영자 패널에서 포털 스위치(_LIMITED)를 켠다. 보낼 값은 여기서 계산하고 켜기만 한다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -58,7 +58,6 @@ const stayOff = (already: boolean): Head => (already ? { icon: "done", title: "�
 /** 볼륨 정규화 켬, 끔. already면 이미 그 상태였다 */
 const normalizeSet = (on: boolean, already: boolean): Head => (on ? { icon: "volume", title: already ? "이미 볼륨 정규화가 켜져 있어요." : "볼륨 정규화를 켰어요!", body: "곡과 영상마다 제각각인 볼륨을 비슷하게 맞춰요." } : { icon: "done", title: already ? "이미 볼륨 정규화가 꺼져 있어요." : "볼륨 정규화를 껐어요!", body: "곡과 영상을 원래 볼륨대로 틀어요." });
 
-/** 섞기 */
 const shuffled = (count: number): Head => ({ icon: "shuffle", title: "대기열을 셔플했어요!", body: `${count}곡을 섞었어요.` });
 
 /** 하이라이트로 건너뛰는 동안 */
@@ -70,7 +69,6 @@ const highlighted = (at: string): Head => ({ icon: "highlight_jump", title: "하
 const replaying = () => `${icon("progress")} 처음부터 다시 트는 중...`;
 // 실패로 일시정지해 둔 곡을 재생 버튼으로 다시 열 때
 const reopening = () => `${icon("progress")} 곡을 다시 트는 중...`;
-/** 처음부터 다시 */
 const replayed = (track: Linked): Head => ({ icon: "replay", title: "곡을 되감았어요!", body: `${linkObject(track)} 처음부터 재생할게요.` });
 
 /** 위치를 옮기는 동안 */
@@ -98,7 +96,6 @@ const LOOP: Record<string, [icon: IconKey, message: string]> = {
   queue: ["repeat", "**대기열 반복** 모드로 설정했어요."],
   false: ["repeat_off", "반복 모드를 **해제**했어요."],
 };
-/** 반복 모드 바꾸기 */
 const loopSet = (mode: string | false): Head => {
   const [key, message] = LOOP[String(mode)];
   return { icon: key, title: "반복 모드를 바꿨어요!", body: message };

@@ -28,7 +28,7 @@ export function useArtSwipe(el: Ref<HTMLElement | null>, act: Actions) {
   let start: { id: number; x: number; y: number } | null = null;
   let engaged = false;
   let last = { x: 0, t: 0, v: 0 };
-  /** 끌기를 시작할 때 잰 옆 칸까지의 거리. 옆 칸이 지금 칸과 따로 움직이는 화면이 있어 끄는 중에는 다시 재지 않는다 */
+  /** 드래그를 시작할 때 잰 옆 칸까지의 거리. 옆 칸이 지금 칸과 따로 움직이는 화면이 있어 드래그 중에는 다시 재지 않는다 */
   let measured: { next: number; previous: number } | null = null;
 
   const width = () => el.value?.offsetWidth || 300;

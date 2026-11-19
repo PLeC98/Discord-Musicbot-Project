@@ -1,8 +1,8 @@
 // src/discord/commands의 표시, 설정 명령: 지금 동작을 고정한다(/setting의 버튼, 메뉴는 test/events/settings-panel).
 // /nowplaying, /queue, /help, /system, /ping, /license, /setchannel, /setting.
 //
-// 문구 전부가 아니라 "무엇을 선택해 담았나 ·
-// 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
+// 문구 전부가 아니라 "무엇을 선택해 담았나, 무엇을 저장했나"를 본다.
+// 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
 
 import fs from "node:fs";
 import os from "node:os";

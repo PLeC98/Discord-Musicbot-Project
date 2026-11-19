@@ -48,7 +48,7 @@ function isArtHost(url: string) {
   }
 }
 
-/** 첫 바이트로 본 형식이 JPEG, PNG, WebP 인지. Content-Type 이 없는 응답도 이것을 지나야 디코딩한다 */
+/** 첫 바이트로 본 형식이 JPEG, PNG, WebP인지. Content-Type이 없는 응답도 isRaster를 지나야 디코딩한다 */
 const isRaster = (data: Buffer) => (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) || data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) || (data.subarray(0, 4).toString("latin1") === "RIFF" && data.subarray(8, 12).toString("latin1") === "WEBP");
 
 /** 칸 크기 JPEG. 비율이 거의 같으면 그대로 맞추고, 다르면 흐린 바탕 위 가운데에. JPEG, PNG, WebP 가 아니면 예외 */

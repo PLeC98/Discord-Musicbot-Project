@@ -46,13 +46,11 @@ function stopped(cleared: number, by: Actor, stayed = false) {
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 섞기 */
 function shuffled(count: number, by: Actor) {
   const t = controlText.shuffled(count);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 반복 모드 */
 function loopSet(mode: Loop, by: Actor) {
   const t = controlText.loopSet(mode);
   return frame({ icon: t.icon, title: t.title, body: t.body, footer: [who(by)], divider: true });

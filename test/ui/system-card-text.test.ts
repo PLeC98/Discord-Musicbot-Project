@@ -1,4 +1,4 @@
-// /system 이미지의 글자와 아이콘이 그리는 데 쓰는 글꼴과 윤곽 파일에 다 있는지. 이미지는 등록한 글꼴로만 글자를 그려서 빠진 글자는 네모로 나온다
+// src/ui/card-render/fonts.ts, icons.ts: /system 이미지의 글자와 아이콘이 그리는 데 쓰는 글꼴과 윤곽 파일에 다 있는지. 이미지는 등록한 글꼴로만 글자를 그려서 빠진 글자는 네모로 나온다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

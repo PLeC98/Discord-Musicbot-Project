@@ -9,7 +9,6 @@ function beginShutdown() {
   stopping = true;
 }
 
-/** 종료 시작 여부 */
 function isShuttingDown() {
   return stopping;
 }

@@ -7,9 +7,6 @@ import type { Db } from "./sqlite.ts";
 const stateDb = new DbFile({
   label: "실행 상태 DB",
   fileName: "state.db",
-  // 2: 곡마다 음원 주소를 어떻게 알았는지(session_tracks.audio_found_by)
-  // 3: 사람이 일시정지한 것(player_sessions.user_paused)
-  // 4: 명령 없이 붙는 길도 이어 틀어도 되는가(player_sessions.auto_resume)
   version: 4,
   synchronous: "NORMAL",
   // 기다리지 않는다. 재시작 때 이어 가려고 남기는 사본이라 실패해도 다음 쓰기가 메운다(위치, 세션 행은 다음 틱, 대기열은 통째로 다시 쓰기).

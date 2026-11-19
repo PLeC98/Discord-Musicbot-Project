@@ -127,8 +127,7 @@ async function main() {
   const picker = readPicker();
 
   // emojibase를 먼저 믿는다. 지스트는 이름이 바뀌기 전에 뜬 것이라 :beetle:을 🐞로,
-  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다). 지스트는 emojibase에 없는
-  // 디스코드 고유 이름을 메우는 데만 쓴다.
+  // :man_in_tuxedo:를 🤵로 준다(지금은 각각 🪲, 🤵‍♂️다).
   const [assets, gist, ko, sets] = await Promise.all([readAssets(), json(GIST, Gist), base("ko/compact.json", Compact), Promise.all(["en/shortcodes/joypixels.json", "en/shortcodes/github.json", "en/shortcodes/emojibase.json", "en/shortcodes/emojibase-legacy.json", "en/shortcodes/cldr.json"].map((file) => base(file, Shortcodes)))]);
 
   const charOfCode = shortcodes(ko, sets, gist);

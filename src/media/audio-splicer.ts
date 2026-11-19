@@ -227,9 +227,6 @@ class AudioSplicer extends Readable {
     this.a = next;
     // 옛 소스는 더 볼 일이 없다. 바로 파괴해야 그 뒤의 ffmpeg가 파이프에 막힌 채
     // 곡 끝까지 남아 있지 않는다(killOnStdoutClose가 stdout 닫힘으로 걸린다).
-    // 버린 소스의 오류는 이제 이 재생과 무관하다. 그런데 핸들러를 그냥 떼면 듣는 사람이
-    // 없어져 uncaughtException이 되므로, 떼는 게 아니라 흡수기로 교체한다.
-    // 교체하지 않으면 이 파괴가 방금 성공한 전환을 도로 죽인다.
     this._discard(old);
     this.emit("switched", this.emittedMs);
   }

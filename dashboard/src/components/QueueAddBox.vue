@@ -384,7 +384,7 @@ const queueMax = ref(0);
 // first: 대기열 맨 앞에(/playfirst). DJ 만(canControl. 서버도 같은 기준으로 다시 본다). 보내는 길마다 끝까지 들고 간다
 
 const canFirst = computed(() => props.player.canControl === true);
-// ↑ 와 이어 붙은 버튼 수(한 곡만, ↑, 넣을 자리)와 index 번째의 모양. 하나뿐이면 둥근 단추
+// ↑ 와 이어 붙은 버튼 수(한 곡만, ↑, 넣을 자리)와 index 번째의 모양. 하나뿐이면 둥근 버튼
 const segments = computed(() => (link.value?.list ? 1 : 0) + 1 + (canFirst.value ? 1 : 0));
 const shapeOf = (index: number) => (segments.value === 1 ? "motion-toggle rounded-xl" : segmentShape(false, index, segments.value));
 // 넣을 자리 메뉴가 열려 있다(키 입력을 메뉴에 양보한다)

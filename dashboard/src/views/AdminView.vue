@@ -50,11 +50,7 @@
 
       <template v-else>
         <!-- 탭. 카드가 늘어나 한 화면에 다 두면 찾기 어렵다.
-           v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다.
-
-           바깥이 스크롤러, 안쪽 요소가 경계선을 갖는다. 경계선을 스크롤러에 두면 가로 스크롤바가
-           그 안쪽(선 위)에 그려진다. overflow-y를 명시하지 않으면 visible이 auto로 바뀌어,
-           버튼의 -mb-px 1px 때문에 모든 해상도에서 세로 스크롤바가 상시로 생긴다. -->
+           v-if가 아니라 v-show인 이유: 로그 뷰어의 누적 로그와 스크롤 위치가 탭을 오갈 때 날아가면 안 된다. -->
         <div class="admin-page" v-show="tab === 'status'">
           <BotStatus v-if="status" v-model:query="statusQuery" :status="status" :updated-at="statusAt" :stale="statusStale" @open-logs="setTab('logs')" @open-db="setTab('db')" />
         </div>
@@ -233,7 +229,6 @@ import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 const T = text.admin;
 
-/** 탭 하나 */
 /** group: 레일에서 선으로(휴대폰 탭 선택 화면은 창으로) 나누는 그룹. 그룹 이름은 쓰지 않는다 */
 type Tab = { id: string; label: string; icon: IconName; group: "status" | "config" | "outside" | "autoplay" | "watch" | "backup" | "dev" };
 
@@ -365,7 +360,7 @@ function setTab(id: string) {
   void pushDown(router, route, { query: { ...query, tab: id } });
 }
 // 위 막대 ← (화면 안에 따로 "목록으로"를 두지 않는다): 늘 상위로(utils/up-nav). 상세 표식(?genre= 등)이 있으면 그것을 제거해 목록으로,
-// 없으면 탭을 제거해 선택 화면으로. 상위가 바로 앞 기록이면 기록을 무르고(기기 뒤로와 같다), 아니면 바꿔치기(화면 크기가 바뀌어 1열 ↔ 2열이 뒤집혀도 늘 상위로).
+// 없으면 탭을 제거해 선택 화면으로.
 // 누른 뒤 화면이 바뀔 때까지 다시 누른 것은 무시한다(두 단계 건너뜀 막기)
 let backing = false;
 watch(
@@ -577,12 +572,9 @@ function closeLogs() {
 }
 
 // ── 수명 ────────────────────────────────────────────────
-// status는 실시간 값(uptime, 메모리, 자식 프로세스)이라 대응 SSE가 없어 폴링이 유일한 갱신 수단.
-// 디스코드 rate limit과 무관하고(봇의 Express만 부른다) 보는 사람이 운영자 한 명이라 주기를
-// 좁혀도 부담이 없다. 자식 프로세스가 뜨고 지는 걸 보려면 10초는 너무 성기다.
-//
-// 대신 낭비를 두 곳에서 막는다: 탭이 숨으면(아무도 안 보면) 멈추고, 보이는 탭이 쓰지 않는
-// 데이터는 아예 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링할 것이 없다.
+// status는 실시간 값(uptime, 메모리, 자식 프로세스)이라 대응 SSE가 없어 폴링으로만 갱신한다.
+// 봇의 Express만 불러 디스코드 rate limit과 무관하고 보는 사람이 운영자 한 명이라, 자식 프로세스가 뜨고 지는 것이 보이게 주기를 좁게 둔다.
+// 낭비는 두 곳에서 막는다: 탭이 숨으면 멈추고, 보이는 탭이 쓰지 않는 데이터는 받지 않는다. 로그 탭은 SSE가 밀어주므로 폴링하지 않는다.
 const POLL_MS = 3000;
 // 캐시 DB 탭은 크고 열 때만 그린다: 코드를 따로 불러온다
 const CacheDb = defineAsyncComponent(() => import("../components/CacheDb.vue"));

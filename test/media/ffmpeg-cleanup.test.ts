@@ -23,7 +23,7 @@ const R = "autobuild-2026-10-31-12-59";
 const P = "autobuild-2026-09-30-12-59";
 const build = (folder: string, release = R) => ({ folder, release, asset: "a.zip", sha256: "x", version: "n9" });
 const BIN = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-// 시험은 이 프로세스의 PATH를 보지 않는다
+// 테스트는 이 프로세스의 PATH를 보지 않는다
 const NO_PATH = "";
 
 /** 버전 폴더(실행 파일 하나)를 만든다 */

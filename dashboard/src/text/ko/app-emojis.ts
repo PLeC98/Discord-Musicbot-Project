@@ -27,7 +27,7 @@ const removeNow = (name: string) => `${name} 이모지 삭제 확인`;
 /** 한 번 누른 칸 아래: 이 이모지를 쓰는 곳 */
 const usedIn = (places: string[]) => `${places.join(", ")}에서 쓰고 있어요. 삭제하면 그 자리에는 이모지 없이 표시돼요.`;
 const genreUse = (id: string) => `자동재생 장르(${id})`;
-/** 저장 띠로 이름을 바꾼 뒤 */
+/** 저장 바로 이름을 바꾼 뒤 */
 const renamed = (n: number) => `이모지 이름 ${n}개를 바꿨어요`;
 const renameFailed = "이모지 이름을 바꾸지 못했어요.";
 

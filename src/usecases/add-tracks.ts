@@ -141,8 +141,10 @@ type Continued = { added: number; skipped: number; total: number | null; remaini
 /** 이어 넣은 결과. 실패면 원인 코드(code), more-nothing-playable이면 받을 수 없어 뺀 곡 수(skipped)도 */
 type CollectionResult = { success: false; code: string; skipped?: number } | (PlaybackResult & Continued);
 
-/** 곡 추가 요청. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다 */
-/** 추가할 곡과 추가 방식이다. go는 서버별 실행 순서를 기다린 뒤, 곡을 추가하기 전에 하는 확인이다(대시보드: 세션 종료). 예외를 던지면 추가하지 않는다 */
+/**
+ * 곡 추가 요청: 추가할 곡과 추가 방식. 여러 곡이면 출처(collection)와 전체 곡 수(total)가 붙는다.
+ * go는 서버별 실행 순서를 기다린 뒤, 곡을 추가하기 전에 하는 확인이다(대시보드: 세션 종료). 예외를 던지면 추가하지 않는다
+ */
 type TrackData = { tracks: QueuedTrack[]; isPlaylist?: boolean; collection?: string | null; insertFirst?: boolean; insertAfterId?: string | null; total?: number | null; skipped?: number; queueLimited?: boolean; go?: () => void };
 /**
  * 넣은 것. count는 넣은 곡 수(쉬던 플레이어에 곧바로 튼 곡도 센다), position은 넣은 첫 곡의 대기열 순번(1부터, 곧바로 틀었으면 null),

@@ -751,8 +751,6 @@ class Player {
     if (changed || found.art) void refreshPanel(this, "파일 태그");
   }
 
-  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
-   *  곡이 그사이 다른 음원으로 다시 찾아졌으면 받은 것은 그 음원의 길이라 적지 않는다(트는 음원의 행에 길이가 없다) */
   // 볼륨 정규화의 탭을 열 때 넘길 것. 음악 가정의 10분 기준에 쓰는 길이는 캐시 파일이면 캐시 행의 길이, 스트림이면 캐시할지 정할 때 쓰는 길이이다.
   // 재생과 함께 받는 캐시 다운로드는 track.audioUrl 기준이라 다시 찾은 음원이면 이 재생과 다른 소리다
   _tapInfo(pb: CurrentPlayback, startMs: number, streamInfo: { duration?: number | null } | null, cacheFile: string | null, continued: boolean): TapInfo {
@@ -769,6 +767,8 @@ class Player {
     measureQueue.request(key, { current: true });
   }
 
+  /** 트는 음원의 길이를 몰랐는데(다운로드 전의 직접 링크) 다운로드하며 쟀으면 이 재생에 적는다. 곡 끝 판정, 넘침 안전망이 쓴다.
+   *  곡이 그사이 다른 음원으로 다시 찾아졌으면 받은 것은 그 음원의 길이라 적지 않는다(트는 음원의 행에 길이가 없다) */
   _learnLength(track: QueuedTrack) {
     const pb = this.playback;
     if (!pb || pb.track !== track || pb.lengthMs || !pb.audioKey) return;
@@ -1632,7 +1632,6 @@ class Player {
     return true;
   }
 
-  // tell: 다음 곡으로 넘길 때 무엇이 잘못됐는지 채널에 알린다. counted: 연달은 실패로 센다(끝난 방송은 세지 않는다)
   /**
    * 곡을 못 틀었다. 실패가 어디까지 닿는지(player/failure-scope)로 정한다:
    * 곡 탓은 넘기고 세지 않는다, 환경 탓은 넘기지 않고 그 곡에서 일시정지해 둔다(넘기면 멀쩡한 대기열을 태운다), 모름은 넘기고 세어 연달아 한도에 닿으면 그 곡에서 일시정지해 둔다.

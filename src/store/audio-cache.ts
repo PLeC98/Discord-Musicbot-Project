@@ -80,7 +80,6 @@ let lastCleanup: { at: number; files: number; bytes: number } | null = null;
 // 열기 전에 부르면 예외를 던진다
 const conn = () => cacheDb.get();
 
-/** 캐시 파일이 놓이는 폴더 */
 const cacheDir = () => dir;
 
 // 테스트: 임시 폴더로 바꾼다

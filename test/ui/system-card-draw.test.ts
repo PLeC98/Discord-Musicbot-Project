@@ -30,7 +30,7 @@ function sample(over: Partial<CardData> = {}, points = 60): CardData {
   };
 }
 
-/** PNG 머리(IHDR)의 가로, 세로 */
+/** PNG 헤더(IHDR)의 가로, 세로 */
 function sizeOf(png: Buffer) {
   assert.equal(png.subarray(1, 4).toString("latin1"), "PNG");
   return { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };

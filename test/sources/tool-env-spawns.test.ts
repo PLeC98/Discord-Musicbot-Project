@@ -1,4 +1,4 @@
-// 봇이 실행하는 외부 도구(yt-dlp, POToken 서버, 작업 ffmpeg)에 봇의 비밀값 환경 변수가 넘어가지 않는다(src/config/tool-env)
+// src/sources/ytdlp-spawn.ts, src/sources/youtube/pot-server.ts, src/media/ffmpeg/job.ts: 봇이 실행하는 외부 도구(yt-dlp, POToken 서버, 작업 ffmpeg)에 봇의 비밀값 환경 변수(src/config/tool-env)가 넘어가지 않는다
 
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";

@@ -141,7 +141,7 @@ export const useNowPlayingStore = defineStore("nowPlaying", () => {
     stopWatch = watch(guildId, () => void refresh(), { immediate: true });
 
     // 목록 연결의 신호. 내 대상 서버의 변화만 필터링해 받는다.
-    // guildId가 null 이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
+    // changedGuildId가 null이면(어느 서버인지 모르는 신호) 안전하게 다시 읽는다.
     offNudge = onGuildNudge((changedGuildId) => {
       if (!guildId.value) return;
       if (onTargetPage.value) return; // 그 화면이 같은 상태를 이미 받고 있다. 둘이 각각 읽으면 요청이 배로 든다

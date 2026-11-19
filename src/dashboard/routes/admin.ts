@@ -287,8 +287,6 @@ adminRouter.get("/ai/state", (req, res) => {
   } satisfies AiState);
 });
 
-// 키를 고쳐 쓴다. 쓰기 전용이다. 적어 보낸 필드만 바꾸고, 돌려주는 것은 값이 아니라 유무다.
-// 로그에도 이름만 남긴다.
 /**
  * 그 모델이 받는 필드. 프로필(config/ai-models)이 정한다.
  * 화면은 여기서 받은 위젯, 그룹 그대로 그린다.
@@ -394,7 +392,7 @@ adminRouter.post("/ai/judge/run", async (req, res) => {
   res.json(await assist.judgeTest(req.body?.data, cands, String(req.body?.genre || "rock")));
 });
 
-// 키를 입력하고 삭제한다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 삭제한다), 돌려주는 것은 상태다.
+// 키를 입력하고 삭제한다. 쓰기 전용이고 로그인한 지 10분 안이어야 한다. 적어 보낸 프로바이더만 바꾸고(빈 글이면 삭제한다), 돌려주는 것은 상태다. 로그에는 프로바이더 이름만 남긴다.
 // 키는 화면이 지금 적어 둔 설정(data: 주소, 리전)이 가리키는 곳에 묶는다. 그 설정을 저장해야 쓰인다
 adminRouter.put("/ai/keys", requireRecentLogin, (req, res) => {
   const keys: unknown = req.body?.keys;

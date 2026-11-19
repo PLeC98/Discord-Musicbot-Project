@@ -1,5 +1,5 @@
 // src/dashboard/routes/guild-settings.ts, player.ts, guild-list.ts(guilds.ts로 묶는다): 서버 설정 GET/PATCH + /player 플래그 + 서버 목록 통합 테스트.
-// 실 라우터 + fake Discord client. 서버 설정은 진짜를 임시 DB로 쓴다.
+// 실 라우터 + 가짜 디스코드 클라이언트. 서버 설정은 진짜를 임시 DB로 쓴다.
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.

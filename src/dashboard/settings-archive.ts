@@ -310,11 +310,6 @@ function writeChosen(json: Partial<ArchiveJson>, items: ArchiveItem[]) {
   return docItems;
 }
 
-/**
- * 선택한 항목을 덮어쓴다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 원인")로 아무것도 바꾸지 않는다.
- * before: DB를 쓰기 바로 앞에 부른다(스냅샷).
- * restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null)
- */
 // 쓰기 직전: 설정 DB 항목을 불러올 때만 스냅샷을 뜨고(파비콘, 로그인 배경만이면 뜨지 않는다), 그다음 확인한다
 async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>, go?: () => void) {
   if (items.some((item) => !FILE_ITEMS.includes(item))) await before?.();
@@ -322,7 +317,9 @@ async function beforeWrite(items: ArchiveItem[], before?: () => Promise<unknown>
 }
 
 /**
- * 선택한 항목을 불러온다. before: 쓰기 직전(설정 DB 항목일 때만, 스냅샷). go: 쓰기 바로 앞의 확인(대시보드: 세션이 살아 있나. 예외를 던지면 풀어 둔 로그인 배경을 버리고 아무것도 쓰지 않는다).
+ * 선택한 항목을 불러온다. 파일에 없거나 검사에 걸린 항목이 있으면 CONFIG_INVALID(problems: "항목: 원인")로 아무것도 바꾸지 않는다.
+ * before: 쓰기 직전(설정 DB 항목일 때만, 스냅샷). go: 쓰기 바로 앞의 확인(대시보드: 세션이 살아 있나. 예외를 던지면 풀어 둔 로그인 배경을 버리고 아무것도 쓰지 않는다).
+ * 결과의 restart: 다시 시작해야 적용되는 값이 기동 시 값과 다르다, cookiesSource: 쿠키 출처가 바뀌었으면 새 값(꺼졌거나 그대로면 null).
  * 쓴 뒤의 오디오 캐시 합치기는 끝까지 한다
  */
 async function apply(file: string, items: ArchiveItem[], { before, go }: { before?: () => Promise<unknown>; go?: () => void } = {}): Promise<ArchiveImported> {

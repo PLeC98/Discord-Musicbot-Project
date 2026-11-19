@@ -50,13 +50,13 @@ const isCloudflareOrigin = (leaf: Pick<X509Certificate, "issuer">) => /CloudFlar
 const isSelfSigned = (leaf: X509Certificate) => leaf.issuer === leaf.subject && leaf.verify(leaf.publicKey);
 
 const dateText = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-/** 남은 일수(올림) */
 /** 유효 기간(ms). 읽지 못하면 null */
 function validRange(leaf: Pick<X509Certificate, "validFrom" | "validTo">) {
   const from = Date.parse(leaf.validFrom);
   const to = Date.parse(leaf.validTo);
   return Number.isFinite(from) && Number.isFinite(to) ? { from, to } : null;
 }
+/** 남은 일수(올림) */
 const daysLeft = (leaf: X509Certificate, now: number) => Math.ceil((Date.parse(leaf.validTo) - now) / DAY_MS);
 
 /** 키 PEM을 읽는다. 암호가 걸렸거나 읽지 못하면 그 원인 */

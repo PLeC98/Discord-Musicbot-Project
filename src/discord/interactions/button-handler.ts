@@ -70,8 +70,7 @@ function volumeModal(current: number) {
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
 
-/** 새로 그린 화면 */
-// /system 의 새로고침: 같은 메시지를 현재 값의 이미지로 고친다(기존 첨부는 attachments: [] 로 비운다)
+// /system의 새로고침: 같은 메시지를 현재 값의 이미지로 고친다(기존 첨부는 attachments: []로 비운다)
 async function handleSystemRefresh(interaction: Press, bot: BotContext) {
   // /system과 동일하게 봇 운영자 전용
   if (!isBotOwner(interaction.user.id)) {

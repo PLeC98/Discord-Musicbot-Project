@@ -45,7 +45,6 @@ const MAX_PENDING_BYTES = 1024 * 1024;
 type Style = Parameters<typeof styleText>[0];
 const style = (format: Style) => (text: string) => styleText(format, text, { validateStream: false });
 
-// 레벨 라벨 색.
 const LEVEL_COLOR: Record<LevelName, (text: string) => string> = {
   trace: style("gray"),
   debug: style("gray"),
@@ -66,8 +65,7 @@ const TEXT_COLOR: Record<LevelName, (text: string) => string> = {
 };
 
 // 카테고리 배지 색. 이름 해시로 정한다(대시보드 뷰어의 catColor와 같은 방식).
-// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 스무 종을 색으로 구분하는 편이
-// 이모지로 구분하는 것보다 확실하고, cmd에서 깨지지도 않는다.
+// 전부 회색이면 [player]와 [voice]가 눈에 안 들어온다. 이모지는 cmd에서 깨져 색으로 구분한다.
 const CAT_COLORS = (["magenta", "blue", "green", "yellow", "cyan", "redBright", "blueBright", "greenBright"] as const).map(style);
 function catColor(name: string) {
   let h = 0;

@@ -65,7 +65,7 @@ test("죽은 음원 판정(deadSourceCode)과 어긋나지 않는다: 그것이 
   assert.equal(failureScope(coded("direct-unavailable", { cause: new Error("요청 실패: HTTP 410") })), "track");
 });
 
-// 재생 쪽에서 만드는 이름이 빠짐없이 어느 표에 있는가. 새 이름을 만들면 갈래를 정하게 한다(표에 없으면 모름으로 떨어진다)
+// 재생 쪽에서 만드는 이름이 빠짐없이 어느 표에 있는가. 새 이름을 만들면 구분을 정하게 한다(표에 없으면 모름으로 떨어진다)
 test("재생 쪽에서 만드는 이름은 모두 갈래가 정해져 있다", () => {
   const root = path.join(import.meta.dirname, "..", "..", "src");
   const files = ["media", "sources", "player"].flatMap((dir) =>

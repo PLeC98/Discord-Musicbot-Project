@@ -157,7 +157,7 @@ async function clearViewAs() {
   }
 }
 
-// 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소). 못 불러오면 링크 없이 글만 보인다
+// 오류 문장의 "봇 개발자에게 보고"가 가리킬 곳(소스 저장소)
 // 봇이 준비 전이면 준비될 때까지 다시 읽는다(composables/bot-info)
 onMounted(() => {
   followBotInfo(

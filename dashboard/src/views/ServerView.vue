@@ -892,7 +892,6 @@ const pickGenre = (name: string) => setAutoplay(name);
 // 대기열 번호 열 폭: 받은 곡의 가장 큰 번호의 자릿수(두 자리 이상)만큼. 스크롤해도 모든 행이 같은 폭이라 제목이 나란하다
 const numWidth = computed(() => `${Math.max(2, String(player.value.queue.length).length) + 0.5}ch`);
 
-// 대기열 전체 길이. 다 불러온 때만(일부만 더하면 틀린 값이 된다)
 // 대기열 합계. 다 받았을 때만(일부만 받았으면 합계가 틀린다), 모르는 곡이 있으면 이상, 아는 길이가 없으면 칸을 뺀다(디스코드 /nowplaying과 같다)
 const queueLength = computed(() => {
   const p = player.value;

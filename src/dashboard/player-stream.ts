@@ -145,7 +145,7 @@ class PlayerStream {
   notify(guildId: string | null | undefined) {
     if (!guildId) return;
     if (![...this.subs].some((sub) => sub.canSee(guildId))) return;
-    if (this.coalesceTimers.has(guildId)) return; // 이미 예약됨
+    if (this.coalesceTimers.has(guildId)) return;
     const t = setTimeout(() => {
       this.coalesceTimers.delete(guildId);
       this._emit(guildId);

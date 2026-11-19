@@ -54,7 +54,7 @@ test("저장 본문의 필드는 모두 어느 한 카드에 속한다(속하지
   assert.equal(new Set(claimed).size, claimed.length, "한 필드는 한 카드에만");
 });
 
-// 저장 본문 필드가 있는 DJ 카드가 생겼을 때의 판정. 지금 표에는 없어 시험용 표로 본다
+// 저장 본문 필드가 있는 DJ 카드가 생겼을 때의 판정. 지금 표에는 없어 테스트용 표로 본다
 const WITH_DJ: CardTable = { ...CARDS, playlistAdd: { gate: "dj", fields: ["playlistAddMax"] } };
 
 test("DJ 카드가 있으면: DJ는 그 카드의 필드만 고친다. 다른 카드의 필드가 하나라도 있으면 서버 관리자 거절", () => {

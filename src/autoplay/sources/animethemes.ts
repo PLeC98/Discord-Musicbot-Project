@@ -10,12 +10,12 @@ type Song = { id?: number; title?: string; artists?: Array<{ name?: string }> };
 type Anime = { name?: string; slug?: string; year?: number; season?: string; images?: Array<{ facet?: string; link?: string }>; animethemes?: Theme[] };
 type Theme = { type?: string; sequence?: number | null; song?: Song; animethemeentries?: Array<{ videos?: Video[] }>; anime?: Anime };
 
-// 음원(.ogg)을 직접 준다. 다만 대개 TV 사이즈라 artist+title도 같이 채워 보낸다
-// 호출부가 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
 const SEASON_ORDER: Record<string, number> = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
 
 const THEME_PARTS = "song.artists,animethemeentries.videos.audio";
 
+// 음원(.ogg)을 직접 준다. 다만 대개 TV 사이즈라 artist+title도 같이 채워 보낸다
+// 호출부가 유튜브에서 풀버전을 먼저 찾고 못 찾으면 이 음원으로 떨어진다.
 async function animethemes(source: GenreSource): Promise<Candidate[]> {
   const narrowed = source.yearFrom || source.yearTo || source.season?.length || source.mediaFormat?.length;
   const themes = narrowed ? await themesByAnime(source) : await themesAtRandom(source);

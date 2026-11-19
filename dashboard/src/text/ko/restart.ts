@@ -8,7 +8,7 @@ const unavailable = "실행기 없이 켠 봇이라 여기서 다시 시작할 �
 const confirmTitle = "봇을 다시 시작할까요?";
 const confirm = "다시 시작";
 const later = "나중에";
-/** 창 맨 위에 보일 까닭(composables/bot-restart의 RestartReason) */
+/** 창 맨 위에 보일 이유(composables/bot-restart의 RestartReason) */
 const reasons = { save: "저장한 값 중에 봇을 다시 시작해야 적용되는 것이 있어요.", snapshot: "복원한 설정은 봇을 다시 시작할 때 적용돼요." };
 /**
  * 창의 안내. counts: 재생 중, 일시정지한 서버 수(읽는 중이거나 읽지 못했으면 null).

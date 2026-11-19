@@ -23,10 +23,10 @@ const RESERVED_POLL_MS = 3000;
 
 type Phase = "idle" | "asking" | "starting" | "waiting";
 const phase = ref<Phase>("idle");
-/** 물을 때 보일 까닭: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 걸어 둠), bgutil(POToken 서버 사용을 켰는데 bgutil이 없다). 없으면 null */
+/** 물을 때 보일 이유: save(저장한 값 중 다시 시작해야 적용되는 것), snapshot(스냅샷 복원을 예약함), bgutil(POToken 서버 사용을 켰는데 bgutil이 없다). 없으면 null */
 type RestartReason = "save" | "snapshot" | "bgutil" | null;
 const reason = ref<RestartReason>(null);
-/** 까닭이 bgutil일 때 그 상태(설치 중이면 설치 후 다시 시작을, 아니면 없는 프로그램이나 실패를 보인다) */
+/** 이유가 bgutil일 때 그 상태(설치 중이면 설치 후 다시 시작을, 아니면 없는 프로그램이나 실패를 보인다) */
 const bgutil = ref<BgutilCardStatus | null>(null);
 /** 창을 열 때의 재생 중, 일시정지한 서버 수(봇 상태 탭의 플레이어 개수)와 진행 중인 설치 작업(다시 시작하면 중단된다). 읽는 중이거나 읽지 못했으면 null */
 type PlayerCounts = { playing: number; paused: number; installJob: Job | null };
@@ -51,7 +51,7 @@ async function cameBack(before: number) {
   return false;
 }
 
-/** 확인 창을 연다. why: 창에 보일 까닭, status: 까닭이 bgutil일 때 그 상태 */
+/** 확인 창을 연다. why: 창에 보일 이유, status: 이유가 bgutil일 때 그 상태 */
 function askRestart(why: RestartReason = null, status: BgutilCardStatus | null = null) {
   if (phase.value !== "idle") return;
   reason.value = why;

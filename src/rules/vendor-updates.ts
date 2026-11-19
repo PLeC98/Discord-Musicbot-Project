@@ -35,7 +35,6 @@ function rewriteConstant(text: string, name: string, value: string) {
   return text.replace(line, `const ${name} = "${value}";`);
 }
 
-/** 심각도별 수 */
 type AuditCounts = { total: number; critical: number; high: number; moderate: number; low: number };
 
 /** `npm audit --json`의 결과 → 심각도별 수. 모양이 다르면 null(읽지 못한 것을 0건으로 치지 않게) */

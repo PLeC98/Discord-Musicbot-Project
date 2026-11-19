@@ -19,7 +19,6 @@ function _reset() {
   cache.clear();
 }
 
-/** { channelId, messageId } 또는 null */
 async function getPanel(guildId: string): Promise<PanelRecord | null> {
   if (cache.has(guildId)) return cache.get(guildId) ?? null;
   try {

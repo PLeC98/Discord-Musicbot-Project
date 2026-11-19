@@ -1,5 +1,5 @@
-// src/sources/bgutil/: 버전 폴더에 받기(install), 기록(state), 봇이 읽는 묶음(bundle), 기동 정리(cleanup), 실행 테스트(trial).
-// 받기의 체크아웃, npm, tsc, 실행 테스트는 가짜다(가짜 체크아웃은 server/package.json과 잠금 파일을 쓰고, 가짜 tsc가 build/main.js를 쓴다).
+// src/sources/bgutil/: 버전 폴더에 받기(install), 기록(state), 봇이 읽는 번들(bundle), 기동 정리(cleanup), 실행 테스트(trial).
+// 받기의 체크아웃, npm, tsc, 실행 테스트는 가짜다(가짜 체크아웃은 server/package.json과 lockfile을 쓰고, 가짜 tsc가 build/main.js를 쓴다).
 // 실행 테스트 자체는 /ping에 응답하는 작은 가짜 서버 파일을 실제로 띄운다
 
 import { test, after } from "node:test";

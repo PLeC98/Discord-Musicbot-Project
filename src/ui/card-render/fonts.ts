@@ -1,5 +1,5 @@
 // 봇이 그리는 이미지(/system 카드, /queue 썸네일의 번호)의 글꼴. 대시보드와 같은 패키지(pnpm catalog 로 같은 버전)의 파일을 고치지 않고 읽는다.
-// 시스템 글꼴 대체는 OS 와 설치된 글꼴마다 달라(한국어 Windows 에서도 sans-serif 의 한글이 네모로 나왔다) 등록한 이름으로만 쓴다
+// 시스템 글꼴 대체는 OS와 설치된 글꼴마다 달라(한국어 Windows에서도 sans-serif의 한글이 네모로 나올 수 있다) 등록한 이름으로만 쓴다
 
 import { createRequire } from "node:module";
 

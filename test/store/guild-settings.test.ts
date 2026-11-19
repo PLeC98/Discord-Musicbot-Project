@@ -292,7 +292,7 @@ test("봇 채널: 저장/조회/해제. DJ 설정과 같은 문서에서 서로 
 
 // ── 쓰기 한 곳(update) ──────────────────────────────────────
 
-// 읽기는 되고 쓰기만 실패하게 한다. 한 번에 한 종류만 걸고 늘 지운다(남은 DELETE 막기는 뒤 시험을 막는다)
+// 읽기는 되고 쓰기만 실패하게 한다. 한 번에 한 종류만 걸고 늘 지운다(남은 DELETE 막기는 뒤 테스트를 막는다)
 async function whenWriteFails<T>(kind: "INSERT" | "UPDATE" | "DELETE", fn: () => T | Promise<T>): Promise<T> {
   const db = settingsDb.get();
   db.exec(`CREATE TRIGGER block_write BEFORE ${kind} ON guild_settings BEGIN SELECT RAISE(ABORT, 'blocked'); END`);

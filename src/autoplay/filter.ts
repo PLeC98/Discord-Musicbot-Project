@@ -43,7 +43,7 @@ const MIX_SHAPES: Array<[string, (title: string) => boolean]> = [
   ["시간 표기", (t) => /\b\d+\s*hours?\b|\d+\s*시간/i.test(t)],
 ];
 
-// 이것이 제목에 있으면 위 생김새 규칙을 면제한다. 거의 늘 한 곡이다(공식 뮤직비디오, 가사 영상 제목에는 이모지, 언어 목록이 흔하다).
+// 곡 표식이 제목에 있으면 위 생김새 규칙을 면제한다. 거의 늘 한 곡이다(공식 뮤직비디오, 가사 영상 제목에는 이모지, 언어 목록이 흔하다).
 // official은 앞뒤가 글자가 아닐 때만(Official髭男dism은 밴드 이름이다). feat, ft만 센다. fe?a?t로 적으면 "fat", "fet"도 걸린다.
 // 가사 영상 표식(lyrics, 가사)은 괄호 안이나 "lyric video"로만 본다. 글 속의 lyrics는 모음 제목에도 나온다("… uplifting lyrics … (1 hour)")
 const SONG_MARKS = /(?<!\p{L})official(?!\p{L})|公式|\bm\/?v\b|fullmv|[[(（【][^\])）】]*(?:\blyrics?\b|가사)|\blyrics? video\b|\b(?:feat|ft)\b\.?/iu;

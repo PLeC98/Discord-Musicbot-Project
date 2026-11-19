@@ -12,7 +12,6 @@ const formatClock = (at: number | Date, { seconds = false }: { seconds?: boolean
 /** 시각을 그 언어의 보통 형식으로(오전, 오후 등) */
 const formatTime = (at: number | Date, options: Intl.DateTimeFormatOptions) => new Date(at).toLocaleTimeString(LOCALE, options);
 
-/** 날짜 */
 const formatDate = (at: number | Date, options: Intl.DateTimeFormatOptions) => new Date(at).toLocaleDateString(LOCALE, options);
 
 /** 날짜와 시각(2026년 10월 11일 07:30) */

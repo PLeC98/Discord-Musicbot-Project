@@ -1,6 +1,6 @@
 // 봇의 앱 이모지(/api/app-emojis): 목록과, 입력란이 앱 이모지를 진짜 글자로 다루게 하는 바꾸기.
 // 저장 값은 토큰(<:이름:id>), 입력란에는 이모지마다 정해진 문자(보조 사용자 정의 영역)로 보인다. 그 문자는 style.css의 Musicbot App Emoji 글꼴이
-// 그 이모지 그림으로 그린다. 안드로이드가 글자가 아닌 인라인 요소를 선택하지 못해 편집기 대신 이렇게 한다(notes 조사 기록 8.2, 8.3).
+// 그 이모지 그림으로 그린다. 안드로이드가 글자가 아닌 인라인 요소를 선택하지 못해 편집기 대신 이렇게 한다.
 // 바꾸는 곳은 입력란 경계뿐이다: 보일 때 토큰 → 문자, 입력할 때 문자 → 토큰. 찾지 못한 토큰(지운 이모지)은 토큰 글자 그대로 보인다
 
 import { computed, ref } from "vue";
@@ -89,13 +89,13 @@ export function appEmojiOf(token: string): AppEmojiItem | null {
 /** 디스코드 이모지 이름 규칙(봇도 같은 규칙으로 다시 본다) */
 const NAME = /^\w{2,32}$/;
 
+/** 이름 문제 코드(화면이 본 것, 봇이 거절한 것) → 입력란 아래 짧은 글. 이름 문제가 아니면 null */
+export const nameIssueText = (code: string | null | undefined): string | null => (code && Object.hasOwn(text.appEmojis.nameIssue, code) ? text.appEmojis.nameIssue[code] : null);
+
 /**
  * 화면이 아는 만큼 미리 본 이름의 문제 코드: 형식, 다른 이모지가 쓰는 이름. 없으면 null.
  * taken: 다른 이모지의 이름 → 봇 아이콘인가. 봇 아이콘의 예전 이름, 동기화가 잠시 쓰는 이름은 봇이 거절한다
  */
-/** 이름 문제 코드(화면이 본 것, 봇이 거절한 것) → 입력란 아래 짧은 글. 이름 문제가 아니면 null */
-export const nameIssueText = (code: string | null | undefined): string | null => (code && Object.hasOwn(text.appEmojis.nameIssue, code) ? text.appEmojis.nameIssue[code] : null);
-
 export function nameProblem(name: string, taken: ReadonlyMap<string, boolean>): Code | null {
   if (!NAME.test(name)) return "emoji-name-bad";
   if (!taken.has(name)) return null;

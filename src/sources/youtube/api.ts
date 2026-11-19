@@ -183,8 +183,8 @@ function fragmentsOf(info: YtInfo) {
 // 재생목록 한 줄. url이 없으면 id가 있다(호출부가 필터링한다)
 function playlistTrack(entry: YtInfo) {
   const track = trackOf(entry, entry.webpage_url || entry.url || links.youtubeWatchUrl(String(entry.id)), entry.uploader || entry.channel || entry.uploader_id);
-  // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그걸 쓴다(로컬 DB 조회, 왕복 없음).
-  // 재생목록 페이지의 제목은 낡을 수 있어서, 이게 없으면 곡이 재생되기 전까지 대기열에
+  // 이 영상의 제목을 전에 영상 자체에서 확인해 뒀다면 그 제목을 쓴다(로컬 DB 조회, 왕복 없음).
+  // 재생목록 페이지의 제목은 낡을 수 있어서, 확인한 제목을 쓰지 않으면 곡이 재생되기 전까지 대기열에
   // 낡은 제목이 그대로 보인다.
   try {
     const known = trackLookup.getVerifiedTitle(track.requestKey);

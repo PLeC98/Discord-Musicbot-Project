@@ -78,8 +78,7 @@ type PlayerState = {
   queueTotal: number;
 };
 
-/** 자동재생 장르 목록(장르 설정의 순서). 디스코드 장르 메뉴와 같은 것 */
-/** 자동재생 장르. id는 선택할 때 보내는 식별자, label은 보여 줄 이름 */
+/** 자동재생 장르 목록(장르 설정의 순서, 디스코드 장르 메뉴와 같다). id는 선택할 때 보내는 식별자, label은 보여 줄 이름 */
 type AutoplayGenres = { genres: Array<{ id: string; label: string; emoji: string | null }> };
 
 /** 봇, 나의 음성 채널 */

@@ -595,7 +595,6 @@ function clearCells(cells: Pos[]) {
   if (!cleared && cells.length) say(table.value === "requests" ? T.hints.cantClear(T.columns[shown.value[cells[0].i]]) : T.hints.cantClearRow);
   syncPane();
 }
-/** 행 삭제: 키로 */
 function deleteRows(keys: string[]) {
   const max = table.value === "files" ? TRACK_CACHE_FILE_DELETES_MAX : TRACK_CACHE_OPS_MAX;
   if (keys.length > max) return say(T.hints.tooMany(max));

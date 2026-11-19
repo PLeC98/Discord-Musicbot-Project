@@ -35,10 +35,7 @@ function backupPath(file: string, at: Date | string = new Date()): string {
 
 /**
  * 비어 있는 분리본 경로. 같은 밀리초에 두 번 회전하면 이름이 겹치므로 시각을 1ms씩 민다.
- *
- * 번호를 덧붙이는 방법(`…407-2.log`)은 쓸 수 없다. `-`(0x2D)가 `.`(0x2E)보다 작아서
- * 번호가 붙은 쪽이 원본보다 앞으로 정렬되고, 이름순=시간순 계약이 깨진다.
- * 시각을 미는 쪽은 이름 모양이 하나로 유지된다.
+ * 번호를 붙이면(`…407-2.log`) `-`(0x2D)가 `.`(0x2E)보다 작아 원본보다 앞으로 정렬돼 이름순=시간순이 깨진다.
  */
 function nextBackupPath(file: string, exists: (target: string) => boolean = fs.existsSync, at: Date = new Date()): string {
   let when = at;

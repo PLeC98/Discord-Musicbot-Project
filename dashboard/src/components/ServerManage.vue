@@ -254,7 +254,7 @@ async function send() {
     if (data.failed) notify({ title: T.announce.partial.title, body: T.announce.partial.body(data.sent, data.failed), severity: "warning" });
     else notifyDone(T.announce.done, T.announce.doneBody(data.sent));
   } catch (e) {
-    // 서버가 알려 준 원인를 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
+    // 서버가 알려 준 원인을 보인다. "보내지 못함"만으로는 무엇을 고쳐야 할지 모른다
     notifyProblem(e, T.announce.failed);
   } finally {
     sending.value = false;

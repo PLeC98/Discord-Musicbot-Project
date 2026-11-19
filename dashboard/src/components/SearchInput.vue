@@ -3,8 +3,8 @@
        v-model을 쓰지 않는다: 한글처럼 조합하는 글자를 다 짤 때까지 값을 넘기지 않아 검색이 늦다.
        꾸밈은 부모 컴포넌트에서: class는 감싼 틀(자리, 너비)에, input-class는 입력란에, 그 밖의 속성, 이벤트는 입력란에. 왼쪽 아이콘은 leading 슬롯.
        note: 값이 있을 때 입력란 안 지우기 앞에 작게 보일 글(검색된 줄 수 등). 헤더, 줄의 다른 칸과 폭을 다투지 않게 입력란 안에 둔다.
-       type은 search로 고정한다: 안드로이드 크롬은 text 칸에서 키보드 위에 자동 채우기 바(비밀번호, 결제, 주소)를 띄우고 autocomplete="off"로는 꺼지지 않는다(삼성 키보드, 실제 기기로 확인).
-       브라우저가 그리는 검색 모양(사파리)과 지우기 단추(크롬)는 지운다. 지우기는 위의 버튼이다 -->
+       type은 search로 고정한다: 안드로이드 크롬은 text 칸에서 키보드 위에 자동 채우기 바(비밀번호, 결제, 주소)를 띄우고 autocomplete="off"로는 꺼지지 않는다.
+       브라우저가 그리는 검색 모양(사파리)과 지우기 버튼(크롬)은 지운다. 지우기는 위의 버튼이다 -->
   <div class="relative" :class="attrs.class">
     <slot name="leading" />
     <input ref="box" v-bind="rest" type="search" :value="modelValue" :class="['appearance-none [&::-webkit-search-cancel-button]:appearance-none', inputClass, modelValue && !shownNote && SIZES[size].pad]" :style="shownNote ? { paddingRight: `${SIZES[size].end + noteWidth + 8}px` } : undefined" @input="emit('update:modelValue', valueOf($event))" @keydown.esc="onEscape" />

@@ -192,7 +192,7 @@ function warnLegacyConfigFiles() {
 }
 
 // 로그 레벨과 파일. 이보다 앞선 레코드(config 경고 등)는 sink가 모아뒀다가 파일에 재생한다.
-// 기본 레벨(info)로 이미 기록된 그것들은 어차피 warn 이상이라 잘려나갈 일이 없다.
+// 기본 레벨(info)로 이미 기록된 앞선 레코드는 어차피 warn 이상이라 잘려나갈 일이 없다.
 function setUpLogging() {
   logger.level = config.logging.level;
   if (config.logging.consoleLevel) logSink.setConsoleLevel(config.logging.consoleLevel);

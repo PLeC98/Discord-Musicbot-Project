@@ -1,4 +1,4 @@
-// 재생 조작 코어. 진입점(명령, 버튼, 대시보드)은 이것을 부르고, 결과의 code를 자기 매체의 말로 옮긴다(ui/control-messages).
+// 재생 조작 코어. 진입점(명령, 버튼, 대시보드)은 이 모듈을 부르고, 결과의 code를 자기 매체의 말로 옮긴다(ui/control-messages).
 // 전제 조건(플레이어가 있나, 권한, 곡, 대기열)은 여기서 한 번, 같은 순서로 본다. 조작 뒤 패널 고치기도 여기서 알린다.
 //
 // 결과: { ok: true, ...사실 } | { ok: false, code, …값 }. code는 문제 목록(rules/problems)의 코드
@@ -188,7 +188,6 @@ function seekBlocked(player: Player) {
   return null;
 }
 
-/** 처음부터 다시 */
 const replay = (player: MaybePlayer, actor: Actor, opts: SeekOptions = {}) => seek(player, actor, 0, { ...opts, reason: "replay" });
 
 /** SponsorBlock 하이라이트 지점으로 */
@@ -257,7 +256,6 @@ async function loop(player: MaybePlayer, actor: Actor, mode: unknown) {
   return done({ mode, track });
 }
 
-/** 대기열 섞기 */
 async function shuffle(player: MaybePlayer, actor: Actor) {
   if (!player) return fail("no-song");
   const blocked = await permitted(player, actor);
@@ -378,8 +376,10 @@ function genreRefusal(genre: string | false) {
   return missing ? fail("genre-unusable", { genre: genreConfig.labelOf(genre), keys: missing.join(", ") }) : null;
 }
 
-/** 자동재생 켜기, 끄기. create는 켤 때 플레이어가 없으면 만든다. onAccepted는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답) */
-/** go: 판정 뒤, 첫 상태 변경(플레이어 생성, 설정 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료) */
+/**
+ * 자동재생 켜기, 끄기. create는 켤 때 플레이어가 없으면 만든다. onAccepted는 설정을 바꾼 뒤, 첫 곡을 선택하기 전에 부른다(응답).
+ * go: 판정 뒤, 첫 상태 변경(플레이어 생성, 설정 변경) 전에 하는 확인이다. 예외를 던지면 아무것도 바꾸지 않는다(대시보드: 세션 종료)
+ */
 type AutoplayOptions = { create?: () => Player | Promise<Player>; onAccepted?: () => unknown; go?: () => void };
 
 // 쉬던 플레이어를 음성에 먼저 붙인다. 첫 곡을 넣는 것은 DB에 쓰므로, 붙지 못했을 때 앞 플레이어가 남긴 세션(/join으로 이어 듣기)을 건드리지 않게. 붙지 못하면 플레이어를 버린다

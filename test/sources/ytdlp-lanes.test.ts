@@ -214,7 +214,7 @@ test("다운로드 감시: 처음 본 뒤 파일 묶음이 한도 동안 그대�
   try {
     useStallWatch({ everyMs: 50, limitMs: 300 });
     let firedAt: number | null = null;
-    // 파일 대신 늘 같은 묶음을 읽는다. 진짜 파일을 읽으면 부하에 따라 확인이 건너뛰어진다
+    // 파일 대신 늘 같은 값을 읽는다. 진짜 파일을 읽으면 부하에 따라 확인이 건너뛰어진다
     const stop = watchDownload(
       "x.opus",
       () => (firedAt = Date.now()),

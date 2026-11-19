@@ -320,8 +320,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
       clientSecret: null as string | null,
     },
 
-    // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다. 장르 설정에서 어느 장르가
-    // 그 소스를 쓰는지 보고 기동 시 경고하고, 쓸 소스가 없는 장르는 선택할 때 거절한다(src/config/genres.ts).
+    // 자동재생 소스 자격증명(위와 같다). 없으면 그 소스만 못 쓴다(src/config/genres.ts).
     sources: {
       lastfmKey: null as string | null,
       listenbrainzToken: null as string | null,
@@ -396,7 +395,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
   return { config, problems, warnings, tuneProblems, envNames: readers.asked };
 }
 
-// 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그. 한 함수가 너무 길어 나눴다
+// 대시보드, 캐시, SponsorBlock, 음성 상태, 스트림, 로그
 function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, envBool, tuneInt, tuneBool, tuneText }: ReturnType<typeof envReaders>, dashboardPort: number) {
   return {
     dashboard: {
@@ -510,7 +509,6 @@ const { config, problems, warnings } = loadConfig(process.env, { envFileFound, e
 const nodeWarning = nodeSupportWarning(process.versions.node, pkg.engines.node);
 if (nodeWarning) warnings.push(nodeWarning);
 
-/** 설정 */
 type Config = typeof config;
 
 export default config;

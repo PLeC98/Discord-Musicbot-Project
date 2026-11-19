@@ -51,7 +51,7 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
     anchor = null;
   }
 
-  // 행 안의 버튼(빼기, 옮기기 손잡이)을 누른 것은 그 버튼이 받는다. 행 바깥의 조상은 보지 않는다(휴대폰 시트는 펼치기 전에 목록째 touch-none이다)
+  // 행 안의 버튼(빼기, 옮기기 핸들)을 누른 것은 그 버튼이 받는다. 행 바깥의 조상은 보지 않는다(휴대폰 시트는 펼치기 전에 목록째 touch-none이다)
   function ownControl(e: Event) {
     const row = e.currentTarget;
     const own = e.target instanceof Element ? e.target.closest("button, a, .touch-none") : null;
@@ -86,7 +86,6 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
     if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > SLOP_PX) cancelPress();
   }
 
-  /** 행을 눌렀다 */
   function rowClick(e: MouseEvent, row: T) {
     if (swallowClick) {
       swallowClick = false;

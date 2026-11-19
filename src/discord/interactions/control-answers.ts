@@ -77,7 +77,6 @@ const acceptWith = (interaction: Asked, working: ContainerBuilder) => async () =
   showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
 };
 
-/** 처음부터 다시 */
 async function answerReplay(interaction: Asked, player: MaybePlayer) {
   const r = await controls.replay(player, { member: interaction.member }, { onAccepted: acceptWith(interaction, replies.replaying()) });
   if (!r.ok) return refuse(interaction, r);

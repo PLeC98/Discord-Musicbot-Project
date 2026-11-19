@@ -22,7 +22,7 @@ const check = "업데이트 확인";
 const checking = "확인 중…";
 const update = (v: string) => `업데이트 (${v})`;
 const latest = "최신 버전이에요";
-/** 설치된 버전 칸의 메뉴(이전 버전이 있을 때) */
+// 설치된 버전 칸의 메뉴(이전 버전이 있을 때)
 /** 되돌리기 버튼의 툴팁 */
 const rollbackTo = (v: string) => `이전 버전(${v})으로 되돌리기`;
 const rollbackTitle = "이전 버전으로 되돌릴까요?";

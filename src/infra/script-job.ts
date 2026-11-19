@@ -96,7 +96,6 @@ function onJobIdle(listener: () => void): () => void {
   return () => void idleListeners.delete(listener);
 }
 
-/** 실행 중인 작업이 있으면 true */
 function jobRunning(): boolean {
   return current?.info.state === "running";
 }

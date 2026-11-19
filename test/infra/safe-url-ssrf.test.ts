@@ -389,7 +389,7 @@ test("진짜 소켓: 프록시 환경 변수를 켜도 고정 에이전트는 �
       console.log("PROBE " + r.status + " " + body);`;
     const env = { ...process.env, NODE_USE_ENV_PROXY: "1", HTTP_PROXY: "http://127.0.0.1:9", http_proxy: "http://127.0.0.1:9", NO_PROXY: "", no_proxy: "" };
     const child = await new Promise<{ stdout: string }>((done) => {
-      // spawnSync은 이 프로세스의 서버를 막으므로 비동기로 실행한다
+      // spawnSync는 이 프로세스의 서버를 막으므로 비동기로 실행한다
       const c = spawn(process.execPath, ["--input-type=module", "-e", probe], { env });
       let stdout = "";
       c.stdout.on("data", (d) => (stdout += d));

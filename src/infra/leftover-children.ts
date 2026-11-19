@@ -127,10 +127,6 @@ function targetsOf(child: ChildRecord["children"][number], procs: Proc[], byPid:
   return procs.filter((proc) => proc.ppid === child.pid && later(proc)).map((proc) => ({ pid: proc.pid, group: false, label: `${child.label}#${child.pid}의 ${proc.image}#${proc.pid}` }));
 }
 
-/**
- * 폴더의 다른 실행이 남긴 기록을 보고 남은 자식을 종료한다. 돌려주는 것은 종료한 것의 라벨.
- * 기록을 남긴 봇이 아직 돌면 그 파일은 건드리지 않는다. 내리지 못한 자식은 파일에 남기고, 다 내렸으면 파일을 삭제한다
- */
 type Found = { file: string; record: ChildRecord };
 
 // 폴더의 기록들. 쓰는 중의 임시 파일(*.tmp)은 읽지 않고, 읽지 못하는 기록은 삭제한다(내릴 대상을 알 수 없다)

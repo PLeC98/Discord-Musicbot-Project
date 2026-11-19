@@ -107,7 +107,7 @@ let observer: ResizeObserver | null = null;
 const maxZoom = computed(() => Math.min(64, Math.max(1, props.duration / 5)));
 const zoom = computed(() => Math.pow(maxZoom.value, zoomStep.value / 100));
 const contentWidth = computed(() => Math.max(1, Math.round(viewWidth.value * zoom.value)));
-/** 시간이 있는 폭(양옆 PAD를 뺀 것) */
+/** 1초의 폭(px). 시간이 있는 폭은 양옆 PAD를 뺀 것 */
 const pxPerSec = computed(() => (props.duration ? Math.max(1, contentWidth.value - PAD * 2) / props.duration : 0));
 const x = (t: number) => PAD + t * pxPerSec.value;
 const tileW = computed(() => Math.round(BAR_H * (props.strip ? props.strip.shape.width / props.strip.shape.height : props.aspect || 16 / 9)));

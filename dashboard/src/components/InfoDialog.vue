@@ -21,7 +21,6 @@ import { ICON_BTN } from "../utils/icon-button.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
 
-/** 열림(v-model) */
 const open = defineModel<boolean>({ required: true });
 defineProps<{ title: string; icon: IconName }>();
 

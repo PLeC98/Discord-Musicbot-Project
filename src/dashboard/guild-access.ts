@@ -107,7 +107,7 @@ function voiceFlags(guild: Guild | null | undefined, userId: string | null | und
   // 채널이 캐시에 없을 때 "화면은 조작 가능이라는데 서버는 막는" 어긋남이 생기지 않는다.
   //
   // 멤버가 아니라 voiceStates에서 읽는 이유: 멤버 캐시는 비어 있을 수 있지만 음성 상태는
-  // 게이트웨이가 항상 채워둔다(GUILD_CREATE + VOICE_STATE_UPDATE). member.voice도 결국 이걸 본다.
+  // 게이트웨이가 항상 채워둔다(GUILD_CREATE + VOICE_STATE_UPDATE). member.voice도 결국 voiceStates를 본다.
   const botChannelId = guild?.members?.me?.voice?.channel?.id ?? null;
   const userChannelId = (userId && guild?.voiceStates?.cache?.get(userId)?.channel?.id) || null;
   return { botInVoice: !!botChannelId, userInVoice: !!userChannelId, sameVoice: !!botChannelId && botChannelId === userChannelId };

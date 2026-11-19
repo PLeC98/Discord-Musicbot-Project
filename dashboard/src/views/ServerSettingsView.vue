@@ -37,7 +37,7 @@
           </label>
           <NoticeBox v-else variant="gate" :icon="REFUSAL_ICON[s.stay.refusal] ?? 'block'" icon-class="text-on-surface-variant" class="min-h-0! py-2!">
             <span class="flex-1 min-w-0">{{ noticeText(s.stay.refusal).title }}</span>
-            <!-- 꺼진 입력은 마우스 이벤트를 받지 않아 덮개가 툴팁을 받는다 -->
+            <!-- 꺼진 입력은 마우스 이벤트를 받지 않아 오버레이가 툴팁을 받는다 -->
             <span v-tooltip="T.stay.locked(stayShown)" class="relative inline-flex shrink-0"><BaseSwitch :model-value="stayShown" disabled /><span class="absolute inset-0 z-20"></span></span>
           </NoticeBox>
         </BaseCard>

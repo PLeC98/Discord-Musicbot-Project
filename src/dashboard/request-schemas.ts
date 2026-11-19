@@ -129,8 +129,7 @@ function settingsPatch({ min, max }: { min: number; max: number }) {
   );
 }
 
-// 상주 모드 켜기, 끄기 { on }. 참, 거짓이 아니면 거절한다(끄기로 읽지 않는다)
-/** 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)의 본문 */
+/** 바로 켜고 끄는 카드(상주 모드, 볼륨 정규화)의 본문 { on }. 참, 거짓이 아니면 거절한다(끄기로 읽지 않는다) */
 const ToggleBody = z.object({ on: z.boolean({ error: "bad-request" satisfies Code }) }, { error: "bad-request" satisfies Code });
 
 /** 서버 설정 저장(PATCH)의 본문(화면이 보내는 모양) */

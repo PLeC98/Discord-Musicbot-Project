@@ -16,8 +16,10 @@ const groups = {
   ailog: { title: "기록 설정", icon: "settings", desc: "" },
 } as const;
 
-/** 필드마다 라벨, 설명(툴팁) */
-/** label: 항목 이름(알림, 안내에도 쓴다), short: 박스 안에서 보일 짧은 이름(박스 제목이 나머지를 말한다) */
+/**
+ * 필드마다 라벨, 설명(툴팁).
+ * label: 항목 이름(알림, 안내에도 쓴다), short: 박스 안에서 보일 짧은 이름(박스 제목이 나머지를 말한다)
+ */
 const fields: Record<string, { label: string; help: string; short?: string }> = {
   QUEUE_MAX_TRACKS: { label: "대기열 곡 수 상한", help: "재생 중인 곡은 빼고 세요. 0이면 끔, 켜면 25 이상.\n곡이 수천 개면 셔플처럼 대기열 전체를 다시 쓰는 조작 동안 봇 전체가 잠깐 멈출 수 있어요. 1,000곡 안쪽을 권해요." },
   LEAVE_DELAY_QUEUE_EMPTY_SECONDS: { label: "대기열이 비면 나가기까지(초)", help: "대기열을 모두 재생한 뒤 음성 채널을 나가기까지 기다리는 시간. 0이면 바로 나가요. 상주 모드가 켜져 있으면 이 설정은 적용되지 않아요." },

@@ -64,14 +64,6 @@ export function failureKind(error: unknown): FailureKind | null {
 }
 
 /**
- * http(axios)에 가로채기를 건다.
- * onSessionEnd: 401을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
- * 요청에 quietSession을 주면 401이어도 부르지 않는다(로그아웃).
- * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
- *   다시 로그인을 마치면 true로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false면 거절대로 실패한다
- * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
- */
-/**
  * user: 현재 탭의 사용자 id다(모르면 null). onAccountChanged: account-changed를 받았을 때 호출한다. switched: 계정 변경으로 요청이 차단됐는지 반환한다(계정 확인 요청과 로그아웃만 보낸다)
  */
 type AccountHooks = { user?: () => string | null; onAccountChanged?: () => void; switched?: () => boolean };
@@ -85,6 +77,14 @@ function blockedError(request: InternalAxiosRequestConfig) {
   return Object.assign(new Error("not sent: signed in as another account"), { code: "ERR_CANCELED", config: request });
 }
 
+/**
+ * http(axios)에 가로채기를 건다.
+ * onSessionEnd: 401을 받았을 때. 요청은 그대로 실패한다(부른 쪽이 처리 중을 푼다).
+ * 요청에 quietSession을 주면 401이어도 부르지 않는다(로그아웃).
+ * onReauth: reauth-required(위험한 조작인데 로그인한 지 오래됐다)를 받았을 때. 세션은 살아 있다.
+ *   다시 로그인을 마치면 true로 풀린다. 그러면 그 요청을 새 세션으로 한 번 다시 보낸다(부른 쪽은 기다리기만 한다). false면 거절대로 실패한다
+ * onReach(ok): 서버에 닿았는지(응답이 왔다, 연결이 안 됐다). 시간 한도, 끊음은 알리지 않는다
+ */
 export function installRequests(http: AxiosInstance, { onSessionEnd, onReauth, onReach, onBoot = () => undefined, user = () => null, onAccountChanged = () => undefined, switched = () => false }: { onSessionEnd: () => void; onReauth?: () => Promise<boolean>; onReach: (ok: boolean) => void; onBoot?: (id: string) => void } & AccountHooks): void {
   let token: string | null = null;
   let tokenRequest: Promise<string> | null = null;

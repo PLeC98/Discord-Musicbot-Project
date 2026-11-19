@@ -53,7 +53,7 @@ const NOTICE_MS = 3000;
 // 디스코드 연결(게이트웨이)을 닫을 때 기다리는 상한. close 프레임이 나가야 디스코드가 봇을 곧바로 음성 채널에서 뺀다. 넘으면 그대로 내린다
 const CLIENT_CLOSE_MS = 2000;
 // 기동이 실패하면 이만큼 뒤에 나간다. 곧바로 나가면 막 끝난 REST 요청(로그인, 명령 배포)의 핸들 정리와 겹쳐
-// Windows에서 libuv 어서션으로 죽는다(Node 24). 요청 하나와 곧바로 부른 process.exit만으로 재현된다
+// Windows에서 libuv 어서션으로 죽는다(Node 24)
 const FAILED_START_GRACE_MS = 1000;
 
 /**
@@ -223,7 +223,7 @@ async function release(client: { destroy(): unknown } | null, { potServer, logFi
   if (job) log.info(`진행 중이던 설치 작업 중단: ${job}`);
 
   // 진행 중이던 yt-dlp/FFmpeg를 자손까지 정리한다.
-  // 이게 없으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
+  // 정리하지 않으면 Windows에서는 봇만 죽고 ffmpeg가 남아 (라이브 등) 무한 다운로드를 계속한다.
   const killed = killAll();
   if (killed.length) log.info(`남은 자식 프로세스 정리: ${killed.length}개 (${countByLabel(killed)})`);
 

@@ -1,5 +1,5 @@
 // src/dashboard/routes/admin.ts: 봇 운영자 API 통합 테스트(상태, 서버 목록, 나가기, 재배포, 공지, 설정 문서, AI 보조, 다시 시작, 실시간 로그).
-// 실 라우터 + fake client. 서버 설정은 임시 DB, 명령 등록 요청과 배포 해시 경로는 배포 함수에 넘긴다(실 배포, 운영 DB 없음).
+// 실 라우터 + 가짜 클라이언트. 서버 설정은 임시 DB, 명령 등록 요청과 배포 해시 경로는 배포 함수에 넘긴다(실 배포, 운영 DB 없음).
 
 // 봇 운영자 판정은 세션에 굳은 값이 아니라 요청마다 config.dashboard.ownerId와 대조한다.
 // dotenv는 이미 설정된 process.env를 덮지 않으므로 .env가 있어도 이 값이 이긴다.
@@ -573,7 +573,7 @@ test("AI 보조: 유튜브 주소로 후보를 읽는다", async () => {
   assert.equal(bad.status, 200);
   assert.equal(bad.json.candidates[0].error, "유튜브 URL이 아니라 건너뛰었어요.", "못 읽은 줄도 왜 안 됐는지 알려 준다");
   // 읽다 예외를 던진 줄은 yt-dlp 원문이 아니라 그 종류의 안내 제목
-  // 맨 위에서 불러오면 시험 준비보다 먼저 설정을 읽어 다른 시험이 403이 된다
+  // 맨 위에서 불러오면 테스트 준비보다 먼저 설정을 읽어 다른 테스트가 403이 된다
   const { useExec } = await import("../../src/sources/ytdlp-spawn.ts");
   useExec((() => Promise.reject(Object.assign(new Error("exit 1"), { stderr: "ERROR: [youtube] zzzzzzzzzzz: Video unavailable", exitCode: 1 }))) as unknown as Exec);
   try {
