@@ -149,7 +149,7 @@ test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 �
 
 test("볼륨 모달의 자리표시는 지금 볼륨", () => {
   const input = (volumeModal(80).toJSON().components[0] as { components: Array<{ placeholder?: string }> }).components[0];
-  assert.equal(input.placeholder, "지금 80");
+  assert.equal(input.placeholder, "현재 80");
 });
 
 test("핸들러가 없는 custom_id는 모른다고 한 번 응답한다", async () => {
