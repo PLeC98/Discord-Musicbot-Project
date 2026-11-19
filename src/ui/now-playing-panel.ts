@@ -82,6 +82,7 @@ import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/public-address.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import { SELECT_MAX } from "../rules/limits.ts";
+import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { canGoBack, canGoNext } from "../rules/controls.ts";
 
 // 끝난 패널의 버튼. 플레이어가 없어도 같은 모양을 그린다.
@@ -133,6 +134,18 @@ function idleViewOf(reason: string, player: { idle?: Pick<Player["idle"], "upcom
   if (!WAITING.has(reason)) return { reason, leavesAt: null };
   return { reason, leavesAt: player.idle?.upcomingLeave() ?? null, staying: Boolean(player.idle?.seated()) };
 }
+
+/** 곡으로 건너뛰기 메뉴를 줄여 가는 차례: 항목 이름과 설명의 상한(글자), 항목 수. 글부터 줄인다 */
+const JUMP_SHRINK = [
+  [100, SELECT_MAX],
+  [60, SELECT_MAX],
+  [40, SELECT_MAX],
+  [30, SELECT_MAX],
+  [30, 20],
+  [30, 15],
+  [30, 10],
+  [30, 5],
+] as const;
 
 class NowPlayingPanel {
   client: Client;
@@ -272,7 +285,7 @@ class NowPlayingPanel {
   async _playingPayload(player: Player, track: QueuedTrack, fresh = false, byWebhook?: boolean): Promise<Payload> {
     const art = await discordArt.artFor(track);
     const container = await this.createNowPlayingContainer(player, track, false, art, byWebhook);
-    const jumpToRow = await this.createJumpToRow(player);
+    const jumpToRow = await this.createJumpToRow(player, COMPONENTS_BYTES_MAX - componentsBytes(container));
     const payload: Payload = { components: jumpToRow ? [container, jumpToRow] : [container], flags: MessageFlags.IsComponentsV2 };
     const guildId = player.guild?.id ?? "";
     const attached = fresh ? undefined : this.attachedArt.get(guildId);
@@ -841,18 +854,20 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 항목은 queue-display의 entryOptions(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null
+   * 항목은 queue-display의 entryOptions(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null.
+   * budget: 메뉴 줄이 쓸 수 있는 컴포넌트 바이트(ui/message-size). 넘으면 항목 글, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 null(메뉴 없이 패널을 올린다)
    */
-  async createJumpToRow(player: Pick<Player, "sessionId" | "queue">) {
+  async createJumpToRow(player: Pick<Player, "sessionId" | "queue">, budget = COMPONENTS_BYTES_MAX) {
     if (!player.sessionId || player.queue.length === 0) return null;
-
-    const options = entryOptions(player.queue.slice(0, SELECT_MAX), { description: jumpDescription });
-    if (options.length === 0) return null;
-
     const placeholder = panelText.jumpPlaceholder();
-    const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
-
-    return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+    for (const [max, count] of JUMP_SHRINK) {
+      const options = entryOptions(player.queue.slice(0, count), { description: (track) => jumpDescription(track, max), max });
+      if (options.length === 0) return null;
+      const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
+      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
+      if (componentsBytes(row) <= budget) return row;
+    }
+    return null;
   }
 
   /** 진행 막대를 PROGRESS_MS마다 다시 그리기 시작한다 */

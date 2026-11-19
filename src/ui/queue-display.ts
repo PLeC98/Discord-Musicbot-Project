@@ -77,10 +77,10 @@ const OPTION_MAX = 100;
 
 /**
  * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`. 라이브는 길이 위치에 진행 막대와 같은 표기(시작 전이면 예정된 라이브).
- * 상한을 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
+ * 상한(max, 기본은 디스코드 상한)을 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
  */
-function jumpDescription(track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined) {
-  return describe(track?.artist, [lengthOf(track), requesterName(track)], " | ");
+function jumpDescription(track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined, max = OPTION_MAX) {
+  return describe(track?.artist, [lengthOf(track), requesterName(track)], " | ", max);
 }
 
 /** /queue 편집 메뉴 설명: `아티스트 · 길이`. 상한(max, 기본은 디스코드 상한)을 넘치면 아티스트부터 줄인다 */

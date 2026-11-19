@@ -14,6 +14,7 @@ import { colorOf } from "./colors.ts";
 import { IDLE_SESSION, QUEUE, customId, partsOf } from "./custom-ids.ts";
 import type { Attachment } from "./frame.ts";
 import { buttonEmoji, type IconKey } from "./icons.ts";
+import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { editDescription, entryLines, entryOptions, type Listed } from "./queue-display.ts";
 import * as T from "./text/ko/queue.ts";
 
@@ -21,12 +22,7 @@ import * as T from "./text/ko/queue.ts";
 const PAGE_SIZE = 10;
 /** 화면 글(텍스트 디스플레이) 전체의 상한은 4000자(메뉴 항목의 글은 세지 않는다). 목록 말고 제목, 요약 줄이 쓸 몫을 남긴다 */
 const LIST_MAX = 3600;
-/**
- * 컴포넌트 전체(JSON)의 크기 상한. 디스코드는 10,240바이트를 넘으면 메시지째 거절한다(413). 디스코드가 세는 값은 JSON 바이트보다 작아 JSON으로 이 값 안이면 받는다.
- * 한글은 3바이트라 긴 한글 제목, 아티스트 열 곡에 메뉴까지 달면 글자 수로는 상한 안이어도 넘친다. 넘으면 메뉴 항목의 글부터, 그다음 목록 상한을(긴 주소의 링크부터 뗀다) 줄여 다시 만든다
- */
-const BYTES_MAX = 10_000;
-/** 줄여 가는 차례: 목록 글 상한, 메뉴 항목 이름과 설명의 상한 */
+/** 컴포넌트 크기(ui/message-size)가 상한을 넘으면 줄여 가는 차례: 목록 글 상한(긴 주소의 링크부터 뗀다), 메뉴 항목 이름과 설명의 상한. 메뉴 글부터 줄인다 */
 const SHRINK = [
   [LIST_MAX, 100],
   [LIST_MAX, 60],
@@ -135,7 +131,7 @@ const ACTION_LOOK: Record<EditAction, { emoji: IconKey; style: ButtonStyle }> = 
 function queueView(info: QueueInfo, screen: Screen, nowMs = Date.now()): { view: ContainerBuilder; files: Attachment[]; page: number } {
   let built = compose(info, screen, nowMs, SHRINK[0]);
   for (const step of SHRINK.slice(1)) {
-    if (Buffer.byteLength(JSON.stringify(built.view.toJSON())) <= BYTES_MAX) break;
+    if (componentsBytes(built.view) <= COMPONENTS_BYTES_MAX) break;
     built = compose(info, screen, nowMs, step);
   }
   return built;
@@ -246,5 +242,5 @@ function gotoOf(id: string): { mode: Mode; page: number } | null {
 /** 모달에 적은 페이지. 숫자가 아니면 null */
 const typedPage = (text: string) => positive(text.trim());
 
-export { PAGE_SIZE, PAGE_PREFIX, EDIT_PREFIX, PICK_PREFIX, DO_PREFIX, GOTO_PREFIX, PAGE_INPUT, LIST_MAX, BYTES_MAX, MOSAIC_FILE, queueView, queueInfoOf, pagesOf, pageIn, pageTracks, pageOfEntry, pageModal, pageOf, pickOf, actionOf, gotoOf, typedPage };
+export { PAGE_SIZE, PAGE_PREFIX, EDIT_PREFIX, PICK_PREFIX, DO_PREFIX, GOTO_PREFIX, PAGE_INPUT, LIST_MAX, MOSAIC_FILE, queueView, queueInfoOf, pagesOf, pageIn, pageTracks, pageOfEntry, pageModal, pageOf, pickOf, actionOf, gotoOf, typedPage };
 export type { QueueInfo, Screen, Mode, Entry, Viewer };

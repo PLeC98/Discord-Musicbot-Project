@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { textOf } from "../helpers/cv2.ts";
 import { IDLE_SESSION } from "../../src/ui/custom-ids.ts";
-import { BYTES_MAX, actionOf, gotoOf, pageModal, pageOf, pickOf, queueView, typedPage, type Entry, type QueueInfo } from "../../src/ui/queue-view.ts";
+import { COMPONENTS_BYTES_MAX } from "../../src/ui/message-size.ts";
+import { actionOf, gotoOf, pageModal, pageOf, pickOf, queueView, typedPage, type Entry, type QueueInfo } from "../../src/ui/queue-view.ts";
 
 type Node = { type?: number; custom_id?: string; disabled?: boolean; label?: string; components?: Node[]; items?: Array<{ media: { url: string } }>; options?: Array<{ value: string; default?: boolean }> };
 const BUTTON = 2;
@@ -127,7 +128,7 @@ test("가장 긴 페이지도 글 4000자, 부품 40개, 부품 크기 상한 �
       const bytes = Buffer.byteLength(JSON.stringify(view.toJSON()));
       assert.ok(text.length <= 4000, `${screen.mode}: ${text.length}자`);
       assert.ok(nodesOf(view).length <= 40, `${screen.mode}: 부품 ${nodesOf(view).length}개`);
-      assert.ok(bytes <= BYTES_MAX, `${screen.mode}: ${bytes}바이트`);
+      assert.ok(bytes <= COMPONENTS_BYTES_MAX, `${screen.mode}: ${bytes}바이트`);
       assert.equal(text.split("\n").filter((line) => /^`\d+`/.test(line)).length, 10, `${screen.mode}: 열 곡이 다 보인다`);
     }
   }

@@ -4,6 +4,7 @@ import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
+import { COMPONENTS_BYTES_MAX, componentsBytes } from "../../src/ui/message-size.ts";
 import { Collection, MessageFlags, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -34,6 +35,22 @@ test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID가
     ],
   );
   assert.equal(await newPanels().createJumpToRow({ sessionId: "s1", queue: [entered("ID 없음")] }), null);
+});
+
+// 디스코드는 컴포넌트 전체가 10,240바이트를 넘으면 패널째 거절한다(413). 한글은 3바이트라 긴 한글 곡 25개면 메뉴만으로 넘친다
+test("점프 메뉴: 컴포넌트 크기 상한 안으로 항목 글, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 메뉴 없음", async () => {
+  const long = (n: number) => Object.defineProperty({ title: `아주 긴 한글 제목 ${n} `.repeat(10), artist: "아주 긴 한글 아티스트 이름".repeat(6), duration: 236, requestedBy: { id: "u1", username: "요청자" } } as QueuedTrack, "entry", { value: n, enumerable: false });
+  const player = panelPlayer({ currentTrack: long(0), queue: Array.from({ length: 25 }, (_, i) => long(i + 1)) });
+  const payload = await newPanels()._playingPayload(player, long(0), true, true);
+  assert.ok(componentsBytes(...(payload.components ?? [])) <= COMPONENTS_BYTES_MAX, `${componentsBytes(...(payload.components ?? []))}바이트`);
+  const options = (payload.components?.[1] as { toJSON(): { components: Array<{ options: Array<{ label: string }> }> } }).toJSON().components[0].options;
+  assert.equal(options.length, 25, "글을 줄여 들어가면 항목은 그대로");
+  assert.ok(options.every((o) => o.label.length < 100));
+
+  const fewer = await newPanels().createJumpToRow(player, 2000);
+  const kept = fewer?.toJSON().components[0].options.length ?? 0;
+  assert.ok(kept > 0 && kept < 25 && componentsBytes(fewer!) <= 2000, `${kept}개`);
+  assert.equal(await newPanels().createJumpToRow(player, 100), null, "다섯 곡도 안 들어가면 메뉴 없이");
 });
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
