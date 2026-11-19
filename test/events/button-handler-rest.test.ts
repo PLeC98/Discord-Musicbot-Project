@@ -415,6 +415,26 @@ test("자동재생 버튼: DJ 계층, 봇이 쉬면 소환할 수 있어야 한�
   assert.deepEqual(log, [["reply", said(errors.notice("must-be-in-voice"))]]);
 });
 
+// ── 핑 다시 재기 ─────────────────────────────────────────────
+
+test("핑 다시 재기: 같은 메시지를 측정 중 화면으로 고친 시각으로 응답 시간을 재고, 잰 값으로 다시 고친다", async () => {
+  const edits: Payload[] = [];
+  const updates: Payload[] = [];
+  const w = world();
+  const at = Date.now();
+  const { it, log, bot } = press(w, "ping:again", {
+    createdTimestamp: at,
+    update: async (p: Payload) => (updates.push(p), { resource: { message: { editedTimestamp: at + 120 } } }),
+    editReply: async (p: Payload) => edits.push(p),
+  });
+  await interactionCreate.execute(bot, it);
+  assert.deepEqual(log, []);
+  assert.ok(textsOf(updates[0]).join("\n").includes("핑 측정 중..."));
+  const done = textsOf(edits[0]).join("\n");
+  assert.ok(done.includes("**응답 시간** `120ms`"), done);
+  assert.ok(done.includes("**게이트웨이** `42ms`"));
+});
+
 // ── 시스템 새로고침 ──────────────────────────────────────────
 
 test("시스템 새로고침: 봇 운영자만. 같은 메시지의 이미지를 교체하고(기존 첨부는 비운다), 업데이트 전에 보낸 임베드 메시지는 오래된 버튼 안내", async () => {

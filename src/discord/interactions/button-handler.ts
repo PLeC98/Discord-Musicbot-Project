@@ -8,9 +8,10 @@ import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
 import * as controlText from "../../ui/text/ko/controls.ts";
 
-import { PANEL, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
+import { PANEL, PING, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
 import { queueView, queueInfoOf, pageOf, PAGE_PREFIX } from "../../ui/queue-view.ts";
 import { systemScreen } from "../commands/system.ts";
+import { pingAgain } from "../commands/ping.ts";
 import { post } from "../../ui/frame.ts";
 import { route, type Route } from "./route.ts";
 import type { BotContext } from "../../app/bot-context.ts";
@@ -116,6 +117,7 @@ async function handleSystemRefresh(interaction: Press, bot: BotContext) {
 // custom_id 접두사로 구분한다. 플레이어 없이도 눌리는 것(새로고침, 대기열 넘기기)과 재생 패널의 버튼.
 const routes: Route[] = [
   route("button", customId(SYSTEM, "refresh"), handleSystemRefresh),
+  route("button", customId(PING, "again"), (interaction) => pingAgain(interaction)),
   route("button", PAGE_PREFIX, handleQueuePage),
   // 재생 패널의 버튼. 자동재생 버튼은 접두사가 더 좁아 interactions/autoplay가 받는다
   route("button", customId(PANEL, ""), handlePanelButton),

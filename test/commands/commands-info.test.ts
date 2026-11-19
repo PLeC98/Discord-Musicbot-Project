@@ -540,6 +540,33 @@ test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP
 
 // ── /ping ─────────────────────────────────────────────────────────────
 
+test("/ping: 측정 중 화면(V2, 본인에게만)을 먼저 보여 주고 잰 값으로 고친다. 응답 시간은 명령과 응답 메시지의 디스코드 시각 차", async () => {
+  const { it, log, bot } = interaction();
+  Object.assign(it, {
+    createdTimestamp: 1_000,
+    guildId: "g1",
+    inCachedGuild: () => true,
+    reply: async (p: Sent) => {
+      it.replied = true;
+      log.push(["reply", p]);
+      return { resource: { message: { createdTimestamp: 1_186 } } };
+    },
+  });
+  await run(await command("ping"), it, bot);
+  assert.deepEqual(
+    log.map(([kind]) => kind),
+    ["reply", "editReply"],
+  );
+  assert.deepEqual(log[0][1].flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
+  assert.ok(textOf(log[0][1]).includes("핑 측정 중..."));
+  const done = textOf(log[1][1]);
+  assert.ok(done.includes("**응답 시간** `186ms`"), done);
+  assert.ok(done.includes("**게이트웨이** `42ms`"), "봇의 게이트웨이 하트비트 왕복");
+  assert.equal(done.includes("**음성**"), false, "음성 채널에 없으면 음성 줄이 없다");
+  assert.ok(JSON.stringify(log[1][1].components).includes('"custom_id":"ping:again"'));
+  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
+});
+
 test("/ping: 누구나 쓸 수 있으므로(응답 시간은 실행한 사람에게만 보인다) 기본 권한을 걸지 않는다", async () => {
   const json = (await command("ping")).data.toJSON();
   assert.equal(json.default_member_permissions ?? null, null);

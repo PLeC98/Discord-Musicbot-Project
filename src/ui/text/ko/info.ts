@@ -47,11 +47,18 @@ const topLine = (rank: number, title: string, plays: number, length: string) => 
 /** 최근 캐시 파일 한 줄 */
 const recentLine = (title: string, date: string) => `**${title}** (${date})`;
 
-/** /ping. mark는 빠르기를 색으로 적은 것, apiMs는 아직 잴 수 없으면 null */
-const ping = ({ botMark, botMs, apiMark, apiMs }: { botMark: string; botMs: number; apiMark: string; apiMs: number | null }) => ({
+/** /ping. 값마다 이름과, 무엇과 무엇 사이를 잰 것인지 짧게 */
+const ping = () => ({
   title: "🏓 퐁!",
-  bot: { name: `${botMark} 봇 응답`, value: `\`${botMs}ms\`` },
-  api: { name: `${apiMark} Discord API`, value: apiMs === null ? "`측정 중...`" : `\`${apiMs}ms\`` },
+  response: { name: "응답 시간", note: "명령 → 봇 → 응답" },
+  rest: { name: "REST 왕복", note: "봇 ↔ 디스코드 API" },
+  gateway: { name: "게이트웨이", note: "봇 ↔ 디스코드 연결" },
+  voice: { name: "음성", note: "봇 ↔ 이 서버의 음성 연결" },
+  /** 게이트웨이 기록의 평균 */
+  average: (minutes: number) => `${minutes}분 평균`,
+  /** 봇이 막 켜져 아직 잰 값이 없을 때 */
+  measuring: "측정 중...",
+  again: "다시 재기",
 });
 /** 첫 응답. 그 응답이 닿은 시각으로 잰다 */
 const pinging = () => "핑 측정 중...";

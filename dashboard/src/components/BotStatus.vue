@@ -346,6 +346,7 @@ import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-ch
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
 import { FRAME_MS, LIMITS, attentionOf, clientLevel, diskLevel, heapPercent, levelOf, metricLevels, overallOf, statusInputOf, type Attention, type Level, type Metric as LevelMetric } from "../../../src/rules/status-levels.ts";
+import { averageOf, historyMinutes as minutesOf } from "../../../src/rules/latency.ts";
 import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery, type IntentEnableReply } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { formatClock, formatNumber } from "../utils/locale.ts";
@@ -489,7 +490,7 @@ const flexFromBase = (base: number) => ({ flex: `${base} 1 ${base}rem` });
 
 // ── ③ 지금 ──
 // 모은 구간이 덮는 시간(분). 봇을 켠 지 1분이 안 됐어도 "0분"이 아니라 1분으로
-const historyMinutes = computed(() => Math.max(1, Math.round((props.status.history.stepMs * props.status.history.ping.length) / 60_000)));
+const historyMinutes = computed(() => minutesOf(props.status.history.stepMs, props.status.history.ping.length));
 
 // 카드 너비에 따라 바꿔 보일 글의 경계: 좁은 버전부터 넓은 버전까지의 클래스. 모바일 먼저라 기본은 가장 좁은 버전이고 카드 안쪽이 경계 이상이면 다음 버전.
 // 경계는 끝 줄 주석의 화면 폭(휴대폰, 사이드바를 접은 데스크톱 네 칸)에서의 카드 안쪽 너비다
@@ -539,7 +540,7 @@ const metrics = computed<Metric[]>(() => {
   const { counts } = status.players;
   const playing = counts.playing;
   const connected = counts.playing + counts.paused + counts.idle;
-  const pingAvg = Math.round(h.ping.reduce((a, b) => a + b, 0) / Math.max(1, h.ping.length));
+  const pingAvg = averageOf(h.ping);
   const ping = timeParts(status.bot.ping);
   const loop = timeParts(status.loop.p99);
   const download = downloadParts(status.download.bytesPerSec);

@@ -6,6 +6,7 @@ const PANEL = "panel"; // 재생 패널의 버튼, 곡으로 건너뛰기 메뉴
 const AUTOPLAY = "autoplay"; // 자동재생 장르 메뉴
 const QUEUE = "queue"; // 대기열 보기의 넘기기
 const SYSTEM = "system";
+const PING = "ping"; // /ping 의 다시 재기 버튼 ping:again
 const SEARCH = "search"; // 검색 결과 화면의 선택 메뉴 search:pick:검색한 사람
 const HELP = "help"; // /help의 분류 메뉴 help:section, 첫 화면으로 돌아가는 버튼 help:home
 
@@ -32,4 +33,4 @@ function entryOfJump(value: string | undefined) {
   return found ? Number(found[1]) : null;
 }
 
-export { PANEL, AUTOPLAY, QUEUE, SYSTEM, SEARCH, HELP, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };
+export { PANEL, AUTOPLAY, QUEUE, SYSTEM, PING, SEARCH, HELP, IDLE_SESSION, customId, partsOf, panelId, jumpValue, entryOfJump };

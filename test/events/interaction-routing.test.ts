@@ -102,6 +102,7 @@ const CASES: [Kind, string, string][] = [
   ["button", "panel:autoplay:s1", "autoplay"],
   ["button", "queue:page:2", "buttonHandler"],
   ["button", "system:refresh", "buttonHandler"],
+  ["button", "ping:again", "buttonHandler"],
   ["button", "setting:sb-toggle", "settingsPanelHandler"],
   ["button", "setting:age-all", "settingsPanelHandler"],
   ["button", "setting:close", "settingsPanelHandler"],
