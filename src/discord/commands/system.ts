@@ -12,8 +12,9 @@ import { FRAME_MS, attentionOf, diskLevel, heapPercent, metricLevels, overallOf,
 import { bgutilVersions } from "../../sources/bgutil/version.ts";
 import { ytdlpBinary } from "../../sources/ytdlp-binary.ts";
 import { colorOf } from "../../ui/colors.ts";
-import { LIFETIME, expireSelf, noticeSelf } from "../../ui/delivery.ts";
-import { post, reply } from "../../ui/frame.ts";
+import { LIFETIME, expireSelf, noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
+import { showFailureWith } from "../../ui/failure-notice.ts";
+import { noticeFrame, post, reply } from "../../ui/frame.ts";
 import { playState } from "../../ui/player-status.ts";
 import type { CardData } from "../../ui/system-card/draw.ts";
 import { renderSystemCards } from "../../ui/system-card/render.ts";
@@ -92,6 +93,8 @@ const exported: GuildCommand = {
     }
     await interaction.reply(reply(systemView({ ...headOf(bot), updatedAt: Math.floor(Date.now() / 1000), images: "drawing" }).view));
     expireSelf(interaction, LIFETIME.screen);
+    // 여기서부터 예외를 던지면 자리표시자를 오류 안내로 바꾼다(그리는 중인 화면이 남지 않게)
+    showFailureWith(interaction, (notice) => replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)));
     const { view, files } = await systemScreen(bot);
     await interaction.editReply(post(view, files));
   },

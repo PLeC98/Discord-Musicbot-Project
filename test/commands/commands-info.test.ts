@@ -466,6 +466,28 @@ test("/system: 봇 운영자만. 운영자면 그리는 중 자리표시자(V2, 
   }
 });
 
+test("/system: 자리표시자를 보여 준 뒤 실패하면(이미지 첨부 거부 등) 그 자리표시자를 오류 안내로 바꾼다", async () => {
+  const saved = config.dashboard.ownerId;
+  config.dashboard.ownerId = "owner";
+  try {
+    const owner = interaction({ userId: "owner" });
+    let edits = 0;
+    owner.it.editReply = async (p: Sent) => {
+      if (++edits === 1) throw new Error("첨부 거절");
+      return owner.log.push(["editReply", p]);
+    };
+    await runViaEntrance(await command("system"), owner.it, owner.bot);
+    assert.deepEqual(
+      owner.log.map(([kind]) => kind),
+      ["reply", "editReply"],
+    );
+    assert.ok(textOf(owner.log[1][1]).includes(errors.notice("command-failed").title));
+    assert.equal(textOf(owner.log[1][1]).includes("상태 이미지를 그리는 중이에요"), false);
+  } finally {
+    config.dashboard.ownerId = saved;
+  }
+});
+
 // ── /cachestatus ──────────────────────────────────────────────────────
 
 test("/cachestatus: 모든 서버의 캐시이므로 봇 운영자만 쓸 수 있고, 서버 관리 권한으로는 열리지 않는다", async () => {
