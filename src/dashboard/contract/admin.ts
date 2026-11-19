@@ -28,8 +28,8 @@ type AdminStatus = {
   bot: { tag: string; id: string | null; guilds: number; ping: number; status: number; uptime: number; startedAt: number; version: string; reconnects: number; retryAttempt: number | null };
   /** heapLimit: V8 heap 한도(이 값 대비로 판정한다. heapTotal은 필요에 따라 늘어나는 값이라 한도가 아니다) */
   node: { version: string; platform: string; arch: string; memory: { heapUsed: number; heapTotal: number; heapLimit: number; rss: number } };
-  /** uptime: 운영체제가 켜진 뒤의 초. loadAvg는 Windows에서 늘 0이라 화면은 쓰지 않는다 */
-  system: { cpus: number; cpuModel: string; totalMem: number; freeMem: number; loadAvg: number[]; uptime: number };
+  /** uptime: 운영체제 부팅 후 경과 시간(초) */
+  system: { cpus: number; cpuModel: string; totalMem: number; freeMem: number; uptime: number };
   /** CPU 사용률(%), 모든 코어를 합쳐 100. 지난 갱신 뒤 쓴 CPU 시간으로 잰다(운영체제와 상관없다) */
   cpu: { bot: number; system: number };
   /** 이벤트 루프 지연(ms). 지난 15초의 p99와 최대 */

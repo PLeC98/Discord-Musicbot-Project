@@ -53,7 +53,7 @@ function adminStatus({ client, players, commands }: BotContext, query: StatusQue
   return {
     bot: botStatus(client, uptime),
     node: { version: process.version, platform: process.platform, arch: process.arch, memory: { heapUsed: Math.round(mem.heapUsed / MB), heapTotal: Math.round(mem.heapTotal / MB), heapLimit, rss: Math.round(mem.rss / MB) } },
-    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(availableMemory() / MB), loadAvg: os.loadavg(), uptime: Math.floor(os.uptime()) },
+    system: { cpus: cpus.length, cpuModel: cpus[0]?.model.trim() ?? "", totalMem: Math.round(os.totalmem() / MB), freeMem: Math.round(availableMemory() / MB), uptime: Math.floor(os.uptime()) },
     cpu,
     loop,
     download: { ...downloadMeter(), active: TrackDownloader.activeCount() },

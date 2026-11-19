@@ -345,6 +345,7 @@ import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
 import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
+import { FRAME_MS, LIMITS, attentionOf, clientLevel, diskLevel, heapPercent, levelOf, metricLevels, overallOf, statusInputOf, type Attention, type Level, type Metric as LevelMetric } from "../../../src/rules/status-levels.ts";
 import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery, type IntentEnableReply } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { formatClock, formatNumber } from "../utils/locale.ts";
@@ -382,9 +383,7 @@ async function enableIntent(name: "messageContent" | "guildMembers") {
 const query = defineModel<StatusQuery>("query", { required: true });
 const emit = defineEmits<{ openLogs: []; openDb: [] }>();
 
-// ── 판정, 모양 ──
-type Level = "ok" | "warn" | "bad";
-const levelOf = (v: number, warn: number, bad: number): Level => (v >= bad ? "bad" : v >= warn ? "warn" : "ok");
+// ── 판정(기준, 단계는 rules/status-levels)과 표시 모양 ──
 const LEVEL_ICON: Record<Level, IconName> = { ok: "check_circle", warn: "warning", bad: "cancel" };
 const LEVEL_TEXT: Record<Level, string> = { ok: "", warn: "text-(--warn-ink)", bad: "text-error" };
 const LEVEL_GRAPH: Record<Level, string> = { ok: "text-primary", warn: "text-(--warn-ink)", bad: "text-error" };
@@ -393,10 +392,6 @@ const LEVEL_BAR: Record<Level, string> = { ok: "bg-primary", warn: "bg-(--warn-i
 const WARN_FILL = "bg-(--warn-ink)/15 text-(--warn-ink)";
 const LEVEL_BADGE: Record<Level, string> = { ok: "bg-primary-container text-on-primary-container", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
 const LEVEL_CHIP: Record<Level, string> = { ok: "", warn: WARN_FILL, bad: "bg-error-container text-on-error-container" };
-
-/** 기준(주의, 문제). 핑 ms, 루프 지연 ms, heap, CPU, 디스크 % */
-// 핑: 디스코드 서버가 미국이라 한국에서는 190 ~ 200ms가 보통이고 멀쩡해도 200ms 중후반이 자주 뜬다
-const LIMITS = { ping: [210, 300], loop: [50, 100], heap: [80, 95], cpu: [70, 90], disk: [90, 98] } as const;
 
 // ── 글 ──
 const clock = (ms: number, seconds = false) => formatClock(ms, { seconds });
@@ -539,7 +534,8 @@ type Metric = { title: string; short?: string; subUp?: boolean; stat?: string; v
 const metrics = computed<Metric[]>(() => {
   const { status } = props;
   const h = status.history;
-  const heapPct = (status.node.memory.heapUsed / status.node.memory.heapLimit) * 100;
+  const heapPct = heapPercent(status.node.memory);
+  const level = metricLevels(statusInputOf(status));
   const { counts } = status.players;
   const playing = counts.playing;
   const connected = counts.playing + counts.paused + counts.idle;
@@ -570,7 +566,7 @@ const metrics = computed<Metric[]>(() => {
       word: "",
       why: "",
     },
-    { title: T.metrics.ping, ...splitSteps([scaledText(status.bot.ping, time, () => 0), ping], AT_PHONE), sub: { texts: [true, false].map((lines) => T.metrics.pingSub(historyMinutes.value, timeText(pingAvg), lines)), at: AT_PING }, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: levelOf(status.bot.ping, ...LIMITS.ping), word: T.attention.high, why: "" },
+    { title: T.metrics.ping, ...splitSteps([scaledText(status.bot.ping, time, () => 0), ping], AT_PHONE), sub: { texts: [true, false].map((lines) => T.metrics.pingSub(historyMinutes.value, timeText(pingAvg), lines)), at: AT_PING }, series: h.ping, max: axisMax(peak(h.ping), 300, time), warn: LIMITS.ping[0], scale: time, level: level.ping, word: T.attention.high, why: "" },
     {
       title: T.metrics.loop,
       short: T.metrics.loopShort,
@@ -581,12 +577,12 @@ const metrics = computed<Metric[]>(() => {
       max: axisMax(peak(h.loopP99), 100, time),
       warn: LIMITS.loop[0],
       scale: time,
-      level: levelOf(status.loop.p99, ...LIMITS.loop),
+      level: level.loop,
       word: T.attention.lagging,
       why: "",
     },
-    encodingMetric(status.encoding, h.encodeRtt, h.encodeLate),
-    { title: T.metrics.cpu, subUp: true, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], scale: fixed("%"), level: levelOf(status.cpu.bot, ...LIMITS.cpu), word: T.attention.high, why: "" },
+    encodingMetric(status.encoding, h.encodeRtt, h.encodeLate, level.encoding),
+    { title: T.metrics.cpu, subUp: true, value: `${status.cpu.bot}`, unit: "%", sub: T.metrics.cpuSub(status.cpu.system), series: h.cpuBot, second: h.cpuSystem, max: 100, warn: LIMITS.cpu[0], scale: fixed("%"), level: level.cpu, word: T.attention.high, why: "" },
     {
       title: T.metrics.heap,
       value: heapPct.toFixed(0),
@@ -597,7 +593,7 @@ const metrics = computed<Metric[]>(() => {
       max: 100,
       warn: LIMITS.heap[0],
       scale: fixed("%"),
-      level: levelOf(heapPct, ...LIMITS.heap),
+      level: level.heap,
       word: T.attention.high,
       why: "",
     },
@@ -621,13 +617,11 @@ const metrics = computed<Metric[]>(() => {
 
 // 인코딩 응답 시간: 가장 늦은 워커의 응답 시간 p99. 응답은 응답 한도((큐 깊이 − 1) × 20ms) 안에 와야 하고, 큐 깊이를 상한까지 올린 워커가 그 80%를 넘으면 주의, 한도를 넘기면 문제(누락 프레임).
 // 보조 텍스트는 최근 15분 누락 프레임 수(0이어도). 한도는 고정값이라 글로 쓰지 않는다(그래프의 최소 상한, 주의 선이 보인다). 워커마다의 값은 인코딩 워커 카드에
-const FRAME_MS = 20;
 /** 그래프 세로축의 상한을 정할 최고값(15분) */
 const peak = (...series: Array<number[] | undefined>) => Math.max(0, ...series.flatMap((s) => s ?? []));
-function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries: number[]): Metric {
+function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries: number[], level: Level): Metric {
   const budget = (e.maxDepth - 1) * FRAME_MS;
   const late = lateSeries.reduce((a, b) => a + b, 0);
-  const worstAtMax = Math.max(0, ...e.workers.filter((w) => w.depth >= e.maxDepth).map((w) => w.rttP99));
   const worstMs = Math.max(0, ...e.workers.map((w) => w.rttP99));
   return {
     title: T.metrics.encoding,
@@ -640,7 +634,7 @@ function encodingMetric(e: AdminStatus["encoding"], series: number[], lateSeries
     max: axisMax(peak(series), budget, time),
     warn: budget * 0.8,
     scale: time,
-    level: levelOf(worstAtMax, budget * 0.8, budget),
+    level,
     word: T.attention.high,
     why: "",
   };
@@ -737,9 +731,9 @@ const linkGroups = computed(() => {
   // 쿠키는 부르는 곳이 아니라 파일, 브라우저라 응답이 없다. 유효한지는 쓸 때만 알 수 있다
   const cookie: LinkLine = youtube.cookies === "none" ? { name: T.cookies, state: "off", detail: T.noCookies, when: "", value: "" } : { name: T.cookies, state: "ok", detail: COOKIE_WORD[youtube.cookies], when: "", value: "" };
   return [
-    { title: T.groups.play, critical: true, items: of("play") },
-    { title: T.groups.youtube, critical: true, youtube: true, items: [...of("youtube"), cookie] },
-    { title: T.groups.autoplay, critical: false, items: of("autoplay") },
+    { title: T.groups.play, items: of("play") },
+    { title: T.groups.youtube, youtube: true, items: [...of("youtube"), cookie] },
+    { title: T.groups.autoplay, items: of("autoplay") },
   ];
 });
 const linkColumns = computed(() => [linkGroups.value.slice(0, 2), linkGroups.value.slice(2)]);
@@ -747,7 +741,7 @@ const youtubeClients = computed(() =>
   props.status.youtube.clients.map((c, i) => {
     const ok = c.tried - c.failed;
     const rate = c.tried ? ok / c.tried : 0;
-    const level: Level = c.excluded ? "warn" : levelOf(c.tried ? c.failed / c.tried : 0, 0.1, 0.5);
+    const level = clientLevel(c);
     return { name: c.name, rate, level, excluded: c.excluded, value: c.excluded ? T.clientSkipped : `${ok}/${c.tried}`, detail: T.clientDetail(i + 1, c.tried, ok, c.excluded) };
   }),
 );
@@ -857,7 +851,7 @@ const storageBars = computed(() => {
   return [
     { key: "cache", label: T.audioCache, ratio: cache.bytes / cache.maxBytes, text: sizePair(cache.bytes, cache.maxBytes, 1, 0), level: "ok" as Level },
     { key: "files", label: T.cacheFiles, ratio: cache.files / cache.maxFiles, text: T.files(cache.files, cache.maxFiles), level: "ok" as Level },
-    { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: levelOf(diskPct, ...LIMITS.disk) },
+    { key: "drive", label: T.drive(disk.drive), ratio: diskPct / 100, text: T.driveFree(sizeText(disk.totalBytes), sizeText(disk.totalBytes - disk.usedBytes)), level: diskLevel(disk) },
   ];
 });
 // 재생 중 캐시 보호: 지금 재생 중인 곡의 캐시 파일(삭제하지 않는다). 미재생 캐시 파일: 캐시에 다운로드해 뒀는데 재생 횟수가 0인 파일(미리 다운로드했다가 건너뛴 곡 등). 다운로드 실패한 캐시 파일: 다운로드 실패, 다운로드 멈춤, 파일이 사라진 캐시 행(다시 다운로드하면 풀린다)
@@ -898,18 +892,36 @@ const dbRows = computed<Array<[string, string]>>(() => {
   ];
 });
 
-// ── ① 요약: 위 값들 중 주의, 문제인 것(at: 누르면 갈 항목). 가장 나쁜 것이 전체 상태 ──
-const linkLevel = (state: LinkState, critical: boolean): Level => (state === "fail" ? (critical ? "bad" : "warn") : state === "slow" ? "warn" : "ok");
-const attention = computed(() => [
-  ...metrics.value.filter((m) => m.level !== "ok").map((m) => ({ name: m.title, word: m.word, level: m.level, at: m.title })),
-  ...linkGroups.value.flatMap((group) => group.items.map((line) => ({ name: line.name, word: LINK_WORD[line.state], level: linkLevel(line.state, group.critical), at: "links" }))).filter((item) => item.level !== "ok"),
-  ...youtubeClients.value.filter((client) => client.level !== "ok").map((client) => ({ name: T.youtubeClient(client.name), word: client.excluded ? T.attention.skipped : T.attention.failingOften, level: client.level, at: "links" })),
-  ...storageBars.value.filter((u) => u.level !== "ok").map((u) => ({ name: u.label, word: T.attention.nearlyFull, level: u.level, at: "storage" })),
-  ...props.status.processes.stray.map((p) => ({ name: `${p.label} ${p.pid}`, word: T.attention.stray, level: "warn" as Level, at: "processes" })),
-  // 앞 몇 개만 칩으로, 나머지는 수 하나로(개수를 셀 때는 다 센다)
-  ...(props.status.processes.strayMore ? [{ name: T.strayMore(props.status.processes.strayMore), word: T.attention.stray, level: "warn" as Level, at: "processes", count: props.status.processes.strayMore }] : []),
-  ...(props.status.processes.ytdlp.nearLimit ? [{ name: T.extractions, word: T.attention.nearLimit, level: "warn" as Level, at: "processes" }] : []),
-]);
-const attentionCount = computed(() => attention.value.reduce((n, a) => n + ("count" in a ? a.count : 1), 0));
-const overallLevel = computed<Level>(() => (attention.value.some((a) => a.level === "bad") ? "bad" : attention.value.length ? "warn" : "ok"));
+// ── ① 요약: 주의, 문제 단계인 항목(판정은 rules/status-levels, 여기서는 이름과 누르면 갈 자리 at). 가장 심각한 단계가 전체 상태 ──
+const METRIC_CHIP: Record<LevelMetric, { name: string; word: string }> = {
+  ping: { name: T.metrics.ping, word: T.attention.high },
+  loop: { name: T.metrics.loop, word: T.attention.lagging },
+  encoding: { name: T.metrics.encoding, word: T.attention.high },
+  cpu: { name: T.metrics.cpu, word: T.attention.high },
+  heap: { name: T.metrics.heap, word: T.attention.high },
+};
+function chipOf(a: Attention): { name: string; word: string; at: string } {
+  switch (a.kind) {
+    case "metric":
+      return { ...METRIC_CHIP[a.metric], at: METRIC_CHIP[a.metric].name };
+    case "link":
+      return { name: a.name, word: LINK_WORD[a.state], at: "links" };
+    case "client":
+      return { name: T.youtubeClient(a.name), word: a.excluded ? T.attention.skipped : T.attention.failingOften, at: "links" };
+    case "disk":
+      return { name: T.drive(a.drive), word: T.attention.nearlyFull, at: "storage" };
+    case "stray":
+      return { name: `${a.label} ${a.pid}`, word: T.attention.stray, at: "processes" };
+    // 앞 몇 개만 칩으로 보이고 나머지는 개수 칩 하나로 묶는다(전체 개수는 모두 센다)
+    case "strayMore":
+      return { name: T.strayMore(a.count ?? 0), word: T.attention.stray, at: "processes" };
+    case "extractions":
+      return { name: T.extractions, word: T.attention.nearLimit, at: "processes" };
+  }
+}
+const attentionItems = computed(() => attentionOf(statusInputOf(props.status)));
+const attention = computed(() => attentionItems.value.map((a) => ({ ...chipOf(a), level: a.level })));
+const overall = computed(() => overallOf(attentionItems.value));
+const attentionCount = computed(() => overall.value.count);
+const overallLevel = computed<Level>(() => overall.value.level);
 </script>
