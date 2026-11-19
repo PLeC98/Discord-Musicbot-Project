@@ -25,23 +25,16 @@ function formatMs(ms: number, unknown: string) {
   return formatDuration(ms / 1000, unknown);
 }
 
-/**
- * 길이를 말로. "3일 4시간 5분", "1시간 5분", "45초". 0인 단위는 빼고, 다 0이면 가장 작은 단위로 "0분", "0초".
- * days: 하루가 넘으면 일로 묶는다(끄면 시간이 24를 넘는다). withSeconds: 하루가 안 되면 초까지 본다
- */
-function formatSpan(seconds: number, { days = true, withSeconds = false }: { days?: boolean; withSeconds?: boolean } = {}) {
+/** 길이를 말로. "3일 4시간 5분", "1시간 5분". 0인 단위는 빼고, 다 0이면 "0분" */
+function formatSpan(seconds: number) {
   const total = Math.floor(seconds);
-  const d = days ? Math.floor(total / 86400) : 0;
   const units: Array<[number, string]> = [
-    [d, "일"],
-    [Math.floor((total - d * 86400) / 3600), "시간"],
+    [Math.floor(total / 86400), "일"],
+    [Math.floor((total % 86400) / 3600), "시간"],
     [Math.floor((total % 3600) / 60), "분"],
   ];
-  const showSeconds = withSeconds && d === 0;
-  if (showSeconds) units.push([total % 60, "초"]);
   const parts = units.filter(([n]) => n > 0).map(([n, unit]) => `${n}${unit}`);
-  if (parts.length) return parts.join(" ");
-  return showSeconds ? "0초" : "0분";
+  return parts.length ? parts.join(" ") : "0분";
 }
 
 const BYTE_UNITS = [
@@ -72,9 +65,9 @@ function scaledText(v: number, pick: (v: number) => Scaled, digits: (n: number, 
   return { value: n.toFixed(digits(n, s.unit)), unit: s.unit, per: s.per };
 }
 
-/** 바이트를 KB, MB, GB, TB로. gbDigits: GB, TB의 소수 자릿수 */
-function formatBytes(bytes: number, { gbDigits = 1 }: { gbDigits?: number } = {}) {
-  const { value, unit } = scaledText(bytes, byteUnit, (_, u) => (u === "GB" || u === "TB" ? gbDigits : 1));
+/** 바이트를 KB, MB, GB, TB로(소수 한 자리) */
+function formatBytes(bytes: number) {
+  const { value, unit } = scaledText(bytes, byteUnit, () => 1);
   return `${value} ${unit}`;
 }
 

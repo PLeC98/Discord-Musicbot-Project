@@ -20,7 +20,7 @@ function cardTexts() {
     .filter(([key]) => !OUTSIDE.has(key))
     .map(([, value]) => (typeof value === "function" ? (value as (...args: number[]) => string)(1, 1, 1) : value));
   const ascii = String.fromCharCode(...Array.from({ length: 0x7e - 0x20 + 1 }, (_, i) => 0x20 + i));
-  return [...table, formatSpan(90061), formatSpan(3661, { withSeconds: true }), ascii, "…"];
+  return [...table, formatSpan(90061), ascii, "…"];
 }
 
 test("이미지에 들어갈 수 있는 글자는 등록한 글꼴 중 하나에 있다", () => {

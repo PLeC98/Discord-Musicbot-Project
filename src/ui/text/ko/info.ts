@@ -1,51 +1,10 @@
-// 정보 화면(/cachestatus, /ping, /license, /nowplaying)의 문구. 값은 호출부가 말로 적어 넘긴다.
-// 플랫폼, 빠르기를 색으로 나타내는 점(🔴 🟠 🟢)과 핑의 🏓 는 유니코드 그대로
+// 정보 화면(/ping, /license, /nowplaying)의 문구. 값은 호출부가 말로 적어 넘긴다.
+// 핑의 🏓 는 유니코드 그대로
 
 import { icon, type IconKey } from "../../icons.ts";
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
-
-type CacheValues = {
-  sizeBar: string;
-  size: string;
-  maxSize: string;
-  countBar: string;
-  files: number;
-  maxFiles: number;
-  diskFree: string | null;
-  minFreeDisk: string;
-  plays: number;
-  played: string;
-  averageLength: string;
-  neverPlayed: number;
-  platforms: { youtube: number; soundcloud: number; direct: number };
-  lookups: number;
-  downloading: number;
-  protectedCount: number;
-};
-/** /cachestatus. diskFree는 잴 수 없으면 null */
-const cache = (v: CacheValues) => ({
-  title: `${icon("cache")} 오디오 캐시 현황`,
-  overview: {
-    name: `${icon("album")} 캐시 현황`,
-    value: [`**용량:** ${v.sizeBar}`, `\`${v.size}\` / \`${v.maxSize}\``, `**파일 수:** ${v.countBar}`, `\`${v.files}개\` / \`${v.maxFiles}개\``, `**디스크 여유:** ${v.diskFree === null ? "측정 불가" : `${v.diskFree} 여유`} (최소 ${v.minFreeDisk})`].join("\n"),
-  },
-  plays: { name: `${icon("stats")} 재생 통계`, value: [`**총 재생 횟수:** ${v.plays.toLocaleString()}회`, `**총 재생 시간:** ${v.played}`, `**평균 곡 길이:** ${v.averageLength}`, `**한 번도 안 튼 곡:** ${v.neverPlayed}개`].join("\n") },
-  platforms: { name: `${icon("web")} 플랫폼 분포`, value: [`🔴 YouTube: **${v.platforms.youtube}**개`, `🟠 SoundCloud: **${v.platforms.soundcloud}**개`, `🔗 직접 링크: **${v.platforms.direct}**개`].join("\n") },
-  misc: { name: `${icon("misc")} 기타`, value: [`**링크 데이터:** ${v.lookups}개`, `**다운로드 중:** ${v.downloading}개`, `**재생 보호 중:** ${v.protectedCount}개`].join("\n") },
-  top: `${icon("top")} 재생 TOP 5`,
-  recent: `${icon("recent")} 최근 추가`,
-  footer: `캐시 경로: audio_cache/`,
-});
-/** 캐시 화면의 빈 값 */
-const cacheBlank = () => ({ noData: "데이터 없음", untitled: "제목 없음", unknownDate: "알 수 없음" });
-/** 100시간이 넘는 총 재생 시간 */
-const hours = (n: number) => `${n}시간`;
-/** 재생 순위 한 줄. length는 곡 길이를 적은 것 */
-const topLine = (rank: number, title: string, plays: number, length: string) => `\`${rank}.\` **${title}**: ${plays}회 (${length})`;
-/** 최근 캐시 파일 한 줄 */
-const recentLine = (title: string, date: string) => `**${title}** (${date})`;
 
 /** /ping. 값마다 이름과, 무엇과 무엇 사이를 잰 것인지 짧게 */
 const ping = () => ({
@@ -104,4 +63,4 @@ function nowPlayingStatus({ playing, paused, volume, loop }: { playing: boolean;
   return parts.join(" • ");
 }
 
-export { refresh, cache, cacheBlank, hours, topLine, recentLine, ping, pinging, license, nowPlaying, nowPlayingStatus };
+export { refresh, ping, pinging, license, nowPlaying, nowPlayingStatus };

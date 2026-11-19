@@ -1,5 +1,5 @@
 // src/discord/commands의 표시, 설정 명령: 지금 동작을 고정한다(/setting의 버튼, 메뉴는 test/events/settings-panel).
-// /nowplaying, /queue, /help, /system, /cachestatus, /setchannel, /setting.
+// /nowplaying, /queue, /help, /system, /ping, /license, /setchannel, /setting.
 //
 // 문구 전부가 아니라 "무엇을 선택해 담았나 ·
 // 무엇을 저장했나"를 본다. 서버 설정과 캐시 통계는 진짜 저장소(임시 DB)로 돈다.
@@ -30,7 +30,6 @@ import { COMMANDS as COMMAND_LIST } from "../../src/discord/commands/index.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "commands-info-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
-const trackLookup = await import("../../src/store/track-lookup.ts");
 audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
@@ -60,7 +59,6 @@ type Sent = {
 };
 type Logged = [name: string, payload: Sent];
 
-const fieldsOf = (payload: Sent) => Object.fromEntries((payload.embeds[0].data.fields || []).map((f) => [f.name, f.value]));
 // /nowplaying의 글 줄들(위에서부터)
 const nowLines = (payload: unknown) => textOf(payload).split("\n");
 
@@ -486,56 +484,6 @@ test("/system: 자리표시자를 보여 준 뒤 실패하면(이미지 첨부 �
   } finally {
     config.dashboard.ownerId = saved;
   }
-});
-
-// ── /cachestatus ──────────────────────────────────────────────────────
-
-test("/cachestatus: 모든 서버의 캐시이므로 봇 운영자만 쓸 수 있고, 서버 관리 권한으로는 열리지 않는다", async () => {
-  const saved = config.dashboard.ownerId;
-  config.dashboard.ownerId = "owner";
-  try {
-    const { it, log, bot } = interaction({ userId: "u1" });
-    await run(await command("cachestatus"), it, bot);
-    assert.deepEqual(log, [["reply", noticeReply(errors.notice("must-owner"))]]);
-  } finally {
-    config.dashboard.ownerId = saved;
-  }
-  const json = (await command("cachestatus")).data.toJSON();
-  assert.equal(json.default_member_permissions ?? null, null, "운영자에게 서버 관리 권한이 없는 서버에서도 목록에 뜬다");
-});
-
-test("/cachestatus: 캐시 통계를 담는다(재생 수, 플랫폼 분포, TOP, 최근)", async () => {
-  const seed = (key: string, title: string, plays: number) => {
-    const file = audioCache.getFilePath(key);
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, "x".repeat(1000));
-    audioCache.recordDownloadStart(key, { title });
-    audioCache.recordDownloadComplete(key, file, 1000, { title }, { durationSec: 125 });
-    for (let i = 0; i < plays; i++) audioCache.recordPlayback(key);
-  };
-  seed("yt:aaaaaaaaaaa", "많이 튼 곡", 3);
-  seed("sc:1", "사운드클라우드", 0);
-  seed("dl:abc", "직접", 1);
-  trackLookup.recordTrackLookup({ requestKey: "https://youtu.be/aaaaaaaaaaa", pageUrl: "https://youtu.be/aaaaaaaaaaa", audioUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa", platform: "youtube", title: "많이 튼 곡", artist: "가수" });
-
-  const saved = config.dashboard.ownerId;
-  config.dashboard.ownerId = "owner";
-  const { it, log, bot } = interaction({ userId: "owner" });
-  try {
-    await run(await command("cachestatus"), it, bot);
-  } finally {
-    config.dashboard.ownerId = saved;
-  }
-
-  assert.deepEqual(log[0], ["deferReply", { flags: MessageFlags.Ephemeral }]);
-  const f = fieldsOf(log[1][1]);
-  assert.match(f["📊 재생 통계"], /총 재생 횟수:\*\* 4회/);
-  assert.match(f["📊 재생 통계"], /한 번도 안 튼 곡:\*\* 1개/);
-  assert.match(f["📊 재생 통계"], /평균 곡 길이:\*\* 2분 5초/);
-  assert.equal(f["🌐 플랫폼 분포"], "🔴 YouTube: **1**개\n🟠 SoundCloud: **1**개\n🔗 직접 링크: **1**개");
-  assert.match(f["🔧 기타"], /링크 데이터:\*\* 1개/);
-  assert.match(f["🏆 재생 TOP 5"], /^`1\.` \*\*많이 튼 곡\*\*: 3회 \(2:05\)/);
-  assert.deepEqual(lifetimesOf(it), [LIFETIME.screen]);
 });
 
 // ── /ping ─────────────────────────────────────────────────────────────

@@ -79,12 +79,8 @@ const ICONS = {
 
   // 정보, 도움말 화면의 제목, 필드 이름
   system: { glyph: "computer", unicode: "🖥️" },
-  cache: { glyph: "library_music", unicode: "📦" },
   album: { glyph: "album", unicode: "💿" },
   stats: { glyph: "bar_chart", unicode: "📊" },
-  misc: { glyph: "more_horiz", unicode: "🔧" },
-  top: { glyph: "emoji_events", unicode: "🏆" },
-  recent: { glyph: "new_releases", unicode: "🆕" },
   license: { glyph: "license", unicode: "📜" },
   link: { glyph: "link", unicode: "🔗" },
   artist: { glyph: "mic", unicode: "🎤" },
@@ -132,6 +128,7 @@ function iconEntries(): Array<{ name: string; key: IconKey; tint: Tint; spec: Ic
  * renamed: 새 이름, unicode: 빠진 아이콘의 유니코드(빠지기 전 표의 값)
  */
 const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: string }>> = {
+  cache: { unicode: "📦" },
   channel: { unicode: "🔧" },
   cpu: { unicode: "⚙️" },
   input_error: { unicode: "✏️" },
@@ -140,6 +137,7 @@ const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: st
   license_text: { unicode: "📚" },
   link_off_error: { unicode: "🔗" },
   memory: { unicode: "💾" },
+  misc: { unicode: "🔧" },
   muted_error: { unicode: "🔇" },
   not_found_error: { unicode: "🔍" },
   platform_animethemes: { unicode: "🎌" },
@@ -154,10 +152,12 @@ const FORMER_EMOJIS: Readonly<Record<string, { renamed: string } | { unicode: st
   platform_vocadb: { unicode: "🎹" },
   platform_youtube_error: { unicode: "🔴" },
   players: { unicode: "🎵" },
+  recent: { unicode: "🆕" },
   runtime: { unicode: "🔧" },
   servers: { unicode: "🏠" },
   stale_error: { unicode: "⌛" },
   state_error: { unicode: "⚠️" },
+  top: { unicode: "🏆" },
   uptime: { unicode: "⏱️" },
   users: { unicode: "👥" },
   voice: { unicode: "🎧" },

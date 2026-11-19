@@ -21,7 +21,7 @@ test("formatDuration: 초 → M:SS / H:MM:SS", () => {
   for (const [seconds, expected] of cases) assert.equal(formatDuration(seconds, "모름"), expected, String(seconds));
 });
 
-// /search, /seek, /highlight, 조작 거절, /cachestatus, /help, /system이 같은 함수를 쓴다.
+// /search, /seek, /highlight, 조작 거절, /system, 대시보드가 같은 함수를 쓴다.
 // 아래 기대값은 곳마다 보이던 표기 그대로다. 곳마다 보이는 표기를 바꾸지 않는다
 const SECS = [0, 0.4, 5, 59.9, 65, 3599, 3600, 3725.7, 86399, 86400, 90061, 360000, 400000.5];
 
@@ -39,29 +39,16 @@ test("formatMs: 밀리초 → M:SS / H:MM:SS(/seek, /highlight, 조작 거절)",
   );
 });
 
-test("formatSpan: 일을 쓰면 /help, 초까지 쓰면 /system, 일을 안 쓰면 /cachestatus의 모양", () => {
+test("formatSpan: 일, 시간, 분(0인 단위는 빼고, 다 0이면 0분). /system 업타임, 대시보드 봇 상태 탭", () => {
   assert.deepEqual(
     SECS.map((s) => formatSpan(s)),
     ["0분", "0분", "0분", "0분", "1분", "59분", "1시간", "1시간 2분", "23시간 59분", "1일", "1일 1시간 1분", "4일 4시간", "4일 15시간 6분"],
   );
-  assert.deepEqual(
-    SECS.map((s) => formatSpan(s, { withSeconds: true })),
-    ["0초", "0초", "5초", "59초", "1분 5초", "59분 59초", "1시간", "1시간 2분 5초", "23시간 59분 59초", "1일", "1일 1시간 1분", "4일 4시간", "4일 15시간 6분"],
-  );
-  assert.deepEqual(
-    SECS.slice(0, 11).map((s) => formatSpan(s, { days: false })),
-    ["0분", "0분", "0분", "0분", "1분", "59분", "1시간", "1시간 2분", "23시간 59분", "24시간", "25시간 1분"],
-  );
-  assert.equal(formatSpan(3605, { withSeconds: true }), "1시간 5초", "0인 단위는 가운데여도 뺀다");
-  assert.equal(formatSpan(400000, { days: false, withSeconds: true }), "111시간 6분 40초");
+  assert.equal(formatSpan(86400 + 120), "1일 2분", "0인 단위는 가운데여도 뺀다");
 });
 
-test("formatBytes: GB, TB의 소수 자릿수만 호출부가 정한다(/cachestatus 2, /system 1), 1024 GB부터 TB", () => {
+test("formatBytes: 소수 한 자리, 1024 GB부터 TB", () => {
   const sizes = [0, 512, 1536, 5 * 1024 ** 2 + 300_000, 1024 ** 3, 3.456 * 1024 ** 3, 1023.9 * 1024 ** 3, 1024 ** 4, 97.23 * 1024 ** 4];
-  assert.deepEqual(
-    sizes.map((b) => formatBytes(b, { gbDigits: 2 })),
-    ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.00 GB", "3.46 GB", "1023.90 GB", "1.00 TB", "97.23 TB"],
-  );
   assert.deepEqual(
     sizes.map((b) => formatBytes(b)),
     ["0.0 KB", "0.5 KB", "1.5 KB", "5.3 MB", "1.0 GB", "3.5 GB", "1023.9 GB", "1.0 TB", "97.2 TB"],

@@ -800,46 +800,6 @@ onTunablesChanged(() => {
 
 // 통계
 
-function getCacheStats() {
-  const cfg = config.cache;
-
-  const totalSize = cacheSize();
-  const fileCount = cacheCount();
-  const diskFree = freeDiskBytes();
-
-  const totalPlays = countOf("SELECT COALESCE(SUM(play_count),0) AS n FROM audio_cache WHERE status='cached'");
-  const totalDuration = countOf("SELECT COALESCE(SUM(duration_sec),0) AS n FROM audio_cache WHERE status='cached'");
-  const downloading = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='downloading'");
-  const lookupCount = countOf("SELECT COUNT(*) AS n FROM track_lookup");
-  const neverPlayed = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND (play_count IS NULL OR play_count=0)");
-
-  const ytCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'yt:%'");
-  const scCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'sc:%'");
-  const dlCount = countOf("SELECT COUNT(*) AS n FROM audio_cache WHERE status='cached' AND audio_key LIKE 'dl:%'");
-
-  const topTracks = conn().prepare("SELECT title, channel, play_count, duration_sec FROM audio_cache WHERE status='cached' AND play_count > 0 ORDER BY play_count DESC LIMIT 5").all() as Array<Pick<AudioRow, "title" | "channel" | "play_count" | "duration_sec">>;
-
-  const recentTracks = conn().prepare("SELECT title, channel, downloaded_at FROM audio_cache WHERE status='cached' AND downloaded_at IS NOT NULL ORDER BY downloaded_at DESC LIMIT 3").all() as Array<Pick<AudioRow, "title" | "channel" | "downloaded_at">>;
-
-  return {
-    fileCount,
-    maxFiles: cfg.maxFiles,
-    totalSize,
-    maxSize: cfg.maxSizeBytes,
-    diskFree,
-    minFreeDisk: cfg.minFreeDiskBytes,
-    totalPlays,
-    totalDuration,
-    downloading,
-    lookupCount,
-    neverPlayed,
-    platforms: { youtube: ytCount, soundcloud: scCount, direct: dlCount },
-    protectedCount: liveKeys().size,
-    topTracks,
-    recentTracks,
-  };
-}
-
 /**
  * 봇 상태 탭의 저장공간. 캐시: 크기, 파일 수와 상한, 삭제하지 않고 지키는 파일, 한 번도 틀지 않은 파일,
  * 다운로드 실패로 남은 행(다운로드 실패, 다운로드 멈춤, 파일이 사라짐, 다시 다운로드하면 풀린다), 마지막 정리. 드라이브: 캐시 폴더가 놓인 곳
@@ -902,7 +862,6 @@ export {
   isTempPiece,
   evictIfNeeded,
   evict,
-  getCacheStats,
   close,
   cacheDir,
   _setCacheDir,
