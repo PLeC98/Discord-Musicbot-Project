@@ -14,7 +14,7 @@ import { CELL, GAP, PER_ROW, RADIUS, sizeOf, type MosaicData } from "./layout.ts
 const BADGE = { radius: 26, margin: 10, size: 30, alpha: 0.92 } as const;
 /** 이미지가 없는 칸의 음표 크기 */
 const NOTE_SIZE = 72;
-/** WebP 품질. 사진이라 손실 압축이 PNG 보다 열 배쯤 작다 */
+/** WebP 품질. 썸네일은 사진이라 손실 압축으로 보낸다 */
 const QUALITY = 80;
 
 function badge(g: SKRSContext2D, c: Record<string, string>, x: number, y: number, number: number) {

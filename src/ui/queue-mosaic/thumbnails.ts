@@ -40,7 +40,6 @@ let fetchImage: Fetch = (url) => safeUrl.getBuffer(url, ACCEPT);
 const kept = new Map<string, Kept>();
 const making = new Map<string, Promise<Buffer | null>>();
 
-/** 받아도 되는 주소인지 */
 function isArtHost(url: string) {
   try {
     return isArtUrl(new URL(url));
