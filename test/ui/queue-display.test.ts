@@ -5,11 +5,16 @@
 
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { editDescription, entryLine, entryLines, entryOptions, jumpDescription } from "../../src/ui/queue-display.ts";
+import { EDIT_SEPARATOR, JUMP_SEPARATOR, editParts, entryLine, entryLines, jumpParts, menuEntries } from "../../src/ui/queue-display.ts";
+import { descriptionOf } from "../../src/ui/menu-fit.ts";
 import { useUploaded } from "../../src/ui/icons.ts";
 import type { QueuedTrack } from "../../src/player/track.ts";
 
 afterEach(() => useUploaded(new Map()));
+
+// 메뉴에 보이는 설명(칸을 합쳐 디스코드 상한에 맞춘 것)
+const jumpDescription = (track: QueuedTrack) => descriptionOf(jumpParts(track), JUMP_SEPARATOR);
+const editDescription = (track: QueuedTrack) => descriptionOf(editParts(track), EDIT_SEPARATOR);
 
 const song = (over: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: "곡", pageUrl: "https://y/1", requestKey: "https://y/1", platform: "youtube", artist: "가수", duration: 100, ...over });
 
@@ -78,8 +83,8 @@ test("점프 설명: 아티스트가 없으면 나머지만, 아무것도 없으
   assert.equal(jumpDescription(song({ artist: undefined, duration: 0 })), undefined);
 });
 
-// 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다. 길이, 요청자를 지키고 아티스트부터 줄인다.
-test("점프 설명: 100자를 넘지 않는다", () => {
+// 디스코드는 설명이 100자를 넘으면 메뉴 자체를 거부한다. 길이는 지키고, 아티스트와 요청자 가운데 긴 쪽부터 같은 수위까지 줄인다.
+test("점프 설명: 100자를 넘지 않는다. 짧은 요청자는 그대로", () => {
   const long = jumpDescription(song({ artist: "가".repeat(300), requestedBy: { id: "u1", username: "아주긴이름".repeat(4) } }));
   assert.ok(long, "설명이 있다");
   assert.ok(long.length <= 100, `${long.length}자`);
@@ -96,16 +101,15 @@ test("편집 메뉴 설명: 아티스트 · 길이. 100자를 넘으면 아티�
 
 const entry = (track: QueuedTrack, value: number) => Object.defineProperty(track, "entry", { value, enumerable: false });
 
-test("메뉴 항목: 번호. 제목(100자), 값은 대기열 ID, ID가 없거나 겹치면 뺀다. 골라 둔 곡은 기본값", () => {
+test("메뉴 항목: 번호. 제목(화면 폭 66까지), 값은 대기열 ID, ID가 없거나 겹치면 뺀다. 고른 곡은 기본값", () => {
   const tracks = [entry(song({ title: "가" }), 7), song({ title: "ID 없음" }), entry(song({ title: "나".repeat(200) }), 9), entry(song({ title: "겹침" }), 7)];
-  const options = entryOptions(tracks, { first: 11, description: editDescription, picked: 9 }).map((one) => one.toJSON());
+  const entries = menuEntries(tracks, { first: 11, parts: editParts, picked: 9 });
   assert.deepEqual(
-    options.map((one) => [one.label.length <= 100, one.value, one.default ?? false]),
+    entries.map((one) => [one.label, one.value, one.picked]),
     [
-      [true, "entry:7", false],
-      [true, "entry:9", true],
+      ["11. 가", "entry:7", false],
+      [`13. ${"나".repeat(30)}…`, "entry:9", true],
     ],
   );
-  assert.equal(options[0].label, "11. 가");
-  assert.ok(options[1].label.startsWith("13. 나"));
+  assert.equal(descriptionOf(entries[0].parts, EDIT_SEPARATOR), "가수 · 1:40");
 });

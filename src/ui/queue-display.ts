@@ -1,7 +1,7 @@
 // 대기열 줄 만들기. /queue 화면(보기, 편집), 대기열 버튼, 곡을 고르는 메뉴(재생 패널의 곡으로 건너뛰기, /queue 편집)가 같은 규칙(요청자 표기)을 쓰게 한 곳에 둔다.
 
-import { StringSelectMenuOptionBuilder } from "discord.js";
-import { clipText } from "../rules/clip-text.ts";
+import { clipWidth } from "../rules/clip-text.ts";
+import type { MenuEntry, Part } from "./menu-fit.ts";
 import { formatDuration, liveMarkOf } from "./format.ts";
 import { songTitle } from "./text/ko/labels.ts";
 import * as queueText from "./text/ko/queue.ts";
@@ -72,47 +72,43 @@ function entryLines({ tracks, first = 1, startsIn = [], max }: { tracks: Listed[
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-/** 메뉴 항목의 이름, 설명 상한(디스코드는 넘으면 메뉴 자체를 거부한다) */
-const OPTION_MAX = 100;
+/** 곡을 고르는 메뉴의 항목 이름(`번호. 제목`)의 화면 폭. 이 폭을 넘는 부분은 어느 기기에서도 메뉴에서 잘려 보이지 않는다 */
+const LABEL_WIDTH = 66;
+
+/** 메뉴 설명의 칸 구분자 */
+const JUMP_SEPARATOR = " | ";
+const EDIT_SEPARATOR = " · ";
+
+/** 점프 메뉴 설명의 칸: `아티스트 | 길이 | 요청자`. 라이브는 길이 자리에 진행 막대와 같은 표기(시작 전이면 예정된 라이브). 길이는 줄이지 않는다 */
+function jumpParts(track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
+  return [
+    { text: track?.artist ?? "", cut: true },
+    { text: lengthOf(track) ?? "", cut: false },
+    { text: requesterName(track) ?? "", cut: true },
+  ];
+}
+
+/** /queue 편집 메뉴 설명의 칸: `아티스트 · 길이` */
+function editParts(track: (Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
+  return [
+    { text: track?.artist ?? "", cut: true },
+    { text: lengthOf(track) ?? "", cut: false },
+  ];
+}
 
 /**
- * 점프 메뉴 설명: `아티스트 | 길이 | 요청자`. 라이브는 길이 위치에 진행 막대와 같은 표기(시작 전이면 예정된 라이브).
- * 상한(max, 기본은 디스코드 상한)을 넘치면 아티스트부터 줄인다. 길이와 요청자는 짧고 정보가 분명하다.
+ * 곡을 고르는 메뉴의 항목(ui/menu-fit이 크기에 맞춰 메뉴로 만든다). 이름은 `번호. 제목`을 화면 폭(LABEL_WIDTH)으로 자른 것, 값은 대기열 ID(jumpValue)라
+ * 메뉴를 그린 뒤 대기열이 바뀌어도 고른 곡을 가리킨다. ID가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다).
+ * first: 첫 곡의 번호, parts: 설명의 칸, picked: 골라 둔 곡의 대기열 ID, only: 넣을 곡(거짓인 곡은 빼고, 번호는 대기열 자리 그대로)
  */
-function jumpDescription(track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined, max = OPTION_MAX) {
-  return describe(track?.artist, [lengthOf(track), requesterName(track)], " | ", max);
-}
-
-/** /queue 편집 메뉴 설명: `아티스트 · 길이`. 상한(max, 기본은 디스코드 상한)을 넘치면 아티스트부터 줄인다 */
-function editDescription(track: (Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined, max = OPTION_MAX) {
-  return describe(track?.artist, [lengthOf(track)], " · ", max);
-}
-
-function describe(artist: string | undefined, rest: Array<string | null>, separator: string, max = OPTION_MAX) {
-  const tail = rest.filter(Boolean).join(separator);
-  if (!artist) return tail || undefined;
-  const room = max - (tail ? tail.length + separator.length : 0);
-  const trimmed = artist.length > room ? `${artist.slice(0, Math.max(0, room - 1))}…` : artist;
-  return tail ? `${trimmed}${separator}${tail}` : trimmed;
-}
-
-/**
- * 곡을 고르는 메뉴의 항목. 이름은 `번호. 제목`, 값은 대기열 ID(jumpValue)라 메뉴를 그린 뒤 대기열이 바뀌어도 고른 곡을 가리킨다.
- * ID가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다). first: 첫 곡의 번호, picked: 골라 둔 곡의 대기열 ID, max: 이름의 상한,
- * only: 넣을 곡(거짓인 곡은 빼고, 번호는 대기열 자리 그대로)
- */
-function entryOptions<T extends Pick<QueuedTrack, "title" | "entry">>(tracks: readonly T[], { first = 1, description, picked = null, max = OPTION_MAX, only = () => true }: { first?: number; description: (track: T) => string | undefined; picked?: number | null; max?: number; only?: (track: T) => boolean }) {
+function menuEntries<T extends Pick<QueuedTrack, "title" | "entry">>(tracks: readonly T[], { first = 1, parts, picked = null, only = () => true }: { first?: number; parts: (track: T) => Part[]; picked?: number | null; only?: (track: T) => boolean }): MenuEntry[] {
   const seen = new Set<number>();
   return tracks.flatMap((track, i) => {
     if (track.entry === undefined || seen.has(track.entry) || !only(track)) return [];
     seen.add(track.entry);
-    const option = new StringSelectMenuOptionBuilder().setLabel(clipText(`${first + i}. ${songTitle(track.title)}`, max)).setValue(jumpValue(track.entry));
-    const text = description(track);
-    if (text) option.setDescription(text);
-    if (track.entry === picked) option.setDefault(true);
-    return [option];
+    return [{ label: clipWidth(`${first + i}. ${songTitle(track.title)}`, LABEL_WIDTH), value: jumpValue(track.entry), parts: parts(track), picked: track.entry === picked }];
   });
 }
 
-export { entryLine, entryLines, jumpDescription, editDescription, entryOptions };
+export { LABEL_WIDTH, JUMP_SEPARATOR, EDIT_SEPARATOR, entryLine, entryLines, jumpParts, editParts, menuEntries };
 export type { Listed };

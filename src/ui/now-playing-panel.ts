@@ -30,7 +30,7 @@ import * as trackState from "../player/track-state.ts";
 import { codeOf, errorKind, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { canSend } from "./channels.ts";
-import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, Webhook, WebhookType } from "discord.js";
+import type { Client, Guild, GuildBasedChannel, GuildTextBasedChannel, StringSelectMenuOptionBuilder, Webhook, WebhookType } from "discord.js";
 import type { Player, PanelMessage } from "../player/player.ts";
 import type { PlayerSeats } from "../player/registry.ts";
 import type { QueuedTrack } from "../player/track.ts";
@@ -75,13 +75,14 @@ import { panelId, IDLE_SESSION } from "./custom-ids.ts";
 import * as blankThumbnail from "./blank-thumbnail.ts";
 import * as noArtThumbnail from "./no-art-thumbnail.ts";
 import * as discordArt from "./discord-art.ts";
-import { entryOptions, jumpDescription } from "./queue-display.ts";
+import { JUMP_SEPARATOR, jumpParts, menuEntries } from "./queue-display.ts";
+import { fitMenu } from "./menu-fit.ts";
+import { clipWidth } from "../rules/clip-text.ts";
 import { PanelLocation, type PanelStore } from "./panel-location.ts";
 import { bestEffort } from "../infra/best-effort.ts";
 import { colorOf } from "./colors.ts";
 import { isPublicUrl } from "../infra/public-address.ts";
 import { songTitle } from "./text/ko/labels.ts";
-import { SELECT_MAX } from "../rules/limits.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { canGoBack, canGoNext } from "../rules/controls.ts";
 
@@ -135,17 +136,20 @@ function idleViewOf(reason: string, player: { idle?: Pick<Player["idle"], "upcom
   return { reason, leavesAt: player.idle?.upcomingLeave() ?? null, staying: Boolean(player.idle?.seated()) };
 }
 
-/** 곡으로 건너뛰기 메뉴를 줄여 가는 차례: 항목 이름과 설명의 상한(글자), 항목 수. 글부터 줄인다 */
-const JUMP_SHRINK = [
-  [100, SELECT_MAX],
-  [60, SELECT_MAX],
-  [40, SELECT_MAX],
-  [30, SELECT_MAX],
-  [30, 20],
-  [30, 15],
-  [30, 10],
-  [30, 5],
-] as const;
+/** 곡으로 건너뛰기 메뉴의 항목 수 */
+const JUMP_MAX = 20;
+/** 지금 곡 제목, 아티스트의 화면 폭(rules/clip-text). 넘으면 잘라 …를 붙인다. PC 화면에서 정한 줄 수 안에 보이는 폭이다 */
+const TITLE_WIDTH = 136;
+const ARTIST_WIDTH = 78;
+/** 지금 곡 제목에 거는 주소의 상한(글자). 넘는 주소는 메시지 크기만 차지해 링크를 빼고 제목만 쓴다 */
+const LINK_MAX = 2047;
+
+// 지금 곡 제목. 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다.
+// 링크 라벨은 escapeMd가 아니라 linkLabel(mentions.ts), byWebhook은 linkLabel의 emojiLinks
+function titleOf(track: Pick<QueuedTrack, "title" | "pageUrl">, byWebhook: boolean) {
+  const title = clipWidth(songTitle(track.title), TITLE_WIDTH);
+  return track.pageUrl && track.pageUrl.length <= LINK_MAX ? `[${linkLabel(title, { emojiLinks: byWebhook })}](${track.pageUrl})` : escapeMd(title);
+}
 
 class NowPlayingPanel {
   client: Client;
@@ -417,10 +421,8 @@ class NowPlayingPanel {
     const artistValue = track.artist || "-";
     const platformValue = labelOf(track.platform);
 
-    const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(artistValue)}` : "";
-    // 제목은 링크 라벨이라 escapeMd가 아니라 linkLabel(mentions.ts)
-    // 보여 줄 링크(pageUrl)를 건다. 음원을 직접 트는 곡도 음원 파일이 아니라 출처 페이지다
-    const linkText = `### ${nowPlayingTitle}\n**[${linkLabel(songTitle(track.title), { emojiLinks: byWebhook })}](${track.pageUrl})**${artistLine}`;
+    const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(clipWidth(artistValue, ARTIST_WIDTH))}` : "";
+    const linkText = `### ${nowPlayingTitle}\n**${titleOf(track, byWebhook)}**${artistLine}`;
 
     // Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다. 앨범아트가 없는 곡은 음표 썸네일(_playingPayload가 첨부한다).
     // 디스코드는 눌러서 크게 보여 주므로 큰 이미지를 붙인다(썸네일 주소의 큰 것, 직접 링크 곡은 첨부한 파일 태그 이미지)
@@ -854,20 +856,17 @@ class NowPlayingPanel {
 
   /**
    * 곡으로 건너뛰기 메뉴 줄. 디스코드가 컨테이너 안의 선택 메뉴 줄을 무시해서 컨테이너 밖 맨 위 줄로 둔다.
-   * 항목은 queue-display의 entryOptions(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null.
-   * budget: 메뉴 줄이 쓸 수 있는 컴포넌트 바이트(ui/message-size). 넘으면 항목 글, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 null(메뉴 없이 패널을 올린다)
+   * 항목은 queue-display의 menuEntries(값은 대기열 ID, ID가 없거나 겹치는 곡은 뺀다). 대기열이 비었거나 세션 id가 없으면 null.
+   * budget: 메뉴 줄이 쓸 수 있는 컴포넌트 바이트(ui/message-size). 넘으면 설명, 그다음 항목 수를 줄이고(ui/menu-fit), 그래도 넘으면 null(메뉴 없이 패널을 올린다)
    */
   async createJumpToRow(player: Pick<Player, "sessionId" | "queue">, budget = COMPONENTS_BYTES_MAX) {
-    if (!player.sessionId || player.queue.length === 0) return null;
+    const sessionId = player.sessionId;
+    if (!sessionId) return null;
+    const entries = menuEntries(player.queue.slice(0, JUMP_MAX), { parts: jumpParts });
+    if (entries.length === 0) return null;
     const placeholder = panelText.jumpPlaceholder();
-    for (const [max, count] of JUMP_SHRINK) {
-      const options = entryOptions(player.queue.slice(0, count), { description: (track) => jumpDescription(track, max), max });
-      if (options.length === 0) return null;
-      const select = new StringSelectMenuBuilder().setCustomId(panelId("jump", player.sessionId)).setPlaceholder(placeholder).addOptions(options);
-      const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-      if (componentsBytes(row) <= budget) return row;
-    }
-    return null;
+    const build = (options: StringSelectMenuOptionBuilder[]) => new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(new StringSelectMenuBuilder().setCustomId(panelId("jump", sessionId)).setPlaceholder(placeholder).addOptions(options));
+    return fitMenu(entries, { separator: JUMP_SEPARATOR, budget, least: 1, build });
   }
 
   /** 진행 막대를 PROGRESS_MS마다 다시 그리기 시작한다 */

@@ -5,7 +5,7 @@
 // 본인에게만 보이는 화면이라 보는 사람의 역할로 버튼을 고른다: DJ는 모든 곡의 모든 버튼, 아니면 자기가 넣은 곡의 삭제만(편집할 곡이 없으면 편집 버튼도 없다).
 // 음성 채널은 들어오면 바로 풀리는 조건이라 버튼을 숨기지 않고 누를 때 거절한다(usecases/controls)
 
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, type MessageActionRowComponentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, ModalBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextDisplayBuilder, TextInputBuilder, TextInputStyle, resolveColor } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, type MessageActionRowComponentBuilder, MediaGalleryBuilder, MediaGalleryItemBuilder, ModalBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, type StringSelectMenuOptionBuilder, TextDisplayBuilder, TextInputBuilder, TextInputStyle, resolveColor } from "discord.js";
 import { blockedAt, type EditAction } from "../rules/queue-edit.ts";
 import { queueTiming, type QueueTiming } from "../rules/queue-timing.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
@@ -15,22 +15,16 @@ import { IDLE_SESSION, QUEUE, customId, partsOf } from "./custom-ids.ts";
 import type { Attachment } from "./frame.ts";
 import { buttonEmoji, type IconKey } from "./icons.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
-import { editDescription, entryLines, entryOptions, type Listed } from "./queue-display.ts";
+import { EDIT_SEPARATOR, editParts, entryLines, menuEntries, type Listed } from "./queue-display.ts";
+import { fitMenu } from "./menu-fit.ts";
 import * as T from "./text/ko/queue.ts";
 
 /** 한 페이지에 보이는 곡 수 */
 const PAGE_SIZE = 10;
 /** 화면 글(텍스트 디스플레이) 전체의 상한은 4000자(메뉴 항목의 글은 세지 않는다). 목록 말고 제목, 요약 줄이 쓸 몫을 남긴다 */
 const LIST_MAX = 3600;
-/** 컴포넌트 크기(ui/message-size)가 상한을 넘으면 줄여 가는 차례: 목록 글 상한(긴 주소의 링크부터 뗀다), 메뉴 항목 이름과 설명의 상한. 메뉴 글부터 줄인다 */
-const SHRINK = [
-  [LIST_MAX, 100],
-  [LIST_MAX, 60],
-  [LIST_MAX, 40],
-  [2800, 40],
-  [2000, 30],
-  [1400, 30],
-] as const;
+/** 메뉴 설명을 줄여도(ui/menu-fit) 컴포넌트 크기(ui/message-size)가 상한을 넘으면 차례로 낮춰 보는 목록 글의 상한. 긴 주소의 링크부터 뗀다 */
+const LIST_STEPS = [LIST_MAX, 2800, 2000, 1400];
 const MOSAIC_FILE = "queue.webp";
 
 // custom_id. 뒤에 붙는 것: 보기, 편집은 페이지. 고르기는 페이지와 세션, 곡 버튼은 동작, 대기열 ID, 페이지, 세션. 페이지 이동(버튼, 모달)은 화면(browse, edit)과 보던 페이지
@@ -129,15 +123,15 @@ const ACTION_LOOK: Record<EditAction, { emoji: IconKey; style: ButtonStyle }> = 
 
 /** 화면의 컨테이너와 첨부 파일, 실제로 그린 페이지. 컴포넌트 크기가 상한을 넘으면 목록을 줄여 다시 만든다 */
 function queueView(info: QueueInfo, screen: Screen, nowMs = Date.now()): { view: ContainerBuilder; files: Attachment[]; page: number } {
-  let built = compose(info, screen, nowMs, SHRINK[0]);
-  for (const step of SHRINK.slice(1)) {
-    if (componentsBytes(built.view) <= COMPONENTS_BYTES_MAX) break;
-    built = compose(info, screen, nowMs, step);
+  let built = compose(info, screen, nowMs, LIST_STEPS[0]);
+  for (const listMax of LIST_STEPS.slice(1)) {
+    if (built.fits) break;
+    built = compose(info, screen, nowMs, listMax);
   }
-  return built;
+  return { view: built.view, files: built.files, page: built.page };
 }
 
-function compose(info: QueueInfo, screen: Screen, nowMs: number, [listMax, optionMax]: (typeof SHRINK)[number]) {
+function compose(info: QueueInfo, screen: Screen, nowMs: number, listMax: number) {
   const pages = pagesOf(info);
   const page = pageIn(info, screen.page);
   const { offset, tracks } = pageTracks(info, page);
@@ -155,9 +149,16 @@ function compose(info: QueueInfo, screen: Screen, nowMs: number, [listMax, optio
   const endsAt = timing.endsAtMs === null ? null : Math.round(timing.endsAtMs / 1000);
   box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${T.summary({ count: info.queue.length, totalSec: timing.totalSec, endsAt })}`));
 
-  const rows = screen.mode === "browse" ? browseRows(info, page, pages) : editRows(info, { page, pages, offset, tracks, picked: screen.picked ?? null, optionMax });
+  const { menu, rows } = screen.mode === "browse" ? { menu: null, rows: browseRows(info, page, pages) } : editRows(info, { page, offset, tracks, picked: screen.picked ?? null, pages });
   for (const row of rows) box.addActionRowComponents(row);
-  return { view: box, files, page };
+  let fits = componentsBytes(box) <= COMPONENTS_BYTES_MAX;
+  // 곡 고르기 메뉴는 나머지를 다 그린 뒤 남는 바이트에 맞춰 버튼 줄들 앞에 넣는다
+  if (menu && fits) {
+    const row = fitMenu(menu.entries, { separator: EDIT_SEPARATOR, budget: COMPONENTS_BYTES_MAX - componentsBytes(box), build: menu.build });
+    if (row) box.spliceComponents(box.components.length - rows.length, 0, row);
+    fits = row !== null;
+  }
+  return { view: box, files, page, fits };
 }
 
 /** 보기 화면의 줄: 넘기기 줄(편집할 곡이 있으면 끝에 편집) */
@@ -167,22 +168,23 @@ function browseRows(info: QueueInfo, page: number, pages: number) {
   return nav ? [nav] : [];
 }
 
-type EditPage = { page: number; pages: number; offset: number; tracks: Entry[]; picked: number | null; optionMax: number };
+type EditPage = { page: number; pages: number; offset: number; tracks: Entry[]; picked: number | null };
 
-/** 편집 화면의 줄: 곡 고르기 메뉴(편집할 수 있는 곡만), 고른 곡의 버튼 줄, 넘기기 줄(끝에 완료) */
-function editRows(info: QueueInfo, { page, pages, offset, tracks, picked, optionMax }: EditPage) {
+/** 편집 화면의 줄: 곡 고르기 메뉴(편집할 수 있는 곡만, 크기에 맞춰 compose가 넣는다), 고른 곡의 버튼 줄, 넘기기 줄(끝에 완료) */
+function editRows(info: QueueInfo, { page, pages, offset, tracks, picked }: EditPage) {
   const rows: Array<ActionRowBuilder<MessageActionRowComponentBuilder>> = [];
   const session = info.sessionId ?? IDLE_SESSION;
   const index = picked === null ? -1 : tracks.findIndex((track) => track.entry === picked);
   const pickable = index >= 0 && canEdit(info.viewer, tracks[index]);
-  const options = entryOptions(tracks, { first: offset + 1, description: (track) => editDescription(track, optionMax), picked: pickable ? picked : null, max: optionMax, only: (track) => canEdit(info.viewer, track) });
-  if (options.length) {
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId(customId(QUEUE, "pick", page, session))
-      .setPlaceholder(T.pickPlaceholder)
-      .addOptions(options);
-    rows.push(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu));
-  }
+  const entries = menuEntries(tracks, { first: offset + 1, parts: editParts, picked: pickable ? picked : null, only: (track) => canEdit(info.viewer, track) });
+  const build = (options: StringSelectMenuOptionBuilder[]) =>
+    new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId(customId(QUEUE, "pick", page, session))
+        .setPlaceholder(T.pickPlaceholder)
+        .addOptions(options),
+    );
+  const menu = entries.length ? { entries, build } : null;
   if (pickable && picked !== null) {
     const blocked = blockedAt(offset + index, info.queue.length);
     const row = new ActionRowBuilder<ButtonBuilder>();
@@ -194,7 +196,7 @@ function editRows(info: QueueInfo, { page, pages, offset, tracks, picked, option
   }
   const nav = navRow("edit", page, pages, button(customId(QUEUE, "page", page), { label: T.done, emoji: "ok" }));
   if (nav) rows.push(nav);
-  return rows;
+  return { menu, rows };
 }
 
 /** 페이지 이동 모달. custom_id는 연 버튼과 같다(queue:goto:화면:보던 페이지) */

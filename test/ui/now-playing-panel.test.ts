@@ -5,6 +5,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "../../src/ui/message-size.ts";
+import { displayWidth } from "../../src/rules/clip-text.ts";
 import { Collection, MessageFlags, WebhookClient, type Client, type GuildTextBasedChannel } from "discord.js";
 import type { QueuedTrack } from "../../src/player/track.ts";
 import { fake, fakePlayer } from "../helpers/fake.ts";
@@ -37,20 +38,27 @@ test("점프 메뉴: 값은 대기열 ID(entry:N), 번호는 이름에만. ID가
   assert.equal(await newPanels().createJumpToRow({ sessionId: "s1", queue: [entered("ID 없음")] }), null);
 });
 
-// 디스코드는 컴포넌트 전체가 10,240바이트를 넘으면 패널째 거절한다(413). 한글은 3바이트라 긴 한글 곡 25개면 메뉴만으로 넘친다
-test("점프 메뉴: 컴포넌트 크기 상한 안으로 항목 글, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 메뉴 없음", async () => {
-  const long = (n: number) => Object.defineProperty({ title: `아주 긴 한글 제목 ${n} `.repeat(10), artist: "아주 긴 한글 아티스트 이름".repeat(6), duration: 236, requestedBy: { id: "u1", username: "요청자" } } as QueuedTrack, "entry", { value: n, enumerable: false });
+// 디스코드는 컴포넌트 전체가 10,240바이트를 넘으면 패널째 거절한다(413). 한글은 3바이트라 긴 한글 곡이 많으면 메뉴만으로도 상한을 넘긴다
+test("점프 메뉴: 앞 20곡. 크기 상한을 넘으면 설명, 그다음 항목 수를 줄이고, 끝까지 줄여도 넘으면 메뉴 없음", async () => {
+  const long = (n: number) => Object.defineProperty({ title: `아주 긴 한글 제목 ${n} `.repeat(10), pageUrl: `https://example.org/${"a".repeat(1900)}`, artist: "아주 긴 한글 아티스트 이름".repeat(6), duration: 236, requestedBy: { id: "u1", username: "아주 긴 한글 서버 닉네임".repeat(3) } } as QueuedTrack, "entry", { value: n, enumerable: false });
   const player = panelPlayer({ currentTrack: long(0), queue: Array.from({ length: 25 }, (_, i) => long(i + 1)) });
   const payload = await newPanels()._playingPayload(player, long(0), true, true);
   assert.ok(componentsBytes(...(payload.components ?? [])) <= COMPONENTS_BYTES_MAX, `${componentsBytes(...(payload.components ?? []))}바이트`);
-  const options = (payload.components?.[1] as { toJSON(): { components: Array<{ options: Array<{ label: string }> }> } }).toJSON().components[0].options;
-  assert.equal(options.length, 25, "글을 줄여 들어가면 항목은 그대로");
-  assert.ok(options.every((o) => o.label.length < 100));
+  const options = (payload.components?.[1] as { toJSON(): { components: Array<{ options: Array<{ label: string; description?: string }> }> } }).toJSON().components[0].options;
+  assert.equal(options.length, 20, "설명을 줄여 들어가면 항목은 앞 20곡 그대로");
+  assert.ok(
+    options.every((o) => o.label.endsWith("…") && displayWidth(o.label) <= 66),
+    "이름은 화면 폭으로 자른다",
+  );
+  assert.ok(
+    options.every((o) => o.description?.includes(" | 3:56")),
+    "길이는 줄이지 않는다",
+  );
 
   const fewer = await newPanels().createJumpToRow(player, 2000);
   const kept = fewer?.toJSON().components[0].options.length ?? 0;
-  assert.ok(kept > 0 && kept < 25 && componentsBytes(fewer!) <= 2000, `${kept}개`);
-  assert.equal(await newPanels().createJumpToRow(player, 100), null, "다섯 곡도 안 들어가면 메뉴 없이");
+  assert.ok(kept > 0 && kept < 20 && componentsBytes(fewer!) <= 2000, `${kept}개`);
+  assert.equal(await newPanels().createJumpToRow(player, 100), null, "한 곡도 안 들어가면 메뉴 없이");
 });
 
 // CV2 Section은 액세서리(썸네일/버튼)가 없으면 전송 시 검증에서 거부된다.
@@ -119,6 +127,21 @@ test("now-playing 컨테이너: 제목 링크는 음원 파일이 아니라 보�
   const json = JSON.stringify((await panels.createNowPlayingContainer(player, track)).toJSON());
   assert.ok(json.includes("[주제가](https://anilist.co/anime/1)"));
   assert.ok(!json.includes("nawdist"));
+});
+
+test("now-playing 컨테이너: 제목은 화면 폭 136, 아티스트는 78까지. 2,047자를 넘는 주소는 링크를 빼고 제목만", async () => {
+  const panels = newPanels();
+  const player = fakePlayer({ getCurrentTime: () => 0, queue: [], previousTracks: [], loop: false, paused: false, pause: { heldBy: null, userPaused: false } });
+  const track: QueuedTrack = { title: "가".repeat(100), artist: "나".repeat(40), duration: 90, platform: "direct", pageUrl: `https://example.org/${"a".repeat(2027)}`, requestKey: "k" };
+  assert.equal(track.pageUrl.length, 2047);
+
+  const linked = JSON.stringify((await panels.createNowPlayingContainer(player, track)).toJSON());
+  assert.ok(linked.includes(`**[${"가".repeat(67)}…](${track.pageUrl})**`), "제목은 한글 67자와 … 로 잘려 링크가 걸린다");
+  assert.ok(linked.includes(` ${"나".repeat(38)}…`), "아티스트는 한글 38자와 …");
+
+  const bare = JSON.stringify((await panels.createNowPlayingContainer(player, { ...track, title: "짧은 제목", pageUrl: `${track.pageUrl}a` })).toJSON());
+  assert.ok(bare.includes("**짧은 제목**"));
+  assert.ok(!bare.includes("example.org"));
 });
 
 // ── 끝난 패널 ──

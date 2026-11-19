@@ -130,6 +130,7 @@ test("가장 긴 페이지도 글 4000자, 부품 40개, 부품 크기 상한 �
       assert.ok(nodesOf(view).length <= 40, `${screen.mode}: 부품 ${nodesOf(view).length}개`);
       assert.ok(bytes <= COMPONENTS_BYTES_MAX, `${screen.mode}: ${bytes}바이트`);
       assert.equal(text.split("\n").filter((line) => /^`\d+`/.test(line)).length, 10, `${screen.mode}: 열 곡이 다 보인다`);
+      if (screen.mode === "edit") assert.equal(menuOf(view)?.options?.length, 10, "편집 메뉴도 열 곡(설명을 줄여 맞춘다)");
     }
   }
 });
