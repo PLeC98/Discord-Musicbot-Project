@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MessageFlags, SeparatorSpacingSize, resolveColor, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, WebhookClient, RESTJSONErrorCodes, SnowflakeUtil } from "discord.js";
 import { readsMessageContent, tracksMembers } from "../infra/gateway-intents.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -152,6 +152,7 @@ class NowPlayingPanel {
   editFailures = new Map<string, ReturnType<typeof repeatingFailure>>(); // guildId → 연속 갱신 실패(네트워크)
   attachedArt = new Map<string, string>(); // guildId → 지금 패널 메시지에 첨부해 둔 썸네일("no-art" 음표, 파일 태그 이미지의 fingerprint)
   drawing = new Map<string, { player: Player; again: boolean; done: Promise<void> }>(); // guildId → 그리는 중인 재생 패널. again: 그사이 갱신 요청이 왔다
+  startedAt = Date.now(); // 이번 실행에서 채널 메시지를 받기 시작한 시각. 그 전에 올라온 메시지는 채널 캐시에 없다
 
   // panelStore: 패널 위치 기록. 테스트는 메모리 가짜를 준다
   constructor(client: Client, players: Pick<PlayerSeats, "get">, { panelStore }: { panelStore?: PanelStore } = {}) {
@@ -381,10 +382,19 @@ class NowPlayingPanel {
   // 채널 캐시만 읽는다. PIN_SETTLE_MS(12초) 넘게 남은 메시지가 패널 아래에 있으면 묻힌 것
   _buriedAt(channel: GuildBasedChannel, messageId: string | undefined, now = Date.now()) {
     if (!messageId || !("messages" in channel) || !channel.messages?.cache) return false;
+    if (this._buriedBeforeStart(channel, messageId)) return true;
 
     const cutoff = now - PIN_SETTLE_MS;
     // 자동으로 삭제될 봇 메시지(더 넣기 메뉴 등)는 세지 않는다. 조작 중에 위치가 바뀌면 거슬린다
     return channel.messages.cache.some((m) => m.createdTimestamp <= cutoff && BigInt(m.id) > BigInt(messageId) && !isTransient(m.id, now));
+  }
+
+  // 이번 실행 전에 올라온 메시지(꺼지기 직전의 다시 시작 공지, 꺼져 있던 동안 올라온 글)는 채널 캐시에 없다.
+  // 기동할 때 디스코드에서 받은 채널의 마지막 메시지 ID가 패널보다 뒤이고 이번 실행 전에 만들어진 것이면 묻힌 것으로 본다. 그 메시지가 지워졌어도 ID는 남아 패널을 한 번 더 올릴 수 있다
+  _buriedBeforeStart(channel: GuildBasedChannel, messageId: string) {
+    const last = "lastMessageId" in channel ? channel.lastMessageId : null;
+    if (!last) return false;
+    return BigInt(last) > BigInt(messageId) && SnowflakeUtil.timestampFrom(last) < this.startedAt;
   }
 
   /** 재생 중 패널의 화면(Components V2). art: 붙일 썸네일(ui/discord-art, 주지 않으면 여기서 구한다), byWebhook: 웹훅으로 보내는 패널 */
@@ -737,12 +747,18 @@ class NowPlayingPanel {
     }
     const channel = await this._dedicatedChannel(guild);
     if (skip && !player) await this._explainRestoreSkipped(guild, Boolean(channel));
-    const record = await this.location.store.getPanel(guild.id);
-    if (record && (!channel || record.channelId === channel.id)) {
-      const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
-      if (await this.location.edit(guild, payload)) return;
-    }
+    if (await this._editRecordedIdle(guild, channel)) return;
     if (canSend(channel)) await this._postIdle(guild, channel);
+  }
+
+  // 기록된 패널을 음성 밖 모양으로 제자리에서 고친다. 고쳤으면 true.
+  // 전용 채널에서 꺼져 있던 동안 올라온 메시지에 패널이 묻혔으면 고쳐 쓰지 않는다(호출부가 맨 아래에 새로 올리고 옛 패널은 지운다)
+  async _editRecordedIdle(guild: Guild, channel: GuildBasedChannel | null) {
+    const record = await this.location.store.getPanel(guild.id);
+    if (!record) return false;
+    if (channel && (record.channelId !== channel.id || this._buriedAt(channel, record.messageId))) return false;
+    const payload: Payload = { ...(await this.createIdleContainer({ ...this._idleView(guild), dedicated: Boolean(channel) })), flags: MessageFlags.IsComponentsV2 };
+    return Boolean(await this.location.edit(guild, payload));
   }
 
   /**

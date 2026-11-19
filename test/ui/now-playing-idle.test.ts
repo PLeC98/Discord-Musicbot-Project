@@ -3,7 +3,7 @@
 
 import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { Collection } from "discord.js";
+import { Collection, SnowflakeUtil } from "discord.js";
 import { NowPlayingPanel } from "../../src/ui/now-playing-panel.ts";
 import * as tempStore from "../helpers/temp-store.ts";
 import * as playerEvents from "../../src/player/events.ts";
@@ -40,6 +40,7 @@ function makeChannel(id: string, calls: Calls) {
       return message;
     },
     messages: { cache: new Collection<string, Cached>(), delete: async (messageId: string) => calls.deleted.push(`${id}:${messageId}`) },
+    lastMessageId: null as string | null,
   };
 }
 type TestChannel = ReturnType<typeof makeChannel>;
@@ -146,6 +147,27 @@ test("전용 채널: 끝난 패널이 맨 아래면 그 메시지를 재생 화�
   assert.deepEqual(records.get("g1"), { channelId: BOT, messageId: "900" });
 });
 
+// 채널의 마지막 메시지 ID를 지정한 시각에 만든 메시지의 ID로 둔다(채널 캐시에는 넣지 않는다)
+const lastAt = (channel: TestChannel | undefined, at: number) => {
+  if (channel) channel.lastMessageId = SnowflakeUtil.generate({ timestamp: at }).toString();
+};
+
+test("전용 채널: 이번 실행 전에 올라온 메시지(다시 시작 공지)가 끝난 패널 아래에 있으면 패널을 맨 아래에 새로 올린다", async () => {
+  const unseen = setup({ record: { channelId: BOT, messageId: "900" } });
+  lastAt(unseen.channels.get(BOT), unseen.panels.startedAt - 60_000);
+  await play(unseen.panels, makePlayer(unseen.guild, unseen.text(BOT)));
+  assert.equal(unseen.calls.edited.length, 0, "채널 캐시에 없어도 묻힌 것으로 본다");
+  assert.equal(unseen.calls.sent.length, 1);
+  assert.ok(unseen.calls.deleted.includes(`${BOT}:900`));
+
+  // 이번 실행 중에 올라온 메시지는 채널 캐시로만 판단한다(지워진 안내의 ID가 남아 있어도 패널을 고쳐 쓴다)
+  const seen = setup({ record: { channelId: BOT, messageId: "900" } });
+  lastAt(seen.channels.get(BOT), seen.panels.startedAt + 1_000);
+  await play(seen.panels, makePlayer(seen.guild, seen.text(BOT)));
+  assert.equal(seen.calls.sent.length, 0);
+  assert.equal(seen.calls.edited[0].id, "900");
+});
+
 test("새로 틀기 시작하면 대시보드에 알린다", async () => {
   const { panels, guild, text } = setup({ record: { channelId: BOT, messageId: "900" } });
   const seen: string[] = [];
@@ -249,6 +271,17 @@ test("기동: 전용 채널에 남은 패널은 음성 밖 문구로 고친다. 
   assert.equal(calls.sent.length, 0);
   assert.equal(calls.edited.length, 1);
   assert.match(textOf(calls.edited[0].payload), /쉬는 중이에요.*곡을 입력하면/);
+});
+
+test("기동: 꺼져 있던 동안 올라온 메시지에 전용 채널 패널이 묻혔으면 고쳐 쓰지 않고 맨 아래에 새로 올린다", async () => {
+  const { panels, channels, calls, records } = setup({ record: { channelId: BOT, messageId: "900" } });
+  lastAt(channels.get(BOT), panels.startedAt - 60_000);
+  await panels.restorePanels();
+  assert.equal(calls.edited.length, 0);
+  assert.equal(calls.sent.length, 1);
+  assert.match(textOf(calls.sent[0].payload), /쉬는 중이에요/);
+  assert.ok(calls.deleted.includes(`${BOT}:900`));
+  assert.equal(records.get("g1")?.messageId, calls.sent[0].id);
 });
 
 test("기동: 되살릴 곡이 저장된 서버(복원을 건너뛰었다)는 /join으로 이어 들을 수 있다고 적는다. 곡 없이 저장된 세션은 쉬는 중", async () => {
