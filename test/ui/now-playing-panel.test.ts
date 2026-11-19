@@ -485,6 +485,13 @@ test("멈춤: 상태 줄은 억제 사유를 먼저, 그 사이 사람이 일시
   assert.equal(heldAndUser.emoji, userOnly.emoji);
 });
 
+test("상태 줄 순서: 멈춤, 대기열(아이콘), 상주 모드, 건너뛸 구간", async () => {
+  const track = { title: "곡", pageUrl: "https://example.org/a", requestKey: "https://example.org/a", duration: 100, platform: "youtube" };
+  const player = panelPlayer({ paused: true, pause: { heldBy: null, userPaused: true }, queue: [{}, {}], idle: { seated: () => true }, sponsor: { skipSegments: [{}] } });
+  const text = JSON.stringify(jsonOf(await newPanels().createNowPlayingContainer(player, track)));
+  assert.match(text, /일시정지 • 📋 대기열 2곡 • 🏪 상주 모드 • 건너뛸 구간 1개/);
+});
+
 // 풀기 전에는 끝나지 않는 promise. 느린 썸네일 확인, REST를 흉내 낸다
 function held() {
   let release!: () => void;

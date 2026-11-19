@@ -22,7 +22,7 @@ const pausedLabel = (reason: keyof typeof PAUSED) => ({ icon: PAUSED[reason][0],
 /** 억제 사유 옆에 붙이는 사람의 일시정지 표시(그 사유가 풀려도 멈춘 채) */
 const userPausedMark = () => "일시정지";
 /** 상태 줄의 대기열 곡 수 */
-const queuedStatus = (count: number) => `대기열 ${count}곡`;
+const queuedStatus = (count: number) => `${icon("queue")} 대기열 ${count}곡`;
 /** 상태 줄의 건너뛸 구간 수(SponsorBlock) */
 const segmentsStatus = (count: number) => `건너뛸 구간 ${count}개`;
 /** 상주 모드의 자리에서 트는 중 */

@@ -107,20 +107,16 @@ const canSkip = (p: Controls) => canGoNext({ queue: p.queue.length, loop: p.loop
 // 대기열 화면은 다음 곡만 보인다. 다음 곡이 없으면 대기열 버튼을 끈다
 const queueOff = (p: Controls, disabled: boolean) => disabled || p.queue.length === 0;
 
-// 상태 줄: 일시정지, 대기열 수, 24/7 등. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
+// 상태 줄: 일시정지, 대기열 수, 상주 모드, 건너뛸 구간. 라이브 표식은 진행 막대의 경과 시간 자리에 있어(ui/progress-bar) 여기서 또 내지 않는다.
 function statusOf(player: Player) {
   const parts: string[] = [];
   // 억제 사유가 있으면 그것을, 사람만 일시정지했으면 일시정지를 붙인다. 억제 중에 사람이 일시정지했으면(사유가 풀려도 멈춘 채) 그것도 붙인다
   const held = player.pause.heldBy;
   if (held) parts.push(panelText.pausedStatus(held));
   if (player.pause.userPaused) parts.push(held ? panelText.userPausedMark() : panelText.pausedStatus("other"));
-  if (player.queue.length > 0) {
-    parts.push(panelText.queuedStatus(player.queue.length));
-  }
-  if (player.sponsor?.skipSegments?.length) {
-    parts.push(panelText.segmentsStatus(player.sponsor.skipSegments.length));
-  }
+  if (player.queue.length > 0) parts.push(panelText.queuedStatus(player.queue.length));
   if (player.idle?.seated()) parts.push(panelText.stayStatus());
+  if (player.sponsor?.skipSegments?.length) parts.push(panelText.segmentsStatus(player.sponsor.skipSegments.length));
   return parts;
 }
 
