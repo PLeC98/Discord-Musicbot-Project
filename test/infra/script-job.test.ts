@@ -90,8 +90,9 @@ test("도는 작업이 있으면 다음 작업을 시작하지 않는다", async
 
 test("취소는 그 id의 작업만. 손자 프로세스까지 끝난 것을 확인하고 반환한다", async () => {
   const marker = path.join(dir, "grandchild-ran");
-  const grandchild = `setTimeout(() => require("fs").writeFileSync(${JSON.stringify(marker)}, "x"), 2500)`;
-  const { id, done } = run({ script: script(`import { spawn } from "node:child_process"; spawn(process.execPath, ["-e", ${JSON.stringify(grandchild)}], { stdio: "inherit" }); setTimeout(() => {}, 60_000)`) });
+  const grandchild = `setTimeout(() => require("fs").writeFileSync(process.env.GRANDCHILD_MARKER, "x"), 2500)`;
+  const env = { ...process.env, GRANDCHILD_CODE: grandchild, GRANDCHILD_MARKER: marker };
+  const { id, done } = run({ env, script: script(`import { spawn } from "node:child_process"; spawn(process.execPath, ["-e", process.env.GRANDCHILD_CODE], { stdio: "inherit" }); setTimeout(() => {}, 60_000)`) });
   await new Promise((r) => setTimeout(r, 300));
   assert.equal(await cancelJob(id + 1), "not-running", "늦게 닿은 다른 id");
   assert.equal(jobRunning(), true);

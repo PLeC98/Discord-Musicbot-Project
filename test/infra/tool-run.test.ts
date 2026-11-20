@@ -34,10 +34,11 @@ test("실행하지 못하면 거부된다", async () => {
 test("시간 상한을 넘기면 손자 프로세스까지 강제 종료하고 거부된다", async () => {
   const marker = path.join(dir, "grandchild-ran");
   // 자식이 손자를 실행하고 둘 다 끝나지 않고 기다린다. 손자는 2초 뒤 마커 파일을 쓴다
-  const grandchild = `setTimeout(() => require("fs").writeFileSync(${JSON.stringify(marker)}, "x"), 2000)`;
-  const [file, args] = node(`require("child_process").spawn(process.execPath, ["-e", ${JSON.stringify(grandchild)}], { stdio: "inherit" }); setTimeout(() => {}, 60_000)`);
+  const grandchild = `setTimeout(() => require("fs").writeFileSync(process.env.GRANDCHILD_MARKER, "x"), 2000)`;
+  const [file, args] = node(`require("child_process").spawn(process.execPath, ["-e", process.env.GRANDCHILD_CODE], { stdio: "inherit" }); setTimeout(() => {}, 60_000)`);
+  const env = { ...process.env, GRANDCHILD_CODE: grandchild, GRANDCHILD_MARKER: marker };
   const started = Date.now();
-  await assert.rejects(runTool(file, [...args], { ...base, timeoutMs: 500, capture: true }), /시간 상한\(1초\)을 넘겨 강제 종료함/);
+  await assert.rejects(runTool(file, [...args], { ...base, env, timeoutMs: 500, capture: true }), /시간 상한\(1초\)을 넘겨 강제 종료함/);
   assert.ok(Date.now() - started < 10_000, `${Date.now() - started}ms`);
   await new Promise((done) => setTimeout(done, 3000));
   assert.equal(fs.existsSync(marker), false, "손자도 끝났다");

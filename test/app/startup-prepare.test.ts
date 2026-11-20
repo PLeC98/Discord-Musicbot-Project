@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { buildDashboardIfStale, alignFfmpegAtStartup, type DashboardPaths } from "../../src/app/startup-prepare.ts";
 import { _resetJobs } from "../../src/infra/script-job.ts";
+import { TARGETS } from "../../src/media/ffmpeg/release.ts";
 import { withConfig } from "../helpers/config.ts";
 
 const base = fs.mkdtempSync(path.join(os.tmpdir(), "startup-prepare-"));
@@ -71,7 +72,7 @@ test("빌드 도구가 없거나 개발 모드면 건너뛴다", async () => {
   assert.equal(dev.runs(), 0);
 });
 
-test("ffmpeg 맞추기: 받기 스크립트를 인자 없이 돌리고, 끝난 뒤 가리키지 않는 옛 폴더를 정리한다", async () => {
+test("ffmpeg 맞추기: 받기 스크립트를 인자 없이 돌리고, 끝난 뒤 가리키지 않는 옛 폴더를 정리한다", { skip: !TARGETS[`${process.platform}-${process.arch}`] && "번들 ffmpeg가 없는 플랫폼은 맞추지 않는다" }, async () => {
   const dir = path.join(base, `ffmpeg-${++n}`);
   const release = "autobuild-2026-10-31-12-59";
   fs.mkdirSync(path.join(dir, `${release}-1`), { recursive: true });
