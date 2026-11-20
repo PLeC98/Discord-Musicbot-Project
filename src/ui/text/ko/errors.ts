@@ -2,7 +2,7 @@
 // 안내는 무엇에 관한 것인지(topic), 심각한 정도(severity), 헤더 줄, 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
 import { formatBytes, formatMs } from "../../format.ts";
-import { bindErrors, noticeOf, type ErrorTable, type LinkLook, type Topic } from "../notice.ts";
+import { noticeOf, type ErrorTable, type LinkLook, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
 import { VOLUME_MAX } from "../../../rules/limits.ts";
 
@@ -294,7 +294,4 @@ const TEXT: ErrorTable = {
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
-// 문장표를 아직 번들(ui/text)로 부르지 않는 곳이 쓰는 찾기 함수
-const { notice, noticeFor } = bindErrors(TEXT, PLAIN);
-
-export { TEXT, PLAIN, notice, noticeFor };
+export { TEXT, PLAIN };

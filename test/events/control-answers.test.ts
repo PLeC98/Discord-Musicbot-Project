@@ -11,13 +11,14 @@ import { LIFETIME, lifetimesOf } from "../../src/ui/delivery.ts";
 import { command, run } from "../helpers/commands.ts";
 import { failureShow } from "../../src/ui/failure-notice.ts";
 import { noticeFrame } from "../../src/ui/frame.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import { textsOf } from "../helpers/cv2.ts";
 import { fake, fakePlayer, fakeBot } from "../helpers/fake.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { remember } from "../helpers/tagged-audio.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const errors = textFor("ko").errors;
 
 useDefaultDocuments();
 // 권한 판정이 서버 설정(DJ 역할)을 읽는다

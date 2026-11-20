@@ -16,7 +16,8 @@ import { fake, fakeBot } from "../helpers/fake.ts";
 import { baseUrl, listenForFetch } from "../helpers/listen.ts";
 import logSink from "../../src/infra/log/sink.ts";
 import { PROBLEMS } from "../../src/rules/problems.ts";
-import { notice } from "../../src/ui/text/ko/errors.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const { notice } = textFor("ko").errors;
 
 // ── 로그: 싱크에 받는 곳을 달아 본다(errorId가 로그에도 남는지 확인용) ──────
 const logLines: string[] = [];

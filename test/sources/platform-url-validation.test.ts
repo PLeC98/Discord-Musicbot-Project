@@ -9,6 +9,8 @@ import assert from "node:assert/strict";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
 const { inputKind } = await import("../../src/rules/input-kind.ts");
@@ -67,7 +69,7 @@ test("모르는 형태의 유튜브 링크는 검색으로 넘기지 않고 거�
     const result = await lookup.findTracks(url);
     assert.equal(result.success, false, `${url}: 조용히 다른 영상을 틀면 안 된다`);
     assert.equal(result.code, "yt-unplayable", url);
-    assert.match(result.success ? "" : plainText(addFailureMessage(result)), /지원하지 않는 유튜브 링크/);
+    assert.match(result.success ? "" : plainText(addFailureMessage(KO, result)), /지원하지 않는 유튜브 링크/);
   }
 
   // 검색어는 그대로 검색으로 간다
@@ -95,7 +97,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
     const result = await lookup.findTracks(url, "test", {}, { direct });
     assert.equal(result.success, false, url);
     assert.equal(result.code, "unsupported-link", url);
-    assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);
+    assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.", url);
   }
   assert.equal(opened.length, 3);
   assert.equal(lookup.isUnsupportedLink("https://open.spotify.com/episode/abc"), true, "알려진 사이트의 다른 주소는 열지 않고 거절");

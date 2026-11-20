@@ -3,7 +3,6 @@
 import { MessageFlags, type ContainerBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
-import * as errors from "../../ui/text/ko/errors.ts";
 import config from "../../config/index.ts";
 import { post } from "../../ui/frame.ts";
 import type { Notice } from "../../ui/text/notice.ts";
@@ -19,6 +18,7 @@ import type { BotContext } from "../../app/bot-context.ts";
 import { MAX_COUNT, parseCount, type MoreState } from "../../rules/more-choices.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeInstead, noticeSelf, toAll, unlessGone } from "../../ui/delivery.ts";
+import { audienceText, privateText, publicText } from "../../ui/language.ts";
 
 const PROGRESS_EVERY_MS = 2000;
 
@@ -32,7 +32,7 @@ const refuser = (interaction: MoreInteraction) => (notice: Notice) => noticeSelf
 
 // 그만 넣기. 넣은 사람이면 시간이 지났든 권한이 바뀌었든 바로 삭제한다
 async function stop(interaction: StringSelectMenuInteraction<"cached">, state: MoreState) {
-  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(errors.notice("more-not-requester-close"));
+  if (state.requesterId && state.requesterId !== interaction.user.id) return refuser(interaction)(privateText(interaction).errors.notice("more-not-requester-close"));
   More.clearExpiry(interaction.message.id);
   await interaction.deferUpdate().catch(closed);
   return interaction.deleteReply().catch(closed);
@@ -46,13 +46,13 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     const value = interaction.values[0];
     if (value === "custom") {
       const room = More.roomFor(player);
-      if (room <= 0) await refuse(errors.notice("queue-full", { max: config.bot.maxQueueSize }));
-      else await interaction.showModal(More.countModal(state, Number.isFinite(room) ? room : MAX_COUNT, guildSettings.resolvePlaylistAddMax(interaction.guild.id)));
+      if (room <= 0) await refuse(privateText(interaction).errors.notice("queue-full", { max: config.bot.maxQueueSize }));
+      else await interaction.showModal(More.countModal(privateText(interaction), state, Number.isFinite(room) ? room : MAX_COUNT, guildSettings.resolvePlaylistAddMax(interaction.guild.id)));
       return null;
     }
     count = parseCount(value);
   } else count = parseCount(interaction.fields.getTextInputValue("count"));
-  if (!count) await refuse(errors.notice("more-bad-count"));
+  if (!count) await refuse(privateText(interaction).errors.notice("more-bad-count"));
   return count || null;
 }
 
@@ -61,7 +61,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
   const message = interaction.message;
   // 메뉴를 떼어 두 번 누르지 못하게 하면서 3초 안에 응답한다
   if (message) More.clearExpiry(message.id);
-  await interaction.update(post(fetchingView()));
+  await interaction.update(post(fetchingView(audienceText(interaction))));
 
   let lastEdit = 0;
   const onProgress = (done: number, want: number) => {
@@ -69,7 +69,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
     if (done >= want || now - lastEdit < PROGRESS_EVERY_MS) return;
     lastEdit = now;
     // 진행 표시는 놓쳐도 된다. 불러오는 동안 되풀이하므로 trace
-    interaction.editReply(post(fetchingView({ done, want }))).catch((error: unknown) => log.trace(`더 넣기 진행 표시 실패: ${messageOf(error)}`));
+    interaction.editReply(post(fetchingView(audienceText(interaction), { done, want }))).catch((error: unknown) => log.trace(`더 넣기 진행 표시 실패: ${messageOf(error)}`));
   };
 
   let outcome: { view: ContainerBuilder } | { failed: Notice };
@@ -83,10 +83,10 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    outcome = result.success ? { view: More.resultView(state, result, More.roomFor(player)).view } : { failed: addFailureMessage(result) };
+    outcome = result.success ? { view: More.resultView(publicText(interaction.guildId), state, result, More.roomFor(player)).view } : { failed: addFailureMessage(privateText(interaction), result) };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
-    outcome = { failed: errorMessage(error) };
+    outcome = { failed: errorMessage(privateText(interaction), error) };
   }
 
   // 실패면 메뉴를 삭제하고 본인에게만 알린다
@@ -103,20 +103,20 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
 async function handleMore(interaction: MoreInteraction, bot: BotContext) {
   const refuse = refuser(interaction);
   const state = More.decodeState(interaction.customId);
-  if (!state) return refuse(errors.notice("more-unknown-menu"));
+  if (!state) return refuse(privateText(interaction).errors.notice("more-unknown-menu"));
   if (interaction.isStringSelectMenu() && interaction.values[0] === "stop") return stop(interaction, state);
 
   const message = interaction.message;
   const lastTouched = message?.editedTimestamp ?? message?.createdTimestamp ?? 0;
   const clickErr = More.clickError(state, { userId: interaction.user.id, lastTouched });
-  if (clickErr) return refuse(errors.notice(clickErr));
+  if (clickErr) return refuse(privateText(interaction).errors.notice(clickErr));
 
   // 맨 앞에 넣는 메뉴(/playfirst에서 이어진 것)는 /playfirst와 같은 검사를 한다
   const permErr = state.insertFirst ? await checkAddFirst(interaction.member) : checkAdd(interaction.member);
-  if (permErr) return refuse(errors.notice(permErr));
+  if (permErr) return refuse(privateText(interaction).errors.notice(permErr));
 
   const player = bot.players.get(interaction.guild.id);
-  if (!player) return refuse(errors.notice("no-song"));
+  if (!player) return refuse(privateText(interaction).errors.notice("no-song"));
 
   const count = await countOf(interaction, state, player);
   if (count) await addMore(interaction, state, count, player, bot);

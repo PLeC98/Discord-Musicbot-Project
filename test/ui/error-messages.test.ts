@@ -3,11 +3,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { addFailureMessage, errorMessage, reportError } from "../../src/ui/error-messages.ts";
-import * as text from "../../src/ui/text/ko/errors.ts";
 import { errorKind } from "../../src/rules/error-kind.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { networkError, ytDlpError } from "../helpers/errors.ts";
 import { plainText } from "../helpers/notice.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
+const text = textFor("ko").errors;
 
 // [실제로 들어오는 모양의 오류, 기대 범주]. yt-dlp는 실행하는 곳이, 우리 코드는 만든 곳이, Node, 디스코드는 저마다 이름을 단다
 const CASES: Array<[Error, string]> = [
@@ -43,23 +45,23 @@ test("classify: null/빈 입력은 unknown", () => {
 
 test("getMessage: 모든 범주가 헤더 줄이 있는 안내를 돌려준다", () => {
   for (const [error] of CASES) {
-    const out = errorMessage(error);
+    const out = errorMessage(KO, error);
     assert.ok(out.title.length > 0, out.topic);
     assert.ok(!out.title.startsWith("❌") && !out.title.startsWith("**"), out.title);
   }
 });
 
 test("handle: 예외를 던지지 않고 사용자 메시지 반환 (catch 블록 계약)", () => {
-  const out = reportError(new Error("read ECONNRESET"), "test-context");
-  assert.deepEqual(out, errorMessage(new Error("read ECONNRESET")));
+  const out = reportError(KO, new Error("read ECONNRESET"), "test-context");
+  assert.deepEqual(out, errorMessage(KO, new Error("read ECONNRESET")));
 });
 
 test("곡을 찾거나 추가하지 못했을 때의 안내: 실패 코드에 맞는 안내문이 있으면 그것을, 없고 오류로 실패했으면 오류 종류의 안내문을, 둘 다 아니면 '곡을 틀 수 없다'를 보인다", () => {
-  assert.deepEqual(addFailureMessage({ code: "voice-failed", kind: "network-error" }), text.notice("voice-failed"), "실패 코드의 안내문이 있으면 오류 종류의 안내문보다 먼저 보인다");
-  assert.deepEqual(addFailureMessage({ code: "play-failed", kind: "network-error" }), text.notice("network-error"));
-  assert.deepEqual(addFailureMessage({ code: "play-threw" }), text.notice("unknown-error"), "던진 것은 종류를 몰라도 오류 문장");
-  assert.deepEqual(addFailureMessage({ code: "lookup-failed" }), text.notice("unknown-error"));
-  assert.deepEqual(addFailureMessage({ code: "play-failed" }), text.notice("cannot-start"));
-  assert.deepEqual(addFailureMessage({ code: "live-ended" }), text.notice("live-ended"));
-  assert.equal(plainText(addFailureMessage({ code: "more-nothing-playable", skipped: 3 })), "해당 구간에는 재생할 수 없는 곡뿐이에요.\n미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (3곡)");
+  assert.deepEqual(addFailureMessage(KO, { code: "voice-failed", kind: "network-error" }), text.notice("voice-failed"), "실패 코드의 안내문이 있으면 오류 종류의 안내문보다 먼저 보인다");
+  assert.deepEqual(addFailureMessage(KO, { code: "play-failed", kind: "network-error" }), text.notice("network-error"));
+  assert.deepEqual(addFailureMessage(KO, { code: "play-threw" }), text.notice("unknown-error"), "던진 것은 종류를 몰라도 오류 문장");
+  assert.deepEqual(addFailureMessage(KO, { code: "lookup-failed" }), text.notice("unknown-error"));
+  assert.deepEqual(addFailureMessage(KO, { code: "play-failed" }), text.notice("cannot-start"));
+  assert.deepEqual(addFailureMessage(KO, { code: "live-ended" }), text.notice("live-ended"));
+  assert.equal(plainText(addFailureMessage(KO, { code: "more-nothing-playable", skipped: 3 })), "해당 구간에는 재생할 수 없는 곡뿐이에요.\n미리듣기나 지역 제한 등이 걸린 곡들이라 넣지 못했어요. (3곡)");
 });

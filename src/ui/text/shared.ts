@@ -14,3 +14,4 @@ type SharedText = ReturnType<typeof sharedTextFor>;
 
 export { sharedTextFor, missingSharedText };
 export type { SharedText };
+export type { AddedTracks, Shortfall } from "./ko/added-parts.ts";

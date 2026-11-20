@@ -80,9 +80,9 @@ import { useNowPlayingStore } from "../stores/now-playing.ts";
 import { art } from "../theme/theme.ts";
 import { loopEnabled, previousEnabled, shuffleEnabled, skipEnabled } from "../utils/playback.ts";
 import { loopTip } from "../utils/loop-tip.ts";
-import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { text } from "../text/index.ts";
+const songTitle = text.bot.labels.songTitle;
 const T = text.player;
 
 const np = useNowPlayingStore();

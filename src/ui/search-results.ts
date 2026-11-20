@@ -6,12 +6,12 @@ import { SEARCH, customId } from "./custom-ids.ts";
 import { formatDuration, liveMarkOf } from "./format.ts";
 import { frame } from "./frame.ts";
 import { buttonEmoji, icon } from "./icons.ts";
-import * as searchText from "./text/ko/search.ts";
+import type { BotText } from "./text/index.ts";
 
 /** 결과 한 곡. platform은 출처(아이콘, 선택 값) */
 type ResultRow = { platform: SearchPick["platform"]; id: string; title: string | null; artist?: string; duration: number; isLive?: boolean; liveStatus?: string | null; pageUrl: string };
 
-const lengthOf = (row: ResultRow) => (row.isLive ? liveMarkOf(row) : formatDuration(row.duration, searchText.unknownLength()));
+const lengthOf = (T: BotText, row: ResultRow) => (row.isLive ? liveMarkOf(row) : formatDuration(row.duration, T.search.unknownLength()));
 
 /** 메뉴 항목의 값: 번호와 선택한 곡(같은 곡이 두 번 나와도 값이 겹치지 않게) */
 const optionValue = (rank: number, row: ResultRow) => `${rank}:${pickValue({ platform: row.platform, id: row.id })}`;
@@ -20,13 +20,13 @@ const optionValue = (rank: number, row: ResultRow) => `${rank}:${pickValue({ pla
 const pickOfOption = (value: string) => value.slice(value.indexOf(":") + 1);
 
 /** 결과 화면(처음부터 Components V2로 응답한 메시지를 고친다). userId: 고를 수 있는 사람, gated: 유튜브가 연령 인증을 걸어 스포티파이 곡만 있다 */
-function searchResultsView({ query, rows, gated, userId }: { query: string; rows: readonly ResultRow[]; gated: boolean; userId: string }) {
-  const body = rows.map((row, i) => searchText.resultLine(i + 1, { title: row.title, link: row.pageUrl, source: icon(row.platform), artist: row.artist, length: lengthOf(row) })).join("\n");
-  const card = frame({ icon: "search", title: searchText.resultsTitle(query), body, footer: gated ? [searchText.gatedFooter()] : [], divider: true });
-  const options = rows.map((row, i) => ({ ...searchText.pickOption(i + 1, { title: row.title, artist: row.artist, length: lengthOf(row) }), value: optionValue(i + 1, row), emoji: buttonEmoji(row.platform) }));
+function searchResultsView(T: BotText, { query, rows, gated, userId }: { query: string; rows: readonly ResultRow[]; gated: boolean; userId: string }) {
+  const body = rows.map((row, i) => T.search.resultLine(i + 1, { title: row.title, link: row.pageUrl, source: icon(row.platform), artist: row.artist, length: lengthOf(T, row) })).join("\n");
+  const card = frame({ icon: "search", title: T.search.resultsTitle(query), body, footer: gated ? [T.search.gatedFooter()] : [], divider: true });
+  const options = rows.map((row, i) => ({ ...T.search.pickOption(i + 1, { title: row.title, artist: row.artist, length: lengthOf(T, row) }), value: optionValue(i + 1, row), emoji: buttonEmoji(row.platform) }));
   const menu = new StringSelectMenuBuilder()
     .setCustomId(customId(SEARCH, "pick", userId))
-    .setPlaceholder(searchText.pickPlaceholder())
+    .setPlaceholder(T.search.pickPlaceholder())
     .addOptions(options);
   return { components: [card, new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)], flags: [MessageFlags.IsComponentsV2] as const };
 }

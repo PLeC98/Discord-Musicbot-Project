@@ -10,10 +10,11 @@ import { averageOf, historyMinutes } from "../../rules/latency.ts";
 import { LIFETIME, expireSelf, keepSelf } from "../../ui/delivery.ts";
 import { frame, post, reply } from "../../ui/frame.ts";
 import { pingView, type PingValues } from "../../ui/ping-view.ts";
-import * as infoText from "../../ui/text/ko/info.ts";
+import { privateText } from "../../ui/language.ts";
+import type { BotText } from "../../ui/text/index.ts";
 
 /** 재는 동안의 화면 */
-const measuring = () => frame({ title: infoText.ping().title, body: infoText.pinging() });
+const measuring = (T: BotText) => frame({ title: T.info.ping().title, body: T.info.pinging() });
 
 /** 현재 값. responseMs, restMs는 부른 쪽이 잰 것 */
 function measured(interaction: ChatInputCommandInteraction | ButtonInteraction, responseMs: number, restMs: number): PingValues {
@@ -33,10 +34,10 @@ function measured(interaction: ChatInputCommandInteraction | ButtonInteraction, 
 /** 다시 재기: 같은 메시지를 측정 중 화면으로 고친 시각으로 응답 시간을 잰다 */
 async function pingAgain(interaction: ButtonInteraction) {
   const startedAt = performance.now();
-  const { resource } = await interaction.update({ ...post(measuring()), withResponse: true });
+  const { resource } = await interaction.update({ ...post(measuring(privateText(interaction))), withResponse: true });
   const restMs = Math.round(performance.now() - startedAt);
   const answeredAt = resource?.message?.editedTimestamp ?? Date.now();
-  await interaction.editReply(post(pingView(measured(interaction, answeredAt - interaction.createdTimestamp, restMs))));
+  await interaction.editReply(post(pingView(privateText(interaction), measured(interaction, answeredAt - interaction.createdTimestamp, restMs))));
   keepSelf(interaction, LIFETIME.screen);
 }
 
@@ -47,11 +48,11 @@ const exported: AnywhereCommand = {
 
   async execute(interaction) {
     const startedAt = performance.now();
-    const { resource } = await interaction.reply({ ...reply(measuring()), withResponse: true });
+    const { resource } = await interaction.reply({ ...reply(measuring(privateText(interaction))), withResponse: true });
     const restMs = Math.round(performance.now() - startedAt);
     // 보낸 응답의 디스코드 시각. 응답에 메시지가 포함되어 오지 않으면 현재 시각으로 본다
     const answeredAt = resource?.message?.createdTimestamp ?? Date.now();
-    await interaction.editReply(post(pingView(measured(interaction, answeredAt - interaction.createdTimestamp, restMs))));
+    await interaction.editReply(post(pingView(privateText(interaction), measured(interaction, answeredAt - interaction.createdTimestamp, restMs))));
     expireSelf(interaction, LIFETIME.screen);
   },
 };

@@ -5,10 +5,12 @@ import assert from "node:assert/strict";
 import { pingView, type PingValues } from "../../src/ui/ping-view.ts";
 import { LIMITS } from "../../src/rules/status-levels.ts";
 import { textOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const base: PingValues = { responseMs: 186, restMs: 48, gatewayMs: 42, gatewayAverage: { minutes: 15, ms: 45 }, voiceMs: 31, again: true };
-const text = (v: Partial<PingValues>) => textOf({ components: [pingView({ ...base, ...v })] });
-const json = (v: Partial<PingValues>) => JSON.stringify(pingView({ ...base, ...v }).toJSON());
+const text = (v: Partial<PingValues>) => textOf({ components: [pingView(KO, { ...base, ...v })] });
+const json = (v: Partial<PingValues>) => JSON.stringify(pingView(KO, { ...base, ...v }).toJSON());
 
 test("값마다 속도별 색, 이름, 값(코드 블록)과 무엇과 무엇 사이인지 작은 글씨 줄. 게이트웨이 옆에 기록 평균", () => {
   assert.equal(text({}), ["### 🏓 퐁!", "🟢 **응답 시간** `186ms`", "-# 명령 → 봇 → 응답", "🟢 **REST 왕복** `48ms`", "-# 봇 ↔ 디스코드 API", "🟢 **게이트웨이** `42ms` · 15분 평균 `45ms`", "-# 봇 ↔ 디스코드 연결", "🟢 **음성** `31ms`", "-# 봇 ↔ 이 서버의 음성 연결"].join("\n"));

@@ -32,7 +32,6 @@ import { test, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import * as settings from "../../src/store/guild-settings.ts";
 import * as lookup from "../../src/sources/lookup.ts";
 import * as addTracks from "../../src/usecases/add-tracks.ts";
@@ -44,7 +43,10 @@ import { networkError } from "../helpers/errors.ts";
 import { interactionKind } from "../helpers/interaction-kind.ts";
 import { frame, noticeFrame, noticeReply, post, reply } from "../../src/ui/frame.ts";
 import * as replies from "../../src/ui/control-replies.ts";
-import { DISCORD_LOOK } from "../../src/ui/mentions.ts";
+import { discordLook } from "../../src/ui/mentions.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
+const errors = textFor("ko").errors;
 
 useDefaultDocuments();
 
@@ -550,8 +552,8 @@ test('/join: 음성에 없거나 봇에게 권한이 없으면 곧바로 거절,
   const c = interaction(joined);
   await runCommand(await command("join"), c.it, joined.bot);
   assert.deepEqual(c.log, [
-    ["reply", reply(replies.joining())],
-    ["editReply", post(replies.alreadyJoined())],
+    ["reply", reply(replies.joining(KO))],
+    ["editReply", post(replies.alreadyJoined(KO))],
   ]);
   assert.deepEqual(lifetimesOf(c.it), [LIFETIME.glance], "아무것도 바뀌지 않았다");
 });
@@ -576,7 +578,7 @@ test('/join: 음성 채널에 붙지 못하면 만든 플레이어를 버리고 
     behavior.connect = null;
   }
   assert.deepEqual(log, [
-    ["reply", reply(replies.joining())],
+    ["reply", reply(replies.joining(KO))],
     ["editReply", post(noticeFrame(errors.notice("voice-failed")))],
   ]);
   assert.equal(w.bot.players.has("g1"), false, "붙지 못한 플레이어가 남지 않는다");
@@ -613,10 +615,10 @@ test("/join: 저장된 세션이 없으면 붙기만 하고, 끝난 패널에 jo
   assert.ok(player instanceof h.Player);
   try {
     assert.ok(player.connection, "붙었다");
-    assert.deepEqual(log, [["reply", reply(replies.joining())], ["deleteReply"]], '음성 연결 전에 "참가하는 중"으로 응답하고 결과 때 지운다');
+    assert.deepEqual(log, [["reply", reply(replies.joining(KO))], ["deleteReply"]], '음성 연결 전에 "참가하는 중"으로 응답하고 결과 때 지운다');
     assert.deepEqual(
       sentOnChannel.map((m) => m.payload),
-      [post(replies.joined())],
+      [post(replies.joined(KO))],
       "결과는 모두에게 알린다",
     );
     assert.ok(w.seen.includes("end:joined"));
@@ -673,8 +675,8 @@ test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 �
   });
   assert.deepEqual(options, [{ announce: false }], "채널 알림은 내지 않는다(이 응답이 말한다)");
   const saved = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
-  assert.deepEqual(playing.log, [["reply", reply(replies.joining())], ["editReply", post(replies.restoring())], ["deleteReply"]], "참가하는 중 → 불러오는 중 → 결과 때 지움");
-  assert.deepEqual(playing.shown(), [post(replies.restored(saved, false))]);
+  assert.deepEqual(playing.log, [["reply", reply(replies.joining(KO))], ["editReply", post(replies.restoring(KO))], ["deleteReply"]], "참가하는 중 → 불러오는 중 → 결과 때 지움");
+  assert.deepEqual(playing.shown(), [post(replies.restored(KO, saved, false))]);
   assert.match(JSON.stringify(playing.shown()), /을 듣고 있었어요\. 이어서 재생할게요!/);
   assert.deepEqual(lifetimesOf(playing.it), [LIFETIME.result], "결과 수명 뒤 지운다");
 
@@ -682,7 +684,7 @@ test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 �
     this.currentTrack = tracks.youtube("ccccccccccc", { title: "저장된 곡" });
     this.pause.setUser(true);
   });
-  assert.deepEqual(paused.shown(), [post(replies.restored(saved, true))]);
+  assert.deepEqual(paused.shown(), [post(replies.restored(KO, saved, true))]);
 
   // 복원한 결과(restoreSession)로 분기한다. 테스트의 가짜는 복원한 뒤의 상태로 결과를 낸다(곡 있음, 열지 못해 그 곡에서 일시정지해 둠, 틀다 실패해 남은 곡 없음, 틀 곡 없음)
   const nothingLeft = await run(async function () {
@@ -692,7 +694,7 @@ test('/join: 저장된 세션이 있으면 "참가하는 중"을 "불러오는 �
 
   // 저장 위치가 마지막 곡의 끝이라 틀 곡이 남지 않았다: 보통의 참가로 잇는다
   const ended = await run(async () => {});
-  assert.deepEqual(ended.shown(), [post(replies.joined())]);
+  assert.deepEqual(ended.shown(), [post(replies.joined(KO))]);
 
   const parked = await run(async function () {
     this.currentTrack = tracks.youtube("ddddddddddd");
@@ -821,7 +823,7 @@ test("/dashboard: 전용 채널이 있으면 그 채널에서만(권한 무관),
   const w = world();
   const elsewhere = interaction(w, { channelId: "c1" });
   await runCommand(await command("dashboard"), elsewhere.it, w.bot);
-  assert.deepEqual(elsewhere.log, [["reply", noticeReply(errors.notice("only-in-bot-channel", { channelId: "panel-channel" }, DISCORD_LOOK))]]);
+  assert.deepEqual(elsewhere.log, [["reply", noticeReply(errors.notice("only-in-bot-channel", { channelId: "panel-channel" }, discordLook(textFor("ko"))))]]);
 
   const inPanel = interaction(w, { channelId: "panel-channel" });
   await runCommand(await command("dashboard"), inPanel.it, w.bot);

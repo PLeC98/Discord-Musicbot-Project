@@ -13,8 +13,8 @@ import Icon from "./BaseIcon.vue";
 import { platformColor } from "../utils/platform-color.ts";
 import { text } from "../text/index.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
-import { pausedLabel } from "../../../src/ui/text/ko/panel.ts";
 import type { Hold } from "../../../src/rules/holds.ts";
+const pausedLabel = text.bot.panel.pausedLabel;
 const T = text.player;
 
 const CHIP = "h-6 px-3 rounded-full bg-surface-container-high text-xs font-semibold text-on-surface-variant inline-flex items-center gap-1 shrink-0";

@@ -8,6 +8,8 @@ import { PermissionFlagsBits, type ButtonInteraction, type RoleSelectMenuInterac
 import { openTempStore, whenSettingsBroken } from "../helpers/temp-store.ts";
 import { interactionKind, type InteractionKind } from "../helpers/interaction-kind.ts";
 import { screenOf, textOf, selectOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 const temp = openTempStore("settings-panel-");
 const settings = await import("../../src/store/guild-settings.ts");
 const documents = await import("../../src/config/documents.ts");
@@ -38,7 +40,7 @@ const guild = {
       ["rbot", { id: "rbot", tags: { botId: "bot" } }],
     ]),
   },
-} as unknown as Parameters<typeof panel>[0];
+} as unknown as Parameters<typeof panel>[1];
 
 type Payload = { components: Array<{ toJSON(): unknown }> };
 type Node = { type: number; custom_id?: string; label?: string; style?: number; disabled?: boolean; components?: Node[]; accessory?: Node };
@@ -104,7 +106,7 @@ const run = async (ix: ReturnType<typeof fakeInteraction>) => {
   await interactionCreate.execute(fakeBot(), ix);
   return ix;
 };
-const render = async () => ({ components: [await panel(guild)] });
+const render = async () => ({ components: [await panel(KO, guild)] });
 
 test("한 화면에 세 부분. 컴포넌트 40, 글자 4000 한도 안", async () => {
   const shown = await render();

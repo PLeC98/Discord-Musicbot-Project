@@ -4,6 +4,7 @@ import { controlMessage } from "../../ui/control-messages.ts";
 import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj" },
@@ -19,9 +20,9 @@ const exported: GuildCommand = {
     const to = interaction.options.getInteger("to", true);
     // 사람은 1부터 센다
     const r = await controls.move(bot.players.get(guild.id), { member }, from - 1, to - 1);
-    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
+    if (!r.ok) return noticeSelf(interaction, controlMessage(privateText(interaction), r));
 
-    await toAll(interaction, replies.moved(r.track, from, to, member), LIFETIME.result);
+    await toAll(interaction, replies.moved(publicText(interaction.guildId), r.track, from, to, member), LIFETIME.result);
   },
 };
 export default exported;

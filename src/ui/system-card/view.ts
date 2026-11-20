@@ -8,8 +8,7 @@ import { SYSTEM, customId } from "../custom-ids.ts";
 import { adminStatusButton } from "../dashboard-link.ts";
 import type { Attachment } from "../frame.ts";
 import { buttonEmoji, icon } from "../icons.ts";
-import * as infoText from "../text/ko/info.ts";
-import * as T from "../text/ko/system-card.ts";
+import type { BotText } from "../text/index.ts";
 
 /** 첨부 파일 이름 */
 const FILES = { cards: "system.png", history: "history.png" } as const;
@@ -25,27 +24,28 @@ type SystemView = {
 };
 
 /** 메시지의 컨테이너와 첨부 파일 */
-function systemView(v: SystemView): { view: ContainerBuilder; files: Attachment[] } {
+/** T는 보는 사람의 문구표(본인에게만 보이는 화면) */
+function systemView(T: BotText, v: SystemView): { view: ContainerBuilder; files: Attachment[] } {
   const box = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
-  const head = new TextDisplayBuilder().setContent([`### ${icon("system")} ${T.title}`, `-# ${T.versions(v.versions.bot, v.versions.ytdlp, v.versions.bgutil)}`].join("\n"));
+  const head = new TextDisplayBuilder().setContent([`### ${icon("system")} ${T.systemCard.title}`, `-# ${T.systemCard.versions(v.versions.bot, v.versions.ytdlp, v.versions.bgutil)}`].join("\n"));
   if (v.avatar) box.addSectionComponents(new SectionBuilder().addTextDisplayComponents(head).setThumbnailAccessory(new ThumbnailBuilder().setURL(v.avatar)));
   else box.addTextDisplayComponents(head);
   const files: Attachment[] = [];
-  if (typeof v.images === "string") box.addTextDisplayComponents(new TextDisplayBuilder().setContent(v.images === "drawing" ? T.drawing : T.drawFailed));
+  if (typeof v.images === "string") box.addTextDisplayComponents(new TextDisplayBuilder().setContent(v.images === "drawing" ? T.systemCard.drawing : T.systemCard.drawFailed));
   else {
     files.push({ attachment: v.images.top, name: FILES.cards }, { attachment: v.images.bottom, name: FILES.history });
-    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${FILES.cards}`).setDescription(T.cardAlt)));
-    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${FILES.history}`).setDescription(T.historyAlt)));
+    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${FILES.cards}`).setDescription(T.systemCard.cardAlt)));
+    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${FILES.history}`).setDescription(T.systemCard.historyAlt)));
   }
   box.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
-  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${T.updated(`<t:${v.updatedAt}:f>`)}`));
+  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${T.systemCard.updated(`<t:${v.updatedAt}:f>`)}`));
   const refresh = new ButtonBuilder()
     .setCustomId(customId(SYSTEM, "refresh"))
-    .setLabel(infoText.refresh())
+    .setLabel(T.info.refresh())
     .setEmoji(buttonEmoji("refresh"))
     .setStyle(ButtonStyle.Secondary)
     .setDisabled(v.images === "drawing");
-  const panel = adminStatusButton(T.panelLink);
+  const panel = adminStatusButton(T.systemCard.panelLink);
   box.addActionRowComponents(new ActionRowBuilder<ButtonBuilder>().addComponents(panel ? [refresh, panel] : [refresh]));
   return { view: box, files };
 }

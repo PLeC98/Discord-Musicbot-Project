@@ -1,10 +1,10 @@
 // 대기열 줄 만들기. /queue 화면(보기, 편집), 대기열 버튼, 곡을 고르는 메뉴(재생 패널의 곡으로 건너뛰기, /queue 편집)가 같은 규칙(요청자 표기)을 쓰게 한 곳에 둔다.
+// T는 그 화면의 독자에 맞는 문구표(ui/language: 재생 패널은 서버 언어, /queue는 본인 언어)
 
 import { clipWidth } from "../rules/clip-text.ts";
 import type { MenuEntry, Part } from "./menu-fit.ts";
 import { formatDuration, liveMarkOf } from "./format.ts";
-import { songTitle } from "./text/ko/labels.ts";
-import * as queueText from "./text/ko/queue.ts";
+import type { BotText } from "./text/index.ts";
 import { escapeMd, linkLabel } from "./mentions.ts";
 import { ICONS, icon } from "./icons.ts";
 import { jumpValue } from "./custom-ids.ts";
@@ -15,8 +15,8 @@ type Requested = Pick<QueuedTrack, "autoplay" | "requestedBy"> | null | undefine
 
 // 화면 글에 적는 요청자. 멘션으로 적는다(알림은 가지 않고, 이름 캐시가 없어도 항상 맞게 보인다).
 // 자동재생 곡은 장르 이모지가 아니라 자동재생 아이콘과 이름이다(알릴 것은 장르가 아니라 자동으로 들어온 곡이라는 것)
-function requesterLabel(track: Requested) {
-  if (track?.autoplay) return `${icon("autoplay")} ${queueText.autoplayBy}`;
+function requesterLabel(T: BotText, track: Requested) {
+  if (track?.autoplay) return `${icon("autoplay")} ${T.queue.autoplayBy}`;
   const id = track?.requestedBy?.id;
   return id ? `<@${id}>` : null;
 }
@@ -45,12 +45,12 @@ const lengthOf = (track: Length) => (track?.isLive ? liveMarkOf(track) : formatD
  * 대기열 한 곡의 두 줄: `` `3` **[제목](url)** · 길이 `` 아래 작은 글씨로 `아티스트 · 요청자 · 시작까지`. 아래 줄은 적을 것이 없으면 없다.
  * link가 거짓이면 제목만(라벨 밖이라 이스케이프한다). startsIn: 시작까지의 초(rules/queue-timing), 모르면 null
  */
-function entryLine(track: Listed, number: number, { link = true, startsIn = null }: { link?: boolean; startsIn?: number | null } = {}) {
-  const title = shorten(songTitle(track.title), TITLE_MAX);
+function entryLine(T: BotText, track: Listed, number: number, { link = true, startsIn = null }: { link?: boolean; startsIn?: number | null } = {}) {
+  const title = shorten(T.labels.songTitle(track.title), TITLE_MAX);
   const name = link && track.pageUrl ? `[${linkLabel(title)}](${track.pageUrl})` : escapeMd(title);
   const length = lengthOf(track);
   const head = `\`${number}\` **${name}**${length ? ` · ${length}` : ""}`;
-  const below = [track.artist ? escapeMd(shorten(track.artist, ARTIST_MAX)) : null, requesterLabel(track), startsIn === null ? null : queueText.startsIn(startsIn)].filter(Boolean);
+  const below = [track.artist ? escapeMd(shorten(track.artist, ARTIST_MAX)) : null, requesterLabel(T, track), startsIn === null ? null : T.queue.startsIn(startsIn)].filter(Boolean);
   return below.length ? `${head}\n-# ${below.join(" · ")}` : head;
 }
 
@@ -59,10 +59,10 @@ function entryLine(track: Listed, number: number, { link = true, startsIn = null
  * 수백 자다). 링크를 다 떼면 한 곡에 200자 안쪽이라 한 페이지가 들어간다. 그래도 넘치면 자른다.
  * first: 첫 곡의 번호, startsIn: 곡마다 시작까지의 초
  */
-function entryLines({ tracks, first = 1, startsIn = [], max }: { tracks: Listed[]; first?: number; startsIn?: Array<number | null>; max: number }) {
+function entryLines(T: BotText, { tracks, first = 1, startsIn = [], max }: { tracks: Listed[]; first?: number; startsIn?: Array<number | null>; max: number }) {
   const linked = new Set<number>(tracks.map((_, i) => i));
   const urlOf = (i: number) => tracks[i]?.pageUrl || "";
-  const render = () => tracks.map((track, i) => entryLine(track, first + i, { link: linked.has(i), startsIn: startsIn[i] ?? null })).join("\n");
+  const render = () => tracks.map((track, i) => entryLine(T, track, first + i, { link: linked.has(i), startsIn: startsIn[i] ?? null })).join("\n");
   let text = render();
   while (text.length > max && linked.size) {
     const longest = [...linked].reduce((a, b) => (urlOf(b).length > urlOf(a).length ? b : a));
@@ -101,12 +101,12 @@ function editParts(track: (Length & Partial<Pick<QueuedTrack, "artist">>) | null
  * 메뉴를 그린 뒤 대기열이 바뀌어도 고른 곡을 가리킨다. ID가 없거나 겹치는 곡은 뺀다(값이 겹친 메뉴는 디스코드가 메시지째 거절한다).
  * first: 첫 곡의 번호, parts: 설명의 칸, picked: 골라 둔 곡의 대기열 ID, only: 넣을 곡(거짓인 곡은 빼고, 번호는 대기열 자리 그대로)
  */
-function menuEntries<T extends Pick<QueuedTrack, "title" | "entry">>(tracks: readonly T[], { first = 1, parts, picked = null, only = () => true }: { first?: number; parts: (track: T) => Part[]; picked?: number | null; only?: (track: T) => boolean }): MenuEntry[] {
+function menuEntries<Track extends Pick<QueuedTrack, "title" | "entry">>(T: BotText, tracks: readonly Track[], { first = 1, parts, picked = null, only = () => true }: { first?: number; parts: (track: Track) => Part[]; picked?: number | null; only?: (track: Track) => boolean }): MenuEntry[] {
   const seen = new Set<number>();
   return tracks.flatMap((track, i) => {
     if (track.entry === undefined || seen.has(track.entry) || !only(track)) return [];
     seen.add(track.entry);
-    return [{ label: clipWidth(`${first + i}. ${songTitle(track.title)}`, LABEL_WIDTH), value: jumpValue(track.entry), parts: parts(track), picked: track.entry === picked }];
+    return [{ label: clipWidth(`${first + i}. ${T.labels.songTitle(track.title)}`, LABEL_WIDTH), value: jumpValue(track.entry), parts: parts(track), picked: track.entry === picked }];
   });
 }
 

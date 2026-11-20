@@ -8,7 +8,8 @@ import { DEFAULT_SEED, schemeColors } from "../../rules/palette.ts";
 import type { Level } from "../../rules/status-levels.ts";
 import { formatBytes, formatSpan } from "../format.ts";
 import { DASHBOARD_COLORS } from "../palette.ts";
-import * as T from "../text/ko/system-card.ts";
+import { sharedTextFor } from "../text/shared.ts";
+import { infoOf, type Language } from "../../rules/languages.ts";
 import { ensureFonts } from "../card-render/canvas-fonts.ts";
 import { FACES, FAMILIES, type Face } from "../card-render/fonts.ts";
 import { drawIcon } from "../card-render/icon-paths.ts";
@@ -19,6 +20,8 @@ type Series = { values: number[]; max: number };
 
 /** 그릴 값. 크기는 바이트, 시간은 초, 비율은 % */
 type CardData = {
+  /** 그릴 언어. 본인에게만 보이는 화면이라 보는 사람의 언어다(ui/language) */
+  language: Language;
   /** 색 체계의 바탕색(#rrggbb, 임베드 색). null이면 기본색 */
   seed: string | null;
   overall: { level: Level; count: number };
@@ -55,7 +58,11 @@ const pct = (value: number) => `${Math.round(value)}%`;
 const clamp01 = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0);
 /** 밀리초: 10 미만은 소수 한 자리, 1초부터는 초 */
 const msText = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : ms >= 10 ? `${Math.round(ms)}ms` : `${ms.toFixed(1)}ms`);
-const countText = (n: number) => n.toLocaleString("ko-KR");
+const countText = (n: number, d: CardData) => n.toLocaleString(infoOf(d.language).locale);
+/** 카드의 문구표 */
+const textOf = (d: CardData) => sharedTextFor(d.language).systemCard;
+/** 카드의 문구표 타입 */
+type CardText = ReturnType<typeof textOf>;
 
 type Colors = Record<string, string>;
 const levelInk = (c: Colors, level: Level) => (level === "ok" ? c.primary : level === "warn" ? DASHBOARD_COLORS.warnInk : c.error);
@@ -128,6 +135,7 @@ type Pen = ReturnType<typeof pen>;
 
 // 상태: 대시보드 요약과 같은 판정, 같은 배지 색. 제목과 경고 수가 한 줄에 안 들어가면 경고 수를 아래 줄로(문장 길이는 언어마다 다르다)
 function statusCard(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const { level, count } = d.overall;
   const fill = level === "ok" ? c.primary_container : level === "warn" ? DASHBOARD_COLORS.warnInk : c.error_container;
@@ -149,6 +157,7 @@ function statusCard(p: Pen, d: CardData) {
 
 // CPU: 큰 숫자는 봇, 바탕은 시스템 전체(옅게) 위에 봇(진하게). 모델 이름은 제목 옆
 function cpuCard(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const ink = levelInk(c, d.cpu.level);
   const y = rowY(1);
@@ -164,6 +173,7 @@ function cpuCard(p: Pen, d: CardData) {
 
 // heap 메모리: 상한 대비(대시보드와 같다)
 function heapCard(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const ink = levelInk(c, d.heap.level);
   const y = rowY(2);
@@ -185,6 +195,7 @@ function storeCard(p: Pen, x: number, card: { name: { icon: CardIcon; text: stri
 
 // 캐시, 디스크: 저장공간 막대의 고정 색. 디스크는 캐시와 나머지 사용량을 나눠 칠한다
 function storageCards(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const cacheShare = d.cache.maxBytes > 0 ? d.cache.bytes / d.cache.maxBytes : 0;
   storeCard(p, 0, {
@@ -210,6 +221,7 @@ function storageCards(p: Pen, d: CardData) {
 }
 
 function uptimeCard(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const room = COL - PAD * 2;
   p.rect({ x: RIGHT, y: 0, w: COL, h: ROW * 2 + GAP }, RADIUS, c.surface_container);
@@ -221,6 +233,7 @@ function uptimeCard(p: Pen, d: CardData) {
 }
 
 function overviewCard(p: Pen, d: CardData) {
+  const T = textOf(d);
   const { c } = p;
   const y = rowY(2);
   p.rect({ x: RIGHT, y, w: COL, h: ROW * 2 + GAP }, RADIUS, c.surface_container);
@@ -235,7 +248,7 @@ function overviewCard(p: Pen, d: CardData) {
     p.rect({ x: RIGHT + 24, y: ry, w: COL - 48, h: 84 }, 42, c.surface_container_high);
     p.icon(icon, { x: RIGHT + 48, y: ry + 22, size: 40 }, c.on_surface_variant);
     p.text(label, RIGHT + 104, ry + 54, { face: "regular", size: 34, color: c.on_surface_variant });
-    p.text(countText(value), RIGHT + COL - 52, ry + 56, { face: "strong", size: 40, color: c.on_surface, align: "end" });
+    p.text(countText(value, d), RIGHT + COL - 52, ry + 56, { face: "strong", size: 40, color: c.on_surface, align: "end" });
   });
 }
 
@@ -279,7 +292,7 @@ function spark(g: SKRSContext2D, b: Box, s: Series, line: { color: string; fill:
 }
 
 /** CPU 그래프의 범례(봇, 시스템) */
-function legend(p: Pen, x: number, botInk: string) {
+function legend(T: CardText, p: Pen, x: number, botInk: string) {
   const { g, c } = p;
   const dot = (cx: number, color: string) => {
     g.fillStyle = color;
@@ -297,13 +310,13 @@ function legend(p: Pen, x: number, botInk: string) {
 
 type GraphCard = { name: string; now: string; ink: string; lines: Array<{ s: Series; color: string; fill: boolean }>; legend: boolean };
 
-function graphCard(p: Pen, x: number, card: GraphCard, h: CardData["history"]) {
+function graphCard(T: CardText, p: Pen, x: number, card: GraphCard, h: CardData["history"]) {
   const { g, c } = p;
   const label = { face: "regular", size: 32, color: c.on_surface_variant } as const;
   p.rect({ x, y: 0, w: COL, h: BOTTOM.height }, RADIUS, c.surface_container);
   p.text(card.name, x + PAD, 70, { face: "strong", size: 36, color: c.on_surface, maxWidth: COL - PAD * 2 - p.width(card.now, "strong", 44) - 16 });
   p.text(card.now, x + COL - PAD, 72, { face: "strong", size: 44, color: card.ink, align: "end" });
-  if (card.legend) legend(p, x + PAD, card.ink);
+  if (card.legend) legend(T, p, x + PAD, card.ink);
   else p.text(T.p99, x + PAD, 118, label);
   g.fillStyle = c.outline_variant;
   g.fillRect(x + PAD, 315, COL - PAD * 2, 2);
@@ -317,6 +330,7 @@ function graphCard(p: Pen, x: number, card: GraphCard, h: CardData["history"]) {
 }
 
 function drawBottom(d: CardData, c: Colors) {
+  const T = textOf(d);
   const canvas = createCanvas(BOTTOM.width, BOTTOM.height);
   const p = pen(canvas.getContext("2d"), c);
   const h = d.history;
@@ -337,7 +351,7 @@ function drawBottom(d: CardData, c: Colors) {
     { name: T.loop, now: msText(h.loop.now), ink: loopInk, lines: [{ s: h.loop, color: loopInk, fill: true }], legend: false },
     { name: T.encoding, now: msText(h.encoding.now), ink: encodingInk, lines: [{ s: h.encoding, color: encodingInk, fill: true }], legend: false },
   ];
-  cards.forEach((card, i) => graphCard(p, i * (COL + GAP), card, h));
+  cards.forEach((card, i) => graphCard(T, p, i * (COL + GAP), card, h));
   return canvas;
 }
 

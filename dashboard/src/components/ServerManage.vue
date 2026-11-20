@@ -45,7 +45,7 @@
               <!-- eslint-disable-next-line vue/no-v-html -- 글은 이스케이프하고 만든 태그만 넣는다 -->
               <div v-if="body" class="dmd mt-1 text-sm text-on-surface wrap-break-word" @click="revealSpoiler" v-html="rendered"></div>
               <p v-else class="mt-1 text-sm text-on-surface-variant">{{ T.announce.previewEmpty }}</p>
-              <p class="mt-2 text-xs text-on-surface-variant nums">{{ T.announce.previewFooter(sentAt) }}</p>
+              <p class="mt-2 text-xs text-on-surface-variant nums">{{ T.announce.previewFooter(announceText.footer, sentAt) }}</p>
             </div>
           </div>
         </div>
@@ -135,10 +135,10 @@ import { segment } from "../utils/segment.ts";
 import { ANNOUNCE_MAX, ANNOUNCE_STYLE, Q_MAX, announceBody, type AdminGuild, type AdminGuilds, type AnnounceKind, type BroadcastReply, type GuildQuery, type GuildSort, type Span } from "../../../src/dashboard/contract/admin.ts";
 import type { IconName } from "../icons.ts";
 import { ICONS } from "../../../src/ui/icons.ts";
-import * as announceText from "../../../src/ui/text/ko/announce.ts";
 import { iconTones } from "../../../src/rules/icon-tones.ts";
 import { formatNumber, formatTime } from "../utils/locale.ts";
 import { text } from "../text/index.ts";
+const announceText = text.bot.announce;
 const F = text.fields.format;
 const T = text.manage;
 

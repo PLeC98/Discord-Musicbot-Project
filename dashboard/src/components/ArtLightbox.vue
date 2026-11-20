@@ -19,10 +19,10 @@
 import { computed, ref, watch } from "vue";
 import { useCloseLayer } from "../composables/close-layer.ts";
 import DialogTransition from "./DialogTransition.vue";
-import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { bigArt, noteArt } from "../utils/big-art.ts";
 import type { Content } from "../theme/art.ts";
 import { text } from "../text/index.ts";
+const songTitle = text.bot.labels.songTitle;
 const T = text.player;
 
 /** content: 레터박스 띠를 뺀 내용의 비율(theme/art의 useArtContent). 큰 이미지도 같은 프레임이라 같은 비율로 뺀다 */

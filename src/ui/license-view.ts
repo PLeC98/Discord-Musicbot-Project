@@ -4,11 +4,11 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ContainerBuilder, Separat
 import { AGPL_URL, PROJECT_COPYRIGHT, PROJECT_LICENSE, isModifiedSource } from "../rules/project-source.ts";
 import { colorOf } from "./colors.ts";
 import { buttonEmoji } from "./icons.ts";
-import * as infoText from "./text/ko/info.ts";
+import type { BotText } from "./text/index.ts";
 
 /** sourceRepo: 운영 소스 코드(SOURCE_REPO_URL, 없으면 본 저장소), projectRepo: 본 저장소 */
-function licenseView({ sourceRepo, projectRepo }: { sourceRepo: string; projectRepo: string }) {
-  const t = infoText.license();
+function licenseView(T: BotText, { sourceRepo, projectRepo }: { sourceRepo: string; projectRepo: string }) {
+  const t = T.info.license();
   const modified = isModifiedSource(sourceRepo, projectRepo);
   const link = (label: string, url: string) => new ButtonBuilder().setLabel(label).setEmoji(buttonEmoji("web")).setURL(url).setStyle(ButtonStyle.Link);
   const box = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));

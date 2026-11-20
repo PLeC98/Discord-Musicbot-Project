@@ -7,6 +7,8 @@ import { errorMessage } from "../../src/ui/error-messages.ts";
 import { ytDlpError } from "../helpers/errors.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { plainText } from "../helpers/notice.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const HINT = " Use --cookies-from-browser or --cookies for the authentication. See  https://github.com/yt-dlp/yt-dlp/wiki/FAQ  for how to manually pass cookies.";
 const AGE = `ERROR: [youtube] hc0ZDaAZQT0: Sign in to confirm your age.${HINT}`;
@@ -22,8 +24,8 @@ test("연령 제한은 쿠키가 없어서인지, 쿠키가 무효인지, 쿠키
 });
 
 test("쿠키가 무효이면 사용자에게는 일시적이라고 알린다", () => {
-  assert.equal(plainText(errorMessage(ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "일시적으로 연령 제한 영상을 틀 수 없어요!\n오류가 계속되면 봇 운영자에게 알려주세요.");
-  assert.equal(plainText(errorMessage(ytdlpError(AGE))), "연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.");
+  assert.equal(plainText(errorMessage(KO, ytdlpError(`${COOKIE_WARN}\n${AGE}`))), "일시적으로 연령 제한 영상을 틀 수 없어요!\n오류가 계속되면 봇 운영자에게 알려주세요.");
+  assert.equal(plainText(errorMessage(KO, ytdlpError(AGE))), "연령 제한 영상은 틀 수 없어요!\n제한되지 않은 곡을 틀어주세요.");
 });
 
 test("무엇이 막았는지 분명한 종류는 이름만 남긴다", () => {
@@ -44,7 +46,7 @@ test("봇 감지, 요청 제한: 운영자 안내는 로그 줄에만 붙고 사
   assert.match(failureReason(limited, false), /^요청 제한 \(운영자: .*시간당.*\) \(abcdefghijk\)$/);
   for (const line of [failureReason(bot, false), failureReason(limited, false)]) assert.doesNotMatch(line, /쿠키/, line);
   for (const error of [bot, limited]) {
-    const told = plainText(errorMessage(error));
+    const told = plainText(errorMessage(KO, error));
     assert.doesNotMatch(told, /\.env|쿠키 출처|bgutil/, told);
     assert.match(told, /봇 운영자에게 알려주세요/);
   }

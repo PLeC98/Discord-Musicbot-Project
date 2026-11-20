@@ -6,14 +6,16 @@ import { missingText, textFor } from "../../../src/ui/text/index.ts";
 import { missingSharedText, sharedTextFor } from "../../../src/ui/text/shared.ts";
 import { TEST_LANGUAGE } from "../../../src/rules/languages.ts";
 import * as koErrors from "../../../src/ui/text/ko/errors.ts";
+import { bindErrors } from "../../../src/ui/text/notice.ts";
 import * as koLabels from "../../../src/ui/text/ko/labels.ts";
 
 test("한국어 번들은 언어 모듈과 같은 글을 내고, 빠진 문구가 없다", () => {
   const T = textFor("ko");
   assert.equal(T.labels.songTitle, koLabels.songTitle, "채울 것이 없으면 언어 모듈의 함수를 그대로 쓴다");
-  assert.deepEqual(T.errors.notice("no-song"), koErrors.notice("no-song"));
-  assert.deepEqual(T.errors.notice("queue-full", { max: 200 }), koErrors.notice("queue-full", { max: 200 }));
-  assert.deepEqual(T.errors.noticeFor("queue-full"), koErrors.noticeFor("queue-full"), "값이 빠지면 알 수 없는 오류");
+  const ko = bindErrors(koErrors.TEXT, koErrors.PLAIN);
+  assert.deepEqual(T.errors.notice("no-song"), ko.notice("no-song"));
+  assert.deepEqual(T.errors.notice("queue-full", { max: 200 }), ko.notice("queue-full", { max: 200 }));
+  assert.deepEqual(T.errors.noticeFor("queue-full"), ko.noticeFor("queue-full"), "값이 빠지면 알 수 없는 오류");
   assert.deepEqual([...missingText()], []);
   assert.deepEqual([...missingSharedText()], []);
 });

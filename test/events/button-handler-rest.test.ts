@@ -22,6 +22,7 @@ import { headOf, textsOf, thumbnailOf } from "../helpers/cv2.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
+import { textFor } from "../../src/ui/text/index.ts";
 
 useDefaultDocuments();
 
@@ -32,7 +33,7 @@ stores.open(TMP);
 audioCache.initialize();
 
 const config = (await import("../../src/config/index.ts")).default;
-const errors = await import("../../src/ui/text/ko/errors.ts");
+const errors = textFor("ko").errors;
 // 안내 응답의 헤더 줄
 const said = (notice: Notice) => headOf(noticeReply(notice));
 const settings = await import("../../src/store/guild-settings.ts");

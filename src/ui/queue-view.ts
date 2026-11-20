@@ -17,7 +17,7 @@ import { buttonEmoji, type IconKey } from "./icons.ts";
 import { COMPONENTS_BYTES_MAX, componentsBytes } from "./message-size.ts";
 import { EDIT_SEPARATOR, editParts, entryLines, menuEntries, type Listed } from "./queue-display.ts";
 import { fitMenu } from "./menu-fit.ts";
-import * as T from "./text/ko/queue.ts";
+import type { BotText } from "./text/index.ts";
 
 /** 한 페이지에 보이는 곡 수 */
 const PAGE_SIZE = 10;
@@ -103,11 +103,11 @@ const button = (id: string, { label, emoji, style = ButtonStyle.Secondary, disab
 };
 
 /** 넘기기 줄. 페이지가 하나면 last만(last도 없으면 줄이 없다) */
-function navRow(mode: Mode, page: number, pages: number, last: ButtonBuilder | null) {
+function navRow(T: BotText, mode: Mode, page: number, pages: number, last: ButtonBuilder | null) {
   const to = (n: number) => customId(QUEUE, mode === "browse" ? "page" : "edit", n);
   const row = new ActionRowBuilder<ButtonBuilder>();
   if (pages > 1) {
-    row.addComponents(button(to(page - 1), { emoji: "page_prev", disabled: page === 1 }), button(customId(QUEUE, "goto", mode, page), { label: T.pageOf(page, pages) }), button(to(page + 1), { emoji: "page_next", disabled: page === pages }));
+    row.addComponents(button(to(page - 1), { emoji: "page_prev", disabled: page === 1 }), button(customId(QUEUE, "goto", mode, page), { label: T.queue.pageOf(page, pages) }), button(to(page + 1), { emoji: "page_next", disabled: page === pages }));
   }
   if (last) row.addComponents(last);
   return row.components.length ? row : null;
@@ -121,17 +121,17 @@ const ACTION_LOOK: Record<EditAction, { emoji: IconKey; style: ButtonStyle }> = 
   remove: { emoji: "remove", style: ButtonStyle.Danger },
 };
 
-/** 화면의 컨테이너와 첨부 파일, 실제로 그린 페이지. 컴포넌트 크기가 상한을 넘으면 목록을 줄여 다시 만든다 */
-function queueView(info: QueueInfo, screen: Screen, nowMs = Date.now()): { view: ContainerBuilder; files: Attachment[]; page: number } {
-  let built = compose(info, screen, nowMs, LIST_STEPS[0]);
+/** 화면의 컨테이너와 첨부 파일, 실제로 그린 페이지. T는 보는 사람의 문구표(ui/language). 컴포넌트 크기가 상한을 넘으면 목록을 줄여 다시 만든다 */
+function queueView(T: BotText, info: QueueInfo, screen: Screen, nowMs = Date.now()): { view: ContainerBuilder; files: Attachment[]; page: number } {
+  let built = compose(T, info, screen, nowMs, LIST_STEPS[0]);
   for (const listMax of LIST_STEPS.slice(1)) {
     if (built.fits) break;
-    built = compose(info, screen, nowMs, listMax);
+    built = compose(T, info, screen, nowMs, listMax);
   }
   return { view: built.view, files: built.files, page: built.page };
 }
 
-function compose(info: QueueInfo, screen: Screen, nowMs: number, listMax: number) {
+function compose(T: BotText, info: QueueInfo, screen: Screen, nowMs: number, listMax: number) {
   const pages = pagesOf(info);
   const page = pageIn(info, screen.page);
   const { offset, tracks } = pageTracks(info, page);
@@ -139,17 +139,17 @@ function compose(info: QueueInfo, screen: Screen, nowMs: number, listMax: number
   const box = new ContainerBuilder().setAccentColor(resolveColor(colorOf("brand")));
   const files: Attachment[] = [];
 
-  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${screen.mode === "browse" ? T.title() : T.editTitle()}`));
+  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`### ${screen.mode === "browse" ? T.queue.title() : T.queue.editTitle()}`));
   if (screen.mode === "browse" && screen.mosaic) {
     files.push({ attachment: screen.mosaic, name: MOSAIC_FILE });
-    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${MOSAIC_FILE}`).setDescription(T.mosaicAlt)));
+    box.addMediaGalleryComponents(new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(`attachment://${MOSAIC_FILE}`).setDescription(T.queue.mosaicAlt)));
   }
-  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(entryLines({ tracks, first: offset + 1, startsIn: timing.startsIn.slice(offset, offset + PAGE_SIZE), max: listMax })));
+  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(entryLines(T, { tracks, first: offset + 1, startsIn: timing.startsIn.slice(offset, offset + PAGE_SIZE), max: listMax })));
   box.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   const endsAt = timing.endsAtMs === null ? null : Math.round(timing.endsAtMs / 1000);
-  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${T.summary({ count: info.queue.length, totalSec: timing.totalSec, endsAt })}`));
+  box.addTextDisplayComponents(new TextDisplayBuilder().setContent(`-# ${T.queue.summary({ count: info.queue.length, totalSec: timing.totalSec, endsAt })}`));
 
-  const { menu, rows } = screen.mode === "browse" ? { menu: null, rows: browseRows(info, page, pages) } : editRows(info, { page, offset, tracks, picked: screen.picked ?? null, pages });
+  const { menu, rows } = screen.mode === "browse" ? { menu: null, rows: browseRows(T, info, page, pages) } : editRows(T, info, { page, offset, tracks, picked: screen.picked ?? null, pages });
   for (const row of rows) box.addActionRowComponents(row);
   let fits = componentsBytes(box) <= COMPONENTS_BYTES_MAX;
   // 곡 고르기 메뉴는 나머지를 다 그린 뒤 남는 바이트에 맞춰 버튼 줄들 앞에 넣는다
@@ -162,26 +162,26 @@ function compose(info: QueueInfo, screen: Screen, nowMs: number, listMax: number
 }
 
 /** 보기 화면의 줄: 넘기기 줄(편집할 곡이 있으면 끝에 편집) */
-function browseRows(info: QueueInfo, page: number, pages: number) {
+function browseRows(T: BotText, info: QueueInfo, page: number, pages: number) {
   const editable = info.queue.some((track) => canEdit(info.viewer, track));
-  const nav = navRow("browse", page, pages, editable ? button(customId(QUEUE, "edit", page), { label: T.edit, emoji: "edit" }) : null);
+  const nav = navRow(T, "browse", page, pages, editable ? button(customId(QUEUE, "edit", page), { label: T.queue.edit, emoji: "edit" }) : null);
   return nav ? [nav] : [];
 }
 
 type EditPage = { page: number; pages: number; offset: number; tracks: Entry[]; picked: number | null };
 
 /** 편집 화면의 줄: 곡 고르기 메뉴(편집할 수 있는 곡만, 크기에 맞춰 compose가 넣는다), 고른 곡의 버튼 줄, 넘기기 줄(끝에 완료) */
-function editRows(info: QueueInfo, { page, pages, offset, tracks, picked }: EditPage) {
+function editRows(T: BotText, info: QueueInfo, { page, pages, offset, tracks, picked }: EditPage) {
   const rows: Array<ActionRowBuilder<MessageActionRowComponentBuilder>> = [];
   const session = info.sessionId ?? IDLE_SESSION;
   const index = picked === null ? -1 : tracks.findIndex((track) => track.entry === picked);
   const pickable = index >= 0 && canEdit(info.viewer, tracks[index]);
-  const entries = menuEntries(tracks, { first: offset + 1, parts: editParts, picked: pickable ? picked : null, only: (track) => canEdit(info.viewer, track) });
+  const entries = menuEntries(T, tracks, { first: offset + 1, parts: editParts, picked: pickable ? picked : null, only: (track) => canEdit(info.viewer, track) });
   const build = (options: StringSelectMenuOptionBuilder[]) =>
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId(customId(QUEUE, "pick", page, session))
-        .setPlaceholder(T.pickPlaceholder)
+        .setPlaceholder(T.queue.pickPlaceholder)
         .addOptions(options),
     );
   const menu = entries.length ? { entries, build } : null;
@@ -190,18 +190,18 @@ function editRows(info: QueueInfo, { page, pages, offset, tracks, picked }: Edit
     const row = new ActionRowBuilder<ButtonBuilder>();
     // DJ가 아니면 자기 곡의 삭제만(옮기기, 지금 재생은 DJ의 조작이다)
     for (const action of (info.viewer.dj ? Object.keys(ACTION_LOOK) : ["remove"]) as EditAction[]) {
-      row.addComponents(button(customId(QUEUE, "do", action, picked, page, session), { label: T.actions[action], ...ACTION_LOOK[action], disabled: blocked.has(action) }));
+      row.addComponents(button(customId(QUEUE, "do", action, picked, page, session), { label: T.queue.actions[action], ...ACTION_LOOK[action], disabled: blocked.has(action) }));
     }
     rows.push(row);
   }
-  const nav = navRow("edit", page, pages, button(customId(QUEUE, "page", page), { label: T.done, emoji: "ok" }));
+  const nav = navRow(T, "edit", page, pages, button(customId(QUEUE, "page", page), { label: T.queue.done, emoji: "ok" }));
   if (nav) rows.push(nav);
   return { menu, rows };
 }
 
 /** 페이지 이동 모달. custom_id는 연 버튼과 같다(queue:goto:화면:보던 페이지) */
-function pageModal(mode: Mode, page: number, pages: number) {
-  const t = T.pageModal(pages);
+function pageModal(T: BotText, mode: Mode, page: number, pages: number) {
+  const t = T.queue.pageModal(pages);
   const input = new TextInputBuilder().setCustomId(PAGE_INPUT).setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(pages).length).setPlaceholder(t.placeholder).setRequired(true);
   return new ModalBuilder()
     .setCustomId(customId(QUEUE, "goto", mode, page))

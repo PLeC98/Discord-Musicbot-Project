@@ -18,13 +18,15 @@ import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 import { textOf } from "../helpers/cv2.ts";
 import { addedView } from "../../src/ui/added-notice.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import { openTempStore } from "../helpers/temp-store.ts";
 import { sessions } from "../../src/store/player-sessions.ts";
 import { SessionPersistence } from "../../src/player/session-mirror.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
+const errors = textFor("ko").errors;
 
 // 실패 결과에 진입점이 보일 문장을 붙여 본다
-const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(r)) });
+const said = (r: AddResult) => (r.success ? r : { ...r, message: plainText(addFailureMessage(KO, r)) });
 
 const track = (id: string, extra: Partial<QueuedTrack> = {}): QueuedTrack => ({ id, title: `곡 ${id}`, pageUrl: `https://youtu.be/${id}`, requestKey: `https://youtu.be/${id}`, platform: "youtube", duration: 0, ...extra });
 // 결과의 넣은 것(placed)을 첫 곡 id로 줄여 비교한다
@@ -157,12 +159,12 @@ test("첫 곡이 실패하면(한 곡) 현재 곡을 비우고 실패를 돌려�
   const noMessage = setup({ plays: [{ ok: false }] });
   const quiet = await noMessage.add({ tracks: [track("a")] }, who);
   assert.deepEqual(quiet, { success: false, code: "play-failed" });
-  assert.equal(quiet.success ? "" : plainText(addFailureMessage(quiet)), plainText(errors.notice("cannot-start")));
+  assert.equal(quiet.success ? "" : plainText(addFailureMessage(KO, quiet)), plainText(errors.notice("cannot-start")));
 
   const thrown = setup({ plays: [networkError()] });
   const r = await thrown.add({ tracks: [track("a")] }, who);
   assert.equal(r.success, false);
-  assert.match(r.success ? "" : plainText(addFailureMessage(r)), /연결 오류가 발생했어요/, "예외를 던진 것은 그 오류의 문장으로");
+  assert.match(r.success ? "" : plainText(addFailureMessage(KO, r)), /연결 오류가 발생했어요/, "예외를 던진 것은 그 오류의 문장으로");
   assert.deepEqual([r.success === false && r.code, r.success === false && r.kind], ["play-threw", "network-error"], "로그에는 원인과 오류 종류");
 });
 
@@ -355,12 +357,12 @@ test("대기열 상한: 넘치는 곡은 빼고 몇 곡 뺐는지 알린다. 하
 });
 
 test("자리가 모자라 덜 불러왔으면(queueLimited) 그렇다고 덧붙인다", () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
+  assert.equal(textOf(addedView(KO, { tracks: [track("a")], collection: "playlist", notice: { queueLimited: true } })), `### ⚠️ 일부 곡을 추가했어요!\n재생목록의 1곡을 대기열에 넣었어요.\n**대기열이 가득 찼어요!** 목록의 일부만 넣었어요. (최대 ${config.bot.maxQueueSize}곡)`);
 });
 
 // 사운드클라우드 세트는 불러올 수 없는 곡(미리듣기, 지역 제한)을 빼고 넣는다. 조용히 빼지 않는다
 test("출처가 불러올 수 없어 뺀 곡(skipped)이 있으면 그렇다고 덧붙인다", async () => {
-  assert.equal(textOf(addedView({ tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)");
+  assert.equal(textOf(addedView(KO, { tracks: [track("a")], collection: "playlist", notice: { skipped: 3, total: 41 } })), "### ⚠️ 일부 곡을 추가했어요!\n재생목록 41곡 중 1곡을 대기열에 넣었어요.\n재생할 수 없는 3곡은 제외됐어요. (미리듣기, 지역 제한 등)");
 
   const { add: live, notices, responder } = setup({ current: track("now") });
   await live({ tracks: [track("a"), track("b")], isPlaylist: true, collection: "playlist", skipped: 2 }, who, responder);

@@ -3,12 +3,10 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "commands" });
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
-import * as searchText from "../../ui/text/ko/search.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { interactionResponder } from "../../usecases/responders.ts";
 import { offerOnInteraction } from "../../usecases/playlist-more.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import type { PermissionDenied } from "../../usecases/permissions.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
@@ -16,6 +14,7 @@ import type { HelpEntry } from "../../ui/help-lines.ts";
 import type { ChatInputCommandInteraction, ContainerBuilder, GuildMember, StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
 import { noticeMs, noticeSelf, replaceSelf, unlessGone } from "../../ui/delivery.ts";
+import { privateText } from "../../ui/language.ts";
 
 /** 곡을 찾아 넣는 명령. /play와 /playfirst는 이름, 설명, 권한, 넣을 위치만 다르다 */
 type PlayOptions = {
@@ -50,7 +49,7 @@ async function playOnReply(interaction: ChatInputCommandInteraction<"cached"> | 
   });
 
   if (!result.success) {
-    const failed = addFailureMessage(result);
+    const failed = addFailureMessage(privateText(interaction), result);
     return await replaceSelf(interaction, noticeFrame(failed), noticeMs(failed));
   }
   // 담은 안내는 모두에게 따로 갔다. 자리표시자는 더 넣기 메뉴로 고치거나 삭제한다
@@ -69,8 +68,8 @@ function playCommand({ name, description, help, permission, insertFirst = false 
     async execute(interaction, bot) {
       const query = interaction.options.getString("query", true);
       const permErr = await permission(interaction.member);
-      if (permErr) return await noticeSelf(interaction, errors.notice(permErr));
-      await playOnReply(interaction, bot, { query, placeholder: searchText.searching(query), source: `/${name}`, insertFirst });
+      if (permErr) return await noticeSelf(interaction, privateText(interaction).errors.notice(permErr));
+      await playOnReply(interaction, bot, { query, placeholder: privateText(interaction).search.searching(query), source: `/${name}`, insertFirst });
     },
   };
 }

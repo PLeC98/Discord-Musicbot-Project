@@ -2,12 +2,12 @@
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "control" });
-import * as errors from "./text/ko/errors.ts";
+import type { BotText } from "./text/index.ts";
 import type { Problem } from "../rules/problems.ts";
 
-/** 거절 결과({ ok: false, code, …값 })의 안내. 코드마다 드는 값은 타입이 맞췄지만 코드가 실행 중에 정해져 그리기 전에 한 번 더 검사한다 */
-function controlMessage({ code, ...params }: Problem) {
-  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
+/** 거절 결과({ ok: false, code, …값 })의 안내. T는 보낼 곳의 독자에 맞는 문구표(ui/language). 코드마다 들어가는 값은 타입으로 맞췄지만 코드가 실행 중에 정해져 그리기 전에 한 번 더 검사한다 */
+function controlMessage(T: BotText, { code, ...params }: Problem) {
+  return T.errors.noticeFor(code, params, T.errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
 }
 
 export { controlMessage };

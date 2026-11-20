@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 // ── 모킹 (곡 추가 코어를 불러오기 전에, 실 SQLite/네트워크 미접촉) ──────────────
 import { openTempStore, setGuild } from "../helpers/temp-store.ts";
 import config from "../../src/config/index.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import type { Guild, GuildTextBasedChannel, VoiceBasedChannel } from "discord.js";
 import type { BotContext } from "../../src/app/bot-context.ts";
 import { Player } from "../../src/player/player.ts";
@@ -26,6 +25,9 @@ import { networkError } from "../helpers/errors.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { frame } from "../../src/ui/frame.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
+const errors = textFor("ko").errors;
 
 const store = openTempStore("play-request-");
 after(() => store.close());
@@ -236,7 +238,7 @@ test("ffmpeg가 라이브 분기를 열 수 없으면 방송 중인 라이브도
   const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "https://y/live", source: "/play", ffmpegReady: () => false }));
 
   assert.equal(result.success ? null : result.code, "live-no-ffmpeg");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("live-no-ffmpeg")));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), plainText(errors.notice("live-no-ffmpeg")));
   assert.equal(bot.embedCalls.length, 0);
 });
 
@@ -425,7 +427,7 @@ test("해석 실패는 렌더링 없이 안내문으로 전파된다", async () 
   const result = await requestPlayback(bot, baseArgs(bot, guild, { query: "없는곡" }));
 
   assert.equal(result.success ? null : result.code, "no-song-result");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), plainText(errors.notice("no-song-result")));
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), plainText(errors.notice("no-song-result")));
   assert.equal(bot.embedCalls.length, 0, "실패 시 코어를 부르지 않는다");
 });
 
@@ -443,13 +445,13 @@ test("곡 찾기가 거절한 원인(지원하지 않는 링크 등)는 그대�
   const result = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://radio.test/live/playlist.m3u8" }));
 
   assert.equal(result.success ? null : result.code, "unsupported-link");
-  assert.equal(result.success ? "" : plainText(addFailureMessage(result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
+  assert.equal(result.success ? "" : plainText(addFailureMessage(KO, result)), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
 
   // 불러올 수 없어 뺀 곡 수도 넘겨 안내에 쓴다
   mockResolve = () => ({ success: false, code: "nothing-playable", skipped: 4 });
   const none = await requestPlayback(bot, baseArgs(bot, makeGuild(), { query: "https://soundcloud.com/a/sets/b" }));
   assert.deepEqual(none, { success: false, code: "nothing-playable", skipped: 4 });
-  assert.match(none.success ? "" : plainText(addFailureMessage(none)), /^앞의 4곡이 전부/);
+  assert.match(none.success ? "" : plainText(addFailureMessage(KO, none)), /^앞의 4곡이 전부/);
 });
 
 // 곡을 찾은 뒤에 플레이어를 만든다. 먼저 만들면 못 찾았을 때 연결도 곡도 없는 플레이어가 남는다

@@ -215,7 +215,7 @@ function createGuildSettingsRouter() {
     if (!r.ok) return sendProblem(res, r.code);
     if (!r.already) {
       const T = publicText(guild.id);
-      const view = r.kind === "on" ? replies.stayOn(T, r.channelId, false, dashboardActor(req)) : replies.stayOff(T, false, dashboardActor(req));
+      const view = r.kind === "on" ? replies.stayOn(T, r.channelId, false, dashboardActor(req, publicText(req.params.guildId))) : replies.stayOff(T, false, dashboardActor(req, publicText(req.params.guildId)));
       announcer(bot, bot.players.get(guild.id))(view);
     }
     res.json(await stayCardOf(bot, guild, member));
@@ -233,7 +233,7 @@ function createGuildSettingsRouter() {
 
     const r = await normalize.setNormalize({ guild, member }, body.value.on);
     if (!r.ok) return sendProblem(res, r.code);
-    if (!r.already) announcer(bot, bot.players.get(guild.id))(replies.normalizeSet(r.on, false, dashboardActor(req)));
+    if (!r.already) announcer(bot, bot.players.get(guild.id))(replies.normalizeSet(publicText(guild.id), r.on, false, dashboardActor(req, publicText(req.params.guildId))));
     res.json(await normalizeCardOf(guild, member));
   });
 

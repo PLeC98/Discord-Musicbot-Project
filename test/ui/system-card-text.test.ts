@@ -9,7 +9,8 @@ import { PROJECT } from "../../src/infra/project-paths.ts";
 import { formatSpan } from "../../src/ui/format.ts";
 import { FONTS, fontPath } from "../../src/ui/card-render/fonts.ts";
 import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/card-render/icons.ts";
-import * as T from "../../src/ui/text/ko/system-card.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const T = textFor("ko").systemCard;
 
 // 이미지 밖(디스코드 메시지)에 쓰는 문구
 const OUTSIDE = new Set(["title", "versions", "updated", "panelLink", "drawing", "drawFailed", "cardAlt", "historyAlt"]);

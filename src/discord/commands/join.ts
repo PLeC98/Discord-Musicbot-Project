@@ -1,12 +1,12 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import { join, type JoinResult } from "../../usecases/join.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { noticeFrame, post, reply } from "../../ui/frame.ts";
 import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeMs, noticeSelf, replaceSelf, toAll, toSelf, unlessGone } from "../../ui/delivery.ts";
 import { acceptWith } from "../interactions/control-answers.ts";
 import logger from "../../infra/log/logger.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 const log = logger.child({ category: "commands" });
 
 // 결과를 알린다. 거절, "이미 있어요"는 본인에게(받아들인 뒤면 "참가하는 중" 자리표시자를 고쳐서), 붙었거나 복원한 결과는 자리표시자를 삭제하고 모두에게 알린다
@@ -14,17 +14,17 @@ async function answer(interaction: ChatInputCommandInteraction<"cached">, result
   const placed = interaction.replied;
   switch (result.kind) {
     case "refused": {
-      const notice = errors.notice(result.code);
+      const notice = privateText(interaction).errors.notice(result.code);
       return placed ? replaceSelf(interaction, noticeFrame(notice), noticeMs(notice)) : noticeSelf(interaction, notice);
     }
     case "already":
-      return placed ? replaceSelf(interaction, replies.alreadyJoined(result.player.parked), LIFETIME.glance) : toSelf(interaction, reply(replies.alreadyJoined(result.player.parked)), LIFETIME.glance);
+      return placed ? replaceSelf(interaction, replies.alreadyJoined(privateText(interaction), result.player.parked), LIFETIME.glance) : toSelf(interaction, reply(replies.alreadyJoined(privateText(interaction), result.player.parked)), LIFETIME.glance);
     case "joined":
-      return toAll(interaction, replies.joined(), LIFETIME.result);
+      return toAll(interaction, replies.joined(publicText(interaction.guildId)), LIFETIME.result);
     case "restored":
-      return toAll(interaction, replies.restoreResult(result.track, result.player.paused, result.parked), LIFETIME.result);
+      return toAll(interaction, replies.restoreResult(publicText(interaction.guildId), result.track, result.player.paused, result.parked), LIFETIME.result);
     case "restore-error":
-      return toAll(interaction, noticeFrame(errors.notice("restore-failed")), LIFETIME.result);
+      return toAll(interaction, noticeFrame(publicText(interaction.guildId).errors.notice("restore-failed")), LIFETIME.result);
   }
 }
 
@@ -39,8 +39,8 @@ const exported: GuildCommand = {
       bot,
       { guild, member, textChannel: channel },
       {
-        accepted: acceptWith(interaction, replies.joining()),
-        restoring: () => interaction.editReply(post(replies.restoring())).catch(unlessGone(log, "/join 자리표시자 갱신")),
+        accepted: acceptWith(interaction, replies.joining(privateText(interaction))),
+        restoring: () => interaction.editReply(post(replies.restoring(privateText(interaction)))).catch(unlessGone(log, "/join 자리표시자 갱신")),
       },
     );
     await answer(interaction, result);

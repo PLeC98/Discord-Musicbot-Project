@@ -75,6 +75,9 @@ import { leaveGuild } from "../../usecases/leave-guild.ts";
 import { memberGuildIds } from "../user-guilds.ts";
 import { guildList, guildQueryOf, statusQueryOf } from "../list-window.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
+import { viewerLanguage } from "../../ui/language.ts";
+import { textFor } from "../../ui/text/index.ts";
+import { publicText } from "../../ui/language.ts";
 
 const adminRouter = express.Router();
 // 운영자 전용이다. 경로마다 따로 달지 않고 여기서 한 번에 건다(라우터를 어디에 붙이든 보호된다)
@@ -129,8 +132,6 @@ adminRouter.post("/broadcast", async (req, res) => {
   const { client } = req.app.locals.bot;
   if (!client.isReady()) return sendProblem(res, "bot-not-ready");
 
-  const embed = announceEmbed(type, body);
-
   // 서버마다 따로 보낸다. 한 서버가 늦어도 다른 서버는 기다리지 않는다
   const results = await Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
@@ -138,7 +139,8 @@ adminRouter.post("/broadcast", async (req, res) => {
       if (!ch) throw new Error("보낼 채널 없음");
       // 채널을 찾는 사이 세션이 끝났으면 이 서버에는 보내지 않는다
       sessionRequests.assertSignedIn(req);
-      await ch.send({ embeds: [embed] });
+      // 공지 틀(제목, 바닥글)은 서버마다 그 서버의 언어로 그린다
+      await ch.send({ embeds: [announceEmbed(publicText(guild.id), type, body)] });
     }),
   );
   const sent = results.filter((r) => r.status === "fulfilled").length;
@@ -378,7 +380,7 @@ adminRouter.post("/ai/judge/lookup", async (req, res) => {
   if (urls.length > 20) return sendProblem(res, "too-many-items", { max: 20 });
 
   // 못 읽은 줄의 안내는 그 오류 종류의 제목(디스코드 안내와 같은 글)
-  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(error).title }) } satisfies CandidatesReply);
+  res.json({ candidates: await assist.candidatesFromUrls(urls, { describe: (error) => errorMessage(textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })), error).title }) } satisfies CandidatesReply);
 });
 
 /** 그 후보들이 프롬프트에 어떻게 적히는지. 목록 형식, 장르를 고치는 대로 다시 그린다. */

@@ -27,6 +27,7 @@ import { frame, noticeReply, post } from "../../src/ui/frame.ts";
 import type { Notice } from "../../src/ui/text/notice.ts";
 import * as staySeats from "../../src/store/stay-seats.ts";
 import { useLoggedIn, _resetIntents } from "../../src/infra/gateway-intents.ts";
+import { textFor } from "../../src/ui/text/index.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "event-handlers-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -34,7 +35,7 @@ audioCache._setCacheDir(path.join(TMP, "audio_cache"));
 stores.open(TMP);
 audioCache.initialize();
 
-const errors = await import("../../src/ui/text/ko/errors.ts");
+const errors = textFor("ko").errors;
 const settings = await import("../../src/store/guild-settings.ts");
 const lookup = await import("../../src/sources/lookup.ts");
 const { useDocument, useDefaultDocuments } = await import("../helpers/config-docs.ts");

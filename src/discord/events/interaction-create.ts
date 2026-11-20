@@ -6,7 +6,6 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import { isDeadInteraction } from "../../rules/dead-interaction.ts";
 import { describeError, errorKind, messageOf } from "../../rules/error-kind.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import type { Notice } from "../../ui/text/notice.ts";
 import { errorMessage } from "../../ui/error-messages.ts";
 import { failureShow } from "../../ui/failure-notice.ts";
@@ -17,6 +16,7 @@ import { componentOf, routeOf, type Route } from "../interactions/route.ts";
 import type { ClientEvent } from "../../app/main.ts";
 import type { BotContext } from "../../app/bot-context.ts";
 import { isShuttingDown } from "../../infra/shutdown-state.ts";
+import { privateText } from "../../ui/language.ts";
 
 /**
  * 처리가 예외를 던졌다. 종류와 함께 남기고, 상호작용이 살아 있으면 알린다. 종류를 구분할 수 있는 오류(네트워크, 봇 감지 등)는
@@ -28,7 +28,7 @@ async function failed(interaction: RepliableInteraction, what: string, error: un
   const kind = errorKind(error);
   log.error({ kind }, `${what} 처리 실패:`, error);
   if (isDeadInteraction(error)) return;
-  const notice = kind === "unknown-error" ? fallback : errorMessage(error);
+  const notice = kind === "unknown-error" ? fallback : errorMessage(privateText(interaction), error);
   // 안내 실패는 여기서 끝낸다. 리스너 밖으로 예외를 던지면 client "error"를 거쳐 uncaughtException이 된다
   await tell(interaction, notice).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
 }
@@ -44,17 +44,17 @@ async function runCommand(bot: BotContext, interaction: ChatInputCommandInteract
   const command = bot.commands.get(interaction.commandName);
   if (!command) {
     log.warn(`처리할 핸들러가 없는 명령어: /${interaction.commandName}`);
-    return noticeSelf(interaction, errors.notice("unknown-command")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-command")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     // 서버 명령은 서버 안에서만. DM에서도 쓰는 명령은 그대로 부른다
     if (command.anywhere) await command.execute(interaction, bot);
-    else if (!interaction.inCachedGuild()) await noticeSelf(interaction, errors.notice("guild-only"));
+    else if (!interaction.inCachedGuild()) await noticeSelf(interaction, privateText(interaction).errors.notice("guild-only"));
     // 서버 관리 계층(도움말의 표시)은 디스코드 기본 권한에 기대지 않고 다시 본다: 연동 탭에서 다른 역할에 열어 줄 수 있고, 설정 패널 버튼과 대시보드도 isServerManager를 본다
-    else if (command.help?.tier === "server-manager" && !isServerManager(interaction.member)) await noticeSelf(interaction, errors.notice("must-server-manager"));
+    else if (command.help?.tier === "server-manager" && !isServerManager(interaction.member)) await noticeSelf(interaction, privateText(interaction).errors.notice("must-server-manager"));
     else await command.execute(interaction, bot);
   } catch (error) {
-    await failed(interaction, `/${interaction.commandName}`, error, errors.notice("command-failed"));
+    await failed(interaction, `/${interaction.commandName}`, error, privateText(interaction).errors.notice("command-failed"));
   }
 }
 
@@ -92,12 +92,12 @@ async function runComponent(bot: BotContext, input: Interaction, routes: readonl
   const route = routeOf(routes, kind, interaction.customId);
   if (!route) {
     log.warn(`핸들러가 없는 상호작용: ${kind} ${interaction.customId}`);
-    return noticeSelf(interaction, errors.notice("unknown-interaction")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction")).catch((err: unknown) => log.error("오류 안내 전송 실패:", messageOf(err)));
   }
   try {
     await route.handle(interaction, bot);
   } catch (error) {
-    await failed(interaction, `${kind} ${interaction.customId}`, error, errors.notice("processing-failed"));
+    await failed(interaction, `${kind} ${interaction.customId}`, error, privateText(interaction).errors.notice("processing-failed"));
   }
 }
 
@@ -138,7 +138,7 @@ function noteLate(interaction: Interaction, now: number) {
 // 종료 중에 온 상호작용. 새 작업을 시작하지 않고 알린다(자동완성은 빈 목록). 답은 상호작용 토큰으로 가서 봇 토큰을 비운 뒤에도 닿는다
 async function refuseWhileStopping(interaction: Interaction) {
   if (interaction.isAutocomplete()) return interaction.respond([]).catch((error: unknown) => log.warn(`종료 중 자동완성 응답 실패: ${describeError(error)}`));
-  if (interaction.isRepliable()) return noticeSelf(interaction, errors.notice("bot-shutting-down")).catch((error: unknown) => log.warn(`종료 중 안내 전송 실패: ${describeError(error)}`));
+  if (interaction.isRepliable()) return noticeSelf(interaction, privateText(interaction).errors.notice("bot-shutting-down")).catch((error: unknown) => log.warn(`종료 중 안내 전송 실패: ${describeError(error)}`));
 }
 
 /** 상호작용 하나를 맡는다. routes는 테스트가 가짜 표를 넘기는 슬롯, now는 받은 시각 */

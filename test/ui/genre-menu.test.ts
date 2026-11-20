@@ -10,6 +10,8 @@ import * as genresModule from "../../src/config/genres.ts";
 import { useDefaultDocuments } from "../helpers/config-docs.ts";
 import { headOf, selectOf, separatorsOf, textsOf } from "../helpers/cv2.ts";
 import { post } from "../../src/ui/frame.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 useDefaultDocuments();
 const { genres } = genresModule.genres();
@@ -23,8 +25,8 @@ const menuOf = (payload: ReturnType<typeof buildGenreMenu>) => {
 };
 
 test("켜기, 끄기가 같은 장르 목록과 같은 핸들러를 쓴다", () => {
-  const on = menuOf(buildGenreMenu());
-  const off = menuOf(buildAutoplayOffMenu());
+  const on = menuOf(buildGenreMenu(KO));
+  const off = menuOf(buildAutoplayOffMenu(KO));
 
   for (const menu of [on, off]) {
     assert.deepEqual(
@@ -47,18 +49,18 @@ test("장르 수가 디스코드 셀렉트 상한을 넘지 않는다", () => {
 });
 
 test("끄기 화면: 이미 꺼졌음을 알리고 다시 선택할 기회를 준다", () => {
-  const off = buildAutoplayOffMenu();
+  const off = buildAutoplayOffMenu(KO);
   assert.match(headOf(off) ?? "", /자동재생을 껐어요/);
 });
 
 test("켠 결과: 선택한 장르와 누가 켰는지, 그 줄 위에 구분선", () => {
-  const on = post(autoplayOn("가요", "<@1>"));
+  const on = post(autoplayOn(KO, "가요", "<@1>"));
   assert.deepEqual(textsOf(on), ["### 📻 자동재생을 시작할게요!\n**가요** 장르를 틀게요. 직접 넣어둔 곡들이 끝나면 자동재생 곡이 재생돼요.", "-# 👤 요청한 사람 <@1>"]);
   assert.equal(separatorsOf(on), 1);
 });
 
 test("두 화면 다 본인에게만 보인다", () => {
-  for (const payload of [buildGenreMenu(), buildAutoplayOffMenu()]) {
+  for (const payload of [buildGenreMenu(KO), buildAutoplayOffMenu(KO)]) {
     assert.deepEqual(payload.flags, [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral]);
   }
 });
@@ -73,7 +75,7 @@ test("앱 이모지 토큰은 지금 이모지로(id가 바뀌었으면 이름�
     { id: "222222222222222222", name: "spin", animated: true },
   ]);
   try {
-    const menu = menuOf(buildGenreMenu());
+    const menu = menuOf(buildGenreMenu(KO));
     assert.deepEqual(
       menu.options.map((o) => [o.value, o.emoji ?? null]),
       [
@@ -92,7 +94,7 @@ test("이모지를 비워 둔 장르도 메뉴에 들어간다", async () => {
   const { useDocument } = await import("../helpers/config-docs.ts");
   useDocument("genres", { defaults: {}, genres: { 팝: { emoji: "", sources: [{ type: "keyword", keywords: ["pop"] }] }, 재즈: { sources: [{ type: "keyword", keywords: ["jazz"] }] }, 록: { emoji: "🤘", sources: [{ type: "keyword", keywords: ["rock"] }] } } });
   try {
-    const menu = menuOf(buildGenreMenu());
+    const menu = menuOf(buildGenreMenu(KO));
     assert.deepEqual(
       menu.options.map((o) => [o.value, o.emoji?.name]),
       [

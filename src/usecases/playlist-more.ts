@@ -8,8 +8,8 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { roomFor as roomWithin } from "../rules/queue-room.ts";
 import { MAX_COUNT, moreChoices, type Kind, type MoreState, type More } from "../rules/more-choices.ts";
-import * as labels from "../ui/text/ko/labels.ts";
-import * as moreText from "../ui/text/ko/more.ts";
+import type { SharedText } from "../ui/text/shared.ts";
+import { privateText, publicText } from "../ui/language.ts";
 import { markTransient } from "../ui/transient-messages.ts";
 import { canSend } from "../ui/channels.ts";
 import { LIFETIME, expireMessage, stopExpiry } from "../ui/delivery.ts";
@@ -124,40 +124,40 @@ function clickError(state: MoreState, { userId, lastTouched, now = Date.now() }:
 }
 
 /** 헤더 줄과 곡 수 메뉴. menu는 메뉴를 달았는지(자리가 없거나 상태가 custom_id에 안 들어가면 헤더 줄만) */
-function menuView(head: string, state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }) {
+function menuView(T: SharedText, head: string, state: MoreState, { remaining, room, batch = PLAYLIST_ADD_DEFAULT }: { remaining: number; room: number; batch?: number }) {
   const { perClick } = KINDS[state.kind];
   const { cap, steps } = moreChoices({ remaining, room, batch, perClick });
-  if (cap === 0) return { view: moreView(moreText.noRoom(head), null), menu: false };
+  if (cap === 0) return { view: moreView(T, T.more.noRoom(head), null), menu: false };
   // 모달 ID가 한 글자 더 길다. 둘 다 100자 안이어야 한다
-  if (encodeState(MODAL_PREFIX, state).length > 100) return { view: moreView(head, null), menu: false };
-  return { view: moreView(head, { customId: encodeState(SELECT_PREFIX, state), remaining, steps, cap, all: cap >= remaining, perClick: cap === perClick }), menu: true };
+  if (encodeState(MODAL_PREFIX, state).length > 100) return { view: moreView(T, head, null), menu: false };
+  return { view: moreView(T, head, { customId: encodeState(SELECT_PREFIX, state), remaining, steps, cap, all: cap >= remaining, perClick: cap === perClick }), menu: true };
 }
 
-/** 처음 표시하는 메뉴 */
-function offerView(more: More, room: number) {
-  const label = labels.collection(KINDS[more.kind].collection);
-  return menuView(moreText.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
+/** 처음 표시하는 메뉴. T는 메뉴를 보는 사람에 맞는 문구표(ui/language) */
+function offerView(T: SharedText, more: More, room: number) {
+  const label = T.labels.collection(KINDS[more.kind].collection);
+  return menuView(T, T.more.offered(label, more.total, more.offset), more, { remaining: more.remaining, room, batch: more.batch });
 }
 
 /** 이어 넣은 결과의 글. 끝까지 넣었으면 그렇다고, 더 넣을 것이 남았으면 어디까지 넣었는지를 붙인다(디스코드 메뉴와 대시보드가 같이 쓴다) */
-function resultText(kind: Kind, result: MoreResult) {
-  const label = labels.collection(KINDS[kind].collection);
-  const head = moreText.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
-  if (!result.next) return result.remaining > 0 ? head : moreText.finished(head);
-  return moreText.progressed(head, result.total, result.next.offset);
+function resultText(T: SharedText, kind: Kind, result: MoreResult) {
+  const label = T.labels.collection(KINDS[kind].collection);
+  const head = T.more.added({ collection: label, added: result.added, skipped: result.skipped, dropped: result.dropped });
+  if (!result.next) return result.remaining > 0 ? head : T.more.finished(head);
+  return T.more.progressed(head, result.total, result.next.offset);
 }
 
 /** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
-function resultView(state: MoreState, result: MoreResult, room: number) {
-  const text = moreText.resultMark(resultText(state.kind, result));
-  if (!result.next) return { view: moreView(text, null), menu: false };
-  return menuView(text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
+function resultView(T: SharedText, state: MoreState, result: MoreResult, room: number) {
+  const text = T.more.resultMark(resultText(T, state.kind, result));
+  if (!result.next) return { view: moreView(T, text, null), menu: false };
+  return menuView(T, text, result.next, { remaining: result.remaining, room, batch: result.next.batch });
 }
 
 /** 곡 수를 입력하는 모달. cap은 남은 자리 */
-function countModal(state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT) {
+function countModal(T: SharedText, state: MoreState, cap: number, batch = PLAYLIST_ADD_DEFAULT) {
   const max = Math.min(cap, MAX_COUNT, KINDS[state.kind].perClick);
-  return moreCountModal({ customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
+  return moreCountModal(T, { customId: encodeState(MODAL_PREFIX, state), max, suggested: Math.min(max, batch) });
 }
 
 // ── 메시지 수명. 이어 넣으면 다시 센다 ──
@@ -172,7 +172,7 @@ function expireLater(messageId: string, remove: () => unknown, ms: number = LIFE
 // 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요"에 매달린다).
 // 메뉴를 표시했으면 true
 async function offerOnInteraction(interaction: RepliableInteraction, more: More, player: Player) {
-  const offer = offerView({ ...more, requesterId: interaction.user.id }, roomFor(player));
+  const offer = offerView(privateText(interaction), { ...more, requesterId: interaction.user.id }, roomFor(player));
   if (!offer.menu) return false;
   try {
     const message = await interaction.editReply(post(offer.view));
@@ -186,7 +186,7 @@ async function offerOnInteraction(interaction: RepliableInteraction, more: More,
 
 // 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 구분한다. 표시했거나 표시할 것이 없으면 true.
 async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: More, player: Player, requesterId: string, { quiet = false } = {}) {
-  const offer = offerView({ ...more, requesterId }, roomFor(player));
+  const offer = offerView(publicText(player.guild?.id), { ...more, requesterId }, roomFor(player));
   if (!offer.menu) return true;
   if (!canSend(channel)) return false;
   try {

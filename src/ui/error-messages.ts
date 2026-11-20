@@ -1,7 +1,7 @@
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "error" });
 import { errorKind, messageOf } from "../rules/error-kind.ts";
-import * as errors from "./text/ko/errors.ts";
+import type { SharedText } from "./text/shared.ts";
 import config from "../config/index.ts";
 import { isCode, type Code, type LooseProblem } from "../rules/problems.ts";
 
@@ -11,10 +11,10 @@ type AddFailure = { code: string; kind?: Code; skipped?: number };
 // 오류가 던져져 못 한 흐름의 코드. 오류 종류를 모르면 unknown-error의 안내다
 const THROWN = new Set(["lookup-failed", "play-threw"]);
 
-/** 오류 → 사용자에게 보일 안내. 종류는 rules/error-kind가 구분한다 */
-function errorMessage(error: unknown) {
+/** 오류 → 사용자에게 보일 안내. T는 보낼 곳의 독자에 맞는 문구표(ui/language), 종류는 rules/error-kind가 구분한다 */
+function errorMessage(T: SharedText, error: unknown) {
   const code = errorKind(error);
-  return errors.noticeFor(code, {}, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
+  return T.errors.noticeFor(code, {}, T.errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
 }
 
 /** 곡을 찾거나 추가하지 못한 결과 → 문제. 목록의 코드면 그 코드, 오류로 못 했으면 오류 종류, 아니면 곡을 틀 수 없다고 */
@@ -25,16 +25,16 @@ function addFailure({ code, kind, skipped }: AddFailure): LooseProblem {
 }
 
 /** 곡을 찾거나 추가하지 못한 결과 → 안내 */
-function addFailureMessage(result: AddFailure) {
+function addFailureMessage(T: SharedText, result: AddFailure) {
   const { code, ...params } = addFailure(result);
-  return errors.noticeFor(code, params, errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
+  return T.errors.noticeFor(code, params, T.errors.PLAIN, (names) => log.warn(`안내 문구 템플릿 변수가 누락되어 기본 오류 메시지로 대체: ${code} (${names.join(", ")})`));
 }
 
 /** 처리하지 못한 오류를 로그에 남기고 사용자 안내를 돌려준다(catch 블록에서) */
-function reportError(error: unknown, context = "") {
+function reportError(T: SharedText, error: unknown, context = "") {
   // context → sub(하위 카테고리), 분류 결과 → kind(구조화 필드, 터미널 배지엔 안 뜸)
   log.error({ sub: context || undefined, kind: errorKind(error) }, messageOf(error));
-  return errorMessage(error);
+  return errorMessage(T, error);
 }
 
 export { errorMessage, addFailure, addFailureMessage, reportError };

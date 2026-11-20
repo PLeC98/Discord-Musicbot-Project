@@ -10,9 +10,10 @@ import type { SlashCommand } from "../../src/app/command-loader.ts";
 import { fake, fakeWith, fakeBot } from "../helpers/fake.ts";
 import { networkError } from "../helpers/errors.ts";
 import { showFailureWith } from "../../src/ui/failure-notice.ts";
-import * as errors from "../../src/ui/text/ko/errors.ts";
 import { noticeReply } from "../../src/ui/frame.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const errors = textFor("ko").errors;
 
 type Sent = [string, unknown?];
 

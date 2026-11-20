@@ -12,8 +12,8 @@ const languagesNow = () => availableLanguages(config.i18n.testLanguage);
 /** 봇 기본 언어: 서버 언어도 개인 언어도 정해지지 않았을 때 */
 const botLanguage = (): Language => BASE_LANGUAGE;
 
-/** 서버 언어. 서버 언어 설정이 없으므로 테스트 언어를 켰으면 모든 서버가 테스트 언어다 */
-const guildLanguage = (_guildId: string): Language => (config.i18n.testLanguage ? TEST_LANGUAGE : botLanguage());
+/** 서버 언어. 서버 언어 설정이 없으므로 테스트 언어를 켰으면 모든 서버가 테스트 언어다. 서버를 모르면(guildId 없음) 봇 기본 언어 */
+const guildLanguage = (guildId: string | null | undefined): Language => (guildId && config.i18n.testLanguage ? TEST_LANGUAGE : botLanguage());
 
 /** 상호작용에서 언어를 고르는 데 쓰는 것 */
 type Asker = { locale?: string | null; guildId: string | null; message?: { flags: { has(flag: MessageFlags): boolean } } | null };
@@ -35,7 +35,7 @@ function viewerLanguage({ acceptLanguage }: { userId?: string | null; acceptLang
 }
 
 /** 서버의 공개 메시지에 쓸 문구표 */
-const publicText = (guildId: string) => textFor(guildLanguage(guildId));
+const publicText = (guildId: string | null | undefined) => textFor(guildLanguage(guildId));
 /** 본인에게만 보이는 답에 쓸 문구표 */
 const privateText = (asker: Asker) => textFor(personLanguage(asker));
 /** 기존 메시지를 수정할 때 쓸 문구표 */

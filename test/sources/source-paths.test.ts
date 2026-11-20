@@ -21,6 +21,8 @@ import { codedError, errorKind } from "../../src/rules/error-kind.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { plainText } from "../helpers/notice.ts";
 import { inputKind } from "../../src/rules/input-kind.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -233,12 +235,12 @@ test("조회: 유튜브가 검색어에 연령 인증 안내만 주면 스포티
 
 test("조회 실패 안내: 실패 코드의 안내문을 보이고, 조회 중 예외가 났으면 오류 종류의 안내문을 보인다", async () => {
   const { addFailureMessage } = await import("../../src/ui/error-messages.ts");
-  assert.equal(plainText(addFailureMessage({ code: "no-song-result" })), "곡을 찾지 못했어요.\n다른 검색어나 링크로 시도해 주세요.");
-  assert.equal(plainText(addFailureMessage({ code: "unsupported-link" })), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
-  assert.match(plainText(addFailureMessage({ code: "nothing-playable", skipped: 10 })), /앞의 10곡이 전부 재생할 수 없는 곡이에요/);
-  assert.match(plainText(addFailureMessage({ code: "sc-unsupported" })), /지원하지 않는 사운드클라우드 링크/);
-  assert.match(plainText(addFailureMessage({ code: "lookup-failed", kind: errorKind(networkError()) })), /연결 오류가 발생했어요/);
-  assert.match(plainText(addFailureMessage({ code: "lookup-failed" })), /예상치 못한 오류예요/, "종류를 모르면 unknown");
+  assert.equal(plainText(addFailureMessage(KO, { code: "no-song-result" })), "곡을 찾지 못했어요.\n다른 검색어나 링크로 시도해 주세요.");
+  assert.equal(plainText(addFailureMessage(KO, { code: "unsupported-link" })), "알 수 없는 링크예요!\n재생을 지원하지 않는 플랫폼이에요.");
+  assert.match(plainText(addFailureMessage(KO, { code: "nothing-playable", skipped: 10 })), /앞의 10곡이 전부 재생할 수 없는 곡이에요/);
+  assert.match(plainText(addFailureMessage(KO, { code: "sc-unsupported" })), /지원하지 않는 사운드클라우드 링크/);
+  assert.match(plainText(addFailureMessage(KO, { code: "lookup-failed", kind: errorKind(networkError()) })), /연결 오류가 발생했어요/);
+  assert.match(plainText(addFailureMessage(KO, { code: "lookup-failed" })), /예상치 못한 오류예요/, "종류를 모르면 unknown");
 });
 
 test("모음 이어 받기: 유튜브 재생목록, 스포티파이, 사운드클라우드 세트. 못 받으면 빈 구간(검색으로 안 넘어간다)", async () => {

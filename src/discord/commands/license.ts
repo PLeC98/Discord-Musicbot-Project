@@ -6,6 +6,7 @@ import type { AnywhereCommand } from "../../app/command-loader.ts";
 import { LIFETIME, toSelf } from "../../ui/delivery.ts";
 import { reply } from "../../ui/frame.ts";
 import { licenseView } from "../../ui/license-view.ts";
+import { privateText } from "../../ui/language.ts";
 
 const exported: AnywhereCommand = {
   help: { section: "info", tier: "everyone" },
@@ -13,7 +14,7 @@ const exported: AnywhereCommand = {
   data: new SlashCommandBuilder().setName("license").setDescription("라이선스와 소스 코드 저장소를 표시해요"),
 
   async execute(interaction) {
-    await toSelf(interaction, reply(licenseView({ sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo })), LIFETIME.screen);
+    await toSelf(interaction, reply(licenseView(privateText(interaction), { sourceRepo: config.bot.sourceRepo, projectRepo: config.bot.projectRepo })), LIFETIME.screen);
   },
 };
 export default exported;

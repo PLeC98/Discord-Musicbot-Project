@@ -8,7 +8,7 @@ import * as guildSettings from "../store/guild-settings.ts";
 import { commandMention } from "../ui/command-mentions.ts";
 import { frame } from "../ui/frame.ts";
 import { dashboardButton } from "../ui/dashboard-link.ts";
-import * as welcomeText from "../ui/text/ko/welcome.ts";
+import { publicText } from "../ui/language.ts";
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "core" });
 
@@ -41,12 +41,14 @@ const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(Separat
 
 /** 안내 메시지. 버튼은 컨테이너 밖 줄에 둔다. 서버 이름에 든 멘션이 울리지 않게 멘션을 모두 끈다 */
 function welcomeView(guild: Guild) {
+  // 채널에 남는 공개 메시지라 서버 언어
+  const T = publicText(guild.id);
   const mention = (name: string) => commandMention(name, guild.id);
   const { projectRepo, sourceRepo } = config.bot;
   const fork = sourceRepo !== projectRepo;
-  const labels = welcomeText.buttons(fork);
+  const labels = T.welcome.buttons(fork);
   const dashboard = dashboardButton(labels.dashboard);
-  const t = welcomeText.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
+  const t = T.welcome.welcome({ server: escapeMarkdown(guild.name, { maskedLink: true }), play: mention("play"), setchannel: mention("setchannel"), help: mention("help"), dashboard: dashboard !== null, projectRepo, sourceRepo, fork, typed: readsMessageContent() });
   const container = frame({ icon: "music", title: t.title, body: t.intro.join("\n"), thumbnail: guild.client.user.displayAvatarURL() })
     .addSeparatorComponents(divider())
     .addTextDisplayComponents(new TextDisplayBuilder().setContent(t.usage.join("\n")))

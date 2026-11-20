@@ -9,7 +9,9 @@ const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import * as trackState from "../player/track-state.ts";
 import { waitForRestore } from "../player/session-restore.ts";
-import * as labels from "../ui/text/ko/labels.ts";
+import { textFor } from "../ui/text/index.ts";
+import { LOG_LANGUAGE } from "../rules/languages.ts";
+import { publicText } from "../ui/language.ts";
 import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
 import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
@@ -285,7 +287,7 @@ function logRequest({ source = "play", query, insertFirst = false }: PlaybackReq
 function whatOf({ isPlaylist, collection, tracks }: Found, asked: string | null) {
   const first = tracks[0];
   const title = first?.title ?? "?";
-  if (isPlaylist) return `${labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
+  if (isPlaylist) return `${textFor(LOG_LANGUAGE).labels.collection(collection)} ${tracks.length}곡 (첫 곡 "${title}")`;
   return first && !(asked && isUrl(asked)) ? `"${title}" (${first.pageUrl})` : `"${title}"`;
 }
 
@@ -616,7 +618,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(addedView({ tracks: queued, collection, insertFirst, position, notice }));
+  await responder.notifyQueued(addedView(publicText(player.guild?.id), { tracks: queued, collection, insertFirst, position, notice }));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }

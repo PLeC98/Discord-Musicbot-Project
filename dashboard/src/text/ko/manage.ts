@@ -1,14 +1,13 @@
 // 운영자 패널: 서버 관리 탭(전체 공지, 참가 서버 목록)
 
 import { formatNumber } from "../../utils/locale.ts";
-import * as announceText from "../../../../src/ui/text/ko/announce.ts";
 
 /** 전체 공지 */
 const announce = {
   title: "전체 공지",
   desc: "봇이 들어간 모든 서버에 공지를 보내요.",
   kind: "공지 종류",
-  /** 공지 종류의 짧은 이름(선택 버튼). 임베드 제목은 봇 문구표(src/ui/text/ko/announce) */
+  /** 공지 종류의 짧은 이름(선택 버튼). 임베드 제목은 봇 문구표(text.bot.announce) */
   kinds: { maintenance: "점검", update: "업데이트", alert: "긴급", info: "공지" },
   toolbar: "서식",
   placeholder: "공지 내용",
@@ -16,8 +15,8 @@ const announce = {
   tooLong: (over: number) => `${formatNumber(over)}자를 줄여 주세요`,
   preview: "디스코드 메시지 미리보기",
   previewEmpty: "입력한 공지 내용이 여기에 표시돼요",
-  /** 미리보기 임베드의 바닥글(봇이 보낼 때와 같은 형식, 보낸 사람은 봇 문구표) */
-  previewFooter: (sentAt: string) => `${announceText.footer} • ${sentAt}`,
+  /** 미리보기 임베드의 바닥글(봇이 보낼 때와 같은 형식). footer는 봇 문구표의 보낸 사람 */
+  previewFooter: (footer: string, sentAt: string) => `${footer} • ${sentAt}`,
   today: (time: string) => `오늘 ${time}`,
   sending: "보내는 중...",
   send: (title: string) => `${title} 전송`,

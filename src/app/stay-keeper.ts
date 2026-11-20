@@ -20,9 +20,9 @@ import { resolveFallbackTextChannel } from "../usecases/add-tracks.ts";
 import { noticeFrame, post } from "../ui/frame.ts";
 import { noticeMs } from "../ui/delivery.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
-import * as noticeText from "../ui/text/ko/notices.ts";
 import type { Notice } from "../ui/text/notice.ts";
-import { DISCORD_LOOK } from "../ui/mentions.ts";
+import { channelMention } from "../ui/mentions.ts";
+import { publicText } from "../ui/language.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { bestEffort } from "../infra/best-effort.ts";
@@ -35,7 +35,7 @@ const DROP: Partial<Record<PlayerEnd, "kicked" | "gone">> = { kicked: "kicked", 
 const RETRY = new Set<PlayerEnd>(["voice-lost", "connect-failed", "restore-failed", "adopt-failed", "fault-cleared", "queue-drained", "alone-timeout"]);
 
 type Why = "kicked" | "gone" | "permission";
-const NOTICE: Record<Why, (channel: string) => Notice> = { kicked: noticeText.stayKicked, gone: noticeText.stayChannelGone, permission: noticeText.stayNoPermission };
+const NOTICE = { kicked: "stayKicked", gone: "stayChannelGone", permission: "stayNoPermission" } as const satisfies Record<Why, string>;
 const WHY_LOG: Record<Why, string> = { kicked: "강제 퇴장", gone: "채널 삭제", permission: "채널 권한 없음" };
 
 // 자리를 끈 알림을 서버의 전용 채널에(없으면 알리지 않는다. 로그는 남는다). 다른 경고, 오류 안내처럼 수준에 맞는 수명 뒤 지운다
@@ -119,7 +119,7 @@ class StayKeeper {
     if (!channelId || !staySeats.clear(guild.id)) return;
     log.info(`상주 모드 자동 해제: ${guild.name} | 원인=${WHY_LOG[why]}`);
     playerEvents.touched(guild.id);
-    await this.tell(guild, NOTICE[why](DISCORD_LOOK.channel(channelId)));
+    await this.tell(guild, publicText(guild.id).notices[NOTICE[why]](channelMention(channelId)));
   }
 
   // 자리 채널을 디스코드에 묻는다(캐시는 기동, 재연결 때 비어 있을 수 있다)

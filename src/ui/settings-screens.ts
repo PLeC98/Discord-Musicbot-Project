@@ -5,7 +5,7 @@ import { readsMessageContent } from "../infra/gateway-intents.ts";
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, RoleSelectMenuBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, StringSelectMenuBuilder, TextDisplayBuilder } from "discord.js";
 import { frame } from "./frame.ts";
 import type { IconKey } from "./icons.ts";
-import * as settingsText from "./text/ko/settings.ts";
+import type { BotText } from "./text/index.ts";
 import { DJ_ROLE_MAX } from "../rules/limits.ts";
 import type { AgePlace } from "../rules/age-place.ts";
 
@@ -17,11 +17,11 @@ const saved = ({ icon, title, description }: Card) => frame({ icon, title, body:
 /** 설정 화면을 닫았다, 지금 값을 보인다 */
 const shown = ({ icon, title, description }: Card) => frame({ icon, title, body: description });
 
-/** 전용 채널을 정했다. channel은 채널 멘션 */
-function channelSet(channel: string) {
+/** 전용 채널을 정했다. T는 그 서버의 문구표(채널에 보이는 결과), channel은 채널 멘션 */
+function channelSet(T: BotText, channel: string) {
   // 메시지 내용을 읽지 못하면(Message Content Intent 꺼짐) 입력할 수 있는 것을 보이지 않는다
   const typed = readsMessageContent();
-  const t = settingsText.channelSet(channel, typed);
+  const t = T.settings.channelSet(channel, typed);
   return saved({ icon: t.icon, title: t.title, description: typed ? `${t.description}\n\n**${t.inputs}**\n${t.inputsValue}` : t.description });
 }
 
@@ -34,8 +34,8 @@ type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Op
  * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴), SponsorBlock(켜기 버튼, 구간 메뉴), 연령 제한 콘텐츠(틀 곳 버튼 둘), 맨 아래 닫기.
  * 선택하면 바로 저장하고 이 화면을 다시 그린다. 받는 쪽은 src/discord/interactions/settings-panel-handler
  */
-function settingsPanel({ djRoleIds, sponsor, agePlace }: PanelView) {
-  const t = settingsText.panel;
+function settingsPanel(T: BotText, { djRoleIds, sponsor, agePlace }: PanelView) {
+  const t = T.settings.panel;
   const container = frame({ icon: t.icon, title: t.title, body: t.description });
   const divide = () => container.addSeparatorComponents(new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small));
   const text = (content: string) => new TextDisplayBuilder().setContent(content);

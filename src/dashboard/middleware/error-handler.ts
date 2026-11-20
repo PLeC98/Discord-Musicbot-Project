@@ -2,7 +2,8 @@ import crypto from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import logger from "../../infra/log/logger.ts";
 import { PROBLEMS, type Code } from "../../rules/problems.ts";
-import { noticeFor } from "../../ui/text/ko/errors.ts";
+import { textFor } from "../../ui/text/index.ts";
+import { viewerLanguage } from "../../ui/language.ts";
 import { sendProblem } from "../problem.ts";
 import { SessionEndedError, isEnded, sessionEnded } from "../session-requests.ts";
 const log = logger.child({ category: "dashboard" });
@@ -95,7 +96,7 @@ function errorHandler(err: unknown, req: Request, res: Response, next: NextFunct
   res
     .status(status)
     .type("html")
-    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${noticeFor(code).title}</p><p>오류 ID: ${errorId}</p>`);
+    .send(`<!doctype html><meta charset="utf-8"><title>${status}</title><h1>${status}</h1><p>${textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })).errors.noticeFor(code).title}</p><p>오류 ID: ${errorId}</p>`);
 }
 
 export { errorHandler, notFoundJson };

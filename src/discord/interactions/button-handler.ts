@@ -2,11 +2,9 @@ import { ActionRowBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInp
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { checkControl, isBotOwner } from "../../usecases/permissions.ts";
 import { nextLoopMode } from "../../rules/loop-cycle.ts";
 import { answerPause, answerSkip, answerPrevious, answerStop, answerShuffle, answerLoop, answerHighlight } from "./control-answers.ts";
-import * as controlText from "../../ui/text/ko/controls.ts";
 
 import { PANEL, PING, SYSTEM, customId, partsOf } from "../../ui/custom-ids.ts";
 import { openQueue } from "../commands/queue.ts";
@@ -18,6 +16,8 @@ import type { BotContext } from "../../app/bot-context.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, keepSelf, noticeSelf } from "../../ui/delivery.ts";
 import { VOLUME_MAX } from "../../rules/limits.ts";
+import { personLanguage, privateText } from "../../ui/language.ts";
+import type { BotText } from "../../ui/text/index.ts";
 
 /** 서버 메시지의 버튼 */
 type Press = ButtonInteraction<"cached">;
@@ -42,30 +42,30 @@ const PANEL_ENABLED: Partial<Record<string, () => boolean>> = { highlight: () =>
 // 동일 음성 채널, 계층 검사는 핸들러가 부르는 controls가 한다. 대기열 보기는 검사 없이 연다
 async function handlePanelButton(interaction: Press, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
-  if (!player) return noticeSelf(interaction, errors.notice("no-song"));
+  if (!player) return noticeSelf(interaction, privateText(interaction).errors.notice("no-song"));
 
   const { action, rest } = partsOf(interaction.customId);
   const sessionId = rest[0];
   if (sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return noticeSelf(interaction, errors.notice("stale-session"));
+    return noticeSelf(interaction, privateText(interaction).errors.notice("stale-session"));
   }
   const handle = PANEL_ACTIONS[action];
-  if (!handle || PANEL_ENABLED[action]?.() === false) return noticeSelf(interaction, errors.notice("unknown-interaction"));
+  if (!handle || PANEL_ENABLED[action]?.() === false) return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
   await handle(interaction, player);
 }
 
 async function handleVolumeButton(interaction: Press, player: Player) {
   const permErr = await checkControl(interaction.member);
   if (permErr) {
-    return await noticeSelf(interaction, errors.notice(permErr));
+    return await noticeSelf(interaction, privateText(interaction).errors.notice(permErr));
   }
 
-  await interaction.showModal(volumeModal(player.volume));
+  await interaction.showModal(volumeModal(privateText(interaction), player.volume));
 }
 
-/** 볼륨을 입력하는 모달. 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs의 handleVolumeSubmit */
-function volumeModal(current: number) {
-  const t = controlText.volumeModal(current);
+/** 볼륨을 입력하는 모달(누른 사람에게만 보인다). 자리표시는 지금 볼륨. 받는 쪽은 panel-inputs의 handleVolumeSubmit */
+function volumeModal(T: BotText, current: number) {
+  const t = T.controls.volumeModal(current);
   const volumeInput = new TextInputBuilder().setCustomId("level").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(String(VOLUME_MAX).length).setPlaceholder(t.placeholder).setRequired(true);
   return new ModalBuilder().setCustomId(customId(PANEL, "volume")).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(volumeInput));
 }
@@ -74,19 +74,19 @@ function volumeModal(current: number) {
 async function handleSystemRefresh(interaction: Press, bot: BotContext) {
   // /system과 동일하게 봇 운영자 전용
   if (!isBotOwner(interaction.user.id)) {
-    return await noticeSelf(interaction, errors.notice("must-owner"));
+    return await noticeSelf(interaction, privateText(interaction).errors.notice("must-owner"));
   }
   // 업데이트 전에 보낸 임베드 메시지는 Components V2로 고칠 수 없다
-  if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) return noticeSelf(interaction, errors.notice("unknown-interaction"));
+  if (!interaction.message.flags.has(MessageFlags.IsComponentsV2)) return noticeSelf(interaction, privateText(interaction).errors.notice("unknown-interaction"));
   try {
     await interaction.deferUpdate();
-    const { view, files } = await systemScreen(bot);
+    const { view, files } = await systemScreen(bot, personLanguage(interaction));
     await interaction.editReply({ ...post(view, files), attachments: [] });
     keepSelf(interaction, LIFETIME.screen);
   } catch (error) {
     log.error("시스템 정보 새로고침 실패:", error);
     try {
-      await noticeSelf(interaction, errors.notice("refresh-failed"));
+      await noticeSelf(interaction, privateText(interaction).errors.notice("refresh-failed"));
     } catch (err) {
       log.error("오류 안내 전송 실패:", err);
     }

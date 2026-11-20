@@ -4,6 +4,7 @@ import { controlMessage } from "../../ui/control-messages.ts";
 import * as replies from "../../ui/control-replies.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 
 const exported: GuildCommand = {
   help: { section: "queue", tier: "dj-or-requester" },
@@ -19,9 +20,9 @@ const exported: GuildCommand = {
     const position = interaction.options.getInteger("position", true) - 1;
     const end = interaction.options.getInteger("end");
     const r = await controls.remove(bot.players.get(guild.id), { member }, position, end === null ? position : end - 1);
-    if (!r.ok) return noticeSelf(interaction, controlMessage(r));
+    if (!r.ok) return noticeSelf(interaction, controlMessage(privateText(interaction), r));
 
-    await toAll(interaction, replies.removed(r.removed.length, r.left, member), LIFETIME.result);
+    await toAll(interaction, replies.removed(publicText(interaction.guildId), r.removed.length, r.left, member), LIFETIME.result);
   },
 };
 export default exported;

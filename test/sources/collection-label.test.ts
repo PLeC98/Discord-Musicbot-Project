@@ -10,8 +10,10 @@ import { addedView } from "../../src/ui/added-notice.ts";
 import config from "../../src/config/index.ts";
 import { post } from "../../src/ui/frame.ts";
 import { textsOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 // 추가 안내가 보인 글자(ui/added-notice)
-const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView({ tracks, collection, insertFirst, notice })))[0];
+const addedText = (tracks: Array<{ title?: string | null }>, collection: string | null, insertFirst = false, notice = {}) => textsOf(post(addedView(KO, { tracks, collection, insertFirst, notice })))[0];
 
 const songs = (n: number) => Array.from({ length: n }, (_, i) => tracks.youtube(`v${i}`, { title: `곡${i}` }));
 

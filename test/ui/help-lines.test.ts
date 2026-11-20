@@ -8,9 +8,15 @@ import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { enabledCommands } from "../../src/app/command-loader.ts";
 import { withConfig } from "../helpers/config.ts";
 import { iconEntries, useUploaded } from "../../src/ui/icons.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 // 실행 목록(켜진 명령)으로 만든다. /help가 client.commands로 하는 것과 같다
-const sectionsNow = () => helpSections(enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })));
+const sectionsNow = () =>
+  helpSections(
+    KO,
+    enabledCommands().map((command) => ({ defined: command.data.toJSON(), help: command.help })),
+  );
 
 const EXPECTED = [
   {
@@ -74,7 +80,7 @@ test('"서버 관리 권한" 표시는 디스코드가 그 권한으로 막는 �
 });
 
 test("줄에는 옵션을 적지 않는다(입력할 때 디스코드 자동완성이 보인다). 권한 표시를 끝에 붙인다", () => {
-  const [section] = helpSections([
+  const [section] = helpSections(KO, [
     { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
     { defined: { name: "y", description: "설명" }, help: { section: "play", tier: "server-manager" } },
     { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
@@ -87,10 +93,10 @@ test("보는 사람이 못 쓰는 등급의 줄에는 자물쇠, 섹션에 자�
     { defined: { name: "x", description: "설명" }, help: { section: "play", tier: "dj" } },
     { defined: { name: "z", description: "설명" }, help: { section: "play", tier: "everyone" } },
   ] as const;
-  const [locked] = helpSections([...commands], null, (tier) => tier !== "dj");
+  const [locked] = helpSections(KO, [...commands], null, (tier) => tier !== "dj");
   assert.deepEqual(locked.lines, ["`/x`: 설명 💿 🔒", "`/z`: 설명"]);
   assert.equal(locked.locked, true);
-  assert.equal(helpSections([...commands])[0].locked, false, "판정을 주지 않으면 모두 열림");
+  assert.equal(helpSections(KO, [...commands])[0].locked, false, "판정을 주지 않으면 모두 열림");
 });
 
 test("앱 이모지와 19자리 명령 id를 실어도(줄마다 45자 안팎 길어진다) 화면마다 글자 합이 Components V2 상한(4000자) 안, 여유 500자", async () => {
@@ -114,7 +120,7 @@ test("앱 이모지와 19자리 명령 id를 실어도(줄마다 45자 안팎 �
       walk(view.toJSON());
       return texts;
     };
-    const pages = { home: textsOf(homeView(running)), ...Object.fromEntries(SECTIONS.map((key) => [key, textsOf(sectionView(running, key))])) };
+    const pages = { home: textsOf(homeView(KO, running)), ...Object.fromEntries(SECTIONS.map((key) => [key, textsOf(sectionView(KO, running, key))])) };
     const all = Object.values(pages).flat().join("\n");
     assert.match(all, /<\/play:\d{19}>/, "명령 멘션이 실렸다");
     assert.match(all, /<:music:\d{19}>/, "앱 이모지가 실렸다");

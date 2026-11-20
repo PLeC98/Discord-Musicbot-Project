@@ -13,6 +13,8 @@ import type { Player } from "../../src/player/player.ts";
 import { addFailureMessage } from "../../src/ui/error-messages.ts";
 import { plainText } from "../helpers/notice.ts";
 import { textOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 const realMax = config.bot.maxQueueSize;
 afterEach(() => {
@@ -68,7 +70,7 @@ test("대기열이 가득 차 한 곡도 못 넣으면 실패로 돌려준다", 
   const result = await add([t("x")]);
 
   assert.equal(result.success ? null : result.code, "queue-full");
-  assert.match(result.success ? "" : plainText(addFailureMessage(result)), /대기열이 가득 찼어요\.\.\. \(최대 30곡\)/);
+  assert.match(result.success ? "" : plainText(addFailureMessage(KO, result)), /대기열이 가득 찼어요\.\.\. \(최대 30곡\)/);
   assert.equal(player.queue.length, 30);
   assert.deepEqual(notices, [], "추가 안내는 보내지 않는다(진입점이 실패를 알린다)");
 });

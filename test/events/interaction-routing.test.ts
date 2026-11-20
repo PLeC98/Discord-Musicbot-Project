@@ -28,6 +28,8 @@ import { homeView } from "../../src/discord/commands/help.ts";
 import { COMMANDS } from "../../src/discord/commands/index.ts";
 import { searchResultsView } from "../../src/ui/search-results.ts";
 import { selectOf } from "../helpers/cv2.ts";
+import { textFor } from "../../src/ui/text/index.ts";
+const KO = textFor("ko");
 
 useDefaultDocuments();
 const store = openTempStore("listeners-");
@@ -137,18 +139,18 @@ for (const [kind, customId, owner] of CASES) {
 // 위 목록은 글자를 적어 둔 것이라, 만드는 쪽의 custom_id가 바뀌면 모른다. 만든 것을 받는 경로가 목록의 것과 같은지 본다
 test("봇이 만드는 모달, 메뉴의 custom_id는 목록의 그 경로로 간다", async () => {
   const sameRoute = (kind: RouteKind, built: string, listed: string) => assert.equal(routeOf(ROUTES, kind, built), routeOf(ROUTES, kind, listed), built);
-  sameRoute("modal", volumeModal(80).toJSON().custom_id, "panel:volume");
-  sameRoute("modal", pageModal("edit", 2, 3).toJSON().custom_id, "queue:goto:edit:2");
-  for (const menu of [buildGenreMenu(), buildAutoplayOffMenu()]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
-  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow({ sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
+  sameRoute("modal", volumeModal(KO, 80).toJSON().custom_id, "panel:volume");
+  sameRoute("modal", pageModal(KO, "edit", 2, 3).toJSON().custom_id, "queue:goto:edit:2");
+  for (const menu of [buildGenreMenu(KO), buildAutoplayOffMenu(KO)]) sameRoute("select", selectOf(menu)?.custom_id ?? "", "autoplay:genre");
+  const jump = await new NowPlayingPanel(fake({}), new Map()).createJumpToRow(KO, { sessionId: "s1", queue: [Object.defineProperty(tracks.youtube("aaaaaaaaaaa"), "entry", { value: 1, enumerable: false })] });
   sameRoute("select", jump?.toJSON().components[0].custom_id ?? "", "panel:jump:s1");
-  const results = searchResultsView({ query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
+  const results = searchResultsView(KO, { query: "q", rows: [{ platform: "youtube", id: "aaaaaaaaaaa", title: "곡", duration: 60, pageUrl: "https://www.youtube.com/watch?v=aaaaaaaaaaa" }], gated: false, userId: "u1" });
   sameRoute("select", selectOf(results)?.custom_id ?? "", "search:pick:u1");
-  sameRoute("select", selectOf({ components: [homeView(new Map(COMMANDS.map((command) => [command.data.name, command])))] })?.custom_id ?? "", "help:section");
+  sameRoute("select", selectOf({ components: [homeView(KO, new Map(COMMANDS.map((command) => [command.data.name, command])))] })?.custom_id ?? "", "help:section");
 });
 
 test("볼륨 모달의 자리표시는 지금 볼륨", () => {
-  const input = (volumeModal(80).toJSON().components[0] as { components: Array<{ placeholder?: string }> }).components[0];
+  const input = (volumeModal(KO, 80).toJSON().components[0] as { components: Array<{ placeholder?: string }> }).components[0];
   assert.equal(input.placeholder, "현재 80");
 });
 

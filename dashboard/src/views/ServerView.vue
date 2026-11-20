@@ -311,7 +311,6 @@
 </template>
 
 <script setup lang="ts">
-import { songTitle } from "../../../src/ui/text/ko/labels.ts";
 import { nextLoopMode } from "../../../src/rules/loop-cycle.ts";
 import { iconButton } from "../utils/icon-button.ts";
 import { problemText, noticeText } from "../utils/problem.ts";
@@ -367,6 +366,7 @@ import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/r
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
+const songTitle = text.bot.labels.songTitle;
 const P = text.player;
 const T = text.server;
 

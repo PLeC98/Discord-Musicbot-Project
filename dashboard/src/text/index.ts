@@ -1,6 +1,6 @@
 // 화면 문구표. 언어마다 같은 형태의 모듈(text/<언어>/)을 두고 여기서 선택한다(지금은 한국어 하나, 다국어를 추가하면 선택한 언어의 것을 낸다).
 // 말투는 해요체, 버튼, 제목은 명사형, 툴팁은 짧게, 화면 읽기 이름(aria-label)은 무엇인지 드러나게.
-// 봇과 같은 뜻의 문장(거절, 오류, 라벨)은 여기 두지 않고 봇 문장표(src/ui/text/ko/)에서 부른다
+// 봇과 같은 뜻의 문장(거절, 오류, 라벨)은 여기 두지 않고 봇 문구표에서 부른다(text.bot, 봇의 src/ui/text/shared)
 
 import * as admin from "./ko/admin.ts";
 import * as ageContent from "./ko/age-content.ts";
@@ -41,7 +41,12 @@ import * as snapshots from "./ko/snapshots.ts";
 import * as status from "./ko/status.ts";
 import * as tunables from "./ko/tunables.ts";
 import * as ytdlp from "./ko/ytdlp.ts";
+import { sharedTextFor } from "../../../src/ui/text/shared.ts";
+import { BASE_LANGUAGE } from "../../../src/rules/languages.ts";
 
-const text = { admin, ageContent, ai, appearance, appEmojis, archive, bgutil, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, geoip, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, toolVersions, tunables, ytdlp };
+// 화면에서도 쓰는 봇 문구. 화면은 아직 기준 언어로만 그린다
+const bot = sharedTextFor(BASE_LANGUAGE);
+
+const text = { bot, admin, ageContent, ai, appearance, appEmojis, archive, bgutil, cacheDb, commands, common, cookies, dev, editor, errors, fields, genres, geoip, invite, licenses, login, loginBackground, logs, manage, more, player, presence, reset, restart, server, serverSettings, servers, serviceKeys, settings, shell, snapshots, status, toolVersions, tunables, ytdlp };
 
 export { text };

@@ -2,7 +2,6 @@
 
 import { type ModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
 import type { BotContext } from "../../app/bot-context.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import * as replies from "../../ui/control-replies.ts";
 import * as controls from "../../usecases/controls.ts";
 import { controlMessage } from "../../ui/control-messages.ts";
@@ -10,22 +9,23 @@ import { answerVolume } from "./control-answers.ts";
 import { route, type Route } from "./route.ts";
 import { PANEL, customId, partsOf, entryOfJump } from "../../ui/custom-ids.ts";
 import { LIFETIME, noticeSelf, toAll } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 
 async function handleJumpTo(interaction: StringSelectMenuInteraction<"cached">, { players }: BotContext) {
   const player = players.get(interaction.guild.id);
   const sessionId = partsOf(interaction.customId).rest[0];
   if (player && sessionId && player.sessionId && sessionId !== player.sessionId) {
-    return await noticeSelf(interaction, errors.notice("stale-session"));
+    return await noticeSelf(interaction, privateText(interaction).errors.notice("stale-session"));
   }
 
   // 대기열 ID가 아닌 값은 번호를 값으로 쓰던 옛 메뉴의 값이다(재기동과 맞물린 패널)
   const entry = entryOfJump(interaction.values[0]);
-  if (entry === null) return await noticeSelf(interaction, errors.notice("jump-target-gone"));
+  if (entry === null) return await noticeSelf(interaction, privateText(interaction).errors.notice("jump-target-gone"));
   const r = await controls.jump(player, { member: interaction.member }, entry);
-  if (!r.ok && r.code === "entry-gone") return await noticeSelf(interaction, errors.notice("jump-target-gone"));
-  if (!r.ok) return await noticeSelf(interaction, controlMessage(r));
+  if (!r.ok && r.code === "entry-gone") return await noticeSelf(interaction, privateText(interaction).errors.notice("jump-target-gone"));
+  if (!r.ok) return await noticeSelf(interaction, controlMessage(privateText(interaction), r));
 
-  await toAll(interaction, replies.jumped(r.track), LIFETIME.result);
+  await toAll(interaction, replies.jumped(publicText(interaction.guildId), r.track), LIFETIME.result);
 }
 
 async function handleVolumeSubmit(interaction: ModalSubmitInteraction<"cached">, { players }: BotContext) {
