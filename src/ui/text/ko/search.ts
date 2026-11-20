@@ -3,6 +3,7 @@
 import { clipText } from "../../../rules/clip-text.ts";
 import { icon } from "../../icons.ts";
 import { escapeMd, linkLabel } from "../../mentions.ts";
+import { upcomingLive } from "./labels.ts";
 
 /** /search 결과 카드의 헤더 줄(아이콘은 그리는 쪽이 붙인다) */
 const resultsTitle = (query: string) => `"${escapeMd(query)}" 검색 결과`;
@@ -39,15 +40,18 @@ const songChoice = ({ title, artist, length, spotify = false }: { title: string 
 
 // 선택한 후보의 이름이 입력란에 들어간 뒤 고쳐져 다시 온 것. 맨 위 줄은 따옴표 안, 곡 후보는 끝의 길이를 뗀다
 const RESULTS_ECHO = /^🔍 "([^"]*)"?/u;
-const SONG_TAIL = / \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|예정된 라이브|알 수 없음)\)(?: \(Spotify\))?$/u;
+const SONG_TAIL = new RegExp(String.raw` \((?:(?:\d+:)?\d{1,2}:\d{2}|🔴LIVE|${upcomingLive()}|${unknownLength()})\)(?: \(Spotify\))?$`, "u");
 
-/** 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 온 것이면 그 안의 검색어만 */
-const queryOfTyped = (typed: string) => {
+/** 자동완성에 들어온 글자가 이 언어의 선택지 이름이나 그것을 고친 것이면 그 안의 검색어, 아니면 null */
+const queryOfChoice = (typed: string) => {
   const echoed = RESULTS_ECHO.exec(typed);
-  return (echoed ? echoed[1] : typed.replace(SONG_TAIL, "")).trim();
+  if (echoed) return echoed[1].trim();
+  return SONG_TAIL.test(typed) ? typed.replace(SONG_TAIL, "").trim() : null;
 };
+/** 메뉴 항목 이름(pickOption의 label)에서 제목. 그 형식이 아니면 null */
+const titleOfPick = (label: string) => /^\d+\. (.+)$/su.exec(label)?.[1] ?? null;
 
 /** /play, 전용 채널 입력이 찾는 동안의 플레이스홀더. input은 입력한 것(전용 채널은 앞부분만 자른 것) */
 const searching = (input: string) => `${icon("progress")} **${input}** 검색 중...`;
 
-export { resultsTitle, resultLine, gatedFooter, pickPlaceholder, pickOption, unknownLength, addingTrack, resultsChoice, songChoice, queryOfTyped, searching };
+export { resultsTitle, resultLine, gatedFooter, pickPlaceholder, pickOption, unknownLength, addingTrack, resultsChoice, songChoice, queryOfChoice, titleOfPick, searching };

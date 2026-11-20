@@ -3,7 +3,7 @@
 
 import { ContainerBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize, TextDisplayBuilder, ThumbnailBuilder, resolveColor } from "discord.js";
 import * as genreConfig from "../config/genres.ts";
-import { labelOf } from "../rules/platforms.ts";
+import { platformName } from "../rules/platforms.ts";
 import { colorOf } from "./colors.ts";
 import * as discordArt from "./discord-art.ts";
 import { formatDuration } from "./format.ts";
@@ -21,8 +21,8 @@ const divider = () => new SeparatorBuilder().setDivider(true).setSpacing(Separat
 /** 음원 주소가 어느 곳의 것인지(링크 이름). 모르면 주소의 호스트 */
 function audioHost(url: string) {
   const host = new URL(url).hostname.replace(/^www\.|^m\./, "");
-  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return labelOf("youtube");
-  if (/(^|\.)soundcloud\.com$/.test(host)) return labelOf("soundcloud");
+  if (/(^|\.)youtube\.com$|^youtu\.be$/.test(host)) return platformName("youtube");
+  if (/(^|\.)soundcloud\.com$/.test(host)) return platformName("soundcloud");
   return host;
 }
 
@@ -36,7 +36,7 @@ function aboutTrack(T: BotText, player: Player, track: QueuedTrack) {
   const audioUrl = track.audioUrl;
   // 요청 그대로(given)인 음원은 따로 적지 않는다
   const foundBy = audioUrl && track.audioFoundBy && track.audioFoundBy !== "given" ? N.foundBy[track.audioFoundBy] : null;
-  return [N.line("stats", N.status, status), requester ? N.line("person", N.requester, requester) : null, N.line("web", N.source, labelOf(platform)), audioUrl && foundBy ? N.line("link", N.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
+  return [N.line("stats", N.status, status), requester ? N.line("person", N.requester, requester) : null, N.line("web", N.source, T.labels.platform(platform)), audioUrl && foundBy ? N.line("link", N.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
 }
 
 /** 다음 곡. 대기열이 비면 자동재생이 고르는지, 아니면 없음 */

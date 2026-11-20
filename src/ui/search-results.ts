@@ -11,7 +11,7 @@ import type { BotText } from "./text/index.ts";
 /** 결과 한 곡. platform은 출처(아이콘, 선택 값) */
 type ResultRow = { platform: SearchPick["platform"]; id: string; title: string | null; artist?: string; duration: number; isLive?: boolean; liveStatus?: string | null; pageUrl: string };
 
-const lengthOf = (T: BotText, row: ResultRow) => (row.isLive ? liveMarkOf(row) : formatDuration(row.duration, T.search.unknownLength()));
+const lengthOf = (T: BotText, row: ResultRow) => (row.isLive ? liveMarkOf(T, row) : formatDuration(row.duration, T.search.unknownLength()));
 
 /** 메뉴 항목의 값: 번호와 선택한 곡(같은 곡이 두 번 나와도 값이 겹치지 않게) */
 const optionValue = (rank: number, row: ResultRow) => `${rank}:${pickValue({ platform: row.platform, id: row.id })}`;

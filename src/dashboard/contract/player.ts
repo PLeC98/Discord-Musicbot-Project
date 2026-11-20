@@ -24,7 +24,6 @@ type RequesterRef = { id: string | null } | null;
 type QueueTrackView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail" | "platform"> & {
   index: number;
   entry: number | null;
-  platformLabel: string;
   isLive: boolean;
   /** 시작 전 라이브(예정된 방송, 최초 공개). isLive도 참이다 */
   upcoming: boolean;
@@ -40,7 +39,6 @@ type SponsorSegmentView = { start: number; end: number; categories: string[] };
 type PlayingView = Pick<TrackInfo, "title" | "artist" | "duration" | "thumbnail" | "platform"> & {
   entry: number | null;
   url: string;
-  platformLabel: string;
   isLive: boolean;
   currentTime: number;
   requestedBy: RequesterRef;

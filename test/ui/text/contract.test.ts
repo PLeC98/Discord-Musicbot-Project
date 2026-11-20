@@ -36,9 +36,9 @@ test("타입 검사를 거치지 않은 번들: 빠진 모듈, 빠진 함수는 
 });
 
 test("검색 모듈은 하나라도 빠지면 통째로 기준 언어(선택지 이름과 되읽기가 짝이다)", () => {
-  const { queryOfTyped: _query, ...halfSearch } = ko.search;
+  const { queryOfChoice: _query, ...halfSearch } = ko.search;
   const filled = fillFrom(ko, { ...ko, search: { ...halfSearch, resultsChoice: () => "x" } }, WHOLE_MODULES);
-  assert.deepEqual(filled.missing, ["search.queryOfTyped"]);
+  assert.deepEqual(filled.missing, ["search.queryOfChoice"]);
   assert.equal(filled.value.search.resultsChoice, ko.search.resultsChoice);
 });
 

@@ -9,7 +9,7 @@ import { bindErrors, type ErrorTable, type LinkLook } from "./notice.ts";
 /** 하나라도 빠지면 통째로 기준 언어로 채우는 모듈: 선택지 이름을 만드는 함수와, 입력란에 들어간 그 이름에서 검색어를 꺼내는 함수가 짝이다 */
 const WHOLE_MODULES: ReadonlySet<string> = new Set(["search"]);
 /** 문구가 아니라 사용자가 입력한 글에서 꺼낸 값을 돌려주는 함수. 테스트 언어에서도 바꾸지 않는다 */
-const NOT_TEXT: ReadonlySet<string> = new Set(["search.queryOfTyped"]);
+const NOT_TEXT: ReadonlySet<string> = new Set(["search.queryOfChoice", "search.titleOfPick"]);
 
 /** 오류 안내의 문장표를 찾는 함수(notice, noticeFor)를 그 언어의 표에 묶는다. 채운 뒤의 표를 봐야 빠진 항목이 기준 언어로 나온다 */
 const withErrors = <S extends { errors: { TEXT: ErrorTable; PLAIN: LinkLook } }>(text: S) => ({ ...text, errors: { ...text.errors, ...bindErrors(text.errors.TEXT, text.errors.PLAIN) } });

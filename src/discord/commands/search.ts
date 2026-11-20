@@ -20,7 +20,7 @@ import { formatDuration, liveMarkOf } from "../../ui/format.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import { showFailureWith } from "../../ui/failure-notice.ts";
 import { searchResultsView, type ResultRow } from "../../ui/search-results.ts";
-import { privateText } from "../../ui/language.ts";
+import { privateText, readingTexts } from "../../ui/language.ts";
 import type { BotText } from "../../ui/text/index.ts";
 import { LIFETIME, expireMessage, noticeMs, noticeSelf, replaceSelf } from "../../ui/delivery.ts";
 import { playOnReply } from "./play.ts";
@@ -46,14 +46,17 @@ const gatedSentence = (T: BotText) => {
   return `${gated.title} ${gated.body ?? ""}`.trim();
 };
 
-const lengthOf = (T: BotText, track: { duration: number; isLive?: boolean; liveStatus?: string | null }) => (track.isLive ? liveMarkOf(track) : formatDuration(track.duration, T.search.unknownLength()));
+const lengthOf = (T: BotText, track: { duration: number; isLive?: boolean; liveStatus?: string | null }) => (track.isLive ? liveMarkOf(T, track) : formatDuration(track.duration, T.search.unknownLength()));
 
 // ── 자동완성 ──
 
-/** 자동완성에 들어온 글자 → 찾을 검색어. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 선택한 연령 인증 줄의 문장) null */
-function searchable(T: BotText, typed: string): string | null {
-  if (typed.startsWith(gatedSentence(T).slice(0, 12))) return null;
-  const query = T.search.queryOfTyped(typed);
+/**
+ * 자동완성에 들어온 글자 → 찾을 검색어. 선택지 이름을 고쳐 보낸 것이면 그 안의 검색어만. 찾을 것이 없으면(빈 것, 링크, 100자 넘음, 연령 인증 안내 줄을 선택한 것) null.
+ * readers: 되읽어 볼 문구표들(ui/language의 readingTexts)
+ */
+function searchable(readers: readonly BotText[], typed: string): string | null {
+  if (readers.some((T) => typed.startsWith(gatedSentence(T).slice(0, 12)))) return null;
+  const query = readers.map((T) => T.search.queryOfChoice(typed)).find((one) => one !== null) ?? typed.trim();
   // 100자를 넘으면 맨 위 줄의 값이 될 수 없다(입력란 상한이 100자라 보통 오지 않는다)
   return !query || query.length > SEARCH_MAX_LEN || isLink(query) ? null : query;
 }
@@ -177,7 +180,7 @@ const exported: GuildCommand & {
   async autocomplete(interaction, _bot, deps: SearchDeps = {}) {
     const all = depsOf(deps);
     const T = privateText(interaction);
-    const query = searchable(T, interaction.options.getFocused().trim());
+    const query = searchable(readingTexts(interaction), interaction.options.getFocused().trim());
     if (!query) return await interaction.respond([]);
     if (graphemeLength(query) < SEARCH_MIN_LEN) return await interaction.respond(choicesOf(T, query, NOTHING));
 

@@ -53,6 +53,10 @@ class SsrfError extends Error {
   }
 }
 
+/** 받은 것이 최대 크기를 넘었다는 오류 코드(부르는 쪽이 공간 부족 같은 자기 이유로 바꿔 알린다) */
+const TOO_LARGE = "TOO_LARGE";
+const tooLarge = <E extends Error>(error: E) => Object.assign(error, { code: TOO_LARGE });
+
 // DNS가 붙인 이름(ENOTFOUND, EAI_AGAIN 등), 없으면 메시지. 원인으로 달지 않는다(오류 종류가 네트워크로 바뀐다)
 const dnsReason = (error: unknown) => codeOf(error) ?? messageOf(error);
 
@@ -216,7 +220,7 @@ function byteCap(maxBytes: number) {
     transform(chunk, _enc, cb) {
       total += chunk.length;
       if (total > maxBytes) {
-        cb(Object.assign(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과함`), { permanent: true }));
+        cb(Object.assign(tooLarge(new Error(`다운로드한 파일이 최대 크기(${maxBytes} bytes)를 초과함`)), { permanent: true }));
         return;
       }
       cb(null, chunk);
@@ -233,7 +237,7 @@ function assertResponseAllowed(responseHeaders: object, accept = DIRECT_LINK) {
   }
   const len = headers["content-length"];
   if (len && Number(len) > accept.maxBytes) {
-    throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${String(len)}`);
+    throw tooLarge(new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과: ${String(len)}`));
   }
 }
 
@@ -316,7 +320,7 @@ async function getBuffer(rawUrl: string, accept: Accept, deps: RequestDeps = {})
     let total = 0;
     for await (const chunk of source as AsyncIterable<Buffer>) {
       total += chunk.length;
-      if (total > accept.maxBytes) throw new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과함`);
+      if (total > accept.maxBytes) throw tooLarge(new SsrfError(`파일이 최대 크기(${accept.maxBytes} bytes)를 초과함`));
       chunks.push(chunk);
     }
     return Buffer.concat(chunks);
@@ -340,7 +344,7 @@ function servedFrom({ status, headers }: { status: number; headers: Record<strin
   return range ? Number(range[1]) : null;
 }
 
-export { SsrfError, head, getStream, getBuffer, servedFrom, watchBodyIdle, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES, DIRECT_LINK, HEAD_TIMEOUT_MS };
+export { SsrfError, TOO_LARGE, head, getStream, getBuffer, servedFrom, watchBodyIdle, isBlockedIp, isAllowedContentType, validateAndResolve, MAX_BYTES, DIRECT_LINK, HEAD_TIMEOUT_MS };
 // 테스트가 진짜 소켓으로 보는 것
 export const _internals = { send, createPinnedAgent };
 export type { Accept, LookupFn, HttpRequest, RequestDeps, Outgoing, Incoming };

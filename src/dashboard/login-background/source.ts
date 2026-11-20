@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
-import { codedError, messageOf } from "../../rules/error-kind.ts";
+import { codeOf, codedError, messageOf } from "../../rules/error-kind.ts";
 import { ffmpeg } from "./ffmpeg.ts";
 import * as safeUrl from "../../infra/safe-url.ts";
 import type { StageJob, StageResult } from "./runner.ts";
@@ -149,7 +149,7 @@ async function download(url: string, file: string, room: number, signal: AbortSi
   } catch (error) {
     fs.rmSync(part, { force: true });
     if (signal.aborted) throw error;
-    if (/최대 크기/.test(messageOf(error))) throw codedError("background-no-space", `파일이 남은 공간을 넘음: ${messageOf(error)}`, { cause: error });
+    if (codeOf(error) === safeUrl.TOO_LARGE) throw codedError("background-no-space", `파일이 남은 공간을 넘음: ${messageOf(error)}`, { cause: error });
     throw codedError("background-link-failed", `링크에서 다운로드 실패: ${messageOf(error)}`, { cause: error });
   }
 }

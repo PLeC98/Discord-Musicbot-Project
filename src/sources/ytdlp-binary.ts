@@ -83,10 +83,17 @@ type Io = {
 type Retry = "transient" | "lasting";
 /** 버전을 맞춘 결과. 로그 한 줄로 옮긴다(describe). current, from이 null이면 설치 전이다 */
 type Outcome =
-  { kind: "current"; version: string } | { kind: "installed"; from: string | null; to: string; channel: Channel } | { kind: "reused"; from: string | null; to: string } | { kind: "superseded"; target: string } | { kind: "available"; from: string | null; to: string; channel: Channel } | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel } | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry };
+  | { kind: "current"; version: string }
+  | { kind: "installed"; from: string | null; to: string; channel: Channel }
+  | { kind: "reused"; from: string | null; to: string }
+  | { kind: "superseded"; target: string }
+  | { kind: "available"; from: string | null; to: string; channel: Channel }
+  | { kind: "unusable"; current: string | null; target: string; reason: string; channel: Channel }
+  | { kind: "failed"; current: string | null; target: string | null; reason: string; channel: Channel; retry: Retry; signature?: true };
 /** force: 직접 실행한 것(하루 한 번 제한, 모드, 실행되지 않았던 태그 표시를 무시한다). fresh: 설정이 방금 바뀌었다(하루 한 번 제한만 무시한다) */
 type Options = { force?: boolean; skipSignature?: boolean; fresh?: boolean };
-type Failed = (reason: string, retry: Retry) => Outcome;
+/** signature: 서명이 맞지 않았다(로그에 키가 바뀌었을 수 있다고 덧붙인다) */
+type Failed = (reason: string, retry: Retry, signature?: boolean) => Outcome;
 /** 다운로드를 시작한 쪽. auto는 다운로드하는 사이 설정이 바뀌면 버린다 */
 type Origin = "auto" | "human";
 /** 교체하기 직전에 부른다. 참이면 다운로드한 것을 버린다(그사이 설정이 바뀌었다). null이면 부르지 않는다 */
@@ -563,7 +570,7 @@ class YtdlpBinary {
     const current = this.installed(this.state) ? this.state.version : null;
     // 설치된 것이 없어서 하는 다운로드는 버리지 않는다(모드와 상관없이 설치해야 한다)
     const guard: Stale = current === null ? null : stale;
-    const failed: Failed = (reason, retry) => ({ kind: "failed", current, target, reason, channel, retry });
+    const failed: Failed = (reason, retry, signature = false) => ({ kind: "failed", current, target, reason, channel, retry, ...(signature ? { signature: true } : {}) });
     const asset = this.io.asset(channel);
     if ("missing" in asset) return failed(asset.missing, "lasting");
     // 시도마다 따로(시간 초과로 내린 --version이 아직 앞의 staging에서 끝나는 중일 수 있다)
@@ -608,7 +615,7 @@ class YtdlpBinary {
       await this.io.fetch({ repo: REPOS[channel], tag: target, asset, staging, skipSignature });
     } catch (error) {
       const kind = (error as Partial<ReleaseError>).kind;
-      return failed(messageOf(error), kind === "missing" || kind === "signature" ? "lasting" : "transient");
+      return failed(messageOf(error), kind === "missing" || kind === "signature" ? "lasting" : "transient", kind === "signature");
     }
     const got = await this._version(path.join(staging, "dir", asset.exe));
     // 실행은 됐는데 오류로 끝났다(로더가 glibc 부족 등을 적는다). 이 태그는 이 환경에서 쓸 수 없다
@@ -898,7 +905,7 @@ function describe(outcome: Outcome): { level: "info" | "warn"; line: string } {
 
 function failedLine(outcome: Extract<Outcome, { kind: "failed" }>): string {
   // 서명이 맞지 않을 때만(서명 파일이 없는 옛 릴리스는 이유에 받는 법을 실었다)
-  const hint = /^서명 확인 실패/.test(outcome.reason) ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
+  const hint = outcome.signature ? ". yt-dlp 서명 키가 바뀌었을 수 있음. 봇을 업데이트하거나, 확인했으면 pnpm run update:ytdlp --skip-signature" : "";
   return outcome.current ? `yt-dlp 업데이트 실패(기존 버전 유지): ${outcome.current} → ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}` : `yt-dlp 설치 실패(yt-dlp를 쓰는 기능이 동작하지 않음): ${outcome.target ?? "?"} (${outcome.channel}) - ${outcome.reason}${hint}`;
 }
 

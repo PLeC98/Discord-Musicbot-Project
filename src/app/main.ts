@@ -74,6 +74,7 @@ import * as staySeats from "../store/stay-seats.ts";
 import { createStayKeeper } from "./stay-keeper.ts";
 import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
+import { publicText } from "../ui/language.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { choosePrivilegedIntents, onRefusedWhileRunning, refusedAtLogin } from "./privileged-intents.ts";
@@ -331,7 +332,7 @@ function listenToLibrary(client: Client) {
   client.rest.on(RESTEvents.Debug, (message) => dlog.trace(message));
 }
 
-// 플레이어의 알림을 화면과 대시보드에 잇는다. 직접 링크 곡의 파일 태그를 찾으면 그 곡을 가진 플레이어마다 반영한다
+// 플레이어의 알림을 화면과 대시보드에 잇는다. 감사 로그 사유는 그 서버의 언어로. 직접 링크 곡의 파일 태그를 찾으면 그 곡을 가진 플레이어마다 반영한다
 function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof createPlayerStream>, players: PlayerRegistry) {
   embeddedArt.onFound((audioKey, found) => {
     for (const player of players.values()) player.takeFileTags(audioKey, found);
@@ -343,6 +344,7 @@ function listenToPlayers(panels: NowPlayingPanel, stream: ReturnType<typeof crea
   playerEvents.on("notice", (player, code, detail) => sendNotice(player, code, detail));
   playerEvents.on("touched", (guildId) => stream.notify(guildId));
   playerEvents.on("leaving", (player, leavesAt) => panels.updateIdleLeave(player, leavesAt));
+  playerEvents.writeAuditReason((guildId, why) => publicText(guildId).audit[why]());
 }
 
 async function onReady(client: Client<true>, bot: BotContext, skipRestore: boolean) {

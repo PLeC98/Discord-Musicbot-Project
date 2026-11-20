@@ -176,7 +176,7 @@ function editRows(T: BotText, info: QueueInfo, { page, pages, offset, tracks, pi
   const session = info.sessionId ?? IDLE_SESSION;
   const index = picked === null ? -1 : tracks.findIndex((track) => track.entry === picked);
   const pickable = index >= 0 && canEdit(info.viewer, tracks[index]);
-  const entries = menuEntries(T, tracks, { first: offset + 1, parts: editParts, picked: pickable ? picked : null, only: (track) => canEdit(info.viewer, track) });
+  const entries = menuEntries(T, tracks, { first: offset + 1, parts: (track) => editParts(T, track), picked: pickable ? picked : null, only: (track) => canEdit(info.viewer, track) });
   const build = (options: StringSelectMenuOptionBuilder[]) =>
     new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
       new StringSelectMenuBuilder()

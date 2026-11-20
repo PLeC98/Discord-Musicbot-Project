@@ -4,7 +4,8 @@ import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { MessageFlags } from "discord.js";
 import config from "../../src/config/index.ts";
-import { audienceLanguage, guildLanguage, personLanguage, viewerLanguage } from "../../src/ui/language.ts";
+import { audienceLanguage, guildLanguage, personLanguage, readingTexts, viewerLanguage } from "../../src/ui/language.ts";
+import { textFor } from "../../src/ui/text/index.ts";
 import { TEST_LANGUAGE } from "../../src/rules/languages.ts";
 
 const savedGuildId = config.discord.guildId;
@@ -55,4 +56,11 @@ test("GUILD_ID가 있으면 테스트 언어는 그 서버에만 적용된다", 
   assert.equal(guildLanguage("111111111111111111"), TEST_LANGUAGE);
   assert.equal(guildLanguage("222222222222222222"), "ko");
   assert.equal(personLanguage({ locale: "en-US", guildId: "222222222222222222" }), "ko");
+});
+
+test("되읽기: 그 사람의 언어부터 쓸 수 있는 모든 언어의 문구표를 차례로", () => {
+  assert.deepEqual(readingTexts({ locale: "ko", guildId: "g" }), [textFor("ko")]);
+  onEverywhere();
+  assert.deepEqual(readingTexts({ locale: "en-US", guildId: "g" }), [textFor(TEST_LANGUAGE), textFor("ko")]);
+  assert.deepEqual(readingTexts({ locale: "ko", guildId: "g" }), [textFor("ko"), textFor(TEST_LANGUAGE)]);
 });

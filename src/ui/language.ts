@@ -43,6 +43,16 @@ const publicText = (guildId: string | null | undefined) => textFor(guildLanguage
 const privateText = (asker: Asker) => textFor(personLanguage(asker));
 /** 기존 메시지를 수정할 때 쓸 문구표 */
 const audienceText = (asker: Asker) => textFor(audienceLanguage(asker));
+/** 봇이 만든 글(선택지 이름 등)이 입력으로 돌아왔을 때 되읽어 볼 문구표들. 어느 언어로 만든 것인지 모르므로 그 사람의 언어부터 쓸 수 있는 모든 언어 */
+function readingTexts(asker: Asker) {
+  const first = personLanguage(asker);
+  return [
+    first,
+    ...languagesNow()
+      .map((one) => one.tag as Language)
+      .filter((tag) => tag !== first),
+  ].map((tag) => textFor(tag));
+}
 
-export { botLanguage, guildLanguage, personLanguage, audienceLanguage, viewerLanguage, publicText, privateText, audienceText, languagesNow };
+export { botLanguage, guildLanguage, personLanguage, audienceLanguage, viewerLanguage, publicText, privateText, audienceText, readingTexts, languagesNow };
 export type { Asker };

@@ -286,7 +286,7 @@
                 <div class="flex-1 min-w-0">
                   <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
                   <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
-                    <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="item.platformLabel || item.platform"></span>
+                    <span class="size-2 rounded-full shrink-0" :style="{ backgroundColor: platformColor(item.platform) }" v-tooltip="text.bot.labels.platform(item.platform)"></span>
                     <span v-if="item.artist" class="truncate">{{ item.artist }}</span>
                     <span v-if="lengthOf(item)" class="nums shrink-0"><template v-if="item.artist">· </template>{{ lengthOf(item) }}</span>
                   </div>
@@ -362,7 +362,7 @@ import { useArtContent, useArtZoom } from "../theme/art.ts";
 import { useVolumeControl } from "../composables/volume-control.ts";
 import { formatDuration } from "../../../src/ui/format.ts";
 import { knownTotal } from "../../../src/rules/duration-shown.ts";
-import { categoryLabel, isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
+import { isSkipCategory, type SkipCategory } from "../../../src/rules/sponsor-categories.ts";
 import { QUEUE_PAGE, QUEUE_WINDOW_MAX, modeOf, type AutoplayGenres, type PlayerRead, type PlayerState, type QueuePage, type QueueTrackView } from "../../../src/dashboard/contract/player.ts";
 import type { IconName } from "../icons.ts";
 import { text } from "../text/index.ts";
@@ -741,8 +741,8 @@ const sponsorMarkers = computed(() => {
     const left = Math.max(0, Math.min(100, (s.start / dur) * 100));
     const right = Math.max(0, Math.min(100, (s.end / dur) * 100));
     const cat = (s.categories && s.categories[0]) || "music_offtopic";
-    // 이름은 봇의 것(rules/sponsor-categories, 디스코드 설정 화면과 같다)
-    const label = (s.categories && s.categories.length ? s.categories : [cat]).map(categoryLabel).join(", ");
+    // 이름은 봇 문구표의 것(디스코드 설정 화면과 같다)
+    const label = (s.categories && s.categories.length ? s.categories : [cat]).map((id) => text.bot.sponsor.category(id)).join(", ");
     return { left, width: Math.max(0.4, right - left), color: `var(--category-${isSkipCategory(cat) ? SB_COLOR_VAR[cat] : "nonmusic"}-color)`, label };
   });
 });

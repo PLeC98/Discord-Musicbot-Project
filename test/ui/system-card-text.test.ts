@@ -6,7 +6,6 @@ import fs from "node:fs";
 import path from "node:path";
 import * as fontkit from "fontkit";
 import { PROJECT } from "../../src/infra/project-paths.ts";
-import { formatSpan } from "../../src/ui/format.ts";
 import { FONTS, fontPath } from "../../src/ui/card-render/fonts.ts";
 import { CARD_ICONS, STATUS_ICONS } from "../../src/ui/card-render/icons.ts";
 import { textFor } from "../../src/ui/text/index.ts";
@@ -21,7 +20,7 @@ function cardTexts() {
     .filter(([key]) => !OUTSIDE.has(key))
     .map(([, value]) => (typeof value === "function" ? (value as (...args: number[]) => string)(1, 1, 1) : value));
   const ascii = String.fromCharCode(...Array.from({ length: 0x7e - 0x20 + 1 }, (_, i) => 0x20 + i));
-  return [...table, formatSpan(90061), ascii, "…"];
+  return [...table, textFor("ko").labels.span(90061), ascii, "…"];
 }
 
 test("이미지에 들어갈 수 있는 글자는 등록한 글꼴 중 하나에 있다", () => {

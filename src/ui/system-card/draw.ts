@@ -6,7 +6,7 @@ import { createCanvas, type SKRSContext2D } from "@napi-rs/canvas";
 import { argbFromHex } from "@material/material-color-utilities";
 import { DEFAULT_SEED, schemeColors } from "../../rules/palette.ts";
 import type { Level } from "../../rules/status-levels.ts";
-import { formatBytes, formatSpan } from "../format.ts";
+import { formatBytes } from "../format.ts";
 import { DASHBOARD_COLORS } from "../palette.ts";
 import { sharedTextFor } from "../text/shared.ts";
 import { infoOf, type Language } from "../../rules/languages.ts";
@@ -227,9 +227,10 @@ function uptimeCard(p: Pen, d: CardData) {
   p.rect({ x: RIGHT, y: 0, w: COL, h: ROW * 2 + GAP }, RADIUS, c.surface_container);
   p.title(RIGHT + PAD, 72, { icon: "timer", text: T.uptime }, room);
   p.text(T.uptimeBot, RIGHT + PAD, 176, { face: "regular", size: 34, color: c.on_surface_variant });
-  p.text(formatSpan(d.uptime.bot), RIGHT + PAD, 240, { face: "strong", size: 60, color: c.on_surface, maxWidth: room });
+  const { span } = sharedTextFor(d.language).labels;
+  p.text(span(d.uptime.bot), RIGHT + PAD, 240, { face: "strong", size: 60, color: c.on_surface, maxWidth: room });
   p.text(T.uptimeOs, RIGHT + PAD, 326, { face: "regular", size: 34, color: c.on_surface_variant });
-  p.text(formatSpan(d.uptime.os), RIGHT + PAD, 380, { face: "medium", size: 44, color: c.on_surface, maxWidth: room });
+  p.text(span(d.uptime.os), RIGHT + PAD, 380, { face: "medium", size: 44, color: c.on_surface, maxWidth: room });
 }
 
 function overviewCard(p: Pen, d: CardData) {

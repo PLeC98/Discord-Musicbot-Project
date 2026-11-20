@@ -39,7 +39,7 @@ const ARTIST_MAX = 40;
 const shorten = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
 
 /** 길이 표기. 라이브는 진행 막대와 같은 표기(시작 전이면 예정된 라이브), 모르면 null */
-const lengthOf = (track: Length) => (track?.isLive ? liveMarkOf(track) : formatDuration(track?.duration, "") || null);
+const lengthOf = (T: BotText, track: Length) => (track?.isLive ? liveMarkOf(T, track) : formatDuration(track?.duration, "") || null);
 
 /**
  * 대기열 한 곡의 두 줄: `` `3` **[제목](url)** · 길이 `` 아래 작은 글씨로 `아티스트 · 요청자 · 시작까지`. 아래 줄은 적을 것이 없으면 없다.
@@ -48,7 +48,7 @@ const lengthOf = (track: Length) => (track?.isLive ? liveMarkOf(track) : formatD
 function entryLine(T: BotText, track: Listed, number: number, { link = true, startsIn = null }: { link?: boolean; startsIn?: number | null } = {}) {
   const title = shorten(T.labels.songTitle(track.title), TITLE_MAX);
   const name = link && track.pageUrl ? `[${linkLabel(title)}](${track.pageUrl})` : escapeMd(title);
-  const length = lengthOf(track);
+  const length = lengthOf(T, track);
   const head = `\`${number}\` **${name}**${length ? ` · ${length}` : ""}`;
   const below = [track.artist ? escapeMd(shorten(track.artist, ARTIST_MAX)) : null, requesterLabel(T, track), startsIn === null ? null : T.queue.startsIn(startsIn)].filter(Boolean);
   return below.length ? `${head}\n-# ${below.join(" · ")}` : head;
@@ -80,19 +80,19 @@ const JUMP_SEPARATOR = " | ";
 const EDIT_SEPARATOR = " · ";
 
 /** 점프 메뉴 설명의 칸: `아티스트 | 길이 | 요청자`. 라이브는 길이 자리에 진행 막대와 같은 표기(시작 전이면 예정된 라이브). 길이는 줄이지 않는다 */
-function jumpParts(track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
+function jumpParts(T: BotText, track: (Requested & Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
   return [
     { text: track?.artist ?? "", cut: true },
-    { text: lengthOf(track) ?? "", cut: false },
+    { text: lengthOf(T, track) ?? "", cut: false },
     { text: requesterName(track) ?? "", cut: true },
   ];
 }
 
 /** /queue 편집 메뉴 설명의 칸: `아티스트 · 길이` */
-function editParts(track: (Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
+function editParts(T: BotText, track: (Length & Partial<Pick<QueuedTrack, "artist">>) | null | undefined): Part[] {
   return [
     { text: track?.artist ?? "", cut: true },
-    { text: lengthOf(track) ?? "", cut: false },
+    { text: lengthOf(T, track) ?? "", cut: false },
   ];
 }
 

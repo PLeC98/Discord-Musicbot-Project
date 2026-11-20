@@ -15,8 +15,8 @@ const KO = textFor("ko");
 afterEach(() => useUploaded(new Map()));
 
 // 메뉴에 보이는 설명(칸을 합쳐 디스코드 상한에 맞춘 것)
-const jumpDescription = (track: QueuedTrack) => descriptionOf(jumpParts(track), JUMP_SEPARATOR);
-const editDescription = (track: QueuedTrack) => descriptionOf(editParts(track), EDIT_SEPARATOR);
+const jumpDescription = (track: QueuedTrack) => descriptionOf(jumpParts(KO, track), JUMP_SEPARATOR);
+const editDescription = (track: QueuedTrack) => descriptionOf(editParts(KO, track), EDIT_SEPARATOR);
 
 const song = (over: Partial<QueuedTrack> = {}): QueuedTrack => ({ title: "곡", pageUrl: "https://y/1", requestKey: "https://y/1", platform: "youtube", artist: "가수", duration: 100, ...over });
 
@@ -105,7 +105,7 @@ const entry = (track: QueuedTrack, value: number) => Object.defineProperty(track
 
 test("메뉴 항목: 번호. 제목(화면 폭 66까지), 값은 대기열 ID, ID가 없거나 겹치면 뺀다. 고른 곡은 기본값", () => {
   const tracks = [entry(song({ title: "가" }), 7), song({ title: "ID 없음" }), entry(song({ title: "나".repeat(200) }), 9), entry(song({ title: "겹침" }), 7)];
-  const entries = menuEntries(KO, tracks, { first: 11, parts: editParts, picked: 9 });
+  const entries = menuEntries(KO, tracks, { first: 11, parts: (track) => editParts(KO, track), picked: 9 });
   assert.deepEqual(
     entries.map((one) => [one.label, one.value, one.picked]),
     [

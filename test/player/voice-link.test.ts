@@ -13,6 +13,7 @@ import { fake } from "../helpers/fake.ts";
 import { inGuild, currentGuild } from "../../src/infra/guild-context.ts";
 import { HOLD_MS } from "../../src/infra/voice-adapter.ts";
 import sink from "../../src/infra/log/sink.ts";
+import { writeAuditReason } from "../../src/player/events.ts";
 
 // 가짜 연결. 부순 방식, 구독한 것, 재연결한 곳을 적는다
 class FakeConnection extends EventEmitter {
@@ -913,6 +914,20 @@ test("서버 헤드셋 끄기: 붙은 뒤 권한이 있고 아직 걸리지 않�
     assert.equal(deafs.length, want, JSON.stringify(o));
     if (want) assert.equal(deafs[0][0], true);
   }
+});
+
+test("서버 헤드셋 끄기: 감사 로그 사유는 조립이 건 쪽이 그 서버의 언어로 만든다. 걸지 않았으면 사유 없이", async (t) => {
+  t.after(() => writeAuditReason(null));
+  const reasons: Array<string | undefined> = [];
+  for (const writer of [null, (guildId: string, why: string) => `${why}@${guildId}`]) {
+    writeAuditReason(writer);
+    const { link, me } = setup();
+    const deafs = deafenable(me);
+    await link.connect();
+    await sleep(0);
+    reasons.push(deafs[0]?.[1]);
+  }
+  assert.deepEqual(reasons, [undefined, "deafen@g1"]);
 });
 
 test("서버 헤드셋 끄기: 음성 밖이라 못 걸면(40032) 조용히, 다른 실패는 warn", async () => {

@@ -61,7 +61,7 @@
           <!-- 좁으면 자르지 않고 접는다(잘리면 실행 시간, 서버 수가 보이지 않는다) -->
           <div class="text-sm text-on-surface-variant">
             {{ status.bot.tag }} · <template v-if="status.bot.status !== 0">{{ T.connecting }}</template
-            >{{ T.runningFor(formatSpan(status.bot.uptime), status.bot.guilds) }}
+            >{{ T.runningFor(text.bot.labels.span(status.bot.uptime), status.bot.guilds) }}
           </div>
         </div>
         <div class="ml-auto shrink-0 flex items-center gap-4">
@@ -344,7 +344,7 @@ import { useScrollFade } from "../composables/scroll-fade.ts";
 import { slotsOf, useRowWindow } from "../composables/row-window.ts";
 import { FILTER_CHIP, FILTER_CHIP_OFF, FILTER_CHIP_ON } from "../utils/filter-chip.ts";
 import { SEARCH_FIELD } from "../utils/field.ts";
-import { byteUnit, formatBytes, formatDuration, formatSpan, scaledText } from "../../../src/ui/format.ts";
+import { byteUnit, formatBytes, formatDuration, scaledText } from "../../../src/ui/format.ts";
 import { FRAME_MS, LIMITS, attentionOf, clientLevel, diskLevel, heapPercent, levelOf, metricLevels, overallOf, statusInputOf, type Attention, type Level, type Metric as LevelMetric } from "../../../src/rules/status-levels.ts";
 import { averageOf, historyMinutes as minutesOf } from "../../../src/rules/latency.ts";
 import { PLAYER_STATES, Q_MAX, type AdminStatus, type LinkRow, type LinkState, type PlayerRow, type PlayerState, type ProcessRow, type ProcessSort, type Span, type StatusQuery, type IntentEnableReply } from "../../../src/dashboard/contract/admin.ts";

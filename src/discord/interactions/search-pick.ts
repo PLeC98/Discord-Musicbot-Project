@@ -2,7 +2,7 @@
 // 결과 메시지를 "추가하는 중"으로 고쳐 쓰므로 그 메시지에 예약한 삭제를 먼저 멈춘다(실패 안내가 곧바로 삭제되지 않게)
 
 import { RESTJSONErrorCodes, type ContainerBuilder, type StringSelectMenuInteraction } from "discord.js";
-import { privateText } from "../../ui/language.ts";
+import { privateText, readingTexts } from "../../ui/language.ts";
 import { post, reply } from "../../ui/frame.ts";
 import { SEARCH, customId, partsOf } from "../../ui/custom-ids.ts";
 import { noticeSelf, stopExpiry } from "../../ui/delivery.ts";
@@ -38,9 +38,13 @@ async function handleSearchPick(interaction: StringSelectMenuInteraction<"cached
   if (permErr) return await noticeSelf(interaction, privateText(interaction).errors.notice(permErr));
 
   stopExpiry(interaction.message.id);
-  // 항목 이름(`번호. 제목`)에서 제목을. 메뉴를 찾지 못하면 기억해 둔 검색 결과에서
+  // 항목 이름(문구표의 pickOption)에서 제목을. 메뉴를 그린 언어를 모르니 되읽을 문구표들로 해 본다. 항목을 찾지 못하면 기억해 둔 검색 결과에서
   const label = interaction.component?.options?.find((option) => option.value === value)?.label;
-  const title = label ? label.replace(/^\d+\. /, "") : ((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null);
+  const title = label
+    ? (readingTexts(interaction)
+        .map((T) => T.search.titleOfPick(label))
+        .find((one) => one !== null) ?? label)
+    : ((pick.platform === "spotify" ? spotifySource.rememberedTrack(pick.id) : youtubeSource.rememberedVideo(pick.id))?.title ?? null);
   await playOnReply(interaction, bot, { query: pickUrl(pick), placeholder: privateText(interaction).search.addingTrack(title), source: "/search 결과", show: (view) => showOn(interaction, view) });
 }
 

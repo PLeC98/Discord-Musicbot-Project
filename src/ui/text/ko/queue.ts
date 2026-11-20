@@ -4,7 +4,7 @@ import * as parts from "./added-parts.ts";
 import type { AddedTracks, Shortfall } from "./added-parts.ts";
 import { escapeMd } from "../../mentions.ts";
 import { icon, type IconKey } from "../../icons.ts";
-import { formatSpan } from "../../format.ts";
+import { span } from "./labels.ts";
 
 /** 곡을 추가한 안내 { icon, title, body }(icon은 헤더 줄 아이콘의 키) */
 function added(addition: AddedTracks): { icon: IconKey; title: string; body: string } {
@@ -27,10 +27,10 @@ const title = () => `${icon("queue")} 재생 대기열`;
 const editTitle = () => `${icon("edit")} 대기열 편집`;
 
 /** 요약 줄: 곡 수, 아는 길이의 합(초, 0이면 뺀다), 다 끝나는 시각(초, 디스코드 타임스탬프. 모르면 뺀다) */
-const summary = ({ count, totalSec, endsAt }: { count: number; totalSec: number; endsAt: number | null }) => [`총 ${count}곡`, totalSec > 0 ? formatSpan(totalSec) : null, endsAt === null ? null : `<t:${endsAt}:t>쯤 재생 종료`].filter(Boolean).join(" · ");
+const summary = ({ count, totalSec, endsAt }: { count: number; totalSec: number; endsAt: number | null }) => [`총 ${count}곡`, totalSec > 0 ? span(totalSec) : null, endsAt === null ? null : `<t:${endsAt}:t>쯤 재생 종료`].filter(Boolean).join(" · ");
 
 /** 곡이 시작하기까지(초). 1분 안이면 곧, 아니면 분 단위로 반올림 */
-const startsIn = (sec: number) => (sec < 60 ? "곧 재생" : `약 ${formatSpan(Math.round(sec / 60) * 60)} 뒤`);
+const startsIn = (sec: number) => (sec < 60 ? "곧 재생" : `약 ${span(Math.round(sec / 60) * 60)} 뒤`);
 
 /** 자동재생 곡의 요청자 자리(자동재생 아이콘 뒤) */
 const autoplayBy = "자동재생";

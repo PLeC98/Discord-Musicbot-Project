@@ -1,9 +1,9 @@
-// src/rules/platforms.ts: 플랫폼 라벨. 자동재생 소스가 빠짐없이 제 이름을 갖는다
+// src/rules/platforms.ts: 플랫폼의 서비스 이름. 자동재생 소스가 빠짐없이 제 이름을 갖는다. 직접 링크는 문구표(labels.platform)가 말로 쓴다
 
 import test from "node:test";
 import assert from "node:assert";
 
-import { PLATFORM_NAMES, isPlatform, labelOf } from "../../src/rules/platforms.ts";
+import { PLATFORM_NAMES, isPlatform, platformName } from "../../src/rules/platforms.ts";
 import { TYPES } from "../../src/autoplay/sources/index.ts";
 
 // 소스를 더하고 라벨을 안 적으면 화면에 "Lbradio" 같은 것이 이름 없이(그리고 회색 점으로) 뜬다.
@@ -18,15 +18,15 @@ test("자동재생 소스는 모두 라벨을 갖는다", () => {
 });
 
 test("모르는 값은 첫 글자만 올리고, 빈 값은 한 글자로", () => {
-  assert.equal(labelOf("bandcamp"), "Bandcamp");
-  assert.equal(labelOf(""), "-");
-  assert.equal(labelOf(null), "-");
-  assert.equal(labelOf("touhoudb"), "TouhouDB");
+  assert.equal(platformName("bandcamp"), "Bandcamp");
+  assert.equal(platformName(""), "-");
+  assert.equal(platformName(null), "-");
+  assert.equal(platformName("touhoudb"), "TouhouDB");
 });
 
 // platform은 내부 분류 코드라 첫 글자만 올려 쓰면 "Lbradio", "Vocadb", "Lastfm"처럼 아무도 안 쓰는 표기가 된다.
 test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
-  const label = labelOf;
+  const label = platformName;
 
   assert.equal(label("lbradio"), "ListenBrainz Radio");
   assert.equal(label("lastfm"), "Last.fm");
@@ -36,7 +36,6 @@ test("출처 이름은 그 서비스가 쓰는 표기를 따른다", () => {
   assert.equal(label("animethemes"), "AnimeThemes");
   assert.equal(label("youtube"), "YouTube");
   assert.equal(label("soundcloud"), "SoundCloud");
-  assert.equal(label("direct"), "직접 링크");
 
   // 모르는 값은 첫 글자만 올린다. 없는 것보다 낫다
   assert.equal(label("새소스"), "새소스");

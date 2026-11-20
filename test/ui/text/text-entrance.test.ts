@@ -1,5 +1,7 @@
 // src/ui/text/: 봇 문구는 진입점(ui/text/index, ui/text/shared)으로만 부른다. 언어 폴더(ui/text/<언어>/)를 밖에서 직접 부르면 언어 선택을 건너뛴다.
 // 모듈 맨 위에서 문구표를 꺼내 두는 것도 같은 까닭으로 막는다(글자는 같아도 그 자리는 늘 한 언어가 된다)
+// 층 지킴: 재생, 유스케이스, 소스, 자동재생은 누가 보는지 모르므로 문구표와 언어 고르기를 부르지 않고 코드와 값만 낸다(로그 언어로 그리는 로그는 된다).
+// 규칙, 설정, 저장소도 부르지 않는다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -74,5 +76,35 @@ const TOP_ALLOWED: ReadonlySet<string> = new Set(["dashboard/src/text/index.ts"]
 test("모듈 맨 위에서 문구표를 꺼내 두지 않는다", () => {
   const TOP = /^(?:export\s+)?(?:const|let|var)\s+[^=]+=\s*(?:textFor|sharedTextFor|publicText|privateText|audienceText)\(/m;
   const wrong = [...filesUnder("src"), ...filesUnder("dashboard/src")].filter((file) => !TOP_ALLOWED.has(file) && TOP.test(fs.readFileSync(path.join(ROOT, file), "utf8")));
+  assert.deepEqual(wrong, []);
+});
+
+/** 그 파일이 부른 src 안 모듈(src/ 기준 경로) */
+function modulesCalled(file: string): string[] {
+  const source = fs.readFileSync(path.join(ROOT, file), "utf8");
+  return specifiersOf(source)
+    .filter((spec) => spec.startsWith("."))
+    .map((spec) => posix(path.join(path.dirname(file), spec)));
+}
+
+// 누가 보는지 모르는 층. 문구표는 로그 언어로만(textFor(LOG_LANGUAGE)) 부를 수 있다
+const NO_AUDIENCE = ["src/usecases", "src/player", "src/sources", "src/autoplay"];
+// 문구표를 아예 부르지 않는 층
+const NO_TEXT = ["src/rules", "src/config", "src/store"];
+// 보낼 때 그 서버의 언어를 고르는 전달 어댑터(유스케이스가 넘긴 그리기 함수에 그 언어의 문구표를 넣어 부른다)
+const PICKS_LANGUAGE: ReadonlySet<string> = new Set(["src/usecases/responders.ts"]);
+const TEXT_ENTRANCES = ["src/ui/text/index.ts", "src/ui/text/shared.ts"];
+
+test("재생, 유스케이스, 소스, 자동재생은 언어를 고르지 않고, 문구표는 로그 언어로만 부른다. 규칙, 설정, 저장소는 문구표를 부르지 않는다", () => {
+  const wrong = [...NO_AUDIENCE, ...NO_TEXT].flatMap(filesUnder).flatMap((file) => {
+    const called = modulesCalled(file);
+    const source = fs.readFileSync(path.join(ROOT, file), "utf8");
+    const picks = called.includes("src/ui/language.ts") && !PICKS_LANGUAGE.has(file);
+    const text = called.some((target) => TEXT_ENTRANCES.includes(target));
+    const strict = NO_TEXT.some((dir) => file.startsWith(`${dir}/`));
+    // 로그 언어가 아닌 인자로 문구표를 꺼낸다
+    const notLog = [...source.matchAll(/\b(?:textFor|sharedTextFor)\(([^)]*)\)/g)].some((m) => m[1].trim() !== "LOG_LANGUAGE");
+    return [picks && `${file}: ui/language`, text && (strict || notLog) && `${file}: 문구표`].filter((one): one is string => Boolean(one));
+  });
   assert.deepEqual(wrong, []);
 });

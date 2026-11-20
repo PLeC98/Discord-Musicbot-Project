@@ -32,7 +32,7 @@ test("테스트 언어: 한글만 바꾸고 코드, 주제, 경고 수준은 그
   assert.deepEqual([pseudo.code, pseudo.topic, pseudo.severity], [ko.code, ko.topic, ko.severity]);
   assert.doesNotMatch(pseudo.title, /[가-힣]/);
   assert.equal([...pseudo.title].length, [...ko.title].length);
-  assert.equal(T.search.queryOfTyped("검색어"), "검색어");
+  assert.equal(T.search.queryOfChoice('🔍 "검색어" 검색 결과 보기'), "검색어");
 });
 
 test("번들의 오류 안내도 코드마다 필요한 값을 타입으로 검사한다", () => {

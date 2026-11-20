@@ -3,8 +3,8 @@ import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 const log = logger.child({ category: "events" });
 import * as guildSettings from "../../store/guild-settings.ts";
-import { SKIP_CATEGORIES, categoryLabel } from "../../rules/sponsor-categories.ts";
 import { ageContentOn } from "../../config/age-content.ts";
+import { SKIP_CATEGORIES } from "../../rules/sponsor-categories.ts";
 import config from "../../config/index.ts";
 import { route, type Route } from "./route.ts";
 import { post } from "../../ui/frame.ts";
@@ -34,8 +34,7 @@ async function saved(guild: Guild, field: guildSettings.GuildField, work: () => 
 async function panelView(guild: Guild): Promise<screens.PanelView> {
   const djRoleIds = (await guildSettings.getDjRoles(guild.id)).filter((id) => isDjRoleCandidate(guild, id));
   const sb = guildSettings.resolveSponsorBlock(guild.id);
-  const chosen = new Set(sb.categories);
-  const sponsor = config.sponsorblock.enabled ? { enabled: sb.enabled, options: SKIP_CATEGORIES.map((id) => ({ label: categoryLabel(id), value: id, default: chosen.has(id) })) } : null;
+  const sponsor = config.sponsorblock.enabled ? { enabled: sb.enabled, chosen: sb.categories } : null;
   return { djRoleIds, sponsor, agePlace: ageContentOn() ? guildSettings.resolveAgePlace(guild.id) : null };
 }
 

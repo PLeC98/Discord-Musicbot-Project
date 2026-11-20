@@ -19,7 +19,7 @@ import * as sourceChecks from "../store/source-checks.ts";
 import { audioKeyOf } from "../rules/audio-key-of.ts";
 import { inputKind } from "../rules/input-kind.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import { labelOf } from "../rules/platforms.ts";
+import { platformName } from "../rules/platforms.ts";
 import { repeatingFailure } from "../infra/repeating-failure.ts";
 import { recheck, type Recheck, type Stored } from "./source-recheck.ts";
 const log = logger.child({ category: "cache" });
@@ -51,7 +51,7 @@ let retryTimer: NodeJS.Timeout | null = null;
 const failures = new Map<Platform, ReturnType<typeof repeatingFailure>>();
 const failuresOf = (platform: Platform) => {
   let one = failures.get(platform);
-  if (!one) failures.set(platform, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `${labelOf(platform)} 캐시 원본 재확인`)));
+  if (!one) failures.set(platform, (one = repeatingFailure({ error: (line) => log.warn(line), info: (line) => log.info(line) }, `${platformName(platform)} 캐시 원본 재확인`)));
   return one;
 };
 

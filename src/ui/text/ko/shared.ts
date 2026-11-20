@@ -7,3 +7,4 @@ export * as addedParts from "./added-parts.ts";
 export * as announce from "./announce.ts";
 export * as panel from "./panel.ts";
 export * as systemCard from "./system-card.ts";
+export * as sponsor from "./sponsor.ts";

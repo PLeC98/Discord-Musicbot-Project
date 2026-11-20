@@ -4,7 +4,6 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
-import { labelOf } from "../rules/platforms.ts";
 
 /** 담은 안내를 그리는 함수. 문구표는 알리는 매체가 자기 자리의 독자에 맞게 넣는다(채널에 보이는 안내라 서버 언어) */
 type DrawAdded = (T: BotText) => ContainerBuilder;
@@ -425,7 +424,7 @@ class NowPlayingPanel {
     const bar = progressBar(currentSec, totalSec, { live: Boolean(player.isLive ?? track.isLive) });
 
     const artistValue = track.artist || "-";
-    const platformValue = labelOf(track.platform);
+    const platformValue = T.labels.platform(track.platform);
 
     const artistLine = artistValue && artistValue !== "-" ? `\n-# ${icon("person")} ${escapeMd(clipWidth(artistValue, ARTIST_WIDTH))}` : "";
     const linkText = `### ${nowPlayingTitle}\n**${titleOf(T, track, byWebhook)}**${artistLine}`;
@@ -869,7 +868,7 @@ class NowPlayingPanel {
   async createJumpToRow(T: BotText, player: Pick<Player, "sessionId" | "queue">, budget = COMPONENTS_BYTES_MAX) {
     const sessionId = player.sessionId;
     if (!sessionId) return null;
-    const entries = menuEntries(T, player.queue.slice(0, JUMP_MAX), { parts: jumpParts });
+    const entries = menuEntries(T, player.queue.slice(0, JUMP_MAX), { parts: (track) => jumpParts(T, track) });
     if (entries.length === 0) return null;
     const placeholder = T.panel.jumpPlaceholder();
     const build = (options: StringSelectMenuOptionBuilder[]) => new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(new StringSelectMenuBuilder().setCustomId(panelId("jump", sessionId)).setPlaceholder(placeholder).addOptions(options));

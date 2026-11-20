@@ -10,6 +10,9 @@
 //   notice(player, code, detail)     텍스트 채널에 알릴 일. 문장은 화면이 코드로 만든다(ui/player-notices)
 //   touched(guildId)            이 서버의 재생 상태가 바뀌었다. 대시보드가 다시 읽게 한다
 //   leaving(player, leavesAt)   곡이 없을 때 음성에서 나갈 시각이 바뀌었다(혼자 남음, 복귀). 끝난 패널의 문구를 고친다
+//
+// 디스코드 감사 로그에 남길 사유(auditReason)도 여기서 받아 온다. 알림이 아니라 글을 받아 오는 것이라 조립이 writeAuditReason으로 하나만 건다.
+// 문장은 화면이 그 서버의 언어로 만든다. 걸지 않았으면 사유 없이 남긴다
 
 import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
@@ -104,11 +107,23 @@ function touched(guildId: string) {
   }
 }
 
+/** 감사 로그에 사유를 남기는 일(deafen: 서버 헤드셋 끄기) */
+type AuditWhy = "deafen";
+type AuditWriter = (guildId: string, why: AuditWhy) => string;
+let auditWriter: AuditWriter | null = null;
+/** 감사 로그 사유를 만드는 쪽을 건다(조립이 한 번). null이면 뗀다 */
+const writeAuditReason = (fn: AuditWriter | null) => {
+  auditWriter = fn;
+};
+/** 이 서버의 감사 로그에 남길 사유. 만드는 쪽이 없으면 undefined(사유 없이) */
+const auditReason = (guildId: string, why: AuditWhy) => auditWriter?.(guildId, why);
+
 function _reset() {
   for (const set of Object.values(listeners)) set.clear();
   pendingRefresh.clear();
+  auditWriter = null;
 }
 
-export { on, refresh, ended, started, notice, leaving, released, disposed, touched, _reset };
-export type { Notices, NoticeCode };
+export { on, refresh, ended, started, notice, leaving, released, disposed, touched, writeAuditReason, auditReason, _reset };
+export type { Notices, NoticeCode, AuditWhy };
 export type { EventArgs, Requester };

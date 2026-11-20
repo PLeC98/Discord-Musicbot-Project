@@ -8,6 +8,7 @@ import type { IconKey } from "./icons.ts";
 import type { BotText } from "./text/index.ts";
 import { DJ_ROLE_MAX } from "../rules/limits.ts";
 import type { AgePlace } from "../rules/age-place.ts";
+import { SKIP_CATEGORIES } from "../rules/sponsor-categories.ts";
 
 /** 헤더 줄(아이콘 키 + 제목)과 본문 */
 type Card = { icon?: IconKey; title: string; description: string };
@@ -25,10 +26,8 @@ function channelSet(T: BotText, channel: string) {
   return saved({ icon: t.icon, title: t.title, description: typed ? `${t.description}\n\n**${t.inputs}**\n${t.inputsValue}` : t.description });
 }
 
-/** 선택지 하나. default면 선택한 채로 */
-type Option = { label: string; value: string; default: boolean };
-/** /setting에 그릴 것. sponsor, agePlace가 null이면 그 부분이 없다(봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐다) */
-type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; options: Option[] } | null; agePlace: AgePlace | null };
+/** /setting에 그릴 것. sponsor는 자동 스킵을 켰는지와 건너뛸 구간 id. sponsor, agePlace가 null이면 그 부분이 없다(봇 전체에서 SponsorBlock, 연령 제한 콘텐츠를 껐다) */
+type PanelView = { djRoleIds: string[]; sponsor: { enabled: boolean; chosen: readonly string[] } | null; agePlace: AgePlace | null };
 
 /**
  * /setting 한 화면. 박스 하나에 부분마다 구분선으로 나눈다: DJ 역할(역할 메뉴), SponsorBlock(켜기 버튼, 구간 메뉴), 연령 제한 콘텐츠(틀 곳 버튼 둘), 맨 아래 닫기.
@@ -54,7 +53,8 @@ function settingsPanel(T: BotText, { djRoleIds, sponsor, agePlace }: PanelView) 
       .setStyle(sponsor.enabled ? ButtonStyle.Secondary : ButtonStyle.Success);
     container.addSectionComponents(new SectionBuilder().addTextDisplayComponents(text(t.sponsor(sponsor.enabled))).setButtonAccessory(toggle));
     // 끄면 구간은 선택할 수 없다(선택한 것은 남는다)
-    const categories = new StringSelectMenuBuilder().setCustomId("setting:sb-cats").setPlaceholder(t.sponsorPlaceholder).setMinValues(0).setMaxValues(sponsor.options.length).addOptions(sponsor.options).setDisabled(!sponsor.enabled);
+    const options = SKIP_CATEGORIES.map((id) => ({ label: T.sponsor.category(id), value: id, default: sponsor.chosen.includes(id) }));
+    const categories = new StringSelectMenuBuilder().setCustomId("setting:sb-cats").setPlaceholder(t.sponsorPlaceholder).setMinValues(0).setMaxValues(options.length).addOptions(options).setDisabled(!sponsor.enabled);
     container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(categories));
   }
 

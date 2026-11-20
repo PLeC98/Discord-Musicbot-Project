@@ -8,6 +8,7 @@ import logger from "../infra/log/logger.ts";
 import { holdingAdapterCreator, leavePayload } from "../infra/voice-adapter.ts";
 import { isShuttingDown } from "../infra/shutdown-state.ts";
 import { botChannelAtDiscord } from "./voice-leave.ts";
+import { auditReason } from "./events.ts";
 import { bindToGuild } from "../infra/guild-context.ts";
 import { codeOf, codedError, describeError, errorKind, messageOf } from "../rules/error-kind.ts";
 
@@ -48,7 +49,6 @@ const CHANNEL_GONE = { reason: "봇의 음성 채널이 사라짐", session: "re
 
 // 서버 헤드셋 끄기. 자기 헤드셋 끄기로는 디스코드가 채널의 말소리를 계속 보내온다.
 // 멤버에 남아(채널을 옮기거나 다시 들어와도) 대개 서버마다 한 번 걸린다. 음성 밖에서는 걸 수 없다(40032)
-const DEAFEN_REASON = "쓰지 않는 음성 수신을 끊어 트래픽 절약"; // 감사 로그에 남는 사유
 const NOT_IN_VOICE = 40032;
 
 class VoiceLink {
@@ -563,7 +563,7 @@ class VoiceLink {
     if (this.undeafened || !me || !voice?.channel) return;
     if (voice.serverDeaf !== false || voice.channelId !== this.player.voiceChannel?.id || typeof voice.setDeaf !== "function") return;
     if (!voice.channel.permissionsFor?.(me)?.has(PermissionFlagsBits.DeafenMembers)) return;
-    voice.setDeaf(true, DEAFEN_REASON).then(
+    voice.setDeaf(true, auditReason(this.player.guild.id, "deafen")).then(
       () => log.debug(`서버 헤드셋 끄기: ${this._label()}`),
       (error: unknown) => {
         if (codeOf(error) !== NOT_IN_VOICE) log.warn(`서버 헤드셋 끄기 실패: ${this._label()} | ${messageOf(error)}`);
