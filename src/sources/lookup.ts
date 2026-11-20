@@ -13,7 +13,7 @@ import type { Pin } from "../store/pinned-sources.ts";
 import { codedError, errorKind, messageOf, codeOf } from "../rules/error-kind.ts";
 import { failureReason } from "../rules/failure-reason.ts";
 import type { CacheHit } from "../store/track-lookup.ts";
-import { inputKind } from "../rules/input-kind.ts";
+import { inputKind, type InputKind } from "../rules/input-kind.ts";
 import { queryNamesTrack } from "../rules/query-cover.ts";
 import logger from "../infra/log/logger.ts";
 import { logTitle } from "../infra/log/title.ts";
@@ -41,12 +41,6 @@ type Sources = {
   direct: { getInfo(url: string, opts?: Pick<directSource.InfoOptions, "tags">): Promise<FoundTrack[]> };
 };
 const REAL: Sources = { youtube: youtubeSource, spotify: spotifySource, soundcloud: soundcloudSource, direct: directSource };
-
-// 쿼리 문자열이 어느 쪽으로 가나. 링크가 아닌 입력은 유튜브에서 찾는다. 모르는 링크는 unknown(거절)
-function detectPlatform(query: string) {
-  const kind = inputKind(query);
-  return kind === "search" ? "youtube" : kind;
-}
 
 /**
  * 봇이 다루지 않는 링크인가(유튜브 클립, 채널, 검색 결과 페이지, 스포티파이 에피소드 같은 알려진 사이트의 다른 주소).
@@ -78,8 +72,7 @@ async function fromYouTubeSearch(query: string, { youtube, spotify }: Pick<Sourc
 
 // 유튜브 링크. 재생목록 주소가 영상도 가리키면(watch?v=…&list=…) 목록을 못 불러올 때 그 영상 하나로 간다.
 // 목록만 가리키는 주소는 목록이 비면 없음, 목록을 못 불러오면 그 오류를 그대로 던진다
-async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pick<Sources, "youtube" | "spotify">): Promise<Found> {
-  if (inputKind(query) === "search") return fromYouTubeSearch(query, { youtube, spotify });
+async function fromYouTube(query: string, range: Range, youtube: Sources["youtube"]): Promise<Found> {
   if (links.isYouTubePlaylist(query)) {
     const video = links.extractVideoId(query);
     let list: Collection | null;
@@ -98,7 +91,7 @@ async function fromYouTube(query: string, range: Range, { youtube, spotify }: Pi
   return single([await youtube.getInfo(query)]);
 }
 
-// 스포티파이 링크(곡, 앨범, 재생목록, 아티스트). 링크가 아닌 입력은 유튜브로 간다(detectPlatform)
+// 스포티파이 링크(곡, 앨범, 재생목록, 아티스트)
 async function fromSpotify(query: string, range: Range, spotify: Sources["spotify"]): Promise<Found> {
   const part = await spotify.getCollection(query, range);
   const type = links.parseSpotify(query)?.type;
@@ -118,22 +111,23 @@ async function fromSoundCloud(query: string, range: Range, soundcloud: Sources["
   return { tracks: found.tracks, isPlaylist: true, collection: "playlist", collectionId: secret ? null : found.setId, total: found.total, nextOffset: found.nextOffset, skipped };
 }
 
-// 링크 종류마다 부르는 곳. 직접 링크는 tags면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
-function findOn(platform: string, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
-  if (platform === "youtube") return fromYouTube(query, range, { youtube, spotify });
-  if (platform === "spotify") return fromSpotify(query, range, spotify);
-  if (platform === "soundcloud") return fromSoundCloud(query, range, soundcloud);
+// 링크 종류마다 부르는 곳. 링크가 아닌 입력은 유튜브에서 검색한다. 직접 링크는 tags면 파일 태그(제목, 가수, 앨범)로 곡 정보를 고친다
+function findOn(kind: Exclude<InputKind, "unknown">, query: string, range: Range, { youtube, spotify, soundcloud, direct }: Sources, tags: boolean): Promise<Found> {
+  if (kind === "search") return fromYouTubeSearch(query, { youtube, spotify });
+  if (kind === "youtube") return fromYouTube(query, range, youtube);
+  if (kind === "spotify") return fromSpotify(query, range, spotify);
+  if (kind === "soundcloud") return fromSoundCloud(query, range, soundcloud);
   return direct.getInfo(query, tags ? { tags: applyTags } : {}).then(single); // getInfo는 [곡] 또는 []
 }
 
 /** offset, limit: 여러 곡 출처에서 불러올 구간(한 곡이면 무시). tags: 직접 링크의 파일 태그를 곡 정보로 쓰나(직접 지정한 음원을 읽을 때는 쓰지 않는다. 곡 정보는 요청의 것) */
 async function findTracks(query: string, context: string | null = "lookup.findTracks", { offset = 0, limit }: Range = {}, sources: Partial<Sources> = {}, options: { tags?: boolean } = {}): Promise<LookupResult> {
-  const platform = detectPlatform(query);
-  if (platform === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
+  const kind = inputKind(query);
+  if (kind === "unknown") return links.isYouTubeHost(query) ? { success: false, code: "yt-unplayable" } : { success: false, code: "unsupported-link" };
   // 프로필, 좋아요 같은 모음은 곡으로 잘못 읽지 않는다
-  if (platform === "soundcloud" && links.parseSoundCloud(query)?.kind === "other") return { success: false, code: "sc-unsupported" };
+  if (kind === "soundcloud" && links.parseSoundCloud(query)?.kind === "other") return { success: false, code: "sc-unsupported" };
   try {
-    const found = await findOn(platform, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
+    const found = await findOn(kind, query, { offset, limit }, { ...REAL, ...sources }, options.tags !== false);
     // 불러온 구간에 틀 수 있는 곡이 하나도 없는 세트는 nothing-playable과 뺀 곡 수를 알린다
     if (!found.tracks.length) return found.skipped ? { success: false, code: "nothing-playable", skipped: found.skipped } : { success: false, code: "no-song-result" };
     return { success: true, ...found };
@@ -208,13 +202,14 @@ async function pinnedTrack(query: string, pin: Pin, context: string | null | und
   if (!track) {
     const audio = await findTracks(pin.audioUrl, context, {}, sources, { tags: false });
     const from = audio.success ? audio.tracks[0] : null;
-    track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: detectPlatform(query), duration: 0 };
+    const kind = inputKind(query);
+    track = { title: from?.title ?? null, artist: from?.artist, thumbnail: from?.thumbnail ?? null, pageUrl: query, requestKey: pin.requestKey, platform: kind === "search" ? "youtube" : kind, duration: 0 };
   }
   pinnedSources.applyPin(track, pin);
   log.debug(`직접 지정한 음원(조회 생략): "${logTitle(track.title)}" → ${track.audioUrl ?? "없음"}`);
   return track;
 }
 
-export { detectPlatform, isUnsupportedLink, findTracks, getCollection, resolveQuery };
+export { isUnsupportedLink, findTracks, getCollection, resolveQuery };
 
 export type { FoundTrack, Range, Collection, Sources, LookupResult };

@@ -1,4 +1,4 @@
-// src/rules/links.ts, canonical-url.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 넘기지 않는다
+// src/rules/links.ts, canonical-url.ts, input-kind.ts, src/sources/lookup.ts: 플랫폼 URL 판정. 알려진 호스트, 유튜브 형태별 인식, 캐시 키 정규화, 모르는 유튜브 링크는 검색으로 넘기지 않는다
 
 process.env.DISCORD_TOKEN ||= "test-token";
 process.env.CLIENT_ID ||= "test-client";
@@ -11,12 +11,13 @@ import { plainText } from "../helpers/notice.ts";
 import { codedError } from "../../src/rules/error-kind.ts";
 const lookup = await import("../../src/sources/lookup.ts");
 const { canonicalUrl } = await import("../../src/rules/canonical-url.ts");
+const { inputKind } = await import("../../src/rules/input-kind.ts");
 
 test("지원하는 미디어 사이트는 파싱한 호스트 이름으로 인식한다", () => {
-  assert.equal(lookup.detectPlatform("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
-  assert.equal(lookup.detectPlatform("https://open.spotify.com/track/123abc"), "spotify");
-  assert.equal(lookup.detectPlatform("spotify:track:123abc"), "spotify");
-  assert.equal(lookup.detectPlatform("https://soundcloud.com/artist/track"), "soundcloud");
+  assert.equal(inputKind("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "youtube");
+  assert.equal(inputKind("https://open.spotify.com/track/123abc"), "spotify");
+  assert.equal(inputKind("spotify:track:123abc"), "spotify");
+  assert.equal(inputKind("https://soundcloud.com/artist/track"), "soundcloud");
 });
 
 test("주소에 도메인 글자가 섞여 있다고 그 사이트 주소로 보지 않는다", () => {
@@ -103,7 +104,7 @@ test("모르는 사이트의 웹 페이지는 열어 보고 거절한다", async
 });
 
 test("스포티파이 공유 링크의 지역 경로(intl-xx/)는 같은 곡으로 알아본다", () => {
-  assert.equal(lookup.detectPlatform("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
+  assert.equal(inputKind("https://open.spotify.com/intl-ko/track/2joT0CjcGqc1fr8Fvk7itj?si=0a1b2c"), "spotify");
   assert.deepEqual(links.parseSpotify("https://open.spotify.com/intl-pt-br/album/abc"), { type: "album", id: "abc" });
   assert.equal(links.isSpotifyURL("https://open.spotify.com/intl-ko/"), false);
 });

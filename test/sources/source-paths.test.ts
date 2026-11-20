@@ -20,6 +20,7 @@ import { networkError } from "../helpers/errors.ts";
 import { codedError, errorKind } from "../../src/rules/error-kind.ts";
 import sink from "../../src/infra/log/sink.ts";
 import { plainText } from "../helpers/notice.ts";
+import { inputKind } from "../../src/rules/input-kind.ts";
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-paths-"));
 const audioCache = await import("../../src/store/audio-cache.ts");
@@ -53,7 +54,7 @@ const found = (title: string, extra: Partial<TrackInfo> = {}): TrackInfo => ({ t
 
 // ── 링크 종류 ─────────────────────────────────────────────────────────
 
-test("링크 종류: 유튜브, 스포티파이, 사운드클라우드, 직접 링크, 검색어는 유튜브(검색), 알려진 사이트의 다른 주소는 unknown", () => {
+test("링크 종류: 유튜브, 스포티파이, 사운드클라우드, 직접 링크, 검색어, 알려진 사이트의 다른 주소는 unknown", () => {
   const cases = [
     ["https://youtu.be/aaaaaaaaaaa", "youtube"],
     ["https://open.spotify.com/track/abc", "spotify"],
@@ -62,9 +63,9 @@ test("링크 종류: 유튜브, 스포티파이, 사운드클라우드, 직접 �
     ["https://files.test/a.mp3", "direct"],
     ["https://anilist.co/anime/1", "direct"],
     ["https://open.spotify.com/episode/abc", "unknown"],
-    ["그냥 검색어", "youtube"],
+    ["그냥 검색어", "search"],
   ];
-  for (const [q, want] of cases) assert.equal(lookup.detectPlatform(q), want, q);
+  for (const [q, want] of cases) assert.equal(inputKind(q), want, q);
   assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/@channel"), true);
   assert.equal(lookup.isUnsupportedLink("https://www.youtube.com/watch?v=aaaaaaaaaaa"), false);
 });

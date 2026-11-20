@@ -11,12 +11,12 @@ logs/
 # 커버리지 결과(pnpm run test:coverage)
 coverage/
 
-# 외부 도구: ffmpeg, yt-dlp(vendor/bin), POToken (vendor/bgutil-ytdlp-pot-provider)
+# 외부 도구 저장 경로 (ffmpeg, yt-dlp, bgutil)
 vendor/
 
 # 개발 작업용 파일/디렉터리
 notes/
 CLAUDE.md
 
-# 대시보드를 직접 HTTPS로 열 인증서와 키(dashboard/tls-files)
+# 대시보드에 사용할 SSL (HTTPS) 인증서 경로
 certs/
