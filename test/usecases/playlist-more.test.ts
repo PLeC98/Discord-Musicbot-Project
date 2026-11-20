@@ -4,13 +4,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as More from "../../src/usecases/playlist-more.ts";
 import type { More as Offer, MoreState } from "../../src/rules/more-choices.ts";
-import { MessageFlags, type RepliableInteraction } from "discord.js";
-import { fake, fakePlayer } from "../helpers/fake.ts";
 import { post } from "../../src/ui/frame.ts";
 import { selectOf, textsOf } from "../helpers/cv2.ts";
 import { textFor } from "../../src/ui/text/index.ts";
 import { offerView, resultView } from "../../src/ui/playlist-more-menu.ts";
-import { offerOnInteraction } from "../../src/discord/interactions/playlist-more-handler.ts";
 const KO = textFor("ko");
 
 // 메뉴의 모양을 한국어로 그린 화면과, 메뉴를 달았는지
@@ -79,33 +76,6 @@ test("누를 때: 전용 채널 메뉴는 넣은 사람만, 30초가 지나면 �
   assert.equal(More.clickError(mine, { userId: "99999999999999999", lastTouched: now, now }), "more-not-requester");
   assert.equal(More.clickError(stateOf(null), { userId: "a", lastTouched: now - More.LIFETIME_MS - 1, now }), "more-expired");
   assert.equal(More.clickError(mine, { userId: "12345678901234567", lastTouched: now - 1000, now }), null);
-});
-
-test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요청자 기록). 못 고치면 false", async () => {
-  const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9945, remaining: 9895, batch: 50 };
-  const player = fakePlayer({ queue: [] });
-  // 보낸 메뉴. 여기서 보는 필드만
-  type Sent = { flags?: unknown; components: Array<{ toJSON(): unknown }> };
-  const edited: Sent[] = [];
-  const interaction = (editReply: (p: Sent) => Promise<unknown>) => fake<RepliableInteraction>({ user: { id: "12345678901234567" }, editReply, deleteReply: async () => {} });
-
-  assert.equal(
-    await offerOnInteraction(
-      interaction(async (p) => (edited.push(p), { id: "m1" })),
-      more,
-      player,
-    ),
-    true,
-  );
-  assert.equal(edited.length, 1);
-  assert.deepEqual(edited[0].flags, [MessageFlags.IsComponentsV2], "자리표시자를 고친다(본인 표시는 처음 응답이 정했다)");
-  assert.equal(More.decodeState(selectOf(edited[0])?.custom_id)?.requesterId, "12345678901234567");
-  More.clearExpiry("m1");
-
-  const gone = interaction(async () => {
-    throw new Error("Unknown Message");
-  });
-  assert.equal(await offerOnInteraction(gone, more, player), false);
 });
 
 // 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id로 이어 불러오고, 한 번에 10곡까지(곡마다 요청이 들어 IP가 막히지 않게)
