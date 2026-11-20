@@ -76,7 +76,7 @@ test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 
   const w = world();
   const responder = dashboardResponder(w.bot, "g1");
   assert.equal(w.lookups(), 0, "곡을 넣기 전에는 찾지 않는다(글자 채널은 코어가 정한다)");
-  await responder.notifyQueued(frame({ title: "담았어요" }));
+  await responder.notifyQueued(() => frame({ title: "담았어요" }));
   await responder.dismissPlaceholder();
   assert.deepEqual(w.sent, ["### 담았어요"]);
   t.mock.timers.tick(LIFETIME.glance);
@@ -84,7 +84,7 @@ test("곡 넣기: 추가 안내를 그때의 패널 채널에 잠깐 보인다. 
   assert.deepEqual(w.deleted, ["### 담았어요"]);
 
   const empty = world();
-  await dashboardResponder(empty.bot, "없는 서버").notifyQueued(frame({ title: "담았어요" }));
+  await dashboardResponder(empty.bot, "없는 서버").notifyQueued(() => frame({ title: "담았어요" }));
   assert.deepEqual(empty.sent, []);
 });
 

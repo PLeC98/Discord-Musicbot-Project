@@ -6,7 +6,7 @@ import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { channelResponder } from "../../usecases/responders.ts";
 import { scheduleDelete } from "../../ui/transient-messages.ts";
-import { offerOnChannel } from "../../usecases/playlist-more.ts";
+import { offerOnChannel } from "../interactions/playlist-more-handler.ts";
 import { frame, noticeFrame, post } from "../../ui/frame.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import type { ClientEvent } from "../../app/main.ts";

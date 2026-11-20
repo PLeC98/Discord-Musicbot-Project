@@ -5,7 +5,7 @@ import { showFailureWith } from "../../ui/failure-notice.ts";
 import { addFailureMessage } from "../../ui/error-messages.ts";
 import { requestPlayback } from "../../usecases/add-tracks.ts";
 import { interactionResponder } from "../../usecases/responders.ts";
-import { offerOnInteraction } from "../../usecases/playlist-more.ts";
+import { offerOnInteraction } from "../interactions/playlist-more-handler.ts";
 import { checkAdd, checkSummon } from "../../usecases/permissions.ts";
 import { frame, noticeFrame, reply } from "../../ui/frame.ts";
 import type { PermissionDenied } from "../../usecases/permissions.ts";

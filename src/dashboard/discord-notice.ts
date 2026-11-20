@@ -16,7 +16,7 @@ import { playState } from "../ui/player-status.ts";
 import { messageOf } from "../rules/error-kind.ts";
 import { scheduleDelete } from "../ui/transient-messages.ts";
 import type { Player } from "../player/player.ts";
-import type { NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
+import type { DrawAdded, NowPlayingPanel, Responder } from "../ui/now-playing-panel.ts";
 import type { BotContext } from "../app/bot-context.ts";
 import { signedIn } from "./middleware/require-auth.ts";
 import { publicText } from "../ui/language.ts";
@@ -54,8 +54,8 @@ function announcer(bot: Pick<BotContext, "panels">, player: Player | null | unde
 /** 곡 넣기. 담은 안내를 패널 채널에 보낸다. 플레이어의 텍스트 채널은 코어가 곡을 넣으며 정하므로 보낼 때 찾는다 */
 function dashboardResponder(bot: Pick<BotContext, "players" | "panels">, guildId: string): Responder {
   return {
-    async notifyQueued(view: ContainerBuilder) {
-      await sendTo(channelOf(bot, bot.players.get(guildId)), view, LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 추가 알림 전송 실패:", error));
+    async notifyQueued(draw: DrawAdded) {
+      await sendTo(channelOf(bot, bot.players.get(guildId)), draw(publicText(guildId)), LIFETIME.glance).catch((error: unknown) => log.warn("대시보드 곡 추가 알림 전송 실패:", error));
     },
     async dismissPlaceholder() {
       /* 대시보드는 자리표시자 메시지를 보내지 않아 지울 것이 없다 */

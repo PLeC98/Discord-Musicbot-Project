@@ -1,8 +1,10 @@
 // 재생목록 "더 넣기" 메뉴, 모달, 결과의 문구. 수는 여기서 자릿점을 찍는다.
-// 결과의 글(added, finished, progressed)은 대시보드도 받아 아이콘 없이 두고, 디스코드 메뉴가 resultMark로 앞에 붙인다
+// 결과의 글(result)은 대시보드도 그리므로 아이콘 없이 두고, 디스코드 메뉴는 resultMark로 아이콘을 앞에 붙인다
 
 import { josa } from "../../../rules/josa.ts";
 import { icon } from "../../icons.ts";
+import * as labels from "./labels.ts";
+import type { MoreOutcome } from "../../../rules/more-choices.ts";
 
 const fmt = (n: number | null) => Number(n).toLocaleString("ko-KR");
 
@@ -23,6 +25,12 @@ function added({ collection, added, skipped, dropped }: { collection: string; ad
 const finished = (head: string) => `${head} 목록을 끝까지 넣었어요.`;
 /** 이어 넣을 것이 남았다. at은 넣은 데까지의 위치 */
 const progressed = (head: string, total: number | null, at: number) => `${head} (${fmt(total)}곡 중 ${fmt(at)}곡까지)`;
+/** 이어 넣은 결과의 글. 끝까지 넣었으면 그렇다고, 더 넣을 것이 남았으면 어디까지 넣었는지를 붙인다 */
+function result({ collection, added: count, skipped, dropped, total, remaining, nextOffset }: MoreOutcome) {
+  const head = added({ collection: labels.collection(collection), added: count, skipped, dropped });
+  if (nextOffset === null) return remaining > 0 ? head : finished(head);
+  return progressed(head, total, nextOffset);
+}
 /** 대기열이 가득 차 더 넣을 수 없다 */
 const roomFull = () => "대기열이 가득 차 지금은 더 넣을 수 없어요.";
 /** 자리가 없어 메뉴를 표시하지 않는다 */
@@ -42,4 +50,4 @@ const countModal = (max: number) => ({ title: "더 넣기", label: `넣을 곡 �
 const fetching = () => `${icon("progress")} 곡을 가져오는 중…`;
 const fetchingCount = (done: number, want: number) => `${icon("progress")} ${done}/${want}곡 가져오는 중…`;
 
-export { offered, resultMark, added, finished, progressed, roomFull, noRoom, menu, step, capLabel, countModal, fetching, fetchingCount };
+export { offered, resultMark, added, finished, progressed, result, roomFull, noRoom, menu, step, capLabel, countModal, fetching, fetchingCount };

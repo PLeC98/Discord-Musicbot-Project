@@ -23,6 +23,9 @@ test("모든 문장", () => {
       more.fetching(),
       more.fetchingCount(3, 10),
       more.resultMark("머리"),
+      more.result({ collection: "album", added: 5, total: 25, remaining: 0, nextOffset: null }),
+      more.result({ collection: "playlist", added: 10, skipped: 1, total: 120, remaining: 3, nextOffset: null }),
+      more.result({ collection: "playlist", added: 10, total: 1234, remaining: 1174, nextOffset: 60 }),
     ],
     [
       "📃 재생목록은 모두 1,234곡이에요. 앞 50곡까지 넣었어요.",
@@ -41,6 +44,9 @@ test("모든 문장", () => {
       "🔄 곡을 가져오는 중…",
       "🔄 3/10곡 가져오는 중…",
       "✅ 머리",
+      "앨범에서 5곡을 더 넣었어요. 목록을 끝까지 넣었어요.",
+      "재생목록에서 10곡을 더 넣었어요. 재생할 수 없는 1곡(미리듣기, 지역 제한 등)은 제외했어요.",
+      "재생목록에서 10곡을 더 넣었어요. (1,234곡 중 60곡까지)",
     ],
   );
 });

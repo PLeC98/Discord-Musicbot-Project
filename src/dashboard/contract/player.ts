@@ -2,7 +2,7 @@
 
 import type { Loop } from "../../rules/loop-cycle.ts";
 import type { Hold } from "../../rules/holds.ts";
-import type { More } from "../../rules/more-choices.ts";
+import type { More, MoreOutcome } from "../../rules/more-choices.ts";
 import type { TrackInfo } from "../../player/track.ts";
 
 /** 반복 요청의 값(본문 { mode }). 끈 것은 "off"로 보낸다 */
@@ -108,12 +108,11 @@ type SearchReply = { tracks: SearchTrack[]; gated: boolean };
  */
 type AddedSummary = { count: number; position: number | null; collection: string | null; total: number | null; title: string | null; thumbnail: string | null };
 /** 다 넣지 못한 이유의 경고(디스코드 추가 안내의 경고 줄과 같은 문장, added-parts): 제목과 줄들 */
-type ShortfallNotice = { title: string; lines: string[] };
-/** 곡 넣기의 응답. dropped는 대기열이 가득 차 못 넣은 곡 수, queueMax는 대기열 상한(0이면 없음), added는 넣은 것(모르면 null), shortfall은 다 넣지 못했을 때의 경고 */
-type AddReply = PlayerState & { dropped: number; queueLimited: boolean; added: AddedSummary | null; shortfall: ShortfallNotice | null; more: MoreView | null; queueMax: number };
+/** 곡 넣기의 응답. dropped는 대기열이 가득 차 못 넣은 곡 수, queueLimited는 목록의 일부만 넣었는지, skipped는 재생할 수 없어 뺀 곡 수, queueMax는 대기열 상한(0이면 없음), added는 넣은 것(모르면 null) */
+type AddReply = PlayerState & { dropped: number; queueLimited: boolean; skipped: number; added: AddedSummary | null; more: MoreView | null; queueMax: number };
 
-/** 이어 넣기의 응답. note는 디스코드 더 넣기 결과와 같은 글 */
-type MoreReply = PlayerState & { added: number; dropped: number; note: string; more: MoreView | null; queueMax: number };
+/** 이어 넣기의 응답. result는 이어 넣은 결과(화면이 디스코드 더 넣기 결과와 같은 글로 그린다) */
+type MoreReply = PlayerState & { added: number; dropped: number; result: MoreOutcome; more: MoreView | null; queueMax: number };
 
 export { QUEUE_PAGE, QUEUE_WINDOW_MAX, LOOP_MODES, loopOf, modeOf };
-export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply, SearchTrack, SearchReply, AddedSummary, ShortfallNotice };
+export type { LoopMode, RequesterRef, QueueTrackView, SponsorSegmentView, PlayingView, PlayerState, AutoplayGenres, VoiceFlags, PlayerRead, QueuePage, MoreView, AddReply, MoreReply, SearchTrack, SearchReply, AddedSummary };

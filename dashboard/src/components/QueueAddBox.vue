@@ -432,11 +432,12 @@ async function request(payload: { query: string; single: boolean; first: boolean
   busy.value = true;
   try {
     const res = await axios.post<AddReply>(url("queue"), payload, { timeout: LIMIT.long });
-    const { dropped: _dropped, queueLimited: _queueLimited, shortfall, more: nextMore = null, queueMax: max = 0, added: summary, ...state } = res.data;
+    const { dropped, queueLimited, skipped, more: nextMore = null, queueMax: max = 0, added: summary, ...state } = res.data;
     emit("state", state);
     queueMax.value = max;
     more.value = nextMore;
     // 다 넣지 못했다(대기열이 찼다, 받을 수 없는 곡을 뺐다): 경고 알림. 문장은 디스코드 추가 안내와 같다
+    const shortfall = text.bot.addedParts.shortfallNotice({ dropped, queueLimited, skipped, max });
     if (shortfall) notify({ title: shortfall.title, body: shortfall.lines.join("\n"), severity: "warning" });
     if (summary?.count) {
       const line = lineOf(summary, payload.first);
@@ -465,12 +466,12 @@ async function addMore(count: number) {
   const mine = sent;
   try {
     const res = await axios.post<MoreReply>(url("queue/more"), { ...more.value, count }, { timeout: LIMIT.long });
-    const { added: _added, dropped = 0, note, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
+    const { added: _added, dropped = 0, result, more: nextMore = null, queueMax: max = 0, ...state } = res.data;
     emit("state", state);
     queueMax.value = max;
     if (mine === sent) more.value = nextMore;
     // 디스코드 더 넣기 결과와 같은 글. 대기열이 차서 빠진 곡이 있으면 경고로
-    notify({ title: note, severity: dropped > 0 ? "warning" : "success" });
+    notify({ title: text.bot.more.result(result), severity: dropped > 0 ? "warning" : "success" });
   } catch (e) {
     notifyProblem(e, T.addFailed);
   } finally {

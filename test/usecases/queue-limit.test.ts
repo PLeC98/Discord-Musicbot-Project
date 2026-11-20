@@ -48,7 +48,7 @@ function setup({ max, queued = 0, playing = true }: { max: number; queued?: numb
   const players = new Map<string, Player>([["g", player]]);
   const bot = { players, panels: new NoPanelRefresh(fake<Client>({}), players) };
   const notices: string[] = [];
-  const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
+  const responder = { notifyQueued: async (draw: (T: typeof KO) => unknown) => notices.push(textOf(draw(KO))), dismissPlaceholder: async () => {} };
   const add = (tracks: QueuedTrack[], extra = {}) => queueTracks(bot, "g", { isPlaylist: tracks.length > 1, collection: "playlist", tracks, ...extra }, { id: "u1" }, responder);
   return { player, add, notices };
 }

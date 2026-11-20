@@ -3,17 +3,18 @@ import logger from "../infra/log/logger.ts";
 const log = logger.child({ category: "player" });
 import { scheduleDelete } from "../ui/transient-messages.ts";
 import { messageOf } from "../rules/error-kind.ts";
-import type { ContainerBuilder, GuildTextBasedChannel, RepliableInteraction } from "discord.js";
-import type { Responder } from "../ui/now-playing-panel.ts";
+import type { GuildTextBasedChannel, RepliableInteraction } from "discord.js";
+import type { DrawAdded, Responder } from "../ui/now-playing-panel.ts";
 import { post } from "../ui/frame.ts";
 import { icon } from "../ui/icons.ts";
 import { LIFETIME, postNew, unlessGone } from "../ui/delivery.ts";
+import { publicText } from "../ui/language.ts";
 
 /**
  * 곡 추가 결과를 사용자에게 알리는 매체별 어댑터. 코어는 매체를 모르고 아래 두 메서드만 부른다
  * (대시보드처럼 디스코드에 아무것도 보내지 않는 진입점도 있다).
  *
- *   notifyQueued(view)     담은 안내(ui/added-notice의 화면)를 표시한다
+ *   notifyQueued(draw)     담은 안내(ui/added-notice의 화면)를 그 서버의 언어로 그려 표시한다
  *   dismissPlaceholder()   진입점이 표시한 "검색 중…" 자리표시자를 정리한다 (멱등)
  *
  * 둘 다 예외를 던지지 않는다. 안내 실패가 재생을 망가뜨리면 안 된다.
@@ -47,9 +48,9 @@ function interactionResponder(interaction: RepliableInteraction): Responder {
   });
 
   return {
-    async notifyQueued(view: ContainerBuilder) {
+    async notifyQueued(draw: DrawAdded) {
       try {
-        await postNew(interaction, view, LIFETIME.glance);
+        await postNew(interaction, draw(publicText(interaction.guildId)), LIFETIME.glance);
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }
@@ -68,11 +69,11 @@ function channelResponder(channel: GuildTextBasedChannel | null | undefined, onD
   const dismiss = onceDismiss(onDismiss);
 
   return {
-    async notifyQueued(view: ContainerBuilder) {
+    async notifyQueued(draw: DrawAdded) {
       await dismiss();
       if (!channel || typeof channel.send !== "function") return;
       try {
-        scheduleDelete(await channel.send(post(view)), LIFETIME.glance);
+        scheduleDelete(await channel.send(post(draw(publicText(channel.guildId)))), LIFETIME.glance);
       } catch (error) {
         log.error("대기열 안내 전송 실패:", messageOf(error));
       }

@@ -1,12 +1,22 @@
 // 재생목록 "더 넣기" 화면: 헤더 줄 아래 곡 수 메뉴, 곡 수를 입력하는 모달, 가져오는 동안의 화면.
-// 무엇을 선택할 수 있는지(선택지, custom_id)는 usecases/playlist-more가 정하고 여기서는 그린다. T는 그 메시지의 독자에 맞는 문구표(ui/language)
+// 무엇을 선택할 수 있는지(선택지, custom_id)와 결과는 usecases/playlist-more가 데이터로 정하고 여기서는 그린다. T는 그 메시지의 독자에 맞는 문구표(ui/language)
 
 import { ActionRowBuilder, ModalBuilder, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
 import { frame } from "./frame.ts";
 import type { SharedText } from "./text/shared.ts";
+import type { MoreOutcome } from "../rules/more-choices.ts";
 
 /** 곡 수 메뉴. steps는 단계 선택지, cap은 가장 큰 선택지(all: 남은 곡 전부, perClick: 출처의 한 번 상한에 걸렸다), remaining은 남은 곡 수 */
 type MoreMenu = { customId: string; remaining: number; steps: number[]; cap: number; all: boolean; perClick: boolean };
+
+/** 메뉴의 모양. menu가 null이면 헤더 줄만: noRoom이면 자리가 없다고 덧붙인다 */
+type MenuSpec = { menu: MoreMenu | null; noRoom: boolean };
+/** 처음 표시하는 메뉴. head는 출처의 종류(rules/more-choices의 collection), 전체 곡 수, 넣은 데까지 */
+type OfferSpec = MenuSpec & { head: { collection: string; total: number; offset: number } };
+/** 이어 넣은 결과와 다시 달 메뉴 */
+type ResultSpec = MenuSpec & { outcome: MoreOutcome };
+/** 곡 수를 입력하는 모달. max는 입력할 수 있는 가장 큰 수, suggested는 미리 입력해 둘 수 */
+type CountSpec = { customId: string; max: number; suggested: number };
 
 /** 헤더 줄과, 더 넣을 수 있으면 곡 수 메뉴 */
 function moreView(T: SharedText, head: string, menu: MoreMenu | null) {
@@ -20,15 +30,23 @@ function moreView(T: SharedText, head: string, menu: MoreMenu | null) {
   return container.addActionRowComponents(new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select));
 }
 
+const withMenu = (T: SharedText, head: string, { menu, noRoom }: MenuSpec) => moreView(T, noRoom ? T.more.noRoom(head) : head, menu);
+
+/** 처음 표시하는 메뉴 */
+const offerView = (T: SharedText, { head, ...spec }: OfferSpec) => withMenu(T, T.more.offered(T.labels.collection(head.collection), head.total, head.offset), spec);
+
+/** 이어 넣은 결과. 더 넣을 것이 있으면 메뉴를 다시 단다 */
+const resultView = (T: SharedText, { outcome, ...spec }: ResultSpec) => withMenu(T, T.more.resultMark(T.more.result(outcome)), spec);
+
 /** 가져오는 동안. done, want를 주면 몇 곡째인지 */
 const fetchingView = (T: SharedText, progress?: { done: number; want: number }) => frame({ body: progress ? T.more.fetchingCount(progress.done, progress.want) : T.more.fetching() });
 
-/** 곡 수를 입력하는 모달. max는 입력할 수 있는 가장 큰 수, suggested는 미리 입력해 둘 수 */
-function countModal(T: SharedText, { customId, max, suggested }: { customId: string; max: number; suggested: number }) {
+/** 곡 수를 입력하는 모달 */
+function countModal(T: SharedText, { customId, max, suggested }: CountSpec) {
   const t = T.more.countModal(max);
   const input = new TextInputBuilder().setCustomId("count").setLabel(t.label).setStyle(TextInputStyle.Short).setMinLength(1).setMaxLength(5).setPlaceholder(String(suggested)).setRequired(true);
   return new ModalBuilder().setCustomId(customId).setTitle(t.title).addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(input));
 }
 
-export { moreView, fetchingView, countModal };
-export type { MoreMenu };
+export { moreView, offerView, resultView, fetchingView, countModal };
+export type { MoreMenu, OfferSpec, ResultSpec, CountSpec };

@@ -6,8 +6,10 @@ import config from "../config/index.ts";
 import { progressBar, emptyProgressBar } from "./progress-bar.ts";
 import { labelOf } from "../rules/platforms.ts";
 
+/** 담은 안내를 그리는 함수. 문구표는 알리는 매체가 자기 자리의 독자에 맞게 넣는다(채널에 보이는 안내라 서버 언어) */
+type DrawAdded = (T: BotText) => ContainerBuilder;
 /** 곡을 추가한 결과를 알리는 매체(usecases/responders) */
-type Responder = { notifyQueued(view: ContainerBuilder): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
+type Responder = { notifyQueued(draw: DrawAdded): Promise<unknown>; dismissPlaceholder(): Promise<unknown> };
 
 // 알릴 곳이 없는 매체. 결과를 알리는 매체는 호출부(usecases/responders)가 넘긴다
 const NO_RESPONDER: Responder = {
@@ -931,4 +933,4 @@ class NowPlayingPanel {
 }
 
 export { NowPlayingPanel };
-export type { Responder };
+export type { DrawAdded, Responder };

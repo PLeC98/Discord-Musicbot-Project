@@ -21,7 +21,7 @@ import { waitForRestore } from "../../player/session-restore.ts";
 import * as genreConfig from "../../config/genres.ts";
 import { autoplayOn } from "../../ui/genre-menu.ts";
 import { join } from "../../usecases/join.ts";
-import { validState, resultText, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
+import { validState, outcomeOf, LIFETIME_MS, KINDS } from "../../usecases/playlist-more.ts";
 import config from "../../config/index.ts";
 import { openGuild, voiceFlags } from "../guild-access.ts";
 import { queueTrack, queueWindow, playerState, toInt, queuedUrls, searchTrack, trackArtUrl } from "../player-view.ts";
@@ -36,8 +36,7 @@ import * as replies from "../../ui/control-replies.ts";
 import { LIFETIME } from "../../ui/delivery.ts";
 import { announcer, dashboardActor, dashboardResponder } from "../discord-notice.ts";
 import { assertSignedIn, sessionEnded } from "../session-requests.ts";
-import { publicText, viewerLanguage } from "../../ui/language.ts";
-import { textFor } from "../../ui/text/index.ts";
+import { publicText } from "../../ui/language.ts";
 
 // ── 재생 조작 ──
 // 전제 조건과 권한은 usecases/controls가 본다. 경로는 입력 모양만 확정하고 거절을 HTTP로 옮긴다.
@@ -433,8 +432,7 @@ function addRoutes(router: Router) {
 
       const dropped = result.dropped || 0;
       const queueLimited = Boolean(result.queueLimited);
-      const shortfall = textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })).addedParts.shortfallNotice({ dropped, queueLimited, skipped: result.placed?.skipped ?? 0, max: config.bot.maxQueueSize });
-      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, added: addedSummary(guildId, result.placed), shortfall, more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
+      res.json({ ...playerState(player, queueWindow(req)), dropped, queueLimited, skipped: result.placed?.skipped ?? 0, added: addedSummary(guildId, result.placed), more: moreView(result.more), queueMax: config.bot.maxQueueSize } satisfies AddReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
       log.error("대시보드에서 곡 추가 실패:", err);
@@ -471,8 +469,7 @@ function addRoutes(router: Router) {
       });
       if (!result.success) return refuseWith(res, addFailure(result));
 
-      const note = resultText(textFor(viewerLanguage({ acceptLanguage: req.get("accept-language") })), state.kind, { added: result.added, dropped: result.dropped, skipped: result.skipped, total: result.total, remaining: result.remaining, next: result.next });
-      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, note, more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
+      res.json({ ...playerState(player, queueWindow(req)), added: result.added, dropped: result.dropped || 0, result: outcomeOf(state.kind, result), more: moreView(result.next), queueMax: config.bot.maxQueueSize } satisfies MoreReply);
     } catch (err) {
       if (sessionEnded(res, err)) return;
       log.error("대시보드에서 재생목록 더 넣기 실패:", err);

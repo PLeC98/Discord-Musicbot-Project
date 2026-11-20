@@ -1,12 +1,13 @@
-// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달). 상태는 custom_id에 있다(src/usecases/playlist-more.ts).
+// 재생목록 "더 넣기" 메뉴(셀렉트)와 직접 입력(모달), 곡을 넣은 뒤 메뉴 표시. 상태는 custom_id에 있다(src/usecases/playlist-more.ts).
 
-import { MessageFlags, type ContainerBuilder, type ModalMessageModalSubmitInteraction, type StringSelectMenuInteraction } from "discord.js";
+import { MessageFlags, type ContainerBuilder, type ModalMessageModalSubmitInteraction, type RepliableInteraction, type StringSelectMenuInteraction, type TextBasedChannel } from "discord.js";
 import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "events" });
 import config from "../../config/index.ts";
 import { post } from "../../ui/frame.ts";
 import type { Notice } from "../../ui/text/notice.ts";
-import { fetchingView } from "../../ui/playlist-more-menu.ts";
+import { countModal, fetchingView, offerView, resultView } from "../../ui/playlist-more-menu.ts";
+import { canSend } from "../../ui/channels.ts";
 import { addFailureMessage, errorMessage } from "../../ui/error-messages.ts";
 import { checkAdd, checkAddFirst } from "../../usecases/permissions.ts";
 import * as guildSettings from "../../store/guild-settings.ts";
@@ -15,7 +16,7 @@ import * as More from "../../usecases/playlist-more.ts";
 import { route, type Route } from "./route.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 import type { BotContext } from "../../app/bot-context.ts";
-import { MAX_COUNT, parseCount, type MoreState } from "../../rules/more-choices.ts";
+import { MAX_COUNT, parseCount, type More as MoreOffer, type MoreState } from "../../rules/more-choices.ts";
 import type { Player } from "../../player/player.ts";
 import { LIFETIME, noticeInstead, noticeSelf, toAll, unlessGone } from "../../ui/delivery.ts";
 import { audienceText, privateText, publicText } from "../../ui/language.ts";
@@ -47,7 +48,7 @@ async function countOf(interaction: MoreInteraction, state: MoreState, player: P
     if (value === "custom") {
       const room = More.roomFor(player);
       if (room <= 0) await refuse(privateText(interaction).errors.notice("queue-full", { max: config.bot.maxQueueSize }));
-      else await interaction.showModal(More.countModal(privateText(interaction), state, Number.isFinite(room) ? room : MAX_COUNT, guildSettings.resolvePlaylistAddMax(interaction.guild.id)));
+      else await interaction.showModal(countModal(privateText(interaction), More.countSpec(state, Number.isFinite(room) ? room : MAX_COUNT, guildSettings.resolvePlaylistAddMax(interaction.guild.id))));
       return null;
     }
     count = parseCount(value);
@@ -83,7 +84,7 @@ async function addMore(interaction: MoreInteraction, state: MoreState, count: nu
       voiceChannel: interaction.member.voice?.channel ?? null,
       onProgress,
     });
-    outcome = result.success ? { view: More.resultView(publicText(interaction.guildId), state, result, More.roomFor(player)).view } : { failed: addFailureMessage(privateText(interaction), result) };
+    outcome = result.success ? { view: resultView(publicText(interaction.guildId), More.resultSpec(state, result, More.roomFor(player))) } : { failed: addFailureMessage(privateText(interaction), result) };
   } catch (error) {
     log.error("재생목록 더 넣기 실패:", error);
     outcome = { failed: errorMessage(privateText(interaction), error) };
@@ -122,7 +123,37 @@ async function handleMore(interaction: MoreInteraction, bot: BotContext) {
   if (count) await addMore(interaction, state, count, player, bot);
 }
 
+// 슬래시 명령. 본인에게만 보이는 "검색 중" 자리표시자를 메뉴로 고친다(후속 메시지는 원래 응답이 삭제되면 "메시지를 불러올 수 없어요"에 매달린다).
+// 메뉴를 표시했으면 true
+async function offerOnInteraction(interaction: RepliableInteraction, more: MoreOffer, player: Player) {
+  const offer = More.offerSpec({ ...more, requesterId: interaction.user.id }, More.roomFor(player));
+  if (!offer.menu) return false;
+  try {
+    const message = await interaction.editReply(post(offerView(privateText(interaction), offer)));
+    More.expireLater(message.id, () => interaction.deleteReply());
+    return true;
+  } catch (error) {
+    log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
+    return false;
+  }
+}
+
+// 공개 메시지. 누를 수 있는 사람은 custom_id의 요청자로 구분한다. 표시했거나 표시할 것이 없으면 true.
+async function offerOnChannel(channel: TextBasedChannel | null | undefined, more: MoreOffer, player: Player, requesterId: string, { quiet = false } = {}) {
+  const offer = More.offerSpec({ ...more, requesterId }, More.roomFor(player));
+  if (!offer.menu) return true;
+  if (!canSend(channel)) return false;
+  try {
+    const message = await channel.send(post(offerView(publicText(player.guild?.id), offer)));
+    More.expireLater(message.id, () => message.delete());
+    return true;
+  } catch (error) {
+    if (!quiet) log.warn(`더 넣기 메뉴 전송 실패: ${messageOf(error)}`);
+    return false;
+  }
+}
+
 // 곡 수 입력 모달은 메뉴 메시지에서 연다(그 메시지를 고친다). 메시지에서 온 것이 아니면 받지 않는다
 const routes: Route[] = [route("select", `${More.SELECT_PREFIX}:`, handleMore), route("modal", `${More.MODAL_PREFIX}:`, (it, bot) => (it.isFromMessage() ? handleMore(it, bot) : undefined))];
 
-export { routes };
+export { routes, offerOnInteraction, offerOnChannel };

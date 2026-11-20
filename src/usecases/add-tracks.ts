@@ -11,7 +11,6 @@ import * as trackState from "../player/track-state.ts";
 import { waitForRestore } from "../player/session-restore.ts";
 import { textFor } from "../ui/text/index.ts";
 import { LOG_LANGUAGE } from "../rules/languages.ts";
-import { publicText } from "../ui/language.ts";
 import { continuation, validState, batchFor, KINDS } from "./playlist-more.ts";
 import { roomFor, roomLeft } from "../rules/queue-room.ts";
 import type { More, MoreState } from "../rules/more-choices.ts";
@@ -618,7 +617,7 @@ async function queueOnly(panel: Panel, player: Player, responder: Responder, { q
     await panel.updatePlaying(player);
   }
 
-  await responder.notifyQueued(addedView(publicText(player.guild?.id), { tracks: queued, collection, insertFirst, position, notice }));
+  await responder.notifyQueued((T) => addedView(T, { tracks: queued, collection, insertFirst, position, notice }));
 
   return { success: true, dropped: notice.dropped, queueLimited: notice.queueLimited };
 }

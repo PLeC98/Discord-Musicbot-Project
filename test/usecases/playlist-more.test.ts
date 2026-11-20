@@ -1,4 +1,4 @@
-// src/usecases/playlist-more.ts: 재생목록 이어 넣기의 상태(custom_id), 메뉴, 누를 때 판정
+// src/usecases/playlist-more.ts: 재생목록 이어 넣기의 상태(custom_id), 메뉴, 누를 때 판정. 메뉴는 ui/playlist-more-menu로 그려 본다
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,19 @@ import { fake, fakePlayer } from "../helpers/fake.ts";
 import { post } from "../../src/ui/frame.ts";
 import { selectOf, textsOf } from "../helpers/cv2.ts";
 import { textFor } from "../../src/ui/text/index.ts";
+import { offerView, resultView } from "../../src/ui/playlist-more-menu.ts";
+import { offerOnInteraction } from "../../src/discord/interactions/playlist-more-handler.ts";
 const KO = textFor("ko");
+
+// 메뉴의 모양을 한국어로 그린 화면과, 메뉴를 달았는지
+const offered = (more: Offer, room: number) => {
+  const spec = More.offerSpec(more, room);
+  return { view: offerView(KO, spec), menu: spec.menu !== null };
+};
+const resulted = (...args: Parameters<typeof More.resultSpec>) => {
+  const spec = More.resultSpec(...args);
+  return { view: resultView(KO, spec), menu: spec.menu !== null };
+};
 
 // 화면 안의 곡 수 메뉴
 function menuOf(offer: { view: Parameters<typeof post>[0]; menu: boolean }) {
@@ -49,11 +61,11 @@ test("custom_id: 되돌리면 같고, 가장 긴 조합도 100자 안이며, 깨
 
 test("메뉴: 자리가 없으면 메뉴를 붙이지 않고, 있으면 선택지 뒤에 직접 입력", () => {
   const more: Offer = { kind: "spp", listId: PL, offset: 50, anchorId: TRACK, insertFirst: false, requesterId: null, total: 9946, remaining: 9896 };
-  const full = More.offerView(KO, more, 0);
+  const full = offered(more, 0);
   assert.equal(full.menu, false);
   assert.equal(selectOf(post(full.view)), undefined);
 
-  const menu = menuOf(More.offerView(KO, more, 120));
+  const menu = menuOf(offered(more, 120));
   assert.deepEqual(
     menu.options.map((o) => o.value),
     ["50", "100", "120", "custom", "stop"],
@@ -78,7 +90,7 @@ test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요
   const interaction = (editReply: (p: Sent) => Promise<unknown>) => fake<RepliableInteraction>({ user: { id: "12345678901234567" }, editReply, deleteReply: async () => {} });
 
   assert.equal(
-    await More.offerOnInteraction(
+    await offerOnInteraction(
       interaction(async (p) => (edited.push(p), { id: "m1" })),
       more,
       player,
@@ -93,7 +105,7 @@ test("슬래시 명령 메뉴: 본인 자리표시자를 메뉴로 고친다(요
   const gone = interaction(async () => {
     throw new Error("Unknown Message");
   });
-  assert.equal(await More.offerOnInteraction(gone, more, player), false);
+  assert.equal(await offerOnInteraction(gone, more, player), false);
 });
 
 // 사운드클라우드 세트: 주소 대신 곡 찾기가 알려 준 숫자 id로 이어 불러오고, 한 번에 10곡까지(곡마다 요청이 들어 IP가 막히지 않게)
@@ -114,7 +126,7 @@ test("사운드클라우드 세트: 숫자 id로 이어 불러오고, 서버 설
 
 test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더', 남은 곡이 적으면 전부. 결과 문장에 뺀 곡", () => {
   const more: Offer = { kind: "scs", listId: "123", offset: 10, anchorId: "2227247837", insertFirst: false, requesterId: null, total: 41, remaining: 31, batch: 10 };
-  const menu = menuOf(More.offerView(KO, more, 200));
+  const menu = menuOf(offered(more, 200));
   assert.deepEqual(
     menu.options.map((o) => [o.value, o.label]),
     [
@@ -123,10 +135,10 @@ test("사운드클라우드 세트 메뉴: 한 번 상한에 걸리면 'N곡 더
       ["stop", "그만 넣기"],
     ],
   );
-  const last = menuOf(More.offerView(KO, { ...more, remaining: 4 }, 200));
+  const last = menuOf(offered({ ...more, remaining: 4 }, 200));
   assert.equal(last.options[0].label, "남은 곡 전부 (4곡)");
 
-  const result = More.resultView(KO, more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
+  const result = resulted(more, { added: 7, skipped: 3, total: 41, remaining: 21, next: { ...more, offset: 20, remaining: 21 } }, 200);
   assert.equal(result.menu, true);
   assert.match(textsOf(post(result.view))[0], /7곡을 더 넣었어요\. 재생할 수 없는 3곡\(미리듣기, 지역 제한 등\)은 제외했어요\./);
 });

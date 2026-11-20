@@ -107,7 +107,7 @@ function setup({ current = null, queue = [], plays = [{ ok: true }], connected =
   const panels = new RecordingPanels(fake<Client>({ user: { id: "bot" } }), players, calls);
   const bot = { players, panels };
   const notices: string[] = [];
-  const responder = { notifyQueued: async (view: unknown) => notices.push(textOf(view)), dismissPlaceholder: async () => {} };
+  const responder = { notifyQueued: async (draw: (T: typeof KO) => unknown) => notices.push(textOf(draw(KO))), dismissPlaceholder: async () => {} };
   // 이 서버에 곡을 추가한다
   const add = (data: TrackData, requester = who, via?: Responder) => queueTracks(bot, "g1", data, requester, via);
   return { panels, add, player, calls, sent, notices, responder, takenOver };

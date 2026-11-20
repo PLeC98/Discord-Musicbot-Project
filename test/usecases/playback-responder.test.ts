@@ -65,13 +65,13 @@ test("안내 실패가 재생을 망가뜨리지 않는다. 예외를 던지지 
       throw new Error("채널 권한 없음");
     },
   });
-  await channelResponder(broken).notifyQueued(view); // 예외를 던지면 여기서 실패
+  await channelResponder(broken).notifyQueued(() => view); // 예외를 던지면 여기서 실패
 
   const brokenInteraction = fakeInteraction();
   brokenInteraction.editReply = async () => {
     throw new Error("만료된 토큰");
   };
-  await interactionResponder(brokenInteraction).notifyQueued(view);
+  await interactionResponder(brokenInteraction).notifyQueued(() => view);
 });
 
 // ── silentResponder ──────────────────────────────────────────
@@ -80,7 +80,7 @@ test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대�
   const channel = fakeChannel();
   const interaction = fakeInteraction();
 
-  await silentResponder.notifyQueued(view);
+  await silentResponder.notifyQueued(() => view);
   await silentResponder.dismissPlaceholder();
 
   assert.deepEqual(channel.calls, []);
@@ -92,14 +92,14 @@ test("silentResponder는 디스코드를 한 번도 건드리지 않는다 (대�
 test("상호작용: 담은 안내는 모두에게 채널로 새로(채널에 못 쓰면 공개 후속 메시지), 본인 자리표시자는 명령이 치운다", async () => {
   const sent: Payload[] = [];
   const interaction = Object.assign(fakeInteraction({ deferred: false, replied: true }), { channel: { send: async (p: Payload) => (sent.push(p), { id: "c1", delete: async () => {} }) } });
-  await interactionResponder(interaction).notifyQueued(view);
+  await interactionResponder(interaction).notifyQueued(() => view);
   await interactionResponder(interaction).dismissPlaceholder();
   assert.deepEqual(sent, [post(view)]);
   assert.deepEqual(interaction.calls, [], "자리표시자를 건드리지 않는다");
 
   const calls: Call[] = [];
   const noChannel = Object.assign(fakeInteraction({ deferred: false, replied: true }), { channel: null, followUp: async (p: Payload) => (calls.push(["followUp", p]), { id: "f1" }) });
-  await interactionResponder(noChannel).notifyQueued(view);
+  await interactionResponder(noChannel).notifyQueued(() => view);
   assert.deepEqual(calls, [["followUp", post(view)]]);
 
   // 채널은 있는데 봇이 글을 쓸 수 없다
@@ -111,7 +111,7 @@ test("상호작용: 담은 안내는 모두에게 채널로 새로(채널에 못
     },
     followUp: async (p: Payload) => (calls.push(["followUp", p]), { id: "f2" }),
   });
-  await interactionResponder(denied).notifyQueued(view);
+  await interactionResponder(denied).notifyQueued(() => view);
   assert.deepEqual(
     calls,
     [
@@ -124,7 +124,7 @@ test("상호작용: 담은 안내는 모두에게 채널로 새로(채널에 못
 
 test("채널: 안내를 CV2 메시지로 보낸다", async () => {
   const channel = fakeChannel();
-  await channelResponder(channel).notifyQueued(view);
+  await channelResponder(channel).notifyQueued(() => view);
   assert.deepEqual(channel.calls, [["send", post(view)]]);
 });
 
@@ -149,13 +149,13 @@ test("채널: 안내 전에 자리표시자를 먼저 치운다. 별도 메시�
   });
   const responder = channelResponder(channel, () => order.push("dismiss"));
 
-  await responder.notifyQueued(view);
+  await responder.notifyQueued(() => view);
   assert.deepEqual(order, ["dismiss", "send"]);
 });
 
 test("채널: 보낼 곳이 없으면 조용히 넘어간다", async () => {
-  await channelResponder(null).notifyQueued(view);
-  await channelResponder(channelOf({})).notifyQueued(view);
+  await channelResponder(null).notifyQueued(() => view);
+  await channelResponder(channelOf({})).notifyQueued(() => view);
 });
 
 // ── 멱등성 ───────────────────────────────────────────────────
@@ -166,7 +166,7 @@ test("dismissPlaceholder는 멱등. 코어와 진입점이 모두 불러도 한 
 
   await responder.dismissPlaceholder();
   await responder.dismissPlaceholder();
-  await responder.notifyQueued(view); // 내부에서도 부른다
+  await responder.notifyQueued(() => view); // 내부에서도 부른다
   assert.equal(count, 1);
 });
 
