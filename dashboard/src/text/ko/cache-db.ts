@@ -139,6 +139,7 @@ const editPane = {
   applyTip: "Ctrl+Enter",
   clear: "지우기",
   open: "열기",
+  resize: "편집 창 크기 조절",
   readonly: "봇이 채우는 값이라 편집할 수 없어요.",
   kinds: { youtube: "유튜브 영상", soundcloud: "사운드클라우드 곡", direct: "직접 링크 오디오", spotify: "스포티파이", search: "검색어", unknown: "알 수 없는 링크" } as Record<string, string>,
   audioInfo: (kind: string, key: string) => `${kind} · 캐시 키 ${key}`,
