@@ -3,11 +3,10 @@ import * as guildSettings from "../../store/guild-settings.ts";
 import config from "../../config/index.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import type { ChatInputCommandInteraction } from "discord.js";
-import * as settingsText from "../../ui/text/ko/settings.ts";
-import * as errors from "../../ui/text/ko/errors.ts";
 import { post, reply } from "../../ui/frame.ts";
 import * as screens from "../../ui/settings-screens.ts";
 import { LIFETIME, noticeSelf, toSelf } from "../../ui/delivery.ts";
+import { privateText, publicText } from "../../ui/language.ts";
 import logger from "../../infra/log/logger.ts";
 import { messageOf } from "../../rules/error-kind.ts";
 const log = logger.child({ category: "commands" });
@@ -31,22 +30,22 @@ const exported: GuildCommand = {
 
     if (action === "reset") {
       if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, null)))) return failed(interaction);
-      return interaction.reply(post(screens.saved(settingsText.playlistLimitReset(guildSettings.resolvePlaylistAddMax(guildId)))));
+      return interaction.reply(post(screens.saved(publicText(guildId).settings.playlistLimitReset(guildSettings.resolvePlaylistAddMax(guildId)))));
     }
 
     if (count === null) {
       const stored = await guildSettings.getPlaylistAddMax(guildId);
       const current = guildSettings.resolvePlaylistAddMax(guildId);
-      return toSelf(interaction, reply(screens.shown(settingsText.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
+      return toSelf(interaction, reply(screens.shown(privateText(interaction).settings.playlistLimitNow({ count: current, isDefault: stored === null, min, max }))), LIFETIME.glance);
     }
 
     if (count < min || count > max) {
       const queueCap = config.bot.maxQueueSize > 0 && max === config.bot.maxQueueSize ? config.bot.maxQueueSize : null;
-      return noticeSelf(interaction, errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
+      return noticeSelf(interaction, privateText(interaction).errors.notice("playlist-limit-out-of-range", { min, max, queueCap }));
     }
 
     if (!(await saved(interaction, () => guildSettings.setPlaylistAddMax(guildId, count)))) return failed(interaction);
-    return interaction.reply(post(screens.saved(settingsText.playlistLimitSet(count))));
+    return interaction.reply(post(screens.saved(publicText(guildId).settings.playlistLimitSet(count))));
   },
 };
 export default exported;
@@ -63,5 +62,5 @@ async function saved(interaction: ChatInputCommandInteraction<"cached">, work: (
 }
 
 function failed(interaction: ChatInputCommandInteraction) {
-  return noticeSelf(interaction, errors.notice("settings-save-failed"));
+  return noticeSelf(interaction, privateText(interaction).errors.notice("settings-save-failed"));
 }

@@ -119,3 +119,34 @@ test("/setplaylistlimit: 저장에 실패하면 바꾸지 않고 실패를 알�
   }
   assert.equal(stored.get(G), 80);
 });
+
+// ── 누가 보는가로 고르는 언어 ──
+// 테스트 언어를 켜면 모든 서버의 서버 언어가 테스트 언어다. 공개 결과는 서버 언어, 본인 답은 디스코드 앱 언어(지원하지 않으면 서버 언어)
+
+async function withTestLanguage(fn: () => Promise<void>) {
+  config.i18n.testLanguage = true;
+  try {
+    await fn();
+  } finally {
+    config.i18n.testLanguage = false;
+  }
+}
+const asker = (locale: string, options: { count?: number | null } = {}) => Object.assign(interaction(options), { locale, guildId: G });
+const hasHangul = (payload: Payload) => /[가-힣]/.test(text(payload));
+
+test("/setplaylistlimit, 테스트 언어: 공개 결과는 서버 언어(테스트 언어), 본인 답은 앱 언어(한국어)", () =>
+  withTestLanguage(async () => {
+    const saved = asker("ko", { count: 30 });
+    await run(command, saved);
+    assert.equal(hasHangul(saved.replies[0]), false, "공개 결과");
+    const now = asker("ko");
+    await run(command, now);
+    assert.equal(hasHangul(now.replies[0]), true, "본인 답");
+  }));
+
+test("/setplaylistlimit, 테스트 언어: 앱 언어를 지원하지 않으면 본인 답도 서버 언어", () =>
+  withTestLanguage(async () => {
+    const now = asker("en-US");
+    await run(command, now);
+    assert.equal(hasHangul(now.replies[0]), false);
+  }));

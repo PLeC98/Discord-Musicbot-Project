@@ -2,30 +2,24 @@
 // 안내는 무엇에 관한 것인지(topic), 심각한 정도(severity), 헤더 줄, 본문이고, 헤더 줄의 이모지와 색은 그리는 쪽(ui/frame)이 붙인다
 
 import { formatBytes, formatMs } from "../../format.ts";
-import { noticeOf, type Notice, type Topic } from "../notice.ts";
+import { bindErrors, noticeOf, type ErrorTable, type LinkLook, type Topic } from "../notice.ts";
 import { josa } from "../../../rules/josa.ts";
 import { VOLUME_MAX } from "../../../rules/limits.ts";
-import { PROBLEMS, type Code, type NeedsParams, type Params, type ParamsOf } from "../../../rules/problems.ts";
 
 // 봇 쪽 문제, 외부 실패로 못 했다
 const error = (topic: Topic, title: string, body?: string) => noticeOf("error", topic, title, body);
 // 사용자가 고칠 수 있거나 지금 상태라 못 했다
 const warning = (topic: Topic, title: string, body?: string) => noticeOf("warning", topic, title, body);
 
-/**
- * 그리는 쪽마다 다른 값의 형식. 디스코드는 채널을 멘션으로, 봇 개발자를 저장소 링크로 적는다(ui/mentions의 DISCORD_LOOK).
- * 대시보드는 글자로 적고, 보고할 곳은 화면이 따로 붙인다(utils/problem)
- */
-type Look = { channel: (id: string) => string; developer: () => string };
 /** 꾸밈 없는 형식(대시보드) */
-const PLAIN: Look = { channel: (id) => `#${id}`, developer: () => "봇 개발자" };
+const PLAIN: LinkLook = { channel: (id) => `#${id}`, developer: () => "봇 개발자" };
 
 // 대시보드 화면은 보낼 수 없는 값(화면이 선택할 수 있는 것만 보낸다). 옛 화면이 바뀐 봇에 보냈을 수도 있다
-const stalePage = (look: Look) => `페이지를 새로고침한 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
+const stalePage = (look: LinkLook) => `페이지를 새로고침한 뒤 다시 시도해 보고, 계속되면 ${look.developer()}에게 보고해 주세요.`;
 // 화면도 봇도 보낼 일이 없는 값
-const cannotHappen = (look: Look) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
+const cannotHappen = (look: LinkLook) => `일반적으로는 발생할 수 없는 오류이니, ${look.developer()}에게 보고해 주세요.`;
 
-const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
+const TEXT: ErrorTable = {
   // 요청한 사람이 갖추지 못함
   // 봇을 부를 때 부른 사람이 음성 채널에 없다
   "must-be-in-voice": () => warning("voice", "먼저 음성 채널에 접속해 주세요!", "그래야 제가 어느 채널에서 곡을 틀지 알 수 있어요."),
@@ -300,25 +294,7 @@ const TEXT: { [C in Code]: (p: ParamsOf<C>, look: Look) => Notice } = {
   "reset-failed": () => error("failed", "초기화하지 못했어요!", "초기화하다 실패했어요. 운영자 로그를 확인해 주세요."),
 };
 
-/** 코드의 안내. params는 그 코드의 문장에 드는 값(rules/problems의 params, 모두 있어야 한다), look은 그리는 쪽의 값 형식 */
-function notice<C extends Code>(code: C, ...[params, look = PLAIN]: NeedsParams<C> extends true ? [params: ParamsOf<C>, look?: Look] : [params?: ParamsOf<C>, look?: Look]): Notice {
-  // 코드마다 다른 값 타입을 한 테이블에서 꺼내므로 여기서만 넓힌다(위 시그니처가 맞춰 넘겼다)
-  const text = TEXT[code] as (p: Params, look: Look) => Notice;
-  return { code, ...text(params ?? {}, look) };
-}
+// 문장표를 아직 번들(ui/text)로 부르지 않는 곳이 쓰는 찾기 함수
+const { notice, noticeFor } = bindErrors(TEXT, PLAIN);
 
-/**
- * 실행 중에 코드가 정해진 문제의 안내(대시보드 응답, 곡 추가 결과). 그 코드에 드는 값이 빠졌으면 문장을 그리지 않고 알 수 없는 오류로,
- * 빠진 이름은 missing으로 넘긴다(봇은 로그에 남기고, 화면은 그대로 보인다)
- */
-function noticeFor(code: Code, params: Params = {}, look: Look = PLAIN, missing?: (names: string[]) => void): Notice {
-  const names = ((PROBLEMS[code] as { params?: readonly (keyof Params)[] }).params ?? []).filter((name) => params[name] === undefined);
-  if (names.length) {
-    missing?.(names);
-    return notice("unknown-error", {}, look);
-  }
-  return { code, ...(TEXT[code] as (p: Params, look: Look) => Notice)(params, look) };
-}
-
-export { notice, noticeFor, PLAIN };
-export type { Look };
+export { TEXT, PLAIN, notice, noticeFor };

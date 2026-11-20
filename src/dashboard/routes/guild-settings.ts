@@ -28,6 +28,7 @@ import * as normalize from "../../usecases/normalize.ts";
 import * as replies from "../../ui/control-replies.ts";
 import { announcer, dashboardActor } from "../discord-notice.ts";
 import { viewerOf, shownCards, editsAny, noCardRefusal, noBodyCardRefusal, cardRefusal, fieldRefusal } from "../settings-cards.ts";
+import { publicText } from "../../ui/language.ts";
 
 /** 검사를 통과한 본문. 필드마다 { from, to }가 들어 있고, 없는 필드는 그대로 둔다 */
 type SettingsBody = z.output<ReturnType<typeof settingsPatch>>;
@@ -213,7 +214,8 @@ function createGuildSettingsRouter() {
     const r = body.value.on ? await stay.turnOn(bot, { guild, member }, { go: () => assertSignedIn(req) }) : await stay.turnOff(bot, { guild, member });
     if (!r.ok) return sendProblem(res, r.code);
     if (!r.already) {
-      const view = r.kind === "on" ? replies.stayOn(r.channelId, false, dashboardActor(req)) : replies.stayOff(false, dashboardActor(req));
+      const T = publicText(guild.id);
+      const view = r.kind === "on" ? replies.stayOn(T, r.channelId, false, dashboardActor(req)) : replies.stayOff(T, false, dashboardActor(req));
       announcer(bot, bot.players.get(guild.id))(view);
     }
     res.json(await stayCardOf(bot, guild, member));

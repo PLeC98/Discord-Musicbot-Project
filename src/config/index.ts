@@ -252,7 +252,7 @@ function resolveFromRoot(p: string | null) {
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
 const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_SECRET"] as const;
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
-const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조" } as const;
+const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조", dev: "개발자 옵션" } as const;
 
 /** 운영 설정값을 입력할 운영자 패널 탭별로(그 그룹의 탭) */
 function groupByTab(names: string[]): Map<string, string[]> {
@@ -474,6 +474,10 @@ function serviceConfig({ env, envInt, envEnum, envUrl, envOrigin, envAddress, en
     aiLog: {
       enabled: tuneBool("AI_LOG_ENABLED"),
       maxBytes: tuneInt("AI_LOG_MAX_MB") * 1024 * 1024,
+    },
+    // 언어. testLanguage: 테스트 언어를 언어 목록에 넣는가(ui/language)
+    i18n: {
+      testLanguage: tuneBool("TEST_LANGUAGE_ENABLED"),
     },
     // IP 위치 DB(dashboard/geoip). 로그인한 기기의 위치. 끄면 받지도 쓰지도 않는다(받은 파일은 둔다)
     geoip: {

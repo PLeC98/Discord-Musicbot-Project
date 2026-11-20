@@ -1,5 +1,5 @@
 import { escapeMarkdown } from "discord.js";
-import type { Look } from "./text/ko/errors.ts";
+import type { LinkLook } from "./text/notice.ts";
 import config from "../config/index.ts";
 
 // 곡 제목, 파일 이름은 외부에서 오는데 그대로 메시지에 실린다. 멘션과 마스크드 링크를 막는다.
@@ -40,6 +40,6 @@ function linkLabel(text: string, { emojiLinks = false } = {}) {
 }
 
 // 오류, 거절 안내(ui/text/ko/errors)의 값을 디스코드 형식으로: 채널은 멘션, 봇 개발자는 소스 저장소 링크(.env의 SOURCE_REPO_URL, 없으면 원본)
-const DISCORD_LOOK: Look = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };
+const DISCORD_LOOK: LinkLook = { channel: (id) => `<#${id}>`, developer: () => `[봇 개발자](${config.bot.sourceRepo})` };
 
 export { ALLOWED_MENTIONS, escapeMd, linkLabel, DISCORD_LOOK };

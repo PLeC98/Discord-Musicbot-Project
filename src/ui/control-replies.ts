@@ -8,6 +8,7 @@ import * as controlText from "./text/ko/controls.ts";
 import type { Loop } from "../rules/loop-cycle.ts";
 import type { DiscordArt } from "./discord-art.ts";
 import type { Hold } from "../rules/holds.ts";
+import type { BotText } from "./text/index.ts";
 
 type Track = { title: string | null; pageUrl: string; thumbnail?: string | null };
 /** 조작한 사람. 멘션으로 보인다 */
@@ -111,14 +112,17 @@ function left(saved: { track: Track; positionSec: number; queue: number } | null
   return frame({ title: t.title, body: t.body, footer: [who(by)], divider: true });
 }
 
-/** 24/7 켬, 끔, 지금 상태. channelId는 자리 채널 */
-function stayOn(channelId: string, already: boolean, by: Actor) {
-  const t = controlText.stayOn(DISCORD_LOOK.channel(channelId), already);
-  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+// 누가 했나 줄(그 언어로)
+const whoIn = (T: BotText, by: Actor) => `${T.controls.requestedBy()} ${String(by)}`;
+
+/** 24/7 켬, 끔, 지금 상태. T는 보낼 곳의 독자에 맞는 문구표(ui/language), channelId는 자리 채널 */
+function stayOn(T: BotText, channelId: string, already: boolean, by: Actor) {
+  const t = T.controls.stayOn(DISCORD_LOOK.channel(channelId), already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [whoIn(T, by)], divider: !already });
 }
-function stayOff(already: boolean, by: Actor) {
-  const t = controlText.stayOff(already);
-  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [who(by)], divider: !already });
+function stayOff(T: BotText, already: boolean, by: Actor) {
+  const t = T.controls.stayOff(already);
+  return frame({ icon: t.icon, title: t.title, body: t.body, footer: already ? [] : [whoIn(T, by)], divider: !already });
 }
 
 /** 볼륨 정규화 켬, 끔 */
