@@ -31,21 +31,20 @@ function shape(data: unknown): Record<string, string> {
   return out;
 }
 
-// 계산한 값을 설정 객체에 올린다. 값을 쓰는 곳이 쥔 객체가 바뀌지 않게 필드마다 덮어쓴다. 문제 줄을 돌려준다
+/**
+ * 운영 설정값이 반영되는 설정 객체의 영역(경로). 저장하면 이 영역만 새 값으로 덮어쓴다. 설정 객체 전체를 덮지 않는 까닭은
+ * 실행 중 다른 곳에서 채워 넣는 값(store/service-keys의 서비스 키)이 있기 때문이다. 운영 설정값을 추가해 새 영역이 생기면 여기에도 추가한다(빠진 영역이 있으면 테스트가 잡아낸다)
+ */
+const TUNED_SECTIONS = ["bot", "ytdlp", "bgutil", "sponsorblock", "voiceStatus", "cache", "stream", "dashboard.rateLimit", "dashboard.sse", "aiLog", "geoip", "i18n"] as const;
+
+type Section = Record<string, unknown>;
+const sectionOf = (root: object, path: string) => path.split(".").reduce<Section>((at, key) => at[key] as Section, root as Section);
+
+// 계산한 값을 설정 객체에 올린다. 값을 쓰는 곳이 쥔 객체가 바뀌지 않게 영역마다 필드를 덮어쓴다. 문제 줄을 돌려준다
 function apply(values: Record<string, string>) {
   const config = root.default;
   const next = root.loadConfig(process.env, { tunables: values });
-  const { bot, ytdlp, bgutil, sponsorblock, voiceStatus, cache, stream, dashboard, aiLog } = next.config;
-  Object.assign(config.bot, bot);
-  Object.assign(config.ytdlp, ytdlp);
-  Object.assign(config.bgutil, bgutil);
-  Object.assign(config.sponsorblock, sponsorblock);
-  Object.assign(config.voiceStatus, voiceStatus);
-  Object.assign(config.cache, cache);
-  Object.assign(config.stream, stream);
-  Object.assign(config.dashboard.rateLimit, dashboard.rateLimit);
-  Object.assign(config.dashboard.sse, dashboard.sse);
-  Object.assign(config.aiLog, aiLog);
+  for (const path of TUNED_SECTIONS) Object.assign(sectionOf(config, path), sectionOf(next.config, path));
   return next.tuneProblems;
 }
 
@@ -162,4 +161,4 @@ function view(): TunablesView {
   return { values: saved, revision: doc.revision, pending: pendingOf(saved) };
 }
 
-export { load, loadReadOnly, save, saveCard, view, problemsOf, reload, writeRaw };
+export { load, loadReadOnly, save, saveCard, view, problemsOf, reload, writeRaw, TUNED_SECTIONS };

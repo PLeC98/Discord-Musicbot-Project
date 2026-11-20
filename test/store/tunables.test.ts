@@ -15,6 +15,7 @@ type ProblemReply = import("../helpers/dashboard.ts").ProblemReply;
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const { default: config, loadConfig } = await import("../../src/config/index.ts");
 const tunables = await import("../../src/store/tunables.ts");
+const rules = await import("../../src/rules/tunables.ts");
 const docs = await import("../../src/store/settings-docs.ts");
 const { bodyLimit } = await import("../../src/dashboard/body-limit.ts");
 const { tunablesRouter } = await import("../../src/dashboard/routes/tunables.ts");
@@ -226,4 +227,55 @@ test("스크립트가 설정 DB를 읽기 전용으로 읽을 때: strict면 깨
   assert.throws(() => tunables.loadReadOnly(broken, { strict: true }), /설정 DB 읽기 실패/);
   tunables.loadReadOnly(path.join(store.dir, "없는.db"), { strict: true });
   assert.equal(config.ytdlp.update, "auto");
+});
+
+// ── 저장할 때 덮어쓰는 영역 ──
+
+/** 두 설정에서 값이 다른 경로(일반 객체는 안쪽까지 비교한다) */
+function differences(a: unknown, b: unknown, at = ""): string[] {
+  const plain = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+  if (plain(a) && plain(b)) return [...new Set([...Object.keys(a), ...Object.keys(b)])].flatMap((key) => differences(a[key], b[key], at ? `${at}.${key}` : key));
+  return JSON.stringify(a) === JSON.stringify(b) ? [] : [at];
+}
+
+// 운영 설정값마다 기본값과 다른 허용 값 후보
+const CANDIDATES: Record<string, (def: string, min?: number, max?: number) => string[]> = {
+  bool: (def) => [def === "true" ? "false" : "true"],
+  int: (def, min, max) => [String(Number(def) + 1), String(Number(def) - 1), String(min ?? 0), String(max ?? 1)],
+  text: () => ["x"],
+  color: () => ["#123456"],
+  url: () => ["https://example.com"],
+  list: () => ["web,mweb"],
+  cookies: () => ["file", "chrome"],
+  categories: () => ["sponsor", "intro"],
+  token: () => ["stable", "nightly", "master", "off", "auto", "2025.01.01", "1.0.0"],
+};
+
+test("운영 설정값이 바꾸는 설정 필드는 모두 저장할 때 덮어쓰는 영역(TUNED_SECTIONS) 안에 있다", () => {
+  const { TUNABLES } = rules;
+  const base = loadConfig(process.env, { tunables: {} }).config;
+  const outside: string[] = [];
+  const untested: string[] = [];
+  for (const one of TUNABLES) {
+    const found = CANDIDATES[one.kind](one.def, one.min, one.max)
+      .map((value) => loadConfig(process.env, { tunables: { [one.key]: value } }))
+      .find((next) => next.tuneProblems.length === 0 && differences(base, next.config).length > 0);
+    if (!found) {
+      untested.push(one.key);
+      continue;
+    }
+    for (const path of differences(base, found.config)) if (!tunables.TUNED_SECTIONS.some((section) => path === section || path.startsWith(`${section}.`))) outside.push(`${one.key} → ${path}`);
+  }
+  assert.deepEqual(outside, []);
+  assert.deepEqual(
+    untested.filter((key) => ["bool", "int"].includes(rules.tunable(key).kind)),
+    [],
+    "켜고 끄는 값, 수는 모두 바꿔 볼 수 있다",
+  );
+});
+
+test("저장하면 IP 위치 DB, 테스트 언어도 바로 적용된다", async () => {
+  const saved = await req<View>("PUT", { values: { GEOIP_ENABLED: "false", TEST_LANGUAGE_ENABLED: "true" }, revision: 0 });
+  assert.equal(saved.status, 200);
+  assert.deepEqual([config.geoip.enabled, config.i18n.testLanguage], [false, true]);
 });
