@@ -129,6 +129,30 @@ test("prefetchCount만큼 채운다. 한 번 불려도 끝까지", async () => {
   assert.equal(p.queue.length, 3);
 });
 
+// 곡이 시작될 때만 채우면, 사용자가 자동재생 곡을 뺀 뒤 다음 곡이 시작될 때까지 비어 있다
+test("사용자가 곡을 빼거나 대기열을 비우면 다음 곡을 기다리지 않고 정해 둔 수까지 다시 채운다", async () => {
+  const p = makePlayer({ prefetch: 2, queue: [auto("자동A"), auto("자동B")] });
+  Object.assign(p, { ensureAutoplayNext, _refillAutoplay: Player.prototype._refillAutoplay });
+  const settled = () => new Promise((done) => setImmediate(done));
+
+  Player.prototype.removeFromQueue.call(p, [p.queue[0]]);
+  await settled();
+  assert.deepEqual(titles(p.queue), ["자동B", "자동1"]);
+
+  Player.prototype.clearQueue.call(p);
+  await settled();
+  assert.deepEqual(titles(p.queue), ["자동2", "자동3"]);
+});
+
+test("자동재생이 꺼져 있으면 곡을 빼도 채우지 않는다", async () => {
+  const p = makePlayer({ autoplay: false, prefetch: 2, queue: [user("내 곡")] });
+  Object.assign(p, { ensureAutoplayNext, _refillAutoplay: Player.prototype._refillAutoplay });
+  Player.prototype.removeFromQueue.call(p, [p.queue[0]]);
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual(p.queue, []);
+  assert.equal(p.calls.picks, 0);
+});
+
 // ── 고르는 동안 대기열이 변하는 경우 ──────────────────────────────────────
 
 test("고르는 사이 사용자가 곡을 넣으면 미리 뽑기를 취소한다", async () => {

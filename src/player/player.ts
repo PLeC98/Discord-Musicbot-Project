@@ -1196,6 +1196,7 @@ class Player {
     const cleared = this.queue.length;
     if (cleared) clog.info(`대기열 비움: ${cleared}곡`);
     trackState.clearQueue(this);
+    if (cleared) this._refillAutoplay("대기열을 비운");
     return cleared;
   }
 
@@ -1209,7 +1210,14 @@ class Player {
     removed.reverse();
     if (removed.length === 1) clog.info(`대기열 제거: ${at[0] + 1}번 "${logTitle(removed[0].title)}" | 남은 ${this.queue.length}곡`);
     else if (removed.length > 1) clog.info(`대기열 제거: ${removed.length}곡(${at[0] + 1}번부터) | 남은 ${this.queue.length}곡`);
+    if (removed.length) this._refillAutoplay("대기열에서 곡을 뺀");
     return removed;
+  }
+
+  // 사용자가 곡을 빼서 자동재생 곡이 정해 둔 수(prefetchCount)보다 적어졌으면 다음 곡이 시작하기 전에 다시 채운다(기다리지 않는다).
+  // 다 차 있거나 자동재생이 꺼져 있으면 ensureAutoplayNext가 아무것도 하지 않고, 이미 고르는 중이면 그 고르기가 정해 둔 수까지 이어서 채운다. after: 로그에 쓰는 앞선 동작
+  _refillAutoplay(after: string) {
+    this.ensureAutoplayNext().catch((error: unknown) => log.warn(`${after} 뒤 자동재생 다음 곡 미리 추가 실패(곡 종료 시 재시도): 서버=${guildLabel(this)}, 장르=${this.autoplay || "off"} | ${messageOf(error)}`));
   }
 
   moveInQueue(from: number, to: number) {
