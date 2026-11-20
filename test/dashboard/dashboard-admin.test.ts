@@ -297,7 +297,7 @@ test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async (
   assert.ok(["guild", "global"].includes(r.json.scope));
 });
 
-test("POST redeploy-commands: 거절되면 502, 운영자용 원문에 디스코드 메시지와 기동 로그와 같은 원인 안내", async () => {
+test("POST redeploy-commands: 거절되면 502, 운영자용 원문 필드에 디스코드 메시지와 기동 로그와 같은 원인 안내", async () => {
   const before = adminApp.locals.deployCommands;
   const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("You are not authorized to perform this action on this application"), { code: 20012 })));
   adminApp.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] });

@@ -82,7 +82,7 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
-// 운영자 ID는 비었거나 형식이 틀려도 경고만 한다(봇은 돈다. 값은 그대로 두며 어느 사용자와도 맞지 않는다)
+// 운영자 ID는 비었거나 형식이 틀려도 경고만 한다(봇은 돈다. 값은 그대로 두며 어느 사용자와도 일치하지 않는다)
 function ownerIdWarning(ownerId: string | null): string | null {
   const nobody = "대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음";
   if (!ownerId) return `OWNER_ID 미설정. ${nobody}`;

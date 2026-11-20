@@ -1,5 +1,5 @@
 // 봇 토큰의 앱 설정(GET /applications/@me). 기동이 한 번 읽어 앱 ID 대조와 특권 인텐트 고르기(app/privileged-intents)가 같은 결과를 쓴다.
-// 못 읽으면 대조를 건너뛰고 특권 인텐트를 모두 요청한다(모르는 것은 틀린 것이 아니다). 명령 배포가 실패하면 그 안내가 원인을 짚는다(app/command-loader)
+// 못 읽으면 대조를 건너뛰고 특권 인텐트를 모두 요청한다(모르는 것은 틀린 것이 아니다). 명령 배포가 실패하면 배포 실패 안내가 원인을 알린다(app/command-loader)
 
 import { REST, Routes } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -28,7 +28,7 @@ async function readAppOnce(read: () => Promise<AppFlags>): Promise<AppFlags | nu
 }
 
 /**
- * CLIENT_ID가 봇 토큰의 앱이 아니면 그 안내, 맞거나 모르면 null.
+ * CLIENT_ID가 봇 토큰의 앱이 아니면 안내 문장, 같거나 모르면 null.
  * 틀리면 명령 배포가 거절되고, 초대 링크가 다른 앱을 가리키고, 대시보드 로그인이 다른 앱으로 간다
  */
 function clientIdMismatch(app: AppFlags | null, clientId: string): string | null {

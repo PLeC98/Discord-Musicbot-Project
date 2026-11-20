@@ -2,7 +2,7 @@
 
 const SNOWFLAKE = /^\d{17,20}$/;
 
-/** 디스코드 ID 형식의 글인가 */
+/** 디스코드 ID 형식의 문자열인가 */
 const isSnowflake = (value: unknown): boolean => typeof value === "string" && SNOWFLAKE.test(value);
 
 export { isSnowflake };

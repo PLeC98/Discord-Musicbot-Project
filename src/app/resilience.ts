@@ -1,7 +1,7 @@
 // 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers로 핸들러를 건다.
 //
 // 방침: 봇 전체를 내리지 않고 서버 하나로 가둔다.
-// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 디스코드가 거절한 요청(rules/discord-rejection)은 로그만 남긴다(다시 시작해도 같은 답이다).
+// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 디스코드가 거절한 요청(rules/discord-rejection)은 로그만 남긴다(다시 시작해도 똑같이 거절된다).
 // - 서버 문맥(infra/guild-context)이 있으면 그 서버의 오류다. 그 서버만 다시 시작한다(guildFault).
 // - 서버를 모르면 경계가 빠진 위치다. 로그로 남기고 계속 돈다. 서버를 가리지 않고 쏟아질 때만 내린다(전역 폭주).
 // 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js가 맡는다. 여기서 플레이어를 복구하지 않는다.
@@ -42,15 +42,22 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
 }
 
 /**
- * 디스코드가 거절한 요청이면 로그만 남기고 true. 여기까지 왔으면 부른 곳이 받지 않은 것이라, 고칠 곳을 찾게 요청, 서버, 어디서를 남기고 스택은 debug로.
+ * 디스코드가 거절한 요청이면 로그만 남기고 true. 여기까지 왔으면 호출한 곳이 받지 않은 것이라, 고칠 곳을 찾게 요청, 서버, 어디서를 남긴다.
+ * 스택은 error(권한, 그 밖)면 같은 줄에, warn(상호작용 수명, 사라진 대상)이면 debug로.
  * 이벤트 경계(app/main의 onFault)와 프로세스 수준(loose)이 같이 쓴다. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나
  */
 function logRejection(error: unknown, guildId: string | null, where: string): boolean {
   const rejected = discordRejection(error);
   if (!rejected) return false;
-  coreLog[rejected.level](rejectionLine(rejected, guildId, where));
-  const stack = error && typeof error === "object" && "stack" in error ? error.stack : null;
-  if (stack) coreLog.debug(`거절된 요청의 스택 (${where}): ${String(stack)}`);
+  const line = rejectionLine(rejected, guildId, where);
+  if (rejected.level === "error") {
+    if (error instanceof Error) coreLog.error({ err: error }, line);
+    else coreLog.error(line);
+    return true;
+  }
+  coreLog.warn(line);
+  const stack = error instanceof Error ? error.stack : null;
+  if (stack) coreLog.debug(`거절된 요청의 스택 (${where}): ${stack}`);
   return true;
 }
 

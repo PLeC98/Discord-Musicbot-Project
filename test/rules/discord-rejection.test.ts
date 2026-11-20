@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { discordRejection, rejectionLine } from "../../src/rules/discord-rejection.ts";
 
-const rejected = (code: number, extra: object = {}) => Object.assign(new Error(`거절 ${code}`), { code, ...extra });
+// DiscordAPIError의 형태: 숫자 code와 숫자 status
+const rejected = (code: number, extra: object = {}) => Object.assign(new Error(`거절 ${code}`), { code, status: 400, ...extra });
 
 test("부류와 수준: 상호작용 수명, 사라진 대상은 warn, 권한과 모르는 코드(우리 요청이 틀림)는 error", () => {
   const familyOf = (code: number) => {
@@ -17,7 +18,10 @@ test("부류와 수준: 상호작용 수명, 사라진 대상은 warn, 권한과
   for (const code of [50035, 40005, 0]) assert.equal(familyOf(code), "other:error", String(code));
 });
 
-test("디스코드 거절이 아니면 null: 우리 오류, 글 코드(Node, SQLite, 우리 이름), 오류가 아닌 값", () => {
+test("디스코드 거절이 아니면 null: 우리 오류, 문자열 코드(Node, SQLite, 우리 오류 이름), status 없는 숫자 코드(DOMException, 종료 코드), 오류가 아닌 값", () => {
+  assert.equal(discordRejection(new DOMException("시간 초과", "TimeoutError")), null);
+  assert.equal(discordRejection(new DOMException("중단", "AbortError")), null);
+  assert.equal(discordRejection(Object.assign(new Error("Command failed"), { code: 1, signal: null })), null);
   assert.equal(discordRejection(new Error("버그")), null);
   assert.equal(discordRejection(Object.assign(new Error("x"), { code: "ECONNRESET" })), null);
   assert.equal(discordRejection(Object.assign(new Error("x"), { code: "stream-failed" })), null);

@@ -221,7 +221,7 @@ adminRouter.post("/redeploy-commands", async (req, res) => {
     log.info({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 ${r.count}개를 ${r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}에` : "전역으로"} 다시 등록`);
     return res.json({ success: true, count: r.count, scope: r.scope, guildId: r.guildId, names: r.names } satisfies RedeployReply);
   }
-  // 원인 안내는 기동 로그, pnpm commands와 같은 문장이다(운영자용 원문 칸)
+  // 원인 안내는 기동 로그, pnpm commands와 같은 문장이다(운영자용 원문 필드)
   log.error({ sub: "admin" }, `대시보드 운영자 패널에서 슬래시 명령어 재등록 실패: ${messageOf(r.error)}${r.hint ? ` | ${r.hint}` : ""}`);
   return sendProblem(res, "deploy-failed", {}, { detail: [messageOf(r.error), r.hint].filter(Boolean).join("\n"), discordCode: codeOf(r.error) ?? null });
 });

@@ -122,7 +122,7 @@ function main() {
   const shutdown = installShutdown({ potServer, logFile });
   // 설정(운영 설정값, 키)은 DB에 있다. POToken 서버, 명령 배포, 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
-  // 앱 설정을 먼저 읽는다. CLIENT_ID가 봇 토큰의 앱이 아니면 명령 배포, 초대 링크, 대시보드 로그인이 모두 틀리므로 아무것도 띄우기 전에 멈춘다
+  // 앱 설정을 먼저 읽는다. CLIENT_ID가 봇 토큰의 앱이 아니면 명령 배포, 초대 링크, 대시보드 로그인이 모두 잘못되므로 아무것도 띄우기 전에 멈춘다
   readAppOnce(() => readApp(config.discord.token))
     .then((app) => {
       const mismatch = clientIdMismatch(app, config.discord.clientId);
@@ -289,7 +289,7 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   // 서버 하나 다시 시작. 이벤트 핸들러 경계와 새어 나온 오류 핸들러가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
   const onFault: OnFault = (error, guildId, where) => {
-    // 디스코드가 거절한 요청은 다시 시작해도 같은 답이다. 로그만 남긴다
+    // 디스코드가 거절한 요청은 다시 시작해도 똑같이 거절된다. 로그만 남긴다
     if (logRejection(error, guildId, where)) return;
     if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
     else log.error(`핸들러 오류 (${where}):`, error);

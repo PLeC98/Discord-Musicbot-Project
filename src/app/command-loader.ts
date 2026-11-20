@@ -127,8 +127,8 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
   }
 }
 
-// 배포 실패의 원인 안내. 디스코드 코드와 범위로 원인이 하나로 좁혀지는 것만 붙인다.
-// 서버 경로의 50001은 봇이 없는 서버와 없는 서버 ID를 구분해 주지 않는다. 전역 50001, 50035, 401은 원인을 짐작할 근거가 없다
+// 배포 실패의 원인 안내. 디스코드 오류 코드와 범위로 원인이 하나로 좁혀지는 것만 붙인다.
+// 서버 경로의 50001은 봇이 없는 서버와 존재하지 않는 서버 ID를 구분해 주지 않는다. 전역 50001, 50035, 401은 원인을 짐작할 근거가 없다
 function deployHint(scope: string, guildId: string | null, error: unknown): string | null {
   const code = codeOf(error);
   if (scope === "guild" && code === RESTJSONErrorCodes.MissingAccess) return `GUILD_ID 서버(${guildId ?? "없음"})에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요`;

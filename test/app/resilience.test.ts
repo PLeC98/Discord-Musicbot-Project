@@ -16,12 +16,12 @@ test(`빈도 가드: 시간창 안에 ${FLOOD_MAX}번까지 false, 넘으면 tru
   assert.equal(flooding(1000 + FLOOD_WINDOW_MS + 1), false);
 });
 
-test("디스코드가 거절한 요청은 로그 한 줄(요청, 서버, 어디서)을 남기고 true. 우리 오류는 false", () => {
+test("디스코드가 거절한 요청은 로그 한 줄(요청, 서버, 어디서, error 부류는 스택까지)을 남기고 true. 우리 오류는 false", () => {
   const from = sink.buffer.length;
-  const rejected = Object.assign(new Error("Missing Permissions"), { code: 50013, method: "patch", url: "https://discord.com/api/v10/channels/1/messages/2" });
+  const rejected = Object.assign(new Error("Missing Permissions"), { code: 50013, status: 403, method: "patch", url: "https://discord.com/api/v10/channels/1/messages/2" });
   assert.equal(logRejection(rejected, "g1", "버튼"), true);
   const lines = sink.buffer.slice(from).map((e) => `${e.level} ${e.text}`);
-  assert.equal(lines[0], "error 작업 권한이 없음 (50013 Missing Permissions) | PATCH /channels/1/messages/2 | 서버 g1 | 버튼");
+  assert.ok(lines[0].startsWith("error 작업 권한이 없음 (50013 Missing Permissions) | PATCH /channels/1/messages/2 | 서버 g1 | 버튼 Error: Missing Permissions"), "error 부류는 같은 줄에 스택");
   assert.equal(logRejection(new Error("버그"), "g1", "버튼"), false);
   assert.equal(logRejection(Object.assign(new Error("db"), { code: "SQLITE_BUSY" }), null, "x"), false, "글 코드는 디스코드 거절이 아니다");
 });
@@ -88,11 +88,11 @@ function installed() {
 test("디스코드가 거절한 요청은 로그만: 서버 문맥이 있어도 다시 시작하지 않고, 내리지 않고, 폭주로 세지 않는다", () => {
   const { client, proc, faults, exits } = installed();
   for (let i = 0; i <= FLOOD_MAX; i++) {
-    client.emit("error", { code: 50013, message: "Missing Permissions" });
-    proc.emit("unhandledRejection", { code: 10062 });
-    inGuild("g1", () => proc.emit("uncaughtException", { code: 40060 }));
-    inGuild("g1", () => proc.emit("unhandledRejection", { code: 50001 }));
-    inGuild("g2", () => proc.emit("unhandledRejection", Object.assign(new Error("Invalid Form Body"), { code: 50035 })));
+    client.emit("error", { code: 50013, status: 403, message: "Missing Permissions" });
+    proc.emit("unhandledRejection", { code: 10062, status: 404 });
+    inGuild("g1", () => proc.emit("uncaughtException", { code: 40060, status: 400 }));
+    inGuild("g1", () => proc.emit("unhandledRejection", { code: 50001, status: 403 }));
+    inGuild("g2", () => proc.emit("unhandledRejection", Object.assign(new Error("Invalid Form Body"), { code: 50035, status: 400 })));
   }
   assert.deepEqual(faults, []);
   assert.deepEqual(exits, []);
