@@ -151,6 +151,7 @@
 
         <div class="admin-page" v-show="tab === 'dev'">
           <DevOptions v-if="opened.has('dev')" />
+          <ConfigTunables v-if="opened.has('dev')" :groups="groupsIn('dev')" tab="dev" :can-restart="status?.env.launcher ?? false" class="mt-(--gap-in)" />
         </div>
       </template>
       <!-- 저장 바 하나. 어느 탭에서 고쳤든 떠 있고, 고친 편집기를 모두 저장, 되돌린다(휴대폰은 저장 바 높이만큼 여기서 아래를 비운다) -->

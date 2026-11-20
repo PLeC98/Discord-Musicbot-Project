@@ -1,6 +1,7 @@
 // 재생 패널(지금 곡, 끝난 패널)의 문구
 
 import { icon, type IconKey } from "../../icons.ts";
+import { isCutOffCause, type CutOffCause } from "../../../rules/cut-off.ts";
 
 /** 재생 패널의 헤더 */
 const playingTitle = () => `${icon("music")} 현재 재생 중`;
@@ -61,7 +62,7 @@ type EndNotice = { icon?: IconKey; title: string; body: string };
 const ended = (): EndNotice => ({ icon: "music", title: "재생이 끝났어요", body: "`/play`로 곡을 넣으면 다시 틀어요." });
 
 // 끊겨서 음성 채널에서 나왔다. 원인(Player.dispose의 end)마다의 본문
-const CUT_OFF: Record<string, string> = {
+const CUT_OFF: Record<CutOffCause, string> = {
   "alone-timeout": "한동안 듣는 사람이 없어서 쉬러 갔어요. `/join`으로 이어 들을 수 있어요.",
   kicked: "누군가 저를 음성 채널에서 내보냈어요. `/play`로 부르면 다시 올게요.",
   "stage-ended": "스테이지가 끝나서 나왔어요. `/play`로 부르면 다시 올게요.",
@@ -73,7 +74,7 @@ const CUT_OFF: Record<string, string> = {
   fault: "같은 오류가 반복되어 재생을 멈췄어요. 계속되면 봇 운영자에게 알려주세요.",
 };
 /** 전용 채널 밖에서 끊겨 끝났다는 안내. CUT_OFF에 없는 원인이면(stop, leave 등) null */
-const cutOff = (cause: string): EndNotice | null => (CUT_OFF[cause] ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
+const cutOff = (cause: string): EndNotice | null => (isCutOffCause(cause) ? { title: "👋 음성 채널에서 나왔어요", body: CUT_OFF[cause] } : null);
 
 /** 짧게 끊긴 실행이 이어져 기동이 세션을 이어 틀지 않았다는 안내(전용 채널 밖). 봇이 이미 음성에서 빠져 있었을 수 있어 나왔다고 하지 않는다 */
 const restoreSkipped = (): EndNotice => ({ title: `⚠️ ${RESTORE_SKIPPED_TITLE}`, body: "짧은 시간에 여러 번 꺼져서 일부러 이어 틀지 않았어요. `/join`으로 이어 들을 수 있어요." });

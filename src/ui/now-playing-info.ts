@@ -34,7 +34,8 @@ function aboutTrack(T: BotText, player: Player, track: QueuedTrack) {
   const platform = String(track.platform || "").toLowerCase();
   const requester = track.autoplay ? N.autoplayPick : track.requestedBy?.id ? `<@${track.requestedBy.id}>` : null;
   const audioUrl = track.audioUrl;
-  const foundBy = audioUrl && track.audioFoundBy ? N.foundBy[track.audioFoundBy] : null;
+  // 요청 그대로(given)인 음원은 따로 적지 않는다
+  const foundBy = audioUrl && track.audioFoundBy && track.audioFoundBy !== "given" ? N.foundBy[track.audioFoundBy] : null;
   return [N.line("stats", N.status, status), requester ? N.line("person", N.requester, requester) : null, N.line("web", N.source, labelOf(platform)), audioUrl && foundBy ? N.line("link", N.audio, `[${audioHost(audioUrl)}](${audioUrl}) · ${foundBy}`) : null].filter(Boolean);
 }
 

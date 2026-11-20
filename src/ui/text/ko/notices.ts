@@ -3,7 +3,7 @@
 import { noticeOf } from "../notice.ts";
 import { escapeMd } from "../../mentions.ts";
 import { josa } from "../../../rules/josa.ts";
-import { songTitle } from "./labels.ts";
+import * as labels from "./labels.ts";
 
 // 저장된 세션의 장르가 장르 목록에서 없어졌다
 const autoplayUnknownGenre = (genre: string) => noticeOf("warning", "autoplay", "알 수 없는 장르예요!", `장르 목록이 변경되어 \`${genre}\`${josa(genre, "이")} 없어져서 자동재생을 껐어요. 장르를 다시 선택해 주세요.`);
@@ -24,7 +24,7 @@ const skippedMore = (count: number) => noticeOf("error", "failed", `재생할 �
 const savedSessionReplaced = (count: number) => noticeOf("warning", "state", `저장해 둔 대기열 ${count}곡을 지우고 새로 시작했어요.`, "다음부터 이어 들으려면 곡을 넣기 전에 `/join`을 먼저 써 주세요.");
 /** 봇을 다시 시작해 저장한 세션을 복원했다 { icon, title, body }(icon은 헤더 줄 아이콘의 키). at은 이어 튼 위치를 말로 적은 것 */
 const restored = (title: string | null | undefined, at: string, paused: boolean) => {
-  const line = `• **${escapeMd(songTitle(title))}** (${at})`;
+  const line = `• **${escapeMd(labels.songTitle(title))}** (${at})`;
   return paused ? { icon: "restored" as const, title: "봇이 복구됐어요", body: `마지막 일시정지 상태를 유지할게요.\n${line}` } : { icon: "restored" as const, title: "봇이 복구됐어요", body: `기록된 마지막 재생 상태를 이어갈게요.\n${line}` };
 };
 

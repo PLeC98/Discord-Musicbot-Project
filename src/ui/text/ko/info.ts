@@ -2,6 +2,7 @@
 // 핑의 🏓 는 유니코드 그대로
 
 import { icon, type IconKey } from "../../icons.ts";
+import type { AudioFoundBy } from "../../../rules/audio-found-by.ts";
 
 /** 새로고침 버튼 */
 const refresh = () => "새로고침";
@@ -45,7 +46,7 @@ const nowPlaying = () => ({
   source: "출처",
   audio: "음원",
   // 음원 주소를 어떻게 알았나(rules/audio-found-by, 요청 그대로는 줄을 내지 않는다)
-  foundBy: { ledger: "자동 검색 결과", search: "자동 검색 결과", pinned: "직접 지정한 음원" } as Record<string, string>,
+  foundBy: { ledger: "자동 검색 결과", search: "자동 검색 결과", pinned: "직접 지정한 음원" } satisfies Record<Exclude<AudioFoundBy, "given">, string>,
   next: "다음",
   nextByAutoplay: "자동재생이 골라요",
   nextNone: "없음",

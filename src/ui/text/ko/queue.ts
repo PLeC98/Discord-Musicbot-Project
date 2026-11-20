@@ -1,6 +1,7 @@
 // 대기열에 추가한 안내와 대기열 화면의 문구
 
-import { addedParts, FULL_TITLE, shortfallParts, type AddedTracks, type Shortfall } from "./added-parts.ts";
+import * as parts from "./added-parts.ts";
+import type { AddedTracks, Shortfall } from "./added-parts.ts";
 import { escapeMd } from "../../mentions.ts";
 import { icon, type IconKey } from "../../icons.ts";
 import { formatSpan } from "../../format.ts";
@@ -8,7 +9,7 @@ import { formatSpan } from "../../format.ts";
 /** 곡을 추가한 안내 { icon, title, body }(icon은 헤더 줄 아이콘의 키) */
 function added(addition: AddedTracks): { icon: IconKey; title: string; body: string } {
   const head = { icon: addition.first ? "first_added" : "done", title: "곡을 추가했어요!" } as const;
-  const { name, rest } = addedParts(addition);
+  const { name, rest } = parts.addedParts(addition);
   return { ...head, body: name === null ? rest : `**${escapeMd(name)}**${rest}` };
 }
 
@@ -17,8 +18,8 @@ const partlyAdded = (): { icon: IconKey; title: string } => ({ icon: "state", ti
 
 /** 추가 안내 밑의 경고 줄들(대시보드 경고 알림과 같은 문장, added-parts) */
 const addedWarnings = (shortfall: Shortfall) => {
-  const { full, left } = shortfallParts(shortfall);
-  return [left, full && `**${FULL_TITLE}** ${full}`].filter((line): line is string => Boolean(line));
+  const { full, left } = parts.shortfallParts(shortfall);
+  return [left, full && `**${parts.FULL_TITLE}** ${full}`].filter((line): line is string => Boolean(line));
 };
 
 /** 대기열 화면(/queue)의 제목: 보기, 편집 */

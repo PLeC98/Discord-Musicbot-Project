@@ -87,6 +87,8 @@ import { nudgeOnSettingsChange } from "./settings-nudge.ts";
 import * as guildSettings from "../store/guild-settings.ts";
 import { AppEmojis, apiOf } from "./app-emojis.ts";
 import { josa } from "../rules/josa.ts";
+import { missingText } from "../ui/text/index.ts";
+import { BASE_LANGUAGE } from "../rules/languages.ts";
 
 const log = logger.child({ category: "core" });
 
@@ -388,10 +390,18 @@ async function cleanupAudioCache() {
   }
 }
 
+// 언어 모듈에서 빠졌거나 형식이 맞지 않아 기준 언어로 채운 문구(ui/text). 저장소의 언어는 타입 검사가 막아 비어 있다
+function warnMissingText() {
+  for (const [language, keys] of missingText()) {
+    log.warn({ tags: ["startup"] }, `${language} 문구 ${keys.length}개가 없거나 형식이 맞지 않아 기준 언어(${BASE_LANGUAGE})로 표시: ${keys.slice(0, 10).join(", ")}${keys.length > 10 ? ` 외 ${keys.length - 10}개` : ""}`);
+  }
+}
+
 async function init(bot: BotContext, { commands, potServer, logFile, shutdown, onFault }: { commands: Map<string, SlashCommand>; potServer: PotServer; logFile: LogFile | null; shutdown: Shutdown; onFault: OnFault }) {
   const { client, players } = bot;
   try {
     log.info({ tags: ["startup"] }, "봇 기동 시작");
+    warnMissingText();
     checkBeforeLogin();
     await startEncoding();
     loadCommands(commands);

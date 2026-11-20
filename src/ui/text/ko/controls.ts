@@ -4,17 +4,18 @@
 import { josa } from "../../../rules/josa.ts";
 import { VOLUME_MAX } from "../../../rules/limits.ts";
 import { icon, type IconKey } from "../../icons.ts";
-import { songTitle } from "./labels.ts";
+import * as labels from "./labels.ts";
 import { linkLabel } from "../../mentions.ts";
 import type { Hold } from "../../../rules/holds.ts";
+import type { Loop } from "../../../rules/loop-cycle.ts";
 
 type Linked = { title: string | null; pageUrl: string };
 /** 헤더 줄(아이콘 키 + 제목)과 본문 */
 type Head = { icon: IconKey; title: string; body: string };
 
-const link = (track: Linked) => `**[${linkLabel(songTitle(track.title))}](${track.pageUrl})**`;
+const link = (track: Linked) => `**[${linkLabel(labels.songTitle(track.title))}](${track.pageUrl})**`;
 // 곡 링크 뒤에 목적격 조사(보이는 제목의 끝소리로 정한다)
-const linkObject = (track: Linked) => `${link(track)}${josa(songTitle(track.title), "을")}`;
+const linkObject = (track: Linked) => `${link(track)}${josa(labels.songTitle(track.title), "을")}`;
 
 /** 누가 했나 줄의 라벨 */
 const requestedBy = () => `${icon("person")} 요청한 사람`;
@@ -91,13 +92,13 @@ const moved = (track: Linked, from: number, to: number): Head & { by: string } =
 });
 
 // 반복 모드마다 [아이콘, 문장]
-const LOOP: Record<string, [icon: IconKey, message: string]> = {
+const LOOP: Record<`${Loop}`, [icon: IconKey, message: string]> = {
   track: ["repeat_one", "**한 곡 반복** 모드로 설정했어요."],
   queue: ["repeat", "**대기열 반복** 모드로 설정했어요."],
   false: ["repeat_off", "반복 모드를 **해제**했어요."],
 };
 const loopSet = (mode: string | false): Head => {
-  const [key, message] = LOOP[String(mode)];
+  const [key, message] = LOOP[`${mode}` as `${Loop}`];
   return { icon: key, title: "반복 모드를 바꿨어요!", body: message };
 };
 
