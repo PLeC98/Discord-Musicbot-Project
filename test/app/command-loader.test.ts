@@ -37,6 +37,8 @@ const { tunablesChanged } = await import("../../src/config/tunables-changed.ts")
 const { COMMANDS } = await import("../../src/discord/commands/index.ts");
 const commands: RESTPostAPIApplicationCommandsJSONBody[] = definitions();
 const config = (await import("../../src/config/index.ts")).default;
+// 배포 경로의 앱 ID. 기동은 봇 토큰으로 읽어 넣는다(app/app-info)
+(await import("../../src/infra/app-id.ts")).useAppId("123456789012345678");
 
 test("봇 전체에서 SponsorBlock을 껐으면 /highlight를 등록하지도 실행 목록에 올리지도 않는다. /setting은 늘 있다(그리는 화면에서 그 부분이 빠진다)", async () => {
   const { withConfig } = await import("../helpers/config.ts");
@@ -183,18 +185,16 @@ test("deployCommands: 등록한 명령의 id로 멘션을 만든다. 등록을 �
   assert.equal(commandMention("없는명령"), "`/없는명령`");
 });
 
-test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 20012와 10002는 CLIENT_ID, 그 밖(전역 50001, 50035)은 붙이지 않는다", async () => {
+test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 그 외(전역 50001, 50035, 앱 오류)는 붙이지 않는다", async () => {
   const { withConfig } = await import("../helpers/config.ts");
   const failWith = (code: number) => deployCommands({ hashPath: freshHashPath(), force: true, put: async () => Promise.reject(Object.assign(new Error(`거절 ${code}`), { code })), get });
   const hintOf = async (code: number, guildId: string | null) => {
-    const r = await withConfig({ discord: { clientId: "123456789012345678", guildId } }, () => failWith(code));
+    const r = await withConfig({ discord: { guildId } }, () => failWith(code));
     assert.ok(!r.ok);
     return r.hint;
   };
   assert.equal(await hintOf(50001, "112233445566778899"), "GUILD_ID 서버(112233445566778899)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요");
-  const clientHint = "CLIENT_ID(123456789012345678)가 봇 토큰의 앱이 아님. 개발자 포털의 Application ID와 .env의 CLIENT_ID가 같은지 확인하세요";
-  assert.equal(await hintOf(20012, null), clientHint);
-  assert.equal(await hintOf(10002, "112233445566778899"), clientHint, "서버 배포에서도 앱을 먼저 본다");
+  assert.equal(await hintOf(20012, null), null, "앱 ID는 토큰에서 읽어 틀릴 수 없다");
   assert.equal(await hintOf(50001, null), null, "전역 50001은 원인을 짐작할 근거가 없다");
   assert.equal(await hintOf(50035, "112233445566778899"), null, "형식 검사를 지난 뒤의 50035는 명령 정의 쪽이다");
 

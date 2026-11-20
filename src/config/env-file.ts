@@ -9,7 +9,7 @@ import { PROJECT } from "../infra/project-paths.ts";
 import { newSecretsKey, newSessionSecret } from "../rules/secrets-key.ts";
 
 /** 사람이 채워야 하는 값(.env.example의 [필수] 중 무작위로 못 만드는 것) */
-const FILL_BY_HAND = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"];
+const FILL_BY_HAND = ["DISCORD_TOKEN", "CLIENT_SECRET"];
 
 /** 예시의 "KEY=   # 주석" 줄에 값을 넣는다. 주석은 남긴다 */
 function fillLine(text: string, key: string, value: string) {

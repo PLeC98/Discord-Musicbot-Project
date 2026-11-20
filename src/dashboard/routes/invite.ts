@@ -10,7 +10,7 @@ import { canInvite, managedGuilds } from "../invite.ts";
 import { guildIconUrl } from "../images.ts";
 import { inviteUrl } from "../../rules/invite-url.ts";
 import { messageOf } from "../../rules/error-kind.ts";
-import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
 import { discordHttp, type DiscordHttp } from "../discord-api.ts";
 import type { InviteList } from "../contract/invite.ts";
 
@@ -35,7 +35,7 @@ function createInviteRouter({ http = discordHttp }: { http?: DiscordHttp } = {})
     try {
       const managed = await managedGuilds(req.sessionID, token, { fresh: req.query.fresh === "1", http });
       // 봇이 든 서버는 지금 값으로 뺀다(초대해 봇이 들면 바로 빠진다)
-      const guilds = managed.filter((g) => !client.guilds.cache.has(g.id)).map((g) => ({ id: g.id, name: g.name, icon: guildIconUrl(g.id, g.icon), inviteUrl: inviteUrl(config.discord.clientId, g.id) }));
+      const guilds = managed.filter((g) => !client.guilds.cache.has(g.id)).map((g) => ({ id: g.id, name: g.name, icon: guildIconUrl(g.id, g.icon), inviteUrl: inviteUrl(appIdOf(), g.id) }));
       res.json({ state: "ready", guilds } satisfies InviteList);
     } catch (error) {
       const status = statusOf(error);

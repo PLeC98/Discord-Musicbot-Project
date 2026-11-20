@@ -8,6 +8,8 @@ import assert from "node:assert/strict";
 import type { NextFunction, Request, Response } from "express";
 import { fake, fakeBot } from "../helpers/fake.ts";
 import { baseUrl, listenForFetch } from "../helpers/listen.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 const { openTempStore } = await import("../helpers/temp-store.ts");
 const store = openTempStore("plaintext-");

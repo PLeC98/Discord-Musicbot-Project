@@ -19,24 +19,31 @@ const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 type LoginClient = { rest: { setToken(token: string): unknown; get(route: string): Promise<unknown> }; login(token: string): Promise<unknown> };
 
-// 게이트웨이 정보를 조회할 수 있을 때까지 재시도한다. 토큰이 틀리면(401) 곧바로 예외를 던진다
-async function waitForGateway(client: LoginClient, waits: number[], wait: (ms: number) => Promise<unknown>) {
+/** 재시도 간격. waits: 재시도 전 대기(ms), wait: 기다리는 것(테스트가 넘긴다) */
+type Retry = { waits?: number[]; wait?: (ms: number) => Promise<unknown> };
+
+/**
+ * 디스코드가 답할 때까지 간격을 두고 재시도한다. 토큰이 틀리면(401) 곧바로 TokenInvalid를 던지고, 재시도를 다 쓰면 마지막 오류를 던진다.
+ * 상태를 바꾸지 않는 조회에만 쓴다(게이트웨이 정보, 앱 설정). what: 로그에 쓰는 이름
+ */
+async function untilDiscordAnswers<T>(what: string, call: () => Promise<T>, { waits = GATEWAY_RETRY_MS, wait = sleep }: Retry = {}): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await client.rest.get(Routes.gatewayBot());
+      return await call();
     } catch (error) {
       if (error && typeof error === "object" && "status" in error && error.status === 401) throw codedError("TokenInvalid", "디스코드 토큰이 틀림", { cause: error });
       if (failedStartCode(error, false) === EXIT.badSetup || attempt >= waits.length) throw error;
-      log.warn(`디스코드 게이트웨이 정보 불러오기 실패: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 재시도(${attempt + 1}/${waits.length})`);
+      log.warn(`${what} 실패: ${messageOf(error)} | ${waits[attempt] / 1000}초 뒤 재시도(${attempt + 1}/${waits.length})`);
       await wait(waits[attempt]);
     }
   }
 }
 
-async function loginWithRetry(client: LoginClient, token: string, { waits = GATEWAY_RETRY_MS, wait = sleep } = {}) {
+async function loginWithRetry(client: LoginClient, token: string, retry: Retry = {}) {
   client.rest.setToken(token);
-  await waitForGateway(client, waits, wait);
+  await untilDiscordAnswers("디스코드 게이트웨이 정보 불러오기", () => client.rest.get(Routes.gatewayBot()), retry);
   return client.login(token);
 }
 
-export { loginWithRetry, GATEWAY_RETRY_MS };
+export { loginWithRetry, untilDiscordAnswers, GATEWAY_RETRY_MS };
+export type { Retry };

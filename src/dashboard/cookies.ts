@@ -5,10 +5,10 @@
 // 같은 이름의 쿠키가 둘 이상 오면 없는 것으로 본다: 평문에서는 같은 상위 도메인의 다른 사이트가 Domain, Path를 달리해 같은 이름으로 심을 수 있고, 어느 것이 우리 것인지 가를 수 없다
 
 import type { Request, Response } from "express";
-import config from "../config/index.ts";
+import { appIdOf } from "../infra/app-id.ts";
 
 /** 로그인 세션 쿠키의 이름. secure: HTTPS 요청 여부(세션 미들웨어가 요청마다 선택한다, dashboard/index) */
-const sessionCookieName = (secure: boolean) => `${secure ? "__Host-" : ""}musicbot-session-${config.discord.clientId}`;
+const sessionCookieName = (secure: boolean) => `${secure ? "__Host-" : ""}musicbot-session-${appIdOf()}`;
 
 /** 이 브라우저의 로그인 세션 쿠키를 삭제한다. 세션 미들웨어가 붙인 쿠키와 이름, 경로, Secure가 같아야 삭제된다 */
 function clearSessionCookie(req: Request, res: Response) {
@@ -18,7 +18,7 @@ function clearSessionCookie(req: Request, res: Response) {
 /** OAuth 로그인(state, 팝업 여부)을 콜백까지 들고 가는 쿠키의 수명. 디스코드 승인 화면에서 돌아올 때까지 */
 const LOGIN_COOKIE_MS = 10 * 60_000;
 
-const loginCookieName = (secure: boolean) => `${secure ? "__Host-" : ""}musicbot-login-${config.discord.clientId}`;
+const loginCookieName = (secure: boolean) => `${secure ? "__Host-" : ""}musicbot-login-${appIdOf()}`;
 // SameSite=Lax: 디스코드에서 돌아오는 최상위 GET에 실린다
 const loginCookieOptions = (secure: boolean) => ({ path: "/", httpOnly: true, sameSite: "lax" as const, secure });
 

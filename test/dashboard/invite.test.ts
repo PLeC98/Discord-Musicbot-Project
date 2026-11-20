@@ -21,6 +21,8 @@ import type { Client } from "discord.js";
 import type { InviteList } from "../../src/dashboard/contract/invite.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-invite-"));
 secrets._useKey(newSecretsKey());

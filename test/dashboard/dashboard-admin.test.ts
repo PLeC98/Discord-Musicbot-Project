@@ -51,6 +51,8 @@ const { useModelInfo } = await import("../helpers/model-info.ts");
 useModelInfo({ dir: store.dir, profiles: true });
 
 import express from "express";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 // ── 가짜 디스코드 클라이언트 ─────────────────────────────────
 function makeSendableChannel(id: string) {
@@ -298,16 +300,17 @@ test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async (
 });
 
 test("POST redeploy-commands: 거절되면 502, 운영자용 원문 필드에 디스코드 메시지와 기동 로그와 같은 원인 안내", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
   const before = adminApp.locals.deployCommands;
-  const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("You are not authorized to perform this action on this application"), { code: 20012 })));
-  adminApp.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] });
+  const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("Missing Access"), { code: 50001 })));
+  adminApp.locals.deployCommands = (options) => withConfig({ discord: { guildId: "112233445566778899" } }, () => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] }));
   try {
     const r = await req<{ type: string; detail: string; discordCode: number }>("POST", "/api/admin/redeploy-commands");
     assert.equal(r.status, 502);
-    assert.equal(r.json.discordCode, 20012);
+    assert.equal(r.json.discordCode, 50001);
     const [message, hint] = r.json.detail.split("\n");
-    assert.equal(message, "You are not authorized to perform this action on this application");
-    assert.match(hint, /^CLIENT_ID\(.*\)가 봇 토큰의 앱이 아님\. /);
+    assert.equal(message, "Missing Access");
+    assert.match(hint, /^GUILD_ID 서버\(112233445566778899\)에 봇이 없음\. /);
   } finally {
     adminApp.locals.deployCommands = before;
   }

@@ -3,6 +3,7 @@ import logger from "../../infra/log/logger.ts";
 const log = logger.child({ category: "dashboard" });
 import crypto from "crypto";
 import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
 import type { SessionUser } from "../express-slots.d.ts";
 import { loginFailed, type LoginError, type Tier } from "../contract/identity.ts";
 import { tokenStoreOf, type SqliteSessionStore } from "../session-store.ts";
@@ -42,7 +43,7 @@ function callbackFailure(error: unknown, redirectUri: string): LoginError {
 
 /** 디스코드에 접근 토큰 폐기를 요청한다(RFC 7009). 로그아웃, 다른 기기 로그아웃 */
 function revokeToken(http: DiscordHttp, token: string) {
-  return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: config.discord.clientId, client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
+  return http.post(`${DISCORD_API}/oauth2/token/revoke`, new URLSearchParams({ client_id: appIdOf(), client_secret: config.discord.clientSecret ?? "", token, token_type_hint: "access_token" }), { headers: { "Content-Type": "application/x-www-form-urlencoded" } });
 }
 
 /** 디스코드 개발자 포털 OAuth2 Redirects에 등록할 콜백 주소 */
@@ -70,7 +71,7 @@ function publicLogin(req: express.Request): string | null {
 type LoginRequest = { state: string; verifier: string; popup: boolean; at: number };
 const LOGIN_PURPOSE = "oauth-login";
 // 잠근 값을 이 대시보드에 묶는다(다른 봇의 쿠키로 바꿔 넣어도 열리지 않는다)
-const loginBound = () => `${config.discord.clientId}|${config.dashboard.url}`;
+const loginBound = () => `${appIdOf()}|${config.dashboard.url}`;
 
 function sealLogin(login: LoginRequest) {
   return secrets.sealBlob(LOGIN_PURPOSE, JSON.stringify(login), loginBound()).toString("base64url");
@@ -150,7 +151,6 @@ function recordFirstDevice(req: express.Request, store: SqliteSessionStore, sign
  */
 function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
   const router = express.Router();
-  const CLIENT_ID = config.discord.clientId;
   const CLIENT_SECRET = config.discord.clientSecret ?? ""; // 비면 기동이 멈춘다(config)
   const REDIRECT_URI = callbackUrl();
   // 사용한 state → 만료 시각. 쿠키 삭제를 무시하는 클라이언트가 있어 쿠키만으로는 재사용을 막을 수 없다. 다시 시작하면 초기화되지만 쿠키 수명이 남아 있는 동안의 재사용은 막는다
@@ -176,7 +176,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
     const verifier = crypto.randomBytes(32).toString("base64url");
     setLoginCookie(req, res, sealLogin({ state, verifier, popup: req.query.popup === "1", at: Date.now() }));
     const params = new URLSearchParams({
-      client_id: CLIENT_ID,
+      client_id: appIdOf(),
       redirect_uri: REDIRECT_URI,
       response_type: "code",
       scope: "identify guilds",
@@ -206,7 +206,7 @@ function createAuthRouter({ http = discordHttp }: { http?: DiscordHttp } = {}) {
       const tokenRes = await http.post<TokenReply>(
         `${DISCORD_API}/oauth2/token`,
         new URLSearchParams({
-          client_id: CLIENT_ID,
+          client_id: appIdOf(),
           client_secret: CLIENT_SECRET,
           grant_type: "authorization_code",
           code,

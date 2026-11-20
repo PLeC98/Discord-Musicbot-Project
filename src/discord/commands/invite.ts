@@ -2,6 +2,8 @@
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder } from "discord.js";
 import config from "../../config/index.ts";
+import { appIdOf } from "../../infra/app-id.ts";
+import { inviteUrl } from "../../rules/invite-url.ts";
 import type { GuildCommand } from "../../app/command-loader.ts";
 import { frame, reply } from "../../ui/frame.ts";
 import { buttonEmoji } from "../../ui/icons.ts";
@@ -23,7 +25,7 @@ const exported: GuildCommand = {
   data: new SlashCommandBuilder().setName("invite").setDescription("봇 초대 링크를 보여줘요"),
 
   async execute(interaction) {
-    await toSelf(interaction, reply(inviteView({ invite: config.bot.invite, website: config.bot.website })), LIFETIME.screen);
+    await toSelf(interaction, reply(inviteView({ invite: inviteUrl(appIdOf()), website: config.bot.website })), LIFETIME.screen);
   },
 };
 export default exported;

@@ -20,7 +20,7 @@ const KEY = Buffer.alloc(32, 7).toString("base64");
 
 /** 주어진 환경 변수(env)와 운영 설정값(tunables, settings.db의 문서)으로 설정을 계산한다 */
 function load(env: Record<string, string>, opts?: Parameters<typeof loadConfig>[1]) {
-  const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
+  const { config: c, problems, warnings, tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, ...env }, opts);
   return { problems, warnings, tuneProblems, cfg: { port: c.dashboard.port, apiMax: c.dashboard.rateLimit.apiMax, website: c.bot.website, queueMax: c.bot.maxQueueSize } };
 }
 /** 운영 설정값만 준다 */
@@ -70,7 +70,7 @@ test("대시보드 공개 주소는 origin만(경로, 사용자 정보, ?, # 없
 test("임베드 색은 #RRGGBB만 받는다", () => {
   assert.deepEqual(tune({ EMBED_COLOR: "#2743d2" }).tuneProblems, []);
   for (const bad of ["blue", "#12345", "2743D2", "#GGGGGG"]) assert.equal(tune({ EMBED_COLOR: bad }).tuneProblems.length, 1, bad);
-  assert.equal(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678" }).config.bot.embedColor, "#2743D2", "비우면 기본 색");
+  assert.equal(loadConfig({ DISCORD_TOKEN: "t" }).config.bot.embedColor, "#2743D2", "비우면 기본 색");
 });
 
 test("비워 두는 것은 기본값을 쓰겠다는 뜻이라 통과한다", () => {
@@ -99,7 +99,7 @@ test("쿠키 출처는 file이거나 yt-dlp가 받는 브라우저 이름이다(
   for (const ok of ["file", "FILE", "chrome", "Firefox", "chrome:Profile 1", "chromium+gnomekeyring:Work", "whale"]) {
     assert.deepEqual(tune({ COOKIES_SOURCE: ok }).tuneProblems, [], ok);
   }
-  const { config: c } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678" }, { tunables: { COOKIES_SOURCE: "chrome:Profile 1" } });
+  const { config: c } = loadConfig({ DISCORD_TOKEN: "t" }, { tunables: { COOKIES_SOURCE: "chrome:Profile 1" } });
   assert.equal(c.ytdlp.cookiesFromBrowser, "chrome:Profile 1");
 });
 
@@ -118,19 +118,19 @@ test("문제는 첫 하나에서 멈추지 않고 모두 모은다", () => {
 
 test("자격증명: 봇 토큰, 클라이언트 ID, 시크릿이 없으면 문제(빈 것만 가리킨다), 운영자 ID, 기능 한정 키가 없으면 경고", () => {
   const bare = loadConfig({ SECRETS_KEY: KEY });
-  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_ID, CLIENT_SECRET. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.']);
-  assert.match(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
+  assert.deepEqual(bare.problems, ['비어 있는 필수 값: DISCORD_TOKEN, CLIENT_SECRET. README의 "설정" 절과 .env.example의 주석을 참고해 .env에 채운 뒤 다시 실행하세요.']);
+  assert.match(loadConfig({ DISCORD_TOKEN: "t", SECRETS_KEY: KEY }).problems[0], /^비어 있는 필수 값: CLIENT_SECRET\./);
   assert.equal(bare.warnings.length, 1);
   assert.match(bare.warnings[0], /OWNER_ID/);
   assert.deepEqual(load({ OWNER_ID: "987654321098765432" }).warnings, []);
 });
 
-test("디스코드 ID: 앱 ID, 서버 ID는 형식이 틀리면 멈추고(서버 ID를 비워 전역 배포로 돌리지 않는다), 운영자 ID는 경고만 하고 값을 둔다", () => {
-  assert.deepEqual(load({ CLIENT_ID: "my-bot" }).problems, [".env의 CLIENT_ID 값이 잘못됨(my-bot): 디스코드 앱 ID 형식(17 ~ 20자리 숫자)이 아님. 고친 뒤 다시 실행하세요"]);
-  const guild = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", CLIENT_SECRET: "s", SECRETS_KEY: KEY, GUILD_ID: "1234" });
+test("디스코드 ID: 서버 ID는 형식이 틀리면 멈추고(서버 ID를 비워 전역 배포로 돌리지 않는다), 운영자 ID는 경고만 하고 값을 둔다. 앱 ID는 .env에서 읽지 않는다(봇 토큰으로 읽는다)", () => {
+  assert.deepEqual(load({ OWNER_ID: "987654321098765432" }, { envFileNames: ["CLIENT_ID"] }).warnings, [".env의 CLIENT_ID는 봇이 읽지 않는 이름. 오타이거나 예전 설정이면 .env에서 삭제하세요(쓰는 이름은 .env.example 참고)"]);
+  const guild = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, GUILD_ID: "1234" });
   assert.deepEqual(guild.problems, [".env의 GUILD_ID 값이 잘못됨(1234): 디스코드 서버 ID 형식(17 ~ 20자리 숫자)이 아님. 고친 뒤 다시 실행하세요"]);
-  assert.equal(loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", GUILD_ID: "112233445566778899" }).config.discord.guildId, "112233445566778899");
-  const owner = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", CLIENT_SECRET: "s", SECRETS_KEY: KEY, OWNER_ID: "owner" });
+  assert.equal(loadConfig({ DISCORD_TOKEN: "t", GUILD_ID: "112233445566778899" }).config.discord.guildId, "112233445566778899");
+  const owner = loadConfig({ DISCORD_TOKEN: "t", CLIENT_SECRET: "s", SECRETS_KEY: KEY, OWNER_ID: "owner" });
   assert.deepEqual(owner.problems, []);
   assert.deepEqual(owner.warnings, ["OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(owner). 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음"]);
   assert.equal(owner.config.dashboard.ownerId, "owner");
@@ -168,7 +168,7 @@ test("SECRETS_KEY: 비었거나 32바이트 base64가 아니면 만드는 명령
 
 test("불러와도 멈추지 않는다. 문제는 목록으로 따로 내보내고 설정 값에는 섞이지 않는다", () => {
   const probe = "import('./src/config/index.ts').then((m) => console.log('CFG:' + JSON.stringify({ problems: m.problems, keys: Object.keys(m.default).includes('problems') })));";
-  const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", DASHBOARD_PORT: "abc" } });
+  const r = spawnSync(process.execPath, ["-e", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, DISCORD_TOKEN: "t", DASHBOARD_PORT: "abc" } });
   assert.equal(r.status, 0);
   const out = JSON.parse(/CFG:(\{.*\})/.exec(r.stdout)?.[1] ?? "null");
   // 자식은 저장소의 .env를 읽는다. 있고 없고에 따라 다른 문제가 더 붙을 수 있어 넣은 값의 문제만 센다

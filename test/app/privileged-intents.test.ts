@@ -41,9 +41,7 @@ test("100 서버 이상이면 스위치가 아니라 승인이 필요하다고 �
   assert.match(refusedAtLogin(), /승인이 필요함/);
 });
 
-test("앱 설정을 못 읽었거나(null) flags가 없으면 모르는 것이라 다섯 개를 모두 요청한다", () => {
-  assert.equal(choosePrivilegedIntents(null).length, 5);
-  assert.deepEqual(loggedInIntents(), { messageContent: true, guildMembers: true });
+test("앱 설정에 flags가 없으면 모르는 것이라 다섯 개를 모두 요청한다", () => {
   const from = sink.buffer.length;
   assert.equal(choosePrivilegedIntents({ approximate_guild_count: 2 }).length, 5);
   assert.deepEqual(loggedInIntents(), { messageContent: true, guildMembers: true });

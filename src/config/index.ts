@@ -10,7 +10,6 @@ import { LEVEL_NAMES } from "../infra/log/levels.ts";
 import { SECRETS_KEY_COMMAND, isSecretsKey } from "../rules/secrets-key.ts";
 import { GROUP_TAB, TUNABLE_KEYS, tunable, tuneProblemLine } from "../rules/tunables.ts";
 import { COOKIE_BROWSERS, cookieBrowserOf } from "../rules/cookie-browsers.ts";
-import { inviteUrl } from "../rules/invite-url.ts";
 import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { josa } from "../rules/josa.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
@@ -251,7 +250,7 @@ function resolveFromRoot(p: string | null) {
 }
 
 /** 비면 기동을 멈추는 자격증명. 봇 로그인, 명령 배포, 대시보드 로그인(OAuth) */
-const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_ID", "CLIENT_SECRET"] as const;
+const REQUIRED_CREDENTIALS = ["DISCORD_TOKEN", "CLIENT_SECRET"] as const;
 // 운영자 패널 탭 이름(운영 설정값의 그룹이 놓인 탭, rules/tunables의 GROUP_TAB). 연령 제한 탭은 연령 제한 콘텐츠를 켜야 생긴다
 const TAB_NAMES = { settings: "일반", appearance: "디스플레이", youtube: "유튜브", update: "업데이트", age: "연령 제한(일반 탭에서 연령 제한 콘텐츠를 켜면 생긴다)", ai: "AI 보조" } as const;
 
@@ -320,7 +319,6 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     // 토큰, 클라이언트 id는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
       token: env("DISCORD_TOKEN", ""),
-      clientId: envDiscordId("CLIENT_ID", "앱", ""),
       clientSecret: env("CLIENT_SECRET"),
       guildId: envDiscordId("GUILD_ID", "서버", null),
     },
@@ -349,7 +347,6 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
       welcomeMessage: tuneBool("WELCOME_MESSAGE_ENABLED"),
       projectRepo: PROJECT_REPO,
       sourceRepo: envUrl("SOURCE_REPO_URL", PROJECT_REPO),
-      invite: inviteUrl(env("CLIENT_ID", "")),
       leaveDelayQueueEmptyMs: tuneInt("LEAVE_DELAY_QUEUE_EMPTY_SECONDS") * 1000,
       leaveDelayAloneMs: tuneInt("LEAVE_DELAY_ALONE_SECONDS") * 1000,
     },

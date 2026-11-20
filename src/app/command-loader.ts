@@ -4,6 +4,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import config from "../config/index.ts";
+import { appIdOf } from "../infra/app-id.ts";
 import { onTunablesChanged } from "../config/tunables-changed.ts";
 import { COMMANDS } from "../discord/commands/index.ts";
 import { rememberCommandIds } from "../ui/command-mentions.ts";
@@ -64,7 +65,7 @@ function definitions() {
 
 // 명령 정의 + 배포 대상(앱, 범위, 서버)의 해시. 어느 하나라도 바뀌면 재배포한다
 function deployFingerprint(scope: string, guildId: string | null, commands: unknown[]) {
-  const src = JSON.stringify({ clientId: config.discord.clientId, scope, guildId, commands });
+  const src = JSON.stringify({ clientId: appIdOf(), scope, guildId, commands });
   return crypto.createHash("sha256").update(src).digest("hex");
 }
 
@@ -106,7 +107,7 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
   const guildId = config.discord.guildId || null;
   const commands = definitions();
   const fingerprint = deployFingerprint(scope, guildId, commands);
-  const route = guildId ? Routes.applicationGuildCommands(config.discord.clientId, guildId) : Routes.applicationCommands(config.discord.clientId);
+  const route = guildId ? Routes.applicationGuildCommands(appIdOf(), guildId) : Routes.applicationCommands(appIdOf());
 
   if (!force && readDeployedFingerprint(hashPath) === fingerprint) {
     try {
@@ -127,14 +128,10 @@ async function deployCommands({ force = false, hashPath = HASH_PATH, put = putCo
   }
 }
 
-// 배포 실패의 원인 안내. 디스코드 오류 코드와 범위로 원인이 하나로 좁혀지는 것만 붙인다.
+// 배포 실패의 원인 안내. 디스코드 오류 코드와 범위로 원인이 하나로 좁혀지는 것만 붙인다(앱 ID는 토큰에서 읽어 틀릴 수 없다).
 // 서버 경로의 50001은 봇이 없는 서버와 존재하지 않는 서버 ID를 구분해 주지 않는다. 전역 50001, 50035, 401은 원인을 짐작할 근거가 없다
 function deployHint(scope: string, guildId: string | null, error: unknown): string | null {
-  const code = codeOf(error);
-  if (scope === "guild" && code === RESTJSONErrorCodes.MissingAccess) return `GUILD_ID 서버(${guildId ?? "없음"})에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요`;
-  if (code === RESTJSONErrorCodes.NotAuthorizedToPerformThisActionOnThisApplication || code === RESTJSONErrorCodes.UnknownApplication) {
-    return `CLIENT_ID(${config.discord.clientId})가 봇 토큰의 앱이 아님. 개발자 포털의 Application ID와 .env의 CLIENT_ID가 같은지 확인하세요`;
-  }
+  if (scope === "guild" && codeOf(error) === RESTJSONErrorCodes.MissingAccess) return `GUILD_ID 서버(${guildId ?? "없음"})에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요`;
   return null;
 }
 

@@ -14,6 +14,8 @@ import { SqliteSessionStore } from "../../src/dashboard/session-store.ts";
 import * as secrets from "../../src/store/secrets.ts";
 import { newSecretsKey } from "../../src/rules/secrets-key.ts";
 import { listenForFetch, baseUrl } from "../helpers/listen.ts";
+import { useAppId } from "../../src/infra/app-id.ts";
+useAppId("123456789012345678"); // 기동은 봇 토큰으로 앱 ID를 읽어 넣는다(app/app-info). 세션 쿠키 이름, 로그인, 초대 링크, 명령 배포가 쓴다
 
 secrets._useKey(newSecretsKey());
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "musicbot-session-cookie-"));

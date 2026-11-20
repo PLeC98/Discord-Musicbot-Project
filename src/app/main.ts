@@ -77,7 +77,7 @@ import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
 import { choosePrivilegedIntents, onRefusedWhileRunning, refusedAtLogin } from "./privileged-intents.ts";
-import { clientIdMismatch, readApp, readAppOnce } from "./app-info.ts";
+import { loadApp, readApp } from "./app-info.ts";
 import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
@@ -122,14 +122,9 @@ function main() {
   const shutdown = installShutdown({ potServer, logFile });
   // 설정(운영 설정값, 키)은 DB에 있다. POToken 서버, 명령 배포, 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
-  // 앱 설정을 먼저 읽는다. CLIENT_ID가 봇 토큰의 앱이 아니면 명령 배포, 초대 링크, 대시보드 로그인이 모두 잘못되므로 아무것도 띄우기 전에 멈춘다
-  readAppOnce(() => readApp(config.discord.token))
+  // 앱 설정을 먼저 읽어 앱 ID를 넣는다. 명령 배포, 초대 링크, 대시보드 로그인과 쿠키 이름이 쓴다(.env에 두지 않는다)
+  loadApp(() => readApp(config.discord.token))
     .then((app) => {
-      const mismatch = clientIdMismatch(app, config.discord.clientId);
-      if (mismatch) {
-        log.error(mismatch);
-        throw new StartupStopped(mismatch);
-      }
       deploySlashCommands();
       void potServer.start();
       // 기동 준비(업데이트 뒤의 화면 빌드, ffmpeg 맞추기)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열고 ffmpeg 경로를 정하기 전에 끝낸다

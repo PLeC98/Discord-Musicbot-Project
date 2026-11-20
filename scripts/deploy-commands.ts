@@ -15,10 +15,17 @@ tunables.loadReadOnly(path.join(PROJECT.database, "settings.db"));
 
 // 명령 목록은 설정 검사를 지난 뒤에 불러온다(src/index.ts가 본체를 부르는 순서와 같다)
 const { deployCommands, definitions, deployErrorLines } = await import("../src/app/command-loader.ts");
+const { loadApp, readApp } = await import("../src/app/app-info.ts");
+const { messageOf } = await import("../src/rules/error-kind.ts");
 const commands = definitions();
 const { scriptLine } = await import("../src/infra/script-line.ts");
 const say = scriptLine("commands");
-say("info", `슬래시 명령어 ${commands.length}개 배포 시작`);
+// 배포 경로의 앱 ID는 봇 토큰으로 읽는다(기동과 같다)
+const app = await loadApp(() => readApp(loadedConfig.default.discord.token)).catch((error: unknown) => {
+  say("error", `디스코드 앱 설정 불러오기 실패: ${messageOf(error)}`);
+  process.exit(1);
+});
+say("info", `슬래시 명령어 ${commands.length}개 배포 시작(앱 ${String(app.id)})`);
 const r = await deployCommands({ force: true }); // 수동 실행은 명시적 재배포라 해시가 같아도 올린다
 
 if (r.ok) {

@@ -1,6 +1,6 @@
-// 특권 인텐트: 기동이 읽은 앱 설정(GET /applications/@me, app/app-info)로 개발자 포털에서 켜진 것만 요청한다. 꺼진 것은 빼고 그것에 기대는 기능만 끈다(infra/gateway-intents).
+// 특권 인텐트: 기동이 읽은 앱 설정(GET /applications/@me, app/app-info)으로 개발자 포털에서 켜진 것만 요청한다. 꺼진 것은 빼고 그것에 기대는 기능만 끈다(infra/gateway-intents).
 // 거절되면 인텐트를 줄여서 다시 로그인하지 않는다. discord.js는 로그인에 실패하면 클라이언트를 자체적으로 destroy() 하고(app/login), 대시보드와 패널이 로그인 전에 이미 그 클라이언트를 쓴다.
-// 그래서 앱 설정을 못 읽으면 특권 인텐트를 모두 요청하고, 그래도 거절되면(4014) 무엇을 켜면 되는지 알리고 멈춘다
+// 그래서 앱 설정에 인텐트 플래그가 없으면 특권 인텐트를 모두 요청하고, 그래도 거절되면(4014) 무엇을 켜면 되는지 알리고 멈춘다
 
 import { GatewayIntentBits } from "discord.js";
 import logger from "../infra/log/logger.ts";
@@ -19,12 +19,12 @@ let lastApp: AppFlags | null = null;
 const howToEnable = (app: AppFlags | null) => (needsApproval(app) ? `서버가 ${APPROVAL_SERVERS}개 이상이라 디스코드의 승인이 필요함(${PORTAL}에서 신청)` : `${PORTAL}에서 켜고 다시 시작`);
 
 /**
- * 요청할 인텐트를 고르고 이 프로세스의 인텐트로 적는다. 앱 설정을 못 읽었거나(null, 경고는 app/app-info가 남긴다) flags가 없으면 다 요청한다(모르는 것은 꺼짐이 아니다)
+ * 요청할 인텐트를 고르고 이 프로세스의 인텐트로 적는다. 앱 설정에 flags가 없으면 다 요청한다(모르는 것은 꺼짐이 아니다)
  */
-function choosePrivilegedIntents(app: AppFlags | null): GatewayIntentBits[] {
+function choosePrivilegedIntents(app: AppFlags): GatewayIntentBits[] {
   lastApp = app;
   const switches = switchesOf(app);
-  if (app && !switches) log.warn("앱 설정에 인텐트 플래그(flags)가 없어 특권 인텐트를 모두 요청함");
+  if (!switches) log.warn("앱 설정에 인텐트 플래그(flags)가 없어 특권 인텐트를 모두 요청함");
   const chosen = switches ?? ALL_ON;
   for (const name of ["messageContent", "guildMembers"] as const) {
     if (!chosen[name]) log.warn(`특권 인텐트 ${NAMES[name]} 꺼짐: ${TURNED_OFF[name]}을 끄고 기동 | ${howToEnable(app)}`);
