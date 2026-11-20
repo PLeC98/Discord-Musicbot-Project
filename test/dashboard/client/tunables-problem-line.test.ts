@@ -13,7 +13,7 @@ test("서버가 낸 줄을 라벨과 넣은 값, 원인으로 다시 엮는다",
 });
 
 test("기동 검사(loadConfig)가 내는 실제 줄도 같은 모양이다", () => {
-  const { tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s", SECRETS_KEY: Buffer.alloc(32, 7).toString("base64") }, { tunables: { YTDLP_CLIENT_FAILS: "abc" } });
+  const { tuneProblems } = loadConfig({ DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", CLIENT_SECRET: "s", SECRETS_KEY: Buffer.alloc(32, 7).toString("base64") }, { tunables: { YTDLP_CLIENT_FAILS: "abc" } });
   assert.equal(tuneProblems.length, 1);
   assert.deepEqual(parseTuneProblem(tuneProblems[0]!), { key: "YTDLP_CLIENT_FAILS", value: "abc", reason: "정수만 쓸 수 있음" });
   assert.equal(problemLine(tuneProblems[0]!), "그중 몇 번 실패하면 건너뛸지 [abc]: 정수만 쓸 수 있음");

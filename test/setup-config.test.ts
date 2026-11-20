@@ -22,7 +22,7 @@ test("없으면 만든다: 두 비밀은 채우고 사람이 채울 값은 비�
   assert.ok((values.SESSION_SECRET ?? "").length >= 64);
   assert.equal(values.DISCORD_TOKEN, "");
 
-  const { problems } = loadConfig({ ...values, DISCORD_TOKEN: "t", CLIENT_ID: "1", CLIENT_SECRET: "s" });
+  const { problems } = loadConfig({ ...values, DISCORD_TOKEN: "t", CLIENT_ID: "123456789012345678", CLIENT_SECRET: "s" });
   assert.deepEqual(problems, []);
 });
 

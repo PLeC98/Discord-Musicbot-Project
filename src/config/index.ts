@@ -15,6 +15,7 @@ import { isYtdlpTag, YTDLP_CHANNELS } from "../rules/ytdlp-tag.ts";
 import { josa } from "../rules/josa.ts";
 import { BGUTIL_COMMIT, BGUTIL_VERSION } from "./vendor-versions.ts";
 import { bgutilTarget } from "../rules/bgutil-install.ts";
+import { isSnowflake } from "../rules/snowflake.ts";
 
 // 이 파일은 사용자가 직접 수정하기 위한 설정 파일이 아닙니다. `.env` 파일과 대시보드(운영자 패널)에서 고치십시오.
 //
@@ -81,6 +82,13 @@ type EnvSource = Record<string, string | undefined>;
 type HexColor = `#${string}`;
 const isHexColor = (v: string): v is HexColor => /^#[0-9a-fA-F]{6}$/.test(v);
 
+// 운영자 ID는 비었거나 형식이 틀려도 경고만 한다(봇은 돈다. 값은 그대로 두며 어느 사용자와도 맞지 않는다)
+function ownerIdWarning(ownerId: string | null): string | null {
+  const nobody = "대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음";
+  if (!ownerId) return `OWNER_ID 미설정. ${nobody}`;
+  return isSnowflake(ownerId) ? null : `OWNER_ID 값이 디스코드 사용자 ID 형식(17 ~ 20자리 숫자)이 아님(${ownerId}). ${nobody}`;
+}
+
 // .env, 설정값 읽는 도구. 잘못 적은 값은 문제 목록에 적고 기본값을 돌려준다(설정값은 tuneProblems에. 기동을 멈추지 않는다)
 function envReaders(source: EnvSource, problems: string[], tuneProblems: string[] = []) {
   // 읽어 본 이름. .env 파일에 이것 밖의 이름이 있으면 경고한다(loadConfig)
@@ -104,6 +112,13 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     if (TUNABLE_KEYS.has(key)) tuneProblems.push(tuneProblemLine(key, String(value), reason));
     else problems.push(`.env의 ${key} 값이 잘못됨(${String(value)}): ${reason}. 고친 뒤 다시 실행하세요`);
     return def;
+  }
+
+  // 디스코드 ID(앱, 서버). 형식이 틀리면 문제다. 서버 ID를 빈 값으로 돌리면 테스트 서버에만 올리려던 명령이 전역으로 올라간다
+  function envDiscordId<T extends string | null>(key: string, what: string, def: T): string | T {
+    const v = env(key);
+    if (v === null) return def;
+    return isSnowflake(v) ? v : invalid(key, v, `디스코드 ${what} ID 형식(17 ~ 20자리 숫자)이 아님`, def);
   }
 
   // 참, 거짓. true, false만 받는다
@@ -225,7 +240,7 @@ function envReaders(source: EnvSource, problems: string[], tuneProblems: string[
     return bad.length ? invalid(key, bad.join(","), "클라이언트 이름은 영문 소문자, 숫자, _만 쓸 수 있음", []) : list;
   }
 
-  return { asked, env, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
+  return { asked, env, envDiscordId, envEnum, envInt, envUrl, envOrigin, envAddress, envColor, envQueueMax, envCookies, envYtdlpVersion, envBgutilTarget, envBool, envClients, tuneInt, tuneBool, tuneText, tuneEnum };
 }
 
 function resolveFromRoot(p: string): string;
@@ -275,7 +290,7 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
 
   const fromEnv = Object.fromEntries(Object.entries(source).filter(([key]) => !TUNABLE_KEYS.has(key)));
   const readers = envReaders({ ...fromEnv, ...tunables }, problems, tuneProblems);
-  const { env, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
+  const { env, envDiscordId, envInt, envUrl, envColor, envQueueMax, envYtdlpVersion, envBgutilTarget, envClients, tuneInt, tuneBool, tuneEnum } = readers;
 
   // ── 자격증명 ──
   // 필수 자격증명이 없으면 기동을 멈춘다.
@@ -290,9 +305,8 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
   const remake = `만들기: ${SECRETS_KEY_COMMAND}의 출력을 .env의 SECRETS_KEY= 뒤에 넣고 다시 실행하세요. 새 키로는 대시보드에 저장해 둔 비밀값을 복호화하지 못해 다시 입력해야 함`;
   if (envFileFound && !secretsKey) problems.push(`SECRETS_KEY가 비어 있음(비밀값 암호화 키). ${remake}`);
   else if (secretsKey && !isSecretsKey(secretsKey)) problems.push(`.env의 SECRETS_KEY가 base64로 인코딩한 32바이트가 아님. ${remake}`);
-  if (!env("OWNER_ID")) {
-    warnings.push("OWNER_ID 미설정. 대시보드 운영자 패널과 /system에 아무도 들어갈 수 없음");
-  }
+  const ownerWarning = ownerIdWarning(env("OWNER_ID"));
+  if (ownerWarning) warnings.push(ownerWarning);
 
   // 쿠키 출처(file이거나 브라우저). 모양은 envCookies가 본다
   const COOKIES_SOURCE = readers.envCookies("COOKIES_SOURCE");
@@ -306,9 +320,9 @@ function loadConfig(source: EnvSource, { envFileFound = true, tunables = {}, env
     // 토큰, 클라이언트 id는 필수다. 비었으면 문제로 적혀 기동이 멈춘다
     discord: {
       token: env("DISCORD_TOKEN", ""),
-      clientId: env("CLIENT_ID", ""),
+      clientId: envDiscordId("CLIENT_ID", "앱", ""),
       clientSecret: env("CLIENT_SECRET"),
-      guildId: env("GUILD_ID"),
+      guildId: envDiscordId("GUILD_ID", "서버", null),
     },
 
     // 비밀값 암호화 키(base64 32바이트). 응답, 로그에 내보내지 않는다

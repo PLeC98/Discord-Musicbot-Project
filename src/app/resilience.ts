@@ -1,7 +1,7 @@
 // 프로세스 수준에서 새어 나온 오류. 기동이 installErrorHandlers로 핸들러를 건다.
 //
 // 방침: 봇 전체를 내리지 않고 서버 하나로 가둔다.
-// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 이미 아는 디스코드 코드는 로그만 남긴다.
+// - 아는 오류는 난 위치에서 구분한다(오류 목록). 여기까지 오는 것 가운데 디스코드가 거절한 요청(rules/discord-rejection)은 로그만 남긴다(다시 시작해도 같은 답이다).
 // - 서버 문맥(infra/guild-context)이 있으면 그 서버의 오류다. 그 서버만 다시 시작한다(guildFault).
 // - 서버를 모르면 경계가 빠진 위치다. 로그로 남기고 계속 돈다. 서버를 가리지 않고 쏟아질 때만 내린다(전역 폭주).
 // 네트워크 복구는 음성 연결 상태 기계(player/voice-link)와 discord.js가 맡는다. 여기서 플레이어를 복구하지 않는다.
@@ -9,7 +9,8 @@
 import logger from "../infra/log/logger.ts";
 import { Events } from "discord.js";
 import { currentGuild } from "../infra/guild-context.ts";
-import { errorKind, codeOf, messageOf } from "../rules/error-kind.ts";
+import { errorKind, messageOf } from "../rules/error-kind.ts";
+import { discordRejection, rejectionLine } from "../rules/discord-rejection.ts";
 import { EXIT } from "./exit-codes.ts";
 import { runRecord } from "./run-record.ts";
 import type { GuildFault } from "./guild-fault.ts";
@@ -40,16 +41,17 @@ function makeFloodGuard(windowMs = FLOOD_WINDOW_MS, max = FLOOD_MAX) {
   };
 }
 
-// 다시 해도 결과가 같은 디스코드 API 오류. 여기까지 왔으면 난 위치가 받지 않은 것이라 로그만 남긴다
-const KNOWN_DISCORD_ERRORS: Record<number, { level: "warn" | "error"; message: string }> = {
-  10062: { level: "warn", message: "상호작용에 3초 안에 응답하지 못함(봇이 바빴거나 네트워크가 느렸거나, 같은 토큰으로 다른 봇이 실행 중) (10062 Unknown interaction)" },
-  40060: { level: "warn", message: "이미 응답한 상호작용에 다시 응답함(코드가 두 번 응답했거나, 같은 토큰으로 다른 봇이 실행 중) (40060 Interaction already acknowledged)" },
-  50013: { level: "error", message: "해당 디스코드 작업을 실행할 권한이 없음(50013 Missing permissions)" },
-};
-
-function knownDiscordError(err: unknown) {
-  const code = codeOf(err);
-  return (typeof code === "number" && KNOWN_DISCORD_ERRORS[code]) || null;
+/**
+ * 디스코드가 거절한 요청이면 로그만 남기고 true. 여기까지 왔으면 부른 곳이 받지 않은 것이라, 고칠 곳을 찾게 요청, 서버, 어디서를 남기고 스택은 debug로.
+ * 이벤트 경계(app/main의 onFault)와 프로세스 수준(loose)이 같이 쓴다. guildId: 그 서버(모르면 null), where: 어디서 새어 나왔나
+ */
+function logRejection(error: unknown, guildId: string | null, where: string): boolean {
+  const rejected = discordRejection(error);
+  if (!rejected) return false;
+  coreLog[rejected.level](rejectionLine(rejected, guildId, where));
+  const stack = error && typeof error === "object" && "stack" in error ? error.stack : null;
+  if (stack) coreLog.debug(`거절된 요청의 스택 (${where}): ${String(stack)}`);
+  return true;
 }
 
 // 치명적 오류: 세션을 저장하고 나가기 요청 없이 연결을 정리한 뒤 내린다(다시 시작하면 세션 복원이 이어 튼다).
@@ -87,12 +89,8 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
   const flooding = makeFloodGuard();
 
   const loose = (error: unknown, source: string) => {
-    const known = knownDiscordError(error);
-    if (known) {
-      coreLog[known.level](`${known.message} (${source})`);
-      return;
-    }
     const guildId = currentGuild();
+    if (logRejection(error, guildId, source)) return;
     if (guildId && fault) {
       fault(guildId, error, source).catch((e: unknown) => coreLog.error(`서버 ${guildId} 오류 처리 실패:`, e));
       return;
@@ -112,4 +110,4 @@ function installErrorHandlers(client: WatchedClient, { players, fault, proc = pr
   proc.on("uncaughtException", (error) => loose(error, "exception"));
 }
 
-export { installErrorHandlers, fatalShutdown, makeFloodGuard, knownDiscordError, FLOOD_WINDOW_MS, FLOOD_MAX };
+export { installErrorHandlers, fatalShutdown, makeFloodGuard, logRejection, FLOOD_WINDOW_MS, FLOOD_MAX };

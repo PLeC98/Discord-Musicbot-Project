@@ -20,6 +20,7 @@ import { PLAYLIST_ADD_DEFAULT } from "../rules/limits.ts";
 import type { RepliableInteraction, TextBasedChannel } from "discord.js";
 import type { Player } from "../player/player.ts";
 import type { Code } from "../rules/problems.ts";
+import { isSnowflake } from "../rules/snowflake.ts";
 
 // 메뉴가 열려 있는 시간(ui/delivery의 메뉴 수명). 마지막으로 누른 뒤 이만큼 지나면 닫힌 메뉴로 본다
 const LIFETIME_MS = LIFETIME.menu;
@@ -51,7 +52,6 @@ const isKind = (kind: unknown): kind is Kind => typeof kind === "string" && Obje
 type RawState = { kind?: unknown; listId?: unknown; offset?: unknown; anchorId?: unknown; insertFirst?: unknown; requesterId?: unknown };
 /** 이어 넣은 결과. 메뉴를 다시 표시할 때 읽는 필드 */
 type MoreResult = { added: number; dropped?: number; skipped?: number; total: number | null; remaining: number; next: More | null };
-const USER_ID = /^\d{17,20}$/;
 
 // collectionId: 곡 찾기가 알려 준 목록 id(주소만으로는 모르는 출처)
 function sourceOf(query: string, collectionId?: string | null): { kind: Kind; listId: string } | null {
@@ -78,7 +78,7 @@ function validState(s: RawState | null | undefined): MoreState | null {
   const offset = Number(s.offset);
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 1_000_000) return null;
   if (!KINDS[s.kind].anchor.test(String(s.anchorId))) return null;
-  if (s.requesterId != null && !USER_ID.test(String(s.requesterId))) return null;
+  if (s.requesterId != null && !isSnowflake(String(s.requesterId))) return null;
   return { kind: s.kind, listId: String(s.listId), offset, anchorId: String(s.anchorId), insertFirst: s.insertFirst === true, requesterId: s.requesterId == null ? null : String(s.requesterId) };
 }
 

@@ -24,7 +24,6 @@ const r = await deployCommands({ force: true }); // 수동 실행은 명시적 �
 if (r.ok) {
   const where = r.scope === "guild" ? `서버 ${r.guildId ?? "없음"}` : "전역";
   say("info", `명령어 ${r.count}개 배포 완료(${where}): ${r.names.map((n) => `/${n}`).join(", ")}`);
-  if (r.scope === "global") say("info", "전역 배포는 반영에 최대 1시간(보통 몇 분) 걸릴 수 있음");
 } else {
   deployErrorLines(r).forEach((line) => say("error", line));
   process.exitCode = 1;

@@ -183,12 +183,21 @@ test("deployCommands: 등록한 명령의 id로 멘션을 만든다. 등록을 �
   assert.equal(commandMention("없는명령"), "`/없는명령`");
 });
 
-test("deployErrorLines: 50001은 초대 스코프 힌트 포함, 일반 오류는 1줄", () => {
-  const hinted = deployErrorLines({ scope: "guild", error: Object.assign(new Error("Missing Access"), { code: 50001 }) });
-  assert.equal(hinted.length, 3);
-  assert.ok(hinted[1].includes("applications.commands"));
+test("배포 실패의 원인 안내: 서버 배포의 50001은 GUILD_ID, 20012와 10002는 CLIENT_ID, 그 밖(전역 50001, 50035)은 붙이지 않는다", async () => {
+  const { withConfig } = await import("../helpers/config.ts");
+  const failWith = (code: number) => deployCommands({ hashPath: freshHashPath(), force: true, put: async () => Promise.reject(Object.assign(new Error(`거절 ${code}`), { code })), get });
+  const hintOf = async (code: number, guildId: string | null) => {
+    const r = await withConfig({ discord: { clientId: "123456789012345678", guildId } }, () => failWith(code));
+    assert.ok(!r.ok);
+    return r.hint;
+  };
+  assert.equal(await hintOf(50001, "112233445566778899"), "GUILD_ID 서버(112233445566778899)에 봇이 없음. .env의 GUILD_ID가 맞는지, 봇이 서버에서 나가지 않았는지 확인하세요");
+  const clientHint = "CLIENT_ID(123456789012345678)가 봇 토큰의 앱이 아님. 개발자 포털의 Application ID와 .env의 CLIENT_ID가 같은지 확인하세요";
+  assert.equal(await hintOf(20012, null), clientHint);
+  assert.equal(await hintOf(10002, "112233445566778899"), clientHint, "서버 배포에서도 앱을 먼저 본다");
+  assert.equal(await hintOf(50001, null), null, "전역 50001은 원인을 짐작할 근거가 없다");
+  assert.equal(await hintOf(50035, "112233445566778899"), null, "형식 검사를 지난 뒤의 50035는 명령 정의 쪽이다");
 
-  const plain = deployErrorLines({ scope: "global", error: new Error("boom") });
-  assert.equal(plain.length, 1);
-  assert.ok(plain[0].includes("boom"));
+  assert.deepEqual(deployErrorLines({ scope: "guild", error: new Error("Missing Access"), hint: "안내" }), ["명령어 배포 실패(guild): Missing Access", "안내"]);
+  assert.deepEqual(deployErrorLines({ scope: "global", error: new Error("boom"), hint: null }), ["명령어 배포 실패(global): boom"]);
 });

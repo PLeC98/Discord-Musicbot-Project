@@ -297,6 +297,22 @@ test("POST redeploy-commands: 등록 요청이 받으면 성공 응답", async (
   assert.ok(["guild", "global"].includes(r.json.scope));
 });
 
+test("POST redeploy-commands: 거절되면 502, 운영자용 원문에 디스코드 메시지와 기동 로그와 같은 원인 안내", async () => {
+  const before = adminApp.locals.deployCommands;
+  const rejected = fake<PutCommands>(async () => Promise.reject(Object.assign(new Error("You are not authorized to perform this action on this application"), { code: 20012 })));
+  adminApp.locals.deployCommands = (options) => deployCommands({ ...options, hashPath: HASH_PATH, put: rejected, get: async () => [] });
+  try {
+    const r = await req<{ type: string; detail: string; discordCode: number }>("POST", "/api/admin/redeploy-commands");
+    assert.equal(r.status, 502);
+    assert.equal(r.json.discordCode, 20012);
+    const [message, hint] = r.json.detail.split("\n");
+    assert.equal(message, "You are not authorized to perform this action on this application");
+    assert.match(hint, /^CLIENT_ID\(.*\)가 봇 토큰의 앱이 아님\. /);
+  } finally {
+    adminApp.locals.deployCommands = before;
+  }
+});
+
 // ── 전체 공지 ────────────────────────────────────────────────
 
 test("POST broadcast: 빈 내용 400", async () => {

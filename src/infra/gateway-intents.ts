@@ -5,7 +5,7 @@
 type Privileged = "messageContent" | "guildMembers";
 type Switches = Record<Privileged, boolean>;
 /** 앱 객체에서 읽는 것(GET /applications/@me) */
-type AppFlags = { flags?: unknown; approximate_guild_count?: unknown };
+type AppFlags = { id?: unknown; flags?: unknown; approximate_guild_count?: unknown };
 
 /** 앱 flags의 비트. 100 서버 미만은 포털 스위치(_LIMITED), 이상은 디스코드의 승인(FULL) */
 const FLAGS = {

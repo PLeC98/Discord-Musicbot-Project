@@ -49,7 +49,7 @@ import * as commandLoader from "./command-loader.ts";
 import type { SlashCommand } from "./command-loader.ts";
 import type { BotContext } from "./bot-context.ts";
 import { EVENTS } from "../discord/events/index.ts";
-import { installErrorHandlers } from "./resilience.ts";
+import { installErrorHandlers, logRejection } from "./resilience.ts";
 import { createGuildFaults } from "./guild-fault.ts";
 import { guarded, type OnFault } from "./event-boundary.ts";
 import { installShutdown, stopFailedStart } from "./shutdown.ts";
@@ -76,7 +76,8 @@ import { loadAppInfo } from "../dashboard/invite.ts";
 import * as playerEvents from "../player/events.ts";
 import { sendNotice } from "../ui/player-notices.ts";
 import { codeOf, messageOf } from "../rules/error-kind.ts";
-import { choosePrivilegedIntents, onRefusedWhileRunning, readApp, refusedAtLogin } from "./privileged-intents.ts";
+import { choosePrivilegedIntents, onRefusedWhileRunning, refusedAtLogin } from "./privileged-intents.ts";
+import { clientIdMismatch, readApp, readAppOnce } from "./app-info.ts";
 import { EXIT, LAUNCHER_ENV, failedStartCode } from "./exit-codes.ts";
 import { loginWithRetry } from "./login.ts";
 import { runRecord } from "./run-record.ts";
@@ -121,18 +122,29 @@ function main() {
   const shutdown = installShutdown({ potServer, logFile });
   // 설정(운영 설정값, 키)은 DB에 있다. POToken 서버, 명령 배포, 대시보드가 설정을 읽기 전에 연다
   if (!openSettings({ potServer, logFile })) return;
-  deploySlashCommands();
-  void potServer.start();
-  // 기동 준비(업데이트 뒤의 화면 빌드, ffmpeg 맞추기)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열고 ffmpeg 경로를 정하기 전에 끝낸다
-  Promise.all([potServer.waitReady(), prepareStartup()])
-    .then(() => restoreAudioCache())
-    // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
-    .then(() => choosePrivilegedIntents(() => readApp(config.discord.token)))
-    .then((intents) => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore, intents }))
+  // 앱 설정을 먼저 읽는다. CLIENT_ID가 봇 토큰의 앱이 아니면 명령 배포, 초대 링크, 대시보드 로그인이 모두 틀리므로 아무것도 띄우기 전에 멈춘다
+  readAppOnce(() => readApp(config.discord.token))
+    .then((app) => {
+      const mismatch = clientIdMismatch(app, config.discord.clientId);
+      if (mismatch) {
+        log.error(mismatch);
+        throw new StartupStopped(mismatch);
+      }
+      deploySlashCommands();
+      void potServer.start();
+      // 기동 준비(업데이트 뒤의 화면 빌드, ffmpeg 맞추기)는 POToken 서버를 기다리는 동안 병렬로 실행하고, 대시보드를 열고 ffmpeg 경로를 정하기 전에 끝낸다
+      return (
+        Promise.all([potServer.waitReady(), prepareStartup()])
+          .then(() => restoreAudioCache())
+          // 개발자 포털에서 켜진 특권 인텐트만 요청한다(꺼진 것에 기대는 기능만 끈다)
+          .then(() => startBot({ potServer, logFile, shutdown, skipRestore: previous.skipRestore, intents: choosePrivilegedIntents(app) }))
+      );
+    })
     .catch((error: unknown) => {
-      // 클라이언트를 만들기 전에 예외를 던졌다. 실행한 것을 내리고 나간다
-      log.error("봇 기동 실패:", error);
-      stopFailedStart(null, { potServer, logFile }, failedStartCode(error, false));
+      // 클라이언트를 만들기 전에 멈췄다. 실행한 것을 내리고 나간다
+      const stopped = error instanceof StartupStopped;
+      if (!stopped) log.error("봇 기동 실패:", error);
+      stopFailedStart(null, { potServer, logFile }, failedStartCode(error, stopped));
     });
 }
 
@@ -277,6 +289,8 @@ function startBot({ potServer, logFile, shutdown, skipRestore, intents }: { potS
   // 서버 하나 다시 시작. 이벤트 핸들러 경계와 새어 나온 오류 핸들러가 서버를 알면 여기로 보낸다
   const fault = createGuildFaults({ players, restore: (guildId) => restoreGuild(client, players, Player, guildId) });
   const onFault: OnFault = (error, guildId, where) => {
+    // 디스코드가 거절한 요청은 다시 시작해도 같은 답이다. 로그만 남긴다
+    if (logRejection(error, guildId, where)) return;
     if (guildId) fault(guildId, error, where).catch((e: unknown) => log.error(`서버 ${guildId} 오류 처리 실패:`, e));
     else log.error(`핸들러 오류 (${where}):`, error);
   };
