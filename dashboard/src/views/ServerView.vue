@@ -279,7 +279,7 @@
                 <span v-else class="text-outline group-hover/item:text-on-surface-variant transition-colors touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
                 <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
                 <!-- 썸네일을 누르면 크게 본다. 행의 고르기(길게 누르기, Ctrl 클릭, 고르는 중의 누르기)가 먼저 받는다(queueArtClick) -->
-                <span v-if="item.thumbnail && !picking" data-queue-art role="button" tabindex="0" class="shrink-0 rounded-md cursor-zoom-in transition-[filter] effects hover:brightness-90" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @keydown.enter.prevent="openArt(item)" @keydown.space.prevent="openArt(item)">
+                <span v-if="item.thumbnail && !picking" data-queue-art role="button" tabindex="0" class="shrink-0 flex rounded-md cursor-zoom-in transition-[filter] effects hover:brightness-90" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @keydown.enter.prevent="openArt(item)" @keydown.space.prevent="openArt(item)">
                   <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
                 </span>
                 <TrackArt v-else :track="item" size-class="size-12 rounded-md" :icon-size="24" />
@@ -766,6 +766,17 @@ function jumpToHighlight() {
   void send("highlight", "highlight", onTrackOf(player.value), T.failed.highlight);
 }
 
+// 앨범아트 크게 보기(ArtLightbox). 대기열 곡의 썸네일을 눌렀으면 그 곡(artTrack), 아니면 지금 곡
+const artOpen = ref(false);
+const artTrack = ref<QueueTrackView | null>(null);
+function openArt(item: QueueTrackView | null) {
+  artTrack.value = item;
+  artOpen.value = true;
+}
+// 고르기가 쓰지 않은 행 클릭이 썸네일 위면 크게 본다
+function queueArtClick(e: MouseEvent, item: QueueTrackView) {
+  if (e.target instanceof Element && e.target.closest("[data-queue-art]")) openArt(item);
+}
 // 크게 보기가 띠를 뺀 비율로 보이게 내용의 비율을 잰다(theme/art)
 const artContent = useArtContent(() => (artTrack.value ?? player.value.currentTrack)?.thumbnail);
 
@@ -838,18 +849,6 @@ onUnmounted(() => {
   document.removeEventListener("pointerdown", volumeOutside, true);
   clearTimeout(volumeTimer);
 });
-
-// 앨범아트 크게 보기(ArtLightbox). 대기열 곡의 썸네일을 눌렀으면 그 곡(artTrack), 아니면 지금 곡
-const artOpen = ref(false);
-const artTrack = ref<QueueTrackView | null>(null);
-function openArt(item: QueueTrackView | null) {
-  artTrack.value = item;
-  artOpen.value = true;
-}
-// 고르기가 쓰지 않은 행 클릭이 썸네일 위면 크게 본다
-function queueArtClick(e: MouseEvent, item: QueueTrackView) {
-  if (e.target instanceof Element && e.target.closest("[data-queue-art]")) openArt(item);
-}
 
 // 휴대폰: 큰 앨범아트 플레이어 + 대기열 바텀 시트(스포티파이식)
 const isPhone = useMediaQuery(PHONE_QUERY);
