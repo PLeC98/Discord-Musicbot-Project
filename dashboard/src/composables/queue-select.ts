@@ -86,14 +86,17 @@ export function useQueueSelect<T extends Row>({ rows, selectable }: { rows: () =
     if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > SLOP_PX) cancelPress();
   }
 
-  function rowClick(e: MouseEvent, row: T) {
+  /** 행 클릭. 고르기가 이 클릭을 썼으면 true(길게 누른 뒤의 click, 더하고 빼기). 행 안의 다른 동작(썸네일 크게 보기 등)은 false일 때만 */
+  function rowClick(e: MouseEvent, row: T): boolean {
     if (swallowClick) {
       swallowClick = false;
-      return;
+      return true;
     }
-    if (ownControl(e)) return;
+    if (ownControl(e)) return false;
     if (e.shiftKey && anchor !== null) extendTo(row);
     else if (e.shiftKey || e.ctrlKey || e.metaKey || selecting.value) toggle(row);
+    else return false;
+    return true;
   }
 
   /** 길게 누르면 휴대폰이 띄우는 메뉴(복사 등)를 막는다 */

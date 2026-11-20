@@ -48,7 +48,7 @@
         <div class="relative transition-[filter] effects" :class="locked && 'blur-sm saturate-50 pointer-events-none select-none'">
           <div class="flex items-center gap-4">
             <!-- 아트. 누르면 크게 본다 -->
-            <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] effects hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="artOpen = true">
+            <button v-if="artShown" type="button" class="group/art relative shrink-0 size-22 @xl/win:size-28 @4xl/win:size-32 rounded-sm @xl/win:rounded-md overflow-hidden bg-surface-container-high cursor-zoom-in transition-[border-radius] effects hover:rounded-xl" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @click="openArt(null)">
               <img :src="deskArt ?? undefined" alt="" class="size-full object-cover transition-[filter] effects group-hover/art:brightness-90" :style="deskZoom > 1 ? { scale: deskZoom } : undefined" @load="noteArt($event, artShown)" @error="noteArt($event, artShown) === 'broken' && (brokenArt = artShown)" />
               <span class="absolute right-1 bottom-1 @xl/win:right-2 @xl/win:bottom-2 size-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 transition-opacity effects group-hover/art:opacity-100"><Icon name="open_in_full" :size="16" /></span>
             </button>
@@ -141,7 +141,7 @@
                 @pointermove="artSwipe.move"
                 @pointerup="artSwipe.up"
                 @pointercancel="artSwipe.up"
-                @click="artSwipe.swiped.value || (artOpen = true)"
+                @click="artSwipe.swiped.value || openArt(null)"
               >
                 <img :src="phoneArt.now ?? undefined" alt="" draggable="false" class="size-full object-cover" :style="nowZoom > 1 ? { scale: nowZoom } : undefined" @load="noteArt($event, art.now)" @error="noteArt($event, art.now) === 'broken' && (brokenArt = art.now)" />
               </button>
@@ -214,7 +214,7 @@
         <Transition name="fade"><VoiceLockOverlay v-if="locked" /></Transition>
       </div>
 
-      <ArtLightbox v-model:open="artOpen" :track="track" :content="artContent" />
+      <ArtLightbox v-model:open="artOpen" :track="artTrack ?? track" :content="artContent" />
 
       <!-- ── 대기열 ── -->
       <!-- 휴대폰은 같은 내용을 바텀 시트(QueueSheet)에 담는다 -->
@@ -268,7 +268,7 @@
                 :class="[isPicked(item) ? 'bg-secondary-container text-on-secondary-container' : 'hover:bg-on-surface/6', picking && removeAllowed(player, item) && 'cursor-pointer']"
                 data-reorder
                 :data-index="i"
-                @click="pickClick($event, item)"
+                @click="pickClick($event, item) || queueArtClick($event, item)"
                 @pointerdown="pressStart($event, item)"
                 @pointermove="pressMove"
                 @pointerup="cancelPress"
@@ -278,7 +278,11 @@
                 <span v-if="picking" class="shrink-0 flex" :class="isPicked(item) ? 'text-primary' : removeAllowed(player, item) ? 'text-outline' : 'text-outline opacity-38'"><Icon :name="isPicked(item) ? 'check_circle' : 'radio_button_unchecked'" :size="20" :fill="isPicked(item)" /></span>
                 <span v-else class="text-outline group-hover/item:text-on-surface-variant transition-colors touch-none cursor-grab active:cursor-grabbing shrink-0 select-none" v-tooltip="T.dragToReorder" @pointerdown="startDrag($event, i)"><Icon name="drag_indicator" :size="20" /></span>
                 <span class="-ml-1 text-right text-xs nums text-on-surface-variant shrink-0 whitespace-nowrap" :style="{ width: numWidth }">{{ i + 1 }}</span>
-                <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
+                <!-- 썸네일을 누르면 크게 본다. 행의 고르기(길게 누르기, Ctrl 클릭, 고르는 중의 누르기)가 먼저 받는다(queueArtClick) -->
+                <span v-if="item.thumbnail && !picking" data-queue-art role="button" tabindex="0" class="shrink-0 rounded-md cursor-zoom-in transition-[filter] effects hover:brightness-90" v-tooltip="T.enlarge" :aria-label="T.enlargeArt" @keydown.enter.prevent="openArt(item)" @keydown.space.prevent="openArt(item)">
+                  <TrackArt :track="item" size-class="size-12 rounded-md" :icon-size="24" />
+                </span>
+                <TrackArt v-else :track="item" size-class="size-12 rounded-md" :icon-size="24" />
                 <div class="flex-1 min-w-0">
                   <div class="text-sm font-medium truncate">{{ songTitle(item.title) }}</div>
                   <div class="text-xs text-on-surface-variant truncate flex items-center gap-1">
@@ -763,7 +767,7 @@ function jumpToHighlight() {
 }
 
 // 크게 보기가 띠를 뺀 비율로 보이게 내용의 비율을 잰다(theme/art)
-const artContent = useArtContent(() => player.value.currentTrack?.thumbnail);
+const artContent = useArtContent(() => (artTrack.value ?? player.value.currentTrack)?.thumbnail);
 
 const track = computed(() => player.value.currentTrack);
 // 지금 곡의 앨범아트. 불러오지 못하면(곡이 바뀐 뒤 늦게 불린 썸네일 등) 아이콘으로
@@ -835,8 +839,17 @@ onUnmounted(() => {
   clearTimeout(volumeTimer);
 });
 
-// 앨범아트 크게 보기(ArtLightbox)
+// 앨범아트 크게 보기(ArtLightbox). 대기열 곡의 썸네일을 눌렀으면 그 곡(artTrack), 아니면 지금 곡
 const artOpen = ref(false);
+const artTrack = ref<QueueTrackView | null>(null);
+function openArt(item: QueueTrackView | null) {
+  artTrack.value = item;
+  artOpen.value = true;
+}
+// 고르기가 쓰지 않은 행 클릭이 썸네일 위면 크게 본다
+function queueArtClick(e: MouseEvent, item: QueueTrackView) {
+  if (e.target instanceof Element && e.target.closest("[data-queue-art]")) openArt(item);
+}
 
 // 휴대폰: 큰 앨범아트 플레이어 + 대기열 바텀 시트(스포티파이식)
 const isPhone = useMediaQuery(PHONE_QUERY);
